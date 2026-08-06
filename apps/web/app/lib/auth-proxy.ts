@@ -34,6 +34,20 @@ function isOriginAllowed(request: Request): boolean {
 }
 
 /**
+ * The API listens on 127.0.0.1 (see README) and trusts only that loopback hop
+ * for X-Forwarded-For (apps/api/src/main.ts, `trust proxy: "loopback"`), so
+ * its per-IP rate limiting relies entirely on this app forwarding the real
+ * client address here. In production this app must itself sit behind a
+ * reverse proxy that sets (overwrites, never appends to) X-Forwarded-For from
+ * the actual TCP peer — never a client-supplied value. Passed through as-is
+ * (not re-derived), since App Router route handlers have no API to read the
+ * raw socket address without a custom server.
+ */
+function clientForwardedFor(request: Request): string | null {
+  return request.headers.get("x-forwarded-for");
+}
+
+/**
  * Forwards a request to the real POST /auth/* endpoint on apps/api, carrying the
  * browser's session cookie to the API and relaying any Set-Cookie back to the
  * browser under this app's own origin. This keeps the session cookie same-origin
@@ -56,6 +70,7 @@ export async function proxyAuthPost(request: Request, apiPath: string): Promise<
   }
 
   const cookie = request.headers.get("cookie");
+  const forwardedFor = clientForwardedFor(request);
 
   let upstream: Response;
   try {
@@ -64,6 +79,7 @@ export async function proxyAuthPost(request: Request, apiPath: string): Promise<
       headers: {
         "content-type": "application/json",
         ...(cookie ? { cookie } : {}),
+        ...(forwardedFor ? { "x-forwarded-for": forwardedFor } : {}),
       },
       body: rawBody.length > 0 ? rawBody : "{}",
       signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),

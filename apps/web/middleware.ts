@@ -11,22 +11,19 @@ function isPublicPath(pathname: string): boolean {
 }
 
 /**
- * Builds a same-origin redirect target. request.nextUrl can report a
- * canonicalized host (e.g. "localhost") that differs from the literal Host
- * header the browser actually used (e.g. "127.0.0.1" or a real domain behind
- * a proxy); redirecting to the wrong host would silently drop the session
- * cookie, since cookies are scoped per-hostname. The incoming Host header
- * (or X-Forwarded-Host behind a reverse proxy) is what the browser trusts.
+ * Builds a same-origin redirect target from request.nextUrl. Do not fall back
+ * to the Host/X-Forwarded-Host headers here: they're attacker-controlled and
+ * unvalidated, which turns a same-origin redirect into an open redirect (and,
+ * without a Vary on those headers, a cache-poisoning vector behind a CDN). The
+ * previous loopback-canonicalization issue (127.0.0.1 -> localhost dropping
+ * the session cookie) was a Playwright webServer artifact, fixed by dropping
+ * --hostname from playwright.config.ts, not something this redirect needs to
+ * work around.
  */
 function redirectTo(request: NextRequest, pathname: string): URL {
   const url = request.nextUrl.clone();
   url.pathname = pathname;
   url.search = "";
-  // request.nextUrl canonicalizes loopback hostnames (127.0.0.1 -> localhost),
-  // which would otherwise make this an unwanted cross-host redirect and drop
-  // the session cookie. Prefer the actual incoming Host header instead.
-  const host = request.headers.get("x-forwarded-host") ?? request.headers.get("host");
-  if (host) url.host = host;
   return url;
 }
 

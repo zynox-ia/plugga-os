@@ -43,8 +43,10 @@ import { SESSION_COOKIE_NAME } from "../core/auth/token.util";
 import { AuthService } from "./auth.service";
 import { OriginCheckGuard } from "./origin-check.guard";
 
+// ThrottlerGuard is applied per-route (not at the controller level) so it
+// always runs *after* OriginCheckGuard: a rejected cross-origin request must
+// not consume a slot in the rate-limit bucket.
 @Controller("auth")
-@UseGuards(ThrottlerGuard)
 export class AuthController {
   constructor(
     @Inject(AuthService) private readonly service: AuthService,
@@ -54,7 +56,7 @@ export class AuthController {
   @Post("login")
   @HttpCode(200)
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
-  @UseGuards(OriginCheckGuard)
+  @UseGuards(OriginCheckGuard, ThrottlerGuard)
   async login(
     @Body(new ZodValidationPipe(loginRequestSchema)) input: LoginRequest,
     @Req() request: Request,
@@ -82,7 +84,7 @@ export class AuthController {
 
   @Post("logout")
   @HttpCode(200)
-  @UseGuards(DevAuthGuard, OriginCheckGuard)
+  @UseGuards(DevAuthGuard, OriginCheckGuard, ThrottlerGuard)
   async logout(
     @CurrentPrincipal() principal: AuthPrincipal,
     @Req() request: Request,
@@ -97,7 +99,7 @@ export class AuthController {
   @Post("accept-invite")
   @HttpCode(200)
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
-  @UseGuards(OriginCheckGuard)
+  @UseGuards(OriginCheckGuard, ThrottlerGuard)
   acceptInvite(
     @Body(new ZodValidationPipe(acceptInviteRequestSchema)) input: AcceptInviteRequest,
   ): Promise<AuthAcknowledgement> {
@@ -107,7 +109,7 @@ export class AuthController {
   @Post("reset/request")
   @HttpCode(200)
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
-  @UseGuards(OriginCheckGuard)
+  @UseGuards(OriginCheckGuard, ThrottlerGuard)
   requestReset(
     @Body(new ZodValidationPipe(resetRequestSchema)) input: ResetRequest,
   ): Promise<AuthAcknowledgement> {
@@ -117,7 +119,7 @@ export class AuthController {
   @Post("reset/confirm")
   @HttpCode(200)
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
-  @UseGuards(OriginCheckGuard)
+  @UseGuards(OriginCheckGuard, ThrottlerGuard)
   confirmReset(
     @Body(new ZodValidationPipe(resetConfirmRequestSchema)) input: ResetConfirmRequest,
   ): Promise<AuthAcknowledgement> {
@@ -125,7 +127,7 @@ export class AuthController {
   }
 
   @Post("invite")
-  @UseGuards(DevAuthGuard, RolesGuard, OriginCheckGuard)
+  @UseGuards(DevAuthGuard, RolesGuard, OriginCheckGuard, ThrottlerGuard)
   @Roles("admin")
   invite(
     @Body(new ZodValidationPipe(inviteRequestSchema)) input: InviteRequest,
@@ -135,7 +137,7 @@ export class AuthController {
   }
 
   @Get("users")
-  @UseGuards(DevAuthGuard, RolesGuard)
+  @UseGuards(DevAuthGuard, RolesGuard, ThrottlerGuard)
   @Roles("admin")
   listUsers(): Promise<UserSummary[]> {
     return this.service.listUsers();
@@ -143,7 +145,7 @@ export class AuthController {
 
   @Put("users/:id/roles")
   @HttpCode(200)
-  @UseGuards(DevAuthGuard, RolesGuard, OriginCheckGuard)
+  @UseGuards(DevAuthGuard, RolesGuard, OriginCheckGuard, ThrottlerGuard)
   @Roles("admin")
   setRoles(
     @Param("id") id: string,
@@ -155,7 +157,7 @@ export class AuthController {
 
   @Post("users/:id/deactivate")
   @HttpCode(200)
-  @UseGuards(DevAuthGuard, RolesGuard, OriginCheckGuard)
+  @UseGuards(DevAuthGuard, RolesGuard, OriginCheckGuard, ThrottlerGuard)
   @Roles("admin")
   deactivate(
     @Param("id") id: string,

@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 
-import type { INestApplication } from "@nestjs/common";
 import { Test } from "@nestjs/testing";
+import type { NestExpressApplication } from "@nestjs/platform-express";
 import cookieParser from "cookie-parser";
 import request from "supertest";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
@@ -248,7 +248,7 @@ const argon2Options = {
 } as const;
 
 describe("auth API (e2e, in-memory stores)", () => {
-  let app: INestApplication;
+  let app: NestExpressApplication;
   let store: InMemoryStore;
   let email: CapturingEmailPort;
 
@@ -271,7 +271,10 @@ describe("auth API (e2e, in-memory stores)", () => {
       .useValue(new NoopAuditRepository())
       .compile();
 
-    app = module.createNestApplication();
+    app = module.createNestApplication<NestExpressApplication>();
+    // Mirrors apps/api/src/main.ts so throttle-tracker tests below exercise
+    // the same X-Forwarded-For trust boundary as production.
+    app.set("trust proxy", "loopback");
     app.use(cookieParser(SESSION_SECRET));
     await app.init();
   });
@@ -323,6 +326,46 @@ describe("auth API (e2e, in-memory stores)", () => {
       .expect(401);
     expect(response.body.message).toBe("invalid credentials");
     expect(response.headers["set-cookie"]).toBeUndefined();
+  });
+
+  it("does not consume the login rate-limit bucket on a rejected cross-origin request", async () => {
+    // OriginCheckGuard must run before ThrottlerGuard: a request forbidden for
+    // a bad Origin should never eat into the 10-req/60s login bucket, or an
+    // attacker could exhaust it with disallowed-origin noise alone.
+    for (let i = 0; i < 15; i++) {
+      await request(app.getHttpServer())
+        .post("/auth/login")
+        .set("Origin", "https://evil.example.com")
+        .send({ email: adminEmail, password: "wrong-password" })
+        .expect(403);
+    }
+
+    await loginAgent(adminEmail, adminPassword);
+  });
+
+  it("does not share the login rate-limit bucket across different forwarded client IPs", async () => {
+    // The API only sees the web app's loopback connection; per-IP throttling
+    // depends on X-Forwarded-For carrying the real client address (see
+    // apps/web/app/lib/auth-proxy.ts). Without that, every caller collapses
+    // into one shared bucket and one bad actor can lock everyone out.
+    for (let i = 0; i < 10; i++) {
+      await request(app.getHttpServer())
+        .post("/auth/login")
+        .set("X-Forwarded-For", "203.0.113.10")
+        .send({ email: adminEmail, password: "wrong-password" })
+        .expect(401);
+    }
+    await request(app.getHttpServer())
+      .post("/auth/login")
+      .set("X-Forwarded-For", "203.0.113.10")
+      .send({ email: adminEmail, password: adminPassword })
+      .expect(429);
+
+    await request(app.getHttpServer())
+      .post("/auth/login")
+      .set("X-Forwarded-For", "203.0.113.20")
+      .send({ email: adminEmail, password: adminPassword })
+      .expect(200);
   });
 
   it("rejects /auth/me without a session cookie", async () => {

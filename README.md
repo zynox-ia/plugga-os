@@ -116,6 +116,12 @@ Antes de expor a API fora de localhost:
   Sem isso, o `OriginCheckGuard` só aceita localhost.
 - Não force `AUTH_COOKIE_SECURE=false` em staging/prod — o cookie Secure deve
   permanecer ligado atrás de HTTPS.
+- O processo web (`apps/web`) precisa ficar atrás de um reverse proxy que
+  **sobrescreva** `X-Forwarded-For` com o IP real do cliente (nunca repasse um
+  valor vindo do próprio cliente). A API só confia no hop loopback
+  (`trust proxy: "loopback"` em `apps/api/src/main.ts`, já que ela escuta em
+  `127.0.0.1`) para aplicar rate limiting por IP em `/auth/*` — sem um reverse
+  proxy correto na frente do web, todo tráfego cai no mesmo balde.
 
 ### Escape hatch de desenvolvimento
 
