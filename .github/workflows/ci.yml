@@ -20,6 +20,9 @@ jobs:
     timeout-minutes: 25
     env:
       DATABASE_URL: postgresql://plugga_os:local_only_change_me@localhost:5432/plugga_os?schema=public
+      # Local CI-only dummy values (not secrets); auth boot/seed require them.
+      AUTH_SESSION_SECRET: ci_local_only_session_secret_change_me_please
+      SEED_ADMIN_PASSWORD: ci_local_only_change_me
 
     services:
       postgres:
@@ -93,6 +96,7 @@ jobs:
         env:
           DATABASE_URL: postgresql://plugga_os:local_only_change_me@localhost:5432/plugga_os?schema=public
           DEV_AUTH_ENABLED: "true"
+          AUTH_SESSION_SECRET: ci_local_only_session_secret_change_me_please
           HOST: 127.0.0.1
           PORT: "3001"
           NODE_ENV: development

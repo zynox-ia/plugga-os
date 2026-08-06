@@ -1,6 +1,14 @@
+import { hash } from '@node-rs/argon2';
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
+
+// @node-rs/argon2 defaults to Argon2id; keep params aligned with PasswordService.
+const argon2Options = {
+  memoryCost: 19_456,
+  timeCost: 2,
+  parallelism: 1,
+} as const;
 
 const roleRows = [
   { key: 'admin', name: 'Administração' },
@@ -47,6 +55,38 @@ async function main() {
     data: roles.map((role) => ({ userId: devUser.id, roleId: role.id })),
     skipDuplicates: true,
   });
+
+  // Real self-hosted admin for local login (ADR-0008). Password comes only from
+  // the local environment; never hardcoded or committed.
+  const adminEmail = (process.env.SEED_ADMIN_EMAIL ?? 'admin@plugga.local').toLowerCase();
+  const adminPassword = process.env.SEED_ADMIN_PASSWORD;
+  const adminRole = roles.find((role) => role.key === 'admin');
+
+  const adminUser = await prisma.user.upsert({
+    where: { email: adminEmail },
+    update: { name: 'Administração Local', status: 'active' },
+    create: { email: adminEmail, name: 'Administração Local', status: 'active' },
+  });
+
+  if (adminRole) {
+    await prisma.userRole.createMany({
+      data: [{ userId: adminUser.id, roleId: adminRole.id }],
+      skipDuplicates: true,
+    });
+  }
+
+  if (adminPassword) {
+    const passwordHash = await hash(adminPassword, argon2Options);
+    await prisma.userCredential.upsert({
+      where: { userId: adminUser.id },
+      update: { passwordHash },
+      create: { userId: adminUser.id, passwordHash },
+    });
+  } else {
+    console.warn(
+      'SEED_ADMIN_PASSWORD is not set; admin user created without a login credential.',
+    );
+  }
 
   const integrations = await Promise.all(
     integrationRows.map((integration) =>

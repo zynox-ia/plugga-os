@@ -50,14 +50,45 @@ Com a API em execução, verifique:
 curl --fail http://localhost:3001/health
 ```
 
-Endpoints protegidos usam somente o stub local quando
-`DEV_AUTH_ENABLED=true`. Informe um principal sintético em `x-dev-principal` e
-papéis separados por vírgula em `x-dev-roles`; esses headers não são segredos nem
-um mecanismo de autenticação para ambientes expostos.
+### Login real (self-hosted)
+
+A autenticação padrão é **real e self-hosted** (ADR-0008): login por e-mail+senha,
+sessão server-side opaca em Postgres, cookie `httpOnly`. O `seed` cria um admin
+local a partir de `SEED_ADMIN_EMAIL`/`SEED_ADMIN_PASSWORD` do seu `.env`.
+
+```bash
+cp .env.example .env
+docker compose up -d
+pnpm db:migrate:deploy
+pnpm db:seed
+pnpm --filter @plugga/api start   # ou: pnpm dev
+
+# Login real (guarda o cookie de sessão em cookies.txt):
+curl -i -c cookies.txt -X POST http://localhost:3001/auth/login \
+  -H 'content-type: application/json' \
+  -d '{"email":"admin@plugga.local","password":"local_only_change_me"}'
+
+# Sessão atual usando o cookie:
+curl --fail -b cookies.txt http://localhost:3001/auth/me
+
+# Logout (revoga a sessão imediatamente):
+curl -i -b cookies.txt -X POST http://localhost:3001/auth/logout
+```
+
+Administradores gerenciam usuários por `/auth/invite`, `/auth/users`,
+`/auth/users/:id/roles` e `/auth/users/:id/deactivate`. Convite e reset emitem
+tokens de uso único entregues por `EmailPort`; o provedor padrão `noop` não envia
+(adapters Mailpit/Brevo chegam em um PR seguinte).
+
+### Escape hatch de desenvolvimento
+
+`DEV_AUTH_ENABLED=true` habilita, **apenas em local/e2e**, um caminho por headers
+`x-dev-principal`/`x-dev-roles`, coexistindo com o login real. Fica `false` por
+padrão e é proibido em produção; nunca é o caminho de autenticação exposto.
 
 A API escuta apenas em `127.0.0.1` por padrão. Para permitir acesso por outras
 interfaces de rede em um ambiente local controlado, configure `HOST=0.0.0.0`
-explicitamente; o stub de autenticação não é seguro para exposição pública.
+explicitamente.
 
 Para encerrar apenas a infraestrutura local:
 
@@ -88,8 +119,9 @@ pnpm build
 - Jobs são somente inventário mock. Não há pause, retry, migração ou controle de
   cron real.
 - `event_log` e `agent_actions` são trilhas append-only.
-- Auth/RBAC é um stub local atrás de abstrações e não deve ser exposto como
-  autenticação de produção.
+- Auth/RBAC é **real e self-hosted** (sessão em Postgres, Argon2id, RBAC por
+  papel — ADR-0008); nenhum SaaS de identidade é usado. O antigo stub por header
+  permanece apenas como escape hatch local sob `DEV_AUTH_ENABLED`.
 
 Leia o [guia de agentes](docs/AGENT.md) antes de contribuir. Qualquer evolução
 para integração real ou write exige ADR, gates técnicos e aprovação explícita de
