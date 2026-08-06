@@ -34,6 +34,8 @@ export interface StoredAgentAction {
 }
 
 export abstract class AuditRepository {
+  abstract appendEvent(event: EventAppend): Promise<void>;
+
   abstract appendTrail(
     agentAction: AgentActionAppend,
     event: EventAppend,

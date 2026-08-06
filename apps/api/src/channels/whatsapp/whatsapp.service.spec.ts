@@ -10,7 +10,11 @@ import type { AuthPrincipal } from "../../core/auth/auth.types";
 import { WhatsappService } from "./whatsapp.service";
 
 class AuditSpy extends AuditRepository {
-  calls: Array<{ action: AgentActionAppend; event: EventAppend }> = [];
+  calls: Array<{ action?: AgentActionAppend; event: EventAppend }> = [];
+
+  async appendEvent(event: EventAppend): Promise<void> {
+    this.calls.push({ event });
+  }
 
   async appendTrail(action: AgentActionAppend, event: EventAppend): Promise<StoredAgentAction> {
     this.calls.push({ action, event });
@@ -73,6 +77,25 @@ describe("WhatsappService", () => {
 
     expect(result.status).toBe("pending_approval");
     expect(result.reason).toBe("approval_required");
-    expect(audit.calls[0]?.action.approvalStatus).toBe("pending");
+    expect(audit.calls[0]?.action?.approvalStatus).toBe("pending");
+  });
+
+  it("records a human request as an event without inventing an agent action", async () => {
+    const result = await service.simulateSend(
+      {
+        destination: "+5592999991234",
+        originDomain: "ops",
+        audience: "transactional",
+        priority: "normal",
+        optedOut: false,
+        content: { kind: "text", text: "teste local" },
+      },
+      { id: "local-admin", kind: "user", roles: ["admin"] },
+    );
+
+    expect(result.simulated).toBe(true);
+    expect(audit.calls[0]?.action).toBeUndefined();
+    expect(audit.calls[0]?.event.actorType).toBe("user");
+    expect(audit.calls[0]?.event.actorId).toBe("local-admin");
   });
 });

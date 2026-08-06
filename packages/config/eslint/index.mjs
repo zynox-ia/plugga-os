@@ -10,16 +10,16 @@ const commonIgnores = [
   "**/node_modules/**",
 ];
 
-function boundaryPatterns(layer) {
+function boundaryPattern(layer) {
   if (layer === "web") {
-    return ["@plugga/api", "@plugga/api/*", "apps/api", "apps/api/*", "../../api", "../../api/*"];
+    return String.raw`(^@plugga/api(?:/|$))|(?:^|/)apps/api(?:/|$)|^(?:\.\./)+api(?:/|$)`;
   }
 
   if (layer === "api") {
-    return ["@plugga/web", "@plugga/web/*", "apps/web", "apps/web/*", "../../web", "../../web/*"];
+    return String.raw`(^@plugga/web(?:/|$))|(?:^|/)apps/web(?:/|$)|^(?:\.\./)+web(?:/|$)`;
   }
 
-  return ["@plugga/api", "@plugga/api/*", "@plugga/web", "@plugga/web/*", "apps/*", "../../../apps/*"];
+  return String.raw`(^@plugga/(?:api|web)(?:/|$))|(?:^|/)apps/(?:api|web)(?:/|$)`;
 }
 
 function createConfig(layer, environment) {
@@ -38,10 +38,10 @@ function createConfig(layer, environment) {
         "no-restricted-imports": [
           "error",
           {
-            patterns: boundaryPatterns(layer).map((group) => ({
-              group: [group],
+            patterns: [{
+              regex: boundaryPattern(layer),
               message: "Respect ADR-0001: applications communicate through HTTP and @plugga/shared; packages never import applications.",
-            })),
+            }],
           },
         ],
       },

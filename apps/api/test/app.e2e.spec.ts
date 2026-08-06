@@ -12,7 +12,11 @@ import {
 } from "../src/audit/audit.repository";
 
 class InMemoryAuditRepository extends AuditRepository {
-  readonly calls: Array<{ agentAction: AgentActionAppend; event: EventAppend }> = [];
+  readonly calls: Array<{ agentAction?: AgentActionAppend; event: EventAppend }> = [];
+
+  async appendEvent(event: EventAppend): Promise<void> {
+    this.calls.push({ event });
+  }
 
   async appendTrail(
     agentAction: AgentActionAppend,
@@ -107,6 +111,44 @@ describe("foundation API (e2e)", () => {
     });
     expect(auditRepository.calls).toHaveLength(1);
     expect(auditRepository.calls[0]?.event.eventName).toBe("agent.action.recorded");
+  });
+
+  it("rejects an agent identity that differs from the service principal", async () => {
+    await request(app.getHttpServer())
+      .post("/agent-actions")
+      .set("x-dev-principal", "service:authenticated-agent")
+      .set("x-dev-roles", "tech")
+      .send({
+        agent: "forged-agent",
+        channel: "api",
+        action: "foundation.test",
+        entityType: "test_entity",
+        entityId: "entity-1",
+        decision: "allowed",
+        approvalStatus: "not_required",
+        status: "recorded",
+      })
+      .expect(403);
+
+    expect(auditRepository.calls).toHaveLength(0);
+  });
+
+  it("records a human WhatsApp request only as an event", async () => {
+    await request(app.getHttpServer())
+      .post("/channels/whatsapp/send")
+      .set("x-dev-principal", "local-admin")
+      .set("x-dev-roles", "admin")
+      .send({
+        destination: "+5592999991234",
+        originDomain: "ops",
+        content: { kind: "text", text: "local mock" },
+      })
+      .expect(201);
+
+    expect(auditRepository.calls).toHaveLength(1);
+    expect(auditRepository.calls[0]?.agentAction).toBeUndefined();
+    expect(auditRepository.calls[0]?.event.actorType).toBe("user");
+    expect(auditRepository.calls[0]?.event.actorId).toBe("local-admin");
   });
 
   it("simulates WhatsApp without retaining destination or content in audit", async () => {

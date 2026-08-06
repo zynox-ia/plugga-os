@@ -15,6 +15,16 @@ export class PrismaAuditRepository extends AuditRepository {
     super();
   }
 
+  async appendEvent(event: EventAppend): Promise<void> {
+    await this.prisma.eventLog.create({
+      data: {
+        ...event,
+        payload: event.payload as Prisma.InputJsonObject,
+      },
+      select: { id: true },
+    });
+  }
+
   async appendTrail(
     agentAction: AgentActionAppend,
     event: EventAppend,

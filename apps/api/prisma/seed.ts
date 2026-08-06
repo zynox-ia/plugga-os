@@ -3,6 +3,7 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 const roleRows = [
+  { key: 'admin', name: 'Administração' },
   { key: 'diretoria', name: 'Diretoria' },
   { key: 'financeiro', name: 'Financeiro' },
   { key: 'pluggamob', name: 'PluggaMob' },

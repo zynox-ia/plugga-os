@@ -33,9 +33,19 @@ export class WhatsappService {
       contentKind: request.content.kind,
     };
 
-    await this.auditRepository.appendTrail(
-      {
-        agent: principal.kind === "service" ? principal.id : "whatsapp-mock-handler",
+    const event = {
+      eventName: policy.eventName,
+      entityType: "whatsapp_message",
+      entityId: messageId,
+      actorType: principal.kind === "service" ? "agent" as const : "user" as const,
+      actorId: principal.id,
+      payload: auditPayload,
+      occurredAt: new Date(),
+    };
+
+    if (principal.kind === "service") {
+      await this.auditRepository.appendTrail({
+        agent: principal.id,
         requestedById: null,
         channel: "whatsapp",
         action: "channel.whatsapp.send",
@@ -47,17 +57,10 @@ export class WhatsappService {
         approvalStatus: policy.status === "pending_approval" ? "pending" : "not_required",
         status: policy.status === "queued" ? "recorded" : policy.status === "blocked" ? "blocked" : "pending",
         result: "mock/no-op; no network call was made",
-      },
-      {
-        eventName: policy.eventName,
-        entityType: "whatsapp_message",
-        entityId: messageId,
-        actorType: principal.kind === "service" ? "agent" : "user",
-        actorId: principal.id,
-        payload: auditPayload,
-        occurredAt: new Date(),
-      },
-    );
+      }, event);
+    } else {
+      await this.auditRepository.appendEvent(event);
+    }
 
     return whatsappSendResponseSchema.parse({
       messageId,
