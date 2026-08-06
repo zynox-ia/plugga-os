@@ -43,6 +43,8 @@ Dependency rules:
    contracts from `packages/shared`.
 3. API modules expose intentional public interfaces. Do not import another
    module's controller, repository, Prisma client, or internal implementation.
+   Only `*repository*` implementations may import `PrismaService`; every consuming
+   Nest module must import `PrismaModule` explicitly.
 4. Block A contains only health/config, core auth/RBAC abstractions, audit,
    mock integrations, and job inventory. Do not add a business domain without an
    approved plan.

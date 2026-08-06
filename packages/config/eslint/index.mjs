@@ -22,6 +22,24 @@ function boundaryPattern(layer) {
   return String.raw`(^@plugga/(?:api|web)(?:/|$))|(?:^|/)apps/(?:api|web)(?:/|$)`;
 }
 
+const monorepoBoundaryMessage =
+  "Respect ADR-0001: applications communicate through HTTP and @plugga/shared; packages never import applications.";
+
+const prismaServiceBoundary = {
+  regex: String.raw`(?:^|/)(?:prisma/)?prisma\.service(?:\.[cm]?[jt]s)?$`,
+  message:
+    "Respect ADR-0002: only repository implementations may import PrismaService; inject a module public interface elsewhere.",
+};
+
+function restrictedImportPatterns(layer) {
+  return [
+    {
+      regex: boundaryPattern(layer),
+      message: monorepoBoundaryMessage,
+    },
+  ];
+}
+
 function createConfig(layer, environment) {
   return tseslint.config(
     { ignores: commonIgnores },
@@ -38,10 +56,7 @@ function createConfig(layer, environment) {
         "no-restricted-imports": [
           "error",
           {
-            patterns: [{
-              regex: boundaryPattern(layer),
-              message: "Respect ADR-0001: applications communicate through HTTP and @plugga/shared; packages never import applications.",
-            }],
+            patterns: restrictedImportPatterns(layer),
           },
         ],
       },
@@ -50,7 +65,33 @@ function createConfig(layer, environment) {
 }
 
 export function createAppConfig({ app }) {
-  return createConfig(app, app === "web" ? "browser" : "node");
+  const config = createConfig(app, app === "web" ? "browser" : "node");
+
+  if (app !== "api") {
+    return config;
+  }
+
+  return tseslint.config(
+    ...config,
+    {
+      files: ["src/**/*.{ts,tsx}"],
+      ignores: [
+        "src/**/*repository*.{ts,tsx}",
+        "src/prisma/prisma.module.ts",
+      ],
+      rules: {
+        "no-restricted-imports": [
+          "error",
+          {
+            patterns: [
+              ...restrictedImportPatterns(app),
+              prismaServiceBoundary,
+            ],
+          },
+        ],
+      },
+    },
+  );
 }
 
 export function createPackageConfig() {
