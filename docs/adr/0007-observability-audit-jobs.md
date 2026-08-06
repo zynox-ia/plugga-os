@@ -4,6 +4,8 @@
 - **Data:** 2026-08-06
 - **Decisores:** ARCHITECT (Bloco A), em alinhamento com ORCHESTRATOR
 - **Bloco:** A — Fundação
+- **Emendas:** 2026-08-06 (Bloco B) — ativação de `requested_by` para humano
+  autenticado. Ver "Emenda (Bloco B)" adiante.
 
 ## Contexto
 
@@ -102,6 +104,37 @@ validado contra `users`), regra de autorização sobre quem pode declarar solici
 e revisão de segurança — um solicitante autodeclarado reabriria exatamente o vetor
 de falsificação que a restrição atual fechou.
 
+### Emenda (Bloco B) — `requested_by` ativado para humano autenticado
+
+Com o auth real do Bloco B (ADR-0008), o gatilho de revisão acima é satisfeito: já
+existe uma **sessão humana autenticada** confiável para derivar o solicitante. A
+regra do Bloco A ("sempre `NULL`") é **substituída** pela seguinte, a partir do
+Bloco B. A coluna, a FK para `users` e o índice — pré-provisionados e inertes no
+Bloco A — **passam a ser usados**; nenhuma migração de schema é necessária.
+
+| Origem da ação | `requested_by` |
+|---|---|
+| Agente/serviço puro (`kind: "service"`, `service:` — sem humano no laço) | **`NULL`** |
+| Ação de agente **iniciada por humano autenticado** (ADR-0008) | **`users.id` desse humano** (FK validada) |
+
+Regra de segurança que mantém o vetor de falsificação fechado:
+
+- **`requested_by` é derivado server-side do principal humano autenticado** que
+  iniciou a requisição e propagado por caminho de servidor confiável até o
+  `agent_action`. **Nunca** é um campo fornecido pelo cliente no corpo de
+  `POST /agent-actions`.
+- `POST /agent-actions` continua aceitando **somente service principal** (correção
+  do Gate B, ADR-0007 original preservado). Um humano não chama esse endpoint
+  diretamente para se autoatribuir; a atribuição vem da sessão que originou o
+  fluxo, validada contra `users`.
+- Se não há humano autenticado na origem (job/agente autônomo), `requested_by`
+  permanece `NULL` — não se inventa solicitante.
+
+**Consequência de produto (positiva):** a tela de auditoria do Bloco B **pode
+exibir "solicitado por" joinável** em `agent_actions` para ações originadas por
+humano, com integridade referencial. `event_log.payload.requestedByPrincipal`
+continua como contexto textual, agora redundante para o caso humano.
+
 ### Superfície do Bloco A
 
 - API grava `agent_actions` (`POST /agent-actions`) e `event_log` localmente.
@@ -146,6 +179,7 @@ de falsificação que a restrição atual fechou.
 - Primeiro domínio com jobs reais → ativar BullMQ/Redis e controle pós-cutover.
 - Primeira tela ou relatório que exija "solicitado por" consultável → ativar
   `requested_by` via contrato explícito, autorização e revisão de segurança.
+  **Atendido no Bloco B** (ADR-0008) — ver "Emenda (Bloco B)".
 
 ## Guardas de escopo
 
