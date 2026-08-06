@@ -17,7 +17,7 @@ jobs:
   quality:
     name: Lint, typecheck, test and build
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     env:
       DATABASE_URL: postgresql://plugga_os:local_only_change_me@localhost:5432/plugga_os?schema=public
 
@@ -82,4 +82,43 @@ jobs:
         run: pnpm test
 
       - name: Build
+        env:
+          NEXT_PUBLIC_API_URL: http://127.0.0.1:3001
         run: pnpm build
+
+      - name: Install Playwright Chromium
+        run: pnpm --filter @plugga/web exec playwright install --with-deps chromium
+
+      - name: Start API for web e2e
+        env:
+          DATABASE_URL: postgresql://plugga_os:local_only_change_me@localhost:5432/plugga_os?schema=public
+          DEV_AUTH_ENABLED: "true"
+          HOST: 127.0.0.1
+          PORT: "3001"
+          NODE_ENV: development
+        run: |
+          pnpm --filter @plugga/api start &
+          echo $! > /tmp/plugga-api.pid
+          for i in $(seq 1 60); do
+            if curl -sf http://127.0.0.1:3001/health >/dev/null; then
+              echo "API ready"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "API failed to become ready"
+          exit 1
+
+      - name: Playwright e2e (web against live API)
+        env:
+          CI: "true"
+          NEXT_PUBLIC_API_URL: http://127.0.0.1:3001
+        run: pnpm test:e2e
+
+      - name: Stop API
+        if: always()
+        run: |
+          if [ -f /tmp/plugga-api.pid ]; then
+            kill "$(cat /tmp/plugga-api.pid)" || true
+          fi
+

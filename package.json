@@ -16,6 +16,7 @@
     "lint": "turbo run lint",
     "test": "turbo run test",
     "test:db": "pnpm --filter @plugga/api test:db",
+    "test:e2e": "pnpm --filter @plugga/web test:e2e",
     "typecheck": "turbo run typecheck"
   },
   "devDependencies": {

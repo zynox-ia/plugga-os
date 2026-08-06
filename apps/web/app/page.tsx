@@ -1,8 +1,8 @@
-export default function HomePage() {
-  return (
-    <main>
-      <h1>Plugga OS</h1>
-      <p>Fundação da plataforma em preparação.</p>
-    </main>
-  );
+import { DashboardView } from "./components/dashboard-view";
+import { fetchHealth } from "./lib/api";
+
+export default async function DashboardPage() {
+  const health = await fetchHealth();
+
+  return <DashboardView health={health} />;
 }
