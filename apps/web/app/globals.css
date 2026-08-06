@@ -142,3 +142,12 @@ tbody tr:last-child td { border-bottom: 0; }
   .approval-chip, .button { font-size: 12px; }
   th, td { padding: 10px 12px; }
 }
+
+/* Dashboard + Central de Pendências (FEATURE) */
+.dashboard-status { margin-bottom: 18px; }
+.view-tabs { display: flex; flex-wrap: wrap; gap: 8px; padding: 14px 18px 4px; }
+.view-tab { padding: 7px 12px; color: var(--muted); background: rgba(255, 254, 250, .6); border: 1px solid var(--line); border-radius: 999px; cursor: pointer; font: 500 12.5px/1 Anek, sans-serif; }
+.view-tab:hover { background: var(--white); }
+.view-tab--active { color: var(--petroleo); background: rgba(0, 175, 136, .15); border-color: rgba(0, 175, 136, .35); font-weight: 600; }
+.row-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.button--small { padding: 6px 10px; font-size: 12px; }
