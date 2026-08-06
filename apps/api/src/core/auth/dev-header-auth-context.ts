@@ -10,7 +10,7 @@ export class DevHeaderAuthContext extends AuthContext {
     super();
   }
 
-  resolve(request: AuthenticatedRequest): AuthPrincipal | null {
+  async resolve(request: AuthenticatedRequest): Promise<AuthPrincipal | null> {
     if (!this.config.get<boolean>("DEV_AUTH_ENABLED", false)) {
       return null;
     }

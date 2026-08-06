@@ -6,12 +6,12 @@ import { AuthContext, type AuthenticatedRequest } from "./auth.types";
 export class DevAuthGuard implements CanActivate {
   constructor(@Inject(AuthContext) private readonly authContext: AuthContext) {}
 
-  canActivate(context: ExecutionContext): boolean {
+  async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
-    const principal = this.authContext.resolve(request);
+    const principal = await this.authContext.resolve(request);
 
     if (!principal) {
-      throw new UnauthorizedException("authenticated development principal required");
+      throw new UnauthorizedException("authentication required");
     }
 
     request.authPrincipal = principal;
