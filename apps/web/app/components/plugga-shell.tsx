@@ -85,7 +85,7 @@ function Overview() {
         <ShellCard tone="accent"><span className="stat-label">Sessões ativas</span><strong className="stat-value">7</strong><span className="stat-note">EV Point agora</span></ShellCard>
         <ShellCard tone="warm"><span className="stat-label">Fila CRM</span><strong className="stat-value">18</strong><span className="stat-note">contatos hoje</span></ShellCard>
         <ShellCard><span className="stat-label">Aprovações</span><strong className="stat-value">3</strong><span className="stat-note">aguardam você</span></ShellCard>
-        <ShellCard><span className="stat-label">OPM atrasado</span><strong className="stat-value">4</strong><span className="stat-note">ciclos do mês</span></ShellCard>
+        <ShellCard><span className="stat-label">Pendências operacionais</span><strong className="stat-value">4</strong><span className="stat-note">ciclos do mês</span></ShellCard>
       </div>
 
       <div className="content-grid content-grid--wide">
@@ -94,9 +94,9 @@ function Overview() {
           <ShellTable caption="Itens que precisam de atenção">
             <thead><tr><th>Item</th><th>Área</th><th>Status</th></tr></thead>
             <tbody>
-              <tr><td>Fechamento EV Point · sem. 28/jul–03/ago</td><td>Financeiro</td><td><StatusPill variant="warning">Aprovar</StatusPill></td></tr>
+              <tr><td>Resumo EV Point · sem. 28/jul–03/ago</td><td>Operação</td><td><StatusPill variant="warning">Revisar</StatusPill></td></tr>
               <tr><td>Campanha R1 · saldo esperando</td><td>CRM</td><td><StatusPill variant="neutral">Copy</StatusPill></td></tr>
-              <tr><td>Relatório OPM · UC 0087367</td><td>OPM</td><td><StatusPill variant="warning">Envio</StatusPill></td></tr>
+              <tr><td>Relatório operacional · UC 0087367</td><td>Operação</td><td><StatusPill variant="warning">Envio</StatusPill></td></tr>
             </tbody>
           </ShellTable>
         </ShellCard>
@@ -140,7 +140,7 @@ function CrmView() {
 }
 
 function JobsView() {
-  return <ShellCard className="table-card"><div className="card-heading"><div><span className="eyebrow">Observabilidade</span><h2>Jobs recentes</h2></div><StatusPill variant="neutral">Modo espelho</StatusPill></div><ShellTable caption="Jobs e integrações recentes"><thead><tr><th>Job</th><th>Último run</th><th>Status</th></tr></thead><tbody><tr><td>Segmentos CRM R0–R6</td><td>Hoje 06:00</td><td><StatusPill variant="success">OK</StatusPill></td></tr><tr><td>Relatório PluggaMob manhã</td><td>Hoje 07:30</td><td><StatusPill variant="success">OK</StatusPill></td></tr><tr><td>Aviso tomadas · lotação</td><td>Há 12 min</td><td><StatusPill variant="warning">Bloqueado</StatusPill></td></tr><tr><td>Bridge Bitrix C7 OPM</td><td>Há 4 min</td><td><StatusPill variant="success">Sync</StatusPill></td></tr></tbody></ShellTable></ShellCard>;
+  return <ShellCard className="table-card"><div className="card-heading"><div><span className="eyebrow">Observabilidade</span><h2>Jobs recentes</h2></div><StatusPill variant="neutral">Modo espelho</StatusPill></div><ShellTable caption="Jobs e integrações recentes"><thead><tr><th>Job</th><th>Último run</th><th>Status</th></tr></thead><tbody><tr><td>Segmentos CRM R0–R6</td><td>Hoje 06:00</td><td><StatusPill variant="success">OK</StatusPill></td></tr><tr><td>Relatório PluggaMob manhã</td><td>Hoje 07:30</td><td><StatusPill variant="success">OK</StatusPill></td></tr><tr><td>Aviso tomadas · lotação</td><td>Há 12 min</td><td><StatusPill variant="warning">Bloqueado</StatusPill></td></tr><tr><td>Bridge de dados operacional</td><td>Há 4 min</td><td><StatusPill variant="success">Sync</StatusPill></td></tr></tbody></ShellTable></ShellCard>;
 }
 
 function ViewContent({ view }: { view: ViewId }) {
