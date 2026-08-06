@@ -1,0 +1,74 @@
+import { NextResponse, type NextRequest } from "next/server";
+
+import { apiBaseUrl } from "./app/lib/env";
+
+const FETCH_TIMEOUT_MS = 5_000;
+
+const PUBLIC_PATHS = ["/login", "/auth/accept-invite", "/auth/reset"];
+
+function isPublicPath(pathname: string): boolean {
+  return PUBLIC_PATHS.some((path) => pathname === path);
+}
+
+/**
+ * Builds a same-origin redirect target from request.nextUrl. Do not fall back
+ * to the Host/X-Forwarded-Host headers here: they're attacker-controlled and
+ * unvalidated, which turns a same-origin redirect into an open redirect (and,
+ * without a Vary on those headers, a cache-poisoning vector behind a CDN). The
+ * previous loopback-canonicalization issue (127.0.0.1 -> localhost dropping
+ * the session cookie) was a Playwright webServer artifact, fixed by dropping
+ * --hostname from playwright.config.ts, not something this redirect needs to
+ * work around.
+ */
+function redirectTo(request: NextRequest, pathname: string): URL {
+  const url = request.nextUrl.clone();
+  url.pathname = pathname;
+  url.search = "";
+  return url;
+}
+
+/** True when apps/api's session cookie is accepted by GET /auth/me. */
+async function hasValidSession(request: NextRequest): Promise<boolean> {
+  const cookie = request.headers.get("cookie");
+  if (!cookie) return false;
+
+  try {
+    const response = await fetch(`${apiBaseUrl()}/auth/me`, {
+      headers: { cookie },
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+      cache: "no-store",
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Gates every app route behind a real session (ADR-0008), replacing the former
+ * dev-header stub as the default path. /login and the token-based invite/reset
+ * pages stay public so a signed-out visitor can always reach them.
+ */
+export async function middleware(request: NextRequest): Promise<NextResponse> {
+  const { pathname } = request.nextUrl;
+  const authenticated = await hasValidSession(request);
+
+  if (isPublicPath(pathname)) {
+    if (pathname === "/login" && authenticated) {
+      return NextResponse.redirect(redirectTo(request, "/"));
+    }
+    return NextResponse.next();
+  }
+
+  if (!authenticated) {
+    const loginUrl = redirectTo(request, "/login");
+    if (pathname !== "/") loginUrl.searchParams.set("redirectTo", pathname);
+    return NextResponse.redirect(loginUrl);
+  }
+
+  return NextResponse.next();
+}
+
+export const config = {
+  matcher: ["/((?!_next|api|brand|fonts|favicon.ico).*)"],
+};
