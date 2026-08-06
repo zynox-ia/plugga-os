@@ -105,6 +105,9 @@ jobs:
           JOBS_ENABLED: "true"
         run: pnpm --filter @plugga/api test:jobs
 
+      - name: Verify Bitrix mirror idempotency
+        run: pnpm --filter @plugga/api test:bitrix
+
       - name: Lint
         run: pnpm lint
 

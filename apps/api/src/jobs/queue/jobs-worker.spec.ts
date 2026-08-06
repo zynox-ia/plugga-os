@@ -77,6 +77,21 @@ describe("JobsWorker.dispatch", () => {
     expect(repository.runs[0]!.finish?.status).toBe("success");
   });
 
+  it("propagates a handler's skip to the job_run status", async () => {
+    const handler: JobHandler = {
+      jobKey: "bitrix.import.opm",
+      async process() {
+        return { skipped: true, logRef: "os://bitrix/opm skipped reason=mode" };
+      },
+    };
+    const { worker, repository } = buildWorker(handler);
+
+    await worker.dispatch(job());
+
+    expect(repository.runs[0]!.finish?.status).toBe("skipped");
+    expect(repository.runs[0]!.finish?.logRef).toBe("os://bitrix/opm skipped reason=mode");
+  });
+
   it("computes the 1-based attempt from attemptsMade", async () => {
     const handler: JobHandler = {
       jobKey: "bitrix.import.opm",

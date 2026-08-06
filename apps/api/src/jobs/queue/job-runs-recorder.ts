@@ -17,12 +17,15 @@ export interface JobRunExecutionContext {
 
 export interface JobRunOutcome {
   logRef?: string;
+  /** Handler refused the work by its own gate: record `skipped`, not `success`. */
+  skipped?: boolean;
 }
 
 /**
  * Wraps a job execution with its job_runs lifecycle: a `running` row on entry,
- * then `success` or `failed` with duration on exit. On failure it records the
- * (truncated) error and rethrows, so BullMQ can apply its retry policy.
+ * then `success`, `skipped` or `failed` with duration on exit. On failure it
+ * records the (truncated) error and rethrows, so BullMQ can apply its retry
+ * policy.
  */
 @Injectable()
 export class JobRunsRecorder {
@@ -45,7 +48,7 @@ export class JobRunsRecorder {
     try {
       const outcome = await execute({ jobRunId: id });
       await this.repository.finishRun(id, {
-        status: "success",
+        status: outcome?.skipped ? "skipped" : "success",
         finishedAt: new Date(),
         durationMs: Date.now() - startedMs,
         logRef: outcome?.logRef ?? null,

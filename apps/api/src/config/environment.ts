@@ -54,6 +54,17 @@ export const environmentSchema = z
     // Comma-separated browser origins accepted on mutating auth routes (CSRF
     // defense in depth alongside SameSite=Lax).
     AUTH_ALLOWED_ORIGINS: z.string().trim().optional(),
+    // Bitrix Migrator credential (ADR-0009): inbound webhook URL with the token
+    // embedded in the path. Lives only in the environment/secret — never in git,
+    // never in the integrations table, never logged. Bitrix is external SaaS, so
+    // there is no local-host guard (unlike DATABASE_URL/REDIS_URL); the adapter
+    // is read-only by construction. Absent until a domain moves to read_only.
+    BITRIX_WEBHOOK_URL: z.string().trim().url().optional(),
+    // Bitrix entityTypeId for the OPM (C7) domain — portal-specific. Supplied at
+    // activation, not hardcoded; required to run the OPM import.
+    BITRIX_OPM_ENTITY_TYPE_ID: z.coerce.number().int().positive().optional(),
+    // Page size for Bitrix list reads (Bitrix caps a page at 50).
+    BITRIX_IMPORT_PAGE_SIZE: z.coerce.number().int().min(1).max(50).default(50),
   })
   .passthrough()
   .superRefine((environment, context) => {
@@ -88,6 +99,31 @@ export const environmentSchema = z
         path: ["DATABASE_URL"],
         message: "DATABASE_URL must be a valid PostgreSQL URL",
       });
+    }
+
+    if (environment.BITRIX_WEBHOOK_URL) {
+      try {
+        const bitrixUrl = new URL(environment.BITRIX_WEBHOOK_URL);
+        if (bitrixUrl.protocol !== "https:") {
+          context.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["BITRIX_WEBHOOK_URL"],
+            message: "BITRIX_WEBHOOK_URL must use https",
+          });
+        } else if (!bitrixUrl.pathname.includes("/rest/")) {
+          context.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["BITRIX_WEBHOOK_URL"],
+            message: "BITRIX_WEBHOOK_URL must be a Bitrix REST webhook URL (path contains /rest/)",
+          });
+        }
+      } catch {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["BITRIX_WEBHOOK_URL"],
+          message: "BITRIX_WEBHOOK_URL must be a valid URL",
+        });
+      }
     }
 
     try {

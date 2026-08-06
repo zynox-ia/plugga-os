@@ -7,7 +7,7 @@ import {
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 
-import type { AuthenticatedRequest } from "../core/auth/auth.types";
+import type { AuthenticatedRequest } from "./auth.types";
 
 /**
  * CSRF defense in depth for mutating auth routes (alongside SameSite=Lax).
