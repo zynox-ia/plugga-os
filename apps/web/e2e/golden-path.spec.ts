@@ -1,11 +1,5 @@
 import { expect, test } from "@playwright/test";
 
-/** Same principal the server-side web shell uses for guarded inventory GETs. */
-const DEV_AUTH_HEADERS = {
-  "x-dev-principal": "web-shell",
-  "x-dev-roles": "viewer",
-};
-
 test.describe("Golden path — Dashboard → Pendências → Integrações → Jobs", () => {
   test("walks the P2-6 flow and surfaces live vs mock data correctly", async ({ page }) => {
     await page.goto("/");
@@ -18,7 +12,11 @@ test.describe("Golden path — Dashboard → Pendências → Integrações → J
     await nav.getByRole("button", { name: "Integrações", exact: true }).click();
     await expect(page).toHaveURL(/\/integracoes$/);
 
-    const whatsappCard = page.locator(".shell-card--accent");
+    // .shell-card--accent also matches the Bitrix migrator card (ADR-0009),
+    // so scope to the one containing the WhatsApp heading.
+    const whatsappCard = page
+      .locator(".shell-card--accent")
+      .filter({ has: page.getByRole("heading", { name: "WhatsApp" }) });
     await expect(whatsappCard.getByRole("heading", { name: "WhatsApp" })).toBeVisible();
     await expect(whatsappCard.getByText("ADR-0006")).toBeVisible();
     // GET /integrations must never expose a real destination/credential.
@@ -37,11 +35,14 @@ test.describe("Golden path — Dashboard → Pendências → Integrações → J
     await page.goto("/integracoes");
 
     const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
-    // Probe the same guarded endpoint the page uses (not unguarded /health).
-    const integrations = await request
-      .get(`${apiUrl}/integrations`, { headers: DEV_AUTH_HEADERS })
-      .catch(() => null);
-    const isLive = !!integrations && integrations.ok();
+    // The page now authenticates GET /integrations with the visitor's real
+    // session cookie (forwarded server-side), not a fixed dev-auth header
+    // that this test's separate APIRequestContext has no way to attach
+    // cross-origin. Since a logged-in visitor's session always authenticates
+    // successfully, API reachability alone (via the unguarded /health) is the
+    // right proxy for "did the page get real data."
+    const health = await request.get(`${apiUrl}/health`).catch(() => null);
+    const isLive = !!health && health.ok();
 
     const pill = page.locator(".panel-card .status-pill").first();
     await expect(pill).toHaveText(isLive ? "Dados reais" : "Mock local");
