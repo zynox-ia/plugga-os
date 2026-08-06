@@ -151,3 +151,6 @@ tbody tr:last-child td { border-bottom: 0; }
 .view-tab--active { color: var(--petroleo); background: rgba(0, 175, 136, .15); border-color: rgba(0, 175, 136, .35); font-weight: 600; }
 .row-actions { display: flex; flex-wrap: wrap; gap: 6px; }
 .button--small { padding: 6px 10px; font-size: 12px; }
+
+/* Integrações + Jobs (FEATURE) */
+.stack { display: grid; gap: 18px; }

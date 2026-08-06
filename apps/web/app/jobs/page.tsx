@@ -1,11 +1,9 @@
-import { PlaceholderScreen } from "../components/placeholder-screen";
+import { JobsView } from "../components/jobs-view";
+import { fetchJobs } from "../lib/api";
+import { FALLBACK_JOB_RUNS } from "../lib/mock/jobs";
 
-export default function JobsPage() {
-  return (
-    <PlaceholderScreen
-      title="Jobs e Automações"
-      description="A tela real depende dos módulos Nest mock de observabilidade (job_runs) ainda em fundação pela plataforma."
-      status="bloqueado"
-    />
-  );
+export default async function JobsPage() {
+  const response = await fetchJobs();
+
+  return <JobsView items={response?.items ?? FALLBACK_JOB_RUNS} isLive={response !== null} />;
 }

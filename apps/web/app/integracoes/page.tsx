@@ -1,11 +1,9 @@
-import { PlaceholderScreen } from "../components/placeholder-screen";
+import { IntegracoesView } from "../components/integracoes-view";
+import { fetchIntegrations } from "../lib/api";
+import { FALLBACK_INTEGRATIONS } from "../lib/mock/integrations";
 
-export default function IntegracoesPage() {
-  return (
-    <PlaceholderScreen
-      title="Integrações"
-      description="A tela real (WhatsApp P0 e demais canais mock) depende dos módulos Nest mock de integrações ainda em fundação pela plataforma."
-      status="bloqueado"
-    />
-  );
+export default async function IntegracoesPage() {
+  const response = await fetchIntegrations();
+
+  return <IntegracoesView items={response?.items ?? FALLBACK_INTEGRATIONS} isLive={response !== null} />;
 }

@@ -1,8 +1,9 @@
 import type { ShellNavGroup } from "../components/plugga-shell";
 
 /**
- * PRD §7 — 12 áreas do menu principal. "Engenharia e Obras" é V2 (em breve);
- * "Jobs e Automações" e "Integrações" aguardam a fundação de backend (P2-6).
+ * PRD §7 — 12 áreas do menu principal. "Engenharia e Obras" é V2 (em breve).
+ * "Jobs e Automações" e "Integrações" consomem GET /jobs e GET /integrations
+ * (P2-6) com fallback para mock local quando a API não responde.
  */
 export const NAV_GROUPS: ShellNavGroup[] = [
   {
