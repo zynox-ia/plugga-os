@@ -6,6 +6,8 @@ import { WhatsappModule } from "./channels/whatsapp/whatsapp.module";
 import { validateEnvironment } from "./config/environment";
 import { CoreModule } from "./core/core.module";
 import { HealthModule } from "./health/health.module";
+import { IntegrationsModule } from "./integrations/integrations.module";
+import { JobsModule } from "./jobs/jobs.module";
 import { LoggingModule } from "./logging/logging.module";
 import { PrismaModule } from "./prisma/prisma.module";
 
@@ -18,6 +20,8 @@ import { PrismaModule } from "./prisma/prisma.module";
     HealthModule,
     AuditModule,
     WhatsappModule,
+    IntegrationsModule,
+    JobsModule,
   ],
 })
 export class AppModule {}
