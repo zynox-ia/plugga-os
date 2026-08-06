@@ -16,14 +16,19 @@ export const BITRIX_OPM_IMPORT_JOB_KEY = "bitrix.import.opm";
 export const BITRIX_MAX_PAGES = 10_000;
 
 /**
- * Read-only method allowlist. The adapter is read-only by construction: only
- * list/get/fields methods may ever be issued. Any write-shaped method
- * (.add/.update/.delete/.set) is rejected before a request is made.
+ * Read-only method allowlist — an exact set, not a pattern. Only these literal
+ * Bitrix methods may ever be issued; anything else (notably write-shaped
+ * `.add`/`.update`/`.delete`/`.set`) is rejected before a request is made.
+ * Adding a method here is a deliberate, reviewable act.
  */
-const READ_METHOD_PATTERN = /\.(list|get|fields)$/;
+const READ_METHODS: ReadonlySet<string> = new Set([
+  "crm.item.list",
+  "crm.item.get",
+  "crm.item.fields",
+]);
 
 export function assertReadOnlyMethod(method: string): void {
-  if (!READ_METHOD_PATTERN.test(method)) {
+  if (!READ_METHODS.has(method)) {
     throw new Error(
       `Bitrix Migrator is read-only: refusing non-read method '${method}'`,
     );

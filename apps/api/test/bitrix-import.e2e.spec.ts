@@ -165,6 +165,35 @@ describe("Bitrix read-only import trigger (e2e)", () => {
       });
     });
 
+    it("refuses a cross-origin mutating request (CSRF defense in depth)", async () => {
+      await request(app.getHttpServer())
+        .post("/integrations/bitrix/import")
+        .set("x-dev-principal", "local-admin")
+        .set("x-dev-roles", "admin")
+        .set("origin", "https://evil.example.com")
+        .expect(403);
+    });
+
+    it("accepts the documented local browser origin", async () => {
+      await request(app.getHttpServer())
+        .post("/integrations/bitrix/import")
+        .set("x-dev-principal", "local-admin")
+        .set("x-dev-roles", "admin")
+        .set("origin", "http://localhost:3000")
+        .expect(201);
+    });
+
+    it("does not double the principal prefix in triggered_by", async () => {
+      RecordingJobsQueue.calls = [];
+      await request(app.getHttpServer())
+        .post("/integrations/bitrix/import")
+        .set("x-dev-principal", "service:migrator")
+        .set("x-dev-roles", "admin")
+        .expect(201);
+
+      expect(RecordingJobsQueue.calls[0]?.options?.triggeredBy).toBe("service:migrator");
+    });
+
     it("never echoes the Bitrix credential in the response", async () => {
       const response = await request(app.getHttpServer())
         .post("/integrations/bitrix/import")
