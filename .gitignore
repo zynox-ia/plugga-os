@@ -37,3 +37,8 @@ knowledge/inventory/
 tmp/
 .temp/
 docs/mockup/*.zip
+
+# Playwright
+playwright-report/
+test-results/
+blob-report/
