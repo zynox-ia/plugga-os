@@ -44,24 +44,52 @@ pnpm dev
 Os nomes exatos dos scripts de banco são mantidos no `package.json`. O Compose e
 as migrações destinam-se somente ao banco local definido em `.env`.
 
-`pnpm db:seed` é idempotente e **não sobrescreve decisão de cutover**: ao
-reexecutar, ele só atualiza o catálogo das integrações (`name`, `owner`). O
-`mode` é semeado como `mock` apenas na criação da linha, e `status`,
-`last_sync_at` e `last_error` são estado operacional — nenhum dos quatro é
-revertido por um reseed. Assim, virar uma integração para `read_only` sobrevive
-ao próximo seed em vez de fechar o gate do migrador silenciosamente.
-
 Com a API em execução, verifique:
 
 ```bash
 curl --fail http://localhost:3001/health
 ```
 
+### `pnpm db:seed` é bootstrap, não reset
+
+O seed **semeia na criação e nunca reafirma** em linha existente. Reexecutar
+atualiza apenas metadado de catálogo (`name`, `owner` de integração; nome de
+exibição de usuário) e **preserva toda decisão de acesso e de cutover**:
+
+| O que sobrevive a um reseed | Por quê |
+|---|---|
+| `integrations.mode` | decisão de cutover por domínio (ADR-0005/0009) — reverter fecharia o gate do migrador em silêncio |
+| `integrations.status` / `last_sync_at` / `last_error` | estado operacional |
+| `users.status` | controle de revogação de acesso (ADR-0008) — reverter reativaria conta desativada |
+| papéis (`user_roles`) | revogação de privilégio — reconceder restauraria `admin` em silêncio |
+
+Em banco novo o comportamento é o mesmo de sempre: usuários nascem `active`,
+recebem seus papéis e as integrações nascem em `mock`.
+
+Como o seed não desfaz mais nada, **resetar o ambiente local é um ato
+explícito** — derrube o volume e recomece:
+
+```bash
+docker compose down -v      # apaga postgres_data e redis_data
+docker compose up -d
+pnpm db:migrate:deploy
+pnpm db:seed
+```
+
+A única exceção deliberada é a senha do admin — veja o aviso sobre
+`SEED_ADMIN_PASSWORD` abaixo.
+
 ### Login real (self-hosted)
 
 A autenticação padrão é **real e self-hosted** (ADR-0008): login por e-mail+senha,
 sessão server-side opaca em Postgres, cookie `httpOnly`. O `seed` cria um admin
 local a partir de `SEED_ADMIN_EMAIL`/`SEED_ADMIN_PASSWORD` do seu `.env`.
+
+> **Deixe `SEED_ADMIN_PASSWORD` vazia depois do bootstrap inicial.** Enquanto ela
+> estiver setada, cada `pnpm db:seed` reescreve o hash de senha do admin com esse
+> valor — ou seja, desfaz uma troca de senha feita pela aplicação. O seed já não
+> reativa usuário desativado nem devolve modo de integração revertido, mas a senha
+> continua sendo reaplicada de propósito, para permitir recuperar acesso local.
 
 ```bash
 cp .env.example .env
