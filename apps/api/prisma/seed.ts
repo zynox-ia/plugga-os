@@ -30,6 +30,12 @@ const integrationRows = [
   { key: 'rapidapi', name: 'RapidAPI', owner: 'Tecnologia' },
 ] as const;
 
+/** Whether a seeded identity already exists — decides bootstrap vs. re-seed. */
+async function userExists(email: string): Promise<boolean> {
+  const user = await prisma.user.findUnique({ where: { email }, select: { id: true } });
+  return user !== null;
+}
+
 async function main() {
   const roles = await Promise.all(
     roleRows.map((role) =>
@@ -44,6 +50,7 @@ async function main() {
   // `status` is seeded on creation only. It is an access-revocation control
   // (ADR-0008), not cosmetic state: re-asserting 'active' here would let
   // `pnpm db:seed` silently reactivate a user an admin had deactivated.
+  const devUserExisted = await userExists('dev@plugga.local');
   const devUser = await prisma.user.upsert({
     where: { email: 'dev@plugga.local' },
     update: { name: 'Pessoa Desenvolvedora Local' },
@@ -54,10 +61,15 @@ async function main() {
     },
   });
 
-  await prisma.userRole.createMany({
-    data: roles.map((role) => ({ userId: devUser.id, roleId: role.id })),
-    skipDuplicates: true,
-  });
+  // Roles are granted only when bootstrapping the user. Re-granting on every
+  // seed would undo a revocation made through PUT /auth/users/:id/roles — the
+  // same silent-restore problem as `status`, but for privilege.
+  if (!devUserExisted) {
+    await prisma.userRole.createMany({
+      data: roles.map((role) => ({ userId: devUser.id, roleId: role.id })),
+      skipDuplicates: true,
+    });
+  }
 
   // Real self-hosted admin for local login (ADR-0008). Password comes only from
   // the local environment; never hardcoded or committed.
@@ -65,14 +77,15 @@ async function main() {
   const adminPassword = process.env.SEED_ADMIN_PASSWORD;
   const adminRole = roles.find((role) => role.key === 'admin');
 
-  // Same rule as the dev user: never re-activate on re-seed.
+  // Same rules as the dev user: never re-activate, never re-grant on re-seed.
+  const adminUserExisted = await userExists(adminEmail);
   const adminUser = await prisma.user.upsert({
     where: { email: adminEmail },
     update: { name: 'Administração Local' },
     create: { email: adminEmail, name: 'Administração Local', status: 'active' },
   });
 
-  if (adminRole) {
+  if (adminRole && !adminUserExisted) {
     await prisma.userRole.createMany({
       data: [{ userId: adminUser.id, roleId: adminRole.id }],
       skipDuplicates: true,

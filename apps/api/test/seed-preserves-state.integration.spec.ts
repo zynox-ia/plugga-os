@@ -104,11 +104,20 @@ describeSeed("seed preserves user access revocation (integration)", () => {
   }, 180_000);
 
   afterAll(async () => {
-    // Leave the local database usable: both seeded identities active again.
+    // Leave the local database usable: both identities active, admin role back.
+    // The seed deliberately no longer restores either, so the test must.
     await prisma.user.updateMany({
       where: { email: { in: [ADMIN_EMAIL, DEV_EMAIL] } },
       data: { status: "active" },
     });
+    const admin = await prisma.user.findUnique({ where: { email: ADMIN_EMAIL } });
+    const adminRole = await prisma.role.findUnique({ where: { key: "admin" } });
+    if (admin && adminRole) {
+      await prisma.userRole.createMany({
+        data: [{ userId: admin.id, roleId: adminRole.id }],
+        skipDuplicates: true,
+      });
+    }
     await prisma.$disconnect();
   });
 
@@ -135,14 +144,35 @@ describeSeed("seed preserves user access revocation (integration)", () => {
     expect(admin.name).toBe("Administração Local");
   }, 180_000);
 
-  it("still creates a missing seeded user as active", async () => {
+  it("does not re-grant a revoked role on re-seed", async () => {
+    const admin = await prisma.user.findUniqueOrThrow({ where: { email: ADMIN_EMAIL } });
+    const adminRole = await prisma.role.findUniqueOrThrow({ where: { key: "admin" } });
+    await prisma.userRole.deleteMany({
+      where: { userId: admin.id, roleId: adminRole.id },
+    });
+
+    await runSeed();
+
+    const restored = await prisma.userRole.findMany({
+      where: { userId: admin.id, roleId: adminRole.id },
+    });
+    // Re-granting here would silently restore administrative privilege.
+    expect(restored).toHaveLength(0);
+  }, 180_000);
+
+  it("still creates a missing seeded user as active and grants its roles", async () => {
     const devUser = await prisma.user.findUniqueOrThrow({ where: { email: DEV_EMAIL } });
     await prisma.userRole.deleteMany({ where: { userId: devUser.id } });
     await prisma.user.delete({ where: { email: DEV_EMAIL } });
 
     await runSeed();
 
-    const recreated = await prisma.user.findUniqueOrThrow({ where: { email: DEV_EMAIL } });
+    const recreated = await prisma.user.findUniqueOrThrow({
+      where: { email: DEV_EMAIL },
+      include: { roles: true },
+    });
     expect(recreated.status).toBe("active");
+    // Bootstrap must still work: a brand-new seeded user gets its roles.
+    expect(recreated.roles.length).toBeGreaterThan(0);
   }, 180_000);
 });
