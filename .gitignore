@@ -1,0 +1,38 @@
+# Dependencies & build
+node_modules/
+.next/
+dist/
+build/
+coverage/
+.turbo/
+*.tsbuildinfo
+
+# Env & secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+credentials/
+secrets*
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# Large / sensitive OpenClaw extract (keep local)
+knowledge/openclaw/
+knowledge/sanitized/
+knowledge/inventory/
+
+# Keep planning docs that live under knowledge/
+!knowledge/README.md
+!knowledge/PROMPT-OPENCLAW.md
+
+# Logs & temp
+*.log
+tmp/
+.temp/
