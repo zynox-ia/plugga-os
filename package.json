@@ -8,6 +8,9 @@
   },
   "scripts": {
     "build": "turbo run build",
+    "db:generate": "pnpm --filter @plugga/api db:generate",
+    "db:migrate": "pnpm --filter @plugga/api db:migrate",
+    "db:seed": "pnpm --filter @plugga/api db:seed",
     "dev": "turbo run dev",
     "lint": "turbo run lint",
     "test": "turbo run test",
