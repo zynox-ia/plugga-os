@@ -92,13 +92,14 @@ async function main() {
     integrationRows.map((integration) =>
       prisma.integration.upsert({
         where: { key: integration.key },
+        // Refresh catalog metadata only. `mode` is a cutover decision (ADR-0005/
+        // 0009) and `status`/`lastSyncAt`/`lastError` are operational state — a
+        // re-seed must never silently revert them. Without this, flipping an
+        // integration to read_only would be undone by the next `pnpm db:seed`,
+        // closing the migrator's gate and looking like an unexplained regression.
         update: {
           name: integration.name,
           owner: integration.owner,
-          mode: 'mock',
-          status: 'unknown',
-          lastSyncAt: null,
-          lastError: null,
         },
         create: {
           ...integration,

@@ -108,6 +108,9 @@ jobs:
       - name: Verify Bitrix mirror idempotency
         run: pnpm --filter @plugga/api test:bitrix
 
+      - name: Verify seed preserves integration cutover state
+        run: pnpm --filter @plugga/api test:seed
+
       - name: Lint
         run: pnpm lint
 

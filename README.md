@@ -44,6 +44,13 @@ pnpm dev
 Os nomes exatos dos scripts de banco são mantidos no `package.json`. O Compose e
 as migrações destinam-se somente ao banco local definido em `.env`.
 
+`pnpm db:seed` é idempotente e **não sobrescreve decisão de cutover**: ao
+reexecutar, ele só atualiza o catálogo das integrações (`name`, `owner`). O
+`mode` é semeado como `mock` apenas na criação da linha, e `status`,
+`last_sync_at` e `last_error` são estado operacional — nenhum dos quatro é
+revertido por um reseed. Assim, virar uma integração para `read_only` sobrevive
+ao próximo seed em vez de fechar o gate do migrador silenciosamente.
+
 Com a API em execução, verifique:
 
 ```bash
