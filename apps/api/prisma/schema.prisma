@@ -1,0 +1,156 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ActorType {
+  user
+  agent
+  system
+
+  @@map("actor_type")
+}
+
+enum IntegrationMode {
+  mock
+  read_only
+  bridge
+  write
+
+  @@map("integration_mode")
+}
+
+enum IntegrationStatus {
+  healthy
+  degraded
+  down
+  unknown
+
+  @@map("integration_status")
+}
+
+enum JobRunStatus {
+  queued
+  running
+  success
+  failed
+  skipped
+
+  @@map("job_run_status")
+}
+
+model User {
+  id           String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email        String        @unique
+  name         String
+  status       String        @default("active")
+  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+  roles        UserRole[]
+  agentActions AgentAction[]
+
+  @@map("users")
+}
+
+model Role {
+  id    String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  key   String     @unique
+  name  String
+  users UserRole[]
+
+  @@map("roles")
+}
+
+model UserRole {
+  userId String @map("user_id") @db.Uuid
+  roleId String @map("role_id") @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+  @@index([roleId])
+  @@map("user_roles")
+}
+
+/// Append-only audit record. The initial migration prevents UPDATE and DELETE.
+model AgentAction {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  agent          String
+  requestedById  String?  @map("requested_by") @db.Uuid
+  channel        String
+  action         String
+  entityType     String   @map("entity_type")
+  entityId       String   @map("entity_id")
+  input          Json     @db.JsonB
+  payload        Json     @db.JsonB
+  decision       String
+  approvalStatus String   @map("approval_status")
+  status         String
+  result         String?
+  error          String?
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  requestedBy    User?    @relation(fields: [requestedById], references: [id], onDelete: SetNull)
+
+  @@index([requestedById])
+  @@index([createdAt])
+  @@index([entityType, entityId])
+  @@map("agent_actions")
+}
+
+/// Append-only event record. actorId is polymorphic by actorType.
+model EventLog {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  eventName  String    @map("event_name")
+  entityType String    @map("entity_type")
+  entityId   String    @map("entity_id")
+  actorType  ActorType @map("actor_type")
+  actorId    String?   @map("actor_id")
+  payload    Json      @db.JsonB
+  occurredAt DateTime  @map("occurred_at") @db.Timestamptz(6)
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([eventName, occurredAt])
+  @@index([entityType, entityId])
+  @@map("event_log")
+}
+
+model Integration {
+  id         String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  key        String            @unique
+  name       String
+  mode       IntegrationMode   @default(mock)
+  status     IntegrationStatus @default(unknown)
+  lastSyncAt DateTime?         @map("last_sync_at") @db.Timestamptz(6)
+  lastError  String?           @map("last_error")
+  owner      String
+  createdAt  DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+  jobRuns    JobRun[]
+
+  @@map("integrations")
+}
+
+model JobRun {
+  id            String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  jobKey        String       @map("job_key")
+  integrationId String?      @map("integration_id") @db.Uuid
+  scheduledFor  DateTime?    @map("scheduled_for") @db.Timestamptz(6)
+  startedAt     DateTime?    @map("started_at") @db.Timestamptz(6)
+  finishedAt    DateTime?    @map("finished_at") @db.Timestamptz(6)
+  status        JobRunStatus
+  attempt       Int          @default(1)
+  durationMs    Int?         @map("duration_ms")
+  error         String?
+  triggeredBy   String       @map("triggered_by")
+  logRef        String?      @map("log_ref")
+  createdAt     DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  integration   Integration? @relation(fields: [integrationId], references: [id], onDelete: SetNull)
+
+  @@index([jobKey, scheduledFor])
+  @@index([integrationId])
+  @@map("job_runs")
+}
