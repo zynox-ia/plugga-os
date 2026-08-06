@@ -63,6 +63,12 @@ A autenticação padrão é **real e self-hosted** (ADR-0008): login por e-mail+
 sessão server-side opaca em Postgres, cookie `httpOnly`. O `seed` cria um admin
 local a partir de `SEED_ADMIN_EMAIL`/`SEED_ADMIN_PASSWORD` do seu `.env`.
 
+> **Deixe `SEED_ADMIN_PASSWORD` vazia depois do bootstrap inicial.** Enquanto ela
+> estiver setada, cada `pnpm db:seed` reescreve o hash de senha do admin com esse
+> valor — ou seja, desfaz uma troca de senha feita pela aplicação. O seed já não
+> reativa usuário desativado nem devolve modo de integração revertido, mas a senha
+> continua sendo reaplicada de propósito, para permitir recuperar acesso local.
+
 ```bash
 cp .env.example .env
 docker compose up -d

@@ -41,9 +41,12 @@ async function main() {
     ),
   );
 
+  // `status` is seeded on creation only. It is an access-revocation control
+  // (ADR-0008), not cosmetic state: re-asserting 'active' here would let
+  // `pnpm db:seed` silently reactivate a user an admin had deactivated.
   const devUser = await prisma.user.upsert({
     where: { email: 'dev@plugga.local' },
-    update: { name: 'Pessoa Desenvolvedora Local', status: 'active' },
+    update: { name: 'Pessoa Desenvolvedora Local' },
     create: {
       email: 'dev@plugga.local',
       name: 'Pessoa Desenvolvedora Local',
@@ -62,9 +65,10 @@ async function main() {
   const adminPassword = process.env.SEED_ADMIN_PASSWORD;
   const adminRole = roles.find((role) => role.key === 'admin');
 
+  // Same rule as the dev user: never re-activate on re-seed.
   const adminUser = await prisma.user.upsert({
     where: { email: adminEmail },
-    update: { name: 'Administração Local', status: 'active' },
+    update: { name: 'Administração Local' },
     create: { email: adminEmail, name: 'Administração Local', status: 'active' },
   });
 

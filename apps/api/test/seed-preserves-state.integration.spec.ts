@@ -91,3 +91,58 @@ describeSeed("seed preserves integration cutover state (integration)", () => {
     expect(recreated.status).toBe("unknown");
   }, 180_000);
 });
+
+describeSeed("seed preserves user access revocation (integration)", () => {
+  const ADMIN_EMAIL = (process.env.SEED_ADMIN_EMAIL ?? "admin@plugga.local").toLowerCase();
+  const DEV_EMAIL = "dev@plugga.local";
+  let prisma: PrismaClient;
+
+  beforeAll(async () => {
+    prisma = new PrismaClient();
+    await prisma.$connect();
+    await runSeed();
+  }, 180_000);
+
+  afterAll(async () => {
+    // Leave the local database usable: both seeded identities active again.
+    await prisma.user.updateMany({
+      where: { email: { in: [ADMIN_EMAIL, DEV_EMAIL] } },
+      data: { status: "active" },
+    });
+    await prisma.$disconnect();
+  });
+
+  it.each([
+    ["admin", () => ADMIN_EMAIL],
+    ["dev", () => DEV_EMAIL],
+  ])("does not reactivate a deactivated %s user on re-seed", async (_label, emailOf) => {
+    const email = emailOf();
+    await prisma.user.update({ where: { email }, data: { status: "disabled" } });
+
+    await runSeed();
+
+    const user = await prisma.user.findUniqueOrThrow({ where: { email } });
+    // Reactivating here would silently restore login for a revoked account.
+    expect(user.status).toBe("disabled");
+  }, 180_000);
+
+  it("still refreshes the seeded display name of an existing user", async () => {
+    await prisma.user.update({ where: { email: ADMIN_EMAIL }, data: { name: "stale name" } });
+
+    await runSeed();
+
+    const admin = await prisma.user.findUniqueOrThrow({ where: { email: ADMIN_EMAIL } });
+    expect(admin.name).toBe("Administração Local");
+  }, 180_000);
+
+  it("still creates a missing seeded user as active", async () => {
+    const devUser = await prisma.user.findUniqueOrThrow({ where: { email: DEV_EMAIL } });
+    await prisma.userRole.deleteMany({ where: { userId: devUser.id } });
+    await prisma.user.delete({ where: { email: DEV_EMAIL } });
+
+    await runSeed();
+
+    const recreated = await prisma.user.findUniqueOrThrow({ where: { email: DEV_EMAIL } });
+    expect(recreated.status).toBe("active");
+  }, 180_000);
+});
