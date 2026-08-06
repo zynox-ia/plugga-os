@@ -66,15 +66,15 @@ describe("JobsWorker.dispatch", () => {
     await worker.dispatch(job());
 
     expect(seen).toHaveLength(1);
-    expect(seen[0].payload).toEqual({ domain: "C7" });
-    expect(seen[0].context).toMatchObject({ jobKey: "bitrix.import.opm", attempt: 1 });
+    expect(seen[0]!.payload).toEqual({ domain: "C7" });
+    expect(seen[0]!.context).toMatchObject({ jobKey: "bitrix.import.opm", attempt: 1 });
     expect(repository.runs[0]).toMatchObject({
       jobKey: "bitrix.import.opm",
       integrationKey: "bitrix",
       attempt: 1,
       triggeredBy: "user:1",
     });
-    expect(repository.runs[0].finish?.status).toBe("success");
+    expect(repository.runs[0]!.finish?.status).toBe("success");
   });
 
   it("computes the 1-based attempt from attemptsMade", async () => {
@@ -86,7 +86,7 @@ describe("JobsWorker.dispatch", () => {
 
     await worker.dispatch(job({ attemptsMade: 2 }));
 
-    expect(repository.runs[0].attempt).toBe(3);
+    expect(repository.runs[0]!.attempt).toBe(3);
   });
 
   it("throws and records a failure when the handler throws", async () => {
@@ -99,8 +99,8 @@ describe("JobsWorker.dispatch", () => {
     const { worker, repository } = buildWorker(handler);
 
     await expect(worker.dispatch(job())).rejects.toThrow("read failed");
-    expect(repository.runs[0].finish?.status).toBe("failed");
-    expect(repository.runs[0].finish?.error).toBe("read failed");
+    expect(repository.runs[0]!.finish?.status).toBe("failed");
+    expect(repository.runs[0]!.finish?.error).toBe("read failed");
   });
 
   it("throws when no handler is registered for the job", async () => {

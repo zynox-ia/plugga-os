@@ -47,7 +47,7 @@ describe("JobRunsRecorder", () => {
       return { logRef: "os://job-runs/run-1" };
     });
 
-    const [run] = repository.runs;
+    const run = repository.runs[0]!;
     expect(run.jobKey).toBe("bitrix.import.opm");
     expect(run.integrationKey).toBe("bitrix");
     expect(run.triggeredBy).toBe("user:123");
@@ -66,7 +66,7 @@ describe("JobRunsRecorder", () => {
       }),
     ).rejects.toThrow("bitrix unreachable");
 
-    const [run] = repository.runs;
+    const run = repository.runs[0]!;
     expect(run.finish?.status).toBe("failed");
     expect(run.finish?.error).toBe("bitrix unreachable");
   });
