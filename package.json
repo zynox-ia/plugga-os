@@ -1,0 +1,24 @@
+{
+  "name": "plugga-os",
+  "version": "0.0.0",
+  "private": true,
+  "packageManager": "pnpm@11.20.0",
+  "engines": {
+    "node": ">=22 <27"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "db:generate": "pnpm --filter @plugga/api db:generate",
+    "db:migrate": "pnpm --filter @plugga/api db:migrate",
+    "db:migrate:deploy": "pnpm --filter @plugga/api db:migrate:deploy",
+    "db:seed": "pnpm --filter @plugga/api db:seed",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "test:db": "pnpm --filter @plugga/api test:db",
+    "typecheck": "turbo run typecheck"
+  },
+  "devDependencies": {
+    "turbo": "2.5.6"
+  }
+}

@@ -1,0 +1,60 @@
+name: Bug report
+description: Report a reproducible problem in Plugga OS
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not include credentials, tokens, personal data, production URLs, or unmasked logs.
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What happened, and what did you expect instead?
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: Provide the smallest local or mock-only sequence that reproduces the problem.
+      placeholder: |
+        1. Run ...
+        2. Open ...
+        3. Observe ...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Web
+        - API
+        - Shared contracts
+        - Database / local infrastructure
+        - CI / tooling
+        - Documentation
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Sanitized evidence
+      description: Add local logs, screenshots, or test output after removing secrets and personal data.
+
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety confirmation
+      options:
+        - label: This report contains no secret, credential, production endpoint, or unmasked personal data.
+          required: true
+        - label: Reproduction does not write to or reconfigure a real integration, channel, cron, or production service.
+          required: true
