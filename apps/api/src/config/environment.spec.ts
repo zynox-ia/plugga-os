@@ -142,4 +142,61 @@ describe("validateEnvironment", () => {
       }),
     ).toThrow(/AUTH_SESSION_SECRET/);
   });
+
+  it("treats the Bitrix credential as optional and defaults the page size", () => {
+    const environment = validateEnvironment({
+      NODE_ENV: "development",
+      DATABASE_URL: localDatabaseUrl,
+      AUTH_SESSION_SECRET: sessionSecret,
+    });
+
+    expect(environment.BITRIX_WEBHOOK_URL).toBeUndefined();
+    expect(environment.BITRIX_OPM_ENTITY_TYPE_ID).toBeUndefined();
+    expect(environment.BITRIX_IMPORT_PAGE_SIZE).toBe(50);
+  });
+
+  it("accepts a Bitrix REST webhook over https", () => {
+    const environment = validateEnvironment({
+      NODE_ENV: "development",
+      DATABASE_URL: localDatabaseUrl,
+      AUTH_SESSION_SECRET: sessionSecret,
+      BITRIX_WEBHOOK_URL: "https://portal.bitrix24.com/rest/1/token/",
+      BITRIX_OPM_ENTITY_TYPE_ID: "1032",
+    });
+
+    expect(environment.BITRIX_OPM_ENTITY_TYPE_ID).toBe(1032);
+  });
+
+  it("rejects a Bitrix webhook sent over plaintext http", () => {
+    expect(() =>
+      validateEnvironment({
+        NODE_ENV: "development",
+        DATABASE_URL: localDatabaseUrl,
+        AUTH_SESSION_SECRET: sessionSecret,
+        BITRIX_WEBHOOK_URL: "http://portal.bitrix24.com/rest/1/token/",
+      }),
+    ).toThrow(/BITRIX_WEBHOOK_URL must use https/);
+  });
+
+  it("rejects a URL that is not a Bitrix REST webhook", () => {
+    expect(() =>
+      validateEnvironment({
+        NODE_ENV: "development",
+        DATABASE_URL: localDatabaseUrl,
+        AUTH_SESSION_SECRET: sessionSecret,
+        BITRIX_WEBHOOK_URL: "https://portal.bitrix24.com/not-a-webhook/",
+      }),
+    ).toThrow(/BITRIX_WEBHOOK_URL/);
+  });
+
+  it("rejects a page size above the Bitrix per-page cap", () => {
+    expect(() =>
+      validateEnvironment({
+        NODE_ENV: "development",
+        DATABASE_URL: localDatabaseUrl,
+        AUTH_SESSION_SECRET: sessionSecret,
+        BITRIX_IMPORT_PAGE_SIZE: "500",
+      }),
+    ).toThrow(/BITRIX_IMPORT_PAGE_SIZE/);
+  });
 });
