@@ -36,3 +36,4 @@ knowledge/inventory/
 *.log
 tmp/
 .temp/
+docs/mockup/*.zip
