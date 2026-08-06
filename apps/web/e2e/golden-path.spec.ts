@@ -42,16 +42,9 @@ test.describe("Golden path — Dashboard → Pendências → Integrações → J
     }
   });
 
-  // Known gap (UI_QA smoke, 2026-08-06): PluggaShell's activeView state defaults
-  // to "inicio" and isn't derived from usePathname(), so a hard navigation/reload
-  // on any non-Dashboard route still renders the Dashboard greeting + CTA and no
-  // sidebar item is marked aria-current. Reported to FEATURE; unskip once fixed.
-  test.fixme(
-    "header title and active nav item reflect the current route on hard navigation",
-    async ({ page }) => {
-      await page.goto("/integracoes");
-      await expect(page.locator(".context-page")).toHaveText("Integrações");
-      await expect(page.getByRole("button", { name: "Integrações" })).toHaveAttribute("aria-current", "page");
-    },
-  );
+  test("header title and active nav item reflect the current route on hard navigation", async ({ page }) => {
+    await page.goto("/integracoes");
+    await expect(page.locator(".context-page")).toHaveText("Integrações");
+    await expect(page.getByRole("button", { name: "Integrações" })).toHaveAttribute("aria-current", "page");
+  });
 });

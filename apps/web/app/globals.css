@@ -36,7 +36,7 @@ button:focus-visible, a:focus-visible { outline: 3px solid var(--folha); outline
 .brand-lockup { display: flex; align-items: center; gap: 10px; padding: 6px 10px 16px; border-bottom: 1px solid rgba(224, 219, 199, .14); }
 .brand-lockup img { width: 126px; height: 37px; object-fit: contain; object-position: left center; filter: brightness(0) invert(1) sepia(.15) saturate(.4); }
 .brand-badge { margin-left: auto; padding: 4px 7px; color: var(--folha); border: 1px solid rgba(0, 175, 136, .45); border-radius: 999px; font: 600 10px/1 Anybody, sans-serif; letter-spacing: .08em; text-transform: uppercase; }
-.sidebar-nav { display: grid; gap: 20px; }
+.sidebar-nav { display: grid; flex: 1 1 auto; min-height: 0; gap: 20px; overflow-y: auto; overflow-x: hidden; scrollbar-width: thin; scrollbar-color: rgba(224, 219, 199, .35) transparent; }
 .nav-group { display: grid; gap: 4px; }
 .nav-label { padding: 0 12px 5px; color: rgba(224, 219, 199, .58); font: 500 11px/1 Anybody, sans-serif; letter-spacing: .12em; text-transform: uppercase; }
 .nav-item { display: flex; align-items: center; gap: 10px; width: 100%; padding: 11px 12px; color: rgba(224, 219, 199, .82); text-align: left; background: transparent; border: 0; border-radius: 12px; cursor: pointer; transition: background .15s ease, color .15s ease; }

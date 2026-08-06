@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 type ViewId = "inicio" | "ops" | "crm" | "jobs";
 type IconName = "home" | "pulse" | "users" | "briefcase" | "settings";
@@ -150,9 +150,24 @@ function ViewContent({ view }: { view: ViewId }) {
   return <Overview />;
 }
 
-export function PluggaShell({ children, navigation, onNavigate }: { children?: ReactNode; navigation?: ShellNavGroup[]; onNavigate?: (id: string) => void }) {
-  const [activeView, setActiveView] = useState("inicio");
+export function PluggaShell({
+  children,
+  navigation,
+  onNavigate,
+  activeId,
+}: {
+  children?: ReactNode;
+  navigation?: ShellNavGroup[];
+  onNavigate?: (id: string) => void;
+  /** Optional controlled sync (e.g. from usePathname()) — keeps the header/active nav item correct on hard navigation. */
+  activeId?: string;
+}) {
+  const [activeView, setActiveView] = useState(activeId ?? "inicio");
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
+  useEffect(() => {
+    if (activeId) setActiveView(activeId);
+  }, [activeId]);
   const copy = viewCopy[activeView as ViewId] ?? { title: activeView, description: "Área operacional Plugga OS" };
 
   const selectView = (view: string) => {

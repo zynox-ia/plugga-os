@@ -61,3 +61,7 @@ export const ROUTE_BY_NAV_ID: Record<string, string> = {
   "Agentes IA": "/agentes-ia",
   "Administração": "/administracao",
 };
+
+export const NAV_ID_BY_ROUTE: Record<string, string> = Object.fromEntries(
+  Object.entries(ROUTE_BY_NAV_ID).map(([id, route]) => [route, id]),
+);
