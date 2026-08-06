@@ -2,10 +2,11 @@ import { Controller, Get, Inject, UseGuards } from "@nestjs/common";
 import type { ListIntegrationsResponse } from "@plugga/shared";
 
 import { DevAuthGuard } from "../core/auth/dev-auth.guard";
+import { RolesGuard } from "../core/auth/roles.guard";
 import { IntegrationsService } from "./integrations.service";
 
 @Controller("integrations")
-@UseGuards(DevAuthGuard)
+@UseGuards(DevAuthGuard, RolesGuard)
 export class IntegrationsController {
   constructor(@Inject(IntegrationsService) private readonly service: IntegrationsService) {}
 
