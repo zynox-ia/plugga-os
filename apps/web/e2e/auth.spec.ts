@@ -2,7 +2,11 @@ import { expect, test } from "@playwright/test";
 
 // This file exercises the signed-out flows on purpose, so it opts out of the
 // project's default authenticated storage state (see playwright.config.ts).
-test.use({ storageState: { cookies: [], origins: [] } });
+// It also gets its own synthetic X-Forwarded-For: every real /auth/login call
+// in the suite runs from this one machine, and without a distinguishing IP
+// they'd all share the 10-req/60s login throttle bucket and 429 each other
+// (see apps/api/src/main.ts's loopback trust + apps/web/app/lib/auth-proxy.ts).
+test.use({ storageState: { cookies: [], origins: [] }, extraHTTPHeaders: { "x-forwarded-for": "203.0.113.202" } });
 
 /** Matches apps/api/prisma/seed.ts + .env.example / CI job env — local dev only. */
 const email = process.env.SEED_ADMIN_EMAIL ?? "admin@plugga.local";

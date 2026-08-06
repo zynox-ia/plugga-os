@@ -2,8 +2,15 @@ import { expect, test } from "@playwright/test";
 
 // Exercises invite-accept and password-reset end to end (API -> Mailpit ->
 // browser), so it opts out of the project's default authenticated storage
-// state, same as auth.spec.ts.
-test.use({ storageState: { cookies: [], origins: [] } });
+// state, same as auth.spec.ts. It also gets its own synthetic X-Forwarded-For
+// (browser requests below, plus the FORWARDED_FOR header on this file's direct
+// fetch() calls, which bypass the browser context entirely): every real
+// /auth/login call in the suite runs from this one machine, and without a
+// distinguishing IP they'd all share the 10-req/60s login throttle bucket and
+// 429 each other (see apps/api/src/main.ts's loopback trust +
+// apps/web/app/lib/auth-proxy.ts).
+const FORWARDED_FOR = "203.0.113.203";
+test.use({ storageState: { cookies: [], origins: [] }, extraHTTPHeaders: { "x-forwarded-for": FORWARDED_FOR } });
 
 /** Matches apps/api/prisma/seed.ts + .env.example / CI job env — local dev only. */
 const adminEmail = process.env.SEED_ADMIN_EMAIL ?? "admin@plugga.local";
@@ -15,7 +22,7 @@ const mailpitBaseUrl = process.env.E2E_MAILPIT_URL ?? "http://127.0.0.1:8025";
 async function loginAsAdmin(): Promise<string> {
   const response = await fetch(`${apiBaseUrl}/auth/login`, {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", "x-forwarded-for": FORWARDED_FOR },
     body: JSON.stringify({ email: adminEmail, password: adminPassword }),
   });
   if (!response.ok) {
@@ -35,7 +42,7 @@ async function loginAsAdmin(): Promise<string> {
 async function inviteUser(sessionCookie: string, email: string, name: string): Promise<void> {
   const response = await fetch(`${apiBaseUrl}/auth/invite`, {
     method: "POST",
-    headers: { "content-type": "application/json", cookie: sessionCookie },
+    headers: { "content-type": "application/json", cookie: sessionCookie, "x-forwarded-for": FORWARDED_FOR },
     body: JSON.stringify({ email, name, roles: ["viewer"] }),
   });
   if (!response.ok) {
@@ -46,7 +53,7 @@ async function inviteUser(sessionCookie: string, email: string, name: string): P
 async function requestReset(email: string): Promise<void> {
   const response = await fetch(`${apiBaseUrl}/auth/reset/request`, {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", "x-forwarded-for": FORWARDED_FOR },
     body: JSON.stringify({ email }),
   });
   if (!response.ok) {
@@ -113,7 +120,7 @@ test.describe("Auth — invite accept and password reset", () => {
     // Consume it once via the API directly (equivalent to the happy-path UI flow).
     const firstAccept = await fetch(`${apiBaseUrl}/auth/accept-invite`, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", "x-forwarded-for": FORWARDED_FOR },
       body: JSON.stringify({ token, password: "a-perfectly-fine-password-1" }),
     });
     expect(firstAccept.ok).toBe(true);
@@ -161,7 +168,7 @@ test.describe("Auth — invite accept and password reset", () => {
     const inviteToken = await findTokenInEmail(email, "Convite");
     const activate = await fetch(`${apiBaseUrl}/auth/accept-invite`, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", "x-forwarded-for": FORWARDED_FOR },
       body: JSON.stringify({ token: inviteToken, password: "original-password-0" }),
     });
     expect(activate.ok).toBe(true);

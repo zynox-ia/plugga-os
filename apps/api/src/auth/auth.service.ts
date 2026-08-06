@@ -28,6 +28,7 @@ import { generateOpaqueToken, hashToken } from "../core/auth/token.util";
 import { EmailPort } from "../email/email.port";
 import { maskEmail } from "../email/email.util";
 import { AuthRepository, type AuthUserRecord } from "./auth.repository";
+import { EmailAttemptLimiter } from "./email-attempt-limiter.service";
 import { LockoutService } from "./lockout.service";
 import { PasswordService } from "./password.service";
 import { SessionService, type SessionContext } from "./session.service";
@@ -49,6 +50,7 @@ export class AuthService {
     @Inject(PasswordService) private readonly passwords: PasswordService,
     @Inject(SessionService) private readonly sessions: SessionService,
     @Inject(LockoutService) private readonly lockout: LockoutService,
+    @Inject(EmailAttemptLimiter) private readonly emailLimiter: EmailAttemptLimiter,
     @Inject(EmailPort) private readonly email: EmailPort,
     @Inject(AuditRepository) private readonly audit: AuditRepository,
     @Inject(ConfigService) private readonly config: ConfigService,
@@ -56,7 +58,10 @@ export class AuthService {
 
   async login(input: LoginRequest, context: SessionContext): Promise<LoginResult> {
     const lockKey = `${input.email}:${context.ip ?? "unknown"}`;
-    if (this.lockout.isLocked(lockKey)) {
+    // The (email, IP) lock alone is bypassable by rotating X-Forwarded-For
+    // (client-controlled); the email-only cap below stacks on top of it so
+    // brute-forcing one account doesn't reset just by switching IPs.
+    if (this.lockout.isLocked(lockKey) || this.emailLimiter.isBlocked(input.email)) {
       throw new UnauthorizedException("invalid credentials");
     }
 
@@ -69,6 +74,7 @@ export class AuthService {
 
     if (!user || user.status !== "active" || !passwordValid) {
       this.lockout.recordFailure(lockKey);
+      this.emailLimiter.recordFailure(input.email);
       await this.audit.appendEvent({
         eventName: eventNames.authLoginFailed,
         entityType: "auth",
@@ -82,6 +88,7 @@ export class AuthService {
     }
 
     this.lockout.reset(lockKey);
+    this.emailLimiter.reset(input.email);
     const token = await this.sessions.issue(user.id, context);
     await this.audit.appendEvent({
       eventName: eventNames.authLoginSucceeded,

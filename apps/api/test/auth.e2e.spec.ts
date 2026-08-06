@@ -303,10 +303,23 @@ describe("auth API (e2e, in-memory stores)", () => {
     await app.close();
   });
 
-  async function loginAgent(userEmail: string, password: string) {
+  // Every request without an explicit X-Forwarded-For shares one throttle
+  // bucket (see apps/api/src/main.ts's loopback trust). Tests that don't care
+  // about IP-specific behavior still each make a real /auth/login call, and
+  // collectively they'd exceed the 10-req/60s login limit and start seeing
+  // spurious 429s — the same failure mode the ARCHITECT found in the
+  // Playwright suite. Give each an independent synthetic IP by default.
+  let testIpCounter = 0;
+  function nextTestIp(): string {
+    testIpCounter += 1;
+    return `10.99.0.${testIpCounter}`;
+  }
+
+  async function loginAgent(userEmail: string, password: string, ip = nextTestIp()) {
     const agent = request.agent(app.getHttpServer());
     const response = await agent
       .post("/auth/login")
+      .set("X-Forwarded-For", ip)
       .send({ email: userEmail, password })
       .expect(200);
     return { agent, response };
@@ -322,6 +335,7 @@ describe("auth API (e2e, in-memory stores)", () => {
   it("rejects a wrong password generically without a cookie", async () => {
     const response = await request(app.getHttpServer())
       .post("/auth/login")
+      .set("X-Forwarded-For", nextTestIp())
       .send({ email: adminEmail, password: "wrong-password" })
       .expect(401);
     expect(response.body.message).toBe("invalid credentials");
@@ -368,6 +382,32 @@ describe("auth API (e2e, in-memory stores)", () => {
       .expect(200);
   });
 
+  it("caps failed login attempts per email even when X-Forwarded-For rotates every request", async () => {
+    // The (email, IP) lock in LockoutService alone is bypassable: an attacker
+    // who sends a fresh X-Forwarded-For on every request gets a fresh lock key
+    // each time, so per-IP locking never engages. This email-only cap (stacked
+    // on top of, not instead of, the (email, IP) lock) closes that gap.
+    const targetEmail = "brute-force-target@plugga.local";
+
+    for (let i = 0; i < 30; i++) {
+      await request(app.getHttpServer())
+        .post("/auth/login")
+        .set("X-Forwarded-For", `198.51.100.${i + 1}`)
+        .send({ email: targetEmail, password: "wrong-password" })
+        .expect(401);
+    }
+
+    // 31st attempt, yet another fresh IP: still rejected purely on the email cap.
+    await request(app.getHttpServer())
+      .post("/auth/login")
+      .set("X-Forwarded-For", "198.51.100.200")
+      .send({ email: targetEmail, password: "wrong-password" })
+      .expect(401);
+
+    // A different account is entirely unaffected by targetEmail's cap.
+    await loginAgent(adminEmail, adminPassword);
+  });
+
   it("rejects /auth/me without a session cookie", async () => {
     await request(app.getHttpServer()).get("/auth/me").expect(401);
   });
@@ -406,6 +446,7 @@ describe("auth API (e2e, in-memory stores)", () => {
     // Cannot log in before accepting (no credential, not active).
     await request(app.getHttpServer())
       .post("/auth/login")
+      .set("X-Forwarded-For", nextTestIp())
       .send({ email: "opm@plugga.local", password: "brand new password" })
       .expect(401);
 
