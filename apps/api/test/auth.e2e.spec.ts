@@ -323,12 +323,26 @@ describe("auth API (e2e, in-memory stores)", () => {
   });
 
   it("resolves /auth/me from the session cookie and revokes on logout", async () => {
-    const { agent } = await loginAgent(adminEmail, adminPassword);
+    const { agent, response } = await loginAgent(adminEmail, adminPassword);
+    const rawSetCookie = response.headers["set-cookie"]?.[0];
+    expect(rawSetCookie).toBeDefined();
+    // Capture the opaque session cookie before logout clears the agent jar.
+    const rawCookieHeader = String(rawSetCookie).split(";")[0];
+
     const me = await agent.get("/auth/me").expect(200);
     expect(me.body.email).toBe(adminEmail);
+    expect(store.sessions.size).toBe(1);
 
     await agent.post("/auth/logout").expect(200, { ok: true });
+    expect(store.sessions.size).toBe(0);
+
+    // Client jar cleared — and replaying the captured cookie must also 401
+    // (server-side revoke). Cookie-clear alone must not make this test green.
     await agent.get("/auth/me").expect(401);
+    await request(app.getHttpServer())
+      .get("/auth/me")
+      .set("Cookie", rawCookieHeader)
+      .expect(401);
   });
 
   it("lets an admin invite a user who then accepts and logs in", async () => {
