@@ -43,17 +43,72 @@ enum JobRunStatus {
   @@map("job_run_status")
 }
 
+enum AuthTokenType {
+  invite
+  reset
+
+  @@map("auth_token_type")
+}
+
 model User {
-  id           String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  email        String        @unique
+  id           String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email        String          @unique
   name         String
-  status       String        @default("active")
-  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt    DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+  status       String          @default("active")
+  createdAt    DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
   roles        UserRole[]
   agentActions AgentAction[]
+  credential   UserCredential?
+  sessions     Session[]
+  authTokens   AuthToken[]
 
   @@map("users")
+}
+
+/// Password credential, 1:1 with a user. Argon2id hash only; never logged.
+model UserCredential {
+  userId       String   @id @map("user_id") @db.Uuid
+  passwordHash String   @map("password_hash")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_credentials")
+}
+
+/// Opaque server-side session. Only the token hash is stored; revocation is a
+/// delete. Sliding expiry (expiresAt) capped by an absolute deadline.
+model Session {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId            String   @map("user_id") @db.Uuid
+  tokenHash         String   @unique @map("token_hash")
+  expiresAt         DateTime @map("expires_at") @db.Timestamptz(6)
+  absoluteExpiresAt DateTime @map("absolute_expires_at") @db.Timestamptz(6)
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  lastUsedAt        DateTime @default(now()) @map("last_used_at") @db.Timestamptz(6)
+  ip                String?
+  userAgent         String?  @map("user_agent")
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+/// Single-use invite/reset token. Only the hash is stored; consumedAt marks use.
+model AuthToken {
+  id         String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId     String        @map("user_id") @db.Uuid
+  type       AuthTokenType
+  tokenHash  String        @unique @map("token_hash")
+  expiresAt  DateTime      @map("expires_at") @db.Timestamptz(6)
+  consumedAt DateTime?     @map("consumed_at") @db.Timestamptz(6)
+  createdAt  DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  user       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, type])
+  @@map("auth_tokens")
 }
 
 model Role {
