@@ -77,7 +77,7 @@ export class JobsWorker implements OnApplicationBootstrap, OnModuleDestroy {
           attempt,
           jobRunId,
         });
-        return { logRef: result?.logRef };
+        return { logRef: result?.logRef, skipped: result?.skipped };
       },
     );
   }

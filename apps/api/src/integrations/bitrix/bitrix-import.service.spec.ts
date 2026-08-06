@@ -1,7 +1,8 @@
-import { ConfigService } from "@nestjs/config";
+import type { ConfigService } from "@nestjs/config";
+import type { IntegrationMode } from "@plugga/shared";
 import { describe, expect, it } from "vitest";
 
-import { BitrixImportService } from "./bitrix-import.service";
+import { BitrixImportService, type ImportSummary } from "./bitrix-import.service";
 import { BITRIX_MAX_PAGES } from "./bitrix.constants";
 import {
   BitrixReadClient,
@@ -42,8 +43,12 @@ class InMemoryBitrixRepository extends BitrixRepository {
   readonly rows = new Map<string, MirrorRecordInput>();
   readonly writes: MirrorUpsertOutcome[] = [];
 
-  async getIntegrationMode(): Promise<"read_only"> {
-    return "read_only";
+  constructor(private readonly mode: IntegrationMode | null = "read_only") {
+    super();
+  }
+
+  async getIntegrationMode(): Promise<IntegrationMode | null> {
+    return this.mode;
   }
 
   async upsertMirrorRecord(input: MirrorRecordInput): Promise<MirrorUpsertOutcome> {
@@ -65,34 +70,105 @@ class InMemoryBitrixRepository extends BitrixRepository {
   }
 }
 
+/** Literal stub: a real ConfigService falls back to process.env. */
+function configStub(values: Record<string, unknown>): ConfigService {
+  return {
+    get: (key: string, defaultValue?: unknown): unknown =>
+      key in values ? values[key] : defaultValue,
+  } as unknown as ConfigService;
+}
+
+const CREDENTIAL = {
+  BITRIX_WEBHOOK_URL: "https://portal.example.com/rest/1/token",
+  BITRIX_OPM_ENTITY_TYPE_ID: 1032,
+};
+
 function buildService(
   pages: BitrixListResponse[],
-  environment: Record<string, unknown> = {},
+  options: {
+    environment?: Record<string, unknown>;
+    mode?: IntegrationMode | null;
+  } = {},
 ) {
   const client = new StubReadClient(pages);
-  const repository = new InMemoryBitrixRepository();
-  const config = new ConfigService({
-    BITRIX_OPM_ENTITY_TYPE_ID: 1032,
-    BITRIX_IMPORT_PAGE_SIZE: 50,
-    ...environment,
-  });
+  // `in`, not `??`: an explicit `mode: null` must not fall back to read_only.
+  const repository = new InMemoryBitrixRepository(
+    "mode" in options ? options.mode! : "read_only",
+  );
+  const config = configStub({ ...CREDENTIAL, ...options.environment });
   return { service: new BitrixImportService(client, repository, config), client, repository };
 }
 
-describe("BitrixImportService.importOpm", () => {
-  it("refuses to run when the OPM entity type is not configured", async () => {
-    const { service, client } = buildService([], { BITRIX_OPM_ENTITY_TYPE_ID: undefined });
+/** Unwraps a run that is expected to have actually imported. */
+function expectImported(outcome: Awaited<ReturnType<BitrixImportService["importOpm"]>>) {
+  if (outcome.skipped) {
+    throw new Error(`expected an import, got skipped (${outcome.reason})`);
+  }
+  return outcome.summary satisfies ImportSummary;
+}
 
-    await expect(service.importOpm()).rejects.toThrow(/BITRIX_OPM_ENTITY_TYPE_ID/);
+describe("BitrixImportService gate", () => {
+  it("skips without reading Bitrix while the integration is in mock mode", async () => {
+    const { service, client } = buildService([{ result: [{ id: 1 }] }], { mode: "mock" });
+
+    await expect(service.importOpm()).resolves.toEqual({ skipped: true, reason: "mode" });
     expect(client.calls).toHaveLength(0);
   });
 
-  it("reads the OPM domain with a read-only list method and the configured page size", async () => {
+  it("skips without reading Bitrix when the integration row is missing", async () => {
+    const { service, client } = buildService([{ result: [{ id: 1 }] }], { mode: null });
+
+    await expect(service.importOpm()).resolves.toEqual({ skipped: true, reason: "mode" });
+    expect(client.calls).toHaveLength(0);
+  });
+
+  it("skips without reading Bitrix when the credential is absent", async () => {
     const { service, client } = buildService([{ result: [{ id: 1 }] }], {
-      BITRIX_IMPORT_PAGE_SIZE: 25,
+      environment: { BITRIX_WEBHOOK_URL: undefined },
     });
 
-    const summary = await service.importOpm();
+    await expect(service.importOpm()).resolves.toEqual({
+      skipped: true,
+      reason: "credential",
+    });
+    expect(client.calls).toHaveLength(0);
+  });
+
+  it("skips without reading Bitrix when the OPM entity type is absent", async () => {
+    const { service, client } = buildService([{ result: [{ id: 1 }] }], {
+      environment: { BITRIX_OPM_ENTITY_TYPE_ID: undefined },
+    });
+
+    await expect(service.importOpm()).resolves.toEqual({
+      skipped: true,
+      reason: "credential",
+    });
+    expect(client.calls).toHaveLength(0);
+  });
+
+  it("reports the gate decision for synchronous callers", async () => {
+    await expect(buildService([], { mode: "mock" }).service.evaluateGate()).resolves.toEqual({
+      allowed: false,
+      reason: "mode",
+      mode: "mock",
+    });
+    await expect(
+      buildService([], { environment: { BITRIX_WEBHOOK_URL: undefined } }).service.evaluateGate(),
+    ).resolves.toEqual({ allowed: false, reason: "credential" });
+    await expect(buildService([]).service.evaluateGate()).resolves.toEqual({
+      allowed: true,
+      entityTypeId: 1032,
+    });
+  });
+});
+
+describe("BitrixImportService.importOpm", () => {
+  it("reads the OPM domain with a read-only list method and the configured page size", async () => {
+    const { service, client } = buildService([{ result: [{ id: 1 }] }], {
+      environment: { BITRIX_IMPORT_PAGE_SIZE: 25 },
+    });
+
+    const summary = expectImported(await service.importOpm());
 
     expect(client.calls).toEqual([
       { method: "crm.item.list", params: { entityTypeId: 1032, limit: 25 }, start: 0 },
@@ -107,7 +183,7 @@ describe("BitrixImportService.importOpm", () => {
       { result: [{ id: 4 }] },
     ]);
 
-    const summary = await service.importOpm();
+    const summary = expectImported(await service.importOpm());
 
     expect(client.calls.map((call) => call.start)).toEqual([0, 2, 3]);
     expect(summary).toMatchObject({ read: 4, created: 4, updated: 0, unchanged: 0 });
@@ -119,11 +195,18 @@ describe("BitrixImportService.importOpm", () => {
     const page = { result: [{ id: 1, title: "OPM-1" }, { id: 2, title: "OPM-2" }] };
     const { service, repository } = buildService([page, page]);
 
-    const first = await service.importOpm();
-    expect(first).toMatchObject({ read: 2, created: 2, updated: 0, unchanged: 0 });
-
-    const second = await service.importOpm();
-    expect(second).toMatchObject({ read: 2, created: 0, updated: 0, unchanged: 2 });
+    expect(expectImported(await service.importOpm())).toMatchObject({
+      read: 2,
+      created: 2,
+      updated: 0,
+      unchanged: 0,
+    });
+    expect(expectImported(await service.importOpm())).toMatchObject({
+      read: 2,
+      created: 0,
+      updated: 0,
+      unchanged: 2,
+    });
     expect(repository.rows.size).toBe(2);
     expect(repository.writes).toEqual(["created", "created", "unchanged", "unchanged"]);
   });
@@ -135,9 +218,13 @@ describe("BitrixImportService.importOpm", () => {
     ]);
 
     await service.importOpm();
-    const second = await service.importOpm();
 
-    expect(second).toMatchObject({ read: 2, created: 0, updated: 1, unchanged: 1 });
+    expect(expectImported(await service.importOpm())).toMatchObject({
+      read: 2,
+      created: 0,
+      updated: 1,
+      unchanged: 1,
+    });
     expect(repository.rows.get("opm:1")?.payload).toEqual({ id: 1, title: "after" });
   });
 
@@ -149,7 +236,10 @@ describe("BitrixImportService.importOpm", () => {
 
     await service.importOpm();
 
-    await expect(service.importOpm()).resolves.toMatchObject({ unchanged: 1, updated: 0 });
+    expect(expectImported(await service.importOpm())).toMatchObject({
+      unchanged: 1,
+      updated: 0,
+    });
   });
 
   it("counts records with no usable id as skipped instead of dropping them silently", async () => {
@@ -157,9 +247,11 @@ describe("BitrixImportService.importOpm", () => {
       { result: [{ id: 1 }, { name: "no id" }, { id: "" }, null, { id: 7 }] },
     ]);
 
-    const summary = await service.importOpm();
-
-    expect(summary).toMatchObject({ read: 5, created: 2, skipped: 3 });
+    expect(expectImported(await service.importOpm())).toMatchObject({
+      read: 5,
+      created: 2,
+      skipped: 3,
+    });
     expect(repository.rows.size).toBe(2);
   });
 
@@ -189,12 +281,10 @@ describe("BitrixImportService.importOpm", () => {
     const service = new BitrixImportService(
       client,
       new InMemoryBitrixRepository(),
-      new ConfigService({ BITRIX_OPM_ENTITY_TYPE_ID: 1032 }),
+      configStub(CREDENTIAL),
     );
 
-    const summary = await service.importOpm();
-
-    expect(summary.truncated).toBe(true);
+    expect(expectImported(await service.importOpm()).truncated).toBe(true);
     expect(client.pages).toBe(BITRIX_MAX_PAGES);
   });
 
@@ -204,7 +294,7 @@ describe("BitrixImportService.importOpm", () => {
     await service.importOpm();
 
     for (const call of client.calls) {
-      expect(call.method).toMatch(/\.(list|get|fields)$/);
+      expect(call.method).toBe("crm.item.list");
     }
   });
 });

@@ -23,6 +23,12 @@ export interface JobContext {
 export interface JobResult {
   /** Optional pointer for observability (never a secret/token — ADR-0007). */
   logRef?: string;
+  /**
+   * Marks the run as `skipped` instead of `success`. A handler returns this when
+   * its own gate refuses the work (e.g. an integration that is not in the
+   * required mode), so a refusal is never recorded as a completed run.
+   */
+  skipped?: boolean;
 }
 
 /**

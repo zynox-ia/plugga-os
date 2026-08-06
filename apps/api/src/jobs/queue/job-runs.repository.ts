@@ -8,7 +8,7 @@ export interface StartJobRunData {
 }
 
 export interface FinishJobRunData {
-  status: "success" | "failed";
+  status: "success" | "failed" | "skipped";
   finishedAt: Date;
   durationMs: number;
   error?: string | null;

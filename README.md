@@ -177,7 +177,11 @@ O import só existe como capacidade quando **as duas** condições valem:
    decisão de cutover, não um default), e
 2. a credencial está presente no ambiente.
 
-Sem modo → `409`; sem credencial → `503`. Em nenhum dos casos o Bitrix é lido.
+O gate é avaliado **no momento em que o job roda**, não só na chamada HTTP. Um
+job enfileirado pelo scheduler, ou uma retentativa do BullMQ que executa depois
+de o modo ser rebaixado, encontra o gate fechado e registra `job_run` com status
+`skipped` — sem ler o Bitrix. O `409` (sem modo) e o `503` (sem credencial) do
+endpoint são apenas feedback síncrono para quem chamou, não a garantia.
 
 ```bash
 # Enfileira o import (admin apenas); o worker precisa de JOBS_ENABLED=true:

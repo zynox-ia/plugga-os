@@ -56,6 +56,21 @@ describe("JobRunsRecorder", () => {
     expect(run.finish?.durationMs).toBeGreaterThanOrEqual(0);
   });
 
+  it("records `skipped` when the handler's own gate refuses the work", async () => {
+    const repository = new InMemoryJobRunsRepository();
+    const recorder = new JobRunsRecorder(repository);
+
+    await recorder.run(meta, async () => ({
+      skipped: true,
+      logRef: "os://bitrix/opm skipped reason=mode",
+    }));
+
+    const run = repository.runs[0]!;
+    // A refusal must never be indistinguishable from completed work.
+    expect(run.finish?.status).toBe("skipped");
+    expect(run.finish?.logRef).toBe("os://bitrix/opm skipped reason=mode");
+  });
+
   it("records failure with the error message and rethrows", async () => {
     const repository = new InMemoryJobRunsRepository();
     const recorder = new JobRunsRecorder(repository);

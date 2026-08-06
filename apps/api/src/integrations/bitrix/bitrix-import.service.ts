@@ -2,8 +2,10 @@ import { createHash } from "node:crypto";
 
 import { Inject, Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
+import type { IntegrationMode } from "@plugga/shared";
 
 import {
+  BITRIX_INTEGRATION_KEY,
   BITRIX_MAX_PAGES,
   BITRIX_OPM_DOMAIN,
 } from "./bitrix.constants";
@@ -28,6 +30,16 @@ interface DomainDescriptor {
   params: BitrixListParams;
 }
 
+/** Why the migrator may (or may not) read Bitrix right now. */
+export type BitrixGate =
+  | { allowed: true; entityTypeId: number }
+  | { allowed: false; reason: "mode"; mode: IntegrationMode | null }
+  | { allowed: false; reason: "credential" };
+
+export type ImportOutcome =
+  | { skipped: true; reason: "mode" | "credential" }
+  | { skipped: false; summary: ImportSummary };
+
 @Injectable()
 export class BitrixImportService {
   private readonly logger = new Logger(BitrixImportService.name);
@@ -38,18 +50,47 @@ export class BitrixImportService {
     @Inject(ConfigService) private readonly config: ConfigService,
   ) {}
 
-  /** Imports the OPM (Bitrix "C7") domain into the read-only mirror. */
-  async importOpm(): Promise<ImportSummary> {
-    const entityTypeId = this.config.get<number>("BITRIX_OPM_ENTITY_TYPE_ID");
-    if (!entityTypeId) {
-      throw new Error("BITRIX_OPM_ENTITY_TYPE_ID is not configured");
+  /**
+   * The capability gate (ADR-0009): reading Bitrix requires BOTH `read_only`
+   * mode AND a configured credential. It lives here — the narrowest point every
+   * caller passes through — so no entry path (HTTP, scheduler, BullMQ retry
+   * after a mode downgrade) can reach Bitrix by going around the controller.
+   */
+  async evaluateGate(): Promise<BitrixGate> {
+    const mode = await this.repository.getIntegrationMode(BITRIX_INTEGRATION_KEY);
+    if (mode !== "read_only") {
+      return { allowed: false, reason: "mode", mode };
     }
 
-    return this.importDomain({
+    const webhookUrl = this.config.get<string>("BITRIX_WEBHOOK_URL");
+    const entityTypeId = this.config.get<number>("BITRIX_OPM_ENTITY_TYPE_ID");
+    if (!webhookUrl || !entityTypeId) {
+      return { allowed: false, reason: "credential" };
+    }
+
+    return { allowed: true, entityTypeId };
+  }
+
+  /**
+   * Imports the OPM (Bitrix "C7") domain into the read-only mirror. Re-checks
+   * the gate itself and returns a skip instead of reading when it is closed.
+   */
+  async importOpm(): Promise<ImportOutcome> {
+    const gate = await this.evaluateGate();
+    if (!gate.allowed) {
+      this.logger.warn(
+        `bitrix import refused before any read: domain='${BITRIX_OPM_DOMAIN}' reason=${gate.reason}` +
+          (gate.reason === "mode" ? ` mode=${gate.mode ?? "unknown"}` : ""),
+      );
+      return { skipped: true, reason: gate.reason };
+    }
+
+    const summary = await this.importDomain({
       domain: BITRIX_OPM_DOMAIN,
       method: "crm.item.list",
-      params: { entityTypeId },
+      params: { entityTypeId: gate.entityTypeId },
     });
+    return { skipped: false, summary };
   }
 
   private async importDomain(descriptor: DomainDescriptor): Promise<ImportSummary> {
