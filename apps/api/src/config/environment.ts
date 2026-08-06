@@ -22,6 +22,12 @@ export const environmentSchema = z
     HOST: z.string().trim().min(1).default("127.0.0.1"),
     PORT: z.coerce.number().int().min(1).max(65_535).default(3_001),
     DATABASE_URL: z.string().startsWith("postgresql://"),
+    // Redis backing BullMQ (ADR-0007/0011). Local-only host, like DATABASE_URL.
+    REDIS_URL: z.string().trim().min(1).default("redis://localhost:6379"),
+    // Whether this process runs the BullMQ queue + worker. Off by default so the
+    // API and unit tests boot without Redis; enabled locally/on the worker host.
+    JOBS_ENABLED: environmentBoolean.default(false),
+    JOBS_WORKER_CONCURRENCY: z.coerce.number().int().min(1).max(50).default(1),
     DEV_AUTH_ENABLED: environmentBoolean.default(false),
     LOG_LEVEL: z.enum(["debug", "info", "warn", "error", "silent"]).default("info"),
     // Signs the session cookie (integrity, defense in depth over the opaque
@@ -81,6 +87,29 @@ export const environmentSchema = z
         code: z.ZodIssueCode.custom,
         path: ["DATABASE_URL"],
         message: "DATABASE_URL must be a valid PostgreSQL URL",
+      });
+    }
+
+    try {
+      const redisUrl = new URL(environment.REDIS_URL);
+      if (!["redis:", "rediss:"].includes(redisUrl.protocol)) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["REDIS_URL"],
+          message: "REDIS_URL must use the redis:// or rediss:// protocol",
+        });
+      } else if (!["localhost", "127.0.0.1", "redis"].includes(redisUrl.hostname)) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["REDIS_URL"],
+          message: "Block B only permits a local Redis host",
+        });
+      }
+    } catch {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["REDIS_URL"],
+        message: "REDIS_URL must be a valid Redis URL",
       });
     }
   });

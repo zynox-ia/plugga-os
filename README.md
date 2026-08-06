@@ -133,6 +133,30 @@ Para encerrar apenas a infraestrutura local:
 docker compose down
 ```
 
+### Jobs assíncronos (BullMQ + Redis)
+
+Jobs novos do OS rodam em uma fila **BullMQ** sobre o **Redis** do Compose
+(ADR-0007/0011). O primeiro consumidor será o import read_only do Bitrix (PR
+seguinte). Crons legados continuam apenas como **inventário read-only** (nada é
+criado, pausado ou migrado).
+
+| Variável | Efeito |
+|---|---|
+| `JOBS_ENABLED` | `false` por default: a API sobe sem Redis e a fila fica desabilitada (enqueue falha explicitamente, nunca descarta job em silêncio). `true` liga a fila + worker neste processo. |
+| `REDIS_URL` | Redis local (guard de host local, como `DATABASE_URL`). |
+| `JOBS_WORKER_CONCURRENCY` | Jobs processados em paralelo pelo worker (default `1`). |
+
+Cada execução alimenta `job_runs` (`running → success/failed`, com
+`attempt`, `duration_ms`, `error`, `triggered_by`) — observabilidade por
+ADR-0007. Nenhum token/segredo entra em log.
+
+Smoke da fila ponta a ponta (enqueue → worker → `job_runs`), com Redis + Postgres
+do Compose; também roda na CI:
+
+```bash
+JOBS_ENABLED=true pnpm --filter @plugga/api test:jobs
+```
+
 ## Qualidade e CI
 
 A CI executa em pull requests e em pushes para `main`, usando o lockfile e os

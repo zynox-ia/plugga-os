@@ -19,6 +19,9 @@ describe("validateEnvironment", () => {
     expect(environment.HOST).toBe("127.0.0.1");
     expect(environment.PORT).toBe(3001);
     expect(environment.EMAIL_PROVIDER).toBe("noop");
+    expect(environment.REDIS_URL).toBe("redis://localhost:6379");
+    expect(environment.JOBS_ENABLED).toBe(false);
+    expect(environment.JOBS_WORKER_CONCURRENCY).toBe(1);
     expect(environment.EMAIL_FROM_ADDRESS).toBe("no-reply@plugga.local");
     expect(environment.MAILPIT_SMTP_PORT).toBe(1025);
   });
@@ -90,6 +93,43 @@ describe("validateEnvironment", () => {
         AUTH_SESSION_SECRET: sessionSecret,
       }),
     ).toThrow("Block A only permits a local PostgreSQL host");
+  });
+
+  it("rejects a non-local Redis host", () => {
+    expect(() =>
+      validateEnvironment({
+        NODE_ENV: "development",
+        DATABASE_URL: localDatabaseUrl,
+        AUTH_SESSION_SECRET: sessionSecret,
+        REDIS_URL: "redis://redis.example.invalid:6379",
+      }),
+    ).toThrow("Block B only permits a local Redis host");
+  });
+
+  it("rejects a Redis URL with a wrong protocol", () => {
+    expect(() =>
+      validateEnvironment({
+        NODE_ENV: "development",
+        DATABASE_URL: localDatabaseUrl,
+        AUTH_SESSION_SECRET: sessionSecret,
+        REDIS_URL: "http://localhost:6379",
+      }),
+    ).toThrow("REDIS_URL must use the redis:// or rediss:// protocol");
+  });
+
+  it("accepts an explicit local Redis URL and jobs settings", () => {
+    const environment = validateEnvironment({
+      NODE_ENV: "development",
+      DATABASE_URL: localDatabaseUrl,
+      AUTH_SESSION_SECRET: sessionSecret,
+      REDIS_URL: "redis://127.0.0.1:6380",
+      JOBS_ENABLED: "true",
+      JOBS_WORKER_CONCURRENCY: "4",
+    });
+
+    expect(environment.REDIS_URL).toBe("redis://127.0.0.1:6380");
+    expect(environment.JOBS_ENABLED).toBe(true);
+    expect(environment.JOBS_WORKER_CONCURRENCY).toBe(4);
   });
 
   it("requires a session secret of sufficient length", () => {

@@ -18,6 +18,7 @@
     "test": "vitest run",
     "test:db": "RUN_DATABASE_INTEGRATION_TESTS=true vitest run test/database-append-only.spec.ts",
     "test:email": "RUN_MAILPIT_INTEGRATION_TESTS=true vitest run test/email-mailpit.integration.spec.ts",
+    "test:jobs": "RUN_JOBS_INTEGRATION_TESTS=true vitest run test/jobs-queue.integration.spec.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -29,8 +30,10 @@
     "@node-rs/argon2": "2.0.2",
     "@plugga/shared": "workspace:*",
     "@prisma/client": "6.15.0",
+    "bullmq": "6.0.8",
     "cookie-parser": "1.4.7",
     "dotenv": "16.6.1",
+    "ioredis": "6.0.0",
     "nodemailer": "9.0.4",
     "reflect-metadata": "0.2.2",
     "rxjs": "7.8.2",
