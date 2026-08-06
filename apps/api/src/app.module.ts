@@ -9,8 +9,10 @@ import { WhatsappModule } from "./channels/whatsapp/whatsapp.module";
 import { validateEnvironment } from "./config/environment";
 import { CoreModule } from "./core/core.module";
 import { HealthModule } from "./health/health.module";
+import { BitrixModule } from "./integrations/bitrix/bitrix.module";
 import { IntegrationsModule } from "./integrations/integrations.module";
 import { JobsModule } from "./jobs/jobs.module";
+import { JobsQueueModule } from "./jobs/queue/jobs-queue.module";
 import { LoggingModule } from "./logging/logging.module";
 
 const monorepoRootEnvPath = path.resolve(__dirname, "../../../.env");
@@ -30,6 +32,8 @@ const monorepoRootEnvPath = path.resolve(__dirname, "../../../.env");
     WhatsappModule,
     IntegrationsModule,
     JobsModule,
+    JobsQueueModule,
+    BitrixModule,
   ],
 })
 export class AppModule {}

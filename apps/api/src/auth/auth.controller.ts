@@ -41,7 +41,7 @@ import { Roles } from "../core/auth/roles.decorator";
 import { RolesGuard } from "../core/auth/roles.guard";
 import { SESSION_COOKIE_NAME } from "../core/auth/token.util";
 import { AuthService } from "./auth.service";
-import { OriginCheckGuard } from "./origin-check.guard";
+import { OriginCheckGuard } from "../core/auth/origin-check.guard";
 
 // ThrottlerGuard is applied per-route (not at the controller level) so it
 // always runs *after* OriginCheckGuard: a rejected cross-origin request must

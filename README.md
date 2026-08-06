@@ -139,6 +139,73 @@ Para encerrar apenas a infraestrutura local:
 docker compose down
 ```
 
+### Jobs assíncronos (BullMQ + Redis)
+
+Jobs novos do OS rodam em uma fila **BullMQ** sobre o **Redis** do Compose
+(ADR-0007/0011). O primeiro consumidor é o import read_only do Bitrix (abaixo).
+Crons legados continuam apenas como **inventário read-only** (nada é criado,
+pausado ou migrado).
+
+| Variável | Efeito |
+|---|---|
+| `JOBS_ENABLED` | `false` por default: a API sobe sem Redis e a fila fica desabilitada (enqueue falha explicitamente, nunca descarta job em silêncio). `true` liga a fila + worker neste processo. |
+| `REDIS_URL` | Redis local (guard de host local, como `DATABASE_URL`). |
+| `JOBS_WORKER_CONCURRENCY` | Jobs processados em paralelo pelo worker (default `1`). |
+
+Cada execução alimenta `job_runs` (`running → success/failed`, com
+`attempt`, `duration_ms`, `error`, `triggered_by`) — observabilidade por
+ADR-0007. Nenhum token/segredo entra em log.
+
+Smoke da fila ponta a ponta (enqueue → worker → `job_runs`), com Redis + Postgres
+do Compose; também roda na CI:
+
+```bash
+JOBS_ENABLED=true pnpm --filter @plugga/api test:jobs
+```
+
+### Bitrix Migrator (read_only, temporário)
+
+O Bitrix Migrator lê **um** domínio prioritário — OPM, código `C7` — e espelha
+os registros no Postgres do OS (ADR-0009). Ele é **read-only por construção**:
+o adapter só aceita métodos de leitura (`.list`/`.get`/`.fields`) e recusa
+qualquer método de escrita **antes** de emitir a requisição. Não existe caminho
+de write para o Bitrix em nenhum estado de configuração.
+
+| Variável | Efeito |
+|---|---|
+| `BITRIX_WEBHOOK_URL` | Webhook REST de entrada (token no path). **Segredo**: só em `.env`/secret — nunca no git, nunca na tabela `integrations`, nunca em log. Exigido `https` e path com `/rest/`. |
+| `BITRIX_OPM_ENTITY_TYPE_ID` | `entityTypeId` do domínio OPM (C7) no portal do cliente. Fornecido na ativação. |
+| `BITRIX_IMPORT_PAGE_SIZE` | Tamanho de página das leituras (default e máximo `50`). |
+
+O import só existe como capacidade quando **as duas** condições valem:
+
+1. `integrations.bitrix.mode = read_only` (o seed mantém `mock`; a troca é uma
+   decisão de cutover, não um default), e
+2. a credencial está presente no ambiente.
+
+O gate é avaliado **no momento em que o job roda**, não só na chamada HTTP. Um
+job enfileirado pelo scheduler, ou uma retentativa do BullMQ que executa depois
+de o modo ser rebaixado, encontra o gate fechado e registra `job_run` com status
+`skipped` — sem ler o Bitrix. O `409` (sem modo) e o `503` (sem credencial) do
+endpoint são apenas feedback síncrono para quem chamou, não a garantia.
+
+```bash
+# Enfileira o import (admin apenas); o worker precisa de JOBS_ENABLED=true:
+curl -si -X POST http://127.0.0.1:3001/integrations/bitrix/import \
+  -b cookies.txt -H "origin: http://localhost:3000"
+```
+
+O job é **idempotente**: cada registro é espelhado por `(domain, external_id)`
+com um fingerprint estável do payload, então reimportar dados iguais não escreve
+nada (`unchanged`). Registros sem id são contados como `skipped` — nunca
+descartados em silêncio. Cada execução alimenta `job_runs`.
+
+Smoke de idempotência contra o Postgres do Compose (também roda na CI):
+
+```bash
+pnpm --filter @plugga/api test:bitrix
+```
+
 ## Qualidade e CI
 
 A CI executa em pull requests e em pushes para `main`, usando o lockfile e os
@@ -155,8 +222,10 @@ pnpm build
 
 - `.env.example` contém somente placeholders. Nunca versione `.env`, tokens,
   senhas, webhooks, chaves, endpoints reais ou dados pessoais.
-- Integrações são apenas registros/adapters `mock`; não existe adapter real de
-  leitura ou escrita neste bloco.
+- Integrações são registros/adapters `mock`, com uma exceção explícita: o
+  **Bitrix Migrator** tem adapter de **leitura real** em modo `read_only`
+  (ADR-0009), gated por modo + credencial. Não existe adapter de **escrita**
+  para nenhuma integração.
 - WhatsApp e Telegram nunca enviam mensagens. Uma rota mock pode validar e
   auditar localmente, mas é um no-op de entrega.
 - Jobs são somente inventário mock. Não há pause, retry, migração ou controle de
