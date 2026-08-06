@@ -1,0 +1,51 @@
+name: Feature request
+description: Propose a scoped change to Plugga OS
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: Which user or operational problem should this solve?
+    validations:
+      required: true
+
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Desired outcome
+      description: Describe observable behavior, not only an implementation.
+    validations:
+      required: true
+
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope and non-goals
+      description: State what is included and explicitly excluded.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: operational-impact
+    attributes:
+      label: Operational impact
+      description: Any real-system access or write capability requires a separate ADR and explicit cutover approval.
+      options:
+        - Local / mock only
+        - Read-only integration proposal (requires planning approval)
+        - Write or cutover proposal (blocked pending explicit approval)
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: constraints
+    attributes:
+      label: Foundation constraints
+      options:
+        - label: No secret or credential is included in this issue.
+          required: true
+        - label: I have identified any integration, messaging, job, or production-system impact.
+          required: true
