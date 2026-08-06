@@ -15,9 +15,11 @@ export default defineConfig({
   webServer: process.env.PLAYWRIGHT_BASE_URL
     ? undefined
     : {
-        command: "pnpm dev",
+        command: process.env.CI
+          ? "pnpm exec next start --hostname 127.0.0.1 --port 3000"
+          : "pnpm exec next dev --hostname 127.0.0.1 --port 3000",
         url: "http://127.0.0.1:3000",
-        reuseExistingServer: true,
-        timeout: 60_000,
+        reuseExistingServer: !process.env.CI,
+        timeout: 120_000,
       },
 });

@@ -10,13 +10,19 @@ function apiBaseUrl(): string {
   return process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 }
 
+const FETCH_TIMEOUT_MS = 3_000;
+
 /**
  * Synthetic dev-auth principal (see apps/api DevHeaderAuthContext). Only
  * works locally with DEV_AUTH_ENABLED=true; never a real auth mechanism.
  * These endpoints require a resolved principal but no specific role.
+ *
+ * No "service:" prefix: that would resolve to kind "service" (an agent
+ * identity), which must stay reserved for real agent actions so it never
+ * gets reused as the attributed actor on a future mutating call.
  */
 const DEV_AUTH_HEADERS = {
-  "x-dev-principal": "service:web-shell",
+  "x-dev-principal": "web-shell",
   "x-dev-roles": "viewer",
 };
 
@@ -26,7 +32,10 @@ const DEV_AUTH_HEADERS = {
  */
 export async function fetchHealth(): Promise<HealthCheck | null> {
   try {
-    const response = await fetch(`${apiBaseUrl()}/health`, { cache: "no-store" });
+    const response = await fetch(`${apiBaseUrl()}/health`, {
+      cache: "no-store",
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    });
     if (!response.ok) return null;
     return (await response.json()) as HealthCheck;
   } catch {
@@ -40,6 +49,7 @@ export async function fetchIntegrations(): Promise<ListIntegrationsResponse | nu
     const response = await fetch(`${apiBaseUrl()}/integrations`, {
       cache: "no-store",
       headers: DEV_AUTH_HEADERS,
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     });
     if (!response.ok) return null;
     return (await response.json()) as ListIntegrationsResponse;
@@ -54,6 +64,7 @@ export async function fetchJobs(): Promise<ListJobRunsResponse | null> {
     const response = await fetch(`${apiBaseUrl()}/jobs`, {
       cache: "no-store",
       headers: DEV_AUTH_HEADERS,
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     });
     if (!response.ok) return null;
     return (await response.json()) as ListJobRunsResponse;
