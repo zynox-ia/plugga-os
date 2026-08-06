@@ -24,6 +24,19 @@ export const environmentSchema = z
     DATABASE_URL: z.string().startsWith("postgresql://"),
     DEV_AUTH_ENABLED: environmentBoolean.default(false),
     LOG_LEVEL: z.enum(["debug", "info", "warn", "error", "silent"]).default("info"),
+    // Signs the session cookie (integrity, defense in depth over the opaque
+    // token). Local placeholder only in .env.example; never committed for real.
+    AUTH_SESSION_SECRET: z.string().min(32),
+    // Adapter selection for EmailPort (ADR-0010). mailpit/brevo wire up in a
+    // later PR; the safe default never sends.
+    EMAIL_PROVIDER: z.enum(["noop", "mailpit", "brevo"]).default("noop"),
+    // Cookie Secure flag. Defaults to on outside development; can be forced.
+    AUTH_COOKIE_SECURE: environmentBoolean.optional(),
+    SESSION_TTL_MINUTES: z.coerce.number().int().min(1).max(43_200).default(720),
+    SESSION_ABSOLUTE_TTL_HOURS: z.coerce.number().int().min(1).max(8_760).default(720),
+    // Comma-separated browser origins accepted on mutating auth routes (CSRF
+    // defense in depth alongside SameSite=Lax).
+    AUTH_ALLOWED_ORIGINS: z.string().trim().optional(),
   })
   .passthrough()
   .superRefine((environment, context) => {

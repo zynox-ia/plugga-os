@@ -8,9 +8,16 @@ export interface AuthPrincipal {
 
 export interface AuthenticatedRequest {
   headers: Record<string, string | string[] | undefined>;
+  cookies?: Record<string, string | undefined>;
+  signedCookies?: Record<string, string | undefined>;
+  ip?: string;
   authPrincipal?: AuthPrincipal;
 }
 
 export abstract class AuthContext {
-  abstract resolve(request: AuthenticatedRequest): AuthPrincipal | null;
+  /**
+   * Resolves the authenticated principal for a request, or null when none.
+   * Async because the default (session) provider performs a database lookup.
+   */
+  abstract resolve(request: AuthenticatedRequest): Promise<AuthPrincipal | null>;
 }
