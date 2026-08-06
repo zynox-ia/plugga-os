@@ -98,4 +98,20 @@ describe("WhatsappService", () => {
     expect(audit.calls[0]?.event.actorType).toBe("user");
     expect(audit.calls[0]?.event.actorId).toBe("local-admin");
   });
+
+  it("masks every destination to a fixed shape with only four visible digits", async () => {
+    const result = await service.simulateSend(
+      {
+        destination: "+12345678",
+        originDomain: "ops",
+        audience: "transactional",
+        priority: "normal",
+        optedOut: false,
+        content: { kind: "text", text: "teste local" },
+      },
+      principal,
+    );
+
+    expect(result.maskedDestination).toBe("***-***-5678");
+  });
 });

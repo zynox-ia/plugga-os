@@ -101,6 +101,6 @@ export class WhatsappService {
 
   private maskDestination(destination: string): string {
     const visibleSuffix = destination.slice(-4);
-    return `${destination.slice(0, 3)}${"*".repeat(Math.max(4, destination.length - 7))}${visibleSuffix}`;
+    return `***-***-${visibleSuffix}`;
   }
 }
