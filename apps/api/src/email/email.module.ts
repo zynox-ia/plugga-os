@@ -1,26 +1,42 @@
 import { Module } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 
+import { BrevoEmailAdapter } from "./brevo-email.adapter";
 import { EmailPort } from "./email.port";
+import { MailpitEmailAdapter } from "./mailpit-email.adapter";
 import { NoopEmailAdapter } from "./noop-email.adapter";
 
 @Module({
   providers: [
     NoopEmailAdapter,
+    MailpitEmailAdapter,
+    BrevoEmailAdapter,
     {
-      // Adapter selection by EMAIL_PROVIDER (ADR-0010). Only the safe Noop is
-      // wired in this PR; mailpit/brevo arrive with the email PR.
+      // Adapter selection by EMAIL_PROVIDER (ADR-0010). The safe default never
+      // sends; mailpit captures locally; brevo sends via the client's account.
       provide: EmailPort,
-      useFactory: (config: ConfigService, noop: NoopEmailAdapter): EmailPort => {
+      useFactory: (
+        config: ConfigService,
+        noop: NoopEmailAdapter,
+        mailpit: MailpitEmailAdapter,
+        brevo: BrevoEmailAdapter,
+      ): EmailPort => {
         const provider = config.get<string>("EMAIL_PROVIDER", "noop");
-        if (provider === "noop") {
-          return noop;
+        switch (provider) {
+          case "noop":
+            return noop;
+          case "mailpit":
+            return mailpit;
+          case "brevo":
+            return brevo;
+          default:
+            // Fail safe: an unknown provider must never send accidentally.
+            throw new Error(
+              `EMAIL_PROVIDER='${provider}' is not a valid email provider (noop|mailpit|brevo)`,
+            );
         }
-        throw new Error(
-          `EMAIL_PROVIDER='${provider}' is not wired yet; only 'noop' is available in this PR`,
-        );
       },
-      inject: [ConfigService, NoopEmailAdapter],
+      inject: [ConfigService, NoopEmailAdapter, MailpitEmailAdapter, BrevoEmailAdapter],
     },
   ],
   exports: [EmailPort],

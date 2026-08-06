@@ -27,9 +27,20 @@ export const environmentSchema = z
     // Signs the session cookie (integrity, defense in depth over the opaque
     // token). Local placeholder only in .env.example; never committed for real.
     AUTH_SESSION_SECRET: z.string().min(32),
-    // Adapter selection for EmailPort (ADR-0010). mailpit/brevo wire up in a
-    // later PR; the safe default never sends.
+    // Adapter selection for EmailPort (ADR-0010). The safe default never sends;
+    // mailpit captures locally; brevo sends via the client's account.
     EMAIL_PROVIDER: z.enum(["noop", "mailpit", "brevo"]).default("noop"),
+    // Sender identity shared by the mailpit/brevo adapters. Local placeholder in
+    // .env.example; a verified sender is required on the client's Brevo account.
+    EMAIL_FROM_ADDRESS: z.string().trim().min(1).default("no-reply@plugga.local"),
+    EMAIL_FROM_NAME: z.string().trim().min(1).default("Plugga OS"),
+    // Local Mailpit SMTP endpoint (Compose service). Never a real relay.
+    MAILPIT_SMTP_HOST: z.string().trim().min(1).default("localhost"),
+    MAILPIT_SMTP_PORT: z.coerce.number().int().min(1).max(65_535).default(1_025),
+    // Brevo (client account) transactional API. Key lives only in the
+    // environment/secret, never in git; required when EMAIL_PROVIDER=brevo.
+    BREVO_API_KEY: z.string().trim().min(1).optional(),
+    BREVO_API_URL: z.string().url().default("https://api.brevo.com/v3/smtp/email"),
     // Cookie Secure flag. Defaults to on outside development; can be forced.
     AUTH_COOKIE_SECURE: environmentBoolean.optional(),
     SESSION_TTL_MINUTES: z.coerce.number().int().min(1).max(43_200).default(720),
@@ -45,6 +56,14 @@ export const environmentSchema = z
         code: z.ZodIssueCode.custom,
         path: ["DEV_AUTH_ENABLED"],
         message: "development authentication cannot be enabled in production",
+      });
+    }
+
+    if (environment.EMAIL_PROVIDER === "brevo" && !environment.BREVO_API_KEY) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["BREVO_API_KEY"],
+        message: "BREVO_API_KEY is required when EMAIL_PROVIDER=brevo",
       });
     }
 

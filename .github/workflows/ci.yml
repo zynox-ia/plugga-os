@@ -39,6 +39,12 @@ jobs:
           --health-timeout 5s
           --health-retries 10
 
+      mailpit:
+        image: axllent/mailpit:v1.21
+        ports:
+          - 1025:1025
+          - 8025:8025
+
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -74,6 +80,13 @@ jobs:
 
       - name: Verify append-only database triggers
         run: pnpm test:db
+
+      - name: Verify Mailpit email delivery path
+        env:
+          MAILPIT_SMTP_HOST: localhost
+          MAILPIT_SMTP_PORT: "1025"
+          MAILPIT_UI_PORT: "8025"
+        run: pnpm --filter @plugga/api test:email
 
       - name: Lint
         run: pnpm lint

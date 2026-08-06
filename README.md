@@ -25,7 +25,7 @@ se comunicam apenas por HTTP e pelos contratos de `packages/shared`.
 
 - Node.js LTS na versão indicada por `.nvmrc`;
 - Corepack habilitado (a versão de pnpm é fixada no `package.json`);
-- Docker com Docker Compose para Postgres e Redis locais.
+- Docker com Docker Compose para Postgres, Redis e Mailpit locais.
 
 ## Executar localmente
 
@@ -77,8 +77,45 @@ curl -i -b cookies.txt -X POST http://localhost:3001/auth/logout
 
 Administradores gerenciam usuários por `/auth/invite`, `/auth/users`,
 `/auth/users/:id/roles` e `/auth/users/:id/deactivate`. Convite e reset emitem
-tokens de uso único entregues por `EmailPort`; o provedor padrão `noop` não envia
-(adapters Mailpit/Brevo chegam em um PR seguinte).
+tokens de uso único entregues por `EmailPort` (ADR-0010).
+
+### E-mail transacional (Mailpit local / Brevo no cliente)
+
+| `EMAIL_PROVIDER` | Comportamento |
+|---|---|
+| `noop` (default seguro) | Loga e **não envia** (sem token/link no log) |
+| `mailpit` | SMTP → container Mailpit do Compose; nada sai da máquina |
+| `brevo` | API Brevo na **conta do cliente** (staging/prod); exige `BREVO_API_KEY` |
+
+Local recomendado: `EMAIL_PROVIDER=mailpit` (já no `.env.example`). Após
+`docker compose up -d`, abra a inbox em [http://localhost:8025](http://localhost:8025).
+
+Smoke de entrega local (Mailpit no Compose; também roda na CI):
+
+```bash
+pnpm --filter @plugga/api test:email
+```
+
+**Staging/prod (VPS do cliente):** `EMAIL_PROVIDER=brevo` + `BREVO_API_KEY` só em
+secret/env — nunca no git. Templates de convite/reset são versionados no OS
+(não no editor de templates do Brevo).
+
+Checklist de entregabilidade no DNS do cliente (não é código do OS; ADR-0010):
+
+- [ ] SPF inclui o Brevo no domínio remetente
+- [ ] DKIM do Brevo publicado no DNS
+- [ ] DMARC presente (ao menos `p=none` para monitorar)
+- [ ] Remetente/domínio autenticado no painel Brevo do cliente
+- [ ] E-mail de teste com `spf=pass` / `dkim=pass` no cabeçalho
+
+### Cutover auth (staging/prod)
+
+Antes de expor a API fora de localhost:
+
+- Defina `AUTH_ALLOWED_ORIGINS` com as origins do browser (ex.: `https://os.cliente.com`).
+  Sem isso, o `OriginCheckGuard` só aceita localhost.
+- Não force `AUTH_COOKIE_SECURE=false` em staging/prod — o cookie Secure deve
+  permanecer ligado atrás de HTTPS.
 
 ### Escape hatch de desenvolvimento
 
