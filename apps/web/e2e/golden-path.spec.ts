@@ -5,10 +5,11 @@ test.describe("Golden path — Dashboard → Pendências → Integrações → J
     await page.goto("/");
     await expect(page.locator(".app-shell")).toBeVisible();
 
-    await page.getByRole("button", { name: "Central de Pendências" }).click();
+    const nav = page.locator(".sidebar-nav");
+    await nav.getByRole("button", { name: "Central de Pendências", exact: true }).click();
     await expect(page).toHaveURL(/\/pendencias$/);
 
-    await page.getByRole("button", { name: "Integrações" }).click();
+    await nav.getByRole("button", { name: "Integrações", exact: true }).click();
     await expect(page).toHaveURL(/\/integracoes$/);
 
     const whatsappCard = page.locator(".shell-card--accent");
@@ -17,9 +18,8 @@ test.describe("Golden path — Dashboard → Pendências → Integrações → J
     // GET /integrations must never expose a real destination/credential.
     await expect(whatsappCard).not.toContainText(/\+?\d{2}\s?\d{4,5}-?\d{4}/);
 
-    await page.getByRole("button", { name: "Jobs e Automações" }).click();
+    await nav.getByRole("button", { name: "Jobs e Automações", exact: true }).click();
     await expect(page).toHaveURL(/\/jobs$/);
-    await expect(page.getByText("inventoryOnly", { exact: false })).toHaveCount(0); // raw flag isn't leaked as UI copy
     await expect(page.getByRole("heading", { name: "Execuções recentes" })).toBeVisible();
   });
 

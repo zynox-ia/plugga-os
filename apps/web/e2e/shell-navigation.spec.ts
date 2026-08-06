@@ -5,15 +5,16 @@ import { NAV_GROUPS, ROUTE_BY_NAV_ID } from "../app/lib/navigation";
 const ALL_ITEMS = NAV_GROUPS.flatMap((group) => group.items);
 
 test.describe("Plugga shell — smoke", () => {
-  test("renders skip-link, brand lockup and all 12 PRD §7 areas", async ({ page }) => {
+  test("renders skip-link, brand lockup and all PRD §7 areas + Central de Pendências", async ({ page }) => {
     await page.goto("/");
 
     await expect(page.locator(".skip-link")).toHaveText("Pular para o conteúdo");
     await expect(page.locator(".brand-lockup img")).toBeVisible();
 
-    expect(ALL_ITEMS).toHaveLength(12);
+    // 12 PRD §7 areas + Central de Pendências (Tela 2, outside the §7 enumeration).
+    expect(ALL_ITEMS).toHaveLength(13);
     for (const item of ALL_ITEMS) {
-      await expect(page.getByRole("button", { name: item.label })).toBeVisible();
+      await expect(page.locator(".sidebar-nav").getByRole("button", { name: item.label, exact: true })).toBeVisible();
     }
   });
 
@@ -36,7 +37,7 @@ test.describe("Plugga shell — smoke", () => {
     const route = ROUTE_BY_NAV_ID[item.id];
     test(`nav: "${item.label}" routes to ${route}`, async ({ page }) => {
       await page.goto("/");
-      await page.getByRole("button", { name: item.label }).click();
+      await page.locator(".sidebar-nav").getByRole("button", { name: item.label, exact: true }).click();
       await page.waitForURL((url) => url.pathname === route);
       expect(new URL(page.url()).pathname).toBe(route);
     });
