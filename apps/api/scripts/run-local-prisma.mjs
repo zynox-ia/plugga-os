@@ -1,4 +1,11 @@
 import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
+import path from "node:path";
+import dotenv from "dotenv";
+
+const scriptDir = path.dirname(fileURLToPath(import.meta.url));
+const monorepoRootEnvPath = path.resolve(scriptDir, "../../../.env");
+dotenv.config({ path: monorepoRootEnvPath });
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) {

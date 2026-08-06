@@ -32,6 +32,9 @@ importers:
       '@prisma/client':
         specifier: 6.15.0
         version: 6.15.0(prisma@6.15.0(typescript@5.9.2))(typescript@5.9.2)
+      dotenv:
+        specifier: 16.6.1
+        version: 16.6.1
       reflect-metadata:
         specifier: 0.2.2
         version: 0.2.2
@@ -4570,7 +4573,7 @@ snapshots:
 
   dotenv-expand@12.0.1:
     dependencies:
-      dotenv: 16.4.7
+      dotenv: 16.6.1
 
   dotenv@16.4.7: {}
 

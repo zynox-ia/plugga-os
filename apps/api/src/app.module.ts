@@ -1,3 +1,5 @@
+import path from "node:path";
+
 import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
 
@@ -10,9 +12,15 @@ import { IntegrationsModule } from "./integrations/integrations.module";
 import { JobsModule } from "./jobs/jobs.module";
 import { LoggingModule } from "./logging/logging.module";
 
+const monorepoRootEnvPath = path.resolve(__dirname, "../../../.env");
+
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true, validate: validateEnvironment }),
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: monorepoRootEnvPath,
+      validate: validateEnvironment,
+    }),
     LoggingModule,
     CoreModule,
     HealthModule,
