@@ -19,6 +19,7 @@ const environmentBoolean = z.preprocess((value) => {
 export const environmentSchema = z
   .object({
     NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
+    HOST: z.string().trim().min(1).default("127.0.0.1"),
     PORT: z.coerce.number().int().min(1).max(65_535).default(3_001),
     DATABASE_URL: z.string().startsWith("postgresql://"),
     DEV_AUTH_ENABLED: environmentBoolean.default(false),

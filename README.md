@@ -55,6 +55,10 @@ Endpoints protegidos usam somente o stub local quando
 papéis separados por vírgula em `x-dev-roles`; esses headers não são segredos nem
 um mecanismo de autenticação para ambientes expostos.
 
+A API escuta apenas em `127.0.0.1` por padrão. Para permitir acesso por outras
+interfaces de rede em um ambiente local controlado, configure `HOST=0.0.0.0`
+explicitamente; o stub de autenticação não é seguro para exposição pública.
+
 Para encerrar apenas a infraestrutura local:
 
 ```bash

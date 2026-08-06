@@ -14,7 +14,19 @@ describe("validateEnvironment", () => {
     });
 
     expect(environment.DEV_AUTH_ENABLED).toBe(true);
+    expect(environment.HOST).toBe("127.0.0.1");
     expect(environment.PORT).toBe(3001);
+  });
+
+  it("uses an explicitly configured network bind address", () => {
+    const environment = validateEnvironment({
+      NODE_ENV: "development",
+      HOST: "0.0.0.0",
+      DATABASE_URL: localDatabaseUrl,
+      DEV_AUTH_ENABLED: "false",
+    });
+
+    expect(environment.HOST).toBe("0.0.0.0");
   });
 
   it("rejects development authentication in production", () => {
