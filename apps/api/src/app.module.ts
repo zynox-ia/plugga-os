@@ -9,13 +9,11 @@ import { HealthModule } from "./health/health.module";
 import { IntegrationsModule } from "./integrations/integrations.module";
 import { JobsModule } from "./jobs/jobs.module";
 import { LoggingModule } from "./logging/logging.module";
-import { PrismaModule } from "./prisma/prisma.module";
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true, validate: validateEnvironment }),
     LoggingModule,
-    PrismaModule,
     CoreModule,
     HealthModule,
     AuditModule,
