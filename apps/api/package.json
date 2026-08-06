@@ -6,6 +6,7 @@
     "build": "nest build",
     "db:generate": "prisma generate",
     "db:migrate": "node scripts/run-local-prisma.mjs migrate dev",
+    "db:migrate:deploy": "node scripts/run-local-prisma.mjs migrate deploy",
     "db:seed": "node scripts/run-local-prisma.mjs db seed",
     "dev": "nest start --watch",
     "lint": "eslint . --max-warnings=0",
@@ -15,6 +16,7 @@
     "pretypecheck": "prisma generate",
     "start": "node dist/main.js",
     "test": "vitest run",
+    "test:db": "RUN_DATABASE_INTEGRATION_TESTS=true vitest run test/database-append-only.spec.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

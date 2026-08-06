@@ -18,6 +18,23 @@ jobs:
     name: Lint, typecheck, test and build
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      DATABASE_URL: postgresql://plugga_os:local_only_change_me@localhost:5432/plugga_os?schema=public
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: plugga_os
+          POSTGRES_USER: plugga_os
+          POSTGRES_PASSWORD: local_only_change_me
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U plugga_os -d plugga_os"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
 
     steps:
       - name: Check out repository
@@ -36,8 +53,24 @@ jobs:
       - name: Install dependencies from the lockfile
         run: pnpm install --frozen-lockfile
 
+      - name: Scan repository for secrets
+        run: >-
+          docker run --rm
+          --volume "$PWD:/repo"
+          zricethezav/gitleaks:v8.28.0
+          detect --source=/repo --redact --verbose
+
       - name: Generate Prisma Client
         run: pnpm db:generate
+
+      - name: Apply database migrations
+        run: pnpm db:migrate:deploy
+
+      - name: Seed local foundation data
+        run: pnpm db:seed
+
+      - name: Verify append-only database triggers
+        run: pnpm test:db
 
       - name: Lint
         run: pnpm lint

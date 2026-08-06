@@ -5,7 +5,7 @@ services:
     image: postgres:16-alpine
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-plugga_os}
-      POSTGRES_USER: ${POSTGRES_USER:-plugga}
+      POSTGRES_USER: ${POSTGRES_USER:-plugga_os}
       # Local-only dummy default. Production credentials never belong here.
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-plugga_local}
     ports:
