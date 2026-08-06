@@ -17,6 +17,7 @@
     "start": "node dist/main.js",
     "test": "vitest run",
     "test:db": "RUN_DATABASE_INTEGRATION_TESTS=true vitest run test/database-append-only.spec.ts",
+    "test:email": "RUN_MAILPIT_INTEGRATION_TESTS=true vitest run test/email-mailpit.integration.spec.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -30,6 +31,7 @@
     "@prisma/client": "6.15.0",
     "cookie-parser": "1.4.7",
     "dotenv": "16.6.1",
+    "nodemailer": "9.0.4",
     "reflect-metadata": "0.2.2",
     "rxjs": "7.8.2",
     "zod": "3.25.76"
@@ -41,6 +43,7 @@
     "@types/cookie-parser": "1.4.10",
     "@types/express": "5.0.6",
     "@types/node": "22.18.1",
+    "@types/nodemailer": "8.0.1",
     "@types/supertest": "6.0.3",
     "eslint": "9.34.0",
     "prisma": "6.15.0",

@@ -19,6 +19,43 @@ describe("validateEnvironment", () => {
     expect(environment.HOST).toBe("127.0.0.1");
     expect(environment.PORT).toBe(3001);
     expect(environment.EMAIL_PROVIDER).toBe("noop");
+    expect(environment.EMAIL_FROM_ADDRESS).toBe("no-reply@plugga.local");
+    expect(environment.MAILPIT_SMTP_PORT).toBe(1025);
+  });
+
+  it("accepts the mailpit provider without any Brevo credentials", () => {
+    const environment = validateEnvironment({
+      NODE_ENV: "development",
+      DATABASE_URL: localDatabaseUrl,
+      AUTH_SESSION_SECRET: sessionSecret,
+      EMAIL_PROVIDER: "mailpit",
+    });
+
+    expect(environment.EMAIL_PROVIDER).toBe("mailpit");
+  });
+
+  it("requires a Brevo API key when EMAIL_PROVIDER=brevo", () => {
+    expect(() =>
+      validateEnvironment({
+        NODE_ENV: "development",
+        DATABASE_URL: localDatabaseUrl,
+        AUTH_SESSION_SECRET: sessionSecret,
+        EMAIL_PROVIDER: "brevo",
+      }),
+    ).toThrow(/BREVO_API_KEY is required/);
+  });
+
+  it("accepts the brevo provider once a key is present", () => {
+    const environment = validateEnvironment({
+      NODE_ENV: "development",
+      DATABASE_URL: localDatabaseUrl,
+      AUTH_SESSION_SECRET: sessionSecret,
+      EMAIL_PROVIDER: "brevo",
+      BREVO_API_KEY: "client-key",
+    });
+
+    expect(environment.EMAIL_PROVIDER).toBe("brevo");
+    expect(environment.BREVO_API_KEY).toBe("client-key");
   });
 
   it("uses an explicitly configured network bind address", () => {
