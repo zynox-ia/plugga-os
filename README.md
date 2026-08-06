@@ -90,7 +90,7 @@ tokens de uso único entregues por `EmailPort` (ADR-0010).
 Local recomendado: `EMAIL_PROVIDER=mailpit` (já no `.env.example`). Após
 `docker compose up -d`, abra a inbox em [http://localhost:8025](http://localhost:8025).
 
-Smoke opt-in (espelha `test:db`; Mailpit precisa estar no ar):
+Smoke de entrega local (Mailpit no Compose; também roda na CI):
 
 ```bash
 pnpm --filter @plugga/api test:email

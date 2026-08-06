@@ -1,6 +1,7 @@
+import { Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import type { Transporter } from "nodemailer";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { TransactionalEmail } from "./email.port";
 import { MailpitEmailAdapter } from "./mailpit-email.adapter";
@@ -39,17 +40,24 @@ function build(): TestMailpitAdapter {
   );
 }
 
+const TOKEN = "abc-secret-token";
+const FULL_EMAIL = "person@example.com";
+
 const invite: TransactionalEmail = {
-  to: "person@example.com",
+  to: FULL_EMAIL,
   template: "invite",
   variables: {
     name: "Ana",
-    link: "http://localhost:3000/auth/accept-invite?token=abc",
+    link: `http://localhost:3000/auth/accept-invite?token=${TOKEN}`,
     expiresInMinutes: 4_320,
   },
 };
 
 describe("MailpitEmailAdapter", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it("delivers rendered content over SMTP with the configured sender", async () => {
     const adapter = build();
 
@@ -58,11 +66,11 @@ describe("MailpitEmailAdapter", () => {
     expect(adapter.sent).toHaveLength(1);
     const message = adapter.sent[0];
     expect(message).toBeDefined();
-    expect(message!.to).toBe("person@example.com");
+    expect(message!.to).toBe(FULL_EMAIL);
     expect(message!.from).toEqual({ name: "Plugga OS", address: "no-reply@plugga.local" });
     expect(message!.subject).toContain("Convite");
-    expect(message!.html).toContain("token=abc");
-    expect(message!.text).toContain("token=abc");
+    expect(message!.html).toContain(`token=${TOKEN}`);
+    expect(message!.text).toContain(`token=${TOKEN}`);
   });
 
   it("reuses a single transport across sends", async () => {
@@ -73,5 +81,19 @@ describe("MailpitEmailAdapter", () => {
 
     expect(adapter.createCalls).toBe(1);
     expect(adapter.sent).toHaveLength(2);
+  });
+
+  it("never logs the token/link or full recipient address", async () => {
+    const logSpy = vi.spyOn(Logger.prototype, "log").mockImplementation(() => undefined);
+    const adapter = build();
+
+    await adapter.sendTransactional(invite);
+
+    const message = String(logSpy.mock.calls[0]?.[0] ?? "");
+    expect(message).toContain("mailpit");
+    expect(message).toContain("p***@example.com");
+    expect(message).not.toContain(TOKEN);
+    expect(message).not.toContain("accept-invite");
+    expect(message).not.toContain(FULL_EMAIL);
   });
 });

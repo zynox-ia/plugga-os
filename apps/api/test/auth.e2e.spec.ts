@@ -214,8 +214,14 @@ class InMemorySessionLookup extends SessionLookupRepository {
 
 class CapturingEmailPort extends EmailPort {
   readonly sent: TransactionalEmail[] = [];
+  /** When true, the next send throws (simulates provider outage) then clears. */
+  failNext = false;
 
   async sendTransactional(email: TransactionalEmail): Promise<void> {
+    if (this.failNext) {
+      this.failNext = false;
+      throw new Error("provider down HTTP 503");
+    }
     this.sent.push(email);
   }
 
@@ -276,6 +282,7 @@ describe("auth API (e2e, in-memory stores)", () => {
     store.sessions.clear();
     store.tokens.clear();
     email.sent.length = 0;
+    email.failNext = false;
 
     const adminId = randomUUID();
     store.users.set(adminId, {
@@ -415,6 +422,24 @@ describe("auth API (e2e, in-memory stores)", () => {
       .post("/auth/reset/request")
       .send({ email: "nobody@plugga.local" })
       .expect(200, { ok: true });
+    expect(email.sent).toHaveLength(0);
+  });
+
+  it("keeps reset acknowledgement generic when email delivery fails for a known account", async () => {
+    // Without the try/catch on reset, a throwing provider returns 500 for known
+    // accounts and 200 for unknown ones — an account-existence oracle (F1).
+    email.failNext = true;
+
+    await request(app.getHttpServer())
+      .post("/auth/reset/request")
+      .send({ email: adminEmail })
+      .expect(200, { ok: true });
+
+    await request(app.getHttpServer())
+      .post("/auth/reset/request")
+      .send({ email: "nobody@plugga.local" })
+      .expect(200, { ok: true });
+
     expect(email.sent).toHaveLength(0);
   });
 });

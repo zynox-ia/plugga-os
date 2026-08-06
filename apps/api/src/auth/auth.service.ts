@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Inject,
   Injectable,
+  Logger,
   UnauthorizedException,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
@@ -25,6 +26,7 @@ import { AuditRepository } from "../audit/audit.repository";
 import type { AuthPrincipal } from "../core/auth/auth.types";
 import { generateOpaqueToken, hashToken } from "../core/auth/token.util";
 import { EmailPort } from "../email/email.port";
+import { maskEmail } from "../email/email.util";
 import { AuthRepository, type AuthUserRecord } from "./auth.repository";
 import { LockoutService } from "./lockout.service";
 import { PasswordService } from "./password.service";
@@ -40,6 +42,8 @@ export interface LoginResult {
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     @Inject(AuthRepository) private readonly repository: AuthRepository,
     @Inject(PasswordService) private readonly passwords: PasswordService,
@@ -173,18 +177,26 @@ export class AuthService {
     const user = await this.repository.findUserByEmail(input.email);
 
     // Only issue a token for an active account, but always answer generically
-    // so the endpoint never reveals whether the account exists.
+    // so the endpoint never reveals whether the account exists — including when
+    // the email provider fails (ADR-0010 adapters can throw). Invite stays
+    // fail-loud: it is admin-initiated and must surface delivery errors.
     if (user && user.status === "active") {
-      await this.issueTokenAndEmail(user, "reset", RESET_TTL_MINUTES, "reset");
-      await this.audit.appendEvent({
-        eventName: eventNames.authResetRequested,
-        entityType: "user",
-        entityId: user.id,
-        actorType: "system",
-        actorId: null,
-        payload: {},
-        occurredAt: new Date(),
-      });
+      try {
+        await this.issueTokenAndEmail(user, "reset", RESET_TTL_MINUTES, "reset");
+        await this.audit.appendEvent({
+          eventName: eventNames.authResetRequested,
+          entityType: "user",
+          entityId: user.id,
+          actorType: "system",
+          actorId: null,
+          payload: {},
+          occurredAt: new Date(),
+        });
+      } catch {
+        this.logger.warn(
+          `reset email delivery failed: to=${maskEmail(user.email)}`,
+        );
+      }
     }
 
     return this.ack();

@@ -51,6 +51,9 @@ export class BrevoEmailAdapter extends EmailPort {
           htmlContent: rendered.html,
           textContent: rendered.text,
         }),
+        // Bound the outbound call so a hung Brevo API cannot hold invite/reset
+        // open indefinitely (interacts with the reset generic-ack path).
+        signal: AbortSignal.timeout(10_000),
       });
     } catch (cause) {
       // Never surface the token/link; report only that delivery failed.
