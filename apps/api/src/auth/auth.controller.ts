@@ -12,7 +12,7 @@ import {
   UseGuards,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { Throttle, ThrottlerGuard } from "@nestjs/throttler";
+import { SkipThrottle, Throttle, ThrottlerGuard } from "@nestjs/throttler";
 import type { CookieOptions, Request, Response } from "express";
 import {
   acceptInviteRequestSchema,
@@ -68,7 +68,13 @@ export class AuthController {
     return { user };
   }
 
+  // Every navigation goes through the web app's session-gating middleware,
+  // which calls this endpoint once per request. It's a cheap authenticated
+  // read, not a brute-force target like login/invite/reset, so it's exempt
+  // from the controller's default per-IP throttle (which would otherwise
+  // falsely sign users out under normal traffic, e.g. behind a shared proxy IP).
   @Get("me")
+  @SkipThrottle()
   @UseGuards(DevAuthGuard)
   me(@CurrentPrincipal() principal: AuthPrincipal): Promise<MeResponse> {
     return this.service.me(principal);
