@@ -1,14 +1,12 @@
 import type { ListIntegrationsResponse, ListJobRunsResponse } from "@plugga/shared";
 
+import { apiBaseUrl } from "./env";
+
 export type HealthCheck = {
   status: "ok";
   service: string;
   timestamp: string;
 };
-
-function apiBaseUrl(): string {
-  return process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
-}
 
 const FETCH_TIMEOUT_MS = 3_000;
 
