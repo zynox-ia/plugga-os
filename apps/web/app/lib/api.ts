@@ -1,4 +1,6 @@
-import type { ListIntegrationsResponse, ListJobRunsResponse } from "@plugga/shared";
+import { headers } from "next/headers";
+
+import type { EmailStatus, ListIntegrationsResponse, ListJobRunsResponse } from "@plugga/shared";
 
 import { apiBaseUrl } from "./env";
 
@@ -11,18 +13,19 @@ export type HealthCheck = {
 const FETCH_TIMEOUT_MS = 3_000;
 
 /**
- * Synthetic dev-auth principal (see apps/api DevHeaderAuthContext). Only
- * works locally with DEV_AUTH_ENABLED=true; never a real auth mechanism.
- * These endpoints require a resolved principal but no specific role.
- *
- * No "service:" prefix: that would resolve to kind "service" (an agent
- * identity), which must stay reserved for real agent actions so it never
- * gets reused as the attributed actor on a future mutating call.
+ * Every route these fetchers are used from is already gated behind a real
+ * session by middleware.ts (ADR-0008), so the incoming request always carries
+ * a valid session cookie by the time a Server Component runs. Forwarding it
+ * (rather than a synthetic dev-auth principal, which only resolves when
+ * DEV_AUTH_ENABLED=true and is forbidden in production) is what makes these
+ * calls actually authenticate in a real deployment — without it they 401 and
+ * silently fall back to mock data forever.
  */
-const DEV_AUTH_HEADERS = {
-  "x-dev-principal": "web-shell",
-  "x-dev-roles": "viewer",
-};
+async function sessionCookieHeaders(): Promise<HeadersInit> {
+  const incoming = await headers();
+  const cookie = incoming.get("cookie");
+  return cookie ? { cookie } : {};
+}
 
 /**
  * Server-side only: calls the real GET /health contract from apps/api.
@@ -46,7 +49,7 @@ export async function fetchIntegrations(): Promise<ListIntegrationsResponse | nu
   try {
     const response = await fetch(`${apiBaseUrl()}/integrations`, {
       cache: "no-store",
-      headers: DEV_AUTH_HEADERS,
+      headers: await sessionCookieHeaders(),
       signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     });
     if (!response.ok) return null;
@@ -61,11 +64,26 @@ export async function fetchJobs(): Promise<ListJobRunsResponse | null> {
   try {
     const response = await fetch(`${apiBaseUrl()}/jobs`, {
       cache: "no-store",
-      headers: DEV_AUTH_HEADERS,
+      headers: await sessionCookieHeaders(),
       signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     });
     if (!response.ok) return null;
     return (await response.json()) as ListJobRunsResponse;
+  } catch {
+    return null;
+  }
+}
+
+/** Server-side only: calls the real GET /email/status contract (no secrets). */
+export async function fetchEmailStatus(): Promise<EmailStatus | null> {
+  try {
+    const response = await fetch(`${apiBaseUrl()}/email/status`, {
+      cache: "no-store",
+      headers: await sessionCookieHeaders(),
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    });
+    if (!response.ok) return null;
+    return (await response.json()) as EmailStatus;
   } catch {
     return null;
   }

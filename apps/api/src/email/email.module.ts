@@ -1,12 +1,16 @@
 import { Module } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 
+import { CoreModule } from "../core/core.module";
 import { BrevoEmailAdapter } from "./brevo-email.adapter";
 import { EmailPort } from "./email.port";
+import { EmailStatusController } from "./email-status.controller";
 import { MailpitEmailAdapter } from "./mailpit-email.adapter";
 import { NoopEmailAdapter } from "./noop-email.adapter";
 
 @Module({
+  imports: [CoreModule],
+  controllers: [EmailStatusController],
   providers: [
     NoopEmailAdapter,
     MailpitEmailAdapter,
