@@ -1,11 +1,15 @@
 import { headers } from "next/headers";
 
 import type {
+  AuditDetail,
   ClientFicha,
+  ContestationDetail,
   ContractDetail,
   ContractList,
   EmailStatus,
+  ListAuditsResponse,
   ListClientsResponse,
+  ListContestationsResponse,
   ListIntegrationsResponse,
   ListJobRunsResponse,
   OpportunityDetail,
@@ -190,6 +194,66 @@ export async function fetchContract(id: string): Promise<ContractDetail | null> 
     });
     if (!response.ok) return null;
     return (await response.json()) as ContractDetail;
+  } catch {
+    return null;
+  }
+}
+
+/** Server-side only: calls the real GET /energy/audits contract. */
+export async function fetchAudits(): Promise<ListAuditsResponse | null> {
+  try {
+    const response = await fetch(`${apiBaseUrl()}/energy/audits`, {
+      cache: "no-store",
+      headers: await sessionCookieHeaders(),
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    });
+    if (!response.ok) return null;
+    return (await response.json()) as ListAuditsResponse;
+  } catch {
+    return null;
+  }
+}
+
+/** Server-side only: calls the real GET /energy/audits/:id contract. */
+export async function fetchAudit(id: string): Promise<AuditDetail | null> {
+  try {
+    const response = await fetch(`${apiBaseUrl()}/energy/audits/${id}`, {
+      cache: "no-store",
+      headers: await sessionCookieHeaders(),
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    });
+    if (!response.ok) return null;
+    return (await response.json()) as AuditDetail;
+  } catch {
+    return null;
+  }
+}
+
+/** Server-side only: calls the real GET /energy/contestations contract. */
+export async function fetchContestations(): Promise<ListContestationsResponse | null> {
+  try {
+    const response = await fetch(`${apiBaseUrl()}/energy/contestations`, {
+      cache: "no-store",
+      headers: await sessionCookieHeaders(),
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    });
+    if (!response.ok) return null;
+    return (await response.json()) as ListContestationsResponse;
+  } catch {
+    return null;
+  }
+}
+
+/** Server-side only: calls the real GET /energy/contestations/:id contract. */
+export async function fetchContestation(id: string): Promise<ContestationDetail | null> {
+  try {
+    const response = await fetch(`${apiBaseUrl()}/energy/contestations/${id}`, {
+      cache: "no-store",
+      headers: await sessionCookieHeaders(),
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    });
+    if (!response.ok) return null;
+    return (await response.json()) as ContestationDetail;
   } catch {
     return null;
   }

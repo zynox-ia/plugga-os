@@ -152,6 +152,34 @@ export type AuditSummary = z.infer<typeof auditSummarySchema>;
 export const listAuditsResponseSchema = z.object({ items: z.array(auditSummarySchema) });
 export type ListAuditsResponse = z.infer<typeof listAuditsResponseSchema>;
 
+export const auditDetailSchema = auditSummarySchema.extend({
+  contestationId: uuid.nullable(),
+});
+export type AuditDetail = z.infer<typeof auditDetailSchema>;
+
+// Ticket "audits/contestations" (audits/contestations flow) — request
+// schemas. origin/FK coherence is validated in app code (energy.rules.ts),
+// not here; Zod only shapes the payload.
+
+export const createAuditRequestSchema = z.object({
+  origin: auditOriginSchema,
+  type: auditTypeSchema,
+  cycleId: uuid.optional(),
+  marketMigrationId: uuid.optional(),
+  summary: z.string().max(2000).optional(),
+  divergenceBlocksClosing: z.boolean().optional(),
+});
+export type CreateAuditRequest = z.infer<typeof createAuditRequestSchema>;
+
+export const auditResolutionStatusSchema = z.enum(["resolvida", "inconclusiva", "sem_divergencia"]);
+export type AuditResolutionStatus = z.infer<typeof auditResolutionStatusSchema>;
+
+export const resolveAuditRequestSchema = z.object({
+  status: auditResolutionStatusSchema,
+  summary: z.string().max(2000).optional(),
+});
+export type ResolveAuditRequest = z.infer<typeof resolveAuditRequestSchema>;
+
 export const contestationSummarySchema = z.object({
   id: uuid,
   auditId: uuid,
@@ -171,3 +199,24 @@ export type ContestationSummary = z.infer<typeof contestationSummarySchema>;
 
 export const listContestationsResponseSchema = z.object({ items: z.array(contestationSummarySchema) });
 export type ListContestationsResponse = z.infer<typeof listContestationsResponseSchema>;
+
+export const contestationDetailSchema = contestationSummarySchema;
+export type ContestationDetail = z.infer<typeof contestationDetailSchema>;
+
+export const createContestationRequestSchema = z.object({
+  auditId: uuid,
+  distributor: z.string().min(1).max(200),
+  reason: z.string().min(1).max(2000),
+  estimatedAmount: decimalString,
+  protocol: z.string().min(1).max(120),
+  openedAt: isoDate,
+  expectedResponseAt: isoDate,
+  ownerId: uuid,
+});
+export type CreateContestationRequest = z.infer<typeof createContestationRequestSchema>;
+
+export const updateContestationStatusRequestSchema = z.object({
+  status: contestationStatusSchema,
+  financialResult: decimalString.optional(),
+});
+export type UpdateContestationStatusRequest = z.infer<typeof updateContestationStatusRequestSchema>;
