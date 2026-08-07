@@ -13,10 +13,10 @@ const argon2Options = {
 const roleRows = [
   { key: 'admin', name: 'Administração' },
   { key: 'diretoria', name: 'Diretoria' },
+  { key: 'comercial', name: 'Comercial' },
   { key: 'financeiro', name: 'Financeiro' },
   { key: 'pluggamob', name: 'PluggaMob' },
   { key: 'opm', name: 'OPM' },
-  { key: 'comercial', name: 'Comercial' },
   { key: 'tech', name: 'Tecnologia' },
   { key: 'viewer', name: 'Leitura' },
 ] as const;

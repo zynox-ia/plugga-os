@@ -587,6 +587,8 @@ model Contract {
   startsAt      DateTime?      @map("starts_at") @db.Timestamptz(6)
   endsAt        DateTime?      @map("ends_at") @db.Timestamptz(6)
   signedAt      DateTime?      @map("signed_at") @db.Timestamptz(6)
+  nextActionAt  DateTime?      @map("next_action_at") @db.Timestamptz(6)
+  nextActionNote String?       @map("next_action_note")
   createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt     DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
   client        Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)

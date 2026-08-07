@@ -1,6 +1,16 @@
 import { headers } from "next/headers";
 
-import type { ClientFicha, EmailStatus, ListClientsResponse, ListIntegrationsResponse, ListJobRunsResponse } from "@plugga/shared";
+import type {
+  ClientFicha,
+  ContractDetail,
+  ContractList,
+  EmailStatus,
+  ListClientsResponse,
+  ListIntegrationsResponse,
+  ListJobRunsResponse,
+  OpportunityDetail,
+  OpportunityList,
+} from "@plugga/shared";
 
 import { apiBaseUrl } from "./env";
 
@@ -120,6 +130,66 @@ export async function fetchClientFicha(id: string): Promise<ClientFicha | null> 
     });
     if (!response.ok) return null;
     return (await response.json()) as ClientFicha;
+  } catch {
+    return null;
+  }
+}
+
+/** Server-side only: calls the real GET /commercial/opportunities contract. */
+export async function fetchOpportunities(): Promise<OpportunityList | null> {
+  try {
+    const response = await fetch(`${apiBaseUrl()}/commercial/opportunities`, {
+      cache: "no-store",
+      headers: await sessionCookieHeaders(),
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    });
+    if (!response.ok) return null;
+    return (await response.json()) as OpportunityList;
+  } catch {
+    return null;
+  }
+}
+
+/** Server-side only: calls the real GET /commercial/opportunities/:id contract. */
+export async function fetchOpportunity(id: string): Promise<OpportunityDetail | null> {
+  try {
+    const response = await fetch(`${apiBaseUrl()}/commercial/opportunities/${id}`, {
+      cache: "no-store",
+      headers: await sessionCookieHeaders(),
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    });
+    if (!response.ok) return null;
+    return (await response.json()) as OpportunityDetail;
+  } catch {
+    return null;
+  }
+}
+
+/** Server-side only: calls the real GET /commercial/contracts contract. */
+export async function fetchContracts(): Promise<ContractList | null> {
+  try {
+    const response = await fetch(`${apiBaseUrl()}/commercial/contracts`, {
+      cache: "no-store",
+      headers: await sessionCookieHeaders(),
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    });
+    if (!response.ok) return null;
+    return (await response.json()) as ContractList;
+  } catch {
+    return null;
+  }
+}
+
+/** Server-side only: calls the real GET /commercial/contracts/:id contract. */
+export async function fetchContract(id: string): Promise<ContractDetail | null> {
+  try {
+    const response = await fetch(`${apiBaseUrl()}/commercial/contracts/${id}`, {
+      cache: "no-store",
+      headers: await sessionCookieHeaders(),
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    });
+    if (!response.ok) return null;
+    return (await response.json()) as ContractDetail;
   } catch {
     return null;
   }

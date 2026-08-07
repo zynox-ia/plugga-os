@@ -16,6 +16,8 @@ export const NAV_GROUPS: ShellNavGroup[] = [
   {
     label: "Comercial & Operação",
     items: [
+      { id: "Oportunidades", label: "Oportunidades", icon: "users" },
+      { id: "Contratos", label: "Contratos", icon: "briefcase" },
       { id: "CRM", label: "CRM", icon: "users" },
       { id: "Clientes", label: "Clientes", icon: "users" },
       { id: "OPM", label: "OPM", icon: "briefcase" },
@@ -50,6 +52,8 @@ export const NAV_GROUPS: ShellNavGroup[] = [
 export const ROUTE_BY_NAV_ID: Record<string, string> = {
   "Dashboard": "/",
   "Central de Pendências": "/pendencias",
+  "Oportunidades": "/comercial/oportunidades",
+  "Contratos": "/comercial/contratos",
   "CRM": "/crm",
   "Clientes": "/clientes",
   "OPM": "/opm",
