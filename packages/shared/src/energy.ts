@@ -105,6 +105,82 @@ export type MarketMigrationSummary = z.infer<typeof marketMigrationSummarySchema
 export const listMarketMigrationsResponseSchema = z.object({ items: z.array(marketMigrationSummarySchema) });
 export type ListMarketMigrationsResponse = z.infer<typeof listMarketMigrationsResponseSchema>;
 
+export const marketMigrationDetailSchema = marketMigrationSummarySchema;
+export type MarketMigrationDetail = z.infer<typeof marketMigrationDetailSchema>;
+
+/** Forward-only sequence a migration's stage must follow (mirrors CONTRACT_STATUS_SEQUENCE in commercial.ts). */
+export const MARKET_MIGRATION_STAGE_SEQUENCE: readonly MarketMigrationStage[] = [
+  "analise",
+  "contratacao",
+  "documentacao",
+  "denuncia",
+  "ativacao",
+];
+
+/**
+ * ownerId/nextActionAt are required at creation, same rationale as
+ * createOpportunityRequestSchema in commercial.ts: a migration is created
+ * directly into status "em_andamento", and the blocking rule ("nenhuma
+ * migração em andamento fica sem responsável e sem próxima ação") has to
+ * hold from the first moment it exists.
+ */
+export const createMarketMigrationRequestSchema = z
+  .object({
+    consumerUnitId: uuid,
+    ownerId: uuid,
+    nextActionAt: isoDate,
+    nextActionNote: z.string().trim().max(500).optional(),
+  })
+  .strict();
+export type CreateMarketMigrationRequest = z.infer<typeof createMarketMigrationRequestSchema>;
+
+/** ownerId/nextActionAt are optional here: omitting them means "leave the current value", never "clear it". */
+export const advanceMarketMigrationStageRequestSchema = z
+  .object({
+    stage: marketMigrationStageSchema,
+    ownerId: uuid.optional(),
+    nextActionAt: isoDate.optional(),
+    nextActionNote: z.string().trim().max(500).optional(),
+  })
+  .strict();
+export type AdvanceMarketMigrationStageRequest = z.infer<typeof advanceMarketMigrationStageRequestSchema>;
+
+export const cancelMarketMigrationRequestSchema = z
+  .object({ cancelReason: z.string().trim().min(1).max(500) })
+  .strict();
+export type CancelMarketMigrationRequest = z.infer<typeof cancelMarketMigrationRequestSchema>;
+
+export const newClientForMarketMigrationSchema = z.object({
+  name: z.string().trim().min(1).max(200),
+  company: z.string().trim().max(200).optional(),
+  phone: z.string().trim().max(40).optional(),
+  email: z.string().trim().email().max(200).optional(),
+});
+export type NewClientForMarketMigration = z.infer<typeof newClientForMarketMigrationSchema>;
+
+/** Activation links or creates a client (dedupe by exact phone/email, same as winOpportunityRequestSchema) — never both, never neither. */
+export const activateMarketMigrationRequestSchema = z
+  .object({
+    clientId: uuid.optional(),
+    newClient: newClientForMarketMigrationSchema.optional(),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if (!value.clientId && !value.newClient) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "ativar exige um cliente vinculado ou um novo cliente",
+      });
+    }
+    if (value.clientId && value.newClient) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "informe apenas um cliente vinculado ou um novo cliente, não os dois",
+      });
+    }
+  });
+export type ActivateMarketMigrationRequest = z.infer<typeof activateMarketMigrationRequestSchema>;
+
 export const cycleSummarySchema = z.object({
   id: uuid,
   clientId: uuid,

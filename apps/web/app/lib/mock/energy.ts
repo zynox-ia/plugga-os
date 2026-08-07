@@ -1,4 +1,4 @@
-import type { AuditSummary, ContestationSummary, CycleSummary } from "@plugga/shared";
+import type { AuditSummary, ContestationSummary, CycleSummary, MarketMigrationSummary } from "@plugga/shared";
 
 /**
  * Fallback local (usado só quando GET /energy/audits ou /energy/contestations
@@ -153,5 +153,81 @@ export const FALLBACK_CYCLES: CycleSummary[] = [
     realizedSavings: "5100.00",
     createdAt: "2026-07-01T12:00:00.000Z",
     updatedAt: "2026-07-30T12:00:00.000Z",
+  },
+];
+
+/**
+ * Fallback local (usado só quando GET /energy/market-migrations não
+ * responde). Espelha o wireframe do fluxo Energia & OPM — nomes e etapas
+ * ilustrativos, sem dado real de cliente.
+ */
+export const FALLBACK_MARKET_MIGRATIONS: MarketMigrationSummary[] = [
+  {
+    id: "00000000-0000-4000-8000-000000006001",
+    clientId: null,
+    clientName: null,
+    consumerUnitId: "00000000-0000-4000-8000-000000007001",
+    consumerUnitCode: "UC 4471",
+    stage: "analise",
+    status: "em_andamento",
+    ownerId: "00000000-0000-4000-8000-000000009001",
+    ownerName: "Ana",
+    nextActionAt: "2026-08-08T13:00:00.000Z",
+    nextActionNote: "Confirmar viabilidade de consumo",
+    cancelReason: null,
+    activatedAt: null,
+    createdAt: "2026-08-01T12:00:00.000Z",
+    updatedAt: "2026-08-06T12:00:00.000Z",
+  },
+  {
+    id: "00000000-0000-4000-8000-000000006002",
+    clientId: null,
+    clientName: null,
+    consumerUnitId: "00000000-0000-4000-8000-000000007002",
+    consumerUnitCode: "UC 8821",
+    stage: "contratacao",
+    status: "em_andamento",
+    ownerId: "00000000-0000-4000-8000-000000009002",
+    ownerName: "Bruno",
+    nextActionAt: "2026-08-09T13:00:00.000Z",
+    nextActionNote: "Enviar minuta de contrato",
+    cancelReason: null,
+    activatedAt: null,
+    createdAt: "2026-08-01T12:00:00.000Z",
+    updatedAt: "2026-08-06T12:00:00.000Z",
+  },
+  {
+    id: "00000000-0000-4000-8000-000000006003",
+    clientId: null,
+    clientName: null,
+    consumerUnitId: "00000000-0000-4000-8000-000000007003",
+    consumerUnitCode: "UC 0087367",
+    stage: "denuncia",
+    status: "em_andamento",
+    ownerId: "00000000-0000-4000-8000-000000009003",
+    ownerName: "Thiago",
+    nextActionAt: "2026-08-10T13:00:00.000Z",
+    nextActionNote: "Acompanhar troca de fornecedor",
+    cancelReason: null,
+    activatedAt: null,
+    createdAt: "2026-08-01T12:00:00.000Z",
+    updatedAt: "2026-08-06T12:00:00.000Z",
+  },
+  {
+    id: "00000000-0000-4000-8000-000000006004",
+    clientId: "00000000-0000-4000-8000-000000008003",
+    clientName: "Solar Norte",
+    consumerUnitId: "00000000-0000-4000-8000-000000007004",
+    consumerUnitCode: "UC 2210",
+    stage: "ativacao",
+    status: "ativa",
+    ownerId: "00000000-0000-4000-8000-000000009001",
+    ownerName: "Ana",
+    nextActionAt: null,
+    nextActionNote: null,
+    cancelReason: null,
+    activatedAt: "2026-08-05T12:00:00.000Z",
+    createdAt: "2026-07-20T12:00:00.000Z",
+    updatedAt: "2026-08-05T12:00:00.000Z",
   },
 ];

@@ -1,11 +1,15 @@
 import type {
+  ActivateMarketMigrationRequest,
+  AdvanceMarketMigrationStageRequest,
   ApproveCycleReportRequest,
   AuditDetail,
+  CancelMarketMigrationRequest,
   CloseCycleRequest,
   ContestationDetail,
   CreateAuditRequest,
   CreateContestationRequest,
   CreateCycleRequest,
+  CreateMarketMigrationRequest,
   CycleDetail,
   CycleListQuery,
   CycleReportsQuery,
@@ -16,6 +20,7 @@ import type {
   ListContestationsResponse,
   ListCyclesResponse,
   ListMarketMigrationsResponse,
+  MarketMigrationDetail,
   MarkCycleDocumentsReceivedRequest,
   ResolveAuditRequest,
   SendCycleReportRequest,
@@ -66,4 +71,24 @@ export abstract class EnergyRepository {
     input: UpdateContestationStatusRequest,
     principal: AuthPrincipal,
   ): Promise<ContestationDetail>;
+
+  abstract createMarketMigration(
+    input: CreateMarketMigrationRequest,
+    principal: AuthPrincipal,
+  ): Promise<MarketMigrationDetail>;
+  abstract advanceMarketMigrationStage(
+    id: string,
+    input: AdvanceMarketMigrationStageRequest,
+    principal: AuthPrincipal,
+  ): Promise<MarketMigrationDetail>;
+  abstract cancelMarketMigration(
+    id: string,
+    input: CancelMarketMigrationRequest,
+    principal: AuthPrincipal,
+  ): Promise<MarketMigrationDetail>;
+  abstract activateMarketMigration(
+    id: string,
+    input: ActivateMarketMigrationRequest,
+    principal: AuthPrincipal,
+  ): Promise<MarketMigrationDetail>;
 }

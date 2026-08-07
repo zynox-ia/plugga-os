@@ -68,3 +68,19 @@ export function sendCycleReport(id: string, input: unknown = {}) {
 export function closeCycle(id: string, input: unknown = {}) {
   return post(`cycles/${id}/close`, input);
 }
+
+export function createMarketMigration(input: unknown) {
+  return post("market-migrations", input);
+}
+
+export function advanceMarketMigrationStage(id: string, input: unknown) {
+  return post(`market-migrations/${id}/stage`, input);
+}
+
+export function cancelMarketMigration(id: string, input: unknown) {
+  return post(`market-migrations/${id}/cancel`, input);
+}
+
+export function activateMarketMigration(id: string, input: unknown) {
+  return post(`market-migrations/${id}/activate`, input);
+}

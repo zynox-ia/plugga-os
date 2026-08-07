@@ -1,10 +1,14 @@
 import { Body, Controller, Get, HttpCode, Inject, Param, Post, Query, UseGuards } from "@nestjs/common";
 import {
+  activateMarketMigrationRequestSchema,
+  advanceMarketMigrationStageRequestSchema,
   approveCycleReportRequestSchema,
+  cancelMarketMigrationRequestSchema,
   closeCycleRequestSchema,
   createAuditRequestSchema,
   createContestationRequestSchema,
   createCycleRequestSchema,
+  createMarketMigrationRequestSchema,
   cycleListQuerySchema,
   cycleReportsQuerySchema,
   generateCycleReportRequestSchema,
@@ -12,13 +16,17 @@ import {
   resolveAuditRequestSchema,
   sendCycleReportRequestSchema,
   updateContestationStatusRequestSchema,
+  type ActivateMarketMigrationRequest,
+  type AdvanceMarketMigrationStageRequest,
   type ApproveCycleReportRequest,
   type AuditDetail,
+  type CancelMarketMigrationRequest,
   type CloseCycleRequest,
   type ContestationDetail,
   type CreateAuditRequest,
   type CreateContestationRequest,
   type CreateCycleRequest,
+  type CreateMarketMigrationRequest,
   type CycleDetail,
   type CycleListQuery,
   type CycleReportsQuery,
@@ -29,6 +37,7 @@ import {
   type ListContestationsResponse,
   type ListCyclesResponse,
   type ListMarketMigrationsResponse,
+  type MarketMigrationDetail,
   type MarkCycleDocumentsReceivedRequest,
   type ResolveAuditRequest,
   type SendCycleReportRequest,
@@ -59,6 +68,53 @@ export class EnergyController {
   @Get("market-migrations")
   listMarketMigrations(): Promise<ListMarketMigrationsResponse> {
     return this.service.listMarketMigrations();
+  }
+
+  @Post("market-migrations")
+  @HttpCode(201)
+  @UseGuards(OriginCheckGuard)
+  @Roles(...OPERATE_ENERGY)
+  createMarketMigration(
+    @Body(new ZodValidationPipe(createMarketMigrationRequestSchema)) input: CreateMarketMigrationRequest,
+    @CurrentPrincipal() principal: AuthPrincipal,
+  ): Promise<MarketMigrationDetail> {
+    return this.service.createMarketMigration(input, principal);
+  }
+
+  @Post("market-migrations/:id/stage")
+  @HttpCode(200)
+  @UseGuards(OriginCheckGuard)
+  @Roles(...OPERATE_ENERGY)
+  advanceMarketMigrationStage(
+    @Param("id") id: string,
+    @Body(new ZodValidationPipe(advanceMarketMigrationStageRequestSchema)) input: AdvanceMarketMigrationStageRequest,
+    @CurrentPrincipal() principal: AuthPrincipal,
+  ): Promise<MarketMigrationDetail> {
+    return this.service.advanceMarketMigrationStage(id, input, principal);
+  }
+
+  @Post("market-migrations/:id/cancel")
+  @HttpCode(200)
+  @UseGuards(OriginCheckGuard)
+  @Roles(...OPERATE_ENERGY)
+  cancelMarketMigration(
+    @Param("id") id: string,
+    @Body(new ZodValidationPipe(cancelMarketMigrationRequestSchema)) input: CancelMarketMigrationRequest,
+    @CurrentPrincipal() principal: AuthPrincipal,
+  ): Promise<MarketMigrationDetail> {
+    return this.service.cancelMarketMigration(id, input, principal);
+  }
+
+  @Post("market-migrations/:id/activate")
+  @HttpCode(200)
+  @UseGuards(OriginCheckGuard)
+  @Roles(...OPERATE_ENERGY)
+  activateMarketMigration(
+    @Param("id") id: string,
+    @Body(new ZodValidationPipe(activateMarketMigrationRequestSchema)) input: ActivateMarketMigrationRequest,
+    @CurrentPrincipal() principal: AuthPrincipal,
+  ): Promise<MarketMigrationDetail> {
+    return this.service.activateMarketMigration(id, input, principal);
   }
 
   @Get("cycles")
