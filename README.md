@@ -50,6 +50,53 @@ Com a API em execução, verifique:
 curl --fail http://localhost:3001/health
 ```
 
+### Tudo em Docker (`--profile app`)
+
+O `compose.yaml` também sabe subir `api` e `web` como containers, para rodar o
+sistema inteiro sem Node instalado:
+
+```bash
+cp .env.example .env
+docker compose --profile app up -d --build
+# web:  http://localhost:3000
+# api:  http://localhost:3001/health
+# inbox Mailpit: http://localhost:8025
+```
+
+Os dois modos convivem de propósito:
+
+| Comando | Sobe | Para quê |
+|---|---|---|
+| `docker compose up -d` | postgres, redis, mailpit | infra para `pnpm dev` (inalterado) |
+| `docker compose --profile app up -d` | infra + api + web | sistema completo em containers |
+
+Sem o profile nada mudou, então `pnpm dev` continua livre nas portas 3000/3001.
+Para rodar os dois ao mesmo tempo, mude as portas publicadas dos containers:
+`API_PORT=3101 WEB_PORT=3100 docker compose --profile app up -d`.
+
+Diferenças deliberadas do container em relação ao `pnpm dev`:
+
+- **`HOST=0.0.0.0`** — dentro do container o bind deixa de ser a proteção; quem
+  protege é a rede do Compose e a porta publicada presa a `127.0.0.1`
+  (ADR-0012). O container **não** fica exposto na rede local.
+- **`DEV_AUTH_ENABLED=false`, fixo** — o container roda o caminho de auth real.
+  O stub de header `x-dev-*` é conveniência do `pnpm dev` e é rejeitado aqui.
+- **`web` fala com a API por `http://api:3001`**, pela rede interna. Essa URL não
+  é alcançável do browser, e não precisa ser: o browser só fala com o `web`.
+- **Migrações e seed** não rodam sozinhas. Aplique-as a partir do host, como no
+  fluxo normal (`pnpm db:migrate:deploy` / `pnpm db:seed`), ou dentro do
+  container: `docker compose exec api pnpm db:migrate:deploy`.
+
+> **Rate limit por IP fica mais grosso neste modo.** Com `api` e `web` em
+> containers separados, a requisição chega à API pelo IP da bridge do Compose,
+> não por loopback. Como o `web` não repassa `X-Forwarded-For` por padrão
+> (`WEB_TRUST_PROXY=false`), a API vê todo mundo com o mesmo IP e o teto de
+> `/auth/*` vira um balde compartilhado. É a escolha segura: o contrário —
+> confiar num header que o cliente controla — permitiria burlar teto e lockout
+> rotacionando o valor. O bloqueio por e-mail continua valendo normalmente.
+> Só ligue `WEB_TRUST_PROXY=true` junto com `TRUST_PROXY` (ex.: `1`) quando
+> houver de fato um proxy reverso reescrevendo o header.
+
 ### `pnpm db:seed` é bootstrap, não reset
 
 O seed **semeia na criação e nunca reafirma** em linha existente. Reexecutar

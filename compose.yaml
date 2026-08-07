@@ -49,6 +49,86 @@ services:
       - "127.0.0.1:${MAILPIT_UI_PORT:-8025}:8025"
     restart: unless-stopped
 
+  # --- Application containers (profile "app") -------------------------------
+  # Kept behind a profile so `docker compose up -d` still starts infrastructure
+  # only, leaving ports 3000/3001 free for `pnpm dev`. The whole system is
+  # `docker compose --profile app up -d`.
+  api:
+    profiles: ["app"]
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    environment:
+      NODE_ENV: production
+      # 0.0.0.0 inside the container is what makes it reachable from `web`; the
+      # Compose network and the loopback-bound published port keep it private
+      # (ADR-0012) — the bind is no longer the boundary.
+      HOST: 0.0.0.0
+      PORT: 3001
+      # Service names, not localhost. Already inside the local-only allowlist,
+      # so containerizing requires no guard to be loosened.
+      DATABASE_URL: postgresql://${POSTGRES_USER:-plugga_os}:${POSTGRES_PASSWORD:-plugga_local}@postgres:5432/${POSTGRES_DB:-plugga_os}?schema=public
+      REDIS_URL: redis://redis:6379
+      # `web` reaches the API over the Compose bridge, which is NOT loopback.
+      # Left untrusted on purpose: web forwards no X-Forwarded-For unless
+      # WEB_TRUST_PROXY is on, so req.ip is the web container and the /auth
+      # throttle degrades to one shared bucket instead of becoming forgeable.
+      # Raise both knobs together, and only behind a real reverse proxy.
+      TRUST_PROXY: ${TRUST_PROXY:-loopback}
+      # Not overridable from .env on purpose. The container runs the real,
+      # production-shaped auth path; the x-dev-* header stub belongs to the
+      # `pnpm dev` flow only, and NODE_ENV=production rejects it at boot anyway.
+      DEV_AUTH_ENABLED: "false"
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      AUTH_SESSION_SECRET: ${AUTH_SESSION_SECRET:?set AUTH_SESSION_SECRET in .env}
+      AUTH_APP_BASE_URL: ${AUTH_APP_BASE_URL:-http://localhost:3000}
+      AUTH_ALLOWED_ORIGINS: ${AUTH_ALLOWED_ORIGINS:-}
+      # Local capture only — nothing leaves the machine.
+      EMAIL_PROVIDER: ${EMAIL_PROVIDER:-mailpit}
+      EMAIL_FROM_ADDRESS: ${EMAIL_FROM_ADDRESS:-no-reply@plugga.local}
+      EMAIL_FROM_NAME: ${EMAIL_FROM_NAME:-Plugga OS}
+      MAILPIT_SMTP_HOST: mailpit
+      MAILPIT_SMTP_PORT: 1025
+      JOBS_ENABLED: ${JOBS_ENABLED:-false}
+      JOBS_WORKER_CONCURRENCY: ${JOBS_WORKER_CONCURRENCY:-1}
+    ports:
+      - "127.0.0.1:${API_PORT:-3001}:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        ["CMD", "node", "-e", "fetch('http://127.0.0.1:3001/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    restart: unless-stopped
+
+  web:
+    profiles: ["app"]
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        # Inlined at build time; only reachable inside the Compose network.
+        NEXT_PUBLIC_API_URL: http://api:3001
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_URL: http://api:3001
+      AUTH_ALLOWED_ORIGINS: ${AUTH_ALLOWED_ORIGINS:-}
+      # Off unless a reverse proxy in front of THIS app overwrites the header;
+      # otherwise it is client-controlled and would defeat the API's throttle.
+      WEB_TRUST_PROXY: ${WEB_TRUST_PROXY:-false}
+    ports:
+      - "127.0.0.1:${WEB_PORT:-3000}:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
 volumes:
   postgres_data:
   redis_data:

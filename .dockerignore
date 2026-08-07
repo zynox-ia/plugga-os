@@ -1,0 +1,21 @@
+# Build context hygiene: never ship local secrets, caches or host-built
+# artifacts into an image. Everything the build needs is produced inside it.
+.env
+.env.*
+!.env.example
+
+.git
+.github
+
+node_modules
+**/node_modules
+
+**/dist
+**/.next
+**/.turbo
+**/coverage
+**/playwright-report
+**/test-results
+
+*.log
+.DS_Store
