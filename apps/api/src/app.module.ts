@@ -6,6 +6,7 @@ import { ConfigModule } from "@nestjs/config";
 import { AuditModule } from "./audit/audit.module";
 import { AuthModule } from "./auth/auth.module";
 import { WhatsappModule } from "./channels/whatsapp/whatsapp.module";
+import { ClientesModule } from "./clientes/clientes.module";
 import { validateEnvironment } from "./config/environment";
 import { CoreModule } from "./core/core.module";
 import { HealthModule } from "./health/health.module";
@@ -34,6 +35,7 @@ const monorepoRootEnvPath = path.resolve(__dirname, "../../../.env");
     IntegrationsModule,
     JobsModule,
     PluggamobModule,
+    ClientesModule,
     JobsQueueModule,
     BitrixModule,
   ],

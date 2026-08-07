@@ -1,6 +1,6 @@
 import { headers } from "next/headers";
 
-import type { EmailStatus, ListIntegrationsResponse, ListJobRunsResponse } from "@plugga/shared";
+import type { ClientFicha, EmailStatus, ListClientsResponse, ListIntegrationsResponse, ListJobRunsResponse } from "@plugga/shared";
 
 import { apiBaseUrl } from "./env";
 
@@ -84,6 +84,42 @@ export async function fetchEmailStatus(): Promise<EmailStatus | null> {
     });
     if (!response.ok) return null;
     return (await response.json()) as EmailStatus;
+  } catch {
+    return null;
+  }
+}
+
+/** Server-side only: calls the real GET /clientes contract (search/filter). */
+export async function fetchClients(query: { q?: string; segment?: string; active?: string }): Promise<ListClientsResponse | null> {
+  try {
+    const params = new URLSearchParams();
+    if (query.q) params.set("q", query.q);
+    if (query.segment) params.set("segment", query.segment);
+    if (query.active) params.set("active", query.active);
+    const search = params.toString();
+
+    const response = await fetch(`${apiBaseUrl()}/clientes${search ? `?${search}` : ""}`, {
+      cache: "no-store",
+      headers: await sessionCookieHeaders(),
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    });
+    if (!response.ok) return null;
+    return (await response.json()) as ListClientsResponse;
+  } catch {
+    return null;
+  }
+}
+
+/** Server-side only: calls the real GET /clientes/:id/ficha aggregator contract. */
+export async function fetchClientFicha(id: string): Promise<ClientFicha | null> {
+  try {
+    const response = await fetch(`${apiBaseUrl()}/clientes/${id}/ficha`, {
+      cache: "no-store",
+      headers: await sessionCookieHeaders(),
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    });
+    if (!response.ok) return null;
+    return (await response.json()) as ClientFicha;
   } catch {
     return null;
   }

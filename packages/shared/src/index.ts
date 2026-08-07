@@ -1,6 +1,7 @@
 export * from "./agent-actions.js";
 export * from "./auth.js";
 export * from "./bitrix.js";
+export * from "./clients.js";
 export * from "./email-status.js";
 export * from "./events.js";
 export * from "./integrations.js";
