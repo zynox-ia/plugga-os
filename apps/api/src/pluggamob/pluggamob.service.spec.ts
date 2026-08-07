@@ -12,6 +12,10 @@ describe("PluggamobService", () => {
         openIncidents: 2,
         pendingSettlements: 3,
       }),
+      reactivationQueue: async () => ({ mode: "mock", items: [] }),
+      userProfile: async () => { throw new Error("not used"); },
+      recordContact: async () => { throw new Error("not used"); },
+      optOut: async () => { throw new Error("not used"); },
     };
 
     const result = await new PluggamobService(repository).overview();

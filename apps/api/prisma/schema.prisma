@@ -292,6 +292,7 @@ model EvUser {
   segmentHistory  EvSegmentHistory[]
   contacts        EvContact[]
   sessions        EvSession[]
+  coupons         Coupon[]
   incidents       Incident[]
 
   @@index([segment, optedOutAt])
@@ -315,8 +316,10 @@ model EvContact {
   channel        String
   outcome        String
   nextActionAt   DateTime? @map("next_action_at") @db.Timestamptz(6)
+  sessionId      String?   @map("session_id") @db.Uuid
   createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   user           EvUser   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  session        EvSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
 
   @@index([userId, createdAt])
   @@map("ev_contacts")
@@ -387,6 +390,8 @@ model EvSession {
   connector      Connector?      @relation(fields: [connectorId], references: [id], onDelete: SetNull)
   incidents      Incident[]
   settlementLine SettlementLine?
+  contacts       EvContact[]
+  coupons        Coupon[]
 
   @@index([locationId, status])
   @@index([userId, startedAt])
@@ -417,8 +422,14 @@ model Coupon {
   id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   code      String   @unique
   status    String
+  userId    String?  @map("user_id") @db.Uuid
+  sessionId String?  @map("session_id") @db.Uuid
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  user      EvUser?  @relation(fields: [userId], references: [id], onDelete: SetNull)
+  session   EvSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
 
+  @@index([userId, createdAt])
+  @@index([sessionId])
   @@map("coupons")
 }
 

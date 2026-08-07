@@ -1,7 +1,11 @@
-import { Controller, Get, Inject, UseGuards } from "@nestjs/common";
-import type { PluggamobOverview } from "@plugga/shared";
+import { Body, Controller, Get, HttpCode, Inject, Param, Post, UseGuards } from "@nestjs/common";
+import { evContactRequestSchema, evOptOutRequestSchema, type EvContactRequest, type EvOptOutRequest, type EvUserProfile, type PluggamobOverview, type ReactivationQueue } from "@plugga/shared";
 
+import { ZodValidationPipe } from "../common/zod-validation.pipe";
+import type { AuthPrincipal } from "../core/auth/auth.types";
+import { CurrentPrincipal } from "../core/auth/current-principal.decorator";
 import { DevAuthGuard } from "../core/auth/dev-auth.guard";
+import { OriginCheckGuard } from "../core/auth/origin-check.guard";
 import { Roles } from "../core/auth/roles.decorator";
 import { RolesGuard } from "../core/auth/roles.guard";
 import { PluggamobService } from "./pluggamob.service";
@@ -15,5 +19,27 @@ export class PluggamobController {
   @Get("overview")
   overview(): Promise<PluggamobOverview> {
     return this.service.overview();
+  }
+
+  @Get("reactivation-queue")
+  reactivationQueue(): Promise<ReactivationQueue> { return this.service.reactivationQueue(); }
+
+  @Get("users/:id")
+  userProfile(@Param("id") id: string): Promise<EvUserProfile> { return this.service.userProfile(id); }
+
+  @Post("users/:id/contacts")
+  @HttpCode(200)
+  @UseGuards(OriginCheckGuard)
+  @Roles("pluggamob", "admin")
+  recordContact(@Param("id") id: string, @Body(new ZodValidationPipe(evContactRequestSchema)) input: EvContactRequest, @CurrentPrincipal() principal: AuthPrincipal): Promise<EvUserProfile> {
+    return this.service.recordContact(id, input, principal);
+  }
+
+  @Post("users/:id/opt-out")
+  @HttpCode(200)
+  @UseGuards(OriginCheckGuard)
+  @Roles("pluggamob", "admin")
+  optOut(@Param("id") id: string, @Body(new ZodValidationPipe(evOptOutRequestSchema)) input: EvOptOutRequest, @CurrentPrincipal() principal: AuthPrincipal): Promise<EvUserProfile> {
+    return this.service.optOut(id, input, principal);
   }
 }

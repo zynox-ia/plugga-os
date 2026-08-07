@@ -1,6 +1,7 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { pluggamobOverviewSchema, type PluggamobOverview } from "@plugga/shared";
+import { pluggamobOverviewSchema, type EvContactRequest, type EvOptOutRequest, type EvUserProfile, type PluggamobOverview, type ReactivationQueue } from "@plugga/shared";
 
+import type { AuthPrincipal } from "../core/auth/auth.types";
 import { PluggamobRepository } from "./pluggamob.repository";
 
 @Injectable()
@@ -12,4 +13,9 @@ export class PluggamobService {
     const counts = await this.repository.overview(generatedAt);
     return pluggamobOverviewSchema.parse({ mode: "mock", ...counts, generatedAt: generatedAt.toISOString() });
   }
+
+  reactivationQueue(): Promise<ReactivationQueue> { return this.repository.reactivationQueue(); }
+  userProfile(id: string): Promise<EvUserProfile> { return this.repository.userProfile(id); }
+  recordContact(userId: string, input: EvContactRequest, principal: AuthPrincipal): Promise<EvUserProfile> { return this.repository.recordContact(userId, input, principal); }
+  optOut(userId: string, input: EvOptOutRequest, principal: AuthPrincipal): Promise<EvUserProfile> { return this.repository.optOut(userId, input, principal); }
 }
