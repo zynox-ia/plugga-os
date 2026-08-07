@@ -29,6 +29,15 @@ export const environmentSchema = z
     JOBS_ENABLED: environmentBoolean.default(false),
     JOBS_WORKER_CONCURRENCY: z.coerce.number().int().min(1).max(50).default(1),
     DEV_AUTH_ENABLED: environmentBoolean.default(false),
+    // Express `trust proxy` (ADR-0012). "loopback" is only correct while every
+    // process shares a host: once api/web are separate containers the request
+    // arrives from the Compose bridge IP, the hop is not trusted, and the
+    // per-IP throttle on /auth/* silently collapses into one global bucket.
+    // Trusting a hop must therefore be an explicit, deliberate choice.
+    // Accepts express values: "loopback", a hop count ("1"), an IP/CIDR, or
+    // "false"/"true". "true" trusts any caller's self-reported chain — it makes
+    // X-Forwarded-For client-controlled again, so it warns loudly at boot.
+    TRUST_PROXY: z.string().trim().min(1).default("loopback"),
     LOG_LEVEL: z.enum(["debug", "info", "warn", "error", "silent"]).default("info"),
     // Signs the session cookie (integrity, defense in depth over the opaque
     // token). Local placeholder only in .env.example; never committed for real.

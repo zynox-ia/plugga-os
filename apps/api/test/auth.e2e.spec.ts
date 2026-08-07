@@ -2,13 +2,13 @@ import { randomUUID } from "node:crypto";
 
 import { Test } from "@nestjs/testing";
 import type { NestExpressApplication } from "@nestjs/platform-express";
-import cookieParser from "cookie-parser";
 import request from "supertest";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { hash as argon2Hash } from "@node-rs/argon2";
 import type { RoleKey } from "@plugga/shared";
 
 import { AppModule } from "../src/app.module";
+import { configureApp } from "../src/configure-app";
 import { AuditRepository } from "../src/audit/audit.repository";
 import type { AuthPrincipal } from "../src/core/auth/auth.types";
 import { SessionLookupRepository } from "../src/core/auth/session-lookup.repository";
@@ -272,10 +272,10 @@ describe("auth API (e2e, in-memory stores)", () => {
       .compile();
 
     app = module.createNestApplication<NestExpressApplication>();
-    // Mirrors apps/api/src/main.ts so throttle-tracker tests below exercise
-    // the same X-Forwarded-For trust boundary as production.
-    app.set("trust proxy", "loopback");
-    app.use(cookieParser(SESSION_SECRET));
+    // The SAME function main.ts calls — not a copy of it. The throttle-tracker
+    // tests below therefore exercise the real X-Forwarded-For trust boundary,
+    // so removing it from production code turns this suite red (ADR-0012).
+    configureApp(app);
     await app.init();
   });
 

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { apiBaseUrl } from "./env";
+import { clientForwardedFor } from "./forwarded-for";
 
 const FETCH_TIMEOUT_MS = 5_000;
 
@@ -31,20 +32,6 @@ function isOriginAllowed(request: Request): boolean {
   } catch {
     return false;
   }
-}
-
-/**
- * The API listens on 127.0.0.1 (see README) and trusts only that loopback hop
- * for X-Forwarded-For (apps/api/src/main.ts, `trust proxy: "loopback"`), so
- * its per-IP rate limiting relies entirely on this app forwarding the real
- * client address here. In production this app must itself sit behind a
- * reverse proxy that sets (overwrites, never appends to) X-Forwarded-For from
- * the actual TCP peer — never a client-supplied value. Passed through as-is
- * (not re-derived), since App Router route handlers have no API to read the
- * raw socket address without a custom server.
- */
-function clientForwardedFor(request: Request): string | null {
-  return request.headers.get("x-forwarded-for");
 }
 
 /**
