@@ -99,18 +99,59 @@ enum SettlementStatus {
   @@map("settlement_status")
 }
 
+enum ClientSegment {
+  prospect
+  opm
+  pluggamob
+  associacoes_gd
+  inativo
+
+  @@map("client_segment")
+}
+
+enum OpportunityStage {
+  leads
+  qualificacao
+  proposta
+  decisao
+
+  @@map("opportunity_stage")
+}
+
+enum OpportunityStatus {
+  aberta
+  ganha
+  perdida
+  revisitar
+
+  @@map("opportunity_status")
+}
+
+enum ContractStatus {
+  rascunho
+  revisao_interna
+  aguardando_assinatura
+  ativo
+  vencendo
+  encerrado
+
+  @@map("contract_status")
+}
+
 model User {
-  id           String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  email        String          @unique
-  name         String
-  status       String          @default("active")
-  createdAt    DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt    DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
-  roles        UserRole[]
-  agentActions AgentAction[]
-  credential   UserCredential?
-  sessions     Session[]
-  authTokens   AuthToken[]
+  id            String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email         String          @unique
+  name          String
+  status        String          @default("active")
+  createdAt     DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+  roles         UserRole[]
+  agentActions  AgentAction[]
+  credential    UserCredential?
+  sessions      Session[]
+  authTokens    AuthToken[]
+  opportunities Opportunity[]
+  contracts     Contract[]
 
   @@map("users")
 }
@@ -279,21 +320,21 @@ model JobRun {
 }
 
 model EvUser {
-  id              String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  externalId      String             @unique @map("external_id")
-  displayName     String             @map("display_name")
-  phoneMasked     String?            @map("phone_masked")
-  segment         EvSegment          @default(r0)
-  optedOutAt      DateTime?          @map("opted_out_at") @db.Timestamptz(6)
-  walletBalance   Decimal?           @map("wallet_balance") @db.Decimal(14, 2)
-  lastSessionAt   DateTime?          @map("last_session_at") @db.Timestamptz(6)
-  createdAt       DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt       DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
-  segmentHistory  EvSegmentHistory[]
-  contacts        EvContact[]
-  sessions        EvSession[]
-  coupons         Coupon[]
-  incidents       Incident[]
+  id             String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  externalId     String             @unique @map("external_id")
+  displayName    String             @map("display_name")
+  phoneMasked    String?            @map("phone_masked")
+  segment        EvSegment          @default(r0)
+  optedOutAt     DateTime?          @map("opted_out_at") @db.Timestamptz(6)
+  walletBalance  Decimal?           @map("wallet_balance") @db.Decimal(14, 2)
+  lastSessionAt  DateTime?          @map("last_session_at") @db.Timestamptz(6)
+  createdAt      DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+  segmentHistory EvSegmentHistory[]
+  contacts       EvContact[]
+  sessions       EvSession[]
+  coupons        Coupon[]
+  incidents      Incident[]
 
   @@index([segment, optedOutAt])
   @@map("ev_users")
@@ -311,15 +352,15 @@ model EvSegmentHistory {
 }
 
 model EvContact {
-  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId         String   @map("user_id") @db.Uuid
-  channel        String
-  outcome        String
-  nextActionAt   DateTime? @map("next_action_at") @db.Timestamptz(6)
-  sessionId      String?   @map("session_id") @db.Uuid
-  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  user           EvUser   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  session        EvSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  id           String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId       String     @map("user_id") @db.Uuid
+  channel      String
+  outcome      String
+  nextActionAt DateTime?  @map("next_action_at") @db.Timestamptz(6)
+  sessionId    String?    @map("session_id") @db.Uuid
+  createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  user         EvUser     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  session      EvSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
 
   @@index([userId, createdAt])
   @@map("ev_contacts")
@@ -338,37 +379,37 @@ model Partner {
 }
 
 model Location {
-  id         String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  partnerId  String         @map("partner_id") @db.Uuid
-  name       String
-  status     LocationStatus @default(unknown)
-  timezone   String         @default("America/Manaus")
-  partner    Partner        @relation(fields: [partnerId], references: [id], onDelete: Restrict)
-  stations   Station[]
-  sessions   EvSession[]
-  incidents  Incident[]
+  id        String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  partnerId String         @map("partner_id") @db.Uuid
+  name      String
+  status    LocationStatus @default(unknown)
+  timezone  String         @default("America/Manaus")
+  partner   Partner        @relation(fields: [partnerId], references: [id], onDelete: Restrict)
+  stations  Station[]
+  sessions  EvSession[]
+  incidents Incident[]
 
   @@index([partnerId, status])
   @@map("locations")
 }
 
 model Station {
-  id          String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  locationId  String      @map("location_id") @db.Uuid
-  name        String
-  location    Location    @relation(fields: [locationId], references: [id], onDelete: Cascade)
-  connectors  Connector[]
+  id         String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  locationId String      @map("location_id") @db.Uuid
+  name       String
+  location   Location    @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  connectors Connector[]
 
   @@map("stations")
 }
 
 model Connector {
-  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  stationId   String    @map("station_id") @db.Uuid
-  label       String
-  status      String    @default("unknown")
-  station     Station   @relation(fields: [stationId], references: [id], onDelete: Cascade)
-  sessions    EvSession[]
+  id        String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  stationId String      @map("station_id") @db.Uuid
+  label     String
+  status    String      @default("unknown")
+  station   Station     @relation(fields: [stationId], references: [id], onDelete: Cascade)
+  sessions  EvSession[]
 
   @@map("connectors")
 }
@@ -420,13 +461,13 @@ model Incident {
 }
 
 model Coupon {
-  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  code      String   @unique
+  id        String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code      String     @unique
   status    String
-  userId    String?  @map("user_id") @db.Uuid
-  sessionId String?  @map("session_id") @db.Uuid
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  user      EvUser?  @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userId    String?    @map("user_id") @db.Uuid
+  sessionId String?    @map("session_id") @db.Uuid
+  createdAt DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  user      EvUser?    @relation(fields: [userId], references: [id], onDelete: SetNull)
   session   EvSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
 
   @@index([userId, createdAt])
@@ -435,42 +476,124 @@ model Coupon {
 }
 
 model Settlement {
-  id          String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  partnerId   String           @map("partner_id") @db.Uuid
-  weekStart   DateTime         @map("week_start") @db.Timestamptz(6)
-  weekEnd     DateTime         @map("week_end") @db.Timestamptz(6)
-  status      SettlementStatus @default(draft)
-  partner     Partner          @relation(fields: [partnerId], references: [id], onDelete: Restrict)
-  lines       SettlementLine[]
-  credits     D14Credit[]
-  incidents   Incident[]
+  id        String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  partnerId String           @map("partner_id") @db.Uuid
+  weekStart DateTime         @map("week_start") @db.Timestamptz(6)
+  weekEnd   DateTime         @map("week_end") @db.Timestamptz(6)
+  status    SettlementStatus @default(draft)
+  partner   Partner          @relation(fields: [partnerId], references: [id], onDelete: Restrict)
+  lines     SettlementLine[]
+  credits   D14Credit[]
+  incidents Incident[]
 
   @@unique([partnerId, weekStart])
   @@map("settlements")
 }
 
 model SettlementLine {
-  id            String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  settlementId  String      @map("settlement_id") @db.Uuid
-  sessionId     String?     @unique @map("session_id") @db.Uuid
-  tokenRfid     String?     @map("token_rfid")
+  id             String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  settlementId   String     @map("settlement_id") @db.Uuid
+  sessionId      String?    @unique @map("session_id") @db.Uuid
+  tokenRfid      String?    @map("token_rfid")
   classification String
-  amount        Decimal?    @db.Decimal(14, 2)
-  blockedReason String?     @map("blocked_reason")
-  settlement    Settlement  @relation(fields: [settlementId], references: [id], onDelete: Cascade)
-  session       EvSession?  @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  amount         Decimal?   @db.Decimal(14, 2)
+  blockedReason  String?    @map("blocked_reason")
+  settlement     Settlement @relation(fields: [settlementId], references: [id], onDelete: Cascade)
+  session        EvSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
 
   @@index([settlementId, blockedReason])
   @@map("settlement_lines")
 }
 
 model D14Credit {
-  id            String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  settlementId  String     @map("settlement_id") @db.Uuid
-  amount        Decimal    @db.Decimal(14, 2)
-  status        String
-  availableAt   DateTime   @map("available_at") @db.Timestamptz(6)
-  settlement    Settlement @relation(fields: [settlementId], references: [id], onDelete: Cascade)
+  id           String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  settlementId String     @map("settlement_id") @db.Uuid
+  amount       Decimal    @db.Decimal(14, 2)
+  status       String
+  availableAt  DateTime   @map("available_at") @db.Timestamptz(6)
+  settlement   Settlement @relation(fields: [settlementId], references: [id], onDelete: Cascade)
 
   @@map("d14_credits")
+}
+
+/// Unique client record. The rest of the product (opportunities, contracts,
+/// PluggaMob ficha) links to this row instead of duplicating identity.
+model Client {
+  id            String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name          String
+  company       String?
+  phone         String?
+  email         String?
+  externalId    String?       @map("external_id")
+  segment       ClientSegment @default(prospect)
+  active        Boolean       @default(true)
+  createdAt     DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+  opportunities Opportunity[]
+  contracts     Contract[]
+
+  @@index([segment, active])
+  @@map("clients")
+}
+
+/// A commercial opportunity worked from lead to a ganha/perdida decision.
+/// clientId is null until the opportunity is won or explicitly linked.
+model Opportunity {
+  id             String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clientId       String?              @map("client_id") @db.Uuid
+  title          String
+  product        String
+  stage          OpportunityStage     @default(leads)
+  status         OpportunityStatus    @default(aberta)
+  ownerId        String?              @map("owner_id") @db.Uuid
+  estimatedValue Decimal?             @map("estimated_value") @db.Decimal(14, 2)
+  nextActionAt   DateTime?            @map("next_action_at") @db.Timestamptz(6)
+  nextActionNote String?              @map("next_action_note")
+  lossReason     String?              @map("loss_reason")
+  decidedAt      DateTime?            @map("decided_at") @db.Timestamptz(6)
+  createdAt      DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
+  client         Client?              @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  owner          User?                @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  contacts       OpportunityContact[]
+  contracts      Contract[]
+
+  @@index([stage, status])
+  @@index([clientId])
+  @@map("opportunities")
+}
+
+model OpportunityContact {
+  id            String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  opportunityId String      @map("opportunity_id") @db.Uuid
+  channel       String
+  outcome       String
+  note          String?
+  createdAt     DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  opportunity   Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+
+  @@index([opportunityId, createdAt])
+  @@map("opportunity_contacts")
+}
+
+/// Contract lifecycle. Always tied to a client; may originate from a won
+/// opportunity or be opened directly on the client's ficha.
+model Contract {
+  id            String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clientId      String         @map("client_id") @db.Uuid
+  opportunityId String?        @map("opportunity_id") @db.Uuid
+  status        ContractStatus @default(rascunho)
+  ownerId       String?        @map("owner_id") @db.Uuid
+  startsAt      DateTime?      @map("starts_at") @db.Timestamptz(6)
+  endsAt        DateTime?      @map("ends_at") @db.Timestamptz(6)
+  signedAt      DateTime?      @map("signed_at") @db.Timestamptz(6)
+  createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+  client        Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  opportunity   Opportunity?   @relation(fields: [opportunityId], references: [id], onDelete: SetNull)
+  owner         User?          @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@index([clientId])
+  @@map("contracts")
 }
