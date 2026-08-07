@@ -155,4 +155,3 @@ export const FALLBACK_CYCLES: CycleSummary[] = [
     updatedAt: "2026-07-30T12:00:00.000Z",
   },
 ];
-];

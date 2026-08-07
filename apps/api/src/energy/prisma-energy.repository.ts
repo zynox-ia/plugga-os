@@ -793,11 +793,6 @@ export class PrismaEnergyRepository extends EnergyRepository {
     return row !== null;
   }
 
-  private async ownerExists(id: string): Promise<boolean> {
-    const row = await this.prisma.user.findUnique({ where: { id }, select: { id: true } });
-    return row !== null;
-  }
-
   private actorType(principal: AuthPrincipal): ActorType {
     return principal.kind === "user" ? "user" : "system";
   }
