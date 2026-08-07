@@ -211,6 +211,99 @@ async function main() {
       },
     });
   }
+
+  await prisma.coupon.createMany({
+    data: [
+      {
+        id: '00000000-0000-4000-8000-000000000301',
+        code: 'MOBLOCAL10',
+        status: 'active',
+      },
+      {
+        id: '00000000-0000-4000-8000-000000000302',
+        code: 'MOBEXPIRADO',
+        status: 'expired',
+      },
+    ],
+    skipDuplicates: true,
+  });
+
+  // Financial samples are independently bootstrapped so a database seeded by
+  // the earlier foundation can receive them. Existing weekly settlements are
+  // never updated: local resolutions and approvals always win over seed data.
+  const settlementPartner = await prisma.partner.findUnique({ where: { key: 'ev-point' } });
+  if (settlementPartner) {
+    const blockedWeekStart = new Date('2026-08-03T04:00:00.000Z');
+    const blockedSettlement = await prisma.settlement.findUnique({
+      where: {
+        partnerId_weekStart: {
+          partnerId: settlementPartner.id,
+          weekStart: blockedWeekStart,
+        },
+      },
+      select: { id: true },
+    });
+    if (!blockedSettlement) {
+      await prisma.settlement.create({
+        data: {
+          id: '00000000-0000-4000-8000-000000000401',
+          partnerId: settlementPartner.id,
+          weekStart: blockedWeekStart,
+          weekEnd: new Date('2026-08-10T03:59:59.999Z'),
+          status: 'blocked',
+          lines: {
+            create: {
+              id: '00000000-0000-4000-8000-000000000411',
+              tokenRfid: 'MOCK-RFID-SEM-VALOR',
+              classification: 'rfid_physical',
+              blockedReason: 'RFID físico sem valoração',
+              blockerAssignee: 'Financeiro PluggaMob',
+              blockerEvidenceMissing: 'Comprovante local da tarifa aplicada',
+              blockerNextAction: 'Validar tarifa e registrar a evidência local',
+            },
+          },
+        },
+      });
+    }
+
+    const approvedWeekStart = new Date('2026-07-27T04:00:00.000Z');
+    const approvedSettlement = await prisma.settlement.findUnique({
+      where: {
+        partnerId_weekStart: {
+          partnerId: settlementPartner.id,
+          weekStart: approvedWeekStart,
+        },
+      },
+      select: { id: true },
+    });
+    if (!approvedSettlement) {
+      await prisma.settlement.create({
+        data: {
+          id: '00000000-0000-4000-8000-000000000402',
+          partnerId: settlementPartner.id,
+          weekStart: approvedWeekStart,
+          weekEnd: new Date('2026-08-03T03:59:59.999Z'),
+          status: 'approved',
+          lines: {
+            create: {
+              id: '00000000-0000-4000-8000-000000000412',
+              tokenRfid: 'MOCK-TOKEN-APROVADO',
+              classification: 'paid',
+              amount: '96.00',
+            },
+          },
+          credits: {
+            create: {
+              id: '00000000-0000-4000-8000-000000000421',
+              amount: '96.00',
+              status: 'scheduled',
+              availableAt: new Date('2026-08-17T03:59:59.999Z'),
+            },
+          },
+        },
+      });
+    }
+  }
 }
 
 main()

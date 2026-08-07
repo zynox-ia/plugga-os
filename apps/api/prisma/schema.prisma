@@ -438,15 +438,18 @@ model Settlement {
 }
 
 model SettlementLine {
-  id            String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  settlementId  String      @map("settlement_id") @db.Uuid
-  sessionId     String?     @unique @map("session_id") @db.Uuid
-  tokenRfid     String?     @map("token_rfid")
-  classification String
-  amount        Decimal?    @db.Decimal(14, 2)
-  blockedReason String?     @map("blocked_reason")
-  settlement    Settlement  @relation(fields: [settlementId], references: [id], onDelete: Cascade)
-  session       EvSession?  @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  id                     String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  settlementId           String      @map("settlement_id") @db.Uuid
+  sessionId              String?     @unique @map("session_id") @db.Uuid
+  tokenRfid              String?     @map("token_rfid")
+  classification         String
+  amount                 Decimal?    @db.Decimal(14, 2)
+  blockedReason          String?     @map("blocked_reason")
+  blockerAssignee        String?     @map("blocker_assignee")
+  blockerEvidenceMissing String?     @map("blocker_evidence_missing")
+  blockerNextAction      String?     @map("blocker_next_action")
+  settlement             Settlement  @relation(fields: [settlementId], references: [id], onDelete: Cascade)
+  session                EvSession?  @relation(fields: [sessionId], references: [id], onDelete: SetNull)
 
   @@index([settlementId, blockedReason])
   @@map("settlement_lines")

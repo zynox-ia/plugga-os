@@ -176,3 +176,56 @@ describeSeed("seed preserves user access revocation (integration)", () => {
     expect(recreated.roles.length).toBeGreaterThan(0);
   }, 180_000);
 });
+
+describeSeed("seed preserves PluggaMob settlement decisions (integration)", () => {
+  const SETTLEMENT_ID = "00000000-0000-4000-8000-000000000401";
+  const LINE_ID = "00000000-0000-4000-8000-000000000411";
+  let prisma: PrismaClient;
+
+  beforeAll(async () => {
+    prisma = new PrismaClient();
+    await prisma.$connect();
+    await runSeed();
+  }, 180_000);
+
+  afterAll(async () => {
+    await prisma.settlement.updateMany({
+      where: { id: SETTLEMENT_ID },
+      data: { status: "blocked" },
+    });
+    await prisma.settlementLine.updateMany({
+      where: { id: LINE_ID },
+      data: {
+        blockedReason: "RFID físico sem valoração",
+        blockerAssignee: "Financeiro PluggaMob",
+        blockerEvidenceMissing: "Comprovante local da tarifa aplicada",
+        blockerNextAction: "Validar tarifa e registrar a evidência local",
+      },
+    });
+    await prisma.$disconnect();
+  });
+
+  it("does not restore status or a blocker resolved locally", async () => {
+    await prisma.settlement.update({
+      where: { id: SETTLEMENT_ID },
+      data: { status: "auditing" },
+    });
+    await prisma.settlementLine.update({
+      where: { id: LINE_ID },
+      data: {
+        blockedReason: null,
+        blockerAssignee: null,
+        blockerEvidenceMissing: null,
+        blockerNextAction: null,
+      },
+    });
+
+    await runSeed();
+
+    const settlement = await prisma.settlement.findUniqueOrThrow({ where: { id: SETTLEMENT_ID } });
+    const line = await prisma.settlementLine.findUniqueOrThrow({ where: { id: LINE_ID } });
+    expect(settlement.status).toBe("auditing");
+    expect(line.blockedReason).toBeNull();
+    expect(line.blockerAssignee).toBeNull();
+  }, 180_000);
+});
