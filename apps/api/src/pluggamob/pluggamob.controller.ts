@@ -1,5 +1,5 @@
 import { Body, Controller, Get, HttpCode, Inject, Param, Post, UseGuards } from "@nestjs/common";
-import { evContactRequestSchema, evOptOutRequestSchema, incidentRequestSchema, type EvContactRequest, type EvOptOutRequest, type EvUserProfile, type IncidentRequest, type IncidentResponse, type PluggamobLocations, type PluggamobOverview, type PluggamobSessions, type ReactivationQueue } from "@plugga/shared";
+import { evContactRequestSchema, evOptOutRequestSchema, incidentRequestSchema, resolveBlockerRequestSchema, type EvContactRequest, type EvOptOutRequest, type EvUserProfile, type IncidentRequest, type IncidentResponse, type PluggamobLocations, type PluggamobOverview, type PluggamobSessions, type ReactivationQueue, type ResolveBlockerRequest, type SettlementDetail, type Settlements } from "@plugga/shared";
 
 import { ZodValidationPipe } from "../common/zod-validation.pipe";
 import type { AuthPrincipal } from "../core/auth/auth.types";
@@ -49,4 +49,12 @@ export class PluggamobController {
   @Get("locations/:id") location(@Param("id") id: string): Promise<PluggamobLocations["items"][number]> { return this.service.location(id); }
   @Post("incidents") @HttpCode(201) @UseGuards(OriginCheckGuard) @Roles("pluggamob", "admin")
   createIncident(@Body(new ZodValidationPipe(incidentRequestSchema)) input: IncidentRequest, @CurrentPrincipal() principal: AuthPrincipal): Promise<IncidentResponse> { return this.service.createIncident(input, principal); }
+  @Get("settlements") settlements(): Promise<Settlements> { return this.service.settlements(); }
+  @Get("settlements/:id") settlement(@Param("id") id: string): Promise<SettlementDetail> { return this.service.settlement(id); }
+  @Post("settlements/:id/lines/:lineId/resolve-blocker") @HttpCode(200) @UseGuards(OriginCheckGuard) @Roles("financeiro", "admin")
+  resolveBlocker(@Param("id") id: string, @Param("lineId") lineId: string, @Body(new ZodValidationPipe(resolveBlockerRequestSchema)) input: ResolveBlockerRequest, @CurrentPrincipal() principal: AuthPrincipal): Promise<SettlementDetail> { return this.service.resolveBlocker(id, lineId, input, principal); }
+  @Post("settlements/:id/request-approval") @HttpCode(200) @UseGuards(OriginCheckGuard) @Roles("financeiro", "admin")
+  requestApproval(@Param("id") id: string, @CurrentPrincipal() principal: AuthPrincipal): Promise<SettlementDetail> { return this.service.requestApproval(id, principal); }
+  @Post("settlements/:id/approve") @HttpCode(200) @UseGuards(OriginCheckGuard) @Roles("financeiro", "diretoria", "admin")
+  approve(@Param("id") id: string, @CurrentPrincipal() principal: AuthPrincipal): Promise<SettlementDetail> { return this.service.approve(id, principal); }
 }

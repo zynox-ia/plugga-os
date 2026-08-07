@@ -1,5 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { pluggamobOverviewSchema, type EvContactRequest, type EvOptOutRequest, type EvUserProfile, type IncidentRequest, type IncidentResponse, type PluggamobLocations, type PluggamobOverview, type PluggamobSessions, type ReactivationQueue } from "@plugga/shared";
+import { pluggamobOverviewSchema, type EvContactRequest, type EvOptOutRequest, type EvUserProfile, type IncidentRequest, type IncidentResponse, type PluggamobLocations, type PluggamobOverview, type PluggamobSessions, type ReactivationQueue, type ResolveBlockerRequest, type SettlementDetail, type Settlements } from "@plugga/shared";
 
 import type { AuthPrincipal } from "../core/auth/auth.types";
 import { PluggamobRepository } from "./pluggamob.repository";
@@ -23,4 +23,9 @@ export class PluggamobService {
   locations(): Promise<PluggamobLocations> { return this.repository.locations(); }
   location(id: string): Promise<PluggamobLocations["items"][number]> { return this.repository.location(id); }
   createIncident(input: IncidentRequest, principal: AuthPrincipal): Promise<IncidentResponse> { return this.repository.createIncident(input, principal); }
+  settlements(): Promise<Settlements> { return this.repository.settlements(); }
+  settlement(id: string): Promise<SettlementDetail> { return this.repository.settlement(id); }
+  resolveBlocker(settlementId: string, lineId: string, input: ResolveBlockerRequest, principal: AuthPrincipal): Promise<SettlementDetail> { return this.repository.resolveBlocker(settlementId, lineId, input, principal); }
+  requestApproval(id: string, principal: AuthPrincipal): Promise<SettlementDetail> { return this.repository.requestApproval(id, principal); }
+  approve(id: string, principal: AuthPrincipal): Promise<SettlementDetail> { return this.repository.approve(id, principal); }
 }

@@ -21,6 +21,11 @@ describe("PluggamobService", () => {
       locations: async () => ({ mode: "mock", items: [] }),
       location: async () => { throw new Error("not used"); },
       createIncident: async () => { throw new Error("not used"); },
+      settlements: async () => ({ mode: "mock", items: [] }),
+      settlement: async () => { throw new Error("not used"); },
+      resolveBlocker: async () => { throw new Error("not used"); },
+      requestApproval: async () => { throw new Error("not used"); },
+      approve: async () => { throw new Error("not used"); },
     };
 
     const result = await new PluggamobService(repository).overview();

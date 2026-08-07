@@ -1,6 +1,6 @@
 import { BadRequestException, Inject, Injectable, NotFoundException } from "@nestjs/common";
 import type { ActorType } from "@prisma/client";
-import { evUserProfileSchema, incidentResponseSchema, pluggamobLocationsSchema, pluggamobSessionSchema, pluggamobSessionsSchema, reactivationQueueSchema, type EvContactRequest, type EvOptOutRequest, type EvUserProfile, type IncidentRequest, type IncidentResponse, type PluggamobLocations, type PluggamobSessions, type ReactivationQueue } from "@plugga/shared";
+import { evUserProfileSchema, incidentResponseSchema, pluggamobLocationsSchema, pluggamobSessionSchema, pluggamobSessionsSchema, reactivationQueueSchema, settlementDetailSchema, settlementsSchema, type EvContactRequest, type EvOptOutRequest, type EvUserProfile, type IncidentRequest, type IncidentResponse, type PluggamobLocations, type PluggamobSessions, type ReactivationQueue, type ResolveBlockerRequest, type SettlementDetail, type Settlements } from "@plugga/shared";
 
 import type { AuthPrincipal } from "../core/auth/auth.types";
 import { PrismaService } from "../prisma/prisma.service";
@@ -91,6 +91,36 @@ export class PrismaPluggamobRepository extends PluggamobRepository {
     });
     return incidentResponseSchema.parse({ id: incident.id, status: incident.status, kind: incident.kind, severity: incident.severity, summary: incident.summary, owner: incident.owner });
   }
+
+  async settlements(): Promise<Settlements> {
+    const rows = await this.prisma.settlement.findMany({ include: { partner: true, lines: true }, orderBy: { weekStart: "desc" } });
+    return settlementsSchema.parse({ mode: "mock", items: rows.map((row) => this.settlementSummary(row)) });
+  }
+
+  async settlement(id: string): Promise<SettlementDetail> {
+    const row = await this.prisma.settlement.findUnique({ where: { id }, include: { partner: true, lines: true, credits: true } });
+    if (!row) throw new NotFoundException("settlement not found");
+    return settlementDetailSchema.parse({ ...this.settlementSummary(row), canClose: row.lines.every((line) => !line.blockedReason), blockers: row.lines.filter((line) => line.blockedReason).map((line) => ({ id: line.id, reason: line.blockedReason!, classification: line.classification, amount: line.amount?.toFixed(2) ?? null })), lines: row.lines.map((line) => ({ id: line.id, tokenRfid: line.tokenRfid, classification: line.classification, amount: line.amount?.toFixed(2) ?? null, blockedReason: line.blockedReason })), credits: row.credits.map((credit) => ({ id: credit.id, amount: credit.amount.toFixed(2), status: credit.status, availableAt: credit.availableAt.toISOString() })) });
+  }
+
+  async resolveBlocker(settlementId: string, lineId: string, input: ResolveBlockerRequest, principal: AuthPrincipal): Promise<SettlementDetail> {
+    const line = await this.prisma.settlementLine.findFirst({ where: { id: lineId, settlementId } });
+    if (!line) throw new NotFoundException("settlement line not found");
+    await this.prisma.$transaction(async (tx) => { await tx.settlementLine.update({ where: { id: lineId }, data: { blockedReason: null } }); await tx.eventLog.create({ data: { eventName: "pluggamob.settlement_blocker_resolved", entityType: "settlement_line", entityId: lineId, actorType: this.actorType(principal), actorId: principal.id, payload: input, occurredAt: new Date() } }); });
+    return this.settlement(settlementId);
+  }
+
+  async requestApproval(id: string, principal: AuthPrincipal): Promise<SettlementDetail> {
+    const detail = await this.settlement(id); if (!detail.canClose) throw new BadRequestException("settlement has open blockers");
+    await this.prisma.$transaction(async (tx) => { await tx.settlement.update({ where: { id }, data: { status: "ready_for_review" } }); await tx.eventLog.create({ data: { eventName: "pluggamob.settlement_approval_requested", entityType: "settlement", entityId: id, actorType: this.actorType(principal), actorId: principal.id, payload: {}, occurredAt: new Date() } }); }); return this.settlement(id);
+  }
+
+  async approve(id: string, principal: AuthPrincipal): Promise<SettlementDetail> {
+    const detail = await this.settlement(id); if (!detail.canClose) throw new BadRequestException("settlement has open blockers"); if (detail.status !== "ready_for_review") throw new BadRequestException("settlement must be ready for review");
+    await this.prisma.$transaction(async (tx) => { await tx.settlement.update({ where: { id }, data: { status: "approved" } }); await tx.eventLog.create({ data: { eventName: "pluggamob.settlement_approved", entityType: "settlement", entityId: id, actorType: this.actorType(principal), actorId: principal.id, payload: {}, occurredAt: new Date() } }); }); return this.settlement(id);
+  }
+
+  private settlementSummary(row: { id: string; partner: { name: string }; weekStart: Date; weekEnd: Date; status: "draft" | "auditing" | "ready_for_review" | "approved" | "exported" | "blocked"; lines: { amount: { toFixed: (value: number) => string } | null; blockedReason: string | null }[] }) { const total = row.lines.reduce((sum, line) => sum + Number(line.amount?.toFixed(2) ?? 0), 0); return { id: row.id, partnerName: row.partner.name, weekStart: row.weekStart.toISOString(), weekEnd: row.weekEnd.toISOString(), status: row.status, totalAmount: total.toFixed(2), blockerCount: row.lines.filter((line) => line.blockedReason).length }; }
 
   private sessionView(row: { id: string; externalId: string; status: "active" | "completed" | "failed" | "blocked"; startedAt: Date; endedAt: Date | null; kwh: { toFixed: (value: number) => string } | null; amount: { toFixed: (value: number) => string } | null; user: { displayName: string }; location: { name: string }; connector: { label: string } | null; incidents: unknown[] }) { return { id: row.id, externalId: row.externalId, status: row.status, startedAt: row.startedAt.toISOString(), endedAt: row.endedAt?.toISOString() ?? null, kwh: row.kwh?.toFixed(3) ?? null, amount: row.amount?.toFixed(2) ?? null, userName: row.user.displayName, locationName: row.location.name, connectorLabel: row.connector?.label ?? null, incidentCount: row.incidents.length }; }
   private locationView(row: { id: string; partner: { name: string }; name: string; status: "active" | "inactive" | "unknown"; timezone: string; stations: { id: string; name: string; connectors: { id: string; label: string; status: string }[] }[]; incidents: unknown[] }) { return { id: row.id, partnerName: row.partner.name, name: row.name, status: row.status, timezone: row.timezone, stations: row.stations, openIncidents: row.incidents.length }; }

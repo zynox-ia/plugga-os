@@ -71,3 +71,12 @@ export const incidentRequestSchema = z.object({ kind: z.string().trim().min(1).m
 export type IncidentRequest = z.infer<typeof incidentRequestSchema>;
 export const incidentResponseSchema = z.object({ id: uuid, status: z.enum(["open", "investigating", "resolved", "blocked"]), kind: z.string(), severity: z.string(), summary: z.string(), owner: z.string().nullable() });
 export type IncidentResponse = z.infer<typeof incidentResponseSchema>;
+
+export const settlementStatusSchema = z.enum(["draft", "auditing", "ready_for_review", "approved", "exported", "blocked"]);
+export const settlementSummarySchema = z.object({ id: uuid, partnerName: z.string(), weekStart: isoDate, weekEnd: isoDate, status: settlementStatusSchema, totalAmount: z.string(), blockerCount: z.number().int().nonnegative() });
+export const settlementsSchema = z.object({ mode: pluggamobModeSchema, items: z.array(settlementSummarySchema) });
+export type Settlements = z.infer<typeof settlementsSchema>;
+export const settlementDetailSchema = settlementSummarySchema.extend({ canClose: z.boolean(), blockers: z.array(z.object({ id: uuid, reason: z.string(), classification: z.string(), amount: z.string().nullable() })), lines: z.array(z.object({ id: uuid, tokenRfid: z.string().nullable(), classification: z.string(), amount: z.string().nullable(), blockedReason: z.string().nullable() })), credits: z.array(z.object({ id: uuid, amount: z.string(), status: z.string(), availableAt: isoDate })) });
+export type SettlementDetail = z.infer<typeof settlementDetailSchema>;
+export const resolveBlockerRequestSchema = z.object({ note: z.string().trim().min(1).max(500) }).strict();
+export type ResolveBlockerRequest = z.infer<typeof resolveBlockerRequestSchema>;

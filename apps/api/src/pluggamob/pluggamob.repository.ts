@@ -1,5 +1,5 @@
 import type { AuthPrincipal } from "../core/auth/auth.types";
-import type { EvContactRequest, EvOptOutRequest, EvUserProfile, IncidentRequest, IncidentResponse, PluggamobLocations, PluggamobSessions, ReactivationQueue } from "@plugga/shared";
+import type { EvContactRequest, EvOptOutRequest, EvUserProfile, IncidentRequest, IncidentResponse, PluggamobLocations, PluggamobSessions, ReactivationQueue, ResolveBlockerRequest, SettlementDetail, Settlements } from "@plugga/shared";
 
 export interface PluggamobOverviewCounts {
   sessionsToday: number;
@@ -19,4 +19,9 @@ export abstract class PluggamobRepository {
   abstract locations(): Promise<PluggamobLocations>;
   abstract location(id: string): Promise<PluggamobLocations["items"][number]>;
   abstract createIncident(input: IncidentRequest, principal: AuthPrincipal): Promise<IncidentResponse>;
+  abstract settlements(): Promise<Settlements>;
+  abstract settlement(id: string): Promise<SettlementDetail>;
+  abstract resolveBlocker(settlementId: string, lineId: string, input: ResolveBlockerRequest, principal: AuthPrincipal): Promise<SettlementDetail>;
+  abstract requestApproval(id: string, principal: AuthPrincipal): Promise<SettlementDetail>;
+  abstract approve(id: string, principal: AuthPrincipal): Promise<SettlementDetail>;
 }
