@@ -4,8 +4,11 @@ import type {
   ClientFicha,
   ContractDetail,
   ContractList,
+  CycleDetail,
+  CycleReportsResponse,
   EmailStatus,
   ListClientsResponse,
+  ListCyclesResponse,
   ListIntegrationsResponse,
   ListJobRunsResponse,
   OpportunityDetail,
@@ -190,6 +193,51 @@ export async function fetchContract(id: string): Promise<ContractDetail | null> 
     });
     if (!response.ok) return null;
     return (await response.json()) as ContractDetail;
+  } catch {
+    return null;
+  }
+}
+
+/** Server-side only: calls the real GET /energy/cycles contract. */
+export async function fetchCycles(): Promise<ListCyclesResponse | null> {
+  try {
+    const response = await fetch(`${apiBaseUrl()}/energy/cycles`, {
+      cache: "no-store",
+      headers: await sessionCookieHeaders(),
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    });
+    if (!response.ok) return null;
+    return (await response.json()) as ListCyclesResponse;
+  } catch {
+    return null;
+  }
+}
+
+/** Server-side only: calls the real GET /energy/cycles/:id contract. */
+export async function fetchCycle(id: string): Promise<CycleDetail | null> {
+  try {
+    const response = await fetch(`${apiBaseUrl()}/energy/cycles/${id}`, {
+      cache: "no-store",
+      headers: await sessionCookieHeaders(),
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    });
+    if (!response.ok) return null;
+    return (await response.json()) as CycleDetail;
+  } catch {
+    return null;
+  }
+}
+
+/** Server-side only: calls the real GET /energy/reports contract. */
+export async function fetchCycleReports(): Promise<CycleReportsResponse | null> {
+  try {
+    const response = await fetch(`${apiBaseUrl()}/energy/reports`, {
+      cache: "no-store",
+      headers: await sessionCookieHeaders(),
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    });
+    if (!response.ok) return null;
+    return (await response.json()) as CycleReportsResponse;
   } catch {
     return null;
   }
