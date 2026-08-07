@@ -50,6 +50,55 @@ enum AuthTokenType {
   @@map("auth_token_type")
 }
 
+enum EvSegment {
+  r0
+  r1
+  r2
+  r3
+  r4
+  r5
+  r6
+
+  @@map("ev_segment")
+}
+
+enum EvSessionStatus {
+  active
+  completed
+  failed
+  blocked
+
+  @@map("ev_session_status")
+}
+
+enum LocationStatus {
+  active
+  inactive
+  unknown
+
+  @@map("location_status")
+}
+
+enum IncidentStatus {
+  open
+  investigating
+  resolved
+  blocked
+
+  @@map("incident_status")
+}
+
+enum SettlementStatus {
+  draft
+  auditing
+  ready_for_review
+  approved
+  exported
+  blocked
+
+  @@map("settlement_status")
+}
+
 model User {
   id           String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   email        String          @unique
@@ -208,4 +257,189 @@ model JobRun {
   @@index([jobKey, scheduledFor])
   @@index([integrationId])
   @@map("job_runs")
+}
+
+model EvUser {
+  id              String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  externalId      String             @unique @map("external_id")
+  displayName     String             @map("display_name")
+  phoneMasked     String?            @map("phone_masked")
+  segment         EvSegment          @default(r0)
+  optedOutAt      DateTime?          @map("opted_out_at") @db.Timestamptz(6)
+  walletBalance   Decimal?           @map("wallet_balance") @db.Decimal(14, 2)
+  lastSessionAt   DateTime?          @map("last_session_at") @db.Timestamptz(6)
+  createdAt       DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+  segmentHistory  EvSegmentHistory[]
+  contacts        EvContact[]
+  sessions        EvSession[]
+  incidents       Incident[]
+
+  @@index([segment, optedOutAt])
+  @@map("ev_users")
+}
+
+model EvSegmentHistory {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  segment   EvSegment
+  changedAt DateTime  @default(now()) @map("changed_at") @db.Timestamptz(6)
+  user      EvUser    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, changedAt])
+  @@map("ev_segment_history")
+}
+
+model EvContact {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId         String   @map("user_id") @db.Uuid
+  channel        String
+  outcome        String
+  nextActionAt   DateTime? @map("next_action_at") @db.Timestamptz(6)
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  user           EvUser   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("ev_contacts")
+}
+
+model Partner {
+  id          String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  key         String       @unique
+  name        String
+  active      Boolean      @default(true)
+  createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  locations   Location[]
+  settlements Settlement[]
+
+  @@map("partners")
+}
+
+model Location {
+  id         String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  partnerId  String         @map("partner_id") @db.Uuid
+  name       String
+  status     LocationStatus @default(unknown)
+  timezone   String         @default("America/Manaus")
+  partner    Partner        @relation(fields: [partnerId], references: [id], onDelete: Restrict)
+  stations   Station[]
+  sessions   EvSession[]
+  incidents  Incident[]
+
+  @@index([partnerId, status])
+  @@map("locations")
+}
+
+model Station {
+  id          String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  locationId  String      @map("location_id") @db.Uuid
+  name        String
+  location    Location    @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  connectors  Connector[]
+
+  @@map("stations")
+}
+
+model Connector {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  stationId   String    @map("station_id") @db.Uuid
+  label       String
+  status      String    @default("unknown")
+  station     Station   @relation(fields: [stationId], references: [id], onDelete: Cascade)
+  sessions    EvSession[]
+
+  @@map("connectors")
+}
+
+model EvSession {
+  id             String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  externalId     String          @unique @map("external_id")
+  userId         String          @map("user_id") @db.Uuid
+  locationId     String          @map("location_id") @db.Uuid
+  connectorId    String?         @map("connector_id") @db.Uuid
+  tokenRfid      String?         @map("token_rfid")
+  status         EvSessionStatus
+  startedAt      DateTime        @map("started_at") @db.Timestamptz(6)
+  endedAt        DateTime?       @map("ended_at") @db.Timestamptz(6)
+  kwh            Decimal?        @db.Decimal(14, 3)
+  amount         Decimal?        @db.Decimal(14, 2)
+  user           EvUser          @relation(fields: [userId], references: [id], onDelete: Restrict)
+  location       Location        @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  connector      Connector?      @relation(fields: [connectorId], references: [id], onDelete: SetNull)
+  incidents      Incident[]
+  settlementLine SettlementLine?
+
+  @@index([locationId, status])
+  @@index([userId, startedAt])
+  @@map("ev_sessions")
+}
+
+model Incident {
+  id           String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  kind         String
+  status       IncidentStatus @default(open)
+  severity     String
+  summary      String
+  userId       String?        @map("user_id") @db.Uuid
+  sessionId    String?        @map("session_id") @db.Uuid
+  locationId   String?        @map("location_id") @db.Uuid
+  settlementId String?        @map("settlement_id") @db.Uuid
+  createdAt    DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  user         EvUser?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  session      EvSession?     @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  location     Location?      @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  settlement   Settlement?    @relation(fields: [settlementId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@map("incidents")
+}
+
+model Coupon {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code      String   @unique
+  status    String
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@map("coupons")
+}
+
+model Settlement {
+  id          String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  partnerId   String           @map("partner_id") @db.Uuid
+  weekStart   DateTime         @map("week_start") @db.Timestamptz(6)
+  weekEnd     DateTime         @map("week_end") @db.Timestamptz(6)
+  status      SettlementStatus @default(draft)
+  partner     Partner          @relation(fields: [partnerId], references: [id], onDelete: Restrict)
+  lines       SettlementLine[]
+  credits     D14Credit[]
+  incidents   Incident[]
+
+  @@unique([partnerId, weekStart])
+  @@map("settlements")
+}
+
+model SettlementLine {
+  id            String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  settlementId  String      @map("settlement_id") @db.Uuid
+  sessionId     String?     @unique @map("session_id") @db.Uuid
+  tokenRfid     String?     @map("token_rfid")
+  classification String
+  amount        Decimal?    @db.Decimal(14, 2)
+  blockedReason String?     @map("blocked_reason")
+  settlement    Settlement  @relation(fields: [settlementId], references: [id], onDelete: Cascade)
+  session       EvSession?  @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+
+  @@index([settlementId, blockedReason])
+  @@map("settlement_lines")
+}
+
+model D14Credit {
+  id            String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  settlementId  String     @map("settlement_id") @db.Uuid
+  amount        Decimal    @db.Decimal(14, 2)
+  status        String
+  availableAt   DateTime   @map("available_at") @db.Timestamptz(6)
+  settlement    Settlement @relation(fields: [settlementId], references: [id], onDelete: Cascade)
+
+  @@map("d14_credits")
 }

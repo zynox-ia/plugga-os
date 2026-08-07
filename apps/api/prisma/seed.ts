@@ -148,6 +148,51 @@ async function main() {
     ],
     skipDuplicates: true,
   });
+
+  // PluggaMob is local/mock in this phase. Bootstrap only an empty domain so a
+  // second seed never replaces an opt-out, incident, or settlement decision.
+  if (await prisma.evUser.count() === 0) {
+    const partner = await prisma.partner.create({
+      data: {
+        key: 'ev-point',
+        name: 'EV Point',
+        locations: {
+          create: {
+            name: 'EV Point 01',
+            status: 'active',
+            stations: { create: { name: 'Estação principal', connectors: { create: { label: 'C1', status: 'available' } } } },
+          },
+        },
+      },
+      include: { locations: { include: { stations: { include: { connectors: true } } } } },
+    });
+    const user = await prisma.evUser.create({
+      data: {
+        externalId: 'mock-user-001',
+        displayName: 'Usuário EV Local',
+        phoneMasked: '(92) 9••••-0101',
+        segment: 'r1',
+        walletBalance: '48.00',
+        segmentHistory: { create: { segment: 'r1' } },
+      },
+    });
+    const location = partner.locations[0];
+    const connector = location.stations[0]?.connectors[0];
+    await prisma.evSession.create({
+      data: {
+        externalId: 'mock-session-001',
+        userId: user.id,
+        locationId: location.id,
+        connectorId: connector?.id,
+        tokenRfid: 'MOCK-RFID-001',
+        status: 'completed',
+        startedAt: new Date('2026-08-06T12:00:00.000Z'),
+        endedAt: new Date('2026-08-06T12:45:00.000Z'),
+        kwh: '12.500',
+        amount: '48.00',
+      },
+    });
+  }
 }
 
 main()

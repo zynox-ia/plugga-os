@@ -12,6 +12,7 @@ export const eventNames = {
   authResetCompleted: "auth.reset.completed",
   userRolesUpdated: "user.roles.updated",
   userDeactivated: "user.deactivated",
+  pluggamobSeeded: "pluggamob.seeded",
 } as const;
 
 export type EventName = (typeof eventNames)[keyof typeof eventNames];

@@ -12,6 +12,7 @@ import { HealthModule } from "./health/health.module";
 import { IntegrationsModule } from "./integrations/integrations.module";
 import { JobsModule } from "./jobs/jobs.module";
 import { LoggingModule } from "./logging/logging.module";
+import { PluggamobModule } from "./pluggamob/pluggamob.module";
 
 const monorepoRootEnvPath = path.resolve(__dirname, "../../../.env");
 
@@ -30,6 +31,7 @@ const monorepoRootEnvPath = path.resolve(__dirname, "../../../.env");
     WhatsappModule,
     IntegrationsModule,
     JobsModule,
+    PluggamobModule,
   ],
 })
 export class AppModule {}

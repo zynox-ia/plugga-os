@@ -3,4 +3,5 @@ export * from "./auth.js";
 export * from "./events.js";
 export * from "./integrations.js";
 export * from "./jobs.js";
+export * from "./pluggamob.js";
 export * from "./whatsapp.js";
