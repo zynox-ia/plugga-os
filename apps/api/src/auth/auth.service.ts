@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Inject,
   Injectable,
+  Logger,
   UnauthorizedException,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
@@ -25,7 +26,9 @@ import { AuditRepository } from "../audit/audit.repository";
 import type { AuthPrincipal } from "../core/auth/auth.types";
 import { generateOpaqueToken, hashToken } from "../core/auth/token.util";
 import { EmailPort } from "../email/email.port";
+import { maskEmail } from "../email/email.util";
 import { AuthRepository, type AuthUserRecord } from "./auth.repository";
+import { EmailAttemptLimiter } from "./email-attempt-limiter.service";
 import { LockoutService } from "./lockout.service";
 import { PasswordService } from "./password.service";
 import { SessionService, type SessionContext } from "./session.service";
@@ -40,11 +43,14 @@ export interface LoginResult {
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     @Inject(AuthRepository) private readonly repository: AuthRepository,
     @Inject(PasswordService) private readonly passwords: PasswordService,
     @Inject(SessionService) private readonly sessions: SessionService,
     @Inject(LockoutService) private readonly lockout: LockoutService,
+    @Inject(EmailAttemptLimiter) private readonly emailLimiter: EmailAttemptLimiter,
     @Inject(EmailPort) private readonly email: EmailPort,
     @Inject(AuditRepository) private readonly audit: AuditRepository,
     @Inject(ConfigService) private readonly config: ConfigService,
@@ -52,7 +58,10 @@ export class AuthService {
 
   async login(input: LoginRequest, context: SessionContext): Promise<LoginResult> {
     const lockKey = `${input.email}:${context.ip ?? "unknown"}`;
-    if (this.lockout.isLocked(lockKey)) {
+    // The (email, IP) lock alone is bypassable by rotating X-Forwarded-For
+    // (client-controlled); the email-only cap below stacks on top of it so
+    // brute-forcing one account doesn't reset just by switching IPs.
+    if (this.lockout.isLocked(lockKey) || this.emailLimiter.isBlocked(input.email)) {
       throw new UnauthorizedException("invalid credentials");
     }
 
@@ -65,6 +74,7 @@ export class AuthService {
 
     if (!user || user.status !== "active" || !passwordValid) {
       this.lockout.recordFailure(lockKey);
+      this.emailLimiter.recordFailure(input.email);
       await this.audit.appendEvent({
         eventName: eventNames.authLoginFailed,
         entityType: "auth",
@@ -78,6 +88,7 @@ export class AuthService {
     }
 
     this.lockout.reset(lockKey);
+    this.emailLimiter.reset(input.email);
     const token = await this.sessions.issue(user.id, context);
     await this.audit.appendEvent({
       eventName: eventNames.authLoginSucceeded,
@@ -173,18 +184,26 @@ export class AuthService {
     const user = await this.repository.findUserByEmail(input.email);
 
     // Only issue a token for an active account, but always answer generically
-    // so the endpoint never reveals whether the account exists.
+    // so the endpoint never reveals whether the account exists — including when
+    // the email provider fails (ADR-0010 adapters can throw). Invite stays
+    // fail-loud: it is admin-initiated and must surface delivery errors.
     if (user && user.status === "active") {
-      await this.issueTokenAndEmail(user, "reset", RESET_TTL_MINUTES, "reset");
-      await this.audit.appendEvent({
-        eventName: eventNames.authResetRequested,
-        entityType: "user",
-        entityId: user.id,
-        actorType: "system",
-        actorId: null,
-        payload: {},
-        occurredAt: new Date(),
-      });
+      try {
+        await this.issueTokenAndEmail(user, "reset", RESET_TTL_MINUTES, "reset");
+        await this.audit.appendEvent({
+          eventName: eventNames.authResetRequested,
+          entityType: "user",
+          entityId: user.id,
+          actorType: "system",
+          actorId: null,
+          payload: {},
+          occurredAt: new Date(),
+        });
+      } catch {
+        this.logger.warn(
+          `reset email delivery failed: to=${maskEmail(user.email)}`,
+        );
+      }
     }
 
     return this.ack();

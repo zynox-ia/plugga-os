@@ -19,6 +19,46 @@ describe("validateEnvironment", () => {
     expect(environment.HOST).toBe("127.0.0.1");
     expect(environment.PORT).toBe(3001);
     expect(environment.EMAIL_PROVIDER).toBe("noop");
+    expect(environment.REDIS_URL).toBe("redis://localhost:6379");
+    expect(environment.JOBS_ENABLED).toBe(false);
+    expect(environment.JOBS_WORKER_CONCURRENCY).toBe(1);
+    expect(environment.EMAIL_FROM_ADDRESS).toBe("no-reply@plugga.local");
+    expect(environment.MAILPIT_SMTP_PORT).toBe(1025);
+  });
+
+  it("accepts the mailpit provider without any Brevo credentials", () => {
+    const environment = validateEnvironment({
+      NODE_ENV: "development",
+      DATABASE_URL: localDatabaseUrl,
+      AUTH_SESSION_SECRET: sessionSecret,
+      EMAIL_PROVIDER: "mailpit",
+    });
+
+    expect(environment.EMAIL_PROVIDER).toBe("mailpit");
+  });
+
+  it("requires a Brevo API key when EMAIL_PROVIDER=brevo", () => {
+    expect(() =>
+      validateEnvironment({
+        NODE_ENV: "development",
+        DATABASE_URL: localDatabaseUrl,
+        AUTH_SESSION_SECRET: sessionSecret,
+        EMAIL_PROVIDER: "brevo",
+      }),
+    ).toThrow(/BREVO_API_KEY is required/);
+  });
+
+  it("accepts the brevo provider once a key is present", () => {
+    const environment = validateEnvironment({
+      NODE_ENV: "development",
+      DATABASE_URL: localDatabaseUrl,
+      AUTH_SESSION_SECRET: sessionSecret,
+      EMAIL_PROVIDER: "brevo",
+      BREVO_API_KEY: "client-key",
+    });
+
+    expect(environment.EMAIL_PROVIDER).toBe("brevo");
+    expect(environment.BREVO_API_KEY).toBe("client-key");
   });
 
   it("uses an explicitly configured network bind address", () => {
@@ -55,6 +95,43 @@ describe("validateEnvironment", () => {
     ).toThrow("Block A only permits a local PostgreSQL host");
   });
 
+  it("rejects a non-local Redis host", () => {
+    expect(() =>
+      validateEnvironment({
+        NODE_ENV: "development",
+        DATABASE_URL: localDatabaseUrl,
+        AUTH_SESSION_SECRET: sessionSecret,
+        REDIS_URL: "redis://redis.example.invalid:6379",
+      }),
+    ).toThrow("Block B only permits a local Redis host");
+  });
+
+  it("rejects a Redis URL with a wrong protocol", () => {
+    expect(() =>
+      validateEnvironment({
+        NODE_ENV: "development",
+        DATABASE_URL: localDatabaseUrl,
+        AUTH_SESSION_SECRET: sessionSecret,
+        REDIS_URL: "http://localhost:6379",
+      }),
+    ).toThrow("REDIS_URL must use the redis:// or rediss:// protocol");
+  });
+
+  it("accepts an explicit local Redis URL and jobs settings", () => {
+    const environment = validateEnvironment({
+      NODE_ENV: "development",
+      DATABASE_URL: localDatabaseUrl,
+      AUTH_SESSION_SECRET: sessionSecret,
+      REDIS_URL: "redis://127.0.0.1:6380",
+      JOBS_ENABLED: "true",
+      JOBS_WORKER_CONCURRENCY: "4",
+    });
+
+    expect(environment.REDIS_URL).toBe("redis://127.0.0.1:6380");
+    expect(environment.JOBS_ENABLED).toBe(true);
+    expect(environment.JOBS_WORKER_CONCURRENCY).toBe(4);
+  });
+
   it("requires a session secret of sufficient length", () => {
     expect(() =>
       validateEnvironment({
@@ -64,5 +141,62 @@ describe("validateEnvironment", () => {
         AUTH_SESSION_SECRET: "too-short",
       }),
     ).toThrow(/AUTH_SESSION_SECRET/);
+  });
+
+  it("treats the Bitrix credential as optional and defaults the page size", () => {
+    const environment = validateEnvironment({
+      NODE_ENV: "development",
+      DATABASE_URL: localDatabaseUrl,
+      AUTH_SESSION_SECRET: sessionSecret,
+    });
+
+    expect(environment.BITRIX_WEBHOOK_URL).toBeUndefined();
+    expect(environment.BITRIX_OPM_ENTITY_TYPE_ID).toBeUndefined();
+    expect(environment.BITRIX_IMPORT_PAGE_SIZE).toBe(50);
+  });
+
+  it("accepts a Bitrix REST webhook over https", () => {
+    const environment = validateEnvironment({
+      NODE_ENV: "development",
+      DATABASE_URL: localDatabaseUrl,
+      AUTH_SESSION_SECRET: sessionSecret,
+      BITRIX_WEBHOOK_URL: "https://portal.bitrix24.com/rest/1/token/",
+      BITRIX_OPM_ENTITY_TYPE_ID: "1032",
+    });
+
+    expect(environment.BITRIX_OPM_ENTITY_TYPE_ID).toBe(1032);
+  });
+
+  it("rejects a Bitrix webhook sent over plaintext http", () => {
+    expect(() =>
+      validateEnvironment({
+        NODE_ENV: "development",
+        DATABASE_URL: localDatabaseUrl,
+        AUTH_SESSION_SECRET: sessionSecret,
+        BITRIX_WEBHOOK_URL: "http://portal.bitrix24.com/rest/1/token/",
+      }),
+    ).toThrow(/BITRIX_WEBHOOK_URL must use https/);
+  });
+
+  it("rejects a URL that is not a Bitrix REST webhook", () => {
+    expect(() =>
+      validateEnvironment({
+        NODE_ENV: "development",
+        DATABASE_URL: localDatabaseUrl,
+        AUTH_SESSION_SECRET: sessionSecret,
+        BITRIX_WEBHOOK_URL: "https://portal.bitrix24.com/not-a-webhook/",
+      }),
+    ).toThrow(/BITRIX_WEBHOOK_URL/);
+  });
+
+  it("rejects a page size above the Bitrix per-page cap", () => {
+    expect(() =>
+      validateEnvironment({
+        NODE_ENV: "development",
+        DATABASE_URL: localDatabaseUrl,
+        AUTH_SESSION_SECRET: sessionSecret,
+        BITRIX_IMPORT_PAGE_SIZE: "500",
+      }),
+    ).toThrow(/BITRIX_IMPORT_PAGE_SIZE/);
   });
 });

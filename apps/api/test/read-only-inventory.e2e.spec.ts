@@ -57,6 +57,10 @@ describe("read-only inventory API (e2e)", () => {
   let app: INestApplication;
 
   beforeAll(async () => {
+    // Deterministic regardless of the local .env's EMAIL_PROVIDER.
+    process.env.EMAIL_PROVIDER = "mailpit";
+    delete process.env.BREVO_API_KEY;
+
     const module = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(IntegrationsRepository)
       .useClass(InMemoryIntegrationsRepository)
@@ -96,6 +100,18 @@ describe("read-only inventory API (e2e)", () => {
           },
         ],
       });
+  });
+
+  it("requires authentication for email provider status", async () => {
+    await request(app.getHttpServer()).get("/email/status").expect(401);
+  });
+
+  it("reports the configured email provider without any address or key", async () => {
+    await request(app.getHttpServer())
+      .get("/email/status")
+      .set("x-dev-principal", "local-viewer")
+      .set("x-dev-roles", "viewer")
+      .expect(200, { provider: "mailpit", configured: true });
   });
 
   it("lists job runs as an inventory with no mutation controls", async () => {

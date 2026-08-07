@@ -8,8 +8,8 @@ import { PrismaModule } from "../prisma/prisma.module";
 import { AuthController } from "./auth.controller";
 import { AuthRepository } from "./auth.repository";
 import { AuthService } from "./auth.service";
+import { EmailAttemptLimiter } from "./email-attempt-limiter.service";
 import { LockoutService } from "./lockout.service";
-import { OriginCheckGuard } from "./origin-check.guard";
 import { PasswordService } from "./password.service";
 import { PrismaAuthRepository } from "./prisma-auth.repository";
 import { SessionService } from "./session.service";
@@ -29,7 +29,7 @@ import { SessionService } from "./session.service";
     PasswordService,
     SessionService,
     LockoutService,
-    OriginCheckGuard,
+    EmailAttemptLimiter,
     { provide: AuthRepository, useClass: PrismaAuthRepository },
   ],
 })

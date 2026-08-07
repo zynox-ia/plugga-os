@@ -154,3 +154,21 @@ tbody tr:last-child td { border-bottom: 0; }
 
 /* Integrações + Jobs (FEATURE) */
 .stack { display: grid; gap: 18px; }
+
+/* Auth: login, convite, reset (FEATURE) */
+.auth-page { display: grid; min-height: 100vh; padding: 24px; place-items: center; }
+.auth-card { width: min(420px, 100%); padding: 32px 28px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); }
+.auth-brand { display: flex; margin-bottom: 22px; }
+.auth-brand img { width: 140px; height: 41px; object-fit: contain; object-position: left center; }
+.auth-lede { margin-bottom: 22px; color: var(--muted); font-size: 14px; }
+.auth-form { display: grid; gap: 16px; }
+.auth-field { display: grid; gap: 6px; color: var(--petroleo); font: 500 13px/1 Anybody, sans-serif; }
+.auth-field input { padding: 11px 13px; color: var(--ink); background: var(--white); border: 1px solid var(--line); border-radius: 12px; font: 400 14px/1.3 Anek, sans-serif; }
+.auth-field input:focus-visible { outline: 3px solid var(--folha); outline-offset: 1px; }
+.auth-hint { margin: -6px 0 0; color: var(--muted); font-size: 12.5px; }
+.auth-submit { width: 100%; justify-content: center; padding: 12px 15px; }
+.auth-error { margin: 0; padding: 10px 13px; color: #670001; background: rgba(103, 0, 1, .08); border: 1px solid rgba(103, 0, 1, .18); border-radius: 12px; font-size: 13.5px; }
+.auth-success { margin: 0; padding: 10px 13px; color: var(--folha-deep); background: rgba(0, 175, 136, .12); border: 1px solid rgba(0, 175, 136, .3); border-radius: 12px; font-size: 13.5px; }
+.auth-footer { margin-top: 20px; text-align: center; font-size: 13.5px; }
+.auth-footer a { color: var(--folha-deep); font-weight: 600; text-decoration: none; }
+.auth-footer a:hover { text-decoration: underline; }

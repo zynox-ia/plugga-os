@@ -1,11 +1,12 @@
 import { Injectable, Logger } from "@nestjs/common";
 
 import { EmailPort, type TransactionalEmail } from "./email.port";
+import { maskEmail } from "./email.util";
 
 /**
  * Safe default: records that an email would have been sent, but never sends and
  * never logs the token/link (ADR-0007). Local delivery with a visible link is
- * provided by the Mailpit adapter in a later PR.
+ * provided by the Mailpit adapter.
  */
 @Injectable()
 export class NoopEmailAdapter extends EmailPort {
@@ -18,12 +19,4 @@ export class NoopEmailAdapter extends EmailPort {
       )} expiresInMinutes=${email.variables.expiresInMinutes}`,
     );
   }
-}
-
-function maskEmail(email: string): string {
-  const [local, domain] = email.split("@");
-  if (!local || !domain) {
-    return "***";
-  }
-  return `${local.slice(0, 1)}***@${domain}`;
 }

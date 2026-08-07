@@ -20,6 +20,7 @@ jobs:
     timeout-minutes: 25
     env:
       DATABASE_URL: postgresql://plugga_os:local_only_change_me@localhost:5432/plugga_os?schema=public
+      REDIS_URL: redis://localhost:6379
       # Local CI-only dummy values (not secrets); auth boot/seed require them.
       AUTH_SESSION_SECRET: ci_local_only_session_secret_change_me_please
       SEED_ADMIN_PASSWORD: ci_local_only_change_me
@@ -38,6 +39,22 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
+
+      redis:
+        image: redis:7.4-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+      mailpit:
+        image: axllent/mailpit:v1.21
+        ports:
+          - 1025:1025
+          - 8025:8025
 
     steps:
       - name: Check out repository
@@ -74,6 +91,25 @@ jobs:
 
       - name: Verify append-only database triggers
         run: pnpm test:db
+
+      - name: Verify Mailpit email delivery path
+        env:
+          MAILPIT_SMTP_HOST: localhost
+          MAILPIT_SMTP_PORT: "1025"
+          MAILPIT_UI_PORT: "8025"
+        run: pnpm --filter @plugga/api test:email
+
+      - name: Verify BullMQ jobs foundation
+        env:
+          RUN_JOBS_INTEGRATION_TESTS: "true"
+          JOBS_ENABLED: "true"
+        run: pnpm --filter @plugga/api test:jobs
+
+      - name: Verify Bitrix mirror idempotency
+        run: pnpm --filter @plugga/api test:bitrix
+
+      - name: Verify seed preserves cutover and access state
+        run: pnpm --filter @plugga/api test:seed
 
       - name: Lint
         run: pnpm lint

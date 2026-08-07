@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 
-import type { INestApplication } from "@nestjs/common";
 import { Test } from "@nestjs/testing";
+import type { NestExpressApplication } from "@nestjs/platform-express";
 import cookieParser from "cookie-parser";
 import request from "supertest";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
@@ -214,8 +214,14 @@ class InMemorySessionLookup extends SessionLookupRepository {
 
 class CapturingEmailPort extends EmailPort {
   readonly sent: TransactionalEmail[] = [];
+  /** When true, the next send throws (simulates provider outage) then clears. */
+  failNext = false;
 
   async sendTransactional(email: TransactionalEmail): Promise<void> {
+    if (this.failNext) {
+      this.failNext = false;
+      throw new Error("provider down HTTP 503");
+    }
     this.sent.push(email);
   }
 
@@ -242,7 +248,7 @@ const argon2Options = {
 } as const;
 
 describe("auth API (e2e, in-memory stores)", () => {
-  let app: INestApplication;
+  let app: NestExpressApplication;
   let store: InMemoryStore;
   let email: CapturingEmailPort;
 
@@ -265,7 +271,10 @@ describe("auth API (e2e, in-memory stores)", () => {
       .useValue(new NoopAuditRepository())
       .compile();
 
-    app = module.createNestApplication();
+    app = module.createNestApplication<NestExpressApplication>();
+    // Mirrors apps/api/src/main.ts so throttle-tracker tests below exercise
+    // the same X-Forwarded-For trust boundary as production.
+    app.set("trust proxy", "loopback");
     app.use(cookieParser(SESSION_SECRET));
     await app.init();
   });
@@ -276,6 +285,7 @@ describe("auth API (e2e, in-memory stores)", () => {
     store.sessions.clear();
     store.tokens.clear();
     email.sent.length = 0;
+    email.failNext = false;
 
     const adminId = randomUUID();
     store.users.set(adminId, {
@@ -293,10 +303,23 @@ describe("auth API (e2e, in-memory stores)", () => {
     await app.close();
   });
 
-  async function loginAgent(userEmail: string, password: string) {
+  // Every request without an explicit X-Forwarded-For shares one throttle
+  // bucket (see apps/api/src/main.ts's loopback trust). Tests that don't care
+  // about IP-specific behavior still each make a real /auth/login call, and
+  // collectively they'd exceed the 10-req/60s login limit and start seeing
+  // spurious 429s — the same failure mode the ARCHITECT found in the
+  // Playwright suite. Give each an independent synthetic IP by default.
+  let testIpCounter = 0;
+  function nextTestIp(): string {
+    testIpCounter += 1;
+    return `10.99.0.${testIpCounter}`;
+  }
+
+  async function loginAgent(userEmail: string, password: string, ip = nextTestIp()) {
     const agent = request.agent(app.getHttpServer());
     const response = await agent
       .post("/auth/login")
+      .set("X-Forwarded-For", ip)
       .send({ email: userEmail, password })
       .expect(200);
     return { agent, response };
@@ -312,10 +335,77 @@ describe("auth API (e2e, in-memory stores)", () => {
   it("rejects a wrong password generically without a cookie", async () => {
     const response = await request(app.getHttpServer())
       .post("/auth/login")
+      .set("X-Forwarded-For", nextTestIp())
       .send({ email: adminEmail, password: "wrong-password" })
       .expect(401);
     expect(response.body.message).toBe("invalid credentials");
     expect(response.headers["set-cookie"]).toBeUndefined();
+  });
+
+  it("does not consume the login rate-limit bucket on a rejected cross-origin request", async () => {
+    // OriginCheckGuard must run before ThrottlerGuard: a request forbidden for
+    // a bad Origin should never eat into the 10-req/60s login bucket, or an
+    // attacker could exhaust it with disallowed-origin noise alone.
+    for (let i = 0; i < 15; i++) {
+      await request(app.getHttpServer())
+        .post("/auth/login")
+        .set("Origin", "https://evil.example.com")
+        .send({ email: adminEmail, password: "wrong-password" })
+        .expect(403);
+    }
+
+    await loginAgent(adminEmail, adminPassword);
+  });
+
+  it("does not share the login rate-limit bucket across different forwarded client IPs", async () => {
+    // The API only sees the web app's loopback connection; per-IP throttling
+    // depends on X-Forwarded-For carrying the real client address (see
+    // apps/web/app/lib/auth-proxy.ts). Without that, every caller collapses
+    // into one shared bucket and one bad actor can lock everyone out.
+    for (let i = 0; i < 10; i++) {
+      await request(app.getHttpServer())
+        .post("/auth/login")
+        .set("X-Forwarded-For", "203.0.113.10")
+        .send({ email: adminEmail, password: "wrong-password" })
+        .expect(401);
+    }
+    await request(app.getHttpServer())
+      .post("/auth/login")
+      .set("X-Forwarded-For", "203.0.113.10")
+      .send({ email: adminEmail, password: adminPassword })
+      .expect(429);
+
+    await request(app.getHttpServer())
+      .post("/auth/login")
+      .set("X-Forwarded-For", "203.0.113.20")
+      .send({ email: adminEmail, password: adminPassword })
+      .expect(200);
+  });
+
+  it("caps failed login attempts per email even when X-Forwarded-For rotates every request", async () => {
+    // The (email, IP) lock in LockoutService alone is bypassable: an attacker
+    // who sends a fresh X-Forwarded-For on every request gets a fresh lock key
+    // each time, so per-IP locking never engages. This email-only cap (stacked
+    // on top of, not instead of, the (email, IP) lock) closes that gap.
+    const targetEmail = "brute-force-target@plugga.local";
+
+    for (let i = 0; i < 30; i++) {
+      await request(app.getHttpServer())
+        .post("/auth/login")
+        .set("X-Forwarded-For", `198.51.100.${i + 1}`)
+        .send({ email: targetEmail, password: "wrong-password" })
+        .expect(401);
+    }
+
+    // 31st attempt, yet another fresh IP: still rejected purely on the email cap.
+    await request(app.getHttpServer())
+      .post("/auth/login")
+      .set("X-Forwarded-For", "198.51.100.200")
+      .send({ email: targetEmail, password: "wrong-password" })
+      .expect(401);
+
+    // A different account is entirely unaffected by targetEmail's cap.
+    await loginAgent(adminEmail, adminPassword);
   });
 
   it("rejects /auth/me without a session cookie", async () => {
@@ -356,6 +446,7 @@ describe("auth API (e2e, in-memory stores)", () => {
     // Cannot log in before accepting (no credential, not active).
     await request(app.getHttpServer())
       .post("/auth/login")
+      .set("X-Forwarded-For", nextTestIp())
       .send({ email: "opm@plugga.local", password: "brand new password" })
       .expect(401);
 
@@ -415,6 +506,24 @@ describe("auth API (e2e, in-memory stores)", () => {
       .post("/auth/reset/request")
       .send({ email: "nobody@plugga.local" })
       .expect(200, { ok: true });
+    expect(email.sent).toHaveLength(0);
+  });
+
+  it("keeps reset acknowledgement generic when email delivery fails for a known account", async () => {
+    // Without the try/catch on reset, a throwing provider returns 500 for known
+    // accounts and 200 for unknown ones — an account-existence oracle (F1).
+    email.failNext = true;
+
+    await request(app.getHttpServer())
+      .post("/auth/reset/request")
+      .send({ email: adminEmail })
+      .expect(200, { ok: true });
+
+    await request(app.getHttpServer())
+      .post("/auth/reset/request")
+      .send({ email: "nobody@plugga.local" })
+      .expect(200, { ok: true });
+
     expect(email.sent).toHaveLength(0);
   });
 });

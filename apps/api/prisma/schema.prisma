@@ -238,6 +238,25 @@ model Integration {
   @@map("integrations")
 }
 
+/// Read-only mirror of Bitrix records, one row per (domain, external record)
+/// (ADR-0009). Raw payload staging into the OS Postgres; mapping to OS domain
+/// models is later phase work. Idempotent upsert keyed by (domain, externalId);
+/// sourceFingerprint lets a re-import skip unchanged records.
+model BitrixMirrorRecord {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  domain            String
+  externalId        String   @map("external_id")
+  payload           Json     @db.JsonB
+  sourceFingerprint String   @map("source_fingerprint")
+  fetchedAt         DateTime @map("fetched_at") @db.Timestamptz(6)
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@unique([domain, externalId])
+  @@index([domain])
+  @@map("bitrix_mirror_records")
+}
+
 model JobRun {
   id            String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   jobKey        String       @map("job_key")
