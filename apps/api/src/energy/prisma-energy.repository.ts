@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import type { ActorType } from "@prisma/client";
 import {
   auditDetailSchema,
@@ -6,18 +6,32 @@ import {
   consumerUnitSummarySchema,
   contestationDetailSchema,
   contestationSummarySchema,
+  cycleDetailSchema,
   cycleSummarySchema,
   marketMigrationSummarySchema,
+  type ApproveCycleReportRequest,
   type AuditDetail,
+  type AuditStatus,
+  type CloseCycleRequest,
   type ContestationDetail,
   type CreateAuditRequest,
   type CreateContestationRequest,
+  type CreateCycleRequest,
+  type CycleDetail,
+  type CycleListQuery,
+  type CycleReportStatus,
+  type CycleReportsQuery,
+  type CycleReportsResponse,
+  type CycleStatus,
+  type GenerateCycleReportRequest,
   type ListAuditsResponse,
   type ListConsumerUnitsResponse,
   type ListContestationsResponse,
   type ListCyclesResponse,
   type ListMarketMigrationsResponse,
+  type MarkCycleDocumentsReceivedRequest,
   type ResolveAuditRequest,
+  type SendCycleReportRequest,
   type UpdateContestationStatusRequest,
 } from "@plugga/shared";
 
@@ -32,7 +46,48 @@ import {
   assertAuditOriginMatchesLinks,
   assertContestationCanClose,
   assertContestationTransitionAllowed,
+  assertCycleCanClose,
+  assertCycleHasOwnerAndNextAction,
+  computeCycleCloseBlockers,
 } from "./energy.rules";
+
+const cycleInclude = {
+  client: { select: { id: true, name: true } },
+  consumerUnit: { select: { id: true, code: true } },
+  owner: { select: { id: true, name: true } },
+  audits: {
+    select: { id: true, type: true, status: true, divergenceBlocksClosing: true, summary: true },
+    orderBy: { createdAt: "desc" as const },
+  },
+};
+
+type CycleRow = {
+  id: string;
+  clientId: string;
+  client: { id: string; name: string };
+  consumerUnitId: string;
+  consumerUnit: { id: string; code: string };
+  marketMigrationId: string | null;
+  competenceMonth: number;
+  competenceYear: number;
+  status: string;
+  ownerId: string | null;
+  owner: { id: string; name: string } | null;
+  nextActionAt: Date | null;
+  nextActionNote: string | null;
+  reportStatus: string;
+  reportVersion: number;
+  reportGeneratedAt: Date | null;
+  reportApprovedAt: Date | null;
+  reportApprovedById: string | null;
+  reportSentAt: Date | null;
+  reportFileId: string | null;
+  estimatedSavings: { toString: () => string } | null;
+  realizedSavings: { toString: () => string } | null;
+  createdAt: Date;
+  updatedAt: Date;
+  audits: { id: string; type: string; status: string; divergenceBlocksClosing: boolean; summary: string | null }[];
+};
 
 @Injectable()
 export class PrismaEnergyRepository extends EnergyRepository {
@@ -90,8 +145,15 @@ export class PrismaEnergyRepository extends EnergyRepository {
     };
   }
 
-  async listCycles(): Promise<ListCyclesResponse> {
+  async listCycles(query?: CycleListQuery): Promise<ListCyclesResponse> {
     const rows = await this.prisma.cycle.findMany({
+      where: {
+        clientId: query?.clientId,
+        consumerUnitId: query?.consumerUnitId,
+        status: query?.status,
+        competenceMonth: query?.competenceMonth,
+        competenceYear: query?.competenceYear,
+      },
       include: { client: true, consumerUnit: true, owner: true },
       orderBy: [{ competenceYear: "desc" }, { competenceMonth: "desc" }],
     });
@@ -122,6 +184,324 @@ export class PrismaEnergyRepository extends EnergyRepository {
           updatedAt: row.updatedAt.toISOString(),
         }),
       ),
+    };
+  }
+
+  async cycle(id: string): Promise<CycleDetail> {
+    const row = await this.prisma.cycle.findUnique({ where: { id }, include: cycleInclude });
+    if (!row) throw new NotFoundException("cycle not found");
+    return this.cycleDetail(row);
+  }
+
+  async createCycle(input: CreateCycleRequest, principal: AuthPrincipal): Promise<CycleDetail> {
+    if (!(await this.clientExists(input.clientId))) {
+      throw new NotFoundException("client not found");
+    }
+    const consumerUnit = await this.prisma.consumerUnit.findUnique({ where: { id: input.consumerUnitId } });
+    if (!consumerUnit) throw new NotFoundException("consumer unit not found");
+    if (consumerUnit.clientId !== input.clientId) {
+      throw new BadRequestException("unidade consumidora não pertence ao cliente informado");
+    }
+    if (!(await this.ownerExists(input.ownerId))) {
+      throw new NotFoundException("owner not found");
+    }
+
+    const existing = await this.prisma.cycle.findUnique({
+      where: {
+        consumerUnitId_competenceMonth_competenceYear: {
+          consumerUnitId: input.consumerUnitId,
+          competenceMonth: input.competenceMonth,
+          competenceYear: input.competenceYear,
+        },
+      },
+    });
+    if (existing) {
+      throw new BadRequestException(
+        `já existe um ciclo para esta UC em ${input.competenceMonth}/${input.competenceYear}`,
+      );
+    }
+
+    const created = await this.prisma.$transaction(async (tx) => {
+      const row = await tx.cycle.create({
+        data: {
+          clientId: input.clientId,
+          consumerUnitId: input.consumerUnitId,
+          competenceMonth: input.competenceMonth,
+          competenceYear: input.competenceYear,
+          ownerId: input.ownerId,
+          nextActionAt: new Date(input.nextActionAt),
+          nextActionNote: input.nextActionNote,
+        },
+      });
+      await tx.eventLog.create({
+        data: {
+          eventName: "energy.cycle_opened",
+          entityType: "cycle",
+          entityId: row.id,
+          actorType: this.actorType(principal),
+          actorId: principal.id,
+          payload: { ...input },
+          occurredAt: row.createdAt,
+        },
+      });
+      return row;
+    });
+
+    return this.cycle(created.id);
+  }
+
+  async markCycleDocumentsReceived(
+    id: string,
+    input: MarkCycleDocumentsReceivedRequest,
+    principal: AuthPrincipal,
+  ): Promise<CycleDetail> {
+    const current = await this.prisma.cycle.findUnique({ where: { id } });
+    if (!current) throw new NotFoundException("cycle not found");
+    if (current.status !== "aguardando_documentos") {
+      throw new BadRequestException("ciclo já passou da etapa de recebimento de documentos");
+    }
+
+    const nextActionAt = input.nextActionAt ? new Date(input.nextActionAt) : current.nextActionAt;
+    assertCycleHasOwnerAndNextAction("documentos_recebidos", current.ownerId, nextActionAt);
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.cycle.update({
+        where: { id },
+        data: {
+          status: "documentos_recebidos",
+          nextActionAt,
+          nextActionNote: input.nextActionNote ?? current.nextActionNote,
+        },
+      });
+      await tx.eventLog.create({
+        data: {
+          eventName: "energy.cycle_documents_received",
+          entityType: "cycle",
+          entityId: id,
+          actorType: this.actorType(principal),
+          actorId: principal.id,
+          payload: {},
+          occurredAt: new Date(),
+        },
+      });
+    });
+
+    return this.cycle(id);
+  }
+
+  async generateCycleReport(
+    id: string,
+    input: GenerateCycleReportRequest,
+    principal: AuthPrincipal,
+  ): Promise<CycleDetail> {
+    const current = await this.prisma.cycle.findUnique({ where: { id } });
+    if (!current) throw new NotFoundException("cycle not found");
+    if (current.status === "aguardando_documentos") {
+      throw new BadRequestException("não é possível gerar relatório antes de receber os documentos");
+    }
+
+    const advanceStatus = current.status === "documentos_recebidos" || current.status === "em_auditoria";
+    const nextStatus = advanceStatus ? "relatorio_pronto" : current.status;
+    const nextActionAt = input.nextActionAt ? new Date(input.nextActionAt) : current.nextActionAt;
+    assertCycleHasOwnerAndNextAction(nextStatus, current.ownerId, nextActionAt);
+
+    await this.prisma.$transaction(async (tx) => {
+      const now = new Date();
+      await tx.cycle.update({
+        where: { id },
+        data: {
+          status: nextStatus,
+          reportVersion: { increment: 1 },
+          reportStatus: current.reportSentAt ? "reenviado_apos_correcao" : "gerado",
+          reportGeneratedAt: now,
+          reportApprovedAt: null,
+          reportApprovedById: null,
+          estimatedSavings: input.estimatedSavings ?? current.estimatedSavings,
+          nextActionAt,
+          nextActionNote: input.nextActionNote ?? current.nextActionNote,
+        },
+      });
+      await tx.eventLog.create({
+        data: {
+          eventName: "energy.cycle_report_generated",
+          entityType: "cycle",
+          entityId: id,
+          actorType: this.actorType(principal),
+          actorId: principal.id,
+          payload: { reportVersion: current.reportVersion + 1 },
+          occurredAt: now,
+        },
+      });
+    });
+
+    return this.cycle(id);
+  }
+
+  async approveCycleReport(
+    id: string,
+    input: ApproveCycleReportRequest,
+    principal: AuthPrincipal,
+  ): Promise<CycleDetail> {
+    const current = await this.prisma.cycle.findUnique({ where: { id } });
+    if (!current) throw new NotFoundException("cycle not found");
+    if (current.reportVersion === 0) {
+      throw new BadRequestException("nenhum relatório foi gerado para este ciclo ainda");
+    }
+    if (current.reportStatus === "aprovado") {
+      throw new BadRequestException("relatório já foi aprovado");
+    }
+
+    const nextStatus = current.status === "relatorio_pronto" ? "validado_internamente" : current.status;
+    const nextActionAt = input.nextActionAt ? new Date(input.nextActionAt) : current.nextActionAt;
+    assertCycleHasOwnerAndNextAction(nextStatus, current.ownerId, nextActionAt);
+
+    await this.prisma.$transaction(async (tx) => {
+      const now = new Date();
+      await tx.cycle.update({
+        where: { id },
+        data: {
+          status: nextStatus,
+          reportStatus: "aprovado",
+          reportApprovedAt: now,
+          reportApprovedById: principal.id,
+          nextActionAt,
+          nextActionNote: input.nextActionNote ?? current.nextActionNote,
+        },
+      });
+      await tx.eventLog.create({
+        data: {
+          eventName: "energy.cycle_report_approved",
+          entityType: "cycle",
+          entityId: id,
+          actorType: this.actorType(principal),
+          actorId: principal.id,
+          payload: {},
+          occurredAt: now,
+        },
+      });
+    });
+
+    return this.cycle(id);
+  }
+
+  async sendCycleReport(id: string, input: SendCycleReportRequest, principal: AuthPrincipal): Promise<CycleDetail> {
+    const current = await this.prisma.cycle.findUnique({ where: { id } });
+    if (!current) throw new NotFoundException("cycle not found");
+    if (current.reportStatus !== "aprovado") {
+      throw new BadRequestException("relatório precisa estar aprovado internamente antes do envio");
+    }
+
+    const nextStatus = current.status === "validado_internamente" ? "enviado" : current.status;
+
+    await this.prisma.$transaction(async (tx) => {
+      const now = new Date();
+      await tx.cycle.update({
+        where: { id },
+        data: {
+          status: nextStatus,
+          reportSentAt: current.reportSentAt ?? now,
+          realizedSavings: input.realizedSavings ?? current.realizedSavings,
+        },
+      });
+      await tx.eventLog.create({
+        data: {
+          eventName: "energy.cycle_report_sent",
+          entityType: "cycle",
+          entityId: id,
+          actorType: this.actorType(principal),
+          actorId: principal.id,
+          payload: {},
+          occurredAt: now,
+        },
+      });
+    });
+
+    return this.cycle(id);
+  }
+
+  async closeCycle(id: string, _input: CloseCycleRequest, principal: AuthPrincipal): Promise<CycleDetail> {
+    const current = await this.prisma.cycle.findUnique({ where: { id } });
+    if (!current) throw new NotFoundException("cycle not found");
+    const audits = await this.prisma.audit.findMany({
+      where: { cycleId: id },
+      select: { status: true, divergenceBlocksClosing: true },
+    });
+
+    assertCycleCanClose({
+      status: current.status,
+      reportStatus: current.reportStatus,
+      reportSentAt: current.reportSentAt,
+      audits,
+    });
+
+    await this.prisma.$transaction(async (tx) => {
+      const now = new Date();
+      await tx.cycle.update({ where: { id }, data: { status: "fechado" } });
+      await tx.eventLog.create({
+        data: {
+          eventName: "energy.cycle_closed",
+          entityType: "cycle",
+          entityId: id,
+          actorType: this.actorType(principal),
+          actorId: principal.id,
+          payload: {},
+          occurredAt: now,
+        },
+      });
+    });
+
+    return this.cycle(id);
+  }
+
+  async cycleReports(query: CycleReportsQuery): Promise<CycleReportsResponse> {
+    const rows = await this.prisma.cycle.findMany({
+      where: {
+        clientId: query.clientId,
+        consumerUnitId: query.consumerUnitId,
+        competenceMonth: query.competenceMonth,
+        competenceYear: query.competenceYear,
+      },
+      include: { client: true, consumerUnit: true, owner: true },
+      orderBy: [{ competenceYear: "desc" }, { competenceMonth: "desc" }],
+    });
+
+    const items = rows.map((row) =>
+      cycleSummarySchema.parse({
+        id: row.id,
+        clientId: row.clientId,
+        clientName: row.client.name,
+        consumerUnitId: row.consumerUnitId,
+        consumerUnitCode: row.consumerUnit.code,
+        marketMigrationId: row.marketMigrationId,
+        competenceMonth: row.competenceMonth,
+        competenceYear: row.competenceYear,
+        status: row.status,
+        ownerId: row.ownerId,
+        ownerName: row.owner?.name ?? null,
+        nextActionAt: row.nextActionAt?.toISOString() ?? null,
+        nextActionNote: row.nextActionNote,
+        reportStatus: row.reportStatus,
+        reportVersion: row.reportVersion,
+        reportGeneratedAt: row.reportGeneratedAt?.toISOString() ?? null,
+        reportApprovedAt: row.reportApprovedAt?.toISOString() ?? null,
+        reportSentAt: row.reportSentAt?.toISOString() ?? null,
+        estimatedSavings: row.estimatedSavings?.toString() ?? null,
+        realizedSavings: row.realizedSavings?.toString() ?? null,
+        createdAt: row.createdAt.toISOString(),
+        updatedAt: row.updatedAt.toISOString(),
+      }),
+    );
+
+    const estimatedSavings = rows.reduce((sum, row) => sum + Number(row.estimatedSavings ?? 0), 0);
+    const realizedSavings = rows.reduce((sum, row) => sum + Number(row.realizedSavings ?? 0), 0);
+
+    return {
+      items,
+      totals: {
+        count: items.length,
+        estimatedSavings: estimatedSavings.toFixed(2),
+        realizedSavings: realizedSavings.toFixed(2),
+      },
     };
   }
 
@@ -361,6 +741,61 @@ export class PrismaEnergyRepository extends EnergyRepository {
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
     };
+  }
+
+  private cycleDetail(row: CycleRow): CycleDetail {
+    return cycleDetailSchema.parse({
+      id: row.id,
+      clientId: row.clientId,
+      clientName: row.client.name,
+      consumerUnitId: row.consumerUnitId,
+      consumerUnitCode: row.consumerUnit.code,
+      marketMigrationId: row.marketMigrationId,
+      competenceMonth: row.competenceMonth,
+      competenceYear: row.competenceYear,
+      status: row.status,
+      ownerId: row.ownerId,
+      ownerName: row.owner?.name ?? null,
+      nextActionAt: row.nextActionAt?.toISOString() ?? null,
+      nextActionNote: row.nextActionNote,
+      reportStatus: row.reportStatus,
+      reportVersion: row.reportVersion,
+      reportGeneratedAt: row.reportGeneratedAt?.toISOString() ?? null,
+      reportApprovedAt: row.reportApprovedAt?.toISOString() ?? null,
+      reportApprovedById: row.reportApprovedById,
+      reportSentAt: row.reportSentAt?.toISOString() ?? null,
+      reportFileId: row.reportFileId,
+      estimatedSavings: row.estimatedSavings?.toString() ?? null,
+      realizedSavings: row.realizedSavings?.toString() ?? null,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
+      audits: row.audits.map((audit) => ({
+        id: audit.id,
+        type: audit.type,
+        status: audit.status,
+        divergenceBlocksClosing: audit.divergenceBlocksClosing,
+        summary: audit.summary,
+      })),
+      closeBlockers: computeCycleCloseBlockers({
+        status: row.status as CycleStatus,
+        reportStatus: row.reportStatus as CycleReportStatus,
+        reportSentAt: row.reportSentAt,
+        audits: row.audits.map((audit) => ({
+          status: audit.status as AuditStatus,
+          divergenceBlocksClosing: audit.divergenceBlocksClosing,
+        })),
+      }),
+    });
+  }
+
+  private async clientExists(id: string): Promise<boolean> {
+    const row = await this.prisma.client.findUnique({ where: { id }, select: { id: true } });
+    return row !== null;
+  }
+
+  private async ownerExists(id: string): Promise<boolean> {
+    const row = await this.prisma.user.findUnique({ where: { id }, select: { id: true } });
+    return row !== null;
   }
 
   private actorType(principal: AuthPrincipal): ActorType {

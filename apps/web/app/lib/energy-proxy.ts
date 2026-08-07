@@ -7,8 +7,9 @@ const FETCH_TIMEOUT_MS = 5_000;
 
 /**
  * CSRF defense in depth for our own cookie-bearing proxy routes, mirroring
- * the API's OriginCheckGuard and lib/commercial-proxy.ts (kept as a separate
- * copy rather than a shared import — same reasoning as that module).
+ * the API's OriginCheckGuard and this app's lib/commercial-proxy.ts (kept as
+ * a separate copy on purpose — auth is foundation-owned and this module
+ * intentionally has no dependency on it).
  */
 function isOriginAllowed(request: Request): boolean {
   const origin = request.headers.get("origin");
@@ -30,10 +31,11 @@ function isOriginAllowed(request: Request): boolean {
 }
 
 /**
- * Forwards a client-side mutation to POST /energy/* on apps/api, the same
- * way lib/commercial-proxy.ts does for /commercial/* — apps/api only binds
- * to the internal network, so every write from a "use client" screen has to
- * be relayed through a same-origin Next.js route handler like this one.
+ * Forwards a client-side mutation to POST /energy/* on apps/api. The API
+ * only binds to the internal Docker/loopback network, so the browser can
+ * never call it directly — every write from a "use client" screen has to be
+ * relayed through a same-origin Next.js route handler like this one,
+ * carrying the session cookie.
  */
 export async function proxyEnergyPost(request: Request, apiPath: string): Promise<NextResponse> {
   if (!isOriginAllowed(request)) {

@@ -3,7 +3,8 @@
 /**
  * Browser-side mutation calls for the Energia & OPM screens. These hit this
  * app's own /api/energy/* route handlers (app/api/energy/**), never apps/api
- * directly — mirrors lib/commercial-client.ts.
+ * directly — the API only binds to the internal network (see
+ * apps/web/app/lib/energy-proxy.ts), mirrors lib/commercial-client.ts.
  */
 
 export type EnergyResult<T> = { ok: true; data: T } | { ok: false; message: string };
@@ -42,4 +43,28 @@ export function createContestation(input: unknown) {
 
 export function updateContestationStatus(id: string, input: unknown) {
   return post(`contestations/${id}/status`, input);
+}
+
+export function createCycle(input: unknown) {
+  return post("cycles", input);
+}
+
+export function markCycleDocumentsReceived(id: string, input: unknown = {}) {
+  return post(`cycles/${id}/documents-received`, input);
+}
+
+export function generateCycleReport(id: string, input: unknown = {}) {
+  return post(`cycles/${id}/report`, input);
+}
+
+export function approveCycleReport(id: string, input: unknown = {}) {
+  return post(`cycles/${id}/approve-report`, input);
+}
+
+export function sendCycleReport(id: string, input: unknown = {}) {
+  return post(`cycles/${id}/send`, input);
+}
+
+export function closeCycle(id: string, input: unknown = {}) {
+  return post(`cycles/${id}/close`, input);
 }

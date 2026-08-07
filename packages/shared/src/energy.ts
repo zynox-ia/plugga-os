@@ -220,3 +220,89 @@ export const updateContestationStatusRequestSchema = z.object({
   financialResult: decimalString.optional(),
 });
 export type UpdateContestationStatusRequest = z.infer<typeof updateContestationStatusRequestSchema>;
+
+// Ticket 3 (cycles): request/detail/report schemas for the Cycle flow.
+// Reuses the enums and cycleSummarySchema declared above without redefining
+// them.
+
+export const cycleAuditRefSchema = z.object({
+  id: uuid,
+  type: auditTypeSchema,
+  status: auditStatusSchema,
+  divergenceBlocksClosing: z.boolean(),
+  summary: z.string().nullable(),
+});
+export type CycleAuditRef = z.infer<typeof cycleAuditRefSchema>;
+
+export const cycleDetailSchema = cycleSummarySchema.extend({
+  reportApprovedById: uuid.nullable(),
+  reportFileId: z.string().nullable(),
+  audits: z.array(cycleAuditRefSchema),
+  closeBlockers: z.array(z.string()),
+});
+export type CycleDetail = z.infer<typeof cycleDetailSchema>;
+
+export const cycleListQuerySchema = z.object({
+  clientId: uuid.optional(),
+  consumerUnitId: uuid.optional(),
+  status: cycleStatusSchema.optional(),
+  competenceMonth: z.coerce.number().int().min(1).max(12).optional(),
+  competenceYear: z.coerce.number().int().min(2000).optional(),
+});
+export type CycleListQuery = z.infer<typeof cycleListQuerySchema>;
+
+export const createCycleRequestSchema = z.object({
+  clientId: uuid,
+  consumerUnitId: uuid,
+  competenceMonth: z.number().int().min(1).max(12),
+  competenceYear: z.number().int().min(2000),
+  ownerId: uuid,
+  nextActionAt: isoDate,
+  nextActionNote: z.string().max(500).optional(),
+});
+export type CreateCycleRequest = z.infer<typeof createCycleRequestSchema>;
+
+export const markCycleDocumentsReceivedRequestSchema = z.object({
+  nextActionAt: isoDate.optional(),
+  nextActionNote: z.string().max(500).optional(),
+});
+export type MarkCycleDocumentsReceivedRequest = z.infer<typeof markCycleDocumentsReceivedRequestSchema>;
+
+export const generateCycleReportRequestSchema = z.object({
+  estimatedSavings: decimalString.optional(),
+  nextActionAt: isoDate.optional(),
+  nextActionNote: z.string().max(500).optional(),
+});
+export type GenerateCycleReportRequest = z.infer<typeof generateCycleReportRequestSchema>;
+
+export const approveCycleReportRequestSchema = z.object({
+  nextActionAt: isoDate.optional(),
+  nextActionNote: z.string().max(500).optional(),
+});
+export type ApproveCycleReportRequest = z.infer<typeof approveCycleReportRequestSchema>;
+
+export const sendCycleReportRequestSchema = z.object({
+  realizedSavings: decimalString.optional(),
+});
+export type SendCycleReportRequest = z.infer<typeof sendCycleReportRequestSchema>;
+
+export const closeCycleRequestSchema = z.object({});
+export type CloseCycleRequest = z.infer<typeof closeCycleRequestSchema>;
+
+export const cycleReportsQuerySchema = z.object({
+  clientId: uuid.optional(),
+  consumerUnitId: uuid.optional(),
+  competenceMonth: z.coerce.number().int().min(1).max(12).optional(),
+  competenceYear: z.coerce.number().int().min(2000).optional(),
+});
+export type CycleReportsQuery = z.infer<typeof cycleReportsQuerySchema>;
+
+export const cycleReportsResponseSchema = z.object({
+  items: z.array(cycleSummarySchema),
+  totals: z.object({
+    count: z.number().int().min(0),
+    estimatedSavings: decimalString,
+    realizedSavings: decimalString,
+  }),
+});
+export type CycleReportsResponse = z.infer<typeof cycleReportsResponseSchema>;
