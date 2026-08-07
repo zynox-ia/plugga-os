@@ -3,6 +3,7 @@ import { z } from "zod";
 export const roleKeys = [
   "admin",
   "diretoria",
+  "comercial",
   "pluggamob",
   "financeiro",
   "opm",
