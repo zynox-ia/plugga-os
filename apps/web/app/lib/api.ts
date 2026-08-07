@@ -8,6 +8,7 @@ import type {
   ListClientsResponse,
   ListIntegrationsResponse,
   ListJobRunsResponse,
+  ListMarketMigrationsResponse,
   OpportunityDetail,
   OpportunityList,
 } from "@plugga/shared";
@@ -160,6 +161,26 @@ export async function fetchOpportunity(id: string): Promise<OpportunityDetail | 
     });
     if (!response.ok) return null;
     return (await response.json()) as OpportunityDetail;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Server-side only: calls the real GET /energy/market-migrations contract.
+ * There is no GET /energy/market-migrations/:id endpoint in this ticket's
+ * scope (foundation + this flow only shipped the list read); the detail
+ * screen resolves a single migration by filtering this list server-side.
+ */
+export async function fetchMarketMigrations(): Promise<ListMarketMigrationsResponse | null> {
+  try {
+    const response = await fetch(`${apiBaseUrl()}/energy/market-migrations`, {
+      cache: "no-store",
+      headers: await sessionCookieHeaders(),
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    });
+    if (!response.ok) return null;
+    return (await response.json()) as ListMarketMigrationsResponse;
   } catch {
     return null;
   }
