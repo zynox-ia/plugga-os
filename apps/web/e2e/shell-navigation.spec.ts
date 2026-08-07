@@ -11,8 +11,10 @@ test.describe("Plugga shell — smoke", () => {
     await expect(page.locator(".skip-link")).toHaveText("Pular para o conteúdo");
     await expect(page.locator(".brand-lockup img")).toBeVisible();
 
-    // 12 PRD §7 areas + Central de Pendências (Tela 2) + Clientes (Tela 4, added for the Comercial/Clientes flow).
-    expect(ALL_ITEMS).toHaveLength(14);
+    // 12 PRD §7 areas + Central de Pendências (Tela 2) + Clientes (Tela 4) +
+    // Migrações ML/Ciclos Mensais/Auditorias/Relatórios OPM (Energia & OPM,
+    // replacing the single placeholder "OPM" item).
+    expect(ALL_ITEMS).toHaveLength(17);
     for (const item of ALL_ITEMS) {
       await expect(page.locator(".sidebar-nav").getByRole("button", { name: item.label, exact: true })).toBeVisible();
     }
