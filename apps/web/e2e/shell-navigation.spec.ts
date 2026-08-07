@@ -11,8 +11,8 @@ test.describe("Plugga shell — smoke", () => {
     await expect(page.locator(".skip-link")).toHaveText("Pular para o conteúdo");
     await expect(page.locator(".brand-lockup img")).toBeVisible();
 
-    // 12 PRD §7 areas + Central de Pendências (Tela 2, outside the §7 enumeration).
-    expect(ALL_ITEMS).toHaveLength(13);
+    // 12 PRD §7 areas + Central de Pendências (Tela 2) + Clientes (Tela 4, added for the Comercial/Clientes flow).
+    expect(ALL_ITEMS).toHaveLength(14);
     for (const item of ALL_ITEMS) {
       await expect(page.locator(".sidebar-nav").getByRole("button", { name: item.label, exact: true })).toBeVisible();
     }

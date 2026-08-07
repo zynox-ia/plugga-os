@@ -6,6 +6,7 @@ export const roleKeys = [
   "pluggamob",
   "financeiro",
   "opm",
+  "comercial",
   "tech",
   "viewer",
 ] as const;
