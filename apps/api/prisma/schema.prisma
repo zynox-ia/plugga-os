@@ -138,20 +138,110 @@ enum ContractStatus {
   @@map("contract_status")
 }
 
+enum ConsumerUnitStatus {
+  active
+  inactive
+
+  @@map("consumer_unit_status")
+}
+
+enum MarketMigrationStage {
+  analise
+  contratacao
+  documentacao
+  denuncia
+  ativacao
+
+  @@map("market_migration_stage")
+}
+
+enum MarketMigrationStatus {
+  em_andamento
+  ativa
+  cancelada
+
+  @@map("market_migration_status")
+}
+
+enum CycleStatus {
+  aguardando_documentos
+  documentos_recebidos
+  em_auditoria
+  relatorio_pronto
+  validado_internamente
+  enviado
+  fechado
+
+  @@map("cycle_status")
+}
+
+enum CycleReportStatus {
+  nao_gerado
+  gerado
+  aprovado
+  reenviado_apos_correcao
+
+  @@map("cycle_report_status")
+}
+
+enum AuditOrigin {
+  ciclo_mensal
+  migracao_ml
+  avulsa
+
+  @@map("audit_origin")
+}
+
+enum AuditType {
+  conferencia_fatura
+  contestacao
+  validacao_migracao
+  oportunidade
+
+  @@map("audit_type")
+}
+
+enum AuditStatus {
+  em_analise
+  divergencia_encontrada
+  contestacao_aberta
+  resolvida
+  inconclusiva
+  sem_divergencia
+
+  @@map("audit_status")
+}
+
+enum ContestationStatus {
+  rascunho
+  aberta
+  aguardando_distribuidora
+  deferida
+  indeferida
+  parcialmente_deferida
+  encerrada
+
+  @@map("contestation_status")
+}
+
 model User {
-  id            String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  email         String          @unique
-  name          String
-  status        String          @default("active")
-  createdAt     DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt     DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
-  roles         UserRole[]
-  agentActions  AgentAction[]
-  credential    UserCredential?
-  sessions      Session[]
-  authTokens    AuthToken[]
-  opportunities Opportunity[]
-  contracts     Contract[]
+  id               String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email            String            @unique
+  name             String
+  status           String            @default("active")
+  createdAt        DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+  roles            UserRole[]
+  agentActions     AgentAction[]
+  credential       UserCredential?
+  sessions         Session[]
+  authTokens       AuthToken[]
+  opportunities    Opportunity[]
+  contracts        Contract[]
+  marketMigrations MarketMigration[]
+  cycles           Cycle[]
+  audits           Audit[]
+  contestations    Contestation[]
 
   @@map("users")
 }
@@ -519,18 +609,21 @@ model D14Credit {
 /// Unique client record. The rest of the product (opportunities, contracts,
 /// PluggaMob ficha) links to this row instead of duplicating identity.
 model Client {
-  id            String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name          String
-  company       String?
-  phone         String?
-  email         String?
-  externalId    String?       @map("external_id")
-  segment       ClientSegment @default(prospect)
-  active        Boolean       @default(true)
-  createdAt     DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt     DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
-  opportunities Opportunity[]
-  contracts     Contract[]
+  id               String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name             String
+  company          String?
+  phone            String?
+  email            String?
+  externalId       String?           @map("external_id")
+  segment          ClientSegment     @default(prospect)
+  active           Boolean           @default(true)
+  createdAt        DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+  opportunities    Opportunity[]
+  contracts        Contract[]
+  consumerUnits    ConsumerUnit[]
+  marketMigrations MarketMigration[]
+  cycles           Cycle[]
 
   @@index([segment, active])
   @@map("clients")
@@ -579,23 +672,152 @@ model OpportunityContact {
 /// Contract lifecycle. Always tied to a client; may originate from a won
 /// opportunity or be opened directly on the client's ficha.
 model Contract {
-  id            String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  clientId      String         @map("client_id") @db.Uuid
-  opportunityId String?        @map("opportunity_id") @db.Uuid
-  status        ContractStatus @default(rascunho)
-  ownerId       String?        @map("owner_id") @db.Uuid
-  startsAt      DateTime?      @map("starts_at") @db.Timestamptz(6)
-  endsAt        DateTime?      @map("ends_at") @db.Timestamptz(6)
-  signedAt      DateTime?      @map("signed_at") @db.Timestamptz(6)
-  nextActionAt  DateTime?      @map("next_action_at") @db.Timestamptz(6)
-  nextActionNote String?       @map("next_action_note")
-  createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt     DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
-  client        Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  opportunity   Opportunity?   @relation(fields: [opportunityId], references: [id], onDelete: SetNull)
-  owner         User?          @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  id             String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clientId       String         @map("client_id") @db.Uuid
+  opportunityId  String?        @map("opportunity_id") @db.Uuid
+  status         ContractStatus @default(rascunho)
+  ownerId        String?        @map("owner_id") @db.Uuid
+  startsAt       DateTime?      @map("starts_at") @db.Timestamptz(6)
+  endsAt         DateTime?      @map("ends_at") @db.Timestamptz(6)
+  signedAt       DateTime?      @map("signed_at") @db.Timestamptz(6)
+  nextActionAt   DateTime?      @map("next_action_at") @db.Timestamptz(6)
+  nextActionNote String?        @map("next_action_note")
+  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+  client         Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  opportunity    Opportunity?   @relation(fields: [opportunityId], references: [id], onDelete: SetNull)
+  owner          User?          @relation(fields: [ownerId], references: [id], onDelete: SetNull)
 
   @@index([status])
   @@index([clientId])
   @@map("contracts")
+}
+
+/// Energy delivery point. A client can have several; migration and cycle
+/// always target one specific UC.
+model ConsumerUnit {
+  id               String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clientId         String             @map("client_id") @db.Uuid
+  code             String
+  distributor      String
+  address          String?
+  status           ConsumerUnitStatus @default(active)
+  createdAt        DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+  client           Client             @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  marketMigrations MarketMigration[]
+  cycles           Cycle[]
+
+  @@index([clientId])
+  @@map("consumer_units")
+}
+
+/// Onboarding journey from cativo to mercado livre. clientId is null until
+/// activation, mirroring Opportunity.win in the commercial module.
+model MarketMigration {
+  id             String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clientId       String?               @map("client_id") @db.Uuid
+  consumerUnitId String                @map("consumer_unit_id") @db.Uuid
+  stage          MarketMigrationStage  @default(analise)
+  status         MarketMigrationStatus @default(em_andamento)
+  ownerId        String?               @map("owner_id") @db.Uuid
+  nextActionAt   DateTime?             @map("next_action_at") @db.Timestamptz(6)
+  nextActionNote String?               @map("next_action_note")
+  cancelReason   String?               @map("cancel_reason")
+  activatedAt    DateTime?             @map("activated_at") @db.Timestamptz(6)
+  createdAt      DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime              @updatedAt @map("updated_at") @db.Timestamptz(6)
+  client         Client?               @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  consumerUnit   ConsumerUnit          @relation(fields: [consumerUnitId], references: [id], onDelete: Cascade)
+  owner          User?                 @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  cycles         Cycle[]
+  audits         Audit[]
+
+  @@index([stage, status])
+  @@index([consumerUnitId])
+  @@map("market_migrations")
+}
+
+/// Monthly OPM billing/audit cycle for a client + consumer unit + competence.
+model Cycle {
+  id                 String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clientId           String            @map("client_id") @db.Uuid
+  consumerUnitId     String            @map("consumer_unit_id") @db.Uuid
+  marketMigrationId  String?           @map("market_migration_id") @db.Uuid
+  competenceMonth    Int               @map("competence_month")
+  competenceYear     Int               @map("competence_year")
+  status             CycleStatus       @default(aguardando_documentos)
+  ownerId            String?           @map("owner_id") @db.Uuid
+  nextActionAt       DateTime?         @map("next_action_at") @db.Timestamptz(6)
+  nextActionNote     String?           @map("next_action_note")
+  reportStatus       CycleReportStatus @default(nao_gerado) @map("report_status")
+  reportVersion      Int               @default(0) @map("report_version")
+  reportGeneratedAt  DateTime?         @map("report_generated_at") @db.Timestamptz(6)
+  reportApprovedAt   DateTime?         @map("report_approved_at") @db.Timestamptz(6)
+  reportApprovedById String?           @map("report_approved_by_id") @db.Uuid
+  reportSentAt       DateTime?         @map("report_sent_at") @db.Timestamptz(6)
+  reportFileId       String?           @map("report_file_id")
+  estimatedSavings   Decimal?          @map("estimated_savings") @db.Decimal(14, 2)
+  realizedSavings    Decimal?          @map("realized_savings") @db.Decimal(14, 2)
+  createdAt          DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+  client             Client            @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  consumerUnit       ConsumerUnit      @relation(fields: [consumerUnitId], references: [id], onDelete: Cascade)
+  marketMigration    MarketMigration?  @relation(fields: [marketMigrationId], references: [id], onDelete: SetNull)
+  owner              User?             @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  audits             Audit[]
+
+  @@unique([consumerUnitId, competenceMonth, competenceYear])
+  @@index([status])
+  @@index([clientId])
+  @@map("cycles")
+}
+
+/// Single audit concept covering cycle, migration and standalone diagnosis.
+/// origin/cycleId/marketMigrationId coherence is enforced by a DB CHECK
+/// added in the migration SQL (Prisma has no native CHECK syntax here).
+model Audit {
+  id                      String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  origin                  AuditOrigin
+  type                    AuditType
+  status                  AuditStatus      @default(em_analise)
+  cycleId                 String?          @map("cycle_id") @db.Uuid
+  marketMigrationId       String?          @map("market_migration_id") @db.Uuid
+  summary                 String?
+  divergenceBlocksClosing Boolean          @default(false) @map("divergence_blocks_closing")
+  createdById             String?          @map("created_by_id") @db.Uuid
+  createdAt               DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt               DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+  cycle                   Cycle?           @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+  marketMigration         MarketMigration? @relation(fields: [marketMigrationId], references: [id], onDelete: Cascade)
+  createdBy               User?            @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  contestation            Contestation?
+
+  @@index([origin, status])
+  @@index([cycleId])
+  @@index([marketMigrationId])
+  @@map("audits")
+}
+
+/// Formal dispute process with the distributor, always born from an Audit
+/// with type = contestacao. 1:1 with Audit.
+model Contestation {
+  id                 String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  auditId            String             @unique @map("audit_id") @db.Uuid
+  distributor        String
+  reason             String
+  estimatedAmount    Decimal?           @map("estimated_amount") @db.Decimal(14, 2)
+  protocol           String?
+  openedAt           DateTime?          @map("opened_at") @db.Timestamptz(6)
+  expectedResponseAt DateTime?          @map("expected_response_at") @db.Timestamptz(6)
+  status             ContestationStatus @default(rascunho)
+  ownerId            String?            @map("owner_id") @db.Uuid
+  financialResult    Decimal?           @map("financial_result") @db.Decimal(14, 2)
+  createdAt          DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+  audit              Audit              @relation(fields: [auditId], references: [id], onDelete: Cascade)
+  owner              User?              @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@map("contestations")
 }

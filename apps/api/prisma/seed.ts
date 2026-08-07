@@ -212,6 +212,29 @@ async function main() {
       },
     });
   }
+
+  // Energia & OPM foundation: one sample client + consumer unit so tickets
+  // 2-4 have a real UC to attach migrations/cycles to. Guarded so a re-seed
+  // never resets an active migration/cycle/audit state.
+  if (await prisma.consumerUnit.count() === 0) {
+    const client = await prisma.client.upsert({
+      where: { id: '00000000-0000-0000-0000-0000000000c1' },
+      update: {},
+      create: {
+        id: '00000000-0000-0000-0000-0000000000c1',
+        name: 'Cliente Energia Seed',
+        segment: 'opm',
+      },
+    });
+    await prisma.consumerUnit.create({
+      data: {
+        clientId: client.id,
+        code: 'UC-0001',
+        distributor: 'Amazonas Energia',
+        address: 'Manaus, AM',
+      },
+    });
+  }
 }
 
 main()
