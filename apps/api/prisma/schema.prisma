@@ -404,6 +404,7 @@ model Incident {
   status       IncidentStatus @default(open)
   severity     String
   summary      String
+  owner        String?
   userId       String?        @map("user_id") @db.Uuid
   sessionId    String?        @map("session_id") @db.Uuid
   locationId   String?        @map("location_id") @db.Uuid

@@ -1,3 +1,6 @@
+import type { AuthPrincipal } from "../core/auth/auth.types";
+import type { EvContactRequest, EvOptOutRequest, EvUserProfile, IncidentRequest, IncidentResponse, PluggamobLocations, PluggamobSessions, ReactivationQueue } from "@plugga/shared";
+
 export interface PluggamobOverviewCounts {
   sessionsToday: number;
   activeSessions: number;
@@ -11,6 +14,9 @@ export abstract class PluggamobRepository {
   abstract userProfile(id: string): Promise<EvUserProfile>;
   abstract recordContact(userId: string, input: EvContactRequest, principal: AuthPrincipal): Promise<EvUserProfile>;
   abstract optOut(userId: string, input: EvOptOutRequest, principal: AuthPrincipal): Promise<EvUserProfile>;
+  abstract sessions(): Promise<PluggamobSessions>;
+  abstract session(id: string): Promise<PluggamobSessions["items"][number]>;
+  abstract locations(): Promise<PluggamobLocations>;
+  abstract location(id: string): Promise<PluggamobLocations["items"][number]>;
+  abstract createIncident(input: IncidentRequest, principal: AuthPrincipal): Promise<IncidentResponse>;
 }
-import type { AuthPrincipal } from "../core/auth/auth.types";
-import type { EvContactRequest, EvOptOutRequest, EvUserProfile, ReactivationQueue } from "@plugga/shared";

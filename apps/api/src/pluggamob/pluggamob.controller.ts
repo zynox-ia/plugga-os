@@ -1,5 +1,5 @@
 import { Body, Controller, Get, HttpCode, Inject, Param, Post, UseGuards } from "@nestjs/common";
-import { evContactRequestSchema, evOptOutRequestSchema, type EvContactRequest, type EvOptOutRequest, type EvUserProfile, type PluggamobOverview, type ReactivationQueue } from "@plugga/shared";
+import { evContactRequestSchema, evOptOutRequestSchema, incidentRequestSchema, type EvContactRequest, type EvOptOutRequest, type EvUserProfile, type IncidentRequest, type IncidentResponse, type PluggamobLocations, type PluggamobOverview, type PluggamobSessions, type ReactivationQueue } from "@plugga/shared";
 
 import { ZodValidationPipe } from "../common/zod-validation.pipe";
 import type { AuthPrincipal } from "../core/auth/auth.types";
@@ -42,4 +42,11 @@ export class PluggamobController {
   optOut(@Param("id") id: string, @Body(new ZodValidationPipe(evOptOutRequestSchema)) input: EvOptOutRequest, @CurrentPrincipal() principal: AuthPrincipal): Promise<EvUserProfile> {
     return this.service.optOut(id, input, principal);
   }
+
+  @Get("sessions") sessions(): Promise<PluggamobSessions> { return this.service.sessions(); }
+  @Get("sessions/:id") session(@Param("id") id: string): Promise<PluggamobSessions["items"][number]> { return this.service.session(id); }
+  @Get("locations") locations(): Promise<PluggamobLocations> { return this.service.locations(); }
+  @Get("locations/:id") location(@Param("id") id: string): Promise<PluggamobLocations["items"][number]> { return this.service.location(id); }
+  @Post("incidents") @HttpCode(201) @UseGuards(OriginCheckGuard) @Roles("pluggamob", "admin")
+  createIncident(@Body(new ZodValidationPipe(incidentRequestSchema)) input: IncidentRequest, @CurrentPrincipal() principal: AuthPrincipal): Promise<IncidentResponse> { return this.service.createIncident(input, principal); }
 }

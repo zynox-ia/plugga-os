@@ -60,3 +60,14 @@ export const evUserProfileSchema = z.object({
   openIncidents: z.array(z.object({ id: uuid, kind: z.string(), severity: z.string(), summary: z.string(), status: z.string() })),
 });
 export type EvUserProfile = z.infer<typeof evUserProfileSchema>;
+
+export const pluggamobSessionSchema = z.object({ id: uuid, externalId: z.string(), status: z.enum(["active", "completed", "failed", "blocked"]), startedAt: isoDate, endedAt: isoDate.nullable(), kwh: z.string().nullable(), amount: z.string().nullable(), userName: z.string(), locationName: z.string(), connectorLabel: z.string().nullable(), incidentCount: z.number().int().nonnegative() });
+export const pluggamobSessionsSchema = z.object({ mode: pluggamobModeSchema, items: z.array(pluggamobSessionSchema) });
+export type PluggamobSessions = z.infer<typeof pluggamobSessionsSchema>;
+export const pluggamobLocationSchema = z.object({ id: uuid, partnerName: z.string(), name: z.string(), status: z.enum(["active", "inactive", "unknown"]), timezone: z.string(), stations: z.array(z.object({ id: uuid, name: z.string(), connectors: z.array(z.object({ id: uuid, label: z.string(), status: z.string() })) })), openIncidents: z.number().int().nonnegative() });
+export const pluggamobLocationsSchema = z.object({ mode: pluggamobModeSchema, items: z.array(pluggamobLocationSchema) });
+export type PluggamobLocations = z.infer<typeof pluggamobLocationsSchema>;
+export const incidentRequestSchema = z.object({ kind: z.string().trim().min(1).max(80), severity: z.enum(["low", "medium", "high", "critical"]), summary: z.string().trim().min(1).max(500), owner: z.string().trim().min(1).max(150), userId: uuid.optional(), sessionId: uuid.optional(), locationId: uuid.optional(), settlementId: uuid.optional() }).strict().superRefine((value, context) => { if (![value.userId, value.sessionId, value.locationId, value.settlementId].some(Boolean)) context.addIssue({ code: z.ZodIssueCode.custom, message: "an incident requires an origin" }); });
+export type IncidentRequest = z.infer<typeof incidentRequestSchema>;
+export const incidentResponseSchema = z.object({ id: uuid, status: z.enum(["open", "investigating", "resolved", "blocked"]), kind: z.string(), severity: z.string(), summary: z.string(), owner: z.string().nullable() });
+export type IncidentResponse = z.infer<typeof incidentResponseSchema>;

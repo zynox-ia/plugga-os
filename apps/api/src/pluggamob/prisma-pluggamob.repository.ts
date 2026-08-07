@@ -1,6 +1,6 @@
 import { BadRequestException, Inject, Injectable, NotFoundException } from "@nestjs/common";
 import type { ActorType } from "@prisma/client";
-import { evUserProfileSchema, reactivationQueueSchema, type EvContactRequest, type EvOptOutRequest, type EvUserProfile, type ReactivationQueue } from "@plugga/shared";
+import { evUserProfileSchema, incidentResponseSchema, pluggamobLocationsSchema, pluggamobSessionSchema, pluggamobSessionsSchema, reactivationQueueSchema, type EvContactRequest, type EvOptOutRequest, type EvUserProfile, type IncidentRequest, type IncidentResponse, type PluggamobLocations, type PluggamobSessions, type ReactivationQueue } from "@plugga/shared";
 
 import type { AuthPrincipal } from "../core/auth/auth.types";
 import { PrismaService } from "../prisma/prisma.service";
@@ -60,6 +60,40 @@ export class PrismaPluggamobRepository extends PluggamobRepository {
     });
     return this.userProfile(userId);
   }
+
+  async sessions(): Promise<PluggamobSessions> {
+    const rows = await this.prisma.evSession.findMany({ include: { user: true, location: true, connector: true, incidents: true }, orderBy: { startedAt: "desc" } });
+    return pluggamobSessionsSchema.parse({ mode: "mock", items: rows.map((row) => this.sessionView(row)) });
+  }
+
+  async session(id: string): Promise<PluggamobSessions["items"][number]> {
+    const row = await this.prisma.evSession.findUnique({ where: { id }, include: { user: true, location: true, connector: true, incidents: true } });
+    if (!row) throw new NotFoundException("EV session not found");
+    return pluggamobSessionSchema.parse(this.sessionView(row));
+  }
+
+  async locations(): Promise<PluggamobLocations> {
+    const rows = await this.prisma.location.findMany({ include: { partner: true, stations: { include: { connectors: true } }, incidents: { where: { status: { in: ["open", "investigating", "blocked"] } } } }, orderBy: { name: "asc" } });
+    return pluggamobLocationsSchema.parse({ mode: "mock", items: rows.map((row) => this.locationView(row)) });
+  }
+
+  async location(id: string): Promise<PluggamobLocations["items"][number]> {
+    const row = await this.prisma.location.findUnique({ where: { id }, include: { partner: true, stations: { include: { connectors: true } }, incidents: { where: { status: { in: ["open", "investigating", "blocked"] } } } } });
+    if (!row) throw new NotFoundException("location not found");
+    return pluggamobLocationsSchema.shape.items.element.parse(this.locationView(row));
+  }
+
+  async createIncident(input: IncidentRequest, principal: AuthPrincipal): Promise<IncidentResponse> {
+    const incident = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.incident.create({ data: { ...input } });
+      await tx.eventLog.create({ data: { eventName: "pluggamob.incident_created", entityType: "incident", entityId: created.id, actorType: this.actorType(principal), actorId: principal.id, payload: input, occurredAt: created.createdAt } });
+      return created;
+    });
+    return incidentResponseSchema.parse({ id: incident.id, status: incident.status, kind: incident.kind, severity: incident.severity, summary: incident.summary, owner: incident.owner });
+  }
+
+  private sessionView(row: { id: string; externalId: string; status: "active" | "completed" | "failed" | "blocked"; startedAt: Date; endedAt: Date | null; kwh: { toFixed: (value: number) => string } | null; amount: { toFixed: (value: number) => string } | null; user: { displayName: string }; location: { name: string }; connector: { label: string } | null; incidents: unknown[] }) { return { id: row.id, externalId: row.externalId, status: row.status, startedAt: row.startedAt.toISOString(), endedAt: row.endedAt?.toISOString() ?? null, kwh: row.kwh?.toFixed(3) ?? null, amount: row.amount?.toFixed(2) ?? null, userName: row.user.displayName, locationName: row.location.name, connectorLabel: row.connector?.label ?? null, incidentCount: row.incidents.length }; }
+  private locationView(row: { id: string; partner: { name: string }; name: string; status: "active" | "inactive" | "unknown"; timezone: string; stations: { id: string; name: string; connectors: { id: string; label: string; status: string }[] }[]; incidents: unknown[] }) { return { id: row.id, partnerName: row.partner.name, name: row.name, status: row.status, timezone: row.timezone, stations: row.stations, openIncidents: row.incidents.length }; }
 
   private actorType(principal: AuthPrincipal): ActorType { return principal.kind === "user" ? "user" : "system"; }
 }
