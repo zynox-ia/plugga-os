@@ -1,6 +1,8 @@
 import type { ShellNavGroup } from "../components/plugga-shell";
 import {
   EMPRESAS_POR_ID,
+  CONFIGURACOES,
+  FERRAMENTAS,
   GLOBAIS,
   VISAO_GERAL,
   type EmpresaId,
@@ -47,6 +49,15 @@ export function navGroupsForEmpresa(empresa: EmpresaId): ShellNavGroup[] {
       section: indice === 0 ? "Departamentos" : undefined,
       items: departamento.processos.map((processo) => navItem(processo, departamento.id)),
     })),
+    {
+      id: "ferramentas",
+      label: "Atravessam os departamentos",
+      section: "Ferramentas",
+      items: FERRAMENTAS.map((processo) => ({
+        ...navItem(processo, "ferramenta"),
+        icon: "briefcase" as const,
+      })),
+    },
   ];
 }
 
@@ -60,6 +71,8 @@ export function navIdForPathname(pathname: string): string {
 
   const rotas = [
     ...VISAO_GERAL,
+    ...FERRAMENTAS,
+    ...CONFIGURACOES,
     ...GLOBAIS,
     ...Object.values(EMPRESAS_POR_ID).flatMap((empresa) =>
       empresa.departamentos.flatMap((departamento) => departamento.processos),
@@ -81,6 +94,8 @@ export function navIdForPathname(pathname: string): string {
 export function tituloForNavId(navId: string, empresa: EmpresaId): string {
   const todos = [
     ...VISAO_GERAL,
+    ...FERRAMENTAS,
+    ...CONFIGURACOES,
     ...GLOBAIS,
     ...EMPRESAS_POR_ID[empresa].departamentos.flatMap((d) => d.processos),
   ];

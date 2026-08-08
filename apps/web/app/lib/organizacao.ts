@@ -184,16 +184,92 @@ export const VISAO_GERAL: Processo[] = [
 ];
 
 /**
+ * Ferramentas atravessam todos os departamentos — abrem no dia a dia, mas não
+ * pertencem a nenhum. Ficam visíveis na barra, sem competir com a árvore.
+ */
+export const FERRAMENTAS: Processo[] = [
+  { label: "Documentos", rota: "/documentos", status: "parcial" },
+  { label: "Relatórios", status: "em-breve" },
+  { label: "Agentes IA", rota: "/agentes-ia", status: "parcial" },
+];
+
+/**
+ * Configurações: o que se ajusta uma vez, não o que se usa todo dia. Entra
+ * como **um** item no rodapé da barra, abrindo uma página com as seções
+ * abaixo — se virassem sete linhas na sidebar, reconstruiríamos a poluição do
+ * Bitrix, com o que se mexe por trimestre ao lado do que se usa por hora.
+ *
+ * `roles` filtra o que cada pessoa enxerga dentro da página. A entrada em si
+ * aparece sempre: esconder o menu inteiro faz quem não tem acesso procurar
+ * onde não existe.
+ */
+export type SecaoConfiguracao = Processo & {
+  descricao: string;
+  roles: readonly string[];
+};
+
+export const CONFIGURACOES: SecaoConfiguracao[] = [
+  {
+    label: "Equipe",
+    descricao: "Pessoas com acesso ao sistema, convites e desativação.",
+    status: "em-breve",
+    roles: ["admin"],
+  },
+  {
+    label: "Papéis e permissões",
+    descricao:
+      "Quem enxerga o quê — por empresa. A mesma pessoa pode ser financeiro na Plugga e nada na Waze.",
+    status: "em-breve",
+    roles: ["admin"],
+  },
+  {
+    label: "Departamentos e processos",
+    descricao:
+      "Desenho dos fluxos: etapas, tarefas, prazos de SLA e KPIs. Uma definição só, usada pelas duas empresas.",
+    status: "em-breve",
+    roles: ["admin", "diretoria"],
+  },
+  {
+    label: "Empresas",
+    descricao: "Plugga e Waze Energia: identidade e departamentos ativos em cada uma.",
+    status: "em-breve",
+    roles: ["admin"],
+  },
+  {
+    label: "Integrações",
+    descricao: "Bitrix, OMIE, PagBank e PluggaMob — modo e saúde de cada uma.",
+    rota: "/integracoes",
+    status: "pronto",
+    roles: ["admin", "tech"],
+  },
+  {
+    label: "Jobs e automações",
+    descricao: "Agendamentos, histórico de execução e falhas.",
+    rota: "/jobs",
+    status: "pronto",
+    roles: ["admin", "tech"],
+  },
+  {
+    label: "Canais e notificações",
+    descricao: "E-mail transacional, Telegram e WhatsApp.",
+    status: "em-breve",
+    roles: ["admin", "tech"],
+  },
+];
+
+/** Seções visíveis para um conjunto de papéis. Sem papel, nenhuma. */
+export function configuracoesParaPapeis(papeis: readonly string[]): SecaoConfiguracao[] {
+  return CONFIGURACOES.filter((secao) => secao.roles.some((role) => papeis.includes(role)));
+}
+
+/**
  * Fora do seletor: não pertencem à Plugga nem à Waze. Usuário é único (o papel
  * é que é por empresa), e job/integração/agente servem as duas. O desenho dos
  * processos também mora aqui — é uma definição só, instanciada nas duas.
  */
 export const GLOBAIS: Processo[] = [
+  { label: "Configurações", rota: "/configuracoes", status: "pronto" },
   { label: "Estrutura do sistema", rota: "/estrutura", status: "pronto" },
-  { label: "Desenho de processos", status: "em-breve" },
-  { label: "Documentos", rota: "/documentos", status: "parcial" },
-  { label: "Jobs e Automações", rota: "/jobs", status: "pronto" },
-  { label: "Integrações", rota: "/integracoes", status: "pronto" },
-  { label: "Agentes IA", rota: "/agentes-ia", status: "parcial" },
+  // Rota herdada do Bloco A; o conteúdo dela migra para Configurações → Equipe.
   { label: "Administração", rota: "/administracao", status: "parcial" },
 ];

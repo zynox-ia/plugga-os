@@ -41,7 +41,10 @@ button:focus-visible, a:focus-visible { outline: 3px solid var(--folha); outline
 .brand-mark { display: flex; align-items: center; height: 56px; overflow: hidden; }
 .brand-lockup img { width: 176px; height: 176px; margin: -60px 0; filter: brightness(0) invert(1) sepia(.15) saturate(.4); }
 .brand-badge { margin-left: auto; padding: 4px 7px; color: var(--folha); border: 1px solid rgba(0, 175, 136, .45); border-radius: 999px; font: 600 10px/1 Anybody, sans-serif; letter-spacing: .08em; text-transform: uppercase; }
-.sidebar-nav { display: grid; flex: 1 1 auto; min-height: 0; gap: 20px; overflow-y: auto; overflow-x: hidden; scrollbar-width: thin; scrollbar-color: rgba(224, 219, 199, .35) transparent; }
+.sidebar-nav { display: grid; flex: 1 1 auto; min-height: 0; gap: 20px; overflow-y: auto; overflow-x: hidden; scrollbar-width: none; -ms-overflow-style: none; }
+/* A barra de rolagem some, a rolagem continua: numa coluna escura e estreita
+   ela vira ruído visual permanente sem informar nada. */
+.sidebar-nav::-webkit-scrollbar { width: 0; height: 0; }
 .nav-group { display: grid; gap: 4px; }
 .nav-label { padding: 0 12px 5px; color: rgba(224, 219, 199, .58); font: 500 11px/1 Anybody, sans-serif; letter-spacing: .12em; text-transform: uppercase; }
 .nav-item { display: flex; align-items: center; gap: 10px; width: 100%; padding: 11px 12px; color: rgba(224, 219, 199, .82); text-align: left; background: transparent; border: 0; border-radius: 12px; cursor: pointer; transition: background .15s ease, color .15s ease; }
@@ -256,3 +259,27 @@ tbody tr:last-child td { border-bottom: 0; }
 .user-menu-item--danger { color: #8a0f10; font-weight: 600; }
 .user-menu-item--danger:hover:not(:disabled) { background: rgba(138, 15, 16, .08); }
 .user-menu-divider { height: 1px; margin: 5px 8px; background: var(--line); }
+
+/* --- Cartão do usuário no pé da barra ----------------------------------- */
+/* Substitui o antigo aviso "Fundação local", que informava estado de projeto
+   e não algo útil para quem está operando o sistema. */
+.sidebar-user { display: flex; align-items: center; gap: 10px; margin-top: auto; padding: 11px 12px; background: rgba(224, 219, 199, .06); border: 1px solid rgba(224, 219, 199, .1); border-radius: 14px; }
+.sidebar-user-avatar { display: grid; width: 36px; height: 36px; flex: 0 0 auto; place-items: center; color: var(--petroleo); background: var(--folha); border-radius: 50%; font: 700 13px/1 Anybody, sans-serif; }
+.sidebar-user-info { display: grid; min-width: 0; }
+.sidebar-user-info strong { color: #fff; font: 600 13px Anybody, sans-serif; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sidebar-user-info span { color: rgba(224, 219, 199, .68); font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* --- Ícones da barra superior ------------------------------------------- */
+.topbar-icon { display: grid; width: 36px; height: 36px; place-items: center; color: var(--muted); background: rgba(255, 254, 250, .56); border: 1px solid var(--line); border-radius: 50%; cursor: pointer; transition: color .15s ease, background .15s ease; }
+.topbar-icon svg { width: 18px; height: 18px; }
+.topbar-icon:hover { color: var(--petroleo); background: var(--white); }
+.topbar-icon[aria-expanded="true"] { color: var(--petroleo); background: var(--white); box-shadow: 0 0 0 3px rgba(0, 175, 136, .2); }
+
+/* --- Página de Configurações -------------------------------------------- */
+.config-layout { display: grid; grid-template-columns: minmax(190px, 232px) minmax(0, 1fr); gap: 18px; align-items: start; }
+.config-nav { display: grid; gap: 3px; padding: 8px; background: rgba(255, 254, 250, .6); border: 1px solid var(--line); border-radius: 14px; }
+.config-nav-item { display: flex; align-items: center; gap: 8px; padding: 10px 12px; color: var(--ink); text-align: left; background: transparent; border: 0; border-radius: 10px; cursor: pointer; font-size: 13.5px; }
+.config-nav-item:hover { background: rgba(0, 51, 51, .06); }
+.config-nav-item--active { color: var(--petroleo); background: rgba(0, 175, 136, .16); font-weight: 600; }
+.config-nav-item .nav-tag { margin-left: auto; color: var(--muted); background: rgba(0, 51, 51, .07); }
+@media (max-width: 800px) { .config-layout { grid-template-columns: minmax(0, 1fr); } }

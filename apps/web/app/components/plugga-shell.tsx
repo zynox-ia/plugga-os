@@ -184,6 +184,7 @@ export function PluggaShell({
   activeId,
   topbarActions,
   empresaSwitcher,
+  sidebarFooter,
   pageTitle,
   pageDescription,
 }: {
@@ -196,6 +197,8 @@ export function PluggaShell({
   topbarActions?: ReactNode;
   /** Seletor Plugga/Waze — primeiro item da direita do topo. */
   empresaSwitcher?: ReactNode;
+  /** Fixo no pé da barra lateral (Configurações). */
+  sidebarFooter?: ReactNode;
   /** Título e subtítulo da rota atual; caem no mock antigo quando ausentes. */
   pageTitle?: string;
   pageDescription?: string;
@@ -292,7 +295,7 @@ export function PluggaShell({
             );
           })}
         </nav>
-        <div className="sidebar-footer"><span className="footer-dot" aria-hidden="true" /><div><strong>Fundação local</strong><span>Mock-only · sem cutover</span></div></div>
+        {sidebarFooter}
       </aside>
 
       <div className="shell-main">
