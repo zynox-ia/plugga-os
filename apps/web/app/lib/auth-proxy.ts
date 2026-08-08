@@ -3,7 +3,16 @@ import { NextResponse } from "next/server";
 import { apiBaseUrl } from "./env";
 import { clientForwardedFor } from "./forwarded-for";
 
-const FETCH_TIMEOUT_MS = 5_000;
+/**
+ * Folga para a travessia até a API.
+ *
+ * Cinco segundos bastavam quando o banco era local. Hoje toda consulta atravessa
+ * o túnel SSH até a VPS, e listar a equipe com acesso por empresa e departamento
+ * custa ~2,8 s de linha de base — margem estreita demais: qualquer lentidão
+ * passageira derruba a tela com "serviço indisponível", que manda procurar
+ * defeito onde não há.
+ */
+const FETCH_TIMEOUT_MS = 15_000;
 
 /**
  * CSRF defense in depth for our own cookie-bearing proxy routes, mirroring the

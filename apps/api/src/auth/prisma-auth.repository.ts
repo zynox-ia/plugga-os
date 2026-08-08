@@ -23,6 +23,9 @@ import {
   type ValidAuthToken,
 } from "./auth.repository";
 
+/** Forma do id de usuário no banco; a coluna é UUID. */
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 const userWithAccess = {
   include: {
     platformRoles: { include: { role: true } },
@@ -53,6 +56,13 @@ export class PrismaAuthRepository extends AuthRepository {
   }
 
   async findUserById(id: string): Promise<AuthUserRecord | null> {
+    // Id que não é UUID nunca corresponde a usuário nenhum, e devolver null diz
+    // exatamente isso. Sem esta guarda o Postgres recusa a conversão e o erro
+    // sobe como 500 — foi o que a tela de Equipe fazia com o escape hatch de
+    // desenvolvimento, cujo `x-dev-principal: user:andre` vira id sintético.
+    // Os quatro chamadores já tratam null; nenhum esperava exceção.
+    if (!UUID.test(id)) return null;
+
     const user = await this.prisma.user.findUnique({ where: { id }, ...userWithAccess });
     return user ? this.toRecord(user) : null;
   }
