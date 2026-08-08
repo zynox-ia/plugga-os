@@ -31,10 +31,63 @@ const integrationRows = [
   { key: 'rapidapi', name: 'RapidAPI', owner: 'Tecnologia' },
 ] as const;
 
+const companyRows = [
+  { id: 'plugga', name: 'Plugga' },
+  { id: 'waze', name: 'Waze Energia' },
+] as const;
+
 /** Whether a seeded identity already exists — decides bootstrap vs. re-seed. */
 async function userExists(email: string): Promise<boolean> {
   const user = await prisma.user.findUnique({ where: { email }, select: { id: true } });
   return user !== null;
+}
+
+type CompanyGrant = {
+  companyId: 'plugga' | 'waze';
+  roles: readonly string[];
+  departments: readonly { id: string; isManager?: boolean }[];
+};
+
+/**
+ * Concede acesso a quem acabou de ser criado. Como o resto do seed, só roda no
+ * bootstrap da identidade: reconceder a cada `pnpm db:seed` desfaria uma
+ * revogação feita pela tela de Equipe — o mesmo problema silencioso que já
+ * guarda `status`.
+ */
+async function grantAccess(
+  userId: string,
+  roleIdByKey: Map<string, string>,
+  grant: { platformRoles?: readonly string[]; companies?: readonly CompanyGrant[] },
+): Promise<void> {
+  for (const key of grant.platformRoles ?? []) {
+    const roleId = roleIdByKey.get(key);
+    if (roleId) {
+      await prisma.userPlatformRole.createMany({ data: [{ userId, roleId }], skipDuplicates: true });
+    }
+  }
+
+  for (const company of grant.companies ?? []) {
+    await prisma.userCompanyMembership.createMany({
+      data: [{ userId, companyId: company.companyId }],
+      skipDuplicates: true,
+    });
+    await prisma.userCompanyRole.createMany({
+      data: company.roles.flatMap((key) => {
+        const roleId = roleIdByKey.get(key);
+        return roleId ? [{ userId, companyId: company.companyId, roleId }] : [];
+      }),
+      skipDuplicates: true,
+    });
+    await prisma.userDepartmentAccess.createMany({
+      data: company.departments.map((department) => ({
+        userId,
+        companyId: company.companyId,
+        departmentId: department.id,
+        isManager: department.isManager ?? false,
+      })),
+      skipDuplicates: true,
+    });
+  }
 }
 
 async function main() {
@@ -44,6 +97,18 @@ async function main() {
         where: { key: role.key },
         update: { name: role.name },
         create: role,
+      }),
+    ),
+  );
+  const roleIdByKey = new Map(roles.map((role) => [role.key, role.id]));
+
+  // Catálogo fixo de empresas: os mesmos ids que a navegação da web usa.
+  await Promise.all(
+    companyRows.map((company) =>
+      prisma.company.upsert({
+        where: { id: company.id },
+        update: { name: company.name },
+        create: company,
       }),
     ),
   );
@@ -62,21 +127,14 @@ async function main() {
     },
   });
 
-  // Roles are granted only when bootstrapping the user. Re-granting on every
-  // seed would undo a revocation made through PUT /auth/users/:id/roles — the
-  // same silent-restore problem as `status`, but for privilege.
   if (!devUserExisted) {
-    await prisma.userRole.createMany({
-      data: roles.map((role) => ({ userId: devUser.id, roleId: role.id })),
-      skipDuplicates: true,
-    });
+    await grantAccess(devUser.id, roleIdByKey, { platformRoles: ['admin'] });
   }
 
   // Real self-hosted admin for local login (ADR-0008). Password comes only from
   // the local environment; never hardcoded or committed.
   const adminEmail = (process.env.SEED_ADMIN_EMAIL ?? 'admin@plugga.local').toLowerCase();
   const adminPassword = process.env.SEED_ADMIN_PASSWORD;
-  const adminRole = roles.find((role) => role.key === 'admin');
 
   // Same rules as the dev user: never re-activate, never re-grant on re-seed.
   const adminUserExisted = await userExists(adminEmail);
@@ -86,11 +144,10 @@ async function main() {
     create: { email: adminEmail, name: 'Administração Local', status: 'active' },
   });
 
-  if (adminRole && !adminUserExisted) {
-    await prisma.userRole.createMany({
-      data: [{ userId: adminUser.id, roleId: adminRole.id }],
-      skipDuplicates: true,
-    });
+  // Admin é papel de plataforma: alcança Plugga e Waze sem membership nenhum,
+  // porque o alcance dele é regra, não concessão.
+  if (!adminUserExisted) {
+    await grantAccess(adminUser.id, roleIdByKey, { platformRoles: ['admin'] });
   }
 
   if (adminPassword) {
@@ -104,6 +161,75 @@ async function main() {
     console.warn(
       'SEED_ADMIN_PASSWORD is not set; admin user created without a login credential.',
     );
+  }
+
+  // Equipe de exemplo: as quatro formas de acesso que a autorização precisa
+  // distinguir, para conferir a regra logando em vez de lendo o código.
+  //
+  // Fica atrás de SEED_SAMPLE_TEAM porque cria contas que fazem login com a
+  // MESMA senha local do admin: útil na máquina de quem desenvolve, inaceitável
+  // em qualquer ambiente que não seja o seu. Sem a variável, nada é criado.
+  if (process.env.SEED_SAMPLE_TEAM === 'true' && adminPassword) {
+    const sampleTeam = [
+      {
+        email: 'financeiro.plugga@plugga.local',
+        name: 'Financeiro Plugga (exemplo)',
+        grant: {
+          companies: [
+            {
+              companyId: 'plugga' as const,
+              roles: ['financeiro'],
+              departments: [{ id: 'financeiro' }],
+            },
+          ],
+        },
+      },
+      {
+        email: 'gestor.energia@plugga.local',
+        name: 'Gestor de Energia (exemplo)',
+        grant: {
+          companies: [
+            {
+              companyId: 'plugga' as const,
+              roles: ['opm'],
+              departments: [{ id: 'energia-opm', isManager: true }],
+            },
+          ],
+        },
+      },
+      {
+        email: 'duas.empresas@plugga.local',
+        name: 'Acesso nas duas empresas (exemplo)',
+        grant: {
+          companies: [
+            {
+              companyId: 'plugga' as const,
+              roles: ['comercial'],
+              departments: [{ id: 'comercial-clientes' }],
+            },
+            {
+              companyId: 'waze' as const,
+              roles: ['viewer'],
+              departments: [{ id: 'engenharia-obras' }],
+            },
+          ],
+        },
+      },
+    ];
+
+    const samplePasswordHash = await hash(adminPassword, argon2Options);
+    for (const sample of sampleTeam) {
+      if (await userExists(sample.email)) {
+        continue;
+      }
+      const user = await prisma.user.create({
+        data: { email: sample.email, name: sample.name, status: 'active' },
+      });
+      await grantAccess(user.id, roleIdByKey, sample.grant);
+      await prisma.userCredential.create({
+        data: { userId: user.id, passwordHash: samplePasswordHash },
+      });
+    }
   }
 
   const integrations = await Promise.all(

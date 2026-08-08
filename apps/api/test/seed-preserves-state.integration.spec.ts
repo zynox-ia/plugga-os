@@ -113,7 +113,7 @@ describeSeed("seed preserves user access revocation (integration)", () => {
     const admin = await prisma.user.findUnique({ where: { email: ADMIN_EMAIL } });
     const adminRole = await prisma.role.findUnique({ where: { key: "admin" } });
     if (admin && adminRole) {
-      await prisma.userRole.createMany({
+      await prisma.userPlatformRole.createMany({
         data: [{ userId: admin.id, roleId: adminRole.id }],
         skipDuplicates: true,
       });
@@ -147,13 +147,13 @@ describeSeed("seed preserves user access revocation (integration)", () => {
   it("does not re-grant a revoked role on re-seed", async () => {
     const admin = await prisma.user.findUniqueOrThrow({ where: { email: ADMIN_EMAIL } });
     const adminRole = await prisma.role.findUniqueOrThrow({ where: { key: "admin" } });
-    await prisma.userRole.deleteMany({
+    await prisma.userPlatformRole.deleteMany({
       where: { userId: admin.id, roleId: adminRole.id },
     });
 
     await runSeed();
 
-    const restored = await prisma.userRole.findMany({
+    const restored = await prisma.userPlatformRole.findMany({
       where: { userId: admin.id, roleId: adminRole.id },
     });
     // Re-granting here would silently restore administrative privilege.
@@ -161,18 +161,17 @@ describeSeed("seed preserves user access revocation (integration)", () => {
   }, 180_000);
 
   it("still creates a missing seeded user as active and grants its roles", async () => {
-    const devUser = await prisma.user.findUniqueOrThrow({ where: { email: DEV_EMAIL } });
-    await prisma.userRole.deleteMany({ where: { userId: devUser.id } });
+    // O delete leva papéis e vínculos junto (ON DELETE CASCADE).
     await prisma.user.delete({ where: { email: DEV_EMAIL } });
 
     await runSeed();
 
     const recreated = await prisma.user.findUniqueOrThrow({
       where: { email: DEV_EMAIL },
-      include: { roles: true },
+      include: { platformRoles: true },
     });
     expect(recreated.status).toBe("active");
     // Bootstrap must still work: a brand-new seeded user gets its roles.
-    expect(recreated.roles.length).toBeGreaterThan(0);
+    expect(recreated.platformRoles.length).toBeGreaterThan(0);
   }, 180_000);
 });

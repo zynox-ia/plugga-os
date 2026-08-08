@@ -1,16 +1,27 @@
 import type { AuthTokenType } from "@prisma/client";
-import type { RoleKey } from "@plugga/shared";
+import type { CompanyKey, DepartmentId, UserAccess, UserStatus } from "@plugga/shared";
 
 export interface AuthUserRecord {
   id: string;
   email: string;
   name: string;
   status: string;
-  roles: RoleKey[];
+  createdAt: Date;
+  /**
+   * Acesso como está gravado: papéis de plataforma + empresas com papéis e
+   * departamentos. É a verdade do banco — a regra "admin alcança tudo" é
+   * aplicada na leitura (`visibleCompanies`), nunca materializada aqui.
+   */
+  access: UserAccess;
 }
 
-export interface AuthUserSummaryRecord extends AuthUserRecord {
-  createdAt: Date;
+/** A lista da equipe lê exatamente o mesmo registro; o nome existe pela leitura. */
+export type TeamMemberRecord = AuthUserRecord;
+
+export interface TeamFilter {
+  companyId?: CompanyKey;
+  departmentId?: DepartmentId;
+  status?: UserStatus;
 }
 
 export interface CreateSessionData {
@@ -25,7 +36,7 @@ export interface CreateSessionData {
 export interface CreateInvitedUserData {
   email: string;
   name: string;
-  roleKeys: RoleKey[];
+  access: UserAccess;
 }
 
 export interface CreateAuthTokenData {
@@ -47,7 +58,7 @@ export interface SetPasswordOptions {
 
 /**
  * Write/read side of the auth lifecycle (credentials, sessions, invite/reset
- * tokens, user administration). The narrow read used on every request lives in
+ * tokens, team administration). The narrow read used on every request lives in
  * the core SessionLookupRepository instead.
  */
 export abstract class AuthRepository {
@@ -75,7 +86,8 @@ export abstract class AuthRepository {
     consumedAt: Date,
     options: SetPasswordOptions,
   ): Promise<void>;
-  abstract setUserRoles(userId: string, roleKeys: RoleKey[]): Promise<AuthUserRecord | null>;
+  /** Substitui o acesso inteiro da pessoa. Conceder e revogar são a mesma escrita. */
+  abstract replaceAccess(userId: string, access: UserAccess): Promise<AuthUserRecord | null>;
   abstract deactivateUser(userId: string): Promise<AuthUserRecord | null>;
-  abstract listUsers(): Promise<AuthUserSummaryRecord[]>;
+  abstract listTeam(filter: TeamFilter): Promise<TeamMemberRecord[]>;
 }

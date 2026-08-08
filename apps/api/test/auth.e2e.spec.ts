@@ -1,251 +1,24 @@
-import { randomUUID } from "node:crypto";
-
 import { Test } from "@nestjs/testing";
 import type { NestExpressApplication } from "@nestjs/platform-express";
 import request from "supertest";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { hash as argon2Hash } from "@node-rs/argon2";
-import type { RoleKey } from "@plugga/shared";
 
 import { AppModule } from "../src/app.module";
 import { configureApp } from "../src/configure-app";
 import { AuditRepository } from "../src/audit/audit.repository";
-import type { AuthPrincipal } from "../src/core/auth/auth.types";
 import { SessionLookupRepository } from "../src/core/auth/session-lookup.repository";
-import { EmailPort, type TransactionalEmail } from "../src/email/email.port";
+import { EmailPort } from "../src/email/email.port";
+import { AuthRepository } from "../src/auth/auth.repository";
 import {
-  AuthRepository,
-  type AuthUserRecord,
-  type AuthUserSummaryRecord,
-  type CreateAuthTokenData,
-  type CreateInvitedUserData,
-  type CreateSessionData,
-  type SetPasswordOptions,
-  type ValidAuthToken,
-} from "../src/auth/auth.repository";
+  access,
+  CapturingEmailPort,
+  InMemoryAuthRepository,
+  InMemorySessionLookup,
+  InMemoryStore,
+  NoopAuditRepository,
+} from "./support/in-memory-auth";
 
 const SESSION_SECRET = "test_only_session_secret_change_me_please";
-
-interface StoredUser {
-  id: string;
-  email: string;
-  name: string;
-  status: string;
-  roles: RoleKey[];
-  createdAt: Date;
-}
-
-interface StoredSession {
-  userId: string;
-  expiresAt: Date;
-  absoluteExpiresAt: Date;
-}
-
-interface StoredToken {
-  id: string;
-  userId: string;
-  type: "invite" | "reset";
-  tokenHash: string;
-  expiresAt: Date;
-  consumedAt: Date | null;
-}
-
-class InMemoryStore {
-  readonly users = new Map<string, StoredUser>();
-  readonly credentials = new Map<string, string>();
-  readonly sessions = new Map<string, StoredSession>();
-  readonly tokens = new Map<string, StoredToken>();
-
-  userByEmail(email: string): StoredUser | undefined {
-    return [...this.users.values()].find((user) => user.email === email);
-  }
-}
-
-class InMemoryAuthRepository extends AuthRepository {
-  constructor(private readonly store: InMemoryStore) {
-    super();
-  }
-
-  private toRecord(user: StoredUser): AuthUserRecord {
-    return { id: user.id, email: user.email, name: user.name, status: user.status, roles: user.roles };
-  }
-
-  async findUserByEmail(email: string): Promise<AuthUserRecord | null> {
-    const user = this.store.userByEmail(email);
-    return user ? this.toRecord(user) : null;
-  }
-
-  async findUserById(id: string): Promise<AuthUserRecord | null> {
-    const user = this.store.users.get(id);
-    return user ? this.toRecord(user) : null;
-  }
-
-  async findPasswordHash(userId: string): Promise<string | null> {
-    return this.store.credentials.get(userId) ?? null;
-  }
-
-  async createSession(data: CreateSessionData): Promise<void> {
-    this.store.sessions.set(data.tokenHash, {
-      userId: data.userId,
-      expiresAt: data.expiresAt,
-      absoluteExpiresAt: data.absoluteExpiresAt,
-    });
-  }
-
-  async deleteSessionByTokenHash(tokenHash: string): Promise<void> {
-    this.store.sessions.delete(tokenHash);
-  }
-
-  async deleteSessionsForUser(userId: string): Promise<void> {
-    for (const [hash, session] of this.store.sessions) {
-      if (session.userId === userId) {
-        this.store.sessions.delete(hash);
-      }
-    }
-  }
-
-  async createInvitedUser(data: CreateInvitedUserData): Promise<AuthUserRecord> {
-    const user: StoredUser = {
-      id: randomUUID(),
-      email: data.email,
-      name: data.name,
-      status: "invited",
-      roles: data.roleKeys,
-      createdAt: new Date(),
-    };
-    this.store.users.set(user.id, user);
-    return this.toRecord(user);
-  }
-
-  async createAuthToken(data: CreateAuthTokenData): Promise<void> {
-    const id = randomUUID();
-    this.store.tokens.set(id, {
-      id,
-      userId: data.userId,
-      type: data.type,
-      tokenHash: data.tokenHash,
-      expiresAt: data.expiresAt,
-      consumedAt: null,
-    });
-  }
-
-  async findValidToken(
-    tokenHash: string,
-    type: "invite" | "reset",
-    now: Date,
-  ): Promise<ValidAuthToken | null> {
-    const token = [...this.store.tokens.values()].find(
-      (candidate) =>
-        candidate.tokenHash === tokenHash &&
-        candidate.type === type &&
-        candidate.consumedAt === null &&
-        candidate.expiresAt > now,
-    );
-    return token ? { id: token.id, userId: token.userId } : null;
-  }
-
-  async consumeTokenAndSetPassword(
-    tokenId: string,
-    userId: string,
-    passwordHash: string,
-    consumedAt: Date,
-    options: SetPasswordOptions,
-  ): Promise<void> {
-    const token = this.store.tokens.get(tokenId);
-    if (!token || token.consumedAt !== null) {
-      throw new Error("auth token already consumed");
-    }
-    token.consumedAt = consumedAt;
-    this.store.credentials.set(userId, passwordHash);
-    const user = this.store.users.get(userId);
-    if (user && options.activateUser) {
-      user.status = "active";
-    }
-    if (options.revokeSessions) {
-      await this.deleteSessionsForUser(userId);
-    }
-  }
-
-  async setUserRoles(userId: string, roleKeys: RoleKey[]): Promise<AuthUserRecord | null> {
-    const user = this.store.users.get(userId);
-    if (!user) {
-      return null;
-    }
-    user.roles = roleKeys;
-    return this.toRecord(user);
-  }
-
-  async deactivateUser(userId: string): Promise<AuthUserRecord | null> {
-    const user = this.store.users.get(userId);
-    if (!user) {
-      return null;
-    }
-    user.status = "disabled";
-    return this.toRecord(user);
-  }
-
-  async listUsers(): Promise<AuthUserSummaryRecord[]> {
-    return [...this.store.users.values()].map((user) => ({
-      ...this.toRecord(user),
-      createdAt: user.createdAt,
-    }));
-  }
-}
-
-class InMemorySessionLookup extends SessionLookupRepository {
-  constructor(private readonly store: InMemoryStore) {
-    super();
-  }
-
-  async resolvePrincipal(tokenHash: string): Promise<AuthPrincipal | null> {
-    const session = this.store.sessions.get(tokenHash);
-    if (!session) {
-      return null;
-    }
-    const now = new Date();
-    const user = this.store.users.get(session.userId);
-    if (session.expiresAt <= now || session.absoluteExpiresAt <= now || user?.status !== "active") {
-      this.store.sessions.delete(tokenHash);
-      return null;
-    }
-    return { id: user.id, kind: "user", roles: user.roles };
-  }
-}
-
-class CapturingEmailPort extends EmailPort {
-  readonly sent: TransactionalEmail[] = [];
-  /** When true, the next send throws (simulates provider outage) then clears. */
-  failNext = false;
-
-  async sendTransactional(email: TransactionalEmail): Promise<void> {
-    if (this.failNext) {
-      this.failNext = false;
-      throw new Error("provider down HTTP 503");
-    }
-    this.sent.push(email);
-  }
-
-  lastTokenFor(template: "invite" | "reset"): string {
-    const email = [...this.sent].reverse().find((entry) => entry.template === template);
-    if (!email) {
-      throw new Error(`no ${template} email captured`);
-    }
-    return new URL(email.variables.link).searchParams.get("token") ?? "";
-  }
-}
-
-class NoopAuditRepository extends AuditRepository {
-  async appendEvent(): Promise<void> {}
-  async appendTrail(): Promise<never> {
-    throw new Error("not used in auth e2e");
-  }
-}
-
-const argon2Options = {
-  memoryCost: 19_456,
-  timeCost: 2,
-  parallelism: 1,
-} as const;
 
 describe("auth API (e2e, in-memory stores)", () => {
   let app: NestExpressApplication;
@@ -280,23 +53,16 @@ describe("auth API (e2e, in-memory stores)", () => {
   });
 
   beforeEach(async () => {
-    store.users.clear();
-    store.credentials.clear();
-    store.sessions.clear();
-    store.tokens.clear();
+    store.clear();
     email.sent.length = 0;
     email.failNext = false;
 
-    const adminId = randomUUID();
-    store.users.set(adminId, {
-      id: adminId,
+    await store.addUser({
       email: adminEmail,
       name: "Administração Local",
-      status: "active",
-      roles: ["admin"],
-      createdAt: new Date(),
+      password: adminPassword,
+      access: access({ platformRoles: ["admin"] }),
     });
-    store.credentials.set(adminId, await argon2Hash(adminPassword, argon2Options));
   });
 
   afterAll(async () => {
@@ -439,7 +205,20 @@ describe("auth API (e2e, in-memory stores)", () => {
     const { agent } = await loginAgent(adminEmail, adminPassword);
     const invited = await agent
       .post("/auth/invite")
-      .send({ email: "opm@plugga.local", name: "OPM", roles: ["opm"] })
+      .send({
+        email: "opm@plugga.local",
+        name: "OPM",
+        access: {
+          platformRoles: [],
+          companies: [
+            {
+              companyId: "plugga",
+              roles: ["opm"],
+              departments: [{ departmentId: "energia-opm", isManager: false }],
+            },
+          ],
+        },
+      })
       .expect(201);
     expect(invited.body).toMatchObject({ email: "opm@plugga.local", status: "invited", roles: ["opm"] });
 
@@ -460,23 +239,40 @@ describe("auth API (e2e, in-memory stores)", () => {
     expect(response.body.user).toMatchObject({ email: "opm@plugga.local", roles: ["opm"] });
   });
 
-  it("forbids a non-admin from admin endpoints", async () => {
-    const viewerId = randomUUID();
-    store.users.set(viewerId, {
-      id: viewerId,
+  it("forbids a plain member from the team endpoints", async () => {
+    await store.addUser({
       email: "viewer@plugga.local",
       name: "Viewer",
-      status: "active",
-      roles: ["viewer"],
-      createdAt: new Date(),
+      password: "viewer password here",
+      access: access({
+        companies: [
+          {
+            companyId: "plugga",
+            roles: ["viewer"],
+            departments: [{ departmentId: "financeiro", isManager: false }],
+          },
+        ],
+      }),
     });
-    store.credentials.set(viewerId, await argon2Hash("viewer password here", argon2Options));
 
     const { agent } = await loginAgent("viewer@plugga.local", "viewer password here");
     await agent.get("/auth/users").expect(403);
     await agent
       .post("/auth/invite")
-      .send({ email: "x@plugga.local", name: "X", roles: ["opm"] })
+      .send({
+        email: "x@plugga.local",
+        name: "X",
+        access: {
+          platformRoles: [],
+          companies: [
+            {
+              companyId: "plugga",
+              roles: ["viewer"],
+              departments: [{ departmentId: "financeiro", isManager: false }],
+            },
+          ],
+        },
+      })
       .expect(403);
   });
 

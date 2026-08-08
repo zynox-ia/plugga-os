@@ -225,13 +225,14 @@ enum ContestationStatus {
 }
 
 model User {
-  id               String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  email            String            @unique
+  id               String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email            String                  @unique
   name             String
-  status           String            @default("active")
-  createdAt        DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt        DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
-  roles            UserRole[]
+  status           String                  @default("active")
+  createdAt        DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime                @updatedAt @map("updated_at") @db.Timestamptz(6)
+  platformRoles    UserPlatformRole[]
+  memberships      UserCompanyMembership[]
   agentActions     AgentAction[]
   credential       UserCredential?
   sessions         Session[]
@@ -292,15 +293,32 @@ model AuthToken {
 }
 
 model Role {
-  id    String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  key   String     @unique
-  name  String
-  users UserRole[]
+  id            String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  key           String             @unique
+  name          String
+  platformUsers UserPlatformRole[]
+  companyUsers  UserCompanyRole[]
 
   @@map("roles")
 }
 
-model UserRole {
+/// Empresa do grupo. Catálogo fixo (`plugga`, `waze`) e a chave é o próprio id,
+/// o mesmo que a navegação usa em apps/web/app/lib/organizacao.ts: um uuid
+/// separado obrigaria toda tela e todo link a traduzir id↔chave sem ganhar nada.
+/// Não é tenant — o sistema segue single-tenant (ADR-0008); é o contexto de
+/// negócio dentro do mesmo cliente.
+model Company {
+  id          String                  @id
+  name        String
+  createdAt   DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  memberships UserCompanyMembership[]
+
+  @@map("companies")
+}
+
+/// Papel de plataforma (hoje só `admin`): vale sobre as duas empresas e é o
+/// único que pode conceder acesso fora do próprio escopo.
+model UserPlatformRole {
   userId String @map("user_id") @db.Uuid
   roleId String @map("role_id") @db.Uuid
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -308,7 +326,53 @@ model UserRole {
 
   @@id([userId, roleId])
   @@index([roleId])
-  @@map("user_roles")
+  @@map("user_platform_roles")
+}
+
+/// Acesso da pessoa a uma empresa. A linha existir é o acesso: revogar é
+/// apagá-la, e a revogação de conta inteira segue sendo `users.status`
+/// (ADR-0008) — dois controles de revogação para a mesma coisa divergiriam.
+model UserCompanyMembership {
+  userId      String                 @map("user_id") @db.Uuid
+  companyId   String                 @map("company_id")
+  createdAt   DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  user        User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company     Company                @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  departments UserDepartmentAccess[]
+  roles       UserCompanyRole[]
+
+  @@id([userId, companyId])
+  @@index([companyId])
+  @@map("user_company_memberships")
+}
+
+/// Departamento liberado dentro de uma empresa. `isManager` é a capacidade de
+/// gerir equipe nesse departamento — fica no acesso, e não em um papel global
+/// solto, para que "gestor" nunca signifique gestor de tudo.
+model UserDepartmentAccess {
+  userId       String                @map("user_id") @db.Uuid
+  companyId    String                @map("company_id")
+  departmentId String                @map("department_id")
+  isManager    Boolean               @default(false) @map("is_manager")
+  membership   UserCompanyMembership @relation(fields: [userId, companyId], references: [userId, companyId], onDelete: Cascade)
+
+  @@id([userId, companyId, departmentId])
+  @@index([companyId, departmentId])
+  @@map("user_department_access")
+}
+
+/// Papel no contexto de uma empresa. A mesma pessoa pode ser `financeiro` na
+/// Plugga e `viewer` na Waze.
+model UserCompanyRole {
+  userId     String                @map("user_id") @db.Uuid
+  companyId  String                @map("company_id")
+  roleId     String                @map("role_id") @db.Uuid
+  membership UserCompanyMembership @relation(fields: [userId, companyId], references: [userId, companyId], onDelete: Cascade)
+  role       Role                  @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, companyId, roleId])
+  @@index([roleId])
+  @@map("user_company_roles")
 }
 
 /// Append-only audit record. The initial migration prevents UPDATE and DELETE.

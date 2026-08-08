@@ -24,7 +24,14 @@ export class PrismaSessionLookupRepository extends SessionLookupRepository {
   ): Promise<AuthPrincipal | null> {
     const session = await this.prisma.session.findUnique({
       where: { tokenHash },
-      include: { user: { include: { roles: { include: { role: true } } } } },
+      include: {
+        user: {
+          include: {
+            platformRoles: { include: { role: true } },
+            memberships: { include: { roles: { include: { role: true } } } },
+          },
+        },
+      },
     });
 
     if (!session) {
@@ -43,10 +50,19 @@ export class PrismaSessionLookupRepository extends SessionLookupRepository {
 
     await this.applySlidingRenewal(session.id, session.absoluteExpiresAt, context.now);
 
+    // O principal carrega a união achatada dos papéis (plataforma + todas as
+    // empresas), que é o que `RolesGuard` consome. Onde cada papel vale é
+    // resolvido por quem precisa do contexto de empresa, lendo o acesso inteiro
+    // — carregar isso em toda requisição custaria mais do que rende.
     return {
       id: session.userId,
       kind: "user",
-      roles: this.mapRoles(session.user.roles.map((assignment) => assignment.role.key)),
+      roles: this.mapRoles([
+        ...session.user.platformRoles.map((assignment) => assignment.role.key),
+        ...session.user.memberships.flatMap((membership) =>
+          membership.roles.map((assignment) => assignment.role.key),
+        ),
+      ]),
     };
   }
 
@@ -66,10 +82,16 @@ export class PrismaSessionLookupRepository extends SessionLookupRepository {
     });
   }
 
+  // O mesmo papel pode vir das duas empresas (financeiro na Plugga e na Waze);
+  // o principal lista cada um uma vez só.
   private mapRoles(keys: string[]): RoleKey[] {
-    return keys.flatMap((key) => {
+    const validos = new Set<RoleKey>();
+    for (const key of keys) {
       const parsed = roleKeySchema.safeParse(key);
-      return parsed.success ? [parsed.data] : [];
-    });
+      if (parsed.success) {
+        validos.add(parsed.data);
+      }
+    }
+    return [...validos];
   }
 }

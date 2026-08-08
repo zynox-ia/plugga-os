@@ -1,44 +1,25 @@
-import {
-  Body,
-  Controller,
-  Get,
-  HttpCode,
-  Inject,
-  Param,
-  Post,
-  Put,
-  Req,
-  Res,
-  UseGuards,
-} from "@nestjs/common";
+import { Body, Controller, Get, HttpCode, Inject, Post, Req, Res, UseGuards } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { SkipThrottle, Throttle, ThrottlerGuard } from "@nestjs/throttler";
 import type { CookieOptions, Request, Response } from "express";
 import {
   acceptInviteRequestSchema,
-  assignRolesRequestSchema,
-  inviteRequestSchema,
   loginRequestSchema,
   resetConfirmRequestSchema,
   resetRequestSchema,
   type AcceptInviteRequest,
-  type AssignRolesRequest,
   type AuthAcknowledgement,
-  type InviteRequest,
   type LoginRequest,
   type MeResponse,
   type ResetConfirmRequest,
   type ResetRequest,
   type SessionUser,
-  type UserSummary,
 } from "@plugga/shared";
 
 import { ZodValidationPipe } from "../common/zod-validation.pipe";
 import type { AuthPrincipal } from "../core/auth/auth.types";
 import { CurrentPrincipal } from "../core/auth/current-principal.decorator";
 import { DevAuthGuard } from "../core/auth/dev-auth.guard";
-import { Roles } from "../core/auth/roles.decorator";
-import { RolesGuard } from "../core/auth/roles.guard";
 import { SESSION_COOKIE_NAME } from "../core/auth/token.util";
 import { AuthService } from "./auth.service";
 import { OriginCheckGuard } from "../core/auth/origin-check.guard";
@@ -124,46 +105,6 @@ export class AuthController {
     @Body(new ZodValidationPipe(resetConfirmRequestSchema)) input: ResetConfirmRequest,
   ): Promise<AuthAcknowledgement> {
     return this.service.confirmReset(input);
-  }
-
-  @Post("invite")
-  @UseGuards(DevAuthGuard, RolesGuard, OriginCheckGuard, ThrottlerGuard)
-  @Roles("admin")
-  invite(
-    @Body(new ZodValidationPipe(inviteRequestSchema)) input: InviteRequest,
-    @CurrentPrincipal() principal: AuthPrincipal,
-  ): Promise<SessionUser> {
-    return this.service.invite(input, principal);
-  }
-
-  @Get("users")
-  @UseGuards(DevAuthGuard, RolesGuard, ThrottlerGuard)
-  @Roles("admin")
-  listUsers(): Promise<UserSummary[]> {
-    return this.service.listUsers();
-  }
-
-  @Put("users/:id/roles")
-  @HttpCode(200)
-  @UseGuards(DevAuthGuard, RolesGuard, OriginCheckGuard, ThrottlerGuard)
-  @Roles("admin")
-  setRoles(
-    @Param("id") id: string,
-    @Body(new ZodValidationPipe(assignRolesRequestSchema)) input: AssignRolesRequest,
-    @CurrentPrincipal() principal: AuthPrincipal,
-  ): Promise<SessionUser> {
-    return this.service.setRoles(id, input, principal);
-  }
-
-  @Post("users/:id/deactivate")
-  @HttpCode(200)
-  @UseGuards(DevAuthGuard, RolesGuard, OriginCheckGuard, ThrottlerGuard)
-  @Roles("admin")
-  deactivate(
-    @Param("id") id: string,
-    @CurrentPrincipal() principal: AuthPrincipal,
-  ): Promise<AuthAcknowledgement> {
-    return this.service.deactivate(id, principal);
   }
 
   private cookieOptions(): CookieOptions {

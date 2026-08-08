@@ -10,7 +10,8 @@ export const eventNames = {
   authInviteAccepted: "auth.invite.accepted",
   authResetRequested: "auth.reset.requested",
   authResetCompleted: "auth.reset.completed",
-  userRolesUpdated: "user.roles.updated",
+  authInviteResent: "auth.invite.resent",
+  userAccessUpdated: "user.access.updated",
   userDeactivated: "user.deactivated",
   pluggamobSeeded: "pluggamob.seeded",
 } as const;

@@ -1,24 +1,42 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { type AuthTokenType, type Prisma } from "@prisma/client";
-import { roleKeySchema, type RoleKey } from "@plugga/shared";
+import {
+  companyKeySchema,
+  companyRoleKeySchema,
+  departmentIdSchema,
+  isDepartmentOfCompany,
+  platformRoleKeySchema,
+  type CompanyAccess,
+  type UserAccess,
+} from "@plugga/shared";
 
 import { PrismaService } from "../prisma/prisma.service";
 import {
   AuthRepository,
   type AuthUserRecord,
-  type AuthUserSummaryRecord,
   type CreateAuthTokenData,
   type CreateInvitedUserData,
   type CreateSessionData,
   type SetPasswordOptions,
+  type TeamFilter,
+  type TeamMemberRecord,
   type ValidAuthToken,
 } from "./auth.repository";
 
-const userWithRoles = {
-  include: { roles: { include: { role: true } } },
+const userWithAccess = {
+  include: {
+    platformRoles: { include: { role: true } },
+    memberships: {
+      include: {
+        roles: { include: { role: true } },
+        departments: true,
+      },
+      orderBy: { companyId: "asc" },
+    },
+  },
 } satisfies Prisma.UserDefaultArgs;
 
-type UserWithRoles = Prisma.UserGetPayload<typeof userWithRoles>;
+type UserWithAccess = Prisma.UserGetPayload<typeof userWithAccess>;
 
 @Injectable()
 export class PrismaAuthRepository extends AuthRepository {
@@ -29,13 +47,13 @@ export class PrismaAuthRepository extends AuthRepository {
   async findUserByEmail(email: string): Promise<AuthUserRecord | null> {
     const user = await this.prisma.user.findUnique({
       where: { email },
-      ...userWithRoles,
+      ...userWithAccess,
     });
     return user ? this.toRecord(user) : null;
   }
 
   async findUserById(id: string): Promise<AuthUserRecord | null> {
-    const user = await this.prisma.user.findUnique({ where: { id }, ...userWithRoles });
+    const user = await this.prisma.user.findUnique({ where: { id }, ...userWithAccess });
     return user ? this.toRecord(user) : null;
   }
 
@@ -70,16 +88,13 @@ export class PrismaAuthRepository extends AuthRepository {
   }
 
   async createInvitedUser(data: CreateInvitedUserData): Promise<AuthUserRecord> {
-    const user = await this.prisma.user.create({
-      data: {
-        email: data.email,
-        name: data.name,
-        status: "invited",
-        roles: {
-          create: data.roleKeys.map((key) => ({ role: { connect: { key } } })),
-        },
-      },
-      ...userWithRoles,
+    const user = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.user.create({
+        data: { email: data.email, name: data.name, status: "invited" },
+        select: { id: true },
+      });
+      await this.writeAccess(tx, created.id, data.access);
+      return tx.user.findUniqueOrThrow({ where: { id: created.id }, ...userWithAccess });
     });
     return this.toRecord(user);
   }
@@ -140,56 +155,152 @@ export class PrismaAuthRepository extends AuthRepository {
     });
   }
 
-  async setUserRoles(userId: string, roleKeys: RoleKey[]): Promise<AuthUserRecord | null> {
-    const exists = await this.prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
+  async replaceAccess(userId: string, access: UserAccess): Promise<AuthUserRecord | null> {
+    const exists = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true },
+    });
     if (!exists) {
       return null;
     }
 
     const user = await this.prisma.$transaction(async (tx) => {
-      await tx.userRole.deleteMany({ where: { userId } });
-      const roles = await tx.role.findMany({ where: { key: { in: roleKeys } }, select: { id: true } });
-      await tx.userRole.createMany({
-        data: roles.map((role) => ({ userId, roleId: role.id })),
-        skipDuplicates: true,
-      });
-      return tx.user.findUniqueOrThrow({ where: { id: userId }, ...userWithRoles });
+      // Apagar o membership leva papéis e departamentos daquela empresa junto
+      // (ON DELETE CASCADE), então revogar uma empresa é uma linha só.
+      await tx.userPlatformRole.deleteMany({ where: { userId } });
+      await tx.userCompanyMembership.deleteMany({ where: { userId } });
+      await this.writeAccess(tx, userId, access);
+      return tx.user.findUniqueOrThrow({ where: { id: userId }, ...userWithAccess });
     });
 
     return this.toRecord(user);
   }
 
   async deactivateUser(userId: string): Promise<AuthUserRecord | null> {
-    const exists = await this.prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
+    const exists = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true },
+    });
     if (!exists) {
       return null;
     }
     const user = await this.prisma.user.update({
       where: { id: userId },
       data: { status: "disabled" },
-      ...userWithRoles,
+      ...userWithAccess,
     });
     return this.toRecord(user);
   }
 
-  async listUsers(): Promise<AuthUserSummaryRecord[]> {
+  async listTeam(filter: TeamFilter): Promise<TeamMemberRecord[]> {
+    const membership: Prisma.UserCompanyMembershipWhereInput = {};
+    if (filter.companyId) {
+      membership.companyId = filter.companyId;
+    }
+    if (filter.departmentId) {
+      membership.departments = { some: { departmentId: filter.departmentId } };
+    }
+
     const users = await this.prisma.user.findMany({
+      where: {
+        ...(filter.status ? { status: filter.status } : {}),
+        // O filtro de empresa e o de departamento casam no MESMO membership: um
+        // acesso "financeiro na Waze" não pode aparecer ao filtrar Plugga +
+        // financeiro só porque as duas condições existem em linhas diferentes.
+        ...(Object.keys(membership).length > 0 ? { memberships: { some: membership } } : {}),
+      },
       orderBy: { createdAt: "asc" },
-      ...userWithRoles,
+      ...userWithAccess,
     });
-    return users.map((user) => ({ ...this.toRecord(user), createdAt: user.createdAt }));
+    return users.map((user) => this.toRecord(user));
   }
 
-  private toRecord(user: UserWithRoles): AuthUserRecord {
+  /** Grava o acesso do zero. Chamado dentro de transação, com o anterior já removido. */
+  private async writeAccess(
+    tx: Prisma.TransactionClient,
+    userId: string,
+    access: UserAccess,
+  ): Promise<void> {
+    const chaves = [
+      ...access.platformRoles,
+      ...access.companies.flatMap((company) => company.roles),
+    ];
+    const papeis = await tx.role.findMany({
+      where: { key: { in: [...new Set(chaves)] } },
+      select: { id: true, key: true },
+    });
+    const idPorChave = new Map(papeis.map((papel) => [papel.key, papel.id]));
+
+    await tx.userPlatformRole.createMany({
+      data: access.platformRoles.flatMap((key) => {
+        const roleId = idPorChave.get(key);
+        return roleId ? [{ userId, roleId }] : [];
+      }),
+      skipDuplicates: true,
+    });
+
+    for (const company of access.companies) {
+      await tx.userCompanyMembership.create({
+        data: { userId, companyId: company.companyId },
+        select: { userId: true },
+      });
+      await tx.userCompanyRole.createMany({
+        data: company.roles.flatMap((key) => {
+          const roleId = idPorChave.get(key);
+          return roleId ? [{ userId, companyId: company.companyId, roleId }] : [];
+        }),
+        skipDuplicates: true,
+      });
+      await tx.userDepartmentAccess.createMany({
+        data: company.departments.map((department) => ({
+          userId,
+          companyId: company.companyId,
+          departmentId: department.departmentId,
+          isManager: department.isManager,
+        })),
+        skipDuplicates: true,
+      });
+    }
+  }
+
+  private toRecord(user: UserWithAccess): AuthUserRecord {
     return {
       id: user.id,
       email: user.email,
       name: user.name,
       status: user.status,
-      roles: user.roles.flatMap((assignment) => {
-        const parsed = roleKeySchema.safeParse(assignment.role.key);
-        return parsed.success ? [parsed.data] : [];
-      }),
+      createdAt: user.createdAt,
+      access: {
+        platformRoles: user.platformRoles.flatMap((assignment) => {
+          const parsed = platformRoleKeySchema.safeParse(assignment.role.key);
+          return parsed.success ? [parsed.data] : [];
+        }),
+        companies: user.memberships.flatMap((membership) => {
+          const empresa = companyKeySchema.safeParse(membership.companyId);
+          if (!empresa.success) {
+            return [];
+          }
+
+          const company: CompanyAccess = {
+            companyId: empresa.data,
+            roles: membership.roles.flatMap((assignment) => {
+              const parsed = companyRoleKeySchema.safeParse(assignment.role.key);
+              return parsed.success ? [parsed.data] : [];
+            }),
+            // Uma linha para um departamento que saiu do catálogo é lixo de
+            // migração, não acesso: some da leitura em vez de derrubar o login.
+            departments: membership.departments.flatMap((department) => {
+              const parsed = departmentIdSchema.safeParse(department.departmentId);
+              if (!parsed.success || !isDepartmentOfCompany(empresa.data, parsed.data)) {
+                return [];
+              }
+              return [{ departmentId: parsed.data, isManager: department.isManager }];
+            }),
+          };
+
+          return [company];
+        }),
+      },
     };
   }
 }
