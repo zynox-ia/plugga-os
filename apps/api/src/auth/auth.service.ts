@@ -72,9 +72,11 @@ export class AuthService {
     const user = await this.repository.findUserByEmail(input.email);
     const passwordHash = user ? await this.repository.findPasswordHash(user.id) : null;
 
+    // Both branches spend one Argon2id verify, so response time does not reveal
+    // whether the account exists (the error body is already generic).
     const passwordValid = passwordHash
       ? await this.passwords.verify(passwordHash, input.password)
-      : false;
+      : await this.passwords.verifyDummy(input.password);
 
     if (!user || user.status !== "active" || !passwordValid) {
       this.lockout.recordFailure(lockKey);
