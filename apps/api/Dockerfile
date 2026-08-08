@@ -35,6 +35,27 @@ ENV NODE_ENV=production
 # `pnpm db:migrate:deploy` / `db:seed` are part of the documented local flow.
 COPY --from=build /app /app
 WORKDIR /app/apps/api
+
+# Chromium renders the energy-efficiency study PDF (SKILL.md forbids
+# LibreOffice: it destroys the layout).
+#
+# Playwright's own browser, not Debian's `chromium` package: pointing
+# `executablePath` at a distro build is an unsupported pairing, because
+# Playwright speaks a CDP dialect pinned to the Chromium it ships. It often
+# works and then breaks on an unrelated apt upgrade — a failure that would only
+# surface when someone tried to download a client report.
+#
+# Installed to a shared path rather than the installing user's cache: the image
+# runs as `node`, and a browser sitting in root's HOME would be invisible to it.
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+RUN pnpm exec playwright install --with-deps chromium \
+  && chmod -R a+rX /ms-playwright \
+  && rm -rf /var/lib/apt/lists/*
+# See documento/pdf.ts: the Chromium sandbox needs user namespaces, which
+# Docker's default seccomp profile blocks. Safe here only because the HTML is
+# ours and every case field is escaped before it reaches the page.
+ENV CHROMIUM_NO_SANDBOX=true
+
 USER node
 EXPOSE 3001
 # Inside a container 127.0.0.1 would make the API unreachable from the web

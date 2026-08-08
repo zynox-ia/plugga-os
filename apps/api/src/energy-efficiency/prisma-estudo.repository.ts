@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { Inject, Injectable, NotFoundException } from "@nestjs/common";
 import {
   energyPremisesSchema,
   invoiceDataSchema,
@@ -45,7 +45,9 @@ const numeroOuNulo = (valor: Prisma.Decimal | null): number | null =>
 
 @Injectable()
 export class PrismaEstudoRepository extends EstudoRepository {
-  constructor(private readonly prisma: PrismaService) {
+  // Ver a nota em `estudo.service.ts`: token explicito para a injecao
+  // funcionar tambem sob o vitest, que nao emite metadado de decorador.
+  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {
     super();
   }
 

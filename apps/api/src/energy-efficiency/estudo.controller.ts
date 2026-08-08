@@ -1,4 +1,17 @@
-import { Body, Controller, Get, Header, Param, ParseUUIDPipe, Post, Query, UseGuards } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  Get,
+  Header,
+  Inject,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Query,
+  StreamableFile,
+  UseGuards,
+} from "@nestjs/common";
+import { Throttle, ThrottlerGuard } from "@nestjs/throttler";
 import {
   approveEnergyStudyRequestSchema,
   createEnergyStudyRequestSchema,
@@ -26,7 +39,10 @@ import { EstudoService } from "./estudo.service.js";
 @UseGuards(DevAuthGuard, RolesGuard)
 @Roles(...LER_ESTUDO)
 export class EstudoController {
-  constructor(private readonly service: EstudoService) {}
+  // `@Inject` explícito como nos demais controllers: o vitest transpila por
+  // esbuild, que não emite `design:paramtypes`, então sem o token o Nest injeta
+  // undefined em teste — e o erro só aparece na primeira chamada da rota.
+  constructor(@Inject(EstudoService) private readonly service: EstudoService) {}
 
   @Get()
   listar(
@@ -48,6 +64,30 @@ export class EstudoController {
   @Header("content-type", "text/html; charset=utf-8")
   documento(@Param("id", ParseUUIDPipe) id: string): Promise<string> {
     return this.service.documento(id);
+  }
+
+  /**
+   * O mesmo documento em PDF — é este arquivo que vai para o cliente.
+   *
+   * `attachment` e não `inline`: o visualizador do navegador serve para
+   * conferir, e para isso já existe a rota HTML. Quem pede o PDF quer o arquivo
+   * na mão para anexar num e-mail.
+   */
+  @Get(":id/document.pdf")
+  // Limite por IP mais apertado que o padrão: cada conversão sobe um Chromium,
+  // e a rota é a única do módulo que custa CPU de verdade. Sem isto, segurar o
+  // F5 enfileira dezenas de renderizações que ninguém vai ler.
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  async pdf(@Param("id", ParseUUIDPipe) id: string): Promise<StreamableFile> {
+    const { arquivo, nome } = await this.service.pdf(id);
+
+    return new StreamableFile(arquivo, {
+      type: "application/pdf",
+      // O nome é ASCII por construção (nome-arquivo.ts), então dispensa a
+      // codificação da RFC 5987 e chega íntegro em qualquer cliente.
+      disposition: `attachment; filename="${nome}"`,
+    });
   }
 
   @Post()

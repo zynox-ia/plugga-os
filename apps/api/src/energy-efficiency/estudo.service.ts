@@ -1,4 +1,10 @@
-import { BadRequestException, ConflictException, Injectable } from "@nestjs/common";
+import {
+  BadRequestException,
+  ConflictException,
+  Inject,
+  Injectable,
+  ServiceUnavailableException,
+} from "@nestjs/common";
 import type {
   ApproveEnergyStudyRequest,
   CreateEnergyStudyRequest,
@@ -14,6 +20,8 @@ import { calcularEconomia } from "./calculo/cenarios.js";
 import { analisarDemanda } from "./calculo/demanda.js";
 import { dimensionar } from "./calculo/dimensionamento.js";
 import { calcularFinanceiro } from "./calculo/financeiro.js";
+import { nomeDoArquivoPdf } from "./documento/nome-arquivo.js";
+import { FilaCheiaError, NavegadorIndisponivelError, gerarPdf } from "./documento/pdf.js";
 import { gerarRelatorio } from "./documento/relatorio.js";
 import { EstudoRepository } from "./estudo.repository.js";
 import {
@@ -49,7 +57,11 @@ function autorOuNulo(principal: AuthPrincipal): string | null {
  */
 @Injectable()
 export class EstudoService {
-  constructor(private readonly repository: EstudoRepository) {}
+  // `@Inject` explícito como nos demais services do repositório. Em produção o
+  // `nest build` emite `design:paramtypes` e a injeção funciona sem isto; sob o
+  // vitest, que transpila por esbuild, o metadado não existe e a dependência
+  // chega undefined — o que obrigava a dublar o service para testar a rota.
+  constructor(@Inject(EstudoRepository) private readonly repository: EstudoRepository) {}
 
   listar(query?: EnergyStudyListQuery): Promise<ListEnergyStudiesResponse> {
     return this.repository.listar(query);
@@ -61,6 +73,32 @@ export class EstudoService {
 
   documento(id: string): Promise<string> {
     return this.repository.documento(id);
+  }
+
+  /**
+   * O PDF do estudo, derivado do HTML já gravado.
+   *
+   * Converte na hora em vez de guardar o arquivo: o HTML é a fonte, e um PDF
+   * persistido só criaria uma segunda verdade que envelhece — bastaria um
+   * recálculo para o arquivo em disco divergir do documento aprovado. Como
+   * `repository.documento` só devolve HTML de estudo que passou na validação,
+   * a trava do fluxo vale igual aqui: documento reprovado não vira arquivo.
+   */
+  async pdf(id: string): Promise<{ arquivo: Buffer; nome: string }> {
+    const html = await this.repository.documento(id);
+    const detalhe = await this.repository.detalhar(id);
+
+    try {
+      return { arquivo: await gerarPdf(html), nome: nomeDoArquivoPdf(detalhe) };
+    } catch (erro) {
+      // Falta de navegador e fila cheia são problema nosso, não do estudo: 503
+      // com a mensagem real, para quem opera saber que o HTML continua
+      // disponível e que vale tentar de novo.
+      if (erro instanceof NavegadorIndisponivelError || erro instanceof FilaCheiaError) {
+        throw new ServiceUnavailableException(erro.message);
+      }
+      throw erro;
+    }
   }
 
   async criar(

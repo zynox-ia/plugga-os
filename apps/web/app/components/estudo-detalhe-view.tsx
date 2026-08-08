@@ -245,18 +245,29 @@ export function EstudoDetalheView({ estudo }: { estudo: EnergyStudyDetail }) {
                   <span className="eyebrow">Documento</span>
                   <h2>Relatório do cliente</h2>
                 </div>
-                <a
-                  className="button button--accent"
-                  href={`/api/energia/estudos/${estudo.id}/documento`}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  Abrir relatório
-                </a>
+                <div className="page-actions">
+                  <a
+                    className="button"
+                    href={`/api/energia/estudos/${estudo.id}/documento`}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Abrir relatório
+                  </a>
+                  {/* Sem `target`: o download troca a navegação por um arquivo,
+                      e abrir aba em branco só para ela fechar sozinha assusta. */}
+                  <a
+                    className="button button--accent"
+                    href={`/api/energia/estudos/${estudo.id}/documento/pdf`}
+                  >
+                    Baixar PDF
+                  </a>
+                </div>
               </div>
               <p className="card-note">
-                O documento passou na validação e está pronto. Confira antes de aprovar — a
-                aprovação é registrada com o seu nome.
+                O documento passou na validação e está pronto. Confira no navegador antes de
+                aprovar — a aprovação é registrada com o seu nome. O PDF é o arquivo que vai para
+                o cliente e leva alguns segundos para ser gerado.
               </p>
 
               {estudo.status === "em_validacao" ? (

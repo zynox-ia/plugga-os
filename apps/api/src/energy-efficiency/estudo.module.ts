@@ -1,4 +1,5 @@
 import { Module } from "@nestjs/common";
+import { ThrottlerModule } from "@nestjs/throttler";
 
 import { CoreModule } from "../core/core.module";
 import { PrismaModule } from "../prisma/prisma.module";
@@ -8,7 +9,15 @@ import { EstudoService } from "./estudo.service.js";
 import { PrismaEstudoRepository } from "./prisma-estudo.repository.js";
 
 @Module({
-  imports: [CoreModule, PrismaModule],
+  imports: [
+    CoreModule,
+    PrismaModule,
+    // `ThrottlerModule.forRoot` do AuthModule não é global, então o
+    // `ThrottlerGuard` da rota de PDF não resolveria aqui — e a API nem subiria.
+    // Registro próprio, com o mesmo padrão do módulo de auth; o limite estreito
+    // da rota de PDF vem do `@Throttle` no controller.
+    ThrottlerModule.forRoot([{ name: "default", ttl: 60_000, limit: 60 }]),
+  ],
   controllers: [EstudoController],
   providers: [EstudoService, { provide: EstudoRepository, useClass: PrismaEstudoRepository }],
 })

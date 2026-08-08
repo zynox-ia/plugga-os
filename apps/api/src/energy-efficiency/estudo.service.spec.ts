@@ -159,10 +159,20 @@ class RepositorioEmMemoria extends EstudoRepository {
     };
   }
 
-  /** Só para teste: força problemas de validação num estudo. */
+  /**
+   * Só para teste: força problemas de validação num estudo. Zera o documento
+   * junto, como o serviço faz de verdade — documento reprovado não fica gravado.
+   */
   forcarProblemas(id: string, problemas: ProblemaDeValidacao[]): void {
     const r = this.registros.get(id);
-    if (r) this.registros.set(id, { ...r, validationIssues: problemas, status: "bloqueado" });
+    if (r) {
+      this.registros.set(id, {
+        ...r,
+        validationIssues: problemas,
+        status: "bloqueado",
+        documentHtml: null,
+      });
+    }
   }
 }
 
@@ -274,6 +284,33 @@ describe("EstudoService — fluxo completo", () => {
     await expect(service.aprovar(criado.id, {}, sintetico, AGORA)).rejects.toThrow(
       /usuário identificável/,
     );
+  });
+
+  /**
+   * O PDF passa pela mesma porta do HTML — `repository.documento` —, então a
+   * trava da validação vale para ele sem regra nova, e sem abrir navegador.
+   *
+   * Um teste só: com `forcarProblemas` anulando o documento como o serviço
+   * real faz, o caso "bloqueado" cairia no mesmo ramo `documentHtml === null` e
+   * não acrescentaria cobertura nenhuma. O que garante a trava do estado
+   * bloqueado é `recusa aprovar estudo bloqueado por validação`, acima.
+   */
+  it("não gera PDF enquanto não houver documento aprovado", async () => {
+    const criado = await criar();
+
+    await expect(service.pdf(criado.id)).rejects.toThrow(/sem documento gerado/);
+  });
+
+  /**
+   * O outro lado da mesma porta: cálculo limpo grava o documento, e é ele que
+   * o PDF converte. Sem isto, o teste acima passaria mesmo que a gravação do
+   * documento estivesse quebrada.
+   */
+  it("guarda o documento quando a validação passa, que é o que o PDF converte", async () => {
+    const criado = await criar();
+    await service.receberFatura(criado.id, { invoice: FATURA, demandHistory: [], hasLoadProfile: false });
+
+    await expect(service.documento(criado.id)).resolves.toContain("Relatório de Auditoria");
   });
 
   it("recusa calcular sem ficha de fatura", async () => {
