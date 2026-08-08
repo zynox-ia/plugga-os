@@ -1,79 +1,92 @@
 import type { ShellNavGroup } from "../components/plugga-shell";
+import {
+  EMPRESAS_POR_ID,
+  GLOBAIS,
+  VISAO_GERAL,
+  type EmpresaId,
+  type Processo,
+} from "./organizacao";
 
 /**
- * PRD §7 — 12 áreas do menu principal. "Engenharia e Obras" é V2 (em breve).
- * "Jobs e Automações" e "Integrações" consomem GET /jobs e GET /integrations
- * (P2-6) com fallback para mock local quando a API não responde.
+ * Deriva a navegação de `organizacao.ts`: a sidebar é a árvore Empresa →
+ * Departamento → Processo, com o que ainda não existe marcado em vez de
+ * escondido — assim a estrutura combinada fica visível enquanto é construída.
+ *
+ * O id do item é a própria rota quando ela existe; para o que não tem tela, um
+ * id sintético mantém a chave única sem inventar uma rota que daria 404.
  */
-export const NAV_GROUPS: ShellNavGroup[] = [
-  {
-    label: "Visão geral",
-    items: [
-      { id: "Dashboard", label: "Dashboard", icon: "home" },
-      { id: "Central de Pendências", label: "Central de Pendências", icon: "pulse" },
-    ],
-  },
-  {
-    label: "Comercial & Operação",
-    items: [
-      { id: "Oportunidades", label: "Oportunidades", icon: "users" },
-      { id: "Contratos", label: "Contratos", icon: "briefcase" },
-      { id: "CRM", label: "CRM", icon: "users" },
-      { id: "Clientes", label: "Clientes", icon: "users" },
-      { id: "Migrações ML", label: "Migrações ML", icon: "briefcase" },
-      { id: "Ciclos Mensais", label: "Ciclos Mensais", icon: "briefcase" },
-      { id: "Auditorias", label: "Auditorias", icon: "briefcase" },
-      { id: "Relatórios OPM", label: "Relatórios OPM", icon: "briefcase" },
-      { id: "PluggaMob", label: "PluggaMob", icon: "pulse" },
-    ],
-  },
-  {
-    label: "Financeiro & Suprimentos",
-    items: [
-      { id: "Financeiro Operacional", label: "Financeiro Operacional", icon: "briefcase" },
-      { id: "Compras e Suprimentos", label: "Compras e Suprimentos", icon: "briefcase" },
-    ],
-  },
-  {
-    label: "Obras & Documentos",
-    items: [
-      { id: "Engenharia e Obras", label: "Engenharia e Obras · em breve", icon: "settings" },
-      { id: "Documentos", label: "Documentos", icon: "briefcase" },
-    ],
-  },
-  {
-    label: "Plataforma",
-    items: [
-      { id: "Jobs e Automações", label: "Jobs e Automações", icon: "settings" },
-      { id: "Integrações", label: "Integrações", icon: "settings" },
-      { id: "Agentes IA", label: "Agentes IA", icon: "users" },
-      { id: "Administração", label: "Administração", icon: "settings" },
-    ],
-  },
-];
 
-export const ROUTE_BY_NAV_ID: Record<string, string> = {
-  "Dashboard": "/",
-  "Central de Pendências": "/pendencias",
-  "Oportunidades": "/comercial/oportunidades",
-  "Contratos": "/comercial/contratos",
-  "CRM": "/crm",
-  "Clientes": "/clientes",
-  "Migrações ML": "/energia-opm/migracoes",
-  "Ciclos Mensais": "/energia-opm/ciclos",
-  "Auditorias": "/energia-opm/auditorias",
-  "Relatórios OPM": "/energia-opm/relatorios",
-  "PluggaMob": "/pluggamob",
-  "Financeiro Operacional": "/financeiro",
-  "Compras e Suprimentos": "/compras",
-  "Engenharia e Obras": "/engenharia",
-  "Documentos": "/documentos",
-  "Jobs e Automações": "/jobs",
-  "Integrações": "/integracoes",
-  "Agentes IA": "/agentes-ia",
-  "Administração": "/administracao",
-};
+function navItem(processo: Processo, prefixo: string) {
+  return {
+    id: processo.rota ?? `${prefixo}:${processo.label}`,
+    label: processo.label,
+    disabled: processo.status === "em-breve",
+    badge: processo.status === "parcial" ? ("parcial" as const) : undefined,
+  };
+}
 
-export const NAV_ID_BY_ROUTE: Record<string, string> = Object.fromEntries(
-  Object.entries(ROUTE_BY_NAV_ID).map(([id, route]) => [route, id]),
-);
+export function navGroupsForEmpresa(empresa: EmpresaId): ShellNavGroup[] {
+  const { departamentos } = EMPRESAS_POR_ID[empresa];
+
+  return [
+    {
+      label: "Visão geral",
+      items: VISAO_GERAL.map((processo) => ({
+        ...navItem(processo, "visao"),
+        icon: processo.rota === "/" ? ("home" as const) : ("pulse" as const),
+      })),
+    },
+    ...departamentos.map((departamento) => ({
+      label: departamento.label,
+      items: departamento.processos.map((processo) => ({
+        ...navItem(processo, departamento.id),
+        icon: departamento.icon,
+      })),
+    })),
+    {
+      label: "Plataforma · as duas empresas",
+      items: GLOBAIS.map((processo) => ({
+        ...navItem(processo, "global"),
+        icon: "settings" as const,
+      })),
+    },
+  ];
+}
+
+/**
+ * Casa a rota atual com o item da sidebar. Uma tela de detalhe
+ * (`/comercial/oportunidades/:id`) não tem item próprio e deve destacar o item
+ * da sua listagem — daí o casamento pelo prefixo mais longo.
+ */
+export function navIdForPathname(pathname: string): string {
+  if (pathname === "/") return "/";
+
+  const rotas = [
+    ...VISAO_GERAL,
+    ...GLOBAIS,
+    ...Object.values(EMPRESAS_POR_ID).flatMap((empresa) =>
+      empresa.departamentos.flatMap((departamento) => departamento.processos),
+    ),
+  ]
+    .map((processo) => processo.rota)
+    .filter((rota): rota is string => Boolean(rota) && rota !== "/");
+
+  if (rotas.includes(pathname)) return pathname;
+
+  return (
+    rotas
+      .filter((rota) => pathname.startsWith(`${rota}/`))
+      .sort((a, b) => b.length - a.length)[0] ?? pathname
+  );
+}
+
+/** Título do topo e do cabeçalho da página para a rota atual. */
+export function tituloForNavId(navId: string, empresa: EmpresaId): string {
+  const todos = [
+    ...VISAO_GERAL,
+    ...GLOBAIS,
+    ...EMPRESAS_POR_ID[empresa].departamentos.flatMap((d) => d.processos),
+  ];
+
+  return todos.find((processo) => processo.rota === navId)?.label ?? "Plugga OS";
+}

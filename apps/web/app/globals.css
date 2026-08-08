@@ -179,3 +179,29 @@ tbody tr:last-child td { border-bottom: 0; }
 .auth-footer { margin-top: 20px; text-align: center; font-size: 13.5px; }
 .auth-footer a { color: var(--folha-deep); font-weight: 600; text-decoration: none; }
 .auth-footer a:hover { text-decoration: underline; }
+
+/* --- Seletor de empresa (Plugga / Waze) --------------------------------- */
+/* A empresa ativa vive na URL; este controle só navega. */
+.empresa-switcher { display: inline-flex; padding: 3px; gap: 2px; background: rgba(0, 51, 51, .06); border: 1px solid var(--line); border-radius: 999px; }
+.empresa-option { display: inline-flex; align-items: center; gap: 7px; padding: 6px 12px 6px 7px; color: var(--muted); background: transparent; border: 0; border-radius: 999px; cursor: pointer; font: 500 13px Anybody, sans-serif; transition: background .15s ease, color .15s ease; }
+.empresa-option:hover { color: var(--petroleo); background: rgba(255, 254, 250, .7); }
+.empresa-option--active { color: #fff; background: var(--petroleo); }
+.empresa-sigla { display: grid; place-items: center; width: 22px; height: 22px; background: rgba(0, 175, 136, .22); border-radius: 50%; font: 700 10px/1 Anybody, sans-serif; letter-spacing: .04em; }
+.empresa-option--active .empresa-sigla { color: var(--petroleo); background: var(--folha); }
+@media (max-width: 900px) { .empresa-nome { display: none; } .empresa-option { padding: 6px 7px; } }
+
+/* --- Itens de navegação ainda não construídos --------------------------- */
+/* Aparecem apagados em vez de escondidos: a estrutura combinada fica
+   visível enquanto é construída, e nada promete tela que não existe. */
+.nav-item--pending { color: rgba(224, 219, 199, .42); cursor: not-allowed; }
+.nav-item--pending:hover { color: rgba(224, 219, 199, .42); background: transparent; }
+.nav-item--pending .icon { opacity: .5; }
+.nav-tag { margin-left: auto; padding: 2px 7px; border-radius: 999px; font: 500 9.5px/1.6 Anybody, sans-serif; letter-spacing: .06em; text-transform: uppercase; color: rgba(224, 219, 199, .55); background: rgba(224, 219, 199, .1); }
+.nav-tag--partial { color: var(--folha); background: rgba(0, 175, 136, .16); }
+
+/* --- Mapa da estrutura (/estrutura) ------------------------------------- */
+.estrutura-grid { display: grid; gap: 18px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); margin-top: 18px; }
+.estrutura-departamento h3 { margin: 0 0 10px; padding-bottom: 8px; color: var(--petroleo); border-bottom: 1px solid var(--line); font: 600 14px Anybody, sans-serif; }
+.estrutura-lista { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.estrutura-lista li { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 0; font-size: 13.5px; }
+.estrutura-lista li span:first-child { color: var(--ink); }

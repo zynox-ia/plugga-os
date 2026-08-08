@@ -3,12 +3,24 @@
 import { useEffect, useState, type ReactNode } from "react";
 
 type ViewId = "inicio" | "ops" | "crm" | "jobs";
-type IconName = "home" | "pulse" | "users" | "briefcase" | "settings";
+export type IconName =
+  | "home"
+  | "pulse"
+  | "users"
+  | "briefcase"
+  | "settings"
+  | "bolt"
+  | "wrench"
+  | "wallet";
 
 export type ShellNavItem = {
   id: string;
   label: string;
   icon?: IconName;
+  /** Desenhado, sem tela ainda: aparece apagado e não navega. */
+  disabled?: boolean;
+  /** Tem tela, mas ainda mock/incompleta. */
+  badge?: "parcial";
 };
 
 export type ShellNavGroup = { label: string; items: ShellNavItem[] };
@@ -57,6 +69,9 @@ function Icon({ name }: { name: IconName }) {
     users: <><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" /></>,
     briefcase: <><rect x="3" y="7" width="18" height="13" rx="2" /><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 12h18M10 12v2h4v-2" /></>,
     settings: <><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z" /><path d="m19.4 15 .1.1a2 2 0 1 1-2.8 2.8l-.1-.1a2 2 0 0 0-3.4 1.4v.3a2 2 0 1 1-4 0v-.2a2 2 0 0 0-3.4-1.4l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A2 2 0 0 0 1.6 12a2 2 0 1 1 0-4h.2a2 2 0 0 0 1.4-3.4l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A2 2 0 0 0 9.4.4h.2a2 2 0 1 1 4 0v.2A2 2 0 0 0 17 2l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1A2 2 0 0 0 21.2 8h.2a2 2 0 1 1 0 4h-.2a2 2 0 0 0-1.8 3Z" /></>,
+    bolt: <path d="M13 2 4.5 13.5H11l-1 8.5 8.5-11.5H12l1-8.5Z" />,
+    wrench: <path d="M14.7 6.3a4 4 0 0 1 5.3 5L21 12l-8.5 8.5a2.1 2.1 0 0 1-3-3L18 9l.7-1a4 4 0 0 1-4-1.7Z" />,
+    wallet: <><rect x="3" y="6" width="18" height="13" rx="2.5" /><path d="M3 10h18M16.5 14.5h.01" /></>,
   };
 
   return (
@@ -156,6 +171,9 @@ export function PluggaShell({
   onNavigate,
   activeId,
   topbarActions,
+  empresaSwitcher,
+  pageTitle,
+  pageDescription,
 }: {
   children?: ReactNode;
   navigation?: ShellNavGroup[];
@@ -164,6 +182,11 @@ export function PluggaShell({
   activeId?: string;
   /** Optional extra controls rendered in the topbar, before the avatar (e.g. logout). */
   topbarActions?: ReactNode;
+  /** Seletor Plugga/Waze — primeiro item da direita do topo. */
+  empresaSwitcher?: ReactNode;
+  /** Título e subtítulo da rota atual; caem no mock antigo quando ausentes. */
+  pageTitle?: string;
+  pageDescription?: string;
 }) {
   const [activeView, setActiveView] = useState(activeId ?? "inicio");
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -187,7 +210,26 @@ export function PluggaShell({
       <aside className={`sidebar${mobileNavOpen ? " sidebar--open" : ""}`} aria-label="Navegação principal" id="main-navigation">
         <div className="brand-lockup"><img src="/brand/logo-sem-selo.svg" alt="Plugga" /><span className="brand-badge">OS</span></div>
         <nav className="sidebar-nav">
-          {navGroups.map((group) => <div className="nav-group" key={group.label}><span className="nav-label">{group.label}</span>{group.items.map((item) => <button className={`nav-item${activeView === item.id ? " nav-item--active" : ""}`} key={item.id} onClick={() => selectView(item.id)} aria-current={activeView === item.id ? "page" : undefined}><Icon name={item.icon ?? "settings"} /><span>{item.label}</span></button>)}</div>)}
+          {navGroups.map((group) => (
+            <div className="nav-group" key={group.label}>
+              <span className="nav-label">{group.label}</span>
+              {group.items.map((item) => (
+                <button
+                  className={`nav-item${activeView === item.id ? " nav-item--active" : ""}${item.disabled ? " nav-item--pending" : ""}`}
+                  key={item.id}
+                  type="button"
+                  onClick={() => !item.disabled && selectView(item.id)}
+                  disabled={item.disabled}
+                  aria-current={activeView === item.id ? "page" : undefined}
+                >
+                  <Icon name={item.icon ?? "settings"} />
+                  <span>{item.label}</span>
+                  {item.disabled ? <span className="nav-tag">em breve</span> : null}
+                  {item.badge === "parcial" ? <span className="nav-tag nav-tag--partial">parcial</span> : null}
+                </button>
+              ))}
+            </div>
+          ))}
         </nav>
         <div className="sidebar-footer"><span className="footer-dot" aria-hidden="true" /><div><strong>Fundação local</strong><span>Mock-only · sem cutover</span></div></div>
       </aside>
@@ -195,13 +237,12 @@ export function PluggaShell({
       <div className="shell-main">
         <header className="topbar">
           <button className="menu-toggle" type="button" aria-expanded={mobileNavOpen} aria-controls="main-navigation" onClick={() => setMobileNavOpen((open) => !open)}><span className="sr-only">Abrir navegação</span><span aria-hidden="true">☰</span></button>
-          <div className="topbar-context"><span className="context-kicker">Plugga OS</span><span className="context-divider" aria-hidden="true">/</span><span className="context-page">{copy.title}</span></div>
-          <div className="topbar-actions"><span className="environment-pill"><span aria-hidden="true" className="status-dot" /> Ambiente local</span>{topbarActions}<button className="avatar" type="button" aria-label="Abrir menu de Dilkson">D</button></div>
+          <div className="topbar-context"><span className="context-kicker">Plugga OS</span><span className="context-divider" aria-hidden="true">/</span><span className="context-page">{pageTitle ?? copy.title}</span></div>
+          <div className="topbar-actions">{empresaSwitcher}<span className="environment-pill"><span aria-hidden="true" className="status-dot" /> Ambiente local</span>{topbarActions}<button className="avatar" type="button" aria-label="Abrir menu de Dilkson">D</button></div>
         </header>
 
         <main className="main-content" id="main-content">
-          <div className="page-header"><div><span className="eyebrow">Visão geral</span><h1>{copy.title}</h1><p>{copy.description}</p></div><div className="page-actions"><span className="approval-chip">3 aprovações</span><button className="button button--accent" type="button" onClick={() => selectView("crm")}>Abrir fila CRM</button></div></div>
-          <div className="brand-banner" role="note"><span className="banner-mark" aria-hidden="true">✦</span><span>Identidade Plugga: Verde Petróleo <b>#003333</b>, Verde Folha <b>#00AF88</b>, Areia <b>#E0DBC7</b>.</span></div>
+          <div className="page-header"><div><h1>{pageTitle ?? copy.title}</h1><p>{pageDescription ?? copy.description}</p></div></div>
           {children ?? <ViewContent view={activeView as ViewId} />}
         </main>
       </div>
