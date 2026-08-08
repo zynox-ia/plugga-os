@@ -129,11 +129,12 @@ export function EquipeView() {
     if (filtros.departmentId) parametros.set("departmentId", filtros.departmentId);
     if (filtros.status) parametros.set("status", filtros.status);
 
+    const busca = parametros.toString();
+
     try {
-      const resposta = await fetch(
-        `/api/auth/users${parametros.size > 0 ? `?${parametros}` : ""}`,
-        { cache: "no-store" },
-      );
+      const resposta = await fetch(`/api/auth/users${busca ? `?${busca}` : ""}`, {
+        cache: "no-store",
+      });
       if (!resposta.ok) {
         setErro(await mensagemDeErro(resposta));
         setDados(null);

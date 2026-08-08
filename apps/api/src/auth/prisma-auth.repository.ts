@@ -231,6 +231,14 @@ export class PrismaAuthRepository extends AuthRepository {
     });
     const idPorChave = new Map(papeis.map((papel) => [papel.key, papel.id]));
 
+    // Papel validado pelo contrato que não existe em `roles` significa seed
+    // incompleto. Gravar o que sobrou deixaria a pessoa com menos acesso do que
+    // foi concedido, sem erro em lugar nenhum — melhor a escrita inteira falhar.
+    const ausentes = [...new Set(chaves)].filter((chave) => !idPorChave.has(chave));
+    if (ausentes.length > 0) {
+      throw new Error(`roles missing from the catalog: ${ausentes.join(", ")}`);
+    }
+
     await tx.userPlatformRole.createMany({
       data: access.platformRoles.flatMap((key) => {
         const roleId = idPorChave.get(key);
