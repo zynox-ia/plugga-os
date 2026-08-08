@@ -5,6 +5,7 @@ export * from "./clients.js";
 export * from "./commercial.js";
 export * from "./email-status.js";
 export * from "./energy.js";
+export * from "./energy-efficiency.js";
 export * from "./events.js";
 export * from "./integrations.js";
 export * from "./jobs.js";
