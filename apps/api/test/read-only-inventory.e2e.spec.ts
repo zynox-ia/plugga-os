@@ -3,7 +3,6 @@ import { Test } from "@nestjs/testing";
 import request from "supertest";
 import { afterAll, beforeAll, describe, it } from "vitest";
 
-import { AppModule } from "../src/app.module";
 import {
   IntegrationsRepository,
   type StoredIntegrationSummary,
@@ -57,9 +56,21 @@ describe("read-only inventory API (e2e)", () => {
   let app: INestApplication;
 
   beforeAll(async () => {
-    // Deterministic regardless of the local .env's EMAIL_PROVIDER.
     process.env.EMAIL_PROVIDER = "mailpit";
     delete process.env.BREVO_API_KEY;
+
+    /**
+     * `AppModule` é importado aqui, e não no topo, porque
+     * `ConfigModule.forRoot()` roda na avaliação do decorador `@Module` — ou
+     * seja, no import. Com import estático, o ambiente é fotografado antes das
+     * duas linhas acima, e elas viram enfeite.
+     *
+     * O efeito só aparece fora da máquina de quem desenvolve: aqui o `.env` da
+     * raiz fornece `EMAIL_PROVIDER=mailpit` no instante do import e o teste
+     * passa por acidente; na CI não existe `.env`, o snapshot sai `noop` e o
+     * teste falha sem que nada no código tenha mudado.
+     */
+    const { AppModule } = await import("../src/app.module");
 
     const module = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(IntegrationsRepository)
