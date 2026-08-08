@@ -101,12 +101,11 @@ test.describe("Seletor de empresa", () => {
     ).toHaveCount(0);
   });
 
-  // Usuários, jobs, integrações e o desenho dos processos servem as duas
-  // empresas — some-los ao trocar de contexto seria mentira estrutural.
-  test("a área de plataforma aparece nas duas empresas", async ({ page }) => {
+  // Dashboard e pendências são da empresa ativa, então acompanham o seletor.
+  test("a visão geral aparece nas duas empresas", async ({ page }) => {
     for (const url of ["/", "/?empresa=waze"]) {
       await page.goto(url);
-      for (const processo of [...VISAO_GERAL, ...GLOBAIS]) {
+      for (const processo of VISAO_GERAL) {
         await expect(
           page.locator(".sidebar-nav").getByRole("button", { name: processo.label, exact: true }),
         ).toBeVisible();
@@ -114,11 +113,24 @@ test.describe("Seletor de empresa", () => {
     }
   });
 
+  // As áreas de plataforma (jobs, integrações, administração) saíram da
+  // sidebar: continuam roteáveis por URL, mas não competem com a estrutura
+  // de departamentos no menu.
+  test("a sidebar não lista as áreas de plataforma", async ({ page }) => {
+    await page.goto("/");
+
+    for (const processo of GLOBAIS) {
+      await expect(
+        page.locator(".sidebar-nav").getByRole("button", { name: processo.label, exact: true }),
+      ).toHaveCount(0);
+    }
+  });
+
   test("a empresa ativa sobrevive à navegação pela sidebar", async ({ page }) => {
     await page.goto("/?empresa=waze");
 
-    await page.locator(".sidebar-nav").getByRole("button", { name: "Integrações", exact: true }).click();
-    await page.waitForURL((url) => url.pathname === "/integracoes");
+    await page.locator(".sidebar-nav").getByRole("button", { name: "Obras", exact: true }).click();
+    await page.waitForURL((url) => url.pathname === "/engenharia");
     expect(new URL(page.url()).searchParams.get("empresa")).toBe("waze");
   });
 });

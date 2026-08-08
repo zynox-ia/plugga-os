@@ -46,15 +46,6 @@ export function navGroupsForEmpresa(empresa: EmpresaId): ShellNavGroup[] {
       section: indice === 0 ? `Departamentos · ${nome}` : undefined,
       items: departamento.processos.map((processo) => navItem(processo, departamento.id)),
     })),
-    {
-      id: "plataforma",
-      label: "As duas empresas",
-      section: "Plataforma",
-      items: GLOBAIS.map((processo) => ({
-        ...navItem(processo, "global"),
-        icon: "settings" as const,
-      })),
-    },
   ];
 }
 
