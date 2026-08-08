@@ -23,8 +23,10 @@
 }
 
 * { box-sizing: border-box; }
-html { min-width: 320px; background: var(--areia-soft); }
-body { margin: 0; color: var(--ink); font-family: Anek, sans-serif; background: radial-gradient(1200px 600px at 10% -10%, rgba(0, 175, 136, .18), transparent 55%), radial-gradient(900px 500px at 100% 0%, rgba(242, 86, 1, .1), transparent 45%), linear-gradient(160deg, var(--areia-soft) 0%, #ece7d8 42%, #e4ede8 100%); }
+html { min-width: 320px; background: var(--petroleo); }
+/* O verde deixa de ser só a coluna da esquerda e passa a ser o fundo de tudo;
+   o conteúdo vira um painel claro flutuando sobre ele. */
+body { margin: 0; color: var(--ink); font-family: Anek, sans-serif; background: linear-gradient(180deg, var(--petroleo) 0%, #014040 48%, #025050 100%); background-attachment: fixed; }
 button { font: inherit; }
 button:focus-visible, a:focus-visible { outline: 3px solid var(--folha); outline-offset: 3px; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
@@ -32,7 +34,7 @@ button:focus-visible, a:focus-visible { outline: 3px solid var(--folha); outline
 .skip-link:focus { transform: translateY(0); }
 
 .app-shell { display: grid; grid-template-columns: var(--sidebar-width) minmax(0, 1fr); min-height: 100vh; }
-.sidebar { position: sticky; top: 0; display: flex; height: 100vh; flex-direction: column; gap: 26px; padding: 22px 16px 18px; color: var(--areia); background: linear-gradient(180deg, var(--petroleo) 0%, #014040 48%, #025050 100%); border-right: 1px solid rgba(224, 219, 199, .08); z-index: 5; }
+.sidebar { position: sticky; top: 0; display: flex; height: 100vh; flex-direction: column; gap: 26px; padding: 22px 16px 18px; color: var(--areia); background: transparent; z-index: 5; }
 .brand-lockup { display: flex; align-items: center; gap: 10px; padding: 6px 10px 16px; border-bottom: 1px solid rgba(224, 219, 199, .14); }
 /* O SVG tem viewBox quadrado com a marca centrada e muito espaço vazio em
    cima e embaixo. Encaixá-lo numa caixa baixa com object-fit encolhia a marca
@@ -56,8 +58,10 @@ button:focus-visible, a:focus-visible { outline: 3px solid var(--folha); outline
 .sidebar-footer strong { margin-bottom: 2px; color: #fff; font: 600 13px Anybody, sans-serif; }
 .footer-dot, .status-dot { width: 8px; height: 8px; flex: 0 0 auto; margin-top: 5px; border-radius: 50%; background: var(--folha); box-shadow: 0 0 0 4px rgba(0, 175, 136, .13); }
 
-.shell-main { min-width: 0; }
-.topbar { display: flex; align-items: center; justify-content: space-between; gap: 18px; min-height: 70px; padding: 15px 32px; border-bottom: 1px solid rgba(0, 51, 51, .08); background: rgba(255, 254, 250, .34); backdrop-filter: blur(12px); }
+/* Respiro em cima, à direita e embaixo; a esquerda encosta na sidebar, que
+   agora é do mesmo verde do fundo. */
+.shell-main { min-width: 0; margin: 14px 14px 14px 0; background: var(--areia-soft); border-radius: 22px; box-shadow: 0 20px 60px rgba(0, 20, 20, .28); overflow: hidden; }
+.topbar { display: flex; align-items: center; justify-content: space-between; gap: 18px; min-height: 70px; padding: 15px 32px; border-bottom: 1px solid rgba(0, 51, 51, .08); background: rgba(255, 254, 250, .5); }
 .menu-toggle { display: none; border: 0; color: var(--petroleo); background: transparent; font-size: 22px; cursor: pointer; }
 .topbar-context { display: flex; align-items: center; gap: 10px; min-width: 0; color: var(--muted); font-size: 14px; }
 .context-kicker { color: var(--petroleo); font: 600 14px Anybody, sans-serif; }
@@ -129,9 +133,12 @@ tbody tr:last-child td { border-bottom: 0; }
 }
 @media (max-width: 820px) {
   .app-shell { display: block; }
-  .sidebar { position: fixed; inset: 0 auto 0 0; width: min(88vw, var(--sidebar-width)); transform: translateX(-100%); transition: transform .2s ease; }
+  /* No desktop a sidebar é transparente sobre o fundo verde; aqui ela vira
+     sobreposição por cima do painel claro e precisa do fundo de volta. */
+  .sidebar { position: fixed; inset: 0 auto 0 0; width: min(88vw, var(--sidebar-width)); transform: translateX(-100%); transition: transform .2s ease; background: linear-gradient(180deg, var(--petroleo) 0%, #014040 48%, #025050 100%); }
   .sidebar--open { transform: translateX(0); box-shadow: 15px 0 40px rgba(0, 51, 51, .2); }
   .menu-toggle { display: inline-grid; place-items: center; }
+  .shell-main { margin: 10px; border-radius: 18px; }
   .topbar { padding: 13px 20px; }
   .main-content { padding: 22px 20px 34px; }
   .page-header { align-items: flex-start; flex-direction: column; }
@@ -172,7 +179,9 @@ tbody tr:last-child td { border-bottom: 0; }
 
 /* Auth: login, convite, reset (FEATURE) */
 .auth-page { display: grid; min-height: 100vh; padding: 24px; place-items: center; }
-.auth-card { width: min(420px, 100%); padding: 32px 28px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); }
+/* Opaco: `--panel` é translúcido e, sobre o fundo verde, deixava o cartão
+   esverdeado em vez de limpo. */
+.auth-card { width: min(420px, 100%); padding: 32px 28px; background: var(--areia-soft); border: 1px solid rgba(0, 51, 51, .1); border-radius: var(--radius); box-shadow: 0 24px 64px rgba(0, 20, 20, .32); }
 .auth-brand { display: flex; margin-bottom: 22px; }
 .auth-brand img { width: 140px; height: 41px; object-fit: contain; object-position: left center; }
 .auth-lede { margin-bottom: 22px; color: var(--muted); font-size: 14px; }
