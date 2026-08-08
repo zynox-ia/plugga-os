@@ -67,7 +67,12 @@ services:
       PORT: 3001
       # Service names, not localhost. Already inside the local-only allowlist,
       # so containerizing requires no guard to be loosened.
-      DATABASE_URL: postgresql://${POSTGRES_USER:-plugga_os}:${POSTGRES_PASSWORD:-plugga_local}@postgres:5432/${POSTGRES_DB:-plugga_os}?schema=public
+      # A aplicação conecta com papel restrito, que só faz DML. O dono do
+      # banco (POSTGRES_USER) fica reservado para migration, e a credencial
+      # dele não sai da VPS. Assim um comando destrutivo disparado pela
+      # aplicação — ou por um ambiente de desenvolvimento apontado para cá —
+      # falha por permissão em vez de apagar o banco.
+      DATABASE_URL: postgresql://${APP_DB_USER:-plugga_app}:${APP_DB_PASSWORD:?set APP_DB_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-plugga_os}?schema=public
       REDIS_URL: redis://redis:6379
       # `web` reaches the API over the Compose bridge, which is NOT loopback.
       # Left untrusted on purpose: web forwards no X-Forwarded-For unless
