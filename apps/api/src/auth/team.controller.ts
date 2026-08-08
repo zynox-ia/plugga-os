@@ -1,5 +1,5 @@
 import { Body, Controller, Get, HttpCode, Inject, Param, Post, Put, Query, UseGuards } from "@nestjs/common";
-import { ThrottlerGuard } from "@nestjs/throttler";
+import { SkipThrottle, ThrottlerGuard } from "@nestjs/throttler";
 import {
   assignAccessRequestSchema,
   inviteRequestSchema,
@@ -31,8 +31,13 @@ import { TeamService } from "./team.service";
 export class TeamController {
   constructor(@Inject(TeamService) private readonly service: TeamService) {}
 
+  // Leitura autenticada que a tela refaz a cada filtro — não é alvo de força
+  // bruta como convite/login. Com o balde por IP degradado para um só (a API
+  // enxerga apenas a conexão de loopback do web), mantê-la no throttle faria a
+  // lista falhar com 429 no uso normal. As mutações abaixo seguem limitadas.
   @Get("users")
-  @UseGuards(DevAuthGuard, ThrottlerGuard)
+  @SkipThrottle()
+  @UseGuards(DevAuthGuard)
   list(
     @Query(new ZodValidationPipe(teamListQuerySchema)) query: TeamListQuery,
     @CurrentPrincipal() principal: AuthPrincipal,

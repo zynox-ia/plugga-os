@@ -43,7 +43,22 @@ async function inviteUser(sessionCookie: string, email: string, name: string): P
   const response = await fetch(`${apiBaseUrl}/auth/invite`, {
     method: "POST",
     headers: { "content-type": "application/json", cookie: sessionCookie, "x-forwarded-for": FORWARDED_FOR },
-    body: JSON.stringify({ email, name, roles: ["viewer"] }),
+    // Acesso mínimo válido: uma empresa, um papel, um departamento. O contrato
+    // recusa convite sem alcance nenhum, e é isso que a tela também impede.
+    body: JSON.stringify({
+      email,
+      name,
+      access: {
+        platformRoles: [],
+        companies: [
+          {
+            companyId: "plugga",
+            roles: ["viewer"],
+            departments: [{ departmentId: "financeiro", isManager: false }],
+          },
+        ],
+      },
+    }),
   });
   if (!response.ok) {
     throw new Error(`invite failed: ${response.status} ${await response.text()}`);
