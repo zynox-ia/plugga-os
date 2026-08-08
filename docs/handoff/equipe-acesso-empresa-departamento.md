@@ -117,6 +117,34 @@ pnpm build      4/4 ok
 `pnpm test` foi executado 8 vezes seguidas; `test/team.e2e.spec.ts` e
 `test/auth.e2e.spec.ts` mais 40 vezes isoladas. Ver "flakiness herdada" abaixo.
 
+### Migration validada contra os dados reais de produção
+
+Autorizado pelo usuário em 2026-08-08. **A produção não foi alterada**: a
+validação rodou numa cópia descartável (`plugga_os_migcheck`) restaurada de um
+`pg_dump` do banco em uso, no mesmo Postgres da VPS, e apagada ao final —
+`user_roles` segue com as suas 10 linhas e `companies` não existe lá.
+
+| Verificação | Resultado |
+|---|---|
+| `psql -v ON_ERROR_STOP=1 -f migration.sql` sobre a cópia | aplica limpo |
+| `prisma migrate diff` (banco migrado x `schema.prisma`) | **zero divergência** nas cinco tabelas novas |
+| `prisma migrate deploy` do zero sobre a cópia restaurada | aplica só a pendente e registra em `_prisma_migrations` |
+| `prisma db seed` (com `SEED_SAMPLE_TEAM=true`), duas vezes | idempotente, sem reconceder acesso |
+
+Dados migrados, com os 3 usuários reais:
+
+| Usuário | Antes | Depois |
+|---|---|---|
+| `admin@plugga.local` | `admin` | plataforma `admin` |
+| `andrejunio.dev@gmail.com` | `admin` | plataforma `admin` |
+| `dev@plugga.local` | os 8 papéis | plataforma `admin` + Plugga com 7 papéis e os 4 departamentos |
+
+A divergência que o `migrate diff` ainda aponta é **anterior a este trabalho** e
+não tem relação com ele: o default de `updated_at` (`@updatedAt` do Prisma não
+emite default no banco, mas as migrations antigas criaram `DEFAULT
+CURRENT_TIMESTAMP`) em `users`, `user_credentials`, `integrations` e
+`bitrix_mirror_records`, e uma FK removida em `cycles`.
+
 `apps/api/test/team.e2e.spec.ts` (21 casos, novo) cobre o aceite: `/auth/me` com
 o acesso inteiro; admin convidando só Plugga/financeiro e depois concedendo
 Waze/engenharia; gestor convidando no escopo; 403 ao conceder empresa,
@@ -144,14 +172,12 @@ await app.listen(0);
 
 ## Riscos e o que NÃO foi verificado
 
-1. **A migration não foi executada contra banco nenhum.** Não há Docker nem
-   Postgres local nesta máquina, e a porta 5432 do `localhost` é um **túnel SSH
-   para o Postgres da VPS de produção** (`plugga-vps`). Rodar `prisma migrate`
-   ali dropava `user_roles` em produção, o que `docs/AGENT.md` proíbe. O SQL foi
-   revisado à mão (ordem de FK composta, nomes de constraint no padrão do
-   Prisma, dados migrados antes do DROP), mas **precisa de uma execução real em
-   banco local antes do merge** — inclusive `pnpm --filter @plugga/api test:seed`,
-   que exercita o seed e foi atualizado mas não rodado.
+1. **A migration exige deploy do código na mesma janela — ela NÃO é compatível
+   com a versão no ar.** O build em produção (`plugga-os-api-1`) ainda consulta
+   `user_roles` (`roles: { include: { role: true } }` na resolução de sessão, e
+   `userRole` no repositório de auth). Aplicar a migration sozinha derruba a
+   autenticação de todo mundo no instante em que a tabela cai. Migration e
+   imagem nova sobem juntas, ou não sobem.
 
 2. **Autorização de dados de domínio continua por papel achatado, não por
    empresa.** `flattenRoles` une papéis de plataforma e de todas as empresas
@@ -224,9 +250,31 @@ A tela **não recalcula** a regra de escopo: desenha o que o servidor mandou em
 `scope`, `canManage` e `canDeactivate`. Uma segunda implementação da regra no
 cliente acabaria mostrando botão que a API recusa.
 
+## Sequência de deploy (quando for a hora)
+
+A migration e a imagem precisam subir na mesma janela. Ordem:
+
+1. `pg_dump` do banco em uso, guardado fora do container.
+2. Publicar o código desta branch na VPS e **construir** a imagem nova (ainda
+   sem trocar o serviço).
+3. `prisma migrate deploy` — aplica só a pendente.
+4. Subir a imagem nova de `api` e `web` imediatamente a seguir.
+5. Conferir: login do admin, `/auth/me` trazendo `access`, e
+   Configurações -> Equipe e acessos listando as 3 pessoas.
+
+**Não rodar `SEED_SAMPLE_TEAM=true` em produção** — cria contas com a senha do
+admin. Ela existe só para a máquina de quem desenvolve.
+
+Rollback: restaurar o dump do passo 1 e voltar a imagem anterior. A migration
+não tem `down` — `user_roles` é dropada e só volta pelo backup.
+
 ## Prontidão
 
 Pronto para revisão do ARCHITECT (muda schema, auth e auditoria — exige review
-antes de `main`, por `docs/AGENT.md`). **Não está pronto para merge sem o item 1
-dos riscos**: alguém com Postgres local precisa rodar a migration, o seed e
-`test:seed` e reportar o resultado.
+antes de `main`, por `docs/AGENT.md`).
+
+O que faltava verificar na migration **está verificado** contra os dados reais.
+O que falta agora é uma decisão, não uma checagem: deployar esta branch em
+produção antes do merge em `main` e antes da revisão do ARCHITECT é chamada do
+dono do projeto, porque a migration derruba a autenticação se a imagem nova não
+subir junto.
