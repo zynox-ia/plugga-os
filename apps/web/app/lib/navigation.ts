@@ -26,7 +26,7 @@ function navItem(processo: Processo, prefixo: string) {
 }
 
 export function navGroupsForEmpresa(empresa: EmpresaId): ShellNavGroup[] {
-  const { departamentos, nome } = EMPRESAS_POR_ID[empresa];
+  const { departamentos } = EMPRESAS_POR_ID[empresa];
 
   return [
     {
@@ -43,7 +43,8 @@ export function navGroupsForEmpresa(empresa: EmpresaId): ShellNavGroup[] {
       label: departamento.label,
       icon: departamento.icon,
       collapsible: true,
-      section: indice === 0 ? `Departamentos · ${nome}` : undefined,
+      // A empresa já está no seletor do topo; repeti-la aqui só polui.
+      section: indice === 0 ? "Departamentos" : undefined,
       items: departamento.processos.map((processo) => navItem(processo, departamento.id)),
     })),
   ];
