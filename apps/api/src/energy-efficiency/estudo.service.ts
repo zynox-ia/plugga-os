@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from "@nestjs/common";
+import { BadRequestException, ConflictException, Injectable } from "@nestjs/common";
 import type {
   ApproveEnergyStudyRequest,
   CreateEnergyStudyRequest,
@@ -23,6 +23,21 @@ import {
   assertTransicao,
   estadoAposValidacao,
 } from "./estudo.rules.js";
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Id do ator para gravar em coluna UUID.
+ *
+ * Devolve null quando o principal não é um usuário real com id de banco. O
+ * escape hatch de desenvolvimento (`x-dev-principal`) carrega id sintético como
+ * "user:andre", que não é UUID — gravar isso estoura no Postgres. Mesma razão
+ * pela qual `requested_by` é nulo para principal de serviço: quem não é pessoa
+ * identificável no banco não assina o registro.
+ */
+function autorOuNulo(principal: AuthPrincipal): string | null {
+  return principal.kind === "user" && UUID.test(principal.id) ? principal.id : null;
+}
 
 /**
  * Orquestra o estudo de eficiência energética.
@@ -63,9 +78,7 @@ export class EstudoService {
     const estudo = await this.repository.criar({
       ...input,
       premiseVersion: premissas.versao,
-      // Só usuário humano vira dono; principal de serviço grava null,
-      // como no restante do módulo de energia.
-      createdById: principal.kind === "user" ? principal.id : null,
+      createdById: autorOuNulo(principal),
     });
 
     return this.repository.atualizar(estudo.id, { status: "aguardando_dados" });
@@ -160,9 +173,19 @@ export class EstudoService {
     const estudo = await this.repository.carregar(id);
     assertPodeAprovar(estudo.status, estudo.validationIssues);
 
+    // Recusa aqui, e não no envio: aprovar é assumir responsabilidade, e
+    // principal de serviço ou escape hatch de desenvolvimento não têm quem
+    // responder. Falhar na aprovação diz o motivo certo na hora certa.
+    const aprovador = autorOuNulo(principal);
+    if (!aprovador) {
+      throw new ConflictException(
+        "aprovação exige usuário identificável: principal de serviço ou de desenvolvimento não pode aprovar",
+      );
+    }
+
     return this.repository.atualizar(id, {
       status: "aprovado_internamente",
-      approvedById: principal.kind === "user" ? principal.id : null,
+      approvedById: aprovador,
       approvedAt: agora,
       approvalNote: input.note ?? null,
     });

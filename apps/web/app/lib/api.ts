@@ -7,12 +7,15 @@ import type {
   ContractDetail,
   ContractList,
   CycleDetail,
+  EnergyStudyDetail,
   CycleReportsResponse,
   EmailStatus,
   ListAuditsResponse,
   ListClientsResponse,
+  ListConsumerUnitsResponse,
   ListContestationsResponse,
   ListCyclesResponse,
+  ListEnergyStudiesResponse,
   ListIntegrationsResponse,
   ListJobRunsResponse,
   ListMarketMigrationsResponse,
@@ -29,6 +32,16 @@ export type HealthCheck = {
 };
 
 const FETCH_TIMEOUT_MS = 3_000;
+
+/**
+ * As leituras do estudo passam pelo mesmo banco, mas o ambiente de
+ * desenvolvimento alcança o Postgres por túnel SSH até a VPS: cada consulta
+ * paga a latência da rede, e uma sessão validada leva ~2 s. O limite de 3 s,
+ * pensado para banco local, derruba a página com "API indisponível" mesmo com
+ * tudo funcionando. Enquanto não houver banco de desenvolvimento próprio, estas
+ * chamadas usam um limite maior.
+ */
+const FETCH_TIMEOUT_TUNEL_MS = 15_000;
 
 /**
  * Every route these fetchers are used from is already gated behind a real
@@ -323,6 +336,51 @@ export async function fetchCycleReports(): Promise<CycleReportsResponse | null> 
     });
     if (!response.ok) return null;
     return (await response.json()) as CycleReportsResponse;
+  } catch {
+    return null;
+  }
+}
+
+/** Server-side only: GET /energy/consumer-units — usado no seletor de UC. */
+export async function fetchConsumerUnits(): Promise<ListConsumerUnitsResponse | null> {
+  try {
+    const response = await fetch(`${apiBaseUrl()}/energy/consumer-units`, {
+      cache: "no-store",
+      headers: await sessionCookieHeaders(),
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_TUNEL_MS),
+    });
+    if (!response.ok) return null;
+    return (await response.json()) as ListConsumerUnitsResponse;
+  } catch {
+    return null;
+  }
+}
+
+/** Server-side only: GET /energy-efficiency/studies. */
+export async function fetchEnergyStudies(): Promise<ListEnergyStudiesResponse | null> {
+  try {
+    const response = await fetch(`${apiBaseUrl()}/energy-efficiency/studies`, {
+      cache: "no-store",
+      headers: await sessionCookieHeaders(),
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_TUNEL_MS),
+    });
+    if (!response.ok) return null;
+    return (await response.json()) as ListEnergyStudiesResponse;
+  } catch {
+    return null;
+  }
+}
+
+/** Server-side only: GET /energy-efficiency/studies/:id. */
+export async function fetchEnergyStudy(id: string): Promise<EnergyStudyDetail | null> {
+  try {
+    const response = await fetch(`${apiBaseUrl()}/energy-efficiency/studies/${id}`, {
+      cache: "no-store",
+      headers: await sessionCookieHeaders(),
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_TUNEL_MS),
+    });
+    if (!response.ok) return null;
+    return (await response.json()) as EnergyStudyDetail;
   } catch {
     return null;
   }

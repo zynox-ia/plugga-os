@@ -82,7 +82,7 @@ const plugga: Empresa = {
         { label: "Auditoria de faturas", rota: "/energia-opm/auditorias", status: "pronto" },
         { label: "Migração Mercado Livre", rota: "/energia-opm/migracoes", status: "pronto" },
         { label: "Relatórios de economia", rota: "/energia-opm/relatorios", status: "parcial" },
-        { label: "Eficiência energética", status: "em-breve" },
+        { label: "Eficiência energética", rota: "/energia-opm/eficiencia", status: "parcial" },
         { label: "Demanda contratada", status: "em-breve" },
         { label: "Oportunidades solar / BESS / reativo", status: "em-breve" },
       ],

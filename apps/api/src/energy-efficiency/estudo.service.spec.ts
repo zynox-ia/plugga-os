@@ -253,14 +253,27 @@ describe("EstudoService — fluxo completo", () => {
     await expect(service.marcarEnviado(criado.id, AGORA)).rejects.toBeInstanceOf(ConflictException);
   });
 
-  it("principal de serviço não vira aprovador humano", async () => {
+  it("principal de serviço não pode aprovar", async () => {
     const criado = await criar();
     await service.receberFatura(criado.id, { invoice: FATURA, demandHistory: [], hasLoadProfile: false });
-    await service.aprovar(criado.id, {}, AGENTE, AGORA);
 
-    // O agente pode operar, mas a assinatura de aprovação fica vazia — então o
-    // envio continua barrado até uma pessoa aprovar.
-    await expect(service.marcarEnviado(criado.id, AGORA)).rejects.toBeInstanceOf(ConflictException);
+    // O agente opera o fluxo, mas não assina: aprovar é assumir a
+    // responsabilidade pelo que sai para o cliente.
+    await expect(service.aprovar(criado.id, {}, AGENTE, AGORA)).rejects.toThrow(
+      /usuário identificável/,
+    );
+  });
+
+  it("id sintético do escape hatch de desenvolvimento também não aprova", async () => {
+    const criado = await criar();
+    await service.receberFatura(criado.id, { invoice: FATURA, demandHistory: [], hasLoadProfile: false });
+
+    // `x-dev-principal: user:andre` resolve para kind "user", mas o id não é
+    // UUID: não existe pessoa correspondente no banco para responder por isso.
+    const sintetico = { id: "user:andre", kind: "user" as const, roles: ["admin" as const] };
+    await expect(service.aprovar(criado.id, {}, sintetico, AGORA)).rejects.toThrow(
+      /usuário identificável/,
+    );
   });
 
   it("recusa calcular sem ficha de fatura", async () => {
