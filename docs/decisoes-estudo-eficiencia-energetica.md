@@ -336,14 +336,35 @@ Em 2026-08-08 o pacote completo foi recuperado direto do workspace do agente
 
 As duas últimas convivem com marcação de pendência dentro do estudo.
 
-### 6.1 Nota sobre dados de cliente no repositório
+### 6.1 Dados de cliente no repositório — decidido manter
 
-O modelo Jardim Floresta e o `template.html` contêm **dados reais de cliente**
-(razão social, UC, valores de fatura). Estão aqui porque são a referência
-aprovada que o sistema precisa reproduzir, e o repositório é privado. Não há
-credencial nem segredo — o README do próprio pacote confirma que logs, cache e
-credenciais ficaram de fora. Vale uma decisão consciente sobre manter esses
-arquivos versionados ou substituí-los por versões com dados fictícios.
+O modelo Jardim Floresta e o `template.html` contêm dados reais de cliente
+(razão social, UC, valores de fatura). **Decidido em 2026-08-08: ficam como
+estão, sem anonimização.**
+
+O motivo é o hash. A trava do agente registra o modelo pelo SHA256
+`0640a0ab…`, e é assim que se prova que um estudo partiu do modelo aprovado e
+não de uma cópia alterada. Qualquer edição — trocar a razão social, esconder a
+UC, até acrescentar um espaço — produz um hash completamente diferente e
+destrói essa prova.
+
+Demonstração feita sobre o próprio arquivo (440.089 bytes):
+
+| Versão | SHA256 |
+|---|---|
+| Original | `0640a0ab0fa84897…f013224d4` |
+| Uma letra trocada | `d186d01657f44cfb…faaf9976` |
+| Um espaço a mais no fim | `aa1ab1ffeeacd535…67767e5a` |
+
+Um byte de diferença, hash inteiramente outro. Anonimizar custaria o rastro de
+autenticidade; manter custa apenas ter dado de cliente num repositório privado,
+sem credencial nem segredo — o README do pacote confirma que logs, cache e
+credenciais ficaram de fora.
+
+**Como aplicar:** tratar o modelo como artefato imutável. Ele nunca é editado;
+serve de envelope visual e de referência de regressão. Os dados do cliente que
+aparecem nele são do caso Jardim Floresta e não devem ser reaproveitados como
+exemplo em tela, seed ou documentação de produto — para isso, dados fictícios.
 
 ## 7. Uma observação sobre terminologia
 
