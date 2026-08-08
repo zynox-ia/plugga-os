@@ -177,11 +177,13 @@ const waze: Empresa = {
 
 export const EMPRESAS_POR_ID: Record<EmpresaId, Empresa> = { plugga, waze };
 
-/** Visível nas duas empresas — o Dashboard e as pendências são da empresa ativa. */
-export const VISAO_GERAL: Processo[] = [
-  { label: "Dashboard", rota: "/", status: "parcial" },
-  { label: "Central de Pendências", rota: "/pendencias", status: "parcial" },
-];
+/**
+ * Início reúne o que antes eram duas telas disputando o mesmo lugar:
+ * o Dashboard e a Central de Pendências. Os indicadores de cada processo
+ * moram dentro do próprio departamento, então a tela de entrada fica livre
+ * para responder só "o que precisa de mim hoje".
+ */
+export const VISAO_GERAL: Processo[] = [{ label: "Início", rota: "/", status: "parcial" }];
 
 /**
  * Ferramentas atravessam todos os departamentos — abrem no dia a dia, mas não

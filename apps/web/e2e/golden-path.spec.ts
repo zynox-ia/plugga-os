@@ -1,15 +1,16 @@
 import { expect, test } from "@playwright/test";
 
-test.describe("Golden path — Dashboard → Pendências → Integrações → Jobs", () => {
+test.describe("Golden path — Início → Integrações → Jobs", () => {
   test("walks the P2-6 flow and surfaces live vs mock data correctly", async ({ page }) => {
     await page.goto("/");
     await expect(page.locator(".app-shell")).toBeVisible();
 
-    const nav = page.locator(".sidebar-nav");
-    await nav.getByRole("button", { name: "Central de Pendências", exact: true }).click();
-    await expect(page).toHaveURL(/\/pendencias$/);
+    // A Central de Pendências virou seção do Início: a fila aparece na mesma
+    // tela dos cartões, sem um segundo item de menu para a mesma pergunta.
+    await expect(page.getByRole("heading", { name: "Central de Pendências" })).toBeVisible();
 
-    await nav.getByRole("button", { name: "Integrações", exact: true }).click();
+    // Integrações e Jobs saíram da barra lateral e vivem em Configurações.
+    await page.goto("/integracoes");
     await expect(page).toHaveURL(/\/integracoes$/);
 
     // .shell-card--accent also matches the Bitrix migrator card (ADR-0009),
@@ -23,7 +24,7 @@ test.describe("Golden path — Dashboard → Pendências → Integrações → J
     await expect(whatsappCard).not.toContainText(/\+?\d{2}\s?\d{4,5}-?\d{4}/);
     await expect(whatsappCard.getByRole("button", { name: /enviar|send/i })).toHaveCount(0);
 
-    await nav.getByRole("button", { name: "Jobs e Automações", exact: true }).click();
+    await page.goto("/jobs");
     await expect(page).toHaveURL(/\/jobs$/);
     await expect(page.getByRole("heading", { name: "Execuções recentes" })).toBeVisible();
     // Live copy intentionally mentions inventoryOnly; assert no mutation controls.
@@ -48,8 +49,8 @@ test.describe("Golden path — Dashboard → Pendências → Integrações → J
     await expect(pill).toHaveText(isLive ? "Dados reais" : "Mock local");
   });
 
-  test("Pendências, Integrações and Jobs copy never surface requested_by", async ({ page }) => {
-    for (const route of ["/pendencias", "/integracoes", "/jobs"]) {
+  test("Início, Integrações and Jobs copy never surface requested_by", async ({ page }) => {
+    for (const route of ["/", "/integracoes", "/jobs"]) {
       await page.goto(route);
       const body = await page.locator("main#main-content").innerText();
       expect(body).not.toMatch(/requested_by/i);
@@ -57,9 +58,9 @@ test.describe("Golden path — Dashboard → Pendências → Integrações → J
   });
 
   test("header title and active nav item reflect the current route on hard navigation", async ({ page }) => {
-    await page.goto("/integracoes");
-    await expect(page.locator(".context-page")).toHaveText("Integrações");
-    await expect(page.locator(".sidebar-nav").getByRole("button", { name: "Integrações", exact: true })).toHaveAttribute(
+    await page.goto("/clientes");
+    await expect(page.locator(".context-page")).toHaveText("Clientes");
+    await expect(page.locator(".sidebar-nav").getByRole("button", { name: "Clientes", exact: true })).toHaveAttribute(
       "aria-current",
       "page",
     );

@@ -20,14 +20,16 @@ test.describe("Auth — session gate, login, logout", () => {
   });
 
   test("a deep link to a protected route redirects back to it after login", async ({ page }) => {
-    await page.goto("/pendencias");
-    await expect(page).toHaveURL(/\/login\?redirectTo=%2Fpendencias$/);
+    // /clientes em vez de /pendencias: esta última virou seção do Início e
+    // agora redireciona, o que confundiria o alvo do redirectTo.
+    await page.goto("/clientes");
+    await expect(page).toHaveURL(/\/login\?redirectTo=%2Fclientes$/);
 
     await page.getByLabel("E-mail").fill(email);
     await page.getByLabel("Senha").fill(password);
     await page.getByRole("button", { name: "Entrar" }).click();
 
-    await expect(page).toHaveURL(/\/pendencias$/);
+    await expect(page).toHaveURL(/\/clientes$/);
   });
 
   test("wrong credentials show one generic message, never leaking account existence", async ({ page }) => {
