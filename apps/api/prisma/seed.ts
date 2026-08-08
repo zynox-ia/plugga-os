@@ -235,6 +235,34 @@ async function main() {
       },
     });
   }
+  // Premissas do estudo de eficiência energética (ADR/decisões 2026-08-08).
+  // Idempotente como o resto do seed: reexecutar não sobrescreve uma versão já
+  // cadastrada, porque estudo antigo aponta para ela e precisa continuar
+  // explicável pelo que valia na época.
+  await prisma.energyPremiseVersion.upsert({
+    where: { versao: '2026-08-08' },
+    update: {},
+    create: {
+      versao: '2026-08-08',
+      vigenteDe: new Date('2026-08-08T00:00:00.000Z'),
+      bessModelo: 'Huawei LUNA2000-241-2S1',
+      bessCapacidadeNominalKwh: 241,
+      bessCapacidadeUtilKwh: 241,
+      bessPotenciaKw: 108,
+      bessEficienciaCiclo: 0.913,
+      bessCapexPorUnidade: 550000,
+      fvCapexPorKwp: 2500,
+      fvProdutividadeKwhPorKwpMes: 130,
+      fvPercentualAtendimento: 0.6,
+      horizonteAnos: 20,
+      tmaAnual: 0.05,
+      reajusteTarifarioAnual: 0.04,
+      toleranciaUltrapassagem: 0.05,
+      alteracaoDemandaMinima: 0.05,
+      alteracaoDemandaMaxima: 0.2,
+    },
+  });
+
 }
 
 main()

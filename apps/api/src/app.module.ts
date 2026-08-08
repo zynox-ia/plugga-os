@@ -10,6 +10,7 @@ import { ClientesModule } from "./clientes/clientes.module";
 import { CommercialModule } from "./commercial/commercial.module";
 import { validateEnvironment } from "./config/environment";
 import { CoreModule } from "./core/core.module";
+import { EnergyEfficiencyModule } from "./energy-efficiency/estudo.module";
 import { EnergyModule } from "./energy/energy.module";
 import { HealthModule } from "./health/health.module";
 import { BitrixModule } from "./integrations/bitrix/bitrix.module";
@@ -40,6 +41,7 @@ const monorepoRootEnvPath = path.resolve(__dirname, "../../../.env");
     ClientesModule,
     CommercialModule,
     EnergyModule,
+    EnergyEfficiencyModule,
     JobsQueueModule,
     BitrixModule,
   ],

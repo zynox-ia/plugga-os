@@ -265,3 +265,88 @@ export const financialResultSchema = z
   })
   .strict();
 export type FinancialResult = z.infer<typeof financialResultSchema>;
+
+/**
+ * Problema apontado pela validação bloqueante do documento. Fica no contrato
+ * porque a tela precisa mostrar ao operador o que impede a aprovação.
+ */
+export const problemaDeValidacaoSchema = z
+  .object({ regra: z.string(), detalhe: z.string() })
+  .strict();
+export type ProblemaDeValidacao = z.infer<typeof problemaDeValidacaoSchema>;
+
+// --- Contratos HTTP --------------------------------------------------------
+
+export const createEnergyStudyRequestSchema = z
+  .object({
+    clientId: z.string().uuid(),
+    consumerUnitId: z.string().uuid(),
+    competenceMonth: z.number().int().min(1).max(12),
+    competenceYear: z.number().int().min(2020).max(2100),
+    calculationMode: calculationModeSchema.default("preliminar"),
+  })
+  .strict();
+export type CreateEnergyStudyRequest = z.infer<typeof createEnergyStudyRequestSchema>;
+
+/** Ficha da fatura + histórico de demanda; move o estudo para dados_recebidos. */
+export const submitEnergyInvoiceRequestSchema = z
+  .object({
+    invoice: invoiceDataSchema,
+    demandHistory: z.array(z.number().nonnegative()).max(36).default([]),
+    hasLoadProfile: z.boolean().default(false),
+  })
+  .strict();
+export type SubmitEnergyInvoiceRequest = z.infer<typeof submitEnergyInvoiceRequestSchema>;
+
+export const approveEnergyStudyRequestSchema = z
+  .object({ note: z.string().trim().max(500).optional() })
+  .strict();
+export type ApproveEnergyStudyRequest = z.infer<typeof approveEnergyStudyRequestSchema>;
+
+export const energyStudySummarySchema = z
+  .object({
+    id: z.string().uuid(),
+    clientId: z.string().uuid(),
+    clientName: z.string(),
+    consumerUnitId: z.string().uuid(),
+    consumerUnitCode: z.string(),
+    competenceMonth: z.number().int(),
+    competenceYear: z.number().int(),
+    status: energyStudyStatusSchema,
+    calculationMode: calculationModeSchema,
+    economiaMensal: z.number().nullable(),
+    capexTotal: z.number().nullable(),
+    version: z.number().int(),
+    revision: z.number().int(),
+    approvedAt: z.string().datetime().nullable(),
+    sentAt: z.string().datetime().nullable(),
+    createdAt: z.string().datetime(),
+  })
+  .strict();
+export type EnergyStudySummary = z.infer<typeof energyStudySummarySchema>;
+
+export const energyStudyDetailSchema = energyStudySummarySchema
+  .extend({
+    premiseVersion: z.string(),
+    invoice: invoiceDataSchema.nullable(),
+    demandHistory: z.array(z.number()),
+    audit: auditResultSchema.nullable(),
+    demand: demandResultSchema.nullable(),
+    sizing: sizingResultSchema.nullable(),
+    savings: savingsResultSchema.nullable(),
+    financial: financialResultSchema.nullable(),
+    validationIssues: z.array(problemaDeValidacaoSchema).nullable(),
+    hasDocument: z.boolean(),
+  })
+  .strict();
+export type EnergyStudyDetail = z.infer<typeof energyStudyDetailSchema>;
+
+export const listEnergyStudiesResponseSchema = z
+  .object({ items: z.array(energyStudySummarySchema) })
+  .strict();
+export type ListEnergyStudiesResponse = z.infer<typeof listEnergyStudiesResponseSchema>;
+
+export const energyStudyListQuerySchema = z
+  .object({ status: energyStudyStatusSchema.optional() })
+  .strict();
+export type EnergyStudyListQuery = z.infer<typeof energyStudyListQuerySchema>;

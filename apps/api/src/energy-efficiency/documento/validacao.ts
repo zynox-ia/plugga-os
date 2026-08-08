@@ -1,3 +1,5 @@
+import type { ProblemaDeValidacao } from "@plugga/shared";
+
 import { MARCADORES_DO_CASO_FONTE } from "./envelope.js";
 
 /**
@@ -59,11 +61,6 @@ function contemTermo(texto: string, termo: string): boolean {
   const escapado = termo.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   return new RegExp(`\\b${escapado}`, "i").test(texto);
 }
-
-export type ProblemaDeValidacao = {
-  regra: string;
-  detalhe: string;
-};
 
 export type EntradaDeValidacao = {
   html: string;

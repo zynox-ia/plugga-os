@@ -609,21 +609,22 @@ model D14Credit {
 /// Unique client record. The rest of the product (opportunities, contracts,
 /// PluggaMob ficha) links to this row instead of duplicating identity.
 model Client {
-  id               String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  id               String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   name             String
   company          String?
   phone            String?
   email            String?
-  externalId       String?           @map("external_id")
-  segment          ClientSegment     @default(prospect)
-  active           Boolean           @default(true)
-  createdAt        DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt        DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+  externalId       String?                 @map("external_id")
+  segment          ClientSegment           @default(prospect)
+  active           Boolean                 @default(true)
+  createdAt        DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime                @updatedAt @map("updated_at") @db.Timestamptz(6)
   opportunities    Opportunity[]
   contracts        Contract[]
   consumerUnits    ConsumerUnit[]
   marketMigrations MarketMigration[]
   cycles           Cycle[]
+  energyStudies    EnergyEfficiencyStudy[]
 
   @@index([segment, active])
   @@map("clients")
@@ -696,17 +697,18 @@ model Contract {
 /// Energy delivery point. A client can have several; migration and cycle
 /// always target one specific UC.
 model ConsumerUnit {
-  id               String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  clientId         String             @map("client_id") @db.Uuid
+  id               String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clientId         String                  @map("client_id") @db.Uuid
   code             String
   distributor      String
   address          String?
-  status           ConsumerUnitStatus @default(active)
-  createdAt        DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt        DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
-  client           Client             @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  status           ConsumerUnitStatus      @default(active)
+  createdAt        DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime                @updatedAt @map("updated_at") @db.Timestamptz(6)
+  client           Client                  @relation(fields: [clientId], references: [id], onDelete: Cascade)
   marketMigrations MarketMigration[]
   cycles           Cycle[]
+  energyStudies    EnergyEfficiencyStudy[]
 
   @@index([clientId])
   @@map("consumer_units")
@@ -820,4 +822,119 @@ model Contestation {
 
   @@index([status])
   @@map("contestations")
+}
+
+// --- Estudo de Eficiência Energética (Plugga → Energia) ---------------------
+
+/// Premissas do estudo, versionadas por data de vigência.
+///
+/// Sem versão, um estudo antigo fica inexplicável quando a premissa muda — que
+/// é exatamente o caso da fórmula de economia do BESS, corrigida em 2026-08-08
+/// para descontar o custo de carga ajustado pela eficiência de ciclo. Os
+/// estudos entregues antes disso não são recalculados; continuam apontando para
+/// a versão vigente na época.
+model EnergyPremiseVersion {
+  id                          String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  versao                      String                  @unique
+  vigenteDe                   DateTime                @map("vigente_de") @db.Timestamptz(6)
+  bessModelo                  String                  @map("bess_modelo")
+  bessCapacidadeNominalKwh    Decimal                 @map("bess_capacidade_nominal_kwh") @db.Decimal(12, 4)
+  bessCapacidadeUtilKwh       Decimal                 @map("bess_capacidade_util_kwh") @db.Decimal(12, 4)
+  bessPotenciaKw              Decimal                 @map("bess_potencia_kw") @db.Decimal(12, 4)
+  bessEficienciaCiclo         Decimal                 @map("bess_eficiencia_ciclo") @db.Decimal(6, 4)
+  bessCapexPorUnidade         Decimal                 @map("bess_capex_por_unidade") @db.Decimal(14, 2)
+  fvCapexPorKwp               Decimal                 @map("fv_capex_por_kwp") @db.Decimal(14, 2)
+  fvProdutividadeKwhPorKwpMes Decimal                 @map("fv_produtividade_kwh_por_kwp_mes") @db.Decimal(10, 4)
+  fvPercentualAtendimento     Decimal                 @map("fv_percentual_atendimento") @db.Decimal(6, 4)
+  horizonteAnos               Int                     @map("horizonte_anos")
+  tmaAnual                    Decimal                 @map("tma_anual") @db.Decimal(6, 4)
+  reajusteTarifarioAnual      Decimal                 @map("reajuste_tarifario_anual") @db.Decimal(6, 4)
+  toleranciaUltrapassagem     Decimal                 @map("tolerancia_ultrapassagem") @db.Decimal(6, 4)
+  alteracaoDemandaMinima      Decimal                 @map("alteracao_demanda_minima") @db.Decimal(6, 4)
+  alteracaoDemandaMaxima      Decimal                 @map("alteracao_demanda_maxima") @db.Decimal(6, 4)
+  createdAt                   DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  studies                     EnergyEfficiencyStudy[]
+
+  @@index([vigenteDe])
+  @@map("energy_premise_versions")
+}
+
+/// Um estudo de eficiência energética de uma UC numa competência.
+///
+/// A fatura, o histórico de demanda e os resultados ficam como snapshot JSON de
+/// propósito: o estudo precisa continuar explicável anos depois, mesmo que a
+/// forma de calcular mude. Os escalares repetidos existem só para listar e
+/// filtrar sem abrir o JSON.
+model EnergyEfficiencyStudy {
+  id               String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clientId         String                @map("client_id") @db.Uuid
+  consumerUnitId   String                @map("consumer_unit_id") @db.Uuid
+  competenceMonth  Int                   @map("competence_month")
+  competenceYear   Int                   @map("competence_year")
+  status           EnergyStudyStatus     @default(rascunho)
+  calculationMode  EnergyCalculationMode @default(preliminar) @map("calculation_mode")
+  premiseVersionId String                @map("premise_version_id") @db.Uuid
+
+  /// Snapshot da fatura como foi digitada/extraída.
+  invoiceData      Json  @map("invoice_data")
+  /// Demanda registrada mês a mês, na janela disponível.
+  demandHistory    Json  @default("[]") @map("demand_history")
+  /// Auditoria, demanda, dimensionamento, economia e financeiro.
+  results          Json?
+  /// Problemas apontados pela validação bloqueante na última tentativa.
+  validationIssues Json? @map("validation_issues")
+
+  /// Escalares para listagem; a fonte é sempre `results`.
+  economiaMensal Decimal? @map("economia_mensal") @db.Decimal(14, 2)
+  capexTotal     Decimal? @map("capex_total") @db.Decimal(14, 2)
+
+  documentHtml    String? @map("document_html")
+  documentPdfPath String? @map("document_pdf_path")
+
+  version  Int @default(1)
+  revision Int @default(0)
+
+  ownerId      String?   @map("owner_id") @db.Uuid
+  createdById  String?   @map("created_by_id") @db.Uuid
+  approvedById String?   @map("approved_by_id") @db.Uuid
+  approvedAt   DateTime? @map("approved_at") @db.Timestamptz(6)
+  approvalNote String?   @map("approval_note")
+  sentAt       DateTime? @map("sent_at") @db.Timestamptz(6)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  client         Client               @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  consumerUnit   ConsumerUnit         @relation(fields: [consumerUnitId], references: [id], onDelete: Restrict)
+  premiseVersion EnergyPremiseVersion @relation(fields: [premiseVersionId], references: [id], onDelete: Restrict)
+
+  @@unique([consumerUnitId, competenceYear, competenceMonth, version, revision], map: "energy_study_uc_competencia_versao_key")
+  @@index([status])
+  @@index([clientId])
+  @@map("energy_efficiency_studies")
+}
+
+enum EnergyStudyStatus {
+  rascunho
+  aguardando_dados
+  dados_recebidos
+  em_extracao
+  em_auditoria
+  em_calculo
+  relatorio_gerado
+  em_validacao
+  bloqueado
+  aprovado_internamente
+  enviado_cliente
+  arquivado
+  cancelado
+
+  @@map("energy_study_status")
+}
+
+enum EnergyCalculationMode {
+  preliminar
+  memoria_massa
+
+  @@map("energy_calculation_mode")
 }

@@ -11,7 +11,9 @@ import type {
 import { aplicarCabecalhoDoCaso, carregarEnvelope } from "./envelope.js";
 import { dinheiro, escapar, numero, percentual, tarifa } from "./formato.js";
 import { barras, CORES, linha } from "./graficos.js";
-import { validarDocumento, type ProblemaDeValidacao } from "./validacao.js";
+import type { ProblemaDeValidacao } from "@plugga/shared";
+
+import { validarDocumento } from "./validacao.js";
 
 /**
  * Monta o relatório do estudo de eficiência energética.
