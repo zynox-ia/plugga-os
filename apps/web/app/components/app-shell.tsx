@@ -4,8 +4,8 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, type ReactNode } from "react";
 
 import { EmpresaSwitcher } from "./empresa-switcher";
-import { LogoutButton } from "./logout-button";
 import { PluggaShell } from "./plugga-shell";
+import { UserMenu } from "./user-menu";
 import { navGroupsForEmpresa, navIdForPathname, tituloForNavId } from "../lib/navigation";
 import {
   EMPRESAS_POR_ID,
@@ -45,7 +45,7 @@ function ShellWithEmpresa({ children }: { children: ReactNode }) {
           }
         />
       }
-      topbarActions={<LogoutButton />}
+      topbarActions={<UserMenu />}
       onNavigate={(id) => {
         if (id.startsWith("/")) router.push(comEmpresa(id));
       }}

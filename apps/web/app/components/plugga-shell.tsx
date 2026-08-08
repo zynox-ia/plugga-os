@@ -299,7 +299,7 @@ export function PluggaShell({
         <header className="topbar">
           <button className="menu-toggle" type="button" aria-expanded={mobileNavOpen} aria-controls="main-navigation" onClick={() => setMobileNavOpen((open) => !open)}><span className="sr-only">Abrir navegação</span><span aria-hidden="true">☰</span></button>
           <div className="topbar-context"><span className="context-kicker">Plugga OS</span><span className="context-divider" aria-hidden="true">/</span><span className="context-page">{pageTitle ?? copy.title}</span></div>
-          <div className="topbar-actions">{empresaSwitcher}{topbarActions}<button className="avatar" type="button" aria-label="Abrir menu de Dilkson">D</button></div>
+          <div className="topbar-actions">{empresaSwitcher}{topbarActions}</div>
         </header>
 
         <main className="main-content" id="main-content">

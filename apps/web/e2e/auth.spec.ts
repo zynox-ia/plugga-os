@@ -48,7 +48,9 @@ test.describe("Auth — session gate, login, logout", () => {
     await expect(page).toHaveURL("/");
     await expect(page.locator(".app-shell")).toBeVisible();
 
-    await page.getByRole("button", { name: "Sair" }).click();
+    // Sair passou a viver no menu do avatar, não solto na barra superior.
+    await page.locator(".user-menu .avatar").click();
+    await page.getByRole("menuitem", { name: "Sair" }).click();
     await expect(page).toHaveURL(/\/login$/);
 
     await page.goto("/pendencias");
