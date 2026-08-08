@@ -84,6 +84,49 @@ describe("validateEnvironment", () => {
     ).toThrow("development authentication cannot be enabled in production");
   });
 
+  // VULN-1: NODE_ENV defaults to "development", so the production check alone
+  // fails open on any deploy that forgets to set it while using a .env copied
+  // from .env.example (which ships DEV_AUTH_ENABLED=true). The bind address is
+  // the control that does not depend on remembering an unrelated variable.
+  it("VULN-1: rejects development authentication on a network-reachable bind", () => {
+    expect(() =>
+      validateEnvironment({
+        // NODE_ENV deliberately omitted: this is the forgotten-variable deploy.
+        HOST: "0.0.0.0",
+        DATABASE_URL: localDatabaseUrl,
+        DEV_AUTH_ENABLED: "true",
+        AUTH_SESSION_SECRET: sessionSecret,
+      }),
+    ).toThrow(/development authentication requires a loopback HOST/);
+  });
+
+  it("VULN-1: rejects development authentication on a routable bind address", () => {
+    expect(() =>
+      validateEnvironment({
+        NODE_ENV: "development",
+        HOST: "82.29.152.21",
+        DATABASE_URL: localDatabaseUrl,
+        DEV_AUTH_ENABLED: "true",
+        AUTH_SESSION_SECRET: sessionSecret,
+      }),
+    ).toThrow(/development authentication requires a loopback HOST/);
+  });
+
+  it("VULN-1: still allows development authentication on every loopback bind", () => {
+    for (const host of ["127.0.0.1", "localhost", "::1"]) {
+      const environment = validateEnvironment({
+        NODE_ENV: "development",
+        HOST: host,
+        DATABASE_URL: localDatabaseUrl,
+        DEV_AUTH_ENABLED: "true",
+        AUTH_SESSION_SECRET: sessionSecret,
+      });
+
+      expect(environment.DEV_AUTH_ENABLED).toBe(true);
+      expect(environment.HOST).toBe(host);
+    }
+  });
+
   it("rejects a non-local database host", () => {
     expect(() =>
       validateEnvironment({
