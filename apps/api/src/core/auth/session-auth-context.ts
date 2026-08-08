@@ -19,10 +19,15 @@ export class SessionAuthContext extends AuthContext {
   }
 
   async resolve(request: AuthenticatedRequest): Promise<AuthPrincipal | null> {
-    const rawToken =
-      request.signedCookies?.[SESSION_COOKIE_NAME] ?? request.cookies?.[SESSION_COOKIE_NAME];
+    // Signed cookies only. The session cookie is always issued with
+    // `signed: true` (AuthController.cookieOptions), so falling back to the
+    // unsigned jar would let a caller strip the signature off and have the bare
+    // value accepted — which makes AUTH_SESSION_SECRET decorative rather than a
+    // defense. cookie-parser puts a present-but-invalid signature here as
+    // `false`, which this rejects too.
+    const rawToken = request.signedCookies?.[SESSION_COOKIE_NAME];
 
-    if (!rawToken) {
+    if (!rawToken || typeof rawToken !== "string") {
       return null;
     }
 
