@@ -4,7 +4,7 @@ import { Test } from "@nestjs/testing";
 import type { NestExpressApplication } from "@nestjs/platform-express";
 import cookieParser from "cookie-parser";
 import request from "supertest";
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { hash as argon2Hash } from "@node-rs/argon2";
 import type { RoleKey } from "@plugga/shared";
 
@@ -12,6 +12,7 @@ import { AppModule } from "../src/app.module";
 import { AuditRepository } from "../src/audit/audit.repository";
 import type { AuthPrincipal } from "../src/core/auth/auth.types";
 import { SessionLookupRepository } from "../src/core/auth/session-lookup.repository";
+import { PasswordService } from "../src/auth/password.service";
 import { EmailPort, type TransactionalEmail } from "../src/email/email.port";
 import {
   AuthRepository,
@@ -525,5 +526,99 @@ describe("auth API (e2e, in-memory stores)", () => {
       .expect(200, { ok: true });
 
     expect(email.sent).toHaveLength(0);
+  });
+
+  it("VULN-3: refuses a session cookie presented without its signature", async () => {
+    // The cookie is issued signed. Accepting the unsigned jar as a fallback let
+    // a caller strip "s:<value>.<sig>" down to "<value>" and still be
+    // authenticated, which made AUTH_SESSION_SECRET decorative.
+    const { response } = await loginAgent(adminEmail, adminPassword);
+    const signedCookie = response.headers["set-cookie"][0].split(";")[0];
+    const rawValue = decodeURIComponent(signedCookie.split("=").slice(1).join("="));
+
+    expect(rawValue.startsWith("s:")).toBe(true);
+    const unsignedToken = rawValue.slice(2, rawValue.lastIndexOf("."));
+
+    await request(app.getHttpServer())
+      .get("/auth/me")
+      .set("Cookie", `plugga_session=${unsignedToken}`)
+      .expect(401);
+
+    // The properly signed cookie still works, so this is not just a broken read.
+    await request(app.getHttpServer())
+      .get("/auth/me")
+      .set("Cookie", signedCookie)
+      .expect(200);
+  });
+
+  it("VULN-3: refuses a session cookie whose signature does not verify", async () => {
+    const { response } = await loginAgent(adminEmail, adminPassword);
+    const signedCookie = response.headers["set-cookie"][0].split(";")[0];
+
+    await request(app.getHttpServer())
+      .get("/auth/me")
+      .set("Cookie", `${signedCookie.slice(0, -3)}AAA`)
+      .expect(401);
+  });
+
+  it("VULN-4: spends an Argon2 verify on an unknown email, like a known one", async () => {
+    // Returning early when there is no stored credential answered "unknown
+    // account" without touching the KDF, while a real account paid a full
+    // memory-hard pass — a timing oracle that enumerates users regardless of
+    // the generic 401 body. Asserting the KDF actually runs (rather than
+    // wall-clock, which HTTP overhead swamps) is what distinguishes the paths.
+    const passwords = app.get(PasswordService);
+    const verifySpy = vi.spyOn(passwords, "verify");
+
+    try {
+      await request(app.getHttpServer())
+        .post("/auth/login")
+        .set("X-Forwarded-For", nextTestIp())
+        .send({ email: "nobody@plugga.local", password: "correct horse battery staple" })
+        .expect(401);
+      const unknownEmailVerifies = verifySpy.mock.calls.length;
+
+      await request(app.getHttpServer())
+        .post("/auth/login")
+        .set("X-Forwarded-For", nextTestIp())
+        .send({ email: adminEmail, password: "wrong-password" })
+        .expect(401);
+      const knownEmailVerifies = verifySpy.mock.calls.length - unknownEmailVerifies;
+
+      expect(unknownEmailVerifies).toBe(1);
+      expect(unknownEmailVerifies).toBe(knownEmailVerifies);
+    } finally {
+      verifySpy.mockRestore();
+    }
+  });
+
+  it("VULN-5: rejects a cross-origin mutation on a non-auth module", async () => {
+    // CoreModule documents OriginCheckGuard as the shared CSRF defense for every
+    // mutating route, but only the auth controller mounted it.
+    await request(app.getHttpServer())
+      .post("/channels/whatsapp/send")
+      .set("x-dev-principal", "tester")
+      .set("x-dev-roles", "tech")
+      .set("Origin", "https://evil.example.com")
+      .send({
+        destination: "+5592999999999",
+        originDomain: "ops",
+        content: { kind: "text", text: "olá" },
+      })
+      .expect(403);
+
+    // Same request from an allowed origin still goes through, so the guard is
+    // rejecting the origin rather than the payload or the role.
+    await request(app.getHttpServer())
+      .post("/channels/whatsapp/send")
+      .set("x-dev-principal", "tester")
+      .set("x-dev-roles", "tech")
+      .set("Origin", "http://localhost:3000")
+      .send({
+        destination: "+5592999999999",
+        originDomain: "ops",
+        content: { kind: "text", text: "olá" },
+      })
+      .expect(201);
   });
 });
