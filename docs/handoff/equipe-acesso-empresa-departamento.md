@@ -12,6 +12,8 @@
 | `2c5c407` | Tela Equipe e acessos, navegação filtrada pelo membership, rotas de proxy |
 | `d364794` | E2E de convite no novo contrato; `GET /auth/users` fora do throttle |
 | `1f22c33` | Escrita de acesso falha alto se faltar papel no catálogo |
+| `6ab8f8f` | Este handoff |
+| `4b89706` | E2E de auth deixa de devolver a porta no meio da suíte |
 
 ## Desvio de partida — leia primeiro
 
@@ -112,12 +114,33 @@ pnpm test       386 passed | 22 skipped (408)
 pnpm build      4/4 ok
 ```
 
+`pnpm test` foi executado 8 vezes seguidas; `test/team.e2e.spec.ts` e
+`test/auth.e2e.spec.ts` mais 40 vezes isoladas. Ver "flakiness herdada" abaixo.
+
 `apps/api/test/team.e2e.spec.ts` (21 casos, novo) cobre o aceite: `/auth/me` com
 o acesso inteiro; admin convidando só Plugga/financeiro e depois concedendo
 Waze/engenharia; gestor convidando no escopo; 403 ao conceder empresa,
 departamento ou papel fora do escopo; 403 ao promover a admin; 403 ao editar
 quem está fora do escopo; 403 no desativar por gestor; desativação derrubando a
 sessão na hora; filtros da lista; reenvio de convite só enquanto pendente.
+
+## Flakiness herdada — fora do escopo, diagnosticada
+
+Os e2e de auth criavam um agente supertest por login, e cada agente abria e
+fechava a própria porta efêmera; um agente que sobrevivia ao fechamento do
+anterior batia numa porta já reciclada por outro processo da máquina e recebia
+`400 "This is an explicit proxy server"`. Acontecia em ~1 execução a cada 7.
+Corrigido em `4b89706` para `team.e2e` e `auth.e2e` (`await app.listen(0)` no
+`beforeAll`, servidor no ar até o `afterAll`).
+
+**`apps/api/test/energy-cycles.e2e.spec.ts` tem a mesma causa e continua
+instável** (1 falha em 8 execuções da suíte completa). Não foi tocado: é de
+outro workstream, que estava sendo editado nesta worktree durante a sessão. A
+correção é a mesma linha, logo depois de `await app.init()`:
+
+```ts
+await app.listen(0);
+```
 
 ## Riscos e o que NÃO foi verificado
 
