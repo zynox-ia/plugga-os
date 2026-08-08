@@ -51,8 +51,7 @@ export function navGroupsForEmpresa(empresa: EmpresaId): ShellNavGroup[] {
     })),
     {
       id: "ferramentas",
-      label: "Atravessam os departamentos",
-      section: "Ferramentas",
+      label: "Ferramentas",
       items: FERRAMENTAS.map((processo) => ({
         ...navItem(processo, "ferramenta"),
         icon: "briefcase" as const,
