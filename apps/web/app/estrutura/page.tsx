@@ -73,7 +73,7 @@ export default function EstruturaPage() {
         const { total, prontos, parciais } = contar(todos);
 
         return (
-          <ShellCard className="panel-card" key={id}>
+          <ShellCard className={`panel-card estrutura-empresa estrutura-empresa--${id}`} key={id}>
             <div className="card-heading">
               <div>
                 <span className="eyebrow">{empresa.descricao}</span>

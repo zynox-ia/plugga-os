@@ -86,18 +86,18 @@ test.describe("Seletor de empresa", () => {
     await page.goto("/?empresa=waze");
 
     await expect(
-      page.locator(".sidebar-nav .nav-parent", { hasText: "Engenharia, Projetos & Obras" }),
+      page.locator(".sidebar-nav .nav-parent", { hasText: "Engenharia" }),
     ).toBeVisible();
     await expect(
-      page.locator(".sidebar-nav .nav-parent", { hasText: "Operação de Energia / OPM" }),
+      page.locator(".sidebar-nav .nav-parent", { hasText: "Energia" }),
     ).toHaveCount(0);
 
     await page.goto("/");
     await expect(
-      page.locator(".sidebar-nav .nav-parent", { hasText: "Operação de Energia / OPM" }),
+      page.locator(".sidebar-nav .nav-parent", { hasText: "Energia" }),
     ).toBeVisible();
     await expect(
-      page.locator(".sidebar-nav .nav-parent", { hasText: "Engenharia, Projetos & Obras" }),
+      page.locator(".sidebar-nav .nav-parent", { hasText: "Engenharia" }),
     ).toHaveCount(0);
   });
 
@@ -139,11 +139,14 @@ test.describe("Mapa da estrutura", () => {
   test("lista as duas empresas com os seus departamentos", async ({ page }) => {
     await page.goto("/estrutura");
 
+    // "Comercial" e "Financeiro" existem nas duas empresas: o mapa só é
+    // legível se cada bloco for lido dentro do seu próprio cartão.
     for (const empresa of [EMPRESAS_POR_ID.plugga, EMPRESAS_POR_ID.waze]) {
-      await expect(page.getByRole("heading", { name: empresa.nome, exact: true })).toBeVisible();
+      const cartao = page.locator(`.estrutura-empresa--${empresa.id}`);
+      await expect(cartao.getByRole("heading", { name: empresa.nome, exact: true })).toBeVisible();
       for (const departamento of empresa.departamentos) {
         await expect(
-          page.getByRole("heading", { name: departamento.label, exact: true }),
+          cartao.getByRole("heading", { name: departamento.label, exact: true }),
         ).toBeVisible();
       }
     }

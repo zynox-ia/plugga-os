@@ -61,7 +61,7 @@ const plugga: Empresa = {
   departamentos: [
     {
       id: "comercial-clientes",
-      label: "Comercial & Clientes",
+      label: "Comercial",
       icon: "users",
       processos: [
         { label: "Oportunidades", rota: "/comercial/oportunidades", status: "pronto" },
@@ -75,7 +75,7 @@ const plugga: Empresa = {
     },
     {
       id: "energia-opm",
-      label: "Operação de Energia / OPM",
+      label: "Energia",
       icon: "bolt",
       processos: [
         { label: "Ciclos mensais", rota: "/energia-opm/ciclos", status: "pronto" },
@@ -89,7 +89,7 @@ const plugga: Empresa = {
     },
     {
       id: "produto-tecnologia",
-      label: "Produto, Tecnologia & Eletromobilidade",
+      label: "Eletromobilidade",
       icon: "pulse",
       processos: [
         { label: "PluggaMob", rota: "/pluggamob", status: "parcial" },
@@ -101,7 +101,7 @@ const plugga: Empresa = {
     },
     {
       id: "financeiro",
-      label: "Financeiro, Adm. & Controladoria",
+      label: "Financeiro",
       icon: "wallet",
       processos: [
         { label: "Compras", rota: "/compras", status: "parcial" },
@@ -125,7 +125,7 @@ const waze: Empresa = {
   departamentos: [
     {
       id: "comercial-obras",
-      label: "Comercial, Propostas & Contratos",
+      label: "Comercial",
       icon: "users",
       processos: [
         { label: "Oportunidades de obra", status: "em-breve" },
@@ -138,7 +138,7 @@ const waze: Empresa = {
     },
     {
       id: "engenharia-obras",
-      label: "Engenharia, Projetos & Obras",
+      label: "Engenharia",
       icon: "wrench",
       processos: [
         { label: "Obras", rota: "/engenharia", status: "parcial" },
@@ -156,7 +156,7 @@ const waze: Empresa = {
     },
     {
       id: "financeiro",
-      label: "Financeiro, Adm. & Controladoria",
+      label: "Financeiro",
       icon: "wallet",
       processos: [
         { label: "Compras", status: "em-breve" },
