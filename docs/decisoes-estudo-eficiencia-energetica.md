@@ -50,9 +50,8 @@ absoluto — R$ 12,4 mil no primeiro ano, crescendo 4% a.a. por 20 anos. Como
 esses números vão para o cliente, o sistema precisa nascer com a fórmula
 decidida, e não herdar a atual "porque é o que os scripts fazem".
 
-⚠️ **Estudos já entregues usaram a fórmula antiga.** Vale decidir se algum
-precisa ser revisado ou se ficam como estão, marcados pela premissa da época —
-razão a mais para premissas versionadas por data de vigência.
+**Estudos já entregues usaram a fórmula antiga.** Decidido em 2026-08-08: eles
+não são revisados automaticamente (ver §4.7).
 
 ---
 
@@ -213,22 +212,114 @@ atraso do cliente.
 
 ---
 
-## 5. O que ainda bloqueia
+## 4.7 Recálculo de estudos já entregues
 
-| Item | Situação | Impacto |
+Decidido: **não revisar automaticamente**. Estudos entregues ficam como estão,
+marcados pela premissa vigente na época — o que só funciona porque as premissas
+são versionadas por data de vigência.
+
+Recalcular apenas quando o estudo:
+
+- for reenviado ao cliente;
+- virar proposta comercial;
+- for usado como base de decisão de investimento;
+- for pedido em revisão explicitamente.
+
+A fórmula corrigida do BESS entra como **nova versão de premissa**, não como
+correção retroativa.
+
+## 4.8 Escopo do CAPEX
+
+Decidido: **premissa preliminar estimada**, não orçamento fechado. Até
+confirmação formal, cadastrar assim:
+
+| Item | Valor | Escopo |
 |---|---|---|
-| **Modelo Jardim Floresta (HTML)** | Confirmado como padrão, **arquivo não entregue**. Só vieram os scripts que o leem | Sem ele não há template para gerar nem teste de regressão |
-| **Skill `estudo-demanda-plugga`** | Citada como fonte da regra de demanda ideal, **não entregue** | A regra de três cenários e a "alteração simples entre 5% e 20%" não podem ser implementadas fielmente |
-| **Memória de cálculo do Serra Verde** | Declarada como não formalizada | Aceito: vira caso histórico, não regra |
-| **Preço de mesa do Mercado Livre** | Sem fonte automática | O cenário Mercado Livre aparece como "a simular", não como economia fechada — mas a estrutura do relatório exige a seção |
-| **Escopo do CAPEX** | "Preliminar estimado" até a Pluga confirmar se inclui projeto/EPC | Muda a leitura do payback pelo cliente |
+| BESS | R$ 550.000,00 / unidade | a validar |
+| FV | R$ 2.500,00 / kWp | a validar |
 
-Os dois primeiros são **pré-requisito para começar**. Os demais podem conviver
-com marcação de pendência dentro do estudo.
+Leitura obrigatória para o cliente: pré-viabilidade sujeita a validação de
+projeto, instalação, EPC, adequações elétricas, O&M e cotação real. O documento
+não pode dar a entender que o número é orçamento.
 
 ---
 
-## 6. Uma observação sobre terminologia
+## 5. O modelo Jardim Floresta — recebido e conferido
+
+Arquivo recebido em 2026-08-08 e arquivado em
+`docs/fontes/estudo-eficiencia-energetica/modelo-jardim-floresta-solar-bess-v1.html`.
+
+**SHA256 confere com a trava:** `0640a0ab0fa848973cb4d89a682c0a54dbebe96f08d038ef9c58fc1f013224d4`
+— apesar de o nome do arquivo chegar como `…_sol_b.html` em vez de
+`…_solar_bess_padrao.html`, o conteúdo é byte a byte o modelo congelado.
+
+### 5.1 O que o arquivo realmente é
+
+| Parte | Tamanho | Papel |
+|---|---|---|
+| Dois logos PNG em base64 (1231×332) | ~296 KB | **94,6% do arquivo** |
+| CSS embutido | 8.550 chars | Identidade visual completa |
+| Hero + rodapé | — | Cabeçalho e assinatura Plugga |
+| Corpo (seções 1 a 8) | 23.932 chars | **5,4% do arquivo** |
+
+**Descoberta que muda o plano:** o `generate_santa_tereza` não usa o modelo como
+estrutura. Ele recorta tudo entre `<h2>1. Resumo executivo da fatura</h2>` e
+`<div class="footer">` e **substitui pelas próprias seções**. Ou seja, na
+prática o modelo funciona como **folha de estilo + cabeçalho + rodapé**, e a
+estrutura das seções vive no código.
+
+Consequência para a implementação: o que precisa ser versionado como template é
+o **envelope** (CSS, hero, rodapé, logos); as seções são geradas.
+
+### 5.2 O modelo padrão não cumpre a própria trava
+
+Verificado por busca no arquivo:
+
+| Exigido por | Item | No modelo |
+|---|---|---|
+| `SKILL.md` §9, `estrutura-relatorio.md` §10, `MEMORY.md`, `checklist-qualidade.md` | Card **Análise Técnica Plugga** (`class="analysis"`, "ANÁLISE TÉCNICA", "Recomendação Plugga") | **ausente** |
+| PRD da trava §5 e §7, `checklist-qualidade.md` | Gráfico de **economia acumulada** | **ausente** |
+| `metodologia-calculos.md` | Menção ao equipamento **LUNA2000** | ausente |
+
+O modelo tem "Economia anual projetada — Solar+BESS" e "Fluxo de caixa
+acumulado — Solar+BESS", mas não a economia acumulada; e vai direto da seção 7
+para a 8, sem o card verde de análise técnica.
+
+**Leitura:** o modelo congelado é anterior a parte das regras que hoje o
+declaram padrão. Os scripts compensam isso gerando as seções que faltam — o
+`generate_santa_tereza` inclui o card de análise e o gráfico de economia
+acumulada, e sua validação exige os dois.
+
+**Decisão para o sistema:** a estrutura obrigatória é a das **regras**, não a do
+arquivo. O modelo entra como envelope visual; o validador exige as 10 seções,
+incluindo o card de análise técnica e os três gráficos.
+
+### 5.3 Assets visuais: resolvidos
+
+Os dois logos estão **embutidos em base64** dentro do modelo, em 1231×332 px.
+Isso resolve o pedido de `logo_clara.png` / `logo_escura.png`, e o `hero` +
+`footer` do próprio modelo substituem o `template.html` de
+`relatorio-economia-plugga`. **Não é mais necessário pedir esses arquivos.**
+
+---
+
+## 6. O que ainda bloqueia
+
+| Item | Situação | Impacto |
+|---|---|---|
+| **Skill `estudo-demanda-plugga`** | Citada como fonte da regra de demanda ideal, **não entregue** | Único bloqueio restante. Sem ela, os três cenários e a regra de alteração entre 5% e 20% não podem ser implementados fielmente |
+| Modelo Jardim Floresta | ✅ **Recebido e conferido por hash** (ver §5) | — |
+| Assets visuais (logos, hero, rodapé) | ✅ **Resolvidos** — vêm embutidos no modelo | — |
+| Memória de cálculo do Serra Verde | Declarada como não formalizada | Aceito: caso histórico, não regra |
+| Preço de mesa do Mercado Livre | Sem fonte automática | Cenário aparece como "a simular" |
+| Escopo do CAPEX | ✅ **Decidido**: premissa preliminar estimada (ver §4.8) | — |
+
+Restou **um** bloqueio real. Os demais itens ou foram resolvidos ou podem
+conviver com marcação de pendência dentro do estudo.
+
+---
+
+## 7. Uma observação sobre terminologia
 
 A resposta à pergunta 19 descreve o CAPEX como *"preliminar all-in estimado"*.
 O termo **"all-in" é proibido** no documento do cliente — está na persona, no
@@ -242,7 +333,7 @@ Vale também fixar a grafia canônica antes de virar código: os arquivos usam
 
 ---
 
-## 7. Ordem sugerida de implementação
+## 8. Ordem sugerida de implementação
 
 1. Cadastro do estudo e da UC, ligados ao cliente.
 2. Ficha estruturada da fatura (digitação com validação; OCR depois).
@@ -254,6 +345,6 @@ Vale também fixar a grafia canônica antes de virar código: os arquivos usam
 7. Aprovação registrada e envio.
 8. Arquivamento como caso comparável.
 
-Os passos 1 a 4 não dependem do modelo HTML e podem começar assim que a
-estrutura de departamento/processo existir. Os passos 5 e 6 dependem do arquivo
-Jardim Floresta.
+Os passos 1 a 4 não dependem de nada que esteja faltando e podem começar assim
+que a estrutura de departamento/processo existir. O passo 5 já tem o modelo. Só
+a demanda ideal (dentro do passo 4) espera a skill `estudo-demanda-plugga`.
