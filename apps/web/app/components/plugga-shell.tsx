@@ -237,7 +237,7 @@ export function PluggaShell({
     <div className="app-shell">
       <a className="skip-link" href="#main-content">Pular para o conteúdo</a>
       <aside className={`sidebar${mobileNavOpen ? " sidebar--open" : ""}`} aria-label="Navegação principal" id="main-navigation">
-        <div className="brand-lockup"><img src="/brand/logo-sem-selo.svg" alt="Plugga" /><span className="brand-badge">OS</span></div>
+        <div className="brand-lockup"><span className="brand-mark"><img src="/brand/logo-sem-selo.svg" alt="Plugga" /></span><span className="brand-badge">OS</span></div>
         <nav className="sidebar-nav">
           {navGroups.map((group) => {
             const aberto = isOpen(group);
@@ -299,7 +299,7 @@ export function PluggaShell({
         <header className="topbar">
           <button className="menu-toggle" type="button" aria-expanded={mobileNavOpen} aria-controls="main-navigation" onClick={() => setMobileNavOpen((open) => !open)}><span className="sr-only">Abrir navegação</span><span aria-hidden="true">☰</span></button>
           <div className="topbar-context"><span className="context-kicker">Plugga OS</span><span className="context-divider" aria-hidden="true">/</span><span className="context-page">{pageTitle ?? copy.title}</span></div>
-          <div className="topbar-actions">{empresaSwitcher}<span className="environment-pill"><span aria-hidden="true" className="status-dot" /> Ambiente local</span>{topbarActions}<button className="avatar" type="button" aria-label="Abrir menu de Dilkson">D</button></div>
+          <div className="topbar-actions">{empresaSwitcher}{topbarActions}<button className="avatar" type="button" aria-label="Abrir menu de Dilkson">D</button></div>
         </header>
 
         <main className="main-content" id="main-content">
