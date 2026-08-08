@@ -50,6 +50,11 @@ describe("auth API (e2e, in-memory stores)", () => {
     // so removing it from production code turns this suite red (ADR-0012).
     configureApp(app);
     await app.init();
+    // Sobe o servidor uma vez e o mantém no ar. Sem isto cada `request.agent()`
+    // abre e fecha uma porta efêmera própria; um agente que sobrevive ao
+    // fechamento do anterior acaba batendo numa porta já reciclada por outro
+    // processo da máquina, e o teste falha com a resposta de um estranho.
+    await app.listen(0);
   });
 
   beforeEach(async () => {

@@ -77,6 +77,11 @@ describe("team API — access by company and department (e2e, in-memory stores)"
     app = module.createNestApplication<NestExpressApplication>();
     configureApp(app);
     await app.init();
+    // Sobe o servidor uma vez e o mantém no ar. Sem isto cada `request.agent()`
+    // abre e fecha uma porta efêmera própria; um agente que sobrevive ao
+    // fechamento do anterior acaba batendo numa porta já reciclada por outro
+    // processo da máquina, e o teste falha com a resposta de um estranho.
+    await app.listen(0);
   });
 
   beforeEach(async () => {
