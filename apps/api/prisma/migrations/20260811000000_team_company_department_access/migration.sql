@@ -66,11 +66,11 @@ ALTER TABLE "user_company_memberships" ADD CONSTRAINT "user_company_memberships_
 
 -- Acesso a departamento pende do vínculo com a empresa: sem membership não há
 -- departamento, e revogar a empresa leva os departamentos junto.
-ALTER TABLE "user_department_access" ADD CONSTRAINT "user_department_access_membership_fkey"
+ALTER TABLE "user_department_access" ADD CONSTRAINT "user_department_access_user_id_company_id_fkey"
     FOREIGN KEY ("user_id", "company_id") REFERENCES "user_company_memberships"("user_id", "company_id")
     ON DELETE CASCADE ON UPDATE CASCADE;
 
-ALTER TABLE "user_company_roles" ADD CONSTRAINT "user_company_roles_membership_fkey"
+ALTER TABLE "user_company_roles" ADD CONSTRAINT "user_company_roles_user_id_company_id_fkey"
     FOREIGN KEY ("user_id", "company_id") REFERENCES "user_company_memberships"("user_id", "company_id")
     ON DELETE CASCADE ON UPDATE CASCADE;
 ALTER TABLE "user_company_roles" ADD CONSTRAINT "user_company_roles_role_id_fkey"

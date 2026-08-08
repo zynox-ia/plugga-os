@@ -1,3 +1,5 @@
+import type { UserAccess } from "@plugga/shared";
+
 import type { ShellNavGroup } from "../components/plugga-shell";
 import {
   EMPRESAS_POR_ID,
@@ -5,6 +7,7 @@ import {
   FERRAMENTAS,
   GLOBAIS,
   VISAO_GERAL,
+  departamentosPermitidos,
   type EmpresaId,
   type Processo,
 } from "./organizacao";
@@ -27,8 +30,17 @@ function navItem(processo: Processo, prefixo: string) {
   };
 }
 
-export function navGroupsForEmpresa(empresa: EmpresaId): ShellNavGroup[] {
-  const { departamentos } = EMPRESAS_POR_ID[empresa];
+/**
+ * `acesso` ausente = navegação inteira (o estado antes de /me responder, e o
+ * uso em teste). Com acesso, entram só os departamentos liberados naquela
+ * empresa: o que não é seu não fica "em breve" nem cinza — some, porque a
+ * ausência é a informação honesta.
+ */
+export function navGroupsForEmpresa(
+  empresa: EmpresaId,
+  acesso: UserAccess | null = null,
+): ShellNavGroup[] {
+  const departamentos = departamentosPermitidos(empresa, acesso);
 
   return [
     {

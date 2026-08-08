@@ -1,3 +1,13 @@
+import {
+  companyKeys,
+  departmentIdsByCompany,
+  visibleCompanies,
+  visibleDepartments,
+  type CompanyKey,
+  type DepartmentId,
+  type UserAccess,
+} from "@plugga/shared";
+
 import type { IconName } from "../components/plugga-shell";
 
 /**
@@ -11,10 +21,16 @@ import type { IconName } from "../components/plugga-shell";
  * um pagamento ou uma obra pertence a uma delas e nunca aparece na outra.
  * O que atravessa as duas (usuários, jobs, integrações, o desenho dos
  * processos) vive em GLOBAIS, fora do seletor.
+ *
+ * Os **identificadores** de empresa e departamento vêm de `@plugga/shared`:
+ * é a API que valida acesso contra eles, e rótulo/ícone/processo (que só a
+ * navegação usa) continuam aqui. Renomear um id sem mexer no outro lado deixa
+ * de compilar em vez de virar um acesso que não aparece em lugar nenhum.
  */
 
-export const EMPRESAS = ["plugga", "waze"] as const;
-export type EmpresaId = (typeof EMPRESAS)[number];
+export const EMPRESAS = companyKeys;
+export type EmpresaId = CompanyKey;
+export type DepartamentoId = DepartmentId;
 
 export const EMPRESA_PADRAO: EmpresaId = "plugga";
 
@@ -34,7 +50,7 @@ export type Processo = {
 };
 
 export type Departamento = {
-  id: string;
+  id: DepartamentoId;
   label: string;
   icon: IconName;
   processos: Processo[];
@@ -51,6 +67,32 @@ export type Empresa = {
 
 export function isEmpresaId(value: string | null | undefined): value is EmpresaId {
   return EMPRESAS.includes(value as EmpresaId);
+}
+
+/**
+ * Empresas que a pessoa alcança, na ordem do catálogo. Sem sessão carregada
+ * ainda, devolve todas: o shell precisa desenhar antes da resposta de /me, e
+ * piscar "nenhuma empresa" para quem tem duas é pior que meio segundo de
+ * navegação otimista — a API recusa o que a sessão não permite de qualquer forma.
+ */
+export function empresasPermitidas(acesso: UserAccess | null): readonly EmpresaId[] {
+  if (!acesso) {
+    return EMPRESAS;
+  }
+  return visibleCompanies(acesso);
+}
+
+/** Departamentos da empresa liberados para a pessoa, na ordem do catálogo. */
+export function departamentosPermitidos(
+  empresa: EmpresaId,
+  acesso: UserAccess | null,
+): Departamento[] {
+  const { departamentos } = EMPRESAS_POR_ID[empresa];
+  if (!acesso) {
+    return departamentos;
+  }
+  const liberados = new Set<string>(visibleDepartments(acesso, empresa));
+  return departamentos.filter((departamento) => liberados.has(departamento.id));
 }
 
 const plugga: Empresa = {
@@ -208,21 +250,28 @@ export const FERRAMENTAS: Processo[] = [
 export type SecaoConfiguracao = Processo & {
   descricao: string;
   roles: readonly string[];
+  /** Marca a seção que tem tela própria dentro de Configurações. */
+  id?: "equipe";
+  /**
+   * Também visível para gestor de departamento. Quem gestiona precisa da mesma
+   * porta que o admin — só que a tela atrás dela mostra o escopo dele.
+   */
+  gestor?: boolean;
 };
 
 export const CONFIGURACOES: SecaoConfiguracao[] = [
   {
-    label: "Equipe",
-    descricao: "Pessoas com acesso ao sistema, convites e desativação.",
-    status: "em-breve",
-    roles: ["admin"],
-  },
-  {
-    label: "Papéis e permissões",
+    // "Equipe" e "Papéis e permissões" eram a mesma pergunta partida em duas
+    // telas: quem tem acesso, e a que. Separá-las obrigaria a atravessar de uma
+    // para a outra a cada convite; aqui papel e departamento são campos da
+    // mesma linha de acesso.
+    id: "equipe",
+    label: "Equipe e acessos",
     descricao:
-      "Quem enxerga o quê — por empresa. A mesma pessoa pode ser financeiro na Plugga e nada na Waze.",
-    status: "em-breve",
+      "Quem entra, com que papel e em qual empresa/departamento. A mesma pessoa pode ser financeiro na Plugga e nada na Waze.",
+    status: "pronto",
     roles: ["admin"],
+    gestor: true,
   },
   {
     label: "Departamentos e processos",
@@ -259,9 +308,22 @@ export const CONFIGURACOES: SecaoConfiguracao[] = [
   },
 ];
 
-/** Seções visíveis para um conjunto de papéis. Sem papel, nenhuma. */
-export function configuracoesParaPapeis(papeis: readonly string[]): SecaoConfiguracao[] {
-  return CONFIGURACOES.filter((secao) => secao.roles.some((role) => papeis.includes(role)));
+/**
+ * Seções visíveis para a sessão. Sem papel que alcance nenhuma, nenhuma — e a
+ * tela diz isso em vez de mostrar uma lista vazia sem explicação.
+ */
+export function configuracoesParaAcesso(usuario: {
+  roles: readonly string[];
+  access: UserAccess;
+}): SecaoConfiguracao[] {
+  const gestor = usuario.access.companies.some((empresa) =>
+    empresa.departments.some((departamento) => departamento.isManager),
+  );
+
+  return CONFIGURACOES.filter(
+    (secao) =>
+      secao.roles.some((role) => usuario.roles.includes(role)) || (secao.gestor === true && gestor),
+  );
 }
 
 /**
@@ -272,6 +334,30 @@ export function configuracoesParaPapeis(papeis: readonly string[]): SecaoConfigu
 export const GLOBAIS: Processo[] = [
   { label: "Configurações", rota: "/configuracoes", status: "pronto" },
   { label: "Estrutura do sistema", rota: "/estrutura", status: "pronto" },
-  // Rota herdada do Bloco A; o conteúdo dela migra para Configurações → Equipe.
+  // Rota herdada do Bloco A; o conteúdo dela mora em Configurações → Equipe.
   { label: "Administração", rota: "/administracao", status: "parcial" },
 ];
+
+/**
+ * O catálogo de navegação e o de acesso descrevem a mesma estrutura em lados
+ * opostos da fronteira HTTP. Esta checagem quebra alto, no carregamento do
+ * módulo, se um departamento existir só de um lado — um id novo aqui sem par em
+ * `@plugga/shared` viraria um item de menu que ninguém consegue liberar, e o
+ * contrário, um acesso concedido que não aparece na tela. Falhar na primeira
+ * página aberta em dev é mais barato do que descobrir pela pessoa que ficou
+ * sem ver o próprio departamento.
+ */
+const _catalogosCasam: Record<EmpresaId, true> = EMPRESAS.reduce(
+  (acumulado, empresa) => {
+    const naNavegacao = EMPRESAS_POR_ID[empresa].departamentos.map((d) => d.id).sort();
+    const noContrato = [...departmentIdsByCompany[empresa]].sort();
+    if (JSON.stringify(naNavegacao) !== JSON.stringify(noContrato)) {
+      throw new Error(
+        `departamentos de ${empresa} divergem entre organizacao.ts e @plugga/shared`,
+      );
+    }
+    return { ...acumulado, [empresa]: true };
+  },
+  {} as Record<EmpresaId, true>,
+);
+void _catalogosCasam;

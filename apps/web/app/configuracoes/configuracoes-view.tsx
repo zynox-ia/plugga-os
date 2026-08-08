@@ -4,8 +4,9 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { ShellCard, StatusPill } from "../components/plugga-shell";
-import { CONFIGURACOES, configuracoesParaPapeis } from "../lib/organizacao";
+import { CONFIGURACOES, configuracoesParaAcesso } from "../lib/organizacao";
 import { useSessionUser } from "../lib/use-session-user";
+import { EquipeView } from "./equipe-view";
 
 /**
  * Configurações com navegação própria: o que se ajusta uma vez fica reunido
@@ -20,7 +21,7 @@ export function ConfiguracoesView() {
   const { usuario, carregando } = useSessionUser();
   const [ativa, setAtiva] = useState(0);
 
-  const visiveis = usuario ? configuracoesParaPapeis(usuario.roles) : [];
+  const visiveis = usuario ? configuracoesParaAcesso(usuario) : [];
   const secao = visiveis[Math.min(ativa, Math.max(visiveis.length - 1, 0))];
 
   if (carregando) {
@@ -68,6 +69,9 @@ export function ConfiguracoesView() {
         ))}
       </nav>
 
+      {secao?.id === "equipe" ? (
+        <EquipeView />
+      ) : (
       <ShellCard className="panel-card">
         <div className="card-heading">
           <div>
@@ -102,6 +106,7 @@ export function ConfiguracoesView() {
           Visível para: <b>{secao?.roles.join(", ")}</b>.
         </p>
       </ShellCard>
+      )}
     </div>
   );
 }

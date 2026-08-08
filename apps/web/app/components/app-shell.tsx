@@ -11,9 +11,11 @@ import { navGroupsForEmpresa, navIdForPathname, tituloForNavId } from "../lib/na
 import {
   EMPRESAS_POR_ID,
   EMPRESA_PADRAO,
+  empresasPermitidas,
   isEmpresaId,
   type EmpresaId,
 } from "../lib/organizacao";
+import { SessionUserProvider, useSessionUser } from "../lib/use-session-user";
 
 /** Public auth pages render standalone — no sidebar/topbar (session isn't required yet). */
 const PUBLIC_AUTH_PATHS = ["/login", "/auth/accept-invite", "/auth/reset"];
@@ -23,8 +25,15 @@ function ShellWithEmpresa({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
+  const { usuario } = useSessionUser();
+  const acesso = usuario?.access ?? null;
+  const empresas = empresasPermitidas(acesso);
+
   const parametro = searchParams.get("empresa");
-  const empresa: EmpresaId = isEmpresaId(parametro) ? parametro : EMPRESA_PADRAO;
+  const pedida: EmpresaId = isEmpresaId(parametro) ? parametro : EMPRESA_PADRAO;
+  // Um link para `?empresa=waze` nas mãos de quem só tem Plugga não pode abrir
+  // uma Waze vazia: cai na primeira empresa que a pessoa realmente alcança.
+  const empresa: EmpresaId = empresas.includes(pedida) ? pedida : (empresas[0] ?? pedida);
   const navId = navIdForPathname(pathname);
 
   // A empresa acompanha toda navegação: sair dela por esquecimento de query
@@ -34,13 +43,14 @@ function ShellWithEmpresa({ children }: { children: ReactNode }) {
 
   return (
     <PluggaShell
-      navigation={navGroupsForEmpresa(empresa)}
+      navigation={navGroupsForEmpresa(empresa, acesso)}
       activeId={navId}
       pageTitle={tituloForNavId(navId, empresa)}
       pageDescription={EMPRESAS_POR_ID[empresa].descricao}
       empresaSwitcher={
         <EmpresaSwitcher
           empresa={empresa}
+          empresas={empresas}
           onSelect={(proxima) =>
             router.push(proxima === EMPRESA_PADRAO ? pathname : `${pathname}?empresa=${proxima}`)
           }
@@ -81,10 +91,13 @@ export function AppShell({ children }: { children: ReactNode }) {
   }
 
   // useSearchParams exige limite de Suspense para não forçar toda rota a
-  // renderização dinâmica.
+  // renderização dinâmica. O provider fica por fora: shell, barra lateral, menu
+  // da conta e as telas leem a mesma resposta de /me, não uma cada.
   return (
-    <Suspense fallback={<div className="app-shell" />}>
-      <ShellWithEmpresa>{children}</ShellWithEmpresa>
-    </Suspense>
+    <SessionUserProvider>
+      <Suspense fallback={<div className="app-shell" />}>
+        <ShellWithEmpresa>{children}</ShellWithEmpresa>
+      </Suspense>
+    </SessionUserProvider>
   );
 }

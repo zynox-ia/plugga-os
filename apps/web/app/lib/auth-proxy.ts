@@ -41,7 +41,20 @@ function isOriginAllowed(request: Request): boolean {
  * from the browser's point of view (no CORS/credentialed-fetch setup needed on
  * the API) while the API remains the sole source of truth for the session.
  */
-export async function proxyAuthPost(request: Request, apiPath: string): Promise<NextResponse> {
+export function proxyAuthPost(request: Request, apiPath: string): Promise<NextResponse> {
+  return proxyAuthMutation(request, "POST", apiPath);
+}
+
+/** Mesma travessia do POST, para as rotas de equipe que substituem acesso. */
+export function proxyAuthPut(request: Request, apiPath: string): Promise<NextResponse> {
+  return proxyAuthMutation(request, "PUT", apiPath);
+}
+
+async function proxyAuthMutation(
+  request: Request,
+  method: "POST" | "PUT",
+  apiPath: string,
+): Promise<NextResponse> {
   if (!isOriginAllowed(request)) {
     return NextResponse.json({ message: "origin not allowed" }, { status: 403 });
   }
@@ -62,7 +75,7 @@ export async function proxyAuthPost(request: Request, apiPath: string): Promise<
   let upstream: Response;
   try {
     upstream = await fetch(`${apiBaseUrl()}/auth/${apiPath}`, {
-      method: "POST",
+      method,
       headers: {
         "content-type": "application/json",
         ...(cookie ? { cookie } : {}),
