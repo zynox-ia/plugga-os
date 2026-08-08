@@ -23,14 +23,25 @@ export type ShellNavItem = {
   badge?: "parcial";
 };
 
-export type ShellNavGroup = { label: string; items: ShellNavItem[] };
+export type ShellNavGroup = {
+  id: string;
+  label: string;
+  items: ShellNavItem[];
+  /** Departamento: vira linha clicável que abre/fecha os processos abaixo. */
+  collapsible?: boolean;
+  icon?: IconName;
+  /** Cabeçalho da seção desenhado acima do grupo. */
+  section?: string;
+};
 
 const defaultNavigation: ShellNavGroup[] = [
   {
+    id: "principal",
     label: "Principal",
     items: [{ id: "inicio", label: "Início", icon: "home" }],
   },
   {
+    id: "pluggamob",
     label: "PluggaMob",
     items: [
       { id: "ops", label: "Ops · Ao vivo", icon: "pulse" },
@@ -38,6 +49,7 @@ const defaultNavigation: ShellNavGroup[] = [
     ],
   },
   {
+    id: "operacao",
     label: "Operação",
     items: [{ id: "jobs", label: "Jobs & Integrações", icon: "settings" }],
   },
@@ -190,6 +202,7 @@ export function PluggaShell({
 }) {
   const [activeView, setActiveView] = useState(activeId ?? "inicio");
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [closedGroups, setClosedGroups] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (activeId) setActiveView(activeId);
@@ -204,32 +217,80 @@ export function PluggaShell({
 
   const navGroups = navigation ?? defaultNavigation;
 
+  // Departamentos abrem por padrão: a estrutura macro→micro só comunica se
+  // estiver visível. O usuário fecha o que não usa, e o departamento da rota
+  // atual nunca fica fechado — senão o item ativo some da tela.
+  const isOpen = (group: ShellNavGroup) =>
+    !group.collapsible ||
+    !closedGroups.has(group.id) ||
+    group.items.some((item) => item.id === activeView);
+
+  const toggleGroup = (id: string) =>
+    setClosedGroups((atual) => {
+      const proximo = new Set(atual);
+      if (proximo.has(id)) proximo.delete(id);
+      else proximo.add(id);
+      return proximo;
+    });
+
   return (
     <div className="app-shell">
       <a className="skip-link" href="#main-content">Pular para o conteúdo</a>
       <aside className={`sidebar${mobileNavOpen ? " sidebar--open" : ""}`} aria-label="Navegação principal" id="main-navigation">
         <div className="brand-lockup"><img src="/brand/logo-sem-selo.svg" alt="Plugga" /><span className="brand-badge">OS</span></div>
         <nav className="sidebar-nav">
-          {navGroups.map((group) => (
-            <div className="nav-group" key={group.label}>
-              <span className="nav-label">{group.label}</span>
-              {group.items.map((item) => (
-                <button
-                  className={`nav-item${activeView === item.id ? " nav-item--active" : ""}${item.disabled ? " nav-item--pending" : ""}`}
-                  key={item.id}
-                  type="button"
-                  onClick={() => !item.disabled && selectView(item.id)}
-                  disabled={item.disabled}
-                  aria-current={activeView === item.id ? "page" : undefined}
-                >
-                  <Icon name={item.icon ?? "settings"} />
-                  <span>{item.label}</span>
-                  {item.disabled ? <span className="nav-tag">em breve</span> : null}
-                  {item.badge === "parcial" ? <span className="nav-tag nav-tag--partial">parcial</span> : null}
-                </button>
-              ))}
-            </div>
-          ))}
+          {navGroups.map((group) => {
+            const aberto = isOpen(group);
+            const contemAtivo = group.items.some((item) => item.id === activeView);
+
+            const itens = group.items.map((item) => (
+              <button
+                className={`nav-item${activeView === item.id ? " nav-item--active" : ""}${item.disabled ? " nav-item--pending" : ""}`}
+                key={item.id}
+                type="button"
+                onClick={() => !item.disabled && selectView(item.id)}
+                disabled={item.disabled}
+                aria-current={activeView === item.id ? "page" : undefined}
+              >
+                {group.collapsible ? null : <Icon name={item.icon ?? "settings"} />}
+                <span className="nav-item-label">{item.label}</span>
+                {item.disabled ? <span className="nav-tag">em breve</span> : null}
+                {item.badge === "parcial" ? <span className="nav-tag nav-tag--partial">parcial</span> : null}
+              </button>
+            ));
+
+            return (
+              <div className="nav-group" key={group.id}>
+                {group.section ? <span className="nav-section">{group.section}</span> : null}
+
+                {group.collapsible ? (
+                  <>
+                    <button
+                      className={`nav-parent${contemAtivo ? " nav-parent--current" : ""}`}
+                      type="button"
+                      onClick={() => toggleGroup(group.id)}
+                      aria-expanded={aberto}
+                      aria-controls={`nav-group-${group.id}`}
+                    >
+                      <Icon name={group.icon ?? "briefcase"} />
+                      <span className="nav-item-label">{group.label}</span>
+                      <span className={`nav-chevron${aberto ? " nav-chevron--open" : ""}`} aria-hidden="true" />
+                    </button>
+                    {aberto ? (
+                      <div className="nav-children" id={`nav-group-${group.id}`}>
+                        {itens}
+                      </div>
+                    ) : null}
+                  </>
+                ) : (
+                  <>
+                    <span className="nav-label">{group.label}</span>
+                    {itens}
+                  </>
+                )}
+              </div>
+            );
+          })}
         </nav>
         <div className="sidebar-footer"><span className="footer-dot" aria-hidden="true" /><div><strong>Fundação local</strong><span>Mock-only · sem cutover</span></div></div>
       </aside>

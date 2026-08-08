@@ -205,3 +205,23 @@ tbody tr:last-child td { border-bottom: 0; }
 .estrutura-lista { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
 .estrutura-lista li { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 0; font-size: 13.5px; }
 .estrutura-lista li span:first-child { color: var(--ink); }
+
+/* --- Árvore macro → micro na sidebar ------------------------------------ */
+/* Departamento é a linha-pai clicável; processos aninham abaixo, ligados por
+   linhas de árvore. Mesma leitura da referência, na paleta Plugga. */
+.nav-section { padding: 14px 12px 6px; color: var(--folha); font: 600 10.5px/1 Anybody, sans-serif; letter-spacing: .14em; text-transform: uppercase; }
+.nav-parent { display: flex; align-items: center; gap: 10px; width: 100%; padding: 11px 12px; color: rgba(224, 219, 199, .92); text-align: left; background: transparent; border: 0; border-radius: 12px; cursor: pointer; font: 600 13.5px Anybody, sans-serif; transition: background .15s ease, color .15s ease; }
+.nav-parent:hover { color: #fff; background: rgba(224, 219, 199, .08); }
+.nav-parent--current { color: #fff; background: rgba(0, 175, 136, .12); }
+.nav-chevron { margin-left: auto; width: 9px; height: 9px; border-right: 1.6px solid currentColor; border-bottom: 1.6px solid currentColor; opacity: .6; transform: rotate(-45deg); transition: transform .18s ease; }
+.nav-chevron--open { transform: rotate(45deg); }
+
+.nav-children { position: relative; margin: 2px 0 4px 22px; padding-left: 14px; display: grid; gap: 2px; }
+/* Tronco vertical: para antes do último item para o cotovelo fechar a árvore. */
+.nav-children::before { content: ""; position: absolute; left: 0; top: -2px; bottom: 17px; width: 1px; background: rgba(224, 219, 199, .22); }
+.nav-children .nav-item { position: relative; padding: 8px 10px; font-size: 13px; }
+.nav-children .nav-item::before { content: ""; position: absolute; left: -14px; top: 50%; width: 11px; height: 1px; background: rgba(224, 219, 199, .22); }
+.nav-children .nav-item--active::before { background: var(--folha); }
+.nav-item-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+@media (max-width: 900px) { .nav-children { margin-left: 16px; } }

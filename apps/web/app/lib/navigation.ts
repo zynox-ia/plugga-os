@@ -26,25 +26,30 @@ function navItem(processo: Processo, prefixo: string) {
 }
 
 export function navGroupsForEmpresa(empresa: EmpresaId): ShellNavGroup[] {
-  const { departamentos } = EMPRESAS_POR_ID[empresa];
+  const { departamentos, nome } = EMPRESAS_POR_ID[empresa];
 
   return [
     {
+      id: "visao-geral",
       label: "Visão geral",
       items: VISAO_GERAL.map((processo) => ({
         ...navItem(processo, "visao"),
         icon: processo.rota === "/" ? ("home" as const) : ("pulse" as const),
       })),
     },
-    ...departamentos.map((departamento) => ({
+    // Macro (departamento) abre e fecha; micro (processo) fica aninhado nele.
+    ...departamentos.map((departamento, indice) => ({
+      id: `${empresa}-${departamento.id}`,
       label: departamento.label,
-      items: departamento.processos.map((processo) => ({
-        ...navItem(processo, departamento.id),
-        icon: departamento.icon,
-      })),
+      icon: departamento.icon,
+      collapsible: true,
+      section: indice === 0 ? `Departamentos · ${nome}` : undefined,
+      items: departamento.processos.map((processo) => navItem(processo, departamento.id)),
     })),
     {
-      label: "Plataforma · as duas empresas",
+      id: "plataforma",
+      label: "As duas empresas",
+      section: "Plataforma",
       items: GLOBAIS.map((processo) => ({
         ...navItem(processo, "global"),
         icon: "settings" as const,

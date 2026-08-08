@@ -17,7 +17,7 @@ test.describe("Plugga shell — smoke", () => {
 
     for (const departamento of EMPRESAS_POR_ID.plugga.departamentos) {
       await expect(
-        page.locator(".sidebar-nav .nav-label", { hasText: departamento.label }),
+        page.locator(".sidebar-nav .nav-parent", { hasText: departamento.label }),
       ).toBeVisible();
     }
 
@@ -86,18 +86,18 @@ test.describe("Seletor de empresa", () => {
     await page.goto("/?empresa=waze");
 
     await expect(
-      page.locator(".sidebar-nav .nav-label", { hasText: "Engenharia, Projetos & Obras" }),
+      page.locator(".sidebar-nav .nav-parent", { hasText: "Engenharia, Projetos & Obras" }),
     ).toBeVisible();
     await expect(
-      page.locator(".sidebar-nav .nav-label", { hasText: "Operação de Energia / OPM" }),
+      page.locator(".sidebar-nav .nav-parent", { hasText: "Operação de Energia / OPM" }),
     ).toHaveCount(0);
 
     await page.goto("/");
     await expect(
-      page.locator(".sidebar-nav .nav-label", { hasText: "Operação de Energia / OPM" }),
+      page.locator(".sidebar-nav .nav-parent", { hasText: "Operação de Energia / OPM" }),
     ).toBeVisible();
     await expect(
-      page.locator(".sidebar-nav .nav-label", { hasText: "Engenharia, Projetos & Obras" }),
+      page.locator(".sidebar-nav .nav-parent", { hasText: "Engenharia, Projetos & Obras" }),
     ).toHaveCount(0);
   });
 
