@@ -16,6 +16,9 @@ const environmentBoolean = z.preprocess((value) => {
   return value;
 }, z.boolean());
 
+/** Bind addresses that are only reachable from the machine itself. */
+const LOOPBACK_HOSTS = new Set(["127.0.0.1", "localhost", "::1"]);
+
 export const environmentSchema = z
   .object({
     NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
@@ -73,6 +76,22 @@ export const environmentSchema = z
         code: z.ZodIssueCode.custom,
         path: ["DEV_AUTH_ENABLED"],
         message: "development authentication cannot be enabled in production",
+      });
+    }
+
+    // NODE_ENV alone cannot gate the escape hatch: it *defaults* to
+    // "development", so a deploy that merely forgets to set it — while using a
+    // .env copied from .env.example, which ships DEV_AUTH_ENABLED=true — would
+    // accept a forged principal from plain x-dev-* headers. Requiring a loopback
+    // bind fails secure regardless of NODE_ENV: the hatch stays reachable from
+    // the developer's own machine and never from the network.
+    if (environment.DEV_AUTH_ENABLED && !LOOPBACK_HOSTS.has(environment.HOST)) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["DEV_AUTH_ENABLED"],
+        message:
+          `development authentication requires a loopback HOST (got "${environment.HOST}"): ` +
+          "the x-dev-* headers carry no secret and must never be reachable off-box",
       });
     }
 
