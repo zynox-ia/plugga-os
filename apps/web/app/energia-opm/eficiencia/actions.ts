@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 
+import { invoiceReadingSchema, type InvoiceReading } from "@plugga/shared";
+
 import { apiBaseUrl } from "../../lib/env";
 
 /**
@@ -46,6 +48,51 @@ async function chamar(caminho: string, corpo?: unknown): Promise<ResultadoDaAcao
     }
 
     return { ok: true };
+  } catch {
+    return { ok: false, erro: "não foi possível falar com a API" };
+  }
+}
+
+/**
+ * Lê a conta de luz enviada e devolve o que dá para aproveitar.
+ *
+ * O estudo começa aqui, e não pela unidade consumidora: o que a pessoa tem na
+ * mão é a fatura. O arquivo é repassado como veio, sem nada intermediário — o
+ * `fetch` do servidor monta o multipart a partir do `File` do formulário.
+ *
+ * Não grava nada: a decisão sobre os números é da tela seguinte.
+ */
+export async function lerFaturaEnviada(
+  formData: FormData,
+): Promise<{ ok: true; leitura: InvoiceReading } | { ok: false; erro: string }> {
+  const arquivo = formData.get("arquivo");
+  if (!(arquivo instanceof File) || arquivo.size === 0) {
+    return { ok: false, erro: "selecione a conta de luz em PDF" };
+  }
+
+  const cabecalhos = await headers();
+  const cookie = cabecalhos.get("cookie");
+
+  const corpo = new FormData();
+  corpo.append("arquivo", arquivo, arquivo.name);
+
+  try {
+    const resposta = await fetch(`${apiBaseUrl()}/energy-efficiency/invoices/read`, {
+      method: "POST",
+      // Sem `content-type` à mão: o limite do multipart é gerado pelo runtime e
+      // declarar o cabeçalho manualmente quebraria a fronteira.
+      headers: cookie ? { cookie } : {},
+      body: corpo,
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+      cache: "no-store",
+    });
+
+    if (!resposta.ok) {
+      const detalhe = (await resposta.json().catch(() => null)) as { message?: string } | null;
+      return { ok: false, erro: detalhe?.message ?? `não foi possível ler a fatura (${resposta.status})` };
+    }
+
+    return { ok: true, leitura: invoiceReadingSchema.parse(await resposta.json()) };
   } catch {
     return { ok: false, erro: "não foi possível falar com a API" };
   }
@@ -103,6 +150,47 @@ export async function enviarFatura(id: string, formData: FormData): Promise<Resu
 
   if (resultado.ok) revalidatePath(`/energia-opm/eficiencia/${id}`);
   return resultado;
+}
+
+/**
+ * Abre o estudo a partir da fatura já conferida.
+ *
+ * Cria e envia a ficha numa chamada só porque, para quem opera, é um ato só:
+ * "esta conta de luz vira um estudo". Deixar os dois passos expostos abriria
+ * espaço para estudo órfão, criado e sem fatura, se a segunda metade falhasse.
+ */
+export async function abrirEstudoPelaFatura(
+  formData: FormData,
+): Promise<{ ok: true; id: string } | { ok: false; erro: string }> {
+  const cabecalhos = await headers();
+  const cookie = cabecalhos.get("cookie");
+
+  const criacao = await fetch(`${apiBaseUrl()}/energy-efficiency/studies`, {
+    method: "POST",
+    headers: { "content-type": "application/json", ...(cookie ? { cookie } : {}) },
+    body: JSON.stringify({
+      clientId: String(formData.get("clientId") ?? ""),
+      consumerUnitId: String(formData.get("consumerUnitId") ?? ""),
+      competenceMonth: Number(formData.get("competenceMonth")),
+      competenceYear: Number(formData.get("competenceYear")),
+      calculationMode: "preliminar",
+    }),
+    signal: AbortSignal.timeout(TIMEOUT_MS),
+    cache: "no-store",
+  }).catch(() => null);
+
+  if (!criacao?.ok) {
+    const detalhe = (await criacao?.json().catch(() => null)) as { message?: string } | null;
+    return { ok: false, erro: detalhe?.message ?? "não foi possível abrir o estudo" };
+  }
+
+  const { id } = (await criacao.json()) as { id: string };
+
+  const envio = await enviarFatura(id, formData);
+  if (!envio.ok) return envio;
+
+  revalidatePath("/energia-opm/eficiencia");
+  return { ok: true, id };
 }
 
 export async function recalcular(id: string): Promise<ResultadoDaAcao> {

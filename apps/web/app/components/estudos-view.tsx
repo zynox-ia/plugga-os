@@ -1,11 +1,11 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useState } from "react";
 
 import type { ConsumerUnitSummary, EnergyStudyStatus, EnergyStudySummary } from "@plugga/shared";
 
-import { criarEstudo } from "../energia-opm/eficiencia/actions";
+import { NovaFaturaView } from "./nova-fatura-view";
 import { ShellCard, ShellTable, StatusPill } from "./plugga-shell";
 
 /**
@@ -50,26 +50,6 @@ export function EstudosView({
 }) {
   const router = useRouter();
   const [abrindo, setAbrindo] = useState(false);
-  const [erro, setErro] = useState<string | null>(null);
-  const [pendente, iniciar] = useTransition();
-
-  const agora = new Date();
-  // Mês anterior como padrão: fatura do mês corrente ainda não fechou.
-  const mesPadrao = agora.getMonth() === 0 ? 12 : agora.getMonth();
-  const anoPadrao = agora.getMonth() === 0 ? agora.getFullYear() - 1 : agora.getFullYear();
-
-  function submeter(formData: FormData) {
-    setErro(null);
-    iniciar(async () => {
-      const resultado = await criarEstudo(formData);
-      if (resultado.ok) {
-        setAbrindo(false);
-        router.refresh();
-      } else {
-        setErro(resultado.erro);
-      }
-    });
-  }
 
   return (
     <>
@@ -89,7 +69,7 @@ export function EstudosView({
               onClick={() => setAbrindo((atual) => !atual)}
               disabled={consumerUnits.length === 0}
             >
-              {abrindo ? "Cancelar" : "Novo estudo"}
+              {abrindo ? "Cancelar" : "Novo estudo pela fatura"}
             </button>
           </div>
         </div>
@@ -102,48 +82,12 @@ export function EstudosView({
         ) : null}
 
         {abrindo ? (
-          <form className="estudo-form" action={submeter}>
-            <label>
-              <span>Unidade consumidora</span>
-              <select
-                name="consumerUnitId"
-                required
-                onChange={(evento) => {
-                  const uc = consumerUnits.find((item) => item.id === evento.target.value);
-                  const campo = evento.currentTarget.form?.elements.namedItem("clientId");
-                  if (campo instanceof HTMLInputElement) campo.value = uc?.clientId ?? "";
-                }}
-              >
-                <option value="">Selecione…</option>
-                {consumerUnits.map((uc) => (
-                  <option key={uc.id} value={uc.id}>
-                    {uc.code} · {uc.clientName}
-                  </option>
-                ))}
-              </select>
-            </label>
-            {/* O cliente vem da UC escolhida: uma UC pertence a um cliente só,
-                então pedir os dois seria abrir espaço para incoerência. */}
-            <input type="hidden" name="clientId" defaultValue="" />
-            <label>
-              <span>Mês</span>
-              <input name="competenceMonth" type="number" min={1} max={12} defaultValue={mesPadrao} required />
-            </label>
-            <label>
-              <span>Ano</span>
-              <input name="competenceYear" type="number" min={2020} max={2100} defaultValue={anoPadrao} required />
-            </label>
-            <button className="button button--accent" type="submit" disabled={pendente}>
-              {pendente ? "Abrindo…" : "Abrir estudo"}
-            </button>
-            {erro ? <p className="auth-error">{erro}</p> : null}
-          </form>
+          <NovaFaturaView consumerUnits={consumerUnits} onCancelar={() => setAbrindo(false)} />
         ) : null}
 
         {items.length === 0 ? (
           <p className="card-note">
-            Nenhum estudo ainda. Abra o primeiro escolhendo a unidade consumidora e a competência
-            da fatura.
+            Nenhum estudo ainda. Abra o primeiro soltando a conta de luz do cliente.
           </p>
         ) : (
           <ShellTable caption="Estudos de eficiência energética">

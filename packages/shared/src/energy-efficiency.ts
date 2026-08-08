@@ -350,3 +350,67 @@ export const energyStudyListQuerySchema = z
   .object({ status: energyStudyStatusSchema.optional() })
   .strict();
 export type EnergyStudyListQuery = z.infer<typeof energyStudyListQuerySchema>;
+
+// --- Leitura da fatura enviada ---------------------------------------------
+
+/**
+ * O estudo começa pela conta de luz, não pela unidade consumidora: é o
+ * documento que a pessoa tem na mão. A leitura devolve o que conseguiu extrair
+ * e, com igual importância, o que **não** conseguiu — três quartos das faturas
+ * reais são digitalização e não têm camada de texto.
+ */
+export const invoiceReadingOriginSchema = z.enum([
+  "texto_direto",
+  "fonte_codificada",
+  "digitalizacao",
+]);
+export type InvoiceReadingOrigin = z.infer<typeof invoiceReadingOriginSchema>;
+
+export const invoiceReadingRefusalSchema = z.enum([
+  "digitalizacao",
+  "sem_itens",
+  "grupo_b",
+  "campos_essenciais_ausentes",
+]);
+export type InvoiceReadingRefusal = z.infer<typeof invoiceReadingRefusalSchema>;
+
+/** Veredicto da conferência `quantidade × tarifa = valor` de cada item. */
+export const invoiceItemVerdictSchema = z.enum([
+  "confirmado",
+  "divergente",
+  "sem_conferencia",
+]);
+export type InvoiceItemVerdict = z.infer<typeof invoiceItemVerdictSchema>;
+
+export const invoiceReadingItemSchema = z
+  .object({
+    rotulo: z.string(),
+    quantidade: z.number().nullable(),
+    unidade: z.enum(["kWh", "kW"]).nullable(),
+    tarifa: z.number().nullable(),
+    valor: z.number(),
+    veredicto: invoiceItemVerdictSchema,
+    /** Valor que a multiplicação produz; nulo quando não há o que multiplicar. */
+    esperado: z.number().nullable(),
+  })
+  .strict();
+export type InvoiceReadingItem = z.infer<typeof invoiceReadingItemSchema>;
+
+export const invoiceReadingSchema = z
+  .object({
+    origem: invoiceReadingOriginSchema,
+    /** Falso quando não deu para montar a ficha; `motivo` diz por quê. */
+    aproveitavel: z.boolean(),
+    motivo: invoiceReadingRefusalSchema.nullable(),
+    unidadeConsumidoraCodigo: z.string().nullable(),
+    competenceMonth: z.number().int().min(1).max(12).nullable(),
+    competenceYear: z.number().int().min(2000).max(2100).nullable(),
+    distribuidora: z.string().nullable(),
+    /** Só o que a aritmética confirmou; o resto fica para a pessoa preencher. */
+    invoice: invoiceDataSchema.partial(),
+    itens: z.array(invoiceReadingItemSchema),
+    camposParaConfirmar: z.array(z.string()),
+    arquivoNome: z.string(),
+  })
+  .strict();
+export type InvoiceReading = z.infer<typeof invoiceReadingSchema>;
