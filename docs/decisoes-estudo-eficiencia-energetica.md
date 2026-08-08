@@ -137,22 +137,36 @@ com a ressalva escrita no documento. Impostos sobre o investimento idem.
 
 ### 3.5 Demanda ideal
 
+Regras da skill `estudo-demanda-plugga` (modelo V16, congelado em 2026-05-18):
+
 ```
 limite_sem_multa = demanda_proposta × 1,05
+economia_mes     = (demanda_contratada − demanda_proposta) × tarifa_demanda
+economia_ano     = economia_mes × 12
 ```
 
-A demanda proposta recomendada tem limite sem multa **igual ou acima do pico
-observado**, salvo decisão consciente de risco. Três cenários: conservador,
-intermediário e arrojado.
+- **A tolerância de 5% vale só para cima.** Acima da contratada até ×1,05 não há
+  multa; acima disso, penalidade por ultrapassagem.
+- **Para baixo não há multa.** Demanda usada abaixo da contratada é **demanda
+  ociosa** — dinheiro deixado na mesa. Apresentar como ociosidade, **nunca como
+  multa**.
+- **Faixa de enquadramento:** alteração entre **5% e 20%** sobre a contratada é
+  estudo de demanda simples. Fora dessa faixa (`<5%` ou `>20%`) não é solicitação
+  simples — vira **orçamento de conexão** (adequação de subestação), citando REN
+  ANEEL 1.000/2021, Art. 154 (ampliação), Art. 155 (redução, limite de uma por
+  12 meses) e Arts. 311–314 (testes).
+- **Três cenários obrigatórios:** conservador, intermediário e arrojado. Cada um
+  com demanda proposta, limite sem multa, meses acima do contrato, meses com
+  multa, economia mensal e anual, e risco.
+- **Recomendação** = cenário cujo limite sem multa fique **igual ou acima do pico
+  observado**, maximizando economia. Pico instável ou sazonal → recomendar o
+  intermediário e registrar a ressalva.
+- **Histórico:** idealmente 12 a 16 meses. Na modalidade Verde a demanda é
+  global; na Azul há ponta e fora ponta — não misturar.
 
-Maturidade da análise por volume de histórico:
-
-| Faturas | Classificação |
-|---|---|
-| 1 | Diagnóstico preliminar |
-| 3–6 | Tendência inicial, ainda preliminar |
-| 6–11 | Intermediária, com ressalva |
-| 12+ ou memória de massa | Robusta |
+Dentro do estudo de eficiência energética isso entra **só como resumo na seção
+de demanda**. O Estudo de Demanda completo é outro entregável, com modelo
+próprio (V16, retrato A4, timbrado, assinaturas e CTA).
 
 Os números do piloto Serra Verde (1.095 kW, −103 kW / 8,60%, R$ 1.368,87/mês)
 **não devem ser codificados**. Entram só como caso histórico — a memória de
@@ -303,21 +317,33 @@ Isso resolve o pedido de `logo_clara.png` / `logo_escura.png`, e o `hero` +
 
 ---
 
-## 6. O que ainda bloqueia
+## 6. Pendências
 
-| Item | Situação | Impacto |
-|---|---|---|
-| **Skill `estudo-demanda-plugga`** | Citada como fonte da regra de demanda ideal, **não entregue** | Único bloqueio restante. Sem ela, os três cenários e a regra de alteração entre 5% e 20% não podem ser implementados fielmente |
-| Modelo Jardim Floresta | ✅ **Recebido e conferido por hash** (ver §5) | — |
-| Assets visuais (logos, hero, rodapé) | ✅ **Resolvidos** — vêm embutidos no modelo | — |
-| Memória de cálculo do Serra Verde | Declarada como não formalizada | Aceito: caso histórico, não regra |
-| Preço de mesa do Mercado Livre | Sem fonte automática | Cenário aparece como "a simular" |
-| Escopo do CAPEX | ✅ **Decidido**: premissa preliminar estimada (ver §4.8) | — |
+Em 2026-08-08 o pacote completo foi recuperado direto do workspace do agente
+(leitura apenas, sem tocar em processo ou configuração) e arquivado em
+`docs/fontes/estudo-eficiencia-energetica/pacote-open-cloud-2026-08-08/`.
 
-Restou **um** bloqueio real. Os demais itens ou foram resolvidos ou podem
-conviver com marcação de pendência dentro do estudo.
+**Nenhum item bloqueia mais o início.**
 
----
+| Item | Situação |
+|---|---|
+| Modelo Jardim Floresta | ✅ recebido, SHA256 conferido |
+| Skill `estudo-demanda-plugga` | ✅ recebida — SKILL.md, template e `references/padrao-v16.md` |
+| Assets de `relatorio-economia-plugga` | ✅ recebidos — `template.html` e os dois logos |
+| Spec de validação do modelo | ✅ `caso_jardim_floresta_solar_bess_modelo.json`: seções, obrigatórios, proibidos |
+| Memória de cálculo do Serra Verde | ⚠️ não formalizada — fica como caso histórico |
+| Preço de mesa do Mercado Livre | ⚠️ sem fonte automática — cenário sai como "a simular" |
+
+As duas últimas convivem com marcação de pendência dentro do estudo.
+
+### 6.1 Nota sobre dados de cliente no repositório
+
+O modelo Jardim Floresta e o `template.html` contêm **dados reais de cliente**
+(razão social, UC, valores de fatura). Estão aqui porque são a referência
+aprovada que o sistema precisa reproduzir, e o repositório é privado. Não há
+credencial nem segredo — o README do próprio pacote confirma que logs, cache e
+credenciais ficaram de fora. Vale uma decisão consciente sobre manter esses
+arquivos versionados ou substituí-los por versões com dados fictícios.
 
 ## 7. Uma observação sobre terminologia
 
