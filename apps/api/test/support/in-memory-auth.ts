@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { hash as argon2Hash } from "@node-rs/argon2";
 import { flattenRoles, type UserAccess } from "@plugga/shared";
 
+import { argon2Options } from "../../src/auth/argon2-options";
 import { AuditRepository } from "../../src/audit/audit.repository";
 import type { AuthPrincipal } from "../../src/core/auth/auth.types";
 import { SessionLookupRepository } from "../../src/core/auth/session-lookup.repository";
@@ -25,12 +26,7 @@ import {
  * armazenamentos paralelos divergiriam na primeira regra nova de acesso.
  */
 
-// Alinhado com PasswordService; parâmetros baixos o bastante para o teste rodar.
-export const argon2Options = {
-  memoryCost: 19_456,
-  timeCost: 2,
-  parallelism: 1,
-} as const;
+export { argon2Options };
 
 export interface StoredUser {
   id: string;
@@ -203,9 +199,14 @@ export class InMemoryAuthRepository extends AuthRepository {
     if (!token || token.consumedAt !== null) {
       throw new Error("auth token already consumed");
     }
+    const user = this.store.users.get(userId);
+    // Espelha a guarda do PrismaAuthRepository: convite só ativa quem ainda
+    // está `invited` — sem isso o teste passaria aqui e falharia só em produção.
+    if (options.activateUser && user?.status !== "invited") {
+      throw new Error("user is not pending activation");
+    }
     token.consumedAt = consumedAt;
     this.store.credentials.set(userId, passwordHash);
-    const user = this.store.users.get(userId);
     if (user && options.activateUser) {
       user.status = "active";
     }
@@ -227,6 +228,12 @@ export class InMemoryAuthRepository extends AuthRepository {
     const user = this.store.users.get(userId);
     if (!user) {
       return null;
+    }
+    // Espelha o PrismaAuthRepository: desativar consome os tokens pendentes.
+    for (const token of this.store.tokens.values()) {
+      if (token.userId === userId && token.consumedAt === null) {
+        token.consumedAt = new Date();
+      }
     }
     user.status = "disabled";
     return this.toRecord(user);
