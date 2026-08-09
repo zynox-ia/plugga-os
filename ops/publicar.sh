@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+#
+# Publica na VPS o que está na `main` do GitHub.
+#
+# Roda **na sua máquina**, da raiz do repositório:
+#
+#     ./ops/publicar.sh
+#
+# Publica o que está publicado no GitHub, não o que está na sua pasta. A
+# diferença importa: se der problema em produção, o código que está lá é o mesmo
+# que qualquer pessoa consegue ver e revisar. Publicar a pasta local significaria
+# ter em produção algo que só existe na sua máquina.
+set -euo pipefail
+
+VPS=${VPS_HOST:-plugga-vps}
+DESTINO=${VPS_PATH:-/opt/plugga-os}
+REFERENCIA=${1:-origin/main}
+
+registro() { printf '\n\033[1m▸ %s\033[0m\n' "$*"; }
+
+registro "conferindo o que vai subir"
+git fetch origin --quiet
+COMMIT=$(git rev-parse --short "$REFERENCIA")
+echo "  $COMMIT $(git log -1 --format=%s "$REFERENCIA")"
+
+# Trabalho não commitado não sobe, e é bom que não suba. Mas avisar evita a
+# surpresa de publicar e não ver a própria alteração no ar.
+if [ -n "$(git status --porcelain)" ]; then
+  echo
+  echo "  Atenção: você tem alterações não commitadas. Elas NÃO vão subir."
+  echo "  Para publicá-las: commit, push, e rode de novo."
+  printf "  Continuar assim mesmo? [s/N] "
+  read -r resposta
+  [ "$resposta" = "s" ] || { echo "  cancelado"; exit 1; }
+fi
+
+registro "empacotando"
+PACOTE=$(mktemp -t plugga-deploy-XXXXXX).tgz
+git archive --format=tar "$REFERENCIA" | gzip > "$PACOTE"
+echo "  $(du -h "$PACOTE" | cut -f1)"
+
+registro "enviando para a VPS"
+scp -q "$PACOTE" "${VPS}:/tmp/plugga-deploy.tgz"
+rm -f "$PACOTE"
+
+registro "instalando o código e publicando"
+# `.env` e `compose.yaml` da VPS são preservados: carregam a configuração de
+# produção, que por desenho não vive no repositório.
+ssh "$VPS" "set -e
+  cd ${DESTINO}
+  cp .env /tmp/.env.guardado
+  cp compose.yaml /tmp/compose.guardado
+  tar xzf /tmp/plugga-deploy.tgz -C ${DESTINO}
+  cp /tmp/.env.guardado .env
+  cp /tmp/compose.guardado compose.yaml
+  chmod 600 .env
+  rm -f /tmp/plugga-deploy.tgz /tmp/.env.guardado /tmp/compose.guardado
+  chmod +x ops/deploy.sh
+  ./ops/deploy.sh"
+
+registro "no ar: $COMMIT"
