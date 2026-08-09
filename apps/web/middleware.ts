@@ -2,7 +2,10 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { apiBaseUrl } from "./app/lib/env";
 
-const FETCH_TIMEOUT_MS = 5_000;
+// Mesma folga de auth-proxy.ts e do FETCH_TIMEOUT_TUNEL_MS de app/lib/api.ts:
+// validar a sessão atravessa o túnel SSH (~2 s de base), e 5 s expulsava
+// usuário logado para /login em qualquer pico de latência.
+const FETCH_TIMEOUT_MS = 15_000;
 
 const PUBLIC_PATHS = ["/login", "/auth/accept-invite", "/auth/reset"];
 

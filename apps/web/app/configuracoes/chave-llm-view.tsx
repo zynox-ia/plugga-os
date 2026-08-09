@@ -6,7 +6,7 @@ import { ShellCard, StatusPill } from "../components/plugga-shell";
 
 type EstadoDaChave = {
   configurada: boolean;
-  origem: "banco" | "ambiente" | "nenhuma";
+  origem: "banco" | "ambiente" | "nenhuma" | "banco_ilegivel";
   mascara: string | null;
   atualizadoEm: string | null;
   atualizadoPor: string | null;
@@ -59,13 +59,18 @@ export function ChaveLlmView() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ chave: valor }),
       });
-      const corpo = (await resposta.json()) as EstadoDaChave & { message?: string };
-      if (!resposta.ok) throw new Error(corpo.message ?? "não foi possível gravar a chave");
+      // `ok` antes do parse: um erro que chega sem JSON (proxy fora do ar) não
+      // pode estourar aqui como falha de parse.
+      if (!resposta.ok) {
+        const detalhe = (await resposta.json().catch(() => null)) as { message?: string } | null;
+        throw new Error(detalhe?.message ?? "não foi possível gravar a chave");
+      }
+      const corpo = (await resposta.json().catch(() => null)) as EstadoDaChave | null;
 
       // Limpo antes de qualquer outra coisa: se algo abaixo falhar, a chave já
       // saiu da tela.
       setValor("");
-      setEstado({ ...corpo, cofreConfigurado: true });
+      if (corpo) setEstado({ ...corpo, cofreConfigurado: true });
       setAviso("Chave gravada. Ela passa a valer nas próximas chamadas.");
     } catch (falha) {
       setErro(falha instanceof Error ? falha.message : "falha ao gravar");
@@ -80,11 +85,11 @@ export function ChaveLlmView() {
     setAviso(null);
     try {
       const resposta = await fetch("/api/llm/chave", { method: "DELETE" });
-      const corpo = (await resposta.json()) as EstadoDaChave;
       if (!resposta.ok) throw new Error("não foi possível apagar a chave");
-      setEstado({ ...corpo, cofreConfigurado: estado?.cofreConfigurado ?? true });
+      const corpo = (await resposta.json().catch(() => null)) as EstadoDaChave | null;
+      if (corpo) setEstado({ ...corpo, cofreConfigurado: estado?.cofreConfigurado ?? true });
       setAviso(
-        corpo.origem === "ambiente"
+        corpo?.origem === "ambiente"
           ? "Chave apagada do banco. O sistema voltou a usar a do ambiente."
           : "Chave apagada. As funcionalidades que dependem dela ficam desligadas.",
       );
@@ -128,7 +133,12 @@ export function ChaveLlmView() {
         </p>
       ) : null}
 
-      {estado?.configurada ? (
+      {estado?.origem === "banco_ilegivel" ? (
+        <p className="card-note" role="alert">
+          <b>A chave gravada não pode mais ser lida</b> — a chave-mestra do cofre mudou.
+          Regrave a chave. Em uso agora: <b>{estado.mascara ?? "nenhuma"}</b>.
+        </p>
+      ) : estado?.configurada ? (
         <p className="card-note">
           Em uso: <b>{estado.mascara}</b>{" "}
           {estado.origem === "ambiente" ? (

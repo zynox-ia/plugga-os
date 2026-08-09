@@ -51,6 +51,7 @@ export function ClientesView({
   const [createError, setCreateError] = useState<string | null>(null);
   const [duplicateCandidates, setDuplicateCandidates] = useState<ClientDuplicateCandidate[] | null>(null);
   const [pendingActionId, setPendingActionId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   function applyFilters(event: FormEvent) {
     event.preventDefault();
@@ -94,16 +95,23 @@ export function ClientesView({
 
     const response = data as { duplicateCandidates: ClientDuplicateCandidate[] };
     setDuplicateCandidates(response.duplicateCandidates);
+    // Sem reset(): o formulário é desmontado logo abaixo, e no React 19 o
+    // currentTarget já foi anulado depois do await — o reset estourava e
+    // impedia o refresh de rodar.
     setShowCreateForm(false);
-    event.currentTarget.reset();
     router.refresh();
   }
 
   async function toggleActive(client: ClientSummary) {
     setPendingActionId(client.id);
+    setActionError(null);
     const path = client.active ? `/api/clientes/${client.id}/inactivate` : `/api/clientes/${client.id}/activate`;
-    await postJson(path, {});
+    const { ok, data } = await postJson(path, {});
     setPendingActionId(null);
+    if (!ok) {
+      setActionError((data as { message?: string })?.message ?? "não foi possível atualizar o status");
+      return;
+    }
     router.refresh();
   }
 
@@ -222,6 +230,12 @@ export function ClientesView({
             </div>
             {createError ? <p className="auth-error">{createError}</p> : null}
           </form>
+        ) : null}
+
+        {actionError ? (
+          <p className="auth-error" style={{ margin: "0 18px 14px" }}>
+            {actionError}
+          </p>
         ) : null}
 
         <ShellTable caption="Clientes cadastrados">
