@@ -11,6 +11,9 @@ export class PrismaJobsRepository extends JobsRepository {
 
   findRuns(): Promise<StoredJobRunInventoryItem[]> {
     return this.prisma.jobRun.findMany({
+      // O JobRunsRecorder grava uma linha por tentativa de job, sem retenção:
+      // sem teto, esta resposta cresce para sempre e a tela pagina no cliente.
+      take: 100,
       orderBy: [{ scheduledFor: "desc" }, { createdAt: "desc" }],
       select: {
         id: true,
