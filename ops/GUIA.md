@@ -32,8 +32,6 @@ produção. Ver "O túnel para a VPS", no fim.
 
 A API e o site **não** vão no Docker: rodam com `pnpm dev` para recarregar sozinhos quando você salva um arquivo.
 
-A API e o site **não** vão no Docker: rodam com `pnpm dev` para recarregar sozinhos quando você salva um arquivo.
-
 ### Por que o Mailpit em desenvolvimento
 
 Produção manda e-mail de verdade pelo Brevo. Aqui, não — cada teste de convite gastaria crédito e mandaria mensagem para endereço inventado. O Mailpit captura tudo e não entrega nada; você lê em <http://localhost:58025>.
