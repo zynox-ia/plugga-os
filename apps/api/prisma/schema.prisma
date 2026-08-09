@@ -1002,3 +1002,53 @@ enum EnergyCalculationMode {
 
   @@map("energy_calculation_mode")
 }
+
+enum LlmChamadaStatus {
+  ok
+  erro
+
+  @@map("llm_chamada_status")
+}
+
+/// Uma linha por chamada ao modelo, com quem pediu e o que custou.
+///
+/// Existe porque "quanto a chave está gastando" só é respondível se toda chamada
+/// passar por uma porta e essa porta escrever aqui. O campo que sustenta o resto
+/// é `processo`: sem ele o total é um número sem dono, e a pergunta que importa —
+/// se a leitura de fatura vale o que consome — fica sem resposta.
+///
+/// `custoCreditos` é o custo que a OpenRouter informou na própria resposta, não
+/// uma estimativa por tabela de preço: preço de modelo muda e tabela envelhece em
+/// silêncio. Fica nulo quando o provedor não informou, e nulo é diferente de zero.
+///
+/// Chamada que falhou também entra, com os tokens que chegou a consumir. Uma
+/// tempestade de tentativas é história de custo, e some do relatório se só o
+/// sucesso for registrado.
+model LlmChamada {
+  id               String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  processo         String
+  modelo           String
+  /// O modelo que a OpenRouter realmente serviu, que pode diferir do pedido.
+  modeloServido    String?          @map("modelo_servido")
+  tokensEntrada    Int              @default(0) @map("tokens_entrada")
+  tokensSaida      Int              @default(0) @map("tokens_saida")
+  /// Leitura de cache: conta como token processado e custa bem menos.
+  tokensCache      Int              @default(0) @map("tokens_cache")
+  tokensRaciocinio Int              @default(0) @map("tokens_raciocinio")
+  custoCreditos    Decimal?         @map("custo_creditos") @db.Decimal(18, 8)
+  duracaoMs        Int              @map("duracao_ms")
+  status           LlmChamadaStatus
+  erro             String?
+  /// Objeto de negócio que motivou a chamada — para faturas, a impressão digital
+  /// do arquivo. É o que permite dividir gasto por unidade em vez de só somar.
+  referencia       String?
+  /// Identificador da geração na OpenRouter, para conciliar com a fatura deles.
+  geracaoId        String?          @map("geracao_id")
+  criadoEm         DateTime         @default(now()) @map("criado_em") @db.Timestamptz(6)
+
+  @@index([processo, criadoEm])
+  @@index([criadoEm])
+  @@index([modelo])
+  @@index([referencia])
+  @@map("llm_chamadas")
+}

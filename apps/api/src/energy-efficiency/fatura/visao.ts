@@ -1,5 +1,5 @@
-import Anthropic from "@anthropic-ai/sdk";
-
+import type { OpenRouterGateway } from "../../llm/openrouter.gateway.js";
+import { PROCESSOS } from "../../llm/processo.js";
 import type { IdentificacaoDaFatura } from "./identificacao.js";
 import type { ItemDaFatura, UnidadeDoItem } from "./itens.js";
 
@@ -22,24 +22,29 @@ import type { ItemDaFatura, UnidadeDoItem } from "./itens.js";
  * falha a aritmética em vez de passar em silêncio. Sem essa rede, esta integração
  * não deveria existir.
  *
- * Como o armazenamento, é apoio e não serviço: sem credencial configurada a
- * leitura segue pelo caminho de sempre e a resposta apenas não ganha os campos
- * que só o modelo acharia. Nenhuma fatura deixa de ser lida porque a API caiu.
+ * A chamada vai pelo gateway da OpenRouter, nunca por cliente próprio: é o que
+ * garante que estes tokens apareçam no relatório de consumo com o dono certo.
+ * Uma leitura de fatura que gasta sem aparecer torna a conta do mês inexplicável.
  */
 
-/** Só o que a fatura publica; o resto a ficha calcula. */
 export type LeituraPorVisao = {
   identificacao: IdentificacaoDaFatura;
   itens: ItemDaFatura[];
 };
 
+export type PaginaParaVisao = { conteudo: Buffer; mime: string };
+
+export type LeitorPorVisao = (
+  paginas: PaginaParaVisao[],
+  referencia?: string,
+) => Promise<LeituraPorVisao | null>;
+
 /**
  * `strict` exige `additionalProperties: false` e `required` em todo objeto, e a
  * saída estruturada garante que o JSON casa com isto — não é pedir e torcer. Sem
- * restrição numérica: a especificação não as suporta, e quem valida número aqui
- * é a aritmética da fatura, não o schema.
+ * restrição numérica: quem valida número aqui é a aritmética da fatura.
  */
-const ESQUEMA = {
+const ESQUEMA: Record<string, unknown> = {
   type: "object",
   additionalProperties: false,
   required: ["distribuidora", "unidadeConsumidora", "competenciaMes", "competenciaAno", "itens"],
@@ -100,7 +105,7 @@ const ESQUEMA = {
       },
     },
   },
-} as const;
+};
 
 const INSTRUCAO = [
   "Você lê faturas de energia elétrica de distribuidoras brasileiras e devolve os",
@@ -117,35 +122,6 @@ const INSTRUCAO = [
   "  e destruiria justamente a verificação que existe para pegar erro de leitura.",
 ].join("\n");
 
-/** Modelo e limites vêm do ambiente para dar para trocar sem reimplantar. */
-const MODELO = process.env.VISAO_MODELO || "claude-opus-5";
-const ESFORCO = process.env.VISAO_ESFORCO || "medium";
-/**
- * Folgado de propósito: no Claude Opus 5 o pensamento é ligado por padrão e
- * `max_tokens` limita pensamento MAIS resposta. Apertar aqui trunca a ficha no
- * meio de uma fatura com muitos itens.
- */
-const TETO_DE_SAIDA = Number(process.env.VISAO_MAX_TOKENS || 16000);
-
-export function configurado(): boolean {
-  return Boolean(process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN);
-}
-
-/** `true` quando o arquivo é PDF; o resto tratamos como imagem. */
-function ehPdf(mime: string): boolean {
-  return mime === "application/pdf";
-}
-
-function bloco(conteudo: Buffer, mime: string) {
-  const data = conteudo.toString("base64");
-  return ehPdf(mime)
-    ? ({ type: "document", source: { type: "base64", media_type: "application/pdf", data } } as const)
-    : ({
-        type: "image",
-        source: { type: "base64", media_type: mime as "image/png", data },
-      } as const);
-}
-
 type ItemBruto = {
   rotulo: string;
   quantidade: number | null;
@@ -154,11 +130,6 @@ type ItemBruto = {
   valor: number;
 };
 
-/**
- * O modelo devolve texto validado contra o schema; aqui só traduzimos para os
- * tipos do domínio. `origem` registra a procedência para a tela poder dizer de
- * onde veio cada linha — numa auditoria isso não é detalhe.
- */
 function converter(item: ItemBruto): ItemDaFatura {
   const unidade =
     item.unidade === "kWh" || item.unidade === "kW" ? (item.unidade as UnidadeDoItem) : null;
@@ -168,77 +139,61 @@ function converter(item: ItemBruto): ItemDaFatura {
     unidade,
     tarifa: item.tarifa,
     valor: item.valor,
+    // Procedência registrada: numa auditoria, saber que a linha veio do modelo e
+    // não de um padrão conferível não é detalhe.
     origem: "visao",
   };
 }
 
-let cliente: Anthropic | null = null;
-
 /**
- * Lê a fatura pelo modelo. Devolve `null` quando não há credencial ou quando a
- * chamada falha — o chamador segue com o que as regras conseguiram, que é sempre
- * melhor que derrubar a leitura inteira.
+ * Fecha o gateway numa função que a leitura pode chamar sem conhecer Nest.
+ *
+ * `leitura.ts` continua puro e testável; a dependência entra por parâmetro em
+ * vez de por importação, que é o que permite o teste rodar sem rede.
  */
-export async function lerPorVisao(
-  conteudo: Buffer,
-  mime: string,
-): Promise<LeituraPorVisao | null> {
-  if (!configurado()) return null;
+export function criarLeitorPorVisao(gateway: OpenRouterGateway): LeitorPorVisao {
+  return async (paginas, referencia) => {
+    if (paginas.length === 0) return null;
 
-  cliente ??= new Anthropic();
-
-  try {
-    const resposta = await cliente.messages.create({
-      model: MODELO,
-      max_tokens: TETO_DE_SAIDA,
-      output_config: {
-        effort: ESFORCO as "low" | "medium" | "high",
-        format: { type: "json_schema", schema: ESQUEMA },
-      },
-      system: INSTRUCAO,
-      messages: [
-        {
-          role: "user",
-          content: [
-            bloco(conteudo, mime),
-            { type: "text", text: "Leia esta fatura e devolva os campos publicados." },
-          ],
-        },
+    const resposta = await gateway.completar({
+      processo: PROCESSOS.FATURA_VISAO,
+      instrucao: INSTRUCAO,
+      esquema: { nome: "fatura", schema: ESQUEMA },
+      referencia,
+      partes: [
+        ...paginas.map((p) => ({ tipo: "imagem" as const, conteudo: p.conteudo, mime: p.mime })),
+        { tipo: "texto" as const, texto: "Leia esta fatura e devolva os campos publicados." },
       ],
     });
 
-    // Recusa por política volta com 200 e conteúdo vazio; ler content[0] sem
-    // conferir o motivo quebraria aqui em vez de degradar.
-    if (resposta.stop_reason === "refusal") return null;
+    if (!resposta || !resposta.texto) return null;
 
-    const texto = resposta.content.find((b) => b.type === "text");
-    if (!texto || texto.type !== "text") return null;
+    try {
+      const dados = JSON.parse(resposta.texto) as {
+        distribuidora: string | null;
+        unidadeConsumidora: string | null;
+        competenciaMes: number | null;
+        competenciaAno: number | null;
+        itens: ItemBruto[];
+      };
 
-    const dados = JSON.parse(texto.text) as {
-      distribuidora: string | null;
-      unidadeConsumidora: string | null;
-      competenciaMes: number | null;
-      competenciaAno: number | null;
-      itens: ItemBruto[];
-    };
+      const competencia =
+        dados.competenciaMes && dados.competenciaAno
+          ? { mes: dados.competenciaMes, ano: dados.competenciaAno }
+          : null;
 
-    const competencia =
-      dados.competenciaMes && dados.competenciaAno
-        ? { mes: dados.competenciaMes, ano: dados.competenciaAno }
-        : null;
-
-    return {
-      identificacao: {
-        unidadeConsumidora: dados.unidadeConsumidora,
-        competencia,
-        distribuidora: dados.distribuidora,
-      },
-      itens: dados.itens.map(converter),
-    };
-  } catch {
-    // Silencioso de propósito: leitura por visão é apoio. Quem chama já sabe
-    // seguir sem ela, e derrubar a fatura por indisponibilidade de terceiro
-    // seria trocar um resultado parcial por nenhum.
-    return null;
-  }
+      return {
+        identificacao: {
+          unidadeConsumidora: dados.unidadeConsumidora,
+          competencia,
+          distribuidora: dados.distribuidora,
+        },
+        itens: (dados.itens ?? []).map(converter),
+      };
+    } catch {
+      // JSON quebrado é o mesmo que não ter lido: a fatura segue pelo caminho
+      // das regras em vez de derrubar o envio.
+      return null;
+    }
+  };
 }

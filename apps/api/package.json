@@ -23,10 +23,10 @@
     "test:jobs": "RUN_JOBS_INTEGRATION_TESTS=true vitest run test/jobs-queue.integration.spec.ts",
     "test:ocr": "RUN_OCR_INTEGRATION_TESTS=true vitest run test/fatura-ocr.integration.spec.ts",
     "test:storage": "RUN_STORAGE_INTEGRATION_TESTS=true vitest run test/fatura-armazenamento.integration.spec.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:llm": "RUN_LLM_INTEGRATION_TESTS=true vitest run test/llm-consumo.integration.spec.ts"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.116.0",
     "@aws-sdk/client-s3": "3.937.0",
     "@napi-rs/canvas": "0.1.80",
     "@nestjs/common": "11.1.6",

@@ -6,8 +6,8 @@ import { normalizar, type OrigemDoTexto } from "./documento.js";
 import { identificar, type IdentificacaoDaFatura } from "./identificacao.js";
 import { lerItens, type ItemDaFatura } from "./itens.js";
 import { linhasImpressas } from "./linhas.js";
-import { SenhaIncorretaError, SenhaNecessariaError } from "./paginas.js";
-import { lerPorVisao } from "./visao.js";
+import { abrirPdf, SenhaIncorretaError, SenhaNecessariaError } from "./paginas.js";
+import type { LeitorPorVisao, PaginaParaVisao } from "./visao.js";
 
 /**
  * Leitura de uma fatura da distribuidora, venha ela como for.
@@ -134,11 +134,27 @@ function montarFicha(
   return montarComItens(identificacao, itens, conferencia, extras, origem, confianca);
 }
 
+export type OpcoesDeLeitura = {
+  senha?: string;
+  /** Tipo do arquivo enviado; decide se a visão recebe a imagem ou a página rasterizada. */
+  mime?: string;
+  /**
+   * Leitor por modelo, injetado por quem tem o gateway. Ausente, a leitura fica
+   * só nas regras — que é o comportamento correto sem chave configurada.
+   */
+  visao?: LeitorPorVisao;
+  /** Impressão digital do arquivo, para o consumo poder ser dividido por fatura. */
+  referencia?: string;
+};
+
+/** Quantas páginas vão para o modelo. Fatura de energia cabe folgado em três. */
+const PAGINAS_PARA_VISAO = 3;
+
 export async function lerFatura(
   conteudo: Buffer,
-  senha?: string,
-  mime = "application/pdf",
+  opcoes: OpcoesDeLeitura = {},
 ): Promise<LeituraDaFatura> {
+  const { senha, mime = "application/pdf", visao: lerPorVisao, referencia } = opcoes;
   let documento;
   try {
     documento = await normalizar(conteudo, senha);
@@ -184,9 +200,32 @@ export async function lerFatura(
 
   // Regra que fechou a ficha é a resposta: é gratuita, determinística e diz de
   // que posição da folha saiu cada número. O modelo é o plano B, não o padrão.
-  if (porRegras.aproveitavel) return porRegras;
+  if (porRegras.aproveitavel || !lerPorVisao) return porRegras;
 
-  const visao = await lerPorVisao(conteudo, mime);
+  // O modelo recebe imagem, não PDF: rasterizar aqui reaproveita o caminho que
+  // o OCR já usa e vale para qualquer modelo, em vez de depender de o provedor
+  // saber abrir PDF. Arquivo que já é imagem vai como está.
+  // O PDF é reaberto porque `normalizar` devolve só o texto já extraído, sem o
+  // rasterizador. Abrir duas vezes custa, mas acontece só no plano B — quando as
+  // regras não fecharam a ficha — e não no caminho que atende a maioria.
+  let paginas: PaginaParaVisao[];
+  if (mime === "application/pdf") {
+    const aberto = await abrirPdf(conteudo, senha);
+    try {
+      paginas = await Promise.all(
+        aberto.paginas.slice(0, PAGINAS_PARA_VISAO).map(async (_, indice) => ({
+          conteudo: await aberto.rasterizar(indice + 1),
+          mime: "image/png",
+        })),
+      );
+    } finally {
+      await aberto.fechar();
+    }
+  } else {
+    paginas = [{ conteudo, mime }];
+  }
+
+  const visao = await lerPorVisao(paginas, referencia);
   if (!visao) return porRegras;
 
   const porVisao = montarFicha(

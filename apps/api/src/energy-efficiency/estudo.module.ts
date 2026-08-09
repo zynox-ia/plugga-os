@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common";
 import { ThrottlerModule } from "@nestjs/throttler";
 
 import { CoreModule } from "../core/core.module";
+import { LlmModule } from "../llm/llm.module";
 import { PrismaModule } from "../prisma/prisma.module";
 import { EstudoController } from "./estudo.controller.js";
 import { EstudoRepository } from "./estudo.repository.js";
@@ -15,6 +16,9 @@ import { PrismaEstudoRepository } from "./prisma-estudo.repository.js";
   imports: [
     CoreModule,
     PrismaModule,
+    // O gateway vem daqui: a leitura por visão gasta a chave, e gasto sem dono
+    // não aparece no relatório de consumo.
+    LlmModule,
     // `ThrottlerModule.forRoot` do AuthModule não é global, então o
     // `ThrottlerGuard` da rota de PDF não resolveria aqui — e a API nem subiria.
     // Registro próprio, com o mesmo padrão do módulo de auth; o limite estreito

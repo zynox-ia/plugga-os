@@ -1,9 +1,13 @@
-import { Inject, Injectable } from "@nestjs/common";
+import { createHash } from "node:crypto";
+
+import { Inject, Injectable, Optional } from "@nestjs/common";
 import { invoiceReadingSchema, type InvoiceReading } from "@plugga/shared";
 
+import { OpenRouterGateway } from "../../llm/openrouter.gateway.js";
 import { ArmazenamentoDeFaturas } from "./armazenamento.js";
 import { reconhecerFormato } from "./formato.js";
 import { lerFatura } from "./leitura.js";
+import { criarLeitorPorVisao } from "./visao.js";
 
 /**
  * Traduz a leitura interna para o contrato que a tela consome.
@@ -20,6 +24,10 @@ export class FaturaService {
   // teste e estoura em tempo de execução.
   constructor(
     @Inject(ArmazenamentoDeFaturas) private readonly armazenamento: ArmazenamentoDeFaturas,
+    // Opcional para o teste poder montar o serviço sem o módulo de LLM inteiro.
+    // Ausente, a leitura fica nas regras — o mesmo caminho de quando não há
+    // chave configurada.
+    @Optional() @Inject(OpenRouterGateway) private readonly gateway?: OpenRouterGateway,
   ) {}
 
   async ler(conteudo: Buffer, nomeDoArquivo: string, senha?: string): Promise<InvoiceReading> {
@@ -29,7 +37,16 @@ export class FaturaService {
     const formato = reconhecerFormato(conteudo);
     const mime = formato.tipo === "imagem" ? formato.mime : "application/pdf";
 
-    const leitura = await lerFatura(conteudo, senha, mime);
+    // A mesma impressão digital que nomeia o objeto no balde identifica o gasto:
+    // é ela que permite dizer quanto custou cada fatura, e não só o total do mês.
+    const referencia = createHash("sha256").update(conteudo).digest("hex").slice(0, 16);
+
+    const leitura = await lerFatura(conteudo, {
+      senha,
+      mime,
+      referencia,
+      visao: this.gateway ? criarLeitorPorVisao(this.gateway) : undefined,
+    });
 
     // Guardado depois de ler, e só quando a leitura não parou na senha: um
     // arquivo que nem foi aberto ainda pode ser reenviado com a senha certa, e
