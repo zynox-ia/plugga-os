@@ -30,7 +30,6 @@ const item = (dados: Partial<ItemDaFatura> & { rotulo: string; valor: number }):
 function gatewayFalso(texto: string | null) {
   const pedidos: PedidoAoModelo[] = [];
   const gateway = {
-    configurado: () => true,
     completar: vi.fn(async (pedido: PedidoAoModelo) => {
       pedidos.push(pedido);
       return texto === null

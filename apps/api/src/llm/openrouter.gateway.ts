@@ -24,7 +24,11 @@ import type { ProcessoLlm } from "./processo.js";
 
 const BASE = process.env.OPENROUTER_BASE_URL || "https://openrouter.ai/api/v1";
 const MODELO_PADRAO = process.env.OPENROUTER_MODELO || "anthropic/claude-sonnet-4.5";
-const PRAZO_MS = Number(process.env.OPENROUTER_TIMEOUT_MS || 120_000);
+// A variável não passa pelo schema de environment (o gateway é o único leitor);
+// um valor não numérico viraria NaN e o AbortSignal.timeout estouraria
+// SÍNCRONO, fazendo completar() rejeitar em vez de devolver null.
+const PRAZO_PEDIDO = Number(process.env.OPENROUTER_TIMEOUT_MS);
+const PRAZO_MS = Number.isFinite(PRAZO_PEDIDO) && PRAZO_PEDIDO > 0 ? PRAZO_PEDIDO : 120_000;
 
 export type ParteDaMensagem =
   | { tipo: "texto"; texto: string }
@@ -88,11 +92,6 @@ export class OpenRouterGateway {
     private readonly chaves: ChaveDeLlmService,
   ) {}
 
-  /** Sem chave, quem chama decide o que fazer — ninguém quebra por isso. */
-  async configurado(): Promise<boolean> {
-    return Boolean(await this.chaves.valor());
-  }
-
   async completar(pedido: PedidoAoModelo): Promise<RespostaDoModelo | null> {
     // Do cofre, com o ambiente como reserva: quem troca a chave pela tela espera
     // que ela passe a valer, e um `.env` esquecido vencendo a tela em silêncio
@@ -111,6 +110,11 @@ export class OpenRouterGateway {
         { role: "user", content: pedido.partes.map(paraParteOpenAi) },
       ],
       max_tokens: pedido.maxTokens ?? 8000,
+      // Usage accounting é opt-in por requisição. Sem esta chave a OpenRouter
+      // devolve só prompt/completion_tokens: `usage.cost` e os detalhes de
+      // cache/raciocínio — o que este módulo existe para registrar — viriam
+      // sempre vazios e o relatório de consumo mostraria custo zero.
+      usage: { include: true },
     };
 
     if (pedido.esquema) {

@@ -12,8 +12,13 @@ const CHAVE_OPENROUTER = "openrouter.api_key";
 export type EstadoDaChave = {
   /** Se há chave utilizável agora, venha do banco ou do ambiente. */
   configurada: boolean;
-  /** De onde a chave em uso veio — o banco tem precedência sobre o ambiente. */
-  origem: "banco" | "ambiente" | "nenhuma";
+  /**
+   * De onde a chave em uso veio — o banco tem precedência sobre o ambiente.
+   * `banco_ilegivel` é o banco com uma linha que não decifra mais (chave-mestra
+   * rotacionada sem regravar): o gateway está rodando com a do ambiente, se
+   * houver, e a tela precisa dizer isso em vez de exibir a máscara antiga.
+   */
+  origem: "banco" | "banco_ilegivel" | "ambiente" | "nenhuma";
   /** Só os últimos quatro caracteres; a chave nunca sai daqui. */
   mascara: string | null;
   atualizadoEm: string | null;
@@ -81,10 +86,33 @@ export class ChaveDeLlmService {
     const linha = await this.segredos.buscar(CHAVE_OPENROUTER);
 
     if (linha) {
+      // A mesma decifração que `valor()` faz: se a linha não abre mais, dizer
+      // "em uso: ••••1234" seria mentir exatamente no canal em que o admin
+      // confere qual chave está valendo — o gateway estará usando a do
+      // ambiente, ou nenhuma.
+      let legivel = true;
+      try {
+        decifrar({ conteudo: linha.valorCifrado, iv: linha.iv, tag: linha.tag });
+      } catch {
+        legivel = false;
+      }
+
+      if (legivel) {
+        return {
+          configurada: true,
+          origem: "banco",
+          mascara: `••••${linha.ultimosQuatro}`,
+          atualizadoEm: linha.atualizadoEm.toISOString(),
+          atualizadoPor: linha.atualizadoPor,
+        };
+      }
+
       return {
-        configurada: true,
-        origem: "banco",
-        mascara: `••••${linha.ultimosQuatro}`,
+        configurada: Boolean(process.env.OPENROUTER_API_KEY),
+        origem: "banco_ilegivel",
+        mascara: process.env.OPENROUTER_API_KEY
+          ? mascarar(process.env.OPENROUTER_API_KEY)
+          : null,
         atualizadoEm: linha.atualizadoEm.toISOString(),
         atualizadoPor: linha.atualizadoPor,
       };

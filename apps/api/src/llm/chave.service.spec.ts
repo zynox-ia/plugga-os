@@ -134,6 +134,34 @@ describe("cofre da chave de LLM", () => {
     expect(await servico.valor()).toBe("chave-do-env");
   });
 
+  it("a tela não mente quando o guardado não decifra: origem banco_ilegivel", async () => {
+    // O gateway já cai para o ambiente nesse cenário (teste acima); se a tela
+    // continuasse dizendo "em uso: ••••1234", o admin olharia o canal feito
+    // para conferir a chave e concluiria o contrário do que está acontecendo.
+    process.env.OPENROUTER_API_KEY = "chave-do-env";
+    const { servico, repositorio } = montar();
+    const cifrada = cifrar("chave-antiga");
+    repositorio.linha = {
+      valorCifrado: cifrada.conteudo,
+      iv: cifrada.iv,
+      tag: cifrada.tag,
+      ultimosQuatro: "1234",
+      atualizadoPor: "andre",
+      atualizadoEm: new Date(),
+    };
+    process.env.SECRETS_ENCRYPTION_KEY = randomBytes(32).toString("base64");
+
+    const estado = await servico.estado();
+    expect(estado.origem).toBe("banco_ilegivel");
+    expect(estado.mascara).not.toContain("1234");
+    expect(estado.configurada).toBe(true);
+
+    delete process.env.OPENROUTER_API_KEY;
+    const semReserva = await servico.estado();
+    expect(semReserva.configurada).toBe(false);
+    expect(semReserva.mascara).toBeNull();
+  });
+
   it("registra na auditoria quem trocou, sem o valor", async () => {
     const { servico, eventos } = montar();
 
