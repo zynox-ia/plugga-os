@@ -23,15 +23,6 @@ Thumbs.db
 .vscode/
 *.swp
 
-# Large / sensitive OpenClaw extract (keep local)
-knowledge/openclaw/
-knowledge/sanitized/
-knowledge/inventory/
-
-# Keep planning docs that live under knowledge/
-!knowledge/README.md
-!knowledge/PROMPT-OPENCLAW.md
-
 # Logs & temp
 *.log
 tmp/
@@ -51,7 +42,7 @@ apps/web/e2e/.auth/
 *.traineddata
 *.traineddata.gz
 
-# Extração operacional do OpenClaw: 3,2 GB de dados derivados de cliente, não
-# é código. Fica de fora do versionamento — sem esta linha, um `git add .`
-# distraído tenta commitar seis mil arquivos.
+# Extração operacional do OpenClaw: dados derivados de cliente, não é código. A
+# origem viva é hstgr-vps:/root/.openclaw — puxe sob demanda em vez de manter
+# cópia aqui. A linha fica para o caso de alguém recriar a pasta por engano.
 /knowledge/
