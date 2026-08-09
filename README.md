@@ -4,9 +4,13 @@ Sistema operacional interno da **Plugga / Waze Energia**, organizado como um
 monorepo pnpm + Turborepo com Next.js, NestJS e contratos TypeScript
 compartilhados.
 
-> **Limite operacional:** esta fundação é local e mock-only. Ela não autoriza
-> acesso, escrita, envio, configuração ou cutover em Bitrix, OMIE,
-> PluggaMob/OCPP, PagBank, WhatsApp, Telegram, OpenClaw, crons ou produção.
+> **Limite operacional:** o sistema **está em produção** em
+> <https://os.plugga.app.br> — autenticação, estudos de eficiência energética e
+> e-mail transacional (Brevo) rodam com dado real. O que continua **fora** do
+> escopo é escrita, envio, configuração ou cutover em Bitrix, OMIE,
+> PluggaMob/OCPP, PagBank, WhatsApp, Telegram, OpenClaw e crons de terceiros.
+>
+> Comandos do dia a dia e publicação: **[ops/GUIA.md](ops/GUIA.md)**.
 
 ## Estrutura
 
@@ -17,6 +21,7 @@ compartilhados.
 | `packages/shared` | DTOs, tipos, enums e eventos livres de framework |
 | `packages/config` | Configuração compartilhada de tooling |
 | `docs/adr` | Decisões e limites arquiteturais aceitos |
+| `ops` | Publicação, backup e o guia de operação |
 
 Aplicações podem importar pacotes; pacotes nunca importam aplicações. Web e API
 se comunicam apenas por HTTP e pelos contratos de `packages/shared`.
@@ -60,7 +65,8 @@ cp .env.example .env
 docker compose --profile app up -d --build
 # web:  http://localhost:3000
 # api:  http://localhost:3001/health
-# inbox Mailpit: http://localhost:8025
+# inbox Mailpit: http://localhost:58025
+#   (porta baixa 8025 é reservada ao túnel de produção — veja ops/GUIA.md)
 ```
 
 Os dois modos convivem de propósito:
@@ -121,7 +127,7 @@ Como o seed não desfaz mais nada, **resetar o ambiente local é um ato
 explícito** — derrube o volume e recomece:
 
 ```bash
-docker compose down -v      # apaga postgres_data e redis_data
+docker compose down -v      # apaga postgres_data, redis_data e minio_data (as faturas enviadas)
 docker compose up -d
 pnpm db:migrate:deploy
 pnpm db:seed
@@ -174,7 +180,8 @@ tokens de uso único entregues por `EmailPort` (ADR-0010).
 | `brevo` | API Brevo na **conta do cliente** (staging/prod); exige `BREVO_API_KEY` |
 
 Local recomendado: `EMAIL_PROVIDER=mailpit` (já no `.env.example`). Após
-`docker compose up -d`, abra a inbox em [http://localhost:8025](http://localhost:8025).
+`docker compose up -d`, abra a inbox em [http://localhost:58025](http://localhost:58025)
+(porta baixa 8025 é reservada ao túnel de produção — veja ops/GUIA.md).
 
 Smoke de entrega local (Mailpit no Compose; também roda na CI):
 

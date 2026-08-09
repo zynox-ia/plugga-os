@@ -23,15 +23,6 @@ Thumbs.db
 .vscode/
 *.swp
 
-# Large / sensitive OpenClaw extract (keep local)
-knowledge/openclaw/
-knowledge/sanitized/
-knowledge/inventory/
-
-# Keep planning docs that live under knowledge/
-!knowledge/README.md
-!knowledge/PROMPT-OPENCLAW.md
-
 # Logs & temp
 *.log
 tmp/
@@ -43,3 +34,15 @@ playwright-report/
 test-results/
 blob-report/
 apps/web/e2e/.auth/
+
+# Dados de treino do Tesseract. Em `pnpm dev` o tesseract.js baixa o idioma na
+# primeira fatura digitalizada e guarda o arquivo ao lado de quem o chamou; em
+# contêiner ele vem embutido na imagem (apps/api/Dockerfile). Cache local, nunca
+# versionado — são megabytes de binário que o build já sabe obter.
+*.traineddata
+*.traineddata.gz
+
+# Extração operacional do OpenClaw: dados derivados de cliente, não é código. A
+# origem viva é hstgr-vps:/root/.openclaw — puxe sob demanda em vez de manter
+# cópia aqui. A linha fica para o caso de alguém recriar a pasta por engano.
+/knowledge/

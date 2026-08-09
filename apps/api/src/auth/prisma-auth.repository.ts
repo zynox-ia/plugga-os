@@ -1,5 +1,5 @@
-import { Inject, Injectable } from "@nestjs/common";
-import { type AuthTokenType, type Prisma } from "@prisma/client";
+import { BadRequestException, Inject, Injectable } from "@nestjs/common";
+import { Prisma, type AuthTokenType } from "@prisma/client";
 import {
   companyKeySchema,
   companyRoleKeySchema,
@@ -98,15 +98,25 @@ export class PrismaAuthRepository extends AuthRepository {
   }
 
   async createInvitedUser(data: CreateInvitedUserData): Promise<AuthUserRecord> {
-    const user = await this.prisma.$transaction(async (tx) => {
-      const created = await tx.user.create({
-        data: { email: data.email, name: data.name, status: "invited" },
-        select: { id: true },
+    try {
+      const user = await this.prisma.$transaction(async (tx) => {
+        const created = await tx.user.create({
+          data: { email: data.email, name: data.name, status: "invited" },
+          select: { id: true },
+        });
+        await this.writeAccess(tx, created.id, data.access);
+        return tx.user.findUniqueOrThrow({ where: { id: created.id }, ...userWithAccess });
       });
-      await this.writeAccess(tx, created.id, data.access);
-      return tx.user.findUniqueOrThrow({ where: { id: created.id }, ...userWithAccess });
-    });
-    return this.toRecord(user);
+      return this.toRecord(user);
+    } catch (error) {
+      // Dois convites simultâneos para o mesmo e-mail: o service verificou
+      // antes, mas a corrida só é decidida pela constraint única — traduzida
+      // para a mesma mensagem do caminho verificado, em vez de subir como 500.
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+        throw new BadRequestException("a user with this email already exists");
+      }
+      throw error;
+    }
   }
 
   async createAuthToken(data: CreateAuthTokenData): Promise<void> {
@@ -156,7 +166,17 @@ export class PrismaAuthRepository extends AuthRepository {
       });
 
       if (options.activateUser) {
-        await tx.user.update({ where: { id: userId }, data: { status: "active" } });
+        // Só quem ainda está `invited` pode ser ativado por token de convite.
+        // Sem a condição, um convite emitido ANTES de uma desativação desfaz a
+        // desativação: o token continua válido por 72h e o update incondicional
+        // devolvia a conta a `active` com senha nova.
+        const activated = await tx.user.updateMany({
+          where: { id: userId, status: "invited" },
+          data: { status: "active" },
+        });
+        if (activated.count === 0) {
+          throw new Error("user is not pending activation");
+        }
       }
 
       if (options.revokeSessions) {
@@ -194,10 +214,18 @@ export class PrismaAuthRepository extends AuthRepository {
     if (!exists) {
       return null;
     }
-    const user = await this.prisma.user.update({
-      where: { id: userId },
-      data: { status: "disabled" },
-      ...userWithAccess,
+    const user = await this.prisma.$transaction(async (tx) => {
+      // Convite/reset pendentes morrem junto com o acesso: um token emitido
+      // antes da desativação não pode continuar sendo uma porta de volta.
+      await tx.authToken.updateMany({
+        where: { userId, consumedAt: null },
+        data: { consumedAt: new Date() },
+      });
+      return tx.user.update({
+        where: { id: userId },
+        data: { status: "disabled" },
+        ...userWithAccess,
+      });
     });
     return this.toRecord(user);
   }

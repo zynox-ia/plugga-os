@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isoDate, uuid } from "./primitivas.js";
 
 export const pluggamobModeSchema = z.literal("mock");
 
@@ -13,8 +14,6 @@ export const pluggamobOverviewSchema = z.object({
 
 export type PluggamobOverview = z.infer<typeof pluggamobOverviewSchema>;
 
-const uuid = z.string().uuid();
-const isoDate = z.string().datetime();
 export const evSegmentSchema = z.enum(["r0", "r1", "r2", "r3", "r4", "r5", "r6"]);
 
 export const reactivationQueueItemSchema = z.object({

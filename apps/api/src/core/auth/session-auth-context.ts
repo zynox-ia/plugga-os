@@ -19,19 +19,16 @@ export class SessionAuthContext extends AuthContext {
   }
 
   async resolve(request: AuthenticatedRequest): Promise<AuthPrincipal | null> {
-    const rawToken =
-      request.signedCookies?.[SESSION_COOKIE_NAME] ?? request.cookies?.[SESSION_COOKIE_NAME];
+    // Só o cookie assinado vale. O Set-Cookie sempre sai com `signed: true` e o
+    // logout também só lê `signedCookies`; aceitar o não assinado aqui tornaria
+    // a assinatura HMAC decorativa — quem tivesse o token bruto autenticaria
+    // sem conhecer AUTH_SESSION_SECRET, e o logout não revogaria essa sessão.
+    const rawToken = request.signedCookies?.[SESSION_COOKIE_NAME];
 
     if (!rawToken) {
       return null;
     }
 
-    const userAgent = request.headers["user-agent"];
-
-    return this.sessions.resolvePrincipal(hashToken(rawToken), {
-      now: new Date(),
-      ip: request.ip,
-      userAgent: Array.isArray(userAgent) ? userAgent[0] : userAgent,
-    });
+    return this.sessions.resolvePrincipal(hashToken(rawToken), { now: new Date() });
   }
 }

@@ -14,6 +14,10 @@ export const eventNames = {
   userAccessUpdated: "user.access.updated",
   userDeactivated: "user.deactivated",
   pluggamobSeeded: "pluggamob.seeded",
+  // Troca de credencial de LLM. Quem trocou e quando é a primeira pergunta
+  // quando a conta do mês surpreende; o valor nunca entra no registro.
+  llmChaveGravada: "llm.chave.gravada",
+  llmChaveApagada: "llm.chave.apagada",
 } as const;
 
 export type EventName = (typeof eventNames)[keyof typeof eventNames];

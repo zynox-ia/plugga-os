@@ -1,8 +1,6 @@
 import { z } from "zod";
+import { decimalString, isoDate, uuid } from "./primitivas.js";
 
-const uuid = z.string().uuid();
-const isoDate = z.string().datetime();
-const decimalString = z.string().regex(/^\d+(\.\d{1,2})?$/, "valor deve ser um decimal com até 2 casas");
 
 // Enums (packages/shared/src/energy.ts). Ticket 1 (fundação) owns this file's
 // shape; tickets 2-4 extend it with request/detail schemas for their own

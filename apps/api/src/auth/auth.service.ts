@@ -72,9 +72,13 @@ export class AuthService {
     const user = await this.repository.findUserByEmail(input.email);
     const passwordHash = user ? await this.repository.findPasswordHash(user.id) : null;
 
-    const passwordValid = passwordHash
-      ? await this.passwords.verify(passwordHash, input.password)
-      : false;
+    let passwordValid = false;
+    if (passwordHash) {
+      passwordValid = await this.passwords.verify(passwordHash, input.password);
+    } else {
+      // Resposta e auditoria já são genéricas; o TEMPO também precisa ser.
+      await this.passwords.verifyAgainstDummy(input.password);
+    }
 
     if (!user || user.status !== "active" || !passwordValid) {
       this.lockout.recordFailure(lockKey);
@@ -82,7 +86,7 @@ export class AuthService {
       await this.audit.appendEvent({
         eventName: eventNames.authLoginFailed,
         entityType: "auth",
-        entityId: this.maskEmail(input.email),
+        entityId: maskEmail(input.email),
         actorType: "system",
         actorId: null,
         payload: { reason: "invalid_credentials" },
@@ -232,13 +236,5 @@ export class AuthService {
 
   private ack(): AuthAcknowledgement {
     return authAcknowledgementSchema.parse({ ok: true });
-  }
-
-  private maskEmail(email: string): string {
-    const [local, domain] = email.split("@");
-    if (!local || !domain) {
-      return "***";
-    }
-    return `${local.slice(0, 1)}***@${domain}`;
   }
 }

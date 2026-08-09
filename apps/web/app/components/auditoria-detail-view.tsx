@@ -213,7 +213,7 @@ export function AuditoriaDetailView({
                 Avançar contestação
               </button>
             ) : null}
-            {isResolved && !canOpenContestation && (!contestation || nextContestationStatuses.length === 0) ? (
+            {isResolved && (!contestation || nextContestationStatuses.length === 0) ? (
               <p className="card-note" style={{ padding: 0 }}>
                 Nenhuma ação disponível — processo concluído.
               </p>

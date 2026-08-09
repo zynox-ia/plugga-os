@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, Inject, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, HttpCode, Inject, Param, ParseUUIDPipe, Patch, Post, Query, UseGuards } from "@nestjs/common";
 import {
   createClientRequestSchema,
   duplicateCandidatesQuerySchema,
@@ -43,12 +43,12 @@ export class ClientesController {
   }
 
   @Get(":id")
-  get(@Param("id") id: string): Promise<ClientSummary> {
+  get(@Param("id", ParseUUIDPipe) id: string): Promise<ClientSummary> {
     return this.service.get(id);
   }
 
   @Get(":id/ficha")
-  ficha(@Param("id") id: string): Promise<ClientFicha> {
+  ficha(@Param("id", ParseUUIDPipe) id: string): Promise<ClientFicha> {
     return this.service.ficha(id);
   }
 
@@ -64,7 +64,7 @@ export class ClientesController {
   @HttpCode(200)
   @UseGuards(OriginCheckGuard)
   @Roles("comercial", "admin")
-  update(@Param("id") id: string, @Body(new ZodValidationPipe(updateClientRequestSchema)) input: UpdateClientRequest, @CurrentPrincipal() principal: AuthPrincipal): Promise<ClientSummary> {
+  update(@Param("id", ParseUUIDPipe) id: string, @Body(new ZodValidationPipe(updateClientRequestSchema)) input: UpdateClientRequest, @CurrentPrincipal() principal: AuthPrincipal): Promise<ClientSummary> {
     return this.service.update(id, input, principal);
   }
 
@@ -72,7 +72,7 @@ export class ClientesController {
   @HttpCode(200)
   @UseGuards(OriginCheckGuard)
   @Roles("comercial", "admin")
-  activate(@Param("id") id: string, @CurrentPrincipal() principal: AuthPrincipal): Promise<ClientSummary> {
+  activate(@Param("id", ParseUUIDPipe) id: string, @CurrentPrincipal() principal: AuthPrincipal): Promise<ClientSummary> {
     return this.service.activate(id, principal);
   }
 
@@ -80,7 +80,7 @@ export class ClientesController {
   @HttpCode(200)
   @UseGuards(OriginCheckGuard)
   @Roles("comercial", "admin")
-  inactivate(@Param("id") id: string, @Body(new ZodValidationPipe(inactivateClientRequestSchema)) input: InactivateClientRequest, @CurrentPrincipal() principal: AuthPrincipal): Promise<ClientSummary> {
+  inactivate(@Param("id", ParseUUIDPipe) id: string, @Body(new ZodValidationPipe(inactivateClientRequestSchema)) input: InactivateClientRequest, @CurrentPrincipal() principal: AuthPrincipal): Promise<ClientSummary> {
     return this.service.inactivate(id, input, principal);
   }
 }

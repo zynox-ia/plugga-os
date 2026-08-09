@@ -91,11 +91,19 @@ describe("read-only inventory API (e2e)", () => {
     await request(app.getHttpServer()).get("/integrations").expect(401);
   });
 
-  it("lists integration metadata without credential fields", async () => {
+  it("refuses integration metadata to roles outside the integrations screen", async () => {
     await request(app.getHttpServer())
       .get("/integrations")
       .set("x-dev-principal", "local-viewer")
       .set("x-dev-roles", "viewer")
+      .expect(403);
+  });
+
+  it("lists integration metadata without credential fields", async () => {
+    await request(app.getHttpServer())
+      .get("/integrations")
+      .set("x-dev-principal", "local-tech")
+      .set("x-dev-roles", "tech")
       .expect(200, {
         items: [
           {
@@ -125,11 +133,21 @@ describe("read-only inventory API (e2e)", () => {
       .expect(200, { provider: "mailpit", configured: true });
   });
 
-  it("lists job runs as an inventory with no mutation controls", async () => {
+  it("refuses the job-run inventory to roles outside the jobs screen", async () => {
+    // O histórico operacional carrega mensagens de erro de integração; os
+    // papéis são os mesmos que a navegação da web dá à tela de Jobs.
     await request(app.getHttpServer())
       .get("/jobs")
       .set("x-dev-principal", "local-viewer")
       .set("x-dev-roles", "viewer")
+      .expect(403);
+  });
+
+  it("lists job runs as an inventory with no mutation controls", async () => {
+    await request(app.getHttpServer())
+      .get("/jobs")
+      .set("x-dev-principal", "local-tech")
+      .set("x-dev-roles", "tech")
       .expect(200, {
         inventoryOnly: true,
         items: [

@@ -32,6 +32,11 @@ import {
   assertOpportunityOpen,
 } from "./commercial.rules";
 
+/** Mesma normalização do módulo clientes: formatação não pode esconder um duplicado. */
+function onlyDigits(value: string): string {
+  return value.replace(/\D/g, "");
+}
+
 const opportunityInclude = {
   client: { select: { id: true, name: true } },
   owner: { select: { id: true, name: true } },
@@ -161,8 +166,11 @@ export class PrismaCommercialRepository extends CommercialRepository {
     assertOpportunityHasOwnerAndNextAction(nextOwnerId, nextActionAt);
 
     await this.prisma.$transaction(async (tx) => {
-      await tx.opportunity.update({
-        where: { id },
+      // O guard lá fora dá a mensagem amigável, mas roda antes da transação:
+      // duas decisões concorrentes passariam ambas por ele. Recondicionar o
+      // status no updateMany fecha a corrida, e o rollback leva o evento junto.
+      const result = await tx.opportunity.updateMany({
+        where: { id, status: "aberta" },
         data: {
           stage: input.stage,
           ownerId: nextOwnerId,
@@ -170,6 +178,7 @@ export class PrismaCommercialRepository extends CommercialRepository {
           nextActionNote: input.nextActionNote ?? current.nextActionNote,
         },
       });
+      if (result.count === 0) throw new BadRequestException("oportunidade já foi decidida");
       await tx.eventLog.create({
         data: {
           eventName: "commercial.opportunity_stage_updated",
@@ -227,10 +236,11 @@ export class PrismaCommercialRepository extends CommercialRepository {
 
     await this.prisma.$transaction(async (tx) => {
       const now = new Date();
-      await tx.opportunity.update({
-        where: { id },
+      const result = await tx.opportunity.updateMany({
+        where: { id, status: "aberta" },
         data: { status: "ganha", clientId, decidedAt: now },
       });
+      if (result.count === 0) throw new BadRequestException("oportunidade já foi decidida");
       await tx.eventLog.create({
         data: {
           eventName: "commercial.opportunity_won",
@@ -258,10 +268,11 @@ export class PrismaCommercialRepository extends CommercialRepository {
 
     await this.prisma.$transaction(async (tx) => {
       const now = new Date();
-      await tx.opportunity.update({
-        where: { id },
+      const result = await tx.opportunity.updateMany({
+        where: { id, status: "aberta" },
         data: { status: "perdida", lossReason: input.lossReason, decidedAt: now },
       });
+      if (result.count === 0) throw new BadRequestException("oportunidade já foi decidida");
       await tx.eventLog.create({
         data: {
           eventName: "commercial.opportunity_lost",
@@ -296,8 +307,8 @@ export class PrismaCommercialRepository extends CommercialRepository {
     }
 
     await this.prisma.$transaction(async (tx) => {
-      await tx.opportunity.update({
-        where: { id },
+      const result = await tx.opportunity.updateMany({
+        where: { id, status: "aberta" },
         data: {
           status: "revisitar",
           ownerId: nextOwnerId,
@@ -305,6 +316,7 @@ export class PrismaCommercialRepository extends CommercialRepository {
           nextActionNote: input.nextActionNote,
         },
       });
+      if (result.count === 0) throw new BadRequestException("oportunidade já foi decidida");
       await tx.eventLog.create({
         data: {
           eventName: "commercial.opportunity_revisit_scheduled",
@@ -415,8 +427,8 @@ export class PrismaCommercialRepository extends CommercialRepository {
     assertContractHasOwnerAndNextAction(input.status, nextOwnerId, nextActionAt);
 
     await this.prisma.$transaction(async (tx) => {
-      await tx.contract.update({
-        where: { id },
+      const result = await tx.contract.updateMany({
+        where: { id, status: current.status },
         data: {
           status: input.status,
           ownerId: nextOwnerId,
@@ -427,6 +439,11 @@ export class PrismaCommercialRepository extends CommercialRepository {
           endsAt,
         },
       });
+      if (result.count === 0) {
+        throw new BadRequestException(
+          `não é possível aplicar a transição: o contrato já não está em "${current.status}"`,
+        );
+      }
       await tx.eventLog.create({
         data: {
           eventName: "commercial.contract_status_updated",
@@ -450,15 +467,26 @@ export class PrismaCommercialRepository extends CommercialRepository {
     }
 
     const newClient = input.newClient!;
-    const existing = await this.prisma.client.findFirst({
-      where: {
-        OR: [
-          newClient.email ? { email: newClient.email } : undefined,
-          newClient.phone ? { phone: newClient.phone } : undefined,
-        ].filter((clause): clause is NonNullable<typeof clause> => clause !== undefined),
-      },
-    });
-    if (existing) return existing.id;
+    // Igualdade literal escondia duplicados: "Ana@x.com" vs "ana@x.com" e
+    // "(92) 90000-0000" vs "92900000000" criavam dois clientes. E-mail compara
+    // sem caixa; telefone prefiltra pelos 4 últimos dígitos (contíguos em
+    // qualquer formatação brasileira) e decide por só-dígitos, espelhando
+    // prisma-clientes.repository.ts.
+    const digitsPhone = newClient.phone ? onlyDigits(newClient.phone) : null;
+    const or = [
+      newClient.email ? { email: { equals: newClient.email, mode: "insensitive" as const } } : undefined,
+      digitsPhone && digitsPhone.length >= 6 ? { phone: { contains: digitsPhone.slice(-4) } } : undefined,
+    ].filter((clause): clause is NonNullable<typeof clause> => clause !== undefined);
+    if (or.length > 0) {
+      const candidates = await this.prisma.client.findMany({ where: { OR: or }, take: 50 });
+      const emailLower = newClient.email?.toLowerCase() ?? null;
+      const existing = candidates.find(
+        (row) =>
+          (emailLower !== null && row.email?.toLowerCase() === emailLower) ||
+          (digitsPhone !== null && row.phone !== null && onlyDigits(row.phone) === digitsPhone),
+      );
+      if (existing) return existing.id;
+    }
 
     const created = await this.prisma.$transaction(async (tx) => {
       const client = await tx.client.create({

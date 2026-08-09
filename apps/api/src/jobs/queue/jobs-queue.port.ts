@@ -1,7 +1,9 @@
 export interface EnqueueOptions {
   /**
-   * Idempotency key mapped to the BullMQ job id. A second enqueue with the same
-   * key does not create a duplicate while the job is waiting/active.
+   * Idempotency key. A second enqueue with the same key does not create a
+   * duplicate while the job is waiting/active; once the job completes or fails,
+   * the key is released and a new enqueue runs again. The `deduped` flag on the
+   * result is best-effort under concurrent enqueues (label only, never lost work).
    */
   dedupeKey?: string;
   /** Max attempts before the job is considered failed (default 3). */

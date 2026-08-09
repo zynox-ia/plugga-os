@@ -75,10 +75,12 @@ export class PrismaSessionLookupRepository extends SessionLookupRepository {
     const slidingExpiry = new Date(now.getTime() + ttlMinutes * 60_000);
     const nextExpiry = slidingExpiry < absoluteExpiresAt ? slidingExpiry : absoluteExpiresAt;
 
-    await this.prisma.session.update({
+    // Best-effort como o cleanup acima: um logout em outra aba pode apagar a
+    // sessão entre o findUnique e este write — 0 linhas afetadas não é erro,
+    // e um update estrito viraria 500 numa requisição autenticada em voo.
+    await this.prisma.session.updateMany({
       where: { id: sessionId },
       data: { lastUsedAt: now, expiresAt: nextExpiry },
-      select: { id: true },
     });
   }
 

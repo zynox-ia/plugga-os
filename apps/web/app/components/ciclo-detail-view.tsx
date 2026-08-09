@@ -19,18 +19,16 @@ function formatDateTime(value: string | null): string {
   return new Date(value).toLocaleString("pt-BR");
 }
 
-type ActionId = "documents-received" | "report" | "approve-report" | "send" | "close";
-
 export function CicloDetailView({ cycle }: { cycle: CycleDetail }) {
   const router = useRouter();
-  const [pendingAction, setPendingAction] = useState<ActionId | null>(null);
+  const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function run(action: ActionId, call: () => ReturnType<typeof markCycleDocumentsReceived>) {
-    setPendingAction(action);
+  async function run(call: () => ReturnType<typeof markCycleDocumentsReceived>) {
+    setPending(true);
     setError(null);
     const result = await call();
-    setPendingAction(null);
+    setPending(false);
     if (!result.ok) {
       setError(result.message);
       return;
@@ -39,6 +37,10 @@ export function CicloDetailView({ cycle }: { cycle: CycleDetail }) {
   }
 
   const canReceiveDocuments = cycle.status === "aguardando_documentos";
+  // Reprocessar (e reaprovar) com o ciclo já fechado é deliberado na API — o
+  // e2e de energy-cycles cobre exatamente esse fluxo, com reportVersion
+  // subindo e o status permanecendo fechado. A tela segue o contrato; se isso
+  // deve exigir reabertura, é decisão de produto (handoff 2026-08-09, item 7).
   const canGenerateReport = cycle.status !== "aguardando_documentos";
   const canApproveReport = cycle.reportVersion > 0 && cycle.reportStatus !== "aprovado";
   const canSend = cycle.reportStatus === "aprovado";
@@ -109,40 +111,40 @@ export function CicloDetailView({ cycle }: { cycle: CycleDetail }) {
             <button
               className="button button--accent"
               type="button"
-              disabled={!canReceiveDocuments || pendingAction !== null}
-              onClick={() => run("documents-received", () => markCycleDocumentsReceived(cycle.id))}
+              disabled={!canReceiveDocuments || pending}
+              onClick={() => run(() => markCycleDocumentsReceived(cycle.id))}
             >
               Documentos recebidos
             </button>
             <button
               className="button button--accent"
               type="button"
-              disabled={!canGenerateReport || pendingAction !== null}
-              onClick={() => run("report", () => generateCycleReport(cycle.id))}
+              disabled={!canGenerateReport || pending}
+              onClick={() => run(() => generateCycleReport(cycle.id))}
             >
               {cycle.reportVersion > 0 ? "Reprocessar relatório" : "Gerar relatório"}
             </button>
             <button
               className="button button--accent"
               type="button"
-              disabled={!canApproveReport || pendingAction !== null}
-              onClick={() => run("approve-report", () => approveCycleReport(cycle.id))}
+              disabled={!canApproveReport || pending}
+              onClick={() => run(() => approveCycleReport(cycle.id))}
             >
               Aprovar relatório
             </button>
             <button
               className="button button--accent"
               type="button"
-              disabled={!canSend || pendingAction !== null}
-              onClick={() => run("send", () => sendCycleReport(cycle.id))}
+              disabled={!canSend || pending}
+              onClick={() => run(() => sendCycleReport(cycle.id))}
             >
               Marcar como enviado
             </button>
             <button
               className="button button--accent"
               type="button"
-              disabled={!canClose || pendingAction !== null}
-              onClick={() => run("close", () => closeCycle(cycle.id))}
+              disabled={!canClose || pending}
+              onClick={() => run(() => closeCycle(cycle.id))}
             >
               Fechar ciclo
             </button>

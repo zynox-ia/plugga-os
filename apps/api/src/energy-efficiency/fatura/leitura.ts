@@ -1,28 +1,39 @@
 import type { InvoiceData } from "@plugga/shared";
 
+import { lerCamposExtras } from "./campos.js";
 import { conferir, type Conferencia } from "./conferencia.js";
+import { normalizar, type OrigemDoTexto } from "./documento.js";
 import { identificar, type IdentificacaoDaFatura } from "./identificacao.js";
 import { lerItens, type ItemDaFatura } from "./itens.js";
-import { extrairTexto, type OrigemDoTexto } from "./texto-do-pdf.js";
+import { linhasImpressas } from "./linhas.js";
+import { abrirPdf, SenhaIncorretaError, SenhaNecessariaError } from "./paginas.js";
+import type { LeitorPorVisao, PaginaParaVisao } from "./visao.js";
 
 /**
- * Leitura de uma fatura da distribuidora em PDF.
+ * Leitura de uma fatura da distribuidora, venha ela como for.
  *
- * A promessa deste módulo **não** é ler toda fatura — é nunca devolver um
- * número errado em silêncio. Todo campo sai de um item cuja multiplicação
- * fechou, ou sai marcado para conferência humana. Fatura que o módulo não sabe
- * ler falha alto, com o motivo, em vez de entregar ficha pela metade.
+ * A promessa deste módulo continua a mesma: **nunca devolver um número errado
+ * em silêncio**. Todo campo sai de um item cuja multiplicação fechou, ou sai
+ * marcado para conferência humana. O que mudou foi o alcance e a honestidade.
  *
- * No corpus real de 73 faturas do CRM, três quartos são digitalização e exigem
- * OCR — que este módulo não faz. Para essas, a resposta é `digitalizacao`, e o
- * caminho é a ficha manual ou uma etapa de OCR à frente. A conferência
- * aritmética, essa sim, vale para qualquer origem: é a mesma função que pega
- * erro de OCR e erro de digitação.
+ * Antes só havia um caminho — PDF com camada de texto legível pelo extrator
+ * artesanal — e todo o resto virava a mesma frase: "a fatura é uma imagem
+ * digitalizada". Foto de conta, PDF cifrado e layout novo recebiam o mesmo
+ * diagnóstico e a mesma receita, que era digitar tudo à mão. Agora o formato do
+ * arquivo decide o caminho, a digitalização tem OCR, o PDF com senha pede a
+ * senha, e o que sobra é dito pelo nome.
+ *
+ * A conferência aritmética ganhou importância em vez de perder: ela foi escrita
+ * para pegar erro de digitação e é exatamente a rede certa para o OCR, que erra
+ * em dígito. Na amostra desta base ele leu `1,730090` como `1,7830090` — a
+ * multiplicação não fecha, o item cai fora da ficha e aparece para conferir.
  */
 
 export type MotivoDeRecusa =
-  | "digitalizacao"
-  | "sem_itens"
+  | "protegido_por_senha"
+  | "senha_incorreta"
+  | "sem_texto"
+  | "layout_desconhecido"
   | "grupo_b"
   | "campos_essenciais_ausentes";
 
@@ -31,12 +42,14 @@ export type LeituraDaFatura = {
   /** Falso quando não deu para montar a ficha; `motivo` diz por quê. */
   aproveitavel: boolean;
   motivo: MotivoDeRecusa | null;
+  /** Confiança média do OCR, de 0 a 100; nula quando o texto veio do PDF. */
+  confianca: number | null;
   identificacao: IdentificacaoDaFatura;
   itens: ItemDaFatura[];
   conferencia: Conferencia;
   /**
    * Ficha montada com o que foi confirmado. Os campos que a fatura não publica
-   * na camada de texto ficam nulos de propósito — ver `camposParaConfirmar`.
+   * ficam nulos de propósito — ver `camposParaConfirmar`.
    */
   invoice: Partial<InvoiceData>;
   /**
@@ -57,46 +70,193 @@ const ULTRAPASSAGEM = /^dem\s*ultr/i;
 
 const soma = (a: number | undefined, b: number): number => (a ?? 0) + b;
 
-export function lerFatura(pdf: Buffer): LeituraDaFatura {
-  const texto = extrairTexto(pdf);
-  const vazia: Conferencia = {
+const CONFERENCIA_VAZIA: Conferencia = {
+  itens: [],
+  confirmados: 0,
+  divergentes: 0,
+  semConferencia: 0,
+  temDivergencia: false,
+};
+
+const SEM_IDENTIFICACAO: IdentificacaoDaFatura = {
+  unidadeConsumidora: null,
+  competencia: null,
+  distribuidora: null,
+};
+
+function recusar(
+  motivo: MotivoDeRecusa,
+  explicacao: string,
+  origem: OrigemDoTexto = "texto_direto",
+): LeituraDaFatura {
+  return {
+    origem,
+    aproveitavel: false,
+    motivo,
+    confianca: null,
+    identificacao: SEM_IDENTIFICACAO,
     itens: [],
-    confirmados: 0,
-    divergentes: 0,
-    semConferencia: 0,
-    temDivergencia: false,
+    conferencia: CONFERENCIA_VAZIA,
+    invoice: {},
+    camposParaConfirmar: [explicacao],
   };
+}
 
-  if (texto.origem === "digitalizacao") {
-    return {
-      origem: texto.origem,
-      aproveitavel: false,
-      motivo: "digitalizacao",
-      identificacao: { unidadeConsumidora: null, competencia: null, distribuidora: null },
-      itens: [],
-      conferencia: vazia,
-      invoice: {},
-      camposParaConfirmar: ["a fatura é imagem digitalizada: preencha a ficha à mão"],
-    };
-  }
-
-  const identificacao = identificar(texto.linhas);
-  const itens = lerItens(texto.linhas);
+/**
+ * Monta a ficha a partir de identificação e itens, venham de onde vierem.
+ *
+ * Separado de `lerFatura` porque agora há duas procedências — as regras e o
+ * modelo de visão — e ambas têm de passar pelo mesmo julgamento. A conferência
+ * aritmética, o corte de item divergente, a regra do Grupo B e a lista do que
+ * falta confirmar acontecem aqui, uma vez, para as duas.
+ */
+function montarFicha(
+  identificacao: IdentificacaoDaFatura,
+  itens: ItemDaFatura[],
+  extras: ReturnType<typeof lerCamposExtras>,
+  origem: OrigemDoTexto,
+  confianca: number | null,
+): LeituraDaFatura {
   const conferencia = conferir(itens);
 
   if (itens.length === 0) {
     return {
-      origem: texto.origem,
-      aproveitavel: false,
-      motivo: "sem_itens",
+      ...recusar(
+        "layout_desconhecido",
+        "layout não reconhecido: nenhum item financeiro identificado",
+        origem,
+      ),
+      confianca,
       identificacao,
-      itens,
-      conferencia,
-      invoice: {},
-      camposParaConfirmar: ["layout não reconhecido: nenhum item financeiro identificado"],
     };
   }
 
+  return montarComItens(identificacao, itens, conferencia, extras, origem, confianca);
+}
+
+export type OpcoesDeLeitura = {
+  senha?: string;
+  /** Tipo do arquivo enviado; decide se a visão recebe a imagem ou a página rasterizada. */
+  mime?: string;
+  /**
+   * Leitor por modelo, injetado por quem tem o gateway. Ausente, a leitura fica
+   * só nas regras — que é o comportamento correto sem chave configurada.
+   */
+  visao?: LeitorPorVisao;
+  /** Impressão digital do arquivo, para o consumo poder ser dividido por fatura. */
+  referencia?: string;
+};
+
+/** Quantas páginas vão para o modelo. Fatura de energia cabe folgado em três. */
+const PAGINAS_PARA_VISAO = 3;
+
+export async function lerFatura(
+  conteudo: Buffer,
+  opcoes: OpcoesDeLeitura = {},
+): Promise<LeituraDaFatura> {
+  const { senha, mime = "application/pdf", visao: lerPorVisao, referencia } = opcoes;
+  let documento;
+  try {
+    documento = await normalizar(conteudo, senha);
+  } catch (erro) {
+    // Senha não é falha: é uma pergunta que o sistema tem de fazer. Vira
+    // resultado, não exceção, para a tela poder pedi-la sem perder o arquivo.
+    if (erro instanceof SenhaNecessariaError) {
+      return recusar("protegido_por_senha", "este PDF está protegido por senha");
+    }
+    if (erro instanceof SenhaIncorretaError) {
+      return recusar("senha_incorreta", "a senha informada não abre este PDF");
+    }
+    throw erro;
+  }
+
+  // A leitura por linha impressa é a principal: é ela que junta rótulo, tarifa
+  // e valor que a fatura imprime na mesma altura da folha. Medida nas 58
+  // faturas legíveis desta base, ela confirma pela aritmética exatamente os
+  // mesmos 204 itens que a leitura pela ordem do fluxo, com um terço dos itens
+  // espúrios — e é a única que funciona para o texto vindo de OCR, onde não
+  // existe "ordem do fluxo".
+  const linhas = linhasImpressas(documento.paginas);
+  const confianca = documento.confianca;
+
+  if (linhas.length === 0) {
+    return recusar(
+      "sem_texto",
+      documento.origem === "reconhecimento_optico"
+        ? "não foi possível reconhecer texto nesta imagem: tente uma foto mais nítida ou mais próxima"
+        : "o arquivo não tem texto legível",
+      documento.origem,
+    );
+  }
+
+  const extras = lerCamposExtras(documento.paginas);
+  const porRegras = montarFicha(
+    identificar(linhas),
+    lerItens(linhas),
+    extras,
+    documento.origem,
+    confianca,
+  );
+
+  // Regra que fechou a ficha é a resposta: é gratuita, determinística e diz de
+  // que posição da folha saiu cada número. O modelo é o plano B, não o padrão.
+  if (porRegras.aproveitavel || !lerPorVisao) return porRegras;
+
+  // O modelo recebe imagem, não PDF: rasterizar aqui reaproveita o caminho que
+  // o OCR já usa e vale para qualquer modelo, em vez de depender de o provedor
+  // saber abrir PDF. Arquivo que já é imagem vai como está.
+  // O PDF é reaberto porque `normalizar` devolve só o texto já extraído, sem o
+  // rasterizador. Abrir duas vezes custa, mas acontece só no plano B — quando as
+  // regras não fecharam a ficha — e não no caminho que atende a maioria.
+  let paginas: PaginaParaVisao[];
+  if (mime === "application/pdf") {
+    const aberto = await abrirPdf(conteudo, senha);
+    try {
+      paginas = await Promise.all(
+        aberto.paginas.slice(0, PAGINAS_PARA_VISAO).map(async (_, indice) => ({
+          conteudo: await aberto.rasterizar(indice + 1),
+          mime: "image/png",
+        })),
+      );
+    } finally {
+      await aberto.fechar();
+    }
+  } else {
+    paginas = [{ conteudo, mime }];
+  }
+
+  const visao = await lerPorVisao(paginas, referencia);
+  if (!visao) return porRegras;
+
+  const porVisao = montarFicha(
+    {
+      // Identificação lida por regra tem precedência: veio de um padrão
+      // verificável. O modelo só preenche o que ficou nulo — foi assim que a
+      // Roraima Energia entrou, com o "Código Único" que nenhum padrão pegava.
+      unidadeConsumidora:
+        porRegras.identificacao.unidadeConsumidora ?? visao.identificacao.unidadeConsumidora,
+      competencia: porRegras.identificacao.competencia ?? visao.identificacao.competencia,
+      distribuidora: porRegras.identificacao.distribuidora ?? visao.identificacao.distribuidora,
+    },
+    visao.itens,
+    extras,
+    documento.origem,
+    confianca,
+  );
+
+  // Só troca se o modelo fechou o que a regra não fechou. Empate fica com a
+  // regra: entre dois resultados equivalentes, o rastreável é melhor.
+  return porVisao.aproveitavel ? porVisao : porRegras;
+}
+
+function montarComItens(
+  identificacao: IdentificacaoDaFatura,
+  itens: ItemDaFatura[],
+  conferencia: Conferencia,
+  extras: ReturnType<typeof lerCamposExtras>,
+  origem: OrigemDoTexto,
+  confianca: number | null,
+): LeituraDaFatura {
   const invoice: Partial<InvoiceData> = {};
   const paraConfirmar: string[] = [];
 
@@ -142,11 +302,33 @@ export function lerFatura(pdf: Buffer): LeituraDaFatura {
     }
   }
 
-  // Estes dois a fatura não publica na camada de texto: o total fechado e a
-  // demanda contratada ficam na área de imagem do documento. Pedir é honesto;
-  // deduzir seria inventar.
-  paraConfirmar.push("valor total da fatura (não vem na camada de texto)");
-  paraConfirmar.push("demanda contratada em kW (não vem na camada de texto)");
+  // Os dois campos que a leitura antiga declarava ausentes da camada de texto e
+  // mandava digitar. Estão lá; faltava ler a folha por posição. Continuam indo
+  // para conferência quando de fato não aparecem.
+  if (extras.valorTotal !== null && extras.valorTotal > 0) invoice.valorTotal = extras.valorTotal;
+  else paraConfirmar.push("valor total da fatura");
+
+  const contratada =
+    extras.demandaContratadaPontaKw ??
+    extras.demandaContratadaKw ??
+    extras.demandaContratadaForaPontaKw;
+
+  if (contratada !== null && contratada > 0) invoice.demandaContratadaKw = contratada;
+  else paraConfirmar.push("demanda contratada em kW");
+
+  // Demanda contratada diferente entre ponta e fora ponta é tarifa azul, e a
+  // ficha só guarda um valor. Dizer qual foi usado evita um estudo dimensionado
+  // pelo número errado sem ninguém perceber.
+  if (
+    extras.demandaContratadaPontaKw !== null &&
+    extras.demandaContratadaForaPontaKw !== null &&
+    extras.demandaContratadaPontaKw !== extras.demandaContratadaForaPontaKw
+  ) {
+    paraConfirmar.push(
+      `a fatura tem demanda contratada diferente em ponta (${extras.demandaContratadaPontaKw} kW) ` +
+        `e fora ponta (${extras.demandaContratadaForaPontaKw} kW); a ficha usou a de ponta`,
+    );
+  }
 
   if (!identificacao.unidadeConsumidora) paraConfirmar.push("unidade consumidora");
   if (!identificacao.competencia) paraConfirmar.push("competência");
@@ -178,9 +360,10 @@ export function lerFatura(pdf: Buffer): LeituraDaFatura {
   }
 
   return {
-    origem: texto.origem,
+    origem,
     aproveitavel: essenciais,
     motivo,
+    confianca,
     identificacao,
     itens,
     conferencia,

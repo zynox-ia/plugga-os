@@ -11,6 +11,12 @@ export interface MirrorRecordInput {
 
 export type MirrorUpsertOutcome = "created" | "updated" | "unchanged";
 
+/** Resultado de uma rodada de import; `error: null` significa sucesso. */
+export interface SyncOutcome {
+  at: Date;
+  error: string | null;
+}
+
 /**
  * Data-access boundary for the Bitrix Migrator: reads the integration mode (for
  * the read_only gate) and idempotently writes mirror rows. Read-only toward
@@ -19,4 +25,6 @@ export type MirrorUpsertOutcome = "created" | "updated" | "unchanged";
 export abstract class BitrixRepository {
   abstract getIntegrationMode(key: string): Promise<IntegrationMode | null>;
   abstract upsertMirrorRecord(input: MirrorRecordInput): Promise<MirrorUpsertOutcome>;
+  /** Sem este registro a tela de Integrações mostra "nunca sincronizado" para sempre. */
+  abstract recordSyncOutcome(outcome: SyncOutcome): Promise<void>;
 }

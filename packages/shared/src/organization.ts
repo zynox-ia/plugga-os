@@ -38,19 +38,6 @@ export const departmentIdsByCompany = {
   waze: ["comercial-obras", "engenharia-obras", "financeiro"],
 } as const satisfies Record<CompanyKey, readonly DepartmentId[]>;
 
-export const companyNames: Record<CompanyKey, string> = {
-  plugga: "Plugga",
-  waze: "Waze Energia",
-};
-
-export function isCompanyKey(value: string): value is CompanyKey {
-  return (companyKeys as readonly string[]).includes(value);
-}
-
-export function isDepartmentId(value: string): value is DepartmentId {
-  return (departmentIds as readonly string[]).includes(value);
-}
-
 /** Um departamento só pertence a uma empresa se o catálogo disser que pertence. */
 export function isDepartmentOfCompany(company: CompanyKey, departmentId: string): boolean {
   return (departmentIdsByCompany[company] as readonly string[]).includes(departmentId);

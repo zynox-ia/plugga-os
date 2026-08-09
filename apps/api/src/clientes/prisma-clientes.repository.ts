@@ -318,11 +318,15 @@ export class PrismaClientesRepository extends ClientesRepository {
 
     const or: Prisma.ClientWhereInput[] = [];
     if (emailLower) or.push({ email: { equals: emailLower, mode: "insensitive" } });
-    if (digitsPhone && digitsPhone.length >= 6) or.push({ phone: { contains: digitsPhone.slice(-8) } });
+    // -4, não -8: num telefone formatado ("90000-0000") os 8 últimos incluem o
+    // hífen e o contains nunca casa; só os 4 finais são contíguos em qualquer
+    // formatação brasileira. O pós-filtro por só-dígitos abaixo decide.
+    if (digitsPhone && digitsPhone.length >= 6) or.push({ phone: { contains: digitsPhone.slice(-4) } });
     if (nameToken && nameToken.length >= 3) or.push({ name: { contains: nameToken, mode: "insensitive" } });
     if (or.length === 0) return [];
 
-    const rows = await this.prisma.client.findMany({ where: { OR: or }, take: 25 });
+    // take maior porque o prefiltro de telefone ficou mais largo com 4 dígitos.
+    const rows = await this.prisma.client.findMany({ where: { OR: or }, take: 50 });
 
     const results: Array<[ClientRow, ClientDuplicateCandidate["matchedOn"]]> = [];
     for (const row of rows) {

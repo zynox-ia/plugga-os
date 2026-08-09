@@ -2,8 +2,6 @@ import type { AuthPrincipal } from "./auth.types";
 
 export interface SessionLookupContext {
   now: Date;
-  ip?: string;
-  userAgent?: string;
 }
 
 /**

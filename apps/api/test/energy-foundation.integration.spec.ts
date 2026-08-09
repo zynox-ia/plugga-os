@@ -54,14 +54,35 @@ describeDatabase("energy foundation constraints", () => {
       }),
     ).rejects.toThrow();
 
-    await expect(
-      prisma.audit.create({
-        data: {
-          origin: "avulsa",
-          type: "oportunidade",
-          cycleId: (await prisma.cycle.findFirst())?.id,
-        },
-      }),
-    ).rejects.toThrow();
+    // Ciclo de apoio criado aqui mesmo, nunca `findFirst()`: em banco limpo o
+    // findFirst devolvia undefined, o Prisma omitia o cycleId e o create
+    // PASSAVA — o teste falhava no rejects e ainda deixava audit órfã na base.
+    const consumerUnit = await prisma.consumerUnit.findFirst();
+    if (!consumerUnit) throw new Error("seed did not create a consumer unit");
+
+    const cycle = await prisma.cycle.create({
+      data: {
+        clientId: consumerUnit.clientId,
+        consumerUnitId: consumerUnit.id,
+        competenceMonth: 2,
+        competenceYear: 2099,
+      },
+    });
+
+    try {
+      await expect(
+        prisma.audit.create({
+          data: {
+            origin: "avulsa",
+            type: "oportunidade",
+            cycleId: cycle.id,
+          },
+        }),
+      ).rejects.toThrow();
+    } finally {
+      // Se o CHECK estiver quebrado e a audit tiver entrado, ela sai junto.
+      await prisma.audit.deleteMany({ where: { cycleId: cycle.id } });
+      await prisma.cycle.delete({ where: { id: cycle.id } });
+    }
   });
 });

@@ -61,6 +61,10 @@ describe("assertContractTransitionAllowed", () => {
   it("blocks any transition once encerrado", () => {
     expect(() => assertContractTransitionAllowed("encerrado", "vencendo")).toThrow(BadRequestException);
   });
+
+  it("blocks re-submitting encerrado — a closed contract cannot have its dates rewritten", () => {
+    expect(() => assertContractTransitionAllowed("encerrado", "encerrado")).toThrow(BadRequestException);
+  });
 });
 
 describe("assertContractCanActivate", () => {

@@ -16,7 +16,9 @@ test.describe("Clientes — busca e ficha", () => {
     // First client: no duplicate yet.
     await page.getByRole("button", { name: "+ Novo cliente" }).click();
     await page.getByLabel("Nome *").fill(uniqueName);
-    await page.getByLabel("Telefone").fill(phone);
+    // exact: o rótulo do filtro de busca ("Nome, empresa, telefone ou
+    // identificador") também contém "telefone", e getByLabel casa substring.
+    await page.getByLabel("Telefone", { exact: true }).fill(phone);
     await page.getByRole("button", { name: "Criar cliente" }).click();
     await expect(page.getByRole("cell", { name: uniqueName, exact: true })).toBeVisible();
 
@@ -24,15 +26,32 @@ test.describe("Clientes — busca e ficha", () => {
     // but still created (not blocked) — both rows must exist afterwards.
     await page.getByRole("button", { name: "+ Novo cliente" }).click();
     await page.getByLabel("Nome *").fill(`${uniqueName} (2)`);
-    await page.getByLabel("Telefone").fill(phone);
+    await page.getByLabel("Telefone", { exact: true }).fill(phone);
     await page.getByRole("button", { name: "Criar cliente" }).click();
 
     await expect(page.getByRole("heading", { name: "Cliente criado — confira antes de seguir" })).toBeVisible();
-    await expect(page.getByRole("cell", { name: uniqueName, exact: true })).toBeVisible();
-    await expect(page.getByRole("cell", { name: `${uniqueName} (2)`, exact: true })).toBeVisible();
 
-    await page
-      .getByRole("row", { name: new RegExp(`^${uniqueName}\\s`) })
+    // O painel de duplicados lista o PRIMEIRO cliente (o telefone agora casa
+    // mesmo formatado), então o nome dele existe em duas tabelas. As asserções
+    // de "as duas linhas existem" valem para a lista principal.
+    const painelDeDuplicados = page.getByRole("table", {
+      name: "Clientes já existentes que podem ser o mesmo cadastro",
+    });
+    await expect(painelDeDuplicados.getByRole("cell", { name: uniqueName, exact: true })).toBeVisible();
+
+    const listaDeClientes = page.getByRole("table", { name: "Clientes cadastrados" });
+    await expect(listaDeClientes.getByRole("cell", { name: uniqueName, exact: true })).toBeVisible();
+    // A linha nova só entra na lista depois do roundtrip do router.refresh();
+    // o timeout padrão de 5s perde essa corrida em runner carregado.
+    await expect(
+      listaDeClientes.getByRole("cell", { name: `${uniqueName} (2)`, exact: true }),
+    ).toBeVisible({ timeout: 15_000 });
+
+    // Pela célula exata, não por regex de prefixo: o nome acessível da linha do
+    // "(2)" também começa com o nome do primeiro cliente.
+    await listaDeClientes
+      .getByRole("row")
+      .filter({ has: page.getByRole("cell", { name: uniqueName, exact: true }) })
       .getByRole("link", { name: "Ver ficha" })
       .click();
     await expect(page).toHaveURL(/\/clientes\/[^/]+$/);

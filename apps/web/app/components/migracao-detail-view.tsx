@@ -28,7 +28,7 @@ function formatDateTime(value: string | null): string {
   return new Date(value).toLocaleString("pt-BR");
 }
 
-export function MigracaoDetailView({ migration }: { migration: MarketMigrationSummary }) {
+export function MigracaoDetailView({ migration, isLive }: { migration: MarketMigrationSummary; isLive: boolean }) {
   const router = useRouter();
   const [panel, setPanel] = useState<ActionPanel>(null);
   const [pending, setPending] = useState(false);
@@ -109,7 +109,10 @@ export function MigracaoDetailView({ migration }: { migration: MarketMigrationSu
               <span className="eyebrow">Energia & OPM · Migração</span>
               <h2>{migration.consumerUnitCode}</h2>
             </div>
-            <StatusPill variant={STATUS_VARIANT[migration.status] ?? "neutral"}>{migration.status}</StatusPill>
+            <div className="row-actions">
+              {!isLive ? <StatusPill variant="warning">Dados de exemplo (API indisponível)</StatusPill> : null}
+              <StatusPill variant={STATUS_VARIANT[migration.status] ?? "neutral"}>{migration.status}</StatusPill>
+            </div>
           </div>
 
           <div style={{ padding: "0 18px 18px", display: "grid", gap: 10 }}>
@@ -156,17 +159,30 @@ export function MigracaoDetailView({ migration }: { migration: MarketMigrationSu
           <div style={{ padding: "0 18px 18px", display: "grid", gap: 8 }}>
             {isOpen ? (
               <>
-                <button className="button" type="button" onClick={() => setPanel(panel === "stage" ? null : "stage")}>
+                {/* Sem API não há o que escrever: agir sobre dado de exemplo
+                    fingiria uma migração que não existe. */}
+                <button
+                  className="button"
+                  type="button"
+                  disabled={!isLive}
+                  onClick={() => setPanel(panel === "stage" ? null : "stage")}
+                >
                   Avançar etapa
                 </button>
                 <button
                   className="button button--accent"
                   type="button"
+                  disabled={!isLive}
                   onClick={() => setPanel(panel === "activate" ? null : "activate")}
                 >
                   Ativar
                 </button>
-                <button className="button" type="button" onClick={() => setPanel(panel === "cancel" ? null : "cancel")}>
+                <button
+                  className="button"
+                  type="button"
+                  disabled={!isLive}
+                  onClick={() => setPanel(panel === "cancel" ? null : "cancel")}
+                >
                   Cancelar migração
                 </button>
               </>

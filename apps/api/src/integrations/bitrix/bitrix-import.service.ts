@@ -94,6 +94,24 @@ export class BitrixImportService {
   }
 
   private async importDomain(descriptor: DomainDescriptor): Promise<ImportSummary> {
+    try {
+      const summary = await this.readDomainIntoMirror(descriptor);
+      await this.repository.recordSyncOutcome({ at: new Date(), error: null });
+      return summary;
+    } catch (error) {
+      // Registrar sem engolir: a falha vai para a tela de Integrações E segue
+      // para o job_run — por isso o try/catch interno não pode substituir o
+      // erro original pelo de registro.
+      try {
+        await this.repository.recordSyncOutcome({ at: new Date(), error: truncatedMessageOf(error) });
+      } catch (recordError) {
+        this.logger.error(`bitrix import: failed to record sync outcome: ${String(recordError)}`);
+      }
+      throw error;
+    }
+  }
+
+  private async readDomainIntoMirror(descriptor: DomainDescriptor): Promise<ImportSummary> {
     const pageSize = this.config.get<number>("BITRIX_IMPORT_PAGE_SIZE", 50);
     const summary: ImportSummary = {
       domain: descriptor.domain,
@@ -158,6 +176,12 @@ export class BitrixImportService {
     );
     return summary;
   }
+}
+
+/** Truncado porque lastError é vitrine de diagnóstico, não log completo. */
+function truncatedMessageOf(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error);
+  return message.length > 500 ? `${message.slice(0, 500)}…` : message;
 }
 
 function extractExternalId(item: unknown): string | null {

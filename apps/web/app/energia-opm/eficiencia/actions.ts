@@ -24,6 +24,17 @@ export type ResultadoDaAcao = { ok: true } | { ok: false; erro: string };
 
 const TIMEOUT_MS = 20_000;
 
+/**
+ * Ler a fatura tem prazo próprio, bem maior que o das outras chamadas.
+ *
+ * Uma fatura digitalizada passa por rasterização e reconhecimento óptico, o que
+ * leva alguns segundos por página, e ainda pode esperar na fila se houver outra
+ * leitura em curso. Com os 20 s das demais ações, a leitura que mais interessa
+ * — a da foto de conta, que é a maioria do acervo real — seria cortada no meio
+ * e apareceria como "não foi possível falar com a API".
+ */
+const TIMEOUT_LEITURA_MS = 120_000;
+
 async function chamar(caminho: string, corpo?: unknown): Promise<ResultadoDaAcao> {
   const cabecalhos = await headers();
   const cookie = cabecalhos.get("cookie");
@@ -42,9 +53,17 @@ async function chamar(caminho: string, corpo?: unknown): Promise<ResultadoDaAcao
 
     if (!resposta.ok) {
       // A API devolve motivo legível nos conflitos de estado; repassar é o que
-      // permite a tela explicar em vez de só dizer "falhou".
-      const detalhe = (await resposta.json().catch(() => null)) as { message?: string } | null;
-      return { ok: false, erro: detalhe?.message ?? `falha ${resposta.status}` };
+      // permite a tela explicar em vez de só dizer "falhou". Erro de validação
+      // vem como `issues[]` (ZodValidationPipe) — concatenar como em
+      // energy-client.ts, senão a tela só veria um genérico "Validation failed".
+      const detalhe = (await resposta.json().catch(() => null)) as {
+        message?: string;
+        issues?: { path: string; message: string }[];
+      } | null;
+      const issues = Array.isArray(detalhe?.issues)
+        ? detalhe.issues.map((issue) => `${issue.path}: ${issue.message}`).join("; ")
+        : null;
+      return { ok: false, erro: issues || detalhe?.message || `falha ${resposta.status}` };
     }
 
     return { ok: true };
@@ -67,7 +86,7 @@ export async function lerFaturaEnviada(
 ): Promise<{ ok: true; leitura: InvoiceReading } | { ok: false; erro: string }> {
   const arquivo = formData.get("arquivo");
   if (!(arquivo instanceof File) || arquivo.size === 0) {
-    return { ok: false, erro: "selecione a conta de luz em PDF" };
+    return { ok: false, erro: "selecione a conta de luz" };
   }
 
   const cabecalhos = await headers();
@@ -76,6 +95,11 @@ export async function lerFaturaEnviada(
   const corpo = new FormData();
   corpo.append("arquivo", arquivo, arquivo.name);
 
+  // Só vai quando existe: um campo vazio faria a API tentar abrir um PDF sem
+  // senha com senha em branco, que é um caso diferente de "sem senha".
+  const senha = formData.get("senha");
+  if (typeof senha === "string" && senha.length > 0) corpo.append("senha", senha);
+
   try {
     const resposta = await fetch(`${apiBaseUrl()}/energy-efficiency/invoices/read`, {
       method: "POST",
@@ -83,7 +107,7 @@ export async function lerFaturaEnviada(
       // declarar o cabeçalho manualmente quebraria a fronteira.
       headers: cookie ? { cookie } : {},
       body: corpo,
-      signal: AbortSignal.timeout(TIMEOUT_MS),
+      signal: AbortSignal.timeout(TIMEOUT_LEITURA_MS),
       cache: "no-store",
     });
 
@@ -96,24 +120,6 @@ export async function lerFaturaEnviada(
   } catch {
     return { ok: false, erro: "não foi possível falar com a API" };
   }
-}
-
-export async function criarEstudo(formData: FormData): Promise<ResultadoDaAcao> {
-  const consumerUnitId = String(formData.get("consumerUnitId") ?? "");
-  const clientId = String(formData.get("clientId") ?? "");
-  const competenceMonth = Number(formData.get("competenceMonth"));
-  const competenceYear = Number(formData.get("competenceYear"));
-
-  const resultado = await chamar("", {
-    clientId,
-    consumerUnitId,
-    competenceMonth,
-    competenceYear,
-    calculationMode: "preliminar",
-  });
-
-  if (resultado.ok) revalidatePath("/energia-opm/eficiencia");
-  return resultado;
 }
 
 export async function enviarFatura(id: string, formData: FormData): Promise<ResultadoDaAcao> {
@@ -156,38 +162,45 @@ export async function enviarFatura(id: string, formData: FormData): Promise<Resu
  * Abre o estudo a partir da fatura já conferida.
  *
  * Cria e envia a ficha numa chamada só porque, para quem opera, é um ato só:
- * "esta conta de luz vira um estudo". Deixar os dois passos expostos abriria
- * espaço para estudo órfão, criado e sem fatura, se a segunda metade falhasse.
+ * "esta conta de luz vira um estudo". Quando o envio da fatura falha depois da
+ * criação, o id do estudo recém-criado volta junto com o erro: a tela o guarda
+ * e a retentativa entra por `estudoExistente`, completando o MESMO estudo em
+ * vez de abrir um segundo para a mesma UC/competência.
  */
 export async function abrirEstudoPelaFatura(
   formData: FormData,
-): Promise<{ ok: true; id: string } | { ok: false; erro: string }> {
-  const cabecalhos = await headers();
-  const cookie = cabecalhos.get("cookie");
+  estudoExistente?: string,
+): Promise<{ ok: true; id: string } | { ok: false; erro: string; estudoCriado?: string }> {
+  let id = estudoExistente;
 
-  const criacao = await fetch(`${apiBaseUrl()}/energy-efficiency/studies`, {
-    method: "POST",
-    headers: { "content-type": "application/json", ...(cookie ? { cookie } : {}) },
-    body: JSON.stringify({
-      clientId: String(formData.get("clientId") ?? ""),
-      consumerUnitId: String(formData.get("consumerUnitId") ?? ""),
-      competenceMonth: Number(formData.get("competenceMonth")),
-      competenceYear: Number(formData.get("competenceYear")),
-      calculationMode: "preliminar",
-    }),
-    signal: AbortSignal.timeout(TIMEOUT_MS),
-    cache: "no-store",
-  }).catch(() => null);
+  if (!id) {
+    const cabecalhos = await headers();
+    const cookie = cabecalhos.get("cookie");
 
-  if (!criacao?.ok) {
-    const detalhe = (await criacao?.json().catch(() => null)) as { message?: string } | null;
-    return { ok: false, erro: detalhe?.message ?? "não foi possível abrir o estudo" };
+    const criacao = await fetch(`${apiBaseUrl()}/energy-efficiency/studies`, {
+      method: "POST",
+      headers: { "content-type": "application/json", ...(cookie ? { cookie } : {}) },
+      body: JSON.stringify({
+        clientId: String(formData.get("clientId") ?? ""),
+        consumerUnitId: String(formData.get("consumerUnitId") ?? ""),
+        competenceMonth: Number(formData.get("competenceMonth")),
+        competenceYear: Number(formData.get("competenceYear")),
+        calculationMode: "preliminar",
+      }),
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+      cache: "no-store",
+    }).catch(() => null);
+
+    if (!criacao?.ok) {
+      const detalhe = (await criacao?.json().catch(() => null)) as { message?: string } | null;
+      return { ok: false, erro: detalhe?.message ?? "não foi possível abrir o estudo" };
+    }
+
+    ({ id } = (await criacao.json()) as { id: string });
   }
 
-  const { id } = (await criacao.json()) as { id: string };
-
   const envio = await enviarFatura(id, formData);
-  if (!envio.ok) return envio;
+  if (!envio.ok) return { ...envio, estudoCriado: id };
 
   revalidatePath("/energia-opm/eficiencia");
   return { ok: true, id };

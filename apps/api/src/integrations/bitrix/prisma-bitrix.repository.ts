@@ -3,10 +3,12 @@ import type { Prisma } from "@prisma/client";
 import type { IntegrationMode } from "@plugga/shared";
 
 import { PrismaService } from "../../prisma/prisma.service";
+import { BITRIX_INTEGRATION_KEY } from "./bitrix.constants";
 import {
   BitrixRepository,
   type MirrorRecordInput,
   type MirrorUpsertOutcome,
+  type SyncOutcome,
 } from "./bitrix.repository";
 
 @Injectable()
@@ -57,5 +59,18 @@ export class PrismaBitrixRepository extends BitrixRepository {
       },
     });
     return "updated";
+  }
+
+  async recordSyncOutcome(outcome: SyncOutcome): Promise<void> {
+    // "down", não "degraded", numa falha: a rodada parou no meio e o espelho
+    // pode estar incompleto; a tela precisa acender vermelho até passar inteira.
+    await this.prisma.integration.update({
+      where: { key: BITRIX_INTEGRATION_KEY },
+      data: {
+        lastSyncAt: outcome.at,
+        status: outcome.error === null ? "healthy" : "down",
+        lastError: outcome.error,
+      },
+    });
   }
 }

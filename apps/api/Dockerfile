@@ -6,9 +6,10 @@
 # native, and glibc avoids a class of musl-only surprises.
 FROM node:22-bookworm-slim AS base
 ENV PNPM_HOME=/pnpm PATH=/pnpm:$PATH
-# openssl is required by the Prisma query engine.
+# openssl is required by the Prisma query engine; curl fetches the Tesseract
+# language data in the runtime stage (the slim image ships neither).
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends openssl ca-certificates \
+  && apt-get install -y --no-install-recommends openssl ca-certificates curl \
   && rm -rf /var/lib/apt/lists/*
 RUN corepack enable
 WORKDIR /app
@@ -55,6 +56,22 @@ RUN pnpm exec playwright install --with-deps chromium \
 # Docker's default seccomp profile blocks. Safe here only because the HTML is
 # ours and every case field is escaped before it reaches the page.
 ENV CHROMIUM_NO_SANDBOX=true
+
+# Dados de treino do Tesseract para leitura de fatura digitalizada.
+#
+# Baixados aqui, na construção da imagem, e não pelo tesseract.js na primeira
+# leitura. O padrão da biblioteca é buscar o arquivo num CDN quando a primeira
+# fatura chega — uma dependência de rede escondida dentro do que a pessoa vê
+# como uma operação local. Numa VPS sem saída para a internet, ou com o CDN
+# fora do ar, a primeira digitalização falharia com erro de download.
+#
+# `por` é o único idioma incluído: fatura de distribuidora brasileira. São
+# ~15 MB; os outros cem idiomas não teriam uso aqui.
+ENV TESSERACT_DATA_PATH=/app/tessdata
+RUN mkdir -p /app/tessdata \
+  && curl -fsSL -o /app/tessdata/por.traineddata.gz \
+    https://tessdata.projectnaptha.com/4.0.0/por.traineddata.gz \
+  && chmod -R a+rX /app/tessdata
 
 USER node
 EXPOSE 3001

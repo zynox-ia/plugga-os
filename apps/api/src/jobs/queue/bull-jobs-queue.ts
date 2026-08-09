@@ -35,13 +35,18 @@ export class BullJobsQueue extends JobsQueue implements OnModuleDestroy {
       meta: { triggeredBy: options.triggeredBy ?? "system" },
     };
 
+    // Deduplicação nativa, não `jobId`: mapear a chave para o id do job faria
+    // um job concluído/falhado RETIDO (removeOnComplete/removeOnFail) engolir
+    // qualquer enqueue futuro com a mesma chave — o add viraria no-op para
+    // sempre, sem erro. A chave nativa expira quando o job termina, que é o
+    // contrato da porta ("while the job is waiting/active").
     let deduped = false;
     if (options.dedupeKey) {
-      deduped = (await this.queue.getJob(options.dedupeKey)) != null;
+      deduped = (await this.queue.getDeduplicationJobId(options.dedupeKey)) != null;
     }
 
     const job = await this.queue.add(jobKey, envelope, {
-      jobId: options.dedupeKey,
+      ...(options.dedupeKey ? { deduplication: { id: options.dedupeKey } } : {}),
       attempts: options.attempts ?? DEFAULT_ATTEMPTS,
       backoff: { type: "exponential", delay: options.backoffMs ?? DEFAULT_BACKOFF_MS },
       delay: options.delayMs,

@@ -230,7 +230,7 @@ model User {
   name             String
   status           String                  @default("active")
   createdAt        DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt        DateTime                @updatedAt @map("updated_at") @db.Timestamptz(6)
+  updatedAt        DateTime                @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   platformRoles    UserPlatformRole[]
   memberships      UserCompanyMembership[]
   agentActions     AgentAction[]
@@ -240,7 +240,8 @@ model User {
   opportunities    Opportunity[]
   contracts        Contract[]
   marketMigrations MarketMigration[]
-  cycles           Cycle[]
+  cycles           Cycle[]                 @relation("CycleOwner")
+  cyclesAprovados  Cycle[]                 @relation("CycleReportApprover")
   audits           Audit[]
   contestations    Contestation[]
 
@@ -252,7 +253,7 @@ model UserCredential {
   userId       String   @id @map("user_id") @db.Uuid
   passwordHash String   @map("password_hash")
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("user_credentials")
@@ -427,7 +428,7 @@ model Integration {
   lastError  String?           @map("last_error")
   owner      String
   createdAt  DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt  DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+  updatedAt  DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   jobRuns    JobRun[]
 
   @@map("integrations")
@@ -445,7 +446,7 @@ model BitrixMirrorRecord {
   sourceFingerprint String   @map("source_fingerprint")
   fetchedAt         DateTime @map("fetched_at") @db.Timestamptz(6)
   createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  updatedAt         DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   @@unique([domain, externalId])
   @@index([domain])
@@ -830,7 +831,10 @@ model Cycle {
   client             Client            @relation(fields: [clientId], references: [id], onDelete: Cascade)
   consumerUnit       ConsumerUnit      @relation(fields: [consumerUnitId], references: [id], onDelete: Cascade)
   marketMigration    MarketMigration?  @relation(fields: [marketMigrationId], references: [id], onDelete: SetNull)
-  owner              User?             @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  owner              User?             @relation("CycleOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  // A chave estrangeira existe no banco desde 20260807050000 e não estava
+  // declarada aqui: era metade da deriva que sujava toda migração nova.
+  reportApprovedBy   User?             @relation("CycleReportApprover", fields: [reportApprovedById], references: [id], onDelete: SetNull)
   audits             Audit[]
 
   @@unique([consumerUnitId, competenceMonth, competenceYear])
@@ -1001,4 +1005,78 @@ enum EnergyCalculationMode {
   memoria_massa
 
   @@map("energy_calculation_mode")
+}
+
+enum LlmChamadaStatus {
+  ok
+  erro
+
+  @@map("llm_chamada_status")
+}
+
+/// Uma linha por chamada ao modelo, com quem pediu e o que custou.
+///
+/// Existe porque "quanto a chave está gastando" só é respondível se toda chamada
+/// passar por uma porta e essa porta escrever aqui. O campo que sustenta o resto
+/// é `processo`: sem ele o total é um número sem dono, e a pergunta que importa —
+/// se a leitura de fatura vale o que consome — fica sem resposta.
+///
+/// `custoCreditos` é o custo que a OpenRouter informou na própria resposta, não
+/// uma estimativa por tabela de preço: preço de modelo muda e tabela envelhece em
+/// silêncio. Fica nulo quando o provedor não informou, e nulo é diferente de zero.
+///
+/// Chamada que falhou também entra, com os tokens que chegou a consumir. Uma
+/// tempestade de tentativas é história de custo, e some do relatório se só o
+/// sucesso for registrado.
+model LlmChamada {
+  id               String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  processo         String
+  modelo           String
+  /// O modelo que a OpenRouter realmente serviu, que pode diferir do pedido.
+  modeloServido    String?          @map("modelo_servido")
+  tokensEntrada    Int              @default(0) @map("tokens_entrada")
+  tokensSaida      Int              @default(0) @map("tokens_saida")
+  /// Leitura de cache: conta como token processado e custa bem menos.
+  tokensCache      Int              @default(0) @map("tokens_cache")
+  tokensRaciocinio Int              @default(0) @map("tokens_raciocinio")
+  custoCreditos    Decimal?         @map("custo_creditos") @db.Decimal(18, 8)
+  duracaoMs        Int              @map("duracao_ms")
+  status           LlmChamadaStatus
+  erro             String?
+  /// Objeto de negócio que motivou a chamada — para faturas, a impressão digital
+  /// do arquivo. É o que permite dividir gasto por unidade em vez de só somar.
+  referencia       String?
+  /// Identificador da geração na OpenRouter, para conciliar com a fatura deles.
+  geracaoId        String?          @map("geracao_id")
+  criadoEm         DateTime         @default(now()) @map("criado_em") @db.Timestamptz(6)
+
+  @@index([processo, criadoEm])
+  @@index([criadoEm])
+  @@index([modelo])
+  @@index([referencia])
+  @@map("llm_chamadas")
+}
+
+/// Segredo que o sistema guarda para si, cifrado.
+///
+/// Existe para a chave de API poder ser trocada por tela, sem editar arquivo e
+/// reiniciar contêiner. O valor fica cifrado com AES-256-GCM e a chave-mestra
+/// mora no ambiente: o dump do banco — que vai para o MinIO todo dia — não é
+/// suficiente para usar nada daqui.
+///
+/// Uma linha por chave lógica. `ultimosQuatro` existe para a tela confirmar qual
+/// credencial está plugada sem nunca receber a credencial.
+model SegredoDoSistema {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  /// Identificador lógico, ex.: `openrouter.api_key`.
+  chave         String   @unique
+  valorCifrado  String   @map("valor_cifrado")
+  iv            String
+  tag           String
+  ultimosQuatro String   @map("ultimos_quatro")
+  atualizadoPor String?  @map("atualizado_por")
+  atualizadoEm  DateTime @updatedAt @map("atualizado_em") @db.Timestamptz(6)
+  criadoEm      DateTime @default(now()) @map("criado_em") @db.Timestamptz(6)
+
+  @@map("segredos_do_sistema")
 }

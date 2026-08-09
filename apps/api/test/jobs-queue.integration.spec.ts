@@ -17,7 +17,9 @@ import { JobsQueueModule } from "../src/jobs/queue/jobs-queue.module";
 const enabled = process.env.RUN_JOBS_INTEGRATION_TESTS === "true";
 const describeJobs = enabled ? describe : describe.skip;
 
-const REDIS_URL = process.env.REDIS_URL ?? "redis://localhost:6379";
+// 56379 é o Redis do stack local; na 6379 desta máquina vive o túnel para o
+// Redis de PRODUÇÃO (mesma razão do guard de DATABASE_URL em test/setup.ts).
+const REDIS_URL = process.env.REDIS_URL ?? "redis://127.0.0.1:56379";
 const MARKER = `test.jobs.integration.${Date.now()}`;
 
 async function waitFor<T>(

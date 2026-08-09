@@ -20,8 +20,10 @@ const numero = (valor: number | null | undefined, casas = 0): string =>
     ? "—"
     : valor.toLocaleString("pt-BR", { minimumFractionDigits: casas, maximumFractionDigits: casas });
 
-const CAMPOS_DA_FATURA: { nome: string; rotulo: string; passo?: string }[] = [
-  { nome: "valorTotal", rotulo: "Valor total da fatura (R$)", passo: "0.01" },
+// `minimo` presente onde o contrato (invoiceDataSchema) exige positivo:
+// min=0 deixaria o navegador aceitar o que a API recusa com 400.
+const CAMPOS_DA_FATURA: { nome: string; rotulo: string; passo?: string; minimo?: string }[] = [
+  { nome: "valorTotal", rotulo: "Valor total da fatura (R$)", passo: "0.01", minimo: "0.01" },
   { nome: "consumoPontaKwh", rotulo: "Consumo ponta (kWh)" },
   { nome: "consumoForaPontaKwh", rotulo: "Consumo fora ponta (kWh)" },
   { nome: "tarifaPonta", rotulo: "Tarifa ponta (R$/kWh)", passo: "0.000001" },
@@ -29,7 +31,7 @@ const CAMPOS_DA_FATURA: { nome: string; rotulo: string; passo?: string }[] = [
   { nome: "valorPonta", rotulo: "Valor da energia em ponta (R$)", passo: "0.01" },
   { nome: "valorForaPonta", rotulo: "Valor da energia fora ponta (R$)", passo: "0.01" },
   { nome: "valorDemanda", rotulo: "Valor da demanda (R$)", passo: "0.01" },
-  { nome: "demandaContratadaKw", rotulo: "Demanda contratada (kW)" },
+  { nome: "demandaContratadaKw", rotulo: "Demanda contratada (kW)", minimo: "0.01" },
   { nome: "demandaMedidaPontaKw", rotulo: "Demanda medida em ponta (kW)" },
   { nome: "demandaMedidaForaPontaKw", rotulo: "Demanda medida fora ponta (kW)" },
   { nome: "tarifaDemanda", rotulo: "Tarifa de demanda (R$/kW)", passo: "0.01" },
@@ -43,6 +45,17 @@ export function EstudoDetalheView({ estudo }: { estudo: EnergyStudyDetail }) {
   const [erro, setErro] = useState<string | null>(null);
   const [nota, setNota] = useState("");
   const [pendente, iniciar] = useTransition();
+  const [baixandoPdf, setBaixandoPdf] = useState(false);
+  // Ficha controlada por estado: o React 19 reseta o <form action> quando a
+  // ação termina, inclusive em erro — com defaultValue, um 400 apagava tudo
+  // que a pessoa digitou lendo o papel. Campo controlado sobrevive ao reset.
+  const [ficha, setFicha] = useState<Record<string, string>>(() => {
+    const base: Record<string, string> = { demandHistory: "", hasLoadProfile: "" };
+    for (const campo of CAMPOS_DA_FATURA) base[campo.nome] = "0";
+    return base;
+  });
+  const alterarCampo = (nome: string, valor: string) =>
+    setFicha((atual) => ({ ...atual, [nome]: valor }));
 
   const rodar = (acao: () => Promise<{ ok: true } | { ok: false; erro: string }>) => {
     setErro(null);
@@ -52,6 +65,36 @@ export function EstudoDetalheView({ estudo }: { estudo: EnergyStudyDetail }) {
       else setErro(resultado.erro);
     });
   };
+
+  // A rota devolve o erro como text/plain: um <a href> cru navegaria para essa
+  // mensagem e a pessoa perderia a tela do estudo. Buscando no clique, o erro
+  // cai no aviso do card e o sucesso vira download de verdade.
+  async function baixarPdf() {
+    setErro(null);
+    setBaixandoPdf(true);
+    try {
+      const resposta = await fetch(`/api/energia/estudos/${estudo.id}/documento/pdf`);
+      if (!resposta.ok) {
+        setErro(await resposta.text().catch(() => "não foi possível gerar o PDF"));
+        return;
+      }
+      const nome =
+        /filename="([^"]+)"/.exec(resposta.headers.get("content-disposition") ?? "")?.[1] ??
+        "estudo.pdf";
+      const url = URL.createObjectURL(await resposta.blob());
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = nome;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      setErro("não foi possível falar com a API para gerar o PDF");
+    } finally {
+      setBaixandoPdf(false);
+    }
+  }
 
   const rotulo = ROTULO_DE_ESTADO[estudo.status];
   const temProblemas = (estudo.validationIssues?.length ?? 0) > 0;
@@ -98,18 +141,38 @@ export function EstudoDetalheView({ estudo }: { estudo: EnergyStudyDetail }) {
             {CAMPOS_DA_FATURA.map((campo) => (
               <label key={campo.nome}>
                 <span>{campo.rotulo}</span>
-                <input name={campo.nome} type="number" step={campo.passo ?? "1"} min="0" defaultValue="0" />
+                <input
+                  name={campo.nome}
+                  type="number"
+                  step={campo.passo ?? "1"}
+                  min={campo.minimo ?? "0"}
+                  value={ficha[campo.nome] ?? ""}
+                  onChange={(evento) => alterarCampo(campo.nome, evento.target.value)}
+                />
               </label>
             ))}
             <label className="campo-largo">
               <span>Histórico de demanda registrada, mês a mês (kW)</span>
-              <input name="demandHistory" type="text" placeholder="634, 704, 705, 698, 668, 586" />
+              <input
+                name="demandHistory"
+                type="text"
+                placeholder="634, 704, 705, 698, 668, 586"
+                value={ficha.demandHistory ?? ""}
+                onChange={(evento) => alterarCampo("demandHistory", evento.target.value)}
+              />
               <small>
                 Separe por vírgula. Com doze meses a análise deixa de ser preliminar.
               </small>
             </label>
             <label className="campo-largo campo-checkbox">
-              <input name="hasLoadProfile" type="checkbox" />
+              <input
+                name="hasLoadProfile"
+                type="checkbox"
+                checked={ficha.hasLoadProfile === "on"}
+                onChange={(evento) =>
+                  alterarCampo("hasLoadProfile", evento.target.checked ? "on" : "")
+                }
+              />
               <span>Tenho memória de massa de 15 minutos</span>
             </label>
             <button className="button button--accent" type="submit" disabled={pendente}>
@@ -254,14 +317,14 @@ export function EstudoDetalheView({ estudo }: { estudo: EnergyStudyDetail }) {
                   >
                     Abrir relatório
                   </a>
-                  {/* Sem `target`: o download troca a navegação por um arquivo,
-                      e abrir aba em branco só para ela fechar sozinha assusta. */}
-                  <a
+                  <button
                     className="button button--accent"
-                    href={`/api/energia/estudos/${estudo.id}/documento/pdf`}
+                    type="button"
+                    disabled={baixandoPdf}
+                    onClick={() => void baixarPdf()}
                   >
-                    Baixar PDF
-                  </a>
+                    {baixandoPdf ? "Gerando PDF…" : "Baixar PDF"}
+                  </button>
                 </div>
               </div>
               <p className="card-note">

@@ -12,10 +12,10 @@
 
 ### Fontes oficiais deste PRD
 
-1. `knowledge/.../diagnostico-escopo-sistema-proprio-2026-08-05.md`
-2. `knowledge/.../modelo-telas-mvp-2026-08-05.md`
+1. `docs/fontes/diagnostico-escopo-sistema-proprio-2026-08-05.md`
+2. `docs/fontes/modelo-telas-mvp-2026-08-05.md`
 3. Blueprint CRM PluggaMob v2
-4. Extração local OpenClaw (`knowledge/openclaw/`)
+4. Acervo OpenClaw, na origem viva: `hstgr-vps:/root/.openclaw/` (~36 GB)
 5. Mockup visual de referência: `docs/mockup/index.html` (apenas direção de marca/UI)
 
 ### Regra crítica de operação
@@ -686,13 +686,13 @@ CRM comercial completo com forecasting; migração ACL completa; auditorias com 
 
 | Anexo | Caminho |
 |---|---|
-| Diagnóstico e escopo | `knowledge/openclaw/workspace/reports/plugga-sistema/diagnostico-escopo-sistema-proprio-2026-08-05.md` |
-| Modelo de telas (detalhe) | `knowledge/openclaw/workspace/reports/plugga-sistema/modelo-telas-mvp-2026-08-05.md` |
-| Blueprint CRM | `knowledge/openclaw/workspace/reports/CRM_PLUGGAMOB_*` |
-| Prompt OpenClaw | `knowledge/PROMPT-OPENCLAW.md` |
+| Diagnóstico e escopo | `docs/fontes/diagnostico-escopo-sistema-proprio-2026-08-05.md` |
+| Modelo de telas (detalhe) | `docs/fontes/modelo-telas-mvp-2026-08-05.md` |
+| Blueprint CRM | `hstgr-vps:/root/.openclaw/workspace/reports/CRM_PLUGGAMOB_*` |
+| Prompt OpenClaw | `docs/fontes/PROMPT-OPENCLAW.md` |
 | Mapa produto resumido | `docs/mapa-produto-mvp.md` |
 | Mockup visual | `docs/mockup/index.html` |
-| Extração OpenClaw | `knowledge/openclaw/` |
+| Acervo OpenClaw (fora do repo) | `hstgr-vps:/root/.openclaw/` — origem viva, puxar sob demanda |
 
 ---
 

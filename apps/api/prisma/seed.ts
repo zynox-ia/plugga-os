@@ -1,14 +1,9 @@
 import { hash } from '@node-rs/argon2';
 import { PrismaClient } from '@prisma/client';
 
-const prisma = new PrismaClient();
+import { argon2Options } from '../src/auth/argon2-options';
 
-// @node-rs/argon2 defaults to Argon2id; keep params aligned with PasswordService.
-const argon2Options = {
-  memoryCost: 19_456,
-  timeCost: 2,
-  parallelism: 1,
-} as const;
+const prisma = new PrismaClient();
 
 const roleRows = [
   { key: 'admin', name: 'Administração' },

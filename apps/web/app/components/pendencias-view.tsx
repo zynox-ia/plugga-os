@@ -13,7 +13,7 @@ import {
   type PendingStatus,
 } from "../lib/mock/pendencias";
 
-const TODAY = "2026-08-06";
+const TODAY = new Date().toISOString().slice(0, 10);
 
 type TabId = "todas" | "minhas" | "da-minha-area" | "atrasadas" | "sem-dono" | "sem-area" | "aguardando-aprovacao";
 

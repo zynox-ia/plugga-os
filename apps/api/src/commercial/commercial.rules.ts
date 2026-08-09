@@ -40,6 +40,12 @@ export function assertOpportunityHasOwnerAndNextAction(
 }
 
 export function assertContractTransitionAllowed(current: ContractStatus, target: ContractStatus): void {
+  // Mesmo-status é permitido nos demais estados (atualizar responsável/próxima
+  // ação sem transicionar), mas encerrado é terminal: aceitar encerrado →
+  // encerrado permitiria reescrever datas e assinatura de contrato já fechado.
+  if (current === "encerrado") {
+    throw new BadRequestException("o contrato já está encerrado e não admite novas transições");
+  }
   const currentIndex = CONTRACT_STATUS_SEQUENCE.indexOf(current);
   const targetIndex = CONTRACT_STATUS_SEQUENCE.indexOf(target);
   if (targetIndex !== currentIndex && targetIndex !== currentIndex + 1) {

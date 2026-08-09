@@ -285,6 +285,14 @@ export function OportunidadeDetailView({ opportunity }: { opportunity: Opportuni
               <button className="button button--accent" type="button" disabled={pending} onClick={handleCreateContract}>
                 {pending ? "Criando…" : "Criar contrato"}
               </button>
+            ) : opportunity.status === "revisitar" ? (
+              // Não é decisão final, mas a API ainda não tem transição de
+              // retomada — dizer "decidida" aqui seria mentir.
+              <p className="card-note" style={{ padding: 0 }}>
+                Revisita agendada
+                {opportunity.nextActionAt ? ` para ${formatDateTime(opportunity.nextActionAt)}` : ""} — retomar a
+                oportunidade ainda não está disponível.
+              </p>
             ) : (
               <p className="card-note" style={{ padding: 0 }}>
                 Oportunidade decidida — sem novas ações.

@@ -17,7 +17,10 @@ export default async function InicioPage() {
   return (
     <>
       <DashboardView health={health} />
-      <PendenciasView />
+      {/* Alvo da âncora "Ver Central de Pendências" do dashboard. */}
+      <div id="pendencias">
+        <PendenciasView />
+      </div>
     </>
   );
 }

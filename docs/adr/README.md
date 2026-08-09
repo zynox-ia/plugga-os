@@ -9,9 +9,9 @@ de aceitos e superados por um novo ADR quando a decisão muda (nunca editados pa
 ## Escopo destes ADRs
 
 **Bloco A (0001–0007)** cobre a **fundação** (monorepo, API, banco local,
-observabilidade, contratos e limites). **Bloco B (0008–0011)** tira o OS do
+observabilidade, contratos e limites). **Bloco B (0008–0012)** tira o OS do
 stub/mock: auth real self-hosted, e-mail transacional, Bitrix como Migrador
-temporário read_only e o sequenciamento/limites do bloco. Nenhum deles decide
+temporário read_only, o sequenciamento/limites do bloco e a exposição de rede. Nenhum deles decide
 regras de **domínio** (CRM, OPM, PluggaMob, Financeiro, Compras) — essas virão em
 ADRs próprios por domínio, quando cada domínio entrar em construção.
 
@@ -45,6 +45,7 @@ ADRs próprios por domínio, quando cada domínio entrar em construção.
 | [0009](0009-bitrix-migrator-temporary.md) | Bitrix como Migrador temporário (não integração eterna) | Aceito |
 | [0010](0010-brevo-email-emailport.md) | E-mail transacional: Brevo atrás de `EmailPort` + Mailpit local | Aceito |
 | [0011](0011-block-b-sequencing-and-limits.md) | Bloco B: ordem B1/B2/B3 e limites não negociáveis | Aceito |
+| [0012](0012-network-exposure-trust-proxy.md) | Exposição de rede: bind privado, `trust proxy` explícito, XFF validado | Aceito |
 
 ## Formato de um ADR
 
