@@ -4,9 +4,13 @@ Sistema operacional interno da **Plugga / Waze Energia**, organizado como um
 monorepo pnpm + Turborepo com Next.js, NestJS e contratos TypeScript
 compartilhados.
 
-> **Limite operacional:** esta fundação é local e mock-only. Ela não autoriza
-> acesso, escrita, envio, configuração ou cutover em Bitrix, OMIE,
-> PluggaMob/OCPP, PagBank, WhatsApp, Telegram, OpenClaw, crons ou produção.
+> **Limite operacional:** o sistema **está em produção** em
+> <https://os.plugga.app.br> — autenticação, estudos de eficiência energética e
+> e-mail transacional (Brevo) rodam com dado real. O que continua **fora** do
+> escopo é escrita, envio, configuração ou cutover em Bitrix, OMIE,
+> PluggaMob/OCPP, PagBank, WhatsApp, Telegram, OpenClaw e crons de terceiros.
+>
+> Comandos do dia a dia e publicação: **[ops/GUIA.md](ops/GUIA.md)**.
 
 ## Estrutura
 
@@ -17,6 +21,7 @@ compartilhados.
 | `packages/shared` | DTOs, tipos, enums e eventos livres de framework |
 | `packages/config` | Configuração compartilhada de tooling |
 | `docs/adr` | Decisões e limites arquiteturais aceitos |
+| `ops` | Publicação, backup e o guia de operação |
 
 Aplicações podem importar pacotes; pacotes nunca importam aplicações. Web e API
 se comunicam apenas por HTTP e pelos contratos de `packages/shared`.

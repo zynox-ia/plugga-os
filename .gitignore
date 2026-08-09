@@ -43,3 +43,15 @@ playwright-report/
 test-results/
 blob-report/
 apps/web/e2e/.auth/
+
+# Dados de treino do Tesseract. Em `pnpm dev` o tesseract.js baixa o idioma na
+# primeira fatura digitalizada e guarda o arquivo ao lado de quem o chamou; em
+# contêiner ele vem embutido na imagem (apps/api/Dockerfile). Cache local, nunca
+# versionado — são megabytes de binário que o build já sabe obter.
+*.traineddata
+*.traineddata.gz
+
+# Extração operacional do OpenClaw: 3,2 GB de dados derivados de cliente, não
+# é código. Fica de fora do versionamento — sem esta linha, um `git add .`
+# distraído tenta commitar seis mil arquivos.
+/knowledge/
