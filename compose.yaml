@@ -162,6 +162,18 @@ services:
       # a local directory is what keeps the first scanned invoice from failing
       # on a CDN download in an environment with no outbound internet.
       TESSERACT_DATA_PATH: /app/tessdata
+      # --- Chave de IA e o cofre que a guarda ---
+      # A chave da OpenRouter é opcional aqui: o caminho normal é gravá-la pela
+      # tela de Configurações, que guarda cifrada no banco. Esta variável serve
+      # ao primeiro arranque e ao resgate, e o banco tem precedência sobre ela.
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      OPENROUTER_MODELO: ${OPENROUTER_MODELO:-anthropic/claude-sonnet-4.5}
+      OPENROUTER_APP_URL: ${OPENROUTER_APP_URL:-https://os.plugga.app.br}
+      # Esta NÃO é opcional se a chave for guardada pela tela: sem ela o cofre
+      # não cifra nem decifra, e a tela recusa gravar dizendo o que falta.
+      # Gere com `openssl rand -base64 32` e não a rotacione sem regravar a
+      # chave depois — o segredo antigo fica ilegível.
+      SECRETS_ENCRYPTION_KEY: ${SECRETS_ENCRYPTION_KEY:-}
     ports:
       - "127.0.0.1:${API_PORT:-3001}:3001"
     depends_on:

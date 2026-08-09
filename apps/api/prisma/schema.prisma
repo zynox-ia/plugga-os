@@ -1052,3 +1052,27 @@ model LlmChamada {
   @@index([referencia])
   @@map("llm_chamadas")
 }
+
+/// Segredo que o sistema guarda para si, cifrado.
+///
+/// Existe para a chave de API poder ser trocada por tela, sem editar arquivo e
+/// reiniciar contêiner. O valor fica cifrado com AES-256-GCM e a chave-mestra
+/// mora no ambiente: o dump do banco — que vai para o MinIO todo dia — não é
+/// suficiente para usar nada daqui.
+///
+/// Uma linha por chave lógica. `ultimosQuatro` existe para a tela confirmar qual
+/// credencial está plugada sem nunca receber a credencial.
+model SegredoDoSistema {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  /// Identificador lógico, ex.: `openrouter.api_key`.
+  chave         String   @unique
+  valorCifrado  String   @map("valor_cifrado")
+  iv            String
+  tag           String
+  ultimosQuatro String   @map("ultimos_quatro")
+  atualizadoPor String?  @map("atualizado_por")
+  atualizadoEm  DateTime @updatedAt @map("atualizado_em") @db.Timestamptz(6)
+  criadoEm      DateTime @default(now()) @map("criado_em") @db.Timestamptz(6)
+
+  @@map("segredos_do_sistema")
+}

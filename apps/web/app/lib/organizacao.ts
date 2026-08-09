@@ -251,7 +251,7 @@ export type SecaoConfiguracao = Processo & {
   descricao: string;
   roles: readonly string[];
   /** Marca a seção que tem tela própria dentro de Configurações. */
-  id?: "equipe";
+  id?: "equipe" | "chave-llm";
   /**
    * Também visível para gestor de departamento. Quem gestiona precisa da mesma
    * porta que o admin — só que a tela atrás dela mostra o escopo dele.
@@ -272,6 +272,16 @@ export const CONFIGURACOES: SecaoConfiguracao[] = [
     status: "pronto",
     roles: ["admin"],
     gestor: true,
+  },
+  {
+    // Chave de IA: fica em configurações porque troca com frequência e não deve
+    // exigir edição de arquivo e reinício de contêiner a cada rotação.
+    id: "chave-llm",
+    label: "Chave de IA",
+    descricao:
+      "A credencial da OpenRouter que serve o sistema inteiro. Guardada cifrada, trocável por aqui, e todo consumo dela é medido por processo.",
+    status: "pronto",
+    roles: ["admin"],
   },
   {
     label: "Departamentos e processos",

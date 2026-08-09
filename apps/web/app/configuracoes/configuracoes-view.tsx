@@ -6,6 +6,7 @@ import { useState } from "react";
 import { ShellCard, StatusPill } from "../components/plugga-shell";
 import { CONFIGURACOES, configuracoesParaAcesso } from "../lib/organizacao";
 import { useSessionUser } from "../lib/use-session-user";
+import { ChaveLlmView } from "./chave-llm-view";
 import { EquipeView } from "./equipe-view";
 
 /**
@@ -71,6 +72,8 @@ export function ConfiguracoesView() {
 
       {secao?.id === "equipe" ? (
         <EquipeView />
+      ) : secao?.id === "chave-llm" ? (
+        <ChaveLlmView />
       ) : (
       <ShellCard className="panel-card">
         <div className="card-heading">

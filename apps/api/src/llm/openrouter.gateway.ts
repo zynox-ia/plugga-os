@@ -1,5 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 
+import { ChaveDeLlmService } from "./chave.service.js";
 import { ConsumoRepository } from "./consumo.repository.js";
 import type { ProcessoLlm } from "./processo.js";
 
@@ -82,15 +83,22 @@ function paraParteOpenAi(parte: ParteDaMensagem) {
 export class OpenRouterGateway {
   private readonly logger = new Logger(OpenRouterGateway.name);
 
-  constructor(private readonly consumo: ConsumoRepository) {}
+  constructor(
+    private readonly consumo: ConsumoRepository,
+    private readonly chaves: ChaveDeLlmService,
+  ) {}
 
   /** Sem chave, quem chama decide o que fazer — ninguém quebra por isso. */
-  configurado(): boolean {
-    return Boolean(process.env.OPENROUTER_API_KEY);
+  async configurado(): Promise<boolean> {
+    return Boolean(await this.chaves.valor());
   }
 
   async completar(pedido: PedidoAoModelo): Promise<RespostaDoModelo | null> {
-    const chave = process.env.OPENROUTER_API_KEY;
+    // Do cofre, com o ambiente como reserva: quem troca a chave pela tela espera
+    // que ela passe a valer, e um `.env` esquecido vencendo a tela em silêncio
+    // seria a pior falha possível — tudo seguiria funcionando com a credencial
+    // errada, sem sinal nenhum.
+    const chave = await this.chaves.valor();
     if (!chave) return null;
 
     const modelo = pedido.modelo || MODELO_PADRAO;
