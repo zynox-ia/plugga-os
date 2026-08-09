@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, Inject, Param, Post, Query, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, HttpCode, Inject, Param, ParseUUIDPipe, Post, Query, UseGuards } from "@nestjs/common";
 import {
   contractListQuerySchema,
   createContractRequestSchema,
@@ -57,7 +57,7 @@ export class CommercialController {
   }
 
   @Get("opportunities/:id")
-  opportunity(@Param("id") id: string): Promise<OpportunityDetail> {
+  opportunity(@Param("id", ParseUUIDPipe) id: string): Promise<OpportunityDetail> {
     return this.service.opportunity(id);
   }
 
@@ -77,7 +77,7 @@ export class CommercialController {
   @UseGuards(OriginCheckGuard)
   @Roles(...MUTATE_ROLES)
   updateOpportunityStage(
-    @Param("id") id: string,
+    @Param("id", ParseUUIDPipe) id: string,
     @Body(new ZodValidationPipe(updateOpportunityStageRequestSchema)) input: UpdateOpportunityStageRequest,
     @CurrentPrincipal() principal: AuthPrincipal,
   ): Promise<OpportunityDetail> {
@@ -89,7 +89,7 @@ export class CommercialController {
   @UseGuards(OriginCheckGuard)
   @Roles(...MUTATE_ROLES)
   registerOpportunityContact(
-    @Param("id") id: string,
+    @Param("id", ParseUUIDPipe) id: string,
     @Body(new ZodValidationPipe(opportunityContactRequestSchema)) input: OpportunityContactRequest,
     @CurrentPrincipal() principal: AuthPrincipal,
   ): Promise<OpportunityDetail> {
@@ -101,7 +101,7 @@ export class CommercialController {
   @UseGuards(OriginCheckGuard)
   @Roles(...MUTATE_ROLES)
   winOpportunity(
-    @Param("id") id: string,
+    @Param("id", ParseUUIDPipe) id: string,
     @Body(new ZodValidationPipe(winOpportunityRequestSchema)) input: WinOpportunityRequest,
     @CurrentPrincipal() principal: AuthPrincipal,
   ): Promise<OpportunityDetail> {
@@ -113,7 +113,7 @@ export class CommercialController {
   @UseGuards(OriginCheckGuard)
   @Roles(...MUTATE_ROLES)
   loseOpportunity(
-    @Param("id") id: string,
+    @Param("id", ParseUUIDPipe) id: string,
     @Body(new ZodValidationPipe(loseOpportunityRequestSchema)) input: LoseOpportunityRequest,
     @CurrentPrincipal() principal: AuthPrincipal,
   ): Promise<OpportunityDetail> {
@@ -125,7 +125,7 @@ export class CommercialController {
   @UseGuards(OriginCheckGuard)
   @Roles(...MUTATE_ROLES)
   revisitOpportunity(
-    @Param("id") id: string,
+    @Param("id", ParseUUIDPipe) id: string,
     @Body(new ZodValidationPipe(revisitOpportunityRequestSchema)) input: RevisitOpportunityRequest,
     @CurrentPrincipal() principal: AuthPrincipal,
   ): Promise<OpportunityDetail> {
@@ -140,7 +140,7 @@ export class CommercialController {
   }
 
   @Get("contracts/:id")
-  contract(@Param("id") id: string): Promise<ContractDetail> {
+  contract(@Param("id", ParseUUIDPipe) id: string): Promise<ContractDetail> {
     return this.service.contract(id);
   }
 
@@ -160,7 +160,7 @@ export class CommercialController {
   @UseGuards(OriginCheckGuard)
   @Roles(...MUTATE_ROLES)
   updateContractStatus(
-    @Param("id") id: string,
+    @Param("id", ParseUUIDPipe) id: string,
     @Body(new ZodValidationPipe(updateContractStatusRequestSchema)) input: UpdateContractStatusRequest,
     @CurrentPrincipal() principal: AuthPrincipal,
   ): Promise<ContractDetail> {
