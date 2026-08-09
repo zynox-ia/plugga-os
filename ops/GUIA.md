@@ -9,8 +9,8 @@ Os comandos do dia a dia, na ordem em que aparecem.
 Abra o **Docker Desktop**, depois:
 
 ```bash
-cd ~/Projects/plugga-sistema
-docker compose up -d postgres redis minio mailpit
+cd ~/Projects/plugga-os
+docker compose up -d postgres redis minio minio-provisiona mailpit
 pnpm dev
 ```
 
@@ -20,16 +20,23 @@ O que cada contêiner faz:
 
 | | |
 |---|---|
-| `postgres` | o banco |
-| `redis` | filas de trabalho em segundo plano |
-| `minio` | guarda as faturas enviadas — painel em <http://localhost:9001> |
-| `mailpit` | caixa de e-mail falsa — veja em <http://localhost:8025> |
+| `postgres` | o banco — porta **55432** |
+| `redis` | filas de trabalho em segundo plano — porta **56379** |
+| `minio` | guarda as faturas enviadas — painel em <http://localhost:59001> |
+| `minio-provisiona` | cria o balde das faturas e encerra; é normal ele sair |
+| `mailpit` | caixa de e-mail falsa — veja em <http://localhost:58025> |
+
+**As portas são altas de propósito.** As padrão — 5432, 6379, 1025, 8025, 9000,
+9001 — estão ocupadas pelos túneis para a VPS, então nelas `localhost` é
+produção. Ver "O túnel para a VPS", no fim.
+
+A API e o site **não** vão no Docker: rodam com `pnpm dev` para recarregar sozinhos quando você salva um arquivo.
 
 A API e o site **não** vão no Docker: rodam com `pnpm dev` para recarregar sozinhos quando você salva um arquivo.
 
 ### Por que o Mailpit em desenvolvimento
 
-Produção manda e-mail de verdade pelo Brevo. Aqui, não — cada teste de convite gastaria crédito e mandaria mensagem para endereço inventado. O Mailpit captura tudo e não entrega nada; você lê em <http://localhost:8025>.
+Produção manda e-mail de verdade pelo Brevo. Aqui, não — cada teste de convite gastaria crédito e mandaria mensagem para endereço inventado. O Mailpit captura tudo e não entrega nada; você lê em <http://localhost:58025>.
 
 ---
 
@@ -102,10 +109,13 @@ Leva alguns minutos, quase tudo na construção das imagens.
 
 ```bash
 docker compose down -v          # apaga os dados locais
-docker compose up -d postgres redis minio mailpit
+docker compose up -d postgres redis minio minio-provisiona mailpit
 pnpm --filter @plugga/api db:migrate:deploy
 pnpm --filter @plugga/api db:seed
 ```
+
+O `down -v` apaga só o que é local: os volumes têm o nome do projeto `plugga-os`
+desta máquina e não alcançam a VPS.
 
 ### Trazer dados reais de produção para a sua máquina
 
@@ -117,8 +127,12 @@ ssh plugga-vps '. /root/.plugga-backup.env && docker run --rm \
   cat b/plugga-backups/diario/$(ssh plugga-vps ". /root/.plugga-backup.env && docker run --rm --network plugga-os_default -e MC_HOST_b=\"http://\$BACKUP_ACCESS_KEY:\$BACKUP_SECRET_KEY@minio:9000\" minio/mc:RELEASE.2025-04-16T18-13-26Z ls b/plugga-backups/diario/ | tail -1 | awk "{print \$NF}")' \
   > /tmp/producao.dump
 
-pg_restore -h localhost -U plugga_os -d plugga_os --clean --no-owner /tmp/producao.dump
+pg_restore -h localhost -p 55432 -U plugga_os -d plugga_os --clean --no-owner /tmp/producao.dump
 ```
+
+A porta **55432** é o que faz esse comando restaurar no banco local. Sem ela, o
+`pg_restore` vai para a 5432 — o túnel — e o `--clean` derruba as tabelas de
+produção antes de restaurar por cima.
 
 ### Olhar produção
 
@@ -140,28 +154,44 @@ ssh plugga-vps 'cd /opt/plugga-os
 
 ## O túnel para a VPS
 
-Existe um túnel SSH permanente da sua máquina para a VPS, instalado como serviço
-do sistema (`br.app.plugga.tunnel`). Ele expõe, em `localhost`:
+Há **dois** túneis SSH desta máquina para a VPS. O permanente é um serviço do
+sistema (`br.app.plugga.tunnel`); o do MinIO costuma ser aberto à mão. Juntos
+eles ocupam, em `localhost`:
 
 ```
-5432  banco de produção
-6379  redis de produção
+5432         banco de produção
+6379         redis de produção
 1025 / 8025  mailpit de produção
+9000 / 9001  MinIO de produção — inclusive o balde dos backups
 ```
 
-**Com o banco local, ele deixa de ser necessário no dia a dia** — mas continua
-lá para quando você quiser olhar produção.
+Nessas seis portas, **`localhost` é produção**. É contraintuitivo e não aparece
+em lugar nenhum do `.env` a não ser que se saiba procurar.
 
-> **Cuidado:** enquanto o túnel está ativo, `localhost:5432` pode ser o banco
-> **de produção**, não o seu. Se o `DATABASE_URL` do seu `.env` apontar para
-> `localhost:5432` sem o Docker local rodando, você está em produção sem saber.
-> Foi assim que dados foram apagados em 2026-08-08.
+**A defesa é a numeração, não a atenção.** O stack local sobe na faixa 5xxxx
+(55432, 56379, 51025, 58025, 59000, 59001) e é para lá que o `.env` aponta.
+Assim os dois mundos coexistem sem disputar porta, e esquecer de subir o Docker
+dá erro de conexão — não uma escrita silenciosa em produção.
 
-Para desligar o túnel enquanto trabalha:
+O `db:migrate` recusa qualquer uma das seis portas acima em `127.0.0.1`, com
+mensagem dizendo o porquê. Antes ele só conferia se o host era `localhost`, o
+que aprovava produção e ainda dizia "only permits a local database".
+
+> **Histórico:** em 2026-08-08 dados foram apagados exatamente por isso — o
+> `DATABASE_URL` apontava para `localhost:5432` sem Docker local rodando.
+
+Para desligar o túnel permanente enquanto trabalha:
 
 ```bash
 launchctl unload ~/Library/LaunchAgents/br.app.plugga.tunnel.plist   # desliga
 launchctl load  ~/Library/LaunchAgents/br.app.plugga.tunnel.plist    # liga
+```
+
+O do MinIO é um processo avulso; para conferir se está de pé e derrubá-lo:
+
+```bash
+pgrep -af "9000:127.0.0.1:9000"     # mostra o túnel do MinIO
+pkill -f "9000:127.0.0.1:9000"      # derruba
 ```
 
 ---
