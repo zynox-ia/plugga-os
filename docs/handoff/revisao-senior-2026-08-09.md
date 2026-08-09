@@ -31,11 +31,11 @@ para não precisar ser redescoberto.
    `create` da API, como cinto extra.
 
 4. **Formulários e o reset do React 19**: `<form action={fn}>` reseta o
-   formulário quando a ação termina — inclusive em erro. Na ficha da fatura são
-   até 15 campos digitados que somem num 400. Afeta ~12 telas (fatura, ciclos,
-   migrações, oportunidades, contratos, auditorias). Correção: campos
-   controlados por estado nas telas de digitação longa (ficha da fatura
-   primeiro), ou repovoar `defaultValue` de um estado capturado antes do submit.
+   formulário quando a ação termina — inclusive em erro. PARCIALMENTE RESOLVIDO
+   em 2026-08-09: a ficha da fatura (as duas telas, os 15 campos) virou campos
+   controlados e sobrevive ao erro. Restam as telas de digitação curta (ciclos,
+   migrações, oportunidades, contratos, auditorias — 1 a 5 campos cada): mesmo
+   padrão, dor menor por formulário.
 
 5. **`usage.cost` da OpenRouter**: o opt-in `usage: { include: true }` foi
    adicionado ao gateway, mas a confirmação de que `usage.cost` passa a vir

@@ -30,10 +30,20 @@ test.describe("Clientes — busca e ficha", () => {
     await page.getByRole("button", { name: "Criar cliente" }).click();
 
     await expect(page.getByRole("heading", { name: "Cliente criado — confira antes de seguir" })).toBeVisible();
-    await expect(page.getByRole("cell", { name: uniqueName, exact: true })).toBeVisible();
-    await expect(page.getByRole("cell", { name: `${uniqueName} (2)`, exact: true })).toBeVisible();
 
-    await page
+    // O painel de duplicados lista o PRIMEIRO cliente (o telefone agora casa
+    // mesmo formatado), então o nome dele existe em duas tabelas. As asserções
+    // de "as duas linhas existem" valem para a lista principal.
+    const painelDeDuplicados = page.getByRole("table", {
+      name: "Clientes já existentes que podem ser o mesmo cadastro",
+    });
+    await expect(painelDeDuplicados.getByRole("cell", { name: uniqueName, exact: true })).toBeVisible();
+
+    const listaDeClientes = page.getByRole("table", { name: "Clientes cadastrados" });
+    await expect(listaDeClientes.getByRole("cell", { name: uniqueName, exact: true })).toBeVisible();
+    await expect(listaDeClientes.getByRole("cell", { name: `${uniqueName} (2)`, exact: true })).toBeVisible();
+
+    await listaDeClientes
       .getByRole("row", { name: new RegExp(`^${uniqueName}\\s`) })
       .getByRole("link", { name: "Ver ficha" })
       .click();
