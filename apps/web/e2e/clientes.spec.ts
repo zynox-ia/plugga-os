@@ -41,10 +41,17 @@ test.describe("Clientes — busca e ficha", () => {
 
     const listaDeClientes = page.getByRole("table", { name: "Clientes cadastrados" });
     await expect(listaDeClientes.getByRole("cell", { name: uniqueName, exact: true })).toBeVisible();
-    await expect(listaDeClientes.getByRole("cell", { name: `${uniqueName} (2)`, exact: true })).toBeVisible();
+    // A linha nova só entra na lista depois do roundtrip do router.refresh();
+    // o timeout padrão de 5s perde essa corrida em runner carregado.
+    await expect(
+      listaDeClientes.getByRole("cell", { name: `${uniqueName} (2)`, exact: true }),
+    ).toBeVisible({ timeout: 15_000 });
 
+    // Pela célula exata, não por regex de prefixo: o nome acessível da linha do
+    // "(2)" também começa com o nome do primeiro cliente.
     await listaDeClientes
-      .getByRole("row", { name: new RegExp(`^${uniqueName}\\s`) })
+      .getByRole("row")
+      .filter({ has: page.getByRole("cell", { name: uniqueName, exact: true }) })
       .getByRole("link", { name: "Ver ficha" })
       .click();
     await expect(page).toHaveURL(/\/clientes\/[^/]+$/);
