@@ -38,6 +38,14 @@ process.env.NODE_ENV = "test";
 // falhar por não achar banco, nunca acertar o banco errado em silêncio.
 process.env.DATABASE_URL ??=
   "postgresql://plugga_os:local_only_change_me@localhost:55432/plugga_os?schema=public";
+// Mesma classe de acidente nas outras portas padrão: 6379, 1025 e 8025 em
+// 127.0.0.1 também são túneis para a VPS. O padrão aponta para a faixa 5xxxx
+// do stack local — teste que erra o alvo tem que falhar por conexão recusada,
+// nunca alcançar Redis ou Mailpit de PRODUÇÃO em silêncio.
+process.env.REDIS_URL ??= "redis://127.0.0.1:56379";
+process.env.MAILPIT_SMTP_HOST ??= "localhost";
+process.env.MAILPIT_SMTP_PORT ??= "51025";
+process.env.MAILPIT_UI_PORT ??= "58025";
 process.env.DEV_AUTH_ENABLED = "true";
 process.env.LOG_LEVEL = "silent";
 process.env.AUTH_SESSION_SECRET ??= "test_only_session_secret_change_me_please";

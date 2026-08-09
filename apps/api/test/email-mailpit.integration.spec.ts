@@ -12,9 +12,11 @@ import { MailpitEmailAdapter } from "../src/email/mailpit-email.adapter";
 const enabled = process.env.RUN_MAILPIT_INTEGRATION_TESTS === "true";
 const describeMailpit = enabled ? describe : describe.skip;
 
+// Portas da faixa 5xxxx do stack local; as baixas 1025/8025 desta máquina são
+// os túneis para o Mailpit de PRODUÇÃO (mesma razão do guard em test/setup.ts).
 const SMTP_HOST = process.env.MAILPIT_SMTP_HOST ?? "localhost";
-const SMTP_PORT = Number(process.env.MAILPIT_SMTP_PORT ?? "1025");
-const UI_PORT = Number(process.env.MAILPIT_UI_PORT ?? "8025");
+const SMTP_PORT = Number(process.env.MAILPIT_SMTP_PORT ?? "51025");
+const UI_PORT = Number(process.env.MAILPIT_UI_PORT ?? "58025");
 const API_BASE = `http://${SMTP_HOST}:${UI_PORT}/api/v1`;
 
 interface MailpitMessage {
@@ -41,8 +43,27 @@ async function waitForMailpit(timeoutMs = 30_000): Promise<void> {
   }
 }
 
-async function clearInbox(): Promise<void> {
-  await fetch(`${API_BASE}/messages`, { method: "DELETE" });
+// Apaga só as mensagens do destinatário informado, nunca a inbox inteira: um
+// DELETE de tudo apontado para a porta errada limparia o Mailpit de PRODUÇÃO.
+// A asserção do teste já filtra pelo destinatário, então a inbox não precisa
+// estar vazia para o resultado ser previsível.
+async function deleteMessagesTo(recipient: string): Promise<void> {
+  const response = await fetch(`${API_BASE}/messages?limit=200`);
+  if (!response.ok) {
+    return;
+  }
+  const body = (await response.json()) as { messages: MailpitMessage[] };
+  const ids = body.messages
+    .filter((message) => message.To.some((to) => to.Address === recipient))
+    .map((message) => message.ID);
+  if (ids.length === 0) {
+    return;
+  }
+  await fetch(`${API_BASE}/messages`, {
+    method: "DELETE",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ IDs: ids }),
+  });
 }
 
 describeMailpit("Mailpit delivery (integration)", () => {
@@ -55,18 +76,18 @@ describeMailpit("Mailpit delivery (integration)", () => {
     }),
   );
 
+  // Único por execução: é por ele que a asserção filtra e a limpeza apaga.
+  const recipient = `invitee-${Date.now()}@example.com`;
+
   beforeAll(async () => {
     await waitForMailpit();
-    await clearInbox();
   });
 
   afterAll(async () => {
-    await clearInbox();
+    await deleteMessagesTo(recipient);
   });
 
   it("delivers an invite email that lands in the Mailpit inbox", async () => {
-    const recipient = `invitee-${Date.now()}@example.com`;
-
     await adapter.sendTransactional({
       to: recipient,
       template: "invite",
