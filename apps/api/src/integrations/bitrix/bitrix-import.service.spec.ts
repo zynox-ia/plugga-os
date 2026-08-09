@@ -13,6 +13,7 @@ import {
   BitrixRepository,
   type MirrorRecordInput,
   type MirrorUpsertOutcome,
+  type SyncOutcome,
 } from "./bitrix.repository";
 
 interface RecordedCall {
@@ -42,6 +43,7 @@ class StubReadClient extends BitrixReadClient {
 class InMemoryBitrixRepository extends BitrixRepository {
   readonly rows = new Map<string, MirrorRecordInput>();
   readonly writes: MirrorUpsertOutcome[] = [];
+  readonly syncOutcomes: SyncOutcome[] = [];
 
   constructor(private readonly mode: IntegrationMode | null = "read_only") {
     super();
@@ -67,6 +69,10 @@ class InMemoryBitrixRepository extends BitrixRepository {
     }
     this.writes.push(outcome);
     return outcome;
+  }
+
+  async recordSyncOutcome(outcome: SyncOutcome): Promise<void> {
+    this.syncOutcomes.push(outcome);
   }
 }
 
@@ -286,6 +292,33 @@ describe("BitrixImportService.importOpm", () => {
 
     expect(expectImported(await service.importOpm()).truncated).toBe(true);
     expect(client.pages).toBe(BITRIX_MAX_PAGES);
+  });
+
+  it("records a successful run on the integration row (lastSyncAt, no error)", async () => {
+    const { service, repository } = buildService([{ result: [{ id: 1 }] }]);
+
+    await service.importOpm();
+
+    expect(repository.syncOutcomes).toEqual([{ at: expect.any(Date), error: null }]);
+  });
+
+  it("records a failed run with the error message and rethrows the original error", async () => {
+    class FailingReadClient extends BitrixReadClient {
+      async callList(): Promise<BitrixListResponse> {
+        throw new Error("Bitrix read failed: status=500");
+      }
+    }
+    const repository = new InMemoryBitrixRepository();
+    const service = new BitrixImportService(
+      new FailingReadClient(),
+      repository,
+      configStub(CREDENTIAL),
+    );
+
+    await expect(service.importOpm()).rejects.toThrow("Bitrix read failed: status=500");
+    expect(repository.syncOutcomes).toEqual([
+      { at: expect.any(Date), error: "Bitrix read failed: status=500" },
+    ]);
   });
 
   it("never issues a write-shaped Bitrix method", async () => {
