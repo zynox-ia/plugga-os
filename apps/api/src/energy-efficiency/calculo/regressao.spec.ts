@@ -1,4 +1,4 @@
-import { PREMISSAS_2026_08, type InvoiceData } from "@plugga/shared";
+import { PREMISSAS_2026_08, type EnergyPremises, type InvoiceData } from "@plugga/shared";
 import { describe, expect, it } from "vitest";
 
 import { auditarFatura } from "./auditoria.js";
@@ -56,8 +56,17 @@ const SANTA_TEREZA: InvoiceData = {
   valorMultasJurosEncargos: 0,
 };
 
+/** Congela as premissas dos relatórios históricos, sem contaminar o motor PRD. */
+const PREMISSAS_LEGADAS: EnergyPremises = {
+  ...PREMISSAS_2026_08,
+  versao: "2026-08-08-legado",
+  vigenteDe: "2026-08-08T00:00:00.000Z",
+  tmaAnual: 0.05,
+  reajusteTarifarioAnual: 0.04,
+};
+
 describe("regressão — Serra Verde (piloto, 06/2025)", () => {
-  const dimensionamento = dimensionar({ fatura: SERRA_VERDE, premissas: PREMISSAS_2026_08 });
+  const dimensionamento = dimensionar({ fatura: SERRA_VERDE, premissas: PREMISSAS_LEGADAS });
 
   it("reproduz o dimensionamento aprovado: 6 por energia, 10 por potência, 10 adotadas", () => {
     expect(dimensionamento.bessUnidadesPorEnergia).toBe(6);
@@ -77,7 +86,7 @@ describe("regressão — Serra Verde (piloto, 06/2025)", () => {
   // BESS puro, sem usina. Por isso o financeiro roda com fvKwp zerado — é o que
   // torna os números comparáveis com o caso aprovado.
   const financeiro = calcularFinanceiro({
-    premissas: PREMISSAS_2026_08,
+    premissas: PREMISSAS_LEGADAS,
     dimensionamento: { ...dimensionamento, fvKwp: 0, fvGeracaoMensalKwh: 0 },
     economiaAno1: economiaBessMensalLegado(SERRA_VERDE) * 12,
   });

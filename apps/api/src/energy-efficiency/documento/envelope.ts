@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 /**
- * Envelope visual do relatório: o modelo Jardim Floresta Solar+BESS congelado.
+ * Envelope visual do relatório: o modelo Serra Verde congelado pelo PRD.
  *
  * O arquivo é grande (430 KB) mas 94,6% disso são dois logos em PNG base64. O
  * conteúdo útil é o CSS, o hero e o rodapé — e é só isso que se aproveita: as
@@ -19,11 +19,11 @@ import { join } from "node:path";
 
 /** SHA256 registrado na trava (references/prd-trava-dupla-consulta-estudo-bess.md). */
 export const HASH_MODELO_APROVADO =
-  "0640a0ab0fa848973cb4d89a682c0a54dbebe96f08d038ef9c58fc1f013224d4";
+  "63c17b1a21a7c39eccdf6b314857bdfabe362e2b83a7087cd7b26b2f046c8624";
 
 // __dirname e não import.meta: a API compila para CommonJS, e o nest-cli copia
 // o template para o mesmo caminho relativo dentro de dist/.
-const CAMINHO_MODELO = join(__dirname, "templates", "envelope-jardim-floresta-v1.html");
+const CAMINHO_MODELO = join(__dirname, "templates", "modelo-serra-verde-prd-v1.html");
 
 /** Marcadores que delimitam o corpo substituível dentro do modelo. */
 const INICIO_CORPO = '<h2>1. Resumo executivo da fatura</h2>';
@@ -86,10 +86,9 @@ export function limparCacheDoEnvelope(): void {
  * listava os mesmos marcadores e se recusava a gravar o arquivo.
  */
 export const MARCADORES_DO_CASO_FONTE = [
-  "MERCANTIL NOVA ERA",
-  "01374052",
-  "Roraima Energia",
-  "Prévia com 1 fatura",
+  "AGROINDUSTRIAL SERRA VERDE",
+  "0188872-2",
+  "Base de análise: fatura cativa",
 ] as const;
 
 /**

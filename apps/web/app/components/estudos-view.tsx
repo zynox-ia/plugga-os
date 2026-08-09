@@ -97,6 +97,7 @@ export function EstudosView({
                 <th>UC</th>
                 <th>Competência</th>
                 <th>Estado</th>
+                <th>Semáforo</th>
                 <th>Economia mensal</th>
                 <th>Investimento</th>
               </tr>
@@ -115,6 +116,21 @@ export function EstudosView({
                     <StatusPill variant={ROTULO[estudo.status].variante}>
                       {ROTULO[estudo.status].texto}
                     </StatusPill>
+                  </td>
+                  <td>
+                    {estudo.trafficLight ? (
+                      <StatusPill
+                        variant={
+                          estudo.trafficLight === "verde"
+                            ? "success"
+                            : estudo.trafficLight === "amarelo"
+                              ? "warning"
+                              : "danger"
+                        }
+                      >
+                        {estudo.trafficLight}
+                      </StatusPill>
+                    ) : "—"}
                   </td>
                   <td>{dinheiro(estudo.economiaMensal)}</td>
                   <td>{dinheiro(estudo.capexTotal)}</td>

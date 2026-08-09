@@ -16,10 +16,12 @@ import type {
 
 import type { AuthPrincipal } from "../core/auth/auth.types";
 import { auditarFatura } from "./calculo/auditoria.js";
-import { calcularEconomia } from "./calculo/cenarios.js";
+import { conciliarFatura } from "./calculo/conciliacao.js";
 import { analisarDemanda } from "./calculo/demanda.js";
-import { dimensionar } from "./calculo/dimensionamento.js";
-import { calcularFinanceiro } from "./calculo/financeiro.js";
+import { rodarMotorPrd } from "./calculo/motor-prd.js";
+import { chaveDoTipo, classificarSemaforo } from "./calculo/semaforo.js";
+import { gerarVersaoCelular } from "./documento/celular.js";
+import { calcularHashDocumento } from "./documento/integridade.js";
 import { nomeDoArquivoPdf } from "./documento/nome-arquivo.js";
 import { FilaCheiaError, NavegadorIndisponivelError, gerarPdf } from "./documento/pdf.js";
 import { gerarRelatorio } from "./documento/relatorio.js";
@@ -71,8 +73,8 @@ export class EstudoService {
     return this.repository.detalhar(id);
   }
 
-  documento(id: string): Promise<string> {
-    return this.repository.documento(id);
+  documento(id: string, versao: "desktop" | "celular" = "desktop"): Promise<string> {
+    return this.repository.documento(id, versao);
   }
 
   /**
@@ -85,7 +87,7 @@ export class EstudoService {
    * a trava do fluxo vale igual aqui: documento reprovado não vira arquivo.
    */
   async pdf(id: string): Promise<{ arquivo: Buffer; nome: string }> {
-    const html = await this.repository.documento(id);
+    const html = await this.repository.documento(id, "desktop");
     const detalhe = await this.repository.detalhar(id);
 
     try {
@@ -132,8 +134,25 @@ export class EstudoService {
 
     await this.repository.atualizar(id, {
       status: "dados_recebidos",
+      calculationMode: input.hasLoadProfile ? "memoria_massa" : "preliminar",
       invoice: input.invoice,
+      invoiceContext: input.context,
       demandHistory: input.demandHistory,
+      reconciliationProof: null,
+      results: null,
+      validationIssues: null,
+      documentHtml: null,
+      documentHtmlMobile: null,
+      documentHash: null,
+      documentMobileHash: null,
+      trafficLight: null,
+      trafficLightResult: null,
+      economiaMensal: null,
+      capexTotal: null,
+      approvedById: null,
+      approvedAt: null,
+      approvalNote: null,
+      sentAt: null,
     });
 
     return this.calcular(id, input.hasLoadProfile);
@@ -144,31 +163,62 @@ export class EstudoService {
    * resultado da validação decide o estado: limpo vai para `em_validacao`,
    * com problema vai para `bloqueado`.
    */
-  async calcular(id: string, temMemoriaDeMassa = false): Promise<EnergyStudyDetail> {
+  async calcular(id: string, temMemoriaDeMassa?: boolean): Promise<EnergyStudyDetail> {
     const estudo = await this.repository.carregar(id);
-    if (!estudo.invoice) {
-      throw new BadRequestException("estudo sem ficha de fatura: informe a fatura antes de calcular");
+    if (!estudo.invoice || !estudo.invoiceContext) {
+      throw new BadRequestException(
+        "estudo sem fatura conciliável: informe a ficha, o tipo e os itens da fatura",
+      );
     }
     assertTransicao(estudo.status, "em_calculo");
-    await this.repository.atualizar(id, { status: "em_calculo" });
+    // Qualquer recálculo invalida a assinatura e a entrega anteriores. Mesmo
+    // que o tipo passe a verde depois da aprovação, o histórico não pode dizer
+    // que a pessoa aprovou números que ainda não existiam naquele momento.
+    await this.repository.atualizar(id, {
+      status: "em_calculo",
+      approvedById: null,
+      approvedAt: null,
+      approvalNote: null,
+      sentAt: null,
+    });
 
     const premissas = await this.repository.premissasPorVersao(estudo.premiseVersion);
     const fatura = estudo.invoice;
+    const contexto = estudo.invoiceContext;
+    const usaMemoriaDeMassa = temMemoriaDeMassa ?? estudo.hasLoadProfile;
+
+    const conciliacao = conciliarFatura(fatura, contexto);
+    if (conciliacao.problemas.length > 0) {
+      return this.repository.atualizar(id, {
+        status: "bloqueado",
+        reconciliationProof: conciliacao.prova,
+        trafficLight: "vermelho",
+        trafficLightResult: {
+          faixa: "vermelho",
+          chaveTipo: chaveDoTipo(contexto),
+          tipoConhecido: false,
+          motivos: conciliacao.problemas.map((problema) => problema.detalhe),
+          quatroNumeros: {
+            totalFatura: fatura.valorTotal,
+            consumoPontaKwh: fatura.consumoPontaKwh,
+            tirAnual: null,
+            paybackAnos: null,
+          },
+        },
+        validationIssues: conciliacao.problemas,
+        documentHtml: null,
+        documentHtmlMobile: null,
+      });
+    }
 
     const auditoria = auditarFatura(fatura);
-    const dimensionamento = dimensionar({ fatura, premissas });
-    const economia = calcularEconomia({ fatura, premissas, dimensionamento });
-    const financeiro = calcularFinanceiro({
-      premissas,
-      dimensionamento,
-      economiaAno1: economia.economiaAno1,
-    });
+    const { dimensionamento, economia, financeiro } = rodarMotorPrd(fatura, premissas);
     const demanda = analisarDemanda({
       demandaContratadaKw: fatura.demandaContratadaKw,
       historicoKw: estudo.demandHistory,
       tarifaDemanda: fatura.tarifaDemanda ?? 0,
       premissas,
-      temMemoriaDeMassa,
+      temMemoriaDeMassa: usaMemoriaDeMassa,
     });
 
     const detalhe = await this.repository.detalhar(id);
@@ -176,10 +226,11 @@ export class EstudoService {
       caso: {
         cliente: detalhe.clientName,
         unidadeConsumidora: detalhe.consumerUnitCode,
-        distribuidora: "—",
+        distribuidora: contexto.distribuidora,
         localidade: "—",
-        grupoModalidade: "Grupo A",
+        grupoModalidade: `Grupo ${contexto.grupo} · ${contexto.modalidade} · ${contexto.regime}`,
         referencia: `${String(estudo.competenceMonth).padStart(2, "0")}/${estudo.competenceYear}`,
+        vencimento: contexto.vencimento ?? undefined,
       },
       fatura,
       premissas,
@@ -192,11 +243,39 @@ export class EstudoService {
 
     await this.repository.atualizar(id, { status: "relatorio_gerado" });
 
+    const tipoConhecido = await this.repository.tipoConhecido(chaveDoTipo(contexto));
+    let semaforo = classificarSemaforo({
+      fatura,
+      contexto,
+      economia,
+      financeiro,
+      tipoConhecido,
+    });
+    if (problemas.length > 0) {
+      semaforo = {
+        ...semaforo,
+        faixa: "vermelho",
+        motivos: [...semaforo.motivos, ...problemas.map((problema) => problema.detalhe)],
+      };
+    }
+
+    const bloqueado = semaforo.faixa === "vermelho";
+    const htmlCelular = bloqueado ? null : gerarVersaoCelular(html);
     return this.repository.atualizar(id, {
-      status: estadoAposValidacao(problemas),
+      status: bloqueado ? "bloqueado" : estadoAposValidacao([]),
       results: { auditoria, demanda, dimensionamento, economia, financeiro },
-      validationIssues: problemas.length > 0 ? problemas : null,
-      documentHtml: problemas.length > 0 ? null : html,
+      reconciliationProof: conciliacao.prova,
+      trafficLight: semaforo.faixa,
+      trafficLightResult: semaforo,
+      validationIssues: bloqueado
+        ? problemas.length > 0
+          ? problemas
+          : semaforo.motivos.map((detalhe) => ({ regra: "semaforo", detalhe }))
+        : null,
+      documentHtml: bloqueado ? null : html,
+      documentHtmlMobile: htmlCelular,
+      documentHash: bloqueado ? null : calcularHashDocumento(html),
+      documentMobileHash: htmlCelular ? calcularHashDocumento(htmlCelular) : null,
       economiaMensal: economia.economiaMensal,
       capexTotal: financeiro.capexTotal,
     });
@@ -211,6 +290,10 @@ export class EstudoService {
     const estudo = await this.repository.carregar(id);
     assertPodeAprovar(estudo.status, estudo.validationIssues);
 
+    if (estudo.trafficLight !== "amarelo" || !estudo.trafficLightResult || !estudo.invoiceContext) {
+      throw new ConflictException("somente estudo amarelo registra aprovação de tipo novo");
+    }
+
     // Recusa aqui, e não no envio: aprovar é assumir responsabilidade, e
     // principal de serviço ou escape hatch de desenvolvimento não têm quem
     // responder. Falhar na aprovação diz o motivo certo na hora certa.
@@ -220,6 +303,15 @@ export class EstudoService {
         "aprovação exige usuário identificável: principal de serviço ou de desenvolvimento não pode aprovar",
       );
     }
+
+    const detalhe = await this.repository.detalhar(id);
+    await this.repository.aprovarTipo({
+      chave: estudo.trafficLightResult.chaveTipo,
+      contexto: estudo.invoiceContext,
+      exemploUc: detalhe.consumerUnitCode,
+      aprovadoPorId: aprovador,
+      aprovadoEm: agora,
+    });
 
     return this.repository.atualizar(id, {
       status: "aprovado_internamente",
@@ -231,7 +323,7 @@ export class EstudoService {
 
   async marcarEnviado(id: string, agora = new Date()): Promise<EnergyStudyDetail> {
     const estudo = await this.repository.carregar(id);
-    assertPodeEnviar(estudo.status, estudo.approvedById);
+    assertPodeEnviar(estudo.status, estudo.approvedById, estudo.trafficLight);
 
     return this.repository.atualizar(id, { status: "enviado_cliente", sentAt: agora });
   }

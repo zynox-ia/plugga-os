@@ -3,9 +3,14 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
-import type { EnergyStudyDetail } from "@plugga/shared";
+import type { EnergyStudyDetail, ReconciledInvoiceItem } from "@plugga/shared";
 
 import { aprovar, enviarFatura, marcarEnviado, recalcular } from "../energia-opm/eficiencia/actions";
+import {
+  avaliarConciliacaoLocal,
+  camposDaFicha,
+} from "./conciliacao-model";
+import { EditorConciliacao } from "./conciliacao-editor";
 import { ROTULO_DE_ESTADO, formatarCompetencia, formatarDinheiro } from "./estudos-view";
 import { ShellCard, ShellTable, StatusPill } from "./plugga-shell";
 
@@ -50,10 +55,24 @@ export function EstudoDetalheView({ estudo }: { estudo: EnergyStudyDetail }) {
   // ação termina, inclusive em erro — com defaultValue, um 400 apagava tudo
   // que a pessoa digitou lendo o papel. Campo controlado sobrevive ao reset.
   const [ficha, setFicha] = useState<Record<string, string>>(() => {
-    const base: Record<string, string> = { demandHistory: "", hasLoadProfile: "" };
-    for (const campo of CAMPOS_DA_FATURA) base[campo.nome] = "0";
+    const base: Record<string, string> = {
+      demandHistory: estudo.demandHistory.join(", "),
+      hasLoadProfile: estudo.calculationMode === "memoria_massa" ? "on" : "",
+      distribuidora: estudo.invoiceContext?.distribuidora ?? "",
+      regime: estudo.invoiceContext?.regime ?? "cativo",
+      modalidade: estudo.invoiceContext?.modalidade ?? "verde",
+      vencimento: estudo.invoiceContext?.vencimento ?? "",
+    };
+    for (const campo of CAMPOS_DA_FATURA) {
+      base[campo.nome] = String(
+        estudo.invoice?.[campo.nome as keyof typeof estudo.invoice] ?? 0,
+      );
+    }
     return base;
   });
+  const [itensConciliacao, setItensConciliacao] = useState<ReconciledInvoiceItem[]>(() =>
+    estudo.invoiceContext?.itens.filter((item) => item.compoeTotal) ?? [],
+  );
   const alterarCampo = (nome: string, valor: string) =>
     setFicha((atual) => ({ ...atual, [nome]: valor }));
 
@@ -98,6 +117,13 @@ export function EstudoDetalheView({ estudo }: { estudo: EnergyStudyDetail }) {
 
   const rotulo = ROTULO_DE_ESTADO[estudo.status];
   const temProblemas = (estudo.validationIssues?.length ?? 0) > 0;
+  const terminal = ["enviado_cliente", "arquivado", "cancelado"].includes(estudo.status);
+  const podeConciliar =
+    !terminal && (estudo.invoiceContext === null || estudo.status === "bloqueado");
+  const avaliacaoConciliacao = avaliarConciliacaoLocal(
+    itensConciliacao,
+    camposDaFicha(ficha),
+  );
 
   return (
     <>
@@ -121,23 +147,130 @@ export function EstudoDetalheView({ estudo }: { estudo: EnergyStudyDetail }) {
         {erro ? <p className="auth-error">{erro}</p> : null}
       </ShellCard>
 
-      {/* Sem fatura o estudo não tem o que calcular: a ficha é a única ação. */}
-      {estudo.invoice === null ? (
+      {estudo.trafficLightResult ? (
         <ShellCard className="panel-card">
           <div className="card-heading">
             <div>
-              <span className="eyebrow">Passo 1</span>
-              <h2>Ficha da fatura</h2>
+              <span className="eyebrow">Governança do PRD</span>
+              <h2>Semáforo da auditoria</h2>
+            </div>
+            <StatusPill
+              variant={
+                estudo.trafficLightResult.faixa === "verde"
+                  ? "success"
+                  : estudo.trafficLightResult.faixa === "amarelo"
+                    ? "warning"
+                    : "danger"
+              }
+            >
+              {estudo.trafficLightResult.faixa.toUpperCase()}
+            </StatusPill>
+          </div>
+          <p className="card-note">
+            Tipo: <b>{estudo.trafficLightResult.chaveTipo}</b>.{" "}
+            {estudo.trafficLightResult.faixa === "verde"
+              ? "Tipo conhecido e travas aprovadas: o relatório está liberado."
+              : estudo.trafficLightResult.faixa === "amarelo"
+                ? "Tipo novo: confira os quatro números e registre a aprovação antes da entrega."
+                : "O pipeline parou; corrija a origem e recalcule."}
+          </p>
+          <div className="stat-grid">
+            <div className="shell-card"><span className="stat-label">Total da fatura</span><strong className="stat-value">{formatarDinheiro(estudo.trafficLightResult.quatroNumeros.totalFatura)}</strong></div>
+            <div className="shell-card"><span className="stat-label">Consumo ponta</span><strong className="stat-value">{numero(estudo.trafficLightResult.quatroNumeros.consumoPontaKwh)} kWh</strong></div>
+            <div className="shell-card"><span className="stat-label">TIR</span><strong className="stat-value">{estudo.trafficLightResult.quatroNumeros.tirAnual === null ? "—" : `${numero(estudo.trafficLightResult.quatroNumeros.tirAnual * 100, 2)}% a.a.`}</strong></div>
+            <div className="shell-card"><span className="stat-label">Payback</span><strong className="stat-value">{estudo.trafficLightResult.quatroNumeros.paybackAnos === null ? "—" : `${numero(estudo.trafficLightResult.quatroNumeros.paybackAnos, 1)} anos`}</strong></div>
+          </div>
+          {estudo.reconciliationProof ? (
+            <p className="card-note">
+              Trava 1: soma dos itens {formatarDinheiro(estudo.reconciliationProof.somaItens)} = total {formatarDinheiro(estudo.reconciliationProof.total)} · {estudo.reconciliationProof.itensConferidos} item(ns) com quantidade × tarifa conferidos.
+            </p>
+          ) : null}
+        </ShellCard>
+      ) : null}
+
+      {/* Novo ou legado: antes de calcular, a fatura precisa de prova semântica. */}
+      {podeConciliar ? (
+        <ShellCard className="panel-card">
+          <div className="card-heading">
+            <div>
+              <span className="eyebrow">Conciliação obrigatória</span>
+              <h2>{estudo.invoice ? "Reconcilie a fatura existente" : "Ficha da fatura"}</h2>
             </div>
           </div>
           <p className="card-note">
-            Digite os valores da fatura da distribuidora. Ao salvar, o cálculo roda e o documento
-            é gerado automaticamente.
+            Confira os campos e classifique as linhas cobradas. Consumo, demanda, reativos e
+            encargos precisam concordar com a ficha; fechar apenas o valor total não libera o
+            cálculo.
           </p>
           <form
             className="fatura-form"
             action={(formData) => rodar(() => enviarFatura(estudo.id, formData))}
           >
+            <input
+              type="hidden"
+              name="contextItems"
+              value={JSON.stringify(avaliacaoConciliacao.itens)}
+              readOnly
+            />
+            <input
+              type="hidden"
+              name="origem"
+              value={estudo.invoiceContext?.origem ?? "manual"}
+              readOnly
+            />
+            <input
+              type="hidden"
+              name="arquivoNome"
+              value={estudo.invoiceContext?.arquivoNome ?? ""}
+              readOnly
+            />
+            <input
+              type="hidden"
+              name="arquivoChave"
+              value={estudo.invoiceContext?.arquivoChave ?? ""}
+              readOnly
+            />
+            <label>
+              <span>Distribuidora</span>
+              <input
+                name="distribuidora"
+                type="text"
+                value={ficha.distribuidora ?? ""}
+                onChange={(evento) => alterarCampo("distribuidora", evento.target.value)}
+                required
+              />
+            </label>
+            <label>
+              <span>Regime</span>
+              <select
+                name="regime"
+                value={ficha.regime ?? "cativo"}
+                onChange={(evento) => alterarCampo("regime", evento.target.value)}
+              >
+                <option value="cativo">Cativo</option>
+                <option value="mercado_livre">Mercado Livre</option>
+              </select>
+            </label>
+            <label>
+              <span>Modalidade</span>
+              <select
+                name="modalidade"
+                value={ficha.modalidade ?? "verde"}
+                onChange={(evento) => alterarCampo("modalidade", evento.target.value)}
+              >
+                <option value="verde">Verde</option>
+                <option value="azul">Azul</option>
+              </select>
+            </label>
+            <label>
+              <span>Vencimento</span>
+              <input
+                name="vencimento"
+                type="text"
+                value={ficha.vencimento ?? ""}
+                onChange={(evento) => alterarCampo("vencimento", evento.target.value)}
+              />
+            </label>
             {CAMPOS_DA_FATURA.map((campo) => (
               <label key={campo.nome}>
                 <span>{campo.rotulo}</span>
@@ -175,7 +308,22 @@ export function EstudoDetalheView({ estudo }: { estudo: EnergyStudyDetail }) {
               />
               <span>Tenho memória de massa de 15 minutos</span>
             </label>
-            <button className="button button--accent" type="submit" disabled={pendente}>
+            <div className="campo-largo">
+              <h3>Itens cobrados</h3>
+              <p className="card-note">
+                A categoria liga cada linha aos campos críticos usados pelo motor de cálculo.
+              </p>
+              <EditorConciliacao
+                itens={itensConciliacao}
+                onChange={setItensConciliacao}
+                avaliacao={avaliacaoConciliacao}
+              />
+            </div>
+            <button
+              className="button button--accent"
+              type="submit"
+              disabled={pendente || !avaliacaoConciliacao.pronta}
+            >
               {pendente ? "Calculando…" : "Salvar e calcular"}
             </button>
           </form>
@@ -317,6 +465,16 @@ export function EstudoDetalheView({ estudo }: { estudo: EnergyStudyDetail }) {
                   >
                     Abrir relatório
                   </a>
+                  {estudo.hasMobileDocument ? (
+                    <a
+                      className="button"
+                      href={`/api/energia/estudos/${estudo.id}/documento/celular`}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Abrir versão celular
+                    </a>
+                  ) : null}
                   <button
                     className="button button--accent"
                     type="button"
@@ -333,7 +491,7 @@ export function EstudoDetalheView({ estudo }: { estudo: EnergyStudyDetail }) {
                 o cliente e leva alguns segundos para ser gerado.
               </p>
 
-              {estudo.status === "em_validacao" ? (
+              {estudo.status === "em_validacao" && estudo.trafficLight === "amarelo" ? (
                 <div className="aprovacao">
                   <label>
                     <span>Observação da aprovação (opcional)</span>
@@ -355,11 +513,14 @@ export function EstudoDetalheView({ estudo }: { estudo: EnergyStudyDetail }) {
                 </div>
               ) : null}
 
-              {estudo.status === "aprovado_internamente" ? (
+              {estudo.status === "aprovado_internamente" ||
+              (estudo.status === "em_validacao" && estudo.trafficLight === "verde") ? (
                 <div className="aprovacao">
                   <p className="card-note">
-                    Aprovado em {new Date(estudo.approvedAt ?? "").toLocaleString("pt-BR")}. Marque
-                    como enviado depois de entregar ao cliente.
+                    {estudo.trafficLight === "verde"
+                      ? "Faixa verde: travas aprovadas e tipo conhecido."
+                      : `Aprovado em ${new Date(estudo.approvedAt ?? "").toLocaleString("pt-BR")}.`} Marque
+                    como entregue depois de compartilhar os dois HTMLs e o PDF com o cliente.
                   </p>
                   <button
                     className="button button--accent"
@@ -367,7 +528,7 @@ export function EstudoDetalheView({ estudo }: { estudo: EnergyStudyDetail }) {
                     disabled={pendente}
                     onClick={() => rodar(() => marcarEnviado(estudo.id))}
                   >
-                    {pendente ? "Registrando…" : "Marcar como enviado"}
+                    {pendente ? "Registrando…" : "Marcar como entregue"}
                   </button>
                 </div>
               ) : null}

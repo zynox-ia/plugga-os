@@ -1,7 +1,10 @@
 import { Inject, Injectable, NotFoundException } from "@nestjs/common";
 import {
   energyPremisesSchema,
+  invoiceContextSchema,
   invoiceDataSchema,
+  reconciliationProofSchema,
+  trafficLightResultSchema,
   type EnergyPremises,
   type EnergyStudyDetail,
   type EnergyStudyListQuery,
@@ -18,6 +21,7 @@ import {
   type CriarEstudoInput,
   type EstudoRegistro,
 } from "./estudo.repository.js";
+import { verificarIntegridadeDocumento } from "./documento/integridade.js";
 
 /** Colunas necessárias para montar resumo e detalhe sem segunda consulta. */
 const INCLUSAO = {
@@ -37,6 +41,14 @@ const faturaOuNulo = (bruto: Prisma.JsonValue | null) => {
   if (!bruto || typeof bruto !== "object" || Array.isArray(bruto)) return null;
   if (Object.keys(bruto).length === 0) return null;
   return invoiceDataSchema.parse(bruto);
+};
+
+const objetoOuNulo = <T>(
+  bruto: Prisma.JsonValue | null,
+  schema: { parse(valor: unknown): T },
+): T | null => {
+  if (!bruto || typeof bruto !== "object" || Array.isArray(bruto)) return null;
+  return schema.parse(bruto);
 };
 
 /** Decimal do Prisma vira number; o motor trabalha em ponto flutuante. */
@@ -76,11 +88,16 @@ export class PrismaEstudoRepository extends EstudoRepository {
       // O snapshot é revalidado na leitura: um estudo antigo cuja forma mudou
       // deve falhar alto, não entrar no motor com campo faltando.
       invoice: faturaOuNulo(linha.invoiceData),
+      invoiceContext: objetoOuNulo(linha.invoiceContext, invoiceContextSchema),
+      reconciliationProof: objetoOuNulo(linha.reconciliationProof, reconciliationProofSchema),
       demandHistory: Array.isArray(linha.demandHistory) ? (linha.demandHistory as number[]) : [],
       hasLoadProfile: linha.calculationMode === "memoria_massa",
       results: (linha.results as Record<string, unknown> | null) ?? null,
       validationIssues: (linha.validationIssues as ProblemaDeValidacao[] | null) ?? null,
       documentHtml: linha.documentHtml,
+      documentHtmlMobile: linha.documentHtmlMobile,
+      trafficLight: linha.trafficLight,
+      trafficLightResult: objetoOuNulo(linha.trafficLightResult, trafficLightResultSchema),
       approvedById: linha.approvedById,
       approvedAt: linha.approvedAt,
       sentAt: linha.sentAt,
@@ -95,14 +112,18 @@ export class PrismaEstudoRepository extends EstudoRepository {
       ...this.resumo(linha),
       premiseVersion: linha.premiseVersion.versao,
       invoice: faturaOuNulo(linha.invoiceData),
+      invoiceContext: objetoOuNulo(linha.invoiceContext, invoiceContextSchema),
+      reconciliationProof: objetoOuNulo(linha.reconciliationProof, reconciliationProofSchema),
       demandHistory: Array.isArray(linha.demandHistory) ? (linha.demandHistory as number[]) : [],
       audit: resultados.auditoria ?? null,
       demand: resultados.demanda ?? null,
       sizing: resultados.dimensionamento ?? null,
       savings: resultados.economia ?? null,
       financial: resultados.financeiro ?? null,
+      trafficLightResult: objetoOuNulo(linha.trafficLightResult, trafficLightResultSchema),
       validationIssues: (linha.validationIssues as ProblemaDeValidacao[] | null) ?? null,
       hasDocument: linha.documentHtml !== null,
+      hasMobileDocument: linha.documentHtmlMobile !== null,
     };
   }
 
@@ -135,7 +156,16 @@ export class PrismaEstudoRepository extends EstudoRepository {
       where: { id },
       data: {
         ...(input.status !== undefined ? { status: input.status } : {}),
+        ...(input.calculationMode !== undefined
+          ? { calculationMode: input.calculationMode }
+          : {}),
         ...(input.invoice !== undefined ? { invoiceData: input.invoice } : {}),
+        ...(input.invoiceContext !== undefined ? { invoiceContext: input.invoiceContext } : {}),
+        ...(input.reconciliationProof !== undefined
+          ? {
+              reconciliationProof: (input.reconciliationProof ?? Prisma.JsonNull) as Prisma.InputJsonValue,
+            }
+          : {}),
         ...(input.demandHistory !== undefined ? { demandHistory: input.demandHistory } : {}),
         ...(input.results !== undefined
           ? { results: (input.results ?? Prisma.JsonNull) as Prisma.InputJsonValue }
@@ -146,6 +176,19 @@ export class PrismaEstudoRepository extends EstudoRepository {
             }
           : {}),
         ...(input.documentHtml !== undefined ? { documentHtml: input.documentHtml } : {}),
+        ...(input.documentHtmlMobile !== undefined
+          ? { documentHtmlMobile: input.documentHtmlMobile }
+          : {}),
+        ...(input.documentHash !== undefined ? { documentHash: input.documentHash } : {}),
+        ...(input.documentMobileHash !== undefined
+          ? { documentMobileHash: input.documentMobileHash }
+          : {}),
+        ...(input.trafficLight !== undefined ? { trafficLight: input.trafficLight } : {}),
+        ...(input.trafficLightResult !== undefined
+          ? {
+              trafficLightResult: (input.trafficLightResult ?? Prisma.JsonNull) as Prisma.InputJsonValue,
+            }
+          : {}),
         ...(input.economiaMensal !== undefined ? { economiaMensal: input.economiaMensal } : {}),
         ...(input.capexTotal !== undefined ? { capexTotal: input.capexTotal } : {}),
         ...(input.approvedById !== undefined ? { approvedById: input.approvedById } : {}),
@@ -158,17 +201,54 @@ export class PrismaEstudoRepository extends EstudoRepository {
     return this.detalhar(id);
   }
 
-  async documento(id: string): Promise<string> {
+  async documento(id: string, versao: "desktop" | "celular" = "desktop"): Promise<string> {
     const linha = await this.prisma.energyEfficiencyStudy.findUnique({
       where: { id },
-      select: { documentHtml: true },
+      select: {
+        documentHtml: true,
+        documentHtmlMobile: true,
+        documentHash: true,
+        documentMobileHash: true,
+        trafficLight: true,
+      },
     });
 
     if (!linha) throw new NotFoundException(`estudo ${id} não encontrado`);
-    if (!linha.documentHtml) {
+    const html = versao === "celular" ? linha.documentHtmlMobile : linha.documentHtml;
+    if (!html) {
       throw new NotFoundException("estudo ainda não tem documento gerado ou está bloqueado");
     }
-    return linha.documentHtml;
+    const hash = versao === "celular" ? linha.documentMobileHash : linha.documentHash;
+    verificarIntegridadeDocumento(html, hash, linha.trafficLight !== null);
+    return html;
+  }
+
+  async tipoConhecido(chave: string): Promise<boolean> {
+    return (await this.prisma.energyInvoiceTypeApproval.count({ where: { key: chave } })) > 0;
+  }
+
+  async aprovarTipo(input: {
+    chave: string;
+    contexto: import("@plugga/shared").InvoiceContext;
+    exemploUc: string;
+    aprovadoPorId: string;
+    aprovadoEm: Date;
+  }): Promise<void> {
+    await this.prisma.energyInvoiceTypeApproval.upsert({
+      where: { key: input.chave },
+      update: {},
+      create: {
+        key: input.chave,
+        distributor: input.contexto.distribuidora,
+        regime: input.contexto.regime,
+        modality: input.contexto.modalidade,
+        groupCode: input.contexto.grupo,
+        exampleUc: input.exemploUc,
+        approvedById: input.aprovadoPorId,
+        approvedByText: "Aprovado no Plugga OS",
+        approvedAt: input.aprovadoEm,
+      },
+    });
   }
 
   /**
@@ -216,6 +296,7 @@ export class PrismaEstudoRepository extends EstudoRepository {
       competenceYear: linha.competenceYear,
       status: linha.status,
       calculationMode: linha.calculationMode,
+      trafficLight: linha.trafficLight,
       economiaMensal: numeroOuNulo(linha.economiaMensal),
       capexTotal: numeroOuNulo(linha.capexTotal),
       version: linha.version,
@@ -238,9 +319,21 @@ export class PrismaEstudoRepository extends EstudoRepository {
     fvCapexPorKwp: Prisma.Decimal;
     fvProdutividadeKwhPorKwpMes: Prisma.Decimal;
     fvPercentualAtendimento: Prisma.Decimal;
+    bessDod: Prisma.Decimal;
+    bessEtaRt: Prisma.Decimal;
+    bessEtaEle: Prisma.Decimal;
+    bessEtaOp: Prisma.Decimal;
+    diasUteisMes: number;
+    omBessPercentualAno: Prisma.Decimal;
+    solarPr: Prisma.Decimal;
+    solarDegradacaoAnual: Prisma.Decimal;
+    omSolarPercentualAno: Prisma.Decimal;
+    hspMensal: Prisma.JsonValue;
+    sohAnual: Prisma.JsonValue;
     horizonteAnos: number;
     tmaAnual: Prisma.Decimal;
     reajusteTarifarioAnual: Prisma.Decimal;
+    reajusteOmAnual: Prisma.Decimal;
     toleranciaUltrapassagem: Prisma.Decimal;
     alteracaoDemandaMinima: Prisma.Decimal;
     alteracaoDemandaMaxima: Prisma.Decimal;
@@ -254,12 +347,24 @@ export class PrismaEstudoRepository extends EstudoRepository {
       bessPotenciaKw: Number(linha.bessPotenciaKw),
       bessEficienciaCiclo: Number(linha.bessEficienciaCiclo),
       bessCapexPorUnidade: Number(linha.bessCapexPorUnidade),
+      bessDod: Number(linha.bessDod),
+      bessEtaRt: Number(linha.bessEtaRt),
+      bessEtaEle: Number(linha.bessEtaEle),
+      bessEtaOp: Number(linha.bessEtaOp),
+      diasUteisMes: linha.diasUteisMes,
+      omBessPercentualAno: Number(linha.omBessPercentualAno),
       fvCapexPorKwp: Number(linha.fvCapexPorKwp),
       fvProdutividadeKwhPorKwpMes: Number(linha.fvProdutividadeKwhPorKwpMes),
       fvPercentualAtendimento: Number(linha.fvPercentualAtendimento),
+      solarPr: Number(linha.solarPr),
+      solarDegradacaoAnual: Number(linha.solarDegradacaoAnual),
+      omSolarPercentualAno: Number(linha.omSolarPercentualAno),
+      hspMensal: linha.hspMensal,
+      sohAnual: linha.sohAnual,
       horizonteAnos: linha.horizonteAnos,
       tmaAnual: Number(linha.tmaAnual),
       reajusteTarifarioAnual: Number(linha.reajusteTarifarioAnual),
+      reajusteOmAnual: Number(linha.reajusteOmAnual),
       toleranciaUltrapassagem: Number(linha.toleranciaUltrapassagem),
       alteracaoDemandaMinima: Number(linha.alteracaoDemandaMinima),
       alteracaoDemandaMaxima: Number(linha.alteracaoDemandaMaxima),

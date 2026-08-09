@@ -6,10 +6,8 @@ import { PREMISSAS_2026_08, type InvoiceData } from "@plugga/shared";
 import { describe, expect, it } from "vitest";
 
 import { auditarFatura } from "../src/energy-efficiency/calculo/auditoria.js";
-import { calcularEconomia } from "../src/energy-efficiency/calculo/cenarios.js";
 import { analisarDemanda } from "../src/energy-efficiency/calculo/demanda.js";
-import { dimensionar } from "../src/energy-efficiency/calculo/dimensionamento.js";
-import { calcularFinanceiro } from "../src/energy-efficiency/calculo/financeiro.js";
+import { rodarMotorPrd } from "../src/energy-efficiency/calculo/motor-prd.js";
 import { gerarPdf } from "../src/energy-efficiency/documento/pdf.js";
 import { gerarRelatorio } from "../src/energy-efficiency/documento/relatorio.js";
 
@@ -47,13 +45,7 @@ const FATURA: InvoiceData = {
 function gerar() {
   const premissas = PREMISSAS_2026_08;
   const auditoria = auditarFatura(FATURA);
-  const dimensionamento = dimensionar({ fatura: FATURA, premissas });
-  const economia = calcularEconomia({ fatura: FATURA, premissas, dimensionamento });
-  const financeiro = calcularFinanceiro({
-    premissas,
-    dimensionamento,
-    economiaAno1: economia.economiaAno1,
-  });
+  const { dimensionamento, economia, financeiro } = rodarMotorPrd(FATURA, premissas);
   const demanda = analisarDemanda({
     demandaContratadaKw: 700,
     historicoKw: [634, 704, 705, 698, 668, 586],

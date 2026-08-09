@@ -54,6 +54,28 @@ export function dimensionar({ fatura, premissas, baseDias }: SizingInput): Sizin
     bessUnidades,
     bessLimitador:
       bessUnidadesPorPotencia >= bessUnidadesPorEnergia ? "potencia" : "energia",
+    energiaUtilCicloKwh:
+      premissas.bessCapacidadeNominalKwh * premissas.bessDod * premissas.bessEtaRt,
+    energiaUtilMesPorBessKwh:
+      premissas.bessCapacidadeNominalKwh *
+      premissas.bessDod *
+      premissas.bessEtaRt *
+      dias,
+    energiaCargaMesPorBessKwh:
+      (premissas.bessCapacidadeNominalKwh * premissas.bessDod * dias) /
+      (premissas.bessEtaEle * premissas.bessEtaOp),
+    coberturaConsumo:
+      fatura.consumoPontaKwh > 0
+        ? Math.min(
+            1,
+            (bessUnidades *
+              premissas.bessCapacidadeNominalKwh *
+              premissas.bessDod *
+              premissas.bessEtaRt *
+              dias) /
+              fatura.consumoPontaKwh,
+          )
+        : 0,
     fvKwp,
     fvGeracaoMensalKwh: fvKwp * premissas.fvProdutividadeKwhPorKwpMes,
   };

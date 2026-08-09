@@ -137,7 +137,7 @@ function secaoOportunidades(entrada: EntradaDoRelatorio): string {
   const rotulosFluxo = financeiro.fluxoCaixaAcumulado.map((_, i) => String(i));
 
   return `<h2>7. Oportunidades</h2>
-<div class="note">O cenário principal é <b>Solar+BESS</b>. A geração solar reduz a energia comprada da rede e o banco de baterias desloca consumo do horário de ponta. O investimento considera os dois em conjunto.</div>
+<div class="note">O cenário principal é <b>Solar+BESS</b>. A geração solar é dimensionada exclusivamente para recarregar o banco que descarrega no horário de ponta. Excedente solar não reduz consumo fora ponta e não gera crédito neste estudo.</div>
 <div class="grid">
 ${kpi("Geração solar", `${numero(dimensionamento.fvKwp)} kWp`)}
 ${kpi("Banco de baterias", `${dimensionamento.bessUnidades} unidades`, premissas.bessModelo)}
@@ -158,14 +158,14 @@ ${linhaTabela(["Baterias (referência técnica)", dinheiro(financeiro.capexBess)
 <div class="box"><b>${dinheiro(financeiro.capexBess)}</b><br><span>armazenamento</span></div>
 </div></div></div>
 <div class="grid3">
-${kpi("Retorno simples", `${numero(financeiro.paybackSimplesAnos, 1)} anos`)}
-${kpi("Retorno descontado", financeiro.paybackDescontadoAnos === null ? "Acima do horizonte" : `${numero(financeiro.paybackDescontadoAnos, 1)} anos`)}
-${kpi("Valor presente líquido", dinheiro(financeiro.vpl))}
+${kpi("Payback", financeiro.paybackProjetadoAnos === null ? "Acima do horizonte" : `${numero(financeiro.paybackProjetadoAnos, 1)} anos`)}
+${kpi("TIR", financeiro.tir === null ? "Não calculável" : percentual(financeiro.tir * 100) + " ao ano")}
+${kpi("Acumulado em 20 anos", dinheiro(financeiro.acumulado20Anos))}
 </div>
 <div class="full-chart"><h3>Economia anual projetada — Solar+BESS</h3>${linha(financeiro.fluxoAnual, "economia anual (R$)", { incluirZero: true, rotulos: rotulosAnos })}${tabelaAnoAAno("Economia projetada ano a ano", financeiro.fluxoAnual)}</div>
 <div class="full-chart"><h3>Economia acumulada projetada — Solar+BESS</h3>${linha(financeiro.economiaAcumulada, "economia acumulada (R$)", { incluirZero: true, rotulos: rotulosAnos })}${tabelaAnoAAno("Economia acumulada ano a ano", financeiro.economiaAcumulada)}</div>
 <div class="full-chart"><h3>Fluxo de caixa acumulado — Solar+BESS</h3>${linha(financeiro.fluxoCaixaAcumulado, "fluxo acumulado (R$)", { incluirZero: true, rotulos: rotulosFluxo })}${tabelaAnoAAno("Fluxo de caixa acumulado", financeiro.fluxoCaixaAcumulado, 0)}</div>
-<div class="note">Premissas do estudo: horizonte de ${numero(premissas.horizonteAnos)} anos, reajuste tarifário de ${percentual(premissas.reajusteTarifarioAnual * 100, 0)} ao ano e taxa mínima de atratividade de ${percentual(premissas.tmaAnual * 100, 0)} ao ano. Os valores de investimento são estimativa preliminar e não constituem orçamento fechado: dependem de projeto, instalação, adequações elétricas, operação e manutenção e cotação de fornecedor.</div>`;
+<div class="note">Premissas do estudo: horizonte de ${numero(premissas.horizonteAnos)} anos, ${premissas.diasUteisMes} dias úteis por mês, reajuste de energia de ${percentual(premissas.reajusteTarifarioAnual * 100, 0)} ao ano, O&amp;M BESS de ${percentual(premissas.omBessPercentualAno * 100, 0)} do CAPEX e curva de degradação SOH do fabricante. Os valores de investimento são estimativa preliminar e não constituem orçamento fechado: dependem de projeto, instalação, adequações elétricas e cotação de fornecedor.</div>`;
 }
 
 export function gerarRelatorio(entrada: EntradaDoRelatorio): RelatorioGerado {
@@ -187,7 +187,7 @@ export function gerarRelatorio(entrada: EntradaDoRelatorio): RelatorioGerado {
 
   const pesoPonta = (fatura.consumoPontaKwh / auditoria.consumoTotalKwh) * 100;
 
-  const secoes = `<h2>1. Resumo executivo da fatura</h2>
+  const secoes = `<h2>1. Resumo da fatura</h2>
 <div class="grid">
 ${kpi("Valor total da fatura", dinheiro(fatura.valorTotal))}
 ${kpi("Referência", escapar(caso.referencia), caso.vencimento ? `vencimento ${escapar(caso.vencimento)}` : undefined)}
@@ -258,7 +258,7 @@ ${secaoOportunidades(entrada)}
   const identificacao =
     `Cliente <b>${escapar(caso.cliente)}</b> • UC ${escapar(caso.unidadeConsumidora)} • ` +
     `${escapar(caso.distribuidora)} • Referência ${escapar(caso.referencia)} • ` +
-    "Base de análise: fatura cativa e oportunidades energéticas";
+    "Escopo: conciliação da fatura e oportunidades energéticas";
 
   const etiquetas = [
     escapar(caso.grupoModalidade),

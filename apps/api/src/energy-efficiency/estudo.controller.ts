@@ -63,7 +63,13 @@ export class EstudoController {
   @Get(":id/document")
   @Header("content-type", "text/html; charset=utf-8")
   documento(@Param("id", ParseUUIDPipe) id: string): Promise<string> {
-    return this.service.documento(id);
+    return this.service.documento(id, "desktop");
+  }
+
+  @Get(":id/document.mobile")
+  @Header("content-type", "text/html; charset=utf-8")
+  documentoCelular(@Param("id", ParseUUIDPipe) id: string): Promise<string> {
+    return this.service.documento(id, "celular");
   }
 
   /**

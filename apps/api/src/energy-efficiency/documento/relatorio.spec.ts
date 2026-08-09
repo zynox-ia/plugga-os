@@ -119,6 +119,15 @@ describe("geração do relatório", () => {
     }
   });
 
+  it("aceita Roraima Energia como distribuidora legítima do novo relatório", () => {
+    const entrada = montarEntrada();
+    entrada.caso.distribuidora = "Roraima Energia";
+    const resultado = gerarRelatorio(entrada);
+
+    expect(resultado.problemas).toEqual([]);
+    expect(resultado.html).toContain("Roraima Energia");
+  });
+
   it("mantém a identidade visual do modelo aprovado", () => {
     expect(html).toContain('class="hero"');
     expect(html).toContain('class="footer"');
@@ -186,7 +195,10 @@ describe("validação bloqueante", () => {
   });
 
   it("bloqueia resíduo do caso-fonte no cabeçalho", () => {
-    const comResiduo = base.html.replace("Amazonas Energia", "Roraima Energia");
+    const comResiduo = base.html.replace(
+      "A M QUIMICA INDUSTRIA E COMERCIO DE PRODUTOS QUIMICOS LTDA",
+      "AGROINDUSTRIAL SERRA VERDE",
+    );
     const problemas = validarDocumento({ ...base, html: comResiduo });
     expect(problemas.some((p) => p.regra === "residuo_do_caso_fonte")).toBe(true);
   });

@@ -22,6 +22,8 @@ const HABILITADO = process.env.RUN_DATABASE_INTEGRATION_TESTS === "true";
 // Sem a palavra "teste" no nome: ela é termo proibido no documento do cliente,
 // e um dado de fixture com esse texto faz a validação bloquear — corretamente.
 const PREFIXO = "ZZ-INTEGRACAO estudo-eficiencia";
+const DISTRIBUIDORA = "ZZ Energia Integracao";
+const CHAVE_TIPO = "zz energia integracao|cativo|verde|a";
 const ADMIN: AuthPrincipal = { id: "", kind: "user", roles: ["admin"] };
 
 describe.skipIf(!HABILITADO)("estudo de eficiência energética — fluxo no banco", () => {
@@ -44,7 +46,7 @@ describe.skipIf(!HABILITADO)("estudo de eficiência energética — fluxo no ban
     clientId = cliente.id;
 
     const uc = await prisma.consumerUnit.create({
-      data: { clientId, code: `${PREFIXO}-uc`, distributor: "Amazonas Energia" },
+      data: { clientId, code: `${PREFIXO}-uc`, distributor: DISTRIBUIDORA },
       select: { id: true },
     });
     consumerUnitId = uc.id;
@@ -52,6 +54,7 @@ describe.skipIf(!HABILITADO)("estudo de eficiência energética — fluxo no ban
 
   afterAll(async () => {
     if (estudoId) await prisma.energyEfficiencyStudy.deleteMany({ where: { id: estudoId } });
+    await prisma.energyInvoiceTypeApproval.deleteMany({ where: { key: CHAVE_TIPO } });
     if (consumerUnitId) await prisma.consumerUnit.deleteMany({ where: { id: consumerUnitId } });
     if (clientId) await prisma.client.deleteMany({ where: { id: clientId } });
     await prisma.$disconnect();
@@ -72,7 +75,7 @@ describe.skipIf(!HABILITADO)("estudo de eficiência energética — fluxo no ban
 
     expect(criado.status).toBe("aguardando_dados");
     // A versão de premissas é fixada na criação e fica gravada com o estudo.
-    expect(criado.premiseVersion).toBe("2026-08-08");
+    expect(criado.premiseVersion).toBe("2026-08-09-prd-v1");
 
     const calculado = await service.receberFatura(estudoId, {
       invoice: {
@@ -92,6 +95,90 @@ describe.skipIf(!HABILITADO)("estudo de eficiência energética — fluxo no ban
         valorBeneficioFiscal: 0,
         valorMultasJurosEncargos: 0,
       },
+      context: {
+        distribuidora: DISTRIBUIDORA,
+        regime: "cativo",
+        modalidade: "verde",
+        grupo: "A",
+        vencimento: "20/07/2026",
+        itens: [
+          {
+            nome: "Consumo ponta",
+            categoria: "consumo_ponta",
+            compoeTotal: true,
+            valor: 7_797.43,
+            quantidade: 4_275,
+            unidade: "kWh",
+            tarifa: 1.82396,
+          },
+          {
+            nome: "Consumo fora ponta",
+            categoria: "consumo_fora_ponta",
+            compoeTotal: true,
+            valor: 67_939.69,
+            quantidade: 126_050,
+            unidade: "kWh",
+            tarifa: 0.53899,
+          },
+          {
+            nome: "Demanda faturada",
+            categoria: "demanda_faturada",
+            compoeTotal: true,
+            valor: 15_827,
+            quantidade: 700,
+            unidade: "kW",
+            tarifa: 22.61,
+          },
+          {
+            nome: "Energia reativa",
+            categoria: "reativo",
+            compoeTotal: true,
+            valor: 571.22,
+            quantidade: null,
+            unidade: null,
+            tarifa: null,
+          },
+          {
+            nome: "Outros itens",
+            categoria: "outros",
+            compoeTotal: true,
+            valor: 8_745.91,
+            quantidade: null,
+            unidade: null,
+            tarifa: null,
+          },
+          {
+            nome: "Demanda contratada",
+            categoria: "demanda_contratada",
+            compoeTotal: false,
+            valor: 0,
+            quantidade: 700,
+            unidade: "kW",
+            tarifa: null,
+          },
+          {
+            nome: "Demanda medida em ponta",
+            categoria: "demanda_medida_ponta",
+            compoeTotal: false,
+            valor: 0,
+            quantidade: 249,
+            unidade: "kW",
+            tarifa: null,
+          },
+          {
+            nome: "Demanda medida fora ponta",
+            categoria: "demanda_medida_fora_ponta",
+            compoeTotal: false,
+            valor: 0,
+            quantidade: 586,
+            unidade: "kW",
+            tarifa: null,
+          },
+        ],
+        arquivoNome: "fatura-06-2026.pdf",
+        arquivoChave: null,
+        origem: "manual",
+      },
       demandHistory: [634, 704, 705, 698, 668, 586],
       hasLoadProfile: false,
     });
@@ -99,7 +186,9 @@ describe.skipIf(!HABILITADO)("estudo de eficiência energética — fluxo no ban
     expect(calculado.status).toBe("em_validacao");
     expect(calculado.validationIssues).toBeNull();
     expect(calculado.hasDocument).toBe(true);
-    expect(calculado.financial?.capexTotal).toBe(3_155_000);
+    expect(calculado.hasMobileDocument).toBe(true);
+    expect(calculado.trafficLight).toBe("amarelo");
+    expect(calculado.financial?.capexTotal).toBe(1_754_500);
     // Seis faturas não bastam para sair de preliminar.
     expect(calculado.demand?.preliminar).toBe(true);
 
@@ -121,6 +210,6 @@ describe.skipIf(!HABILITADO)("estudo de eficiência energética — fluxo no ban
 
     const encontrado = items.find((item) => item.id === estudoId);
     expect(encontrado?.economiaMensal).toBeGreaterThan(0);
-    expect(encontrado?.capexTotal).toBe(3_155_000);
+    expect(encontrado?.capexTotal).toBe(1_754_500);
   });
 });

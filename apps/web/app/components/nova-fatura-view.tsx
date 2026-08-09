@@ -3,9 +3,19 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 
-import type { ConsumerUnitSummary, InvoiceReading } from "@plugga/shared";
+import type {
+  ConsumerUnitSummary,
+  InvoiceReading,
+  ReconciledInvoiceItem,
+} from "@plugga/shared";
 
 import { abrirEstudoPelaFatura, lerFaturaEnviada } from "../energia-opm/eficiencia/actions";
+import {
+  avaliarConciliacaoLocal,
+  camposDaFicha,
+  inferirCategoriaDaLinha,
+} from "./conciliacao-model";
+import { EditorConciliacao } from "./conciliacao-editor";
 import { ShellCard, ShellTable, StatusPill } from "./plugga-shell";
 
 /**
@@ -93,6 +103,7 @@ export function NovaFaturaView({
   const [arquivoEnviado, setArquivoEnviado] = useState<File | null>(null);
   const [senha, setSenha] = useState("");
   const [estudoCriado, setEstudoCriado] = useState<string | null>(null);
+  const [itensConciliacao, setItensConciliacao] = useState<ReconciledInvoiceItem[]>([]);
 
   const ucCasada = leitura?.unidadeConsumidoraCodigo
     ? consumerUnits.find(
@@ -120,12 +131,27 @@ export function NovaFaturaView({
       competenceYear: String(leitura.competenceYear ?? ""),
       demandHistory: "",
       hasLoadProfile: "",
+      distribuidora: leitura.distribuidora ?? "",
+      regime: "cativo",
+      modalidade: "verde",
+      vencimento: "",
     };
     for (const campo of CAMPOS) {
       const lido = leitura.invoice[campo.nome as keyof typeof leitura.invoice];
       base[campo.nome] = String(lido ?? 0);
     }
     setFicha(base);
+    setItensConciliacao(
+      leitura.itens.map((item) => ({
+        nome: item.rotulo,
+        categoria: inferirCategoriaDaLinha(item.rotulo),
+        compoeTotal: true,
+        valor: item.valor,
+        quantidade: item.quantidade,
+        unidade: item.unidade,
+        tarifa: item.tarifa,
+      })),
+    );
   }, [leitura, consumerUnits]);
 
   const alterarCampo = (nome: string, valor: string) =>
@@ -282,6 +308,10 @@ export function NovaFaturaView({
 
   const confirmados = leitura.itens.filter((item) => item.veredicto === "confirmado");
   const divergentes = leitura.itens.filter((item) => item.veredicto === "divergente");
+  const avaliacaoConciliacao = avaliarConciliacaoLocal(
+    itensConciliacao,
+    camposDaFicha(ficha),
+  );
 
   return (
     <>
@@ -369,10 +399,21 @@ export function NovaFaturaView({
 
         {divergentes.length > 0 ? (
           <p className="card-note">
-            <b>{divergentes.length} item(ns) não fecharam</b> e ficaram de fora da ficha. É assim
-            que erro de leitura é pego antes de virar número no relatório do cliente.
+            <b>{divergentes.length} item(ns) não fecharam.</b> Corrija quantidade, tarifa ou valor
+            na conciliação abaixo antes de abrir o estudo.
           </p>
         ) : null}
+
+        <h3>Conciliação que entra no estudo</h3>
+        <p className="card-note">
+          A soma precisa ser exatamente igual ao total da fatura. Acrescente linhas que o leitor
+          não reconheceu; não altere o total apenas para fazê-lo fechar.
+        </p>
+        <EditorConciliacao
+          itens={itensConciliacao}
+          onChange={setItensConciliacao}
+          avaliacao={avaliacaoConciliacao}
+        />
       </ShellCard>
 
       <ShellCard className="panel-card">
@@ -384,6 +425,20 @@ export function NovaFaturaView({
         </div>
 
         <form className="fatura-form" action={abrir}>
+          <input
+            type="hidden"
+            name="contextItems"
+            value={JSON.stringify(avaliacaoConciliacao.itens)}
+            readOnly
+          />
+          <input type="hidden" name="arquivoNome" value={leitura.arquivoNome} readOnly />
+          <input type="hidden" name="arquivoChave" value={leitura.arquivoChave ?? ""} readOnly />
+          <input
+            type="hidden"
+            name="origem"
+            value={leitura.itens.length > 0 ? leitura.origem : "manual"}
+            readOnly
+          />
           <label>
             <span>Unidade consumidora</span>
             <select
@@ -415,6 +470,49 @@ export function NovaFaturaView({
             </small>
           </label>
           <input type="hidden" name="clientId" value={ficha.clientId ?? ""} readOnly />
+
+          <label>
+            <span>Distribuidora</span>
+            <input
+              name="distribuidora"
+              type="text"
+              value={ficha.distribuidora ?? ""}
+              onChange={(evento) => alterarCampo("distribuidora", evento.target.value)}
+              required
+            />
+          </label>
+          <label>
+            <span>Regime</span>
+            <select
+              name="regime"
+              value={ficha.regime ?? "cativo"}
+              onChange={(evento) => alterarCampo("regime", evento.target.value)}
+            >
+              <option value="cativo">Cativo</option>
+              <option value="mercado_livre">Mercado Livre</option>
+            </select>
+          </label>
+          <label>
+            <span>Modalidade</span>
+            <select
+              name="modalidade"
+              value={ficha.modalidade ?? "verde"}
+              onChange={(evento) => alterarCampo("modalidade", evento.target.value)}
+            >
+              <option value="verde">Verde</option>
+              <option value="azul">Azul</option>
+            </select>
+          </label>
+          <label>
+            <span>Vencimento</span>
+            <input
+              name="vencimento"
+              type="text"
+              placeholder="DD/MM/AAAA"
+              value={ficha.vencimento ?? ""}
+              onChange={(evento) => alterarCampo("vencimento", evento.target.value)}
+            />
+          </label>
 
           <label>
             <span>Mês</span>
@@ -480,7 +578,11 @@ export function NovaFaturaView({
             <span>Tenho memória de massa de 15 minutos</span>
           </label>
 
-          <button className="button button--accent" type="submit" disabled={pendente}>
+          <button
+            className="button button--accent"
+            type="submit"
+            disabled={pendente || !avaliacaoConciliacao.pronta}
+          >
             {pendente ? "Abrindo…" : "Abrir estudo e calcular"}
           </button>
           {erro ? <p className="auth-error">{erro}</p> : null}

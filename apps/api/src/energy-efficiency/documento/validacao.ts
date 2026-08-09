@@ -13,7 +13,7 @@ import { MARCADORES_DO_CASO_FONTE } from "./envelope.js";
 /** As dez seções que o documento precisa ter. Nenhuma pode sumir. */
 export const TITULOS_OBRIGATORIOS = [
   "Relatório de Auditoria Energética",
-  "1. Resumo executivo da fatura",
+  "1. Resumo da fatura",
   "2. Identificação da unidade consumidora",
   "3. Análise de demanda",
   "4. Consumo, custo médio efetivo e tarifa aplicada",

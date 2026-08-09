@@ -126,5 +126,10 @@ export function calcularFinanceiro({
     paybackDescontadoAnos: calcularPaybackAcumulado(fluxosDescontados, capexTotal),
     vpl,
     tir: calcularTir(fluxoAnual, capexTotal),
+    acumulado20Anos: economiaAcumulada.at(-1) ?? 0,
+    economiaLiquida20Anos: (economiaAcumulada.at(-1) ?? 0) - capexTotal,
+    // O módulo legado trabalha em base anual. O motor PRD é a fonte oficial
+    // dos novos estudos e fornece a abertura mensal completa.
+    fluxoMensal: [],
   };
 }

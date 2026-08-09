@@ -34,9 +34,9 @@ export const energyStudyStatusSchema = z.enum([
 export type EnergyStudyStatus = z.infer<typeof energyStudyStatusSchema>;
 
 /**
- * O modo muda o que o estudo pode afirmar. `preliminar` usa base de 30 dias
- * corridos e ignora perdas finas, O&M e degradação — e o documento é obrigado a
- * dizer isso. `memoria_massa` usa energia deslocável real da curva de 15 min.
+ * O modo muda o que o estudo pode afirmar. Os dois modos usam o motor completo
+ * do PRD; `preliminar` trabalha com o consumo mensal e 21 dias úteis, enquanto
+ * `memoria_massa` poderá substituir essa aproximação pela curva de 15 minutos.
  */
 export const calculationModeSchema = z.enum(["preliminar", "memoria_massa"]);
 export type CalculationMode = z.infer<typeof calculationModeSchema>;
@@ -63,14 +63,27 @@ export const energyPremisesSchema = z
     bessPotenciaKw: z.number().positive(),
     bessEficienciaCiclo: z.number().gt(0).lte(1),
     bessCapexPorUnidade: z.number().nonnegative(),
+    bessDod: z.number().gt(0).lte(1),
+    bessEtaRt: z.number().gt(0).lte(1),
+    bessEtaEle: z.number().gt(0).lte(1),
+    bessEtaOp: z.number().gt(0).lte(1),
+    diasUteisMes: z.number().int().positive(),
+    omBessPercentualAno: z.number().gte(0),
 
     fvCapexPorKwp: z.number().nonnegative(),
+    /** Mantidos apenas para reproduzir estudos legados anteriores ao PRD v1. */
     fvProdutividadeKwhPorKwpMes: z.number().positive(),
     fvPercentualAtendimento: z.number().gt(0).lte(1),
+    solarPr: z.number().gt(0).lte(1),
+    solarDegradacaoAnual: z.number().gte(0).lt(1),
+    omSolarPercentualAno: z.number().gte(0),
+    hspMensal: z.array(z.number().positive()).length(12),
+    sohAnual: z.array(z.number().gt(0).lte(1)).length(21),
 
     horizonteAnos: z.number().int().positive(),
     tmaAnual: z.number().gte(0),
     reajusteTarifarioAnual: z.number().gte(0),
+    reajusteOmAnual: z.number().gte(0),
 
     /** Tolerância regulatória de ultrapassagem do Grupo A. */
     toleranciaUltrapassagem: z.number().gt(0),
@@ -82,13 +95,13 @@ export const energyPremisesSchema = z
 export type EnergyPremises = z.infer<typeof energyPremisesSchema>;
 
 /**
- * Premissas vigentes desde 2026-08-08. A eficiência de ciclo passa a entrar no
- * cálculo da economia (antes era documentada e ignorada) e a capacidade útil
- * nasce igual à nominal, marcada para validação em projeto.
+ * Premissas fechadas no PRD recebido em 09/08/2026. Elas reproduzem o motor
+ * validado contra as planilhas de Dilkson e substituem as aproximações antigas
+ * de 30 dias, reajuste de 4% e TMA de 5%.
  */
 export const PREMISSAS_2026_08: EnergyPremises = {
-  versao: "2026-08-08",
-  vigenteDe: "2026-08-08T00:00:00.000Z",
+  versao: "2026-08-09-prd-v1",
+  vigenteDe: "2026-08-09T00:00:00.000Z",
 
   bessModelo: "Huawei LUNA2000-241-2S1",
   bessCapacidadeNominalKwh: 241,
@@ -96,14 +109,30 @@ export const PREMISSAS_2026_08: EnergyPremises = {
   bessPotenciaKw: 108,
   bessEficienciaCiclo: 0.913,
   bessCapexPorUnidade: 550_000,
+  bessDod: 1,
+  bessEtaRt: 0.9556,
+  bessEtaEle: 0.98,
+  bessEtaOp: 0.99,
+  diasUteisMes: 21,
+  omBessPercentualAno: 0.01,
 
   fvCapexPorKwp: 2_500,
   fvProdutividadeKwhPorKwpMes: 130,
   fvPercentualAtendimento: 0.6,
+  solarPr: 0.85,
+  solarDegradacaoAnual: 0.005,
+  omSolarPercentualAno: 0.01,
+  hspMensal: Array.from({ length: 12 }, () => 5),
+  sohAnual: [
+    1, 0.971, 0.948, 0.927, 0.907, 0.888, 0.87, 0.852, 0.834, 0.817,
+    0.799, 0.783, 0.763, 0.75, 0.734, 0.718, 0.703, 0.688, 0.673, 0.659,
+    0.645,
+  ],
 
   horizonteAnos: 20,
-  tmaAnual: 0.05,
-  reajusteTarifarioAnual: 0.04,
+  tmaAnual: 0.12,
+  reajusteTarifarioAnual: 0.08,
+  reajusteOmAnual: 0.03,
 
   toleranciaUltrapassagem: 0.05,
   alteracaoDemandaMinima: 0.05,
@@ -135,6 +164,84 @@ export const invoiceDataSchema = z
   })
   .strict();
 export type InvoiceData = z.infer<typeof invoiceDataSchema>;
+
+export const invoiceRegimeSchema = z.enum(["cativo", "mercado_livre"]);
+export const invoiceModalitySchema = z.enum(["verde", "azul"]);
+
+export const reconciledInvoiceItemCategorySchema = z.enum([
+  "consumo_ponta",
+  "consumo_fora_ponta",
+  "demanda_faturada",
+  "demanda_contratada",
+  "demanda_medida_ponta",
+  "demanda_medida_fora_ponta",
+  "reativo",
+  "beneficio_fiscal",
+  "multas_juros_encargos",
+  "outros",
+]);
+export type ReconciledInvoiceItemCategory = z.infer<
+  typeof reconciledInvoiceItemCategorySchema
+>;
+
+export const reconciledInvoiceItemSchema = z
+  .object({
+    nome: z.string().trim().min(1),
+    categoria: reconciledInvoiceItemCategorySchema,
+    /** Metadados de demanda provam campos técnicos, mas não somam no total. */
+    compoeTotal: z.boolean(),
+    valor: z.number(),
+    quantidade: z.number().nonnegative().nullable(),
+    unidade: z.enum(["kWh", "kW"]).nullable(),
+    tarifa: z.number().nonnegative().nullable(),
+  })
+  .strict();
+export type ReconciledInvoiceItem = z.infer<typeof reconciledInvoiceItemSchema>;
+
+export const invoiceContextSchema = z
+  .object({
+    distribuidora: z.string().trim().min(1),
+    regime: invoiceRegimeSchema,
+    modalidade: invoiceModalitySchema,
+    grupo: z.literal("A"),
+    vencimento: z.string().trim().nullable().default(null),
+    itens: z.array(reconciledInvoiceItemSchema).min(1),
+    arquivoNome: z.string().trim().nullable().default(null),
+    arquivoChave: z.string().trim().nullable().default(null),
+    origem: z.enum(["texto_direto", "reconhecimento_optico", "manual"]),
+  })
+  .strict();
+export type InvoiceContext = z.infer<typeof invoiceContextSchema>;
+
+export const reconciliationProofSchema = z
+  .object({
+    somaItens: z.number(),
+    total: z.number(),
+    diferenca: z.number(),
+    itensConferidos: z.number().int().nonnegative(),
+    itensSemConferencia: z.number().int().nonnegative(),
+  })
+  .strict();
+export type ReconciliationProof = z.infer<typeof reconciliationProofSchema>;
+
+export const energyTrafficLightSchema = z.enum(["verde", "amarelo", "vermelho"]);
+export type EnergyTrafficLight = z.infer<typeof energyTrafficLightSchema>;
+
+export const trafficLightResultSchema = z
+  .object({
+    faixa: energyTrafficLightSchema,
+    chaveTipo: z.string(),
+    tipoConhecido: z.boolean(),
+    motivos: z.array(z.string()),
+    quatroNumeros: z.object({
+      totalFatura: z.number(),
+      consumoPontaKwh: z.number(),
+      tirAnual: z.number().nullable(),
+      paybackAnos: z.number().nullable(),
+    }),
+  })
+  .strict();
+export type TrafficLightResult = z.infer<typeof trafficLightResultSchema>;
 
 // --- Resultados: auditoria -------------------------------------------------
 
@@ -215,7 +322,11 @@ export const sizingResultSchema = z
     bessUnidadesPorPotencia: z.number().int().nonnegative(),
     bessUnidades: z.number().int().nonnegative(),
     bessLimitador: z.enum(["energia", "potencia"]),
-    fvKwp: z.number().int().nonnegative(),
+    energiaUtilCicloKwh: z.number(),
+    energiaUtilMesPorBessKwh: z.number(),
+    energiaCargaMesPorBessKwh: z.number(),
+    coberturaConsumo: z.number(),
+    fvKwp: z.number().nonnegative(),
     fvGeracaoMensalKwh: z.number(),
   })
   .strict();
@@ -258,6 +369,22 @@ export const financialResultSchema = z
     paybackDescontadoAnos: z.number().nullable(),
     vpl: z.number(),
     tir: z.number().nullable(),
+    acumulado20Anos: z.number(),
+    economiaLiquida20Anos: z.number(),
+    fluxoMensal: z.array(
+      z.object({
+        ano: z.number().int().positive(),
+        mes: z.number().int().min(1).max(12),
+        soh: z.number(),
+        receitaPonta: z.number(),
+        custoCarga: z.number(),
+        geracaoSolar: z.number(),
+        solarParaBess: z.number(),
+        excedenteSemCredito: z.number(),
+        economiaLiquida: z.number(),
+        acumulado: z.number(),
+      }),
+    ),
   })
   .strict();
 export type FinancialResult = z.infer<typeof financialResultSchema>;
@@ -288,6 +415,7 @@ export type CreateEnergyStudyRequest = z.infer<typeof createEnergyStudyRequestSc
 export const submitEnergyInvoiceRequestSchema = z
   .object({
     invoice: invoiceDataSchema,
+    context: invoiceContextSchema,
     demandHistory: z.array(z.number().nonnegative()).max(36).default([]),
     hasLoadProfile: z.boolean().default(false),
   })
@@ -310,6 +438,7 @@ export const energyStudySummarySchema = z
     competenceYear: z.number().int(),
     status: energyStudyStatusSchema,
     calculationMode: calculationModeSchema,
+    trafficLight: energyTrafficLightSchema.nullable(),
     economiaMensal: z.number().nullable(),
     capexTotal: z.number().nullable(),
     version: z.number().int(),
@@ -325,14 +454,18 @@ export const energyStudyDetailSchema = energyStudySummarySchema
   .extend({
     premiseVersion: z.string(),
     invoice: invoiceDataSchema.nullable(),
+    invoiceContext: invoiceContextSchema.nullable(),
+    reconciliationProof: reconciliationProofSchema.nullable(),
     demandHistory: z.array(z.number()),
     audit: auditResultSchema.nullable(),
     demand: demandResultSchema.nullable(),
     sizing: sizingResultSchema.nullable(),
     savings: savingsResultSchema.nullable(),
     financial: financialResultSchema.nullable(),
+    trafficLightResult: trafficLightResultSchema.nullable(),
     validationIssues: z.array(problemaDeValidacaoSchema).nullable(),
     hasDocument: z.boolean(),
+    hasMobileDocument: z.boolean(),
   })
   .strict();
 export type EnergyStudyDetail = z.infer<typeof energyStudyDetailSchema>;
