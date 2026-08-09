@@ -230,7 +230,7 @@ model User {
   name             String
   status           String                  @default("active")
   createdAt        DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt        DateTime                @updatedAt @map("updated_at") @db.Timestamptz(6)
+  updatedAt        DateTime                @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   platformRoles    UserPlatformRole[]
   memberships      UserCompanyMembership[]
   agentActions     AgentAction[]
@@ -240,7 +240,8 @@ model User {
   opportunities    Opportunity[]
   contracts        Contract[]
   marketMigrations MarketMigration[]
-  cycles           Cycle[]
+  cycles           Cycle[]                 @relation("CycleOwner")
+  cyclesAprovados  Cycle[]                 @relation("CycleReportApprover")
   audits           Audit[]
   contestations    Contestation[]
 
@@ -252,7 +253,7 @@ model UserCredential {
   userId       String   @id @map("user_id") @db.Uuid
   passwordHash String   @map("password_hash")
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("user_credentials")
@@ -427,7 +428,7 @@ model Integration {
   lastError  String?           @map("last_error")
   owner      String
   createdAt  DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt  DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+  updatedAt  DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   jobRuns    JobRun[]
 
   @@map("integrations")
@@ -445,7 +446,7 @@ model BitrixMirrorRecord {
   sourceFingerprint String   @map("source_fingerprint")
   fetchedAt         DateTime @map("fetched_at") @db.Timestamptz(6)
   createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  updatedAt         DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   @@unique([domain, externalId])
   @@index([domain])
@@ -830,7 +831,10 @@ model Cycle {
   client             Client            @relation(fields: [clientId], references: [id], onDelete: Cascade)
   consumerUnit       ConsumerUnit      @relation(fields: [consumerUnitId], references: [id], onDelete: Cascade)
   marketMigration    MarketMigration?  @relation(fields: [marketMigrationId], references: [id], onDelete: SetNull)
-  owner              User?             @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  owner              User?             @relation("CycleOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  // A chave estrangeira existe no banco desde 20260807050000 e não estava
+  // declarada aqui: era metade da deriva que sujava toda migração nova.
+  reportApprovedBy   User?             @relation("CycleReportApprover", fields: [reportApprovedById], references: [id], onDelete: SetNull)
   audits             Audit[]
 
   @@unique([consumerUnitId, competenceMonth, competenceYear])
