@@ -92,6 +92,7 @@ export function NovaFaturaView({
   // pessoa teria de escolher o mesmo arquivo de novo só para digitar a senha.
   const [arquivoEnviado, setArquivoEnviado] = useState<File | null>(null);
   const [senha, setSenha] = useState("");
+  const [estudoCriado, setEstudoCriado] = useState<string | null>(null);
 
   const ucCasada = leitura?.unidadeConsumidoraCodigo
     ? consumerUnits.find(
@@ -133,6 +134,9 @@ export function NovaFaturaView({
   function enviar(arquivo: File, senhaDoPdf?: string) {
     setErro(null);
     setArquivoEnviado(arquivo);
+    // Fatura nova, intenção nova: o estudo pendurado da tentativa anterior
+    // não deve receber a ficha de outra conta de luz.
+    setEstudoCriado(null);
 
     const dados = new FormData();
     dados.append("arquivo", arquivo);
@@ -150,14 +154,21 @@ export function NovaFaturaView({
     setArquivoEnviado(null);
     setSenha("");
     setErro(null);
+    setEstudoCriado(null);
   }
 
   function abrir(formData: FormData) {
     setErro(null);
     iniciar(async () => {
-      const resultado = await abrirEstudoPelaFatura(formData);
-      if (resultado.ok) router.push(`/energia-opm/eficiencia/${resultado.id}`);
-      else setErro(resultado.erro);
+      const resultado = await abrirEstudoPelaFatura(formData, estudoCriado ?? undefined);
+      if (resultado.ok) {
+        router.push(`/energia-opm/eficiencia/${resultado.id}`);
+        return;
+      }
+      // O estudo pode ter sido criado antes de a ficha falhar: guardado, a
+      // retentativa completa o MESMO estudo em vez de abrir um segundo.
+      if (resultado.estudoCriado) setEstudoCriado(resultado.estudoCriado);
+      setErro(resultado.erro);
     });
   }
 

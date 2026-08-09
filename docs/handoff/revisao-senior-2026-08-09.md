@@ -25,12 +25,10 @@ para não precisar ser redescoberto.
    soft-delete de usuário (coerente com append-only), ou cláusula `WHEN` no
    gatilho permitindo só a transição `requested_by → NULL`. Exige migração.
 
-3. **Estudo órfão na retentativa** (`eficiencia/actions.ts`,
-   `abrirEstudoPelaFatura`): cria o estudo e depois envia a fatura; se o envio
-   falha, o clique seguinte cria um SEGUNDO estudo para a mesma UC/competência.
-   O docblock foi corrigido para dizer a verdade. Correção: guardar o id criado
-   e reaproveitá-lo na retentativa, e/ou dedupe por (consumerUnit, competência)
-   no `create` do estudo.
+3. **Estudo órfão na retentativa** — RESOLVIDO em 2026-08-09: o erro do envio
+   volta com o id do estudo criado, a tela o guarda e a retentativa completa o
+   MESMO estudo. Resta opcional o dedupe por (consumerUnit, competência) no
+   `create` da API, como cinto extra.
 
 4. **Formulários e o reset do React 19**: `<form action={fn}>` reseta o
    formulário quando a ação termina — inclusive em erro. Na ficha da fatura são

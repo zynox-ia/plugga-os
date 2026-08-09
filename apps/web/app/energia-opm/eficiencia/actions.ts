@@ -162,40 +162,45 @@ export async function enviarFatura(id: string, formData: FormData): Promise<Resu
  * Abre o estudo a partir da fatura já conferida.
  *
  * Cria e envia a ficha numa chamada só porque, para quem opera, é um ato só:
- * "esta conta de luz vira um estudo". Mas a chamada única não elimina o estudo
- * órfão: se o envio da fatura falhar depois da criação, o estudo fica criado e
- * vazio, e a retentativa de hoje cria outro. A consolidação (reaproveitar o
- * estudo já criado na retentativa) está registrada como pendência.
+ * "esta conta de luz vira um estudo". Quando o envio da fatura falha depois da
+ * criação, o id do estudo recém-criado volta junto com o erro: a tela o guarda
+ * e a retentativa entra por `estudoExistente`, completando o MESMO estudo em
+ * vez de abrir um segundo para a mesma UC/competência.
  */
 export async function abrirEstudoPelaFatura(
   formData: FormData,
-): Promise<{ ok: true; id: string } | { ok: false; erro: string }> {
-  const cabecalhos = await headers();
-  const cookie = cabecalhos.get("cookie");
+  estudoExistente?: string,
+): Promise<{ ok: true; id: string } | { ok: false; erro: string; estudoCriado?: string }> {
+  let id = estudoExistente;
 
-  const criacao = await fetch(`${apiBaseUrl()}/energy-efficiency/studies`, {
-    method: "POST",
-    headers: { "content-type": "application/json", ...(cookie ? { cookie } : {}) },
-    body: JSON.stringify({
-      clientId: String(formData.get("clientId") ?? ""),
-      consumerUnitId: String(formData.get("consumerUnitId") ?? ""),
-      competenceMonth: Number(formData.get("competenceMonth")),
-      competenceYear: Number(formData.get("competenceYear")),
-      calculationMode: "preliminar",
-    }),
-    signal: AbortSignal.timeout(TIMEOUT_MS),
-    cache: "no-store",
-  }).catch(() => null);
+  if (!id) {
+    const cabecalhos = await headers();
+    const cookie = cabecalhos.get("cookie");
 
-  if (!criacao?.ok) {
-    const detalhe = (await criacao?.json().catch(() => null)) as { message?: string } | null;
-    return { ok: false, erro: detalhe?.message ?? "não foi possível abrir o estudo" };
+    const criacao = await fetch(`${apiBaseUrl()}/energy-efficiency/studies`, {
+      method: "POST",
+      headers: { "content-type": "application/json", ...(cookie ? { cookie } : {}) },
+      body: JSON.stringify({
+        clientId: String(formData.get("clientId") ?? ""),
+        consumerUnitId: String(formData.get("consumerUnitId") ?? ""),
+        competenceMonth: Number(formData.get("competenceMonth")),
+        competenceYear: Number(formData.get("competenceYear")),
+        calculationMode: "preliminar",
+      }),
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+      cache: "no-store",
+    }).catch(() => null);
+
+    if (!criacao?.ok) {
+      const detalhe = (await criacao?.json().catch(() => null)) as { message?: string } | null;
+      return { ok: false, erro: detalhe?.message ?? "não foi possível abrir o estudo" };
+    }
+
+    ({ id } = (await criacao.json()) as { id: string });
   }
 
-  const { id } = (await criacao.json()) as { id: string };
-
   const envio = await enviarFatura(id, formData);
-  if (!envio.ok) return envio;
+  if (!envio.ok) return { ...envio, estudoCriado: id };
 
   revalidatePath("/energia-opm/eficiencia");
   return { ok: true, id };
