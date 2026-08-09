@@ -4,6 +4,7 @@ import { evUserProfileSchema, incidentResponseSchema, pluggamobLocationsSchema, 
 
 import type { AuthPrincipal } from "../core/auth/auth.types";
 import { PrismaService } from "../prisma/prisma.service";
+import { manausDayWindow } from "./manaus-day";
 import { PluggamobRepository, type PluggamobOverviewCounts } from "./pluggamob.repository";
 
 @Injectable()
@@ -13,10 +14,7 @@ export class PrismaPluggamobRepository extends PluggamobRepository {
   }
 
   async overview(now: Date): Promise<PluggamobOverviewCounts> {
-    const startOfDay = new Date(now);
-    startOfDay.setUTCHours(4, 0, 0, 0); // America/Manaus midnight (UTC-4)
-    const endOfDay = new Date(startOfDay);
-    endOfDay.setUTCDate(endOfDay.getUTCDate() + 1);
+    const { start: startOfDay, end: endOfDay } = manausDayWindow(now);
 
     const [sessionsToday, activeSessions, openIncidents, pendingSettlements] = await Promise.all([
       this.prisma.evSession.count({ where: { startedAt: { gte: startOfDay, lt: endOfDay } } }),
@@ -112,6 +110,9 @@ export class PrismaPluggamobRepository extends PluggamobRepository {
 
   async requestApproval(id: string, principal: AuthPrincipal): Promise<SettlementDetail> {
     const detail = await this.settlement(id); if (!detail.canClose) throw new BadRequestException("settlement has open blockers");
+    // Um settlement aprovado (ou já exportado ao parceiro) não pode regredir
+    // para revisão: `approve` aprovaria de novo e apagaria o fato do export.
+    if (detail.status === "approved" || detail.status === "exported") throw new BadRequestException("settlement already approved; it cannot go back to review");
     await this.prisma.$transaction(async (tx) => { await tx.settlement.update({ where: { id }, data: { status: "ready_for_review" } }); await tx.eventLog.create({ data: { eventName: "pluggamob.settlement_approval_requested", entityType: "settlement", entityId: id, actorType: this.actorType(principal), actorId: principal.id, payload: {}, occurredAt: new Date() } }); }); return this.settlement(id);
   }
 
