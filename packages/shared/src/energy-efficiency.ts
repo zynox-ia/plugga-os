@@ -41,10 +41,6 @@ export type EnergyStudyStatus = z.infer<typeof energyStudyStatusSchema>;
 export const calculationModeSchema = z.enum(["preliminar", "memoria_massa"]);
 export type CalculationMode = z.infer<typeof calculationModeSchema>;
 
-/** Base de dias usada para converter consumo mensal de ponta em consumo diário. */
-export const daysBasisSchema = z.enum(["dias_corridos", "dias_ponta", "memoria_massa"]);
-export type DaysBasis = z.infer<typeof daysBasisSchema>;
-
 // --- Premissas -------------------------------------------------------------
 
 /**

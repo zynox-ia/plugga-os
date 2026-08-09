@@ -215,7 +215,7 @@ export const sessionUserSchema = z
     id: z.string().uuid(),
     email: z.string().email(),
     name: z.string(),
-    status: z.string(),
+    status: userStatusSchema,
     /**
      * União achatada dos papéis de plataforma com os de todas as empresas.
      * Mantida porque `RolesGuard` e as telas que filtram por papel já leem daqui;
@@ -227,12 +227,6 @@ export const sessionUserSchema = z
   .strict();
 
 export const meResponseSchema = sessionUserSchema;
-
-export const loginResponseSchema = z
-  .object({
-    user: sessionUserSchema,
-  })
-  .strict();
 
 export const teamMemberSchema = z
   .object({
@@ -310,7 +304,6 @@ export type CompanyAccess = z.infer<typeof companyAccessSchema>;
 export type UserAccess = z.infer<typeof userAccessSchema>;
 export type SessionUser = z.infer<typeof sessionUserSchema>;
 export type MeResponse = z.infer<typeof meResponseSchema>;
-export type LoginResponse = z.infer<typeof loginResponseSchema>;
 export type TeamMember = z.infer<typeof teamMemberSchema>;
 export type TeamScope = z.infer<typeof teamScopeSchema>;
 export type TeamListResponse = z.infer<typeof teamListResponseSchema>;
@@ -374,9 +367,4 @@ export function managedDepartments(
         departmentId: department.departmentId,
       })),
   );
-}
-
-/** Quem alcança a tela de Equipe: admin de plataforma ou gestor de algum departamento. */
-export function canManageTeam(access: UserAccess): boolean {
-  return isPlatformAdmin(access) || managedDepartments(access).length > 0;
 }

@@ -1,9 +1,8 @@
 import { z } from "zod";
+import { isoDate, uuid } from "./primitivas.js";
 
 export const clientsModeSchema = z.literal("mock");
 
-const uuid = z.string().uuid();
-const isoDate = z.string().datetime();
 
 export const clientSegmentSchema = z.enum(["prospect", "opm", "pluggamob", "associacoes_gd", "inativo"]);
 export type ClientSegment = z.infer<typeof clientSegmentSchema>;
