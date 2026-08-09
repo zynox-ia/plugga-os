@@ -85,4 +85,37 @@ describe("JobRunsRecorder", () => {
     expect(run.finish?.status).toBe("failed");
     expect(run.finish?.error).toBe("bitrix unreachable");
   });
+
+  it("não reexecuta trabalho concluído quando a contabilidade falha", async () => {
+    // Se a rejeição do finishRun subisse, o BullMQ marcaria o job como failed
+    // e rodaria de novo um handler que já terminou — import duplicado.
+    const repository = new InMemoryJobRunsRepository();
+    repository.finishRun = async () => {
+      throw new Error("postgres piscou");
+    };
+    const recorder = new JobRunsRecorder(repository);
+
+    let execucoes = 0;
+    await expect(
+      recorder.run(meta, async () => {
+        execucoes += 1;
+      }),
+    ).resolves.toBeUndefined();
+    expect(execucoes).toBe(1);
+  });
+
+  it("propaga o erro do handler mesmo quando o finishRun de falha também falha", async () => {
+    const repository = new InMemoryJobRunsRepository();
+    repository.finishRun = async () => {
+      throw new Error("postgres piscou");
+    };
+    const recorder = new JobRunsRecorder(repository);
+
+    // O BullMQ precisa registrar a causa real, não o erro de contabilidade.
+    await expect(
+      recorder.run(meta, async () => {
+        throw new Error("bitrix unreachable");
+      }),
+    ).rejects.toThrow("bitrix unreachable");
+  });
 });

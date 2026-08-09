@@ -16,7 +16,6 @@ describe("JobHandlerRegistry", () => {
 
     expect(registry.get("bitrix.import.opm")).toBe(bitrix);
     expect(registry.get("unknown")).toBeUndefined();
-    expect(registry.all()).toEqual([bitrix]);
   });
 
   it("rejects a duplicate registration for the same job key", () => {

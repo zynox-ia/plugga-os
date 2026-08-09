@@ -21,8 +21,4 @@ export class JobHandlerRegistry {
   get(jobKey: string): JobHandler | undefined {
     return this.handlers.get(jobKey);
   }
-
-  all(): JobHandler[] {
-    return [...this.handlers.values()];
-  }
 }
