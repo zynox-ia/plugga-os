@@ -8,6 +8,17 @@ const WAZE = navGroupsForEmpresa("waze").flatMap((group) => group.items);
 /** Só o que tem tela navega; o resto aparece marcado como "em breve". */
 const NAVEGAVEIS = PLUGGA.filter((item) => !item.disabled);
 
+/**
+ * O nome acessível do botão inclui a etiqueta de status renderizada dentro dele
+ * ("parcial"/"em breve") — foi a etiqueta nascer e a suíte inteira passar a
+ * procurar botões que não existem mais. Derivar o nome do catálogo faz um
+ * rótulo novo quebrar aqui, não na CI três commits depois.
+ */
+function nomeAcessivel(item: { label: string; disabled?: boolean; badge?: string }): string {
+  if (item.disabled) return `${item.label} em breve`;
+  return item.badge ? `${item.label} ${item.badge}` : item.label;
+}
+
 test.describe("Plugga shell — smoke", () => {
   test("renders skip-link, brand lockup and the Plugga department tree", async ({ page }) => {
     await page.goto("/");
@@ -23,7 +34,7 @@ test.describe("Plugga shell — smoke", () => {
 
     for (const item of PLUGGA) {
       await expect(
-        page.locator(".sidebar-nav").getByRole("button", { name: item.label, exact: true }),
+        page.locator(".sidebar-nav").getByRole("button", { name: nomeAcessivel(item), exact: true }),
       ).toBeVisible();
     }
   });
@@ -39,7 +50,7 @@ test.describe("Plugga shell — smoke", () => {
 
     const botao = page
       .locator(".sidebar-nav")
-      .getByRole("button", { name: pendente!.label, exact: true });
+      .getByRole("button", { name: nomeAcessivel(pendente!), exact: true });
     await expect(botao).toBeVisible();
     await expect(botao).toBeDisabled();
     await expect(botao.locator(".nav-tag")).toHaveText("em breve");
@@ -63,7 +74,10 @@ test.describe("Plugga shell — smoke", () => {
   for (const item of NAVEGAVEIS) {
     test(`nav: "${item.label}" routes to ${item.id}`, async ({ page }) => {
       await page.goto("/");
-      await page.locator(".sidebar-nav").getByRole("button", { name: item.label, exact: true }).click();
+      await page
+        .locator(".sidebar-nav")
+        .getByRole("button", { name: nomeAcessivel(item), exact: true })
+        .click();
       await page.waitForURL((url) => url.pathname === item.id);
       expect(new URL(page.url()).pathname).toBe(item.id);
     });
@@ -106,8 +120,10 @@ test.describe("Seletor de empresa", () => {
     for (const url of ["/", "/?empresa=waze"]) {
       await page.goto(url);
       for (const processo of VISAO_GERAL) {
+        const rotulo =
+          processo.status === "parcial" ? `${processo.label} parcial` : processo.label;
         await expect(
-          page.locator(".sidebar-nav").getByRole("button", { name: processo.label, exact: true }),
+          page.locator(".sidebar-nav").getByRole("button", { name: rotulo, exact: true }),
         ).toBeVisible();
       }
     }
@@ -129,7 +145,10 @@ test.describe("Seletor de empresa", () => {
   test("a empresa ativa sobrevive à navegação pela sidebar", async ({ page }) => {
     await page.goto("/?empresa=waze");
 
-    await page.locator(".sidebar-nav").getByRole("button", { name: "Obras", exact: true }).click();
+    await page
+      .locator(".sidebar-nav")
+      .getByRole("button", { name: "Obras parcial", exact: true })
+      .click();
     await page.waitForURL((url) => url.pathname === "/engenharia");
     expect(new URL(page.url()).searchParams.get("empresa")).toBe("waze");
   });
