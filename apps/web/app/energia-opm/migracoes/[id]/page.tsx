@@ -8,6 +8,7 @@ import { FALLBACK_MARKET_MIGRATIONS } from "../../../lib/mock/energy";
 export default async function MigracaoDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const response = await fetchMarketMigrations();
+  const isLive = response !== null;
   const migration = (response?.items ?? FALLBACK_MARKET_MIGRATIONS).find((item) => item.id === id);
 
   if (!migration) {
@@ -26,5 +27,5 @@ export default async function MigracaoDetailPage({ params }: { params: Promise<{
     );
   }
 
-  return <MigracaoDetailView migration={migration} />;
+  return <MigracaoDetailView migration={migration} isLive={isLive} />;
 }

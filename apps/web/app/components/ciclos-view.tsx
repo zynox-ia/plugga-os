@@ -234,7 +234,9 @@ export function CiclosView({ items, isLive }: { items: CycleSummary[]; isLive: b
           </tbody>
         </ShellTable>
       )}
-      {visible.length === 0 ? <p className="card-note">Nenhum ciclo nesta visão.</p> : null}
+      {/* No kanban os fechados moram fora de `visible`: sem contá-los, tudo
+          fechado mostrava cartões e "nenhum ciclo" ao mesmo tempo. */}
+      {visible.length === 0 && closed.length === 0 ? <p className="card-note">Nenhum ciclo nesta visão.</p> : null}
     </ShellCard>
   );
 }

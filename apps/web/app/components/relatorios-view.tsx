@@ -22,6 +22,14 @@ export function RelatoriosView({ report, isLive }: { report: CycleReportsRespons
       (!ucFilter || item.consumerUnitCode.toLowerCase().includes(ucFilter.toLowerCase())),
   );
 
+  // As pílulas seguem o recorte dos filtros: total geral ao lado da lista
+  // filtrada leria como se a soma fosse do que está na tela.
+  const totals = {
+    count: filtered.length,
+    estimatedSavings: filtered.reduce((soma, item) => soma + Number(item.estimatedSavings ?? 0), 0),
+    realizedSavings: filtered.reduce((soma, item) => soma + Number(item.realizedSavings ?? 0), 0),
+  };
+
   return (
     <ShellCard className="table-card">
       <div className="card-heading">
@@ -47,9 +55,9 @@ export function RelatoriosView({ report, isLive }: { report: CycleReportsRespons
       </div>
 
       <div style={{ padding: "0 18px 18px", display: "flex", gap: 16 }}>
-        <StatusPill variant="neutral">{report.totals.count} ciclos</StatusPill>
-        <StatusPill variant="neutral">Economia estimada: R$ {report.totals.estimatedSavings}</StatusPill>
-        <StatusPill variant="success">Economia realizada: R$ {report.totals.realizedSavings}</StatusPill>
+        <StatusPill variant="neutral">{totals.count} ciclos</StatusPill>
+        <StatusPill variant="neutral">Economia estimada: R$ {totals.estimatedSavings.toFixed(2)}</StatusPill>
+        <StatusPill variant="success">Economia realizada: R$ {totals.realizedSavings.toFixed(2)}</StatusPill>
       </div>
 
       <ShellTable caption="Histórico de relatórios">

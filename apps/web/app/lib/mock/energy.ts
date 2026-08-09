@@ -1,9 +1,9 @@
-import type { AuditSummary, ContestationSummary, CycleSummary, MarketMigrationSummary } from "@plugga/shared";
+import type { AuditSummary, CycleSummary, MarketMigrationSummary } from "@plugga/shared";
 
 /**
- * Fallback local (usado só quando GET /energy/audits ou /energy/contestations
- * não responde). Espelha o wireframe do fluxo Energia & OPM — nomes e valores
- * ilustrativos, sem dado real de cliente.
+ * Fallback local (usado só quando GET /energy/audits não responde). Espelha o
+ * wireframe do fluxo Energia & OPM — nomes e valores ilustrativos, sem dado
+ * real de cliente.
  */
 export const FALLBACK_AUDITS: AuditSummary[] = [
   {
@@ -31,24 +31,6 @@ export const FALLBACK_AUDITS: AuditSummary[] = [
     createdById: "00000000-0000-4000-8000-000000009002",
     createdAt: "2026-08-04T12:00:00.000Z",
     updatedAt: "2026-08-04T12:00:00.000Z",
-  },
-];
-
-export const FALLBACK_CONTESTATIONS: ContestationSummary[] = [
-  {
-    id: "00000000-0000-4000-8000-000000004001",
-    auditId: "00000000-0000-4000-8000-000000002001",
-    distributor: "Amazonas Energia",
-    reason: "Demanda ultrapassagem",
-    estimatedAmount: "1240.00",
-    protocol: "PROT-2026-0871",
-    openedAt: "2026-08-06T12:00:00.000Z",
-    expectedResponseAt: "2026-09-05T12:00:00.000Z",
-    status: "aguardando_distribuidora",
-    ownerId: "00000000-0000-4000-8000-000000009001",
-    financialResult: null,
-    createdAt: "2026-08-06T12:00:00.000Z",
-    updatedAt: "2026-08-06T12:00:00.000Z",
   },
 ];
 

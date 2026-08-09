@@ -26,8 +26,10 @@ import { ShellCard, ShellTable, StatusPill } from "./plugga-shell";
  * preencher.
  */
 
-const CAMPOS: { nome: string; rotulo: string; passo?: string }[] = [
-  { nome: "valorTotal", rotulo: "Valor total da fatura (R$)", passo: "0.01" },
+// `minimo` presente onde o contrato (invoiceDataSchema) exige positivo:
+// min=0 deixaria o navegador aceitar o que a API recusa com 400.
+const CAMPOS: { nome: string; rotulo: string; passo?: string; minimo?: string }[] = [
+  { nome: "valorTotal", rotulo: "Valor total da fatura (R$)", passo: "0.01", minimo: "0.01" },
   { nome: "consumoPontaKwh", rotulo: "Consumo ponta (kWh)" },
   { nome: "consumoForaPontaKwh", rotulo: "Consumo fora ponta (kWh)" },
   { nome: "tarifaPonta", rotulo: "Tarifa ponta (R$/kWh)", passo: "0.000001" },
@@ -35,7 +37,7 @@ const CAMPOS: { nome: string; rotulo: string; passo?: string }[] = [
   { nome: "valorPonta", rotulo: "Valor da energia em ponta (R$)", passo: "0.01" },
   { nome: "valorForaPonta", rotulo: "Valor da energia fora ponta (R$)", passo: "0.01" },
   { nome: "valorDemanda", rotulo: "Valor da demanda (R$)", passo: "0.01" },
-  { nome: "demandaContratadaKw", rotulo: "Demanda contratada (kW)" },
+  { nome: "demandaContratadaKw", rotulo: "Demanda contratada (kW)", minimo: "0.01" },
   { nome: "demandaMedidaPontaKw", rotulo: "Demanda medida em ponta (kW)" },
   { nome: "demandaMedidaForaPontaKw", rotulo: "Demanda medida fora ponta (kW)" },
   { nome: "tarifaDemanda", rotulo: "Tarifa de demanda (R$/kW)", passo: "0.01" },
@@ -401,7 +403,7 @@ export function NovaFaturaView({
                   name={campo.nome}
                   type="number"
                   step={campo.passo ?? "1"}
-                  min="0"
+                  min={campo.minimo ?? "0"}
                   defaultValue={lido ?? 0}
                 />
                 {lido === undefined ? <small>não veio da fatura</small> : null}

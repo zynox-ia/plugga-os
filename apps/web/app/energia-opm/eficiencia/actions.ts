@@ -53,9 +53,17 @@ async function chamar(caminho: string, corpo?: unknown): Promise<ResultadoDaAcao
 
     if (!resposta.ok) {
       // A API devolve motivo legível nos conflitos de estado; repassar é o que
-      // permite a tela explicar em vez de só dizer "falhou".
-      const detalhe = (await resposta.json().catch(() => null)) as { message?: string } | null;
-      return { ok: false, erro: detalhe?.message ?? `falha ${resposta.status}` };
+      // permite a tela explicar em vez de só dizer "falhou". Erro de validação
+      // vem como `issues[]` (ZodValidationPipe) — concatenar como em
+      // energy-client.ts, senão a tela só veria um genérico "Validation failed".
+      const detalhe = (await resposta.json().catch(() => null)) as {
+        message?: string;
+        issues?: { path: string; message: string }[];
+      } | null;
+      const issues = Array.isArray(detalhe?.issues)
+        ? detalhe.issues.map((issue) => `${issue.path}: ${issue.message}`).join("; ")
+        : null;
+      return { ok: false, erro: issues || detalhe?.message || `falha ${resposta.status}` };
     }
 
     return { ok: true };
@@ -114,24 +122,6 @@ export async function lerFaturaEnviada(
   }
 }
 
-export async function criarEstudo(formData: FormData): Promise<ResultadoDaAcao> {
-  const consumerUnitId = String(formData.get("consumerUnitId") ?? "");
-  const clientId = String(formData.get("clientId") ?? "");
-  const competenceMonth = Number(formData.get("competenceMonth"));
-  const competenceYear = Number(formData.get("competenceYear"));
-
-  const resultado = await chamar("", {
-    clientId,
-    consumerUnitId,
-    competenceMonth,
-    competenceYear,
-    calculationMode: "preliminar",
-  });
-
-  if (resultado.ok) revalidatePath("/energia-opm/eficiencia");
-  return resultado;
-}
-
 export async function enviarFatura(id: string, formData: FormData): Promise<ResultadoDaAcao> {
   const numero = (campo: string): number => Number(formData.get(campo) ?? 0);
 
@@ -172,8 +162,10 @@ export async function enviarFatura(id: string, formData: FormData): Promise<Resu
  * Abre o estudo a partir da fatura já conferida.
  *
  * Cria e envia a ficha numa chamada só porque, para quem opera, é um ato só:
- * "esta conta de luz vira um estudo". Deixar os dois passos expostos abriria
- * espaço para estudo órfão, criado e sem fatura, se a segunda metade falhasse.
+ * "esta conta de luz vira um estudo". Mas a chamada única não elimina o estudo
+ * órfão: se o envio da fatura falhar depois da criação, o estudo fica criado e
+ * vazio, e a retentativa de hoje cria outro. A consolidação (reaproveitar o
+ * estudo já criado na retentativa) está registrada como pendência.
  */
 export async function abrirEstudoPelaFatura(
   formData: FormData,
