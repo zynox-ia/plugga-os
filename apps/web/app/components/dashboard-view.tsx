@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 
 import { ShellCard, StatusPill, ShellTable } from "./plugga-shell";
 import type { HealthCheck } from "../lib/api";
@@ -56,9 +55,11 @@ export function DashboardView({ health }: { health: HealthCheck | null }) {
               <span className="eyebrow">Atenção agora</span>
               <h2>Precisa de você</h2>
             </div>
-            <Link className="button" href="/pendencias">
+            {/* Âncora, não rota: /pendencias é só um redirect("/") — a Central
+                já está renderizada logo abaixo nesta mesma página. */}
+            <a className="button" href="#pendencias">
               Ver Central de Pendências
-            </Link>
+            </a>
           </div>
 
           <div role="tablist" aria-label="Filtros do dashboard" className="view-tabs">

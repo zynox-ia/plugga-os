@@ -2,7 +2,6 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 
-type ViewId = "inicio" | "ops" | "crm" | "jobs";
 export type IconName =
   | "home"
   | "pulse"
@@ -32,46 +31,6 @@ export type ShellNavGroup = {
   icon?: IconName;
   /** Cabeçalho da seção desenhado acima do grupo. */
   section?: string;
-};
-
-const defaultNavigation: ShellNavGroup[] = [
-  {
-    id: "principal",
-    label: "Principal",
-    items: [{ id: "inicio", label: "Início", icon: "home" }],
-  },
-  {
-    id: "pluggamob",
-    label: "PluggaMob",
-    items: [
-      { id: "ops", label: "Ops · Ao vivo", icon: "pulse" },
-      { id: "crm", label: "CRM · Fila do dia", icon: "users" },
-    ],
-  },
-  {
-    id: "operacao",
-    label: "Operação",
-    items: [{ id: "jobs", label: "Jobs & Integrações", icon: "settings" }],
-  },
-];
-
-const viewCopy: Record<ViewId, { title: string; description: string }> = {
-  inicio: {
-    title: "Bom dia, Dilkson",
-    description: "Resumo operacional · Manaus · quarta, 5 ago",
-  },
-  ops: {
-    title: "Ops · Ao vivo",
-    description: "Ocupação de tomadas · EV Point · horário de Manaus",
-  },
-  crm: {
-    title: "CRM · Fila do dia",
-    description: "Reativação EV Point · réguas R0–R6 · limite de contatos/dia",
-  },
-  jobs: {
-    title: "Jobs & Integrações",
-    description: "Scheduler com log · bridges read-only no começo · ações do agente",
-  },
 };
 
 function Icon({ name }: { name: IconName }) {
@@ -105,78 +64,6 @@ export function ShellTable({ children, caption }: { children: ReactNode; caption
   return <div className="table-wrap"><table><caption className="sr-only">{caption}</caption>{children}</table></div>;
 }
 
-function Overview() {
-  return (
-    <>
-      <div className="stat-grid" aria-label="Indicadores operacionais">
-        <ShellCard tone="accent"><span className="stat-label">Sessões ativas</span><strong className="stat-value">7</strong><span className="stat-note">EV Point agora</span></ShellCard>
-        <ShellCard tone="warm"><span className="stat-label">Fila CRM</span><strong className="stat-value">18</strong><span className="stat-note">contatos hoje</span></ShellCard>
-        <ShellCard><span className="stat-label">Aprovações</span><strong className="stat-value">3</strong><span className="stat-note">aguardam você</span></ShellCard>
-        <ShellCard><span className="stat-label">Pendências operacionais</span><strong className="stat-value">4</strong><span className="stat-note">ciclos do mês</span></ShellCard>
-      </div>
-
-      <div className="content-grid content-grid--wide">
-        <ShellCard className="table-card">
-          <div className="card-heading"><div><span className="eyebrow">Atenção</span><h2>Precisa de você</h2></div><StatusPill variant="warning">3 itens</StatusPill></div>
-          <ShellTable caption="Itens que precisam de atenção">
-            <thead><tr><th>Item</th><th>Área</th><th>Status</th></tr></thead>
-            <tbody>
-              <tr><td>Resumo EV Point · sem. 28/jul–03/ago</td><td>Operação</td><td><StatusPill variant="warning">Revisar</StatusPill></td></tr>
-              <tr><td>Campanha R1 · saldo esperando</td><td>CRM</td><td><StatusPill variant="neutral">Copy</StatusPill></td></tr>
-              <tr><td>Relatório operacional · UC 0087367</td><td>Operação</td><td><StatusPill variant="warning">Envio</StatusPill></td></tr>
-            </tbody>
-          </ShellTable>
-        </ShellCard>
-
-        <ShellCard className="table-card">
-          <div className="card-heading"><div><span className="eyebrow">Automação</span><h2>Rodou sozinho</h2></div><StatusPill variant="success">3 OK</StatusPill></div>
-          <ShellTable caption="Últimas automações executadas">
-            <thead><tr><th>Job</th><th>Resultado</th></tr></thead>
-            <tbody>
-              <tr><td>Recálculo segmentos R0–R6</td><td><StatusPill variant="success">OK 06:00</StatusPill></td></tr>
-              <tr><td>Relatório PluggaMob manhã</td><td><StatusPill variant="success">OK 07:30</StatusPill></td></tr>
-              <tr><td>Sync OMIE D+14</td><td><StatusPill variant="success">OK 08:00</StatusPill></td></tr>
-            </tbody>
-          </ShellTable>
-          <p className="card-note">OpenClaw aparece em Ações do agente; o dado oficial mora no sistema.</p>
-        </ShellCard>
-      </div>
-    </>
-  );
-}
-
-function OpsView() {
-  const locations = [
-    ["EV Point 01 · Nathan", "4 conectores · 2 livres", ["busy", "busy", "free", "free"]],
-    ["EV Point · Alvorada", "4 conectores · 1 livre", ["busy", "busy", "busy", "free"]],
-    ["Boa Vista", "2 conectores · 1 offline", ["free", "off", "off", "off"]],
-  ] as const;
-
-  return <ShellCard className="panel-card"><div className="card-heading"><div><span className="eyebrow">Monitoramento</span><h2>Locais agora</h2></div><StatusPill variant="success">Atualizado há 12s</StatusPill></div><div className="location-grid">{locations.map(([name, note, plugs]) => <div className="location" key={name}><h3>{name}</h3><p>{note}</p><div className="plug-grid">{plugs.map((status, index) => <span className={`plug plug--${status}`} key={`${name}-${index}`}>{status === "off" ? "—" : index + 1}</span>)}</div></div>)}</div></ShellCard>;
-}
-
-function CrmView() {
-  const columns = [
-    ["A contatar", "6", ["Marcos A.", "Leticia S."]],
-    ["Contatado", "5", ["Rafael N."]],
-    ["Respondeu", "3", ["Camila P."]],
-    ["Convertido", "2", ["Diego M."]],
-  ] as const;
-
-  return <ShellCard className="panel-card"><div className="card-heading"><div><span className="eyebrow">Fila do dia</span><h2>Kanban de hoje</h2></div><StatusPill variant="neutral">Campanha: R1</StatusPill></div><div className="kanban">{columns.map(([title, count, names]) => <div className="kanban-column" key={title}><div className="column-heading"><span>{title}</span><span className="count-pill">{count}</span></div>{names.map((name) => <div className="lead-card" key={name}><strong>{name}</strong><span>Saldo R$ 48,00</span><span>Cadastro há 21 dias</span><StatusPill variant="success">R1</StatusPill></div>)}</div>)}</div></ShellCard>;
-}
-
-function JobsView() {
-  return <ShellCard className="table-card"><div className="card-heading"><div><span className="eyebrow">Observabilidade</span><h2>Jobs recentes</h2></div><StatusPill variant="neutral">Modo espelho</StatusPill></div><ShellTable caption="Jobs e integrações recentes"><thead><tr><th>Job</th><th>Último run</th><th>Status</th></tr></thead><tbody><tr><td>Segmentos CRM R0–R6</td><td>Hoje 06:00</td><td><StatusPill variant="success">OK</StatusPill></td></tr><tr><td>Relatório PluggaMob manhã</td><td>Hoje 07:30</td><td><StatusPill variant="success">OK</StatusPill></td></tr><tr><td>Aviso tomadas · lotação</td><td>Há 12 min</td><td><StatusPill variant="warning">Bloqueado</StatusPill></td></tr><tr><td>Bridge de dados operacional</td><td>Há 4 min</td><td><StatusPill variant="success">Sync</StatusPill></td></tr></tbody></ShellTable></ShellCard>;
-}
-
-function ViewContent({ view }: { view: ViewId }) {
-  if (view === "ops") return <OpsView />;
-  if (view === "crm") return <CrmView />;
-  if (view === "jobs") return <JobsView />;
-  return <Overview />;
-}
-
 export function PluggaShell({
   children,
   navigation,
@@ -188,29 +75,28 @@ export function PluggaShell({
   pageTitle,
   pageDescription,
 }: {
-  children?: ReactNode;
-  navigation?: ShellNavGroup[];
+  children: ReactNode;
+  navigation: ShellNavGroup[];
   onNavigate?: (id: string) => void;
-  /** Optional controlled sync (e.g. from usePathname()) — keeps the header/active nav item correct on hard navigation. */
-  activeId?: string;
+  /** Controlled sync (e.g. from usePathname()) — keeps the header/active nav item correct on hard navigation. */
+  activeId: string;
   /** Optional extra controls rendered in the topbar, before the avatar (e.g. logout). */
   topbarActions?: ReactNode;
   /** Seletor Plugga/Waze — primeiro item da direita do topo. */
   empresaSwitcher?: ReactNode;
   /** Fixo no pé da barra lateral (Configurações). */
   sidebarFooter?: ReactNode;
-  /** Título e subtítulo da rota atual; caem no mock antigo quando ausentes. */
-  pageTitle?: string;
-  pageDescription?: string;
+  /** Título e subtítulo da rota atual. */
+  pageTitle: string;
+  pageDescription: string;
 }) {
-  const [activeView, setActiveView] = useState(activeId ?? "inicio");
+  const [activeView, setActiveView] = useState(activeId);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [closedGroups, setClosedGroups] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    if (activeId) setActiveView(activeId);
+    setActiveView(activeId);
   }, [activeId]);
-  const copy = viewCopy[activeView as ViewId] ?? { title: activeView, description: "Área operacional Plugga OS" };
 
   const selectView = (view: string) => {
     setActiveView(view);
@@ -218,7 +104,7 @@ export function PluggaShell({
     onNavigate?.(view);
   };
 
-  const navGroups = navigation ?? defaultNavigation;
+  const navGroups = navigation;
 
   // Departamentos abrem por padrão: a estrutura macro→micro só comunica se
   // estiver visível. O usuário fecha o que não usa, e o departamento da rota
@@ -301,13 +187,13 @@ export function PluggaShell({
       <div className="shell-main">
         <header className="topbar">
           <button className="menu-toggle" type="button" aria-expanded={mobileNavOpen} aria-controls="main-navigation" onClick={() => setMobileNavOpen((open) => !open)}><span className="sr-only">Abrir navegação</span><span aria-hidden="true">☰</span></button>
-          <div className="topbar-context"><span className="context-kicker">Plugga OS</span><span className="context-divider" aria-hidden="true">/</span><span className="context-page">{pageTitle ?? copy.title}</span></div>
+          <div className="topbar-context"><span className="context-kicker">Plugga OS</span><span className="context-divider" aria-hidden="true">/</span><span className="context-page">{pageTitle}</span></div>
           <div className="topbar-actions">{empresaSwitcher}{topbarActions}</div>
         </header>
 
         <main className="main-content" id="main-content">
-          <div className="page-header"><div><h1>{pageTitle ?? copy.title}</h1><p>{pageDescription ?? copy.description}</p></div></div>
-          {children ?? <ViewContent view={activeView as ViewId} />}
+          <div className="page-header"><div><h1>{pageTitle}</h1><p>{pageDescription}</p></div></div>
+          {children}
         </main>
       </div>
     </div>
