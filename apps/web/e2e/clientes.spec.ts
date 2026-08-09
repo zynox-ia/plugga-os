@@ -16,7 +16,9 @@ test.describe("Clientes — busca e ficha", () => {
     // First client: no duplicate yet.
     await page.getByRole("button", { name: "+ Novo cliente" }).click();
     await page.getByLabel("Nome *").fill(uniqueName);
-    await page.getByLabel("Telefone").fill(phone);
+    // exact: o rótulo do filtro de busca ("Nome, empresa, telefone ou
+    // identificador") também contém "telefone", e getByLabel casa substring.
+    await page.getByLabel("Telefone", { exact: true }).fill(phone);
     await page.getByRole("button", { name: "Criar cliente" }).click();
     await expect(page.getByRole("cell", { name: uniqueName, exact: true })).toBeVisible();
 
@@ -24,7 +26,7 @@ test.describe("Clientes — busca e ficha", () => {
     // but still created (not blocked) — both rows must exist afterwards.
     await page.getByRole("button", { name: "+ Novo cliente" }).click();
     await page.getByLabel("Nome *").fill(`${uniqueName} (2)`);
-    await page.getByLabel("Telefone").fill(phone);
+    await page.getByLabel("Telefone", { exact: true }).fill(phone);
     await page.getByRole("button", { name: "Criar cliente" }).click();
 
     await expect(page.getByRole("heading", { name: "Cliente criado — confira antes de seguir" })).toBeVisible();

@@ -141,6 +141,12 @@ jobs:
           HOST: 127.0.0.1
           PORT: "3001"
           NODE_ENV: development
+          # Sem provedor a API cai no noop e não entrega nada: os e2e de
+          # convite/reset leem o token no Mailpit do job e nunca poderiam
+          # passar. O serviço já está de pé desde o smoke de e-mail acima.
+          EMAIL_PROVIDER: mailpit
+          MAILPIT_SMTP_HOST: localhost
+          MAILPIT_SMTP_PORT: "1025"
         run: |
           pnpm --filter @plugga/api start &
           echo $! > /tmp/plugga-api.pid
