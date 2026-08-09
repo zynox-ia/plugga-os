@@ -23,6 +23,18 @@ git fetch origin --quiet
 COMMIT=$(git rev-parse --short "$REFERENCIA")
 echo "  $COMMIT $(git log -1 --format=%s "$REFERENCIA")"
 
+# A referência precisa carregar a própria máquina de publicação. Em 2026-08-09
+# a main ficou 30 commits atrás da feature branch — sem ops/ — e todo publish
+# morria no meio do caminho remoto, depois de já ter mexido na árvore da VPS.
+# Falhar aqui, antes de empacotar, transforma esse acidente numa mensagem.
+if ! git cat-file -e "${REFERENCIA}:ops/deploy.sh" 2>/dev/null; then
+  echo
+  echo "  ${REFERENCIA} não contém ops/deploy.sh — publicar essa referência"
+  echo "  deixaria a VPS sem o script que o publish executa."
+  echo "  O trabalho está mergeado na main? (git log --oneline ${REFERENCIA} -- ops/)"
+  exit 1
+fi
+
 # Trabalho não commitado não sobe, e é bom que não suba. Mas avisar evita a
 # surpresa de publicar e não ver a própria alteração no ar.
 if [ -n "$(git status --porcelain)" ]; then
@@ -56,6 +68,9 @@ ssh "$VPS" "set -e
   rm -rf ${DESTINO}.novo
   mkdir -p ${DESTINO}.novo
   tar xzf /tmp/plugga-deploy.tgz -C ${DESTINO}.novo
+  # Confere ANTES do swap: se o pacote vier sem o deploy, a árvore que está no
+  # ar continua intocada em vez de ser trocada por uma que não sabe publicar.
+  test -f ${DESTINO}.novo/ops/deploy.sh
   cp ${DESTINO}/.env ${DESTINO}.novo/.env
   cp ${DESTINO}/compose.yaml ${DESTINO}.novo/compose.yaml
   chmod 600 ${DESTINO}.novo/.env
