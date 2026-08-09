@@ -44,18 +44,28 @@ scp -q "$PACOTE" "${VPS}:/tmp/plugga-deploy.tgz"
 rm -f "$PACOTE"
 
 registro "instalando o código e publicando"
+# Extrair-e-trocar, nunca extrair por cima: o tar em cima da pasta viva deixava
+# para trás o que saiu do repositório — uma migração renomeada virava DUAS
+# migrações aplicadas, e fonte removida continuava entrando na imagem pelo
+# `COPY . .`. O pacote vai para uma pasta nova e a troca é um `mv`; a pasta que
+# estava no ar sobrevive em `.anterior`, pronta para rollback.
+#
 # `.env` e `compose.yaml` da VPS são preservados: carregam a configuração de
 # produção, que por desenho não vive no repositório.
 ssh "$VPS" "set -e
+  rm -rf ${DESTINO}.novo
+  mkdir -p ${DESTINO}.novo
+  tar xzf /tmp/plugga-deploy.tgz -C ${DESTINO}.novo
+  cp ${DESTINO}/.env ${DESTINO}.novo/.env
+  cp ${DESTINO}/compose.yaml ${DESTINO}.novo/compose.yaml
+  chmod 600 ${DESTINO}.novo/.env
+  rm -f /tmp/plugga-deploy.tgz
+  rm -rf ${DESTINO}.anterior
+  mv ${DESTINO} ${DESTINO}.anterior
+  mv ${DESTINO}.novo ${DESTINO}
   cd ${DESTINO}
-  cp .env /tmp/.env.guardado
-  cp compose.yaml /tmp/compose.guardado
-  tar xzf /tmp/plugga-deploy.tgz -C ${DESTINO}
-  cp /tmp/.env.guardado .env
-  cp /tmp/compose.guardado compose.yaml
-  chmod 600 .env
-  rm -f /tmp/plugga-deploy.tgz /tmp/.env.guardado /tmp/compose.guardado
   chmod +x ops/deploy.sh
   ./ops/deploy.sh"
 
 registro "no ar: $COMMIT"
+echo "  o código que estava no ar ficou em ${DESTINO}.anterior na VPS — é o rollback, se precisar"

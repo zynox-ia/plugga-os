@@ -37,7 +37,15 @@ docker exec plugga-os-postgres-1 pg_dump -U "$BANCO" -d "$BANCO" -Fc \
 
 # Um dump de banco com dados nunca é minúsculo; tamanho ínfimo é falha silenciosa
 # do pg_dump que o pipe engoliria.
-TAMANHO=$(mc stat --json "b/${BALDE}/${DESTINO}" 2>/dev/null | sed -n 's/.*"size":\([0-9]*\).*/\1/p')
+#
+# Captura e checagem separadas de propósito: com `set -e`, um `mc stat` que
+# falha dentro do $(...) abortava o script antes da mensagem — o aviso de
+# "objeto ausente" logo abaixo era inalcançável.
+if ! BRUTO=$(mc stat --json "b/${BALDE}/${DESTINO}" 2>&1); then
+  echo "backup FALHOU: objeto ausente ou inacessível (${BRUTO})" >&2
+  exit 1
+fi
+TAMANHO=$(printf '%s' "$BRUTO" | sed -n 's/.*"size":\([0-9]*\).*/\1/p')
 if [ -z "${TAMANHO:-}" ] || [ "$TAMANHO" -lt 10000 ]; then
   echo "backup FALHOU: objeto ausente ou pequeno demais (${TAMANHO:-0} bytes)" >&2
   exit 1

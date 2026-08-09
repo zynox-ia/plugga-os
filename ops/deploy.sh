@@ -57,18 +57,35 @@ docker compose build api web
 # trava criada depois do incidente de perda de dados. Migração roda como dono,
 # com a senha lida do próprio contêiner e nunca impressa.
 registro "4/6 · migrando o banco"
-SENHA_DONO=$(docker inspect plugga-os-postgres-1 \
-  --format '{{range .Config.Env}}{{if eq (index (split . "=") 0) "POSTGRES_PASSWORD"}}{{index (split . "=") 1}}{{end}}{{end}}')
+# `printenv` dentro do contêiner, não `docker inspect` com template split "=":
+# o split cortava a senha no primeiro '=' — e senha gerada em base64 tem '='.
+SENHA_DONO=$(docker exec plugga-os-postgres-1 printenv POSTGRES_PASSWORD || true)
 
 if [ -z "$SENHA_DONO" ]; then
   falhou "não foi possível ler a credencial do dono do banco"
   exit 1
 fi
 
+# A senha entra numa URL: '@', ':', '/' ou '%' crus mudariam o sentido dela.
+# Percent-encoding em bash puro porque é o único intérprete que este script
+# garante na VPS — jq e python3 não são pressupostos em lugar nenhum daqui.
+codifica_url() {
+  local LC_ALL=C texto=$1 i c saida=
+  for ((i = 0; i < ${#texto}; i++)); do
+    c=${texto:i:1}
+    case "$c" in
+      [A-Za-z0-9._~-]) saida+=$c ;;
+      *) printf -v c '%%%02X' "'$c"; saida+=$c ;;
+    esac
+  done
+  printf '%s' "$saida"
+}
+SENHA_ENC=$(codifica_url "$SENHA_DONO")
+
 # Dentro da rede do compose o host do banco é "postgres", que a trava do
 # run-local-prisma aceita.
 docker compose run --rm --no-deps \
-  -e DATABASE_URL="postgresql://${BANCO}:${SENHA_DONO}@postgres:5432/${BANCO}?schema=public" \
+  -e DATABASE_URL="postgresql://${BANCO}:${SENHA_ENC}@postgres:5432/${BANCO}?schema=public" \
   api pnpm db:migrate:deploy
 
 # ------------------------------------------------------------------ 5. subir
