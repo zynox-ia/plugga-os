@@ -51,7 +51,8 @@ export class FaturaService {
     // Guardado depois de ler, e só quando a leitura não parou na senha: um
     // arquivo que nem foi aberto ainda pode ser reenviado com a senha certa, e
     // gravar as duas tentativas encheria o balde com o mesmo documento.
-    const guardar = leitura.motivo !== "protegido_por_senha";
+    const guardar =
+      leitura.motivo !== "protegido_por_senha" && leitura.motivo !== "senha_incorreta";
 
     const guardado = guardar
       ? await this.armazenamento.guardar(conteudo, mime, nomeDoArquivo)

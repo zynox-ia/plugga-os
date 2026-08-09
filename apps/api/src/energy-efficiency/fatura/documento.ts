@@ -47,14 +47,17 @@ export class FormatoNaoSuportadoError extends Error {
 const TEXTO_MINIMO = 200;
 
 /**
- * Teto de páginas enviadas ao OCR.
+ * Teto de páginas aproveitadas de um PDF, em qualquer caminho de leitura.
  *
  * Fatura tem uma ou duas páginas; o que passa disso costuma ser um PDF com o
- * histórico anual anexado. Reconhecer trinta páginas ocupa a fila por minutos
- * para achar o que está na primeira. As páginas restantes continuam contadas em
- * `totalDePaginas`, então nada é escondido.
+ * histórico anual anexado. No OCR, reconhecer trinta páginas ocupa a fila por
+ * minutos para achar o que está na primeira. No texto direto o risco é pior:
+ * páginas de histórico repetem a tabela itemizada, cada linha fecha na
+ * aritmética consigo mesma, e o consumo sairia somado N vezes sem aviso. As
+ * páginas restantes continuam contadas em `totalDePaginas`, então nada é
+ * escondido.
  */
-const PAGINAS_PARA_OCR = 3;
+const TETO_DE_PAGINAS = 3;
 
 export async function normalizar(
   conteudo: Buffer,
@@ -77,7 +80,7 @@ export async function normalizar(
     if (documento.caracteres >= TEXTO_MINIMO) {
       return {
         origem: "texto_direto",
-        paginas: documento.paginas,
+        paginas: documento.paginas.slice(0, TETO_DE_PAGINAS),
         confianca: null,
         totalDePaginas: documento.paginas.length,
       };
@@ -88,7 +91,7 @@ export async function normalizar(
     const paginas: PaginaDoDocumento[] = [];
     const confiancas: number[] = [];
 
-    for (const original of documento.paginas.slice(0, PAGINAS_PARA_OCR)) {
+    for (const original of documento.paginas.slice(0, TETO_DE_PAGINAS)) {
       const imagem = await documento.rasterizar(original.numero);
       const { pagina, confianca } = await reconhecer(imagem, original.numero);
       paginas.push(pagina);

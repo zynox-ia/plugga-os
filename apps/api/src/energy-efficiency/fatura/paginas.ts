@@ -186,35 +186,43 @@ export async function abrirPdf(bytes: Buffer, senha?: string): Promise<Documento
 
   const paginas: PaginaDoDocumento[] = [];
 
-  for (let numero = 1; numero <= documento.numPages; numero += 1) {
-    const pagina = await documento.getPage(numero);
-    const medidas = pagina.getViewport({ scale: 1 });
-    const conteudo = await pagina.getTextContent();
+  // A partir daqui o documento já segura um worker do pdf.js; se uma página
+  // corrompida estourar no meio, o try/finally de quem chamou nunca chega a
+  // existir — a limpeza tem que acontecer antes de re-lançar.
+  try {
+    for (let numero = 1; numero <= documento.numPages; numero += 1) {
+      const pagina = await documento.getPage(numero);
+      const medidas = pagina.getViewport({ scale: 1 });
+      const conteudo = await pagina.getTextContent();
 
-    paginas.push({
-      numero,
-      largura: medidas.width,
-      altura: medidas.height,
-      fragmentos: conteudo.items.flatMap((item) => {
-        const texto = item.str ?? "";
-        // A matriz de transformação traz a posição em 4 e 5; sem ela o pedaço
-        // não serve para remontar linha, e é o que este módulo existe para dar.
-        const matriz = item.transform;
-        if (!texto.trim() || !matriz || matriz.length < 6) return [];
+      paginas.push({
+        numero,
+        largura: medidas.width,
+        altura: medidas.height,
+        fragmentos: conteudo.items.flatMap((item) => {
+          const texto = item.str ?? "";
+          // A matriz de transformação traz a posição em 4 e 5; sem ela o pedaço
+          // não serve para remontar linha, e é o que este módulo existe para dar.
+          const matriz = item.transform;
+          if (!texto.trim() || !matriz || matriz.length < 6) return [];
 
-        return [
-          {
-            texto,
-            x: matriz[4] ?? 0,
-            y: matriz[5] ?? 0,
-            largura: item.width ?? 0,
-            altura: item.height ?? Math.abs(matriz[3] ?? 0),
-          },
-        ];
-      }),
-    });
+          return [
+            {
+              texto,
+              x: matriz[4] ?? 0,
+              y: matriz[5] ?? 0,
+              largura: item.width ?? 0,
+              altura: item.height ?? Math.abs(matriz[3] ?? 0),
+            },
+          ];
+        }),
+      });
 
-    pagina.cleanup();
+      pagina.cleanup();
+    }
+  } catch (erro) {
+    await documento.destroy();
+    throw new PdfIlegivelError(erro);
   }
 
   return {

@@ -147,9 +147,10 @@ export function lerCamposExtras(paginas: readonly PaginaDoDocumento[]): CamposEx
       extras.demandaContratadaKw = numero(unica[1]);
     }
 
+    const totalNaLinha = TOTAL_NA_LINHA.exec(linha.texto);
     if (extras.valorTotal === null && CABECALHO_DO_TOTAL.test(linha.texto)) {
-      extras.valorTotal = TOTAL_NA_LINHA.exec(linha.texto)?.[1]
-        ? numero(TOTAL_NA_LINHA.exec(linha.texto)?.[1] ?? "")
+      extras.valorTotal = totalNaLinha?.[1]
+        ? numero(totalNaLinha[1])
         : valorAbaixoDe(linhas, indice);
     }
   }
