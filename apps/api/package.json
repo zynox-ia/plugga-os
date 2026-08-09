@@ -21,9 +21,13 @@
     "test:seed": "RUN_SEED_INTEGRATION_TESTS=true vitest run test/seed-preserves-state.integration.spec.ts",
     "test:email": "RUN_MAILPIT_INTEGRATION_TESTS=true vitest run test/email-mailpit.integration.spec.ts",
     "test:jobs": "RUN_JOBS_INTEGRATION_TESTS=true vitest run test/jobs-queue.integration.spec.ts",
+    "test:ocr": "RUN_OCR_INTEGRATION_TESTS=true vitest run test/fatura-ocr.integration.spec.ts",
+    "test:storage": "RUN_STORAGE_INTEGRATION_TESTS=true vitest run test/fatura-armazenamento.integration.spec.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "3.937.0",
+    "@napi-rs/canvas": "0.1.80",
     "@nestjs/common": "11.1.6",
     "@nestjs/config": "4.0.2",
     "@nestjs/core": "11.1.6",
@@ -37,8 +41,10 @@
     "dotenv": "16.6.1",
     "ioredis": "6.0.0",
     "nodemailer": "9.0.4",
+    "pdfjs-dist": "4.10.38",
     "reflect-metadata": "0.2.2",
     "rxjs": "7.8.2",
+    "tesseract.js": "7.0.0",
     "zod": "3.25.76"
   },
   "devDependencies": {

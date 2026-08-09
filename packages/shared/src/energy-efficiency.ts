@@ -359,16 +359,41 @@ export type EnergyStudyListQuery = z.infer<typeof energyStudyListQuerySchema>;
  * e, com igual importância, o que **não** conseguiu — três quartos das faturas
  * reais são digitalização e não têm camada de texto.
  */
+/**
+ * De onde o texto da fatura veio.
+ *
+ * `fonte_codificada` saiu: era um detalhe do extrator artesanal — se a fonte do
+ * PDF usava mapa de glifos próprio — que nunca disse nada a quem opera. Quem lê
+ * o PDF hoje resolve isso sozinho. O que importa para a tela é se o texto foi
+ * lido do arquivo ou reconhecido de uma imagem, porque só o segundo caso pede
+ * conferência redobrada.
+ */
 export const invoiceReadingOriginSchema = z.enum([
   "texto_direto",
-  "fonte_codificada",
-  "digitalizacao",
+  "reconhecimento_optico",
 ]);
 export type InvoiceReadingOrigin = z.infer<typeof invoiceReadingOriginSchema>;
 
+/**
+ * Por que a ficha não saiu pronta.
+ *
+ * Cada motivo aqui tem uma ação diferente do outro lado da tela, e é por isso
+ * que são motivos separados. A versão anterior colapsava quase tudo em
+ * `digitalizacao` — "a fatura é uma imagem digitalizada, sem texto para ler" —
+ * e mandava digitar à mão. Dois dos PDFs de teste caíam ali por estarem
+ * **protegidos por senha**: a pessoa recebia um pedido de trabalho manual
+ * quando bastava informar a senha. Um motivo que não distingue causas não
+ * informa nada; só encerra a conversa.
+ */
 export const invoiceReadingRefusalSchema = z.enum([
-  "digitalizacao",
-  "sem_itens",
+  /** PDF cifrado: dá para ler, falta a senha. */
+  "protegido_por_senha",
+  /** A senha informada não abre o arquivo. */
+  "senha_incorreta",
+  /** Nem o PDF nem o OCR produziram texto: imagem ilegível ou página em branco. */
+  "sem_texto",
+  /** Há texto, mas nenhum item financeiro reconhecido: layout novo. */
+  "layout_desconhecido",
   "grupo_b",
   "campos_essenciais_ausentes",
 ]);
@@ -411,6 +436,14 @@ export const invoiceReadingSchema = z
     itens: z.array(invoiceReadingItemSchema),
     camposParaConfirmar: z.array(z.string()),
     arquivoNome: z.string(),
+    /**
+     * Confiança média do reconhecimento óptico, de 0 a 100; nula quando o texto
+     * veio da camada do PDF. A tela usa para avisar que os números saíram de
+     * uma imagem e merecem um olhar a mais.
+     */
+    confiancaOcr: z.number().min(0).max(100).nullable(),
+    /** Onde o arquivo original ficou guardado; nulo se o armazenamento falhou. */
+    arquivoChave: z.string().nullable(),
   })
   .strict();
 export type InvoiceReading = z.infer<typeof invoiceReadingSchema>;

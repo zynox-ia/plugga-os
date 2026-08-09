@@ -24,6 +24,17 @@ export type ResultadoDaAcao = { ok: true } | { ok: false; erro: string };
 
 const TIMEOUT_MS = 20_000;
 
+/**
+ * Ler a fatura tem prazo próprio, bem maior que o das outras chamadas.
+ *
+ * Uma fatura digitalizada passa por rasterização e reconhecimento óptico, o que
+ * leva alguns segundos por página, e ainda pode esperar na fila se houver outra
+ * leitura em curso. Com os 20 s das demais ações, a leitura que mais interessa
+ * — a da foto de conta, que é a maioria do acervo real — seria cortada no meio
+ * e apareceria como "não foi possível falar com a API".
+ */
+const TIMEOUT_LEITURA_MS = 120_000;
+
 async function chamar(caminho: string, corpo?: unknown): Promise<ResultadoDaAcao> {
   const cabecalhos = await headers();
   const cookie = cabecalhos.get("cookie");
@@ -67,7 +78,7 @@ export async function lerFaturaEnviada(
 ): Promise<{ ok: true; leitura: InvoiceReading } | { ok: false; erro: string }> {
   const arquivo = formData.get("arquivo");
   if (!(arquivo instanceof File) || arquivo.size === 0) {
-    return { ok: false, erro: "selecione a conta de luz em PDF" };
+    return { ok: false, erro: "selecione a conta de luz" };
   }
 
   const cabecalhos = await headers();
@@ -76,6 +87,11 @@ export async function lerFaturaEnviada(
   const corpo = new FormData();
   corpo.append("arquivo", arquivo, arquivo.name);
 
+  // Só vai quando existe: um campo vazio faria a API tentar abrir um PDF sem
+  // senha com senha em branco, que é um caso diferente de "sem senha".
+  const senha = formData.get("senha");
+  if (typeof senha === "string" && senha.length > 0) corpo.append("senha", senha);
+
   try {
     const resposta = await fetch(`${apiBaseUrl()}/energy-efficiency/invoices/read`, {
       method: "POST",
@@ -83,7 +99,7 @@ export async function lerFaturaEnviada(
       // declarar o cabeçalho manualmente quebraria a fronteira.
       headers: cookie ? { cookie } : {},
       body: corpo,
-      signal: AbortSignal.timeout(TIMEOUT_MS),
+      signal: AbortSignal.timeout(TIMEOUT_LEITURA_MS),
       cache: "no-store",
     });
 

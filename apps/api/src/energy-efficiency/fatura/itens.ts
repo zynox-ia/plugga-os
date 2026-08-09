@@ -51,11 +51,36 @@ const SO_TARIFA = /^[\d.]*,\d{6}$/;
 /** Valor isolado numa linha; negativo é crédito e precisa sobreviver. */
 const SO_VALOR = /^-?[\d.]+,\d{2}$/;
 
-/** Tarifa e valor colados: "0,69704014.798,85". */
-const TARIFA_E_VALOR = /([\d.]*,\d{6})(-?[\d.]+,\d{2})/;
+/**
+ * Tarifa e valor na mesma linha: "0,69704014.798,85" ou "1,730090 145,32".
+ *
+ * O espaço entre as duas é opcional porque depende de como o texto chegou. No
+ * fluxo do PDF as colunas costumam vir coladas; lidas pela posição na folha —
+ * que é como a leitura óptica devolve — vêm separadas por espaço. É a mesma
+ * informação impressa no mesmo lugar, e o corte continua determinístico: a
+ * tarifa tem seis casas decimais e o valor tem duas.
+ */
+const TARIFA_E_VALOR = /([\d.]*,\d{6})\s*(-?[\d.]+,\d{2})/;
 
 /** Rótulo puro: texto sem número no fim, candidato a item só com valor. */
 const SO_ROTULO = /^(?![\d.,\s-]+$)[^\d]*[A-Za-zÀ-ÿ)][^\d]*$/;
+
+/**
+ * Rótulo e valor na mesma linha: "Contribuição de Iluminação Pública (COSIP) 170,65".
+ *
+ * É o mesmo item sem quantidade tratado acima, só que lido pela posição na
+ * folha em vez da ordem do fluxo — aí rótulo e valor caem juntos. Sem isto,
+ * COSIP, bandeira tarifária e crédito de geração sumiriam da leitura, e com
+ * eles a energia reativa e os encargos que a ficha usa.
+ *
+ * As duas âncoras é que tornam o padrão seguro. O rótulo não pode conter
+ * dígito, e depois dele tem de haver **exatamente um** valor até o fim da
+ * linha: é o que impede casar as linhas de medição, do tipo
+ * "En Ativa Pta 43,60 43,20 210,00000 84", que têm rótulo parecido e quatro
+ * números.
+ */
+const ROTULO_E_VALOR =
+  /^(?<rotulo>(?![\d.,\s-]+$)[^\d]*[A-Za-zÀ-ÿ)])\s+(?<valor>-?[\d.]+,\d{2})$/;
 
 /** Linhas que nunca são item financeiro, por mais que a forma engane. */
 const NAO_E_ITEM = /^(?:CEP|CNPJ|INSC|Chave|Protocolo|Nota Fiscal|https?:|Total|Per[íi]odo)/i;
@@ -86,6 +111,24 @@ export function lerItens(linhas: readonly string[]): ItemDaFatura[] {
         continue;
       }
 
+      // Só o valor sobrou na linha, sem a tarifa repetida no meio. Acontece
+      // quando a coluna da tarifa sem impostos repete a tarifa já lida na
+      // descrição e a leitura funde as duas — e acontece sempre que o
+      // reconhecimento óptico junta as colunas por proximidade. O valor é o
+      // que interessa; a tarifa já veio da descrição.
+      const apenasValor = /^\s*(-?[\d.]+,\d{2})\s*$/.exec(resto);
+      if (apenasValor?.[1]) {
+        itens.push({
+          rotulo: rotulo.trim(),
+          quantidade: numero(quantidade),
+          unidade: unidade as UnidadeDoItem,
+          tarifa: numero(tarifa),
+          valor: numero(apenasValor[1]),
+          origem: linha,
+        });
+        continue;
+      }
+
       // Colunas nas linhas seguintes: pula a tarifa repetida, pega o valor.
       let j = i + 1;
       while (j < linhas.length && SO_TARIFA.test(em(j))) j += 1;
@@ -102,6 +145,23 @@ export function lerItens(linhas: readonly string[]): ItemDaFatura[] {
         i = j;
       }
       continue;
+    }
+
+    // Item só com valor, com o valor na mesma linha.
+    const juntos = ROTULO_E_VALOR.exec(linha);
+    if (juntos?.groups?.rotulo && juntos.groups.valor) {
+      const rotulo = juntos.groups.rotulo.trim();
+      if (rotulo.length >= 4) {
+        itens.push({
+          rotulo,
+          quantidade: null,
+          unidade: null,
+          tarifa: null,
+          valor: numero(juntos.groups.valor),
+          origem: linha,
+        });
+        continue;
+      }
     }
 
     // Item só com valor, com o valor na linha seguinte.

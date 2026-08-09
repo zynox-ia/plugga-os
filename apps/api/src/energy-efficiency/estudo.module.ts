@@ -6,6 +6,7 @@ import { PrismaModule } from "../prisma/prisma.module";
 import { EstudoController } from "./estudo.controller.js";
 import { EstudoRepository } from "./estudo.repository.js";
 import { EstudoService } from "./estudo.service.js";
+import { ArmazenamentoDeFaturas } from "./fatura/armazenamento.js";
 import { FaturaController } from "./fatura/fatura.controller.js";
 import { FaturaService } from "./fatura/fatura.service.js";
 import { PrismaEstudoRepository } from "./prisma-estudo.repository.js";
@@ -24,6 +25,7 @@ import { PrismaEstudoRepository } from "./prisma-estudo.repository.js";
   providers: [
     EstudoService,
     FaturaService,
+    ArmazenamentoDeFaturas,
     { provide: EstudoRepository, useClass: PrismaEstudoRepository },
   ],
 })

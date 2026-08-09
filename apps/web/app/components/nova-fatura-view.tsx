@@ -13,12 +13,17 @@ import { ShellCard, ShellTable, StatusPill } from "./plugga-shell";
  *
  * A ordem importa: o que a pessoa tem na mão é a fatura, não o cadastro da
  * unidade consumidora. Soltar o arquivo é o primeiro passo, e a unidade e a
- * competência saem dele — quando o PDF permite.
+ * competência saem dele.
  *
- * A tela nunca esconde o que não foi lido. Três quartos das faturas reais são
- * digitalização e não têm camada de texto: nesses casos o campo aceita o
- * arquivo, diz que não deu para ler e leva para a ficha manual. Preencher com
- * zeros seria pior do que não preencher.
+ * Aceita o que a pessoa tem: PDF da distribuidora, foto da conta, digitalização
+ * do escritório. Três quartos do acervo real são imagem, e a versão anterior
+ * recusava tudo isso na porta — dizia "foto da conta ainda não é lida" e
+ * mandava digitar quinze campos à mão.
+ *
+ * A tela continua sem esconder o que não foi lido, e agora distingue os
+ * motivos: PDF com senha pede a senha, foto ilegível pede outra foto, layout
+ * desconhecido leva à ficha manual. Preencher com zeros seria pior do que não
+ * preencher.
  */
 
 const CAMPOS: { nome: string; rotulo: string; passo?: string }[] = [
@@ -39,12 +44,28 @@ const CAMPOS: { nome: string; rotulo: string; passo?: string }[] = [
   { nome: "valorMultasJurosEncargos", rotulo: "Multas, juros e encargos (R$)", passo: "0.01" },
 ];
 
+/**
+ * Cada motivo diz o que aconteceu e o que fazer a respeito.
+ *
+ * A versão anterior tinha uma frase para quase tudo — "a fatura é uma imagem
+ * digitalizada, sem texto para ler" — e ela aparecia inclusive para PDFs que só
+ * estavam protegidos por senha. A pessoa recebia um pedido de trabalho manual
+ * onde bastava informar a senha.
+ */
 const MOTIVO: Record<string, string> = {
-  digitalizacao: "A fatura é uma imagem digitalizada, sem texto para ler.",
-  sem_itens: "O layout desta distribuidora ainda não é reconhecido.",
+  protegido_por_senha: "Este PDF está protegido por senha.",
+  senha_incorreta: "A senha informada não abre este PDF.",
+  sem_texto: "Não foi possível reconhecer texto neste arquivo.",
+  layout_desconhecido: "O layout desta distribuidora ainda não é reconhecido.",
   grupo_b: "Esta é uma fatura do Grupo B (baixa tensão); o estudo é para Grupo A.",
   campos_essenciais_ausentes: "A leitura não encontrou consumo e tarifas completos.",
 };
+
+/** Motivos que a pessoa resolve ali mesmo, sem cair na ficha manual. */
+const PEDE_SENHA = new Set(["protegido_por_senha", "senha_incorreta"]);
+
+/** Abaixo disto o reconhecimento óptico erra o bastante para valer o aviso. */
+const CONFIANCA_BAIXA = 75;
 
 const dinheiro = (valor: number): string =>
   valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }).replace(/[\u00a0\u202f]/g, " ");
@@ -65,6 +86,10 @@ export function NovaFaturaView({
   const [arrastando, setArrastando] = useState(false);
   const [pendente, iniciar] = useTransition();
   const campoArquivo = useRef<HTMLInputElement>(null);
+  // O arquivo fica guardado para o caso de o PDF pedir senha: sem isto, a
+  // pessoa teria de escolher o mesmo arquivo de novo só para digitar a senha.
+  const [arquivoEnviado, setArquivoEnviado] = useState<File | null>(null);
+  const [senha, setSenha] = useState("");
 
   const ucCasada = leitura?.unidadeConsumidoraCodigo
     ? consumerUnits.find(
@@ -72,16 +97,26 @@ export function NovaFaturaView({
       )
     : undefined;
 
-  function enviar(arquivo: File) {
+  function enviar(arquivo: File, senhaDoPdf?: string) {
     setErro(null);
+    setArquivoEnviado(arquivo);
+
     const dados = new FormData();
     dados.append("arquivo", arquivo);
+    if (senhaDoPdf) dados.append("senha", senhaDoPdf);
 
     iniciar(async () => {
       const resultado = await lerFaturaEnviada(dados);
       if (resultado.ok) setLeitura(resultado.leitura);
       else setErro(resultado.erro);
     });
+  }
+
+  function trocarArquivo() {
+    setLeitura(null);
+    setArquivoEnviado(null);
+    setSenha("");
+    setErro(null);
   }
 
   function abrir(formData: FormData) {
@@ -126,12 +161,15 @@ export function NovaFaturaView({
             if (evento.key === "Enter" || evento.key === " ") campoArquivo.current?.click();
           }}
         >
-          <strong>{pendente ? "Lendo a fatura…" : "Arraste o PDF aqui"}</strong>
-          <span>ou clique para escolher o arquivo</span>
+          <strong>{pendente ? "Lendo a fatura…" : "Arraste a conta de luz aqui"}</strong>
+          <span>PDF, foto ou digitalização — ou clique para escolher o arquivo</span>
           <input
             ref={campoArquivo}
             type="file"
-            accept="application/pdf,.pdf"
+            // `capture` fica de fora de propósito: no celular ele forçaria a
+            // câmera e tiraria a opção de escolher um arquivo já salvo, que é
+            // como a conta costuma chegar por e-mail ou WhatsApp.
+            accept="application/pdf,.pdf,image/jpeg,image/png,image/webp,image/tiff,.jpg,.jpeg,.png"
             hidden
             onChange={(evento) => {
               const arquivo = evento.target.files?.[0];
@@ -141,9 +179,58 @@ export function NovaFaturaView({
         </div>
 
         <p className="card-note">
-          A unidade consumidora e a competência saem da própria fatura. Se ela for uma
-          digitalização, o estudo continua — a ficha é preenchida à mão.
+          A unidade consumidora, a competência, o valor total e a demanda contratada saem da
+          própria fatura. Foto e digitalização são lidas por reconhecimento óptico, e cada
+          número lido é conferido pela aritmética da própria conta.
         </p>
+        {erro ? <p className="auth-error">{erro}</p> : null}
+      </ShellCard>
+    );
+  }
+
+  // Senha não é fim de linha: o arquivo continua aqui, e o que falta é uma
+  // informação que a pessoa tem. Mandá-la para a ficha manual seria pedir
+  // quinze digitações para evitar uma.
+  if (PEDE_SENHA.has(leitura.motivo ?? "") && arquivoEnviado) {
+    return (
+      <ShellCard className="panel-card">
+        <div className="card-heading">
+          <div>
+            <span className="eyebrow">Passo 2 · {leitura.arquivoNome}</span>
+            <h2>Este PDF pede uma senha</h2>
+          </div>
+          <button className="button" type="button" onClick={trocarArquivo}>
+            Trocar arquivo
+          </button>
+        </div>
+
+        <p className="card-note">
+          {MOTIVO[leitura.motivo ?? ""]} A distribuidora costuma usar o CPF ou o CNPJ do
+          titular, só os números. A senha é usada para abrir o arquivo e não fica guardada.
+        </p>
+
+        <form
+          className="fatura-form"
+          onSubmit={(evento) => {
+            evento.preventDefault();
+            enviar(arquivoEnviado, senha);
+          }}
+        >
+          <label>
+            <span>Senha do PDF</span>
+            <input
+              name="senha"
+              type="password"
+              autoComplete="off"
+              value={senha}
+              onChange={(evento) => setSenha(evento.target.value)}
+              autoFocus
+            />
+          </label>
+          <button className="button button--accent" type="submit" disabled={pendente || !senha}>
+            {pendente ? "Abrindo…" : "Abrir a fatura"}
+          </button>
+        </form>
         {erro ? <p className="auth-error">{erro}</p> : null}
       </ShellCard>
     );
@@ -166,7 +253,7 @@ export function NovaFaturaView({
                 ? `${confirmados.length} itens conferidos`
                 : "preenchimento manual"}
             </StatusPill>
-            <button className="button" type="button" onClick={() => setLeitura(null)}>
+            <button className="button" type="button" onClick={trocarArquivo}>
               Trocar arquivo
             </button>
           </div>
@@ -183,6 +270,19 @@ export function NovaFaturaView({
             não fechou aparece em destaque e não foi aproveitado.
           </p>
         )}
+
+        {leitura.origem === "reconhecimento_optico" ? (
+          <p className="card-note">
+            Os números saíram de uma imagem, por reconhecimento óptico
+            {leitura.confiancaOcr !== null
+              ? ` (confiança de ${Math.round(leitura.confiancaOcr)}%)`
+              : ""}
+            .{" "}
+            {leitura.confiancaOcr !== null && leitura.confiancaOcr < CONFIANCA_BAIXA
+              ? "A imagem está difícil de ler: confira item por item, ou envie uma foto mais nítida."
+              : "A conferência aritmética abaixo é o que pega erro de leitura — vale um olhar antes de abrir o estudo."}
+          </p>
+        ) : null}
 
         {leitura.itens.length > 0 ? (
           <ShellTable caption="Itens lidos da fatura">

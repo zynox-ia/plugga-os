@@ -20,8 +20,20 @@ export type IdentificacaoDaFatura = {
 /** Código de UC: bloco longo de dígitos com dígito verificador. */
 const CODIGO_DE_UC = /\b(\d{7,13}-\d{1,2})\b/;
 
-/** Competência: MM/AAAA isolado. Vencimento tem dia, então não colide. */
-const COMPETENCIA = /^(0[1-9]|1[0-2])\/(20\d{2})$/;
+/**
+ * Competência: MM/AAAA cercado por algo que não seja dígito nem barra.
+ *
+ * Ancorar na linha inteira, como antes, só funcionava quando o texto chegava em
+ * pedaços soltos e a competência calhava de ficar sozinha em um deles. Lendo a
+ * folha por posição, ela vem acompanhada dos vizinhos de coluna —
+ * `... 0514527-9 12/2025 110984647 05/01/2026` — e o padrão ancorado não casava
+ * mais nada.
+ *
+ * As duas guardas são o que separa competência de data: em `05/01/2026` o
+ * trecho `01/2026` vem precedido de barra, e em `14/05/2026` o `05/2026`
+ * também. Só a competência aparece sem dia colado.
+ */
+const COMPETENCIA = /(?<![\d/])(0[1-9]|1[0-2])\/(20\d{2})(?![\d/])/;
 
 /**
  * Distribuidoras conhecidas. A lista serve para rotular, não para restringir —

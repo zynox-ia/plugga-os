@@ -12,6 +12,9 @@ allowBuilds:
   msgpackr-extract: false
   prisma: true
   sharp: true
+  # O postinstall do tesseract.js é `opencollective-postinstall`, um aviso de
+  # doação. Não compila nada e não é preciso para a leitura óptica funcionar.
+  tesseract.js: false
 
 onlyBuiltDependencies:
   - '@nestjs/core'

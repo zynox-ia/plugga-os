@@ -1,6 +1,8 @@
-import { Injectable } from "@nestjs/common";
+import { Inject, Injectable } from "@nestjs/common";
 import { invoiceReadingSchema, type InvoiceReading } from "@plugga/shared";
 
+import { ArmazenamentoDeFaturas } from "./armazenamento.js";
+import { reconhecerFormato } from "./formato.js";
 import { lerFatura } from "./leitura.js";
 
 /**
@@ -13,8 +15,26 @@ import { lerFatura } from "./leitura.js";
  */
 @Injectable()
 export class FaturaService {
-  ler(pdf: Buffer, nomeDoArquivo: string): InvoiceReading {
-    const leitura = lerFatura(pdf);
+  // Token explícito, não o tipo: o `vitest` transpila com esbuild, que não
+  // emite `design:paramtypes`, e sem isto a injeção resolve `undefined` no
+  // teste e estoura em tempo de execução.
+  constructor(
+    @Inject(ArmazenamentoDeFaturas) private readonly armazenamento: ArmazenamentoDeFaturas,
+  ) {}
+
+  async ler(conteudo: Buffer, nomeDoArquivo: string, senha?: string): Promise<InvoiceReading> {
+    const leitura = await lerFatura(conteudo, senha);
+
+    // Guardado depois de ler, e só quando a leitura não parou na senha: um
+    // arquivo que nem foi aberto ainda pode ser reenviado com a senha certa, e
+    // gravar as duas tentativas encheria o balde com o mesmo documento.
+    const guardar = leitura.motivo !== "protegido_por_senha";
+    const formato = reconhecerFormato(conteudo);
+    const mime = formato.tipo === "imagem" ? formato.mime : "application/pdf";
+
+    const guardado = guardar
+      ? await this.armazenamento.guardar(conteudo, mime, nomeDoArquivo)
+      : { chave: null };
 
     return invoiceReadingSchema.parse({
       origem: leitura.origem,
@@ -36,6 +56,8 @@ export class FaturaService {
       })),
       camposParaConfirmar: leitura.camposParaConfirmar,
       arquivoNome: nomeDoArquivo,
+      confiancaOcr: leitura.confianca,
+      arquivoChave: guardado.chave,
     });
   }
 }
