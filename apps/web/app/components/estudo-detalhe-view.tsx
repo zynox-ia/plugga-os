@@ -46,6 +46,16 @@ export function EstudoDetalheView({ estudo }: { estudo: EnergyStudyDetail }) {
   const [nota, setNota] = useState("");
   const [pendente, iniciar] = useTransition();
   const [baixandoPdf, setBaixandoPdf] = useState(false);
+  // Ficha controlada por estado: o React 19 reseta o <form action> quando a
+  // ação termina, inclusive em erro — com defaultValue, um 400 apagava tudo
+  // que a pessoa digitou lendo o papel. Campo controlado sobrevive ao reset.
+  const [ficha, setFicha] = useState<Record<string, string>>(() => {
+    const base: Record<string, string> = { demandHistory: "", hasLoadProfile: "" };
+    for (const campo of CAMPOS_DA_FATURA) base[campo.nome] = "0";
+    return base;
+  });
+  const alterarCampo = (nome: string, valor: string) =>
+    setFicha((atual) => ({ ...atual, [nome]: valor }));
 
   const rodar = (acao: () => Promise<{ ok: true } | { ok: false; erro: string }>) => {
     setErro(null);
@@ -131,18 +141,38 @@ export function EstudoDetalheView({ estudo }: { estudo: EnergyStudyDetail }) {
             {CAMPOS_DA_FATURA.map((campo) => (
               <label key={campo.nome}>
                 <span>{campo.rotulo}</span>
-                <input name={campo.nome} type="number" step={campo.passo ?? "1"} min={campo.minimo ?? "0"} defaultValue="0" />
+                <input
+                  name={campo.nome}
+                  type="number"
+                  step={campo.passo ?? "1"}
+                  min={campo.minimo ?? "0"}
+                  value={ficha[campo.nome] ?? ""}
+                  onChange={(evento) => alterarCampo(campo.nome, evento.target.value)}
+                />
               </label>
             ))}
             <label className="campo-largo">
               <span>Histórico de demanda registrada, mês a mês (kW)</span>
-              <input name="demandHistory" type="text" placeholder="634, 704, 705, 698, 668, 586" />
+              <input
+                name="demandHistory"
+                type="text"
+                placeholder="634, 704, 705, 698, 668, 586"
+                value={ficha.demandHistory ?? ""}
+                onChange={(evento) => alterarCampo("demandHistory", evento.target.value)}
+              />
               <small>
                 Separe por vírgula. Com doze meses a análise deixa de ser preliminar.
               </small>
             </label>
             <label className="campo-largo campo-checkbox">
-              <input name="hasLoadProfile" type="checkbox" />
+              <input
+                name="hasLoadProfile"
+                type="checkbox"
+                checked={ficha.hasLoadProfile === "on"}
+                onChange={(evento) =>
+                  alterarCampo("hasLoadProfile", evento.target.checked ? "on" : "")
+                }
+              />
               <span>Tenho memória de massa de 15 minutos</span>
             </label>
             <button className="button button--accent" type="submit" disabled={pendente}>

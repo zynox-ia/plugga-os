@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 
 import type { ConsumerUnitSummary, InvoiceReading } from "@plugga/shared";
 
@@ -98,6 +98,37 @@ export function NovaFaturaView({
         (uc) => soDigitos(uc.code) === soDigitos(leitura.unidadeConsumidoraCodigo ?? ""),
       )
     : undefined;
+
+  // A ficha é controlada por estado, não por defaultValue: o React 19 reseta o
+  // <form action> quando a ação termina — inclusive em erro. Com campos livres,
+  // um 400 da API apagava os quinze valores que a pessoa digitou lendo o papel;
+  // campo controlado sobrevive ao reset. Os `name` ficam: é o FormData deles
+  // que a ação lê.
+  const [ficha, setFicha] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (!leitura) return;
+    const codigo = leitura.unidadeConsumidoraCodigo;
+    const casada = codigo
+      ? consumerUnits.find((uc) => soDigitos(uc.code) === soDigitos(codigo))
+      : undefined;
+    const base: Record<string, string> = {
+      consumerUnitId: casada?.id ?? "",
+      clientId: casada?.clientId ?? "",
+      competenceMonth: String(leitura.competenceMonth ?? ""),
+      competenceYear: String(leitura.competenceYear ?? ""),
+      demandHistory: "",
+      hasLoadProfile: "",
+    };
+    for (const campo of CAMPOS) {
+      const lido = leitura.invoice[campo.nome as keyof typeof leitura.invoice];
+      base[campo.nome] = String(lido ?? 0);
+    }
+    setFicha(base);
+  }, [leitura, consumerUnits]);
+
+  const alterarCampo = (nome: string, valor: string) =>
+    setFicha((atual) => ({ ...atual, [nome]: valor }));
 
   function enviar(arquivo: File, senhaDoPdf?: string) {
     setErro(null);
@@ -347,11 +378,14 @@ export function NovaFaturaView({
             <select
               name="consumerUnitId"
               required
-              defaultValue={ucCasada?.id ?? ""}
+              value={ficha.consumerUnitId ?? ""}
               onChange={(evento) => {
                 const uc = consumerUnits.find((item) => item.id === evento.target.value);
-                const campo = evento.currentTarget.form?.elements.namedItem("clientId");
-                if (campo instanceof HTMLInputElement) campo.value = uc?.clientId ?? "";
+                setFicha((atual) => ({
+                  ...atual,
+                  consumerUnitId: evento.target.value,
+                  clientId: uc?.clientId ?? "",
+                }));
               }}
             >
               <option value="">Selecione…</option>
@@ -369,7 +403,7 @@ export function NovaFaturaView({
                 : "A fatura não trouxe o número da UC."}
             </small>
           </label>
-          <input type="hidden" name="clientId" defaultValue={ucCasada?.clientId ?? ""} />
+          <input type="hidden" name="clientId" value={ficha.clientId ?? ""} readOnly />
 
           <label>
             <span>Mês</span>
@@ -378,7 +412,8 @@ export function NovaFaturaView({
               type="number"
               min={1}
               max={12}
-              defaultValue={leitura.competenceMonth ?? ""}
+              value={ficha.competenceMonth ?? ""}
+              onChange={(evento) => alterarCampo("competenceMonth", evento.target.value)}
               required
             />
           </label>
@@ -389,7 +424,8 @@ export function NovaFaturaView({
               type="number"
               min={2020}
               max={2100}
-              defaultValue={leitura.competenceYear ?? ""}
+              value={ficha.competenceYear ?? ""}
+              onChange={(evento) => alterarCampo("competenceYear", evento.target.value)}
               required
             />
           </label>
@@ -404,7 +440,8 @@ export function NovaFaturaView({
                   type="number"
                   step={campo.passo ?? "1"}
                   min={campo.minimo ?? "0"}
-                  defaultValue={lido ?? 0}
+                  value={ficha[campo.nome] ?? ""}
+                  onChange={(evento) => alterarCampo(campo.nome, evento.target.value)}
                 />
                 {lido === undefined ? <small>não veio da fatura</small> : null}
               </label>
@@ -413,11 +450,22 @@ export function NovaFaturaView({
 
           <label className="campo-largo">
             <span>Histórico de demanda registrada, mês a mês (kW)</span>
-            <input name="demandHistory" type="text" placeholder="634, 704, 705, 698, 668, 586" />
+            <input
+              name="demandHistory"
+              type="text"
+              placeholder="634, 704, 705, 698, 668, 586"
+              value={ficha.demandHistory ?? ""}
+              onChange={(evento) => alterarCampo("demandHistory", evento.target.value)}
+            />
             <small>Separe por vírgula. Com doze meses a análise deixa de ser preliminar.</small>
           </label>
           <label className="campo-largo campo-checkbox">
-            <input name="hasLoadProfile" type="checkbox" />
+            <input
+              name="hasLoadProfile"
+              type="checkbox"
+              checked={ficha.hasLoadProfile === "on"}
+              onChange={(evento) => alterarCampo("hasLoadProfile", evento.target.checked ? "on" : "")}
+            />
             <span>Tenho memória de massa de 15 minutos</span>
           </label>
 
