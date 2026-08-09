@@ -7,6 +7,7 @@ import { identificar, type IdentificacaoDaFatura } from "./identificacao.js";
 import { lerItens, type ItemDaFatura } from "./itens.js";
 import { linhasImpressas } from "./linhas.js";
 import { SenhaIncorretaError, SenhaNecessariaError } from "./paginas.js";
+import { lerPorVisao } from "./visao.js";
 
 /**
  * Leitura de uma fatura da distribuidora, venha ela como for.
@@ -101,7 +102,43 @@ function recusar(
   };
 }
 
-export async function lerFatura(conteudo: Buffer, senha?: string): Promise<LeituraDaFatura> {
+/**
+ * Monta a ficha a partir de identificação e itens, venham de onde vierem.
+ *
+ * Separado de `lerFatura` porque agora há duas procedências — as regras e o
+ * modelo de visão — e ambas têm de passar pelo mesmo julgamento. A conferência
+ * aritmética, o corte de item divergente, a regra do Grupo B e a lista do que
+ * falta confirmar acontecem aqui, uma vez, para as duas.
+ */
+function montarFicha(
+  identificacao: IdentificacaoDaFatura,
+  itens: ItemDaFatura[],
+  extras: ReturnType<typeof lerCamposExtras>,
+  origem: OrigemDoTexto,
+  confianca: number | null,
+): LeituraDaFatura {
+  const conferencia = conferir(itens);
+
+  if (itens.length === 0) {
+    return {
+      ...recusar(
+        "layout_desconhecido",
+        "layout não reconhecido: nenhum item financeiro identificado",
+        origem,
+      ),
+      confianca,
+      identificacao,
+    };
+  }
+
+  return montarComItens(identificacao, itens, conferencia, extras, origem, confianca);
+}
+
+export async function lerFatura(
+  conteudo: Buffer,
+  senha?: string,
+  mime = "application/pdf",
+): Promise<LeituraDaFatura> {
   let documento;
   try {
     documento = await normalizar(conteudo, senha);
@@ -136,23 +173,51 @@ export async function lerFatura(conteudo: Buffer, senha?: string): Promise<Leitu
     );
   }
 
-  const identificacao = identificar(linhas);
-  const itens = lerItens(linhas);
-  const conferencia = conferir(itens);
   const extras = lerCamposExtras(documento.paginas);
+  const porRegras = montarFicha(
+    identificar(linhas),
+    lerItens(linhas),
+    extras,
+    documento.origem,
+    confianca,
+  );
 
-  if (itens.length === 0) {
-    return {
-      ...recusar(
-        "layout_desconhecido",
-        "layout não reconhecido: nenhum item financeiro identificado",
-        documento.origem,
-      ),
-      confianca,
-      identificacao,
-    };
-  }
+  // Regra que fechou a ficha é a resposta: é gratuita, determinística e diz de
+  // que posição da folha saiu cada número. O modelo é o plano B, não o padrão.
+  if (porRegras.aproveitavel) return porRegras;
 
+  const visao = await lerPorVisao(conteudo, mime);
+  if (!visao) return porRegras;
+
+  const porVisao = montarFicha(
+    {
+      // Identificação lida por regra tem precedência: veio de um padrão
+      // verificável. O modelo só preenche o que ficou nulo — foi assim que a
+      // Roraima Energia entrou, com o "Código Único" que nenhum padrão pegava.
+      unidadeConsumidora:
+        porRegras.identificacao.unidadeConsumidora ?? visao.identificacao.unidadeConsumidora,
+      competencia: porRegras.identificacao.competencia ?? visao.identificacao.competencia,
+      distribuidora: porRegras.identificacao.distribuidora ?? visao.identificacao.distribuidora,
+    },
+    visao.itens,
+    extras,
+    documento.origem,
+    confianca,
+  );
+
+  // Só troca se o modelo fechou o que a regra não fechou. Empate fica com a
+  // regra: entre dois resultados equivalentes, o rastreável é melhor.
+  return porVisao.aproveitavel ? porVisao : porRegras;
+}
+
+function montarComItens(
+  identificacao: IdentificacaoDaFatura,
+  itens: ItemDaFatura[],
+  conferencia: Conferencia,
+  extras: ReturnType<typeof lerCamposExtras>,
+  origem: OrigemDoTexto,
+  confianca: number | null,
+): LeituraDaFatura {
   const invoice: Partial<InvoiceData> = {};
   const paraConfirmar: string[] = [];
 
@@ -256,7 +321,7 @@ export async function lerFatura(conteudo: Buffer, senha?: string): Promise<Leitu
   }
 
   return {
-    origem: documento.origem,
+    origem,
     aproveitavel: essenciais,
     motivo,
     confianca,
