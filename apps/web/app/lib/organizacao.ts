@@ -146,7 +146,7 @@ const plugga: Empresa = {
       label: "Financeiro",
       icon: "wallet",
       processos: [
-        { label: "Compras", rota: "/compras", status: "parcial" },
+        { label: "Compras", rota: "/compras", status: "pronto" },
         { label: "Contas a pagar", status: "em-breve" },
         { label: "Contas a receber", status: "em-breve" },
         { label: "Comprovantes", status: "em-breve" },
@@ -201,7 +201,10 @@ const waze: Empresa = {
       label: "Financeiro",
       icon: "wallet",
       processos: [
-        { label: "Compras", status: "em-breve" },
+        // O POP-COMP-001 vale para as duas empresas, e o pedido carrega a
+        // empresa desde a primeira migração: ligar a Waze aqui é a mesma tela
+        // lendo dados que a API já isola por `companyId`.
+        { label: "Compras", rota: "/compras", status: "pronto" },
         { label: "Contas a pagar", status: "em-breve" },
         { label: "Contas a receber", status: "em-breve" },
         { label: "Comprovantes", status: "em-breve" },

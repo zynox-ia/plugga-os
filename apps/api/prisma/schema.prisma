@@ -225,25 +225,28 @@ enum ContestationStatus {
 }
 
 model User {
-  id               String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  email            String                  @unique
-  name             String
-  status           String                  @default("active")
-  createdAt        DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt        DateTime                @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  platformRoles    UserPlatformRole[]
-  memberships      UserCompanyMembership[]
-  agentActions     AgentAction[]
-  credential       UserCredential?
-  sessions         Session[]
-  authTokens       AuthToken[]
-  opportunities    Opportunity[]
-  contracts        Contract[]
-  marketMigrations MarketMigration[]
-  cycles           Cycle[]                 @relation("CycleOwner")
-  cyclesAprovados  Cycle[]                 @relation("CycleReportApprover")
-  audits           Audit[]
-  contestations    Contestation[]
+  id                 String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email              String                  @unique
+  name               String
+  status             String                  @default("active")
+  createdAt          DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime                @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  platformRoles      UserPlatformRole[]
+  memberships        UserCompanyMembership[]
+  agentActions       AgentAction[]
+  credential         UserCredential?
+  sessions           Session[]
+  authTokens         AuthToken[]
+  opportunities      Opportunity[]
+  contracts          Contract[]
+  marketMigrations   MarketMigration[]
+  cycles             Cycle[]                 @relation("CycleOwner")
+  cyclesAprovados    Cycle[]                 @relation("CycleReportApprover")
+  audits             Audit[]
+  contestations      Contestation[]
+  pedidosSolicitados PedidoDeCompra[]        @relation("PedidoSolicitante")
+  pedidosResponsavel PedidoDeCompra[]        @relation("PedidoResponsavel")
+  passagensDeCompra  PedidoDeCompraEtapa[]
 
   @@map("users")
 }
@@ -309,10 +312,13 @@ model Role {
 /// Não é tenant — o sistema segue single-tenant (ADR-0008); é o contexto de
 /// negócio dentro do mesmo cliente.
 model Company {
-  id          String                  @id
-  name        String
-  createdAt   DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
-  memberships UserCompanyMembership[]
+  id           String                  @id
+  name         String
+  createdAt    DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  memberships  UserCompanyMembership[]
+  obras        Obra[]
+  fornecedores Fornecedor[]
+  pedidos      PedidoDeCompra[]
 
   @@map("companies")
 }
@@ -690,6 +696,8 @@ model Client {
   marketMigrations MarketMigration[]
   cycles           Cycle[]
   energyStudies    EnergyEfficiencyStudy[]
+  obras            Obra[]
+  pedidosDeCompra  PedidoDeCompra[]
 
   @@index([segment, active])
   @@map("clients")
@@ -956,28 +964,28 @@ model EnergyEfficiencyStudy {
   premiseVersionId String                @map("premise_version_id") @db.Uuid
 
   /// Snapshot da fatura como foi digitada/extraída.
-  invoiceData      Json  @map("invoice_data")
+  invoiceData         Json                @map("invoice_data")
   /// Metadados e linhas literais usados pela trava de conciliação.
-  invoiceContext   Json? @map("invoice_context")
-  reconciliationProof Json? @map("reconciliation_proof")
+  invoiceContext      Json?               @map("invoice_context")
+  reconciliationProof Json?               @map("reconciliation_proof")
   /// Demanda registrada mês a mês, na janela disponível.
-  demandHistory    Json  @default("[]") @map("demand_history")
+  demandHistory       Json                @default("[]") @map("demand_history")
   /// Auditoria, demanda, dimensionamento, economia e financeiro.
-  results          Json?
+  results             Json?
   /// Problemas apontados pela validação bloqueante na última tentativa.
-  validationIssues Json? @map("validation_issues")
-  trafficLight     EnergyTrafficLight? @map("traffic_light")
-  trafficLightResult Json? @map("traffic_light_result")
+  validationIssues    Json?               @map("validation_issues")
+  trafficLight        EnergyTrafficLight? @map("traffic_light")
+  trafficLightResult  Json?               @map("traffic_light_result")
 
   /// Escalares para listagem; a fonte é sempre `results`.
   economiaMensal Decimal? @map("economia_mensal") @db.Decimal(14, 2)
   capexTotal     Decimal? @map("capex_total") @db.Decimal(14, 2)
 
-  documentHtml    String? @map("document_html")
+  documentHtml       String? @map("document_html")
   documentHtmlMobile String? @map("document_html_mobile")
-  documentHash String? @map("document_hash")
+  documentHash       String? @map("document_hash")
   documentMobileHash String? @map("document_mobile_hash")
-  documentPdfPath String? @map("document_pdf_path")
+  documentPdfPath    String? @map("document_pdf_path")
 
   version  Int @default(1)
   revision Int @default(0)
@@ -1126,4 +1134,202 @@ model SegredoDoSistema {
   criadoEm      DateTime @default(now()) @map("criado_em") @db.Timestamptz(6)
 
   @@map("segredos_do_sistema")
+}
+
+// ---------------------------------------------------------------------------
+// Compras e Suprimentos — POP-COMP-001 v2.3 + FLX-COMP
+//
+// O POP descreve o processo rodando no Bitrix24. Aqui ele é nativo: o card vira
+// linha, e "o sistema move o card automaticamente" vira transição transacional.
+// O espelho do Bitrix (bitrix_mirror_records) segue read-only — ADR-0009.
+// ---------------------------------------------------------------------------
+
+/// As sete etapas do POP §2. `concluido` é terminal e não é etapa mensurada:
+/// não tem SLA no §3, e por isso nunca gera linha em pedidos_de_compra_etapas.
+enum ComprasEtapa {
+  pedido_gerado
+  analise_estoque
+  cotacoes
+  aprovacao_compra
+  pagamento
+  retirada
+  concluido
+
+  @@map("compras_etapa")
+}
+
+/// A decisão "possui em estoque?" do fluxograma. Nulo até a análise decidir.
+enum ComprasOrigemAtendimento {
+  estoque
+  aquisicao
+
+  @@map("compras_origem_atendimento")
+}
+
+/// Para onde vai o material. O POP fala em "Obra / Cliente de destino";
+/// `interno` existe porque compra de escritório não tem nenhum dos dois e, sem
+/// essa opção, alguém falsificaria um destino para conseguir abrir o pedido.
+enum ComprasDestino {
+  obra
+  cliente
+  interno
+
+  @@map("compras_destino")
+}
+
+/// Quem fornece. Cadastro próprio, e não texto livre na cotação: é o ponto de
+/// controle de quem entra na lista de quem a empresa paga, e o que permite
+/// perguntar quanto se pagou a um fornecedor no ano.
+model Fornecedor {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId String   @map("company_id")
+  nome      String
+  documento String?
+  ativo     Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  company  Company           @relation(fields: [companyId], references: [id])
+  cotacoes CotacaoDeCompra[]
+
+  @@unique([companyId, documento])
+  @@index([companyId, ativo])
+  @@map("fornecedores")
+}
+
+/// Cadastro mínimo de obra. Nasce operado pela tela de Compras porque é ela que
+/// precisa do destino do material; quando o departamento de Engenharia existir,
+/// ele assume a tabela sem migração de dados.
+model Obra {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId String   @map("company_id")
+  nome      String
+  clientId  String?  @map("client_id") @db.Uuid
+  ativa     Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  company Company          @relation(fields: [companyId], references: [id])
+  client  Client?          @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  pedidos PedidoDeCompra[]
+
+  @@index([companyId, ativa])
+  @@map("obras")
+}
+
+/// Um pedido de compra do POP-COMP-001. Um card do funil C43 vira uma linha.
+model PedidoDeCompra {
+  id                    String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId             String                    @map("company_id")
+  /// Sequencial por empresa, atribuído na transação de criação. O POP fala em
+  /// "OS emitidas": sem número humano o indicador não é conversável.
+  numero                Int
+  titulo                String
+  destino               ComprasDestino
+  obraId                String?                   @map("obra_id") @db.Uuid
+  clientId              String?                   @map("client_id") @db.Uuid
+  solicitanteId         String                    @map("solicitante_id") @db.Uuid
+  responsavelId         String?                   @map("responsavel_id") @db.Uuid
+  prazoEntregaDesejado  DateTime                  @map("prazo_entrega_desejado") @db.Timestamptz(6)
+  etapa                 ComprasEtapa              @default(pedido_gerado)
+  origemAtendimento     ComprasOrigemAtendimento? @map("origem_atendimento")
+  necessidadeValidadaEm DateTime?                 @map("necessidade_validada_em") @db.Timestamptz(6)
+  cotacaoSelecionadaId  String?                   @unique @map("cotacao_selecionada_id") @db.Uuid
+  /// Quem selecionou a cotação e quem aprovou, como colunas: o guard de
+  /// segregação precisa decidir em O(1), sem varrer o event_log.
+  selecionouCotacaoId   String?                   @map("selecionou_cotacao_id") @db.Uuid
+  aprovouId             String?                   @map("aprovou_id") @db.Uuid
+  valorOrcado           Decimal                   @map("valor_orcado") @db.Decimal(14, 2)
+  valorCotado           Decimal?                  @map("valor_cotado") @db.Decimal(14, 2)
+  valorFaturado         Decimal?                  @map("valor_faturado") @db.Decimal(14, 2)
+  concluidoEm           DateTime?                 @map("concluido_em") @db.Timestamptz(6)
+  createdAt             DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime                  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  company            Company               @relation(fields: [companyId], references: [id])
+  obra               Obra?                 @relation(fields: [obraId], references: [id], onDelete: SetNull)
+  client             Client?               @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  solicitante        User                  @relation("PedidoSolicitante", fields: [solicitanteId], references: [id])
+  responsavel        User?                 @relation("PedidoResponsavel", fields: [responsavelId], references: [id], onDelete: SetNull)
+  cotacaoSelecionada CotacaoDeCompra?      @relation("CotacaoSelecionada", fields: [cotacaoSelecionadaId], references: [id], onDelete: SetNull)
+  itens              ItemDePedido[]
+  cotacoes           CotacaoDeCompra[]     @relation("CotacoesDoPedido")
+  etapas             PedidoDeCompraEtapa[]
+
+  @@unique([companyId, numero])
+  @@index([companyId, etapa])
+  @@index([companyId, responsavelId, etapa])
+  @@index([companyId, concluidoEm])
+  @@map("pedidos_de_compra")
+}
+
+/// Um material do pedido. O POP escreve produto e quantidade no singular porque
+/// descreve um card do Bitrix; um pedido de obra leva vários materiais, e
+/// separá-los em pedidos distintos inflaria "OS emitidas" — o denominador do
+/// indicador 4.2 — e tornaria o frete impossível de ratear.
+model ItemDePedido {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  pedidoId   String   @map("pedido_id") @db.Uuid
+  descricao  String
+  quantidade Decimal  @db.Decimal(14, 3)
+  unidade    String?
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  pedido PedidoDeCompra @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+
+  @@index([pedidoId])
+  @@map("itens_de_pedido")
+}
+
+/// Uma passagem por uma etapa. Sustenta os indicadores 4.2 e 4.3: sem histórico
+/// por passagem não há "qual etapa está estourando o prazo". Há mais de uma
+/// linha da mesma etapa quando o fluxo volta por REVISAR, e é isso que o 4.3
+/// precisa enxergar.
+model PedidoDeCompraEtapa {
+  id             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  pedidoId       String       @map("pedido_id") @db.Uuid
+  etapa          ComprasEtapa
+  entrouEm       DateTime     @map("entrou_em") @db.Timestamptz(6)
+  prazoDiasUteis Int          @map("prazo_dias_uteis")
+  prazoEm        DateTime     @map("prazo_em") @db.Timestamptz(6)
+  saiuEm         DateTime?    @map("saiu_em") @db.Timestamptz(6)
+  cumpriuPrazo   Boolean?     @map("cumpriu_prazo")
+  responsavelId  String?      @map("responsavel_id") @db.Uuid
+
+  pedido      PedidoDeCompra @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+  responsavel User?          @relation(fields: [responsavelId], references: [id], onDelete: SetNull)
+
+  @@index([pedidoId, entrouEm])
+  @@index([etapa, saiuEm])
+  @@map("pedidos_de_compra_etapas")
+}
+
+/// Orçamento anexado na geração do pedido (POP §2.1, item 6). O arquivo vai
+/// para o S3/MinIO e `arquivoChave` é obrigatório: diferente da fatura de
+/// energia, onde guardar é apoio à leitura, aqui o anexo é o próprio requisito
+/// do processo e a evidência sobre a qual a análise acontece.
+///
+/// Não há delete: a única operação sobre uma cotação é deixar de selecioná-la.
+/// Apagar o orçamento que justificou uma compra destrói a evidência da análise.
+model CotacaoDeCompra {
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  pedidoId           String   @map("pedido_id") @db.Uuid
+  fornecedorId       String   @map("fornecedor_id") @db.Uuid
+  valor              Decimal  @db.Decimal(14, 2)
+  valorFrete         Decimal? @map("valor_frete") @db.Decimal(14, 2)
+  /// Prazo que o fornecedor declarou. É ele que vira o SLA da retirada quando
+  /// supera os 5 dias úteis — o "cronograma de fornecedor externo" do POP §3.
+  prazoEntregaDias   Int?     @map("prazo_entrega_dias")
+  condicoesPagamento String?  @map("condicoes_pagamento")
+  arquivoChave       String   @map("arquivo_chave")
+  arquivoNome        String   @map("arquivo_nome")
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  pedido        PedidoDeCompra  @relation("CotacoesDoPedido", fields: [pedidoId], references: [id], onDelete: Cascade)
+  fornecedor    Fornecedor      @relation(fields: [fornecedorId], references: [id])
+  selecionadaEm PedidoDeCompra? @relation("CotacaoSelecionada")
+
+  @@index([pedidoId])
+  @@index([fornecedorId])
+  @@map("cotacoes_de_compra")
 }

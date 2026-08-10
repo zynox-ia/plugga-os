@@ -8,6 +8,7 @@ import { AuthModule } from "./auth/auth.module";
 import { WhatsappModule } from "./channels/whatsapp/whatsapp.module";
 import { ClientesModule } from "./clientes/clientes.module";
 import { CommercialModule } from "./commercial/commercial.module";
+import { ComprasModule } from "./compras/compras.module";
 import { validateEnvironment } from "./config/environment";
 import { CoreModule } from "./core/core.module";
 import { EnergyEfficiencyModule } from "./energy-efficiency/estudo.module";
@@ -41,6 +42,7 @@ const monorepoRootEnvPath = path.resolve(__dirname, "../../../.env");
     PluggamobModule,
     ClientesModule,
     CommercialModule,
+    ComprasModule,
     EnergyModule,
     EnergyEfficiencyModule,
     LlmModule,

@@ -19,6 +19,12 @@ import type {
   ListIntegrationsResponse,
   ListJobRunsResponse,
   ListMarketMigrationsResponse,
+  FornecedorLista,
+  ObraLista,
+  PedidoDetalhe,
+  PedidoLista,
+  ScorecardCompras,
+  DiagnosticoCompras,
   OpportunityDetail,
   OpportunityList,
 } from "@plugga/shared";
@@ -384,4 +390,61 @@ export async function fetchEnergyStudy(id: string): Promise<EnergyStudyDetail | 
   } catch {
     return null;
   }
+}
+
+/**
+ * Leituras de Compras (POP-COMP-001). A empresa é obrigatória em todas: a API
+ * prova o alcance antes de tocar em dado, e uma leitura sem empresa não teria
+ * como ser autorizada.
+ */
+async function lerCompras<T>(caminho: string): Promise<T | null> {
+  try {
+    const response = await fetch(`${apiBaseUrl()}${caminho}`, {
+      cache: "no-store",
+      headers: await sessionCookieHeaders(),
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_TUNEL_MS),
+    });
+    if (!response.ok) return null;
+    return (await response.json()) as T;
+  } catch {
+    return null;
+  }
+}
+
+/** Server-side only: GET /compras/pedidos. */
+export function fetchPedidosDeCompra(companyId: string): Promise<PedidoLista | null> {
+  return lerCompras<PedidoLista>(`/compras/pedidos?companyId=${companyId}`);
+}
+
+/** Server-side only: GET /compras/pedidos/:id. */
+export function fetchPedidoDeCompra(id: string, companyId: string): Promise<PedidoDetalhe | null> {
+  return lerCompras<PedidoDetalhe>(`/compras/pedidos/${id}?companyId=${companyId}`);
+}
+
+/** Server-side only: GET /compras/scorecard. */
+export function fetchScorecardCompras(
+  companyId: string,
+  de: string,
+  ate: string,
+): Promise<ScorecardCompras | null> {
+  return lerCompras<ScorecardCompras>(`/compras/scorecard?companyId=${companyId}&de=${de}&ate=${ate}`);
+}
+
+/** Server-side only: GET /compras/diagnostico. */
+export function fetchDiagnosticoCompras(
+  companyId: string,
+  de: string,
+  ate: string,
+): Promise<DiagnosticoCompras | null> {
+  return lerCompras<DiagnosticoCompras>(`/compras/diagnostico?companyId=${companyId}&de=${de}&ate=${ate}`);
+}
+
+/** Server-side only: GET /compras/fornecedores. */
+export function fetchFornecedores(companyId: string): Promise<FornecedorLista | null> {
+  return lerCompras<FornecedorLista>(`/compras/fornecedores?companyId=${companyId}`);
+}
+
+/** Server-side only: GET /compras/obras. */
+export function fetchObrasDeCompra(companyId: string): Promise<ObraLista | null> {
+  return lerCompras<ObraLista>(`/compras/obras?companyId=${companyId}`);
 }

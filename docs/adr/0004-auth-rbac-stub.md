@@ -101,3 +101,43 @@ flowchart LR
 - O stub é apenas local; não autoriza acesso a nenhum sistema real.
 - Nenhuma decisão de provedor de identidade é tomada aqui — apenas a abstração
   que a mantém aberta.
+
+---
+
+## Adendo — 14/08/2026: papel `compras` e escopo por empresa
+
+O gatilho de revisão previsto acima ("domínios sensíveis — financeiro,
+aprovações") disparou com a entrada do módulo de Compras (POP-COMP-001). Duas
+mudanças, ambas aditivas:
+
+### 1. Papel `compras`
+
+O PRD §4 sempre listou **Compras** como área própria, mas a tabela de papéis
+iniciais desta ADR a omitiu, e ela nunca chegou a `roleKeys`. O POP-COMP-001 §1
+separa **Responsável de Compras** de **Gestão Financeira**, e sem dois papéis a
+segregação de função não existe: quem seleciona a cotação aprova a própria
+escolha.
+
+`compras` entra como papel **de empresa** (não de plataforma), ao lado de
+`financeiro`. `admin` continua fora do fluxo operacional de compras de
+propósito — administra acesso, não compra; deixá-lo aprovar esvaziaria o
+controle justamente para quem tem a chave mestra.
+
+### 2. Escopo por empresa vive no módulo, provisoriamente
+
+Compras é a **primeira entidade de domínio com `companyId`**, e a premissa que
+sustentava o RBAC achatado deixou de valer. `flattenRoles` documenta a
+limitação: "um papel concedido em qualquer empresa passa a valer no guard — a
+granularidade por empresa nas rotas de domínio ainda não existe (as entidades de
+domínio não têm `companyId`)".
+
+Agora têm. A prova de alcance `(pessoa, empresa, departamento financeiro)` foi
+implementada em `apps/api/src/compras/compras-escopo.repository.ts`, dentro do
+módulo, e **não** em `core/auth`. É dívida consciente: fundação morando em
+domínio.
+
+**Condição de promoção:** o segundo módulo de domínio a ganhar `companyId` deve
+mover o mecanismo para `core/auth` — `AuthPrincipal` carregando as memberships e
+um guard de empresa/departamento reutilizável — com Compras passando a
+consumi-lo. Duplicar a classe num terceiro módulo, não. A promoção é mudança de
+fronteira de plataforma e exige revisão do ARCHITECT.

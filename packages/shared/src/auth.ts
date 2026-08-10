@@ -16,6 +16,7 @@ export const roleKeys = [
   "comercial",
   "pluggamob",
   "financeiro",
+  "compras",
   "opm",
   "tech",
   "viewer",
@@ -38,11 +39,19 @@ export const platformRoleKeySchema = z.enum(platformRoleKeys);
 
 export type PlatformRoleKey = (typeof platformRoleKeys)[number];
 
+/**
+ * `compras` é o Responsável de Compras do POP-COMP-001 §1, separado de
+ * `financeiro` (a Gestão Financeira do mesmo POP) porque o processo de compras
+ * exige que quem seleciona a cotação não seja quem aprova a compra. Enquanto os
+ * dois eram o mesmo papel, a separação que o POP descreve em três linhas não
+ * existia no código. A ADR-0004 previu este refino como gatilho de revisão.
+ */
 export const companyRoleKeys = [
   "diretoria",
   "comercial",
   "pluggamob",
   "financeiro",
+  "compras",
   "opm",
   "tech",
   "viewer",

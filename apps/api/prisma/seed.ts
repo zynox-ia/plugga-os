@@ -10,6 +10,7 @@ const roleRows = [
   { key: 'diretoria', name: 'Diretoria' },
   { key: 'comercial', name: 'Comercial' },
   { key: 'financeiro', name: 'Financeiro' },
+  { key: 'compras', name: 'Compras' },
   { key: 'pluggamob', name: 'PluggaMob' },
   { key: 'opm', name: 'OPM' },
   { key: 'tech', name: 'Tecnologia' },
@@ -192,6 +193,54 @@ async function main() {
           ],
         },
       },
+      // Duas pessoas em Compras, não uma. A segregação de função do
+      // POP-COMP-001 §1 exige que quem seleciona a cotação não seja quem aprova
+      // nem quem confirma o recebimento — com um comprador só, o caminho
+      // externo do POP não fecha sem dispensa da diretoria a cada pedido.
+      {
+        email: 'compras.plugga@plugga.local',
+        name: 'Responsável de Compras (exemplo)',
+        grant: {
+          companies: [
+            {
+              companyId: 'plugga' as const,
+              roles: ['compras'],
+              departments: [{ id: 'financeiro' }],
+            },
+          ],
+        },
+      },
+      {
+        email: 'compras2.plugga@plugga.local',
+        name: 'Compras · segunda pessoa (exemplo)',
+        grant: {
+          companies: [
+            {
+              companyId: 'plugga' as const,
+              roles: ['compras'],
+              departments: [{ id: 'financeiro' }],
+            },
+          ],
+        },
+      },
+      {
+        email: 'diretoria@plugga.local',
+        name: 'Diretoria (exemplo)',
+        grant: {
+          companies: [
+            {
+              companyId: 'plugga' as const,
+              roles: ['diretoria'],
+              departments: [{ id: 'financeiro' }],
+            },
+            {
+              companyId: 'waze' as const,
+              roles: ['diretoria'],
+              departments: [{ id: 'financeiro' }],
+            },
+          ],
+        },
+      },
       {
         email: 'duas.empresas@plugga.local',
         name: 'Acesso nas duas empresas (exemplo)',
@@ -224,6 +273,40 @@ async function main() {
       await prisma.userCredential.create({
         data: { userId: user.id, passwordHash: samplePasswordHash },
       });
+    }
+  }
+
+  // Cadastros de apoio de Compras: fornecedores e obras nas duas empresas, para
+  // a tela de novo pedido não abrir vazia numa máquina recém-semeada. São dados
+  // sintéticos — nenhum fornecedor real, nenhum CNPJ verdadeiro.
+  const fornecedoresDeExemplo = [
+    { companyId: 'plugga', nome: 'Elétrica Norte (exemplo)' },
+    { companyId: 'plugga', nome: 'Suprimentos Manaus (exemplo)' },
+    { companyId: 'waze', nome: 'Materiais de Obra Amazonas (exemplo)' },
+  ] as const;
+
+  for (const fornecedor of fornecedoresDeExemplo) {
+    const existente = await prisma.fornecedor.findFirst({
+      where: { companyId: fornecedor.companyId, nome: fornecedor.nome },
+      select: { id: true },
+    });
+    if (!existente) {
+      await prisma.fornecedor.create({ data: { ...fornecedor } });
+    }
+  }
+
+  const obrasDeExemplo = [
+    { companyId: 'plugga', nome: 'Subestação Santa Tereza (exemplo)' },
+    { companyId: 'waze', nome: 'Usina Jardim Floresta (exemplo)' },
+  ] as const;
+
+  for (const obra of obrasDeExemplo) {
+    const existente = await prisma.obra.findFirst({
+      where: { companyId: obra.companyId, nome: obra.nome },
+      select: { id: true },
+    });
+    if (!existente) {
+      await prisma.obra.create({ data: { ...obra } });
     }
   }
 
