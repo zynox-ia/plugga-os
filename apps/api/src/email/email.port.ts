@@ -13,8 +13,8 @@ export interface TransactionalEmail {
 
 /**
  * Port consumed by the auth flows (ADR-0010). No auth flow imports an email SDK
- * directly. Adapters: noop (default, never sends), mailpit (local), brevo
- * (client account in staging/prod).
+ * directly. Adapters: noop (default, never sends) and brevo (client account in
+ * staging/prod). The Mailpit adapter was removed on 2026-08-10.
  */
 export abstract class EmailPort {
   abstract sendTransactional(email: TransactionalEmail): Promise<void>;
