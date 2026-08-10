@@ -1,0 +1,70 @@
+{
+ "cliente": "Mercantil Nova Era Ltda",
+ "cnpj": "04.240.370/0043-06",
+ "uc": "01374052",
+ "distribuidora": "Roraima Energia",
+ "regime": "cativo",
+ "grupo": "A",
+ "modalidade": "verde",
+ "classe": "comercial",
+ "referencia": "06/2026",
+ "vencimento": "21/07/2026",
+ "total": 76295.48,
+ "apelido": "Jardim Floresta",
+ "leitura_anterior": "31/05/2026",
+ "leitura_atual": "30/06/2026",
+ "classe_display": "Comercial / comercial",
+ "nome_analise": "Mercantil Nova Era (loja Jardim Floresta)",
+ "itens": [
+  {
+   "nome": "Consumo Ponta",
+   "valor": 18557.99,
+   "kwh": 6901,
+   "tarifa": 2.689175
+  },
+  {
+   "nome": "Consumo Fora Ponta",
+   "valor": 45275.83,
+   "kwh": 72330,
+   "tarifa": 0.625962
+  },
+  {
+   "nome": "Demanda",
+   "valor": 12315.42,
+   "kw": 514,
+   "detalhe": "167 kW com ICMS a 27,70 + 347 kW sem ICMS a 22,16"
+  },
+  {
+   "nome": "Reativo excedente ponta",
+   "valor": 3.44
+  },
+  {
+   "nome": "Reativo excedente fora ponta",
+   "valor": 86.17
+  },
+  {
+   "nome": "COSIP",
+   "valor": 56.63
+  }
+ ],
+ "consumo_ponta_kwh": 6901,
+ "consumo_fp_kwh": 72330,
+ "demanda_contratada_kw": 500,
+ "demanda_registrada_ponta_kw": 151,
+ "demanda_registrada_fp_kw": 167,
+ "reativo_ponta_kwh": 8,
+ "reativo_fp_kwh": 200,
+ "reativo_ponta_valor": 3.44,
+ "reativo_fp_valor": 86.17,
+ "tarifa_ponta_total": 2.689175,
+ "tarifa_fp_total": 0.625962,
+ "demanda_complemento_valor": 7689.52,
+ "nao_cobrados": [
+  {
+   "nome": "Adicional Bandeira Amarela",
+   "valor": 1491.05,
+   "motivo": "bandeira Verde R$ 0,00 na referencia — linha informativa"
+  }
+ ],
+ "fonte": "NF 21471922 Roraima Energia, emitida 01/07/2026"
+}

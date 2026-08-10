@@ -1,0 +1,90 @@
+{
+ "cliente": "Mercantil Nova Era Ltda",
+ "cnpj": "04.240.370/0028-77",
+ "uc": "9/18697841 (conta contrato)",
+ "distribuidora": "Energisa Rondonia",
+ "distribuidora_display": "Energisa Rondônia S.A.",
+ "localidade": "Porto Velho/RO",
+ "regime": "mercado_livre",
+ "grupo": "A",
+ "modalidade": "azul",
+ "funcao": "peak_shaving",
+ "classe": "comercial",
+ "classe_display": "Comercial / comercial",
+ "referencia": "06/2026",
+ "vencimento": "17/07/2026",
+ "total": 68542.76,
+ "apelido": "Cantuaria",
+ "leitura_anterior": "31/05/2026",
+ "leitura_atual": "30/06/2026",
+ "nome_analise": "Mercantil Nova Era (loja Cantuária)",
+ "itens": [
+  {
+   "nome": "Consumo Ponta (TUSD)",
+   "valor": 2928.34,
+   "kwh": 13876,
+   "tarifa": 0.21103
+  },
+  {
+   "nome": "Consumo Fora Ponta (TUSD)",
+   "valor": 25097.5,
+   "kwh": 118925,
+   "tarifa": 0.21103
+  },
+  {
+   "nome": "Demanda (TUSD kW ponta + fora ponta)",
+   "valor": 63118.55,
+   "kw": 360,
+   "detalhe": "PONTA: 272 kW medida a 134,051980 + 88 kW NC a 107,911840 = 45.958,37; FP: 280 kW a 49,826320 + 80 kW NC a 40,110190 = 17.160,18"
+  },
+  {
+   "nome": "Reativo excedente ponta",
+   "valor": 0.01
+  },
+  {
+   "nome": "Reativo excedente fora ponta",
+   "valor": 3.19
+  },
+  {
+   "nome": "Encargo Covid Escassez Hidrica",
+   "valor": 679.87
+  },
+  {
+   "nome": "Debitos APCEI 05/2026",
+   "valor": 45.03
+  },
+  {
+   "nome": "Creditos APCEI 07/2026",
+   "valor": -24179.4
+  },
+  {
+   "nome": "COSIP",
+   "valor": 849.67
+  }
+ ],
+ "consumo_ponta_kwh": 13876,
+ "consumo_fp_kwh": 118925,
+ "demanda_contratada_kw": 360,
+ "demanda_registrada_ponta_kw": 272,
+ "demanda_registrada_fp_kw": 280,
+ "demanda_ref_potencia_kw": 272,
+ "demanda_ponta_valor_total": 45958.37,
+ "tarifa_kw_ponta_medida": 134.05198,
+ "tarifa_kw_ponta_nc": 107.91184,
+ "reativo_ponta_kwh": 0,
+ "reativo_fp_kwh": 11,
+ "reativo_ponta_valor": 0.01,
+ "reativo_fp_valor": 3.19,
+ "tarifa_ponta_total": 0.5120238,
+ "tarifa_fp_total": 0.5120238,
+ "beneficio_isencao_valor": 24134.37,
+ "demanda_complemento_valor": 12705.05,
+ "energia_nf": {
+  "fornecedor": "ECOM Energia",
+  "total": 40247.08,
+  "mwh": 133.714,
+  "preco_kwh": 0.3009938
+ },
+ "total_gasto_energia": 108789.84,
+ "fonte": "DANF3E Energisa RO + NF ECOM"
+}

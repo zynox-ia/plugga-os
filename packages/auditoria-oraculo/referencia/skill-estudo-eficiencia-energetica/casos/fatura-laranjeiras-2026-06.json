@@ -1,0 +1,73 @@
+{
+ "consumo_ponta_kwh": 13889,
+ "consumo_fp_kwh": 114609,
+ "demanda_complemento_valor": 1346.12,
+ "reativo_ponta_kwh": 0,
+ "reativo_ponta_valor": 0.0,
+ "reativo_fp_kwh": 105,
+ "reativo_fp_valor": 36.89,
+ "total": 59024.73,
+ "demanda_contratada_kw": 444,
+ "demanda_registrada_ponta_kw": 282,
+ "demanda_registrada_fp_kw": 325,
+ "classe": "comercial",
+ "uc": "118254351",
+ "vencimento": "14/07/2026",
+ "leitura_anterior": "02/07/2026",
+ "leitura_atual": "02/07/2026",
+ "cliente": "Mercantil Nova Era Ltda",
+ "cnpj": "04.240.370/0001-77",
+ "distribuidora": "Ambar Energia AM",
+ "distribuidora_display": "Âmbar Energia - AM",
+ "localidade": "Manaus/AM",
+ "regime": "mercado_livre",
+ "grupo": "A",
+ "modalidade": "verde",
+ "classe_display": "Comercial / comercial",
+ "referencia": "06/2026",
+ "apelido": "Laranjeiras",
+ "nome_analise": "Mercantil Nova Era (loja Laranjeiras)",
+ "itens": [
+  {
+   "nome": "Consumo Ponta (TUSD)",
+   "valor": 12909.58,
+   "kwh": 13889,
+   "tarifa": 0.929483
+  },
+  {
+   "nome": "Consumo Fora Ponta (TUSD)",
+   "valor": 33359.81,
+   "kwh": 114609,
+   "tarifa": 0.291075
+  },
+  {
+   "nome": "Demanda",
+   "valor": 5941.62,
+   "kw": 444,
+   "detalhe": "325 kW a 14,140000 + 119 kW a 11,312000"
+  },
+  {
+   "nome": "Reativo excedente fora ponta",
+   "valor": 36.89
+  },
+  {
+   "nome": "COSIP",
+   "valor": 8745.91
+  },
+  {
+   "nome": "Devolucao Diferenca Desconto Tusd - Ccee 04/26-",
+   "valor": -1969.08
+  }
+ ],
+ "demanda_ref_potencia_kw": 282,
+ "tarifa_ponta_total": 1.095233,
+ "tarifa_fp_total": 0.456825,
+ "energia_nf": {
+  "fornecedor": "TRADENER",
+  "total": 21330.04,
+  "mwh": 128.688,
+  "preco_kwh": 0.16575
+ },
+ "total_gasto_energia": 80354.77,
+ "fonte": "NF3e Ambar Energia AM + TRADENER LARANJEIRAS.pdf"
+}

@@ -1,0 +1,212 @@
+[
+ {
+  "loja": "PONTA NEGRA",
+  "consumo_p": 28056.0,
+  "n": 6,
+  "kwp": 550,
+  "preco_mwh": 230.28,
+  "hp": 1.160523,
+  "tir_550k": 9.32,
+  "breakeven_unidade": 408916.0
+ },
+ {
+  "loja": "PATIO ADRIANOPOLIS",
+  "consumo_p": 22617.0,
+  "n": 5,
+  "kwp": 450,
+  "preco_mwh": 240.68,
+  "hp": 1.16555,
+  "tir_550k": 9.02,
+  "breakeven_unidade": 394933.0
+ },
+ {
+  "loja": "CIDADE DE DEUS",
+  "consumo_p": 9315.0,
+  "n": 2,
+  "kwp": 200,
+  "preco_mwh": 246.06,
+  "hp": 1.172086,
+  "tir_550k": 9.06,
+  "breakeven_unidade": 391890.0
+ },
+ {
+  "loja": "SUPERFRIOS",
+  "consumo_p": 45213.0,
+  "n": 10,
+  "kwp": 900,
+  "preco_mwh": 230.28,
+  "hp": 1.159375,
+  "tir_550k": 8.95,
+  "breakeven_unidade": 391362.0
+ },
+ {
+  "loja": "FLORES",
+  "consumo_p": 53949.0,
+  "n": 12,
+  "kwp": 1100,
+  "preco_mwh": 240.68,
+  "hp": 1.16555,
+  "tir_550k": 8.88,
+  "breakeven_unidade": 386977.0
+ },
+ {
+  "loja": "TORRES",
+  "consumo_p": 22045.0,
+  "n": 5,
+  "kwp": 450,
+  "preco_mwh": 246.06,
+  "hp": 1.170937,
+  "tir_550k": 8.76,
+  "breakeven_unidade": 382047.0
+ },
+ {
+  "loja": "TORRES II",
+  "consumo_p": 20146.0,
+  "n": 5,
+  "kwp": 400,
+  "preco_mwh": 242.8,
+  "hp": 1.173303,
+  "tir_550k": 8.07,
+  "breakeven_unidade": 355876.0
+ },
+ {
+  "loja": "ALVORADA",
+  "consumo_p": 25578.0,
+  "n": 6,
+  "kwp": 550,
+  "preco_mwh": 230.28,
+  "hp": 1.160523,
+  "tir_550k": 8.16,
+  "breakeven_unidade": 352558.0
+ },
+ {
+  "loja": "CIDADE NOVA II",
+  "consumo_p": 19999.0,
+  "n": 5,
+  "kwp": 400,
+  "preco_mwh": 242.8,
+  "hp": 1.169078,
+  "tir_550k": 7.94,
+  "breakeven_unidade": 349833.0
+ },
+ {
+  "loja": "LARANJEIRAS",
+  "consumo_p": 13889.0,
+  "n": 3,
+  "kwp": 300,
+  "preco_mwh": 165.75,
+  "hp": 1.095233,
+  "tir_550k": 8.14,
+  "breakeven_unidade": 346218.0
+ },
+ {
+  "loja": "CIDADE NOVA",
+  "consumo_p": 24200.0,
+  "n": 6,
+  "kwp": 500,
+  "preco_mwh": 230.28,
+  "hp": 1.160523,
+  "tir_550k": 7.82,
+  "breakeven_unidade": 342052.0
+ },
+ {
+  "loja": "COROADO",
+  "consumo_p": 19628.0,
+  "n": 5,
+  "kwp": 400,
+  "preco_mwh": 242.8,
+  "hp": 1.169078,
+  "tir_550k": 7.71,
+  "breakeven_unidade": 339633.0
+ },
+ {
+  "loja": "GRANDE CIRCULAR",
+  "consumo_p": 19603.0,
+  "n": 5,
+  "kwp": 400,
+  "preco_mwh": 240.68,
+  "hp": 1.16555,
+  "tir_550k": 7.66,
+  "breakeven_unidade": 337319.0
+ },
+ {
+  "loja": "COMPENSA",
+  "consumo_p": 23884.0,
+  "n": 6,
+  "kwp": 500,
+  "preco_mwh": 240.68,
+  "hp": 1.16555,
+  "tir_550k": 7.71,
+  "breakeven_unidade": 337218.0
+ },
+ {
+  "loja": "PATIO DJALMA",
+  "consumo_p": 16056.0,
+  "n": 4,
+  "kwp": 350,
+  "preco_mwh": 240.68,
+  "hp": 1.166698,
+  "tir_550k": 7.66,
+  "breakeven_unidade": 331911.0
+ },
+ {
+  "loja": "PONTE",
+  "consumo_p": 15733.0,
+  "n": 4,
+  "kwp": 350,
+  "preco_mwh": 246.06,
+  "hp": 1.172086,
+  "tir_550k": 7.47,
+  "breakeven_unidade": 323325.0
+ },
+ {
+  "loja": "SILVES",
+  "consumo_p": 14721.0,
+  "n": 4,
+  "kwp": 300,
+  "preco_mwh": 246.06,
+  "hp": 1.172086,
+  "tir_550k": 7.17,
+  "breakeven_unidade": 319707.0
+ },
+ {
+  "loja": "VIVER MELHOR",
+  "consumo_p": 14758.0,
+  "n": 4,
+  "kwp": 300,
+  "preco_mwh": 230.28,
+  "hp": 1.160523,
+  "tir_550k": 7.08,
+  "breakeven_unidade": 315966.0
+ },
+ {
+  "loja": "PATIO MORADA",
+  "consumo_p": 14490.0,
+  "n": 4,
+  "kwp": 300,
+  "preco_mwh": 240.68,
+  "hp": 1.16555,
+  "tir_550k": 6.91,
+  "breakeven_unidade": 308964.0
+ },
+ {
+  "loja": "ALVORADA II",
+  "consumo_p": 19831.0,
+  "n": 5,
+  "kwp": 400,
+  "preco_mwh": 165.75,
+  "hp": 1.091008,
+  "tir_550k": 7.0,
+  "breakeven_unidade": 308805.0
+ },
+ {
+  "loja": "CENTRO",
+  "consumo_p": 5310.0,
+  "n": 2,
+  "kwp": 150,
+  "preco_mwh": 230.28,
+  "hp": 1.160523,
+  "tir_550k": 3.36,
+  "breakeven_unidade": 174799.0
+ }
+]

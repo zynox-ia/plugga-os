@@ -1,0 +1,716 @@
+{
+  "descricao": "Árvore congelada do pacote normativo da auditoria energética. Tooling e teste; nunca runtime de produção.",
+  "origem": "plugga-auditoria-energetica-COMPLETO-2026-08-09",
+  "exclusoes": [
+    ".DS_Store",
+    "__pycache__"
+  ],
+  "totalDeArquivos": 141,
+  "arquivos": [
+    {
+      "caminho": "PRD.md",
+      "bytes": 8460,
+      "sha256": "fc0cf06b48ab271c94b39fc135fe213f4c0b6157d4a29ecadb62a64e25ac7c73"
+    },
+    {
+      "caminho": "agente-auditor-energia/AGENTS.md",
+      "bytes": 2893,
+      "sha256": "5028d580813c9b817d5439a686ddc050f2c06fb3eab88f67ad8510d7c5292b02"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/AGENTS.md",
+      "bytes": 1018,
+      "sha256": "6dd517c6df964b401a12e001e7a9ddba3cdc4fb4e9781df21e0fde71c1da8ae3"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/DOCTOR.md",
+      "bytes": 2899,
+      "sha256": "29caa45ab915b5ce4e1d63b6a3e6d5f268a2e75e0e7327ff4746a1f2e0933473"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/MEMORY.md",
+      "bytes": 5213,
+      "sha256": "3d1963a58b35e09c6ae05909b95709c348ac24733dc485c053c6826629ae662b"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/POLICIA.md",
+      "bytes": 2952,
+      "sha256": "a82cf5ebae6b93c1c3861d3f7b4029b8a6120f19539ac91be804aaa361af1310"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/PRD.md",
+      "bytes": 8460,
+      "sha256": "fc0cf06b48ab271c94b39fc135fe213f4c0b6157d4a29ecadb62a64e25ac7c73"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/README.md",
+      "bytes": 2893,
+      "sha256": "3ae869149a93fbda0f313593c35a558ff51efd8c4353d72e7bc5a9763c565f9e"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/SKILL.md",
+      "bytes": 18474,
+      "sha256": "15d4e03c811dbe870c12968dc7d7cac017622d12a7e106decd5e1e364b4dad8e"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/SOUL.md",
+      "bytes": 2899,
+      "sha256": "d994a729e20c457b044f14df674bb2be9652b23d1ab3d703ee32d4891d338a19"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/assets/conciliar_fatura.py",
+      "bytes": 5601,
+      "sha256": "c5df9081343123509e6689b5d8db878f575b600e621cdfd96334cf1432495b08"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/assets/entregar_estudo.py",
+      "bytes": 3913,
+      "sha256": "70a0fd099252f2354f7ed78c7abd117f7c5c957a859b0dd4fbb82e5a18bb4dc7"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/assets/gerar_relatorio_do_modelo.py",
+      "bytes": 7668,
+      "sha256": "d112775beb0d76d04de4ae624bea6a9c94c7bd67495f01dfd24b9aadb3428af2"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/assets/gerar_versao_celular.py",
+      "bytes": 3226,
+      "sha256": "6ab0f44b7d30e84049ff4d1ffbb8686421af25871a33bae596c34cd2bd67f9ab"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/assets/montar_caso_relatorio.py",
+      "bytes": 35885,
+      "sha256": "139a6eee62ee98980d44db619949c27a2470c74ad5626c88ec32ea991696ddbb"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/assets/motor_bess_solar.py",
+      "bytes": 9609,
+      "sha256": "63c6eeeaeb3a79e6dc6f61cb08f6587c7190503bb64c715947376d51ee01192f"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/assets/motor_peak_shaving.py",
+      "bytes": 8870,
+      "sha256": "0aa45958baf2da78571eb4c4a66ab2aeed83a9ea7653952e8e92ffa2bcf3dac8"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/assets/produzir_e_entregar.py",
+      "bytes": 7660,
+      "sha256": "b187b94d748871660de573b6c0e3608c813bd529795811691abd178682649096"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/assets/registrar_entrega.py",
+      "bytes": 2759,
+      "sha256": "76dfe4f29a89ec9d2ce5345ede94fdc755994904f1cc046cdd6c413d938ac540"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/assets/render_pdf_claro.sh",
+      "bytes": 1046,
+      "sha256": "7025f41742493fbc4a49886533e7d267d0b0daff1ff62294c3c7b4546fcb805f"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/assets/teste_regressao.py",
+      "bytes": 3148,
+      "sha256": "98037370bca020123a73114860e262bf14f0729521cbe092bdb42c907a8fdcef"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/assets/triagem_semaforo.py",
+      "bytes": 4582,
+      "sha256": "2c8fd6be3ceb62613894f0a30443659346e00da6ab56fbd8f742ff3ca481f465"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/assets/verificar_relatorio.py",
+      "bytes": 6036,
+      "sha256": "8f043f00a5401e454674e3a4c53e4d3550d56f254edf65ecdad5a2b1412aaeb3"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/INDEX.md",
+      "bytes": 886,
+      "sha256": "ab95addc4ce85a0497a85b54686fcb433699eb45e4a3a6b85692813bb084e327"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/atacado-amazonas-2026-06.json",
+      "bytes": 3417,
+      "sha256": "ba996a9c97d6251b013bde085515c831958dc0754dec9f53e8472b54c8fbc696"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/breakeven-hdt-2026-06.json",
+      "bytes": 3608,
+      "sha256": "626ca091222862b804ba8bd910c95e7d1bc78310a87ab2b0cafd7217485733bd"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/cards-bitrix-nova-era.json",
+      "bytes": 6061,
+      "sha256": "6e8ea584454620350793e9c85c61d86362376dbf415ff174299ab49fcb1804c9"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/caso-am-quimica-2026-07.json",
+      "bytes": 325,
+      "sha256": "1b782929c1a145b6474014a929716fbf32d430e26e48db3bd841768403f55ed7"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/caso-motor-alvorada-ii.json",
+      "bytes": 351,
+      "sha256": "7da2ec987f1841d6bc22bb46f5efc7e1a901b7ec183fcce772d73c0742a73d00"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/caso-motor-alvorada.json",
+      "bytes": 354,
+      "sha256": "2ff57359ee5155a2456ce0b6b698ee7dc3d1e167e70f861ef50c96b2d5622a0f"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/caso-motor-brasilia.json",
+      "bytes": 354,
+      "sha256": "467f4bf724364fea4bdfe9b5316bb0fac1b219b1394ac348e7e86acebcaa1ca8"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/caso-motor-cantuaria.json",
+      "bytes": 465,
+      "sha256": "d493bc3eb14caf5b753666a3b9ddc12adfc0826a136eb5c36ab58671a284882d"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/caso-motor-centro.json",
+      "bytes": 353,
+      "sha256": "a2b1954b2f49e85475d77118d9fa73f51c0a61ebaacf1058768255fe727e7cce"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/caso-motor-cidade-de-deus.json",
+      "bytes": 354,
+      "sha256": "0bfa6104984fd1882bbb868e98543fcb163a27f09c87254d4a582423aedeec83"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/caso-motor-cidade-nova-ii.json",
+      "bytes": 349,
+      "sha256": "c4ecfef6fb35114d3f56b4268c7a0f0a6405507df0bfcb38ecdef7a6305793d1"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/caso-motor-cidade-nova.json",
+      "bytes": 354,
+      "sha256": "c356e4b192f1ee4db24b61982b3e51485d02d8103f6066ff4d8eb9f8ec9a49d7"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/caso-motor-compensa.json",
+      "bytes": 353,
+      "sha256": "cb55591a01f9a3c9dfb23544bf5e1c107e10cfb8bf691b1b0bce6ba5ffb09c30"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/caso-motor-coroado.json",
+      "bytes": 349,
+      "sha256": "5446c4303a745bd66c2a9eec5e7ccb4f1241a52c52ed4653f05de2b36cccc06f"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/caso-motor-flores.json",
+      "bytes": 355,
+      "sha256": "b66721adc85791543e800f836de016d14eb5081bce59a75f00acbfb90cb7bc57"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/caso-motor-grande-circular.json",
+      "bytes": 353,
+      "sha256": "bfa8dd1eed453f314e1c4b22d75bfa93c3c91eaf7a4dd9e23574424dd618cba4"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/caso-motor-imigrantes.json",
+      "bytes": 354,
+      "sha256": "4f90fe6e4e4bffe7c9a196877497c9c1ad1e93dec904cd8d607a7172c004cc51"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/caso-motor-jardim-floresta.json",
+      "bytes": 313,
+      "sha256": "3c0ef67012028fbbd47da491c335afd9fa95f5c8c23d0b22f0f5f6d5d15f9c5f"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/caso-motor-jatuarana.json",
+      "bytes": 354,
+      "sha256": "6757caf8bd00dfae90838c9278a6f8fbfeb5d088f4581ed3645e159fea4f0b1e"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/caso-motor-laranjeiras.json",
+      "bytes": 352,
+      "sha256": "da1ae4a47ecff027a30a8b5f8f0ae613583781a6f0a153d47cc4b7e44b800d60"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/caso-motor-patio-adrianopolis.json",
+      "bytes": 353,
+      "sha256": "2abb3205cca54bcb5c0d8bf2a80856400eaebcdf2de7634191c6893adfa3f613"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/caso-motor-patio-djalma.json",
+      "bytes": 353,
+      "sha256": "2532baca98a851a37a8deb8e7fcc43802b8634e46062825b3606f58037a8581a"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/caso-motor-patio-morada.json",
+      "bytes": 353,
+      "sha256": "06b702ce5ce7ff67241b7176ed9cde35a2fe301faa725bcb6efe87a844c980eb"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/caso-motor-ponta-negra.json",
+      "bytes": 354,
+      "sha256": "91ac6e278eb85c089143bf4e10912bd516aff9773fd76bd2f09e5608f9e01117"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/caso-motor-ponte.json",
+      "bytes": 355,
+      "sha256": "2b356167604687377a9356f3d77b41dee88836358778f13c077c9a04480f9479"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/caso-motor-santa-tereza.json",
+      "bytes": 314,
+      "sha256": "482cc5800d041e8e72bb870e42c3efe5e0280c82b71c89264fe0ae91233af8a2"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/caso-motor-silves.json",
+      "bytes": 355,
+      "sha256": "8a1636c2c4007fcd8905c68906567306cde5a23b379c3e2c70abd1cd241774b4"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/caso-motor-superfrios.json",
+      "bytes": 353,
+      "sha256": "7b28e8605043d75583071be1df2f4a1989ba4131d5bcf12bf86792b8fb2b9007"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/caso-motor-torres-ii.json",
+      "bytes": 350,
+      "sha256": "a0a6686894d5890d261b2c1b832db3178c2f34a9deb3e7f6c378af10bad118b1"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/caso-motor-torres.json",
+      "bytes": 355,
+      "sha256": "6fdd20847024522c0ec30d015cec291848f0de957437f0832cbc9fa86e9a0a0e"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/caso-motor-viver-melhor.json",
+      "bytes": 354,
+      "sha256": "9350008d458eb3b941086fcc0b8b8f430b0faf1b82efa4dd52969df1f0c76685"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/caso-relatorio-santa-tereza-2026-06.json",
+      "bytes": 38020,
+      "sha256": "5d5b2cb967a4b76eb75cb88164471eb14a8df2da1126435d77e877533ed014f7"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/caso-santa-tereza-2026-06.json",
+      "bytes": 321,
+      "sha256": "a90c79fa6e1ef8b1322629d59385693dd53c98daab5ee4e5ff040ab9de9d076a"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/dataset-lojas-nova-era-2026-06.json",
+      "bytes": 14314,
+      "sha256": "71451f58eb7bcc902d718c367994b1ea56981df32f1f7432f644552cb396c308"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/fatura-alvorada-2026-06.json",
+      "bytes": 1864,
+      "sha256": "500680e3d2df8f63208f153407f298b5f9a7a6fb2da913927e83644e835dbfe2"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/fatura-alvorada-2026-06_conciliada.json",
+      "bytes": 1969,
+      "sha256": "e89f7326864a81ab244766499f85f81a7b5a4f71c9861d6bd4f280fed653b934"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/fatura-alvorada-ii-2026-06.json",
+      "bytes": 1801,
+      "sha256": "0199a9167e14740cfcb2eaec88be67fff062abbf88cb4d8ed7effd9494d1535c"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/fatura-alvorada-ii-2026-06_conciliada.json",
+      "bytes": 1905,
+      "sha256": "ee0d335a0e15ec6c67e5e94237914b4171dd98aeb2792d25510819c11325ea3e"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/fatura-brasilia-2026-06.json",
+      "bytes": 2082,
+      "sha256": "2e0cf78e2118c9dbc37d19f132af1a344e474ce3d75e4d2fe1ebb263d01f3d16"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/fatura-brasilia-2026-06_conciliada.json",
+      "bytes": 2185,
+      "sha256": "4e17b544fb1d2c042775a29409b0eb8993e76bd62098e8eda4d2c9cb9eb44749"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/fatura-cantuaria-2026-06.json",
+      "bytes": 2217,
+      "sha256": "04959f0f557014f257d573c9a39360fc87fe750f569204988360230d09aafa6f"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/fatura-cantuaria-2026-06_conciliada.json",
+      "bytes": 2320,
+      "sha256": "eff3b04734ee6cd18126443229cd462e5f90f56059a10c4ef0de90903826f977"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/fatura-centro-2026-06.json",
+      "bytes": 1917,
+      "sha256": "bd677834c3a04bd58e358f4aaf4552eaaec093a7aa6c5f0f08f46011dd23e2e5"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/fatura-centro-2026-06_conciliada.json",
+      "bytes": 2020,
+      "sha256": "28b4d5160ee5e1e458435f6d6dea3cd6bbf7a431c36d030bfbea3937a9870ce1"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/fatura-cidade-de-deus-2026-06.json",
+      "bytes": 1833,
+      "sha256": "5994dacad8f12f39d0921c5aa0614e1f3a1aa1adf0150ada0b6f83deb486aac3"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/fatura-cidade-de-deus-2026-06_conciliada.json",
+      "bytes": 1936,
+      "sha256": "f7477d3b6703bf79fdb364c633aa75c6c241cab2fc6f9d56582327f65c475067"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/fatura-cidade-nova-2026-06.json",
+      "bytes": 1818,
+      "sha256": "d77080ce65ebfba4f3711057d5a6f5f63dc6d1f7d7658a1a310459811e57c15d"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/fatura-cidade-nova-2026-06_conciliada.json",
+      "bytes": 1923,
+      "sha256": "58195cb687cb6b7ebad6d537b3fd755187b3589d56b5bcfb3772778c2120552d"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/fatura-cidade-nova-ii-2026-06.json",
+      "bytes": 1654,
+      "sha256": "aab5fd15433d4b2853b0f275956550f1aa88303fe190c06be2f9eb9d22b9988f"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/fatura-cidade-nova-ii-2026-06_conciliada.json",
+      "bytes": 1755,
+      "sha256": "c4fe17f3388f0a29fddee7c9ef12fc79877b077adfb3b238cb2910c03850780d"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/fatura-compensa-2026-06.json",
+      "bytes": 1586,
+      "sha256": "d64197e3335155fde59668e265d62c6288231e81abac9ff46b17e0628cdbf73a"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/fatura-compensa-2026-06_conciliada.json",
+      "bytes": 1691,
+      "sha256": "10d2f9f3585c1f73b514cf5ba99d4c6b4a96c709ad83f1ddd3df7f1b3476106a"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/fatura-coroado-2026-06.json",
+      "bytes": 1716,
+      "sha256": "d4be0a6188af05c4f6843319e2dd324804c8ceaa58850c09ffe6e0d37419e69e"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/fatura-coroado-2026-06_conciliada.json",
+      "bytes": 1819,
+      "sha256": "96d3278e07bb88ee1c275a92c60dffa70d6ce5788ca88274129ec5c392e5ef31"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/fatura-flores-2026-06.json",
+      "bytes": 1602,
+      "sha256": "d728f60df1aad65a7b111130bcce3de3850e97abe3a5720f59e1eaa9f02241be"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/fatura-flores-2026-06_conciliada.json",
+      "bytes": 1707,
+      "sha256": "90da87bcf093318b08a39dcd6cf04f0391005427a43970ad8ff4b056f56b2c36"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/fatura-grande-circular-2026-06.json",
+      "bytes": 1680,
+      "sha256": "d7e2a52df7c606cf2a94f31f847031c19c33101873020f48667c3606cdb6b658"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/fatura-grande-circular-2026-06_conciliada.json",
+      "bytes": 1785,
+      "sha256": "02dcbb465044861889179da16f7efd54fc4fcb01f183450f017a5af42be80104"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/fatura-imigrantes-2026-06.json",
+      "bytes": 1984,
+      "sha256": "55bf394409d1ec1a78e3698661e2f94f144efd003707b9252e001b57ebcefeb8"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/fatura-imigrantes-2026-06_conciliada.json",
+      "bytes": 2087,
+      "sha256": "09ba96278cb6c79780122a293794edbd124aeb904964b0559793029fae022b1d"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/fatura-jardim-floresta-2026-06.json",
+      "bytes": 1613,
+      "sha256": "74d166d214bb4fac4762af5ca392dd86989c765de4fab8da8f754f1877d658f8"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/fatura-jardim-floresta-2026-06_conciliada.json",
+      "bytes": 1716,
+      "sha256": "0cd314e092da2e38ddf4128eb24c747e110a8bdcf6d82290e741e376004b6829"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/fatura-jatuarana-2026-06.json",
+      "bytes": 1805,
+      "sha256": "cf2371fd74fa8c920cb8e5f9b20101891cdb83e565991d75ddf7bc0ff1a645c4"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/fatura-jatuarana-2026-06_conciliada.json",
+      "bytes": 1908,
+      "sha256": "fb4a324024741b29a44d33c0121f69d636d7a06ab86e4c0220c961f1152a12e3"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/fatura-laranjeiras-2026-06.json",
+      "bytes": 1739,
+      "sha256": "effd5bec36cce237b23feebfbe88344dfb73b332b84d30814ce2295376605993"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/fatura-laranjeiras-2026-06_conciliada.json",
+      "bytes": 1843,
+      "sha256": "7c01e2e51f7ebfaa9adb3367e6c4858908c8b036c29aa9f8eb19661f689c93aa"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/fatura-patio-adrianopolis-2026-06.json",
+      "bytes": 1617,
+      "sha256": "f1f8681fc98dbc1d555d44977ad663631831ba94adde8106570a8f6c0aba152a"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/fatura-patio-adrianopolis-2026-06_conciliada.json",
+      "bytes": 1722,
+      "sha256": "478b57ad4333c7787cf3e684a299c7eb7b6e87b9d1cd61af76c65fd1c18ead00"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/fatura-patio-djalma-2026-06.json",
+      "bytes": 1821,
+      "sha256": "695ffc0b62f85006d4e4b117a1a97e3f033887950b2351aff1d814d73d49bbf5"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/fatura-patio-djalma-2026-06_conciliada.json",
+      "bytes": 1924,
+      "sha256": "419ed2b7832deab4c287e19be27abf2de98dec94825939d5a0802fa84e404fc0"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/fatura-patio-morada-2026-06.json",
+      "bytes": 1794,
+      "sha256": "7676b6b35a812afdfb23b900db50d3167886f05f632063e295841794684ec7e1"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/fatura-patio-morada-2026-06_conciliada.json",
+      "bytes": 1897,
+      "sha256": "598dc7d386188e73ebc72feec79ee90b10a00ce76bc8fecb9be614263bd67031"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/fatura-ponta-negra-2026-06.json",
+      "bytes": 1843,
+      "sha256": "74cf0f192db3a9789a0cd3976166cc0ed9eea3b89fac2bc5100feed38c8087c7"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/fatura-ponta-negra-2026-06_conciliada.json",
+      "bytes": 1948,
+      "sha256": "bac5c6fa6c54311697090ae3d1705d8fd7afdb24ec07004feb54bf4b7f161366"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/fatura-ponte-2026-06.json",
+      "bytes": 1712,
+      "sha256": "819b1314130f52cea316e1cc37f3b996278e41606370fd90869f140bb54efe7f"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/fatura-ponte-2026-06_conciliada.json",
+      "bytes": 1815,
+      "sha256": "0dfe350ab365607226143e42d2bef1548bb426712b53686b2a6ffd29373082a0"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/fatura-santa-tereza-2026-06.json",
+      "bytes": 1445,
+      "sha256": "0b784261de25a3124b0ba816890b9681b12873b8a8cbd14007b531e286974247"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/fatura-santa-tereza-2026-06_conciliada.json",
+      "bytes": 1548,
+      "sha256": "75a314d72ce39908fe7ba01076cff363e23b959cde439b6376a224898349dcfc"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/fatura-silves-2026-06.json",
+      "bytes": 1670,
+      "sha256": "8169b5d889c3dfbc6f0a32e1e4538468453f4d4ff8ecd0217d220d6cf8611cc2"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/fatura-silves-2026-06_conciliada.json",
+      "bytes": 1773,
+      "sha256": "5842b752e514b3a3b2b0075a4f0fa04537eba87bb74c34e72fbf6c12cf0279b0"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/fatura-superfrios-2026-06.json",
+      "bytes": 1924,
+      "sha256": "3fda24b506d19154443345f2f1918b3c33e96697d0b2539fb3d5a05e08df7ec4"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/fatura-superfrios-2026-06_conciliada.json",
+      "bytes": 2029,
+      "sha256": "9391b171ac4777a5e746a77283af0bc39c222310e750f328a933a5b32de164d9"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/fatura-torres-2026-06.json",
+      "bytes": 1583,
+      "sha256": "dcdf72809177fc3458c46c2cd0ec24fb8c9756d0d207c70eba50549974ecc0e5"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/fatura-torres-2026-06_conciliada.json",
+      "bytes": 1688,
+      "sha256": "d6e93b5ab17f1464ca28ac3d726aacbdc040cbf1056441d7256164bc3d929dbe"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/fatura-torres-ii-2026-06.json",
+      "bytes": 1670,
+      "sha256": "7fd63ea4955cd8eeced31119ab7c50a53b73c21e3b2c77e89a251ac0cbcfe637"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/fatura-torres-ii-2026-06_conciliada.json",
+      "bytes": 1773,
+      "sha256": "18cbe40055c480337684c3b7925bd39fb33a41cb3f0019409e0b97151f2f27b9"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/fatura-viver-melhor-2026-06.json",
+      "bytes": 1751,
+      "sha256": "e1894327c64567c93955970b55d5efe0e845585ba5effdf65dbffd9f925d2bdb"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/fatura-viver-melhor-2026-06_conciliada.json",
+      "bytes": 1854,
+      "sha256": "df3ef45de9ac14e2f268b1e1d994cbfdf0a670df9929e57f90cd33732e536016"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/fluxo-santa-tereza-bess.json",
+      "bytes": 55189,
+      "sha256": "53c5d21da6c678ca5caff13e0cb4c165fd25bffe3317e13e23b80d4c2334ca6d"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/fluxo-santa-tereza-solar.json",
+      "bytes": 57950,
+      "sha256": "a2b7098b95caa5659f8a7ac62d723153fc7fd091cd765d7d9d19f392a6bc2d0a"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/golden-hashes.json",
+      "bytes": 98,
+      "sha256": "64974a19cdf51c535005bc177f7f4c3ad3c6111e1fc2a54ab9c63d59116a65e6"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/img_caso.json",
+      "bytes": 331,
+      "sha256": "55bdc7ffd13641d6fe9fe5e009b3fc626494db4460c23f00f7e6830e274c2183"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/registro-producao.jsonl",
+      "bytes": 8380,
+      "sha256": "b5be2d8b63f2e99ccf63b36cb7a537cc6be8207db286285a2e594ee152483527"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/serra-verde-uc-0188872-2-2025-06.md",
+      "bytes": 1345,
+      "sha256": "e528654f4bb75ab4de55a6911a232f93d4808555428edb1fce0bcc2e986173ce"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/tipos-conhecidos.json",
+      "bytes": 871,
+      "sha256": "e8972c25eaf588215dd6f3a8f989fbff041f083fc60e8149549cdd9020dd289d"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/uc-01939890-santa-tereza.md",
+      "bytes": 2494,
+      "sha256": "09d1678f481479e97e3ec02ae107b525cd222d50c55ea55ad73765745b2ff47f"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/casos/uc-3531002-1-am-quimica.md",
+      "bytes": 2523,
+      "sha256": "5fec3aef316c1f2dade480717cf6e3ca9e4b9f5200a2742e84e079a8b127f9ea"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/references/BESS_Dimensionador_Modelo_REV04.xlsx",
+      "bytes": 72609,
+      "sha256": "08291047844ba73c859169125c8ae0d88cd11e7c9a35efc23042ff44df6d811f"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/references/BESS_Dimensionador_Solar_modelo_dilkson.xlsx",
+      "bytes": 98957,
+      "sha256": "51e4d3241e9f91dd38aaeaa1aa4919eca3241535a5b517db041373ae49d21221"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/references/checklist-qualidade.md",
+      "bytes": 3186,
+      "sha256": "810f915c6fa85a1f52012a0d9636591eeb8ff6ee0db943cc46cc22cebda7db4a"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/references/estrutura-relatorio.md",
+      "bytes": 3987,
+      "sha256": "f77bfbe5f0d68166d2b1603837c90ba461abd73f23291c3c5ccaa17515fb9a2b"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/references/feedback-com-porque.md",
+      "bytes": 1371,
+      "sha256": "de622ba299b3217c04c55c760e8a93ef7a61ee9737f61b1f861eb5d9e1597f02"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/references/fontes-externas.md",
+      "bytes": 657,
+      "sha256": "1a65cfd7b6247bcff38a9e75461402d3f039083e64870194b4da9e5e07472951"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/references/gatilhos-e-entradas.md",
+      "bytes": 1178,
+      "sha256": "4689fb0ea9667adab270d4a1ac49a7ea9b70d812d3a566a8034a5c8af7ca70d5"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/references/metodologia-calculos.md",
+      "bytes": 5508,
+      "sha256": "afd104413cbd53e9310a263fe32041ea5e15c5473f90a0254fe39a62d47bbc80"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/references/piloto-serra-verde.md",
+      "bytes": 1981,
+      "sha256": "2b89e61b5e9d7e13979ba5d77f51f5bc82b8a780026e4e486366223f9728362e"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/references/prd-trava-dupla-consulta-estudo-bess.md",
+      "bytes": 4943,
+      "sha256": "8efc348af3144ccf043c64c643b5fbeb17e68aa209f0d49ddd93e9b9dd586954"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/references/template-dados.json",
+      "bytes": 915,
+      "sha256": "a8dc19335014cd8b5dd9986ab184c2be42e5459d1c31870d606fffea27e28b50"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/references/visual-pdf-ready.md",
+      "bytes": 1397,
+      "sha256": "da391fd59ba97c0159113aac7af9bb85a76c8a77c40b779cc1e36d2a5210c50a"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/scripts/doctor.sh",
+      "bytes": 968,
+      "sha256": "cddc0e532e0e5377701931de9dbc888a8849e0aaf86c8ae71fb3715de9a5a102"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/scripts/generate_jardim_floresta_2026_06.py",
+      "bytes": 17153,
+      "sha256": "349cf494d91908928d698f552b8cc4c9e8d6cc31254eb2bfb69c228fb0ef20b0"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/scripts/generate_jardim_floresta_2026_06_padrao.py",
+      "bytes": 20425,
+      "sha256": "04470540a56c9c9fd3fd7b574db56669497167da94a4389880b79e1f364f68ef"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/scripts/generate_porto_velho_2026_06_bess.py",
+      "bytes": 14860,
+      "sha256": "e81eeea18812ca7f1482afd67830ad8c342451164f183d6aae6018b451854122"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/scripts/generate_santa_tereza_2026_06_solar_bess.py",
+      "bytes": 19326,
+      "sha256": "2d98313680b1e1066c56a3b30ce762f6f4dd45830b946e6c8ec99fb0d2b72e97"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/state.json",
+      "bytes": 820,
+      "sha256": "4f6e47f2fa7b655ba5abbb64215e31a9e180f23bf0452f89b9c2f2717741a38b"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/templates/modelo-aprovado-cliente-serra-verde-2025-06-b.html",
+      "bytes": 443837,
+      "sha256": "63c17b1a21a7c39eccdf6b314857bdfabe362e2b83a7087cd7b26b2f046c8624"
+    },
+    {
+      "caminho": "skill-estudo-eficiencia-energetica/templates/relatorio-html-pdf-ready.md",
+      "bytes": 443,
+      "sha256": "48705d0cccb370e03ab8510a47b8045f487bef6ddfbbcfb96bf4b0e54a06ee64"
+    }
+  ]
+}

@@ -1,0 +1,75 @@
+{
+ "cliente": "Mercantil Nova Era Ltda",
+ "cnpj": "04.240.370/0001-77",
+ "uc": "000127875",
+ "distribuidora": "Ambar Energia AM",
+ "distribuidora_display": "Âmbar Energia - AM",
+ "localidade": "Manaus/AM",
+ "regime": "mercado_livre",
+ "grupo": "A",
+ "modalidade": "verde",
+ "classe": "industrial",
+ "classe_display": "Industrial / industrial",
+ "referencia": "06/2026",
+ "vencimento": "14/07/2026",
+ "total": 90168.68,
+ "apelido": "Torres II",
+ "leitura_anterior": "31/05/2026",
+ "leitura_atual": "30/06/2026",
+ "nome_analise": "Mercantil Nova Era (loja Torres II)",
+ "itens": [
+  {
+   "nome": "Consumo Ponta (TUSD)",
+   "valor": 18745.91,
+   "kwh": 20146,
+   "tarifa": 0.930503
+  },
+  {
+   "nome": "Consumo Fora Ponta (TUSD)",
+   "valor": 55135.42,
+   "kwh": 189420,
+   "tarifa": 0.291075
+  },
+  {
+   "nome": "Demanda",
+   "valor": 7531.61,
+   "kw": 550,
+   "detalhe": "459 kW medida a 14,162500 + 91 kW a 11,330000 (desconto demanda 49,89%)"
+  },
+  {
+   "nome": "Reativo excedente fora ponta",
+   "valor": 9.83
+  },
+  {
+   "nome": "COSIP",
+   "valor": 8745.91
+  }
+ ],
+ "consumo_ponta_kwh": 20146,
+ "consumo_fp_kwh": 189420,
+ "demanda_contratada_kw": 550,
+ "demanda_registrada_ponta_kw": 430,
+ "demanda_registrada_fp_kw": 459,
+ "demanda_ref_potencia_kw": 430,
+ "reativo_ponta_kwh": 0,
+ "reativo_fp_kwh": 28,
+ "reativo_ponta_valor": 0.0,
+ "reativo_fp_valor": 9.83,
+ "tarifa_ponta_total": 1.173303,
+ "tarifa_fp_total": 0.533875,
+ "demanda_complemento_valor": 1031.03,
+ "energia_nf": {
+  "fornecedor": "ENEL (NFE)",
+  "total": 51133.68,
+  "mwh": 210.6,
+  "preco_kwh": 0.2428
+ },
+ "total_gasto_energia": 141302.36,
+ "fonte": "NF3e Ambar Energia AM + NFE ENEL 0002562031",
+ "conciliada": true,
+ "prova": {
+  "soma_itens": 90168.68,
+  "total": 90168.68,
+  "diferenca": 0.0
+ }
+}

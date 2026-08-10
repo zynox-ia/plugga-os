@@ -1,0 +1,77 @@
+{
+ "cliente": "Mercantil Nova Era Ltda",
+ "cnpj": "04.240.370/0001-77",
+ "uc": "000147906",
+ "distribuidora": "Ambar Energia AM",
+ "distribuidora_display": "Âmbar Energia - AM",
+ "localidade": "Manaus/AM",
+ "regime": "mercado_livre",
+ "grupo": "A",
+ "modalidade": "verde",
+ "classe": "comercial",
+ "classe_display": "Comercial / comercial",
+ "referencia": "06/2026",
+ "vencimento": "14/07/2026",
+ "total": 138730.79,
+ "apelido": "Ponta Negra",
+ "leitura_anterior": "31/05/2026",
+ "leitura_atual": "30/06/2026",
+ "nome_analise": "Mercantil Nova Era (loja Ponta Negra)",
+ "itens": [
+  {
+   "nome": "Consumo Ponta (TUSD)",
+   "valor": 26099.03,
+   "kwh": 28056,
+   "tarifa": 0.930248
+  },
+  {
+   "nome": "Consumo Fora Ponta (TUSD)",
+   "valor": 93630.38,
+   "kwh": 321671,
+   "tarifa": 0.291075
+  },
+  {
+   "nome": "Demanda",
+   "valor": 10167.91,
+   "kw": 730,
+   "detalhe": "671 kW medida a 14,157500 + 59 kW a 11,326000 (desconto demanda 49,91%)"
+  },
+  {
+   "nome": "Reativo excedente ponta",
+   "valor": 51.65
+  },
+  {
+   "nome": "Reativo excedente fora ponta",
+   "valor": 762.5
+  },
+  {
+   "nome": "Devolucao Diferenca Desconto Tusd-Ccee 04/26",
+   "valor": -726.59
+  },
+  {
+   "nome": "COSIP",
+   "valor": 8745.91
+  }
+ ],
+ "consumo_ponta_kwh": 28056,
+ "consumo_fp_kwh": 321671,
+ "demanda_contratada_kw": 730,
+ "demanda_registrada_ponta_kw": 613,
+ "demanda_registrada_fp_kw": 671,
+ "demanda_ref_potencia_kw": 613,
+ "reativo_ponta_kwh": 147,
+ "reativo_fp_kwh": 2170,
+ "reativo_ponta_valor": 51.65,
+ "reativo_fp_valor": 762.5,
+ "tarifa_ponta_total": 1.160523,
+ "tarifa_fp_total": 0.52135,
+ "demanda_complemento_valor": 668.23,
+ "energia_nf": {
+  "fornecedor": "ECOM Energia",
+  "total": 80987.26,
+  "mwh": 351.698,
+  "preco_kwh": 0.230275
+ },
+ "total_gasto_energia": 219718.05,
+ "fonte": "NF3e Ambar Energia AM + danfe ECOM A100010077712"
+}

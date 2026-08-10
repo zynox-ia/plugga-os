@@ -4,6 +4,7 @@ import {
   type EnergyPremises,
   type EnergyStudyDetail,
   type EnergyStudyListQuery,
+  type InvoiceContext,
   type InvoiceData,
   type ListEnergyStudiesResponse,
   type ProblemaDeValidacao,
@@ -30,12 +31,110 @@ const FATURA: InvoiceData = {
   valorDemanda: 15_827.0,
   valorTotal: 100_881.25,
   demandaContratadaKw: 700,
-  demandaMedidaPontaKw: 249,
+  demandaMedidaPontaKw: 231,
   demandaMedidaForaPontaKw: 586,
   tarifaDemanda: 22.61,
   valorReativo: 571.22,
   valorBeneficioFiscal: 0,
   valorMultasJurosEncargos: 0,
+};
+
+const CONTEXTO: InvoiceContext = {
+  distribuidora: "Amazonas Energia",
+  regime: "cativo",
+  modalidade: "verde",
+  grupo: "A",
+  vencimento: "20/07/2026",
+  apelido: "Loja Centro",
+  classe: "Comercial / comercial",
+  localidade: "Manaus/AM",
+  leituraAnterior: "31/05/2026",
+  leituraAtual: "30/06/2026",
+  hspMensal: [4.5, 4.5, 4.5, 4.5, 4.5, 4.5, 4.5, 4.5, 4.5, 4.5, 4.5, 4.5],
+  itens: [
+    {
+      nome: "Consumo ponta",
+      categoria: "consumo_ponta",
+      compoeTotal: true,
+      valor: FATURA.valorPonta,
+      quantidade: FATURA.consumoPontaKwh,
+      unidade: "kWh",
+      tarifa: FATURA.tarifaPonta,
+    },
+    {
+      nome: "Consumo fora ponta",
+      categoria: "consumo_fora_ponta",
+      compoeTotal: true,
+      valor: FATURA.valorForaPonta,
+      quantidade: FATURA.consumoForaPontaKwh,
+      unidade: "kWh",
+      tarifa: FATURA.tarifaForaPonta,
+    },
+    {
+      nome: "Demanda faturada",
+      categoria: "demanda_faturada",
+      compoeTotal: true,
+      valor: FATURA.valorDemanda,
+      quantidade: 700,
+      unidade: "kW",
+      tarifa: 22.61,
+    },
+    {
+      nome: "Energia reativa",
+      categoria: "reativo",
+      compoeTotal: true,
+      valor: FATURA.valorReativo,
+      quantidade: null,
+      unidade: null,
+      tarifa: null,
+    },
+    {
+      nome: "COSIP",
+      categoria: "outros",
+      compoeTotal: true,
+      valor: 8_745.91,
+      quantidade: null,
+      unidade: null,
+      tarifa: null,
+    },
+    {
+      nome: "Demanda contratada",
+      categoria: "demanda_contratada",
+      compoeTotal: false,
+      valor: 0,
+      quantidade: FATURA.demandaContratadaKw,
+      unidade: "kW",
+      tarifa: null,
+    },
+    {
+      nome: "Demanda medida em ponta",
+      categoria: "demanda_medida_ponta",
+      compoeTotal: false,
+      valor: 0,
+      quantidade: FATURA.demandaMedidaPontaKw,
+      unidade: "kW",
+      tarifa: null,
+    },
+    {
+      nome: "Demanda medida fora ponta",
+      categoria: "demanda_medida_fora_ponta",
+      compoeTotal: false,
+      valor: 0,
+      quantidade: FATURA.demandaMedidaForaPontaKw,
+      unidade: "kW",
+      tarifa: null,
+    },
+  ],
+  arquivoNome: "fatura-06-2026.pdf",
+  arquivoChave: null,
+  origem: "manual",
+};
+
+const RECEBIMENTO = {
+  invoice: FATURA,
+  context: CONTEXTO,
+  demandHistory: [] as number[],
+  hasLoadProfile: false,
 };
 
 const ADMIN: AuthPrincipal = { id: "11111111-1111-4111-8111-111111111111", kind: "user", roles: ["admin"] };
@@ -48,6 +147,7 @@ const AGENTE: AuthPrincipal = { id: "openclaw", kind: "service", roles: ["tech"]
  */
 class RepositorioEmMemoria extends EstudoRepository {
   private readonly registros = new Map<string, EstudoRegistro>();
+  private readonly tiposConhecidos = new Set<string>();
   private sequencia = 0;
 
   async listar(query?: EnergyStudyListQuery): Promise<ListEnergyStudiesResponse> {
@@ -70,14 +170,14 @@ class RepositorioEmMemoria extends EstudoRepository {
       ...this.resumo(r),
       premiseVersion: r.premiseVersion,
       invoice: r.invoice,
+      invoiceContext: r.invoiceContext,
+      reconciliationProof: r.reconciliationProof,
       demandHistory: r.demandHistory,
-      audit: results.auditoria ?? null,
-      demand: results.demanda ?? null,
-      sizing: results.dimensionamento ?? null,
-      savings: results.economia ?? null,
-      financial: results.financeiro ?? null,
+      estudo: results.estudo ?? null,
+      trafficLightResult: r.trafficLightResult,
       validationIssues: r.validationIssues,
       hasDocument: r.documentHtml !== null,
+      hasMobileDocument: r.documentHtmlMobile !== null,
     };
   }
 
@@ -94,11 +194,16 @@ class RepositorioEmMemoria extends EstudoRepository {
       calculationMode: input.calculationMode,
       premiseVersion: input.premiseVersion,
       invoice: null,
+      invoiceContext: null,
+      reconciliationProof: null,
       demandHistory: [],
       hasLoadProfile: false,
       results: null,
       validationIssues: null,
       documentHtml: null,
+      documentHtmlMobile: null,
+      trafficLight: null,
+      trafficLightResult: null,
       approvedById: null,
       approvedAt: null,
       sentAt: null,
@@ -111,12 +216,27 @@ class RepositorioEmMemoria extends EstudoRepository {
     this.registros.set(id, {
       ...r,
       status: input.status ?? r.status,
+      calculationMode: input.calculationMode ?? r.calculationMode,
+      hasLoadProfile:
+        input.calculationMode !== undefined
+          ? input.calculationMode === "memoria_massa"
+          : r.hasLoadProfile,
       invoice: input.invoice ?? r.invoice,
+      invoiceContext: input.invoiceContext ?? r.invoiceContext,
+      reconciliationProof:
+        input.reconciliationProof !== undefined
+          ? input.reconciliationProof
+          : r.reconciliationProof,
       demandHistory: input.demandHistory ?? r.demandHistory,
       results: input.results !== undefined ? input.results : r.results,
       validationIssues:
         input.validationIssues !== undefined ? input.validationIssues : r.validationIssues,
       documentHtml: input.documentHtml !== undefined ? input.documentHtml : r.documentHtml,
+      documentHtmlMobile:
+        input.documentHtmlMobile !== undefined ? input.documentHtmlMobile : r.documentHtmlMobile,
+      trafficLight: input.trafficLight !== undefined ? input.trafficLight : r.trafficLight,
+      trafficLightResult:
+        input.trafficLightResult !== undefined ? input.trafficLightResult : r.trafficLightResult,
       approvedById: input.approvedById !== undefined ? input.approvedById : r.approvedById,
       approvedAt: input.approvedAt !== undefined ? input.approvedAt : r.approvedAt,
       sentAt: input.sentAt !== undefined ? input.sentAt : r.sentAt,
@@ -124,10 +244,19 @@ class RepositorioEmMemoria extends EstudoRepository {
     return this.detalhar(id);
   }
 
-  async documento(id: string): Promise<string> {
+  async documento(id: string, versao: "desktop" | "celular" = "desktop"): Promise<string> {
     const r = await this.carregar(id);
-    if (!r.documentHtml) throw new Error("estudo sem documento gerado");
-    return r.documentHtml;
+    const documento = versao === "celular" ? r.documentHtmlMobile : r.documentHtml;
+    if (!documento) throw new Error("estudo sem documento gerado");
+    return documento;
+  }
+
+  async tipoConhecido(chave: string): Promise<boolean> {
+    return this.tiposConhecidos.has(chave);
+  }
+
+  async aprovarTipo(input: { chave: string }): Promise<void> {
+    this.tiposConhecidos.add(input.chave);
   }
 
   async premissasVigentes(): Promise<EnergyPremises> {
@@ -149,6 +278,7 @@ class RepositorioEmMemoria extends EstudoRepository {
       competenceYear: r.competenceYear,
       status: r.status,
       calculationMode: r.calculationMode,
+      trafficLight: r.trafficLight,
       economiaMensal: null,
       capexTotal: null,
       version: 1,
@@ -171,6 +301,22 @@ class RepositorioEmMemoria extends EstudoRepository {
         validationIssues: problemas,
         status: "bloqueado",
         documentHtml: null,
+        documentHtmlMobile: null,
+        trafficLight: "vermelho",
+      });
+    }
+  }
+
+  /** Simula registro anterior à coluna invoiceContext da nova auditoria. */
+  forcarEstudoLegado(id: string): void {
+    const r = this.registros.get(id);
+    if (r) {
+      this.registros.set(id, {
+        ...r,
+        status: "bloqueado",
+        invoice: FATURA,
+        invoiceContext: null,
+        validationIssues: [{ regra: "legado", detalhe: "fatura ainda não conciliada" }],
       });
     }
   }
@@ -206,7 +352,7 @@ describe("EstudoService — fluxo completo", () => {
     const estudo = await criar();
 
     expect(estudo.status).toBe("aguardando_dados");
-    expect(estudo.premiseVersion).toBe("2026-08-08");
+    expect(estudo.premiseVersion).toBe("2026-08-09-prd-v1");
     expect(estudo.invoice).toBeNull();
   });
 
@@ -214,6 +360,7 @@ describe("EstudoService — fluxo completo", () => {
     const criado = await criar();
     const estudo = await service.receberFatura(criado.id, {
       invoice: FATURA,
+      context: CONTEXTO,
       demandHistory: [634, 704, 705, 698, 668, 586],
       hasLoadProfile: false,
     });
@@ -221,15 +368,70 @@ describe("EstudoService — fluxo completo", () => {
     expect(estudo.status).toBe("em_validacao");
     expect(estudo.validationIssues).toBeNull();
     expect(estudo.hasDocument).toBe(true);
+    expect(estudo.hasMobileDocument).toBe(true);
+    expect(estudo.trafficLight).toBe("amarelo");
     // Os números do motor ficam gravados, não recalculados a cada leitura.
-    expect(estudo.savings?.economiaMensal).toBeGreaterThan(0);
-    expect(estudo.financial?.capexTotal).toBe(3_155_000);
-    expect(estudo.demand?.preliminar).toBe(true);
+    expect(estudo.estudo?.economiaMensal).toBeGreaterThan(0);
+    // Uma unidade BESS a R$ 550 mil mais a usina derivada do kWp: o CAPEX
+    // agora vem do dimensionamento normativo, não de uma premissa de tabela.
+    expect(estudo.estudo?.capexBess).toBe(550_000);
+    expect(estudo.estudo?.capexTotal).toBeGreaterThan(550_000);
+    // O estudo carrega os dois cenários: o apresentado e o BESS puro que o
+    // semáforo julga.
+    expect(estudo.estudo?.modo).toBe("solar_bess");
+    expect(estudo.estudo?.solarKwp).toBeGreaterThan(0);
+    expect(estudo.estudo?.bessPuro.capexTotal).toBeLessThan(
+      estudo.estudo!.capexTotal,
+    );
+    expect(estudo.estudo?.fluxoAnual).toHaveLength(21);
+  });
+
+  it("fora do envelope suportado, para e escala com o erro literal", async () => {
+    const criado = await criar();
+
+    const estudo = await service.receberFatura(criado.id, {
+      ...RECEBIMENTO,
+      // Pico de ponta que exigiria mais unidades do que a energia pede: o
+      // dimensionamento passa a ser limitado por potência, que o envelope da
+      // norma não cobre.
+      invoice: { ...FATURA, demandaMedidaPontaKw: 700 },
+    });
+
+    expect(estudo.status).toBe("bloqueado");
+    expect(estudo.trafficLight).toBe("vermelho");
+    expect(estudo.hasDocument).toBe(false);
+    expect(estudo.validationIssues?.[0]?.detalhe).toContain("limitado por potência");
+  });
+
+  it("obriga e aceita conciliação antes de recalcular estudo legado", async () => {
+    const criado = await criar();
+    repositorio.forcarEstudoLegado(criado.id);
+
+    const estudo = await service.receberFatura(criado.id, RECEBIMENTO);
+
+    expect(estudo.status).toBe("em_validacao");
+    expect(estudo.invoiceContext).toEqual(CONTEXTO);
+    expect(estudo.validationIssues).toBeNull();
+    expect(estudo.hasDocument).toBe(true);
+  });
+
+  it("mantém o modo do estudo coerente com a memória de massa informada", async () => {
+    const criado = await criar();
+    const estudo = await service.receberFatura(criado.id, {
+      ...RECEBIMENTO,
+      hasLoadProfile: true,
+    });
+
+    expect(estudo.calculationMode).toBe("memoria_massa");
+
+    const recalculado = await service.calcular(criado.id);
+    expect(recalculado.calculationMode).toBe("memoria_massa");
+    expect(recalculado.estudo?.economiaAno1).toBe(estudo.estudo?.economiaAno1);
   });
 
   it("percorre aprovação e envio", async () => {
     const criado = await criar();
-    await service.receberFatura(criado.id, { invoice: FATURA, demandHistory: [], hasLoadProfile: false });
+    await service.receberFatura(criado.id, RECEBIMENTO);
 
     const aprovado = await service.aprovar(criado.id, { note: "conferido" }, ADMIN, AGORA);
     expect(aprovado.status).toBe("aprovado_internamente");
@@ -240,13 +442,24 @@ describe("EstudoService — fluxo completo", () => {
     expect(enviado.sentAt).not.toBeNull();
   });
 
+  it("invalida a assinatura anterior quando o estudo é recalculado", async () => {
+    const criado = await criar();
+    await service.receberFatura(criado.id, RECEBIMENTO);
+    await service.aprovar(criado.id, { note: "conferido" }, ADMIN, AGORA);
+
+    const recalculado = await service.calcular(criado.id);
+
+    expect(recalculado.status).toBe("em_validacao");
+    expect(recalculado.approvedAt).toBeNull();
+  });
+
   /**
    * A trava central: o estudo não avança com problema de validação em aberto.
    * No fluxo do agente isso depende de alguém lembrar de conferir.
    */
   it("recusa aprovar estudo bloqueado por validação", async () => {
     const criado = await criar();
-    await service.receberFatura(criado.id, { invoice: FATURA, demandHistory: [], hasLoadProfile: false });
+    await service.receberFatura(criado.id, RECEBIMENTO);
     repositorio.forcarProblemas(criado.id, [{ regra: "termo_interno", detalhe: "all-in" }]);
 
     await expect(service.aprovar(criado.id, {}, ADMIN, AGORA)).rejects.toBeInstanceOf(
@@ -256,7 +469,7 @@ describe("EstudoService — fluxo completo", () => {
 
   it("recusa enviar sem aprovação humana registrada", async () => {
     const criado = await criar();
-    await service.receberFatura(criado.id, { invoice: FATURA, demandHistory: [], hasLoadProfile: false });
+    await service.receberFatura(criado.id, RECEBIMENTO);
 
     // Em `em_validacao` o envio nem é transição válida — e mesmo que fosse,
     // faltaria o aprovador.
@@ -265,7 +478,7 @@ describe("EstudoService — fluxo completo", () => {
 
   it("principal de serviço não pode aprovar", async () => {
     const criado = await criar();
-    await service.receberFatura(criado.id, { invoice: FATURA, demandHistory: [], hasLoadProfile: false });
+    await service.receberFatura(criado.id, RECEBIMENTO);
 
     // O agente opera o fluxo, mas não assina: aprovar é assumir a
     // responsabilidade pelo que sai para o cliente.
@@ -276,7 +489,7 @@ describe("EstudoService — fluxo completo", () => {
 
   it("id sintético do escape hatch de desenvolvimento também não aprova", async () => {
     const criado = await criar();
-    await service.receberFatura(criado.id, { invoice: FATURA, demandHistory: [], hasLoadProfile: false });
+    await service.receberFatura(criado.id, RECEBIMENTO);
 
     // `x-dev-principal: user:andre` resolve para kind "user", mas o id não é
     // UUID: não existe pessoa correspondente no banco para responder por isso.
@@ -308,14 +521,14 @@ describe("EstudoService — fluxo completo", () => {
    */
   it("guarda o documento quando a validação passa, que é o que o PDF converte", async () => {
     const criado = await criar();
-    await service.receberFatura(criado.id, { invoice: FATURA, demandHistory: [], hasLoadProfile: false });
+    await service.receberFatura(criado.id, RECEBIMENTO);
 
     await expect(service.documento(criado.id)).resolves.toContain("Relatório de Auditoria");
   });
 
   it("recusa calcular sem ficha de fatura", async () => {
     const criado = await criar();
-    await expect(service.calcular(criado.id)).rejects.toThrow(/sem ficha de fatura/);
+    await expect(service.calcular(criado.id)).rejects.toThrow(/sem fatura conciliável/);
   });
 
   it("recusa competência no futuro", async () => {
@@ -336,7 +549,7 @@ describe("EstudoService — fluxo completo", () => {
 
   it("filtra a listagem por estado", async () => {
     const a = await criar();
-    await service.receberFatura(a.id, { invoice: FATURA, demandHistory: [], hasLoadProfile: false });
+    await service.receberFatura(a.id, RECEBIMENTO);
     await criar();
 
     expect((await service.listar({ status: "em_validacao" })).items).toHaveLength(1);

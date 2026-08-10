@@ -41,9 +41,35 @@ function numero(texto: string): number {
   return Number(texto.replace(/\./g, "").replace(",", "."));
 }
 
-/** Cabeça do item: rótulo, quantidade, unidade e a tarifa sem impostos. */
+/**
+ * Tarifa como a fatura a imprime, com ponto ou vírgula decimal.
+ *
+ * `2.689175` e `2,151340` são o mesmo tipo de número; o que separa o decimal do
+ * milhar aqui são as seis casas — quem tem seis dígitos depois do separador é
+ * decimal, sempre.
+ */
+function tarifaNumero(texto: string): number {
+  const decimal = /[.,](\d{6})$/.exec(texto);
+  if (!decimal) return numero(texto);
+  const inteiro = texto.slice(0, texto.length - 7).replace(/[.,]/g, "");
+  return Number(`${inteiro || "0"}.${decimal[1]}`);
+}
+
+/**
+ * Cabeça do item: rótulo, quantidade, unidade e a tarifa.
+ *
+ * O separador decimal da tarifa varia por distribuidora. A Roraima Energia
+ * imprime `2.689175` com ponto na descrição e `2,151340` com vírgula na coluna
+ * ao lado — a mesma tarifa, dois separadores, na mesma linha. Aceitar só a
+ * vírgula fazia a fatura inteira passar batido: nenhuma linha de consumo ou de
+ * demanda era reconhecida.
+ *
+ * Aceitar os dois não é ambíguo aqui: são sempre seis casas depois do
+ * separador, ancoradas no `a` que a fatura imprime entre a unidade e a tarifa.
+ * Milhar não aparece nessa posição — tarifa de energia não chega a mil.
+ */
 const CABECA =
-  /^(?<rotulo>.*?)\s*(?<quantidade>\d[\d.]*)\s*(?<unidade>kWh|kW)\s*a\s*(?<tarifa>[\d.]*,\d{6})(?<resto>.*)$/;
+  /^(?<rotulo>.*?)\s*(?<quantidade>\d[\d.]*)\s*(?<unidade>kWh|kW)\s*a\s*(?<tarifa>[\d.]*[.,]\d{6})(?<resto>.*)$/;
 
 /** Tarifa isolada numa linha (a coluna do meio). */
 const SO_TARIFA = /^[\d.]*,\d{6}$/;
@@ -82,8 +108,18 @@ const SO_ROTULO = /^(?![\d.,\s-]+$)[^\d]*[A-Za-zÀ-ÿ)][^\d]*$/;
 const ROTULO_E_VALOR =
   /^(?<rotulo>(?![\d.,\s-]+$)[^\d]*[A-Za-zÀ-ÿ)])\s+(?<valor>-?[\d.]+,\d{2})$/;
 
-/** Linhas que nunca são item financeiro, por mais que a forma engane. */
-const NAO_E_ITEM = /^(?:CEP|CNPJ|INSC|Chave|Protocolo|Nota Fiscal|https?:|Total|Per[íi]odo)/i;
+/**
+ * Linhas que nunca são item financeiro, por mais que a forma engane.
+ *
+ * O segundo grupo são as **grandezas de medição** — o quadro "Dados da Leitura",
+ * com leitura anterior, atual, constante e registrado. Elas têm rótulo curto e
+ * terminam em número, que é exatamente a forma de um item sem quantidade. Na
+ * leitura de largura inteira passavam despercebidas porque vinham grudadas em
+ * outra coluna; lendo por coluna, cada uma vira uma linha limpa e entraria como
+ * item de R$ 52.536.132,00. Medição não é dinheiro.
+ */
+const NAO_E_ITEM =
+  /^(?:CEP|CNPJ|INSC|Chave|Protocolo|Nota Fiscal|https?:|Total|Per[íi]odo|En\s+Ativa|En\s+Reativa|Dem\s+Acum|Dmcr\s+Acum|Ufer|Desc\.?\s+da\s+Grandeza|Leit\.|Constante|Registrado)/i;
 
 export function lerItens(linhas: readonly string[]): ItemDaFatura[] {
   const itens: ItemDaFatura[] = [];
@@ -104,7 +140,7 @@ export function lerItens(linhas: readonly string[]): ItemDaFatura[] {
           rotulo: rotulo.trim(),
           quantidade: numero(quantidade),
           unidade: unidade as UnidadeDoItem,
-          tarifa: numero(tarifa),
+          tarifa: tarifaNumero(tarifa),
           valor: numero(colado[2]),
           origem: linha,
         });
@@ -122,7 +158,7 @@ export function lerItens(linhas: readonly string[]): ItemDaFatura[] {
           rotulo: rotulo.trim(),
           quantidade: numero(quantidade),
           unidade: unidade as UnidadeDoItem,
-          tarifa: numero(tarifa),
+          tarifa: tarifaNumero(tarifa),
           valor: numero(apenasValor[1]),
           origem: linha,
         });
@@ -138,7 +174,7 @@ export function lerItens(linhas: readonly string[]): ItemDaFatura[] {
           rotulo: rotulo.trim(),
           quantidade: numero(quantidade),
           unidade: unidade as UnidadeDoItem,
-          tarifa: numero(tarifa),
+          tarifa: tarifaNumero(tarifa),
           valor: numero(em(j)),
           origem: `${linha} | ${em(j)}`,
         });

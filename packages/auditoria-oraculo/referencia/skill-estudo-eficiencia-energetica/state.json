@@ -1,0 +1,27 @@
+{
+  "skill": "estudo-eficiencia-energetica",
+  "status": "piloto-aprovado-em-evolucao",
+  "area": "backoffice-suporte",
+  "authorized_channels": [
+    "privado-dilkson",
+    "Plugga AI - OPERAÇÃO MÊS A MÊS",
+    "O&M PROJETOS (telegram:-5304455026)"
+  ],
+  "current_pilot": {
+    "cliente": "Agroindustrial Serra Verde Ltda",
+    "uc": "0188872-2",
+    "referencia": "06/2025",
+    "html": "reports/auditoria-energetica-serra-verde-uc-0188872-2-2025-06-cliente.html",
+    "pdf": "reports/auditoria-energetica-serra-verde-uc-0188872-2-2025-06-cliente.pdf"
+  },
+  "defaults": {
+    "horizonte_anos": 20,
+    "tma_aa": 0.05,
+    "reajuste_tarifario_aa": 0.04,
+    "bess_modelo": "Huawei LUNA2000-241-2S1",
+    "bess_kwh": 241,
+    "bess_kw": 108,
+    "capex_bess_unitario": 550000
+  },
+  "last_updated": "2026-08-04"
+}

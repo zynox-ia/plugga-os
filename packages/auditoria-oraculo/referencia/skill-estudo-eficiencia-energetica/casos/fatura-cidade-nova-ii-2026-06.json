@@ -1,0 +1,69 @@
+{
+ "consumo_ponta_kwh": 19999,
+ "consumo_fp_kwh": 212674,
+ "demanda_complemento_valor": 747.78,
+ "reativo_ponta_kwh": 7,
+ "reativo_ponta_valor": 2.45,
+ "reativo_fp_kwh": 0,
+ "reativo_fp_valor": 0.0,
+ "total": 95597.7,
+ "demanda_contratada_kw": 530,
+ "demanda_registrada_ponta_kw": 435,
+ "demanda_registrada_fp_kw": 464,
+ "classe": "comercial",
+ "uc": "118254185",
+ "vencimento": "14/07/2026",
+ "leitura_anterior": "02/07/2026",
+ "leitura_atual": "02/07/2026",
+ "cliente": "Mercantil Nova Era Ltda",
+ "cnpj": "04.240.370/0001-77",
+ "distribuidora": "Ambar Energia AM",
+ "distribuidora_display": "Âmbar Energia - AM",
+ "localidade": "Manaus/AM",
+ "regime": "mercado_livre",
+ "grupo": "A",
+ "modalidade": "verde",
+ "classe_display": "Comercial / comercial",
+ "referencia": "06/2026",
+ "apelido": "Cidade Nova Ii",
+ "nome_analise": "Mercantil Nova Era (loja Cidade Nova Ii)",
+ "itens": [
+  {
+   "nome": "Consumo Ponta (TUSD)",
+   "valor": 18524.63,
+   "kwh": 19999,
+   "tarifa": 0.926278
+  },
+  {
+   "nome": "Consumo Fora Ponta (TUSD)",
+   "valor": 61005.53,
+   "kwh": 212674,
+   "tarifa": 0.28685
+  },
+  {
+   "nome": "Demanda",
+   "valor": 7319.18,
+   "kw": 530,
+   "detalhe": "464 kW a 14,162500 + 66 kW a 11,330000"
+  },
+  {
+   "nome": "Reativo excedente ponta",
+   "valor": 2.45
+  },
+  {
+   "nome": "COSIP",
+   "valor": 8745.91
+  }
+ ],
+ "demanda_ref_potencia_kw": 435,
+ "tarifa_ponta_total": 1.169078,
+ "tarifa_fp_total": 0.52965,
+ "energia_nf": {
+  "fornecedor": "ECOM Energia",
+  "total": 56964.28,
+  "mwh": 234.614,
+  "preco_kwh": 0.2428
+ },
+ "total_gasto_energia": 152561.98,
+ "fonte": "NF3e Ambar Energia AM + NFE_0002562032_1 CIDADE NOVA II.pdf"
+}

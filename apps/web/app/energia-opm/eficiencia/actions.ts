@@ -124,6 +124,14 @@ export async function lerFaturaEnviada(
 
 export async function enviarFatura(id: string, formData: FormData): Promise<ResultadoDaAcao> {
   const numero = (campo: string): number => Number(formData.get(campo) ?? 0);
+  const itens = (() => {
+    try {
+      const bruto = JSON.parse(String(formData.get("contextItems") ?? "[]")) as unknown;
+      return Array.isArray(bruto) ? bruto : [];
+    } catch {
+      return [];
+    }
+  })();
 
   // Histórico vem como texto livre separado por vírgula ou espaço: é assim que
   // a pessoa tem o dado na mão, lendo doze faturas.
@@ -149,6 +157,17 @@ export async function enviarFatura(id: string, formData: FormData): Promise<Resu
       valorReativo: numero("valorReativo"),
       valorBeneficioFiscal: numero("valorBeneficioFiscal"),
       valorMultasJurosEncargos: numero("valorMultasJurosEncargos"),
+    },
+    context: {
+      distribuidora: String(formData.get("distribuidora") ?? "").trim(),
+      regime: String(formData.get("regime") ?? "cativo"),
+      modalidade: String(formData.get("modalidade") ?? "verde"),
+      grupo: "A",
+      vencimento: String(formData.get("vencimento") ?? "").trim() || null,
+      itens,
+      arquivoNome: String(formData.get("arquivoNome") ?? "").trim() || null,
+      arquivoChave: String(formData.get("arquivoChave") ?? "").trim() || null,
+      origem: String(formData.get("origem") ?? "manual"),
     },
     demandHistory: historico,
     hasLoadProfile: formData.get("hasLoadProfile") === "on",
@@ -185,7 +204,8 @@ export async function abrirEstudoPelaFatura(
         consumerUnitId: String(formData.get("consumerUnitId") ?? ""),
         competenceMonth: Number(formData.get("competenceMonth")),
         competenceYear: Number(formData.get("competenceYear")),
-        calculationMode: "preliminar",
+        calculationMode:
+          formData.get("hasLoadProfile") === "on" ? "memoria_massa" : "preliminar",
       }),
       signal: AbortSignal.timeout(TIMEOUT_MS),
       cache: "no-store",

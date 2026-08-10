@@ -1,0 +1,79 @@
+{
+ "consumo_ponta_kwh": 14758,
+ "consumo_fp_kwh": 167395,
+ "demanda_complemento_valor": 1404.42,
+ "reativo_ponta_kwh": 0,
+ "reativo_ponta_valor": 0.0,
+ "reativo_fp_kwh": 4,
+ "reativo_fp_valor": 1.4,
+ "total": 77856.34,
+ "demanda_contratada_kw": 525,
+ "demanda_registrada_ponta_kw": 372,
+ "demanda_registrada_fp_kw": 401,
+ "classe": "comercial",
+ "uc": "118254537",
+ "vencimento": "14/07/2026",
+ "leitura_anterior": "02/07/2026",
+ "leitura_atual": "02/07/2026",
+ "cliente": "Mercantil Nova Era Ltda",
+ "cnpj": "04.240.370/0001-77",
+ "distribuidora": "Ambar Energia AM",
+ "distribuidora_display": "Âmbar Energia - AM",
+ "localidade": "Manaus/AM",
+ "regime": "mercado_livre",
+ "grupo": "A",
+ "modalidade": "verde",
+ "classe_display": "Comercial / comercial",
+ "referencia": "06/2026",
+ "apelido": "Viver Melhor",
+ "nome_analise": "Mercantil Nova Era (loja Viver Melhor)",
+ "itens": [
+  {
+   "nome": "Consumo Ponta (TUSD)",
+   "valor": 13728.59,
+   "kwh": 14758,
+   "tarifa": 0.930248
+  },
+  {
+   "nome": "Consumo Fora Ponta (TUSD)",
+   "valor": 48724.49,
+   "kwh": 167395,
+   "tarifa": 0.291075
+  },
+  {
+   "nome": "Demanda",
+   "valor": 7081.57,
+   "kw": 525,
+   "detalhe": "401 kW a 14,157500 + 124 kW a 11,326000"
+  },
+  {
+   "nome": "Reativo excedente fora ponta",
+   "valor": 1.4
+  },
+  {
+   "nome": "COSIP",
+   "valor": 8745.91
+  },
+  {
+   "nome": "Devolucao Diferenca Desconto Tusd - Ccee 04/26-",
+   "valor": -425.62
+  }
+ ],
+ "demanda_ref_potencia_kw": 372,
+ "tarifa_ponta_total": 1.160523,
+ "tarifa_fp_total": 0.52135,
+ "energia_nf": {
+  "fornecedor": "ECOM Energia",
+  "total": 42168.19,
+  "mwh": 183.121,
+  "preco_kwh": 0.230275
+ },
+ "total_gasto_energia": 120024.53,
+ "fonte": "NF3e Ambar Energia AM + A100010077707-danfe VIVER MELHOR.pdf",
+ "conciliada": true,
+ "prova": {
+  "soma_itens": 77856.34,
+  "total": 77856.34,
+  "diferenca": 0.0
+ }
+}

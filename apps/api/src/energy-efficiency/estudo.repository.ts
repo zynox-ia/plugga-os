@@ -1,12 +1,16 @@
 import type {
   CalculationMode,
   EnergyPremises,
+  EnergyTrafficLight,
   EnergyStudyDetail,
   EnergyStudyListQuery,
   EnergyStudyStatus,
   InvoiceData,
+  InvoiceContext,
   ListEnergyStudiesResponse,
   ProblemaDeValidacao,
+  ReconciliationProof,
+  TrafficLightResult,
 } from "@plugga/shared";
 
 /**
@@ -26,11 +30,16 @@ export type EstudoRegistro = {
   calculationMode: CalculationMode;
   premiseVersion: string;
   invoice: InvoiceData | null;
+  invoiceContext: InvoiceContext | null;
+  reconciliationProof: ReconciliationProof | null;
   demandHistory: number[];
   hasLoadProfile: boolean;
-  results: EnergyStudyDetail["audit"] extends never ? never : Record<string, unknown> | null;
+  results: Record<string, unknown> | null;
   validationIssues: ProblemaDeValidacao[] | null;
   documentHtml: string | null;
+  documentHtmlMobile: string | null;
+  trafficLight: EnergyTrafficLight | null;
+  trafficLightResult: TrafficLightResult | null;
   approvedById: string | null;
   approvedAt: Date | null;
   sentAt: Date | null;
@@ -48,11 +57,19 @@ export type CriarEstudoInput = {
 
 export type AtualizarEstudoInput = {
   status?: EnergyStudyStatus;
+  calculationMode?: CalculationMode;
   invoice?: InvoiceData;
+  invoiceContext?: InvoiceContext;
+  reconciliationProof?: ReconciliationProof | null;
   demandHistory?: number[];
   results?: Record<string, unknown> | null;
   validationIssues?: ProblemaDeValidacao[] | null;
   documentHtml?: string | null;
+  documentHtmlMobile?: string | null;
+  documentHash?: string | null;
+  documentMobileHash?: string | null;
+  trafficLight?: EnergyTrafficLight | null;
+  trafficLightResult?: TrafficLightResult | null;
   economiaMensal?: number | null;
   capexTotal?: number | null;
   approvedById?: string | null;
@@ -68,7 +85,15 @@ export abstract class EstudoRepository {
   abstract carregar(id: string): Promise<EstudoRegistro>;
   abstract criar(input: CriarEstudoInput): Promise<EnergyStudyDetail>;
   abstract atualizar(id: string, input: AtualizarEstudoInput): Promise<EnergyStudyDetail>;
-  abstract documento(id: string): Promise<string>;
+  abstract documento(id: string, versao?: "desktop" | "celular"): Promise<string>;
+  abstract tipoConhecido(chave: string): Promise<boolean>;
+  abstract aprovarTipo(input: {
+    chave: string;
+    contexto: InvoiceContext;
+    exemploUc: string;
+    aprovadoPorId: string;
+    aprovadoEm: Date;
+  }): Promise<void>;
   /** Premissas vigentes na data — o estudo guarda qual versão usou. */
   abstract premissasVigentes(em: Date): Promise<EnergyPremises>;
   abstract premissasPorVersao(versao: string): Promise<EnergyPremises>;

@@ -1,0 +1,19 @@
+{
+  "name": "@plugga/auditoria-oraculo",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "lint": "eslint . --max-warnings=0",
+    "manifesto:gerar": "node src/cli.ts gerar",
+    "manifesto:verificar": "node src/cli.ts verificar",
+    "test": "node --test",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@plugga/config": "workspace:*",
+    "@types/node": "22.18.1",
+    "eslint": "9.34.0",
+    "typescript": "5.9.2"
+  }
+}

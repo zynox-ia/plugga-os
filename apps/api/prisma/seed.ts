@@ -384,6 +384,72 @@ async function main() {
     },
   });
 
+  await prisma.energyPremiseVersion.upsert({
+    where: { versao: '2026-08-09-prd-v1' },
+    update: {},
+    create: {
+      versao: '2026-08-09-prd-v1',
+      vigenteDe: new Date('2026-08-09T00:00:00.000Z'),
+      bessModelo: 'Huawei LUNA2000-241-2S1',
+      bessCapacidadeNominalKwh: 241,
+      bessCapacidadeUtilKwh: 241,
+      bessPotenciaKw: 108,
+      bessEficienciaCiclo: 0.913,
+      bessCapexPorUnidade: 550000,
+      bessDod: 1,
+      bessEtaRt: 0.9556,
+      bessEtaEle: 0.98,
+      bessEtaOp: 0.99,
+      diasUteisMes: 21,
+      omBessPercentualAno: 0.01,
+      fvCapexPorKwp: 2500,
+      // Mantidos por compatibilidade com a primeira versão da tabela; o motor
+      // PRD usa HSP mensal e PR, não estes dois atalhos.
+      fvProdutividadeKwhPorKwpMes: 1,
+      fvPercentualAtendimento: 1,
+      solarPr: 0.85,
+      solarDegradacaoAnual: 0.005,
+      omSolarPercentualAno: 0.01,
+      hspMensal: [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5],
+      sohAnual: [
+        1, 0.971, 0.948, 0.927, 0.907, 0.888, 0.87, 0.852, 0.834, 0.817,
+        0.799, 0.783, 0.763, 0.75, 0.734, 0.718, 0.703, 0.688, 0.673, 0.659,
+        0.645,
+      ],
+      horizonteAnos: 20,
+      tmaAnual: 0.12,
+      reajusteTarifarioAnual: 0.08,
+      reajusteOmAnual: 0.03,
+      toleranciaUltrapassagem: 0.05,
+      alteracaoDemandaMinima: 0.05,
+      alteracaoDemandaMaxima: 0.2,
+    },
+  });
+
+  const tiposDeFaturaAprovados = [
+    ['roraima energia|cativo|verde|a', 'Roraima Energia', 'cativo', 'verde', 'A', '01939890', 'Dilkson — relatório Santa Tereza aprovado em 08/08/2026'],
+    ['energisa rondonia|mercado_livre|verde|a', 'Energisa Rondonia', 'mercado_livre', 'verde', 'A', '1.208.807.020-04', 'Dilkson — conta ML validada em 08/08/2026'],
+    ['energisa rondonia|mercado_livre|azul|a', 'Energisa Rondonia', 'mercado_livre', 'azul', 'A', '9/18697841', 'Dilkson — peak shaving aprovado em 09/08/2026'],
+    ['ambar energia am|mercado_livre|verde|a', 'Ambar Energia AM', 'mercado_livre', 'verde', 'A', '000147906', 'Dilkson — aprovado em 09/08/2026'],
+  ] as const;
+
+  for (const [key, distributor, regime, modality, groupCode, exampleUc, approvedByText] of tiposDeFaturaAprovados) {
+    await prisma.energyInvoiceTypeApproval.upsert({
+      where: { key },
+      update: {},
+      create: {
+        key,
+        distributor,
+        regime,
+        modality,
+        groupCode,
+        exampleUc,
+        approvedByText,
+        approvedAt: new Date('2026-08-09T00:00:00.000Z'),
+      },
+    });
+  }
+
 }
 
 main()

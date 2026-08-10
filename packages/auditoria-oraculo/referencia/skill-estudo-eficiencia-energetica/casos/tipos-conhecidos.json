@@ -1,0 +1,28 @@
+{
+ "tipos": [
+  {
+   "chave": "roraima energia|cativo|verde|a",
+   "exemplo_uc": "01939890",
+   "aprovado_por": "Dilkson (aprovacao 08/08/2026, relatorio Santa Tereza 100%)",
+   "aprovado_em": "2026-08-08"
+  },
+  {
+   "chave": "energisa rondonia|mercado_livre|verde|a",
+   "exemplo_uc": "1.208.807.020-04",
+   "aprovado_por": "Dilkson (OK pode seguir, conta ML validada 08/08)",
+   "aprovado_em": "2026-08-09"
+  },
+  {
+   "chave": "energisa rondonia|mercado_livre|azul|a",
+   "exemplo_uc": "9/18697841 (conta contrato)",
+   "aprovado_por": "Dilkson (arrocha pode seguir — peak shaving 30 kW REN 1000)",
+   "aprovado_em": "2026-08-09"
+  },
+  {
+   "chave": "ambar energia am|mercado_livre|verde|a",
+   "exemplo_uc": "000147906",
+   "aprovado_por": "Dilkson (vamos de Ponta Negra, pode arrochar — 09/08 apos compilado breakeven)",
+   "aprovado_em": "2026-08-09"
+  }
+ ]
+}

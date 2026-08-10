@@ -1,5 +1,9 @@
 import { BadRequestException, ConflictException } from "@nestjs/common";
-import type { EnergyStudyStatus, ProblemaDeValidacao } from "@plugga/shared";
+import type {
+  EnergyStudyStatus,
+  EnergyTrafficLight,
+  ProblemaDeValidacao,
+} from "@plugga/shared";
 
 /**
  * Máquina de estados do estudo de eficiência energética.
@@ -15,20 +19,27 @@ import type { EnergyStudyStatus, ProblemaDeValidacao } from "@plugga/shared";
 
 /** Para onde cada estado pode ir. Ausente da lista = transição proibida. */
 const TRANSICOES: Record<EnergyStudyStatus, readonly EnergyStudyStatus[]> = {
-  rascunho: ["aguardando_dados", "cancelado"],
+  rascunho: ["aguardando_dados", "dados_recebidos", "cancelado"],
   aguardando_dados: ["dados_recebidos", "cancelado"],
-  dados_recebidos: ["em_calculo", "aguardando_dados", "cancelado"],
+  dados_recebidos: ["dados_recebidos", "em_calculo", "aguardando_dados", "cancelado"],
   // `em_extracao` e `em_auditoria` existem no desenho do processo para quando a
   // leitura da fatura deixar de ser manual; hoje o fluxo pula direto ao cálculo.
-  em_extracao: ["em_auditoria", "aguardando_dados", "cancelado"],
-  em_auditoria: ["em_calculo", "aguardando_dados", "cancelado"],
-  em_calculo: ["relatorio_gerado", "bloqueado", "cancelado"],
-  relatorio_gerado: ["em_validacao", "em_calculo", "cancelado"],
-  em_validacao: ["aprovado_internamente", "bloqueado", "em_calculo", "cancelado"],
+  em_extracao: ["dados_recebidos", "em_auditoria", "aguardando_dados", "cancelado"],
+  em_auditoria: ["dados_recebidos", "em_calculo", "aguardando_dados", "cancelado"],
+  em_calculo: ["dados_recebidos", "relatorio_gerado", "bloqueado", "cancelado"],
+  relatorio_gerado: ["dados_recebidos", "em_validacao", "em_calculo", "cancelado"],
+  em_validacao: [
+    "aprovado_internamente",
+    "dados_recebidos",
+    "enviado_cliente",
+    "bloqueado",
+    "em_calculo",
+    "cancelado",
+  ],
   // Estudo bloqueado volta ao cálculo depois de corrigido; não pula para
   // aprovado, senão a correção passaria sem nova validação.
-  bloqueado: ["em_calculo", "aguardando_dados", "cancelado"],
-  aprovado_internamente: ["enviado_cliente", "em_calculo", "cancelado"],
+  bloqueado: ["dados_recebidos", "em_calculo", "aguardando_dados", "cancelado"],
+  aprovado_internamente: ["dados_recebidos", "enviado_cliente", "em_calculo", "cancelado"],
   enviado_cliente: ["arquivado"],
   arquivado: [],
   cancelado: [],
@@ -77,12 +88,20 @@ export function assertPodeAprovar(
  * em que o sistema não pode decidir sozinho: a responsabilidade pelo que sai é
  * de uma pessoa.
  */
-export function assertPodeEnviar(status: EnergyStudyStatus, aprovadoPor: string | null): void {
+export function assertPodeEnviar(
+  status: EnergyStudyStatus,
+  aprovadoPor: string | null,
+  faixa: EnergyTrafficLight | null,
+): void {
   assertTransicao(status, "enviado_cliente");
 
-  if (!aprovadoPor) {
+  if (faixa === "vermelho") {
+    throw new ConflictException("estudo em faixa vermelha nunca pode ser entregue");
+  }
+
+  if (faixa !== "verde" && !aprovadoPor) {
     throw new ConflictException(
-      "estudo não pode ser enviado sem aprovação humana registrada",
+      "estudo amarelo não pode ser entregue sem aprovação humana registrada",
     );
   }
 }

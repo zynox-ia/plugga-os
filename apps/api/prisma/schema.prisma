@@ -911,12 +911,24 @@ model EnergyPremiseVersion {
   bessPotenciaKw              Decimal                 @map("bess_potencia_kw") @db.Decimal(12, 4)
   bessEficienciaCiclo         Decimal                 @map("bess_eficiencia_ciclo") @db.Decimal(6, 4)
   bessCapexPorUnidade         Decimal                 @map("bess_capex_por_unidade") @db.Decimal(14, 2)
+  bessDod                     Decimal                 @default(1) @map("bess_dod") @db.Decimal(6, 4)
+  bessEtaRt                   Decimal                 @default(0.9556) @map("bess_eta_rt") @db.Decimal(6, 4)
+  bessEtaEle                  Decimal                 @default(0.98) @map("bess_eta_ele") @db.Decimal(6, 4)
+  bessEtaOp                   Decimal                 @default(0.99) @map("bess_eta_op") @db.Decimal(6, 4)
+  diasUteisMes                Int                     @default(21) @map("dias_uteis_mes")
+  omBessPercentualAno         Decimal                 @default(0.01) @map("om_bess_percentual_ano") @db.Decimal(6, 4)
   fvCapexPorKwp               Decimal                 @map("fv_capex_por_kwp") @db.Decimal(14, 2)
   fvProdutividadeKwhPorKwpMes Decimal                 @map("fv_produtividade_kwh_por_kwp_mes") @db.Decimal(10, 4)
   fvPercentualAtendimento     Decimal                 @map("fv_percentual_atendimento") @db.Decimal(6, 4)
+  solarPr                     Decimal                 @default(0.85) @map("solar_pr") @db.Decimal(6, 4)
+  solarDegradacaoAnual        Decimal                 @default(0.005) @map("solar_degradacao_anual") @db.Decimal(6, 4)
+  omSolarPercentualAno        Decimal                 @default(0.01) @map("om_solar_percentual_ano") @db.Decimal(6, 4)
+  hspMensal                   Json                    @default("[5,5,5,5,5,5,5,5,5,5,5,5]") @map("hsp_mensal")
+  sohAnual                    Json                    @default("[1,0.971,0.948,0.927,0.907,0.888,0.87,0.852,0.834,0.817,0.799,0.783,0.763,0.75,0.734,0.718,0.703,0.688,0.673,0.659,0.645]") @map("soh_anual")
   horizonteAnos               Int                     @map("horizonte_anos")
   tmaAnual                    Decimal                 @map("tma_anual") @db.Decimal(6, 4)
   reajusteTarifarioAnual      Decimal                 @map("reajuste_tarifario_anual") @db.Decimal(6, 4)
+  reajusteOmAnual             Decimal                 @default(0.03) @map("reajuste_om_anual") @db.Decimal(6, 4)
   toleranciaUltrapassagem     Decimal                 @map("tolerancia_ultrapassagem") @db.Decimal(6, 4)
   alteracaoDemandaMinima      Decimal                 @map("alteracao_demanda_minima") @db.Decimal(6, 4)
   alteracaoDemandaMaxima      Decimal                 @map("alteracao_demanda_maxima") @db.Decimal(6, 4)
@@ -945,18 +957,26 @@ model EnergyEfficiencyStudy {
 
   /// Snapshot da fatura como foi digitada/extraída.
   invoiceData      Json  @map("invoice_data")
+  /// Metadados e linhas literais usados pela trava de conciliação.
+  invoiceContext   Json? @map("invoice_context")
+  reconciliationProof Json? @map("reconciliation_proof")
   /// Demanda registrada mês a mês, na janela disponível.
   demandHistory    Json  @default("[]") @map("demand_history")
   /// Auditoria, demanda, dimensionamento, economia e financeiro.
   results          Json?
   /// Problemas apontados pela validação bloqueante na última tentativa.
   validationIssues Json? @map("validation_issues")
+  trafficLight     EnergyTrafficLight? @map("traffic_light")
+  trafficLightResult Json? @map("traffic_light_result")
 
   /// Escalares para listagem; a fonte é sempre `results`.
   economiaMensal Decimal? @map("economia_mensal") @db.Decimal(14, 2)
   capexTotal     Decimal? @map("capex_total") @db.Decimal(14, 2)
 
   documentHtml    String? @map("document_html")
+  documentHtmlMobile String? @map("document_html_mobile")
+  documentHash String? @map("document_hash")
+  documentMobileHash String? @map("document_mobile_hash")
   documentPdfPath String? @map("document_pdf_path")
 
   version  Int @default(1)
@@ -980,6 +1000,33 @@ model EnergyEfficiencyStudy {
   @@index([status])
   @@index([clientId])
   @@map("energy_efficiency_studies")
+}
+
+/// Combinação de fatura previamente aprovada. A chave é
+/// distribuidora|regime|modalidade|grupo; novas aprovações exigem a permissão
+/// definida pelo sistema, sem vínculo a uma pessoa específica.
+model EnergyInvoiceTypeApproval {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  key            String   @unique
+  distributor    String
+  regime         String
+  modality       String
+  groupCode      String   @map("group_code")
+  exampleUc      String?  @map("example_uc")
+  approvedById   String?  @map("approved_by_id") @db.Uuid
+  approvedByText String   @map("approved_by_text")
+  approvedAt     DateTime @map("approved_at") @db.Timestamptz(6)
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@map("energy_invoice_type_approvals")
+}
+
+enum EnergyTrafficLight {
+  verde
+  amarelo
+  vermelho
+
+  @@map("energy_traffic_light")
 }
 
 enum EnergyStudyStatus {

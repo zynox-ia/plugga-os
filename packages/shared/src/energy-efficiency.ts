@@ -34,9 +34,9 @@ export const energyStudyStatusSchema = z.enum([
 export type EnergyStudyStatus = z.infer<typeof energyStudyStatusSchema>;
 
 /**
- * O modo muda o que o estudo pode afirmar. `preliminar` usa base de 30 dias
- * corridos e ignora perdas finas, O&M e degradação — e o documento é obrigado a
- * dizer isso. `memoria_massa` usa energia deslocável real da curva de 15 min.
+ * O modo muda o que o estudo pode afirmar. Os dois modos usam o motor completo
+ * do PRD; `preliminar` trabalha com o consumo mensal e 21 dias úteis, enquanto
+ * `memoria_massa` poderá substituir essa aproximação pela curva de 15 minutos.
  */
 export const calculationModeSchema = z.enum(["preliminar", "memoria_massa"]);
 export type CalculationMode = z.infer<typeof calculationModeSchema>;
@@ -63,14 +63,27 @@ export const energyPremisesSchema = z
     bessPotenciaKw: z.number().positive(),
     bessEficienciaCiclo: z.number().gt(0).lte(1),
     bessCapexPorUnidade: z.number().nonnegative(),
+    bessDod: z.number().gt(0).lte(1),
+    bessEtaRt: z.number().gt(0).lte(1),
+    bessEtaEle: z.number().gt(0).lte(1),
+    bessEtaOp: z.number().gt(0).lte(1),
+    diasUteisMes: z.number().int().positive(),
+    omBessPercentualAno: z.number().gte(0),
 
     fvCapexPorKwp: z.number().nonnegative(),
+    /** Mantidos apenas para reproduzir estudos legados anteriores ao PRD v1. */
     fvProdutividadeKwhPorKwpMes: z.number().positive(),
     fvPercentualAtendimento: z.number().gt(0).lte(1),
+    solarPr: z.number().gt(0).lte(1),
+    solarDegradacaoAnual: z.number().gte(0).lt(1),
+    omSolarPercentualAno: z.number().gte(0),
+    hspMensal: z.array(z.number().positive()).length(12),
+    sohAnual: z.array(z.number().gt(0).lte(1)).length(21),
 
     horizonteAnos: z.number().int().positive(),
     tmaAnual: z.number().gte(0),
     reajusteTarifarioAnual: z.number().gte(0),
+    reajusteOmAnual: z.number().gte(0),
 
     /** Tolerância regulatória de ultrapassagem do Grupo A. */
     toleranciaUltrapassagem: z.number().gt(0),
@@ -82,13 +95,13 @@ export const energyPremisesSchema = z
 export type EnergyPremises = z.infer<typeof energyPremisesSchema>;
 
 /**
- * Premissas vigentes desde 2026-08-08. A eficiência de ciclo passa a entrar no
- * cálculo da economia (antes era documentada e ignorada) e a capacidade útil
- * nasce igual à nominal, marcada para validação em projeto.
+ * Premissas fechadas no PRD recebido em 09/08/2026. Elas reproduzem o motor
+ * validado contra as planilhas de Dilkson e substituem as aproximações antigas
+ * de 30 dias, reajuste de 4% e TMA de 5%.
  */
 export const PREMISSAS_2026_08: EnergyPremises = {
-  versao: "2026-08-08",
-  vigenteDe: "2026-08-08T00:00:00.000Z",
+  versao: "2026-08-09-prd-v1",
+  vigenteDe: "2026-08-09T00:00:00.000Z",
 
   bessModelo: "Huawei LUNA2000-241-2S1",
   bessCapacidadeNominalKwh: 241,
@@ -96,14 +109,30 @@ export const PREMISSAS_2026_08: EnergyPremises = {
   bessPotenciaKw: 108,
   bessEficienciaCiclo: 0.913,
   bessCapexPorUnidade: 550_000,
+  bessDod: 1,
+  bessEtaRt: 0.9556,
+  bessEtaEle: 0.98,
+  bessEtaOp: 0.99,
+  diasUteisMes: 21,
+  omBessPercentualAno: 0.01,
 
   fvCapexPorKwp: 2_500,
   fvProdutividadeKwhPorKwpMes: 130,
   fvPercentualAtendimento: 0.6,
+  solarPr: 0.85,
+  solarDegradacaoAnual: 0.005,
+  omSolarPercentualAno: 0.01,
+  hspMensal: Array.from({ length: 12 }, () => 5),
+  sohAnual: [
+    1, 0.971, 0.948, 0.927, 0.907, 0.888, 0.87, 0.852, 0.834, 0.817,
+    0.799, 0.783, 0.763, 0.75, 0.734, 0.718, 0.703, 0.688, 0.673, 0.659,
+    0.645,
+  ],
 
   horizonteAnos: 20,
-  tmaAnual: 0.05,
-  reajusteTarifarioAnual: 0.04,
+  tmaAnual: 0.12,
+  reajusteTarifarioAnual: 0.08,
+  reajusteOmAnual: 0.03,
 
   toleranciaUltrapassagem: 0.05,
   alteracaoDemandaMinima: 0.05,
@@ -136,131 +165,160 @@ export const invoiceDataSchema = z
   .strict();
 export type InvoiceData = z.infer<typeof invoiceDataSchema>;
 
-// --- Resultados: auditoria -------------------------------------------------
+export const invoiceRegimeSchema = z.enum(["cativo", "mercado_livre"]);
+export const invoiceModalitySchema = z.enum(["verde", "azul"]);
 
-/** Faixas do diagnóstico de reativo sobre o total da fatura. */
-export const reactiveDiagnosisSchema = z.enum(["registrar", "atencao", "investigar"]);
-export type ReactiveDiagnosis = z.infer<typeof reactiveDiagnosisSchema>;
+export const reconciledInvoiceItemCategorySchema = z.enum([
+  "consumo_ponta",
+  "consumo_fora_ponta",
+  "demanda_faturada",
+  "demanda_contratada",
+  "demanda_medida_ponta",
+  "demanda_medida_fora_ponta",
+  "reativo",
+  "beneficio_fiscal",
+  "multas_juros_encargos",
+  "outros",
+]);
+export type ReconciledInvoiceItemCategory = z.infer<
+  typeof reconciledInvoiceItemCategorySchema
+>;
 
-export const auditResultSchema = z
+export const reconciledInvoiceItemSchema = z
   .object({
-    consumoTotalKwh: z.number(),
-    custoKwhPonta: z.number(),
-    custoKwhForaPonta: z.number(),
-    custoMedioTotal: z.number(),
-    custoMedioEfetivo: z.number(),
-    spread: z.number(),
-    reativoPercentual: z.number(),
-    reativoDiagnostico: reactiveDiagnosisSchema,
-    beneficioFiscalPercentual: z.number(),
+    nome: z.string().trim().min(1),
+    categoria: reconciledInvoiceItemCategorySchema,
+    /** Metadados de demanda provam campos técnicos, mas não somam no total. */
+    compoeTotal: z.boolean(),
+    valor: z.number(),
+    quantidade: z.number().nonnegative().nullable(),
+    unidade: z.enum(["kWh", "kW"]).nullable(),
+    tarifa: z.number().nonnegative().nullable(),
   })
   .strict();
-export type AuditResult = z.infer<typeof auditResultSchema>;
+export type ReconciledInvoiceItem = z.infer<typeof reconciledInvoiceItemSchema>;
 
-// --- Resultados: demanda ---------------------------------------------------
+export const invoiceContextSchema = z
+  .object({
+    distribuidora: z.string().trim().min(1),
+    regime: invoiceRegimeSchema,
+    modalidade: invoiceModalitySchema,
+    grupo: z.literal("A"),
+    vencimento: z.string().trim().nullable().default(null),
 
-export const demandScenarioKeySchema = z.enum(["conservador", "intermediario", "arrojado"]);
-export type DemandScenarioKey = z.infer<typeof demandScenarioKeySchema>;
+    /**
+     * Campos que o relatório oficial exige e a leitura do PDF não deduz. Ficam
+     * aqui, junto do resto do que a pessoa confere na tela, porque é ela quem
+     * sabe o apelido da unidade e enxerga as datas de leitura na conta.
+     */
+    apelido: z.string().trim().min(1).nullish(),
+    classe: z.string().trim().min(1).nullish(),
+    /** Cidade/UF da unidade, como sai impresso no relatório. */
+    localidade: z.string().trim().min(1).nullish(),
+    /**
+     * Valor da linha de demanda sem ICMS, quando a fatura a publica. É ele que
+     * vira a economia de readequação contratual no relatório; sem ele, o cálculo
+     * cai no rateio — e o rateio nunca sobrescreve o que a fatura publicou.
+     */
+    demandaComplementoValor: z.number().nullish(),
+    leituraAnterior: z.string().trim().min(1).nullish(),
+    leituraAtual: z.string().trim().min(1).nullish(),
+    /**
+     * Irradiação média por mês da unidade consumidora. É premissa da UC, nunca
+     * um padrão geográfico silencioso: sem ela o estudo não roda.
+     */
+    hspMensal: z.array(z.number().positive()).length(12).nullish(),
+
+    itens: z.array(reconciledInvoiceItemSchema).min(1),
+    arquivoNome: z.string().trim().nullable().default(null),
+    arquivoChave: z.string().trim().nullable().default(null),
+    origem: z.enum(["texto_direto", "reconhecimento_optico", "manual"]),
+  })
+  .strict();
+export type InvoiceContext = z.infer<typeof invoiceContextSchema>;
+
+export const reconciliationProofSchema = z
+  .object({
+    somaItens: z.number(),
+    total: z.number(),
+    diferenca: z.number(),
+    itensConferidos: z.number().int().nonnegative(),
+    itensSemConferencia: z.number().int().nonnegative(),
+  })
+  .strict();
+export type ReconciliationProof = z.infer<typeof reconciliationProofSchema>;
+
+export const energyTrafficLightSchema = z.enum(["verde", "amarelo", "vermelho"]);
+export type EnergyTrafficLight = z.infer<typeof energyTrafficLightSchema>;
+
+export const trafficLightResultSchema = z
+  .object({
+    faixa: energyTrafficLightSchema,
+    chaveTipo: z.string(),
+    tipoConhecido: z.boolean(),
+    motivos: z.array(z.string()),
+    quatroNumeros: z.object({
+      totalFatura: z.number(),
+      consumoPontaKwh: z.number(),
+      tirAnual: z.number().nullable(),
+      paybackAnos: z.number().nullable(),
+    }),
+  })
+  .strict();
+export type TrafficLightResult = z.infer<typeof trafficLightResultSchema>;
+
+// --- Resultado do estudo ---------------------------------------------------
 
 /**
- * Fora da faixa de 5%–20% a alteração deixa de ser solicitação simples e vira
- * orçamento de conexão (REN ANEEL 1.000/2021, arts. 154, 155 e 311–314).
+ * O que o estudo devolve, no formato do núcleo normativo.
+ *
+ * Substitui os cinco blocos da versão anterior — auditoria, demanda,
+ * dimensionamento, economia e financeiro. Aqueles nasceram de análises que a
+ * norma não faz; o que a norma produz é isto: dois cenários, os indicadores de
+ * cada um e o fluxo de 20 anos.
  */
-export const demandChangeClassificationSchema = z.enum([
-  "reducao_simples",
-  "ampliacao_simples",
-  "abaixo_do_gatilho",
-  "orcamento_de_conexao",
-]);
-export type DemandChangeClassification = z.infer<typeof demandChangeClassificationSchema>;
-
-export const demandScenarioSchema = z
+export const cenarioDoEstudoSchema = z
   .object({
-    chave: demandScenarioKeySchema,
-    demandaPropostaKw: z.number(),
-    limiteSemMultaKw: z.number(),
-    mesesAcimaDoContrato: z.number().int().nonnegative(),
-    mesesComMulta: z.number().int().nonnegative(),
-    economiaMensal: z.number(),
-    economiaAnual: z.number(),
-    variacao: z.number(),
-    classificacao: demandChangeClassificationSchema,
+    capexTotal: z.number(),
+    economiaAno1: z.number(),
+    tirAa: z.number().nullable(),
+    paybackAnos: z.number().nullable(),
+    acumulado20Anos: z.number(),
   })
   .strict();
-export type DemandScenario = z.infer<typeof demandScenarioSchema>;
+export type CenarioDoEstudo = z.infer<typeof cenarioDoEstudoSchema>;
 
-export const demandResultSchema = z
+export const estudoResultSchema = z
   .object({
-    utilizacao: z.number(),
-    toleranciaKw: z.number(),
-    houveUltrapassagem: z.boolean(),
-    picoObservadoKw: z.number(),
-    mesesDeHistorico: z.number().int().nonnegative(),
-    /** Só deixa de ser preliminar com 12 meses ou memória de massa. */
-    preliminar: z.boolean(),
-    cenarios: z.array(demandScenarioSchema),
-    recomendado: demandScenarioKeySchema.nullable(),
-    /** Ociosidade é dinheiro na mesa, nunca multa. */
-    ociosidadeMensal: z.number(),
-  })
-  .strict();
-export type DemandResult = z.infer<typeof demandResultSchema>;
+    modo: z.enum(["solar_bess", "peak_shaving"]),
+    unidadesBess: z.number().int().positive(),
+    solarKwp: z.number().nonnegative(),
+    /** De onde veio o kWp: valor aprovado no caso ou sugerido pelo pior mês. */
+    regraDoKwp: z.enum(["aprovado", "pior_mes"]),
 
-// --- Resultados: dimensionamento -------------------------------------------
+    capexBess: z.number(),
+    capexSolar: z.number(),
+    capexTotal: z.number(),
 
-export const sizingResultSchema = z
-  .object({
-    consumoPontaDiarioKwh: z.number(),
-    bessUnidadesPorEnergia: z.number().int().nonnegative(),
-    bessUnidadesPorPotencia: z.number().int().nonnegative(),
-    bessUnidades: z.number().int().nonnegative(),
-    bessLimitador: z.enum(["energia", "potencia"]),
-    fvKwp: z.number().int().nonnegative(),
-    fvGeracaoMensalKwh: z.number(),
-  })
-  .strict();
-export type SizingResult = z.infer<typeof sizingResultSchema>;
-
-// --- Resultados: cenários --------------------------------------------------
-
-export const savingsResultSchema = z
-  .object({
-    economiaBessMensal: z.number(),
-    economiaFvMensal: z.number(),
     economiaMensal: z.number(),
     economiaAno1: z.number(),
     faturaProjetada: z.number(),
-  })
-  .strict();
-export type SavingsResult = z.infer<typeof savingsResultSchema>;
 
-// --- Resultados: financeiro ------------------------------------------------
+    tirAa: z.number().nullable(),
+    paybackAnos: z.number().nullable(),
+    acumulado20Anos: z.number(),
+    /** Interno: alimenta a validação contra as planilhas, não vai ao cliente. */
+    vplTma: z.number(),
 
-export const financialResultSchema = z
-  .object({
-    capexBess: z.number(),
-    capexFv: z.number(),
-    capexTotal: z.number(),
-    /** Economia de cada ano, já reajustada. */
+    /** Ano 0 é o CAPEX negativo; daí em diante, a economia de cada ano. */
     fluxoAnual: z.array(z.number()),
-    economiaAcumulada: z.array(z.number()),
-    /** Índice 0 = −CAPEX; daí em diante, acumulado. */
-    fluxoCaixaAcumulado: z.array(z.number()),
-    /** CAPEX ÷ economia do ano 1. Ignora reajuste e valor do dinheiro no tempo. */
-    paybackSimplesAnos: z.number(),
-    /**
-     * Ano em que o acumulado **reajustado** cobre o CAPEX. É este o número que
-     * os estudos entregues rotulavam apenas como "Payback" — no Serra Verde,
-     * 6,9 anos, enquanto o simples dava 7,75. Nomes distintos por decisão.
-     */
-    paybackProjetadoAnos: z.number().nullable(),
-    /** Ano em que o acumulado **descontado pela TMA** cobre o CAPEX. */
-    paybackDescontadoAnos: z.number().nullable(),
-    vpl: z.number(),
-    tir: z.number().nullable(),
+    fluxoAcumulado: z.array(z.number()),
+
+    /** O cenário sem solar, que é o que o semáforo julga. */
+    bessPuro: cenarioDoEstudoSchema,
   })
   .strict();
-export type FinancialResult = z.infer<typeof financialResultSchema>;
+export type EstudoResult = z.infer<typeof estudoResultSchema>;
 
 /**
  * Problema apontado pela validação bloqueante do documento. Fica no contrato
@@ -288,6 +346,7 @@ export type CreateEnergyStudyRequest = z.infer<typeof createEnergyStudyRequestSc
 export const submitEnergyInvoiceRequestSchema = z
   .object({
     invoice: invoiceDataSchema,
+    context: invoiceContextSchema,
     demandHistory: z.array(z.number().nonnegative()).max(36).default([]),
     hasLoadProfile: z.boolean().default(false),
   })
@@ -310,6 +369,7 @@ export const energyStudySummarySchema = z
     competenceYear: z.number().int(),
     status: energyStudyStatusSchema,
     calculationMode: calculationModeSchema,
+    trafficLight: energyTrafficLightSchema.nullable(),
     economiaMensal: z.number().nullable(),
     capexTotal: z.number().nullable(),
     version: z.number().int(),
@@ -325,14 +385,14 @@ export const energyStudyDetailSchema = energyStudySummarySchema
   .extend({
     premiseVersion: z.string(),
     invoice: invoiceDataSchema.nullable(),
+    invoiceContext: invoiceContextSchema.nullable(),
+    reconciliationProof: reconciliationProofSchema.nullable(),
     demandHistory: z.array(z.number()),
-    audit: auditResultSchema.nullable(),
-    demand: demandResultSchema.nullable(),
-    sizing: sizingResultSchema.nullable(),
-    savings: savingsResultSchema.nullable(),
-    financial: financialResultSchema.nullable(),
+    estudo: estudoResultSchema.nullable(),
+    trafficLightResult: trafficLightResultSchema.nullable(),
     validationIssues: z.array(problemaDeValidacaoSchema).nullable(),
     hasDocument: z.boolean(),
+    hasMobileDocument: z.boolean(),
   })
   .strict();
 export type EnergyStudyDetail = z.infer<typeof energyStudyDetailSchema>;
@@ -413,6 +473,16 @@ export const invoiceReadingItemSchema = z
     veredicto: invoiceItemVerdictSchema,
     /** Valor que a multiplicação produz; nulo quando não há o que multiplicar. */
     esperado: z.number().nullable(),
+    /**
+     * Se o item entra na soma que tem de fechar com o total da fatura.
+     *
+     * Nasce verdadeiro. Vira falso quando a própria aritmética prova o
+     * contrário — ver `motivoForaDoTotal`. A pessoa continua podendo mudar na
+     * tela: a leitura sugere, não decide sozinha.
+     */
+    compoeTotal: z.boolean(),
+    /** Por que o item nasceu fora do total; nulo quando ele compõe. */
+    motivoForaDoTotal: z.string().nullable(),
   })
   .strict();
 export type InvoiceReadingItem = z.infer<typeof invoiceReadingItemSchema>;

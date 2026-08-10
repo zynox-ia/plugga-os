@@ -1,0 +1,26 @@
+{
+ "consumo_ponta_desejado_kwh_mes": 9315.0,
+ "n_bess": 2,
+ "capex_bess_total": 1100000.0,
+ "tusd_p": 0.926023,
+ "te_p": 0.2460625,
+ "tusd_fp": 0.28685,
+ "te_fp": 0.2460625,
+ "hsp_mensal": [
+  4.5,
+  4.5,
+  4.5,
+  4.5,
+  4.5,
+  4.5,
+  4.5,
+  4.5,
+  4.5,
+  4.5,
+  4.5,
+  4.5
+ ],
+ "solar_kwp": 0.0,
+ "capex_solar_total": 0.0,
+ "solar_kwp_definido": 200.0
+}
