@@ -33,6 +33,7 @@ import { rodarEstudo } from "./nucleo/pipeline.js";
 import { gerarVersaoCelular } from "./nucleo/relatorio-celular.js";
 import { gerarRelatorio } from "./nucleo/relatorio-literal.js";
 import { chaveDoTipo, classificarSemaforo } from "./nucleo/semaforo.js";
+import { verificarRelatorio } from "./nucleo/trava-aritmetica.js";
 import { EstudoRepository } from "./estudo.repository.js";
 import {
   assertCompetencia,
@@ -324,6 +325,27 @@ export class EstudoService {
     }
     const html = gerarRelatorio(casoDoRelatorio);
     const htmlCelular = gerarVersaoCelular(html);
+
+    // Trava 2: o documento pronto é conferido de trás para frente contra a
+    // fatura conciliada e o fluxo apresentado. O gerador garante por
+    // construção; esta trava garante por verificação, e é ela que pega um erro
+    // do construtor. Reprovada, nada é gravado como entregável.
+    const trava2 = verificarRelatorio({
+      html,
+      fatura: faturaNormativa,
+      fluxo: fluxoSolar,
+      conciliada: true,
+    });
+    if (!trava2.aprovado) {
+      return this.bloquear(id, {
+        resultado,
+        prova: conciliacao.prova,
+        semaforo,
+        fatura,
+        indicadores,
+        motivos: trava2.problemas,
+      });
+    }
 
     await this.repository.atualizar(id, { status: "relatorio_gerado" });
 
