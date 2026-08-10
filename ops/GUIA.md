@@ -100,10 +100,11 @@ dizendo por quê, e o resto da suíte roda igual. Quem não tem acesso ainda tem
 leitor em qualquer máquina, sem credencial e sem rede.
 
 As chaves ficam em `/root/.plugga-corpus.env` na VPS. São duas: a de **leitura**
-vai para os secrets `CORPUS_ACCESS_KEY`/`CORPUS_SECRET_KEY` do GitHub, que o job
-de corpus da CI usa; a de **escrita** fica com quem publica fixture e não vai
-para nada automatizado. Criar tudo isso de novo: `ops/prepara-corpus-minio.sh`,
-que é idempotente.
+vai para os secrets `CORPUS_LEITOR_ACCESS_KEY`/`CORPUS_LEITOR_SECRET_KEY` do
+GitHub, que o job de corpus da CI usa; a de **escrita** fica com quem publica
+fixture e não vai para secret nenhum — chave de escrita guardada num lugar que
+nada automatizado usa é só uma coisa a mais para vazar. Criar tudo isso de novo:
+`ops/prepara-corpus-minio.sh`, que é idempotente.
 
 ---
 

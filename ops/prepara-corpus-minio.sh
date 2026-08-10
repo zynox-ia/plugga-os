@@ -116,5 +116,5 @@ fi
 
 echo "balde preparado: $BALDE"
 echo "as chaves estão em /root/.plugga-corpus.env — a de leitura vai para os"
-echo "secrets CORPUS_ACCESS_KEY/CORPUS_SECRET_KEY do GitHub; a de escrita fica"
-echo "com quem publica fixture, e não vai para lugar nenhum automatizado."
+echo "secrets CORPUS_LEITOR_ACCESS_KEY/CORPUS_LEITOR_SECRET_KEY do GitHub; a de"
+echo "escrita fica com quem publica fixture, e não vai para secret nenhum."

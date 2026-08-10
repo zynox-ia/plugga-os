@@ -182,22 +182,37 @@ jobs:
   # reusa o runner que o deploy.yml já usa e não abre nada novo.
   #
   # A chave é somente-leitura e separada da credencial de produção: o runner
-  # precisa ler fixture, não escrever em fatura de cliente.
+  # precisa ler fixture, não escrever em fatura de cliente. Só a de leitura está
+  # nos secrets do repositório — publicar continua sendo operação de quem tem a
+  # chave de escrita na mão, porque chave de escrita guardada num lugar que
+  # ninguém usa é só uma coisa a mais para vazar.
   #
-  # Consequência assumida: o runner passa a ser load-bearing para teste, não só
-  # para deploy. É por isso que `sintetica.spec.ts` existe e roda no job de
-  # cima — com o runner fora, o leitor ainda tem regressão.
+  # Com o runner fora, o leitor ainda tem regressão: é para isso que
+  # `sintetica.spec.ts` existe e roda no job de cima, em runner hospedado.
   corpus:
     name: Leitura contra o corpus de faturas
     runs-on: [self-hosted, plugga-vps]
     timeout-minutes: 20
+
+    # O deploy.yml dispara no `workflow_run` desta workflow e exige
+    # `conclusion == 'success'`. Sem esta linha, um runner self-hosted fora do ar
+    # não deixa a workflow concluir — e a **publicação em produção passaria a
+    # depender da disponibilidade do runner que guarda dados de teste**. Um
+    # hotfix urgente ficaria parado esperando o corpus.
+    #
+    # Não é preguiça nem tolerância a teste quebrado: regressão de corpus fica
+    # vermelha e visível aqui, ela só não sequestra o deploy. A troca é
+    # deliberada — o corpus é rede de segurança do leitor, não portão de
+    # publicação, e o portão de publicação continua sendo o job `quality`.
+    continue-on-error: true
+
     env:
       # localhost na VPS é o MinIO de produção; o balde do corpus é outro, e
       # `configuracaoDoCorpus` recusa apontar os dois para o mesmo lugar.
       CORPUS_ENDPOINT: http://127.0.0.1:9000
       CORPUS_BUCKET: plugga-corpus-faturas
-      CORPUS_ACCESS_KEY: ${{ secrets.CORPUS_ACCESS_KEY }}
-      CORPUS_SECRET_KEY: ${{ secrets.CORPUS_SECRET_KEY }}
+      CORPUS_ACCESS_KEY: ${{ secrets.CORPUS_LEITOR_ACCESS_KEY }}
+      CORPUS_SECRET_KEY: ${{ secrets.CORPUS_LEITOR_SECRET_KEY }}
 
     steps:
       - name: Check out repository
