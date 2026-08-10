@@ -51,3 +51,37 @@ export const REGISTRAR_INCIDENTE: readonly RoleKey[] = LER_OBRA;
 /** Liberação de segurança: POP §8.4 — seguranca, supervisor (ciência) ou engenheiro (risco técnico). */
 export const REGISTRAR_LIBERACAO: readonly RoleKey[] = ["seguranca", "supervisor", "engenheiro"];
 export const REVOGAR_LIBERACAO: readonly RoleKey[] = ["seguranca", "supervisor", "engenheiro", "diretoria"];
+
+/** Pendência: quem pode abrir (POP §6) é o time de campo inteiro, mais segurança e almoxarife. */
+export const REGISTRAR_PENDENCIA: readonly RoleKey[] = [
+  "tecnico",
+  "supervisor",
+  "engenheiro",
+  "seguranca",
+  "almoxarife",
+];
+
+/** Classificar prioridade: supervisor ou engenheiro (POP §6). */
+export const CLASSIFICAR_PRIORIDADE_PENDENCIA: readonly RoleKey[] = ["supervisor", "engenheiro"];
+
+/**
+ * Encerrar pendência: a lista é ampla porque o POP §6 distribui o encerramento
+ * por origem (técnica: supervisor/engenheiro; segurança: seguranca; material:
+ * almoxarife/gestor_suprimentos) — quem decide *qual* encerramento vale é a
+ * identidade combinada com o tipo da pendência, não um papel único aqui.
+ */
+export const ENCERRAR_PENDENCIA: readonly RoleKey[] = [
+  "supervisor",
+  "engenheiro",
+  "seguranca",
+  "almoxarife",
+  "gestor_suprimentos",
+];
+
+/** Medição: lançar é supervisor/engenheiro; aprovar é só engenheiro (POP §9). */
+export const LANCAR_MEDICAO: readonly RoleKey[] = ["supervisor", "engenheiro"];
+export const APROVAR_MEDICAO: readonly RoleKey[] = ["engenheiro"];
+
+/** Projeto: criar/editar versão é projetista/engenheiro; aprovar é só engenheiro (POP §3/§5). */
+export const CRIAR_VERSAO_DE_PROJETO: readonly RoleKey[] = ["projetista", "engenheiro"];
+export const APROVAR_PROJETO: readonly RoleKey[] = ["engenheiro"];

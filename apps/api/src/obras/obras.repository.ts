@@ -1,18 +1,31 @@
 import type {
+  AprovarMedicaoRequest,
+  AprovarProjetoRequest,
   AssinarAprRequest,
   AvancarEtapaDeObraRequest,
+  ClassificarPrioridadeRequest,
   ConferirEpiRequest,
+  CriarVersaoDeProjetoRequest,
+  EncerrarPendenciaRequest,
+  EnviarProjetoParaAprovacaoRequest,
   Incidente,
+  LancarMedicaoRequest,
   LiberacaoSeguranca,
+  MedicaoTecnica,
   ObraExecucaoDetalhe,
+  PendenciaDeCampo,
+  ProjetoVersao,
   ReabrirProjetoRequest,
   RegistrarAprRequest,
   RegistrarEpiRequest,
   RegistrarIncidenteRequest,
   RegistrarLiberacaoRequest,
+  RegistrarPendenciaRequest,
   RegistroApr,
   RegistroEpi,
   RevogarLiberacaoRequest,
+  SolicitarCorrecaoMedicaoRequest,
+  SolicitarRevisaoDeProjetoRequest,
 } from "@plugga/shared";
 
 import type { AuthPrincipal } from "../core/auth/auth.types";
@@ -86,4 +99,72 @@ export abstract class ObrasRepository {
     input: RevogarLiberacaoRequest,
     principal: AuthPrincipal,
   ): Promise<LiberacaoSeguranca>;
+
+  abstract registrarPendencia(
+    id: string,
+    input: RegistrarPendenciaRequest,
+    principal: AuthPrincipal,
+  ): Promise<PendenciaDeCampo>;
+
+  abstract classificarPrioridadePendencia(
+    id: string,
+    pendenciaId: string,
+    input: ClassificarPrioridadeRequest,
+    principal: AuthPrincipal,
+  ): Promise<PendenciaDeCampo>;
+
+  abstract encerrarPendencia(
+    id: string,
+    pendenciaId: string,
+    input: EncerrarPendenciaRequest,
+    principal: AuthPrincipal,
+  ): Promise<PendenciaDeCampo>;
+
+  abstract lancarMedicao(
+    id: string,
+    input: LancarMedicaoRequest,
+    principal: AuthPrincipal,
+  ): Promise<MedicaoTecnica>;
+
+  abstract aprovarMedicao(
+    id: string,
+    medicaoId: string,
+    input: AprovarMedicaoRequest,
+    principal: AuthPrincipal,
+  ): Promise<MedicaoTecnica>;
+
+  abstract solicitarCorrecaoMedicao(
+    id: string,
+    medicaoId: string,
+    input: SolicitarCorrecaoMedicaoRequest,
+    principal: AuthPrincipal,
+  ): Promise<MedicaoTecnica>;
+
+  abstract criarVersaoDeProjeto(
+    id: string,
+    input: CriarVersaoDeProjetoRequest,
+    anexo: AnexoDeEvidencia | null,
+    principal: AuthPrincipal,
+  ): Promise<ProjetoVersao>;
+
+  abstract enviarProjetoParaAprovacao(
+    id: string,
+    versaoId: string,
+    input: EnviarProjetoParaAprovacaoRequest,
+    principal: AuthPrincipal,
+  ): Promise<ProjetoVersao>;
+
+  abstract aprovarProjeto(
+    id: string,
+    versaoId: string,
+    input: AprovarProjetoRequest,
+    principal: AuthPrincipal,
+  ): Promise<ProjetoVersao>;
+
+  abstract solicitarRevisaoDeProjeto(
+    id: string,
+    versaoId: string,
+    input: SolicitarRevisaoDeProjetoRequest,
+    principal: AuthPrincipal,
+  ): Promise<ProjetoVersao>;
 }

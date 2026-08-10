@@ -257,6 +257,12 @@ model User {
   incidentesResponsavelTratativa Incidente[]             @relation("IncidenteResponsavelTratativa")
   liberacoesDadas                LiberacaoSeguranca[]    @relation("LiberacaoLiberadoPor")
   liberacoesRevogadas            LiberacaoSeguranca[]    @relation("LiberacaoRevogadoPor")
+  pendenciasAbertas              PendenciaDeCampo[]      @relation("PendenciaAbertaPor")
+  pendenciasEncerradas           PendenciaDeCampo[]      @relation("PendenciaEncerradoPor")
+  medicoesResponsavel            MedicaoTecnica[]        @relation("MedicaoResponsavel")
+  medicoesAprovadas              MedicaoTecnica[]        @relation("MedicaoAprovadoPor")
+  versoesDeProjetoAutor          ProjetoVersao[]         @relation("ProjetoVersaoAutor")
+  versoesDeProjetoAprovadas      ProjetoVersao[]         @relation("ProjetoVersaoAprovadoPor")
 
   @@map("users")
 }
@@ -1233,6 +1239,9 @@ model Obra {
   registrosApr        RegistroApr[]
   incidentes          Incidente[]
   liberacoesSeguranca LiberacaoSeguranca[]
+  pendencias          PendenciaDeCampo[]
+  medicoes            MedicaoTecnica[]
+  versoesDeProjeto    ProjetoVersao[]
 
   @@index([companyId, ativa])
   @@index([companyId, etapaAtual])
@@ -1411,6 +1420,114 @@ enum PapelLiberador {
   engenheiro
 
   @@map("papel_liberador")
+}
+
+/// Tipos mínimos do POP §6. "Clima" fica de fora — POP §7 marca como em aberto.
+enum PendenciaTipo {
+  material_insuficiente
+  divergencia_projeto
+  condicao_insegura
+  acesso_indisponivel
+  cliente_pendente
+  equipe_indisponivel
+  outro
+
+  @@map("pendencia_tipo")
+}
+
+enum PendenciaStatus {
+  aberta
+  encerrada
+
+  @@map("pendencia_status")
+}
+
+/// Pendência de campo (POP §6). Pode bloquear avanço da etapa até tratativa
+/// formal — o bloqueio em si é decisão de quem opera o fluxo, não uma trava de
+/// banco: o POP diz "pode bloquear", não "sempre bloqueia".
+model PendenciaDeCampo {
+  id             String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  obraId         String          @map("obra_id") @db.Uuid
+  tipo           PendenciaTipo
+  prioridade     String?
+  status         PendenciaStatus @default(aberta)
+  descricao      String
+  abertaPorId    String          @map("aberta_por_id") @db.Uuid
+  encerradoPorId String?         @map("encerrado_por_id") @db.Uuid
+  encerradoEm    DateTime?       @map("encerrado_em") @db.Timestamptz(6)
+  createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  obra         Obra  @relation(fields: [obraId], references: [id], onDelete: Cascade)
+  abertaPor    User  @relation("PendenciaAbertaPor", fields: [abertaPorId], references: [id])
+  encerradoPor User? @relation("PendenciaEncerradoPor", fields: [encerradoPorId], references: [id], onDelete: SetNull)
+
+  @@index([obraId, status])
+  @@map("pendencias_de_campo")
+}
+
+enum MedicaoStatus {
+  pendente
+  aprovada
+  em_correcao
+
+  @@map("medicao_status")
+}
+
+/// Medição técnica e avanço físico (POP §9). Sem coluna de percentual — o
+/// critério de medição por tipo de obra é `em aberto` (POP §7, item 8);
+/// `etapaExecutada` é texto livre até o documento decidir o critério.
+model MedicaoTecnica {
+  id                      String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  obraId                  String        @map("obra_id") @db.Uuid
+  etapaExecutada          String        @map("etapa_executada")
+  pendenciasRemanescentes String?       @map("pendencias_remanescentes")
+  status                  MedicaoStatus @default(pendente)
+  responsavelId           String        @map("responsavel_id") @db.Uuid
+  aprovadoPorId           String?       @map("aprovado_por_id") @db.Uuid
+  aprovadoEm              DateTime?     @map("aprovado_em") @db.Timestamptz(6)
+  createdAt               DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  obra        Obra  @relation(fields: [obraId], references: [id], onDelete: Cascade)
+  responsavel User  @relation("MedicaoResponsavel", fields: [responsavelId], references: [id])
+  aprovadoPor User? @relation("MedicaoAprovadoPor", fields: [aprovadoPorId], references: [id], onDelete: SetNull)
+
+  @@index([obraId, status])
+  @@map("medicoes_tecnicas")
+}
+
+enum ProjetoVersaoStatus {
+  elaboracao
+  em_aprovacao
+  aprovado
+  superado
+
+  @@map("projeto_versao_status")
+}
+
+/// Versionamento de projeto (POP §3): "toda alteração gera nova versão, nunca
+/// sobrescreve". `superado` não é alcançado por transição da própria linha —
+/// nasce quando a versão seguinte é criada; ver `obras.rules.ts`.
+model ProjetoVersao {
+  id                      String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  obraId                  String              @map("obra_id") @db.Uuid
+  versao                  Int
+  status                  ProjetoVersaoStatus @default(elaboracao)
+  descricao               String
+  autorId                 String              @map("autor_id") @db.Uuid
+  aprovadoPorId           String?             @map("aprovado_por_id") @db.Uuid
+  aprovadoEm              DateTime?           @map("aprovado_em") @db.Timestamptz(6)
+  justificativaReabertura String?             @map("justificativa_reabertura")
+  arquivoChave            String?             @map("arquivo_chave")
+  arquivoNome             String?             @map("arquivo_nome")
+  createdAt               DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  obra        Obra  @relation(fields: [obraId], references: [id], onDelete: Cascade)
+  autor       User  @relation("ProjetoVersaoAutor", fields: [autorId], references: [id])
+  aprovadoPor User? @relation("ProjetoVersaoAprovadoPor", fields: [aprovadoPorId], references: [id], onDelete: SetNull)
+
+  @@unique([obraId, versao])
+  @@index([obraId, status])
+  @@map("projeto_versoes")
 }
 
 /// Um pedido de compra do POP-COMP-001. Um card do funil C43 vira uma linha.

@@ -1,9 +1,16 @@
 import { BadRequestException, ForbiddenException } from "@nestjs/common";
-import { incidenteGravidadeMinimaQueBloqueia, type ObraEtapa, type RoleKey } from "@plugga/shared";
+import {
+  incidenteGravidadeMinimaQueBloqueia,
+  type MedicaoStatus,
+  type ObraEtapa,
+  type PendenciaStatus,
+  type ProjetoVersaoStatus,
+  type RoleKey,
+} from "@plugga/shared";
 
 /**
- * Regras do processo de Execução e Gestão de Obras (POP-OBR-001 §2, §5.1 e
- * §8). Funções puras, no molde de `compras.rules.ts`: valem tanto no
+ * Regras do processo de Execução e Gestão de Obras (POP-OBR-001 §2, §3, §5.1,
+ * §6, §8 e §9). Funções puras, no molde de `compras.rules.ts`: valem tanto no
  * repositório de produção quanto nos testes, para o dublê não divergir em
  * silêncio.
  */
@@ -202,5 +209,58 @@ export function assertFinanceiroNaoAlteraMedicaoTecnica(principal: { roles: read
     !principal.roles.includes("diretoria");
   if (ehSomenteFinanceiro) {
     throw new ForbiddenException("financeiro não altera medição técnica (POP-OBR-001 §1.2/§9)");
+  }
+}
+
+// --- Pendência de campo (POP §6) ------------------------------------------
+
+/** Só se encerra pendência aberta — encerrar de novo não é ação válida. */
+export function assertPendenciaAberta(status: PendenciaStatus): void {
+  if (status !== "aberta") {
+    throw new BadRequestException("esta pendência já foi encerrada");
+  }
+}
+
+// --- Medição técnica e avanço físico (POP §9) -----------------------------
+
+/**
+ * `pendente` é o único estado que decide algo — POP §9: "Após medicao_aprovada,
+ * financeiro não altera medição técnica" e "qualquer ajuste técnico exige nova
+ * revisão técnica". Por isso `aprovada` e `em_correcao` são terminais desta
+ * linha: uma correção não reabre a medição, gera nova linha `pendente`.
+ */
+export const MEDICAO_TRANSICOES: Record<MedicaoStatus, readonly MedicaoStatus[]> = {
+  pendente: ["aprovada", "em_correcao"],
+  aprovada: [],
+  em_correcao: [],
+};
+
+export function assertMedicaoTransicao(de: MedicaoStatus, para: MedicaoStatus): void {
+  if (!MEDICAO_TRANSICOES[de].includes(para)) {
+    throw new BadRequestException(`não é possível levar a medição de "${de}" para "${para}"`);
+  }
+}
+
+// --- Versionamento de projeto (POP §3) ------------------------------------
+
+/**
+ * `superado` não aparece como destino: nenhuma ação move uma versão para lá.
+ * Ela se torna `superado` como efeito colateral de uma versão seguinte nascer
+ * (ver comentário do model `ProjetoVersao`) — não é uma transição que esta
+ * função precise validar.
+ */
+export const PROJETO_VERSAO_TRANSICOES: Record<ProjetoVersaoStatus, readonly ProjetoVersaoStatus[]> = {
+  elaboracao: ["em_aprovacao"],
+  em_aprovacao: ["aprovado", "elaboracao"],
+  aprovado: [],
+  superado: [],
+};
+
+export function assertProjetoVersaoTransicao(de: ProjetoVersaoStatus, para: ProjetoVersaoStatus): void {
+  if (de === "superado" || de === "aprovado") {
+    throw new BadRequestException(`a versão em "${de}" não admite novas transições`);
+  }
+  if (!PROJETO_VERSAO_TRANSICOES[de].includes(para)) {
+    throw new BadRequestException(`não é possível levar o projeto de "${de}" para "${para}"`);
   }
 }

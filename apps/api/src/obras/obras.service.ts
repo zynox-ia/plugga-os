@@ -1,21 +1,34 @@
 import { Inject, Injectable } from "@nestjs/common";
 import type {
+  AprovarMedicaoRequest,
+  AprovarProjetoRequest,
   AssinarAprRequest,
   AvancarEtapaDeObraRequest,
+  ClassificarPrioridadeRequest,
   CompanyKey,
   ConferirEpiRequest,
+  CriarVersaoDeProjetoRequest,
+  EncerrarPendenciaRequest,
+  EnviarProjetoParaAprovacaoRequest,
   Incidente,
+  LancarMedicaoRequest,
   LiberacaoSeguranca,
+  MedicaoTecnica,
   ObraExecucaoDetalhe,
+  PendenciaDeCampo,
+  ProjetoVersao,
   ReabrirProjetoRequest,
   RegistrarAprRequest,
   RegistrarEpiRequest,
   RegistrarEvidenciaRequest,
   RegistrarIncidenteRequest,
   RegistrarLiberacaoRequest,
+  RegistrarPendenciaRequest,
   RegistroApr,
   RegistroEpi,
   RevogarLiberacaoRequest,
+  SolicitarCorrecaoMedicaoRequest,
+  SolicitarRevisaoDeProjetoRequest,
 } from "@plugga/shared";
 
 import type { AuthPrincipal } from "../core/auth/auth.types";
@@ -139,5 +152,105 @@ export class ObrasService {
   ): Promise<LiberacaoSeguranca> {
     await this.escopo.assertAlcanca(principal.id, input.companyId);
     return this.repositorio.revogarLiberacao(id, liberacaoId, input, principal);
+  }
+
+  async registrarPendencia(
+    id: string,
+    input: RegistrarPendenciaRequest,
+    principal: AuthPrincipal,
+  ): Promise<PendenciaDeCampo> {
+    await this.escopo.assertAlcanca(principal.id, input.companyId);
+    return this.repositorio.registrarPendencia(id, input, principal);
+  }
+
+  async classificarPrioridadePendencia(
+    id: string,
+    pendenciaId: string,
+    input: ClassificarPrioridadeRequest,
+    principal: AuthPrincipal,
+  ): Promise<PendenciaDeCampo> {
+    await this.escopo.assertAlcanca(principal.id, input.companyId);
+    return this.repositorio.classificarPrioridadePendencia(id, pendenciaId, input, principal);
+  }
+
+  async encerrarPendencia(
+    id: string,
+    pendenciaId: string,
+    input: EncerrarPendenciaRequest,
+    principal: AuthPrincipal,
+  ): Promise<PendenciaDeCampo> {
+    await this.escopo.assertAlcanca(principal.id, input.companyId);
+    return this.repositorio.encerrarPendencia(id, pendenciaId, input, principal);
+  }
+
+  async lancarMedicao(id: string, input: LancarMedicaoRequest, principal: AuthPrincipal): Promise<MedicaoTecnica> {
+    await this.escopo.assertAlcanca(principal.id, input.companyId);
+    return this.repositorio.lancarMedicao(id, input, principal);
+  }
+
+  async aprovarMedicao(
+    id: string,
+    medicaoId: string,
+    input: AprovarMedicaoRequest,
+    principal: AuthPrincipal,
+  ): Promise<MedicaoTecnica> {
+    await this.escopo.assertAlcanca(principal.id, input.companyId);
+    return this.repositorio.aprovarMedicao(id, medicaoId, input, principal);
+  }
+
+  async solicitarCorrecaoMedicao(
+    id: string,
+    medicaoId: string,
+    input: SolicitarCorrecaoMedicaoRequest,
+    principal: AuthPrincipal,
+  ): Promise<MedicaoTecnica> {
+    await this.escopo.assertAlcanca(principal.id, input.companyId);
+    return this.repositorio.solicitarCorrecaoMedicao(id, medicaoId, input, principal);
+  }
+
+  /** Mesmo raciocínio de `registrarEvidencia`: anexo é opcional aqui (o desenho pode chegar depois). */
+  async criarVersaoDeProjeto(
+    id: string,
+    input: CriarVersaoDeProjetoRequest,
+    arquivo: ArquivoDeEvidencia | null,
+    principal: AuthPrincipal,
+  ): Promise<ProjetoVersao> {
+    await this.escopo.assertAlcanca(principal.id, input.companyId);
+    const anexo = arquivo
+      ? await this.armazenamento
+          .guardar(arquivo.buffer, arquivo.mimetype, arquivo.originalname)
+          .then((guardado) => ({ arquivoChave: guardado.chave, arquivoNome: arquivo.originalname }))
+      : null;
+    return this.repositorio.criarVersaoDeProjeto(id, input, anexo, principal);
+  }
+
+  async enviarProjetoParaAprovacao(
+    id: string,
+    versaoId: string,
+    input: EnviarProjetoParaAprovacaoRequest,
+    principal: AuthPrincipal,
+  ): Promise<ProjetoVersao> {
+    await this.escopo.assertAlcanca(principal.id, input.companyId);
+    return this.repositorio.enviarProjetoParaAprovacao(id, versaoId, input, principal);
+  }
+
+  async aprovarProjeto(
+    id: string,
+    versaoId: string,
+    input: AprovarProjetoRequest,
+    principal: AuthPrincipal,
+  ): Promise<ProjetoVersao> {
+    await this.escopo.assertAlcanca(principal.id, input.companyId);
+    return this.repositorio.aprovarProjeto(id, versaoId, input, principal);
+  }
+
+  async solicitarRevisaoDeProjeto(
+    id: string,
+    versaoId: string,
+    input: SolicitarRevisaoDeProjetoRequest,
+    principal: AuthPrincipal,
+  ): Promise<ProjetoVersao> {
+    await this.escopo.assertAlcanca(principal.id, input.companyId);
+    return this.repositorio.solicitarRevisaoDeProjeto(id, versaoId, input, principal);
   }
 }

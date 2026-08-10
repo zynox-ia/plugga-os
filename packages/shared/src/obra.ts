@@ -7,11 +7,9 @@ import { isoDate, uuid } from "./primitivas.js";
  * Contratos do processo de Execução e Gestão de Obras (POP-OBR-001 v1 +
  * FLX-OBR-001, 10/08/2026).
  *
- * Escopo desta primeira fatia: estados da Obra, evidência de campo e
- * segurança do trabalho (EPI/APR/incidente/liberação) — POP §2, §5.1 e §8.
- * Projeto versionado, pendência de campo e medição técnica ficam para depois;
- * o POP já as descreve, mas o ticket que trouxe este arquivo pediu só estas
- * três fatias.
+ * Cobre estados da Obra, evidência de campo, segurança do trabalho
+ * (EPI/APR/incidente/liberação), pendência de campo, medição técnica e
+ * versionamento de projeto — POP §2, §3, §5.1, §6, §8 e §9.
  */
 
 // --- Estados do processo (POP §2) -----------------------------------------
@@ -147,16 +145,6 @@ export const liberacaoSegurancaSchema = z.object({
 });
 export type LiberacaoSeguranca = z.infer<typeof liberacaoSegurancaSchema>;
 
-export const obraExecucaoDetalheSchema = obraExecucaoSchema.extend({
-  etapas: z.array(passagemDeObraSchema),
-  evidencias: z.array(evidenciaDeObraSchema),
-  registrosEpi: z.array(registroEpiSchema),
-  registrosApr: z.array(registroAprSchema),
-  incidentes: z.array(incidenteSchema),
-  liberacoes: z.array(liberacaoSegurancaSchema),
-});
-export type ObraExecucaoDetalhe = z.infer<typeof obraExecucaoDetalheSchema>;
-
 // --- Requests ----------------------------------------------------------------
 
 export const avancarEtapaDeObraRequestSchema = z
@@ -258,3 +246,162 @@ export const revogarLiberacaoRequestSchema = z
   })
   .strict();
 export type RevogarLiberacaoRequest = z.infer<typeof revogarLiberacaoRequestSchema>;
+
+// --- Pendência de campo (POP §6) --------------------------------------------
+
+/**
+ * Tipos mínimos do POP §6. "Clima" fica de fora — o POP §7 marca "se será
+ * tipo próprio" como em aberto; inventar aqui decidiria por ele.
+ */
+export const pendenciaTipoSchema = z.enum([
+  "material_insuficiente",
+  "divergencia_projeto",
+  "condicao_insegura",
+  "acesso_indisponivel",
+  "cliente_pendente",
+  "equipe_indisponivel",
+  "outro",
+]);
+export type PendenciaTipo = z.infer<typeof pendenciaTipoSchema>;
+
+export const pendenciaStatusSchema = z.enum(["aberta", "encerrada"]);
+export type PendenciaStatus = z.infer<typeof pendenciaStatusSchema>;
+
+export const pendenciaDeCampoSchema = z.object({
+  id: uuid,
+  tipo: pendenciaTipoSchema,
+  prioridade: z.string().nullable(),
+  status: pendenciaStatusSchema,
+  descricao: z.string(),
+  abertaPorId: uuid,
+  encerradoPorId: uuid.nullable(),
+  encerradoEm: isoDate.nullable(),
+  createdAt: isoDate,
+});
+export type PendenciaDeCampo = z.infer<typeof pendenciaDeCampoSchema>;
+
+export const registrarPendenciaRequestSchema = z
+  .object({
+    companyId: companyKeySchema,
+    tipo: pendenciaTipoSchema,
+    descricao: z.string().trim().min(1).max(2000),
+  })
+  .strict();
+export type RegistrarPendenciaRequest = z.infer<typeof registrarPendenciaRequestSchema>;
+
+export const classificarPrioridadeRequestSchema = z
+  .object({
+    companyId: companyKeySchema,
+    prioridade: z.string().trim().min(1).max(50),
+  })
+  .strict();
+export type ClassificarPrioridadeRequest = z.infer<typeof classificarPrioridadeRequestSchema>;
+
+export const encerrarPendenciaRequestSchema = z.object({ companyId: companyKeySchema }).strict();
+export type EncerrarPendenciaRequest = z.infer<typeof encerrarPendenciaRequestSchema>;
+
+// --- Medição técnica e avanço físico (POP §9) -------------------------------
+
+export const medicaoStatusSchema = z.enum(["pendente", "aprovada", "em_correcao"]);
+export type MedicaoStatus = z.infer<typeof medicaoStatusSchema>;
+
+export const medicaoTecnicaSchema = z.object({
+  id: uuid,
+  etapaExecutada: z.string(),
+  pendenciasRemanescentes: z.string().nullable(),
+  status: medicaoStatusSchema,
+  responsavelId: uuid,
+  aprovadoPorId: uuid.nullable(),
+  aprovadoEm: isoDate.nullable(),
+  createdAt: isoDate,
+});
+export type MedicaoTecnica = z.infer<typeof medicaoTecnicaSchema>;
+
+/**
+ * `percentualOuMarco` é texto livre de propósito. O POP §7, item 8, marca o
+ * critério de medição (percentual físico, marco, item de checklist ou etapa)
+ * como algo a decidir por tipo de obra — uma coluna numérica aqui fixaria
+ * "percentual" como a resposta antes de o documento decidir.
+ */
+export const lancarMedicaoRequestSchema = z
+  .object({
+    companyId: companyKeySchema,
+    etapaExecutada: z.string().trim().min(1).max(500),
+    pendenciasRemanescentes: z.string().trim().max(2000).optional(),
+  })
+  .strict();
+export type LancarMedicaoRequest = z.infer<typeof lancarMedicaoRequestSchema>;
+
+export const aprovarMedicaoRequestSchema = z.object({ companyId: companyKeySchema }).strict();
+export type AprovarMedicaoRequest = z.infer<typeof aprovarMedicaoRequestSchema>;
+
+export const solicitarCorrecaoMedicaoRequestSchema = z
+  .object({
+    companyId: companyKeySchema,
+    motivo: z.string().trim().min(1).max(2000),
+  })
+  .strict();
+export type SolicitarCorrecaoMedicaoRequest = z.infer<typeof solicitarCorrecaoMedicaoRequestSchema>;
+
+// --- Versionamento de projeto (POP §3) --------------------------------------
+
+/**
+ * `elaboracao → em_aprovacao → aprovado | elaboracao` é o ciclo normal de uma
+ * versão. `superado` não é alcançado por transição desta versão: nasce quando
+ * uma versão seguinte é criada (POP §3 — "todo retorno gera nova versão,
+ * nunca sobrescreve"), e é por isso que a reabertura de `projeto_aprovado`
+ * cria uma linha nova em vez de mover a existente.
+ */
+export const projetoVersaoStatusSchema = z.enum(["elaboracao", "em_aprovacao", "aprovado", "superado"]);
+export type ProjetoVersaoStatus = z.infer<typeof projetoVersaoStatusSchema>;
+
+export const projetoVersaoSchema = z.object({
+  id: uuid,
+  versao: z.number().int().positive(),
+  status: projetoVersaoStatusSchema,
+  descricao: z.string(),
+  autorId: uuid,
+  aprovadoPorId: uuid.nullable(),
+  aprovadoEm: isoDate.nullable(),
+  justificativaReabertura: z.string().nullable(),
+  arquivoNome: z.string().nullable(),
+  createdAt: isoDate,
+});
+export type ProjetoVersao = z.infer<typeof projetoVersaoSchema>;
+
+export const criarVersaoDeProjetoRequestSchema = z
+  .object({
+    companyId: companyKeySchema,
+    descricao: z.string().trim().min(1).max(2000),
+  })
+  .strict();
+export type CriarVersaoDeProjetoRequest = z.infer<typeof criarVersaoDeProjetoRequestSchema>;
+
+export const enviarProjetoParaAprovacaoRequestSchema = z.object({ companyId: companyKeySchema }).strict();
+export type EnviarProjetoParaAprovacaoRequest = z.infer<typeof enviarProjetoParaAprovacaoRequestSchema>;
+
+export const aprovarProjetoRequestSchema = z.object({ companyId: companyKeySchema }).strict();
+export type AprovarProjetoRequest = z.infer<typeof aprovarProjetoRequestSchema>;
+
+export const solicitarRevisaoDeProjetoRequestSchema = z
+  .object({
+    companyId: companyKeySchema,
+    motivo: z.string().trim().min(1).max(2000),
+  })
+  .strict();
+export type SolicitarRevisaoDeProjetoRequest = z.infer<typeof solicitarRevisaoDeProjetoRequestSchema>;
+
+// --- Detalhe completo --------------------------------------------------------
+
+export const obraExecucaoDetalheSchema = obraExecucaoSchema.extend({
+  etapas: z.array(passagemDeObraSchema),
+  evidencias: z.array(evidenciaDeObraSchema),
+  registrosEpi: z.array(registroEpiSchema),
+  registrosApr: z.array(registroAprSchema),
+  incidentes: z.array(incidenteSchema),
+  liberacoes: z.array(liberacaoSegurancaSchema),
+  pendencias: z.array(pendenciaDeCampoSchema),
+  medicoes: z.array(medicaoTecnicaSchema),
+  versoesDeProjeto: z.array(projetoVersaoSchema),
+});
+export type ObraExecucaoDetalhe = z.infer<typeof obraExecucaoDetalheSchema>;

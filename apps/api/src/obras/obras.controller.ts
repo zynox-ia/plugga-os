@@ -15,32 +15,54 @@ import {
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
 import {
+  aprovarMedicaoRequestSchema,
+  aprovarProjetoRequestSchema,
   assinarAprRequestSchema,
   avancarEtapaDeObraRequestSchema,
+  classificarPrioridadeRequestSchema,
   companyKeySchema,
   conferirEpiRequestSchema,
+  criarVersaoDeProjetoRequestSchema,
+  encerrarPendenciaRequestSchema,
+  enviarProjetoParaAprovacaoRequestSchema,
+  lancarMedicaoRequestSchema,
   reabrirProjetoRequestSchema,
   registrarAprRequestSchema,
   registrarEpiRequestSchema,
   registrarEvidenciaRequestSchema,
   registrarIncidenteRequestSchema,
   registrarLiberacaoRequestSchema,
+  registrarPendenciaRequestSchema,
   revogarLiberacaoRequestSchema,
+  solicitarCorrecaoMedicaoRequestSchema,
+  solicitarRevisaoDeProjetoRequestSchema,
+  type AprovarMedicaoRequest,
+  type AprovarProjetoRequest,
   type AssinarAprRequest,
   type AvancarEtapaDeObraRequest,
+  type ClassificarPrioridadeRequest,
   type CompanyKey,
   type ConferirEpiRequest,
+  type EncerrarPendenciaRequest,
+  type EnviarProjetoParaAprovacaoRequest,
   type Incidente,
+  type LancarMedicaoRequest,
   type LiberacaoSeguranca,
+  type MedicaoTecnica,
   type ObraExecucaoDetalhe,
+  type PendenciaDeCampo,
+  type ProjetoVersao,
   type ReabrirProjetoRequest,
   type RegistrarAprRequest,
   type RegistrarEpiRequest,
   type RegistrarIncidenteRequest,
   type RegistrarLiberacaoRequest,
+  type RegistrarPendenciaRequest,
   type RegistroApr,
   type RegistroEpi,
   type RevogarLiberacaoRequest,
+  type SolicitarCorrecaoMedicaoRequest,
+  type SolicitarRevisaoDeProjetoRequest,
 } from "@plugga/shared";
 
 import { ZodValidationPipe } from "../common/zod-validation.pipe";
@@ -52,9 +74,15 @@ import { Roles } from "../core/auth/roles.decorator";
 import { RolesGuard } from "../core/auth/roles.guard";
 import { TIPOS_ACEITOS } from "./armazenamento-de-evidencias";
 import {
+  APROVAR_MEDICAO,
+  APROVAR_PROJETO,
   ASSINAR_APR,
   AVANCAR_ETAPA,
+  CLASSIFICAR_PRIORIDADE_PENDENCIA,
   CONFERIR_EPI,
+  CRIAR_VERSAO_DE_PROJETO,
+  ENCERRAR_PENDENCIA,
+  LANCAR_MEDICAO,
   LER_OBRA,
   REABRIR_PROJETO,
   REGISTRAR_APR,
@@ -62,6 +90,7 @@ import {
   REGISTRAR_EVIDENCIA,
   REGISTRAR_INCIDENTE,
   REGISTRAR_LIBERACAO,
+  REGISTRAR_PENDENCIA,
   REVOGAR_LIBERACAO,
 } from "./obras.permissions";
 import { ObrasService, type ArquivoDeEvidencia } from "./obras.service";
@@ -225,6 +254,140 @@ export class ObrasController {
     @CurrentPrincipal() principal: AuthPrincipal,
   ): Promise<LiberacaoSeguranca> {
     return this.service.revogarLiberacao(id, liberacaoId, input, principal);
+  }
+
+  @Post(":id/pendencias")
+  @HttpCode(201)
+  @UseGuards(OriginCheckGuard)
+  @Roles(...REGISTRAR_PENDENCIA)
+  registrarPendencia(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body(new ZodValidationPipe(registrarPendenciaRequestSchema)) input: RegistrarPendenciaRequest,
+    @CurrentPrincipal() principal: AuthPrincipal,
+  ): Promise<PendenciaDeCampo> {
+    return this.service.registrarPendencia(id, input, principal);
+  }
+
+  @Post(":id/pendencias/:pendenciaId/prioridade")
+  @HttpCode(200)
+  @UseGuards(OriginCheckGuard)
+  @Roles(...CLASSIFICAR_PRIORIDADE_PENDENCIA)
+  classificarPrioridadePendencia(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Param("pendenciaId", ParseUUIDPipe) pendenciaId: string,
+    @Body(new ZodValidationPipe(classificarPrioridadeRequestSchema)) input: ClassificarPrioridadeRequest,
+    @CurrentPrincipal() principal: AuthPrincipal,
+  ): Promise<PendenciaDeCampo> {
+    return this.service.classificarPrioridadePendencia(id, pendenciaId, input, principal);
+  }
+
+  @Post(":id/pendencias/:pendenciaId/encerrar")
+  @HttpCode(200)
+  @UseGuards(OriginCheckGuard)
+  @Roles(...ENCERRAR_PENDENCIA)
+  encerrarPendencia(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Param("pendenciaId", ParseUUIDPipe) pendenciaId: string,
+    @Body(new ZodValidationPipe(encerrarPendenciaRequestSchema)) input: EncerrarPendenciaRequest,
+    @CurrentPrincipal() principal: AuthPrincipal,
+  ): Promise<PendenciaDeCampo> {
+    return this.service.encerrarPendencia(id, pendenciaId, input, principal);
+  }
+
+  @Post(":id/medicoes")
+  @HttpCode(201)
+  @UseGuards(OriginCheckGuard)
+  @Roles(...LANCAR_MEDICAO)
+  lancarMedicao(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body(new ZodValidationPipe(lancarMedicaoRequestSchema)) input: LancarMedicaoRequest,
+    @CurrentPrincipal() principal: AuthPrincipal,
+  ): Promise<MedicaoTecnica> {
+    return this.service.lancarMedicao(id, input, principal);
+  }
+
+  @Post(":id/medicoes/:medicaoId/aprovar")
+  @HttpCode(200)
+  @UseGuards(OriginCheckGuard)
+  @Roles(...APROVAR_MEDICAO)
+  aprovarMedicao(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Param("medicaoId", ParseUUIDPipe) medicaoId: string,
+    @Body(new ZodValidationPipe(aprovarMedicaoRequestSchema)) input: AprovarMedicaoRequest,
+    @CurrentPrincipal() principal: AuthPrincipal,
+  ): Promise<MedicaoTecnica> {
+    return this.service.aprovarMedicao(id, medicaoId, input, principal);
+  }
+
+  @Post(":id/medicoes/:medicaoId/solicitar-correcao")
+  @HttpCode(200)
+  @UseGuards(OriginCheckGuard)
+  @Roles(...APROVAR_MEDICAO)
+  solicitarCorrecaoMedicao(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Param("medicaoId", ParseUUIDPipe) medicaoId: string,
+    @Body(new ZodValidationPipe(solicitarCorrecaoMedicaoRequestSchema)) input: SolicitarCorrecaoMedicaoRequest,
+    @CurrentPrincipal() principal: AuthPrincipal,
+  ): Promise<MedicaoTecnica> {
+    return this.service.solicitarCorrecaoMedicao(id, medicaoId, input, principal);
+  }
+
+  /** `multipart` opcional: o desenho pode chegar depois, mas o payload sempre precisa vir junto. */
+  @Post(":id/projeto/versoes")
+  @HttpCode(201)
+  @UseGuards(OriginCheckGuard)
+  @Roles(...CRIAR_VERSAO_DE_PROJETO)
+  @UseInterceptors(FileInterceptor("arquivo", { limits: { fileSize: TAMANHO_MAXIMO } }))
+  criarVersaoDeProjeto(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body("payload") payload: string,
+    @UploadedFile() arquivo: ArquivoDeEvidencia | undefined,
+    @CurrentPrincipal() principal: AuthPrincipal,
+  ): Promise<ProjetoVersao> {
+    if (arquivo && !TIPOS_ACEITOS.includes(arquivo.mimetype)) {
+      throw new BadRequestException(`tipo de arquivo não aceito: ${arquivo.mimetype}`);
+    }
+    const input = new ZodValidationPipe(criarVersaoDeProjetoRequestSchema).transform(this.lerPayload(payload));
+    return this.service.criarVersaoDeProjeto(id, input, arquivo ?? null, principal);
+  }
+
+  @Post(":id/projeto/versoes/:versaoId/enviar-para-aprovacao")
+  @HttpCode(200)
+  @UseGuards(OriginCheckGuard)
+  @Roles(...CRIAR_VERSAO_DE_PROJETO)
+  enviarProjetoParaAprovacao(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Param("versaoId", ParseUUIDPipe) versaoId: string,
+    @Body(new ZodValidationPipe(enviarProjetoParaAprovacaoRequestSchema)) input: EnviarProjetoParaAprovacaoRequest,
+    @CurrentPrincipal() principal: AuthPrincipal,
+  ): Promise<ProjetoVersao> {
+    return this.service.enviarProjetoParaAprovacao(id, versaoId, input, principal);
+  }
+
+  @Post(":id/projeto/versoes/:versaoId/aprovar")
+  @HttpCode(200)
+  @UseGuards(OriginCheckGuard)
+  @Roles(...APROVAR_PROJETO)
+  aprovarProjeto(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Param("versaoId", ParseUUIDPipe) versaoId: string,
+    @Body(new ZodValidationPipe(aprovarProjetoRequestSchema)) input: AprovarProjetoRequest,
+    @CurrentPrincipal() principal: AuthPrincipal,
+  ): Promise<ProjetoVersao> {
+    return this.service.aprovarProjeto(id, versaoId, input, principal);
+  }
+
+  @Post(":id/projeto/versoes/:versaoId/solicitar-revisao")
+  @HttpCode(200)
+  @UseGuards(OriginCheckGuard)
+  @Roles(...APROVAR_PROJETO)
+  solicitarRevisaoDeProjeto(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Param("versaoId", ParseUUIDPipe) versaoId: string,
+    @Body(new ZodValidationPipe(solicitarRevisaoDeProjetoRequestSchema)) input: SolicitarRevisaoDeProjetoRequest,
+    @CurrentPrincipal() principal: AuthPrincipal,
+  ): Promise<ProjetoVersao> {
+    return this.service.solicitarRevisaoDeProjeto(id, versaoId, input, principal);
   }
 
   @Get(":id")

@@ -1,5 +1,5 @@
 import { BadRequestException, ForbiddenException } from "@nestjs/common";
-import type { ObraEtapa, RoleKey } from "@plugga/shared";
+import type { MedicaoStatus, ObraEtapa, ProjetoVersaoStatus, RoleKey } from "@plugga/shared";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -12,6 +12,9 @@ import {
   assertEvidenciaImutavel,
   assertFinanceiroNaoAlteraMedicaoTecnica,
   assertLiberacaoValida,
+  assertMedicaoTransicao,
+  assertPendenciaAberta,
+  assertProjetoVersaoTransicao,
   assertReaberturaDeProjeto,
   assertTecnicoNaoEditaOrcamento,
   assertTransicaoPermitida,
@@ -203,5 +206,52 @@ describe("regras-mãe de bloqueio (POP §1.2)", () => {
     expect(() =>
       assertFinanceiroNaoAlteraMedicaoTecnica({ roles: ["financeiro", "engenheiro"] }),
     ).not.toThrow();
+  });
+});
+
+describe("assertPendenciaAberta", () => {
+  it("aceita pendência aberta", () => {
+    expect(() => assertPendenciaAberta("aberta")).not.toThrow();
+  });
+
+  it("recusa encerrar pendência já encerrada", () => {
+    expect(() => assertPendenciaAberta("encerrada")).toThrow(BadRequestException);
+  });
+});
+
+describe("assertMedicaoTransicao", () => {
+  it.each([
+    ["pendente", "aprovada"],
+    ["pendente", "em_correcao"],
+  ] as [MedicaoStatus, MedicaoStatus][])("permite %s → %s", (de, para) => {
+    expect(() => assertMedicaoTransicao(de, para)).not.toThrow();
+  });
+
+  it.each(["aprovada", "em_correcao"] as MedicaoStatus[])(
+    "trata %s como terminal — correção gera nova medição, não reabre a linha",
+    (de) => {
+      expect(() => assertMedicaoTransicao(de, "pendente")).toThrow(BadRequestException);
+    },
+  );
+});
+
+describe("assertProjetoVersaoTransicao", () => {
+  it.each([
+    ["elaboracao", "em_aprovacao"],
+    ["em_aprovacao", "aprovado"],
+    ["em_aprovacao", "elaboracao"],
+  ] as [ProjetoVersaoStatus, ProjetoVersaoStatus][])("permite %s → %s", (de, para) => {
+    expect(() => assertProjetoVersaoTransicao(de, para)).not.toThrow();
+  });
+
+  it.each(["aprovado", "superado"] as ProjetoVersaoStatus[])(
+    "trata %s como terminal — reabertura cria nova versão, não move esta linha",
+    (de) => {
+      expect(() => assertProjetoVersaoTransicao(de, "elaboracao")).toThrow(BadRequestException);
+    },
+  );
+
+  it("recusa pulo de elaboracao direto para aprovado", () => {
+    expect(() => assertProjetoVersaoTransicao("elaboracao", "aprovado")).toThrow(BadRequestException);
   });
 });
