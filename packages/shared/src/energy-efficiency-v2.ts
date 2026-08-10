@@ -164,6 +164,32 @@ export const faturaNormativaSchema = z
 
     /** Presente quando o caso é peak shaving. */
     funcao: modoDoEstudoSchema.optional(),
+
+    /**
+     * Campos que só o relatório usa. A Trava 1 não os confere, mas o documento
+     * não nasce sem eles — e é melhor faltar aqui, com nome, do que sumir
+     * dentro de um `any` na hora de montar as substituições.
+     */
+    nomeAnalise: z.string().min(1).nullish(),
+    classeDisplay: z.string().min(1).nullish(),
+    distribuidoraDisplay: z.string().min(1).nullish(),
+    localidade: z.string().min(1).nullish(),
+    leituraAnterior: z.string().min(1).nullish(),
+    leituraAtual: z.string().min(1).nullish(),
+    fonte: z.string().nullish(),
+
+    demandaRefPotenciaKw: z.number().nonnegative().nullish(),
+    demandaPontaValorTotal: z.number().nullish(),
+    /** Vem `null` em cinco faturas do corpus: ausente, não zero. */
+    demandaComplementoValor: z.number().nullish(),
+    tarifaKwPontaMedida: z.number().nonnegative().nullish(),
+    tarifaKwPontaNc: z.number().nonnegative().nullish(),
+    tarifaDemandaKw: z.number().nonnegative().nullish(),
+    ultrapassagemKw: z.number().nonnegative().nullish(),
+
+    reativoPontaValor: z.number().nullish(),
+    reativoFpValor: z.number().nullish(),
+    beneficioIsencaoValor: z.number().nullish(),
   })
   .strict();
 export type FaturaNormativa = z.infer<typeof faturaNormativaSchema>;
