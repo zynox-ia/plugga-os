@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -8,6 +8,7 @@ import { afterAll, describe, expect, it } from "vitest";
 import { rodarPeakShaving, type PremissasDoPeakShaving } from "./motor-peak-shaving.js";
 import { rodarSolarBess, type PremissasDoMotor } from "./motor-solar-bess.js";
 import type { SaidaDoMotor } from "./motor.js";
+import { rodarEstudo, type CasoDoEstudo } from "./pipeline.js";
 
 /**
  * Paridade dos motores contra o oráculo Python, caso a caso.
@@ -177,5 +178,71 @@ describe.skipIf(!ligado)("motores contra o oráculo", () => {
       solar.dimensionamento.n_bess_adotado,
     );
     expect(peak.indicadores.tir_aa).not.toBe(solar.indicadores.tir_aa);
+  });
+});
+
+/**
+ * Paridade do pipeline, não só dos motores.
+ *
+ * Aqui as duas passagens do oráculo são reproduzidas literalmente: roda o motor
+ * sem solar, lê o kWp sugerido do pior mês, grava um caso novo com o solar
+ * derivado a R$ 2.500/kWp e roda de novo. É esse segundo fluxo que vira o
+ * estudo do cliente — e é ele que o TypeScript precisa reproduzir.
+ */
+describe.skipIf(!ligado)("pipeline contra o oráculo", () => {
+  function duasPassagensNoOraculo(arquivo: string): SaidaDoMotor {
+    const caso = lerCaso(arquivo);
+    const script =
+      caso.funcao === "peak_shaving" ? "motor_peak_shaving.py" : "motor_bess_solar.py";
+
+    const primeira = rodarOraculo(script, arquivo);
+    const kwp =
+      (caso.solar_kwp_definido as number | undefined) ||
+      primeira.solar.kwp_sugerido_pior_mes!;
+
+    const destino = mkdtempSync(join(tmpdir(), "pipeline-"));
+    temporarios.push(destino);
+    const casoSolar = join(destino, "caso.json");
+    const saida = join(destino, "fluxo.json");
+    writeFileSync(
+      casoSolar,
+      JSON.stringify({
+        ...caso,
+        solar_kwp: kwp,
+        capex_solar_total: Math.round(kwp * 2500 * 100) / 100,
+      }),
+      "utf8",
+    );
+
+    execFileSync("python3", [join(ASSETS, script), "--caso", casoSolar, "--saida", saida], {
+      env: { ...process.env, PYTHONDONTWRITEBYTECODE: "1" },
+      stdio: "pipe",
+    });
+
+    return JSON.parse(readFileSync(saida, "utf8")) as SaidaDoMotor;
+  }
+
+  const todos = ligado
+    ? readdirSync(CASOS)
+        .filter((nome) => nome.startsWith("caso-motor-") && nome.endsWith(".json"))
+        .sort()
+    : [];
+
+  it.each(todos)("%s: o fluxo Solar do pipeline é o do oráculo", (arquivo) => {
+    const caso = lerCaso(arquivo);
+    const ehPeak = caso.funcao === "peak_shaving";
+    const traduzido = ehPeak
+      ? traduzir<PremissasDoPeakShaving>(caso, DE_PARA_PEAK)
+      : traduzir<PremissasDoMotor>(caso, DE_PARA_SOLAR);
+
+    const estudo = rodarEstudo({
+      ...(traduzido as CasoDoEstudo),
+      funcao: ehPeak ? "peak_shaving" : "solar_bess",
+      ...(caso.solar_kwp_definido === undefined
+        ? {}
+        : { solarKwpDefinido: caso.solar_kwp_definido as number }),
+    });
+
+    expect(estudo.fluxoSolar).toEqual(duasPassagensNoOraculo(arquivo));
   });
 });
