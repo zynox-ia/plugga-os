@@ -61,12 +61,18 @@ test.describe("Plugga shell — smoke", () => {
   test("departamento nasce fechado e abre no clique", async ({ page }) => {
     await page.goto("/");
 
-    const fechados = page.locator(".sidebar-nav .nav-parent[aria-expanded='false']");
-    await expect(fechados.first()).toBeVisible();
+    // O departamento é localizado pelo RÓTULO, não pelo estado. Um locator
+    // por `[aria-expanded='false']` deixa de casar assim que o clique abre o
+    // grupo, e `.first()` passaria a apontar para o próximo ainda fechado —
+    // o teste checaria o elemento errado e falharia dizendo a verdade sobre
+    // outra coisa.
+    const fechado = page.locator(".sidebar-nav .nav-parent[aria-expanded='false']").first();
+    await expect(fechado).toBeVisible();
+    const rotulo = ((await fechado.locator(".nav-item-label").textContent()) ?? "").trim();
 
-    const primeiro = fechados.first();
-    await primeiro.click();
-    await expect(primeiro).toHaveAttribute("aria-expanded", "true");
+    const departamento = page.locator(".sidebar-nav .nav-parent", { hasText: rotulo });
+    await departamento.click();
+    await expect(departamento).toHaveAttribute("aria-expanded", "true");
   });
 
   // A estrutura só é útil se o que ainda não existe estiver visível e inerte:
