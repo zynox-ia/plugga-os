@@ -292,6 +292,31 @@ tbody tr:last-child td { border-bottom: 0; }
   overflow: hidden;
 }
 
+.auth-frame--single {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  max-width: 460px;
+  min-height: auto;
+  max-height: none;
+  padding: 44px 36px;
+  margin: auto;
+}
+
+.auth-frame--single .auth-panel-left {
+  width: 100%;
+  padding: 0;
+  background: transparent;
+  align-items: center;
+}
+
+.auth-frame--single .auth-brand-header {
+  margin-bottom: 24px;
+  display: flex;
+  justify-content: center;
+}
+
 .auth-panel-left {
   display: flex;
   flex-direction: column;
@@ -320,6 +345,15 @@ tbody tr:last-child td { border-bottom: 0; }
   margin: auto 0;
 }
 
+.auth-frame--single .auth-form-title {
+  text-align: center;
+}
+
+.auth-frame--single .auth-form-subtitle {
+  text-align: center;
+  text-wrap: balance;
+}
+
 .auth-form-title {
   font-size: 32px;
   font-weight: 350;
@@ -330,14 +364,40 @@ tbody tr:last-child td { border-bottom: 0; }
 }
 
 .auth-form-subtitle {
-  font-size: 13.5px;
+  font-size: 14px;
+  font-weight: 400;
   color: var(--muted);
   margin: 0 0 24px;
   line-height: 1.45;
   font-family: Anek, sans-serif;
+  text-wrap: balance;
 }
 
-/* Secondary Google SSO Button (Clean, Bordered) */
+/* Espaço do botão oficial do Google (GIS). O iframe é renderizado pelo próprio
+   Google e não aceita a nossa folha de estilo — o que podemos controlar é o
+   lugar dele. A altura fixa é reservada ANTES do script chegar: sem isso o
+   botão empurraria o formulário para cima ao aparecer, e o clique de quem foi
+   rápido cairia no elemento errado. */
+.auth-google-slot {
+  width: 100%;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Enquanto carrega não há nada visível — o espaço reservado já é o suficiente,
+   e um esqueleto piscando por 200 ms chama mais atenção do que o botão. */
+.auth-google-slot[data-state="loading"] {
+  visibility: hidden;
+}
+
+.auth-google-slot #g_id_onload {
+  display: none;
+}
+
+/* Botão decorativo do desenho original. Continua aqui porque as demais telas de
+   auth herdam a mesma folha; o login usa o botão oficial acima. */
 .auth-sso-btn {
   width: 100%;
   height: 48px;
@@ -452,7 +512,7 @@ tbody tr:last-child td { border-bottom: 0; }
   border-radius: 999px;
   background: #ffffff;
   border: 1px solid rgba(0, 51, 51, 0.1);
-  padding: 0 20px;
+  padding: 2px 20px 0;
   font-size: 14px;
   color: var(--ink);
   outline: none;
@@ -699,13 +759,19 @@ tbody tr:last-child td { border-bottom: 0; }
 
 .auth-glass-card {
   width: 100%;
-  background: rgba(255, 255, 255, 0.18);
+  background: linear-gradient(
+    145deg,
+    rgba(0, 35, 32, 0.84) 0%,
+    rgba(0, 66, 55, 0.66) 100%
+  );
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(112, 211, 187, 0.2);
   border-radius: 22px;
   padding: 20px;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.22);
+  box-shadow:
+    0 20px 40px rgba(0, 12, 10, 0.36),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
   transition: transform 0.3s ease;
 }
 
@@ -1006,3 +1072,44 @@ tbody tr:last-child td { border-bottom: 0; }
    preencher à mão é caminho legítimo e não falha. */
 .campo-pendente input { border-style: dashed; }
 .campo-pendente small { color: var(--muted); font-size: 11px; }
+
+/* Página pública de privacidade. Fora do shell autenticado e fora do cartão de
+   login: é um documento, e quem a abre pode ser o revisor do Google, sem sessão
+   e sem contexto nenhum do produto. */
+.legal-page {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 48px 24px 96px;
+  color: var(--ink);
+  font-family: var(--font-articulat), "Articulat CF", Outfit, sans-serif;
+  line-height: 1.65;
+}
+
+.legal-page h1 {
+  font-size: 28px;
+  font-weight: 600;
+  margin: 0 0 16px;
+  font-family: var(--font-roobert), "Roobert TRIAL", Outfit, sans-serif;
+}
+
+.legal-page h2 {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 32px 0 8px;
+  font-family: var(--font-roobert), "Roobert TRIAL", Outfit, sans-serif;
+}
+
+.legal-page p {
+  margin: 0 0 12px;
+}
+
+.legal-page .legal-lead {
+  color: var(--muted);
+}
+
+.legal-page code {
+  font-size: 0.9em;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgba(0, 51, 51, 0.06);
+}

@@ -10,13 +10,16 @@ import { SessionLookupRepository } from "../../src/core/auth/session-lookup.repo
 import { EmailPort, type TransactionalEmail } from "../../src/email/email.port";
 import {
   AuthRepository,
+  IdentityLinkError,
   type AuthUserRecord,
   type CreateAuthTokenData,
   type CreateInvitedUserData,
   type CreateSessionData,
+  type LinkIdentityData,
   type SetPasswordOptions,
   type TeamFilter,
   type TeamMemberRecord,
+  type UserIdentityRecord,
   type ValidAuthToken,
 } from "../../src/auth/auth.repository";
 
@@ -62,9 +65,16 @@ export class InMemoryStore {
   readonly credentials = new Map<string, string>();
   readonly sessions = new Map<string, StoredSession>();
   readonly tokens = new Map<string, StoredToken>();
+  readonly identities = new Map<string, UserIdentityRecord>();
 
   userByEmail(email: string): StoredUser | undefined {
     return [...this.users.values()].find((user) => user.email === email);
+  }
+
+  identityFor(userId: string, provider = "google"): UserIdentityRecord | undefined {
+    return [...this.identities.values()].find(
+      (identity) => identity.userId === userId && identity.provider === provider,
+    );
   }
 
   clear(): void {
@@ -72,6 +82,7 @@ export class InMemoryStore {
     this.credentials.clear();
     this.sessions.clear();
     this.tokens.clear();
+    this.identities.clear();
   }
 
   /** Cria uma pessoa ativa com senha — o atalho que todo teste precisa. */
@@ -212,6 +223,72 @@ export class InMemoryAuthRepository extends AuthRepository {
     }
     if (options.revokeSessions) {
       await this.deleteSessionsForUser(userId);
+    }
+  }
+
+  async findIdentityBySubject(
+    provider: "google",
+    subject: string,
+  ): Promise<UserIdentityRecord | null> {
+    const identity = [...this.store.identities.values()].find(
+      (candidate) => candidate.provider === provider && candidate.subject === subject,
+    );
+    return identity ?? null;
+  }
+
+  // Espelha as DUAS constraints únicas e a transação do PrismaAuthRepository: um
+  // dublê mais permissivo deixaria a suíte verde exatamente nos casos que só
+  // falham em produção — `sub` reatribuído e convidado reativado após desativação.
+  async linkIdentity(data: LinkIdentityData): Promise<AuthUserRecord> {
+    const user = this.store.users.get(data.userId);
+    if (!user) {
+      throw new IdentityLinkError("user_not_found");
+    }
+    if (user.status !== "active" && user.status !== "invited") {
+      throw new IdentityLinkError("user_not_eligible");
+    }
+    const subjectTomado = [...this.store.identities.values()].some(
+      (identity) => identity.provider === data.provider && identity.subject === data.subject,
+    );
+    const usuarioJaVinculado = [...this.store.identities.values()].some(
+      (identity) => identity.provider === data.provider && identity.userId === data.userId,
+    );
+    if (subjectTomado || usuarioJaVinculado) {
+      throw new IdentityLinkError("conflict");
+    }
+
+    const id = randomUUID();
+    this.store.identities.set(id, {
+      id,
+      userId: data.userId,
+      provider: data.provider,
+      subject: data.subject,
+      emailAtLink: data.email,
+      lastObservedEmail: data.email,
+      hostedDomain: data.hostedDomain,
+    });
+
+    if (user.status === "invited") {
+      user.status = "active";
+      for (const token of this.store.tokens.values()) {
+        if (token.userId === data.userId && token.type === "invite" && token.consumedAt === null) {
+          token.consumedAt = data.now;
+        }
+      }
+    }
+
+    return this.toRecord(user);
+  }
+
+  async recordIdentityLogin(
+    identityId: string,
+    email: string,
+    hostedDomain: string | null,
+  ): Promise<void> {
+    const identity = this.store.identities.get(identityId);
+    if (identity) {
+      identity.lastObservedEmail = email;
+      identity.hostedDomain = hostedDomain;
     }
   }
 

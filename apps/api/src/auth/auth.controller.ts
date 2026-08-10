@@ -4,11 +4,13 @@ import { SkipThrottle, Throttle, ThrottlerGuard } from "@nestjs/throttler";
 import type { CookieOptions, Request, Response } from "express";
 import {
   acceptInviteRequestSchema,
+  googleCallbackSchema,
   loginRequestSchema,
   resetConfirmRequestSchema,
   resetRequestSchema,
   type AcceptInviteRequest,
   type AuthAcknowledgement,
+  type GoogleCallback,
   type LoginRequest,
   type MeResponse,
   type ResetConfirmRequest,
@@ -22,7 +24,11 @@ import { CurrentPrincipal } from "../core/auth/current-principal.decorator";
 import { DevAuthGuard } from "../core/auth/dev-auth.guard";
 import { SESSION_COOKIE_NAME } from "../core/auth/token.util";
 import { AuthService } from "./auth.service";
+import { GoogleAuthService } from "./google-auth.service";
 import { OriginCheckGuard } from "../core/auth/origin-check.guard";
+
+/** Nome fixo do cookie double-submit posto pelo Google Identity Services. */
+const GOOGLE_CSRF_COOKIE = "g_csrf_token";
 
 // ThrottlerGuard is applied per-route (not at the controller level) so it
 // always runs *after* OriginCheckGuard: a rejected cross-origin request must
@@ -31,6 +37,7 @@ import { OriginCheckGuard } from "../core/auth/origin-check.guard";
 export class AuthController {
   constructor(
     @Inject(AuthService) private readonly service: AuthService,
+    @Inject(GoogleAuthService) private readonly googleAuth: GoogleAuthService,
     @Inject(ConfigService) private readonly config: ConfigService,
   ) {}
 
@@ -47,6 +54,41 @@ export class AuthController {
       ip: request.ip,
       userAgent: request.headers["user-agent"],
     });
+    response.cookie(SESSION_COOKIE_NAME, token, this.cookieOptions());
+    return { user };
+  }
+
+  /**
+   * Login federado com o Google (adendo ao ADR-0008). O corpo é
+   * `application/x-www-form-urlencoded` porque quem o envia é o próprio Google,
+   * por POST de formulário no modo redirect do GIS — não é o nosso browser
+   * fazendo `fetch`, e por isso o JSON dos demais endpoints não serve aqui.
+   *
+   * O teto é o mesmo do login por senha: 10 tentativas por minuto por IP. O
+   * limitador por e-mail NÃO entra antes da verificação — as claims ainda não
+   * foram provadas neste ponto, e deixar entrada de atacante escolher qual
+   * conta bloquear transformaria a proteção numa negação de serviço dirigida.
+   */
+  @Post("google")
+  @HttpCode(200)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @UseGuards(OriginCheckGuard, ThrottlerGuard)
+  async google(
+    @Body(new ZodValidationPipe(googleCallbackSchema)) input: GoogleCallback,
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<{ user: SessionUser }> {
+    const { token, user } = await this.googleAuth.login(
+      {
+        credential: input.credential,
+        csrfFromBody: input.g_csrf_token,
+        // Cookie NÃO assinado: quem o põe é o script do Google, não nós. A
+        // proteção dele é ser um segredo que só a mesma aba conhece, e a
+        // comparação com o corpo é o que a torna útil.
+        csrfFromCookie: request.cookies?.[GOOGLE_CSRF_COOKIE] as string | undefined,
+      },
+      { ip: request.ip, userAgent: request.headers["user-agent"] },
+    );
     response.cookie(SESSION_COOKIE_NAME, token, this.cookieOptions());
     return { user };
   }

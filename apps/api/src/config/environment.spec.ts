@@ -25,6 +25,115 @@ describe("validateEnvironment", () => {
     expect(environment.EMAIL_FROM_ADDRESS).toBe("no-reply@plugga.local");
   });
 
+  it("keeps Google login off by default", () => {
+    const environment = validateEnvironment({
+      NODE_ENV: "development",
+      DATABASE_URL: localDatabaseUrl,
+      AUTH_SESSION_SECRET: sessionSecret,
+    });
+
+    expect(environment.GOOGLE_AUTH_ENABLED).toBe(false);
+    expect(environment.GOOGLE_OIDC_CLIENT_ID).toBeUndefined();
+  });
+
+  it("refuses to enable Google login without an audience to verify against", () => {
+    // Sem client ID o verificador não teria contra o que comparar `aud`, e
+    // subir assim seria pior do que não ter o recurso.
+    expect(() =>
+      validateEnvironment({
+        NODE_ENV: "development",
+        DATABASE_URL: localDatabaseUrl,
+        AUTH_SESSION_SECRET: sessionSecret,
+        GOOGLE_AUTH_ENABLED: "true",
+      }),
+    ).toThrow(/GOOGLE_OIDC_CLIENT_ID is required/);
+  });
+
+  it("accepts Google login once the client id is present", () => {
+    const environment = validateEnvironment({
+      NODE_ENV: "development",
+      DATABASE_URL: localDatabaseUrl,
+      AUTH_SESSION_SECRET: sessionSecret,
+      GOOGLE_AUTH_ENABLED: "true",
+      GOOGLE_OIDC_CLIENT_ID: "123456.apps.googleusercontent.com",
+      GOOGLE_LOGIN_URI: "http://localhost:3000/api/auth/google/callback",
+    });
+
+    expect(environment.GOOGLE_AUTH_ENABLED).toBe(true);
+    expect(environment.GOOGLE_OIDC_CLIENT_ID).toBe("123456.apps.googleusercontent.com");
+  });
+
+  it("refuses to enable Google login without the callback URI", () => {
+    // Esquecer esta variável fazia o botão sumir da tela sem nada reclamar —
+    // e o plano fechou que o boot tem de recusar, não degradar em silêncio.
+    expect(() =>
+      validateEnvironment({
+        NODE_ENV: "development",
+        DATABASE_URL: localDatabaseUrl,
+        AUTH_SESSION_SECRET: sessionSecret,
+        GOOGLE_AUTH_ENABLED: "true",
+        GOOGLE_OIDC_CLIENT_ID: "123456.apps.googleusercontent.com",
+      }),
+    ).toThrow(/GOOGLE_LOGIN_URI is required/);
+  });
+
+  it("refuses a production callback that lives outside the app's own origin", () => {
+    // Callback e origem divergentes é a falha operacional número um do fluxo:
+    // o cookie double-submit não acompanha o POST e toda tentativa vira
+    // "conta não autorizada", com token e audiência corretos.
+    expect(() =>
+      validateEnvironment({
+        NODE_ENV: "production",
+        DATABASE_URL: localDatabaseUrl,
+        AUTH_SESSION_SECRET: sessionSecret,
+        AUTH_APP_BASE_URL: "https://os.plugga.app.br",
+        GOOGLE_AUTH_ENABLED: "true",
+        GOOGLE_OIDC_CLIENT_ID: "123456.apps.googleusercontent.com",
+        GOOGLE_LOGIN_URI: "https://outro-dominio.example/api/auth/google/callback",
+      }),
+    ).toThrow(/must share the origin of AUTH_APP_BASE_URL/);
+  });
+
+  it("accepts a production callback on the app's own origin", () => {
+    const environment = validateEnvironment({
+      NODE_ENV: "production",
+      DATABASE_URL: localDatabaseUrl,
+      AUTH_SESSION_SECRET: sessionSecret,
+      AUTH_APP_BASE_URL: "https://os.plugga.app.br",
+      GOOGLE_AUTH_ENABLED: "true",
+      GOOGLE_OIDC_CLIENT_ID: "123456.apps.googleusercontent.com",
+      GOOGLE_LOGIN_URI: "https://os.plugga.app.br/api/auth/google/callback",
+    });
+
+    expect(environment.GOOGLE_LOGIN_URI).toBe(
+      "https://os.plugga.app.br/api/auth/google/callback",
+    );
+  });
+
+  it("rejects a plaintext Google callback outside localhost", () => {
+    expect(() =>
+      validateEnvironment({
+        NODE_ENV: "development",
+        DATABASE_URL: localDatabaseUrl,
+        AUTH_SESSION_SECRET: sessionSecret,
+        GOOGLE_AUTH_ENABLED: "true",
+        GOOGLE_OIDC_CLIENT_ID: "123456.apps.googleusercontent.com",
+        GOOGLE_LOGIN_URI: "http://os.plugga.app.br/api/auth/google/callback",
+      }),
+    ).toThrow(/GOOGLE_LOGIN_URI must use https/);
+  });
+
+  it("rejects a Google callback that is not an absolute URL", () => {
+    expect(() =>
+      validateEnvironment({
+        NODE_ENV: "development",
+        DATABASE_URL: localDatabaseUrl,
+        AUTH_SESSION_SECRET: sessionSecret,
+        GOOGLE_LOGIN_URI: "/api/auth/google/callback",
+      }),
+    ).toThrow(/GOOGLE_LOGIN_URI/);
+  });
+
   it("requires a Brevo API key when EMAIL_PROVIDER=brevo", () => {
     expect(() =>
       validateEnvironment({

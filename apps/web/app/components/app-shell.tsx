@@ -17,8 +17,23 @@ import {
 } from "../lib/organizacao";
 import { SessionUserProvider, useSessionUser } from "../lib/use-session-user";
 
-/** Public auth pages render standalone — no sidebar/topbar (session isn't required yet). */
-const PUBLIC_AUTH_PATHS = ["/login", "/auth/accept-invite", "/auth/reset"];
+/**
+ * Rotas que renderizam sozinhas, sem barra lateral, topo nem `SessionUserProvider`.
+ *
+ * As de auth estão aqui porque a sessão ainda não existe. `/privacidade` está
+ * porque quem a abre pode ser o revisor do Google, sem conta nenhuma — e dentro
+ * do shell ela ganharia um segundo `<h1>` e uma chamada a `/auth/me` que
+ * ninguém pediu. `/auth/google/complete` está porque some em milissegundos:
+ * montar a aplicação inteira para depois trocar de página é um flash de chrome
+ * que a pessoa vê e não entende.
+ */
+const PUBLIC_AUTH_PATHS = [
+  "/login",
+  "/auth/accept-invite",
+  "/auth/reset",
+  "/auth/google/complete",
+  "/privacidade",
+];
 
 function ShellWithEmpresa({ children }: { children: ReactNode }) {
   const router = useRouter();

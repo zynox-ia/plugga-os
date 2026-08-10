@@ -43,5 +43,15 @@ export default defineConfig({
         url: "http://127.0.0.1:3000",
         reuseExistingServer: !process.env.CI,
         timeout: 120_000,
+        // O login Google fica LIGADO na suíte, com um client id de mentira: o
+        // que os testes exercitam é a nossa metade do fluxo (renderização,
+        // fallback sem script, erro enumerado, deep link, open redirect), e
+        // nada disso chama o Google de verdade. Deixar a flag a cargo do
+        // ambiente faria a suíte passar ou falhar conforme a máquina.
+        env: {
+          GOOGLE_AUTH_ENABLED: "true",
+          GOOGLE_OIDC_CLIENT_ID: "e2e-only.apps.googleusercontent.com",
+          GOOGLE_LOGIN_URI: "http://127.0.0.1:3000/api/auth/google/callback",
+        },
       },
 });

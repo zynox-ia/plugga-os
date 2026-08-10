@@ -7,7 +7,12 @@ import { apiBaseUrl } from "./app/lib/env";
 // usuário logado para /login em qualquer pico de latência.
 const FETCH_TIMEOUT_MS = 15_000;
 
-const PUBLIC_PATHS = ["/login", "/auth/accept-invite", "/auth/reset"];
+// `/privacidade` é público por exigência do Google: a tela de consentimento do
+// OAuth Client aponta para ela, e o revisor do Google precisa abri-la sem
+// login. `/auth/google/complete` NÃO entra aqui de propósito — ela só faz
+// sentido depois que o callback já emitiu a sessão, e deixá-la pública seria
+// uma tela alcançável por quem não autenticou.
+const PUBLIC_PATHS = ["/login", "/auth/accept-invite", "/auth/reset", "/privacidade"];
 
 function isPublicPath(pathname: string): boolean {
   return PUBLIC_PATHS.some((path) => pathname === path);

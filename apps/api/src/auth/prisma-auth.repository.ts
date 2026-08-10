@@ -4,22 +4,27 @@ import {
   companyKeySchema,
   companyRoleKeySchema,
   departmentIdSchema,
+  identityProviderSchema,
   isDepartmentOfCompany,
   platformRoleKeySchema,
   type CompanyAccess,
+  type IdentityProvider,
   type UserAccess,
 } from "@plugga/shared";
 
 import { PrismaService } from "../prisma/prisma.service";
 import {
   AuthRepository,
+  IdentityLinkError,
   type AuthUserRecord,
   type CreateAuthTokenData,
   type CreateInvitedUserData,
   type CreateSessionData,
+  type LinkIdentityData,
   type SetPasswordOptions,
   type TeamFilter,
   type TeamMemberRecord,
+  type UserIdentityRecord,
   type ValidAuthToken,
 } from "./auth.repository";
 
@@ -182,6 +187,109 @@ export class PrismaAuthRepository extends AuthRepository {
       if (options.revokeSessions) {
         await tx.session.deleteMany({ where: { userId } });
       }
+    });
+  }
+
+  async findIdentityBySubject(
+    provider: IdentityProvider,
+    subject: string,
+  ): Promise<UserIdentityRecord | null> {
+    const identity = await this.prisma.userIdentity.findUnique({
+      where: { provider_subject: { provider, subject } },
+    });
+    if (!identity) {
+      return null;
+    }
+    const parsed = identityProviderSchema.safeParse(identity.provider);
+    // Linha com provedor fora do catálogo é lixo de migração, não identidade:
+    // some da leitura em vez de autenticar por um provedor que não existe mais.
+    if (!parsed.success) {
+      return null;
+    }
+    return {
+      id: identity.id,
+      userId: identity.userId,
+      provider: parsed.data,
+      subject: identity.subject,
+      emailAtLink: identity.emailAtLink,
+      lastObservedEmail: identity.lastObservedEmail,
+      hostedDomain: identity.hostedDomain,
+    };
+  }
+
+  async linkIdentity(data: LinkIdentityData): Promise<AuthUserRecord> {
+    try {
+      const user = await this.prisma.$transaction(async (tx) => {
+        const atual = await tx.user.findUnique({
+          where: { id: data.userId },
+          select: { status: true },
+        });
+        if (!atual) {
+          throw new IdentityLinkError("user_not_found");
+        }
+        if (atual.status !== "active" && atual.status !== "invited") {
+          throw new IdentityLinkError("user_not_eligible");
+        }
+
+        await tx.userIdentity.create({
+          data: {
+            userId: data.userId,
+            provider: data.provider,
+            subject: data.subject,
+            emailAtLink: data.email,
+            lastObservedEmail: data.email,
+            hostedDomain: data.hostedDomain,
+            createdAt: data.now,
+            lastLoginAt: data.now,
+          },
+          select: { id: true },
+        });
+
+        if (atual.status === "invited") {
+          // Condicionado a `invited` pelo mesmo motivo do aceite por token: uma
+          // desativação que aconteceu entre a leitura acima e esta escrita não
+          // pode ser desfeita por um login que já estava em andamento.
+          const ativados = await tx.user.updateMany({
+            where: { id: data.userId, status: "invited" },
+            data: { status: "active" },
+          });
+          if (ativados.count === 0) {
+            throw new IdentityLinkError("user_not_eligible");
+          }
+          // O convite cumpriu o seu papel aqui. Deixá-lo válido manteria um
+          // segundo caminho de entrada para uma conta que já tem dono.
+          await tx.authToken.updateMany({
+            where: { userId: data.userId, type: "invite", consumedAt: null },
+            data: { consumedAt: data.now },
+          });
+        }
+
+        return tx.user.findUniqueOrThrow({ where: { id: data.userId }, ...userWithAccess });
+      });
+      return this.toRecord(user);
+    } catch (error) {
+      if (error instanceof IdentityLinkError) {
+        throw error;
+      }
+      // P2002 = perdeu a corrida para a constraint única: ou este `sub` já é de
+      // alguém, ou esta pessoa já tem outra conta Google. Recusa, não 500.
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+        throw new IdentityLinkError("conflict");
+      }
+      throw error;
+    }
+  }
+
+  async recordIdentityLogin(
+    identityId: string,
+    email: string,
+    hostedDomain: string | null,
+    now: Date,
+  ): Promise<void> {
+    await this.prisma.userIdentity.update({
+      where: { id: identityId },
+      data: { lastObservedEmail: email, hostedDomain, lastLoginAt: now },
+      select: { id: true },
     });
   }
 

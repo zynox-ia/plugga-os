@@ -125,6 +125,13 @@ services:
       AUTH_SESSION_SECRET: ${AUTH_SESSION_SECRET:?set AUTH_SESSION_SECRET in .env}
       AUTH_APP_BASE_URL: ${AUTH_APP_BASE_URL:-http://localhost:3000}
       AUTH_ALLOWED_ORIGINS: ${AUTH_ALLOWED_ORIGINS:-}
+      # Login federado com o Google (adendo ao ADR-0008). Desligado por default:
+      # é esta variável que faz o rollback do recurso, sem apagar vínculo nenhum.
+      # O client id é público, mas é a audiência aceita no ID token — precisa ser
+      # o MESMO do serviço `web`, ou o login recusa sem nada ter mudado no código.
+      GOOGLE_AUTH_ENABLED: ${GOOGLE_AUTH_ENABLED:-false}
+      GOOGLE_OIDC_CLIENT_ID: ${GOOGLE_OIDC_CLIENT_ID:-}
+      GOOGLE_LOGIN_URI: ${GOOGLE_LOGIN_URI:-}
       # Present only while bootstrapping the first local administrator. Once the
       # seed has run, remove SEED_ADMIN_PASSWORD from .env and recreate `api` so
       # a later deliberate re-seed cannot reset an administrator password.
@@ -197,6 +204,13 @@ services:
       NODE_ENV: production
       NEXT_PUBLIC_API_URL: http://api:3001
       AUTH_ALLOWED_ORIGINS: ${AUTH_ALLOWED_ORIGINS:-}
+      # Lidas em tempo de execução, não de build: a imagem standalone é a mesma
+      # entre ambientes, e uma variável NEXT_PUBLIC_ ficaria congelada no bundle
+      # com o valor de quem construiu. Os três valores têm de bater com os do
+      # serviço `api` e com o que está cadastrado no Google Cloud.
+      GOOGLE_AUTH_ENABLED: ${GOOGLE_AUTH_ENABLED:-false}
+      GOOGLE_OIDC_CLIENT_ID: ${GOOGLE_OIDC_CLIENT_ID:-}
+      GOOGLE_LOGIN_URI: ${GOOGLE_LOGIN_URI:-}
       # Off unless a reverse proxy in front of THIS app overwrites the header;
       # otherwise it is client-controlled and would defeat the API's throttle.
       WEB_TRUST_PROXY: ${WEB_TRUST_PROXY:-false}
