@@ -19,6 +19,23 @@ function nomeAcessivel(item: { label: string; disabled?: boolean; badge?: string
   return item.badge ? `${item.label} ${item.badge}` : item.label;
 }
 
+/**
+ * Departamento nasce fechado: a barra chega enxuta e a pessoa abre o que usa.
+ * Só o departamento da rota atual já vem aberto, para o item ativo não sumir.
+ * Quem quiser ver os processos de um departamento precisa abri-lo primeiro —
+ * é o que este ajudante faz, e é por isso que ele existe em vez de os testes
+ * assumirem a árvore inteira desdobrada.
+ */
+async function abrirDepartamentos(page: import("@playwright/test").Page) {
+  const cabecalhos = page.locator(".sidebar-nav .nav-parent[aria-expanded='false']");
+  for (let i = await cabecalhos.count(); i > 0; i = await cabecalhos.count()) {
+    await cabecalhos.first().click();
+    // Uma por vez: a lista é reavaliada a cada clique porque abrir um
+    // departamento muda o que está no DOM.
+    if ((await cabecalhos.count()) >= i) break;
+  }
+}
+
 test.describe("Plugga shell — smoke", () => {
   test("renders skip-link, brand lockup and the Plugga department tree", async ({ page }) => {
     await page.goto("/");
@@ -32,6 +49,8 @@ test.describe("Plugga shell — smoke", () => {
       ).toBeVisible();
     }
 
+    await abrirDepartamentos(page);
+
     for (const item of PLUGGA) {
       await expect(
         page.locator(".sidebar-nav").getByRole("button", { name: nomeAcessivel(item), exact: true }),
@@ -39,11 +58,23 @@ test.describe("Plugga shell — smoke", () => {
     }
   });
 
+  test("departamento nasce fechado e abre no clique", async ({ page }) => {
+    await page.goto("/");
+
+    const fechados = page.locator(".sidebar-nav .nav-parent[aria-expanded='false']");
+    await expect(fechados.first()).toBeVisible();
+
+    const primeiro = fechados.first();
+    await primeiro.click();
+    await expect(primeiro).toHaveAttribute("aria-expanded", "true");
+  });
+
   // A estrutura só é útil se o que ainda não existe estiver visível e inerte:
   // esconder daria a impressão de que o desenho não foi combinado, e deixar
   // clicável levaria a 404.
   test("processes without a screen are shown, marked and not clickable", async ({ page }) => {
     await page.goto("/");
+    await abrirDepartamentos(page);
 
     const pendente = PLUGGA.find((item) => item.disabled);
     expect(pendente).toBeDefined();
@@ -74,6 +105,7 @@ test.describe("Plugga shell — smoke", () => {
   for (const item of NAVEGAVEIS) {
     test(`nav: "${item.label}" routes to ${item.id}`, async ({ page }) => {
       await page.goto("/");
+      await abrirDepartamentos(page);
       await page
         .locator(".sidebar-nav")
         .getByRole("button", { name: nomeAcessivel(item), exact: true })
@@ -123,6 +155,7 @@ test.describe("Seletor de empresa", () => {
   test("a visão geral aparece nas duas empresas", async ({ page }) => {
     for (const url of ["/", "/?empresa=waze"]) {
       await page.goto(url);
+      await abrirDepartamentos(page);
       for (const processo of VISAO_GERAL) {
         const rotulo =
           processo.status === "parcial" ? `${processo.label} parcial` : processo.label;
@@ -148,6 +181,7 @@ test.describe("Seletor de empresa", () => {
 
   test("a empresa ativa sobrevive à navegação pela sidebar", async ({ page }) => {
     await page.goto("/?empresa=waze");
+    await abrirDepartamentos(page);
 
     await page
       .locator(".sidebar-nav")
