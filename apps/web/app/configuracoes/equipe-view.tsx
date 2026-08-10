@@ -35,9 +35,18 @@ const PAPEL_LABEL: Record<string, string> = {
   comercial: "Comercial",
   pluggamob: "PluggaMob",
   financeiro: "Financeiro",
+  compras: "Compras",
   opm: "OPM",
   tech: "Tecnologia",
   viewer: "Leitura",
+  projetista: "Projetista",
+  engenheiro: "Engenheiro",
+  supervisor: "Supervisor de obra",
+  tecnico: "Técnico de campo",
+  almoxarife: "Almoxarife",
+  seguranca: "Segurança do trabalho",
+  gestor_suprimentos: "Gestor de Suprimentos",
+  comprador: "Comprador",
 };
 
 const STATUS_LABEL: Record<UserStatus, string> = {
