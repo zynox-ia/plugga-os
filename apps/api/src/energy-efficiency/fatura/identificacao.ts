@@ -21,6 +21,30 @@ export type IdentificacaoDaFatura = {
 const CODIGO_DE_UC = /\b(\d{7,13}-\d{1,2})\b/;
 
 /**
+ * Rótulo da unidade consumidora, para as faturas que imprimem o código **sem**
+ * dígito verificador separado.
+ *
+ * A Roraima Energia imprime `Código Único` numa linha e `01939890` na seguinte,
+ * sem hífen. Só pela forma, oito dígitos seguidos poderiam ser qualquer coisa —
+ * medidor, protocolo, nota. Aqui a proximidade do rótulo é o que dá segurança,
+ * então ela é usada, mas **só** quando a forma com hífen não apareceu em lugar
+ * nenhum: o caminho principal continua sendo a forma do dado.
+ */
+const ROTULO_DE_UC = /c[óo]digo\s+[úu]nico|n[º°.]?\s*da\s+uc\b|instala[çc][ãa]o/i;
+
+/** O código no começo de uma das linhas logo abaixo do rótulo. */
+const UC_SEM_DIGITO = /^(\d{7,13})\b/;
+
+/**
+ * Quantas linhas abaixo do rótulo ainda contam como "logo abaixo".
+ *
+ * O cabeçalho da Roraima Energia ocupa duas linhas — `Código Único Vencimento`
+ * e `Mês Faturado` — e entre ele e a linha de valores caem CEP e CNPJ, que são
+ * de outra coluna. Quatro linhas cobrem esse arranjo sem sair do bloco.
+ */
+const LINHAS_ABAIXO_DO_ROTULO = 4;
+
+/**
  * Competência: MM/AAAA cercado por algo que não seja dígito nem barra.
  *
  * Ancorar na linha inteira, como antes, só funcionava quando o texto chegava em
@@ -56,10 +80,12 @@ const DISTRIBUIDORAS = [
 
 export function identificar(linhas: readonly string[]): IdentificacaoDaFatura {
   let unidadeConsumidora: string | null = null;
+  /** Achado pelo rótulo; só vale se a forma com hífen não aparecer na fatura. */
+  let unidadeConsumidoraSemHifen: string | null = null;
   let competencia: { mes: number; ano: number } | null = null;
   let distribuidora: string | null = null;
 
-  for (const linha of linhas) {
+  for (const [indice, linha] of linhas.entries()) {
     const enxuta = linha.trim();
 
     if (!unidadeConsumidora) {
@@ -67,6 +93,15 @@ export function identificar(linhas: readonly string[]): IdentificacaoDaFatura {
       // A chave de acesso da NF-e também é um bloco longo de dígitos; ela vem
       // em grupos de quatro e sem hífen, então o padrão acima já a descarta.
       if (uc?.[1]) unidadeConsumidora = uc[1];
+      else if (ROTULO_DE_UC.test(enxuta)) {
+        for (let adiante = 1; adiante <= LINHAS_ABAIXO_DO_ROTULO; adiante += 1) {
+          const abaixo = UC_SEM_DIGITO.exec((linhas[indice + adiante] ?? "").trim());
+          if (abaixo?.[1]) {
+            unidadeConsumidoraSemHifen ??= abaixo[1];
+            break;
+          }
+        }
+      }
     }
 
     if (!competencia) {
@@ -80,5 +115,9 @@ export function identificar(linhas: readonly string[]): IdentificacaoDaFatura {
     }
   }
 
-  return { unidadeConsumidora, competencia, distribuidora };
+  return {
+    unidadeConsumidora: unidadeConsumidora ?? unidadeConsumidoraSemHifen,
+    competencia,
+    distribuidora,
+  };
 }

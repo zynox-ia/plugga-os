@@ -102,6 +102,10 @@ export function faturaNormativaDoSistema(
     tarifaPontaTotal: fatura.tarifaPonta,
     tarifaFpTotal: fatura.tarifaForaPonta,
     ...(fatura.tarifaDemanda === undefined ? {} : { tarifaDemandaKw: fatura.tarifaDemanda }),
+    ...(contexto.demandaComplementoValor === undefined ||
+    contexto.demandaComplementoValor === null
+      ? {}
+      : { demandaComplementoValor: contexto.demandaComplementoValor }),
     reativoPontaValor: 0,
     reativoFpValor: fatura.valorReativo,
     beneficioIsencaoValor: fatura.valorBeneficioFiscal,

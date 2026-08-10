@@ -154,3 +154,102 @@ export function fragmentosEmOrdem(paginas: readonly PaginaDoDocumento[]): string
     .flatMap((pagina) => pagina.fragmentos.map((fragmento) => fragmento.texto.trim()))
     .filter((texto) => texto.length > 0);
 }
+
+/**
+ * Largura mínima de um corredor vertical vazio para valer como divisa de
+ * coluna, em pontos.
+ *
+ * Abaixo disso é espaço entre palavras ou entre células da mesma tabela; acima,
+ * é o branco que o olho lê como "outro bloco".
+ */
+const CORREDOR_MINIMO = 12;
+
+/**
+ * Altura da vizinhança, em pontos, usada para achar as divisas de coluna de uma
+ * linha.
+ *
+ * Medir na página inteira não serve: basta um cabeçalho ou um rodapé atravessar
+ * a folha para o corredor sumir — e some mesmo. Nesta fatura a página inteira
+ * não tem nenhuma divisa interna, enquanto a faixa da tabela de itens tem duas.
+ * Coluna é um fato local, e é assim que ela é medida.
+ */
+const BANDA_DA_VIZINHANCA = 18;
+
+/**
+ * As faixas horizontais com tinta numa banda da página, separadas por
+ * corredores vazios largos o bastante para serem divisa de coluna.
+ */
+function colunasDa(
+  pagina: PaginaDoDocumento,
+  centro?: number,
+): { x0: number; x1: number }[] {
+  const largura = Math.ceil(pagina.largura);
+  if (largura <= 0) return [];
+
+  const naBanda =
+    centro === undefined
+      ? pagina.fragmentos
+      : pagina.fragmentos.filter(
+          (fragmento) => Math.abs(fragmento.y - centro) <= BANDA_DA_VIZINHANCA,
+        );
+
+  const comTinta = new Uint8Array(largura);
+  for (const fragmento of naBanda) {
+    const de = Math.max(0, Math.floor(fragmento.x));
+    const ate = Math.min(largura, Math.ceil(fragmento.x + fragmento.largura));
+    for (let x = de; x < ate; x += 1) comTinta[x] = 1;
+  }
+
+  const colunas: { x0: number; x1: number }[] = [];
+  let inicio: number | null = null;
+  let vazioDesde: number | null = null;
+
+  for (let x = 0; x <= largura; x += 1) {
+    const tinta = x < largura && comTinta[x] === 1;
+    if (tinta) {
+      if (inicio === null) inicio = x;
+      vazioDesde = null;
+      continue;
+    }
+    if (vazioDesde === null) vazioDesde = x;
+    const corredor = x - vazioDesde;
+    if (inicio !== null && corredor >= CORREDOR_MINIMO) {
+      colunas.push({ x0: inicio, x1: vazioDesde });
+      inicio = null;
+    }
+  }
+  if (inicio !== null) colunas.push({ x0: inicio, x1: largura });
+
+  return colunas;
+}
+
+/**
+ * A página em linhas impressas, mas cortada nas divisas de coluna.
+ *
+ * Existe porque fatura de duas colunas cola blocos que não têm nada a ver um
+ * com o outro. Na Roraima Energia, `Consumo Ponta 17.419 kWh a 2.689175` sai
+ * grudado em `GRUPO A A4 COMERCIAL COMERCIAL`, que é o cabeçalho da unidade
+ * impresso na mesma altura, meia folha à esquerda. O leitor de itens não tem
+ * como reconhecer o item nesse amontoado — e não deve mesmo.
+ *
+ * Não substitui `linhasImpressas`: quem lê demanda contratada precisa
+ * justamente do rótulo de uma coluna com o valor de outra. As duas leituras
+ * convivem, e quem decide qual valeu é a aritmética da fatura.
+ */
+export function linhasPorColuna(paginas: readonly PaginaDoDocumento[]): string[] {
+  return paginas.flatMap((pagina) => {
+    return montarLinhas(pagina).flatMap((linha) => {
+      const colunas = colunasDa(pagina, linha.y);
+      if (colunas.length <= 1) return [linha.texto];
+
+      return colunas
+        .map((coluna) => {
+          const dentro = linha.celulas.filter(
+            (celula) => celula.x + celula.largura > coluna.x0 && celula.x < coluna.x1,
+          );
+          return dentro.length === 0 ? "" : juntar(dentro).texto;
+        })
+        .filter((texto) => texto.trim().length > 0);
+    });
+  });
+}

@@ -215,6 +215,12 @@ export const invoiceContextSchema = z
     classe: z.string().trim().min(1).nullish(),
     /** Cidade/UF da unidade, como sai impresso no relatório. */
     localidade: z.string().trim().min(1).nullish(),
+    /**
+     * Valor da linha de demanda sem ICMS, quando a fatura a publica. É ele que
+     * vira a economia de readequação contratual no relatório; sem ele, o cálculo
+     * cai no rateio — e o rateio nunca sobrescreve o que a fatura publicou.
+     */
+    demandaComplementoValor: z.number().nullish(),
     leituraAnterior: z.string().trim().min(1).nullish(),
     leituraAtual: z.string().trim().min(1).nullish(),
     /**

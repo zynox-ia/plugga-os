@@ -5,7 +5,7 @@ import { conferir, type Conferencia } from "./conferencia.js";
 import { normalizar, type OrigemDoTexto } from "./documento.js";
 import { identificar, type IdentificacaoDaFatura } from "./identificacao.js";
 import { lerItens, type ItemDaFatura } from "./itens.js";
-import { linhasImpressas } from "./linhas.js";
+import { linhasImpressas, linhasPorColuna } from "./linhas.js";
 import { abrirPdf, SenhaIncorretaError, SenhaNecessariaError } from "./paginas.js";
 import type { LeitorPorVisao, PaginaParaVisao } from "./visao.js";
 
@@ -46,6 +46,11 @@ export type LeituraDaFatura = {
   confianca: number | null;
   identificacao: IdentificacaoDaFatura;
   itens: ItemDaFatura[];
+  /**
+   * Valor da linha de demanda sem ICMS, quando a fatura a publica. Nulo quando
+   * não existe — e aí quem calcula usa rateio, nunca o contrário.
+   */
+  demandaComplementoValor: number | null;
   conferencia: Conferencia;
   /**
    * Ficha montada com o que foi confirmado. Os campos que a fatura não publica
@@ -65,6 +70,15 @@ const CONSUMO_FORA_PONTA = /^consumo\s+f[./-]?\s*ponta\b/i;
 const DEMANDA_PONTA = /^demanda\s+p(onta)?\b/i;
 const DEMANDA_FORA_PONTA = /^demanda\s+f[./-]?\s*ponta\b/i;
 const DEMANDA_SIMPLES = /^demanda\b(?!\s*(gera|ultr))/i;
+/**
+ * Demanda complementar: a parcela cobrada sem ICMS, que a fatura imprime em
+ * linha própria ao lado da parcela com ICMS.
+ *
+ * É o valor que a norma usa como economia de readequação contratual. Quando a
+ * linha existe, o número é lido dela; o rateio só entra quando ela não existe, e
+ * nunca por cima do que a fatura publicou.
+ */
+const DEMANDA_COMPLEMENTO = /^demanda\b.*\b(sem\s*icms|complement)/i;
 const REATIVO = /^en\s*r\s*exc\b|reativ/i;
 const ULTRAPASSAGEM = /^dem\s*ultr/i;
 
@@ -96,6 +110,7 @@ function recusar(
     confianca: null,
     identificacao: SEM_IDENTIFICACAO,
     itens: [],
+    demandaComplementoValor: null,
     conferencia: CONFERENCIA_VAZIA,
     invoice: {},
     camposParaConfirmar: [explicacao],
@@ -132,6 +147,23 @@ function montarFicha(
   }
 
   return montarComItens(identificacao, itens, conferencia, extras, origem, confianca);
+}
+
+/**
+ * Entre duas leituras da mesma fatura, fica a que a aritmética aprova.
+ *
+ * Ordem de preferência: ficha aproveitável ganha de ficha recusada; entre duas
+ * aproveitáveis, ganha a que conferiu mais itens pela multiplicação. Empate
+ * mantém a primeira, que é a leitura principal.
+ */
+function melhorLeitura(candidatas: readonly LeituraDaFatura[]): LeituraDaFatura {
+  const nota = (leitura: LeituraDaFatura): number =>
+    (leitura.aproveitavel ? 1_000 : 0) + leitura.conferencia.confirmados * 10 -
+    leitura.conferencia.divergentes;
+
+  return candidatas.reduce((melhor, atual) =>
+    nota(atual) > nota(melhor) ? atual : melhor,
+  );
 }
 
 export type OpcoesDeLeitura = {
@@ -190,13 +222,35 @@ export async function lerFatura(
   }
 
   const extras = lerCamposExtras(documento.paginas);
-  const porRegras = montarFicha(
-    identificar(linhas),
-    lerItens(linhas),
-    extras,
-    documento.origem,
-    confianca,
-  );
+
+  // Duas leituras da mesma folha, e a aritmética decide qual valeu.
+  //
+  // A linha impressa de largura inteira é a leitura principal e continua sendo
+  // a primeira tentativa. Ela falha em fatura de duas colunas, onde blocos que
+  // nada têm a ver ficam impressos na mesma altura: na Roraima Energia, a linha
+  // do consumo de ponta sai grudada no cabeçalho da unidade, e nenhum item é
+  // reconhecido.
+  //
+  // A leitura por coluna corta nas divisas de branco da própria página. Ela não
+  // substitui a outra — quem lê demanda contratada precisa do rótulo de uma
+  // coluna com o valor de outra —, então as duas rodam e fica a que fecha a
+  // conta. Escolher pela soma dos itens é o critério honesto: não é preferência
+  // por layout, é a fatura provando qual leitura a entendeu.
+  // A identificação lê as duas visões da folha: o rótulo da unidade pode estar
+  // numa coluna e o código na linha de baixo da mesma coluna, o que só aparece
+  // depois do corte.
+  const porColuna = linhasPorColuna(documento.paginas);
+  const identificacao = identificar([...linhas, ...porColuna]);
+  const porRegras = melhorLeitura([
+    montarFicha(identificacao, lerItens(linhas), extras, documento.origem, confianca),
+    montarFicha(
+      identificacao,
+      lerItens(porColuna),
+      extras,
+      documento.origem,
+      confianca,
+    ),
+  ]);
 
   // Regra que fechou a ficha é a resposta: é gratuita, determinística e diz de
   // que posição da folha saiu cada número. O modelo é o plano B, não o padrão.
@@ -367,6 +421,10 @@ function montarComItens(
     identificacao,
     itens,
     conferencia,
+    // A linha explícita manda: quem calcula economia de readequação usa este
+    // número quando ele existe, e só cai no rateio quando não existe.
+    demandaComplementoValor:
+      itens.find((item) => DEMANDA_COMPLEMENTO.test(item.rotulo))?.valor ?? null,
     invoice,
     camposParaConfirmar: paraConfirmar,
   };
