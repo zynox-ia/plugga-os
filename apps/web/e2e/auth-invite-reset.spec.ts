@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
 
+import { bloquearTerceiros } from "./support/sem-terceiros";
+
 // Exercises invite-accept and password-reset end to end (API -> Mailpit ->
 // browser), so it opts out of the project's default authenticated storage
 // state, same as auth.spec.ts. It also gets its own synthetic X-Forwarded-For
@@ -103,6 +105,10 @@ async function findTokenInEmail(to: string, subjectContains: string): Promise<st
 }
 
 test.describe("Auth — invite accept and password reset", () => {
+  test.beforeEach(async ({ page }) => {
+    await bloquearTerceiros(page);
+  });
+
   test("accepting an invite with a valid token activates the account and logs the user in", async ({
     page,
   }) => {

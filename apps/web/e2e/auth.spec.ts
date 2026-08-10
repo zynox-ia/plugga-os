@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
 
+import { bloquearTerceiros } from "./support/sem-terceiros";
+
 // This file exercises the signed-out flows on purpose, so it opts out of the
 // project's default authenticated storage state (see playwright.config.ts).
 // It also gets its own synthetic X-Forwarded-For: every real /auth/login call
@@ -13,10 +15,15 @@ const email = process.env.SEED_ADMIN_EMAIL ?? "admin@plugga.local";
 const password = process.env.SEED_ADMIN_PASSWORD ?? "local_only_change_me";
 
 test.describe("Auth — session gate, login, logout", () => {
+  test.beforeEach(async ({ page }) => {
+    await bloquearTerceiros(page);
+  });
+
   test("an unauthenticated visitor is redirected to /login", async ({ page }) => {
     await page.goto("/");
     await expect(page).toHaveURL(/\/login$/);
-    await expect(page.locator(".auth-card")).toBeVisible();
+    // `.auth-card` saiu no redesign; o cartão do formulário agora é `.auth-panel-left`.
+    await expect(page.locator(".auth-panel-left")).toBeVisible();
   });
 
   test("a deep link to a protected route redirects back to it after login", async ({ page }) => {
@@ -38,7 +45,8 @@ test.describe("Auth — session gate, login, logout", () => {
     await page.getByLabel("Senha", { exact: true }).fill("definitely-wrong-password");
     await page.getByRole("button", { name: "Fazer login" }).click();
 
-    await expect(page.locator(".auth-error")).toHaveText("E-mail ou senha inválidos.");
+    // O login usa `.auth-error-msg`; os demais formulários de auth usam `.auth-error`.
+    await expect(page.locator(".auth-error-msg")).toHaveText("E-mail ou senha inválidos.");
     await expect(page).toHaveURL(/\/login$/);
   });
 

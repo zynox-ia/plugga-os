@@ -1,5 +1,7 @@
 import { expect, test as setup } from "@playwright/test";
 
+import { bloquearTerceiros } from "./support/sem-terceiros";
+
 const STORAGE_STATE = "e2e/.auth/admin.json";
 
 /** Matches apps/api/prisma/seed.ts + .env.example / CI job env — local dev only. */
@@ -13,6 +15,7 @@ const password = process.env.SEED_ADMIN_PASSWORD ?? "local_only_change_me";
 setup.use({ extraHTTPHeaders: { "x-forwarded-for": "203.0.113.201" } });
 
 setup("authenticate as the seeded local admin", async ({ page }) => {
+  await bloquearTerceiros(page);
   await page.goto("/login");
   await page.getByLabel("E-mail", { exact: true }).fill(email);
   await page.getByLabel("Senha", { exact: true }).fill(password);
