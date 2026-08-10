@@ -117,3 +117,29 @@ Em local (Mailpit) o checklist não se aplica — nada sai para a internet.
 - Nenhum segredo/token em log ou template.
 - Este ADR não introduz envio a canais de produção de terceiros (WhatsApp/Telegram
   seguem no-op — ADR-0006 / ADR-0011).
+
+---
+
+## Adendo — 10/08/2026: Mailpit removido
+
+O `MailpitAdapter` e o container Mailpit (dev local e VPS) foram removidos.
+Brevo é o único provedor real desde 09/08/2026, e o container na VPS não tinha
+mais consumidor — `EMAIL_PROVIDER=brevo` já sobrescrevia o default do compose.
+
+O motivo imediato: nesta máquina o backend de desenvolvimento passou a ser
+sempre a VPS via túnel SSH (sem Docker local), e rodar teste local contra o
+`.env` gravou eventos de verdade — embora inofensivos — na trilha append-only
+de produção e no Mailpit da VPS. Removê-lo fecha essa classe de acidente pela
+raiz, e não só neste caso.
+
+`EMAIL_PROVIDER` aceita hoje **`noop` | `brevo`**. O default local passou a
+ser `noop`: sem provedor configurado, a API simplesmente não envia — nunca
+tenta um host que não existe mais.
+
+**Custo aceito:** os testes e2e do caminho feliz de convite/redefinição de
+senha via UI (que liam o token no Mailpit) foram removidos junto — não há mais
+como capturar um token de e-mail localmente ou na CI sem reintroduzir um
+serviço de captura. Ficam os testes de caminho de erro, que não dependem de
+e-mail algum. Reintroduzir cobertura de ponta a ponta exigiria decisão nova:
+um SMTP catcher efêmero por job (como a CI já fazia) ou ler o token direto do
+banco nos testes, pulando a entrega.

@@ -23,18 +23,6 @@ describe("validateEnvironment", () => {
     expect(environment.JOBS_ENABLED).toBe(false);
     expect(environment.JOBS_WORKER_CONCURRENCY).toBe(1);
     expect(environment.EMAIL_FROM_ADDRESS).toBe("no-reply@plugga.local");
-    expect(environment.MAILPIT_SMTP_PORT).toBe(1025);
-  });
-
-  it("accepts the mailpit provider without any Brevo credentials", () => {
-    const environment = validateEnvironment({
-      NODE_ENV: "development",
-      DATABASE_URL: localDatabaseUrl,
-      AUTH_SESSION_SECRET: sessionSecret,
-      EMAIL_PROVIDER: "mailpit",
-    });
-
-    expect(environment.EMAIL_PROVIDER).toBe("mailpit");
   });
 
   it("requires a Brevo API key when EMAIL_PROVIDER=brevo", () => {

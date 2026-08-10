@@ -1,9 +1,15 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 
-import type { ClientDuplicateCandidate, ClientSegment, ClientSummary, CreateClientRequest } from "@plugga/shared";
+import type {
+  ClientDuplicateCandidate,
+  ClientSegment,
+  ClientSummary,
+  CreateClientRequest,
+  CreateClientResponse,
+} from "@plugga/shared";
 
 import { ShellCard, StatusPill, ShellTable } from "./plugga-shell";
 
@@ -31,6 +37,34 @@ async function postJson(path: string, body: unknown): Promise<{ ok: boolean; dat
   return { ok: response.ok, data };
 }
 
+type ClientFilters = { q?: string; segment?: string; active?: string };
+
+function clientMatchesFilters(client: ClientSummary, filters: ClientFilters): boolean {
+  if (filters.segment && client.segment !== filters.segment) return false;
+  if (filters.active === "true" && !client.active) return false;
+  if (filters.active === "false" && client.active) return false;
+
+  const term = filters.q?.trim().toLocaleLowerCase("pt-BR");
+  if (!term) return true;
+
+  return [client.name, client.company, client.phone, client.email, client.externalId].some(
+    (value) => value?.toLocaleLowerCase("pt-BR").includes(term),
+  );
+}
+
+function upsertVisibleClient(
+  current: ClientSummary[],
+  client: ClientSummary,
+  filters: ClientFilters,
+): ClientSummary[] {
+  const withoutCurrent = current.filter((item) => item.id !== client.id);
+  if (!clientMatchesFilters(client, filters)) return withoutCurrent;
+
+  return [...withoutCurrent, client].sort((left, right) =>
+    left.name.localeCompare(right.name, "pt-BR", { sensitivity: "base" }),
+  );
+}
+
 export function ClientesView({
   items,
   isLive,
@@ -38,9 +72,15 @@ export function ClientesView({
 }: {
   items: ClientSummary[];
   isLive: boolean;
-  filters: { q?: string; segment?: string; active?: string };
+  filters: ClientFilters;
 }) {
   const router = useRouter();
+
+  const [visibleItems, setVisibleItems] = useState(items);
+
+  // O refresh traz a visão canônica do servidor. Até ele terminar, mutations
+  // bem-sucedidas atualizam esta cópia com o próprio objeto devolvido pela API.
+  useEffect(() => setVisibleItems(items), [items]);
 
   const [q, setQ] = useState(filters.q ?? "");
   const [segment, setSegment] = useState(filters.segment ?? "");
@@ -93,7 +133,8 @@ export function ClientesView({
       return;
     }
 
-    const response = data as { duplicateCandidates: ClientDuplicateCandidate[] };
+    const response = data as CreateClientResponse;
+    setVisibleItems((current) => upsertVisibleClient(current, response.client, filters));
     setDuplicateCandidates(response.duplicateCandidates);
     // Sem reset(): o formulário é desmontado logo abaixo, e no React 19 o
     // currentTarget já foi anulado depois do await — o reset estourava e
@@ -112,6 +153,7 @@ export function ClientesView({
       setActionError((data as { message?: string })?.message ?? "não foi possível atualizar o status");
       return;
     }
+    setVisibleItems((current) => upsertVisibleClient(current, data as ClientSummary, filters));
     router.refresh();
   }
 
@@ -188,7 +230,7 @@ export function ClientesView({
         <div className="card-heading">
           <div>
             <span className="eyebrow">Clientes</span>
-            <h2>{items.length} {items.length === 1 ? "cliente" : "clientes"}</h2>
+            <h2>{visibleItems.length} {visibleItems.length === 1 ? "cliente" : "clientes"}</h2>
           </div>
           <button className="button button--accent" type="button" onClick={() => setShowCreateForm((open) => !open)}>
             {showCreateForm ? "Cancelar" : "+ Novo cliente"}
@@ -250,7 +292,7 @@ export function ClientesView({
             </tr>
           </thead>
           <tbody>
-            {items.map((client) => (
+            {visibleItems.map((client) => (
               <tr key={client.id}>
                 <td>{client.name}</td>
                 <td>{client.company ?? "—"}</td>
@@ -272,7 +314,7 @@ export function ClientesView({
                 </td>
               </tr>
             ))}
-            {items.length === 0 ? (
+            {visibleItems.length === 0 ? (
               <tr><td colSpan={6}>Nenhum cliente encontrado para os filtros atuais.</td></tr>
             ) : null}
           </tbody>

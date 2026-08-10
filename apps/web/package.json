@@ -6,6 +6,7 @@
     "build": "next build",
     "dev": "next dev",
     "lint": "eslint . --max-warnings=0",
+    "start:standalone": "node scripts/start-standalone.mjs",
     "test": "node --test",
     "test:e2e": "playwright test",
     "typecheck": "tsc --noEmit"

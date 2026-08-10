@@ -1,11 +1,22 @@
-import { PlaceholderScreen } from "../components/placeholder-screen";
+import { ComprasView } from "../components/compras-view";
+import { fetchPedidosDeCompra } from "../lib/api";
+import { FALLBACK_PEDIDOS } from "../lib/mock/compras";
+import { EMPRESA_PADRAO, isEmpresaId } from "../lib/organizacao";
 
-export default function ComprasPage() {
+export default async function ComprasPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ empresa?: string }>;
+}) {
+  const { empresa } = await searchParams;
+  const ativa = isEmpresaId(empresa) ? empresa : EMPRESA_PADRAO;
+  const resposta = await fetchPedidosDeCompra(ativa);
+
   return (
-    <PlaceholderScreen
-      title="Compras e Suprimentos"
-      description="Solicitações, cotações, aprovações, pagamentos, recebimentos e scorecard entram em uma etapa futura deste bloco."
-      status="em-construcao"
+    <ComprasView
+      items={resposta?.items ?? FALLBACK_PEDIDOS}
+      isLive={resposta !== null}
+      empresa={ativa}
     />
   );
 }

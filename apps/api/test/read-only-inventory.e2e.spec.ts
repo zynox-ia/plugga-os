@@ -56,8 +56,8 @@ describe("read-only inventory API (e2e)", () => {
   let app: INestApplication;
 
   beforeAll(async () => {
-    process.env.EMAIL_PROVIDER = "mailpit";
-    delete process.env.BREVO_API_KEY;
+    process.env.EMAIL_PROVIDER = "brevo";
+    process.env.BREVO_API_KEY = "test-only-brevo-key";
 
     /**
      * `AppModule` é importado aqui, e não no topo, porque
@@ -65,10 +65,10 @@ describe("read-only inventory API (e2e)", () => {
      * seja, no import. Com import estático, o ambiente é fotografado antes das
      * duas linhas acima, e elas viram enfeite.
      *
-     * O efeito só aparece fora da máquina de quem desenvolve: aqui o `.env` da
-     * raiz fornece `EMAIL_PROVIDER=mailpit` no instante do import e o teste
-     * passa por acidente; na CI não existe `.env`, o snapshot sai `noop` e o
-     * teste falha sem que nada no código tenha mudado.
+     * O efeito só aparece fora da máquina de quem desenvolve: com import
+     * estático, o `.env` da raiz fotografaria `EMAIL_PROVIDER` antes das duas
+     * linhas acima rodarem, e elas virariam enfeite — o teste passaria por
+     * acidente aqui e falharia na CI, onde não existe `.env`.
      */
     const { AppModule } = await import("../src/app.module");
 
@@ -130,7 +130,7 @@ describe("read-only inventory API (e2e)", () => {
       .get("/email/status")
       .set("x-dev-principal", "local-viewer")
       .set("x-dev-roles", "viewer")
-      .expect(200, { provider: "mailpit", configured: true });
+      .expect(200, { provider: "brevo", configured: true });
   });
 
   it("refuses the job-run inventory to roles outside the jobs screen", async () => {

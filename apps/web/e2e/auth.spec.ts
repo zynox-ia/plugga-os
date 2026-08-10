@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
 
+import { bloquearTerceiros } from "./support/sem-terceiros";
+
 // This file exercises the signed-out flows on purpose, so it opts out of the
 // project's default authenticated storage state (see playwright.config.ts).
 // It also gets its own synthetic X-Forwarded-For: every real /auth/login call
@@ -13,10 +15,15 @@ const email = process.env.SEED_ADMIN_EMAIL ?? "admin@plugga.local";
 const password = process.env.SEED_ADMIN_PASSWORD ?? "local_only_change_me";
 
 test.describe("Auth — session gate, login, logout", () => {
+  test.beforeEach(async ({ page }) => {
+    await bloquearTerceiros(page);
+  });
+
   test("an unauthenticated visitor is redirected to /login", async ({ page }) => {
     await page.goto("/");
     await expect(page).toHaveURL(/\/login$/);
-    await expect(page.locator(".auth-card")).toBeVisible();
+    // `.auth-card` saiu no redesign; o cartão do formulário agora é `.auth-panel-left`.
+    await expect(page.locator(".auth-panel-left")).toBeVisible();
   });
 
   test("a deep link to a protected route redirects back to it after login", async ({ page }) => {
@@ -25,28 +32,29 @@ test.describe("Auth — session gate, login, logout", () => {
     await page.goto("/clientes");
     await expect(page).toHaveURL(/\/login\?redirectTo=%2Fclientes$/);
 
-    await page.getByLabel("E-mail").fill(email);
-    await page.getByLabel("Senha").fill(password);
-    await page.getByRole("button", { name: "Entrar" }).click();
+    await page.getByLabel("E-mail", { exact: true }).fill(email);
+    await page.getByLabel("Senha", { exact: true }).fill(password);
+    await page.getByRole("button", { name: "Fazer login" }).click();
 
     await expect(page).toHaveURL(/\/clientes$/);
   });
 
   test("wrong credentials show one generic message, never leaking account existence", async ({ page }) => {
     await page.goto("/login");
-    await page.getByLabel("E-mail").fill(email);
-    await page.getByLabel("Senha").fill("definitely-wrong-password");
-    await page.getByRole("button", { name: "Entrar" }).click();
+    await page.getByLabel("E-mail", { exact: true }).fill(email);
+    await page.getByLabel("Senha", { exact: true }).fill("definitely-wrong-password");
+    await page.getByRole("button", { name: "Fazer login" }).click();
 
-    await expect(page.locator(".auth-error")).toHaveText("E-mail ou senha inválidos.");
+    // O login usa `.auth-error-msg`; os demais formulários de auth usam `.auth-error`.
+    await expect(page.locator(".auth-error-msg")).toHaveText("E-mail ou senha inválidos.");
     await expect(page).toHaveURL(/\/login$/);
   });
 
   test("correct credentials unlock the shell; logout revokes access again", async ({ page }) => {
     await page.goto("/login");
-    await page.getByLabel("E-mail").fill(email);
-    await page.getByLabel("Senha").fill(password);
-    await page.getByRole("button", { name: "Entrar" }).click();
+    await page.getByLabel("E-mail", { exact: true }).fill(email);
+    await page.getByLabel("Senha", { exact: true }).fill(password);
+    await page.getByRole("button", { name: "Fazer login" }).click();
     await expect(page).toHaveURL("/");
     await expect(page.locator(".app-shell")).toBeVisible();
 
@@ -61,9 +69,9 @@ test.describe("Auth — session gate, login, logout", () => {
 
   test("an already signed-in visitor hitting /login is sent straight to the dashboard", async ({ page }) => {
     await page.goto("/login");
-    await page.getByLabel("E-mail").fill(email);
-    await page.getByLabel("Senha").fill(password);
-    await page.getByRole("button", { name: "Entrar" }).click();
+    await page.getByLabel("E-mail", { exact: true }).fill(email);
+    await page.getByLabel("Senha", { exact: true }).fill(password);
+    await page.getByRole("button", { name: "Fazer login" }).click();
     await expect(page).toHaveURL("/");
 
     await page.goto("/login");

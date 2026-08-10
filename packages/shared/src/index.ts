@@ -3,6 +3,7 @@ export * from "./auth.js";
 export * from "./bitrix.js";
 export * from "./clients.js";
 export * from "./commercial.js";
+export * from "./compras.js";
 export * from "./email-status.js";
 export * from "./energy.js";
 export * from "./energy-efficiency.js";

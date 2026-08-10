@@ -78,7 +78,9 @@ test.describe("Plugga shell — smoke", () => {
         .locator(".sidebar-nav")
         .getByRole("button", { name: nomeAcessivel(item), exact: true })
         .click();
-      await page.waitForURL((url) => url.pathname === item.id);
+      // O contrato deste smoke é o roteamento. toHaveURL observa a URL sem
+      // acoplar o teste ao evento `load` das chamadas de dados da tela destino.
+      await expect(page).toHaveURL((url) => url.pathname === item.id, { timeout: 15_000 });
       expect(new URL(page.url()).pathname).toBe(item.id);
     });
   }
@@ -92,7 +94,9 @@ test.describe("Seletor de empresa", () => {
     await expect(waze).toHaveAttribute("aria-pressed", "false");
 
     await waze.click();
-    await page.waitForURL((url) => url.searchParams.get("empresa") === "waze");
+    await expect(page).toHaveURL((url) => url.searchParams.get("empresa") === "waze", {
+      timeout: 15_000,
+    });
     await expect(waze).toHaveAttribute("aria-pressed", "true");
   });
 
@@ -149,7 +153,7 @@ test.describe("Seletor de empresa", () => {
       .locator(".sidebar-nav")
       .getByRole("button", { name: "Obras parcial", exact: true })
       .click();
-    await page.waitForURL((url) => url.pathname === "/engenharia");
+    await expect(page).toHaveURL((url) => url.pathname === "/engenharia", { timeout: 15_000 });
     expect(new URL(page.url()).searchParams.get("empresa")).toBe("waze");
   });
 });

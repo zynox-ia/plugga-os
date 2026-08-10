@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
 
+const MUTATION_TIMEOUT_MS = 15_000;
+
 test.describe("Clientes — busca e ficha", () => {
   test("busca sem correspondência mostra o estado vazio, não dado simulado", async ({ page }) => {
     await page.goto("/clientes?q=zzz-sem-correspondencia-zzz");
@@ -20,7 +22,9 @@ test.describe("Clientes — busca e ficha", () => {
     // identificador") também contém "telefone", e getByLabel casa substring.
     await page.getByLabel("Telefone", { exact: true }).fill(phone);
     await page.getByRole("button", { name: "Criar cliente" }).click();
-    await expect(page.getByRole("cell", { name: uniqueName, exact: true })).toBeVisible();
+    await expect(page.getByRole("cell", { name: uniqueName, exact: true })).toBeVisible({
+      timeout: MUTATION_TIMEOUT_MS,
+    });
 
     // Second client with the same phone: signaled as a possible duplicate,
     // but still created (not blocked) — both rows must exist afterwards.
@@ -41,11 +45,11 @@ test.describe("Clientes — busca e ficha", () => {
 
     const listaDeClientes = page.getByRole("table", { name: "Clientes cadastrados" });
     await expect(listaDeClientes.getByRole("cell", { name: uniqueName, exact: true })).toBeVisible();
-    // A linha nova só entra na lista depois do roundtrip do router.refresh();
-    // o timeout padrão de 5s perde essa corrida em runner carregado.
+    // A mutation atualiza a lista com a própria resposta da API; o timeout
+    // folgado cobre apenas um runner carregado, não um segundo fetch obrigatório.
     await expect(
       listaDeClientes.getByRole("cell", { name: `${uniqueName} (2)`, exact: true }),
-    ).toBeVisible({ timeout: 15_000 });
+    ).toBeVisible({ timeout: MUTATION_TIMEOUT_MS });
 
     // Pela célula exata, não por regex de prefixo: o nome acessível da linha do
     // "(2)" também começa com o nome do primeiro cliente.
@@ -78,13 +82,22 @@ test.describe("Clientes — busca e ficha", () => {
     await page.getByLabel("Nome *").fill(uniqueName);
     await page.getByRole("button", { name: "Criar cliente" }).click();
 
-    const row = page.getByRole("row", { name: new RegExp(`^${uniqueName}\\s`) });
-    await expect(row.getByText("Ativo")).toBeVisible();
+    const listaDeClientes = page.getByRole("table", { name: "Clientes cadastrados" });
+    const row = listaDeClientes
+      .getByRole("row")
+      .filter({ has: page.getByRole("cell", { name: uniqueName, exact: true }) });
+    await expect(row.getByRole("cell", { name: "Ativo", exact: true })).toBeVisible({
+      timeout: MUTATION_TIMEOUT_MS,
+    });
 
     await row.getByRole("button", { name: "Inativar" }).click();
-    await expect(row.getByText("Inativo")).toBeVisible();
+    await expect(row.getByRole("cell", { name: "Inativo", exact: true })).toBeVisible({
+      timeout: MUTATION_TIMEOUT_MS,
+    });
 
     await row.getByRole("button", { name: "Ativar" }).click();
-    await expect(row.getByText("Ativo")).toBeVisible();
+    await expect(row.getByRole("cell", { name: "Ativo", exact: true })).toBeVisible({
+      timeout: MUTATION_TIMEOUT_MS,
+    });
   });
 });

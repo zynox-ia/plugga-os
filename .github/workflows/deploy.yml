@@ -1,0 +1,39 @@
+name: Deploy
+
+# Dispara quando o workflow CI termina na main — não no push direto. Deploy
+# sem o portão de lint/typecheck/test/build/e2e passar seria a mesma classe de
+# problema que o ops/deploy.sh já resolve do lado do banco (migrar antes de
+# subir, na ordem certa): aqui a ordem que importa é código verificado antes
+# de publicado.
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+
+jobs:
+  deploy:
+    name: Deploy to plugga-vps
+    runs-on: [self-hosted, plugga-vps]
+    if: github.event.workflow_run.conclusion == 'success'
+    steps:
+      - name: Checkout do commit que passou na CI
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Sincronizar para /opt/plugga-os
+        run: |
+          # .env e compose.yaml carregam configuração de produção que não vive
+          # no repositório (mesma regra do ops/publicar.sh); .git fica de fora
+          # porque /opt/plugga-os não é um clone.
+          sudo rsync -a --delete \
+            --exclude='.git' --exclude='node_modules' \
+            --exclude='.env' --exclude='compose.yaml' \
+            ./ /opt/plugga-os/
+          sudo chown -R root:root /opt/plugga-os
+          sudo chmod 600 /opt/plugga-os/.env
+          sudo chmod +x /opt/plugga-os/ops/deploy.sh
+
+      - name: Publicar
+        run: sudo /opt/plugga-os/ops/deploy.sh

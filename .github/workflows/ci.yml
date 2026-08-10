@@ -55,12 +55,6 @@ jobs:
           --health-timeout 5s
           --health-retries 10
 
-      mailpit:
-        image: axllent/mailpit:v1.21
-        ports:
-          - 1025:1025
-          - 8025:8025
-
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -96,13 +90,6 @@ jobs:
 
       - name: Verify append-only database triggers
         run: pnpm test:db
-
-      - name: Verify Mailpit email delivery path
-        env:
-          MAILPIT_SMTP_HOST: localhost
-          MAILPIT_SMTP_PORT: "1025"
-          MAILPIT_UI_PORT: "8025"
-        run: pnpm --filter @plugga/api test:email
 
       - name: Verify BullMQ jobs foundation
         env:
@@ -141,12 +128,11 @@ jobs:
           HOST: 127.0.0.1
           PORT: "3001"
           NODE_ENV: development
-          # Sem provedor a API cai no noop e não entrega nada: os e2e de
-          # convite/reset leem o token no Mailpit do job e nunca poderiam
-          # passar. O serviço já está de pé desde o smoke de e-mail acima.
-          EMAIL_PROVIDER: mailpit
-          MAILPIT_SMTP_HOST: localhost
-          MAILPIT_SMTP_PORT: "1025"
+          # Sem provedor a API cai no noop, o mesmo default de produção desde
+          # que Brevo passou a ser o único provedor real (2026-08-09) e o
+          # Mailpit saiu de cena (2026-08-10). Os e2e de convite/reset que
+          # liam o token de um e-mail foram removidos junto — sem adaptador
+          # que efetivamente entregue localmente, não há onde ler o token.
         run: |
           pnpm --filter @plugga/api start &
           echo $! > /tmp/plugga-api.pid
@@ -161,10 +147,20 @@ jobs:
           exit 1
 
       - name: Playwright e2e (web against live API)
+        id: playwright
         env:
           CI: "true"
           NEXT_PUBLIC_API_URL: http://127.0.0.1:3001
         run: pnpm test:e2e
+
+      - name: Upload Playwright failure artifacts
+        if: ${{ failure() && steps.playwright.outcome == 'failure' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-failure-${{ github.run_attempt }}
+          path: apps/web/test-results
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Stop API
         if: always()
@@ -172,4 +168,3 @@ jobs:
           if [ -f /tmp/plugga-api.pid ]; then
             kill "$(cat /tmp/plugga-api.pid)" || true
           fi
-

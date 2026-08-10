@@ -5,7 +5,6 @@ import { CoreModule } from "../core/core.module";
 import { BrevoEmailAdapter } from "./brevo-email.adapter";
 import { EmailPort } from "./email.port";
 import { EmailStatusController } from "./email-status.controller";
-import { MailpitEmailAdapter } from "./mailpit-email.adapter";
 import { NoopEmailAdapter } from "./noop-email.adapter";
 
 @Module({
@@ -13,34 +12,27 @@ import { NoopEmailAdapter } from "./noop-email.adapter";
   controllers: [EmailStatusController],
   providers: [
     NoopEmailAdapter,
-    MailpitEmailAdapter,
     BrevoEmailAdapter,
     {
       // Adapter selection by EMAIL_PROVIDER (ADR-0010). The safe default never
-      // sends; mailpit captures locally; brevo sends via the client's account.
+      // sends; brevo sends via the client's account. The Mailpit adapter was
+      // removed 2026-08-10: Brevo has been the only provider in production
+      // since 2026-08-09, and this repo's local dev no longer runs a local
+      // Mailpit container (backend points at the VPS over an SSH tunnel).
       provide: EmailPort,
-      useFactory: (
-        config: ConfigService,
-        noop: NoopEmailAdapter,
-        mailpit: MailpitEmailAdapter,
-        brevo: BrevoEmailAdapter,
-      ): EmailPort => {
+      useFactory: (config: ConfigService, noop: NoopEmailAdapter, brevo: BrevoEmailAdapter): EmailPort => {
         const provider = config.get<string>("EMAIL_PROVIDER", "noop");
         switch (provider) {
           case "noop":
             return noop;
-          case "mailpit":
-            return mailpit;
           case "brevo":
             return brevo;
           default:
             // Fail safe: an unknown provider must never send accidentally.
-            throw new Error(
-              `EMAIL_PROVIDER='${provider}' is not a valid email provider (noop|mailpit|brevo)`,
-            );
+            throw new Error(`EMAIL_PROVIDER='${provider}' is not a valid email provider (noop|brevo)`);
         }
       },
-      inject: [ConfigService, NoopEmailAdapter, MailpitEmailAdapter, BrevoEmailAdapter],
+      inject: [ConfigService, NoopEmailAdapter, BrevoEmailAdapter],
     },
   ],
   exports: [EmailPort],

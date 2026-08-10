@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const emailProviderSchema = z.enum(["noop", "mailpit", "brevo"]);
+export const emailProviderSchema = z.enum(["noop", "brevo"]);
 
 /**
  * Not backed by the `integrations` table: email delivery isn't gated by the

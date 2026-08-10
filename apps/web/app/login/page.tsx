@@ -5,6 +5,7 @@ import { LoginForm } from "../components/auth/login-form";
 
 export const metadata: Metadata = { title: "Entrar — Plugga OS" };
 
+// Re-compile trigger
 export default async function LoginPage({
   searchParams,
 }: {
@@ -13,11 +14,7 @@ export default async function LoginPage({
   const { redirectTo } = await searchParams;
 
   return (
-    <AuthCard
-      title="Entrar"
-      description="Acesse o Plugga OS com seu e-mail e senha."
-      footer={<a href="/auth/reset">Esqueci minha senha</a>}
-    >
+    <AuthCard>
       <LoginForm redirectTo={redirectTo} />
     </AuthCard>
   );

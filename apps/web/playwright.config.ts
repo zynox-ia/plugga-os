@@ -31,13 +31,14 @@ export default defineConfig({
   webServer: process.env.PLAYWRIGHT_BASE_URL
     ? undefined
     : {
-        // Deliberately no --hostname: Next.js's dev/start server canonicalizes an
-        // explicit loopback hostname (127.0.0.1) to "localhost" when constructing
-        // absolute redirect URLs in middleware, which silently drops the session
-        // cookie on a cross-host redirect. Binding to the default interface keeps
-        // middleware redirects host-relative and cookie-safe.
+        // CI serves the same standalone tree assembled by the Dockerfile. The
+        // helper copies static/public before booting; `next start` is unsupported
+        // when next.config.ts uses `output: "standalone"`.
+        //
+        // Dev deliberately has no --hostname: an explicit loopback hostname can
+        // canonicalize redirects to "localhost" and drop the 127.0.0.1 cookie.
         command: process.env.CI
-          ? "pnpm exec next start --port 3000"
+          ? "node scripts/start-standalone.mjs"
           : "pnpm exec next dev --port 3000",
         url: "http://127.0.0.1:3000",
         reuseExistingServer: !process.env.CI,
