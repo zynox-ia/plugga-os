@@ -86,33 +86,41 @@ export function GoogleSignInButton({
     document.head.appendChild(script);
   }, []);
 
+  // O separador vive AQUI dentro, e não na tela de login, para sumir junto com
+  // o botão. Quando o script do Google é bloqueado, um "ou" sozinho no meio da
+  // tela anuncia uma alternativa que não existe — foi o que a CI flagrou.
   if (scriptState === "failed") {
     return null;
   }
 
   return (
-    <div className="auth-google-slot" ref={containerRef} data-state={scriptState}>
-      <div
-        id="g_id_onload"
-        data-client_id={clientId}
-        data-login_uri={loginUri}
-        data-ux_mode="redirect"
-        // One Tap fica fora desta fase: é prompt automático de terceiro na
-        // tela, com FedCM e consentimento próprios, e não é o que foi pedido.
-        data-auto_prompt="false"
-        data-auto_select="false"
-        data-itp_support="true"
-      />
-      <div
-        className="g_id_signin"
-        data-type="standard"
-        data-shape="pill"
-        data-theme="outline"
-        data-text="signin_with"
-        data-size="large"
-        data-logo_alignment="left"
-        data-locale="pt-BR"
-      />
-    </div>
+    <>
+      <div className="auth-pill-divider">
+        <span>ou</span>
+      </div>
+      <div className="auth-google-slot" ref={containerRef} data-state={scriptState}>
+        <div
+          id="g_id_onload"
+          data-client_id={clientId}
+          data-login_uri={loginUri}
+          data-ux_mode="redirect"
+          // One Tap fica fora desta fase: é prompt automático de terceiro na
+          // tela, com FedCM e consentimento próprios, e não é o que foi pedido.
+          data-auto_prompt="false"
+          data-auto_select="false"
+          data-itp_support="true"
+        />
+        <div
+          className="g_id_signin"
+          data-type="standard"
+          data-shape="pill"
+          data-theme="outline"
+          data-text="signin_with"
+          data-size="large"
+          data-logo_alignment="left"
+          data-locale="pt-BR"
+        />
+      </div>
+    </>
   );
 }

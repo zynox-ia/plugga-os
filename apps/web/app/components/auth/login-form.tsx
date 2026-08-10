@@ -176,19 +176,16 @@ export function LoginForm({
         </button>
       </form>
 
-      {/* Sem Google configurado não há "ou": um separador sozinho anuncia uma
-          alternativa que não existe. */}
+      {/* O separador "ou" mora dentro do botão, não aqui: sem Google
+          configurado ele não aparece, e se o script do Google for bloqueado os
+          dois somem juntos. Anunciar uma alternativa que não existe é pior do
+          que não anunciar nada. */}
       {google ? (
-        <>
-          <div className="auth-pill-divider">
-            <span>ou</span>
-          </div>
-          <GoogleSignInButton
-            clientId={google.clientId}
-            loginUri={google.loginUri}
-            redirectTo={redirectTo}
-          />
-        </>
+        <GoogleSignInButton
+          clientId={google.clientId}
+          loginUri={google.loginUri}
+          redirectTo={redirectTo}
+        />
       ) : null}
     </div>
   );

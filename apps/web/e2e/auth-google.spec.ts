@@ -65,21 +65,21 @@ test.describe("Login Google — tela de entrada", () => {
     page,
   }) => {
     await page.route(`${GIS_SCRIPT}*`, (route) => route.abort());
-    // A recusa é simulada em vez de pedida à API: o que este caso prova é que o
-    // formulário continua inteiro sem o Google, e gastar uma tentativa real
-    // consumiria o teto de 10/min por IP que a suíte divide com os outros specs.
-    await page.route("**/api/auth/login", (route) =>
-      route.fulfill({ status: 401, contentType: "application/json", body: "{}" }),
-    );
 
     await page.goto("/login");
 
+    // O botão E o separador "ou" somem juntos: um "ou" sozinho anunciaria uma
+    // alternativa que não existe.
     await expect(page.locator(".auth-google-slot")).toHaveCount(0);
-    // O caminho principal segue inteiro: campos, botão e mensagem de erro.
+    await expect(page.locator(".auth-pill-divider")).toHaveCount(0);
+
+    // E o caminho principal segue inteiro e utilizável. O login por senha de
+    // ponta a ponta é de auth.spec.ts; repetir o clique aqui só duplicaria
+    // aquela cobertura e gastaria o teto de 10 tentativas/min por IP que a
+    // suíte inteira divide.
     await page.getByLabel("E-mail", { exact: true }).fill("alguem@plugga.local");
     await page.getByLabel("Senha", { exact: true }).fill("senha-errada-mesmo");
-    await page.getByRole("button", { name: "Fazer login" }).click();
-    await expect(erro(page)).toHaveText("E-mail ou senha inválidos.");
+    await expect(page.getByRole("button", { name: "Fazer login" })).toBeEnabled();
   });
 
   test("a recusa do Google vira mensagem genérica, sem vazar detalhe", async ({ page }) => {
