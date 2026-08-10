@@ -16,6 +16,23 @@ const environmentBoolean = z.preprocess((value) => {
   return value;
 }, z.boolean());
 
+/**
+ * Variável ausente e variável vazia são a mesma coisa: "não configurada".
+ *
+ * O `compose.yaml` passa as opcionais como `${VAR:-}`, o que entrega ao
+ * contêiner a variável DEFINIDA com string vazia. `.optional()` do zod só
+ * aceita `undefined`, então uma regra como `.min(1)` ou `.url()` recusava o
+ * vazio e derrubava o boot em qualquer ambiente que não tivesse preenchido a
+ * variável — exatamente o ambiente que ainda não usa o recurso. A CI nunca
+ * pegaria: lá as variáveis estão sempre preenchidas.
+ */
+function opcional<T extends z.ZodTypeAny>(schema: T) {
+  return z.preprocess(
+    (valor) => (typeof valor === "string" && valor.trim() === "" ? undefined : valor),
+    schema.optional(),
+  );
+}
+
 export const environmentSchema = z
   .object({
     NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
@@ -69,14 +86,14 @@ export const environmentSchema = z
     // browser), mas é a AUDIÊNCIA aceita pelo verificador: um valor errado aqui
     // aceitaria ID token emitido para outro aplicativo. Não há client secret
     // neste fluxo — o GIS entrega um ID token já assinado, não um code.
-    GOOGLE_OIDC_CLIENT_ID: z.string().trim().min(1).optional(),
+    GOOGLE_OIDC_CLIENT_ID: opcional(z.string().trim().min(1)),
     // URI absoluta do callback registrado no Google Cloud. Quem a CONSOME é o
     // app web, mas a API também exige o valor quando a flag está ligada: os
     // dois serviços leem o mesmo `.env`, e é a API que falha alto se ele
     // estiver incompleto. Sem isto, esquecer a variável fazia o botão sumir da
     // tela em silêncio — o modo de falha mais caro de diagnosticar, porque nada
     // no sistema reclama.
-    GOOGLE_LOGIN_URI: z.string().trim().url().optional(),
+    GOOGLE_LOGIN_URI: opcional(z.string().trim().url()),
     // Bitrix Migrator credential (ADR-0009): inbound webhook URL with the token
     // embedded in the path. Lives only in the environment/secret — never in git,
     // never in the integrations table, never logged. Bitrix is external SaaS, so
