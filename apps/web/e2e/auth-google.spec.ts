@@ -14,6 +14,32 @@ import { expect, test, type Page } from "@playwright/test";
 const GIS_SCRIPT = "https://accounts.google.com/gsi/client";
 
 /**
+ * As telas de auth carregam dois terceiros que nada aqui observa: a cena 3D
+ * decorativa do cartão (`my.spline.design`, num iframe) e as fontes do Google
+ * (um `@import` no globals.css).
+ *
+ * `page.goto` e `page.waitForURL` esperam o evento `load`, e `load` só dispara
+ * depois de TODO subrecurso — esses dois inclusive. Na CI, com rede fria e dois
+ * workers concorrendo, isso passou de 30 s e estourava o timeout do primeiro
+ * caso a abrir /login. Como a ordem entre workers varia, o caso que caía mudava
+ * a cada rodada, e a falha parecia aleatória.
+ *
+ * Servidos aqui como resposta vazia, e não abortados: abortar deixa o recurso
+ * em estado de falha e o `load` da página continua esperando. Medido neste
+ * worktree, com 40 s de atraso injetado nos dois: sem o stub, 7 de 10 casos
+ * caem; com ele, 10/10 em 1,7 s (contra 45 s antes). Um teste nosso não deve
+ * depender de um serviço 3D de terceiro nem de um CDN de fontes estar no ar.
+ */
+test.beforeEach(async ({ page }) => {
+  await page.route("https://my.spline.design/**", (route) =>
+    route.fulfill({ status: 200, contentType: "text/html", body: "<!doctype html>" }),
+  );
+  await page.route("https://fonts.googleapis.com/**", (route) =>
+    route.fulfill({ status: 200, contentType: "text/css", body: "" }),
+  );
+});
+
+/**
  * A mensagem de erro do formulário. Localizada pela classe, e não por
  * `getByRole("alert")`: o Next mantém um anunciador de rota invisível com o
  * mesmo papel, e o modo estrito do Playwright recusa os dois juntos.
