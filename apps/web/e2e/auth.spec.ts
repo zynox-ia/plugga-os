@@ -25,18 +25,18 @@ test.describe("Auth — session gate, login, logout", () => {
     await page.goto("/clientes");
     await expect(page).toHaveURL(/\/login\?redirectTo=%2Fclientes$/);
 
-    await page.getByLabel("E-mail").fill(email);
-    await page.getByLabel("Senha").fill(password);
-    await page.getByRole("button", { name: "Entrar" }).click();
+    await page.getByLabel("E-mail", { exact: true }).fill(email);
+    await page.getByLabel("Senha", { exact: true }).fill(password);
+    await page.getByRole("button", { name: "Fazer login" }).click();
 
     await expect(page).toHaveURL(/\/clientes$/);
   });
 
   test("wrong credentials show one generic message, never leaking account existence", async ({ page }) => {
     await page.goto("/login");
-    await page.getByLabel("E-mail").fill(email);
-    await page.getByLabel("Senha").fill("definitely-wrong-password");
-    await page.getByRole("button", { name: "Entrar" }).click();
+    await page.getByLabel("E-mail", { exact: true }).fill(email);
+    await page.getByLabel("Senha", { exact: true }).fill("definitely-wrong-password");
+    await page.getByRole("button", { name: "Fazer login" }).click();
 
     await expect(page.locator(".auth-error")).toHaveText("E-mail ou senha inválidos.");
     await expect(page).toHaveURL(/\/login$/);
@@ -44,9 +44,9 @@ test.describe("Auth — session gate, login, logout", () => {
 
   test("correct credentials unlock the shell; logout revokes access again", async ({ page }) => {
     await page.goto("/login");
-    await page.getByLabel("E-mail").fill(email);
-    await page.getByLabel("Senha").fill(password);
-    await page.getByRole("button", { name: "Entrar" }).click();
+    await page.getByLabel("E-mail", { exact: true }).fill(email);
+    await page.getByLabel("Senha", { exact: true }).fill(password);
+    await page.getByRole("button", { name: "Fazer login" }).click();
     await expect(page).toHaveURL("/");
     await expect(page.locator(".app-shell")).toBeVisible();
 
@@ -61,9 +61,9 @@ test.describe("Auth — session gate, login, logout", () => {
 
   test("an already signed-in visitor hitting /login is sent straight to the dashboard", async ({ page }) => {
     await page.goto("/login");
-    await page.getByLabel("E-mail").fill(email);
-    await page.getByLabel("Senha").fill(password);
-    await page.getByRole("button", { name: "Entrar" }).click();
+    await page.getByLabel("E-mail", { exact: true }).fill(email);
+    await page.getByLabel("Senha", { exact: true }).fill(password);
+    await page.getByRole("button", { name: "Fazer login" }).click();
     await expect(page).toHaveURL("/");
 
     await page.goto("/login");

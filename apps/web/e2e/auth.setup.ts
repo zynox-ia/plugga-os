@@ -14,9 +14,9 @@ setup.use({ extraHTTPHeaders: { "x-forwarded-for": "203.0.113.201" } });
 
 setup("authenticate as the seeded local admin", async ({ page }) => {
   await page.goto("/login");
-  await page.getByLabel("E-mail").fill(email);
-  await page.getByLabel("Senha").fill(password);
-  await page.getByRole("button", { name: "Entrar" }).click();
+  await page.getByLabel("E-mail", { exact: true }).fill(email);
+  await page.getByLabel("Senha", { exact: true }).fill(password);
+  await page.getByRole("button", { name: "Fazer login" }).click();
 
   await expect(page).toHaveURL("/");
   await expect(page.locator(".app-shell")).toBeVisible();

@@ -60,7 +60,7 @@ export function LoginForm({ redirectTo }: { redirectTo?: string }) {
       <form className="auth-form-fields" onSubmit={handleSubmit}>
         <div className="auth-pill-field">
           <label className="auth-pill-label" htmlFor="email-input">
-            Email
+            E-mail
           </label>
           <div className="auth-pill-input-wrapper">
             <svg className="auth-pill-input-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">

@@ -119,9 +119,9 @@ test.describe("Auth — invite accept and password reset", () => {
     await expect(page.locator(".auth-success")).toHaveText("Senha definida com sucesso. Você já pode entrar.");
 
     await page.goto("/login");
-    await page.getByLabel("E-mail").fill(email);
-    await page.getByLabel("Senha").fill("a-perfectly-fine-password-1");
-    await page.getByRole("button", { name: "Entrar" }).click();
+    await page.getByLabel("E-mail", { exact: true }).fill(email);
+    await page.getByLabel("Senha", { exact: true }).fill("a-perfectly-fine-password-1");
+    await page.getByRole("button", { name: "Fazer login" }).click();
     await expect(page).toHaveURL("/");
     await expect(page.locator(".app-shell")).toBeVisible();
   });
@@ -166,7 +166,7 @@ test.describe("Auth — invite accept and password reset", () => {
     page,
   }) => {
     await page.goto("/auth/reset");
-    await page.getByLabel("E-mail").fill(`no-such-user.${Date.now()}@plugga.local`);
+    await page.getByLabel("E-mail", { exact: true }).fill(`no-such-user.${Date.now()}@plugga.local`);
     await page.getByRole("button", { name: "Enviar link de redefinição" }).click();
 
     await expect(page.locator(".auth-success")).toHaveText(
@@ -199,9 +199,9 @@ test.describe("Auth — invite accept and password reset", () => {
     await expect(page.locator(".auth-success")).toHaveText("Senha redefinida com sucesso. Você já pode entrar.");
 
     await page.goto("/login");
-    await page.getByLabel("E-mail").fill(email);
-    await page.getByLabel("Senha").fill("brand-new-password-3");
-    await page.getByRole("button", { name: "Entrar" }).click();
+    await page.getByLabel("E-mail", { exact: true }).fill(email);
+    await page.getByLabel("Senha", { exact: true }).fill("brand-new-password-3");
+    await page.getByRole("button", { name: "Fazer login" }).click();
     await expect(page).toHaveURL("/");
     await expect(page.locator(".app-shell")).toBeVisible();
   });
