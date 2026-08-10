@@ -82,6 +82,54 @@ todos corretos.
 Não existe client secret neste fluxo. Se alguém pedir um, o desenho foi
 confundido com o Authorization Code — não é o que está implementado.
 
+### O `.env` da VPS sozinho NÃO basta
+
+Esta é a parte que o `docker compose` não perdoa e que não se descobre lendo o
+repositório.
+
+O `ops/publicar.sh` **preserva o `compose.yaml` que está na VPS**:
+
+```bash
+cp ${DESTINO}/compose.yaml ${DESTINO}.novo/compose.yaml
+```
+
+É deliberado — aquele arquivo carrega configuração de produção que, por desenho,
+não vive no git. A consequência é que **as três linhas `GOOGLE_*` que existem no
+`compose.yaml` do repositório nunca chegam à VPS por deploy nenhum.** Publicar
+mil vezes não as leva.
+
+E um contêiner só enxerga a variável que o `compose.yaml` declara. Pôr os
+valores no `.env` sem declará-los no compose não faz nada: o `.env` é lido pelo
+compose para expandir `${...}`, e o que ele não referencia não é repassado. O
+sintoma é o pior possível — nada falha, nada avisa, e o botão simplesmente não
+aparece.
+
+Antes da etapa 3, edite `/opt/plugga-os/compose.yaml` **na VPS** e acrescente as
+três linhas ao bloco `environment:` **dos dois serviços**, `api` e `web`. Em
+ambos, o lugar natural é logo abaixo de `AUTH_ALLOWED_ORIGINS`:
+
+```yaml
+      GOOGLE_AUTH_ENABLED: ${GOOGLE_AUTH_ENABLED:-false}
+      GOOGLE_OIDC_CLIENT_ID: ${GOOGLE_OIDC_CLIENT_ID:-}
+      GOOGLE_LOGIN_URI: ${GOOGLE_LOGIN_URI:-}
+```
+
+Confira que ficou nos dois — `grep -c GOOGLE_ compose.yaml` tem de devolver
+**6**, não 3. Só depois preencha os valores no `.env` e recrie os serviços:
+
+```bash
+cd /opt/plugga-os
+grep -c GOOGLE_ compose.yaml          # 6
+docker compose config | grep GOOGLE_  # confere o que os contêineres vão receber
+docker compose up -d --force-recreate api web
+```
+
+Por que `${VAR:-}` e não a variável crua: com essa forma, um `.env` sem a
+variável entrega string vazia em vez de derrubar o compose. O schema de ambiente
+trata vazio como ausente exatamente por isso (`opcional()` em
+`apps/api/src/config/environment.ts`) — sem esse tratamento, declarar as linhas
+no compose antes de preencher o `.env` impediria a API de subir.
+
 ---
 
 ## 4. Aplicar a migração
@@ -103,9 +151,23 @@ existir, o botão não aparece e nada muda para quem já usa o sistema.
 
 1. **Publicar com a flag desligada.** Confirmar que continuam funcionando:
    login por senha, convite, redefinição de senha, `/auth/me` e logout.
-2. **Configurar** o OAuth Client de produção e as variáveis na VPS.
+2. **Configurar** o OAuth Client de produção e as variáveis na VPS. São **dois**
+   arquivos, não um: as três linhas `GOOGLE_*` no `compose.yaml` da VPS (nos
+   serviços `api` **e** `web`) e os valores no `.env`. O deploy preserva o
+   compose de lá, então essa edição é manual e não chega por publicação —
+   ver a seção 3.
 3. **Ligar para o smoke**, com duas contas que já existam: uma `active` e uma
-   `invited` de teste.
+   `invited` de teste. Antes de tentar entrar, confirme que a configuração
+   realmente chegou aos contêineres:
+
+   ```bash
+   docker compose exec api printenv GOOGLE_AUTH_ENABLED GOOGLE_OIDC_CLIENT_ID
+   docker compose exec web printenv GOOGLE_AUTH_ENABLED GOOGLE_OIDC_CLIENT_ID
+   ```
+
+   Os dois têm de responder, e com o MESMO client id. Se algum não responder
+   nada, a linha falta no `compose.yaml` daquele serviço — o botão não vai
+   aparecer, e nada no sistema vai reclamar.
 4. **Validar, nesta ordem:**
    - [ ] a pessoa ativa entra e cai na mesma tela de sempre;
    - [ ] os papéis e as empresas dela estão corretos (`/auth/me`);
@@ -128,7 +190,16 @@ existir, o botão não aparece e nada muda para quem já usa o sistema.
 # 1) GOOGLE_AUTH_ENABLED=false no .env
 # 2) recriar os dois serviços
 docker compose up -d --force-recreate api web
+# 3) confirmar que a rota recusa
+curl -s -X POST http://127.0.0.1:3001/auth/google \
+  -H "content-type: application/x-www-form-urlencoded" \
+  --data "credential=x&g_csrf_token=y"
+# esperado: {"statusCode":403,...,"code":"disabled"}
 ```
+
+O passo 3 não é zelo excessivo: o `.env` só desliga se o `compose.yaml` daquele
+serviço declarar a variável. Se a linha não estiver lá, editar o `.env` não
+muda nada e o rollback teria falhado em silêncio.
 
 O que acontece: o botão some da tela e a rota `/auth/google` passa a recusar
 qualquer tentativa. O login por senha nunca dependeu disso e continua igual.
@@ -170,7 +241,7 @@ LIMIT 20;
 | `invalid_token` | Token inválido, expirado ou de outra audiência | Conferir se `GOOGLE_OIDC_CLIENT_ID` bate entre `api`, `web` e Google Cloud |
 | `invalid_csrf` | O cookie `g_csrf_token` não chegou ou não bate | Quase sempre é o callback cadastrado divergindo do domínio real |
 | `verifier_unavailable` | Não deu para falar com o Google | Temporário; o login por senha continua funcionando |
-| `feature_disabled` | A flag está desligada em algum dos serviços | Conferir `GOOGLE_AUTH_ENABLED` na `api` **e** na `web` |
+| `feature_disabled` | A flag está desligada em algum dos serviços | `docker compose exec api printenv GOOGLE_AUTH_ENABLED` e o mesmo para `web`. Sem resposta = a linha falta no `compose.yaml` daquele serviço, não no `.env` |
 
 Nem o ID token nem o `sub` do Google aparecem em log, evento ou URL — nunca. Se
 algum dia aparecerem, é defeito, não dado de diagnóstico.
