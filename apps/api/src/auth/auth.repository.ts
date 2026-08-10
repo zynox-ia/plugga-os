@@ -1,5 +1,11 @@
 import type { AuthTokenType } from "@prisma/client";
-import type { CompanyKey, DepartmentId, UserAccess, UserStatus } from "@plugga/shared";
+import type {
+  CompanyKey,
+  DepartmentId,
+  IdentityProvider,
+  UserAccess,
+  UserStatus,
+} from "@plugga/shared";
 
 export interface AuthUserRecord {
   id: string;
@@ -56,6 +62,43 @@ export interface SetPasswordOptions {
   revokeSessions: boolean;
 }
 
+/** Vínculo já existente entre um usuário local e uma conta de provedor federado. */
+export interface UserIdentityRecord {
+  id: string;
+  userId: string;
+  provider: IdentityProvider;
+  subject: string;
+  emailAtLink: string;
+  lastObservedEmail: string;
+  hostedDomain: string | null;
+}
+
+export interface LinkIdentityData {
+  userId: string;
+  provider: IdentityProvider;
+  subject: string;
+  /** E-mail normalizado observado no momento do vínculo. */
+  email: string;
+  hostedDomain: string | null;
+  now: Date;
+}
+
+/**
+ * Por que a corrida existe: dois primeiros logins simultâneos passam os dois
+ * pela mesma verificação e chegam os dois na escrita. Quem decide é a constraint
+ * única, não a checagem — e o perdedor precisa virar recusa controlada, não 500.
+ * `reason` só alimenta a auditoria interna; para quem tentou entrar, todos os
+ * motivos são a mesma mensagem genérica.
+ */
+export type IdentityLinkFailure = "conflict" | "user_not_found" | "user_not_eligible";
+
+export class IdentityLinkError extends Error {
+  constructor(readonly reason: IdentityLinkFailure) {
+    super(`identity link refused: ${reason}`);
+    this.name = "IdentityLinkError";
+  }
+}
+
 /**
  * Write/read side of the auth lifecycle (credentials, sessions, invite/reset
  * tokens, team administration). The narrow read used on every request lives in
@@ -85,6 +128,26 @@ export abstract class AuthRepository {
     passwordHash: string,
     consumedAt: Date,
     options: SetPasswordOptions,
+  ): Promise<void>;
+  /** Vínculo federado pelo par (provedor, subject) — nunca pelo e-mail. */
+  abstract findIdentityBySubject(
+    provider: IdentityProvider,
+    subject: string,
+  ): Promise<UserIdentityRecord | null>;
+  /**
+   * Cria o vínculo e, se a pessoa ainda estava `invited`, ativa a conta e
+   * consome os convites pendentes — tudo em UMA transação. Separar as duas
+   * coisas deixaria a janela em que a conta já está ativa mas sem vínculo (ou o
+   * inverso), e o convite antigo continuaria sendo uma porta aberta.
+   * Lança `IdentityLinkError` em qualquer recusa; nunca sobe erro de driver.
+   */
+  abstract linkIdentity(data: LinkIdentityData): Promise<AuthUserRecord>;
+  /** Metadados observados no login seguinte. Não altera `users.email`/`name`. */
+  abstract recordIdentityLogin(
+    identityId: string,
+    email: string,
+    hostedDomain: string | null,
+    now: Date,
   ): Promise<void>;
   /** Substitui o acesso inteiro da pessoa. Conceder e revogar são a mesma escrita. */
   abstract replaceAccess(userId: string, access: UserAccess): Promise<AuthUserRecord | null>;

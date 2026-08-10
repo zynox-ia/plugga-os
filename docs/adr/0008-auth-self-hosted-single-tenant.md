@@ -151,3 +151,88 @@ flowchart LR
   default e proibido em produção.
 - Este ADR não autoriza write/cutover em nenhum sistema externo — apenas
   autenticação local do próprio OS.
+
+---
+
+# Adendo 1 — Identidade federada com o Google (2026-08-10)
+
+- **Status:** Aceito
+- **Gatilho:** "SSO corporativo", previsto nos *Gatilhos de revisão* acima
+- **Não supera:** nada. O corpo do ADR-0008 continua valendo inteiro.
+
+## O que muda
+
+O login por e-mail e senha ganha um **segundo meio de provar identidade**: uma
+conta Google, verificada por OpenID Connect via Google Identity Services.
+
+O que **não** muda — e é onde este adendo se distingue do que a decisão original
+proíbe:
+
+| Continua sendo do Postgres do cliente | Passa a poder vir do Google |
+|---|---|
+| Quem existe (`users`) | A prova de que a pessoa é ela mesma |
+| Se pode entrar (`users.status`) | — |
+| O que alcança (papéis, empresas, departamentos) | — |
+| A sessão (opaca, server-side, revogável) | — |
+| A revogação (logout, desativação, expiração) | — |
+
+A proibição do corpo do ADR — *"Supabase Auth / Clerk / Auth0 / qualquer SaaS de
+identidade estão vetados"* — é sobre **quem é a fonte de verdade da identidade**.
+Um provedor federado que só atesta "esta pessoa controla esta conta Google", e
+cuja resposta é descartada assim que a sessão local é emitida, não move a fonte
+de verdade para fora. Um provedor que passasse a ser dono da lista de usuários,
+da autorização ou da sessão moveria — e esse continua vetado.
+
+## Limites que fazem o adendo caber no ADR
+
+1. **Sem autocadastro.** Conta no Plugga OS nasce de convite. Um Google válido
+   cujo e-mail não corresponda a um usuário local é recusado; nenhum usuário,
+   empresa, departamento ou papel é criado a partir de claims do Google.
+2. **A identidade permanente é o `sub`**, não o e-mail. O e-mail decide uma única
+   vez: no primeiro vínculo. Depois disso ele pode mudar sem trocar a identidade,
+   e mudar não reatribui conta nenhuma.
+3. **Nenhum token do Google é persistido** — nem ID token, nem access, nem
+   refresh. Não há client secret neste fluxo. Os escopos são só de identidade
+   (`openid`, `email`, `profile`); nada de Gmail, Drive ou qualquer API Google.
+4. **Nenhuma segunda sessão.** O login Google termina chamando o mesmo
+   `SessionService.issue`, com o mesmo cookie `plugga_session`. Não entra
+   Auth.js/NextAuth, Better Auth nem tabela de sessão paralela — o motivo é o
+   mesmo pelo qual o Better Auth foi rejeitado no corpo do ADR.
+5. **O e-mail e senha continua disponível.** O Google é opcional, e a queda do
+   Google não pode ser uma queda do acesso ao sistema.
+6. **`GOOGLE_AUTH_ENABLED` é o rollback**, e é `false` por default. Com a flag
+   desligada a rota recusa e o botão some; nada da tabela de vínculos é apagado.
+7. **Um `sub` por pessoa e uma pessoa por `sub`**, garantido por constraint
+   única — não por checagem no serviço, que perde a corrida.
+
+## Consequências
+
+**Positivas**
+- Elimina uma senha a mais para quem já vive dentro do Google Workspace, sem
+  tirar do cliente o controle de quem entra.
+- A ativação de convite pelo Google encurta a entrada de gente nova: não há
+  senha para criar antes do primeiro acesso.
+- A revogação continua sendo uma só, no mesmo lugar: desativar a pessoa fecha
+  senha e Google juntos.
+
+**Negativas / custos**
+- Passa a existir uma dependência externa no caminho de login. Mitigada por
+  falha fechada e temporária (`503`, não "conta não autorizada") e pelo login
+  por senha continuar íntegro ao lado.
+- Uma configuração administrada fora do repositório (OAuth Client no Google
+  Cloud) precisa ficar sincronizada com o ambiente: audiência e URI de callback
+  divergentes derrubam o login sem nenhum código ter mudado.
+- Contas Google criadas sobre e-mail de terceiro trazem `email_verified=true`
+  sem que o Google seja autoridade sobre aquela caixa postal. O primeiro vínculo
+  as recusa; essas pessoas entram por senha.
+
+## Gatilhos de revisão deste adendo
+
+- Pedido de One Tap, seleção automática ou popup → reavaliar a experiência
+  (COOP/FedCM entram no escopo).
+- Pedido de troca/desvínculo de conta Google pela tela de Equipe → precisa de
+  fluxo autenticado próprio; hoje é ato administrativo no banco.
+- Pedido de autocadastro por domínio → reabre a decisão 1 acima e exige uma
+  política de acesso inicial que hoje não existe.
+- Necessidade de CSP → precisa liberar os endpoints oficiais do GIS junto com os
+  demais terceiros já embutidos nas telas.

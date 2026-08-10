@@ -11,6 +11,13 @@ export const eventNames = {
   authResetRequested: "auth.reset.requested",
   authResetCompleted: "auth.reset.completed",
   authInviteResent: "auth.invite.resent",
+  /**
+   * Primeiro vínculo entre um usuário local e uma conta Google. Fica separado de
+   * `auth.login.succeeded` porque é o evento que muda quem pode entrar na conta
+   * daqui em diante — é o que se procura quando alguém pergunta "desde quando
+   * essa pessoa entra pelo Google?". Nunca carrega o `sub` nem o ID token.
+   */
+  authGoogleIdentityLinked: "auth.google_identity.linked",
   userAccessUpdated: "user.access.updated",
   userDeactivated: "user.deactivated",
   pluggamobSeeded: "pluggamob.seeded",

@@ -61,6 +61,22 @@ export const environmentSchema = z
     // Comma-separated browser origins accepted on mutating auth routes (CSRF
     // defense in depth alongside SameSite=Lax).
     AUTH_ALLOWED_ORIGINS: z.string().trim().optional(),
+    // --- Login federado com o Google (adendo ao ADR-0008) ---
+    // Desligado por default: sem a flag a rota /auth/google recusa tudo e o
+    // botão some da tela. É esta variável, e não um deploy, que faz o rollback.
+    GOOGLE_AUTH_ENABLED: environmentBoolean.default(false),
+    // Client ID do OAuth Client do Google. É público por natureza (vai para o
+    // browser), mas é a AUDIÊNCIA aceita pelo verificador: um valor errado aqui
+    // aceitaria ID token emitido para outro aplicativo. Não há client secret
+    // neste fluxo — o GIS entrega um ID token já assinado, não um code.
+    GOOGLE_OIDC_CLIENT_ID: z.string().trim().min(1).optional(),
+    // URI absoluta do callback registrado no Google Cloud. Quem a CONSOME é o
+    // app web, mas a API também exige o valor quando a flag está ligada: os
+    // dois serviços leem o mesmo `.env`, e é a API que falha alto se ele
+    // estiver incompleto. Sem isto, esquecer a variável fazia o botão sumir da
+    // tela em silêncio — o modo de falha mais caro de diagnosticar, porque nada
+    // no sistema reclama.
+    GOOGLE_LOGIN_URI: z.string().trim().url().optional(),
     // Bitrix Migrator credential (ADR-0009): inbound webhook URL with the token
     // embedded in the path. Lives only in the environment/secret — never in git,
     // never in the integrations table, never logged. Bitrix is external SaaS, so
@@ -81,6 +97,69 @@ export const environmentSchema = z
         path: ["DEV_AUTH_ENABLED"],
         message: "development authentication cannot be enabled in production",
       });
+    }
+
+    // Ligar o login Google sem audiência configurada é pior do que deixá-lo
+    // desligado: o verificador não teria contra o que comparar `aud`.
+    if (environment.GOOGLE_AUTH_ENABLED && !environment.GOOGLE_OIDC_CLIENT_ID) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["GOOGLE_OIDC_CLIENT_ID"],
+        message: "GOOGLE_OIDC_CLIENT_ID is required when GOOGLE_AUTH_ENABLED=true",
+      });
+    }
+
+    if (environment.GOOGLE_AUTH_ENABLED && !environment.GOOGLE_LOGIN_URI) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["GOOGLE_LOGIN_URI"],
+        message: "GOOGLE_LOGIN_URI is required when GOOGLE_AUTH_ENABLED=true",
+      });
+    }
+
+    if (environment.GOOGLE_LOGIN_URI) {
+      try {
+        const loginUri = new URL(environment.GOOGLE_LOGIN_URI);
+        const isLocal = ["localhost", "127.0.0.1"].includes(loginUri.hostname);
+        if (loginUri.protocol !== "https:" && !isLocal) {
+          context.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["GOOGLE_LOGIN_URI"],
+            message: "GOOGLE_LOGIN_URI must use https outside localhost",
+          });
+        }
+
+        // Em produção o callback tem de morar na MESMA origem do aplicativo.
+        // Callback e origem divergentes é a falha operacional número um deste
+        // fluxo: o Google recusa o redirect, ou pior, o cookie double-submit
+        // `g_csrf_token` não acompanha o POST e toda tentativa vira "conta não
+        // autorizada" — com o token, a audiência e o código todos corretos.
+        // `AUTH_APP_BASE_URL` não é declarada no schema (chega pelo
+        // passthrough), então é lida com cuidado e a regra só vale quando as
+        // duas existem.
+        const appBaseUrl = environment.AUTH_APP_BASE_URL;
+        if (environment.NODE_ENV === "production" && typeof appBaseUrl === "string" && appBaseUrl) {
+          try {
+            const base = new URL(appBaseUrl);
+            if (base.origin !== loginUri.origin) {
+              context.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ["GOOGLE_LOGIN_URI"],
+                message: `GOOGLE_LOGIN_URI must share the origin of AUTH_APP_BASE_URL (${base.origin})`,
+              });
+            }
+          } catch {
+            // AUTH_APP_BASE_URL inválida é problema de outra variável, não
+            // desta: quem a valida é quem monta os links de convite/reset.
+          }
+        }
+      } catch {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["GOOGLE_LOGIN_URI"],
+          message: "GOOGLE_LOGIN_URI must be a valid absolute URL",
+        });
+      }
     }
 
     if (environment.EMAIL_PROVIDER === "brevo" && !environment.BREVO_API_KEY) {

@@ -100,6 +100,23 @@ Leva alguns minutos, quase tudo na construção das imagens.
 
 **Se o teste de fumaça reprovar**, o programa anterior volta sozinho e o script avisa. O banco **não** é revertido automaticamente — isso é decisão sua, porque a restauração apagaria o que entrou depois do backup.
 
+### Login com o Google
+
+Vem desligado (`GOOGLE_AUTH_ENABLED=false`) e é assim que deve ser publicado da
+primeira vez. Ligar, o rollout e o que fazer quando alguém não consegue entrar
+estão em [docs/processos/login-google.md](../docs/processos/login-google.md).
+
+Para desligar de volta, em `/opt/plugga-os`:
+
+```bash
+# GOOGLE_AUTH_ENABLED=false no .env, depois:
+docker compose up -d --force-recreate api web
+```
+
+O botão some, a rota recusa, e o login por e-mail e senha nunca dependeu disso.
+Não apague a tabela `user_identities` — os vínculos são aditivos e jogá-los fora
+só dificulta voltar atrás.
+
 ---
 
 ## Quando algo dá errado

@@ -10,6 +10,9 @@ import { AuthRepository } from "./auth.repository";
 import { AuthService } from "./auth.service";
 import { AuthTokenIssuer } from "./auth-token-issuer.service";
 import { EmailAttemptLimiter } from "./email-attempt-limiter.service";
+import { GoogleAuthLibraryVerifier } from "./google-auth-library.verifier";
+import { GoogleAuthService } from "./google-auth.service";
+import { GoogleIdentityVerifier } from "./google-identity.verifier";
 import { LockoutService } from "./lockout.service";
 import { PasswordService } from "./password.service";
 import { PrismaAuthRepository } from "./prisma-auth.repository";
@@ -30,12 +33,17 @@ import { TeamService } from "./team.service";
   providers: [
     AuthService,
     AuthTokenIssuer,
+    GoogleAuthService,
     TeamService,
     PasswordService,
     SessionService,
     LockoutService,
     EmailAttemptLimiter,
     { provide: AuthRepository, useClass: PrismaAuthRepository },
+    // A porta é o que permite exercitar toda a política de vínculo sem rede e
+    // sem conta Google real — e sem abrir um atalho por variável de ambiente,
+    // que existiria também em produção.
+    { provide: GoogleIdentityVerifier, useClass: GoogleAuthLibraryVerifier },
   ],
 })
 export class AuthModule {}

@@ -235,6 +235,7 @@ model User {
   memberships                    UserCompanyMembership[]
   agentActions                   AgentAction[]
   credential                     UserCredential?
+  identities                     UserIdentity[]
   sessions                       Session[]
   authTokens                     AuthToken[]
   opportunities                  Opportunity[]
@@ -276,6 +277,41 @@ model UserCredential {
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("user_credentials")
+}
+
+/// Vínculo com um provedor federado de identidade (hoje só o Google). É aditivo
+/// e independente de `UserCredential`: a pessoa pode ter senha, Google, ou os
+/// dois. O Google prova QUEM é; quem decide se entra continua sendo
+/// `users.status` + o acesso local (ADR-0008, adendo de 2026-08-10).
+///
+/// A identidade permanente é `subject` (a claim `sub` do Google), nunca o
+/// e-mail: e-mail muda de dono e de grafia, `sub` não. Os e-mails guardados são
+/// para suporte e auditoria do vínculo, e nenhum login posterior autentica por
+/// eles. Nada de token (ID, access ou refresh) é persistido aqui.
+model UserIdentity {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId            String   @map("user_id") @db.Uuid
+  provider          String
+  subject           String
+  /// E-mail com que o vínculo foi criado. Congelado: é a prova de por que este
+  /// `sub` foi associado a esta pessoa.
+  emailAtLink       String   @map("email_at_link")
+  /// Último e-mail observado nas claims. Muda sem trocar a identidade.
+  lastObservedEmail String   @map("last_observed_email")
+  /// Claim `hd` do Google Workspace, quando existir. Nulo para Gmail.
+  hostedDomain      String?  @map("hosted_domain")
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  lastLoginAt       DateTime @default(now()) @map("last_login_at") @db.Timestamptz(6)
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// Um `sub` pertence a uma pessoa só — sem isto, duas contas locais poderiam
+  /// ser abertas pela mesma conta Google.
+  @@unique([provider, subject])
+  /// E uma pessoa tem no máximo uma conta Google — trocar de conta é ato
+  /// administrativo, não algo que um login silenciosamente reatribui.
+  @@unique([userId, provider])
+  @@index([userId])
+  @@map("user_identities")
 }
 
 /// Opaque server-side session. Only the token hash is stored; revocation is a
