@@ -94,6 +94,20 @@ pnpm --filter @plugga/api corpus:publicar    # sobe o que está lá
 A pasta de destino é ignorada pelo git — a proteção não depende de ninguém
 lembrar.
 
+Acrescentar uma fatura ao corpus são dois passos, e eles escrevem em lugares
+diferentes de propósito:
+
+```bash
+pnpm --filter @plugga/api fatura:congelar <arquivo> --nome <slug>
+#   apps/api/test/corpus/<slug>.pagina.json          → a fatura, fora do git
+#   apps/api/src/.../fatura/<slug>.corpus.spec.ts    → o teste, para commitar
+pnpm --filter @plugga/api corpus:publicar
+```
+
+O JSON é a fatura do cliente e cai na pasta ignorada; o spec é código e fica ao
+lado do leitor que ele prova. Congelar **não** publica: subir para o balde é um
+passo que se pede, não um efeito colateral.
+
 **Sem as chaves nada quebra.** Os testes de corpus pulam com uma mensagem
 dizendo por quê, e o resto da suíte roda igual. Quem não tem acesso ainda tem
 `sintetica.spec.ts`, uma fatura fabricada — sem cliente nenhum — que prova o

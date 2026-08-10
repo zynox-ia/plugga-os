@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
 import { parseArgs } from "node:util";
 
@@ -9,6 +9,7 @@ import {
   serializarDocumento,
   type TrocaRegistrada,
 } from "../src/energy-efficiency/fatura/congelar.js";
+import { pastaDoCorpus } from "../src/energy-efficiency/fatura/corpus.js";
 import { normalizar } from "../src/energy-efficiency/fatura/documento.js";
 
 /**
@@ -26,8 +27,19 @@ import { normalizar } from "../src/energy-efficiency/fatura/documento.js";
  * `src/energy-efficiency/fatura/congelar.ts`, que é onde ela pode ser testada.
  */
 
-/** Onde as fixtures moram, ao lado do leitor que as consome. */
-const DESTINO = join(__dirname, "..", "src", "energy-efficiency", "fatura");
+/**
+ * As duas saídas vão para lugares diferentes, e a diferença é o ponto.
+ *
+ * O **JSON** é a fatura: texto do cliente inteiro, com titular, documento e
+ * endereço. Ele cai na pasta do corpus, que é ignorada pelo git — escrever uma
+ * fatura de cliente dentro de `src/` deixaria um `git add .` distraído commitar
+ * exatamente o que o corpus fora do repositório existe para impedir.
+ *
+ * O **spec** é código, e código se commita. Fica ao lado do leitor que ele
+ * prova, com o sufixo `.corpus.spec.ts` da convenção: ele lê a fixture do
+ * corpus local e pula, dizendo por quê, em quem não a baixou.
+ */
+const DESTINO_DO_SPEC = join(__dirname, "..", "src", "energy-efficiency", "fatura");
 
 /** Nome de arquivo previsível e sem travessia de diretório. */
 const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -88,8 +100,9 @@ async function principal(): Promise<void> {
   // se procurou poupa a pessoa de descobrir isso sozinha.
   if (!existsSync(caminho)) morrer(`não achei o arquivo: ${resolve(caminho)}`);
 
-  const json = join(DESTINO, `${opcoes.nome}.pagina.json`);
-  const spec = join(DESTINO, `${opcoes.nome}.spec.ts`);
+  const corpus = pastaDoCorpus();
+  const json = join(corpus, `${opcoes.nome}.pagina.json`);
+  const spec = join(DESTINO_DO_SPEC, `${opcoes.nome}.corpus.spec.ts`);
 
   if (!opcoes.forcar) {
     const existentes = [json, spec].filter((arquivo) => existsSync(arquivo));
@@ -115,6 +128,7 @@ async function principal(): Promise<void> {
     ? anonimizarDocumento(documento, { ocultar: opcoes.ocultar })
     : { documento, trocas: [] as TrocaRegistrada[] };
 
+  mkdirSync(corpus, { recursive: true });
   writeFileSync(json, serializarDocumento(congelado), "utf8");
   writeFileSync(
     spec,
@@ -137,10 +151,15 @@ async function principal(): Promise<void> {
       `origem: ${congelado.origem}${congelado.confianca === null ? "" : ` (confiança ${congelado.confianca.toFixed(1)})`}`,
       `páginas: ${congelado.paginas.length} de ${congelado.totalDePaginas}, ${fragmentos} fragmentos`,
       `anonimização: ${opcoes.anonimizar ? descreverTrocas(trocas) : "não pedida — o texto impresso está inteiro no JSON"}`,
-      `escrito: ${basename(json)} e ${basename(spec)}`,
+      `fixture: ${json}`,
+      `         (fora do git — é fatura de cliente)`,
+      `spec:    ${spec}`,
       "",
       "Confira os valores do spec contra a fatura impressa antes de commitar:",
       "o gerador escreve o que a leitura devolveu, não o que a fatura diz.",
+      "",
+      "A fixture ainda só existe nesta máquina. Para o corpus recebê-la:",
+      "  pnpm --filter @plugga/api corpus:publicar",
       "",
     ].join("\n"),
   );

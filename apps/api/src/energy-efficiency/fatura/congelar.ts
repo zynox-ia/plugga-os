@@ -417,15 +417,12 @@ export function gerarSpec(dados: DadosDoSpec): string {
   };
 
   bloco(
-    `import { readFileSync } from "node:fs";`,
-    `import { join } from "node:path";`,
-    "",
     `import { describe, expect, it } from "vitest";`,
     "",
-    `import type { DocumentoNormalizado } from "./documento.js";`,
+    `import { avisoDeCorpusAusente, fixtureDoCorpus } from "./corpus.js";`,
   );
   if (usaMotivoInformativo) bloco(`import { MOTIVO_INFORMATIVO } from "./informativos.js";`);
-  bloco(`import { lerPorRegras } from "./leitura.js";`, "");
+  bloco(`import { lerPorRegras, type LeituraDaFatura } from "./leitura.js";`, "");
 
   bloco(
     "/**",
@@ -434,8 +431,12 @@ export function gerarSpec(dados: DadosDoSpec): string {
     " * Fixture gerada por `pnpm --filter @plugga/api fatura:congelar`. O caso vive",
     " * aqui como a geometria da página, não como PDF: os fragmentos com posição são",
     " * o que a leitura consome, e congelá-los torna o teste determinístico sem",
-    " * depender do arquivo original — que, sendo fatura de cliente, não entra no",
-    " * repositório.",
+    " * depender do arquivo original.",
+    " *",
+    " * **A fixture não está no git.** Ela é fatura de cliente, com o dado inteiro,",
+    " * e git é container permanente, replicado em todo clone e sem revogação — o",
+    " * JSON mora no balde do corpus no MinIO e chega por `corpus:baixar`. Sem a",
+    " * chave, este arquivo inteiro é pulado com a mensagem que explica o porquê.",
     " *",
     " * Os números abaixo são os **observados** na hora de congelar, não valores",
     " * conferidos contra a folha impressa. Confira-os antes de tratar este arquivo",
@@ -448,13 +449,26 @@ export function gerarSpec(dados: DadosDoSpec): string {
     " *",
     ...relatorioDeAnonimizacao(dados),
     " */",
-    `const DOCUMENTO = JSON.parse(`,
-    `  readFileSync(join(__dirname, "${slug}.pagina.json"), "utf8"),`,
-    `) as DocumentoNormalizado;`,
+    `const NOME = "${slug}.pagina.json";`,
+    "const DOCUMENTO = fixtureDoCorpus(NOME);",
     "",
-    "const LEITURA = lerPorRegras(DOCUMENTO);",
+    "if (!DOCUMENTO) console.warn(avisoDeCorpusAusente(NOME));",
     "",
-    `describe(${citar(tituloDoCaso(documento, slug))}, () => {`,
+    "/**",
+    " * A leitura, feita no primeiro caso que a pedir — nunca na coleta.",
+    " *",
+    " * O vitest executa o corpo de um `describe.skipIf` mesmo quando vai pular os",
+    " * casos. Derivar qualquer coisa da fixture ali dentro quebraria o arquivo",
+    " * inteiro em quem não baixou o corpus, que é exatamente o que o pulo existe",
+    " * para evitar.",
+    " */",
+    "let lida: LeituraDaFatura | null = null;",
+    "function leitura(): LeituraDaFatura {",
+    "  if (!DOCUMENTO) throw new Error(`${NOME} não está no corpus local`);",
+    "  return (lida ??= lerPorRegras(DOCUMENTO));",
+    "}",
+    "",
+    `describe.skipIf(!DOCUMENTO)(${citar(tituloDoCaso(documento, slug))}, () => {`,
   );
 
   const testes: string[][] = [];
@@ -463,24 +477,24 @@ export function gerarSpec(dados: DadosDoSpec): string {
     leitura.aproveitavel
       ? `  it("chega em ficha aproveitável sozinha, sem plano B", () => {`
       : `  it("não fecha a ficha sozinha, e diz pelo nome o que faltou", () => {`,
-    `    expect(LEITURA.origem).toBe(${citar(documento.origem)});`,
-    `    expect(LEITURA.aproveitavel).toBe(${String(leitura.aproveitavel)});`,
+    `    expect(leitura().origem).toBe(${citar(documento.origem)});`,
+    `    expect(leitura().aproveitavel).toBe(${String(leitura.aproveitavel)});`,
     leitura.motivo === null
-      ? `    expect(LEITURA.motivo).toBeNull();`
-      : `    expect(LEITURA.motivo).toBe(${citar(leitura.motivo)});`,
+      ? `    expect(leitura().motivo).toBeNull();`
+      : `    expect(leitura().motivo).toBe(${citar(leitura.motivo)});`,
     `  });`,
   ]);
 
   const identidade = [
     identificacao.distribuidora === null
-      ? `    expect(LEITURA.identificacao.distribuidora).toBeNull();`
-      : `    expect(LEITURA.identificacao.distribuidora).toBe(${citar(identificacao.distribuidora)});`,
+      ? `    expect(leitura().identificacao.distribuidora).toBeNull();`
+      : `    expect(leitura().identificacao.distribuidora).toBe(${citar(identificacao.distribuidora)});`,
     identificacao.unidadeConsumidora === null
-      ? `    expect(LEITURA.identificacao.unidadeConsumidora).toBeNull();`
-      : `    expect(LEITURA.identificacao.unidadeConsumidora).toBe(${citar(identificacao.unidadeConsumidora)});`,
+      ? `    expect(leitura().identificacao.unidadeConsumidora).toBeNull();`
+      : `    expect(leitura().identificacao.unidadeConsumidora).toBe(${citar(identificacao.unidadeConsumidora)});`,
     identificacao.competencia === null
-      ? `    expect(LEITURA.identificacao.competencia).toBeNull();`
-      : `    expect(LEITURA.identificacao.competencia).toEqual({ mes: ${identificacao.competencia.mes}, ano: ${identificacao.competencia.ano} });`,
+      ? `    expect(leitura().identificacao.competencia).toBeNull();`
+      : `    expect(leitura().identificacao.competencia).toEqual({ mes: ${identificacao.competencia.mes}, ano: ${identificacao.competencia.ano} });`,
   ];
   testes.push([
     `  it("identifica distribuidora, unidade consumidora e competência", () => {`,
@@ -524,7 +538,7 @@ export function gerarSpec(dados: DadosDoSpec): string {
       `  it("lê da própria fatura a parcela de demanda sem ICMS", () => {`,
       `    // A linha explícita manda: quem calcula economia de readequação usa este`,
       `    // número quando ele existe, e só cai no rateio quando não existe.`,
-      `    expect(LEITURA.demandaComplementoValor).toBe(${literal(leitura.demandaComplementoValor)});`,
+      `    expect(leitura().demandaComplementoValor).toBe(${literal(leitura.demandaComplementoValor)});`,
       `  });`,
     ]);
   }
@@ -540,27 +554,42 @@ export function gerarSpec(dados: DadosDoSpec): string {
     return `    { ${partes.join(", ")} },`;
   });
 
-  testes.push([
-    `  it("lê a tabela de itens com quantidade, unidade, tarifa e valor", () => {`,
-    `    const esperados = [`,
-    ...itensEsperados.map((linha) => `  ${linha}`),
-    `    ];`,
-    ``,
-    `    expect(LEITURA.itens).toHaveLength(${leitura.itens.length});`,
-    `    for (const esperado of esperados) {`,
-    `      const achado = LEITURA.itens.find((item) => item.rotulo === esperado.rotulo);`,
-    `      expect(achado, \`item ausente: \${esperado.rotulo}\`).toMatchObject(esperado);`,
-    `    }`,
-    `  });`,
-  ]);
+  // Fatura da qual a leitura não tirou item nenhum é caso legítimo de corpus —
+  // é o registro do layout que ainda não entra. O que ela não pode gerar é a
+  // lista vazia do caso normal: `const esperados = []` sem elemento nenhum não
+  // tem tipo que o TypeScript deduza, e o spec nasceria sem compilar. Ficaram
+  // dois formatos, e o de zero item diz o que de fato aconteceu.
+  testes.push(
+    leitura.itens.length === 0
+      ? [
+          `  it("não reconheceu nenhum item financeiro nesta fatura", () => {`,
+          `    // É isto que o caso registra. Quando o leitor aprender este layout,`,
+          `    // este teste fica vermelho — e é assim que se percebe que melhorou.`,
+          `    expect(leitura().itens).toEqual([]);`,
+          `  });`,
+        ]
+      : [
+          `  it("lê a tabela de itens com quantidade, unidade, tarifa e valor", () => {`,
+          `    const esperados = [`,
+          ...itensEsperados.map((linha) => `  ${linha}`),
+          `    ];`,
+          ``,
+          `    expect(leitura().itens).toHaveLength(${leitura.itens.length});`,
+          `    for (const esperado of esperados) {`,
+          `      const achado = leitura().itens.find((item) => item.rotulo === esperado.rotulo);`,
+          `      expect(achado, \`item ausente: \${esperado.rotulo}\`).toMatchObject(esperado);`,
+          `    }`,
+          `  });`,
+        ],
+  );
 
   testes.push([
     conferencia.divergentes === 0
       ? `  it("a aritmética de cada item fecha", () => {`
       : `  it("a aritmética acusa item que não fecha, e é isso que este caso registra", () => {`,
-    `    expect(LEITURA.conferencia.confirmados).toBe(${conferencia.confirmados});`,
-    `    expect(LEITURA.conferencia.divergentes).toBe(${conferencia.divergentes});`,
-    `    expect(LEITURA.conferencia.temDivergencia).toBe(${String(conferencia.temDivergencia)});`,
+    `    expect(leitura().conferencia.confirmados).toBe(${conferencia.confirmados});`,
+    `    expect(leitura().conferencia.divergentes).toBe(${conferencia.divergentes});`,
+    `    expect(leitura().conferencia.temDivergencia).toBe(${String(conferencia.temDivergencia)});`,
     `  });`,
   ]);
 
@@ -583,9 +612,9 @@ export function gerarSpec(dados: DadosDoSpec): string {
             `    // como evidência do buraco. Não o ajuste para fechar — quem fecha é a`,
             `    // leitura, quando melhorar.`,
           ]),
-      `    expect(LEITURA.invoice.valorTotal).toBe(${literal(invoice.valorTotal)});`,
+      `    expect(leitura().invoice.valorTotal).toBe(${literal(invoice.valorTotal)});`,
       ``,
-      `    const soma = LEITURA.itens`,
+      `    const soma = leitura().itens`,
       `      .filter((item) => item.compoeTotal)`,
       `      .reduce((total, item) => total + item.valor, 0);`,
       `    expect(Number(soma.toFixed(2))).toBe(${literal(somaDosCobrados)});`,
@@ -596,7 +625,7 @@ export function gerarSpec(dados: DadosDoSpec): string {
   if (usaMotivoInformativo) {
     testes.push([
       `  it("marca como informativo, sem remover da lista, o que estouraria o total", () => {`,
-      `    const informativos = LEITURA.itens.filter((item) => !item.compoeTotal);`,
+      `    const informativos = leitura().itens.filter((item) => !item.compoeTotal);`,
       ``,
       `    expect(informativos.map((item) => item.rotulo)).toEqual([`,
       ...informativos.map((item) => `      ${citar(item.rotulo)},`),
@@ -616,9 +645,9 @@ export function gerarSpec(dados: DadosDoSpec): string {
   testes.push([
     `  it("declara exatamente o que ainda depende de conferência humana", () => {`,
     leitura.camposParaConfirmar.length === 0
-      ? `    expect(LEITURA.camposParaConfirmar).toEqual([]);`
+      ? `    expect(leitura().camposParaConfirmar).toEqual([]);`
       : [
-          `    expect(LEITURA.camposParaConfirmar).toEqual([`,
+          `    expect(leitura().camposParaConfirmar).toEqual([`,
           ...leitura.camposParaConfirmar.map((campo) => `      ${citar(campo)},`),
           `    ]);`,
         ].join("\n"),
@@ -643,6 +672,6 @@ function campos(invoice: Record<string, unknown>, chaves: readonly string[]): st
   return chaves.flatMap((chave) => {
     const valor = invoice[chave];
     if (typeof valor !== "number") return [];
-    return [`    expect(LEITURA.invoice.${chave}).toBe(${literal(valor)});`];
+    return [`    expect(leitura().invoice.${chave}).toBe(${literal(valor)});`];
   });
 }
