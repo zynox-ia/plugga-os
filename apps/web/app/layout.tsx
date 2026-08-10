@@ -52,6 +52,11 @@ const roobertTrial = localFont({
 export const metadata: Metadata = {
   title: "Plugga OS",
   description: "Plataforma operacional interna da Plugga.",
+  icons: {
+    icon: "/brand/icone - areia.svg",
+    shortcut: "/brand/icone - areia.svg",
+    apple: "/brand/icone - areia.svg",
+  },
 };
 
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
