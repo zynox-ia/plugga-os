@@ -416,7 +416,9 @@ export type ConfirmarRecebimentoRequest = z.infer<typeof confirmarRecebimentoReq
 export const renegociarPrazoRequestSchema = z
   .object({
     prazoDiasUteis: z.number().int().positive().max(120),
-    motivo: z.string().trim().min(1).max(500),
+    // Dez caracteres, como as demais justificativas do módulo: "ok" não explica
+    // um prazo esticado a quem for ler o histórico daqui a três meses.
+    motivo: z.string().trim().min(10).max(500),
   })
   .strict();
 export type RenegociarPrazoRequest = z.infer<typeof renegociarPrazoRequestSchema>;
@@ -463,6 +465,12 @@ export type AssertividadeGlobal = z.infer<typeof assertividadeGlobalSchema>;
 /**
  * 4.2 — % Backlog Crítico, por executor. Sem farol: o POP não define faixas
  * para este indicador, e inventar cor seria acrescentar régua ao documento.
+ *
+ * `emitidas` e `concluidas` são fluxo do período; `pendentesNoPrazo` e
+ * `pendentesVencidas` são a fila real na data de fim, venha ela de quando vier.
+ * Por isso **as partes não somam as emitidas** e o percentual **pode passar de
+ * 100%** — fila acumulada maior que a vazão da semana é o alarme que o POP §4.2
+ * descreve, não erro de conta.
  */
 export const backlogCriticoPorExecutorSchema = z.object({
   responsavelId: uuid.nullable(),

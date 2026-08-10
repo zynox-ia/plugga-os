@@ -174,64 +174,92 @@ export type PedidoParaBacklog = {
  * o REVISAR inflar a fila de quem sofreu a revisão — mediria o formulário, não
  * o trabalho.
  *
- * As pendências são **coorte, não fotografia**: pertencem aos pedidos emitidos
- * no período. É isso que faz concluídas + pendentes no prazo + pendentes
- * vencidas somarem exatamente as emitidas, e o percentual nunca passar de 100%.
+ * ## Fluxo e estoque medidos juntos, de propósito
+ *
+ * `emitidas` e `concluidas` são **fluxo**: o que entrou e o que saiu no período.
+ * `pendentesNoPrazo` e `pendentesVencidas` são **estoque**: a fila que existe na
+ * data de fim do período, venha ela de quando vier.
+ *
+ * Uma versão anterior restringia as pendências à coorte emitida no período. A
+ * conta fechava bonito — as partes somavam as emitidas e o percentual nunca
+ * passava de 100% — mas medindo a coisa errada: um pedido vencido há dez dias
+ * saía da conta na semana seguinte, e o indicador voltava a zero com o funil
+ * cheio de card atrasado. O POP §4.2 diz "se as pendentes vencidas crescem mais
+ * rápido que as concluídas, a demanda está superando a capacidade do time" —
+ * sob aquela definição elas não podiam crescer.
+ *
+ * Consequência aceita: **o percentual pode passar de 100%**, e é exatamente aí
+ * que ele está gritando. Fila acumulada maior que a vazão da semana é o alarme,
+ * não um erro de cálculo.
  */
 export function backlogCritico(
   pedidos: readonly PedidoParaBacklog[],
   periodo: { de: Date; ate: Date },
 ): BacklogCritico {
-  const coorte = pedidos.filter(
-    (pedido) => pedido.createdAt >= periodo.de && pedido.createdAt <= periodo.ate,
-  );
-
-  const porChave = new Map<string, { nome: string | null; id: string | null; pedidos: PedidoParaBacklog[] }>();
-  for (const pedido of coorte) {
+  const chaves = new Map<string, { id: string | null; nome: string | null }>();
+  for (const pedido of pedidos) {
     const chave = pedido.responsavelId ?? "sem-responsavel";
-    const atual = porChave.get(chave);
-    if (atual) {
-      atual.pedidos.push(pedido);
-    } else {
-      porChave.set(chave, { nome: pedido.responsavelNome, id: pedido.responsavelId, pedidos: [pedido] });
+    if (!chaves.has(chave)) {
+      chaves.set(chave, { id: pedido.responsavelId, nome: pedido.responsavelNome });
     }
   }
 
-  const porExecutor = [...porChave.values()]
-    .map((grupo) => contabiliza(grupo.id, grupo.nome, grupo.pedidos, periodo.ate))
-    .sort((a, b) => (b.pendentesVencidas - a.pendentesVencidas) || (b.emitidas - a.emitidas));
+  const porExecutor = [...chaves.values()]
+    .map((dono) =>
+      contabiliza(
+        dono.id,
+        dono.nome,
+        pedidos.filter((pedido) => pedido.responsavelId === dono.id),
+        periodo,
+      ),
+    )
+    // Só aparece quem teve movimento ou tem fila: executor zerado em tudo é
+    // ruído numa reunião que dura quinze minutos.
+    .filter((linha) => linha.emitidas + linha.concluidas + linha.pendentesNoPrazo + linha.pendentesVencidas > 0)
+    .sort((a, b) => b.pendentesVencidas - a.pendentesVencidas || b.emitidas - a.emitidas);
 
-  return { porExecutor, total: contabiliza(null, null, coorte, periodo.ate) };
+  return { porExecutor, total: contabiliza(null, null, pedidos, periodo) };
 }
 
 function contabiliza(
   responsavelId: string | null,
   responsavelNome: string | null,
   pedidos: readonly PedidoParaBacklog[],
-  ate: Date,
+  periodo: { de: Date; ate: Date },
 ): BacklogCriticoPorExecutor {
+  let emitidas = 0;
   let concluidas = 0;
   let pendentesNoPrazo = 0;
   let pendentesVencidas = 0;
 
   for (const pedido of pedidos) {
-    // Estado na data de fim do período, não agora: é o que torna o número da
-    // semana passada o mesmo número quando alguém reabrir o scorecard.
-    if (pedido.concluidoEm !== null && pedido.concluidoEm <= ate) {
+    if (pedido.createdAt >= periodo.de && pedido.createdAt <= periodo.ate) {
+      emitidas += 1;
+    }
+
+    // Todo estado é avaliado na data de fim do período, nunca "agora": é o que
+    // faz o scorecard da semana passada dar o mesmo número quando reaberto.
+    const jaExistia = pedido.createdAt <= periodo.ate;
+    const concluidoAte = pedido.concluidoEm !== null && pedido.concluidoEm <= periodo.ate;
+
+    if (concluidoAte && (pedido.concluidoEm as Date) >= periodo.de) {
       concluidas += 1;
+    }
+
+    if (!jaExistia || concluidoAte) {
       continue;
     }
-    const abertaEm = pedido.passagens.find(
-      (passagem) => passagem.entrouEm <= ate && (passagem.saiuEm === null || passagem.saiuEm > ate),
+
+    const aberta = pedido.passagens.find(
+      (passagem) => passagem.entrouEm <= periodo.ate && (passagem.saiuEm === null || passagem.saiuEm > periodo.ate),
     );
-    if (abertaEm && abertaEm.prazoEm < ate) {
+    if (aberta && aberta.prazoEm < periodo.ate) {
       pendentesVencidas += 1;
     } else {
       pendentesNoPrazo += 1;
     }
   }
 
-  const emitidas = pedidos.length;
   return {
     responsavelId,
     responsavelNome,

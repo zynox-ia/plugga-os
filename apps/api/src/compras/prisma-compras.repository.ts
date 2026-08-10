@@ -34,6 +34,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import { ComprasRepository, type AnexoDeCotacao } from "./compras.repository";
 import {
   assertAlcada,
+  assertAlcadaDePrazo,
   assertConfirmacaoDeRecebimento,
   assertEtapaAtual,
   assertPagamentoTemFaturado,
@@ -42,6 +43,7 @@ import {
   assertSegregacao,
   assertTransicaoPermitida,
   acoesBloqueadas,
+  tetoDeRenegociacao,
 } from "./compras.rules";
 import {
   assertividadeGlobal,
@@ -789,6 +791,19 @@ export class PrismaComprasRepository extends ComprasRepository {
     const agora = new Date();
     assertPodeRenegociarPrazo(aberta?.prazoEm ?? null, agora);
     const passagem = aberta as NonNullable<typeof aberta>;
+
+    // Esticar além da régua do POP §3 é alçada da diretoria: quem é medido pelo
+    // 4.3 não move o próprio vencimento sem alguém de fora olhar.
+    const cotacaoEscolhida = pedido.cotacoes.find((linha) => linha.id === pedido.cotacaoSelecionadaId);
+    assertAlcadaDePrazo(
+      input.prazoDiasUteis,
+      tetoDeRenegociacao(
+        passagem.etapa as ComprasEtapaMensurada,
+        pedido.origemAtendimento,
+        cotacaoEscolhida?.prazoEntregaDias ?? null,
+      ),
+      principal.roles,
+    );
 
     // O prazo renegociado é contado da entrada na etapa, não de agora: mover a
     // origem da contagem apagaria o tempo já consumido e faria uma etapa

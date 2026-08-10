@@ -143,7 +143,7 @@ describe("4.2 % Backlog Crítico", () => {
     };
   }
 
-  it("as partes somam as emitidas — é o que impede passar de 100%", () => {
+  it("mede fluxo e estoque juntos: emitidas no período, fila real na data de fim", () => {
     const resultado = backlogCritico(
       [
         pedidoBacklog({ concluidoEm: new Date("2026-08-20T12:00:00Z") }),
@@ -154,8 +154,9 @@ describe("4.2 % Backlog Crítico", () => {
     );
     const total = resultado.total;
     expect(total.emitidas).toBe(3);
-    expect(total.concluidas + total.pendentesNoPrazo + total.pendentesVencidas).toBe(total.emitidas);
+    expect(total.concluidas).toBe(1);
     expect(total.pendentesVencidas).toBe(1);
+    expect(total.pendentesNoPrazo).toBe(1);
     expect(total.percentualBacklogCritico).toBeCloseTo(33.33, 2);
   });
 
@@ -167,14 +168,67 @@ describe("4.2 % Backlog Crítico", () => {
     expect(resultado.total.emitidas).toBe(0);
   });
 
+  it("o vencido de semanas atrás continua na fila — era o furo da versão anterior", () => {
+    // Emitido em julho, vencido desde então: some das emitidas de agosto, mas
+    // segue pendente vencido. Antes ele desaparecia do indicador inteiro.
+    const antigo = pedidoBacklog({
+      createdAt: new Date("2026-07-20T12:00:00Z"),
+      passagens: [
+        passagem({
+          etapa: "cotacoes",
+          entrouEm: new Date("2026-07-21T12:00:00Z"),
+          prazoEm: new Date("2026-07-28T22:00:00Z"),
+          saiuEm: null,
+          cumpriuPrazo: null,
+        }),
+      ],
+    });
+    const resultado = backlogCritico([antigo], PERIODO);
+    expect(resultado.total.emitidas).toBe(0);
+    expect(resultado.total.pendentesVencidas).toBe(1);
+  });
+
+  it("passa de 100% quando a fila acumulada supera a vazão da semana — é o alarme", () => {
+    const vencidoAntigo = (dia: number) =>
+      pedidoBacklog({
+        createdAt: new Date(`2026-07-${dia}T12:00:00Z`),
+        passagens: [
+          passagem({
+            etapa: "cotacoes",
+            entrouEm: new Date(`2026-07-${dia}T12:00:00Z`),
+            prazoEm: new Date("2026-07-28T22:00:00Z"),
+            saiuEm: null,
+            cumpriuPrazo: null,
+          }),
+        ],
+      });
+    const resultado = backlogCritico(
+      [vencidoAntigo(10), vencidoAntigo(11), vencidoAntigo(12), pedidoBacklog()],
+      PERIODO,
+    );
+    expect(resultado.total.emitidas).toBe(1);
+    expect(resultado.total.pendentesVencidas).toBe(4);
+    expect(resultado.total.percentualBacklogCritico).toBe(400);
+  });
+
   it("avalia o estado na data de fim do período, não agora", () => {
-    // Concluído em setembro: na coorte de agosto ainda é pendente.
+    // Concluído em setembro: em agosto ainda é pendente vencido.
     const resultado = backlogCritico(
       [pedidoBacklog({ concluidoEm: new Date("2026-09-10T12:00:00Z") })],
       PERIODO,
     );
     expect(resultado.total.concluidas).toBe(0);
     expect(resultado.total.pendentesVencidas).toBe(1);
+  });
+
+  it("ignora pedido que ainda não existia na data de fim do período", () => {
+    const resultado = backlogCritico(
+      [pedidoBacklog({ createdAt: new Date("2026-09-05T12:00:00Z") })],
+      PERIODO,
+    );
+    expect(resultado.total.emitidas).toBe(0);
+    expect(resultado.total.pendentesVencidas).toBe(0);
+    expect(resultado.total.pendentesNoPrazo).toBe(0);
   });
 
   it("o REVISAR não infla a contagem, porque a OS é o pedido", () => {

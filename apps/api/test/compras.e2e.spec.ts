@@ -35,6 +35,7 @@ import { ComprasRepository, type AnexoDeCotacao } from "../src/compras/compras.r
 import {
   acoesBloqueadas,
   assertAlcada,
+  assertAlcadaDePrazo,
   assertConfirmacaoDeRecebimento,
   assertEtapaAtual,
   assertPagamentoTemFaturado,
@@ -43,6 +44,7 @@ import {
   assertSegregacao,
   assertTransicaoPermitida,
 } from "../src/compras/compras.rules";
+import { tetoDeRenegociacao } from "../src/compras/compras.rules";
 import { adicionaDiasUteis, prazoDaEtapa } from "../src/compras/sla/dias-uteis";
 import type { AuthPrincipal } from "../src/core/auth/auth.types";
 
@@ -412,6 +414,18 @@ class ComprasEmMemoria extends ComprasRepository {
     const pedido = this.carregar(id, companyId);
     const aberta = pedido.etapas.find((etapa) => etapa.saiuEm === null);
     assertPodeRenegociarPrazo(aberta ? new Date(aberta.prazoEm) : null, new Date());
+    if (aberta) {
+      const escolhida = pedido.cotacoes.find((linha) => linha.id === pedido.cotacaoSelecionadaId);
+      assertAlcadaDePrazo(
+        input.prazoDiasUteis,
+        tetoDeRenegociacao(
+          aberta.etapa as Exclude<ComprasEtapa, "concluido">,
+          pedido.origemAtendimento,
+          escolhida?.prazoEntregaDias ?? null,
+        ),
+        principal.roles,
+      );
+    }
     if (aberta) {
       aberta.prazoDiasUteis = input.prazoDiasUteis;
       // Recalcula da entrada na etapa, como a produção: sem isto o dublê
@@ -867,6 +881,40 @@ describe("Compras — POP-COMP-001 (e2e)", () => {
         acao: "recebimento",
         motivo: "só quem pediu o material confirma o recebimento",
       });
+    });
+  });
+
+  describe("renegociação de prazo — quem é medido não move o próprio vencimento", () => {
+    it("permite renegociar dentro da régua do POP §3", async () => {
+      const pedido = await criarPedido();
+      await como(COMPRADOR)
+        .post(`/compras/pedidos/${pedido.id}/prazo?companyId=plugga`)
+        .send({ prazoDiasUteis: 2, motivo: "aguardando resposta do almoxarifado" })
+        .expect(200);
+    });
+
+    it("recusa que Compras estique além do SLA da etapa", async () => {
+      const pedido = await criarPedido();
+      await como(COMPRADOR)
+        .post(`/compras/pedidos/${pedido.id}/prazo?companyId=plugga`)
+        .send({ prazoDiasUteis: 30, motivo: "quero ficar verde no indicador" })
+        .expect(403);
+    });
+
+    it("a diretoria estica além da régua", async () => {
+      const pedido = await criarPedido();
+      await como(DIRETORIA)
+        .post(`/compras/pedidos/${pedido.id}/prazo?companyId=plugga`)
+        .send({ prazoDiasUteis: 30, motivo: "fornecedor único em greve, sem alternativa" })
+        .expect(200);
+    });
+
+    it("exige um motivo que explique, não uma letra", async () => {
+      const pedido = await criarPedido();
+      await como(COMPRADOR)
+        .post(`/compras/pedidos/${pedido.id}/prazo?companyId=plugga`)
+        .send({ prazoDiasUteis: 2, motivo: "ok" })
+        .expect(400);
     });
   });
 

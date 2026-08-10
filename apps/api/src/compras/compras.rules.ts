@@ -1,8 +1,11 @@
 import { BadRequestException, ForbiddenException } from "@nestjs/common";
 import {
   COMPRAS_ALCADA_FINANCEIRO,
+  COMPRAS_SLA_DIAS_UTEIS,
   type AcaoBloqueada,
   type ComprasEtapa,
+  type ComprasEtapaMensurada,
+  type ComprasOrigemAtendimento,
   type RoleKey,
 } from "@plugga/shared";
 
@@ -177,6 +180,50 @@ export function assertSegregacao(
     );
   }
   return { dispensada: true, pares };
+}
+
+/**
+ * Teto da renegociação sem passar pela diretoria.
+ *
+ * Renegociar prazo é o caminho mais barato de maquiar o indicador 4.3: quem é
+ * medido pelo cumprimento do SLA pode empurrar o vencimento na véspera e ficar
+ * verde. O módulo já conta as dispensas de segregação no scorecard pelo mesmo
+ * argumento; não aplicar a régua aqui deixava a porta dos fundos aberta.
+ *
+ * O teto é o próprio prazo do POP §3 para a etapa — renegociar *dentro* da
+ * régua é gestão de fluxo normal. Estender **além** dela é decisão de alçada e
+ * sobe para a diretoria.
+ *
+ * Exceção com evidência: na retirada de aquisição externa o teto é o prazo que
+ * o fornecedor declarou na cotação escolhida. Ali o prazo maior não é
+ * conveniência de quem é medido, é o cronograma que o POP §3 manda respeitar.
+ */
+export function tetoDeRenegociacao(
+  etapa: ComprasEtapaMensurada,
+  origemAtendimento: ComprasOrigemAtendimento | null,
+  prazoFornecedorDias: number | null,
+): number {
+  const base = COMPRAS_SLA_DIAS_UTEIS[etapa];
+  if (etapa === "retirada" && origemAtendimento === "aquisicao" && prazoFornecedorDias) {
+    return Math.max(base, prazoFornecedorDias);
+  }
+  return base;
+}
+
+export function assertAlcadaDePrazo(
+  prazoSolicitado: number,
+  teto: number,
+  roles: readonly RoleKey[],
+): void {
+  if (prazoSolicitado <= teto) {
+    return;
+  }
+  if (!roles.includes("diretoria")) {
+    throw new ForbiddenException(
+      `esticar o prazo além de ${teto} dias úteis é decisão da diretoria; ` +
+        "dentro da régua do POP §3, renegocie à vontade",
+    );
+  }
 }
 
 /**

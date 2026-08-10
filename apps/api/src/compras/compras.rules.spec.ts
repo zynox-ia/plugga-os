@@ -8,8 +8,10 @@ import {
   assertPagamentoTemFaturado,
   assertPodeRenegociarPrazo,
   assertPodeSeguirParaAprovacao,
+  assertAlcadaDePrazo,
   assertSegregacao,
   assertTransicaoPermitida,
+  tetoDeRenegociacao,
   papeisQuePodemAprovar,
   paresViolados,
 } from "./compras.rules";
@@ -201,5 +203,32 @@ describe("acoesBloqueadas", () => {
         COMPRADOR,
       ),
     ).toEqual([]);
+  });
+});
+
+describe("alçada de renegociação de prazo", () => {
+  it("usa o SLA do POP §3 como teto de cada etapa", () => {
+    expect(tetoDeRenegociacao("cotacoes", null, null)).toBe(5);
+    expect(tetoDeRenegociacao("aprovacao_compra", null, null)).toBe(2);
+  });
+
+  it("na retirada externa o teto é o cronograma que o fornecedor declarou", () => {
+    expect(tetoDeRenegociacao("retirada", "aquisicao", 20)).toBe(20);
+  });
+
+  it("não usa o prazo do fornecedor na retirada do estoque", () => {
+    expect(tetoDeRenegociacao("retirada", "estoque", 20)).toBe(5);
+  });
+
+  it("deixa Compras renegociar dentro da régua", () => {
+    expect(() => assertAlcadaDePrazo(5, 5, ["compras"])).not.toThrow();
+  });
+
+  it("barra Compras de esticar além da régua", () => {
+    expect(() => assertAlcadaDePrazo(30, 5, ["compras"])).toThrow(ForbiddenException);
+  });
+
+  it("deixa a diretoria esticar", () => {
+    expect(() => assertAlcadaDePrazo(30, 5, ["diretoria"])).not.toThrow();
   });
 });

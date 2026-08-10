@@ -55,6 +55,12 @@ e reescrever o prazo apagaria o que o indicador 4.3 precisa contar. O prazo
 renegociado é contado da entrada na etapa, não de agora — mover a origem
 apagaria o tempo já consumido.
 
+**Esticar além da régua do §3 é alçada da diretoria.** Renegociar dentro do prazo
+da etapa é gestão de fluxo e cabe a Compras ou ao Financeiro; passar disso exige
+alguém de fora, porque renegociar é o caminho mais barato de deixar o 4.3 verde
+na véspera do vencimento. Exceção com evidência: na retirada de aquisição externa
+o teto é o prazo que o próprio fornecedor declarou na cotação escolhida.
+
 ## Papéis e segregação de função
 
 | Papel | POP §1 | Pode | Nunca |
@@ -109,7 +115,7 @@ Pedido de outra empresa responde **404**, não 403: confirmar existência já va
 | # | Indicador | Fórmula | Farol |
 |---|---|---|---|
 | 4.1 | Assertividade Global | `Σ faturado ÷ Σ orçado` | verde 95–100 · amarelo 85–94 · vermelho <85 · **fora da régua acima de 100** |
-| 4.2 | % Backlog Crítico | `vencidas ÷ emitidas`, por executor | sem farol — o POP não define faixas |
+| 4.2 | % Backlog Crítico | `vencidas ÷ emitidas`, por executor · **pode passar de 100%** | sem farol — o POP não define faixas |
 | 4.3 | Cumprimento de SLA | `no prazo ÷ concluídas`, por etapa | mesma régua do 4.1 |
 
 Decisões de leitura que o POP não explicita e que ficam registradas:
@@ -121,9 +127,13 @@ Decisões de leitura que o POP não explicita e que ficam registradas:
   uma compra que não houve.
 - **Acima de 100% é `fora_da_regua`**, não verde: a tabela do §4.1 define verde
   como "95% a 100%" e manda diagnosticar ao sair da faixa.
-- **4.2 conta o pedido como OS**, não a passagem, e as pendências são da coorte
-  emitida no período. É isso que faz concluídas + no prazo + vencidas somarem as
-  emitidas, e o percentual nunca passar de 100%.
+- **4.2 conta o pedido como OS**, não a passagem. `emitidas` e `concluidas` são
+  fluxo do período; `pendentesNoPrazo` e `pendentesVencidas` são a **fila real**
+  na data de fim, venham de quando vierem. As partes não somam as emitidas e o
+  percentual pode passar de 100% — fila acumulada maior que a vazão da semana é
+  o alarme que o POP §4.2 descreve. Uma versão anterior restringia as pendências
+  à coorte do período: a conta fechava bonito e o indicador zerava na semana
+  seguinte com o funil cheio de card vencido.
 - **O scorecard de um período fechado não muda depois**: todo estado é avaliado
   na data de fim do período, nunca "agora".
 - **Diagnóstico** (fora do scorecard): assertividades Orçamentária e de Execução,
@@ -159,6 +169,18 @@ packages/shared/src/compras.ts     contratos e constantes do POP
 | **Destino "interno"** | Compra de escritório não tem obra nem cliente e não teria como ser registrada |
 | **Recebimento confirmado pelo solicitante** | O POP dá o CONCLUIR ao Responsável de Compras, mas quem escolhe o fornecedor não deve atestar a entrega dele. O próprio POP nomeia o solicitante como quem recebe o repasse |
 | **Extensão da retirada só no externo** | O fluxograma imprime "5 d.u. ou mais" nos dois ramos, mas os dois documentos atribuem a extensão ao cronograma de fornecedor externo. Entre o desenho e a causa escrita, vale a causa |
+
+## Testes
+
+```
+pnpm --filter @plugga/api test            # unitários + e2e com dublê (sem infra)
+pnpm --filter @plugga/api test:compras    # integração contra o Postgres local
+```
+
+Os testes de integração cobrem o que o dublê não alcança: transações, o índice
+único parcial de passagem aberta, os CHECK da migração, a numeração por empresa,
+a escrita no `event_log` e o mapeamento coluna→campo dos indicadores. Ficam atrás
+de `RUN_COMPRAS_INTEGRATION_TESTS` para a suíte padrão seguir hermética.
 
 ## Em aberto
 
