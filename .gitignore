@@ -42,6 +42,15 @@ apps/web/e2e/.auth/
 *.traineddata
 *.traineddata.gz
 
+# Corpus de regressão do leitor de faturas. As fixtures carregam fatura de
+# cliente com o dado inteiro — nome, CNPJ, unidade consumidora — porque é isso
+# que o leitor tem de provar que extrai. O que muda não é o conteúdo, é o
+# container: git é permanente, replica em todo clone e não tem revogação. O
+# corpus mora num balde dedicado do MinIO e chega aqui por
+# `pnpm --filter @plugga/api corpus:baixar`. Esta linha é a proteção que não
+# depende de ninguém lembrar.
+/apps/api/test/corpus/
+
 # Extração operacional do OpenClaw: dados derivados de cliente, não é código. A
 # origem viva é hstgr-vps:/root/.openclaw — puxe sob demanda em vez de manter
 # cópia aqui. A linha fica para o caso de alguém recriar a pasta por engano.

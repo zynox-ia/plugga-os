@@ -4,6 +4,8 @@
   "private": true,
   "scripts": {
     "build": "nest build",
+    "corpus:baixar": "tsx scripts/baixar-corpus.ts",
+    "corpus:publicar": "tsx scripts/publicar-corpus.ts",
     "db:generate": "prisma generate",
     "db:migrate": "node scripts/run-local-prisma.mjs migrate dev",
     "db:migrate:deploy": "node scripts/run-local-prisma.mjs migrate deploy",
@@ -23,6 +25,7 @@
     "test:ocr": "RUN_OCR_INTEGRATION_TESTS=true vitest run test/fatura-ocr.integration.spec.ts",
     "test:storage": "RUN_STORAGE_INTEGRATION_TESTS=true vitest run test/fatura-armazenamento.integration.spec.ts",
     "test:compras": "RUN_COMPRAS_INTEGRATION_TESTS=true vitest run test/compras.integration.spec.ts",
+    "test:corpus": "vitest run .corpus.spec.ts",
     "typecheck": "tsc --noEmit",
     "test:llm": "RUN_LLM_INTEGRATION_TESTS=true vitest run test/llm-consumo.integration.spec.ts"
   },

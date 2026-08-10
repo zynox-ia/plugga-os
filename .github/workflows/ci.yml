@@ -168,3 +168,59 @@ jobs:
           if [ -f /tmp/plugga-api.pid ]; then
             kill "$(cat /tmp/plugga-api.pid)" || true
           fi
+
+  # O corpus de faturas é o que dá regressão de leitura contra documento real, e
+  # ele não está no repositório: fatura de cliente carrega nome, CNPJ, unidade
+  # consumidora e endereço, e git é container permanente, replicado em todo
+  # clone e sem revogação. As fixtures moram num balde dedicado do MinIO.
+  #
+  # Por que um job separado, e num runner self-hosted: o MinIO escuta em
+  # 127.0.0.1:9000 na VPS e não tem entrada no Caddy — a CI hospedada
+  # simplesmente não alcança o balde. As duas saídas eram expor o MinIO à
+  # internet ou trazer o teste para dentro da VPS, e expor um serviço com fatura
+  # de cliente para ganhar acesso de CI é o pior negócio dos dois. Este job
+  # reusa o runner que o deploy.yml já usa e não abre nada novo.
+  #
+  # A chave é somente-leitura e separada da credencial de produção: o runner
+  # precisa ler fixture, não escrever em fatura de cliente.
+  #
+  # Consequência assumida: o runner passa a ser load-bearing para teste, não só
+  # para deploy. É por isso que `sintetica.spec.ts` existe e roda no job de
+  # cima — com o runner fora, o leitor ainda tem regressão.
+  corpus:
+    name: Leitura contra o corpus de faturas
+    runs-on: [self-hosted, plugga-vps]
+    timeout-minutes: 20
+    env:
+      # localhost na VPS é o MinIO de produção; o balde do corpus é outro, e
+      # `configuracaoDoCorpus` recusa apontar os dois para o mesmo lugar.
+      CORPUS_ENDPOINT: http://127.0.0.1:9000
+      CORPUS_BUCKET: plugga-corpus-faturas
+      CORPUS_ACCESS_KEY: ${{ secrets.CORPUS_ACCESS_KEY }}
+      CORPUS_SECRET_KEY: ${{ secrets.CORPUS_SECRET_KEY }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js LTS
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Enable the pinned pnpm version
+        run: |
+          corepack enable
+          corepack install
+
+      - name: Install dependencies from the lockfile
+        run: pnpm install --frozen-lockfile
+
+      # Sem os secrets configurados este passo não baixa nada e termina bem: os
+      # testes de corpus pulam com a mensagem que explica o porquê, e o job fica
+      # verde sem afirmar uma cobertura que não teve.
+      - name: Baixar o corpus do balde
+        run: pnpm --filter @plugga/api corpus:baixar
+
+      - name: Testes de leitura contra o corpus
+        run: pnpm --filter @plugga/api test:corpus

@@ -188,8 +188,9 @@ const PAGINAS_PARA_VISAO = 3;
  * ficha que as regras conseguem montar sozinhas, sem modelo.
  *
  * Fica exportada porque é o núcleo testável sem PDF nem rede — quem quer
- * provar um layout novo congela a página normalizada (como fez a Roraima
- * Energia, `roraima.spec.ts`) e chama esta função direto.
+ * provar um layout novo congela a página normalizada e chama esta função
+ * direto. É assim que `sintetica.spec.ts` roda sem credencial nenhuma e que
+ * `roraima.corpus.spec.ts` roda contra a fixture baixada do balde.
  */
 export function lerPorRegras(documento: DocumentoNormalizado): LeituraDaFatura {
   // A leitura por linha impressa é a principal: é ela que junta rótulo, tarifa

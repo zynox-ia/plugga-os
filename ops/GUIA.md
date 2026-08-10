@@ -75,6 +75,36 @@ git commit -m "descrição do que mudou"
 git push
 ```
 
+### O corpus de faturas
+
+As fixtures que provam o leitor contra fatura de verdade **não estão no
+repositório**. Elas carregam o dado do cliente inteiro — nome, CNPJ, unidade
+consumidora, endereço — porque é isso que o leitor tem de provar que extrai e é
+isso que o relatório entrega. Anonimizar quebraria a prova; o que muda é o
+lugar: git é permanente, replica em todo clone e não tem revogação.
+
+O corpus mora no balde `plugga-corpus-faturas` do MinIO da VPS.
+
+```bash
+# com o túnel do MinIO de pé e CORPUS_* no .env
+pnpm --filter @plugga/api corpus:baixar      # traz para apps/api/test/corpus
+pnpm --filter @plugga/api corpus:publicar    # sobe o que está lá
+```
+
+A pasta de destino é ignorada pelo git — a proteção não depende de ninguém
+lembrar.
+
+**Sem as chaves nada quebra.** Os testes de corpus pulam com uma mensagem
+dizendo por quê, e o resto da suíte roda igual. Quem não tem acesso ainda tem
+`sintetica.spec.ts`, uma fatura fabricada — sem cliente nenhum — que prova o
+leitor em qualquer máquina, sem credencial e sem rede.
+
+As chaves ficam em `/root/.plugga-corpus.env` na VPS. São duas: a de **leitura**
+vai para os secrets `CORPUS_ACCESS_KEY`/`CORPUS_SECRET_KEY` do GitHub, que o job
+de corpus da CI usa; a de **escrita** fica com quem publica fixture e não vai
+para nada automatizado. Criar tudo isso de novo: `ops/prepara-corpus-minio.sh`,
+que é idempotente.
+
 ---
 
 ## Publicar em produção

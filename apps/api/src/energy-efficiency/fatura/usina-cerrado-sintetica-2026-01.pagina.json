@@ -1,0 +1,196 @@
+{
+ "origem": "texto_direto",
+ "totalDePaginas": 1,
+ "confianca": null,
+ "paginas": [
+  {
+   "numero": 1,
+   "largura": 595.28,
+   "altura": 841.89,
+   "fragmentos": [
+    {
+     "texto": "USINA LUZ DO CERRADO S.A.",
+     "x": 40,
+     "y": 800,
+     "largura": 100,
+     "altura": 8
+    },
+    {
+     "texto": "Mês Faturado",
+     "x": 300,
+     "y": 800,
+     "largura": 42,
+     "altura": 7
+    },
+    {
+     "texto": "Vencimento",
+     "x": 380,
+     "y": 800,
+     "largura": 35,
+     "altura": 7
+    },
+    {
+     "texto": "Valor a Pagar",
+     "x": 470,
+     "y": 800,
+     "largura": 45.5,
+     "altura": 7
+    },
+    {
+     "texto": "01/2026",
+     "x": 300,
+     "y": 788,
+     "largura": 24.5,
+     "altura": 7
+    },
+    {
+     "texto": "10/02/2026",
+     "x": 380,
+     "y": 788,
+     "largura": 35,
+     "altura": 7
+    },
+    {
+     "texto": "24.661,00",
+     "x": 484,
+     "y": 788,
+     "largura": 31.5,
+     "altura": 7
+    },
+    {
+     "texto": "CNPJ: 11.222.333/0001-81",
+     "x": 40,
+     "y": 775,
+     "largura": 72,
+     "altura": 6
+    },
+    {
+     "texto": "AV. DAS ARARAS 1500 - CENTRO",
+     "x": 40,
+     "y": 763,
+     "largura": 84,
+     "altura": 6
+    },
+    {
+     "texto": "UC: 1234567-8",
+     "x": 40,
+     "y": 751,
+     "largura": 39,
+     "altura": 6
+    },
+    {
+     "texto": "Dem. Contratada: 300 kW",
+     "x": 40,
+     "y": 739,
+     "largura": 69,
+     "altura": 6
+    },
+    {
+     "texto": "GRUPO A A4 COMERCIAL",
+     "x": 40,
+     "y": 700,
+     "largura": 60,
+     "altura": 6
+    },
+    {
+     "texto": "SUBGRUPO A4 VERDE",
+     "x": 40,
+     "y": 686,
+     "largura": 51,
+     "altura": 6
+    },
+    {
+     "texto": "CLASSE COMERCIAL",
+     "x": 40,
+     "y": 672,
+     "largura": 48,
+     "altura": 6
+    },
+    {
+     "texto": "Consumo Ponta 1.200 kWh a 3,105000",
+     "x": 300,
+     "y": 700,
+     "largura": 102,
+     "altura": 6
+    },
+    {
+     "texto": "3.726,00",
+     "x": 531,
+     "y": 700,
+     "largura": 24,
+     "altura": 6
+    },
+    {
+     "texto": "Consumo F/Ponta 18.000 kWh a 0,712500",
+     "x": 300,
+     "y": 686,
+     "largura": 111,
+     "altura": 6
+    },
+    {
+     "texto": "12.825,00",
+     "x": 528,
+     "y": 686,
+     "largura": 27,
+     "altura": 6
+    },
+    {
+     "texto": "Demanda Ponta 150 kW a 28,400000",
+     "x": 300,
+     "y": 672,
+     "largura": 96,
+     "altura": 6
+    },
+    {
+     "texto": "4.260,00",
+     "x": 531,
+     "y": 672,
+     "largura": 24,
+     "altura": 6
+    },
+    {
+     "texto": "Demanda F/Ponta 300 kW a 12,150000",
+     "x": 300,
+     "y": 658,
+     "largura": 102,
+     "altura": 6
+    },
+    {
+     "texto": "3.645,00",
+     "x": 531,
+     "y": 658,
+     "largura": 24,
+     "altura": 6
+    },
+    {
+     "texto": "Contribuição de Iluminação Pública (COSIP)",
+     "x": 300,
+     "y": 644,
+     "largura": 126,
+     "altura": 6
+    },
+    {
+     "texto": "205,00",
+     "x": 537,
+     "y": 644,
+     "largura": 18,
+     "altura": 6
+    },
+    {
+     "texto": "Adicional Bandeira Vermelha",
+     "x": 300,
+     "y": 630,
+     "largura": 81,
+     "altura": 6
+    },
+    {
+     "texto": "118,30",
+     "x": 537,
+     "y": 630,
+     "largura": 18,
+     "altura": 6
+    }
+   ]
+  }
+ ]
+}
