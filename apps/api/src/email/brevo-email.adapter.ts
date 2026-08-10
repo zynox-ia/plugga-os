@@ -12,7 +12,7 @@ const DEFAULT_BREVO_API_URL = "https://api.brevo.com/v3/smtp/email";
  * API using the *client's* account key, read only from the environment — never
  * committed. Templates are rendered server-side, so the OS never depends on the
  * Brevo template editor. No real send happens in CI/dev (EMAIL_PROVIDER stays
- * noop/mailpit there); this path is exercised only against a real client key.
+ * noop there); this path is exercised only against a real client key.
  */
 @Injectable()
 export class BrevoEmailAdapter extends EmailPort {

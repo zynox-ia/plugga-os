@@ -20,6 +20,7 @@ import { IntegrationsModule } from "./integrations/integrations.module";
 import { JobsModule } from "./jobs/jobs.module";
 import { JobsQueueModule } from "./jobs/queue/jobs-queue.module";
 import { LoggingModule } from "./logging/logging.module";
+import { ObrasModule } from "./obras/obras.module";
 import { PluggamobModule } from "./pluggamob/pluggamob.module";
 
 const monorepoRootEnvPath = path.resolve(__dirname, "../../../.env");
@@ -43,6 +44,7 @@ const monorepoRootEnvPath = path.resolve(__dirname, "../../../.env");
     ClientesModule,
     CommercialModule,
     ComprasModule,
+    ObrasModule,
     EnergyModule,
     EnergyEfficiencyModule,
     LlmModule,

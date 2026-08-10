@@ -7,6 +7,7 @@ import { CompositeAuthContext } from "./auth/composite-auth-context";
 import { DevAuthGuard } from "./auth/dev-auth.guard";
 import { DevHeaderAuthContext } from "./auth/dev-header-auth-context";
 import { OriginCheckGuard } from "./auth/origin-check.guard";
+import { PermissionsGuard } from "./auth/permissions.guard";
 import { PrismaSessionLookupRepository } from "./auth/prisma-session-lookup.repository";
 import { RolesGuard } from "./auth/roles.guard";
 import { SessionAuthContext } from "./auth/session-auth-context";
@@ -34,6 +35,7 @@ import { SessionLookupRepository } from "./auth/session-lookup.repository";
     },
     DevAuthGuard,
     RolesGuard,
+    PermissionsGuard,
     // Cross-cutting CSRF defense: shared by every module with mutating routes.
     OriginCheckGuard,
   ],
@@ -41,6 +43,7 @@ import { SessionLookupRepository } from "./auth/session-lookup.repository";
     AuthContext,
     DevAuthGuard,
     RolesGuard,
+    PermissionsGuard,
     OriginCheckGuard,
     SessionLookupRepository,
   ],

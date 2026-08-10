@@ -11,6 +11,7 @@
     "db:migrate:deploy": "node scripts/run-local-prisma.mjs migrate deploy",
     "db:seed": "node scripts/run-local-prisma.mjs db seed",
     "dev": "nest start --watch",
+    "fatura:congelar": "tsx scripts/congelar-fatura.ts",
     "lint": "eslint . --max-warnings=0",
     "postinstall": "prisma generate",
     "prebuild": "prisma generate",
