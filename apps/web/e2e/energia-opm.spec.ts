@@ -16,8 +16,18 @@ function rotulo(rota: string): string {
 // Sem `exact`: a tag "parcial" que a sidebar desenha dentro do botão entra no
 // nome acessível ("Relatórios de economia parcial"), e a comparação estrita
 // deixaria de casar justamente os processos ainda marcados como parciais.
+//
+// O departamento é aberto antes do clique porque ele nasce fechado: partindo
+// da home, Energia & OPM não é a rota atual, então os processos dela não estão
+// no DOM até alguém abrir.
 async function navegar(page: Page, rota: string) {
   await page.goto("/");
+  const departamento = page.locator(".sidebar-nav .nav-parent", {
+    hasText: ENERGIA?.label ?? "Energia",
+  });
+  if ((await departamento.getAttribute("aria-expanded")) === "false") {
+    await departamento.click();
+  }
   await page.locator(".sidebar-nav").getByRole("button", { name: rotulo(rota) }).click();
   await expect(page).toHaveURL((url) => url.pathname === rota, { timeout: 15_000 });
 }
