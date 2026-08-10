@@ -1,3 +1,4 @@
+import { arredondar, somarComoOOraculo } from "./aritmetica.js";
 import type {
   FaturaNormativa,
   ItemDaFatura,
@@ -59,57 +60,6 @@ function ausente(valor: unknown): boolean {
 
 function quantidadeDoItem(item: ItemDaFatura): number | undefined {
   return item.kwh ?? item.kw;
-}
-
-/**
- * Soma como o oráculo soma.
- *
- * Desde a 3.12 o `sum()` do CPython usa somatório compensado de Neumaier para
- * floats. Somar ingenuamente da esquerda para a direita diverge em 5 das 27
- * faturas do corpus — em Jatuarana a soma ingênua deixa um resíduo de
- * −1,46e−11 onde o oráculo fecha em zero exato, e em Alvorada II acontece o
- * contrário. Nenhuma das duas reprova a fatura, mas as duas mudariam a prova
- * gravada, e a prova é comparada ao centavo contra o oráculo.
- *
- * O harness pegaria isso de qualquer jeito; reproduzir o algoritmo é mais
- * honesto do que afrouxar a comparação.
- */
-export function somarComoOOraculo(valores: readonly number[]): number {
-  let soma = 0;
-  let compensacao = 0;
-
-  for (const valor of valores) {
-    const parcial = soma + valor;
-    compensacao +=
-      Math.abs(soma) >= Math.abs(valor)
-        ? soma - parcial + valor
-        : valor - parcial + soma;
-    soma = parcial;
-  }
-
-  return soma + compensacao;
-}
-
-/**
- * Arredonda como o `round()` do Python: empate vai para o par, não para longe
- * do zero como faz o `Math.round`. O zero negativo é preservado, porque o
- * oráculo grava `-0.0` quando a diferença é um resíduo negativo.
- */
-function arredondar(valor: number, casas: number): number {
-  const fator = 10 ** casas;
-  const escalado = valor * fator;
-  const piso = Math.floor(escalado);
-  const resto = escalado - piso;
-
-  let inteiro: number;
-  if (resto > 0.5) inteiro = piso + 1;
-  else if (resto < 0.5) inteiro = piso;
-  else inteiro = piso % 2 === 0 ? piso : piso + 1;
-
-  const resultado = inteiro / fator;
-  return resultado === 0 && (valor < 0 || Object.is(valor, -0))
-    ? -0
-    : resultado;
 }
 
 function formatar(valor: number): string {
