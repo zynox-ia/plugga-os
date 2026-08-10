@@ -16,10 +16,14 @@ import type {
 
 import type { AuthPrincipal } from "../core/auth/auth.types";
 import { auditarFatura } from "./calculo/auditoria.js";
-import { conciliarFatura } from "./calculo/conciliacao.js";
 import { analisarDemanda } from "./calculo/demanda.js";
 import { rodarMotorPrd } from "./calculo/motor-prd.js";
 import { chaveDoTipo, classificarSemaforo } from "./calculo/semaforo.js";
+import { conciliarFatura } from "./nucleo/conciliacao.js";
+import {
+  contarConferencias,
+  faturaNormativaDoSistema,
+} from "./nucleo/da-fatura-do-sistema.js";
 import { gerarVersaoCelular } from "./documento/celular.js";
 import { calcularHashDocumento } from "./documento/integridade.js";
 import { nomeDoArquivoPdf } from "./documento/nome-arquivo.js";
@@ -187,7 +191,21 @@ export class EstudoService {
     const contexto = estudo.invoiceContext;
     const usaMemoriaDeMassa = temMemoriaDeMassa ?? estudo.hasLoadProfile;
 
-    const conciliacao = conciliarFatura(fatura, contexto);
+    // Trava 1 é a do pacote normativo, aplicada sobre a fatura na forma da
+    // norma. A prova guardada mantém o par de conferências que a interface já
+    // exibe desde a V1.
+    const detalheDaUnidade = await this.repository.detalhar(id);
+    const faturaNormativa = faturaNormativaDoSistema(fatura, contexto, {
+      cliente: detalheDaUnidade.clientName,
+      unidadeConsumidora: detalheDaUnidade.consumerUnitCode,
+      mesDeCompetencia: estudo.competenceMonth,
+      anoDeCompetencia: estudo.competenceYear,
+    });
+    const trava1 = conciliarFatura(faturaNormativa);
+    const conciliacao = {
+      problemas: trava1.problemas,
+      prova: { ...trava1.prova, ...contarConferencias(faturaNormativa) },
+    };
     if (conciliacao.problemas.length > 0) {
       return this.repository.atualizar(id, {
         status: "bloqueado",
@@ -221,7 +239,7 @@ export class EstudoService {
       temMemoriaDeMassa: usaMemoriaDeMassa,
     });
 
-    const detalhe = await this.repository.detalhar(id);
+    const detalhe = detalheDaUnidade;
     const { html, problemas } = gerarRelatorio({
       caso: {
         cliente: detalhe.clientName,

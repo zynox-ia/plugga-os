@@ -5,7 +5,6 @@ import {
 } from "@plugga/shared";
 import { describe, expect, it } from "vitest";
 
-import { conciliarFatura } from "./conciliacao.js";
 import { rodarMotorPrd } from "./motor-prd.js";
 import { chaveDoTipo, classificarSemaforo } from "./semaforo.js";
 
@@ -111,72 +110,6 @@ const CONTEXTO: InvoiceContext = {
   arquivoChave: null,
   origem: "texto_direto",
 };
-
-describe("trava de conciliação", () => {
-  it("aceita soma e multiplicação dentro da tolerância", () => {
-    const resultado = conciliarFatura(FATURA, CONTEXTO);
-    expect(resultado.problemas).toEqual([]);
-    expect(resultado.prova.somaItens).toBeCloseTo(FATURA.valorTotal, 2);
-    expect(resultado.prova.itensConferidos).toBe(3);
-  });
-
-  it("bloqueia divergência sem ajustar o total", () => {
-    const contexto = {
-      ...CONTEXTO,
-      itens: CONTEXTO.itens.map((item, indice) =>
-        indice === 4 ? { ...item, valor: item.valor - 10 } : item,
-      ),
-    };
-    const resultado = conciliarFatura(FATURA, contexto);
-    expect(resultado.problemas.some((problema) => problema.regra === "conciliacao_total")).toBe(
-      true,
-    );
-    expect(resultado.prova.total).toBe(FATURA.valorTotal);
-  });
-
-  it("bloqueia snapshot de ponta diferente da linha conciliada", () => {
-    const resultado = conciliarFatura({ ...FATURA, consumoPontaKwh: 17_000 }, CONTEXTO);
-    expect(
-      resultado.problemas.some(
-        (problema) =>
-          problema.regra === "conciliacao_campo" && problema.detalhe.includes("ponta (kWh)"),
-      ),
-    ).toBe(true);
-  });
-
-  it("bloqueia tarifa de demanda diferente da linha conciliada", () => {
-    const resultado = conciliarFatura({ ...FATURA, tarifaDemanda: 30 }, CONTEXTO);
-    expect(
-      resultado.problemas.some(
-        (problema) =>
-          problema.regra === "conciliacao_campo" &&
-          problema.detalhe.includes("tarifa de demanda"),
-      ),
-    ).toBe(true);
-  });
-
-  it("não aceita linha sintética com o próprio total como única prova", () => {
-    const contexto: InvoiceContext = {
-      ...CONTEXTO,
-      itens: [
-        {
-          nome: "Total informado manualmente",
-          categoria: "outros",
-          compoeTotal: true,
-          valor: FATURA.valorTotal,
-          quantidade: null,
-          unidade: null,
-          tarifa: null,
-        },
-      ],
-    };
-    const resultado = conciliarFatura(FATURA, contexto);
-    expect(
-      resultado.problemas.filter((problema) => problema.regra === "conciliacao_campo_ausente")
-        .length,
-    ).toBeGreaterThan(0);
-  });
-});
 
 describe("semáforo do PRD", () => {
   const motor = rodarMotorPrd(FATURA, PREMISSAS_2026_08);

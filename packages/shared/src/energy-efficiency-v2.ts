@@ -56,47 +56,45 @@ export const documentoFonteSchema = z
   .strict();
 export type DocumentoFonte = z.infer<typeof documentoFonteSchema>;
 
-// --- Fatura canônica -------------------------------------------------------
+// --- Fatura normativa -------------------------------------------------------
 
 /**
- * Cada linha da fatura precisa dizer o que é. A conciliação não fecha só o
- * total: ela prova quais linhas alimentam consumo, demanda, reativos e
- * encargos — e o que explicitamente não entra no estudo.
+ * A fatura no formato do pacote normativo. Os nomes mudam de `snake_case` para
+ * `camelCase`, e nada mais: a forma é a que a Trava 1 do oráculo confere.
+ *
+ * O que **não** existe aqui é tão importante quanto o que existe. A norma não
+ * categoriza linha por linha nem deriva consumo a partir dos itens: os campos
+ * que alimentam o motor vêm explicitamente da extração, e a trava prova a
+ * coerência entre eles e os itens. Inventar uma camada de categorias seria
+ * afastar o port da especificação que ele deve reproduzir.
  */
-export const categoriaDaLinhaSchema = z.enum([
-  "consumo_ponta",
-  "consumo_fora_ponta",
-  "demanda_ponta",
-  "demanda_fora_ponta",
-  "demanda_nao_consumida",
-  "reativo",
-  "encargo",
-  "bandeira",
-  "imposto",
-  "credito",
-  "beneficio",
-  "energia_nf",
-  "metadado",
-]);
-export type CategoriaDaLinha = z.infer<typeof categoriaDaLinhaSchema>;
-
-export const linhaDaFaturaSchema = z
+export const itemDaFaturaSchema = z
   .object({
-    descricao: z.string().min(1),
-    categoria: categoriaDaLinhaSchema,
-    quantidade: z.number().optional(),
-    unidade: z.string().min(1).optional(),
-    tarifa: z.number().optional(),
+    nome: z.string().min(1),
     valor: z.number(),
-    /** Falso para linhas que não somam no total (metadado, crédito informativo). */
-    compoeTotal: z.boolean(),
+    /** Quantidade em kWh, quando o item for de energia. */
+    kwh: z.number().optional(),
+    /** Quantidade em kW, quando o item for de demanda. */
+    kw: z.number().optional(),
+    tarifa: z.number().optional(),
+    /** Texto livre da fatura; a trava de ultrapassagem também o inspeciona. */
+    detalhe: z.string().optional(),
   })
   .strict();
-export type LinhaDaFatura = z.infer<typeof linhaDaFaturaSchema>;
+export type ItemDaFatura = z.infer<typeof itemDaFaturaSchema>;
 
-export const regimeSchema = z.enum(["cativo", "acl"]);
+/** Linha informativa que aparece na fatura mas não compõe o total. */
+export const itemNaoCobradoSchema = z
+  .object({
+    nome: z.string().min(1),
+    valor: z.number(),
+    motivo: z.string().min(1).optional(),
+  })
+  .strict();
+
+export const regimeSchema = z.enum(["cativo", "mercado_livre"]);
 export const modalidadeSchema = z.enum(["verde", "azul"]);
-export const grupoSchema = z.enum(["a3", "a3a", "a4", "as", "b"]);
+export const grupoSchema = z.string().min(1);
 
 /**
  * Chave do tipo de fatura para o semáforo: distribuidora, regime, modalidade e
@@ -112,74 +110,103 @@ export const tipoDaFaturaSchema = z
   .strict();
 export type TipoDaFatura = z.infer<typeof tipoDaFaturaSchema>;
 
-/** Campos que só existem no mercado livre (ACL). */
-export const contextoAclSchema = z
+/**
+ * Nota fiscal de energia do mercado livre. O preço não é digitado: a trava
+ * confere que `total / mwh / 1000` bate com `precoKwh`, e que a tarifa de ponta
+ * publicada é a soma do fio com a energia da NF.
+ */
+export const energiaNfSchema = z
   .object({
-    /** Nota fiscal de energia do fornecedor. */
-    energiaNf: z.number().nonnegative(),
-    volumeMwh: z.number().nonnegative(),
-    /** Derivado de energiaNf / volumeMwh; nunca digitado à mão. */
-    precoDerivadoPorMwh: z.number().nonnegative(),
-    tusd: z.number().nonnegative(),
-    te: z.number().nonnegative(),
-    /** Fio + energia — a base do sanitário de economia no ACL. */
-    totalGastoEnergia: z.number().nonnegative(),
-    /** Fica registrado e explicitamente fora do estudo. */
-    apceiForaDoEstudo: z.number().nonnegative(),
+    fornecedor: z.string().min(1),
+    total: z.number().nonnegative(),
+    mwh: z.number().positive(),
+    precoKwh: z.number().nonnegative(),
+    /** Nota da extração — em Brasília e Imigrantes registra a NF secundária, informativa e fora da formação de preço. */
+    obs: z.string().optional(),
   })
   .strict();
-export type ContextoAcl = z.infer<typeof contextoAclSchema>;
+export type EnergiaNf = z.infer<typeof energiaNfSchema>;
 
-export const faturaCanonicaSchema = z
+export const faturaNormativaSchema = z
   .object({
-    apelido: z.string().min(1),
+    cliente: z.string().min(1),
+    cnpj: z.string().optional(),
     uc: z.string().min(1),
+    apelido: z.string().min(1).optional(),
+    distribuidora: z.string().min(1),
+    regime: regimeSchema,
+    grupo: grupoSchema,
+    modalidade: modalidadeSchema,
+    classe: z.string().optional(),
     referencia: z.string().min(1),
-    tipo: tipoDaFaturaSchema,
+    vencimento: z.string().min(1),
 
     total: z.number(),
-    consumoPontaKwh: z.number().nonnegative(),
-    consumoForaPontaKwh: z.number().nonnegative(),
-    tarifaPontaTotal: z.number().nonnegative(),
-    tarifaForaPontaTotal: z.number().nonnegative(),
-    demandaContratadaKw: z.number().nonnegative().optional(),
-    demandaRegistradaPontaKw: z.number().nonnegative().optional(),
-    tarifaDemandaPontaKw: z.number().nonnegative().optional(),
+    itens: z.array(itemDaFaturaSchema).min(1),
+    naoCobrados: z.array(itemNaoCobradoSchema).optional(),
 
-    linhas: z.array(linhaDaFaturaSchema).min(1),
-    acl: contextoAclSchema.optional(),
+    consumoPontaKwh: z.number().nonnegative(),
+    consumoFpKwh: z.number().nonnegative(),
+    demandaContratadaKw: z.number().nonnegative(),
+    demandaRegistradaPontaKw: z.number().nonnegative().optional(),
+    demandaRegistradaFpKw: z.number().nonnegative().optional(),
+    reativoPontaKwh: z.number().nonnegative().optional(),
+    reativoFpKwh: z.number().nonnegative().optional(),
+
+    tarifaPontaTotal: z.number().nonnegative().optional(),
+    tarifaFpTotal: z.number().nonnegative().optional(),
+    /** Valor declarado de ultrapassagem, quando não vier como item. */
+    ultrapassagemValor: z.number().nonnegative().optional(),
+
+    /** Mercado livre: NF de energia e gasto total com energia (fio + energia). */
+    energiaNf: energiaNfSchema.optional(),
+    totalGastoEnergia: z.number().nonnegative().optional(),
+
+    /** Presente quando o caso é peak shaving. */
+    funcao: modoDoEstudoSchema.optional(),
   })
-  .strict()
-  .refine((f) => (f.tipo.regime === "acl" ? f.acl !== undefined : f.acl === undefined), {
-    message: "Fatura ACL exige contexto ACL; fatura cativa não pode tê-lo.",
-  });
-export type FaturaCanonica = z.infer<typeof faturaCanonicaSchema>;
+  .strict();
+export type FaturaNormativa = z.infer<typeof faturaNormativaSchema>;
 
 // --- Trava 1: prova de conciliação -----------------------------------------
 
-export const conferenciaDeLinhaSchema = z
-  .object({
-    descricao: z.string().min(1),
-    esperado: z.number(),
-    encontrado: z.number(),
-    diferenca: z.number(),
-    confere: z.boolean(),
-  })
-  .strict();
-
+/**
+ * A prova que o oráculo grava na fatura conciliada. Nada de ajuste: se a soma
+ * não fecha, a fatura é reprovada e o motor não roda.
+ */
 export const provaDeConciliacaoSchema = z
   .object({
-    somaDasLinhas: z.number(),
-    totalDaFatura: z.number(),
+    somaItens: z.number(),
+    total: z.number(),
     diferenca: z.number(),
-    /** Tolerância normativa: ao centavo. */
-    toleranciaAplicada: z.number().nonnegative(),
-    conferenciasDeTarifa: z.array(conferenciaDeLinhaSchema),
-    aprovada: z.boolean(),
-    problemas: z.array(z.string()),
   })
   .strict();
 export type ProvaDeConciliacao = z.infer<typeof provaDeConciliacaoSchema>;
+
+export const problemaDaConciliacaoSchema = z
+  .object({
+    regra: z.enum([
+      "campo_obrigatorio",
+      "soma_dos_itens",
+      "item_incoerente",
+      "ultrapassagem",
+      "energia_nf",
+    ]),
+    detalhe: z.string().min(1),
+  })
+  .strict();
+export type ProblemaDaConciliacao = z.infer<typeof problemaDaConciliacaoSchema>;
+
+export const resultadoDaConciliacaoSchema = z
+  .object({
+    conciliada: z.boolean(),
+    prova: provaDeConciliacaoSchema,
+    problemas: z.array(problemaDaConciliacaoSchema),
+    /** Linhas informativas confirmadas fora do total. */
+    foraDoTotal: z.array(itemNaoCobradoSchema),
+  })
+  .strict();
+export type ResultadoDaConciliacao = z.infer<typeof resultadoDaConciliacaoSchema>;
 
 // --- Premissas -------------------------------------------------------------
 
@@ -268,7 +295,7 @@ export const bundleCanonicoSchema = z
     versaoNormativa: versaoNormativaSchema,
     versaoDoMotor: versaoDoMotorSchema,
     documentoFonte: documentoFonteSchema,
-    fatura: faturaCanonicaSchema,
+    fatura: faturaNormativaSchema,
     conciliacao: provaDeConciliacaoSchema,
     caso: casoDoMotorSchema,
     premissas: premissasV2Schema,
