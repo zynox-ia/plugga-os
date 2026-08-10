@@ -92,7 +92,10 @@ export function PluggaShell({
 }) {
   const [activeView, setActiveView] = useState(activeId);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
-  const [closedGroups, setClosedGroups] = useState<Set<string>>(new Set());
+  // Departamentos fecham por padrão: só o que o usuário abrir (ou o que
+  // contém a rota atual) fica visível. `closedGroups` guarda quem já foi
+  // aberto manualmente e é lido ao contrário no `isOpen` abaixo.
+  const [openedGroups, setOpenedGroups] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     setActiveView(activeId);
@@ -106,16 +109,16 @@ export function PluggaShell({
 
   const navGroups = navigation;
 
-  // Departamentos abrem por padrão: a estrutura macro→micro só comunica se
-  // estiver visível. O usuário fecha o que não usa, e o departamento da rota
-  // atual nunca fica fechado — senão o item ativo some da tela.
+  // Departamentos fecham por padrão: a barra lateral começa enxuta, e o
+  // usuário abre o que precisa. O departamento da rota atual nunca fica
+  // fechado — senão o item ativo some da tela.
   const isOpen = (group: ShellNavGroup) =>
     !group.collapsible ||
-    !closedGroups.has(group.id) ||
+    openedGroups.has(group.id) ||
     group.items.some((item) => item.id === activeView);
 
   const toggleGroup = (id: string) =>
-    setClosedGroups((atual) => {
+    setOpenedGroups((atual) => {
       const proximo = new Set(atual);
       if (proximo.has(id)) proximo.delete(id);
       else proximo.add(id);
@@ -126,7 +129,7 @@ export function PluggaShell({
     <div className="app-shell">
       <a className="skip-link" href="#main-content">Pular para o conteúdo</a>
       <aside className={`sidebar${mobileNavOpen ? " sidebar--open" : ""}`} aria-label="Navegação principal" id="main-navigation">
-        <div className="brand-lockup"><span className="brand-mark"><img src="/brand/logo-sem-selo.svg" alt="Plugga" /></span><span className="brand-badge">OS</span></div>
+        <div className="brand-lockup"><span className="brand-mark"><img src="/brand/logo-areia.svg" alt="Plugga" /></span><span className="brand-badge">OS</span></div>
         <nav className="sidebar-nav">
           {navGroups.map((group) => {
             const aberto = isOpen(group);

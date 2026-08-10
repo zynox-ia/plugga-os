@@ -73,7 +73,7 @@ export function AuthCard({
         {/* Left Form Panel */}
         <div className="auth-panel-left">
           <div className="auth-brand-header">
-            <img src="/brand/icone - verde.svg" alt="Plugga" className="auth-brand-logo" />
+            <img src="/brand/icone-verde.svg" alt="Plugga" className="auth-brand-logo" />
           </div>
           {title ? <h1 className="auth-form-title">{title}</h1> : null}
           {description ? <p className="auth-form-subtitle">{description}</p> : null}

@@ -94,12 +94,11 @@ button:focus-visible, a:focus-visible { outline: 3px solid var(--folha); outline
 .app-shell { display: grid; grid-template-columns: var(--sidebar-width) minmax(0, 1fr); height: 100vh; height: 100dvh; overflow: hidden; }
 .sidebar { position: sticky; top: 0; display: flex; height: 100vh; flex-direction: column; gap: 26px; padding: 22px 16px 18px; color: var(--areia); background: transparent; z-index: 5; }
 .brand-lockup { display: flex; align-items: center; gap: 10px; padding: 6px 10px 16px; border-bottom: 1px solid rgba(224, 219, 199, .14); }
-/* O SVG tem viewBox quadrado com a marca centrada e muito espaço vazio em
-   cima e embaixo. Encaixá-lo numa caixa baixa com object-fit encolhia a marca
-   a ~37px de largura útil; aqui ela é desenhada em tamanho cheio e o vazio é
-   recortado pelo wrapper. */
-.brand-mark { display: flex; align-items: center; height: 56px; overflow: hidden; }
-.brand-lockup img { width: 176px; height: 176px; margin: -60px 0; filter: brightness(0) invert(1) sepia(.15) saturate(.4); }
+/* logo-areia.svg já vem na cor final (viewBox 343x86, retangular) — sem
+   filtro de cor e sem o recorte por overflow que a marca quadrada antiga
+   precisava. */
+.brand-mark { display: flex; align-items: center; height: 32px; }
+.brand-lockup img { width: auto; height: 32px; }
 .brand-badge { margin-left: auto; padding: 4px 7px; color: var(--folha); border: 1px solid rgba(0, 175, 136, .45); border-radius: 999px; font: 600 10px/1 Anybody, sans-serif; letter-spacing: .08em; text-transform: uppercase; }
 .sidebar-nav { display: grid; flex: 1 1 auto; min-height: 0; gap: 2px; overflow-y: auto; overflow-x: hidden; scrollbar-width: none; -ms-overflow-style: none; }
 /* A barra de rolagem some, a rolagem continua: numa coluna escura e estreita
