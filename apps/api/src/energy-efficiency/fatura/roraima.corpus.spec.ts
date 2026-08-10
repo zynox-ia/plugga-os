@@ -1,15 +1,12 @@
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
-
 import { describe, expect, it } from "vitest";
 
 import { conferir } from "./conferencia.js";
+import { avisoDeCorpusAusente, fixtureDoCorpus } from "./corpus.js";
 import { identificar } from "./identificacao.js";
 import { MOTIVO_INFORMATIVO } from "./informativos.js";
 import { lerItens } from "./itens.js";
 import { lerPorRegras } from "./leitura.js";
 import { linhasImpressas, linhasPorColuna } from "./linhas.js";
-import type { PaginaDoDocumento } from "./paginas.js";
 
 /**
  * Roraima Energia — Santa Tereza 06/2026, o caso que a leitura recusava.
@@ -20,15 +17,24 @@ import type { PaginaDoDocumento } from "./paginas.js";
  * decimal na descrição, e nenhuma linha de consumo ou de demanda era
  * reconhecida — a fatura era recusada por campos essenciais ausentes.
  *
- * O caso vive aqui como a geometria da página, não como PDF: os fragmentos com
+ * O caso vive como a geometria da página, não como PDF: os fragmentos com
  * posição são o que a leitura consome, e congelá-los torna o teste determinístico
  * sem depender do arquivo original.
+ *
+ * **A fixture não está no git.** Ela é uma fatura de cliente com o dado inteiro
+ * — titular, CNPJ, unidade consumidora, endereço — e mora no balde do corpus no
+ * MinIO; `corpus:baixar` a traz. Sem a chave, este arquivo inteiro é pulado, e
+ * quem quiser regressão de leitura sem credencial tem `sintetica.spec.ts`, que
+ * roda em qualquer máquina.
  */
-const PAGINAS = (
-  JSON.parse(
-    readFileSync(join(__dirname, "roraima-santa-tereza-2026-06.pagina.json"), "utf8"),
-  ) as { paginas: PaginaDoDocumento[] }
-).paginas;
+const NOME = "roraima-santa-tereza-2026-06.pagina.json";
+const DOCUMENTO = fixtureDoCorpus(NOME);
+
+if (!DOCUMENTO) console.warn(avisoDeCorpusAusente(NOME));
+
+// A leitura acontece dentro dos casos, que só existem quando a fixture existe;
+// o `?? []` é o que convence o TypeScript disso sem espalhar `!` pelo arquivo.
+const PAGINAS = DOCUMENTO?.paginas ?? [];
 
 const ITENS_ESPERADOS = [
   { rotulo: "Consumo Ponta", quantidade: 17_419, unidade: "kWh", tarifa: 2.689175, valor: 46_842.73 },
@@ -37,7 +43,7 @@ const ITENS_ESPERADOS = [
   { rotulo: "Demanda Ponta com ICMS", quantidade: 367, unidade: "kW", tarifa: 27.7, valor: 10_165.9 },
 ];
 
-describe("Roraima Energia — layout de duas colunas", () => {
+describe.skipIf(!DOCUMENTO)("Roraima Energia — layout de duas colunas", () => {
   it("a leitura de largura inteira cola as colunas, e por isso não basta", () => {
     const linhas = linhasImpressas(PAGINAS);
 
