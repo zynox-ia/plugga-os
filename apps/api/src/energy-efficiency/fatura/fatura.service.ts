@@ -67,7 +67,7 @@ export class FaturaService {
       competenceYear: leitura.identificacao.competencia?.ano ?? null,
       distribuidora: leitura.identificacao.distribuidora,
       invoice: leitura.invoice,
-      itens: leitura.conferencia.itens.map((item) => ({
+      itens: leitura.itens.map((item) => ({
         rotulo: item.rotulo,
         quantidade: item.quantidade,
         unidade: item.unidade,
@@ -75,6 +75,8 @@ export class FaturaService {
         valor: item.valor,
         veredicto: item.veredicto,
         esperado: item.esperado,
+        compoeTotal: item.compoeTotal,
+        motivoForaDoTotal: item.motivoForaDoTotal,
       })),
       camposParaConfirmar: leitura.camposParaConfirmar,
       arquivoNome: nomeDoArquivo,

@@ -145,7 +145,10 @@ export function NovaFaturaView({
       leitura.itens.map((item) => ({
         nome: item.rotulo,
         categoria: inferirCategoriaDaLinha(item.rotulo),
-        compoeTotal: true,
+        // A leitura já decide isso pela aritmética da própria fatura: item de
+        // bandeira que faz a soma passar do total nasce fora dele. A pessoa
+        // continua podendo mudar aqui — a leitura sugere, não decide sozinha.
+        compoeTotal: item.compoeTotal,
         valor: item.valor,
         quantidade: item.quantidade,
         unidade: item.unidade,
@@ -389,6 +392,11 @@ export function NovaFaturaView({
                       </StatusPill>
                     ) : (
                       <StatusPill variant="neutral">sem conferência</StatusPill>
+                    )}
+                    {item.compoeTotal ? null : (
+                      <span title={item.motivoForaDoTotal ?? undefined}>
+                        <StatusPill variant="neutral">informativo, fora do total</StatusPill>
+                      </span>
                     )}
                   </td>
                 </tr>

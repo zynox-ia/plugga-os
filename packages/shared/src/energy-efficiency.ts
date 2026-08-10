@@ -473,6 +473,16 @@ export const invoiceReadingItemSchema = z
     veredicto: invoiceItemVerdictSchema,
     /** Valor que a multiplicação produz; nulo quando não há o que multiplicar. */
     esperado: z.number().nullable(),
+    /**
+     * Se o item entra na soma que tem de fechar com o total da fatura.
+     *
+     * Nasce verdadeiro. Vira falso quando a própria aritmética prova o
+     * contrário — ver `motivoForaDoTotal`. A pessoa continua podendo mudar na
+     * tela: a leitura sugere, não decide sozinha.
+     */
+    compoeTotal: z.boolean(),
+    /** Por que o item nasceu fora do total; nulo quando ele compõe. */
+    motivoForaDoTotal: z.string().nullable(),
   })
   .strict();
 export type InvoiceReadingItem = z.infer<typeof invoiceReadingItemSchema>;

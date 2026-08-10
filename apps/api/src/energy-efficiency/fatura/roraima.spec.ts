@@ -5,7 +5,9 @@ import { describe, expect, it } from "vitest";
 
 import { conferir } from "./conferencia.js";
 import { identificar } from "./identificacao.js";
+import { MOTIVO_INFORMATIVO } from "./informativos.js";
 import { lerItens } from "./itens.js";
+import { lerPorRegras } from "./leitura.js";
 import { linhasImpressas, linhasPorColuna } from "./linhas.js";
 import type { PaginaDoDocumento } from "./paginas.js";
 
@@ -119,5 +121,37 @@ describe("Roraima Energia — layout de duas colunas", () => {
     expect(identificacao.unidadeConsumidora).toBe("01939890");
     expect(identificacao.distribuidora).toBe("RORAIMA ENERGIA");
     expect(identificacao.competencia).toEqual({ mes: 6, ano: 2026 });
+  });
+
+  /**
+   * O critério de aceite fim a fim: a fatura passa **sozinha**, sem ninguém
+   * desmarcar a bandeira na tela. `lerPorRegras` é o mesmo caminho que
+   * `lerFatura` usa a partir da página normalizada — só pula a abertura do PDF,
+   * que a fixture já congelou.
+   */
+  it("a fatura é aproveitável sozinha, com a bandeira já fora do total", () => {
+    const leitura = lerPorRegras({
+      origem: "texto_direto",
+      paginas: PAGINAS,
+      confianca: null,
+      totalDePaginas: PAGINAS.length,
+    });
+
+    expect(leitura.aproveitavel).toBe(true);
+    expect(leitura.motivo).toBeNull();
+    expect(leitura.identificacao.unidadeConsumidora).toBe("01939890");
+    expect(leitura.invoice.valorTotal).toBe(174_636.7);
+    expect(leitura.demandaComplementoValor).toBe(2_947.28);
+
+    const soma = leitura.itens
+      .filter((item) => item.compoeTotal)
+      .reduce((total, item) => total + item.valor, 0);
+    expect(Number(soma.toFixed(2))).toBe(174_636.7);
+
+    const bandeira = leitura.itens.find((item) => /bandeira/i.test(item.rotulo));
+    expect(bandeira?.compoeTotal).toBe(false);
+    expect(bandeira?.motivoForaDoTotal).toBe(MOTIVO_INFORMATIVO);
+    // O item continua na lista — nunca é removido, só marcado.
+    expect(bandeira?.valor).toBe(3_774.59);
   });
 });

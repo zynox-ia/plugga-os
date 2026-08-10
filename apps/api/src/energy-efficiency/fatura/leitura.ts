@@ -2,8 +2,9 @@ import type { InvoiceData } from "@plugga/shared";
 
 import { lerCamposExtras } from "./campos.js";
 import { conferir, type Conferencia } from "./conferencia.js";
-import { normalizar, type OrigemDoTexto } from "./documento.js";
+import { normalizar, type DocumentoNormalizado, type OrigemDoTexto } from "./documento.js";
 import { identificar, type IdentificacaoDaFatura } from "./identificacao.js";
+import { marcarInformativos, type ItemDaLeitura } from "./informativos.js";
 import { lerItens, type ItemDaFatura } from "./itens.js";
 import { linhasImpressas, linhasPorColuna } from "./linhas.js";
 import { abrirPdf, SenhaIncorretaError, SenhaNecessariaError } from "./paginas.js";
@@ -45,7 +46,7 @@ export type LeituraDaFatura = {
   /** Confiança média do OCR, de 0 a 100; nula quando o texto veio do PDF. */
   confianca: number | null;
   identificacao: IdentificacaoDaFatura;
-  itens: ItemDaFatura[];
+  itens: ItemDaLeitura[];
   /**
    * Valor da linha de demanda sem ICMS, quando a fatura a publica. Nulo quando
    * não existe — e aí quem calcula usa rateio, nunca o contrário.
@@ -182,26 +183,15 @@ export type OpcoesDeLeitura = {
 /** Quantas páginas vão para o modelo. Fatura de energia cabe folgado em três. */
 const PAGINAS_PARA_VISAO = 3;
 
-export async function lerFatura(
-  conteudo: Buffer,
-  opcoes: OpcoesDeLeitura = {},
-): Promise<LeituraDaFatura> {
-  const { senha, mime = "application/pdf", visao: lerPorVisao, referencia } = opcoes;
-  let documento;
-  try {
-    documento = await normalizar(conteudo, senha);
-  } catch (erro) {
-    // Senha não é falha: é uma pergunta que o sistema tem de fazer. Vira
-    // resultado, não exceção, para a tela poder pedi-la sem perder o arquivo.
-    if (erro instanceof SenhaNecessariaError) {
-      return recusar("protegido_por_senha", "este PDF está protegido por senha");
-    }
-    if (erro instanceof SenhaIncorretaError) {
-      return recusar("senha_incorreta", "a senha informada não abre este PDF");
-    }
-    throw erro;
-  }
-
+/**
+ * A parte síncrona e determinística da leitura: da página normalizada até a
+ * ficha que as regras conseguem montar sozinhas, sem modelo.
+ *
+ * Fica exportada porque é o núcleo testável sem PDF nem rede — quem quer
+ * provar um layout novo congela a página normalizada (como fez a Roraima
+ * Energia, `roraima.spec.ts`) e chama esta função direto.
+ */
+export function lerPorRegras(documento: DocumentoNormalizado): LeituraDaFatura {
   // A leitura por linha impressa é a principal: é ela que junta rótulo, tarifa
   // e valor que a fatura imprime na mesma altura da folha. Medida nas 58
   // faturas legíveis desta base, ela confirma pela aritmética exatamente os
@@ -241,16 +231,36 @@ export async function lerFatura(
   // depois do corte.
   const porColuna = linhasPorColuna(documento.paginas);
   const identificacao = identificar([...linhas, ...porColuna]);
-  const porRegras = melhorLeitura([
+
+  return melhorLeitura([
     montarFicha(identificacao, lerItens(linhas), extras, documento.origem, confianca),
-    montarFicha(
-      identificacao,
-      lerItens(porColuna),
-      extras,
-      documento.origem,
-      confianca,
-    ),
+    montarFicha(identificacao, lerItens(porColuna), extras, documento.origem, confianca),
   ]);
+}
+
+export async function lerFatura(
+  conteudo: Buffer,
+  opcoes: OpcoesDeLeitura = {},
+): Promise<LeituraDaFatura> {
+  const { senha, mime = "application/pdf", visao: lerPorVisao, referencia } = opcoes;
+  let documento;
+  try {
+    documento = await normalizar(conteudo, senha);
+  } catch (erro) {
+    // Senha não é falha: é uma pergunta que o sistema tem de fazer. Vira
+    // resultado, não exceção, para a tela poder pedi-la sem perder o arquivo.
+    if (erro instanceof SenhaNecessariaError) {
+      return recusar("protegido_por_senha", "este PDF está protegido por senha");
+    }
+    if (erro instanceof SenhaIncorretaError) {
+      return recusar("senha_incorreta", "a senha informada não abre este PDF");
+    }
+    throw erro;
+  }
+
+  const confianca = documento.confianca;
+  const extras = lerCamposExtras(documento.paginas);
+  const porRegras = lerPorRegras(documento);
 
   // Regra que fechou a ficha é a resposta: é gratuita, determinística e diz de
   // que posição da folha saiu cada número. O modelo é o plano B, não o padrão.
@@ -419,7 +429,9 @@ function montarComItens(
     motivo,
     confianca,
     identificacao,
-    itens,
+    // A composição do total nasce da aritmética: item de bandeira que faz a
+    // soma passar do total é marcado como informativo, com o motivo registrado.
+    itens: marcarInformativos(conferencia.itens, invoice.valorTotal),
     conferencia,
     // A linha explícita manda: quem calcula economia de readequação usa este
     // número quando ele existe, e só cai no rateio quando não existe.
