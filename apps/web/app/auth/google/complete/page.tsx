@@ -12,8 +12,12 @@ export const metadata: Metadata = { title: "Entrando — Plugga OS" };
  * utilizável por quem não autenticou.
  */
 export default function GoogleCompletePage() {
+  // Sem `singlePanel`: essa prop pertence ao redesenho das telas de auth, que
+  // ainda não está entregue. Uma tela que vive milissegundos não é motivo para
+  // acoplar este fluxo a trabalho de outra pessoa em andamento — e o layout
+  // padrão é o mesmo do /login, de onde a pessoa acabou de vir.
   return (
-    <AuthCard singlePanel>
+    <AuthCard>
       <GoogleComplete />
     </AuthCard>
   );
