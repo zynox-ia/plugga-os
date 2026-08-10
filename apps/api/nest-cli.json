@@ -8,6 +8,10 @@
       {
         "include": "energy-efficiency/documento/templates/*.html",
         "outDir": "dist"
+      },
+      {
+        "include": "energy-efficiency/nucleo/templates/*.html",
+        "outDir": "dist"
       }
     ],
     "watchAssets": true
