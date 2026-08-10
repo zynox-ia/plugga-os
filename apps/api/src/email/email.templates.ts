@@ -3,8 +3,9 @@ import type { TransactionalEmail } from "./email.port";
 /**
  * Server-side rendered content for a transactional email. Templates live in the
  * OS (versioned) and are provider-agnostic (ADR-0010): the same rendered output
- * is delivered by Mailpit (local) or Brevo (client account). We never rely on
- * the Brevo template editor, so switching providers never changes the content.
+ * is what Brevo delivers, and what the noop adapter would have delivered. We
+ * never rely on the Brevo template editor, so switching providers never changes
+ * the content.
  */
 export interface RenderedEmail {
   subject: string;
