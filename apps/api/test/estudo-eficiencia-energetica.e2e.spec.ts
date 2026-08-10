@@ -1,97 +1,123 @@
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { PREMISSAS_2026_08, type InvoiceData } from "@plugga/shared";
+import { faturaNormativaSchema, type FaturaNormativa } from "@plugga/shared";
 import { describe, expect, it } from "vitest";
 
-import { auditarFatura } from "../src/energy-efficiency/calculo/auditoria.js";
-import { analisarDemanda } from "../src/energy-efficiency/calculo/demanda.js";
-import { rodarMotorPrd } from "../src/energy-efficiency/calculo/motor-prd.js";
 import { gerarPdf } from "../src/energy-efficiency/documento/pdf.js";
-import { gerarRelatorio } from "../src/energy-efficiency/documento/relatorio.js";
+import { montarCasoDoRelatorio } from "../src/energy-efficiency/nucleo/caso-do-relatorio.js";
+import { rodarEstudo } from "../src/energy-efficiency/nucleo/pipeline.js";
+import { gerarVersaoCelular } from "../src/energy-efficiency/nucleo/relatorio-celular.js";
+import { gerarRelatorio } from "../src/energy-efficiency/nucleo/relatorio-literal.js";
 
 /**
- * Ponta a ponta do estudo de eficiência energética: fatura → cálculo →
- * documento → validação bloqueante → PDF.
+ * Ponta a ponta do estudo: fatura conciliada → pipeline → substituições →
+ * documento → PDF.
  *
  * Abre um navegador de verdade, então roda só quando pedido:
  *
  *     RUN_PDF_INTEGRATION_TESTS=true pnpm --filter @plugga/api test
  *
- * O caso é a A M Química, com os valores do cenário cativo estimado pela
- * auditoria Plugga em 06/2026.
+ * O caso é o Santa Tereza do corpus normativo, o mesmo que fecha os MD5
+ * aprovados — assim o PDF sai de um documento que já se sabe correto.
  */
 const HABILITADO = process.env.RUN_PDF_INTEGRATION_TESTS === "true";
 
-const FATURA: InvoiceData = {
-  consumoPontaKwh: 4_275,
-  consumoForaPontaKwh: 126_050,
-  tarifaPonta: 1.82396,
-  tarifaForaPonta: 0.53899,
-  valorPonta: 7_797.43,
-  valorForaPonta: 67_939.69,
-  valorDemanda: 15_827.0,
-  valorTotal: 100_881.25,
-  demandaContratadaKw: 700,
-  demandaMedidaPontaKw: 249,
-  demandaMedidaForaPontaKw: 586,
-  tarifaDemanda: 22.61,
-  valorReativo: 571.22,
-  valorBeneficioFiscal: 0,
-  valorMultasJurosEncargos: 0,
-};
+const CASOS = join(
+  __dirname,
+  "../../../packages/auditoria-oraculo/referencia",
+  "skill-estudo-eficiencia-energetica/casos",
+);
 
-function gerar() {
-  const premissas = PREMISSAS_2026_08;
-  const auditoria = auditarFatura(FATURA);
-  const { dimensionamento, economia, financeiro } = rodarMotorPrd(FATURA, premissas);
-  const demanda = analisarDemanda({
-    demandaContratadaKw: 700,
-    historicoKw: [634, 704, 705, 698, 668, 586],
-    tarifaDemanda: 22.61,
-    premissas,
+type Json = Record<string, unknown>;
+
+function camelizar(valor: unknown): unknown {
+  if (Array.isArray(valor)) return valor.map(camelizar);
+  if (valor !== null && typeof valor === "object") {
+    return Object.fromEntries(
+      Object.entries(valor as Json).map(([chave, filho]) => [
+        chave.replace(/_([a-z])/g, (_, letra: string) => letra.toUpperCase()),
+        camelizar(filho),
+      ]),
+    );
+  }
+  return valor;
+}
+
+function faturaDoCorpus(): FaturaNormativa {
+  const bruto = camelizar(
+    JSON.parse(
+      readFileSync(join(CASOS, "fatura-santa-tereza-2026-06_conciliada.json"), "utf8"),
+    ),
+  ) as Json;
+  const aceitos = Object.keys(faturaNormativaSchema.shape);
+
+  return faturaNormativaSchema.parse(
+    Object.fromEntries(Object.entries(bruto).filter(([chave]) => aceitos.includes(chave))),
+  );
+}
+
+function gerar(): { html: string; celular: string } {
+  const fatura = faturaDoCorpus();
+  const caso = JSON.parse(
+    readFileSync(join(CASOS, "caso-motor-santa-tereza.json"), "utf8"),
+  ) as Json;
+
+  const estudo = rodarEstudo({
+    funcao: "solar_bess",
+    consumoPontaDesejadoKwhMes: caso.consumo_ponta_desejado_kwh_mes as number,
+    nBess: caso.n_bess as number,
+    capexBessTotal: caso.capex_bess_total as number,
+    tusdP: caso.tusd_p as number,
+    teP: caso.te_p as number,
+    tusdFp: caso.tusd_fp as number,
+    teFp: caso.te_fp as number,
+    hspMensal: caso.hsp_mensal as number[],
+    solarKwp: 0,
+    capexSolarTotal: 0,
   });
 
-  return gerarRelatorio({
-    caso: {
-      cliente: "A M QUIMICA INDUSTRIA E COMERCIO DE PRODUTOS QUIMICOS LTDA",
-      unidadeConsumidora: "0000033531002-19",
-      distribuidora: "Amazonas Energia",
-      localidade: "Manaus/AM",
-      grupoModalidade: "Grupo A · A4 · Horossazonal Verde",
-      referencia: "06/2026",
-    },
-    fatura: FATURA,
-    premissas,
-    auditoria,
-    demanda,
-    dimensionamento,
-    economia,
-    financeiro,
-  });
+  const html = gerarRelatorio(
+    montarCasoDoRelatorio({
+      fatura,
+      tarifas: {
+        tusdP: caso.tusd_p as number,
+        teP: caso.te_p as number,
+        tusdFp: caso.tusd_fp as number,
+        teFp: caso.te_fp as number,
+      },
+      consumoPontaDoCaso: caso.consumo_ponta_desejado_kwh_mes as number,
+      fluxoBess: estudo.fluxoBess,
+      fluxoSolar: estudo.fluxoSolar,
+      solarKwp: estudo.solarKwp,
+      capexSolarTotal: estudo.capexSolarTotal,
+    }),
+  );
+
+  return { html, celular: gerarVersaoCelular(html) };
 }
 
 describe.skipIf(!HABILITADO)("estudo de eficiência energética — ponta a ponta", () => {
   it("gera HTML válido e converte em PDF", async () => {
-    const { html, problemas } = gerar();
+    const { html, celular } = gerar();
 
-    // A validação bloqueante vem antes do PDF: documento reprovado não vira
-    // arquivo, que é o comportamento da trava original.
-    expect(problemas).toEqual([]);
+    expect(html).toContain("<h1");
+    expect(celular).toContain("camada-celular-v2");
 
     const pdf = await gerarPdf(html);
 
-    // %PDF-1. no início é a assinatura do formato.
+    // %PDF- no início é a assinatura do formato.
     expect(pdf.subarray(0, 5).toString("latin1")).toBe("%PDF-");
-    // Um documento com dez seções, três gráficos grandes e as tabelas ano a ano
-    // não cabe em poucos kilobytes; tamanho ínfimo indicaria render vazio.
+    // Um documento com dez seções, cinco gráficos e as tabelas ano a ano não
+    // cabe em poucos kilobytes; tamanho ínfimo indicaria render vazio.
     expect(pdf.byteLength).toBeGreaterThan(100_000);
 
     const pasta = mkdtempSync(join(tmpdir(), "plugga-estudo-"));
-    const destino = join(pasta, "estudo-am-quimica-06-2026.pdf");
+    const destino = join(pasta, "estudo-santa-tereza-06-2026.pdf");
     writeFileSync(destino, pdf);
     writeFileSync(destino.replace(/\.pdf$/, ".html"), html);
+    writeFileSync(destino.replace(/\.pdf$/, "_celular.html"), celular);
     console.log(`[estudo] artefatos em ${pasta}`);
   }, 120_000);
 });

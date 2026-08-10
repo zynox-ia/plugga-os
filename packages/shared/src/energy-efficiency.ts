@@ -213,6 +213,8 @@ export const invoiceContextSchema = z
      */
     apelido: z.string().trim().min(1).nullish(),
     classe: z.string().trim().min(1).nullish(),
+    /** Cidade/UF da unidade, como sai impresso no relatório. */
+    localidade: z.string().trim().min(1).nullish(),
     leituraAnterior: z.string().trim().min(1).nullish(),
     leituraAtual: z.string().trim().min(1).nullish(),
     /**
@@ -259,151 +261,58 @@ export const trafficLightResultSchema = z
   .strict();
 export type TrafficLightResult = z.infer<typeof trafficLightResultSchema>;
 
-// --- Resultados: auditoria -------------------------------------------------
-
-/** Faixas do diagnóstico de reativo sobre o total da fatura. */
-export const reactiveDiagnosisSchema = z.enum(["registrar", "atencao", "investigar"]);
-export type ReactiveDiagnosis = z.infer<typeof reactiveDiagnosisSchema>;
-
-export const auditResultSchema = z
-  .object({
-    consumoTotalKwh: z.number(),
-    custoKwhPonta: z.number(),
-    custoKwhForaPonta: z.number(),
-    custoMedioTotal: z.number(),
-    custoMedioEfetivo: z.number(),
-    spread: z.number(),
-    reativoPercentual: z.number(),
-    reativoDiagnostico: reactiveDiagnosisSchema,
-    beneficioFiscalPercentual: z.number(),
-  })
-  .strict();
-export type AuditResult = z.infer<typeof auditResultSchema>;
-
-// --- Resultados: demanda ---------------------------------------------------
-
-export const demandScenarioKeySchema = z.enum(["conservador", "intermediario", "arrojado"]);
-export type DemandScenarioKey = z.infer<typeof demandScenarioKeySchema>;
+// --- Resultado do estudo ---------------------------------------------------
 
 /**
- * Fora da faixa de 5%–20% a alteração deixa de ser solicitação simples e vira
- * orçamento de conexão (REN ANEEL 1.000/2021, arts. 154, 155 e 311–314).
+ * O que o estudo devolve, no formato do núcleo normativo.
+ *
+ * Substitui os cinco blocos da versão anterior — auditoria, demanda,
+ * dimensionamento, economia e financeiro. Aqueles nasceram de análises que a
+ * norma não faz; o que a norma produz é isto: dois cenários, os indicadores de
+ * cada um e o fluxo de 20 anos.
  */
-export const demandChangeClassificationSchema = z.enum([
-  "reducao_simples",
-  "ampliacao_simples",
-  "abaixo_do_gatilho",
-  "orcamento_de_conexao",
-]);
-export type DemandChangeClassification = z.infer<typeof demandChangeClassificationSchema>;
-
-export const demandScenarioSchema = z
+export const cenarioDoEstudoSchema = z
   .object({
-    chave: demandScenarioKeySchema,
-    demandaPropostaKw: z.number(),
-    limiteSemMultaKw: z.number(),
-    mesesAcimaDoContrato: z.number().int().nonnegative(),
-    mesesComMulta: z.number().int().nonnegative(),
-    economiaMensal: z.number(),
-    economiaAnual: z.number(),
-    variacao: z.number(),
-    classificacao: demandChangeClassificationSchema,
+    capexTotal: z.number(),
+    economiaAno1: z.number(),
+    tirAa: z.number().nullable(),
+    paybackAnos: z.number().nullable(),
+    acumulado20Anos: z.number(),
   })
   .strict();
-export type DemandScenario = z.infer<typeof demandScenarioSchema>;
+export type CenarioDoEstudo = z.infer<typeof cenarioDoEstudoSchema>;
 
-export const demandResultSchema = z
+export const estudoResultSchema = z
   .object({
-    utilizacao: z.number(),
-    toleranciaKw: z.number(),
-    houveUltrapassagem: z.boolean(),
-    picoObservadoKw: z.number(),
-    mesesDeHistorico: z.number().int().nonnegative(),
-    /** Só deixa de ser preliminar com 12 meses ou memória de massa. */
-    preliminar: z.boolean(),
-    cenarios: z.array(demandScenarioSchema),
-    recomendado: demandScenarioKeySchema.nullable(),
-    /** Ociosidade é dinheiro na mesa, nunca multa. */
-    ociosidadeMensal: z.number(),
-  })
-  .strict();
-export type DemandResult = z.infer<typeof demandResultSchema>;
+    modo: z.enum(["solar_bess", "peak_shaving"]),
+    unidadesBess: z.number().int().positive(),
+    solarKwp: z.number().nonnegative(),
+    /** De onde veio o kWp: valor aprovado no caso ou sugerido pelo pior mês. */
+    regraDoKwp: z.enum(["aprovado", "pior_mes"]),
 
-// --- Resultados: dimensionamento -------------------------------------------
+    capexBess: z.number(),
+    capexSolar: z.number(),
+    capexTotal: z.number(),
 
-export const sizingResultSchema = z
-  .object({
-    consumoPontaDiarioKwh: z.number(),
-    bessUnidadesPorEnergia: z.number().int().nonnegative(),
-    bessUnidadesPorPotencia: z.number().int().nonnegative(),
-    bessUnidades: z.number().int().nonnegative(),
-    bessLimitador: z.enum(["energia", "potencia"]),
-    energiaUtilCicloKwh: z.number(),
-    energiaUtilMesPorBessKwh: z.number(),
-    energiaCargaMesPorBessKwh: z.number(),
-    coberturaConsumo: z.number(),
-    fvKwp: z.number().nonnegative(),
-    fvGeracaoMensalKwh: z.number(),
-  })
-  .strict();
-export type SizingResult = z.infer<typeof sizingResultSchema>;
-
-// --- Resultados: cenários --------------------------------------------------
-
-export const savingsResultSchema = z
-  .object({
-    economiaBessMensal: z.number(),
-    economiaFvMensal: z.number(),
     economiaMensal: z.number(),
     economiaAno1: z.number(),
     faturaProjetada: z.number(),
-  })
-  .strict();
-export type SavingsResult = z.infer<typeof savingsResultSchema>;
 
-// --- Resultados: financeiro ------------------------------------------------
-
-export const financialResultSchema = z
-  .object({
-    capexBess: z.number(),
-    capexFv: z.number(),
-    capexTotal: z.number(),
-    /** Economia de cada ano, já reajustada. */
-    fluxoAnual: z.array(z.number()),
-    economiaAcumulada: z.array(z.number()),
-    /** Índice 0 = −CAPEX; daí em diante, acumulado. */
-    fluxoCaixaAcumulado: z.array(z.number()),
-    /** CAPEX ÷ economia do ano 1. Ignora reajuste e valor do dinheiro no tempo. */
-    paybackSimplesAnos: z.number(),
-    /**
-     * Ano em que o acumulado **reajustado** cobre o CAPEX. É este o número que
-     * os estudos entregues rotulavam apenas como "Payback" — no Serra Verde,
-     * 6,9 anos, enquanto o simples dava 7,75. Nomes distintos por decisão.
-     */
-    paybackProjetadoAnos: z.number().nullable(),
-    /** Ano em que o acumulado **descontado pela TMA** cobre o CAPEX. */
-    paybackDescontadoAnos: z.number().nullable(),
-    vpl: z.number(),
-    tir: z.number().nullable(),
+    tirAa: z.number().nullable(),
+    paybackAnos: z.number().nullable(),
     acumulado20Anos: z.number(),
-    economiaLiquida20Anos: z.number(),
-    fluxoMensal: z.array(
-      z.object({
-        ano: z.number().int().positive(),
-        mes: z.number().int().min(1).max(12),
-        soh: z.number(),
-        receitaPonta: z.number(),
-        custoCarga: z.number(),
-        geracaoSolar: z.number(),
-        solarParaBess: z.number(),
-        excedenteSemCredito: z.number(),
-        economiaLiquida: z.number(),
-        acumulado: z.number(),
-      }),
-    ),
+    /** Interno: alimenta a validação contra as planilhas, não vai ao cliente. */
+    vplTma: z.number(),
+
+    /** Ano 0 é o CAPEX negativo; daí em diante, a economia de cada ano. */
+    fluxoAnual: z.array(z.number()),
+    fluxoAcumulado: z.array(z.number()),
+
+    /** O cenário sem solar, que é o que o semáforo julga. */
+    bessPuro: cenarioDoEstudoSchema,
   })
   .strict();
-export type FinancialResult = z.infer<typeof financialResultSchema>;
+export type EstudoResult = z.infer<typeof estudoResultSchema>;
 
 /**
  * Problema apontado pela validação bloqueante do documento. Fica no contrato
@@ -473,11 +382,7 @@ export const energyStudyDetailSchema = energyStudySummarySchema
     invoiceContext: invoiceContextSchema.nullable(),
     reconciliationProof: reconciliationProofSchema.nullable(),
     demandHistory: z.array(z.number()),
-    audit: auditResultSchema.nullable(),
-    demand: demandResultSchema.nullable(),
-    sizing: sizingResultSchema.nullable(),
-    savings: savingsResultSchema.nullable(),
-    financial: financialResultSchema.nullable(),
+    estudo: estudoResultSchema.nullable(),
     trafficLightResult: trafficLightResultSchema.nullable(),
     validationIssues: z.array(problemaDeValidacaoSchema).nullable(),
     hasDocument: z.boolean(),

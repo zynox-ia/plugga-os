@@ -15,20 +15,24 @@ import type {
 } from "@plugga/shared";
 
 import type { AuthPrincipal } from "../core/auth/auth.types";
-import { auditarFatura } from "./calculo/auditoria.js";
-import { analisarDemanda } from "./calculo/demanda.js";
-import { rodarMotorPrd } from "./calculo/motor-prd.js";
-import { chaveDoTipo, classificarSemaforo } from "./calculo/semaforo.js";
-import { conciliarFatura } from "./nucleo/conciliacao.js";
-import {
-  contarConferencias,
-  faturaNormativaDoSistema,
-} from "./nucleo/da-fatura-do-sistema.js";
-import { gerarVersaoCelular } from "./documento/celular.js";
 import { calcularHashDocumento } from "./documento/integridade.js";
 import { nomeDoArquivoPdf } from "./documento/nome-arquivo.js";
 import { FilaCheiaError, NavegadorIndisponivelError, gerarPdf } from "./documento/pdf.js";
-import { gerarRelatorio } from "./documento/relatorio.js";
+import {
+  CasoIncoerenteError,
+  ForaDoEnvelopeError,
+  montarCasoDoRelatorio,
+} from "./nucleo/caso-do-relatorio.js";
+import { conciliarFatura } from "./nucleo/conciliacao.js";
+import {
+  casoDoMotorDaFatura,
+  contarConferencias,
+  faturaNormativaDoSistema,
+} from "./nucleo/da-fatura-do-sistema.js";
+import { rodarEstudo } from "./nucleo/pipeline.js";
+import { gerarVersaoCelular } from "./nucleo/relatorio-celular.js";
+import { gerarRelatorio } from "./nucleo/relatorio-literal.js";
+import { chaveDoTipo, classificarSemaforo } from "./nucleo/semaforo.js";
 import { EstudoRepository } from "./estudo.repository.js";
 import {
   assertCompetencia,
@@ -159,7 +163,7 @@ export class EstudoService {
       sentAt: null,
     });
 
-    return this.calcular(id, input.hasLoadProfile);
+    return this.calcular(id);
   }
 
   /**
@@ -167,7 +171,7 @@ export class EstudoService {
    * resultado da validação decide o estado: limpo vai para `em_validacao`,
    * com problema vai para `bloqueado`.
    */
-  async calcular(id: string, temMemoriaDeMassa?: boolean): Promise<EnergyStudyDetail> {
+  async calcular(id: string): Promise<EnergyStudyDetail> {
     const estudo = await this.repository.carregar(id);
     if (!estudo.invoice || !estudo.invoiceContext) {
       throw new BadRequestException(
@@ -186,10 +190,8 @@ export class EstudoService {
       sentAt: null,
     });
 
-    const premissas = await this.repository.premissasPorVersao(estudo.premiseVersion);
     const fatura = estudo.invoice;
     const contexto = estudo.invoiceContext;
-    const usaMemoriaDeMassa = temMemoriaDeMassa ?? estudo.hasLoadProfile;
 
     // Trava 1 é a do pacote normativo, aplicada sobre a fatura na forma da
     // norma. A prova guardada mantém o par de conferências que a interface já
@@ -213,7 +215,7 @@ export class EstudoService {
         trafficLight: "vermelho",
         trafficLightResult: {
           faixa: "vermelho",
-          chaveTipo: chaveDoTipo(contexto),
+          chaveTipo: chaveDoTipo(faturaNormativa),
           tipoConhecido: false,
           motivos: conciliacao.problemas.map((problema) => problema.detalhe),
           quatroNumeros: {
@@ -229,73 +231,165 @@ export class EstudoService {
       });
     }
 
-    const auditoria = auditarFatura(fatura);
-    const { dimensionamento, economia, financeiro } = rodarMotorPrd(fatura, premissas);
-    const demanda = analisarDemanda({
-      demandaContratadaKw: fatura.demandaContratadaKw,
-      historicoKw: estudo.demandHistory,
-      tarifaDemanda: fatura.tarifaDemanda ?? 0,
-      premissas,
-      temMemoriaDeMassa: usaMemoriaDeMassa,
+    // Cálculo: o pipeline normativo, com as duas passagens e os dois fluxos.
+    const caso = casoDoMotorDaFatura(faturaNormativa, contexto.hspMensal ?? null);
+    const estudoCalculado = rodarEstudo(caso);
+    const { fluxoBess, fluxoSolar } = estudoCalculado;
+
+    // O semáforo julga o fluxo BESS; o documento fala do fluxo Solar.
+    const tipoConhecido = await this.repository.tipoConhecido(chaveDoTipo(faturaNormativa));
+    const semaforo = classificarSemaforo({
+      fatura: faturaNormativa,
+      conciliada: true,
+      fluxoBess,
+      tipoConhecido,
     });
 
-    const detalhe = detalheDaUnidade;
-    const { html, problemas } = gerarRelatorio({
-      caso: {
-        cliente: detalhe.clientName,
-        unidadeConsumidora: detalhe.consumerUnitCode,
-        distribuidora: contexto.distribuidora,
-        localidade: "—",
-        grupoModalidade: `Grupo ${contexto.grupo} · ${contexto.modalidade} · ${contexto.regime}`,
-        referencia: `${String(estudo.competenceMonth).padStart(2, "0")}/${estudo.competenceYear}`,
-        vencimento: contexto.vencimento ?? undefined,
+    const indicadores = fluxoSolar.indicadores;
+    const economiaAno1 = fluxoSolar.fluxo_anual[1] ?? 0;
+    const acumulado: number[] = [fluxoSolar.fluxo_anual[0] ?? 0];
+    for (const ano of fluxoSolar.fluxo_anual.slice(1)) {
+      acumulado.push(acumulado[acumulado.length - 1]! + ano);
+    }
+    const resultado = {
+      modo: estudoCalculado.modo,
+      unidadesBess: fluxoSolar.dimensionamento.n_bess_adotado,
+      solarKwp: estudoCalculado.solarKwp,
+      regraDoKwp: estudoCalculado.regraDoKwp,
+      capexBess: Math.abs(fluxoBess.fluxo_anual[0] ?? 0),
+      capexSolar: estudoCalculado.capexSolarTotal,
+      capexTotal: indicadores.capex_total,
+      economiaMensal: economiaAno1 / 12,
+      economiaAno1,
+      faturaProjetada: fatura.valorTotal - economiaAno1 / 12,
+      tirAa: indicadores.tir_aa,
+      paybackAnos: indicadores.payback_anos,
+      acumulado20Anos: indicadores.acumulado_20a,
+      vplTma: indicadores.vpl_tma,
+      fluxoAnual: fluxoSolar.fluxo_anual,
+      fluxoAcumulado: acumulado,
+      bessPuro: {
+        capexTotal: fluxoBess.indicadores.capex_total,
+        economiaAno1: fluxoBess.fluxo_anual[1] ?? 0,
+        tirAa: fluxoBess.indicadores.tir_aa,
+        paybackAnos: fluxoBess.indicadores.payback_anos,
+        acumulado20Anos: fluxoBess.indicadores.acumulado_20a,
       },
-      fatura,
-      premissas,
-      auditoria,
-      demanda,
-      dimensionamento,
-      economia,
-      financeiro,
-    });
+    };
+
+    // Vermelho para antes do documento: relatório reprovado não nasce.
+    if (semaforo.faixa === "vermelho") {
+      return this.bloquear(id, {
+        resultado,
+        prova: conciliacao.prova,
+        semaforo,
+        fatura,
+        indicadores,
+        motivos: semaforo.motivos,
+      });
+    }
+
+    // Documento: substituição literal sobre o modelo congelado. Fora do
+    // envelope suportado o núcleo recusa, e recusa vira faixa vermelha com o
+    // erro literal — é o "para e escala" da norma, não um 500 na cara de quem
+    // opera.
+    let casoDoRelatorio;
+    try {
+      casoDoRelatorio = montarCasoDoRelatorio({
+        fatura: faturaNormativa,
+        tarifas: {
+          tusdP: caso.tusdP ?? null,
+          teP: caso.teP ?? null,
+          tusdFp: caso.tusdFp ?? 0,
+          teFp: caso.teFp ?? 0,
+        },
+        consumoPontaDoCaso: caso.consumoPontaDesejadoKwhMes ?? 0,
+        fluxoBess,
+        fluxoSolar,
+        solarKwp: estudoCalculado.solarKwp,
+        capexSolarTotal: estudoCalculado.capexSolarTotal,
+      });
+    } catch (erro) {
+      if (erro instanceof ForaDoEnvelopeError || erro instanceof CasoIncoerenteError) {
+        return this.bloquear(id, {
+          resultado,
+          prova: conciliacao.prova,
+          semaforo,
+          fatura,
+          indicadores,
+          motivos: [erro.message],
+        });
+      }
+      throw erro;
+    }
+    const html = gerarRelatorio(casoDoRelatorio);
+    const htmlCelular = gerarVersaoCelular(html);
 
     await this.repository.atualizar(id, { status: "relatorio_gerado" });
 
-    const tipoConhecido = await this.repository.tipoConhecido(chaveDoTipo(contexto));
-    let semaforo = classificarSemaforo({
-      fatura,
-      contexto,
-      economia,
-      financeiro,
-      tipoConhecido,
-    });
-    if (problemas.length > 0) {
-      semaforo = {
-        ...semaforo,
-        faixa: "vermelho",
-        motivos: [...semaforo.motivos, ...problemas.map((problema) => problema.detalhe)],
-      };
-    }
-
-    const bloqueado = semaforo.faixa === "vermelho";
-    const htmlCelular = bloqueado ? null : gerarVersaoCelular(html);
     return this.repository.atualizar(id, {
-      status: bloqueado ? "bloqueado" : estadoAposValidacao([]),
-      results: { auditoria, demanda, dimensionamento, economia, financeiro },
+      status: estadoAposValidacao([]),
+      results: { estudo: resultado },
       reconciliationProof: conciliacao.prova,
       trafficLight: semaforo.faixa,
-      trafficLightResult: semaforo,
-      validationIssues: bloqueado
-        ? problemas.length > 0
-          ? problemas
-          : semaforo.motivos.map((detalhe) => ({ regra: "semaforo", detalhe }))
-        : null,
-      documentHtml: bloqueado ? null : html,
+      trafficLightResult: {
+        faixa: semaforo.faixa,
+        chaveTipo: semaforo.chaveDoTipo,
+        tipoConhecido: semaforo.tipoConhecido,
+        motivos: semaforo.motivos,
+        quatroNumeros: {
+          totalFatura: fatura.valorTotal,
+          consumoPontaKwh: fatura.consumoPontaKwh,
+          tirAnual: indicadores.tir_aa,
+          paybackAnos: indicadores.payback_anos,
+        },
+      },
+      validationIssues: null,
+      documentHtml: html,
       documentHtmlMobile: htmlCelular,
-      documentHash: bloqueado ? null : calcularHashDocumento(html),
-      documentMobileHash: htmlCelular ? calcularHashDocumento(htmlCelular) : null,
-      economiaMensal: economia.economiaMensal,
-      capexTotal: financeiro.capexTotal,
+      documentHash: calcularHashDocumento(html),
+      documentMobileHash: calcularHashDocumento(htmlCelular),
+      economiaMensal: resultado.economiaMensal,
+      capexTotal: resultado.capexTotal,
+    });
+  }
+
+  /**
+   * Faixa vermelha: para e escala com o erro literal. Nunca entrega, e não há
+   * override — a saída é corrigir a fonte e recalcular, que cria uma execução
+   * nova (PRD §7 e §8.2).
+   */
+  private bloquear(
+    id: string,
+    entrada: {
+      resultado: Record<string, unknown>;
+      prova: Record<string, unknown>;
+      semaforo: { chaveDoTipo: string; tipoConhecido: boolean };
+      fatura: { valorTotal: number; consumoPontaKwh: number };
+      indicadores: { tir_aa: number | null; payback_anos: number | null };
+      motivos: string[];
+    },
+  ): Promise<EnergyStudyDetail> {
+    return this.repository.atualizar(id, {
+      status: "bloqueado",
+      results: { estudo: entrada.resultado },
+      reconciliationProof: entrada.prova as never,
+      trafficLight: "vermelho",
+      trafficLightResult: {
+        faixa: "vermelho",
+        chaveTipo: entrada.semaforo.chaveDoTipo,
+        tipoConhecido: entrada.semaforo.tipoConhecido,
+        motivos: entrada.motivos,
+        quatroNumeros: {
+          totalFatura: entrada.fatura.valorTotal,
+          consumoPontaKwh: entrada.fatura.consumoPontaKwh,
+          tirAnual: entrada.indicadores.tir_aa,
+          paybackAnos: entrada.indicadores.payback_anos,
+        },
+      },
+      validationIssues: entrada.motivos.map((detalhe) => ({ regra: "semaforo", detalhe })),
+      documentHtml: null,
+      documentHtmlMobile: null,
     });
   }
 

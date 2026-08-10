@@ -34,7 +34,7 @@ export type EstudoRegistro = {
   reconciliationProof: ReconciliationProof | null;
   demandHistory: number[];
   hasLoadProfile: boolean;
-  results: EnergyStudyDetail["audit"] extends never ? never : Record<string, unknown> | null;
+  results: Record<string, unknown> | null;
   validationIssues: ProblemaDeValidacao[] | null;
   documentHtml: string | null;
   documentHtmlMobile: string | null;

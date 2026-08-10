@@ -31,7 +31,7 @@ const FATURA: InvoiceData = {
   valorDemanda: 15_827.0,
   valorTotal: 100_881.25,
   demandaContratadaKw: 700,
-  demandaMedidaPontaKw: 249,
+  demandaMedidaPontaKw: 231,
   demandaMedidaForaPontaKw: 586,
   tarifaDemanda: 22.61,
   valorReativo: 571.22,
@@ -45,6 +45,12 @@ const CONTEXTO: InvoiceContext = {
   modalidade: "verde",
   grupo: "A",
   vencimento: "20/07/2026",
+  apelido: "Loja Centro",
+  classe: "Comercial / comercial",
+  localidade: "Manaus/AM",
+  leituraAnterior: "31/05/2026",
+  leituraAtual: "30/06/2026",
+  hspMensal: [4.5, 4.5, 4.5, 4.5, 4.5, 4.5, 4.5, 4.5, 4.5, 4.5, 4.5, 4.5],
   itens: [
     {
       nome: "Consumo ponta",
@@ -83,7 +89,7 @@ const CONTEXTO: InvoiceContext = {
       tarifa: null,
     },
     {
-      nome: "Outros itens",
+      nome: "COSIP",
       categoria: "outros",
       compoeTotal: true,
       valor: 8_745.91,
@@ -167,11 +173,7 @@ class RepositorioEmMemoria extends EstudoRepository {
       invoiceContext: r.invoiceContext,
       reconciliationProof: r.reconciliationProof,
       demandHistory: r.demandHistory,
-      audit: results.auditoria ?? null,
-      demand: results.demanda ?? null,
-      sizing: results.dimensionamento ?? null,
-      savings: results.economia ?? null,
-      financial: results.financeiro ?? null,
+      estudo: results.estudo ?? null,
       trafficLightResult: r.trafficLightResult,
       validationIssues: r.validationIssues,
       hasDocument: r.documentHtml !== null,
@@ -369,9 +371,36 @@ describe("EstudoService — fluxo completo", () => {
     expect(estudo.hasMobileDocument).toBe(true);
     expect(estudo.trafficLight).toBe("amarelo");
     // Os números do motor ficam gravados, não recalculados a cada leitura.
-    expect(estudo.savings?.economiaMensal).toBeGreaterThan(0);
-    expect(estudo.financial?.capexTotal).toBeGreaterThan(1_650_000);
-    expect(estudo.demand?.preliminar).toBe(true);
+    expect(estudo.estudo?.economiaMensal).toBeGreaterThan(0);
+    // Uma unidade BESS a R$ 550 mil mais a usina derivada do kWp: o CAPEX
+    // agora vem do dimensionamento normativo, não de uma premissa de tabela.
+    expect(estudo.estudo?.capexBess).toBe(550_000);
+    expect(estudo.estudo?.capexTotal).toBeGreaterThan(550_000);
+    // O estudo carrega os dois cenários: o apresentado e o BESS puro que o
+    // semáforo julga.
+    expect(estudo.estudo?.modo).toBe("solar_bess");
+    expect(estudo.estudo?.solarKwp).toBeGreaterThan(0);
+    expect(estudo.estudo?.bessPuro.capexTotal).toBeLessThan(
+      estudo.estudo!.capexTotal,
+    );
+    expect(estudo.estudo?.fluxoAnual).toHaveLength(21);
+  });
+
+  it("fora do envelope suportado, para e escala com o erro literal", async () => {
+    const criado = await criar();
+
+    const estudo = await service.receberFatura(criado.id, {
+      ...RECEBIMENTO,
+      // Pico de ponta que exigiria mais unidades do que a energia pede: o
+      // dimensionamento passa a ser limitado por potência, que o envelope da
+      // norma não cobre.
+      invoice: { ...FATURA, demandaMedidaPontaKw: 700 },
+    });
+
+    expect(estudo.status).toBe("bloqueado");
+    expect(estudo.trafficLight).toBe("vermelho");
+    expect(estudo.hasDocument).toBe(false);
+    expect(estudo.validationIssues?.[0]?.detalhe).toContain("limitado por potência");
   });
 
   it("obriga e aceita conciliação antes de recalcular estudo legado", async () => {
@@ -394,11 +423,10 @@ describe("EstudoService — fluxo completo", () => {
     });
 
     expect(estudo.calculationMode).toBe("memoria_massa");
-    expect(estudo.demand?.preliminar).toBe(false);
 
     const recalculado = await service.calcular(criado.id);
     expect(recalculado.calculationMode).toBe("memoria_massa");
-    expect(recalculado.demand?.preliminar).toBe(false);
+    expect(recalculado.estudo?.economiaAno1).toBe(estudo.estudo?.economiaAno1);
   });
 
   it("percorre aprovação e envio", async () => {

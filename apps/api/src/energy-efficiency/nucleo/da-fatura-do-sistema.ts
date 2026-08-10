@@ -77,7 +77,10 @@ export function faturaNormativaDoSistema(
     regime: contexto.regime,
     grupo: contexto.grupo,
     modalidade: contexto.modalidade,
+    // O nome que vai impresso é o mesmo que a pessoa conferiu na tela.
+    distribuidoraDisplay: contexto.distribuidora,
     ...(!contexto.classe ? {} : { classeDisplay: contexto.classe }),
+    ...(!contexto.localidade ? {} : { localidade: contexto.localidade }),
     ...(!contexto.leituraAnterior
       ? {}
       : { leituraAnterior: contexto.leituraAnterior }),

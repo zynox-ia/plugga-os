@@ -140,9 +140,7 @@ export function EstudoDetalheView({ estudo }: { estudo: EnergyStudyDetail }) {
         <p className="card-note">
           Premissas <b>{estudo.premiseVersion}</b> · modo{" "}
           {estudo.calculationMode === "preliminar" ? "preliminar" : "com memória de massa"}
-          {estudo.demand?.preliminar
-            ? " · análise de demanda preliminar, faltam 12 meses de histórico"
-            : ""}
+          {estudo.estudo ? ` · ${estudo.estudo.modo === "peak_shaving" ? "peak shaving" : "Solar+BESS"}` : ""}
         </p>
         {erro ? <p className="auth-error">{erro}</p> : null}
       </ShellCard>
@@ -368,83 +366,102 @@ export function EstudoDetalheView({ estudo }: { estudo: EnergyStudyDetail }) {
         </ShellCard>
       ) : null}
 
-      {estudo.audit && estudo.financial && estudo.savings && estudo.sizing ? (
+      {estudo.estudo ? (
         <>
           <ShellCard className="panel-card">
             <div className="card-heading">
               <div>
                 <span className="eyebrow">Resultado</span>
-                <h2>Auditoria e oportunidade</h2>
+                <h2>Oportunidade</h2>
               </div>
             </div>
             <div className="stat-grid">
               <div className="shell-card">
                 <span className="stat-label">Economia mensal</span>
-                <strong className="stat-value">{formatarDinheiro(estudo.savings.economiaMensal)}</strong>
-                <span className="stat-note">ano 1: {formatarDinheiro(estudo.savings.economiaAno1)}</span>
+                <strong className="stat-value">
+                  {formatarDinheiro(estudo.estudo.economiaMensal)}
+                </strong>
+                <span className="stat-note">
+                  ano 1: {formatarDinheiro(estudo.estudo.economiaAno1)}
+                </span>
               </div>
               <div className="shell-card">
                 <span className="stat-label">Investimento</span>
-                <strong className="stat-value">{formatarDinheiro(estudo.financial.capexTotal)}</strong>
+                <strong className="stat-value">
+                  {formatarDinheiro(estudo.estudo.capexTotal)}
+                </strong>
                 <span className="stat-note">
-                  {numero(estudo.sizing.fvKwp)} kWp + {estudo.sizing.bessUnidades} bateria(s)
+                  {estudo.estudo.unidadesBess} bateria(s) + {numero(estudo.estudo.solarKwp, 1)} kWp
+                  {estudo.estudo.regraDoKwp === "aprovado" ? " (kWp aprovado)" : " (pior mês)"}
                 </span>
               </div>
               <div className="shell-card">
-                <span className="stat-label">Retorno simples</span>
-                <strong className="stat-value">{numero(estudo.financial.paybackSimplesAnos, 1)} anos</strong>
-                <span className="stat-note">
-                  descontado:{" "}
-                  {estudo.financial.paybackDescontadoAnos === null
+                <span className="stat-label">Payback</span>
+                <strong className="stat-value">
+                  {estudo.estudo.paybackAnos === null
                     ? "acima do horizonte"
-                    : `${numero(estudo.financial.paybackDescontadoAnos, 1)} anos`}
+                    : `${numero(estudo.estudo.paybackAnos, 1)} anos`}
+                </strong>
+                <span className="stat-note">
+                  TIR{" "}
+                  {estudo.estudo.tirAa === null
+                    ? "—"
+                    : `${numero(estudo.estudo.tirAa * 100, 2)}% ao ano`}
                 </span>
               </div>
               <div className="shell-card">
-                <span className="stat-label">Valor presente líquido</span>
-                <strong className="stat-value">{formatarDinheiro(estudo.financial.vpl)}</strong>
+                <span className="stat-label">Acumulado em 20 anos</span>
+                <strong className="stat-value">
+                  {formatarDinheiro(estudo.estudo.acumulado20Anos)}
+                </strong>
                 <span className="stat-note">
-                  TIR {estudo.financial.tir === null ? "—" : `${numero(estudo.financial.tir * 100, 2)}%`}
+                  fatura projetada: {formatarDinheiro(estudo.estudo.faturaProjetada)}
                 </span>
               </div>
             </div>
-            <ShellTable caption="Leitura da fatura">
+            <ShellTable caption="Cenários comparados">
               <thead>
                 <tr>
-                  <th>Indicador</th>
-                  <th>Valor</th>
+                  <th>Cenário</th>
+                  <th>Investimento</th>
+                  <th>Economia ano 1</th>
+                  <th>TIR</th>
+                  <th>Payback</th>
                 </tr>
               </thead>
               <tbody>
                 <tr>
-                  <td>Custo do kWh em ponta</td>
-                  <td>{formatarDinheiro(estudo.audit.custoKwhPonta)}</td>
-                </tr>
-                <tr>
-                  <td>Custo do kWh fora ponta</td>
-                  <td>{formatarDinheiro(estudo.audit.custoKwhForaPonta)}</td>
-                </tr>
-                <tr>
-                  <td>Custo médio total da fatura</td>
-                  <td>{formatarDinheiro(estudo.audit.custoMedioTotal)}</td>
-                </tr>
-                <tr>
-                  <td>Energia reativa</td>
+                  <td>Apenas BESS</td>
+                  <td>{formatarDinheiro(estudo.estudo.bessPuro.capexTotal)}</td>
+                  <td>{formatarDinheiro(estudo.estudo.bessPuro.economiaAno1)}</td>
                   <td>
-                    {numero(estudo.audit.reativoPercentual, 2)}% · {estudo.audit.reativoDiagnostico}
+                    {estudo.estudo.bessPuro.tirAa === null
+                      ? "—"
+                      : `${numero(estudo.estudo.bessPuro.tirAa * 100, 2)}%`}
+                  </td>
+                  <td>
+                    {estudo.estudo.bessPuro.paybackAnos === null
+                      ? "—"
+                      : `${numero(estudo.estudo.bessPuro.paybackAnos, 1)} anos`}
                   </td>
                 </tr>
-                {estudo.demand ? (
-                  <tr>
-                    <td>Demanda ociosa</td>
-                    <td>
-                      {formatarDinheiro(estudo.demand.ociosidadeMensal)}/mês ·{" "}
-                      {estudo.demand.recomendado
-                        ? `ajuste recomendado: ${estudo.demand.recomendado}`
-                        : "contrato aderente, sem ajuste recomendado"}
-                    </td>
-                  </tr>
-                ) : null}
+                <tr>
+                  <td>
+                    <b>Solar + BESS (apresentado)</b>
+                  </td>
+                  <td>{formatarDinheiro(estudo.estudo.capexTotal)}</td>
+                  <td>{formatarDinheiro(estudo.estudo.economiaAno1)}</td>
+                  <td>
+                    {estudo.estudo.tirAa === null
+                      ? "—"
+                      : `${numero(estudo.estudo.tirAa * 100, 2)}%`}
+                  </td>
+                  <td>
+                    {estudo.estudo.paybackAnos === null
+                      ? "—"
+                      : `${numero(estudo.estudo.paybackAnos, 1)} anos`}
+                  </td>
+                </tr>
               </tbody>
             </ShellTable>
           </ShellCard>
