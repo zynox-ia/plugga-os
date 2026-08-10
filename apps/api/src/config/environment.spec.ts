@@ -36,6 +36,41 @@ describe("validateEnvironment", () => {
     expect(environment.GOOGLE_OIDC_CLIENT_ID).toBeUndefined();
   });
 
+  it("boots when Compose passes the Google variables as empty strings", () => {
+    // `${GOOGLE_OIDC_CLIENT_ID:-}` no compose entrega a variável DEFINIDA e
+    // VAZIA ao contêiner — não ausente. É o estado de todo ambiente que ainda
+    // não usa o recurso, incluindo a produção no dia da etapa 1 do rollout.
+    // Sem tratar vazio como ausente, a API recusava subir justamente ali, e a
+    // CI não pegava porque lá as variáveis estão sempre preenchidas.
+    const environment = validateEnvironment({
+      NODE_ENV: "production",
+      DATABASE_URL: localDatabaseUrl,
+      AUTH_SESSION_SECRET: sessionSecret,
+      GOOGLE_AUTH_ENABLED: "false",
+      GOOGLE_OIDC_CLIENT_ID: "",
+      GOOGLE_LOGIN_URI: "",
+    });
+
+    expect(environment.GOOGLE_AUTH_ENABLED).toBe(false);
+    expect(environment.GOOGLE_OIDC_CLIENT_ID).toBeUndefined();
+    expect(environment.GOOGLE_LOGIN_URI).toBeUndefined();
+  });
+
+  it("still refuses an empty client id when the flag is on", () => {
+    // Tratar vazio como ausente não pode virar uma porta para ligar o recurso
+    // pela metade: a exigência continua valendo quando a flag está ligada.
+    expect(() =>
+      validateEnvironment({
+        NODE_ENV: "development",
+        DATABASE_URL: localDatabaseUrl,
+        AUTH_SESSION_SECRET: sessionSecret,
+        GOOGLE_AUTH_ENABLED: "true",
+        GOOGLE_OIDC_CLIENT_ID: "",
+        GOOGLE_LOGIN_URI: "",
+      }),
+    ).toThrow(/GOOGLE_OIDC_CLIENT_ID is required/);
+  });
+
   it("refuses to enable Google login without an audience to verify against", () => {
     // Sem client ID o verificador não teria contra o que comparar `aud`, e
     // subir assim seria pior do que não ter o recurso.
