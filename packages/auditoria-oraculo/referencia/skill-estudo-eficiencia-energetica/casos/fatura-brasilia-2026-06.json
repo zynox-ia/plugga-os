@@ -1,0 +1,85 @@
+{
+ "cliente": "Mercantil Nova Era Ltda",
+ "cnpj": "04.240.370/0028-77",
+ "uc": "9/18697898 (conta contrato)",
+ "distribuidora": "Energisa Rondonia",
+ "distribuidora_display": "Energisa Rondônia S.A.",
+ "localidade": "Porto Velho/RO",
+ "regime": "mercado_livre",
+ "grupo": "A",
+ "modalidade": "verde",
+ "classe": "comercial",
+ "classe_display": "Comercial / comercial",
+ "referencia": "06/2026",
+ "vencimento": "31/07/2026",
+ "total": 74106.71,
+ "apelido": "Brasilia",
+ "leitura_anterior": "31/05/2026",
+ "leitura_atual": "30/06/2026",
+ "nome_analise": "Mercantil Nova Era (loja Brasília)",
+ "itens": [
+  {
+   "nome": "Consumo Ponta (TUSD)",
+   "valor": 43371.44,
+   "kwh": 12524,
+   "tarifa": 3.46306
+  },
+  {
+   "nome": "Consumo Fora Ponta (TUSD)",
+   "valor": 25065.84,
+   "kwh": 118775,
+   "tarifa": 0.21103
+  },
+  {
+   "nome": "Demanda (TUSD kW)",
+   "valor": 25511.06,
+   "kw": 324,
+   "detalhe": "324 kW medida a 49,826320 + ULTRAPASSAGEM 94 kW a 99,652650"
+  },
+  {
+   "nome": "Reativo excedente ponta",
+   "valor": 9.67
+  },
+  {
+   "nome": "Reativo excedente fora ponta",
+   "valor": 32.32
+  },
+  {
+   "nome": "Debitos APCEI 05/2026",
+   "valor": 40.33
+  },
+  {
+   "nome": "Creditos APCEI 07/2026",
+   "valor": -20773.62
+  },
+  {
+   "nome": "COSIP",
+   "valor": 849.67
+  }
+ ],
+ "consumo_ponta_kwh": 12524,
+ "consumo_fp_kwh": 118775,
+ "demanda_contratada_kw": 230,
+ "demanda_registrada_ponta_kw": 0,
+ "demanda_registrada_fp_kw": 324,
+ "demanda_ref_potencia_kw": 324,
+ "ultrapassagem_valor": 9367.34,
+ "ultrapassagem_kw": 94,
+ "tarifa_demanda_kw": 49.82632,
+ "reativo_ponta_kwh": 32,
+ "reativo_fp_kwh": 108,
+ "reativo_ponta_valor": 9.67,
+ "reativo_fp_valor": 32.32,
+ "tarifa_ponta_total": 3.7073954,
+ "tarifa_fp_total": 0.4553654,
+ "beneficio_isencao_valor": 20733.29,
+ "energia_nf": {
+  "fornecedor": "ENEL (fornecimento livre)",
+  "total": 26064.48,
+  "mwh": 106.675,
+  "preco_kwh": 0.2443354,
+  "obs": "NF secundaria (danfe R$ 7.566,39) informativa, fora da formacao de preco"
+ },
+ "total_gasto_energia": 107737.58,
+ "fonte": "DANF3E Energisa RO + NF ENEL fornecimento"
+}

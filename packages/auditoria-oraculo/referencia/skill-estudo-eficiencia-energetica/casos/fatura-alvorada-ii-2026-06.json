@@ -1,0 +1,77 @@
+{
+ "consumo_ponta_kwh": 19831,
+ "consumo_fp_kwh": 208488,
+ "demanda_complemento_valor": 90.49,
+ "reativo_ponta_kwh": 98,
+ "reativo_ponta_valor": 34.43,
+ "reativo_fp_kwh": 819,
+ "reativo_fp_valor": 287.78,
+ "total": 91533.57,
+ "demanda_contratada_kw": 470,
+ "demanda_registrada_ponta_kw": 438,
+ "demanda_registrada_fp_kw": 462,
+ "classe": "comercial",
+ "uc": "118253377",
+ "vencimento": "14/07/2026",
+ "leitura_anterior": "02/07/2026",
+ "leitura_atual": "02/07/2026",
+ "cliente": "Mercantil Nova Era Ltda",
+ "cnpj": "04.240.370/0001-77",
+ "distribuidora": "Ambar Energia AM",
+ "distribuidora_display": "Âmbar Energia - AM",
+ "localidade": "Manaus/AM",
+ "regime": "mercado_livre",
+ "grupo": "A",
+ "modalidade": "verde",
+ "classe_display": "Comercial / comercial",
+ "referencia": "06/2026",
+ "apelido": "Alvorada Ii",
+ "nome_analise": "Mercantil Nova Era (loja Alvorada Ii)",
+ "itens": [
+  {
+   "nome": "Consumo Ponta (TUSD)",
+   "valor": 18348.79,
+   "kwh": 19831,
+   "tarifa": 0.925258
+  },
+  {
+   "nome": "Consumo Fora Ponta (TUSD)",
+   "valor": 59804.78,
+   "kwh": 208488,
+   "tarifa": 0.28685
+  },
+  {
+   "nome": "Demanda",
+   "valor": 6623.17,
+   "kw": 470,
+   "detalhe": "462 kW a 14,140000 + 8 kW a 11,312000"
+  },
+  {
+   "nome": "Reativo excedente ponta",
+   "valor": 34.43
+  },
+  {
+   "nome": "Reativo excedente fora ponta",
+   "valor": 287.78
+  },
+  {
+   "nome": "COSIP",
+   "valor": 8745.91
+  },
+  {
+   "nome": "Devolucao Diferenca Desconto Tusd - Ccee 04/26-",
+   "valor": -2311.29
+  }
+ ],
+ "demanda_ref_potencia_kw": 438,
+ "tarifa_ponta_total": 1.091008,
+ "tarifa_fp_total": 0.4526,
+ "energia_nf": {
+  "fornecedor": "TRADENER",
+  "total": 37863.93,
+  "mwh": 228.44,
+  "preco_kwh": 0.16575
+ },
+ "total_gasto_energia": 129397.5,
+ "fonte": "NF3e Ambar Energia AM + TRADANER ALVORADA II.pdf"
+}

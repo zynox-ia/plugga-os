@@ -1,0 +1,75 @@
+{
+ "consumo_ponta_kwh": 14721,
+ "consumo_fp_kwh": 170452,
+ "demanda_complemento_valor": 339.78,
+ "reativo_ponta_kwh": 0,
+ "reativo_ponta_valor": 0.0,
+ "reativo_fp_kwh": 0,
+ "reativo_fp_valor": 0.0,
+ "total": 76751.87,
+ "demanda_contratada_kw": 420,
+ "demanda_registrada_ponta_kw": 323,
+ "demanda_registrada_fp_kw": 390,
+ "classe": "comercial",
+ "uc": "118254740",
+ "vencimento": "14/07/2026",
+ "leitura_anterior": "02/07/2026",
+ "leitura_atual": "02/07/2026",
+ "cliente": "Mercantil Nova Era Ltda",
+ "cnpj": "04.240.370/0001-77",
+ "distribuidora": "Ambar Energia AM",
+ "distribuidora_display": "Âmbar Energia - AM",
+ "localidade": "Manaus/AM",
+ "regime": "mercado_livre",
+ "grupo": "A",
+ "modalidade": "verde",
+ "classe_display": "Comercial / comercial",
+ "referencia": "06/2026",
+ "apelido": "Silves",
+ "nome_analise": "Mercantil Nova Era (loja Silves)",
+ "itens": [
+  {
+   "nome": "Consumo Ponta (TUSD)",
+   "valor": 13631.98,
+   "kwh": 14721,
+   "tarifa": 0.926023
+  },
+  {
+   "nome": "Consumo Fora Ponta (TUSD)",
+   "valor": 48894.15,
+   "kwh": 170452,
+   "tarifa": 0.28685
+  },
+  {
+   "nome": "Demanda",
+   "valor": 5861.2,
+   "kw": 420,
+   "detalhe": "390 kW a 14,157500 + 30 kW a 11,326000"
+  },
+  {
+   "nome": "COSIP",
+   "valor": 8745.91
+  },
+  {
+   "nome": "Devolucao Diferenca Desconto Tusd - Ccee 04/26-",
+   "valor": -381.37
+  }
+ ],
+ "demanda_ref_potencia_kw": 323,
+ "tarifa_ponta_total": 1.1720855,
+ "tarifa_fp_total": 0.5329125,
+ "energia_nf": {
+  "fornecedor": "ECOM Energia",
+  "total": 45889.18,
+  "mwh": 186.494,
+  "preco_kwh": 0.2460625
+ },
+ "total_gasto_energia": 122641.05,
+ "fonte": "NF3e Ambar Energia AM + A100010077817-danfe ECOM SILVES.pdf",
+ "conciliada": true,
+ "prova": {
+  "soma_itens": 76751.87,
+  "total": 76751.87,
+  "diferenca": 0.0
+ }
+}

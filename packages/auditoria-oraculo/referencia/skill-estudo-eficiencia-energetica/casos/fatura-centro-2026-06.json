@@ -1,0 +1,82 @@
+{
+ "consumo_ponta_kwh": 5310,
+ "consumo_fp_kwh": 86807,
+ "demanda_complemento_valor": null,
+ "ultrapassagem_kw": 32,
+ "ultrapassagem_valor": 1808.8,
+ "tarifa_demanda_kw": 14.1575,
+ "reativo_ponta_kwh": 0,
+ "reativo_ponta_valor": 0.0,
+ "reativo_fp_kwh": 1,
+ "reativo_fp_valor": 0.35,
+ "total": 41242.69,
+ "demanda_contratada_kw": 180,
+ "demanda_registrada_ponta_kw": 118,
+ "demanda_registrada_fp_kw": 212,
+ "classe": "comercial",
+ "uc": "118252983",
+ "vencimento": "14/07/2026",
+ "leitura_anterior": "02/07/2026",
+ "leitura_atual": "02/07/2026",
+ "cliente": "Mercantil Nova Era Ltda",
+ "cnpj": "04.240.370/0001-77",
+ "distribuidora": "Ambar Energia AM",
+ "distribuidora_display": "Âmbar Energia - AM",
+ "localidade": "Manaus/AM",
+ "regime": "mercado_livre",
+ "grupo": "A",
+ "modalidade": "verde",
+ "classe_display": "Comercial / comercial",
+ "referencia": "06/2026",
+ "apelido": "Centro",
+ "nome_analise": "Mercantil Nova Era (loja Centro)",
+ "itens": [
+  {
+   "nome": "Consumo Ponta (TUSD)",
+   "valor": 4939.61,
+   "kwh": 5310,
+   "tarifa": 0.930248
+  },
+  {
+   "nome": "Consumo Fora Ponta (TUSD)",
+   "valor": 25267.34,
+   "kwh": 86807,
+   "tarifa": 0.291075
+  },
+  {
+   "nome": "Demanda",
+   "valor": 3001.39,
+   "kw": 212,
+   "detalhe": "212 kW a 14,157500"
+  },
+  {
+   "nome": "Ultrapassagem de demanda",
+   "valor": 1808.8,
+   "kw": 32,
+   "detalhe": "32 kW a 56,525000 (em dobro)"
+  },
+  {
+   "nome": "Reativo excedente fora ponta",
+   "valor": 0.35
+  },
+  {
+   "nome": "COSIP",
+   "valor": 6399.45
+  },
+  {
+   "nome": "Devolucao Diferenca Desconto Tusd - Ccee 04/26-",
+   "valor": -174.25
+  }
+ ],
+ "demanda_ref_potencia_kw": 118,
+ "tarifa_ponta_total": 1.160523,
+ "tarifa_fp_total": 0.52135,
+ "energia_nf": {
+  "fornecedor": "ECOM Energia",
+  "total": 21332.91,
+  "mwh": 92.641,
+  "preco_kwh": 0.230275
+ },
+ "total_gasto_energia": 62575.6,
+ "fonte": "NF3e Ambar Energia AM + A100010077710-danfe CENTRO.pdf"
+}

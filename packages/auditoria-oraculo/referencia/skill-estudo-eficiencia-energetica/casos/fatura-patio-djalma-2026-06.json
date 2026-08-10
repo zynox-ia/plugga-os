@@ -1,0 +1,77 @@
+{
+ "consumo_ponta_kwh": 16056,
+ "consumo_fp_kwh": 188412,
+ "demanda_complemento_valor": 826.79,
+ "reativo_ponta_kwh": 4,
+ "reativo_ponta_valor": 1.4,
+ "reativo_fp_kwh": 4,
+ "reativo_fp_valor": 1.4,
+ "total": 83844.37,
+ "demanda_contratada_kw": 480,
+ "demanda_registrada_ponta_kw": 354,
+ "demanda_registrada_fp_kw": 407,
+ "classe": "comercial",
+ "uc": "118253622",
+ "vencimento": "14/07/2026",
+ "leitura_anterior": "02/07/2026",
+ "leitura_atual": "02/07/2026",
+ "cliente": "Mercantil Nova Era Ltda",
+ "cnpj": "04.240.370/0001-77",
+ "distribuidora": "Ambar Energia AM",
+ "distribuidora_display": "Âmbar Energia - AM",
+ "localidade": "Manaus/AM",
+ "regime": "mercado_livre",
+ "grupo": "A",
+ "modalidade": "verde",
+ "classe_display": "Comercial / comercial",
+ "referencia": "06/2026",
+ "apelido": "Patio Djalma",
+ "nome_analise": "Mercantil Nova Era (loja Patio Djalma)",
+ "itens": [
+  {
+   "nome": "Consumo Ponta (TUSD)",
+   "valor": 14868.22,
+   "kwh": 16056,
+   "tarifa": 0.926023
+  },
+  {
+   "nome": "Consumo Fora Ponta (TUSD)",
+   "valor": 54045.98,
+   "kwh": 188412,
+   "tarifa": 0.28685
+  },
+  {
+   "nome": "Demanda",
+   "valor": 6588.89,
+   "kw": 480,
+   "detalhe": "407 kW a 14,157500 + 73 kW a 11,326000"
+  },
+  {
+   "nome": "Reativo excedente ponta",
+   "valor": 1.4
+  },
+  {
+   "nome": "Reativo excedente fora ponta",
+   "valor": 1.4
+  },
+  {
+   "nome": "COSIP",
+   "valor": 8745.91
+  },
+  {
+   "nome": "Devolucao Diferenca Desconto Tusd - Ccee 04/26-",
+   "valor": -407.43
+  }
+ ],
+ "demanda_ref_potencia_kw": 354,
+ "tarifa_ponta_total": 1.166698,
+ "tarifa_fp_total": 0.527525,
+ "energia_nf": {
+  "fornecedor": "ENEL",
+  "total": 49552.81,
+  "mwh": 205.891,
+  "preco_kwh": 0.240675
+ },
+ "total_gasto_energia": 133397.18,
+ "fonte": "NF3e Ambar Energia AM + 2026_06_FORNECIMENTO_ENEL_NOVA ERA - Patio Djalma.pdf"
+}

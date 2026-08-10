@@ -1,0 +1,65 @@
+{
+ "consumo_ponta_kwh": 22617,
+ "consumo_fp_kwh": 249837,
+ "demanda_complemento_valor": 633.08,
+ "reativo_ponta_kwh": 0,
+ "reativo_ponta_valor": 0.0,
+ "reativo_fp_kwh": 0,
+ "reativo_fp_valor": 0.0,
+ "total": 110215.27,
+ "demanda_contratada_kw": 640,
+ "demanda_registrada_ponta_kw": 521,
+ "demanda_registrada_fp_kw": 584,
+ "classe": "comercial",
+ "uc": "118253561",
+ "vencimento": "14/07/2026",
+ "leitura_anterior": "02/07/2026",
+ "leitura_atual": "02/07/2026",
+ "cliente": "Mercantil Nova Era Ltda",
+ "cnpj": "04.240.370/0001-77",
+ "distribuidora": "Ambar Energia AM",
+ "distribuidora_display": "Âmbar Energia - AM",
+ "localidade": "Manaus/AM",
+ "regime": "mercado_livre",
+ "grupo": "A",
+ "modalidade": "verde",
+ "classe_display": "Comercial / comercial",
+ "referencia": "06/2026",
+ "apelido": "Patio Adrianopolis",
+ "nome_analise": "Mercantil Nova Era (loja Patio Adrianopolis)",
+ "itens": [
+  {
+   "nome": "Consumo Ponta (TUSD)",
+   "valor": 20917.89,
+   "kwh": 22617,
+   "tarifa": 0.924875
+  },
+  {
+   "nome": "Consumo Fora Ponta (TUSD)",
+   "valor": 71665.74,
+   "kwh": 249837,
+   "tarifa": 0.28685
+  },
+  {
+   "nome": "Demanda",
+   "valor": 8885.73,
+   "kw": 640,
+   "detalhe": "584 kW a 14,131250 + 56 kW a 11,305000"
+  },
+  {
+   "nome": "COSIP",
+   "valor": 8745.91
+  }
+ ],
+ "demanda_ref_potencia_kw": 521,
+ "tarifa_ponta_total": 1.16555,
+ "tarifa_fp_total": 0.527525,
+ "energia_nf": {
+  "fornecedor": "ENEL",
+  "total": 66036.65,
+  "mwh": 274.381,
+  "preco_kwh": 0.240675
+ },
+ "total_gasto_energia": 176251.92,
+ "fonte": "NF3e Ambar Energia AM + 2026_06_FORNECIMENTO_ENEL_NOVA ERA - Patio Adrianopolis.pdf"
+}

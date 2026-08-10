@@ -1,0 +1,28 @@
+{
+ "funcao": "peak_shaving",
+ "demanda_ponta_medida_kw": 272.0,
+ "tarifa_kw_ponta_medida": 134.05198,
+ "demanda_ponta_nc_kw": 88.0,
+ "tarifa_kw_ponta_nc": 107.91184,
+ "contrato_ponta_novo_kw": 30.0,
+ "consumo_ponta_desejado_kwh_mes": 13876.0,
+ "tusd_fp": 0.21103,
+ "te_fp": 0.3009938,
+ "hsp_mensal": [
+  4.5,
+  4.5,
+  4.5,
+  4.5,
+  4.5,
+  4.5,
+  4.5,
+  4.5,
+  4.5,
+  4.5,
+  4.5,
+  4.5
+ ],
+ "solar_kwp": 0.0,
+ "capex_solar_total": 0.0,
+ "solar_kwp_definido": 300.0
+}

@@ -1,0 +1,74 @@
+{
+ "consumo_ponta_kwh": 14490,
+ "consumo_fp_kwh": 180406,
+ "demanda_complemento_valor": null,
+ "ultrapassagem_kw": 31,
+ "ultrapassagem_valor": 1752.27,
+ "tarifa_demanda_kw": 14.13125,
+ "reativo_ponta_kwh": 0,
+ "reativo_ponta_valor": 0.0,
+ "reativo_fp_kwh": 0,
+ "reativo_fp_valor": 0.0,
+ "total": 82092.92,
+ "demanda_contratada_kw": 425,
+ "demanda_registrada_ponta_kw": 349,
+ "demanda_registrada_fp_kw": 456,
+ "classe": "comercial",
+ "uc": "118253493",
+ "vencimento": "14/07/2026",
+ "leitura_anterior": "02/07/2026",
+ "leitura_atual": "02/07/2026",
+ "cliente": "Mercantil Nova Era Ltda",
+ "cnpj": "04.240.370/0001-77",
+ "distribuidora": "Ambar Energia AM",
+ "distribuidora_display": "Âmbar Energia - AM",
+ "localidade": "Manaus/AM",
+ "regime": "mercado_livre",
+ "grupo": "A",
+ "modalidade": "verde",
+ "classe_display": "Comercial / comercial",
+ "referencia": "06/2026",
+ "apelido": "Patio Morada",
+ "nome_analise": "Mercantil Nova Era (loja Patio Morada)",
+ "itens": [
+  {
+   "nome": "Consumo Ponta (TUSD)",
+   "valor": 13401.43,
+   "kwh": 14490,
+   "tarifa": 0.924875
+  },
+  {
+   "nome": "Consumo Fora Ponta (TUSD)",
+   "valor": 51749.46,
+   "kwh": 180406,
+   "tarifa": 0.28685
+  },
+  {
+   "nome": "Demanda",
+   "valor": 6443.85,
+   "kw": 456,
+   "detalhe": "456 kW a 14,131250"
+  },
+  {
+   "nome": "Ultrapassagem de demanda",
+   "valor": 1752.27,
+   "kw": 31,
+   "detalhe": "31 kW a 56,525000 (em dobro)"
+  },
+  {
+   "nome": "COSIP",
+   "valor": 8745.91
+  }
+ ],
+ "demanda_ref_potencia_kw": 349,
+ "tarifa_ponta_total": 1.16555,
+ "tarifa_fp_total": 0.527525,
+ "energia_nf": {
+  "fornecedor": "ENEL",
+  "total": 47268.09,
+  "mwh": 196.398,
+  "preco_kwh": 0.240675
+ },
+ "total_gasto_energia": 129361.01,
+ "fonte": "NF3e Ambar Energia AM + 2026_06_FORNECIMENTO_ENEL_NOVA ERA - Morada do Sol.pdf"
+}

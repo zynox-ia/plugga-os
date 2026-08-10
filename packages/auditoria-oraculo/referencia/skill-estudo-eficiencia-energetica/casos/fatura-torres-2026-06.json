@@ -1,0 +1,65 @@
+{
+ "consumo_ponta_kwh": 22045,
+ "consumo_fp_kwh": 238396,
+ "demanda_complemento_valor": 2023.59,
+ "reativo_ponta_kwh": 0,
+ "reativo_ponta_valor": 0.0,
+ "reativo_fp_kwh": 0,
+ "reativo_fp_valor": 0.0,
+ "total": 106904.63,
+ "demanda_contratada_kw": 700,
+ "demanda_registrada_ponta_kw": 435,
+ "demanda_registrada_fp_kw": 521,
+ "classe": "comercial",
+ "uc": "118254816",
+ "vencimento": "14/07/2026",
+ "leitura_anterior": "02/07/2026",
+ "leitura_atual": "02/07/2026",
+ "cliente": "Mercantil Nova Era Ltda",
+ "cnpj": "04.240.370/0001-77",
+ "distribuidora": "Ambar Energia AM",
+ "distribuidora_display": "Âmbar Energia - AM",
+ "localidade": "Manaus/AM",
+ "regime": "mercado_livre",
+ "grupo": "A",
+ "modalidade": "verde",
+ "classe_display": "Comercial / comercial",
+ "referencia": "06/2026",
+ "apelido": "Torres",
+ "nome_analise": "Mercantil Nova Era (loja Torres)",
+ "itens": [
+  {
+   "nome": "Consumo Ponta (TUSD)",
+   "valor": 20388.86,
+   "kwh": 22045,
+   "tarifa": 0.924875
+  },
+  {
+   "nome": "Consumo Fora Ponta (TUSD)",
+   "valor": 68383.89,
+   "kwh": 238396,
+   "tarifa": 0.28685
+  },
+  {
+   "nome": "Demanda",
+   "valor": 9385.97,
+   "kw": 700,
+   "detalhe": "521 kW a 14,131250 + 179 kW a 11,305000"
+  },
+  {
+   "nome": "COSIP",
+   "valor": 8745.91
+  }
+ ],
+ "demanda_ref_potencia_kw": 435,
+ "tarifa_ponta_total": 1.1709375,
+ "tarifa_fp_total": 0.5329125,
+ "energia_nf": {
+  "fornecedor": "ECOM Energia",
+  "total": 64644.06,
+  "mwh": 262.714,
+  "preco_kwh": 0.2460625
+ },
+ "total_gasto_energia": 171548.69,
+ "fonte": "NF3e Ambar Energia AM + A100010077815-danfe ECOM TORRES.pdf"
+}

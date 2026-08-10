@@ -1,0 +1,66 @@
+{
+ "cliente": "Mercantil Nova Era Ltda",
+ "cnpj": "04.240.370/0043-06",
+ "uc": "01939890",
+ "distribuidora": "Roraima Energia",
+ "regime": "cativo",
+ "grupo": "A",
+ "modalidade": "verde",
+ "classe": "comercial",
+ "referencia": "06/2026",
+ "vencimento": "26/07/2026",
+ "total": 174636.7,
+ "itens": [
+  {
+   "nome": "Consumo Ponta",
+   "valor": 46842.73,
+   "kwh": 17419,
+   "tarifa": 2.689175
+  },
+  {
+   "nome": "Consumo Fora Ponta",
+   "valor": 114646.81,
+   "kwh": 183153,
+   "tarifa": 0.625962
+  },
+  {
+   "nome": "Demanda",
+   "valor": 13113.18,
+   "kw": 500,
+   "detalhe": "133 kW sem ICMS a 22,16 + 367 kW com ICMS a 27,70"
+  },
+  {
+   "nome": "COSIP",
+   "valor": 33.98
+  }
+ ],
+ "consumo_ponta_kwh": 17419,
+ "consumo_fp_kwh": 183153,
+ "demanda_contratada_kw": 500,
+ "demanda_registrada_ponta_kw": 346,
+ "demanda_registrada_fp_kw": 367,
+ "reativo_ponta_kwh": 0,
+ "reativo_fp_kwh": 0,
+ "tarifa_ponta_total": 2.689175,
+ "tarifa_fp_total": 0.625962,
+ "nao_cobrados": [
+  {
+   "nome": "Adicional Bandeira Amarela",
+   "valor": 3774.59,
+   "motivo": "bandeira Verde R$ 0,00 na referencia — linha informativa fora do total"
+  }
+ ],
+ "fonte": "NF 21471964 (16pp nao — fatura avulsa), emitida 01/07/2026",
+ "apelido": "Santa Tereza",
+ "leitura_anterior": "31/05/2026",
+ "leitura_atual": "30/06/2026",
+ "classe_display": "Comercial / comercial",
+ "nome_analise": "Mercantil Nova Era (loja Santa Tereza)",
+ "demanda_complemento_valor": 2947.28,
+ "conciliada": true,
+ "prova": {
+  "soma_itens": 174636.7,
+  "total": 174636.7,
+  "diferenca": 0.0
+ }
+}

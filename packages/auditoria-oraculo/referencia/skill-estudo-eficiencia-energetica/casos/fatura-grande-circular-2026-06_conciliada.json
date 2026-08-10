@@ -1,0 +1,75 @@
+{
+ "consumo_ponta_kwh": 19603,
+ "consumo_fp_kwh": 223030,
+ "demanda_complemento_valor": 1548.78,
+ "reativo_ponta_kwh": 0,
+ "reativo_ponta_valor": 0.0,
+ "reativo_fp_kwh": 220,
+ "reativo_fp_valor": 77.3,
+ "total": 100434.35,
+ "demanda_contratada_kw": 700,
+ "demanda_registrada_ponta_kw": 430,
+ "demanda_registrada_fp_kw": 563,
+ "classe": "comercial",
+ "uc": "118254802",
+ "vencimento": "14/07/2026",
+ "leitura_anterior": "02/07/2026",
+ "leitura_atual": "02/07/2026",
+ "cliente": "Mercantil Nova Era Ltda",
+ "cnpj": "04.240.370/0001-77",
+ "distribuidora": "Ambar Energia AM",
+ "distribuidora_display": "Âmbar Energia - AM",
+ "localidade": "Manaus/AM",
+ "regime": "mercado_livre",
+ "grupo": "A",
+ "modalidade": "verde",
+ "classe_display": "Comercial / comercial",
+ "referencia": "06/2026",
+ "apelido": "Grande Circular",
+ "nome_analise": "Mercantil Nova Era (loja Grande Circular)",
+ "itens": [
+  {
+   "nome": "Consumo Ponta (TUSD)",
+   "valor": 18130.32,
+   "kwh": 19603,
+   "tarifa": 0.924875
+  },
+  {
+   "nome": "Consumo Fora Ponta (TUSD)",
+   "valor": 63976.15,
+   "kwh": 223030,
+   "tarifa": 0.28685
+  },
+  {
+   "nome": "Demanda",
+   "valor": 9504.67,
+   "kw": 700,
+   "detalhe": "563 kW a 14,131250 + 137 kW a 11,305000"
+  },
+  {
+   "nome": "Reativo excedente fora ponta",
+   "valor": 77.3
+  },
+  {
+   "nome": "COSIP",
+   "valor": 8745.91
+  }
+ ],
+ "demanda_ref_potencia_kw": 430,
+ "tarifa_ponta_total": 1.16555,
+ "tarifa_fp_total": 0.527525,
+ "energia_nf": {
+  "fornecedor": "ENEL",
+  "total": 58743.95,
+  "mwh": 244.08,
+  "preco_kwh": 0.240675
+ },
+ "total_gasto_energia": 159178.3,
+ "fonte": "NF3e Ambar Energia AM + 2026_06_FORNECIMENTO_ENEL_NOVA ERA - Grande Circular.pdf",
+ "conciliada": true,
+ "prova": {
+  "soma_itens": 100434.35,
+  "total": 100434.35,
+  "diferenca": 0.0
+ }
+}

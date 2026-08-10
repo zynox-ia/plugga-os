@@ -1,0 +1,78 @@
+{
+ "consumo_ponta_kwh": 25578,
+ "consumo_fp_kwh": 277830,
+ "demanda_complemento_valor": null,
+ "ultrapassagem_kw": 73,
+ "ultrapassagem_valor": 4126.32,
+ "tarifa_demanda_kw": 14.1575,
+ "reativo_ponta_kwh": 0,
+ "reativo_ponta_valor": 0.0,
+ "reativo_fp_kwh": 0,
+ "reativo_fp_valor": 0.0,
+ "total": 125609.89,
+ "demanda_contratada_kw": 540,
+ "demanda_registrada_ponta_kw": 564,
+ "demanda_registrada_fp_kw": 613,
+ "classe": "comercial",
+ "uc": "118253278",
+ "vencimento": "14/07/2026",
+ "leitura_anterior": "02/07/2026",
+ "leitura_atual": "02/07/2026",
+ "cliente": "Mercantil Nova Era Ltda",
+ "cnpj": "04.240.370/0001-77",
+ "distribuidora": "Ambar Energia AM",
+ "distribuidora_display": "Âmbar Energia - AM",
+ "localidade": "Manaus/AM",
+ "regime": "mercado_livre",
+ "grupo": "A",
+ "modalidade": "verde",
+ "classe_display": "Comercial / comercial",
+ "referencia": "06/2026",
+ "apelido": "Alvorada",
+ "nome_analise": "Mercantil Nova Era (loja Alvorada)",
+ "itens": [
+  {
+   "nome": "Consumo Ponta (TUSD)",
+   "valor": 23793.88,
+   "kwh": 25578,
+   "tarifa": 0.930248
+  },
+  {
+   "nome": "Consumo Fora Ponta (TUSD)",
+   "valor": 80869.36,
+   "kwh": 277830,
+   "tarifa": 0.291075
+  },
+  {
+   "nome": "Demanda",
+   "valor": 8678.54,
+   "kw": 613,
+   "detalhe": "613 kW a 14,157500"
+  },
+  {
+   "nome": "Ultrapassagem de demanda",
+   "valor": 4126.32,
+   "kw": 73,
+   "detalhe": "73 kW a 56,525000 (em dobro)"
+  },
+  {
+   "nome": "COSIP",
+   "valor": 8745.91
+  },
+  {
+   "nome": "Devolucao Diferenca Desconto Tusd - Ccee 04/26-",
+   "valor": -604.12
+  }
+ ],
+ "demanda_ref_potencia_kw": 564,
+ "tarifa_ponta_total": 1.160523,
+ "tarifa_fp_total": 0.52135,
+ "energia_nf": {
+  "fornecedor": "ECOM Energia",
+  "total": 70331.74,
+  "mwh": 305.425,
+  "preco_kwh": 0.230275
+ },
+ "total_gasto_energia": 195941.63,
+ "fonte": "NF3e Ambar Energia AM + A100010077708-danfe ALVORADA.pdf"
+}

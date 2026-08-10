@@ -1,0 +1,83 @@
+{
+ "consumo_ponta_kwh": 9315,
+ "consumo_fp_kwh": 104568,
+ "demanda_complemento_valor": 1914.09,
+ "reativo_ponta_kwh": 8,
+ "reativo_ponta_valor": 2.81,
+ "reativo_fp_kwh": 288,
+ "reativo_fp_valor": 101.19,
+ "total": 52786.08,
+ "demanda_contratada_kw": 430,
+ "demanda_registrada_ponta_kw": 228,
+ "demanda_registrada_fp_kw": 261,
+ "classe": "comercial",
+ "uc": "118254666",
+ "vencimento": "14/07/2026",
+ "leitura_anterior": "02/07/2026",
+ "leitura_atual": "02/07/2026",
+ "cliente": "Mercantil Nova Era Ltda",
+ "cnpj": "04.240.370/0001-77",
+ "distribuidora": "Ambar Energia AM",
+ "distribuidora_display": "Âmbar Energia - AM",
+ "localidade": "Manaus/AM",
+ "regime": "mercado_livre",
+ "grupo": "A",
+ "modalidade": "verde",
+ "classe_display": "Comercial / comercial",
+ "referencia": "06/2026",
+ "apelido": "Cidade De Deus",
+ "nome_analise": "Mercantil Nova Era (loja Cidade De Deus)",
+ "itens": [
+  {
+   "nome": "Consumo Ponta (TUSD)",
+   "valor": 8625.9,
+   "kwh": 9315,
+   "tarifa": 0.926023
+  },
+  {
+   "nome": "Consumo Fora Ponta (TUSD)",
+   "valor": 29995.33,
+   "kwh": 104568,
+   "tarifa": 0.28685
+  },
+  {
+   "nome": "Demanda",
+   "valor": 5609.19,
+   "kw": 430,
+   "detalhe": "261 kW a 14,157500 + 169 kW a 11,326000"
+  },
+  {
+   "nome": "Reativo excedente ponta",
+   "valor": 2.81
+  },
+  {
+   "nome": "Reativo excedente fora ponta",
+   "valor": 101.19
+  },
+  {
+   "nome": "COSIP",
+   "valor": 8745.91
+  },
+  {
+   "nome": "Devolucao Diferenca Desconto Tusd - Ccee 04/26-",
+   "valor": -294.25
+  }
+ ],
+ "demanda_ref_potencia_kw": 228,
+ "tarifa_ponta_total": 1.1720855,
+ "tarifa_fp_total": 0.5329125,
+ "energia_nf": {
+  "fornecedor": "ECOM Energia",
+  "total": 28221.15,
+  "mwh": 114.691,
+  "preco_kwh": 0.2460625
+ },
+ "total_gasto_energia": 81007.23,
+ "fonte": "NF3e Ambar Energia AM + A100010077816-danfe ECOM CIDADE DE DEUS.pdf",
+ "conciliada": true,
+ "prova": {
+  "soma_itens": 52786.08,
+  "total": 52786.08,
+  "diferenca": 0.0
+ }
+}

@@ -1,0 +1,71 @@
+{
+ "consumo_ponta_kwh": 23884,
+ "consumo_fp_kwh": 261163,
+ "demanda_complemento_valor": 893.09,
+ "reativo_ponta_kwh": 0,
+ "reativo_ponta_valor": 0.0,
+ "reativo_fp_kwh": 0,
+ "reativo_fp_valor": 0.0,
+ "total": 114712.25,
+ "demanda_contratada_kw": 650,
+ "demanda_registrada_ponta_kw": 512,
+ "demanda_registrada_fp_kw": 571,
+ "classe": "comercial",
+ "uc": "118253098",
+ "vencimento": "14/07/2026",
+ "leitura_anterior": "02/07/2026",
+ "leitura_atual": "02/07/2026",
+ "cliente": "Mercantil Nova Era Ltda",
+ "cnpj": "04.240.370/0001-77",
+ "distribuidora": "Ambar Energia AM",
+ "distribuidora_display": "Âmbar Energia - AM",
+ "localidade": "Manaus/AM",
+ "regime": "mercado_livre",
+ "grupo": "A",
+ "modalidade": "verde",
+ "classe_display": "Comercial / comercial",
+ "referencia": "06/2026",
+ "apelido": "Compensa",
+ "nome_analise": "Mercantil Nova Era (loja Compensa)",
+ "itens": [
+  {
+   "nome": "Consumo Ponta (TUSD)",
+   "valor": 22089.71,
+   "kwh": 23884,
+   "tarifa": 0.924875
+  },
+  {
+   "nome": "Consumo Fora Ponta (TUSD)",
+   "valor": 74914.6,
+   "kwh": 261163,
+   "tarifa": 0.28685
+  },
+  {
+   "nome": "Demanda",
+   "valor": 8962.03,
+   "kw": 650,
+   "detalhe": "571 kW a 14,131250 + 79 kW a 11,305000"
+  },
+  {
+   "nome": "COSIP",
+   "valor": 8745.91
+  }
+ ],
+ "demanda_ref_potencia_kw": 512,
+ "tarifa_ponta_total": 1.16555,
+ "tarifa_fp_total": 0.527525,
+ "energia_nf": {
+  "fornecedor": "ENEL",
+  "total": 69015.73,
+  "mwh": 286.759,
+  "preco_kwh": 0.240675
+ },
+ "total_gasto_energia": 183727.98,
+ "fonte": "NF3e Ambar Energia AM + 2026_06_FORNECIMENTO_ENEL_NOVA ERA - Compensa.pdf",
+ "conciliada": true,
+ "prova": {
+  "soma_itens": 114712.25,
+  "total": 114712.25,
+  "diferenca": 0.0
+ }
+}

@@ -1,0 +1,82 @@
+{
+ "consumo_ponta_kwh": 45213,
+ "consumo_fp_kwh": 445462,
+ "demanda_complemento_valor": null,
+ "ultrapassagem_kw": 106,
+ "ultrapassagem_valor": 5991.65,
+ "tarifa_demanda_kw": 14.13125,
+ "reativo_ponta_kwh": 10,
+ "reativo_ponta_valor": 3.51,
+ "reativo_fp_kwh": 178,
+ "reativo_fp_valor": 62.54,
+ "total": 197863.63,
+ "demanda_contratada_kw": 700,
+ "demanda_registrada_ponta_kw": 806,
+ "demanda_registrada_fp_kw": 800,
+ "classe": "comercial",
+ "uc": "118254691",
+ "vencimento": "20/07/2026",
+ "leitura_anterior": "02/07/2026",
+ "leitura_atual": "02/07/2026",
+ "cliente": "Mercantil Nova Era Ltda",
+ "cnpj": "04.240.370/0001-77",
+ "distribuidora": "Ambar Energia AM",
+ "distribuidora_display": "Âmbar Energia - AM",
+ "localidade": "Manaus/AM",
+ "regime": "mercado_livre",
+ "grupo": "A",
+ "modalidade": "verde",
+ "classe_display": "Comercial / comercial",
+ "referencia": "06/2026",
+ "apelido": "Superfrios",
+ "nome_analise": "Mercantil Nova Era (loja Superfrios)",
+ "itens": [
+  {
+   "nome": "Consumo Ponta (TUSD)",
+   "valor": 42007.39,
+   "kwh": 45213,
+   "tarifa": 0.9291
+  },
+  {
+   "nome": "Consumo Fora Ponta (TUSD)",
+   "valor": 129662.85,
+   "kwh": 445462,
+   "tarifa": 0.291075
+  },
+  {
+   "nome": "Demanda",
+   "valor": 11389.78,
+   "kw": 806,
+   "detalhe": "806 kW a 14,131250"
+  },
+  {
+   "nome": "Ultrapassagem de demanda",
+   "valor": 5991.65,
+   "kw": 106,
+   "detalhe": "106 kW a 56,525000 (em dobro)"
+  },
+  {
+   "nome": "Reativo excedente ponta",
+   "valor": 3.51
+  },
+  {
+   "nome": "Reativo excedente fora ponta",
+   "valor": 62.54
+  },
+  {
+   "nome": "COSIP",
+   "valor": 8745.91
+  }
+ ],
+ "demanda_ref_potencia_kw": 806,
+ "tarifa_ponta_total": 1.159375,
+ "tarifa_fp_total": 0.52135,
+ "energia_nf": {
+  "fornecedor": "ECOM Energia",
+  "total": 113836.68,
+  "mwh": 494.351,
+  "preco_kwh": 0.230275
+ },
+ "total_gasto_energia": 311700.31,
+ "fonte": "NF3e Ambar Energia AM + A100010077709-danfe SUPERFRIOS.pdf"
+}

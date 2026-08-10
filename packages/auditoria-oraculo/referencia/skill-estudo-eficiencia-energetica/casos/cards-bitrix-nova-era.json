@@ -1,0 +1,280 @@
+{
+ "SANTA TEREZA": {
+  "deal": 2535,
+  "task": "11235",
+  "titulo": "SANTA TEREZA - RR - NOVA ERA",
+  "rank": 5,
+  "estagio_ok": true,
+  "contas_anexadas": 1,
+  "estudo": "STZ-NVE-PLG-HDT-ESS-0001",
+  "os_fechada": true
+ },
+ "IMIGRANTES": {
+  "deal": 2537,
+  "task": "11237",
+  "titulo": "IMIGRANTES - RO - NOVA ERA",
+  "rank": 1,
+  "estagio_ok": true,
+  "contas_anexadas": 3,
+  "estudo": "IMG-NVE-PLG-HDT-ESS-0001",
+  "os_fechada": true
+ },
+ "FLORES": {
+  "deal": 2539,
+  "task": "11239",
+  "titulo": "FLORES - AM - NOVA ERA",
+  "rank": 2,
+  "estagio_ok": true,
+  "contas_anexadas": 2,
+  "estudo": "FLR-NVE-PLG-HDT-ESS-0001",
+  "os_fechada": true
+ },
+ "CANTUARIA": {
+  "deal": 2541,
+  "task": "11241",
+  "titulo": "CANTUARIA - RO - NOVA ERA",
+  "rank": 3,
+  "estagio_ok": true,
+  "contas_anexadas": 2,
+  "estudo": "CNT-NVE-PLG-HDT-ESS-0001",
+  "os_fechada": true
+ },
+ "SUPERFRIOS": {
+  "deal": 2543,
+  "task": "11243",
+  "titulo": "SUPERFRIOS - AM - NOVA ERA",
+  "rank": 4,
+  "estagio_ok": true,
+  "contas_anexadas": 2,
+  "estudo": "SPF-NVE-PLG-HDT-ESS-0001",
+  "os_fechada": true
+ },
+ "BRASILIA": {
+  "deal": 2545,
+  "task": "11245",
+  "titulo": "BRASILIA - RO - NOVA ERA",
+  "rank": 6,
+  "estagio_ok": true,
+  "contas_anexadas": 3,
+  "estudo": "BRA-NVE-PLG-HDT-ESS-0001",
+  "os_fechada": true
+ },
+ "JATUARANA": {
+  "deal": 2547,
+  "task": "11247",
+  "titulo": "JATUARANA - RO - NOVA ERA",
+  "rank": 7,
+  "estagio_ok": true,
+  "contas_anexadas": 4,
+  "estudo": "JTR-NVE-PLG-HDT-ESS-0001",
+  "os_fechada": true
+ },
+ "PONTA NEGRA": {
+  "deal": 2549,
+  "task": "11249",
+  "titulo": "PONTA NEGRA - AM - NOVA ERA",
+  "rank": 8,
+  "estagio_ok": true,
+  "contas_anexadas": 2,
+  "estudo": "PNG-NVE-PLG-HDT-ESS-0001",
+  "os_fechada": true
+ },
+ "ALVORADA": {
+  "deal": 2551,
+  "task": "11251",
+  "titulo": "ALVORADA - AM - NOVA ERA",
+  "rank": 9,
+  "estagio_ok": true,
+  "contas_anexadas": 2,
+  "estudo": "ALV-NVE-PLG-HDT-ESS-0001",
+  "os_fechada": true
+ },
+ "CIDADE NOVA": {
+  "deal": 2553,
+  "task": "11253",
+  "titulo": "CIDADE NOVA - AM - NOVA ERA",
+  "rank": 10,
+  "estagio_ok": true,
+  "contas_anexadas": 2,
+  "estudo": "CDN-NVE-PLG-HDT-ESS-0001",
+  "os_fechada": true
+ },
+ "COMPENSA": {
+  "deal": 2555,
+  "task": "11255",
+  "titulo": "COMPENSA - AM - NOVA ERA",
+  "rank": 11,
+  "estagio_ok": true,
+  "contas_anexadas": 2,
+  "estudo": "CPS-NVE-PLG-HDT-ESS-0001",
+  "os_fechada": true
+ },
+ "PATIO ADRIANOPOLIS": {
+  "deal": 2557,
+  "task": "11257",
+  "titulo": "PATIO ADRIANOPOLIS - AM - NOVA ERA",
+  "rank": 12,
+  "estagio_ok": true,
+  "contas_anexadas": 2,
+  "estudo": "PAD-NVE-PLG-HDT-ESS-0001",
+  "os_fechada": true
+ },
+ "TORRES": {
+  "deal": 2559,
+  "task": "11259",
+  "titulo": "TORRES - AM - NOVA ERA",
+  "rank": 13,
+  "estagio_ok": true,
+  "contas_anexadas": 2,
+  "estudo": "TRS-NVE-PLG-HDT-ESS-0001",
+  "os_fechada": true
+ },
+ "TORRES II": {
+  "deal": 2561,
+  "task": "11261",
+  "titulo": "TORRES II - AM - NOVA ERA",
+  "rank": 14,
+  "estagio_ok": true,
+  "contas_anexadas": 2,
+  "estudo": "TR2-NVE-PLG-HDT-ESS-0001",
+  "os_fechada": true
+ },
+ "CIDADE NOVA II": {
+  "deal": 2563,
+  "task": "11263",
+  "titulo": "CIDADE NOVA II - AM - NOVA ERA",
+  "rank": 15,
+  "estagio_ok": true,
+  "contas_anexadas": 2,
+  "estudo": "CN2-NVE-PLG-HDT-ESS-0001",
+  "os_fechada": true
+ },
+ "COROADO": {
+  "deal": 2565,
+  "task": "11265",
+  "titulo": "COROADO - AM - NOVA ERA",
+  "rank": 16,
+  "estagio_ok": true,
+  "contas_anexadas": 2,
+  "estudo": "CRD-NVE-PLG-HDT-ESS-0001",
+  "os_fechada": true
+ },
+ "GRANDE CIRCULAR": {
+  "deal": 2567,
+  "task": "11267",
+  "titulo": "GRANDE CIRCULAR - AM - NOVA ERA",
+  "rank": 17,
+  "estagio_ok": true,
+  "contas_anexadas": 2,
+  "estudo": "GCR-NVE-PLG-HDT-ESS-0001",
+  "os_fechada": true
+ },
+ "ALVORADA II": {
+  "deal": 2569,
+  "task": "11269",
+  "titulo": "ALVORADA II - AM - NOVA ERA",
+  "rank": 18,
+  "estagio_ok": true,
+  "contas_anexadas": 2,
+  "estudo": "AL2-NVE-PLG-HDT-ESS-0001",
+  "os_fechada": true
+ },
+ "JARDIM FLORESTA": {
+  "deal": 2571,
+  "task": "11271",
+  "titulo": "JARDIM FLORESTA - RR - NOVA ERA",
+  "rank": 19,
+  "estagio_ok": true,
+  "contas_anexadas": 1,
+  "estudo": "JDF-NVE-PLG-HDT-ESS-0001",
+  "os_fechada": true
+ },
+ "PATIO DJALMA": {
+  "deal": 2573,
+  "task": "11273",
+  "titulo": "PATIO DJALMA - AM - NOVA ERA",
+  "rank": 20,
+  "estagio_ok": true,
+  "contas_anexadas": 2,
+  "estudo": "PDJ-NVE-PLG-HDT-ESS-0001",
+  "os_fechada": true
+ },
+ "PONTE": {
+  "deal": 2575,
+  "task": "11275",
+  "titulo": "PONTE - AM - NOVA ERA",
+  "rank": 21,
+  "estagio_ok": true,
+  "contas_anexadas": 2,
+  "estudo": "PNT-NVE-PLG-HDT-ESS-0001",
+  "os_fechada": true
+ },
+ "SILVES": {
+  "deal": 2579,
+  "task": "11279",
+  "titulo": "SILVES - AM - NOVA ERA",
+  "rank": 22,
+  "estagio_ok": true,
+  "contas_anexadas": 2,
+  "estudo": "SLV-NVE-PLG-HDT-ESS-0001",
+  "os_fechada": true
+ },
+ "VIVER MELHOR": {
+  "deal": 2581,
+  "task": "11281",
+  "titulo": "VIVER MELHOR - AM - NOVA ERA",
+  "rank": 23,
+  "estagio_ok": true,
+  "contas_anexadas": 2,
+  "estudo": "VVM-NVE-PLG-HDT-ESS-0001",
+  "os_fechada": true
+ },
+ "PATIO MORADA": {
+  "deal": 2583,
+  "task": "11283",
+  "titulo": "PATIO MORADA - AM - NOVA ERA",
+  "rank": 24,
+  "estagio_ok": true,
+  "contas_anexadas": 2,
+  "estudo": "PMR-NVE-PLG-HDT-ESS-0001",
+  "os_fechada": true
+ },
+ "LARANJEIRAS": {
+  "deal": 2585,
+  "task": "11285",
+  "titulo": "LARANJEIRAS - AM - NOVA ERA",
+  "rank": 25,
+  "estagio_ok": true,
+  "contas_anexadas": 2,
+  "estudo": "LRJ-NVE-PLG-HDT-ESS-0001",
+  "os_fechada": true
+ },
+ "BARREIRA": {
+  "deal": 2587,
+  "task": "11287",
+  "titulo": "BARREIRA - AM - NOVA ERA",
+  "rank": 26,
+  "estagio_ok": true,
+  "contas_anexadas": 2
+ },
+ "CIDADE DE DEUS": {
+  "deal": 2589,
+  "task": "11289",
+  "titulo": "CIDADE DE DEUS - AM - NOVA ERA",
+  "rank": 27,
+  "estagio_ok": true,
+  "contas_anexadas": 2,
+  "estudo": "CDD-NVE-PLG-HDT-ESS-0001",
+  "os_fechada": true
+ },
+ "CENTRO": {
+  "deal": 2591,
+  "task": "11291",
+  "titulo": "CENTRO - AM - NOVA ERA",
+  "rank": 28,
+  "estagio_ok": true,
+  "contas_anexadas": 2,
+  "estudo": "PARECER-INVIAVEL",
+  "os_fechada": true
+ }
+}

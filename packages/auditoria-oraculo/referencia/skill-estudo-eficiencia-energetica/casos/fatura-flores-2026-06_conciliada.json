@@ -1,0 +1,71 @@
+{
+ "consumo_ponta_kwh": 53949,
+ "consumo_fp_kwh": 598332,
+ "demanda_complemento_valor": 5629.89,
+ "reativo_ponta_kwh": 0,
+ "reativo_ponta_valor": 0.0,
+ "reativo_fp_kwh": 0,
+ "reativo_fp_valor": 0.0,
+ "total": 254302.29,
+ "demanda_contratada_kw": 1800,
+ "demanda_registrada_ponta_kw": 1083,
+ "demanda_registrada_fp_kw": 1302,
+ "classe": "comercial",
+ "uc": "118253813",
+ "vencimento": "14/07/2026",
+ "leitura_anterior": "02/07/2026",
+ "leitura_atual": "02/07/2026",
+ "cliente": "Mercantil Nova Era Ltda",
+ "cnpj": "04.240.370/0001-77",
+ "distribuidora": "Ambar Energia AM",
+ "distribuidora_display": "Âmbar Energia - AM",
+ "localidade": "Manaus/AM",
+ "regime": "mercado_livre",
+ "grupo": "A",
+ "modalidade": "verde",
+ "classe_display": "Comercial / comercial",
+ "referencia": "06/2026",
+ "apelido": "Flores",
+ "nome_analise": "Mercantil Nova Era (loja Flores)",
+ "itens": [
+  {
+   "nome": "Consumo Ponta (TUSD)",
+   "valor": 49896.08,
+   "kwh": 53949,
+   "tarifa": 0.924875
+  },
+  {
+   "nome": "Consumo Fora Ponta (TUSD)",
+   "valor": 171631.53,
+   "kwh": 598332,
+   "tarifa": 0.28685
+  },
+  {
+   "nome": "Demanda",
+   "valor": 24028.77,
+   "kw": 1800,
+   "detalhe": "1.302 kW a 14,131250 + 498 kW a 11,305000"
+  },
+  {
+   "nome": "COSIP",
+   "valor": 8745.91
+  }
+ ],
+ "demanda_ref_potencia_kw": 1083,
+ "tarifa_ponta_total": 1.16555,
+ "tarifa_fp_total": 0.527525,
+ "energia_nf": {
+  "fornecedor": "ENEL",
+  "total": 165714.85,
+  "mwh": 688.542,
+  "preco_kwh": 0.240675
+ },
+ "total_gasto_energia": 420017.14,
+ "fonte": "NF3e Ambar Energia AM + 2026_06_FORNECIMENTO_ENEL_NOVA ERA - Flores (Matriz).pdf",
+ "conciliada": true,
+ "prova": {
+  "soma_itens": 254302.29,
+  "total": 254302.29,
+  "diferenca": 0.0
+ }
+}
