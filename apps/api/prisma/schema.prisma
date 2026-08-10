@@ -225,28 +225,38 @@ enum ContestationStatus {
 }
 
 model User {
-  id                 String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  email              String                  @unique
-  name               String
-  status             String                  @default("active")
-  createdAt          DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt          DateTime                @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  platformRoles      UserPlatformRole[]
-  memberships        UserCompanyMembership[]
-  agentActions       AgentAction[]
-  credential         UserCredential?
-  sessions           Session[]
-  authTokens         AuthToken[]
-  opportunities      Opportunity[]
-  contracts          Contract[]
-  marketMigrations   MarketMigration[]
-  cycles             Cycle[]                 @relation("CycleOwner")
-  cyclesAprovados    Cycle[]                 @relation("CycleReportApprover")
-  audits             Audit[]
-  contestations      Contestation[]
-  pedidosSolicitados PedidoDeCompra[]        @relation("PedidoSolicitante")
-  pedidosResponsavel PedidoDeCompra[]        @relation("PedidoResponsavel")
-  passagensDeCompra  PedidoDeCompraEtapa[]
+  id                             String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email                          String                  @unique
+  name                           String
+  status                         String                  @default("active")
+  createdAt                      DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                      DateTime                @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  platformRoles                  UserPlatformRole[]
+  memberships                    UserCompanyMembership[]
+  agentActions                   AgentAction[]
+  credential                     UserCredential?
+  sessions                       Session[]
+  authTokens                     AuthToken[]
+  opportunities                  Opportunity[]
+  contracts                      Contract[]
+  marketMigrations               MarketMigration[]
+  cycles                         Cycle[]                 @relation("CycleOwner")
+  cyclesAprovados                Cycle[]                 @relation("CycleReportApprover")
+  audits                         Audit[]
+  contestations                  Contestation[]
+  pedidosSolicitados             PedidoDeCompra[]        @relation("PedidoSolicitante")
+  pedidosResponsavel             PedidoDeCompra[]        @relation("PedidoResponsavel")
+  passagensDeCompra              PedidoDeCompraEtapa[]
+  passagensDeObra                ObraEtapaHistorico[]
+  evidenciasDeObra               EvidenciaDeObra[]
+  epiColaborador                 RegistroEpi[]           @relation("EpiColaborador")
+  epiConferidoPor                RegistroEpi[]           @relation("EpiConferidoPor")
+  aprSegurancaAssinou            RegistroApr[]           @relation("AprSegurancaAssinou")
+  aprSupervisorAssinou           RegistroApr[]           @relation("AprSupervisorAssinou")
+  incidentesRegistrados          Incidente[]             @relation("IncidenteRegistradoPor")
+  incidentesResponsavelTratativa Incidente[]             @relation("IncidenteResponsavelTratativa")
+  liberacoesDadas                LiberacaoSeguranca[]    @relation("LiberacaoLiberadoPor")
+  liberacoesRevogadas            LiberacaoSeguranca[]    @relation("LiberacaoRevogadoPor")
 
   @@map("users")
 }
@@ -1198,23 +1208,209 @@ model Fornecedor {
 }
 
 /// Cadastro mínimo de obra. Nasce operado pela tela de Compras porque é ela que
-/// precisa do destino do material; quando o departamento de Engenharia existir,
-/// ele assume a tabela sem migração de dados.
+/// precisa do destino do material; o POP-OBR-001 a reaproveita como o eixo de
+/// vinculação de projeto técnico, evidência de campo e segurança do trabalho,
+/// exatamente como o documento pede em §1: "a mesma entidade já existente".
 model Obra {
-  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  companyId String   @map("company_id")
-  nome      String
-  clientId  String?  @map("client_id") @db.Uuid
-  ativa     Boolean  @default(true)
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId  String    @map("company_id")
+  nome       String
+  clientId   String?   @map("client_id") @db.Uuid
+  ativa      Boolean   @default(true)
+  /// POP-OBR-001 §2. Nasce em `obra_criada`; o histórico completo de
+  /// passagens vive em `ObraEtapaHistorico`, no mesmo padrão de
+  /// `PedidoDeCompra.etapa` + `PedidoDeCompraEtapa`.
+  etapaAtual ObraEtapa @default(obra_criada) @map("etapa_atual")
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  company Company          @relation(fields: [companyId], references: [id])
-  client  Client?          @relation(fields: [clientId], references: [id], onDelete: SetNull)
-  pedidos PedidoDeCompra[]
+  company             Company              @relation(fields: [companyId], references: [id])
+  client              Client?              @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  pedidos             PedidoDeCompra[]
+  etapas              ObraEtapaHistorico[]
+  evidencias          EvidenciaDeObra[]
+  registrosEpi        RegistroEpi[]
+  registrosApr        RegistroApr[]
+  incidentes          Incidente[]
+  liberacoesSeguranca LiberacaoSeguranca[]
 
   @@index([companyId, ativa])
+  @@index([companyId, etapaAtual])
   @@map("obras")
+}
+
+/// As doze passagens do POP-OBR-001 §2, na ordem do fluxograma FLX-OBR-001.
+enum ObraEtapa {
+  obra_criada
+  projeto_em_elaboracao
+  em_aprovacao_tecnica
+  projeto_aprovado
+  liberacao_campo_pendente
+  liberada_para_execucao
+  em_execucao
+  pendencia_campo
+  medicao_tecnica
+  medicao_aprovada
+  obra_concluida_tecnicamente
+  obra_encerrada
+
+  @@map("obra_etapa")
+}
+
+/// Uma passagem por uma etapa da Obra. Mesmo padrão de `PedidoDeCompraEtapa`:
+/// uma linha aberta por vez (garantido pelo índice único parcial abaixo), mais
+/// de uma linha da mesma etapa quando o fluxo retorna (revisão de projeto,
+/// correção de medição, pendência tratada). Sem `prazoDiasUteis`/`prazoEm`
+/// porque o POP §4 marca o SLA de toda etapa como "em aberto" — inventar um
+/// prazo aqui contaminaria um indicador que o documento ainda não definiu.
+model ObraEtapaHistorico {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  obraId        String    @map("obra_id") @db.Uuid
+  etapa         ObraEtapa
+  entrouEm      DateTime  @map("entrou_em") @db.Timestamptz(6)
+  saiuEm        DateTime? @map("saiu_em") @db.Timestamptz(6)
+  responsavelId String?   @map("responsavel_id") @db.Uuid
+
+  obra        Obra  @relation(fields: [obraId], references: [id], onDelete: Cascade)
+  responsavel User? @relation(fields: [responsavelId], references: [id], onDelete: SetNull)
+
+  @@index([obraId, entrouEm])
+  @@map("obra_etapas_historico")
+}
+
+/// Evidência de campo (POP-OBR-001 §5.1). Append-only por construção — trigger
+/// de banco reaproveita `prevent_audit_mutation()`, a mesma função que já
+/// protege `event_log`: "nem admin remove fisicamente evidência pelo sistema
+/// operacional padrão" não pode depender só da aplicação para valer.
+model EvidenciaDeObra {
+  id                String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  obraId            String        @map("obra_id") @db.Uuid
+  etapa             ObraEtapa
+  autorId           String        @map("autor_id") @db.Uuid
+  tipo              EvidenciaTipo
+  descricao         String
+  statusRelacionado String?       @map("status_relacionado")
+  arquivoChave      String        @map("arquivo_chave")
+  arquivoNome       String        @map("arquivo_nome")
+  createdAt         DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  obra  Obra @relation(fields: [obraId], references: [id], onDelete: Cascade)
+  autor User @relation(fields: [autorId], references: [id])
+
+  @@index([obraId, etapa])
+  @@map("evidencias_de_obra")
+}
+
+/// Formatos aceitos na v1 (POP §5.1). Assinatura digital e vídeo ficam de fora
+/// — o POP §7 marca os dois como "em aberto".
+enum EvidenciaTipo {
+  imagem
+  pdf
+  documento
+  checklist
+
+  @@map("evidencia_tipo")
+}
+
+/// Registro de EPI (POP §8.1). "Sem EPI obrigatório confirmado, atividade de
+/// risco não deve ser liberada" — `conferidoEm`/`conferidoPorId` nulos é o
+/// estado "ainda não conferido", não um valor a inferir.
+model RegistroEpi {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  obraId          String    @map("obra_id") @db.Uuid
+  colaboradorId   String?   @map("colaborador_id") @db.Uuid
+  equipeDescricao String?   @map("equipe_descricao")
+  epiExigido      String    @map("epi_exigido")
+  conferidoEm     DateTime? @map("conferido_em") @db.Timestamptz(6)
+  conferidoPorId  String?   @map("conferido_por_id") @db.Uuid
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  obra         Obra  @relation(fields: [obraId], references: [id], onDelete: Cascade)
+  colaborador  User? @relation("EpiColaborador", fields: [colaboradorId], references: [id], onDelete: SetNull)
+  conferidoPor User? @relation("EpiConferidoPor", fields: [conferidoPorId], references: [id], onDelete: SetNull)
+
+  @@index([obraId])
+  @@map("registros_epi")
+}
+
+/// APR — Análise Preliminar de Risco (POP §8.2). Assinaturas mínimas:
+/// segurança e supervisor; a equipe/formato digital fica `em aberto` (POP §7).
+model RegistroApr {
+  id                  String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  obraId              String    @map("obra_id") @db.Uuid
+  atividade           String
+  segurancaAssinouId  String?   @map("seguranca_assinou_id") @db.Uuid
+  segurancaAssinouEm  DateTime? @map("seguranca_assinou_em") @db.Timestamptz(6)
+  supervisorAssinouId String?   @map("supervisor_assinou_id") @db.Uuid
+  supervisorAssinouEm DateTime? @map("supervisor_assinou_em") @db.Timestamptz(6)
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  obra              Obra  @relation(fields: [obraId], references: [id], onDelete: Cascade)
+  segurancaAssinou  User? @relation("AprSegurancaAssinou", fields: [segurancaAssinouId], references: [id], onDelete: SetNull)
+  supervisorAssinou User? @relation("AprSupervisorAssinou", fields: [supervisorAssinouId], references: [id], onDelete: SetNull)
+
+  @@index([obraId])
+  @@map("registros_apr")
+}
+
+/// Incidente (POP §8.3): "qualquer membro pode registrar". Gravidade é texto
+/// livre — a escala fica `em aberto` (POP §7) — e "grave" é o único ponto fixo
+/// que o documento define: bloqueia a etapa até liberação.
+model Incidente {
+  id                     String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  obraId                 String   @map("obra_id") @db.Uuid
+  ocorreuEm              DateTime @map("ocorreu_em") @db.Timestamptz(6)
+  local                  String
+  descricao              String
+  envolvidos             String?
+  tipo                   String
+  gravidade              String
+  acaoImediata           String?  @map("acao_imediata")
+  registradoPorId        String   @map("registrado_por_id") @db.Uuid
+  responsavelTratativaId String?  @map("responsavel_tratativa_id") @db.Uuid
+  createdAt              DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  obra                 Obra                 @relation(fields: [obraId], references: [id], onDelete: Cascade)
+  registradoPor        User                 @relation("IncidenteRegistradoPor", fields: [registradoPorId], references: [id])
+  responsavelTratativa User?                @relation("IncidenteResponsavelTratativa", fields: [responsavelTratativaId], references: [id], onDelete: SetNull)
+  liberacoes           LiberacaoSeguranca[]
+
+  @@index([obraId, gravidade])
+  @@map("incidentes")
+}
+
+/// Liberação de segurança (POP §8.4): "deve ocorrer antes de atividade de
+/// risco e pode ser revogada em caso de condição insegura". Revogação não
+/// reabre a liberação — gera a necessidade de um novo registro, mesmo
+/// argumento do §5.1 sobre evidência: o histórico não se apaga, o direito de
+/// seguir sim.
+model LiberacaoSeguranca {
+  id              String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  obraId          String         @map("obra_id") @db.Uuid
+  incidenteId     String?        @map("incidente_id") @db.Uuid
+  papelLiberador  PapelLiberador @map("papel_liberador")
+  liberadoPorId   String         @map("liberado_por_id") @db.Uuid
+  liberadoEm      DateTime       @default(now()) @map("liberado_em") @db.Timestamptz(6)
+  revogadoPorId   String?        @map("revogado_por_id") @db.Uuid
+  revogadoEm      DateTime?      @map("revogado_em") @db.Timestamptz(6)
+  motivoRevogacao String?        @map("motivo_revogacao")
+
+  obra        Obra       @relation(fields: [obraId], references: [id], onDelete: Cascade)
+  incidente   Incidente? @relation(fields: [incidenteId], references: [id], onDelete: SetNull)
+  liberadoPor User       @relation("LiberacaoLiberadoPor", fields: [liberadoPorId], references: [id])
+  revogadoPor User?      @relation("LiberacaoRevogadoPor", fields: [revogadoPorId], references: [id], onDelete: SetNull)
+
+  @@index([obraId])
+  @@map("liberacoes_seguranca")
+}
+
+/// Quem pode assinar/liberar (POP §8.4).
+enum PapelLiberador {
+  seguranca
+  supervisor
+  engenheiro
+
+  @@map("papel_liberador")
 }
 
 /// Um pedido de compra do POP-COMP-001. Um card do funil C43 vira uma linha.
