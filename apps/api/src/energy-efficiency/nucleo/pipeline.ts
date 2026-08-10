@@ -30,8 +30,14 @@ export type ModoDoEstudo = "solar_bess" | "peak_shaving";
 export type CasoDoEstudo = {
   funcao?: ModoDoEstudo;
   solarKwpDefinido?: number;
-} & Partial<PremissasDoMotor> &
-  Partial<PremissasDoPeakShaving>;
+  /**
+   * Nulo só faz sentido no peak shaving, onde a ponta usa a tarifa do fora
+   * ponta. No Solar+BESS a tarifa de ponta é sempre um número.
+   */
+  tusdP?: number | null;
+  teP?: number | null;
+} & Omit<Partial<PremissasDoMotor>, "tusdP" | "teP"> &
+  Omit<Partial<PremissasDoPeakShaving>, "tusdP" | "teP">;
 
 export type ResultadoDoEstudo = {
   modo: ModoDoEstudo;
@@ -63,8 +69,12 @@ export class ModoDesconhecidoError extends Error {
 export function selecionarMotor(
   modo: ModoDoEstudo,
 ): (entrada: CasoDoEstudo) => SaidaDoMotor {
-  if (modo === "solar_bess") return rodarSolarBess;
-  if (modo === "peak_shaving") return rodarPeakShaving;
+  if (modo === "solar_bess") {
+    return (entrada) => rodarSolarBess(entrada as Partial<PremissasDoMotor>);
+  }
+  if (modo === "peak_shaving") {
+    return (entrada) => rodarPeakShaving(entrada as Partial<PremissasDoPeakShaving>);
+  }
   throw new ModoDesconhecidoError(modo);
 }
 

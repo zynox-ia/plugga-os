@@ -205,6 +205,22 @@ export const invoiceContextSchema = z
     modalidade: invoiceModalitySchema,
     grupo: z.literal("A"),
     vencimento: z.string().trim().nullable().default(null),
+
+    /**
+     * Campos que o relatório oficial exige e a leitura do PDF não deduz. Ficam
+     * aqui, junto do resto do que a pessoa confere na tela, porque é ela quem
+     * sabe o apelido da unidade e enxerga as datas de leitura na conta.
+     */
+    apelido: z.string().trim().min(1).nullish(),
+    classe: z.string().trim().min(1).nullish(),
+    leituraAnterior: z.string().trim().min(1).nullish(),
+    leituraAtual: z.string().trim().min(1).nullish(),
+    /**
+     * Irradiação média por mês da unidade consumidora. É premissa da UC, nunca
+     * um padrão geográfico silencioso: sem ela o estudo não roda.
+     */
+    hspMensal: z.array(z.number().positive()).length(12).nullish(),
+
     itens: z.array(reconciledInvoiceItemSchema).min(1),
     arquivoNome: z.string().trim().nullable().default(null),
     arquivoChave: z.string().trim().nullable().default(null),
