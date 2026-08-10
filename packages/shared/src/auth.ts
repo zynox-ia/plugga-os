@@ -20,6 +20,14 @@ export const roleKeys = [
   "opm",
   "tech",
   "viewer",
+  "projetista",
+  "engenheiro",
+  "supervisor",
+  "tecnico",
+  "almoxarife",
+  "seguranca",
+  "gestor_suprimentos",
+  "comprador",
 ] as const;
 
 export const roleKeySchema = z.enum(roleKeys);
@@ -45,6 +53,15 @@ export type PlatformRoleKey = (typeof platformRoleKeys)[number];
  * exige que quem seleciona a cotação não seja quem aprova a compra. Enquanto os
  * dois eram o mesmo papel, a separação que o POP descreve em três linhas não
  * existia no código. A ADR-0004 previu este refino como gatilho de revisão.
+ *
+ * `projetista`/`engenheiro`/`supervisor`/`tecnico`/`almoxarife`/`seguranca` são
+ * os papéis de obra (edição de projeto, aprovação técnica, atualização de
+ * campo, checklist/foto, controle de material, EPI/APR/incidente).
+ * `gestor_suprimentos`/`comprador` cobrem cotação e alçada de compra dentro do
+ * fluxo de Suprimentos; os demais cargos desse bloco (almoxarife central,
+ * contas a pagar, controladoria de obras) ficam por ora dentro de
+ * `almoxarife`/`financeiro`/`compras` — não viraram papel próprio até haver
+ * necessidade real de os distinguir.
  */
 export const companyRoleKeys = [
   "diretoria",
@@ -55,6 +72,14 @@ export const companyRoleKeys = [
   "opm",
   "tech",
   "viewer",
+  "projetista",
+  "engenheiro",
+  "supervisor",
+  "tecnico",
+  "almoxarife",
+  "seguranca",
+  "gestor_suprimentos",
+  "comprador",
 ] as const;
 
 export const companyRoleKeySchema = z.enum(companyRoleKeys);
