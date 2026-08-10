@@ -19,7 +19,6 @@
     "test:bitrix": "RUN_BITRIX_INTEGRATION_TESTS=true vitest run test/bitrix-mirror.integration.spec.ts",
     "test:db": "RUN_DATABASE_INTEGRATION_TESTS=true vitest run test/database-append-only.spec.ts",
     "test:seed": "RUN_SEED_INTEGRATION_TESTS=true vitest run test/seed-preserves-state.integration.spec.ts",
-    "test:email": "RUN_MAILPIT_INTEGRATION_TESTS=true vitest run test/email-mailpit.integration.spec.ts",
     "test:jobs": "RUN_JOBS_INTEGRATION_TESTS=true vitest run test/jobs-queue.integration.spec.ts",
     "test:ocr": "RUN_OCR_INTEGRATION_TESTS=true vitest run test/fatura-ocr.integration.spec.ts",
     "test:storage": "RUN_STORAGE_INTEGRATION_TESTS=true vitest run test/fatura-armazenamento.integration.spec.ts",

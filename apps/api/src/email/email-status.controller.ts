@@ -19,9 +19,7 @@ export class EmailStatusController {
   @Get("status")
   status(): EmailStatus {
     const provider = this.config.get<EmailStatus["provider"]>("EMAIL_PROVIDER", "noop");
-    const configured =
-      provider === "mailpit" ||
-      (provider === "brevo" && Boolean(this.config.get<string>("BREVO_API_KEY")));
+    const configured = provider === "brevo" && Boolean(this.config.get<string>("BREVO_API_KEY"));
 
     return emailStatusSchema.parse({ provider, configured });
   }

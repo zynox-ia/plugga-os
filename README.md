@@ -30,7 +30,7 @@ se comunicam apenas por HTTP e pelos contratos de `packages/shared`.
 
 - Node.js LTS na versão indicada por `.nvmrc`;
 - Corepack habilitado (a versão de pnpm é fixada no `package.json`);
-- Docker com Docker Compose para Postgres, Redis e Mailpit locais.
+- Docker com Docker Compose para Postgres, Redis e MinIO locais.
 
 ## Executar localmente
 
@@ -65,15 +65,13 @@ cp .env.example .env
 docker compose --profile app up -d --build
 # web:  http://localhost:3000
 # api:  http://localhost:3001/health
-# inbox Mailpit: http://localhost:58025
-#   (porta baixa 8025 é reservada ao túnel de produção — veja ops/GUIA.md)
 ```
 
 Os dois modos convivem de propósito:
 
 | Comando | Sobe | Para quê |
 |---|---|---|
-| `docker compose up -d` | postgres, redis, mailpit | infra para `pnpm dev` (inalterado) |
+| `docker compose up -d` | postgres, redis, minio | infra para `pnpm dev` (inalterado) |
 | `docker compose --profile app up -d` | infra + api + web | sistema completo em containers |
 
 Sem o profile nada mudou, então `pnpm dev` continua livre nas portas 3000/3001.
@@ -171,23 +169,18 @@ Administradores gerenciam usuários por `/auth/invite`, `/auth/users`,
 `/auth/users/:id/roles` e `/auth/users/:id/deactivate`. Convite e reset emitem
 tokens de uso único entregues por `EmailPort` (ADR-0010).
 
-### E-mail transacional (Mailpit local / Brevo no cliente)
+### E-mail transacional (Brevo)
 
 | `EMAIL_PROVIDER` | Comportamento |
 |---|---|
-| `noop` (default seguro) | Loga e **não envia** (sem token/link no log) |
-| `mailpit` | SMTP → container Mailpit do Compose; nada sai da máquina |
+| `noop` (default) | Loga e **não envia** (sem token/link no log) |
 | `brevo` | API Brevo na **conta do cliente** (staging/prod); exige `BREVO_API_KEY` |
 
-Local recomendado: `EMAIL_PROVIDER=mailpit` (já no `.env.example`). Após
-`docker compose up -d`, abra a inbox em [http://localhost:58025](http://localhost:58025)
-(porta baixa 8025 é reservada ao túnel de produção — veja ops/GUIA.md).
-
-Smoke de entrega local (Mailpit no Compose; também roda na CI):
-
-```bash
-pnpm --filter @plugga/api test:email
-```
+Local recomendado: `EMAIL_PROVIDER=noop` (já no `.env.example`). O adaptador
+Mailpit foi removido em 10/08/2026 — ver o adendo em
+[ADR-0010](docs/adr/0010-brevo-email-emailport.md#adendo--10082026-mailpit-removido).
+Testar o envio de verdade localmente exige `EMAIL_PROVIDER=brevo` com uma
+chave real, o que manda e-mail de verdade — não use para teste de rotina.
 
 **Staging/prod (VPS do cliente):** `EMAIL_PROVIDER=brevo` + `BREVO_API_KEY` só em
 secret/env — nunca no git. Templates de convite/reset são versionados no OS

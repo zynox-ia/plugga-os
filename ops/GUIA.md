@@ -10,7 +10,7 @@ Abra o **Docker Desktop**, depois:
 
 ```bash
 cd ~/Projects/plugga-os
-docker compose up -d postgres redis minio minio-provisiona mailpit
+docker compose up -d postgres redis minio minio-provisiona
 pnpm dev
 ```
 
@@ -24,7 +24,6 @@ O que cada contêiner faz:
 | `redis` | filas de trabalho em segundo plano — porta **56379** |
 | `minio` | guarda as faturas enviadas — painel em <http://localhost:59001> |
 | `minio-provisiona` | cria o balde das faturas e encerra; é normal ele sair |
-| `mailpit` | caixa de e-mail falsa — veja em <http://localhost:58025> |
 
 **As portas são altas de propósito.** As padrão — 5432, 6379, 1025, 8025, 9000,
 9001 — estão ocupadas pelos túneis para a VPS, então nelas `localhost` é
@@ -32,9 +31,11 @@ produção. Ver "O túnel para a VPS", no fim.
 
 A API e o site **não** vão no Docker: rodam com `pnpm dev` para recarregar sozinhos quando você salva um arquivo.
 
-### Por que o Mailpit em desenvolvimento
-
-Produção manda e-mail de verdade pelo Brevo. Aqui, não — cada teste de convite gastaria crédito e mandaria mensagem para endereço inventado. O Mailpit captura tudo e não entrega nada; você lê em <http://localhost:58025>.
+Sem Mailpit local (removido em 10/08/2026 — Brevo é o único provedor desde
+09/08/2026), `EMAIL_PROVIDER=noop` é o padrão local: convite e reset não
+entregam de verdade em dev, só logam sem token/link. Testar o envio de verdade
+exige `EMAIL_PROVIDER=brevo` com chave real — manda e-mail de verdade, não use
+de rotina.
 
 ---
 
@@ -107,7 +108,7 @@ Leva alguns minutos, quase tudo na construção das imagens.
 
 ```bash
 docker compose down -v          # apaga os dados locais
-docker compose up -d postgres redis minio minio-provisiona mailpit
+docker compose up -d postgres redis minio minio-provisiona
 pnpm --filter @plugga/api db:migrate:deploy
 pnpm --filter @plugga/api db:seed
 ```
@@ -159,15 +160,14 @@ eles ocupam, em `localhost`:
 ```
 5432         banco de produção
 6379         redis de produção
-1025 / 8025  mailpit de produção
 9000 / 9001  MinIO de produção — inclusive o balde dos backups
 ```
 
-Nessas seis portas, **`localhost` é produção**. É contraintuitivo e não aparece
+Nessas quatro portas, **`localhost` é produção**. É contraintuitivo e não aparece
 em lugar nenhum do `.env` a não ser que se saiba procurar.
 
 **A defesa é a numeração, não a atenção.** O stack local sobe na faixa 5xxxx
-(55432, 56379, 51025, 58025, 59000, 59001) e é para lá que o `.env` aponta.
+(55432, 56379, 59000, 59001) e é para lá que o `.env` aponta.
 Assim os dois mundos coexistem sem disputar porta, e esquecer de subir o Docker
 dá erro de conexão — não uma escrita silenciosa em produção.
 

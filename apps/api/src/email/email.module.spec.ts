@@ -5,7 +5,6 @@ import { describe, expect, it } from "vitest";
 import { BrevoEmailAdapter } from "./brevo-email.adapter";
 import { EmailModule } from "./email.module";
 import { EmailPort } from "./email.port";
-import { MailpitEmailAdapter } from "./mailpit-email.adapter";
 import { NoopEmailAdapter } from "./noop-email.adapter";
 
 async function resolvePort(config: Record<string, unknown>): Promise<EmailPort> {
@@ -21,10 +20,6 @@ async function resolvePort(config: Record<string, unknown>): Promise<EmailPort> 
 describe("EmailModule provider selection", () => {
   it("defaults to the safe Noop adapter when no provider is set", async () => {
     expect(await resolvePort({})).toBeInstanceOf(NoopEmailAdapter);
-  });
-
-  it("selects the Mailpit adapter for EMAIL_PROVIDER=mailpit", async () => {
-    expect(await resolvePort({ EMAIL_PROVIDER: "mailpit" })).toBeInstanceOf(MailpitEmailAdapter);
   });
 
   it("selects the Brevo adapter for EMAIL_PROVIDER=brevo", async () => {

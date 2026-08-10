@@ -11,7 +11,6 @@ const STATUS_VARIANT: Record<IntegrationStatus, "neutral" | "success" | "warning
 
 const EMAIL_PROVIDER_LABEL: Record<EmailStatus["provider"], string> = {
   noop: "Desligado (noop)",
-  mailpit: "Mailpit (captura local)",
   brevo: "Brevo (envio real)",
 };
 
