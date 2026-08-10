@@ -19,7 +19,7 @@ function rotulo(rota: string): string {
 async function navegar(page: Page, rota: string) {
   await page.goto("/");
   await page.locator(".sidebar-nav").getByRole("button", { name: rotulo(rota) }).click();
-  await page.waitForURL((url) => url.pathname === rota);
+  await expect(page).toHaveURL((url) => url.pathname === rota, { timeout: 15_000 });
 }
 
 test.describe("Energia & OPM — navegação e telas", () => {
