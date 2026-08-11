@@ -89,8 +89,19 @@ docker compose run --rm --no-deps \
   api pnpm db:migrate:deploy
 
 # ------------------------------------------------------------------ 5. subir
-registro "5/6 · subindo api e web"
-docker compose up -d api web
+# Sem nomear serviço: agora que o compose.yaml é sincronizado do repositório,
+# uma mudança no bloco de postgres/redis/minio chegaria ao arquivo e nunca aos
+# contêineres — uma divergência mais silenciosa que a que acabamos de fechar.
+#
+# `--profile app` é obrigatório e não é zelo: api e web declaram
+# `profiles: ["app"]`, e sem ele o compose sobe só a infraestrutura e deixa a
+# aplicação de fora — o deploy passaria sem publicar nada.
+#
+# Isto não reinicia o que não mudou: o compose compara o `config-hash` de cada
+# contêiner e só recria os divergentes. Conferido com `--dry-run` em produção
+# em 10/08/2026, com os cinco serviços reportados como `Running`.
+registro "5/6 · subindo a aplicação"
+docker compose --profile app up -d
 
 # -------------------------------------------------------- 6. teste de fumaça
 # Três perguntas, nesta ordem: o site responde? a API responde? e o caminho até
@@ -127,6 +138,10 @@ if [ "$ok" -ne 0 ]; then
       docker tag "plugga-os-${servico}:anterior" "plugga-os-${servico}:latest"
     fi
   done
+  # Aqui os serviços SÃO nomeados, ao contrário do passo 5, e é de propósito:
+  # o rollback reverte a imagem da aplicação e nada mais. Subir a infra junto
+  # aplicaria, no meio de uma falha, uma mudança de compose que ninguém pediu e
+  # que talvez seja a causa do problema que se está tentando desfazer.
   docker compose up -d api web
   cat >&2 <<AVISO
 
