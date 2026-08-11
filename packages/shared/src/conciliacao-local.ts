@@ -1,58 +1,53 @@
 import type {
   InvoiceData,
+  InvoiceReadingItem,
   ReconciledInvoiceItem,
   ReconciledInvoiceItemCategory,
-} from "@plugga/shared";
-
-const semAcentos = (texto: string): string =>
-  texto.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("pt-BR");
+} from "./energy-efficiency.js";
 
 /**
- * "Fora ponta" escrito como a distribuidora escreve.
+ * A prontidão da conciliação, julgada sem servidor.
  *
- * A Roraima imprime `Consumo F/Ponta`, e a regra antiga procurava a frase
- * inteira "fora ponta". Não casava — e, pior, a linha caía na regra seguinte,
- * que só procura "ponta", e ia parar em **consumo em ponta**. Os 183.153 kWh
- * fora ponta da Santa Tereza somavam com os 17.419 de ponta, o campo não
- * batia com a soma, e a conciliação nunca ficava pronta: o botão de abrir o
- * estudo ficava desabilitado sem dizer por quê.
+ * É o que decide se o botão de abrir o estudo nasce habilitado: a soma das
+ * linhas fecha com o total impresso, cada multiplicação fecha, e os campos
+ * críticos da ficha batem com as linhas que os alimentam.
  *
- * Aceita `fora ponta`, `fora de ponta`, `f/ponta`, `f.ponta`, `f-ponta` e
- * `fp` isolado.
+ * **Por que isto mora em `shared` e não na tela.** Ele nasceu em
+ * `apps/web/app/components/conciliacao-model.ts` e o defeito de 11/08/2026
+ * mostrou o preço: nenhum teste conseguia atravessar a fronteira
+ * servidor→tela, porque o leitor mora na API e o julgamento morava no
+ * navegador. O corpus podia crescer para cem faturas e continuaria cego ao
+ * caminho que o usuário percorre. Aqui os dois lados alcançam o mesmo código, e
+ * `conciliacao.corpus.spec.ts` na API prova, fatura real por fatura real, o
+ * veredicto que a tela vai dar.
+ *
+ * "Local" continua querendo dizer *sem ida ao servidor* — não *só na tela*.
  */
-const FORA_PONTA = /\b(?:fora\s+(?:de\s+)?ponta|f\s*[./-]\s*ponta|fp)\b/;
 
 /**
- * Energia reativa como a fatura abrevia.
+ * O item lido virando linha da conciliação — sem redecidir nada.
  *
- * `En R Exc Ponta` não contém "reativ", e a regra de reativo vinha **depois**
- * da de ponta — então energia reativa excedente era classificada como consumo,
- * inflando o consumo em ponta de qualquer fatura que a tenha. É por isso que
- * reativo passou a ser testado antes: entre "é reativo" e "é ponta", a
- * primeira é a informação mais específica.
- */
-const REATIVO = /\breativ|\ben\s*r\s*exc\b|\bufer\b|\bdmcr\b/;
-
-/**
- * Sugestão inicial; o operador confirma a categoria no editor.
+ * É a costura onde o defeito de 11/08/2026 morava: aqui a tela chamava um
+ * classificador próprio, com um vocabulário paralelo ao do leitor. Agora todo
+ * campo vem do que foi lido, e a função mora junto do julgamento para que o
+ * teste de corpus atravesse **esta** costura, e não uma cópia dela — foi
+ * justamente uma cópia que deixou o corpus cego ao caminho do navegador.
  *
- * A ordem das regras é o que decide, e não é arbitrária: da informação mais
- * específica para a mais genérica. `Demanda Ponta sem ICMS` é demanda antes de
- * ser ponta; `En R Exc F/Ponta` é reativo antes de ser fora ponta.
+ * O que a pessoa fizer depois disso no editor é dela; o que sai daqui é a
+ * sugestão do leitor, inteira.
  */
-export function inferirCategoriaDaLinha(rotulo: string): ReconciledInvoiceItemCategory {
-  const texto = semAcentos(rotulo);
-  if (texto.includes("demanda")) return "demanda_faturada";
-  if (REATIVO.test(texto)) return "reativo";
-  if (texto.includes("beneficio") || texto.includes("subvenc")) return "beneficio_fiscal";
-  if (texto.includes("multa") || texto.includes("juros") || texto.includes("encargo")) {
-    return "multas_juros_encargos";
-  }
-  if (FORA_PONTA.test(texto)) return "consumo_fora_ponta";
-  // Só depois de descartar tudo o que também menciona ponta. Uma linha que
-  // chega aqui e diz "ponta" é consumo em ponta de verdade.
-  if (texto.includes("ponta")) return "consumo_ponta";
-  return "outros";
+export function itensParaConciliar(
+  itens: readonly InvoiceReadingItem[],
+): ReconciledInvoiceItem[] {
+  return itens.map((item) => ({
+    nome: item.rotulo,
+    categoria: item.categoria,
+    compoeTotal: item.compoeTotal,
+    valor: item.valor,
+    quantidade: item.quantidade,
+    unidade: item.unidade,
+    tarifa: item.tarifa,
+  }));
 }
 
 const numero = (valor: string | number | undefined): number => {
@@ -147,11 +142,29 @@ export function avaliarConciliacaoLocal(
   itensCobrados: readonly ReconciledInvoiceItem[],
   campos: CamposDaConciliacao,
 ): AvaliacaoConciliacaoLocal {
-  const itens = [
-    ...itensCobrados.map((item) => ({ ...item, compoeTotal: true })),
-    ...metadadosDeDemanda(campos),
-  ];
-  const soma = itensCobrados.reduce((total, item) => total + item.valor, 0);
+  const itens = [...itensCobrados.map((item) => ({ ...item })), ...metadadosDeDemanda(campos)];
+  // A soma que tem de fechar com o total é a soma de quem **compõe** o total.
+  //
+  // Antes daqui saía a soma de tudo, e `itens` ainda reescrevia `compoeTotal`
+  // para `true` em toda linha cobrada — o que apagava, na hora de salvar, a
+  // marcação que o leitor tinha feito e que a pessoa podia ter feito à mão. As
+  // duas coisas juntas tinham três efeitos, todos medidos contra o corpus em
+  // 11/08/2026:
+  //
+  // - a Santa Tereza e a Jardim Floresta nunca ficavam prontas. O leitor prova
+  //   pela aritmética que a "Adicional Bandeira Amarela" é informativa e a marca
+  //   fora do total; a tela a somava de volta, e a diferença que sobrava era
+  //   exatamente o valor da bandeira — R$ 3.774,59 e R$ 1.491,05;
+  // - desmarcar "compõe o total" no editor não adiantava: a soma ignorava a
+  //   marcação, então não havia como destravar a fatura à mão;
+  // - e se houvesse, a marcação era descartada no envio, de forma que
+  //   `faturaNormativaDoSistema` receberia a bandeira dentro de `itens` em vez de
+  //   `naoCobrados`, e a Trava 1 do servidor reprovaria o estudo.
+  //
+  // O servidor sempre respeitou o campo; quem não respeitava era a tela.
+  const soma = itensCobrados
+    .filter((item) => item.compoeTotal)
+    .reduce((total, item) => total + item.valor, 0);
   const diferenca = soma - campos.valorTotal;
   const multiplicacoesInvalidas = itensCobrados.filter((item) => {
     if (item.quantidade === null || item.tarifa === null) return false;

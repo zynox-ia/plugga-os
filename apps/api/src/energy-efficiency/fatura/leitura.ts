@@ -1,4 +1,4 @@
-import type { InvoiceData } from "@plugga/shared";
+import type { InvoiceData, ReconciledInvoiceItemCategory } from "@plugga/shared";
 
 import { somarComoOOraculo } from "../nucleo/aritmetica.js";
 import { TOLERANCIA_DO_TOTAL } from "../nucleo/conciliacao.js";
@@ -74,6 +74,19 @@ const AVISO_DA_VISAO: Record<MotivoDeVisaoPulada, string> = {
     "vieram só das regras",
 };
 
+/**
+ * O item como ele sai da leitura: conferido pela aritmética, situado em relação
+ * ao total, e **classificado**.
+ *
+ * A categoria é a última das três a entrar, e entrou porque era a única que a
+ * tela ainda refazia por conta própria. `compoeTotal` e `motivoForaDoTotal`
+ * fizeram esse mesmo caminho antes dela.
+ */
+export type ItemLido = ItemDaLeitura & {
+  /** Em que campo da ficha a linha cai, decidido por `categoriaDoRotulo`. */
+  categoria: ReconciledInvoiceItemCategory;
+};
+
 export type LeituraDaFatura = {
   origem: OrigemDoTexto;
   /** Falso quando não deu para montar a ficha; `motivo` diz por quê. */
@@ -82,7 +95,7 @@ export type LeituraDaFatura = {
   /** Confiança média do OCR, de 0 a 100; nula quando o texto veio do PDF. */
   confianca: number | null;
   identificacao: IdentificacaoDaFatura;
-  itens: ItemDaLeitura[];
+  itens: ItemLido[];
   /**
    * Valor da linha de demanda sem ICMS, quando a fatura a publica. Nulo quando
    * não existe — e aí quem calcula usa rateio, nunca o contrário.
@@ -123,6 +136,46 @@ const DEMANDA_SIMPLES = /^demanda\b(?!\s*(gera|ultr))/i;
 const DEMANDA_COMPLEMENTO = /^demanda\b.*\b(sem\s*icms|complement)/i;
 const REATIVO = /^en\s*r\s*exc\b|reativ/i;
 const ULTRAPASSAGEM = /^dem\s*ultr/i;
+
+/**
+ * Em que campo da ficha esta linha cai — dito uma vez, para os dois lados.
+ *
+ * Este julgamento existia duas vezes, com dois vocabulários: os padrões acima,
+ * testados contra as doze faturas do corpus, e um mapa próprio no navegador,
+ * testado contra rótulos inventados. Em 11/08/2026 os dois divergiram numa
+ * fatura da Roraima — o leitor acertava `Consumo F/Ponta` e `En R Exc Ponta`, a
+ * tela os mandava para consumo em ponta — e o botão de abrir o estudo nasceu
+ * desabilitado sem dizer por quê.
+ *
+ * Alinhar os dois mapas consertou aquele dia. Tirar um deles é o que impede o
+ * próximo: enquanto houver dois, o rótulo da próxima distribuidora volta a
+ * divergir. Agora a decisão sai daqui, viaja no item e a tela lê em vez de
+ * adivinhar.
+ *
+ * **A ordem é o que decide, e não é arbitrária.** Vai do mais específico ao
+ * mais genérico, e é a mesma ordem da cadeia que monta a ficha, logo abaixo:
+ * `Demanda Ponta sem ICMS` é demanda antes de ser ponta, `En R Exc Ponta` é
+ * reativo antes de ser ponta.
+ *
+ * Rótulo que não casa nada sai `outros` — nunca chutado para consumo, que foi
+ * exatamente o defeito. A ficha do servidor não tem campo alimentado por
+ * benefício fiscal, então `beneficio_fiscal` não é produzido aqui: quem
+ * acrescenta essa linha à mão a classifica no editor.
+ */
+export function categoriaDoRotulo(rotulo: string): ReconciledInvoiceItemCategory {
+  if (CONSUMO_PONTA.test(rotulo)) return "consumo_ponta";
+  if (CONSUMO_FORA_PONTA.test(rotulo)) return "consumo_fora_ponta";
+  if (
+    DEMANDA_PONTA.test(rotulo) ||
+    DEMANDA_FORA_PONTA.test(rotulo) ||
+    DEMANDA_SIMPLES.test(rotulo)
+  ) {
+    return "demanda_faturada";
+  }
+  if (REATIVO.test(rotulo)) return "reativo";
+  if (ULTRAPASSAGEM.test(rotulo)) return "multas_juros_encargos";
+  return "outros";
+}
 
 const soma = (a: number | undefined, b: number): number => (a ?? 0) + b;
 
@@ -516,33 +569,56 @@ function montarComItens(
 
     const { rotulo, quantidade, tarifa, valor } = item;
 
-    if (CONSUMO_PONTA.test(rotulo) && quantidade !== null) {
-      invoice.consumoPontaKwh = soma(invoice.consumoPontaKwh, quantidade);
-      invoice.tarifaPonta = tarifa ?? invoice.tarifaPonta;
-      invoice.valorPonta = soma(invoice.valorPonta, valor);
-    } else if (CONSUMO_FORA_PONTA.test(rotulo) && quantidade !== null) {
-      invoice.consumoForaPontaKwh = soma(invoice.consumoForaPontaKwh, quantidade);
-      invoice.tarifaForaPonta = tarifa ?? invoice.tarifaForaPonta;
-      invoice.valorForaPonta = soma(invoice.valorForaPonta, valor);
-    } else if (DEMANDA_PONTA.test(rotulo) && quantidade !== null) {
-      // A maior medição da competência é a que interessa: demanda é cobrada
-      // pelo pico, não pela soma das linhas.
-      invoice.demandaMedidaPontaKw = Math.max(invoice.demandaMedidaPontaKw ?? 0, quantidade);
-      invoice.tarifaDemanda = tarifa ?? invoice.tarifaDemanda;
-      invoice.valorDemanda = soma(invoice.valorDemanda, valor);
-    } else if (DEMANDA_FORA_PONTA.test(rotulo) && quantidade !== null) {
-      invoice.demandaMedidaForaPontaKw = Math.max(invoice.demandaMedidaForaPontaKw ?? 0, quantidade);
-      invoice.tarifaDemanda = tarifa ?? invoice.tarifaDemanda;
-      invoice.valorDemanda = soma(invoice.valorDemanda, valor);
-    } else if (DEMANDA_SIMPLES.test(rotulo) && quantidade !== null) {
-      // Horossazonal verde tem demanda única, sem separar ponta.
-      invoice.demandaMedidaForaPontaKw = Math.max(invoice.demandaMedidaForaPontaKw ?? 0, quantidade);
-      invoice.tarifaDemanda = tarifa ?? invoice.tarifaDemanda;
-      invoice.valorDemanda = soma(invoice.valorDemanda, valor);
-    } else if (REATIVO.test(rotulo)) {
-      invoice.valorReativo = soma(invoice.valorReativo, valor);
-    } else if (ULTRAPASSAGEM.test(rotulo)) {
-      invoice.valorMultasJurosEncargos = soma(invoice.valorMultasJurosEncargos, valor);
+    // A mesma decisão que viaja no item alimenta a ficha. Antes eram duas
+    // cadeias de `if` sobre os mesmos padrões — uma aqui e outra no navegador —,
+    // e é assim que um mapa afrouxa sem o outro ficar sabendo.
+    switch (categoriaDoRotulo(rotulo)) {
+      case "consumo_ponta":
+        if (quantidade === null) break;
+        invoice.consumoPontaKwh = soma(invoice.consumoPontaKwh, quantidade);
+        invoice.tarifaPonta = tarifa ?? invoice.tarifaPonta;
+        invoice.valorPonta = soma(invoice.valorPonta, valor);
+        break;
+
+      case "consumo_fora_ponta":
+        if (quantidade === null) break;
+        invoice.consumoForaPontaKwh = soma(invoice.consumoForaPontaKwh, quantidade);
+        invoice.tarifaForaPonta = tarifa ?? invoice.tarifaForaPonta;
+        invoice.valorForaPonta = soma(invoice.valorForaPonta, valor);
+        break;
+
+      case "demanda_faturada":
+        if (quantidade === null) break;
+        // Ponta e fora ponta somam no mesmo valor, mas são medições distintas.
+        // A maior medição da competência é a que interessa: demanda é cobrada
+        // pelo pico, não pela soma das linhas.
+        if (DEMANDA_PONTA.test(rotulo)) {
+          invoice.demandaMedidaPontaKw = Math.max(invoice.demandaMedidaPontaKw ?? 0, quantidade);
+        } else {
+          // Fora ponta, e também a demanda única da horossazonal verde, que não
+          // separa ponta.
+          invoice.demandaMedidaForaPontaKw = Math.max(
+            invoice.demandaMedidaForaPontaKw ?? 0,
+            quantidade,
+          );
+        }
+        invoice.tarifaDemanda = tarifa ?? invoice.tarifaDemanda;
+        invoice.valorDemanda = soma(invoice.valorDemanda, valor);
+        break;
+
+      case "reativo":
+        invoice.valorReativo = soma(invoice.valorReativo, valor);
+        break;
+
+      case "multas_juros_encargos":
+        invoice.valorMultasJurosEncargos = soma(invoice.valorMultasJurosEncargos, valor);
+        break;
+
+      default:
+        // `outros` e as categorias que só a tela produz. Linha que não casa
+        // nenhum padrão não alimenta campo nenhum — nunca é chutada para
+        // consumo, que foi exatamente o defeito.
+        break;
     }
   }
 
@@ -554,7 +630,18 @@ function montarComItens(
 
   // A composição do total nasce da aritmética: item de bandeira que faz a soma
   // passar do total é marcado como informativo, com o motivo registrado.
-  const itensDaLeitura = marcarInformativos(conferencia.itens, invoice.valorTotal);
+  //
+  // A categoria entra aqui, e não dentro de `marcarInformativos`: aquele arquivo
+  // decide se o item **soma**, este decide o que ele **é**. São perguntas
+  // diferentes e é bom que continuem em lugares diferentes.
+  //
+  // Todo item recebe categoria, inclusive o divergente — que não entra na ficha,
+  // mas aparece na tela para a pessoa corrigir, e aí a categoria já tem de estar
+  // certa.
+  const itensDaLeitura: ItemLido[] = marcarInformativos(
+    conferencia.itens,
+    invoice.valorTotal,
+  ).map((item) => ({ ...item, categoria: categoriaDoRotulo(item.rotulo) }));
 
   // E a Trava 1 é dita na hora, não só usada como portão.
   //

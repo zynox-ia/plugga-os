@@ -3,13 +3,14 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
-import type { EnergyStudyDetail, ReconciledInvoiceItem } from "@plugga/shared";
-
-import { aprovar, enviarFatura, marcarEnviado, recalcular } from "../energia-opm/eficiencia/actions";
 import {
   avaliarConciliacaoLocal,
   camposDaFicha,
-} from "./conciliacao-model";
+  type EnergyStudyDetail,
+  type ReconciledInvoiceItem,
+} from "@plugga/shared";
+
+import { aprovar, enviarFatura, marcarEnviado, recalcular } from "../energia-opm/eficiencia/actions";
 import { EditorConciliacao } from "./conciliacao-editor";
 import { ROTULO_DE_ESTADO, formatarCompetencia, formatarDinheiro } from "./estudos-view";
 import { ShellCard, ShellTable, StatusPill } from "./plugga-shell";

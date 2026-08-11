@@ -75,6 +75,7 @@ export class FaturaService {
         valor: item.valor,
         veredicto: item.veredicto,
         esperado: item.esperado,
+        categoria: item.categoria,
         compoeTotal: item.compoeTotal,
         motivoForaDoTotal: item.motivoForaDoTotal,
       })),
