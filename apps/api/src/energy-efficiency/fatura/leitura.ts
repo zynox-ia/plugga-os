@@ -8,7 +8,12 @@ import { marcarInformativos, type ItemDaLeitura } from "./informativos.js";
 import { lerItens, type ItemDaFatura } from "./itens.js";
 import { linhasImpressas, linhasPorColuna } from "./linhas.js";
 import { abrirPdf, SenhaIncorretaError, SenhaNecessariaError } from "./paginas.js";
-import type { LeitorPorVisao, PaginaParaVisao } from "./visao.js";
+import type {
+  LeitorPorVisao,
+  PaginaParaVisao,
+  ResultadoDaVisao,
+  VisaoNaoFeita,
+} from "./visao.js";
 
 /**
  * Leitura de uma fatura da distribuidora, venha ela como for.
@@ -38,6 +43,35 @@ export type MotivoDeRecusa =
   | "grupo_b"
   | "campos_essenciais_ausentes";
 
+/**
+ * Os motivos de visão pulada que valem um aviso a quem confere.
+ *
+ * `sem_pagina` fica de fora: não houve o que mandar, e a recusa da leitura já
+ * diz isso melhor do que um segundo aviso diria.
+ */
+export type MotivoDeVisaoPulada = Exclude<VisaoNaoFeita, "sem_pagina">;
+
+/**
+ * A frase que chega a quem confere. Cada uma pede uma coisa diferente de quem lê.
+ *
+ * A primeira é a que existe por causa da política de dados: dizer "o modelo não
+ * leu" seria verdade e mentira ao mesmo tempo — o modelo não leu porque a fatura
+ * **não foi enviada**, de propósito. Sem essa distinção, quem confere conclui que
+ * o leitor é fraco e ninguém descobre que a exigência de retenção está sem
+ * provedor para atendê-la.
+ */
+const AVISO_DA_VISAO: Record<MotivoDeVisaoPulada, string> = {
+  sem_provedor_sem_retencao:
+    "a leitura por modelo não foi feita: esta fatura só é enviada a provedor que não guarda o " +
+    "conteúdo, e nenhum estava disponível — nada saiu daqui. Os campos abaixo vieram só das regras",
+  modelo_indisponivel:
+    "a leitura por modelo não foi feita: o serviço não estava disponível. Os campos abaixo " +
+    "vieram só das regras",
+  resposta_ilegivel:
+    "a leitura por modelo não pôde ser aproveitada: a resposta veio ilegível. Os campos abaixo " +
+    "vieram só das regras",
+};
+
 export type LeituraDaFatura = {
   origem: OrigemDoTexto;
   /** Falso quando não deu para montar a ficha; `motivo` diz por quê. */
@@ -63,6 +97,11 @@ export type LeituraDaFatura = {
    * Nunca é vazio por acidente: é o contrato de honestidade da leitura.
    */
   camposParaConfirmar: string[];
+  /**
+   * Por que a leitura por modelo não entrou; nulo quando ela não fazia falta
+   * (as regras fecharam a ficha) ou quando o modelo respondeu.
+   */
+  visaoPulada: MotivoDeVisaoPulada | null;
 };
 
 /** Casa o rótulo impresso com o campo da ficha. */
@@ -115,6 +154,7 @@ function recusar(
     conferencia: CONFERENCIA_VAZIA,
     invoice: {},
     camposParaConfirmar: [explicacao],
+    visaoPulada: null,
   };
 }
 
@@ -290,8 +330,45 @@ export async function lerFatura(
     paginas = [{ conteudo, mime }];
   }
 
-  const visao = await lerPorVisao(paginas, referencia);
-  if (!visao) return porRegras;
+  return incorporarVisao(
+    porRegras,
+    await lerPorVisao(paginas, referencia),
+    extras,
+    documento.origem,
+    confianca,
+  );
+}
+
+/**
+ * Junta o que o modelo devolveu — ou o motivo de não ter devolvido — à leitura
+ * das regras.
+ *
+ * Exportada pelo mesmo motivo que `lerPorRegras`: é o núcleo testável sem PDF
+ * nem rede. O caso que mais importa provar aqui não tem imagem nenhuma — é o da
+ * fatura que **não foi enviada** por falta de provedor sem retenção, e que
+ * precisa chegar à conferência humana dizendo isso.
+ */
+export function incorporarVisao(
+  porRegras: LeituraDaFatura,
+  resultado: ResultadoDaVisao,
+  extras: ReturnType<typeof lerCamposExtras>,
+  origem: OrigemDoTexto,
+  confianca: number | null,
+): LeituraDaFatura {
+  if (!resultado.ok) {
+    if (resultado.motivo === "sem_pagina") return porRegras;
+
+    // A ficha continua sendo a das regras — o que muda é que ela passa a dizer
+    // por que não houve mais que isso. Sem esta linha, "não mandamos a fatura" e
+    // "o modelo não achou nada" chegariam iguais na tela.
+    return {
+      ...porRegras,
+      visaoPulada: resultado.motivo,
+      camposParaConfirmar: [AVISO_DA_VISAO[resultado.motivo], ...porRegras.camposParaConfirmar],
+    };
+  }
+
+  const { leitura: visao } = resultado;
 
   const porVisao = montarFicha(
     {
@@ -305,7 +382,7 @@ export async function lerFatura(
     },
     visao.itens,
     extras,
-    documento.origem,
+    origem,
     confianca,
   );
 
@@ -440,5 +517,6 @@ function montarComItens(
       itens.find((item) => DEMANDA_COMPLEMENTO.test(item.rotulo))?.valor ?? null,
     invoice,
     camposParaConfirmar: paraConfirmar,
+    visaoPulada: null,
   };
 }

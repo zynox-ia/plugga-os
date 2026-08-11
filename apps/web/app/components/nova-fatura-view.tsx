@@ -73,6 +73,27 @@ const MOTIVO: Record<string, string> = {
   campos_essenciais_ausentes: "A leitura não encontrou consumo e tarifas completos.",
 };
 
+/**
+ * Por que a leitura por modelo não entrou — e o que isso muda para quem confere.
+ *
+ * O primeiro é o que esta tela existe para não esconder: a fatura **não foi**
+ * **enviada** a lugar nenhum, porque só vai para provedor que se compromete a não
+ * guardar o conteúdo e nenhum estava disponível. Sem esta frase, o resultado
+ * seria idêntico ao de um leitor que tentou e não deu conta, e a exigência de
+ * retenção ficaria sem provedor por semanas sem ninguém perceber.
+ */
+const VISAO_PULADA: Record<string, string> = {
+  sem_provedor_sem_retencao:
+    "A leitura por modelo não foi feita: esta fatura só é enviada a provedor que não guarda o " +
+    "conteúdo, e nenhum estava disponível — nada saiu daqui. O que aparece abaixo veio só das regras.",
+  modelo_indisponivel:
+    "A leitura por modelo não foi feita: o serviço não estava disponível. O que aparece abaixo " +
+    "veio só das regras.",
+  resposta_ilegivel:
+    "A leitura por modelo não pôde ser aproveitada: a resposta veio ilegível. O que aparece " +
+    "abaixo veio só das regras.",
+};
+
 /** Motivos que a pessoa resolve ali mesmo, sem cair na ficha manual. */
 const PEDE_SENHA = new Set(["protegido_por_senha", "senha_incorreta"]);
 
@@ -347,6 +368,10 @@ export function NovaFaturaView({
             não fechou aparece em destaque e não foi aproveitado.
           </p>
         )}
+
+        {leitura.visaoPulada !== null ? (
+          <p className="card-note">{VISAO_PULADA[leitura.visaoPulada]}</p>
+        ) : null}
 
         {leitura.origem === "reconhecimento_optico" ? (
           <p className="card-note">
