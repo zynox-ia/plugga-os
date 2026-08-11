@@ -1,8 +1,11 @@
 "use client";
 
-import type { ReconciledInvoiceItem, ReconciledInvoiceItemCategory } from "@plugga/shared";
+import type {
+  AvaliacaoConciliacaoLocal,
+  ReconciledInvoiceItem,
+  ReconciledInvoiceItemCategory,
+} from "@plugga/shared";
 
-import type { AvaliacaoConciliacaoLocal } from "./conciliacao-model";
 import { ShellTable, StatusPill } from "./plugga-shell";
 
 const CATEGORIAS_COBRADAS: readonly {

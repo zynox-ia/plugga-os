@@ -3,18 +3,16 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 
-import type {
-  ConsumerUnitSummary,
-  InvoiceReading,
-  ReconciledInvoiceItem,
-} from "@plugga/shared";
-
-import { abrirEstudoPelaFatura, lerFaturaEnviada } from "../energia-opm/eficiencia/actions";
 import {
   avaliarConciliacaoLocal,
   camposDaFicha,
-  inferirCategoriaDaLinha,
-} from "./conciliacao-model";
+  type ConsumerUnitSummary,
+  type InvoiceReading,
+  itensParaConciliar,
+  type ReconciledInvoiceItem,
+} from "@plugga/shared";
+
+import { abrirEstudoPelaFatura, lerFaturaEnviada } from "../energia-opm/eficiencia/actions";
 import { EditorConciliacao } from "./conciliacao-editor";
 import { ShellCard, ShellTable, StatusPill } from "./plugga-shell";
 
@@ -162,20 +160,16 @@ export function NovaFaturaView({
       base[campo.nome] = String(lido ?? 0);
     }
     setFicha(base);
-    setItensConciliacao(
-      leitura.itens.map((item) => ({
-        nome: item.rotulo,
-        categoria: inferirCategoriaDaLinha(item.rotulo),
-        // A leitura já decide isso pela aritmética da própria fatura: item de
-        // bandeira que faz a soma passar do total nasce fora dele. A pessoa
-        // continua podendo mudar aqui — a leitura sugere, não decide sozinha.
-        compoeTotal: item.compoeTotal,
-        valor: item.valor,
-        quantidade: item.quantidade,
-        unidade: item.unidade,
-        tarifa: item.tarifa,
-      })),
-    );
+    // Nada aqui é redecidido, e a montagem mora em `shared` de propósito: é a
+    // costura que o teste de corpus atravessa. A tela tinha um mapa próprio de
+    // rótulo para categoria, testado contra rótulos inventados, e ele divergia
+    // do mapa do leitor — testado contra as doze faturas reais. Em 11/08/2026 a
+    // Roraima pagou por isso: `Consumo F/Ponta` virava consumo em ponta e o
+    // botão de abrir o estudo nascia desabilitado sem dizer por quê.
+    //
+    // Categoria e composição do total vêm da leitura. A pessoa continua podendo
+    // mudar as duas no editor: a leitura sugere, não decide sozinha.
+    setItensConciliacao(itensParaConciliar(leitura.itens));
   }, [leitura, consumerUnits]);
 
   const alterarCampo = (nome: string, valor: string) =>

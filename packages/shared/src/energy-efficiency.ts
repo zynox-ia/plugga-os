@@ -497,6 +497,17 @@ export const invoiceReadingItemSchema = z
     /** Valor que a multiplicação produz; nulo quando não há o que multiplicar. */
     esperado: z.number().nullable(),
     /**
+     * Em que campo da ficha a linha cai, decidido pelo leitor.
+     *
+     * Viaja junto com o item pelo mesmo motivo que `compoeTotal`: era um
+     * julgamento que a tela refazia por conta própria, com um vocabulário
+     * paralelo, e os dois divergiram numa fatura da Roraima em 11/08/2026 —
+     * `Consumo F/Ponta` virava consumo em ponta e a conciliação nunca ficava
+     * pronta. Quem confere continua podendo trocar no editor: o leitor sugere,
+     * não decide sozinho.
+     */
+    categoria: reconciledInvoiceItemCategorySchema,
+    /**
      * Se o item entra na soma que tem de fechar com o total da fatura.
      *
      * Nasce verdadeiro. Vira falso quando a própria aritmética prova o
