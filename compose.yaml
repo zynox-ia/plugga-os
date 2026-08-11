@@ -144,6 +144,12 @@ services:
       EMAIL_PROVIDER: ${EMAIL_PROVIDER:-noop}
       EMAIL_FROM_ADDRESS: ${EMAIL_FROM_ADDRESS:-no-reply@plugga.local}
       EMAIL_FROM_NAME: ${EMAIL_FROM_NAME:-Plugga OS}
+      # Sem valor padrão: a validação exige a chave quando o provedor é brevo
+      # (apps/api/src/config/environment.ts), e um padrão vazio faria a API
+      # recusar subir. Esta linha existia só no compose da VPS até 2026-08-11 —
+      # é o que faz a chave do .env chegar ao contêiner, e sem ela a API de
+      # produção, que roda com EMAIL_PROVIDER=brevo, não sobe.
+      BREVO_API_KEY: ${BREVO_API_KEY:-}
       JOBS_ENABLED: ${JOBS_ENABLED:-false}
       JOBS_WORKER_CONCURRENCY: ${JOBS_WORKER_CONCURRENCY:-1}
       # Where the uploaded invoice files are kept. Leaving STORAGE_BUCKET empty
