@@ -14,7 +14,7 @@ import {
   somaDoQueCompoeOTotal,
   somaFechaComOTotal,
 } from "./leitura.js";
-import type { LeitorPorVisao, PaginaParaVisao } from "./visao.js";
+import type { LeitorPorVisao, PaginaParaVisao, ResultadoDaVisao } from "./visao.js";
 
 /**
  * O portão do escalonamento, que passou a ser a Trava 1.
@@ -56,25 +56,27 @@ const SEM_DEMANDA_PONTA = /^Demanda Ponta 150 kW|^4\.260,00$/;
 /** A folha inteira, menos o total impresso no cabeçalho. */
 const SEM_TOTAL = /^24\.661,00$/;
 
+/** O modelo respondeu, com estes itens e sem identificação nenhuma. */
+const respondeu = (itens: ItemDaFatura[]): ResultadoDaVisao => ({
+  ok: true,
+  leitura: {
+    identificacao: { unidadeConsumidora: null, competencia: null, distribuidora: null },
+    itens,
+  },
+});
+
 /**
  * Um leitor por visão de mentira, que registra se foi chamado.
  *
  * O que se prova com ele não é a qualidade do modelo — é **quando** o código
  * decide gastá-lo, que é a mudança deste ticket.
  */
-function visaoDeMentira(resposta: ItemDaFatura[] | null = null): LeitorPorVisao & {
-  chamadas: number;
-} {
-  const leitor = async (): Promise<{
-    identificacao: { unidadeConsumidora: null; competencia: null; distribuidora: null };
-    itens: ItemDaFatura[];
-  } | null> => {
+function visaoDeMentira(
+  resultado: ResultadoDaVisao = { ok: false, motivo: "resposta_ilegivel" },
+): LeitorPorVisao & { chamadas: number } {
+  const leitor = async (): Promise<ResultadoDaVisao> => {
     leitor.chamadas += 1;
-    if (!resposta) return null;
-    return {
-      identificacao: { unidadeConsumidora: null, competencia: null, distribuidora: null },
-      itens: resposta,
-    };
+    return resultado;
   };
   leitor.chamadas = 0;
   return leitor;
@@ -223,7 +225,7 @@ describe("o que fica quando o modelo responde", () => {
   it("a visão ganha quando fecha a soma que a regra deixou aberta", async () => {
     const leitura = await lerComVisao(
       documentoSem(SEM_DEMANDA_PONTA),
-      visaoDeMentira(ITENS_QUE_FECHAM),
+      visaoDeMentira(respondeu(ITENS_QUE_FECHAM)),
       paginasDeMentira(),
     );
 
@@ -244,7 +246,7 @@ describe("o que fica quando o modelo responde", () => {
 
     const leitura = await lerComVisao(
       documentoSem(SEM_DEMANDA_PONTA),
-      visaoDeMentira(semACosip),
+      visaoDeMentira(respondeu(semACosip)),
       paginasDeMentira(),
     );
 
@@ -252,14 +254,42 @@ describe("o que fica quando o modelo responde", () => {
     expect(leitura.itens.some((i) => /\(modelo\)$/.test(i.origem))).toBe(false);
   });
 
-  it("modelo que não responde deixa a leitura por regras como estava", async () => {
+  it("sem página para mandar, a leitura por regras fica exatamente como estava", async () => {
     const porRegras = lerPorRegras(documentoSem(SEM_DEMANDA_PONTA));
     const leitura = await lerComVisao(
       documentoSem(SEM_DEMANDA_PONTA),
-      visaoDeMentira(null),
+      visaoDeMentira({ ok: false, motivo: "sem_pagina" }),
       paginasDeMentira(),
     );
 
+    // Não houve o que mandar, e a recusa da leitura já diz isso: um segundo
+    // aviso só faria ruído.
     expect(leitura).toEqual(porRegras);
+    expect(leitura.visaoPulada).toBeNull();
+  });
+
+  /**
+   * Onde este ticket encosta na política de dados.
+   *
+   * O portão mais rigoroso manda **mais** fatura para fora, então o caminho em
+   * que ela não sai — por não haver provedor sem retenção — passa a ser
+   * percorrido mais vezes. Os dois avisos têm de conviver: a fatura ficou aqui,
+   * **e** a soma que sobrou está aberta. Perder qualquer um deles faz a pessoa
+   * que confere concluir a coisa errada sobre o mesmo documento.
+   */
+  it("a fatura que não foi enviada diz isso, sem apagar que a soma está aberta", async () => {
+    const leitura = await lerComVisao(
+      documentoSem(SEM_DEMANDA_PONTA),
+      visaoDeMentira({ ok: false, motivo: "sem_provedor_sem_retencao" }),
+      paginasDeMentira(),
+    );
+
+    expect(leitura.visaoPulada).toBe("sem_provedor_sem_retencao");
+    // O aviso da política vem primeiro: é ele que explica por que não houve
+    // mais que as regras.
+    expect(leitura.camposParaConfirmar[0]).toMatch(/nada saiu daqui/);
+    expect(
+      leitura.camposParaConfirmar.some((c) => /não fecha com o total impresso/.test(c)),
+    ).toBe(true);
   });
 });

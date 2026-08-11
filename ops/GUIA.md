@@ -151,12 +151,11 @@ Vem desligado (`GOOGLE_AUTH_ENABLED=false`) e é assim que deve ser publicado da
 primeira vez. Ligar, o rollout e o que fazer quando alguém não consegue entrar
 estão em [docs/processos/login-google.md](../docs/processos/login-google.md).
 
-**A pegadinha, para não perder uma tarde:** publicar **não** leva as variáveis
-`GOOGLE_*` para a VPS. O `publicar.sh` preserva o `compose.yaml` de lá, e um
-contêiner só enxerga o que aquele arquivo declara — pôr os valores só no `.env`
-não faz efeito nenhum, sem erro e sem aviso. Antes de ligar, acrescente as três
-linhas ao `compose.yaml` da VPS nos serviços `api` **e** `web`
-(`grep -c GOOGLE_ compose.yaml` tem de dar 6).
+**O que falta é só o `.env`.** Desde 2026-08-11 o `compose.yaml` sobe junto com
+o código, então as linhas `GOOGLE_*` chegam à VPS pela publicação — não se edita
+mais o compose de lá à mão. O que continua sendo manual é o `.env`, que é o
+único arquivo preservado: preencha nele os valores e recrie os dois serviços.
+Um contêiner só enxerga o que o compose declara, e o compose já declara.
 
 Para desligar de volta, em `/opt/plugga-os`:
 

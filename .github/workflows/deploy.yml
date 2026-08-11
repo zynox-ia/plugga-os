@@ -24,12 +24,21 @@ jobs:
 
       - name: Sincronizar para /opt/plugga-os
         run: |
-          # .env e compose.yaml carregam configuração de produção que não vive
-          # no repositório (mesma regra do ops/publicar.sh); .git fica de fora
-          # porque /opt/plugga-os não é um clone.
+          # Só o .env fica de fora: ele carrega segredo real, que por desenho
+          # não vive no repositório. O compose.yaml era excluído pela mesma
+          # justificativa, mas ela não valia — o arquivo é inteiramente
+          # parametrizado por ${VAR} do .env, sem um único valor de produção.
+          # Excluí-lo deixava a cópia da VPS envelhecer à mão, e em 2026-08-10
+          # isso custou o cofre sem SECRETS_ENCRYPTION_KEY e quase custou o
+          # login com Google. .git fica de fora porque /opt/plugga-os não é um
+          # clone.
+          # Os .bak-* são a cópia de segurança de quem já precisou mexer no
+          # compose da VPS à mão. O --delete os apagava a cada publicação —
+          # excluí-los preserva de onde voltar se uma publicação levar um
+          # compose ruim.
           sudo rsync -a --delete \
             --exclude='.git' --exclude='node_modules' \
-            --exclude='.env' --exclude='compose.yaml' \
+            --exclude='.env' --exclude='compose.yaml.bak-*' \
             ./ /opt/plugga-os/
           sudo chown -R root:root /opt/plugga-os
           sudo chmod 600 /opt/plugga-os/.env

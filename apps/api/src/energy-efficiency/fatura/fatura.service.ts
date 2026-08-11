@@ -79,6 +79,7 @@ export class FaturaService {
         motivoForaDoTotal: item.motivoForaDoTotal,
       })),
       camposParaConfirmar: leitura.camposParaConfirmar,
+      visaoPulada: leitura.visaoPulada,
       arquivoNome: nomeDoArquivo,
       confiancaOcr: leitura.confianca,
       arquivoChave: guardado.chave,

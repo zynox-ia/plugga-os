@@ -34,10 +34,32 @@ export type LeituraPorVisao = {
 
 export type PaginaParaVisao = { conteudo: Buffer; mime: string };
 
+/**
+ * Por que a leitura por modelo não aconteceu.
+ *
+ * `sem_provedor_sem_retencao` é o que este vocabulário existe para separar dos
+ * outros: a fatura **não saiu** da infraestrutura, por decisão nossa, porque não
+ * havia provedor que se comprometesse a não guardá-la. Colapsado com os demais,
+ * ficaria indistinguível de "o modelo não achou nada" — e quem confere tomaria a
+ * recusa por incapacidade do leitor.
+ *
+ * `sem_pagina` não vira aviso na tela: significa que não havia página para
+ * mandar, o que a própria recusa da leitura já explica.
+ */
+export type VisaoNaoFeita =
+  | "sem_provedor_sem_retencao"
+  | "modelo_indisponivel"
+  | "resposta_ilegivel"
+  | "sem_pagina";
+
+export type ResultadoDaVisao =
+  | { ok: true; leitura: LeituraPorVisao }
+  | { ok: false; motivo: VisaoNaoFeita };
+
 export type LeitorPorVisao = (
   paginas: PaginaParaVisao[],
   referencia?: string,
-) => Promise<LeituraPorVisao | null>;
+) => Promise<ResultadoDaVisao>;
 
 /**
  * `strict` exige `additionalProperties: false` e `required` em todo objeto, e a
@@ -153,7 +175,7 @@ function converter(item: ItemBruto): ItemDaFatura {
  */
 export function criarLeitorPorVisao(gateway: OpenRouterGateway): LeitorPorVisao {
   return async (paginas, referencia) => {
-    if (paginas.length === 0) return null;
+    if (paginas.length === 0) return { ok: false, motivo: "sem_pagina" };
 
     const resposta = await gateway.completar({
       processo: PROCESSOS.FATURA_VISAO,
@@ -166,7 +188,21 @@ export function criarLeitorPorVisao(gateway: OpenRouterGateway): LeitorPorVisao 
       ],
     });
 
-    if (!resposta || !resposta.texto) return null;
+    // Sem provedor aceitável não há segunda tentativa, aqui nem no gateway: a
+    // fatura fica onde está e a conferência humana recebe o motivo. É a troca
+    // que a política declara — minutos de trabalho valem menos que a fatura no
+    // corpus de treino de um terceiro.
+    if (!resposta.ok) {
+      return {
+        ok: false,
+        motivo:
+          resposta.motivo === "sem_provedor_sem_retencao"
+            ? "sem_provedor_sem_retencao"
+            : "modelo_indisponivel",
+      };
+    }
+
+    if (!resposta.texto) return { ok: false, motivo: "modelo_indisponivel" };
 
     try {
       const dados = JSON.parse(resposta.texto) as {
@@ -183,17 +219,20 @@ export function criarLeitorPorVisao(gateway: OpenRouterGateway): LeitorPorVisao 
           : null;
 
       return {
-        identificacao: {
-          unidadeConsumidora: dados.unidadeConsumidora,
-          competencia,
-          distribuidora: dados.distribuidora,
+        ok: true,
+        leitura: {
+          identificacao: {
+            unidadeConsumidora: dados.unidadeConsumidora,
+            competencia,
+            distribuidora: dados.distribuidora,
+          },
+          itens: (dados.itens ?? []).map(converter),
         },
-        itens: (dados.itens ?? []).map(converter),
       };
     } catch {
       // JSON quebrado é o mesmo que não ter lido: a fatura segue pelo caminho
       // das regras em vez de derrubar o envio.
-      return null;
+      return { ok: false, motivo: "resposta_ilegivel" };
     }
   };
 }
