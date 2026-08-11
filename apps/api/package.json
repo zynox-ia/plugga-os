@@ -13,6 +13,7 @@
     "dev": "nest start --watch",
     "fatura:congelar": "tsx scripts/congelar-fatura.ts",
     "lint": "eslint . --max-warnings=0",
+    "portao:medir": "tsx scripts/medir-portao.ts",
     "postinstall": "prisma generate",
     "prebuild": "prisma generate",
     "pretest": "prisma generate",

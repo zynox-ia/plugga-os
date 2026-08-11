@@ -144,6 +144,11 @@ describe.skipIf(!DOCUMENTO)("Âmbar Energia AM — Tefé (TFF) 04/2026, com cama
   });
 
   it("declara exatamente o que ainda depende de conferência humana", () => {
-    expect(leitura().camposParaConfirmar).toEqual([]);
+    // Antes do portão da Trava 1 esta lista era vazia: a fatura perdia uma
+    // linha de R$ 562,50 e não dizia nada a quem confere, porque cada item que
+    // sobrou fecha na multiplicação. A soma contra o total é o que revela.
+    expect(leitura().camposParaConfirmar).toEqual([
+      "a soma dos itens (R$ 22639.67) não fecha com o total impresso (R$ 23202.17): diferença de R$ -562.50. Costuma ser item que a leitura perdeu — corrija a extração, nunca ajuste o total.",
+    ]);
   });
 });

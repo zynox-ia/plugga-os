@@ -167,6 +167,13 @@ describe.skipIf(!DOCUMENTO)("Âmbar Energia AM — Tefé (TFF) 05/2026, digitali
   });
 
   it("declara exatamente o que ainda depende de conferência humana", () => {
-    expect(leitura().camposParaConfirmar).toEqual([]);
+    // A digitalizada, e o caso mais desconfortável do corpus: o OCR devolve uma
+    // linha só, que nem item é, e um total de R$ 15.320,06 ao lado de uma soma
+    // de R$ 44.434,00. A ficha é recusada de qualquer forma, mas antes do
+    // portão da Trava 1 esta lista era vazia — a fatura não dizia nada sobre a
+    // única evidência aritmética que tinha.
+    expect(leitura().camposParaConfirmar).toEqual([
+      "a soma dos itens (R$ 44434.00) não fecha com o total impresso (R$ 15320.06): diferença de R$ 29113.94. Costuma ser item somado que não compõe o total, ou valor lido a mais — corrija a extração, nunca ajuste o total.",
+    ]);
   });
 });

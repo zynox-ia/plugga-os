@@ -1,3 +1,4 @@
+import { TOLERANCIA_DO_TOTAL } from "../nucleo/conciliacao.js";
 import type { ItemConferido } from "./conferencia.js";
 
 /**
@@ -23,8 +24,15 @@ import type { ItemConferido } from "./conferencia.js";
  * fora do total, com o motivo registrado. Quem confere na tela pode discordar.
  */
 
-/** Meio centavo, a mesma folga da conciliação. */
-const TOLERANCIA = 0.005;
+/**
+ * Meio centavo, a folga da conciliação — importada dela, não copiada.
+ *
+ * Esta marcação decide quais itens entram na soma que o portão de escalonamento
+ * confere (`leitura.ts`), que por sua vez é a mesma soma da Trava 1. Três
+ * lugares com o mesmo número escrito à mão é o desenho em que um afrouxa e os
+ * outros não ficam sabendo.
+ */
+const TOLERANCIA = TOLERANCIA_DO_TOTAL;
 
 export const MOTIVO_INFORMATIVO = "marcado_como_informativo_por_trava_1";
 

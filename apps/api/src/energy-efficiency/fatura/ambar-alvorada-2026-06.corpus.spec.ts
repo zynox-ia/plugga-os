@@ -157,6 +157,12 @@ describe.skipIf(!DOCUMENTO)("Âmbar Energia AM — Alvorada 06/2026", () => {
   });
 
   it("declara exatamente o que ainda depende de conferência humana", () => {
-    expect(leitura().camposParaConfirmar).toEqual([]);
+    // Aqui a soma **passa** do total em R$ 604,12 — não é item perdido, é item
+    // a mais ou valor lido para cima, e a frase diz qual dos dois procurar.
+    // Antes do portão da Trava 1 esta lista era vazia: a fatura entregava cinco
+    // itens todos conferidos e uma soma que não é a do boleto, sem uma palavra.
+    expect(leitura().camposParaConfirmar).toEqual([
+      "a soma dos itens (R$ 126214.01) não fecha com o total impresso (R$ 125609.89): diferença de R$ 604.12. Costuma ser item somado que não compõe o total, ou valor lido a mais — corrija a extração, nunca ajuste o total.",
+    ]);
   });
 });
