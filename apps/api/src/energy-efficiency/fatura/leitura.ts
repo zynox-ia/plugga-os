@@ -1,5 +1,7 @@
 import type { InvoiceData } from "@plugga/shared";
 
+import { somarComoOOraculo } from "../nucleo/aritmetica.js";
+import { TOLERANCIA_DO_TOTAL } from "../nucleo/conciliacao.js";
 import { lerCamposExtras } from "./campos.js";
 import { conferir, type Conferencia } from "./conferencia.js";
 import { normalizar, type DocumentoNormalizado, type OrigemDoTexto } from "./documento.js";
@@ -167,6 +169,67 @@ function melhorLeitura(candidatas: readonly LeituraDaFatura[]): LeituraDaFatura 
   );
 }
 
+/**
+ * A soma dos itens que compõem o total, do jeito que a Trava 1 a calcula.
+ *
+ * Dois cuidados, e os dois são a diferença entre reusar a regra e reinventá-la:
+ *
+ * - **só entra quem tem `compoeTotal`.** A bandeira que a própria aritmética
+ *   provou informativa (`informativos.ts`) fica fora, senão toda fatura que
+ *   imprime bandeira sem cobrá-la reprovaria — a Santa Tereza inclusive;
+ * - **soma como o oráculo.** Somar da esquerda para a direita diverge no último
+ *   dígito em 5 das 27 faturas do corpus normativo, e uma soma que decide
+ *   escalonamento não pode diferir da soma que decide a conciliação.
+ */
+export function somaDoQueCompoeOTotal(itens: readonly ItemDaLeitura[]): number {
+  return somarComoOOraculo(
+    itens.filter((item) => item.compoeTotal).map((item) => item.valor),
+  );
+}
+
+/**
+ * A Trava 1 aplicada ao que a leitura montou: soma dos itens = total impresso.
+ *
+ * A constante da folga vem de `nucleo/conciliacao.ts` de propósito. Duas
+ * tolerâncias que deveriam ser a mesma divergem em silêncio, e o dia em que
+ * alguém afrouxar a conciliação sem afrouxar o portão é o dia em que a leitura
+ * passa a escalar fatura que o núcleo aceitaria.
+ *
+ * **Sem total conhecido devolve `true`**, e isso é deliberado. Nem toda fatura
+ * publica o total num formato que as regras achem; sem ele não há o que provar,
+ * e exigir a prova reprovaria a leitura por falta de evidência, não por erro.
+ * A ausência aparece onde tem de aparecer: `valorTotal` já entra em
+ * `camposParaConfirmar` nesse caso.
+ *
+ * Não é `conciliarFatura`. Aquela função exige uma `FaturaNormativa` completa —
+ * cliente, regime, modalidade, vencimento — e aqui só existe uma ficha parcial.
+ * O que se reusa é a constante e a regra, não a função.
+ */
+export function somaFechaComOTotal(leitura: LeituraDaFatura): boolean {
+  const total = leitura.invoice.valorTotal;
+  if (total === undefined) return true;
+
+  return Math.abs(somaDoQueCompoeOTotal(leitura.itens) - total) <= TOLERANCIA_DO_TOTAL;
+}
+
+/**
+ * O portão do escalonamento: a leitura já está provada, ou vale gastar a visão?
+ *
+ * Era `aproveitavel` sozinho, que significa **os itens fecharem individualmente**
+ * (`quantidade × tarifa = valor`). Essa prova é fraca exatamente onde mais dói:
+ * uma leitura que **perde um item inteiro** passa por ela, porque os itens que
+ * sobraram fecham entre si. A visão nunca era chamada e o erro só aparecia lá na
+ * frente, na conciliação, com o estudo já sendo montado.
+ *
+ * A prova de verdade é a soma contra o total impresso, e ela passa a valer aqui,
+ * antes de a ficha sair. É mais rigoroso e faz mais leitura escalar para a
+ * visão — decisão de custo já tomada no plano: visão é barata, ler errado em
+ * silêncio não é.
+ */
+export function leituraProvada(leitura: LeituraDaFatura): boolean {
+  return leitura.aproveitavel && somaFechaComOTotal(leitura);
+}
+
 export type OpcoesDeLeitura = {
   senha?: string;
   /** Tipo do arquivo enviado; decide se a visão recebe a imagem ou a página rasterizada. */
@@ -259,25 +322,22 @@ export async function lerFatura(
     throw erro;
   }
 
-  const confianca = documento.confianca;
-  const extras = lerCamposExtras(documento.paginas);
-  const porRegras = lerPorRegras(documento);
-
-  // Regra que fechou a ficha é a resposta: é gratuita, determinística e diz de
-  // que posição da folha saiu cada número. O modelo é o plano B, não o padrão.
-  if (porRegras.aproveitavel || !lerPorVisao) return porRegras;
+  if (!lerPorVisao) return lerPorRegras(documento);
 
   // O modelo recebe imagem, não PDF: rasterizar aqui reaproveita o caminho que
   // o OCR já usa e vale para qualquer modelo, em vez de depender de o provedor
   // saber abrir PDF. Arquivo que já é imagem vai como está.
   // O PDF é reaberto porque `normalizar` devolve só o texto já extraído, sem o
-  // rasterizador. Abrir duas vezes custa, mas acontece só no plano B — quando as
-  // regras não fecharam a ficha — e não no caminho que atende a maioria.
-  let paginas: PaginaParaVisao[];
-  if (mime === "application/pdf") {
+  // rasterizador. Abrir duas vezes custa, mas acontece só no plano B — quando o
+  // portão não aprovou a leitura por regras — e não no caminho que atende a
+  // maioria. Por isso isto é uma função e não um valor: quem não escala não
+  // rasteriza.
+  const paginasParaVisao = async (): Promise<PaginaParaVisao[]> => {
+    if (mime !== "application/pdf") return [{ conteudo, mime }];
+
     const aberto = await abrirPdf(conteudo, senha);
     try {
-      paginas = await Promise.all(
+      return await Promise.all(
         aberto.paginas.slice(0, PAGINAS_PARA_VISAO).map(async (_, indice) => ({
           conteudo: await aberto.rasterizar(indice + 1),
           mime: "image/png",
@@ -286,11 +346,40 @@ export async function lerFatura(
     } finally {
       await aberto.fechar();
     }
-  } else {
-    paginas = [{ conteudo, mime }];
-  }
+  };
 
-  const visao = await lerPorVisao(paginas, referencia);
+  return lerComVisao(documento, lerPorVisao, paginasParaVisao, referencia);
+}
+
+/**
+ * Regras primeiro, visão como plano B — a partir da página já normalizada.
+ *
+ * Separada de `lerFatura` pela mesma razão de `lerPorRegras`: é aqui que mora a
+ * decisão que este módulo precisa provar — quando escalar, e com qual das duas
+ * leituras ficar — e essa decisão tem de ser exercitável sem PDF, sem rede e
+ * sem credencial. `lerFatura` fica com o que só um arquivo de verdade dá: abrir
+ * o PDF, pedir a senha, rasterizar a folha.
+ *
+ * As páginas para o modelo chegam como função, não como valor: quando o portão
+ * aprova a leitura por regras, nada é rasterizado e nada é enviado.
+ */
+export async function lerComVisao(
+  documento: DocumentoNormalizado,
+  lerPorVisao: LeitorPorVisao,
+  paginasParaVisao: () => Promise<PaginaParaVisao[]>,
+  referencia?: string,
+): Promise<LeituraDaFatura> {
+  const confianca = documento.confianca;
+  const extras = lerCamposExtras(documento.paginas);
+  const porRegras = lerPorRegras(documento);
+
+  // Regra que fechou a ficha **e a soma** é a resposta: é gratuita,
+  // determinística e diz de que posição da folha saiu cada número. O modelo é o
+  // plano B, não o padrão. O que mudou é o que conta como "fechou": ver
+  // `leituraProvada`.
+  if (leituraProvada(porRegras)) return porRegras;
+
+  const visao = await lerPorVisao(await paginasParaVisao(), referencia);
   if (!visao) return porRegras;
 
   const porVisao = montarFicha(
@@ -309,8 +398,18 @@ export async function lerFatura(
     confianca,
   );
 
-  // Só troca se o modelo fechou o que a regra não fechou. Empate fica com a
-  // regra: entre dois resultados equivalentes, o rastreável é melhor.
+  // Só troca se o modelo fechou o que a regra não fechou — e "fechou" aqui é o
+  // mesmo portão, soma contra total. Empate fica com a regra: entre dois
+  // resultados equivalentes, o rastreável é melhor.
+  if (leituraProvada(porVisao)) return porVisao;
+
+  // Nenhuma das duas provou a soma. A regra fica, porque veio de posição na
+  // folha e não de modelo — a menos que ela nem ficha tenha montado, que é o
+  // caso em que a visão já era a única chance. Este ramo é o comportamento
+  // antigo, intacto: com o portão velho só se chegava aqui com a regra
+  // recusada.
+  if (porRegras.aproveitavel) return porRegras;
+
   return porVisao.aproveitavel ? porVisao : porRegras;
 }
 
@@ -373,6 +472,30 @@ function montarComItens(
   if (extras.valorTotal !== null && extras.valorTotal > 0) invoice.valorTotal = extras.valorTotal;
   else paraConfirmar.push("valor total da fatura");
 
+  // A composição do total nasce da aritmética: item de bandeira que faz a soma
+  // passar do total é marcado como informativo, com o motivo registrado.
+  const itensDaLeitura = marcarInformativos(conferencia.itens, invoice.valorTotal);
+
+  // E a Trava 1 é dita na hora, não só usada como portão.
+  //
+  // O portão manda a leitura para a visão; esta linha existe para o caso em que
+  // não há visão configurada — sem chave, o plano B não roda e a ficha sai
+  // assim mesmo. Sair com a soma aberta é aceitável; sair sem dizer que ela
+  // está aberta seria devolver número errado em silêncio, que é justamente o
+  // que este módulo promete não fazer.
+  if (invoice.valorTotal !== undefined) {
+    const somaDosItens = somaDoQueCompoeOTotal(itensDaLeitura);
+    const diferenca = somaDosItens - invoice.valorTotal;
+
+    if (Math.abs(diferenca) > TOLERANCIA_DO_TOTAL) {
+      paraConfirmar.push(
+        `a soma dos itens (R$ ${somaDosItens.toFixed(2)}) não fecha com o total impresso ` +
+          `(R$ ${invoice.valorTotal.toFixed(2)}): diferença de R$ ${diferenca.toFixed(2)}. ` +
+          "Costuma ser item que a leitura perdeu — corrija a extração, nunca ajuste o total.",
+      );
+    }
+  }
+
   const contratada =
     extras.demandaContratadaPontaKw ??
     extras.demandaContratadaKw ??
@@ -430,9 +553,7 @@ function montarComItens(
     motivo,
     confianca,
     identificacao,
-    // A composição do total nasce da aritmética: item de bandeira que faz a
-    // soma passar do total é marcado como informativo, com o motivo registrado.
-    itens: marcarInformativos(conferencia.itens, invoice.valorTotal),
+    itens: itensDaLeitura,
     conferencia,
     // A linha explícita manda: quem calcula economia de readequação usa este
     // número quando ele existe, e só cai no rateio quando não existe.
