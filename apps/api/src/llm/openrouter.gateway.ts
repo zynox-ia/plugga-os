@@ -198,10 +198,17 @@ export class OpenRouterGateway {
         { role: "user", content: pedido.partes.map(paraParteOpenAi) },
       ],
       max_tokens: pedido.maxTokens ?? 8000,
-      // Usage accounting é opt-in por requisição. Sem esta chave a OpenRouter
-      // devolve só prompt/completion_tokens: `usage.cost` e os detalhes de
-      // cache/raciocínio — o que este módulo existe para registrar — viriam
-      // sempre vazios e o relatório de consumo mostraria custo zero.
+      // Usage accounting ERA opt-in por requisição, e sem esta chave `usage.cost`
+      // viria vazio. Em 10/08/2026 a documentação passou a marcar
+      // `usage: { include: true }` como **descontinuada e sem efeito**: o custo e
+      // os detalhes de cache/raciocínio agora vêm sempre. Fica porque um campo
+      // ignorado não custa nada e tirá-lo às cegas arriscaria zerar o relatório
+      // de consumo se a mudança ainda não estiver de pé; sai quando alguém
+      // confirmar com chamada real que o custo continua chegando sem ele.
+      //
+      // Ela também não interfere no `require_parameters` acima: o filtro olha a
+      // lista de parâmetros de LLM (`openrouter.ai/docs/api_reference/parameters`),
+      // onde `usage` não aparece.
       usage: { include: true },
     };
 
