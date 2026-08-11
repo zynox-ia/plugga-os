@@ -62,8 +62,12 @@ registro "instalando o código e publicando"
 # `COPY . .`. O pacote vai para uma pasta nova e a troca é um `mv`; a pasta que
 # estava no ar sobrevive em `.anterior`, pronta para rollback.
 #
-# `.env` e `compose.yaml` da VPS são preservados: carregam a configuração de
-# produção, que por desenho não vive no repositório.
+# Só o `.env` da VPS é preservado: ele carrega segredo real, que por desenho não
+# vive no repositório. O `compose.yaml` era preservado pela mesma justificativa,
+# e ela não valia — o arquivo é todo `${VAR}` lido do `.env`, sem um único valor
+# de produção. Preservá-lo fazia a cópia da VPS envelhecer à mão: em 2026-08-10
+# ela estava 42 linhas atrás do repositório, e faltava-lhe a variável do cofre.
+# Agora o compose sobe junto com o código, e a VPS deixa de ser editada à mão.
 ssh "$VPS" "set -e
   rm -rf ${DESTINO}.novo
   mkdir -p ${DESTINO}.novo
@@ -72,7 +76,6 @@ ssh "$VPS" "set -e
   # ar continua intocada em vez de ser trocada por uma que não sabe publicar.
   test -f ${DESTINO}.novo/ops/deploy.sh
   cp ${DESTINO}/.env ${DESTINO}.novo/.env
-  cp ${DESTINO}/compose.yaml ${DESTINO}.novo/compose.yaml
   chmod 600 ${DESTINO}.novo/.env
   rm -f /tmp/plugga-deploy.tgz
   rm -rf ${DESTINO}.anterior
