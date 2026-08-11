@@ -7,19 +7,51 @@ import type {
 const semAcentos = (texto: string): string =>
   texto.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("pt-BR");
 
-/** Sugestão inicial; o operador confirma a categoria no editor. */
+/**
+ * "Fora ponta" escrito como a distribuidora escreve.
+ *
+ * A Roraima imprime `Consumo F/Ponta`, e a regra antiga procurava a frase
+ * inteira "fora ponta". Não casava — e, pior, a linha caía na regra seguinte,
+ * que só procura "ponta", e ia parar em **consumo em ponta**. Os 183.153 kWh
+ * fora ponta da Santa Tereza somavam com os 17.419 de ponta, o campo não
+ * batia com a soma, e a conciliação nunca ficava pronta: o botão de abrir o
+ * estudo ficava desabilitado sem dizer por quê.
+ *
+ * Aceita `fora ponta`, `fora de ponta`, `f/ponta`, `f.ponta`, `f-ponta` e
+ * `fp` isolado.
+ */
+const FORA_PONTA = /\b(?:fora\s+(?:de\s+)?ponta|f\s*[./-]\s*ponta|fp)\b/;
+
+/**
+ * Energia reativa como a fatura abrevia.
+ *
+ * `En R Exc Ponta` não contém "reativ", e a regra de reativo vinha **depois**
+ * da de ponta — então energia reativa excedente era classificada como consumo,
+ * inflando o consumo em ponta de qualquer fatura que a tenha. É por isso que
+ * reativo passou a ser testado antes: entre "é reativo" e "é ponta", a
+ * primeira é a informação mais específica.
+ */
+const REATIVO = /\breativ|\ben\s*r\s*exc\b|\bufer\b|\bdmcr\b/;
+
+/**
+ * Sugestão inicial; o operador confirma a categoria no editor.
+ *
+ * A ordem das regras é o que decide, e não é arbitrária: da informação mais
+ * específica para a mais genérica. `Demanda Ponta sem ICMS` é demanda antes de
+ * ser ponta; `En R Exc F/Ponta` é reativo antes de ser fora ponta.
+ */
 export function inferirCategoriaDaLinha(rotulo: string): ReconciledInvoiceItemCategory {
   const texto = semAcentos(rotulo);
   if (texto.includes("demanda")) return "demanda_faturada";
-  if (texto.includes("fora ponta") || texto.includes("fora de ponta")) {
-    return "consumo_fora_ponta";
-  }
-  if (texto.includes("ponta")) return "consumo_ponta";
-  if (texto.includes("reativ")) return "reativo";
+  if (REATIVO.test(texto)) return "reativo";
   if (texto.includes("beneficio") || texto.includes("subvenc")) return "beneficio_fiscal";
   if (texto.includes("multa") || texto.includes("juros") || texto.includes("encargo")) {
     return "multas_juros_encargos";
   }
+  if (FORA_PONTA.test(texto)) return "consumo_fora_ponta";
+  // Só depois de descartar tudo o que também menciona ponta. Uma linha que
+  // chega aqui e diz "ponta" é consumo em ponta de verdade.
+  if (texto.includes("ponta")) return "consumo_ponta";
   return "outros";
 }
 
@@ -163,17 +195,28 @@ export function avaliarConciliacaoLocal(
   }
   const linhasDemanda = daCategoria("demanda_faturada");
   const quantidadeDemanda = somaQuantidades("demanda_faturada");
+  // A média só descreve a fatura quando há uma tarifa de demanda. A Santa
+  // Tereza tem duas linhas — `Demanda Ponta sem ICMS` a 22,16 e `com ICMS` a
+  // 27,70 —, e a média delas (26,23) nunca ia bater com o campo `tarifaDemanda`
+  // (27,70), que guarda uma só. A comparação reprovava uma fatura correta.
+  //
+  // Com mais de uma linha a prova certa é a que a fatura já oferece: cada linha
+  // fecha na própria multiplicação — conferida acima, em `multiplicacoesInvalidas`
+  // — e a soma das linhas bate com o valor de demanda, conferida logo antes
+  // daqui. A média deixa de ser exigida porque deixou de significar algo.
+  const umaTarifaSo = linhasDemanda.length <= 1;
   if (
     campos.valorDemanda > 0 &&
     (linhasDemanda.some(
       (item) => item.quantidade === null || item.tarifa === null || item.unidade !== "kW",
     ) ||
       quantidadeDemanda === 0 ||
-      !proximos(
-        somaValores("demanda_faturada") / quantidadeDemanda,
-        campos.tarifaDemanda ?? 0,
-        Math.max(0.000001, Math.abs(campos.tarifaDemanda ?? 0) * 0.001),
-      ))
+      (umaTarifaSo &&
+        !proximos(
+          somaValores("demanda_faturada") / quantidadeDemanda,
+          campos.tarifaDemanda ?? 0,
+          Math.max(0.000001, Math.abs(campos.tarifaDemanda ?? 0) * 0.001),
+        )))
   ) {
     camposInvalidos.push("tarifa de demanda");
   }
