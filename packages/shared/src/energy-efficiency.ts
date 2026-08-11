@@ -455,6 +455,29 @@ export const invoiceReadingRefusalSchema = z.enum([
 ]);
 export type InvoiceReadingRefusal = z.infer<typeof invoiceReadingRefusalSchema>;
 
+/**
+ * Por que a leitura por modelo de visão não entrou nesta ficha.
+ *
+ * Existe para separar uma recusa nossa de uma falha do leitor. `sem_provedor_sem_retencao`
+ * quer dizer que a fatura **não foi enviada** para lugar nenhum: ela só vai para
+ * provedor que se compromete a não guardar o conteúdo, e não havia nenhum
+ * disponível. Colapsado com os outros motivos, isso chegaria à tela como "o
+ * modelo não achou nada" — e quem confere concluiria que o leitor é fraco em vez
+ * de saber que a exigência de retenção ficou sem quem a atendesse.
+ *
+ * Nulo é o caso comum: as regras fecharam a ficha e o modelo nem foi chamado, ou
+ * ele foi chamado e respondeu.
+ */
+export const invoiceVisionSkipSchema = z.enum([
+  /** A fatura não saiu daqui: nenhum provedor sem retenção estava disponível. */
+  "sem_provedor_sem_retencao",
+  /** Chamamos e não veio resposta: sem chave, rede fora, tempo esgotado. */
+  "modelo_indisponivel",
+  /** Veio resposta, mas não deu para ler o que voltou. */
+  "resposta_ilegivel",
+]);
+export type InvoiceVisionSkip = z.infer<typeof invoiceVisionSkipSchema>;
+
 /** Veredicto da conferência `quantidade × tarifa = valor` de cada item. */
 export const invoiceItemVerdictSchema = z.enum([
   "confirmado",
@@ -501,6 +524,13 @@ export const invoiceReadingSchema = z
     invoice: invoiceDataSchema.partial(),
     itens: z.array(invoiceReadingItemSchema),
     camposParaConfirmar: z.array(z.string()),
+    /**
+     * Por que a leitura por modelo não entrou; nulo quando ela não fez falta ou
+     * quando o modelo respondeu. A tela mostra este aviso porque a diferença
+     * entre "não enviamos a fatura" e "o leitor não deu conta" muda o que quem
+     * confere faz a seguir.
+     */
+    visaoPulada: invoiceVisionSkipSchema.nullable(),
     arquivoNome: z.string(),
     /**
      * Confiança média do reconhecimento óptico, de 0 a 100; nula quando o texto

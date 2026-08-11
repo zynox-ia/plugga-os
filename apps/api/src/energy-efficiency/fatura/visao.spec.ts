@@ -1,9 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { OpenRouterGateway, PedidoAoModelo } from "../../llm/openrouter.gateway.js";
+import type {
+  MotivoDeFalha,
+  OpenRouterGateway,
+  PedidoAoModelo,
+} from "../../llm/openrouter.gateway.js";
 import { PROCESSOS } from "../../llm/processo.js";
 import { conferir } from "./conferencia.js";
 import type { ItemDaFatura } from "./itens.js";
+import { incorporarVisao, type LeituraDaFatura } from "./leitura.js";
 import { criarLeitorPorVisao } from "./visao.js";
 
 /**
@@ -27,20 +32,52 @@ const item = (dados: Partial<ItemDaFatura> & { rotulo: string; valor: number }):
 });
 
 /** Gateway de mentira que guarda o pedido em vez de sair na rede. */
-function gatewayFalso(texto: string | null) {
+function gatewayFalso(texto: string | null, motivo: MotivoDeFalha = "falha") {
   const pedidos: PedidoAoModelo[] = [];
   const gateway = {
     completar: vi.fn(async (pedido: PedidoAoModelo) => {
       pedidos.push(pedido);
       return texto === null
-        ? null
-        : { texto, tokensEntrada: 10, tokensSaida: 5, custoCreditos: 0.001, modeloServido: "x" };
+        ? { ok: false as const, motivo, detalhe: null }
+        : {
+            ok: true as const,
+            texto,
+            tokensEntrada: 10,
+            tokensSaida: 5,
+            custoCreditos: 0.001,
+            modeloServido: "x",
+          };
     }),
   } as unknown as OpenRouterGateway;
   return { gateway, pedidos };
 }
 
 const PAGINA = [{ conteudo: Buffer.from("imagem"), mime: "image/png" }];
+
+/**
+ * Uma leitura das regras que não fechou a ficha — o estado em que a visão é
+ * chamada. É o que a conferência humana receberia se o modelo não entrasse.
+ */
+const POR_REGRAS: LeituraDaFatura = {
+  origem: "texto_direto",
+  aproveitavel: false,
+  motivo: "campos_essenciais_ausentes",
+  confianca: null,
+  identificacao: { unidadeConsumidora: null, competencia: null, distribuidora: null },
+  itens: [],
+  demandaComplementoValor: null,
+  conferencia: { itens: [], confirmados: 0, divergentes: 0, semConferencia: 0, temDivergencia: false },
+  invoice: {},
+  camposParaConfirmar: ["valor total da fatura"],
+  visaoPulada: null,
+};
+
+const EXTRAS = {
+  valorTotal: null,
+  demandaContratadaKw: null,
+  demandaContratadaPontaKw: null,
+  demandaContratadaForaPontaKw: null,
+};
 
 describe("leitura por visão", () => {
   describe("a aritmética julga o modelo do mesmo jeito que julga o resto", () => {
@@ -110,23 +147,89 @@ describe("leitura por visão", () => {
   });
 
   describe("degradação", () => {
-    it("devolve nulo quando o gateway não respondeu, em vez de estourar", async () => {
+    it("recusa sem estourar quando o gateway não respondeu", async () => {
       const { gateway } = gatewayFalso(null);
 
-      await expect(criarLeitorPorVisao(gateway)(PAGINA)).resolves.toBeNull();
+      await expect(criarLeitorPorVisao(gateway)(PAGINA)).resolves.toEqual({
+        ok: false,
+        motivo: "modelo_indisponivel",
+      });
     });
 
-    it("devolve nulo quando o JSON veio quebrado", async () => {
+    it("recusa quando o JSON veio quebrado", async () => {
       const { gateway } = gatewayFalso("isto não é json");
 
-      await expect(criarLeitorPorVisao(gateway)(PAGINA)).resolves.toBeNull();
+      await expect(criarLeitorPorVisao(gateway)(PAGINA)).resolves.toEqual({
+        ok: false,
+        motivo: "resposta_ilegivel",
+      });
     });
 
     it("não chama o modelo sem página para ler", async () => {
       const { gateway, pedidos } = gatewayFalso("{}");
 
-      await expect(criarLeitorPorVisao(gateway)([])).resolves.toBeNull();
+      await expect(criarLeitorPorVisao(gateway)([])).resolves.toEqual({
+        ok: false,
+        motivo: "sem_pagina",
+      });
       expect(pedidos).toHaveLength(0);
+    });
+  });
+
+  /**
+   * A parte que a política de dados exige: quando a fatura **não é enviada** por
+   * falta de provedor sem retenção, isso não pode chegar à conferência humana
+   * igual a "o modelo não achou nada". São situações diferentes, e a segunda
+   * esconderia a primeira por semanas.
+   */
+  describe("sem provedor sem retenção, a fatura não sai — e alguém fica sabendo", () => {
+    it("carrega o motivo da política até a conferência, uma chamada só", async () => {
+      const { gateway, pedidos } = gatewayFalso(null, "sem_provedor_sem_retencao");
+
+      const resultado = await criarLeitorPorVisao(gateway)(PAGINA, "abc123");
+
+      // Uma tentativa, e nenhuma repetição sem a exigência: repetir seria
+      // mandar a fatura justamente para quem a guarda.
+      expect(pedidos).toHaveLength(1);
+      expect(resultado).toEqual({ ok: false, motivo: "sem_provedor_sem_retencao" });
+    });
+
+    it("a ficha das regras segue valendo, agora dizendo por que parou aí", () => {
+      const leitura = incorporarVisao(
+        POR_REGRAS,
+        { ok: false, motivo: "sem_provedor_sem_retencao" },
+        EXTRAS,
+        "texto_direto",
+        null,
+      );
+
+      expect(leitura.visaoPulada).toBe("sem_provedor_sem_retencao");
+      // O aviso vem na frente do resto: é ele que explica por que a lista existe.
+      expect(leitura.camposParaConfirmar[0]).toMatch(/não guarda o conteúdo/);
+      expect(leitura.camposParaConfirmar).toContain("valor total da fatura");
+      // Nada do que as regras já tinham conseguido se perde no caminho.
+      expect(leitura.motivo).toBe("campos_essenciais_ausentes");
+    });
+
+    it("distingue a recusa por política das outras duas maneiras de não ler", () => {
+      const motivo = (m: "modelo_indisponivel" | "resposta_ilegivel") =>
+        incorporarVisao(POR_REGRAS, { ok: false, motivo: m }, EXTRAS, "texto_direto", null);
+
+      expect(motivo("modelo_indisponivel").visaoPulada).toBe("modelo_indisponivel");
+      expect(motivo("resposta_ilegivel").visaoPulada).toBe("resposta_ilegivel");
+      expect(motivo("modelo_indisponivel").camposParaConfirmar[0]).not.toMatch(/não guarda/);
+    });
+
+    it("não inventa aviso quando não havia página para mandar", () => {
+      const leitura = incorporarVisao(
+        POR_REGRAS,
+        { ok: false, motivo: "sem_pagina" },
+        EXTRAS,
+        "texto_direto",
+        null,
+      );
+
+      expect(leitura).toEqual(POR_REGRAS);
     });
   });
 });
