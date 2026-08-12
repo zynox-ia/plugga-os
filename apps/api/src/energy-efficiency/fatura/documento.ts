@@ -28,6 +28,26 @@ export type DocumentoNormalizado = {
   totalDePaginas: number;
 };
 
+/**
+ * Restaura a representação canônica de um documento persistido.
+ *
+ * As primeiras páginas congeladas do corpus são anteriores ao campo
+ * `confianca` e, ao serem desserializadas, carregam `undefined` apesar de o
+ * contrato atual exigir `null` para texto direto. A compatibilidade fica nesta
+ * fronteira: depois dela, leitor e consumidores continuam vendo uma única
+ * representação e podem comparar o documento inteiro sem exceções por campo.
+ */
+export function restaurarDocumentoNormalizado(
+  documento: Omit<DocumentoNormalizado, "confianca"> & {
+    confianca?: number | null;
+  },
+): DocumentoNormalizado {
+  return {
+    ...documento,
+    confianca: documento.confianca ?? null,
+  };
+}
+
 /** Arquivo que não é PDF nem imagem que a pilha decodifique. */
 export class FormatoNaoSuportadoError extends Error {
   constructor(nomeDoFormato: string) {

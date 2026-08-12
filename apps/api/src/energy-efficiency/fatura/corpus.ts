@@ -1,7 +1,10 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, resolve } from "node:path";
 
-import type { DocumentoNormalizado } from "./documento.js";
+import {
+  restaurarDocumentoNormalizado,
+  type DocumentoNormalizado,
+} from "./documento.js";
 
 /**
  * O corpus de regressão do leitor de faturas — que mora fora do git.
@@ -347,7 +350,12 @@ export function fixtureDoCorpus(
   const caminho = resolve(pasta, nome);
   if (!existsSync(caminho)) return null;
 
-  return JSON.parse(readFileSync(caminho, "utf8")) as DocumentoNormalizado;
+  const persistido = JSON.parse(readFileSync(caminho, "utf8")) as Omit<
+    DocumentoNormalizado,
+    "confianca"
+  > & { confianca?: number | null };
+
+  return restaurarDocumentoNormalizado(persistido);
 }
 
 /** Um PDF original do corpus local, ou `null` quando ele não foi baixado. */

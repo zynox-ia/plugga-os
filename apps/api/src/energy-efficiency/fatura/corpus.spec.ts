@@ -238,6 +238,20 @@ describe("ler o corpus local", () => {
     expect(pdfsLocais(pasta)).toEqual(["usina-teste-2026-01.pdf"]);
   });
 
+  it("restaura como nula a confiança ausente nas páginas congeladas antigas", () => {
+    const paginaLegada = JSON.stringify({
+      origem: "texto_direto",
+      totalDePaginas: 1,
+      paginas: [{ numero: 1, largura: 10, altura: 10, fragmentos: [] }],
+    });
+    writeFileSync(join(pasta, "usina-legada-2026-01.pagina.json"), paginaLegada);
+
+    const documento = fixtureDoCorpus("usina-legada-2026-01.pagina.json", pasta);
+
+    expect(documento?.confianca).toBeNull();
+    expect(documento).toHaveProperty("confianca");
+  });
+
   it("o aviso diz o comando e diz que pular não é falha", () => {
     const aviso = avisoDeCorpusAusente("usina-teste-2026-01.pagina.json", pasta);
 
