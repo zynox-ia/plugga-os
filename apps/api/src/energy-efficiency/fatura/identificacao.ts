@@ -60,6 +60,15 @@ const LINHAS_ABAIXO_DO_ROTULO = 4;
 const COMPETENCIA = /(?<![\d/])(0[1-9]|1[0-2])\/(20\d{2})(?![\d/])/;
 
 /**
+ * Fim do período medido, com precedência sobre um MM/AAAA solto.
+ *
+ * Ajustes retroativos também carregam competência e podem aparecer antes da
+ * referência. `Leitura Atual` é uma âncora semântica: informa a data que fecha
+ * o ciclo desta fatura, sem depender de distribuidora nem de subtrair um mês.
+ */
+const LEITURA_ATUAL = /Leitura\s+Atual:\s*\d{2}\/(0[1-9]|1[0-2])\/(20\d{2})/i;
+
+/**
  * Distribuidoras conhecidas. A lista serve para rotular, não para restringir —
  * fatura de distribuidora não listada continua sendo lida normalmente.
  */
@@ -83,6 +92,7 @@ export function identificar(linhas: readonly string[]): IdentificacaoDaFatura {
   /** Achado pelo rótulo; só vale se a forma com hífen não aparecer na fatura. */
   let unidadeConsumidoraSemHifen: string | null = null;
   let competencia: { mes: number; ano: number } | null = null;
+  let competenciaDaLeituraAtual: { mes: number; ano: number } | null = null;
   let distribuidora: string | null = null;
 
   for (const [indice, linha] of linhas.entries()) {
@@ -109,6 +119,16 @@ export function identificar(linhas: readonly string[]): IdentificacaoDaFatura {
       if (c?.[1] && c[2]) competencia = { mes: Number(c[1]), ano: Number(c[2]) };
     }
 
+    if (!competenciaDaLeituraAtual) {
+      const leituraAtual = LEITURA_ATUAL.exec(enxuta);
+      if (leituraAtual?.[1] && leituraAtual[2]) {
+        competenciaDaLeituraAtual = {
+          mes: Number(leituraAtual[1]),
+          ano: Number(leituraAtual[2]),
+        };
+      }
+    }
+
     if (!distribuidora) {
       const achada = DISTRIBUIDORAS.find((nome) => enxuta.toUpperCase().includes(nome));
       if (achada) distribuidora = achada;
@@ -117,7 +137,7 @@ export function identificar(linhas: readonly string[]): IdentificacaoDaFatura {
 
   return {
     unidadeConsumidora: unidadeConsumidora ?? unidadeConsumidoraSemHifen,
-    competencia,
+    competencia: competenciaDaLeituraAtual ?? competencia,
     distribuidora,
   };
 }

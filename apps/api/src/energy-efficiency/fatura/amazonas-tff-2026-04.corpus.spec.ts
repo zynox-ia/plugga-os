@@ -10,22 +10,21 @@ import { lerPorRegras, type LeituraDaFatura } from "./leitura.js";
  * consumidora, mesmo layout, um mês de diferença** — só que aquela é
  * digitalizada e esta veio com camada de texto. Ter as duas no corpus é o que
  * permite medir o custo do reconhecimento óptico sem trocar de fatura junto:
- * aqui a ficha fecha com seis itens, lá sobra um item inventado e nenhuma
+ * aqui a ficha fecha com sete itens, lá sobra um item inventado e nenhuma
  * grandeza.
  *
  * O que este layout tem de difícil já está dito em `ambar-alvorada`: tabela na
- * coluna da direita, colada a blocos de cadastro na linha impressa. E ele repete
- * aqui o **mesmo defeito**, na mesma posição: a linha "Desligamento E Religacao
- * Programados (2X)  562,50" cai na altura do bloco "Datas da Leitura", e o corte
- * por coluna separa o rótulo do valor — o item some. Dois documentos diferentes,
- * a mesma causa: não é acidente daquela fatura, é uma propriedade do layout.
+ * coluna da direita, colada a blocos de cadastro na linha impressa. A linha
+ * "Desligamento E Religacao Programados (2X)  562,50" cai na altura do bloco
+ * "Datas da Leitura", e o corte por coluna separa o rótulo do valor. O leitor
+ * reconstrói o par porque o rótulo se identifica como serviço tarifado com
+ * dígito e a linha seguinte contém somente o valor.
  *
  * **Conferido** contra o caso golden `fatura-tff-2026-04`: consumo de ponta
  * 2.464 kWh a 1,73009, fora ponta 26.888 kWh a 0,49592, demanda 4.592,00 nas
  * duas linhas (193 kW + 7 kW, ambas a 22,96), reativo excedente 50,63 e 399,81 e
- * total impresso 23.202,17 batem. O golden lista também o desligamento e
- * religação de 562,50 — exatamente o que falta para a soma dos itens lidos
- * (22.639,67) alcançar o total.
+ * total impresso 23.202,17 batem. O desligamento e religação de 562,50 fecha a
+ * soma dos itens no mesmo total.
  *
  * Duas notas de conferência:
  *
@@ -107,12 +106,19 @@ describe.skipIf(!DOCUMENTO)("Âmbar Energia AM — Tefé (TFF) 04/2026, com cama
       { rotulo: "En R Exc Ponta", quantidade: 145, unidade: "kWh", tarifa: 0.34918, valor: 50.63 },
       { rotulo: "Consumo F/Ponta", quantidade: 26_888, unidade: "kWh", tarifa: 0.49592, valor: 13_334.29 },
       { rotulo: "En R Exc F/Ponta", quantidade: 1_145, unidade: "kWh", tarifa: 0.34918, valor: 399.81 },
+      {
+        rotulo: "Desligamento E Religacao Programados (2X)",
+        quantidade: null,
+        unidade: null,
+        tarifa: null,
+        valor: 562.5,
+      },
     ];
 
     // Casado por rótulo **e** quantidade: as duas linhas de demanda têm o mesmo
     // nome, e o `find` só por rótulo que o gerador escreve acharia a primeira
     // duas vezes, deixando a segunda sem verificação.
-    expect(leitura().itens).toHaveLength(6);
+    expect(leitura().itens).toHaveLength(7);
     for (const esperado of esperados) {
       const achado = leitura().itens.find(
         (item) => item.rotulo === esperado.rotulo && item.quantidade === esperado.quantidade,
@@ -130,25 +136,16 @@ describe.skipIf(!DOCUMENTO)("Âmbar Energia AM — Tefé (TFF) 04/2026, com cama
     expect(leitura().conferencia.temDivergencia).toBe(false);
   });
 
-  it("a soma dos itens lidos não alcança o total — falta o desligamento", () => {
-    // Faltam os 562,50 de "Desligamento E Religacao Programados (2X)", cujo
-    // valor o corte por coluna separou do rótulo. O número abaixo é o
-    // **observado**, congelado como evidência do buraco. Não o ajuste para
-    // fechar — quem fecha é a leitura, quando aprender a linha.
+  it("a soma dos itens inclui o desligamento e fecha com o total", () => {
     expect(leitura().invoice.valorTotal).toBe(23_202.17);
 
     const soma = leitura().itens
       .filter((item) => item.compoeTotal)
       .reduce((total, item) => total + item.valor, 0);
-    expect(Number(soma.toFixed(2))).toBe(22_639.67);
+    expect(Number(soma.toFixed(2))).toBe(23_202.17);
   });
 
-  it("declara exatamente o que ainda depende de conferência humana", () => {
-    // Antes do portão da Trava 1 esta lista era vazia: a fatura perdia uma
-    // linha de R$ 562,50 e não dizia nada a quem confere, porque cada item que
-    // sobrou fecha na multiplicação. A soma contra o total é o que revela.
-    expect(leitura().camposParaConfirmar).toEqual([
-      "a soma dos itens (R$ 22639.67) não fecha com o total impresso (R$ 23202.17): diferença de R$ -562.50. Costuma ser item que a leitura perdeu — corrija a extração, nunca ajuste o total.",
-    ]);
+  it("não deixa campo pendente depois que a soma fecha", () => {
+    expect(leitura().camposParaConfirmar).toEqual([]);
   });
 });

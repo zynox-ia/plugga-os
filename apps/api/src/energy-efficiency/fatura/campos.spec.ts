@@ -49,6 +49,18 @@ describe("lerCamposExtras — demanda contratada", () => {
     expect(extras.demandaContratadaKw).toBe(150);
   });
 
+  it("lê as demandas por posto no bloco tabelado", () => {
+    const extras = lerCamposExtras([
+      pagina([
+        pedaco("Demanda ponta - kW 360", 100, 500),
+        pedaco("Demanda fora ponta - kW 360", 300, 500),
+      ]),
+    ]);
+
+    expect(extras.demandaContratadaPontaKw).toBe(360);
+    expect(extras.demandaContratadaForaPontaKw).toBe(360);
+  });
+
   it("devolve nulo quando a fatura não publica demanda contratada", () => {
     const extras = lerCamposExtras([
       pagina([pedaco("Consumo 321 kWh a 0,782413", 100, 500)]),
@@ -112,6 +124,14 @@ describe("lerCamposExtras — valor total", () => {
     ]);
 
     expect(extras.valorTotal).toBe(1204.55);
+  });
+
+  it("lê o primeiro valor depois de TOTAL: e ignora os totais tributários", () => {
+    const extras = lerCamposExtras([
+      pagina([pedaco("TOTAL: 74.106,71 6.998,75 93.990,33 18.328,10", 100, 500)]),
+    ]);
+
+    expect(extras.valorTotal).toBe(74_106.71);
   });
 
   it("devolve nulo quando não há coluna de total", () => {

@@ -3,6 +3,8 @@ import { describe, it } from "node:test";
 
 import {
   avaliarConciliacaoLocal,
+  itensSalvosParaConciliar,
+  reconciledInvoiceItemSchema,
   type CamposDaConciliacao,
   type ReconciledInvoiceItem,
 } from "@plugga/shared";
@@ -120,6 +122,86 @@ describe("modelo da conciliação na interface", () => {
     assert.equal(resultado.diferenca, 0);
     assert.equal(resultado.pronta, false);
     assert.ok(resultado.camposInvalidos.includes("tarifa de demanda"));
+  });
+
+  it("reabre e reenvia item informativo sem perder marcação, motivo ou categoria", () => {
+    const motivo = "marcado_como_informativo_por_trava_1";
+    const salvos: ReconciledInvoiceItem[] = [
+      ...ITENS,
+      {
+        nome: "Adicional Bandeira Amarela",
+        categoria: "outros",
+        compoeTotal: false,
+        motivoForaDoTotal: motivo,
+        valor: 3.77,
+        quantidade: null,
+        unidade: null,
+        tarifa: null,
+      },
+      {
+        nome: "Demanda contratada",
+        categoria: "demanda_contratada",
+        compoeTotal: false,
+        valor: 0,
+        quantidade: CAMPOS.demandaContratadaKw,
+        unidade: "kW",
+        tarifa: null,
+      },
+      {
+        nome: "Demanda medida em ponta",
+        categoria: "demanda_medida_ponta",
+        compoeTotal: false,
+        valor: 0,
+        quantidade: CAMPOS.demandaMedidaPontaKw,
+        unidade: "kW",
+        tarifa: null,
+      },
+      {
+        nome: "Demanda medida fora ponta",
+        categoria: "demanda_medida_fora_ponta",
+        compoeTotal: false,
+        valor: 0,
+        quantidade: CAMPOS.demandaMedidaForaPontaKw,
+        unidade: "kW",
+        tarifa: null,
+      },
+    ];
+
+    const reabertos = itensSalvosParaConciliar(salvos);
+    const editados = reabertos.map((item) =>
+      item.nome === "Adicional Bandeira Amarela" ? { ...item, valor: 3.78 } : item,
+    );
+    const avaliacao = avaliarConciliacaoLocal(editados, CAMPOS);
+    const reenviados = reconciledInvoiceItemSchema.array().parse(
+      JSON.parse(JSON.stringify(avaliacao.itens)),
+    );
+    const informativo = reenviados.find(
+      (item) => item.nome === "Adicional Bandeira Amarela",
+    );
+
+    assert.equal(reabertos.length, salvos.length - 3);
+    assert.equal(avaliacao.pronta, true);
+    assert.equal(avaliacao.soma, CAMPOS.valorTotal);
+    for (const categoria of [
+      "demanda_contratada",
+      "demanda_medida_ponta",
+      "demanda_medida_fora_ponta",
+    ] as const) {
+      assert.equal(
+        reenviados.filter((item) => item.categoria === categoria).length,
+        1,
+      );
+    }
+    assert.deepEqual(informativo, {
+      nome: "Adicional Bandeira Amarela",
+      categoria: "outros",
+      compoeTotal: false,
+      motivoForaDoTotal: motivo,
+      valor: 3.78,
+      quantidade: null,
+      unidade: null,
+      tarifa: null,
+    });
   });
 
   /**

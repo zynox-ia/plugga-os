@@ -6,6 +6,7 @@ import type {
   ReconciledInvoiceItem,
 } from "@plugga/shared";
 
+import { arredondar, somarComoOOraculo } from "./aritmetica.js";
 import { PREMISSAS_PADRAO } from "./motor-solar-bess.js";
 import type { CasoDoEstudo, ModoDoEstudo } from "./pipeline.js";
 
@@ -51,6 +52,38 @@ function paraItem(item: ReconciledInvoiceItem): ItemDaFatura {
   };
 }
 
+const FORA_PONTA = /\bfora\s+ponta\b|\bf\.?\s*ponta\b|\bf\/ponta\b/i;
+const PONTA = /\bponta\b/i;
+const MEDIDA = /\bmedida\b/i;
+const NAO_CONSUMIDA = /\bn[aã]o\s+consumida\b/i;
+const ULTRAPASSAGEM = /\bultrapassagem\b|\bdem\s+ultr\b/i;
+
+function ehPonta(nome: string): boolean {
+  return PONTA.test(nome) && !FORA_PONTA.test(nome);
+}
+
+function somarValores(itens: readonly ReconciledInvoiceItem[]): number {
+  return arredondar(
+    somarComoOOraculo(itens.map((item) => item.valor)),
+    2,
+  );
+}
+
+function demandaPublicada(
+  itens: readonly ReconciledInvoiceItem[],
+  padrao: RegExp,
+): ReconciledInvoiceItem | undefined {
+  return itens.find(
+    (item) =>
+      item.categoria === "demanda_faturada" &&
+      item.unidade === "kW" &&
+      item.quantidade !== null &&
+      item.tarifa !== null &&
+      ehPonta(item.nome) &&
+      padrao.test(item.nome),
+  );
+}
+
 /**
  * A modalidade decide o motor: azul paga a energia igual dentro e fora da
  * ponta, e a dor está na demanda — é peak shaving. Verde é Solar+BESS. Deixar
@@ -68,6 +101,12 @@ export function faturaNormativaDoSistema(
 ): FaturaNormativa {
   const compoem = contexto.itens.filter((item) => item.compoeTotal);
   const informativos = contexto.itens.filter((item) => !item.compoeTotal);
+  const demandaMedidaPonta = demandaPublicada(compoem, MEDIDA);
+  const demandaNaoConsumidaPonta = demandaPublicada(compoem, NAO_CONSUMIDA);
+  const ultrapassagens = compoem.filter((item) => ULTRAPASSAGEM.test(item.nome));
+  const reativos = compoem.filter((item) => item.categoria === "reativo");
+  const reativosPonta = reativos.filter((item) => ehPonta(item.nome));
+  const reativosForaPonta = reativos.filter((item) => !ehPonta(item.nome));
 
   return {
     cliente: unidade.cliente,
@@ -91,7 +130,11 @@ export function faturaNormativaDoSistema(
 
     total: fatura.valorTotal,
     itens: compoem.map(paraItem),
-    naoCobrados: informativos.map((item) => ({ nome: item.nome, valor: item.valor })),
+    naoCobrados: informativos.map((item) => ({
+      nome: item.nome,
+      valor: item.valor,
+      ...(item.motivoForaDoTotal ? { motivo: item.motivoForaDoTotal } : {}),
+    })),
 
     consumoPontaKwh: fatura.consumoPontaKwh,
     consumoFpKwh: fatura.consumoForaPontaKwh,
@@ -101,13 +144,38 @@ export function faturaNormativaDoSistema(
 
     tarifaPontaTotal: fatura.tarifaPonta,
     tarifaFpTotal: fatura.tarifaForaPonta,
+    ...(demandaMedidaPonta?.tarifa === null || demandaMedidaPonta?.tarifa === undefined
+      ? {}
+      : { tarifaKwPontaMedida: demandaMedidaPonta.tarifa }),
+    ...(demandaNaoConsumidaPonta?.tarifa === null ||
+    demandaNaoConsumidaPonta?.tarifa === undefined
+      ? {}
+      : { tarifaKwPontaNc: demandaNaoConsumidaPonta.tarifa }),
+    ...(demandaMedidaPonta || demandaNaoConsumidaPonta
+      ? {
+          demandaPontaValorTotal: somarValores(
+            [demandaMedidaPonta, demandaNaoConsumidaPonta].filter(
+              (item): item is ReconciledInvoiceItem => item !== undefined,
+            ),
+          ),
+        }
+      : {}),
     ...(fatura.tarifaDemanda === undefined ? {} : { tarifaDemandaKw: fatura.tarifaDemanda }),
+    ...(ultrapassagens.length === 0
+      ? {}
+      : {
+          ultrapassagemValor: somarValores(ultrapassagens),
+          ultrapassagemKw: ultrapassagens.reduce(
+            (total, item) => total + (item.unidade === "kW" ? (item.quantidade ?? 0) : 0),
+            0,
+          ),
+        }),
     ...(contexto.demandaComplementoValor === undefined ||
     contexto.demandaComplementoValor === null
       ? {}
       : { demandaComplementoValor: contexto.demandaComplementoValor }),
-    reativoPontaValor: 0,
-    reativoFpValor: fatura.valorReativo,
+    reativoPontaValor: somarValores(reativosPonta),
+    reativoFpValor: somarValores(reativosForaPonta),
     beneficioIsencaoValor: fatura.valorBeneficioFiscal,
   };
 }
@@ -139,14 +207,12 @@ export function casoDoMotorDaFatura(
     );
   }
 
-  const unidades = unidadesSugeridas(fatura.consumoPontaKwh);
   const peak = fatura.funcao === "peak_shaving";
+  const unidades = unidadesSugeridas(fatura.consumoPontaKwh);
 
-  return {
-    funcao: fatura.funcao ?? "solar_bess",
+  const comum = {
     consumoPontaDesejadoKwhMes: fatura.consumoPontaKwh,
     nBess: null,
-    capexBessTotal: unidades * CAPEX_POR_BESS,
     tusdP: peak ? null : (fatura.tarifaPontaTotal ?? 0),
     teP: peak ? null : 0,
     tusdFp: fatura.tarifaFpTotal ?? 0,
@@ -154,15 +220,36 @@ export function casoDoMotorDaFatura(
     hspMensal: [...hspMensal],
     solarKwp: 0,
     capexSolarTotal: 0,
-    ...(peak
-      ? {
-          demandaPontaMedidaKw: fatura.demandaRegistradaPontaKw ?? 0,
-          tarifaKwPontaMedida: fatura.tarifaKwPontaMedida ?? 0,
-          demandaPontaNcKw: 0,
-          tarifaKwPontaNc: fatura.tarifaKwPontaNc ?? 0,
-          contratoPontaNovoKw: 0,
-        }
-      : {}),
+  };
+
+  if (!peak) {
+    return {
+      ...comum,
+      funcao: "solar_bess",
+      // No Solar+BESS a mesma conta que dimensiona a energia define o CAPEX.
+      capexBessTotal: unidades * CAPEX_POR_BESS,
+      tusdP: fatura.tarifaPontaTotal ?? 0,
+      teP: 0,
+    };
+  }
+
+  // Peak shaving também dimensiona por potência e pelo SOH do ano 20; fixar
+  // aqui o CAPEX calculado pela regra solar fazia o motor adotar cinco BESS e
+  // cobrar apenas quatro. Nulo deixa o próprio motor peak derivar o valor.
+  return {
+    ...comum,
+    funcao: "peak_shaving",
+    capexBessTotal: null,
+    tusdP: null,
+    teP: null,
+    demandaPontaMedidaKw: fatura.demandaRegistradaPontaKw ?? 0,
+    tarifaKwPontaMedida: fatura.tarifaKwPontaMedida ?? 0,
+    demandaPontaNcKw: Math.max(
+      fatura.demandaContratadaKw - (fatura.demandaRegistradaPontaKw ?? 0),
+      0,
+    ),
+    tarifaKwPontaNc: fatura.tarifaKwPontaNc ?? 0,
+    contratoPontaNovoKw: 0,
   };
 }
 

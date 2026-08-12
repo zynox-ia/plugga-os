@@ -6,6 +6,7 @@ import { headers } from "next/headers";
 import { invoiceReadingSchema, type InvoiceReading } from "@plugga/shared";
 
 import { apiBaseUrl } from "../../lib/env";
+import { premissasDaFicha, seriePositiva } from "./fatura-form-model";
 
 /**
  * Escritas do estudo de eficiência energética.
@@ -135,10 +136,9 @@ export async function enviarFatura(id: string, formData: FormData): Promise<Resu
 
   // Histórico vem como texto livre separado por vírgula ou espaço: é assim que
   // a pessoa tem o dado na mão, lendo doze faturas.
-  const historico = String(formData.get("demandHistory") ?? "")
-    .split(/[,\s;]+/)
-    .map((valor) => Number(valor.replace(",", ".")))
-    .filter((valor) => Number.isFinite(valor) && valor > 0);
+  const historico = seriePositiva(formData.get("demandHistory"));
+  const premissas = premissasDaFicha(formData);
+  if (!premissas.ok) return premissas;
 
   const resultado = await chamar(`/${id}/invoice`, {
     invoice: {
@@ -164,6 +164,8 @@ export async function enviarFatura(id: string, formData: FormData): Promise<Resu
       modalidade: String(formData.get("modalidade") ?? "verde"),
       grupo: "A",
       vencimento: String(formData.get("vencimento") ?? "").trim() || null,
+      demandaComplementoValor: premissas.demandaComplementoValor,
+      hspMensal: premissas.hspMensal,
       itens,
       arquivoNome: String(formData.get("arquivoNome") ?? "").trim() || null,
       arquivoChave: String(formData.get("arquivoChave") ?? "").trim() || null,
@@ -190,6 +192,12 @@ export async function abrirEstudoPelaFatura(
   formData: FormData,
   estudoExistente?: string,
 ): Promise<{ ok: true; id: string } | { ok: false; erro: string; estudoCriado?: string }> {
+  // Esta action cria o estudo antes de enviar a ficha. Validar aqui impede que
+  // uma HSP incompleta deixe um rascunho persistido para uma entrada que já
+  // sabemos que o contrato HTTP recusará.
+  const premissas = premissasDaFicha(formData);
+  if (!premissas.ok) return premissas;
+
   let id = estudoExistente;
 
   if (!id) {

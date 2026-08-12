@@ -26,18 +26,29 @@ export const PRECO_SOLAR_POR_KWP = 2_500.0;
 
 export type ModoDoEstudo = "solar_bess" | "peak_shaving";
 
-/** Caso do motor, como o corpus o descreve. */
-export type CasoDoEstudo = {
-  funcao?: ModoDoEstudo;
+type CamposComunsDoCaso = {
   solarKwpDefinido?: number;
-  /**
-   * Nulo só faz sentido no peak shaving, onde a ponta usa a tarifa do fora
-   * ponta. No Solar+BESS a tarifa de ponta é sempre um número.
-   */
-  tusdP?: number | null;
-  teP?: number | null;
-} & Omit<Partial<PremissasDoMotor>, "tusdP" | "teP"> &
-  Omit<Partial<PremissasDoPeakShaving>, "tusdP" | "teP">;
+} & Omit<Partial<PremissasDoMotor>, "tusdP" | "teP" | "capexBessTotal"> &
+  Omit<Partial<PremissasDoPeakShaving>, "tusdP" | "teP" | "capexBessTotal">;
+
+/** Caso do motor, discriminado para `null` nunca atravessar ao Solar+BESS. */
+export type CasoDoEstudo = CamposComunsDoCaso &
+  (
+    | {
+        funcao: "solar_bess";
+        capexBessTotal?: number;
+        tusdP?: number;
+        teP?: number;
+      }
+    | {
+        funcao: "peak_shaving";
+        /** Nulo deixa o motor peak dimensionar o CAPEX por potência e SOH. */
+        capexBessTotal?: number | null;
+        /** Na modalidade azul, ponta pode usar a tarifa do fora ponta. */
+        tusdP?: number | null;
+        teP?: number | null;
+      }
+  );
 
 export type ResultadoDoEstudo = {
   modo: ModoDoEstudo;
@@ -61,40 +72,31 @@ export class ModoDesconhecidoError extends Error {
   }
 }
 
-/**
- * Seleção explícita e fechada. Modo ausente ou desconhecido para o estudo; não
- * cai no Solar+BESS, que foi exatamente o defeito encontrado na auditoria: um
- * cliente de modalidade azul ficava verde rodando o motor errado.
- */
-export function selecionarMotor(
-  modo: ModoDoEstudo,
-): (entrada: CasoDoEstudo) => SaidaDoMotor {
-  if (modo === "solar_bess") {
-    return (entrada) => rodarSolarBess(entrada as Partial<PremissasDoMotor>);
-  }
-  if (modo === "peak_shaving") {
-    return (entrada) => rodarPeakShaving(entrada as Partial<PremissasDoPeakShaving>);
-  }
-  throw new ModoDesconhecidoError(modo);
-}
-
 export function rodarEstudo(caso: CasoDoEstudo): ResultadoDoEstudo {
-  const modo = caso.funcao ?? "solar_bess";
-  if (caso.funcao !== undefined && modo !== "solar_bess" && modo !== "peak_shaving") {
+  const modo: ModoDoEstudo = caso.funcao;
+  if (modo !== "solar_bess" && modo !== "peak_shaving") {
     throw new ModoDesconhecidoError(caso.funcao);
   }
-  const motor = selecionarMotor(modo);
+  // A união discriminada barra isto em TypeScript; a guarda mantém a mesma
+  // garantia quando a entrada vier de JSON ou de código JavaScript sem tipos.
+  if (modo === "solar_bess" && caso.capexBessTotal === null) {
+    throw new TypeError("Solar+BESS exige CAPEX BESS numérico; null só pertence ao peak shaving");
+  }
 
   // Primeira passagem: sem solar. O que interessa dela é o kWp sugerido para
   // cobrir a recarga no pior mês — e é ela que o semáforo julga.
-  const fluxoBess = motor(caso);
+  const fluxoBess =
+    caso.funcao === "solar_bess" ? rodarSolarBess(caso) : rodarPeakShaving(caso);
 
   const aprovado = caso.solarKwpDefinido;
   const solarKwp = aprovado || (fluxoBess.solar.kwp_sugerido_pior_mes ?? 0);
   const capexSolarTotal = arredondar(solarKwp * PRECO_SOLAR_POR_KWP, 2);
 
   // Segunda passagem: o mesmo motor, agora com o solar aplicado.
-  const fluxoSolar = motor({ ...caso, solarKwp, capexSolarTotal });
+  const fluxoSolar =
+    caso.funcao === "solar_bess"
+      ? rodarSolarBess({ ...caso, solarKwp, capexSolarTotal })
+      : rodarPeakShaving({ ...caso, solarKwp, capexSolarTotal });
 
   return {
     modo,

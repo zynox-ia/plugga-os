@@ -50,6 +50,19 @@ describe("a categoria que o leitor marca no item", () => {
     expect(categoriaDoRotulo("En R Exc Ponta")).toBe("reativo");
     expect(categoriaDoRotulo("En R Exc F/Ponta")).toBe("reativo");
     expect(categoriaDoRotulo("Energia Reativa Excedente")).toBe("reativo");
+    expect(categoriaDoRotulo("Energia Reat Exced em KWh Livre - Ponta")).toBe("reativo");
+  });
+
+  it("classifica as grandezas da TUSD sem depender de distribuidora", () => {
+    expect(categoriaDoRotulo("TUSD em kWh - Ponta")).toBe("consumo_ponta");
+    expect(categoriaDoRotulo("TUSD em kWh - Fora Ponta")).toBe("consumo_fora_ponta");
+    expect(categoriaDoRotulo("TUSD em kW Medida - Ponta")).toBe("demanda_faturada");
+    expect(categoriaDoRotulo("TUSD em kW Não Consumida - F. Ponta")).toBe(
+      "demanda_faturada",
+    );
+    expect(categoriaDoRotulo("TUSD em kW - Ultrapassagem - Fora Ponta")).toBe(
+      "multas_juros_encargos",
+    );
   });
 
   it("não chuta para consumo o rótulo que não reconhece", () => {

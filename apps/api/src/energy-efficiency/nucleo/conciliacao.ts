@@ -30,6 +30,17 @@ export const TOLERANCIA_DO_TOTAL = 0.005;
 /** Tarifa × quantidade contra o valor do item, para absorver arredondamento. */
 export const TOLERANCIA_DO_ITEM = 0.06;
 
+/**
+ * Folga normativa da prova quantidade × tarifa = valor.
+ *
+ * Exportada porque a leitura e a conciliação julgam o mesmo item em momentos
+ * diferentes. Se cada uma mantiver uma fórmula própria, a leitura pode barrar
+ * uma linha que a Trava 1 aprovaria — ou, pior, fazer o contrário.
+ */
+export function folgaDoItem(valor: number): number {
+  return Math.max(TOLERANCIA_DO_ITEM, Math.abs(valor) * 0.001);
+}
+
 /** Acima disso a demanda registrada exige item de ultrapassagem declarado. */
 export const FOLGA_DA_DEMANDA_CONTRATADA = 1.05;
 
@@ -118,7 +129,7 @@ export function conciliarFatura(fatura: FaturaNormativa): ResultadoDaConciliacao
     if (quantidade === undefined || item.tarifa === undefined) continue;
 
     const calculado = quantidade * item.tarifa;
-    const folga = Math.max(TOLERANCIA_DO_ITEM, Math.abs(item.valor) * 0.001);
+    const folga = folgaDoItem(item.valor);
     if (Math.abs(calculado - item.valor) > folga) {
       problemas.push({
         regra: "item_incoerente",

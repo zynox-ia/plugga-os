@@ -190,6 +190,13 @@ export const reconciledInvoiceItemSchema = z
     categoria: reconciledInvoiceItemCategorySchema,
     /** Metadados de demanda provam campos técnicos, mas não somam no total. */
     compoeTotal: z.boolean(),
+    /**
+     * Explica por que o leitor sugeriu deixar a linha fora do total.
+     *
+     * Opcional para manter compatibilidade com estudos salvos antes de a
+     * explicação passar a fazer parte do contexto persistido.
+     */
+    motivoForaDoTotal: z.string().nullable().optional(),
     valor: z.number(),
     quantidade: z.number().nonnegative().nullable(),
     unidade: z.enum(["kWh", "kW"]).nullable(),
@@ -346,7 +353,11 @@ export type CreateEnergyStudyRequest = z.infer<typeof createEnergyStudyRequestSc
 export const submitEnergyInvoiceRequestSchema = z
   .object({
     invoice: invoiceDataSchema,
-    context: invoiceContextSchema,
+    // O contexto persistido continua aceitando estudo legado sem HSP, mas uma
+    // nova submissão não atravessa a fronteira HTTP sem os doze meses.
+    context: invoiceContextSchema.extend({
+      hspMensal: z.array(z.number().positive()).length(12),
+    }),
     demandHistory: z.array(z.number().nonnegative()).max(36).default([]),
     hasLoadProfile: z.boolean().default(false),
   })
@@ -533,6 +544,8 @@ export const invoiceReadingSchema = z
     distribuidora: z.string().nullable(),
     /** Só o que a aritmética confirmou; o resto fica para a pessoa preencher. */
     invoice: invoiceDataSchema.partial(),
+    /** Linha explícita de demanda sem ICMS, quando a fatura a publica. */
+    demandaComplementoValor: z.number().nullable(),
     itens: z.array(invoiceReadingItemSchema),
     camposParaConfirmar: z.array(z.string()),
     /**

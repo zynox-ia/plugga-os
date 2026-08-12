@@ -154,6 +154,7 @@ export function NovaFaturaView({
       regime: "cativo",
       modalidade: "verde",
       vencimento: "",
+      hspMensal: "",
     };
     for (const campo of CAMPOS) {
       const lido = leitura.invoice[campo.nome as keyof typeof leitura.invoice];
@@ -462,6 +463,12 @@ export function NovaFaturaView({
           <input type="hidden" name="arquivoChave" value={leitura.arquivoChave ?? ""} readOnly />
           <input
             type="hidden"
+            name="demandaComplementoValor"
+            value={leitura.demandaComplementoValor ?? ""}
+            readOnly
+          />
+          <input
+            type="hidden"
             name="origem"
             value={leitura.itens.length > 0 ? leitura.origem : "manual"}
             readOnly
@@ -583,6 +590,19 @@ export function NovaFaturaView({
               </label>
             );
           })}
+
+          <label className="campo-largo">
+            <span>HSP mensal da unidade (12 valores)</span>
+            <input
+              name="hspMensal"
+              type="text"
+              placeholder="5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5"
+              value={ficha.hspMensal ?? ""}
+              onChange={(evento) => alterarCampo("hspMensal", evento.target.value)}
+              required
+            />
+            <small>Premissa da unidade: informe os 12 meses; o sistema não inventa um padrão.</small>
+          </label>
 
           <label className="campo-largo">
             <span>Histórico de demanda registrada, mês a mês (kW)</span>

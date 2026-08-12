@@ -138,6 +138,7 @@ export class EstudoService {
     id: string,
     input: SubmitEnergyInvoiceRequest,
   ): Promise<EnergyStudyDetail> {
+    this.exigirHspMensal(input.context.hspMensal);
     const estudo = await this.repository.carregar(id);
     assertTransicao(estudo.status, "dados_recebidos");
 
@@ -179,6 +180,10 @@ export class EstudoService {
         "estudo sem fatura conciliável: informe a ficha, o tipo e os itens da fatura",
       );
     }
+    // Protege também recálculos de registros antigos. A validação acontece
+    // antes de `em_calculo`, portanto uma premissa ausente nunca deixa o estudo
+    // preso num estado que sugere haver cálculo em andamento.
+    this.exigirHspMensal(estudo.invoiceContext.hspMensal);
     assertTransicao(estudo.status, "em_calculo");
     // Qualquer recálculo invalida a assinatura e a entrega anteriores. Mesmo
     // que o tipo passe a verde depois da aprovação, o histórico não pode dizer
@@ -374,6 +379,20 @@ export class EstudoService {
       economiaMensal: resultado.economiaMensal,
       capexTotal: resultado.capexTotal,
     });
+  }
+
+  private exigirHspMensal(
+    hspMensal: readonly number[] | null | undefined,
+  ): asserts hspMensal is readonly number[] {
+    if (
+      !hspMensal ||
+      hspMensal.length !== 12 ||
+      hspMensal.some((valor) => !Number.isFinite(valor) || valor <= 0)
+    ) {
+      throw new BadRequestException(
+        "informe exatamente 12 valores positivos de HSP mensal antes de calcular",
+      );
+    }
   }
 
   /**

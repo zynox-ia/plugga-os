@@ -8,7 +8,7 @@ import { afterAll, describe, expect, it } from "vitest";
 import { rodarPeakShaving, type PremissasDoPeakShaving } from "./motor-peak-shaving.js";
 import { rodarSolarBess, type PremissasDoMotor } from "./motor-solar-bess.js";
 import type { SaidaDoMotor } from "./motor.js";
-import { rodarEstudo, type CasoDoEstudo } from "./pipeline.js";
+import { rodarEstudo } from "./pipeline.js";
 
 /**
  * Paridade dos motores contra o oráculo Python, caso a caso.
@@ -235,13 +235,21 @@ describe.skipIf(!ligado)("pipeline contra o oráculo", () => {
       ? traduzir<PremissasDoPeakShaving>(caso, DE_PARA_PEAK)
       : traduzir<PremissasDoMotor>(caso, DE_PARA_SOLAR);
 
-    const estudo = rodarEstudo({
-      ...(traduzido as CasoDoEstudo),
-      funcao: ehPeak ? "peak_shaving" : "solar_bess",
-      ...(caso.solar_kwp_definido === undefined
+    const solarKwpDefinido =
+      caso.solar_kwp_definido === undefined
         ? {}
-        : { solarKwpDefinido: caso.solar_kwp_definido as number }),
-    });
+        : { solarKwpDefinido: caso.solar_kwp_definido as number };
+    const estudo = ehPeak
+      ? rodarEstudo({
+          ...(traduzido as Partial<PremissasDoPeakShaving>),
+          funcao: "peak_shaving",
+          ...solarKwpDefinido,
+        })
+      : rodarEstudo({
+          ...(traduzido as Partial<PremissasDoMotor>),
+          funcao: "solar_bess",
+          ...solarKwpDefinido,
+        });
 
     expect(estudo.fluxoSolar).toEqual(duasPassagensNoOraculo(arquivo));
   });

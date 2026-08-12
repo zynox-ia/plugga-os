@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { conferir } from "./conferencia.js";
 import { lerItens } from "./itens.js";
 
 /**
@@ -47,6 +48,49 @@ describe("leitura dos itens da fatura", () => {
     expect(item!.valor).toBe(22_087.52);
   });
 
+  it("lê unidade, quantidade, tarifa e valor numa linha de tabela", () => {
+    const [item] = lerItens([
+      "TUSD em kWh - Ponta KWH 858,90 3,564050 3.061,16 114,43 3.061,16 19 581,62 2,753660",
+    ]);
+
+    expect(item).toMatchObject({
+      rotulo: "TUSD em kWh - Ponta",
+      quantidade: 858.9,
+      unidade: "kWh",
+      tarifa: 3.56405,
+      valor: 3_061.16,
+    });
+    expect(conferir([item!]).itens[0]?.veredicto).toBe("confirmado");
+  });
+
+  it("lê unidade não representável sem inventar kWh ou kW", () => {
+    const [item] = lerItens([
+      "Energia Reat Exced em KWh Livre - Ponta UN 32,24 0,299950 9,67 0,72 9,67",
+    ]);
+
+    expect(item).toMatchObject({ quantidade: null, unidade: null, tarifa: null, valor: 9.67 });
+    expect(conferir([item!]).itens[0]?.veredicto).toBe("sem_conferencia");
+  });
+
+  it("lê o primeiro valor de ajustes e encargos estreitamente identificados", () => {
+    const itens = lerItens([
+      "CREDITO TUSD KW-APCEI 07/2026 -5.896,80 0,00 0,00 0 0,00 0,000000",
+      "Contrib de Ilum Pub 849,67 0,00 0,00 0 0,00",
+    ]);
+
+    expect(itens).toMatchObject([
+      { rotulo: "CREDITO TUSD KW-APCEI 07/2026", valor: -5_896.8, quantidade: null },
+      { rotulo: "Contrib de Ilum Pub", valor: 849.67, quantidade: null },
+    ]);
+  });
+
+  it("deixa a aritmética rejeitar uma linha tabelada com valor incoerente", () => {
+    const [item] = lerItens(["Encargo KWH 10,00 2,000000 99,00"]);
+
+    expect(item).toBeDefined();
+    expect(conferir([item!]).itens[0]?.veredicto).toBe("divergente");
+  });
+
   it("preserva o sinal do crédito de geração", () => {
     // Crédito lido como débito inverteria a economia calculada.
     const [item] = lerItens(["Credito De Geracao F/Ponta", "-328,17"]);
@@ -65,6 +109,41 @@ describe("leitura dos itens da fatura", () => {
 
     expect(itens).toHaveLength(2);
     expect(itens.every((i) => i.quantidade === null && i.tarifa === null)).toBe(true);
+  });
+
+  it("reconstrói rótulo financeiro com dígitos separado do valor", () => {
+    const itens = lerItens([
+      "Desligamento E Religacao Programados (2X)",
+      "562,50",
+      "Devolução Diferenca Desconto Tusd - Ccee 04/26-",
+      "-604,12",
+    ]);
+
+    expect(itens).toMatchObject([
+      {
+        rotulo: "Desligamento E Religacao Programados (2X)",
+        valor: 562.5,
+        quantidade: null,
+        origem: "Desligamento E Religacao Programados (2X) | 562,50",
+      },
+      {
+        rotulo: "Devolução Diferenca Desconto Tusd - Ccee 04/26-",
+        valor: -604.12,
+        quantidade: null,
+        origem: "Devolução Diferenca Desconto Tusd - Ccee 04/26- | -604,12",
+      },
+    ]);
+  });
+
+  it("não relaxa rótulos com dígitos para históricos ou medições", () => {
+    const itens = lerItens([
+      "Leitura Anterior 31/05/2026",
+      "562,50",
+      "En Ativa Pta 04/2026",
+      "604,12",
+    ]);
+
+    expect(itens).toEqual([]);
   });
 
   it("ignora linhas que têm forma de item mas não são", () => {

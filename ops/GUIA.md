@@ -83,30 +83,38 @@ consumidora, endereço — porque é isso que o leitor tem de provar que extrai 
 isso que o relatório entrega. Anonimizar quebraria a prova; o que muda é o
 lugar: git é permanente, replica em todo clone e não tem revogação.
 
-O corpus mora no balde `plugga-corpus-faturas` do MinIO da VPS.
+O corpus mora no balde `plugga-corpus-faturas` do MinIO da VPS. Cada caso usa
+um único slug e guarda o par `<slug>.pagina.json` + `<slug>.pdf`: a geometria
+congelada e o PDF original que a produziu.
 
 ```bash
 # com o túnel do MinIO de pé e CORPUS_* no .env
 pnpm --filter @plugga/api corpus:baixar      # traz para apps/api/test/corpus
-pnpm --filter @plugga/api corpus:publicar    # sobe o que está lá
+pnpm --filter @plugga/api corpus:publicar    # sobe os JSONs e PDFs que estão lá
 ```
 
 A pasta de destino é ignorada pelo git — a proteção não depende de ninguém
-lembrar.
+lembrar. O PDF original nunca vai para o Git; ele fica somente nessa pasta
+ignorada e no balde dedicado, onde pode ser revogado.
 
-Acrescentar uma fatura ao corpus são dois passos, e eles escrevem em lugares
+Acrescentar uma fatura ao corpus são três passos, e eles escrevem em lugares
 diferentes de propósito:
 
 ```bash
 pnpm --filter @plugga/api fatura:congelar <arquivo> --nome <slug>
 #   apps/api/test/corpus/<slug>.pagina.json          → a fatura, fora do git
 #   apps/api/src/.../fatura/<slug>.corpus.spec.ts    → o teste, para commitar
+# preserve o mesmo arquivo original, com exatamente o mesmo slug:
+cp "<arquivo>" apps/api/test/corpus/<slug>.pdf
 pnpm --filter @plugga/api corpus:publicar
 ```
 
-O JSON é a fatura do cliente e cai na pasta ignorada; o spec é código e fica ao
-lado do leitor que ele prova. Congelar **não** publica: subir para o balde é um
-passo que se pede, não um efeito colateral.
+O JSON e o PDF original são a fatura do cliente e ficam na pasta ignorada; o
+spec é código e fica ao lado do leitor que ele prova. `fatura:congelar` gera o
+JSON e o spec, mas não copia o PDF: preservar o original como `<slug>.pdf` é o
+passo explícito acima. Congelar também **não** publica: `corpus:publicar` envia
+os dois arquivos para o balde, e subir continua sendo um efeito pedido, nunca
+um efeito colateral.
 
 **Sem as chaves nada quebra.** Os testes de corpus pulam com uma mensagem
 dizendo por quê, e o resto da suíte roda igual. Quem não tem acesso ainda tem

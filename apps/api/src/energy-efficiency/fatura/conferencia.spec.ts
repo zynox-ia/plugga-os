@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { conferir, folgaDeArredondamento } from "./conferencia.js";
+import { conferir } from "./conferencia.js";
 import type { ItemDaFatura } from "./itens.js";
 
 const item = (parcial: Partial<ItemDaFatura>): ItemDaFatura => ({
@@ -45,22 +45,14 @@ describe("conferência aritmética da fatura", () => {
     expect(c.itens[0]!.esperado).toBeCloseTo(4_906.03, 2);
   });
 
-  /**
-   * Caso que reprovava à toa com folga fixa: a tarifa impressa tem seis casas,
-   * então o erro herdado cresce com a quantidade.
-   */
-  it("tolera o arredondamento da própria distribuidora em linha grande", () => {
+  it("usa a mesma folga normativa da Trava 1 em linha grande", () => {
     const c = conferir([
-      item({ rotulo: "Consumo F/Ponta", quantidade: 31_966, tarifa: 0.57469, valor: 18_370.53 }),
+      // Linha real do DANF3E: a multiplicação difere R$ 0,75 do valor, mas fica
+      // dentro dos 0,1% que a conciliação normativa admite.
+      item({ rotulo: "TUSD em kWh - Fora Ponta", quantidade: 118_775, tarifa: 0.21103, valor: 25_065.84 }),
     ]);
 
     expect(c.itens[0]!.veredicto).toBe("confirmado");
-  });
-
-  it("a folga cresce com a quantidade, porque o erro da tarifa multiplica", () => {
-    expect(folgaDeArredondamento(100)).toBeLessThan(folgaDeArredondamento(150_000));
-    // Mesmo na maior linha, a folga fica muito abaixo de qualquer erro de leitura.
-    expect(folgaDeArredondamento(150_000)).toBeLessThan(0.1);
   });
 
   it("não inventa conferência para item sem quantidade", () => {

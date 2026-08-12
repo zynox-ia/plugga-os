@@ -1,13 +1,14 @@
 import { ConflictException } from "@nestjs/common";
 import {
   PREMISSAS_2026_08,
+  submitEnergyInvoiceRequestSchema,
   type EnergyPremises,
   type EnergyStudyDetail,
   type EnergyStudyListQuery,
-  type InvoiceContext,
   type InvoiceData,
   type ListEnergyStudiesResponse,
   type ProblemaDeValidacao,
+  type SubmitEnergyInvoiceRequest,
 } from "@plugga/shared";
 import { beforeEach, describe, expect, it } from "vitest";
 
@@ -39,7 +40,7 @@ const FATURA: InvoiceData = {
   valorMultasJurosEncargos: 0,
 };
 
-const CONTEXTO: InvoiceContext = {
+const CONTEXTO: SubmitEnergyInvoiceRequest["context"] = {
   distribuidora: "Amazonas Energia",
   regime: "cativo",
   modalidade: "verde",
@@ -384,6 +385,24 @@ describe("EstudoService — fluxo completo", () => {
       estudo.estudo!.capexTotal,
     );
     expect(estudo.estudo?.fluxoAnual).toHaveLength(21);
+  });
+
+  it("recusa HSP incompleta no contrato e antes de alterar o estado", async () => {
+    const criado = await criar();
+    const entradaInvalida = {
+      ...RECEBIMENTO,
+      context: { ...CONTEXTO, hspMensal: [4.5, 4.5, 4.5] },
+    };
+
+    expect(submitEnergyInvoiceRequestSchema.safeParse(entradaInvalida).success).toBe(false);
+    await expect(
+      service.receberFatura(criado.id, entradaInvalida as never),
+    ).rejects.toThrow(/exatamente 12 valores positivos de HSP/);
+
+    const preservado = await repositorio.detalhar(criado.id);
+    expect(preservado.status).toBe("aguardando_dados");
+    expect(preservado.invoice).toBeNull();
+    expect(preservado.invoiceContext).toBeNull();
   });
 
   it("fora do envelope suportado, para e escala com o erro literal", async () => {

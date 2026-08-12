@@ -4,8 +4,8 @@ import dotenv from "dotenv";
 
 import {
   abrirBalde,
+  arquivosLocais,
   configuracaoDoCorpus,
-  fixturesLocais,
   pastaDoCorpus,
   publicarCorpus,
 } from "../src/energy-efficiency/fatura/corpus.js";
@@ -43,7 +43,7 @@ async function principal(): Promise<number> {
   const argumentos = process.argv.slice(2);
   const caminhos = argumentos.length
     ? argumentos.map((caminho) => resolve(caminho))
-    : fixturesLocais(pasta).map((nome) => resolve(pasta, nome));
+    : arquivosLocais(pasta).map((nome) => resolve(pasta, nome));
 
   if (caminhos.length === 0) {
     console.error(`corpus: nada para publicar — ${pasta} está vazia.`);

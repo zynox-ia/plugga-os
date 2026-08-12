@@ -43,11 +43,36 @@ export function itensParaConciliar(
     nome: item.rotulo,
     categoria: item.categoria,
     compoeTotal: item.compoeTotal,
+    motivoForaDoTotal: item.motivoForaDoTotal,
     valor: item.valor,
     quantidade: item.quantidade,
     unidade: item.unidade,
     tarifa: item.tarifa,
   }));
+}
+
+/**
+ * Reabre as linhas editáveis da conciliação como foram salvas.
+ *
+ * Em particular, linhas informativas continuam editáveis e voltam no próximo
+ * envio com categoria, marcação e motivo intactos. Centralizar esta costura
+ * evita que a tela volte a confundir "não compõe o total" com "pode sumir".
+ *
+ * Os três metadados de demanda são a única exceção: `avaliarConciliacaoLocal`
+ * os deriva novamente da ficha a cada avaliação. Mantê-los aqui duplicaria
+ * essas linhas em toda reabertura seguida de reenvio.
+ */
+export function itensSalvosParaConciliar(
+  itens: readonly ReconciledInvoiceItem[],
+): ReconciledInvoiceItem[] {
+  const categoriasDerivadas = new Set<ReconciledInvoiceItemCategory>([
+    "demanda_contratada",
+    "demanda_medida_ponta",
+    "demanda_medida_fora_ponta",
+  ]);
+  return itens
+    .filter((item) => !categoriasDerivadas.has(item.categoria))
+    .map((item) => ({ ...item }));
 }
 
 const numero = (valor: string | number | undefined): number => {

@@ -52,6 +52,11 @@ const CONTRATADA_FORA_PONTA =
   /D\.?\s*C(?:td|ontratad)a?\.?\s*F[./-]?\s*(?:P|Pta|Ponta)\b\D{0,4}([\d.,]+)/i;
 const CONTRATADA_UNICA = /Dem(?:anda)?\.?\s*Contratada\b(?!\s*(?:P|F))\D{0,12}([\d.,]+)/i;
 
+/** A mesma grandeza no bloco que publica modalidade, posto e unidade. */
+const DEMANDA_TABELADA_PONTA = /Demanda\s+Ponta\s*-\s*kW\D{0,4}([\d.,]+)/i;
+const DEMANDA_TABELADA_FORA_PONTA =
+  /Demanda\s+Fora\s+Ponta\s*-\s*kW\D{0,4}([\d.,]+)/i;
+
 /**
  * Cabeçalho da coluna do total. É o rótulo que a distribuidora imprime acima do
  * valor fechado da fatura, e não colide com os totais parciais do corpo.
@@ -118,6 +123,15 @@ function valorAbaixoDe(linhas: readonly LinhaImpressa[], indice: number): number
  */
 const TOTAL_NA_LINHA = /(?:Valor|Total)\s+(?:a\s+)?Pagar\D{0,8}(-?[\d.]+,\d{2})/i;
 
+/**
+ * Total explicitamente identificado no começo da linha.
+ *
+ * O primeiro valor é o total do documento; os seguintes, quando existem, são
+ * totais de bases e tributos. A âncora `TOTAL:` evita confundir subtotais do
+ * corpo com o valor fechado da fatura.
+ */
+const TOTAL_IDENTIFICADO_NA_LINHA = /^TOTAL:\s*(-?[\d.]+,\d{2})(?:\s|$)/i;
+
 export function lerCamposExtras(paginas: readonly PaginaDoDocumento[]): CamposExtras {
   const linhas = paginas.flatMap((pagina) => montarLinhas(pagina));
 
@@ -132,14 +146,19 @@ export function lerCamposExtras(paginas: readonly PaginaDoDocumento[]): CamposEx
     // Fora ponta primeiro: "D. Ctda F.Pta" também casa o padrão de ponta, e
     // deixar a ordem ao acaso trocaria os dois valores em silêncio.
     const foraPonta = CONTRATADA_FORA_PONTA.exec(linha.texto);
-    if (foraPonta?.[1] && extras.demandaContratadaForaPontaKw === null) {
-      extras.demandaContratadaForaPontaKw = numero(foraPonta[1]);
+    const foraPontaTabelada = DEMANDA_TABELADA_FORA_PONTA.exec(linha.texto);
+    const valorForaPonta = foraPonta?.[1] ?? foraPontaTabelada?.[1];
+    if (valorForaPonta && extras.demandaContratadaForaPontaKw === null) {
+      extras.demandaContratadaForaPontaKw = numero(valorForaPonta);
     }
 
     const semForaPonta = linha.texto.replace(CONTRATADA_FORA_PONTA, "");
     const ponta = CONTRATADA_PONTA.exec(semForaPonta);
-    if (ponta?.[1] && extras.demandaContratadaPontaKw === null) {
-      extras.demandaContratadaPontaKw = numero(ponta[1]);
+    const semForaPontaTabelada = semForaPonta.replace(DEMANDA_TABELADA_FORA_PONTA, "");
+    const pontaTabelada = DEMANDA_TABELADA_PONTA.exec(semForaPontaTabelada);
+    const valorPonta = ponta?.[1] ?? pontaTabelada?.[1];
+    if (valorPonta && extras.demandaContratadaPontaKw === null) {
+      extras.demandaContratadaPontaKw = numero(valorPonta);
     }
 
     const unica = CONTRATADA_UNICA.exec(linha.texto);
@@ -148,6 +167,10 @@ export function lerCamposExtras(paginas: readonly PaginaDoDocumento[]): CamposEx
     }
 
     const totalNaLinha = TOTAL_NA_LINHA.exec(linha.texto);
+    const totalIdentificado = TOTAL_IDENTIFICADO_NA_LINHA.exec(linha.texto);
+    if (extras.valorTotal === null && totalIdentificado?.[1]) {
+      extras.valorTotal = numero(totalIdentificado[1]);
+    }
     if (extras.valorTotal === null && CABECALHO_DO_TOTAL.test(linha.texto)) {
       extras.valorTotal = totalNaLinha?.[1]
         ? numero(totalNaLinha[1])

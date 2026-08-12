@@ -27,7 +27,7 @@ import { lerPorRegras, leituraProvada, type LeituraDaFatura } from "./leitura.js
  * `itensParaConciliar`, `camposDaFicha`, `avaliarConciliacaoLocal` — e não uma
  * imitação delas. Imitar era o problema.
  *
- * **O que ele afirma é o estado real, não o desejado.** Oito das doze não ficam
+ * **O que ele afirma é o estado real, não o desejado.** Duas das doze não ficam
  * prontas, e isso é defeito de leitura a consertar nos degraus da escada. O
  * valor de congelar a partição é o de sempre: enquanto ela não melhorar, também
  * não pode piorar sem alguém notar.
@@ -76,24 +76,20 @@ function leitura(slug: string): LeituraDaFatura {
 }
 
 /**
- * A tela libera o estudo sozinha. São as mesmas quatro que fecham a Trava 1 no
+ * A tela libera o estudo sozinha. São as mesmas dez que fecham a Trava 1 no
  * portão — e é essa igualdade que o defeito quebrava.
  */
 const PRONTAS = [
   "amazonas-tbt-2024-12",
+  "amazonas-tff-2026-04",
+  "ambar-alvorada-2026-06",
   "ambar-porteira-2026-06",
+  "energisa-acre-rio-branco-2026-06",
+  "energisa-ro-brasilia-2026-06",
+  "energisa-ro-cantuaria-2026-06",
+  "energisa-ro-mirante-da-serra-2026-05",
   "roraima-jardim-floresta-2026-06",
   "roraima-santa-tereza-2026-06",
-];
-
-/**
- * O leitor monta a ficha, mas a soma dos itens não bate com o total impresso.
- * A tela tem de dizer isso pela diferença, não por campo divergente: os campos
- * conferem entre si, o que falta é uma linha.
- */
-const SOMA_NAO_FECHA: readonly { slug: string; diferenca: number }[] = [
-  { slug: "amazonas-tff-2026-04", diferenca: -562.5 },
-  { slug: "ambar-alvorada-2026-06", diferenca: 604.12 },
 ];
 
 /**
@@ -102,10 +98,6 @@ const SOMA_NAO_FECHA: readonly { slug: string; diferenca: number }[] = [
  */
 const SEM_FICHA = [
   "amazonas-tff-2026-05",
-  "energisa-acre-rio-branco-2026-06",
-  "energisa-ro-brasilia-2026-06",
-  "energisa-ro-cantuaria-2026-06",
-  "energisa-ro-mirante-da-serra-2026-05",
   "equatorial-pa-rodrigues-2026-06",
 ];
 
@@ -116,9 +108,9 @@ if (FIXTURES.length === 0) console.warn(avisoDeCorpusAusente("o corpus de fatura
 describe.skipIf(FIXTURES.length === 0)("da fatura até o botão de abrir o estudo", () => {
   it("o corpus é o que foi medido: doze faturas, seis distribuidoras", () => {
     // Fixture nova entra por aqui primeiro, e o veredicto dela tem de ser
-    // escrito à mão numa das três listas — de propósito, por quem a acrescenta.
+    // escrito à mão numa das duas listas — de propósito, por quem a acrescenta.
     expect(FIXTURES.map((nome) => nome.replace(/\.pagina\.json$/, "")).sort()).toEqual(
-      [...PRONTAS, ...SOMA_NAO_FECHA.map(({ slug }) => slug), ...SEM_FICHA].sort(),
+      [...PRONTAS, ...SEM_FICHA].sort(),
     );
   });
 
@@ -132,23 +124,6 @@ describe.skipIf(FIXTURES.length === 0)("da fatura até o botão de abrir o estud
     expect(avaliacao.multiplicacoesInvalidas).toBe(0);
     expect(Math.abs(avaliacao.diferenca)).toBeLessThanOrEqual(0.005);
     expect(avaliacao.pronta).toBe(true);
-  });
-
-  it.each(SOMA_NAO_FECHA)("$slug fica pendente pela soma, não por categoria", ({
-    slug,
-    diferenca,
-  }) => {
-    const lida = leitura(slug);
-    const avaliacao = comoATelaMonta(lida);
-
-    // O leitor chegou até a ficha: os campos essenciais estão lá.
-    expect(lida.aproveitavel).toBe(true);
-    // E o motivo de a tela travar é exatamente o que falta — uma linha —, não um
-    // campo que a classificação estragou. A diferença é congelada porque é ela
-    // que diz de quanto é o buraco, e é por ela que se saberá que melhorou.
-    expect(avaliacao.camposInvalidos).toEqual([]);
-    expect(avaliacao.diferenca).toBeCloseTo(diferenca, 2);
-    expect(avaliacao.pronta).toBe(false);
   });
 
   it.each(SEM_FICHA)("%s cai no preenchimento manual, dizendo o que falta", (slug) => {

@@ -5,6 +5,7 @@ import { join, resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import {
+  arquivosLocais,
   avisoDeCorpusAusente,
   baixarCorpus,
   configuracaoDoCorpus,
@@ -12,8 +13,11 @@ import {
   fixtureDoCorpus,
   fixturesLocais,
   pastaDoCorpus,
+  pdfDoCorpus,
+  pdfsLocais,
   publicarCorpus,
   type BaldeDoCorpus,
+  type TipoDeConteudoDoCorpus,
 } from "./corpus.js";
 
 /**
@@ -27,19 +31,23 @@ import {
 
 function baldeDeMentira(objetos: Record<string, string> = {}): BaldeDoCorpus & {
   enviados: Record<string, string>;
+  tipos: Record<string, TipoDeConteudoDoCorpus>;
 } {
   const enviados: Record<string, string> = {};
+  const tipos: Record<string, TipoDeConteudoDoCorpus> = {};
 
   return {
     enviados,
+    tipos,
     listar: () => Promise.resolve(Object.keys(objetos)),
     baixar: (chave) => {
       const conteudo = objetos[chave];
       if (conteudo === undefined) throw new Error(`sem ${chave}`);
       return Promise.resolve(Buffer.from(conteudo));
     },
-    enviar: (chave, conteudo) => {
+    enviar: (chave, conteudo, tipoConteudo) => {
       enviados[chave] = conteudo.toString("utf8");
+      tipos[chave] = tipoConteudo;
       return Promise.resolve();
     },
   };
@@ -51,6 +59,7 @@ const PAGINA = JSON.stringify({
   confianca: null,
   paginas: [{ numero: 1, largura: 10, altura: 10, fragmentos: [] }],
 });
+const PDF = "%PDF-1.7\n% corpus de teste";
 
 let pasta: string;
 
@@ -111,16 +120,26 @@ describe("configuração do corpus", () => {
 });
 
 describe("publicar o corpus", () => {
-  it("sobe a fixture com o nome do arquivo como chave", async () => {
-    const caminho = join(pasta, "usina-teste-2026-01.pagina.json");
-    writeFileSync(caminho, PAGINA);
+  it("sobe página e PDF com o nome como chave e o MIME correto", async () => {
+    const pagina = join(pasta, "usina-teste-2026-01.pagina.json");
+    const pdf = join(pasta, "usina-teste-2026-01.pdf");
+    writeFileSync(pagina, PAGINA);
+    writeFileSync(pdf, PDF);
 
     const balde = baldeDeMentira();
-    const publicacao = await publicarCorpus(balde, [caminho]);
+    const publicacao = await publicarCorpus(balde, [pagina, pdf]);
 
-    expect(publicacao.publicados).toEqual(["usina-teste-2026-01.pagina.json"]);
+    expect(publicacao.publicados).toEqual([
+      "usina-teste-2026-01.pagina.json",
+      "usina-teste-2026-01.pdf",
+    ]);
     expect(publicacao.recusados).toEqual([]);
     expect(balde.enviados["usina-teste-2026-01.pagina.json"]).toBe(PAGINA);
+    expect(balde.enviados["usina-teste-2026-01.pdf"]).toBe(PDF);
+    expect(balde.tipos).toEqual({
+      "usina-teste-2026-01.pagina.json": "application/json",
+      "usina-teste-2026-01.pdf": "application/pdf",
+    });
   });
 
   it("recusa nome fora do padrão, arquivo ausente e JSON quebrado — dizendo qual", async () => {
@@ -142,23 +161,44 @@ describe("publicar o corpus", () => {
     expect(publicacao.recusados[1]?.motivo).toMatch(/JSON/);
     expect(balde.enviados).toEqual({});
   });
+
+  it("recusa arquivo com extensão PDF cujo conteúdo não é PDF", async () => {
+    const falsoPdf = join(pasta, "usina-teste-2026-01.pdf");
+    writeFileSync(falsoPdf, "isto não é um PDF");
+
+    const balde = baldeDeMentira();
+    const publicacao = await publicarCorpus(balde, [falsoPdf]);
+
+    expect(publicacao.publicados).toEqual([]);
+    expect(publicacao.recusados[0]?.motivo).toMatch(/cabeçalho de PDF/);
+    expect(balde.enviados).toEqual({});
+  });
 });
 
 describe("baixar o corpus", () => {
-  it("escreve as fixtures na pasta local", async () => {
-    const balde = baldeDeMentira({ "usina-teste-2026-01.pagina.json": PAGINA });
+  it("escreve página e PDF na pasta local", async () => {
+    const balde = baldeDeMentira({
+      "usina-teste-2026-01.pagina.json": PAGINA,
+      "usina-teste-2026-01.pdf": PDF,
+    });
     const download = await baixarCorpus(balde, join(pasta, "corpus"));
 
-    expect(download.baixados).toEqual(["usina-teste-2026-01.pagina.json"]);
+    expect(download.baixados).toEqual([
+      "usina-teste-2026-01.pagina.json",
+      "usina-teste-2026-01.pdf",
+    ]);
     expect(readFileSync(join(pasta, "corpus", "usina-teste-2026-01.pagina.json"), "utf8")).toBe(
       PAGINA,
     );
+    expect(readFileSync(join(pasta, "corpus", "usina-teste-2026-01.pdf"), "utf8")).toBe(PDF);
   });
 
   it("não deixa a chave do balde escolher onde escrever", async () => {
     const balde = baldeDeMentira({
       "../fora-do-corpus.pagina.json": PAGINA,
+      "../fora-do-corpus.pdf": PDF,
       "subpasta/usina-teste-2026-01.pagina.json": PAGINA,
+      "subpasta/usina-teste-2026-01.pdf": PDF,
       "notas.txt": "qualquer coisa",
     });
 
@@ -166,9 +206,10 @@ describe("baixar o corpus", () => {
     const download = await baixarCorpus(balde, destino);
 
     expect(download.baixados).toEqual([]);
-    expect(download.ignorados).toHaveLength(3);
+    expect(download.ignorados).toHaveLength(5);
     // Quem escreve no balde não escolhe onde este comando escreve no disco.
     expect(existsSync(join(pasta, "fora-do-corpus.pagina.json"))).toBe(false);
+    expect(existsSync(join(pasta, "fora-do-corpus.pdf"))).toBe(false);
     expect(existsSync(join(destino, "notas.txt"))).toBe(false);
   });
 });
@@ -176,15 +217,25 @@ describe("baixar o corpus", () => {
 describe("ler o corpus local", () => {
   it("devolve nulo quando a fixture não foi baixada", () => {
     expect(fixtureDoCorpus("usina-teste-2026-01.pagina.json", pasta)).toBeNull();
+    expect(pdfDoCorpus("usina-teste-2026-01.pdf", pasta)).toBeNull();
+    expect(arquivosLocais(pasta)).toEqual([]);
     expect(fixturesLocais(pasta)).toEqual([]);
+    expect(pdfsLocais(pasta)).toEqual([]);
     expect(fixturesLocais(join(pasta, "nem-existe"))).toEqual([]);
   });
 
-  it("lê a fixture baixada como documento normalizado", () => {
+  it("lê e lista a página e o PDF sem misturar os dois contratos", () => {
     writeFileSync(join(pasta, "usina-teste-2026-01.pagina.json"), PAGINA);
+    writeFileSync(join(pasta, "usina-teste-2026-01.pdf"), PDF);
 
     expect(fixtureDoCorpus("usina-teste-2026-01.pagina.json", pasta)?.origem).toBe("texto_direto");
+    expect(pdfDoCorpus("usina-teste-2026-01.pdf", pasta)?.toString("utf8")).toBe(PDF);
+    expect(arquivosLocais(pasta)).toEqual([
+      "usina-teste-2026-01.pagina.json",
+      "usina-teste-2026-01.pdf",
+    ]);
     expect(fixturesLocais(pasta)).toEqual(["usina-teste-2026-01.pagina.json"]);
+    expect(pdfsLocais(pasta)).toEqual(["usina-teste-2026-01.pdf"]);
   });
 
   it("o aviso diz o comando e diz que pular não é falha", () => {

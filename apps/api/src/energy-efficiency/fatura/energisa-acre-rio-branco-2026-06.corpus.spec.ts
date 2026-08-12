@@ -1,16 +1,20 @@
 import { describe, expect, it } from "vitest";
 
 import { avisoDeCorpusAusente, fixtureDoCorpus } from "./corpus.js";
-import { lerPorRegras, type LeituraDaFatura } from "./leitura.js";
-import { linhasImpressas, linhasPorColuna } from "./linhas.js";
+import {
+  lerPorRegras,
+  leituraProvada,
+  somaDoQueCompoeOTotal,
+  type LeituraDaFatura,
+} from "./leitura.js";
+import { linhasImpressas } from "./linhas.js";
 
 /**
  * Energisa Acre — Rio Branco 06/2026, a sexta distribuidora do corpus.
  *
  * Mesmo DANF3E da Energisa Rondônia — a explicação do layout está em
- * `energisa-ro-brasilia-2026-06` — e falha igual: zero itens, `invoice` vazia,
- * `layout_desconhecido`. Está aqui por cobertura: a Energisa Acre é a sexta e
- * última distribuidora, e sem este arquivo ela não teria caso de leitura nenhum.
+ * `energisa-ro-brasilia-2026-06`. A forma genérica que lê unidade, quantidade,
+ * tarifa e valor fecha Acre e Rondônia sem distinguir concessionária.
  *
  * Que o layout do Acre seja idêntico ao de Rondônia é, em si, informação: são
  * duas concessionárias diferentes do mesmo grupo, e uma correção no DANF3E deve
@@ -28,14 +32,11 @@ import { linhasImpressas, linhasPorColuna } from "./linhas.js";
  * 3.061,16, TUSD fora ponta 15.519 kWh = 2.884,98, demanda 7.577,11, demanda não
  * consumida 2.174,64, reativo 4,23 e 53,27, adicional Covid 357,82, créditos
  * APCEI -2.927,11, -840,09 e -1.120,88, COSIP 112,49 — conferem com o que está
- * impresso na página. Nenhum deles é lido hoje.
+ * impresso na página. Todos entram na soma que fecha o total do documento.
  *
- * A **competência sai 07/2026**, do crédito "APCEI 07/2026", que aqui coincide
- * com a referência impressa "Julho / 2026". O golden chama esta fatura de
- * 06/2026, que é o mês do consumo (31/05 a 30/06) — as duas convenções são
- * defensáveis, e a leitura não segue nenhuma das duas de propósito: segue o
- * primeiro `MM/AAAA` que encontra. A **UC 0000150529-6** é o código do débito
- * automático; o golden não registra UC para esta unidade.
+ * A **competência sai 06/2026**, ancorada em `Leitura Atual: 30/06/2026`, e não
+ * no mês do crédito APCEI. A **UC 0000150529-6** é o código do débito automático;
+ * o golden não registra UC para esta unidade.
  *
  * Fixture gerada por `pnpm --filter @plugga/api fatura:congelar`. O caso vive
  * aqui como a geometria da página, não como PDF: os fragmentos com posição são
@@ -70,10 +71,12 @@ function leitura(): LeituraDaFatura {
 }
 
 describe.skipIf(!DOCUMENTO)("Energisa Acre — Rio Branco 06/2026 (DANF3E)", () => {
-  it("não fecha a ficha sozinha, e diz pelo nome o que faltou", () => {
+  it("monta uma ficha provada pela Trava 1", () => {
     expect(leitura().origem).toBe("texto_direto");
-    expect(leitura().aproveitavel).toBe(false);
-    expect(leitura().motivo).toBe("layout_desconhecido");
+    expect(leitura().aproveitavel).toBe(true);
+    expect(leitura().motivo).toBeNull();
+    expect(leituraProvada(leitura())).toBe(true);
+    expect(leitura().camposParaConfirmar).toEqual([]);
   });
 
   it("não distingue Energisa Acre de Energisa Rondônia, e sai só 'ENERGISA'", () => {
@@ -82,19 +85,26 @@ describe.skipIf(!DOCUMENTO)("Energisa Acre — Rio Branco 06/2026 (DANF3E)", () 
     // grupo; separar as duas concessionárias é decisão em aberto, não defeito
     // deste caso — mas é aqui que a diferença aparece.
     expect(leitura().identificacao.distribuidora).toBe("ENERGISA");
-    // 07/2026 vem do crédito APCEI; coincide com a referência impressa "Julho /
-    // 2026", enquanto o golden chama esta fatura de 06/2026, o mês do consumo.
-    expect(leitura().identificacao.competencia).toEqual({ mes: 7, ano: 2026 });
+    // A data de leitura atual encerra o ciclo e tem precedência sobre APCEI.
+    expect(leitura().identificacao.competencia).toEqual({ mes: 6, ano: 2026 });
     expect(leitura().identificacao.unidadeConsumidora).toBe("0000150529-6");
   });
 
-  it("não reconheceu nenhum item financeiro nesta fatura", () => {
-    // É isto que o caso registra. Quando o leitor aprender este layout,
-    // este teste fica vermelho — e é assim que se percebe que melhorou.
-    expect(leitura().itens).toEqual([]);
+  it("lê consumo, demanda, reativo, adicional, créditos e contribuição", () => {
+    expect(leitura().itens).toHaveLength(11);
+    expect(leitura().invoice).toMatchObject({
+      consumoPontaKwh: 858.9,
+      consumoForaPontaKwh: 15_519,
+      valorPonta: 3_061.16,
+      valorForaPonta: 2_884.98,
+      demandaMedidaForaPontaKw: 124.32,
+      valorDemanda: 9_751.75,
+      valorReativo: 57.5,
+      demandaContratadaKw: 160,
+    });
   });
 
-  it("o total impresso não chega à ficha: o corte por coluna o decepa", () => {
+  it("o primeiro valor de TOTAL: fecha exatamente com os itens", () => {
     const paginas = DOCUMENTO?.paginas ?? [];
 
     // 11.337,62 é o que esta fatura cobra; o golden da unidade vale 17.940,66
@@ -102,19 +112,14 @@ describe.skipIf(!DOCUMENTO)("Energisa Acre — Rio Branco 06/2026 (DANF3E)", () 
     expect(linhasImpressas(paginas)).toContain(
       "TOTAL: 11.337,62 602,31 16.113,21 3.061,49",
     );
-    expect(linhasPorColuna(paginas)).toContain("TOTAL:");
-    expect(leitura().invoice.valorTotal).toBeUndefined();
+    expect(leitura().invoice.valorTotal).toBe(11_337.62);
+    expect(somaDoQueCompoeOTotal(leitura().itens)).toBeCloseTo(11_337.62, 2);
   });
 
-  it("sem item, não há aritmética a conferir", () => {
-    expect(leitura().conferencia.confirmados).toBe(0);
+  it("a aritmética confirma as linhas representáveis e preserva as de valor único", () => {
+    expect(leitura().conferencia.confirmados).toBe(5);
     expect(leitura().conferencia.divergentes).toBe(0);
+    expect(leitura().conferencia.semConferencia).toBe(6);
     expect(leitura().conferencia.temDivergencia).toBe(false);
-  });
-
-  it("declara exatamente o que ainda depende de conferência humana", () => {
-    expect(leitura().camposParaConfirmar).toEqual([
-      "layout não reconhecido: nenhum item financeiro identificado",
-    ]);
   });
 });

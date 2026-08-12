@@ -6,6 +6,7 @@ import { useState, useTransition } from "react";
 import {
   avaliarConciliacaoLocal,
   camposDaFicha,
+  itensSalvosParaConciliar,
   type EnergyStudyDetail,
   type ReconciledInvoiceItem,
 } from "@plugga/shared";
@@ -63,6 +64,7 @@ export function EstudoDetalheView({ estudo }: { estudo: EnergyStudyDetail }) {
       regime: estudo.invoiceContext?.regime ?? "cativo",
       modalidade: estudo.invoiceContext?.modalidade ?? "verde",
       vencimento: estudo.invoiceContext?.vencimento ?? "",
+      hspMensal: estudo.invoiceContext?.hspMensal?.join(", ") ?? "",
     };
     for (const campo of CAMPOS_DA_FATURA) {
       base[campo.nome] = String(
@@ -72,7 +74,7 @@ export function EstudoDetalheView({ estudo }: { estudo: EnergyStudyDetail }) {
     return base;
   });
   const [itensConciliacao, setItensConciliacao] = useState<ReconciledInvoiceItem[]>(() =>
-    estudo.invoiceContext?.itens.filter((item) => item.compoeTotal) ?? [],
+    itensSalvosParaConciliar(estudo.invoiceContext?.itens ?? []),
   );
   const alterarCampo = (nome: string, valor: string) =>
     setFicha((atual) => ({ ...atual, [nome]: valor }));
@@ -229,6 +231,12 @@ export function EstudoDetalheView({ estudo }: { estudo: EnergyStudyDetail }) {
               value={estudo.invoiceContext?.arquivoChave ?? ""}
               readOnly
             />
+            <input
+              type="hidden"
+              name="demandaComplementoValor"
+              value={estudo.invoiceContext?.demandaComplementoValor ?? ""}
+              readOnly
+            />
             <label>
               <span>Distribuidora</span>
               <input
@@ -283,6 +291,18 @@ export function EstudoDetalheView({ estudo }: { estudo: EnergyStudyDetail }) {
                 />
               </label>
             ))}
+            <label className="campo-largo">
+              <span>HSP mensal da unidade (12 valores)</span>
+              <input
+                name="hspMensal"
+                type="text"
+                placeholder="5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5"
+                value={ficha.hspMensal ?? ""}
+                onChange={(evento) => alterarCampo("hspMensal", evento.target.value)}
+                required
+              />
+              <small>Premissa da unidade: informe os 12 meses; não há padrão silencioso.</small>
+            </label>
             <label className="campo-largo">
               <span>Histórico de demanda registrada, mês a mês (kW)</span>
               <input

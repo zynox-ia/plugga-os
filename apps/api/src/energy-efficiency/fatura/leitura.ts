@@ -134,8 +134,16 @@ const DEMANDA_SIMPLES = /^demanda\b(?!\s*(gera|ultr))/i;
  * nunca por cima do que a fatura publicou.
  */
 const DEMANDA_COMPLEMENTO = /^demanda\b.*\b(sem\s*icms|complement)/i;
-const REATIVO = /^en\s*r\s*exc\b|reativ/i;
+const REATIVO = /^en\s*r\s*exc\b|reativ|energia\s+reat/i;
 const ULTRAPASSAGEM = /^dem\s*ultr/i;
+
+/** A mesma semântica quando o rótulo publica TUSD e a grandeza por extenso. */
+const TUSD_CONSUMO_PONTA = /^tusd\s+em\s+kwh\s*-\s*ponta\b/i;
+const TUSD_CONSUMO_FORA_PONTA = /^tusd\s+em\s+kwh\s*-\s*fora\s+ponta\b/i;
+const TUSD_DEMANDA = /^tusd\s+em\s+kw\b.*\b(?:medida|n[aã]o\s+consumida)\b/i;
+const TUSD_DEMANDA_PONTA =
+  /^tusd\s+em\s+kw\b.*\b(?:medida|n[aã]o\s+consumida)\s*-\s*ponta\b/i;
+const TUSD_ULTRAPASSAGEM = /^tusd\s+em\s+kw\b.*\bultrapassagem\b/i;
 
 /**
  * Em que campo da ficha esta linha cai — dito uma vez, para os dois lados.
@@ -163,17 +171,22 @@ const ULTRAPASSAGEM = /^dem\s*ultr/i;
  * acrescenta essa linha à mão a classifica no editor.
  */
 export function categoriaDoRotulo(rotulo: string): ReconciledInvoiceItemCategory {
-  if (CONSUMO_PONTA.test(rotulo)) return "consumo_ponta";
-  if (CONSUMO_FORA_PONTA.test(rotulo)) return "consumo_fora_ponta";
+  if (CONSUMO_PONTA.test(rotulo) || TUSD_CONSUMO_PONTA.test(rotulo)) return "consumo_ponta";
+  if (CONSUMO_FORA_PONTA.test(rotulo) || TUSD_CONSUMO_FORA_PONTA.test(rotulo)) {
+    return "consumo_fora_ponta";
+  }
   if (
     DEMANDA_PONTA.test(rotulo) ||
     DEMANDA_FORA_PONTA.test(rotulo) ||
-    DEMANDA_SIMPLES.test(rotulo)
+    DEMANDA_SIMPLES.test(rotulo) ||
+    TUSD_DEMANDA.test(rotulo)
   ) {
     return "demanda_faturada";
   }
   if (REATIVO.test(rotulo)) return "reativo";
-  if (ULTRAPASSAGEM.test(rotulo)) return "multas_juros_encargos";
+  if (ULTRAPASSAGEM.test(rotulo) || TUSD_ULTRAPASSAGEM.test(rotulo)) {
+    return "multas_juros_encargos";
+  }
   return "outros";
 }
 
@@ -592,7 +605,7 @@ function montarComItens(
         // Ponta e fora ponta somam no mesmo valor, mas são medições distintas.
         // A maior medição da competência é a que interessa: demanda é cobrada
         // pelo pico, não pela soma das linhas.
-        if (DEMANDA_PONTA.test(rotulo)) {
+        if (DEMANDA_PONTA.test(rotulo) || TUSD_DEMANDA_PONTA.test(rotulo)) {
           invoice.demandaMedidaPontaKw = Math.max(invoice.demandaMedidaPontaKw ?? 0, quantidade);
         } else {
           // Fora ponta, e também a demanda única da horossazonal verde, que não

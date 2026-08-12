@@ -1,19 +1,24 @@
 import { describe, expect, it } from "vitest";
 
 import { avisoDeCorpusAusente, fixtureDoCorpus } from "./corpus.js";
-import { lerPorRegras, type LeituraDaFatura } from "./leitura.js";
-import { linhasImpressas, linhasPorColuna } from "./linhas.js";
+import {
+  lerPorRegras,
+  leituraProvada,
+  somaDoQueCompoeOTotal,
+  type LeituraDaFatura,
+} from "./leitura.js";
+import { linhasImpressas } from "./linhas.js";
 
 /**
  * Energisa Rondônia — Mirante da Serra 05/2026, DANF3E de mercado livre.
  *
- * Falha como a Brasília, e a explicação do layout DANF3E está lá. O que este
+ * Compartilha com a Brasília o layout DANF3E. O que este
  * caso acrescenta é o **mercado livre visto do lado da distribuidora**: a
  * fatura cobra só o fio, e o que se paga de energia vem em nota fiscal separada
  * do comercializador. Por isso a página tem linhas negativas grandes de crédito
  * APCEI (-3.485,66, -609,34, -4.788,88) ao lado das linhas de TUSD. Uma leitura
- * que um dia aprenda o DANF3E e some tudo como se fosse cobrança vai errar
- * feio, e este é o caso que pega isso.
+ * que some tudo como débito vai errar feio; este caso prova que os créditos
+ * preservam o sinal e a soma fecha.
  *
  * **Não há caso golden para esta fatura.** O `fatura-ml-mirante` é a mesma
  * unidade em **07/2026** (total 47.689,40, dos quais 20.653,86 são energia de NF
@@ -21,14 +26,10 @@ import { linhasImpressas, linhasPorColuna } from "./linhas.js";
  * parte da distribuidora soma 26.841,36. A conferência possível foi contra o
  * documento: o total impresso na linha "TOTAL:" é 26.841,36. **O detalhamento
  * item a item desta referência não tem contraparte conciliada e não foi
- * conferido por gente** — o que está congelado abaixo é a ausência de leitura,
- * que é verdadeira independentemente disso.
+ * conferido por gente**; a prova disponível é a soma contra o total impresso.
  *
- * A **competência sai 06/2026** e por acaso coincide com a referência impressa:
- * o valor vem do crédito "APCEI 06/2026", o primeiro `MM/AAAA` da página, e não
- * da referência, que está escrita por extenso. O mês do consumo é maio. A
- * coincidência aqui é o que torna o caso útil ao lado da Brasília: mesma regra,
- * um acerta e o outro erra, e nenhum dos dois por saber o que está fazendo.
+ * A **competência sai 05/2026**, ancorada em `Leitura Atual: 31/05/2026`, e não
+ * no crédito APCEI de junho.
  *
  * A **UC 0000265426-7** é o código do débito automático. O golden desta unidade
  * não registra UC ("conferir"), então não há com o que cruzar.
@@ -66,46 +67,48 @@ function leitura(): LeituraDaFatura {
 }
 
 describe.skipIf(!DOCUMENTO)("Energisa Rondônia — Mirante da Serra 05/2026 (DANF3E)", () => {
-  it("não fecha a ficha sozinha, e diz pelo nome o que faltou", () => {
+  it("monta uma ficha provada pela Trava 1", () => {
     expect(leitura().origem).toBe("texto_direto");
-    expect(leitura().aproveitavel).toBe(false);
-    expect(leitura().motivo).toBe("layout_desconhecido");
+    expect(leitura().aproveitavel).toBe(true);
+    expect(leitura().motivo).toBeNull();
+    expect(leituraProvada(leitura())).toBe(true);
+    expect(leitura().camposParaConfirmar).toEqual([]);
   });
 
-  it("acerta a competência por acaso: o crédito APCEI é do mês da referência", () => {
+  it("usa o mês da leitura atual, não o crédito APCEI", () => {
     expect(leitura().identificacao.distribuidora).toBe("ENERGISA");
-    // 06/2026 sai da linha "CREDITO TUSD KW-APCEI 06/2026", não da referência
-    // impressa ("Junho / 2026", por extenso). Aqui os dois coincidem; na
-    // Brasília e na Cantuária, não. É a mesma regra, e ela não sabe a diferença.
-    expect(leitura().identificacao.competencia).toEqual({ mes: 6, ano: 2026 });
+    expect(leitura().identificacao.competencia).toEqual({ mes: 5, ano: 2026 });
     expect(leitura().identificacao.unidadeConsumidora).toBe("0000265426-7");
   });
 
-  it("não reconheceu nenhum item financeiro nesta fatura", () => {
-    // É isto que o caso registra. Quando o leitor aprender este layout,
-    // este teste fica vermelho — e é assim que se percebe que melhorou.
-    expect(leitura().itens).toEqual([]);
+  it("lê todos os itens publicados pela parte da distribuidora", () => {
+    expect(leitura().itens).toHaveLength(11);
+    expect(leitura().invoice).toMatchObject({
+      consumoPontaKwh: 4_031.5,
+      consumoForaPontaKwh: 48_710.34,
+      valorPonta: 13_961.35,
+      valorForaPonta: 10_279.65,
+      demandaMedidaForaPontaKw: 191.52,
+      valorDemanda: 10_885.61,
+      valorReativo: 165.66,
+      demandaContratadaKw: 225,
+    });
   });
 
-  it("o total impresso não chega à ficha: o corte por coluna o decepa", () => {
+  it("o primeiro valor de TOTAL: fecha exatamente com os itens", () => {
     const paginas = DOCUMENTO?.paginas ?? [];
 
     expect(linhasImpressas(paginas)).toContain(
       "TOTAL: 26.841,36 2.672,27 34.219,40 6.672,77",
     );
-    expect(linhasPorColuna(paginas)).toContain("TOTAL:");
-    expect(leitura().invoice.valorTotal).toBeUndefined();
+    expect(leitura().invoice.valorTotal).toBe(26_841.36);
+    expect(somaDoQueCompoeOTotal(leitura().itens)).toBeCloseTo(26_841.36, 2);
   });
 
-  it("sem item, não há aritmética a conferir", () => {
-    expect(leitura().conferencia.confirmados).toBe(0);
+  it("julga todas as linhas que têm quantidade e tarifa pela regra normativa", () => {
+    expect(leitura().conferencia.confirmados).toBe(5);
     expect(leitura().conferencia.divergentes).toBe(0);
+    expect(leitura().conferencia.semConferencia).toBe(6);
     expect(leitura().conferencia.temDivergencia).toBe(false);
-  });
-
-  it("declara exatamente o que ainda depende de conferência humana", () => {
-    expect(leitura().camposParaConfirmar).toEqual([
-      "layout não reconhecido: nenhum item financeiro identificado",
-    ]);
   });
 });

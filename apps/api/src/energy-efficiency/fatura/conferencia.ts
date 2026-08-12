@@ -1,4 +1,5 @@
 import type { ItemDaFatura } from "./itens.js";
+import { folgaDoItem } from "../nucleo/conciliacao.js";
 
 /**
  * Conferência aritmética do que foi lido da fatura.
@@ -39,26 +40,13 @@ export type Conferencia = {
 };
 
 /**
- * Folga derivada da precisão que a fatura imprime, não escolhida a dedo.
+ * A mesma folga da conciliação normativa, não uma regra paralela da leitura.
  *
- * Duas fontes de diferença legítima, ambas do arredondamento da própria
- * distribuidora:
- *
- * - o **valor** sai arredondado ao centavo: até R$ 0,005 de diferença;
- * - a **tarifa** sai com seis casas, então a tarifa real pode diferir em até
- *   5×10⁻⁷ — e isso multiplica pela quantidade. Numa linha de 147.000 kWh dá
- *   quase oito centavos, o que uma folga fixa de um centavo reprovaria à toa.
- *
- * Foi exatamente o que aconteceu: 31.966 kWh × 0,574690 dá R$ 18.370,54 e a
- * fatura imprime R$ 18.370,53. Item correto, reprovado por folga cega.
- *
- * A folga continua ordens de grandeza abaixo dos erros que interessa pegar —
- * dígito perdido, vírgula deslocada — que são de dezenas por cento.
+ * O leitor usava uma fórmula mais estrita baseada apenas na precisão impressa
+ * da tarifa. Isso fazia o DANF3E reprovar linhas que a própria Trava 1 aceita.
+ * Importar a regra elimina esse desacordo: qualquer origem é julgada pelo mesmo
+ * limite, e erros grandes de OCR continuam muito além dele.
  */
-export function folgaDeArredondamento(quantidade: number): number {
-  return 0.01 + Math.abs(quantidade) * 5e-7;
-}
-
 export function conferir(itens: readonly ItemDaFatura[]): Conferencia {
   const conferidos: ItemConferido[] = itens.map((item) => {
     if (item.quantidade === null || item.tarifa === null) {
@@ -70,7 +58,7 @@ export function conferir(itens: readonly ItemDaFatura[]): Conferencia {
 
     return {
       ...item,
-      veredicto: diferenca <= folgaDeArredondamento(item.quantidade) ? "confirmado" : "divergente",
+      veredicto: diferenca <= folgaDoItem(item.valor) ? "confirmado" : "divergente",
       esperado,
       diferenca,
     };

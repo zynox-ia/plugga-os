@@ -34,6 +34,15 @@ describe("identificação da fatura", () => {
     expect(competencia).toEqual({ mes: 6, ano: 2026 });
   });
 
+  it("prefere o mês da leitura atual a uma competência de ajuste retroativo", () => {
+    const { competencia } = identificar([
+      "DÉBITO TUSD KW-APCEI 05/2026 10,18",
+      "Leitura Anterior:31/05/2026 Leitura Atual:30/06/2026 Dias:30",
+    ]);
+
+    expect(competencia).toEqual({ mes: 6, ano: 2026 });
+  });
+
   it("não confunde a chave de acesso da nota com o código da UC", () => {
     const { unidadeConsumidora } = identificar([
       "Chave de acesso:",

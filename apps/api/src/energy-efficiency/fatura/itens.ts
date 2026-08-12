@@ -71,6 +71,35 @@ function tarifaNumero(texto: string): number {
 const CABECA =
   /^(?<rotulo>.*?)\s*(?<quantidade>\d[\d.]*)\s*(?<unidade>kWh|kW)\s*a\s*(?<tarifa>[\d.]*[.,]\d{6})(?<resto>.*)$/;
 
+/**
+ * Item em tabela: unidade, quantidade, tarifa e valor, todos na mesma linha.
+ *
+ * Alguns documentos imprimem a unidade antes dos três números, sem o `a` da
+ * forma acima:
+ *
+ *     TUSD em kWh - Ponta KWH 12.524,00 3,463060 43.371,44
+ *
+ * O que vier depois do valor pertence a outras colunas da mesma tabela
+ * (tributos e tarifa sem impostos) e não muda os quatro campos financeiros.
+ * A expressão fica deliberadamente alheia à distribuidora: é a forma da linha,
+ * não o nome no cabeçalho, que decide se há um item candidato. Como nos demais
+ * formatos, a conferência aritmética posterior é quem julga se o candidato
+ * entra na ficha.
+ */
+const UNIDADE_QUANTIDADE_TARIFA_VALOR =
+  /^(?<rotulo>.*?)\s+(?<unidade>kWh|kW|UN)\s+(?<quantidade>\d[\d.]*,\d{2})\s+(?<tarifa>[\d.]*[.,]\d{6})\s+(?<valor>-?[\d.]+,\d{2})(?:\s|$)/i;
+
+/**
+ * Ajuste ou encargo cujo valor cobrado é o primeiro número após o rótulo.
+ *
+ * A âncora é estreita: crédito/débito precisa trazer a competência, e a
+ * contribuição precisa se identificar como iluminação pública. Assim uma
+ * linha qualquer do quadro fiscal não vira item só porque começa com texto e
+ * contém dinheiro. As colunas posteriores são bases e tributos, não parcelas.
+ */
+const AJUSTE_OU_ENCARGO_COM_VALOR =
+  /^(?<rotulo>(?:(?:cr[eé]dito|d[eé]bito)\b.*?\b\d{2}\/\d{4}|Contrib(?:uiç[aã]o)?\s+(?:de\s+)?Ilum(?:inaç[aã]o)?\s+P[uú]b(?:lica)?))\s+(?<valor>-?[\d.]+,\d{2})(?:\s|$)/i;
+
 /** Tarifa isolada numa linha (a coluna do meio). */
 const SO_TARIFA = /^[\d.]*,\d{6}$/;
 
@@ -90,6 +119,24 @@ const TARIFA_E_VALOR = /([\d.]*,\d{6})\s*(-?[\d.]+,\d{2})/;
 
 /** Rótulo puro: texto sem número no fim, candidato a item só com valor. */
 const SO_ROTULO = /^(?![\d.,\s-]+$)[^\d]*[A-Za-zÀ-ÿ)][^\d]*$/;
+
+/**
+ * Rótulo financeiro com dígitos, quando o valor cai na linha seguinte.
+ *
+ * `SO_ROTULO` continua deliberadamente sem aceitar dígitos: datas de leitura,
+ * históricos e grandezas de medição também costumam vir antes de um número e
+ * não podem virar cobrança. Esta segunda forma é mais estreita. Além de conter
+ * um dígito, a linha precisa se identificar pelo vocabulário de uma cobrança,
+ * crédito ou serviço tarifado conhecido, sem depender de concessionária:
+ *
+ *     Desligamento E Religacao Programados (2X)
+ *     Devolução Diferenca Desconto Tusd - Ccee 04/26-
+ *
+ * A linha seguinte ainda precisa ser **somente** um valor monetário. O par é
+ * preservado em `origem`, para a reconstrução continuar rastreável.
+ */
+const ROTULO_FINANCEIRO_COM_DIGITOS =
+  /^(?=.*\d)(?=.*\b(?:cr[eé]dito|d[eé]bito|devolu[cç][aã]o|desconto|encargo|multa|juros?|desligamento|religa[cç][aã]o|ressarcimento|compensa[cç][aã]o)\b)[A-Za-zÀ-ÿ\d()/\s-]+$/i;
 
 /**
  * Rótulo e valor na mesma linha: "Contribuição de Iluminação Pública (COSIP) 170,65".
@@ -128,6 +175,46 @@ export function lerItens(linhas: readonly string[]): ItemDaFatura[] {
   for (let i = 0; i < linhas.length; i++) {
     const linha = em(i);
     if (NAO_E_ITEM.test(linha)) continue;
+
+    const tabelado = UNIDADE_QUANTIDADE_TARIFA_VALOR.exec(linha);
+    if (tabelado?.groups) {
+      const { rotulo = "", quantidade = "", unidade = "", tarifa = "", valor = "" } =
+        tabelado.groups;
+
+      const unidadeDoItem: UnidadeDoItem | null =
+        unidade.toLowerCase() === "kwh"
+          ? "kWh"
+          : unidade.toLowerCase() === "kw"
+            ? "kW"
+            : null;
+
+      itens.push({
+        rotulo: rotulo.trim(),
+        // `UN` não existe no contrato da ficha. O valor ainda é uma parcela
+        // válida, mas manter quantidade/tarifa com unidade nula fingiria uma
+        // grandeza que o modelo não sabe representar. Ela entra como valor
+        // único, visível e somável, sem inventar kWh ou kW.
+        quantidade: unidadeDoItem === null ? null : numero(quantidade),
+        unidade: unidadeDoItem,
+        tarifa: unidadeDoItem === null ? null : tarifaNumero(tarifa),
+        valor: numero(valor),
+        origem: linha,
+      });
+      continue;
+    }
+
+    const ajusteOuEncargo = AJUSTE_OU_ENCARGO_COM_VALOR.exec(linha);
+    if (ajusteOuEncargo?.groups?.rotulo && ajusteOuEncargo.groups.valor) {
+      itens.push({
+        rotulo: ajusteOuEncargo.groups.rotulo.trim(),
+        quantidade: null,
+        unidade: null,
+        tarifa: null,
+        valor: numero(ajusteOuEncargo.groups.valor),
+        origem: linha,
+      });
+      continue;
+    }
 
     const cabeca = CABECA.exec(linha);
     if (cabeca?.groups) {
@@ -200,8 +287,14 @@ export function lerItens(linhas: readonly string[]): ItemDaFatura[] {
       }
     }
 
-    // Item só com valor, com o valor na linha seguinte.
-    if (SO_ROTULO.test(linha) && linha.length >= 4 && i + 1 < linhas.length) {
+    // Item só com valor, com o valor na linha seguinte. Rótulos com dígitos
+    // entram apenas pela forma financeira estreita acima; `SO_ROTULO` não é
+    // relaxado para não capturar datas, históricos ou medições.
+    if (
+      (SO_ROTULO.test(linha) || ROTULO_FINANCEIRO_COM_DIGITOS.test(linha)) &&
+      linha.length >= 4 &&
+      i + 1 < linhas.length
+    ) {
       const proxima = em(i + 1);
       if (SO_VALOR.test(proxima)) {
         itens.push({

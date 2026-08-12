@@ -5,7 +5,7 @@ import { lerPorRegras, type LeituraDaFatura } from "./leitura.js";
 import { linhasPorColuna } from "./linhas.js";
 
 /**
- * Âmbar Energia AM — Alvorada 06/2026, a linha de crédito que se perde no corte.
+ * Âmbar Energia AM — Alvorada 06/2026, crédito reconstruído após o corte.
  *
  * O layout da Âmbar imprime a tabela financeira na **coluna da direita**, ao
  * lado de blocos de cadastro que nada têm a ver com ela: "Consumo Ponta 25.578
@@ -14,24 +14,23 @@ import { linhasPorColuna } from "./linhas.js";
  * Número do Medidor Faturamento Modalidade". O corte por coluna resolve isso —
  * é a mesma máquina que salvou a Roraima — e cinco dos seis itens saem inteiros.
  *
- * **O sexto não sai, e é isto que este caso existe para registrar.** A linha
+ * **O sexto sai por reconstrução, e é isto que este caso registra.** A linha
  * "Devolução Diferenca Desconto Tusd - Ccee 04/26-  -604,12" cai na altura do
  * cabeçalho "Leitura Anterior / Leitura Atual / Próxima Leitura", e ali o corte
  * por coluna encontra um limite a mais: o rótulo fica num segmento e o valor
- * `-604,12` fica em **outro**. O leitor de itens vê um rótulo sem número e
- * descarta. O teste abaixo prova essa separação diretamente, porque é ela — e
- * não o rótulo, nem o sinal negativo — a causa.
+ * `-604,12` fica em **outro**. O leitor reconhece o rótulo financeiro com
+ * competência e o associa ao valor monetário isolado imediatamente seguinte.
+ * O teste abaixo preserva a separação como característica do layout.
  *
- * A consequência é incomum e vale ser dita pelo nome: a soma dos itens lidos
- * (126.214,01) **ultrapassa** o total impresso (125.609,89), em exatamente os
- * 604,12 do crédito que ficou de fora. O cabeçalho que o gerador escreve fala em
- * "não alcança o total"; aqui é o contrário, e a diferença é a mesma.
+ * Com o crédito reconstruído, a soma dos seis itens fecha no total impresso de
+ * 125.609,89.
  *
  * **Conferido** contra o caso golden `fatura-alvorada-2026-06`: consumo de ponta
  * 25.578 kWh a 0,930248 (TUSD), fora ponta 277.830 kWh a 0,291075, demanda 613
  * kW a 14,1575 = 8.678,54, ultrapassagem 73 kW a 56,525 = 4.126,32 e COSIP
  * 8.745,91 batem item a item; o golden lista, além desses, a devolução de
- * -604,12 que a leitura perde. Total impresso 125.609,89, também conferido.
+ * -604,12 que a leitura agora reconstrói. Total impresso 125.609,89, também
+ * conferido.
  *
  * Duas observações sobre o golden, que **não** são erro do leitor:
  *
@@ -111,9 +110,16 @@ describe.skipIf(!DOCUMENTO)("Âmbar Energia AM — Alvorada 06/2026", () => {
       { rotulo: "Consumo F/Ponta", quantidade: 277_830, unidade: "kWh", tarifa: 0.291075, valor: 80_869.36 },
       { rotulo: "Dem Ultr", quantidade: 73, unidade: "kW", tarifa: 56.525, valor: 4_126.32 },
       { rotulo: "Contribuição de Iluminação Pública (COSIP)", quantidade: null, unidade: null, tarifa: null, valor: 8_745.91 },
+      {
+        rotulo: "Devolução Diferenca Desconto Tusd - Ccee 04/26-",
+        quantidade: null,
+        unidade: null,
+        tarifa: null,
+        valor: -604.12,
+      },
     ];
 
-    expect(leitura().itens).toHaveLength(5);
+    expect(leitura().itens).toHaveLength(6);
     for (const esperado of esperados) {
       const achado = leitura().itens.find((item) => item.rotulo === esperado.rotulo);
       expect(achado, `item ausente: ${esperado.rotulo}`).toMatchObject(esperado);
@@ -126,43 +132,37 @@ describe.skipIf(!DOCUMENTO)("Âmbar Energia AM — Alvorada 06/2026", () => {
     expect(leitura().conferencia.temDivergencia).toBe(false);
   });
 
-  it("o corte por coluna separa o crédito da CCEE do seu próprio valor", () => {
+  it("o corte por coluna separa o crédito, e a leitura reconstrói o par", () => {
     const segmentos = linhasPorColuna(DOCUMENTO?.paginas ?? []);
 
-    // Os dois estão lá, e é o problema: em segmentos diferentes. Um item precisa
-    // de rótulo e número na mesma linha para ser reconhecido, e a devolução de
-    // -604,12 é a única linha desta fatura em que eles se separam.
+    // Os dois estão lá em segmentos diferentes. A reconstrução precisa manter
+    // essa forma real como entrada, em vez de depender de uma linha fabricada.
     expect(segmentos).toContain("Devolução Diferenca Desconto Tusd - Ccee 04/26-");
     expect(segmentos).toContain("-604,12");
     expect(
       segmentos.some((linha) => /Devolução.*-604,12/.test(linha)),
     ).toBe(false);
+
+    expect(
+      leitura().itens.find(
+        (item) => item.rotulo === "Devolução Diferenca Desconto Tusd - Ccee 04/26-",
+      ),
+    ).toMatchObject({
+      valor: -604.12,
+      origem: "Devolução Diferenca Desconto Tusd - Ccee 04/26- | -604,12",
+    });
   });
 
-  it("a soma dos itens lidos ultrapassa o total impresso — falta o crédito", () => {
-    // Incomum e específico deste caso: o item perdido é **negativo**, então a
-    // soma sobra em vez de faltar, em exatamente os 604,12 da devolução. O
-    // número abaixo é o **observado**, congelado como evidência do buraco. Não o
-    // ajuste para fechar — quem fecha é a leitura, quando aprender a linha.
+  it("a soma dos itens inclui o crédito e fecha com o total", () => {
     expect(leitura().invoice.valorTotal).toBe(125_609.89);
 
     const soma = leitura().itens
       .filter((item) => item.compoeTotal)
       .reduce((total, item) => total + item.valor, 0);
-    expect(Number(soma.toFixed(2))).toBe(126_214.01);
-
-    // A sobra é exatamente o crédito que ficou de fora.
-    const sobra = Number((soma - (leitura().invoice.valorTotal ?? 0)).toFixed(2));
-    expect(sobra).toBe(604.12);
+    expect(Number(soma.toFixed(2))).toBe(125_609.89);
   });
 
-  it("declara exatamente o que ainda depende de conferência humana", () => {
-    // Aqui a soma **passa** do total em R$ 604,12 — não é item perdido, é item
-    // a mais ou valor lido para cima, e a frase diz qual dos dois procurar.
-    // Antes do portão da Trava 1 esta lista era vazia: a fatura entregava cinco
-    // itens todos conferidos e uma soma que não é a do boleto, sem uma palavra.
-    expect(leitura().camposParaConfirmar).toEqual([
-      "a soma dos itens (R$ 126214.01) não fecha com o total impresso (R$ 125609.89): diferença de R$ 604.12. Costuma ser item somado que não compõe o total, ou valor lido a mais — corrija a extração, nunca ajuste o total.",
-    ]);
+  it("não deixa campo pendente depois que a soma fecha", () => {
+    expect(leitura().camposParaConfirmar).toEqual([]);
   });
 });

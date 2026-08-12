@@ -41,7 +41,7 @@ async function principal(): Promise<number> {
   const { baixados, ignorados } = await baixarCorpus(balde, pasta);
 
   for (const chave of ignorados) {
-    console.warn(`corpus: ignorado ${chave} — não é fixture de página congelada`);
+    console.warn(`corpus: ignorado ${chave} — não é página congelada nem PDF original`);
   }
 
   console.log(

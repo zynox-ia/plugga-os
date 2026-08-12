@@ -27,7 +27,7 @@
     "test:ocr": "RUN_OCR_INTEGRATION_TESTS=true vitest run test/fatura-ocr.integration.spec.ts",
     "test:storage": "RUN_STORAGE_INTEGRATION_TESTS=true vitest run test/fatura-armazenamento.integration.spec.ts",
     "test:compras": "RUN_COMPRAS_INTEGRATION_TESTS=true vitest run test/compras.integration.spec.ts",
-    "test:corpus": "vitest run .corpus.spec.ts",
+    "test:corpus": "pnpm --filter @plugga/shared build && vitest run .corpus.spec.ts",
     "typecheck": "tsc --noEmit",
     "test:llm": "RUN_LLM_INTEGRATION_TESTS=true vitest run test/llm-consumo.integration.spec.ts"
   },

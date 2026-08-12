@@ -37,14 +37,24 @@ import type { DocumentoNormalizado } from "./documento.js";
 export const BALDE_PADRAO = "plugga-corpus-faturas";
 
 /**
- * O corpus só guarda página normalizada congelada, e o nome do arquivo é a
- * chave no balde.
+ * O corpus guarda a página normalizada congelada e, quando disponível, o PDF
+ * original que a produziu. Os dois usam o mesmo slug:
+ * `<slug>.pagina.json` e `<slug>.pdf`.
  *
  * O padrão é estreito de propósito: é ele que impede uma chave vinda do balde
  * de virar caminho na árvore local. Sem barra, sem `..`, sem maiúscula — o que
  * chega escreve dentro da pasta do corpus ou não escreve em lugar nenhum.
  */
-const NOME_DE_FIXTURE = /^[a-z0-9][a-z0-9-]*\.pagina\.json$/;
+const NOME_DE_PAGINA = /^[a-z0-9][a-z0-9-]*\.pagina\.json$/;
+const NOME_DE_PDF = /^[a-z0-9][a-z0-9-]*\.pdf$/;
+
+const nomeDoCorpus = (nome: string): boolean =>
+  NOME_DE_PAGINA.test(nome) || NOME_DE_PDF.test(nome);
+
+export type TipoDeConteudoDoCorpus = "application/json" | "application/pdf";
+
+const tipoDeConteudo = (nome: string): TipoDeConteudoDoCorpus =>
+  NOME_DE_PDF.test(nome) ? "application/pdf" : "application/json";
 
 /**
  * Onde o corpus baixado fica na árvore local.
@@ -124,7 +134,11 @@ export function configuracaoDoCorpus(
 export type BaldeDoCorpus = {
   listar(): Promise<string[]>;
   baixar(chave: string): Promise<Buffer>;
-  enviar(chave: string, conteudo: Buffer): Promise<void>;
+  enviar(
+    chave: string,
+    conteudo: Buffer,
+    tipoConteudo: TipoDeConteudoDoCorpus,
+  ): Promise<void>;
 };
 
 /** Cliente S3 de verdade, falado com o SDK da AWS — MinIO responde ao mesmo. */
@@ -175,13 +189,13 @@ export async function abrirBalde(configuracao: ConfiguracaoDoCorpus): Promise<Ba
       return Buffer.from(await corpo.transformToByteArray());
     },
 
-    async enviar(chave, conteudo) {
+    async enviar(chave, conteudo, tipoConteudo) {
       await cliente.send(
         new PutObjectCommand({
           Bucket: configuracao.balde,
           Key: chave,
           Body: conteudo,
-          ContentType: "application/json",
+          ContentType: tipoConteudo,
         }),
       );
     },
@@ -209,10 +223,11 @@ export async function publicarCorpus(
   for (const caminho of caminhos) {
     const nome = basename(caminho);
 
-    if (!NOME_DE_FIXTURE.test(nome)) {
+    if (!nomeDoCorpus(nome)) {
       publicacao.recusados.push({
         caminho,
-        motivo: `nome fora do padrão do corpus (minúsculas, hífen e o final ${".pagina.json"})`,
+        motivo:
+          "nome fora do padrão do corpus (minúsculas, hífen e o final .pagina.json ou .pdf)",
       });
       continue;
     }
@@ -224,19 +239,26 @@ export async function publicarCorpus(
 
     const conteudo = readFileSync(caminho);
 
-    // Um JSON quebrado no balde só apareceria como teste vermelho meses depois,
-    // em quem baixou. Conferir aqui custa um parse.
-    try {
-      JSON.parse(conteudo.toString("utf8"));
-    } catch (erro) {
-      publicacao.recusados.push({
-        caminho,
-        motivo: `não é JSON válido: ${erro instanceof Error ? erro.message : String(erro)}`,
-      });
+    if (NOME_DE_PAGINA.test(nome)) {
+      // Um JSON quebrado no balde só apareceria como teste vermelho meses
+      // depois, em quem baixou. Conferir aqui custa um parse.
+      try {
+        JSON.parse(conteudo.toString("utf8"));
+      } catch (erro) {
+        publicacao.recusados.push({
+          caminho,
+          motivo: `não é JSON válido: ${erro instanceof Error ? erro.message : String(erro)}`,
+        });
+        continue;
+      }
+    } else if (conteudo.subarray(0, 1024).indexOf(Buffer.from("%PDF-")) < 0) {
+      // A extensão sozinha não transforma outro arquivo em PDF. O cabeçalho
+      // pode aparecer dentro dos primeiros 1024 bytes segundo a especificação.
+      publicacao.recusados.push({ caminho, motivo: "não tem cabeçalho de PDF válido" });
       continue;
     }
 
-    await balde.enviar(nome, conteudo);
+    await balde.enviar(nome, conteudo, tipoDeConteudo(nome));
     publicacao.publicados.push(nome);
   }
 
@@ -263,7 +285,7 @@ export async function baixarCorpus(balde: BaldeDoCorpus, destino: string): Promi
   mkdirSync(destino, { recursive: true });
 
   for (const chave of await balde.listar()) {
-    if (!NOME_DE_FIXTURE.test(chave)) {
+    if (!nomeDoCorpus(chave)) {
       download.ignorados.push(chave);
       continue;
     }
@@ -275,12 +297,22 @@ export async function baixarCorpus(balde: BaldeDoCorpus, destino: string): Promi
   return download;
 }
 
-/** As fixtures que já estão na árvore local, em ordem. */
-export function fixturesLocais(pasta: string = pastaDoCorpus()): string[] {
+/** Todos os arquivos aceitos do corpus que já estão na árvore local. */
+export function arquivosLocais(pasta: string = pastaDoCorpus()): string[] {
   if (!existsSync(pasta)) return [];
   return readdirSync(pasta)
-    .filter((nome) => NOME_DE_FIXTURE.test(nome))
+    .filter(nomeDoCorpus)
     .sort();
+}
+
+/** As páginas congeladas, preservando o contrato dos testes de leitura atuais. */
+export function fixturesLocais(pasta: string = pastaDoCorpus()): string[] {
+  return arquivosLocais(pasta).filter((nome) => NOME_DE_PAGINA.test(nome));
+}
+
+/** Os PDFs originais presentes no corpus local, em ordem. */
+export function pdfsLocais(pasta: string = pastaDoCorpus()): string[] {
+  return arquivosLocais(pasta).filter((nome) => NOME_DE_PDF.test(nome));
 }
 
 /**
@@ -310,10 +342,23 @@ export function fixtureDoCorpus(
   nome: string,
   pasta: string = pastaDoCorpus(),
 ): DocumentoNormalizado | null {
-  if (!NOME_DE_FIXTURE.test(nome)) return null;
+  if (!NOME_DE_PAGINA.test(nome)) return null;
 
   const caminho = resolve(pasta, nome);
   if (!existsSync(caminho)) return null;
 
   return JSON.parse(readFileSync(caminho, "utf8")) as DocumentoNormalizado;
+}
+
+/** Um PDF original do corpus local, ou `null` quando ele não foi baixado. */
+export function pdfDoCorpus(
+  nome: string,
+  pasta: string = pastaDoCorpus(),
+): Buffer | null {
+  if (!NOME_DE_PDF.test(nome)) return null;
+
+  const caminho = resolve(pasta, nome);
+  if (!existsSync(caminho)) return null;
+
+  return readFileSync(caminho);
 }

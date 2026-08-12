@@ -113,6 +113,12 @@ describe("pipeline — seleção de motor", () => {
       rodarEstudo({ funcao: "bess_puro" as never, consumoPontaDesejadoKwhMes: 1_000 }),
     ).toThrow(ModoDesconhecidoError);
   });
+
+  it("recusa CAPEX nulo no Solar+BESS mesmo se uma entrada sem tipos o injeta", () => {
+    expect(() =>
+      rodarEstudo({ ...SANTA_TEREZA, capexBessTotal: null } as never),
+    ).toThrow(/null só pertence ao peak shaving/);
+  });
 });
 
 describe("pipeline — os quatro números", () => {

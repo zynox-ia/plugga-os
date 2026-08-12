@@ -1,32 +1,34 @@
 import { describe, expect, it } from "vitest";
 
 import { avisoDeCorpusAusente, fixtureDoCorpus } from "./corpus.js";
-import { lerPorRegras, type LeituraDaFatura } from "./leitura.js";
-import { linhasImpressas, linhasPorColuna } from "./linhas.js";
+import {
+  lerPorRegras,
+  leituraProvada,
+  somaDoQueCompoeOTotal,
+  type LeituraDaFatura,
+} from "./leitura.js";
+import { linhasImpressas } from "./linhas.js";
 
 /**
  * Energisa Rondônia — Cantuária 06/2026, o DANF3E com demanda nos dois postos.
  *
- * Falha pelo mesmo motivo da Brasília, e a explicação do layout DANF3E está
- * lá — tabela de itens dividindo a faixa com o quadro de tributos, oito números
- * por linha impressa, e rótulo sozinho no corte por coluna. Aqui: zero itens,
- * `invoice` vazia, `layout_desconhecido`.
+ * Compartilha com a Brasília a forma DANF3E: tabela de itens dividindo a faixa
+ * com o quadro de tributos e vários números por linha impressa. A leitura usa a
+ * forma da linha e a aritmética, não o nome da distribuidora.
  *
  * Entrou junto porque a cobrança é mais pesada que a da Brasília e cobre uma
  * combinação que a outra não tem: **demanda faturada em ponta e em fora ponta,
  * com linha de "não consumida" em cada uma** — 272 kW a 134,051980 mais 88 kW
  * NC a 107,911840 na ponta, 280 kW a 49,826320 mais 80 kW NC a 40,110190 fora
- * ponta, 63.118,55 no conjunto. Quando o DANF3E for aprendido, é este caso que
- * diz se as quatro linhas foram somadas certo.
+ * ponta, 63.118,55 no conjunto. Este caso prova que as quatro linhas são somadas.
  *
  * **Conferido** contra o caso golden `fatura-cantuaria-2026-06`: total
  * 68.542,76, o mesmo impresso na linha "TOTAL:" da página; TUSD ponta 13.876
  * kWh = 2.928,34, TUSD fora ponta 118.925 kWh = 25.097,50, encargo Covid 679,87,
- * débitos APCEI 45,03, créditos APCEI -24.179,40, COSIP 849,67. Nada é lido hoje.
+ * débitos APCEI 45,03, créditos APCEI -24.179,40, COSIP 849,67.
  *
- * A **competência sai 05/2026** pela mesma causa da Brasília: é o mês do débito
- * APCEI, o primeiro `MM/AAAA` da página. A referência impressa é "Julho / 2026",
- * por extenso; o consumo medido é 31/05 a 30/06. A **UC 0002185835-2** é o
+ * A **competência sai 06/2026**, ancorada na leitura atual de 30/06. A
+ * **UC 0002185835-2** é o
  * código do débito automático; o golden registra a conta contrato 9/18697841, e
  * qual dos dois é a unidade consumidora não foi confirmado.
  *
@@ -63,45 +65,49 @@ function leitura(): LeituraDaFatura {
 }
 
 describe.skipIf(!DOCUMENTO)("Energisa Rondônia — Cantuária 06/2026 (DANF3E)", () => {
-  it("não fecha a ficha sozinha, e diz pelo nome o que faltou", () => {
+  it("monta uma ficha provada pela Trava 1", () => {
     expect(leitura().origem).toBe("texto_direto");
-    expect(leitura().aproveitavel).toBe(false);
-    expect(leitura().motivo).toBe("layout_desconhecido");
+    expect(leitura().aproveitavel).toBe(true);
+    expect(leitura().motivo).toBeNull();
+    expect(leituraProvada(leitura())).toBe(true);
+    expect(leitura().camposParaConfirmar).toEqual([]);
   });
 
-  it("erra a competência: pega o mês do lançamento retroativo", () => {
+  it("usa o mês da leitura atual, não o lançamento retroativo", () => {
     expect(leitura().identificacao.distribuidora).toBe("ENERGISA");
-    // 05/2026 é o mês do débito APCEI, não a referência ("Julho / 2026", por
-    // extenso) nem o mês medido (junho).
-    expect(leitura().identificacao.competencia).toEqual({ mes: 5, ano: 2026 });
+    expect(leitura().identificacao.competencia).toEqual({ mes: 6, ano: 2026 });
     expect(leitura().identificacao.unidadeConsumidora).toBe("0002185835-2");
   });
 
-  it("não reconheceu nenhum item financeiro nesta fatura", () => {
-    // É isto que o caso registra. Quando o leitor aprender este layout,
-    // este teste fica vermelho — e é assim que se percebe que melhorou.
-    expect(leitura().itens).toEqual([]);
+  it("lê os números conferidos contra o caso golden", () => {
+    expect(leitura().itens).toHaveLength(14);
+    expect(leitura().invoice).toMatchObject({
+      consumoPontaKwh: 13_876,
+      consumoForaPontaKwh: 118_925,
+      valorPonta: 2_928.34,
+      valorForaPonta: 25_097.5,
+      demandaMedidaPontaKw: 272,
+      demandaMedidaForaPontaKw: 280,
+      demandaContratadaKw: 360,
+    });
+    expect(leitura().invoice.valorDemanda).toBeCloseTo(63_118.55, 2);
+    expect(leitura().invoice.valorReativo).toBeCloseTo(3.2, 2);
   });
 
-  it("o total impresso não chega à ficha: o corte por coluna o decepa", () => {
+  it("o primeiro valor de TOTAL: fecha exatamente com os itens", () => {
     const paginas = DOCUMENTO?.paginas ?? [];
 
     expect(linhasImpressas(paginas)).toContain(
       "TOTAL: 68.542,76 7.066,83 79.122,40 15.428,85",
     );
-    expect(linhasPorColuna(paginas)).toContain("TOTAL:");
-    expect(leitura().invoice.valorTotal).toBeUndefined();
+    expect(leitura().invoice.valorTotal).toBe(68_542.76);
+    expect(somaDoQueCompoeOTotal(leitura().itens)).toBeCloseTo(68_542.76, 2);
   });
 
-  it("sem item, não há aritmética a conferir", () => {
-    expect(leitura().conferencia.confirmados).toBe(0);
+  it("julga todas as linhas que têm quantidade e tarifa pela regra normativa", () => {
+    expect(leitura().conferencia.confirmados).toBe(7);
     expect(leitura().conferencia.divergentes).toBe(0);
+    expect(leitura().conferencia.semConferencia).toBe(7);
     expect(leitura().conferencia.temDivergencia).toBe(false);
-  });
-
-  it("declara exatamente o que ainda depende de conferência humana", () => {
-    expect(leitura().camposParaConfirmar).toEqual([
-      "layout não reconhecido: nenhum item financeiro identificado",
-    ]);
   });
 });
