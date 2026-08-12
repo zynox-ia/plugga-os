@@ -90,6 +90,25 @@ const UNIDADE_QUANTIDADE_TARIFA_VALOR =
   /^(?<rotulo>.*?)\s+(?<unidade>kWh|kW|UN)\s+(?<quantidade>\d[\d.]*,\d{2})\s+(?<tarifa>[\d.]*[.,]\d{6})\s+(?<valor>-?[\d.]+,\d{2})(?:\s|$)/i;
 
 /**
+ * Item da tabela em que a unidade pertence ao rótulo e há duas tarifas.
+ *
+ * A forma é publicada por mais de um sistema de faturamento:
+ *
+ *     Consumo Ponta (kWh) 2.015,02 4,077295 3,021150 567,15 1.561,01 8.215,83
+ *
+ * Depois da quantidade vêm tarifa com tributos, tarifa sem tributos, uma ou
+ * mais bases/parcelas tributárias e, por último, o valor cobrado. Uma tabela de
+ * tributos pode continuar à direita da linha; a primeira palavra depois do
+ * valor encerra o item. A tarifa que confere `quantidade × tarifa = valor` é a
+ * primeira, com tributos. A aritmética posterior continua sendo o juiz: uma
+ * coluna deslocada não entra silenciosamente na ficha.
+ *
+ * A expressão reconhece a geometria da tabela, sem nome de distribuidora.
+ */
+const ROTULO_UNIDADE_QUANTIDADE_DUAS_TARIFAS_E_VALOR =
+  /^(?<rotulo>.*?)\s*\((?<unidade>kWh|kW)\)\s+(?<quantidade>\d[\d.]*,\d{2})\s+(?<tarifa>[\d.]*[.,]\d{6})\s+[\d.]*[.,]\d{6}\s+(?:-?[\d.]+,\d{2}\s+)+(?<valor>-?[\d.]+,\d{2})(?:\s|$)/i;
+
+/**
  * Ajuste ou encargo cujo valor cobrado é o primeiro número após o rótulo.
  *
  * A âncora é estreita: crédito/débito precisa trazer a competência, e a
@@ -98,7 +117,17 @@ const UNIDADE_QUANTIDADE_TARIFA_VALOR =
  * contém dinheiro. As colunas posteriores são bases e tributos, não parcelas.
  */
 const AJUSTE_OU_ENCARGO_COM_VALOR =
-  /^(?<rotulo>(?:(?:cr[eé]dito|d[eé]bito)\b.*?\b\d{2}\/\d{4}|Contrib(?:uiç[aã]o)?\s+(?:de\s+)?Ilum(?:inaç[aã]o)?\s+P[uú]b(?:lica)?))\s+(?<valor>-?[\d.]+,\d{2})(?:\s|$)/i;
+  /^(?<rotulo>(?:(?:cr[eé]dito|d[eé]bito)\b.*?\b\d{2}\/\d{4}|Contrib(?:uiç[aã]o)?\s+(?:de\s+)?Ilum(?:inaç[aã]o)?\s+P[uú]b(?:lica)?|(?:CIP|COSIP)\b[^\d]*[A-Za-zÀ-ÿ)]))\s+(?<valor>-?[\d.]+,\d{2})(?:\s|$)/i;
+
+/**
+ * Bandeira/adicional sem quantidade, com bases tributárias antes do valor.
+ *
+ * A última moeda da sequência é a cobrança; as anteriores são bases ou
+ * tributos. Exigir o vocabulário financeiro impede que uma linha numérica
+ * qualquer do documento vire item, sem amarrar a regra à distribuidora.
+ */
+const ADICIONAL_COM_VALOR_FINAL =
+  /^(?<rotulo>.*\b(?:bandeira|adicional\s+(?:tarif[aá]ri[oa]|de\s+bandeira))[^\d]*?)\s+(?:-?[\d.]+,\d{2}\s+)*(?<valor>-?[\d.]+,\d{2})(?:\s|$)/i;
 
 /** Tarifa isolada numa linha (a coluna do meio). */
 const SO_TARIFA = /^[\d.]*,\d{6}$/;
@@ -176,6 +205,22 @@ export function lerItens(linhas: readonly string[]): ItemDaFatura[] {
     const linha = em(i);
     if (NAO_E_ITEM.test(linha)) continue;
 
+    const duasTarifas = ROTULO_UNIDADE_QUANTIDADE_DUAS_TARIFAS_E_VALOR.exec(linha);
+    if (duasTarifas?.groups) {
+      const { rotulo = "", quantidade = "", unidade = "", tarifa = "", valor = "" } =
+        duasTarifas.groups;
+
+      itens.push({
+        rotulo: rotulo.trim(),
+        quantidade: numero(quantidade),
+        unidade: unidade.toLowerCase() === "kwh" ? "kWh" : "kW",
+        tarifa: tarifaNumero(tarifa),
+        valor: numero(valor),
+        origem: linha,
+      });
+      continue;
+    }
+
     const tabelado = UNIDADE_QUANTIDADE_TARIFA_VALOR.exec(linha);
     if (tabelado?.groups) {
       const { rotulo = "", quantidade = "", unidade = "", tarifa = "", valor = "" } =
@@ -198,6 +243,19 @@ export function lerItens(linhas: readonly string[]): ItemDaFatura[] {
         unidade: unidadeDoItem,
         tarifa: unidadeDoItem === null ? null : tarifaNumero(tarifa),
         valor: numero(valor),
+        origem: linha,
+      });
+      continue;
+    }
+
+    const adicional = ADICIONAL_COM_VALOR_FINAL.exec(linha);
+    if (adicional?.groups?.rotulo && adicional.groups.valor) {
+      itens.push({
+        rotulo: adicional.groups.rotulo.trim(),
+        quantidade: null,
+        unidade: null,
+        tarifa: null,
+        valor: numero(adicional.groups.valor),
         origem: linha,
       });
       continue;

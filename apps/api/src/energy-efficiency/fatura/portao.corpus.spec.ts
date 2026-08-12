@@ -16,15 +16,13 @@ import { lerPorRegras, leituraProvada } from "./leitura.js";
  *
  * | Situação | Faturas |
  * | --- | --- |
- * | a soma fecha, e a leitura não escala | Santa Tereza, Jardim Floresta, Porteira, TBT, Alvorada, TFF 04/2026 e as quatro Energisa |
- * | nem ficha monta | Equatorial (zero itens), TFF 05/2026 (OCR, um item) |
+ * | a soma fecha, e a leitura não escala | Santa Tereza, Jardim Floresta, Porteira, TBT, Alvorada, Equatorial, TFF 04/2026 e as quatro Energisa |
+ * | nem ficha monta | TFF 05/2026 (OCR, um item) |
  *
- * As duas da última linha continuam com `aproveitavel: false` e escalam para o
- * plano B. As quatro Energisa saem desse grupo porque agora a ficha e a soma
- * fecham juntas.
+ * A última linha continua com `aproveitavel: false` e escala para o plano B.
  *
- * O que este arquivo **não** faz é dizer que a partição é boa. Duas das doze
- * ainda não fecham a Trava 1, e isso é defeito de leitura a consertar nos degraus da
+ * O que este arquivo **não** faz é dizer que a partição é boa. Uma das doze
+ * ainda não fecha a Trava 1, e isso é defeito de leitura a consertar nos degraus da
  * escada — não aqui. O valor de congelá-la é outro: enquanto ela não melhorar,
  * ela também não pode piorar sem alguém notar.
  *
@@ -39,15 +37,13 @@ const FECHAM = [
   "energisa-ro-brasilia-2026-06",
   "energisa-ro-cantuaria-2026-06",
   "energisa-ro-mirante-da-serra-2026-05",
+  "equatorial-pa-rodrigues-2026-06",
   "roraima-jardim-floresta-2026-06",
   "roraima-santa-tereza-2026-06",
 ];
 
 /** Nem ficha monta, então já escalava com o portão antigo. */
-const JA_ESCALAVAM = [
-  "amazonas-tff-2026-05",
-  "equatorial-pa-rodrigues-2026-06",
-];
+const JA_ESCALAVAM = ["amazonas-tff-2026-05"];
 
 const FIXTURES = fixturesLocais();
 
@@ -75,8 +71,8 @@ describe.skipIf(FIXTURES.length === 0)("o portão da Trava 1 contra o corpus", (
   });
 
   it.each(JA_ESCALAVAM)("%s já escalava com o portão antigo, e nada muda", (slug) => {
-    // `aproveitavel: false` é o que o portão antigo **não** aprovava. Estas duas
-    // não são efeito desta mudança, e contá-las como tal inflaria o resultado.
+    // `aproveitavel: false` é o que o portão antigo **não** aprovava. Este caso
+    // não é efeito desta mudança, e contá-lo como tal inflaria o resultado.
     expect(leitura(slug).aproveitavel).toBe(false);
   });
 });

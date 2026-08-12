@@ -121,9 +121,9 @@ export type LeituraDaFatura = {
 
 /** Casa o rótulo impresso com o campo da ficha. */
 const CONSUMO_PONTA = /^consumo\s+p(onta)?\b/i;
-const CONSUMO_FORA_PONTA = /^consumo\s+f[./-]?\s*ponta\b/i;
+const CONSUMO_FORA_PONTA = /^consumo\s+f(?:ora)?[./-]?\s*ponta\b/i;
 const DEMANDA_PONTA = /^demanda\s+p(onta)?\b/i;
-const DEMANDA_FORA_PONTA = /^demanda\s+f[./-]?\s*ponta\b/i;
+const DEMANDA_FORA_PONTA = /^demanda\s+f(?:ora)?[./-]?\s*ponta\b/i;
 const DEMANDA_SIMPLES = /^demanda\b(?!\s*(gera|ultr))/i;
 /**
  * Demanda complementar: a parcela cobrada sem ICMS, que a fatura imprime em
@@ -135,7 +135,7 @@ const DEMANDA_SIMPLES = /^demanda\b(?!\s*(gera|ultr))/i;
  */
 const DEMANDA_COMPLEMENTO = /^demanda\b.*\b(sem\s*icms|complement)/i;
 const REATIVO = /^en\s*r\s*exc\b|reativ|energia\s+reat/i;
-const ULTRAPASSAGEM = /^dem\s*ultr/i;
+const ULTRAPASSAGEM = /^dem(?:anda)?\s*ultr/i;
 
 /** A mesma semântica quando o rótulo publica TUSD e a grandeza por extenso. */
 const TUSD_CONSUMO_PONTA = /^tusd\s+em\s+kwh\s*-\s*ponta\b/i;

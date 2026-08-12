@@ -63,6 +63,44 @@ describe("leitura dos itens da fatura", () => {
     expect(conferir([item!]).itens[0]?.veredicto).toBe("confirmado");
   });
 
+  it("lê tabela com unidade no rótulo, duas tarifas e bases tributárias", () => {
+    const itens = lerItens([
+      "Consumo Ponta (kWh) 2.015,02 4,077295 3,021150 567,15 1.561,01 8.215,83 PIS 39.983,22 1,5185 607,14",
+      "Demanda Ativa (kW) 162,96 60,474902 44,810000 680,31 1.872,45 9.854,99",
+    ]);
+
+    expect(itens).toMatchObject([
+      {
+        rotulo: "Consumo Ponta",
+        quantidade: 2_015.02,
+        unidade: "kWh",
+        tarifa: 4.077295,
+        valor: 8_215.83,
+      },
+      {
+        rotulo: "Demanda Ativa",
+        quantidade: 162.96,
+        unidade: "kW",
+        tarifa: 60.474902,
+        valor: 9_854.99,
+      },
+    ]);
+    expect(conferir(itens).divergentes).toBe(0);
+    expect(conferir(itens).confirmados).toBe(2);
+  });
+
+  it("preserva bandeira e CIP nas formas sem quantidade da tabela", () => {
+    const itens = lerItens([
+      "Adicional Bandeira 62,73 172,64 908,63",
+      "Cip-Ilum Pub Pref Munic 2.374,99 Demanda Contratada Ponta (kW):",
+    ]);
+
+    expect(itens).toMatchObject([
+      { rotulo: "Adicional Bandeira", quantidade: null, tarifa: null, valor: 908.63 },
+      { rotulo: "Cip-Ilum Pub Pref Munic", quantidade: null, tarifa: null, valor: 2_374.99 },
+    ]);
+  });
+
   it("lê unidade não representável sem inventar kWh ou kW", () => {
     const [item] = lerItens([
       "Energia Reat Exced em KWh Livre - Ponta UN 32,24 0,299950 9,67 0,72 9,67",

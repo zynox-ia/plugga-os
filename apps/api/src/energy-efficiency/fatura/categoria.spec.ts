@@ -20,6 +20,7 @@ describe("a categoria que o leitor marca no item", () => {
     // Classificado como ponta, o consumo fora ponta somava no campo errado, a
     // conciliação nunca fechava e o botão de abrir o estudo nascia desabilitado.
     expect(categoriaDoRotulo("Consumo F/Ponta")).toBe("consumo_fora_ponta");
+    expect(categoriaDoRotulo("Consumo Fora Ponta")).toBe("consumo_fora_ponta");
     expect(categoriaDoRotulo("Consumo Ponta")).toBe("consumo_ponta");
   });
 
@@ -77,11 +78,13 @@ describe("a categoria que o leitor marca no item", () => {
     expect(categoriaDoRotulo("Demanda Ponta sem ICMS")).toBe("demanda_faturada");
     expect(categoriaDoRotulo("Demanda Ponta com ICMS")).toBe("demanda_faturada");
     expect(categoriaDoRotulo("Demanda F/Ponta")).toBe("demanda_faturada");
+    expect(categoriaDoRotulo("Demanda Fora Ponta")).toBe("demanda_faturada");
     expect(categoriaDoRotulo("Demanda")).toBe("demanda_faturada");
   });
 
   it("manda ultrapassagem de demanda para encargos", () => {
     expect(categoriaDoRotulo("Dem Ultrapassagem")).toBe("multas_juros_encargos");
+    expect(categoriaDoRotulo("Demanda Ultrapassagem")).toBe("multas_juros_encargos");
   });
 
 });

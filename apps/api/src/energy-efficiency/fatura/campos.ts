@@ -50,7 +50,8 @@ function numero(texto: string): number | null {
 const CONTRATADA_PONTA = /D\.?\s*C(?:td|ontratad)a?\.?\s*(?:P|Pta|Ponta)\b\D{0,4}([\d.,]+)/i;
 const CONTRATADA_FORA_PONTA =
   /D\.?\s*C(?:td|ontratad)a?\.?\s*F[./-]?\s*(?:P|Pta|Ponta)\b\D{0,4}([\d.,]+)/i;
-const CONTRATADA_UNICA = /Dem(?:anda)?\.?\s*Contratada\b(?!\s*(?:P|F))\D{0,12}([\d.,]+)/i;
+const CONTRATADA_UNICA =
+  /Dem(?:anda)?\.?\s*Contratada\b(?!\s*(?:P|F))(?:\s+[úu]nica)?(?:\s*\(kW\))?\D{0,4}([\d.,]+)/i;
 
 /** A mesma grandeza no bloco que publica modalidade, posto e unidade. */
 const DEMANDA_TABELADA_PONTA = /Demanda\s+Ponta\s*-\s*kW\D{0,4}([\d.,]+)/i;
@@ -66,7 +67,8 @@ const DEMANDA_TABELADA_FORA_PONTA =
  * própria. Exigi-lo faria a leitura de imagem falhar num rótulo que está lá,
  * legível, na folha.
  */
-const CABECALHO_DO_TOTAL = /(?:Valor|Total)\s+(?:a\s+)?Pagar/i;
+const CABECALHO_DO_TOTAL =
+  /(?:Valor|Total)\s+(?:(?:a\s+)?Pagar|cobrado(?:\s*\(R\$\))?)/i;
 
 /** Um valor em dinheiro sozinho na célula: "R$ 361,29" ou "361,29". */
 const SO_DINHEIRO = /^R?\$?\s*-?[\d.]+,\d{2}$/;
@@ -121,7 +123,8 @@ function valorAbaixoDe(linhas: readonly LinhaImpressa[], indice: number): number
  * Acontece quando a distribuidora imprime "Valor a Pagar R$ 361,29" corrido em
  * vez de em coluna. Vale tentar antes de desistir.
  */
-const TOTAL_NA_LINHA = /(?:Valor|Total)\s+(?:a\s+)?Pagar\D{0,8}(-?[\d.]+,\d{2})/i;
+const TOTAL_NA_LINHA =
+  /(?:Valor|Total)\s+(?:(?:a\s+)?Pagar|cobrado(?:\s*\(R\$\))?)\D{0,8}(-?[\d.]+,\d{2})/i;
 
 /**
  * Total explicitamente identificado no começo da linha.

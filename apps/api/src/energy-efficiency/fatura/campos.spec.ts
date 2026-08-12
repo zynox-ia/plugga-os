@@ -49,6 +49,14 @@ describe("lerCamposExtras — demanda contratada", () => {
     expect(extras.demandaContratadaKw).toBe(150);
   });
 
+  it("lê a demanda única quando unidade e modalidade aparecem no rótulo", () => {
+    const extras = lerCamposExtras([
+      pagina([pedaco("Demanda Contratada Única (kW): 70,00", 100, 500)]),
+    ]);
+
+    expect(extras.demandaContratadaKw).toBe(70);
+  });
+
   it("lê as demandas por posto no bloco tabelado", () => {
     const extras = lerCamposExtras([
       pagina([
@@ -101,6 +109,19 @@ describe("lerCamposExtras — valor total", () => {
     ]);
 
     expect(extras.valorTotal).toBe(361.29);
+  });
+
+  it("lê o valor abaixo da coluna semanticamente rotulada como valor cobrado", () => {
+    const extras = lerCamposExtras([
+      pagina([
+        pedaco("Competência:", 300, 500),
+        pedaco("Valor cobrado (R$):", 420, 500),
+        pedaco("06/2026", 300, 480),
+        pedaco("51.737,00", 420, 480),
+      ]),
+    ]);
+
+    expect(extras.valorTotal).toBe(51_737);
   });
 
   it("ignora dinheiro que está em outra coluna", () => {

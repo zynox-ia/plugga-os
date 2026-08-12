@@ -27,8 +27,8 @@ import { lerPorRegras, leituraProvada, type LeituraDaFatura } from "./leitura.js
  * `itensParaConciliar`, `camposDaFicha`, `avaliarConciliacaoLocal` — e não uma
  * imitação delas. Imitar era o problema.
  *
- * **O que ele afirma é o estado real, não o desejado.** Duas das doze não ficam
- * prontas, e isso é defeito de leitura a consertar nos degraus da escada. O
+ * **O que ele afirma é o estado real, não o desejado.** Uma das doze não fica
+ * pronta, e isso é defeito de leitura a consertar nos degraus da escada. O
  * valor de congelar a partição é o de sempre: enquanto ela não melhorar, também
  * não pode piorar sem alguém notar.
  */
@@ -76,7 +76,7 @@ function leitura(slug: string): LeituraDaFatura {
 }
 
 /**
- * A tela libera o estudo sozinha. São as mesmas dez que fecham a Trava 1 no
+ * A tela libera o estudo sozinha. São as mesmas onze que fecham a Trava 1 no
  * portão — e é essa igualdade que o defeito quebrava.
  */
 const PRONTAS = [
@@ -88,6 +88,7 @@ const PRONTAS = [
   "energisa-ro-brasilia-2026-06",
   "energisa-ro-cantuaria-2026-06",
   "energisa-ro-mirante-da-serra-2026-05",
+  "equatorial-pa-rodrigues-2026-06",
   "roraima-jardim-floresta-2026-06",
   "roraima-santa-tereza-2026-06",
 ];
@@ -96,10 +97,7 @@ const PRONTAS = [
  * Nem ficha monta: zero ou quase zero itens reconhecidos. A tela cai no
  * preenchimento manual, e o que ela reclama é dos campos críticos vazios.
  */
-const SEM_FICHA = [
-  "amazonas-tff-2026-05",
-  "equatorial-pa-rodrigues-2026-06",
-];
+const SEM_FICHA = ["amazonas-tff-2026-05"];
 
 const FIXTURES = fixturesLocais();
 
