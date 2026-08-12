@@ -142,6 +142,87 @@ export function linhasImpressas(paginas: readonly PaginaDoDocumento[]): string[]
   return paginas.flatMap((pagina) => montarLinhas(pagina).map((linha) => linha.texto));
 }
 
+/** Cabeçalho e rodapé que delimitam uma tabela financeira na própria folha. */
+const CABECALHO_FINANCEIRO = /\bitens?\s+(?:financeiros|faturados)\b/i;
+const COLUNA_DE_VALOR = /\bvalor(?:\s*\(R\$?\))?/i;
+const TOTAL_A_PAGAR = /\btotal\s+(?:a\s+)?pagar\b/i;
+const VALOR_MONETARIO = /^[—–−-]*\s*[\d.]+,\d{2}$/;
+const ITEM_COM_ARITMETICA =
+  /(?:\d[\d.]*\s*(?:kWh|kW)\s*a\s*[\d.]*[.,]\d{6}|(?:kWh|kW|UN)\s+\d[\d.]*,\d{2}\s+[\d.]*[.,]\d{6})/i;
+
+const limparSinal = (texto: string): string =>
+  texto
+    .replace(/[—–]\s*(?=-?\d)/g, "")
+    .replace(/−/g, "-")
+    .trim();
+
+/**
+ * Linhas cuja última célula está realmente sob a coluna "Valor".
+ *
+ * OCR de tabela pode ler perfeitamente um registrador de medidor e colá-lo ao
+ * rótulo vizinho. Pela forma textual ele parece cobrança; pela posição não é:
+ * está na descrição, longe da coluna financeira. Esta visão só entrega uma
+ * linha a `lerItens` quando há um valor monetário alinhado sob o cabeçalho.
+ */
+export function linhasDaTabelaFinanceira(
+  paginas: readonly PaginaDoDocumento[],
+): string[] {
+  return paginas.flatMap((pagina) => {
+    const linhas = montarLinhas(pagina);
+    const indice = linhas.findIndex(
+      (linha) => CABECALHO_FINANCEIRO.test(linha.texto) && COLUNA_DE_VALOR.test(linha.texto),
+    );
+    if (indice < 0) return [];
+
+    const cabecalho = linhas[indice];
+    if (!cabecalho) return [];
+    const titulo = CABECALHO_FINANCEIRO.exec(cabecalho.texto);
+    const valor = COLUNA_DE_VALOR.exec(cabecalho.texto);
+    if (titulo?.index === undefined || valor?.index === undefined) return [];
+    const faixaDoTitulo = faixaDoTrecho(
+      cabecalho,
+      titulo.index,
+      titulo.index + titulo[0].length,
+    );
+    const faixa = faixaDoTrecho(cabecalho, valor.index, valor.index + valor[0].length);
+    if (!faixaDoTitulo || !faixa) return [];
+    const altura = Math.max(...cabecalho.celulas.map((celula) => celula.altura), 1);
+    const inicioDaTabela = faixaDoTitulo.x0 - altura * 2;
+
+    const resultado: string[] = [];
+    for (const linha of linhas.slice(indice + 1)) {
+      if (TOTAL_A_PAGAR.test(linha.texto)) break;
+
+      const naColuna = linha.celulas.filter(
+        (celula) => celula.x < faixa.x1 && celula.x + celula.largura > faixa.x0,
+      );
+      const textoDoValor = limparSinal(naColuna.map((celula) => celula.texto).join(""));
+      if (!VALOR_MONETARIO.test(textoDoValor)) continue;
+
+      const descricao = linha.celulas
+        .filter(
+          (celula) =>
+            celula.x + celula.largura > inicioDaTabela &&
+            celula.x + celula.largura <= faixa.x0,
+        )
+        .map((celula) => celula.texto.trim())
+        .filter(Boolean)
+        .join(" ");
+      if (!descricao) continue;
+
+      // Item mensurável precisa da linha inteira para quantidade × tarifa
+      // julgar o valor. Ajuste sem grandeza volta como o par rótulo/valor já
+      // aceito pelo leitor; além de preservar a origem histórica dos demais
+      // layouts, isso evita relaxar toda linha com dígitos só por causa desta
+      // visão posicional.
+      if (ITEM_COM_ARITMETICA.test(descricao)) resultado.push(`${descricao} ${textoDoValor}`);
+      else resultado.push(descricao, textoDoValor);
+    }
+
+    return resultado;
+  });
+}
+
 /**
  * Os pedaços na ordem em que o PDF os desenhou, um por linha.
  *

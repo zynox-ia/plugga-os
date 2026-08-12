@@ -27,10 +27,9 @@ import { lerPorRegras, leituraProvada, type LeituraDaFatura } from "./leitura.js
  * `itensParaConciliar`, `camposDaFicha`, `avaliarConciliacaoLocal` — e não uma
  * imitação delas. Imitar era o problema.
  *
- * **O que ele afirma é o estado real, não o desejado.** Uma das doze não fica
- * pronta, e isso é defeito de leitura a consertar nos degraus da escada. O
- * valor de congelar a partição é o de sempre: enquanto ela não melhorar, também
- * não pode piorar sem alguém notar.
+ * **O que ele afirma é o estado real, não o desejado.** As doze ficam prontas
+ * sem intervenção humana. Congelar esse resultado impede que uma alteração no
+ * leitor ou na tela faça uma delas regredir sem ninguém notar.
  */
 
 /** Os campos da ficha que a tela oferece para conferência, na mesma ordem. */
@@ -76,12 +75,13 @@ function leitura(slug: string): LeituraDaFatura {
 }
 
 /**
- * A tela libera o estudo sozinha. São as mesmas onze que fecham a Trava 1 no
+ * A tela libera o estudo sozinha. São as mesmas doze que fecham a Trava 1 no
  * portão — e é essa igualdade que o defeito quebrava.
  */
 const PRONTAS = [
   "amazonas-tbt-2024-12",
   "amazonas-tff-2026-04",
+  "amazonas-tff-2026-05",
   "ambar-alvorada-2026-06",
   "ambar-porteira-2026-06",
   "energisa-acre-rio-branco-2026-06",
@@ -93,22 +93,16 @@ const PRONTAS = [
   "roraima-santa-tereza-2026-06",
 ];
 
-/**
- * Nem ficha monta: zero ou quase zero itens reconhecidos. A tela cai no
- * preenchimento manual, e o que ela reclama é dos campos críticos vazios.
- */
-const SEM_FICHA = ["amazonas-tff-2026-05"];
-
 const FIXTURES = fixturesLocais();
 
 if (FIXTURES.length === 0) console.warn(avisoDeCorpusAusente("o corpus de faturas"));
 
 describe.skipIf(FIXTURES.length === 0)("da fatura até o botão de abrir o estudo", () => {
   it("o corpus é o que foi medido: doze faturas, seis distribuidoras", () => {
-    // Fixture nova entra por aqui primeiro, e o veredicto dela tem de ser
-    // escrito à mão numa das duas listas — de propósito, por quem a acrescenta.
+    // Fixture nova entra por aqui primeiro, e seu veredicto tem de ser medido
+    // e escrito na lista — de propósito, por quem a acrescenta.
     expect(FIXTURES.map((nome) => nome.replace(/\.pagina\.json$/, "")).sort()).toEqual(
-      [...PRONTAS, ...SEM_FICHA].sort(),
+      [...PRONTAS].sort(),
     );
   });
 
@@ -123,18 +117,6 @@ describe.skipIf(FIXTURES.length === 0)("da fatura até o botão de abrir o estud
     expect(Math.abs(avaliacao.diferenca)).toBeLessThanOrEqual(0.005);
     expect(avaliacao.pronta).toBe(true);
   });
-
-  it.each(SEM_FICHA)("%s cai no preenchimento manual, dizendo o que falta", (slug) => {
-    const lida = leitura(slug);
-    const avaliacao = comoATelaMonta(lida);
-
-    expect(lida.aproveitavel).toBe(false);
-    expect(avaliacao.pronta).toBe(false);
-    // Sem itens de consumo não há o que provar, e a tela nomeia os dois campos
-    // críticos em vez de deixar o botão apagado em silêncio.
-    expect(avaliacao.camposInvalidos).toEqual(["ponta", "fora ponta"]);
-  });
-
   /**
    * A propriedade que o defeito quebrava, dita como propriedade.
    *

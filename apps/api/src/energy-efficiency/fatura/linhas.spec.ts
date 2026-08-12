@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { faixaDoTrecho, fragmentosEmOrdem, linhasImpressas, montarLinhas } from "./linhas.js";
+import {
+  faixaDoTrecho,
+  fragmentosEmOrdem,
+  linhasDaTabelaFinanceira,
+  linhasImpressas,
+  montarLinhas,
+} from "./linhas.js";
 import type { Fragmento, PaginaDoDocumento } from "./paginas.js";
 
 /**
@@ -131,5 +137,42 @@ describe("linhasImpressas", () => {
     };
 
     expect(linhasImpressas([primeira, segunda])).toEqual(["página um", "página dois"]);
+  });
+});
+
+describe("linhasDaTabelaFinanceira", () => {
+  it("mantém só linhas com dinheiro alinhado sob Valor", () => {
+    const documento = pagina([
+      pedaco("Itens", 300, 600),
+      pedaco("Financeiros", 335, 600),
+      pedaco("Valor", 520, 600),
+      pedaco("(R$)", 550, 600),
+      // Um bloco vizinho na mesma altura não pertence ao rótulo do item.
+      pedaco("Datas da Leitura", 50, 560),
+      pedaco("Consumo", 300, 560),
+      pedaco("Ponta", 345, 560),
+      pedaco("100", 390, 560),
+      pedaco("kWh", 415, 560),
+      pedaco("a", 440, 560),
+      pedaco("1,000000", 455, 560),
+      pedaco("100,00", 515, 560),
+      // Parece dinheiro no texto, mas fica na descrição: é medição.
+      pedaco("En", 300, 520),
+      pedaco("Reversa", 320, 520),
+      pedaco("44.434,00", 430, 520),
+      pedaco("Credito", 300, 480),
+      pedaco("Geracao", 345, 480),
+      pedaco("−100,00", 515, 480),
+      pedaco("Total", 300, 440),
+      pedaco("a", 335, 440),
+      pedaco("pagar", 350, 440),
+      pedaco("0,00", 520, 440),
+    ]);
+
+    expect(linhasDaTabelaFinanceira([documento])).toEqual([
+      "Consumo Ponta 100 kWh a 1,000000 100,00",
+      "Credito Geracao",
+      "-100,00",
+    ]);
   });
 });

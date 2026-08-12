@@ -12,25 +12,22 @@ import { lerPorRegras, leituraProvada } from "./leitura.js";
  * entre "a Trava 1 fecha" e "não fecha" está escrita abaixo, e qualquer mudança
  * que mexa nela precisa mexer neste arquivo, de propósito e por escrito.
  *
- * Medido em 11/08/2026, com `pnpm --filter @plugga/api portao:medir`:
+ * Medido em 12/08/2026, com `pnpm --filter @plugga/api portao:medir`:
  *
  * | Situação | Faturas |
  * | --- | --- |
- * | a soma fecha, e a leitura não escala | Santa Tereza, Jardim Floresta, Porteira, TBT, Alvorada, Equatorial, TFF 04/2026 e as quatro Energisa |
- * | nem ficha monta | TFF 05/2026 (OCR, um item) |
+ * | a soma fecha, e a leitura não escala | As doze faturas: seis distribuidoras, incluindo Equatorial, TFF 05/2026 e as quatro Energisa |
+ * | nem ficha monta | Nenhuma |
  *
- * A última linha continua com `aproveitavel: false` e escala para o plano B.
- *
- * O que este arquivo **não** faz é dizer que a partição é boa. Uma das doze
- * ainda não fecha a Trava 1, e isso é defeito de leitura a consertar nos degraus da
- * escada — não aqui. O valor de congelá-la é outro: enquanto ela não melhorar,
- * ela também não pode piorar sem alguém notar.
+ * As doze agora fecham ficha e soma juntas. O valor de congelar esta medição é
+ * impedir que uma melhoria futura faça qualquer uma delas regredir em silêncio.
  *
  * Sem o corpus baixado o arquivo inteiro é pulado, como os outros de corpus.
  */
 const FECHAM = [
   "amazonas-tbt-2024-12",
   "amazonas-tff-2026-04",
+  "amazonas-tff-2026-05",
   "ambar-alvorada-2026-06",
   "ambar-porteira-2026-06",
   "energisa-acre-rio-branco-2026-06",
@@ -41,9 +38,6 @@ const FECHAM = [
   "roraima-jardim-floresta-2026-06",
   "roraima-santa-tereza-2026-06",
 ];
-
-/** Nem ficha monta, então já escalava com o portão antigo. */
-const JA_ESCALAVAM = ["amazonas-tff-2026-05"];
 
 const FIXTURES = fixturesLocais();
 
@@ -58,9 +52,9 @@ function leitura(slug: string) {
 describe.skipIf(FIXTURES.length === 0)("o portão da Trava 1 contra o corpus", () => {
   it("o corpus é o que foi medido: doze faturas, seis distribuidoras", () => {
     // Uma fixture nova entra por este teste primeiro. É o lembrete de que a
-    // partição abaixo foi medida contra uma lista, e a lista mudou.
+    // medição abaixo foi feita contra uma lista, e a lista mudou.
     expect(FIXTURES.map((nome) => nome.replace(/\.pagina\.json$/, "")).sort()).toEqual(
-      [...FECHAM, ...JA_ESCALAVAM].sort(),
+      [...FECHAM].sort(),
     );
   });
 
@@ -68,11 +62,5 @@ describe.skipIf(FIXTURES.length === 0)("o portão da Trava 1 contra o corpus", (
     // Se uma cair aqui, a mudança piorou a leitura: não ajuste a lista,
     // conserte a extração.
     expect(leituraProvada(leitura(slug))).toBe(true);
-  });
-
-  it.each(JA_ESCALAVAM)("%s já escalava com o portão antigo, e nada muda", (slug) => {
-    // `aproveitavel: false` é o que o portão antigo **não** aprovava. Este caso
-    // não é efeito desta mudança, e contá-lo como tal inflaria o resultado.
-    expect(leitura(slug).aproveitavel).toBe(false);
   });
 });

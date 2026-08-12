@@ -1,104 +1,56 @@
 import { describe, expect, it } from "vitest";
 
 import { avisoDeCorpusAusente, fixtureDoCorpus } from "./corpus.js";
-import { lerPorRegras, type LeituraDaFatura } from "./leitura.js";
+import { lerPorRegras, leituraProvada, type LeituraDaFatura } from "./leitura.js";
+import { linhasDaTabelaFinanceira } from "./linhas.js";
 
 /**
- * Âmbar Energia AM — aeroporto de Tefé (TFF) 05/2026, **digitalizada**.
+ * Âmbar Energia AM — aeroporto de Tefé (TFF) 05/2026, digitalizada.
  *
- * A única fatura sem camada de texto de todo o acervo, e por isso a única que
- * exercita o caminho do reconhecimento óptico de ponta a ponta. Sem ela, o OCR
- * tem os testes de `ocr.spec.ts` e a integração opcional, mas nenhuma regressão
- * sobre documento real.
+ * É a única fatura do corpus que atravessa OCR e tem como referência
+ * estrutural `amazonas-tff-2026-04`: mesma UC e mesmo desenho, um mês antes,
+ * com camada de texto. Abril prova onde ficam descrição, tarifa e valor; não
+ * fornece nenhum número a este caso. Quantidade, tarifa, parcela e total abaixo
+ * saem exclusivamente da imagem de maio.
  *
- * Vale ainda mais porque tem par: `amazonas-tff-2026-04.corpus.spec.ts` é a
- * **mesma unidade consumidora, o mesmo layout, o mês anterior**, com camada de
- * texto. Os dois casos lado a lado medem o custo do OCR sem trocar de fatura
- * junto — lá, seis itens e ficha fechada; aqui, o que segue.
+ * O OCR de página inteira preservava cabeçalho e total, mas misturava as duas
+ * colunas da folha e perdia palavras da tabela. O refinamento novo é delimitado
+ * pelos rótulos impressos "Itens Financeiros" e "Total a pagar", amplia somente
+ * esse retângulo e reconhece-o como bloco. Não há ramo por distribuidora, UC ou
+ * competência.
  *
- * ## A decisão sobre determinismo, que o ticket mandava tomar por escrito
+ * A posição decide o que pode ser candidato: uma linha sem quantidade só entra
+ * se seu valor estiver alinhado sob a coluna "Valor (R$)". Por isso as treze
+ * linhas impressas se dividem em onze itens financeiros e dois informativos:
  *
- * **Este caso entra no corpus, e roda na CI junto com os outros.** A dúvida do
- * ticket era se uma fixture nascida de OCR reproduziria em outra máquina. Ela
- * reproduz, e o motivo é que **o Tesseract não roda no teste**: o OCR aconteceu
- * uma vez, na hora de congelar, e o que foi para o balde é o JSON com as
- * palavras e as coordenadas que ele devolveu. O que a CI faz é `lerPorRegras`
- * sobre esse JSON — função pura, sem WebAssembly, sem `por.traineddata`, sem
- * rasterização. A saída depende do arquivo, e o arquivo é o mesmo byte a byte
- * para todo mundo que baixar o corpus.
+ * - sete itens com quantidade, tarifa e valor, todos aprovados pela
+ *   multiplicação: consumo ponta 1.820 × 1,744610 = 3.175,19; demandas
+ *   171 × 22,892000 = 3.914,53 e 29 × 22,892000 = 663,86; reativo ponta
+ *   350 × 0,336005 = 117,60; consumo fora ponta 14.070 × 0,500607 =
+ *   7.043,54; reativo fora ponta 2.030 × 0,336005 = 682,09; demanda de
+ *   geração 600 × 13,751000 = 8.250,60;
+ * - quatro ajustes na coluna financeira: diferenças GDIS 1.616,50 e 74,88;
+ *   créditos de geração -3.175,19 e -7.043,54;
+ * - duas linhas fora da coluna financeira, portanto não itens: leitura reversa
+ *   acumulada 44.434,00 e compensação reversa 1.820,00.
  *
- * O que **não** é determinístico é **recongelar**: rodar `fatura:congelar` de
- * novo sobre este PDF em outra máquina, com outra versão de `tesseract.js` ou de
- * `@napi-rs/canvas`, pode produzir um JSON diferente — e aí os números deste
- * spec deixam de bater. Isso é manutenção, não fragilidade da suíte: quem
- * recongelar tem de reconferir, exatamente como quem congelou da primeira vez.
- * Fixar a versão do Tesseract na CI seria proteção contra um risco que não
- * existe, porque a CI não chama o Tesseract.
+ * Os onze itens somam exatamente o total impresso, 15.320,06. Isso fecha a
+ * Trava 1 sem copiar abril e elimina o falso item de 44.434,00 pela relação
+ * espacial que a própria folha publica.
  *
- * Como medida, e porque a afirmação acima merecia prova e não confiança: este
- * PDF foi congelado **duas vezes seguidas** nesta máquina e produziu bytes
- * idênticos nas duas — 771 fragmentos, confiança média 83,0 nas duas rodadas.
- * A instabilidade entre execuções, que seria o pior caso, não existe.
+ * A decisão de determinismo permanece: Tesseract só roda ao congelar ou na
+ * travessia opcional do PDF. O teste normal consome os 826 fragmentos já
+ * congelados (confiança primária 83), logo é puro e reproduzível. Recongelar
+ * exige reconferir os números contra a imagem.
  *
- * ## O que o OCR custa, medido nesta fatura
- *
- * A ficha **não fecha**: `campos_essenciais_ausentes`. O que sobrevive e o que
- * se perde:
- *
- * - **sobrevive** o cabeçalho: distribuidora, UC 1060454-5, competência 05/2026
- *   e o total, 15.320,06, lido de "Total a R$ 15.320,06 pagar" — repare na
- *   ordem das palavras, que o Tesseract embaralhou e que não atrapalhou porque
- *   o valor ficou inteiro;
- * - **perde-se a tabela de itens.** Os rótulos se descolaram dos números: a
- *   linha do consumo de ponta virou "GRUPO A COMERCIAL NORMAL kWh a 1,744610
- *   1,744610 3.175,19", sem o rótulo "Consumo Ponta", e a da demanda virou
- *   "Número do Medidor Modalidade 892000 Ligação 22,892000 3.914,53" — com o
- *   `22.` da tarifa costurado no meio de outra palavra;
- * - **e entra lixo.** O único item reconhecido é "Desc. da Anterior um.
- *   F/Ponta(K" valendo 44.434,00, que não é dinheiro nenhum: é a **leitura do
- *   medidor** em kWh, e o rótulo é a mistura de dois pedaços de cabeçalho. A
- *   soma dos itens que "compõem o total" dá 44.434,00 contra um total de
- *   15.320,06 — quase o triplo.
- *
- * Esse último ponto é o mais valioso do caso, e é o que ele existe para
- * proteger: **a conferência aritmética não pegou o lixo**. O item entrou sem
- * quantidade e sem tarifa, então não há multiplicação a conferir, e ele passou
- * por `sem_conferencia` direto para dentro da ficha. A rede que segura o OCR
- * errando um dígito não segura o OCR inventando uma linha. Está congelado
- * assim; quando o leitor aprender a recusar item sem quantidade cujo valor
- * estoura o total, este arquivo fica vermelho.
- *
- * Não há caso golden para esta referência — a conferência foi contra o
- * documento, e o total impresso confere. O detalhamento item a item **não pôde
- * ser conferido**, porque o próprio OCR é a fonte e não há segunda leitura com
- * que cruzar.
- *
- * Fixture gerada por `pnpm --filter @plugga/api fatura:congelar`. O caso vive
- * aqui como a geometria da página, não como PDF: os fragmentos com posição são
- * o que a leitura consome, e congelá-los torna o teste determinístico sem
- * depender do arquivo original.
- *
- * **A fixture não está no git.** Ela é fatura de cliente, com o dado inteiro,
- * e git é container permanente, replicado em todo clone e sem revogação — o
- * JSON mora no balde do corpus no MinIO e chega por `corpus:baixar`. Sem a
- * chave, este arquivo inteiro é pulado com a mensagem que explica o porquê.
- *
- * **Sem anonimização.** O texto desta fixture é o impresso na fatura,
- * incluindo titular, documento e endereço. Congelada sem `--anonimizar`.
+ * A fixture e o PDF não estão no git. Ambos contêm dado real de cliente e
+ * vivem no corpus privado; este spec guarda somente as provas numéricas.
  */
 const NOME = "amazonas-tff-2026-05.pagina.json";
 const DOCUMENTO = fixtureDoCorpus(NOME);
 
 if (!DOCUMENTO) console.warn(avisoDeCorpusAusente(NOME));
 
-/**
- * A leitura, feita no primeiro caso que a pedir — nunca na coleta.
- *
- * O vitest executa o corpo de um `describe.skipIf` mesmo quando vai pular os
- * casos. Derivar qualquer coisa da fixture ali dentro quebraria o arquivo
- * inteiro em quem não baixou o corpus, que é exatamente o que o pulo existe
- * para evitar.
- */
 let lida: LeituraDaFatura | null = null;
 function leitura(): LeituraDaFatura {
   if (!DOCUMENTO) throw new Error(`${NOME} não está no corpus local`);
@@ -106,74 +58,97 @@ function leitura(): LeituraDaFatura {
 }
 
 describe.skipIf(!DOCUMENTO)("Âmbar Energia AM — Tefé (TFF) 05/2026, digitalizada", () => {
-  it("é o único caso do corpus que vem do reconhecimento óptico", () => {
+  it("fecha a ficha e a Trava 1 preservando a origem óptica", () => {
     expect(leitura().origem).toBe("reconhecimento_optico");
     expect(DOCUMENTO?.confianca).toBe(83);
-    expect(leitura().aproveitavel).toBe(false);
-    expect(leitura().motivo).toBe("campos_essenciais_ausentes");
+    expect(leitura().aproveitavel).toBe(true);
+    expect(leitura().motivo).toBeNull();
+    expect(leituraProvada(leitura())).toBe(true);
+    expect(leitura().camposParaConfirmar).toEqual([]);
   });
 
-  it("o cabeçalho sobrevive ao OCR: distribuidora, UC e competência", () => {
-    // A mesma UC de `amazonas-tff-2026-04`, que é o par com camada de texto.
+  it("preserva distribuidora, UC e competência lidas em maio", () => {
     expect(leitura().identificacao.distribuidora).toBe("AMBAR ENERGIA");
     expect(leitura().identificacao.unidadeConsumidora).toBe("1060454-5");
     expect(leitura().identificacao.competencia).toEqual({ mes: 5, ano: 2026 });
   });
 
-  it("a demanda contratada passa; nenhuma grandeza medida passa", () => {
-    expect(leitura().invoice.demandaContratadaKw).toBe(200);
-    expect(leitura().invoice.consumoPontaKwh).toBeUndefined();
-    expect(leitura().invoice.consumoForaPontaKwh).toBeUndefined();
-    expect(leitura().invoice.valorDemanda).toBeUndefined();
+  it("lê consumo, tarifas e demanda realmente impressos", () => {
+    expect(leitura().invoice).toMatchObject({
+      consumoPontaKwh: 1_820,
+      tarifaPonta: 1.74461,
+      valorPonta: 3_175.19,
+      consumoForaPontaKwh: 14_070,
+      tarifaForaPonta: 0.500607,
+      valorForaPonta: 7_043.54,
+      demandaContratadaKw: 200,
+      demandaMedidaForaPontaKw: 171,
+      tarifaDemanda: 22.892,
+      valorDemanda: 4_578.39,
+      valorReativo: 799.69,
+      valorTotal: 15_320.06,
+    });
   });
 
-  it("o único item reconhecido não é dinheiro: é a leitura do medidor", () => {
-    // "Desc. da Anterior um. F/Ponta(K" é a colagem de dois pedaços de
-    // cabeçalho, e 44.434,00 é o registrador em kWh. O item entrou sem
-    // quantidade e sem tarifa — por isso não há multiplicação a conferir, e a
-    // conferência aritmética, que pega o OCR errando um dígito, não pega o OCR
-    // inventando uma linha.
+  it("reconstrói os onze itens financeiros provados", () => {
     const esperados = [
-      { rotulo: "Desc. da Anterior um. F/Ponta(K", quantidade: null, unidade: null, tarifa: null, valor: 44_434 },
+      { rotulo: "Consumo Ponta", quantidade: 1_820, tarifa: 1.74461, valor: 3_175.19 },
+      { rotulo: "Demanda", quantidade: 171, tarifa: 22.892, valor: 3_914.53 },
+      { rotulo: "Demanda", quantidade: 29, tarifa: 22.892, valor: 663.86 },
+      { rotulo: "En R Exc Ponta", quantidade: 350, tarifa: 0.336005, valor: 117.6 },
+      { rotulo: "Consumo F/Ponta", quantidade: 14_070, tarifa: 0.500607, valor: 7_043.54 },
+      { rotulo: "En R Exc F/Ponta", quantidade: 2_030, tarifa: 0.336005, valor: 682.09 },
+      { rotulo: "Demanda Geracao", quantidade: 600, tarifa: 13.751, valor: 8_250.6 },
+      {
+        rotulo: "Diferença Importe Gdis Tusd Fio B Ponta 05/26-00",
+        quantidade: null,
+        tarifa: null,
+        valor: 1_616.5,
+      },
+      {
+        rotulo: "Diferença Importe Gdis Tusd Fio B Fora P 05/26-00",
+        quantidade: null,
+        tarifa: null,
+        valor: 74.88,
+      },
+      { rotulo: "Credito De Geracao Ponta", quantidade: null, tarifa: null, valor: -3_175.19 },
+      {
+        rotulo: "Credito De Geracao F/Ponta",
+        quantidade: null,
+        tarifa: null,
+        valor: -7_043.54,
+      },
     ];
 
-    expect(leitura().itens).toHaveLength(1);
+    expect(leitura().itens).toHaveLength(11);
     for (const esperado of esperados) {
-      const achado = leitura().itens.find((item) => item.rotulo === esperado.rotulo);
+      const achado = leitura().itens.find(
+        (item) => item.rotulo === esperado.rotulo && item.quantidade === esperado.quantidade,
+      );
       expect(achado, `item ausente: ${esperado.rotulo}`).toMatchObject(esperado);
     }
-    expect(leitura().itens[0]?.compoeTotal).toBe(true);
   });
 
-  it("sem quantidade nem tarifa, não há aritmética que recuse o item", () => {
-    expect(leitura().conferencia.confirmados).toBe(0);
+  it("elimina as duas linhas informativas pela posição", () => {
+    if (!DOCUMENTO) throw new Error(`${NOME} não está no corpus local`);
+    const financeiras = linhasDaTabelaFinanceira(DOCUMENTO.paginas);
+
+    expect(financeiras).toHaveLength(15);
+    expect(financeiras.some((linha) => /44\.?434,00/.test(linha))).toBe(false);
+    expect(financeiras.some((linha) => /Compensa[cç][aã]o En Reversa/i.test(linha))).toBe(false);
+    expect(leitura().itens.some((item) => item.valor === 44_434)).toBe(false);
+    expect(leitura().itens.some((item) => item.valor === 1_820)).toBe(false);
+  });
+
+  it("aprova sete multiplicações e fecha os quatro ajustes pelo total", () => {
+    expect(leitura().conferencia.confirmados).toBe(7);
+    expect(leitura().conferencia.semConferencia).toBe(4);
     expect(leitura().conferencia.divergentes).toBe(0);
-    expect(leitura().conferencia.semConferencia).toBe(1);
     expect(leitura().conferencia.temDivergencia).toBe(false);
-  });
-
-  it("a soma dos itens quase triplica o total impresso, e nada barra isso", () => {
-    // O total, esse, o OCR entregou inteiro — de "Total a R$ 15.320,06 pagar",
-    // com as palavras fora de ordem e o número intacto. O 44.434,00 abaixo é o
-    // **observado**, congelado como evidência do buraco. Não o ajuste para
-    // fechar — quem fecha é a leitura, quando aprender a recusar item sem
-    // quantidade cujo valor estoura o total.
-    expect(leitura().invoice.valorTotal).toBe(15_320.06);
 
     const soma = leitura().itens
       .filter((item) => item.compoeTotal)
       .reduce((total, item) => total + item.valor, 0);
-    expect(Number(soma.toFixed(2))).toBe(44_434);
-  });
-
-  it("declara exatamente o que ainda depende de conferência humana", () => {
-    // A digitalizada, e o caso mais desconfortável do corpus: o OCR devolve uma
-    // linha só, que nem item é, e um total de R$ 15.320,06 ao lado de uma soma
-    // de R$ 44.434,00. A ficha é recusada de qualquer forma, mas antes do
-    // portão da Trava 1 esta lista era vazia — a fatura não dizia nada sobre a
-    // única evidência aritmética que tinha.
-    expect(leitura().camposParaConfirmar).toEqual([
-      "a soma dos itens (R$ 44434.00) não fecha com o total impresso (R$ 15320.06): diferença de R$ 29113.94. Costuma ser item somado que não compõe o total, ou valor lido a mais — corrija a extração, nunca ajuste o total.",
-    ]);
+    expect(Number(soma.toFixed(2))).toBe(15_320.06);
   });
 });

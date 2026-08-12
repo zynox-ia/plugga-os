@@ -1,4 +1,5 @@
 import type { Fragmento, PaginaDoDocumento } from "./paginas.js";
+import { faixaDoTrecho, montarLinhas } from "./linhas.js";
 
 /**
  * Leitura óptica de fatura digitalizada.
@@ -58,6 +59,7 @@ type PalavraDoTesseract = {
 type ResultadoDoTesseract = {
   data: {
     confidence?: number;
+    imageColor?: string | null;
     blocks?: { paragraphs?: { lines?: { words?: PalavraDoTesseract[] }[] }[] }[];
   };
 };
@@ -103,6 +105,133 @@ let esperando = 0;
 
 /** Teto da fila: quem chega depois disso espera minutos, e é melhor dizer não. */
 const ESPERA_MAXIMA = 6;
+
+/**
+ * Uma tabela financeira é o único trecho da folha em que vale insistir.
+ *
+ * O modo em coluna preserva a posição do documento inteiro, mas pode separar
+ * o rótulo dos números quando há dois blocos lado a lado. A própria folha diz
+ * onde tentar de novo: o retângulo começa em "Itens Financeiros/Faturados" e
+ * termina em "Total a pagar". Sem os dois rótulos não há recorte — nada é
+ * inferido por distribuidora, UC ou mês.
+ */
+const CABECALHO_DA_TABELA = /\bitens?\s+(?:financeiros|faturados)\b/i;
+const RODAPE_DA_TABELA = /\btotal\s+(?:a\s+)?pagar\b/i;
+const ESCALA_DO_RECORTE = 2;
+const SEGMENTACAO_EM_BLOCO = "6";
+
+type Retangulo = { left: number; top: number; width: number; height: number };
+
+function retanguloDaTabela(pagina: PaginaDoDocumento): Retangulo | null {
+  const linhas = montarLinhas(pagina);
+  const indiceDoCabecalho = linhas.findIndex((linha) => CABECALHO_DA_TABELA.test(linha.texto));
+  if (indiceDoCabecalho < 0) return null;
+
+  const cabecalho = linhas[indiceDoCabecalho];
+  if (!cabecalho) return null;
+  const trecho = CABECALHO_DA_TABELA.exec(cabecalho.texto);
+  if (trecho?.index === undefined) return null;
+
+  const faixa = faixaDoTrecho(
+    cabecalho,
+    trecho.index,
+    trecho.index + trecho[0].length,
+  );
+  if (!faixa) return null;
+
+  const rodape = linhas
+    .slice(indiceDoCabecalho + 1)
+    .find((linha) => RODAPE_DA_TABELA.test(linha.texto));
+  if (!rodape) return null;
+
+  const alturaDoCabecalho = Math.max(...cabecalho.celulas.map((celula) => celula.altura), 1);
+  const alturaDoRodape = Math.max(...rodape.celulas.map((celula) => celula.altura), 1);
+  const margem = alturaDoCabecalho * 2;
+  const left = Math.max(0, Math.floor(faixa.x0 - margem));
+  const top = Math.max(0, Math.floor(-cabecalho.y - margem));
+  const right = Math.ceil(pagina.largura);
+  const bottom = Math.ceil(-rodape.y + alturaDoRodape * 2);
+
+  if (right <= left || bottom <= top) return null;
+  return { left, top, width: right - left, height: bottom - top };
+}
+
+function palavrasDo(resultado: ResultadoDoTesseract["data"]): PalavraDoTesseract[] {
+  return (resultado.blocks ?? []).flatMap((bloco) =>
+    (bloco.paragraphs ?? []).flatMap((paragrafo) =>
+      (paragrafo.lines ?? []).flatMap((linha) => linha.words ?? []),
+    ),
+  );
+}
+
+/**
+ * Recorta uma imagem que o próprio Tesseract já decodificou e amplia só a
+ * tabela. O PNG intermediário vem do WASM, não do upload: assim o decodificador
+ * nativo nunca recebe diretamente uma imagem possivelmente truncada.
+ */
+async function ampliarTabela(
+  imagemDecodificada: string,
+  retangulo: Retangulo,
+): Promise<Buffer> {
+  const { createCanvas, loadImage } = await import("@napi-rs/canvas");
+  const imagem = await loadImage(imagemDecodificada);
+  const tela = createCanvas(
+    Math.ceil(retangulo.width * ESCALA_DO_RECORTE),
+    Math.ceil(retangulo.height * ESCALA_DO_RECORTE),
+  );
+
+  tela.getContext("2d").drawImage(
+    imagem,
+    retangulo.left,
+    retangulo.top,
+    retangulo.width,
+    retangulo.height,
+    0,
+    0,
+    tela.width,
+    tela.height,
+  );
+
+  return Buffer.from(tela.toBuffer("image/png"));
+}
+
+function fragmentosDoRecorte(
+  palavras: readonly PalavraDoTesseract[],
+  retangulo: Retangulo,
+): Fragmento[] {
+  return palavras.flatMap((palavra) => {
+    const texto = (palavra.text ?? "").trim();
+    const caixa = palavra.bbox;
+    if (!texto || !caixa || (palavra.confidence ?? 0) < CONFIANCA_MINIMA) return [];
+
+    return [{
+      texto,
+      x: retangulo.left + caixa.x0 / ESCALA_DO_RECORTE,
+      y: -(retangulo.top + caixa.y1 / ESCALA_DO_RECORTE),
+      largura: (caixa.x1 - caixa.x0) / ESCALA_DO_RECORTE,
+      altura: (caixa.y1 - caixa.y0) / ESCALA_DO_RECORTE,
+    }];
+  });
+}
+
+function substituirRetangulo(
+  fragmentos: readonly Fragmento[],
+  retangulo: Retangulo,
+  substitutos: readonly Fragmento[],
+): Fragmento[] {
+  const fora = fragmentos.filter((fragmento) => {
+    const centroX = fragmento.x + fragmento.largura / 2;
+    const centroY = -fragmento.y - fragmento.altura / 2;
+    return !(
+      centroX >= retangulo.left &&
+      centroX <= retangulo.left + retangulo.width &&
+      centroY >= retangulo.top &&
+      centroY <= retangulo.top + retangulo.height
+    );
+  });
+
+  return [...fora, ...substitutos];
+}
 
 export class OcrOcupadoError extends Error {
   constructor() {
@@ -204,18 +333,43 @@ export async function reconhecer(
 
       let data;
       try {
-        ({ data } = await trabalhador.recognize(imagem, {}, { blocks: true, text: false }));
+        ({ data } = await trabalhador.recognize(imagem, {}, {
+          blocks: true,
+          text: false,
+          imageColor: true,
+        }));
       } catch (erro) {
         throw new ImagemIndecifravelError(erro);
       }
 
-      const palavras = (data.blocks ?? []).flatMap((bloco) =>
-        (bloco.paragraphs ?? []).flatMap((paragrafo) =>
-          (paragrafo.lines ?? []).flatMap((linha) => linha.words ?? []),
-        ),
-      );
+      const palavras = palavrasDo(data);
+      let fragmentos = palavras.flatMap(comoFragmento);
 
-      const fragmentos = palavras.flatMap(comoFragmento);
+      const provisoria: PaginaDoDocumento = {
+        numero: numeroDaPagina,
+        largura: Math.max(...fragmentos.map((f) => f.x + f.largura), 0),
+        altura: Math.max(...fragmentos.map((f) => -f.y), 0),
+        fragmentos,
+      };
+      const retangulo = retanguloDaTabela(provisoria);
+
+      // A segunda leitura é um refinamento opcional. Se a folha não publica os
+      // dois rótulos estruturais, ou se o recorte não puder ser produzido, a
+      // leitura primária continua íntegra.
+      if (retangulo && data.imageColor) {
+        try {
+          const tabela = await ampliarTabela(data.imageColor, retangulo);
+          await trabalhador.setParameters({ tessedit_pageseg_mode: SEGMENTACAO_EM_BLOCO });
+          const refinada = await trabalhador.recognize(tabela, {}, { blocks: true, text: false });
+          const substitutos = fragmentosDoRecorte(palavrasDo(refinada.data), retangulo);
+          if (substitutos.length > 0) {
+            fragmentos = substituirRetangulo(fragmentos, retangulo, substitutos);
+          }
+        } catch {
+          // Melhor preservar a leitura primária que transformar um refinamento
+          // de tabela em falha da página inteira.
+        }
+      }
       const direitas = fragmentos.map((f) => f.x + f.largura);
       const topos = fragmentos.map((f) => f.y + f.altura);
 
@@ -235,4 +389,3 @@ export async function reconhecer(
     }
   });
 }
-

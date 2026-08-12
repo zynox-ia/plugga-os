@@ -173,12 +173,28 @@ describe("leitura dos itens da fatura", () => {
     ]);
   });
 
+  it("lê diferenças GDIS reconstruídas da coluna financeira", () => {
+    const itens = lerItens([
+      "Diferença Importe Gdis Tusd Fio B Ponta 05/26-00",
+      "1.616,50",
+      "Diferença Importe Gdis Tusd Fio B Fora P 05/26-00",
+      "74,88",
+    ]);
+
+    expect(itens).toMatchObject([
+      { rotulo: "Diferença Importe Gdis Tusd Fio B Ponta 05/26-00", valor: 1_616.5 },
+      { rotulo: "Diferença Importe Gdis Tusd Fio B Fora P 05/26-00", valor: 74.88 },
+    ]);
+  });
+
   it("não relaxa rótulos com dígitos para históricos ou medições", () => {
     const itens = lerItens([
       "Leitura Anterior 31/05/2026",
       "562,50",
       "En Ativa Pta 04/2026",
       "604,12",
+      "En Reversa Acum. F/Ponta(Kwh) 44.434,00",
+      "Compensacao En Reversa 1.820,00",
     ]);
 
     expect(itens).toEqual([]);

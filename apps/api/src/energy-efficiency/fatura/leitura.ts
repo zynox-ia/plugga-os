@@ -8,7 +8,7 @@ import { normalizar, type DocumentoNormalizado, type OrigemDoTexto } from "./doc
 import { identificar, type IdentificacaoDaFatura } from "./identificacao.js";
 import { marcarInformativos, type ItemDaLeitura } from "./informativos.js";
 import { lerItens, type ItemDaFatura } from "./itens.js";
-import { linhasImpressas, linhasPorColuna } from "./linhas.js";
+import { linhasDaTabelaFinanceira, linhasImpressas, linhasPorColuna } from "./linhas.js";
 import { abrirPdf, SenhaIncorretaError, SenhaNecessariaError } from "./paginas.js";
 import type {
   LeitorPorVisao,
@@ -261,12 +261,13 @@ function montarFicha(
 /**
  * Entre duas leituras da mesma fatura, fica a que a aritmética aprova.
  *
- * Ordem de preferência: ficha aproveitável ganha de ficha recusada; entre duas
- * aproveitáveis, ganha a que conferiu mais itens pela multiplicação. Empate
- * mantém a primeira, que é a leitura principal.
+ * Ordem de preferência: Trava 1 fechada; depois ficha aproveitável; por fim a
+ * que conferiu mais itens pela multiplicação. Empate mantém a primeira, que é
+ * a leitura principal.
  */
 function melhorLeitura(candidatas: readonly LeituraDaFatura[]): LeituraDaFatura {
   const nota = (leitura: LeituraDaFatura): number =>
+    (leituraProvada(leitura) ? 10_000 : 0) +
     (leitura.aproveitavel ? 1_000 : 0) + leitura.conferencia.confirmados * 10 -
     leitura.conferencia.divergentes;
 
@@ -405,6 +406,13 @@ export function lerPorRegras(documento: DocumentoNormalizado): LeituraDaFatura {
   return melhorLeitura([
     montarFicha(identificacao, lerItens(linhas), extras, documento.origem, confianca),
     montarFicha(identificacao, lerItens(porColuna), extras, documento.origem, confianca),
+    montarFicha(
+      identificacao,
+      lerItens(linhasDaTabelaFinanceira(documento.paginas)),
+      extras,
+      documento.origem,
+      confianca,
+    ),
   ]);
 }
 

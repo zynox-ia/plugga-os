@@ -165,7 +165,7 @@ const SO_ROTULO = /^(?![\d.,\s-]+$)[^\d]*[A-Za-zÀ-ÿ)][^\d]*$/;
  * preservado em `origem`, para a reconstrução continuar rastreável.
  */
 const ROTULO_FINANCEIRO_COM_DIGITOS =
-  /^(?=.*\d)(?=.*\b(?:cr[eé]dito|d[eé]bito|devolu[cç][aã]o|desconto|encargo|multa|juros?|desligamento|religa[cç][aã]o|ressarcimento|compensa[cç][aã]o)\b)[A-Za-zÀ-ÿ\d()/\s-]+$/i;
+  /^(?=.*\d)(?=.*\b(?:cr[eé]dito|d[eé]bito|devolu[cç][aã]o|diferen[cç]a|desconto|encargo|multa|juros?|desligamento|religa[cç][aã]o|ressarcimento|compensa[cç][aã]o)\b)[A-Za-zÀ-ÿ\d()./\s-]+$/i;
 
 /**
  * Rótulo e valor na mesma linha: "Contribuição de Iluminação Pública (COSIP) 170,65".
@@ -195,7 +195,7 @@ const ROTULO_E_VALOR =
  * item de R$ 52.536.132,00. Medição não é dinheiro.
  */
 const NAO_E_ITEM =
-  /^(?:CEP|CNPJ|INSC|Chave|Protocolo|Nota Fiscal|https?:|Total|Per[íi]odo|En\s+Ativa|En\s+Reativa|Dem\s+Acum|Dmcr\s+Acum|Ufer|Desc\.?\s+da\s+Grandeza|Leit\.|Constante|Registrado)/i;
+  /^(?:CEP|CNPJ|INSC|Chave|Protocolo|Nota Fiscal|https?:|Total|Per[íi]odo|En\s+Ativa|En\s+Reativa|En\s+Reversa|Compensa[cç][aã]o\s+En\s+Reversa|Dem\s+Acum|Dmcr\s+Acum|Ufer|Desc\.?\s+da\s+Grandeza|Leit\.|Constante|Registrado)/i;
 
 export function lerItens(linhas: readonly string[]): ItemDaFatura[] {
   const itens: ItemDaFatura[] = [];
