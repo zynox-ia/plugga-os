@@ -3,7 +3,7 @@ import path from "node:path";
 import type { NextConfig } from "next";
 
 const isProduction = process.env.NODE_ENV === "production";
-const scriptSources = ["'self'", "'unsafe-inline'", "https://accounts.google.com"];
+const scriptSources = ["'self'", "'unsafe-inline'", "https://accounts.google.com", "https://cdn.jsdelivr.net"];
 if (!isProduction) scriptSources.push("'unsafe-eval'");
 
 const contentSecurityPolicy = [
@@ -12,11 +12,11 @@ const contentSecurityPolicy = [
   "object-src 'none'",
   "frame-ancestors 'none'",
   "form-action 'self'",
-  "img-src 'self' data: blob:",
+  "img-src 'self' data: blob: https://assets.unicorn.studio",
   "font-src 'self' https://fonts.gstatic.com",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   `script-src ${scriptSources.join(" ")}`,
-  "connect-src 'self'",
+  "connect-src 'self' https://storage.googleapis.com",
   "frame-src https://accounts.google.com https://my.spline.design",
 ].join("; ");
 
@@ -32,6 +32,9 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // Keep development artifacts separate from production builds. Running `next
+  // build` while the local server is open must never remove its route manifests.
+  distDir: isProduction ? ".next" : ".next-dev",
   poweredByHeader: false,
   reactStrictMode: true,
   transpilePackages: ["@plugga/shared"],

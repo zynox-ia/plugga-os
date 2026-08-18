@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
+import { UnicornBackground } from "../unicorn-background";
 
 const TYPING_PHRASES = [
   "Inteligente. Unificada.",
@@ -59,18 +60,7 @@ export function AuthCard({
 
   return (
     <div className="auth-root">
-      <div className="spline-container">
-        <iframe
-          src="https://my.spline.design/bganimation-xIKR0ZTWWoifZLAKROH7y9YL"
-          frameBorder="0"
-          width="100%"
-          height="100%"
-          id="aura-spline"
-          sandbox="allow-scripts"
-          referrerPolicy="no-referrer"
-          title="Spline 3D Background Animation"
-        />
-      </div>
+      <UnicornBackground />
 
       <div className={`auth-frame${variant === "single" ? " auth-frame--single" : ""}`}>
         {/* Left Form Panel */}

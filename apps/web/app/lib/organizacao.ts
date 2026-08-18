@@ -228,7 +228,10 @@ export const EMPRESAS_POR_ID: Record<EmpresaId, Empresa> = { plugga, waze };
  * moram dentro do próprio departamento, então a tela de entrada fica livre
  * para responder só "o que precisa de mim hoje".
  */
-export const VISAO_GERAL: Processo[] = [{ label: "Início", rota: "/", status: "parcial" }];
+export const VISAO_GERAL: Processo[] = [
+  { label: "Dashboard", rota: "/", status: "pronto" },
+  { label: "Central de Pendências", rota: "/pendencias", status: "pronto" },
+];
 
 /**
  * Ferramentas atravessam todos os departamentos — abrem no dia a dia, mas não

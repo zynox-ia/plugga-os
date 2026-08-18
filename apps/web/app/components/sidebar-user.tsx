@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useSessionUser } from "../lib/use-session-user";
 
 /** Iniciais para o avatar; enquanto a sessão não responde, um traço neutro. */
@@ -18,16 +19,23 @@ function iniciais(nome: string): string {
  */
 export function SidebarUser() {
   const { usuario } = useSessionUser();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const exibeUsuario = mounted ? usuario : null;
 
   return (
-    <div className="sidebar-user">
-      <span className="sidebar-user-avatar" aria-hidden="true" style={{ position: "relative" }}>
-        {usuario ? iniciais(usuario.name) : "·"}
+    <div className="sidebar-user" suppressHydrationWarning>
+      <span className="sidebar-user-avatar" aria-hidden="true" style={{ position: "relative" }} suppressHydrationWarning>
+        {exibeUsuario ? iniciais(exibeUsuario.name) : "·"}
         <span className="status-dot" style={{ position: "absolute", right: -1, bottom: -1, border: "2px solid #0d101a" }} />
       </span>
-      <span className="sidebar-user-info">
-        <strong>{usuario?.name ?? "Carregando…"}</strong>
-        <span>{usuario?.email ?? ""}</span>
+      <span className="sidebar-user-info" suppressHydrationWarning>
+        <strong suppressHydrationWarning>{exibeUsuario?.name ?? "Carregando…"}</strong>
+        <span suppressHydrationWarning>{exibeUsuario?.email ?? ""}</span>
       </span>
     </div>
   );

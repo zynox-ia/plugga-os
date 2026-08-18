@@ -66,7 +66,7 @@ export function LoginForm({
         Digite seus dados para gerenciar sua operação no plugga-os.
       </p>
 
-      <form className="auth-form-fields" onSubmit={handleSubmit}>
+      <form className="auth-form-fields" method="post" onSubmit={handleSubmit}>
         <div className="auth-pill-field">
           <label className="auth-pill-label" htmlFor="email-input">
             E-mail

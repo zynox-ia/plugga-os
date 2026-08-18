@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
+import { BackgroundParticles } from "./background-particles";
 
 export type IconName =
   | "home"
@@ -73,7 +74,6 @@ export function PluggaShell({
   empresaSwitcher,
   sidebarFooter,
   pageTitle,
-  pageDescription,
 }: {
   children: ReactNode;
   navigation: ShellNavGroup[];
@@ -86,12 +86,18 @@ export function PluggaShell({
   empresaSwitcher?: ReactNode;
   /** Fixo no pé da barra lateral (Configurações). */
   sidebarFooter?: ReactNode;
-  /** Título e subtítulo da rota atual. */
+  /** Título da rota atual. */
   pageTitle: string;
-  pageDescription: string;
 }) {
   const [activeView, setActiveView] = useState(activeId);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [sidebarCollapsed] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   // Departamentos fecham por padrão: só o que o usuário abrir (ou o que
   // contém a rota atual) fica visível. `closedGroups` guarda quem já foi
   // aberto manualmente e é lido ao contrário no `isOpen` abaixo.
@@ -107,6 +113,7 @@ export function PluggaShell({
     onNavigate?.(view);
   };
 
+  const isCollapsed = mounted && sidebarCollapsed;
   const navGroups = navigation;
 
   // Departamentos fecham por padrão: a barra lateral começa enxuta, e o
@@ -126,10 +133,17 @@ export function PluggaShell({
     });
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell${isCollapsed ? " app-shell--collapsed" : ""}`} suppressHydrationWarning>
+      <div className="app-poster" aria-hidden="true" />
+      <BackgroundParticles />
       <a className="skip-link" href="#main-content">Pular para o conteúdo</a>
-      <aside className={`sidebar${mobileNavOpen ? " sidebar--open" : ""}`} aria-label="Navegação principal" id="main-navigation">
-        <div className="brand-lockup"><span className="brand-mark"><img src="/brand/logo-areia.svg" alt="Plugga" /></span><span className="brand-badge">OS</span></div>
+      <aside className={`sidebar${mobileNavOpen ? " sidebar--open" : ""}${isCollapsed ? " sidebar--collapsed" : ""}`} aria-label="Navegação principal" id="main-navigation" suppressHydrationWarning>
+        <div className="brand-lockup">
+          <span className="brand-mark">
+            <img src={isCollapsed ? "/brand/icone-verde.svg" : "/brand/logo-areia.svg"} alt="Plugga" />
+          </span>
+          <span className="brand-badge">OS</span>
+        </div>
         <nav className="sidebar-nav">
           {navGroups.map((group) => {
             const aberto = isOpen(group);
@@ -144,7 +158,7 @@ export function PluggaShell({
                 disabled={item.disabled}
                 aria-current={activeView === item.id ? "page" : undefined}
               >
-                {group.collapsible ? null : <Icon name={item.icon ?? "settings"} />}
+                <Icon name={item.icon ?? (group.collapsible ? "pulse" : "settings")} />
                 <span className="nav-item-label">{item.label}</span>
                 {item.disabled ? <span className="nav-tag">em breve</span> : null}
                 {item.badge === "parcial" ? <span className="nav-tag nav-tag--partial">parcial</span> : null}
@@ -165,7 +179,7 @@ export function PluggaShell({
                       aria-controls={`nav-group-${group.id}`}
                     >
                       <Icon name={group.icon ?? "briefcase"} />
-                      <span className="nav-item-label">{group.label}</span>
+                      <span className="nav-item-label" title={group.label}>{group.label}</span>
                       <span className={`nav-chevron${aberto ? " nav-chevron--open" : ""}`} aria-hidden="true" />
                     </button>
                     {aberto ? (
@@ -184,22 +198,6 @@ export function PluggaShell({
             );
           })}
         </nav>
-
-        {/* Credits Gauge Widget (inspired by reference UI) */}
-        <div className="sidebar-credits-card">
-          <div className="credits-gauge-header">
-            <div className="credits-ring">
-              <div className="credits-ring-inner">70%</div>
-            </div>
-            <div className="credits-info">
-              <strong>2.800 créditos</strong>
-              <span>Limite mensal de IA</span>
-            </div>
-          </div>
-          <button className="credits-buy-btn" type="button">
-            Comprar tokens
-          </button>
-        </div>
 
         {sidebarFooter}
       </aside>
@@ -224,17 +222,12 @@ export function PluggaShell({
           </div>
 
           <div className="topbar-actions">
-            <div className="topbar-sync-tag">
-              <span className="status-dot" aria-hidden="true" />
-              <span>Última sinc: <strong>há 6s</strong></span>
-            </div>
             {empresaSwitcher}
             {topbarActions}
           </div>
         </header>
 
         <main className="main-content" id="main-content">
-          <div className="page-header"><div><h1>{pageTitle}</h1><p>{pageDescription}</p></div></div>
           {children}
         </main>
       </div>

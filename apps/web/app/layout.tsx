@@ -61,8 +61,8 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (
-    <html lang="pt-BR" className={`${articulatCF.variable} ${roobertTrial.variable}`}>
-      <body className={`${articulatCF.className}`}>
+    <html lang="pt-BR" className={`${articulatCF.variable} ${roobertTrial.variable}`} suppressHydrationWarning>
+      <body className={`${articulatCF.className}`} suppressHydrationWarning>
         <AppShell>{children}</AppShell>
       </body>
     </html>
