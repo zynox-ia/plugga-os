@@ -3,7 +3,7 @@
 **CÓDIGO:** POP-OBR-001 | **VERSÃO:** 1.0  
 **PROCESSO:** Execução e Gestão de Obras  
 **ESCOPO:** Projeto → aprovação técnica → execução em campo → controle de material → segurança do trabalho  
-**USO:** Base de requisito para permissões, bloqueios e trilha de auditoria no sistema Plugga/Waze OS  
+**USO:** Base de requisito para permissões, bloqueios e trilha de auditoria no sistema plugga-os
 **STATUS:** Rascunho operacional para validação da diretoria/engenharia  
 **DATA:** 10/08/2026
 

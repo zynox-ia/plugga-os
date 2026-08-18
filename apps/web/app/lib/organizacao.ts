@@ -11,7 +11,7 @@ import {
 import type { IconName } from "../components/plugga-shell";
 
 /**
- * Organização do Plugga OS: Empresa → Departamento → Processo.
+ * Organização do plugga-os: Empresa → Departamento → Processo.
  *
  * Fonte única — a navegação lateral, o seletor de empresa e o mapa em
  * /estrutura leem daqui. Mudar um processo de departamento é mover uma linha,

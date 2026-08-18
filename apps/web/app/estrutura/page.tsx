@@ -8,7 +8,7 @@ import {
   type ProcessoStatus,
 } from "../lib/organizacao";
 
-export const metadata = { title: "Estrutura · Plugga OS" };
+export const metadata = { title: "Estrutura · plugga-os" };
 
 const STATUS: Record<ProcessoStatus, { label: string; variant: "success" | "warning" | "neutral" }> = {
   pronto: { label: "pronto", variant: "success" },

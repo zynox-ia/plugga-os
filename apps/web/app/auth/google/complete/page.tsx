@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { AuthCard } from "../../../components/auth/auth-card";
 import { GoogleComplete } from "../../../components/auth/google-complete";
 
-export const metadata: Metadata = { title: "Entrando — Plugga OS" };
+export const metadata: Metadata = { title: "Entrando — plugga-os" };
 
 /**
  * Rota NÃO pública de propósito: o middleware exige sessão válida para chegar

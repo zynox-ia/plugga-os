@@ -10,7 +10,7 @@ import { PREMISSAS_PADRAO } from "./motor-solar-bess.js";
 import type { CasoDoEstudo, ModoDoEstudo } from "./pipeline.js";
 
 /**
- * Ponte entre a fatura como o Plugga OS a guarda e a fatura como a norma a
+ * Ponte entre a fatura como o plugga-os a guarda e a fatura como a norma a
  * confere.
  *
  * A casca continua sendo dona da leitura: ela extrai o PDF, categoriza itens e

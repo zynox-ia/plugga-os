@@ -287,6 +287,7 @@ describe("auth API (e2e, in-memory stores)", () => {
 
     await request(app.getHttpServer())
       .post("/auth/reset/request")
+      .set("x-forwarded-for", "198.51.100.19")
       .send({ email: adminEmail })
       .expect(200, { ok: true });
 
@@ -300,6 +301,32 @@ describe("auth API (e2e, in-memory stores)", () => {
     await agent.get("/auth/me").expect(401);
     // New password works.
     await loginAgent(adminEmail, "a fresh admin password");
+  });
+
+  it("invalidates the previous reset link when a newer one is requested", async () => {
+    await request(app.getHttpServer())
+      .post("/auth/reset/request")
+      .set("x-forwarded-for", "198.51.100.19")
+      .send({ email: adminEmail })
+      .expect(200, { ok: true });
+    const previousToken = email.lastTokenFor("reset");
+
+    await request(app.getHttpServer())
+      .post("/auth/reset/request")
+      .set("x-forwarded-for", "198.51.100.19")
+      .send({ email: adminEmail })
+      .expect(200, { ok: true });
+    const currentToken = email.lastTokenFor("reset");
+
+    expect(currentToken).not.toBe(previousToken);
+    await request(app.getHttpServer())
+      .post("/auth/reset/confirm")
+      .send({ token: previousToken, password: "a fresh admin password" })
+      .expect(400);
+    await request(app.getHttpServer())
+      .post("/auth/reset/confirm")
+      .send({ token: currentToken, password: "a fresh admin password" })
+      .expect(200, { ok: true });
   });
 
   it("answers reset requests for unknown emails generically", async () => {

@@ -1,4 +1,4 @@
-# Plugga OS
+# plugga-os
 
 Sistema operacional interno da **Plugga / Waze Energia**, organizado como um
 monorepo pnpm + Turborepo com Next.js, NestJS e contratos TypeScript
@@ -329,7 +329,7 @@ cutover por domínio.
 
 | Documento | Descrição |
 |---|---|
-| [`docs/PRD-plugga-waze-os.md`](docs/PRD-plugga-waze-os.md) | PRD do produto |
+| [`docs/PRD-plugga-os.md`](docs/PRD-plugga-os.md) | PRD do produto |
 | [`docs/mapa-produto-mvp.md`](docs/mapa-produto-mvp.md) | Mapa resumido de telas |
 | [`docs/adr/README.md`](docs/adr/README.md) | Índice dos ADRs do Bloco A |
 | [`docs/mockup/index.html`](docs/mockup/index.html) | Mockup visual da marca Plugga |

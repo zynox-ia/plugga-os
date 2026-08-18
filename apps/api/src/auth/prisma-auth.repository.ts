@@ -124,15 +124,21 @@ export class PrismaAuthRepository extends AuthRepository {
     }
   }
 
-  async createAuthToken(data: CreateAuthTokenData): Promise<void> {
-    await this.prisma.authToken.create({
-      data: {
-        userId: data.userId,
-        type: data.type,
-        tokenHash: data.tokenHash,
-        expiresAt: data.expiresAt,
-      },
-      select: { id: true },
+  async replaceAuthToken(data: CreateAuthTokenData): Promise<void> {
+    await this.prisma.$transaction(async (tx) => {
+      // Serializes concurrent reissues for one user before replacing the pending
+      // token, so a stale reset/invite cannot survive a newer e-mail.
+      await tx.user.update({ where: { id: data.userId }, data: { updatedAt: new Date() } });
+      await tx.authToken.deleteMany({ where: { userId: data.userId, type: data.type, consumedAt: null } });
+      await tx.authToken.create({
+        data: {
+          userId: data.userId,
+          type: data.type,
+          tokenHash: data.tokenHash,
+          expiresAt: data.expiresAt,
+        },
+        select: { id: true },
+      });
     });
   }
 

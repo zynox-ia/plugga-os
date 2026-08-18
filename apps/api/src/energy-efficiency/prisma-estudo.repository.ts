@@ -241,7 +241,7 @@ export class PrismaEstudoRepository extends EstudoRepository {
         groupCode: input.contexto.grupo,
         exampleUc: input.exemploUc,
         approvedById: input.aprovadoPorId,
-        approvedByText: "Aprovado no Plugga OS",
+        approvedByText: "Aprovado no plugga-os",
         approvedAt: input.aprovadoEm,
       },
     });

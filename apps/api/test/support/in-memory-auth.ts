@@ -172,7 +172,12 @@ export class InMemoryAuthRepository extends AuthRepository {
     return this.toRecord(user);
   }
 
-  async createAuthToken(data: CreateAuthTokenData): Promise<void> {
+  async replaceAuthToken(data: CreateAuthTokenData): Promise<void> {
+    for (const [id, token] of this.store.tokens) {
+      if (token.userId === data.userId && token.type === data.type && token.consumedAt === null) {
+        this.store.tokens.delete(id);
+      }
+    }
     const id = randomUUID();
     this.store.tokens.set(id, {
       id,

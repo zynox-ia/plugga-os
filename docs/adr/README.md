@@ -1,6 +1,6 @@
-# Architecture Decision Records — Plugga/Waze OS
+# Architecture Decision Records — plugga-os
 
-Este diretório guarda os ADRs (Architecture Decision Records) do Plugga/Waze OS.
+Este diretório guarda os ADRs (Architecture Decision Records) do plugga-os.
 Um ADR registra **uma** decisão arquitetural: o contexto, a decisão tomada, as
 consequências e as alternativas consideradas. ADRs são curtos, imutáveis depois
 de aceitos e superados por um novo ADR quando a decisão muda (nunca editados para

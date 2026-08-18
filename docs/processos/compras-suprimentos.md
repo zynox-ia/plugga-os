@@ -1,9 +1,9 @@
 # Compras e Suprimentos — POP-COMP-001 v2.3
 
-O processo de compras da Plugga e da Waze, nativo no Plugga OS.
+O processo de compras da Plugga e da Waze, nativo no plugga-os.
 
 **Fonte:** `POP-COMP-001_Compras_v2_3_A4.pdf` (base) e `FLX-COMP_Fluxograma_Compras_SLA.pdf`.
-O `docs/PRD-plugga-waze-os.md` **não** é fonte de requisito aqui — é rascunho sem
+O `docs/PRD-plugga-os.md` **não** é fonte de requisito aqui — é rascunho sem
 assinatura (§21 em branco), e nada neste módulo se justifica por ele.
 
 O POP descreve o processo rodando no Bitrix24. Aqui ele é nativo: o card do funil

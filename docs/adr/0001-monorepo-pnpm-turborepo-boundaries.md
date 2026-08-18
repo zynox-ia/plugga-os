@@ -7,7 +7,7 @@
 
 ## Contexto
 
-O Plugga/Waze OS é um web app (Next.js) + API (NestJS) que compartilham contratos
+O plugga-os é um web app (Next.js) + API (NestJS) que compartilham contratos
 (DTOs, enums, nomes de evento) e precisam de tooling único (TypeScript, lint,
 testes, CI). O PRD (§13, §14) e o diagnóstico (§7) pedem um produto navegável cedo,
 com contratos claros para agentes e integrações, e "preferir menos módulos bem

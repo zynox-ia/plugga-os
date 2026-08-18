@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 
-export const metadata: Metadata = { title: "Privacidade — Plugga OS" };
+import { PublicLegalLayout } from "../components/public-legal-layout";
+
+export const metadata: Metadata = { title: "Privacidade — plugga-os" };
 
 /**
  * Página pública de privacidade.
@@ -12,10 +14,10 @@ export const metadata: Metadata = { title: "Privacidade — Plugga OS" };
  */
 export default function PrivacidadePage() {
   return (
-    <main className="legal-page">
-      <h1>Política de privacidade — Plugga OS</h1>
+    <PublicLegalLayout>
+      <h1>Política de privacidade — plugga-os</h1>
       <p className="legal-lead">
-        O Plugga OS é um sistema interno de uso corporativo, hospedado na
+        O plugga-os é um sistema interno de uso corporativo, hospedado na
         infraestrutura da própria empresa. Não é um serviço aberto ao público e
         não cria contas por conta própria: só entra quem já foi cadastrado ou
         convidado por um administrador.
@@ -61,8 +63,8 @@ export default function PrivacidadePage() {
       <h2>Contato</h2>
       <p>
         Dúvidas sobre estes dados devem ser encaminhadas ao administrador do
-        Plugga OS na sua empresa.
+        plugga-os na sua empresa.
       </p>
-    </main>
+    </PublicLegalLayout>
   );
 }

@@ -1,4 +1,4 @@
-# Plugga/Waze OS — Mapa do Produto (MVP palpável)
+# plugga-os — Mapa do Produto (MVP palpável)
 
 **Objetivo deste doc:** você conseguir “ver” o sistema — menu, telas, abas, botões e o que cada pessoa faz — sem código ainda.  
 **Fonte:** diagnóstico OpenClaw 05/08/2026 + blueprint CRM PluggaMob.  
@@ -10,7 +10,7 @@
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│ Plugga/Waze OS          Dilkson ▾   Notificações   Sair     │
+│ plugga-os               Dilkson ▾   Notificações   Sair     │
 ├────────────┬─────────────────────────────────────────────────┤
 │            │                                                 │
 │  Início    │   Conteúdo da tela selecionada                 │
@@ -324,4 +324,4 @@ Stream: `user.reactivated`, `settlement.ready_for_review`, `invoice.received`, e
 
 ## 8. Resumo em uma frase
 
-**Plugga/Waze OS** é um painel web com 8 áreas no menu, onde o time opera CRM EV Point, eletropostos, fechamento financeiro e OPM com kanban/fichas/aprovações — e o OpenClaw só ajuda via API, sem ser o banco da operação.
+**plugga-os** é um painel web com 8 áreas no menu, onde o time opera CRM EV Point, eletropostos, fechamento financeiro e OPM com kanban/fichas/aprovações — e o OpenClaw só ajuda via API, sem ser o banco da operação.

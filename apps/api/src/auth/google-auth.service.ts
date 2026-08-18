@@ -192,7 +192,7 @@ export class GoogleAuthService {
     }
 
     const user = await this.repository.findUserByEmail(email);
-    // Não há autocadastro: conta no Plugga OS nasce de convite, e uma conta
+    // Não há autocadastro: conta no plugga-os nasce de convite, e uma conta
     // Google válida não é permissão para existir aqui dentro.
     if (!user) {
       await this.refuse("user_not_found", email);

@@ -50,7 +50,7 @@ const roobertTrial = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "Plugga OS",
+  title: "plugga-os",
   description: "Plataforma operacional interna da Plugga.",
   icons: {
     icon: "/brand/icone-areia.svg",

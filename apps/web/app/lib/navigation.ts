@@ -111,5 +111,5 @@ export function tituloForNavId(navId: string, empresa: EmpresaId): string {
     ...EMPRESAS_POR_ID[empresa].departamentos.flatMap((d) => d.processos),
   ];
 
-  return todos.find((processo) => processo.rota === navId)?.label ?? "Plugga OS";
+  return todos.find((processo) => processo.rota === navId)?.label ?? "plugga-os";
 }

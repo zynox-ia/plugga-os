@@ -44,7 +44,7 @@ export class AuthTokenIssuer {
     linkPath: string,
   ): Promise<void> {
     const rawToken = generateOpaqueToken();
-    await this.repository.createAuthToken({
+    await this.repository.replaceAuthToken({
       userId: user.id,
       type,
       tokenHash: hashToken(rawToken),

@@ -52,8 +52,8 @@ function Icon({ name }: { name: IconName }) {
   );
 }
 
-export function ShellCard({ children, className = "", tone }: { children: ReactNode; className?: string; tone?: "accent" | "warm" }) {
-  return <article className={`shell-card${tone ? ` shell-card--${tone}` : ""} ${className}`}>{children}</article>;
+export function ShellCard({ children, className = "", tone, style }: { children: ReactNode; className?: string; tone?: "accent" | "warm"; style?: import("react").CSSProperties }) {
+  return <article className={`shell-card${tone ? ` shell-card--${tone}` : ""} ${className}`} style={style}>{children}</article>;
 }
 
 export function StatusPill({ children, variant = "neutral" }: { children: ReactNode; variant?: "neutral" | "success" | "warning" | "danger" }) {
@@ -184,14 +184,53 @@ export function PluggaShell({
             );
           })}
         </nav>
+
+        {/* Credits Gauge Widget (inspired by reference UI) */}
+        <div className="sidebar-credits-card">
+          <div className="credits-gauge-header">
+            <div className="credits-ring">
+              <div className="credits-ring-inner">70%</div>
+            </div>
+            <div className="credits-info">
+              <strong>2.800 créditos</strong>
+              <span>Limite mensal de IA</span>
+            </div>
+          </div>
+          <button className="credits-buy-btn" type="button">
+            Comprar tokens
+          </button>
+        </div>
+
         {sidebarFooter}
       </aside>
 
       <div className="shell-main">
         <header className="topbar">
           <button className="menu-toggle" type="button" aria-expanded={mobileNavOpen} aria-controls="main-navigation" onClick={() => setMobileNavOpen((open) => !open)}><span className="sr-only">Abrir navegação</span><span aria-hidden="true">☰</span></button>
-          <div className="topbar-context"><span className="context-kicker">Plugga OS</span><span className="context-divider" aria-hidden="true">/</span><span className="context-page">{pageTitle}</span></div>
-          <div className="topbar-actions">{empresaSwitcher}{topbarActions}</div>
+
+          <div className="topbar-context">
+            <span className="context-kicker">plugga-os</span>
+            <span className="context-divider" aria-hidden="true">/</span>
+            <span className="context-page">{pageTitle}</span>
+          </div>
+
+          <div className="topbar-search">
+            <svg className="topbar-search-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+            <input type="text" placeholder="Buscar no sistema..." aria-label="Buscar no sistema" />
+            <kbd className="topbar-search-kbd">⌘K</kbd>
+          </div>
+
+          <div className="topbar-actions">
+            <div className="topbar-sync-tag">
+              <span className="status-dot" aria-hidden="true" />
+              <span>Última sinc: <strong>há 6s</strong></span>
+            </div>
+            {empresaSwitcher}
+            {topbarActions}
+          </div>
         </header>
 
         <main className="main-content" id="main-content">

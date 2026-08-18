@@ -233,7 +233,7 @@ export class OpenRouterGateway {
           // Atribuição na OpenRouter: é assim que o painel deles separa o
           // consumo por aplicação, e bate com o nosso relatório.
           "http-referer": process.env.OPENROUTER_APP_URL || "https://os.plugga.app.br",
-          "x-title": "Plugga OS",
+          "x-title": "plugga-os",
         },
         body: JSON.stringify(corpo),
       });

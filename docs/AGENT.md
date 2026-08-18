@@ -1,4 +1,4 @@
-# Agent guide — Plugga OS
+# Agent guide — plugga-os
 
 This guide is the operating contract for humans and coding agents contributing to
 the repository. Read the accepted [ADRs](adr/README.md) before changing platform

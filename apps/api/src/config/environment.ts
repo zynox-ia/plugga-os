@@ -52,8 +52,8 @@ export const environmentSchema = z
     // per-IP throttle on /auth/* silently collapses into one global bucket.
     // Trusting a hop must therefore be an explicit, deliberate choice.
     // Accepts express values: "loopback", a hop count ("1"), an IP/CIDR, or
-    // "false"/"true". "true" trusts any caller's self-reported chain — it makes
-    // X-Forwarded-For client-controlled again, so it warns loudly at boot.
+    // "false"/"true". "true" trusts any caller's self-reported chain and is
+    // rejected at boot in production; use an explicit hop count or CIDR there.
     TRUST_PROXY: z.string().trim().min(1).default("loopback"),
     LOG_LEVEL: z.enum(["debug", "info", "warn", "error", "silent"]).default("info"),
     // Signs the session cookie (integrity, defense in depth over the opaque
@@ -66,7 +66,7 @@ export const environmentSchema = z
     // Sender identity for the brevo adapter. Local placeholder in .env.example;
     // a verified sender is required on the client's Brevo account.
     EMAIL_FROM_ADDRESS: z.string().trim().min(1).default("no-reply@plugga.local"),
-    EMAIL_FROM_NAME: z.string().trim().min(1).default("Plugga OS"),
+    EMAIL_FROM_NAME: z.string().trim().min(1).default("plugga-os"),
     // Brevo (client account) transactional API. Key lives only in the
     // environment/secret, never in git; required when EMAIL_PROVIDER=brevo.
     BREVO_API_KEY: z.string().trim().min(1).optional(),

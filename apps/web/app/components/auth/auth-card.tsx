@@ -15,11 +15,13 @@ export function AuthCard({
   description,
   children,
   footer,
+  variant = "split",
 }: {
   title?: string;
   description?: string;
   children: ReactNode;
   footer?: ReactNode;
+  variant?: "split" | "single";
 }) {
   const [phraseIndex, setPhraseIndex] = useState(0);
   const [displayText, setDisplayText] = useState("");
@@ -57,7 +59,6 @@ export function AuthCard({
 
   return (
     <div className="auth-root">
-      {/* Spline 3D Luminosity Layer */}
       <div className="spline-container">
         <iframe
           src="https://my.spline.design/bganimation-xIKR0ZTWWoifZLAKROH7y9YL"
@@ -65,11 +66,13 @@ export function AuthCard({
           width="100%"
           height="100%"
           id="aura-spline"
+          sandbox="allow-scripts"
+          referrerPolicy="no-referrer"
           title="Spline 3D Background Animation"
         />
       </div>
 
-      <div className="auth-frame">
+      <div className={`auth-frame${variant === "single" ? " auth-frame--single" : ""}`}>
         {/* Left Form Panel */}
         <div className="auth-panel-left">
           <div className="auth-brand-header">
@@ -78,11 +81,11 @@ export function AuthCard({
           {title ? <h1 className="auth-form-title">{title}</h1> : null}
           {description ? <p className="auth-form-subtitle">{description}</p> : null}
           {children}
-          {footer ? <div className="auth-pill-options" style={{ marginTop: 16 }}>{footer}</div> : null}
+          {footer ? <div className={variant === "single" ? "auth-card-footer" : "auth-pill-options"}>{footer}</div> : null}
         </div>
 
-        {/* Right Glassmorphism Showcase Panel */}
-        <div className="auth-panel-right">
+        {variant === "split" ? (
+          <div className="auth-panel-right">
           <div className="auth-hero-content">
             <h2 className="auth-hero-title">
               Gestão Operacional. <br />
@@ -97,7 +100,7 @@ export function AuthCard({
               {/* Card 1: Main Balance / Status */}
               <div className="auth-glass-card auth-glass-card--main">
                 <div className="auth-glass-card-header">
-                  <span className="auth-glass-badge">Plugga OS • Sistema Ativo</span>
+                  <span className="auth-glass-badge">plugga-os • Sistema Ativo</span>
                   <div className="auth-glass-status-dot" />
                 </div>
                 <div className="auth-glass-card-body">
@@ -143,7 +146,8 @@ export function AuthCard({
               <span>Agentes IA</span>
             </div>
           </div>
-        </div>
+          </div>
+        ) : null}
       </div>
     </div>
   );

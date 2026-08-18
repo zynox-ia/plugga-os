@@ -99,7 +99,7 @@ describe("google login API (e2e, in-memory stores)", () => {
       access: access({ platformRoles: ["admin"] }),
     });
     // Convite emitido antes; depois do login Google ele não pode mais valer.
-    await new InMemoryAuthRepository(harness.store).createAuthToken({
+    await new InMemoryAuthRepository(harness.store).replaceAuthToken({
       userId: user.id,
       type: "invite",
       tokenHash: hashToken("raw-invite-token"),

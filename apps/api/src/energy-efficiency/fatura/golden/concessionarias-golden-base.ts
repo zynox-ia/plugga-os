@@ -1,8 +1,8 @@
 /**
- * Base TypeScript de golden cases para Plugga OS — auditoria energetica.
+ * Base TypeScript de golden cases para plugga-os — auditoria energetica.
  * Gerado a partir da skill estudo-eficiencia-energetica/casos/*_conciliada.json.
  *
- * Intencao: servir como ponte para testes do Plugga OS.
+ * Intencao: servir como ponte para testes do plugga-os.
  * Nao cria parser por concessionaria; preserva a arquitetura recomendada:
  * leitor generico -> FaturaNormativa -> Trava 1 -> motor unico.
  */

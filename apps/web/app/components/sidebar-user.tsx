@@ -21,8 +21,9 @@ export function SidebarUser() {
 
   return (
     <div className="sidebar-user">
-      <span className="sidebar-user-avatar" aria-hidden="true">
+      <span className="sidebar-user-avatar" aria-hidden="true" style={{ position: "relative" }}>
         {usuario ? iniciais(usuario.name) : "·"}
+        <span className="status-dot" style={{ position: "absolute", right: -1, bottom: -1, border: "2px solid #0d101a" }} />
       </span>
       <span className="sidebar-user-info">
         <strong>{usuario?.name ?? "Carregando…"}</strong>

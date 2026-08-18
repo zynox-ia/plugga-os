@@ -1,22 +1,12 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import { apiBaseUrl } from "./app/lib/env";
+import { shouldBypassSessionCheck } from "./app/lib/public-paths";
 
 // Mesma folga de auth-proxy.ts e do FETCH_TIMEOUT_TUNEL_MS de app/lib/api.ts:
 // validar a sessão atravessa o túnel SSH (~2 s de base), e 5 s expulsava
 // usuário logado para /login em qualquer pico de latência.
 const FETCH_TIMEOUT_MS = 15_000;
-
-// `/privacidade` é público por exigência do Google: a tela de consentimento do
-// OAuth Client aponta para ela, e o revisor do Google precisa abri-la sem
-// login. `/auth/google/complete` NÃO entra aqui de propósito — ela só faz
-// sentido depois que o callback já emitiu a sessão, e deixá-la pública seria
-// uma tela alcançável por quem não autenticou.
-const PUBLIC_PATHS = ["/login", "/auth/accept-invite", "/auth/reset", "/privacidade"];
-
-function isPublicPath(pathname: string): boolean {
-  return PUBLIC_PATHS.some((path) => pathname === path);
-}
 
 /**
  * Builds a same-origin redirect target from request.nextUrl. Do not fall back
@@ -59,13 +49,18 @@ async function hasValidSession(request: NextRequest): Promise<boolean> {
  */
 export async function middleware(request: NextRequest): Promise<NextResponse> {
   const { pathname } = request.nextUrl;
+
+  // A página de login é a única pública que depende da sessão, para evitar
+  // mostrar o formulário a quem já está autenticado. As demais não devem
+  // atravessar a API só para abrir um link, convite, reset ou documento legal.
+  if (shouldBypassSessionCheck(pathname)) {
+    return NextResponse.next();
+  }
+
   const authenticated = await hasValidSession(request);
 
-  if (isPublicPath(pathname)) {
-    if (pathname === "/login" && authenticated) {
-      return NextResponse.redirect(redirectTo(request, "/"));
-    }
-    return NextResponse.next();
+  if (pathname === "/login") {
+    return authenticated ? NextResponse.redirect(redirectTo(request, "/")) : NextResponse.next();
   }
 
   if (!authenticated) {

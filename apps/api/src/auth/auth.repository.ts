@@ -112,7 +112,8 @@ export abstract class AuthRepository {
   abstract deleteSessionByTokenHash(tokenHash: string): Promise<void>;
   abstract deleteSessionsForUser(userId: string): Promise<void>;
   abstract createInvitedUser(data: CreateInvitedUserData): Promise<AuthUserRecord>;
-  abstract createAuthToken(data: CreateAuthTokenData): Promise<void>;
+  /** Replaces every pending token of the same type for the same user atomically. */
+  abstract replaceAuthToken(data: CreateAuthTokenData): Promise<void>;
   abstract findValidToken(
     tokenHash: string,
     type: AuthTokenType,

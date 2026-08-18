@@ -13,7 +13,7 @@ export interface RenderedEmail {
   text: string;
 }
 
-const SENDER_LABEL = "Plugga OS";
+const SENDER_LABEL = "plugga-os";
 
 /**
  * Renders the PT-BR invite/reset email from the port's variables. The link
@@ -35,7 +35,7 @@ export function renderTemplate(email: TransactionalEmail): RenderedEmail {
 function renderInvite(name: string, link: string, expiry: string): RenderedEmail {
   const subject = `Convite para acessar o ${SENDER_LABEL}`;
   const intro =
-    "Você foi convidado(a) para acessar o Plugga OS. Para definir sua senha e ativar o acesso, use o link abaixo.";
+    "Você foi convidado(a) para acessar o plugga-os. Para definir sua senha e ativar o acesso, use o link abaixo.";
   const cta = "Definir minha senha";
   const validity = `Este convite é válido por ${expiry} e só pode ser usado uma vez.`;
 
@@ -49,7 +49,7 @@ function renderInvite(name: string, link: string, expiry: string): RenderedEmail
 function renderReset(name: string, link: string, expiry: string): RenderedEmail {
   const subject = `Redefinição de senha — ${SENDER_LABEL}`;
   const intro =
-    "Recebemos um pedido para redefinir a senha da sua conta no Plugga OS. Se foi você, use o link abaixo para escolher uma nova senha.";
+    "Recebemos um pedido para redefinir a senha da sua conta no plugga-os. Se foi você, use o link abaixo para escolher uma nova senha.";
   const cta = "Redefinir minha senha";
   const validity = `Este link é válido por ${expiry} e só pode ser usado uma vez. Se você não fez este pedido, ignore este e-mail — sua senha atual continua válida.`;
 

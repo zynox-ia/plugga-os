@@ -33,6 +33,11 @@ export function configureApp(app: NestExpressApplication): void {
   const config = app.get(ConfigService);
   const sessionSecret = config.getOrThrow<string>("AUTH_SESSION_SECRET");
   const trustProxy = resolveTrustProxy(config.get<string>("TRUST_PROXY", "loopback"));
+  const nodeEnv = config.get<string>("NODE_ENV", "development");
+
+  if (trustProxy === true && nodeEnv === "production") {
+    throw new Error("TRUST_PROXY=true is forbidden in production; use an explicit hop count or CIDR.");
+  }
 
   if (trustProxy === true) {
     new Logger("configureApp").warn(

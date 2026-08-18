@@ -14,7 +14,7 @@ permanente** — o que perpetuaria dependência, dual-write e um segundo SoT. A
 decisão de produto é explícita:
 
 > **Bitrix é um Migrador temporário, não uma integração eterna.** O destino é o
-> dado viver **só no Plugga OS**. Sem dual-write eterno.
+> dado viver **só no plugga-os**. Sem dual-write eterno.
 
 A fundação já sustenta isso: `integrations.mode ∈ {mock, read_only, bridge, write}`
 existe no schema (ADR-0003), o registro `bitrix` está semeado em `mode = mock`, e o
@@ -42,7 +42,7 @@ stateDiagram-v2
   os_sot --> adapter_off: desliga o pipeline Bitrix do domínio
   adapter_off --> [*]
   note right of adapter_off
-    Destino por domínio: dado vive só no Plugga OS.
+    Destino por domínio: dado vive só no plugga-os.
     Adapter desligado. Sem dual-write eterno.
   end note
 ```
@@ -53,7 +53,7 @@ stateDiagram-v2
 - **`bridge` é opcional e curto** — janela de operação em paralelo para validar o
   espelho antes do cutover, não um estado de repouso. Um domínio pode ir de
   `read_only` direto a OS-SoT se não precisar de paralelo.
-- `os_sot` = o Plugga OS é a fonte de verdade daquele domínio. `adapter_off` = o
+- `os_sot` = o plugga-os é a fonte de verdade daquele domínio. `adapter_off` = o
   pipeline Bitrix daquele domínio é desligado. A partir daí não há leitura nem
   escrita Bitrix para o domínio.
 

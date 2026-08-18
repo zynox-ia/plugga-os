@@ -20,10 +20,9 @@ import { SessionUserProvider, useSessionUser } from "../lib/use-session-user";
 /**
  * Rotas que renderizam sozinhas, sem barra lateral, topo nem `SessionUserProvider`.
  *
- * As de auth estão aqui porque a sessão ainda não existe. `/privacidade` está
- * porque quem a abre pode ser o revisor do Google, sem conta nenhuma — e dentro
- * do shell ela ganharia um segundo `<h1>` e uma chamada a `/auth/me` que
- * ninguém pediu. `/auth/google/complete` está porque some em milissegundos:
+ * As de auth estão aqui porque a sessão ainda não existe. As páginas legais
+ * ficam fora do shell porque são abertas sem conta. `/auth/google/complete`
+ * está porque some em milissegundos:
  * montar a aplicação inteira para depois trocar de página é um flash de chrome
  * que a pessoa vê e não entende.
  */
@@ -33,6 +32,7 @@ const PUBLIC_AUTH_PATHS = [
   "/auth/reset",
   "/auth/google/complete",
   "/privacidade",
+  "/termos",
 ];
 
 function ShellWithEmpresa({ children }: { children: ReactNode }) {
