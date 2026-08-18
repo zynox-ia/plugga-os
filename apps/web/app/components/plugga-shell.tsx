@@ -98,10 +98,8 @@ export function PluggaShell({
     setMounted(true);
   }, []);
 
-  // Departamentos fecham por padrão: só o que o usuário abrir (ou o que
-  // contém a rota atual) fica visível. `closedGroups` guarda quem já foi
-  // aberto manualmente e é lido ao contrário no `isOpen` abaixo.
-  const [openedGroups, setOpenedGroups] = useState<Set<string>>(new Set());
+  // Apenas um departamento fica aberto por vez (comportamento sanfona / accordion único).
+  const [openedGroupId, setOpenedGroupId] = useState<string | null>(null);
 
   useEffect(() => {
     setActiveView(activeId);
@@ -116,21 +114,25 @@ export function PluggaShell({
   const isCollapsed = mounted && sidebarCollapsed;
   const navGroups = navigation;
 
-  // Departamentos fecham por padrão: a barra lateral começa enxuta, e o
-  // usuário abre o que precisa. O departamento da rota atual nunca fica
-  // fechado — senão o item ativo some da tela.
-  const isOpen = (group: ShellNavGroup) =>
-    !group.collapsible ||
-    openedGroups.has(group.id) ||
-    group.items.some((item) => item.id === activeView);
+  // Se o usuário interagiu abrindo um departamento, exibe somente ele.
+  // Caso contrário, abre automaticamente o departamento que contém a rota ativa.
+  const isOpen = (group: ShellNavGroup) => {
+    if (!group.collapsible) return true;
+    if (openedGroupId !== null) {
+      return openedGroupId === group.id;
+    }
+    return group.items.some((item) => item.id === activeView);
+  };
 
-  const toggleGroup = (id: string) =>
-    setOpenedGroups((atual) => {
-      const proximo = new Set(atual);
-      if (proximo.has(id)) proximo.delete(id);
-      else proximo.add(id);
-      return proximo;
+  const toggleGroup = (id: string) => {
+    setOpenedGroupId((atual) => {
+      const grupoClicado = navGroups.find((g) => g.id === id);
+      const estaAberto =
+        atual === id || (atual === null && grupoClicado?.items.some((item) => item.id === activeView));
+
+      return estaAberto ? "" : id;
     });
+  };
 
   return (
     <div className={`app-shell${isCollapsed ? " app-shell--collapsed" : ""}`} suppressHydrationWarning>
