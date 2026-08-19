@@ -13,8 +13,6 @@ import { useSessionUser } from "../lib/use-session-user";
 export function UserMenu() {
   const router = useRouter();
   const [aberto, setAberto] = useState(false);
-  const [saindo, setSaindo] = useState(false);
-  const [confirmandoSaida, setConfirmandoSaida] = useState(false);
   const { usuario } = useSessionUser();
   const container = useRef<HTMLDivElement>(null);
 
@@ -39,7 +37,6 @@ export function UserMenu() {
   }, [aberto]);
 
   async function sair() {
-    setSaindo(true);
     try {
       await fetch("/api/auth/logout", { method: "POST" });
     } catch {
@@ -51,7 +48,6 @@ export function UserMenu() {
 
   function fecharMenu() {
     setAberto(false);
-    setConfirmandoSaida(false);
   }
 
   function alternarMenu() {
