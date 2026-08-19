@@ -5,52 +5,55 @@ import localFont from "next/font/local";
 import "./globals.css";
 import { AppShell } from "./components/app-shell";
 
-const articulatCF = localFont({
+const generalSans = localFont({
   src: [
     {
-      path: "../public/fonts/ArticulatCF-Normal.otf",
+      path: "../public/fonts/GeneralSans-Regular.woff2",
       weight: "400",
       style: "normal",
     },
     {
-      path: "../public/fonts/ArticulatCF-Medium.otf",
-      weight: "500",
-      style: "normal",
-    },
-    {
-      path: "../public/fonts/ArticulatCF-Bold.otf",
-      weight: "700",
-      style: "normal",
-    },
-  ],
-  variable: "--font-articulat",
-  display: "swap",
-});
-
-const roobertTrial = localFont({
-  src: [
-    {
-      path: "../public/fonts/RoobertTRIAL-Regular-BF67243fd53fdf2.otf",
+      path: "../public/fonts/GeneralSans-Italic.woff2",
       weight: "400",
-      style: "normal",
+      style: "italic",
     },
     {
-      path: "../public/fonts/RoobertTRIAL-Medium-BF67243fd53e059.otf",
+      path: "../public/fonts/GeneralSans-Medium.woff2",
       weight: "500",
       style: "normal",
     },
     {
-      path: "../public/fonts/RoobertTRIAL-Bold-BF67243fd540abb.otf",
+      path: "../public/fonts/GeneralSans-MediumItalic.woff2",
+      weight: "500",
+      style: "italic",
+    },
+    {
+      path: "../public/fonts/GeneralSans-Semibold.woff2",
+      weight: "600",
+      style: "normal",
+    },
+    {
+      path: "../public/fonts/GeneralSans-SemiboldItalic.woff2",
+      weight: "600",
+      style: "italic",
+    },
+    {
+      path: "../public/fonts/GeneralSans-Bold.woff2",
       weight: "700",
       style: "normal",
     },
+    {
+      path: "../public/fonts/GeneralSans-BoldItalic.woff2",
+      weight: "700",
+      style: "italic",
+    },
   ],
-  variable: "--font-roobert",
+  variable: "--font-general-sans",
   display: "swap",
 });
 
 export const metadata: Metadata = {
-  title: "plugga-os",
+  title: "Plugga",
   description: "Plataforma operacional interna da Plugga.",
   icons: {
     icon: "/brand/icone-areia.svg",
@@ -61,8 +64,8 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (
-    <html lang="pt-BR" className={`${articulatCF.variable} ${roobertTrial.variable}`} suppressHydrationWarning>
-      <body className={`${articulatCF.className}`} suppressHydrationWarning>
+    <html lang="pt-BR" className={`${generalSans.variable}`} suppressHydrationWarning>
+      <body className={`${generalSans.className}`} suppressHydrationWarning>
         <AppShell>{children}</AppShell>
       </body>
     </html>

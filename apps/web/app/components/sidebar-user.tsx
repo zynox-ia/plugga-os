@@ -29,9 +29,8 @@ export function SidebarUser() {
 
   return (
     <div className="sidebar-user" suppressHydrationWarning>
-      <span className="sidebar-user-avatar" aria-hidden="true" style={{ position: "relative" }} suppressHydrationWarning>
+      <span className="sidebar-user-avatar" aria-hidden="true" suppressHydrationWarning>
         {exibeUsuario ? iniciais(exibeUsuario.name) : "·"}
-        <span className="status-dot" style={{ position: "absolute", right: -1, bottom: -1, border: "2px solid #0d101a" }} />
       </span>
       <span className="sidebar-user-info" suppressHydrationWarning>
         <strong suppressHydrationWarning>{exibeUsuario?.name ?? "Carregando…"}</strong>

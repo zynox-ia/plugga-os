@@ -29,13 +29,10 @@ export function EmpresaSwitcher({
 
   if (empresas.length === 1) {
     const unica = empresas[0]!;
-    const { nome, sigla } = EMPRESAS_POR_ID[unica];
+    const { nome } = EMPRESAS_POR_ID[unica];
     return (
       <div className="empresa-switcher empresa-switcher--unica">
         <span className="empresa-option empresa-option--active" title={nome}>
-          <span className="empresa-sigla" aria-hidden="true">
-            {sigla}
-          </span>
           <span className="empresa-nome">{nome}</span>
         </span>
       </div>
@@ -45,7 +42,7 @@ export function EmpresaSwitcher({
   return (
     <div className="empresa-switcher" role="group" aria-label="Empresa ativa">
       {empresas.map((id) => {
-        const { nome, sigla } = EMPRESAS_POR_ID[id];
+        const { nome } = EMPRESAS_POR_ID[id];
         const ativa = id === empresa;
 
         return (
@@ -57,7 +54,6 @@ export function EmpresaSwitcher({
             aria-pressed={ativa}
             title={nome}
           >
-            <span className="empresa-sigla" aria-hidden="true">{sigla}</span>
             <span className="empresa-nome">{nome}</span>
           </button>
         );

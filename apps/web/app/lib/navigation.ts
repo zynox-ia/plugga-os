@@ -66,7 +66,12 @@ export function navGroupsForEmpresa(
       label: "Ferramentas",
       items: FERRAMENTAS.map((processo) => ({
         ...navItem(processo, "ferramenta"),
-        icon: "briefcase" as const,
+        icon:
+          processo.rota === "/documentos"
+            ? ("document" as const)
+            : processo.rota === "/agentes-ia"
+            ? ("bolt" as const)
+            : ("chart" as const),
       })),
     },
   ];

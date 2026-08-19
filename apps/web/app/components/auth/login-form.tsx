@@ -63,7 +63,7 @@ export function LoginForm({
     <div className="auth-form-container">
       <h1 className="auth-form-title">Acessar a plataforma</h1>
       <p className="auth-form-subtitle">
-        Digite seus dados para gerenciar sua operação no plugga-os.
+        Digite seus dados para gerenciar a sua operação
       </p>
 
       <form className="auth-form-fields" method="post" onSubmit={handleSubmit}>

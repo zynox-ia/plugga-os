@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
-import { UnicornBackground } from "../unicorn-background";
+import { SplineBackground } from "../spline-background";
 
 const TYPING_PHRASES = [
   "Inteligente. Unificada.",
@@ -60,13 +60,13 @@ export function AuthCard({
 
   return (
     <div className="auth-root">
-      <UnicornBackground />
+      <SplineBackground />
 
       <div className={`auth-frame${variant === "single" ? " auth-frame--single" : ""}`}>
         {/* Left Form Panel */}
         <div className="auth-panel-left">
           <div className="auth-brand-header">
-            <img src="/brand/icone-verde.svg" alt="Plugga" className="auth-brand-logo" />
+            <img src="/brand/icone-azul.svg" alt="Plugga" className="auth-brand-logo" />
           </div>
           {title ? <h1 className="auth-form-title">{title}</h1> : null}
           {description ? <p className="auth-form-subtitle">{description}</p> : null}

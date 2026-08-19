@@ -1,6 +1,13 @@
 import type { FaturaNormativa, ItemDaFatura } from "@plugga/shared";
 
 import { arredondar, somarComoOOraculo } from "./aritmetica.js";
+// 🔒 SEGURANÇA [VULN-1]: `escapar` neutraliza HTML antes de qualquer campo de
+// identidade (nome de cliente, apelido, classe, distribuidora, localidade,
+// leituras) entrar no relatório — esses campos vêm de dado de negócio digitado
+// por um usuário `comercial`/`opm` (Client.name, InvoiceContext.*), nunca de
+// constante do sistema, e o gerador (`relatorio-literal.ts`) faz substituição
+// textual literal no HTML sem nenhum encoding próprio (CWE-79).
+import { escapar } from "../documento/formato.js";
 import { comSeisCasas, comTresCasas, comUmaCasa, compacto, fint, fmt } from "./formato.js";
 import {
   alturaDaBarra,
@@ -277,18 +284,25 @@ export function montarCasoDoRelatorio(
     sub(achado[0], para);
   };
 
-  const clienteMaiusculo = fat.cliente.toUpperCase();
-  const nomeDaAnalise = fat.nomeAnalise ?? fat.cliente;
-  sub("Energética — Serra Verde", `Energética — ${fat.apelido}`);
+  // 🔒 SEGURANÇA [VULN-1]: cliente, apelido, classe, distribuidora e localidade
+  // são texto de negócio (Client.name / InvoiceContext, editáveis por usuários
+  // `comercial`/`opm` via tela) que vira HTML servido a QUALQUER papel com
+  // LER_ESTUDO (inclusive diretoria/admin) em /document e /document.pdf —
+  // sem este escape, um nome de cliente como "Acme<script>...</script>" executa
+  // no navegador de quem abrir o relatório (CWE-79, stored XSS). `escapar()` já
+  // existia neste módulo mas nunca era chamada aqui.
+  const clienteMaiusculo = escapar(fat.cliente.toUpperCase());
+  const nomeDaAnalise = escapar(fat.nomeAnalise ?? fat.cliente);
+  sub("Energética — Serra Verde", `Energética — ${escapar(fat.apelido ?? "")}`);
   sub("AGROINDUSTRIAL SERRA VERDE LTDA", clienteMaiusculo);
   sub("Agroindustrial Serra Verde", nomeDaAnalise);
   sub("0188872-2", String(fat.uc));
-  sub("Agroindustrial / rural", fat.classeDisplay!);
+  sub("Agroindustrial / rural", escapar(fat.classeDisplay!));
   if (fat.distribuidoraDisplay && fat.distribuidoraDisplay !== "Roraima Energia S.A.") {
-    sub("Roraima Energia S.A.", fat.distribuidoraDisplay);
+    sub("Roraima Energia S.A.", escapar(fat.distribuidoraDisplay));
   }
   if (fat.localidade && fat.localidade !== "Boa Vista/RR") {
-    sub("Boa Vista/RR", fat.localidade);
+    sub("Boa Vista/RR", escapar(fat.localidade));
   }
 
   if (peak) {
@@ -326,8 +340,12 @@ export function montarCasoDoRelatorio(
 
   sub("06/2025", fat.referencia);
   sub("21/07/2025", fat.vencimento);
-  sub("31/05/2025", fat.leituraAnterior!);
-  sub("30/06/2025", fat.leituraAtual!);
+  // 🔒 SEGURANÇA [VULN-1]: leituraAnterior/leituraAtual são texto livre
+  // (InvoiceContext.leituraAnterior/Atual: z.string(), sem validação de
+  // formato de data) digitado por quem confere a fatura na tela — mesmo risco
+  // dos campos de identidade acima.
+  sub("31/05/2025", escapar(fat.leituraAnterior!));
+  sub("30/06/2025", escapar(fat.leituraAtual!));
   sub("R$ 291.154,80", `R$ ${fmt(TOTAL)}`);
   sub("548.413 kWh", `${fint(CONS)} kWh`);
 
