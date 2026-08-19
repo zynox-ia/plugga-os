@@ -90,8 +90,6 @@ export default function DesignSystemPage() {
   const [copiedHex, setCopiedHex] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"colors" | "typography" | "components" | "layout">("colors");
   const [inputVal, setInputVal] = useState("Exemplo de busca no sistema");
-  const [toggleActive, setToggleActive] = useState(true);
-  const [selectedRadio, setSelectedRadio] = useState("opt1");
 
   const copyToClipboard = (hex: string) => {
     navigator.clipboard.writeText(hex);

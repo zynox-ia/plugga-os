@@ -6,6 +6,7 @@ import {
   ServiceUnavailableException,
   UseGuards,
 } from "@nestjs/common";
+import { ThrottlerGuard } from "@nestjs/throttler";
 import type { TriggerBitrixImportResponse } from "@plugga/shared";
 
 import { CurrentPrincipal } from "../../core/auth/current-principal.decorator";
@@ -27,7 +28,7 @@ import {
  * 409/503 here are synchronous feedback for the HTTP caller, not the guarantee.
  */
 @Controller("integrations/bitrix")
-@UseGuards(DevAuthGuard, RolesGuard, OriginCheckGuard)
+@UseGuards(DevAuthGuard, RolesGuard, OriginCheckGuard, ThrottlerGuard)
 export class BitrixController {
   constructor(
     @Inject(BitrixImportService) private readonly importService: BitrixImportService,

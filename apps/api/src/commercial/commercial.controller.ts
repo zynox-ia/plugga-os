@@ -1,4 +1,5 @@
 import { Body, Controller, Get, HttpCode, Inject, Param, ParseUUIDPipe, Post, Query, UseGuards } from "@nestjs/common";
+import { ThrottlerGuard } from "@nestjs/throttler";
 import {
   contractListQuerySchema,
   createContractRequestSchema,
@@ -63,7 +64,7 @@ export class CommercialController {
 
   @Post("opportunities")
   @HttpCode(201)
-  @UseGuards(OriginCheckGuard)
+  @UseGuards(OriginCheckGuard, ThrottlerGuard)
   @Roles(...MUTATE_ROLES)
   createOpportunity(
     @Body(new ZodValidationPipe(createOpportunityRequestSchema)) input: CreateOpportunityRequest,
@@ -74,7 +75,7 @@ export class CommercialController {
 
   @Post("opportunities/:id/stage")
   @HttpCode(200)
-  @UseGuards(OriginCheckGuard)
+  @UseGuards(OriginCheckGuard, ThrottlerGuard)
   @Roles(...MUTATE_ROLES)
   updateOpportunityStage(
     @Param("id", ParseUUIDPipe) id: string,
@@ -86,7 +87,7 @@ export class CommercialController {
 
   @Post("opportunities/:id/contacts")
   @HttpCode(200)
-  @UseGuards(OriginCheckGuard)
+  @UseGuards(OriginCheckGuard, ThrottlerGuard)
   @Roles(...MUTATE_ROLES)
   registerOpportunityContact(
     @Param("id", ParseUUIDPipe) id: string,
@@ -98,7 +99,7 @@ export class CommercialController {
 
   @Post("opportunities/:id/win")
   @HttpCode(200)
-  @UseGuards(OriginCheckGuard)
+  @UseGuards(OriginCheckGuard, ThrottlerGuard)
   @Roles(...MUTATE_ROLES)
   winOpportunity(
     @Param("id", ParseUUIDPipe) id: string,
@@ -110,7 +111,7 @@ export class CommercialController {
 
   @Post("opportunities/:id/lose")
   @HttpCode(200)
-  @UseGuards(OriginCheckGuard)
+  @UseGuards(OriginCheckGuard, ThrottlerGuard)
   @Roles(...MUTATE_ROLES)
   loseOpportunity(
     @Param("id", ParseUUIDPipe) id: string,
@@ -122,7 +123,7 @@ export class CommercialController {
 
   @Post("opportunities/:id/revisit")
   @HttpCode(200)
-  @UseGuards(OriginCheckGuard)
+  @UseGuards(OriginCheckGuard, ThrottlerGuard)
   @Roles(...MUTATE_ROLES)
   revisitOpportunity(
     @Param("id", ParseUUIDPipe) id: string,
@@ -146,7 +147,7 @@ export class CommercialController {
 
   @Post("contracts")
   @HttpCode(201)
-  @UseGuards(OriginCheckGuard)
+  @UseGuards(OriginCheckGuard, ThrottlerGuard)
   @Roles(...MUTATE_ROLES)
   createContract(
     @Body(new ZodValidationPipe(createContractRequestSchema)) input: CreateContractRequest,
@@ -157,7 +158,7 @@ export class CommercialController {
 
   @Post("contracts/:id/status")
   @HttpCode(200)
-  @UseGuards(OriginCheckGuard)
+  @UseGuards(OriginCheckGuard, ThrottlerGuard)
   @Roles(...MUTATE_ROLES)
   updateContractStatus(
     @Param("id", ParseUUIDPipe) id: string,

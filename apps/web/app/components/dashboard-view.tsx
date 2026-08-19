@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ShellCard, StatusPill, ShellTable } from "./plugga-shell";
+import { ShellCard, ShellTable } from "./plugga-shell";
 import type { HealthCheck } from "../lib/api";
 
 type DashboardTab = "overview" | "operacoes" | "metricas" | "relatorios";
@@ -54,6 +54,7 @@ const RECENT_TRANSACTIONS = [
 ];
 
 export function DashboardView({ health }: { health: HealthCheck | null }) {
+  void health;
   const [activeTab, setActiveTab] = useState<DashboardTab>("overview");
   const [selectedDay, setSelectedDay] = useState<string>("Dom");
   const [checkedTxs, setCheckedTxs] = useState<Record<string, boolean>>({ "tx-2": true });

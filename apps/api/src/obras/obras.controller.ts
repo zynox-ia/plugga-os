@@ -13,6 +13,7 @@ import {
   UseGuards,
   UseInterceptors,
 } from "@nestjs/common";
+import { ThrottlerGuard } from "@nestjs/throttler";
 import { FileInterceptor } from "@nestjs/platform-express";
 import {
   aprovarMedicaoRequestSchema,
@@ -110,7 +111,7 @@ export class ObrasController {
 
   @Post(":id/etapas/avancar")
   @HttpCode(200)
-  @UseGuards(OriginCheckGuard)
+  @UseGuards(OriginCheckGuard, ThrottlerGuard)
   @Roles(...AVANCAR_ETAPA)
   avancarEtapa(
     @Param("id", ParseUUIDPipe) id: string,
@@ -122,7 +123,7 @@ export class ObrasController {
 
   @Post(":id/projeto/reabrir")
   @HttpCode(200)
-  @UseGuards(OriginCheckGuard)
+  @UseGuards(OriginCheckGuard, ThrottlerGuard)
   @Roles(...REABRIR_PROJETO)
   reabrirProjeto(
     @Param("id", ParseUUIDPipe) id: string,
@@ -139,7 +140,7 @@ export class ObrasController {
    */
   @Post(":id/evidencias")
   @HttpCode(201)
-  @UseGuards(OriginCheckGuard)
+  @UseGuards(OriginCheckGuard, ThrottlerGuard)
   @Roles(...REGISTRAR_EVIDENCIA)
   @UseInterceptors(FileInterceptor("arquivo", { limits: { fileSize: TAMANHO_MAXIMO } }))
   registrarEvidencia(
@@ -171,7 +172,7 @@ export class ObrasController {
 
   @Post(":id/epi")
   @HttpCode(201)
-  @UseGuards(OriginCheckGuard)
+  @UseGuards(OriginCheckGuard, ThrottlerGuard)
   @Roles(...REGISTRAR_EPI)
   registrarEpi(
     @Param("id", ParseUUIDPipe) id: string,
@@ -183,7 +184,7 @@ export class ObrasController {
 
   @Post(":id/epi/:epiId/conferir")
   @HttpCode(200)
-  @UseGuards(OriginCheckGuard)
+  @UseGuards(OriginCheckGuard, ThrottlerGuard)
   @Roles(...CONFERIR_EPI)
   conferirEpi(
     @Param("id", ParseUUIDPipe) id: string,
@@ -196,7 +197,7 @@ export class ObrasController {
 
   @Post(":id/apr")
   @HttpCode(201)
-  @UseGuards(OriginCheckGuard)
+  @UseGuards(OriginCheckGuard, ThrottlerGuard)
   @Roles(...REGISTRAR_APR)
   registrarApr(
     @Param("id", ParseUUIDPipe) id: string,
@@ -208,7 +209,7 @@ export class ObrasController {
 
   @Post(":id/apr/:aprId/assinar")
   @HttpCode(200)
-  @UseGuards(OriginCheckGuard)
+  @UseGuards(OriginCheckGuard, ThrottlerGuard)
   @Roles(...ASSINAR_APR)
   assinarApr(
     @Param("id", ParseUUIDPipe) id: string,
@@ -221,7 +222,7 @@ export class ObrasController {
 
   @Post(":id/incidentes")
   @HttpCode(201)
-  @UseGuards(OriginCheckGuard)
+  @UseGuards(OriginCheckGuard, ThrottlerGuard)
   @Roles(...REGISTRAR_INCIDENTE)
   registrarIncidente(
     @Param("id", ParseUUIDPipe) id: string,
@@ -233,7 +234,7 @@ export class ObrasController {
 
   @Post(":id/liberacoes")
   @HttpCode(201)
-  @UseGuards(OriginCheckGuard)
+  @UseGuards(OriginCheckGuard, ThrottlerGuard)
   @Roles(...REGISTRAR_LIBERACAO)
   registrarLiberacao(
     @Param("id", ParseUUIDPipe) id: string,
@@ -245,7 +246,7 @@ export class ObrasController {
 
   @Post(":id/liberacoes/:liberacaoId/revogar")
   @HttpCode(200)
-  @UseGuards(OriginCheckGuard)
+  @UseGuards(OriginCheckGuard, ThrottlerGuard)
   @Roles(...REVOGAR_LIBERACAO)
   revogarLiberacao(
     @Param("id", ParseUUIDPipe) id: string,
@@ -258,7 +259,7 @@ export class ObrasController {
 
   @Post(":id/pendencias")
   @HttpCode(201)
-  @UseGuards(OriginCheckGuard)
+  @UseGuards(OriginCheckGuard, ThrottlerGuard)
   @Roles(...REGISTRAR_PENDENCIA)
   registrarPendencia(
     @Param("id", ParseUUIDPipe) id: string,
@@ -270,7 +271,7 @@ export class ObrasController {
 
   @Post(":id/pendencias/:pendenciaId/prioridade")
   @HttpCode(200)
-  @UseGuards(OriginCheckGuard)
+  @UseGuards(OriginCheckGuard, ThrottlerGuard)
   @Roles(...CLASSIFICAR_PRIORIDADE_PENDENCIA)
   classificarPrioridadePendencia(
     @Param("id", ParseUUIDPipe) id: string,
@@ -283,7 +284,7 @@ export class ObrasController {
 
   @Post(":id/pendencias/:pendenciaId/encerrar")
   @HttpCode(200)
-  @UseGuards(OriginCheckGuard)
+  @UseGuards(OriginCheckGuard, ThrottlerGuard)
   @Roles(...ENCERRAR_PENDENCIA)
   encerrarPendencia(
     @Param("id", ParseUUIDPipe) id: string,
@@ -296,7 +297,7 @@ export class ObrasController {
 
   @Post(":id/medicoes")
   @HttpCode(201)
-  @UseGuards(OriginCheckGuard)
+  @UseGuards(OriginCheckGuard, ThrottlerGuard)
   @Roles(...LANCAR_MEDICAO)
   lancarMedicao(
     @Param("id", ParseUUIDPipe) id: string,
@@ -308,7 +309,7 @@ export class ObrasController {
 
   @Post(":id/medicoes/:medicaoId/aprovar")
   @HttpCode(200)
-  @UseGuards(OriginCheckGuard)
+  @UseGuards(OriginCheckGuard, ThrottlerGuard)
   @Roles(...APROVAR_MEDICAO)
   aprovarMedicao(
     @Param("id", ParseUUIDPipe) id: string,
@@ -321,7 +322,7 @@ export class ObrasController {
 
   @Post(":id/medicoes/:medicaoId/solicitar-correcao")
   @HttpCode(200)
-  @UseGuards(OriginCheckGuard)
+  @UseGuards(OriginCheckGuard, ThrottlerGuard)
   @Roles(...APROVAR_MEDICAO)
   solicitarCorrecaoMedicao(
     @Param("id", ParseUUIDPipe) id: string,
@@ -335,7 +336,7 @@ export class ObrasController {
   /** `multipart` opcional: o desenho pode chegar depois, mas o payload sempre precisa vir junto. */
   @Post(":id/projeto/versoes")
   @HttpCode(201)
-  @UseGuards(OriginCheckGuard)
+  @UseGuards(OriginCheckGuard, ThrottlerGuard)
   @Roles(...CRIAR_VERSAO_DE_PROJETO)
   @UseInterceptors(FileInterceptor("arquivo", { limits: { fileSize: TAMANHO_MAXIMO } }))
   criarVersaoDeProjeto(
@@ -353,7 +354,7 @@ export class ObrasController {
 
   @Post(":id/projeto/versoes/:versaoId/enviar-para-aprovacao")
   @HttpCode(200)
-  @UseGuards(OriginCheckGuard)
+  @UseGuards(OriginCheckGuard, ThrottlerGuard)
   @Roles(...CRIAR_VERSAO_DE_PROJETO)
   enviarProjetoParaAprovacao(
     @Param("id", ParseUUIDPipe) id: string,
@@ -366,7 +367,7 @@ export class ObrasController {
 
   @Post(":id/projeto/versoes/:versaoId/aprovar")
   @HttpCode(200)
-  @UseGuards(OriginCheckGuard)
+  @UseGuards(OriginCheckGuard, ThrottlerGuard)
   @Roles(...APROVAR_PROJETO)
   aprovarProjeto(
     @Param("id", ParseUUIDPipe) id: string,
@@ -379,7 +380,7 @@ export class ObrasController {
 
   @Post(":id/projeto/versoes/:versaoId/solicitar-revisao")
   @HttpCode(200)
-  @UseGuards(OriginCheckGuard)
+  @UseGuards(OriginCheckGuard, ThrottlerGuard)
   @Roles(...APROVAR_PROJETO)
   solicitarRevisaoDeProjeto(
     @Param("id", ParseUUIDPipe) id: string,
