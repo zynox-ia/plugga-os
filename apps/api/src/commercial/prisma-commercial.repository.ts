@@ -87,6 +87,14 @@ type ContractRow = {
   updatedAt: Date;
 };
 
+/**
+ * 🔒 SEGURANÇA [VULN-2, auditoria zero-trust]: teto para as duas listagens
+ * sem paginação de página deste módulo — nenhuma expõe `page`/`pageSize` na
+ * API pública hoje. Defesa contra `findMany` sem limite crescendo com a
+ * tabela inteira (CWE-770).
+ */
+const LIMITE_LISTAGEM = 500;
+
 @Injectable()
 export class PrismaCommercialRepository extends CommercialRepository {
   constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {
@@ -102,6 +110,7 @@ export class PrismaCommercialRepository extends CommercialRepository {
       },
       include: opportunityInclude,
       orderBy: [{ nextActionAt: { sort: "asc", nulls: "last" } }, { createdAt: "desc" }],
+      take: LIMITE_LISTAGEM,
     });
     return opportunityListSchema.parse({ items: rows.map((row) => this.opportunitySummary(row)) });
   }
@@ -338,6 +347,8 @@ export class PrismaCommercialRepository extends CommercialRepository {
       where: { status: query.status, clientId: query.clientId, ownerId: query.ownerId },
       include: contractInclude,
       orderBy: [{ nextActionAt: { sort: "asc", nulls: "last" } }, { updatedAt: "desc" }],
+      // 🔒 SEGURANÇA [VULN-2]
+      take: LIMITE_LISTAGEM,
     });
     return contractListSchema.parse({ items: rows.map((row) => this.contractView(row)) });
   }

@@ -69,6 +69,25 @@ const pedidoInclude = {
 
 type PedidoComRelacoes = Prisma.PedidoDeCompraGetPayload<{ include: typeof pedidoInclude }>;
 
+/**
+ * 🔒 SEGURANÇA [VULN-2, auditoria zero-trust]: teto para toda listagem sem
+ * paginação de página deste módulo — nenhuma delas expõe `page`/`pageSize`
+ * na API pública hoje, então um limite fixo é a defesa contra um `findMany`
+ * que cresce com a tabela inteira (CWE-770, negação de serviço por
+ * esgotamento de memória/CPU). 500 é folgado para o uso operacional normal
+ * (pedidos abertos, fornecedores e obras cadastrados não se acumulam sem
+ * limite pelo próprio fluxo do POP) e baixo o bastante para nunca aproximar o
+ * processo do limite de heap do Node.
+ */
+const LIMITE_LISTAGEM = 500;
+
+/**
+ * Teto maior para `scorecard`/`diagnostico`: os indicadores filtram por
+ * período em memória (ver comentário no ponto de uso), então precisam de mais
+ * margem que uma listagem simples para não sub-contar um intervalo legítimo.
+ */
+const LIMITE_INDICADOR = 5_000;
+
 function decimal(valor: Prisma.Decimal | null): string | null {
   return valor === null ? null : valor.toFixed(2);
 }
@@ -90,6 +109,13 @@ export class PrismaComprasRepository extends ComprasRepository {
       },
       include: pedidoInclude,
       orderBy: [{ etapa: "asc" }, { createdAt: "desc" }],
+      // 🔒 SEGURANÇA [VULN-2]: sem `take`, esta lista crescia com a tabela
+      // inteira — inclusive as relações de `pedidoInclude` (itens, cotações,
+      // etapas) por pedido. Qualquer usuário com LER_COMPRAS podia repetir a
+      // chamada e degradar a API (CWE-770). O teto é folgado o bastante para
+      // não afetar o uso operacional normal (a tela mostra pedidos abertos,
+      // que não se acumulam pelo próprio fluxo do POP).
+      take: LIMITE_LISTAGEM,
     });
 
     const agora = new Date();
@@ -862,6 +888,17 @@ export class PrismaComprasRepository extends ComprasRepository {
         responsavel: { select: { id: true, name: true } },
         etapas: true,
       },
+      // 🔒 SEGURANÇA [VULN-2]: o filtro de período (`de`/`ate`) é aplicado
+      // em memória pelos indicadores abaixo (`assertividadeGlobal` etc.),
+      // não no SQL — então sem `take` o volume trazido do banco cresce com o
+      // HISTÓRICO INTEIRO de pedidos da empresa, não com o período pedido.
+      // O teto aqui é maior que `LIMITE_LISTAGEM` porque o indicador soma
+      // sobre um intervalo de tempo e um teto baixo demais sub-contaria um
+      // período real e legítimo (dívida técnica: o correto é empurrar
+      // `de`/`ate` para o `where` do Prisma; registrado para revisão futura,
+      // fora do escopo desta correção de segurança).
+      take: LIMITE_INDICADOR,
+      orderBy: { createdAt: "desc" },
     });
 
     const passagens = pedidos.flatMap((pedido) => pedido.etapas);
@@ -910,6 +947,10 @@ export class PrismaComprasRepository extends ComprasRepository {
     const pedidos = await this.prisma.pedidoDeCompra.findMany({
       where: { companyId: query.companyId },
       include: { etapas: true },
+      // 🔒 SEGURANÇA [VULN-2]: mesma ressalva do `scorecard` acima — o
+      // filtro de período é aplicado em memória, não no SQL.
+      take: LIMITE_INDICADOR,
+      orderBy: { createdAt: "desc" },
     });
 
     const paraAssertividade = pedidos.map((pedido) => ({
@@ -945,6 +986,8 @@ export class PrismaComprasRepository extends ComprasRepository {
     const linhas = await this.prisma.fornecedor.findMany({
       where: { companyId },
       orderBy: [{ ativo: "desc" }, { nome: "asc" }],
+      // 🔒 SEGURANÇA [VULN-2]
+      take: LIMITE_LISTAGEM,
     });
     return {
       items: linhas.map((linha) => ({
@@ -997,6 +1040,8 @@ export class PrismaComprasRepository extends ComprasRepository {
       where: { companyId },
       include: { client: { select: { id: true, name: true } } },
       orderBy: [{ ativa: "desc" }, { nome: "asc" }],
+      // 🔒 SEGURANÇA [VULN-2]
+      take: LIMITE_LISTAGEM,
     });
     return {
       items: linhas.map((linha) => ({

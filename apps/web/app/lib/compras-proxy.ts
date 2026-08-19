@@ -2,34 +2,11 @@ import { NextResponse } from "next/server";
 
 import { apiBaseUrl } from "./env";
 import { clientForwardedFor } from "./forwarded-for";
+import { isOriginAllowed } from "./origin-check";
 
 const FETCH_TIMEOUT_MS = 5_000;
 /** Upload de orçamentos é mais lento que uma mutação comum. */
 const FETCH_TIMEOUT_UPLOAD_MS = 30_000;
-
-/**
- * Mesma defesa de CSRF dos demais proxies (`api-proxy.ts`, `commercial-proxy.ts`):
- * requisição same-origin do navegador omite `Origin`, cross-site manda — então
- * ausência passa e presença tem de bater.
- */
-function isOriginAllowed(request: Request): boolean {
-  const origin = request.headers.get("origin");
-  if (!origin) return true;
-
-  const configured = (process.env.AUTH_ALLOWED_ORIGINS ?? "")
-    .split(",")
-    .map((value) => value.trim())
-    .filter((value) => value.length > 0);
-
-  if (configured.length > 0) return configured.includes(origin);
-
-  try {
-    const hostname = new URL(origin).hostname;
-    return hostname === "localhost" || hostname === "127.0.0.1";
-  } catch {
-    return false;
-  }
-}
 
 async function relayUpstream(upstream: Response): Promise<NextResponse> {
   const text = await upstream.text();

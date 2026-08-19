@@ -2,33 +2,9 @@ import { NextResponse } from "next/server";
 
 import { apiBaseUrl } from "./env";
 import { clientForwardedFor } from "./forwarded-for";
+import { isOriginAllowed } from "./origin-check";
 
 const FETCH_TIMEOUT_MS = 5_000;
-
-/**
- * CSRF defense in depth for our own cookie-bearing proxy routes, mirroring
- * the API's OriginCheckGuard and this app's own lib/auth-proxy.ts (kept as a
- * separate copy rather than a shared import: auth is foundation-owned and
- * this module intentionally has no dependency on it).
- */
-function isOriginAllowed(request: Request): boolean {
-  const origin = request.headers.get("origin");
-  if (!origin) return true;
-
-  const configured = (process.env.AUTH_ALLOWED_ORIGINS ?? "")
-    .split(",")
-    .map((value) => value.trim())
-    .filter((value) => value.length > 0);
-
-  if (configured.length > 0) return configured.includes(origin);
-
-  try {
-    const hostname = new URL(origin).hostname;
-    return hostname === "localhost" || hostname === "127.0.0.1";
-  } catch {
-    return false;
-  }
-}
 
 /**
  * Forwards a client-side mutation to POST /commercial/* on apps/api. The API

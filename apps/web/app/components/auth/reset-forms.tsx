@@ -17,7 +17,7 @@ export function ResetRequestForm() {
 
   if (done) {
     return (
-      <p className="auth-reset-status" role="status">
+      <p className="auth-reset-status auth-success" role="status">
         Se este e-mail estiver cadastrado, enviaremos um link para redefinir a senha.
       </p>
     );
@@ -174,7 +174,7 @@ export function ResetConfirmForm({ token }: { token: string }) {
       <p className="auth-reset-hint">Mínimo de {MIN_PASSWORD_LENGTH} caracteres.</p>
 
       {error ? (
-        <p className="auth-error-msg" role="alert">
+        <p className="auth-error-msg auth-error" role="alert">
           {error}
         </p>
       ) : null}

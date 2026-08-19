@@ -362,6 +362,12 @@ export class PrismaAuthRepository extends AuthRepository {
         ...(Object.keys(membership).length > 0 ? { memberships: { some: membership } } : {}),
       },
       orderBy: { createdAt: "asc" },
+      // 🔒 SEGURANÇA [VULN-2, auditoria zero-trust]: teto de defesa contra
+      // `findMany` sem limite (CWE-770) — a API não pagina equipe hoje. 2.000
+      // é bem acima de qualquer organização real usando este sistema
+      // single-tenant (ADR-0008), então nunca deve afetar `assertNotLastAdmin`
+      // (que também usa `listTeam`) em uso legítimo.
+      take: 2_000,
       ...userWithAccess,
     });
     return users.map((user) => this.toRecord(user));

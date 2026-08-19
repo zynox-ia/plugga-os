@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { apiBaseUrl } from "./env";
 import { clientForwardedFor } from "./forwarded-for";
+import { isOriginAllowed } from "./origin-check";
 
 /**
  * Folga para a travessia até a API.
@@ -13,35 +14,6 @@ import { clientForwardedFor } from "./forwarded-for";
  * defeito onde não há.
  */
 const FETCH_TIMEOUT_MS = 15_000;
-
-/**
- * CSRF defense in depth for our own cookie-bearing proxy routes, mirroring the
- * API's OriginCheckGuard (apps/api/src/auth/origin-check.guard.ts) rather than
- * comparing against this request's own URL: Next.js can report a canonicalized
- * host (e.g. "localhost") that differs from the literal host a browser used
- * (e.g. "127.0.0.1"), so a same-origin check against request.url would reject
- * legitimate same-origin requests. Browsers always send Origin on cross-site
- * fetches; same-origin page navigations/form posts and server-to-server calls
- * (curl, tests) omit it, so absence is allowed.
- */
-function isOriginAllowed(request: Request): boolean {
-  const origin = request.headers.get("origin");
-  if (!origin) return true;
-
-  const configured = (process.env.AUTH_ALLOWED_ORIGINS ?? "")
-    .split(",")
-    .map((value) => value.trim())
-    .filter((value) => value.length > 0);
-
-  if (configured.length > 0) return configured.includes(origin);
-
-  try {
-    const hostname = new URL(origin).hostname;
-    return hostname === "localhost" || hostname === "127.0.0.1";
-  } catch {
-    return false;
-  }
-}
 
 /**
  * Forwards a request to the real POST /auth/* endpoint on apps/api, carrying the

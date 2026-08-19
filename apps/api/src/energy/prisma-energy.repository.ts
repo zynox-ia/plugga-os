@@ -106,6 +106,16 @@ type ConsumerUnitRow = {
   address: string | null;
 };
 
+/**
+ * 🔒 SEGURANÇA [VULN-2, auditoria zero-trust]: teto para toda listagem sem
+ * paginação de página deste módulo. Nenhuma delas expõe `page`/`pageSize` na
+ * API pública hoje, então um limite fixo é a defesa contra um `findMany` que
+ * cresce com a tabela inteira (CWE-770, negação de serviço por esgotamento
+ * de memória/CPU) — qualquer usuário com READ_ENERGY (que inclui `viewer`)
+ * podia repetir a chamada e degradar a API.
+ */
+const LIMITE_LISTAGEM = 500;
+
 @Injectable()
 export class PrismaEnergyRepository extends EnergyRepository {
   constructor(private readonly prisma: PrismaService) {
@@ -116,6 +126,7 @@ export class PrismaEnergyRepository extends EnergyRepository {
     const rows = await this.prisma.consumerUnit.findMany({
       include: { client: true },
       orderBy: { createdAt: "desc" },
+      take: LIMITE_LISTAGEM,
     });
     return {
       items: rows.map((row) =>
@@ -138,6 +149,7 @@ export class PrismaEnergyRepository extends EnergyRepository {
     const rows = await this.prisma.marketMigration.findMany({
       include: { client: true, consumerUnit: true, owner: true },
       orderBy: { createdAt: "desc" },
+      take: LIMITE_LISTAGEM,
     });
     return {
       items: rows.map((row) =>
@@ -173,6 +185,7 @@ export class PrismaEnergyRepository extends EnergyRepository {
       },
       include: { client: true, consumerUnit: true, owner: true },
       orderBy: [{ competenceYear: "desc" }, { competenceMonth: "desc" }],
+      take: LIMITE_LISTAGEM,
     });
     return {
       items: rows.map((row) =>
@@ -442,6 +455,11 @@ export class PrismaEnergyRepository extends EnergyRepository {
     const audits = await this.prisma.audit.findMany({
       where: { cycleId: id },
       select: { status: true, divergenceBlocksClosing: true },
+      // 🔒 SEGURANÇA [VULN-2]: já é naturalmente limitado por pertencer a um
+      // único ciclo, mas o teto é adicionado por consistência defensiva —
+      // nunca deveria ter havido milhares de auditorias por ciclo, e este
+      // limite garante que um dado corrompido não vire um `findMany` sem fim.
+      take: LIMITE_LISTAGEM,
     });
 
     assertCycleCanClose({
@@ -480,6 +498,7 @@ export class PrismaEnergyRepository extends EnergyRepository {
       },
       include: { client: true, consumerUnit: true, owner: true },
       orderBy: [{ competenceYear: "desc" }, { competenceMonth: "desc" }],
+      take: LIMITE_LISTAGEM,
     });
 
     const items = rows.map((row) =>
@@ -523,7 +542,11 @@ export class PrismaEnergyRepository extends EnergyRepository {
   }
 
   async listAudits(): Promise<ListAuditsResponse> {
-    const rows = await this.prisma.audit.findMany({ orderBy: { createdAt: "desc" } });
+    // 🔒 SEGURANÇA [VULN-2]
+    const rows = await this.prisma.audit.findMany({
+      orderBy: { createdAt: "desc" },
+      take: LIMITE_LISTAGEM,
+    });
     return { items: rows.map((row) => auditSummarySchema.parse(this.auditSummary(row))) };
   }
 
@@ -601,7 +624,11 @@ export class PrismaEnergyRepository extends EnergyRepository {
   }
 
   async listContestations(): Promise<ListContestationsResponse> {
-    const rows = await this.prisma.contestation.findMany({ orderBy: { createdAt: "desc" } });
+    // 🔒 SEGURANÇA [VULN-2]
+    const rows = await this.prisma.contestation.findMany({
+      orderBy: { createdAt: "desc" },
+      take: LIMITE_LISTAGEM,
+    });
     return { items: rows.map((row) => contestationSummarySchema.parse(this.contestationView(row))) };
   }
 

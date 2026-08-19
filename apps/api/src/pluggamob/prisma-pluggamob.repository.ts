@@ -7,6 +7,14 @@ import { PrismaService } from "../prisma/prisma.service";
 import { manausDayWindow } from "./manaus-day";
 import { PluggamobRepository, type PluggamobOverviewCounts } from "./pluggamob.repository";
 
+/**
+ * 🔒 SEGURANÇA [VULN-2, auditoria zero-trust]: teto para as listagens sem
+ * paginação de página deste módulo (fila de reativação, sessões, unidades,
+ * settlements) — nenhuma expõe `page`/`pageSize` na API pública hoje. Defesa
+ * contra `findMany` sem limite crescendo com a tabela inteira (CWE-770).
+ */
+const LIMITE_LISTAGEM = 500;
+
 @Injectable()
 export class PrismaPluggamobRepository extends PluggamobRepository {
   constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {
@@ -27,7 +35,8 @@ export class PrismaPluggamobRepository extends PluggamobRepository {
   }
 
   async reactivationQueue(): Promise<ReactivationQueue> {
-    const users = await this.prisma.evUser.findMany({ where: { optedOutAt: null }, include: { contacts: { orderBy: { createdAt: "desc" }, take: 1 } }, orderBy: [{ segment: "asc" }, { lastSessionAt: "asc" }] });
+    // 🔒 SEGURANÇA [VULN-2]
+    const users = await this.prisma.evUser.findMany({ where: { optedOutAt: null }, include: { contacts: { orderBy: { createdAt: "desc" }, take: 1 } }, orderBy: [{ segment: "asc" }, { lastSessionAt: "asc" }], take: LIMITE_LISTAGEM });
     return reactivationQueueSchema.parse({ mode: "mock", items: users.map((user) => ({ id: user.id, displayName: user.displayName, phoneMasked: user.phoneMasked, segment: user.segment, lastSessionAt: user.lastSessionAt?.toISOString() ?? null, nextActionAt: user.contacts[0]?.nextActionAt?.toISOString() ?? null, walletBalance: user.walletBalance?.toFixed(2) ?? null })) });
   }
 
@@ -60,7 +69,8 @@ export class PrismaPluggamobRepository extends PluggamobRepository {
   }
 
   async sessions(): Promise<PluggamobSessions> {
-    const rows = await this.prisma.evSession.findMany({ include: { user: true, location: true, connector: true, incidents: true }, orderBy: { startedAt: "desc" } });
+    // 🔒 SEGURANÇA [VULN-2]
+    const rows = await this.prisma.evSession.findMany({ include: { user: true, location: true, connector: true, incidents: true }, orderBy: { startedAt: "desc" }, take: LIMITE_LISTAGEM });
     return pluggamobSessionsSchema.parse({ mode: "mock", items: rows.map((row) => this.sessionView(row)) });
   }
 
@@ -71,7 +81,8 @@ export class PrismaPluggamobRepository extends PluggamobRepository {
   }
 
   async locations(): Promise<PluggamobLocations> {
-    const rows = await this.prisma.location.findMany({ include: { partner: true, stations: { include: { connectors: true } }, incidents: { where: { status: { in: ["open", "investigating", "blocked"] } } } }, orderBy: { name: "asc" } });
+    // 🔒 SEGURANÇA [VULN-2]
+    const rows = await this.prisma.location.findMany({ include: { partner: true, stations: { include: { connectors: true } }, incidents: { where: { status: { in: ["open", "investigating", "blocked"] } } } }, orderBy: { name: "asc" }, take: LIMITE_LISTAGEM });
     return pluggamobLocationsSchema.parse({ mode: "mock", items: rows.map((row) => this.locationView(row)) });
   }
 
@@ -91,7 +102,8 @@ export class PrismaPluggamobRepository extends PluggamobRepository {
   }
 
   async settlements(): Promise<Settlements> {
-    const rows = await this.prisma.settlement.findMany({ include: { partner: true, lines: true }, orderBy: { weekStart: "desc" } });
+    // 🔒 SEGURANÇA [VULN-2]
+    const rows = await this.prisma.settlement.findMany({ include: { partner: true, lines: true }, orderBy: { weekStart: "desc" }, take: LIMITE_LISTAGEM });
     return settlementsSchema.parse({ mode: "mock", items: rows.map((row) => this.settlementSummary(row)) });
   }
 

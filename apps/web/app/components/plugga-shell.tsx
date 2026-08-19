@@ -102,8 +102,7 @@ export function PluggaShell({
     setMounted(true);
   }, []);
 
-  // Apenas um departamento fica aberto por vez (comportamento sanfona / accordion único).
-  const [openedGroupId, setOpenedGroupId] = useState<string | null>(null);
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     setActiveView(activeId);
@@ -118,24 +117,22 @@ export function PluggaShell({
   const isCollapsed = mounted && sidebarCollapsed;
   const navGroups = navigation;
 
-  // Se o usuário interagiu abrindo um departamento, exibe somente ele.
-  // Caso contrário, abre automaticamente o departamento que contém a rota ativa.
   const isOpen = (group: ShellNavGroup) => {
     if (!group.collapsible) return true;
-    if (openedGroupId !== null) {
-      return openedGroupId === group.id;
+    if (group.id in openGroups) {
+      return !!openGroups[group.id];
     }
     return group.items.some((item) => item.id === activeView);
   };
 
   const toggleGroup = (id: string) => {
-    setOpenedGroupId((atual) => {
-      const grupoClicado = navGroups.find((g) => g.id === id);
-      const estaAberto =
-        atual === id || (atual === null && grupoClicado?.items.some((item) => item.id === activeView));
-
-      return estaAberto ? "" : id;
-    });
+    const group = navGroups.find((g) => g.id === id);
+    if (!group) return;
+    const atualmenteAberto = isOpen(group);
+    setOpenGroups((prev) => ({
+      ...prev,
+      [id]: !atualmenteAberto,
+    }));
   };
 
   const mainNavGroups = navGroups.filter((g) => g.id !== "ferramentas");

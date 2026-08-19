@@ -126,27 +126,19 @@ export function UserMenu() {
 
           <div className="user-menu-divider" role="separator" />
 
-          {confirmandoSaida ? (
-            <div className="user-menu-exit-confirm" role="status">
-              <span>Deseja sair?</span>
-              <button type="button" onClick={() => setConfirmandoSaida(false)} disabled={saindo}>Não</button>
-              <button type="button" onClick={sair} disabled={saindo}>{saindo ? "Saindo…" : "Sim"}</button>
-            </div>
-          ) : (
-            <button
-              className="user-menu-item user-menu-item--danger"
-              type="button"
-              role="menuitem"
-              onClick={() => setConfirmandoSaida(true)}
-            >
-              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M10 17l5-5-5-5" />
-                <path d="M15 12H3" />
-                <path d="M21 19V5a2 2 0 0 0-2-2h-6" />
-              </svg>
-              Sair
-            </button>
-          )}
+          <button
+            className="user-menu-item user-menu-item--danger"
+            type="button"
+            role="menuitem"
+            onClick={sair}
+          >
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M10 17l5-5-5-5" />
+              <path d="M15 12H3" />
+              <path d="M21 19V5a2 2 0 0 0-2-2h-6" />
+            </svg>
+            Sair
+          </button>
         </div>
       ) : null}
     </div>

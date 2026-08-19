@@ -55,6 +55,14 @@ const objetoOuNulo = <T>(
 const numeroOuNulo = (valor: Prisma.Decimal | null): number | null =>
   valor === null ? null : Number(valor);
 
+/**
+ * 🔒 SEGURANÇA [VULN-2, auditoria zero-trust]: teto para a listagem sem
+ * paginação de página — a API pública não expõe `page`/`pageSize` hoje.
+ * Defesa contra `findMany` sem limite crescendo com a tabela inteira
+ * (CWE-770).
+ */
+const LIMITE_LISTAGEM = 500;
+
 @Injectable()
 export class PrismaEstudoRepository extends EstudoRepository {
   // Ver a nota em `estudo.service.ts`: token explicito para a injecao
@@ -68,6 +76,7 @@ export class PrismaEstudoRepository extends EstudoRepository {
       where: query?.status ? { status: query.status } : {},
       include: INCLUSAO,
       orderBy: [{ competenceYear: "desc" }, { competenceMonth: "desc" }, { createdAt: "desc" }],
+      take: LIMITE_LISTAGEM,
     });
 
     return { items: linhas.map((linha) => this.resumo(linha)) };
