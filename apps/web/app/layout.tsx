@@ -52,6 +52,16 @@ const generalSans = localFont({
   display: "swap",
 });
 
+// 🔒 SEGURANÇA [VULN-4]: middleware.ts gera um nonce novo por requisição e só
+// esse nonce autoriza script a rodar (ver content-security-policy.ts). Uma
+// rota que o Next consegue pré-renderizar em build (sem cookies()/headers()
+// nem fetch dinâmico) vira HTML estático servido igual para todo mundo — com
+// o nonce de build gravado nos <script>, nunca o da requisição atual. O
+// resultado é o próprio CSP bloqueando os scripts da página, inclusive os de
+// hidratação do Next. force-dynamic tira toda rota da otimização estática,
+// então o servidor sempre roda de novo e usa o nonce da requisição.
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: "Plugga",
   description: "Plataforma operacional interna da Plugga.",

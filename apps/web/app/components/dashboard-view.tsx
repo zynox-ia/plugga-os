@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { ShellCard, ShellTable } from "./plugga-shell";
+import { PendenciasView } from "./pendencias-view";
 import type { HealthCheck } from "../lib/api";
 
 type DashboardTab = "overview" | "operacoes" | "metricas" | "relatorios";
@@ -124,6 +125,8 @@ export function DashboardView({ health }: { health: HealthCheck | null }) {
           </button>
         </div>
       </div>
+
+      <PendenciasView />
 
       {/* 2. Primeira Fileira: Cards Métricos Superiores + Card Vibrante Laranja Intenso */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "16px" }}>
