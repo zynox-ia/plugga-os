@@ -1,18 +1,10 @@
 "use client";
 
+import React from "react";
 import { EMPRESAS_POR_ID, type EmpresaId } from "../lib/organizacao";
 
 /**
  * Seletor Plugga/Waze no topo à direita.
- *
- * A empresa ativa vive na URL (`?empresa=waze`), não em estado de sessão: um
- * link colado no WhatsApp precisa abrir na mesma empresa para quem recebe, e
- * com duas abas abertas em empresas diferentes um estado global aprovaria a
- * coisa errada sem ninguém notar.
- *
- * Só entram as empresas do acesso da pessoa. Com uma só, vira etiqueta: um
- * seletor de uma opção promete uma escolha que não existe e ainda esconde o
- * fato de que a outra empresa simplesmente não é sua.
  */
 export function EmpresaSwitcher({
   empresa,
@@ -27,15 +19,29 @@ export function EmpresaSwitcher({
     return null;
   }
 
+  const renderIcon = (id: EmpresaId) => {
+    if (id === "plugga") {
+      return (
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: "6px", flexShrink: 0 }}>
+          <path d="M12 2v10" />
+          <path d="M18.4 6.6a9 9 0 1 1-12.77 0" />
+        </svg>
+      );
+    }
+    return (
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: "6px", flexShrink: 0 }}>
+        <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+      </svg>
+    );
+  };
+
   if (empresas.length === 1) {
     const unica = empresas[0]!;
-    const { nome, sigla } = EMPRESAS_POR_ID[unica];
+    const { nome } = EMPRESAS_POR_ID[unica];
     return (
       <div className="empresa-switcher empresa-switcher--unica">
         <span className="empresa-option empresa-option--active" title={nome}>
-          <span className="empresa-sigla" aria-hidden="true">
-            {sigla}
-          </span>
+          {renderIcon(unica)}
           <span className="empresa-nome">{nome}</span>
         </span>
       </div>
@@ -45,7 +51,7 @@ export function EmpresaSwitcher({
   return (
     <div className="empresa-switcher" role="group" aria-label="Empresa ativa">
       {empresas.map((id) => {
-        const { nome, sigla } = EMPRESAS_POR_ID[id];
+        const { nome } = EMPRESAS_POR_ID[id];
         const ativa = id === empresa;
 
         return (
@@ -57,7 +63,7 @@ export function EmpresaSwitcher({
             aria-pressed={ativa}
             title={nome}
           >
-            <span className="empresa-sigla" aria-hidden="true">{sigla}</span>
+            {renderIcon(id)}
             <span className="empresa-nome">{nome}</span>
           </button>
         );

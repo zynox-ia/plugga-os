@@ -1,4 +1,5 @@
 import { Body, Controller, Get, HttpCode, Inject, Param, ParseUUIDPipe, Post, UseGuards } from "@nestjs/common";
+import { ThrottlerGuard } from "@nestjs/throttler";
 import { evContactRequestSchema, evOptOutRequestSchema, incidentRequestSchema, resolveBlockerRequestSchema, type EvContactRequest, type EvOptOutRequest, type EvUserProfile, type IncidentRequest, type IncidentResponse, type PluggamobLocations, type PluggamobOverview, type PluggamobSessions, type ReactivationQueue, type ResolveBlockerRequest, type SettlementDetail, type Settlements } from "@plugga/shared";
 
 import { ZodValidationPipe } from "../common/zod-validation.pipe";
@@ -29,7 +30,7 @@ export class PluggamobController {
 
   @Post("users/:id/contacts")
   @HttpCode(200)
-  @UseGuards(OriginCheckGuard)
+  @UseGuards(OriginCheckGuard, ThrottlerGuard)
   @Roles("pluggamob", "admin")
   recordContact(@Param("id", ParseUUIDPipe) id: string, @Body(new ZodValidationPipe(evContactRequestSchema)) input: EvContactRequest, @CurrentPrincipal() principal: AuthPrincipal): Promise<EvUserProfile> {
     return this.service.recordContact(id, input, principal);
@@ -37,7 +38,7 @@ export class PluggamobController {
 
   @Post("users/:id/opt-out")
   @HttpCode(200)
-  @UseGuards(OriginCheckGuard)
+  @UseGuards(OriginCheckGuard, ThrottlerGuard)
   @Roles("pluggamob", "admin")
   optOut(@Param("id", ParseUUIDPipe) id: string, @Body(new ZodValidationPipe(evOptOutRequestSchema)) input: EvOptOutRequest, @CurrentPrincipal() principal: AuthPrincipal): Promise<EvUserProfile> {
     return this.service.optOut(id, input, principal);
@@ -47,14 +48,14 @@ export class PluggamobController {
   @Get("sessions/:id") session(@Param("id", ParseUUIDPipe) id: string): Promise<PluggamobSessions["items"][number]> { return this.service.session(id); }
   @Get("locations") locations(): Promise<PluggamobLocations> { return this.service.locations(); }
   @Get("locations/:id") location(@Param("id", ParseUUIDPipe) id: string): Promise<PluggamobLocations["items"][number]> { return this.service.location(id); }
-  @Post("incidents") @HttpCode(201) @UseGuards(OriginCheckGuard) @Roles("pluggamob", "admin")
+  @Post("incidents") @HttpCode(201) @UseGuards(OriginCheckGuard, ThrottlerGuard) @Roles("pluggamob", "admin")
   createIncident(@Body(new ZodValidationPipe(incidentRequestSchema)) input: IncidentRequest, @CurrentPrincipal() principal: AuthPrincipal): Promise<IncidentResponse> { return this.service.createIncident(input, principal); }
   @Get("settlements") settlements(): Promise<Settlements> { return this.service.settlements(); }
   @Get("settlements/:id") settlement(@Param("id", ParseUUIDPipe) id: string): Promise<SettlementDetail> { return this.service.settlement(id); }
-  @Post("settlements/:id/lines/:lineId/resolve-blocker") @HttpCode(200) @UseGuards(OriginCheckGuard) @Roles("financeiro", "admin")
+  @Post("settlements/:id/lines/:lineId/resolve-blocker") @HttpCode(200) @UseGuards(OriginCheckGuard, ThrottlerGuard) @Roles("financeiro", "admin")
   resolveBlocker(@Param("id", ParseUUIDPipe) id: string, @Param("lineId", ParseUUIDPipe) lineId: string, @Body(new ZodValidationPipe(resolveBlockerRequestSchema)) input: ResolveBlockerRequest, @CurrentPrincipal() principal: AuthPrincipal): Promise<SettlementDetail> { return this.service.resolveBlocker(id, lineId, input, principal); }
-  @Post("settlements/:id/request-approval") @HttpCode(200) @UseGuards(OriginCheckGuard) @Roles("financeiro", "admin")
+  @Post("settlements/:id/request-approval") @HttpCode(200) @UseGuards(OriginCheckGuard, ThrottlerGuard) @Roles("financeiro", "admin")
   requestApproval(@Param("id", ParseUUIDPipe) id: string, @CurrentPrincipal() principal: AuthPrincipal): Promise<SettlementDetail> { return this.service.requestApproval(id, principal); }
-  @Post("settlements/:id/approve") @HttpCode(200) @UseGuards(OriginCheckGuard) @Roles("financeiro", "diretoria", "admin")
+  @Post("settlements/:id/approve") @HttpCode(200) @UseGuards(OriginCheckGuard, ThrottlerGuard) @Roles("financeiro", "diretoria", "admin")
   approve(@Param("id", ParseUUIDPipe) id: string, @CurrentPrincipal() principal: AuthPrincipal): Promise<SettlementDetail> { return this.service.approve(id, principal); }
 }

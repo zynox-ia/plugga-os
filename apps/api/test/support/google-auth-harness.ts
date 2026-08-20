@@ -11,6 +11,8 @@ import {
   type GoogleIdentityClaims,
 } from "../../src/auth/google-identity.verifier";
 import { configureApp } from "../../src/configure-app";
+import { NullSessionCache } from "../../src/core/auth/null-session-cache";
+import { SessionCache } from "../../src/core/auth/session-cache";
 import { SessionLookupRepository } from "../../src/core/auth/session-lookup.repository";
 import { EmailPort } from "../../src/email/email.port";
 import {
@@ -92,6 +94,10 @@ export async function bootGoogleHarness(): Promise<GoogleHarness> {
     .useValue(new CapturingEmailPort())
     .overrideProvider(AuditRepository)
     .useValue(audit)
+    // Store em memória, sem Redis de verdade: sem este override o
+    // SessionService.issue() de todo login federado bateria na rede à toa.
+    .overrideProvider(SessionCache)
+    .useValue(new NullSessionCache())
     .compile();
 
   const app = module.createNestApplication<NestExpressApplication>();

@@ -13,6 +13,7 @@ import {
   UseGuards,
   UseInterceptors,
 } from "@nestjs/common";
+import { ThrottlerGuard } from "@nestjs/throttler";
 import { FilesInterceptor } from "@nestjs/platform-express";
 import {
   companyKeySchema,
@@ -114,7 +115,7 @@ export class ComprasController {
    */
   @Post("pedidos")
   @HttpCode(201)
-  @UseGuards(OriginCheckGuard)
+  @UseGuards(OriginCheckGuard, ThrottlerGuard)
   @Roles(...ABRIR_PEDIDO)
   @UseInterceptors(
     FilesInterceptor("cotacoes", MAXIMO_DE_ANEXOS, { limits: { fileSize: TAMANHO_MAXIMO } }),
@@ -155,7 +156,7 @@ export class ComprasController {
 
   @Post("pedidos/:id/triagem")
   @HttpCode(200)
-  @UseGuards(OriginCheckGuard)
+  @UseGuards(OriginCheckGuard, ThrottlerGuard)
   @Roles(...OPERAR_COMPRAS)
   triagem(
     @Param("id", ParseUUIDPipe) id: string,
@@ -168,7 +169,7 @@ export class ComprasController {
 
   @Post("pedidos/:id/estoque")
   @HttpCode(200)
-  @UseGuards(OriginCheckGuard)
+  @UseGuards(OriginCheckGuard, ThrottlerGuard)
   @Roles(...OPERAR_COMPRAS)
   decidirEstoque(
     @Param("id", ParseUUIDPipe) id: string,
@@ -181,7 +182,7 @@ export class ComprasController {
 
   @Post("pedidos/:id/necessidade")
   @HttpCode(200)
-  @UseGuards(OriginCheckGuard)
+  @UseGuards(OriginCheckGuard, ThrottlerGuard)
   @Roles(...OPERAR_COMPRAS)
   validarNecessidade(
     @Param("id", ParseUUIDPipe) id: string,
@@ -194,7 +195,7 @@ export class ComprasController {
 
   @Post("pedidos/:id/cotacao-selecionada")
   @HttpCode(200)
-  @UseGuards(OriginCheckGuard)
+  @UseGuards(OriginCheckGuard, ThrottlerGuard)
   @Roles(...OPERAR_COMPRAS)
   selecionarCotacao(
     @Param("id", ParseUUIDPipe) id: string,
@@ -207,7 +208,7 @@ export class ComprasController {
 
   @Post("pedidos/:id/aprovacao")
   @HttpCode(200)
-  @UseGuards(OriginCheckGuard)
+  @UseGuards(OriginCheckGuard, ThrottlerGuard)
   @Roles(...DECIDIR_FINANCEIRO)
   decidirAprovacao(
     @Param("id", ParseUUIDPipe) id: string,
@@ -220,7 +221,7 @@ export class ComprasController {
 
   @Post("pedidos/:id/pagamento")
   @HttpCode(200)
-  @UseGuards(OriginCheckGuard)
+  @UseGuards(OriginCheckGuard, ThrottlerGuard)
   @Roles(...DECIDIR_FINANCEIRO)
   registrarPagamento(
     @Param("id", ParseUUIDPipe) id: string,
@@ -233,7 +234,7 @@ export class ComprasController {
 
   @Post("pedidos/:id/recebimento")
   @HttpCode(200)
-  @UseGuards(OriginCheckGuard)
+  @UseGuards(OriginCheckGuard, ThrottlerGuard)
   @Roles(...CONFIRMAR_RECEBIMENTO)
   confirmarRecebimento(
     @Param("id", ParseUUIDPipe) id: string,
@@ -246,7 +247,7 @@ export class ComprasController {
 
   @Post("pedidos/:id/prazo")
   @HttpCode(200)
-  @UseGuards(OriginCheckGuard)
+  @UseGuards(OriginCheckGuard, ThrottlerGuard)
   @Roles(...RENEGOCIAR_PRAZO)
   renegociarPrazo(
     @Param("id", ParseUUIDPipe) id: string,
@@ -283,7 +284,7 @@ export class ComprasController {
 
   @Post("fornecedores")
   @HttpCode(201)
-  @UseGuards(OriginCheckGuard)
+  @UseGuards(OriginCheckGuard, ThrottlerGuard)
   @Roles(...CADASTRAR_APOIO)
   criarFornecedor(
     @Body(new ZodValidationPipe(criarFornecedorRequestSchema)) input: CriarFornecedorRequest,
@@ -302,7 +303,7 @@ export class ComprasController {
 
   @Post("obras")
   @HttpCode(201)
-  @UseGuards(OriginCheckGuard)
+  @UseGuards(OriginCheckGuard, ThrottlerGuard)
   @Roles(...CADASTRAR_APOIO)
   criarObra(
     @Body(new ZodValidationPipe(criarObraRequestSchema)) input: CriarObraRequest,

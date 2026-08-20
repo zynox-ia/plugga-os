@@ -63,10 +63,10 @@ export function LoginForm({
     <div className="auth-form-container">
       <h1 className="auth-form-title">Acessar a plataforma</h1>
       <p className="auth-form-subtitle">
-        Digite seus dados para gerenciar sua operação no Plugga OS.
+        Digite seus dados para gerenciar a sua operação
       </p>
 
-      <form className="auth-form-fields" onSubmit={handleSubmit}>
+      <form className="auth-form-fields" method="post" onSubmit={handleSubmit}>
         <div className="auth-pill-field">
           <label className="auth-pill-label" htmlFor="email-input">
             E-mail
@@ -174,6 +174,10 @@ export function LoginForm({
             <path d="m12 5 7 7-7 7" />
           </svg>
         </button>
+        <p className="auth-legal-notice">
+          Ao continuar, você concorda com os <a className="auth-legal-link" href="/termos">Termos de uso</a> e a{" "}
+          <a className="auth-legal-link" href="/privacidade">Política de privacidade</a>.
+        </p>
       </form>
 
       {/* O separador "ou" mora dentro do botão, não aqui: sem Google

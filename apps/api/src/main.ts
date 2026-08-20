@@ -1,3 +1,8 @@
+import path from "node:path";
+import dotenv from "dotenv";
+
+dotenv.config({ path: path.resolve(__dirname, "../../../.env") });
+
 import { NestFactory } from "@nestjs/core";
 import { ConfigService } from "@nestjs/config";
 import type { NestExpressApplication } from "@nestjs/platform-express";

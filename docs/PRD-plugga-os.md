@@ -1,8 +1,8 @@
-# PRD — Plugga/Waze OS
+# PRD — plugga-os
 
 | Campo | Valor |
 |---|---|
-| **Produto** | Plugga/Waze OS |
+| **Produto** | plugga-os |
 | **Versão do PRD** | 1.1 |
 | **Data** | 05/08/2026 |
 | **Status** | Rascunho para validação |
@@ -29,7 +29,7 @@
 
 A Plugga/Waze centralizou grande parte da operação no **OpenClaw** (agente + scripts + crons + memória) e no **Bitrix24** (CRM + workflows improvisados). Isso funciona, mas não escala com segurança: estado operacional, filas, regras financeiras, documentos e KPIs estão espalhados.
 
-**Plugga/Waze OS** é o sistema próprio que passa a ser a **fonte de verdade operacional**. O OpenClaw permanece como **agente assistente** via API. O Bitrix vira **legado/ponte temporária**. OMIE, PagBank e PluggaMob/OCPP continuam fontes externas.
+**plugga-os** é o sistema próprio que passa a ser a **fonte de verdade operacional**. O OpenClaw permanece como **agente assistente** via API. O Bitrix vira **legado/ponte temporária**. OMIE, PagBank e PluggaMob/OCPP continuam fontes externas.
 
 ### Em uma frase
 
@@ -150,7 +150,7 @@ Consequências: onboarding difícil, risco financeiro no fechamento PluggaMob, O
 ## 7. Arquitetura de informação — menu
 
 ```text
-Plugga/Waze OS
+plugga-os
 ├── 1. Dashboard
 │   ├── Visão geral
 │   ├── Pendências críticas
@@ -489,7 +489,7 @@ PurchaseRequest, PurchaseItem, Quote, Supplier, PurchaseApproval, PurchasePaymen
 
 ### 11.1 WhatsApp — integração de primeira classe
 
-O cliente validou: **WhatsApp não pode ficar implícito**. No Plugga/Waze OS ele entra como integração formal, no mesmo nível de Bitrix/OMIE/PluggaMob.
+O cliente validou: **WhatsApp não pode ficar implícito**. No plugga-os ele entra como integração formal, no mesmo nível de Bitrix/OMIE/PluggaMob.
 
 **Uso atual na operação (fato / diagnóstico):**
 

@@ -1012,7 +1012,7 @@ Meta: sistema vira fonte de verdade para pelo menos um domínio P0.
 
 ## Nome provisório
 
-**Plugga/Waze OS**
+**plugga-os**
 
 ## O que é
 
@@ -1154,7 +1154,7 @@ Isso dificulta escala, auditoria, rastreabilidade, onboarding, evolução, segur
 # 15. Prompt curto de handoff para desenvolvimento
 
 ```text
-Estamos construindo o Plugga/Waze OS, sistema próprio para tirar do OpenClaw/Bitrix a responsabilidade de guardar estado operacional, CRM, filas, jobs, relatórios, auditorias e logs.
+Estamos construindo o plugga-os, sistema próprio para tirar do OpenClaw/Bitrix a responsabilidade de guardar estado operacional, CRM, filas, jobs, relatórios, auditorias e logs.
 
 Regra crítica: não alterar a operação atual. Primeiro o sistema roda em paralelo, read-only/importando dados. Cutover só por domínio e com aprovação explícita.
 

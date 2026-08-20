@@ -26,6 +26,11 @@ export class PrismaIntegrationsRepository extends IntegrationsRepository {
         owner: true,
         updatedAt: true,
       },
+      // 🔒 SEGURANÇA [VULN-2, auditoria zero-trust]: o catálogo de integrações
+      // é semeado uma vez e não cresce por ação de usuário — o risco real de
+      // DoS aqui é baixo, mas o teto entra por consistência defensiva com o
+      // resto da correção (CWE-770).
+      take: 200,
     });
   }
 }

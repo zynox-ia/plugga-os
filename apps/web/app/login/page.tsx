@@ -5,7 +5,7 @@ import { AuthCard } from "../components/auth/auth-card";
 import { LoginForm } from "../components/auth/login-form";
 import { googleAuthConfig } from "../lib/google";
 
-export const metadata: Metadata = { title: "Entrar — Plugga OS" };
+export const metadata: Metadata = { title: "Entrar — plugga-os" };
 
 export default async function LoginPage({
   searchParams,

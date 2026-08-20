@@ -4,12 +4,12 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, type ReactNode } from "react";
 
 import { EmpresaSwitcher } from "./empresa-switcher";
+import { NotificationsMenu } from "./notifications-menu";
 import { PluggaShell } from "./plugga-shell";
 import { SidebarUser } from "./sidebar-user";
 import { UserMenu } from "./user-menu";
 import { navGroupsForEmpresa, navIdForPathname, tituloForNavId } from "../lib/navigation";
 import {
-  EMPRESAS_POR_ID,
   EMPRESA_PADRAO,
   empresasPermitidas,
   isEmpresaId,
@@ -20,10 +20,9 @@ import { SessionUserProvider, useSessionUser } from "../lib/use-session-user";
 /**
  * Rotas que renderizam sozinhas, sem barra lateral, topo nem `SessionUserProvider`.
  *
- * As de auth estão aqui porque a sessão ainda não existe. `/privacidade` está
- * porque quem a abre pode ser o revisor do Google, sem conta nenhuma — e dentro
- * do shell ela ganharia um segundo `<h1>` e uma chamada a `/auth/me` que
- * ninguém pediu. `/auth/google/complete` está porque some em milissegundos:
+ * As de auth estão aqui porque a sessão ainda não existe. As páginas legais
+ * ficam fora do shell porque são abertas sem conta. `/auth/google/complete`
+ * está porque some em milissegundos:
  * montar a aplicação inteira para depois trocar de página é um flash de chrome
  * que a pessoa vê e não entende.
  */
@@ -33,6 +32,7 @@ const PUBLIC_AUTH_PATHS = [
   "/auth/reset",
   "/auth/google/complete",
   "/privacidade",
+  "/termos",
 ];
 
 function ShellWithEmpresa({ children }: { children: ReactNode }) {
@@ -61,7 +61,6 @@ function ShellWithEmpresa({ children }: { children: ReactNode }) {
       navigation={navGroupsForEmpresa(empresa, acesso)}
       activeId={navId}
       pageTitle={tituloForNavId(navId, empresa)}
-      pageDescription={EMPRESAS_POR_ID[empresa].descricao}
       empresaSwitcher={
         <EmpresaSwitcher
           empresa={empresa}
@@ -73,18 +72,7 @@ function ShellWithEmpresa({ children }: { children: ReactNode }) {
       }
       topbarActions={
         <>
-          <button
-            className="topbar-icon"
-            type="button"
-            onClick={() => router.push("/configuracoes")}
-            aria-label="Configurar notificações"
-            title="Configurar notificações"
-          >
-            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M18 8a6 6 0 1 0-12 0c0 7-3 8-3 8h18s-3-1-3-8" />
-              <path d="M13.7 21a2 2 0 0 1-3.4 0" />
-            </svg>
-          </button>
+          <NotificationsMenu />
           <UserMenu />
         </>
       }

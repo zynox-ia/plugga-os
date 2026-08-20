@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { AuthCard } from "../../components/auth/auth-card";
 import { ResetConfirmForm, ResetRequestForm } from "../../components/auth/reset-forms";
 
-export const metadata: Metadata = { title: "Redefinir senha — Plugga OS" };
+export const metadata: Metadata = { title: "Redefinir senha — plugga-os" };
 
 export default async function ResetPasswordPage({
   searchParams,
@@ -14,6 +14,7 @@ export default async function ResetPasswordPage({
 
   return (
     <AuthCard
+      variant="single"
       title={token ? "Redefinir senha" : "Esqueci minha senha"}
       description={
         token

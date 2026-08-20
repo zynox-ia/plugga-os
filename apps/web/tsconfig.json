@@ -4,8 +4,20 @@
     // `node --test` strips types but resolves like Node ESM, so test imports
     // need the real extension. Safe here: this project never emits (noEmit).
     "allowImportingTsExtensions": true,
-    "plugins": [{ "name": "next" }]
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ]
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-  "exclude": ["node_modules"]
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    "next-env.d.ts",
+    ".next-dev/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
 }

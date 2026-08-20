@@ -8,6 +8,7 @@ import {
   ServiceUnavailableException,
   UseGuards,
 } from "@nestjs/common";
+import { ThrottlerGuard } from "@nestjs/throttler";
 
 import type { AuthPrincipal } from "../core/auth/auth.types";
 import { CurrentPrincipal } from "../core/auth/current-principal.decorator";
@@ -45,7 +46,7 @@ export class ChaveController {
 
   @Put()
   @Roles("admin")
-  @UseGuards(OriginCheckGuard)
+  @UseGuards(OriginCheckGuard, ThrottlerGuard)
   async gravar(
     @Body("chave") valor: unknown,
     @CurrentPrincipal() quem?: AuthPrincipal,
@@ -67,7 +68,7 @@ export class ChaveController {
 
   @Delete()
   @Roles("admin")
-  @UseGuards(OriginCheckGuard)
+  @UseGuards(OriginCheckGuard, ThrottlerGuard)
   async apagar(@CurrentPrincipal() quem?: AuthPrincipal): Promise<EstadoDaChave> {
     return this.chave.apagar(quem?.id ?? "desconhecido");
   }

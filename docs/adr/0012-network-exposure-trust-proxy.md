@@ -1,6 +1,6 @@
 # ADR-0012 — Exposição de rede: bind privado, `trust proxy` explícito e X-Forwarded-For validado
 
-- Status: Aceito · Data: 2026-08-09 (registro retroativo; decisão aplicada no código desde o Bloco B) · Decisores: equipe Plugga OS · Contexto do bloco: Bloco B (auth real em produção)
+- Status: Aceito · Data: 2026-08-09 (registro retroativo; decisão aplicada no código desde o Bloco B) · Decisores: equipe plugga-os · Contexto do bloco: Bloco B (auth real em produção)
 
 > **Nota de registro.** Esta decisão foi tomada e implementada durante o Bloco B
 > — `main.ts`, `configure-app.ts`, `forwarded-for.ts`, `compose.yaml`, os dois

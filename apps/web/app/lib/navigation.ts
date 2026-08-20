@@ -66,7 +66,12 @@ export function navGroupsForEmpresa(
       label: "Ferramentas",
       items: FERRAMENTAS.map((processo) => ({
         ...navItem(processo, "ferramenta"),
-        icon: "briefcase" as const,
+        icon:
+          processo.rota === "/documentos"
+            ? ("document" as const)
+            : processo.rota === "/agentes-ia"
+            ? ("bolt" as const)
+            : ("chart" as const),
       })),
     },
   ];
@@ -111,5 +116,5 @@ export function tituloForNavId(navId: string, empresa: EmpresaId): string {
     ...EMPRESAS_POR_ID[empresa].departamentos.flatMap((d) => d.processos),
   ];
 
-  return todos.find((processo) => processo.rota === navId)?.label ?? "Plugga OS";
+  return todos.find((processo) => processo.rota === navId)?.label ?? "plugga-os";
 }

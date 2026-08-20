@@ -101,8 +101,12 @@ export class AuthController {
   @Get("me")
   @SkipThrottle()
   @UseGuards(DevAuthGuard)
-  me(@CurrentPrincipal() principal: AuthPrincipal): Promise<MeResponse> {
-    return this.service.me(principal);
+  me(
+    @CurrentPrincipal() principal: AuthPrincipal,
+    @Req() request: Request,
+  ): Promise<MeResponse> {
+    const rawToken = request.signedCookies?.[SESSION_COOKIE_NAME] as string | undefined;
+    return this.service.me(principal, rawToken);
   }
 
   @Post("logout")

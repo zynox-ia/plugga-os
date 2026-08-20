@@ -6,6 +6,8 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { AppModule } from "../src/app.module";
 import { configureApp } from "../src/configure-app";
 import { AuditRepository } from "../src/audit/audit.repository";
+import { NullSessionCache } from "../src/core/auth/null-session-cache";
+import { SessionCache } from "../src/core/auth/session-cache";
 import { SessionLookupRepository } from "../src/core/auth/session-lookup.repository";
 import { EmailPort } from "../src/email/email.port";
 import { AuthRepository } from "../src/auth/auth.repository";
@@ -42,6 +44,11 @@ describe("auth API (e2e, in-memory stores)", () => {
       .useValue(email)
       .overrideProvider(AuditRepository)
       .useValue(new NoopAuditRepository())
+      // Testes com store em memória não têm Redis de verdade para cachear; sem
+      // este override o SessionService.issue() de todo login real bateria na
+      // rede à toa (e, fora deste sandbox, pode nem ter Redis alcançável).
+      .overrideProvider(SessionCache)
+      .useValue(new NullSessionCache())
       .compile();
 
     app = module.createNestApplication<NestExpressApplication>();
@@ -287,6 +294,7 @@ describe("auth API (e2e, in-memory stores)", () => {
 
     await request(app.getHttpServer())
       .post("/auth/reset/request")
+      .set("x-forwarded-for", "198.51.100.19")
       .send({ email: adminEmail })
       .expect(200, { ok: true });
 
@@ -300,6 +308,32 @@ describe("auth API (e2e, in-memory stores)", () => {
     await agent.get("/auth/me").expect(401);
     // New password works.
     await loginAgent(adminEmail, "a fresh admin password");
+  });
+
+  it("invalidates the previous reset link when a newer one is requested", async () => {
+    await request(app.getHttpServer())
+      .post("/auth/reset/request")
+      .set("x-forwarded-for", "198.51.100.19")
+      .send({ email: adminEmail })
+      .expect(200, { ok: true });
+    const previousToken = email.lastTokenFor("reset");
+
+    await request(app.getHttpServer())
+      .post("/auth/reset/request")
+      .set("x-forwarded-for", "198.51.100.19")
+      .send({ email: adminEmail })
+      .expect(200, { ok: true });
+    const currentToken = email.lastTokenFor("reset");
+
+    expect(currentToken).not.toBe(previousToken);
+    await request(app.getHttpServer())
+      .post("/auth/reset/confirm")
+      .send({ token: previousToken, password: "a fresh admin password" })
+      .expect(400);
+    await request(app.getHttpServer())
+      .post("/auth/reset/confirm")
+      .send({ token: currentToken, password: "a fresh admin password" })
+      .expect(200, { ok: true });
   });
 
   it("answers reset requests for unknown emails generically", async () => {

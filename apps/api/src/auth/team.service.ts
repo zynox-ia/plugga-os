@@ -23,6 +23,7 @@ import {
 
 import { AuditRepository } from "../audit/audit.repository";
 import type { AuthPrincipal } from "../core/auth/auth.types";
+import { SessionCache } from "../core/auth/session-cache";
 import { AuthTokenIssuer } from "./auth-token-issuer.service";
 import { AuthRepository, type TeamMemberRecord } from "./auth.repository";
 import { SessionService } from "./session.service";
@@ -60,6 +61,7 @@ export class TeamService {
     @Inject(AuthTokenIssuer) private readonly tokens: AuthTokenIssuer,
     @Inject(SessionService) private readonly sessions: SessionService,
     @Inject(AuditRepository) private readonly audit: AuditRepository,
+    @Inject(SessionCache) private readonly cache: SessionCache,
   ) {}
 
   async list(principal: AuthPrincipal, query: TeamListQuery): Promise<TeamListResponse> {
@@ -144,6 +146,12 @@ export class TeamService {
     if (!updated) {
       throw new BadRequestException("user not found");
     }
+
+    // O escopo é sempre relido do banco (comentário na classe), e o cache de
+    // sessão introduziu a única exceção a essa regra: sem invalidar aqui, um
+    // papel revogado continuaria valendo pelo TTL do cache, não "na requisição
+    // seguinte" como o resto do sistema garante.
+    await this.cache.invalidateAllForUser(userId);
 
     await this.audit.appendEvent({
       eventName: eventNames.userAccessUpdated,

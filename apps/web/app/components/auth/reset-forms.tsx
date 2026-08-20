@@ -17,7 +17,7 @@ export function ResetRequestForm() {
 
   if (done) {
     return (
-      <p className="auth-success" role="status">
+      <p className="auth-reset-status auth-success" role="status">
         Se este e-mail estiver cadastrado, enviaremos um link para redefinir a senha.
       </p>
     );
@@ -46,27 +46,41 @@ export function ResetRequestForm() {
   }
 
   return (
-    <form className="auth-form" onSubmit={handleSubmit}>
-      <label className="auth-field">
-        <span>E-mail</span>
-        <input
-          type="email"
-          name="email"
-          autoComplete="email"
-          required
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-        />
-      </label>
+    <form className="auth-reset-form" onSubmit={handleSubmit}>
+      <div className="auth-pill-field">
+        <label className="auth-pill-label" htmlFor="reset-email-input">E-mail</label>
+        <div className="auth-pill-input-wrapper">
+          <svg className="auth-pill-input-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2,2-2z" />
+            <polyline points="22,6 12,13 2,6" />
+          </svg>
+          <input
+            id="reset-email-input"
+            type="email"
+            name="email"
+            className="auth-pill-input auth-pill-input--has-icon"
+            placeholder="seu.email@plugga.com.br"
+            autoComplete="email"
+            required
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+          />
+        </div>
+      </div>
 
       {error ? (
-        <p className="auth-error" role="alert">
+        <p className="auth-error-msg" role="alert">
           {error}
         </p>
       ) : null}
 
-      <button type="submit" className="button button--accent auth-submit" disabled={pending}>
-        {pending ? "Enviando…" : "Enviar link de redefinição"}
+      <button type="submit" className="auth-pill-submit" disabled={pending}>
+        <div className="auth-submit-shimmer" />
+        <span className="auth-submit-text">{pending ? "Enviando…" : "Enviar link de redefinição"}</span>
+        <svg className="auth-submit-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M5 12h14" />
+          <path d="m12 5 7 7-7 7" />
+        </svg>
       </button>
     </form>
   );
@@ -81,7 +95,7 @@ export function ResetConfirmForm({ token }: { token: string }) {
 
   if (done) {
     return (
-      <p className="auth-success" role="status">
+      <p className="auth-reset-status" role="status">
         Senha redefinida com sucesso. Você já pode entrar.
       </p>
     );
@@ -122,43 +136,56 @@ export function ResetConfirmForm({ token }: { token: string }) {
   }
 
   return (
-    <form className="auth-form" onSubmit={handleSubmit}>
-      <label className="auth-field">
-        <span>Nova senha</span>
-        <input
-          type="password"
-          name="password"
-          autoComplete="new-password"
-          minLength={MIN_PASSWORD_LENGTH}
-          required
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
-        />
-      </label>
+    <form className="auth-reset-form" onSubmit={handleSubmit}>
+      <div className="auth-pill-field">
+        <label className="auth-pill-label" htmlFor="new-password-input">Nova senha</label>
+        <div className="auth-pill-input-wrapper">
+          <input
+            id="new-password-input"
+            type="password"
+            name="password"
+            className="auth-pill-input"
+            autoComplete="new-password"
+            minLength={MIN_PASSWORD_LENGTH}
+            required
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+          />
+        </div>
+      </div>
 
-      <label className="auth-field">
-        <span>Confirmar senha</span>
-        <input
-          type="password"
-          name="confirmPassword"
-          autoComplete="new-password"
-          minLength={MIN_PASSWORD_LENGTH}
-          required
-          value={confirmPassword}
-          onChange={(event) => setConfirmPassword(event.target.value)}
-        />
-      </label>
+      <div className="auth-pill-field">
+        <label className="auth-pill-label" htmlFor="confirm-password-input">Confirmar senha</label>
+        <div className="auth-pill-input-wrapper">
+          <input
+            id="confirm-password-input"
+            type="password"
+            name="confirmPassword"
+            className="auth-pill-input"
+            autoComplete="new-password"
+            minLength={MIN_PASSWORD_LENGTH}
+            required
+            value={confirmPassword}
+            onChange={(event) => setConfirmPassword(event.target.value)}
+          />
+        </div>
+      </div>
 
-      <p className="auth-hint">Mínimo de {MIN_PASSWORD_LENGTH} caracteres.</p>
+      <p className="auth-reset-hint">Mínimo de {MIN_PASSWORD_LENGTH} caracteres.</p>
 
       {error ? (
-        <p className="auth-error" role="alert">
+        <p className="auth-error-msg auth-error" role="alert">
           {error}
         </p>
       ) : null}
 
-      <button type="submit" className="button button--accent auth-submit" disabled={pending}>
-        {pending ? "Confirmando…" : "Redefinir senha"}
+      <button type="submit" className="auth-pill-submit" disabled={pending}>
+        <div className="auth-submit-shimmer" />
+        <span className="auth-submit-text">{pending ? "Confirmando…" : "Redefinir senha"}</span>
+        <svg className="auth-submit-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M5 12h14" />
+          <path d="m12 5 7 7-7 7" />
+        </svg>
       </button>
     </form>
   );

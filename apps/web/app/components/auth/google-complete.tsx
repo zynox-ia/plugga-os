@@ -41,7 +41,7 @@ export function GoogleComplete() {
   return (
     <div className="auth-form-container">
       <h1 className="auth-form-title">Entrando…</h1>
-      <p className="auth-form-subtitle">Estamos concluindo o seu acesso ao Plugga OS.</p>
+      <p className="auth-form-subtitle">Estamos concluindo o seu acesso ao plugga-os.</p>
       <p className="auth-form-subtitle" aria-live="polite">
         Se esta tela não sair sozinha, <a href="/">continue para o início</a>.
       </p>

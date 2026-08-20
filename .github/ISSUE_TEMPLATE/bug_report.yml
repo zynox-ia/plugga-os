@@ -1,5 +1,5 @@
 name: Bug report
-description: Report a reproducible problem in Plugga OS
+description: Report a reproducible problem in plugga-os
 title: "[Bug]: "
 labels:
   - bug

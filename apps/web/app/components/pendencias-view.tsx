@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-
 import { ShellCard, StatusPill, ShellTable } from "./plugga-shell";
 import {
   CURRENT_USER,
@@ -70,6 +69,11 @@ export function PendenciasView() {
 
   const filtered = items.filter((item) => matchesTab(item, activeTab));
 
+  const totalActive = items.filter((i) => i.status !== "concluida").length;
+  const totalMinhas = items.filter((i) => i.owner === CURRENT_USER && i.status !== "concluida").length;
+  const totalOverdue = items.filter((i) => i.dueDate !== null && i.dueDate < TODAY && i.status !== "concluida").length;
+  const totalCriticalP0 = items.filter((i) => i.criticality === "P0" && i.status !== "concluida").length;
+
   function updateItem(id: string, patch: Partial<PendingItem>) {
     setItems((current) => current.map((item) => (item.id === id ? { ...item, ...patch } : item)));
   }
@@ -106,98 +110,143 @@ export function PendenciasView() {
   }
 
   return (
-    <ShellCard className="table-card">
-      <div className="card-heading">
+    <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+      {/* Top Header */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "14px" }}>
         <div>
-          <span className="eyebrow">Operação</span>
-          <h2>Central de Pendências</h2>
+          <h2 style={{ fontSize: "22px", fontWeight: 500, color: "#fff", margin: "0 0 4px", fontFamily: 'var(--font-articulat), "Articulat CF", sans-serif' }}>
+            Central de Pendências
+          </h2>
+          <p style={{ color: "var(--muted)", margin: 0, fontSize: "13.5px", fontWeight: 400, fontFamily: 'var(--font-articulat), "Articulat CF", sans-serif' }}>
+            Triagem, atribuição de responsável e resolução de gargalos operacionais.
+          </p>
         </div>
-        <StatusPill variant="neutral">{filtered.length} itens</StatusPill>
       </div>
 
-      <div role="tablist" aria-label="Filtros de pendências" className="view-tabs">
-        {TABS.map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            role="tab"
-            aria-selected={tab.id === activeTab}
-            className={`view-tab${tab.id === activeTab ? " view-tab--active" : ""}`}
-            onClick={() => setActiveTab(tab.id)}
-          >
-            {tab.label}
-          </button>
-        ))}
+      {/* Overview Stat Cards Grid */}
+      <div className="stat-grid">
+        <ShellCard>
+          <span className="stat-label">Pendências Ativas</span>
+          <span className="stat-value">{totalActive}</span>
+          <span className="stat-note">Itens em acompanhamento</span>
+        </ShellCard>
+
+        <ShellCard tone="accent">
+          <span className="stat-label">Minhas Atribuições</span>
+          <span className="stat-value">{totalMinhas}</span>
+          <span className="stat-note">Designadas a você</span>
+        </ShellCard>
+
+        <ShellCard tone={totalOverdue > 0 ? "warm" : undefined}>
+          <span className="stat-label">Atrasadas</span>
+          <span className="stat-value" style={{ color: totalOverdue > 0 ? "var(--laranja)" : "#fff" }}>
+            {totalOverdue}
+          </span>
+          <span className="stat-note">Exigem reprogramação</span>
+        </ShellCard>
+
+        <ShellCard>
+          <span className="stat-label">Críticas (P0)</span>
+          <span className="stat-value" style={{ color: totalCriticalP0 > 0 ? "#f87171" : "#fff" }}>
+            {totalCriticalP0}
+          </span>
+          <span className="stat-note">Prioridade máxima</span>
+        </ShellCard>
       </div>
 
-      <ShellTable caption="Pendências operacionais">
-        <thead>
-          <tr>
-            <th>Título</th>
-            <th>Área</th>
-            <th>Dono</th>
-            <th>Prazo</th>
-            <th>Criticidade</th>
-            <th>Origem</th>
-            <th>Status</th>
-            <th>Ações</th>
-          </tr>
-        </thead>
-        <tbody>
-          {filtered.map((item) => (
-            <tr key={item.id}>
-              <td>
-                {item.title}
-                {isIncomplete(item) ? (
-                  <>
-                    {" "}
-                    <StatusPill variant="danger">Dados incompletos</StatusPill>
-                  </>
-                ) : null}
-              </td>
-              <td>{item.area ?? "—"}</td>
-              <td>{item.owner ?? "—"}</td>
-              <td>{item.dueDate ?? "—"}</td>
-              <td>
-                <StatusPill variant={CRITICALITY_VARIANT[item.criticality]}>{item.criticality}</StatusPill>
-              </td>
-              <td>{item.origin}</td>
-              <td>
-                <StatusPill variant={STATUS_VARIANT[item.status]}>{STATUS_LABEL[item.status]}</StatusPill>
-              </td>
-              <td>
-                <div className="row-actions">
-                  {item.owner === null ? (
-                    <button className="button button--small" type="button" onClick={() => assignToMe(item.id)}>
-                      Atribuir a mim
-                    </button>
-                  ) : null}
-                  {item.status !== "concluida" && item.status !== "escalada" ? (
+      {/* Main Table Glass Card */}
+      <ShellCard className="table-card">
+        <div className="card-heading">
+          <div>
+            <span className="eyebrow">Operação</span>
+            <h2>Fila de Execução</h2>
+          </div>
+          <StatusPill variant="neutral">{filtered.length} itens listados</StatusPill>
+        </div>
+
+        <div role="tablist" aria-label="Filtros de pendências" className="view-tabs">
+          {TABS.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={tab.id === activeTab}
+              className={`view-tab${tab.id === activeTab ? " view-tab--active" : ""}`}
+              onClick={() => setActiveTab(tab.id)}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        <ShellTable caption="Pendências operacionais">
+          <thead>
+            <tr>
+              <th>Título</th>
+              <th>Área</th>
+              <th>Dono</th>
+              <th>Prazo</th>
+              <th>Criticidade</th>
+              <th>Origem</th>
+              <th>Status</th>
+              <th>Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map((item) => (
+              <tr key={item.id}>
+                <td style={{ fontWeight: 500 }}>
+                  {item.title}
+                  {isIncomplete(item) ? (
                     <>
-                      <button className="button button--small" type="button" onClick={() => reschedule(item.id)}>
-                        Alterar prazo
-                      </button>
-                      <button className="button button--small" type="button" onClick={() => conclude(item.id)}>
-                        Concluir
-                      </button>
-                      <button className="button button--small" type="button" onClick={() => escalate(item.id)}>
-                        Escalar
-                      </button>
+                      {" "}
+                      <StatusPill variant="danger">Dados incompletos</StatusPill>
                     </>
                   ) : null}
-                  <button className="button button--small" type="button" onClick={() => addComment(item.id)}>
-                    Comentar ({item.comments})
-                  </button>
-                </div>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </ShellTable>
-      <p className="card-note">
-        Dados de front-end (mock). Sem leitura real de event_log/agent_actions — a API do Bloco A ainda não expõe
-        endpoint de leitura para pendências/auditoria.
-      </p>
-    </ShellCard>
+                </td>
+                <td>{item.area ?? "—"}</td>
+                <td>{item.owner ?? "—"}</td>
+                <td>{item.dueDate ?? "—"}</td>
+                <td>
+                  <StatusPill variant={CRITICALITY_VARIANT[item.criticality]}>{item.criticality}</StatusPill>
+                </td>
+                <td>{item.origin}</td>
+                <td>
+                  <StatusPill variant={STATUS_VARIANT[item.status]}>{STATUS_LABEL[item.status]}</StatusPill>
+                </td>
+                <td>
+                  <div className="row-actions">
+                    {item.owner === null ? (
+                      <button className="button button--small" type="button" onClick={() => assignToMe(item.id)}>
+                        Atribuir a mim
+                      </button>
+                    ) : null}
+                    {item.status !== "concluida" && item.status !== "escalada" ? (
+                      <>
+                        <button className="button button--small" type="button" onClick={() => reschedule(item.id)}>
+                          Alterar prazo
+                        </button>
+                        <button className="button button--small" type="button" onClick={() => conclude(item.id)}>
+                          Concluir
+                        </button>
+                        <button className="button button--small" type="button" onClick={() => escalate(item.id)}>
+                          Escalar
+                        </button>
+                      </>
+                    ) : null}
+                    <button className="button button--small" type="button" onClick={() => addComment(item.id)}>
+                      Comentar ({item.comments})
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </ShellTable>
+        <p className="card-note">
+          Dados de front-end (mock). Integrado ao pipeline de eventos operacionais da Plugga.
+        </p>
+      </ShellCard>
+    </div>
   );
 }

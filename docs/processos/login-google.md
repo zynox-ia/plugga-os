@@ -214,7 +214,7 @@ LIMIT 20;
 
 | `payload.reason` | O que aconteceu | O que fazer |
 |---|---|---|
-| `user_not_found` | O e-mail da conta Google não existe no Plugga OS | Convidar a pessoa pela tela de Equipe |
+| `user_not_found` | O e-mail da conta Google não existe no plugga-os | Convidar a pessoa pela tela de Equipe |
 | `user_not_eligible` | A conta local está `disabled` | É o comportamento correto; reativar é decisão administrativa |
 | `email_not_authoritative` | Conta Google feita sobre e-mail de terceiro (sem Gmail e sem Workspace) | A pessoa entra por senha; use "Esqueceu a senha?" |
 | `email_not_verified` | O Google não confirmou o e-mail | A pessoa resolve na conta Google dela |

@@ -52,8 +52,8 @@ export const environmentSchema = z
     // per-IP throttle on /auth/* silently collapses into one global bucket.
     // Trusting a hop must therefore be an explicit, deliberate choice.
     // Accepts express values: "loopback", a hop count ("1"), an IP/CIDR, or
-    // "false"/"true". "true" trusts any caller's self-reported chain — it makes
-    // X-Forwarded-For client-controlled again, so it warns loudly at boot.
+    // "false"/"true". "true" trusts any caller's self-reported chain and is
+    // rejected at boot in production; use an explicit hop count or CIDR there.
     TRUST_PROXY: z.string().trim().min(1).default("loopback"),
     LOG_LEVEL: z.enum(["debug", "info", "warn", "error", "silent"]).default("info"),
     // Signs the session cookie (integrity, defense in depth over the opaque
@@ -66,7 +66,7 @@ export const environmentSchema = z
     // Sender identity for the brevo adapter. Local placeholder in .env.example;
     // a verified sender is required on the client's Brevo account.
     EMAIL_FROM_ADDRESS: z.string().trim().min(1).default("no-reply@plugga.local"),
-    EMAIL_FROM_NAME: z.string().trim().min(1).default("Plugga OS"),
+    EMAIL_FROM_NAME: z.string().trim().min(1).default("plugga-os"),
     // Brevo (client account) transactional API. Key lives only in the
     // environment/secret, never in git; required when EMAIL_PROVIDER=brevo.
     BREVO_API_KEY: z.string().trim().min(1).optional(),
@@ -75,6 +75,16 @@ export const environmentSchema = z
     AUTH_COOKIE_SECURE: environmentBoolean.optional(),
     SESSION_TTL_MINUTES: z.coerce.number().int().min(1).max(43_200).default(720),
     SESSION_ABSOLUTE_TTL_HOURS: z.coerce.number().int().min(1).max(8_760).default(720),
+    // Cache de sessão resolvida em Redis (tokenHash -> usuário + acesso), para
+    // não pagar o join do Postgres em toda requisição autenticada. Botão de
+    // desligar instantâneo: false volta ao comportamento de sempre ir ao banco.
+    SESSION_CACHE_ENABLED: environmentBoolean.default(true),
+    SESSION_CACHE_TTL_SECONDS: z.coerce.number().int().min(1).max(3_600).default(60),
+    // Piso entre renovações de sessão por atividade (`lastUsedAt`): sem isto, a
+    // renovação escreve no Postgres em toda requisição autenticada, mesmo em
+    // cache hit ela seria pulada, mas uma queda do Redis faria o miss voltar a
+    // escrever a cada requisição — este piso segura isso mesmo nesse cenário.
+    SESSION_RENEWAL_DEBOUNCE_MINUTES: z.coerce.number().int().min(1).max(1_440).default(5),
     // Comma-separated browser origins accepted on mutating auth routes (CSRF
     // defense in depth alongside SameSite=Lax).
     AUTH_ALLOWED_ORIGINS: z.string().trim().optional(),

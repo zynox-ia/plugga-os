@@ -17,7 +17,7 @@ e os papéis `admin/diretoria/pluggamob/financeiro/opm/tech/viewer` já existem.
 O Bloco B precisa de **autenticação real** para o OS ser utilizável localmente e
 depois em staging/VPS **do cliente**. A natureza do produto é **load-bearing**:
 
-> **Plugga/Waze OS não é SaaS multi-tenant.** É sistema operacional interno,
+> **plugga-os não é SaaS multi-tenant.** É sistema operacional interno,
 > single-tenant, hospedado na infra do cliente. Identidade e dados vivem no
 > **Postgres do projeto**.
 
@@ -185,7 +185,7 @@ da autorização ou da sessão moveria — e esse continua vetado.
 
 ## Limites que fazem o adendo caber no ADR
 
-1. **Sem autocadastro.** Conta no Plugga OS nasce de convite. Um Google válido
+1. **Sem autocadastro.** Conta no plugga-os nasce de convite. Um Google válido
    cujo e-mail não corresponda a um usuário local é recusado; nenhum usuário,
    empresa, departamento ou papel é criado a partir de claims do Google.
 2. **A identidade permanente é o `sub`**, não o e-mail. O e-mail decide uma única

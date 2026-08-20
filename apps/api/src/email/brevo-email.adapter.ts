@@ -43,7 +43,7 @@ export class BrevoEmailAdapter extends EmailPort {
         },
         body: JSON.stringify({
           sender: {
-            name: this.config.get<string>("EMAIL_FROM_NAME", "Plugga OS"),
+            name: this.config.get<string>("EMAIL_FROM_NAME", "plugga-os"),
             email: this.config.get<string>("EMAIL_FROM_ADDRESS", "no-reply@plugga.local"),
           },
           to: [{ email: email.to, ...(email.variables.name ? { name: email.variables.name } : {}) }],

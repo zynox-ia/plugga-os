@@ -1,4 +1,4 @@
-# Plugga/Waze OS — Modelo Ideal de Telas MVP
+# plugga-os — Modelo Ideal de Telas MVP
 
 **Data:** 05/08/2026 — horário de Manaus  
 **Entrega:** informação arquitetural + telas, sem código  
@@ -10,7 +10,7 @@
 
 ## 1. Objetivo deste documento
 
-Desenhar o **modelo ideal do Plugga/Waze OS** em nível de produto, focado em:
+Desenhar o **modelo ideal do plugga-os** em nível de produto, focado em:
 
 1. menu lateral completo;
 2. telas reais do MVP;
@@ -122,7 +122,7 @@ Portal/API pública Bitrix indica capacidades relevantes:
    - ações no card;
    - integração com app externo.
 
-**Conclusão arquitetural:** o Bitrix é forte como CRM/tarefas genéricas, mas a Plugga/Waze já usa o Bitrix como workflow operacional, financeiro, documental e técnico. O Plugga/Waze OS deve absorver o domínio de negócio e usar lógica própria, não apenas copiar os funis do Bitrix.
+**Conclusão arquitetural:** o Bitrix é forte como CRM/tarefas genéricas, mas a Plugga/Waze já usa o Bitrix como workflow operacional, financeiro, documental e técnico. O plugga-os deve absorver o domínio de negócio e usar lógica própria, não apenas copiar os funis do Bitrix.
 
 ---
 
@@ -207,7 +207,7 @@ Portal/API pública Bitrix indica capacidades relevantes:
 6. FATURA ENVIADA
 7. CLIENTE PERDIDO - CHURN
 
-**Leitura:** pipeline mais importante para OPM. Deve virar tela nativa do Plugga/Waze OS no MVP.
+**Leitura:** pipeline mais importante para OPM. Deve virar tela nativa do plugga-os no MVP.
 
 ---
 
@@ -289,7 +289,7 @@ Portal/API pública Bitrix indica capacidades relevantes:
 | 35 | Financeiro/legado identificado na memória como FINANCEIRO | 1 |
 | 53 | ELETROPOSTO - PLUGGA | 1 |
 
-**Leitura crítica:** 74 tarefas abertas sem grupo é um sinal forte de perda de governança. O Plugga/Waze OS deve impedir processo crítico sem área/projeto/dono.
+**Leitura crítica:** 74 tarefas abertas sem grupo é um sinal forte de perda de governança. O plugga-os deve impedir processo crítico sem área/projeto/dono.
 
 ## 3.5 Tarefas abertas por status
 
@@ -335,7 +335,7 @@ Portal/API pública Bitrix indica capacidades relevantes:
 
 # 4. Princípio do produto
 
-O Plugga/Waze OS não deve ser “um Bitrix novo”.
+O plugga-os não deve ser “um Bitrix novo”.
 
 Ele deve ser um sistema operacional interno com:
 
@@ -353,7 +353,7 @@ Ele deve ser um sistema operacional interno com:
 ## 5.1 MVP clicável
 
 ```text
-Plugga/Waze OS
+plugga-os
 
 1. Dashboard
    1.1 Visão geral
@@ -1523,7 +1523,7 @@ Não permitir status “Relatório aprovado” se faltar:
 
 ### Regra de produto
 
-No MVP, OMIE continua sendo fonte financeira oficial. Plugga/Waze OS lê, organiza e alerta.
+No MVP, OMIE continua sendo fonte financeira oficial. plugga-os lê, organiza e alerta.
 
 ---
 
@@ -2188,7 +2188,7 @@ Objetivo: tirar compras da gambiarra de CRM.
 
 # 11. Como aproveitar o que o Bitrix faz bem
 
-O Bitrix já provou alguns conceitos que o Plugga/Waze OS deve manter:
+O Bitrix já provou alguns conceitos que o plugga-os deve manter:
 
 1. Kanban por estágio.
 2. Card detalhado com timeline.
@@ -2203,7 +2203,7 @@ O Bitrix já provou alguns conceitos que o Plugga/Waze OS deve manter:
 11. Fluxos por área.
 12. Documentos vinculados ao processo.
 
-Mas o Plugga/Waze OS deve melhorar:
+Mas o plugga-os deve melhorar:
 
 1. separação entre CRM e operação;
 2. regra de negócio nativa;
@@ -2269,7 +2269,7 @@ Motivo:
 
 # 13. Resumo final para desenvolvimento
 
-O Plugga/Waze OS deve nascer com cara de sistema operacional interno, não de chatbot e não de cópia do Bitrix.
+O plugga-os deve nascer com cara de sistema operacional interno, não de chatbot e não de cópia do Bitrix.
 
 A primeira versão clicável precisa permitir navegar por:
 

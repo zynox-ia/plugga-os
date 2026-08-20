@@ -1,4 +1,5 @@
 import { Body, Controller, Get, HttpCode, Inject, Param, Post, Query, UseGuards } from "@nestjs/common";
+import { ThrottlerGuard } from "@nestjs/throttler";
 import {
   activateMarketMigrationRequestSchema,
   advanceMarketMigrationStageRequestSchema,
@@ -72,7 +73,7 @@ export class EnergyController {
 
   @Post("market-migrations")
   @HttpCode(201)
-  @UseGuards(OriginCheckGuard)
+  @UseGuards(OriginCheckGuard, ThrottlerGuard)
   @Roles(...OPERATE_ENERGY)
   createMarketMigration(
     @Body(new ZodValidationPipe(createMarketMigrationRequestSchema)) input: CreateMarketMigrationRequest,
@@ -83,7 +84,7 @@ export class EnergyController {
 
   @Post("market-migrations/:id/stage")
   @HttpCode(200)
-  @UseGuards(OriginCheckGuard)
+  @UseGuards(OriginCheckGuard, ThrottlerGuard)
   @Roles(...OPERATE_ENERGY)
   advanceMarketMigrationStage(
     @Param("id") id: string,
@@ -95,7 +96,7 @@ export class EnergyController {
 
   @Post("market-migrations/:id/cancel")
   @HttpCode(200)
-  @UseGuards(OriginCheckGuard)
+  @UseGuards(OriginCheckGuard, ThrottlerGuard)
   @Roles(...OPERATE_ENERGY)
   cancelMarketMigration(
     @Param("id") id: string,
@@ -107,7 +108,7 @@ export class EnergyController {
 
   @Post("market-migrations/:id/activate")
   @HttpCode(200)
-  @UseGuards(OriginCheckGuard)
+  @UseGuards(OriginCheckGuard, ThrottlerGuard)
   @Roles(...OPERATE_ENERGY)
   activateMarketMigration(
     @Param("id") id: string,
@@ -138,7 +139,7 @@ export class EnergyController {
 
   @Post("cycles")
   @HttpCode(201)
-  @UseGuards(OriginCheckGuard)
+  @UseGuards(OriginCheckGuard, ThrottlerGuard)
   @Roles(...OPERATE_ENERGY)
   createCycle(
     @Body(new ZodValidationPipe(createCycleRequestSchema)) input: CreateCycleRequest,
@@ -149,7 +150,7 @@ export class EnergyController {
 
   @Post("cycles/:id/documents-received")
   @HttpCode(200)
-  @UseGuards(OriginCheckGuard)
+  @UseGuards(OriginCheckGuard, ThrottlerGuard)
   @Roles(...OPERATE_ENERGY)
   markCycleDocumentsReceived(
     @Param("id") id: string,
@@ -161,7 +162,7 @@ export class EnergyController {
 
   @Post("cycles/:id/report")
   @HttpCode(200)
-  @UseGuards(OriginCheckGuard)
+  @UseGuards(OriginCheckGuard, ThrottlerGuard)
   @Roles(...OPERATE_ENERGY)
   generateCycleReport(
     @Param("id") id: string,
@@ -173,7 +174,7 @@ export class EnergyController {
 
   @Post("cycles/:id/approve-report")
   @HttpCode(200)
-  @UseGuards(OriginCheckGuard)
+  @UseGuards(OriginCheckGuard, ThrottlerGuard)
   @Roles(...APPROVE_REPORT)
   approveCycleReport(
     @Param("id") id: string,
@@ -185,7 +186,7 @@ export class EnergyController {
 
   @Post("cycles/:id/send")
   @HttpCode(200)
-  @UseGuards(OriginCheckGuard)
+  @UseGuards(OriginCheckGuard, ThrottlerGuard)
   @Roles(...OPERATE_ENERGY)
   sendCycleReport(
     @Param("id") id: string,
@@ -197,7 +198,7 @@ export class EnergyController {
 
   @Post("cycles/:id/close")
   @HttpCode(200)
-  @UseGuards(OriginCheckGuard)
+  @UseGuards(OriginCheckGuard, ThrottlerGuard)
   @Roles(...CLOSE_CYCLE)
   closeCycle(
     @Param("id") id: string,
@@ -219,7 +220,7 @@ export class EnergyController {
 
   @Post("audits")
   @HttpCode(201)
-  @UseGuards(OriginCheckGuard)
+  @UseGuards(OriginCheckGuard, ThrottlerGuard)
   @Roles(...OPERATE_ENERGY)
   createAudit(
     @Body(new ZodValidationPipe(createAuditRequestSchema)) input: CreateAuditRequest,
@@ -230,7 +231,7 @@ export class EnergyController {
 
   @Post("audits/:id/resolve")
   @HttpCode(200)
-  @UseGuards(OriginCheckGuard)
+  @UseGuards(OriginCheckGuard, ThrottlerGuard)
   @Roles(...OPERATE_ENERGY)
   resolveAudit(
     @Param("id") id: string,
@@ -252,7 +253,7 @@ export class EnergyController {
 
   @Post("contestations")
   @HttpCode(201)
-  @UseGuards(OriginCheckGuard)
+  @UseGuards(OriginCheckGuard, ThrottlerGuard)
   @Roles(...OPERATE_ENERGY)
   createContestation(
     @Body(new ZodValidationPipe(createContestationRequestSchema)) input: CreateContestationRequest,
@@ -263,7 +264,7 @@ export class EnergyController {
 
   @Post("contestations/:id/status")
   @HttpCode(200)
-  @UseGuards(OriginCheckGuard)
+  @UseGuards(OriginCheckGuard, ThrottlerGuard)
   @Roles(...RESOLVE_CONTESTATION)
   updateContestationStatus(
     @Param("id") id: string,

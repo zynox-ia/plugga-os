@@ -1,17 +1,8 @@
-import { BadRequestException, Inject, Injectable } from "@nestjs/common";
+import { BadRequestException, Inject, Injectable, ServiceUnavailableException } from "@nestjs/common";
 import { Prisma, type AuthTokenType } from "@prisma/client";
-import {
-  companyKeySchema,
-  companyRoleKeySchema,
-  departmentIdSchema,
-  identityProviderSchema,
-  isDepartmentOfCompany,
-  platformRoleKeySchema,
-  type CompanyAccess,
-  type IdentityProvider,
-  type UserAccess,
-} from "@plugga/shared";
+import { identityProviderSchema, type IdentityProvider, type UserAccess } from "@plugga/shared";
 
+import { mapUserAccess } from "../core/auth/user-access.mapper";
 import { PrismaService } from "../prisma/prisma.service";
 import {
   AuthRepository,
@@ -53,11 +44,18 @@ export class PrismaAuthRepository extends AuthRepository {
   }
 
   async findUserByEmail(email: string): Promise<AuthUserRecord | null> {
-    const user = await this.prisma.user.findUnique({
-      where: { email },
-      ...userWithAccess,
-    });
-    return user ? this.toRecord(user) : null;
+    try {
+      const user = await this.prisma.user.findUnique({
+        where: { email },
+        ...userWithAccess,
+      });
+      return user ? this.toRecord(user) : null;
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientInitializationError) {
+        throw new ServiceUnavailableException("banco de dados indisponível");
+      }
+      throw error;
+    }
   }
 
   async findUserById(id: string): Promise<AuthUserRecord | null> {
@@ -124,15 +122,21 @@ export class PrismaAuthRepository extends AuthRepository {
     }
   }
 
-  async createAuthToken(data: CreateAuthTokenData): Promise<void> {
-    await this.prisma.authToken.create({
-      data: {
-        userId: data.userId,
-        type: data.type,
-        tokenHash: data.tokenHash,
-        expiresAt: data.expiresAt,
-      },
-      select: { id: true },
+  async replaceAuthToken(data: CreateAuthTokenData): Promise<void> {
+    await this.prisma.$transaction(async (tx) => {
+      // Serializes concurrent reissues for one user before replacing the pending
+      // token, so a stale reset/invite cannot survive a newer e-mail.
+      await tx.user.update({ where: { id: data.userId }, data: { updatedAt: new Date() } });
+      await tx.authToken.deleteMany({ where: { userId: data.userId, type: data.type, consumedAt: null } });
+      await tx.authToken.create({
+        data: {
+          userId: data.userId,
+          type: data.type,
+          tokenHash: data.tokenHash,
+          expiresAt: data.expiresAt,
+        },
+        select: { id: true },
+      });
     });
   }
 
@@ -356,6 +360,12 @@ export class PrismaAuthRepository extends AuthRepository {
         ...(Object.keys(membership).length > 0 ? { memberships: { some: membership } } : {}),
       },
       orderBy: { createdAt: "asc" },
+      // 🔒 SEGURANÇA [VULN-2, auditoria zero-trust]: teto de defesa contra
+      // `findMany` sem limite (CWE-770) — a API não pagina equipe hoje. 2.000
+      // é bem acima de qualquer organização real usando este sistema
+      // single-tenant (ADR-0008), então nunca deve afetar `assertNotLastAdmin`
+      // (que também usa `listTeam`) em uso legítimo.
+      take: 2_000,
       ...userWithAccess,
     });
     return users.map((user) => this.toRecord(user));
@@ -424,37 +434,7 @@ export class PrismaAuthRepository extends AuthRepository {
       name: user.name,
       status: user.status,
       createdAt: user.createdAt,
-      access: {
-        platformRoles: user.platformRoles.flatMap((assignment) => {
-          const parsed = platformRoleKeySchema.safeParse(assignment.role.key);
-          return parsed.success ? [parsed.data] : [];
-        }),
-        companies: user.memberships.flatMap((membership) => {
-          const empresa = companyKeySchema.safeParse(membership.companyId);
-          if (!empresa.success) {
-            return [];
-          }
-
-          const company: CompanyAccess = {
-            companyId: empresa.data,
-            roles: membership.roles.flatMap((assignment) => {
-              const parsed = companyRoleKeySchema.safeParse(assignment.role.key);
-              return parsed.success ? [parsed.data] : [];
-            }),
-            // Uma linha para um departamento que saiu do catálogo é lixo de
-            // migração, não acesso: some da leitura em vez de derrubar o login.
-            departments: membership.departments.flatMap((department) => {
-              const parsed = departmentIdSchema.safeParse(department.departmentId);
-              if (!parsed.success || !isDepartmentOfCompany(empresa.data, parsed.data)) {
-                return [];
-              }
-              return [{ departmentId: parsed.data, isManager: department.isManager }];
-            }),
-          };
-
-          return [company];
-        }),
-      },
+      access: mapUserAccess(user),
     };
   }
 }

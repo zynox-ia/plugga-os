@@ -1,4 +1,5 @@
 import { Body, Controller, Get, HttpCode, Inject, Param, ParseUUIDPipe, Patch, Post, Query, UseGuards } from "@nestjs/common";
+import { ThrottlerGuard } from "@nestjs/throttler";
 import {
   createClientRequestSchema,
   duplicateCandidatesQuerySchema,
@@ -54,7 +55,7 @@ export class ClientesController {
 
   @Post()
   @HttpCode(201)
-  @UseGuards(OriginCheckGuard)
+  @UseGuards(OriginCheckGuard, ThrottlerGuard)
   @Roles("comercial", "admin")
   create(@Body(new ZodValidationPipe(createClientRequestSchema)) input: CreateClientRequest, @CurrentPrincipal() principal: AuthPrincipal): Promise<CreateClientResponse> {
     return this.service.create(input, principal);
@@ -62,7 +63,7 @@ export class ClientesController {
 
   @Patch(":id")
   @HttpCode(200)
-  @UseGuards(OriginCheckGuard)
+  @UseGuards(OriginCheckGuard, ThrottlerGuard)
   @Roles("comercial", "admin")
   update(@Param("id", ParseUUIDPipe) id: string, @Body(new ZodValidationPipe(updateClientRequestSchema)) input: UpdateClientRequest, @CurrentPrincipal() principal: AuthPrincipal): Promise<ClientSummary> {
     return this.service.update(id, input, principal);
@@ -70,7 +71,7 @@ export class ClientesController {
 
   @Post(":id/activate")
   @HttpCode(200)
-  @UseGuards(OriginCheckGuard)
+  @UseGuards(OriginCheckGuard, ThrottlerGuard)
   @Roles("comercial", "admin")
   activate(@Param("id", ParseUUIDPipe) id: string, @CurrentPrincipal() principal: AuthPrincipal): Promise<ClientSummary> {
     return this.service.activate(id, principal);
@@ -78,7 +79,7 @@ export class ClientesController {
 
   @Post(":id/inactivate")
   @HttpCode(200)
-  @UseGuards(OriginCheckGuard)
+  @UseGuards(OriginCheckGuard, ThrottlerGuard)
   @Roles("comercial", "admin")
   inactivate(@Param("id", ParseUUIDPipe) id: string, @Body(new ZodValidationPipe(inactivateClientRequestSchema)) input: InactivateClientRequest, @CurrentPrincipal() principal: AuthPrincipal): Promise<ClientSummary> {
     return this.service.inactivate(id, input, principal);

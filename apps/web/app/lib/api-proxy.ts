@@ -2,32 +2,9 @@ import { NextResponse } from "next/server";
 
 import { apiBaseUrl } from "./env";
 import { clientForwardedFor } from "./forwarded-for";
+import { isOriginAllowed } from "./origin-check";
 
 const FETCH_TIMEOUT_MS = 5_000;
-
-/**
- * Same CSRF defense as ../auth-proxy's isOriginAllowed (mirrors the API's
- * OriginCheckGuard): a same-origin browser request omits Origin, a
- * cross-site one sends it, so absence is allowed and presence must match.
- */
-function isOriginAllowed(request: Request): boolean {
-  const origin = request.headers.get("origin");
-  if (!origin) return true;
-
-  const configured = (process.env.AUTH_ALLOWED_ORIGINS ?? "")
-    .split(",")
-    .map((value) => value.trim())
-    .filter((value) => value.length > 0);
-
-  if (configured.length > 0) return configured.includes(origin);
-
-  try {
-    const hostname = new URL(origin).hostname;
-    return hostname === "localhost" || hostname === "127.0.0.1";
-  } catch {
-    return false;
-  }
-}
 
 /**
  * Forwards a mutating request (POST/PATCH) to apps/api, carrying the browser's

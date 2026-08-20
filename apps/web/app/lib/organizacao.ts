@@ -11,7 +11,7 @@ import {
 import type { IconName } from "../components/plugga-shell";
 
 /**
- * Organização do Plugga OS: Empresa → Departamento → Processo.
+ * Organização do plugga-os: Empresa → Departamento → Processo.
  *
  * Fonte única — a navegação lateral, o seletor de empresa e o mapa em
  * /estrutura leem daqui. Mudar um processo de departamento é mover uma linha,
@@ -228,7 +228,10 @@ export const EMPRESAS_POR_ID: Record<EmpresaId, Empresa> = { plugga, waze };
  * moram dentro do próprio departamento, então a tela de entrada fica livre
  * para responder só "o que precisa de mim hoje".
  */
-export const VISAO_GERAL: Processo[] = [{ label: "Início", rota: "/", status: "parcial" }];
+export const VISAO_GERAL: Processo[] = [
+  { label: "Dashboard", rota: "/", status: "pronto" },
+  { label: "Central de Pendências", rota: "/pendencias", status: "pronto" },
+];
 
 /**
  * Ferramentas atravessam todos os departamentos — abrem no dia a dia, mas não

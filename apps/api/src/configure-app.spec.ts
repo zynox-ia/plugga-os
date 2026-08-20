@@ -85,6 +85,12 @@ describe("configureApp", () => {
     expect(settings["trust proxy"]).toBe(false);
   });
 
+  it("rejects trust-all proxy configuration in production", () => {
+    const { app } = fakeApp({ ...SECRET, NODE_ENV: "production", TRUST_PROXY: "true" });
+
+    expect(() => configureApp(app)).toThrow(/TRUST_PROXY=true is forbidden/);
+  });
+
   it("always installs signed cookie parsing", () => {
     const { app, middleware } = fakeApp({ ...SECRET });
 
