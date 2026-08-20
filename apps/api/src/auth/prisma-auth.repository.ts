@@ -1,4 +1,4 @@
-import { BadRequestException, Inject, Injectable } from "@nestjs/common";
+import { BadRequestException, Inject, Injectable, ServiceUnavailableException } from "@nestjs/common";
 import { Prisma, type AuthTokenType } from "@prisma/client";
 import {
   companyKeySchema,
@@ -53,11 +53,18 @@ export class PrismaAuthRepository extends AuthRepository {
   }
 
   async findUserByEmail(email: string): Promise<AuthUserRecord | null> {
-    const user = await this.prisma.user.findUnique({
-      where: { email },
-      ...userWithAccess,
-    });
-    return user ? this.toRecord(user) : null;
+    try {
+      const user = await this.prisma.user.findUnique({
+        where: { email },
+        ...userWithAccess,
+      });
+      return user ? this.toRecord(user) : null;
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientInitializationError) {
+        throw new ServiceUnavailableException("banco de dados indisponível");
+      }
+      throw error;
+    }
   }
 
   async findUserById(id: string): Promise<AuthUserRecord | null> {
