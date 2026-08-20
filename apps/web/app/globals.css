@@ -789,9 +789,9 @@ h1 { margin-bottom: 4px; color: #0F294A; font: 500 clamp(24px, 2.5vw, 32px)/1.05
 .shell-card {
   min-width: 0;
   padding: 22px 24px;
-  background: rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
   border: 1px solid rgba(255, 255, 255, 0.45);
   border-radius: 24px;
   box-shadow: 0 8px 24px rgba(15, 41, 74, 0.05);
@@ -799,7 +799,7 @@ h1 { margin-bottom: 4px; color: #0F294A; font: 500 clamp(24px, 2.5vw, 32px)/1.05
 }
 
 .shell-card:hover {
-  background: rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.07);
   border-color: rgba(255, 255, 255, 0.65);
   box-shadow: 0 12px 32px rgba(15, 41, 74, 0.08);
   transform: none;
@@ -946,9 +946,9 @@ tbody tr:last-child td { border-bottom: 0; }
 
 .ai-assistant-title { font: 500 19px var(--font-articulat), "Articulat CF", sans-serif; color: #fff; text-align: center; margin: 0; }
 .dashboard-view .shell-card {
-  background: rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
   border: 1px solid rgba(255, 255, 255, 0.45);
   box-shadow: 0 8px 24px rgba(15, 41, 74, 0.05);
 }
