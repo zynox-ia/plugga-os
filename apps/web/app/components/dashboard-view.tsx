@@ -534,92 +534,116 @@ function DashboardContent({ health }: { health: HealthCheck | null }) {
         </div>
       </div>
 
-      {/* 2. Fileira de 4 Cards Métricos Principais Superiores com Gráficos Individualizados */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "16px" }}>
+      {/* 2. Fileira de 4 Cards Métricos Principais Superiores (Limpos) */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))", gap: "16px" }}>
         {isPlugga ? (
           <>
-            {/* Card 1: Clientes Ativos + Segmented Stack Bar */}
-            <ShellCard style={{ padding: "18px 20px", display: "flex", flexDirection: "column", gap: "14px" }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                  <div style={{ width: 32, height: 32, borderRadius: "50%", background: "rgba(0, 163, 255, 0.1)", display: "grid", placeItems: "center", color: "#00A3FF" }}>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-                      <circle cx="9" cy="7" r="4" />
-                      <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-                    </svg>
-                  </div>
-                  <span style={{ fontSize: "12.5px", fontWeight: 500, color: "rgba(15, 41, 74, 0.65)" }}>Clientes Ativos</span>
+            {/* Card 1: Clientes Ativos */}
+            <ShellCard style={{ padding: "20px", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
+                <div style={{ width: 36, height: 36, borderRadius: "50%", background: "rgba(0, 163, 255, 0.1)", display: "grid", placeItems: "center", color: "#00A3FF" }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                    <circle cx="9" cy="7" r="4" />
+                    <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                  </svg>
                 </div>
-                <span style={{ fontSize: "11px", fontWeight: 500, color: "#059669", background: "rgba(16, 185, 129, 0.1)", padding: "2px 7px", borderRadius: "999px" }}>
+                <span style={{ fontSize: "11.5px", fontWeight: 500, color: "#059669", background: "rgba(16, 185, 129, 0.1)", padding: "3px 8px", borderRadius: "999px" }}>
                   +4 este mês
                 </span>
               </div>
-              <div style={{ display: "flex", alignItems: "baseline", gap: "8px" }}>
-                <div style={{ fontSize: "28px", fontWeight: 500, color: "#0F294A", letterSpacing: "-0.02em" }}>42</div>
-                <span style={{ fontSize: "11.5px", color: "rgba(15, 41, 74, 0.55)" }}>clientes com operação ativa</span>
+              <div>
+                <span style={{ fontSize: "12.5px", fontWeight: 500, color: "rgba(15, 41, 74, 0.65)" }}>
+                  Clientes Ativos
+                </span>
+                <div style={{ fontSize: "26px", fontWeight: 500, color: "#0F294A", marginTop: "4px", letterSpacing: "-0.02em" }}>
+                  42
+                </div>
+                <span style={{ fontSize: "11.5px", color: "rgba(15, 41, 74, 0.55)", marginTop: "2px", display: "block", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  clientes com operação ativa
+                </span>
               </div>
-              <SegmentedStackBar />
             </ShellCard>
 
-            {/* Card 2: Economia Gerada + Soft Wavy Sparkline */}
-            <ShellCard style={{ padding: "18px 20px", display: "flex", flexDirection: "column", gap: "10px" }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                  <div style={{ width: 32, height: 32, borderRadius: "50%", background: "rgba(16, 185, 129, 0.1)", display: "grid", placeItems: "center", color: "#10b981" }}>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <line x1="12" y1="1" x2="12" y2="23" />
-                      <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-                    </svg>
-                  </div>
-                  <span style={{ fontSize: "12.5px", fontWeight: 500, color: "rgba(15, 41, 74, 0.65)" }}>Economia Gerada</span>
+            {/* Card 2: Economia Gerada */}
+            <ShellCard style={{ padding: "20px", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
+                <div style={{ width: 36, height: 36, borderRadius: "50%", background: "rgba(16, 185, 129, 0.1)", display: "grid", placeItems: "center", color: "#10b981" }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <line x1="12" y1="1" x2="12" y2="23" />
+                    <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+                  </svg>
                 </div>
-                <span style={{ fontSize: "11px", fontWeight: 500, color: "#059669", background: "rgba(16, 185, 129, 0.1)", padding: "2px 7px", borderRadius: "999px" }}>
+                <span style={{ fontSize: "11.5px", fontWeight: 500, color: "#059669", background: "rgba(16, 185, 129, 0.1)", padding: "3px 8px", borderRadius: "999px" }}>
                   +12.4% vs mês anterior
                 </span>
               </div>
               <div>
-                <div style={{ fontSize: "28px", fontWeight: 500, color: "#0F294A", letterSpacing: "-0.02em" }}>R$ 485.200</div>
-                <span style={{ fontSize: "11.5px", color: "rgba(15, 41, 74, 0.55)", display: "block" }}>R$ economizados no período</span>
+                <span style={{ fontSize: "12.5px", fontWeight: 500, color: "rgba(15, 41, 74, 0.65)" }}>
+                  Economia Gerada
+                </span>
+                <div style={{ fontSize: "26px", fontWeight: 500, color: "#0F294A", marginTop: "4px", letterSpacing: "-0.02em" }}>
+                  R$ 485.200
+                </div>
+                <span style={{ fontSize: "11.5px", color: "rgba(15, 41, 74, 0.55)", marginTop: "2px", display: "block", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  R$ economizados no período
+                </span>
               </div>
-              <SoftWavySparkline color="#10b981" />
             </ShellCard>
 
-            {/* Card 3: Faturamento Plugga + Vertical Pillars Chart */}
-            <ShellCard style={{ padding: "18px 20px", display: "flex", flexDirection: "column", gap: "10px" }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                  <div style={{ width: 32, height: 32, borderRadius: "50%", background: "rgba(147, 51, 234, 0.1)", display: "grid", placeItems: "center", color: "#9333ea" }}>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
-                    </svg>
-                  </div>
-                  <span style={{ fontSize: "12.5px", fontWeight: 500, color: "rgba(15, 41, 74, 0.65)" }}>Faturamento Plugga</span>
+            {/* Card 3: Faturamento Plugga */}
+            <ShellCard style={{ padding: "20px", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
+                <div style={{ width: 36, height: 36, borderRadius: "50%", background: "rgba(147, 51, 234, 0.1)", display: "grid", placeItems: "center", color: "#9333ea" }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+                  </svg>
                 </div>
-                <span style={{ fontSize: "11px", fontWeight: 500, color: "#059669", background: "rgba(16, 185, 129, 0.1)", padding: "2px 7px", borderRadius: "999px" }}>
+                <span style={{ fontSize: "11.5px", fontWeight: 500, color: "#059669", background: "rgba(16, 185, 129, 0.1)", padding: "3px 8px", borderRadius: "999px" }}>
                   +8.2% este mês
                 </span>
               </div>
               <div>
-                <div style={{ fontSize: "28px", fontWeight: 500, color: "#0F294A", letterSpacing: "-0.02em" }}>R$ 142.800</div>
-                <span style={{ fontSize: "11.5px", color: "rgba(15, 41, 74, 0.55)", display: "block", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                <span style={{ fontSize: "12.5px", fontWeight: 500, color: "rgba(15, 41, 74, 0.65)" }}>
+                  Faturamento Plugga
+                </span>
+                <div style={{ fontSize: "26px", fontWeight: 500, color: "#0F294A", marginTop: "4px", letterSpacing: "-0.02em" }}>
+                  R$ 142.800
+                </div>
+                <span style={{ fontSize: "11.5px", color: "rgba(15, 41, 74, 0.55)", marginTop: "2px", display: "block", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                   receita recorrente / operacional
                 </span>
               </div>
-              <VerticalPillarsChart values={[45, 60, 52, 75, 68, 92]} />
             </ShellCard>
 
-            {/* Card 4: Faturas Processadas + Circular Donut Ring */}
-            <ShellCard style={{ padding: "18px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                <span style={{ fontSize: "12.5px", fontWeight: 500, color: "rgba(15, 41, 74, 0.65)" }}>Faturas Processadas</span>
-                <div style={{ fontSize: "28px", fontWeight: 500, color: "#0F294A", letterSpacing: "-0.02em" }}>1.284</div>
-                <span style={{ fontSize: "11.5px", color: "rgba(15, 41, 74, 0.55)" }}>faturas auditadas no período</span>
-                <span style={{ fontSize: "11px", fontWeight: 500, color: "#0F294A", background: "rgba(15, 41, 74, 0.08)", padding: "2px 7px", borderRadius: "999px", width: "fit-content", marginTop: "2px" }}>
+            {/* Card 4: Faturas Processadas */}
+            <ShellCard style={{ padding: "20px", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
+                <div style={{ width: 36, height: 36, borderRadius: "50%", background: "rgba(245, 158, 11, 0.1)", display: "grid", placeItems: "center", color: "#f59e0b" }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                    <polyline points="14 2 14 8 20 8" />
+                    <line x1="16" y1="13" x2="8" y2="13" />
+                    <line x1="16" y1="17" x2="8" y2="17" />
+                    <polyline points="10 9 9 9 8 9" />
+                  </svg>
+                </div>
+                <span style={{ fontSize: "11.5px", fontWeight: 500, color: "#0F294A", background: "rgba(15, 41, 74, 0.08)", padding: "3px 8px", borderRadius: "999px" }}>
                   99,2% precisão
                 </span>
               </div>
-              <CircularDonutRing percentage={99.2} size={54} color="#00A3FF" />
+              <div>
+                <span style={{ fontSize: "12.5px", fontWeight: 500, color: "rgba(15, 41, 74, 0.65)" }}>
+                  Faturas Processadas
+                </span>
+                <div style={{ fontSize: "26px", fontWeight: 500, color: "#0F294A", marginTop: "4px", letterSpacing: "-0.02em" }}>
+                  1.284
+                </div>
+                <span style={{ fontSize: "11.5px", color: "rgba(15, 41, 74, 0.55)", marginTop: "2px", display: "block", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  faturas auditadas no período
+                </span>
+              </div>
             </ShellCard>
           </>
         ) : (
