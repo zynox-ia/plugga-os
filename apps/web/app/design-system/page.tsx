@@ -244,7 +244,7 @@ export default function DesignSystemPage() {
 
                 {/* Details Block */}
                 <div style={{ padding: "16px", display: "flex", flexDirection: "column", gap: "8px" }}>
-                  <span style={{ fontSize: "11.5px", fontWeight: 600, color: "var(--folha)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                  <span style={{ fontSize: "11.5px", fontWeight: 500, color: "var(--folha)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
                     {token.role}
                   </span>
                   <div style={{ display: "flex", gap: "12px", fontSize: "12px", color: "rgba(224, 219, 199, 0.8)", fontFamily: "monospace" }}>
@@ -283,7 +283,7 @@ export default function DesignSystemPage() {
 
               {/* Row 1: Primary Variants */}
               <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "14px" }}>
-                <div style={{ width: "160px", fontSize: "13px", fontWeight: 600, color: "var(--muted)" }}>
+                <div style={{ width: "160px", fontSize: "13px", fontWeight: 500, color: "var(--muted)" }}>
                   Laranja Intenso (Primary CTA)
                 </div>
                 <button type="button" className="button button--primary">
@@ -302,7 +302,7 @@ export default function DesignSystemPage() {
 
               {/* Row 2: Secondary Leaf Green */}
               <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "14px" }}>
-                <div style={{ width: "160px", fontSize: "13px", fontWeight: 600, color: "var(--muted)" }}>
+                <div style={{ width: "160px", fontSize: "13px", fontWeight: 500, color: "var(--muted)" }}>
                   Verde Folha (Secondary)
                 </div>
                 <button type="button" className="button button--secondary">
@@ -321,7 +321,7 @@ export default function DesignSystemPage() {
 
               {/* Row 3: Areia Sand Button */}
               <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "14px" }}>
-                <div style={{ width: "160px", fontSize: "13px", fontWeight: 600, color: "var(--muted)" }}>
+                <div style={{ width: "160px", fontSize: "13px", fontWeight: 500, color: "var(--muted)" }}>
                   Areia (Sand Accent)
                 </div>
                 <button type="button" className="button button--sand">
@@ -340,7 +340,7 @@ export default function DesignSystemPage() {
 
               {/* Row 4: Woody Beige Button */}
               <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "14px" }}>
-                <div style={{ width: "160px", fontSize: "13px", fontWeight: 600, color: "var(--muted)" }}>
+                <div style={{ width: "160px", fontSize: "13px", fontWeight: 500, color: "var(--muted)" }}>
                   Bege Amadeirado
                 </div>
                 <button type="button" className="button button--woody">
@@ -359,7 +359,7 @@ export default function DesignSystemPage() {
 
               {/* Row 5: Outline Glass / Ghost */}
               <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "14px" }}>
-                <div style={{ width: "160px", fontSize: "13px", fontWeight: 600, color: "var(--muted)" }}>
+                <div style={{ width: "160px", fontSize: "13px", fontWeight: 500, color: "var(--muted)" }}>
                   Glassware & Ghost
                 </div>
                 <button type="button" className="button">
@@ -436,16 +436,16 @@ export default function DesignSystemPage() {
                 </div>
 
                 <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginTop: "10px" }}>
-                  <span style={{ padding: "4px 12px", borderRadius: "999px", background: "linear-gradient(135deg, #F25601, #D94C00)", color: "#fff", fontSize: "12px", fontWeight: 600 }}>
+                  <span style={{ padding: "4px 12px", borderRadius: "999px", background: "linear-gradient(135deg, #F25601, #D94C00)", color: "#fff", fontSize: "12px", fontWeight: 500 }}>
                     Laranja Intenso
                   </span>
-                  <span style={{ padding: "4px 12px", borderRadius: "999px", background: "linear-gradient(135deg, #00AF88, #008767)", color: "#fff", fontSize: "12px", fontWeight: 600 }}>
+                  <span style={{ padding: "4px 12px", borderRadius: "999px", background: "linear-gradient(135deg, #00AF88, #008767)", color: "#fff", fontSize: "12px", fontWeight: 500 }}>
                     Verde Folha
                   </span>
-                  <span style={{ padding: "4px 12px", borderRadius: "999px", background: "#E0DBC7", color: "#003333", fontSize: "12px", fontWeight: 600 }}>
+                  <span style={{ padding: "4px 12px", borderRadius: "999px", background: "#E0DBC7", color: "#003333", fontSize: "12px", fontWeight: 500 }}>
                     Areia Tag
                   </span>
-                  <span style={{ padding: "4px 12px", borderRadius: "999px", background: "#D6B896", color: "#003333", fontSize: "12px", fontWeight: 600 }}>
+                  <span style={{ padding: "4px 12px", borderRadius: "999px", background: "#D6B896", color: "#003333", fontSize: "12px", fontWeight: 500 }}>
                     Bege Amadeirado
                   </span>
                 </div>
@@ -473,10 +473,10 @@ export default function DesignSystemPage() {
               <tbody>
                 <tr>
                   <td style={{ fontFamily: "monospace", color: "#E0DBC7" }}>#PLG-2025-01</td>
-                  <td style={{ fontWeight: 600, color: "#fff" }}>Usina Solar Alfa</td>
+                  <td style={{ fontWeight: 500, color: "#fff" }}>Usina Solar Alfa</td>
                   <td>Energia OPM</td>
                   <td><StatusPill variant="success">Em Operação</StatusPill></td>
-                  <td style={{ fontWeight: 600, color: "#E0DBC7" }}>R$ 48.500,00</td>
+                  <td style={{ fontWeight: 500, color: "#E0DBC7" }}>R$ 48.500,00</td>
                   <td>
                     <button type="button" className="button button--secondary" style={{ padding: "4px 10px", fontSize: "11.5px" }}>
                       Ver Ficha
@@ -485,10 +485,10 @@ export default function DesignSystemPage() {
                 </tr>
                 <tr>
                   <td style={{ fontFamily: "monospace", color: "#E0DBC7" }}>#PLG-2025-02</td>
-                  <td style={{ fontWeight: 600, color: "#fff" }}>Eletroposto Central</td>
+                  <td style={{ fontWeight: 500, color: "#fff" }}>Eletroposto Central</td>
                   <td>Eletromobilidade</td>
                   <td><StatusPill variant="warning">Pendente Liberação</StatusPill></td>
-                  <td style={{ fontWeight: 600, color: "#E0DBC7" }}>R$ 12.300,00</td>
+                  <td style={{ fontWeight: 500, color: "#E0DBC7" }}>R$ 12.300,00</td>
                   <td>
                     <button type="button" className="button button--primary" style={{ padding: "4px 10px", fontSize: "11.5px" }}>
                       Aprovar
@@ -497,10 +497,10 @@ export default function DesignSystemPage() {
                 </tr>
                 <tr>
                   <td style={{ fontFamily: "monospace", color: "#E0DBC7" }}>#PLG-2025-03</td>
-                  <td style={{ fontWeight: 600, color: "#fff" }}>Complexo Industrial Beta</td>
+                  <td style={{ fontWeight: 500, color: "#fff" }}>Complexo Industrial Beta</td>
                   <td>Comercial Obras</td>
                   <td><StatusPill variant="neutral">Em Análise</StatusPill></td>
-                  <td style={{ fontWeight: 600, color: "#E0DBC7" }}>R$ 184.000,00</td>
+                  <td style={{ fontWeight: 500, color: "#E0DBC7" }}>R$ 184.000,00</td>
                   <td>
                     <button type="button" className="button button--woody" style={{ padding: "4px 10px", fontSize: "11.5px" }}>
                       Detalhes
@@ -526,7 +526,7 @@ export default function DesignSystemPage() {
                 {SPACING_TOKENS.map((sp) => (
                   <div key={sp.name} style={{ display: "flex", alignItems: "center", gap: "12px" }}>
                     <div style={{ width: "120px", fontSize: "12px", fontFamily: "monospace", color: "var(--folha)" }}>{sp.name}</div>
-                    <div style={{ width: "50px", fontSize: "12.5px", fontWeight: 600, color: "#fff" }}>{sp.size}</div>
+                    <div style={{ width: "50px", fontSize: "12.5px", fontWeight: 500, color: "#fff" }}>{sp.size}</div>
                     <div
                       style={{
                         height: "18px",
@@ -549,7 +549,7 @@ export default function DesignSystemPage() {
                 {RADIUS_TOKENS.map((rad) => (
                   <div key={rad.name} style={{ display: "flex", alignItems: "center", gap: "12px" }}>
                     <div style={{ width: "120px", fontSize: "12px", fontFamily: "monospace", color: "var(--folha)" }}>{rad.name}</div>
-                    <div style={{ width: "50px", fontSize: "12.5px", fontWeight: 600, color: "#fff" }}>{rad.size}</div>
+                    <div style={{ width: "50px", fontSize: "12.5px", fontWeight: 500, color: "#fff" }}>{rad.size}</div>
                     <div
                       style={{
                         width: "36px",
