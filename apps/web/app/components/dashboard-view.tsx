@@ -106,15 +106,7 @@ function DashboardContent({ health }: { health: HealthCheck | null }) {
               letterSpacing: "-0.01em",
             }}
           >
-            {isPlugga ? (
-              <>
-                Plugga • <strong style={{ fontWeight: 500, color: "#0F294A" }}>Gestão de Energia & Operação OPM</strong>
-              </>
-            ) : (
-              <>
-                Waze Energia • <strong style={{ fontWeight: 500, color: "#0F294A" }}>Consórcio & Usinas Solar</strong>
-              </>
-            )}
+            Bem-vindo, <strong style={{ fontWeight: 500, color: "#0F294A" }}>André</strong>
           </h1>
           <p
             style={{
@@ -124,9 +116,7 @@ function DashboardContent({ health }: { health: HealthCheck | null }) {
               fontFamily: 'var(--font-articulat), "Articulat CF", sans-serif',
             }}
           >
-            {isPlugga
-              ? "Monitoramento de clientes ativos, economia gerada, contratos OPM e auditorias."
-              : "Visão geral de geração distribuída, créditos compensados e repasses."}
+            Aqui está a visão clara do desempenho de suas operações e estrutura OPM
           </p>
         </div>
 
