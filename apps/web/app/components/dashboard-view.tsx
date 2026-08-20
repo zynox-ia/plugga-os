@@ -880,26 +880,119 @@ function DashboardContent({ health }: { health: HealthCheck | null }) {
             </div>
 
             {/* Card Tabela: Clientes & Operações OPM em Acompanhamento */}
-            <ShellCard style={{ padding: "20px" }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "14px" }}>
-                <h3 style={{ margin: 0, fontSize: "16px", fontWeight: 500, color: "#0F294A" }}>
-                  {isPlugga ? "Clientes & Operações OPM em Acompanhamento" : "Contratos GD & Usinas Solar"}
-                </h3>
-                <span style={{ fontSize: "12px", color: "rgba(15, 41, 74, 0.6)" }}>{transactions.length} clientes ativos</span>
+            <ShellCard style={{ padding: "22px", display: "flex", flexDirection: "column", gap: "16px" }}>
+              {/* Cabeçalho da Tabela com Busca e Filtros */}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "12px" }}>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: "16px", fontWeight: 500, color: "#0F294A", letterSpacing: "-0.01em" }}>
+                    {isPlugga ? "Clientes & Operações OPM em Acompanhamento" : "Contratos GD & Usinas Solar"}
+                  </h3>
+                  <p style={{ margin: "2px 0 0 0", fontSize: "12.5px", color: "rgba(15, 41, 74, 0.6)" }}>
+                    Monitoramento continuado de economia, faturas e status operacional
+                  </p>
+                </div>
+
+                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                  {/* Input de Busca de Cliente */}
+                  <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(15, 41, 74, 0.5)" strokeWidth="2" style={{ position: "absolute", left: "10px" }}>
+                      <circle cx="11" cy="11" r="8" />
+                      <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                    </svg>
+                    <input
+                      type="text"
+                      placeholder="Buscar cliente..."
+                      style={{
+                        height: "32px",
+                        padding: "0 12px 0 30px",
+                        borderRadius: "999px",
+                        background: "rgba(15, 41, 74, 0.05)",
+                        border: "1px solid rgba(15, 41, 74, 0.12)",
+                        fontSize: "12px",
+                        color: "#0F294A",
+                        outline: "none",
+                        width: "160px",
+                      }}
+                    />
+                  </div>
+
+                  <span style={{ fontSize: "12px", fontWeight: 500, color: "#0F294A", background: "rgba(15, 41, 74, 0.06)", padding: "4px 12px", borderRadius: "999px" }}>
+                    42 Clientes
+                  </span>
+                </div>
               </div>
 
+              {/* Tabela de Dados com Tipografia Refinada */}
               <ShellTable caption="Tabela de operações de energia">
                 <thead>
-                  <tr style={{ textAlign: "left", fontSize: "12px", color: "rgba(15, 41, 74, 0.6)", borderBottom: "1px solid rgba(15, 41, 74, 0.08)" }}>
-                    <th style={{ padding: "10px 12px", width: "36px" }}>✓</th>
-                    <th style={{ padding: "10px 12px" }}>Cliente & Operação</th>
-                    <th style={{ padding: "10px 12px" }}>Economia / Faturamento</th>
-                    <th style={{ padding: "10px 12px" }}>Última Atualização</th>
-                    <th style={{ padding: "10px 12px", textAlign: "right" }}>Status</th>
+                  <tr style={{ textAlign: "left", fontSize: "11px", fontWeight: 600, color: "rgba(15, 41, 74, 0.55)", textTransform: "uppercase", letterSpacing: "0.04em", borderBottom: "1px solid rgba(15, 41, 74, 0.08)" }}>
+                    <th style={{ padding: "10px 12px", width: "32px" }}>✓</th>
+                    <th style={{ padding: "10px 12px" }}>CLIENTE & OPERAÇÃO OPM</th>
+                    <th style={{ padding: "10px 12px" }}>CONCESSIONÁRIA</th>
+                    <th style={{ padding: "10px 12px" }}>ECONOMIA / VALOR</th>
+                    <th style={{ padding: "10px 12px" }}>ATUALIZAÇÃO</th>
+                    <th style={{ padding: "10px 12px", textAlign: "right" }}>STATUS</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {transactions.map((tx) => {
+                  {[
+                    {
+                      id: "tx-p1",
+                      user: "HSL",
+                      userBg: "rgba(0, 163, 255, 0.12)",
+                      userColor: "#00A3FF",
+                      name: "Hospital São Lucas",
+                      role: "Gestão de Fatura & Geração Distribuída",
+                      utility: "CEMIG",
+                      price: "R$ 48.500,00",
+                      trend: "+12%",
+                      date: "18 Abr 2026",
+                      status: "active",
+                      statusLabel: "Economia Ativa",
+                    },
+                    {
+                      id: "tx-p2",
+                      user: "GA",
+                      userBg: "rgba(16, 185, 129, 0.12)",
+                      userColor: "#10b981",
+                      name: "Grupo Alvorada",
+                      role: "Contrato OPM Premium • 4 Usinas",
+                      utility: "CPFL",
+                      price: "R$ 112.300,00",
+                      trend: "+15%",
+                      date: "17 Abr 2026",
+                      status: "active",
+                      statusLabel: "Economia Ativa",
+                    },
+                    {
+                      id: "tx-p3",
+                      user: "IM",
+                      userBg: "rgba(245, 158, 11, 0.12)",
+                      userColor: "#d97706",
+                      name: "Indústria Matarazzo",
+                      role: "Auditoria Tarifária Contínua",
+                      utility: "COPEL",
+                      price: "R$ 24.620,00",
+                      trend: "Contestação",
+                      date: "15 Abr 2026",
+                      status: "pending",
+                      statusLabel: "Em Contestação",
+                    },
+                    {
+                      id: "tx-p4",
+                      user: "SV",
+                      userBg: "rgba(147, 51, 234, 0.12)",
+                      userColor: "#9333ea",
+                      name: "Rede Supermercados Viva",
+                      role: "Cliente Multiusina • 12 Unidades",
+                      utility: "ENEL",
+                      price: "R$ 67.800,00",
+                      trend: "+8%",
+                      date: "14 Abr 2026",
+                      status: "active",
+                      statusLabel: "Economia Ativa",
+                    },
+                  ].map((tx) => {
                     const isChecked = Boolean(checkedTxs[tx.id]);
                     return (
                       <tr key={tx.id} style={{ borderBottom: "1px solid rgba(15, 41, 74, 0.06)", fontSize: "13px", color: "#0F294A" }}>
@@ -911,42 +1004,57 @@ function DashboardContent({ health }: { health: HealthCheck | null }) {
                             style={{ cursor: "pointer", accentColor: "#0F294A" }}
                           />
                         </td>
-                        <td style={{ padding: "12px", fontWeight: 500 }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                        <td style={{ padding: "12px" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
                             <span
                               style={{
-                                width: 32,
-                                height: 32,
-                                borderRadius: "50%",
-                                background: "rgba(15, 41, 74, 0.08)",
+                                width: 34,
+                                height: 34,
+                                borderRadius: "10px",
+                                background: tx.userBg,
                                 display: "grid",
                                 placeItems: "center",
-                                fontSize: "11px",
+                                fontSize: "11.5px",
                                 fontWeight: 600,
-                                color: "#0F294A",
+                                color: tx.userColor,
+                                border: "1px solid rgba(15, 41, 74, 0.08)",
                               }}
                             >
                               {tx.user}
                             </span>
                             <div>
-                              <div style={{ fontWeight: 500, color: "#0F294A" }}>{tx.activity}</div>
+                              <div style={{ fontWeight: 500, color: "#0F294A", fontSize: "13.5px" }}>{tx.name}</div>
                               <div style={{ fontSize: "11.5px", color: "rgba(15, 41, 74, 0.55)" }}>{tx.role}</div>
                             </div>
                           </div>
                         </td>
-                        <td style={{ padding: "12px", fontWeight: 500 }}>{tx.price}</td>
-                        <td style={{ padding: "12px", color: "rgba(15, 41, 74, 0.65)" }}>{tx.date}</td>
+                        <td style={{ padding: "12px" }}>
+                          <span style={{ fontSize: "11.5px", fontWeight: 500, color: "#0F294A", background: "rgba(15, 41, 74, 0.06)", padding: "3px 8px", borderRadius: "6px" }}>
+                            {tx.utility}
+                          </span>
+                        </td>
+                        <td style={{ padding: "12px" }}>
+                          <div style={{ fontWeight: 500, color: "#0F294A" }}>{tx.price}</div>
+                          <span style={{ fontSize: "10.5px", color: tx.status === "active" ? "#059669" : "#d97706" }}>
+                            {tx.trend}
+                          </span>
+                        </td>
+                        <td style={{ padding: "12px", color: "rgba(15, 41, 74, 0.65)", fontSize: "12.5px" }}>{tx.date}</td>
                         <td style={{ padding: "12px", textAlign: "right" }}>
                           <span
                             style={{
-                              padding: "4px 10px",
+                              padding: "4px 12px",
                               borderRadius: "999px",
                               fontSize: "11.5px",
                               fontWeight: 500,
                               color: tx.status === "active" ? "#059669" : "#d97706",
-                              background: tx.status === "active" ? "rgba(16, 185, 129, 0.1)" : "rgba(245, 158, 11, 0.1)",
+                              background: tx.status === "active" ? "rgba(16, 185, 129, 0.12)" : "rgba(245, 158, 11, 0.12)",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: "6px",
                             }}
                           >
+                            <span style={{ width: 6, height: 6, borderRadius: "50%", background: tx.status === "active" ? "#10b981" : "#f59e0b" }} />
                             {tx.statusLabel}
                           </span>
                         </td>
@@ -955,6 +1063,22 @@ function DashboardContent({ health }: { health: HealthCheck | null }) {
                   })}
                 </tbody>
               </ShellTable>
+
+              {/* Rodapé da Tabela com Paginação */}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingTop: "8px", borderTop: "1px solid rgba(15, 41, 74, 0.08)", fontSize: "12px", color: "rgba(15, 41, 74, 0.6)" }}>
+                <span>Mostrando <strong>4</strong> de <strong>42</strong> operações ativas</span>
+                <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                  <button type="button" style={{ padding: "4px 10px", borderRadius: "6px", background: "rgba(15, 41, 74, 0.06)", border: "none", color: "#0F294A", cursor: "pointer", fontSize: "12px" }}>
+                    ‹ Anterior
+                  </button>
+                  <span style={{ padding: "4px 8px", borderRadius: "6px", background: "#0F294A", color: "#FFFFFF", fontWeight: 500, fontSize: "11.5px" }}>1</span>
+                  <span style={{ padding: "4px 8px", color: "#0F294A", fontSize: "11.5px" }}>2</span>
+                  <span style={{ padding: "4px 8px", color: "#0F294A", fontSize: "11.5px" }}>3</span>
+                  <button type="button" style={{ padding: "4px 10px", borderRadius: "6px", background: "rgba(15, 41, 74, 0.06)", border: "none", color: "#0F294A", cursor: "pointer", fontSize: "12px" }}>
+                    Próximo ›
+                  </button>
+                </div>
+              </div>
             </ShellCard>
           </div>
 
