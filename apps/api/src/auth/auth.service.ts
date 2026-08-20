@@ -20,10 +20,11 @@ import {
 
 import { AuditRepository } from "../audit/audit.repository";
 import type { AuthPrincipal } from "../core/auth/auth.types";
+import { SessionCache, type ResolvedSessionUser } from "../core/auth/session-cache";
 import { hashToken } from "../core/auth/token.util";
 import { maskEmail } from "../email/email.util";
 import { AuthTokenIssuer } from "./auth-token-issuer.service";
-import { AuthRepository, type AuthUserRecord } from "./auth.repository";
+import { AuthRepository } from "./auth.repository";
 import { EmailAttemptLimiter } from "./email-attempt-limiter.service";
 import { LockoutService } from "./lockout.service";
 import { PasswordService } from "./password.service";
@@ -34,8 +35,8 @@ export interface LoginResult {
   user: SessionUser;
 }
 
-/** Converte o registro do banco no usuário de sessão que web e API trocam. */
-export function toSessionUser(user: AuthUserRecord): SessionUser {
+/** Converte o registro do banco (ou o cache) no usuário de sessão que web e API trocam. */
+export function toSessionUser(user: ResolvedSessionUser): SessionUser {
   return sessionUserSchema.parse({
     id: user.id,
     email: user.email,
@@ -58,6 +59,7 @@ export class AuthService {
     @Inject(EmailAttemptLimiter) private readonly emailLimiter: EmailAttemptLimiter,
     @Inject(AuthTokenIssuer) private readonly tokens: AuthTokenIssuer,
     @Inject(AuditRepository) private readonly audit: AuditRepository,
+    @Inject(SessionCache) private readonly cache: SessionCache,
   ) {}
 
   async login(input: LoginRequest, context: SessionContext): Promise<LoginResult> {
@@ -97,7 +99,7 @@ export class AuthService {
 
     this.lockout.reset(lockKey);
     this.emailLimiter.reset(input.email);
-    const token = await this.sessions.issue(user.id, context);
+    const token = await this.sessions.issue(user, context);
     await this.audit.appendEvent({
       eventName: eventNames.authLoginSucceeded,
       entityType: "user",
@@ -111,8 +113,14 @@ export class AuthService {
     return { token, user: toSessionUser(user) };
   }
 
-  async me(principal: AuthPrincipal): Promise<SessionUser> {
-    const user = await this.repository.findUserById(principal.id);
+  /**
+   * `rawToken` é opcional porque o caminho de dev-header (`DEV_AUTH_ENABLED`)
+   * autentica sem cookie de sessão — sem token não há o que cachear, e cai
+   * direto no Postgres como sempre foi.
+   */
+  async me(principal: AuthPrincipal, rawToken?: string): Promise<SessionUser> {
+    const cached = rawToken ? await this.cache.get(hashToken(rawToken)) : null;
+    const user = cached?.user ?? (await this.repository.findUserById(principal.id));
     if (!user) {
       throw new UnauthorizedException("session user no longer exists");
     }

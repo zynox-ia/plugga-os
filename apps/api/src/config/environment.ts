@@ -75,6 +75,16 @@ export const environmentSchema = z
     AUTH_COOKIE_SECURE: environmentBoolean.optional(),
     SESSION_TTL_MINUTES: z.coerce.number().int().min(1).max(43_200).default(720),
     SESSION_ABSOLUTE_TTL_HOURS: z.coerce.number().int().min(1).max(8_760).default(720),
+    // Cache de sessão resolvida em Redis (tokenHash -> usuário + acesso), para
+    // não pagar o join do Postgres em toda requisição autenticada. Botão de
+    // desligar instantâneo: false volta ao comportamento de sempre ir ao banco.
+    SESSION_CACHE_ENABLED: environmentBoolean.default(true),
+    SESSION_CACHE_TTL_SECONDS: z.coerce.number().int().min(1).max(3_600).default(60),
+    // Piso entre renovações de sessão por atividade (`lastUsedAt`): sem isto, a
+    // renovação escreve no Postgres em toda requisição autenticada, mesmo em
+    // cache hit ela seria pulada, mas uma queda do Redis faria o miss voltar a
+    // escrever a cada requisição — este piso segura isso mesmo nesse cenário.
+    SESSION_RENEWAL_DEBOUNCE_MINUTES: z.coerce.number().int().min(1).max(1_440).default(5),
     // Comma-separated browser origins accepted on mutating auth routes (CSRF
     // defense in depth alongside SameSite=Lax).
     AUTH_ALLOWED_ORIGINS: z.string().trim().optional(),

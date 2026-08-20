@@ -1,17 +1,8 @@
 import { BadRequestException, Inject, Injectable, ServiceUnavailableException } from "@nestjs/common";
 import { Prisma, type AuthTokenType } from "@prisma/client";
-import {
-  companyKeySchema,
-  companyRoleKeySchema,
-  departmentIdSchema,
-  identityProviderSchema,
-  isDepartmentOfCompany,
-  platformRoleKeySchema,
-  type CompanyAccess,
-  type IdentityProvider,
-  type UserAccess,
-} from "@plugga/shared";
+import { identityProviderSchema, type IdentityProvider, type UserAccess } from "@plugga/shared";
 
+import { mapUserAccess } from "../core/auth/user-access.mapper";
 import { PrismaService } from "../prisma/prisma.service";
 import {
   AuthRepository,
@@ -443,37 +434,7 @@ export class PrismaAuthRepository extends AuthRepository {
       name: user.name,
       status: user.status,
       createdAt: user.createdAt,
-      access: {
-        platformRoles: user.platformRoles.flatMap((assignment) => {
-          const parsed = platformRoleKeySchema.safeParse(assignment.role.key);
-          return parsed.success ? [parsed.data] : [];
-        }),
-        companies: user.memberships.flatMap((membership) => {
-          const empresa = companyKeySchema.safeParse(membership.companyId);
-          if (!empresa.success) {
-            return [];
-          }
-
-          const company: CompanyAccess = {
-            companyId: empresa.data,
-            roles: membership.roles.flatMap((assignment) => {
-              const parsed = companyRoleKeySchema.safeParse(assignment.role.key);
-              return parsed.success ? [parsed.data] : [];
-            }),
-            // Uma linha para um departamento que saiu do catálogo é lixo de
-            // migração, não acesso: some da leitura em vez de derrubar o login.
-            departments: membership.departments.flatMap((department) => {
-              const parsed = departmentIdSchema.safeParse(department.departmentId);
-              if (!parsed.success || !isDepartmentOfCompany(empresa.data, parsed.data)) {
-                return [];
-              }
-              return [{ departmentId: parsed.data, isManager: department.isManager }];
-            }),
-          };
-
-          return [company];
-        }),
-      },
+      access: mapUserAccess(user),
     };
   }
 }

@@ -6,6 +6,8 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { AppModule } from "../src/app.module";
 import { configureApp } from "../src/configure-app";
 import { AuditRepository } from "../src/audit/audit.repository";
+import { NullSessionCache } from "../src/core/auth/null-session-cache";
+import { SessionCache } from "../src/core/auth/session-cache";
 import { SessionLookupRepository } from "../src/core/auth/session-lookup.repository";
 import { EmailPort } from "../src/email/email.port";
 import { AuthRepository } from "../src/auth/auth.repository";
@@ -42,6 +44,11 @@ describe("auth API (e2e, in-memory stores)", () => {
       .useValue(email)
       .overrideProvider(AuditRepository)
       .useValue(new NoopAuditRepository())
+      // Testes com store em memória não têm Redis de verdade para cachear; sem
+      // este override o SessionService.issue() de todo login real bateria na
+      // rede à toa (e, fora deste sandbox, pode nem ter Redis alcançável).
+      .overrideProvider(SessionCache)
+      .useValue(new NullSessionCache())
       .compile();
 
     app = module.createNestApplication<NestExpressApplication>();

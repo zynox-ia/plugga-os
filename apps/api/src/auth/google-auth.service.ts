@@ -132,7 +132,7 @@ export class GoogleAuthService {
       ? await this.loginWithExistingIdentity(identity.id, identity.userId, email, claims)
       : await this.linkFirstTime(email, claims);
 
-    const token = await this.sessions.issue(user.id, context);
+    const token = await this.sessions.issue(user, context);
     await this.audit.appendEvent({
       eventName: eventNames.authLoginSucceeded,
       entityType: "user",
