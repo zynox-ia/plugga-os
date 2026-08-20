@@ -120,7 +120,7 @@ export function DashboardView({ health }: { health: HealthCheck | null }) {
                   type="button"
                   onClick={() => setActiveTab(tab.id as DashboardTab)}
                   style={{
-                    height: "30px",
+                    height: "32px",
                     padding: "0 16px",
                     borderRadius: "999px",
                     fontSize: "12.5px",
@@ -149,7 +149,7 @@ export function DashboardView({ health }: { health: HealthCheck | null }) {
               className="button button--secondary"
               type="button"
               style={{
-                height: "38px",
+                height: "40px",
                 padding: "0 18px",
                 display: "inline-flex",
                 alignItems: "center",
@@ -174,7 +174,7 @@ export function DashboardView({ health }: { health: HealthCheck | null }) {
               className="button button--primary"
               type="button"
               style={{
-                height: "38px",
+                height: "40px",
                 padding: "0 20px",
                 borderRadius: "999px",
                 display: "inline-flex",
@@ -678,7 +678,7 @@ export function DashboardView({ health }: { health: HealthCheck | null }) {
                 type="button"
                 style={{
                   width: "100%",
-                  height: "36px",
+                  height: "38px",
                   borderRadius: "999px",
                   background: "rgba(0, 163, 255, 0.16)",
                   backdropFilter: "blur(12px)",
