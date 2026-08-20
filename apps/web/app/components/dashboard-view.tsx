@@ -82,6 +82,7 @@ function DashboardContent({ health }: { health: HealthCheck | null }) {
 
   const [activeTab, setActiveTab] = useState<DashboardTab>("overview");
   const [selectedDay, setSelectedDay] = useState<string>("Dom");
+  const [chartTimeframe, setChartTimeframe] = useState<string>("30d");
   const [checkedTxs, setCheckedTxs] = useState<Record<string, boolean>>({ "tx-p1": true, "tx-p2": true });
 
   const toggleCheck = (id: string) => {
@@ -124,7 +125,7 @@ function DashboardContent({ health }: { health: HealthCheck | null }) {
             }}
           >
             {isPlugga
-              ? "Monitoramento consolidado de clientes ativos, economia gerada, contratos OPM e auditorias."
+              ? "Monitoramento de clientes ativos, economia gerada, contratos OPM e auditorias."
               : "Visão geral de geração distribuída, créditos compensados e repasses."}
           </p>
         </div>
@@ -260,8 +261,8 @@ function DashboardContent({ health }: { health: HealthCheck | null }) {
                 <div style={{ fontSize: "26px", fontWeight: 500, color: "#0F294A", marginTop: "4px", letterSpacing: "-0.02em" }}>
                   42
                 </div>
-                <span style={{ fontSize: "11.5px", color: "rgba(15, 41, 74, 0.5)", marginTop: "2px", display: "block" }}>
-                  quantidade de clientes com operação ativa
+                <span style={{ fontSize: "11.5px", color: "rgba(15, 41, 74, 0.55)", marginTop: "2px", display: "block", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  clientes com operação ativa
                 </span>
               </div>
             </ShellCard>
@@ -286,8 +287,8 @@ function DashboardContent({ health }: { health: HealthCheck | null }) {
                 <div style={{ fontSize: "26px", fontWeight: 500, color: "#0F294A", marginTop: "4px", letterSpacing: "-0.02em" }}>
                   R$ 485.200
                 </div>
-                <span style={{ fontSize: "11.5px", color: "rgba(15, 41, 74, 0.5)", marginTop: "2px", display: "block" }}>
-                  R$ economizados no mês/período
+                <span style={{ fontSize: "11.5px", color: "rgba(15, 41, 74, 0.55)", marginTop: "2px", display: "block", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  R$ economizados no período
                 </span>
               </div>
             </ShellCard>
@@ -311,8 +312,8 @@ function DashboardContent({ health }: { health: HealthCheck | null }) {
                 <div style={{ fontSize: "26px", fontWeight: 500, color: "#0F294A", marginTop: "4px", letterSpacing: "-0.02em" }}>
                   R$ 142.800
                 </div>
-                <span style={{ fontSize: "11.5px", color: "rgba(15, 41, 74, 0.5)", marginTop: "2px", display: "block" }}>
-                  receita recorrente/operacional no período
+                <span style={{ fontSize: "11.5px", color: "rgba(15, 41, 74, 0.55)", marginTop: "2px", display: "block", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  receita recorrente / operacional
                 </span>
               </div>
             </ShellCard>
@@ -340,8 +341,8 @@ function DashboardContent({ health }: { health: HealthCheck | null }) {
                 <div style={{ fontSize: "26px", fontWeight: 500, color: "#0F294A", marginTop: "4px", letterSpacing: "-0.02em" }}>
                   1.284
                 </div>
-                <span style={{ fontSize: "11.5px", color: "rgba(15, 41, 74, 0.5)", marginTop: "2px", display: "block" }}>
-                  faturas auditadas e processadas no período
+                <span style={{ fontSize: "11.5px", color: "rgba(15, 41, 74, 0.55)", marginTop: "2px", display: "block", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  faturas auditadas no período
                 </span>
               </div>
             </ShellCard>
@@ -369,446 +370,449 @@ function DashboardContent({ health }: { health: HealthCheck | null }) {
         )}
       </div>
 
-      {/* Renderização Condicional com Base nas Abas (Visão Geral, Operações OPM, Métricas Chave, Relatórios) */}
+      {/* ABA 1: VISÃO GERAL */}
       {activeTab === "overview" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: "22px" }}>
-          {/* Grid de Cards Úteis da Visão Geral Plugga (7 Cards) */}
-          {isPlugga && (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "14px" }}>
-              <ShellCard style={{ padding: "16px" }}>
-                <span style={{ fontSize: "11.5px", color: "rgba(15, 41, 74, 0.65)" }}>Unidades Monitoradas</span>
-                <div style={{ fontSize: "20px", fontWeight: 500, color: "#0F294A", marginTop: "2px" }}>1.850 unidades</div>
-              </ShellCard>
-              <ShellCard style={{ padding: "16px" }}>
-                <span style={{ fontSize: "11.5px", color: "rgba(15, 41, 74, 0.65)" }}>Contratos Ativos</span>
-                <div style={{ fontSize: "20px", fontWeight: 500, color: "#0F294A", marginTop: "2px" }}>45 contratos OPM</div>
-              </ShellCard>
-              <ShellCard style={{ padding: "16px" }}>
-                <span style={{ fontSize: "11.5px", color: "rgba(15, 41, 74, 0.65)" }}>Créditos Compensados</span>
-                <div style={{ fontSize: "20px", fontWeight: 500, color: "#0F294A", marginTop: "2px" }}>1,42 GWh</div>
-              </ShellCard>
-              <ShellCard style={{ padding: "16px" }}>
-                <span style={{ fontSize: "11.5px", color: "rgba(15, 41, 74, 0.65)" }}>Alertas de Economia</span>
-                <div style={{ fontSize: "20px", fontWeight: 500, color: "#0F294A", marginTop: "2px" }}>12 alertas</div>
-              </ShellCard>
-              <ShellCard style={{ padding: "16px" }}>
-                <span style={{ fontSize: "11.5px", color: "rgba(15, 41, 74, 0.65)" }}>Pendências com Cliente</span>
-                <div style={{ fontSize: "20px", fontWeight: 500, color: "#0F294A", marginTop: "2px" }}>4 pendências</div>
-              </ShellCard>
-              <ShellCard style={{ padding: "16px" }}>
-                <span style={{ fontSize: "11.5px", color: "rgba(15, 41, 74, 0.65)" }}>Pendências Distribuidora</span>
-                <div style={{ fontSize: "20px", fontWeight: 500, color: "#0F294A", marginTop: "2px" }}>6 solicitações</div>
-              </ShellCard>
-              <ShellCard style={{ padding: "16px" }}>
-                <span style={{ fontSize: "11.5px", color: "rgba(15, 41, 74, 0.65)" }}>Oportunidades Identificadas</span>
-                <div style={{ fontSize: "20px", fontWeight: 500, color: "#0F294A", marginTop: "2px" }}>R$ 84.000</div>
-              </ShellCard>
-            </div>
-          )}
-
-          {/* Gráfico & Tabela vs Decisões Plugga de Hoje */}
-          <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.6fr) minmax(320px, 1fr)", gap: "18px" }}>
-            {/* Coluna Esquerda: Gráfico & Tabela */}
-            <div style={{ display: "flex", flexDirection: "column", gap: "18px" }}>
-              {/* Card Gráfico: Evolução de Economia & Curva Semanal */}
-              <ShellCard style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                  <div>
-                    <h3 style={{ margin: 0, fontSize: "16px", fontWeight: 500, color: "#0F294A" }}>
-                      Curva de Economia Gerada & Volume Energético
-                    </h3>
-                    <p style={{ margin: "2px 0 0 0", fontSize: "12.5px", color: "rgba(15, 41, 74, 0.6)" }}>
-                      Distribuição da economia em R$ e compensações ao longo dos dias da semana
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    style={{
-                      padding: "5px 12px",
-                      borderRadius: "999px",
-                      fontSize: "12px",
-                      fontWeight: 500,
-                      color: "#0F294A",
-                      background: "rgba(15, 41, 74, 0.06)",
-                      border: "1px solid rgba(15, 41, 74, 0.1)",
-                      cursor: "pointer",
-                    }}
-                  >
-                    Hoje ▾
-                  </button>
-                </div>
-
-                <div style={{ position: "relative", flex: 1, minHeight: "180px", display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
-                  <div
-                    style={{
-                      position: "absolute",
-                      top: "12%",
-                      left: "62%",
-                      transform: "translateX(-50%)",
-                      background: "rgba(255, 255, 255, 0.9)",
-                      backdropFilter: "blur(12px)",
-                      padding: "4px 10px",
-                      borderRadius: "8px",
-                      border: "1px solid rgba(15, 41, 74, 0.12)",
-                      boxShadow: "0 4px 12px rgba(15, 41, 74, 0.08)",
-                      fontSize: "11.5px",
-                      fontWeight: 500,
-                      color: "#0F294A",
-                      zIndex: 5,
-                    }}
-                  >
-                    R$ 485,2k acumu.
-                  </div>
-
-                  <svg width="100%" height="160" viewBox="0 0 400 160" fill="none" preserveAspectRatio="none">
-                    <defs>
-                      <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#0F294A" stopOpacity="0.18" />
-                        <stop offset="100%" stopColor="#0F294A" stopOpacity="0.01" />
-                      </linearGradient>
-                    </defs>
-                    <path d="M0,130 Q50,110 100,120 T200,90 T260,35 T320,110 T400,100 L400,160 L0,160 Z" fill="url(#chartGradient)" />
-                    <path d="M0,130 Q50,110 100,120 T200,90 T260,35 T320,110 T400,100" fill="none" stroke="#0F294A" strokeWidth="3" strokeLinecap="round" />
-                    <line x1="260" y1="35" x2="260" y2="160" stroke="#0F294A" strokeDasharray="3 3" strokeOpacity="0.3" />
-                    <circle cx="260" cy="35" r="5" fill="#0F294A" stroke="#FFFFFF" strokeWidth="2" />
-                  </svg>
-
-                  <div style={{ display: "flex", justifyContent: "space-between", marginTop: "12px", borderTop: "1px solid rgba(15, 41, 74, 0.08)", paddingTop: "8px" }}>
-                    {["Qua", "Qui", "Sex", "Sáb", "Dom", "Seg", "Ter"].map((dia) => {
-                      const isSelected = selectedDay === dia;
-                      return (
-                        <button
-                          key={dia}
-                          type="button"
-                          onClick={() => setSelectedDay(dia)}
-                          style={{
-                            padding: "4px 11px",
-                            borderRadius: "999px",
-                            fontSize: "12px",
-                            fontWeight: isSelected ? 500 : 400,
-                            color: isSelected ? "#FFFFFF" : "rgba(15, 41, 74, 0.7)",
-                            background: isSelected ? "#0F294A" : "transparent",
-                            border: "none",
-                            cursor: "pointer",
-                            transition: "all 0.2s ease",
-                          }}
-                        >
-                          {dia}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              </ShellCard>
-
-              {/* Card Tabela: Lista de Operações & Contratos OPM */}
-              <ShellCard style={{ padding: "20px" }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "14px" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.6fr) minmax(320px, 1fr)", gap: "18px" }}>
+          {/* Coluna Esquerda: Gráficos de Área, Análise Visual & Tabela de Operações */}
+          <div style={{ display: "flex", flexDirection: "column", gap: "18px" }}>
+            {/* Card Gráfico 1: Curva Dinâmica de Economia Gerada & Compensação de Energia */}
+            <ShellCard style={{ display: "flex", flexDirection: "column", gap: "16px", padding: "22px" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <div>
                   <h3 style={{ margin: 0, fontSize: "16px", fontWeight: 500, color: "#0F294A" }}>
-                    {isPlugga ? "Clientes & Operações OPM em Acompanhamento" : "Contratos GD & Usinas Solar"}
+                    Evolução da Economia Gerada & Créditos Compensados
                   </h3>
-                  <span style={{ fontSize: "12px", color: "rgba(15, 41, 74, 0.6)" }}>{transactions.length} clientes ativos</span>
+                  <p style={{ margin: "2px 0 0 0", fontSize: "12.5px", color: "rgba(15, 41, 74, 0.6)" }}>
+                    Economia acumulada em R$ e compensação energética mensal (kWh)
+                  </p>
                 </div>
 
-                <ShellTable caption="Tabela de operações de energia">
-                  <thead>
-                    <tr style={{ textAlign: "left", fontSize: "12px", color: "rgba(15, 41, 74, 0.6)", borderBottom: "1px solid rgba(15, 41, 74, 0.08)" }}>
-                      <th style={{ padding: "10px 12px", width: "36px" }}>✓</th>
-                      <th style={{ padding: "10px 12px" }}>Cliente & Operação</th>
-                      <th style={{ padding: "10px 12px" }}>Economia / Faturamento</th>
-                      <th style={{ padding: "10px 12px" }}>Última Atualização</th>
-                      <th style={{ padding: "10px 12px", textAlign: "right" }}>Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {transactions.map((tx) => {
-                      const isChecked = Boolean(checkedTxs[tx.id]);
-                      return (
-                        <tr key={tx.id} style={{ borderBottom: "1px solid rgba(15, 41, 74, 0.06)", fontSize: "13px", color: "#0F294A" }}>
-                          <td style={{ padding: "12px" }}>
-                            <input
-                              type="checkbox"
-                              checked={isChecked}
-                              onChange={() => toggleCheck(tx.id)}
-                              style={{ cursor: "pointer", accentColor: "#0F294A" }}
-                            />
-                          </td>
-                          <td style={{ padding: "12px", fontWeight: 500 }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                              <span
-                                style={{
-                                  width: 32,
-                                  height: 32,
-                                  borderRadius: "50%",
-                                  background: "rgba(15, 41, 74, 0.08)",
-                                  display: "grid",
-                                  placeItems: "center",
-                                  fontSize: "11px",
-                                  fontWeight: 600,
-                                  color: "#0F294A",
-                                }}
-                              >
-                                {tx.user}
-                              </span>
-                              <div>
-                                <div style={{ fontWeight: 500, color: "#0F294A" }}>{tx.activity}</div>
-                                <div style={{ fontSize: "11.5px", color: "rgba(15, 41, 74, 0.55)" }}>{tx.role}</div>
-                              </div>
-                            </div>
-                          </td>
-                          <td style={{ padding: "12px", fontWeight: 500 }}>{tx.price}</td>
-                          <td style={{ padding: "12px", color: "rgba(15, 41, 74, 0.65)" }}>{tx.date}</td>
-                          <td style={{ padding: "12px", textAlign: "right" }}>
-                            <span
-                              style={{
-                                padding: "4px 10px",
-                                borderRadius: "999px",
-                                fontSize: "11.5px",
-                                fontWeight: 500,
-                                color: tx.status === "active" ? "#059669" : "#d97706",
-                                background: tx.status === "active" ? "rgba(16, 185, 129, 0.1)" : "rgba(245, 158, 11, 0.1)",
-                              }}
-                            >
-                              {tx.statusLabel}
-                            </span>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </ShellTable>
-              </ShellCard>
-            </div>
-
-            {/* Coluna Direita: Decisões Plugga de Hoje (Tom Azul Marinho Escuro com topo saliente alinhado) */}
-            <div style={{ display: "flex", flexDirection: "column", gap: "18px" }}>
-              <div
-                style={{
-                  position: "relative",
-                  marginTop: "24px",
-                  padding: "11px",
-                  display: "flex",
-                  flexDirection: "column",
-                  borderRadius: "24px",
-                  background: "linear-gradient(180deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.08) 100%)",
-                  border: "1px solid rgba(255, 255, 255, 0.25)",
-                }}
-              >
-                <div
-                  style={{
-                    marginTop: "-35px",
-                    padding: "20px 22px",
-                    borderRadius: "20px",
-                    background: "linear-gradient(155deg, #0A192F 0%, #0F2B4A 60%, #051329 100%)",
-                    backdropFilter: "blur(24px)",
-                    WebkitBackdropFilter: "blur(24px)",
-                    color: "#FFFFFF",
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: "16px",
-                    boxShadow: "0 18px 45px rgba(5, 19, 41, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.12)",
-                    border: "1px solid rgba(0, 163, 255, 0.25)",
-                  }}
-                >
-                  <div>
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                      <h3 style={{ margin: 0, fontSize: "16px", fontWeight: 500, color: "#FFFFFF", letterSpacing: "-0.01em" }}>
-                        Decisões Plugga de hoje
-                      </h3>
-                      <span style={{ fontSize: "12px", fontWeight: 400, color: "rgba(255, 255, 255, 0.55)" }}>
-                        14 itens
-                      </span>
-                    </div>
-                    <p style={{ margin: "4px 0 0 0", fontSize: "11.5px", color: "rgba(255, 255, 255, 0.65)", lineHeight: "1.35" }}>
-                      Demandas prioritárias que exigem sua atuação hoje.
-                    </p>
-                  </div>
-
-                  {/* Lista Minimalista de 4 Itens das Decisões Plugga de Hoje */}
-                  <div style={{ display: "flex", flexDirection: "column" }}>
-                    {/* Item 1: Faturas com inconsistência */}
-                    <div
+                {/* Seletor de Período do Gráfico */}
+                <div style={{ display: "flex", gap: "4px", background: "rgba(15, 41, 74, 0.05)", padding: "3px", borderRadius: "999px" }}>
+                  {["30d", "6m", "1a"].map((tf) => (
+                    <button
+                      key={tf}
+                      type="button"
+                      onClick={() => setChartTimeframe(tf)}
                       style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        padding: "11px 0",
-                        borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
+                        padding: "3px 10px",
+                        borderRadius: "999px",
+                        fontSize: "11.5px",
+                        fontWeight: chartTimeframe === tf ? 500 : 400,
+                        color: chartTimeframe === tf ? "#FFFFFF" : "#0F294A",
+                        background: chartTimeframe === tf ? "#0F294A" : "transparent",
+                        border: "none",
+                        cursor: "pointer",
+                        transition: "all 0.2s ease",
                       }}
                     >
-                      <div style={{ display: "flex", alignItems: "center", gap: "11px" }}>
-                        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: "#00A3FF", flexShrink: 0 }}>
-                          <circle cx="12" cy="12" r="10" />
-                          <line x1="12" y1="8" x2="12" y2="12" />
-                          <line x1="12" y1="16" x2="12.01" y2="16" />
-                        </svg>
-                        <div>
-                          <div style={{ fontSize: "13px", fontWeight: 500, color: "#FFFFFF" }}>
-                            Faturas com inconsistência
-                          </div>
-                          <div style={{ fontSize: "11px", color: "rgba(255, 255, 255, 0.55)", marginTop: "1px" }}>
-                            divergência de tarifa / cobrança
-                          </div>
-                        </div>
-                      </div>
-                      <span style={{ fontSize: "13px", fontWeight: 500, color: "#00A3FF", marginLeft: "auto" }}>
-                        3
-                      </span>
-                    </div>
-
-                    {/* Item 2: Relatórios aguardando envio */}
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        padding: "11px 0",
-                        borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
-                      }}
-                    >
-                      <div style={{ display: "flex", alignItems: "center", gap: "11px" }}>
-                        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: "rgba(255, 255, 255, 0.70)", flexShrink: 0 }}>
-                          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                          <polyline points="14 2 14 8 20 8" />
-                          <line x1="12" y1="18" x2="12" y2="12" />
-                          <polyline points="9 15 12 12 15 15" />
-                        </svg>
-                        <div>
-                          <div style={{ fontSize: "13px", fontWeight: 500, color: "rgba(255, 255, 255, 0.90)" }}>
-                            Relatórios aguardando envio
-                          </div>
-                          <div style={{ fontSize: "11px", color: "rgba(255, 255, 255, 0.55)", marginTop: "1px" }}>
-                            consolidados prontos para cliente
-                          </div>
-                        </div>
-                      </div>
-                      <span style={{ fontSize: "13px", fontWeight: 500, color: "rgba(255, 255, 255, 0.80)", marginLeft: "auto" }}>
-                        5
-                      </span>
-                    </div>
-
-                    {/* Item 3: Clientes sem atualização */}
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        padding: "11px 0",
-                        borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
-                      }}
-                    >
-                      <div style={{ display: "flex", alignItems: "center", gap: "11px" }}>
-                        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: "rgba(255, 255, 255, 0.70)", flexShrink: 0 }}>
-                          <circle cx="12" cy="12" r="10" />
-                          <polyline points="12 6 12 12 16 14" />
-                        </svg>
-                        <div>
-                          <div style={{ fontSize: "13px", fontWeight: 500, color: "rgba(255, 255, 255, 0.90)" }}>
-                            Clientes sem atualização
-                          </div>
-                          <div style={{ fontSize: "11px", color: "rgba(255, 255, 255, 0.55)", marginTop: "1px" }}>
-                            unidades consumidoras pendentes
-                          </div>
-                        </div>
-                      </div>
-                      <span style={{ fontSize: "13px", fontWeight: 500, color: "rgba(255, 255, 255, 0.80)", marginLeft: "auto" }}>
-                        2
-                      </span>
-                    </div>
-
-                    {/* Item 4: Oportunidades comerciais quentes */}
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        padding: "11px 0 4px 0",
-                      }}
-                    >
-                      <div style={{ display: "flex", alignItems: "center", gap: "11px" }}>
-                        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: "#f59e0b", flexShrink: 0 }}>
-                          <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 3.5z" />
-                        </svg>
-                        <div>
-                          <div style={{ fontSize: "13px", fontWeight: 500, color: "rgba(255, 255, 255, 0.90)" }}>
-                            Oportunidades quentes
-                          </div>
-                          <div style={{ fontSize: "11px", color: "rgba(255, 255, 255, 0.55)", marginTop: "1px" }}>
-                            propostas OPM em fechamento
-                          </div>
-                        </div>
-                      </div>
-                      <span style={{ fontSize: "13px", fontWeight: 500, color: "#f59e0b", marginLeft: "auto" }}>
-                        4
-                      </span>
-                    </div>
-                  </div>
-
-                  <button
-                    type="button"
-                    style={{
-                      width: "100%",
-                      height: "38px",
-                      borderRadius: "999px",
-                      background: "rgba(0, 163, 255, 0.16)",
-                      backdropFilter: "blur(12px)",
-                      border: "1px solid rgba(0, 163, 255, 0.30)",
-                      color: "#FFFFFF",
-                      fontSize: "12.5px",
-                      fontWeight: 500,
-                      cursor: "pointer",
-                      transition: "all 0.2s ease",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: "8px",
-                      marginTop: "2px",
-                    }}
-                  >
-                    Tratar pendências Plugga
-                    <span style={{ fontSize: "12px", opacity: 0.9 }}>→</span>
-                  </button>
+                      {tf === "30d" ? "30 dias" : tf === "6m" ? "6 meses" : "1 ano"}
+                    </button>
+                  ))}
                 </div>
               </div>
 
-              {/* Eventos & Cronograma Plugga */}
-              <ShellCard style={{ padding: "20px", display: "flex", flexDirection: "column", gap: "14px" }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                  <h3 style={{ margin: 0, fontSize: "16px", fontWeight: 500, color: "#0F294A" }}>
-                    Cronograma & Fechamentos
-                  </h3>
-                  <span style={{ fontSize: "14px", opacity: 0.7 }}>↗</span>
+              {/* Área Gráfica Interativa com Ilustração SVG de Área Gradiente */}
+              <div style={{ position: "relative", flex: 1, minHeight: "190px", display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
+                {/* Badge Flutuante no Gráfico */}
+                <div
+                  style={{
+                    position: "absolute",
+                    top: "10%",
+                    left: "64%",
+                    transform: "translateX(-50%)",
+                    background: "rgba(255, 255, 255, 0.95)",
+                    backdropFilter: "blur(12px)",
+                    padding: "6px 12px",
+                    borderRadius: "10px",
+                    border: "1px solid rgba(0, 163, 255, 0.25)",
+                    boxShadow: "0 6px 16px rgba(15, 41, 74, 0.12)",
+                    fontSize: "12px",
+                    fontWeight: 500,
+                    color: "#0F294A",
+                    zIndex: 5,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                  }}
+                >
+                  <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#00A3FF" }} />
+                  <span>R$ 485.200,00 economizados</span>
                 </div>
 
-                <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                  <div style={{ padding: "14px 16px", borderRadius: "16px", background: "rgba(255, 255, 255, 0.15)", backdropFilter: "blur(16px)", border: "1px solid rgba(255, 255, 255, 0.35)", display: "flex", flexDirection: "column", gap: "6px" }}>
-                    <div style={{ fontSize: "13.5px", fontWeight: 500, color: "#0F294A" }}>
-                      Fechamento da Fatura CEMIG • Hospital São Lucas
+                <svg width="100%" height="170" viewBox="0 0 500 170" fill="none" preserveAspectRatio="none">
+                  <defs>
+                    <linearGradient id="pluggaEconomyGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#00A3FF" stopOpacity="0.32" />
+                      <stop offset="100%" stopColor="#0F294A" stopOpacity="0.02" />
+                    </linearGradient>
+                    <linearGradient id="pluggaSecondaryGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#10b981" stopOpacity="0.2" />
+                      <stop offset="100%" stopColor="#10b981" stopOpacity="0.0" />
+                    </linearGradient>
+                  </defs>
+
+                  {/* Curva de Economia Principal */}
+                  <path d="M0,140 Q60,120 120,130 T240,85 T340,30 T440,95 T500,80 L500,170 L0,170 Z" fill="url(#pluggaEconomyGradient)" />
+                  <path d="M0,140 Q60,120 120,130 T240,85 T340,30 T440,95 T500,80" fill="none" stroke="#00A3FF" strokeWidth="3.2" strokeLinecap="round" />
+
+                  {/* Linha Pontilhada de Projeção */}
+                  <line x1="340" y1="30" x2="340" y2="170" stroke="#00A3FF" strokeDasharray="3 3" strokeOpacity="0.4" />
+                  <circle cx="340" cy="30" r="5.5" fill="#00A3FF" stroke="#FFFFFF" strokeWidth="2.5" />
+                </svg>
+
+                {/* Seletor Pílula de Dias da Semana */}
+                <div style={{ display: "flex", justifyContent: "space-between", marginTop: "12px", borderTop: "1px solid rgba(15, 41, 74, 0.08)", paddingTop: "10px" }}>
+                  {["Qua", "Qui", "Sex", "Sáb", "Dom", "Seg", "Ter"].map((dia) => {
+                    const isSelected = selectedDay === dia;
+                    return (
+                      <button
+                        key={dia}
+                        type="button"
+                        onClick={() => setSelectedDay(dia)}
+                        style={{
+                          padding: "4px 12px",
+                          borderRadius: "999px",
+                          fontSize: "12px",
+                          fontWeight: isSelected ? 500 : 400,
+                          color: isSelected ? "#FFFFFF" : "rgba(15, 41, 74, 0.7)",
+                          background: isSelected ? "#0F294A" : "transparent",
+                          border: "none",
+                          cursor: "pointer",
+                          transition: "all 0.2s ease",
+                        }}
+                      >
+                        {dia}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* 3 Indicadores Rápidos Integrados na Base do Gráfico */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "10px", marginTop: "4px", paddingTop: "14px", borderTop: "1px solid rgba(15, 41, 74, 0.08)" }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                  <span style={{ fontSize: "11.5px", color: "rgba(15, 41, 74, 0.6)" }}>Unidades Monitoradas</span>
+                  <span style={{ fontSize: "16px", fontWeight: 500, color: "#0F294A" }}>1.850 unidades</span>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                  <span style={{ fontSize: "11.5px", color: "rgba(15, 41, 74, 0.6)" }}>Créditos Compensados</span>
+                  <span style={{ fontSize: "16px", fontWeight: 500, color: "#0F294A" }}>1,42 GWh</span>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                  <span style={{ fontSize: "11.5px", color: "rgba(15, 41, 74, 0.6)" }}>Oportunidades Mapeadas</span>
+                  <span style={{ fontSize: "16px", fontWeight: 500, color: "#059669" }}>R$ 84.000,00</span>
+                </div>
+              </div>
+            </ShellCard>
+
+            {/* Card Tabela: Clientes & Operações OPM em Acompanhamento */}
+            <ShellCard style={{ padding: "20px" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "14px" }}>
+                <h3 style={{ margin: 0, fontSize: "16px", fontWeight: 500, color: "#0F294A" }}>
+                  {isPlugga ? "Clientes & Operações OPM em Acompanhamento" : "Contratos GD & Usinas Solar"}
+                </h3>
+                <span style={{ fontSize: "12px", color: "rgba(15, 41, 74, 0.6)" }}>{transactions.length} clientes ativos</span>
+              </div>
+
+              <ShellTable caption="Tabela de operações de energia">
+                <thead>
+                  <tr style={{ textAlign: "left", fontSize: "12px", color: "rgba(15, 41, 74, 0.6)", borderBottom: "1px solid rgba(15, 41, 74, 0.08)" }}>
+                    <th style={{ padding: "10px 12px", width: "36px" }}>✓</th>
+                    <th style={{ padding: "10px 12px" }}>Cliente & Operação</th>
+                    <th style={{ padding: "10px 12px" }}>Economia / Faturamento</th>
+                    <th style={{ padding: "10px 12px" }}>Última Atualização</th>
+                    <th style={{ padding: "10px 12px", textAlign: "right" }}>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {transactions.map((tx) => {
+                    const isChecked = Boolean(checkedTxs[tx.id]);
+                    return (
+                      <tr key={tx.id} style={{ borderBottom: "1px solid rgba(15, 41, 74, 0.06)", fontSize: "13px", color: "#0F294A" }}>
+                        <td style={{ padding: "12px" }}>
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => toggleCheck(tx.id)}
+                            style={{ cursor: "pointer", accentColor: "#0F294A" }}
+                          />
+                        </td>
+                        <td style={{ padding: "12px", fontWeight: 500 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                            <span
+                              style={{
+                                width: 32,
+                                height: 32,
+                                borderRadius: "50%",
+                                background: "rgba(15, 41, 74, 0.08)",
+                                display: "grid",
+                                placeItems: "center",
+                                fontSize: "11px",
+                                fontWeight: 600,
+                                color: "#0F294A",
+                              }}
+                            >
+                              {tx.user}
+                            </span>
+                            <div>
+                              <div style={{ fontWeight: 500, color: "#0F294A" }}>{tx.activity}</div>
+                              <div style={{ fontSize: "11.5px", color: "rgba(15, 41, 74, 0.55)" }}>{tx.role}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td style={{ padding: "12px", fontWeight: 500 }}>{tx.price}</td>
+                        <td style={{ padding: "12px", color: "rgba(15, 41, 74, 0.65)" }}>{tx.date}</td>
+                        <td style={{ padding: "12px", textAlign: "right" }}>
+                          <span
+                            style={{
+                              padding: "4px 10px",
+                              borderRadius: "999px",
+                              fontSize: "11.5px",
+                              fontWeight: 500,
+                              color: tx.status === "active" ? "#059669" : "#d97706",
+                              background: tx.status === "active" ? "rgba(16, 185, 129, 0.1)" : "rgba(245, 158, 11, 0.1)",
+                            }}
+                          >
+                            {tx.statusLabel}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </ShellTable>
+            </ShellCard>
+          </div>
+
+          {/* Coluna Direita: Decisões de Hoje (Tom Azul Marinho Escuro com topo saliente alinhado) */}
+          <div style={{ display: "flex", flexDirection: "column", gap: "18px" }}>
+            <div
+              style={{
+                position: "relative",
+                marginTop: "24px",
+                padding: "11px",
+                display: "flex",
+                flexDirection: "column",
+                borderRadius: "24px",
+                background: "linear-gradient(180deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.08) 100%)",
+                border: "1px solid rgba(255, 255, 255, 0.25)",
+              }}
+            >
+              <div
+                style={{
+                  marginTop: "-35px",
+                  padding: "20px 22px",
+                  borderRadius: "20px",
+                  background: "linear-gradient(155deg, #0A192F 0%, #0F2B4A 60%, #051329 100%)",
+                  backdropFilter: "blur(24px)",
+                  WebkitBackdropFilter: "blur(24px)",
+                  color: "#FFFFFF",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "16px",
+                  boxShadow: "0 18px 45px rgba(5, 19, 41, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.12)",
+                  border: "1px solid rgba(0, 163, 255, 0.25)",
+                }}
+              >
+                <div>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <h3 style={{ margin: 0, fontSize: "16px", fontWeight: 500, color: "#FFFFFF", letterSpacing: "-0.01em" }}>
+                      Decisões de hoje
+                    </h3>
+                    <span style={{ fontSize: "12px", fontWeight: 400, color: "rgba(255, 255, 255, 0.55)" }}>
+                      14 itens
+                    </span>
+                  </div>
+                  <p style={{ margin: "4px 0 0 0", fontSize: "11.5px", color: "rgba(255, 255, 255, 0.65)", lineHeight: "1.35" }}>
+                    Demandas prioritárias que exigem sua atuação hoje.
+                  </p>
+                </div>
+
+                {/* Lista Minimalista dos 4 Itens das Decisões de Hoje */}
+                <div style={{ display: "flex", flexDirection: "column" }}>
+                  {/* Item 1: Faturas com inconsistência */}
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      padding: "11px 0",
+                      borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: "11px" }}>
+                      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: "#00A3FF", flexShrink: 0 }}>
+                        <circle cx="12" cy="12" r="10" />
+                        <line x1="12" y1="8" x2="12" y2="12" />
+                        <line x1="12" y1="16" x2="12.01" y2="16" />
+                      </svg>
+                      <div>
+                        <div style={{ fontSize: "13px", fontWeight: 500, color: "#FFFFFF" }}>
+                          Faturas com inconsistência
+                        </div>
+                        <div style={{ fontSize: "11px", color: "rgba(255, 255, 255, 0.55)", marginTop: "1px" }}>
+                          divergência de tarifa / cobrança
+                        </div>
+                      </div>
                     </div>
-                    <div style={{ fontSize: "12px", color: "rgba(15, 41, 74, 0.65)" }}>
-                      Validação de compensação de créditos GD e encargos.
-                    </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: "12px", marginTop: "4px", fontSize: "11.5px", color: "rgba(15, 41, 74, 0.6)" }}>
-                      <span>⏱ 10:00 - 11:30</span>
-                      <span>📅 28 Abr, 2026</span>
-                    </div>
+                    <span style={{ fontSize: "13px", fontWeight: 500, color: "#00A3FF", marginLeft: "auto" }}>
+                      3
+                    </span>
                   </div>
 
-                  <div style={{ padding: "14px 16px", borderRadius: "16px", background: "rgba(255, 255, 255, 0.15)", backdropFilter: "blur(16px)", border: "1px solid rgba(255, 255, 255, 0.35)", display: "flex", flexDirection: "column", gap: "6px" }}>
-                    <div style={{ fontSize: "13.5px", fontWeight: 500, color: "#0F294A" }}>
-                      Emissão do Relatório Executivo Mensal
+                  {/* Item 2: Relatórios aguardando envio */}
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      padding: "11px 0",
+                      borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: "11px" }}>
+                      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: "rgba(255, 255, 255, 0.70)", flexShrink: 0 }}>
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                        <polyline points="14 2 14 8 20 8" />
+                        <line x1="12" y1="18" x2="12" y2="12" />
+                        <polyline points="9 15 12 12 15 15" />
+                      </svg>
+                      <div>
+                        <div style={{ fontSize: "13px", fontWeight: 500, color: "rgba(255, 255, 255, 0.90)" }}>
+                          Relatórios aguardando envio
+                        </div>
+                        <div style={{ fontSize: "11px", color: "rgba(255, 255, 255, 0.55)", marginTop: "1px" }}>
+                          consolidados prontos para cliente
+                        </div>
+                      </div>
                     </div>
-                    <div style={{ fontSize: "12px", color: "rgba(15, 41, 74, 0.65)" }}>
-                      Consolidação da economia acumulada para diretoria.
+                    <span style={{ fontSize: "13px", fontWeight: 500, color: "rgba(255, 255, 255, 0.80)", marginLeft: "auto" }}>
+                      5
+                    </span>
+                  </div>
+
+                  {/* Item 3: Clientes sem atualização */}
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      padding: "11px 0",
+                      borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: "11px" }}>
+                      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: "rgba(255, 255, 255, 0.70)", flexShrink: 0 }}>
+                        <circle cx="12" cy="12" r="10" />
+                        <polyline points="12 6 12 12 16 14" />
+                      </svg>
+                      <div>
+                        <div style={{ fontSize: "13px", fontWeight: 500, color: "rgba(255, 255, 255, 0.90)" }}>
+                          Clientes sem atualização
+                        </div>
+                        <div style={{ fontSize: "11px", color: "rgba(255, 255, 255, 0.55)", marginTop: "1px" }}>
+                          unidades consumidoras pendentes
+                        </div>
+                      </div>
                     </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: "12px", marginTop: "4px", fontSize: "11.5px", color: "rgba(15, 41, 74, 0.6)" }}>
-                      <span>⏱ 14:30 - 15:30</span>
-                      <span>📅 29 Abr, 2026</span>
+                    <span style={{ fontSize: "13px", fontWeight: 500, color: "rgba(255, 255, 255, 0.80)", marginLeft: "auto" }}>
+                      2
+                    </span>
+                  </div>
+
+                  {/* Item 4: Oportunidades comerciais quentes */}
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      padding: "11px 0 4px 0",
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: "11px" }}>
+                      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: "#f59e0b", flexShrink: 0 }}>
+                        <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 3.5z" />
+                      </svg>
+                      <div>
+                        <div style={{ fontSize: "13px", fontWeight: 500, color: "rgba(255, 255, 255, 0.90)" }}>
+                          Oportunidades quentes
+                        </div>
+                        <div style={{ fontSize: "11px", color: "rgba(255, 255, 255, 0.55)", marginTop: "1px" }}>
+                          propostas OPM em fechamento
+                        </div>
+                      </div>
                     </div>
+                    <span style={{ fontSize: "13px", fontWeight: 500, color: "#f59e0b", marginLeft: "auto" }}>
+                      4
+                    </span>
                   </div>
                 </div>
-              </ShellCard>
+
+                <button
+                  type="button"
+                  style={{
+                    width: "100%",
+                    height: "38px",
+                    borderRadius: "999px",
+                    background: "rgba(0, 163, 255, 0.16)",
+                    backdropFilter: "blur(12px)",
+                    border: "1px solid rgba(0, 163, 255, 0.30)",
+                    color: "#FFFFFF",
+                    fontSize: "12.5px",
+                    fontWeight: 500,
+                    cursor: "pointer",
+                    transition: "all 0.2s ease",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "8px",
+                    marginTop: "2px",
+                  }}
+                >
+                  Tratar pendências
+                  <span style={{ fontSize: "12px", opacity: 0.9 }}>→</span>
+                </button>
+              </div>
             </div>
+
+            {/* Eventos & Cronograma Plugga */}
+            <ShellCard style={{ padding: "20px", display: "flex", flexDirection: "column", gap: "14px" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <h3 style={{ margin: 0, fontSize: "16px", fontWeight: 500, color: "#0F294A" }}>
+                  Cronograma & Fechamentos
+                </h3>
+                <span style={{ fontSize: "14px", opacity: 0.7 }}>↗</span>
+              </div>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                <div style={{ padding: "14px 16px", borderRadius: "16px", background: "rgba(255, 255, 255, 0.15)", backdropFilter: "blur(16px)", border: "1px solid rgba(255, 255, 255, 0.35)", display: "flex", flexDirection: "column", gap: "6px" }}>
+                  <div style={{ fontSize: "13.5px", fontWeight: 500, color: "#0F294A" }}>
+                    Fechamento da Fatura CEMIG • Hospital São Lucas
+                  </div>
+                  <div style={{ fontSize: "12px", color: "rgba(15, 41, 74, 0.65)" }}>
+                    Validação de compensação de créditos GD e encargos.
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: "12px", marginTop: "4px", fontSize: "11.5px", color: "rgba(15, 41, 74, 0.6)" }}>
+                    <span>⏱ 10:00 - 11:30</span>
+                    <span>📅 28 Abr, 2026</span>
+                  </div>
+                </div>
+
+                <div style={{ padding: "14px 16px", borderRadius: "16px", background: "rgba(255, 255, 255, 0.15)", backdropFilter: "blur(16px)", border: "1px solid rgba(255, 255, 255, 0.35)", display: "flex", flexDirection: "column", gap: "6px" }}>
+                  <div style={{ fontSize: "13.5px", fontWeight: 500, color: "#0F294A" }}>
+                    Emissão do Relatório Executivo Mensal
+                  </div>
+                  <div style={{ fontSize: "12px", color: "rgba(15, 41, 74, 0.65)" }}>
+                    Consolidação da economia acumulada para diretoria.
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: "12px", marginTop: "4px", fontSize: "11.5px", color: "rgba(15, 41, 74, 0.6)" }}>
+                    <span>⏱ 14:30 - 15:30</span>
+                    <span>📅 29 Abr, 2026</span>
+                  </div>
+                </div>
+              </div>
+            </ShellCard>
           </div>
         </div>
       )}
