@@ -111,36 +111,99 @@ function SegmentedStackBar() {
 }
 
 // 5. Medidor Semicircular / Gauge Chart (Inspiração: Reference Image 1 & 2)
-function SemicircularGauge({ value = 84.5, title = "Meta Mensal" }: { value?: number; title?: string }) {
-  const radius = 50;
-  const strokeWidth = 9;
+function SemicircularGauge({ value = 84.5, title = "Meta Mensal de Economia" }: { value?: number; title?: string }) {
+  const radius = 64;
+  const strokeWidth = 12;
   const circumference = Math.PI * radius;
   const offset = circumference - (value / 100) * circumference;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", position: "relative", width: "100%" }}>
-      <svg width="130" height="70" viewBox="0 0 130 70" fill="none">
-        <defs>
-          <linearGradient id="gaugeArcGrad" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0%" stopColor="#00A3FF" />
-            <stop offset="60%" stopColor="#10b981" />
-            <stop offset="100%" stopColor="#3b82f6" />
-          </linearGradient>
-        </defs>
-        <path d="M 15 65 A 50 50 0 0 1 115 65" fill="none" stroke="rgba(15, 41, 74, 0.08)" strokeWidth={strokeWidth} strokeLinecap="round" />
-        <path
-          d="M 15 65 A 50 50 0 0 1 115 65"
-          fill="none"
-          stroke="url(#gaugeArcGrad)"
-          strokeWidth={strokeWidth}
-          strokeDasharray={circumference}
-          strokeDashoffset={offset}
-          strokeLinecap="round"
-        />
-      </svg>
-      <div style={{ position: "absolute", bottom: "2px", textAlign: "center" }}>
-        <div style={{ fontSize: "18px", fontWeight: 600, color: "#0F294A", lineHeight: 1 }}>{value}%</div>
-        <div style={{ fontSize: "10px", color: "rgba(15, 41, 74, 0.6)", marginTop: "2px" }}>{title}</div>
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: "100%", gap: "10px" }}>
+      <div style={{ position: "relative", display: "flex", justifyContent: "center", alignItems: "flex-end", width: "100%", height: "105px" }}>
+        <svg width="180" height="96" viewBox="0 0 180 96" fill="none">
+          <defs>
+            <linearGradient id="gaugeArcGradPremium" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stopColor="#00A3FF" />
+              <stop offset="50%" stopColor="#0066CC" />
+              <stop offset="100%" stopColor="#10b981" />
+            </linearGradient>
+            <filter id="arcGlow" x="-10%" y="-10%" width="120%" height="120%">
+              <feDropShadow dx="0" dy="4" stdDeviation="4" floodColor="#00A3FF" floodOpacity="0.25" />
+            </filter>
+          </defs>
+
+          {/* Arco de Fundo Suave */}
+          <path
+            d="M 18 90 A 64 64 0 0 1 162 90"
+            fill="none"
+            stroke="rgba(15, 41, 74, 0.08)"
+            strokeWidth={strokeWidth}
+            strokeLinecap="round"
+          />
+
+          {/* Arco de Progresso Gradiente com Glow */}
+          <path
+            d="M 18 90 A 64 64 0 0 1 162 90"
+            fill="none"
+            stroke="url(#gaugeArcGradPremium)"
+            strokeWidth={strokeWidth}
+            strokeDasharray={circumference}
+            strokeDashoffset={offset}
+            strokeLinecap="round"
+            filter="url(#arcGlow)"
+          />
+
+          {/* Pontos de Marcadores de Escala (0%, 50%, 100%) */}
+          <circle cx="18" cy="90" r="2.5" fill="rgba(15, 41, 74, 0.25)" />
+          <circle cx="90" cy="26" r="2.5" fill="rgba(15, 41, 74, 0.25)" />
+          <circle cx="162" cy="90" r="2.5" fill="rgba(15, 41, 74, 0.25)" />
+        </svg>
+
+        {/* Display Central em Destaque Absoluto */}
+        <div style={{ position: "absolute", bottom: "4px", textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center" }}>
+          <div style={{ fontSize: "28px", fontWeight: 600, color: "#0F294A", lineHeight: 1, letterSpacing: "-0.02em" }}>
+            {value}%
+          </div>
+          <span
+            style={{
+              fontSize: "10.5px",
+              fontWeight: 500,
+              color: "#059669",
+              background: "rgba(16, 185, 129, 0.12)",
+              padding: "2px 8px",
+              borderRadius: "999px",
+              marginTop: "4px",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "3px",
+            }}
+          >
+            ▲ +4.5% vs Meta
+          </span>
+        </div>
+      </div>
+
+      {/* Roda-pé Integrado do Card com Estatísticas em Duas Colunas */}
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          width: "100%",
+          paddingTop: "12px",
+          borderTop: "1px solid rgba(15, 41, 74, 0.08)",
+          marginTop: "2px",
+        }}
+      >
+        <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+          <span style={{ fontSize: "11px", color: "rgba(15, 41, 74, 0.55)" }}>Projeção do Mês</span>
+          <span style={{ fontSize: "13.5px", fontWeight: 500, color: "#0F294A" }}>R$ 574.000</span>
+        </div>
+        <div style={{ width: "1px", height: "24px", background: "rgba(15, 41, 74, 0.08)" }} />
+        <div style={{ display: "flex", flexDirection: "column", gap: "2px", textAlign: "right" }}>
+          <span style={{ fontSize: "11px", color: "rgba(15, 41, 74, 0.55)" }}>Economia Realizada</span>
+          <span style={{ fontSize: "13.5px", fontWeight: 500, color: "#059669" }}>R$ 485.200</span>
+        </div>
       </div>
     </div>
   );
