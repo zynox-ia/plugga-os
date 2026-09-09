@@ -82,6 +82,9 @@ jobs:
           zricethezav/gitleaks:v8.28.0
           detect --source=/repo --redact --verbose
 
+      - name: Build shared package for workspace consumers
+        run: pnpm --filter @plugga/shared build
+
       - name: Generate Prisma Client
         run: pnpm db:generate
 
