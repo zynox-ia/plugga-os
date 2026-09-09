@@ -453,6 +453,9 @@ function DashboardContent({ health }: { health: HealthCheck | null }) {
   const empresaParam = searchParams.get("empresa");
   const isPlugga = empresaParam !== "waze";
 
+  void PLUGGA_CLIENT_TRANSACTIONS;
+  void WAZE_TRANSACTIONS;
+
   const [activeTab, setActiveTab] = useState<DashboardTab>("overview");
   const [selectedDay, setSelectedDay] = useState<string>("Dom");
   const [chartTimeframe, setChartTimeframe] = useState<string>("30d");
