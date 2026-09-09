@@ -2,7 +2,7 @@
 
 import { useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { ShellCard, ShellTable } from "./plugga-shell";
+import { ShellCard } from "./plugga-shell";
 import type { HealthCheck } from "../lib/api";
 
 type DashboardTab = "overview" | "operacoes" | "metricas" | "relatorios";
@@ -453,17 +453,11 @@ function DashboardContent({ health }: { health: HealthCheck | null }) {
   const empresaParam = searchParams.get("empresa");
   const isPlugga = empresaParam !== "waze";
 
-  void PLUGGA_CLIENT_TRANSACTIONS;
-  void WAZE_TRANSACTIONS;
-
   const [activeTab, setActiveTab] = useState<DashboardTab>("overview");
   const [selectedDay, setSelectedDay] = useState<string>("Dom");
   const [chartTimeframe, setChartTimeframe] = useState<string>("30d");
-  const [checkedTxs, setCheckedTxs] = useState<Record<string, boolean>>({ "tx-p1": true, "tx-p2": true });
-
-  const toggleCheck = (id: string) => {
-    setCheckedTxs((prev) => ({ ...prev, [id]: !prev[id] }));
-  };
+  void PLUGGA_CLIENT_TRANSACTIONS;
+  void WAZE_TRANSACTIONS;
 
   return (
     <div className="dashboard-view" style={{ display: "flex", flexDirection: "column", gap: "22px" }}>
@@ -736,397 +730,196 @@ function DashboardContent({ health }: { health: HealthCheck | null }) {
 
       {/* ABA 1: VISÃO GERAL */}
       {activeTab === "overview" && (
-        <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.6fr) minmax(320px, 1fr)", gap: "18px" }}>
-          {/* Coluna Esquerda: Gráficos de Área, Análise Visual & Tabela de Operações */}
-          <div style={{ display: "flex", flexDirection: "column", gap: "18px" }}>
-            {/* Card Gráfico 1: Curva Dinâmica de Economia Gerada & Compensação de Energia */}
-            <ShellCard style={{ display: "flex", flexDirection: "column", gap: "16px", padding: "22px" }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <div>
-                  <h3 style={{ margin: 0, fontSize: "16px", fontWeight: 500, color: "#0F294A" }}>
-                    Evolução da Economia Gerada & Créditos Compensados
-                  </h3>
-                  <p style={{ margin: "2px 0 0 0", fontSize: "12.5px", color: "rgba(15, 41, 74, 0.6)" }}>
-                    Economia acumulada em R$ e compensação energética mensal (kWh)
-                  </p>
-                </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: "18px", width: "100%" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.6fr) minmax(320px, 1fr)", gap: "18px" }}>
+            {/* Coluna Esquerda: Gráficos de Área, Análise Visual */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "18px" }}>
+              {/* Card Gráfico 1: Curva Dinâmica de Economia Gerada & Compensação de Energia */}
+              <ShellCard style={{ display: "flex", flexDirection: "column", gap: "16px", padding: "22px" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: "16px", fontWeight: 500, color: "#0F294A" }}>
+                      Evolução da Economia Gerada & Créditos Compensados
+                    </h3>
+                    <p style={{ margin: "2px 0 0 0", fontSize: "12.5px", color: "rgba(15, 41, 74, 0.6)" }}>
+                      Economia acumulada em R$ e compensação energética mensal (kWh)
+                    </p>
+                  </div>
 
-                {/* Seletor de Período do Gráfico */}
-                <div style={{ display: "flex", gap: "4px", background: "rgba(15, 41, 74, 0.05)", padding: "3px", borderRadius: "999px" }}>
-                  {["30d", "6m", "1a"].map((tf) => (
-                    <button
-                      key={tf}
-                      type="button"
-                      onClick={() => setChartTimeframe(tf)}
-                      style={{
-                        padding: "3px 10px",
-                        borderRadius: "999px",
-                        fontSize: "11.5px",
-                        fontWeight: chartTimeframe === tf ? 500 : 400,
-                        color: chartTimeframe === tf ? "#FFFFFF" : "#0F294A",
-                        background: chartTimeframe === tf ? "#0F294A" : "transparent",
-                        border: "none",
-                        cursor: "pointer",
-                        transition: "all 0.2s ease",
-                      }}
-                    >
-                      {tf === "30d" ? "30 dias" : tf === "6m" ? "6 meses" : "1 ano"}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Área Gráfica Interativa com Ilustração SVG de Área Gradiente */}
-              <div style={{ position: "relative", flex: 1, minHeight: "190px", display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
-                {/* Badge Flutuante no Gráfico */}
-                <div
-                  style={{
-                    position: "absolute",
-                    top: "10%",
-                    left: "64%",
-                    transform: "translateX(-50%)",
-                    background: "rgba(255, 255, 255, 0.95)",
-                    backdropFilter: "blur(12px)",
-                    padding: "6px 12px",
-                    borderRadius: "10px",
-                    border: "1px solid rgba(0, 163, 255, 0.25)",
-                    boxShadow: "0 6px 16px rgba(15, 41, 74, 0.12)",
-                    fontSize: "12px",
-                    fontWeight: 500,
-                    color: "#0F294A",
-                    zIndex: 5,
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "8px",
-                  }}
-                >
-                  <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#00A3FF" }} />
-                  <span>R$ 485.200,00 economizados</span>
-                </div>
-
-                <svg width="100%" height="170" viewBox="0 0 500 170" fill="none" preserveAspectRatio="none">
-                  <defs>
-                    <linearGradient id="pluggaEconomyGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#00A3FF" stopOpacity="0.32" />
-                      <stop offset="100%" stopColor="#0F294A" stopOpacity="0.02" />
-                    </linearGradient>
-                  </defs>
-                  <path d="M0,140 Q60,120 120,130 T240,85 T340,30 T440,95 T500,80 L500,170 L0,170 Z" fill="url(#pluggaEconomyGradient)" />
-                  <path d="M0,140 Q60,120 120,130 T240,85 T340,30 T440,95 T500,80" fill="none" stroke="#00A3FF" strokeWidth="3.2" strokeLinecap="round" />
-                  <line x1="340" y1="30" x2="340" y2="170" stroke="#00A3FF" strokeDasharray="3 3" strokeOpacity="0.4" />
-                  <circle cx="340" cy="30" r="5.5" fill="#00A3FF" stroke="#FFFFFF" strokeWidth="2.5" />
-                </svg>
-
-                {/* Seletor Pílula de Dias da Semana */}
-                <div style={{ display: "flex", justifyContent: "space-between", marginTop: "12px", borderTop: "1px solid rgba(15, 41, 74, 0.08)", paddingTop: "10px" }}>
-                  {["Qua", "Qui", "Sex", "Sáb", "Dom", "Seg", "Ter"].map((dia) => {
-                    const isSelected = selectedDay === dia;
-                    return (
+                  {/* Seletor de Período do Gráfico */}
+                  <div style={{ display: "flex", gap: "4px", background: "rgba(15, 41, 74, 0.05)", padding: "3px", borderRadius: "999px" }}>
+                    {["30d", "6m", "1a"].map((tf) => (
                       <button
-                        key={dia}
+                        key={tf}
                         type="button"
-                        onClick={() => setSelectedDay(dia)}
+                        onClick={() => setChartTimeframe(tf)}
                         style={{
-                          padding: "4px 12px",
+                          padding: "3px 10px",
                           borderRadius: "999px",
-                          fontSize: "12px",
-                          fontWeight: isSelected ? 500 : 400,
-                          color: isSelected ? "#FFFFFF" : "rgba(15, 41, 74, 0.7)",
-                          background: isSelected ? "#0F294A" : "transparent",
+                          fontSize: "11.5px",
+                          fontWeight: chartTimeframe === tf ? 500 : 400,
+                          color: chartTimeframe === tf ? "#FFFFFF" : "#0F294A",
+                          background: chartTimeframe === tf ? "#0F294A" : "transparent",
                           border: "none",
                           cursor: "pointer",
                           transition: "all 0.2s ease",
                         }}
                       >
-                        {dia}
+                        {tf === "30d" ? "30 dias" : tf === "6m" ? "6 meses" : "1 ano"}
                       </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* 3 Indicadores Rápidos Integrados na Base do Gráfico */}
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "10px", marginTop: "4px", paddingTop: "14px", borderTop: "1px solid rgba(15, 41, 74, 0.08)" }}>
-                <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-                  <span style={{ fontSize: "11.5px", color: "rgba(15, 41, 74, 0.6)" }}>Unidades Monitoradas</span>
-                  <span style={{ fontSize: "16px", fontWeight: 500, color: "#0F294A" }}>1.850 unidades</span>
-                </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-                  <span style={{ fontSize: "11.5px", color: "rgba(15, 41, 74, 0.6)" }}>Créditos Compensados</span>
-                  <span style={{ fontSize: "16px", fontWeight: 500, color: "#0F294A" }}>1,42 GWh</span>
-                </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-                  <span style={{ fontSize: "11.5px", color: "rgba(15, 41, 74, 0.6)" }}>Oportunidades Mapeadas</span>
-                  <span style={{ fontSize: "16px", fontWeight: 500, color: "#059669" }}>R$ 84.000,00</span>
-                </div>
-              </div>
-            </ShellCard>
-
-            {/* Novo Grid 2 Colunas: Medidor Gauge de Meta + Heatmap por Concessionária */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "18px" }}>
-              {/* Card 2.1: Semicircular Gauge de Meta */}
-              <ShellCard style={{ padding: "20px", display: "flex", flexDirection: "column", justifyContent: "space-between", alignItems: "center" }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", marginBottom: "4px" }}>
-                  <h4 style={{ margin: 0, fontSize: "13.5px", fontWeight: 500, color: "#0F294A" }}>Atingimento da Meta</h4>
-                  <span style={{ fontSize: "11px", fontWeight: 500, color: "#059669", background: "rgba(16, 185, 129, 0.1)", padding: "2px 7px", borderRadius: "999px" }}>
-                    +4.5% acima
-                  </span>
-                </div>
-                <SemicircularGauge value={84.5} title="Meta Mensal de Economia" />
-              </ShellCard>
-
-              {/* Card 2.2: Heatmap Grid por Concessionária */}
-              <ShellCard style={{ padding: "20px", display: "flex", flexDirection: "column", justifyContent: "center" }}>
-                <HeatmapGridChart />
-              </ShellCard>
-            </div>
-
-            {/* Card Tabela: Clientes & Operações OPM em Acompanhamento */}
-            <ShellCard style={{ padding: "22px", display: "flex", flexDirection: "column", gap: "16px" }}>
-              {/* Cabeçalho da Tabela com Busca e Filtros */}
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "12px" }}>
-                <div>
-                  <h3 style={{ margin: 0, fontSize: "16px", fontWeight: 500, color: "#0F294A", letterSpacing: "-0.01em" }}>
-                    {isPlugga ? "Clientes & Operações OPM em Acompanhamento" : "Contratos GD & Usinas Solar"}
-                  </h3>
-                  <p style={{ margin: "2px 0 0 0", fontSize: "12.5px", color: "rgba(15, 41, 74, 0.6)" }}>
-                    Monitoramento continuado de economia, faturas e status operacional
-                  </p>
+                    ))}
+                  </div>
                 </div>
 
-                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                  {/* Input de Busca de Cliente */}
-                  <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(15, 41, 74, 0.5)" strokeWidth="2" style={{ position: "absolute", left: "10px" }}>
-                      <circle cx="11" cy="11" r="8" />
-                      <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                    </svg>
-                    <input
-                      type="text"
-                      placeholder="Buscar cliente..."
-                      style={{
-                        height: "32px",
-                        padding: "0 12px 0 30px",
-                        borderRadius: "999px",
-                        background: "rgba(15, 41, 74, 0.05)",
-                        border: "1px solid rgba(15, 41, 74, 0.12)",
-                        fontSize: "12px",
-                        color: "#0F294A",
-                        outline: "none",
-                        width: "160px",
-                      }}
-                    />
+                {/* Área Gráfica Interativa com Ilustração SVG de Área Gradiente */}
+                <div style={{ position: "relative", flex: 1, minHeight: "190px", display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
+                  {/* Badge Flutuante no Gráfico */}
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: "10%",
+                      left: "64%",
+                      transform: "translateX(-50%)",
+                      background: "rgba(255, 255, 255, 0.95)",
+                      backdropFilter: "blur(12px)",
+                      padding: "6px 12px",
+                      borderRadius: "10px",
+                      border: "1px solid rgba(0, 163, 255, 0.25)",
+                      boxShadow: "0 6px 16px rgba(15, 41, 74, 0.12)",
+                      fontSize: "12px",
+                      fontWeight: 500,
+                      color: "#0F294A",
+                      zIndex: 5,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                    }}
+                  >
+                    <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#00A3FF" }} />
+                    <span>R$ 485.200,00 economizados</span>
                   </div>
 
-                  <span style={{ fontSize: "12px", fontWeight: 500, color: "#0F294A", background: "rgba(15, 41, 74, 0.06)", padding: "4px 12px", borderRadius: "999px" }}>
-                    42 Clientes
-                  </span>
+                  <svg width="100%" height="170" viewBox="0 0 500 170" fill="none" preserveAspectRatio="none">
+                    <defs>
+                      <linearGradient id="pluggaEconomyGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#00A3FF" stopOpacity="0.32" />
+                        <stop offset="100%" stopColor="#0F294A" stopOpacity="0.02" />
+                      </linearGradient>
+                    </defs>
+                    <path d="M0,140 Q60,120 120,130 T240,85 T340,30 T440,95 T500,80 L500,170 L0,170 Z" fill="url(#pluggaEconomyGradient)" />
+                    <path d="M0,140 Q60,120 120,130 T240,85 T340,30 T440,95 T500,80" fill="none" stroke="#00A3FF" strokeWidth="3.2" strokeLinecap="round" />
+                    <line x1="340" y1="30" x2="340" y2="170" stroke="#00A3FF" strokeDasharray="3 3" strokeOpacity="0.4" />
+                    <circle cx="340" cy="30" r="5.5" fill="#00A3FF" stroke="#FFFFFF" strokeWidth="2.5" />
+                  </svg>
+
+                  {/* Seletor Pílula de Dias da Semana */}
+                  <div style={{ display: "flex", justifyContent: "space-between", marginTop: "12px", borderTop: "1px solid rgba(15, 41, 74, 0.08)", paddingTop: "10px" }}>
+                    {["Qua", "Qui", "Sex", "Sáb", "Dom", "Seg", "Ter"].map((dia) => {
+                      const isSelected = selectedDay === dia;
+                      return (
+                        <button
+                          key={dia}
+                          type="button"
+                          onClick={() => setSelectedDay(dia)}
+                          style={{
+                            padding: "4px 12px",
+                            borderRadius: "999px",
+                            fontSize: "12px",
+                            fontWeight: isSelected ? 500 : 400,
+                            color: isSelected ? "#FFFFFF" : "rgba(15, 41, 74, 0.7)",
+                            background: isSelected ? "#0F294A" : "transparent",
+                            border: "none",
+                            cursor: "pointer",
+                            transition: "all 0.2s ease",
+                          }}
+                        >
+                          {dia}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
 
-              {/* Tabela de Dados com Tipografia Refinada */}
-              <ShellTable caption="Tabela de operações de energia">
-                <thead>
-                  <tr style={{ textAlign: "left", fontSize: "11px", fontWeight: 600, color: "rgba(15, 41, 74, 0.55)", textTransform: "uppercase", letterSpacing: "0.04em", borderBottom: "1px solid rgba(15, 41, 74, 0.08)" }}>
-                    <th style={{ padding: "10px 12px", width: "32px" }}>✓</th>
-                    <th style={{ padding: "10px 12px" }}>CLIENTE & OPERAÇÃO OPM</th>
-                    <th style={{ padding: "10px 12px" }}>CONCESSIONÁRIA</th>
-                    <th style={{ padding: "10px 12px" }}>ECONOMIA / VALOR</th>
-                    <th style={{ padding: "10px 12px" }}>ATUALIZAÇÃO</th>
-                    <th style={{ padding: "10px 12px", textAlign: "right" }}>STATUS</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {[
-                    {
-                      id: "tx-p1",
-                      user: "HSL",
-                      userBg: "rgba(0, 163, 255, 0.12)",
-                      userColor: "#00A3FF",
-                      name: "Hospital São Lucas",
-                      role: "Gestão de Fatura & Geração Distribuída",
-                      utility: "CEMIG",
-                      price: "R$ 48.500,00",
-                      trend: "+12%",
-                      date: "18 Abr 2026",
-                      status: "active",
-                      statusLabel: "Economia Ativa",
-                    },
-                    {
-                      id: "tx-p2",
-                      user: "GA",
-                      userBg: "rgba(16, 185, 129, 0.12)",
-                      userColor: "#10b981",
-                      name: "Grupo Alvorada",
-                      role: "Contrato OPM Premium • 4 Usinas",
-                      utility: "CPFL",
-                      price: "R$ 112.300,00",
-                      trend: "+15%",
-                      date: "17 Abr 2026",
-                      status: "active",
-                      statusLabel: "Economia Ativa",
-                    },
-                    {
-                      id: "tx-p3",
-                      user: "IM",
-                      userBg: "rgba(245, 158, 11, 0.12)",
-                      userColor: "#d97706",
-                      name: "Indústria Matarazzo",
-                      role: "Auditoria Tarifária Contínua",
-                      utility: "COPEL",
-                      price: "R$ 24.620,00",
-                      trend: "Contestação",
-                      date: "15 Abr 2026",
-                      status: "pending",
-                      statusLabel: "Em Contestação",
-                    },
-                    {
-                      id: "tx-p4",
-                      user: "SV",
-                      userBg: "rgba(147, 51, 234, 0.12)",
-                      userColor: "#9333ea",
-                      name: "Rede Supermercados Viva",
-                      role: "Cliente Multiusina • 12 Unidades",
-                      utility: "ENEL",
-                      price: "R$ 67.800,00",
-                      trend: "+8%",
-                      date: "14 Abr 2026",
-                      status: "active",
-                      statusLabel: "Economia Ativa",
-                    },
-                  ].map((tx) => {
-                    const isChecked = Boolean(checkedTxs[tx.id]);
-                    return (
-                      <tr key={tx.id} style={{ borderBottom: "1px solid rgba(15, 41, 74, 0.06)", fontSize: "13px", color: "#0F294A" }}>
-                        <td style={{ padding: "12px" }}>
-                          <input
-                            type="checkbox"
-                            checked={isChecked}
-                            onChange={() => toggleCheck(tx.id)}
-                            style={{ cursor: "pointer", accentColor: "#0F294A" }}
-                          />
-                        </td>
-                        <td style={{ padding: "12px" }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                            <span
-                              style={{
-                                width: 34,
-                                height: 34,
-                                borderRadius: "10px",
-                                background: tx.userBg,
-                                display: "grid",
-                                placeItems: "center",
-                                fontSize: "11.5px",
-                                fontWeight: 600,
-                                color: tx.userColor,
-                                border: "1px solid rgba(15, 41, 74, 0.08)",
-                              }}
-                            >
-                              {tx.user}
-                            </span>
-                            <div>
-                              <div style={{ fontWeight: 500, color: "#0F294A", fontSize: "13.5px" }}>{tx.name}</div>
-                              <div style={{ fontSize: "11.5px", color: "rgba(15, 41, 74, 0.55)" }}>{tx.role}</div>
-                            </div>
-                          </div>
-                        </td>
-                        <td style={{ padding: "12px" }}>
-                          <span style={{ fontSize: "11.5px", fontWeight: 500, color: "#0F294A", background: "rgba(15, 41, 74, 0.06)", padding: "3px 8px", borderRadius: "6px" }}>
-                            {tx.utility}
-                          </span>
-                        </td>
-                        <td style={{ padding: "12px" }}>
-                          <div style={{ fontWeight: 500, color: "#0F294A" }}>{tx.price}</div>
-                          <span style={{ fontSize: "10.5px", color: tx.status === "active" ? "#059669" : "#d97706" }}>
-                            {tx.trend}
-                          </span>
-                        </td>
-                        <td style={{ padding: "12px", color: "rgba(15, 41, 74, 0.65)", fontSize: "12.5px" }}>{tx.date}</td>
-                        <td style={{ padding: "12px", textAlign: "right" }}>
-                          <span
-                            style={{
-                              padding: "4px 12px",
-                              borderRadius: "999px",
-                              fontSize: "11.5px",
-                              fontWeight: 500,
-                              color: tx.status === "active" ? "#059669" : "#d97706",
-                              background: tx.status === "active" ? "rgba(16, 185, 129, 0.12)" : "rgba(245, 158, 11, 0.12)",
-                              display: "inline-flex",
-                              alignItems: "center",
-                              gap: "6px",
-                            }}
-                          >
-                            <span style={{ width: 6, height: 6, borderRadius: "50%", background: tx.status === "active" ? "#10b981" : "#f59e0b" }} />
-                            {tx.statusLabel}
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </ShellTable>
-
-              {/* Rodapé da Tabela com Paginação */}
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingTop: "8px", borderTop: "1px solid rgba(15, 41, 74, 0.08)", fontSize: "12px", color: "rgba(15, 41, 74, 0.6)" }}>
-                <span>Mostrando <strong>4</strong> de <strong>42</strong> operações ativas</span>
-                <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                  <button type="button" style={{ padding: "4px 10px", borderRadius: "6px", background: "rgba(15, 41, 74, 0.06)", border: "none", color: "#0F294A", cursor: "pointer", fontSize: "12px" }}>
-                    ‹ Anterior
-                  </button>
-                  <span style={{ padding: "4px 8px", borderRadius: "6px", background: "#0F294A", color: "#FFFFFF", fontWeight: 500, fontSize: "11.5px" }}>1</span>
-                  <span style={{ padding: "4px 8px", color: "#0F294A", fontSize: "11.5px" }}>2</span>
-                  <span style={{ padding: "4px 8px", color: "#0F294A", fontSize: "11.5px" }}>3</span>
-                  <button type="button" style={{ padding: "4px 10px", borderRadius: "6px", background: "rgba(15, 41, 74, 0.06)", border: "none", color: "#0F294A", cursor: "pointer", fontSize: "12px" }}>
-                    Próximo ›
-                  </button>
+                {/* 3 Indicadores Rápidos Integrados na Base do Gráfico */}
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "10px", marginTop: "4px", paddingTop: "14px", borderTop: "1px solid rgba(15, 41, 74, 0.08)" }}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                    <span style={{ fontSize: "11.5px", color: "rgba(15, 41, 74, 0.6)" }}>Unidades Monitoradas</span>
+                    <span style={{ fontSize: "16px", fontWeight: 500, color: "#0F294A" }}>1.850 unidades</span>
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                    <span style={{ fontSize: "11.5px", color: "rgba(15, 41, 74, 0.6)" }}>Créditos Compensados</span>
+                    <span style={{ fontSize: "16px", fontWeight: 500, color: "#0F294A" }}>1,42 GWh</span>
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                    <span style={{ fontSize: "11.5px", color: "rgba(15, 41, 74, 0.6)" }}>Oportunidades Mapeadas</span>
+                    <span style={{ fontSize: "16px", fontWeight: 500, color: "#059669" }}>R$ 84.000,00</span>
+                  </div>
                 </div>
-              </div>
-            </ShellCard>
-          </div>
+              </ShellCard>
 
-          {/* Coluna Direita: Decisões de Hoje (Tom Azul Marinho Escuro com topo saliente alinhado) */}
-          <div style={{ display: "flex", flexDirection: "column", gap: "18px" }}>
-            <div
-              style={{
-                position: "relative",
-                marginTop: "24px",
-                padding: "11px",
-                display: "flex",
-                flexDirection: "column",
-                borderRadius: "24px",
-                background: "linear-gradient(180deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.08) 100%)",
-                border: "1px solid rgba(255, 255, 255, 0.25)",
-              }}
-            >
-              <div
-                style={{
-                  marginTop: "-35px",
-                  padding: "20px 22px",
-                  borderRadius: "20px",
-                  background: "linear-gradient(155deg, #0A192F 0%, #0F2B4A 60%, #051329 100%)",
-                  backdropFilter: "blur(24px)",
-                  WebkitBackdropFilter: "blur(24px)",
-                  color: "#FFFFFF",
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "16px",
-                  boxShadow: "0 18px 45px rgba(5, 19, 41, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.12)",
-                  border: "1px solid rgba(0, 163, 255, 0.25)",
-                }}
-              >
-                <div>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                    <h3 style={{ margin: 0, fontSize: "16px", fontWeight: 500, color: "#FFFFFF", letterSpacing: "-0.01em" }}>
-                      Decisões de hoje
-                    </h3>
-                    <span style={{ fontSize: "12px", fontWeight: 400, color: "rgba(255, 255, 255, 0.55)" }}>
-                      14 itens
+              {/* Novo Grid 2 Colunas: Medidor Gauge de Meta + Heatmap por Concessionária */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "18px" }}>
+                {/* Card 2.1: Semicircular Gauge de Meta */}
+                <ShellCard style={{ padding: "20px", display: "flex", flexDirection: "column", justifyContent: "space-between", alignItems: "center" }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", marginBottom: "4px" }}>
+                    <h4 style={{ margin: 0, fontSize: "13.5px", fontWeight: 500, color: "#0F294A" }}>Atingimento da Meta</h4>
+                    <span style={{ fontSize: "11px", fontWeight: 500, color: "#059669", background: "rgba(16, 185, 129, 0.1)", padding: "2px 7px", borderRadius: "999px" }}>
+                      +4.5% acima
                     </span>
                   </div>
-                  <p style={{ margin: "4px 0 0 0", fontSize: "11.5px", color: "rgba(255, 255, 255, 0.65)", lineHeight: "1.35" }}>
-                    Demandas prioritárias que exigem sua atuação hoje.
-                  </p>
-                </div>
+                  <SemicircularGauge value={84.5} title="Meta Mensal de Economia" />
+                </ShellCard>
+
+                {/* Card 2.2: Heatmap Grid por Concessionária */}
+                <ShellCard style={{ padding: "20px", display: "flex", flexDirection: "column", justifyContent: "center" }}>
+                  <HeatmapGridChart />
+                </ShellCard>
+              </div>
+            </div>
+
+            {/* Coluna Direita: Decisões de Hoje (Tom Azul Marinho Escuro com topo saliente alinhado) */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "18px" }}>
+              <div
+                style={{
+                  position: "relative",
+                  marginTop: "24px",
+                  padding: "11px",
+                  display: "flex",
+                  flexDirection: "column",
+                  borderRadius: "24px",
+                  background: "linear-gradient(180deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.08) 100%)",
+                  border: "1px solid rgba(255, 255, 255, 0.25)",
+                }}
+              >
+                <div
+                  style={{
+                    marginTop: "-35px",
+                    padding: "20px 22px",
+                    borderRadius: "20px",
+                    background: "linear-gradient(155deg, #0A192F 0%, #0F2B4A 60%, #051329 100%)",
+                    backdropFilter: "blur(24px)",
+                    WebkitBackdropFilter: "blur(24px)",
+                    color: "#FFFFFF",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "16px",
+                    boxShadow: "0 18px 45px rgba(5, 19, 41, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.12)",
+                    border: "1px solid rgba(0, 163, 255, 0.25)",
+                  }}
+                >
+                  <div>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                      <h3 style={{ margin: 0, fontSize: "16px", fontWeight: 500, color: "#FFFFFF", letterSpacing: "-0.01em" }}>
+                        Decisões de hoje
+                      </h3>
+                      <span style={{ fontSize: "12px", fontWeight: 400, color: "rgba(255, 255, 255, 0.55)" }}>
+                        14 itens
+                      </span>
+                    </div>
+                    <p style={{ margin: "4px 0 0 0", fontSize: "11.5px", color: "rgba(255, 255, 255, 0.65)", lineHeight: "1.35" }}>
+                      Demandas prioritárias que exigem sua atuação hoje.
+                    </p>
+                  </div>
 
                 {/* Lista Minimalista dos 4 Itens das Decisões de Hoje */}
                 <div style={{ display: "flex", flexDirection: "column" }}>
@@ -1313,6 +1106,201 @@ function DashboardContent({ health }: { health: HealthCheck | null }) {
               </div>
             </ShellCard>
           </div>
+          </div>
+          {/* Fim do Grid de 2 Colunas */}
+
+          {/* Card Tabela Clientes & Operações OPM em Acompanhamento (100% de Largura Total, Sem Checkbox) */}
+          <ShellCard style={{ padding: "22px", display: "flex", flexDirection: "column", gap: "16px", width: "100%", boxSizing: "border-box" }}>
+            {/* Cabeçalho da Tabela com Busca e Filtros */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "12px", width: "100%" }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: "16px", fontWeight: 500, color: "#0F294A", letterSpacing: "-0.01em" }}>
+                  {isPlugga ? "Clientes & Operações OPM em Acompanhamento" : "Contratos GD & Usinas Solar"}
+                </h3>
+                <p style={{ margin: "2px 0 0 0", fontSize: "12.5px", color: "rgba(15, 41, 74, 0.6)" }}>
+                  Monitoramento continuado de economia, faturas e status operacional
+                </p>
+              </div>
+
+              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                {/* Input de Busca de Cliente */}
+                <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(15, 41, 74, 0.5)" strokeWidth="2" style={{ position: "absolute", left: "10px" }}>
+                    <circle cx="11" cy="11" r="8" />
+                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                  </svg>
+                  <input
+                    type="text"
+                    placeholder="Buscar cliente..."
+                    style={{
+                      height: "32px",
+                      padding: "0 12px 0 30px",
+                      borderRadius: "999px",
+                      background: "rgba(15, 41, 74, 0.05)",
+                      border: "1px solid rgba(15, 41, 74, 0.12)",
+                      fontSize: "12px",
+                      color: "#0F294A",
+                      outline: "none",
+                      width: "200px",
+                    }}
+                  />
+                </div>
+
+                <span style={{ fontSize: "12px", fontWeight: 500, color: "#0F294A", background: "rgba(15, 41, 74, 0.06)", padding: "4px 12px", borderRadius: "999px" }}>
+                  42 Clientes
+                </span>
+              </div>
+            </div>
+
+            {/* Tabela de Dados Expandida a 100% da Largura (Sem Checkbox) */}
+            <div style={{ width: "100%", overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
+                <thead>
+                  <tr style={{ fontSize: "11px", fontWeight: 600, color: "rgba(15, 41, 74, 0.55)", textTransform: "uppercase", letterSpacing: "0.04em", borderBottom: "1px solid rgba(15, 41, 74, 0.08)" }}>
+                    <th style={{ padding: "12px 14px", width: "35%" }}>CLIENTE & OPERAÇÃO OPM</th>
+                    <th style={{ padding: "12px 14px", width: "15%" }}>CONCESSIONÁRIA</th>
+                    <th style={{ padding: "12px 14px", width: "20%" }}>ECONOMIA / VALOR</th>
+                    <th style={{ padding: "12px 14px", width: "15%" }}>ATUALIZAÇÃO</th>
+                    <th style={{ padding: "12px 14px", width: "15%", textAlign: "right" }}>STATUS</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[
+                    {
+                      id: "tx-p1",
+                      user: "HSL",
+                      userBg: "rgba(0, 163, 255, 0.12)",
+                      userColor: "#00A3FF",
+                      name: "Hospital São Lucas",
+                      role: "Gestão de Fatura & Geração Distribuída",
+                      utility: "CEMIG",
+                      price: "R$ 48.500,00",
+                      trend: "+12% economia",
+                      date: "18 Abr 2026",
+                      status: "active",
+                      statusLabel: "Economia Ativa",
+                    },
+                    {
+                      id: "tx-p2",
+                      user: "GA",
+                      userBg: "rgba(16, 185, 129, 0.12)",
+                      userColor: "#10b981",
+                      name: "Grupo Alvorada",
+                      role: "Contrato OPM Premium • 4 Usinas",
+                      utility: "CPFL",
+                      price: "R$ 112.300,00",
+                      trend: "+15% economia",
+                      date: "17 Abr 2026",
+                      status: "active",
+                      statusLabel: "Economia Ativa",
+                    },
+                    {
+                      id: "tx-p3",
+                      user: "IM",
+                      userBg: "rgba(245, 158, 11, 0.12)",
+                      userColor: "#d97706",
+                      name: "Indústria Matarazzo",
+                      role: "Auditoria Tarifária Contínua",
+                      utility: "COPEL",
+                      price: "R$ 24.620,00",
+                      trend: "Contestação em andamento",
+                      date: "15 Abr 2026",
+                      status: "pending",
+                      statusLabel: "Em Contestação",
+                    },
+                    {
+                      id: "tx-p4",
+                      user: "SV",
+                      userBg: "rgba(147, 51, 234, 0.12)",
+                      userColor: "#9333ea",
+                      name: "Rede Supermercados Viva",
+                      role: "Cliente Multiusina • 12 Unidades",
+                      utility: "ENEL",
+                      price: "R$ 67.800,00",
+                      trend: "+8% economia",
+                      date: "14 Abr 2026",
+                      status: "active",
+                      statusLabel: "Economia Ativa",
+                    },
+                  ].map((tx) => (
+                    <tr key={tx.id} style={{ borderBottom: "1px solid rgba(15, 41, 74, 0.06)", fontSize: "13px", color: "#0F294A", transition: "background 0.2s ease" }}>
+                      <td style={{ padding: "14px" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                          <span
+                            style={{
+                              width: 36,
+                              height: 36,
+                              borderRadius: "10px",
+                              background: tx.userBg,
+                              display: "grid",
+                              placeItems: "center",
+                              fontSize: "12px",
+                              fontWeight: 600,
+                              color: tx.userColor,
+                              border: "1px solid rgba(15, 41, 74, 0.08)",
+                              flexShrink: 0,
+                            }}
+                          >
+                            {tx.user}
+                          </span>
+                          <div>
+                            <div style={{ fontWeight: 500, color: "#0F294A", fontSize: "13.5px" }}>{tx.name}</div>
+                            <div style={{ fontSize: "11.5px", color: "rgba(15, 41, 74, 0.55)" }}>{tx.role}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td style={{ padding: "14px" }}>
+                        <span style={{ fontSize: "11.5px", fontWeight: 500, color: "#0F294A", background: "rgba(15, 41, 74, 0.06)", padding: "4px 10px", borderRadius: "6px", display: "inline-block" }}>
+                          {tx.utility}
+                        </span>
+                      </td>
+                      <td style={{ padding: "14px" }}>
+                        <div style={{ fontWeight: 500, color: "#0F294A", fontSize: "13.5px" }}>{tx.price}</div>
+                        <span style={{ fontSize: "11px", color: tx.status === "active" ? "#059669" : "#d97706", fontWeight: 500 }}>
+                          {tx.trend}
+                        </span>
+                      </td>
+                      <td style={{ padding: "14px", color: "rgba(15, 41, 74, 0.65)", fontSize: "12.5px" }}>{tx.date}</td>
+                      <td style={{ padding: "14px", textAlign: "right" }}>
+                        <span
+                          style={{
+                            padding: "4px 12px",
+                            borderRadius: "999px",
+                            fontSize: "11.5px",
+                            fontWeight: 500,
+                            color: tx.status === "active" ? "#059669" : "#d97706",
+                            background: tx.status === "active" ? "rgba(16, 185, 129, 0.12)" : "rgba(245, 158, 11, 0.12)",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "6px",
+                          }}
+                        >
+                          <span style={{ width: 6, height: 6, borderRadius: "50%", background: tx.status === "active" ? "#10b981" : "#f59e0b" }} />
+                          {tx.statusLabel}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Rodapé da Tabela com Paginação */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingTop: "12px", borderTop: "1px solid rgba(15, 41, 74, 0.08)", fontSize: "12px", color: "rgba(15, 41, 74, 0.6)", width: "100%" }}>
+              <span>Mostrando <strong>4</strong> de <strong>42</strong> operações ativas</span>
+              <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                <button type="button" style={{ padding: "5px 12px", borderRadius: "6px", background: "rgba(15, 41, 74, 0.06)", border: "none", color: "#0F294A", cursor: "pointer", fontSize: "12px" }}>
+                  ‹ Anterior
+                </button>
+                <span style={{ padding: "4px 9px", borderRadius: "6px", background: "#0F294A", color: "#FFFFFF", fontWeight: 500, fontSize: "11.5px" }}>1</span>
+                <span style={{ padding: "4px 9px", color: "#0F294A", fontSize: "11.5px" }}>2</span>
+                <span style={{ padding: "4px 9px", color: "#0F294A", fontSize: "11.5px" }}>3</span>
+                <button type="button" style={{ padding: "5px 12px", borderRadius: "6px", background: "rgba(15, 41, 74, 0.06)", border: "none", color: "#0F294A", cursor: "pointer", fontSize: "12px" }}>
+                  Próximo ›
+                </button>
+              </div>
+            </div>
+          </ShellCard>
         </div>
       )}
 

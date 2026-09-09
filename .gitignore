@@ -56,3 +56,7 @@ apps/web/e2e/.auth/
 # origem viva é hstgr-vps:/root/.openclaw — puxe sob demanda em vez de manter
 # cópia aqui. A linha fica para o caso de alguém recriar a pasta por engano.
 /knowledge/
+
+# Store local do pnpm (n�o versionar)
+.pnpm-store/
+
