@@ -112,6 +112,7 @@ function SegmentedStackBar() {
 
 // 5. Medidor Semicircular / Gauge Chart (Inspiração: Reference Image 1 & 2)
 function SemicircularGauge({ value = 84.5, title = "Meta Mensal de Economia" }: { value?: number; title?: string }) {
+  void title;
   const radius = 64;
   const strokeWidth = 12;
   const circumference = Math.PI * radius;
@@ -460,8 +461,6 @@ function DashboardContent({ health }: { health: HealthCheck | null }) {
   const toggleCheck = (id: string) => {
     setCheckedTxs((prev) => ({ ...prev, [id]: !prev[id] }));
   };
-
-  const transactions = isPlugga ? PLUGGA_CLIENT_TRANSACTIONS : WAZE_TRANSACTIONS;
 
   return (
     <div className="dashboard-view" style={{ display: "flex", flexDirection: "column", gap: "22px" }}>
