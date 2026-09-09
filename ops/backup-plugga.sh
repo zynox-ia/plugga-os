@@ -27,7 +27,7 @@ DESTINO="diario/${NOME}"
 
 mc() {
   docker run --rm -i --network "$REDE" \
-    -e MC_HOST_b="http://${BACKUP_ACCESS_KEY}:${BACKUP_SECRET_KEY}@minio:9000" \
+    -e MC_HOST_b="http://${BACKUP_ACCESS_KEY}:${BACKUP_SECRET_KEY}@seaweedfs:8333" \
     "$MC" "$@"
 }
 

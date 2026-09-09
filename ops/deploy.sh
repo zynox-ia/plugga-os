@@ -90,7 +90,7 @@ docker compose run --rm --no-deps \
 
 # ------------------------------------------------------------------ 5. subir
 # Sem nomear serviço: agora que o compose.yaml é sincronizado do repositório,
-# uma mudança no bloco de postgres/redis/minio chegaria ao arquivo e nunca aos
+# uma mudança no bloco de postgres/redis/seaweedfs chegaria ao arquivo e nunca aos
 # contêineres — uma divergência mais silenciosa que a que acabamos de fechar.
 #
 # `--profile app` é obrigatório e não é zelo: api e web declaram
@@ -101,6 +101,12 @@ docker compose run --rm --no-deps \
 # contêiner e só recria os divergentes. Conferido com `--dry-run` em produção
 # em 10/08/2026, com os cinco serviços reportados como `Running`.
 registro "5/6 · subindo a aplicação"
+# A versão anterior publicava o MinIO na mesma porta local do novo SeaweedFS.
+# Parar somente o contêiner antigo libera a porta sem tocar no volume: o serviço
+# minio-legacy do compose monta esse mesmo volume e faz a cópia de migração.
+if docker ps -q --filter name='plugga-os-minio-1' | grep -q .; then
+  docker stop plugga-os-minio-1 >/dev/null
+fi
 docker compose --profile app up -d
 
 # -------------------------------------------------------- 6. teste de fumaça

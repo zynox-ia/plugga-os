@@ -8,8 +8,8 @@ MC="minio/mc:RELEASE.2025-04-16T18-13-26Z"
 
 # Credencial raiz lida do contêiner e nunca impressa. `printenv`, não `docker
 # inspect` com template split "=": o split cortava a senha no primeiro '='.
-U=$(docker exec plugga-os-minio-1 printenv MINIO_ROOT_USER)
-P=$(docker exec plugga-os-minio-1 printenv MINIO_ROOT_PASSWORD)
+U=$(docker exec plugga-os-seaweedfs-1 printenv AWS_ACCESS_KEY_ID)
+P=$(docker exec plugga-os-seaweedfs-1 printenv AWS_SECRET_ACCESS_KEY)
 
 # MC_HOST_x é uma URL: senha com '@', ':' ou '/' cru quebraria o parse dela.
 # Percent-encoding em bash puro porque é o único intérprete que este script
@@ -25,7 +25,7 @@ codifica_url() {
   done
   printf '%s' "$saida"
 }
-RAIZ_URL="http://$U:$(codifica_url "$P")@minio:9000"
+RAIZ_URL="http://$U:$(codifica_url "$P")@seaweedfs:8333"
 
 mc() { docker run --rm -i --network "$REDE" -e MC_HOST_x="$RAIZ_URL" "$MC" "$@"; }
 

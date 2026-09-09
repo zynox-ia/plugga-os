@@ -35,6 +35,18 @@ services:
       start_period: 5s
     restart: unless-stopped
 
+  # Compatibilidade de transição: mantém o volume antigo montado apenas para
+  # copiar os objetos para o SeaweedFS no primeiro deploy da migração.
+  minio-legacy:
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+    command: ["server", "/data"]
+    environment:
+      MINIO_ROOT_USER: ${STORAGE_ACCESS_KEY:-plugga_local}
+      MINIO_ROOT_PASSWORD: ${STORAGE_SECRET_KEY:-plugga_local_secret}
+    volumes:
+      - minio_data:/data
+    restart: unless-stopped
+
   # Object storage for the invoice files uploaded to the energy-efficiency
   # study. Speaks the S3 protocol, so the API talks to it with the AWS SDK and
   # swapping it for real S3 later is an environment change, not a code change.
@@ -44,25 +56,26 @@ services:
   # build and moved management behind the commercial product; this is the last
   # release where the open-source server is still complete. Bumping it blind
   # would silently take the console away.
-  minio:
-    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
-    command: ["server", "/data", "--console-address", ":9001"]
+  seaweedfs:
+    image: chrislusf/seaweedfs:latest
+    command: ["mini", "-dir=/data", "-ip=0.0.0.0"]
     environment:
       # Local-only dummy defaults, same rule as Postgres above: production
       # credentials never belong in this file.
-      MINIO_ROOT_USER: ${STORAGE_ACCESS_KEY:-plugga_local}
-      MINIO_ROOT_PASSWORD: ${STORAGE_SECRET_KEY:-plugga_local_secret}
+      AWS_ACCESS_KEY_ID: ${STORAGE_ACCESS_KEY:-plugga_local}
+      AWS_SECRET_ACCESS_KEY: ${STORAGE_SECRET_KEY:-plugga_local_secret}
+      S3_BUCKET: ${STORAGE_BUCKET:-plugga-faturas}
     ports:
       # S3 endpoint the API writes to.
-      - "127.0.0.1:${MINIO_PORT:-9000}:9000"
+      - "127.0.0.1:${STORAGE_PORT:-${MINIO_PORT:-9000}}:8333"
       # Object browser das faturas: abra pela porta de MINIO_CONSOLE_PORT do
       # .env (59001 no stack local; a baixa 9001 é o túnel para o MinIO de
       # produção — ops/GUIA.md).
-      - "127.0.0.1:${MINIO_CONSOLE_PORT:-9001}:9001"
+      - "127.0.0.1:${STORAGE_ADMIN_PORT:-${MINIO_CONSOLE_PORT:-9001}}:23646"
     volumes:
-      - minio_data:/data
+      - seaweedfs_data:/data
     healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:8333/status"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -72,18 +85,45 @@ services:
   # Creates the bucket once and exits. Without it the first upload fails on a
   # bucket that nobody remembered to create, which is a confusing way to learn
   # that storage is optional.
-  minio-provisiona:
+  seaweedfs-provisiona:
     image: minio/mc:RELEASE.2025-04-16T18-13-26Z
     depends_on:
-      minio:
+      seaweedfs:
         condition: service_healthy
     entrypoint:
       - /bin/sh
       - -c
       - |
-        mc alias set plugga http://minio:9000 \
+        mc alias set plugga http://seaweedfs:8333 \
           "${STORAGE_ACCESS_KEY:-plugga_local}" "${STORAGE_SECRET_KEY:-plugga_local_secret}"
         mc mb --ignore-existing plugga/"${STORAGE_BUCKET:-plugga-faturas}"
+        mc mb --ignore-existing plugga/"${CORPUS_BUCKET:-plugga-corpus-faturas}"
+    restart: "no"
+
+  # Copia todos os buckets do volume MinIO legado. É idempotente e não remove
+  # nada da origem; assim uma nova publicação pode repetir a operação com segurança.
+  seaweedfs-migracao:
+    image: minio/mc:RELEASE.2025-04-16T18-13-26Z
+    depends_on:
+      minio-legacy:
+        condition: service_started
+      seaweedfs:
+        condition: service_healthy
+    environment:
+      MC_HOST_source: http://${STORAGE_ACCESS_KEY:-plugga_local}:${STORAGE_SECRET_KEY:-plugga_local_secret}@minio-legacy:9000
+      MC_HOST_dest: http://${STORAGE_ACCESS_KEY:-plugga_local}:${STORAGE_SECRET_KEY:-plugga_local_secret}@seaweedfs:8333
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        set -eu
+        until mc ls source >/dev/null 2>&1; do sleep 2; done
+        for bucket in "${STORAGE_BUCKET:-plugga-faturas}" "${CORPUS_BUCKET:-plugga-corpus-faturas}" plugga-backups; do
+          if mc ls source/"$$bucket" >/dev/null 2>&1; then
+            mc mb --ignore-existing dest/"$$bucket"
+            mc mirror --overwrite source/"$$bucket" dest/"$$bucket"
+          fi
+        done
     restart: "no"
 
   # --- Application containers (profile "app") -------------------------------
@@ -159,7 +199,7 @@ services:
       # (localhost:59000, for pnpm dev), and letting it leak into the container
       # would send every upload to the container's own loopback — storage would
       # fail silently on every invoice while the screen reports success.
-      STORAGE_ENDPOINT: http://minio:9000
+      STORAGE_ENDPOINT: http://seaweedfs:8333
       STORAGE_BUCKET: ${STORAGE_BUCKET:-plugga-faturas}
       STORAGE_REGION: ${STORAGE_REGION:-us-east-1}
       STORAGE_ACCESS_KEY: ${STORAGE_ACCESS_KEY:-plugga_local}
@@ -187,8 +227,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      minio:
-        condition: service_healthy
+      seaweedfs-migracao:
+        condition: service_completed_successfully
     healthcheck:
       test:
         ["CMD", "node", "-e", "fetch('http://127.0.0.1:3001/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
@@ -231,3 +271,5 @@ volumes:
   postgres_data:
   redis_data:
   minio_data:
+    name: plugga-os_minio_data
+  seaweedfs_data:

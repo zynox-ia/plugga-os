@@ -20,8 +20,8 @@ BALDE=plugga-corpus-faturas
 # Credencial raiz lida do contêiner e nunca impressa — mesma razão e mesma
 # armadilha do `prepara-backup-minio.sh`: `docker inspect` com template split
 # "=" cortava a senha no primeiro '='.
-U=$(docker exec plugga-os-minio-1 printenv MINIO_ROOT_USER)
-P=$(docker exec plugga-os-minio-1 printenv MINIO_ROOT_PASSWORD)
+U=$(docker exec plugga-os-seaweedfs-1 printenv AWS_ACCESS_KEY_ID)
+P=$(docker exec plugga-os-seaweedfs-1 printenv AWS_SECRET_ACCESS_KEY)
 
 # MC_HOST_x é uma URL: senha com '@', ':' ou '/' cru quebraria o parse dela.
 codifica_url() {
@@ -35,7 +35,7 @@ codifica_url() {
   done
   printf '%s' "$saida"
 }
-RAIZ_URL="http://$U:$(codifica_url "$P")@minio:9000"
+RAIZ_URL="http://$U:$(codifica_url "$P")@seaweedfs:8333"
 
 mc() { docker run --rm -i --network "$REDE" -e MC_HOST_x="$RAIZ_URL" "$MC" "$@"; }
 
