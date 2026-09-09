@@ -121,7 +121,14 @@ jobs:
         run: pnpm build
 
       - name: Install Playwright Chromium
-        run: pnpm --filter @plugga/web exec playwright install --with-deps chromium
+        run: |
+          # ubuntu-latest inclui o repositório do Google Chrome, cujo índice
+          # pode chegar com hash inconsistente. O Playwright baixa o próprio
+          # Chromium e não precisa desse repositório para instalar dependências.
+          sudo rm -f /etc/apt/sources.list.d/google-chrome.list \
+            /etc/apt/sources.list.d/google-chrome.sources
+          sudo rm -rf /var/lib/apt/lists/*
+          pnpm --filter @plugga/web exec playwright install --with-deps chromium
 
       - name: Start API for web e2e
         env:
