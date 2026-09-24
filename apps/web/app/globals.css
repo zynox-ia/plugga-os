@@ -433,7 +433,6 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--folha); outline
 .sidebar-nav {
   display: flex;
   flex-direction: column;
-  justify-content: center;
   margin-top: auto;
   margin-bottom: auto;
   gap: 12px;
@@ -445,6 +444,13 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--folha); outline
   -ms-overflow-style: none;
 }
 .sidebar-nav::-webkit-scrollbar { width: 0; height: 0; }
+/* Centraliza o menu só enquanto há folga. `justify-content: center` num contêiner
+   que rola empurra o excesso também para CIMA, onde a rolagem não alcança: com os
+   departamentos abertos, Dashboard e Central de Pendências ficavam fora do alcance
+   e desenhados por cima do logo. Margens automáticas centralizam com folga e
+   viram zero quando falta espaço, então o topo continua acessível. */
+.sidebar-nav > :first-child { margin-top: auto; }
+.sidebar-nav > :last-child { margin-bottom: auto; }
 .nav-group { display: flex; flex-direction: column; gap: 4px; }
 .nav-label, .nav-section {
   padding: 12px 12px 6px;

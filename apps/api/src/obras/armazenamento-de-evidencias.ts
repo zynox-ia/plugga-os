@@ -2,6 +2,8 @@ import { createHash } from "node:crypto";
 
 import { Injectable, ServiceUnavailableException } from "@nestjs/common";
 
+import { baldeDe } from "../core/armazenamento/baldes.js";
+
 /**
  * Onde a evidência de campo fica guardada. Mesmo molde de
  * `compras/armazenamento-de-cotacoes.ts`, com o mesmo argumento de não
@@ -30,7 +32,7 @@ const EXTENSAO: Record<string, string> = {
 export const TIPOS_ACEITOS = Object.keys(EXTENSAO);
 
 function configurado(): boolean {
-  return Boolean(process.env.STORAGE_ENDPOINT && process.env.STORAGE_BUCKET);
+  return Boolean(process.env.STORAGE_ENDPOINT);
 }
 
 @Injectable()
@@ -76,6 +78,8 @@ export class ArmazenamentoDeEvidencias {
   }
 
   async guardar(conteudo: Buffer, mime: string, nomeOriginal: string): Promise<EvidenciaGuardada> {
+    // Obras é do departamento Engenharia da Waze.
+    const balde = baldeDe("waze", "engenharia-obras");
     const cliente = await this.obterCliente();
     const chave = this.nomeDoObjeto(conteudo, mime, nomeOriginal);
 
@@ -83,7 +87,7 @@ export class ArmazenamentoDeEvidencias {
       const { PutObjectCommand } = await import("@aws-sdk/client-s3");
       await cliente.send(
         new PutObjectCommand({
-          Bucket: process.env.STORAGE_BUCKET,
+          Bucket: balde,
           Key: chave,
           Body: conteudo,
           ContentType: mime,

@@ -40,7 +40,7 @@ export const environmentSchema = z
     PORT: z.coerce.number().int().min(1).max(65_535).default(3_001),
     DATABASE_URL: z.string().startsWith("postgresql://"),
     // Redis backing BullMQ (ADR-0007/0011). Local-only host, like DATABASE_URL.
-    REDIS_URL: z.string().trim().min(1).default("redis://localhost:6379"),
+    REDIS_URL: z.string().trim().min(1).default("redis://localhost:56379"),
     // Whether this process runs the BullMQ queue + worker. Off by default so the
     // API and unit tests boot without Redis; enabled locally/on the worker host.
     JOBS_ENABLED: environmentBoolean.default(false),
@@ -115,6 +115,10 @@ export const environmentSchema = z
     BITRIX_OPM_ENTITY_TYPE_ID: z.coerce.number().int().positive().optional(),
     // Page size for Bitrix list reads (Bitrix caps a page at 50).
     BITRIX_IMPORT_PAGE_SIZE: z.coerce.number().int().min(1).max(50).default(50),
+    // Optional S3-compatible storage endpoint. In local development the
+    // high-numbered Compose port is mandatory because 9000/9001 may be SSH
+    // tunnels to Production on project workstations.
+    STORAGE_ENDPOINT: opcional(z.string().trim().url()),
   })
   .passthrough()
   .superRefine((environment, context) => {
@@ -205,6 +209,17 @@ export const environmentSchema = z
           path: ["DATABASE_URL"],
           message: "Block A only permits a local PostgreSQL host",
         });
+      } else if (
+        environment.NODE_ENV !== "production" &&
+        ["localhost", "127.0.0.1"].includes(databaseUrl.hostname) &&
+        (databaseUrl.port || "5432") === "5432"
+      ) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["DATABASE_URL"],
+          message:
+            "DATABASE_URL uses loopback port 5432, which is reserved for the Production SSH tunnel; use Local Dev 55432 or Local Test 55433",
+        });
       }
     } catch {
       context.addIssue({
@@ -253,6 +268,17 @@ export const environmentSchema = z
           path: ["REDIS_URL"],
           message: "Block B only permits a local Redis host",
         });
+      } else if (
+        environment.NODE_ENV !== "production" &&
+        ["localhost", "127.0.0.1"].includes(redisUrl.hostname) &&
+        (redisUrl.port || "6379") === "6379"
+      ) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["REDIS_URL"],
+          message:
+            "REDIS_URL uses loopback port 6379, which is reserved for the Production SSH tunnel; use Local Dev 56379 or Local Test 56380",
+        });
       }
     } catch {
       context.addIssue({
@@ -260,6 +286,22 @@ export const environmentSchema = z
         path: ["REDIS_URL"],
         message: "REDIS_URL must be a valid Redis URL",
       });
+    }
+
+    if (environment.STORAGE_ENDPOINT) {
+      const storageUrl = new URL(environment.STORAGE_ENDPOINT);
+      if (
+        environment.NODE_ENV !== "production" &&
+        ["localhost", "127.0.0.1"].includes(storageUrl.hostname) &&
+        ["9000", "9001"].includes(storageUrl.port)
+      ) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["STORAGE_ENDPOINT"],
+          message:
+            "STORAGE_ENDPOINT uses a loopback port reserved for the Production SSH tunnel; use the Local Dev storage port 59000",
+        });
+      }
     }
   });
 

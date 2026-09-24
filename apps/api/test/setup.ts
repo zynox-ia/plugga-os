@@ -3,6 +3,12 @@ import { fileURLToPath } from "node:url";
 
 import dotenv from "dotenv";
 
+import {
+  assertSafeTestDatabaseUrl,
+  assertSafeTestRedisUrl,
+  assertSafeTestStorageEndpoint,
+} from "./safe-test-environment";
+
 /**
  * Os testes de integração leem serviço de verdade — Postgres, MinIO — e
  * precisam saber onde ele está. Sem o `.env`, `STORAGE_ENDPOINT` não chegava
@@ -32,17 +38,29 @@ if (pediramIntegracao) {
 }
 
 process.env.NODE_ENV = "test";
-// Porta 55432, não 5432. Na máquina de quem desenvolve há um túnel SSH para a
+// Porta 55433, não 5432. Na máquina de quem desenvolve há um túnel SSH para a
 // VPS ocupando a 5432, então este padrão apontava para o banco de PRODUÇÃO
 // sempre que o `.env` não definisse a variável. Um teste que escreve tem que
 // falhar por não achar banco, nunca acertar o banco errado em silêncio.
 process.env.DATABASE_URL ??=
-  "postgresql://plugga_os:local_only_change_me@localhost:55432/plugga_os?schema=public";
+  "postgresql://plugga_os_test:local_test_only_change_me@localhost:55433/plugga_os_test?schema=public";
 // Mesma classe de acidente na outra porta padrão: 6379 em 127.0.0.1 também é
 // túnel para a VPS. O padrão aponta para a faixa 5xxxx do stack local — teste
 // que erra o alvo tem que falhar por conexão recusada, nunca alcançar o Redis
 // de PRODUÇÃO em silêncio.
-process.env.REDIS_URL ??= "redis://127.0.0.1:56379";
+process.env.REDIS_URL ??= "redis://127.0.0.1:56380";
 process.env.DEV_AUTH_ENABLED = "true";
 process.env.LOG_LEVEL = "silent";
 process.env.AUTH_SESSION_SECRET ??= "test_only_session_secret_change_me_please";
+
+if (pediramIntegracao) {
+  assertSafeTestDatabaseUrl(process.env.DATABASE_URL, process.env.CI === "true");
+
+  if (process.env.RUN_JOBS_INTEGRATION_TESTS === "true") {
+    assertSafeTestRedisUrl(process.env.REDIS_URL);
+  }
+
+  if (process.env.RUN_STORAGE_INTEGRATION_TESTS === "true") {
+    assertSafeTestStorageEndpoint(process.env.STORAGE_ENDPOINT);
+  }
+}

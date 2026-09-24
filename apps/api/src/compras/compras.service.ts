@@ -91,6 +91,7 @@ export class ComprasService {
         arquivo.buffer,
         arquivo.mimetype,
         arquivo.originalname,
+        input.companyId,
       );
       anexos.push({ arquivoChave: guardado.chave, arquivoNome: arquivo.originalname });
     }

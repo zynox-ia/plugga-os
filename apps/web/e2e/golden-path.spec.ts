@@ -5,9 +5,10 @@ test.describe("Golden path — Início → Integrações → Jobs", () => {
     await page.goto("/");
     await expect(page.locator(".app-shell")).toBeVisible();
 
-    // A Central de Pendências virou seção do Início: a fila aparece na mesma
-    // tela dos cartões, sem um segundo item de menu para a mesma pergunta.
-    await expect(page.getByRole("heading", { name: "Central de Pendências" })).toBeVisible();
+    // A fila de pendências virou o cartão "Decisões de hoje" do Início (o
+    // redesenho do painel trocou o título "Central de Pendências"): aparece na
+    // mesma tela dos cartões, sem um segundo item de menu para a mesma pergunta.
+    await expect(page.getByRole("heading", { name: "Decisões de hoje" })).toBeVisible();
 
     // Integrações e Jobs saíram da barra lateral e vivem em Configurações.
     await page.goto("/integracoes");

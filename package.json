@@ -16,6 +16,11 @@
     "lint": "turbo run lint",
     "test": "turbo run test",
     "test:db": "pnpm --filter @plugga/api test:db",
+    "test:infra:up": "node scripts/local-test.mjs up",
+    "test:infra:down": "node scripts/local-test.mjs down",
+    "test:infra:reset": "node scripts/local-test.mjs reset",
+    "test:platform-safety": "node --test scripts/local-test.test.mjs",
+    "test:migrations:from-zero": "node scripts/local-test.mjs migrate-from-zero",
     "test:e2e": "pnpm --filter @plugga/web test:e2e",
     "typecheck": "turbo run typecheck"
   },

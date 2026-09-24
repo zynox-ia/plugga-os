@@ -30,6 +30,10 @@ const monorepoRootEnvPath = path.resolve(__dirname, "../../../.env");
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: monorepoRootEnvPath,
+      // Tests receive an explicit environment from test/setup.ts. Loading the
+      // developer .env here would make the suite machine-dependent and could
+      // reconnect it to locally configured Production SSH tunnels.
+      ignoreEnvFile: process.env.NODE_ENV === "test",
       validate: validateEnvironment,
     }),
     LoggingModule,

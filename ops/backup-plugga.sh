@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 #
-# Backup do banco do Plugga OS para o MinIO.
+# Backup do banco do Plugga OS para o SeaweedFS (S3), balde plugga-backups.
 #
 # Formato `custom` do pg_dump (-Fc), não SQL puro: já vem comprimido, permite
 # restaurar tabela avulsa e é o que o `pg_restore` lê. O dump sai pelo `stdout`
-# do contêiner e entra direto no MinIO — sem arquivo intermediário no disco da
+# do contêiner e entra direto no armazenamento — sem arquivo intermediário no disco da
 # VPS, que é o mesmo disco que o backup existe para proteger.
 #
 # Falhar é ruidoso de propósito: `set -e` mais a checagem de tamanho no fim. Um
