@@ -13,7 +13,7 @@ import { linhasImpressas, linhasPorColuna } from "./linhas.js";
  * A regressão do leitor que roda em qualquer máquina, sem credencial e sem rede.
  *
  * O corpus de verdade — fatura de cliente, com o dado inteiro — mora no balde
- * do MinIO, fora do git, e chega por `corpus:baixar`. Isso resolve o container
+ * do armazenamento, fora do git, e chega por `corpus:baixar`. Isso resolve o container
  * errado, mas cria uma dependência operacional: quem clona sem a chave, e a CI
  * quando o runner da VPS está fora, ficariam **sem nenhuma** regressão de
  * leitura. Esta fixture é o piso que impede isso.

@@ -23,7 +23,7 @@ import { linhasImpressas, linhasPorColuna } from "./linhas.js";
  *
  * **A fixture não está no git.** Ela é uma fatura de cliente com o dado inteiro
  * — titular, CNPJ, unidade consumidora, endereço — e mora no balde do corpus no
- * MinIO; `corpus:baixar` a traz. Sem a chave, este arquivo inteiro é pulado, e
+ * armazenamento; `corpus:baixar` a traz. Sem a chave, este arquivo inteiro é pulado, e
  * quem quiser regressão de leitura sem credencial tem `sintetica.spec.ts`, que
  * roda em qualquer máquina.
  */

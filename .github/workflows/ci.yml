@@ -192,11 +192,12 @@ jobs:
   # O corpus de faturas é o que dá regressão de leitura contra documento real, e
   # ele não está no repositório: fatura de cliente carrega nome, CNPJ, unidade
   # consumidora e endereço, e git é container permanente, replicado em todo
-  # clone e sem revogação. As fixtures moram num balde dedicado do MinIO.
+  # clone e sem revogação. As fixtures moram num balde dedicado do armazenamento
+  # de objetos da VPS (SeaweedFS).
   #
-  # Por que um job separado, e num runner self-hosted: o MinIO escuta em
-  # 127.0.0.1:9000 na VPS e não tem entrada no Caddy — a CI hospedada
-  # simplesmente não alcança o balde. As duas saídas eram expor o MinIO à
+  # Por que um job separado, e num runner self-hosted: o armazenamento escuta em
+  # 127.0.0.1:59000 na VPS e não tem entrada no Caddy — a CI hospedada
+  # simplesmente não alcança o balde. As duas saídas eram expor o serviço à
   # internet ou trazer o teste para dentro da VPS, e expor um serviço com fatura
   # de cliente para ganhar acesso de CI é o pior negócio dos dois. Este job
   # reusa o runner que o deploy.yml já usa e não abre nada novo.
@@ -228,9 +229,9 @@ jobs:
     continue-on-error: true
 
     env:
-      # localhost na VPS é o MinIO de produção; o balde do corpus é outro, e
-      # `configuracaoDoCorpus` recusa apontar os dois para o mesmo lugar.
-      CORPUS_ENDPOINT: http://127.0.0.1:9000
+      # localhost na VPS é o armazenamento de produção; o balde do corpus é
+      # outro, e `configuracaoDoCorpus` recusa apontá-lo para um balde de negócio.
+      CORPUS_ENDPOINT: http://127.0.0.1:59000
       CORPUS_BUCKET: plugga-corpus-faturas
       CORPUS_ACCESS_KEY: ${{ secrets.CORPUS_LEITOR_ACCESS_KEY }}
       CORPUS_SECRET_KEY: ${{ secrets.CORPUS_LEITOR_SECRET_KEY }}

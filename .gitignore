@@ -47,7 +47,7 @@ apps/web/e2e/.auth/
 # cliente com o dado inteiro — nome, CNPJ, unidade consumidora — porque é isso
 # que o leitor tem de provar que extrai. O que muda não é o conteúdo, é o
 # container: git é permanente, replica em todo clone e não tem revogação. O
-# corpus mora num balde dedicado do MinIO e chega aqui por
+# corpus mora num balde dedicado do armazenamento e chega aqui por
 # `pnpm --filter @plugga/api corpus:baixar`. Esta linha é a proteção que não
 # depende de ninguém lembrar.
 /apps/api/test/corpus/

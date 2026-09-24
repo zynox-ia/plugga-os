@@ -10,7 +10,7 @@ import {
 } from "./safe-test-environment";
 
 /**
- * Os testes de integração leem serviço de verdade — Postgres, MinIO — e
+ * Os testes de integração leem serviço de verdade — Postgres, armazenamento — e
  * precisam saber onde ele está. Sem o `.env`, `STORAGE_ENDPOINT` não chegava
  * ao processo e o armazenamento se declarava desconfigurado: a chave voltava
  * nula e o teste falhava dizendo que esperava texto e recebeu objeto, que é

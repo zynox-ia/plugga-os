@@ -7,12 +7,12 @@ import { ArmazenamentoDeFaturas } from "./armazenamento.js";
  * ler**.
  *
  * Sem armazenamento configurado — que é o caso do `pnpm dev` e de qualquer
- * ambiente que ainda não subiu o MinIO — a leitura da fatura tem de continuar
+ * ambiente que ainda não subiu o armazenamento — a leitura da fatura tem de continuar
  * inteira, só sem a chave do arquivo. Uma pessoa não pode ficar sem lançar a
  * conta de luz porque um serviço de apoio não está de pé.
  *
  * A ida ao servidor de verdade fica no teste de integração
- * (`pnpm test:storage`), que exige o MinIO no ar.
+ * (`pnpm test:storage`), que exige o armazenamento no ar.
  */
 describe("ArmazenamentoDeFaturas sem servidor configurado", () => {
   const originais = { ...process.env };

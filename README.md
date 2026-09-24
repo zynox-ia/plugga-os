@@ -30,7 +30,7 @@ se comunicam apenas por HTTP e pelos contratos de `packages/shared`.
 
 - Node.js LTS na versão indicada por `.nvmrc`;
 - Corepack habilitado (a versão de pnpm é fixada no `package.json`);
-- Docker com Docker Compose para Postgres, Redis e MinIO locais.
+- Docker com Docker Compose para Postgres, Redis e armazenamento locais.
 
 ## Executar localmente
 

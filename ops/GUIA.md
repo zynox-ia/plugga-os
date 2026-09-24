@@ -144,9 +144,7 @@ vai para os secrets `CORPUS_LEITOR_ACCESS_KEY`/`CORPUS_LEITOR_SECRET_KEY` do
 GitHub, que o job de corpus da CI usa; a de **escrita** fica com quem publica
 fixture e não vai para secret nenhum — chave de escrita guardada num lugar que
 nada automatizado usa é só uma coisa a mais para vazar. Criar tudo isso de novo:
-`ops/prepara-corpus-minio.sh`, que é idempotente. **Atenção:** esse script ainda usa
-comandos de administração do MinIO (`mc admin`) e precisa ser adaptado ao SeaweedFS
-(como foi o `ops/prepara-backup.sh`) antes de ser usado depois da migração.
+`ops/prepara-corpus.sh` (idempotente; ensaio: `bash ops/prepara-corpus.test.sh`).
 
 ---
 
@@ -248,7 +246,8 @@ eles ocupam, em `localhost`:
 ```
 5432         banco de produção
 6379         redis de produção
-9000 / 9001  armazenamento de produção (MinIO até a migração, SeaweedFS depois) — inclusive o balde dos backups
+9000 / 9001  reservadas ao túnel do armazenamento de produção — inclusive o balde dos backups
+             (na VPS o SeaweedFS escuta em 59000/59001, só em 127.0.0.1)
 ```
 
 Nessas quatro portas, **`localhost` é produção**. É contraintuitivo e não aparece
@@ -303,21 +302,17 @@ cadastro em `packages/shared/src/organization.ts`.
 O `seaweedfs-provisiona` do compose cria todos eles; um teste (`compose-baldes.spec.ts`)
 falha se um departamento novo do cadastro ficar sem balde.
 
-**Trocar o armazenamento antigo (MinIO) pelo SeaweedFS**, na VPS, sem `up` amplo:
+**Preparar o que mora nos baldes de sistema**, na VPS (idempotente, ensaiado localmente):
 
 ```bash
-# 0. levar o compose.yaml e a pasta ops/ novos para /opt/plugga-os
-# 1. subir só o SeaweedFS e criar os baldes (não recria banco nem redis)
-docker compose up -d seaweedfs seaweedfs-provisiona
-# 2. copiar e conferir cada objeto (falha se a origem estiver vazia ou algo divergir)
-ops/migra-storage.sh --so-verificar   # só inventário e conferência
-ops/migra-storage.sh                  # copia e confere
-# 3. depois de conferido: apontar a API e recriar só ela
-docker compose --profile app up -d --no-deps api
+ops/prepara-backup.sh    # usuário restrito e expiração do balde plugga-backups
+ops/prepara-corpus.sh    # chaves de leitura e de escrita do balde do corpus
 ```
 
-O `ops/deploy.sh` recusa publicar enquanto só existir o MinIO antigo. Ensaios locais:
-`bash ops/migra-storage.test.sh` e `bash ops/prepara-backup.test.sh`.
+Não use `mc admin user` nem `mc admin policy`: eram comandos do MinIO, e no SeaweedFS o
+usuário criado por eles não autentica. Os scripts acima criam os usuários pelo
+`s3.configure` do próprio SeaweedFS. Ensaios locais: `bash ops/prepara-backup.test.sh` e
+`bash ops/prepara-corpus.test.sh`.
 
 ---
 

@@ -4,7 +4,7 @@ import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
  * Cifra dos segredos que o sistema guarda para si.
  *
  * O `.env.example` deste projeto diz que credencial nunca vai para tabela. A
- * regra existe por um motivo concreto: o banco é copiado inteiro para o MinIO
+ * regra existe por um motivo concreto: o banco é copiado inteiro para o armazenamento
  * todo dia às 00h10, então segredo em texto puro no banco é segredo em texto
  * puro em trinta cópias.
  *

@@ -47,10 +47,10 @@ test("Local Dev Compose defaults avoid the known production tunnel ports", () =>
 
   assert.match(compose, /\$\{POSTGRES_PORT:-55432\}:5432/);
   assert.match(compose, /\$\{REDIS_PORT:-56379\}:6379/);
-  assert.match(compose, /\$\{STORAGE_PORT:-\$\{MINIO_PORT:-59000\}\}:8333/);
+  assert.match(compose, /\$\{STORAGE_PORT:-59000\}:8333/);
   assert.match(
     compose,
-    /\$\{STORAGE_ADMIN_PORT:-\$\{MINIO_CONSOLE_PORT:-59001\}\}:23646/,
+    /\$\{STORAGE_ADMIN_PORT:-59001\}:23646/,
   );
 });
 

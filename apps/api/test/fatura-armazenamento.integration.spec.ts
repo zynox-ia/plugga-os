@@ -7,10 +7,10 @@ import { ArmazenamentoDeFaturas } from "../src/energy-efficiency/fatura/armazena
 /**
  * Guarda da fatura no armazenamento de objetos.
  *
- * Roda contra o MinIO que o Compose sobe. Fica atrás de variável porque exige
+ * Roda contra o armazenamento que o Compose sobe. Fica atrás de variável porque exige
  * serviço no ar, como os outros testes de integração deste diretório:
  *
- *     docker compose up -d minio minio-provisiona
+ *     docker compose up -d seaweedfs seaweedfs-provisiona
  *     pnpm --filter @plugga/api test:storage
  *
  * O que se prova é o que a implementação promete: o arquivo sobe, o nome é

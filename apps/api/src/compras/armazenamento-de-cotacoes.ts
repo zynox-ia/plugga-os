@@ -9,7 +9,7 @@ import { baldeDe } from "../core/armazenamento/baldes.js";
  * Onde o orçamento anexado ao pedido de compra fica guardado.
  *
  * Mesmo molde de `energy-efficiency/fatura/armazenamento.ts` — S3 falado pelo
- * SDK da AWS, servido por MinIO em produção, chave por impressão digital do
+ * SDK da AWS, servido pelo SeaweedFS em produção, chave por impressão digital do
  * conteúdo — com **uma diferença deliberada: aqui a falha não é engolida**.
  *
  * Lá o arquivo é apoio à leitura, e o comentário do módulo diz por que guardar
@@ -77,7 +77,7 @@ export class ArmazenamentoDeCotacoes {
     this.cliente = new S3Client({
       endpoint: process.env.STORAGE_ENDPOINT,
       region: process.env.STORAGE_REGION || "us-east-1",
-      // MinIO serve os baldes por caminho, não por subdomínio.
+      // O servidor S3 serve os baldes por caminho, não por subdomínio.
       forcePathStyle: true,
       credentials: {
         accessKeyId: process.env.STORAGE_ACCESS_KEY ?? "",

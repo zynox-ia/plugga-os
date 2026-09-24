@@ -14,7 +14,7 @@ import { baldeDe } from "../../core/armazenamento/baldes.js";
  * para mostrar o documento ao lado da conferência.
  *
  * O armazenamento é S3, falado com o SDK da AWS. Em produção o servidor é
- * MinIO, que fala o mesmo protocolo — a API não sabe a diferença, e trocar por
+ * o SeaweedFS, que fala o mesmo protocolo — a API não sabe a diferença, e trocar por
  * S3 de verdade depois é mudar variável de ambiente, não código.
  *
  * **Guardar nunca bloqueia ler.** Se o armazenamento estiver fora do ar, a
@@ -94,8 +94,8 @@ export class ArmazenamentoDeFaturas {
     this.cliente = new S3Client({
       endpoint: process.env.STORAGE_ENDPOINT,
       region: process.env.STORAGE_REGION || "us-east-1",
-      // MinIO serve os baldes por caminho, não por subdomínio: sem isto o SDK
-      // tentaria `http://balde.minio:9000` e não resolveria o nome.
+      // O servidor S3 serve os baldes por caminho, não por subdomínio: sem isto o SDK
+      // tentaria `http://balde.seaweedfs:8333` e não resolveria o nome.
       forcePathStyle: true,
       credentials: {
         accessKeyId: process.env.STORAGE_ACCESS_KEY ?? "",
