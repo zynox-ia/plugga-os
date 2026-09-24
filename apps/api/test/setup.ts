@@ -61,9 +61,6 @@ if (pediramIntegracao) {
   }
 
   if (process.env.RUN_STORAGE_INTEGRATION_TESTS === "true") {
-    assertSafeTestStorageEndpoint(
-      process.env.STORAGE_ENDPOINT,
-      process.env.STORAGE_BUCKET,
-    );
+    assertSafeTestStorageEndpoint(process.env.STORAGE_ENDPOINT);
   }
 }

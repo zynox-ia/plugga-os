@@ -34,7 +34,6 @@ services:
     environment:
       AWS_ACCESS_KEY_ID: plugga_os_test
       AWS_SECRET_ACCESS_KEY: local_test_storage_only_change_me
-      S3_BUCKET: plugga-faturas-test
     ports:
       - "127.0.0.1:59002:8333"
     healthcheck:
@@ -56,5 +55,11 @@ services:
       - |
         mc alias set plugga-test http://seaweedfs-test:8333 \
           "plugga_os_test" "local_test_storage_only_change_me"
-        mc mb --ignore-existing plugga-test/plugga-faturas-test
+        mc mb --ignore-existing plugga-test/plugga-comercial-clientes
+        mc mb --ignore-existing plugga-test/plugga-energia-opm
+        mc mb --ignore-existing plugga-test/plugga-produto-tecnologia
+        mc mb --ignore-existing plugga-test/plugga-financeiro
+        mc mb --ignore-existing plugga-test/waze-comercial-obras
+        mc mb --ignore-existing plugga-test/waze-engenharia-obras
+        mc mb --ignore-existing plugga-test/waze-financeiro
     restart: "no"

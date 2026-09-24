@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, resolve } from "node:path";
 
+import { baldesDeNegocio } from "../../core/armazenamento/baldes.js";
 import {
   restaurarDocumentoNormalizado,
   type DocumentoNormalizado,
@@ -110,9 +111,9 @@ export function configuracaoDoCorpus(
 
   const balde = ambiente.CORPUS_BUCKET || BALDE_PADRAO;
 
-  if (ambiente.STORAGE_BUCKET && balde === ambiente.STORAGE_BUCKET) {
+  if (baldesDeNegocio().includes(balde)) {
     throw new CorpusMalConfiguradoError(
-      `CORPUS_BUCKET e STORAGE_BUCKET apontam para o mesmo balde (${balde}). ` +
+      `CORPUS_BUCKET aponta para um balde de negócio (${balde}). ` +
         "O corpus é material de teste e tem ciclo de vida próprio: publicar nele " +
         "com o balde de produção junto mistura fixture com fatura de cliente.",
     );

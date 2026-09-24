@@ -18,7 +18,6 @@ export function buildFlaggedTestEnvironment(flag, sourceEnvironment = process.en
     ...(flag === "RUN_STORAGE_INTEGRATION_TESTS"
       ? {
           STORAGE_ENDPOINT: "http://127.0.0.1:59002",
-          STORAGE_BUCKET: "plugga-faturas-test",
           STORAGE_ACCESS_KEY: "plugga_os_test",
           STORAGE_SECRET_KEY: "local_test_storage_only_change_me",
         }

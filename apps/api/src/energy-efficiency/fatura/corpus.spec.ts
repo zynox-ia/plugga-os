@@ -101,12 +101,11 @@ describe("configuração do corpus", () => {
     });
   });
 
-  it("recusa o corpus e a produção no mesmo balde", () => {
+  it("recusa o corpus dentro de um balde de negócio", () => {
     expect(() =>
       configuracaoDoCorpus({
-        STORAGE_ENDPOINT: "http://minio:9000",
-        STORAGE_BUCKET: "plugga-faturas",
-        CORPUS_BUCKET: "plugga-faturas",
+        STORAGE_ENDPOINT: "http://seaweedfs:8333",
+        CORPUS_BUCKET: "plugga-energia-opm",
         CORPUS_ACCESS_KEY: "leitor",
         CORPUS_SECRET_KEY: "leitor-secreta",
       }),

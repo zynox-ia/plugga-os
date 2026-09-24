@@ -61,14 +61,12 @@ describe("assertSafeTestStorageEndpoint", () => {
     "http://localhost:59000",
     "https://storage.example.invalid:59002",
   ])("refuses an unsafe storage-backed test target: %s", (url) => {
-    expect(() => assertSafeTestStorageEndpoint(url, "plugga-faturas-test")).toThrow(
+    expect(() => assertSafeTestStorageEndpoint(url)).toThrow(
       /Refusing storage-backed test/,
     );
   });
 
-  it("refuses a non-test bucket on the isolated storage service", () => {
-    expect(() =>
-      assertSafeTestStorageEndpoint("http://127.0.0.1:59002", "plugga-faturas"),
-    ).toThrow(/Refusing storage-backed test/);
+  it("does not depend on a bucket name: buckets are derived per company and department", () => {
+    expect(() => assertSafeTestStorageEndpoint("http://127.0.0.1:59002")).not.toThrow();
   });
 });

@@ -19,7 +19,6 @@ describe("ArmazenamentoDeFaturas sem servidor configurado", () => {
 
   beforeEach(() => {
     delete process.env.STORAGE_ENDPOINT;
-    delete process.env.STORAGE_BUCKET;
   });
 
   afterEach(() => {
@@ -27,21 +26,6 @@ describe("ArmazenamentoDeFaturas sem servidor configurado", () => {
   });
 
   it("devolve chave nula em vez de falhar", async () => {
-    const armazenamento = new ArmazenamentoDeFaturas();
-    const resultado = await armazenamento.guardar(
-      Buffer.from("%PDF-1.4 fatura"),
-      "application/pdf",
-      "fatura.pdf",
-    );
-
-    expect(resultado).toEqual({ chave: null });
-  });
-
-  it("não tenta guardar quando só metade da configuração existe", async () => {
-    // Meia configuração é engano de quem instalou, e tratar como "configurado"
-    // faria toda leitura esperar o tempo limite de uma conexão que não existe.
-    process.env.STORAGE_ENDPOINT = "http://localhost:9000";
-
     const armazenamento = new ArmazenamentoDeFaturas();
     const resultado = await armazenamento.guardar(
       Buffer.from("%PDF-1.4 fatura"),

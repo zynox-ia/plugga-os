@@ -239,7 +239,6 @@ test("storage integration overrides developer targets with dedicated test values
       DATABASE_URL: "postgresql://production-tunnel@127.0.0.1:5432/plugga_os",
       REDIS_URL: "redis://127.0.0.1:6379",
       STORAGE_ENDPOINT: "http://127.0.0.1:9000",
-      STORAGE_BUCKET: "production-bucket",
       STORAGE_ACCESS_KEY: "developer-key",
       STORAGE_SECRET_KEY: "developer-secret",
     },
@@ -248,7 +247,8 @@ test("storage integration overrides developer targets with dedicated test values
   assert.match(environment.DATABASE_URL, /127\.0\.0\.1:55433\/plugga_os_test/);
   assert.equal(environment.REDIS_URL, "redis://127.0.0.1:56380");
   assert.equal(environment.STORAGE_ENDPOINT, "http://127.0.0.1:59002");
-  assert.equal(environment.STORAGE_BUCKET, "plugga-faturas-test");
+  // O balde não é mais configurado: é derivado de empresa e departamento.
+  assert.equal(environment.STORAGE_BUCKET, undefined);
   assert.equal(environment.STORAGE_ACCESS_KEY, "plugga_os_test");
   assert.equal(
     environment.STORAGE_SECRET_KEY,

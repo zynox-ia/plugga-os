@@ -40,20 +40,16 @@ export function assertSafeTestRedisUrl(rawUrl: string | undefined): void {
   }
 }
 
-export function assertSafeTestStorageEndpoint(
-  rawUrl: string | undefined,
-  bucket: string | undefined,
-): void {
+export function assertSafeTestStorageEndpoint(rawUrl: string | undefined): void {
   const url = parseUrl(rawUrl, "STORAGE_ENDPOINT");
 
   if (
     !["http:", "https:"].includes(url.protocol) ||
     !LOOPBACK_HOSTS.has(url.hostname) ||
-    url.port !== "59002" ||
-    bucket !== "plugga-faturas-test"
+    url.port !== "59002"
   ) {
     throw new Error(
-      "Refusing storage-backed test: LOCAL TEST must use bucket plugga-faturas-test on loopback port 59002",
+      "Refusing storage-backed test: LOCAL TEST must use the isolated storage on loopback port 59002",
     );
   }
 }

@@ -2,6 +2,8 @@ import { createHash } from "node:crypto";
 
 import { Injectable, Logger } from "@nestjs/common";
 
+import { baldeDe } from "../../core/armazenamento/baldes.js";
+
 /**
  * Onde a conta de luz enviada fica guardada.
  *
@@ -43,7 +45,7 @@ const EXTENSAO: Record<string, string> = {
 };
 
 function configurado(): boolean {
-  return Boolean(process.env.STORAGE_ENDPOINT && process.env.STORAGE_BUCKET);
+  return Boolean(process.env.STORAGE_ENDPOINT);
 }
 
 @Injectable()
@@ -108,6 +110,9 @@ export class ArmazenamentoDeFaturas {
     const cliente = await this.obterCliente();
     if (!cliente) return { chave: null };
 
+    // Fatura de energia é do departamento Energia da Plugga.
+    const balde = baldeDe("plugga", "energia-opm");
+
     const chave = this.nomeDoObjeto(conteudo, mime, nomeOriginal);
 
     try {
@@ -115,7 +120,7 @@ export class ArmazenamentoDeFaturas {
 
       await cliente.send(
         new PutObjectCommand({
-          Bucket: process.env.STORAGE_BUCKET,
+          Bucket: balde,
           Key: chave,
           Body: conteudo,
           ContentType: mime,

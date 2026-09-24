@@ -1,6 +1,9 @@
 import { createHash } from "node:crypto";
 
 import { Injectable, ServiceUnavailableException } from "@nestjs/common";
+import type { CompanyKey } from "@plugga/shared";
+
+import { baldeDe } from "../core/armazenamento/baldes.js";
 
 /**
  * Onde o orçamento anexado ao pedido de compra fica guardado.
@@ -39,7 +42,7 @@ const EXTENSAO: Record<string, string> = {
 export const TIPOS_ACEITOS = Object.keys(EXTENSAO);
 
 function configurado(): boolean {
-  return Boolean(process.env.STORAGE_ENDPOINT && process.env.STORAGE_BUCKET);
+  return Boolean(process.env.STORAGE_ENDPOINT);
 }
 
 @Injectable()
@@ -89,7 +92,15 @@ export class ArmazenamentoDeCotacoes {
    * Guarda o orçamento. Lança se não conseguir — quem chama está dentro da
    * criação do pedido, e a criação inteira precisa cair junto.
    */
-  async guardar(conteudo: Buffer, mime: string, nomeOriginal: string): Promise<CotacaoGuardada> {
+  async guardar(
+    conteudo: Buffer,
+    mime: string,
+    nomeOriginal: string,
+    empresa: CompanyKey,
+  ): Promise<CotacaoGuardada> {
+    // Compras fica sob o Financeiro, e cada empresa tem o seu balde. Uma empresa
+    // inválida falha aqui, antes de qualquer envio.
+    const balde = baldeDe(empresa, "financeiro");
     const cliente = await this.obterCliente();
     const chave = this.nomeDoObjeto(conteudo, mime, nomeOriginal);
 
@@ -97,7 +108,7 @@ export class ArmazenamentoDeCotacoes {
       const { PutObjectCommand } = await import("@aws-sdk/client-s3");
       await cliente.send(
         new PutObjectCommand({
-          Bucket: process.env.STORAGE_BUCKET,
+          Bucket: balde,
           Key: chave,
           Body: conteudo,
           ContentType: mime,
