@@ -13,6 +13,9 @@
 set -euo pipefail
 
 RAIZ=$(cd "$(dirname "$0")/.." && pwd)
+# Senha descartável desta execução: nada de segredo escrito no repositório.
+ENSAIO_SEGREDO=$(head -c 24 /dev/urandom | od -An -tx1 | tr -d '[:space:]')
+export ENSAIO_SEGREDO
 # Caminho relativo de propósito: a raiz pode ter espaço no nome (MC_CMD é
 # separado por palavras) e o Docker no Windows não entende o caminho do MSYS.
 cd "$RAIZ"
@@ -88,7 +91,7 @@ for b in plugga-faturas plugga-corpus-faturas plugga-backups; do mc rm --recursi
 roda; esperado "origem vazia" 2 "$CODIGO"
 
 # credencial nunca aparece na saída
-if grep -q "ensaio-secret" /tmp/migra-saida.txt; then echo "✗ credencial vazou na saída" >&2; exit 1; fi
+if grep -q "$ENSAIO_SEGREDO" /tmp/migra-saida.txt; then echo "✗ credencial vazou na saída" >&2; exit 1; fi
 echo "✓ nenhuma credencial na saída"
 
 echo

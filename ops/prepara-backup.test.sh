@@ -8,6 +8,9 @@
 set -euo pipefail
 
 RAIZ=$(cd "$(dirname "$0")/.." && pwd)
+# Senha descartável desta execução: nada de segredo escrito no repositório.
+ENSAIO_SEGREDO=$(head -c 24 /dev/urandom | od -An -tx1 | tr -d '[:space:]')
+export ENSAIO_SEGREDO
 cd "$RAIZ"
 COMPOSE=(docker compose -f compose.ensaio-storage.yaml)
 ENV_BACKUP=$(mktemp)

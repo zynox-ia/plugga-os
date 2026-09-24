@@ -2,7 +2,9 @@
 #
 # Sobe um MinIO e um SeaweedFS descartáveis, sem porta publicada e sem volume
 # nomeado: nada aqui encosta no ambiente de desenvolvimento nem em produção.
-# As credenciais são de brinquedo, válidas só dentro desta rede.
+# A senha nunca fica escrita aqui: os scripts de ensaio geram uma nova a cada
+# execução e a passam em ENSAIO_SEGREDO (é isso também que mantém o scanner de
+# segredos da CI calado, sem lista de exceções).
 name: ensaio-storage
 
 services:
@@ -11,7 +13,7 @@ services:
     command: ["server", "/data"]
     environment:
       MINIO_ROOT_USER: ensaio
-      MINIO_ROOT_PASSWORD: ensaio-secret-123
+      MINIO_ROOT_PASSWORD: ${ENSAIO_SEGREDO:?defina ENSAIO_SEGREDO (os scripts de ensaio fazem isso)}
 
   seaweedfs:
     # Mesma imagem e mesmo modo do compose.yaml de produção.
@@ -19,12 +21,12 @@ services:
     command: ["mini", "-dir=/data", "-ip=0.0.0.0"]
     environment:
       AWS_ACCESS_KEY_ID: ensaio
-      AWS_SECRET_ACCESS_KEY: ensaio-secret-123
+      AWS_SECRET_ACCESS_KEY: ${ENSAIO_SEGREDO:?defina ENSAIO_SEGREDO (os scripts de ensaio fazem isso)}
 
   mc:
     image: minio/mc:RELEASE.2025-04-16T18-13-26Z
     depends_on: [minio, seaweedfs]
     environment:
-      MC_HOST_source: http://ensaio:ensaio-secret-123@minio:9000
-      MC_HOST_dest: http://ensaio:ensaio-secret-123@seaweedfs:8333
+      MC_HOST_source: http://ensaio:${ENSAIO_SEGREDO:?defina ENSAIO_SEGREDO}@minio:9000
+      MC_HOST_dest: http://ensaio:${ENSAIO_SEGREDO:?defina ENSAIO_SEGREDO}@seaweedfs:8333
     entrypoint: ["sleep", "3600"]
