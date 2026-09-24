@@ -125,6 +125,8 @@ Sem código novo na aplicação. Mudanças em shell seguem `ops/deploy.sh`: `set
 8. **Achado:** a imagem `minio/mc` não tem `awk` nem `sed`. A primeira tentativa de conferência passou com "0 = 0" sem comparar nada. A verificação de produção deve ser feita por script que **falha se a origem tiver 0 objetos** ou se as contagens divergirem.
 9. **Onde roda o Plugga OS:** só na VPS `82.29.152.21` (chave `plugga-vps-2`). A VPS maior (`2.24.208.189`, 8 CPUs, 32 GB, chave `plugga-vps`) roda o `plugga-sistema`, que é outro produto (`instagram-commercial-agent`), sem Postgres nem armazenamento de objetos do Plugga OS.
 
+10. **Decisão do dono (2026-09-24): não migrar dados.** O MinIO foi parado e o SeaweedFS começa vazio, com backup novo. O que existia (1 fatura de teste, corpus de teste e 32 dumps antigos) ficou só no volume do MinIO e no snapshot `/root/snapshots/minio_data-T4-*.tar`, que continuam preservados.
+
 ## Open Questions
 
 1. Confirmar que o Plugga OS deve continuar na VPS `82.29.152.21` (48 GB livres após a limpeza) ou se a intenção é mudá-lo para a VPS maior. Isso muda o alvo da migração.

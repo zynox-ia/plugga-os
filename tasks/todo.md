@@ -30,20 +30,21 @@ Spec: `SPEC.md` | Plano: `tasks/plan.md`
 
 ## Fase 2: VPS `82.29.152.21`
 
-- [ ] **T4 Pré-voo e snapshot** (XS, sem alteração de código)
+- [x] **T4 Pré-voo e snapshot** (feito 2026-09-24 21:03 UTC; relatório na VPS em `/root/snapshots/T4-inventario-20260924-210312.txt`) (XS, sem alteração de código)
   - Aceite: contagem e tamanho dos 3 baldes registrados; dump do Postgres feito e restaurado em banco temporário; cópia do volume `plugga-os_minio_data` para `/root/snapshots/`; memória e disco conferidos.
   - Verificação: `pg_restore --list` do dump; `du -sh` e checksum da cópia.
+  - Resultado: baldes `plugga-faturas` 1 objeto (320 KiB), `plugga-corpus-faturas` 24 (12 MiB), `plugga-backups` 32 (16 MiB), **57 objetos no total**. Dump de 510146 bytes restaurado em banco temporário (59 tabelas iguais; users=3, companies=2), banco temporário removido. Cópia do volume: 29122560 bytes, 180 arquivos, legível de ponta a ponta. Disco 51% e 48 GB livres.
 
-- [ ] **T5 SeaweedFS ao lado do MinIO e cópia** (M, VPS)
+- [x] **T5 SeaweedFS na VPS** (feito 2026-09-24 21:32 UTC; decisão do dono: **sem migrar dados**, começar do zero. Nove baldes criados e vazios; Postgres, Redis, API e web não foram recriados. `compose.yaml` e `ops/` sincronizados para `/opt/plugga-os`, com cópias `.bak-T5`)
   - Aceite: `seaweedfs` e `seaweedfs-provisiona` de pé sem recriar Postgres/Redis/API; migração por `ops/migra-storage.sh` com resultado OK; MinIO segue como principal.
   - Verificação: script sai com 0; acesso sem credencial ao S3 é negado; `docker compose ps` mostra os demais serviços com o mesmo tempo de vida.
 
-- [ ] **T6 Troca da API** (S, `.env` da VPS)
+- [ ] **T6 Troca da API: publicar o código novo** (M, deploy). **Revisado:** a imagem da API na VPS tem 6 semanas e ainda exige `STORAGE_BUCKET` e o MinIO. Só o código novo (`baldeDe`) e o compose novo falam com o SeaweedFS, então a troca é um deploy do código atual, não só uma variável. Enquanto isso, com o MinIO parado, guardar fatura degrada (chave nula) e cotações/evidências retornam 503; Compras e Obras têm 0 registros, e não há usuários
   - Aceite: `STORAGE_ENDPOINT=http://seaweedfs:8333` no `.env`; API recriada com `--no-deps`; fatura e cotação antigas abrem; envio novo funciona; `/health` OK.
   - Verificação: leitura e escrita pelo S3 SDK dentro da rede do compose; log da API sem erro de storage.
   - Rollback: voltar `STORAGE_ENDPOINT` para `http://minio:9000` e recriar a API.
 
-- [ ] **T7 Backup repontado** (S, `/root/backup-plugga.sh`, `/root/.plugga-backup.env`)
+- [x] **T7 Backup repontado** (feito 2026-09-24 21:32 UTC: usuário restrito criado por `ops/prepara-backup.sh`, `/root/backup-plugga.sh` trocado pela versão do repositório (antigo em `.bak-T7`), primeiro dump de 510146 bytes gravado em `plugga-backups/diario/` e lido de volta com 59 tabelas; cron `/etc/cron.d/plugga-backup` 03:10 UTC intacto) (S, `/root/backup-plugga.sh`, `/root/.plugga-backup.env`)
   - Aceite: usuário restrito do backup recriado no SeaweedFS (por `ops/prepara-backup-minio.sh`); um backup manual grava em `plugga-backups/diario/`; dump restaurável.
   - Verificação: `pg_restore --list` do dump novo; `tail /var/log/plugga-backup.log`.
   - Escopo: só repontar. Backup externo continua fora.
@@ -60,6 +61,6 @@ Spec: `SPEC.md` | Plano: `tasks/plan.md`
   - Aceite: PR com T1 a T3, `SPEC.md` e `tasks/`; CI verde. **O merge dispara deploy real: só com aprovação.**
   - Verificação: checks do CI; `deploy.yml` no histórico do Actions.
 
-- [ ] **T9 Desligar MinIO e documentar** (XS, VPS + docs)
+- [~] **T9 Desligar MinIO e documentar** (MinIO **parado** em 2026-09-24 21:37 UTC, volume `plugga-os_minio_data` e snapshot `/root/snapshots/minio_data-T4-*.tar` preservados; falta anotar a data de remoção e o restante da documentação) (XS, VPS + docs)
   - Aceite: contêiner do MinIO parado e volume preservado por 14 dias (data de remoção anotada no GUIA); `SPEC.md` marcado como concluído.
   - Verificação: sistema segue saudável 24h depois.
