@@ -85,6 +85,8 @@ SENHA_ENC=$(codifica_url "$SENHA_DONO")
 # Dentro da rede do compose o host do banco é "postgres", que a trava do
 # run-local-prisma aceita.
 docker compose run --rm --no-deps \
+  -e NODE_ENV=production \
+  -e ALLOW_PRODUCTION_MIGRATION=true \
   -e DATABASE_URL="postgresql://${BANCO}:${SENHA_ENC}@postgres:5432/${BANCO}?schema=public" \
   api pnpm db:migrate:deploy
 

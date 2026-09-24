@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import dotenv from "dotenv";
@@ -44,7 +45,27 @@ if (pelaMaquinaDoDesenvolvedor && PORTAS_DE_TUNEL.has(porta)) {
   );
 }
 
-const result = spawnSync("prisma", process.argv.slice(2), {
+// The Compose hostname `postgres` is also the Production database address.
+// Only the controlled deploy path may use it, and that path may run only the
+// append-only Prisma migration deployment command. Development migrations,
+// reset and seed must remain impossible from the Production network.
+const prismaArgs = process.argv.slice(2);
+const pelaRedeDoCompose = parsed.hostname === "postgres";
+const migrationDeploy = prismaArgs.length === 2 && prismaArgs[0] === "migrate" && prismaArgs[1] === "deploy";
+if (
+  pelaRedeDoCompose &&
+  (process.env.NODE_ENV !== "production" ||
+    process.env.ALLOW_PRODUCTION_MIGRATION !== "true" ||
+    !migrationDeploy)
+) {
+  throw new Error(
+    "Refusing Prisma write on the Compose database hostname: only the controlled Production migrate deploy path is allowed",
+  );
+}
+
+const require = createRequire(import.meta.url);
+const prismaCli = require.resolve("prisma/build/index.js");
+const result = spawnSync(process.execPath, [prismaCli, ...prismaArgs], {
   env: process.env,
   stdio: "inherit",
 });

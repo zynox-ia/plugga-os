@@ -19,8 +19,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     env:
-      DATABASE_URL: postgresql://plugga_os:local_only_change_me@localhost:55432/plugga_os?schema=public
-      REDIS_URL: redis://localhost:6379
+      DATABASE_URL: postgresql://plugga_os_test:local_test_only_change_me@localhost:55432/plugga_os_test?schema=public
+      REDIS_URL: redis://localhost:56380
       # Local CI-only dummy values (not secrets); auth boot/seed require them.
       AUTH_SESSION_SECRET: ci_local_only_session_secret_change_me_please
       SEED_ADMIN_PASSWORD: ci_local_only_change_me
@@ -29,9 +29,9 @@ jobs:
       postgres:
         image: postgres:16-alpine
         env:
-          POSTGRES_DB: plugga_os
-          POSTGRES_USER: plugga_os
-          POSTGRES_PASSWORD: local_only_change_me
+          POSTGRES_DB: plugga_os_test
+          POSTGRES_USER: plugga_os_test
+          POSTGRES_PASSWORD: local_test_only_change_me
         ports:
           # 55432 e nao 5432: e a mesma convencao do stack local. Na maquina de
           # quem desenvolve a 5432 e um tunel para o Postgres de producao, e o
@@ -40,7 +40,7 @@ jobs:
           # e por onde ela deixa de valer.
           - 55432:5432
         options: >-
-          --health-cmd "pg_isready -U plugga_os -d plugga_os"
+          --health-cmd "pg_isready -U plugga_os_test -d plugga_os_test"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
@@ -48,7 +48,7 @@ jobs:
       redis:
         image: redis:7.4-alpine
         ports:
-          - 6379:6379
+          - 56380:6379
         options: >-
           --health-cmd "redis-cli ping"
           --health-interval 5s
@@ -135,7 +135,7 @@ jobs:
 
       - name: Start API for web e2e
         env:
-          DATABASE_URL: postgresql://plugga_os:local_only_change_me@localhost:55432/plugga_os?schema=public
+          DATABASE_URL: postgresql://plugga_os_test:local_test_only_change_me@localhost:55432/plugga_os_test?schema=public
           DEV_AUTH_ENABLED: "true"
           AUTH_SESSION_SECRET: ci_local_only_session_secret_change_me_please
           HOST: 127.0.0.1

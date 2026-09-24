@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { validateEnvironment } from "./environment";
 
 const localDatabaseUrl =
-  "postgresql://plugga_os:local_only_change_me@localhost:5432/plugga_os?schema=public";
+  "postgresql://plugga_os:local_only_change_me@localhost:55432/plugga_os?schema=public";
 const sessionSecret = "local_only_session_secret_change_me_please";
 
 describe("validateEnvironment", () => {
@@ -19,7 +19,7 @@ describe("validateEnvironment", () => {
     expect(environment.HOST).toBe("127.0.0.1");
     expect(environment.PORT).toBe(3001);
     expect(environment.EMAIL_PROVIDER).toBe("noop");
-    expect(environment.REDIS_URL).toBe("redis://localhost:6379");
+    expect(environment.REDIS_URL).toBe("redis://localhost:56379");
     expect(environment.JOBS_ENABLED).toBe(false);
     expect(environment.JOBS_WORKER_CONCURRENCY).toBe(1);
     expect(environment.EMAIL_FROM_ADDRESS).toBe("no-reply@plugga.local");
@@ -227,6 +227,17 @@ describe("validateEnvironment", () => {
     ).toThrow("Block A only permits a local PostgreSQL host");
   });
 
+  it("rejects the loopback PostgreSQL port reserved for the Production tunnel", () => {
+    expect(() =>
+      validateEnvironment({
+        NODE_ENV: "development",
+        DATABASE_URL:
+          "postgresql://plugga_os:local_only_change_me@localhost:5432/plugga_os?schema=public",
+        AUTH_SESSION_SECRET: sessionSecret,
+      }),
+    ).toThrow(/reserved for the Production SSH tunnel/);
+  });
+
   it("rejects a non-local Redis host", () => {
     expect(() =>
       validateEnvironment({
@@ -247,6 +258,29 @@ describe("validateEnvironment", () => {
         REDIS_URL: "http://localhost:6379",
       }),
     ).toThrow("REDIS_URL must use the redis:// or rediss:// protocol");
+  });
+
+  it("rejects the loopback Redis port reserved for the Production tunnel", () => {
+    expect(() =>
+      validateEnvironment({
+        NODE_ENV: "development",
+        DATABASE_URL: localDatabaseUrl,
+        AUTH_SESSION_SECRET: sessionSecret,
+        REDIS_URL: "redis://127.0.0.1:6379",
+      }),
+    ).toThrow(/reserved for the Production SSH tunnel/);
+  });
+
+  it("rejects loopback object storage ports reserved for Production tunnels", () => {
+    expect(() =>
+      validateEnvironment({
+        NODE_ENV: "test",
+        DATABASE_URL:
+          "postgresql://plugga_os_test:local_test_only@localhost:55433/plugga_os_test?schema=public",
+        AUTH_SESSION_SECRET: sessionSecret,
+        STORAGE_ENDPOINT: "http://127.0.0.1:9000",
+      }),
+    ).toThrow(/STORAGE_ENDPOINT uses a loopback port reserved/);
   });
 
   it("accepts an explicit local Redis URL and jobs settings", () => {
