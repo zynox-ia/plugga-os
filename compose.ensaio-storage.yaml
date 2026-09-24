@@ -1,0 +1,30 @@
+# Ensaio da migração de armazenamento (ops/migra-storage.test.sh).
+#
+# Sobe um MinIO e um SeaweedFS descartáveis, sem porta publicada e sem volume
+# nomeado: nada aqui encosta no ambiente de desenvolvimento nem em produção.
+# As credenciais são de brinquedo, válidas só dentro desta rede.
+name: ensaio-storage
+
+services:
+  minio:
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+    command: ["server", "/data"]
+    environment:
+      MINIO_ROOT_USER: ensaio
+      MINIO_ROOT_PASSWORD: ensaio-secret-123
+
+  seaweedfs:
+    # Mesma imagem e mesmo modo do compose.yaml de produção.
+    image: chrislusf/seaweedfs@sha256:08d516132314207d10c8e37cbffc1f32b147d870169688734cc61c6231625b62
+    command: ["mini", "-dir=/data", "-ip=0.0.0.0"]
+    environment:
+      AWS_ACCESS_KEY_ID: ensaio
+      AWS_SECRET_ACCESS_KEY: ensaio-secret-123
+
+  mc:
+    image: minio/mc:RELEASE.2025-04-16T18-13-26Z
+    depends_on: [minio, seaweedfs]
+    environment:
+      MC_HOST_source: http://ensaio:ensaio-secret-123@minio:9000
+      MC_HOST_dest: http://ensaio:ensaio-secret-123@seaweedfs:8333
+    entrypoint: ["sleep", "3600"]

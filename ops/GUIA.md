@@ -101,12 +101,12 @@ consumidora, endereço — porque é isso que o leitor tem de provar que extrai 
 isso que o relatório entrega. Anonimizar quebraria a prova; o que muda é o
 lugar: git é permanente, replica em todo clone e não tem revogação.
 
-O corpus mora no balde `plugga-corpus-faturas` do MinIO da VPS. Cada caso usa
+O corpus mora no balde `plugga-corpus-faturas` do armazenamento da VPS. Cada caso usa
 um único slug e guarda o par `<slug>.pagina.json` + `<slug>.pdf`: a geometria
 congelada e o PDF original que a produziu.
 
 ```bash
-# com o túnel do MinIO de pé e CORPUS_* no .env
+# com o túnel do armazenamento de pé e CORPUS_* no .env
 pnpm --filter @plugga/api corpus:baixar      # traz para apps/api/test/corpus
 pnpm --filter @plugga/api corpus:publicar    # sobe os JSONs e PDFs que estão lá
 ```
@@ -144,7 +144,9 @@ vai para os secrets `CORPUS_LEITOR_ACCESS_KEY`/`CORPUS_LEITOR_SECRET_KEY` do
 GitHub, que o job de corpus da CI usa; a de **escrita** fica com quem publica
 fixture e não vai para secret nenhum — chave de escrita guardada num lugar que
 nada automatizado usa é só uma coisa a mais para vazar. Criar tudo isso de novo:
-`ops/prepara-corpus-minio.sh`, que é idempotente.
+`ops/prepara-corpus-minio.sh`, que é idempotente. **Atenção:** esse script ainda usa
+comandos de administração do MinIO (`mc admin`) e precisa ser adaptado ao SeaweedFS
+(como foi o `ops/prepara-backup.sh`) antes de ser usado depois da migração.
 
 ---
 
@@ -240,13 +242,13 @@ ssh plugga-vps 'cd /opt/plugga-os
 ## O túnel para a VPS
 
 Há **dois** túneis SSH desta máquina para a VPS. O permanente é um serviço do
-sistema (`br.app.plugga.tunnel`); o do MinIO costuma ser aberto à mão. Juntos
+sistema (`br.app.plugga.tunnel`); o do armazenamento costuma ser aberto à mão. Juntos
 eles ocupam, em `localhost`:
 
 ```
 5432         banco de produção
 6379         redis de produção
-9000 / 9001  MinIO de produção — inclusive o balde dos backups
+9000 / 9001  armazenamento de produção (MinIO até a migração, SeaweedFS depois) — inclusive o balde dos backups
 ```
 
 Nessas quatro portas, **`localhost` é produção**. É contraintuitivo e não aparece
@@ -271,18 +273,58 @@ launchctl unload ~/Library/LaunchAgents/br.app.plugga.tunnel.plist   # desliga
 launchctl load  ~/Library/LaunchAgents/br.app.plugga.tunnel.plist    # liga
 ```
 
-O do MinIO é um processo avulso; para conferir se está de pé e derrubá-lo:
+O do armazenamento é um processo avulso; para conferir se está de pé e derrubá-lo:
 
 ```bash
-pgrep -af "9000:127.0.0.1:9000"     # mostra o túnel do MinIO
+pgrep -af "9000:127.0.0.1:9000"     # mostra o túnel do armazenamento
 pkill -f "9000:127.0.0.1:9000"      # derruba
 ```
 
 ---
 
+## Armazenamento de arquivos (baldes)
+
+Os arquivos enviados (faturas, cotações, evidências de obra) ficam no SeaweedFS.
+**Não há variável de balde**: o balde é `{empresa}-{departamento}`, derivado do
+cadastro em `packages/shared/src/organization.ts`.
+
+| Balde | O que guarda |
+|---|---|
+| `plugga-comercial-clientes` | Comercial da Plugga |
+| `plugga-energia-opm` | Energia: faturas e estudos de eficiência energética |
+| `plugga-produto-tecnologia` | Eletromobilidade (PluggaMob) |
+| `plugga-financeiro` | Financeiro da Plugga, inclusive cotações de compras |
+| `waze-comercial-obras` | Comercial da Waze |
+| `waze-engenharia-obras` | Engenharia da Waze: evidências de obra |
+| `waze-financeiro` | Financeiro da Waze, inclusive cotações de compras |
+| `plugga-backups` | Cópias do banco (credencial própria, expiração em 30 dias/1 ano) |
+| `plugga-corpus-faturas` | Material de teste das distribuidoras (fora do git) |
+
+O `seaweedfs-provisiona` do compose cria todos eles; um teste (`compose-baldes.spec.ts`)
+falha se um departamento novo do cadastro ficar sem balde.
+
+**Trocar o armazenamento antigo (MinIO) pelo SeaweedFS**, na VPS, sem `up` amplo:
+
+```bash
+# 0. levar o compose.yaml e a pasta ops/ novos para /opt/plugga-os
+# 1. subir só o SeaweedFS e criar os baldes (não recria banco nem redis)
+docker compose up -d seaweedfs seaweedfs-provisiona
+# 2. copiar e conferir cada objeto (falha se a origem estiver vazia ou algo divergir)
+ops/migra-storage.sh --so-verificar   # só inventário e conferência
+ops/migra-storage.sh                  # copia e confere
+# 3. depois de conferido: apontar a API e recriar só ela
+docker compose --profile app up -d --no-deps api
+```
+
+O `ops/deploy.sh` recusa publicar enquanto só existir o MinIO antigo. Ensaios locais:
+`bash ops/migra-storage.test.sh` e `bash ops/prepara-backup.test.sh`.
+
+---
+
 ## Backup
 
-Roda sozinho todo dia às 00:10 (horário de Manaus) e guarda no MinIO da VPS.
+Roda sozinho todo dia às 00:10 (horário de Manaus) e guarda no balde `plugga-backups`
+do armazenamento da VPS.
 Não precisa fazer nada. Para conferir que está funcionando:
 
 ```bash
