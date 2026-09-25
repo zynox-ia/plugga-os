@@ -39,7 +39,7 @@ import { linhasImpressas } from "./linhas.js";
  *
  * **A fixture não está no git.** Ela é fatura de cliente, com o dado inteiro,
  * e git é container permanente, replicado em todo clone e sem revogação — o
- * JSON mora no balde do corpus no MinIO e chega por `corpus:baixar`. Sem a
+ * JSON mora no balde do corpus no armazenamento e chega por `corpus:baixar`. Sem a
  * chave, este arquivo inteiro é pulado com a mensagem que explica o porquê.
  *
  * **Sem anonimização.** O texto desta fixture é o impresso na fatura,

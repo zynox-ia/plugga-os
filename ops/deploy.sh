@@ -28,18 +28,6 @@ BANCO=plugga_os
 registro() { printf '\n\033[1m▸ %s\033[0m\n' "$*"; }
 falhou() { printf '\n\033[31m✗ %s\033[0m\n' "$*" >&2; }
 
-# ------------------------------------------------- 0. armazenamento migrado?
-# A aplicação nova fala com o SeaweedFS. Se a produção ainda só tem o MinIO
-# antigo, publicar apontaria a API para um armazenamento vazio e as faturas
-# antigas sumiriam da tela, sem erro nenhum. Melhor parar aqui, antes do backup
-# e da migração do banco, do que descobrir depois.
-if docker ps -q --filter name='plugga-os-minio-1' | grep -q . \
-  && ! docker ps -aq --filter name='plugga-os-seaweedfs-1' | grep -q .; then
-  falhou "o armazenamento ainda é o MinIO antigo e o SeaweedFS não existe."
-  falhou "migre antes: ops/migra-storage.sh (passo a passo em ops/GUIA.md)."
-  exit 1
-fi
-
 # ---------------------------------------------------------------- 1. backup
 registro "1/6 · backup do banco"
 if [ -x /root/backup-plugga.sh ]; then
@@ -115,9 +103,6 @@ docker compose run --rm --no-deps \
 # contêiner e só recria os divergentes. Conferido com `--dry-run` em produção
 # em 10/08/2026, com os cinco serviços reportados como `Running`.
 registro "5/6 · subindo a aplicação"
-# O MinIO antigo não é mais parado por aqui: a troca de armazenamento é feita
-# antes, por ops/migra-storage.sh, e o contêiner antigo só é desligado à mão
-# depois que tudo conferiu (o volume dele fica guardado para voltar atrás).
 docker compose --profile app up -d
 
 # -------------------------------------------------------- 6. teste de fumaça

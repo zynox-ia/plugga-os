@@ -18,7 +18,7 @@ import {
  * O problema nunca foi o conteúdo — foi o **container**. Git é permanente,
  * replica em todo clone e não tem revogação; nenhuma escolha sobre *quais*
  * campos commitar conserta isso. Então a fixture continua inteira e sai do git:
- * vive num balde dedicado do MinIO, e chega à árvore local por download.
+ * vive num balde dedicado do armazenamento, e chega à árvore local por download.
  *
  *     pnpm --filter @plugga/api corpus:publicar <arquivo>...
  *     pnpm --filter @plugga/api corpus:baixar
@@ -96,7 +96,7 @@ export class CorpusMalConfiguradoError extends Error {
  * acesso ao corpus não configura nada, e os testes de corpus pulam.
  *
  * O endpoint e a região caem para os do armazenamento de produção porque é o
- * mesmo servidor MinIO. **A credencial não cai**: a chave do corpus é separada
+ * mesmo servidor armazenamento. **A credencial não cai**: a chave do corpus é separada
  * e, na CI, somente-leitura. Reusar a de produção para ler fixture de teste
  * daria ao runner um poder que ele não precisa ter.
  */
@@ -131,7 +131,7 @@ export function configuracaoDoCorpus(
 /**
  * O balde visto de fora, reduzido às três operações que o corpus usa.
  *
- * Existe para publicar e baixar serem testáveis sem MinIO no ar: o teste passa
+ * Existe para publicar e baixar serem testáveis sem armazenamento no ar: o teste passa
  * um balde de mentira e verifica o que foi enviado, o que foi ignorado e o que
  * foi escrito em disco. O S3 de verdade entra por `abrirBalde`.
  */
@@ -145,7 +145,7 @@ export type BaldeDoCorpus = {
   ): Promise<void>;
 };
 
-/** Cliente S3 de verdade, falado com o SDK da AWS — MinIO responde ao mesmo. */
+/** Cliente S3 de verdade, falado com o SDK da AWS — o servidor responde ao mesmo. */
 export async function abrirBalde(configuracao: ConfiguracaoDoCorpus): Promise<BaldeDoCorpus> {
   const { GetObjectCommand, ListObjectsV2Command, PutObjectCommand, S3Client } = await import(
     "@aws-sdk/client-s3"
@@ -154,7 +154,7 @@ export async function abrirBalde(configuracao: ConfiguracaoDoCorpus): Promise<Ba
   const cliente = new S3Client({
     endpoint: configuracao.endpoint,
     region: configuracao.regiao,
-    // MinIO serve os baldes por caminho, não por subdomínio — mesma razão de
+    // O servidor S3 serve os baldes por caminho, não por subdomínio — mesma razão de
     // `armazenamento.ts`.
     forcePathStyle: true,
     credentials: {
@@ -330,7 +330,7 @@ export function avisoDeCorpusAusente(nome: string, pasta: string = pastaDoCorpus
   return (
     `corpus ausente: ${nome} não está em ${pasta}. ` +
     "Esta fixture carrega fatura de cliente e por isso não vive no git — ela mora " +
-    "no balde do corpus no MinIO. Com CORPUS_ACCESS_KEY e CORPUS_SECRET_KEY no " +
+    "no balde do corpus no armazenamento. Com CORPUS_ACCESS_KEY e CORPUS_SECRET_KEY no " +
     "ambiente, rode `pnpm --filter @plugga/api corpus:baixar`. Sem a chave este " +
     "teste é pulado de propósito: não é falha, é menos cobertura."
   );

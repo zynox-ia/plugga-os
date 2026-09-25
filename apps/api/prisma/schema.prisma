@@ -1168,7 +1168,7 @@ model LlmChamada {
 ///
 /// Existe para a chave de API poder ser trocada por tela, sem editar arquivo e
 /// reiniciar contêiner. O valor fica cifrado com AES-256-GCM e a chave-mestra
-/// mora no ambiente: o dump do banco — que vai para o MinIO todo dia — não é
+/// mora no ambiente: o dump do banco — que vai para o armazenamento todo dia — não é
 /// suficiente para usar nada daqui.
 ///
 /// Uma linha por chave lógica. `ultimosQuatro` existe para a tela confirmar qual
@@ -1654,7 +1654,7 @@ model PedidoDeCompraEtapa {
 }
 
 /// Orçamento anexado na geração do pedido (POP §2.1, item 6). O arquivo vai
-/// para o S3/MinIO e `arquivoChave` é obrigatório: diferente da fatura de
+/// para o S3 e `arquivoChave` é obrigatório: diferente da fatura de
 /// energia, onde guardar é apoio à leitura, aqui o anexo é o próprio requisito
 /// do processo e a evidência sobre a qual a análise acontece.
 ///

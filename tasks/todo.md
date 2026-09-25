@@ -39,7 +39,7 @@ Spec: `SPEC.md` | Plano: `tasks/plan.md`
   - Aceite: `seaweedfs` e `seaweedfs-provisiona` de pé sem recriar Postgres/Redis/API; migração por `ops/migra-storage.sh` com resultado OK; MinIO segue como principal.
   - Verificação: script sai com 0; acesso sem credencial ao S3 é negado; `docker compose ps` mostra os demais serviços com o mesmo tempo de vida.
 
-- [ ] **T6 Troca da API: publicar o código novo** (M, deploy). **Revisado:** a imagem da API na VPS tem 6 semanas e ainda exige `STORAGE_BUCKET` e o MinIO. Só o código novo (`baldeDe`) e o compose novo falam com o SeaweedFS, então a troca é um deploy do código atual, não só uma variável. Enquanto isso, com o MinIO parado, guardar fatura degrada (chave nula) e cotações/evidências retornam 503; Compras e Obras têm 0 registros, e não há usuários
+- [x] **T6 Troca da API: publicar o código novo** (feito 2026-09-24 22:35 UTC via deploy automático do PR #22; a API grava e lê nos baldes derivados, provado de dentro do container) (M, deploy). **Revisado:** a imagem da API na VPS tem 6 semanas e ainda exige `STORAGE_BUCKET` e o MinIO. Só o código novo (`baldeDe`) e o compose novo falam com o SeaweedFS, então a troca é um deploy do código atual, não só uma variável. Enquanto isso, com o MinIO parado, guardar fatura degrada (chave nula) e cotações/evidências retornam 503; Compras e Obras têm 0 registros, e não há usuários
   - Aceite: `STORAGE_ENDPOINT=http://seaweedfs:8333` no `.env`; API recriada com `--no-deps`; fatura e cotação antigas abrem; envio novo funciona; `/health` OK.
   - Verificação: leitura e escrita pelo S3 SDK dentro da rede do compose; log da API sem erro de storage.
   - Rollback: voltar `STORAGE_ENDPOINT` para `http://minio:9000` e recriar a API.
@@ -57,10 +57,10 @@ Spec: `SPEC.md` | Plano: `tasks/plan.md`
 
 ## Fase 3: fechamento
 
-- [ ] **T8 PR para `main`** (S, PR)
+- [x] **T8 PR para `main`** (PR #22 mergeado em 2026-09-24 22:31 UTC; CI e deploy verdes) (S, PR)
   - Aceite: PR com T1 a T3, `SPEC.md` e `tasks/`; CI verde. **O merge dispara deploy real: só com aprovação.**
   - Verificação: checks do CI; `deploy.yml` no histórico do Actions.
 
-- [~] **T9 Desligar MinIO e documentar** (MinIO **parado** em 2026-09-24 21:37 UTC, volume `plugga-os_minio_data` e snapshot `/root/snapshots/minio_data-T4-*.tar` preservados; falta anotar a data de remoção e o restante da documentação) (XS, VPS + docs)
+- [~] **T9 Remover o MinIO** (2026-09-24: corpus de faturas (24 objetos) restaurado no SeaweedFS com SHA-256 conferido e as chaves leitor/editor recriadas com os mesmos valores; código, compose, CI e docs desvinculados do MinIO neste PR; resta remover contêineres e volume da VPS depois que o job de corpus da CI passar contra o SeaweedFS) (MinIO **parado** em 2026-09-24 21:37 UTC, volume `plugga-os_minio_data` e snapshot `/root/snapshots/minio_data-T4-*.tar` preservados; falta anotar a data de remoção e o restante da documentação) (XS, VPS + docs)
   - Aceite: contêiner do MinIO parado e volume preservado por 14 dias (data de remoção anotada no GUIA); `SPEC.md` marcado como concluído.
   - Verificação: sistema segue saudável 24h depois.

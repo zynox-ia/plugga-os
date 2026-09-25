@@ -21,7 +21,7 @@ import {
 } from "./corpus.js";
 
 /**
- * O corpus, provado sem MinIO no ar.
+ * O corpus, provado sem armazenamento no ar.
  *
  * O que interessa aqui não é falar S3 — isso o SDK faz — e sim as decisões que
  * cercam a conversa: recusar configuração que mistura o balde de teste com o de
@@ -73,15 +73,15 @@ afterEach(() => {
 
 describe("configuração do corpus", () => {
   it("é nula sem credencial, que é o caso de quem clona sem acesso", () => {
-    expect(configuracaoDoCorpus({ STORAGE_ENDPOINT: "http://minio:9000" })).toBeNull();
+    expect(configuracaoDoCorpus({ STORAGE_ENDPOINT: "http://seaweedfs:8333" })).toBeNull();
     expect(
-      configuracaoDoCorpus({ CORPUS_ACCESS_KEY: "leitor", STORAGE_ENDPOINT: "http://minio:9000" }),
+      configuracaoDoCorpus({ CORPUS_ACCESS_KEY: "leitor", STORAGE_ENDPOINT: "http://seaweedfs:8333" }),
     ).toBeNull();
   });
 
   it("herda o servidor do armazenamento, mas nunca a credencial dele", () => {
     const configuracao = configuracaoDoCorpus({
-      STORAGE_ENDPOINT: "http://minio:9000",
+      STORAGE_ENDPOINT: "http://seaweedfs:8333",
       STORAGE_REGION: "sa-east-1",
       STORAGE_ACCESS_KEY: "producao",
       STORAGE_SECRET_KEY: "producao-secreta",
@@ -89,11 +89,11 @@ describe("configuração do corpus", () => {
       CORPUS_SECRET_KEY: "leitor-secreta",
     });
 
-    // É o mesmo MinIO, então o endereço se herda; a chave do corpus é separada
+    // É o mesmo armazenamento, então o endereço se herda; a chave do corpus é separada
     // e somente-leitura na CI, então herdar a de produção daria ao runner um
     // poder que ele não precisa ter.
     expect(configuracao).toEqual({
-      endpoint: "http://minio:9000",
+      endpoint: "http://seaweedfs:8333",
       regiao: "sa-east-1",
       balde: "plugga-corpus-faturas",
       accessKey: "leitor",

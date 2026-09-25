@@ -16,7 +16,7 @@ import {
  *
  * O que se prova aqui é a propriedade que justifica guardar credencial no banco,
  * contra a norma do projeto: **o banco sozinho não basta**. Sem a chave-mestra do
- * ambiente, o dump — que vai para o MinIO todo dia — não entrega nada.
+ * ambiente, o dump — que vai para o armazenamento todo dia — não entrega nada.
  */
 
 const anterior = process.env.SECRETS_ENCRYPTION_KEY;
