@@ -132,6 +132,12 @@ jobs:
       - name: Verify deploy lock
         run: bash ops/deploy-trava.test.sh
 
+      - name: Install age for backup tests
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq age
+
+      - name: Verify external backup script
+        run: bash ops/backup-externo.test.sh
+
       - name: Verify backup restore script
         env:
           RESTAURA_PGHOST: localhost
