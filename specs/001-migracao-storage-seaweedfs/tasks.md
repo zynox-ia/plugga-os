@@ -1,6 +1,6 @@
 # Tarefas: migração MinIO para SeaweedFS
 
-Spec: `SPEC.md` | Plano: `tasks/plan.md`
+Spec: `spec.md` | Plano: `plan.md`
 
 ## Fase 1: repositório e ensaio local
 
@@ -58,9 +58,9 @@ Spec: `SPEC.md` | Plano: `tasks/plan.md`
 ## Fase 3: fechamento
 
 - [x] **T8 PR para `main`** (PR #22 mergeado em 2026-09-24 22:31 UTC; CI e deploy verdes) (S, PR)
-  - Aceite: PR com T1 a T3, `SPEC.md` e `tasks/`; CI verde. **O merge dispara deploy real: só com aprovação.**
+  - Aceite: PR com T1 a T3, `SPEC.md` e `tasks/` (hoje `specs/001-migracao-storage-seaweedfs/`); CI verde. **O merge dispara deploy real: só com aprovação.**
   - Verificação: checks do CI; `deploy.yml` no histórico do Actions.
 
 - [~] **T9 Remover o MinIO** (2026-09-24: corpus de faturas (24 objetos) restaurado no SeaweedFS com SHA-256 conferido e as chaves leitor/editor recriadas com os mesmos valores; código, compose, CI e docs desvinculados do MinIO neste PR; resta remover contêineres e volume da VPS depois que o job de corpus da CI passar contra o SeaweedFS) (MinIO **parado** em 2026-09-24 21:37 UTC, volume `plugga-os_minio_data` e snapshot `/root/snapshots/minio_data-T4-*.tar` preservados; falta anotar a data de remoção e o restante da documentação) (XS, VPS + docs)
-  - Aceite: contêiner do MinIO parado e volume preservado por 14 dias (data de remoção anotada no GUIA); `SPEC.md` marcado como concluído.
+  - Aceite: contêiner do MinIO parado e volume preservado por 14 dias (data de remoção anotada no GUIA); `spec.md` marcado como concluído.
   - Verificação: sistema segue saudável 24h depois.

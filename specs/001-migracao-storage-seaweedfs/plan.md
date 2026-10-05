@@ -1,7 +1,7 @@
 # Plano de implementação: migração MinIO para SeaweedFS (produção)
 
-Spec: `SPEC.md`. Alvo: VPS `82.29.152.21` (decisão de 2026-09-24: ficar nesta VPS; mudar para a maior só quando precisar).
-Tarefas: `tasks/todo.md` (checklist markdown, sem tracker externo por enquanto).
+Spec: `spec.md`. Alvo: VPS `82.29.152.21` (decisão de 2026-09-24: ficar nesta VPS; mudar para a maior só quando precisar).
+Tarefas: `tasks.md` (checklist markdown, sem tracker externo por enquanto).
 
 ## Visão geral
 Trocar o servidor S3 da produção de MinIO (parado numa versão, sem console nem correções na edição gratuita) para SeaweedFS no modo `mini` (decisão de 2026-09-24; o modo completo também foi validado no ensaio), sem perder arquivo e sem mexer em Postgres, Redis ou web. Sem usuários em produção, então não há janela de manutenção, mas cada etapa tem verificação e rollback.
@@ -35,7 +35,7 @@ T4 pré-voo + snapshot ─ T5 SeaweedFS na VPS + cópia ─ T6 troca da API ─ 
 ```
 
 ## Lista de tarefas
-Critérios de aceite e verificação de cada uma em `tasks/todo.md`.
+Critérios de aceite e verificação de cada uma em `tasks.md`.
 
 ### Fase 1, repositório e ensaio local
 - T1 Compose com SeaweedFS mini

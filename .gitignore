@@ -60,3 +60,7 @@ apps/web/e2e/.auth/
 # Store local do pnpm (n�o versionar)
 .pnpm-store/
 
+
+# Claude Code: configurações pessoais e credenciais locais ficam fora; as skills
+# do Spec Kit em .claude/skills/ são versionadas.
+.claude/settings.local.json
