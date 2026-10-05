@@ -365,4 +365,12 @@ describe("validateEnvironment", () => {
       }),
     ).toThrow(/BITRIX_IMPORT_PAGE_SIZE/);
   });
+
+  it("ROUTE_GUARD_MODE é warn por padrão, aceita enforce e recusa qualquer outro valor", () => {
+    const base = { NODE_ENV: "development", DATABASE_URL: localDatabaseUrl, AUTH_SESSION_SECRET: sessionSecret };
+
+    expect(validateEnvironment(base).ROUTE_GUARD_MODE).toBe("warn");
+    expect(validateEnvironment({ ...base, ROUTE_GUARD_MODE: "enforce" }).ROUTE_GUARD_MODE).toBe("enforce");
+    expect(() => validateEnvironment({ ...base, ROUTE_GUARD_MODE: "off" })).toThrow(/ROUTE_GUARD_MODE/);
+  });
 });

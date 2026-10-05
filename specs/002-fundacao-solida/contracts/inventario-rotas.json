@@ -1,0 +1,2117 @@
+[
+  {
+    "metodo": "POST",
+    "caminho": "/agent-actions",
+    "controller": "AgentActionsController.create",
+    "acesso": "roles",
+    "papeis": [
+      "tech",
+      "admin"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/auth/accept-invite",
+    "controller": "AuthController.acceptInvite",
+    "acesso": "public",
+    "papeis": [],
+    "guards": [
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/auth/google",
+    "controller": "AuthController.google",
+    "acesso": "public",
+    "papeis": [],
+    "guards": [
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/auth/invite",
+    "controller": "TeamController.invite",
+    "acesso": "authenticated",
+    "papeis": [],
+    "guards": [
+      "OriginCheckGuard",
+      "DevAuthGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/auth/login",
+    "controller": "AuthController.login",
+    "acesso": "public",
+    "papeis": [],
+    "guards": [
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/auth/logout",
+    "controller": "AuthController.logout",
+    "acesso": "authenticated",
+    "papeis": [],
+    "guards": [
+      "DevAuthGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/auth/me",
+    "controller": "AuthController.me",
+    "acesso": "authenticated",
+    "papeis": [],
+    "guards": [
+      "DevAuthGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/auth/reset/confirm",
+    "controller": "AuthController.confirmReset",
+    "acesso": "public",
+    "papeis": [],
+    "guards": [
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/auth/reset/request",
+    "controller": "AuthController.requestReset",
+    "acesso": "public",
+    "papeis": [],
+    "guards": [
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/auth/users",
+    "controller": "TeamController.list",
+    "acesso": "authenticated",
+    "papeis": [],
+    "guards": [
+      "DevAuthGuard"
+    ]
+  },
+  {
+    "metodo": "PUT",
+    "caminho": "/auth/users/:id/access",
+    "controller": "TeamController.updateAccess",
+    "acesso": "authenticated",
+    "papeis": [],
+    "guards": [
+      "OriginCheckGuard",
+      "DevAuthGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/auth/users/:id/deactivate",
+    "controller": "TeamController.deactivate",
+    "acesso": "authenticated",
+    "papeis": [],
+    "guards": [
+      "OriginCheckGuard",
+      "DevAuthGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/auth/users/:id/resend-invite",
+    "controller": "TeamController.resendInvite",
+    "acesso": "authenticated",
+    "papeis": [],
+    "guards": [
+      "OriginCheckGuard",
+      "DevAuthGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/channels/whatsapp/send",
+    "controller": "WhatsappController.send",
+    "acesso": "roles",
+    "papeis": [
+      "tech",
+      "admin"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/clientes",
+    "controller": "ClientesController.list",
+    "acesso": "roles",
+    "papeis": [
+      "comercial",
+      "opm",
+      "diretoria",
+      "tech",
+      "admin"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/clientes",
+    "controller": "ClientesController.create",
+    "acesso": "roles",
+    "papeis": [
+      "comercial",
+      "admin"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/clientes/:id",
+    "controller": "ClientesController.get",
+    "acesso": "roles",
+    "papeis": [
+      "comercial",
+      "opm",
+      "diretoria",
+      "tech",
+      "admin"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard"
+    ]
+  },
+  {
+    "metodo": "PATCH",
+    "caminho": "/clientes/:id",
+    "controller": "ClientesController.update",
+    "acesso": "roles",
+    "papeis": [
+      "comercial",
+      "admin"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/clientes/:id/activate",
+    "controller": "ClientesController.activate",
+    "acesso": "roles",
+    "papeis": [
+      "comercial",
+      "admin"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/clientes/:id/ficha",
+    "controller": "ClientesController.ficha",
+    "acesso": "roles",
+    "papeis": [
+      "comercial",
+      "opm",
+      "diretoria",
+      "tech",
+      "admin"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/clientes/:id/inactivate",
+    "controller": "ClientesController.inactivate",
+    "acesso": "roles",
+    "papeis": [
+      "comercial",
+      "admin"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/clientes/duplicates",
+    "controller": "ClientesController.duplicateCandidates",
+    "acesso": "roles",
+    "papeis": [
+      "comercial",
+      "opm",
+      "diretoria",
+      "tech",
+      "admin"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/commercial/contracts",
+    "controller": "CommercialController.listContracts",
+    "acesso": "roles",
+    "papeis": [
+      "comercial",
+      "admin",
+      "diretoria",
+      "financeiro",
+      "tech",
+      "viewer"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/commercial/contracts",
+    "controller": "CommercialController.createContract",
+    "acesso": "roles",
+    "papeis": [
+      "comercial",
+      "admin"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/commercial/contracts/:id",
+    "controller": "CommercialController.contract",
+    "acesso": "roles",
+    "papeis": [
+      "comercial",
+      "admin",
+      "diretoria",
+      "financeiro",
+      "tech",
+      "viewer"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/commercial/contracts/:id/status",
+    "controller": "CommercialController.updateContractStatus",
+    "acesso": "roles",
+    "papeis": [
+      "comercial",
+      "admin"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/commercial/opportunities",
+    "controller": "CommercialController.listOpportunities",
+    "acesso": "roles",
+    "papeis": [
+      "comercial",
+      "admin",
+      "diretoria",
+      "financeiro",
+      "tech",
+      "viewer"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/commercial/opportunities",
+    "controller": "CommercialController.createOpportunity",
+    "acesso": "roles",
+    "papeis": [
+      "comercial",
+      "admin"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/commercial/opportunities/:id",
+    "controller": "CommercialController.opportunity",
+    "acesso": "roles",
+    "papeis": [
+      "comercial",
+      "admin",
+      "diretoria",
+      "financeiro",
+      "tech",
+      "viewer"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/commercial/opportunities/:id/contacts",
+    "controller": "CommercialController.registerOpportunityContact",
+    "acesso": "roles",
+    "papeis": [
+      "comercial",
+      "admin"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/commercial/opportunities/:id/lose",
+    "controller": "CommercialController.loseOpportunity",
+    "acesso": "roles",
+    "papeis": [
+      "comercial",
+      "admin"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/commercial/opportunities/:id/revisit",
+    "controller": "CommercialController.revisitOpportunity",
+    "acesso": "roles",
+    "papeis": [
+      "comercial",
+      "admin"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/commercial/opportunities/:id/stage",
+    "controller": "CommercialController.updateOpportunityStage",
+    "acesso": "roles",
+    "papeis": [
+      "comercial",
+      "admin"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/commercial/opportunities/:id/win",
+    "controller": "CommercialController.winOpportunity",
+    "acesso": "roles",
+    "papeis": [
+      "comercial",
+      "admin"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/compras/diagnostico",
+    "controller": "ComprasController.diagnostico",
+    "acesso": "roles",
+    "papeis": [
+      "compras",
+      "financeiro",
+      "diretoria",
+      "admin",
+      "tech",
+      "viewer"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/compras/fornecedores",
+    "controller": "ComprasController.listarFornecedores",
+    "acesso": "roles",
+    "papeis": [
+      "compras",
+      "financeiro",
+      "diretoria",
+      "admin",
+      "tech",
+      "viewer"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/compras/fornecedores",
+    "controller": "ComprasController.criarFornecedor",
+    "acesso": "roles",
+    "papeis": [
+      "compras",
+      "financeiro"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/compras/obras",
+    "controller": "ComprasController.listarObras",
+    "acesso": "roles",
+    "papeis": [
+      "compras",
+      "financeiro",
+      "diretoria",
+      "admin",
+      "tech",
+      "viewer"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/compras/obras",
+    "controller": "ComprasController.criarObra",
+    "acesso": "roles",
+    "papeis": [
+      "compras",
+      "financeiro"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/compras/pedidos",
+    "controller": "ComprasController.listarPedidos",
+    "acesso": "roles",
+    "papeis": [
+      "compras",
+      "financeiro",
+      "diretoria",
+      "admin",
+      "tech",
+      "viewer"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/compras/pedidos",
+    "controller": "ComprasController.criarPedido",
+    "acesso": "roles",
+    "papeis": [
+      "compras",
+      "financeiro",
+      "diretoria",
+      "opm",
+      "comercial",
+      "pluggamob",
+      "tech"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/compras/pedidos/:id",
+    "controller": "ComprasController.pedido",
+    "acesso": "roles",
+    "papeis": [
+      "compras",
+      "financeiro",
+      "diretoria",
+      "admin",
+      "tech",
+      "viewer"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/compras/pedidos/:id/aprovacao",
+    "controller": "ComprasController.decidirAprovacao",
+    "acesso": "roles",
+    "papeis": [
+      "financeiro",
+      "diretoria"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/compras/pedidos/:id/cotacao-selecionada",
+    "controller": "ComprasController.selecionarCotacao",
+    "acesso": "roles",
+    "papeis": [
+      "compras"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/compras/pedidos/:id/estoque",
+    "controller": "ComprasController.decidirEstoque",
+    "acesso": "roles",
+    "papeis": [
+      "compras"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/compras/pedidos/:id/necessidade",
+    "controller": "ComprasController.validarNecessidade",
+    "acesso": "roles",
+    "papeis": [
+      "compras"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/compras/pedidos/:id/pagamento",
+    "controller": "ComprasController.registrarPagamento",
+    "acesso": "roles",
+    "papeis": [
+      "financeiro",
+      "diretoria"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/compras/pedidos/:id/prazo",
+    "controller": "ComprasController.renegociarPrazo",
+    "acesso": "roles",
+    "papeis": [
+      "compras",
+      "financeiro",
+      "diretoria"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/compras/pedidos/:id/recebimento",
+    "controller": "ComprasController.confirmarRecebimento",
+    "acesso": "roles",
+    "papeis": [
+      "compras",
+      "financeiro",
+      "diretoria",
+      "opm",
+      "comercial",
+      "pluggamob",
+      "tech"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/compras/pedidos/:id/triagem",
+    "controller": "ComprasController.triagem",
+    "acesso": "roles",
+    "papeis": [
+      "compras"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/compras/scorecard",
+    "controller": "ComprasController.scorecard",
+    "acesso": "roles",
+    "papeis": [
+      "compras",
+      "financeiro",
+      "diretoria",
+      "admin",
+      "tech",
+      "viewer"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/email/status",
+    "controller": "EmailStatusController.status",
+    "acesso": "roles",
+    "papeis": [
+      "admin",
+      "diretoria",
+      "tech"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/energy-efficiency/invoices/read",
+    "controller": "FaturaController.ler",
+    "acesso": "roles",
+    "papeis": [
+      "opm",
+      "admin",
+      "tech"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/energy-efficiency/studies",
+    "controller": "EstudoController.listar",
+    "acesso": "roles",
+    "papeis": [
+      "opm",
+      "financeiro",
+      "admin",
+      "diretoria",
+      "comercial",
+      "tech",
+      "viewer"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/energy-efficiency/studies",
+    "controller": "EstudoController.criar",
+    "acesso": "roles",
+    "papeis": [
+      "opm",
+      "admin",
+      "tech"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard",
+      "OriginCheckGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/energy-efficiency/studies/:id",
+    "controller": "EstudoController.detalhar",
+    "acesso": "roles",
+    "papeis": [
+      "opm",
+      "financeiro",
+      "admin",
+      "diretoria",
+      "comercial",
+      "tech",
+      "viewer"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/energy-efficiency/studies/:id/approve",
+    "controller": "EstudoController.aprovar",
+    "acesso": "roles",
+    "papeis": [
+      "admin",
+      "diretoria"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard",
+      "OriginCheckGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/energy-efficiency/studies/:id/document",
+    "controller": "EstudoController.documento",
+    "acesso": "roles",
+    "papeis": [
+      "opm",
+      "financeiro",
+      "admin",
+      "diretoria",
+      "comercial",
+      "tech",
+      "viewer"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/energy-efficiency/studies/:id/document.mobile",
+    "controller": "EstudoController.documentoCelular",
+    "acesso": "roles",
+    "papeis": [
+      "opm",
+      "financeiro",
+      "admin",
+      "diretoria",
+      "comercial",
+      "tech",
+      "viewer"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/energy-efficiency/studies/:id/document.pdf",
+    "controller": "EstudoController.pdf",
+    "acesso": "roles",
+    "papeis": [
+      "opm",
+      "financeiro",
+      "admin",
+      "diretoria",
+      "comercial",
+      "tech",
+      "viewer"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/energy-efficiency/studies/:id/invoice",
+    "controller": "EstudoController.receberFatura",
+    "acesso": "roles",
+    "papeis": [
+      "opm",
+      "admin",
+      "tech"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard",
+      "OriginCheckGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/energy-efficiency/studies/:id/recalculate",
+    "controller": "EstudoController.recalcular",
+    "acesso": "roles",
+    "papeis": [
+      "opm",
+      "admin",
+      "tech"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard",
+      "OriginCheckGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/energy-efficiency/studies/:id/sent",
+    "controller": "EstudoController.marcarEnviado",
+    "acesso": "roles",
+    "papeis": [
+      "admin",
+      "diretoria"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard",
+      "OriginCheckGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/energy/audits",
+    "controller": "EnergyController.listAudits",
+    "acesso": "roles",
+    "papeis": [
+      "opm",
+      "financeiro",
+      "admin",
+      "diretoria",
+      "comercial",
+      "tech",
+      "viewer"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/energy/audits",
+    "controller": "EnergyController.createAudit",
+    "acesso": "roles",
+    "papeis": [
+      "opm",
+      "admin"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/energy/audits/:id",
+    "controller": "EnergyController.audit",
+    "acesso": "roles",
+    "papeis": [
+      "opm",
+      "financeiro",
+      "admin",
+      "diretoria",
+      "comercial",
+      "tech",
+      "viewer"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/energy/audits/:id/resolve",
+    "controller": "EnergyController.resolveAudit",
+    "acesso": "roles",
+    "papeis": [
+      "opm",
+      "admin"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/energy/consumer-units",
+    "controller": "EnergyController.listConsumerUnits",
+    "acesso": "roles",
+    "papeis": [
+      "opm",
+      "financeiro",
+      "admin",
+      "diretoria",
+      "comercial",
+      "tech",
+      "viewer"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/energy/contestations",
+    "controller": "EnergyController.listContestations",
+    "acesso": "roles",
+    "papeis": [
+      "opm",
+      "financeiro",
+      "admin",
+      "diretoria",
+      "comercial",
+      "tech",
+      "viewer"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/energy/contestations",
+    "controller": "EnergyController.createContestation",
+    "acesso": "roles",
+    "papeis": [
+      "opm",
+      "admin"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/energy/contestations/:id",
+    "controller": "EnergyController.contestation",
+    "acesso": "roles",
+    "papeis": [
+      "opm",
+      "financeiro",
+      "admin",
+      "diretoria",
+      "comercial",
+      "tech",
+      "viewer"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/energy/contestations/:id/status",
+    "controller": "EnergyController.updateContestationStatus",
+    "acesso": "roles",
+    "papeis": [
+      "financeiro",
+      "admin",
+      "diretoria"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/energy/cycles",
+    "controller": "EnergyController.listCycles",
+    "acesso": "roles",
+    "papeis": [
+      "opm",
+      "financeiro",
+      "admin",
+      "diretoria",
+      "comercial",
+      "tech",
+      "viewer"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/energy/cycles",
+    "controller": "EnergyController.createCycle",
+    "acesso": "roles",
+    "papeis": [
+      "opm",
+      "admin"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/energy/cycles/:id",
+    "controller": "EnergyController.cycle",
+    "acesso": "roles",
+    "papeis": [
+      "opm",
+      "financeiro",
+      "admin",
+      "diretoria",
+      "comercial",
+      "tech",
+      "viewer"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/energy/cycles/:id/approve-report",
+    "controller": "EnergyController.approveCycleReport",
+    "acesso": "roles",
+    "papeis": [
+      "financeiro",
+      "admin",
+      "diretoria"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/energy/cycles/:id/close",
+    "controller": "EnergyController.closeCycle",
+    "acesso": "roles",
+    "papeis": [
+      "opm",
+      "financeiro",
+      "admin"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/energy/cycles/:id/documents-received",
+    "controller": "EnergyController.markCycleDocumentsReceived",
+    "acesso": "roles",
+    "papeis": [
+      "opm",
+      "admin"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/energy/cycles/:id/report",
+    "controller": "EnergyController.generateCycleReport",
+    "acesso": "roles",
+    "papeis": [
+      "opm",
+      "admin"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/energy/cycles/:id/send",
+    "controller": "EnergyController.sendCycleReport",
+    "acesso": "roles",
+    "papeis": [
+      "opm",
+      "admin"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/energy/market-migrations",
+    "controller": "EnergyController.listMarketMigrations",
+    "acesso": "roles",
+    "papeis": [
+      "opm",
+      "financeiro",
+      "admin",
+      "diretoria",
+      "comercial",
+      "tech",
+      "viewer"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/energy/market-migrations",
+    "controller": "EnergyController.createMarketMigration",
+    "acesso": "roles",
+    "papeis": [
+      "opm",
+      "admin"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/energy/market-migrations/:id/activate",
+    "controller": "EnergyController.activateMarketMigration",
+    "acesso": "roles",
+    "papeis": [
+      "opm",
+      "admin"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/energy/market-migrations/:id/cancel",
+    "controller": "EnergyController.cancelMarketMigration",
+    "acesso": "roles",
+    "papeis": [
+      "opm",
+      "admin"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/energy/market-migrations/:id/stage",
+    "controller": "EnergyController.advanceMarketMigrationStage",
+    "acesso": "roles",
+    "papeis": [
+      "opm",
+      "admin"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/energy/reports",
+    "controller": "EnergyController.cycleReports",
+    "acesso": "roles",
+    "papeis": [
+      "opm",
+      "financeiro",
+      "admin",
+      "diretoria",
+      "comercial",
+      "tech",
+      "viewer"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/health",
+    "controller": "HealthController.check",
+    "acesso": "public",
+    "papeis": [],
+    "guards": []
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/integrations",
+    "controller": "IntegrationsController.list",
+    "acesso": "roles",
+    "papeis": [
+      "admin",
+      "diretoria",
+      "tech"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/integrations/bitrix/import",
+    "controller": "BitrixController.triggerOpmImport",
+    "acesso": "roles",
+    "papeis": [
+      "admin"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/jobs",
+    "controller": "JobsController.list",
+    "acesso": "roles",
+    "papeis": [
+      "admin",
+      "tech"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard"
+    ]
+  },
+  {
+    "metodo": "DELETE",
+    "caminho": "/llm/chave",
+    "controller": "ChaveController.apagar",
+    "acesso": "roles",
+    "papeis": [
+      "admin"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/llm/chave",
+    "controller": "ChaveController.estado",
+    "acesso": "roles",
+    "papeis": [
+      "admin"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard"
+    ]
+  },
+  {
+    "metodo": "PUT",
+    "caminho": "/llm/chave",
+    "controller": "ChaveController.gravar",
+    "acesso": "roles",
+    "papeis": [
+      "admin"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/llm/consumo",
+    "controller": "ConsumoController.resumo",
+    "acesso": "roles",
+    "papeis": [
+      "admin",
+      "diretoria",
+      "financeiro",
+      "tech"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/obras/:id",
+    "controller": "ObrasController.obra",
+    "acesso": "roles",
+    "papeis": [
+      "diretoria",
+      "projetista",
+      "engenheiro",
+      "supervisor",
+      "tecnico",
+      "almoxarife",
+      "seguranca",
+      "gestor_suprimentos",
+      "admin",
+      "viewer"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/obras/:id/apr",
+    "controller": "ObrasController.registrarApr",
+    "acesso": "roles",
+    "papeis": [
+      "seguranca",
+      "supervisor",
+      "engenheiro"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/obras/:id/apr/:aprId/assinar",
+    "controller": "ObrasController.assinarApr",
+    "acesso": "roles",
+    "papeis": [
+      "seguranca",
+      "supervisor"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/obras/:id/epi",
+    "controller": "ObrasController.registrarEpi",
+    "acesso": "roles",
+    "papeis": [
+      "seguranca",
+      "supervisor",
+      "engenheiro"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/obras/:id/epi/:epiId/conferir",
+    "controller": "ObrasController.conferirEpi",
+    "acesso": "roles",
+    "papeis": [
+      "seguranca"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/obras/:id/etapas/avancar",
+    "controller": "ObrasController.avancarEtapa",
+    "acesso": "roles",
+    "papeis": [
+      "engenheiro",
+      "diretoria"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/obras/:id/evidencias",
+    "controller": "ObrasController.registrarEvidencia",
+    "acesso": "roles",
+    "papeis": [
+      "tecnico",
+      "supervisor",
+      "engenheiro",
+      "projetista",
+      "almoxarife",
+      "seguranca",
+      "gestor_suprimentos",
+      "diretoria"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/obras/:id/incidentes",
+    "controller": "ObrasController.registrarIncidente",
+    "acesso": "roles",
+    "papeis": [
+      "diretoria",
+      "projetista",
+      "engenheiro",
+      "supervisor",
+      "tecnico",
+      "almoxarife",
+      "seguranca",
+      "gestor_suprimentos",
+      "admin",
+      "viewer"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/obras/:id/liberacoes",
+    "controller": "ObrasController.registrarLiberacao",
+    "acesso": "roles",
+    "papeis": [
+      "seguranca",
+      "supervisor",
+      "engenheiro"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/obras/:id/liberacoes/:liberacaoId/revogar",
+    "controller": "ObrasController.revogarLiberacao",
+    "acesso": "roles",
+    "papeis": [
+      "seguranca",
+      "supervisor",
+      "engenheiro",
+      "diretoria"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/obras/:id/medicoes",
+    "controller": "ObrasController.lancarMedicao",
+    "acesso": "roles",
+    "papeis": [
+      "supervisor",
+      "engenheiro"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/obras/:id/medicoes/:medicaoId/aprovar",
+    "controller": "ObrasController.aprovarMedicao",
+    "acesso": "roles",
+    "papeis": [
+      "engenheiro"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/obras/:id/medicoes/:medicaoId/solicitar-correcao",
+    "controller": "ObrasController.solicitarCorrecaoMedicao",
+    "acesso": "roles",
+    "papeis": [
+      "engenheiro"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/obras/:id/pendencias",
+    "controller": "ObrasController.registrarPendencia",
+    "acesso": "roles",
+    "papeis": [
+      "tecnico",
+      "supervisor",
+      "engenheiro",
+      "seguranca",
+      "almoxarife"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/obras/:id/pendencias/:pendenciaId/encerrar",
+    "controller": "ObrasController.encerrarPendencia",
+    "acesso": "roles",
+    "papeis": [
+      "supervisor",
+      "engenheiro",
+      "seguranca",
+      "almoxarife",
+      "gestor_suprimentos"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/obras/:id/pendencias/:pendenciaId/prioridade",
+    "controller": "ObrasController.classificarPrioridadePendencia",
+    "acesso": "roles",
+    "papeis": [
+      "supervisor",
+      "engenheiro"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/obras/:id/projeto/reabrir",
+    "controller": "ObrasController.reabrirProjeto",
+    "acesso": "roles",
+    "papeis": [
+      "engenheiro",
+      "diretoria"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/obras/:id/projeto/versoes",
+    "controller": "ObrasController.criarVersaoDeProjeto",
+    "acesso": "roles",
+    "papeis": [
+      "projetista",
+      "engenheiro"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/obras/:id/projeto/versoes/:versaoId/aprovar",
+    "controller": "ObrasController.aprovarProjeto",
+    "acesso": "roles",
+    "papeis": [
+      "engenheiro"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/obras/:id/projeto/versoes/:versaoId/enviar-para-aprovacao",
+    "controller": "ObrasController.enviarProjetoParaAprovacao",
+    "acesso": "roles",
+    "papeis": [
+      "projetista",
+      "engenheiro"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/obras/:id/projeto/versoes/:versaoId/solicitar-revisao",
+    "controller": "ObrasController.solicitarRevisaoDeProjeto",
+    "acesso": "roles",
+    "papeis": [
+      "engenheiro"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/pluggamob/incidents",
+    "controller": "PluggamobController.createIncident",
+    "acesso": "roles",
+    "papeis": [
+      "pluggamob",
+      "admin"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/pluggamob/locations",
+    "controller": "PluggamobController.locations",
+    "acesso": "roles",
+    "papeis": [
+      "pluggamob",
+      "financeiro",
+      "diretoria",
+      "tech",
+      "admin"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/pluggamob/locations/:id",
+    "controller": "PluggamobController.location",
+    "acesso": "roles",
+    "papeis": [
+      "pluggamob",
+      "financeiro",
+      "diretoria",
+      "tech",
+      "admin"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/pluggamob/overview",
+    "controller": "PluggamobController.overview",
+    "acesso": "roles",
+    "papeis": [
+      "pluggamob",
+      "financeiro",
+      "diretoria",
+      "tech",
+      "admin"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/pluggamob/reactivation-queue",
+    "controller": "PluggamobController.reactivationQueue",
+    "acesso": "roles",
+    "papeis": [
+      "pluggamob",
+      "financeiro",
+      "diretoria",
+      "tech",
+      "admin"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/pluggamob/sessions",
+    "controller": "PluggamobController.sessions",
+    "acesso": "roles",
+    "papeis": [
+      "pluggamob",
+      "financeiro",
+      "diretoria",
+      "tech",
+      "admin"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/pluggamob/sessions/:id",
+    "controller": "PluggamobController.session",
+    "acesso": "roles",
+    "papeis": [
+      "pluggamob",
+      "financeiro",
+      "diretoria",
+      "tech",
+      "admin"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/pluggamob/settlements",
+    "controller": "PluggamobController.settlements",
+    "acesso": "roles",
+    "papeis": [
+      "pluggamob",
+      "financeiro",
+      "diretoria",
+      "tech",
+      "admin"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/pluggamob/settlements/:id",
+    "controller": "PluggamobController.settlement",
+    "acesso": "roles",
+    "papeis": [
+      "pluggamob",
+      "financeiro",
+      "diretoria",
+      "tech",
+      "admin"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/pluggamob/settlements/:id/approve",
+    "controller": "PluggamobController.approve",
+    "acesso": "roles",
+    "papeis": [
+      "financeiro",
+      "diretoria",
+      "admin"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/pluggamob/settlements/:id/lines/:lineId/resolve-blocker",
+    "controller": "PluggamobController.resolveBlocker",
+    "acesso": "roles",
+    "papeis": [
+      "financeiro",
+      "admin"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/pluggamob/settlements/:id/request-approval",
+    "controller": "PluggamobController.requestApproval",
+    "acesso": "roles",
+    "papeis": [
+      "financeiro",
+      "admin"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/pluggamob/users/:id",
+    "controller": "PluggamobController.userProfile",
+    "acesso": "roles",
+    "papeis": [
+      "pluggamob",
+      "financeiro",
+      "diretoria",
+      "tech",
+      "admin"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/pluggamob/users/:id/contacts",
+    "controller": "PluggamobController.recordContact",
+    "acesso": "roles",
+    "papeis": [
+      "pluggamob",
+      "admin"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/pluggamob/users/:id/opt-out",
+    "controller": "PluggamobController.optOut",
+    "acesso": "roles",
+    "papeis": [
+      "pluggamob",
+      "admin"
+    ],
+    "guards": [
+      "DevAuthGuard",
+      "RolesGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  }
+]
