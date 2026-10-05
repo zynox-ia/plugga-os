@@ -13,7 +13,6 @@ import { ComprasModule } from "./compras/compras.module";
 import { FiltroGlobalDeExcecoes } from "./common/errors/filtro-global";
 import { validateEnvironment } from "./config/environment";
 import { CoreModule } from "./core/core.module";
-import { EnergyEfficiencyModule } from "./energy-efficiency/estudo.module";
 import { LlmModule } from "./llm/llm.module";
 import { EnergyModule } from "./energy/energy.module";
 import { HealthModule } from "./health/health.module";
@@ -52,7 +51,6 @@ const monorepoRootEnvPath = path.resolve(__dirname, "../../../.env");
     ComprasModule,
     ObrasModule,
     EnergyModule,
-    EnergyEfficiencyModule,
     LlmModule,
     JobsQueueModule,
     BitrixModule,

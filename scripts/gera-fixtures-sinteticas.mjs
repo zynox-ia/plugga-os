@@ -10,6 +10,8 @@ import { fileURLToPath } from "node:url";
 import { cnpjSintetico, cpfSintetico, formataCnpj, formataCpf } from "./dados-sinteticos.mjs";
 
 const SEMENTE = 20261005;
+/** Códigos curtos de mock e de seed (4 dígitos, sequenciais): não identificam cliente. */
+const UCS_DE_MOCK = ["UC-0001", "UC 1290", "UC 2210", "UC 4471", "UC 7702", "UC 8821"];
 const NOMES = ["Cliente Exemplo Alfa", "Cliente Exemplo Beta", "Cliente Exemplo Gama", "Cliente Exemplo Delta"];
 
 /** Gerador congruencial simples: o suficiente para ser reproduzível sem dependência. */
@@ -42,7 +44,7 @@ export function listaDePermitidos(fixtures) {
   return {
     comentario: "Gerado por scripts/gera-fixtures-sinteticas.mjs. Só valores sintéticos; nunca dado de cliente.",
     documentos: [...fixtures.cnpjs, ...fixtures.cpfs],
-    ucs: fixtures.ucs,
+    ucs: [...fixtures.ucs, ...UCS_DE_MOCK],
     nomes: fixtures.nomes,
     arquivos: [],
   };
