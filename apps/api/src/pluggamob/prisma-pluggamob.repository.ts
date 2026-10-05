@@ -2,6 +2,9 @@ import { BadRequestException, Inject, Injectable, NotFoundException } from "@nes
 import type { ActorType } from "@prisma/client";
 import { evUserProfileSchema, incidentResponseSchema, pluggamobLocationsSchema, pluggamobSessionSchema, pluggamobSessionsSchema, reactivationQueueSchema, settlementDetailSchema, settlementsSchema, type EvContactRequest, type EvOptOutRequest, type EvUserProfile, type IncidentRequest, type IncidentResponse, type PluggamobLocations, type PluggamobSessions, type ReactivationQueue, type ResolveBlockerRequest, type SettlementDetail, type Settlements } from "@plugga/shared";
 
+import { AuditAppender } from "../audit/audit-appender";
+import { transicionar } from "../common/concorrencia";
+import { EstadoInvalido } from "../common/errors/dominio";
 import type { AuthPrincipal } from "../core/auth/auth.types";
 import { PrismaService } from "../prisma/prisma.service";
 import { manausDayWindow } from "./manaus-day";
@@ -15,9 +18,14 @@ import { PluggamobRepository, type PluggamobOverviewCounts } from "./pluggamob.r
  */
 const LIMITE_LISTAGEM = 500;
 
+const MENSAGEM_JA_APROVADO = "O fechamento já foi aprovado e não pode voltar para revisão.";
+
 @Injectable()
 export class PrismaPluggamobRepository extends PluggamobRepository {
-  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {
+  constructor(
+    @Inject(PrismaService) private readonly prisma: PrismaService,
+    @Inject(AuditAppender) private readonly auditoria: AuditAppender,
+  ) {
     super();
   }
 
@@ -121,16 +129,29 @@ export class PrismaPluggamobRepository extends PluggamobRepository {
   }
 
   async requestApproval(id: string, principal: AuthPrincipal): Promise<SettlementDetail> {
-    const detail = await this.settlement(id); if (!detail.canClose) throw new BadRequestException("settlement has open blockers");
+    const detail = await this.settlement(id);
+    if (!detail.canClose) throw new BadRequestException("settlement has open blockers");
     // Um settlement aprovado (ou já exportado ao parceiro) não pode regredir
     // para revisão: `approve` aprovaria de novo e apagaria o fato do export.
-    if (detail.status === "approved" || detail.status === "exported") throw new BadRequestException("settlement already approved; it cannot go back to review");
-    await this.prisma.$transaction(async (tx) => { await tx.settlement.update({ where: { id }, data: { status: "ready_for_review" } }); await tx.eventLog.create({ data: { eventName: "pluggamob.settlement_approval_requested", entityType: "settlement", entityId: id, actorType: this.actorType(principal), actorId: principal.id, payload: {}, occurredAt: new Date() } }); }); return this.settlement(id);
+    if (detail.status === "approved" || detail.status === "exported") throw new EstadoInvalido(MENSAGEM_JA_APROVADO);
+    await this.prisma.$transaction(async (tx) => {
+      // A checagem acima roda fora da transação; a condição no UPDATE é o que
+      // impede um `approved` concorrente de voltar a `ready_for_review`.
+      await transicionar(tx.settlement, id, { status: { notIn: ["approved", "exported"] } }, { status: "ready_for_review" }, MENSAGEM_JA_APROVADO);
+      await tx.eventLog.create({ data: { eventName: "pluggamob.settlement_approval_requested", entityType: "settlement", entityId: id, actorType: this.actorType(principal), actorId: principal.id, payload: {}, occurredAt: new Date() } });
+    });
+    return this.settlement(id);
   }
 
   async approve(id: string, principal: AuthPrincipal): Promise<SettlementDetail> {
-    const detail = await this.settlement(id); if (!detail.canClose) throw new BadRequestException("settlement has open blockers"); if (detail.status !== "ready_for_review") throw new BadRequestException("settlement must be ready for review");
-    await this.prisma.$transaction(async (tx) => { await tx.settlement.update({ where: { id }, data: { status: "approved" } }); await tx.eventLog.create({ data: { eventName: "pluggamob.settlement_approved", entityType: "settlement", entityId: id, actorType: this.actorType(principal), actorId: principal.id, payload: {}, occurredAt: new Date() } }); }); return this.settlement(id);
+    const detail = await this.settlement(id);
+    if (!detail.canClose) throw new BadRequestException("settlement has open blockers");
+    if (detail.status !== "ready_for_review") throw new EstadoInvalido("O fechamento precisa estar pronto para revisão para ser aprovado.");
+    await this.prisma.$transaction(async (tx) => {
+      await transicionar(tx.settlement, id, { status: "ready_for_review" }, { status: "approved" }, "Este fechamento já foi aprovado ou mudou de situação. Atualize a página e confira.");
+      await this.auditoria.append(tx, { eventName: "pluggamob.settlement.approved", entityType: "settlement", entityId: id, actorType: this.actorType(principal), actorId: principal.id, payload: {}, occurredAt: new Date() });
+    });
+    return this.settlement(id);
   }
 
   private settlementSummary(row: { id: string; partner: { name: string }; weekStart: Date; weekEnd: Date; status: "draft" | "auditing" | "ready_for_review" | "approved" | "exported" | "blocked"; lines: { amount: { toFixed: (value: number) => string } | null; blockedReason: string | null }[] }) { const total = row.lines.reduce((sum, line) => sum + Number(line.amount?.toFixed(2) ?? 0), 0); return { id: row.id, partnerName: row.partner.name, weekStart: row.weekStart.toISOString(), weekEnd: row.weekEnd.toISOString(), status: row.status, totalAmount: total.toFixed(2), blockerCount: row.lines.filter((line) => line.blockedReason).length }; }

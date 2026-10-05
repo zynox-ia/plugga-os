@@ -230,7 +230,7 @@ class ComprasEmMemoria extends ComprasRepository {
     };
     this.pedidos.set(id, pedido);
     this.abrirPassagem(pedido, "pedido_gerado", null);
-    this.registrar("compras.pedido_criado", id, principal, { numero: pedido.numero });
+    this.registrar("compras.pedido.created", id, principal, { numero: pedido.numero });
     return this.comBloqueios(pedido, principal);
   }
 

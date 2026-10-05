@@ -107,7 +107,7 @@ describe("TRUST_PROXY=true é recusado em produção", () => {
   });
 });
 
-describe("travas otimistas (updateMany condicionado)", () => {
+describe("travas otimistas (updateMany condicionado, direto ou via transicionar)", () => {
   // Piso = quantas existem hoje. Só pode subir: perder uma é voltar a ter corrida.
   const piso: Record<string, number> = {
     "src/commercial/prisma-commercial.repository.ts": 5,
@@ -117,7 +117,7 @@ describe("travas otimistas (updateMany condicionado)", () => {
   };
 
   it.each(Object.entries(piso))("%s mantém ao menos %i updateMany", (arquivo, minimo) => {
-    const total = ler(arquivo).match(/\.updateMany\(/g)?.length ?? 0;
+    const total = ler(arquivo).match(/\.updateMany\(|\btransicionar\(/g)?.length ?? 0;
     expect(total).toBeGreaterThanOrEqual(minimo);
   });
 });
