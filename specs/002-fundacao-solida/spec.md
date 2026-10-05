@@ -73,21 +73,26 @@ Como dono do sistema, quero que o banco **e** os arquivos enviados (faturas, cot
 
 ---
 
-### User Story 4 - Cada empresa só enxerga e altera os próprios dados (Priority: P1)
+### User Story 4 - Cada registro tem empresa e cada pessoa só alcança as empresas que lhe foram dadas (Priority: P1)
 
-Como gestor de uma empresa, quero ter certeza de que uma pessoa com papel na Waze não lê nem altera clientes, oportunidades, ciclos de energia, estudos, faturas ou fechamentos da Plugga, e vice-versa.
+Como gestor, quero que uma pessoa com papel só na Waze não leia nem altere oportunidades, contratos, ciclos de energia, estudos, faturas ou fechamentos da Plugga (e vice-versa), e quero que isso valha em todos os módulos pela mesma regra.
 
-**Why this priority**: hoje um papel concedido em qualquer empresa vale em todas. Só Compras e Obras checam empresa. Nos demais módulos, uma pessoa com papel comercial na Waze acessa, por URL direta ou pela API, registros da Plugga, e um gerente de departamento pode conceder esses papéis.
+O modelo segue o ADR-0013: o sistema é um só, com módulos únicos por função; **empresa é um atributo do registro de negócio** e a pessoa recebe papéis por área e as empresas em que cada papel vale. Cadastros de cliente e de fornecedor ficam fora desta história (são únicos e tratados na spec 003).
 
-**Independent Test**: criar dois usuários, um em cada empresa, com o mesmo papel, e tentar ler, listar, alterar e aprovar registros da outra empresa por todas as rotas do módulo; todas as tentativas devem ser negadas, sem revelar que o registro existe.
+**Why this priority**: hoje um papel concedido em qualquer empresa vale em todas. Só Compras e Obras guardam e checam empresa, cada uma com sua própria cópia da regra. Nos demais módulos, uma pessoa com papel comercial na Waze acessa, por URL direta ou pela API, dados de negócio da Plugga, e um gerente de departamento pode conceder esses papéis.
+
+**Independent Test**: criar dois usuários, um por empresa, com o mesmo papel, e tentar ler, listar, alterar e aprovar registros de negócio da outra empresa por todas as rotas de cada módulo; todas as tentativas devem ser negadas, sem revelar que o registro existe. Repetir com um usuário das duas empresas e com o admin de plataforma.
 
 **Acceptance Scenarios**:
 
-1. **Given** um usuário da empresa A com papel comercial, **When** pede um cliente da empresa B pelo identificador, **Then** recebe "não encontrado".
-2. **Given** o mesmo usuário, **When** lista clientes, oportunidades, contratos, ciclos, estudos ou fechamentos, **Then** só vê os da empresa A.
-3. **Given** um gerente de departamento da empresa A, **When** tenta conceder um papel que vale em outra empresa, **Then** a concessão é negada.
-4. **Given** os dados existentes sem empresa dona, **When** a correção é aplicada, **Then** todos recebem uma empresa conforme a regra decidida pelo dono, nenhum registro é perdido e a mudança é reversível.
-5. **Given** um usuário com acesso às duas empresas (administração), **When** consulta, **Then** vê as duas, com a empresa de cada registro identificada.
+1. **Given** um usuário que alcança só a empresa A, **When** pede por identificador uma oportunidade, contrato, ciclo, estudo, fatura ou fechamento da empresa B, **Then** recebe "não encontrado".
+2. **Given** o mesmo usuário, **When** lista esses registros, **Then** só vê os da empresa A, e totais e indicadores contam só a empresa A.
+3. **Given** um gestor que administra a empresa A, **When** tenta conceder papel ou acesso que vale em outra empresa, **Then** a concessão é negada e fica auditada.
+4. **Given** os dados existentes, **When** o campo de empresa é aplicado, **Then** os registros de Clientes (negócios), Comercial, Energia, Eficiência energética e Pluggamob recebem `plugga`, Compras e Obras mantêm a empresa que já têm, os casos duvidosos vão para fila de decisão manual, nenhum registro é perdido e a mudança é reversível.
+5. **Given** um usuário que alcança as duas empresas (ou admin de plataforma), **When** consulta, **Then** vê as duas, com a empresa de cada registro identificada, e consegue restringir a visão a uma delas.
+6. **Given** uma pessoa com acesso hoje, **When** o novo modelo de acesso é migrado, **Then** ela mantém exatamente o alcance que tinha antes, sem ganhar nem perder acesso por efeito da migração.
+7. **Given** um novo módulo ou rota de negócio, **When** ele consulta dados sem aplicar o escopo de empresa, **Then** um teste automático ou a análise do código falha.
+8. **Given** o filtro de empresa na interface, **When** o usuário escolhe uma empresa que ele não alcança (por manipulação da URL ou da requisição), **Then** o resultado é vazio ou negado, nunca ampliado.
 
 ---
 
@@ -389,9 +394,11 @@ Como dono do produto, quero que o sistema entregue só o que usa e que tenha lic
 
 **Isolamento e autorização**
 
-- **FR-017**: Todo registro de negócio MUST ter uma empresa dona, e toda leitura, listagem, alteração e aprovação MUST respeitar o escopo de empresa (e departamento onde aplicável) do usuário, com resposta "não encontrado" para registro de outra empresa.
-- **FR-018**: A migração de dados existentes para atribuir empresa dona MUST ser aditiva, reversível, sem perda, e MUST deixar para decisão manual os registros cuja empresa não possa ser inferida [NEEDS CLARIFICATION: quais módulos pertencem a qual empresa (Clientes, Comercial, Energia, Eficiência energética e Pluggamob são só da Plugga, ou há clientes e ciclos da Waze?).].
-- **FR-019**: A concessão de papéis MUST ser limitada às empresas e papéis que o concedente administra; papel concedido em uma empresa MUST NOT valer em outra.
+- **FR-017**: Todo registro de negócio (oportunidade, contrato, ciclo, auditoria, estudo, fechamento, pedido, obra, lançamento) MUST ter uma empresa responsável (`plugga` ou `waze`); toda leitura, listagem, totalização, alteração e aprovação MUST aplicar o escopo de empresas permitidas ao usuário, com resposta "não encontrado" para registro de empresa não permitida.
+- **FR-018**: A atribuição de empresa aos registros existentes MUST ser aditiva, reversível e sem perda: registros dos módulos que hoje não têm empresa (negócios de Clientes, Comercial, Energia, Eficiência energética, Pluggamob) recebem `plugga`; Compras e Obras mantêm a que têm; registros duvidosos vão para fila de decisão manual e MUST NOT ser adivinhados (decisão do dono em 2026-10-05, ADR-0013).
+- **FR-019**: O acesso MUST ser modelado por área funcional e empresas em que cada papel vale, e a concessão MUST ser limitada às áreas e empresas que o concedente administra; um papel concedido em uma empresa MUST NOT valer em outra. A migração do modelo atual (empresa e departamento) MUST preservar o alcance de cada pessoa, comprovado por teste de equivalência.
+- **FR-019a**: O cálculo das empresas permitidas MUST ficar em um único componente compartilhado, aplicado por todos os módulos de negócio, absorvendo as duas regras de escopo hoje duplicadas em Compras e Obras; um teste MUST falhar se um módulo de negócio consultar dados sem aplicá-lo.
+- **FR-019b**: O cadastro de cliente e de fornecedor é único e sem empresa dona (ADR-0013); a visibilidade dos dados de negócio ligados a eles segue a empresa do registro. A unificação desses cadastros e do menu é escopo da spec 003 e MUST NOT ser feita nesta feature.
 - **FR-020**: Toda rota MUST declarar explicitamente se é pública ou quais papéis exige; rota sem declaração MUST ser negada.
 - **FR-021**: Um teste automático MUST inventariar todas as rotas e falhar se alguma não declarar acesso ou se a lista de públicas divergir da aprovada.
 - **FR-022**: Parâmetros de identificador em rotas MUST ser validados com formato correto, e valor malformado MUST resultar em "requisição inválida".
@@ -489,8 +496,8 @@ Como dono do produto, quero que o sistema entregue só o que usa e que tenha lic
 
 ### Key Entities
 
-- **Empresa dona**: atributo de todo registro de negócio que indica a qual empresa (Plugga ou Waze) pertence; base do escopo de leitura e escrita.
-- **Escopo de acesso**: conjunto de empresas, departamentos e papéis que um usuário pode exercer; concedido por quem administra a empresa.
+- **Empresa responsável**: atributo de todo registro de negócio que indica quem contrata, vende, paga ou fatura (Plugga ou Waze); base do escopo de leitura e escrita.
+- **Escopo de acesso**: conjunto de papéis por área funcional e, para cada papel, as empresas em que vale (uma ou ambas); concedido por quem administra aquelas empresas. O admin de plataforma alcança as duas por regra de leitura.
 - **Declaração de acesso da rota**: a regra explícita de cada rota (pública ou lista de papéis); sem declaração, acesso negado.
 - **Modo da integração**: estado (`mock`, `read_only`, `bridge`, `write`) que define se uma chamada externa pode ocorrer.
 - **Evento de auditoria**: registro imutável de quem fez o quê e quando, com identificadores e nomes de campos, sem dado pessoal.
@@ -510,7 +517,7 @@ Princípio: primeiro fechar o que permite dano externo imediato e não exige par
 
 1. **Fatia 1, sem tocar dados nem código da aplicação**: US1 (publicação segura), US2 (parte da CI e dos arquivos; histórico depende da decisão), US3 (backup externo e alerta, sem alterar o sistema), US5 (inventário de rotas, em modo de aviso antes de bloquear).
 2. **Fatia 2, correções de código sem migração**: US6 (gate de modo), US7 (atomicidade e auditoria onde não exige migração), US10 (limites de entrada), US11 (login e segredos), US12 (frontend), parte de US8 (parar de gravar dado pessoal em eventos).
-3. **Fatia 3, migrações aditivas**: US4 (empresa dona), US9 (restrições e índices, após resolver duplicatas), vínculos de autoria de US7, retenção de US8. Cada migração tem backup restaurado antes e plano de reversão.
+3. **Fatia 3, migrações aditivas**: US4 (empresa responsável nos registros e escopo único), US9 (restrições e índices, após resolver duplicatas), vínculos de autoria de US7, retenção de US8. Cada migração tem backup restaurado antes e plano de reversão.
 4. **Fatia 4, sustentação**: US13, US14, US15, US16, US17.
 
 ## Success Criteria *(mandatory)*
@@ -551,10 +558,10 @@ Princípio: primeiro fechar o que permite dano externo imediato e não exige par
 - O repositório pode ser privado ou público; a spec trata o caso de fork como risco real em ambos.
 - Um runner de CI dedicado, separado do servidor de produção, é premissa desejável para FR-006; se o custo for impeditivo, a alternativa aceitável é rodar apenas o deploy no servidor e levar os testes para runner hospedado. A escolha é decisão de plano.
 - A política de retenção de dados pessoais usa, até definição do dono, prazos conservadores: sessões 30 dias após expirar; eventos sem valores pessoais indefinidamente; dados de cliente enquanto durar a relação contratual mais o prazo legal aplicável. A validação jurídica final cabe ao dono.
-- A atribuição da empresa dona aos registros existentes segue a decisão do dono (FR-018); enquanto não houver decisão, a aplicação reconhece como padrão a empresa Plugga para os módulos de energia, clientes e Pluggamob e deixa em fila de decisão manual o que for duvidoso.
+- O modelo de empresa segue o ADR-0013 (status Proposto até revisão do ARCHITECT): módulos únicos, empresa como atributo do registro, cadastros de cliente e fornecedor únicos, lançamento financeiro com empresa obrigatória. A reforma de menu, do seletor e dos cadastros únicos fica na spec 003; esta feature só entrega o isolamento por trás disso.
 - Sem usuários externos ainda e com poucas pessoas internas, uma janela curta de manutenção é aceitável, mas não é premissa de nenhuma fatia (SC-026).
 - Meta de recuperação: perda máxima de 24 horas (backup diário) e retomada em até 4 horas.
 - Provedores externos já em uso (Brevo, OpenRouter, Google) continuam; esta feature não os troca.
 - A migração de leitura de fatura para processamento assíncrono (FR-046) pode ser entregue em fatia posterior sem bloquear as demais, desde que os limites de FR-044 e FR-045 já estejam em vigor.
 - Os dados de teste e a restauração de ensaio rodam em ambiente descartável isolado, nunca contra o banco ou os arquivos de produção.
-- Esta feature depende de: conta e chaves do Backblaze B2 criadas pelo dono (FR-011), decisão sobre o modelo de empresa (FR-018); acesso administrativo à VPS para instalar backup e monitoramento; e das specs e ADRs existentes (0005, 0007, 0008, 0011, 0012) como referência.
+- Esta feature depende de: conta e chaves do Backblaze B2 criadas pelo dono (FR-011), aceite do ADR-0013 pelo ARCHITECT; acesso administrativo à VPS para instalar backup e monitoramento; e das specs e ADRs existentes (0005, 0007, 0008, 0011, 0012) como referência.
