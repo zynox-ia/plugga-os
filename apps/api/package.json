@@ -9,7 +9,7 @@
     "db:migrate:deploy": "node scripts/run-local-prisma.mjs migrate deploy",
     "db:seed": "node scripts/run-local-prisma.mjs db seed",
     "dev": "nest start --watch",
-    "lint": "node ../../scripts/verifica-eventlog.mjs && node ../../scripts/verifica-rede-externa.mjs && eslint . --max-warnings=0",
+    "lint": "node ../../scripts/verifica-eventlog.mjs && node ../../scripts/verifica-rede-externa.mjs && node ../../scripts/verifica-sem-http-em-repositorio.mjs && eslint . --max-warnings=0",
     "postinstall": "prisma generate",
     "prebuild": "prisma generate",
     "pretest": "prisma generate",
@@ -23,7 +23,8 @@
     "test:compras": "node scripts/run-flagged-test.mjs RUN_COMPRAS_INTEGRATION_TESTS test/compras.integration.spec.ts",
     "typecheck": "tsc --noEmit",
     "test:llm": "node scripts/run-flagged-test.mjs RUN_LLM_INTEGRATION_TESTS test/llm-consumo.integration.spec.ts",
-    "test:integrations": "node scripts/run-flagged-test.mjs RUN_INTEGRATIONS_INTEGRATION_TESTS test/integracoes-modo.integration.spec.ts"
+    "test:integrations": "node scripts/run-flagged-test.mjs RUN_INTEGRATIONS_INTEGRATION_TESTS test/integracoes-modo.integration.spec.ts",
+    "test:atomicidade": "node scripts/run-flagged-test.mjs RUN_ATOMICIDADE_INTEGRATION_TESTS test/atomicidade-energia.integration.spec.ts test/atomicidade-obras.integration.spec.ts test/atomicidade-comercial.integration.spec.ts test/atomicidade-pluggamob.integration.spec.ts test/numeracao-pedido.integration.spec.ts test/ultimo-admin.integration.spec.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.937.0",

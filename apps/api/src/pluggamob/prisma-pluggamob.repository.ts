@@ -4,7 +4,7 @@ import { evUserProfileSchema, incidentResponseSchema, pluggamobLocationsSchema, 
 
 import { AuditAppender } from "../audit/audit-appender";
 import { transicionar } from "../common/concorrencia";
-import { EstadoInvalido } from "../common/errors/dominio";
+import { EstadoInvalido, NaoEncontrado } from "../common/errors/dominio";
 import type { AuthPrincipal } from "../core/auth/auth.types";
 import { PrismaService } from "../prisma/prisma.service";
 import { manausDayWindow } from "./manaus-day";
@@ -50,13 +50,13 @@ export class PrismaPluggamobRepository extends PluggamobRepository {
 
   async userProfile(id: string): Promise<EvUserProfile> {
     const user = await this.prisma.evUser.findUnique({ where: { id }, include: { segmentHistory: { orderBy: { changedAt: "desc" } }, contacts: { orderBy: { createdAt: "desc" } }, sessions: { include: { location: true }, orderBy: { startedAt: "desc" }, take: 20 }, coupons: { orderBy: { createdAt: "desc" } }, incidents: { where: { status: { in: ["open", "investigating", "blocked"] } } } } });
-    if (!user) throw new NotFoundException("EV user not found");
+    if (!user) throw new NaoEncontrado("Usuário de recarga não encontrado.");
     return evUserProfileSchema.parse({ mode: "mock", id: user.id, displayName: user.displayName, phoneMasked: user.phoneMasked, segment: user.segment, optedOutAt: user.optedOutAt?.toISOString() ?? null, walletBalance: user.walletBalance?.toFixed(2) ?? null, segmentHistory: user.segmentHistory.map((item) => ({ segment: item.segment, changedAt: item.changedAt.toISOString() })), contacts: user.contacts.map((item) => ({ id: item.id, channel: item.channel, outcome: item.outcome, nextActionAt: item.nextActionAt?.toISOString() ?? null, sessionId: item.sessionId, createdAt: item.createdAt.toISOString() })), sessions: user.sessions.map((item) => ({ id: item.id, externalId: item.externalId, status: item.status, startedAt: item.startedAt.toISOString(), locationName: item.location.name, amount: item.amount?.toFixed(2) ?? null })), locations: [...new Set(user.sessions.map((item) => item.location.name))], coupons: user.coupons.map((item) => ({ id: item.id, code: item.code, status: item.status, createdAt: item.createdAt.toISOString() })), openIncidents: user.incidents.map((item) => ({ id: item.id, kind: item.kind, severity: item.severity, summary: item.summary, status: item.status })) });
   }
 
   async recordContact(userId: string, input: EvContactRequest, principal: AuthPrincipal): Promise<EvUserProfile> {
     const user = await this.prisma.evUser.findUnique({ where: { id: userId }, select: { optedOutAt: true } });
-    if (!user) throw new NotFoundException("EV user not found");
+    if (!user) throw new NaoEncontrado("Usuário de recarga não encontrado.");
     if (user.optedOutAt) throw new BadRequestException("opted-out users cannot receive new contacts");
     if (input.sessionId && !(await this.prisma.evSession.findFirst({ where: { id: input.sessionId, userId }, select: { id: true } }))) throw new BadRequestException("linked session does not belong to this EV user");
     await this.prisma.$transaction(async (tx) => {
@@ -68,7 +68,7 @@ export class PrismaPluggamobRepository extends PluggamobRepository {
 
   async optOut(userId: string, input: EvOptOutRequest, principal: AuthPrincipal): Promise<EvUserProfile> {
     const user = await this.prisma.evUser.findUnique({ where: { id: userId }, select: { optedOutAt: true } });
-    if (!user) throw new NotFoundException("EV user not found");
+    if (!user) throw new NaoEncontrado("Usuário de recarga não encontrado.");
     if (!user.optedOutAt) await this.prisma.$transaction(async (tx) => {
       const updated = await tx.evUser.update({ where: { id: userId }, data: { optedOutAt: new Date() } });
       await tx.eventLog.create({ data: { eventName: "pluggamob.user_opted_out", entityType: "ev_user", entityId: userId, actorType: this.actorType(principal), actorId: principal.id, payload: { reason: input.reason ?? null }, occurredAt: updated.optedOutAt! } });
