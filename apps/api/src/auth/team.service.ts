@@ -138,11 +138,9 @@ export class TeamService {
       throw new ForbiddenException("an admin cannot remove their own platform role");
     }
 
-    if (isPlatformAdmin(target.access) && !isPlatformAdmin(access)) {
-      await this.assertNotLastAdmin(target.id);
-    }
-
-    const updated = await this.repository.replaceAccess(userId, access);
+    // A regra do último admin vive no repositório, na mesma transação da escrita
+    // (FR-029): checar aqui, antes, deixaria dois rebaixamentos simultâneos passarem.
+    const updated = await this.repository.replaceAccess(userId, access, actor.id);
     if (!updated) {
       throw new BadRequestException("user not found");
     }
@@ -152,16 +150,6 @@ export class TeamService {
     // papel revogado continuaria valendo pelo TTL do cache, não "na requisição
     // seguinte" como o resto do sistema garante.
     await this.cache.invalidateAllForUser(userId);
-
-    await this.audit.appendEvent({
-      eventName: eventNames.userAccessUpdated,
-      entityType: "user",
-      entityId: userId,
-      actorType: "user",
-      actorId: actor.id,
-      payload: { access },
-      occurredAt: new Date(),
-    });
 
     return this.toTeamMember(updated, actor);
   }
@@ -179,24 +167,12 @@ export class TeamService {
     if (!target) {
       throw new BadRequestException("user not found");
     }
-    if (isPlatformAdmin(target.access)) {
-      await this.assertNotLastAdmin(userId);
-    }
-
-    const user = await this.repository.deactivateUser(userId);
+    // Último admin: regra no repositório, na mesma transação (FR-029).
+    const user = await this.repository.deactivateUser(userId, actor.id);
     if (!user) {
       throw new BadRequestException("user not found");
     }
     await this.sessions.revokeAllForUser(userId);
-    await this.audit.appendEvent({
-      eventName: eventNames.userDeactivated,
-      entityType: "user",
-      entityId: userId,
-      actorType: "user",
-      actorId: actor.id,
-      payload: {},
-      occurredAt: new Date(),
-    });
     return authAcknowledgementSchema.parse({ ok: true });
   }
 
@@ -340,18 +316,6 @@ export class TeamService {
     // convidar não protege nada e só empurra o convite para o admin.
     const concedeveis = new Set<CompanyRoleKey>(["viewer", ...(proprios?.roles ?? [])]);
     return companyRoleKeys.filter((role) => concedeveis.has(role));
-  }
-
-  /** Impede que a última pessoa capaz de administrar a plataforma deixe de ser. */
-  private async assertNotLastAdmin(userId: string): Promise<void> {
-    const membros = await this.repository.listTeam({});
-    const outros = membros.filter(
-      (member) =>
-        member.id !== userId && member.status === "active" && isPlatformAdmin(member.access),
-    );
-    if (outros.length === 0) {
-      throw new BadRequestException("the last platform admin cannot be removed");
-    }
   }
 
   private scopeResponse(actor: ActorScope): TeamListResponse["scope"] {

@@ -150,8 +150,17 @@ export abstract class AuthRepository {
     hostedDomain: string | null,
     now: Date,
   ): Promise<void>;
-  /** Substitui o acesso inteiro da pessoa. Conceder e revogar são a mesma escrita. */
-  abstract replaceAccess(userId: string, access: UserAccess): Promise<AuthUserRecord | null>;
-  abstract deactivateUser(userId: string): Promise<AuthUserRecord | null>;
+  /**
+   * Substitui o acesso inteiro da pessoa. Conceder e revogar são a mesma escrita.
+   * Grava `auth.access.changed` na mesma transação e, se rebaixar o último admin
+   * ativo, lança `EstadoInvalido` sem escrever nada (FR-029).
+   */
+  abstract replaceAccess(
+    userId: string,
+    access: UserAccess,
+    actorId: string,
+  ): Promise<AuthUserRecord | null>;
+  /** Desativa e grava `auth.user.deactivated` na mesma transação; mesma regra do último admin. */
+  abstract deactivateUser(userId: string, actorId: string): Promise<AuthUserRecord | null>;
   abstract listTeam(filter: TeamFilter): Promise<TeamMemberRecord[]>;
 }
