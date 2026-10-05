@@ -87,6 +87,20 @@ jobs:
           zricethezav/gitleaks:v8.28.0
           detect --source=/repo --redact --verbose
 
+      # Dado de cliente real fora do git (spec 002, US2). Modo aviso: relata, não
+      # falha, até os dados reais saírem da árvore (T043 liga o modo --strict).
+      # Os nomes vêm do segredo CLIENT_NAMES (um por linha); sem ele só
+      # documentos e unidades consumidoras são procurados. O relatório não traz valores.
+      - name: Scan tree for real client data (warning mode)
+        env:
+          CLIENT_NAMES: ${{ secrets.CLIENT_NAMES }}
+        run: |
+          if [ -n "$CLIENT_NAMES" ]; then
+            printf '%s\n' "$CLIENT_NAMES" > "$RUNNER_TEMP/client-names.txt"
+            export CLIENT_NAMES_FILE="$RUNNER_TEMP/client-names.txt"
+          fi
+          node scripts/scan-dados-cliente.mjs --tree
+
       - name: Build shared package for workspace consumers
         run: pnpm --filter @plugga/shared build
 
