@@ -3,8 +3,10 @@ import { ConfigService } from "@nestjs/config";
 import { emailStatusSchema, type EmailStatus } from "@plugga/shared";
 
 import { DevAuthGuard } from "../core/auth/dev-auth.guard";
+import { Roles } from "../core/auth/roles.decorator";
 import { RolesGuard } from "../core/auth/roles.guard";
 
+@Roles("admin", "tech")
 @Controller("email")
 @UseGuards(DevAuthGuard, RolesGuard)
 export class EmailStatusController {

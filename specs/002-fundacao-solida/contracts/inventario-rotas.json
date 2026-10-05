@@ -17,7 +17,7 @@
     "metodo": "POST",
     "caminho": "/auth/accept-invite",
     "controller": "AuthController.acceptInvite",
-    "acesso": "undeclared",
+    "acesso": "public",
     "papeis": [],
     "guards": [
       "OriginCheckGuard",
@@ -28,7 +28,7 @@
     "metodo": "POST",
     "caminho": "/auth/google",
     "controller": "AuthController.google",
-    "acesso": "undeclared",
+    "acesso": "public",
     "papeis": [],
     "guards": [
       "OriginCheckGuard",
@@ -39,7 +39,7 @@
     "metodo": "POST",
     "caminho": "/auth/invite",
     "controller": "TeamController.invite",
-    "acesso": "undeclared",
+    "acesso": "authenticated",
     "papeis": [],
     "guards": [
       "OriginCheckGuard",
@@ -51,7 +51,7 @@
     "metodo": "POST",
     "caminho": "/auth/login",
     "controller": "AuthController.login",
-    "acesso": "undeclared",
+    "acesso": "public",
     "papeis": [],
     "guards": [
       "OriginCheckGuard",
@@ -62,7 +62,7 @@
     "metodo": "POST",
     "caminho": "/auth/logout",
     "controller": "AuthController.logout",
-    "acesso": "undeclared",
+    "acesso": "authenticated",
     "papeis": [],
     "guards": [
       "DevAuthGuard",
@@ -74,7 +74,7 @@
     "metodo": "GET",
     "caminho": "/auth/me",
     "controller": "AuthController.me",
-    "acesso": "undeclared",
+    "acesso": "authenticated",
     "papeis": [],
     "guards": [
       "DevAuthGuard"
@@ -84,7 +84,7 @@
     "metodo": "POST",
     "caminho": "/auth/reset/confirm",
     "controller": "AuthController.confirmReset",
-    "acesso": "undeclared",
+    "acesso": "public",
     "papeis": [],
     "guards": [
       "OriginCheckGuard",
@@ -95,7 +95,7 @@
     "metodo": "POST",
     "caminho": "/auth/reset/request",
     "controller": "AuthController.requestReset",
-    "acesso": "undeclared",
+    "acesso": "public",
     "papeis": [],
     "guards": [
       "OriginCheckGuard",
@@ -106,7 +106,7 @@
     "metodo": "GET",
     "caminho": "/auth/users",
     "controller": "TeamController.list",
-    "acesso": "undeclared",
+    "acesso": "authenticated",
     "papeis": [],
     "guards": [
       "DevAuthGuard"
@@ -116,7 +116,7 @@
     "metodo": "PUT",
     "caminho": "/auth/users/:id/access",
     "controller": "TeamController.updateAccess",
-    "acesso": "undeclared",
+    "acesso": "authenticated",
     "papeis": [],
     "guards": [
       "OriginCheckGuard",
@@ -128,7 +128,7 @@
     "metodo": "POST",
     "caminho": "/auth/users/:id/deactivate",
     "controller": "TeamController.deactivate",
-    "acesso": "undeclared",
+    "acesso": "authenticated",
     "papeis": [],
     "guards": [
       "OriginCheckGuard",
@@ -140,7 +140,7 @@
     "metodo": "POST",
     "caminho": "/auth/users/:id/resend-invite",
     "controller": "TeamController.resendInvite",
-    "acesso": "undeclared",
+    "acesso": "authenticated",
     "papeis": [],
     "guards": [
       "OriginCheckGuard",
@@ -791,8 +791,11 @@
     "metodo": "GET",
     "caminho": "/email/status",
     "controller": "EmailStatusController.status",
-    "acesso": "undeclared",
-    "papeis": [],
+    "acesso": "roles",
+    "papeis": [
+      "admin",
+      "tech"
+    ],
     "guards": [
       "DevAuthGuard",
       "RolesGuard"
@@ -1391,7 +1394,7 @@
     "metodo": "GET",
     "caminho": "/health",
     "controller": "HealthController.check",
-    "acesso": "undeclared",
+    "acesso": "public",
     "papeis": [],
     "guards": []
   },

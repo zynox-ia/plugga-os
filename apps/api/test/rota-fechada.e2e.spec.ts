@@ -1,7 +1,16 @@
-import { type INestApplication, Logger } from "@nestjs/common";
+import { type INestApplication, Controller, Get, Logger } from "@nestjs/common";
 import { Test } from "@nestjs/testing";
 import request from "supertest";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+
+/** Depois da aprovação do inventário (T068) nenhuma rota real fica sem declaração; este controller de teste faz esse papel. */
+@Controller("teste-sem-declaracao")
+class RotaSemDeclaracaoController {
+  @Get()
+  aberta(): { ok: true } {
+    return { ok: true };
+  }
+}
 
 async function sobe(modo?: "warn" | "enforce"): Promise<INestApplication> {
   if (modo) process.env.ROUTE_GUARD_MODE = modo;
@@ -10,7 +19,7 @@ async function sobe(modo?: "warn" | "enforce"): Promise<INestApplication> {
   // segundo app reaproveitaria o modo do primeiro.
   vi.resetModules();
   const { AppModule } = await import("../src/app.module");
-  const modulo = await Test.createTestingModule({ imports: [AppModule] }).compile();
+  const modulo = await Test.createTestingModule({ imports: [AppModule], controllers: [RotaSemDeclaracaoController] }).compile();
   const app = modulo.createNestApplication();
   await app.init();
   return app;
@@ -35,10 +44,10 @@ describe("rota fechada por padrão (e2e)", () => {
     it("não nega a rota sem declaração, e a registra no log", async () => {
       const aviso = vi.spyOn(Logger.prototype, "warn").mockImplementation(() => {});
 
-      await request(app.getHttpServer()).get("/health").expect(200);
+      await request(app.getHttpServer()).get("/teste-sem-declaracao").expect(200);
 
       const mensagens = aviso.mock.calls.map((c) => String(c[0]));
-      expect(mensagens).toContain("rota sem declaração de acesso (undeclared): HealthController.check");
+      expect(mensagens).toContain("rota sem declaração de acesso (undeclared): RotaSemDeclaracaoController.aberta");
     });
 
     it("rota que declara o acesso não gera aviso", async () => {
@@ -63,10 +72,14 @@ describe("rota fechada por padrão (e2e)", () => {
     });
 
     it("nega a rota sem declaração com o envelope de erro", async () => {
-      const resposta = await request(app.getHttpServer()).get("/health").expect(403);
+      const resposta = await request(app.getHttpServer()).get("/teste-sem-declaracao").expect(403);
 
       expect(resposta.body.codigo).toBe("ACESSO_NEGADO");
       expect(resposta.body.requestId).toBeTruthy();
+    });
+
+    it("rota pública aprovada segue aberta", async () => {
+      await request(app.getHttpServer()).get("/health").expect(200);
     });
   });
 });

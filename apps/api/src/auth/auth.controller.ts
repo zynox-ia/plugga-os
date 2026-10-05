@@ -18,6 +18,7 @@ import {
   type SessionUser,
 } from "@plugga/shared";
 
+import { Authenticated, Public } from "../core/auth/access.decorators";
 import { ZodValidationPipe } from "../common/zod-validation.pipe";
 import type { AuthPrincipal } from "../core/auth/auth.types";
 import { CurrentPrincipal } from "../core/auth/current-principal.decorator";
@@ -41,6 +42,7 @@ export class AuthController {
     @Inject(ConfigService) private readonly config: ConfigService,
   ) {}
 
+  @Public()
   @Post("login")
   @HttpCode(200)
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
@@ -69,6 +71,7 @@ export class AuthController {
    * foram provadas neste ponto, e deixar entrada de atacante escolher qual
    * conta bloquear transformaria a proteção numa negação de serviço dirigida.
    */
+  @Public()
   @Post("google")
   @HttpCode(200)
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
@@ -98,6 +101,7 @@ export class AuthController {
   // read, not a brute-force target like login/invite/reset, so it's exempt
   // from the controller's default per-IP throttle (which would otherwise
   // falsely sign users out under normal traffic, e.g. behind a shared proxy IP).
+  @Authenticated()
   @Get("me")
   @SkipThrottle()
   @UseGuards(DevAuthGuard)
@@ -109,6 +113,7 @@ export class AuthController {
     return this.service.me(principal, rawToken);
   }
 
+  @Authenticated()
   @Post("logout")
   @HttpCode(200)
   @UseGuards(DevAuthGuard, OriginCheckGuard, ThrottlerGuard)
@@ -123,6 +128,7 @@ export class AuthController {
     return result;
   }
 
+  @Public()
   @Post("accept-invite")
   @HttpCode(200)
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
@@ -133,6 +139,7 @@ export class AuthController {
     return this.service.acceptInvite(input);
   }
 
+  @Public()
   @Post("reset/request")
   @HttpCode(200)
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
@@ -143,6 +150,7 @@ export class AuthController {
     return this.service.requestReset(input);
   }
 
+  @Public()
   @Post("reset/confirm")
   @HttpCode(200)
   @Throttle({ default: { limit: 10, ttl: 60_000 } })

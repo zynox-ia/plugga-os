@@ -158,7 +158,7 @@ Monorepo pnpm: `apps/api/src/`, `apps/api/prisma/`, `apps/api/test/`, `apps/web/
 - [X] T065 [P] [US5] Criar os marcadores `@Public()` e `@Authenticated()` em `apps/api/src/core/auth/access.decorators.ts` ao lado de `roles.decorator.ts`
 - [X] T066 [P] [US5] Escrever o teste de inventário em `apps/api/test/inventario-rotas.e2e.spec.ts`: sobe o app, usa `DiscoveryService` e `Reflector` para listar método, caminho (com prefixo global), `Controller.handler`, `acesso`, `papeis`, `guards`, gera `specs/002-fundacao-solida/contracts/inventario-rotas.json` e compara com o versionado
 - [X] T067 [US5] Gerar o inventário atual (130 rotas em 19 controllers) e marcar quais estão `undeclared`; entregar ao dono a lista de rotas candidatas a `public` (saúde, login, convite, redefinição, Google) para aprovação em `specs/002-fundacao-solida/contracts/inventario-rotas.md`
-- [ ] T068 [DONO] [US5] Aprovar a lista de rotas públicas
+- [X] T068 [DONO] [US5] Aprovar a lista de rotas públicas
 - [X] T069 [US5] Criar o guard global em modo aviso em `apps/api/src/core/auth/rota-fechada.guard.ts`, controlado por `ROUTE_GUARD_MODE=warn|enforce` (padrão `warn`), que registra em log toda rota sem marcador, sem negar; registrar como `APP_GUARD` em `apps/api/src/core/core.module.ts`; incluir a variável em `apps/api/src/config/environment.ts` e `.env.example`
 - [X] T070 [US5] Confirmar nos logs de uma execução local que só as rotas esperadas aparecem como `undeclared` (cobertura do inventário)
 
