@@ -27,7 +27,7 @@ Data: 2026-10-05. Análise somente leitura, feita sobre `spec.md`, `plan.md`, `t
 | Requisito | Tarefas |
 |---|---|
 | FR-001, FR-002, FR-004 | T304, T305, T313, T314 |
-| FR-003 | T316, T317, T318 |
+| FR-003 | T316, T318 |
 | FR-005, FR-006, FR-007, FR-008 | T308, T309, T321 a T329 |
 | FR-009 | T306, T307, T309 |
 | FR-010 | T310, T332 |
