@@ -183,7 +183,7 @@ export const FALLBACK_MARKET_MIGRATIONS: MarketMigrationSummary[] = [
     clientId: null,
     clientName: null,
     consumerUnitId: "00000000-0000-4000-8000-000000007003",
-    consumerUnitCode: "UC 0087367",
+    consumerUnitCode: "UC 9999001",
     stage: "denuncia",
     status: "em_andamento",
     ownerId: "00000000-0000-4000-8000-000000009003",

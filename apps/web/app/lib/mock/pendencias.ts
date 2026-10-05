@@ -46,7 +46,7 @@ export const INITIAL_PENDING_ITEMS: PendingItem[] = [
   },
   {
     id: "pend-2",
-    title: "Enviar relatório OPM · UC 0087367",
+    title: "Enviar relatório OPM · UC 9999001",
     area: "OPM",
     owner: "Camila P.",
     dueDate: "2026-08-04",
