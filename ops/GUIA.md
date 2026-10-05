@@ -95,49 +95,13 @@ git push
 
 ### O corpus de faturas
 
-As fixtures que provam o leitor contra fatura de verdade **não estão no
-repositório**. Elas carregam o dado do cliente inteiro — nome, CNPJ, unidade
-consumidora, endereço — porque é isso que o leitor tem de provar que extrai e é
-isso que o relatório entrega. Anonimizar quebraria a prova; o que muda é o
-lugar: git é permanente, replica em todo clone e não tem revogação.
-
-O corpus mora no balde `plugga-corpus-faturas` do armazenamento da VPS. Cada caso usa
-um único slug e guarda o par `<slug>.pagina.json` + `<slug>.pdf`: a geometria
-congelada e o PDF original que a produziu.
-
-```bash
-# com o túnel do armazenamento de pé e CORPUS_* no .env
-pnpm --filter @plugga/api corpus:baixar      # traz para apps/api/test/corpus
-pnpm --filter @plugga/api corpus:publicar    # sobe os JSONs e PDFs que estão lá
-```
-
-A pasta de destino é ignorada pelo git — a proteção não depende de ninguém
-lembrar. O PDF original nunca vai para o Git; ele fica somente nessa pasta
-ignorada e no balde dedicado, onde pode ser revogado.
-
-Acrescentar uma fatura ao corpus são três passos, e eles escrevem em lugares
-diferentes de propósito:
-
-```bash
-pnpm --filter @plugga/api fatura:congelar <arquivo> --nome <slug>
-#   apps/api/test/corpus/<slug>.pagina.json          → a fatura, fora do git
-#   apps/api/src/.../fatura/<slug>.corpus.spec.ts    → o teste, para commitar
-# preserve o mesmo arquivo original, com exatamente o mesmo slug:
-cp "<arquivo>" apps/api/test/corpus/<slug>.pdf
-pnpm --filter @plugga/api corpus:publicar
-```
-
-O JSON e o PDF original são a fatura do cliente e ficam na pasta ignorada; o
-spec é código e fica ao lado do leitor que ele prova. `fatura:congelar` gera o
-JSON e o spec, mas não copia o PDF: preservar o original como `<slug>.pdf` é o
-passo explícito acima. Congelar também **não** publica: `corpus:publicar` envia
-os dois arquivos para o balde, e subir continua sendo um efeito pedido, nunca
-um efeito colateral.
-
-**Sem as chaves nada quebra.** Os testes de corpus pulam com uma mensagem
-dizendo por quê, e o resto da suíte roda igual. Quem não tem acesso ainda tem
-`sintetica.spec.ts`, uma fatura fabricada — sem cliente nenhum — que prova o
-leitor em qualquer máquina, sem credencial e sem rede.
+O leitor e a auditoria de faturas (módulo `energy-efficiency`, pacote
+`auditoria-oraculo`, scripts e testes de corpus) foram removidos da árvore na
+spec 002 (US2): carregavam dado real de cliente. Eles voltam por uma spec
+própria, com fixtures sintéticas desde o início (faixa reservada em
+`specs/002-fundacao-solida/quickstart.md`). O balde `plugga-corpus-faturas` e o
+script `ops/prepara-corpus.sh` continuam existindo na VPS; o conteúdo do balde só
+sai por decisão do dono.
 
 As chaves ficam em `/root/.plugga-corpus.env` na VPS. São duas: a de **leitura**
 vai para os secrets `CORPUS_LEITOR_ACCESS_KEY`/`CORPUS_LEITOR_SECRET_KEY` do

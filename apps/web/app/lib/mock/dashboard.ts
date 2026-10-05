@@ -37,7 +37,7 @@ export const DASHBOARD_TABS: DashboardTab[] = [
     label: "Hoje",
     attention: [
       { id: "hoje-1", title: "Fechamento EV Point · sem. 28/jul–03/ago", area: "Financeiro", status: "Aprovar", variant: "warning" },
-      { id: "hoje-2", title: "Relatório OPM · UC 0087367", area: "OPM", status: "Envio", variant: "warning" },
+      { id: "hoje-2", title: "Relatório OPM · UC 9999001", area: "OPM", status: "Envio", variant: "warning" },
       { id: "hoje-3", title: "Cotação fornecedor · peças EV Point", area: "Compras", status: "Aprovar", variant: "warning" },
     ],
   },

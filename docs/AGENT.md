@@ -13,6 +13,10 @@ PagBank, WhatsApp, Telegram, OpenClaw, cron, or production service.
 
 - Never commit secrets, credentials, real endpoints, production payloads, or
   unmasked personal data. Use `.env.example` placeholders only.
+- Real customer data (CNPJ, CPF, consumer-unit numbers, customer names) never goes
+  into git, specs or docs. Use the synthetic range documented in
+  `specs/002-fundacao-solida/quickstart.md`; CI runs `scripts/scan-dados-cliente.mjs`
+  and fails on a hit.
 - All integration registrations and adapters are `mock`. No production SDK or
   real network adapter belongs in Block A.
 - WhatsApp and Telegram handlers are no-op mocks. They may validate and audit a
