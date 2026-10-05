@@ -1,5 +1,6 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Inject, Injectable, Logger } from "@nestjs/common";
 
+import { IntegrationGate } from "../integrations/integration-gate";
 import { ChaveDeLlmService } from "./chave.service.js";
 import { ConsumoRepository } from "./consumo.repository.js";
 import type { ProcessoLlm } from "./processo.js";
@@ -26,6 +27,13 @@ import type { ProcessoLlm } from "./processo.js";
  * envelhece calada, e um relatório de custo errado é pior que nenhum — decide-se
  * em cima dele.
  */
+
+/**
+ * Chave da integração no catálogo (`integrations.key`). A chamada real só sai
+ * com ela em `read_only` ou mais aberto; em `mock` (ou sem registro) o gateway
+ * devolve um resultado simulado e não toca a rede (spec 002, US6).
+ */
+export const OPENROUTER_INTEGRATION_KEY = "openrouter";
 
 const BASE = process.env.OPENROUTER_BASE_URL || "https://openrouter.ai/api/v1";
 const MODELO_PADRAO = process.env.OPENROUTER_MODELO || "anthropic/claude-sonnet-4.5";
@@ -115,6 +123,12 @@ export type PedidoAoModelo = {
 };
 
 export type RespostaDoModelo = {
+  /**
+   * `true` quando a integração está em modo `mock`: nenhuma chamada externa foi
+   * feita e `texto` está vazio. Quem consome TEM de olhar isto antes de usar o
+   * texto e mostrar ao usuário que o resultado é simulado.
+   */
+  simulado: boolean;
   texto: string;
   tokensEntrada: number;
   tokensSaida: number;
@@ -173,11 +187,17 @@ export class OpenRouterGateway {
   private readonly logger = new Logger(OpenRouterGateway.name);
 
   constructor(
-    private readonly consumo: ConsumoRepository,
-    private readonly chaves: ChaveDeLlmService,
+    @Inject(ConsumoRepository) private readonly consumo: ConsumoRepository,
+    @Inject(ChaveDeLlmService) private readonly chaves: ChaveDeLlmService,
+    @Inject(IntegrationGate) private readonly gate: IntegrationGate,
   ) {}
 
   async completar(pedido: PedidoAoModelo): Promise<ResultadoDoModelo> {
+    // Antes de tudo, antes até de ler a chave: em mock nada sai e nada é lido.
+    if (!(await this.gate.permite(OPENROUTER_INTEGRATION_KEY, "read_only"))) {
+      return this.simular(pedido);
+    }
+
     // Do cofre, com o ambiente como reserva: quem troca a chave pela tela espera
     // que ela passe a valer, e um `.env` esquecido vencendo a tela em silêncio
     // seria a pior falha possível — tudo seguiria funcionando com a credencial
@@ -265,6 +285,7 @@ export class OpenRouterGateway {
 
       return {
         ok: true,
+        simulado: false,
         texto,
         tokensEntrada: dados.usage?.prompt_tokens ?? 0,
         tokensSaida: dados.usage?.completion_tokens ?? 0,
@@ -276,6 +297,32 @@ export class OpenRouterGateway {
       await this.registrar(pedido, modelo, {}, comecou, "erro", detalhe);
       return { ok: false, motivo: "falha", detalhe };
     }
+  }
+
+  /**
+   * Resposta de modo `mock`: sem rede, sem chave, sem custo, mas com linha no
+   * registro de consumo (`modelo: "simulado"`) — a chamada simulada aparece no
+   * relatório em vez de sumir, e se distingue das reais pelo modelo.
+   */
+  private async simular(pedido: PedidoAoModelo): Promise<ResultadoDoModelo> {
+    await this.registrar(
+      pedido,
+      "simulado",
+      { model: "simulado" },
+      Date.now(),
+      "ok",
+      null,
+    );
+    this.logger.log(`${pedido.processo}: integração em modo mock, nenhuma chamada externa foi feita`);
+    return {
+      ok: true,
+      simulado: true,
+      texto: "",
+      tokensEntrada: 0,
+      tokensSaida: 0,
+      custoCreditos: 0,
+      modeloServido: "simulado",
+    };
   }
 
   /**

@@ -25,6 +25,7 @@ const integrationRows = [
   { key: 'whatsapp', name: 'WhatsApp', owner: 'Operações' },
   { key: 'telegram', name: 'Telegram', owner: 'Tecnologia' },
   { key: 'rapidapi', name: 'RapidAPI', owner: 'Tecnologia' },
+  { key: 'openrouter', name: 'OpenRouter (modelo de linguagem)', owner: 'Tecnologia' },
 ] as const;
 
 const companyRows = [
