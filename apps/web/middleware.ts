@@ -96,10 +96,9 @@ async function hasValidSession(request: NextRequest): Promise<boolean> {
  * pages stay public so a signed-out visitor can always reach them.
  *
  * 🔒 SEGURANÇA [VULN-4]: também roda sob `/api/*` (matcher ampliado abaixo)
- * para que o CSP com nonce cubra as rotas HTML servidas por proxy, como o
- * relatório de eficiência energética (`/api/energia/estudos/[id]/documento`,
- * vetor do VULN-1) — sem isso, o endpoint que mais precisava da segunda
- * camada de defesa contra XSS ficava fora dela. O auth-gate abaixo continua
+ * para que o CSP com nonce cubra rotas HTML servidas por proxy (o vetor do
+ * VULN-1 era um relatório HTML assim) — sem isso, esse tipo de endpoint
+ * ficaria fora da segunda camada de defesa contra XSS. O auth-gate abaixo continua
  * restrito a navegação de página: rotas `/api/*` fazem sua própria checagem
  * de sessão (repassando o cookie para a API) e não devem ser redirecionadas.
  */

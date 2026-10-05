@@ -16,7 +16,6 @@ vi.mock("@aws-sdk/client-s3", () => ({
 }));
 
 import { ArmazenamentoDeCotacoes } from "../../compras/armazenamento-de-cotacoes.js";
-import { ArmazenamentoDeFaturas } from "../../energy-efficiency/fatura/armazenamento.js";
 import { ArmazenamentoDeEvidencias } from "../../obras/armazenamento-de-evidencias.js";
 
 /**
@@ -40,14 +39,6 @@ describe("adaptadores de armazenamento escolhem o balde pelo departamento", () =
     process.env = { ...originais };
   });
 
-  it("fatura de energia vai para plugga-energia-opm", async () => {
-    const resultado = await new ArmazenamentoDeFaturas().guardar(pdf, "application/pdf", "fatura.pdf");
-
-    expect(resultado.chave).toMatch(/^faturas\/[0-9a-f]{16}\/fatura\.pdf$/);
-    expect(enviados).toHaveLength(1);
-    expect(enviados[0]?.Bucket).toBe("plugga-energia-opm");
-  });
-
   it("cotação da Plugga vai para plugga-financeiro", async () => {
     await new ArmazenamentoDeCotacoes().guardar(pdf, "application/pdf", "orcamento.pdf", "plugga");
 
@@ -69,10 +60,9 @@ describe("adaptadores de armazenamento escolhem o balde pelo departamento", () =
   it("STORAGE_BUCKET legado é ignorado: o balde vem do departamento", async () => {
     process.env.STORAGE_BUCKET = "plugga-faturas";
 
-    await new ArmazenamentoDeFaturas().guardar(pdf, "application/pdf", "fatura.pdf");
     await new ArmazenamentoDeEvidencias().guardar(pdf, "application/pdf", "foto.pdf");
 
-    expect(enviados.map((e) => e.Bucket)).toEqual(["plugga-energia-opm", "waze-engenharia-obras"]);
+    expect(enviados.map((e) => e.Bucket)).toEqual(["waze-engenharia-obras"]);
   });
 
   it("cotação com empresa inválida falha em vez de escolher um balde qualquer", async () => {
@@ -80,14 +70,5 @@ describe("adaptadores de armazenamento escolhem o balde pelo departamento", () =
       new ArmazenamentoDeCotacoes().guardar(pdf, "application/pdf", "o.pdf", "outra" as never),
     ).rejects.toThrow();
     expect(enviados).toHaveLength(0);
-  });
-
-  it("basta o endereço do servidor para considerar o armazenamento configurado", async () => {
-    // Antes exigia também STORAGE_BUCKET; sem ele o balde é derivado.
-    delete process.env.STORAGE_BUCKET;
-
-    const resultado = await new ArmazenamentoDeFaturas().guardar(pdf, "application/pdf", "fatura.pdf");
-
-    expect(resultado.chave).not.toBeNull();
   });
 });

@@ -7,7 +7,6 @@ import type {
   ContractDetail,
   ContractList,
   CycleDetail,
-  EnergyStudyDetail,
   CycleReportsResponse,
   EmailStatus,
   ListAuditsResponse,
@@ -15,7 +14,6 @@ import type {
   ListConsumerUnitsResponse,
   ListContestationsResponse,
   ListCyclesResponse,
-  ListEnergyStudiesResponse,
   ListIntegrationsResponse,
   ListJobRunsResponse,
   ListMarketMigrationsResponse,
@@ -357,36 +355,6 @@ export async function fetchConsumerUnits(): Promise<ListConsumerUnitsResponse | 
     });
     if (!response.ok) return null;
     return (await response.json()) as ListConsumerUnitsResponse;
-  } catch {
-    return null;
-  }
-}
-
-/** Server-side only: GET /energy-efficiency/studies. */
-export async function fetchEnergyStudies(): Promise<ListEnergyStudiesResponse | null> {
-  try {
-    const response = await fetch(`${apiBaseUrl()}/energy-efficiency/studies`, {
-      cache: "no-store",
-      headers: await sessionCookieHeaders(),
-      signal: AbortSignal.timeout(FETCH_TIMEOUT_TUNEL_MS),
-    });
-    if (!response.ok) return null;
-    return (await response.json()) as ListEnergyStudiesResponse;
-  } catch {
-    return null;
-  }
-}
-
-/** Server-side only: GET /energy-efficiency/studies/:id. */
-export async function fetchEnergyStudy(id: string): Promise<EnergyStudyDetail | null> {
-  try {
-    const response = await fetch(`${apiBaseUrl()}/energy-efficiency/studies/${id}`, {
-      cache: "no-store",
-      headers: await sessionCookieHeaders(),
-      signal: AbortSignal.timeout(FETCH_TIMEOUT_TUNEL_MS),
-    });
-    if (!response.ok) return null;
-    return (await response.json()) as EnergyStudyDetail;
   } catch {
     return null;
   }
