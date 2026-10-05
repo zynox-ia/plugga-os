@@ -299,3 +299,116 @@ Para forçar um backup agora:
 ```bash
 ssh plugga-vps '/root/backup-plugga.sh'
 ```
+
+### Backup externo
+
+Além do backup local, existe o **backup externo cifrado** (`ops/backup-externo.sh`): banco
+e arquivos de negócio saem da VPS para um bucket B2 privado, cifrados com `age` para dois
+destinatários. Formato completo em `specs/002-fundacao-solida/contracts/backup-formato.md`.
+
+```text
+b2://<bucket>/diario/AAAA/MM/plugga-os-AAAAMMDDTHHMMSSZ.tar.age
+b2://<bucket>/diario/AAAA/MM/plugga-os-AAAAMMDDTHHMMSSZ.manifesto.json
+b2://<bucket>/mensal/AAAA/...        # um por mês, retido por 12 meses
+```
+
+- **Quem lê:** só quem tem uma chave privada `age`: a do **dono** (guardada offline, nunca na
+  VPS) ou a de **teste** (`/root/.plugga-restauracao.key`, só na VPS, para a restauração semanal).
+- **Quem escreve:** a VPS, com uma chave do B2 que **só grava**. Quem invade a VPS não apaga nem
+  lê o histórico.
+- **Segredos:** ficam em arquivo de ambiente de modo 600 (`/root/.plugga-backup-externo.env`),
+  nunca na linha de comando.
+- **Alerta:** cada rotina manda um ping de sucesso (e `/fail` em erro) ao serviço de
+  heartbeat; sem ping em 26 h (diária) ou 8 dias (semanal), o alerta dispara.
+- **Prova de que restaura:** `ops/restaurar-teste.sh --externo` baixa o mais recente,
+  confere SHA-256 e manifesto, decifra com a chave de teste, restaura num Postgres descartável
+  e compara linhas por tabela e objetos por balde. Roda toda semana e registra em
+  `/var/log/plugga-restaura-teste.log`.
+
+Ensaios locais (sem VPS, sem Docker, sem B2): `bash ops/backup-externo.test.sh`,
+`bash ops/restaurar-teste.test.sh` e `bash ops/instala-agendamentos.test.sh`.
+
+## Recuperação de desastre
+
+Quando usar: a VPS foi perdida ou está irrecuperável. **Metas: voltar em até 4 horas, perdendo
+no máximo 24 horas de dados** (o último backup diário).
+
+> Este roteiro foi escrito a partir do formato do backup e dos scripts testados, mas **ainda
+> não foi ensaiado com a chave do dono, num servidor limpo e com o B2 real** (tarefa T064).
+> Até esse ensaio, o tempo real não é conhecido. Faça o ensaio uma vez, com calma, e anote o
+> resultado na tabela do fim desta seção.
+
+**O que você precisa ter em mãos** (antes de começar, não durante o desastre):
+
+1. A **chave privada `age` do dono** (arquivo guardado offline). Sem ela e sem a de teste, o
+   backup não abre. Confira agora onde ela está.
+2. Uma **chave de leitura do B2** e o nome do bucket (cofre de senhas do dono).
+3. Acesso ao repositório `zynox-ia/plugga-os` e ao DNS do domínio.
+
+**Passo a passo**
+
+1. **Servidor novo.** Instale Docker, `git`, `age` e `postgresql-client`. Clone o repositório:
+
+   ```bash
+   git clone https://github.com/zynox-ia/plugga-os.git && cd plugga-os
+   ```
+
+2. **Arquivos de ambiente.** Recrie o `.env` de produção a partir do cofre de senhas (o modelo
+   é o `.env.example`) e o `/root/.plugga-backup-externo.env` com `DESTINO_URL`,
+   `DESTINO_LEITURA_URL` e `DESTINO_BALDE`. Modo 600 nos dois.
+
+3. **Baixar o backup mais recente.** Com a chave de leitura, pegue o `.tar.age` e o
+   `.manifesto.json` do mesmo nome em `diario/` (ou do `mensal/` se precisar voltar mais).
+   Se o último estiver corrompido, use o dia anterior; é o motivo de existirem vários.
+
+4. **Conferir e abrir.** Na pasta dos dois arquivos:
+
+   ```bash
+   sha256sum plugga-os-AAAAMMDDTHHMMSSZ.tar.age    # tem de bater com "sha256" do manifesto
+   age -d -i /caminho/da/chave-do-dono.key plugga-os-AAAAMMDDTHHMMSSZ.tar.age | tar -x
+   ```
+
+   Se o SHA-256 não bater, **pare**: o arquivo foi alterado ou corrompido; use outro dia.
+
+5. **Provar que restaura antes de mexer em produção.** Ainda no servidor novo:
+
+   ```bash
+   RESTAURA_CHAVE_AGE=/caminho/da/chave-do-dono.key \
+     ops/restaurar-teste.sh plugga-os-AAAAMMDDTHHMMSSZ.tar.age
+   ```
+
+   Ele restaura num Postgres descartável e compara tabelas, linhas e objetos com o manifesto.
+   Só continue se terminar com `✓ restauração ok`.
+
+6. **Subir a infraestrutura** (`docker compose up -d`: Postgres, Redis, SeaweedFS e criação dos
+   baldes) e **restaurar o banco** no Postgres de verdade:
+
+   ```bash
+   docker compose cp banco/plugga_os.dump postgres:/tmp/plugga_os.dump
+   docker compose exec postgres pg_restore -U plugga_os -d plugga_os --clean --if-exists \
+     --no-owner /tmp/plugga_os.dump
+   ```
+
+7. **Restaurar os arquivos.** O diretório `arquivos/<balde>/` do pacote tem um espelho de cada
+   balde de negócio. Copie cada um de volta ao SeaweedFS com o `mc` (`mc mirror`
+   `arquivos/<balde> <alias>/<balde>`), um balde por vez, e confira o número de objetos contra
+   `"arquivos"` do manifesto.
+
+8. **Subir o sistema:** `./ops/publicar.sh` (ou `docker compose --profile app up -d`). Confira
+   `curl -fsS http://localhost:3001/health` e entre no sistema com um usuário real.
+
+9. **DNS e agendamentos.** Aponte o domínio para o servidor novo e rode
+   `ops/instala-agendamentos.sh` para voltar o cron, o Caddyfile e o backup externo. Depois
+   de uma noite, confirme que o heartbeat voltou a receber o ping.
+
+10. **Medir e registrar** o tempo total e a idade do backup usado (perda de dados).
+
+**Se faltar a chave do dono:** a chave de teste só existe na VPS; se a VPS se foi, ela foi
+junto. Sem a do dono, **não há como abrir o backup**. É por isso que ela precisa de uma
+segunda cópia offline em outro lugar.
+
+**Registro dos ensaios**
+
+| Data | Quem | Backup usado (idade) | Tempo total | Resultado |
+|---|---|---|---|---|
+| (a preencher no primeiro ensaio) | | | | |
