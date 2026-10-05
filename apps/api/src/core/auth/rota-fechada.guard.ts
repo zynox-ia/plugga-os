@@ -11,8 +11,8 @@ export type ModoDaRotaFechada = "warn" | "enforce";
  * Guard global: toda rota precisa declarar `@Public()`, `@Authenticated()` ou
  * `@Roles(...)` (ou `@Permissions(...)`). Sem declaração:
  *
- * - `ROUTE_GUARD_MODE=warn` (padrão): registra em log, uma vez por rota, e deixa passar;
- * - `ROUTE_GUARD_MODE=enforce`: nega com 403.
+ * - `ROUTE_GUARD_MODE=enforce` (padrão): nega com 403;
+ * - `ROUTE_GUARD_MODE=warn`: registra em log, uma vez por rota, e deixa passar.
  *
  * O modo é lido a cada requisição, então trocar a variável e reiniciar basta
  * para voltar de `enforce` a `warn`, sem nova publicação de código.
@@ -39,7 +39,7 @@ export class RotaFechadaGuard implements CanActivate {
     }
 
     const rota = `${classe.name}.${handler.name}`;
-    const modo = this.config.get<ModoDaRotaFechada>("ROUTE_GUARD_MODE", "warn");
+    const modo = this.config.get<ModoDaRotaFechada>("ROUTE_GUARD_MODE", "enforce");
     if (modo === "enforce") {
       throw new ForbiddenException("rota sem declaração de acesso");
     }

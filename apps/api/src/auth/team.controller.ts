@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, Inject, Param, Post, Put, Query, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, HttpCode, Inject, Param, ParseUUIDPipe, Post, Put, Query, UseGuards } from "@nestjs/common";
 import { SkipThrottle, ThrottlerGuard } from "@nestjs/throttler";
 import {
   assignAccessRequestSchema,
@@ -16,7 +16,7 @@ import { Authenticated } from "../core/auth/access.decorators";
 import { ZodValidationPipe } from "../common/zod-validation.pipe";
 import type { AuthPrincipal } from "../core/auth/auth.types";
 import { CurrentPrincipal } from "../core/auth/current-principal.decorator";
-import { DevAuthGuard } from "../core/auth/dev-auth.guard";
+import { SessionAuthGuard } from "../core/auth/session-auth.guard";
 import { OriginCheckGuard } from "../core/auth/origin-check.guard";
 import { TeamService } from "./team.service";
 
@@ -25,10 +25,10 @@ import { TeamService } from "./team.service";
  *
  * Sem `@Roles`: a autorização aqui não é "tem o papel X", e sim "este acesso
  * cabe no escopo de quem está pedindo" — depende do alvo e do corpo da
- * requisição, coisas que um guard por papel não enxerga. `DevAuthGuard` garante
+ * requisição, coisas que um guard por papel não enxerga. `SessionAuthGuard` garante
  * que existe uma sessão; `TeamService` decide o resto e responde 403.
  *
- * Nas mutações, `OriginCheckGuard` vem antes de `DevAuthGuard` pelo mesmo
+ * Nas mutações, `OriginCheckGuard` vem antes de `SessionAuthGuard` pelo mesmo
  * princípio do AuthController: requisição cross-origin rejeitada não deve pagar
  * o lookup de sessão no banco (nem o write da renovação deslizante).
  */
@@ -43,7 +43,7 @@ export class TeamController {
   // lista falhar com 429 no uso normal. As mutações abaixo seguem limitadas.
   @Get("users")
   @SkipThrottle()
-  @UseGuards(DevAuthGuard)
+  @UseGuards(SessionAuthGuard)
   list(
     @Query(new ZodValidationPipe(teamListQuerySchema)) query: TeamListQuery,
     @CurrentPrincipal() principal: AuthPrincipal,
@@ -52,7 +52,7 @@ export class TeamController {
   }
 
   @Post("invite")
-  @UseGuards(OriginCheckGuard, DevAuthGuard, ThrottlerGuard)
+  @UseGuards(OriginCheckGuard, SessionAuthGuard, ThrottlerGuard)
   invite(
     @Body(new ZodValidationPipe(inviteRequestSchema)) input: InviteRequest,
     @CurrentPrincipal() principal: AuthPrincipal,
@@ -62,9 +62,9 @@ export class TeamController {
 
   @Put("users/:id/access")
   @HttpCode(200)
-  @UseGuards(OriginCheckGuard, DevAuthGuard, ThrottlerGuard)
+  @UseGuards(OriginCheckGuard, SessionAuthGuard, ThrottlerGuard)
   updateAccess(
-    @Param("id") id: string,
+    @Param("id", ParseUUIDPipe) id: string,
     @Body(new ZodValidationPipe(assignAccessRequestSchema)) input: AssignAccessRequest,
     @CurrentPrincipal() principal: AuthPrincipal,
   ): Promise<TeamMember> {
@@ -73,9 +73,9 @@ export class TeamController {
 
   @Post("users/:id/deactivate")
   @HttpCode(200)
-  @UseGuards(OriginCheckGuard, DevAuthGuard, ThrottlerGuard)
+  @UseGuards(OriginCheckGuard, SessionAuthGuard, ThrottlerGuard)
   deactivate(
-    @Param("id") id: string,
+    @Param("id", ParseUUIDPipe) id: string,
     @CurrentPrincipal() principal: AuthPrincipal,
   ): Promise<AuthAcknowledgement> {
     return this.service.deactivate(principal, id);
@@ -83,9 +83,9 @@ export class TeamController {
 
   @Post("users/:id/resend-invite")
   @HttpCode(200)
-  @UseGuards(OriginCheckGuard, DevAuthGuard, ThrottlerGuard)
+  @UseGuards(OriginCheckGuard, SessionAuthGuard, ThrottlerGuard)
   resendInvite(
-    @Param("id") id: string,
+    @Param("id", ParseUUIDPipe) id: string,
     @CurrentPrincipal() principal: AuthPrincipal,
   ): Promise<AuthAcknowledgement> {
     return this.service.resendInvite(principal, id);

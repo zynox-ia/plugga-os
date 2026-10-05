@@ -22,7 +22,7 @@ import { Authenticated, Public } from "../core/auth/access.decorators";
 import { ZodValidationPipe } from "../common/zod-validation.pipe";
 import type { AuthPrincipal } from "../core/auth/auth.types";
 import { CurrentPrincipal } from "../core/auth/current-principal.decorator";
-import { DevAuthGuard } from "../core/auth/dev-auth.guard";
+import { SessionAuthGuard } from "../core/auth/session-auth.guard";
 import { SESSION_COOKIE_NAME } from "../core/auth/token.util";
 import { AuthService } from "./auth.service";
 import { GoogleAuthService } from "./google-auth.service";
@@ -104,7 +104,7 @@ export class AuthController {
   @Authenticated()
   @Get("me")
   @SkipThrottle()
-  @UseGuards(DevAuthGuard)
+  @UseGuards(SessionAuthGuard)
   me(
     @CurrentPrincipal() principal: AuthPrincipal,
     @Req() request: Request,
@@ -116,7 +116,7 @@ export class AuthController {
   @Authenticated()
   @Post("logout")
   @HttpCode(200)
-  @UseGuards(DevAuthGuard, OriginCheckGuard, ThrottlerGuard)
+  @UseGuards(SessionAuthGuard, OriginCheckGuard, ThrottlerGuard)
   async logout(
     @CurrentPrincipal() principal: AuthPrincipal,
     @Req() request: Request,

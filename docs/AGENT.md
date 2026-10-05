@@ -133,6 +133,19 @@ Decision of the owner (2026-10-05): work lands on `develop`; `main` is productio
 - Migrations, `[VPS]`/`[DONO]` tasks and history rewrites still need the owner's explicit
   approval, on whichever branch they land.
 
+## New routes: access marker and route inventory
+
+Every HTTP route is closed by default (spec 002, US5). A new route must:
+
+1. declare its access with exactly one of `@Public()` (needs the owner's approval),
+   `@Authenticated()`, `@Roles(...)` or `@Permissions(...)`; without one the global guard
+   answers 403 (`ROUTE_GUARD_MODE=enforce`, the default);
+2. validate identifier path parameters with `ParseUUIDPipe`;
+3. regenerate the inventory and review the diff:
+   `ATUALIZA_INVENTARIO=1 pnpm --filter @plugga/api test -- inventario-rotas`
+   (`specs/002-fundacao-solida/contracts/inventario-rotas.json`). The test fails while the
+   file is out of date.
+
 ## Change discipline
 
 - Keep commits and pull requests small and scoped to one package or concern.

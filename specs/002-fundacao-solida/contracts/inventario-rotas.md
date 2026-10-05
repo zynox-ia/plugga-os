@@ -54,7 +54,7 @@ O inventário (`inventario-rotas.json`, gerado por `apps/api/test/inventario-rot
 | `undeclared` | 14 |
 | `public`, `authenticated`, `permissions` | 0 (os marcadores `@Public` e `@Authenticated` ainda não estavam em uso) |
 
-Todas as 116 rotas com `@Roles` têm `DevAuthGuard` e `RolesGuard` na pilha. As 14 sem declaração são estas; a coluna "proposta" é o que o dono precisa aprovar (T068):
+Todas as 116 rotas com `@Roles` têm `SessionAuthGuard` e `RolesGuard` na pilha. As 14 sem declaração são estas; a coluna "proposta" é o que o dono precisa aprovar (T068):
 
 | Método e caminho | Hoje | Proposta |
 |---|---|---|

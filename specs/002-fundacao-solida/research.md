@@ -82,7 +82,7 @@ Cada decisão traz recomendação, motivo e alternativas. As marcadas **(dono)**
 
 **Desenho.**
 - Marcadores em `core/auth`: `@Public()` (rota pública), `@Roles(...)` (já existe) e `@Authenticated()` (qualquer usuário logado, declarado de propósito).
-- `APP_GUARD` global, em ordem: `SessionAuthGuard` (renome de `DevAuthGuard`; pula rotas `@Public()`), depois `RolesGuard` **fail-closed**: sem `@Public()`, `@Authenticated()` ou `@Roles()`, nega.
+- `APP_GUARD` global, em ordem: `SessionAuthGuard` (renome de `SessionAuthGuard`; pula rotas `@Public()`), depois `RolesGuard` **fail-closed**: sem `@Public()`, `@Authenticated()` ou `@Roles()`, nega.
 - Rotas públicas aprovadas (hipótese a confirmar no inventário): saúde, login, convite, redefinição de senha, retorno do Google.
 - O guard por rota que já existe (`OriginCheckGuard`, `ThrottlerGuard`) continua. Guards globais rodam antes dos de rota no Nest.
 - **Inventário versionado** ([contracts/inventario-rotas.md](contracts/inventario-rotas.md)): um teste sobe o app, lista método, caminho, declaração e papéis, e falha se a lista divergir do arquivo aprovado. Mudar a lista de públicas exige revisão do dono (CODEOWNERS).

@@ -10,7 +10,7 @@ import { ThrottlerGuard } from "@nestjs/throttler";
 import type { TriggerBitrixImportResponse } from "@plugga/shared";
 
 import { CurrentPrincipal } from "../../core/auth/current-principal.decorator";
-import { DevAuthGuard } from "../../core/auth/dev-auth.guard";
+import { SessionAuthGuard } from "../../core/auth/session-auth.guard";
 import { OriginCheckGuard } from "../../core/auth/origin-check.guard";
 import { Roles } from "../../core/auth/roles.decorator";
 import { RolesGuard } from "../../core/auth/roles.guard";
@@ -28,7 +28,7 @@ import {
  * 409/503 here are synchronous feedback for the HTTP caller, not the guarantee.
  */
 @Controller("integrations/bitrix")
-@UseGuards(DevAuthGuard, RolesGuard, OriginCheckGuard, ThrottlerGuard)
+@UseGuards(SessionAuthGuard, RolesGuard, OriginCheckGuard, ThrottlerGuard)
 export class BitrixController {
   constructor(
     @Inject(BitrixImportService) private readonly importService: BitrixImportService,
