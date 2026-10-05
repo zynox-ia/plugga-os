@@ -19,6 +19,11 @@
 # lembrar da ordem. Aqui são um só.
 set -euo pipefail
 
+# Uma publicação por vez: antes de qualquer passo, inclusive o backup.
+# shellcheck disable=SC1091
+. "$(dirname "${BASH_SOURCE[0]}")/lib-trava.sh"
+adquire_trava_de_deploy || exit 1
+
 cd /opt/plugga-os
 
 RAIZ=/opt/plugga-os

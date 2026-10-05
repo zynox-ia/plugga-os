@@ -1,6 +1,7 @@
 import path from "node:path";
 
 import { Module } from "@nestjs/common";
+import { APP_FILTER } from "@nestjs/core";
 import { ConfigModule } from "@nestjs/config";
 
 import { AuditModule } from "./audit/audit.module";
@@ -9,6 +10,7 @@ import { WhatsappModule } from "./channels/whatsapp/whatsapp.module";
 import { ClientesModule } from "./clientes/clientes.module";
 import { CommercialModule } from "./commercial/commercial.module";
 import { ComprasModule } from "./compras/compras.module";
+import { FiltroGlobalDeExcecoes } from "./common/errors/filtro-global";
 import { validateEnvironment } from "./config/environment";
 import { CoreModule } from "./core/core.module";
 import { EnergyEfficiencyModule } from "./energy-efficiency/estudo.module";
@@ -55,5 +57,6 @@ const monorepoRootEnvPath = path.resolve(__dirname, "../../../.env");
     JobsQueueModule,
     BitrixModule,
   ],
+  providers: [{ provide: APP_FILTER, useClass: FiltroGlobalDeExcecoes }],
 })
 export class AppModule {}

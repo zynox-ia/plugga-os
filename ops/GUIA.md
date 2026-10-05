@@ -156,6 +156,10 @@ nada automatizado usa é só uma coisa a mais para vazar. Criar tudo isso de nov
 
 Um comando. Ele publica o que está na **`main` do GitHub** — então commit e push primeiro.
 
+> **`publicar.sh` é o caminho de emergência.** O caminho normal é automático: um push na `main` roda a CI e, se ela passar, o workflow `Deploy` **espera a aprovação humana** do ambiente `production` antes de publicar. Esse fluxo só publica push na `main` deste repositório (nunca PR, fork, agenda nem disparo manual) e, se a `main` já avançou, pula o commit velho. O `publicar.sh` mantém a mesma regra de fundo: só aceita uma referência que já esteja na história da `origin/main`, isto é, código que passou pela revisão e pela CI.
+>
+> **Uma publicação por vez.** `publicar.sh` e `deploy.sh` usam a mesma trava (`/var/lock/plugga-deploy.lock`). Se já há uma em andamento, a segunda recusa na hora, com a mensagem "Já existe uma publicação em andamento". Espere terminar e rode de novo; a trava solta sozinha quando o processo acaba, mesmo em erro.
+
 O que acontece, nesta ordem:
 
 ```

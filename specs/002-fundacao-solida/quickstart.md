@@ -4,6 +4,22 @@ Guia de validação ponta a ponta. Cada comando é executável a partir da raiz 
 
 > Os scripts e testes citados abaixo (`simula-deploy-evento.mjs`, `scan-dados-cliente.mjs`, `backup-externo.sh`, suítes `atomicidade`, `isolamento` etc.) são **criados pelas tarefas** de cada fatia; este guia diz o que cada um deve provar quando existir.
 
+## Como esta feature é verificada
+
+Cada fatia tem um comando que a prova. Os que já existem rodam hoje; os demais falham de propósito com uma mensagem que diz qual tarefa os cria (ver `scripts/executa-ou-pendente.mjs`).
+
+| Fatia / história | Comando | Estado |
+|---|---|---|
+| Fundação (envelope, auditoria, catálogo) | `pnpm --filter @plugga/api test -- erro-envelope audit-appender catalogo-eventos` | existe (T017, T021) |
+| Fundação (gravação única no `event_log`) | `node scripts/verifica-eventlog.mjs` (já roda em `pnpm lint`) | existe (T018) |
+| Fatia 1, US1 (publicação segura) | `pnpm test:scripts` e `bash ops/deploy-trava.test.sh` | existe (T027, T031) |
+| Fatia 1, US2 (dados de cliente) | `pnpm test:scan-dados` | pendente (T036) |
+| Fatia 1, US3 (backup) | `bash ops/restaurar-teste.test.sh` (e `ops/backup-externo.test.sh`) | restauração existe (T012); backup externo pendente (T052) |
+| Fatia 1, US5 (inventário de rotas) | `pnpm test:routes-inventory` | pendente (T066) |
+| Fatia 3 (migrações com volta) | `pnpm test:migrations:rollback` | pendente (T146) |
+
+Os testes `ops/*.test.sh` que não usam Docker (`deploy-trava`, `restaurar-teste`) podem rodar numa máquina com Postgres local; o `restaurar-teste` precisa de `RESTAURA_PGHOST`, `RESTAURA_PGPORT` e `RESTAURA_PGUSER` (modo servidor, ver o cabeçalho do script).
+
 ## Pré-requisitos gerais
 
 ```bash
@@ -19,9 +35,9 @@ pnpm db:generate && pnpm db:migrate && pnpm db:seed
 
 ```bash
 # Simulação do filtro do workflow, sem tocar produção:
-node scripts/simula-deploy-evento.mjs fixtures/workflow_run_pr_fork_main.json   # esperado: NÃO publica
-node scripts/simula-deploy-evento.mjs fixtures/workflow_run_push_main.json      # esperado: aguarda aprovação
-node scripts/simula-deploy-evento.mjs fixtures/workflow_run_push_sha_antigo.json # esperado: pula (SHA não é a ponta)
+node scripts/simula-deploy-evento.mjs scripts/fixtures/workflow_run_pr_fork_main.json   # esperado: NÃO publica
+node scripts/simula-deploy-evento.mjs scripts/fixtures/workflow_run_push_main.json      # esperado: aguarda aprovação
+node scripts/simula-deploy-evento.mjs scripts/fixtures/workflow_run_push_sha_antigo.json # esperado: pula (SHA não é a ponta)
 ```
 
 Esperado: só o push na `main` oficial chega ao passo de aprovação. Em seguida, verificar nas configurações do GitHub: ambiente `production` com aprovadores, `main` protegida, `CODEOWNERS` ativo.

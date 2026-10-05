@@ -35,6 +35,16 @@ if ! git cat-file -e "${REFERENCIA}:ops/deploy.sh" 2>/dev/null; then
   exit 1
 fi
 
+# Caminho de emergência (FR-004): só publica código que já passou pela proteção
+# da main. Uma referência fora da história da origin/main nunca foi revisada
+# nem passou na CI, e o deploy automático também não a publicaria.
+if ! git merge-base --is-ancestor "$REFERENCIA" origin/main 2>/dev/null; then
+  echo
+  echo "  ${REFERENCIA} não está na história da origin/main."
+  echo "  Só se publica o que já foi aprovado e mergeado (revisão + CI)."
+  exit 1
+fi
+
 # Trabalho não commitado não sobe, e é bom que não suba. Mas avisar evita a
 # surpresa de publicar e não ver a própria alteração no ar.
 if [ -n "$(git status --porcelain)" ]; then
@@ -68,7 +78,16 @@ registro "instalando o código e publicando"
 # de produção. Preservá-lo fazia a cópia da VPS envelhecer à mão: em 2026-08-10
 # ela estava 42 linhas atrás do repositório, e faltava-lhe a variável do cofre.
 # Agora o compose sobe junto com o código, e a VPS deixa de ser editada à mão.
+# A trava é tomada ANTES de mexer na pasta: com um deploy em andamento, trocar a
+# árvore debaixo dele a quebraria no meio. O mesmo arquivo é o do deploy.sh, que
+# ao ver PLUGGA_DEPLOY_LOCK_HELD=1 não tenta tomá-la de novo.
 ssh "$VPS" "set -e
+  exec 9>/var/lock/plugga-deploy.lock
+  if ! flock -n 9; then
+    echo '✗ Já existe uma publicação em andamento. Espere ela terminar e rode de novo.' >&2
+    exit 1
+  fi
+  export PLUGGA_DEPLOY_LOCK_HELD=1
   rm -rf ${DESTINO}.novo
   mkdir -p ${DESTINO}.novo
   tar xzf /tmp/plugga-deploy.tgz -C ${DESTINO}.novo

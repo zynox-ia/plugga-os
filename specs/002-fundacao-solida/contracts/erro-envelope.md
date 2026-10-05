@@ -46,3 +46,7 @@ Toda resposta de erro (status ≥ 400) da API tem este corpo, definido em `packa
 - Mudança de status de HTTP em rota existente é compatível: o web ainda não distingue 400 de 409 nas operações citadas; os testes e2e são atualizados na mesma mudança.
 - O web valida o envelope com o mesmo schema e mostra mensagem por `codigo`.
 - Teste: cada código tem um caso que o produz; um teste varre as mensagens procurando termos internos (`prisma`, `postgres`, `ECONN`, caminhos de arquivo).
+
+## Compatibilidade transitória (implementada em T020)
+
+Até a US12 mover o web para o envelope, o filtro global também devolve os campos do corpo antigo: `message` (o texto original, só quando é erro do cliente e sem detalhe interno; senão repete `mensagem`), `issues` (validação por zod) e as chaves próprias de quem lançou a exceção, como o `code` do login com Google. Erros 5xx nunca repetem o texto original. Esses campos saem junto com a US12; o web novo lê só `codigo`, `mensagem`, `requestId` e `detalhes`.

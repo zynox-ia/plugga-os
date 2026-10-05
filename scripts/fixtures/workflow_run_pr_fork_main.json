@@ -1,0 +1,16 @@
+{
+  "workflow_run": {
+    "conclusion": "success",
+    "event": "pull_request",
+    "head_repository": {
+      "full_name": "forasteiro/plugga-os"
+    },
+    "head_branch": "main",
+    "head_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "repository": {
+    "full_name": "zynox-ia/plugga-os"
+  },
+  "_ponta_da_main": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "_nota": "Fixture sint\u00e9tica de evento workflow_run (sem dado real)."
+}

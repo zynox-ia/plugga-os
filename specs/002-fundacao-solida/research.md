@@ -161,3 +161,15 @@ Entram como **primeira tarefa** da história correspondente, antes de qualquer c
 - `prisma migrate diff` mostra remoção dos índices únicos parciais? (US9.)
 - O `consumo.controller.ts` injeta sem `@Inject` e funciona sob Vitest/esbuild? (US16.)
 - O repositório é público ou aceita forks? (US1, P4.)
+
+## Itens verificados
+
+Resultado da verificação dos itens acima (T008), feita em 2026-10-05 sobre o código da `main` e uma instância local. Nada aqui imprime segredo.
+
+| # | Item | Resultado | Como foi verificado |
+|---|---|---|---|
+| a | O Next.js decodifica `%2F` em `params` das rotas de API? | **Sim.** `/api/x/a%2Fb` entrega `id = "a/b"`, e `a%2e%2e%2fb` entrega `a../b`. Só `%252F` não é decodificado. Como as rotas de proxy montam o caminho da API por interpolação (`pedidos/${id}/necessidade`), um `id` malicioso muda o caminho chamado na API. **A US12 mantém a gravidade e a correção** (validar o formato do id e usar `encodeURIComponent`). | Rota temporária no `apps/web` (Next 15.5.24, `next dev`) e `curl`; a rota foi removida. |
+| b | A produção define `WEB_TRUST_PROXY` e `TRUST_PROXY` atrás do Caddy? | **Não verificável daqui.** O padrão no `compose.yaml` é `WEB_TRUST_PROXY=false` e `TRUST_PROXY=loopback`. O valor real está no `.env` da VPS, que esta sessão não lê. **Fica para o dono ou para uma tarefa `[VPS]` com aprovação** (conferir só se a variável existe e o valor, sem imprimir outros segredos). | Leitura do `compose.yaml` e de `apps/web/app/lib/forwarded-for.ts`. |
+| c | Os segredos de produção são os valores de exemplo? | **Não verificável daqui**, pelo mesmo motivo. **Fica para o dono ou `[VPS]`**: comparar o hash dos segredos com o dos exemplos, sem imprimir. | Não há acesso ao `.env` da VPS. |
+| d | `prisma migrate diff` quer remover os índices únicos parciais? | **Não.** O diff entre as migrações e o `schema.prisma` saiu vazio ("This is an empty migration"). O Prisma não enxerga índice parcial, então ele não propõe removê-los; o risco é de quem gerar uma migração nova esquecendo-os, o que a US9 trata com a regra de revisão. | `prisma migrate diff --from-migrations --to-schema-datamodel` com um Postgres 16 local e banco sombra. |
+| e | O `consumo.controller.ts` injeta sem `@Inject` e funciona sob Vitest/esbuild? | **Não funciona sob Vitest.** Sem `@Inject(ConsumoService)`, o campo `consumo` fica `undefined` num módulo de teste (o esbuild não emite metadados de decorador). **Em produção funciona**, porque o `nest build` usa o `tsc`, que emite os metadados. Nenhum teste existente sobe o `LlmModule`, por isso ninguém viu. A US16 acrescenta o `@Inject` e um teste. | Teste temporário com `Test.createTestingModule`; removido depois. |

@@ -2,6 +2,7 @@ import type { ConfigService } from "@nestjs/config";
 import type { NestExpressApplication } from "@nestjs/platform-express";
 import { describe, expect, it } from "vitest";
 
+import { requestIdMiddleware } from "./common/request-id.middleware";
 import { configureApp, resolveTrustProxy } from "./configure-app";
 
 /** Captures what configureApp applies, without booting a real HTTP server. */
@@ -91,12 +92,14 @@ describe("configureApp", () => {
     expect(() => configureApp(app)).toThrow(/TRUST_PROXY=true is forbidden/);
   });
 
-  it("always installs signed cookie parsing", () => {
+  it("always installs the request id and signed cookie parsing", () => {
     const { app, middleware } = fakeApp({ ...SECRET });
 
     configureApp(app);
 
-    expect(middleware).toHaveLength(1);
+    // O requestId vem primeiro: o log, os guards e o envelope de erro o usam.
+    expect(middleware).toHaveLength(2);
+    expect(middleware[0]).toBe(requestIdMiddleware);
   });
 
   it("requires a session secret rather than signing cookies with nothing", () => {
