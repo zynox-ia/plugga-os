@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { AuditAppender } from "../audit/audit-appender";
 import type { PrismaService } from "../prisma/prisma.service";
 import { PrismaAuthRepository } from "./prisma-auth.repository";
 
@@ -24,7 +25,7 @@ function prismaQueNuncaDeveSerChamado(): PrismaService {
 }
 
 describe("PrismaAuthRepository.findUserById", () => {
-  const repositorio = new PrismaAuthRepository(prismaQueNuncaDeveSerChamado());
+  const repositorio = new PrismaAuthRepository(prismaQueNuncaDeveSerChamado(), new AuditAppender());
 
   it("devolve null para id sintético do escape hatch, sem tocar no banco", async () => {
     await expect(repositorio.findUserById("user:andre")).resolves.toBeNull();

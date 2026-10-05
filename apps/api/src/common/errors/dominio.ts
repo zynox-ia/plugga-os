@@ -41,3 +41,8 @@ export class LimiteExcedido extends ErroDeDominio {
     super(mensagemParaUsuario);
   }
 }
+
+/** Dado de entrada que a regra de negócio recusa (400 REQUISICAO_INVALIDA), sem depender de HTTP. */
+export class RequisicaoInvalida extends ErroDeDominio {
+  readonly codigo = "REQUISICAO_INVALIDA" as const;
+}

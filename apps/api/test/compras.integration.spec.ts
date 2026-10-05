@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import type { CriarPedidoRequest } from "@plugga/shared";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
+import { AuditAppender } from "../src/audit/audit-appender";
 import { PrismaComprasRepository } from "../src/compras/prisma-compras.repository";
 import { PrismaService } from "../src/prisma/prisma.service";
 import type { AuthPrincipal } from "../src/core/auth/auth.types";
@@ -26,7 +27,7 @@ const describeBanco = habilitado ? describe : describe.skip;
 
 describeBanco("Compras contra o Postgres", () => {
   const prisma = new PrismaService();
-  const repositorio = new PrismaComprasRepository(prisma);
+  const repositorio = new PrismaComprasRepository(prisma, new AuditAppender());
 
   const marca = `it-${randomUUID().slice(0, 8)}`;
   const solicitante: AuthPrincipal = { id: "", kind: "user", roles: ["compras"] };
@@ -113,7 +114,7 @@ describeBanco("Compras contra o Postgres", () => {
     expect(pedido.etapas[0]?.prazoDiasUteis).toBe(2);
 
     const eventos = await prisma.eventLog.findMany({ where: { entityId: pedido.id } });
-    expect(eventos.map((evento) => evento.eventName)).toContain("compras.pedido_criado");
+    expect(eventos.map((evento) => evento.eventName)).toContain("compras.pedido.created");
   });
 
   it("numera por empresa, não por sequência global", async () => {

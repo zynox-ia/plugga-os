@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { Injectable } from "@nestjs/common";
 import type { ActorType } from "@prisma/client";
 import {
   auditDetailSchema,
@@ -36,13 +36,18 @@ import {
   type ListMarketMigrationsResponse,
   type MarketMigrationDetail,
   type MarkCycleDocumentsReceivedRequest,
+  type NomeDeEventoAuditavel,
   type ResolveAuditRequest,
   type SendCycleReportRequest,
   type UpdateContestationStatusRequest,
 } from "@plugga/shared";
 
+import { AuditAppender } from "../audit/audit-appender";
+import { transicionar } from "../common/concorrencia";
+import { Conflito, EstadoInvalido, NaoEncontrado } from "../common/errors/dominio";
 import type { AuthPrincipal } from "../core/auth/auth.types";
 import { PrismaService } from "../prisma/prisma.service";
+import { RegraDeEnergiaViolada } from "./energy.erros";
 import { EnergyRepository } from "./energy.repository";
 import {
   assertAuditCanBeResolved,
@@ -118,7 +123,10 @@ const LIMITE_LISTAGEM = 500;
 
 @Injectable()
 export class PrismaEnergyRepository extends EnergyRepository {
-  constructor(private readonly prisma: PrismaService) {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auditoria: AuditAppender,
+  ) {
     super();
   }
 
@@ -219,21 +227,21 @@ export class PrismaEnergyRepository extends EnergyRepository {
 
   async cycle(id: string): Promise<CycleDetail> {
     const row = await this.prisma.cycle.findUnique({ where: { id }, include: cycleInclude });
-    if (!row) throw new NotFoundException("cycle not found");
+    if (!row) throw new NaoEncontrado("Ciclo não encontrado.");
     return this.cycleDetail(row);
   }
 
   async createCycle(input: CreateCycleRequest, principal: AuthPrincipal): Promise<CycleDetail> {
     if (!(await this.clientExists(input.clientId))) {
-      throw new NotFoundException("client not found");
+      throw new NaoEncontrado("Cliente não encontrado.");
     }
     const consumerUnit = await this.prisma.consumerUnit.findUnique({ where: { id: input.consumerUnitId } });
-    if (!consumerUnit) throw new NotFoundException("consumer unit not found");
+    if (!consumerUnit) throw new NaoEncontrado("Unidade consumidora não encontrada.");
     if (consumerUnit.clientId !== input.clientId) {
-      throw new BadRequestException("unidade consumidora não pertence ao cliente informado");
+      throw new RegraDeEnergiaViolada("A unidade consumidora não pertence ao cliente informado.");
     }
     if (!(await this.ownerExists(input.ownerId))) {
-      throw new NotFoundException("owner not found");
+      throw new NaoEncontrado("Responsável não encontrado.");
     }
 
     const existing = await this.prisma.cycle.findUnique({
@@ -246,8 +254,8 @@ export class PrismaEnergyRepository extends EnergyRepository {
       },
     });
     if (existing) {
-      throw new BadRequestException(
-        `já existe um ciclo para esta UC em ${input.competenceMonth}/${input.competenceYear}`,
+      throw new Conflito(
+        `Já existe um ciclo para esta UC em ${input.competenceMonth}/${input.competenceYear}.`,
       );
     }
 
@@ -286,33 +294,34 @@ export class PrismaEnergyRepository extends EnergyRepository {
     principal: AuthPrincipal,
   ): Promise<CycleDetail> {
     const current = await this.prisma.cycle.findUnique({ where: { id } });
-    if (!current) throw new NotFoundException("cycle not found");
+    if (!current) throw new NaoEncontrado("Ciclo não encontrado.");
     if (current.status !== "aguardando_documentos") {
-      throw new BadRequestException("ciclo já passou da etapa de recebimento de documentos");
+      throw new EstadoInvalido("O ciclo já passou da etapa de recebimento de documentos.");
     }
 
     const nextActionAt = input.nextActionAt ? new Date(input.nextActionAt) : current.nextActionAt;
     assertCycleHasOwnerAndNextAction("documentos_recebidos", current.ownerId, nextActionAt);
 
     await this.prisma.$transaction(async (tx) => {
-      await tx.cycle.update({
-        where: { id },
-        data: {
+      await transicionar(
+        tx.cycle,
+        id,
+        { status: "aguardando_documentos" },
+        {
           status: "documentos_recebidos",
           nextActionAt,
           nextActionNote: input.nextActionNote ?? current.nextActionNote,
         },
-      });
-      await tx.eventLog.create({
-        data: {
-          eventName: "energy.cycle_documents_received",
-          entityType: "cycle",
-          entityId: id,
-          actorType: this.actorType(principal),
-          actorId: principal.id,
-          payload: {},
-          occurredAt: new Date(),
-        },
+      );
+      await this.auditoria.append(tx, {
+        // Nome legado: aceito em runtime pelo catálogo, mas fora do tipo NomeDeEventoAuditavel.
+        eventName: "energy.cycle_documents_received" as NomeDeEventoAuditavel,
+        entityType: "cycle",
+        entityId: id,
+        actorType: this.actorType(principal),
+        actorId: principal.id,
+        payload: {},
+        occurredAt: new Date(),
       });
     });
 
@@ -325,9 +334,9 @@ export class PrismaEnergyRepository extends EnergyRepository {
     principal: AuthPrincipal,
   ): Promise<CycleDetail> {
     const current = await this.prisma.cycle.findUnique({ where: { id } });
-    if (!current) throw new NotFoundException("cycle not found");
+    if (!current) throw new NaoEncontrado("Ciclo não encontrado.");
     if (current.status === "aguardando_documentos") {
-      throw new BadRequestException("não é possível gerar relatório antes de receber os documentos");
+      throw new RegraDeEnergiaViolada("Não é possível gerar o relatório antes de receber os documentos.");
     }
 
     const advanceStatus = current.status === "documentos_recebidos" || current.status === "em_auditoria";
@@ -337,9 +346,11 @@ export class PrismaEnergyRepository extends EnergyRepository {
 
     await this.prisma.$transaction(async (tx) => {
       const now = new Date();
-      await tx.cycle.update({
-        where: { id },
-        data: {
+      await transicionar(
+        tx.cycle,
+        id,
+        { status: current.status, reportVersion: current.reportVersion },
+        {
           status: nextStatus,
           reportVersion: { increment: 1 },
           reportStatus: current.reportSentAt ? "reenviado_apos_correcao" : "gerado",
@@ -350,17 +361,16 @@ export class PrismaEnergyRepository extends EnergyRepository {
           nextActionAt,
           nextActionNote: input.nextActionNote ?? current.nextActionNote,
         },
-      });
-      await tx.eventLog.create({
-        data: {
-          eventName: "energy.cycle_report_generated",
-          entityType: "cycle",
-          entityId: id,
-          actorType: this.actorType(principal),
-          actorId: principal.id,
-          payload: { reportVersion: current.reportVersion + 1 },
-          occurredAt: now,
-        },
+      );
+      await this.auditoria.append(tx, {
+        // Nome legado: aceito em runtime pelo catálogo, mas fora do tipo NomeDeEventoAuditavel.
+        eventName: "energy.cycle_report_generated" as NomeDeEventoAuditavel,
+        entityType: "cycle",
+        entityId: id,
+        actorType: this.actorType(principal),
+        actorId: principal.id,
+        payload: { reportVersion: current.reportVersion + 1 },
+        occurredAt: now,
       });
     });
 
@@ -373,12 +383,12 @@ export class PrismaEnergyRepository extends EnergyRepository {
     principal: AuthPrincipal,
   ): Promise<CycleDetail> {
     const current = await this.prisma.cycle.findUnique({ where: { id } });
-    if (!current) throw new NotFoundException("cycle not found");
+    if (!current) throw new NaoEncontrado("Ciclo não encontrado.");
     if (current.reportVersion === 0) {
-      throw new BadRequestException("nenhum relatório foi gerado para este ciclo ainda");
+      throw new RegraDeEnergiaViolada("Nenhum relatório foi gerado para este ciclo ainda.");
     }
     if (current.reportStatus === "aprovado") {
-      throw new BadRequestException("relatório já foi aprovado");
+      throw new EstadoInvalido("O relatório já foi aprovado.");
     }
 
     const nextStatus = current.status === "relatorio_pronto" ? "validado_internamente" : current.status;
@@ -387,9 +397,12 @@ export class PrismaEnergyRepository extends EnergyRepository {
 
     await this.prisma.$transaction(async (tx) => {
       const now = new Date();
-      await tx.cycle.update({
-        where: { id },
-        data: {
+      // Duas aprovações ao mesmo tempo disputam a linha: só uma casa o WHERE.
+      await transicionar(
+        tx.cycle,
+        id,
+        { reportStatus: { not: "aprovado" }, reportVersion: current.reportVersion },
+        {
           status: nextStatus,
           reportStatus: "aprovado",
           reportApprovedAt: now,
@@ -397,17 +410,17 @@ export class PrismaEnergyRepository extends EnergyRepository {
           nextActionAt,
           nextActionNote: input.nextActionNote ?? current.nextActionNote,
         },
-      });
-      await tx.eventLog.create({
-        data: {
-          eventName: "energy.cycle_report_approved",
-          entityType: "cycle",
-          entityId: id,
-          actorType: this.actorType(principal),
-          actorId: principal.id,
-          payload: {},
-          occurredAt: now,
-        },
+        "O relatório já foi aprovado ou foi alterado por outra pessoa. Atualize a página e confira.",
+      );
+      await this.auditoria.append(tx, {
+        // Nome legado: aceito em runtime pelo catálogo, mas fora do tipo NomeDeEventoAuditavel.
+        eventName: "energy.cycle_report_approved" as NomeDeEventoAuditavel,
+        entityType: "cycle",
+        entityId: id,
+        actorType: this.actorType(principal),
+        actorId: principal.id,
+        payload: {},
+        occurredAt: now,
       });
     });
 
@@ -416,33 +429,35 @@ export class PrismaEnergyRepository extends EnergyRepository {
 
   async sendCycleReport(id: string, input: SendCycleReportRequest, principal: AuthPrincipal): Promise<CycleDetail> {
     const current = await this.prisma.cycle.findUnique({ where: { id } });
-    if (!current) throw new NotFoundException("cycle not found");
+    if (!current) throw new NaoEncontrado("Ciclo não encontrado.");
     if (current.reportStatus !== "aprovado") {
-      throw new BadRequestException("relatório precisa estar aprovado internamente antes do envio");
+      throw new RegraDeEnergiaViolada("O relatório precisa estar aprovado internamente antes do envio.");
     }
 
     const nextStatus = current.status === "validado_internamente" ? "enviado" : current.status;
 
     await this.prisma.$transaction(async (tx) => {
       const now = new Date();
-      await tx.cycle.update({
-        where: { id },
-        data: {
+      await transicionar(
+        tx.cycle,
+        id,
+        { reportStatus: "aprovado", status: current.status },
+        {
           status: nextStatus,
           reportSentAt: current.reportSentAt ?? now,
           realizedSavings: input.realizedSavings ?? current.realizedSavings,
         },
-      });
-      await tx.eventLog.create({
-        data: {
-          eventName: "energy.cycle_report_sent",
-          entityType: "cycle",
-          entityId: id,
-          actorType: this.actorType(principal),
-          actorId: principal.id,
-          payload: {},
-          occurredAt: now,
-        },
+        "O relatório já foi enviado ou foi alterado por outra pessoa. Atualize a página e confira.",
+      );
+      await this.auditoria.append(tx, {
+        // Nome legado: aceito em runtime pelo catálogo, mas fora do tipo NomeDeEventoAuditavel.
+        eventName: "energy.cycle_report_sent" as NomeDeEventoAuditavel,
+        entityType: "cycle",
+        entityId: id,
+        actorType: this.actorType(principal),
+        actorId: principal.id,
+        payload: {},
+        occurredAt: now,
       });
     });
 
@@ -451,7 +466,7 @@ export class PrismaEnergyRepository extends EnergyRepository {
 
   async closeCycle(id: string, _input: CloseCycleRequest, principal: AuthPrincipal): Promise<CycleDetail> {
     const current = await this.prisma.cycle.findUnique({ where: { id } });
-    if (!current) throw new NotFoundException("cycle not found");
+    if (!current) throw new NaoEncontrado("Ciclo não encontrado.");
     const audits = await this.prisma.audit.findMany({
       where: { cycleId: id },
       select: { status: true, divergenceBlocksClosing: true },
@@ -471,17 +486,16 @@ export class PrismaEnergyRepository extends EnergyRepository {
 
     await this.prisma.$transaction(async (tx) => {
       const now = new Date();
-      await tx.cycle.update({ where: { id }, data: { status: "fechado" } });
-      await tx.eventLog.create({
-        data: {
-          eventName: "energy.cycle_closed",
-          entityType: "cycle",
-          entityId: id,
-          actorType: this.actorType(principal),
-          actorId: principal.id,
-          payload: {},
-          occurredAt: now,
-        },
+      await transicionar(tx.cycle, id, { status: current.status }, { status: "fechado" });
+      await this.auditoria.append(tx, {
+        // Nome legado: aceito em runtime pelo catálogo, mas fora do tipo NomeDeEventoAuditavel.
+        eventName: "energy.cycle_closed" as NomeDeEventoAuditavel,
+        entityType: "cycle",
+        entityId: id,
+        actorType: this.actorType(principal),
+        actorId: principal.id,
+        payload: {},
+        occurredAt: now,
       });
     });
 
@@ -552,7 +566,7 @@ export class PrismaEnergyRepository extends EnergyRepository {
 
   async audit(id: string): Promise<AuditDetail> {
     const row = await this.prisma.audit.findUnique({ where: { id }, include: { contestation: true } });
-    if (!row) throw new NotFoundException("audit not found");
+    if (!row) throw new NaoEncontrado("Auditoria não encontrada.");
     return auditDetailSchema.parse({ ...this.auditSummary(row), contestationId: row.contestation?.id ?? null });
   }
 
@@ -560,10 +574,10 @@ export class PrismaEnergyRepository extends EnergyRepository {
     assertAuditOriginMatchesLinks(input.origin, input.cycleId, input.marketMigrationId);
 
     if (input.cycleId && !(await this.cycleExists(input.cycleId))) {
-      throw new NotFoundException("cycle not found");
+      throw new NaoEncontrado("Ciclo não encontrado.");
     }
     if (input.marketMigrationId && !(await this.marketMigrationExists(input.marketMigrationId))) {
-      throw new NotFoundException("market migration not found");
+      throw new NaoEncontrado("Migração de mercado não encontrada.");
     }
 
     const createdById = principal.kind === "user" ? principal.id : null;
@@ -599,7 +613,7 @@ export class PrismaEnergyRepository extends EnergyRepository {
 
   async resolveAudit(id: string, input: ResolveAuditRequest, principal: AuthPrincipal): Promise<AuditDetail> {
     const current = await this.prisma.audit.findUnique({ where: { id } });
-    if (!current) throw new NotFoundException("audit not found");
+    if (!current) throw new NaoEncontrado("Auditoria não encontrada.");
     assertAuditCanBeResolved(current.status);
 
     await this.prisma.$transaction(async (tx) => {
@@ -634,18 +648,18 @@ export class PrismaEnergyRepository extends EnergyRepository {
 
   async contestation(id: string): Promise<ContestationDetail> {
     const row = await this.prisma.contestation.findUnique({ where: { id } });
-    if (!row) throw new NotFoundException("contestation not found");
+    if (!row) throw new NaoEncontrado("Contestação não encontrada.");
     return contestationDetailSchema.parse(this.contestationView(row));
   }
 
   async createContestation(input: CreateContestationRequest, principal: AuthPrincipal): Promise<ContestationDetail> {
     const audit = await this.prisma.audit.findUnique({ where: { id: input.auditId }, include: { contestation: true } });
-    if (!audit) throw new NotFoundException("audit not found");
+    if (!audit) throw new NaoEncontrado("Auditoria não encontrada.");
     assertAuditIsContestationType(audit.type);
     assertAuditCanOpenContestation(audit.status);
     assertAuditHasNoContestation(audit.contestation !== null);
     if (!(await this.ownerExists(input.ownerId))) {
-      throw new NotFoundException("owner not found");
+      throw new NaoEncontrado("Responsável não encontrado.");
     }
 
     const created = await this.prisma.$transaction(async (tx) => {
@@ -685,7 +699,7 @@ export class PrismaEnergyRepository extends EnergyRepository {
     principal: AuthPrincipal,
   ): Promise<ContestationDetail> {
     const current = await this.prisma.contestation.findUnique({ where: { id } });
-    if (!current) throw new NotFoundException("contestation not found");
+    if (!current) throw new NaoEncontrado("Contestação não encontrada.");
 
     assertContestationTransitionAllowed(current.status, input.status);
     const financialResult = input.financialResult ?? current.financialResult?.toString() ?? null;
@@ -837,8 +851,8 @@ export class PrismaEnergyRepository extends EnergyRepository {
     principal: AuthPrincipal,
   ): Promise<MarketMigrationDetail> {
     const consumerUnit = await this.prisma.consumerUnit.findUnique({ where: { id: input.consumerUnitId } });
-    if (!consumerUnit) throw new NotFoundException("consumer unit not found");
-    if (!(await this.ownerExists(input.ownerId))) throw new NotFoundException("owner not found");
+    if (!consumerUnit) throw new NaoEncontrado("Unidade consumidora não encontrada.");
+    if (!(await this.ownerExists(input.ownerId))) throw new NaoEncontrado("Responsável não encontrado.");
 
     const created = await this.prisma.$transaction(async (tx) => {
       const row = await tx.marketMigration.create({
@@ -872,11 +886,11 @@ export class PrismaEnergyRepository extends EnergyRepository {
     principal: AuthPrincipal,
   ): Promise<MarketMigrationDetail> {
     const current = await this.prisma.marketMigration.findUnique({ where: { id } });
-    if (!current) throw new NotFoundException("market migration not found");
+    if (!current) throw new NaoEncontrado("Migração de mercado não encontrada.");
     assertMarketMigrationOpen(current.status);
     assertMarketMigrationStageTransitionAllowed(current.stage, input.stage);
     if (input.ownerId && !(await this.ownerExists(input.ownerId))) {
-      throw new NotFoundException("owner not found");
+      throw new NaoEncontrado("Responsável não encontrado.");
     }
 
     const nextOwnerId = input.ownerId ?? current.ownerId;
@@ -915,7 +929,7 @@ export class PrismaEnergyRepository extends EnergyRepository {
     principal: AuthPrincipal,
   ): Promise<MarketMigrationDetail> {
     const current = await this.prisma.marketMigration.findUnique({ where: { id } });
-    if (!current) throw new NotFoundException("market migration not found");
+    if (!current) throw new NaoEncontrado("Migração de mercado não encontrada.");
     assertMarketMigrationOpen(current.status);
 
     await this.prisma.$transaction(async (tx) => {
@@ -946,7 +960,7 @@ export class PrismaEnergyRepository extends EnergyRepository {
     principal: AuthPrincipal,
   ): Promise<MarketMigrationDetail> {
     const current = await this.prisma.marketMigration.findUnique({ where: { id }, include: { consumerUnit: true } });
-    if (!current) throw new NotFoundException("market migration not found");
+    if (!current) throw new NaoEncontrado("Migração de mercado não encontrada.");
     assertMarketMigrationOpen(current.status);
     assertMarketMigrationHasOwnerAndNextAction(current.ownerId, current.nextActionAt);
 
@@ -986,7 +1000,7 @@ export class PrismaEnergyRepository extends EnergyRepository {
     principal: AuthPrincipal,
   ): Promise<string> {
     if (input.clientId) {
-      if (!(await this.clientExists(input.clientId))) throw new NotFoundException("linked client not found");
+      if (!(await this.clientExists(input.clientId))) throw new NaoEncontrado("Cliente vinculado não encontrado.");
       return input.clientId;
     }
 
@@ -1076,7 +1090,7 @@ export class PrismaEnergyRepository extends EnergyRepository {
       where: { id },
       include: { client: true, consumerUnit: true, owner: true },
     });
-    if (!row) throw new NotFoundException("market migration not found");
+    if (!row) throw new NaoEncontrado("Migração de mercado não encontrada.");
     return marketMigrationDetailSchema.parse({
       id: row.id,
       clientId: row.clientId,

@@ -490,7 +490,7 @@ describe("team API — access by company and department (e2e, in-memory stores)"
         .expect(200, { ok: true });
 
       // Já ativo: reenviar aqui seria redefinição de senha por caminho lateral.
-      await agent.post(`/auth/users/${convidado.body.id}/resend-invite`).expect(400);
+      await agent.post(`/auth/users/${convidado.body.id}/resend-invite`).expect(409);
     });
   });
 });

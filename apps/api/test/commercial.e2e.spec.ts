@@ -191,7 +191,7 @@ class InMemoryCommercialRepository extends CommercialRepository {
     const clientId = input.clientId ?? this.nextId("client");
     const updated: StoredOpportunity = { ...current, status: "ganha", clientId, decidedAt: "2026-08-06T12:00:00.000Z" };
     this.opportunities.set(id, updated);
-    this.record("commercial.opportunity_won", "opportunity", id, principal, { clientId });
+    this.record("commercial.opportunity.won", "opportunity", id, principal, { clientId });
     return updated;
   }
 
@@ -399,7 +399,7 @@ describe("commercial API (e2e)", () => {
 
     expect(response.body.status).toBe("ganha");
     expect(response.body.clientId).toBe(CLIENT_ID);
-    expect(repository.events.some((event) => event.eventName === "commercial.opportunity_won" && event.entityId === id)).toBe(true);
+    expect(repository.events.some((event) => event.eventName === "commercial.opportunity.won" && event.entityId === id)).toBe(true);
   });
 
   it("blocks marking an opportunity as lost without a reason (blocking rule)", async () => {

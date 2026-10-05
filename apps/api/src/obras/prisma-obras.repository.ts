@@ -1,4 +1,4 @@
-import { BadRequestException, Inject, Injectable, NotFoundException } from "@nestjs/common";
+import { Inject, Injectable } from "@nestjs/common";
 import type { ActorType, Prisma } from "@prisma/client";
 import {
   obraExecucaoDetalheSchema,
@@ -33,6 +33,9 @@ import {
 } from "@plugga/shared";
 
 import type { AuthPrincipal } from "../core/auth/auth.types";
+import { AuditAppender } from "../audit/audit-appender";
+import { comRepeticaoP2002, transicionar as transicionarCondicionado } from "../common/concorrencia";
+import { EstadoInvalido, NaoEncontrado } from "../common/errors/dominio";
 import { PrismaService } from "../prisma/prisma.service";
 import {
   assertEtapaAtual,
@@ -61,7 +64,10 @@ type ObraComRelacoes = Prisma.ObraGetPayload<{ include: typeof obraInclude }>;
 
 @Injectable()
 export class PrismaObrasRepository implements ObrasRepository {
-  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
+  constructor(
+    @Inject(PrismaService) private readonly prisma: PrismaService,
+    @Inject(AuditAppender) private readonly auditoria: AuditAppender,
+  ) {}
 
   private actorType(principal: AuthPrincipal): ActorType {
     return principal.kind === "service" ? "system" : "user";
@@ -73,7 +79,7 @@ export class PrismaObrasRepository implements ObrasRepository {
       where: { id, companyId },
       include: obraInclude,
     });
-    if (!linha) throw new NotFoundException("obra não encontrada");
+    if (!linha) throw new NaoEncontrado("Obra não encontrada.");
     return linha;
   }
 
@@ -200,6 +206,34 @@ export class PrismaObrasRepository implements ObrasRepository {
     });
   }
 
+  /** Evento do catálogo (`AuditAppender`), na mesma transação da mudança. Só identificadores no payload. */
+  private async auditar(
+    tx: Prisma.TransactionClient,
+    entrada: {
+      nome:
+        | "obras.apr.signed"
+        | "obras.epi.checked"
+        | "obras.release.recorded"
+        | "obras.release.revoked"
+        | "obras.pendency.recorded"
+        | "obras.measurement.recorded"
+        | "obras.project_version.created";
+      obra: { id: string; companyId: string };
+      principal: AuthPrincipal;
+      payload: Record<string, unknown>;
+    },
+  ): Promise<void> {
+    await this.auditoria.append(tx, {
+      eventName: entrada.nome,
+      entityType: "obra",
+      entityId: entrada.obra.id,
+      actorType: this.actorType(entrada.principal),
+      actorId: entrada.principal.id,
+      payload: entrada.payload,
+      companyId: entrada.obra.companyId,
+    });
+  }
+
   private async fecharPassagem(tx: Prisma.TransactionClient, obraId: string, agora: Date): Promise<void> {
     const aberta = await tx.obraEtapaHistorico.findFirst({ where: { obraId, saiuEm: null } });
     if (!aberta) return;
@@ -230,7 +264,7 @@ export class PrismaObrasRepository implements ObrasRepository {
       data: { etapaAtual: entrada.para },
     });
     if (resultado.count === 0) {
-      throw new BadRequestException("a obra mudou de etapa enquanto esta ação era processada");
+      throw new EstadoInvalido("A obra mudou de etapa enquanto esta ação era processada. Atualize a página e confira.");
     }
   }
 
@@ -367,12 +401,19 @@ export class PrismaObrasRepository implements ObrasRepository {
   }
 
   async conferirEpi(id: string, epiId: string, input: ConferirEpiRequest, principal: AuthPrincipal): Promise<RegistroEpi> {
-    await this.carregar(id, input.companyId);
+    const obra = await this.carregar(id, input.companyId);
     const registro = await this.prisma.registroEpi.findFirst({ where: { id: epiId, obraId: id } });
-    if (!registro) throw new NotFoundException("registro de EPI não encontrado");
-    const atualizado = await this.prisma.registroEpi.update({
-      where: { id: epiId },
-      data: { conferidoEm: new Date(), conferidoPorId: principal.id },
+    if (!registro) throw new NaoEncontrado("Registro de EPI não encontrado.");
+    const atualizado = await this.prisma.$transaction(async (tx) => {
+      await transicionarCondicionado(
+        tx.registroEpi,
+        epiId,
+        { obraId: id, conferidoEm: null },
+        { conferidoEm: new Date(), conferidoPorId: principal.id },
+        "Este EPI já foi conferido.",
+      );
+      await this.auditar(tx, { nome: "obras.epi.checked", obra, principal, payload: { epiId } });
+      return tx.registroEpi.findUniqueOrThrow({ where: { id: epiId } });
     });
     return {
       id: atualizado.id,
@@ -413,16 +454,28 @@ export class PrismaObrasRepository implements ObrasRepository {
   }
 
   async assinarApr(id: string, aprId: string, input: AssinarAprRequest, principal: AuthPrincipal): Promise<RegistroApr> {
-    await this.carregar(id, input.companyId);
+    const obra = await this.carregar(id, input.companyId);
     const registro = await this.prisma.registroApr.findFirst({ where: { id: aprId, obraId: id } });
-    if (!registro) throw new NotFoundException("registro de APR não encontrado");
+    if (!registro) throw new NaoEncontrado("Registro de APR não encontrado.");
 
     const agora = new Date();
-    const dados =
+    // A assinatura só vale se o campo ainda estiver vazio: a segunda tentativa
+    // não sobrescreve a primeira, mesmo se as duas chegarem juntas.
+    const [condicao, dados] =
       input.papel === "seguranca"
-        ? { segurancaAssinouId: principal.id, segurancaAssinouEm: agora }
-        : { supervisorAssinouId: principal.id, supervisorAssinouEm: agora };
-    const atualizado = await this.prisma.registroApr.update({ where: { id: aprId }, data: dados });
+        ? [{ segurancaAssinouEm: null }, { segurancaAssinouId: principal.id, segurancaAssinouEm: agora }]
+        : [{ supervisorAssinouEm: null }, { supervisorAssinouId: principal.id, supervisorAssinouEm: agora }];
+    const atualizado = await this.prisma.$transaction(async (tx) => {
+      await transicionarCondicionado(
+        tx.registroApr,
+        aprId,
+        { obraId: id, ...condicao },
+        dados,
+        "Esta APR já foi assinada por este papel.",
+      );
+      await this.auditar(tx, { nome: "obras.apr.signed", obra, principal, payload: { aprId, papel: input.papel } });
+      return tx.registroApr.findUniqueOrThrow({ where: { id: aprId } });
+    });
     return {
       id: atualizado.id,
       atividade: atualizado.atividade,
@@ -480,15 +533,24 @@ export class PrismaObrasRepository implements ObrasRepository {
     const obra = await this.carregar(id, input.companyId);
     if (input.incidenteId) {
       const incidente = await this.prisma.incidente.findFirst({ where: { id: input.incidenteId, obraId: obra.id } });
-      if (!incidente) throw new NotFoundException("incidente não encontrado nesta obra");
+      if (!incidente) throw new NaoEncontrado("Incidente não encontrado nesta obra.");
     }
-    const criado = await this.prisma.liberacaoSeguranca.create({
-      data: {
-        obraId: obra.id,
-        incidenteId: input.incidenteId ?? null,
-        papelLiberador: input.papelLiberador,
-        liberadoPorId: principal.id,
-      },
+    const criado = await this.prisma.$transaction(async (tx) => {
+      const liberacao = await tx.liberacaoSeguranca.create({
+        data: {
+          obraId: obra.id,
+          incidenteId: input.incidenteId ?? null,
+          papelLiberador: input.papelLiberador,
+          liberadoPorId: principal.id,
+        },
+      });
+      await this.auditar(tx, {
+        nome: "obras.release.recorded",
+        obra,
+        principal,
+        payload: { liberacaoId: liberacao.id, papelLiberador: input.papelLiberador, incidenteId: input.incidenteId ?? null },
+      });
+      return liberacao;
     });
     return {
       id: criado.id,
@@ -508,14 +570,22 @@ export class PrismaObrasRepository implements ObrasRepository {
     input: RevogarLiberacaoRequest,
     principal: AuthPrincipal,
   ): Promise<LiberacaoSeguranca> {
-    await this.carregar(id, input.companyId);
+    const obra = await this.carregar(id, input.companyId);
     const registro = await this.prisma.liberacaoSeguranca.findFirst({ where: { id: liberacaoId, obraId: id } });
-    if (!registro) throw new NotFoundException("liberação de segurança não encontrada");
+    if (!registro) throw new NaoEncontrado("Liberação de segurança não encontrada.");
     assertLiberacaoValida({ liberadoEm: registro.liberadoEm, revogadoEm: registro.revogadoEm });
 
-    const atualizado = await this.prisma.liberacaoSeguranca.update({
-      where: { id: liberacaoId },
-      data: { revogadoEm: new Date(), revogadoPorId: principal.id, motivoRevogacao: input.motivoRevogacao },
+    const atualizado = await this.prisma.$transaction(async (tx) => {
+      // Duas revogações juntas: só a primeira casa `revogadoEm IS NULL`.
+      await transicionarCondicionado(
+        tx.liberacaoSeguranca,
+        liberacaoId,
+        { obraId: id, revogadoEm: null },
+        { revogadoEm: new Date(), revogadoPorId: principal.id, motivoRevogacao: input.motivoRevogacao },
+        "Esta liberação de segurança já foi revogada.",
+      );
+      await this.auditar(tx, { nome: "obras.release.revoked", obra, principal, payload: { liberacaoId } });
+      return tx.liberacaoSeguranca.findUniqueOrThrow({ where: { id: liberacaoId } });
     });
     return {
       id: atualizado.id,
@@ -561,8 +631,17 @@ export class PrismaObrasRepository implements ObrasRepository {
     principal: AuthPrincipal,
   ): Promise<PendenciaDeCampo> {
     const obra = await this.carregar(id, input.companyId);
-    const criada = await this.prisma.pendenciaDeCampo.create({
-      data: { obraId: obra.id, tipo: input.tipo, descricao: input.descricao, abertaPorId: principal.id },
+    const criada = await this.prisma.$transaction(async (tx) => {
+      const pendencia = await tx.pendenciaDeCampo.create({
+        data: { obraId: obra.id, tipo: input.tipo, descricao: input.descricao, abertaPorId: principal.id },
+      });
+      await this.auditar(tx, {
+        nome: "obras.pendency.recorded",
+        obra,
+        principal,
+        payload: { pendenciaId: pendencia.id, tipo: input.tipo },
+      });
+      return pendencia;
     });
     return this.mapPendencia(criada);
   }
@@ -575,7 +654,7 @@ export class PrismaObrasRepository implements ObrasRepository {
   ): Promise<PendenciaDeCampo> {
     const obra = await this.carregar(id, input.companyId);
     const registro = await this.prisma.pendenciaDeCampo.findFirst({ where: { id: pendenciaId, obraId: id } });
-    if (!registro) throw new NotFoundException("pendência não encontrada");
+    if (!registro) throw new NaoEncontrado("Pendência não encontrada.");
     assertPendenciaAberta(registro.status);
 
     const agora = new Date();
@@ -604,7 +683,7 @@ export class PrismaObrasRepository implements ObrasRepository {
   ): Promise<PendenciaDeCampo> {
     const obra = await this.carregar(id, input.companyId);
     const registro = await this.prisma.pendenciaDeCampo.findFirst({ where: { id: pendenciaId, obraId: id } });
-    if (!registro) throw new NotFoundException("pendência não encontrada");
+    if (!registro) throw new NaoEncontrado("Pendência não encontrada.");
     assertPendenciaAberta(registro.status);
 
     const agora = new Date();
@@ -652,13 +731,26 @@ export class PrismaObrasRepository implements ObrasRepository {
   async lancarMedicao(id: string, input: LancarMedicaoRequest, principal: AuthPrincipal): Promise<MedicaoTecnica> {
     const obra = await this.carregar(id, input.companyId);
     assertEtapaAtual(obra.etapaAtual, "medicao_tecnica");
-    const criada = await this.prisma.medicaoTecnica.create({
-      data: {
-        obraId: obra.id,
-        etapaExecutada: input.etapaExecutada,
-        pendenciasRemanescentes: input.pendenciasRemanescentes ?? null,
-        responsavelId: principal.id,
-      },
+    const criada = await this.prisma.$transaction(async (tx) => {
+      // A obra precisa continuar em `medicao_tecnica` até a gravação: se outra
+      // requisição a moveu nesse meio tempo, não se lança medição fora da etapa.
+      await transicionarCondicionado(
+        tx.obra,
+        obra.id,
+        { companyId: obra.companyId, etapaAtual: "medicao_tecnica" },
+        { etapaAtual: "medicao_tecnica" },
+        "A obra mudou de etapa enquanto a medição era lançada. Atualize a página e confira.",
+      );
+      const medicao = await tx.medicaoTecnica.create({
+        data: {
+          obraId: obra.id,
+          etapaExecutada: input.etapaExecutada,
+          pendenciasRemanescentes: input.pendenciasRemanescentes ?? null,
+          responsavelId: principal.id,
+        },
+      });
+      await this.auditar(tx, { nome: "obras.measurement.recorded", obra, principal, payload: { medicaoId: medicao.id } });
+      return medicao;
     });
     return this.mapMedicao(criada);
   }
@@ -677,7 +769,7 @@ export class PrismaObrasRepository implements ObrasRepository {
     const obra = await this.carregar(id, input.companyId);
     assertEtapaAtual(obra.etapaAtual, "medicao_tecnica");
     const registro = await this.prisma.medicaoTecnica.findFirst({ where: { id: medicaoId, obraId: id } });
-    if (!registro) throw new NotFoundException("medição não encontrada");
+    if (!registro) throw new NaoEncontrado("Medição não encontrada.");
     assertMedicaoTransicao(registro.status, "aprovada");
     assertTransicaoPermitida(obra.etapaAtual, "medicao_aprovada");
 
@@ -716,7 +808,7 @@ export class PrismaObrasRepository implements ObrasRepository {
     const obra = await this.carregar(id, input.companyId);
     assertEtapaAtual(obra.etapaAtual, "medicao_tecnica");
     const registro = await this.prisma.medicaoTecnica.findFirst({ where: { id: medicaoId, obraId: id } });
-    if (!registro) throw new NotFoundException("medição não encontrada");
+    if (!registro) throw new NaoEncontrado("Medição não encontrada.");
     assertMedicaoTransicao(registro.status, "em_correcao");
     assertTransicaoPermitida(obra.etapaAtual, "em_execucao");
 
@@ -782,25 +874,37 @@ export class PrismaObrasRepository implements ObrasRepository {
     const obra = await this.carregar(id, input.companyId);
     assertEtapaAtual(obra.etapaAtual, "projeto_em_elaboracao");
 
-    const ultima = await this.prisma.projetoVersao.findFirst({
-      where: { obraId: obra.id },
-      orderBy: { versao: "desc" },
-    });
-    if (ultima && ultima.status !== "elaboracao") {
-      throw new BadRequestException("já existe uma versão fora da elaboração; use a revisão em vez de criar outra");
-    }
-
-    const criada = await this.prisma.projetoVersao.create({
-      data: {
-        obraId: obra.id,
-        versao: (ultima?.versao ?? 0) + 1,
-        status: "elaboracao",
-        descricao: input.descricao,
-        autorId: principal.id,
-        arquivoChave: anexo?.arquivoChave ?? null,
-        arquivoNome: anexo?.arquivoNome ?? null,
-      },
-    });
+    // Duas criações juntas calculam o mesmo `versao + 1`: a unicidade
+    // (obraId, versao) derruba uma delas com P2002 e a repetição recalcula.
+    const criada = await comRepeticaoP2002(() =>
+      this.prisma.$transaction(async (tx) => {
+        const ultima = await tx.projetoVersao.findFirst({
+          where: { obraId: obra.id },
+          orderBy: { versao: "desc" },
+        });
+        if (ultima && ultima.status !== "elaboracao") {
+          throw new EstadoInvalido("Já existe uma versão fora da elaboração; use a revisão em vez de criar outra.");
+        }
+        const versao = await tx.projetoVersao.create({
+          data: {
+            obraId: obra.id,
+            versao: (ultima?.versao ?? 0) + 1,
+            status: "elaboracao",
+            descricao: input.descricao,
+            autorId: principal.id,
+            arquivoChave: anexo?.arquivoChave ?? null,
+            arquivoNome: anexo?.arquivoNome ?? null,
+          },
+        });
+        await this.auditar(tx, {
+          nome: "obras.project_version.created",
+          obra,
+          principal,
+          payload: { versaoId: versao.id, versao: versao.versao },
+        });
+        return versao;
+      }),
+    );
     return this.mapVersao(criada);
   }
 
@@ -813,7 +917,7 @@ export class PrismaObrasRepository implements ObrasRepository {
     const obra = await this.carregar(id, input.companyId);
     assertEtapaAtual(obra.etapaAtual, "projeto_em_elaboracao");
     const registro = await this.prisma.projetoVersao.findFirst({ where: { id: versaoId, obraId: id } });
-    if (!registro) throw new NotFoundException("versão de projeto não encontrada");
+    if (!registro) throw new NaoEncontrado("Versão de projeto não encontrada.");
     assertProjetoVersaoTransicao(registro.status, "em_aprovacao");
 
     const agora = new Date();
@@ -848,7 +952,7 @@ export class PrismaObrasRepository implements ObrasRepository {
     const obra = await this.carregar(id, input.companyId);
     assertEtapaAtual(obra.etapaAtual, "em_aprovacao_tecnica");
     const registro = await this.prisma.projetoVersao.findFirst({ where: { id: versaoId, obraId: id } });
-    if (!registro) throw new NotFoundException("versão de projeto não encontrada");
+    if (!registro) throw new NaoEncontrado("Versão de projeto não encontrada.");
     assertProjetoVersaoTransicao(registro.status, "aprovado");
     assertTransicaoPermitida(obra.etapaAtual, "projeto_aprovado");
 
@@ -888,7 +992,7 @@ export class PrismaObrasRepository implements ObrasRepository {
     const obra = await this.carregar(id, input.companyId);
     assertEtapaAtual(obra.etapaAtual, "em_aprovacao_tecnica");
     const registro = await this.prisma.projetoVersao.findFirst({ where: { id: versaoId, obraId: id } });
-    if (!registro) throw new NotFoundException("versão de projeto não encontrada");
+    if (!registro) throw new NaoEncontrado("Versão de projeto não encontrada.");
     assertProjetoVersaoTransicao(registro.status, "elaboracao");
     assertTransicaoPermitida(obra.etapaAtual, "projeto_em_elaboracao");
 
