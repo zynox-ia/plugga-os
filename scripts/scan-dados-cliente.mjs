@@ -14,14 +14,14 @@ import path from "node:path";
 import { createInterface } from "node:readline";
 import { fileURLToPath } from "node:url";
 
-import { cnpjValido, cpfValido, naFaixaSintetica } from "./dados-sinteticos.mjs";
+import { cnpjValido, cpfValido, naFaixaSintetica, ucNaFaixa } from "./dados-sinteticos.mjs";
 
 const RAIZ = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const ARQUIVO_PERMITIDOS = path.join(RAIZ, "scripts", "dados-sinteticos-permitidos.json");
 
 const RE_CNPJ = /(?<!\d)\d{2}\.?\d{3}\.?\d{3}\/?\d{4}-?\d{2}(?!\d)/g;
 const RE_CPF = /(?<!\d)\d{3}\.?\d{3}\.?\d{3}-?\d{2}(?!\d)/g;
-const RE_UC = [/\buc[-_ ]?\d{4,}/gi, /\bUC\s*\d{7}-\d\b/gi];
+const RE_UC = [/(?<![A-Za-z0-9])uc[-_ ]?\d{4,}/gi, /(?<![A-Za-z0-9])UC\s*\d{7}-\d\b/gi];
 
 const IGNORADOS = [
   /(^|\/)node_modules\//,
@@ -68,6 +68,7 @@ export function varreLinha(linha, { nomes = [], permitidos = VAZIO } = {}) {
     for (const m of linha.matchAll(re)) {
       // UC só de zeros é espaço reservado de documentação, não um cliente.
       if (/^\D*0+(-0)?$/.test(m[0].replace(/\s/g, ""))) continue;
+      if (ucNaFaixa(m[0].replace(/\D/g, ""))) continue;
       if (!permitidos.ucs.has(m[0].toLowerCase())) achados.push({ tipo: "unidade-consumidora" });
     }
   }

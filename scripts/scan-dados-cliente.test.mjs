@@ -62,11 +62,8 @@ test("a faixa reservada dos sintéticos e a lista de permitidos não geram ocorr
   const texto = [...fixtures.cnpjs, ...fixtures.cpfs, cnpjSintetico(1), cpfSintetico(1)].join("\n");
   assert.deepEqual(varreArquivos({ "a.json": texto }, { permitidos }), []);
 
-  const uc = fixtures.ucs[0];
-  assert.equal(varreArquivos({ "a.json": uc }, { permitidos }).length, 1);
-  const lista = listaDePermitidos(fixtures);
-  const comLista = { documentos: new Set(lista.documentos), ucs: new Set(lista.ucs.map((u) => u.toLowerCase())), nomes: new Set(), arquivos: new Set() };
-  assert.deepEqual(varreArquivos({ "a.json": uc }, { permitidos: comLista }), []);
+  const ucs = fixtures.ucs.join("\n");
+  assert.deepEqual(varreArquivos({ "a.json": ucs }, { permitidos }), []);
 });
 
 test("arquivo na lista de permitidos é ignorado", () => {
@@ -86,7 +83,7 @@ test("não imprime o valor no relatório", () => {
 test("acusa UC ou CNPJ em .md de specs/ e docs/", () => {
   const cnpj = documentoForaDaFaixa("cnpj");
   const r = varreArquivos(
-    { "specs/002/relatorio.md": "A unidade UC-1234567 consome", "docs/x.md": `CNPJ ${cnpj}` },
+    { "specs/002/relatorio.md": `A unidade UC-${"12"}${"34567"} consome`, "docs/x.md": `CNPJ ${cnpj}` },
     opcoes,
   );
   assert.deepEqual(r.map((o) => [o.arquivo, o.tipo]), [

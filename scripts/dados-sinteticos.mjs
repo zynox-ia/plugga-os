@@ -45,6 +45,11 @@ export function cpfSintetico(sequencia) {
   return base + d1 + digito(base + d1, [11, 10, 9, 8, 7, 6, 5, 4, 3, 2]);
 }
 
+/** Unidade consumidora: número começando por 9999 (ex.: UC-9999001). */
+export const FAIXA_UC = "9999";
+
+export const ucNaFaixa = (digitos) => digitos.startsWith(FAIXA_UC);
+
 export const naFaixaSintetica = (digitos) =>
   (digitos.length === 14 && digitos.startsWith(FAIXA_CNPJ)) ||
   (digitos.length === 11 && digitos.startsWith(FAIXA_CPF));

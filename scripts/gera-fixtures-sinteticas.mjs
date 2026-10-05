@@ -27,7 +27,7 @@ export function geraFixtures(quantidade = 20, semente = SEMENTE) {
     const sequencia = proximo() % 1000;
     cnpjs.push(cnpjSintetico(sequencia));
     cpfs.push(cpfSintetico(sequencia));
-    ucs.push(`UC-${9000000 + (proximo() % 1000000)}`);
+    ucs.push(`UC-${9999000 + (proximo() % 1000)}`);
   }
   return {
     cnpjs: [...new Set(cnpjs)],
