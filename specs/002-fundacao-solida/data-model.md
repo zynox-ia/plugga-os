@@ -61,7 +61,7 @@ AccessScope {
 ```
 
 Regras:
-- Um papel só autoriza um recurso cuja `company_id` está em `rolesByCompany` com aquele papel.
+- Um papel só autoriza um recurso cuja `company_id` esteja em `rolesByCompany` com aquele papel: o guard exige o papel em **alguma** empresa do escopo (decisão sem carregar o registro) e o service/repositório confere a empresa do registro após carregá-lo (ver research D7).
 - Listagens aplicam `company_id IN (companies)`.
 - Conceder: o concedente só pode atribuir (empresa, papel) que ele administra; `admin` de plataforma só por admin; gestor de departamento não concede papel fora do próprio escopo (já validado, completa-se para empresa).
 - `flattenRoles` permanece só para a navegação e deixa de alimentar o `RolesGuard`.
@@ -99,7 +99,7 @@ event_log {
 
 - Coluna `company_id` (nula) e índice `(company_id, occurred_at)`; índice em `actor_id`.
 - `payload` segue o formato `{ campos: ["nome", "telefone"], antes: null, depois: null }`: nomes dos campos, nunca valores de nome, e-mail, telefone, documento. Exceção: valores não pessoais necessários à auditoria (estado anterior e novo de um status).
-- Eventos antigos com PII: **decisão do dono** sobre mascarar, expirar ou manter com justificativa. O plano propõe mascarar por migração de dados controlada (a imutabilidade do gatilho é suspensa por uma migração dedicada, aprovada, com backup e registro), mantendo a linha e removendo só os valores pessoais do `payload`. Se o dono preferir manter, o motivo e o prazo ficam na política de retenção.
+- Eventos antigos com PII: **padrão: manter sem alterar**, com justificativa e prazo na política de retenção, porque a constituição (princípio IV) proíbe mutar o histórico. **Mascarar só é permitido depois de uma emenda explícita da constituição** (exceção estreita de LGPD, aprovada pelo dono, com ADR e registro da operação); sem a emenda, nenhuma migração suspende o gatilho de imutabilidade.
 
 ## 5. Retenção e apagamento (US8, FR-035, FR-036)
 
@@ -111,7 +111,7 @@ Política (a validar pelo dono):
 | Cadastro de cliente (nome, documento, e-mail, telefone) | `clients` | Relação contratual | Vigência mais prazo legal | Anonimização por pedido de apagamento quando permitido |
 | Fornecedor (documento) | `fornecedores` | Compras | Vigência mais prazo fiscal | Idem |
 | Fatura e estudo (JSON com CNPJ/UC) | `energy_*`, balde S3 | Prestação do serviço | Vigência do contrato | Idem; arquivos no balde |
-| Evento de auditoria | `event_log` | Prova de ação | Indefinido, **sem valores pessoais** | Mascaramento de legado |
+| Evento de auditoria | `event_log` | Prova de ação | Indefinido, **sem valores pessoais** daqui em diante | Legado mantido com justificativa; mascarar só após emenda da constituição |
 | Backup | B2 | Recuperação | 35 dias (mensal 12 meses) | Expiração por regra do bucket |
 | Log de aplicação | Docker | Operação | 14 dias | Rotação |
 

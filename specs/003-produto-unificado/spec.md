@@ -188,7 +188,7 @@ Como gestor, quero ver totais por empresa e consolidados, restritos ao que posso
 
 **Cadastro único de cliente**
 
-- **FR-013**: Cliente MUST ser um cadastro único, sem empresa dona, visível a quem tem papel comercial em qualquer empresa; negócios, propostas, contratos, valores, faturas e estudos MUST continuar filtrados pela empresa do registro.
+- **FR-013**: Cliente MUST ser um cadastro único, sem empresa responsável, visível a quem tem papel comercial em qualquer empresa; negócios, propostas, contratos, valores, faturas e estudos MUST continuar filtrados pela empresa do registro.
 - **FR-014**: O sistema MUST impedir cadastro duplicado por documento (normalizado) e por e-mail, apontando o cadastro existente.
 - **FR-015**: Duplicidades existentes MUST ser listadas em fila de decisão manual; nenhuma união MUST ocorrer sem confirmação de pessoa responsável.
 - **FR-016**: A união de cadastros MUST preservar todo o histórico, MUST ser auditada e MUST poder ser desfeita por um período definido.
@@ -225,7 +225,7 @@ Como gestor, quero ver totais por empresa e consolidados, restritos ao que posso
 - **Escopo de acesso**: áreas que a pessoa exerce e, para cada uma, as empresas em que vale (definido na spec 002).
 - **Filtro de empresa da tela**: escolha de visualização própria de cada tela, refletida no endereço, sempre dentro do escopo; nunca amplia acesso. Não existe filtro global.
 - **Catálogo de telas e filtros**: lista de cada tela de negócio com seu filtro de empresa e valor padrão.
-- **Cliente**: cadastro único (nome, documento, contatos) sem empresa dona; relaciona-se com negócios de cada empresa.
+- **Cliente**: cadastro único (nome, documento, contatos) sem empresa responsável; relaciona-se com negócios de cada empresa.
 - **Fornecedor**: cadastro único por documento; relaciona-se com pedidos e lançamentos de cada empresa.
 - **Registro de negócio**: oportunidade, contrato, ciclo, auditoria, estudo, fechamento, pedido, obra ou lançamento; sempre com empresa.
 - **Fila de decisão manual**: lista de duplicidades e casos duvidosos que uma pessoa responsável resolve; cada decisão é auditada.

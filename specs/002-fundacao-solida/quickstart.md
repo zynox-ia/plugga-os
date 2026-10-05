@@ -31,7 +31,7 @@ Esperado: só o push na `main` oficial chega ao passo de aprovação. Em seguida
 ```bash
 CLIENT_NAMES_FILE=/caminho/fora/do/repo/nomes.txt node scripts/scan-dados-cliente.mjs --tree
 pnpm test:scan-dados            # testes do scanner com valores sintéticos
-CLIENT_NAMES_FILE=... node scripts/scan-dados-cliente.mjs --history   # após a reescrita (T1.17)
+CLIENT_NAMES_FILE=... node scripts/scan-dados-cliente.mjs --history   # após a reescrita (T047)
 ```
 
 Esperado: 0 ocorrências fora de fixtures declaradas, e falha ao introduzir um CNPJ válido de teste não permitido. As suítes de regressão do leitor de fatura continuam verdes com as fixtures sintéticas:

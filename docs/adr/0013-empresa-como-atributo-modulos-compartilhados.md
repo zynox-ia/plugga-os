@@ -50,6 +50,8 @@ Problemas confirmados na auditoria de 2026-10-05:
    o usuário e todo repositório de módulo de negócio o aplica em toda consulta e mutação. Registro
    de empresa não permitida responde "não encontrado". Os dois repositórios de escopo atuais
    (Compras e Obras) são absorvidos por esse componente.
+> **Nota de 2026-10-05 (plano da spec 002).** O acesso já é guardado por (pessoa, empresa, papel) em `user_company_roles`; o defeito está no guard, que ignora a empresa. Por isso a spec 002 **não troca as tabelas de acesso**: ela torna o guard e os repositórios sensíveis à empresa. O agrupamento por área funcional é apresentação e fica na spec 003. As referências abaixo a "(área, empresas)" valem como modelo de apresentação.
+
 7. **Concessão.** Quem concede papéis só concede áreas e empresas que administra; um papel
    concedido numa empresa nunca vale em outra.
 8. **O seletor global de empresa do topo é removido** (decisão do dono, 2026-10-05). Não há

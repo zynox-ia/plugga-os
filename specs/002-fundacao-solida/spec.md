@@ -77,7 +77,7 @@ Como dono do sistema, quero que o banco **e** os arquivos enviados (faturas, cot
 
 Como gestor, quero que uma pessoa com papel só na Waze não leia nem altere oportunidades, contratos, ciclos de energia, estudos, faturas ou fechamentos da Plugga (e vice-versa), e quero que isso valha em todos os módulos pela mesma regra.
 
-O modelo segue o ADR-0013: o sistema é um só, com módulos únicos por função; **empresa é um atributo do registro de negócio** e a pessoa recebe papéis por área e as empresas em que cada papel vale. Cadastros de cliente e de fornecedor ficam fora desta história (são únicos e tratados na spec 003).
+O modelo segue o ADR-0013: o sistema é um só, com módulos únicos por função; **empresa é um atributo do registro de negócio** e a pessoa recebe papéis por empresa (o agrupamento por área funcional é apresentação, da spec 003). Cadastros de cliente e de fornecedor ficam fora desta história (são únicos e tratados na spec 003).
 
 **Why this priority**: hoje um papel concedido em qualquer empresa vale em todas. Só Compras e Obras guardam e checam empresa, cada uma com sua própria cópia da regra. Nos demais módulos, uma pessoa com papel comercial na Waze acessa, por URL direta ou pela API, dados de negócio da Plugga, e um gerente de departamento pode conceder esses papéis.
 
@@ -90,7 +90,7 @@ O modelo segue o ADR-0013: o sistema é um só, com módulos únicos por funçã
 3. **Given** um gestor que administra a empresa A, **When** tenta conceder papel ou acesso que vale em outra empresa, **Then** a concessão é negada e fica auditada.
 4. **Given** os dados existentes, **When** o campo de empresa é aplicado, **Then** os registros de Clientes (negócios), Comercial, Energia, Eficiência energética e Pluggamob recebem `plugga`, Compras e Obras mantêm a empresa que já têm, os casos duvidosos vão para fila de decisão manual, nenhum registro é perdido e a mudança é reversível.
 5. **Given** um usuário que alcança as duas empresas (ou admin de plataforma), **When** consulta, **Then** vê as duas, com a empresa de cada registro identificada, e consegue restringir a visão a uma delas.
-6. **Given** uma pessoa com acesso hoje, **When** o novo modelo de acesso é migrado, **Then** ela mantém exatamente o alcance que tinha antes, sem ganhar nem perder acesso por efeito da migração.
+6. **Given** uma pessoa com acesso hoje, **When** o novo guard por empresa entra em vigor, **Then** ela mantém exatamente o alcance que tinha antes, sem ganhar nem perder acesso por efeito da mudança.
 7. **Given** um novo módulo ou rota de negócio, **When** ele consulta dados sem aplicar o escopo de empresa, **Then** um teste automático ou a análise do código falha.
 8. **Given** o filtro de empresa de uma tela, **When** o usuário escolhe uma empresa que ele não alcança (por manipulação da URL ou da requisição), **Then** o resultado é vazio ou negado, nunca ampliado.
 
@@ -162,7 +162,7 @@ Como encarregado de dados, quero que nome, telefone, e-mail e documento de pesso
 **Acceptance Scenarios**:
 
 1. **Given** a criação ou edição de cliente, fornecedor ou contato, **When** o evento é registrado, **Then** ele contém identificadores e nomes de campos, e não os valores pessoais.
-2. **Given** eventos antigos que já contêm valores pessoais, **When** a política é decidida, **Then** o tratamento (mascarar, expirar ou manter com justificativa) é executado e documentado sem violar a imutabilidade acordada.
+2. **Given** eventos antigos que já contêm valores pessoais, **When** a política é decidida, **Then** o tratamento é registrado: por padrão o legado é mantido sem alteração, com justificativa e prazo na política; mascarar o legado só é permitido depois de uma emenda explícita da constituição (princípio IV) aprovada pelo dono, e nunca por mudança silenciosa de migração.
 3. **Given** sessões expiradas, **When** o prazo de retenção passa, **Then** elas e seus IP e agente de navegação são removidos automaticamente.
 4. **Given** um pedido de apagamento de um titular, **When** é atendido, **Then** o procedimento escrito identifica todos os lugares com seus dados e o resultado é verificável.
 5. **Given** a política, **When** consultada, **Then** lista cada categoria de dado pessoal, a finalidade, o prazo e o responsável.
@@ -260,7 +260,7 @@ Como responsável pela operação, quero publicar com versões identificáveis, 
 
 **Acceptance Scenarios**:
 
-1. **Given** uma publicação, **When** termina, **Then** a versão é identificável pelo commit e as últimas N versões permanecem disponíveis para reversão.
+1. **Given** uma publicação, **When** termina, **Then** a versão é identificável pelo commit e as últimas 5 versões permanecem disponíveis para reversão.
 2. **Given** uma publicação com migração, **When** o código novo falha na saúde, **Then** a volta funciona porque as migrações seguem a regra de compatibilidade com a versão anterior, documentada.
 3. **Given** a verificação pós-publicação, **When** o sistema demora a subir, **Then** ela tenta repetidamente até o limite, sem reverter por pressa.
 4. **Given** banco, cache ou armazenamento indisponível, **When** a saúde é consultada, **Then** reporta o componente com problema.
@@ -352,7 +352,7 @@ Como dono do produto, quero que o sistema entregue só o que usa e que tenha lic
 - Uma publicação é solicitada enquanto uma migração está em andamento ou enquanto o backup diário roda.
 - O responsável pela aprovação de publicação não responde dentro do prazo.
 - Uma pessoa pertence às duas empresas, ou muda de empresa, e tem registros nas duas.
-- Registros existentes não têm empresa dona e não é possível inferi-la com segurança (ficam em fila de decisão manual, não são adivinhados).
+- Registros existentes não têm empresa responsável e não é possível inferi-la com segurança (ficam em fila de decisão manual, não são adivinhados).
 - Duplicatas existentes impedem aplicar uma restrição de unicidade.
 - A cópia externa de backup está inacessível na hora da verificação (alerta, sem apagar a anterior).
 - A restauração de teste não pode usar dados reais fora do ambiente descartável.
@@ -396,9 +396,9 @@ Como dono do produto, quero que o sistema entregue só o que usa e que tenha lic
 
 - **FR-017**: Todo registro de negócio (oportunidade, contrato, ciclo, auditoria, estudo, fechamento, pedido, obra, lançamento) MUST ter uma empresa responsável (`plugga` ou `waze`); toda leitura, listagem, totalização, alteração e aprovação MUST aplicar o escopo de empresas permitidas ao usuário, com resposta "não encontrado" para registro de empresa não permitida.
 - **FR-018**: A atribuição de empresa aos registros existentes MUST ser aditiva, reversível e sem perda: registros dos módulos que hoje não têm empresa (negócios de Clientes, Comercial, Energia, Eficiência energética, Pluggamob) recebem `plugga`; Compras e Obras mantêm a que têm; registros duvidosos vão para fila de decisão manual e MUST NOT ser adivinhados (decisão do dono em 2026-10-05, ADR-0013).
-- **FR-019**: O acesso MUST ser modelado por área funcional e empresas em que cada papel vale, e a concessão MUST ser limitada às áreas e empresas que o concedente administra; um papel concedido em uma empresa MUST NOT valer em outra. A migração do modelo atual (empresa e departamento) MUST preservar o alcance de cada pessoa, comprovado por teste de equivalência.
+- **FR-019**: A concessão de acesso MUST continuar sendo por (pessoa, empresa, papel), limitada às empresas e papéis que o concedente administra; um papel concedido em uma empresa MUST NOT valer em outra, e a decisão de autorização MUST considerar a empresa do registro. O agrupamento por área funcional é apresentação (spec 003) e não altera o modelo de acesso. A mudança do guard MUST preservar o alcance de cada pessoa, comprovado por teste de equivalência.
 - **FR-019a**: O cálculo das empresas permitidas MUST ficar em um único componente compartilhado, aplicado por todos os módulos de negócio, absorvendo as duas regras de escopo hoje duplicadas em Compras e Obras; um teste MUST falhar se um módulo de negócio consultar dados sem aplicá-lo.
-- **FR-019b**: O cadastro de cliente e de fornecedor é único e sem empresa dona (ADR-0013); a visibilidade dos dados de negócio ligados a eles segue a empresa do registro. A unificação desses cadastros e do menu é escopo da spec 003 e MUST NOT ser feita nesta feature.
+- **FR-019b**: Cadastro de cliente e de fornecedor é único e sem empresa responsável (ADR-0013); a unificação e a visibilidade são escopo da spec 003 (FR-013 a FR-017) e MUST NOT ser feitas nesta feature.
 - **FR-020**: Toda rota MUST declarar explicitamente se é pública ou quais papéis exige; rota sem declaração MUST ser negada.
 - **FR-021**: Um teste automático MUST inventariar todas as rotas e falhar se alguma não declarar acesso ou se a lista de públicas divergir da aprovada.
 - **FR-022**: Parâmetros de identificador em rotas MUST ser validados com formato correto, e valor malformado MUST resultar em "requisição inválida".
@@ -438,8 +438,8 @@ Como dono do produto, quero que o sistema entregue só o que usa e que tenha lic
 
 **Entradas e arquivos**
 
-- **FR-044**: O sistema MUST recusar, antes de qualquer processamento, PDFs acima do limite de páginas, páginas ou imagens acima do limite de dimensão e arquivos cujo conteúdo não corresponda ao tipo permitido.
-- **FR-045**: Uploads MUST ter limite total de memória por requisição e simultâneo, e leitura de arquivo MUST ter tempo máximo.
+- **FR-044**: O sistema MUST recusar, antes de qualquer processamento, PDFs acima do limite de páginas, páginas ou imagens acima do limite de dimensão e arquivos cujo conteúdo não corresponda ao tipo permitido. Os limites numéricos estão em Assumptions.
+- **FR-045**: Uploads MUST ter limite total de memória por requisição e simultâneo, e leitura de arquivo MUST ter tempo máximo. Os limites numéricos estão em Assumptions.
 - **FR-046**: Leitura de fatura, chamada a modelo de linguagem e geração de PDF MUST NOT bloquear a requisição que atende outros usuários; o usuário MUST poder consultar o andamento. [Premissa: pode ser entregue em fatia posterior desta feature.]
 
 **Autenticação e sessão**
@@ -469,12 +469,12 @@ Como dono do produto, quero que o sistema entregue só o que usa e que tenha lic
 - **FR-063**: Erros em produção MUST ser capturados com pilha e identificador de requisição, sem dado pessoal, e o responsável MUST ser avisado; cada requisição MUST ter identificador e registro de acesso.
 - **FR-064**: Um monitor externo MUST avisar quando o sistema ficar indisponível.
 - **FR-065**: O registro (log) MUST preservar pilha e todos os parâmetros dos erros.
-- **FR-066**: Cada serviço MUST ter limite de memória e CPU, rotação de logs e verificação de saúde; as imagens MUST conter apenas o necessário para execução.
+- **FR-066**: Cada serviço MUST ter limite de memória e CPU, rotação de logs e verificação de saúde; as imagens MUST conter apenas o necessário para execução. Os limites vêm da medição de uso e somam menos de 80% da memória da VPS.
 
 **Esteira e testes**
 
 - **FR-067**: A CI MUST executar todas as suítes de teste existentes (incluindo as hoje condicionadas a flag), a checagem de tipos dos testes, lint com regras de tipo (promessas, hooks, acessibilidade) e verificação de scripts de shell.
-- **FR-068**: A CI MUST impor cobertura mínima nos módulos críticos, construir as imagens e reportar testes que só passaram em retentativa.
+- **FR-068**: A CI MUST impor cobertura mínima de 70% de linhas nos módulos críticos (auth, compras, obras, comercial, energia, eficiência energética), construir as imagens e reportar testes que só passaram em retentativa.
 - **FR-069**: Ações, imagens base e arquivos de terceiros baixados em build MUST ser fixados por versão imutável e verificados por checksum, e as dependências MUST ser atualizadas por mecanismo automático com revisão.
 - **FR-070**: Cada repositório com lógica de estado MUST ter testes contra banco real (transição, concorrência, evento), e as versões em memória MUST ter teste de contrato contra a real.
 - **FR-071**: Testes ponta a ponta MUST incluir usuários de papéis restritos e de empresas diferentes, verificação de negação e envio de arquivos.
@@ -497,7 +497,7 @@ Como dono do produto, quero que o sistema entregue só o que usa e que tenha lic
 ### Key Entities
 
 - **Empresa responsável**: atributo de todo registro de negócio que indica quem contrata, vende, paga ou fatura (Plugga ou Waze); base do escopo de leitura e escrita.
-- **Escopo de acesso**: conjunto de papéis por área funcional e, para cada papel, as empresas em que vale (uma ou ambas); concedido por quem administra aquelas empresas. O admin de plataforma alcança as duas por regra de leitura.
+- **Escopo de acesso**: conjunto de empresas que a pessoa alcança e, para cada uma, os papéis que valem nela (modelo atual, derivado de `user_company_roles`); concedido por quem administra aquelas empresas. O admin de plataforma alcança as duas por regra de leitura. A apresentação por área funcional é da spec 003.
 - **Declaração de acesso da rota**: a regra explícita de cada rota (pública ou lista de papéis); sem declaração, acesso negado.
 - **Modo da integração**: estado (`mock`, `read_only`, `bridge`, `write`) que define se uma chamada externa pode ocorrer.
 - **Evento de auditoria**: registro imutável de quem fez o quê e quando, com identificadores e nomes de campos, sem dado pessoal.
@@ -564,4 +564,5 @@ Princípio: primeiro fechar o que permite dano externo imediato e não exige par
 - Provedores externos já em uso (Brevo, OpenRouter, Google) continuam; esta feature não os troca.
 - A migração de leitura de fatura para processamento assíncrono (FR-046) pode ser entregue em fatia posterior sem bloquear as demais, desde que os limites de FR-044 e FR-045 já estejam em vigor.
 - Os dados de teste e a restauração de ensaio rodam em ambiente descartável isolado, nunca contra o banco ou os arquivos de produção.
+- Limites propostos, ajustáveis por decisão do dono: fatura com no máximo 3 páginas; página ou imagem até 4.000 × 4.000 pixels; 25 MB por arquivo e 60 MB por requisição; 8 uploads em andamento no total e 2 por usuário; leitura em até 60 s e OCR em até 90 s; 5 versões de imagem preservadas para reversão; cobertura mínima de 70% de linhas nos módulos críticos.
 - Esta feature depende de: conta e chaves do Backblaze B2 criadas pelo dono (FR-011), revisão técnica do ADR-0013 pelo ARCHITECT; acesso administrativo à VPS para instalar backup e monitoramento; e das specs e ADRs existentes (0005, 0007, 0008, 0011, 0012) como referência.

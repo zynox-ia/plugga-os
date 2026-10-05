@@ -74,13 +74,13 @@ Exceções de ordem permitidas: itens da fatia 4 que reduzem risco sem depender 
 
 | # | Ação | Necessária para | Quando |
 |---|---|---|---|
-| P1 | Criar a conta Backblaze B2, o bucket com Object Lock e as duas chaves de aplicação (escrita só; leitura só) | Backup externo (T1.20 a T1.27) | Antes da tarefa T1.20 |
-| P2 | Gerar o par de chaves `age` do dono (offline) e guardar a chave privada em local seguro, com cópia | Backup criptografado | Antes de T1.22 |
-| P3 | Nomear aprovadores de publicação (mínimo dois) e confirmar a regra de proteção da `main` | Ambiente `production` com aprovação (T1.3, T1.4) | Antes de T1.3 |
-| P4 | Informar se o repositório é público/privado e se aceita forks | Ajustar a urgência e o texto da correção do deploy | Antes de T1.1 |
-| P5 | Aprovar a janela e executar o congelamento da `main` para a reescrita do histórico; confirmar que não há PR em andamento | Reescrita de histórico (T1.17) | Fim da fatia 1 |
-| P6 | Criar a conta no serviço de heartbeats e no monitor de uptime e entregar as URLs de ping | Alertas (T1.28, T1.29) | Antes de T1.28 |
-| P7 | Fornecer (por canal seguro, nunca no repositório) a lista de nomes de clientes para o scanner, em segredo do GitHub | Scanner de dados (T1.12) | Antes de T1.12 |
+| P1 | Criar a conta Backblaze B2, o bucket com Object Lock e as duas chaves de aplicação (escrita só; leitura só) | Backup externo (T003 a T060) | Antes da tarefa T003 |
+| P2 | Gerar o par de chaves `age` do dono (offline) e guardar a chave privada em local seguro, com cópia | Backup criptografado | Antes de T004 |
+| P3 | Nomear aprovadores de publicação (mínimo dois) e confirmar a regra de proteção da `main` | Ambiente `production` com aprovação (T026, T028) | Antes de T026 |
+| P4 | Informar se o repositório é público/privado e se aceita forks | Ajustar a urgência e o texto da correção do deploy | Antes de T001 |
+| P5 | Aprovar a janela e executar o congelamento da `main` para a reescrita do histórico; confirmar que não há PR em andamento | Reescrita de histórico (T047) | Fim da fatia 1 |
+| P6 | Criar a conta no serviço de heartbeats e no monitor de uptime e entregar as URLs de ping | Alertas (T061, T062) | Antes de T061 |
+| P7 | Fornecer (por canal seguro, nunca no repositório) a lista de nomes de clientes para o scanner, em segredo do GitHub | Scanner de dados (T037) | Antes de T037 |
 | P8 | Aprovar cada passo que toca a VPS (instalar scripts de backup, agendamento, proxy, runner) | Todas as tarefas marcadas `[VPS]` | A cada passo |
 | P9 | Confirmar a revisão técnica do ADR-0013 (inclui a simplificação de não trocar tabelas de acesso na 002) | Fatia 3 | Antes da fatia 3 |
 
@@ -158,60 +158,62 @@ packages/shared/src/                # eventos, erro, escopo de empresa, contrato
 
 ## Detalhamento da Fatia 1 (nível de tarefa)
 
+> Os IDs desta seção foram alinhados aos de [tasks.md](tasks.md) em 2026-10-05 (a numeração provisória `T1.x` foi substituída). Em caso de divergência, vale o `tasks.md`.
+
 Objetivo: fechar o que permite dano externo imediato, **sem tocar dados nem o comportamento da aplicação**. Todas as tarefas `[VPS]` exigem aprovação do dono (P8) e backup restaurado antes. Siglas: `[P]` pode rodar em paralelo; `[VPS]` altera o servidor de produção.
 
 ### 1A. Publicação segura (US1)
 
 | ID | Tarefa | Verificação | Rollback |
 |---|---|---|---|
-| T1.1 | Registrar visibilidade do repositório e se forks são permitidos (P4); documentar no GUIA | Texto no GUIA | n/a |
-| T1.2 | Ligar proteção da `main` (PR obrigatório, CODEOWNERS, checks obrigatórios, sem push forçado) [ação do dono] | Tentativa de push direto é recusada | Desligar a regra |
-| T1.3 | Criar o ambiente `production` com aprovadores (P3) [ação do dono] | Publicação fica "aguardando aprovação" | Remover o ambiente |
-| T1.4 | `deploy.yml`: condição `conclusion == 'success'` **e** `event == 'push'` **e** `head_repository.full_name == github.repository` **e** `head_branch == 'main'`; `environment: production`; `permissions: contents: read`; `concurrency: deploy` sem cancelar; `timeout-minutes` | Teste com `workflow_run` simulado de PR, fork e push (script `act` ou repositório de teste) | Reverter o commit do workflow |
-| T1.5 | `deploy.yml`: pular se `head_sha` não for a ponta atual da `main` (um deploy mais novo virá) | Caso de teste com dois SHAs | Remover o passo |
-| T1.6 | `CODEOWNERS` cobrindo `.github/workflows/**`, `ops/**`, `compose*.yaml`, `Dockerfile`s | PR que muda workflow pede revisão do dono | Remover linhas |
-| T1.7 | `ci.yml`: job `corpus` deixa de rodar em PR no runner da VPS (só `push` na `main` ou agenda, ou runner hospedado com chave só de leitura) | PR de teste não agenda job no runner `plugga-vps` | Reverter |
-| T1.8 | `ops/publicar.sh` e `deploy.sh`: trava exclusiva (`flock`) compartilhada e recusa publicar se outra publicação estiver em andamento [VPS ao instalar] | Duas execuções simultâneas: a segunda recusa | Remover a trava |
-| T1.9 | Documentar no GUIA que `publicar.sh` é caminho de emergência e exige o mesmo SHA aprovado | Revisão | n/a |
+| T001 | Registrar visibilidade do repositório e se forks são permitidos (P4); documentar no GUIA | Texto no GUIA | n/a |
+| T025 | Ligar proteção da `main` (PR obrigatório, CODEOWNERS, checks obrigatórios, sem push forçado) [ação do dono] | Tentativa de push direto é recusada | Desligar a regra |
+| T026 | Criar o ambiente `production` com aprovadores (P3) [ação do dono] | Publicação fica "aguardando aprovação" | Remover o ambiente |
+| T028 | `deploy.yml`: condição `conclusion == 'success'` **e** `event == 'push'` **e** `head_repository.full_name == github.repository` **e** `head_branch == 'main'`; `environment: production`; `permissions: contents: read`; `concurrency: deploy` sem cancelar; `timeout-minutes` | Teste com `workflow_run` simulado de PR, fork e push (script `act` ou repositório de teste) | Reverter o commit do workflow |
+| T029 | `deploy.yml`: pular se `head_sha` não for a ponta atual da `main` (um deploy mais novo virá) | Caso de teste com dois SHAs | Remover o passo |
+| T014 | `CODEOWNERS` cobrindo `.github/workflows/**`, `ops/**`, `compose*.yaml`, `Dockerfile`s | PR que muda workflow pede revisão do dono | Remover linhas |
+| T030 | `ci.yml`: job `corpus` deixa de rodar em PR no runner da VPS (só `push` na `main` ou agenda, ou runner hospedado com chave só de leitura) | PR de teste não agenda job no runner `plugga-vps` | Reverter |
+| T031 | `ops/publicar.sh` e `deploy.sh`: trava exclusiva (`flock`) compartilhada e recusa publicar se outra publicação estiver em andamento [VPS ao instalar] | Duas execuções simultâneas: a segunda recusa | Remover a trava |
+| T032 | Documentar no GUIA que `publicar.sh` é caminho de emergência e exige o mesmo SHA aprovado | Revisão | n/a |
 
 ### 1B. Dados de cliente fora do repositório (US2, sem reescrever histórico ainda)
 
 | ID | Tarefa | Verificação | Rollback |
 |---|---|---|---|
-| T1.10 | Inventariar ocorrências (CNPJ válido, CPF, unidade consumidora, nomes) em `packages/auditoria-oraculo/referencia/**`, `apps/api/src/energy-efficiency/**` e `apps/api/prisma/seed.ts`; relatório sem imprimir valores (só arquivo, linha e tipo) | Relatório com contagens | n/a |
-| T1.11 [P] | Escrever `scripts/scan-dados-cliente.mjs`: CNPJ/CPF com dígito verificador, formatos com e sem pontuação, padrões de unidade consumidora, lista de nomes vinda de variável de ambiente, lista de permitidos para fixtures declaradas | Testes unitários com valores sintéticos | Remover o script |
-| T1.12 | Cadastrar a lista de nomes como segredo do GitHub (P7) e ligar o scanner no `ci.yml` em modo **aviso** | Execução da CI com relatório | Desligar o passo |
-| T1.13 | Gerador de fixtures sintéticas determinístico (`scripts/gera-fixtures-sinteticas.mjs`) e substituição dos arquivos reais em `casos/`, template e fixtures da API, mantendo formato e faixas de valores | Suítes que usam os casos continuam verdes (golden, oráculo, `energy-efficiency`) | `git revert` do PR |
-| T1.14 | Mover os arquivos reais para o balde do corpus (`plugga-corpus-faturas`) com chave de leitura; `pnpm corpus:baixar` passa a trazê-los para teste local | Download reproduz os testes de regressão | Restaurar do balde |
-| T1.15 | Ligar o scanner em modo **falha** no CI | PR que adiciona CNPJ real falha | Voltar a aviso |
-| T1.16 | Remover da árvore atual `casos/*.json` reais, planilhas com nomes e o template com cliente | Scanner: 0 ocorrências | `git revert` |
-| T1.17 | **Reescrita do histórico** (D9): congelar a `main` (P5); `git filter-repo` em clone espelho com lista de caminhos e substituições; verificar com o scanner o histórico inteiro; empurrar tudo (todas as branches e tags); pedir ao suporte do GitHub a limpeza de `refs/pull/*` e cache; todos refazem o clone; descongelar | Varredura do histórico: 0 ocorrências; `git rev-list --all` sem os blobs | Manter o espelho original, offline e criptografado, por 30 dias para reverter se algo for removido por engano |
-| T1.18 | Atualizar `.gitignore` e o texto do GUIA/AGENT sobre onde mora dado real | Revisão | n/a |
+| T034 | Inventariar ocorrências (CNPJ válido, CPF, unidade consumidora, nomes) em `packages/auditoria-oraculo/referencia/**`, `apps/api/src/energy-efficiency/**` e `apps/api/prisma/seed.ts`; relatório sem imprimir valores (só arquivo, linha e tipo) | Relatório com contagens | n/a |
+| T035 [P] | Escrever `scripts/scan-dados-cliente.mjs`: CNPJ/CPF com dígito verificador, formatos com e sem pontuação, padrões de unidade consumidora, lista de nomes vinda de variável de ambiente, lista de permitidos para fixtures declaradas | Testes unitários com valores sintéticos | Remover o script |
+| T037 | Cadastrar a lista de nomes como segredo do GitHub (P7) e ligar o scanner no `ci.yml` em modo **aviso** | Execução da CI com relatório | Desligar o passo |
+| T038 | Gerador de fixtures sintéticas determinístico (`scripts/gera-fixtures-sinteticas.mjs`) e substituição dos arquivos reais em `casos/`, template e fixtures da API, mantendo formato e faixas de valores | Suítes que usam os casos continuam verdes (golden, oráculo, `energy-efficiency`) | `git revert` do PR |
+| T042 | Mover os arquivos reais para o balde do corpus (`plugga-corpus-faturas`) com chave de leitura; `pnpm corpus:baixar` passa a trazê-los para teste local | Download reproduz os testes de regressão | Restaurar do balde |
+| T043 | Ligar o scanner em modo **falha** no CI | PR que adiciona CNPJ real falha | Voltar a aviso |
+| T044 | Remover da árvore atual `casos/*.json` reais, planilhas com nomes e o template com cliente | Scanner: 0 ocorrências | `git revert` |
+| T047 | **Reescrita do histórico** (D9): congelar a `main` (P5); `git filter-repo` em clone espelho com lista de caminhos e substituições; verificar com o scanner o histórico inteiro; empurrar tudo (todas as branches e tags); pedir ao suporte do GitHub a limpeza de `refs/pull/*` e cache; todos refazem o clone; descongelar | Varredura do histórico: 0 ocorrências; `git rev-list --all` sem os blobs | Manter o espelho original, offline e criptografado, por 30 dias para reverter se algo for removido por engano |
+| T045 | Atualizar `.gitignore` e o texto do GUIA/AGENT sobre onde mora dado real | Revisão | n/a |
 
 ### 1C. Backup externo (US3)
 
 | ID | Tarefa | Verificação | Rollback |
 |---|---|---|---|
-| T1.19 | Escrever [contracts/backup-formato.md](contracts/backup-formato.md) (nomes, manifesto, retenção) | Revisão do dono | n/a |
-| T1.20 | Dono cria conta, bucket e chaves do B2 (P1) | Chave de escrita consegue enviar e não consegue apagar | Revogar chaves |
-| T1.21 [P] | `ops/backup-externo.sh`: `pg_dump` (formato custom), espelho dos baldes de negócio para diretório temporário, `tar` + `age` para os dois destinatários (dono offline; chave de teste da VPS), manifesto com contagens e SHA-256, envio ao B2, limpeza do temporário; `set -euo pipefail`, sem imprimir segredo (FR-015) | Teste local com MinIO/SeaweedFS de teste e B2 simulado (`mc`/`moto`); falha com origem vazia (lição do ensaio de 2026-09-24) | Remover o agendamento |
-| T1.22 | Dono gera e guarda a chave `age` privada (P2); gravar a chave pública no repositório (`ops/backup/age-recipients.txt`) | Descriptografia com a privada | Gerar nova e recriptografar |
-| T1.23 [P] | `ops/restaurar-teste.sh`: baixa o mais recente, confere SHA-256 e manifesto, descriptografa com a chave de teste, restaura o banco em contêiner descartável (rede isolada) e confere contagem de tabelas e de arquivos; registra resultado | Executa contra um backup de teste; falha se a contagem divergir | Remover |
-| T1.24 [VPS] | Instalar `ops/backup-plugga.sh` versionado no lugar de `/root/backup-plugga.sh` (guardando o antigo como `.bak`), e fazer o `deploy.sh` chamar `/opt/plugga-os/ops/backup-plugga.sh` | Backup manual gera dump e arquivo externo | Restaurar o `.bak` |
-| T1.25 [VPS] | Versionar e instalar o cron e o Caddyfile atuais (capturar o que roda hoje, sem alterar comportamento) por `ops/instala-agendamentos.sh` | `diff` entre o instalado e o versionado vazio | Reinstalar a cópia capturada |
-| T1.26 [VPS] | Agendar o backup externo diário e a restauração semanal | Primeiro ciclo completo observado | Remover do cron |
-| T1.27 | Retenção no B2: Object Lock 35 dias, regra de expiração e prefixo mensal retido por 12 meses | Tentativa de apagar com a chave de escrita falha | Ajustar a regra |
-| T1.28 | Heartbeats (P6): ping de sucesso ao fim do backup e da restauração; ping de falha em erro; prazo esperado 26 h | Parar o backup de propósito: alerta chega por e-mail | Remover os pings |
-| T1.29 | Monitor HTTP externo do site (P6) | Derrubar a web em ambiente de teste: alerta | Remover o monitor |
-| T1.30 | Escrever `docs/` ou seção do GUIA: recuperação de desastre passo a passo, e medir o tempo em um ensaio (FR-016) | Ensaio cronometrado registrado | n/a |
+| T050 | Escrever [contracts/backup-formato.md](contracts/backup-formato.md) (nomes, manifesto, retenção) | Revisão do dono | n/a |
+| T003 | Dono cria conta, bucket e chaves do B2 (P1) | Chave de escrita consegue enviar e não consegue apagar | Revogar chaves |
+| T051 [P] | `ops/backup-externo.sh`: `pg_dump` (formato custom), espelho dos baldes de negócio para diretório temporário, `tar` + `age` para os dois destinatários (dono offline; chave de teste da VPS), manifesto com contagens e SHA-256, envio ao B2, limpeza do temporário; `set -euo pipefail`, sem imprimir segredo (FR-015) | Teste local com MinIO/SeaweedFS de teste e B2 simulado (`mc`/`moto`); falha com origem vazia (lição do ensaio de 2026-09-24) | Remover o agendamento |
+| T004 | Dono gera e guarda a chave `age` privada (P2); gravar a chave pública no repositório (`ops/backup/age-recipients.txt`) | Descriptografia com a privada | Gerar nova e recriptografar |
+| T053 [P] | `ops/restaurar-teste.sh`: baixa o mais recente, confere SHA-256 e manifesto, descriptografa com a chave de teste, restaura o banco em contêiner descartável (rede isolada) e confere contagem de tabelas e de arquivos; registra resultado | Executa contra um backup de teste; falha se a contagem divergir | Remover |
+| T057 [VPS] | Instalar `ops/backup-plugga.sh` versionado no lugar de `/root/backup-plugga.sh` (guardando o antigo como `.bak`), e fazer o `deploy.sh` chamar `/opt/plugga-os/ops/backup-plugga.sh` | Backup manual gera dump e arquivo externo | Restaurar o `.bak` |
+| T055 [VPS] | Versionar e instalar o cron e o Caddyfile atuais (capturar o que roda hoje, sem alterar comportamento) por `ops/instala-agendamentos.sh` | `diff` entre o instalado e o versionado vazio | Reinstalar a cópia capturada |
+| T059 [VPS] | Agendar o backup externo diário e a restauração semanal | Primeiro ciclo completo observado | Remover do cron |
+| T060 | Retenção no B2: Object Lock 35 dias, regra de expiração e prefixo mensal retido por 12 meses | Tentativa de apagar com a chave de escrita falha | Ajustar a regra |
+| T061 | Heartbeats (P6): ping de sucesso ao fim do backup e da restauração; ping de falha em erro; prazo esperado 26 h | Parar o backup de propósito: alerta chega por e-mail | Remover os pings |
+| T062 | Monitor HTTP externo do site (P6) | Derrubar a web em ambiente de teste: alerta | Remover o monitor |
+| T064 | Escrever `docs/` ou seção do GUIA: recuperação de desastre passo a passo, e medir o tempo em um ensaio (FR-016) | Ensaio cronometrado registrado | n/a |
 
 ### 1D. Inventário de rotas em modo aviso (US5)
 
 | ID | Tarefa | Verificação | Rollback |
 |---|---|---|---|
-| T1.31 [P] | Teste que sobe o app e lista as 130 rotas com seus papéis/guards, gerando [inventario-rotas](contracts/inventario-rotas.md) | Teste gera o inventário e o compara com o versionado | Remover o teste |
-| T1.32 | Marcar rotas sem declaração e públicas no inventário (revisão do dono da lista de públicas) | Lista aprovada | n/a |
-| T1.33 | Guard global em modo **aviso**: registra em log, sem negar, toda rota sem `@Public()`/`@Roles()` | Logs mostram só as rotas esperadas | Remover o `APP_GUARD` |
+| T066 [P] | Teste que sobe o app e lista as 130 rotas com seus papéis/guards, gerando [inventario-rotas](contracts/inventario-rotas.md) | Teste gera o inventário e o compara com o versionado | Remover o teste |
+| T067 | Marcar rotas sem declaração e públicas no inventário (revisão do dono da lista de públicas) | Lista aprovada | n/a |
+| T069 | Guard global em modo **aviso**: registra em log, sem negar, toda rota sem `@Public()`/`@Roles()` | Logs mostram só as rotas esperadas | Remover o `APP_GUARD` |
 
 **Critério de saída da fatia 1**: SC-001 (simulação de publicação), SC-002 (scanner em 0), SC-003 a SC-005 (backup, restauração, alerta) e inventário aprovado.
 
@@ -234,10 +236,10 @@ Rollback: cada bloco é um PR independente; reverter o commit restaura o comport
 
 ### Fatia 3: migrações aditivas
 
-Ordem fixa, cada passo com backup restaurado antes (T1.23), `rollback.sql` e teste de subir/descer na CI:
+Ordem fixa, cada passo com backup restaurado antes (T053), `rollback.sql` e teste de subir/descer na CI:
 
 1. **Empresa responsável** ([data-model.md](data-model.md)): `company_id` **nulo** em `clients`, `opportunities`, `contracts`, `consumer_units`, `cycles`, `audits`, `contestations`, `market_migrations`, `energy_efficiency_studies` e tabelas EV/Pluggamob; preencher em lote com `plugga` (Compras e Obras já têm); fila de decisão manual para duvidosos; `NOT VALID` seguido de `VALIDATE`; só então `NOT NULL`.
-2. **Escopo único**: `CompanyScope` em `core/auth`; `flattenRoles` deixa de ser usado pelo guard; `RolesGuard` passa a ler os papéis **da empresa do registro**; repositórios recebem o escopo; matriz de isolamento na CI; concessão limitada (FR-019). Sem trocar tabelas de acesso (ver Resumo, achado 1).
+2. **Escopo único**: `CompanyScope` em `core/auth`; `flattenRoles` deixa de ser usado pelo guard; `RolesGuard` exige o papel em alguma empresa do escopo e o service confere o papel **na empresa do registro** (ver research D7); repositórios recebem o escopo; matriz de isolamento na CI; concessão limitada (FR-019). Sem trocar tabelas de acesso (ver Resumo, achado 1).
 3. **Restrições e índices**: duplicatas listadas e resolvidas com o dono; unicidade de cliente/UC/fornecedor; vínculos entre empresas e entre pedido e cotação; `CHECK` de status e de mês; FKs de autoria; troca `SET NULL`/`CASCADE` por `RESTRICT` onde conflita com imutabilidade; gatilho `BEFORE TRUNCATE`; índices de FK.
 4. **Retenção** (US8): job de limpeza de sessões expiradas; política documentada; procedimento de apagamento verificado em ensaio.
 

@@ -30,7 +30,7 @@ Cada decisão traz recomendação, motivo e alternativas. As marcadas **(dono)**
 **Recomendação.** Script próprio em Node (`scripts/scan-dados-cliente.mjs`), rodando no CI e opcionalmente como `pre-commit`:
 
 - CNPJ e CPF, com e sem pontuação, **validando o dígito verificador**; só os que passam são achados.
-- Padrões de unidade consumidora (formatos usados nos casos e templates, por exemplo `uc-<número>` e `UC 0188872-2`).
+- Padrões de unidade consumidora (formatos usados nos casos e templates, por exemplo `uc-<número>` e `UC 0000000-0`, sempre com números sintéticos).
 - Nomes de clientes lidos de variável de ambiente (`CLIENT_NAMES_FILE` ou segredo `CLIENT_NAMES`), nunca versionados; comparação sem acento e sem diferença de caixa.
 - Lista de **permitidos** para fixtures sintéticas declaradas (arquivo no repositório com valores sintéticos conhecidos).
 - Relatório lista arquivo, linha e tipo, **sem imprimir o valor**, para não vazar o dado no log da CI.
@@ -101,6 +101,7 @@ Cada decisão traz recomendação, motivo e alternativas. As marcadas **(dono)**
 - `RolesGuard` passa a decidir **com a empresa do registro**: papel exigido precisa existir na empresa do recurso. Rotas sem recurso de empresa (listagens) usam as empresas do escopo.
 - Auxiliar de repositório `escopoDe(principal)` devolve o fragmento `where: { companyId: { in: [...] } }` e um `exigirEmpresa(registro, escopo)` para escrita; os repositórios de Compras e Obras adotam e as duas classes de escopo duplicadas são removidas.
 - **Matriz de isolamento** (teste): para cada repositório de módulo de negócio, usuários A e B com o mesmo papel em empresas diferentes tentam cada operação sobre registros um do outro; todas devem falhar com "não encontrado".
+- **Guard e registro.** O guard roda antes de o registro ser carregado e por isso não conhece a empresa de um `:id`. Decisão em duas camadas: o `RolesGuard` exige o papel em *alguma* empresa do escopo; o service confere `rolesByCompany[registro.companyId]` depois de carregar; o repositório filtra por empresa na leitura (`NAO_ENCONTRADO` para empresa fora do escopo) e a criação valida a empresa do corpo contra o escopo.
 - Concessão: `team.service` só permite conceder papel e empresa que o concedente administra (já há parte disso; completa-se a regra de empresa).
 
 **Alternativas.**
@@ -114,7 +115,7 @@ Cada decisão traz recomendação, motivo e alternativas. As marcadas **(dono)**
 - **Expandir antes de contrair.** Primeira publicação: coluna nova nula e código que escreve nos dois formatos. Segunda: preencher. Terceira: impor `NOT NULL`/restrição. Só então remover o formato antigo.
 - **Restrições sem bloquear:** `ADD CONSTRAINT … NOT VALID`, depois `VALIDATE CONSTRAINT`. Índices normais enquanto as tabelas forem pequenas (limite documentado: abaixo de 100 mil linhas); acima disso, índice criado fora da transação do Prisma, por script.
 - **Reversão.** Cada migração tem `rollback.sql` ao lado (não executado automaticamente). A CI aplica todas as migrações do zero, depois o `rollback.sql` da última e confere que o esquema volta ao anterior. Colunas novas e nulas são inofensivas para a versão antiga do código.
-- **Backup restaurado antes** de cada migração na VPS (T1.23 comprova o procedimento).
+- **Backup restaurado antes** de cada migração na VPS (T053 comprova o procedimento).
 - **Deriva.** `prisma migrate diff --exit-code` na CI, com lista explícita de exceções para os índices únicos parciais escritos à mão (`pedidos_de_compra_etapas_uma_aberta_por_pedido`, `obra_etapas_historico_uma_aberta_por_obra`).
 - **Duplicatas.** Antes de qualquer índice único, um script de leitura lista as duplicatas; o dono decide cada caso; só então a restrição é aplicada.
 
