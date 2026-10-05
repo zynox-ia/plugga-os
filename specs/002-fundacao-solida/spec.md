@@ -376,11 +376,11 @@ Como dono do produto, quero que o sistema entregue só o que usa e que tenha lic
 - **FR-007**: A árvore do repositório MUST NOT conter CNPJ, CPF, unidade consumidora, nome de cliente ou valores de fatura reais; fixtures MUST ser sintéticas e declaradas como tal.
 - **FR-008**: A CI MUST rodar um verificador de dados de cliente (CNPJ e CPF válidos, unidades consumidoras, nomes de uma lista de clientes) que falhe o build ao encontrar ocorrência fora de fixtures declaradas.
 - **FR-009**: Os dados reais usados em regressão MUST ficar no armazenamento privado do corpus, com acesso de leitura controlado.
-- **FR-010**: O tratamento do histórico do git MUST seguir a decisão do dono e MUST ser documentado com o efeito sobre clones existentes [NEEDS CLARIFICATION: reescrever o histórico para remover os dados reais (exige reescrever a `main` e todo colaborador refazer o clone) ou apenas remover da árvore atual e tratar o histórico como já exposto?].
+- **FR-010**: O histórico do git MUST ser reescrito para remover de vez os dados reais de clientes (decisão do dono em 2026-10-05). O procedimento MUST: ser feito com a `main` congelada e após o merge dos PRs em andamento; cobrir todas as branches e tags; tratar também as referências de PR do GitHub (`refs/pull/*`) e o cache de visualização, o que exige pedido de limpeza ao suporte do GitHub; invalidar e refazer todos os clones e forks conhecidos; e ser seguido de nova varredura do histórico inteiro que prove 0 ocorrências. Cópias já feitas por terceiros não podem ser desfeitas e devem ser tratadas como exposição já ocorrida para fins de LGPD.
 
 **Backup e recuperação**
 
-- **FR-011**: O backup diário MUST cobrir o banco e todos os baldes de negócio, com cópia criptografada fora do servidor de produção [NEEDS CLARIFICATION: qual o destino externo da cópia (serviço de armazenamento de terceiros, outro servidor da empresa, ou outro) e o orçamento mensal aceito?].
+- **FR-011**: O backup diário MUST cobrir o banco e todos os baldes de negócio, com cópia criptografada **no Backblaze B2** (decisão do dono em 2026-10-05), fora do servidor de produção. A criptografia MUST ser feita antes do envio, com chave guardada fora da VPS e fora do próprio B2, e o acesso ao destino MUST usar chave restrita de escrita (a de produção não pode apagar nem sobrescrever cópias antigas; o bucket usa retenção/versionamento imutável pelo prazo da política).
 - **FR-012**: O sistema MUST verificar periodicamente (no mínimo semanal) que a cópia mais recente restaura em ambiente descartável, comparando contagens e checksums, e MUST registrar o resultado.
 - **FR-013**: Falha ou atraso do backup ou da verificação MUST gerar aviso ao responsável por canal que ele realmente lê.
 - **FR-014**: Script de backup, agendamento e configuração do proxy reverso MUST ser versionado no repositório e instalado pela publicação.
@@ -557,4 +557,4 @@ Princípio: primeiro fechar o que permite dano externo imediato e não exige par
 - Provedores externos já em uso (Brevo, OpenRouter, Google) continuam; esta feature não os troca.
 - A migração de leitura de fatura para processamento assíncrono (FR-046) pode ser entregue em fatia posterior sem bloquear as demais, desde que os limites de FR-044 e FR-045 já estejam em vigor.
 - Os dados de teste e a restauração de ensaio rodam em ambiente descartável isolado, nunca contra o banco ou os arquivos de produção.
-- Esta feature depende de: acesso do dono para aprovar decisões de FR-010, FR-011 e FR-018; acesso administrativo à VPS para instalar backup e monitoramento; e das specs e ADRs existentes (0005, 0007, 0008, 0011, 0012) como referência.
+- Esta feature depende de: conta e chaves do Backblaze B2 criadas pelo dono (FR-011), decisão sobre o modelo de empresa (FR-018); acesso administrativo à VPS para instalar backup e monitoramento; e das specs e ADRs existentes (0005, 0007, 0008, 0011, 0012) como referência.
