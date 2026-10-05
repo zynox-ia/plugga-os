@@ -4,7 +4,7 @@
     "clientes/prisma-clientes.repository.ts": 4,
     "commercial/prisma-commercial.repository.ts": 9,
     "compras/prisma-compras.repository.ts": 3,
-    "energy/prisma-energy.repository.ts": 16,
+    "energy/prisma-energy.repository.ts": 11,
     "obras/prisma-obras.repository.ts": 1,
     "pluggamob/prisma-pluggamob.repository.ts": 6
   }
