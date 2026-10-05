@@ -146,6 +146,9 @@ jobs:
           PGPASSWORD: local_test_only_change_me
         run: bash ops/restaurar-teste.test.sh
 
+      - name: Verify schedule installer script
+        run: bash ops/instala-agendamentos.test.sh
+
       - name: Lint
         run: pnpm lint
 
