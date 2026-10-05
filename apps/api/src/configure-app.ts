@@ -3,6 +3,8 @@ import { Logger } from "@nestjs/common";
 import type { NestExpressApplication } from "@nestjs/platform-express";
 import cookieParser from "cookie-parser";
 
+import { requestIdMiddleware } from "./common/request-id.middleware";
+
 /**
  * Express `trust proxy` accepts several shapes; the environment only carries
  * strings. Booleans and hop counts are converted so `TRUST_PROXY=1` means "one
@@ -48,5 +50,7 @@ export function configureApp(app: NestExpressApplication): void {
 
   // Decides what req.ip is, which is what the per-IP throttle buckets on.
   app.set("trust proxy", trustProxy);
+  // Antes de tudo: o log, os guards e o envelope de erro usam o mesmo requestId.
+  app.use(requestIdMiddleware);
   app.use(cookieParser(sessionSecret));
 }

@@ -5,6 +5,10 @@ on:
   push:
     branches:
       - main
+  # Corpus de faturas toda madrugada de segunda (UTC). Só o job `corpus` roda
+  # na agenda; o `quality` já rodou no push que trouxe o código.
+  schedule:
+    - cron: "17 5 * * 1"
 
 permissions:
   contents: read
@@ -16,6 +20,7 @@ concurrency:
 jobs:
   quality:
     name: Lint, typecheck, test and build
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     env:
@@ -108,6 +113,23 @@ jobs:
 
       - name: Verify seed preserves cutover and access state
         run: pnpm --filter @plugga/api test:seed
+
+      # Scripts de publicação e de operação (spec 002): simulador do deploy,
+      # lint do event_log, trava de publicação e restauração de backup. Os
+      # ensaios com Postgres usam o serviço desta CI.
+      - name: Verify delivery scripts
+        run: pnpm test:scripts
+
+      - name: Verify deploy lock
+        run: bash ops/deploy-trava.test.sh
+
+      - name: Verify backup restore script
+        env:
+          RESTAURA_PGHOST: localhost
+          RESTAURA_PGPORT: "55432"
+          RESTAURA_PGUSER: plugga_os_test
+          PGPASSWORD: local_test_only_change_me
+        run: bash ops/restaurar-teste.test.sh
 
       - name: Lint
         run: pnpm lint
@@ -212,7 +234,11 @@ jobs:
   # `sintetica.spec.ts` existe e roda no job de cima, em runner hospedado.
   corpus:
     name: Leitura contra o corpus de faturas
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # Runner da VPS não executa código de PR nem de fork (FR-004): só o que já
+    # está na main (push) e a agenda. Interino até o runner sair (T170).
+    if: >-
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      github.event_name == 'schedule'
     runs-on: [self-hosted, plugga-vps]
     timeout-minutes: 20
 

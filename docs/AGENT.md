@@ -50,6 +50,43 @@ Dependency rules:
    approved plan.
 5. Do not add Kafka, Kubernetes, microservices, or an external queue/broker.
 
+## Spec-driven development (Spec Kit)
+
+Features are specified with [GitHub Spec Kit](https://github.com/github/spec-kit).
+The project rules that every plan is checked against live in
+[`.specify/memory/constitution.md`](../.specify/memory/constitution.md); they
+summarize this guide and the accepted ADRs.
+
+```text
+.specify/memory/constitution.md   project principles (the gate for every plan)
+.specify/templates/               spec, plan, tasks and checklist templates
+.specify/scripts/bash/            helper scripts called by the skills
+.claude/skills/speckit-*/         Claude Code skills (/speckit-specify, ...)
+specs/NNN-short-name/             one folder per feature: spec.md, plan.md, tasks.md
+```
+
+Flow for a new feature or relevant change (small obvious fixes skip it):
+
+1. `/speckit-specify <what and why>` creates `specs/NNN-short-name/spec.md`.
+2. `/speckit-clarify` when the spec has open questions; record owner decisions
+   with their date.
+3. `/speckit-plan <stack and constraints>` writes `plan.md` (plus `research.md`,
+   `data-model.md`, `contracts/`, `quickstart.md` when useful) and runs the
+   Constitution Check.
+4. `/speckit-tasks`, then `/speckit-analyze` to catch gaps before coding.
+5. `/speckit-implement`, then `/speckit-converge` until it reports converged.
+6. Open the PR citing the spec folder; the usual gates below still apply.
+
+Specs are written in Brazilian Portuguese. A decision that changes platform
+boundaries, persistence, auth, integrations, audit or jobs still becomes an ADR
+in `docs/adr/`; the spec links to it. Completed feature folders are historical
+records: later changes open a new feature. To change the principles, run
+`/speckit-constitution` and review the diff like any other governance change.
+
+Other agents can use the same `.specify/` files: install the CLI with
+`uv tool install specify-cli` and add an integration with
+`specify integration install <key>` (e.g. `codex`, `cursor-agent`).
+
 ## Local workflow
 
 1. Copy the public placeholders: `cp .env.example .env`.

@@ -11,6 +11,7 @@ compartilhados.
 > PluggaMob/OCPP, PagBank, WhatsApp, Telegram, OpenClaw e crons de terceiros.
 >
 > Comandos do dia a dia e publicação: **[ops/GUIA.md](ops/GUIA.md)**.
+> Como especificar uma feature nova (Spec Kit): **[docs/AGENT.md](docs/AGENT.md#spec-driven-development-spec-kit)**.
 
 ## Estrutura
 
@@ -21,6 +22,8 @@ compartilhados.
 | `packages/shared` | DTOs, tipos, enums e eventos livres de framework |
 | `packages/config` | Configuração compartilhada de tooling |
 | `docs/adr` | Decisões e limites arquiteturais aceitos |
+| `specs` | Uma pasta por feature (spec, plano e tarefas) no fluxo do Spec Kit |
+| `.specify` | Constituição, templates e scripts do Spec Kit |
 | `ops` | Publicação, backup e o guia de operação |
 
 Aplicações podem importar pacotes; pacotes nunca importam aplicações. Web e API

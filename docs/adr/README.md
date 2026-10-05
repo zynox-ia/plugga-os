@@ -46,6 +46,7 @@ ADRs próprios por domínio, quando cada domínio entrar em construção.
 | [0010](0010-brevo-email-emailport.md) | E-mail transacional: Brevo atrás de `EmailPort` + Mailpit local | Aceito |
 | [0011](0011-block-b-sequencing-and-limits.md) | Bloco B: ordem B1/B2/B3 e limites não negociáveis | Aceito |
 | [0012](0012-network-exposure-trust-proxy.md) | Exposição de rede: bind privado, `trust proxy` explícito, XFF validado | Aceito |
+| [0013](0013-empresa-como-atributo-modulos-compartilhados.md) | Empresa como atributo do registro, módulos compartilhados e escopo único | Aceito (revisão ARCHITECT pendente) |
 
 ## Formato de um ADR
 

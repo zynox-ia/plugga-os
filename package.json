@@ -21,6 +21,10 @@
     "test:infra:reset": "node scripts/local-test.mjs reset",
     "test:platform-safety": "node --test scripts/local-test.test.mjs",
     "test:migrations:from-zero": "node scripts/local-test.mjs migrate-from-zero",
+    "test:migrations:rollback": "node scripts/executa-ou-pendente.mjs T146 scripts/testa-migracao-rollback.mjs",
+    "test:routes-inventory": "node scripts/executa-ou-pendente.mjs T066 scripts/testa-inventario-rotas.mjs",
+    "test:scan-dados": "node scripts/executa-ou-pendente.mjs T036 scripts/scan-dados-cliente.test.mjs",
+    "test:scripts": "node --test \"scripts/*.test.mjs\"",
     "test:e2e": "pnpm --filter @plugga/web test:e2e",
     "typecheck": "turbo run typecheck"
   },

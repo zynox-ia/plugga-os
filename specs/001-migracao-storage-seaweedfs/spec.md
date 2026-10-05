@@ -1,5 +1,9 @@
 # Spec: Migração do armazenamento de objetos, de MinIO para SeaweedFS (produção)
 
+> **Formato anterior ao Spec Kit.** Esta spec, o `plan.md` e o `tasks.md` foram escritos antes da
+> adoção do Spec Kit (2026-10-05) e movidos de `SPEC.md` e `tasks/` sem reescrita, como registro
+> histórico. Resta a T9 (remover o MinIO da VPS); features novas usam os templates de `.specify/`.
+
 Status: **decisões registradas, pronto para `/plan`**. Única mudança feita na VPS até aqui: limpeza de imagens e cache Docker sem uso (Fase 0).
 
 ## Objective
@@ -68,7 +72,7 @@ ops/deploy.sh           → publicação na VPS (ordem: migrar banco, depois sub
 ops/backup-plugga.sh    → backup diário (precisa apontar para o SeaweedFS)
 ops/prepara-*-minio.sh  → preparação de backup e corpus
 apps/api/src/.../armazenamento*.ts → acesso S3 (só configuração muda)
-SPEC.md                 → este documento
+specs/001-migracao-storage-seaweedfs/ → esta spec, o plano e as tarefas
 ```
 
 ## Plano em fases (cada uma termina em verificação)

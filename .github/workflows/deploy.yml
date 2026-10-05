@@ -11,18 +11,60 @@ on:
     types: [completed]
     branches: [main]
 
+permissions:
+  contents: read
+
+# Uma publicação por vez, e nunca cancelar uma em andamento: derrubar o
+# deploy no meio da migração é pior do que esperar. Se houver várias na fila, o
+# GitHub guarda só a mais nova; o passo "Conferir que é a ponta da main" cobre
+# o resto.
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
 jobs:
   deploy:
     name: Deploy to plugga-vps
     runs-on: [self-hosted, plugga-vps]
-    if: github.event.workflow_run.conclusion == 'success'
+    timeout-minutes: 20
+    # Só publica o que (a) passou na CI, (b) veio de um push, nunca de PR,
+    # agenda ou disparo manual, (c) vem deste repositório, não de um fork, e
+    # (d) está na main. scripts/simula-deploy-evento.mjs reproduz estas
+    # condições e o teste confere que continuam iguais às daqui (FR-004).
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_repository.full_name == github.repository &&
+      github.event.workflow_run.head_branch == 'main'
+    # A aprovação humana é exigida pelo ambiente `production` (T026): os
+    # aprovadores são configurados no GitHub, não neste arquivo.
+    environment: production
     steps:
       - name: Checkout do commit que passou na CI
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 0
+
+      - name: Conferir que é a ponta da main
+        id: ponta
+        env:
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          # Com mais de um push em sequência, publicar o antigo depois de
+          # aprovado traria código velho por cima do novo. Se este SHA não é
+          # mais a ponta, um deploy mais novo vem aí: sai com sucesso, sem publicar.
+          git fetch --quiet origin main
+          ponta=$(git rev-parse origin/main)
+          if [ "$ponta" != "$HEAD_SHA" ]; then
+            echo "A main já avançou para ${ponta:0:8}; este commit (${HEAD_SHA:0:8}) não é publicado."
+            echo "publicar=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "publicar=true" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Sincronizar para /opt/plugga-os
+        if: steps.ponta.outputs.publicar == 'true'
         run: |
           # Só o .env fica de fora: ele carrega segredo real, que por desenho
           # não vive no repositório. O compose.yaml era excluído pela mesma
@@ -45,4 +87,5 @@ jobs:
           sudo chmod +x /opt/plugga-os/ops/deploy.sh
 
       - name: Publicar
+        if: steps.ponta.outputs.publicar == 'true'
         run: sudo /opt/plugga-os/ops/deploy.sh

@@ -1,0 +1,38 @@
+# Specification Quality Checklist: Fundação sólida do Plugga OS
+
+**Purpose**: Validar completude e qualidade da spec antes do planejamento
+**Created**: 2026-10-05
+**Feature**: [spec.md](../spec.md)
+
+## Content Quality
+
+- [x] No implementation details (languages, frameworks, APIs) — a spec descreve comportamento; termos operacionais inevitáveis (publicação, backup, banco, cache, modos de integração do ADR-0005) ficam, sem citar biblioteca ou framework
+- [x] Focused on user value and business needs
+- [ ] Written for non-technical stakeholders — parcial: as histórias e os critérios são legíveis ao dono, mas os requisitos FR-040 a FR-043 e FR-072 a FR-076 são técnicos por natureza (feature de fundação)
+- [x] All mandatory sections completed
+
+## Requirement Completeness
+
+- [x] No [NEEDS CLARIFICATION] markers remain — resolvidos em 2026-10-05: FR-010 (reescrever o histórico), FR-011 (Backblaze B2), FR-018 (modelo de empresa do ADR-0013)
+- [x] Requirements are testable and unambiguous
+- [x] Success criteria are measurable
+- [x] Success criteria are technology-agnostic (no implementation details)
+- [x] All acceptance scenarios are defined
+- [x] Edge cases are identified
+- [x] Scope is clearly bounded (ordem de ataque em 4 fatias; fora de escopo: novo domínio, mudança de provedor, escrita em sistemas externos)
+- [x] Dependencies and assumptions identified
+
+## Feature Readiness
+
+- [x] All functional requirements have clear acceptance criteria (via histórias US1 a US17 e SC-001 a SC-026)
+- [x] User scenarios cover primary flows
+- [x] Feature meets measurable outcomes defined in Success Criteria
+- [x] No implementation details leak into specification
+
+## Notes
+
+- Aprovada pelo dono em 2026-10-05. Pendência antes de `/speckit-plan`: revisão técnica do ADR-0013 pelo ARCHITECT (aceito pelo dono). O plano pode começar pelas histórias que não dependem dele (US1, US2, US3, US5).
+- Divisão acordada: esta spec (002) cobre segurança e fundação, inclusive o escopo por empresa; a unificação do produto (menu único, seletor como filtro, cadastros únicos) fica na spec 003.
+- A feature é grande (17 histórias). Recomenda-se que `/speckit-plan` e `/speckit-tasks` a organizem nas 4 fatias da "Ordem de ataque", cada uma publicável sozinha; se preferir, pode ser dividida em specs separadas (por exemplo 002 publicação e backup, 003 isolamento por empresa, 004 sustentação).
+- Origem dos achados: auditoria de 2026-10-05 em cinco frentes; os achados marcados como incertos pelos auditores (por exemplo, se o Next.js decodifica `%2F` em parâmetros, se a produção define as variáveis de proxy) viram verificação obrigatória na primeira tarefa da história correspondente.
+- Análise de consistência de 2026-10-05 (`/speckit-analyze`): 2 críticos, 6 altos, 9 médios e 4 baixos, todos corrigidos nesta revisão. Principais mudanças: exemplo de UC real removido de research e tasks (a reescrita do histórico cobre esse texto); legado do `event_log` mantido por padrão, e mascarar só após emenda da constituição; FR-019 alinhado ao modelo atual de acesso (sem trocar tabelas); coluna de empresa no `event_log` antecipada para a Fatia 2; testes de não regressão na Fundação; barreira da reescrita de histórico; limites numéricos na spec; `tasks.md` passou de 202 para 212 tarefas.
