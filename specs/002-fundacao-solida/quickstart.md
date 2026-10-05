@@ -115,3 +115,10 @@ Esperado: CI executa todas as suítes (SC-021), publicação com falha de pronti
 ## Critério de aceite final
 
 Todos os SC-001 a SC-026 verificados e registrados; nenhuma das bases a preservar regrediu (FR-080); nenhum passo exigiu indisponibilidade planejada (SC-026).
+
+## Dados sintéticos e o scanner de dados de cliente (US2)
+
+- `node scripts/scan-dados-cliente.mjs --tree` varre os arquivos versionados e `--history` as linhas adicionadas em todas as refs. Por padrão só relata; `--strict` sai com código 1. O relatório traz arquivo, linha e tipo, nunca o valor.
+- Nomes de cliente vêm de `CLIENT_NAMES_FILE` (um por linha, fora do git; na CI, do segredo `CLIENT_NAMES`).
+- Faixa reservada para fixtures: CNPJ com raiz `99999` (filial `0001`) e CPF começando por `999999`, ambos com dígito verificador válido. O scanner as aceita. `node scripts/gera-fixtures-sinteticas.mjs` gera os valores de forma determinística e regrava `scripts/dados-sinteticos-permitidos.json`.
+- UC só de zeros (`UC 0000000-0`) é espaço reservado de documentação e não conta.

@@ -60,10 +60,10 @@ describe("AuditAppender", () => {
     ["chave com acento e caixa", { "Endereço": "x" }],
     ["chave aninhada", { dados: { telefone: "x" } }],
     ["chave dentro de lista", { itens: [{ cnpj: "x" }] }],
-    ["CNPJ formatado", { ref: "12.345.678/0001-95" }],
-    ["CPF formatado", { ref: "123.456.789-09" }],
-    ["CPF só com dígitos e dígito verificador válido", { ref: "52998224725" }],
-    ["CNPJ só com dígitos e dígito verificador válido", { ref: "11222333000181" }],
+    ["CNPJ formatado", { ref: "99.999.001/0001-59" }],
+    ["CPF formatado", { ref: "999.999.001-00" }],
+    ["CPF só com dígitos e dígito verificador válido", { ref: "99999900291" }],
+    ["CNPJ só com dígitos e dígito verificador válido", { ref: "99999002000101" }],
   ])("rejeita payload com %s", async (_nome, payload) => {
     const { tx, create } = transacaoFalsa();
 
