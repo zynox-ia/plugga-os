@@ -12,6 +12,7 @@ import {
   type TeamMember,
 } from "@plugga/shared";
 
+import { Authenticated } from "../core/auth/access.decorators";
 import { ZodValidationPipe } from "../common/zod-validation.pipe";
 import type { AuthPrincipal } from "../core/auth/auth.types";
 import { CurrentPrincipal } from "../core/auth/current-principal.decorator";
@@ -31,6 +32,7 @@ import { TeamService } from "./team.service";
  * princípio do AuthController: requisição cross-origin rejeitada não deve pagar
  * o lookup de sessão no banco (nem o write da renovação deslizante).
  */
+@Authenticated()
 @Controller("auth")
 export class TeamController {
   constructor(@Inject(TeamService) private readonly service: TeamService) {}

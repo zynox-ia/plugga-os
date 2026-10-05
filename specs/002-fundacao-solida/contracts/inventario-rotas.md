@@ -43,3 +43,36 @@ Campos: `metodo`, `caminho` (com prefixo global), `controller.handler`, `acesso`
 4. **Rota nova sem marcador**: teste de contrato registra um controller de teste sem marcador e confirma negação.
 5. **Atalho de desenvolvimento**: com `NODE_ENV=production` ou fora de ambiente local/teste, o `DevHeaderAuthContext` não é registrado.
 6. **Identificadores**: para toda rota com `:id`, enviar valor que não é UUID resulta em `REQUISICAO_INVALIDA` (nunca 500).
+
+## Estado atual (gerado em 2026-10-05) e proposta para aprovação do dono (T067, T068)
+
+O inventário (`inventario-rotas.json`, gerado por `apps/api/test/inventario-rotas.e2e.spec.ts`) lista **130 rotas em 19 controllers**:
+
+| Acesso declarado | Rotas |
+|---|---|
+| `roles` | 116 |
+| `undeclared` | 14 |
+| `public`, `authenticated`, `permissions` | 0 (os marcadores `@Public` e `@Authenticated` ainda não estavam em uso) |
+
+Todas as 116 rotas com `@Roles` têm `DevAuthGuard` e `RolesGuard` na pilha. As 14 sem declaração são estas; a coluna "proposta" é o que o dono precisa aprovar (T068):
+
+| Método e caminho | Hoje | Proposta |
+|---|---|---|
+| `GET /health` | sem guard | `@Public()` |
+| `POST /auth/login` | origem e limite de taxa | `@Public()` |
+| `POST /auth/google` | origem e limite de taxa | `@Public()` |
+| `POST /auth/accept-invite` | origem e limite de taxa | `@Public()` (o token do convite é a prova) |
+| `POST /auth/reset/request` | origem e limite de taxa | `@Public()` |
+| `POST /auth/reset/confirm` | origem e limite de taxa | `@Public()` (o token é a prova) |
+| `GET /auth/me` | autenticação | `@Authenticated()` |
+| `POST /auth/logout` | autenticação | `@Authenticated()` |
+| `GET /auth/users` | autenticação; o serviço filtra por administrador ou gestor de departamento | `@Authenticated()` (a autorização fina fica no serviço) |
+| `POST /auth/invite` | autenticação; o serviço exige administrador ou gestor | `@Authenticated()` (idem) |
+| `PUT /auth/users/:id/access` | autenticação; o serviço decide | `@Authenticated()` (idem) |
+| `POST /auth/users/:id/deactivate` | autenticação; o serviço exige administrador | `@Authenticated()` (idem) |
+| `POST /auth/users/:id/resend-invite` | autenticação; o serviço decide | `@Authenticated()` (idem) |
+| `GET /email/status` | autenticação e `RolesGuard` sem papel, ou seja, qualquer pessoa logada | `@Authenticated()` hoje; **decisão do dono**: restringir a `admin` e `tech`? |
+
+Rotas candidatas a `public`, para o dono aprovar: as seis primeiras da tabela (`/health`, login, Google, aceitar convite, pedir e confirmar redefinição). Nada mais deve ser público.
+
+Enquanto o dono não aprova, os marcadores **não** são aplicados às rotas: o guard global roda em `warn` (só registra) e nada muda de comportamento. Aplicar os marcadores e passar para `enforce` é a Fase 6c (T071 em diante).
