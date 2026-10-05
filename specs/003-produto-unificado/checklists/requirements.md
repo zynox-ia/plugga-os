@@ -31,5 +31,6 @@
 
 ## Notes
 
+- Aprovada pelo dono em 2026-10-05, com o ajuste: o seletor global é removido e cada tela tem seu filtro de empresa.
 - Dependência forte: a spec 002 (história 4) precisa estar entregue antes de implementar esta; o `/speckit-plan` pode ser feito em paralelo.
 - As premissas de privacidade (Waze vê o cadastro de clientes da Plugga) e de prazos (90 dias de redirecionamento, 30 dias para desfazer união) são do ADR-0013 e devem ser confirmadas pelo dono antes de implementar.

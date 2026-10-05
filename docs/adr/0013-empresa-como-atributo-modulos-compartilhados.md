@@ -1,6 +1,6 @@
 # ADR-0013 — Empresa como atributo do registro, módulos compartilhados e escopo único
 
-- Status: Proposto · Data: 2026-10-05 · Decisores: dono do sistema (decisões de produto confirmadas em 2026-10-05), ARCHITECT (revisão pendente) · Contexto: spec `specs/002-fundacao-solida` (história 4) e spec 003 (unificação do produto)
+- Status: Aceito (decisão de produto do dono em 2026-10-05; revisão técnica do ARCHITECT pendente) · Data: 2026-10-05 · Decisores: dono do sistema (decisões de produto confirmadas em 2026-10-05), ARCHITECT (revisão pendente) · Contexto: spec `specs/002-fundacao-solida` (história 4) e spec 003 (unificação do produto)
 
 ## Contexto
 
@@ -8,7 +8,7 @@ O Plugga OS atende duas empresas, Plugga e Waze, que operam como um único ecoss
 O desenho atual trata cada uma como um "mundo" separado: o catálogo é Empresa → Departamento
 (`packages/shared/src/organization.ts`), o menu repete departamentos (Financeiro e Comercial
 existem nas duas; Compras aparece nas duas) e o seletor do canto superior direito troca o
-mundo inteiro. O acesso é um par (empresa, departamento) (handoff `equipe-acesso-empresa-departamento`).
+mundo inteiro (este seletor é removido por esta decisão). O acesso é um par (empresa, departamento) (handoff `equipe-acesso-empresa-departamento`).
 
 Problemas confirmados na auditoria de 2026-10-05:
 
@@ -52,9 +52,12 @@ Problemas confirmados na auditoria de 2026-10-05:
    (Compras e Obras) são absorvidos por esse componente.
 7. **Concessão.** Quem concede papéis só concede áreas e empresas que administra; um papel
    concedido numa empresa nunca vale em outra.
-8. **O seletor do topo vira filtro** "Todas · Plugga · Waze" (padrão: tudo que a pessoa pode ver).
-   Quem tem uma empresa só não vê o seletor. O filtro nunca amplia acesso: ele só restringe o que
-   o escopo já permite.
+8. **O seletor global de empresa do topo é removido** (decisão do dono, 2026-10-05). Não há
+   troca de "mundo" nem filtro global. Cada tela que lista ou totaliza registros de negócio tem
+   o **seu próprio filtro de empresa** ("Todas · Plugga · Waze"), definido e documentado tela a
+   tela. O filtro de uma tela nunca amplia acesso: só restringe o que o escopo (decisão 6) já
+   permite, e quem alcança uma empresa só não vê a opção. O estado do filtro vive na tela (por
+   exemplo, no endereço), de modo que o link compartilhado reproduz a mesma visão.
 9. **Dados existentes.** Registros de módulos sem empresa recebem `plugga`, que é como a migração
    de 2026-08-11 já atribuiu esses acessos. Compras e Obras já têm empresa e permanecem. Casos
    duvidosos vão para fila de decisão manual, nunca são adivinhados.
@@ -64,8 +67,8 @@ Problemas confirmados na auditoria de 2026-10-05:
 - **Spec 002, história 4 (segurança):** campo de empresa nos registros que não o têm, escopo
   único em `core/auth`, concessão limitada, testes de negação entre empresas. **Não** altera menu
   nem cadastros.
-- **Spec 003 (produto):** menu único por função, seletor como filtro, cadastros únicos de cliente
-  e fornecedor, rótulos de empresa nos registros, ajustes das telas de Equipe e acessos.
+- **Spec 003 (produto):** menu único por função, remoção do seletor global e filtros de empresa por
+  tela, cadastros únicos de cliente e fornecedor, rótulos de empresa nos registros, ajustes das telas de Equipe e acessos.
 
 ## Consequências
 
@@ -74,10 +77,13 @@ Problemas confirmados na auditoria de 2026-10-05:
 - Uma única regra de isolamento, testável em um lugar, em vez de uma por módulo.
 - Fim da duplicação de módulos e de cadastros; um cliente tem uma ficha só.
 - Evolução de novos módulos (Financeiro real, OMIE) já nasce com empresa como atributo.
-- Menu e seletor mais simples para a equipe.
+- Menu mais simples para a equipe e nenhum estado global de empresa para acompanhar: cada tela é
+  autoexplicativa e seu link reproduz a visão.
 
 **Negativas**
 
+- Cada tela de negócio precisa implementar e testar seu filtro de empresa; a consistência fica
+  garantida por um componente de filtro compartilhado e por um catálogo de telas e filtros na spec 003.
 - Mudança de modelo de acesso: o par (empresa, departamento) deixa de existir e as tabelas
   `user_department_access` e `user_company_roles` precisam migrar. Exige migração reversível e
   teste de equivalência (ninguém ganha nem perde alcance sem decisão do dono).

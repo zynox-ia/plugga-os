@@ -31,7 +31,7 @@
 
 ## Notes
 
-- Pendência antes de `/speckit-plan`: revisão do ADR-0013 pelo ARCHITECT (status Proposto). O plano pode começar pelas histórias que não dependem dele (US1, US2, US3, US5).
+- Aprovada pelo dono em 2026-10-05. Pendência antes de `/speckit-plan`: revisão técnica do ADR-0013 pelo ARCHITECT (aceito pelo dono). O plano pode começar pelas histórias que não dependem dele (US1, US2, US3, US5).
 - Divisão acordada: esta spec (002) cobre segurança e fundação, inclusive o escopo por empresa; a unificação do produto (menu único, seletor como filtro, cadastros únicos) fica na spec 003.
 - A feature é grande (17 histórias). Recomenda-se que `/speckit-plan` e `/speckit-tasks` a organizem nas 4 fatias da "Ordem de ataque", cada uma publicável sozinha; se preferir, pode ser dividida em specs separadas (por exemplo 002 publicação e backup, 003 isolamento por empresa, 004 sustentação).
 - Origem dos achados: auditoria de 2026-10-05 em cinco frentes; os achados marcados como incertos pelos auditores (por exemplo, se o Next.js decodifica `%2F` em parâmetros, se a produção define as variáveis de proxy) viram verificação obrigatória na primeira tarefa da história correspondente.

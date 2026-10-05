@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-05
 
-**Status**: Draft
+**Status**: Aprovada pelo dono em 2026-10-05
 
 **Input**: Corrigir as falhas de segurança, arquitetura e operação encontradas na auditoria de 2026-10-05, para que o sistema, já em produção com dado real de clientes, seja seguro de evoluir.
 
@@ -92,7 +92,7 @@ O modelo segue o ADR-0013: o sistema é um só, com módulos únicos por funçã
 5. **Given** um usuário que alcança as duas empresas (ou admin de plataforma), **When** consulta, **Then** vê as duas, com a empresa de cada registro identificada, e consegue restringir a visão a uma delas.
 6. **Given** uma pessoa com acesso hoje, **When** o novo modelo de acesso é migrado, **Then** ela mantém exatamente o alcance que tinha antes, sem ganhar nem perder acesso por efeito da migração.
 7. **Given** um novo módulo ou rota de negócio, **When** ele consulta dados sem aplicar o escopo de empresa, **Then** um teste automático ou a análise do código falha.
-8. **Given** o filtro de empresa na interface, **When** o usuário escolhe uma empresa que ele não alcança (por manipulação da URL ou da requisição), **Then** o resultado é vazio ou negado, nunca ampliado.
+8. **Given** o filtro de empresa de uma tela, **When** o usuário escolhe uma empresa que ele não alcança (por manipulação da URL ou da requisição), **Then** o resultado é vazio ou negado, nunca ampliado.
 
 ---
 
@@ -558,10 +558,10 @@ Princípio: primeiro fechar o que permite dano externo imediato e não exige par
 - O repositório pode ser privado ou público; a spec trata o caso de fork como risco real em ambos.
 - Um runner de CI dedicado, separado do servidor de produção, é premissa desejável para FR-006; se o custo for impeditivo, a alternativa aceitável é rodar apenas o deploy no servidor e levar os testes para runner hospedado. A escolha é decisão de plano.
 - A política de retenção de dados pessoais usa, até definição do dono, prazos conservadores: sessões 30 dias após expirar; eventos sem valores pessoais indefinidamente; dados de cliente enquanto durar a relação contratual mais o prazo legal aplicável. A validação jurídica final cabe ao dono.
-- O modelo de empresa segue o ADR-0013 (status Proposto até revisão do ARCHITECT): módulos únicos, empresa como atributo do registro, cadastros de cliente e fornecedor únicos, lançamento financeiro com empresa obrigatória. A reforma de menu, do seletor e dos cadastros únicos fica na spec 003; esta feature só entrega o isolamento por trás disso.
+- O modelo de empresa segue o ADR-0013 (aceito pelo dono em 2026-10-05; revisão técnica do ARCHITECT pendente): módulos únicos, empresa como atributo do registro, cadastros de cliente e fornecedor únicos, lançamento financeiro com empresa obrigatória. A reforma de menu, a remoção do seletor global, os filtros por tela e os cadastros únicos ficam na spec 003; esta feature só entrega o isolamento por trás disso.
 - Sem usuários externos ainda e com poucas pessoas internas, uma janela curta de manutenção é aceitável, mas não é premissa de nenhuma fatia (SC-026).
 - Meta de recuperação: perda máxima de 24 horas (backup diário) e retomada em até 4 horas.
 - Provedores externos já em uso (Brevo, OpenRouter, Google) continuam; esta feature não os troca.
 - A migração de leitura de fatura para processamento assíncrono (FR-046) pode ser entregue em fatia posterior sem bloquear as demais, desde que os limites de FR-044 e FR-045 já estejam em vigor.
 - Os dados de teste e a restauração de ensaio rodam em ambiente descartável isolado, nunca contra o banco ou os arquivos de produção.
-- Esta feature depende de: conta e chaves do Backblaze B2 criadas pelo dono (FR-011), aceite do ADR-0013 pelo ARCHITECT; acesso administrativo à VPS para instalar backup e monitoramento; e das specs e ADRs existentes (0005, 0007, 0008, 0011, 0012) como referência.
+- Esta feature depende de: conta e chaves do Backblaze B2 criadas pelo dono (FR-011), revisão técnica do ADR-0013 pelo ARCHITECT; acesso administrativo à VPS para instalar backup e monitoramento; e das specs e ADRs existentes (0005, 0007, 0008, 0011, 0012) como referência.

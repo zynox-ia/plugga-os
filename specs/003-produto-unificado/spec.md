@@ -1,16 +1,16 @@
-# Especificação: Produto unificado (menu único, seletor como filtro e cadastros únicos)
+# Especificação: Produto unificado (menu único, filtros de empresa por tela e cadastros únicos)
 
 **Feature Branch**: `claude/funny-albattani-5tnccx` (a numeração `003` vale só para a pasta)
 
 **Created**: 2026-10-05
 
-**Status**: Draft
+**Status**: Aprovada pelo dono em 2026-10-05
 
-**Input**: Unificar o Plugga OS em um ecossistema único: menu único por função, seletor de empresa como filtro e cadastros únicos de cliente e fornecedor (decisões do dono em 2026-10-05, ADR-0013).
+**Input**: Unificar o Plugga OS em um ecossistema único: menu único por função, remoção do seletor global de empresa com filtros de empresa em cada tela, e cadastros únicos de cliente e fornecedor (decisões do dono em 2026-10-05, ADR-0013).
 
 ## Contexto
 
-A Plugga e a Waze operam como um ecossistema só: a Plugga cuida de uma parte, a Waze de outra. O desenho atual as trata como dois mundos: o catálogo é Empresa → Departamento, Financeiro, Comercial e Compras aparecem duas vezes no menu, e o seletor do canto superior direito troca o sistema inteiro. Isso induz "dois CRMs, dois setores de compra, dois cadastros de cliente", o que o cliente da operação pediu para evitar.
+A Plugga e a Waze operam como um ecossistema só: a Plugga cuida de uma parte, a Waze de outra. O desenho atual as trata como dois mundos: o catálogo é Empresa → Departamento, Financeiro, Comercial e Compras aparecem duas vezes no menu, e o seletor do canto superior direito troca o sistema inteiro. **O seletor global é removido**; a empresa passa a ser filtrada em cada tela, de forma explícita. Isso induz "dois CRMs, dois setores de compra, dois cadastros de cliente", o que o cliente da operação pediu para evitar.
 
 Esta spec vem **depois** da spec 002 (`specs/002-fundacao-solida`), cuja história 4 já coloca a empresa como atributo dos registros de negócio e cria o escopo único de acesso. Aqui **não se refaz segurança**: reorganiza-se o produto em cima dela. O modelo está no ADR-0013 (módulos únicos por função; empresa como atributo do registro; cadastros de cliente e fornecedor únicos; seletor como filtro).
 
@@ -36,22 +36,24 @@ Como integrante da equipe, quero ver um menu só, organizado pelo que faço (Com
 
 ---
 
-### User Story 2 - O seletor de empresa vira filtro (Priority: P1)
+### User Story 2 - Sem seletor global: cada tela tem seu filtro de empresa (Priority: P1)
 
-Como pessoa que atua nas duas empresas, quero escolher "Todas", "Plugga" ou "Waze" para filtrar o que vejo, em vez de trocar de sistema; e como pessoa de uma empresa só, não quero nem ver o seletor.
+Como pessoa que atua nas duas empresas, quero que cada tela me deixe escolher "Todas", "Plugga" ou "Waze" para o que ela mostra, sem um seletor global que mude o sistema inteiro; e como pessoa de uma empresa só, não quero ver essa opção.
 
-**Why this priority**: o seletor atual é a causa da complexidade que o dono quer eliminar. Sem esta mudança, o menu único não resolve.
+**Why this priority**: o seletor global atual é a causa da complexidade que o dono quer eliminar e esconde de qual empresa é cada dado. Filtros por tela deixam explícito, em cada lugar, o que está sendo visto.
 
-**Independent Test**: com usuário das duas empresas, alternar o filtro e conferir listas, totais e indicadores em todos os módulos; com usuário de uma empresa, conferir que o seletor não aparece.
+**Independent Test**: com usuário das duas empresas, conferir que o seletor do topo não existe, que cada tela de negócio tem seu filtro e que listas, totais, indicadores, exportações e impressões obedecem a ele; com usuário de uma empresa, conferir que o filtro não aparece.
 
 **Acceptance Scenarios**:
 
-1. **Given** uma pessoa que alcança as duas empresas, **When** entra, **Then** o filtro começa em "Todas".
-2. **Given** o filtro em "Waze", **When** a pessoa navega por qualquer módulo, **Then** listas, contagens e indicadores mostram só a Waze, e a escolha persiste na sessão.
-3. **Given** uma pessoa que alcança só uma empresa, **When** abre o sistema, **Then** o seletor não aparece e tudo se comporta como filtrado por essa empresa.
-4. **Given** uma tentativa de usar o filtro (por interface, endereço ou requisição manipulada) com uma empresa que a pessoa não alcança, **When** a tela carrega, **Then** o resultado é vazio ou negado, nunca ampliado.
-5. **Given** o filtro ativo, **When** a pessoa abre um registro por link direto de outra empresa que ela alcança, **Then** o registro abre e a tela indica que ele está fora do filtro atual.
-6. **Given** a pessoa sai e entra de novo, **When** o sistema abre, **Then** o filtro volta ao padrão ("Todas" para quem alcança as duas).
+1. **Given** qualquer tela, **When** é aberta, **Then** não existe seletor global de empresa no topo.
+2. **Given** uma pessoa que alcança as duas empresas e uma tela de lista, **When** a abre, **Then** o filtro da tela começa em "Todas".
+3. **Given** o filtro de uma tela em "Waze", **When** a pessoa vê lista, contagens, totais, exportação ou impressão dessa tela, **Then** todos mostram só a Waze, e a escolha de uma tela não altera as outras.
+4. **Given** a pessoa copia o endereço de uma tela com o filtro aplicado, **When** outra pessoa com o mesmo alcance o abre, **Then** vê a mesma visão.
+5. **Given** uma pessoa que alcança só uma empresa, **When** abre qualquer tela, **Then** o filtro não aparece e a tela mostra apenas essa empresa.
+6. **Given** uma tentativa de usar o filtro (por interface, endereço ou requisição manipulada) com uma empresa que a pessoa não alcança, **When** a tela carrega, **Then** o resultado é vazio ou negado, nunca ampliado.
+7. **Given** a pessoa abre um registro por link direto de empresa que ela alcança, **When** a tela abre, **Then** o registro aparece e indica a empresa a que pertence, independentemente do filtro da lista de onde veio.
+8. **Given** o catálogo de telas desta feature, **When** consultado, **Then** lista cada tela de negócio, seu filtro de empresa e seu valor padrão, e um teste confirma que nenhuma tela de negócio ficou sem filtro.
 
 ---
 
@@ -59,15 +61,15 @@ Como pessoa que atua nas duas empresas, quero escolher "Todas", "Plugga" ou "Waz
 
 Como usuário, quero identificar de relance de qual empresa é cada oportunidade, contrato, pedido, obra, ciclo ou lançamento, e ser obrigado a informar a empresa ao criar um registro de negócio.
 
-**Why this priority**: com módulos compartilhados, a empresa deixa de estar implícita no menu; sem uma indicação clara, a equipe confunde de quem é cada coisa, e registros nascem sem empresa.
+**Why this priority**: com módulos compartilhados e sem seletor global, a empresa deixa de estar implícita; sem uma indicação clara, a equipe confunde de quem é cada coisa, e registros nascem sem empresa.
 
-**Independent Test**: criar um registro de cada tipo de negócio com o filtro em "Todas", em "Plugga" e em "Waze" e conferir a empresa pré-preenchida ou exigida, e a etiqueta nas listas e fichas.
+**Independent Test**: criar um registro de cada tipo de negócio a partir de telas com o filtro em "Todas", em "Plugga" e em "Waze" e conferir a empresa pré-preenchida ou exigida, e a etiqueta nas listas e fichas.
 
 **Acceptance Scenarios**:
 
 1. **Given** listas e fichas de registros de negócio, **When** exibidas, **Then** cada registro mostra a etiqueta da empresa, discreta e acessível (não depende só de cor).
-2. **Given** o filtro em uma empresa, **When** a pessoa cria um registro de negócio, **Then** a empresa vem preenchida com essa empresa.
-3. **Given** o filtro em "Todas" e a pessoa alcançando as duas empresas, **When** cria um registro, **Then** precisa escolher a empresa explicitamente antes de salvar.
+2. **Given** a tela de origem com o filtro em uma empresa, **When** a pessoa cria um registro de negócio, **Then** a empresa vem preenchida com essa empresa.
+3. **Given** a tela de origem com o filtro em "Todas" e a pessoa alcançando as duas empresas, **When** cria um registro, **Then** precisa escolher a empresa explicitamente antes de salvar.
 4. **Given** uma pessoa que alcança só uma empresa, **When** cria um registro, **Then** a empresa é preenchida automaticamente, sem pergunta.
 5. **Given** a empresa de um registro já criado, **When** a pessoa tenta alterá-la, **Then** só quem tem permissão administrativa nas duas empresas consegue, e a mudança é auditada.
 
@@ -106,7 +108,7 @@ Como pessoa de Compras ou Financeiro, quero um cadastro único de fornecedor, co
 2. **Given** a numeração de pedidos, **When** são criados pedidos nas duas empresas, **Then** cada empresa mantém sua própria sequência, sem lacunas nem repetições.
 3. **Given** um lançamento financeiro, **When** é criado sem empresa, **Then** é recusado com mensagem clara.
 4. **Given** fornecedores já cadastrados em duplicidade (mesmo documento nas duas empresas), **When** a migração roda, **Then** são unidos preservando todos os pedidos, cotações e histórico, com os casos duvidosos em fila de decisão manual.
-5. **Given** relatórios e totais de compras, **When** exibidos, **Then** respeitam o filtro de empresa e podem ser vistos por empresa ou consolidados.
+5. **Given** relatórios e totais de compras, **When** exibidos, **Then** respeitam o filtro de empresa da tela e podem ser vistos por empresa ou consolidados.
 
 ---
 
@@ -138,23 +140,24 @@ Como gestor, quero ver totais por empresa e consolidados, restritos ao que posso
 
 **Acceptance Scenarios**:
 
-1. **Given** uma pessoa que alcança as duas empresas e o filtro "Todas", **When** abre o dashboard, **Then** vê o total consolidado e a divisão por empresa, e os números batem com as listas.
+1. **Given** uma pessoa que alcança as duas empresas e o filtro do dashboard em "Todas", **When** abre o dashboard, **Then** vê o total consolidado e a divisão por empresa, e os números batem com as listas.
 2. **Given** uma pessoa de uma empresa só, **When** abre o dashboard, **Then** nenhum número inclui a outra empresa.
 3. **Given** uma tela cujo conteúdo ainda não tem dados reais, **When** é aberta, **Then** mostra aviso visível de "dados de exemplo" e seu estado no menu não é "pronto".
-4. **Given** o filtro de empresa, **When** muda, **Then** todos os indicadores da tela atualizam de forma coerente.
+4. **Given** o filtro de empresa do dashboard, **When** muda, **Then** todos os indicadores da tela atualizam de forma coerente.
 
 ---
 
 ### Edge Cases
 
 - Pessoa que alcança as duas empresas mas atua em áreas diferentes em cada uma (Comercial na Plugga, Engenharia na Waze): o menu mostra a união das áreas e cada tela respeita a empresa em que a pessoa tem aquela área.
-- Pessoa que perde o acesso a uma empresa com o filtro apontando para ela: o filtro volta ao padrão sem erro.
+- Pessoa que perde o acesso a uma empresa e abre um link de tela com o filtro apontando para ela: o filtro volta ao padrão, sem erro e sem mostrar dados da empresa perdida.
 - Registro cujos vínculos apontam para duas empresas (por exemplo, pedido da Plugga para obra da Waze): é recusado, conforme a spec 002.
 - Cliente com o mesmo documento escrito de formas diferentes (com e sem pontuação) é tratado como o mesmo.
 - Cliente sem documento: não entra na verificação de duplicidade por documento, só por e-mail ou nome com confirmação manual.
 - União de cadastros em que os dois têm dados conflitantes (dois e-mails, dois telefones): ficam todos, com indicação do principal.
 - Link salvo para uma rota antiga durante o período de transição: redireciona; depois do período, mostra tela explicando para onde foi.
-- Pessoa com o filtro em uma empresa abre um link de registro de outra empresa que alcança: abre, com aviso.
+- Pessoa com o filtro de uma lista em uma empresa abre o link de um registro de outra empresa que alcança: o registro abre e mostra sua empresa.
+- Link antigo que dependia do seletor global (por exemplo, favorito que "lembrava" a empresa): abre a tela com o filtro no padrão.
 - Impressão e exportação de listas: respeitam o filtro e identificam a empresa.
 - Idioma e acessibilidade: todo o texto novo em português; etiquetas de empresa legíveis por leitor de tela e sem depender só de cor.
 
@@ -169,18 +172,18 @@ Como gestor, quero ver totais por empresa e consolidados, restritos ao que posso
 - **FR-003**: Toda tela que hoje funciona MUST continuar acessível a quem a acessa hoje, e links antigos MUST redirecionar para a tela equivalente.
 - **FR-004**: Processos ainda não construídos MUST continuar listados e marcados como "em breve", sem levar a telas vazias.
 
-**Filtro de empresa**
+**Filtro de empresa por tela**
 
-- **FR-005**: O seletor de empresa MUST ser um filtro com as opções "Todas", "Plugga" e "Waze", limitado às empresas que a pessoa alcança.
-- **FR-006**: Quem alcança uma única empresa MUST NOT ver o seletor.
-- **FR-007**: O filtro MUST se aplicar a listas, contagens, indicadores, exportações e impressões de todos os módulos de negócio, e MUST persistir durante a sessão.
+- **FR-005**: O seletor global de empresa do topo MUST ser removido. Cada tela que lista ou totaliza registros de negócio MUST ter seu próprio filtro de empresa com as opções "Todas", "Plugga" e "Waze", limitado às empresas que a pessoa alcança.
+- **FR-006**: Quem alcança uma única empresa MUST NOT ver o filtro; as telas mostram só essa empresa.
+- **FR-007**: O filtro de uma tela MUST se aplicar a listas, contagens, indicadores, exportações e impressões dessa tela, MUST NOT afetar outras telas e MUST ser refletido no endereço da tela, para que o link reproduza a visão.
 - **FR-008**: O filtro MUST apenas restringir; escolher uma empresa que a pessoa não alcança MUST resultar em vazio ou negado.
-- **FR-009**: O padrão do filtro MUST ser "Todas" para quem alcança as duas empresas, a cada nova sessão.
+- **FR-009**: O padrão do filtro de cada tela MUST ser "Todas" para quem alcança as duas empresas; um catálogo de telas e filtros MUST documentar o filtro de cada tela, e um teste MUST falhar se uma tela de negócio não o tiver. O filtro MUST usar um componente compartilhado, para comportamento e aparência consistentes.
 
 **Empresa nos registros**
 
 - **FR-010**: Listas, fichas e indicadores MUST identificar a empresa de cada registro por rótulo textual, com indicação visual complementar acessível.
-- **FR-011**: A criação de registro de negócio MUST exigir empresa: preenchida pelo filtro quando houver uma só; escolhida explicitamente quando o filtro for "Todas"; automática para quem alcança uma só.
+- **FR-011**: A criação de registro de negócio MUST exigir empresa: preenchida pelo filtro da tela de origem quando houver uma só; escolhida explicitamente quando o filtro for "Todas" ou a criação não partir de uma tela filtrada; automática para quem alcança uma só.
 - **FR-012**: Alterar a empresa de um registro existente MUST exigir permissão administrativa nas duas empresas e MUST ser auditado.
 
 **Cadastro único de cliente**
@@ -206,7 +209,7 @@ Como gestor, quero ver totais por empresa e consolidados, restritos ao que posso
 
 **Indicadores e honestidade**
 
-- **FR-025**: Dashboard e indicadores MUST respeitar o filtro e o escopo da pessoa e MUST mostrar total consolidado e divisão por empresa, batendo com as listas.
+- **FR-025**: Dashboard e indicadores MUST ter filtro de empresa próprio, respeitá-lo e respeitar o escopo da pessoa e MUST mostrar total consolidado e divisão por empresa, batendo com as listas.
 - **FR-026**: Telas sem dados reais MUST exibir aviso visível de dados de exemplo e MUST NOT constar como "pronto" no menu.
 
 **Transição**
@@ -220,7 +223,8 @@ Como gestor, quero ver totais por empresa e consolidados, restritos ao que posso
 - **Empresa**: Plugga ou Waze; valor fixo do catálogo; atributo dos registros de negócio e dos lançamentos.
 - **Área funcional**: função que a pessoa exerce (Comercial e Clientes, Compras, Financeiro, Energia, Engenharia e Obras, Eletromobilidade, Equipe e acessos); aparece uma vez no menu.
 - **Escopo de acesso**: áreas que a pessoa exerce e, para cada uma, as empresas em que vale (definido na spec 002).
-- **Filtro de empresa**: escolha de visualização da sessão, sempre dentro do escopo; nunca amplia acesso.
+- **Filtro de empresa da tela**: escolha de visualização própria de cada tela, refletida no endereço, sempre dentro do escopo; nunca amplia acesso. Não existe filtro global.
+- **Catálogo de telas e filtros**: lista de cada tela de negócio com seu filtro de empresa e valor padrão.
 - **Cliente**: cadastro único (nome, documento, contatos) sem empresa dona; relaciona-se com negócios de cada empresa.
 - **Fornecedor**: cadastro único por documento; relaciona-se com pedidos e lançamentos de cada empresa.
 - **Registro de negócio**: oportunidade, contrato, ciclo, auditoria, estudo, fechamento, pedido, obra ou lançamento; sempre com empresa.
@@ -233,12 +237,12 @@ Como gestor, quero ver totais por empresa e consolidados, restritos ao que posso
 - **SC-001**: Cada função aparece exatamente uma vez no menu para 100% dos perfis testados (só Plugga, só Waze, as duas, admin).
 - **SC-002**: 100% das telas e links que funcionam hoje continuam acessíveis ou redirecionam corretamente após a mudança.
 - **SC-003**: Uma pessoa nova identifica, sem ajuda, de qual empresa é um registro em menos de 5 segundos em 9 de cada 10 tentativas de teste de usabilidade.
-- **SC-004**: Pessoas de uma empresa só nunca veem o seletor, e 100% das tentativas de forçar uma empresa não permitida resultam em vazio ou negado.
+- **SC-004**: O seletor global não existe em nenhuma tela, 100% das telas de negócio têm filtro de empresa conforme o catálogo, pessoas de uma empresa só nunca veem o filtro, e 100% das tentativas de forçar uma empresa não permitida resultam em vazio ou negado.
 - **SC-005**: 100% dos registros de negócio criados após a mudança têm empresa; 0 criados sem.
 - **SC-006**: 0 clientes e 0 fornecedores duplicados por documento após a migração, e 100% dos casos duvidosos passam pela fila de decisão manual, com histórico íntegro (contagem de negócios, pedidos e estudos antes igual à depois).
 - **SC-007**: O alcance de cada pessoa antes e depois da mudança de acesso é idêntico em 100% dos casos comparados.
 - **SC-008**: Um gestor concede um acesso completo (áreas e empresas) em menos de 2 minutos na tela nova, em teste com usuários reais.
-- **SC-009**: Os totais do dashboard batem com a soma das listas em 100% das combinações de filtro testadas.
+- **SC-009**: Os totais do dashboard batem com a soma das listas em 100% das combinações de filtro testadas, em cada tela.
 - **SC-010**: Nenhuma tela sem dados reais aparece como "pronto" ou sem aviso de exemplo.
 - **SC-011**: A transição ocorre sem indisponibilidade planejada, e a volta ao menu anterior leva menos de 5 minutos, sem nova publicação.
 - **SC-012**: A equipe relata queda de pelo menos 50% nas dúvidas do tipo "em qual empresa/menu eu faço isso?" em duas semanas após a entrada no ar.
@@ -246,13 +250,13 @@ Como gestor, quero ver totais por empresa e consolidados, restritos ao que posso
 ## Assumptions
 
 - A spec 002 (história 4, FR-017 a FR-019b) é entregue **antes**: campo de empresa nos registros, escopo único e papéis por empresa. Esta feature depende dela e não refaz segurança.
-- O ADR-0013 é a referência do modelo e depende da revisão do ARCHITECT (status Proposto).
+- O ADR-0013 é a referência do modelo (aceito pelo dono em 2026-10-05, incluindo a remoção do seletor global); a revisão técnica do ARCHITECT está pendente.
 - Premissa padrão do ADR-0013: quem tem papel comercial em qualquer empresa vê o **cadastro** de cliente (nome, documento, contatos), nunca os dados de negócio da outra empresa. A Waze vê os contatos de clientes da Plugga.
-- O filtro "Todas" é o padrão apenas para quem alcança as duas empresas; quem alcança uma empresa vê só ela, sem seletor.
+- O filtro de cada tela começa em "Todas" para quem alcança as duas empresas; quem alcança uma empresa vê só ela, sem filtro. Não há preferência global de empresa guardada entre telas ou sessões.
 - Nomes das áreas no menu: Comercial e Clientes, Compras, Financeiro, Energia, Engenharia e Obras, Eletromobilidade, Equipe e acessos. Ajustes de rótulo não alteram a spec.
 - Os papéis e áreas existentes continuam; só muda a forma de agrupá-los e concedê-los.
 - Período de transição para links antigos: 90 dias; depois, tela explicativa.
 - Período em que a união de cadastros pode ser desfeita: 30 dias.
 - Quem resolve a fila de decisão manual é o dono do sistema ou quem ele designar.
 - Relatórios e módulos ainda "em breve" (Contas a pagar, Contas a receber, D+14, OMIE) estão fora de escopo; só herdam a regra de empresa obrigatória quando forem construídos.
-- Mobile e redesenho visual da marca estão fora de escopo; só se altera o necessário para menu, seletor e etiquetas.
+- Mobile e redesenho visual da marca estão fora de escopo; só se altera o necessário para menu, filtros por tela e etiquetas.
