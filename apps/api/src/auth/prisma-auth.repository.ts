@@ -2,6 +2,8 @@ import { BadRequestException, Inject, Injectable, ServiceUnavailableException } 
 import { Prisma, type AuthTokenType } from "@prisma/client";
 import { identityProviderSchema, type IdentityProvider, type UserAccess } from "@plugga/shared";
 
+import { AuditAppender } from "../audit/audit-appender";
+import { EstadoInvalido } from "../common/errors/dominio";
 import { mapUserAccess } from "../core/auth/user-access.mapper";
 import { PrismaService } from "../prisma/prisma.service";
 import {
@@ -39,7 +41,10 @@ type UserWithAccess = Prisma.UserGetPayload<typeof userWithAccess>;
 
 @Injectable()
 export class PrismaAuthRepository extends AuthRepository {
-  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {
+  constructor(
+    @Inject(PrismaService) private readonly prisma: PrismaService,
+    @Inject(AuditAppender) private readonly appender: AuditAppender,
+  ) {
     super();
   }
 
@@ -297,7 +302,12 @@ export class PrismaAuthRepository extends AuthRepository {
     });
   }
 
-  async replaceAccess(userId: string, access: UserAccess): Promise<AuthUserRecord | null> {
+  async replaceAccess(
+    userId: string,
+    access: UserAccess,
+    actorId: string,
+  ): Promise<AuthUserRecord | null> {
+    if (!UUID.test(userId)) return null;
     const exists = await this.prisma.user.findUnique({
       where: { id: userId },
       select: { id: true },
@@ -306,19 +316,33 @@ export class PrismaAuthRepository extends AuthRepository {
       return null;
     }
 
+    const rebaixa = !access.platformRoles.includes("admin");
     const user = await this.prisma.$transaction(async (tx) => {
+      // Rebaixar um admin e contar quem sobra são a MESMA transação, com os
+      // papéis de plataforma travados: dois rebaixamentos simultâneos dos dois
+      // últimos admins se enfileiram, e o segundo recontar vê o primeiro (FR-029).
+      if (rebaixa) await this.garantirOutroAdminAtivo(tx, userId);
       // Apagar o membership leva papéis e departamentos daquela empresa junto
       // (ON DELETE CASCADE), então revogar uma empresa é uma linha só.
       await tx.userPlatformRole.deleteMany({ where: { userId } });
       await tx.userCompanyMembership.deleteMany({ where: { userId } });
       await this.writeAccess(tx, userId, access);
+      await this.appender.append(tx, {
+        eventName: "auth.access.changed",
+        entityType: "user",
+        entityId: userId,
+        actorType: "user",
+        actorId,
+        payload: { access },
+      });
       return tx.user.findUniqueOrThrow({ where: { id: userId }, ...userWithAccess });
     });
 
     return this.toRecord(user);
   }
 
-  async deactivateUser(userId: string): Promise<AuthUserRecord | null> {
+  async deactivateUser(userId: string, actorId: string): Promise<AuthUserRecord | null> {
+    if (!UUID.test(userId)) return null;
     const exists = await this.prisma.user.findUnique({
       where: { id: userId },
       select: { id: true },
@@ -327,19 +351,74 @@ export class PrismaAuthRepository extends AuthRepository {
       return null;
     }
     const user = await this.prisma.$transaction(async (tx) => {
+      await this.garantirOutroAdminAtivo(tx, userId);
       // Convite/reset pendentes morrem junto com o acesso: um token emitido
       // antes da desativação não pode continuar sendo uma porta de volta.
       await tx.authToken.updateMany({
         where: { userId, consumedAt: null },
         data: { consumedAt: new Date() },
       });
-      return tx.user.update({
+      const atualizado = await tx.user.update({
         where: { id: userId },
         data: { status: "disabled" },
         ...userWithAccess,
       });
+      await this.appender.append(tx, {
+        eventName: "auth.user.deactivated",
+        entityType: "user",
+        entityId: userId,
+        actorType: "user",
+        actorId,
+        payload: {},
+      });
+      return atualizado;
     });
     return this.toRecord(user);
+  }
+
+  /**
+   * Última pessoa capaz de administrar a plataforma (FR-029). Trava, em ordem
+   * fixa, as linhas do papel `admin` (`SELECT ... FOR UPDATE`) e só então
+   * recontar os outros admins ativos: a contagem roda depois do bloqueio, com
+   * snapshot novo, então enxerga a escrita que a outra transação acabou de
+   * confirmar. Só vale se `userId` hoje é admin ativo; o resto não muda a conta.
+   * Chamado dentro da transação que faz a escrita.
+   */
+  private async garantirOutroAdminAtivo(
+    tx: Prisma.TransactionClient,
+    userId: string,
+  ): Promise<void> {
+    await tx.$queryRaw`
+      SELECT upr.user_id
+      FROM user_platform_roles upr
+      JOIN roles r ON r.id = upr.role_id
+      WHERE r.key = 'admin'
+      ORDER BY upr.user_id
+      FOR UPDATE OF upr`;
+
+    const linhas = await tx.$queryRaw<{ eh_admin_ativo: boolean; outros: bigint }[]>`
+      SELECT
+        EXISTS (
+          SELECT 1
+          FROM user_platform_roles upr
+          JOIN roles r ON r.id = upr.role_id
+          JOIN users u ON u.id = upr.user_id
+          WHERE r.key = 'admin' AND u.status = 'active' AND upr.user_id = ${userId}::uuid
+        ) AS eh_admin_ativo,
+        (
+          SELECT count(*)
+          FROM user_platform_roles upr
+          JOIN roles r ON r.id = upr.role_id
+          JOIN users u ON u.id = upr.user_id
+          WHERE r.key = 'admin' AND u.status = 'active' AND upr.user_id <> ${userId}::uuid
+        ) AS outros`;
+    const { eh_admin_ativo: ehAdminAtivo, outros } = linhas[0] ?? {
+      eh_admin_ativo: false,
+      outros: 0n,
+    };
+    if (ehAdminAtivo && outros === 0n) {
+      throw new EstadoInvalido("A plataforma precisa manter ao menos um administrador ativo.");
+    }
   }
 
   async listTeam(filter: TeamFilter): Promise<TeamMemberRecord[]> {

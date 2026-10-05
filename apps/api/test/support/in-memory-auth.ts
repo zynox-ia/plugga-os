@@ -4,6 +4,7 @@ import { hash as argon2Hash } from "@node-rs/argon2";
 import { flattenRoles, type UserAccess } from "@plugga/shared";
 
 import { argon2Options } from "../../src/auth/argon2-options";
+import { EstadoInvalido } from "../../src/common/errors/dominio";
 import { AuditRepository } from "../../src/audit/audit.repository";
 import type { AuthPrincipal } from "../../src/core/auth/auth.types";
 import { SessionLookupRepository } from "../../src/core/auth/session-lookup.repository";
@@ -297,11 +298,24 @@ export class InMemoryAuthRepository extends AuthRepository {
     }
   }
 
+  /** Espelha a regra do PrismaAuthRepository: nunca deixa a plataforma sem admin ativo (FR-029). */
+  private garantirOutroAdminAtivo(userId: string): void {
+    const alvo = this.store.users.get(userId);
+    if (!alvo || alvo.status !== "active" || !alvo.access.platformRoles.includes("admin")) return;
+    const outros = [...this.store.users.values()].filter(
+      (u) => u.id !== userId && u.status === "active" && u.access.platformRoles.includes("admin"),
+    );
+    if (outros.length === 0) {
+      throw new EstadoInvalido("A plataforma precisa manter ao menos um administrador ativo.");
+    }
+  }
+
   async replaceAccess(userId: string, next: UserAccess): Promise<AuthUserRecord | null> {
     const user = this.store.users.get(userId);
     if (!user) {
       return null;
     }
+    if (!next.platformRoles.includes("admin")) this.garantirOutroAdminAtivo(userId);
     user.access = next;
     return this.toRecord(user);
   }
@@ -311,6 +325,7 @@ export class InMemoryAuthRepository extends AuthRepository {
     if (!user) {
       return null;
     }
+    this.garantirOutroAdminAtivo(userId);
     // Espelha o PrismaAuthRepository: desativar consome os tokens pendentes.
     for (const token of this.store.tokens.values()) {
       if (token.userId === userId && token.consumedAt === null) {
