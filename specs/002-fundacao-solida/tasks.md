@@ -143,7 +143,7 @@ Monorepo pnpm: `apps/api/src/`, `apps/api/prisma/`, `apps/api/test/`, `apps/web/
 - [x] T061 [P] [US3] Ligar os heartbeats: ping de sucesso ao fim de `backup-externo.sh` e `restaurar-teste.sh`, ping de falha em erro; prazo esperado de 26 h (diário) e 8 dias (semanal), URLs em arquivo de ambiente da VPS
 - [ ] T062 [P] [US3] Configurar o monitor HTTP externo do site (T005) e documentar quem recebe o alerta
 - [ ] T063 [US3] Provocar falha de propósito (parar o backup em ambiente de teste) e confirmar que o alerta chega por e-mail em até 1 h do prazo (SC-005)
-- [ ] T064 [US3] Escrever o passo a passo de recuperação de desastre em `ops/GUIA.md` (seção "Recuperação de desastre") conforme [contracts/backup-formato.md](contracts/backup-formato.md), ensaiar com a chave privada do dono em máquina limpa, cronometrar e registrar o tempo (meta ≤ 4 h, perda ≤ 24 h; FR-016, SC-003, SC-004)
+- [ ] T064 [US3] (roteiro escrito em `ops/GUIA.md`; falta o ensaio com a chave do dono, o tempo e o registro) Escrever o passo a passo de recuperação de desastre em `ops/GUIA.md` (seção "Recuperação de desastre") conforme [contracts/backup-formato.md](contracts/backup-formato.md), ensaiar com a chave privada do dono em máquina limpa, cronometrar e registrar o tempo (meta ≤ 4 h, perda ≤ 24 h; FR-016, SC-003, SC-004)
 
 **Checkpoint**: SC-003, SC-004, SC-005 verificados.
 
