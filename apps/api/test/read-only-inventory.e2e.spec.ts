@@ -125,11 +125,19 @@ describe("read-only inventory API (e2e)", () => {
     await request(app.getHttpServer()).get("/email/status").expect(401);
   });
 
-  it("reports the configured email provider without any address or key", async () => {
+  it("refuses the email provider status to roles outside the integrations screen", async () => {
     await request(app.getHttpServer())
       .get("/email/status")
       .set("x-dev-principal", "local-viewer")
       .set("x-dev-roles", "viewer")
+      .expect(403);
+  });
+
+  it("reports the configured email provider without any address or key", async () => {
+    await request(app.getHttpServer())
+      .get("/email/status")
+      .set("x-dev-principal", "local-tech")
+      .set("x-dev-roles", "tech")
       .expect(200, { provider: "brevo", configured: true });
   });
 
