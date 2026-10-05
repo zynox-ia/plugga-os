@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import type { IntegrationGate } from "../integrations/integration-gate";
 import type { ChaveDeLlmService } from "./chave.service.js";
 import type { ConsumoRepository } from "./consumo.repository.js";
 import { OpenRouterGateway } from "./openrouter.gateway.js";
@@ -39,13 +40,15 @@ const CORPO_SEM_PROVEDOR = {
   },
 };
 
-function montar(chave: string | null = "sk-or-de-mentira") {
+function montar(chave: string | null = "sk-or-de-mentira", integracaoAberta = true) {
   const registrar = vi.fn(async () => {});
+  const permite = vi.fn(async () => integracaoAberta);
   const gateway = new OpenRouterGateway(
     { registrar } as unknown as ConsumoRepository,
     { valor: async () => chave } as unknown as ChaveDeLlmService,
+    { permite } as unknown as IntegrationGate,
   );
-  return { gateway, registrar };
+  return { gateway, registrar, permite };
 }
 
 const PEDIDO = {
@@ -161,6 +164,40 @@ describe("gateway da OpenRouter", () => {
         detalhe: null,
       });
       expect(fetchMock).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("modo da integração (spec 002, US6)", () => {
+    it("em mock não sai na rede, não lê a chave e devolve resultado identificado como simulado", async () => {
+      const fetchMock = vi.fn(async () => Response.json(CORPO_OK));
+      vi.stubGlobal("fetch", fetchMock);
+      const lerChave = vi.fn(async () => "sk-or-de-mentira");
+      const registrar = vi.fn(async () => {});
+      const gateway = new OpenRouterGateway(
+        { registrar } as unknown as ConsumoRepository,
+        { valor: lerChave } as unknown as ChaveDeLlmService,
+        { permite: async () => false } as unknown as IntegrationGate,
+      );
+
+      const resultado = await gateway.completar(PEDIDO);
+
+      expect(resultado).toMatchObject({ ok: true, simulado: true, texto: "", custoCreditos: 0 });
+      expect(fetchMock).not.toHaveBeenCalled();
+      expect(lerChave).not.toHaveBeenCalled();
+      // A chamada simulada aparece no registro de consumo, distinguível pelo modelo.
+      expect(registrar).toHaveBeenCalledWith(
+        expect.objectContaining({ modelo: "simulado", modeloServido: "simulado", status: "ok" }),
+      );
+    });
+
+    it("o gate é consultado com a chave certa e o mínimo read_only", async () => {
+      vi.stubGlobal("fetch", vi.fn(async () => Response.json(CORPO_OK)));
+      const { gateway, permite } = montar();
+
+      const resultado = await gateway.completar(PEDIDO);
+
+      expect(permite).toHaveBeenCalledWith("openrouter", "read_only");
+      expect(resultado).toMatchObject({ ok: true, simulado: false });
     });
   });
 });

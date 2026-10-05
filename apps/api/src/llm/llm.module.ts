@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common";
 
 import { AuditModule } from "../audit/audit.module";
 import { CoreModule } from "../core/core.module";
+import { IntegrationsModule } from "../integrations/integrations.module";
 import { PrismaModule } from "../prisma/prisma.module";
 import { ChaveController } from "./chave.controller.js";
 import { ChaveDeLlmService } from "./chave.service.js";
@@ -21,7 +22,7 @@ import { SegredoRepository } from "./segredo.repository.js";
  * gasta dinheiro que não aparece no relatório.
  */
 @Module({
-  imports: [AuditModule, CoreModule, PrismaModule],
+  imports: [AuditModule, CoreModule, IntegrationsModule, PrismaModule],
   controllers: [ChaveController, ConsumoController],
   providers: [
     ChaveDeLlmService,

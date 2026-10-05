@@ -197,13 +197,13 @@ Monorepo pnpm: `apps/api/src/`, `apps/api/prisma/`, `apps/api/test/`, `apps/web/
 
 **Teste independente**: com cada integração em `mock`, acionar e conferir que nenhuma chamada de rede sai e o resultado é simulado e auditado.
 
-- [ ] T079 [P] [US6] Criar `IntegrationGate` com `assertMode(chave, modoMinimo)` em `apps/api/src/integrations/integration-gate.ts` lendo `integrations.mode`; erro de domínio `LimiteExcedido`/`ModoNaoPermitido` quando o modo não permitir; exportar em `integrations.module.ts`
-- [ ] T080 [P] [US6] Testes do gate em `apps/api/src/integrations/integration-gate.spec.ts` para os modos `mock`, `read_only`, `bridge`, `write`
-- [ ] T081 [US6] Exigir o gate em `apps/api/src/llm/openrouter.gateway.ts`: em `mock` devolve resultado simulado identificado e **não faz** chamada de rede; consumidores em `apps/api/src/energy-efficiency/fatura/fatura.service.ts` mostram ao usuário que o resultado é simulado
-- [ ] T082 [P] [US6] Teste em `apps/api/test/llm-mock.e2e.spec.ts` que intercepta a rede e comprova 0 chamadas externas com a integração em `mock`
-- [ ] T083 [US6] Registrar a decisão sobre e-mail (Brevo) e armazenamento S3 ficarem fora do modelo de modo em um novo ADR `docs/adr/0014-integracoes-fora-do-modelo-de-modo.md` (exceção do ADR-0010 para e-mail, S3 como infraestrutura própria) e indexar em `docs/adr/README.md`
-- [ ] T084 [US6] Auditar a troca de modo de integração com o evento `integrations.mode.changed` (autor e horário) em `apps/api/src/integrations/integrations.service.ts` usando o `AuditAppender`
-- [ ] T085 [P] [US6] Verificação estática em `scripts/verifica-rede-externa.mjs`: falha se um adaptador sob `apps/api/src/**` importar cliente HTTP externo sem passar pelo gate (lista de exceções documentada no ADR da T083); ligar ao lint do API
+- [x] T079 [P] [US6] Criar `IntegrationGate` com `assertMode(chave, modoMinimo)` em `apps/api/src/integrations/integration-gate.ts` lendo `integrations.mode`; erro de domínio `LimiteExcedido`/`ModoNaoPermitido` quando o modo não permitir; exportar em `integrations.module.ts`
+- [x] T080 [P] [US6] Testes do gate em `apps/api/src/integrations/integration-gate.spec.ts` para os modos `mock`, `read_only`, `bridge`, `write`
+- [x] T081 [US6] Exigir o gate em `apps/api/src/llm/openrouter.gateway.ts`: em `mock` devolve resultado simulado identificado e **não faz** chamada de rede; o resultado traz o marcador `simulado` para o consumidor mostrar ao usuário (o `fatura.service.ts` foi removido com a auditoria de faturas; o consumidor volta na spec própria)
+- [x] T082 [P] [US6] Teste em `apps/api/test/llm-mock.e2e.spec.ts` que intercepta a rede e comprova 0 chamadas externas com a integração em `mock`
+- [x] T083 [US6] Registrar a decisão sobre e-mail (Brevo) e armazenamento S3 ficarem fora do modelo de modo em um novo ADR `docs/adr/0014-integracoes-fora-do-modelo-de-modo.md` (exceção do ADR-0010 para e-mail, S3 como infraestrutura própria) e indexar em `docs/adr/README.md`
+- [x] T084 [US6] Auditar a troca de modo de integração com o evento `integrations.mode.changed` (autor e horário) em `apps/api/src/integrations/integrations.service.ts` usando o `AuditAppender`
+- [x] T085 [P] [US6] Verificação estática em `scripts/verifica-rede-externa.mjs`: falha se um adaptador sob `apps/api/src/**` importar cliente HTTP externo sem passar pelo gate (lista de exceções documentada no ADR da T083); ligar ao lint do API
 
 **Checkpoint**: SC-008 verificado.
 

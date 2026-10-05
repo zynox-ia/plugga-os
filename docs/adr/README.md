@@ -47,6 +47,7 @@ ADRs próprios por domínio, quando cada domínio entrar em construção.
 | [0011](0011-block-b-sequencing-and-limits.md) | Bloco B: ordem B1/B2/B3 e limites não negociáveis | Aceito |
 | [0012](0012-network-exposure-trust-proxy.md) | Exposição de rede: bind privado, `trust proxy` explícito, XFF validado | Aceito |
 | [0013](0013-empresa-como-atributo-modulos-compartilhados.md) | Empresa como atributo do registro, módulos compartilhados e escopo único | Aceito (revisão ARCHITECT pendente) |
+| [0014](0014-integracoes-fora-do-modelo-de-modo.md) | Integrações fora do modelo de modo: e-mail (Brevo), armazenamento S3 e Redis | Aceito |
 
 ## Formato de um ADR
 

@@ -123,6 +123,9 @@ jobs:
       - name: Verify seed preserves cutover and access state
         run: pnpm --filter @plugga/api test:seed
 
+      - name: Verify integration mode change is audited atomically
+        run: pnpm --filter @plugga/api test:integrations
+
       # Scripts de publicação e de operação (spec 002): simulador do deploy,
       # lint do event_log, trava de publicação e restauração de backup. Os
       # ensaios com Postgres usam o serviço desta CI.
