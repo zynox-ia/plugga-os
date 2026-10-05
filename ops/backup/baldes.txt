@@ -1,0 +1,13 @@
+# Baldes copiados pelo backup externo (ops/backup-externo.sh). Um por linha.
+# São os baldes de negócio ({empresa}-{departamento}) e o corpus de faturas.
+# `plugga-backups` (backup local) fica de fora de propósito, para não recursar.
+# Um teste na API compara esta lista com o cadastro de baldes: balde novo sem
+# entrada aqui reprova a CI.
+plugga-comercial-clientes
+plugga-energia-opm
+plugga-produto-tecnologia
+plugga-financeiro
+waze-comercial-obras
+waze-engenharia-obras
+waze-financeiro
+plugga-corpus-faturas
