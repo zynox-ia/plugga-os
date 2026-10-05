@@ -3,6 +3,8 @@ packages:
   - packages/*
 
 overrides:
+  brace-expansion@1: 1.1.20
+  brace-expansion@2: 2.1.7
   '@nestjs/common': 11.1.18
   '@nestjs/core': 11.1.18
   '@nestjs/platform-express': 11.1.18
@@ -17,6 +19,14 @@ overrides:
   path-to-regexp: 8.4.0
   postcss: 8.5.23
   sharp: 0.35.4
+
+# braces (GHSA-vfj7-8cjw-p6xm, negação de serviço por padrões aninhados) não tem
+# versão corrigida publicada (última: 3.0.3). Só chega por ferramentas de lint
+# (typescript-eslint > fast-glob > micromatch), nunca processa entrada externa.
+# Revisar quando sair >=3.0.4: remover esta exceção.
+auditConfig:
+  ignoreGhsas:
+    - GHSA-vfj7-8cjw-p6xm
 
 allowBuilds:
   '@nestjs/core': true
