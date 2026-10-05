@@ -57,11 +57,10 @@ Caminhos: `apps/web/app/`, `apps/web/e2e/`, `apps/api/src/`, `apps/api/prisma/`,
 
 - [ ] T313 [US1] Criar `apps/web/app/lib/menu-areas.ts`: monta os grupos do menu a partir de `areas` e do acesso da sessão (`visibleDepartments`, sem regra própria de permissão); itens `em-breve` desabilitados e marcados
 - [ ] T314 [US1] Teste `apps/web/test/menu-areas.test.ts`: cada função uma vez para os 4 perfis; só Waze em Financeiro vê "Financeiro" e nada fora de suas áreas; pessoa com áreas diferentes por empresa vê a união
-- [ ] T315 [US1] Ligar o menu novo em `apps/web/app/components/app-shell.tsx`: com `menu_unificado` ligada usa `menu-areas` (sem seletor); desligada, mantém `navGroupsForEmpresa` e o seletor atual. Atenção: esta é a única tarefa que edita `app-shell.tsx` até a T328
-- [ ] T316 [P] [US1] Criar `packages/shared/src/rotas-antigas.ts` (mapa rota antiga → nova, com data de corte de 90 dias a partir da ativação) e aplicar em `apps/web/next.config.ts` (`redirects()`); preservar `?empresa=`
-- [ ] T317 [P] [US1] Criar a tela `apps/web/app/mudou-de-lugar/page.tsx` (explica para onde foi, para uso após os 90 dias) e incluí-la em `apps/web/app/lib/public-paths.ts` só se for pública
+- [ ] T315 [US1] Ligar o menu novo em `apps/web/app/components/app-shell.tsx`: com `menu_unificado` ligada usa `menu-areas` (sem seletor); desligada, mantém `navGroupsForEmpresa` e o seletor atual. Atenção: esta é a única tarefa que edita `app-shell.tsx` até a T328 **A chave só é ligada em produção depois de 002 T145 e T150** (ordem combinada: segurança primeiro)
+- [ ] T316 [P] [US1] Criar `packages/shared/src/rotas-antigas.ts` (mapa rota antiga → nova, válido por 90 dias a partir da ativação, quando a regra é removida) e aplicar em `apps/web/next.config.ts` (`redirects()`); preservar `?empresa=`
 - [ ] T318 [US1] E2E `apps/web/e2e/menu-unico.spec.ts`: perfis, links antigos redirecionam, nenhuma tela que hoje funciona fica inacessível (lista derivada do catálogo), "em breve" não leva a tela vazia
-- [ ] T319 [US1] Adaptar `apps/web/e2e/shell-navigation.spec.ts`, `energia-opm.spec.ts` e `golden-path.spec.ts` para rodar nos dois modos da chave; o bloco "Seletor de empresa" só roda com a chave desligada
+- [ ] T319 [US1] Adaptar `apps/web/e2e/shell-navigation.spec.ts`, `energia-opm.spec.ts` e `golden-path.spec.ts` ao menu novo e sem seletor; um único teste curto (T320) cobre o modo com a chave desligada
 - [ ] T320 [US1] Teste da volta ao desenho anterior em `apps/web/e2e/chave-menu.spec.ts`: alternar a chave e conferir o menu antigo sem nova publicação; leitura falhando = menu antigo (FR-028, SC-011)
 
 **Checkpoint**: menu único funciona atrás da chave; tudo continua alcançável. Pode ser entregue antes da Fatia 3 da 002.
@@ -79,7 +78,7 @@ Caminhos: `apps/web/app/`, `apps/web/e2e/`, `apps/api/src/`, `apps/api/prisma/`,
 - [ ] T325 [DEP-002 T148] [P] [US2] Pluggamob: filtro de empresa onde houver listagem; placeholder segue como "em breve"
 - [ ] T326 [US2] Web: ler `?empresa=` no servidor com `parseFiltroEmpresa` e repassar `companyId` nos clientes de dados (`apps/web/app/lib/api.ts`, `compras-client.ts`, proxies `apps/web/app/api/*`)
 - [ ] T327 [US2] Inserir `FiltroEmpresa` e aplicar o filtro às listas, contagens, exportações e impressões de oportunidades, contratos, compras (+scorecard), ciclos, auditorias, migrações, relatórios e eficiência; uma tarefa por grupo de telas dentro do mesmo PR pequeno de cada grupo (comercial, compras, energia)
-- [ ] T328 [US2] Remover o seletor global: apagar `empresa-switcher.tsx`, o `comEmpresa()` e a leitura de `?empresa` no shell em `app-shell.tsx`, tirar a lógica de `dashboard-view.tsx:453` (o visual não depende mais da empresa); só depois de T327 e com a chave do menu ligada em produção por pelo menos um ciclo
+- [ ] T328 [US2] Remover o seletor global: apagar `empresa-switcher.tsx`, o `comEmpresa()` e a leitura de `?empresa` no shell em `app-shell.tsx`, tirar a lógica de `dashboard-view.tsx:453` (o visual não depende mais da empresa); assim que T327 estiver em uso (decisão do dono: o seletor sai de vez)
 - [ ] T329 [US2] Testes: e2e `apps/web/e2e/filtro-empresa.spec.ts` (sem seletor no topo, padrão "Todas", filtro de uma tela não altera outra, link copiado reproduz a visão, uma empresa só não vê o filtro, valor forçado resulta em vazio); teste por tela de que lista, contagem e exportação coincidem; `pnpm test:catalogo-telas` verde
 - [ ] T330 [US2] Atualizar `docs/AGENT.md` com a regra "filtro por tela, nunca global" e o catálogo de telas
 
@@ -112,7 +111,6 @@ Caminhos: `apps/web/app/`, `apps/web/e2e/`, `apps/api/src/`, `apps/api/prisma/`,
 - [ ] T342 [US4] Ficha do cliente (`apps/web/app/clientes/[id]/page.tsx`): cadastro visível a quem tem papel comercial; negócios, propostas, contratos, faturas e estudos só da empresa do registro e com `FiltroEmpresa`; teste com usuário só Waze
 - [ ] T343 [DONO] [US4] Designar quem resolve a fila e decidir cada item pendente; registrar em `specs/003-produto-unificado/decisoes-cadastros.md`
 - [ ] T344 [VPS] [DEP-002 T145] [US4] Rodar a migração e o backfill na VPS depois do backup restaurado e da aprovação do dono; conferir contagens (T338) antes e depois
-- [ ] T364 [US4] Job de expiração (BullMQ, `apps/api/src/jobs/`) que marca `cadastro_uniao.definitiva_em` após 30 dias, com teste de que o desfazer passa a ser recusado
 - [ ] T345 [US4] Migração contrair: índices únicos parciais de documento e e-mail em `clients` (`NOT VALID` e `VALIDATE`) com `rollback.sql`; só depois de T343 e T344
 
 ---
@@ -134,10 +132,11 @@ Caminhos: `apps/web/app/`, `apps/web/e2e/`, `apps/api/src/`, `apps/api/prisma/`,
 
 **Teste independente**: gestor concede, altera e revoga pela tela nova; alcance de todos igual antes e depois.
 
-- [ ] T352 [US6] Reorganizar `apps/web/app/configuracoes/equipe-view.tsx` por área e empresas usando `areas` (tradução área → departamentos na gravação; o modelo de acesso não muda), com resumo em português do que a pessoa poderá fazer
+- [ ] T352 [US6] Reorganizar `apps/web/app/configuracoes/equipe-view.tsx` por área e empresas usando `areas` (tradução área → departamentos na gravação; o modelo de acesso não muda), com resumo em português do que a pessoa poderá fazer (depende da confirmação T365)
 - [ ] T353 [DEP-002 T151] [US6] Limitar o que o gestor oferece às áreas e empresas que ele administra (usa o escopo do concedente) e mostrar acesso planejado e estado do convite
 - [ ] T354 [DEP-002 T152] [US6] Teste de alcance antes/depois: reutilizar o script e o teste da 002 comparando o alcance de todas as pessoas existentes com a tela nova; falha em entrada vazia
 - [ ] T355 [US6] E2E `apps/web/e2e/equipe-areas.spec.ts` (conceder, alterar, revogar, convite pendente) e adaptar `equipe.spec.ts`; confirmar evento de auditoria com autor, data e mudança
+- [ ] T365 [DONO] [US6] Confirmar que o acesso continua gravado por (pessoa, empresa, departamento) e que "área" é só apresentação na tela de Equipe (decisão da 002 ainda não confirmada por você)
 
 ---
 
@@ -145,10 +144,8 @@ Caminhos: `apps/web/app/`, `apps/web/e2e/`, `apps/api/src/`, `apps/api/prisma/`,
 
 **Teste independente**: totais do dashboard batem com a soma das listas.
 
-- [ ] T356 [DEP-002 T148] [US7] Módulo `apps/api/src/dashboard/` com `GET /dashboard/resumo?companyId=` (oportunidades abertas e valor, contratos ativos, pedidos por estado, ciclos em andamento) usando os repositórios que já aplicam `CompanyScope`; devolve consolidado e divisão por empresa; testes de isolamento
-- [ ] T357 [US7] Web: ligar `dashboard-view.tsx` ao endpoint, com `FiltroEmpresa` próprio; blocos sem dados reais (e `/pendencias`) com selo visível "dados de exemplo"
+- [ ] T357 [US7] Web: `FiltroEmpresa` próprio em `dashboard-view.tsx` e em `/pendencias`, escopo respeitado, e selo visível "dados de exemplo" nos blocos sem dado real; sem endpoint novo
 - [ ] T358 [US7] Marcar telas sem dados reais como `parcial` ou `em-breve` em `areas.ts` e no catálogo (FR-026, SC-010) e teste que falha se uma tela `pronto` usar mock
-- [ ] T359 [US7] Teste `apps/api/test/dashboard-totais.integration.spec.ts`: totais = soma das listas por empresa, para perfis com alcances diferentes e todas as combinações de filtro
 
 ---
 
@@ -166,12 +163,12 @@ Caminhos: `apps/web/app/`, `apps/web/e2e/`, `apps/api/src/`, `apps/api/prisma/`,
 - **Fase 1 e 2** não dependem da 002. **Fase 3 (US1)** depende só da Fundação e pode ser entregue antes da Fatia 3 da 002.
 - **Fases 4 e 5** dependem de 002 T140, T145, T148, T149, T150.
 - **US4/US5** (Fases 6 e 7): o esquema e a API podem avançar cedo; as tarefas `[VPS]` esperam T145 da 002, backup restaurado (002 T012) e aprovação.
-- **US6** depende de 002 T151 e T152; **US7** de T148.
-- T328 (remover o seletor) só depois de T327 e de a chave do menu estar ligada em produção.
+- **US6** depende de 002 T151 e T152; **US7** não depende de endpoint novo.
+- T328 (remover o seletor) assim que T327 estiver em uso; a chave do menu só é ligada em produção depois de 002 T145 e T150.
 - Paralelismo: T304 a T310 entre si; T322 a T325 entre si; T336 com T304 a T310.
 
 ## Resumo
 
-- Total: 64 tarefas (T301 a T364). Por fase: Setup 3, Fundação 9, US1 8, US2 10, US3 5, US4 11, US5 6, US6 4, US7 4, Acabamento 4.
-- Marcadores: `[DONO]` 3 (T301, T343, T362), `[VPS]` 2 (T344, T350), `[DEP-002]` 12.
+- Total: 61 tarefas (T301 a T365; T317, T356, T359 e T364 removidas no realinhamento de 2026-10-05).
+- Marcadores: `[DONO]` 4 (T301, T343, T362, T365), `[VPS]` 2 (T344, T350), `[DEP-002]` 11.
 - MVP: Fundação + US1 (menu atrás da chave).

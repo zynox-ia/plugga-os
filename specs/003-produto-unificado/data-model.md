@@ -28,7 +28,7 @@ A unicidade `(company_id, documento)` só é removida **depois** da fila resolvi
 
 ## 4. `cadastro_uniao` (nova)
 
-`id`, `tipo`, `mantido_id`, `unido_id`, `vinculos` jsonb (lista `{tabela, id}` movidos), `desfazivel_ate` (+30 dias), `definitiva_em`, `feito_por`, `feito_em`. Desfazer restaura os vínculos listados e zera `merged_into_id`.
+`id`, `tipo`, `mantido_id`, `unido_id`, `vinculos` jsonb (lista `{tabela, id}` movidos), `desfazivel_ate` (+30 dias; o desfazer confere a data na chamada, sem job), `feito_por`, `feito_em`. Desfazer restaura os vínculos listados e zera `merged_into_id`.
 
 ## 5. `feature_flags` (nova)
 

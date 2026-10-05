@@ -11,17 +11,18 @@ Fonte: leitura do código em 2026-10-05. Nenhum ponto da spec ficou como "NEEDS 
 
 ## D3. Menu por área
 
+- **Ordem**: construir antes, ativar só depois da 002 T145 e T150.
 - **Decisão**: mapa fixo em `packages/shared/src/areas.ts`. Proposta: Comercial e Clientes ← `comercial-clientes` (Plugga) e `comercial-obras` (Waze); Compras ← compras dos dois; Financeiro ← `financeiro`; Energia ← `energia-opm`; Engenharia e Obras ← `engenharia-obras`; Eletromobilidade ← `produto-tecnologia`/Pluggamob (a confirmar com o dono); Equipe e acessos ← gestão de acesso. A visibilidade usa `visibleDepartments` do shared, a mesma fonte do guard.
 - **Risco**: o catálogo web falha no carregamento se divergir do shared (`organizacao.ts:366-379`); o mapa novo ganha a mesma verificação.
 
 ## D4. Chave liga/desliga do menu
 
 - **Fato**: não há flag de tempo de execução; as de ambiente exigem reiniciar o contêiner.
-- **Decisão**: `feature_flags` + `GET /config/flags`; o shell lê com cache curto. Escrita só por admin, com evento de auditoria. Se a leitura falhar, vale o **menu antigo** (falha segura).
+- **Decisão**: `feature_flags` + `GET /config/flags`; o shell lê com cache curto. Escrita só por admin, com evento de auditoria. Se a leitura falhar, vale o **menu antigo** (falha segura). A chave vale só para o menu; o seletor sai de vez quando os filtros estiverem em uso.
 
 ## D5. Links antigos
 
-Quase todas as rotas de tela permanecem. Mudam de lugar apenas itens que eram por empresa (por exemplo "Obras" da Waze apontava para `/engenharia?empresa=waze`) e rotas que a reorganização renomear. O mapa fica em shared; `next.config.ts` aplica `redirects()`; passados 90 dias o destino vira `/mudou-de-lugar?de=...`.
+Quase todas as rotas de tela permanecem. Mudam de lugar apenas itens que eram por empresa (por exemplo "Obras" da Waze apontava para `/engenharia?empresa=waze`) e rotas que a reorganização renomear. O mapa fica em shared; `next.config.ts` aplica `redirects()`; passados 90 dias a regra de redirecionamento é removida.
 
 ## D6/D7. Cadastros únicos
 
@@ -35,7 +36,7 @@ Estados: `pendente`, `unir`, `manter_separados`, `desfeita`. Quem decide: admin 
 
 ## D10. Dashboard
 
-Hoje é todo mock e `fetchHealth` é ignorado. Indicadores reais viáveis com o que existe: oportunidades abertas e valor, contratos ativos, pedidos de compra por estado, ciclos de energia em andamento. O restante mantém selo "dados de exemplo" e o item de menu não fica "pronto" (FR-026).
+Hoje é todo mock e `fetchHealth` é ignorado. Nesta spec: filtro de empresa próprio e selo "dados de exemplo" nos blocos sem dado real; o item de menu não fica "pronto" (FR-026). Indicadores reais novos ficam para outra feature (fora do pedido do dono).
 
 ## Perguntas para o dono
 

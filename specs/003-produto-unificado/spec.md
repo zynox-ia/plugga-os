@@ -1,10 +1,10 @@
 # Especificação: Produto unificado (menu único, filtros de empresa por tela e cadastros únicos)
 
-**Feature Branch**: `claude/funny-albattani-5tnccx` (a numeração `003` vale só para a pasta)
+**Feature Branch**: `claude/spec-003-produto-unificado-swvxm1` (a numeração `003` vale só para a pasta)
 
 **Created**: 2026-10-05
 
-**Status**: Aprovada pelo dono em 2026-10-05
+**Status**: Rascunho, realinhada em 2026-10-05 com a conversa da sessão anterior; **aguarda aprovação do dono** (a aprovação de 2026-10-05 valia para a versão anterior)
 
 **Input**: Unificar o Plugga OS em um ecossistema único: menu único por função, remoção do seletor global de empresa com filtros de empresa em cada tela, e cadastros únicos de cliente e fornecedor (decisões do dono em 2026-10-05, ADR-0013).
 
@@ -15,6 +15,8 @@ A Plugga e a Waze operam como um ecossistema só: a Plugga cuida de uma parte, a
 Esta spec vem **depois** da spec 002 (`specs/002-fundacao-solida`), cuja história 4 já coloca a empresa como atributo dos registros de negócio e cria o escopo único de acesso. Aqui **não se refaz segurança**: reorganiza-se o produto em cima dela. O modelo está no ADR-0013 (módulos únicos por função; empresa como atributo do registro; cadastros de cliente e fornecedor únicos; seletor como filtro).
 
 A reforma preserva tudo o que já funciona: rotas, telas, dados e links salvos pela equipe.
+
+**Ordem combinada (dono, 2026-10-05):** a segurança (spec 002, história 4) vem primeiro e a reforma do produto vem depois, "para a segurança não esperar a reforma de menu". Por isso o menu único e os filtros podem ser construídos antes, mas **só entram em uso depois que o escopo por empresa da 002 estiver em produção**. O que o dono pediu é só: menu único por função, filtros por tela no lugar do seletor e cadastros únicos de cliente e fornecedor; o restante desta spec é consequência direta disso e fica no mínimo necessário.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -32,7 +34,8 @@ Como integrante da equipe, quero ver um menu só, organizado pelo que faço (Com
 2. **Given** uma pessoa que alcança as duas empresas, **When** abre o menu, **Then** vê cada função uma única vez.
 3. **Given** um link salvo para uma tela que mudou de lugar, **When** a pessoa o abre, **Then** é levada à nova tela equivalente, sem erro.
 4. **Given** todas as telas que hoje funcionam (oportunidades, contratos, clientes, relacionamento comercial, ciclos e auditorias de energia, eficiência energética, Pluggamob, compras, engenharia), **When** o menu novo é publicado, **Then** todas continuam acessíveis a quem as acessava.
-5. **Given** processos ainda não construídos ("em breve"), **When** o menu é exibido, **Then** continuam visíveis e claramente marcados como futuros, sem levar a tela vazia.
+5. **Given** o menu único pronto mas o escopo por empresa da spec 002 ainda não em produção, **When** a equipe usa o sistema, **Then** continua o menu atual; o menu novo só é ativado depois da 002.
+6. **Given** processos ainda não construídos ("em breve"), **When** o menu é exibido, **Then** continuam visíveis e claramente marcados como futuros, sem levar a tela vazia.
 
 ---
 
@@ -134,13 +137,13 @@ Como gestor, quero conceder acesso dizendo "esta pessoa atua em Financeiro e Com
 
 Como gestor, quero ver totais por empresa e consolidados, restritos ao que posso ver, e saber quando um número é de exemplo.
 
-**Why this priority**: valor de gestão, mas depende de tudo acima e hoje o Dashboard e a Central de Pendências mostram dados de exemplo.
+**Why this priority**: valor de gestão, mas depende de tudo acima e hoje o Dashboard e a Central de Pendências mostram dados de exemplo. **Recorte desta spec:** filtro de empresa próprio, respeito ao escopo e aviso de dados de exemplo; indicadores reais novos (consulta de agregação) ficam para uma feature futura.
 
 **Independent Test**: comparar os totais do dashboard com a soma das listas por empresa, para pessoas com alcances diferentes.
 
 **Acceptance Scenarios**:
 
-1. **Given** uma pessoa que alcança as duas empresas e o filtro do dashboard em "Todas", **When** abre o dashboard, **Then** vê o total consolidado e a divisão por empresa, e os números batem com as listas.
+1. **Given** uma pessoa que alcança as duas empresas e o filtro do dashboard em "Todas", **When** abre o dashboard, **Then** todo número que vier de dado real bate com as listas, e o que não for real está marcado como exemplo.
 2. **Given** uma pessoa de uma empresa só, **When** abre o dashboard, **Then** nenhum número inclui a outra empresa.
 3. **Given** uma tela cujo conteúdo ainda não tem dados reais, **When** é aberta, **Then** mostra aviso visível de "dados de exemplo" e seu estado no menu não é "pronto".
 4. **Given** o filtro de empresa do dashboard, **When** muda, **Then** todos os indicadores da tela atualizam de forma coerente.
@@ -155,7 +158,7 @@ Como gestor, quero ver totais por empresa e consolidados, restritos ao que posso
 - Cliente com o mesmo documento escrito de formas diferentes (com e sem pontuação) é tratado como o mesmo.
 - Cliente sem documento: não entra na verificação de duplicidade por documento, só por e-mail ou nome com confirmação manual.
 - União de cadastros em que os dois têm dados conflitantes (dois e-mails, dois telefones): ficam todos, com indicação do principal.
-- Link salvo para uma rota antiga durante o período de transição: redireciona; depois do período, mostra tela explicando para onde foi.
+- Link salvo para uma rota antiga durante o período de transição (90 dias): redireciona.
 - Pessoa com o filtro de uma lista em uma empresa abre o link de um registro de outra empresa que alcança: o registro abre e mostra sua empresa.
 - Link antigo que dependia do seletor global (por exemplo, favorito que "lembrava" a empresa): abre a tela com o filtro no padrão.
 - Impressão e exportação de listas: respeitam o filtro e identificam a empresa.
@@ -169,7 +172,7 @@ Como gestor, quero ver totais por empresa e consolidados, restritos ao que posso
 
 - **FR-001**: O menu MUST ser único, organizado por função (Comercial e Clientes, Compras, Financeiro, Energia, Engenharia e Obras, Eletromobilidade, Equipe e acessos), sem repetir função por empresa.
 - **FR-002**: O menu MUST mostrar apenas as funções que a pessoa pode usar, calculadas pelo mesmo escopo de acesso da spec 002, sem lógica de permissão própria.
-- **FR-003**: Toda tela que hoje funciona MUST continuar acessível a quem a acessa hoje, e links antigos MUST redirecionar para a tela equivalente.
+- **FR-003**: Toda tela que hoje funciona MUST continuar acessível a quem a acessa hoje, e links antigos MUST redirecionar para a tela equivalente por 90 dias; depois disso o redirecionamento pode ser removido (sem tela explicativa própria).
 - **FR-004**: Processos ainda não construídos MUST continuar listados e marcados como "em breve", sem levar a telas vazias.
 
 **Filtro de empresa por tela**
@@ -197,7 +200,7 @@ Como gestor, quero ver totais por empresa e consolidados, restritos ao que posso
 
 - **FR-017**: Fornecedor MUST ser um cadastro único por documento; o vínculo com a empresa MUST viver nos pedidos, cotações e lançamentos.
 - **FR-018**: A numeração de pedidos MUST continuar por empresa, sem lacunas nem repetições.
-- **FR-019**: Todo lançamento financeiro MUST exigir empresa.
+- **FR-019**: Todo lançamento financeiro MUST exigir empresa. O módulo Financeiro ainda não existe no código; nesta spec a regra fica como contrato compartilhado e passa a valer quando o módulo for construído.
 - **FR-020**: Fornecedores duplicados existentes MUST ser unidos preservando pedidos, cotações e histórico, com os casos duvidosos em fila de decisão manual.
 
 **Equipe e acessos**
@@ -209,13 +212,13 @@ Como gestor, quero ver totais por empresa e consolidados, restritos ao que posso
 
 **Indicadores e honestidade**
 
-- **FR-025**: Dashboard e indicadores MUST ter filtro de empresa próprio, respeitá-lo e respeitar o escopo da pessoa e MUST mostrar total consolidado e divisão por empresa, batendo com as listas.
+- **FR-025**: Dashboard e indicadores MUST ter filtro de empresa próprio e respeitá-lo e ao escopo da pessoa; todo número de dado real MUST bater com as listas. Novos indicadores reais ficam fora desta spec.
 - **FR-026**: Telas sem dados reais MUST exibir aviso visível de dados de exemplo e MUST NOT constar como "pronto" no menu.
 
 **Transição**
 
 - **FR-027**: Todas as migrações de dados MUST ser aditivas e reversíveis, com backup restaurado antes (constituição, princípio VI), e MUST NOT exigir indisponibilidade planejada.
-- **FR-028**: A mudança de menu MUST poder ser ativada e desativada sem nova publicação, para que a equipe volte ao desenho anterior se algo falhar durante a transição.
+- **FR-028**: A mudança de menu MUST poder ser ativada e desativada sem nova publicação, para que a equipe volte ao desenho anterior se algo falhar durante a transição. A chave vale **só para o menu**; o seletor global é removido de vez assim que os filtros por tela estiverem em uso (decisão do dono).
 - **FR-029**: Nenhuma mudança desta feature MUST escrever, enviar ou fazer cutover em sistemas externos.
 
 ### Key Entities
@@ -242,7 +245,7 @@ Como gestor, quero ver totais por empresa e consolidados, restritos ao que posso
 - **SC-006**: 0 clientes e 0 fornecedores duplicados por documento após a migração, e 100% dos casos duvidosos passam pela fila de decisão manual, com histórico íntegro (contagem de negócios, pedidos e estudos antes igual à depois).
 - **SC-007**: O alcance de cada pessoa antes e depois da mudança de acesso é idêntico em 100% dos casos comparados.
 - **SC-008**: Um gestor concede um acesso completo (áreas e empresas) em menos de 2 minutos na tela nova, em teste com usuários reais.
-- **SC-009**: Os totais do dashboard batem com a soma das listas em 100% das combinações de filtro testadas, em cada tela.
+- **SC-009**: Os números de dado real do dashboard batem com as listas em 100% das combinações de filtro testadas.
 - **SC-010**: Nenhuma tela sem dados reais aparece como "pronto" ou sem aviso de exemplo.
 - **SC-011**: A transição ocorre sem indisponibilidade planejada, e a volta ao menu anterior leva menos de 5 minutos, sem nova publicação.
 - **SC-012**: A equipe relata queda de pelo menos 50% nas dúvidas do tipo "em qual empresa/menu eu faço isso?" em duas semanas após a entrada no ar.
@@ -254,8 +257,9 @@ Como gestor, quero ver totais por empresa e consolidados, restritos ao que posso
 - Premissa padrão do ADR-0013: quem tem papel comercial em qualquer empresa vê o **cadastro** de cliente (nome, documento, contatos), nunca os dados de negócio da outra empresa. A Waze vê os contatos de clientes da Plugga.
 - O filtro de cada tela começa em "Todas" para quem alcança as duas empresas; quem alcança uma empresa vê só ela, sem filtro. Não há preferência global de empresa guardada entre telas ou sessões.
 - Nomes das áreas no menu: Comercial e Clientes, Compras, Financeiro, Energia, Engenharia e Obras, Eletromobilidade, Equipe e acessos. Ajustes de rótulo não alteram a spec.
-- Os papéis e áreas existentes continuam; só muda a forma de agrupá-los e concedê-los.
-- Período de transição para links antigos: 90 dias; depois, tela explicativa.
+- Os papéis e áreas existentes continuam; só muda a forma de agrupá-los e concedê-los. O modelo de acesso gravado (pessoa, empresa, departamento) não muda: a tela de Equipe por área apenas traduz a escolha para ele. **Pendente de confirmação do dono** (a 002 decidiu não trocar as tabelas de acesso).
+- Período de transição para links antigos: 90 dias; depois o redirecionamento pode ser removido.
+- Menu e filtros só são ativados depois que a história 4 da spec 002 estiver em produção (ordem combinada com o dono).
 - Período em que a união de cadastros pode ser desfeita: 30 dias.
 - Quem resolve a fila de decisão manual é o dono do sistema ou quem ele designar.
 - Relatórios e módulos ainda "em breve" (Contas a pagar, Contas a receber, D+14, OMIE) estão fora de escopo; só herdam a regra de empresa obrigatória quando forem construídos.
