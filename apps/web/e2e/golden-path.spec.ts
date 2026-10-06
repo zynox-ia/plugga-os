@@ -36,7 +36,7 @@ test.describe("Golden path — Início → Integrações → Jobs", () => {
   test("Integrações reflects API mode via the live/mock status pill", async ({ page, request }) => {
     await page.goto("/integracoes");
 
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+    const apiUrl = process.env.API_INTERNAL_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
     // The page now authenticates GET /integrations with the visitor's real
     // session cookie (forwarded server-side), not a fixed dev-auth header
     // that this test's separate APIRequestContext has no way to attach

@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import { buildContentSecurityPolicy } from "./app/lib/content-security-policy";
-import { apiBaseUrl } from "./app/lib/env";
+import { apiBaseUrl } from "./app/lib/env-runtime";
 import { shouldBypassSessionCheck } from "./app/lib/public-paths";
 
 // Mesma folga de auth-proxy.ts e do FETCH_TIMEOUT_TUNEL_MS de app/lib/api.ts:
