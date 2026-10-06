@@ -53,6 +53,8 @@ import {
   type ValidarNecessidadeRequest,
 } from "@plugga/shared";
 
+import { armazenamentoEmDisco, TAMANHO_MAXIMO_POR_ARQUIVO } from "../common/upload/armazenamento-em-disco";
+import { UploadEmDisco } from "../common/upload/upload-em-disco";
 import { ZodValidationPipe } from "../common/zod-validation.pipe";
 import type { AuthPrincipal } from "../core/auth/auth.types";
 import { CurrentPrincipal } from "../core/auth/current-principal.decorator";
@@ -60,7 +62,6 @@ import { SessionAuthGuard } from "../core/auth/session-auth.guard";
 import { OriginCheckGuard } from "../core/auth/origin-check.guard";
 import { Roles } from "../core/auth/roles.decorator";
 import { RolesGuard } from "../core/auth/roles.guard";
-import { TIPOS_ACEITOS } from "./armazenamento-de-cotacoes";
 import {
   ABRIR_PEDIDO,
   CADASTRAR_APOIO,
@@ -72,8 +73,7 @@ import {
 } from "./compras.permissions";
 import { ComprasService, type ArquivoDeCotacao } from "./compras.service";
 
-/** Orçamento anexado; acima disso é engano ou abuso. */
-const TAMANHO_MAXIMO = 20 * 1024 * 1024;
+/** Mais que isso é engano ou abuso; o limite de bytes (25 MB por arquivo, 60 MB por requisição) vem do upload em disco. */
 const MAXIMO_DE_ANEXOS = 20;
 
 /**
@@ -111,14 +111,20 @@ export class ComprasController {
    *
    * `multipart` porque o orçamento anexado é campo obrigatório da criação, e
    * não um segundo passo: o corpo traz o JSON em `payload` e os arquivos em
-   * `cotacoes`, na mesma ordem do array `cotacoes` do JSON.
+   * `cotacoes`, na mesma ordem do array `cotacoes` do JSON. Os arquivos chegam
+   * em disco temporário (apagado ao fim da requisição); o tipo é conferido pelo
+   * conteúdo no `ComprasService`, antes de guardar.
    */
   @Post("pedidos")
   @HttpCode(201)
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
   @Roles(...ABRIR_PEDIDO)
   @UseInterceptors(
-    FilesInterceptor("cotacoes", MAXIMO_DE_ANEXOS, { limits: { fileSize: TAMANHO_MAXIMO } }),
+    UploadEmDisco(),
+    FilesInterceptor("cotacoes", MAXIMO_DE_ANEXOS, {
+      storage: armazenamentoEmDisco,
+      limits: { fileSize: TAMANHO_MAXIMO_POR_ARQUIVO },
+    }),
   )
   criarPedido(
     @Body("payload") payload: string,
@@ -130,11 +136,6 @@ export class ComprasController {
       throw new BadRequestException(
         "o pedido exige ao menos um orçamento anexado (POP-COMP-001 §2.1)",
       );
-    }
-    for (const arquivo of enviados) {
-      if (!TIPOS_ACEITOS.includes(arquivo.mimetype)) {
-        throw new BadRequestException(`tipo de arquivo não aceito: ${arquivo.mimetype}`);
-      }
     }
 
     const input = new ZodValidationPipe(criarPedidoRequestSchema).transform(
