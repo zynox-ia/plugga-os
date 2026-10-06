@@ -1,4 +1,4 @@
-import { proxyAuthPost } from "../../../../lib/auth-proxy";
+import { proxyAuthPost } from "../../../../lib/proxy";
 
 export async function POST(request: Request): Promise<Response> {
   return proxyAuthPost(request, "reset/request");

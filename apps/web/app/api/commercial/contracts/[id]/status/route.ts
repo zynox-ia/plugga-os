@@ -1,6 +1,6 @@
-import { proxyCommercialPost } from "../../../../../lib/commercial-proxy";
+import { proxyCommercialPost } from "../../../../../lib/proxy";
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }): Promise<Response> {
   const { id } = await params;
-  return proxyCommercialPost(request, `contracts/${id}/status`);
+  return proxyCommercialPost(request, `contracts/:id/status`, { id });
 }

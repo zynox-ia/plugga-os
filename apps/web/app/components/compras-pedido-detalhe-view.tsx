@@ -16,6 +16,7 @@ import {
 } from "../lib/compras-client";
 import { ETAPAS } from "./compras-view";
 import { ShellCard, ShellTable, StatusPill } from "./plugga-shell";
+import { formatarBRL, formatarDataHoraCurta, formatarNumero } from "../lib/format";
 
 /**
  * Ficha do pedido: dados, itens, comparativo de cotações, linha do tempo das
@@ -25,16 +26,6 @@ import { ShellCard, ShellTable, StatusPill } from "./plugga-shell";
  * motivo**, não sumida: botão que some faz a pessoa procurar onde não existe, e
  * o controle só ensina alguma coisa se explicar por que atrapalhou.
  */
-
-function moeda(valor: string | null): string {
-  if (!valor) return "—";
-  return Number(valor).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-}
-
-function dataHora(valor: string | null): string {
-  if (!valor) return "—";
-  return new Date(valor).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
-}
 
 export function ComprasPedidoDetalheView({
   pedido,
@@ -109,17 +100,17 @@ export function ComprasPedidoDetalheView({
             </tr>
             <tr>
               <th scope="row">Entrega desejada</th>
-              <td>{dataHora(pedido.prazoEntregaDesejado)}</td>
+              <td>{formatarDataHoraCurta(pedido.prazoEntregaDesejado)}</td>
             </tr>
             <tr>
               <th scope="row">Orçado · Cotado · Faturado</th>
               <td>
-                {moeda(pedido.valorOrcado)} · {moeda(pedido.valorCotado)} · {moeda(pedido.valorFaturado)}
+                {formatarBRL(pedido.valorOrcado)} · {formatarBRL(pedido.valorCotado)} · {formatarBRL(pedido.valorFaturado)}
               </td>
             </tr>
             <tr>
               <th scope="row">Prazo da etapa atual</th>
-              <td>{dataHora(pedido.prazoEtapaEm)}</td>
+              <td>{formatarDataHoraCurta(pedido.prazoEtapaEm)}</td>
             </tr>
           </tbody>
         </ShellTable>
@@ -141,7 +132,7 @@ export function ComprasPedidoDetalheView({
               <tr key={item.id}>
                 <td>{item.descricao}</td>
                 <td>
-                  {Number(item.quantidade).toLocaleString("pt-BR")} {item.unidade ?? ""}
+                  {formatarNumero(item.quantidade)} {item.unidade ?? ""}
                 </td>
               </tr>
             ))}
@@ -177,10 +168,10 @@ export function ComprasPedidoDetalheView({
                   {cotacao.fornecedorNome}{" "}
                   {cotacao.selecionada ? <StatusPill variant="success">Selecionada</StatusPill> : null}
                 </td>
-                <td>{moeda(cotacao.valor)}</td>
-                <td>{moeda(cotacao.valorFrete)}</td>
+                <td>{formatarBRL(cotacao.valor)}</td>
+                <td>{formatarBRL(cotacao.valorFrete)}</td>
                 <td>
-                  <strong>{moeda(total(cotacao.valor, cotacao.valorFrete).toFixed(2))}</strong>
+                  <strong>{formatarBRL(total(cotacao.valor, cotacao.valorFrete).toFixed(2))}</strong>
                 </td>
                 <td>{cotacao.prazoEntregaDias !== null ? `${cotacao.prazoEntregaDias} d.u.` : "—"}</td>
                 <td>{cotacao.condicoesPagamento ?? "—"}</td>
@@ -212,11 +203,11 @@ export function ComprasPedidoDetalheView({
             {pedido.etapas.map((passagem) => (
               <tr key={passagem.id}>
                 <td>{ETAPAS.find((etapa) => etapa.id === passagem.etapa)?.label ?? passagem.etapa}</td>
-                <td>{dataHora(passagem.entrouEm)}</td>
+                <td>{formatarDataHoraCurta(passagem.entrouEm)}</td>
                 <td>
-                  {dataHora(passagem.prazoEm)} <span className="card-note">({passagem.prazoDiasUteis} d.u.)</span>
+                  {formatarDataHoraCurta(passagem.prazoEm)} <span className="card-note">({passagem.prazoDiasUteis} d.u.)</span>
                 </td>
-                <td>{dataHora(passagem.saiuEm)}</td>
+                <td>{formatarDataHoraCurta(passagem.saiuEm)}</td>
                 <td>
                   {passagem.cumpriuPrazo === null ? (
                     "—"
@@ -298,7 +289,7 @@ export function ComprasPedidoDetalheView({
                       <option value="">Selecione…</option>
                       {pedido.cotacoes.map((cotacao) => (
                         <option key={cotacao.id} value={cotacao.id}>
-                          {cotacao.fornecedorNome} · {moeda(total(cotacao.valor, cotacao.valorFrete).toFixed(2))}
+                          {cotacao.fornecedorNome} · {formatarBRL(total(cotacao.valor, cotacao.valorFrete).toFixed(2))}
                         </option>
                       ))}
                     </select>
@@ -403,7 +394,7 @@ export function ComprasPedidoDetalheView({
 
           {pedido.etapa === "concluido" ? (
             <p className="card-note">
-              Aquisição concluída em {dataHora(pedido.concluidoEm)}. O card está na pipeline final.
+              Aquisição concluída em {formatarDataHoraCurta(pedido.concluidoEm)}. O card está na pipeline final.
             </p>
           ) : null}
         </div>

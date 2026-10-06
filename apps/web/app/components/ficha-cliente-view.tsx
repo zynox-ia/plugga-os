@@ -6,6 +6,7 @@ import { useState, type FormEvent } from "react";
 import type { ClientFicha, ClientSegment } from "@plugga/shared";
 
 import { ShellCard, StatusPill, ShellTable } from "./plugga-shell";
+import { formatarDataHora } from "../lib/format";
 
 const SEGMENT_LABEL: Record<ClientSegment, string> = {
   prospect: "Prospect",
@@ -30,11 +31,6 @@ const TAB_LABEL: Record<TabId, string> = {
   timeline: "Timeline",
   "acoes-agente": "Ações do Agente",
 };
-
-function formatDateTime(value: string | null): string {
-  if (!value) return "—";
-  return new Date(value).toLocaleString("pt-BR", { timeZone: "America/Manaus" });
-}
 
 async function postJson(path: string, body: unknown): Promise<{ ok: boolean; data: unknown }> {
   const response = await fetch(path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
@@ -183,7 +179,7 @@ export function FichaClienteView({ ficha }: { ficha: ClientFicha }) {
                 <thead><tr><th>Canal</th><th>Resultado</th><th>Nota</th><th>Oportunidade</th><th>Quando</th></tr></thead>
                 <tbody>
                   {ficha.contatos.map((contact) => (
-                    <tr key={contact.id}><td>{contact.channel}</td><td>{contact.outcome}</td><td>{contact.note ?? "—"}</td><td>{contact.opportunityTitle}</td><td>{formatDateTime(contact.createdAt)}</td></tr>
+                    <tr key={contact.id}><td>{contact.channel}</td><td>{contact.outcome}</td><td>{contact.note ?? "—"}</td><td>{contact.opportunityTitle}</td><td>{formatarDataHora(contact.createdAt)}</td></tr>
                   ))}
                 </tbody>
               </ShellTable>
@@ -198,7 +194,7 @@ export function FichaClienteView({ ficha }: { ficha: ClientFicha }) {
                 <thead><tr><th>Título</th><th>Produto</th><th>Etapa</th><th>Status</th><th>Valor estimado</th><th>Próxima ação</th></tr></thead>
                 <tbody>
                   {ficha.oportunidades.map((opportunity) => (
-                    <tr key={opportunity.id}><td>{opportunity.title}</td><td>{opportunity.product}</td><td>{opportunity.stage}</td><td>{opportunity.status}</td><td>{opportunity.estimatedValue ?? "—"}</td><td>{formatDateTime(opportunity.nextActionAt)}</td></tr>
+                    <tr key={opportunity.id}><td>{opportunity.title}</td><td>{opportunity.product}</td><td>{opportunity.stage}</td><td>{opportunity.status}</td><td>{opportunity.estimatedValue ?? "—"}</td><td>{formatarDataHora(opportunity.nextActionAt)}</td></tr>
                   ))}
                 </tbody>
               </ShellTable>
@@ -213,7 +209,7 @@ export function FichaClienteView({ ficha }: { ficha: ClientFicha }) {
                 <thead><tr><th>Status</th><th>Início</th><th>Fim</th><th>Assinado em</th></tr></thead>
                 <tbody>
                   {ficha.contratos.map((contract) => (
-                    <tr key={contract.id}><td>{contract.status}</td><td>{formatDateTime(contract.startsAt)}</td><td>{formatDateTime(contract.endsAt)}</td><td>{formatDateTime(contract.signedAt)}</td></tr>
+                    <tr key={contract.id}><td>{contract.status}</td><td>{formatarDataHora(contract.startsAt)}</td><td>{formatarDataHora(contract.endsAt)}</td><td>{formatarDataHora(contract.signedAt)}</td></tr>
                   ))}
                 </tbody>
               </ShellTable>
@@ -233,7 +229,7 @@ export function FichaClienteView({ ficha }: { ficha: ClientFicha }) {
                     <td>{ficha.pluggamob.externalId}</td>
                     <td>{ficha.pluggamob.segment}</td>
                     <td>{ficha.pluggamob.walletBalance ?? "—"}</td>
-                    <td>{formatDateTime(ficha.pluggamob.lastSessionAt)}</td>
+                    <td>{formatarDataHora(ficha.pluggamob.lastSessionAt)}</td>
                     <td>{ficha.pluggamob.phoneMasked ?? "—"}</td>
                   </tr>
                 </tbody>
@@ -259,7 +255,7 @@ export function FichaClienteView({ ficha }: { ficha: ClientFicha }) {
                 <thead><tr><th>Evento</th><th>Origem</th><th>Ator</th><th>Quando</th></tr></thead>
                 <tbody>
                   {ficha.timeline.map((entry) => (
-                    <tr key={entry.id}><td>{entry.eventName}</td><td>{entry.entityType}</td><td>{entry.actorType}</td><td>{formatDateTime(entry.occurredAt)}</td></tr>
+                    <tr key={entry.id}><td>{entry.eventName}</td><td>{entry.entityType}</td><td>{entry.actorType}</td><td>{formatarDataHora(entry.occurredAt)}</td></tr>
                   ))}
                 </tbody>
               </ShellTable>
@@ -274,7 +270,7 @@ export function FichaClienteView({ ficha }: { ficha: ClientFicha }) {
                 <thead><tr><th>Agente</th><th>Ação</th><th>Decisão</th><th>Status</th><th>Quando</th></tr></thead>
                 <tbody>
                   {ficha.acoesDoAgente.map((action) => (
-                    <tr key={action.id}><td>{action.agent}</td><td>{action.action}</td><td>{action.decision}</td><td>{action.status}</td><td>{formatDateTime(action.createdAt)}</td></tr>
+                    <tr key={action.id}><td>{action.agent}</td><td>{action.action}</td><td>{action.decision}</td><td>{action.status}</td><td>{formatarDataHora(action.createdAt)}</td></tr>
                   ))}
                 </tbody>
               </ShellTable>

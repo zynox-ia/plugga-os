@@ -1,6 +1,7 @@
 import type { EmailStatus, IntegrationStatus, IntegrationSummary } from "@plugga/shared";
 
 import { ShellCard, StatusPill, ShellTable } from "./plugga-shell";
+import { formatarDataHora } from "../lib/format";
 
 const STATUS_VARIANT: Record<IntegrationStatus, "neutral" | "success" | "warning" | "danger"> = {
   healthy: "success",
@@ -13,11 +14,6 @@ const EMAIL_PROVIDER_LABEL: Record<EmailStatus["provider"], string> = {
   noop: "Desligado (noop)",
   brevo: "Brevo (envio real)",
 };
-
-function formatDate(value: string | null): string {
-  if (!value) return "—";
-  return new Date(value).toLocaleString("pt-BR", { timeZone: "America/Manaus" });
-}
 
 /** ADR-0009: the migrator is read-only by construction regardless of mode; only
  * `read_only` mode actually reads from Bitrix — `mock` means the cutover hasn't
@@ -90,7 +86,7 @@ export function IntegracoesView({
             <tbody>
               <tr>
                 <td>{whatsapp.mode}</td>
-                <td>{formatDate(whatsapp.lastSyncAt)}</td>
+                <td>{formatarDataHora(whatsapp.lastSyncAt)}</td>
                 <td>{whatsapp.lastError ?? "—"}</td>
                 <td>{whatsapp.owner}</td>
               </tr>
@@ -124,7 +120,7 @@ export function IntegracoesView({
             <tbody>
               <tr>
                 <td>{bitrix.mode}</td>
-                <td>{formatDate(bitrix.lastSyncAt)}</td>
+                <td>{formatarDataHora(bitrix.lastSyncAt)}</td>
                 <td>{bitrix.lastError ?? "—"}</td>
                 <td>{bitrix.owner}</td>
               </tr>
@@ -195,7 +191,7 @@ export function IntegracoesView({
                 <td>
                   <StatusPill variant={STATUS_VARIANT[item.status]}>{item.status}</StatusPill>
                 </td>
-                <td>{formatDate(item.lastSyncAt)}</td>
+                <td>{formatarDataHora(item.lastSyncAt)}</td>
                 <td>{item.owner}</td>
               </tr>
             ))}

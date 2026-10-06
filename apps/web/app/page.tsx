@@ -4,5 +4,5 @@ import { fetchHealth } from "./lib/api";
 export default async function InicioPage() {
   const health = await fetchHealth();
 
-  return <DashboardView health={health} />;
+  return <DashboardView health={health.ok ? health.dados : null} />;
 }

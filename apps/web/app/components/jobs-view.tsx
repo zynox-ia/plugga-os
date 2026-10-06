@@ -1,6 +1,7 @@
 import type { JobRunInventoryItem, JobRunStatus } from "@plugga/shared";
 
 import { ShellCard, StatusPill, ShellTable } from "./plugga-shell";
+import { formatarDataHora } from "../lib/format";
 
 const STATUS_VARIANT: Record<JobRunStatus, "neutral" | "success" | "warning" | "danger"> = {
   queued: "neutral",
@@ -9,11 +10,6 @@ const STATUS_VARIANT: Record<JobRunStatus, "neutral" | "success" | "warning" | "
   failed: "danger",
   skipped: "warning",
 };
-
-function formatDate(value: string | null): string {
-  if (!value) return "—";
-  return new Date(value).toLocaleString("pt-BR", { timeZone: "America/Manaus" });
-}
 
 export function JobsView({ items, isLive }: { items: JobRunInventoryItem[]; isLive: boolean }) {
   return (
@@ -67,8 +63,8 @@ export function JobsView({ items, isLive }: { items: JobRunInventoryItem[]; isLi
                 <td>
                   <StatusPill variant={STATUS_VARIANT[run.status]}>{run.status}</StatusPill>
                 </td>
-                <td>{formatDate(run.scheduledFor)}</td>
-                <td>{formatDate(run.finishedAt)}</td>
+                <td>{formatarDataHora(run.scheduledFor)}</td>
+                <td>{formatarDataHora(run.finishedAt)}</td>
                 <td>{run.attempt}</td>
                 <td>{run.triggeredBy}</td>
                 <td>{run.error ?? "—"}</td>

@@ -13,11 +13,7 @@ import {
 } from "../lib/energy-client";
 import { CYCLE_STATUS_LABEL, CYCLE_STATUS_VARIANT } from "./ciclos-view";
 import { ShellCard, StatusPill } from "./plugga-shell";
-
-function formatDateTime(value: string | null): string {
-  if (!value) return "—";
-  return new Date(value).toLocaleString("pt-BR");
-}
+import { formatarDataHora } from "../lib/format";
 
 export function CicloDetailView({ cycle }: { cycle: CycleDetail }) {
   const router = useRouter();
@@ -69,14 +65,14 @@ export function CicloDetailView({ cycle }: { cycle: CycleDetail }) {
             <div className="box" style={{ border: "1px solid var(--line)", borderRadius: 12, padding: 12 }}>
               <strong>Próxima ação</strong>
               <p style={{ margin: "6px 0 0" }}>
-                {cycle.nextActionNote ?? "sem nota registrada"} — {formatDateTime(cycle.nextActionAt)}
+                {cycle.nextActionNote ?? "sem nota registrada"} — {formatarDataHora(cycle.nextActionAt)}
               </p>
             </div>
             <div className="box" style={{ border: "1px solid var(--line)", borderRadius: 12, padding: 12 }}>
               <strong>Relatório (versão {cycle.reportVersion})</strong>
               <p style={{ margin: "6px 0 0" }}>
-                Status: {cycle.reportStatus} · Gerado: {formatDateTime(cycle.reportGeneratedAt)} · Aprovado:{" "}
-                {formatDateTime(cycle.reportApprovedAt)} · Enviado: {formatDateTime(cycle.reportSentAt)}
+                Status: {cycle.reportStatus} · Gerado: {formatarDataHora(cycle.reportGeneratedAt)} · Aprovado:{" "}
+                {formatarDataHora(cycle.reportApprovedAt)} · Enviado: {formatarDataHora(cycle.reportSentAt)}
               </p>
               <p style={{ margin: "6px 0 0" }}>
                 Economia estimada: {cycle.estimatedSavings ?? "—"} · Economia realizada: {cycle.realizedSavings ?? "—"}

@@ -14,6 +14,7 @@ import {
   winOpportunity,
 } from "../lib/commercial-client";
 import { ShellCard, StatusPill } from "./plugga-shell";
+import { formatarDataHora } from "../lib/format";
 
 const STAGE_LABEL: Record<string, string> = {
   leads: "Leads",
@@ -30,11 +31,6 @@ const STATUS_VARIANT: Record<string, "neutral" | "success" | "warning" | "danger
 };
 
 type ActionPanel = "stage" | "contact" | "win" | "lose" | "revisit" | null;
-
-function formatDateTime(value: string | null): string {
-  if (!value) return "—";
-  return new Date(value).toLocaleString("pt-BR");
-}
 
 export function OportunidadeDetailView({ opportunity }: { opportunity: OpportunityDetail }) {
   const router = useRouter();
@@ -188,7 +184,7 @@ export function OportunidadeDetailView({ opportunity }: { opportunity: Opportuni
               <div className="box" style={{ border: "1px solid var(--line)", borderRadius: 12, padding: 12 }}>
                 <strong>Próxima ação</strong>
                 <p style={{ margin: "6px 0 0" }}>
-                  {opportunity.nextActionNote ?? "sem nota registrada"} — {formatDateTime(opportunity.nextActionAt)}
+                  {opportunity.nextActionNote ?? "sem nota registrada"} — {formatarDataHora(opportunity.nextActionAt)}
                 </p>
               </div>
               {opportunity.status === "perdida" ? (
@@ -230,7 +226,7 @@ export function OportunidadeDetailView({ opportunity }: { opportunity: Opportuni
                         {contact.channel} · {contact.outcome}
                       </strong>
                       {contact.note ? <span>{contact.note}</span> : null}
-                      <span>{formatDateTime(contact.createdAt)}</span>
+                      <span>{formatarDataHora(contact.createdAt)}</span>
                     </li>
                   ))}
                 </ul>
@@ -241,13 +237,13 @@ export function OportunidadeDetailView({ opportunity }: { opportunity: Opportuni
           {tab === "timeline" ? (
             <div style={{ padding: "0 18px 18px" }}>
               <ul style={{ display: "grid", gap: 6, padding: 0, listStyle: "none" }}>
-                <li>Criada em {formatDateTime(opportunity.createdAt)}</li>
+                <li>Criada em {formatarDataHora(opportunity.createdAt)}</li>
                 {opportunity.contacts.map((contact) => (
                   <li key={contact.id}>
-                    Contato ({contact.channel}) em {formatDateTime(contact.createdAt)}
+                    Contato ({contact.channel}) em {formatarDataHora(contact.createdAt)}
                   </li>
                 ))}
-                {opportunity.decidedAt ? <li>Decisão em {formatDateTime(opportunity.decidedAt)}</li> : null}
+                {opportunity.decidedAt ? <li>Decisão em {formatarDataHora(opportunity.decidedAt)}</li> : null}
               </ul>
             </div>
           ) : null}
@@ -290,7 +286,7 @@ export function OportunidadeDetailView({ opportunity }: { opportunity: Opportuni
               // retomada — dizer "decidida" aqui seria mentir.
               <p className="card-note" style={{ padding: 0 }}>
                 Revisita agendada
-                {opportunity.nextActionAt ? ` para ${formatDateTime(opportunity.nextActionAt)}` : ""} — retomar a
+                {opportunity.nextActionAt ? ` para ${formatarDataHora(opportunity.nextActionAt)}` : ""} — retomar a
                 oportunidade ainda não está disponível.
               </p>
             ) : (

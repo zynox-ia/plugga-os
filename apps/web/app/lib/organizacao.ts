@@ -228,8 +228,8 @@ export const EMPRESAS_POR_ID: Record<EmpresaId, Empresa> = { plugga, waze };
  * para responder só "o que precisa de mim hoje".
  */
 export const VISAO_GERAL: Processo[] = [
-  { label: "Dashboard", rota: "/", status: "pronto" },
-  { label: "Central de Pendências", rota: "/pendencias", status: "pronto" },
+  { label: "Dashboard", rota: "/", status: "parcial" },
+  { label: "Central de Pendências", rota: "/pendencias", status: "parcial" },
 ];
 
 /**

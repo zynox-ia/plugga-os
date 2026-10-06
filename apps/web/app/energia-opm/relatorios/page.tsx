@@ -1,10 +1,12 @@
 import type { CycleReportsResponse } from "@plugga/shared";
 
+import { EstadoDaApi } from "../../components/estado-da-api";
 import { RelatoriosView } from "../../components/relatorios-view";
 import { fetchCycleReports } from "../../lib/api";
+import { resolverEstado } from "../../lib/estado-da-api";
 import { FALLBACK_CYCLES } from "../../lib/mock/energy";
 
-function fallbackReport(): CycleReportsResponse {
+function relatorioDeExemplo(): CycleReportsResponse {
   const estimatedSavings = FALLBACK_CYCLES.reduce((sum, item) => sum + Number(item.estimatedSavings ?? 0), 0);
   const realizedSavings = FALLBACK_CYCLES.reduce((sum, item) => sum + Number(item.realizedSavings ?? 0), 0);
   return {
@@ -18,7 +20,8 @@ function fallbackReport(): CycleReportsResponse {
 }
 
 export default async function RelatoriosPage() {
-  const response = await fetchCycleReports();
+  const estado = resolverEstado(await fetchCycleReports(), (resposta) => resposta, relatorioDeExemplo());
+  if (estado.estado === "erro") return <EstadoDaApi erro={estado.erro} eyebrow="Energia & OPM" />;
 
-  return <RelatoriosView report={response ?? fallbackReport()} isLive={response !== null} />;
+  return <RelatoriosView report={estado.dados} isLive={estado.estado === "ok"} />;
 }

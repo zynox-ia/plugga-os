@@ -4,7 +4,7 @@ import { buildContentSecurityPolicy } from "./app/lib/content-security-policy";
 import { apiBaseUrl } from "./app/lib/env-runtime";
 import { shouldBypassSessionCheck } from "./app/lib/public-paths";
 
-// Mesma folga de auth-proxy.ts e do FETCH_TIMEOUT_TUNEL_MS de app/lib/api.ts:
+// Mesma folga de proxy.ts e do FETCH_TIMEOUT_TUNEL_MS de app/lib/api.ts:
 // validar a sessão atravessa o túnel SSH (~2 s de base), e 5 s expulsava
 // usuário logado para /login em qualquer pico de latência.
 const FETCH_TIMEOUT_MS = 15_000;

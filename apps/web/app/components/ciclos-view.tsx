@@ -7,6 +7,7 @@ import { useState } from "react";
 
 import { createCycle } from "../lib/energy-client";
 import { ShellCard, ShellTable, StatusPill } from "./plugga-shell";
+import { formatarDiaMes } from "../lib/format";
 
 const KANBAN_STATUSES: { id: CycleStatus; label: string }[] = [
   { id: "aguardando_documentos", label: "Aguardando fatura" },
@@ -36,11 +37,6 @@ export const CYCLE_STATUS_VARIANT: Record<CycleStatus, "neutral" | "success" | "
   enviado: "success",
   fechado: "success",
 };
-
-function formatDate(value: string | null): string {
-  if (!value) return "—";
-  return new Date(value).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
-}
 
 export function CiclosView({ items, isLive }: { items: CycleSummary[]; isLive: boolean }) {
   const router = useRouter();
@@ -223,7 +219,7 @@ export function CiclosView({ items, isLive }: { items: CycleSummary[]; isLive: b
                 </td>
                 <td>{item.ownerName ?? "—"}</td>
                 <td>
-                  {formatDate(item.nextActionAt)}
+                  {formatarDiaMes(item.nextActionAt)}
                   {item.nextActionNote ? ` · ${item.nextActionNote}` : ""}
                 </td>
                 <td>

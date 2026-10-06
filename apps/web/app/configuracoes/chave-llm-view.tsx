@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { ShellCard, StatusPill } from "../components/plugga-shell";
+import { formatarDataHora } from "../lib/format";
 
 type EstadoDaChave = {
   configurada: boolean;
@@ -148,7 +149,7 @@ export function ChaveLlmView() {
             </>
           ) : (
             <>
-              — trocada em {estado.atualizadoEm ? new Date(estado.atualizadoEm).toLocaleString("pt-BR") : "—"}
+              — trocada em {formatarDataHora(estado.atualizadoEm)}
               {estado.atualizadoPor ? <> por {estado.atualizadoPor}</> : null}.
             </>
           )}

@@ -7,6 +7,7 @@ import { useState } from "react";
 
 import { createContract } from "../lib/commercial-client";
 import { ShellCard, ShellTable, StatusPill } from "./plugga-shell";
+import { formatarData } from "../lib/format";
 
 const STATUS_LABEL: Record<string, string> = {
   rascunho: "Rascunho",
@@ -25,11 +26,6 @@ const STATUS_VARIANT: Record<string, "neutral" | "success" | "warning" | "danger
   vencendo: "warning",
   encerrado: "neutral",
 };
-
-function formatDate(value: string | null): string {
-  if (!value) return "—";
-  return new Date(value).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
-}
 
 function isBlocked(item: ContractSummary): boolean {
   const inFlight = item.status !== "rascunho" && item.status !== "encerrado";
@@ -120,10 +116,10 @@ export function ContratosView({ items, isLive }: { items: ContractSummary[]; isL
               </td>
               <td>{item.ownerName ?? "—"}</td>
               <td>
-                {formatDate(item.startsAt)} – {formatDate(item.endsAt)}
+                {formatarData(item.startsAt)} – {formatarData(item.endsAt)}
               </td>
               <td>
-                {formatDate(item.nextActionAt)}
+                {formatarData(item.nextActionAt)}
                 {item.nextActionNote ? ` · ${item.nextActionNote}` : ""}
               </td>
             </tr>

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useState } from "react";
 
 import { ShellCard, ShellTable, StatusPill } from "./plugga-shell";
+import { formatarBRL, formatarDiaMes } from "../lib/format";
 
 /**
  * Funil de Compras — as sete etapas do POP-COMP-001 na ordem do fluxograma.
@@ -39,16 +40,6 @@ const ABAS: { id: AbaId; label: string }[] = [
   { id: "vencidas", label: "Vencidas" },
   { id: "concluidas", label: "Concluídas" },
 ];
-
-function moeda(valor: string | null): string {
-  if (!valor) return "—";
-  return Number(valor).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-}
-
-function data(valor: string | null): string {
-  if (!valor) return "—";
-  return new Date(valor).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
-}
 
 function naAba(pedido: PedidoResumo, aba: AbaId): boolean {
   switch (aba) {
@@ -129,8 +120,8 @@ export function ComprasView({
                         #{pedido.numero} · {pedido.titulo}
                       </strong>
                       <span>{pedido.obraNome ?? pedido.clientNome ?? "Interno"}</span>
-                      <span>Orçado: {moeda(pedido.valorOrcado)}</span>
-                      <span>Prazo da etapa: {data(pedido.prazoEtapaEm)}</span>
+                      <span>Orçado: {formatarBRL(pedido.valorOrcado)}</span>
+                      <span>Prazo da etapa: {formatarDiaMes(pedido.prazoEtapaEm)}</span>
                       <StatusPill variant={selo.variante}>{selo.texto}</StatusPill>
                     </Link>
                   );
@@ -162,9 +153,9 @@ export function ComprasView({
                   </td>
                   <td>{pedido.obraNome ?? pedido.clientNome ?? "Interno"}</td>
                   <td>{ETAPAS.find((etapa) => etapa.id === pedido.etapa)?.label ?? pedido.etapa}</td>
-                  <td>{moeda(pedido.valorOrcado)}</td>
+                  <td>{formatarBRL(pedido.valorOrcado)}</td>
                   <td>
-                    {data(pedido.prazoEtapaEm)} <StatusPill variant={selo.variante}>{selo.texto}</StatusPill>
+                    {formatarDiaMes(pedido.prazoEtapaEm)} <StatusPill variant={selo.variante}>{selo.texto}</StatusPill>
                   </td>
                 </tr>
               );
