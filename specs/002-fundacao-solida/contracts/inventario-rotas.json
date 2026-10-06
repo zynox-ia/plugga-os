@@ -1211,6 +1211,14 @@
   },
   {
     "metodo": "GET",
+    "caminho": "/health/ready",
+    "controller": "HealthController.ready",
+    "acesso": "public",
+    "papeis": [],
+    "guards": []
+  },
+  {
+    "metodo": "GET",
     "caminho": "/integrations",
     "controller": "IntegrationsController.list",
     "acesso": "roles",
