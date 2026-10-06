@@ -311,7 +311,7 @@ describe("limites de entrada — US10 (e2e)", () => {
   describe("falha do armazenamento não vaza detalhe interno (T109)", () => {
     it("devolve 503 genérico e deixa o detalhe só no log, com o requestId", async () => {
       const real = new ArmazenamentoDeCotacoes();
-      (real as unknown as { obterCliente: () => Promise<unknown> }).obterCliente = async () => ({
+      (real as unknown as { s3: { obterCliente: () => Promise<unknown> } }).s3.obterCliente = async () => ({
         send: async () => {
           throw new Error("connect ECONNREFUSED 10.9.8.7:9000 balde-secreto-xyz");
         },
