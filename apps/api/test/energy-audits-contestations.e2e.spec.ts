@@ -41,6 +41,7 @@ type RecordedEvent = { eventName: string; entityType: string; entityId: string; 
  * exact same guard functions from energy.rules.ts the Prisma repository
  * calls, so this double can't silently drift from production behavior.
  */
+// @ts-expect-error dublê parcial: não implementa todos os membros do repositório real (dívida registrada na T183)
 class InMemoryEnergyRepository extends EnergyRepository {
   private audits = new Map<string, AuditDetail>();
   private contestations = new Map<string, ContestationDetail>();

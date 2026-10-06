@@ -41,6 +41,7 @@ type RecordedEvent = { eventName: string; entityType: string; entityId: string; 
  * than re-implementing the rules, so this double can't silently drift from
  * production behavior.
  */
+// @ts-expect-error dublê parcial: não implementa todos os membros do repositório real (dívida registrada na T183)
 class InMemoryEnergyRepository extends EnergyRepository {
   private migrations = new Map<string, StoredMigration>();
   private sequence = 0;

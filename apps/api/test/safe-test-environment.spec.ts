@@ -50,7 +50,6 @@ describe("assertSafeTestStorageEndpoint", () => {
     expect(() =>
       assertSafeTestStorageEndpoint(
         "http://localhost:59002",
-        "plugga-faturas-test",
       ),
     ).not.toThrow();
   });

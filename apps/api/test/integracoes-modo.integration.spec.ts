@@ -39,7 +39,7 @@ describe.skipIf(!HABILITADO)("troca de modo da integração", () => {
   it(
     "grava o novo modo e o evento com de/para, sem dado pessoal",
     async () => {
-      const resultado = await repositorio.alterarModo(chave, "read_only", null);
+      const resultado = await repositorio.alterarModo(chave, "read_only", null as unknown as string);
 
       expect(resultado).toEqual({ anterior: "mock", atual: "read_only" });
       const linha = await prisma.integration.findUnique({ where: { key: chave } });
@@ -57,7 +57,7 @@ describe.skipIf(!HABILITADO)("troca de modo da integração", () => {
   it(
     "não grava evento quando o modo não muda",
     async () => {
-      await repositorio.alterarModo(chave, "read_only", null);
+      await repositorio.alterarModo(chave, "read_only", null as unknown as string);
 
       const eventos = await prisma.eventLog.findMany({
         where: { eventName: "integrations.mode.changed", entityId: chave },
@@ -70,7 +70,7 @@ describe.skipIf(!HABILITADO)("troca de modo da integração", () => {
   it(
     "devolve nulo para integração que não existe",
     async () => {
-      expect(await repositorio.alterarModo(`${chave}-x`, "write", null)).toBeNull();
+      expect(await repositorio.alterarModo(`${chave}-x`, "write", null as unknown as string)).toBeNull();
     },
     PRAZO_MS,
   );

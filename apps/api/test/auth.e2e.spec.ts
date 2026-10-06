@@ -210,7 +210,7 @@ describe("auth API (e2e, in-memory stores)", () => {
     await agent.get("/auth/me").expect(401);
     await request(app.getHttpServer())
       .get("/auth/me")
-      .set("Cookie", rawCookieHeader)
+      .set("Cookie", rawCookieHeader ?? "")
       .expect(401);
   });
 

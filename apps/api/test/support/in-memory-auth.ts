@@ -365,7 +365,8 @@ export class InMemorySessionLookup extends SessionLookupRepository {
     super();
   }
 
-  async resolvePrincipal(tokenHash: string): Promise<AuthPrincipal | null> {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- assinatura do repositório real
+  async resolvePrincipal(tokenHash: string, _contexto?: unknown): Promise<AuthPrincipal | null> {
     const session = this.store.sessions.get(tokenHash);
     if (!session) {
       return null;
@@ -403,7 +404,8 @@ export class CapturingEmailPort extends EmailPort {
 }
 
 export class NoopAuditRepository extends AuditRepository {
-  async appendEvent(): Promise<void> {}
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- assinatura do repositório real
+  async appendEvent(_evento?: unknown): Promise<void> {}
   async appendTrail(): Promise<never> {
     throw new Error("not used in auth e2e");
   }
