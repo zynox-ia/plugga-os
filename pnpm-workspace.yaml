@@ -18,6 +18,8 @@ overrides:
   nanoid: 3.3.18
   path-to-regexp: 8.4.0
   postcss: 8.5.23
+  proxy-addr: 2.0.8
+  source-map-js: 1.2.2
   sharp: 0.35.4
 
 # braces (GHSA-vfj7-8cjw-p6xm, negação de serviço por padrões aninhados) não tem
