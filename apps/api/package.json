@@ -23,6 +23,7 @@
     "test:compras": "node scripts/run-flagged-test.mjs RUN_COMPRAS_INTEGRATION_TESTS test/compras.integration.spec.ts",
     "test:indicadores-compras": "node scripts/run-flagged-test.mjs RUN_COMPRAS_INDICADORES_INTEGRATION_TESTS test/indicadores-compras.integration.spec.ts",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.test.json",
+    "test:energia": "node scripts/run-flagged-test.mjs RUN_DATABASE_INTEGRATION_TESTS test/energy-foundation.integration.spec.ts",
     "test:llm": "node scripts/run-flagged-test.mjs RUN_LLM_INTEGRATION_TESTS test/llm-consumo.integration.spec.ts",
     "test:integrations": "node scripts/run-flagged-test.mjs RUN_INTEGRATIONS_INTEGRATION_TESTS test/integracoes-modo.integration.spec.ts",
     "test:eventos-pii": "node scripts/run-flagged-test.mjs RUN_EVENTOS_PII_INTEGRATION_TESTS test/eventos-sem-pii.integration.spec.ts",
