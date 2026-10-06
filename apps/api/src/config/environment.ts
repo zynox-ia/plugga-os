@@ -152,6 +152,23 @@ export const environmentSchema = z
     // high-numbered Compose port is mandatory because 9000/9001 may be SSH
     // tunnels to Production on project workstations.
     STORAGE_ENDPOINT: opcional(z.string().trim().url()),
+    STORAGE_REGION: opcional(z.string().trim().min(1)),
+    STORAGE_ACCESS_KEY: opcional(z.string().trim().min(1)),
+    STORAGE_SECRET_KEY: opcional(z.string().trim().min(1)),
+    // Chave-mestra do cofre de segredos (AES-256): base64 de exatamente 32 bytes.
+    // Opcional no boot (sem ela o cofre responde "chave ausente"); se vier, tem
+    // de estar certa — erro de tamanho aparece na subida, não no primeiro uso.
+    SECRETS_ENCRYPTION_KEY: opcional(
+      z.string().refine((v) => Buffer.from(v, "base64").length === 32, {
+        message: "deve ser base64 de exatamente 32 bytes (openssl rand -base64 32)",
+      }),
+    ),
+    OPENROUTER_API_KEY: opcional(z.string().trim().min(1)),
+    OPENROUTER_BASE_URL: opcional(z.string().trim().url()),
+    OPENROUTER_MODELO: opcional(z.string().trim().min(1)),
+    OPENROUTER_APP_URL: opcional(z.string().trim().url()),
+    OPENROUTER_TIMEOUT_MS: opcional(z.coerce.number().int().min(1_000).max(600_000)),
+    TESSERACT_DATA_PATH: opcional(z.string().trim().min(1)),
   })
   .passthrough()
   .superRefine((environment, context) => {

@@ -5,7 +5,7 @@ import { flattenRoles, type UserAccess } from "@plugga/shared";
 
 import { argon2Options } from "../../src/auth/argon2-options";
 import { EstadoInvalido } from "../../src/common/errors/dominio";
-import { AuditRepository } from "../../src/audit/audit.repository";
+import { AuditPort } from "../../src/audit/audit.port";
 import type { AuthPrincipal } from "../../src/core/auth/auth.types";
 import { SessionLookupRepository } from "../../src/core/auth/session-lookup.repository";
 import { EmailPort, type TransactionalEmail } from "../../src/email/email.port";
@@ -403,7 +403,7 @@ export class CapturingEmailPort extends EmailPort {
   }
 }
 
-export class NoopAuditRepository extends AuditRepository {
+export class NoopAuditRepository extends AuditPort {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars -- assinatura do repositório real
   async appendEvent(_evento?: unknown): Promise<void> {}
   async appendTrail(): Promise<never> {

@@ -2,7 +2,7 @@ import { Inject, Injectable, Logger } from "@nestjs/common";
 
 import { eventNames, type EstadoDaChave, type EventName } from "@plugga/shared";
 
-import { AuditRepository } from "../audit/audit.repository";
+import { AuditPort } from "../audit/audit.port";
 import { cifrar, decifrar, mascarar, SegredoCorrompidoError } from "./cripto.js";
 import { SegredoRepository } from "./segredo.repository.js";
 
@@ -37,7 +37,7 @@ export class ChaveDeLlmService {
 
   constructor(
     @Inject(SegredoRepository) private readonly segredos: SegredoRepository,
-    @Inject(AuditRepository) private readonly auditoria: AuditRepository,
+    @Inject(AuditPort) private readonly auditoria: AuditPort,
   ) {}
 
   /** A chave em uso, para o gateway. Nunca vai para resposta de rota. */

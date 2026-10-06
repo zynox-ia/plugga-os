@@ -22,7 +22,7 @@ import {
 } from "@plugga/shared";
 
 import { Conflito, EstadoInvalido, NaoEncontrado } from "../common/errors/dominio";
-import { AuditRepository } from "../audit/audit.repository";
+import { AuditPort } from "../audit/audit.port";
 import type { AuthPrincipal } from "../core/auth/auth.types";
 import { SessionCache } from "../core/auth/session-cache";
 import { AuthTokenIssuer } from "./auth-token-issuer.service";
@@ -61,7 +61,7 @@ export class TeamService {
     @Inject(AuthRepository) private readonly repository: AuthRepository,
     @Inject(AuthTokenIssuer) private readonly tokens: AuthTokenIssuer,
     @Inject(SessionService) private readonly sessions: SessionService,
-    @Inject(AuditRepository) private readonly audit: AuditRepository,
+    @Inject(AuditPort) private readonly audit: AuditPort,
     @Inject(SessionCache) private readonly cache: SessionCache,
   ) {}
 

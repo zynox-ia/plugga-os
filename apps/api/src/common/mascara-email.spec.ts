@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { maskEmail } from "./email.util";
+import { maskEmail } from "./mascara-email";
 
 describe("maskEmail", () => {
   it("keeps the first local character and the full domain", () => {

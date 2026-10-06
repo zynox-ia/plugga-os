@@ -1,8 +1,8 @@
 import { Inject, Injectable, Logger } from "@nestjs/common";
 import { eventNames } from "@plugga/shared";
 
-import { AuditRepository } from "../audit/audit.repository";
-import { maskEmail } from "../email/email.util";
+import { AuditPort } from "../audit/audit.port";
+import { maskEmail } from "../common/mascara-email";
 import type { JobHandler } from "../jobs/queue/job-handler";
 import { AuthTokenIssuer } from "./auth-token-issuer.service";
 import { AuthRepository } from "./auth.repository";
@@ -33,7 +33,7 @@ export class ResetEmailHandler implements JobHandler<ResetEmailPayload> {
   constructor(
     @Inject(AuthRepository) private readonly repository: AuthRepository,
     @Inject(AuthTokenIssuer) private readonly tokens: AuthTokenIssuer,
-    @Inject(AuditRepository) private readonly audit: AuditRepository,
+    @Inject(AuditPort) private readonly audit: AuditPort,
   ) {}
 
   async process(payload: ResetEmailPayload): Promise<void> {

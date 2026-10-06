@@ -5,7 +5,7 @@ import { PrismaModule } from "../prisma/prisma.module";
 import { AgentActionsController } from "./agent-actions.controller";
 import { AgentActionsService } from "./agent-actions.service";
 import { AuditAppender } from "./audit-appender";
-import { AuditRepository } from "./audit.repository";
+import { AuditPort } from "./audit.port";
 import { PrismaAuditRepository } from "./prisma-audit.repository";
 
 @Module({
@@ -14,8 +14,8 @@ import { PrismaAuditRepository } from "./prisma-audit.repository";
   providers: [
     AgentActionsService,
     AuditAppender,
-    { provide: AuditRepository, useClass: PrismaAuditRepository },
+    { provide: AuditPort, useClass: PrismaAuditRepository },
   ],
-  exports: [AuditRepository, AuditAppender],
+  exports: [AuditPort, AuditAppender],
 })
 export class AuditModule {}
