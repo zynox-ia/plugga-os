@@ -281,7 +281,7 @@ describe("energy audits/contestations API (e2e)", () => {
     const id = "00000000-0000-4000-8000-000000000602";
     repository.seedAudit({ id, status: "resolvida" });
 
-    await asOpm().post(`/energy/audits/${id}/resolve`).send({ status: "inconclusiva" }).expect(400);
+    await asOpm().post(`/energy/audits/${id}/resolve`).send({ status: "inconclusiva" }).expect(409);
   });
 
   it("rejects opening a contestation from an audit whose type is not contestacao (blocking rule)", async () => {
@@ -300,7 +300,7 @@ describe("energy audits/contestations API (e2e)", () => {
         expectedResponseAt: "2026-09-06T12:00:00.000Z",
         ownerId: OWNER_ID,
       })
-      .expect(400);
+      .expect(409);
   });
 
   it("rejects opening a contestation from a non-existent audit (never created loose)", async () => {
@@ -363,7 +363,7 @@ describe("energy audits/contestations API (e2e)", () => {
       { id: OWNER_ID, kind: "user", roles: ["opm"] },
     );
 
-    await asFinanceiro().post(`/energy/contestations/${contestation.id}/status`).send({ status: "encerrada" }).expect(400);
+    await asFinanceiro().post(`/energy/contestations/${contestation.id}/status`).send({ status: "encerrada" }).expect(409);
   });
 
   it("only RESOLVE_CONTESTATION roles can transition a contestation (RBAC)", async () => {

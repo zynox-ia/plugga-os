@@ -1,4 +1,4 @@
-import { BadRequestException } from "@nestjs/common";
+import { EstadoInvalido, RequisicaoInvalida } from "../common/errors/dominio";
 import {
   MARKET_MIGRATION_STAGE_SEQUENCE,
   type AuditOrigin,
@@ -36,17 +36,17 @@ export function assertAuditOriginMatchesLinks(
   const hasMigration = Boolean(marketMigrationId);
 
   if (origin === "ciclo_mensal" && !(hasCycle && !hasMigration)) {
-    throw new BadRequestException(
+    throw new RequisicaoInvalida(
       "auditoria com origem ciclo_mensal exige cycleId e não pode informar marketMigrationId",
     );
   }
   if (origin === "migracao_ml" && !(hasMigration && !hasCycle)) {
-    throw new BadRequestException(
+    throw new RequisicaoInvalida(
       "auditoria com origem migracao_ml exige marketMigrationId e não pode informar cycleId",
     );
   }
   if (origin === "avulsa" && (hasCycle || hasMigration)) {
-    throw new BadRequestException("auditoria avulsa não pode estar vinculada a ciclo nem a migração");
+    throw new RequisicaoInvalida("auditoria avulsa não pode estar vinculada a ciclo nem a migração");
   }
 }
 
@@ -54,26 +54,26 @@ const RESOLVED_AUDIT_STATUSES = new Set<AuditStatus>(["resolvida", "inconclusiva
 
 export function assertAuditCanBeResolved(current: AuditStatus): void {
   if (RESOLVED_AUDIT_STATUSES.has(current)) {
-    throw new BadRequestException(`auditoria já foi resolvida (status atual: "${current}")`);
+    throw new EstadoInvalido(`auditoria já foi resolvida (status atual: "${current}")`);
   }
 }
 
 /** A Contestation is always born from an existing Audit with type = contestacao — never created loose. */
 export function assertAuditIsContestationType(type: AuditType): void {
   if (type !== "contestacao") {
-    throw new BadRequestException('contestação só pode nascer de uma auditoria do tipo "contestacao"');
+    throw new EstadoInvalido('contestação só pode nascer de uma auditoria do tipo "contestacao"');
   }
 }
 
 export function assertAuditCanOpenContestation(status: AuditStatus): void {
   if (RESOLVED_AUDIT_STATUSES.has(status)) {
-    throw new BadRequestException("não é possível abrir contestação em uma auditoria já resolvida");
+    throw new EstadoInvalido("não é possível abrir contestação em uma auditoria já resolvida");
   }
 }
 
 export function assertAuditHasNoContestation(hasContestation: boolean): void {
   if (hasContestation) {
-    throw new BadRequestException("esta auditoria já tem uma contestação aberta");
+    throw new EstadoInvalido("esta auditoria já tem uma contestação aberta");
   }
 }
 
@@ -95,7 +95,7 @@ const CONTESTATION_TRANSITIONS: Record<ContestationStatus, readonly Contestation
 export function assertContestationTransitionAllowed(current: ContestationStatus, target: ContestationStatus): void {
   const allowed = CONTESTATION_TRANSITIONS[current];
   if (!allowed.includes(target)) {
-    throw new BadRequestException(
+    throw new EstadoInvalido(
       allowed.length > 0
         ? `não é possível mover contestação de "${current}" para "${target}"; próximos estados válidos: ${allowed.join(", ")}`
         : `a contestação já está encerrada e não admite novas transições`,
@@ -106,7 +106,7 @@ export function assertContestationTransitionAllowed(current: ContestationStatus,
 /** Financial result is required once a contestation closes — never just a text note. */
 export function assertContestationCanClose(target: ContestationStatus, financialResult: string | null | undefined): void {
   if (target === "encerrada" && !financialResult) {
-    throw new BadRequestException("encerrar uma contestação exige o resultado financeiro");
+    throw new RequisicaoInvalida("encerrar uma contestação exige o resultado financeiro");
   }
 }
 
@@ -165,7 +165,7 @@ export function computeCycleCloseBlockers(input: CycleCloseInput): string[] {
 export function assertCycleCanClose(input: CycleCloseInput): void {
   const [firstBlocker] = computeCycleCloseBlockers(input);
   if (firstBlocker) {
-    throw new BadRequestException(`ciclo não pode ser fechado: ${firstBlocker}`);
+    throw new EstadoInvalido(`ciclo não pode ser fechado: ${firstBlocker}`);
   }
 }
 
@@ -175,7 +175,7 @@ export function assertCycleHasOwnerAndNextAction(
   nextActionAt: Date | null | undefined,
 ): void {
   if (status !== "fechado" && (!ownerId || !nextActionAt)) {
-    throw new BadRequestException("ciclo ativo não pode ficar sem responsável e sem próxima ação");
+    throw new RequisicaoInvalida("ciclo ativo não pode ficar sem responsável e sem próxima ação");
   }
 }
 
@@ -192,7 +192,7 @@ export const OPEN_MARKET_MIGRATION_STATUSES = new Set<MarketMigrationStatus>(["e
 
 export function assertMarketMigrationOpen(status: MarketMigrationStatus): void {
   if (!OPEN_MARKET_MIGRATION_STATUSES.has(status)) {
-    throw new BadRequestException("migração já foi encerrada (ativada ou cancelada)");
+    throw new EstadoInvalido("migração já foi encerrada (ativada ou cancelada)");
   }
 }
 
@@ -201,7 +201,7 @@ export function assertMarketMigrationHasOwnerAndNextAction(
   nextActionAt: Date | null | undefined,
 ): void {
   if (!ownerId || !nextActionAt) {
-    throw new BadRequestException("migração em andamento não pode ficar sem responsável e sem próxima ação");
+    throw new RequisicaoInvalida("migração em andamento não pode ficar sem responsável e sem próxima ação");
   }
 }
 
@@ -213,7 +213,7 @@ export function assertMarketMigrationStageTransitionAllowed(
   const targetIndex = MARKET_MIGRATION_STAGE_SEQUENCE.indexOf(target);
   if (targetIndex !== currentIndex && targetIndex !== currentIndex + 1) {
     const nextValid = MARKET_MIGRATION_STAGE_SEQUENCE[currentIndex + 1];
-    throw new BadRequestException(
+    throw new EstadoInvalido(
       nextValid
         ? `não é possível pular de "${current}" para "${target}"; a próxima etapa válida é "${nextValid}"`
         : `a migração já está em "${current}" e não admite novas etapas`,

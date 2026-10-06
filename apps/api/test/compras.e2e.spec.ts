@@ -464,6 +464,7 @@ class ComprasEmMemoria extends ComprasRepository {
       },
       cumprimentoSla: [],
       dispensasDeSegregacao: this.eventos.filter((evento) => evento.nome === "compras.segregacao_dispensada").length,
+      aviso: null,
     };
   }
 
@@ -480,6 +481,7 @@ class ComprasEmMemoria extends ComprasRepository {
         quadrante: null,
         pedidosConsiderados: 0,
       },
+      aviso: null,
     };
   }
 
@@ -751,7 +753,7 @@ describe("Compras — POP-COMP-001 (e2e)", () => {
       await como(COMPRADOR)
         .post(`/compras/pedidos/${pedido.id}/cotacao-selecionada${q}`)
         .send({ cotacaoId: pedido.cotacoes[0]?.id })
-        .expect(400);
+        .expect(409);
     });
 
     it("REVISAR duas vezes volta para cotações e limpa a seleção a cada volta", async () => {
@@ -802,7 +804,7 @@ describe("Compras — POP-COMP-001 (e2e)", () => {
       await como(FINANCEIRO)
         .post(`/compras/pedidos/${pedido.id}/pagamento${q}`)
         .send({ valorFaturado: "4800.00" })
-        .expect(400);
+        .expect(409);
 
       const depois = await como(COMPRADOR).get(`/compras/pedidos/${pedido.id}${q}`).expect(200);
       expect(depois.body.etapa).toBe("analise_estoque");
@@ -816,7 +818,7 @@ describe("Compras — POP-COMP-001 (e2e)", () => {
       await como(FINANCEIRO)
         .post(`/compras/pedidos/${pedido.id}/aprovacao${q}`)
         .send({ aprovada: false, motivo: "tentativa fora de hora" })
-        .expect(400);
+        .expect(409);
     });
 
     it("recusa decidir estoque de pedido já em pagamento", async () => {
@@ -826,7 +828,7 @@ describe("Compras — POP-COMP-001 (e2e)", () => {
       await como(COMPRADOR)
         .post(`/compras/pedidos/${pedido.id}/estoque${q}`)
         .send({ possuiEmEstoque: true })
-        .expect(400);
+        .expect(409);
     });
 
     it("recusa confirmar recebimento antes da retirada", async () => {
@@ -834,7 +836,7 @@ describe("Compras — POP-COMP-001 (e2e)", () => {
       await como(COMPRADOR)
         .post(`/compras/pedidos/${pedido.id}/recebimento?companyId=plugga`)
         .send({})
-        .expect(400);
+        .expect(409);
     });
   });
 

@@ -21,6 +21,7 @@
     "test:seed": "node scripts/run-flagged-test.mjs RUN_SEED_INTEGRATION_TESTS test/seed-preserves-state.integration.spec.ts",
     "test:jobs": "node scripts/run-flagged-test.mjs RUN_JOBS_INTEGRATION_TESTS test/jobs-queue.integration.spec.ts",
     "test:compras": "node scripts/run-flagged-test.mjs RUN_COMPRAS_INTEGRATION_TESTS test/compras.integration.spec.ts",
+    "test:indicadores-compras": "node scripts/run-flagged-test.mjs RUN_COMPRAS_INDICADORES_INTEGRATION_TESTS test/indicadores-compras.integration.spec.ts",
     "typecheck": "tsc --noEmit",
     "test:llm": "node scripts/run-flagged-test.mjs RUN_LLM_INTEGRATION_TESTS test/llm-consumo.integration.spec.ts",
     "test:integrations": "node scripts/run-flagged-test.mjs RUN_INTEGRATIONS_INTEGRATION_TESTS test/integracoes-modo.integration.spec.ts",
