@@ -7,8 +7,8 @@ const localDatabaseUrl =
 const sessionSecret = "local_only_session_secret_change_me_please";
 // Em produção os valores de exemplo são recusados (T118): estes dois são só
 // formatos plausíveis, sem nenhum marcador de exemplo.
-const productionDatabaseUrl = "postgresql://plugga_app:Zk3vQ8mWp2Lx9RtN@postgres:5432/plugga_os?schema=public";
-const productionSessionSecret = "q7Vn2xKd9LmB4tRw8YpC1zHs6JfG3aEu5NoXb0Ti";
+const productionDatabaseUrl = "postgresql://plugga_app:Zk3vQ8mWp2Lx9RtN@postgres:5432/plugga_os?schema=public"; // gitleaks:allow (valor fictício de teste)
+const productionSessionSecret = "q7Vn2xKd9LmB4tRw8YpC1zHs6JfG3aEu5NoXb0Ti"; // gitleaks:allow (valor fictício de teste)
 
 describe("validateEnvironment", () => {
   it("accepts the explicit local development configuration", () => {
