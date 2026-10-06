@@ -9,11 +9,12 @@ import { AuthController } from "./auth.controller";
 import { AuthRepository } from "./auth.repository";
 import { AuthService } from "./auth.service";
 import { AuthTokenIssuer } from "./auth-token-issuer.service";
-import { EmailAttemptLimiter } from "./email-attempt-limiter.service";
 import { GoogleAuthLibraryVerifier } from "./google-auth-library.verifier";
 import { GoogleAuthService } from "./google-auth.service";
 import { GoogleIdentityVerifier } from "./google-identity.verifier";
-import { LockoutService } from "./lockout.service";
+import { ContadorTentativas } from "./limitador/contador-tentativas";
+import { ContadorThrottlerStorage } from "./limitador/contador-throttler-storage";
+import { LimitadorModule } from "./limitador/limitador.module";
 import { PasswordService } from "./password.service";
 import { PrismaAuthRepository } from "./prisma-auth.repository";
 import { SessionService } from "./session.service";
@@ -26,8 +27,19 @@ import { TeamService } from "./team.service";
     PrismaModule,
     AuditModule,
     EmailModule,
+    LimitadorModule,
     // Per-IP request rate limiting; sensitive routes tighten via @Throttle.
-    ThrottlerModule.forRoot([{ name: "default", ttl: 60_000, limit: 60 }]),
+    // Os contadores vivem no Redis (US11, T112, SEC-006): sobrevivem a reinício
+    // e valem para todas as instâncias. O módulo é global, então este
+    // armazenamento atende também os controllers de outros módulos.
+    ThrottlerModule.forRootAsync({
+      imports: [LimitadorModule],
+      inject: [ContadorTentativas],
+      useFactory: (contador: ContadorTentativas) => ({
+        throttlers: [{ name: "default", ttl: 60_000, limit: 60 }],
+        storage: new ContadorThrottlerStorage(contador),
+      }),
+    }),
   ],
   controllers: [AuthController, TeamController],
   providers: [
@@ -37,8 +49,6 @@ import { TeamService } from "./team.service";
     TeamService,
     PasswordService,
     SessionService,
-    LockoutService,
-    EmailAttemptLimiter,
     { provide: AuthRepository, useClass: PrismaAuthRepository },
     // A porta é o que permite exercitar toda a política de vínculo sem rede e
     // sem conta Google real — e sem abrir um atalho por variável de ambiente,

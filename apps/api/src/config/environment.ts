@@ -76,10 +76,6 @@ export const environmentSchema = z
     LOGIN_FREE_ATTEMPTS_ORIGIN: z.coerce.number().int().min(0).max(1_000).default(15),
     LOGIN_DELAY_BASE_MS: z.coerce.number().int().min(0).max(60_000).default(500),
     LOGIN_DELAY_MAX_MS: z.coerce.number().int().min(0).max(60_000).default(8_000),
-    // Teto de requisições de login por origem e minuto. NÃO é o limite de
-    // tentativas (quem erra é atrasado, quem acerta nunca é recusado): é só a
-    // proteção do servidor contra inundação, bem acima de qualquer uso real.
-    LOGIN_REQUESTS_PER_MINUTE: z.coerce.number().int().min(10).max(100_000).default(120),
     LOG_LEVEL: z.enum(["debug", "info", "warn", "error", "silent"]).default("info"),
     // Signs the session cookie (integrity, defense in depth over the opaque
     // token). Local placeholder only in .env.example; never committed for real.

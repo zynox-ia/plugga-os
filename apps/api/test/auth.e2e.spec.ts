@@ -138,12 +138,11 @@ describe("auth API (e2e, in-memory stores)", () => {
     await loginAgent(adminEmail, adminPassword);
   });
 
-  it("does not share the login rate-limit bucket across different forwarded client IPs", async () => {
-    // The API only sees the web app's loopback connection; per-IP throttling
-    // depends on X-Forwarded-For carrying the real client address (see
-    // apps/web/app/lib/auth-proxy.ts). Without that, every caller collapses
-    // into one shared bucket and one bad actor can lock everyone out.
-    for (let i = 0; i < 10; i++) {
+  it("nunca recusa quem informa a senha certa, mesmo depois de muitas falhas do mesmo IP (SC-013)", async () => {
+    // O limitador antigo respondia 429 a partir da 11ª requisição do IP, certa
+    // ou errada: 10 chutes de qualquer um trancavam a vítima fora. Agora quem
+    // erra é atrasado e quem acerta entra, de qualquer IP.
+    for (let i = 0; i < 12; i++) {
       await request(app.getHttpServer())
         .post("/auth/login")
         .set("X-Forwarded-For", "203.0.113.10")
@@ -154,7 +153,7 @@ describe("auth API (e2e, in-memory stores)", () => {
       .post("/auth/login")
       .set("X-Forwarded-For", "203.0.113.10")
       .send({ email: adminEmail, password: adminPassword })
-      .expect(429);
+      .expect(200);
 
     await request(app.getHttpServer())
       .post("/auth/login")
@@ -163,29 +162,20 @@ describe("auth API (e2e, in-memory stores)", () => {
       .expect(200);
   });
 
-  it("caps failed login attempts per email even when X-Forwarded-For rotates every request", async () => {
-    // The (email, IP) lock in LockoutService alone is bypassable: an attacker
-    // who sends a fresh X-Forwarded-For on every request gets a fresh lock key
-    // each time, so per-IP locking never engages. This email-only cap (stacked
-    // on top of, not instead of, the (email, IP) lock) closes that gap.
-    const targetEmail = "brute-force-target@plugga.local";
-
+  it("falhas contra uma conta com X-Forwarded-For rotativo não impedem outra conta nem a própria com a senha certa", async () => {
+    // O contador por conta não depende do IP: trocar de IP a cada tentativa não
+    // zera o progresso contra a conta alvo (o atraso cresce), mas a recusa nunca
+    // acontece (veja login-abuso.e2e.spec.ts para o atraso medido).
     for (let i = 0; i < 30; i++) {
       await request(app.getHttpServer())
         .post("/auth/login")
         .set("X-Forwarded-For", `198.51.100.${i + 1}`)
-        .send({ email: targetEmail, password: "wrong-password" })
+        .send({ email: adminEmail, password: "wrong-password" })
         .expect(401);
     }
 
-    // 31st attempt, yet another fresh IP: still rejected purely on the email cap.
-    await request(app.getHttpServer())
-      .post("/auth/login")
-      .set("X-Forwarded-For", "198.51.100.200")
-      .send({ email: targetEmail, password: "wrong-password" })
-      .expect(401);
-
-    // A different account is entirely unaffected by targetEmail's cap.
+    await store.addUser({ email: "outra@plugga.local", password: "outra senha longa", access: access() });
+    await loginAgent("outra@plugga.local", "outra senha longa");
     await loginAgent(adminEmail, adminPassword);
   });
 

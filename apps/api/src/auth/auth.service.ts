@@ -25,8 +25,7 @@ import { hashToken } from "../core/auth/token.util";
 import { maskEmail } from "../email/email.util";
 import { AuthTokenIssuer } from "./auth-token-issuer.service";
 import { AuthRepository } from "./auth.repository";
-import { EmailAttemptLimiter } from "./email-attempt-limiter.service";
-import { LockoutService } from "./lockout.service";
+import { LimitadorLogin } from "./limitador/limitador-login.service";
 import { PasswordService } from "./password.service";
 import { SessionService, type SessionContext } from "./session.service";
 
@@ -55,22 +54,17 @@ export class AuthService {
     @Inject(AuthRepository) private readonly repository: AuthRepository,
     @Inject(PasswordService) private readonly passwords: PasswordService,
     @Inject(SessionService) private readonly sessions: SessionService,
-    @Inject(LockoutService) private readonly lockout: LockoutService,
-    @Inject(EmailAttemptLimiter) private readonly emailLimiter: EmailAttemptLimiter,
+    @Inject(LimitadorLogin) private readonly limitador: LimitadorLogin,
     @Inject(AuthTokenIssuer) private readonly tokens: AuthTokenIssuer,
     @Inject(AuditRepository) private readonly audit: AuditRepository,
     @Inject(SessionCache) private readonly cache: SessionCache,
   ) {}
 
   async login(input: LoginRequest, context: SessionContext): Promise<LoginResult> {
-    const lockKey = `${input.email}:${context.ip ?? "unknown"}`;
-    // The (email, IP) lock alone is bypassable by rotating X-Forwarded-For
-    // (client-controlled); the email-only cap below stacks on top of it so
-    // brute-forcing one account doesn't reset just by switching IPs.
-    if (this.lockout.isLocked(lockKey) || this.emailLimiter.isBlocked(input.email)) {
-      throw new UnauthorizedException("invalid credentials");
-    }
-
+    // Nenhuma conta ou origem é BLOQUEADA antes de a senha ser verificada (US11,
+    // T112, SC-013): quem erra é atrasado depois, quem acerta nunca espera.
+    // 30 erros contra a conta A não impedem a conta B, nem a própria A com a
+    // senha certa. Ver `LimitadorLogin`.
     const user = await this.repository.findUserByEmail(input.email);
     const passwordHash = user ? await this.repository.findPasswordHash(user.id) : null;
 
@@ -83,8 +77,6 @@ export class AuthService {
     }
 
     if (!user || user.status !== "active" || !passwordValid) {
-      this.lockout.recordFailure(lockKey);
-      this.emailLimiter.recordFailure(input.email);
       await this.audit.appendEvent({
         eventName: eventNames.authLoginFailed,
         entityType: "auth",
@@ -94,11 +86,13 @@ export class AuthService {
         payload: { reason: "invalid_credentials" },
         occurredAt: new Date(),
       });
+      // Atraso progressivo por conta e por origem, só para quem errou. É
+      // idêntico para conta existente e inexistente (nada vira oráculo).
+      await this.limitador.penalizar(input.email, context.ip);
       throw new UnauthorizedException("invalid credentials");
     }
 
-    this.lockout.reset(lockKey);
-    this.emailLimiter.reset(input.email);
+    await this.limitador.registrarSucesso(input.email);
     const token = await this.sessions.issue(user, context);
     await this.audit.appendEvent({
       eventName: eventNames.authLoginSucceeded,

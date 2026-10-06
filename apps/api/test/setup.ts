@@ -51,6 +51,13 @@ process.env.DATABASE_URL ??=
 process.env.REDIS_URL ??= "redis://127.0.0.1:56380";
 process.env.DEV_AUTH_ENABLED = "true";
 process.env.LOG_LEVEL = "silent";
+// Contadores de abuso em memória e atrasos mínimos: a suíte padrão não depende
+// de Redis nem espera segundos por um atraso progressivo. Os testes que provam o
+// atraso e o Redis (login-abuso) ajustam isto de propósito. Atribuição direta,
+// não `??=`: o setup roda a cada arquivo e não deve herdar o de outro.
+process.env.RATE_LIMIT_STORE = "memory";
+process.env.LOGIN_DELAY_BASE_MS = "1";
+process.env.LOGIN_DELAY_MAX_MS = "5";
 process.env.AUTH_SESSION_SECRET ??= "test_only_session_secret_change_me_please";
 
 if (pediramIntegracao) {
