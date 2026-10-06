@@ -2,13 +2,13 @@ import { Controller, Get, Inject, UseGuards } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { emailStatusSchema, type EmailStatus } from "@plugga/shared";
 
-import { DevAuthGuard } from "../core/auth/dev-auth.guard";
+import { SessionAuthGuard } from "../core/auth/session-auth.guard";
 import { Roles } from "../core/auth/roles.decorator";
 import { RolesGuard } from "../core/auth/roles.guard";
 
 @Roles("admin", "diretoria", "tech")
 @Controller("email")
-@UseGuards(DevAuthGuard, RolesGuard)
+@UseGuards(SessionAuthGuard, RolesGuard)
 export class EmailStatusController {
   constructor(@Inject(ConfigService) private readonly config: ConfigService) {}
 

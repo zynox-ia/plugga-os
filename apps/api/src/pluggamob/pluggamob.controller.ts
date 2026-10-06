@@ -5,14 +5,14 @@ import { evContactRequestSchema, evOptOutRequestSchema, incidentRequestSchema, r
 import { ZodValidationPipe } from "../common/zod-validation.pipe";
 import type { AuthPrincipal } from "../core/auth/auth.types";
 import { CurrentPrincipal } from "../core/auth/current-principal.decorator";
-import { DevAuthGuard } from "../core/auth/dev-auth.guard";
+import { SessionAuthGuard } from "../core/auth/session-auth.guard";
 import { OriginCheckGuard } from "../core/auth/origin-check.guard";
 import { Roles } from "../core/auth/roles.decorator";
 import { RolesGuard } from "../core/auth/roles.guard";
 import { PluggamobService } from "./pluggamob.service";
 
 @Controller("pluggamob")
-@UseGuards(DevAuthGuard, RolesGuard)
+@UseGuards(SessionAuthGuard, RolesGuard)
 @Roles("pluggamob", "financeiro", "diretoria", "tech", "admin")
 export class PluggamobController {
   constructor(@Inject(PluggamobService) private readonly service: PluggamobService) {}

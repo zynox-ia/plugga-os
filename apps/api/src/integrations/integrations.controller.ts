@@ -1,7 +1,7 @@
 import { Controller, Get, Inject, UseGuards } from "@nestjs/common";
 import type { ListIntegrationsResponse } from "@plugga/shared";
 
-import { DevAuthGuard } from "../core/auth/dev-auth.guard";
+import { SessionAuthGuard } from "../core/auth/session-auth.guard";
 import { Roles } from "../core/auth/roles.decorator";
 import { RolesGuard } from "../core/auth/roles.guard";
 import { IntegrationsService } from "./integrations.service";
@@ -12,7 +12,7 @@ import { IntegrationsService } from "./integrations.service";
  * diretoria entra pelo mesmo padrão dos relatórios (llm/consumo.controller.ts).
  */
 @Controller("integrations")
-@UseGuards(DevAuthGuard, RolesGuard)
+@UseGuards(SessionAuthGuard, RolesGuard)
 @Roles("admin", "diretoria", "tech")
 export class IntegrationsController {
   constructor(@Inject(IntegrationsService) private readonly service: IntegrationsService) {}

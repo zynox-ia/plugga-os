@@ -3,7 +3,7 @@ import { CanActivate, ExecutionContext, Inject, Injectable, UnauthorizedExceptio
 import { AuthContext, type AuthenticatedRequest } from "./auth.types";
 
 @Injectable()
-export class DevAuthGuard implements CanActivate {
+export class SessionAuthGuard implements CanActivate {
   constructor(@Inject(AuthContext) private readonly authContext: AuthContext) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {

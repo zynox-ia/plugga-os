@@ -2,6 +2,7 @@ import { CanActivate, ExecutionContext, ForbiddenException, Inject, Injectable }
 import { Reflector } from "@nestjs/core";
 import type { RoleKey } from "@plugga/shared";
 
+import { acessoDeclarado } from "./access.decorators";
 import { type AuthenticatedRequest } from "./auth.types";
 import { ROLES_METADATA } from "./roles.decorator";
 
@@ -16,6 +17,12 @@ export class RolesGuard implements CanActivate {
     ]);
 
     if (!required?.length) {
+      // Fail-closed (US5): sem papel, a rota só passa se declarou `@Public`,
+      // `@Authenticated` ou `@Permissions`. Rota sem nenhuma declaração é negada.
+      const { acesso } = acessoDeclarado(this.reflector, context.getHandler() as never, context.getClass() as never);
+      if (acesso === "undeclared") {
+        throw new ForbiddenException("rota sem declaração de acesso");
+      }
       return true;
     }
 

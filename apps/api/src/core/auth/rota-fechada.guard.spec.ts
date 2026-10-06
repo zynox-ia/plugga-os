@@ -43,8 +43,8 @@ describe("RotaFechadaGuard", () => {
     expect(guard("enforce").canActivate(contexto(ControladorPublico, "qualquer"))).toBe(true);
   });
 
-  it("modo padrão é warn: rota sem declaração passa e é registrada uma vez só", () => {
-    const g = guard();
+  it("modo warn: rota sem declaração passa e é registrada uma vez só", () => {
+    const g = guard("warn");
     const aviso = vi.spyOn((g as unknown as { logger: { warn: (m: string) => void } }).logger, "warn").mockImplementation(() => {});
 
     expect(g.canActivate(contexto(ControladorDeTeste, "semDeclaracao"))).toBe(true);
@@ -52,6 +52,10 @@ describe("RotaFechadaGuard", () => {
 
     expect(aviso).toHaveBeenCalledTimes(1);
     expect(aviso.mock.calls[0]![0]).toContain("ControladorDeTeste.semDeclaracao");
+  });
+
+  it("sem modo configurado o padrão é negar", () => {
+    expect(() => guard().canActivate(contexto(ControladorDeTeste, "semDeclaracao"))).toThrow(ForbiddenException);
   });
 
   it("modo enforce nega rota sem declaração, inclusive @Roles() vazio", () => {
