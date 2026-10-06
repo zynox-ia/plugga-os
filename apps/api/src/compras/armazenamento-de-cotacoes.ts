@@ -1,8 +1,9 @@
 import { createHash } from "node:crypto";
 
-import { Injectable, ServiceUnavailableException } from "@nestjs/common";
+import { Injectable } from "@nestjs/common";
 import type { CompanyKey } from "@plugga/shared";
 
+import { ServicoIndisponivel } from "../common/errors/dominio";
 import { baldeDe } from "../core/armazenamento/baldes.js";
 
 /**
@@ -66,8 +67,9 @@ export class ArmazenamentoDeCotacoes {
 
   private async obterCliente(): Promise<ClienteS3> {
     if (!configurado()) {
-      throw new ServiceUnavailableException(
-        "armazenamento de anexos não configurado; o pedido de compra exige o orçamento anexado",
+      throw new ServicoIndisponivel(
+        undefined,
+        "armazenamento de anexos não configurado (STORAGE_ENDPOINT); o pedido de compra exige o orçamento anexado",
       );
     }
     if (this.cliente) return this.cliente;
@@ -116,11 +118,8 @@ export class ArmazenamentoDeCotacoes {
       );
       return { chave };
     } catch (erro) {
-      throw new ServiceUnavailableException(
-        `não foi possível guardar o orçamento anexado: ${
-          erro instanceof Error ? erro.message : String(erro)
-        }`,
-      );
+      // O detalhe (SDK, endpoint, balde) vai só para o log, com o requestId; a pessoa recebe a mensagem genérica.
+      throw new ServicoIndisponivel(undefined, erro);
     }
   }
 }

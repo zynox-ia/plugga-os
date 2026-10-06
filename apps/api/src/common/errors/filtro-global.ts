@@ -17,7 +17,7 @@ import type { Response } from "express";
 import { ZodError } from "zod";
 
 import { gerarRequestId, type RequisicaoComId } from "../request-id.middleware";
-import { ErroDeDominio, LimiteExcedido } from "./dominio";
+import { ErroDeDominio, LimiteExcedido, ServicoIndisponivel } from "./dominio";
 
 const MENSAGEM_PADRAO: Readonly<Record<CodigoDeErro, string>> = {
   REQUISICAO_INVALIDA: "A requisição está incompleta ou malformada.",
@@ -252,6 +252,16 @@ export class FiltroGlobalDeExcecoes implements ExceptionFilter {
       this.logger.error(
         `${requestId} ${requisicao.method} ${requisicao.url}`,
         excecao instanceof Error ? excecao.stack : String(excecao),
+      );
+    }
+    if (excecao instanceof ServicoIndisponivel && excecao.causa !== undefined) {
+      // Detalhe interno (SDK, endpoint) só no log do servidor, com o requestId.
+      const causa = excecao.causa;
+      this.logger.error(
+        `${requestId} ${requisicao.method} ${requisicao.url} serviço indisponível: ${
+          causa instanceof Error ? causa.message : String(causa)
+        }`,
+        causa instanceof Error ? causa.stack : undefined,
       );
     }
     if (resposta.headersSent) {
