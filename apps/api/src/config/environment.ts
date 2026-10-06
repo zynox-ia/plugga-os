@@ -105,7 +105,7 @@ export const environmentSchema = z
     // Desligado por default: sem a variável o cache se comporta como sempre. Com
     // ela, uma entrada gravada por quem tem acesso ao Redis mas não tem esta
     // chave é recusada (vira cache miss e a sessão é relida do Postgres). Ligar
-    // exige senha no Redis em paralelo ([VPS], docs/adr e ops/GUIA.md).
+    // exige senha no Redis em paralelo (tarefa [VPS], com aprovação do dono).
     SESSION_CACHE_HMAC_KEY: opcional(z.string().min(32)),
     // Piso entre renovações de sessão por atividade (`lastUsedAt`): sem isto, a
     // renovação escreve no Postgres em toda requisição autenticada, mesmo em

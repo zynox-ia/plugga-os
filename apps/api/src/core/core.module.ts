@@ -30,7 +30,11 @@ import { SessionLookupRepository } from "./auth/session-lookup.repository";
       provide: SessionCache,
       useFactory: (config: ConfigService): SessionCache =>
         config.get<boolean>("SESSION_CACHE_ENABLED", true)
-          ? new RedisSessionCache(config.get<string>("REDIS_URL", "redis://localhost:6379"))
+          ? new RedisSessionCache(
+              config.get<string>("REDIS_URL", "redis://localhost:6379"),
+              // Opcional (T115): sem a variável o cache não autentica as entradas.
+              config.get<string>("SESSION_CACHE_HMAC_KEY") || undefined,
+            )
           : new NullSessionCache(),
       inject: [ConfigService],
     },
