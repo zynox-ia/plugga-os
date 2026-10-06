@@ -1,4 +1,4 @@
-import { proxyCommercialPost } from "../../../lib/commercial-proxy";
+import { proxyCommercialPost } from "../../../lib/proxy";
 
 export async function POST(request: Request): Promise<Response> {
   return proxyCommercialPost(request, "contracts");

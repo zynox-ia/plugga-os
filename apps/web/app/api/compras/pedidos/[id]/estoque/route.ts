@@ -1,4 +1,4 @@
-import { proxyComprasPost } from "../../../../../lib/compras-proxy";
+import { proxyComprasPost } from "../../../../../lib/proxy";
 
 export async function POST(
   request: Request,
@@ -6,5 +6,5 @@ export async function POST(
 ): Promise<Response> {
   const { id } = await params;
   const companyId = new URL(request.url).searchParams.get("companyId") ?? "";
-  return proxyComprasPost(request, `pedidos/${id}/estoque?companyId=${companyId}`);
+  return proxyComprasPost(request, `pedidos/:id/estoque`, { id }, { companyId });
 }

@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { ETAPAS } from "./compras-view";
 import { ShellCard, ShellTable, StatusPill } from "./plugga-shell";
+import { formatarBRL } from "../lib/format";
 
 /**
  * Scorecard semanal de Compras — POP §4.
@@ -28,10 +29,6 @@ const ROTULO: Record<FarolEos, string> = {
 
 function pct(valor: number | null): string {
   return valor === null ? "—" : `${valor.toFixed(2).replace(".", ",")}%`;
-}
-
-function moeda(valor: string): string {
-  return Number(valor).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
 function Farol({ farol }: { farol: FarolEos | null }) {
@@ -91,8 +88,8 @@ export function ComprasScorecardView({
               <td>
                 <strong>{pct(global.percentual)}</strong>
               </td>
-              <td>{moeda(global.totalOrcado)}</td>
-              <td>{moeda(global.totalFaturado)}</td>
+              <td>{formatarBRL(global.totalOrcado)}</td>
+              <td>{formatarBRL(global.totalFaturado)}</td>
               <td>{global.pedidosConsiderados}</td>
               <td>
                 <Farol farol={global.farol} />

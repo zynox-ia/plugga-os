@@ -6,6 +6,7 @@ import { useState } from "react";
 
 import { createContestation, resolveAudit, updateContestationStatus } from "../lib/energy-client";
 import { ShellCard, StatusPill } from "./plugga-shell";
+import { formatarDataHora } from "../lib/format";
 
 const AUDIT_STATUS_VARIANT: Record<string, "neutral" | "success" | "warning" | "danger"> = {
   em_analise: "neutral",
@@ -38,11 +39,6 @@ const CONTESTATION_NEXT: Record<ContestationStatus, ContestationStatus[]> = {
 
 const RESOLUTION_STATUSES: AuditResolutionStatus[] = ["resolvida", "inconclusiva", "sem_divergencia"];
 const RESOLVED_AUDIT_STATUSES = new Set(RESOLUTION_STATUSES);
-
-function formatDateTime(value: string | null): string {
-  if (!value) return "—";
-  return new Date(value).toLocaleString("pt-BR");
-}
 
 export function AuditoriaDetailView({
   audit,
@@ -151,7 +147,7 @@ export function AuditoriaDetailView({
               <strong>{audit.divergenceBlocksClosing ? "sim" : "não"}</strong>
             </p>
             <p className="card-note" style={{ padding: 0 }}>
-              Aberta em {formatDateTime(audit.createdAt)} · atualizada em {formatDateTime(audit.updatedAt)}
+              Aberta em {formatarDataHora(audit.createdAt)} · atualizada em {formatarDataHora(audit.updatedAt)}
             </p>
           </div>
         </ShellCard>
@@ -176,8 +172,8 @@ export function AuditoriaDetailView({
                 <strong>{contestation.protocol ?? "—"}</strong>
               </p>
               <p>
-                Aberta em {formatDateTime(contestation.openedAt)} · prazo esperado{" "}
-                {formatDateTime(contestation.expectedResponseAt)}
+                Aberta em {formatarDataHora(contestation.openedAt)} · prazo esperado{" "}
+                {formatarDataHora(contestation.expectedResponseAt)}
               </p>
               {contestation.financialResult ? (
                 <p>

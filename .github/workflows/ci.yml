@@ -170,7 +170,7 @@ jobs:
 
       - name: Build
         env:
-          NEXT_PUBLIC_API_URL: http://127.0.0.1:3001
+          API_INTERNAL_URL: http://127.0.0.1:3001
         run: pnpm build
 
       - name: Install Playwright Chromium
@@ -220,7 +220,7 @@ jobs:
         id: playwright
         env:
           CI: "true"
-          NEXT_PUBLIC_API_URL: http://127.0.0.1:3001
+          API_INTERNAL_URL: http://127.0.0.1:3001
         run: pnpm test:e2e
 
       - name: Upload Playwright failure artifacts

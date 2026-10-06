@@ -2,6 +2,7 @@
 
 import { useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
+import { AvisoDadosDeExemplo } from "./aviso-dados-de-exemplo";
 import { ShellCard } from "./plugga-shell";
 import type { HealthCheck } from "../lib/api";
 
@@ -461,6 +462,7 @@ function DashboardContent({ health }: { health: HealthCheck | null }) {
 
   return (
     <div className="dashboard-view" style={{ display: "flex", flexDirection: "column", gap: "22px" }}>
+      <AvisoDadosDeExemplo />
       {/* 1. Cabeçalho de Boas-Vindas & Filtros (Restaurado com 'Bem-vindo, André') */}
       <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
         <div>

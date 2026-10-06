@@ -1,31 +1,20 @@
-import Link from "next/link";
-
+import { EstadoDaApi } from "../../../components/estado-da-api";
 import { MigracaoDetailView } from "../../../components/migracao-detail-view";
-import { ShellCard } from "../../../components/plugga-shell";
 import { fetchMarketMigrations } from "../../../lib/api";
+import { erroDe } from "../../../lib/api-core";
+import { resolverEstado } from "../../../lib/estado-da-api";
 import { FALLBACK_MARKET_MIGRATIONS } from "../../../lib/mock/energy";
 
 export default async function MigracaoDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const response = await fetchMarketMigrations();
-  const isLive = response !== null;
-  const migration = (response?.items ?? FALLBACK_MARKET_MIGRATIONS).find((item) => item.id === id);
+  const estado = resolverEstado(await fetchMarketMigrations(), (resposta) => resposta.items, FALLBACK_MARKET_MIGRATIONS);
+  const voltar = { href: "/energia-opm/migracoes", rotulo: "Voltar à fila" };
+  if (estado.estado === "erro") return <EstadoDaApi erro={estado.erro} eyebrow="Energia & OPM" voltar={voltar} />;
 
+  const migration = estado.dados.find((item) => item.id === id);
   if (!migration) {
-    return (
-      <ShellCard className="panel-card">
-        <div className="card-heading">
-          <div>
-            <span className="eyebrow">Energia & OPM</span>
-            <h2>Migração não encontrada</h2>
-          </div>
-        </div>
-        <p className="card-note">
-          Não foi possível carregar esta migração agora. <Link href="/energia-opm/migracoes">Voltar à fila</Link>.
-        </p>
-      </ShellCard>
-    );
+    return <EstadoDaApi erro={erroDe("naoEncontrado", { status: 404 })} eyebrow="Energia & OPM" voltar={voltar} />;
   }
 
-  return <MigracaoDetailView migration={migration} isLive={isLive} />;
+  return <MigracaoDetailView migration={migration} isLive={estado.estado === "ok"} />;
 }

@@ -7,6 +7,7 @@ import { useState } from "react";
 
 import { createAudit } from "../lib/energy-client";
 import { ShellCard, ShellTable, StatusPill } from "./plugga-shell";
+import { formatarData } from "../lib/format";
 
 type TabId = "todas" | "abertas" | "resolvidas";
 
@@ -40,11 +41,6 @@ const TYPE_LABEL: Record<AuditType, string> = {
   validacao_migracao: "Validação de migração",
   oportunidade: "Oportunidade",
 };
-
-function formatDate(value: string | null): string {
-  if (!value) return "—";
-  return new Date(value).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
-}
 
 function matchesTab(item: AuditSummary, tab: TabId): boolean {
   if (tab === "todas") return true;
@@ -194,7 +190,7 @@ export function AuditoriasView({ items, isLive }: { items: AuditSummary[]; isLiv
               </td>
               <td>{TYPE_LABEL[item.type]}</td>
               <td>{item.summary ?? "—"}</td>
-              <td>{formatDate(item.createdAt)}</td>
+              <td>{formatarData(item.createdAt)}</td>
               <td>
                 <StatusPill variant={STATUS_VARIANT[item.status] ?? "neutral"}>{item.status}</StatusPill>
               </td>

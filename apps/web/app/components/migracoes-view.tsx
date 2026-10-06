@@ -7,6 +7,7 @@ import { useState } from "react";
 
 import { createMarketMigration } from "../lib/energy-client";
 import { ShellCard, ShellTable, StatusPill } from "./plugga-shell";
+import { formatarDiaMes } from "../lib/format";
 
 type TabId = "kanban" | "lista" | "ativas" | "canceladas";
 
@@ -30,11 +31,6 @@ const STATUS_VARIANT: Record<string, "neutral" | "success" | "warning" | "danger
   ativa: "success",
   cancelada: "danger",
 };
-
-function formatDate(value: string | null): string {
-  if (!value) return "—";
-  return new Date(value).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
-}
 
 function matchesTab(item: MarketMigrationSummary, tab: TabId): boolean {
   switch (tab) {
@@ -158,7 +154,7 @@ export function MigracoesView({ items, isLive }: { items: MarketMigrationSummary
                   <Link className="lead-card" href={`/energia-opm/migracoes/${item.id}`} key={item.id}>
                     <strong>{item.consumerUnitCode}</strong>
                     <span>Responsável: {item.ownerName ?? "sem responsável"}</span>
-                    <span>Próxima ação: {formatDate(item.nextActionAt)}</span>
+                    <span>Próxima ação: {formatarDiaMes(item.nextActionAt)}</span>
                     {item.nextActionNote ? <span>{item.nextActionNote}</span> : null}
                   </Link>
                 ))}
@@ -187,7 +183,7 @@ export function MigracoesView({ items, isLive }: { items: MarketMigrationSummary
                 <td>{STAGES.find((stage) => stage.id === item.stage)?.label ?? item.stage}</td>
                 <td>{item.ownerName ?? "—"}</td>
                 <td>
-                  {formatDate(item.nextActionAt)}
+                  {formatarDiaMes(item.nextActionAt)}
                   {item.nextActionNote ? ` · ${item.nextActionNote}` : ""}
                 </td>
                 <td>

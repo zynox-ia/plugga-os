@@ -4,7 +4,7 @@ import { googleLoginErrorCodeSchema, type GoogleLoginErrorCode } from "@plugga/s
 // como ESM do Node e não aceita import sem extensão (ver tsconfig.json, onde
 // `allowImportingTsExtensions` existe exatamente por isso). O bundler do Next
 // resolve o caminho literal sem reclamar.
-import { apiBaseUrl } from "./env.ts";
+import { apiBaseUrl } from "./env-runtime.ts";
 import { clientForwardedFor } from "./forwarded-for.ts";
 
 /**
@@ -14,7 +14,7 @@ import { clientForwardedFor } from "./forwarded-for.ts";
  * sem subir o Next: o que precisa de teste aqui é a travessia (corpo, cookies,
  * `Set-Cookie` de volta, tradução de erro em redirect), não o roteamento.
  *
- * Por que este handler não reaproveita `auth-proxy.ts`: aquele proxy exige JSON
+ * Por que este handler não reaproveita `proxy.ts`: aquele proxy exige JSON
  * e recusa `Origin` de fora, e as duas coisas estão erradas para este caminho.
  * Quem posta aqui é o Google — `application/x-www-form-urlencoded`, com
  * `Origin: https://accounts.google.com`. Bloquear por origem mataria o fluxo; o

@@ -1,28 +1,20 @@
-import Link from "next/link";
-
 import { ContratoDetailView } from "../../../components/contrato-detail-view";
-import { ShellCard } from "../../../components/plugga-shell";
+import { EstadoDaApi } from "../../../components/estado-da-api";
 import { fetchContract } from "../../../lib/api";
 
 export default async function ContratoDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const contract = await fetchContract(id);
+  const resultado = await fetchContract(id);
 
-  if (!contract) {
+  if (!resultado.ok) {
     return (
-      <ShellCard className="panel-card">
-        <div className="card-heading">
-          <div>
-            <span className="eyebrow">Comercial</span>
-            <h2>Contrato não encontrado</h2>
-          </div>
-        </div>
-        <p className="card-note">
-          Não foi possível carregar este contrato agora. <Link href="/comercial/contratos">Voltar à lista</Link>.
-        </p>
-      </ShellCard>
+      <EstadoDaApi
+        erro={resultado.erro}
+        eyebrow="Comercial"
+        voltar={{ href: "/comercial/contratos", rotulo: "Voltar à lista" }}
+      />
     );
   }
 
-  return <ContratoDetailView contract={contract} />;
+  return <ContratoDetailView contract={resultado.dados} />;
 }

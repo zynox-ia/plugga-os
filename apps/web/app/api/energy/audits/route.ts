@@ -1,4 +1,4 @@
-import { proxyEnergyPost } from "../../../lib/energy-proxy";
+import { proxyEnergyPost } from "../../../lib/proxy";
 
 export async function POST(request: Request): Promise<Response> {
   return proxyEnergyPost(request, "audits");

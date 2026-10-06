@@ -6,6 +6,7 @@ import { useState } from "react";
 
 import { updateContractStatus } from "../lib/commercial-client";
 import { ShellCard, StatusPill } from "./plugga-shell";
+import { formatarDataHora } from "../lib/format";
 
 const STATUS_LABEL: Record<string, string> = {
   rascunho: "Rascunho",
@@ -24,11 +25,6 @@ const STATUS_VARIANT: Record<string, "neutral" | "success" | "warning" | "danger
   vencendo: "warning",
   encerrado: "neutral",
 };
-
-function formatDateTime(value: string | null): string {
-  if (!value) return "—";
-  return new Date(value).toLocaleString("pt-BR");
-}
 
 export function ContratoDetailView({ contract }: { contract: ContractDetail }) {
   const router = useRouter();
@@ -79,16 +75,16 @@ export function ContratoDetailView({ contract }: { contract: ContractDetail }) {
               Responsável: <strong>{contract.ownerName ?? "sem responsável"}</strong>
             </p>
             <p>
-              Vigência: <strong>{formatDateTime(contract.startsAt)}</strong> até{" "}
-              <strong>{formatDateTime(contract.endsAt)}</strong>
+              Vigência: <strong>{formatarDataHora(contract.startsAt)}</strong> até{" "}
+              <strong>{formatarDataHora(contract.endsAt)}</strong>
             </p>
             <p>
-              Assinatura: <strong>{contract.signedAt ? formatDateTime(contract.signedAt) : "pendente"}</strong>
+              Assinatura: <strong>{contract.signedAt ? formatarDataHora(contract.signedAt) : "pendente"}</strong>
             </p>
             <div className="box" style={{ border: "1px solid var(--line)", borderRadius: 12, padding: 12 }}>
               <strong>Próxima ação</strong>
               <p style={{ margin: "6px 0 0" }}>
-                {contract.nextActionNote ?? "sem nota registrada"} — {formatDateTime(contract.nextActionAt)}
+                {contract.nextActionNote ?? "sem nota registrada"} — {formatarDataHora(contract.nextActionAt)}
               </p>
             </div>
             <p className="card-note" style={{ padding: 0 }}>

@@ -1,5 +1,7 @@
+import { EstadoDaApi } from "../../components/estado-da-api";
 import { ComprasScorecardView } from "../../components/compras-scorecard-view";
 import { fetchDiagnosticoCompras, fetchScorecardCompras } from "../../lib/api";
+import { resolverEstado } from "../../lib/estado-da-api";
 import { FALLBACK_SCORECARD } from "../../lib/mock/compras";
 import { EMPRESA_PADRAO, isEmpresaId } from "../../lib/organizacao";
 
@@ -30,12 +32,16 @@ export default async function ScorecardComprasPage({
     fetchDiagnosticoCompras(ativa, inicio, fim),
   ]);
 
+  const estado = resolverEstado(scorecard, (dados) => dados, FALLBACK_SCORECARD);
+  if (estado.estado === "erro") return <EstadoDaApi erro={estado.erro} eyebrow="Compras" />;
+
+  // O diagnóstico é complementar: sem ele o scorecard ainda é útil.
   return (
     <ComprasScorecardView
-      scorecard={scorecard ?? FALLBACK_SCORECARD}
-      diagnostico={diagnostico}
+      scorecard={estado.dados}
+      diagnostico={diagnostico.ok ? diagnostico.dados : null}
       empresa={ativa}
-      isLive={scorecard !== null}
+      isLive={estado.estado === "ok"}
     />
   );
 }
