@@ -317,7 +317,7 @@ describe("limites de entrada — US10 (e2e)", () => {
         },
         destroy: () => undefined,
       });
-      vi.spyOn(armazenamento, "guardar").mockImplementation((c, m, n, e) => real.guardar(c, m, n, e));
+      vi.spyOn(armazenamento, "guardar").mockImplementation(((c: Buffer, m: string, n: string, e?: unknown) => (real.guardar as (...a: unknown[]) => Promise<never>)(c, m, n, e)) as never);
       const erros = vi.spyOn(Logger.prototype, "error").mockImplementation(() => undefined);
 
       const resposta = await enviarCotacao("falha", pdf(), "ok.pdf", MIME.pdf);

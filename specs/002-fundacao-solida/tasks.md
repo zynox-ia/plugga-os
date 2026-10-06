@@ -409,15 +409,15 @@ Monorepo pnpm: `apps/api/src/`, `apps/api/prisma/`, `apps/api/test/`, `apps/web/
 
 - [ ] T176 [US14] Reorganizar `.github/workflows/ci.yml` em jobs paralelos (qualidade, banco, e2e, imagens, ops) com cache de pnpm e do navegador do Playwright e `fetch-depth: 0` para o scanner; meta de 15 minutos
 - [ ] T177 [P] [US14] Incluir na CI as suítes hoje ausentes: `test:compras`, `test:storage`, `test:ocr`, `test:llm`, integração de energia (`energy-foundation.integration.spec.ts`, `estudo-fluxo.integration.spec.ts` com `RUN_DATABASE_INTEGRATION_TESTS`), `test:platform-safety`, `test:migrations:from-zero`, `ops/*.test.sh` e o oráculo (`RUN_ORACULO_TESTS` com Python), usando o SeaweedFS de `compose.test.yaml`
-- [ ] T178 [P] [US14] `shellcheck` sobre `ops/*.sh` e `scripts/*.sh` na CI, corrigindo os alertas
-- [ ] T179 [P] [US14] Build das imagens Docker na CI (`docker build --target runtime` para API e web) sem publicar
+- [X] T178 [P] [US14] `shellcheck` sobre `ops/*.sh` e `scripts/*.sh` na CI, corrigindo os alertas
+- [X] T179 [P] [US14] Build das imagens Docker na CI (`docker build --target runtime` para API e web) sem publicar
 - [ ] T180 [P] [US14] Cobertura mínima de **70% de linhas** nos módulos críticos (auth, compras, obras, comercial, energia, energy-efficiency) em `apps/api/vitest.config.ts`, com falha abaixo do limite e ajuste só por ADR
 - [ ] T181 [P] [US14] Pinar por SHA/digest as actions (`actions/checkout`, `actions/setup-node`, `actions/upload-artifact`), a imagem do gitleaks e as imagens base (`node`, `postgres`, `redis`) em `.github/workflows/*.yml`, `apps/*/Dockerfile`, `compose.yaml`
-- [ ] T182 [P] [US14] Criar `renovate.json` (ou `.github/dependabot.yml`) com agrupamento e revisão obrigatória para atualizações de segurança
-- [ ] T183 [P] [US14] Typecheck dos testes da API: `apps/api/tsconfig.test.json` incluindo `test/**` e rodá-lo em `pnpm typecheck`
+- [X] T182 [P] [US14] Criar `renovate.json` (ou `.github/dependabot.yml`) com agrupamento e revisão obrigatória para atualizações de segurança
+- [X] T183 [P] [US14] Typecheck dos testes da API: `apps/api/tsconfig.test.json` incluindo `test/**` e rodá-lo em `pnpm typecheck`
 - [ ] T184 [US14] Endurecer o lint em `packages/config/eslint/index.mjs`: regras com informação de tipos (`no-floating-promises`, `no-misused-promises`), `react-hooks`, `@next/eslint-plugin-next`, `jsx-a11y`; corrigir os achados; trocar as regras de fronteira por regex por resolução de módulos e testar os limites web↔api em `packages/config/eslint/index.test.mjs`
 - [ ] T185 [P] [US14] Playwright: reportar testes que só passaram na retentativa como instáveis (`apps/web/playwright.config.ts`) e remover `fullyParallel` sobre banco compartilhado ou isolar os dados
-- [ ] T186 [US14] Corrigir a documentação da CI: `ops/GUIA.md` linha 86 afirma que lint+typecheck+test é o que a CI roda; descrever o que realmente roda
+- [X] T186 [US14] Corrigir a documentação da CI: `ops/GUIA.md` linha 86 afirma que lint+typecheck+test é o que a CI roda; descrever o que realmente roda
 
 ---
 

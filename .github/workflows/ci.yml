@@ -165,6 +165,9 @@ jobs:
       - name: Verify schedule installer script
         run: bash ops/instala-agendamentos.test.sh
 
+      - name: Verify platform safety guards
+        run: pnpm test:platform-safety
+
       - name: Lint
         run: pnpm lint
 
@@ -244,3 +247,28 @@ jobs:
           if [ -f /tmp/plugga-api.pid ]; then
             kill "$(cat /tmp/plugga-api.pid)" || true
           fi
+
+  # Roda em paralelo ao job principal (spec 002, US14).
+  shell:
+    name: Shell scripts (shellcheck)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run shellcheck on ops and scripts
+        run: |
+          shopt -s nullglob
+          shellcheck --severity=warning ops/*.sh scripts/*.sh
+
+  imagens:
+    name: Docker images (build only)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [api, web]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build runtime image without publishing
+        run: docker build --target runtime --file apps/${{ matrix.app }}/Dockerfile .
