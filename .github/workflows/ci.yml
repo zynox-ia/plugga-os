@@ -130,6 +130,9 @@ jobs:
       - name: Verify critical operations are atomic under concurrency
         run: pnpm --filter @plugga/api test:atomicidade
 
+      - name: Verify purchasing indicators cover the whole period
+        run: pnpm --filter @plugga/api test:indicadores-compras
+
       - name: Verify audit events carry no personal data
         run: pnpm --filter @plugga/api test:eventos-pii
 

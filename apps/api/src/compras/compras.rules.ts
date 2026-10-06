@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException } from "@nestjs/common";
+import { AcessoNegado, EstadoInvalido, RequisicaoInvalida } from "../common/errors/dominio";
 import {
   COMPRAS_ALCADA_FINANCEIRO,
   COMPRAS_SLA_DIAS_UTEIS,
@@ -34,10 +34,10 @@ export const TRANSICOES_PERMITIDAS: Record<ComprasEtapa, readonly ComprasEtapa[]
 
 export function assertTransicaoPermitida(de: ComprasEtapa, para: ComprasEtapa): void {
   if (de === "concluido") {
-    throw new BadRequestException("o pedido já foi concluído e não admite novas transições");
+    throw new EstadoInvalido("o pedido já foi concluído e não admite novas transições");
   }
   if (!TRANSICOES_PERMITIDAS[de].includes(para)) {
-    throw new BadRequestException(`não é possível ir de "${de}" para "${para}"`);
+    throw new EstadoInvalido(`não é possível ir de "${de}" para "${para}"`);
   }
 }
 
@@ -57,7 +57,7 @@ export function assertTransicaoPermitida(de: ComprasEtapa, para: ComprasEtapa): 
  */
 export function assertEtapaAtual(atual: ComprasEtapa, esperada: ComprasEtapa): void {
   if (atual !== esperada) {
-    throw new BadRequestException(
+    throw new EstadoInvalido(
       `esta ação pertence à etapa "${esperada}"; o pedido está em "${atual}"`,
     );
   }
@@ -69,19 +69,19 @@ export function assertPodeSeguirParaAprovacao(pedido: {
   cotacaoSelecionadaId: string | null;
 }): void {
   if (!pedido.necessidadeValidadaEm) {
-    throw new BadRequestException(
+    throw new EstadoInvalido(
       "valide a necessidade do material antes de mandar para aprovação",
     );
   }
   if (!pedido.cotacaoSelecionadaId) {
-    throw new BadRequestException("selecione a cotação antes de mandar para aprovação");
+    throw new EstadoInvalido("selecione a cotação antes de mandar para aprovação");
   }
 }
 
 /** O POP §2.4 manda liquidar "conforme o orçamento aprovado": sem valor, não há liquidação. */
 export function assertPagamentoTemFaturado(valorFaturado: string | null | undefined): void {
   if (!valorFaturado || Number(valorFaturado) <= 0) {
-    throw new BadRequestException("registrar pagamento exige o valor faturado");
+    throw new RequisicaoInvalida("registrar pagamento exige o valor faturado");
   }
 }
 
@@ -92,10 +92,10 @@ export function assertPagamentoTemFaturado(valorFaturado: string | null | undefi
  */
 export function assertPodeRenegociarPrazo(prazoEm: Date | null, agora: Date): void {
   if (!prazoEm) {
-    throw new BadRequestException("não há etapa aberta para renegociar");
+    throw new EstadoInvalido("não há etapa aberta para renegociar");
   }
   if (agora > prazoEm) {
-    throw new BadRequestException(
+    throw new EstadoInvalido(
       "o prazo desta etapa já venceu; renegociação só vale antes do vencimento (POP §3)",
     );
   }
@@ -172,10 +172,10 @@ export function assertSegregacao(
 
   const explicacao = pares.map((par) => MOTIVO[par]).join("; ");
   if (!dispensa) {
-    throw new ForbiddenException(`segregação de função: ${explicacao}`);
+    throw new AcessoNegado(`segregação de função: ${explicacao}`);
   }
   if (!principal.roles.includes("diretoria")) {
-    throw new ForbiddenException(
+    throw new AcessoNegado(
       `só a diretoria pode dispensar a segregação de função (${explicacao})`,
     );
   }
@@ -219,7 +219,7 @@ export function assertAlcadaDePrazo(
     return;
   }
   if (!roles.includes("diretoria")) {
-    throw new ForbiddenException(
+    throw new AcessoNegado(
       `esticar o prazo além de ${teto} dias úteis é decisão da diretoria; ` +
         "dentro da régua do POP §3, renegocie à vontade",
     );
@@ -251,12 +251,12 @@ export function assertConfirmacaoDeRecebimento(
     return { porTerceiro: false };
   }
   if (!confirmacaoPorTerceiro) {
-    throw new ForbiddenException(
+    throw new AcessoNegado(
       "o recebimento é confirmado por quem pediu o material; a diretoria pode confirmar no lugar dele com justificativa",
     );
   }
   if (!principal.roles.includes("diretoria")) {
-    throw new ForbiddenException("só a diretoria confirma recebimento no lugar do solicitante");
+    throw new AcessoNegado("só a diretoria confirma recebimento no lugar do solicitante");
   }
   return { porTerceiro: true };
 }
@@ -281,7 +281,7 @@ export function papeisQuePodemAprovar(valor: string | null): readonly RoleKey[] 
 export function assertAlcada(valor: string | null, roles: readonly RoleKey[]): void {
   const permitidos = papeisQuePodemAprovar(valor);
   if (!permitidos.some((papel) => roles.includes(papel))) {
-    throw new ForbiddenException(
+    throw new AcessoNegado(
       `compras acima de R$ ${COMPRAS_ALCADA_FINANCEIRO} são aprovadas pela diretoria`,
     );
   }

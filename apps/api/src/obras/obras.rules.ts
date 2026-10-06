@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException } from "@nestjs/common";
+import { AcessoNegado, EstadoInvalido, RequisicaoInvalida } from "../common/errors/dominio";
 import {
   incidenteGravidadeMinimaQueBloqueia,
   type MedicaoStatus,
@@ -46,10 +46,10 @@ export const OBRA_TRANSICOES_PERMITIDAS: Record<ObraEtapa, readonly ObraEtapa[]>
 
 export function assertTransicaoPermitida(de: ObraEtapa, para: ObraEtapa): void {
   if (de === "obra_encerrada") {
-    throw new BadRequestException("a obra já foi encerrada e não admite novas transições");
+    throw new EstadoInvalido("a obra já foi encerrada e não admite novas transições");
   }
   if (!OBRA_TRANSICOES_PERMITIDAS[de].includes(para)) {
-    throw new BadRequestException(`não é possível ir de "${de}" para "${para}"`);
+    throw new EstadoInvalido(`não é possível ir de "${de}" para "${para}"`);
   }
 }
 
@@ -64,7 +64,7 @@ export function assertTransicaoPermitida(de: ObraEtapa, para: ObraEtapa): void {
  */
 export function assertEtapaAtual(atual: ObraEtapa, esperada: ObraEtapa): void {
   if (atual !== esperada) {
-    throw new BadRequestException(`esta ação pertence à etapa "${esperada}"; a obra está em "${atual}"`);
+    throw new EstadoInvalido(`esta ação pertence à etapa "${esperada}"; a obra está em "${atual}"`);
   }
 }
 
@@ -83,12 +83,12 @@ export function assertReaberturaDeProjeto(
     return;
   }
   if (!principal.roles.includes("engenheiro")) {
-    throw new ForbiddenException(
+    throw new AcessoNegado(
       "reabrir um projeto aprovado é decisão de engenheiro (com justificativa) ou diretoria",
     );
   }
   if (!justificativa || justificativa.trim().length === 0) {
-    throw new BadRequestException("reabertura por engenheiro exige justificativa técnica escrita");
+    throw new RequisicaoInvalida("reabertura por engenheiro exige justificativa técnica escrita");
   }
 }
 
@@ -103,7 +103,7 @@ export function assertReaberturaDeProjeto(
  * para o teste de contrato ter o que exercitar.
  */
 export function assertEvidenciaImutavel(): never {
-  throw new ForbiddenException("evidência de obra é append-only; correção gera novo registro");
+  throw new AcessoNegado("evidência de obra é append-only; correção gera novo registro");
 }
 
 // --- Segurança do trabalho (POP §8) ---------------------------------------
@@ -119,7 +119,7 @@ export function assertAprCompleta(apr: {
   supervisorAssinouEm: Date | null;
 }): void {
   if (!apr.segurancaAssinouEm || !apr.supervisorAssinouEm) {
-    throw new BadRequestException(
+    throw new EstadoInvalido(
       "APR incompleta: faltam as assinaturas mínimas do POP §8.2 (segurança e supervisor)",
     );
   }
@@ -133,7 +133,7 @@ export function assertAprCompleta(apr: {
  */
 export function assertEpiConferido(epi: { conferidoEm: Date | null; conferidoPorId: string | null }): void {
   if (!epi.conferidoEm || !epi.conferidoPorId) {
-    throw new BadRequestException("EPI ainda não conferido — registre a conferência antes de liberar a atividade");
+    throw new EstadoInvalido("EPI ainda não conferido — registre a conferência antes de liberar a atividade");
   }
 }
 
@@ -148,7 +148,7 @@ export function assertLiberacaoValida(liberacao: {
   revogadoEm: Date | null;
 }): void {
   if (liberacao.revogadoEm) {
-    throw new ForbiddenException("a liberação de segurança foi revogada; é necessário um novo registro");
+    throw new AcessoNegado("a liberação de segurança foi revogada; é necessário um novo registro");
   }
 }
 
@@ -173,7 +173,7 @@ export function assertTecnicoNaoEditaOrcamento(principal: { roles: readonly Role
     !principal.roles.includes("engenheiro") &&
     !principal.roles.includes("diretoria");
   if (ehSomenteTecnico) {
-    throw new ForbiddenException("técnico não edita orçamento (POP-OBR-001 §1.2)");
+    throw new AcessoNegado("técnico não edita orçamento (POP-OBR-001 §1.2)");
   }
 }
 
@@ -186,7 +186,7 @@ export function assertCampoNaoAlteraProjetoAprovado(
   const naoEhEngenhariaOuDiretoria =
     !principal.roles.includes("engenheiro") && !principal.roles.includes("diretoria");
   if (ehCampo && naoEhEngenhariaOuDiretoria && etapaAtual !== "projeto_em_elaboracao") {
-    throw new ForbiddenException("campo não altera projeto fora da elaboração (POP-OBR-001 §1.2)");
+    throw new AcessoNegado("campo não altera projeto fora da elaboração (POP-OBR-001 §1.2)");
   }
 }
 
@@ -197,7 +197,7 @@ export function assertAlmoxarifeNaoAlteraCronogramaFinanceiro(principal: { roles
     !principal.roles.includes("financeiro") &&
     !principal.roles.includes("diretoria");
   if (ehSomenteAlmoxarife) {
-    throw new ForbiddenException("almoxarife não altera cronograma financeiro (POP-OBR-001 §1.2/§7)");
+    throw new AcessoNegado("almoxarife não altera cronograma financeiro (POP-OBR-001 §1.2/§7)");
   }
 }
 
@@ -208,7 +208,7 @@ export function assertFinanceiroNaoAlteraMedicaoTecnica(principal: { roles: read
     !principal.roles.includes("engenheiro") &&
     !principal.roles.includes("diretoria");
   if (ehSomenteFinanceiro) {
-    throw new ForbiddenException("financeiro não altera medição técnica (POP-OBR-001 §1.2/§9)");
+    throw new AcessoNegado("financeiro não altera medição técnica (POP-OBR-001 §1.2/§9)");
   }
 }
 
@@ -217,7 +217,7 @@ export function assertFinanceiroNaoAlteraMedicaoTecnica(principal: { roles: read
 /** Só se encerra pendência aberta — encerrar de novo não é ação válida. */
 export function assertPendenciaAberta(status: PendenciaStatus): void {
   if (status !== "aberta") {
-    throw new BadRequestException("esta pendência já foi encerrada");
+    throw new EstadoInvalido("esta pendência já foi encerrada");
   }
 }
 
@@ -237,7 +237,7 @@ export const MEDICAO_TRANSICOES: Record<MedicaoStatus, readonly MedicaoStatus[]>
 
 export function assertMedicaoTransicao(de: MedicaoStatus, para: MedicaoStatus): void {
   if (!MEDICAO_TRANSICOES[de].includes(para)) {
-    throw new BadRequestException(`não é possível levar a medição de "${de}" para "${para}"`);
+    throw new EstadoInvalido(`não é possível levar a medição de "${de}" para "${para}"`);
   }
 }
 
@@ -258,9 +258,9 @@ export const PROJETO_VERSAO_TRANSICOES: Record<ProjetoVersaoStatus, readonly Pro
 
 export function assertProjetoVersaoTransicao(de: ProjetoVersaoStatus, para: ProjetoVersaoStatus): void {
   if (de === "superado" || de === "aprovado") {
-    throw new BadRequestException(`a versão em "${de}" não admite novas transições`);
+    throw new EstadoInvalido(`a versão em "${de}" não admite novas transições`);
   }
   if (!PROJETO_VERSAO_TRANSICOES[de].includes(para)) {
-    throw new BadRequestException(`não é possível levar o projeto de "${de}" para "${para}"`);
+    throw new EstadoInvalido(`não é possível levar o projeto de "${de}" para "${para}"`);
   }
 }

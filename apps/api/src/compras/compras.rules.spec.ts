@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException } from "@nestjs/common";
+import { AcessoNegado, EstadoInvalido, RequisicaoInvalida } from "../common/errors/dominio";
 import type { ComprasEtapa, RoleKey } from "@plugga/shared";
 import { describe, expect, it } from "vitest";
 
@@ -51,13 +51,13 @@ describe("assertTransicaoPermitida", () => {
     ["pagamento", "cotacoes"],
     ["retirada", "pagamento"],
   ] as [ComprasEtapa, ComprasEtapa][])("recusa o pulo de %s para %s", (de, para) => {
-    expect(() => assertTransicaoPermitida(de, para)).toThrow(BadRequestException);
+    expect(() => assertTransicaoPermitida(de, para)).toThrow(EstadoInvalido);
   });
 
   it.each(["analise_estoque", "retirada", "concluido"] as ComprasEtapa[])(
     "trata concluído como terminal (tentativa de ir para %s)",
     (para) => {
-      expect(() => assertTransicaoPermitida("concluido", para)).toThrow(BadRequestException);
+      expect(() => assertTransicaoPermitida("concluido", para)).toThrow(EstadoInvalido);
     },
   );
 });
@@ -67,17 +67,17 @@ describe("assertEtapaAtual — a aresta do grafo não basta", () => {
     // A aresta analise_estoque → retirada existe (ramo SIM do fluxograma), então
     // só validar a transição deixaria passar pagamento de compra não aprovada.
     expect(() => assertTransicaoPermitida("analise_estoque", "retirada")).not.toThrow();
-    expect(() => assertEtapaAtual("analise_estoque", "pagamento")).toThrow(BadRequestException);
+    expect(() => assertEtapaAtual("analise_estoque", "pagamento")).toThrow(EstadoInvalido);
   });
 
   it("recusa REVISAR sobre um pedido em análise de estoque", () => {
     expect(() => assertTransicaoPermitida("analise_estoque", "cotacoes")).not.toThrow();
-    expect(() => assertEtapaAtual("analise_estoque", "aprovacao_compra")).toThrow(BadRequestException);
+    expect(() => assertEtapaAtual("analise_estoque", "aprovacao_compra")).toThrow(EstadoInvalido);
   });
 
   it("recusa decisão de estoque sobre um pedido já em pagamento", () => {
     expect(() => assertTransicaoPermitida("pagamento", "retirada")).not.toThrow();
-    expect(() => assertEtapaAtual("pagamento", "analise_estoque")).toThrow(BadRequestException);
+    expect(() => assertEtapaAtual("pagamento", "analise_estoque")).toThrow(EstadoInvalido);
   });
 
   it("deixa passar quando a etapa é a da ação", () => {
@@ -107,7 +107,7 @@ describe("assertPodeSeguirParaAprovacao", () => {
 
 describe("assertPagamentoTemFaturado", () => {
   it.each([null, undefined, "0", "0.00"])("recusa faturado ausente ou zero (%s)", (valor) => {
-    expect(() => assertPagamentoTemFaturado(valor as string | null)).toThrow(BadRequestException);
+    expect(() => assertPagamentoTemFaturado(valor as string | null)).toThrow(RequisicaoInvalida);
   });
 
   it("aceita um valor positivo", () => {
@@ -124,12 +124,12 @@ describe("assertPodeRenegociarPrazo", () => {
 
   it("recusa depois do vencimento — aí é atraso, não renegociação", () => {
     expect(() => assertPodeRenegociarPrazo(prazo, new Date("2026-08-12T22:00:01Z"))).toThrow(
-      BadRequestException,
+      EstadoInvalido,
     );
   });
 
   it("recusa quando não há etapa aberta", () => {
-    expect(() => assertPodeRenegociarPrazo(null, new Date())).toThrow(BadRequestException);
+    expect(() => assertPodeRenegociarPrazo(null, new Date())).toThrow(EstadoInvalido);
   });
 });
 
@@ -137,22 +137,22 @@ describe("segregação de função", () => {
   it("bloqueia quem abriu o pedido de aprová-lo", () => {
     const solicitante = { id: pedidoBase.solicitanteId, roles: ["financeiro"] as RoleKey[] };
     expect(paresViolados("aprovar", pedidoBase, solicitante.id)).toContain("criou_e_aprova");
-    expect(() => assertSegregacao("aprovar", pedidoBase, solicitante)).toThrow(ForbiddenException);
+    expect(() => assertSegregacao("aprovar", pedidoBase, solicitante)).toThrow(AcessoNegado);
   });
 
   it("bloqueia quem selecionou a cotação de aprovar a compra", () => {
     const pedido = { ...pedidoBase, selecionouCotacaoId: FINANCEIRO.id };
-    expect(() => assertSegregacao("aprovar", pedido, FINANCEIRO)).toThrow(ForbiddenException);
+    expect(() => assertSegregacao("aprovar", pedido, FINANCEIRO)).toThrow(AcessoNegado);
   });
 
   it("bloqueia quem aprovou de registrar o pagamento", () => {
     const pedido = { ...pedidoBase, aprovouId: FINANCEIRO.id };
-    expect(() => assertSegregacao("pagar", pedido, FINANCEIRO)).toThrow(ForbiddenException);
+    expect(() => assertSegregacao("pagar", pedido, FINANCEIRO)).toThrow(AcessoNegado);
   });
 
   it("bloqueia quem selecionou a cotação de confirmar o recebimento", () => {
     const pedido = { ...pedidoBase, selecionouCotacaoId: COMPRADOR.id };
-    expect(() => assertSegregacao("receber", pedido, COMPRADOR)).toThrow(ForbiddenException);
+    expect(() => assertSegregacao("receber", pedido, COMPRADOR)).toThrow(AcessoNegado);
   });
 
   it("deixa passar quando são pessoas diferentes", () => {
@@ -170,7 +170,7 @@ describe("segregação de função", () => {
   it("recusa dispensa de quem não é diretoria, mesmo com justificativa", () => {
     const pedido = { ...pedidoBase, selecionouCotacaoId: FINANCEIRO.id };
     expect(() => assertSegregacao("aprovar", pedido, FINANCEIRO, "estou sozinho hoje")).toThrow(
-      ForbiddenException,
+      AcessoNegado,
     );
   });
 });
@@ -225,7 +225,7 @@ describe("alçada de renegociação de prazo", () => {
   });
 
   it("barra Compras de esticar além da régua", () => {
-    expect(() => assertAlcadaDePrazo(30, 5, ["compras"])).toThrow(ForbiddenException);
+    expect(() => assertAlcadaDePrazo(30, 5, ["compras"])).toThrow(AcessoNegado);
   });
 
   it("deixa a diretoria esticar", () => {

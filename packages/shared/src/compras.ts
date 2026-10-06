@@ -508,6 +508,8 @@ export const scorecardComprasSchema = z.object({
   cumprimentoSla: z.array(cumprimentoSlaPorEtapaSchema),
   /** Quebras de segregação no período — o preço de deixar a regra ser dispensada. */
   dispensasDeSegregacao: z.number().int().nonnegative(),
+  /** FR-033: texto quando o cálculo cobriu só parte do período pedido; nulo quando é completo. */
+  aviso: z.string().nullable(),
 });
 export type ScorecardCompras = z.infer<typeof scorecardComprasSchema>;
 
@@ -540,5 +542,7 @@ export const diagnosticoComprasSchema = z.object({
     quadrante: quadranteCruzadoSchema.nullable(),
     pedidosConsiderados: z.number().int().nonnegative(),
   }),
+  /** FR-033: texto quando o cálculo cobriu só parte do período pedido; nulo quando é completo. */
+  aviso: z.string().nullable(),
 });
 export type DiagnosticoCompras = z.infer<typeof diagnosticoComprasSchema>;
