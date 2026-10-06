@@ -7,6 +7,7 @@ export interface AuthPrincipal {
 }
 
 export interface AuthenticatedRequest {
+  method?: string;
   headers: Record<string, string | string[] | undefined>;
   cookies?: Record<string, string | undefined>;
   signedCookies?: Record<string, string | undefined>;

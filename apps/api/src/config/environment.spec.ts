@@ -5,6 +5,10 @@ import { validateEnvironment } from "./environment";
 const localDatabaseUrl =
   "postgresql://plugga_os:local_only_change_me@localhost:55432/plugga_os?schema=public";
 const sessionSecret = "local_only_session_secret_change_me_please";
+// Em produção os valores de exemplo são recusados (T118): estes dois são só
+// formatos plausíveis, sem nenhum marcador de exemplo.
+const productionDatabaseUrl = "postgresql://plugga_app:Zk3vQ8mWp2Lx9RtN@postgres:5432/plugga_os?schema=public"; // gitleaks:allow (valor fictício de teste)
+const productionSessionSecret = "q7Vn2xKd9LmB4tRw8YpC1zHs6JfG3aEu5NoXb0Ti"; // gitleaks:allow (valor fictício de teste)
 
 describe("validateEnvironment", () => {
   it("accepts the explicit local development configuration", () => {
@@ -44,8 +48,8 @@ describe("validateEnvironment", () => {
     // CI não pegava porque lá as variáveis estão sempre preenchidas.
     const environment = validateEnvironment({
       NODE_ENV: "production",
-      DATABASE_URL: localDatabaseUrl,
-      AUTH_SESSION_SECRET: sessionSecret,
+      DATABASE_URL: productionDatabaseUrl,
+      AUTH_SESSION_SECRET: productionSessionSecret,
       GOOGLE_AUTH_ENABLED: "false",
       GOOGLE_OIDC_CLIENT_ID: "",
       GOOGLE_LOGIN_URI: "",
@@ -132,8 +136,8 @@ describe("validateEnvironment", () => {
   it("accepts a production callback on the app's own origin", () => {
     const environment = validateEnvironment({
       NODE_ENV: "production",
-      DATABASE_URL: localDatabaseUrl,
-      AUTH_SESSION_SECRET: sessionSecret,
+      DATABASE_URL: productionDatabaseUrl,
+      AUTH_SESSION_SECRET: productionSessionSecret,
       AUTH_APP_BASE_URL: "https://os.plugga.app.br",
       GOOGLE_AUTH_ENABLED: "true",
       GOOGLE_OIDC_CLIENT_ID: "123456.apps.googleusercontent.com",
@@ -366,11 +370,11 @@ describe("validateEnvironment", () => {
     ).toThrow(/BITRIX_IMPORT_PAGE_SIZE/);
   });
 
-  it("ROUTE_GUARD_MODE é warn por padrão, aceita enforce e recusa qualquer outro valor", () => {
+  it("ROUTE_GUARD_MODE é enforce por padrão, aceita warn e recusa qualquer outro valor", () => {
     const base = { NODE_ENV: "development", DATABASE_URL: localDatabaseUrl, AUTH_SESSION_SECRET: sessionSecret };
 
-    expect(validateEnvironment(base).ROUTE_GUARD_MODE).toBe("warn");
-    expect(validateEnvironment({ ...base, ROUTE_GUARD_MODE: "enforce" }).ROUTE_GUARD_MODE).toBe("enforce");
+    expect(validateEnvironment(base).ROUTE_GUARD_MODE).toBe("enforce");
+    expect(validateEnvironment({ ...base, ROUTE_GUARD_MODE: "warn" }).ROUTE_GUARD_MODE).toBe("warn");
     expect(() => validateEnvironment({ ...base, ROUTE_GUARD_MODE: "off" })).toThrow(/ROUTE_GUARD_MODE/);
   });
 });

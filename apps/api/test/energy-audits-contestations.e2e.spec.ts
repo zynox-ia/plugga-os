@@ -49,7 +49,8 @@ class InMemoryEnergyRepository extends EnergyRepository {
 
   private nextId(prefix: string): string {
     this.sequence += 1;
-    return `00000000-0000-4000-8000-${prefix}${String(this.sequence).padStart(6, "0")}`;
+    // A rota recusa identificador que não é UUID: o prefixo vira um dígito hexadecimal.
+    return `00000000-0000-4000-8000-${prefix === "aud" ? "a" : "c"}${String(this.sequence).padStart(11, "0")}`;
   }
 
   private record(eventName: string, entityType: string, entityId: string, principal: AuthPrincipal, payload: unknown) {

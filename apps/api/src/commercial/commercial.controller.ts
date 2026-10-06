@@ -30,7 +30,7 @@ import {
 import { ZodValidationPipe } from "../common/zod-validation.pipe";
 import type { AuthPrincipal } from "../core/auth/auth.types";
 import { CurrentPrincipal } from "../core/auth/current-principal.decorator";
-import { DevAuthGuard } from "../core/auth/dev-auth.guard";
+import { SessionAuthGuard } from "../core/auth/session-auth.guard";
 import { OriginCheckGuard } from "../core/auth/origin-check.guard";
 import { Roles } from "../core/auth/roles.decorator";
 import { RolesGuard } from "../core/auth/roles.guard";
@@ -45,7 +45,7 @@ const READ_ROLES = ["comercial", "admin", "diretoria", "financeiro", "tech", "vi
 const MUTATE_ROLES = ["comercial", "admin"] as const;
 
 @Controller("commercial")
-@UseGuards(DevAuthGuard, RolesGuard)
+@UseGuards(SessionAuthGuard, RolesGuard)
 @Roles(...READ_ROLES)
 export class CommercialController {
   constructor(@Inject(CommercialService) private readonly service: CommercialService) {}

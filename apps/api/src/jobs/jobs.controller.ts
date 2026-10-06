@@ -1,13 +1,13 @@
 import { Controller, Get, Inject, UseGuards } from "@nestjs/common";
 import type { ListJobRunsResponse } from "@plugga/shared";
 
-import { DevAuthGuard } from "../core/auth/dev-auth.guard";
+import { SessionAuthGuard } from "../core/auth/session-auth.guard";
 import { Roles } from "../core/auth/roles.decorator";
 import { RolesGuard } from "../core/auth/roles.guard";
 import { JobsService } from "./jobs.service";
 
 @Controller("jobs")
-@UseGuards(DevAuthGuard, RolesGuard)
+@UseGuards(SessionAuthGuard, RolesGuard)
 // Os mesmos papéis que a navegação da web dá à tela de Jobs: sem o @Roles, o
 // RolesGuard sem metadata liberava qualquer autenticado para o histórico
 // operacional inteiro (inclusive mensagens de erro de integração).

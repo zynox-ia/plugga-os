@@ -6,15 +6,18 @@ import {
 } from "@plugga/shared";
 
 import { ZodValidationPipe } from "../common/zod-validation.pipe";
+import { OriginCheckGuard } from "../core/auth/origin-check.guard";
 import { CurrentPrincipal } from "../core/auth/current-principal.decorator";
-import { DevAuthGuard } from "../core/auth/dev-auth.guard";
+import { SessionAuthGuard } from "../core/auth/session-auth.guard";
 import { Roles } from "../core/auth/roles.decorator";
 import { RolesGuard } from "../core/auth/roles.guard";
 import type { AuthPrincipal } from "../core/auth/auth.types";
 import { AgentActionsService } from "./agent-actions.service";
 
 @Controller("agent-actions")
-@UseGuards(DevAuthGuard, RolesGuard)
+// OriginCheckGuard primeiro: é uma mutação autenticada por cookie, e uma origem
+// recusada não deve nem chegar à resolução de sessão (US11, T119).
+@UseGuards(OriginCheckGuard, SessionAuthGuard, RolesGuard)
 @Roles("tech", "admin")
 export class AgentActionsController {
   constructor(@Inject(AgentActionsService) private readonly service: AgentActionsService) {}

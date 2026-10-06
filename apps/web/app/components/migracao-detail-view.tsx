@@ -6,6 +6,7 @@ import { useState } from "react";
 
 import { activateMarketMigration, advanceMarketMigrationStage, cancelMarketMigration } from "../lib/energy-client";
 import { ShellCard, StatusPill } from "./plugga-shell";
+import { formatarDataHora } from "../lib/format";
 
 const STAGE_LABEL: Record<string, string> = {
   analise: "Análise",
@@ -22,11 +23,6 @@ const STATUS_VARIANT: Record<string, "neutral" | "success" | "warning" | "danger
 };
 
 type ActionPanel = "stage" | "activate" | "cancel" | null;
-
-function formatDateTime(value: string | null): string {
-  if (!value) return "—";
-  return new Date(value).toLocaleString("pt-BR");
-}
 
 export function MigracaoDetailView({ migration, isLive }: { migration: MarketMigrationSummary; isLive: boolean }) {
   const router = useRouter();
@@ -135,7 +131,7 @@ export function MigracaoDetailView({ migration, isLive }: { migration: MarketMig
             <div className="box" style={{ border: "1px solid var(--line)", borderRadius: 12, padding: 12 }}>
               <strong>Próxima ação</strong>
               <p style={{ margin: "6px 0 0" }}>
-                {migration.nextActionNote ?? "sem nota registrada"} — {formatDateTime(migration.nextActionAt)}
+                {migration.nextActionNote ?? "sem nota registrada"} — {formatarDataHora(migration.nextActionAt)}
               </p>
             </div>
             {migration.status === "cancelada" ? (
@@ -143,7 +139,7 @@ export function MigracaoDetailView({ migration, isLive }: { migration: MarketMig
                 Motivo do cancelamento: {migration.cancelReason}
               </p>
             ) : null}
-            {migration.status === "ativa" ? <p>Ativada em {formatDateTime(migration.activatedAt)}</p> : null}
+            {migration.status === "ativa" ? <p>Ativada em {formatarDataHora(migration.activatedAt)}</p> : null}
           </div>
         </ShellCard>
       </section>

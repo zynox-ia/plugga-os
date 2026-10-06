@@ -19,11 +19,9 @@ RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
   pnpm install --frozen-lockfile
 
 COPY . .
-# NEXT_PUBLIC_* is inlined at build time, so the value the container will use
-# has to be known here. It is only read server-side today (ADR-0012), and
-# http://api:3001 is reachable only inside the Compose network.
-ARG NEXT_PUBLIC_API_URL=http://api:3001
-ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+# A URL da API NAO e mais lida no build (US12, T128): API_INTERNAL_URL e resolvida
+# em tempo de execucao pelo servidor, entao a mesma imagem serve a qualquer
+# ambiente. Defina-a no `environment` do conteiner (compose.yaml).
 RUN pnpm --filter @plugga/web... build
 
 FROM base AS runtime

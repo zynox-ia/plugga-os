@@ -1,7 +1,7 @@
 import { BadRequestException, Controller, Get, Query, UseGuards } from "@nestjs/common";
 import type { RoleKey } from "@plugga/shared";
 
-import { DevAuthGuard } from "../core/auth/dev-auth.guard";
+import { SessionAuthGuard } from "../core/auth/session-auth.guard";
 import { Roles } from "../core/auth/roles.decorator";
 import { RolesGuard } from "../core/auth/roles.guard";
 import { ConsumoService, type ResumoDeConsumo } from "./consumo.service.js";
@@ -26,7 +26,7 @@ function data(valor: string | undefined, campo: string): Date | undefined {
 }
 
 @Controller("llm/consumo")
-@UseGuards(DevAuthGuard, RolesGuard)
+@UseGuards(SessionAuthGuard, RolesGuard)
 export class ConsumoController {
   constructor(private readonly consumo: ConsumoService) {}
 

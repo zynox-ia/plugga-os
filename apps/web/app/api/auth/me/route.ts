@@ -1,4 +1,4 @@
-import { proxyAuthGet } from "../../../lib/auth-proxy";
+import { proxyAuthGet } from "../../../lib/proxy";
 
 /**
  * Espelha GET /auth/me da API sob a origem do web, para o menu do avatar

@@ -1,4 +1,4 @@
-import { proxyAuthGet } from "../../../lib/auth-proxy";
+import { proxyAuthGet } from "../../../lib/proxy";
 
 /**
  * Espelha GET /auth/users (lista da equipe) sob a origem do web. Os filtros
@@ -8,5 +8,5 @@ import { proxyAuthGet } from "../../../lib/auth-proxy";
  */
 export async function GET(request: Request): Promise<Response> {
   const { search } = new URL(request.url);
-  return proxyAuthGet(request, `users${search}`);
+  return proxyAuthGet(request, "users", {}, search);
 }

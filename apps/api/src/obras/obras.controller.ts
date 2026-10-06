@@ -66,14 +66,15 @@ import {
   type SolicitarRevisaoDeProjetoRequest,
 } from "@plugga/shared";
 
+import { armazenamentoEmDisco, TAMANHO_MAXIMO_POR_ARQUIVO } from "../common/upload/armazenamento-em-disco";
+import { UploadEmDisco } from "../common/upload/upload-em-disco";
 import { ZodValidationPipe } from "../common/zod-validation.pipe";
 import type { AuthPrincipal } from "../core/auth/auth.types";
 import { CurrentPrincipal } from "../core/auth/current-principal.decorator";
-import { DevAuthGuard } from "../core/auth/dev-auth.guard";
+import { SessionAuthGuard } from "../core/auth/session-auth.guard";
 import { OriginCheckGuard } from "../core/auth/origin-check.guard";
 import { Roles } from "../core/auth/roles.decorator";
 import { RolesGuard } from "../core/auth/roles.guard";
-import { TIPOS_ACEITOS } from "./armazenamento-de-evidencias";
 import {
   APROVAR_MEDICAO,
   APROVAR_PROJETO,
@@ -96,7 +97,6 @@ import {
 } from "./obras.permissions";
 import { ObrasService, type ArquivoDeEvidencia } from "./obras.service";
 
-const TAMANHO_MAXIMO = 20 * 1024 * 1024;
 
 /**
  * Execução e Gestão de Obras — POP-OBR-001 v1. Opera sobre uma `Obra` já
@@ -104,7 +104,7 @@ const TAMANHO_MAXIMO = 20 * 1024 * 1024;
  * recria o cadastro, só a etapa/evidência/segurança da execução.
  */
 @Controller("obras")
-@UseGuards(DevAuthGuard, RolesGuard)
+@UseGuards(SessionAuthGuard, RolesGuard)
 @Roles(...LER_OBRA)
 export class ObrasController {
   constructor(@Inject(ObrasService) private readonly service: ObrasService) {}
@@ -142,7 +142,10 @@ export class ObrasController {
   @HttpCode(201)
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
   @Roles(...REGISTRAR_EVIDENCIA)
-  @UseInterceptors(FileInterceptor("arquivo", { limits: { fileSize: TAMANHO_MAXIMO } }))
+  @UseInterceptors(
+    UploadEmDisco(),
+    FileInterceptor("arquivo", { storage: armazenamentoEmDisco, limits: { fileSize: TAMANHO_MAXIMO_POR_ARQUIVO } }),
+  )
   registrarEvidencia(
     @Param("id", ParseUUIDPipe) id: string,
     @Body("payload") payload: string,
@@ -151,9 +154,6 @@ export class ObrasController {
   ): Promise<ObraExecucaoDetalhe> {
     if (!arquivo) {
       throw new BadRequestException("a evidência exige o arquivo anexado (POP-OBR-001 §5.1)");
-    }
-    if (!TIPOS_ACEITOS.includes(arquivo.mimetype)) {
-      throw new BadRequestException(`tipo de arquivo não aceito: ${arquivo.mimetype}`);
     }
     const input = new ZodValidationPipe(registrarEvidenciaRequestSchema).transform(this.lerPayload(payload));
     return this.service.registrarEvidencia(id, input, arquivo, principal);
@@ -338,16 +338,16 @@ export class ObrasController {
   @HttpCode(201)
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
   @Roles(...CRIAR_VERSAO_DE_PROJETO)
-  @UseInterceptors(FileInterceptor("arquivo", { limits: { fileSize: TAMANHO_MAXIMO } }))
+  @UseInterceptors(
+    UploadEmDisco(),
+    FileInterceptor("arquivo", { storage: armazenamentoEmDisco, limits: { fileSize: TAMANHO_MAXIMO_POR_ARQUIVO } }),
+  )
   criarVersaoDeProjeto(
     @Param("id", ParseUUIDPipe) id: string,
     @Body("payload") payload: string,
     @UploadedFile() arquivo: ArquivoDeEvidencia | undefined,
     @CurrentPrincipal() principal: AuthPrincipal,
   ): Promise<ProjetoVersao> {
-    if (arquivo && !TIPOS_ACEITOS.includes(arquivo.mimetype)) {
-      throw new BadRequestException(`tipo de arquivo não aceito: ${arquivo.mimetype}`);
-    }
     const input = new ZodValidationPipe(criarVersaoDeProjetoRequestSchema).transform(this.lerPayload(payload));
     return this.service.criarVersaoDeProjeto(id, input, arquivo ?? null, principal);
   }

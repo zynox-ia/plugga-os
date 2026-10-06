@@ -11,6 +11,7 @@ import {
   type PendingItem,
   type PendingStatus,
 } from "../lib/mock/pendencias";
+import { AvisoDadosDeExemplo } from "./aviso-dados-de-exemplo";
 
 const TODAY = new Date().toISOString().slice(0, 10);
 
@@ -111,6 +112,7 @@ export function PendenciasView() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+      <AvisoDadosDeExemplo detalhe="As pendências abaixo são de exemplo e ficam só neste navegador; ainda não há integração com o pipeline de eventos." />
       {/* Top Header */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "14px" }}>
         <div>
@@ -244,7 +246,7 @@ export function PendenciasView() {
           </tbody>
         </ShellTable>
         <p className="card-note">
-          Dados de front-end (mock). Integrado ao pipeline de eventos operacionais da Plugga.
+          Dados de exemplo, mantidos apenas neste navegador. Ainda não há integração com o pipeline de eventos operacionais.
         </p>
       </ShellCard>
     </div>

@@ -6,11 +6,7 @@ import { useState } from "react";
 
 import { CYCLE_STATUS_LABEL, CYCLE_STATUS_VARIANT } from "./ciclos-view";
 import { ShellCard, ShellTable, StatusPill } from "./plugga-shell";
-
-function formatDate(value: string | null): string {
-  if (!value) return "—";
-  return new Date(value).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
-}
+import { formatarData } from "../lib/format";
 
 export function RelatoriosView({ report, isLive }: { report: CycleReportsResponse; isLive: boolean }) {
   const [clientFilter, setClientFilter] = useState("");
@@ -85,7 +81,7 @@ export function RelatoriosView({ report, isLive }: { report: CycleReportsRespons
               <td>
                 <StatusPill variant={CYCLE_STATUS_VARIANT[item.status]}>{CYCLE_STATUS_LABEL[item.status]}</StatusPill>
               </td>
-              <td>{formatDate(item.reportSentAt)}</td>
+              <td>{formatarData(item.reportSentAt)}</td>
               <td>{item.estimatedSavings ?? "—"}</td>
               <td>{item.realizedSavings ?? "—"}</td>
             </tr>

@@ -1,30 +1,24 @@
-import Link from "next/link";
-
 import { AuditoriaDetailView } from "../../../components/auditoria-detail-view";
-import { ShellCard } from "../../../components/plugga-shell";
+import { EstadoDaApi } from "../../../components/estado-da-api";
 import { fetchAudit, fetchContestation } from "../../../lib/api";
 
 export default async function AuditoriaDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const audit = await fetchAudit(id);
+  const resultado = await fetchAudit(id);
 
-  if (!audit) {
+  if (!resultado.ok) {
     return (
-      <ShellCard className="panel-card">
-        <div className="card-heading">
-          <div>
-            <span className="eyebrow">Energia &amp; OPM</span>
-            <h2>Auditoria não encontrada</h2>
-          </div>
-        </div>
-        <p className="card-note">
-          Não foi possível carregar esta auditoria agora. <Link href="/energia-opm/auditorias">Voltar à lista</Link>.
-        </p>
-      </ShellCard>
+      <EstadoDaApi
+        erro={resultado.erro}
+        eyebrow="Energia & OPM"
+        voltar={{ href: "/energia-opm/auditorias", rotulo: "Voltar à lista" }}
+      />
     );
   }
 
-  const contestation = audit.contestationId ? await fetchContestation(audit.contestationId) : null;
+  const audit = resultado.dados;
+  // A contestação é complemento da tela: se falhar, a auditoria ainda abre.
+  const contestacao = audit.contestationId ? await fetchContestation(audit.contestationId) : null;
 
-  return <AuditoriaDetailView audit={audit} contestation={contestation} />;
+  return <AuditoriaDetailView audit={audit} contestation={contestacao?.ok ? contestacao.dados : null} />;
 }

@@ -1,6 +1,6 @@
-import { proxyApiMutation } from "../../../lib/api-proxy";
+import { proxyApiMutation } from "../../../lib/proxy";
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }): Promise<Response> {
   const { id } = await params;
-  return proxyApiMutation(request, "PATCH", `/clientes/${id}`);
+  return proxyApiMutation(request, "PATCH", `/clientes/:id`, { id });
 }

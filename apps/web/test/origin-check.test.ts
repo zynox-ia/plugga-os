@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { afterEach, beforeEach, describe, it } from "node:test";
 
-import { isOriginAllowed } from "../app/lib/origin-check.ts";
+import { encaminharOrigem, isOriginAllowed } from "../app/lib/origin-check.ts";
 
 /**
  * VULN-6 (auditoria zero-trust): esta função vivia duplicada em cinco
@@ -52,5 +52,20 @@ describe("isOriginAllowed", () => {
 
   it("rejects a malformed Origin header instead of throwing", () => {
     assert.equal(isOriginAllowed(requestWithOrigin("not-a-url")), false);
+  });
+});
+
+describe("encaminharOrigem", () => {
+  it("repassa o Origin que o navegador enviou, sem alterar", () => {
+    const request = new Request("http://127.0.0.1:3000/api/clientes", {
+      method: "POST",
+      headers: { origin: "https://os.plugga.app.br" },
+    });
+    assert.deepEqual(encaminharOrigem(request), { origin: "https://os.plugga.app.br" });
+  });
+
+  it("não inventa Origin quando a requisição não trouxe um", () => {
+    const request = new Request("http://127.0.0.1:3000/api/clientes", { method: "POST" });
+    assert.deepEqual(encaminharOrigem(request), {});
   });
 });

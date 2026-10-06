@@ -1,4 +1,4 @@
-import { BadRequestException, Inject, Injectable, NotFoundException } from "@nestjs/common";
+import { Inject, Injectable } from "@nestjs/common";
 import type { ActorType, Prisma } from "@prisma/client";
 import {
   pedidoDetalheSchema,
@@ -27,8 +27,12 @@ import {
   type SelecionarCotacaoRequest,
   type TriagemRequest,
   type ValidarNecessidadeRequest,
+  type NomeDeEventoAuditavel,
 } from "@plugga/shared";
 
+import { AuditAppender } from "../audit/audit-appender";
+import { comRepeticaoP2002, transicionar } from "../common/concorrencia";
+import { NaoEncontrado, RequisicaoInvalida } from "../common/errors/dominio";
 import type { AuthPrincipal } from "../core/auth/auth.types";
 import { PrismaService } from "../prisma/prisma.service";
 import { ComprasRepository, type AnexoDeCotacao } from "./compras.repository";
@@ -94,7 +98,10 @@ function decimal(valor: Prisma.Decimal | null): string | null {
 
 @Injectable()
 export class PrismaComprasRepository extends ComprasRepository {
-  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {
+  constructor(
+    @Inject(PrismaService) private readonly prisma: PrismaService,
+    @Inject(AuditAppender) private readonly auditoria: AuditAppender,
+  ) {
     super();
   }
 
@@ -142,7 +149,7 @@ export class PrismaComprasRepository extends ComprasRepository {
       where: { id, companyId },
       include: pedidoInclude,
     });
-    if (!linha) throw new NotFoundException("pedido de compra não encontrado");
+    if (!linha) throw new NaoEncontrado("Pedido de compra não encontrado.");
     return linha;
   }
 
@@ -323,17 +330,13 @@ export class PrismaComprasRepository extends ComprasRepository {
       dados?: Prisma.PedidoDeCompraUncheckedUpdateManyInput;
     },
   ): Promise<void> {
-    const resultado = await tx.pedidoDeCompra.updateMany({
-      where: {
-        id: entrada.pedido.id,
-        companyId: entrada.pedido.companyId,
-        etapa: entrada.pedido.etapa,
-      },
-      data: { ...entrada.dados, etapa: entrada.para },
-    });
-    if (resultado.count === 0) {
-      throw new BadRequestException("o pedido mudou de etapa enquanto esta ação era processada");
-    }
+    await transicionar(
+      tx.pedidoDeCompra,
+      entrada.pedido.id,
+      { companyId: entrada.pedido.companyId, etapa: entrada.pedido.etapa },
+      { ...entrada.dados, etapa: entrada.para },
+      "O pedido mudou de etapa enquanto esta ação era processada. Atualize a página e confira.",
+    );
   }
 
   // --- Criação atômica ---------------------------------------------------
@@ -344,16 +347,17 @@ export class PrismaComprasRepository extends ComprasRepository {
     principal: AuthPrincipal,
   ): Promise<PedidoDetalhe> {
     if (anexos.length !== input.cotacoes.length) {
-      throw new BadRequestException("cada cotação precisa do arquivo do orçamento correspondente");
+      throw new RequisicaoInvalida("Cada cotação precisa do arquivo do orçamento correspondente.");
     }
 
     await this.validarVinculos(input);
 
     const agora = new Date();
-    const criado = await this.prisma.$transaction(async (tx) => {
-      // Numeração por empresa dentro da transação. O índice único
-      // (company_id, numero) é a rede: duas criações simultâneas fazem a
-      // segunda falhar e repetir, em vez de gerar dois pedidos com o mesmo nº.
+    // Numeração por empresa dentro da transação. O índice único
+    // (company_id, numero) é a rede: duas criações simultâneas fazem a
+    // segunda bater em P2002, e `comRepeticaoP2002` refaz a transação inteira
+    // (já com o número seguinte), sem a pessoa ver erro.
+    const criado = await comRepeticaoP2002(() => this.prisma.$transaction(async (tx) => {
       const maior = await tx.pedidoDeCompra.aggregate({
         where: { companyId: input.companyId },
         _max: { numero: true },
@@ -375,7 +379,7 @@ export class PrismaComprasRepository extends ComprasRepository {
           cotacoes: {
             create: input.cotacoes.map((cotacao, indice) => {
               const anexo = anexos[indice];
-              if (!anexo) throw new BadRequestException("orçamento faltando para uma das cotações");
+              if (!anexo) throw new RequisicaoInvalida("Falta o orçamento de uma das cotações.");
               return {
                 fornecedorId: cotacao.fornecedorId,
                 valor: cotacao.valor,
@@ -397,11 +401,13 @@ export class PrismaComprasRepository extends ComprasRepository {
         responsavelId: input.responsavelId,
       });
 
-      await this.registrarEvento(tx, {
-        nome: "compras.pedido_criado",
-        pedidoId: pedido.id,
-        principal,
-        agora,
+      await this.auditoria.append(tx, {
+        eventName: "compras.pedido.created",
+        entityType: "pedido_de_compra",
+        entityId: pedido.id,
+        actorType: this.actorType(principal),
+        actorId: principal.id,
+        companyId: input.companyId,
         payload: {
           companyId: input.companyId,
           numero: pedido.numero,
@@ -409,10 +415,11 @@ export class PrismaComprasRepository extends ComprasRepository {
           cotacoes: input.cotacoes.length,
           valorOrcado: input.valorOrcado,
         },
+        occurredAt: agora,
       });
 
       return pedido;
-    });
+    }), 10);
 
     return this.pedido(criado.id, input.companyId, principal);
   }
@@ -424,7 +431,7 @@ export class PrismaComprasRepository extends ComprasRepository {
         where: { id: input.obraId, companyId: input.companyId },
         select: { id: true },
       });
-      if (!obra) throw new BadRequestException("obra não encontrada nesta empresa");
+      if (!obra) throw new RequisicaoInvalida("Obra não encontrada nesta empresa.");
     }
 
     const fornecedores = [...new Set(input.cotacoes.map((cotacao) => cotacao.fornecedorId))];
@@ -432,14 +439,14 @@ export class PrismaComprasRepository extends ComprasRepository {
       where: { id: { in: fornecedores }, companyId: input.companyId },
     });
     if (encontrados !== fornecedores.length) {
-      throw new BadRequestException("cotação com fornecedor de outra empresa ou inexistente");
+      throw new RequisicaoInvalida("Há cotação com fornecedor de outra empresa ou inexistente.");
     }
 
     const responsavel = await this.prisma.user.findUnique({
       where: { id: input.responsavelId },
       select: { id: true },
     });
-    if (!responsavel) throw new NotFoundException("responsável de compras não encontrado");
+    if (!responsavel) throw new NaoEncontrado("Responsável de compras não encontrado.");
   }
 
   // --- Transições --------------------------------------------------------
@@ -455,7 +462,7 @@ export class PrismaComprasRepository extends ComprasRepository {
     assertTransicaoPermitida(pedido.etapa, "analise_estoque");
     const responsavelId = input.responsavelId ?? pedido.responsavelId;
     if (!responsavelId) {
-      throw new BadRequestException("a triagem exige um responsável de compras");
+      throw new RequisicaoInvalida("A triagem exige um responsável de compras.");
     }
 
     const agora = new Date();
@@ -519,15 +526,18 @@ export class PrismaComprasRepository extends ComprasRepository {
   ): Promise<PedidoDetalhe> {
     const pedido = await this.carregar(id, companyId);
     if (pedido.etapa !== "cotacoes") {
-      throw new BadRequestException("a necessidade é validada na etapa de cotações");
+      throw new RequisicaoInvalida("A necessidade é validada na etapa de cotações.");
     }
 
     const agora = new Date();
     await this.prisma.$transaction(async (tx) => {
-      await tx.pedidoDeCompra.updateMany({
-        where: { id, companyId, etapa: "cotacoes" },
-        data: { necessidadeValidadaEm: agora },
-      });
+      await transicionar(
+        tx.pedidoDeCompra,
+        id,
+        { companyId, etapa: "cotacoes" },
+        { necessidadeValidadaEm: agora },
+        "O pedido mudou de etapa enquanto esta ação era processada. Atualize a página e confira.",
+      );
       await this.registrarEvento(tx, {
         nome: "compras.necessidade_validada",
         pedidoId: id,
@@ -551,7 +561,7 @@ export class PrismaComprasRepository extends ComprasRepository {
     assertTransicaoPermitida(pedido.etapa, "aprovacao_compra");
 
     const cotacao = pedido.cotacoes.find((linha) => linha.id === input.cotacaoId);
-    if (!cotacao) throw new NotFoundException("cotação não encontrada neste pedido");
+    if (!cotacao) throw new NaoEncontrado("Cotação não encontrada neste pedido.");
 
     assertPodeSeguirParaAprovacao({
       necessidadeValidadaEm: pedido.necessidadeValidadaEm,
@@ -676,17 +686,17 @@ export class PrismaComprasRepository extends ComprasRepository {
     const obraId = input.obraId ?? null;
     const clientId = input.clientId ?? null;
     if (input.destino === "obra" && !obraId) {
-      throw new BadRequestException("destino obra exige a obra vinculada");
+      throw new RequisicaoInvalida("O destino obra exige a obra vinculada.");
     }
     if (input.destino === "cliente" && !clientId) {
-      throw new BadRequestException("destino cliente exige o cliente vinculado");
+      throw new RequisicaoInvalida("O destino cliente exige o cliente vinculado.");
     }
     if (obraId) {
       const obra = await this.prisma.obra.findFirst({
         where: { id: obraId, companyId: pedido.companyId },
         select: { id: true },
       });
-      if (!obra) throw new BadRequestException("obra não encontrada nesta empresa");
+      if (!obra) throw new RequisicaoInvalida("Obra não encontrada nesta empresa.");
     }
 
     return {
@@ -1012,16 +1022,14 @@ export class PrismaComprasRepository extends ComprasRepository {
       });
       // Quem entra na lista de quem a empresa paga é registro de auditoria, não
       // cadastro qualquer: é a porta da fraude mais comum do ciclo de compras.
-      await tx.eventLog.create({
-        data: {
-          eventName: "compras.fornecedor_cadastrado",
-          entityType: "fornecedor",
-          entityId: fornecedor.id,
-          actorType: this.actorType(principal),
-          actorId: principal.id,
-          payload: { companyId: input.companyId, nome: input.nome, documento: input.documento ?? null },
-          occurredAt: agora,
-        },
+      await this.auditoria.append(tx, {
+        eventName: "compras.fornecedor_cadastrado" as NomeDeEventoAuditavel,
+        entityType: "fornecedor",
+        entityId: fornecedor.id,
+        actorType: this.actorType(principal),
+        actorId: principal.id,
+        payload: { companyId: input.companyId, campos: input.documento ? ["nome", "documento"] : ["nome"] },
+        occurredAt: agora,
       });
       return fornecedor;
     });

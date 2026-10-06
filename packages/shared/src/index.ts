@@ -8,6 +8,7 @@ export * from "./email-status.js";
 export * from "./energy.js";
 export * from "./erro.js";
 export * from "./events.js";
+export * from "./identificador.js";
 export * from "./integrations.js";
 export * from "./jobs.js";
 export * from "./obra.js";

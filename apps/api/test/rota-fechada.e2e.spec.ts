@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
+
 import { type INestApplication, Controller, Get, Logger } from "@nestjs/common";
 import { Test } from "@nestjs/testing";
 import request from "supertest";
@@ -32,10 +35,10 @@ describe("rota fechada por padrão (e2e)", () => {
     vi.restoreAllMocks();
   });
 
-  describe("modo warn (padrão)", () => {
+  describe("modo warn (explícito)", () => {
     let app: INestApplication;
     beforeAll(async () => {
-      app = await sobe();
+      app = await sobe("warn");
     });
     afterAll(async () => {
       await app.close();
@@ -62,6 +65,20 @@ describe("rota fechada por padrão (e2e)", () => {
     });
   });
 
+  describe("sem ROUTE_GUARD_MODE", () => {
+    let app: INestApplication;
+    beforeAll(async () => {
+      app = await sobe();
+    });
+    afterAll(async () => {
+      await app.close();
+    });
+
+    it("o padrão é negar a rota sem declaração", async () => {
+      await request(app.getHttpServer()).get("/teste-sem-declaracao").expect(403);
+    });
+  });
+
   describe("modo enforce", () => {
     let app: INestApplication;
     beforeAll(async () => {
@@ -80,6 +97,48 @@ describe("rota fechada por padrão (e2e)", () => {
 
     it("rota pública aprovada segue aberta", async () => {
       await request(app.getHttpServer()).get("/health").expect(200);
+    });
+  });
+  describe("inventário e parâmetros de identificador", () => {
+    let app: INestApplication;
+    beforeAll(async () => {
+      process.env.DEV_AUTH_ENABLED = "true";
+      app = await sobe("enforce");
+    });
+    afterAll(async () => {
+      delete process.env.DEV_AUTH_ENABLED;
+      await app.close();
+    });
+
+    const inventario: { metodo: string; caminho: string; acesso: string; papeis: string[] }[] = JSON.parse(
+      readFileSync(
+        path.resolve(__dirname, "../../../specs/002-fundacao-solida/contracts/inventario-rotas.json"),
+        "utf8",
+      ),
+    );
+
+    it("nenhuma rota do inventário está sem declaração de acesso", () => {
+      expect(inventario.filter((r) => r.acesso === "undeclared").map((r) => `${r.metodo} ${r.caminho}`)).toEqual([]);
+    });
+
+    it("toda rota com :id recusa valor que não é UUID com REQUISICAO_INVALIDA", async () => {
+      const comId = inventario.filter((r) => /:(id|\w+Id)(\/|$)/.test(r.caminho));
+      expect(comId.length).toBeGreaterThan(20);
+      const falhas: string[] = [];
+      for (const rota of comId) {
+        const url = rota.caminho.replace(/:\w+/g, "nao-e-uuid");
+        const papeis = rota.papeis.length > 0 ? rota.papeis.join(",") : "admin";
+        const metodo = rota.metodo.toLowerCase() as "get";
+        const alvo = request(app.getHttpServer());
+        const resposta = await alvo[metodo](url)
+          .set("x-dev-principal", "teste-uuid")
+          .set("x-dev-roles", papeis)
+          .send({});
+        if (resposta.status !== 400 || resposta.body.codigo !== "REQUISICAO_INVALIDA") {
+          falhas.push(`${rota.metodo} ${rota.caminho} -> ${resposta.status} ${resposta.body.codigo ?? ""}`);
+        }
+      }
+      expect(falhas).toEqual([]);
     });
   });
 });

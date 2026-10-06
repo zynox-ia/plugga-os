@@ -2,6 +2,7 @@ import { Injectable, Logger, type OnModuleDestroy } from "@nestjs/common";
 import { Redis } from "ioredis";
 
 import { SessionCache, type SessionCacheEntry } from "./session-cache";
+import { abrirEntrada, selarEntrada } from "./session-cache-hmac";
 
 const KEY_PREFIX = "session:v1:principal:";
 const INDEX_PREFIX = "session:v1:by-user:";
@@ -24,7 +25,16 @@ export class RedisSessionCache extends SessionCache implements OnModuleDestroy {
   private readonly logger = new Logger(RedisSessionCache.name);
   private readonly client: Redis;
 
-  constructor(redisUrl: string) {
+  /**
+   * `hmacKey` (SESSION_CACHE_HMAC_KEY) liga a autenticação das entradas (T115):
+   * sem ela o cache grava e lê JSON puro, como sempre. A senha do Redis, quando
+   * houver, vai na própria `redisUrl` (`redis://:senha@host:porta`), que o
+   * ioredis já entende.
+   */
+  constructor(
+    redisUrl: string,
+    private readonly hmacKey?: string,
+  ) {
     super();
     this.client = new Redis(redisUrl, {
       maxRetriesPerRequest: 1,
@@ -49,7 +59,13 @@ export class RedisSessionCache extends SessionCache implements OnModuleDestroy {
     try {
       const raw = await this.client.get(KEY_PREFIX + tokenHash);
       if (!raw) return null;
-      return JSON.parse(raw) as SessionCacheEntry;
+      // Entrada adulterada, sem selo ou de outro formato vira miss: a sessão é
+      // relida do Postgres e regravada selada.
+      const entry = abrirEntrada(tokenHash, raw, this.hmacKey);
+      if (!entry && this.hmacKey) {
+        this.logger.warn("session cache entry refused (hmac mismatch or unsealed), treating as miss");
+      }
+      return entry;
     } catch (error) {
       this.logger.warn(`session cache get failed, treating as miss: ${this.message(error)}`);
       return null;
@@ -63,7 +79,7 @@ export class RedisSessionCache extends SessionCache implements OnModuleDestroy {
     ttlSeconds: number,
   ): Promise<void> {
     try {
-      const payload = JSON.stringify(entry);
+      const payload = selarEntrada(tokenHash, entry, this.hmacKey);
       const indexTtl = ttlSeconds + INDEX_TTL_SLACK_SECONDS;
       await this.client
         .multi()

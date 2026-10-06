@@ -22,11 +22,14 @@ import { Authenticated, Public } from "../core/auth/access.decorators";
 import { ZodValidationPipe } from "../common/zod-validation.pipe";
 import type { AuthPrincipal } from "../core/auth/auth.types";
 import { CurrentPrincipal } from "../core/auth/current-principal.decorator";
-import { DevAuthGuard } from "../core/auth/dev-auth.guard";
+import { SessionAuthGuard } from "../core/auth/session-auth.guard";
 import { SESSION_COOKIE_NAME } from "../core/auth/token.util";
 import { AuthService } from "./auth.service";
 import { GoogleAuthService } from "./google-auth.service";
 import { OriginCheckGuard } from "../core/auth/origin-check.guard";
+
+/** Teto de proteção do servidor (não é limite de tentativas): ver `login`. */
+const LIMITE_LOGIN_POR_MINUTO_E_ORIGEM = 120;
 
 /** Nome fixo do cookie double-submit posto pelo Google Identity Services. */
 const GOOGLE_CSRF_COOKIE = "g_csrf_token";
@@ -42,10 +45,18 @@ export class AuthController {
     @Inject(ConfigService) private readonly config: ConfigService,
   ) {}
 
+  /**
+   * O login NÃO tem mais o teto de 10 por minuto por IP: ele recusava também
+   * quem informava a senha certa (30 tentativas de qualquer um, vindas do mesmo
+   * IP, trancavam a vítima fora — US11, SC-013). Quem erra agora é ATRASADO,
+   * por conta e por origem, e quem acerta nunca espera (`LimitadorLogin`). O
+   * teto abaixo é só proteção do servidor contra inundação (cada requisição
+   * custa um hash argon2), muito acima de qualquer uso real, por origem.
+   */
   @Public()
   @Post("login")
   @HttpCode(200)
-  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Throttle({ default: { limit: LIMITE_LOGIN_POR_MINUTO_E_ORIGEM, ttl: 60_000 } })
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
   async login(
     @Body(new ZodValidationPipe(loginRequestSchema)) input: LoginRequest,
@@ -104,7 +115,7 @@ export class AuthController {
   @Authenticated()
   @Get("me")
   @SkipThrottle()
-  @UseGuards(DevAuthGuard)
+  @UseGuards(SessionAuthGuard)
   me(
     @CurrentPrincipal() principal: AuthPrincipal,
     @Req() request: Request,
@@ -116,7 +127,7 @@ export class AuthController {
   @Authenticated()
   @Post("logout")
   @HttpCode(200)
-  @UseGuards(DevAuthGuard, OriginCheckGuard, ThrottlerGuard)
+  @UseGuards(SessionAuthGuard, OriginCheckGuard, ThrottlerGuard)
   async logout(
     @CurrentPrincipal() principal: AuthPrincipal,
     @Req() request: Request,

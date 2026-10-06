@@ -1,0 +1,10 @@
+{
+  "_comentario": "Linha de base do T103: repositórios que ainda importam exceção HTTP de @nestjs/common. Só pode diminuir.",
+  "arquivos": [
+    "auth/prisma-auth.repository.ts",
+    "clientes/prisma-clientes.repository.ts",
+    "compras/compras-escopo.repository.ts",
+    "obras/obras-escopo.repository.ts",
+    "pluggamob/prisma-pluggamob.repository.ts"
+  ]
+}

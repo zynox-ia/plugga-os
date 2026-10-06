@@ -210,12 +210,12 @@ services:
     build:
       context: .
       dockerfile: apps/web/Dockerfile
-      args:
-        # Inlined at build time; only reachable inside the Compose network.
-        NEXT_PUBLIC_API_URL: http://api:3001
     environment:
       NODE_ENV: production
-      NEXT_PUBLIC_API_URL: http://api:3001
+      # Lida em tempo de execução (US12, T128), não no build: só alcançável dentro
+      # da rede do Compose. O nome antigo NEXT_PUBLIC_API_URL ainda é aceito pelo
+      # código como reserva, mas não deve mais ser definido.
+      API_INTERNAL_URL: http://api:3001
       AUTH_ALLOWED_ORIGINS: ${AUTH_ALLOWED_ORIGINS:-}
       # Lidas em tempo de execução, não de build: a imagem standalone é a mesma
       # entre ambientes, e uma variável NEXT_PUBLIC_ ficaria congelada no bundle

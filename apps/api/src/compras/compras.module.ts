@@ -1,5 +1,7 @@
 import { Module } from "@nestjs/common";
 
+import { UploadModule } from "../common/upload/upload.module";
+import { AuditModule } from "../audit/audit.module";
 import { CoreModule } from "../core/core.module";
 import { PrismaModule } from "../prisma/prisma.module";
 import { ArmazenamentoDeCotacoes } from "./armazenamento-de-cotacoes";
@@ -13,7 +15,7 @@ import { ComprasService } from "./compras.service";
 import { PrismaComprasRepository } from "./prisma-compras.repository";
 
 @Module({
-  imports: [CoreModule, PrismaModule],
+  imports: [AuditModule, CoreModule, PrismaModule, UploadModule],
   controllers: [ComprasController],
   providers: [
     ComprasService,

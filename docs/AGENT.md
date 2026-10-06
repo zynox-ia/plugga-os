@@ -116,6 +116,36 @@ pnpm build
 Run narrower package tests while iterating, but the root commands are the Gate B
 contract. Sanitize any log or screenshot before sharing it.
 
+## Branch flow: `develop` and `main`
+
+Decision of the owner (2026-10-05): work lands on `develop`; `main` is production.
+
+- Every change branch is created from `develop` and its pull request targets `develop`.
+  CI must be green. Merging into `develop` never publishes anything.
+- `main` only receives a promotion pull request `develop` → `main`, one per delivered
+  slice or coherent block, listing what goes with it. The owner approves and merges it.
+  That merge is what triggers the `Deploy` workflow.
+- `main` is protected on GitHub (required pull request, required CI check, no force
+  push) and the `production` environment requires the owner's approval (tasks T025 and
+  T026, owner-only settings).
+- Urgent fixes for production may target `main` directly, then `main` is merged back
+  into `develop` right away.
+- Migrations, `[VPS]`/`[DONO]` tasks and history rewrites still need the owner's explicit
+  approval, on whichever branch they land.
+
+## New routes: access marker and route inventory
+
+Every HTTP route is closed by default (spec 002, US5). A new route must:
+
+1. declare its access with exactly one of `@Public()` (needs the owner's approval),
+   `@Authenticated()`, `@Roles(...)` or `@Permissions(...)`; without one the global guard
+   answers 403 (`ROUTE_GUARD_MODE=enforce`, the default);
+2. validate identifier path parameters with `ParseUUIDPipe`;
+3. regenerate the inventory and review the diff:
+   `ATUALIZA_INVENTARIO=1 pnpm --filter @plugga/api test -- inventario-rotas`
+   (`specs/002-fundacao-solida/contracts/inventario-rotas.json`). The test fails while the
+   file is out of date.
+
 ## Change discipline
 
 - Keep commits and pull requests small and scoped to one package or concern.
