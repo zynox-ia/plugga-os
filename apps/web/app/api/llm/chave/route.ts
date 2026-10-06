@@ -5,9 +5,10 @@ import { clientForwardedFor } from "../../../lib/forwarded-for";
  * A chave da OpenRouter sob a origem do web.
  *
  * Repassa o cookie de sessão e deixa a API decidir o acesso — o web não julga
- * permissão por conta própria. Nenhum `origin` vai junto: o OriginCheckGuard da
- * API aceita a ausência (é o que os proxies irmãos enviam), e um origin
- * sintético sempre-permitido anularia o guard.
+ * permissão por conta própria. O `Origin` do navegador vai junto, como nos
+ * proxies irmãos: a API recusa mutação com cookie e sem `Origin` (US11, T119).
+ * Nunca se inventa um valor — um origin sintético sempre-permitido anularia o
+ * guard.
  *
  * O corpo do PUT carrega a chave em claro. Isso é aceitável porque a ligação é
  * TLS até o Caddy e loopback dali para dentro — mas é o motivo de esta rota
@@ -43,10 +44,12 @@ function isOriginAllowed(request: Request): boolean {
 function cabecalhos(request: Request): HeadersInit {
   const cookie = request.headers.get("cookie");
   const encaminhado = clientForwardedFor(request);
+  const origin = request.headers.get("origin");
   return {
     "content-type": "application/json",
     ...(cookie ? { cookie } : {}),
     ...(encaminhado ? { "x-forwarded-for": encaminhado } : {}),
+    ...(origin ? { origin } : {}),
   };
 }
 

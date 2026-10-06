@@ -94,7 +94,10 @@ describe("auth API (e2e, in-memory stores)", () => {
   }
 
   async function loginAgent(userEmail: string, password: string, ip = nextTestIp()) {
-    const agent = request.agent(app.getHttpServer());
+    const agent = request.agent(app.getHttpServer())
+      // O navegador sempre manda Origin em mutação; o app web o repassa à API.
+      // Mutação com cookie e sem Origin é recusada (T119).
+      .set("Origin", "http://localhost:3000");
     const response = await agent
       .post("/auth/login")
       .set("X-Forwarded-For", ip)
@@ -211,6 +214,30 @@ describe("auth API (e2e, in-memory stores)", () => {
       .get("/auth/me")
       .set("Cookie", rawCookieHeader)
       .expect(401);
+  });
+
+  it("recusa mutação autenticada por cookie sem Origin, mas deixa leitura e fluxo sem cookie passarem (T119)", async () => {
+    const { response } = await loginAgent(adminEmail, adminPassword);
+    const cookie = String(response.headers["set-cookie"]?.[0]).split(";")[0] ?? "";
+
+    // Mutação + cookie + sem Origin: não é o navegador do app.
+    await request(app.getHttpServer()).post("/auth/logout").set("Cookie", cookie).expect(403);
+    await request(app.getHttpServer()).post("/agent-actions").set("Cookie", cookie).send({}).expect(403);
+    // Origin de fora também é recusada em /agent-actions (OriginCheckGuard passou a valer lá).
+    await request(app.getHttpServer())
+      .post("/agent-actions")
+      .set("Cookie", cookie)
+      .set("Origin", "https://evil.example.com")
+      .send({})
+      .expect(403);
+
+    // Leitura com cookie e sem Origin segue valendo; o servidor-a-servidor sem cookie também.
+    await request(app.getHttpServer()).get("/auth/me").set("Cookie", cookie).expect(200);
+    await request(app.getHttpServer())
+      .post("/auth/reset/request")
+      .set("X-Forwarded-For", nextTestIp())
+      .send({ email: "nobody@plugga.local" })
+      .expect(200);
   });
 
   it("lets an admin invite a user who then accepts and logs in", async () => {

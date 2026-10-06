@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import { apiBaseUrl } from "./env";
 import { clientForwardedFor } from "./forwarded-for";
-import { isOriginAllowed } from "./origin-check";
+import { encaminharOrigem, isOriginAllowed } from "./origin-check";
 
 const FETCH_TIMEOUT_MS = 5_000;
 /** Upload de orçamentos é mais lento que uma mutação comum. */
@@ -42,6 +42,7 @@ export async function proxyComprasPost(request: Request, apiPath: string): Promi
         "content-type": "application/json",
         ...(cookie ? { cookie } : {}),
         ...(forwardedFor ? { "x-forwarded-for": forwardedFor } : {}),
+        ...encaminharOrigem(request),
       },
       body: rawBody.length > 0 ? rawBody : "{}",
       signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
@@ -90,6 +91,7 @@ export async function proxyComprasUpload(request: Request, apiPath: string): Pro
       headers: {
         ...(cookie ? { cookie } : {}),
         ...(forwardedFor ? { "x-forwarded-for": forwardedFor } : {}),
+        ...encaminharOrigem(request),
       },
       body: saida,
       signal: AbortSignal.timeout(FETCH_TIMEOUT_UPLOAD_MS),

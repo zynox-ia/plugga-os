@@ -74,7 +74,10 @@ describe("google login API (e2e, in-memory stores)", () => {
   it("accepts the session it issued on /auth/me and revokes it on logout", async () => {
     await addActive("pessoa@gmail.com");
 
-    const agent = request.agent(harness.app.getHttpServer());
+    const agent = request.agent(harness.app.getHttpServer())
+      // O navegador sempre manda Origin em mutação; o app web o repassa à API.
+      // Mutação com cookie e sem Origin é recusada (T119).
+      .set("Origin", "http://localhost:3000");
     await agent
       .post("/auth/google")
       .set("X-Forwarded-For", nextTestIp())
