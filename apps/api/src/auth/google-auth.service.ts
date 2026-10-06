@@ -43,6 +43,8 @@ export type GoogleLoginRefusal =
   | "invalid_token"
   | "email_not_verified"
   | "email_not_authoritative"
+  | "hd_mismatch"
+  | "hd_not_allowed"
   | "user_not_found"
   | "user_not_eligible"
   | "identity_conflict"
@@ -126,6 +128,13 @@ export class GoogleAuthService {
     }
 
     const email = normalizeEmail(claims.email);
+
+    const recusaDeDominio = this.recusaPorDominio(email, claims.hostedDomain);
+    if (recusaDeDominio) {
+      await this.refuse(recusaDeDominio, email);
+      throw new GoogleLoginException("unauthorized", HttpStatus.UNAUTHORIZED);
+    }
+
     const identity = await this.repository.findIdentityBySubject(PROVIDER, claims.subject);
 
     const user = identity
@@ -263,6 +272,51 @@ export class GoogleAuthService {
       await this.refuse("invalid_token", null);
       throw new GoogleLoginException("unauthorized", HttpStatus.UNAUTHORIZED);
     }
+  }
+
+  /**
+   * Domínios Google Workspace permitidos (`GOOGLE_ALLOWED_HD`, vírgula),
+   * normalizados. Vazio significa "sem lista": vale a política de vínculo.
+   */
+  private allowedHostedDomains(): Set<string> {
+    const configured = this.config.get<string>("GOOGLE_ALLOWED_HD", "") ?? "";
+    return new Set(
+      configured
+        .split(",")
+        .map((domain) => domain.trim().toLowerCase())
+        .filter((domain) => domain.length > 0),
+    );
+  }
+
+  /**
+   * Política de domínio (US11, T116), aplicada a TODO login Google, novo ou
+   * recorrente:
+   *
+   *  1. A claim `hd` — quando presente — tem de coincidir com o domínio do
+   *     e-mail. Um `hd` diferente do domínio do e-mail é um token estranho (ou
+   *     uma conta de outro Workspace com alias) e não prova a caixa postal.
+   *  2. Com `GOOGLE_ALLOWED_HD` preenchida, só entra quem tem `hd` na lista.
+   *     Conta Gmail comum (sem `hd`) fica de fora: a lista é a decisão do
+   *     cliente de aceitar só o próprio Workspace.
+   *
+   * Sem a variável, o comportamento anterior se mantém, e só a regra 1 vale.
+   */
+  private recusaPorDominio(
+    email: string,
+    hostedDomain: string | null,
+  ): "hd_mismatch" | "hd_not_allowed" | null {
+    const emailDomain = (email.split("@")[1] ?? "").toLowerCase();
+    const hd = hostedDomain ? hostedDomain.toLowerCase() : null;
+
+    if (hd !== null && hd !== emailDomain) {
+      return "hd_mismatch";
+    }
+
+    const allowed = this.allowedHostedDomains();
+    if (allowed.size > 0 && (hd === null || !allowed.has(hd))) {
+      return "hd_not_allowed";
+    }
+    return null;
   }
 
   private isAuthoritativeEmail(email: string, hostedDomain: string | null): boolean {

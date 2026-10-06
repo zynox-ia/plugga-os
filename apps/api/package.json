@@ -24,7 +24,8 @@
     "typecheck": "tsc --noEmit",
     "test:llm": "node scripts/run-flagged-test.mjs RUN_LLM_INTEGRATION_TESTS test/llm-consumo.integration.spec.ts",
     "test:integrations": "node scripts/run-flagged-test.mjs RUN_INTEGRATIONS_INTEGRATION_TESTS test/integracoes-modo.integration.spec.ts",
-    "test:atomicidade": "node scripts/run-flagged-test.mjs RUN_ATOMICIDADE_INTEGRATION_TESTS test/atomicidade-energia.integration.spec.ts test/atomicidade-obras.integration.spec.ts test/atomicidade-comercial.integration.spec.ts test/atomicidade-pluggamob.integration.spec.ts test/numeracao-pedido.integration.spec.ts test/ultimo-admin.integration.spec.ts"
+    "test:atomicidade": "node scripts/run-flagged-test.mjs RUN_ATOMICIDADE_INTEGRATION_TESTS test/atomicidade-energia.integration.spec.ts test/atomicidade-obras.integration.spec.ts test/atomicidade-comercial.integration.spec.ts test/atomicidade-pluggamob.integration.spec.ts test/numeracao-pedido.integration.spec.ts test/ultimo-admin.integration.spec.ts",
+    "test:redis": "node scripts/run-flagged-test.mjs RUN_REDIS_INTEGRATION_TESTS test/login-abuso.e2e.spec.ts test/limitador-redis.integration.spec.ts test/session-cache-hmac.integration.spec.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.937.0",

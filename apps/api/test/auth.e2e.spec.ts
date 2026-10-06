@@ -11,6 +11,7 @@ import { SessionCache } from "../src/core/auth/session-cache";
 import { SessionLookupRepository } from "../src/core/auth/session-lookup.repository";
 import { EmailPort } from "../src/email/email.port";
 import { AuthRepository } from "../src/auth/auth.repository";
+import { ResetEmailDispatcher } from "../src/auth/reset-email.dispatcher";
 import {
   access,
   CapturingEmailPort,
@@ -88,13 +89,23 @@ describe("auth API (e2e, in-memory stores)", () => {
   // spurious 429s — the same failure mode the ARCHITECT found in the
   // Playwright suite. Give each an independent synthetic IP by default.
   let testIpCounter = 0;
+
+  // O e-mail de redefinição sai fora da requisição (T117): quem confere o que foi
+  // enviado espera o envio em segundo plano terminar.
+  async function esperarEnvioDoReset() {
+    await app.get(ResetEmailDispatcher).aguardarPendentes();
+  }
+
   function nextTestIp(): string {
     testIpCounter += 1;
     return `10.99.0.${testIpCounter}`;
   }
 
   async function loginAgent(userEmail: string, password: string, ip = nextTestIp()) {
-    const agent = request.agent(app.getHttpServer());
+    const agent = request.agent(app.getHttpServer())
+      // O navegador sempre manda Origin em mutação; o app web o repassa à API.
+      // Mutação com cookie e sem Origin é recusada (T119).
+      .set("Origin", "http://localhost:3000");
     const response = await agent
       .post("/auth/login")
       .set("X-Forwarded-For", ip)
@@ -135,12 +146,11 @@ describe("auth API (e2e, in-memory stores)", () => {
     await loginAgent(adminEmail, adminPassword);
   });
 
-  it("does not share the login rate-limit bucket across different forwarded client IPs", async () => {
-    // The API only sees the web app's loopback connection; per-IP throttling
-    // depends on X-Forwarded-For carrying the real client address (see
-    // apps/web/app/lib/auth-proxy.ts). Without that, every caller collapses
-    // into one shared bucket and one bad actor can lock everyone out.
-    for (let i = 0; i < 10; i++) {
+  it("nunca recusa quem informa a senha certa, mesmo depois de muitas falhas do mesmo IP (SC-013)", async () => {
+    // O limitador antigo respondia 429 a partir da 11ª requisição do IP, certa
+    // ou errada: 10 chutes de qualquer um trancavam a vítima fora. Agora quem
+    // erra é atrasado e quem acerta entra, de qualquer IP.
+    for (let i = 0; i < 12; i++) {
       await request(app.getHttpServer())
         .post("/auth/login")
         .set("X-Forwarded-For", "203.0.113.10")
@@ -151,7 +161,7 @@ describe("auth API (e2e, in-memory stores)", () => {
       .post("/auth/login")
       .set("X-Forwarded-For", "203.0.113.10")
       .send({ email: adminEmail, password: adminPassword })
-      .expect(429);
+      .expect(200);
 
     await request(app.getHttpServer())
       .post("/auth/login")
@@ -160,29 +170,20 @@ describe("auth API (e2e, in-memory stores)", () => {
       .expect(200);
   });
 
-  it("caps failed login attempts per email even when X-Forwarded-For rotates every request", async () => {
-    // The (email, IP) lock in LockoutService alone is bypassable: an attacker
-    // who sends a fresh X-Forwarded-For on every request gets a fresh lock key
-    // each time, so per-IP locking never engages. This email-only cap (stacked
-    // on top of, not instead of, the (email, IP) lock) closes that gap.
-    const targetEmail = "brute-force-target@plugga.local";
-
+  it("falhas contra uma conta com X-Forwarded-For rotativo não impedem outra conta nem a própria com a senha certa", async () => {
+    // O contador por conta não depende do IP: trocar de IP a cada tentativa não
+    // zera o progresso contra a conta alvo (o atraso cresce), mas a recusa nunca
+    // acontece (veja login-abuso.e2e.spec.ts para o atraso medido).
     for (let i = 0; i < 30; i++) {
       await request(app.getHttpServer())
         .post("/auth/login")
         .set("X-Forwarded-For", `198.51.100.${i + 1}`)
-        .send({ email: targetEmail, password: "wrong-password" })
+        .send({ email: adminEmail, password: "wrong-password" })
         .expect(401);
     }
 
-    // 31st attempt, yet another fresh IP: still rejected purely on the email cap.
-    await request(app.getHttpServer())
-      .post("/auth/login")
-      .set("X-Forwarded-For", "198.51.100.200")
-      .send({ email: targetEmail, password: "wrong-password" })
-      .expect(401);
-
-    // A different account is entirely unaffected by targetEmail's cap.
+    await store.addUser({ email: "outra@plugga.local", password: "outra senha longa", access: access() });
+    await loginAgent("outra@plugga.local", "outra senha longa");
     await loginAgent(adminEmail, adminPassword);
   });
 
@@ -211,6 +212,31 @@ describe("auth API (e2e, in-memory stores)", () => {
       .get("/auth/me")
       .set("Cookie", rawCookieHeader)
       .expect(401);
+  });
+
+  it("recusa mutação autenticada por cookie sem Origin, mas deixa leitura e fluxo sem cookie passarem (T119)", async () => {
+    const { response } = await loginAgent(adminEmail, adminPassword);
+    const cookie = String(response.headers["set-cookie"]?.[0]).split(";")[0] ?? "";
+
+    // Mutação + cookie + sem Origin: não é o navegador do app.
+    await request(app.getHttpServer()).post("/auth/logout").set("Cookie", cookie).expect(403);
+    await request(app.getHttpServer()).post("/agent-actions").set("Cookie", cookie).send({}).expect(403);
+    // Origin de fora também é recusada em /agent-actions (OriginCheckGuard passou a valer lá).
+    await request(app.getHttpServer())
+      .post("/agent-actions")
+      .set("Cookie", cookie)
+      .set("Origin", "https://evil.example.com")
+      .send({})
+      .expect(403);
+
+    // Leitura com cookie e sem Origin segue valendo; o servidor-a-servidor sem cookie também.
+    await request(app.getHttpServer()).get("/auth/me").set("Cookie", cookie).expect(200);
+    await request(app.getHttpServer())
+      .post("/auth/reset/request")
+      .set("X-Forwarded-For", nextTestIp())
+      .send({ email: "nobody@plugga.local" })
+      .expect(200);
+    await esperarEnvioDoReset();
   });
 
   it("lets an admin invite a user who then accepts and logs in", async () => {
@@ -297,6 +323,7 @@ describe("auth API (e2e, in-memory stores)", () => {
       .set("x-forwarded-for", "198.51.100.19")
       .send({ email: adminEmail })
       .expect(200, { ok: true });
+    await esperarEnvioDoReset();
 
     const resetToken = email.lastTokenFor("reset");
     await request(app.getHttpServer())
@@ -316,6 +343,7 @@ describe("auth API (e2e, in-memory stores)", () => {
       .set("x-forwarded-for", "198.51.100.19")
       .send({ email: adminEmail })
       .expect(200, { ok: true });
+    await esperarEnvioDoReset();
     const previousToken = email.lastTokenFor("reset");
 
     await request(app.getHttpServer())
@@ -323,6 +351,7 @@ describe("auth API (e2e, in-memory stores)", () => {
       .set("x-forwarded-for", "198.51.100.19")
       .send({ email: adminEmail })
       .expect(200, { ok: true });
+    await esperarEnvioDoReset();
     const currentToken = email.lastTokenFor("reset");
 
     expect(currentToken).not.toBe(previousToken);
@@ -341,6 +370,7 @@ describe("auth API (e2e, in-memory stores)", () => {
       .post("/auth/reset/request")
       .send({ email: "nobody@plugga.local" })
       .expect(200, { ok: true });
+    await esperarEnvioDoReset();
     expect(email.sent).toHaveLength(0);
   });
 
@@ -353,11 +383,13 @@ describe("auth API (e2e, in-memory stores)", () => {
       .post("/auth/reset/request")
       .send({ email: adminEmail })
       .expect(200, { ok: true });
+    await esperarEnvioDoReset();
 
     await request(app.getHttpServer())
       .post("/auth/reset/request")
       .send({ email: "nobody@plugga.local" })
       .expect(200, { ok: true });
+    await esperarEnvioDoReset();
 
     expect(email.sent).toHaveLength(0);
   });

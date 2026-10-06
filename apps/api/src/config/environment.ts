@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { verificarSegredosDeProducao } from "./segredos-producao";
+
 const environmentBoolean = z.preprocess((value) => {
   if (typeof value !== "string") {
     return value;
@@ -59,6 +61,21 @@ export const environmentSchema = z
     // "false"/"true". "true" trusts any caller's self-reported chain and is
     // rejected at boot in production; use an explicit hop count or CIDR there.
     TRUST_PROXY: z.string().trim().min(1).default("loopback"),
+    // Onde ficam os contadores de abuso (tentativas de login e throttler por IP)
+    // (US11, T112, SEC-006). `redis` (padrão) sobrevive a reinício e é
+    // compartilhado entre processos; `memory` é por processo, para teste e para
+    // quem não tem Redis. Se o Redis cair em execução, o contador cai para a
+    // memória do processo (falha aberta: ninguém deixa de entrar por isso).
+    RATE_LIMIT_STORE: z.enum(["redis", "memory"]).default("redis"),
+    // Atraso progressivo de quem ERRA a senha (nunca de quem acerta). As
+    // primeiras `LOGIN_FREE_ATTEMPTS_ACCOUNT` falhas por conta (e
+    // `LOGIN_FREE_ATTEMPTS_ORIGIN` por origem) respondem sem atraso; depois cada
+    // falha espera o dobro da anterior, de `LOGIN_DELAY_BASE_MS` até
+    // `LOGIN_DELAY_MAX_MS`.
+    LOGIN_FREE_ATTEMPTS_ACCOUNT: z.coerce.number().int().min(0).max(100).default(5),
+    LOGIN_FREE_ATTEMPTS_ORIGIN: z.coerce.number().int().min(0).max(1_000).default(15),
+    LOGIN_DELAY_BASE_MS: z.coerce.number().int().min(0).max(60_000).default(500),
+    LOGIN_DELAY_MAX_MS: z.coerce.number().int().min(0).max(60_000).default(8_000),
     LOG_LEVEL: z.enum(["debug", "info", "warn", "error", "silent"]).default("info"),
     // Signs the session cookie (integrity, defense in depth over the opaque
     // token). Local placeholder only in .env.example; never committed for real.
@@ -84,6 +101,12 @@ export const environmentSchema = z
     // desligar instantâneo: false volta ao comportamento de sempre ir ao banco.
     SESSION_CACHE_ENABLED: environmentBoolean.default(true),
     SESSION_CACHE_TTL_SECONDS: z.coerce.number().int().min(1).max(3_600).default(60),
+    // Autentica cada entrada do cache de sessão com HMAC-SHA256 (US11, T115).
+    // Desligado por default: sem a variável o cache se comporta como sempre. Com
+    // ela, uma entrada gravada por quem tem acesso ao Redis mas não tem esta
+    // chave é recusada (vira cache miss e a sessão é relida do Postgres). Ligar
+    // exige senha no Redis em paralelo (tarefa [VPS], com aprovação do dono).
+    SESSION_CACHE_HMAC_KEY: opcional(z.string().min(32)),
     // Piso entre renovações de sessão por atividade (`lastUsedAt`): sem isto, a
     // renovação escreve no Postgres em toda requisição autenticada, mesmo em
     // cache hit ela seria pulada, mas uma queda do Redis faria o miss voltar a
@@ -108,6 +131,12 @@ export const environmentSchema = z
     // tela em silêncio — o modo de falha mais caro de diagnosticar, porque nada
     // no sistema reclama.
     GOOGLE_LOGIN_URI: opcional(z.string().trim().url()),
+    // Lista permitida de domínios Google Workspace (claim `hd`), separados por
+    // vírgula (US11, T116). Vazia: qualquer domínio que a política de vínculo
+    // aceite (comportamento anterior). Preenchida: só entra quem tem `hd` na
+    // lista, com o mesmo domínio do e-mail — contas Gmail comuns (sem `hd`)
+    // ficam de fora. Ex.: GOOGLE_ALLOWED_HD=plugga.com.br
+    GOOGLE_ALLOWED_HD: opcional(z.string().trim()),
     // Bitrix Migrator credential (ADR-0009): inbound webhook URL with the token
     // embedded in the path. Lives only in the environment/secret — never in git,
     // never in the integrations table, never logged. Bitrix is external SaaS, so
@@ -126,6 +155,31 @@ export const environmentSchema = z
   })
   .passthrough()
   .superRefine((environment, context) => {
+    if (environment.NODE_ENV === "production") {
+      // Segredo de exemplo, vazio ou de baixa entropia não sobe em produção
+      // (US11, T118, SC-015). Só vale aqui: teste e desenvolvimento usam os
+      // exemplos de propósito. As regras exatas vivem em segredos-producao.ts.
+      for (const problema of verificarSegredosDeProducao(environment)) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: [problema.variavel],
+          message: `segredo recusado em produção: ${problema.motivo}`,
+        });
+      }
+    }
+
+    if (environment.GOOGLE_ALLOWED_HD) {
+      const dominios = environment.GOOGLE_ALLOWED_HD.split(",").map((d) => d.trim());
+      const invalido = dominios.find((d) => !/^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/i.test(d));
+      if (invalido !== undefined) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["GOOGLE_ALLOWED_HD"],
+          message: "GOOGLE_ALLOWED_HD deve ser uma lista de domínios separados por vírgula (ex.: plugga.com.br)",
+        });
+      }
+    }
+
     if (environment.NODE_ENV === "production" && environment.DEV_AUTH_ENABLED) {
       context.addIssue({
         code: z.ZodIssueCode.custom,

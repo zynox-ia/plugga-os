@@ -39,3 +39,17 @@ export function isOriginAllowed(request: Request): boolean {
     return false;
   }
 }
+
+/**
+ * Cabeçalho `Origin` a repassar do navegador para a API (US11, T119).
+ *
+ * A API passou a recusar mutação autenticada por cookie que chega SEM `Origin`
+ * (`OriginCheckGuard`): o web é quem fala com ela, então precisa repassar o
+ * valor que o navegador enviou. Só se repassa o que o próprio `isOriginAllowed`
+ * já aceitou — nunca um valor sintético. Sem `Origin` na requisição (curl,
+ * teste), não se inventa um: a API decide.
+ */
+export function encaminharOrigem(request: Request): Record<string, string> {
+  const origin = request.headers.get("origin");
+  return origin ? { origin } : {};
+}

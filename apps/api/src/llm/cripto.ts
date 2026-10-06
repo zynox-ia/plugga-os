@@ -1,5 +1,7 @@
 import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
 
+import { motivoBytesFracos } from "../config/segredos-producao";
+
 /**
  * Cifra dos segredos que o sistema guarda para si.
  *
@@ -49,6 +51,16 @@ function chaveMestra(): Buffer {
       `SECRETS_ENCRYPTION_KEY tem ${chave.length} bytes depois de decodificada em base64; ` +
         "o AES-256 exige exatamente 32. Gere com: openssl rand -base64 32",
     );
+  }
+
+  // Segunda barreira (a primeira é a validação do ambiente no boot): em produção
+  // uma chave toda zero ou de baixa entropia cifraria "para inglês ver". Só vale
+  // em produção, onde o valor de exemplo do `.env.example` nunca deve chegar.
+  if (process.env.NODE_ENV === "production") {
+    const motivo = motivoBytesFracos(chave);
+    if (motivo) {
+      throw new Error(`SECRETS_ENCRYPTION_KEY recusada em produção: ${motivo}. Gere com: openssl rand -base64 32`);
+    }
   }
   return chave;
 }

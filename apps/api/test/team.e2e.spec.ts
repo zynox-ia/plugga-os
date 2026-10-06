@@ -124,7 +124,10 @@ describe("team API — access by company and department (e2e, in-memory stores)"
   let testIpCounter = 0;
   async function loginAgent(userEmail: string, password: string) {
     testIpCounter += 1;
-    const agent = request.agent(app.getHttpServer());
+    const agent = request.agent(app.getHttpServer())
+      // O navegador sempre manda Origin em mutação; o app web o repassa à API.
+      // Mutação com cookie e sem Origin é recusada (T119).
+      .set("Origin", "http://localhost:3000");
     await agent
       .post("/auth/login")
       .set("X-Forwarded-For", `10.98.0.${testIpCounter}`)
