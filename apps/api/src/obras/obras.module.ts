@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 
+import { UploadModule } from "../common/upload/upload.module";
 import { AuditModule } from "../audit/audit.module";
 import { CoreModule } from "../core/core.module";
 import { PrismaModule } from "../prisma/prisma.module";
@@ -11,7 +12,7 @@ import { ObrasService } from "./obras.service";
 import { PrismaObrasRepository } from "./prisma-obras.repository";
 
 @Module({
-  imports: [AuditModule, CoreModule, PrismaModule],
+  imports: [AuditModule, CoreModule, PrismaModule, UploadModule],
   controllers: [ObrasController],
   providers: [
     ObrasService,

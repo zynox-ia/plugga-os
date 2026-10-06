@@ -25,13 +25,15 @@ import type {
 } from "@plugga/shared";
 
 import type { AuthPrincipal } from "../core/auth/auth.types";
-import { ArmazenamentoDeCotacoes } from "./armazenamento-de-cotacoes";
+import { inspecionarEnvios, lerEnvio } from "../common/upload/arquivos-enviados";
+import { ArmazenamentoDeCotacoes, TIPOS_ACEITOS } from "./armazenamento-de-cotacoes";
 import { ComprasEscopoRepository } from "./compras-escopo.repository";
 import { ComprasRepository, type AnexoDeCotacao } from "./compras.repository";
 
 /** Um orçamento chegando pela requisição multipart. */
 export type ArquivoDeCotacao = {
-  buffer: Buffer;
+  /** Temporário em disco, apagado ao fim da requisição. */
+  path: string;
   originalname: string;
   mimetype: string;
 };
@@ -85,10 +87,14 @@ export class ComprasService {
     // tem como trabalhar o pedido, e o indicador individual viraria ficção.
     await this.escopo.assertAlcanca(input.responsavelId, input.companyId);
 
+    // O tipo é conferido pelo conteúdo antes de guardar qualquer um: um arquivo
+    // recusado não deixa os anteriores órfãos no balde.
+    await inspecionarEnvios(arquivos, TIPOS_ACEITOS);
+
     const anexos: AnexoDeCotacao[] = [];
     for (const arquivo of arquivos) {
       const guardado = await this.armazenamento.guardar(
-        arquivo.buffer,
+        await lerEnvio(arquivo),
         arquivo.mimetype,
         arquivo.originalname,
         input.companyId,

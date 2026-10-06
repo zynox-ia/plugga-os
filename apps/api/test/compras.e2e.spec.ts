@@ -30,6 +30,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { AppModule } from "../src/app.module";
 import { ArmazenamentoDeCotacoes } from "../src/compras/armazenamento-de-cotacoes";
+import { pdf } from "../src/common/upload/arquivos-de-teste";
 import { ComprasEscopoRepository } from "../src/compras/compras-escopo.repository";
 import { ComprasRepository, type AnexoDeCotacao } from "../src/compras/compras.repository";
 import {
@@ -597,7 +598,7 @@ describe("Compras — POP-COMP-001 (e2e)", () => {
     const resposta = await como(SOLICITANTE)
       .post("/compras/pedidos")
       .field("payload", JSON.stringify(payloadValido(parcial)))
-      .attach("cotacoes", Buffer.from("%PDF-1.4 orcamento"), {
+      .attach("cotacoes", pdf(), {
         filename: "orcamento.pdf",
         contentType: "application/pdf",
       })
@@ -659,7 +660,7 @@ describe("Compras — POP-COMP-001 (e2e)", () => {
       await como(SOLICITANTE)
         .post("/compras/pedidos")
         .field("payload", JSON.stringify(payloadValido({ itens: [] })))
-        .attach("cotacoes", Buffer.from("x"), { filename: "o.pdf", contentType: "application/pdf" })
+        .attach("cotacoes", pdf(), { filename: "o.pdf", contentType: "application/pdf" })
         .expect(400);
     });
 
@@ -667,7 +668,7 @@ describe("Compras — POP-COMP-001 (e2e)", () => {
       await como(SOLICITANTE)
         .post("/compras/pedidos")
         .field("payload", JSON.stringify(payloadValido({ destino: "interno" })))
-        .attach("cotacoes", Buffer.from("x"), { filename: "o.pdf", contentType: "application/pdf" })
+        .attach("cotacoes", pdf(), { filename: "o.pdf", contentType: "application/pdf" })
         .expect(400);
     });
 
@@ -676,7 +677,7 @@ describe("Compras — POP-COMP-001 (e2e)", () => {
       await como(SOLICITANTE)
         .post("/compras/pedidos")
         .field("payload", JSON.stringify(payloadValido()))
-        .attach("cotacoes", Buffer.from("x"), { filename: "o.pdf", contentType: "application/pdf" })
+        .attach("cotacoes", pdf(), { filename: "o.pdf", contentType: "application/pdf" })
         .expect(403);
       expect((await como(COMPRADOR).get("/compras/pedidos?companyId=plugga")).body.items).toHaveLength(0);
     });

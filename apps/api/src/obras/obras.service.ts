@@ -32,12 +32,14 @@ import type {
 } from "@plugga/shared";
 
 import type { AuthPrincipal } from "../core/auth/auth.types";
-import { ArmazenamentoDeEvidencias } from "./armazenamento-de-evidencias";
+import { inspecionarEnvios, lerEnvio } from "../common/upload/arquivos-enviados";
+import { ArmazenamentoDeEvidencias, TIPOS_ACEITOS } from "./armazenamento-de-evidencias";
 import { ObrasEscopoRepository } from "./obras-escopo.repository";
 import { ObrasRepository } from "./obras.repository";
 
 /** Um arquivo de evidência chegando pela requisição multipart. */
-export type ArquivoDeEvidencia = { buffer: Buffer; originalname: string; mimetype: string };
+/** `path` é o temporário em disco, apagado ao fim da requisição. */
+export type ArquivoDeEvidencia = { path: string; originalname: string; mimetype: string };
 
 /**
  * Orquestra escopo de empresa/departamento + repositório, no molde de
@@ -87,7 +89,13 @@ export class ObrasService {
     principal: AuthPrincipal,
   ): Promise<ObraExecucaoDetalhe> {
     await this.escopo.assertAlcanca(principal.id, input.companyId);
-    const guardado = await this.armazenamento.guardar(arquivo.buffer, arquivo.mimetype, arquivo.originalname);
+    // Tipo conferido pelo conteúdo antes de guardar.
+    await inspecionarEnvios([arquivo], TIPOS_ACEITOS);
+    const guardado = await this.armazenamento.guardar(
+      await lerEnvio(arquivo),
+      arquivo.mimetype,
+      arquivo.originalname,
+    );
     return this.repositorio.registrarEvidencia(
       id,
       input,
@@ -216,9 +224,10 @@ export class ObrasService {
     principal: AuthPrincipal,
   ): Promise<ProjetoVersao> {
     await this.escopo.assertAlcanca(principal.id, input.companyId);
+    if (arquivo) await inspecionarEnvios([arquivo], TIPOS_ACEITOS);
     const anexo = arquivo
       ? await this.armazenamento
-          .guardar(arquivo.buffer, arquivo.mimetype, arquivo.originalname)
+          .guardar(await lerEnvio(arquivo), arquivo.mimetype, arquivo.originalname)
           .then((guardado) => ({ arquivoChave: guardado.chave, arquivoNome: arquivo.originalname }))
       : null;
     return this.repositorio.criarVersaoDeProjeto(id, input, anexo, principal);
