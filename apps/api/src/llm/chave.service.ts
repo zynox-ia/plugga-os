@@ -1,6 +1,6 @@
 import { Inject, Injectable, Logger } from "@nestjs/common";
 
-import { eventNames, type EventName } from "@plugga/shared";
+import { eventNames, type EstadoDaChave, type EventName } from "@plugga/shared";
 
 import { AuditRepository } from "../audit/audit.repository";
 import { cifrar, decifrar, mascarar, SegredoCorrompidoError } from "./cripto.js";
@@ -9,21 +9,6 @@ import { SegredoRepository } from "./segredo.repository.js";
 /** Identificador lógico do segredo; uma linha por chave no banco. */
 const CHAVE_OPENROUTER = "openrouter.api_key";
 
-export type EstadoDaChave = {
-  /** Se há chave utilizável agora, venha do banco ou do ambiente. */
-  configurada: boolean;
-  /**
-   * De onde a chave em uso veio — o banco tem precedência sobre o ambiente.
-   * `banco_ilegivel` é o banco com uma linha que não decifra mais (chave-mestra
-   * rotacionada sem regravar): o gateway está rodando com a do ambiente, se
-   * houver, e a tela precisa dizer isso em vez de exibir a máscara antiga.
-   */
-  origem: "banco" | "banco_ilegivel" | "ambiente" | "nenhuma";
-  /** Só os últimos quatro caracteres; a chave nunca sai daqui. */
-  mascara: string | null;
-  atualizadoEm: string | null;
-  atualizadoPor: string | null;
-};
 
 /**
  * Guarda e entrega a chave da OpenRouter.

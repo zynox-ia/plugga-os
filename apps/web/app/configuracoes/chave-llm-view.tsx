@@ -1,18 +1,11 @@
 "use client";
 
+import type { EstadoDaChaveComCofre } from "@plugga/shared";
 import { useCallback, useEffect, useState } from "react";
 
 import { ShellCard, StatusPill } from "../components/plugga-shell";
 import { formatarDataHora } from "../lib/format";
 
-type EstadoDaChave = {
-  configurada: boolean;
-  origem: "banco" | "ambiente" | "nenhuma" | "banco_ilegivel";
-  mascara: string | null;
-  atualizadoEm: string | null;
-  atualizadoPor: string | null;
-  cofreConfigurado: boolean;
-};
 
 /**
  * Onde a chave da OpenRouter é plugada e trocada.
@@ -25,7 +18,7 @@ type EstadoDaChave = {
  * tela, a captura de sessão e a colega que senta na cadeira.
  */
 export function ChaveLlmView() {
-  const [estado, setEstado] = useState<EstadoDaChave | null>(null);
+  const [estado, setEstado] = useState<EstadoDaChaveComCofre | null>(null);
   const [carregando, setCarregando] = useState(true);
   const [valor, setValor] = useState("");
   const [salvando, setSalvando] = useState(false);
@@ -37,7 +30,7 @@ export function ChaveLlmView() {
     try {
       const resposta = await fetch("/api/llm/chave", { cache: "no-store" });
       if (!resposta.ok) throw new Error("não foi possível ler o estado da chave");
-      setEstado((await resposta.json()) as EstadoDaChave);
+      setEstado((await resposta.json()) as EstadoDaChaveComCofre);
       setErro(null);
     } catch (falha) {
       setErro(falha instanceof Error ? falha.message : "falha ao consultar");
@@ -66,7 +59,7 @@ export function ChaveLlmView() {
         const detalhe = (await resposta.json().catch(() => null)) as { message?: string } | null;
         throw new Error(detalhe?.message ?? "não foi possível gravar a chave");
       }
-      const corpo = (await resposta.json().catch(() => null)) as EstadoDaChave | null;
+      const corpo = (await resposta.json().catch(() => null)) as EstadoDaChaveComCofre | null;
 
       // Limpo antes de qualquer outra coisa: se algo abaixo falhar, a chave já
       // saiu da tela.
@@ -87,7 +80,7 @@ export function ChaveLlmView() {
     try {
       const resposta = await fetch("/api/llm/chave", { method: "DELETE" });
       if (!resposta.ok) throw new Error("não foi possível apagar a chave");
-      const corpo = (await resposta.json().catch(() => null)) as EstadoDaChave | null;
+      const corpo = (await resposta.json().catch(() => null)) as EstadoDaChaveComCofre | null;
       if (corpo) setEstado({ ...corpo, cofreConfigurado: estado?.cofreConfigurado ?? true });
       setAviso(
         corpo?.origem === "ambiente"
