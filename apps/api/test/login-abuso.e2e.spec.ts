@@ -6,7 +6,7 @@ import request from "supertest";
 import { afterAll, afterEach, describe, expect, it } from "vitest";
 
 import { AppModule } from "../src/app.module";
-import { AuditRepository } from "../src/audit/audit.repository";
+import { AuditPort } from "../src/audit/audit.port";
 import { AuthRepository } from "../src/auth/auth.repository";
 import { ContadorTentativas } from "../src/auth/limitador/contador-tentativas";
 import { LimitadorLogin } from "../src/auth/limitador/limitador-login.service";
@@ -58,7 +58,7 @@ async function subirApp(contador: ContadorTentativas, store: InMemoryStore): Pro
     .useValue(new InMemorySessionLookup(store))
     .overrideProvider(EmailPort)
     .useValue(new CapturingEmailPort())
-    .overrideProvider(AuditRepository)
+    .overrideProvider(AuditPort)
     .useValue(new NoopAuditRepository())
     .overrideProvider(SessionCache)
     .useValue(new NullSessionCache())

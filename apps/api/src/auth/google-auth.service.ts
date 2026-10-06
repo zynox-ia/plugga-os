@@ -8,8 +8,8 @@ import {
   type GoogleLoginErrorCode,
 } from "@plugga/shared";
 
-import { AuditRepository } from "../audit/audit.repository";
-import { maskEmail } from "../email/email.util";
+import { AuditPort } from "../audit/audit.port";
+import { maskEmail } from "../common/mascara-email";
 import { AuthRepository, IdentityLinkError, type AuthUserRecord } from "./auth.repository";
 import { toSessionUser, type LoginResult } from "./auth.service";
 import {
@@ -97,7 +97,7 @@ export class GoogleAuthService {
     @Inject(AuthRepository) private readonly repository: AuthRepository,
     @Inject(GoogleIdentityVerifier) private readonly verifier: GoogleIdentityVerifier,
     @Inject(SessionService) private readonly sessions: SessionService,
-    @Inject(AuditRepository) private readonly audit: AuditRepository,
+    @Inject(AuditPort) private readonly audit: AuditPort,
     @Inject(ConfigService) private readonly config: ConfigService,
   ) {}
 
