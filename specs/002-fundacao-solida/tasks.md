@@ -461,10 +461,10 @@ Monorepo pnpm: `apps/api/src/`, `apps/api/prisma/`, `apps/api/test/`, `apps/web/
 
 **Teste independente**: inventário dos recursos públicos com licença conferida; `/design-system` fechado em produção.
 
-- [ ] T203 [P] [US17] Remover as fontes `Roobert*TRIAL*` (licença "Personal Use Only") e as não usadas de `apps/web/public/fonts/` e `docs/mockup/assets/fonts/`; conferir a licença das demais (`ArticulatCF-*`) e documentar em `apps/web/public/fonts/LICENCAS.md`; confirmar que `globals.css` não as referencia
-- [ ] T204 [P] [US17] Remover o código morto `apps/web/app/components/unicorn-background.tsx` e tirar `cdn.jsdelivr.net`, `assets.unicorn.studio` e `my.spline.design` da política em `apps/web/app/lib/content-security-policy.ts`; teste do CSP
-- [ ] T205 [P] [US17] Bloquear `apps/web/app/design-system/` em produção (404 quando `NODE_ENV=production`), com teste em `apps/web/test/`
-- [ ] T206 [US17] Dividir os componentes acima de 600 linhas (`dashboard-view.tsx` com 1.642, `equipe-view.tsx`, `nova-fatura-view.tsx`, `estudo-detalhe-view.tsx`) extraindo `Tabs`, `Kanban` e subcomponentes, e adicionar à CI uma verificação de tamanho máximo com lista de exceções em `scripts/tamanho-componentes.json`
+- [X] T203 [P] [US17] Remover as fontes `Roobert*TRIAL*` (licença "Personal Use Only") e as não usadas de `apps/web/public/fonts/` e `docs/mockup/assets/fonts/`; conferir a licença das demais (`ArticulatCF-*`) e documentar em `apps/web/public/fonts/LICENCAS.md`; confirmar que `globals.css` não as referencia
+- [X] T204 [P] [US17] Remover o código morto `apps/web/app/components/unicorn-background.tsx` e tirar `cdn.jsdelivr.net`, `assets.unicorn.studio` e `my.spline.design` da política em `apps/web/app/lib/content-security-policy.ts`; teste do CSP
+- [X] T205 [P] [US17] Bloquear `apps/web/app/design-system/` em produção (404 quando `NODE_ENV=production`), com teste em `apps/web/test/`
+- [ ] T206 [US17] (gate de tamanho na CI pronto, com teto por arquivo; falta dividir dashboard-view, equipe-view e design-system/page) Dividir os componentes acima de 600 linhas (`dashboard-view.tsx` com 1.642, `equipe-view.tsx`, `nova-fatura-view.tsx`, `estudo-detalhe-view.tsx`) extraindo `Tabs`, `Kanban` e subcomponentes, e adicionar à CI uma verificação de tamanho máximo com lista de exceções em `scripts/tamanho-componentes.json`
 
 ---
 

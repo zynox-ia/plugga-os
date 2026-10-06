@@ -1,0 +1,9 @@
+{
+  "_comentario": "Limite de 600 linhas por componente do web (spec 002, T206). Cada exceção guarda o teto atual e só pode diminuir: dividir o arquivo e baixar o número aqui.",
+  "limite": 600,
+  "excecoes": {
+    "apps/web/app/components/dashboard-view.tsx": 1644,
+    "apps/web/app/configuracoes/equipe-view.tsx": 664,
+    "apps/web/app/design-system/page.tsx": 605
+  }
+}
