@@ -1360,7 +1360,7 @@ tbody tr:last-child td { border-bottom: 0; }
   position: relative;
   cursor: pointer;
   transition: all 0.25s ease;
-  font-family: var(--font-roobert), "Roobert TRIAL", Outfit, sans-serif;
+  font-family: var(--font-roobert), Outfit, sans-serif;
 }
 
 .auth-sso-btn:hover {
@@ -1379,7 +1379,7 @@ tbody tr:last-child td { border-bottom: 0; }
   font-size: 14px;
   font-weight: 500;
   color: var(--ink);
-  font-family: var(--font-roobert), "Roobert TRIAL", Outfit, sans-serif;
+  font-family: var(--font-roobert), Outfit, sans-serif;
 }
 
 .auth-pill-divider {
@@ -1613,7 +1613,7 @@ tbody tr:last-child td { border-bottom: 0; }
   color: #ffffff;
   font-size: 15px;
   font-weight: 500;
-  font-family: var(--font-roobert), "Roobert TRIAL", Outfit, sans-serif;
+  font-family: var(--font-roobert), Outfit, sans-serif;
   cursor: pointer;
   box-shadow: 0 8px 22px rgba(0, 163, 255, 0.3);
   transition: all 0.25s ease;
@@ -2475,7 +2475,7 @@ tbody tr:last-child td { border-bottom: 0; }
   font-size: clamp(30px, 4vw, 38px);
   font-weight: 500;
   margin: 0 0 14px;
-  font-family: var(--font-roobert), "Roobert TRIAL", Outfit, sans-serif;
+  font-family: var(--font-roobert), Outfit, sans-serif;
   letter-spacing: -0.035em;
   line-height: 1;
 }
@@ -2485,7 +2485,7 @@ tbody tr:last-child td { border-bottom: 0; }
   font-size: 15px;
   font-weight: 500;
   margin: 30px 0 8px;
-  font-family: var(--font-roobert), "Roobert TRIAL", Outfit, sans-serif;
+  font-family: var(--font-roobert), Outfit, sans-serif;
   letter-spacing: -0.01em;
   line-height: 1.2;
 }

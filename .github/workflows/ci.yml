@@ -145,6 +145,9 @@ jobs:
       - name: Verify delivery scripts
         run: pnpm test:scripts
 
+      - name: Verify web component size
+        run: node scripts/tamanho-componentes.mjs
+
       - name: Verify deploy lock
         run: bash ops/deploy-trava.test.sh
 
