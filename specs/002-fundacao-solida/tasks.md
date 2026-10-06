@@ -307,8 +307,8 @@ Monorepo pnpm: `apps/api/src/`, `apps/api/prisma/`, `apps/api/test/`, `apps/web/
 
 ### [F2] Parar de gravar PII
 
-- [ ] T132 [US8] Trocar `payload: { input, … }` (`apps/api/src/clientes/prisma-clientes.repository.ts` linhas 107 e 134, `apps/api/src/commercial/prisma-commercial.repository.ts` linha 151, `apps/api/src/compras/prisma-compras.repository.ts` linha 1022 com `documento`) por `{ campos: [...] }` pelo `AuditAppender`; formato de [data-model.md](data-model.md) §4
-- [ ] T133 [P] [US8] Testes `apps/api/test/eventos-sem-pii.integration.spec.ts`: criar/editar cliente, oportunidade e fornecedor e varrer `event_log.payload` procurando nome, e-mail, telefone e documento usados no teste (deve achar 0)
+- [X] T132 [US8] Trocar `payload: { input, … }` (`apps/api/src/clientes/prisma-clientes.repository.ts` linhas 107 e 134, `apps/api/src/commercial/prisma-commercial.repository.ts` linha 151, `apps/api/src/compras/prisma-compras.repository.ts` linha 1022 com `documento`) por `{ campos: [...] }` pelo `AuditAppender`; formato de [data-model.md](data-model.md) §4
+- [X] T133 [P] [US8] Testes `apps/api/test/eventos-sem-pii.integration.spec.ts`: criar/editar cliente, oportunidade e fornecedor e varrer `event_log.payload` procurando nome, e-mail, telefone e documento usados no teste (deve achar 0)
 
 ### [F3] Retenção e apagamento
 

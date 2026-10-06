@@ -19,6 +19,7 @@ import {
   type UpdateContractStatusRequest,
   type UpdateOpportunityStageRequest,
   type WinOpportunityRequest,
+  type NomeDeEventoAuditavel,
 } from "@plugga/shared";
 
 import { AuditAppender } from "../audit/audit-appender";
@@ -149,16 +150,14 @@ export class PrismaCommercialRepository extends CommercialRepository {
           nextActionNote: input.nextActionNote,
         },
       });
-      await tx.eventLog.create({
-        data: {
-          eventName: "commercial.opportunity_created",
-          entityType: "opportunity",
-          entityId: row.id,
-          actorType: this.actorType(principal),
-          actorId: principal.id,
-          payload: { ...input },
-          occurredAt: row.createdAt,
-        },
+      await this.auditoria.append(tx, {
+        eventName: "commercial.opportunity_created" as NomeDeEventoAuditavel,
+        entityType: "opportunity",
+        entityId: row.id,
+        actorType: this.actorType(principal),
+        actorId: principal.id,
+        payload: { campos: Object.keys(input) },
+        occurredAt: row.createdAt,
       });
       return row;
     });
@@ -226,16 +225,14 @@ export class PrismaCommercialRepository extends CommercialRepository {
       const contact = await tx.opportunityContact.create({
         data: { opportunityId: id, channel: input.channel, outcome: input.outcome, note: input.note },
       });
-      await tx.eventLog.create({
-        data: {
-          eventName: "commercial.opportunity_contact_registered",
-          entityType: "opportunity_contact",
-          entityId: contact.id,
-          actorType: this.actorType(principal),
-          actorId: principal.id,
-          payload: { opportunityId: id, ...input },
-          occurredAt: contact.createdAt,
-        },
+      await this.auditoria.append(tx, {
+        eventName: "commercial.opportunity_contact_registered" as NomeDeEventoAuditavel,
+        entityType: "opportunity_contact",
+        entityId: contact.id,
+        actorType: this.actorType(principal),
+        actorId: principal.id,
+        payload: { opportunityId: id, campos: Object.keys(input) },
+        occurredAt: contact.createdAt,
       });
     });
 

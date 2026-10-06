@@ -1,9 +1,8 @@
 {
   "_nota": "Chamadas diretas a eventLog.create que ainda existem fora de apps/api/src/audit/. O número só pode cair: cada migração para o AuditAppender (US7) reduz a contagem aqui. Um arquivo novo ou uma contagem maior falha o lint (T018).",
   "arquivos": {
-    "clientes/prisma-clientes.repository.ts": 4,
-    "commercial/prisma-commercial.repository.ts": 7,
-    "compras/prisma-compras.repository.ts": 3,
+    "commercial/prisma-commercial.repository.ts": 5,
+    "compras/prisma-compras.repository.ts": 2,
     "energy/prisma-energy.repository.ts": 11,
     "obras/prisma-obras.repository.ts": 1,
     "pluggamob/prisma-pluggamob.repository.ts": 5

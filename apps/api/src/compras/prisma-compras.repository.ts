@@ -27,6 +27,7 @@ import {
   type SelecionarCotacaoRequest,
   type TriagemRequest,
   type ValidarNecessidadeRequest,
+  type NomeDeEventoAuditavel,
 } from "@plugga/shared";
 
 import { AuditAppender } from "../audit/audit-appender";
@@ -1021,16 +1022,14 @@ export class PrismaComprasRepository extends ComprasRepository {
       });
       // Quem entra na lista de quem a empresa paga é registro de auditoria, não
       // cadastro qualquer: é a porta da fraude mais comum do ciclo de compras.
-      await tx.eventLog.create({
-        data: {
-          eventName: "compras.fornecedor_cadastrado",
-          entityType: "fornecedor",
-          entityId: fornecedor.id,
-          actorType: this.actorType(principal),
-          actorId: principal.id,
-          payload: { companyId: input.companyId, nome: input.nome, documento: input.documento ?? null },
-          occurredAt: agora,
-        },
+      await this.auditoria.append(tx, {
+        eventName: "compras.fornecedor_cadastrado" as NomeDeEventoAuditavel,
+        entityType: "fornecedor",
+        entityId: fornecedor.id,
+        actorType: this.actorType(principal),
+        actorId: principal.id,
+        payload: { companyId: input.companyId, campos: input.documento ? ["nome", "documento"] : ["nome"] },
+        occurredAt: agora,
       });
       return fornecedor;
     });

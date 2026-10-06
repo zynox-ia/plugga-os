@@ -7,6 +7,7 @@ import {
   createClientResponseSchema,
   listClientsResponseSchema,
   type ClientDuplicateCandidate,
+  type NomeDeEventoAuditavel,
   type ClientDuplicateCandidatesResponse,
   type ClientFicha,
   type ClientSummary,
@@ -19,6 +20,7 @@ import {
   type UpdateClientRequest,
 } from "@plugga/shared";
 
+import { AuditAppender } from "../audit/audit-appender";
 import type { AuthPrincipal } from "../core/auth/auth.types";
 import { PrismaService } from "../prisma/prisma.service";
 import { ClientesRepository } from "./clientes.repository";
@@ -54,7 +56,10 @@ export function normalizeName(value: string): string {
 
 @Injectable()
 export class PrismaClientesRepository extends ClientesRepository {
-  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {
+  constructor(
+    @Inject(PrismaService) private readonly prisma: PrismaService,
+    @Inject(AuditAppender) private readonly auditoria: AuditAppender,
+  ) {
     super();
   }
 
@@ -97,16 +102,14 @@ export class PrismaClientesRepository extends ClientesRepository {
           segment: input.segment ?? "prospect",
         },
       });
-      await tx.eventLog.create({
-        data: {
-          eventName: "clientes.client_created",
-          entityType: "client",
-          entityId: client.id,
-          actorType: this.actorType(principal),
-          actorId: principal.id,
-          payload: { input, duplicateCandidateIds: candidateRows.map(([row]) => row.id) },
-          occurredAt: client.createdAt,
-        },
+      await this.auditoria.append(tx, {
+        eventName: "clientes.client_created" as NomeDeEventoAuditavel,
+        entityType: "client",
+        entityId: client.id,
+        actorType: this.actorType(principal),
+        actorId: principal.id,
+        payload: { campos: Object.keys(input), duplicateCandidateIds: candidateRows.map(([row]) => row.id) },
+        occurredAt: client.createdAt,
       });
       return client;
     });
@@ -124,16 +127,14 @@ export class PrismaClientesRepository extends ClientesRepository {
 
     const updated = await this.prisma.$transaction(async (tx) => {
       const client = await tx.client.update({ where: { id }, data: { ...input } });
-      await tx.eventLog.create({
-        data: {
-          eventName: "clientes.client_updated",
-          entityType: "client",
-          entityId: id,
-          actorType: this.actorType(principal),
-          actorId: principal.id,
-          payload: { input },
-          occurredAt: new Date(),
-        },
+      await this.auditoria.append(tx, {
+        eventName: "clientes.client_updated" as NomeDeEventoAuditavel,
+        entityType: "client",
+        entityId: id,
+        actorType: this.actorType(principal),
+        actorId: principal.id,
+        payload: { campos: Object.keys(input) },
+        occurredAt: new Date(),
       });
       return client;
     });
@@ -149,16 +150,14 @@ export class PrismaClientesRepository extends ClientesRepository {
 
     const updated = await this.prisma.$transaction(async (tx) => {
       const client = await tx.client.update({ where: { id }, data: { active: true } });
-      await tx.eventLog.create({
-        data: {
-          eventName: "clientes.client_activated",
-          entityType: "client",
-          entityId: id,
-          actorType: this.actorType(principal),
-          actorId: principal.id,
-          payload: {},
-          occurredAt: new Date(),
-        },
+      await this.auditoria.append(tx, {
+        eventName: "clientes.client_activated" as NomeDeEventoAuditavel,
+        entityType: "client",
+        entityId: id,
+        actorType: this.actorType(principal),
+        actorId: principal.id,
+        payload: {},
+        occurredAt: new Date(),
       });
       return client;
     });
@@ -174,16 +173,14 @@ export class PrismaClientesRepository extends ClientesRepository {
 
     const updated = await this.prisma.$transaction(async (tx) => {
       const client = await tx.client.update({ where: { id }, data: { active: false } });
-      await tx.eventLog.create({
-        data: {
-          eventName: "clientes.client_inactivated",
-          entityType: "client",
-          entityId: id,
-          actorType: this.actorType(principal),
-          actorId: principal.id,
-          payload: { reason: input.reason ?? null },
-          occurredAt: new Date(),
-        },
+      await this.auditoria.append(tx, {
+        eventName: "clientes.client_inactivated" as NomeDeEventoAuditavel,
+        entityType: "client",
+        entityId: id,
+        actorType: this.actorType(principal),
+        actorId: principal.id,
+        payload: { campos: input.reason ? ["reason"] : [] },
+        occurredAt: new Date(),
       });
       return client;
     });
