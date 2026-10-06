@@ -30,7 +30,7 @@ import { PrismaJobRunsRepository } from "./prisma-job-runs.repository";
       provide: JobsQueue,
       useFactory: (config: ConfigService): JobsQueue =>
         config.get<boolean>("JOBS_ENABLED", false)
-          ? new BullJobsQueue(config.get<string>("REDIS_URL", "redis://localhost:6379"))
+          ? new BullJobsQueue(config.getOrThrow<string>("REDIS_URL"))
           : new DisabledJobsQueue(),
       inject: [ConfigService],
     },
