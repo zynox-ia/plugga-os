@@ -23,10 +23,10 @@ import type { AuthPrincipal } from "../core/auth/auth.types";
 import { SessionCache, type ResolvedSessionUser } from "../core/auth/session-cache";
 import { hashToken } from "../core/auth/token.util";
 import { maskEmail } from "../email/email.util";
-import { AuthTokenIssuer } from "./auth-token-issuer.service";
 import { AuthRepository } from "./auth.repository";
 import { LimitadorLogin } from "./limitador/limitador-login.service";
 import { PasswordService } from "./password.service";
+import { ResetEmailDispatcher } from "./reset-email.dispatcher";
 import { SessionService, type SessionContext } from "./session.service";
 
 export interface LoginResult {
@@ -55,7 +55,7 @@ export class AuthService {
     @Inject(PasswordService) private readonly passwords: PasswordService,
     @Inject(SessionService) private readonly sessions: SessionService,
     @Inject(LimitadorLogin) private readonly limitador: LimitadorLogin,
-    @Inject(AuthTokenIssuer) private readonly tokens: AuthTokenIssuer,
+    @Inject(ResetEmailDispatcher) private readonly resetEmail: ResetEmailDispatcher,
     @Inject(AuditRepository) private readonly audit: AuditRepository,
     @Inject(SessionCache) private readonly cache: SessionCache,
   ) {}
@@ -163,32 +163,17 @@ export class AuthService {
     return this.ack();
   }
 
+  /**
+   * Resposta e TEMPO idênticos para conta existente, inexistente ou desativada
+   * (US11, T117, FR-051): a requisição não consulta o
+   * banco nem fala com o provedor de e-mail, só entrega o pedido ao
+   * `ResetEmailDispatcher` (fila BullMQ). Quem procura a conta, emite o token,
+   * envia e audita é o `ResetEmailHandler`, depois que a resposta já saiu —
+   * inclusive quando o provedor falha (ADR-0010 adapters can throw). Convite
+   * segue falhando alto: é iniciado por um admin e precisa mostrar erro de envio.
+   */
   async requestReset(input: ResetRequest): Promise<AuthAcknowledgement> {
-    const user = await this.repository.findUserByEmail(input.email);
-
-    // Only issue a token for an active account, but always answer generically
-    // so the endpoint never reveals whether the account exists — including when
-    // the email provider fails (ADR-0010 adapters can throw). Invite stays
-    // fail-loud: it is admin-initiated and must surface delivery errors.
-    if (user && user.status === "active") {
-      try {
-        await this.tokens.sendReset(user);
-        await this.audit.appendEvent({
-          eventName: eventNames.authResetRequested,
-          entityType: "user",
-          entityId: user.id,
-          actorType: "system",
-          actorId: null,
-          payload: {},
-          occurredAt: new Date(),
-        });
-      } catch {
-        this.logger.warn(
-          `reset email delivery failed: to=${maskEmail(user.email)}`,
-        );
-      }
-    }
-
+    await this.resetEmail.solicitar(input.email);
     return this.ack();
   }
 
@@ -203,6 +188,12 @@ export class AuthService {
       activateUser: false,
       revokeSessions: true,
     });
+
+    // A transação acima já apagou as sessões do Postgres, mas a entrada no cache
+    // de sessão (Redis, até SESSION_CACHE_TTL_SECONDS) continuaria valendo e a
+    // sessão antiga seguiria entrando até expirar. `revokeAllForUser` também
+    // invalida o cache: a sessão antiga é recusada na hora (US11, T114, SC-014).
+    await this.sessions.revokeAllForUser(token.userId);
 
     await this.audit.appendEvent({
       eventName: eventNames.authResetCompleted,

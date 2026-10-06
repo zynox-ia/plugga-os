@@ -11,6 +11,7 @@ import { SessionCache } from "../src/core/auth/session-cache";
 import { SessionLookupRepository } from "../src/core/auth/session-lookup.repository";
 import { EmailPort } from "../src/email/email.port";
 import { AuthRepository } from "../src/auth/auth.repository";
+import { ResetEmailDispatcher } from "../src/auth/reset-email.dispatcher";
 import {
   access,
   CapturingEmailPort,
@@ -88,6 +89,13 @@ describe("auth API (e2e, in-memory stores)", () => {
   // spurious 429s — the same failure mode the ARCHITECT found in the
   // Playwright suite. Give each an independent synthetic IP by default.
   let testIpCounter = 0;
+
+  // O e-mail de redefinição sai fora da requisição (T117): quem confere o que foi
+  // enviado espera o envio em segundo plano terminar.
+  async function esperarEnvioDoReset() {
+    await app.get(ResetEmailDispatcher).aguardarPendentes();
+  }
+
   function nextTestIp(): string {
     testIpCounter += 1;
     return `10.99.0.${testIpCounter}`;
@@ -228,6 +236,7 @@ describe("auth API (e2e, in-memory stores)", () => {
       .set("X-Forwarded-For", nextTestIp())
       .send({ email: "nobody@plugga.local" })
       .expect(200);
+    await esperarEnvioDoReset();
   });
 
   it("lets an admin invite a user who then accepts and logs in", async () => {
@@ -314,6 +323,7 @@ describe("auth API (e2e, in-memory stores)", () => {
       .set("x-forwarded-for", "198.51.100.19")
       .send({ email: adminEmail })
       .expect(200, { ok: true });
+    await esperarEnvioDoReset();
 
     const resetToken = email.lastTokenFor("reset");
     await request(app.getHttpServer())
@@ -333,6 +343,7 @@ describe("auth API (e2e, in-memory stores)", () => {
       .set("x-forwarded-for", "198.51.100.19")
       .send({ email: adminEmail })
       .expect(200, { ok: true });
+    await esperarEnvioDoReset();
     const previousToken = email.lastTokenFor("reset");
 
     await request(app.getHttpServer())
@@ -340,6 +351,7 @@ describe("auth API (e2e, in-memory stores)", () => {
       .set("x-forwarded-for", "198.51.100.19")
       .send({ email: adminEmail })
       .expect(200, { ok: true });
+    await esperarEnvioDoReset();
     const currentToken = email.lastTokenFor("reset");
 
     expect(currentToken).not.toBe(previousToken);
@@ -358,6 +370,7 @@ describe("auth API (e2e, in-memory stores)", () => {
       .post("/auth/reset/request")
       .send({ email: "nobody@plugga.local" })
       .expect(200, { ok: true });
+    await esperarEnvioDoReset();
     expect(email.sent).toHaveLength(0);
   });
 
@@ -370,11 +383,13 @@ describe("auth API (e2e, in-memory stores)", () => {
       .post("/auth/reset/request")
       .send({ email: adminEmail })
       .expect(200, { ok: true });
+    await esperarEnvioDoReset();
 
     await request(app.getHttpServer())
       .post("/auth/reset/request")
       .send({ email: "nobody@plugga.local" })
       .expect(200, { ok: true });
+    await esperarEnvioDoReset();
 
     expect(email.sent).toHaveLength(0);
   });
