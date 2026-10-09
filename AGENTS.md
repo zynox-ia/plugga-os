@@ -5,25 +5,21 @@ Instruções para agentes de IA neste repositório (Claude Code, Codex e outros)
 <!-- projeto:inicio · escrito pela preparação da casa (fase 4); editável pelo time -->
 ## Projeto
 
-<Uma linha: o que o sistema faz e para quem.> Stack: <linguagem · framework · banco>.
+Sistema operacional interno da Plugga / Waze Energia. Stack: TypeScript · Next.js + NestJS · PostgreSQL.
 
 ## Comandos
 
 | Ação | Comando |
 |---|---|
-| Instalar dependências | `<comando>` |
-| Subir serviços (Docker) | `<comando>` |
-| Migrations | `<comando>` |
-| Seed (dados de exemplo) | `<comando>` ou "não há" |
-| Subir a aplicação | `<comando>` (porta <porta>) |
-| Lint | `<comando>` |
-| Typecheck | `<comando>` |
-| Testes | `<comando>` |
-| Um teste isolado | `<comando> <arquivo>` |
-
-## Regras do projeto
-
-- <Regras curtas que já valiam neste repositório, com evidência. Sem regras: remova esta seção.>
+| Instalar dependências | `pnpm install --frozen-lockfile` |
+| Subir serviços (Docker) | `docker compose up -d` |
+| Migrations | `pnpm db:migrate` |
+| Seed (dados de exemplo) | `pnpm db:seed` |
+| Subir a aplicação | `pnpm dev` (web 3000; API 3001) |
+| Lint | `pnpm lint` |
+| Typecheck | `pnpm typecheck` |
+| Testes | `pnpm test` |
+| Um teste isolado | `pnpm --filter @plugga/api exec vitest run <arquivo>` |
 <!-- projeto:fim -->
 
 <!-- dev-workflow:inicio · gerenciado por docs/fluxo/04-atualizar-fluxo.md; não edite neste projeto -->
