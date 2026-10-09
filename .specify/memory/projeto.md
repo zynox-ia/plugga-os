@@ -57,3 +57,21 @@ docker compose -p plugga-os-d01 down -v
 
 No D01 copiado, `pnpm db:migrate:deploy` encontrou 19 migrations e nenhuma pendente;
 `pnpm db:seed` passou. O stack D01 e seu volume foram removidos após a verificação.
+
+## Linear
+
+time: Plugga OS (PLU)
+
+- Time confirmado pelo André em 2026-10-09. Workspace: Zynox.
+- Status: `Backlog`, `Ready`, `In Progress`, `In Review`, `Verifying`, `Done` e `Canceled` presentes. Há também `Duplicate`, além dos sete previstos em `docs/fluxo/00-convencoes.md`; André deve decidir sua remoção em *Settings → Team → Workflow*.
+- Labels de workspace: grupo `Type` com Feature, Bug, Hotfix, Refactor, Performance, Security, Infra, Chore e Docs; grupo `Severity` com S1, S2, S3 e S4; flags Breaking Change, DB Migration, Needs Design e Blocked: Client. Todas presentes; nenhuma label criada.
+- Specs: a consulta paginada de 263 issues do PLU, incluindo arquivadas, encontrou `Spec 002` nos títulos, mas não `Spec 001` nem `Spec 003`. As pastas locais são `specs/001-migracao-storage-seaweedfs/`, `specs/002-fundacao-solida/` e `specs/003-produto-unificado/`. Conferir a correspondência antes de calcular o próximo número (`maior Spec NNN do time + 1`).
+
+### Configurações para André conferir no Linear
+
+- Escala de estimativas T-shirt: não verificável pelo MCP disponível.
+- Fechar sub-issues quando a issue pai fechar: não verificável pelo MCP disponível.
+- Automações do GitHub: PR aberto → nenhuma ação; merge em `develop` → Done; merge de `hotfix/*` em `main` → Done. Não verificáveis pelo MCP disponível.
+- Formato de branch `<tipo>/<identificador>-<título>`: não verificável pelo MCP disponível.
+- Pipeline de Releases ligado à `main`: nenhum pipeline retornado para o time PLU; configurar ou confirmar em Settings.
+- Template de projeto com milestones Alpha, Beta e GA: nenhum template de projeto retornado para o time PLU; criar ou confirmar em Settings.
