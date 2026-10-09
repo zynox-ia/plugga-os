@@ -28,9 +28,11 @@ Todo título de issue começa com o prefixo do tipo, entre colchetes e em maiús
 
 | Regra | Certo | Errado |
 |---|---|---|
-| Substantivo que nomeia a capacidade | `Gestão de clientes` | `Fazer o CRM` |
-| Sem número de ordem (a ordem está na linha do tempo) | `Faturamento` | `E3 · Faturamento` |
-| Sem o nome do cliente (o time já diz) | `Funil de vendas` | `Bruno - Funil de vendas` |
+| `[<IDENTIFICADOR>] <capacidade>`: identificador do time entre colchetes, como o `[TIPO]` das issues, para reconhecer o cliente em qualquer lista, busca ou notificação | `[BRU] Gestão de clientes` | `Gestão de clientes` |
+| Substantivo que nomeia a capacidade | `[BRU] Gestão de clientes` | `[BRU] Fazer o CRM` |
+| Sem número de ordem (a ordem está na linha do tempo) | `[BRU] Faturamento` | `[BRU] E3 · Faturamento` |
+| Identificador do time, não o nome do cliente (curto e igual ao das issues) | `[BRU] Funil de vendas` | `Bruno - Funil de vendas` |
+| Capacidade, nunca tema transversal: segurança, qualidade e performance viram specs no projeto que elas tocam | `[BRU] Gestão de clientes` com `[SECURITY] Spec 007 — …` | `[BRU] Segurança` |
 
 Descrição do projeto: **Objetivo** (1–2 linhas), **Critério de pronto** (lista verificável) e **Fora de escopo**.
 
@@ -140,7 +142,7 @@ O **domínio** do commit é a label de domínio da issue, em minúsculas e sem a
 
 ```
 Time: Bruno CRM (BRU)
-└── Projeto: Gestão de clientes
+└── Projeto: [BRU] Gestão de clientes
     ├── Milestones: Alpha · Beta · GA
     ├── BRU-12  [FEAT] Spec 003 — Cadastro e listagem de clientes          (Alpha · M · Clientes)
     │   ├── BRU-13  [FEAT] Spec 003 Setup

@@ -26,7 +26,7 @@ Siga `docs/fluxo/00-convencoes.md` (estrutura, nomes, labels) e use `docs/guias/
 **Unidades e tamanhos:**
 | Unidade no Linear | Representa | Tamanho saudável |
 |---|---|---|
-| Projeto | Uma capacidade (`Gestão de clientes`) | Semanas; 2–6 specs |
+| Projeto | Uma capacidade (`[BRU] Gestão de clientes`); nunca um tema transversal como segurança ou qualidade | Semanas; 2–6 specs |
 | Milestone | Alpha · Beta · GA | — |
 | Issue pai | Uma spec (`[FEAT] Spec NNN — <capacidade>`); obrigatória para M/L e todo `[SECURITY]` | Poucos dias; até ~5 user stories; estimativa M ou L |
 | Issue avulsa | Bug, hotfix, ou mudança XS/S (exceto `[SECURITY]`) | Horas |
@@ -56,13 +56,13 @@ Cada uma com pergunta, opção recomendada e motivo.
 Na ordem padrão, no formato:
 
 ```
-Projeto: Fundação                                  (depende de: —)
+Projeto: [BRU] Fundação                            (depende de: —)
   Objetivo: ... · Critério de pronto: ...
   Alpha: login e deploy no ar
     [INFRA] Spec 001 — Ambiente, CI e deploy               M · Infra
     [SECURITY] Spec 002 — Login com e-mail e senha         M · Autenticação   blocked by Spec 001
   Beta / GA: ...
-Projeto: Gestão de clientes                        (depende de: Fundação)
+Projeto: [BRU] Gestão de clientes                  (depende de: [BRU] Fundação)
   Alpha: fluxo de ponta a ponta
     [FEAT] Spec 003 — Cadastro e listagem de clientes      M · Clientes
       US previstas: Cliente é cadastrado com nome e telefone · Lista pode ser filtrada por etapa
@@ -76,9 +76,9 @@ Para cada spec: título no padrão, estimativa (M/L), labels de domínio, bloque
 
 ### A4. Criar no Linear (só após aprovação)
 1. **Labels de domínio** do time que ainda não existem.
-2. **Projetos** (a partir do template com Alpha, Beta e GA), com objetivo, critério de pronto e fora de escopo na descrição, e **dependências** fim → início.
+2. **Projetos** (a partir do template com Alpha, Beta e GA), com nome `[<IDENTIFICADOR>] <capacidade>`, status `Planned` (o ativo em `In Progress`) e objetivo, critério de pronto e fora de escopo na descrição. **Dependência entre projetos:** o MCP do Linear não cria essa relação. Escreva `Depende de: <Projeto>` na primeira linha da descrição do projeto e no `ROADMAP.md`, e inclua na resposta final a lista para o André criar no Linear (no projeto, *Dependencies* → *Blocked by*).
 3. **Critério de saída** na descrição de cada milestone.
-4. **Issues pai** no milestone certo, com labels de `Type` e domínio, estimativa, prioridade e relações *blocked by*. A descrição segue o modelo de issue pai (`docs/fluxo/linear/templates.md`). **Sub-issues não são criadas aqui**: o Diretor cria a partir do `tasks.md`.
+4. **Issues pai** no milestone certo, com labels de `Type` e domínio, estimativa, prioridade e relações *blocked by* (campo `blockedBy` do `save_issue`). Crie na ordem do roadmap, para que a issue que bloqueia já exista quando a bloqueada for criada; confira as relações no fim com `get_issue`. A descrição segue o modelo de issue pai (`docs/fluxo/linear/templates.md`). **Sub-issues não são criadas aqui**: o Diretor cria a partir do `tasks.md`.
 5. Status inicial **Backlog**. Pergunte quais já vão para **Ready**.
 
 ### A5. Gravar o roadmap
@@ -102,12 +102,12 @@ Para cada spec: título no padrão, estimativa (M/L), labels de domínio, bloque
 - **Integrado sem release:** milestone fechado e commits na develop desde a última tag → recomendar release.
 - **Critério de pronto sem evidência** num projeto em GA → achado, não conserto.
 - **Fila saudável?** Há issues Ready e desbloqueadas no milestone ativo? Se não, o que falta preparar.
-- **Higiene:** títulos fora do padrão, issues sem `Type` ou sem estimativa, specs grandes demais (mais de ~5 US ou ~60 tasks).
+- **Higiene:** nomes de projeto fora do padrão (sem o identificador, tema transversal), status de projeto errado, milestone vazio antes do milestone ativo, títulos de issue fora do padrão, issues sem `Type` ou sem estimativa, specs grandes demais (mais de ~5 US ou ~60 tasks).
 
 ### B3. Relatório (curto, nesta forma)
 ```
 Auditoria — <Time> — <data>
-Projeto ativo: Gestão de clientes · Milestone: Alpha (3/5 Done)
+Projeto ativo: [BRU] Gestão de clientes · Milestone: Alpha (3/5 Done)
 Antes de qualquer coisa nova:
   1. BRU-18 [FEAT] Spec 004 — ... em In Progress há 5 dias (Fundação · Beta) — retomar
   2. Fundação · Beta fechado e 7 commits sem release desde v0.2.0 → sugerir v0.3.0
@@ -119,6 +119,9 @@ Recomendação: <1–3 linhas>
 ```
 Grave em `.pipeline/auditorias/<data>.md` (local).
 
+### B4. Corrigir (só quando o André pedir)
+Para os achados de higiene, mostre a tabela `atual → padrão` (nomes, status, milestones, issues a mover de projeto) e aplique só o que ele aprovar: renomear e mudar status com `save_project`, mover issues com `save_issue`. O que o MCP não faz (apagar milestone, dependência entre projetos) vai numa lista para ele fazer no Linear.
+
 ---
 
 ## Modo C — Assumir sistema existente
@@ -126,7 +129,9 @@ Grave em `.pipeline/auditorias/<data>.md` (local).
 1. **Destino primeiro:** o que o sistema faz quando estiver pronto.
 2. **Mapear o que existe**, com evidência (arquivo, rota, migration, teste): implementado, pela metade, e promessa sem código.
 3. **Avaliar** contra a ordem padrão e as checklists de domínio aplicáveis.
-4. **Propor** o roadmap: projetos já concluídos (marcados como GA, com evidência), o projeto atual e os próximos; siga o modo A a partir do A2.
+4. **Propor** o roadmap: projetos já concluídos (status `Completed`, com a evidência na descrição), o projeto atual e os próximos; siga o modo A a partir do A2.
+   - Capacidade que já existe em produção e só recebe melhorias: os milestones já atingidos (normalmente Alpha, às vezes Beta) **não recebem issues**. Escreva na descrição `Alpha/Beta atingidos antes do fluxo` com a evidência e liste para o André apagar esses milestones no Linear (o MCP não apaga). As melhorias vão no primeiro milestone ainda não atingido.
+   - Achados de segurança, qualidade ou performance viram specs no projeto da capacidade que tocam, nunca um projeto próprio.
 5. O que estiver **errado** (não só faltando) vira achado, nunca correção silenciosa.
 6. **Issues existentes fora do padrão:** proponha a renomeação (tabela "atual → padrão") e só aplique com o ok do André.
 

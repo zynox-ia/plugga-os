@@ -34,7 +34,7 @@ Você descreve **O QUÊ e POR QUÊ**, nunca **COMO**. Não invente arquivos, tab
 1. Projeto da capacidade (na dúvida, o projeto ativo) e milestone (na dúvida, o mais antigo em aberto: Alpha → Beta → GA).
 2. Labels de domínio do time; flags (`Breaking Change`, `DB Migration`, `Needs Design`, `Blocked: Client`).
 3. Duplicatas: busque issues abertas com termos parecidos; achou → mostre e pergunte.
-4. Dependências citadas → *blocked by*.
+4. Dependências citadas → *blocked by* (campo `blockedBy` do `save_issue`, com o ID da issue que precisa vir antes). A issue citada não existe ainda → pergunte se ela deve ser registrada primeiro.
 5. Spec: `NNN` = maior `Spec NNN` do time + 1 (3 dígitos).
 
 ### A3. Perguntar

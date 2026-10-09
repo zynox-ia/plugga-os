@@ -13,7 +13,7 @@ Você descreve o que quer no Linear; um **Coordenador** distribui o trabalho par
 | **Coordenador** | Um agente por sessão de trabalho | Sobe a develop, audita o projeto, cria e recria os Diretores, propõe a fila, distribui issues, sugere releases | Fala com agentes de fase, escreve código, faz merge |
 | **Diretor 01, 02, 03** | Um agente por vaga | Recebe uma issue, monta o time, confere cada portão, prepara o ambiente de teste | Toca em outra issue, faz merge |
 | **Agentes de fase** | Criados pelo Diretor, um por fase | Executam uma única fase do Spec Kit (specify, plan, implement…) | Fazem mais de uma fase |
-| **Revisor independente** | Agente de fase especial, de preferência outro modelo | Julga o trabalho contra os critérios de aceite | Corrige o que revisa |
+| **Revisor independente** | Agente de fase especial, com o modelo que não implementou | Julga o trabalho contra os critérios de aceite | Corrige o que revisa |
 
 Agentes só conversam com o nível imediatamente abaixo (o Coordenador nunca fala com agentes de fase). Você pode falar com qualquer um, e os Diretores falam com você diretamente para perguntas e validação.
 

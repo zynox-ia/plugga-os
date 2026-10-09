@@ -17,7 +17,7 @@ dev-workflow/
         ├── VERSION              versão atual (ex.: 1.2.0)
         ├── CHANGELOG.md         o que mudou em cada versão e a ação necessária nos projetos
         ├── 00-convencoes.md … 04-atualizar-fluxo.md
-        ├── modelos/             AGENTS.md (modelo instalado nos projetos)
+        ├── modelos/             AGENTS.md e agent-selection-guide.md (instalados nos projetos)
         ├── skills/              planejar-etapas, registrar-linear
         └── linear/              guidance, templates e skills do agente do Linear
 ```
@@ -48,15 +48,13 @@ Nunca edite `docs/fluxo/` direto num projeto: a mudança some na próxima atuali
 
 ## 4. Instalar ou atualizar num projeto
 
-Num agente novo do Traycer, na pasta do projeto:
+Num agente novo do Traycer, na pasta do projeto, **sempre com o link do central**, para instalar ou atualizar (a cópia local do 04 é da versão antiga e não conhece as migrações novas):
 ```
-Siga as instruções do arquivo docs/fluxo/04-atualizar-fluxo.md.
+Leia https://raw.githubusercontent.com/zynox-ia/dev-workflow/main/docs/fluxo/04-atualizar-fluxo.md e siga as instruções para atualizar o fluxo neste repositório.
 ```
-Num projeto que ainda não tem o fluxo, use o arquivo direto do central:
-```
-Leia https://raw.githubusercontent.com/zynox-ia/dev-workflow/main/docs/fluxo/04-atualizar-fluxo.md e siga as instruções para instalar o fluxo neste repositório.
-```
-O agente copia `docs/guias/` e `docs/fluxo/` da versão pedida, instala as skills para Claude Code e Codex, mostra o changelog e as ações necessárias, e abre um PR `chore(fluxo): atualizar para vX.Y.Z` para a develop.
+O agente copia `docs/guias/` e `docs/fluxo/` da versão pedida, instala as skills para Claude Code e Codex, atualiza o bloco do fluxo no `AGENTS.md`, executa as migrações marcadas `[04]` no changelog e abre um PR `chore(fluxo): atualizar para vX.Y.Z` para a develop. Ele **não** reinstala o Spec Kit, não refaz a preparação (constituição, testes, ambiente local) e não mexe no Linear; o que precisar de você vem listado na resposta.
+
+**Ao escrever uma versão nova:** tudo o que os projetos precisam mudar em arquivos e que o 04 consegue fazer sozinho vai no changelog como item `[04]`, com instruções exatas. Rodar a preparação de novo só em MAJOR.
 
 O Coordenador avisa na abertura de cada sessão quando o projeto está numa versão mais antiga que a última do central.
 
