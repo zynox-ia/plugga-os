@@ -1,15 +1,18 @@
 # Preparação Spec Kit
 
 - data: 2026-10-08
+- base atualizada: `origin/main` `48883b053df802709d00c0841036dbb6fe70e42d`
 - specify-cli: 1.1.2
 - integração padrão: claude · instaladas: claude, codex
 - extensões: bug
 
 ## Log
 
-- F0 ok — worktree limpa `chore/speckit-setup` criada a partir de `main` (commit `a356d95755c38b62efa1ee25d7c07d27b5ba5ec6`); Python 3.14.7 via `python --version` e `py --version` (o alias `python3 --version` apontou para a Microsoft Store); uv 0.12.13; Claude Code 2.1.288; Codex CLI 0.159.2; `gh auth status` autenticado.
-- F1 ok — inventário na branch `main`: nenhum harness/spec framework antigo versionado encontrado; nenhuma referência em `apps/` ou `packages/`; mantidos workflows de CI, documentação do produto (`SPEC.md`, `tasks/`) e guia de arquitetura (`docs/AGENT.md`). Nada removido; sem commit de remoção porque não houve mudança nessa fase.
-- F2 ok — `uv tool install specify-cli --no-progress`, `specify version` e `specify self check` executados; CLI 1.1.2; `specify integration status --json` retornou `ok`, Claude padrão, Claude e Codex instalados; extensão bug registrada para ambos; skills e diretórios `.specify/memory/` e `.specify/templates/` verificados.
-- F3 ok — `AGENTS.md` criado com stack, mapa, convenções, variáveis e comandos baseados em arquivos do projeto. `pnpm install --frozen-lockfile`, `pnpm lint` e `pnpm typecheck` passaram; `pnpm test` falhou em 2 casos de `packages/auditoria-oraculo/src/manifesto.test.ts`; `pnpm build` falhou ao criar symlinks no Windows (`EPERM`); `corepack enable` também falhou por permissão. `pnpm dev` não foi executado porque inicia os serviços locais Docker.
-- F4 ok — `.specify/memory/constitution.md` criada como v1.0.0 a partir de princípios sustentados por ADRs, `docs/AGENT.md` e CI; template resolvido, hooks verificados (nenhum), zero marcadores de template. A ratificação fica pendente da aprovação humana do PR.
-- F5 ok — `.specify/memory/baseline.md` registra resultados em `5e79275ee4ddd4e2de0daa7e43f8d20396754642` sobre a base `main` `a356d95755c38b62efa1ee25d7c07d27b5ba5ec6`: lint e typecheck passaram; testes têm 2 falhas de manifesto em `packages/auditoria-oraculo/src/manifesto.test.ts`.
+- F0 ok — worktree limpa `chore/speckit-setup` criada a partir da `main` local e, após pedido humano para atualizar a base, rebaseada sobre `origin/main` `48883b0`. `python3 --version` encontrou o alias da Microsoft Store; `python --version` e `py --version` confirmaram Python 3.14.7. `uv` 0.12.13, Claude Code 2.1.288, Codex CLI 0.159.2 e `gh auth status` autenticado.
+- F1 ok — inventário refeito na Main atual. Main já tinha Spec Kit 1.1.1.dev0, integração Claude, constituição e specs históricas `001`–`003`; não há `.zynox/` versionado nem referência ao Kernel em `apps/` ou `packages/`. A decisão entre remover ou preservar os artefatos existentes foi apresentada ao humano; ele escolheu preservá-los porque são histórico de produto (`docs/AGENT.md`). Nenhum artefato da Main foi removido; a instalação existente foi atualizada para Spec Kit 1.1.2.
+- F2 ok — `uv tool install specify-cli --no-progress`, `specify version`, `specify self check`, `specify init --here --force --non-interactive --integration claude --script sh`, `specify integration install codex --script sh` e `specify extension add bug` executados. Após atualizar a base, `specify integration upgrade codex --force --script sh` alinhou os arquivos gerenciados; `specify integration status --json` final retornou `ok`, padrão Claude, Claude/Codex instalados, zero arquivos ausentes/modificados e zero findings. Skills SDD e bug existem nas duas pastas; `.specify/memory/` e `.specify/templates/` existem.
+- F3 ok — `AGENTS.md` atualizado com o contexto da Main `48883b0`; `CLAUDE.md` aponta para `@AGENTS.md`. Instalação congelada, lint, typecheck e testes passaram. O typecheck precisou de remoção controlada do cache gerado obsoleto `apps/web/.next/types` e `next typegen`. Build local compilou, mas falhou ao criar symlink no Windows (`EPERM`); CI executa em Ubuntu. Fluxo local com Docker e E2E não foram executados.
+- F4 ok — constituição `1.0.0` já existente na Main foi preservada por escolha humana; nenhum marcador de template foi encontrado e os princípios estão documentados em ADRs, `docs/AGENT.md` e CI. Ratificada em 2026-10-05 na Main.
+- F5 ok — `.specify/memory/baseline.md` registra lint PASS, typecheck PASS e testes PASS em `94684c11af72a09464063b86d4e8a72949f240d0`, sobre a base `origin/main` `48883b053df802709d00c0841036dbb6fe70e42d`; nenhuma falha preexistente nos três gates.
+- F6 pendente — ferramenta MCP do Linear não está disponível nesta sessão. A solicitação de instalação do plugin Linear ainda aguarda confirmação; time, projeto, status e labels não foram verificados nem presumidos.
+- F7 pendente — push e PR aguardam a conclusão do portão F6.
