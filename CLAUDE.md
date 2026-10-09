@@ -1,3 +1,5 @@
+@AGENTS.md
+
 # CLAUDE.md
 
 - Regras de contribuição, limites e gates de entrega: [docs/AGENT.md](docs/AGENT.md).
