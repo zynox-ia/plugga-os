@@ -1,4 +1,4 @@
-# Prompt 3 — Coordenador (v3)
+# Prompt 3 — Coordenador (v6)
 
 > André cola este prompt num **agente novo** do Traycer, na pasta principal do repositório, no início de cada sessão de trabalho.
 > Depois de algumas horas, André arquiva tudo (Coordenador e Diretores) e começa de novo com este prompt: nada se perde, porque o estado está em arquivos e no Linear.
@@ -38,13 +38,14 @@ test -f .specify/memory/projeto.md && grep -q "## Linear" .specify/memory/projet
 test -f .specify/memory/constitution.md
 test -f docs/fluxo/00-convencoes.md && test -f docs/fluxo/02-diretor.md
 grep -q 'dev-workflow:inicio' AGENTS.md && grep -q '<!-- projeto:inicio' AGENTS.md && grep -qxF '@AGENTS.md' CLAUDE.md
+test -f .traycer/agent-selection-guide.md
 specify integration status --json        # ok ou warning; padrão claude; codex instalado
 grep -qxF '.pipeline/' "$(git rev-parse --git-common-dir)/info/exclude" \
   || echo '.pipeline/' >> "$(git rev-parse --git-common-dir)/info/exclude"
 ```
 Faltou algo → diga ao André o que falta (normalmente: rodar `01-preparacao-da-casa.md`) e encerre.
 
-**Versão do fluxo:** compare `docs/fluxo/VERSION` com a última tag do repositório central (`git ls-remote --tags --refs https://github.com/zynox-ia/dev-workflow.git | sed 's#.*refs/tags/v##' | sort -V | tail -1`). Se houver versão mais nova, inclua uma linha no resumo de abertura: "Fluxo v<atual> → v<nova> disponível (rodar 04-atualizar-fluxo)." Não bloqueia a sessão.
+**Versão do fluxo:** compare `docs/fluxo/VERSION` com a última tag do repositório central (`git ls-remote --tags --refs https://github.com/zynox-ia/dev-workflow.git | sed 's#.*refs/tags/v##' | sort -V | tail -1`). Se houver versão mais nova, inclua uma linha no resumo de abertura: "Fluxo v<atual> → v<nova> disponível. Para atualizar, num agente novo: `Leia https://raw.githubusercontent.com/zynox-ia/dev-workflow/main/docs/fluxo/04-atualizar-fluxo.md e siga as instruções para atualizar o fluxo neste repositório.`" Não bloqueia a sessão.
 
 ### 3.2 Develop atualizada e rodando
 - Árvore suja na pasta principal → mostre os arquivos e pergunte ao André o que fazer. Não descarte nada.
@@ -57,7 +58,7 @@ Faltou algo → diga ao André o que falta (normalmente: rodar `01-preparacao-da
 Leia `.pipeline/coordenacao.md` (se existir) e liste as worktrees do Traycer com `.pipeline/<ID>.md`. Monte a lista de **issues em andamento** (fase atual de cada uma) e de **issues em Verifying** (ambiente de teste de pé ou não).
 
 ### 3.4 Auditoria de etapas
-Crie um agente auxiliar `Auditor` com o brief:
+Crie um agente auxiliar `Auditor`, com o modelo de `.traycer/agent-selection-guide.md`, e o brief:
 ```
 Leia e siga docs/fluxo/skills/planejar-etapas/SKILL.md no MODO B — Auditar,
 para o time do Linear registrado em .specify/memory/projeto.md.
@@ -66,7 +67,7 @@ Somente leitura. Devolva apenas o relatório no formato B3 da skill.
 Receba o relatório e **arquive o Auditor**. Se não houver `docs/roadmap/ROADMAP.md`, avise o André e ofereça rodar o modo C (Assumir) ou A (Planejar) antes de despachar issues.
 
 ### 3.5 Diretores
-Crie os 3 Diretores, **um de cada vez**, cada um como agente novo chamado `Diretor 01`, `Diretor 02`, `Diretor 03`, com a mensagem:
+Crie os 3 Diretores, **um de cada vez**, cada um como agente novo chamado `Diretor 01`, `Diretor 02`, `Diretor 03`, **com o modelo do Diretor em `.traycer/agent-selection-guide.md`** (nunca outro), e a mensagem:
 ```
 Você é o Diretor <NN>. Leia e siga docs/fluxo/02-diretor.md e docs/fluxo/00-convencoes.md.
 Comece pela seção 3 (modo ocioso).
@@ -88,7 +89,7 @@ Proposta para as vagas livres:
 **Como montar a proposta (a fila):**
 1. **`[HOTFIX]` com `S1` ou `S2`** primeiro, sempre.
 2. O que a auditoria apontou como "antes de qualquer coisa nova".
-3. Issues em **Ready**, **não bloqueadas**, do **milestone ativo** (o mais antigo em aberto: Alpha antes de Beta, Beta antes de GA) do projeto ativo; esgotado, o próximo milestone ou o próximo projeto na ordem de dependência.
+3. Issues em **Ready**, **não bloqueadas**, do **milestone ativo** (o mais antigo em aberto e com issues: Alpha antes de Beta, Beta antes de GA) do projeto ativo; esgotado, o próximo milestone ou o próximo projeto na ordem de dependência (relações do Linear ou `Depende de:` no `ROADMAP.md`). Issue bloqueada = tem *blocked by* para uma issue que não está Done.
 4. Dentro disso, por prioridade e, em empate, pela ordem manual do Linear.
 5. **Só issues pai (specs) ou avulsas.** Nunca despache uma sub-issue isolada.
 6. **Nunca** estimativa `XL` (oriente quebrá-la com planejar-etapas).

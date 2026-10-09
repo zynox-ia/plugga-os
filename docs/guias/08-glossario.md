@@ -26,7 +26,7 @@
 | **Merge / Squash merge** | Incorporar uma branch em outra / incorporando todos os commits como um só |
 | **Milestone** | Portão de maturidade dentro de um projeto do Linear |
 | **Portão** | Verificação objetiva por comando que libera a passagem de uma fase para a seguinte |
-| **Projeto** | Capacidade do produto no Linear (ex.: Gestão de clientes), com milestones e specs |
+| **Projeto** | Capacidade do produto no Linear (ex.: `[BRU] Gestão de clientes`), com milestones e specs |
 | **Pull Request (PR)** | Pedido de incorporação de uma branch, com revisão |
 | **Release** | Publicação de uma versão em produção: merge `develop → main` + tag |
 | **Revisor independente** | Agente que julga o trabalho sem ter participado dele e sem corrigir nada |

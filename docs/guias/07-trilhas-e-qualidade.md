@@ -68,7 +68,7 @@ Portão que falha: a fase é refeita uma vez, com um agente novo. Falhou de novo
 
 ## 5. Revisão independente
 
-Todo trabalho, em qualquer trilha, passa por um **revisor que não participou da implementação**, de preferência de outro modelo (se o código foi feito no Claude, a revisão vai para o Codex, e vice-versa). Ele:
+Todo trabalho, em qualquer trilha, passa por um **revisor que não participou da implementação**, sempre com o outro modelo da tabela de modelos (seção 6): se a implementação foi com Luna Max, a revisão é com Haiku 4.5, e vice-versa. Ele:
 - compara o diff com os critérios de aceite, a spec, a seção "Não deve mudar" e a constituição;
 - dá PASSA ou FALHA por critério, com evidência (arquivo e linha, ou teste);
 - aponta testes removidos ou desativados, escopo além do pedido e complexidade sem justificativa;
@@ -82,8 +82,23 @@ Reprovado: volta para implementação e passa por nova revisão. Duas reprovaç�
 |---|---|
 | Pular etapas | Um agente por fase; portões por comando |
 | Contexto longo que degrada a qualidade | Agentes novos por fase; Coordenador reiniciado por sessão |
-| Aprovar o próprio trabalho | Revisor independente, de outro modelo |
+| Aprovar o próprio trabalho | Revisor independente, com o outro modelo |
 | Apagar ou desativar testes para "passar" | Brief proíbe; revisor procura especificamente isso |
 | Fazer mais do que o pedido | "Arquivos previstos" no plano; revisor aponta escopo extra |
 | Culpar a issue por falhas antigas | Linha de base de testes registrada na preparação |
 | Inventar requisitos | Dúvidas viram perguntas para você, com recomendação |
+
+## 6. Modelos por papel
+
+Cada papel usa um modelo fixo, definido em `.traycer/agent-selection-guide.md`. O Traycer lê esse arquivo antes de criar qualquer agente filho, e o Coordenador e o Diretor o seguem ao criar seu time.
+
+| Papel | Opção 1 | Opção 2 (só se a 1 estiver indisponível) |
+|---|---|---|
+| Coordenador | Você escolhe ao abrir a sessão | — |
+| Diretores e auxiliares do Coordenador | Terra Medium | Sonnet 5.5 |
+| Agente da fase plan | Sol Max | Opus 5 |
+| Demais agentes de fase | Luna Max | Haiku 4.5 |
+| Revisor independente | O modelo que **não** implementou | — |
+
+O plan usa um modelo mais forte porque um plano ruim contamina tasks, implementação e revisão. Nenhum agente é criado com modelo fora da tabela, ou de outro papel, sem pedido seu. Para mudar a tabela, mude `docs/fluxo/modelos/agent-selection-guide.md` no repositório central e publique uma versão; o 04 instala nos projetos.
+

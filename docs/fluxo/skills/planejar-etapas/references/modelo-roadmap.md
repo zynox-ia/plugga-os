@@ -26,7 +26,7 @@
 | Beta | <...> | Spec 004 | <ativo> |
 | GA | <...> | — | <planejado> |
 
-### Gestão de clientes — depende de: Fundação
+### [BRU] Gestão de clientes — depende de: [BRU] Fundação
 ...
 
 ## Fora do escopo do sistema (por enquanto)

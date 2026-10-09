@@ -39,7 +39,7 @@ Extraia do pedido: o cliente/sistema (time), a tela ou área, o que deve acontec
 3. Milestone: o que o pedido ajuda a fechar; na dúvida, o mais antigo em aberto (Alpha → Beta → GA).
 4. Labels de domínio do time que se aplicam.
 5. Duplicatas: busque issues abertas do time com termos parecidos. Achou → mostre e pergunte se é a mesma coisa.
-6. Dependências citadas pelo André ("só depois de…") → relação blocked by.
+6. Dependências citadas pelo André ("só depois de…") → relação blocked by, com o ID da issue que precisa vir antes. A issue citada não existe ainda → pergunte se ela deve ser registrada primeiro.
 7. Spec: número = maior "Spec NNN" existente no time + 1 (3 dígitos).
 
 ## Passo 4 — Perguntar (no máximo 3 perguntas, todas de uma vez)

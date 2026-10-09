@@ -17,6 +17,8 @@
 
 Máximo de **3 issues em andamento** (uma por Diretor).
 
+**Modelo de cada papel:** definido em `.traycer/agent-selection-guide.md` (instalado pelo 04 a partir de `docs/fluxo/modelos/agent-selection-guide.md`). Quem cria um agente usa o modelo daquela tabela; o revisor independente nunca usa o modelo que implementou.
+
 | Diretor | Porta | Banco isolado |
 |---|---|---|
 | 01 | 3001 | `<repo>-d01` |
@@ -29,9 +31,10 @@ A develop roda na porta do `projeto.md` (padrão 3000) e nunca é derrubada por 
 
 | Nível | Regra |
 |---|---|
-| Time | 1 cliente/sistema = 1 repositório. Nome `<Cliente> <Sistema>`, identificador de 3 letras |
-| Projeto | Capacidade do produto; substantivo, sem número de ordem, sem nome do cliente |
-| Milestones | Sempre `Alpha`, `Beta`, `GA`, com critério de saída na descrição |
+| Time | 1 cliente/sistema = 1 repositório. Nome `<Cliente> <Sistema>`, identificador de 2 a 4 letras (`BRU`) |
+| Projeto | Capacidade do produto. Nome `[<IDENTIFICADOR>] <capacidade>` (`[BRU] Gestão de clientes`): identificador do time entre colchetes (como o `[TIPO]` das issues), espaço, substantivo; sem número de ordem. Nunca um tema transversal (segurança, qualidade, performance): esse trabalho vai como spec no projeto da capacidade que ele toca |
+| Status do projeto | `Planned` ao criar · `In Progress` o projeto ativo · `Completed` com o critério de pronto atendido em produção (GA) |
+| Milestones | Sempre `Alpha`, `Beta`, `GA`, com critério de saída na descrição. Milestone já atingido antes do fluxo (sistema existente) é removido, e o projeto registra na descrição `Alpha/Beta atingidos antes do fluxo` com a evidência. Milestone sem issues nunca é o milestone ativo |
 | Issue pai | Uma spec do Spec Kit. Obrigatória para estimativa M/L (exceto `[FIX]`/`[HOTFIX]`) e para todo `[SECURITY]` |
 | Sub-issue | Uma por fase do `tasks.md`; criada pelo Diretor após a fase de tasks |
 | Issue avulsa | `[FIX]` e `[HOTFIX]` (qualquer estimativa até L), ou estimativa XS/S de qualquer outro tipo, exceto `[SECURITY]` |
@@ -123,6 +126,7 @@ Escalada: trilha rápida que passar dos limites de S (arquivo novo de domínio, 
 | `docs/fluxo/` | Prompts, convenções, skills, guidance do Linear; `VERSION` e `CHANGELOG.md`. Cópia do repositório central: nunca editar no projeto | sim |
 | `AGENTS.md` | Regras e comandos para qualquer agente. Bloco `projeto` (escrito pela preparação, editável) e bloco `dev-workflow` (gerenciado pelo `04-atualizar-fluxo`, nunca editar no projeto). Sem descrição do código; menos de 120 linhas | sim |
 | `CLAUDE.md` | Importa o `AGENTS.md` (`@AGENTS.md`) para o Claude Code | sim |
+| `.traycer/agent-selection-guide.md` | Modelo de cada papel, lido pelo Traycer ao criar agentes. Gerenciado pelo `04-atualizar-fluxo` | sim |
 | `.claude/skills/`, `.agents/skills/` | Skills do Spec Kit e do fluxo (`planejar-etapas`, `registrar-linear`), instaladas pelo `04-atualizar-fluxo` | sim |
 | `docs/roadmap/ROADMAP.md`, `decisoes.md` | Plano e decisões | sim |
 | `.specify/memory/` | Constituição, `projeto.md` (verificação, linha de base, ambiente local, Linear), `preparacao.md` | sim |

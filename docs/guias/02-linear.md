@@ -7,7 +7,7 @@ O Linear é a fonte da verdade do trabalho: o que existe, em que estado está e 
 ```
 Workspace
 └── Time ............ 1 cliente/sistema = 1 repositório           Bruno CRM (BRU)
-    └── Projeto ..... 1 capacidade do produto                     Gestão de clientes
+    └── Projeto ..... 1 capacidade do produto                     [BRU] Gestão de clientes
         ├── Milestones  Alpha · Beta · GA
         └── Issue pai ... 1 spec do Spec Kit                      [FEAT] Spec 003 — Cadastro e listagem de clientes
             └── Sub-issues  fases e user stories do tasks.md      [FEAT] Spec 003 US1 Cliente é cadastrado com nome e telefone
@@ -16,7 +16,7 @@ Workspace
 | Nível | O que representa | Regra de tamanho |
 |---|---|---|
 | **Time** | Um cliente ou sistema, ligado a um repositório. Tem status, labels de domínio, estimativas e automações próprios | — |
-| **Projeto** | Uma capacidade do produto com começo e fim (ex.: "Gestão de clientes", "Faturamento") | Semanas |
+| **Projeto** | Uma capacidade do produto com começo e fim, nomeada com o identificador do time (ex.: "[BRU] Gestão de clientes", "[BRU] Faturamento"). Status: Planned → In Progress (o ativo) → Completed (GA) | Semanas |
 | **Milestone** | Um portão de maturidade dentro do projeto | Sempre Alpha, Beta, GA |
 | **Issue pai (spec)** | Uma especificação do Spec Kit: um pedaço entregável da capacidade | Poucos dias; até ~5 user stories |
 | **Sub-issue** | Uma fase ou user story do `tasks.md` daquela spec | Horas |
@@ -86,8 +86,8 @@ As issues pai (specs) são atribuídas ao milestone que ajudam a fechar. A barra
 
 ## 5. Ordem e dependências
 
-- **Dependência entre projetos** (fim → início): "Faturamento" só começa quando "Gestão de clientes" chega a GA. Aparece na linha do tempo.
-- **Relação de bloqueio entre issues** (*blocked by*): a spec 004 bloqueada pela 003. O Coordenador nunca despacha issue bloqueada.
+- **Dependência entre projetos** (fim → início): "Faturamento" só começa quando "Gestão de clientes" chega a GA. Aparece na linha do tempo. O agente não consegue criar essa relação pelo MCP: a skill `planejar-etapas` escreve `Depende de:` na descrição do projeto e no roadmap e lista para você criar no Linear.
+- **Relação de bloqueio entre issues** (*blocked by*): a spec 004 bloqueada pela 003. É ela que define a ordem; a hierarquia issue pai → sub-issue não define. As skills criam a relação pelo MCP. Quando a 003 chega a Done (merge na develop), a 004 fica livre. O Coordenador nunca propõe issue bloqueada, e o Diretor confere de novo ao recebê-la.
 - **Ordem da fila:** milestone mais antigo em aberto → prioridade → ordem manual do Linear.
 
 ## 6. O agente do Linear
