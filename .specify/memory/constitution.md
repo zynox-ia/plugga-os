@@ -1,50 +1,63 @@
-# [PROJECT_NAME] Constitution
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+# Constituição do Plugga OS
 
 ## Core Principles
 
-### [PRINCIPLE_1_NAME]
-<!-- Example: I. Library-First -->
-[PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+### I. Limites de produção e integrações
 
-### [PRINCIPLE_2_NAME]
-<!-- Example: II. CLI Interface -->
-[PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+Todo trabalho respeita os limites operacionais documentados: nenhuma mudança acessa,
+escreve, envia, configura ou faz cutover em Bitrix, OMIE, PluggaMob/OCPP, PagBank,
+WhatsApp, Telegram, OpenClaw ou crons de terceiros sem ADR aceita e aprovação explícita.
+Integrações seguem o modo e os gates definidos pelos ADRs. Isso preserva a operação em
+produção e impede que uma mudança local alcance sistemas externos sem decisão revisada.
 
-### [PRINCIPLE_3_NAME]
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
-[PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+### II. Limites do monorepo
 
-### [PRINCIPLE_4_NAME]
-<!-- Example: IV. Integration Testing -->
-[PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+Aplicações podem importar `packages/*`; pacotes não importam `apps/*`. A web e a API
+se comunicam por HTTP e pelos contratos de `packages/shared`. Módulos da API mantêm
+interfaces públicas em vez de importar detalhes internos de outros módulos. Esses limites
+mantêm as responsabilidades do monorepo verificáveis e evitam acoplamento entre aplicações.
 
-### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+### III. Dados, segredos e auditoria
 
-## [SECTION_2_NAME]
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
+O repositório contém somente dados sintéticos e placeholders: `.env`, credenciais, tokens,
+webhooks, endpoints reais e dados pessoais não são versionados. Logs e artefatos de entrega
+preservam essa regra. Registros de auditoria são append-only. A CI verifica segredos e dados
+de clientes para proteger material que não pode ser revogado depois de um commit.
 
-[SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
+### IV. Verificação antes da entrega
 
-## [SECTION_3_NAME]
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
+Cada mudança de comportamento vem acompanhada da verificação apropriada. Pull requests
+executam a CI com dependências bloqueadas pelo lockfile, auditoria de dependências, migrações,
+testes e os comandos `pnpm lint`, `pnpm typecheck`, `pnpm test` e `pnpm build`. Uma entrega
+não é concluída enquanto suas verificações exigidas não estiverem verdes.
 
-[SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+### V. Especificação e decisões duráveis
+
+Cada feature tem sua pasta em `specs/`, com especificação, plano e tarefas quando aplicáveis.
+Uma mudança de limites arquiteturais, persistência, autenticação, integrações, auditoria ou
+jobs é registrada em ADR. Isso deixa a intenção revisável e evita que uma mudança futura
+redefina decisões já aceitas sem evidência.
+
+## Restrições técnicas
+
+- Monorepo pnpm + Turborepo; Node conforme `.nvmrc` e pnpm conforme `package.json`.
+- Web em Next.js, API em NestJS e contratos TypeScript sem framework em `packages/shared`.
+- Ambiente local usa Docker Compose para PostgreSQL, Redis e armazenamento de objetos.
+- Produção é publicada pelo fluxo de deploy após a CI verde na `main`.
+
+## Fluxo de desenvolvimento
+
+- Cada pull request roda a CI; pushes para `main` e `develop` também são verificados.
+- A spec descreve o que e o porquê; o plano descreve como a mudança respeita esta constituição.
+- Os templates e scripts do Spec Kit sustentam a criação, o planejamento e a execução de
+  features sem alterar decisões já registradas em ADR.
 
 ## Governance
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
 
-[GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
+Esta constituição prevalece sobre práticas de desenvolvimento que divirjam de seus princípios.
+Emendas entram por pull request, explicam a mudança e atualizam a versão conforme SemVer:
+MAJOR para redefinições incompatíveis, MINOR para novos princípios ou ampliações materiais e
+PATCH para esclarecimentos. Cada revisão de spec e plano verifica conformidade com este arquivo;
+o guia operacional complementar é `docs/AGENT.md`.
 
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+**Version**: 1.0.0 | **Ratified**: 2026-10-09 | **Last Amended**: 2026-10-09
