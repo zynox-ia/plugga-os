@@ -1,6 +1,6 @@
-# Projeto — dados para o Coordenador
+# Projeto — dados para o Condutor
 
-> Lido pelo Coordenador e pelos Diretores. Os comandos ficam no AGENTS.md.
+> Lido pelo Condutor e pelos papéis. Os comandos ficam no AGENTS.md.
 
 branch_base: develop
 
@@ -27,36 +27,38 @@ Falhas que já existem antes de qualquer feature (não são responsabilidade das
 
 | Item | Valor |
 |---|---|
-| Porta da develop | web 3000 · API 3001 |
-| Subir aplicação em porta de teste | Em shells separados: `$env:PORT='3101'; pnpm --filter @plugga/api dev` e `$env:API_INTERNAL_URL='http://127.0.0.1:3101'; pnpm --filter @plugga/web exec next dev --port 3100` (testados com o banco isolado) |
-| Portas dos Diretores | 3001 (D01) · 3002 (D02) · 3003 (D03) |
-| Banco isolado do Diretor | `$env:POSTGRES_PORT='55433'; docker compose -p plugga-os-d01 up -d --wait postgres` (testado); para stack completo, `REDIS_PORT`, `STORAGE_PORT` e `STORAGE_ADMIN_PORT` também precisam de portas livres próprias |
-| Copiar banco da develop → Diretor | `pg_dump` do contêiner local `plugga-os-postgres-1` → `pg_restore` em `plugga-os-d01-postgres-1`; testado em 2026-10-09 (172463 bytes), receita abaixo |
-| Testes usam banco local compartilhado | não; a suíte padrão usa testes em memória e os testes de integração exigem infraestrutura própria |
-| URL de verificação | `http://127.0.0.1:3101/health` → 200; `http://127.0.0.1:3100/` → 307 para login, com a cópia isolada |
+| Porta da develop | web 3000 · API 3001 (http://develop.localhost:3000) |
+| Porta de teste (Condutor) | 3001 (http://teste.localhost:3001) |
+| Porta da sessão visual | 3002 (http://visual.localhost:3002) |
+| Banco de teste | `$env:POSTGRES_PORT='55433'; docker compose -p plugga-os-teste up -d --wait postgres` (adaptado do banco isolado D01; testar no primeiro uso). Para stack completo, `REDIS_PORT`, `STORAGE_PORT` e `STORAGE_ADMIN_PORT` também precisam de portas livres próprias. |
+| Recriar banco de teste como cópia da develop | `pg_dump` do contêiner local `plugga-os-postgres-1` → `pg_restore` em `plugga-os-teste-postgres-1`; comandos abaixo adaptados do D01, testar no primeiro uso. |
+| Apagar banco de teste | `docker compose -p plugga-os-teste down -v` (adaptado; usar somente para o banco isolado de teste). |
+| Caminho de verificação | `/health` → 200; `/` → 307 para login (resultados medidos nas portas 3101/3100 em 2026-10-09). |
 | Arquivos necessários fora do git | `.env` por worktree; neste checkout, `DATABASE_URL` já autentica no Postgres local em 55432 |
 
-### Cópia do banco local da develop para D01
+### Cópia do banco local da develop para teste
 
-Comandos testados em PowerShell. A origem é o contêiner **local** na porta 55432; as
-portas padrão dos túneis não entram nesta cópia. O arquivo temporário é removido ao fim.
+Comandos adaptados da cópia D01, ainda não testados para `plugga-os-teste`.
+A origem é o contêiner **local** na porta 55432; as portas padrão dos túneis não entram
+nesta cópia. O arquivo temporário é removido ao fim. Antes do primeiro uso, resolver
+o conflito entre a API da develop (porta 3001) e a web de teste (porta 3001).
 
 ```powershell
 $env:POSTGRES_PORT='55433'
-docker compose -p plugga-os-d01 up -d --wait postgres
-$dump = Join-Path $env:TEMP 'plugga-os-d01.dump'
-docker exec plugga-os-postgres-1 sh -c 'PGPASSWORD="$POSTGRES_PASSWORD" pg_dump -h 127.0.0.1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc -f /tmp/plugga-os-d01.dump'
-docker cp plugga-os-postgres-1:/tmp/plugga-os-d01.dump $dump
-docker cp $dump plugga-os-d01-postgres-1:/tmp/plugga-os-d01.dump
-docker exec plugga-os-d01-postgres-1 sh -c 'PGPASSWORD="$POSTGRES_PASSWORD" pg_restore -h 127.0.0.1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" --no-owner --no-privileges --clean --if-exists /tmp/plugga-os-d01.dump'
-docker exec plugga-os-postgres-1 rm -f /tmp/plugga-os-d01.dump
-docker exec plugga-os-d01-postgres-1 rm -f /tmp/plugga-os-d01.dump
+docker compose -p plugga-os-teste up -d --wait postgres
+$dump = Join-Path $env:TEMP 'plugga-os-teste.dump'
+docker exec plugga-os-postgres-1 sh -c 'PGPASSWORD="$POSTGRES_PASSWORD" pg_dump -h 127.0.0.1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc -f /tmp/plugga-os-teste.dump'
+docker cp plugga-os-postgres-1:/tmp/plugga-os-teste.dump $dump
+docker cp $dump plugga-os-teste-postgres-1:/tmp/plugga-os-teste.dump
+docker exec plugga-os-teste-postgres-1 sh -c 'PGPASSWORD="$POSTGRES_PASSWORD" pg_restore -h 127.0.0.1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" --no-owner --no-privileges --clean --if-exists /tmp/plugga-os-teste.dump'
+docker exec plugga-os-postgres-1 rm -f /tmp/plugga-os-teste.dump
+docker exec plugga-os-teste-postgres-1 rm -f /tmp/plugga-os-teste.dump
 Remove-Item -LiteralPath $dump -Force
-docker compose -p plugga-os-d01 down -v
 ```
 
-No D01 copiado, `pnpm db:migrate:deploy` encontrou 19 migrations e nenhuma pendente;
-`pnpm db:seed` passou. O stack D01 e seu volume foram removidos após a verificação.
+No D01 copiado em 2026-10-09, `pnpm db:migrate:deploy` encontrou 19 migrations e
+nenhuma pendente; `pnpm db:seed` passou. A receita adaptada para teste ainda requer
+verificação no primeiro uso.
 
 ## Linear
 

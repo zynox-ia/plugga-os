@@ -6,6 +6,7 @@ Instruções para agentes de IA neste repositório (Claude Code, Codex e outros)
 ## Projeto
 
 Sistema operacional interno da Plugga / Waze Energia. Stack: TypeScript · Next.js + NestJS · PostgreSQL.
+Usuário de teste: a definir (o seed não registra uma senha de desenvolvimento).
 
 ## Comandos
 
