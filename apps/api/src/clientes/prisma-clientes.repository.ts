@@ -1,4 +1,5 @@
-import { BadRequestException, Inject, Injectable, NotFoundException } from "@nestjs/common";
+import { Inject, Injectable } from "@nestjs/common";
+import { NaoEncontrado, RequisicaoInvalida } from "../common/errors/dominio";
 import type { ActorType, Prisma } from "@prisma/client";
 import {
   clientDuplicateCandidatesResponseSchema,
@@ -84,7 +85,7 @@ export class PrismaClientesRepository extends ClientesRepository {
 
   async get(id: string): Promise<ClientSummary> {
     const row = await this.prisma.client.findUnique({ where: { id } });
-    if (!row) throw new NotFoundException("client not found");
+    if (!row) throw new NaoEncontrado("Cliente não encontrado.");
     return clientSummarySchema.parse(this.summary(row));
   }
 
@@ -123,7 +124,7 @@ export class PrismaClientesRepository extends ClientesRepository {
 
   async update(id: string, input: UpdateClientRequest, principal: AuthPrincipal): Promise<ClientSummary> {
     const existing = await this.prisma.client.findUnique({ where: { id } });
-    if (!existing) throw new NotFoundException("client not found");
+    if (!existing) throw new NaoEncontrado("Cliente não encontrado.");
 
     const updated = await this.prisma.$transaction(async (tx) => {
       const client = await tx.client.update({ where: { id }, data: { ...input } });
@@ -144,7 +145,7 @@ export class PrismaClientesRepository extends ClientesRepository {
 
   async activate(id: string, principal: AuthPrincipal): Promise<ClientSummary> {
     const existing = await this.prisma.client.findUnique({ where: { id } });
-    if (!existing) throw new NotFoundException("client not found");
+    if (!existing) throw new NaoEncontrado("Cliente não encontrado.");
 
     if (existing.active) return clientSummarySchema.parse(this.summary(existing));
 
@@ -167,7 +168,7 @@ export class PrismaClientesRepository extends ClientesRepository {
 
   async inactivate(id: string, input: InactivateClientRequest, principal: AuthPrincipal): Promise<ClientSummary> {
     const existing = await this.prisma.client.findUnique({ where: { id } });
-    if (!existing) throw new NotFoundException("client not found");
+    if (!existing) throw new NaoEncontrado("Cliente não encontrado.");
 
     if (!existing.active) return clientSummarySchema.parse(this.summary(existing));
 
@@ -190,7 +191,7 @@ export class PrismaClientesRepository extends ClientesRepository {
 
   async duplicateCandidates(query: DuplicateCandidatesQuery): Promise<ClientDuplicateCandidatesResponse> {
     if (!query.name && !query.phone && !query.email) {
-      throw new BadRequestException("at least one of name, phone or email is required");
+      throw new RequisicaoInvalida("Informe ao menos nome, telefone ou e-mail.");
     }
     const rows = await this.findDuplicateRows(query);
     return clientDuplicateCandidatesResponseSchema.parse({
@@ -207,7 +208,7 @@ export class PrismaClientesRepository extends ClientesRepository {
         contracts: { orderBy: { createdAt: "desc" } },
       },
     });
-    if (!client) throw new NotFoundException("client not found");
+    if (!client) throw new NaoEncontrado("Cliente não encontrado.");
 
     const opportunityIds = client.opportunities.map((opportunity) => opportunity.id);
     const contractIds = client.contracts.map((contract) => contract.id);

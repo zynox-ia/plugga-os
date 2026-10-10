@@ -83,7 +83,7 @@ pnpm --filter @plugga/api db:migrate    # cria a migração e aplica aqui
 pnpm lint && pnpm typecheck && pnpm test
 ```
 
-Os três precisam passar. É o mesmo que o GitHub roda.
+Os três precisam passar. O GitHub roda isso e mais: varredura de segredos e de dado de cliente, auditoria de dependências, migrações do zero, as suítes de integração (Postgres, Redis, BullMQ), os testes dos scripts de `ops/`, o e2e do web contra a API, o `shellcheck` dos scripts e o build das imagens Docker (sem publicar). O typecheck da API inclui os testes (`apps/api/tsconfig.test.json`).
 
 ### Commit e envio
 

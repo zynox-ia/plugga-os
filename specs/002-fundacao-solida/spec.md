@@ -57,6 +57,8 @@ Como dono do sistema, quero que nenhum dado real de cliente (CNPJ, unidade consu
 
 ### User Story 3 - Backup que sobrevive à perda do servidor (Priority: P1)
 
+> **Adiada em parte (2026-10-06)**: cópia externa (Backblaze B2), alertas externos, retenção e ensaio de desastre passam para a Spec 004 (backup e armazenamento). Nesta spec permanece o backup local e o restore testado (T012), que é a trava da Fatia 3. Risco aceito até a Spec 004: sem cópia fora da VPS. Os requisitos FR-011 a FR-016 e SC-003 a SC-005 abaixo valem para a Spec 004.
+
 Como dono do sistema, quero que o banco **e** os arquivos enviados (faturas, cotações, evidências de obra) tenham cópia fora do servidor de produção, com restauração testada periodicamente e alerta quando o backup falhar.
 
 **Why this priority**: hoje o dump do banco fica no mesmo servidor, os arquivos de negócio não têm cópia nenhuma, ninguém é avisado se o backup falha e o script que realmente roda em produção não é o versionado. A perda do disco ou do servidor perderia tudo.

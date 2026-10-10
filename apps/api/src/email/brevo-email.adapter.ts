@@ -3,7 +3,7 @@ import { ConfigService } from "@nestjs/config";
 
 import { EmailPort, type TransactionalEmail } from "./email.port";
 import { renderTemplate } from "./email.templates";
-import { maskEmail } from "./email.util";
+import { maskEmail } from "../common/mascara-email";
 
 const DEFAULT_BREVO_API_URL = "https://api.brevo.com/v3/smtp/email";
 

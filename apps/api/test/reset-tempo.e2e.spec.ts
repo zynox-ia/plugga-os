@@ -5,7 +5,7 @@ import request from "supertest";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { AppModule } from "../src/app.module";
-import { AuditRepository } from "../src/audit/audit.repository";
+import { AuditPort } from "../src/audit/audit.port";
 import { AuthRepository } from "../src/auth/auth.repository";
 import { AuthTokenIssuer } from "../src/auth/auth-token-issuer.service";
 import { ResetEmailDispatcher } from "../src/auth/reset-email.dispatcher";
@@ -69,7 +69,7 @@ describe("redefinição de senha: resposta e tempo indistinguíveis (e2e)", () =
       .useValue(new InMemorySessionLookup(store))
       .overrideProvider(EmailPort)
       .useValue(email)
-      .overrideProvider(AuditRepository)
+      .overrideProvider(AuditPort)
       .useValue(new NoopAuditRepository())
       .overrideProvider(SessionCache)
       .useValue(new NullSessionCache())

@@ -69,7 +69,7 @@ if [ ! -f "$ARQUIVO_ENV" ]; then
   umask 077
   printf 'BACKUP_ACCESS_KEY=plugga-backup\nBACKUP_SECRET_KEY=%s\n' "$SENHA" >"$ARQUIVO_ENV"
 fi
-# shellcheck disable=SC1091
+# shellcheck disable=SC1090,SC1091
 . "$ARQUIVO_ENV"
 
 # A credencial entra pelo stdin do `weed shell`, nunca pela linha de comando:

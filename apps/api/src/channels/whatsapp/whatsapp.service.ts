@@ -8,12 +8,12 @@ import {
   type WhatsappSendResponse,
 } from "@plugga/shared";
 
-import { AuditRepository } from "../../audit/audit.repository";
+import { AuditPort } from "../../audit/audit.port";
 import type { AuthPrincipal } from "../../core/auth/auth.types";
 
 @Injectable()
 export class WhatsappService {
-  constructor(@Inject(AuditRepository) private readonly auditRepository: AuditRepository) {}
+  constructor(@Inject(AuditPort) private readonly auditRepository: AuditPort) {}
 
   async simulateSend(
     request: WhatsappSendRequest,

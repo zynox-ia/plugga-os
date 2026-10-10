@@ -41,6 +41,7 @@ type RecordedEvent = { eventName: string; entityType: string; entityId: string; 
  * than re-implementing the rules, so this double can't silently drift from
  * production behavior.
  */
+// @ts-expect-error dublê parcial: não implementa todos os membros do repositório real (dívida registrada na T183)
 class InMemoryEnergyRepository extends EnergyRepository {
   private migrations = new Map<string, StoredMigration>();
   private sequence = 0;
@@ -251,7 +252,7 @@ describe("energy market-migrations API (e2e)", () => {
     const id = "00000000-0000-4000-8000-000000000902";
     repository.seedMigration({ id, stage: "analise" });
 
-    await asOpm().post(`/energy/market-migrations/${id}/stage`).send({ stage: "documentacao" }).expect(400);
+    await asOpm().post(`/energy/market-migrations/${id}/stage`).send({ stage: "documentacao" }).expect(409);
   });
 
   it("blocks advancing a stage without owner/next action (blocking rule)", async () => {
@@ -302,7 +303,7 @@ describe("energy market-migrations API (e2e)", () => {
     const id = "00000000-0000-4000-8000-000000000907";
     repository.seedMigration({ id, status: "cancelada", cancelReason: "Já cancelada" });
 
-    await asOpm().post(`/energy/market-migrations/${id}/cancel`).send({ cancelReason: "outra vez" }).expect(400);
+    await asOpm().post(`/energy/market-migrations/${id}/cancel`).send({ cancelReason: "outra vez" }).expect(409);
   });
 
   it("rejects activation with both a linked client and a new client", async () => {
@@ -363,7 +364,7 @@ describe("energy market-migrations API (e2e)", () => {
     const id = "00000000-0000-4000-8000-000000000913";
     repository.seedMigration({ id, status: "cancelada", cancelReason: "x" });
 
-    await asOpm().post(`/energy/market-migrations/${id}/activate`).send({ clientId: CLIENT_ID }).expect(400);
+    await asOpm().post(`/energy/market-migrations/${id}/activate`).send({ clientId: CLIENT_ID }).expect(409);
   });
 
   it("returns 404 for mutations against an unknown migration", async () => {

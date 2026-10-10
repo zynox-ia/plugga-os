@@ -1,4 +1,5 @@
-import { ForbiddenException, Inject, Injectable } from "@nestjs/common";
+import { Inject, Injectable } from "@nestjs/common";
+import { AcessoNegado } from "../common/errors/dominio";
 import { isDepartmentOfCompany, type CompanyKey } from "@plugga/shared";
 
 import { PrismaService } from "../prisma/prisma.service";
@@ -34,7 +35,7 @@ export abstract class ComprasEscopoRepository {
   /** Igual a `alcanca`, mas recusa em vez de devolver `false`. */
   async assertAlcanca(principalId: string, companyId: CompanyKey): Promise<void> {
     if (!(await this.alcanca(principalId, companyId))) {
-      throw new ForbiddenException(`sem acesso ao departamento de compras da empresa ${companyId}`);
+      throw new AcessoNegado(`sem acesso ao departamento de compras da empresa ${companyId}`);
     }
   }
 }

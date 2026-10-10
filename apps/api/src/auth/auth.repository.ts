@@ -1,4 +1,3 @@
-import type { AuthTokenType } from "@prisma/client";
 import type {
   CompanyKey,
   DepartmentId,
@@ -6,6 +5,9 @@ import type {
   UserAccess,
   UserStatus,
 } from "@plugga/shared";
+
+/** Tipo de domínio do token de conta; o enum do Prisma fica na camada de persistência. */
+export type TipoDeToken = "invite" | "reset";
 
 export interface AuthUserRecord {
   id: string;
@@ -47,7 +49,7 @@ export interface CreateInvitedUserData {
 
 export interface CreateAuthTokenData {
   userId: string;
-  type: AuthTokenType;
+  type: TipoDeToken;
   tokenHash: string;
   expiresAt: Date;
 }
@@ -116,7 +118,7 @@ export abstract class AuthRepository {
   abstract replaceAuthToken(data: CreateAuthTokenData): Promise<void>;
   abstract findValidToken(
     tokenHash: string,
-    type: AuthTokenType,
+    type: TipoDeToken,
     now: Date,
   ): Promise<ValidAuthToken | null>;
   /**

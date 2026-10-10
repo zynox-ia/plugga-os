@@ -1,39 +1,8 @@
 import { Injectable } from "@nestjs/common";
+import type { LinhaDeConsumo, ResumoDeConsumo } from "@plugga/shared";
 
 import { ConsumoRepository, type Janela } from "./consumo.repository.js";
 import { NOME_DO_PROCESSO, ehProcessoConhecido } from "./processo.js";
-
-export type LinhaDeConsumo = {
-  processo: string;
-  nome: string;
-  chamadas: number;
-  falhas: number;
-  tokensEntrada: number;
-  tokensSaida: number;
-  tokensTotais: number;
-  custoCreditos: number;
-  referencias: number;
-  /**
-   * Custo por objeto de negócio atendido — por fatura lida, por exemplo.
-   * Nulo quando o processo não informa referência: melhor ausente que um número
-   * inventado dividindo por chamadas, que não é a mesma coisa.
-   */
-  custoPorReferencia: number | null;
-  tokensPorReferencia: number | null;
-};
-
-export type ResumoDeConsumo = {
-  janela: { desde: string; ate: string };
-  total: {
-    chamadas: number;
-    falhas: number;
-    tokensTotais: number;
-    custoCreditos: number;
-  };
-  porProcesso: LinhaDeConsumo[];
-  porModelo: { modelo: string; chamadas: number; tokensTotais: number; custoCreditos: number }[];
-  porDia: { dia: string; chamadas: number; tokensTotais: number; custoCreditos: number }[];
-};
 
 /** Últimos 30 dias quando ninguém pede janela — o padrão que se olha. */
 function janelaPadrao(): Janela {

@@ -5,7 +5,7 @@ import { flattenRoles, type UserAccess } from "@plugga/shared";
 
 import { argon2Options } from "../../src/auth/argon2-options";
 import { EstadoInvalido } from "../../src/common/errors/dominio";
-import { AuditRepository } from "../../src/audit/audit.repository";
+import { AuditPort } from "../../src/audit/audit.port";
 import type { AuthPrincipal } from "../../src/core/auth/auth.types";
 import { SessionLookupRepository } from "../../src/core/auth/session-lookup.repository";
 import { EmailPort, type TransactionalEmail } from "../../src/email/email.port";
@@ -365,7 +365,8 @@ export class InMemorySessionLookup extends SessionLookupRepository {
     super();
   }
 
-  async resolvePrincipal(tokenHash: string): Promise<AuthPrincipal | null> {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- assinatura do repositório real
+  async resolvePrincipal(tokenHash: string, _contexto?: unknown): Promise<AuthPrincipal | null> {
     const session = this.store.sessions.get(tokenHash);
     if (!session) {
       return null;
@@ -402,8 +403,9 @@ export class CapturingEmailPort extends EmailPort {
   }
 }
 
-export class NoopAuditRepository extends AuditRepository {
-  async appendEvent(): Promise<void> {}
+export class NoopAuditRepository extends AuditPort {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- assinatura do repositório real
+  async appendEvent(_evento?: unknown): Promise<void> {}
   async appendTrail(): Promise<never> {
     throw new Error("not used in auth e2e");
   }

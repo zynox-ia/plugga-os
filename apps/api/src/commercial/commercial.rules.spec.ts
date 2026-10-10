@@ -1,4 +1,4 @@
-import { BadRequestException } from "@nestjs/common";
+import { EstadoInvalido, RequisicaoInvalida } from "../common/errors/dominio";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -15,7 +15,7 @@ describe("assertOpportunityOpen", () => {
   });
 
   it.each(["ganha", "perdida", "revisitar"] as const)("rejects a decided opportunity (%s)", (status) => {
-    expect(() => assertOpportunityOpen(status)).toThrow(BadRequestException);
+    expect(() => assertOpportunityOpen(status)).toThrow(EstadoInvalido);
   });
 });
 
@@ -25,15 +25,15 @@ describe("assertOpportunityHasOwnerAndNextAction", () => {
   });
 
   it("blocks when the owner is missing", () => {
-    expect(() => assertOpportunityHasOwnerAndNextAction(null, new Date())).toThrow(BadRequestException);
+    expect(() => assertOpportunityHasOwnerAndNextAction(null, new Date())).toThrow(RequisicaoInvalida);
   });
 
   it("blocks when the next action is missing", () => {
-    expect(() => assertOpportunityHasOwnerAndNextAction("owner-1", null)).toThrow(BadRequestException);
+    expect(() => assertOpportunityHasOwnerAndNextAction("owner-1", null)).toThrow(RequisicaoInvalida);
   });
 
   it("blocks when both are missing", () => {
-    expect(() => assertOpportunityHasOwnerAndNextAction(null, null)).toThrow(BadRequestException);
+    expect(() => assertOpportunityHasOwnerAndNextAction(null, null)).toThrow(RequisicaoInvalida);
   });
 });
 
@@ -51,19 +51,19 @@ describe("assertContractTransitionAllowed", () => {
   });
 
   it("blocks skipping a state", () => {
-    expect(() => assertContractTransitionAllowed("rascunho", "ativo")).toThrow(BadRequestException);
+    expect(() => assertContractTransitionAllowed("rascunho", "ativo")).toThrow(EstadoInvalido);
   });
 
   it("blocks moving backward", () => {
-    expect(() => assertContractTransitionAllowed("ativo", "rascunho")).toThrow(BadRequestException);
+    expect(() => assertContractTransitionAllowed("ativo", "rascunho")).toThrow(EstadoInvalido);
   });
 
   it("blocks any transition once encerrado", () => {
-    expect(() => assertContractTransitionAllowed("encerrado", "vencendo")).toThrow(BadRequestException);
+    expect(() => assertContractTransitionAllowed("encerrado", "vencendo")).toThrow(EstadoInvalido);
   });
 
   it("blocks re-submitting encerrado — a closed contract cannot have its dates rewritten", () => {
-    expect(() => assertContractTransitionAllowed("encerrado", "encerrado")).toThrow(BadRequestException);
+    expect(() => assertContractTransitionAllowed("encerrado", "encerrado")).toThrow(EstadoInvalido);
   });
 });
 
@@ -73,7 +73,7 @@ describe("assertContractCanActivate", () => {
   });
 
   it("blocks activation without a signature — never assume signed", () => {
-    expect(() => assertContractCanActivate(null)).toThrow(BadRequestException);
+    expect(() => assertContractCanActivate(null)).toThrow(EstadoInvalido);
   });
 });
 
@@ -89,8 +89,8 @@ describe("assertContractHasOwnerAndNextAction", () => {
   it.each(["revisao_interna", "aguardando_assinatura", "ativo", "vencendo"] as const)(
     "requires owner and next action while %s",
     (status) => {
-      expect(() => assertContractHasOwnerAndNextAction(status, null, new Date())).toThrow(BadRequestException);
-      expect(() => assertContractHasOwnerAndNextAction(status, "owner-1", null)).toThrow(BadRequestException);
+      expect(() => assertContractHasOwnerAndNextAction(status, null, new Date())).toThrow(RequisicaoInvalida);
+      expect(() => assertContractHasOwnerAndNextAction(status, "owner-1", null)).toThrow(RequisicaoInvalida);
       expect(() => assertContractHasOwnerAndNextAction(status, "owner-1", new Date())).not.toThrow();
     },
   );
