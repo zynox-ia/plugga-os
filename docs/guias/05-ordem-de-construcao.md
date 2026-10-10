@@ -29,6 +29,8 @@ Quase todo sistema é construído nesta sequência. Um projeto pode juntar passo
 | Relatórios | Projeto "Relatórios" | Alpha → GA |
 | Polimento | Specs de `[PERF]`, `[REFACTOR]` e ajustes | GA |
 
+**Projeto novo (repositório vazio):** a primeira spec é sempre `[INFRA] Spec 001 — Fundação do projeto`. Ela entrega a aplicação rodando localmente, o CI, o seed com o usuário de teste e o ambiente de teste do Condutor, e completa o `AGENTS.md` e o `projeto.md`. Todas as outras specs dependem dela. A stack é decidida antes, na preparação da casa, e registrada em `docs/roadmap/decisoes.md`.
+
 ## 3. Decidir entre duas coisas
 
 ```

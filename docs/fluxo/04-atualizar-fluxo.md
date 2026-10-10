@@ -1,29 +1,69 @@
-# Prompt 4 — Instalar ou atualizar o fluxo (v4)
+# Prompt mestre — instalar ou atualizar, preparar e planejar (v7)
 
-> Rode num **agente novo** do Traycer, na pasta principal de um repositório de cliente, para:
-> - **instalar** o fluxo num projeto que ainda não tem `docs/fluxo/`; ou
-> - **atualizar** o fluxo para uma versão nova do repositório central.
->
+> O primeiro e único prompt para colocar um repositório de cliente no fluxo, seja ele novo ou existente. André cola num **agente novo** do Traycer, na pasta principal do repositório:
+> ```
+> Leia https://raw.githubusercontent.com/zynox-ia/dev-workflow/main/docs/fluxo/04-atualizar-fluxo.md e siga as instruções neste repositório.
+> ```
+> Rode sempre a partir do central (o link do `raw` na `main`), nunca a cópia local de `docs/fluxo/`: a cópia local pode ser de uma versão antiga.
 > Repositório central (público): `https://github.com/zynox-ia/dev-workflow`
->
-> Rode sempre a partir do central (o link do `raw` na `main`), nunca a cópia local de `docs/fluxo/`: a cópia local é da versão antiga e não conhece as migrações novas.
->
-> **Atualizar não reinstala nada:** Spec Kit, constituição, `projeto.md`, banco e Linear ficam como estão. Só mudam `docs/guias/`, `docs/fluxo/`, as skills do fluxo, o bloco `dev-workflow` do `AGENTS.md` e as migrações que o changelog pedir.
 
 ---
 
 ## Seu papel
 
-Você copia `docs/guias/` e `docs/fluxo/` do repositório central para este projeto, na versão pedida, instala as skills do fluxo para os dois agentes, atualiza o bloco `dev-workflow` do `AGENTS.md` e entrega tudo num PR para a develop. Você **não** altera código da aplicação, `docs/roadmap/`, `.specify/`, o bloco `projeto` do `AGENTS.md` nem nada fora do que este prompt lista, **exceto** o que uma migração `[04]` do changelog pedir (Passo 7).
+Você **lê o repositório, diz o que existe e o que falta, e faz só o que falta**, nesta ordem:
+
+| Etapa | Se não existe | Se existe |
+|---|---|---|
+| **A. Fluxo** (`docs/fluxo/`, skills, `AGENTS.md`, guia de modelos) | Instala a última versão | Atualiza se houver versão mais nova, com as migrações `[04]`; em dia → nada |
+| **B. Casa** (Spec Kit, constituição, comandos, ambiente, Linear) | Prepara do zero (`01-preparacao-da-casa.md` inteiro) | Confere os portões e refaz **só as fases que falham** |
+| **C. Planejamento** (`docs/roadmap/`, projetos e specs no Linear) | Planeja (`planejar-etapas`, modo A ou C) | Audita (modo B) e mostra onde estamos |
+
+A e B saem num **PR único**; C sai no PR do roadmap. Você para só nos pontos do André: aprovação do plano de ação, respostas, merges.
+
+Você **não** altera código da aplicação. Atualizar o fluxo **não reinstala** nada que já esteja certo: Spec Kit, constituição, `projeto.md`, banco e Linear só mudam se o diagnóstico mostrar que a fase correspondente falha, ou se uma migração `[04]` pedir.
 
 ## Regras
 1. Árvore limpa antes de começar; nada é descartado.
-2. Trabalhe na branch `chore/fluxo-v<versão>`, criada a partir de `origin/develop`. Se não existir `develop`, crie-a a partir da `main` e publique (`git branch develop origin/main && git push -u origin develop`).
+   **Repositório vazio** (sem nenhum commit): crie um `README.md` com o nome do projeto, faça o commit `chore: início do repositório` na `main` e publique (`git push -u origin main`) antes de seguir.
+2. Trabalhe numa branch só, criada a partir de `origin/develop`: `chore/fluxo-v<versão>` quando a etapa A instala ou atualiza; `chore/speckit-setup` quando só a etapa B tem o que fazer. Se não existir `develop`, crie-a a partir da `main` e publique (`git branch develop origin/main && git push -u origin develop`).
 3. O merge é do André.
 
 ---
 
+## Passo 0 — Diagnóstico (somente leitura)
+```bash
+git rev-parse --verify HEAD >/dev/null 2>&1 || echo "REPO VAZIO"
+git status --porcelain                                           # precisa estar vazio
+git fetch origin; git rev-parse --verify origin/develop >/dev/null 2>&1 || echo "SEM DEVELOP"
+cat docs/fluxo/VERSION 2>/dev/null || echo "FLUXO NÃO INSTALADO"
+git ls-remote --tags --refs https://github.com/zynox-ia/dev-workflow.git | sed 's#.*refs/tags/v##' | sort -V | tail -1
+ls package.json pyproject.toml composer.json go.mod Gemfile pom.xml 2>/dev/null || echo "SEM MANIFESTO (projeto novo)"
+# Casa — cada linha corresponde a uma fase do 01-preparacao-da-casa.md
+test -f .specify/memory/preparacao.md            || echo "F1 pendente (limpeza inicial)"
+specify integration status --json 2>/dev/null    || echo "F2 pendente (Spec Kit)"
+test -f .claude/skills/speckit-specify/SKILL.md -a -f .agents/skills/speckit-specify/SKILL.md || echo "F2 pendente (skills do Spec Kit)"
+test -f .specify/memory/constitution.md && ! grep -qE '\[[A-Z_]+\]' .specify/memory/constitution.md || echo "F3 pendente (constituição)"
+grep -q '## Ambiente local' .specify/memory/projeto.md 2>/dev/null && grep -q '^branch_base: develop' .specify/memory/projeto.md || echo "F4 pendente (projeto.md)"
+sed -n '/<!-- projeto:inicio/,/<!-- projeto:fim -->/p' AGENTS.md 2>/dev/null | grep -q '<comando>\|<Uma linha' && echo "F4 pendente (AGENTS.md)"
+grep -q '## Linear' .specify/memory/projeto.md 2>/dev/null || echo "F5 pendente (Linear)"
+test -f docs/roadmap/ROADMAP.md && echo "ROADMAP EXISTE" || echo "SEM ROADMAP"
+```
+Árvore suja → mostre os arquivos e pergunte ao André; não descarte nada.
+
+**Plano de ação.** Mostre ao André e espere o ok:
+```
+🔎 Diagnóstico — <repositório>
+Repositório: <vazio | com código (<stack do manifesto>) | sem código>
+A. Fluxo:  <não instalado → instalar v<última> | v<atual> → atualizar para v<última> | em dia (v<atual>)>
+B. Casa:   <não preparada → preparação completa | fases pendentes: F2, F4… | pronta>
+C. Plano:  <sem roadmap → planejar (modo A | C) | roadmap existe → auditar>
+Vou: <lista curta, na ordem>. Pontos em que vou parar para você: <...>
+```
+Tudo em dia (A em dia, B pronta, roadmap existe) → rode só a auditoria (Passo 12) e termine (Passo 13).
+
 ## Passo 1 — Versões
+Use o resultado do Passo 0. **Repositório vazio:** crie o `README.md`, commit `chore: início do repositório` na `main`, `git push -u origin main`. **Sem develop:** `git branch develop origin/main && git push -u origin develop`.
 ```bash
 git status --porcelain                           # precisa estar vazio
 git fetch origin
@@ -31,7 +71,7 @@ cat docs/fluxo/VERSION 2>/dev/null || echo "não instalado"
 git ls-remote --tags --refs https://github.com/zynox-ia/dev-workflow.git | sed 's#.*refs/tags/##' | sort -V | tail -5
 ```
 - Versão alvo: a pedida pelo André, ou a última tag `vX.Y.Z` do central.
-- Já está na versão alvo → informe e encerre.
+- Já está na versão alvo → pule para o Passo 10 (a etapa A não tem nada a fazer).
 
 ## Passo 2 — Baixar a versão alvo
 ```bash
@@ -110,15 +150,41 @@ diff <(sed -n '/<!-- dev-workflow:inicio/,/<!-- dev-workflow:fim -->/p' AGENTS.m
 grep -c '<!-- dev-workflow:inicio' AGENTS.md    # 1
 grep -qxF '@AGENTS.md' CLAUDE.md
 cmp docs/fluxo/modelos/agent-selection-guide.md .traycer/agent-selection-guide.md
-git status --short | grep -vE "^( M|\?\?|A |D | D) (docs/|\.claude/skills/|\.agents/skills/|AGENTS\.md|CLAUDE\.md|\.traycer/agent-selection-guide\.md|\.specify/memory/projeto\.md)" || true   # nada fora do permitido (projeto.md só se uma migração pediu)
+git status --short -uall | grep -vE "^( M|\?\?|A |D | D) (docs/|\.claude/skills/|\.agents/skills/|AGENTS\.md|CLAUDE\.md|\.traycer/agent-selection-guide\.md|\.specify/memory/projeto\.md)" || true   # nada fora do permitido (projeto.md só se uma migração pediu)
 ```
 
-## Passo 9 — Entregar
+## Passo 9 — Registrar a etapa A
 ```bash
 git add docs .claude/skills .agents/skills AGENTS.md CLAUDE.md .traycer/agent-selection-guide.md
-git commit -m "chore(fluxo): atualizar para v<versão>"
-git push -u origin chore/fluxo-v<versão>
-gh pr create --base develop --title "chore(fluxo): atualizar para v<versão>" --body "<resumo do changelog e ações necessárias>"
+git commit -m "chore(fluxo): instalar|atualizar para v<versão>"
 rm -rf "$TMP"
 ```
-Responda ao André: versão anterior → nova, link do PR e a lista de **ações necessárias** (por exemplo: rodar uma fase da preparação, mudar algo no Linear).
+Não abra o PR ainda: a etapa B entra na mesma branch.
+
+## Passo 10 — Etapa B: preparar a casa
+Na **mesma branch** (ou em `chore/speckit-setup`, se a etapa A não teve nada), siga `docs/fluxo/01-preparacao-da-casa.md` **chamado pelo prompt mestre**:
+- **Casa não preparada** (`F1 pendente`): o 01 inteiro, da Fase 0 à Fase 5.
+- **Casa preparada com fases pendentes:** só as fases apontadas no diagnóstico (F2, F3, F4 ou F5), cada uma até o seu portão. A Fase 1 (limpeza do harness antigo) nunca roda de novo numa casa já preparada.
+- **Casa pronta:** nada.
+O 01 não cria branch nem abre PR quando é chamado por você.
+
+## Passo 11 — PR único das etapas A e B
+```bash
+git push -u origin <branch>
+gh pr create --base develop --title "chore(fluxo): <instalar|atualizar> v<versão> e preparar a casa" --body "<o que mudou no fluxo · fases da casa feitas · ações do André>"
+```
+(Só a etapa A → título `chore(fluxo): atualizar para v<versão>`. Só a B → `chore: preparação Spec Kit`.)
+Diga ao André: `PR aberto: <link>. Faça o merge e me responda "mesclei".` e espere. Com `mesclei`: confira o merge (`gh pr view <n> --json state`) e `git checkout develop && git pull --ff-only origin develop`.
+Liste junto as **ações do André** que não são arquivo: configurações do Linear, skill `/nova-issue`, guidance, pendências da preparação.
+
+## Passo 12 — Etapa C: planejamento
+- **Sem roadmap:** siga a skill `docs/fluxo/skills/planejar-etapas/SKILL.md`, modo **A — Planejar** (sem código ou repositório vazio) ou **C — Assumir** (com código), até o André aprovar e mesclar o PR do roadmap. Projeto novo: a primeira spec é sempre `[INFRA] Spec 001 — Fundação do projeto`; mova-a para **Ready** com o ok do André.
+- **Com roadmap:** modo **B — Auditar**. Mostre o relatório B3; havendo achados de higiene, ofereça o passo B4 (corrigir com o ok do André).
+
+## Passo 13 — Fechar
+```
+✅ Casa pronta · fluxo v<versão>
+Fila: <issues em Ready, ou "mova para Ready o que vem primeiro">
+Para trabalhar, num agente novo (Terra Medium):
+Siga docs/fluxo/02-condutor.md. Modo: manual
+```

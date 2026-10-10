@@ -11,7 +11,7 @@ Siga `docs/fluxo/00-convencoes.md` (estrutura, nomes, labels) e use `docs/guias/
 | Pedido | Modo |
 |---|---|
 | "planejar o sistema", "planejar o próximo projeto" | **A — Planejar** |
-| "auditar", "onde estamos?", "o que vem agora?", ou o Coordenador ao abrir a sessão | **B — Auditar** |
+| "auditar", "onde estamos?", "o que vem agora?", ou o Condutor ao abrir a sessão | **B — Auditar** |
 | Sistema com código, sem `docs/roadmap/ROADMAP.md` | **C — Assumir** |
 | "quebrar <ID>", issue com estimativa XL | **D — Quebrar** |
 
@@ -28,8 +28,8 @@ Siga `docs/fluxo/00-convencoes.md` (estrutura, nomes, labels) e use `docs/guias/
 |---|---|---|
 | Projeto | Uma capacidade (`[BRU] Gestão de clientes`); nunca um tema transversal como segurança ou qualidade | Semanas; 2–6 specs |
 | Milestone | Alpha · Beta · GA | — |
-| Issue pai | Uma spec (`[FEAT] Spec NNN — <capacidade>`); obrigatória para M/L e todo `[SECURITY]` | Poucos dias; até ~5 user stories; estimativa M ou L |
-| Issue avulsa | Bug, hotfix, ou mudança XS/S (exceto `[SECURITY]`) | Horas |
+| Issue pai | Uma spec (`[FEAT] Spec NNN — <capacidade>`); todo `[FEAT]`, `[REFACTOR]`, `[PERF]`, `[SECURITY]` e `[INFRA]` | Poucos dias; até ~5 user stories; estimativa XS a L |
+| Issue avulsa | `[FIX]`, `[HOTFIX]`, `[CHORE]`, `[DOCS]` | Horas |
 
 **Fatias verticais, nunca camadas.** Cada spec e cada user story entrega algo testável na tela. Proibido "todo o backend" ou "todas as telas".
 **Menor passo que fecha valor.** O que não foi pedido fica fora.
@@ -48,6 +48,22 @@ Siga `docs/fluxo/00-convencoes.md` (estrutura, nomes, labels) e use `docs/guias/
 6. **O que já existe** (código, telas, banco).
 
 Para cada domínio presente (autenticação, pagamentos, uploads…), mostre o menu de `references/checklists-de-dominio.md` e deixe o André escolher o que entra.
+
+### A1.1 Projeto novo (sem código)
+Quando `.specify/memory/projeto.md` tem `tipo: novo`, a primeira spec do roadmap é sempre:
+
+```
+[INFRA] Spec 001 — Fundação do projeto        M · Infra      (projeto [XXX] Fundação, milestone Alpha)
+  US previstas:
+  - A aplicação sobe localmente com um comando, na porta 3000, com o banco no Docker
+  - Lint, typecheck e testes rodam com um comando cada, e o CI roda os três em todo PR
+  - O seed cria o usuário fixo de teste e dados mínimos de exemplo
+  - O ambiente de teste do Condutor funciona: aplicação em outra porta (3001) e banco de teste recriado como cópia do banco da develop
+  Critérios de aceite:
+  - O bloco `projeto` do AGENTS.md tem todos os comandos e o usuário de teste (nenhum "a definir")
+  - O `projeto.md` tem a seção Ambiente local completa, a Verificação com resultados e a linha de base, e não tem mais `tipo: novo`
+```
+Todas as outras specs do roadmap ficam *blocked by* a Spec 001.
 
 ### A2. Decisões pendentes
 Cada uma com pergunta, opção recomendada e motivo.
@@ -69,7 +85,7 @@ Projeto: [BRU] Gestão de clientes                  (depende de: [BRU] Fundaçã
   ...
 ```
 
-Para cada spec: título no padrão, estimativa (M/L), labels de domínio, bloqueios, user stories previstas (frases afirmativas e verificáveis) e 2–4 critérios de aceite em linguagem de usuário.
+Para cada spec: título no padrão, estimativa (XS a L), labels de domínio, bloqueios, user stories previstas (frases afirmativas e verificáveis) e 2–4 critérios de aceite em linguagem de usuário.
 **Numeração:** o próximo `NNN` livre do time (maior `Spec NNN` existente no Linear + 1), em sequência na ordem da proposta.
 
 **Mostre ao André e espere aprovação.** Ajuste quantas vezes ele pedir.
@@ -78,7 +94,7 @@ Para cada spec: título no padrão, estimativa (M/L), labels de domínio, bloque
 1. **Labels de domínio** do time que ainda não existem.
 2. **Projetos** (a partir do template com Alpha, Beta e GA), com nome `[<IDENTIFICADOR>] <capacidade>`, status `Planned` (o ativo em `In Progress`) e objetivo, critério de pronto e fora de escopo na descrição. **Dependência entre projetos:** o MCP do Linear não cria essa relação. Escreva `Depende de: <Projeto>` na primeira linha da descrição do projeto e no `ROADMAP.md`, e inclua na resposta final a lista para o André criar no Linear (no projeto, *Dependencies* → *Blocked by*).
 3. **Critério de saída** na descrição de cada milestone.
-4. **Issues pai** no milestone certo, com labels de `Type` e domínio, estimativa, prioridade e relações *blocked by* (campo `blockedBy` do `save_issue`). Crie na ordem do roadmap, para que a issue que bloqueia já exista quando a bloqueada for criada; confira as relações no fim com `get_issue`. A descrição segue o modelo de issue pai (`docs/fluxo/linear/templates.md`). **Sub-issues não são criadas aqui**: o Diretor cria a partir do `tasks.md`.
+4. **Issues pai** no milestone certo, com labels de `Type` e domínio, estimativa, prioridade e relações *blocked by* (campo `blockedBy` do `save_issue`). Crie na ordem do roadmap, para que a issue que bloqueia já exista quando a bloqueada for criada; confira as relações no fim com `get_issue`. A descrição segue o modelo de issue pai (`docs/fluxo/linear/templates.md`). **Sub-issues não são criadas aqui**: o 04 Planejador cria a partir do `tasks.md`.
 5. Status inicial **Backlog**. Pergunte quais já vão para **Ready**.
 
 ### A5. Gravar o roadmap
@@ -142,7 +158,7 @@ Somente leitura até o André aprovar.
 ## Modo D — Quebrar uma issue XL (ou uma spec grande demais)
 
 1. Leia a issue e, se existir, a spec.
-2. Proponha 2–6 specs (M/L) ou avulsas (XS/S) que a substituem, em fatias verticais, com bloqueios entre elas e no milestone certo.
+2. Proponha 2–6 specs ou avulsas, cada uma até L, que a substituem, em fatias verticais, com bloqueios entre elas e no milestone certo.
 3. Após aprovação: crie-as e cancele a original com o comentário `Quebrada em: <IDs>`.
 
 ---
