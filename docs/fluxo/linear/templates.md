@@ -56,7 +56,7 @@
 
 ---
 
-## 3. Sub-issue (criada pelo Diretor)
+## 3. Sub-issue (criada pelo 04 Planejador)
 
 - **Título:** `[TIPO] Spec NNN USn <comportamento>` ou `[TIPO] Spec NNN Setup | Fundação | Polimento`
 - **Campos:** herdados da issue pai; Status `Ready`
@@ -75,7 +75,7 @@ Tasks: T0xx–T0yy · Spec: specs/NNN-<slug>/
 ## 4. Avulsa
 
 - **Título:** `[TIPO] <resultado esperado>`
-- **Campos:** Type conforme o prefixo · Estimate `XS` ou `S` · Status `Backlog`
+- **Campos:** Type conforme o prefixo (`[CHORE]`, `[DOCS]`; sessão visual: flag `Visual`) · Estimate até `L` · Status `Backlog`
 ```markdown
 ## Contexto
 <situação atual>

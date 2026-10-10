@@ -10,15 +10,15 @@ Todo título de issue começa com o prefixo do tipo, entre colchetes e em maiús
 
 | Prefixo | Quando usar | Label `Type` | Branch | Commit | Trilha |
 |---|---|---|---|---|---|
-| `[FEAT]` | Capacidade nova ou melhoria visível ao usuário | Feature | `feat/` | `feat(...)` | Pela estimativa (M/L = spec) |
+| `[FEAT]` | Capacidade nova ou melhoria visível ao usuário | Feature | `feat/` | `feat(...)` | SDD (spec) |
 | `[FIX]` | Defeito encontrado na develop ou ainda não liberado | Bug | `fix/` | `fix(...)` | Bug |
 | `[HOTFIX]` | Defeito **em produção**; sai da `main` e volta para `main` e `develop` | Hotfix | `hotfix/` | `fix(...)` | Bug, prioridade máxima |
-| `[REFACTOR]` | Muda a estrutura sem mudar o comportamento | Refactor | `refactor/` | `refactor(...)` | Pela estimativa |
-| `[PERF]` | Melhora desempenho | Performance | `perf/` | `perf(...)` | Pela estimativa |
+| `[REFACTOR]` | Muda a estrutura sem mudar o comportamento | Refactor | `refactor/` | `refactor(...)` | SDD (spec) |
+| `[PERF]` | Melhora desempenho | Performance | `perf/` | `perf(...)` | SDD (spec) |
 | `[SECURITY]` | Segurança: autenticação, permissões, dados pessoais | Security | `security/` | `fix(security)` ou `feat(security)` | SDD, com aprovação do plano |
-| `[INFRA]` | Deploy, CI, servidores, ambiente | Infra | `infra/` | `ci(...)` ou `build(...)` | Pela estimativa |
-| `[CHORE]` | Dependências, configuração, limpeza | Chore | `chore/` | `chore(...)` | Pela estimativa |
-| `[DOCS]` | Documentação | Docs | `docs/` | `docs(...)` | Pela estimativa |
+| `[INFRA]` | Deploy, CI, servidores, ambiente | Infra | `infra/` | `ci(...)` ou `build(...)` | SDD (spec) |
+| `[CHORE]` | Dependências, configuração, limpeza | Chore | `chore/` | `chore(...)` | Manutenção (avulsa) |
+| `[DOCS]` | Documentação | Docs | `docs/` | `docs(...)` | Manutenção (avulsa) |
 
 **FIX ou HOTFIX?** A pergunta é "isso já está quebrado em produção?". Sim → `[HOTFIX]`. Não (só na develop ou numa feature ainda não liberada) → `[FIX]`.
 
@@ -58,11 +58,11 @@ Exemplos:
 - `[SECURITY] Spec 007 — Sessões revogáveis e bloqueio de força bruta`
 - `[INFRA] Spec 002 — Fundação de segurança, arquitetura e operação`
 
-**Numeração:** quem cria a issue pai reserva o próximo número livre do time (maior `Spec NNN` existente + 1). O Diretor garante que a pasta do Spec Kit use o mesmo número.
+**Numeração:** quem cria a issue pai reserva o próximo número livre do time (maior `Spec NNN` existente + 1). O 01 Especificador garante que a pasta do Spec Kit use o mesmo número, e o Condutor confere.
 
 ## 5. Sub-issues (fases e user stories)
 
-Criadas pelo Diretor depois que o `tasks.md` existe, uma por fase do `tasks.md`.
+Criadas pelo 04 Planejador depois que o `tasks.md` existe, uma por fase do `tasks.md`.
 
 ```
 [TIPO] Spec NNN <Fase>                     fases técnicas
@@ -93,7 +93,7 @@ Criadas pelo Diretor depois que o `tasks.md` existe, uma por fase do `tasks.md`.
 ## 6. Issue avulsa
 
 ```
-[TIPO] <resultado esperado>        para FEAT, REFACTOR, PERF, INFRA, CHORE ou DOCS de estimativa XS/S
+[TIPO] <resultado esperado>        para CHORE, DOCS e issues da sessão visual (flag Visual)
 [TIPO] <sintoma observado>         para FIX e HOTFIX
 ```
 
@@ -102,9 +102,10 @@ Criadas pelo Diretor depois que o `tasks.md` existe, uma por fase do `tasks.md`.
 | `[FIX]` | `[FIX] Etapa do cliente não persiste ao fechar o modal` |
 | `[HOTFIX]` | `[HOTFIX] Checkout retorna erro 500 para cartões internacionais` |
 | `[CHORE]` | `[CHORE] Atualizar Next.js para a versão 16` |
-| `[PERF]` | `[PERF] Lista de clientes carrega em menos de 1 segundo com 10 mil registros` |
-| `[INFRA]` | `[INFRA] Backups diários do banco com restauração testada` |
 | `[DOCS]` | `[DOCS] Documentar variáveis de ambiente do deploy` |
+| `[FEAT]` + flag `Visual` | `[FEAT] Cards do funil com espaçamento e cores do novo layout` |
+
+`[PERF]` e `[INFRA]` são sempre spec: `[PERF] Spec 012 — Lista de clientes carrega em menos de 1 segundo com 10 mil registros`.
 
 **Bug: o título descreve o sintoma, não a correção.** `Etapa do cliente não persiste ao fechar o modal`, e não `Corrigir modal`. O sintoma é o que você observou e é o que o teste vai provar que acabou.
 
@@ -134,7 +135,7 @@ Critérios de aceite sempre no formato **Dado / Quando / Então**, verificáveis
 | PR | `<tipo>(<domínio>): <título sem [TIPO] e sem "Spec NNN —", em minúscula> (<ID>)` + `Fixes <ID>` no corpo | `feat(clientes): cadastro e listagem de clientes (BRU-12)` |
 | Merge | Squash merge (um commit por PR na develop) | — |
 | Release | Branch `release/vX.Y.Z` com o changelog → PR na develop; depois PR `release: vX.Y.Z` de `develop` para `main` + tag | `release: v1.4.0` |
-| Branches sem ID (exceções) | `chore/speckit-setup` · `docs/roadmap-<data>` · `release/vX.Y.Z` | — |
+| Branches sem ID (exceções) | `chore/speckit-setup` · `chore/fluxo-vX.Y.Z` · `docs/roadmap-<data>` · `release/vX.Y.Z` | — |
 
 O **domínio** do commit é a label de domínio da issue, em minúsculas e sem acento: `clientes`, `funil`, `financeiro`, `auth`.
 

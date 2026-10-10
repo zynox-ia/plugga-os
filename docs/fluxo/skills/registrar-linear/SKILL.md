@@ -1,6 +1,6 @@
 ---
 name: registrar-linear
-description: Registra trabalho no Linear no padrão do fluxo, pelo MCP do Linear. Use quando o André pedir para criar, registrar ou "mandar pro Linear" uma demanda (bug, hotfix, feature, ajuste, manutenção), ou quando um Diretor precisar criar as sub-issues de uma spec a partir do tasks.md. Segue docs/fluxo/00-convencoes.md.
+description: Registra trabalho no Linear no padrão do fluxo, pelo MCP do Linear. Use quando o André pedir para criar, registrar ou "mandar pro Linear" uma demanda (bug, hotfix, feature, ajuste, manutenção), ou quando o 04 Planejador precisar criar as sub-issues de uma spec a partir do tasks.md. Segue docs/fluxo/00-convencoes.md.
 ---
 
 # Registrar no Linear
@@ -10,7 +10,7 @@ Você registra trabalho no Linear exatamente no padrão de `docs/fluxo/00-conven
 | Quem pede | Modo |
 |---|---|
 | André: "cria uma issue", "registra esse bug", "manda pro Linear" | **A — Nova demanda** |
-| Diretor, na fase S4 da trilha SDD | **B — Sub-issues da spec** |
+| 04 Planejador, na trilha SDD | **B — Sub-issues da spec** |
 
 O time do Linear deste repositório está em `.specify/memory/projeto.md` (seção `## Linear`). Se o pedido for de outro cliente, pergunte o time.
 
@@ -27,7 +27,8 @@ Você descreve **O QUÊ e POR QUÊ**, nunca **COMO**. Não invente arquivos, tab
    - Interno, sem efeito visível → `[REFACTOR]`, `[PERF]`, `[INFRA]`, `[CHORE]`, `[DOCS]`.
    - Autenticação, permissões, dados pessoais → `[SECURITY]` · Security.
 2. **Estimate:** XS (texto, ordem, um campo) · S (mudança localizada) · M (funcionalidade com tela e dados) · L (várias funcionalidades relacionadas) · XL (não cria; proponha quebrar em 2–6 issues e espere o ok).
-3. **Spec ou avulsa:** spec (issue pai) para M/L (exceto FIX/HOTFIX) e todo `[SECURITY]`; avulsa para FIX/HOTFIX e XS/S dos demais.
+3. **Sessão visual** (`docs/fluxo/03-visual.md`): sempre avulsa, título `[FEAT] <resultado visual>` (ou `[REFACTOR]`), flag `Visual`, status In Progress. Fora isso:
+   **Spec ou avulsa:** spec (issue pai, `[TIPO] Spec NNN — ...`) para todo `[FEAT]`, `[REFACTOR]`, `[PERF]`, `[SECURITY]` e `[INFRA]`, qualquer tamanho; avulsa para `[FIX]`, `[HOTFIX]`, `[CHORE]` e `[DOCS]`.
 4. **Bug/hotfix:** Severity S1–S4; HOTFIX S1/S2 → Priority Urgent.
 
 ### A2. Localizar
@@ -61,7 +62,7 @@ Crie com todos os campos e relações; status Backlog (padrão) ou Ready (com o 
 
 ---
 
-## Modo B — Sub-issues da spec (Diretor, fase S4)
+## Modo B — Sub-issues da spec (04 Planejador)
 
 Entrada: o ID da issue pai, a pasta da spec (`specs/NNN-<slug>/`) e o `tasks.md` já gerado.
 
@@ -89,18 +90,18 @@ Identifique as fases na ordem: Setup, Foundational, uma por user story, Polish. 
   ```
 
 ### B3. Conferir e devolver
-Liste as sub-issues da pai pelo MCP e confira: uma por fase, na ordem, títulos no padrão, intervalos de tasks que cobrem o `tasks.md` inteiro sem sobreposição. Devolva ao Diretor:
+Liste as sub-issues da pai pelo MCP e confira: uma por fase, na ordem, títulos no padrão, intervalos de tasks que cobrem o `tasks.md` inteiro sem sobreposição. Devolva ao Condutor:
 ```
 SUB-ISSUES: <ID> Setup · <ID> Fundação · <ID> US1 · ... (na ordem)
 ```
 
 ### B4. Atualizar após o converge
-Quando o converge acrescentar tarefas: atualize a linha `Tasks:` da sub-issue da fase correspondente e volte-a para In Progress; se as tarefas não pertencem a nenhuma fase, crie `[TIPO] Spec NNN Convergência`.
+Quando o converge acrescentar tarefas: atualize a linha `Tasks:` da sub-issue da fase correspondente (o status é o Condutor quem move); se as tarefas não pertencem a nenhuma fase, crie `[TIPO] Spec NNN Convergência`.
 
 ---
 
 ## Nunca
 - Criar issue sem time, Type ou Estimate; criar issue XL.
-- No modo A: criar sub-issues de spec; mover para status além de Backlog/Ready.
+- No modo A: criar sub-issues de spec; mover para status além de Backlog/Ready (exceção: a issue da sessão visual nasce em In Progress).
 - No modo B: alterar a issue pai além de vincular as sub-issues.
 - Inventar detalhes técnicos na descrição de uma demanda.

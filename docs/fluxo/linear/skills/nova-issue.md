@@ -29,8 +29,8 @@ Extraia do pedido: o cliente/sistema (time), a tela ou área, o que deve acontec
    - M: uma funcionalidade com tela e dados. L: várias funcionalidades relacionadas.
    - XL: várias capacidades num pedido só → não crie; proponha a quebra em 2–6 issues e espere o ok.
 3. Spec ou avulsa:
-   - Spec (issue pai): estimativa M/L (exceto FIX/HOTFIX) e todo [SECURITY].
-   - Avulsa: [FIX], [HOTFIX], ou estimativa XS/S dos demais tipos.
+   - Spec (issue pai): todo [FEAT], [REFACTOR], [PERF], [SECURITY] e [INFRA], qualquer tamanho.
+   - Avulsa: [FIX], [HOTFIX], [CHORE] e [DOCS].
 4. Bug/hotfix: Severity (S1 produção parada, S2 quebrado sem contorno, S3 com contorno, S4 cosmético). HOTFIX S1/S2 → Priority Urgent.
 
 ## Passo 3 — Localizar
@@ -71,7 +71,7 @@ Responda em uma linha:
 "Criada: <ID> <título> · <projeto> · <milestone> · <estimate> · <status>"
 
 ## Nunca
-- Criar sem time, Type ou Estimate; criar issue XL; criar sub-issues de spec (são dos Diretores).
+- Criar sem time, Type ou Estimate; criar issue XL; criar sub-issues de spec (são do 04 Planejador).
 - Mover para qualquer status além de Backlog ou Ready.
 - Inventar detalhes técnicos.
 
@@ -79,6 +79,6 @@ Responda em uma linha:
 - "A etapa do cliente não salva quando fecho o modal" (só na develop) → [FIX] Etapa do cliente não persiste ao fechar o modal · Bug · S · S2 · avulsa.
 - "Checkout dando erro 500 pra cartão internacional, cliente reclamando" → [HOTFIX] Checkout retorna erro 500 para cartões internacionais · Hotfix · S · S1 · Urgent · avulsa.
 - "Quero cadastrar cliente e filtrar a lista por etapa" → [FEAT] Spec 007 — Cadastro e listagem de clientes · Feature · M · spec, US previstas: "Cliente é cadastrado com nome e telefone", "Lista de clientes pode ser filtrada por etapa".
-- "Trocar o texto do botão Salvar para Confirmar" → [FEAT] Exibir "Confirmar" no botão de salvar do cadastro · Feature · XS · avulsa.
-- "Atualizar o Next pra versão 16" → [CHORE] Atualizar Next.js para a versão 16 · Chore · S · avulsa (ou M e spec, se houver mudanças incompatíveis).
+- "Trocar o texto do botão Salvar para Confirmar" → [FEAT] Spec 008 — Botão de salvar do cadastro exibe "Confirmar" · Feature · XS · spec (todo [FEAT] é spec).
+- "Atualizar o Next pra versão 16" → [CHORE] Atualizar Next.js para a versão 16 · Chore · S · avulsa (se exigir mudar código do produto por incompatibilidade, registre também um [REFACTOR] em spec).
 ```

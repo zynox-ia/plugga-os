@@ -17,6 +17,7 @@ dev-workflow/
         ├── VERSION              versão atual (ex.: 1.2.0)
         ├── CHANGELOG.md         o que mudou em cada versão e a ação necessária nos projetos
         ├── 00-convencoes.md … 04-atualizar-fluxo.md
+        ├── papeis/              01 Especificador … 09 Verificador
         ├── modelos/             AGENTS.md e agent-selection-guide.md (instalados nos projetos)
         ├── skills/              planejar-etapas, registrar-linear
         └── linear/              guidance, templates e skills do agente do Linear
@@ -32,7 +33,7 @@ Por ser público, qualquer agente baixa o fluxo com `git clone`, sem precisar de
 |---|---|---|
 | **MAJOR** | Exige reconfigurar projetos: muda status, labels, estrutura do Linear, ou pede para rodar a preparação de novo | Trocar os status do Linear |
 | **MINOR** | Capacidade nova, compatível | Nova skill, nova fase opcional |
-| **PATCH** | Correção de texto, de comando ou de clareza | Ajustar um brief do Diretor |
+| **PATCH** | Correção de texto, de comando ou de clareza | Ajustar o arquivo de um papel |
 
 Toda versão tem uma entrada no `CHANGELOG.md`, sempre com a seção **"Ação necessária nos projetos"** (ou "nenhuma").
 
@@ -48,15 +49,25 @@ Nunca edite `docs/fluxo/` direto num projeto: a mudança some na próxima atuali
 
 ## 4. Instalar ou atualizar num projeto
 
-Num agente novo do Traycer, na pasta do projeto, **sempre com o link do central**, para instalar ou atualizar (a cópia local do 04 é da versão antiga e não conhece as migrações novas):
+Num agente novo do Traycer, na pasta do projeto, **sempre com o link do central** (a cópia local do 04 é da versão antiga e não conhece as migrações novas):
 ```
-Leia https://raw.githubusercontent.com/zynox-ia/dev-workflow/main/docs/fluxo/04-atualizar-fluxo.md e siga as instruções para atualizar o fluxo neste repositório.
+Leia https://raw.githubusercontent.com/zynox-ia/dev-workflow/main/docs/fluxo/04-atualizar-fluxo.md e siga as instruções neste repositório.
 ```
-O agente copia `docs/guias/` e `docs/fluxo/` da versão pedida, instala as skills para Claude Code e Codex, atualiza o bloco do fluxo no `AGENTS.md`, executa as migrações marcadas `[04]` no changelog e abre um PR `chore(fluxo): atualizar para vX.Y.Z` para a develop. Ele **não** reinstala o Spec Kit, não refaz a preparação (constituição, testes, ambiente local) e não mexe no Linear; o que precisar de você vem listado na resposta.
+O **prompt mestre** lê o repositório, mostra um diagnóstico e faz só o que falta:
+
+| Etapa | Não existe | Existe |
+|---|---|---|
+| Fluxo | Instala | Atualiza se houver versão nova (com as migrações) |
+| Casa (Spec Kit, constituição, comandos, ambiente, Linear) | Prepara do zero | Refaz só as fases que falham |
+| Planejamento | Planeja o roadmap | Audita: onde estamos e o que vem |
+
+Fluxo e casa saem num PR único; o roadmap, em outro. Ele para só no plano de ação, nas suas respostas e nos merges. O mesmo prompt serve para projeto novo, projeto existente e atualização.
+
+Na atualização, ele copia `docs/guias/` e `docs/fluxo/` da versão nova, reinstala só as skills do fluxo, atualiza o bloco do fluxo no `AGENTS.md` e executa as migrações `[04]`. Spec Kit, constituição, ambiente e Linear só são refeitos se o diagnóstico mostrar que a fase correspondente falha.
 
 **Ao escrever uma versão nova:** tudo o que os projetos precisam mudar em arquivos e que o 04 consegue fazer sozinho vai no changelog como item `[04]`, com instruções exatas. Rodar a preparação de novo só em MAJOR.
 
-O Coordenador avisa na abertura de cada sessão quando o projeto está numa versão mais antiga que a última do central.
+O Condutor avisa na abertura de cada sessão quando o projeto está numa versão mais antiga que a última do central.
 
 ## 5. `AGENTS.md` dos projetos
 
@@ -77,8 +88,8 @@ Mudar uma regra do fluxo = mudar o modelo no central e publicar uma versão. Mud
 
 | Skill | Onde vive | Quem usa | Para quê |
 |---|---|---|---|
-| `registrar-linear` | Repositório (`.claude/skills`, `.agents/skills`) | Você no Traycer; o Diretor na fase de tasks | Criar demandas no padrão (modo A) e as sub-issues de uma spec (modo B) |
-| `planejar-etapas` | Repositório | Você no Traycer; o Coordenador (auditoria) | Planejar projetos e specs, auditar, quebrar issues XL |
+| `registrar-linear` | Repositório (`.claude/skills`, `.agents/skills`) | Você no Traycer; o 04 Planejador | Criar demandas no padrão (modo A) e as sub-issues de uma spec (modo B) |
+| `planejar-etapas` | Repositório | Você no Traycer; o Condutor (auditoria) | Planejar projetos e specs, auditar, quebrar issues XL |
 | `/nova-issue` | Linear (skill pessoal) | Você, conversando com o agente do Linear | O mesmo que o modo A da `registrar-linear`, sem abrir o Traycer |
 
 `registrar-linear` (modo A) e `/nova-issue` seguem as mesmas regras. Ao mudar uma, mude a outra na mesma versão do fluxo. No Linear, atualize a skill pessoal colando o texto novo e salvando de novo.
