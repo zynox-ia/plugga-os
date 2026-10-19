@@ -6,10 +6,18 @@ test.describe("Pipelines — configuração pelo modal (PLU-269)", () => {
   test("o gestor cria um pipeline, que vira aba com as etapas, e o arquiva", async ({ page }) => {
     const nome = `Pipeline E2E ${Date.now()}`;
     await page.goto("/comercial/pipelines");
-    await page.getByRole("button", { name: "Configurar pipelines" }).click();
+    await expect(page.getByRole("heading", { level: 1, name: "Pipelines" })).toBeVisible();
     const modal = page.getByRole("dialog", { name: "Configurar pipelines" });
 
-    await modal.getByRole("button", { name: "Novo pipeline" }).click();
+    // Banco sem pipeline (CI) mostra o estado vazio, cujo botão já abre o pipeline novo;
+    // com pipelines (dev), o caminho é Configurar pipelines → Novo pipeline.
+    const criarPrimeiro = page.getByRole("button", { name: "Criar pipeline" });
+    if (await criarPrimeiro.isVisible()) {
+      await criarPrimeiro.click();
+    } else {
+      await page.getByRole("button", { name: "Configurar pipelines" }).click();
+      await modal.getByRole("button", { name: "Novo pipeline" }).click();
+    }
     await modal.getByLabel("Nome do pipeline *").fill(nome);
     await modal.getByRole("radio", { name: /^Plugga/ }).check();
     await modal.getByRole("tab", { name: "Etapas" }).click();
