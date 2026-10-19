@@ -76,6 +76,19 @@ export function departamentosPermitidos(
   return departamentos.filter((departamento) => liberados.has(departamento.id));
 }
 
+/**
+ * Comercial é um módulo só para as duas empresas (ADR-0013): o mesmo catálogo
+ * vale na Plugga e na Waze, e a empresa vem de cada pipeline. Pipelines e
+ * Atividades já aparecem, com tela em construção até as entregas do projeto
+ * [PLU] Comercial. Configurar pipelines não é item de menu: é um botão que abre
+ * um modal na tela de Pipelines (decisões do André, 19/10/2026).
+ */
+const COMERCIAL: Processo[] = [
+  { label: "Pipelines", rota: "/comercial/pipelines", status: "parcial" },
+  { label: "Clientes", rota: "/clientes", status: "pronto" },
+  { label: "Atividades", rota: "/comercial/atividades", status: "parcial" },
+];
+
 const plugga: Empresa = {
   id: "plugga",
   nome: "Plugga",
@@ -85,15 +98,7 @@ const plugga: Empresa = {
       id: "comercial-clientes",
       label: "Comercial",
       icon: "users",
-      processos: [
-        { label: "Oportunidades", rota: "/comercial/oportunidades", status: "pronto" },
-        { label: "Contratos de gestão", rota: "/comercial/contratos", status: "pronto" },
-        { label: "Clientes", rota: "/clientes", status: "pronto" },
-        { label: "Relacionamento comercial", rota: "/crm", status: "parcial" },
-        { label: "Propostas", status: "em-breve" },
-        { label: "Carteira", status: "em-breve" },
-        { label: "Comissões", status: "em-breve" },
-      ],
+      processos: COMERCIAL,
     },
     {
       id: "energia-opm",
@@ -105,7 +110,6 @@ const plugga: Empresa = {
         { label: "Migração Mercado Livre", rota: "/energia-opm/migracoes", status: "pronto" },
         { label: "Relatórios de economia", rota: "/energia-opm/relatorios", status: "parcial" },
         { label: "Demanda contratada", status: "em-breve" },
-        { label: "Oportunidades solar / BESS / reativo", status: "em-breve" },
       ],
     },
     {
@@ -147,14 +151,7 @@ const waze: Empresa = {
       id: "comercial-obras",
       label: "Comercial",
       icon: "users",
-      processos: [
-        { label: "Oportunidades de obra", status: "em-breve" },
-        { label: "Propostas técnicas / comerciais", status: "em-breve" },
-        { label: "Contratos", status: "em-breve" },
-        { label: "Medições comerciais", status: "em-breve" },
-        { label: "Aditivos", status: "em-breve" },
-        { label: "Relacionamento com cliente", status: "em-breve" },
-      ],
+      processos: COMERCIAL,
     },
     {
       id: "engenharia-obras",
