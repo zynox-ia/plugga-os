@@ -21,6 +21,10 @@ Usuário de teste: a definir (o seed não registra uma senha de desenvolvimento)
 | Typecheck | `pnpm typecheck` |
 | Testes | `pnpm test` |
 | Um teste isolado | `pnpm --filter @plugga/api exec vitest run <arquivo>` |
+
+## Skills de engenharia
+
+Para tarefas de especificação, implementação, interface, testes, revisão, segurança e entrega, consulte `.agents/skills/using-agent-skills/SKILL.md` e carregue somente as skills pertinentes em `.agents/skills/`. As referências compartilhadas ficam em `.agents/references/`. Fonte: [addyosmani/agent-skills](https://github.com/addyosmani/agent-skills), revisão `aeac41d4d005999432bb7312f7ff06383a91d59d`.
 <!-- projeto:fim -->
 
 <!-- dev-workflow:inicio · gerenciado por docs/fluxo/04-atualizar-fluxo.md; não edite neste projeto -->
