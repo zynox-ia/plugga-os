@@ -551,7 +551,6 @@ function DashboardContent({ health }: { health: HealthCheck | null }) {
                 fontWeight: 500,
                 boxSizing: "border-box",
                 cursor: "pointer",
-                transition: "all 0.25s ease",
               }}
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4">

@@ -709,8 +709,8 @@ h1 { margin-bottom: 4px; color: #0F294A; font: 500 clamp(24px, 2.5vw, 32px)/1.05
 .button--primary:hover:not(:disabled),
 .button--accent:hover:not(:disabled) {
   color: #FFFFFF;
-  background: linear-gradient(120deg, #0066CC 0%, #0B2240 100%);
-  border-color: #0B2240;
+  background: linear-gradient(120deg, #0B2240 0%, #0066CC 100%);
+  border-color: #0066CC;
   transform: translateY(-1px);
   box-shadow: none;
 }
