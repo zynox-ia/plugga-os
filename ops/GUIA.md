@@ -120,7 +120,7 @@ nada automatizado usa é só uma coisa a mais para vazar. Criar tudo isso de nov
 
 > **Proteção ligada em 2026-10-06:** a `main` exige PR e o check de CI, não aceita push forçado e vale também para administradores; o ambiente `production` do GitHub exige a aprovação do dono antes de publicar.
 >
-> **Fluxo de branches (decisão de 2026-10-05).** O trabalho entra na `develop`, que não publica nada. A `main` é produção e só recebe um PR de promoção `develop` → `main`, aprovado pelo dono. Veja `docs/AGENT.md`, seção "Branch flow".
+> **Fluxo de branches (decisão de 2026-10-05).** O trabalho entra na `develop`, que não publica nada. A `main` é produção e só recebe um PR de promoção `develop` → `main`, aprovado pelo dono.
 
 Um comando. Ele publica o que está na **`main` do GitHub** — então commit e push primeiro.
 
@@ -146,8 +146,8 @@ Leva alguns minutos, quase tudo na construção das imagens.
 ### Login com o Google
 
 Vem desligado (`GOOGLE_AUTH_ENABLED=false`) e é assim que deve ser publicado da
-primeira vez. Ligar, o rollout e o que fazer quando alguém não consegue entrar
-estão em [docs/processos/login-google.md](../docs/processos/login-google.md).
+primeira vez. A ativação exige configurar as credenciais, validar o login e ter um
+plano de reversão; desligar a flag preserva os vínculos já criados.
 
 **O que falta é só o `.env`.** Desde 2026-08-11 o `compose.yaml` sobe junto com
 o código, então as linhas `GOOGLE_*` chegam à VPS pela publicação — não se edita

@@ -10,7 +10,7 @@ import { PrismaService } from "../prisma/prisma.service";
  * `ComprasEscopoRepository`, e o mesmo comentário dessa classe já previa este
  * exato caso: "o segundo módulo a ganhar `companyId` deve promover para
  * `core/auth`". Não promovi agora: Compras já está em produção, e uma
- * refatoração cross-módulo sem revisão do ARCHITECT (`docs/AGENT.md`) não é
+ * refatoração cross-módulo sem revisão técnica específica não é
  * decisão para tomar sozinho dentro desta fatia. Fica registrada aqui como o
  * gatilho de promoção que a nota original previu.
  *

@@ -28,7 +28,6 @@ Usuário de teste local: `admin@plugga.local`; a senha vem de `SEED_ADMIN_PASSWO
 - Trabalhe em branch própria a partir da `develop` (hotfix a partir da `main`). Não commite em `main` ou `develop`, não force push nem rebase em branch compartilhada. Merge é do André.
 - Use Conventional Commits em português. Ao abrir PR, descreva mudanças, verificações executadas e pendências reais.
 - Antes de declarar código pronto, rode lint, typecheck, testes e build. Mudança de comportamento exige teste; não remova ou enfraqueça testes para fazê-los passar. Alteração apenas documental pode ser verificada pelo diff e pela CI.
-- Mudanças de arquitetura, persistência, autenticação, integrações, auditoria ou jobs exigem ADR. Consulte `docs/adr/` e `docs/AGENT.md` para os limites existentes.
 
 ## Segurança e ambiente
 

@@ -11,7 +11,7 @@ compartilhados.
 > PluggaMob/OCPP, PagBank, WhatsApp, Telegram, OpenClaw e crons de terceiros.
 >
 > Comandos do dia a dia e publicação: **[ops/GUIA.md](ops/GUIA.md)**.
-> Regras para contribuir: **[AGENTS.md](AGENTS.md)** e **[docs/AGENT.md](docs/AGENT.md)**.
+> Regras para contribuir: **[AGENTS.md](AGENTS.md)**.
 
 ## Estrutura
 
@@ -21,7 +21,6 @@ compartilhados.
 | `apps/api` | API NestJS em monólito modular |
 | `packages/shared` | DTOs, tipos, enums e eventos livres de framework |
 | `packages/config` | Configuração compartilhada de tooling |
-| `docs/adr` | Decisões e limites arquiteturais aceitos |
 | `ops` | Publicação, backup e o guia de operação |
 
 Aplicações podem importar pacotes; pacotes nunca importam aplicações. Web e API
@@ -178,8 +177,7 @@ tokens de uso único entregues por `EmailPort` (ADR-0010).
 | `brevo` | API Brevo na **conta do cliente** (staging/prod); exige `BREVO_API_KEY` |
 
 Local recomendado: `EMAIL_PROVIDER=noop` (já no `.env.example`). O adaptador
-Mailpit foi removido em 10/08/2026 — ver o adendo em
-[ADR-0010](docs/adr/0010-brevo-email-emailport.md#adendo--10082026-mailpit-removido).
+Mailpit foi removido em 10/08/2026.
 Testar o envio de verdade localmente exige `EMAIL_PROVIDER=brevo` com uma
 chave real, o que manda e-mail de verdade — não use para teste de rotina.
 
@@ -322,15 +320,6 @@ pnpm build
   papel — ADR-0008); nenhum SaaS de identidade é usado. O antigo stub por header
   permanece apenas como escape hatch local sob `DEV_AUTH_ENABLED`.
 
-Leia o [guia de agentes](docs/AGENT.md) antes de contribuir. Qualquer evolução
-para integração real ou write exige ADR, gates técnicos e aprovação explícita de
+Leia [AGENTS.md](AGENTS.md) antes de contribuir. Qualquer evolução
+para integração real ou escrita exige revisão técnica e aprovação explícita de
 cutover por domínio.
-
-## Documentação
-
-| Documento | Descrição |
-|---|---|
-| [`docs/PRD-plugga-os.md`](docs/PRD-plugga-os.md) | PRD do produto |
-| [`docs/mapa-produto-mvp.md`](docs/mapa-produto-mvp.md) | Mapa resumido de telas |
-| [`docs/adr/README.md`](docs/adr/README.md) | Índice dos ADRs do Bloco A |
-| [`docs/mockup/index.html`](docs/mockup/index.html) | Mockup visual da marca Plugga |
