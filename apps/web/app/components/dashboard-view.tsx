@@ -491,22 +491,7 @@ function DashboardContent({ health }: { health: HealthCheck | null }) {
         {/* Linha de Controles: Seletor de Abas à Esquerda, Botões à Direita */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", flexWrap: "wrap" }}>
           {/* Pílulas de Navegação / Seletor à Esquerda */}
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              height: "38px",
-              gap: "4px",
-              background: "rgba(255, 255, 255, 0.20)",
-              backdropFilter: "blur(28px)",
-              WebkitBackdropFilter: "blur(28px)",
-              border: "1px solid rgba(255, 255, 255, 0.55)",
-              boxShadow: "none",
-              padding: "3px",
-              borderRadius: "999px",
-              boxSizing: "border-box",
-            }}
-          >
+          <div className="dashboard-view-tabs" role="group" aria-label="Visões do dashboard">
             {[
               { id: "overview", label: "Visão Geral" },
               { id: "operacoes", label: "Operações OPM" },
@@ -519,22 +504,8 @@ function DashboardContent({ health }: { health: HealthCheck | null }) {
                   key={tab.id}
                   type="button"
                   onClick={() => setActiveTab(tab.id as DashboardTab)}
-                  style={{
-                    height: "32px",
-                    padding: "0 16px",
-                    borderRadius: "999px",
-                    fontSize: "12.5px",
-                    fontWeight: isActive ? 500 : 400,
-                    fontFamily: 'var(--font-articulat), "Articulat CF", sans-serif',
-                    color: isActive ? "#FFFFFF" : "rgba(15, 41, 74, 0.75)",
-                    background: isActive ? "#0F294A" : "transparent",
-                    border: "none",
-                    cursor: "pointer",
-                    transition: "all 0.2s ease",
-                    boxShadow: isActive ? "0 4px 14px rgba(15, 41, 74, 0.3)" : "none",
-                    display: "inline-flex",
-                    alignItems: "center",
-                  }}
+                  className={`dashboard-view-tab${isActive ? " dashboard-view-tab--active" : ""}`}
+                  aria-pressed={isActive}
                 >
                   {tab.label}
                 </button>

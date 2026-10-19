@@ -701,18 +701,18 @@ h1 { margin-bottom: 4px; color: #0F294A; font: 500 clamp(24px, 2.5vw, 32px)/1.05
 .button--primary,
 .button--accent {
   color: #FFFFFF;
-  background: linear-gradient(45deg, #0B2240 0%, #0066CC 50%, #0B2240 100%);
-  border: 1px solid rgba(0, 163, 255, 0.35);
+  background: linear-gradient(120deg, #0B2240 0%, #0066CC 100%);
+  border: 1px solid #0066CC;
   font-weight: 500;
-  box-shadow: 0 6px 20px rgba(11, 34, 64, 0.35);
+  box-shadow: none;
 }
 .button--primary:hover:not(:disabled),
 .button--accent:hover:not(:disabled) {
   color: #FFFFFF;
-  background: linear-gradient(45deg, #081B33 0%, #0077E6 50%, #081B33 100%);
-  border-color: rgba(0, 163, 255, 0.55);
-  transform: translateY(-2px);
-  box-shadow: 0 10px 28px rgba(0, 102, 204, 0.35);
+  background: linear-gradient(120deg, #0066CC 0%, #0B2240 100%);
+  border-color: #0B2240;
+  transform: translateY(-1px);
+  box-shadow: none;
 }
 
 /* Botão Secundário Minimalista em Vidro Desfocado (Tonalidade e Borda Delicadas) */
@@ -732,7 +732,52 @@ h1 { margin-bottom: 4px; color: #0F294A; font: 500 clamp(24px, 2.5vw, 32px)/1.05
   background: rgba(15, 41, 74, 0.07);
   border-color: rgba(15, 41, 74, 0.12);
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(15, 41, 74, 0.05);
+  box-shadow: none;
+}
+
+.dashboard-view-tabs {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 1 auto;
+  gap: 4px;
+  width: max-content;
+  max-width: 100%;
+  height: 44px;
+  padding: 5px;
+  overflow-x: auto;
+  box-sizing: border-box;
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  border-radius: 999px;
+  scrollbar-width: none;
+}
+.dashboard-view-tabs::-webkit-scrollbar { display: none; }
+.dashboard-view-tab {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  height: 32px;
+  padding: 0 16px;
+  color: rgba(15, 41, 74, 0.75);
+  background: transparent;
+  border: 0;
+  border-radius: 999px;
+  cursor: pointer;
+  font: 400 12.5px/1 var(--font-articulat), "Articulat CF", sans-serif;
+  white-space: nowrap;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+.dashboard-view-tab:hover:not(.dashboard-view-tab--active) {
+  color: #0F294A;
+  background: rgba(15, 41, 74, 0.08);
+}
+.dashboard-view-tab--active {
+  color: #FFFFFF;
+  background: #0F294A;
+  font-weight: 500;
 }
 
 .button--sand {
