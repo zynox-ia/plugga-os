@@ -248,20 +248,51 @@
     ]
   },
   {
-    "metodo": "GET",
-    "caminho": "/clientes/:id/ficha",
-    "controller": "ClientesController.ficha",
+    "metodo": "POST",
+    "caminho": "/clientes/:id/contatos",
+    "controller": "ClientesController.addContact",
     "acesso": "roles",
     "papeis": [
       "comercial",
-      "opm",
-      "diretoria",
-      "tech",
       "admin"
     ],
     "guards": [
       "SessionAuthGuard",
-      "RolesGuard"
+      "RolesGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "DELETE",
+    "caminho": "/clientes/:id/contatos/:contatoId",
+    "controller": "ClientesController.removeContact",
+    "acesso": "roles",
+    "papeis": [
+      "comercial",
+      "admin"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "RolesGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "PATCH",
+    "caminho": "/clientes/:id/contatos/:contatoId",
+    "controller": "ClientesController.updateContact",
+    "acesso": "roles",
+    "papeis": [
+      "comercial",
+      "admin"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "RolesGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
     ]
   },
   {
@@ -284,6 +315,23 @@
     "metodo": "GET",
     "caminho": "/clientes/duplicates",
     "controller": "ClientesController.duplicateCandidates",
+    "acesso": "roles",
+    "papeis": [
+      "comercial",
+      "opm",
+      "diretoria",
+      "tech",
+      "admin"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "RolesGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/clientes/responsaveis",
+    "controller": "ClientesController.owners",
     "acesso": "roles",
     "papeis": [
       "comercial",

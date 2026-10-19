@@ -1,6 +1,7 @@
 import {
   auditDetailSchema,
-  clientFichaSchema,
+  clientDetailSchema,
+  clientOwnersResponseSchema,
   contestationDetailSchema,
   contractDetailSchema,
   contractListSchema,
@@ -65,12 +66,15 @@ export const fetchJobs = () => lerApi("/jobs", listJobRunsResponseSchema);
 
 export const fetchEmailStatus = () => lerApi("/email/status", emailStatusSchema);
 
-/** GET /clientes (busca/filtro). */
-export const fetchClients = (query: { q?: string; segment?: string; active?: string }) =>
+/** GET /clientes (busca/filtro). CPF e telefone já chegam mascarados. */
+export const fetchClients = (query: { q?: string; active?: string }) =>
   lerApi("/clientes", listClientsResponseSchema, {}, { consulta: query });
 
-/** GET /clientes/:id/ficha. */
-export const fetchClientFicha = (id: string) => lerApi("/clientes/:id/ficha", clientFichaSchema, { id });
+/** GET /clientes/:id: ficha completa do cliente, com contatos. */
+export const fetchClient = (id: string) => lerApi("/clientes/:id", clientDetailSchema, { id });
+
+/** GET /clientes/responsaveis: quem pode ser responsável por um cliente. */
+export const fetchClientOwners = () => lerApi("/clientes/responsaveis", clientOwnersResponseSchema);
 
 export const fetchOpportunities = () => lerApi("/commercial/opportunities", opportunityListSchema);
 

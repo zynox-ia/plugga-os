@@ -62,6 +62,10 @@ export const catalogoEventos = {
   "obras.project_version.created": evento("Versão de projeto criada", "empresa"),
   "commercial.opportunity.won": evento("Oportunidade ganha", "empresa"),
   "clientes.client.created": evento("Cliente criado", "empresa"),
+  // Cadastro de cliente não tem empresa dona (ADR-0013): o escopo é a plataforma.
+  "clientes.contact.added": evento("Contato do cliente adicionado", "plataforma"),
+  "clientes.contact.updated": evento("Contato do cliente alterado", "plataforma"),
+  "clientes.contact.removed": evento("Contato do cliente removido", "plataforma"),
   "compras.pedido.created": evento("Pedido numerado", "empresa"),
   "pluggamob.settlement.approved": evento("Fechamento Pluggamob aprovado", "empresa"),
   "auth.access.changed": evento("Acesso de usuário alterado", "plataforma"),

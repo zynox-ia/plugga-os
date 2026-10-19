@@ -109,6 +109,39 @@ enum ClientSegment {
   @@map("client_segment")
 }
 
+enum ClientPersonType {
+  pf
+  pj
+
+  @@map("client_person_type")
+}
+
+enum ClientOrigin {
+  indicacao
+  instagram
+  whatsapp
+  site
+  telefone
+  email
+  evento
+  prospeccao_ativa
+  cliente_existente
+  parceiro
+  outro
+
+  @@map("client_origin")
+}
+
+enum ClientContactRole {
+  decisor
+  representante_legal
+  tecnico
+  financeiro
+  outro
+
+  @@map("client_contact_role")
+}
+
 enum OpportunityStage {
   leads
   qualificacao
@@ -239,6 +272,7 @@ model User {
   sessions                       Session[]
   authTokens                     AuthToken[]
   opportunities                  Opportunity[]
+  clientsOwned                   Client[]                @relation("ClientOwner")
   contracts                      Contract[]
   marketMigrations               MarketMigration[]
   cycles                         Cycle[]                 @relation("CycleOwner")
@@ -731,28 +765,76 @@ model D14Credit {
 
 /// Unique client record. The rest of the product (opportunities, contracts,
 /// PluggaMob ficha) links to this row instead of duplicating identity.
+/// Cadastro único de cliente, PF ou PJ, sem empresa dona (ADR-0013). Campo
+/// opcional não informado fica nulo: nunca valor fictício. `company` e
+/// `segment` são legados do módulo comercial antigo (PLU-268).
 model Client {
-  id               String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name             String
-  company          String?
-  phone            String?
-  email            String?
-  externalId       String?                 @map("external_id")
-  segment          ClientSegment           @default(prospect)
-  active           Boolean                 @default(true)
-  createdAt        DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt        DateTime                @updatedAt @map("updated_at") @db.Timestamptz(6)
-  opportunities    Opportunity[]
-  contracts        Contract[]
-  consumerUnits    ConsumerUnit[]
-  marketMigrations MarketMigration[]
-  cycles           Cycle[]
-  energyStudies    EnergyEfficiencyStudy[]
-  obras            Obra[]
-  pedidosDeCompra  PedidoDeCompra[]
+  id                String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name              String
+  company           String?
+  phone             String?
+  email             String?
+  externalId        String?                 @map("external_id")
+  segment           ClientSegment           @default(prospect)
+  active            Boolean                 @default(true)
+  personType        ClientPersonType        @default(pj) @map("person_type")
+  /// Só dígitos: CNPJ (14) ou CPF (11). Opcional, mas único quando informado.
+  document          String?                 @unique
+  legalName         String?                 @map("legal_name")
+  postalCode        String?                 @map("postal_code")
+  street            String?
+  addressComplement String?                 @map("address_complement")
+  district          String?
+  city              String?
+  state             String?
+  ownerId           String?                 @map("owner_id") @db.Uuid
+  origin            ClientOrigin?
+  notes             String?
+  /// Dados para contrato, só de pessoa física.
+  rg                String?
+  rgIssuer          String?                 @map("rg_issuer")
+  nationality       String?
+  /// AAAA-MM-DD: data de calendário, sem hora nem fuso (regra: DateTime só timestamptz).
+  birthDate         String?                 @map("birth_date")
+  createdAt         DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime                @updatedAt @map("updated_at") @db.Timestamptz(6)
+  owner             User?                   @relation("ClientOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  contacts          ClientContact[]
+  opportunities     Opportunity[]
+  contracts         Contract[]
+  consumerUnits     ConsumerUnit[]
+  marketMigrations  MarketMigration[]
+  cycles            Cycle[]
+  energyStudies     EnergyEfficiencyStudy[]
+  obras             Obra[]
+  pedidosDeCompra   PedidoDeCompra[]
 
   @@index([segment, active])
+  @@index([ownerId])
   @@map("clients")
+}
+
+/// Pessoa que fala por um cliente PJ. Um contato por cliente é o principal;
+/// a regra é mantida pela API, na mesma transação que marca o novo principal.
+model ClientContact {
+  id              String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clientId        String             @map("client_id") @db.Uuid
+  name            String
+  jobTitle        String?            @map("job_title")
+  role            ClientContactRole?
+  phone           String?
+  phoneIsWhatsapp Boolean            @default(false) @map("phone_is_whatsapp")
+  email           String?
+  isPrimary       Boolean            @default(false) @map("is_primary")
+  /// CPF e RG do representante legal, usados em contratos e procurações.
+  cpf             String?
+  rg              String?
+  createdAt       DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+  client          Client             @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([clientId])
+  @@map("client_contacts")
 }
 
 /// A commercial opportunity worked from lead to a ganha/perdida decision.

@@ -1,20 +1,24 @@
-import { Body, Controller, Get, HttpCode, Inject, Param, ParseUUIDPipe, Patch, Post, Query, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, HttpCode, Inject, Param, ParseUUIDPipe, Patch, Post, Query, UseGuards } from "@nestjs/common";
 import { ThrottlerGuard } from "@nestjs/throttler";
 import {
+  clientContactInputSchema,
   createClientRequestSchema,
   duplicateCandidatesQuerySchema,
   inactivateClientRequestSchema,
   listClientsQuerySchema,
+  updateClientContactRequestSchema,
   updateClientRequestSchema,
+  type ClientContactInput,
+  type ClientDetail,
   type ClientDuplicateCandidatesResponse,
-  type ClientFicha,
-  type ClientSummary,
+  type ClientOwnersResponse,
   type CreateClientRequest,
   type CreateClientResponse,
   type DuplicateCandidatesQuery,
   type InactivateClientRequest,
   type ListClientsQuery,
   type ListClientsResponse,
+  type UpdateClientContactRequest,
   type UpdateClientRequest,
 } from "@plugga/shared";
 
@@ -27,6 +31,11 @@ import { Roles } from "../core/auth/roles.decorator";
 import { RolesGuard } from "../core/auth/roles.guard";
 import { ClientesService } from "./clientes.service";
 
+/**
+ * Cadastro único de clientes (PLU-268). Leitura para quem trabalha com clientes
+ * em qualquer empresa (ADR-0013: o cadastro não tem empresa dona); escrita só
+ * para comercial e admin.
+ */
 @Controller("clientes")
 @UseGuards(SessionAuthGuard, RolesGuard)
 @Roles("comercial", "opm", "diretoria", "tech", "admin")
@@ -43,14 +52,15 @@ export class ClientesController {
     return this.service.duplicateCandidates(query);
   }
 
-  @Get(":id")
-  get(@Param("id", ParseUUIDPipe) id: string): Promise<ClientSummary> {
-    return this.service.get(id);
+  /** Quem pode ser responsável por um cliente: só id e nome. Antes de `:id`, que validaria "responsaveis" como UUID. */
+  @Get("responsaveis")
+  owners(): Promise<ClientOwnersResponse> {
+    return this.service.owners();
   }
 
-  @Get(":id/ficha")
-  ficha(@Param("id", ParseUUIDPipe) id: string): Promise<ClientFicha> {
-    return this.service.ficha(id);
+  @Get(":id")
+  get(@Param("id", ParseUUIDPipe) id: string): Promise<ClientDetail> {
+    return this.service.get(id);
   }
 
   @Post()
@@ -65,7 +75,7 @@ export class ClientesController {
   @HttpCode(200)
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
   @Roles("comercial", "admin")
-  update(@Param("id", ParseUUIDPipe) id: string, @Body(new ZodValidationPipe(updateClientRequestSchema)) input: UpdateClientRequest, @CurrentPrincipal() principal: AuthPrincipal): Promise<ClientSummary> {
+  update(@Param("id", ParseUUIDPipe) id: string, @Body(new ZodValidationPipe(updateClientRequestSchema)) input: UpdateClientRequest, @CurrentPrincipal() principal: AuthPrincipal): Promise<ClientDetail> {
     return this.service.update(id, input, principal);
   }
 
@@ -73,7 +83,7 @@ export class ClientesController {
   @HttpCode(200)
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
   @Roles("comercial", "admin")
-  activate(@Param("id", ParseUUIDPipe) id: string, @CurrentPrincipal() principal: AuthPrincipal): Promise<ClientSummary> {
+  activate(@Param("id", ParseUUIDPipe) id: string, @CurrentPrincipal() principal: AuthPrincipal): Promise<ClientDetail> {
     return this.service.activate(id, principal);
   }
 
@@ -81,7 +91,36 @@ export class ClientesController {
   @HttpCode(200)
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
   @Roles("comercial", "admin")
-  inactivate(@Param("id", ParseUUIDPipe) id: string, @Body(new ZodValidationPipe(inactivateClientRequestSchema)) input: InactivateClientRequest, @CurrentPrincipal() principal: AuthPrincipal): Promise<ClientSummary> {
+  inactivate(@Param("id", ParseUUIDPipe) id: string, @Body(new ZodValidationPipe(inactivateClientRequestSchema)) input: InactivateClientRequest, @CurrentPrincipal() principal: AuthPrincipal): Promise<ClientDetail> {
     return this.service.inactivate(id, input, principal);
+  }
+
+  @Post(":id/contatos")
+  @HttpCode(201)
+  @UseGuards(OriginCheckGuard, ThrottlerGuard)
+  @Roles("comercial", "admin")
+  addContact(@Param("id", ParseUUIDPipe) id: string, @Body(new ZodValidationPipe(clientContactInputSchema)) input: ClientContactInput, @CurrentPrincipal() principal: AuthPrincipal): Promise<ClientDetail> {
+    return this.service.addContact(id, input, principal);
+  }
+
+  @Patch(":id/contatos/:contatoId")
+  @HttpCode(200)
+  @UseGuards(OriginCheckGuard, ThrottlerGuard)
+  @Roles("comercial", "admin")
+  updateContact(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Param("contatoId", ParseUUIDPipe) contatoId: string,
+    @Body(new ZodValidationPipe(updateClientContactRequestSchema)) input: UpdateClientContactRequest,
+    @CurrentPrincipal() principal: AuthPrincipal,
+  ): Promise<ClientDetail> {
+    return this.service.updateContact(id, contatoId, input, principal);
+  }
+
+  @Delete(":id/contatos/:contatoId")
+  @HttpCode(200)
+  @UseGuards(OriginCheckGuard, ThrottlerGuard)
+  @Roles("comercial", "admin")
+  removeContact(@Param("id", ParseUUIDPipe) id: string, @Param("contatoId", ParseUUIDPipe) contatoId: string, @CurrentPrincipal() principal: AuthPrincipal): Promise<ClientDetail> {
+    return this.service.removeContact(id, contatoId, principal);
   }
 }

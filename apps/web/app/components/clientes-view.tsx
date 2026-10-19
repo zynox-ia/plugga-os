@@ -1,333 +1,182 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 
-import type {
-  ClientDuplicateCandidate,
-  ClientSegment,
-  ClientSummary,
-  CreateClientRequest,
-  CreateClientResponse,
-} from "@plugga/shared";
+import type { ClientDetail, ClientDuplicateCandidate, ClientListItem, ClientOwner } from "@plugga/shared";
 
-import { ShellCard, StatusPill, ShellTable } from "./plugga-shell";
+import { hrefDaFicha, iniciais } from "../lib/clientes";
+import { ClienteForm } from "./cliente-form";
+import { FichaCliente } from "./ficha-cliente";
+import { Modal } from "./modal";
+import { ShellCard, ShellTable, StatusPill } from "./plugga-shell";
 
-const SEGMENT_LABEL: Record<ClientSegment, string> = {
-  prospect: "Prospect",
-  opm: "OPM",
-  pluggamob: "PluggaMob",
-  associacoes_gd: "Associações/GD",
-  inativo: "Inativo",
-};
+type Filtros = { q?: string; active?: string };
 
-const MATCH_LABEL: Record<ClientDuplicateCandidate["matchedOn"][number], string> = {
-  phone: "telefone",
-  email: "e-mail",
-  name: "nome",
-};
-
-async function postJson(path: string, body: unknown): Promise<{ ok: boolean; data: unknown }> {
-  const response = await fetch(path, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  const data = await response.json().catch(() => null);
-  return { ok: response.ok, data };
-}
-
-type ClientFilters = { q?: string; segment?: string; active?: string };
-
-function clientMatchesFilters(client: ClientSummary, filters: ClientFilters): boolean {
-  if (filters.segment && client.segment !== filters.segment) return false;
-  if (filters.active === "true" && !client.active) return false;
-  if (filters.active === "false" && client.active) return false;
-
-  const term = filters.q?.trim().toLocaleLowerCase("pt-BR");
-  if (!term) return true;
-
-  return [client.name, client.company, client.phone, client.email, client.externalId].some(
-    (value) => value?.toLocaleLowerCase("pt-BR").includes(term),
-  );
-}
-
-function upsertVisibleClient(
-  current: ClientSummary[],
-  client: ClientSummary,
-  filters: ClientFilters,
-): ClientSummary[] {
-  const withoutCurrent = current.filter((item) => item.id !== client.id);
-  if (!clientMatchesFilters(client, filters)) return withoutCurrent;
-
-  return [...withoutCurrent, client].sort((left, right) =>
-    left.name.localeCompare(right.name, "pt-BR", { sensitivity: "base" }),
-  );
-}
-
+/**
+ * Clientes (PLU-268): cadastro único, PF ou PJ, das duas empresas. A lista
+ * mostra CPF e telefone mascarados; a ficha abre em modal com endereço próprio.
+ */
 export function ClientesView({
-  items,
-  isLive,
-  filters,
+  itens,
+  filtros,
+  responsaveis,
+  ficha,
+  fichaNaoEncontrada,
 }: {
-  items: ClientSummary[];
-  isLive: boolean;
-  filters: ClientFilters;
+  itens: ClientListItem[];
+  filtros: Filtros;
+  responsaveis: ClientOwner[];
+  ficha: ClientDetail | null;
+  fichaNaoEncontrada: boolean;
 }) {
   const router = useRouter();
+  const [q, setQ] = useState(filtros.q ?? "");
+  const [active, setActive] = useState(filtros.active ?? "");
+  const [criando, setCriando] = useState(false);
+  const [avisos, setAvisos] = useState<ClientDuplicateCandidate[]>([]);
 
-  const [visibleItems, setVisibleItems] = useState(items);
-
-  // O refresh traz a visão canônica do servidor. Até ele terminar, mutations
-  // bem-sucedidas atualizam esta cópia com o próprio objeto devolvido pela API.
-  useEffect(() => setVisibleItems(items), [items]);
-
-  const [q, setQ] = useState(filters.q ?? "");
-  const [segment, setSegment] = useState(filters.segment ?? "");
-  const [active, setActive] = useState(filters.active ?? "");
-
-  const [showCreateForm, setShowCreateForm] = useState(false);
-  const [creating, setCreating] = useState(false);
-  const [createError, setCreateError] = useState<string | null>(null);
-  const [duplicateCandidates, setDuplicateCandidates] = useState<ClientDuplicateCandidate[] | null>(null);
-  const [pendingActionId, setPendingActionId] = useState<string | null>(null);
-  const [actionError, setActionError] = useState<string | null>(null);
-
-  function applyFilters(event: FormEvent) {
-    event.preventDefault();
-    const params = new URLSearchParams();
-    if (q.trim()) params.set("q", q.trim());
-    if (segment) params.set("segment", segment);
-    if (active) params.set("active", active);
-    router.push(`/clientes${params.toString() ? `?${params.toString()}` : ""}`);
+  function buscar(evento: FormEvent) {
+    evento.preventDefault();
+    router.push(hrefDaFicha(null, { q: q.trim() || undefined, active: active || undefined }));
   }
 
-  function clearFilters() {
+  function limpar() {
     setQ("");
-    setSegment("");
     setActive("");
     router.push("/clientes");
   }
 
-  async function submitCreate(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setCreating(true);
-    setCreateError(null);
-    setDuplicateCandidates(null);
-
-    const form = new FormData(event.currentTarget);
-    const input: CreateClientRequest = {
-      name: String(form.get("name") ?? "").trim(),
-      company: emptyToUndefined(form.get("company")),
-      phone: emptyToUndefined(form.get("phone")),
-      email: emptyToUndefined(form.get("email")),
-      externalId: emptyToUndefined(form.get("externalId")),
-      segment: (emptyToUndefined(form.get("segment")) as ClientSegment | undefined) ?? undefined,
-    };
-
-    const { ok, data } = await postJson("/api/clientes", input);
-    setCreating(false);
-
-    if (!ok) {
-      setCreateError((data as { message?: string })?.message ?? "não foi possível criar o cliente");
-      return;
-    }
-
-    const response = data as CreateClientResponse;
-    setVisibleItems((current) => upsertVisibleClient(current, response.client, filters));
-    setDuplicateCandidates(response.duplicateCandidates);
-    // Sem reset(): o formulário é desmontado logo abaixo, e no React 19 o
-    // currentTarget já foi anulado depois do await — o reset estourava e
-    // impedia o refresh de rodar.
-    setShowCreateForm(false);
-    router.refresh();
+  function abrir(id: string) {
+    setAvisos([]);
+    router.push(hrefDaFicha(id, filtros), { scroll: false });
   }
 
-  async function toggleActive(client: ClientSummary) {
-    setPendingActionId(client.id);
-    setActionError(null);
-    const path = client.active ? `/api/clientes/${client.id}/inactivate` : `/api/clientes/${client.id}/activate`;
-    const { ok, data } = await postJson(path, {});
-    setPendingActionId(null);
-    if (!ok) {
-      setActionError((data as { message?: string })?.message ?? "não foi possível atualizar o status");
-      return;
-    }
-    setVisibleItems((current) => upsertVisibleClient(current, data as ClientSummary, filters));
-    router.refresh();
+  function fecharFicha() {
+    setAvisos([]);
+    router.push(hrefDaFicha(null, filtros), { scroll: false });
   }
 
   return (
     <div className="stack">
-      <ShellCard className="panel-card">
+      <ShellCard className="table-card">
         <div className="card-heading">
           <div>
-            <span className="eyebrow">Base única</span>
-            <h2>Buscar clientes</h2>
+            <span className="eyebrow">Comercial</span>
+            <h2>Clientes</h2>
           </div>
-          {isLive ? <StatusPill variant="success">Dados reais</StatusPill> : <StatusPill variant="warning">Mock local</StatusPill>}
+          <button className="button button--accent" type="button" onClick={() => setCriando(true)}>
+            + Novo cliente
+          </button>
         </div>
-        <form className="filter-form" onSubmit={applyFilters}>
-          <div className="field">
-            <label htmlFor="clientes-q">Nome, empresa, telefone ou identificador</label>
-            <input id="clientes-q" name="q" type="text" value={q} onChange={(event) => setQ(event.target.value)} placeholder="Buscar..." />
+
+        <form className="filter-form" onSubmit={buscar} role="search">
+          <div className="field campo-busca">
+            <label htmlFor="clientes-busca">Buscar por nome, CNPJ/CPF, contato, telefone ou e-mail</label>
+            <input id="clientes-busca" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar…" />
           </div>
           <div className="field">
-            <label htmlFor="clientes-segment">Segmento</label>
-            <select id="clientes-segment" value={segment} onChange={(event) => setSegment(event.target.value)}>
-              <option value="">Todos</option>
-              {Object.entries(SEGMENT_LABEL).map(([value, label]) => (
-                <option key={value} value={value}>{label}</option>
-              ))}
-            </select>
-          </div>
-          <div className="field">
-            <label htmlFor="clientes-active">Status</label>
-            <select id="clientes-active" value={active} onChange={(event) => setActive(event.target.value)}>
+            <label htmlFor="clientes-situacao">Situação</label>
+            <select id="clientes-situacao" value={active} onChange={(e) => setActive(e.target.value)}>
               <option value="">Todos</option>
               <option value="true">Ativos</option>
               <option value="false">Inativos</option>
             </select>
           </div>
           <div className="filter-actions">
-            <button className="button button--accent" type="submit">Buscar</button>
-            <button className="button" type="button" onClick={clearFilters}>Limpar filtros</button>
+            <button className="button button--accent" type="submit">
+              Buscar
+            </button>
+            {filtros.q || filtros.active ? (
+              <button className="button button--secondary" type="button" onClick={limpar}>
+                Limpar
+              </button>
+            ) : null}
           </div>
         </form>
-      </ShellCard>
 
-      {duplicateCandidates && duplicateCandidates.length > 0 ? (
-        <ShellCard tone="warm" className="panel-card">
-          <div className="card-heading">
-            <div>
-              <span className="eyebrow">Possível duplicado</span>
-              <h2>Cliente criado — confira antes de seguir</h2>
-            </div>
-            <button className="button button--small" type="button" onClick={() => setDuplicateCandidates(null)}>Fechar aviso</button>
-          </div>
-          <ShellTable caption="Clientes já existentes que podem ser o mesmo cadastro">
-            <thead><tr><th>Nome</th><th>Empresa</th><th>Telefone</th><th>E-mail</th><th>Coincide em</th><th /></tr></thead>
-            <tbody>
-              {duplicateCandidates.map((candidate) => (
-                <tr key={candidate.id}>
-                  <td>{candidate.name}</td>
-                  <td>{candidate.company ?? "—"}</td>
-                  <td>{candidate.phone ?? "—"}</td>
-                  <td>{candidate.email ?? "—"}</td>
-                  <td>{candidate.matchedOn.map((reason) => MATCH_LABEL[reason]).join(", ")}</td>
-                  <td><a className="button button--small" href={`/clientes/${candidate.id}`}>Ver ficha</a></td>
-                </tr>
-              ))}
-            </tbody>
-          </ShellTable>
-          <p className="card-note">
-            O cadastro foi criado normalmente — a decisão de vincular ou manter os dois é sua. Nada foi bloqueado automaticamente.
-          </p>
-        </ShellCard>
-      ) : null}
-
-      <ShellCard className="table-card">
-        <div className="card-heading">
-          <div>
-            <span className="eyebrow">Clientes</span>
-            <h2>{visibleItems.length} {visibleItems.length === 1 ? "cliente" : "clientes"}</h2>
-          </div>
-          <button className="button button--accent" type="button" onClick={() => setShowCreateForm((open) => !open)}>
-            {showCreateForm ? "Cancelar" : "+ Novo cliente"}
-          </button>
-        </div>
-
-        {showCreateForm ? (
-          <form className="filter-form" onSubmit={submitCreate} style={{ padding: "0 18px 18px" }}>
-            <div className="field">
-              <label htmlFor="new-client-name">Nome *</label>
-              <input id="new-client-name" name="name" type="text" required maxLength={150} />
-            </div>
-            <div className="field">
-              <label htmlFor="new-client-company">Empresa</label>
-              <input id="new-client-company" name="company" type="text" maxLength={150} />
-            </div>
-            <div className="field">
-              <label htmlFor="new-client-phone">Telefone</label>
-              <input id="new-client-phone" name="phone" type="text" maxLength={40} />
-            </div>
-            <div className="field">
-              <label htmlFor="new-client-email">E-mail</label>
-              <input id="new-client-email" name="email" type="email" maxLength={254} />
-            </div>
-            <div className="field">
-              <label htmlFor="new-client-external-id">Identificador (externalId)</label>
-              <input id="new-client-external-id" name="externalId" type="text" maxLength={100} />
-            </div>
-            <div className="field">
-              <label htmlFor="new-client-segment">Segmento</label>
-              <select id="new-client-segment" name="segment" defaultValue="prospect">
-                {Object.entries(SEGMENT_LABEL).map(([value, label]) => (
-                  <option key={value} value={value}>{label}</option>
-                ))}
-              </select>
-            </div>
-            <div className="filter-actions">
-              <button className="button button--accent" type="submit" disabled={creating}>{creating ? "Criando..." : "Criar cliente"}</button>
-            </div>
-            {createError ? <p className="auth-error">{createError}</p> : null}
-          </form>
-        ) : null}
-
-        {actionError ? (
-          <p className="auth-error" style={{ margin: "0 18px 14px" }}>
-            {actionError}
+        {fichaNaoEncontrada ? (
+          <p className="aviso aviso--alerta" role="status" style={{ margin: "0 22px 14px" }}>
+            Cliente não encontrado. O link pode estar errado ou você não tem acesso a ele.
           </p>
         ) : null}
 
         <ShellTable caption="Clientes cadastrados">
           <thead>
             <tr>
-              <th>Nome</th>
-              <th>Empresa</th>
-              <th>Contato</th>
-              <th>Segmento</th>
-              <th>Status</th>
-              <th>Ações</th>
+              <th>Cliente</th>
+              <th>CNPJ / CPF</th>
+              <th>Contato principal</th>
+              <th>Telefone</th>
+              <th>E-mail</th>
+              <th>Responsável</th>
+              <th>Situação</th>
             </tr>
           </thead>
           <tbody>
-            {visibleItems.map((client) => (
-              <tr key={client.id}>
-                <td>{client.name}</td>
-                <td>{client.company ?? "—"}</td>
-                <td>{client.phone ?? client.email ?? "—"}</td>
-                <td><StatusPill variant="neutral">{SEGMENT_LABEL[client.segment]}</StatusPill></td>
-                <td><StatusPill variant={client.active ? "success" : "danger"}>{client.active ? "Ativo" : "Inativo"}</StatusPill></td>
+            {itens.map((item) => (
+              <tr key={item.id} className="linha-cliente" onClick={() => abrir(item.id)}>
                 <td>
-                  <div className="row-actions">
-                    <a className="button button--small" href={`/clientes/${client.id}`}>Ver ficha</a>
-                    <button
-                      className="button button--small"
-                      type="button"
-                      disabled={pendingActionId === client.id}
-                      onClick={() => toggleActive(client)}
-                    >
-                      {client.active ? "Inativar" : "Ativar"}
-                    </button>
+                  <div className="celula-cliente">
+                    <span className="mini-avatar" aria-hidden="true">
+                      {iniciais(item.name)}
+                    </span>
+                    <div>
+                      <Link href={hrefDaFicha(item.id, filtros)} scroll={false} onClick={(e) => e.stopPropagation()}>
+                        {item.name}
+                      </Link>
+                      <small>{[item.personType === "pj" ? "PJ" : "PF", [item.city, item.state].filter(Boolean).join("/")].filter(Boolean).join(" · ")}</small>
+                    </div>
                   </div>
+                </td>
+                <td>{item.documentDisplay ?? "—"}</td>
+                <td>{item.primaryContactName ?? "—"}</td>
+                <td>{item.phoneDisplay ?? "—"}</td>
+                <td>{item.email ?? "—"}</td>
+                <td>{item.owner?.name ?? "—"}</td>
+                <td>
+                  <StatusPill variant={item.active ? "success" : "danger"}>{item.active ? "Ativo" : "Inativo"}</StatusPill>
                 </td>
               </tr>
             ))}
-            {visibleItems.length === 0 ? (
-              <tr><td colSpan={6}>Nenhum cliente encontrado para os filtros atuais.</td></tr>
+            {itens.length === 0 ? (
+              <tr>
+                <td colSpan={7}>{filtros.q ? "Nenhum cliente encontrado para a busca." : "Nenhum cliente cadastrado ainda."}</td>
+              </tr>
             ) : null}
           </tbody>
         </ShellTable>
-        <p className="card-note">
-          Clientes é a base única — não é uma segunda lista de leads.
-        </p>
+        <p className="card-note">CPF e telefone aparecem mascarados na lista; os dados completos ficam na ficha.</p>
       </ShellCard>
+
+      {criando ? (
+        <Modal rotulo="Novo cliente" aoFechar={() => setCriando(false)}>
+          <div className="modal-topo">
+            <h2>Novo cliente</h2>
+            <button className="botao-fechar" type="button" aria-label="Fechar" onClick={() => setCriando(false)}>
+              ✕
+            </button>
+          </div>
+          <ClienteForm
+            modo="criar"
+            responsaveis={responsaveis}
+            aoCancelar={() => setCriando(false)}
+            aoCriar={(resposta) => {
+              setCriando(false);
+              setAvisos(resposta.duplicateCandidates);
+              router.push(hrefDaFicha(resposta.client.id, filtros), { scroll: false });
+              router.refresh();
+            }}
+          />
+        </Modal>
+      ) : null}
+
+      {ficha ? (
+        <Modal key={ficha.id} rotulo={`Ficha de ${ficha.name}`} largura="larga" aoFechar={fecharFicha}>
+          <FichaCliente cliente={ficha} responsaveis={responsaveis} avisos={avisos} aoFechar={fecharFicha} />
+        </Modal>
+      ) : null}
     </div>
   );
-}
-
-function emptyToUndefined(value: FormDataEntryValue | null): string | undefined {
-  const text = typeof value === "string" ? value.trim() : "";
-  return text.length > 0 ? text : undefined;
 }

@@ -1,9 +1,10 @@
 import type { INestApplication } from "@nestjs/common";
 import { Test } from "@nestjs/testing";
 import type {
+  ClientContactInput,
+  ClientDetail,
   ClientDuplicateCandidatesResponse,
-  ClientFicha,
-  ClientSummary,
+  ClientOwnersResponse,
   CreateClientRequest,
   CreateClientResponse,
   DuplicateCandidatesQuery,
@@ -15,122 +16,128 @@ import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { AppModule } from "../src/app.module";
+import { paraItemDeLista } from "../src/clientes/clientes.rules";
 import { ClientesRepository } from "../src/clientes/clientes.repository";
+import { Conflito, NaoEncontrado } from "../src/common/errors/dominio";
 
-const CLIENT_A: ClientSummary = {
-  id: "00000000-0000-4000-8000-000000000101",
-  name: "Hotel Rio Negro",
-  company: "Rio Negro Hospedagens",
-  phone: "+55 92 90000-0000",
-  email: "contato@rionegro.example",
-  externalId: "ev-1001",
-  segment: "opm",
-  active: true,
-  createdAt: "2026-08-01T00:00:00.000Z",
-  updatedAt: "2026-08-01T00:00:00.000Z",
-};
+// Documento da faixa sintética do projeto (scripts/dados-sinteticos.mjs), com dígito verificador válido.
+const CNPJ = "99999001000159";
+const DONO = { id: "00000000-0000-4000-8000-000000000001", name: "Ana" };
 
-const CLIENT_B: ClientSummary = {
-  id: "00000000-0000-4000-8000-000000000102",
-  name: "Amazonas Clean",
-  company: null,
-  phone: null,
-  email: null,
-  externalId: null,
-  segment: "prospect",
-  active: true,
-  createdAt: "2026-08-02T00:00:00.000Z",
-  updatedAt: "2026-08-02T00:00:00.000Z",
-};
+function cliente(dados: Partial<ClientDetail> & Pick<ClientDetail, "id" | "name">): ClientDetail {
+  return {
+    personType: "pj",
+    legalName: null,
+    document: null,
+    phone: null,
+    email: null,
+    postalCode: null,
+    street: null,
+    addressComplement: null,
+    district: null,
+    city: null,
+    state: null,
+    owner: DONO,
+    origin: null,
+    notes: null,
+    rg: null,
+    rgIssuer: null,
+    nationality: null,
+    birthDate: null,
+    active: true,
+    contacts: [],
+    createdAt: "2026-10-01T00:00:00.000Z",
+    updatedAt: "2026-10-01T00:00:00.000Z",
+    ...dados,
+  };
+}
 
+const CLIENT_A = cliente({ id: "00000000-0000-4000-8000-000000000101", name: "Hotel Rio Negro", document: CNPJ, phone: "92900000000" });
+const CLIENT_B = cliente({ id: "00000000-0000-4000-8000-000000000102", name: "Amazonas Clean", email: "contato@clean.example" });
+const CONTATO_ID = "00000000-0000-4000-8000-000000000201";
+
+/** Repositório em memória: o teste cobre rotas, papéis e validação; as regras de banco têm teste próprio. */
 class InMemoryClientesRepository extends ClientesRepository {
   clients = [CLIENT_A, CLIENT_B];
 
   async list(query: ListClientsQuery): Promise<ListClientsResponse> {
-    let items = this.clients;
-    if (query.segment) items = items.filter((client) => client.segment === query.segment);
-    if (query.active !== undefined) items = items.filter((client) => client.active === (query.active === "true"));
-    if (query.q) {
-      const term = query.q.toLowerCase();
-      items = items.filter((client) =>
-        [client.name, client.company, client.phone, client.email, client.externalId]
-          .filter((value): value is string => !!value)
-          .some((value) => value.toLowerCase().includes(term)),
-      );
-    }
-    return { mode: "mock", items };
+    const termo = query.q?.toLowerCase();
+    const itens = this.clients.filter((c) => !termo || c.name.toLowerCase().includes(termo) || (c.document ?? "").includes(termo));
+    return {
+      items: itens.map((c) =>
+        paraItemDeLista({ ...c, updatedAt: new Date(c.updatedAt), contacts: c.contacts.map((ct) => ({ ...ct, createdAt: new Date(ct.createdAt) })) }),
+      ),
+    };
   }
 
-  async get(id: string): Promise<ClientSummary> {
-    const client = this.clients.find((c) => c.id === id);
-    if (!client) throw new Error("not found");
-    return client;
+  async get(id: string): Promise<ClientDetail> {
+    const encontrado = this.clients.find((c) => c.id === id);
+    if (!encontrado) throw new NaoEncontrado("Cliente não encontrado.");
+    return encontrado;
   }
 
   async create(input: CreateClientRequest): Promise<CreateClientResponse> {
-    const client: ClientSummary = {
-      id: "00000000-0000-4000-8000-000000000199",
-      name: input.name,
-      company: input.company ?? null,
-      phone: input.phone ?? null,
-      email: input.email ?? null,
-      externalId: input.externalId ?? null,
-      segment: input.segment ?? "prospect",
-      active: true,
-      createdAt: "2026-08-07T00:00:00.000Z",
-      updatedAt: "2026-08-07T00:00:00.000Z",
-    };
-    this.clients.push(client);
-    const duplicateCandidates = input.phone === CLIENT_A.phone
-      ? [{ ...CLIENT_A, matchedOn: ["phone" as const] }]
-      : [];
-    return { mode: "mock", client, duplicateCandidates };
+    if (input.document && this.clients.some((c) => c.document === input.document)) throw new Conflito("Já existe um cliente com este CNPJ.");
+    const novo = cliente({ id: "00000000-0000-4000-8000-000000000199", name: input.name, document: input.document ?? null, phone: input.phone ?? null });
+    const duplicateCandidates = input.phone === CLIENT_A.phone ? [{ id: CLIENT_A.id, name: CLIENT_A.name, personType: "pj" as const, matchedOn: ["phone" as const] }] : [];
+    return { client: novo, duplicateCandidates };
   }
 
-  async update(id: string, input: UpdateClientRequest): Promise<ClientSummary> {
-    const client = await this.get(id);
-    return { ...client, ...input };
+  async update(id: string, input: UpdateClientRequest): Promise<ClientDetail> {
+    return { ...(await this.get(id)), ...(input.name ? { name: input.name } : {}) };
   }
 
-  async activate(id: string): Promise<ClientSummary> {
+  async activate(id: string): Promise<ClientDetail> {
     return { ...(await this.get(id)), active: true };
   }
 
-  async inactivate(id: string): Promise<ClientSummary> {
+  async inactivate(id: string): Promise<ClientDetail> {
     return { ...(await this.get(id)), active: false };
   }
 
   async duplicateCandidates(query: DuplicateCandidatesQuery): Promise<ClientDuplicateCandidatesResponse> {
-    if (query.phone === CLIENT_A.phone) {
-      return { mode: "mock", candidates: [{ ...CLIENT_A, matchedOn: ["phone"] }] };
-    }
-    return { mode: "mock", candidates: [] };
+    const candidates = query.document && query.document.replace(/\D/g, "") === CNPJ
+      ? [{ id: CLIENT_A.id, name: CLIENT_A.name, personType: "pj" as const, matchedOn: ["document" as const] }]
+      : [];
+    return { candidates };
   }
 
-  async ficha(id: string): Promise<ClientFicha> {
-    const resumo = await this.get(id);
-    return {
-      mode: "mock",
-      resumo,
-      contatos: [
-        { id: "00000000-0000-4000-8000-000000000201", channel: "whatsapp", outcome: "connected", note: null, createdAt: "2026-08-03T00:00:00.000Z", opportunityId: "00000000-0000-4000-8000-000000000301", opportunityTitle: "Hotel Rio Negro · OPM" },
-      ],
-      oportunidades: [
-        { id: "00000000-0000-4000-8000-000000000301", title: "Hotel Rio Negro · OPM", product: "opm", stage: "decisao", status: "aberta", estimatedValue: "12000.00", nextActionAt: null },
-      ],
-      contratos: [],
-      energiaOpm: { available: false, reason: "Energia & OPM ainda não tem modelo de domínio implementado neste bloco." },
-      pluggamob: { available: false, reason: "Cliente sem externalId cadastrado — sem vínculo PluggaMob." },
-      financeiro: { status: "em_breve", message: "Financeiro do cliente ainda não foi implementado neste bloco." },
-      documentos: { status: "em_breve", message: "Documentos do cliente ainda não foi implementado neste bloco." },
-      timeline: [],
-      acoesDoAgente: [],
+  async owners(): Promise<ClientOwnersResponse> {
+    return { items: [DONO] };
+  }
+
+  async addContact(clientId: string, input: ClientContactInput): Promise<ClientDetail> {
+    const atual = await this.get(clientId);
+    const contato = {
+      id: CONTATO_ID,
+      name: input.name,
+      jobTitle: input.jobTitle ?? null,
+      role: input.role ?? null,
+      phone: input.phone ?? null,
+      phoneIsWhatsapp: input.phoneIsWhatsapp ?? false,
+      email: input.email ?? null,
+      isPrimary: true,
+      cpf: input.cpf ?? null,
+      rg: input.rg ?? null,
+      createdAt: "2026-10-19T00:00:00.000Z",
+      updatedAt: "2026-10-19T00:00:00.000Z",
     };
+    return { ...atual, contacts: [contato] };
+  }
+
+  async updateContact(clientId: string): Promise<ClientDetail> {
+    return this.get(clientId);
+  }
+
+  async removeContact(clientId: string): Promise<ClientDetail> {
+    return this.get(clientId);
   }
 }
 
 describe("clientes API (e2e)", () => {
   let app: INestApplication;
+
+  const comercial = (r: request.Test) => r.set("x-dev-principal", "local-comercial").set("x-dev-roles", "comercial");
 
   beforeAll(async () => {
     const module = await Test.createTestingModule({ imports: [AppModule] })
@@ -150,98 +157,120 @@ describe("clientes API (e2e)", () => {
     await request(app.getHttpServer()).get("/clientes").expect(401);
   });
 
-  it("requires a role scoped to this domain", async () => {
-    await request(app.getHttpServer())
-      .get("/clientes")
-      .set("x-dev-principal", "local-viewer")
-      .set("x-dev-roles", "viewer")
-      .expect(403);
+  it("denies the cadastro to roles outside the client domain", async () => {
+    for (const papel of ["viewer", "financeiro", "compras"]) {
+      await request(app.getHttpServer()).get("/clientes").set("x-dev-principal", `local-${papel}`).set("x-dev-roles", papel).expect(403);
+    }
   });
 
-  it("searches clients by a free-text term across name/company/phone/email/externalId", async () => {
-    await request(app.getHttpServer())
-      .get("/clientes?q=rio negro")
-      .set("x-dev-principal", "local-comercial")
-      .set("x-dev-roles", "comercial")
+  it("lets comercial search and returns list rows with the CNPJ formatted and the phone masked", async () => {
+    await comercial(request(app.getHttpServer()).get("/clientes?q=rio negro"))
       .expect(200)
       .expect((res) => {
         expect(res.body.items).toHaveLength(1);
-        expect(res.body.items[0].id).toBe(CLIENT_A.id);
-      });
-  });
-
-  it("filters by segment and active", async () => {
-    await request(app.getHttpServer())
-      .get("/clientes?segment=prospect&active=true")
-      .set("x-dev-principal", "local-comercial")
-      .set("x-dev-roles", "comercial")
-      .expect(200)
-      .expect((res) => {
-        expect(res.body.items).toHaveLength(1);
-        expect(res.body.items[0].id).toBe(CLIENT_B.id);
+        expect(res.body.items[0].documentDisplay).toBe("99.999.001/0001-59");
+        expect(res.body.items[0].phoneDisplay).toBe("(92) 9••••-0000");
+        expect(res.body.items[0]).not.toHaveProperty("phone");
       });
   });
 
   it("rejects an unknown query parameter", async () => {
-    await request(app.getHttpServer())
-      .get("/clientes?bogus=1")
-      .set("x-dev-principal", "local-comercial")
-      .set("x-dev-roles", "comercial")
+    await comercial(request(app.getHttpServer()).get("/clientes?segment=opm")).expect(400);
+  });
+
+  it("returns the full ficha by id and 400 for a malformed id", async () => {
+    await comercial(request(app.getHttpServer()).get(`/clientes/${CLIENT_A.id}`))
+      .expect(200)
+      .expect((res) => expect(res.body.document).toBe(CNPJ));
+    await comercial(request(app.getHttpServer()).get("/clientes/nao-e-uuid")).expect(400);
+  });
+
+  it("lists possible owners without being captured by the :id route", async () => {
+    await comercial(request(app.getHttpServer()).get("/clientes/responsaveis"))
+      .expect(200)
+      .expect((res) => expect(res.body.items).toEqual([DONO]));
+  });
+
+  it("creates a prospect without document when a phone is given", async () => {
+    await comercial(request(app.getHttpServer()).post("/clientes"))
+      .send({ personType: "pj", name: "Logística Igarapé", phone: "(92) 99999-4120" })
+      .expect(201)
+      .expect((res) => expect(res.body.client.document).toBeNull());
+  });
+
+  it("asks for a phone or an e-mail", async () => {
+    await comercial(request(app.getHttpServer()).post("/clientes"))
+      .send({ personType: "pj", name: "Sem Contato" })
+      .expect(400)
+      .expect((res) => expect(res.body.detalhes.map((d: { campo: string }) => d.campo)).toContain("phone"));
+  });
+
+  it("rejects a CNPJ with a wrong check digit", async () => {
+    await comercial(request(app.getHttpServer()).post("/clientes"))
+      .send({ personType: "pj", name: "Documento Errado", email: "a@b.example", document: "99.999.001/0001-58" })
       .expect(400);
   });
 
-  it("signals duplicate candidates on create without blocking creation", async () => {
-    await request(app.getHttpServer())
-      .post("/clientes")
-      .set("x-dev-principal", "local-comercial")
-      .set("x-dev-roles", "comercial")
-      .send({ name: "Hotel Rio Negro Ltda", phone: CLIENT_A.phone })
-      .expect(201)
-      .expect((res) => {
-        expect(res.body.client.name).toBe("Hotel Rio Negro Ltda");
-        expect(res.body.duplicateCandidates).toHaveLength(1);
-        expect(res.body.duplicateCandidates[0].matchedOn).toEqual(["phone"]);
-      });
+  it("blocks a second client with the same document and reports it as a duplicate", async () => {
+    await comercial(request(app.getHttpServer()).post("/clientes"))
+      .send({ personType: "pj", name: "Hotel Rio Negro Filial", email: "a@b.example", document: "99.999.001/0001-59" })
+      .expect(409)
+      .expect((res) => expect(res.body.codigo).toBe("CONFLITO_UNICIDADE"));
+
+    await comercial(request(app.getHttpServer()).get("/clientes/duplicates?document=99.999.001/0001-59"))
+      .expect(200)
+      .expect((res) => expect(res.body.candidates[0]).toMatchObject({ id: CLIENT_A.id, matchedOn: ["document"] }));
   });
 
-  it("requires the comercial/admin role to create a client", async () => {
+  it("signals phone duplicates on create without blocking creation", async () => {
+    await comercial(request(app.getHttpServer()).post("/clientes"))
+      .send({ personType: "pj", name: "Hotel Rio Negro Ltda", phone: CLIENT_A.phone })
+      .expect(201)
+      .expect((res) => expect(res.body.duplicateCandidates[0].matchedOn).toEqual(["phone"]));
+  });
+
+  it("lets other client-domain roles read but only comercial/admin write", async () => {
+    await request(app.getHttpServer()).get("/clientes").set("x-dev-principal", "local-opm").set("x-dev-roles", "opm").expect(200);
     await request(app.getHttpServer())
       .post("/clientes")
+      .set("x-dev-principal", "local-opm")
+      .set("x-dev-roles", "opm")
+      .send({ personType: "pj", name: "Não pode", phone: "92999994120" })
+      .expect(403);
+    await request(app.getHttpServer())
+      .post(`/clientes/${CLIENT_A.id}/contatos`)
       .set("x-dev-principal", "local-tech")
       .set("x-dev-roles", "tech")
-      .send({ name: "Should not be allowed" })
+      .send({ name: "Juliana" })
       .expect(403);
   });
 
-  it("returns the ficha aggregator with placeholders for domains not implemented in this block", async () => {
-    await request(app.getHttpServer())
-      .get(`/clientes/${CLIENT_A.id}/ficha`)
-      .set("x-dev-principal", "local-comercial")
-      .set("x-dev-roles", "comercial")
-      .expect(200)
-      .expect((res) => {
-        expect(res.body.resumo.id).toBe(CLIENT_A.id);
-        expect(res.body.oportunidades).toHaveLength(1);
-        expect(res.body.contatos).toHaveLength(1);
-        expect(res.body.energiaOpm).toEqual({ available: false, reason: "Energia & OPM ainda não tem modelo de domínio implementado neste bloco." });
-        expect(res.body.financeiro).toEqual({ status: "em_breve", message: "Financeiro do cliente ainda não foi implementado neste bloco." });
-        expect(res.body.documentos.status).toBe("em_breve");
-      });
+  it("adds, edits and removes a contact of a PJ client", async () => {
+    await comercial(request(app.getHttpServer()).post(`/clientes/${CLIENT_A.id}/contatos`))
+      .send({ name: "Juliana Prado", role: "decisor", phone: "92999994120", phoneIsWhatsapp: true })
+      .expect(201)
+      .expect((res) => expect(res.body.contacts[0]).toMatchObject({ name: "Juliana Prado", isPrimary: true }));
+
+    await comercial(request(app.getHttpServer()).patch(`/clientes/${CLIENT_A.id}/contatos/${CONTATO_ID}`))
+      .send({ jobTitle: "Gerente administrativa" })
+      .expect(200);
+
+    await comercial(request(app.getHttpServer()).delete(`/clientes/${CLIENT_A.id}/contatos/${CONTATO_ID}`)).expect(200);
+  });
+
+  it("rejects an invalid CPF on a contact", async () => {
+    await comercial(request(app.getHttpServer()).post(`/clientes/${CLIENT_A.id}/contatos`))
+      .send({ name: "Representante", role: "representante_legal", cpf: "111.111.111-11" })
+      .expect(400);
   });
 
   it("inactivates and reactivates a client through explicit auditable actions", async () => {
-    await request(app.getHttpServer())
-      .post(`/clientes/${CLIENT_B.id}/inactivate`)
-      .set("x-dev-principal", "local-comercial")
-      .set("x-dev-roles", "comercial")
+    await comercial(request(app.getHttpServer()).post(`/clientes/${CLIENT_B.id}/inactivate`))
       .send({ reason: "cliente encerrou operação" })
       .expect(200)
       .expect((res) => expect(res.body.active).toBe(false));
 
-    await request(app.getHttpServer())
-      .post(`/clientes/${CLIENT_B.id}/activate`)
-      .set("x-dev-principal", "local-comercial")
-      .set("x-dev-roles", "comercial")
+    await comercial(request(app.getHttpServer()).post(`/clientes/${CLIENT_B.id}/activate`))
       .expect(200)
       .expect((res) => expect(res.body.active).toBe(true));
   });
