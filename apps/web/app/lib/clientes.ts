@@ -106,7 +106,7 @@ export function lerErro(corpo: unknown, padrao: string): ErroDoFormulario {
 
 export type RespostaDeEnvio<T> = { ok: true; dados: T } | { ok: false; erro: ErroDoFormulario };
 
-export async function enviar<T>(caminho: string, metodo: "GET" | "POST" | "PATCH" | "DELETE", corpo?: unknown): Promise<RespostaDeEnvio<T>> {
+export async function enviar<T>(caminho: string, metodo: "GET" | "POST" | "PUT" | "PATCH" | "DELETE", corpo?: unknown): Promise<RespostaDeEnvio<T>> {
   try {
     const resposta = await fetch(caminho, {
       method: metodo,

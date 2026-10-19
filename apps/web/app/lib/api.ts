@@ -18,6 +18,7 @@ import {
   listIntegrationsResponseSchema,
   listJobRunsResponseSchema,
   listMarketMigrationsResponseSchema,
+  listPipelinesResponseSchema,
   obraListaSchema,
   opportunityDetailSchema,
   opportunityListSchema,
@@ -75,6 +76,9 @@ export const fetchClient = (id: string) => lerApi("/clientes/:id", clientDetailS
 
 /** GET /clientes/responsaveis: quem pode ser responsável por um cliente. */
 export const fetchClientOwners = () => lerApi("/clientes/responsaveis", clientOwnersResponseSchema);
+
+/** GET /pipelines: os pipelines que a pessoa alcança, com etapas, equipe e se pode configurá-los. */
+export const fetchPipelines = () => lerApi("/pipelines", listPipelinesResponseSchema);
 
 export const fetchOpportunities = () => lerApi("/commercial/opportunities", opportunityListSchema);
 

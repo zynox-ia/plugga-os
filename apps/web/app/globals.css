@@ -1240,6 +1240,84 @@ tbody tr:last-child td { border-bottom: 0; }
   .modal-topo { flex-wrap: wrap; }
 }
 
+/* Pipelines: abas, quadro e modal de configuração (PLU-269) */
+.ponto-cor { display: inline-block; flex-shrink: 0; width: 10px; height: 10px; background: var(--cor, #94A3B8); border-radius: 50%; }
+.selo-empresa { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 999px; font: 600 11px/1.3 var(--font-articulat), "Articulat CF", sans-serif; white-space: nowrap; }
+.selo-empresa--plugga { color: #005FCC; background: #E4EFFF; }
+.selo-empresa--waze { color: #0B7A57; background: #E2F5EE; }
+.abas-pipeline { display: flex; gap: 2px; padding: 0 22px; overflow-x: auto; border-bottom: 1px solid var(--line); }
+.abas-pipeline a { display: inline-flex; align-items: center; gap: 8px; padding: 12px 12px 10px; color: var(--muted); border-bottom: 2px solid transparent; font: 600 13.5px/1 var(--font-articulat), "Articulat CF", sans-serif; text-decoration: none; white-space: nowrap; }
+.abas-pipeline a:hover { color: var(--ink); }
+.abas-pipeline a[aria-current="page"] { color: var(--ink); border-bottom-color: var(--cor, #0066CC); }
+.abas-pipeline a:focus-visible { outline: 3px solid var(--folha); outline-offset: -3px; }
+.quadro-colunas { display: grid; grid-auto-columns: minmax(220px, 1fr); grid-auto-flow: column; gap: 12px; padding: 16px 22px 4px; overflow-x: auto; }
+.coluna-etapa { display: grid; align-content: start; gap: 10px; min-height: 220px; padding: 12px; background: rgba(15, 41, 74, 0.035); border-top: 3px solid var(--cor, #94A3B8); border-radius: 14px; }
+.coluna-etapa header { display: grid; gap: 4px; }
+.coluna-etapa h3 { margin: 0; font: 600 13.5px/1.25 var(--font-articulat), "Articulat CF", sans-serif; }
+.coluna-resumo { color: var(--muted); font: 400 12px/1.3 Anek, sans-serif; }
+.coluna-vazia { margin: 0; padding: 18px 8px; color: #7F8FA3; border: 1.5px dashed rgba(15, 41, 74, 0.14); border-radius: 10px; text-align: center; font: 400 12.5px/1.3 Anek, sans-serif; }
+.desfechos { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 22px 0; }
+.desfecho { padding: 6px 12px; border-radius: 10px; font: 600 12.5px/1.2 var(--font-articulat), "Articulat CF", sans-serif; }
+.desfecho--ganho { color: #18794E; background: #F1FAF4; border: 1px solid #BFE5CD; }
+.desfecho--perdido { color: #B4232A; background: #FDF3F3; border: 1px solid #F1C4C4; }
+.pipelines-vazio { display: grid; gap: 6px; padding: 28px 22px; }
+.pipelines-vazio h3 { margin: 0; font: 600 15px/1.3 var(--font-articulat), "Articulat CF", sans-serif; }
+.config-pipelines { display: grid; grid-template-columns: minmax(180px, 230px) minmax(0, 1fr); gap: 14px; padding: 16px 22px; }
+.config-lista ul { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
+.config-lista details { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
+.config-lista summary { color: var(--muted); cursor: pointer; font: 600 12.5px/1.4 var(--font-articulat), "Articulat CF", sans-serif; }
+.config-item { display: grid; justify-items: start; gap: 4px; width: 100%; padding: 9px 10px; color: var(--ink); background: transparent; border: 0; border-radius: 10px; cursor: pointer; text-align: left; font: 400 13px/1.3 Anek, sans-serif; }
+.config-item b { font: 600 13.5px/1.25 var(--font-articulat), "Articulat CF", sans-serif; }
+.config-item small { color: var(--muted); }
+.config-item:hover { background: rgba(0, 102, 204, 0.05); }
+.config-item[aria-current="true"] { background: #EEF5FF; outline: 1px solid #CFE2FF; }
+.config-item:focus-visible { outline: 3px solid var(--folha); outline-offset: 1px; }
+.config-editor { min-width: 0; overflow: hidden; background: #fff; border: 1px solid var(--line); border-radius: 16px; }
+.config-editor > .ficha-vazio { padding: 18px; }
+.editor-pipeline .abas { flex-wrap: wrap; padding: 0 14px; }
+.marca-erro { color: #b42318; }
+.painel-pipeline { padding: 16px 18px 18px; }
+.painel-pipeline .form-grade { align-items: start; }
+.painel-pipeline fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
+.painel-pipeline legend { margin-bottom: 6px; padding: 0; color: var(--petroleo); font: 500 13px/1 Anybody, sans-serif; }
+.opcoes-empresa { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-bottom: 6px; }
+.opcao-empresa { display: flex; align-items: center; gap: 10px; padding: 12px; border: 1.5px solid rgba(15, 41, 74, 0.14); border-radius: 12px; cursor: pointer; font: 600 13.5px/1.2 var(--font-articulat), "Articulat CF", sans-serif; }
+.opcao-empresa input { accent-color: #0066CC; }
+.opcao-empresa:has(input:checked) { background: #F2F8FF; border-color: #0066CC; }
+.opcao-empresa--bloqueada { color: #8A99AB; cursor: not-allowed; }
+.paleta { display: flex; flex-wrap: wrap; gap: 8px; }
+.amostra-cor { width: 30px; height: 30px; border: 2px solid #fff; border-radius: 9px; box-shadow: 0 0 0 1px rgba(15, 41, 74, 0.16); cursor: pointer; }
+.amostra-cor[aria-checked="true"] { box-shadow: 0 0 0 2px var(--ink); }
+.amostra-cor:focus-visible { outline: 3px solid var(--folha); outline-offset: 2px; }
+.secao-lista { display: grid; gap: 10px; }
+.secao-lista > .form-secao { margin-top: 14px; }
+.linhas-config { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.linhas-config li { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 10px; background: #fff; border: 1px solid #E7ECF2; border-radius: 10px; }
+.linhas-config li.arrastando { opacity: 0.5; }
+.linhas-config input:not([type]), .linhas-config input[type="number"], .linhas-config select { padding: 7px 9px; color: var(--ink); background: #fff; border: 1px solid var(--line); border-radius: 9px; font: 400 13.5px/1.3 Anek, sans-serif; }
+.linhas-config input:not([type]) { flex: 1 1 180px; min-width: 0; }
+.linhas-config input:focus-visible, .linhas-config select:focus-visible { outline: 3px solid var(--folha); outline-offset: 1px; }
+.alca { color: #AAB6C5; cursor: grab; font-weight: 800; letter-spacing: -2px; user-select: none; touch-action: none; }
+.seletor-cor { display: inline-flex; align-items: center; gap: 6px; }
+.parado { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font: 400 12.5px/1.2 Anek, sans-serif; white-space: nowrap; }
+.parado input { width: 64px; }
+.acoes-linha { display: inline-flex; gap: 4px; margin-left: auto; }
+.acoes-linha button { width: 30px; height: 30px; color: var(--muted); background: #fff; border: 1px solid var(--line); border-radius: 8px; cursor: pointer; }
+.acoes-linha button:hover:not(:disabled) { color: var(--ink); }
+.acoes-linha button:disabled { opacity: 0.4; cursor: not-allowed; }
+.nome-pessoa { flex: 1 1 180px; font: 500 13.5px/1.3 Anek, sans-serif; }
+.adicionar-linha { justify-self: start; padding: 9px 14px; color: #0066CC; background: transparent; border: 1.5px dashed rgba(15, 41, 74, 0.2); border-radius: 10px; cursor: pointer; font: 700 12.5px/1 var(--font-articulat), "Articulat CF", sans-serif; }
+.adicionar-linha:disabled { opacity: 0.5; cursor: not-allowed; }
+.config-rodape { flex-wrap: wrap; align-items: center; }
+.config-rastro { margin-right: auto; color: var(--muted); font: 400 12.5px/1.3 Anek, sans-serif; }
+.config-rodape .aviso { padding: 7px 10px; }
+.aviso--sucesso { color: #18794E; background: #F1FAF4; border: 1px solid #BFE5CD; }
+@media (max-width: 720px) {
+  .config-pipelines { grid-template-columns: 1fr; }
+  .opcoes-empresa { grid-template-columns: 1fr; }
+  .acoes-linha { margin-left: 0; }
+}
+
 /* Auth: login, convite, reset (FEATURE) */
 /* Auth: login, convite, reset (FEATURE) */
 .auth-root {
