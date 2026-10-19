@@ -161,6 +161,8 @@ export function ConfiguracaoDePipelines({
               }}
               empresasPermitidas={rascunho.id === null ? canCreateIn : canCreateIn.includes(rascunho.companyId) ? canCreateIn : [rascunho.companyId]}
               nomesDaEquipe={Object.fromEntries((atual?.members ?? []).map((m) => [m.userId, m.name]))}
+              negociosPorEtapa={Object.fromEntries((atual?.stages ?? []).map((e) => [e.id, e.dealCount]))}
+              totalDeNegocios={atual?.dealCount ?? 0}
               erros={erro?.porCampo ?? {}}
             />
           ) : (

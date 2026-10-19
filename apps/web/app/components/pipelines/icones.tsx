@@ -66,6 +66,33 @@ const TRACOS = {
       <path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8M10 12h4" />
     </>
   ),
+  lista: <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" />,
+  busca: (
+    <>
+      <circle cx="11" cy="11" r="7" />
+      <path d="m20 20-3.5-3.5" />
+    </>
+  ),
+  mais_opcoes: (
+    <>
+      <circle cx="5" cy="12" r="1" />
+      <circle cx="12" cy="12" r="1" />
+      <circle cx="19" cy="12" r="1" />
+    </>
+  ),
+  seta: <path d="M5 12h14M13 6l6 6-6 6" />,
+  calendario: (
+    <>
+      <rect x="3" y="4" width="18" height="17" rx="3" />
+      <path d="M8 2v4M16 2v4M3 10h18" />
+    </>
+  ),
+  trofeu: (
+    <>
+      <path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4Z" />
+      <path d="M17 6h3v2a3 3 0 0 1-3 3M7 6H4v2a3 3 0 0 0 3 3" />
+    </>
+  ),
   info: (
     <>
       <circle cx="12" cy="12" r="9" />

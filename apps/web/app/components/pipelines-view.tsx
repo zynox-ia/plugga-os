@@ -1,35 +1,106 @@
 "use client";
 
-import type { CompanyKey, Pipeline } from "@plugga/shared";
+import type { BulkDealsAction, ClientOwner, CompanyKey, Deal, ListDealsResponse, Pipeline } from "@plugga/shared";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
+import { enviar } from "../lib/clientes";
+import type { Visao } from "../lib/negocios";
 import { EMPRESAS_POR_ID } from "../lib/organizacao";
 import { hrefDoPipeline } from "../lib/pipelines";
+import { useSessionUser } from "../lib/use-session-user";
 import { ConfiguracaoDePipelines } from "./pipelines/configuracao-de-pipelines";
+import { GanhoDoNegocio, PerdaDoNegocio } from "./pipelines/encerrar-negocio";
 import { Icone } from "./pipelines/icones";
-import { QuadroDoPipeline } from "./pipelines/quadro-do-pipeline";
+import { NovoNegocio } from "./pipelines/novo-negocio";
+import { QuadroDoPipeline, type AcoesDoNegocio } from "./pipelines/quadro-do-pipeline";
+import { TransferirNegocio } from "./pipelines/transferir-negocio";
+
+type Encerramento = { tipo: "ganho" | "perda" | "transferencia"; negocio: Deal };
 
 /**
  * Pipelines de venda: uma aba por pipeline que a pessoa alcança, com os
- * indicadores e as etapas em colunas. A configuração abre num modal pelo botão
- * desta tela (PLU-269); os negócios entram no quadro com a PLU-271.
+ * negócios em Kanban ou em Lista (PLU-271). A configuração abre num modal pelo
+ * botão desta tela (PLU-269). As ações mudam a tela na hora e confirmam na API;
+ * se a API recusar, o negócio volta para onde estava.
  */
 export function PipelinesView({
   pipelines,
   canCreateIn,
   selecionadoId,
+  visao,
+  negocios: doServidor,
+  responsaveisDeCliente,
 }: {
   pipelines: Pipeline[];
   canCreateIn: CompanyKey[];
   selecionadoId: string | null;
+  visao: Visao;
+  negocios: Deal[];
+  responsaveisDeCliente: ClientOwner[];
 }) {
   const router = useRouter();
+  const { usuario } = useSessionUser();
   const [configurando, setConfigurando] = useState<"editar" | "novo" | null>(null);
+  const [negocios, setNegocios] = useState(doServidor);
+  const [criando, setCriando] = useState<{ etapaId?: string } | null>(null);
+  const [encerrando, setEncerrando] = useState<Encerramento | null>(null);
+  const [aviso, setAviso] = useState<string | null>(null);
+
+  useEffect(() => setNegocios(doServidor), [doServidor]);
+  useEffect(() => {
+    if (!aviso) return;
+    const prazo = setTimeout(() => setAviso(null), 6000);
+    return () => clearTimeout(prazo);
+  }, [aviso]);
+
   const ativos = pipelines.filter((p) => p.archivedAt === null);
-  const selecionado = ativos.find((p) => p.id === selecionadoId) ?? ativos[0] ?? null;
+  const selecionado = ativos.find((p) => p.id === selecionadoId) ?? null;
   const podeConfigurar = canCreateIn.length > 0 || pipelines.some((p) => p.canConfigure);
+
+  /** Troca os negócios atualizados na lista; quem foi para outro pipeline sai do quadro. */
+  function aplicar(atualizados: Deal[]) {
+    setNegocios((atuais) => {
+      const porId = new Map(atualizados.map((n) => [n.id, n]));
+      const novos = atualizados.filter((n) => !atuais.some((a) => a.id === n.id));
+      return [...novos, ...atuais.map((n) => porId.get(n.id) ?? n)].filter((n) => n.pipelineId === selecionado?.id);
+    });
+  }
+
+  function confirmado(atualizados: Deal[]) {
+    aplicar(atualizados);
+    router.refresh();
+  }
+
+  const acoes: AcoesDoNegocio = {
+    async moverEtapa(negocio, etapaId) {
+      if (negocio.stageId === etapaId) return;
+      aplicar([{ ...negocio, stageId: etapaId, stageEnteredAt: new Date().toISOString() }]);
+      const resposta = await enviar<Deal>(`/api/negocios/${negocio.id}/etapa`, "POST", { stageId: etapaId });
+      if (resposta.ok) return confirmado([resposta.dados]);
+      aplicar([negocio]);
+      setAviso(resposta.erro.mensagem);
+    },
+    ganhar: (negocio) => setEncerrando({ tipo: "ganho", negocio }),
+    perder: (negocio) => setEncerrando({ tipo: "perda", negocio }),
+    transferir: (negocio) => setEncerrando({ tipo: "transferencia", negocio }),
+    novoNaEtapa: (etapaId) => setCriando({ etapaId }),
+    async emLote(ids: string[], action: BulkDealsAction) {
+      const resposta = await enviar<ListDealsResponse>("/api/negocios/lote", "POST", { dealIds: ids, action });
+      if (resposta.ok) {
+        confirmado(resposta.dados.deals);
+        return true;
+      }
+      setAviso(resposta.erro.mensagem);
+      return false;
+    },
+  };
+
+  const concluir = (negocio: Deal) => {
+    setEncerrando(null);
+    confirmado([negocio]);
+  };
 
   return (
     <div className="pagina-pipelines">
@@ -51,14 +122,25 @@ export function PipelinesView({
                 </Link>
               ))}
             </nav>
-            {podeConfigurar ? (
-              <button className="button button--secondary" type="button" onClick={() => setConfigurando("editar")}>
-                <Icone nome="engrenagem" />
-                Configurar pipelines
+            <div className="acoes-pipelines">
+              {podeConfigurar ? (
+                <button className="button button--secondary" type="button" onClick={() => setConfigurando("editar")}>
+                  <Icone nome="engrenagem" />
+                  Configurar pipelines
+                </button>
+              ) : null}
+              <button className="button button--accent" type="button" onClick={() => setCriando({})}>
+                <Icone nome="mais" />
+                Novo negócio
               </button>
-            ) : null}
+            </div>
           </div>
-          <QuadroDoPipeline pipeline={selecionado} />
+          {aviso ? (
+            <p className="aviso aviso--erro aviso-flutuante" role="alert">
+              {aviso}
+            </p>
+          ) : null}
+          <QuadroDoPipeline key={selecionado.id} pipeline={selecionado} negocios={negocios} visao={visao} usuarioId={usuario?.id ?? null} acoes={acoes} />
         </>
       ) : (
         <section className="pipelines-vazio">
@@ -96,6 +178,32 @@ export function PipelinesView({
             router.refresh();
           }}
         />
+      ) : null}
+
+      {criando && selecionado ? (
+        <NovoNegocio
+          pipelines={ativos}
+          pipelineInicial={selecionado}
+          etapaInicialId={criando.etapaId ?? null}
+          usuarioId={usuario?.id ?? null}
+          responsaveisDeCliente={responsaveisDeCliente}
+          aoCriar={(negocio) => {
+            setCriando(null);
+            if (negocio.pipelineId === selecionado.id) confirmado([negocio]);
+            else router.push(hrefDoPipeline(negocio.pipelineId));
+          }}
+          aoFechar={() => setCriando(null)}
+        />
+      ) : null}
+
+      {encerrando?.tipo === "ganho" && selecionado ? (
+        <GanhoDoNegocio pipeline={selecionado} negocio={encerrando.negocio} aoConcluir={concluir} aoFechar={() => setEncerrando(null)} />
+      ) : null}
+      {encerrando?.tipo === "perda" && selecionado ? (
+        <PerdaDoNegocio pipeline={selecionado} negocio={encerrando.negocio} aoConcluir={concluir} aoFechar={() => setEncerrando(null)} />
+      ) : null}
+      {encerrando?.tipo === "transferencia" && selecionado ? (
+        <TransferirNegocio pipelines={ativos} origem={selecionado} negocio={encerrando.negocio} aoConcluir={concluir} aoFechar={() => setEncerrando(null)} />
       ) : null}
     </div>
   );

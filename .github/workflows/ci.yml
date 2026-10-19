@@ -107,6 +107,11 @@ jobs:
         run: pnpm db:migrate:deploy
 
       - name: Seed local foundation data
+        env:
+          # Contas de exemplo (uma delas comercial na Plugga): o e2e de negócios
+          # precisa de alguém da equipe comercial para ser responsável. O banco
+          # da CI é descartável e a senha é a fictícia de CI.
+          SEED_SAMPLE_TEAM: "true"
         run: pnpm db:seed
 
       - name: Verify append-only database triggers

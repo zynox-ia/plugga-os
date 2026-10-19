@@ -15,7 +15,7 @@ export function Modal({
   /** Nome acessível do diálogo (normalmente o título visível). */
   rotulo: string;
   aoFechar: () => void;
-  largura?: "media" | "larga";
+  largura?: "estreita" | "media" | "larga";
   children: ReactNode;
 }) {
   const ref = useRef<HTMLDialogElement>(null);

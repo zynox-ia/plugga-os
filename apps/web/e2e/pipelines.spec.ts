@@ -29,13 +29,13 @@ test.describe("Pipelines — configuração pelo modal (PLU-269)", () => {
 
     await modal.getByRole("button", { name: "Fechar" }).click();
     await page.getByRole("navigation", { name: "Pipelines" }).getByRole("link", { name: new RegExp(nome) }).click();
-    const quadro = page.getByRole("region", { name: `Quadro do pipeline ${nome}` });
+    const quadro = page.getByRole("region", { name: `Negócios do pipeline ${nome}` });
     await expect(quadro.getByRole("heading", { level: 3 })).toHaveText(["Iniciar atendimento", "Qualificação", "Proposta", "Negociação", "Contrato"]);
     await expect(quadro.getByText("Contrato assinado", { exact: true })).toBeVisible();
 
     // O link da aba reabre o mesmo pipeline para quem o recebe.
     await page.goto(page.url());
-    await expect(page.getByRole("region", { name: `Quadro do pipeline ${nome}` })).toBeVisible();
+    await expect(page.getByRole("region", { name: `Negócios do pipeline ${nome}` })).toBeVisible();
 
     await page.getByRole("button", { name: "Configurar pipelines" }).click();
     await modal.getByRole("button", { name: "Arquivar" }).click();

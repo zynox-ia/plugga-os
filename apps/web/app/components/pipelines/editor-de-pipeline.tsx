@@ -24,8 +24,15 @@ export function EditorDePipeline({
   aoAlterar,
   empresasPermitidas,
   nomesDaEquipe,
+  negociosPorEtapa,
+  totalDeNegocios,
   erros,
-}: PropsDaSecao & { empresasPermitidas: CompanyKey[]; nomesDaEquipe: Record<string, string> }) {
+}: PropsDaSecao & {
+  empresasPermitidas: CompanyKey[];
+  nomesDaEquipe: Record<string, string>;
+  negociosPorEtapa: Record<string, number>;
+  totalDeNegocios: number;
+}) {
   const [aba, setAba] = useState<Aba>("geral");
   const contagem: Partial<Record<Aba, number>> = {
     etapas: rascunho.stages.length,
@@ -54,8 +61,8 @@ export function EditorDePipeline({
         ))}
       </div>
       <section id={`painel-${aba}`} role="tabpanel" aria-labelledby={`aba-${aba}`} className="painel-pipeline">
-        {aba === "geral" ? <SecaoGeral rascunho={rascunho} aoAlterar={aoAlterar} erros={erros} empresasPermitidas={empresasPermitidas} /> : null}
-        {aba === "etapas" ? <SecaoEtapas rascunho={rascunho} aoAlterar={aoAlterar} erros={erros} /> : null}
+        {aba === "geral" ? <SecaoGeral rascunho={rascunho} aoAlterar={aoAlterar} erros={erros} empresasPermitidas={totalDeNegocios > 0 ? [rascunho.companyId] : empresasPermitidas} totalDeNegocios={totalDeNegocios} /> : null}
+        {aba === "etapas" ? <SecaoEtapas rascunho={rascunho} aoAlterar={aoAlterar} erros={erros} negociosPorEtapa={negociosPorEtapa} /> : null}
         {aba === "etiquetas" ? <SecaoEtiquetas rascunho={rascunho} aoAlterar={aoAlterar} erros={erros} /> : null}
         {aba === "motivos" ? <SecaoMotivos rascunho={rascunho} aoAlterar={aoAlterar} erros={erros} /> : null}
         {aba === "equipe" ? <SecaoEquipe rascunho={rascunho} aoAlterar={aoAlterar} erros={erros} nomesDaEquipe={nomesDaEquipe} /> : null}
@@ -64,7 +71,7 @@ export function EditorDePipeline({
   );
 }
 
-function SecaoGeral({ rascunho, aoAlterar, erros, empresasPermitidas }: PropsDaSecao & { empresasPermitidas: CompanyKey[] }) {
+function SecaoGeral({ rascunho, aoAlterar, erros, empresasPermitidas, totalDeNegocios }: PropsDaSecao & { empresasPermitidas: CompanyKey[]; totalDeNegocios: number }) {
   return (
     <div className="form-grade">
       <div className="field">
@@ -120,7 +127,9 @@ function SecaoGeral({ rascunho, aoAlterar, erros, empresasPermitidas }: PropsDaS
         </div>
         <p className="nota-pipeline">
           <Icone nome="info" tamanho={14} />
-          Todo negócio deste pipeline pertence a esta empresa. Trocar a empresa limpa a equipe, que vem das pessoas da empresa.
+          {totalDeNegocios > 0
+            ? `Este pipeline tem ${totalDeNegocios === 1 ? "1 negócio" : `${totalDeNegocios} negócios`} e não muda de empresa. Para levar negócios à outra empresa, mova-os para um pipeline dela.`
+            : "Todo negócio deste pipeline pertence a esta empresa. Trocar a empresa limpa a equipe, que vem das pessoas da empresa."}
         </p>
       </fieldset>
 
