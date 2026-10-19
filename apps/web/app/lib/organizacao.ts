@@ -33,9 +33,8 @@ export const EMPRESA_PADRAO: EmpresaId = "plugga";
 
 /**
  * `pronto` tem tela ligada a dado real; `parcial` tem tela, mas ainda é
- * mock ou incompleta; `em-breve` só existe no desenho. O status aparece na
- * própria navegação de propósito: uma tela que promete e não entrega custa
- * mais confiança do que um item honestamente marcado como não construído.
+ * mock ou incompleta; `em-breve` só existe no desenho. A navegação usa o
+ * status para desabilitar processos sem tela, sem exibir etiquetas de status.
  */
 export type ProcessoStatus = "pronto" | "parcial" | "em-breve";
 

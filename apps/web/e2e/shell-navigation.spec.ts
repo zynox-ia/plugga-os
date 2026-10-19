@@ -5,18 +5,11 @@ import { navGroupsForAccess } from "../app/lib/navigation";
 import { EMPRESAS_POR_ID, GLOBAIS, VISAO_GERAL } from "../app/lib/organizacao";
 
 const ITEMS = navGroupsForAccess().flatMap((group) => group.items);
-/** Só o que tem tela navega; o resto aparece marcado como "em breve". */
+/** Só o que tem tela navega; o resto permanece inativo. */
 const NAVEGAVEIS = ITEMS.filter((item) => !item.disabled);
 
-/**
- * O nome acessível do botão inclui a etiqueta de status renderizada dentro dele
- * ("parcial"/"em breve") — foi a etiqueta nascer e a suíte inteira passar a
- * procurar botões que não existem mais. Derivar o nome do catálogo faz um
- * rótulo novo quebrar aqui, não na CI três commits depois.
- */
-function nomeAcessivel(item: { label: string; disabled?: boolean; badge?: string }): string {
-  if (item.disabled) return `${item.label} em breve`;
-  return item.badge ? `${item.label} ${item.badge}` : item.label;
+function nomeAcessivel(item: { label: string }): string {
+  return item.label;
 }
 
 /**
@@ -78,10 +71,8 @@ test.describe("Plugga shell — smoke", () => {
     await expect(departamento).toHaveAttribute("aria-expanded", "true");
   });
 
-  // A estrutura só é útil se o que ainda não existe estiver visível e inerte:
-  // esconder daria a impressão de que o desenho não foi combinado, e deixar
-  // clicável levaria a 404.
-  test("processes without a screen are shown, marked and not clickable", async ({ page }) => {
+  // O processo planejado continua visível e inerte, sem etiqueta de status.
+  test("processes without a screen are visible and not clickable", async ({ page }) => {
     await page.goto("/");
     await abrirDepartamentos(page);
 
@@ -93,7 +84,7 @@ test.describe("Plugga shell — smoke", () => {
       .getByRole("button", { name: nomeAcessivel(pendente!), exact: true });
     await expect(botao).toBeVisible();
     await expect(botao).toBeDisabled();
-    await expect(botao.locator(".nav-tag")).toHaveText("em breve");
+    await expect(page.locator(".sidebar-nav .nav-tag")).toHaveCount(0);
   });
 
   test("mobile: sidebar is off-canvas and toggled via aria-expanded menu button", async ({ page }) => {
@@ -164,12 +155,24 @@ test.describe("Navegação única", () => {
     await expect(page.locator(".sidebar-nav .nav-parent", { hasText: "Energia" })).toBeVisible();
     await expect(page.locator(".sidebar-nav .nav-parent", { hasText: "Comercial" })).toHaveCount(1);
     await expect(page.locator(".sidebar-nav .nav-parent", { hasText: "Financeiro" })).toHaveCount(1);
+    await expect(page.locator(".sidebar-nav .nav-tag")).toHaveCount(0);
+  });
+
+  test("cabeçalho permanece no topo durante a rolagem do conteúdo", async ({ page }) => {
+    await page.goto("/");
+    const header = page.locator(".topbar");
+    const yInicial = (await header.boundingBox())?.y;
+    await page.locator(".main-content").evaluate((main) => { main.scrollTop = main.scrollHeight; });
+    const rolagem = await page.locator(".main-content").evaluate((main) => main.scrollTop);
+
+    expect(rolagem).toBeGreaterThan(0);
+    expect((await header.boundingBox())?.y).toBe(yInicial);
   });
 
   test("visão geral permanece visível sem contexto global de empresa", async ({ page }) => {
     await page.goto("/");
     for (const processo of VISAO_GERAL) {
-      const rotulo = processo.status === "parcial" ? `${processo.label} parcial` : processo.label;
+      const rotulo = processo.label;
       await expect(
         page.locator(".sidebar-nav").getByRole("button", { name: rotulo, exact: true }),
       ).toBeVisible();
@@ -195,7 +198,7 @@ test.describe("Navegação única", () => {
 
     await page
       .locator(".sidebar-nav")
-      .getByRole("button", { name: "Obras parcial", exact: true })
+      .getByRole("button", { name: "Obras", exact: true })
       .click();
     await expect(page).toHaveURL((url) => url.pathname === "/engenharia", { timeout: 15_000 });
     expect(new URL(page.url()).searchParams.has("empresa")).toBe(false);

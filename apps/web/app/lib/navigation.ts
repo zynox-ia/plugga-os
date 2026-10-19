@@ -12,8 +12,8 @@ import {
 } from "./organizacao";
 
 /**
- * Deriva a navegação de `organizacao.ts`: uma lista de departamentos e processos,
- * com o que ainda não existe marcado em vez de escondido.
+ * Deriva a navegação de `organizacao.ts`: uma lista de departamentos e processos.
+ * Processos sem tela permanecem visíveis e desabilitados.
  *
  * O id do item é a própria rota quando ela existe; para o que não tem tela, um
  * id sintético mantém a chave única sem inventar uma rota que daria 404.
@@ -24,7 +24,6 @@ function navItem(processo: Processo, prefixo: string) {
     id: processo.rota ?? `${prefixo}:${processo.label}`,
     label: processo.label,
     disabled: processo.status === "em-breve",
-    badge: processo.status === "parcial" ? ("parcial" as const) : undefined,
   };
 }
 
