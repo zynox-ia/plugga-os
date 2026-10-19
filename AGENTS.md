@@ -1,71 +1,75 @@
 # AGENTS.md
 
-Instruções para agentes de IA neste repositório (Claude Code, Codex e outros). Este arquivo tem **regras e comandos, nunca descrição do código**: a arquitetura se descobre lendo o código que a tarefa exige. Mantenha-o curto.
+Instruções para agentes de IA neste repositório. Este arquivo contém regras e comandos; leia apenas o código necessário para a tarefa.
 
-<!-- projeto:inicio · escrito pela preparação da casa (fase 4); editável pelo time -->
 ## Projeto
 
-Sistema operacional interno da Plugga / Waze Energia. Stack: TypeScript · Next.js + NestJS · PostgreSQL.
-Usuário de teste: a definir (o seed não registra uma senha de desenvolvimento).
+Sistema operacional interno da Plugga / Waze Energia. Stack: TypeScript · Next.js · NestJS · PostgreSQL · Redis.
+Usuário de teste: a definir; o seed não registra senha de desenvolvimento.
+Planejamento: projetos, issues e dependências no Linear, sem marcos/milestones. Decisão do André em 2026-10-18.
 
 ## Comandos
 
 | Ação | Comando |
 |---|---|
 | Instalar dependências | `pnpm install --frozen-lockfile` |
-| Subir serviços (Docker) | `docker compose up -d` |
-| Migrations | `pnpm db:migrate` |
-| Seed (dados de exemplo) | `pnpm db:seed` |
-| Subir a aplicação | `pnpm dev` (web 3000; API 3001) |
+| Subir serviços locais | `docker compose up -d` |
+| Migrations locais | `pnpm db:migrate` |
+| Seed sintético | `pnpm db:seed` |
+| Subir aplicação | `pnpm dev` (web 3000; API 3001) |
 | Lint | `pnpm lint` |
 | Typecheck | `pnpm typecheck` |
 | Testes | `pnpm test` |
-| Um teste isolado | `pnpm --filter @plugga/api exec vitest run <arquivo>` |
-<!-- projeto:fim -->
+| Build | `pnpm build` |
+| Teste isolado da API | `pnpm --filter @plugga/api exec vitest run <arquivo>` |
+| Teste isolado da web | `pnpm --filter @plugga/web exec node --test <arquivo>` |
 
-<!-- dev-workflow:inicio · gerenciado por docs/fluxo/04-atualizar-fluxo.md; não edite neste projeto -->
+## Regras do projeto
+
+- Leia `.specify/memory/constitution.md` antes de mudar código. Mudanças de arquitetura, persistência, autenticação, integrações, auditoria ou jobs exigem ADR.
+- Não acesse nem altere sistemas externos ou produção sem ADR aceita e aprovação explícita, conforme a constituição. Use apenas dados sintéticos ou banco local de teste.
+- Preserve os limites do monorepo: `apps/*` pode importar `packages/*`; pacotes não importam aplicações; web e API se comunicam por HTTP e contratos de `packages/shared`.
+- Nunca registre `.env`, credenciais, tokens ou dados de clientes em commits, documentação, logs, PRs ou Linear.
+- Não retome marcos Alpha/Beta/GA nem a condução por papéis de `docs/fluxo/`. Essas regras são legado até serem atualizadas.
+
 ## Fluxo de trabalho
 
-Este repositório segue o dev-workflow. A regra completa está em `docs/fluxo/00-convencoes.md`; em conflito, ela vence este arquivo. Se você recebeu um papel (00 Condutor, 01 a 09 em `docs/fluxo/papeis/`, sessão visual), o arquivo do papel vale no que ele define, e este arquivo vale no resto.
+Spec-Driven Development com GitHub Spec Kit. Sem papéis fixos, time obrigatório de agentes ou Condutor. Toda mudança que não é pequena passa pelo Spec Kit; não escreva `spec.md`, `plan.md` ou `tasks.md` à mão fora dele.
 
 ### Antes de mudar código
-- Leia `.specify/memory/constitution.md`: ela vale para toda mudança.
-- Leia só o código que a tarefa exige.
-- Faça só o que a issue ou a spec pede. O que encontrar fora do escopo vira observação no PR, não código.
-- Dúvida de negócio não se resolve por suposição: vira pergunta.
 
-### Git
-- Nunca commite em `main` ou `develop`. Nunca use `push --force` nem `rebase` em branch compartilhada. Merge é do André; só o 00 Condutor, no modo automático, mescla na `develop` (regras em `docs/fluxo/02-condutor.md`).
-- Branch `<tipo>/<id>-<slug>` a partir da `develop` (hotfix: a partir da `main`).
-- Commit: `<tipo>(<domínio>): <resumo no imperativo> (<ID>)` (Conventional Commits; resumo em português).
-- PR para a `develop` (hotfix: `main`), título `<tipo>(<domínio>): <título da issue sem o [TIPO] e sem "Spec NNN —", começando em minúscula> (<ID>)`, corpo com `Fixes <ID>`.
+- Leia só o código que a tarefa exige e faça apenas o que a issue ou spec pede. Fora do escopo vira observação no PR.
+- Dúvida de negócio vira pergunta ao André; não resolva por suposição.
 
 ### Spec Kit
+
 - Specs em `specs/NNN-<slug>/` (`spec.md`, `plan.md`, `tasks.md`); feature ativa em `.specify/feature.json`.
-- Skills: `/speckit-<comando>` no Claude Code, `$speckit-<comando>` no Codex. Bugs: `speckit-bug-assess`, `speckit-bug-fix`, `speckit-bug-test`.
-- Um papel por agente, sem pular papéis (`docs/fluxo/papeis/README.md`).
+- Sequência: `speckit-specify` → `speckit-clarify` (se houver dúvida real) → `speckit-plan` → `speckit-tasks` → `speckit-analyze` → `speckit-implement`. No Codex, use `$speckit-<comando>`; no Claude Code, `/speckit-<comando>`.
+- Bugs: `speckit-bug-assess`, `speckit-bug-fix`, `speckit-bug-test`. Mudança pequena de texto, tela ou correção óbvia dispensa spec; mudança de comportamento exige teste.
+- Tarefas `[P]` em arquivos distintos podem ser delegadas a subagentes em paralelo. Só o agente principal commita. Mudanças em arquivos compartilhados são serializadas.
 
-### Qualidade
-- Antes de declarar pronto: lint, typecheck e testes (seção Comandos) passando.
-- Mudança de comportamento vem com teste. Nunca remova, pule ou enfraqueça um teste para fazê-lo passar.
-- Falhas que já existiam estão em `.specify/memory/projeto.md` (*Linha de base*) e não são da sua tarefa.
+### Git e pasta base
 
-### Dados, segredos e ambiente
-- Nunca use dados de produção localmente (LGPD). Banco de teste: cópia do banco local da develop ou seed.
-- Nunca commite `.env`, chaves ou credenciais, nem invente valores para eles.
-- Portas: develop 3000, teste do Condutor 3001, sessão visual 3002. Não derrube a aplicação da develop nem use a porta de outro.
+- Nunca commite em `main` ou `develop`; nunca use `push --force` nem rebase em branch compartilhada. Merge é do André.
+- Trabalhe em branch `<tipo>/<slug>` a partir da `develop` (hotfix a partir da `main`). Use Conventional Commits com resumo em português.
+- Faça um commit por task ou pequeno grupo relacionado, marcando `[X]` no mesmo commit. Cada commit deixa o typecheck e os testes da área passando. Só o agente principal faz commits.
+- Ao concluir, faça push com o nome explícito da branch e abra PR para `develop` (hotfix: `main`). Relate mudanças, verificações executadas, verificações não executadas e riscos. Não encerre trabalho de implementação sem commit.
+- A pasta base na `develop` é para consulta. Trabalhe em branch/worktree própria. Após merge, atualize a pasta base apenas com `git fetch origin` e `git merge --ff-only origin/develop`, preservando arquivos locais.
 
 ### Linear
-- Issues no padrão de `docs/fluxo/00-convencoes.md` (seções 2 a 6): títulos e descrições em português, prefixo `[TIPO]`.
-- Para registrar demandas ou sub-issues: skill `registrar-linear`.
 
-### Onde está o quê
-| Caminho | Conteúdo |
-|---|---|
-| `docs/fluxo/` | Convenções, prompts e skills. Cópia do repositório central: não edite aqui |
-| `docs/guias/` | Os padrões explicados |
-| `docs/roadmap/` | Roadmap e decisões |
-| `.specify/memory/` | Constituição; `projeto.md` (ambiente local, linha de base, time do Linear) |
-| `specs/` | Specs do Spec Kit |
-| `.pipeline/` | Estado do Condutor e das issues (não versionado); não altere fora do seu papel |
-<!-- dev-workflow:fim -->
+- Use projetos, issues e relações `blocked by`; não crie nem use marcos/milestones.
+- Ao iniciar uma issue, mova para `In Progress`; ao abrir o PR, mova para `In Review` e anexe o link. Só o André conclui a issue após o merge.
+- Em cada fase concluída, registre o que foi feito, testes realmente executados, decisões e pendências. Registre decisões de produto do André na issue e na spec. Não crie issues fora do escopo sem pedido do André.
+
+### Revisão e qualidade
+
+- Quem implementa não revisa nem aprova o próprio PR. Outro agente ou sessão lê spec, plano e diff sem herdar o contexto da implementação; achados voltam para correção na mesma branch.
+- Mudanças `[SECURITY]` exigem aprovação humana do plano antes da implementação e revisão independente antes do merge.
+- Antes de declarar pronto: `pnpm lint`, `pnpm typecheck`, `pnpm test` e `pnpm build` passando. Mudança de comportamento exige teste; nunca remova, pule ou enfraqueça teste para fazê-lo passar.
+- Suíte que pulou por falta de ambiente não conta como executada. Para alterações só de documentação, não rode suítes integrais sem motivo; valide o diff e deixe a CI do PR verificar o restante.
+
+### Testes com serviços locais
+
+- Para mudanças em migrations, autenticação persistida, permissões, jobs ou armazenamento, use as suítes pertinentes em `apps/api/package.json` e a infraestrutura isolada de `pnpm test:infra:up`; encerre com `pnpm test:infra:down` apenas os recursos criados para a tarefa.
+- Nunca aponte testes para produção nem pare containers ou bancos de outros agentes. Registre quais suítes rodaram de fato e quais ficaram pendentes.
