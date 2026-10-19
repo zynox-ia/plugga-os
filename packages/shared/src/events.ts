@@ -60,6 +60,10 @@ export const catalogoEventos = {
   "obras.measurement.recorded": evento("Medição lançada", "empresa"),
   "obras.project_version.created": evento("Versão de projeto criada", "empresa"),
   "commercial.opportunity.won": evento("Oportunidade ganha", "empresa"),
+  "commercial.pipeline.created": evento("Pipeline de venda criado", "empresa"),
+  "commercial.pipeline.updated": evento("Configuração do pipeline alterada", "empresa"),
+  "commercial.pipeline.archived": evento("Pipeline arquivado", "empresa"),
+  "commercial.pipeline.restored": evento("Pipeline reativado", "empresa"),
   "clientes.client.created": evento("Cliente criado", "empresa"),
   // Cadastro de cliente não tem empresa dona (ADR-0013): o escopo é a plataforma.
   "clientes.contact.added": evento("Contato do cliente adicionado", "plataforma"),

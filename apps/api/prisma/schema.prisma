@@ -273,6 +273,8 @@ model User {
   authTokens                     AuthToken[]
   opportunities                  Opportunity[]
   clientsOwned                   Client[]                @relation("ClientOwner")
+  pipelinesUpdated               Pipeline[]              @relation("PipelineUpdatedBy")
+  pipelineMemberships            PipelineMember[]
   contracts                      Contract[]
   marketMigrations               MarketMigration[]
   cycles                         Cycle[]                 @relation("CycleOwner")
@@ -405,6 +407,7 @@ model Company {
   obras        Obra[]
   fornecedores Fornecedor[]
   pedidos      PedidoDeCompra[]
+  pipelines    Pipeline[]
 
   @@map("companies")
 }
@@ -835,6 +838,96 @@ model ClientContact {
 
   @@index([clientId])
   @@map("client_contacts")
+}
+
+enum PipelineMemberRole {
+  vendedor
+  gestor
+
+  @@map("pipeline_member_role")
+}
+
+/// Pipeline de venda criado pela tela (PLU-269). Pertence a uma empresa, e todo
+/// negócio dele herda essa empresa. Arquivar esconde o pipeline das abas sem
+/// apagar nada; com negócios, ele nunca é apagado.
+model Pipeline {
+  id          String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId   String               @map("company_id")
+  name        String
+  description String?
+  /// Como a tela chama o valor do negócio neste pipeline (ex.: "Investimento estimado").
+  valueLabel  String               @map("value_label")
+  color       String
+  /// Nomes dos desfechos neste pipeline (ex.: "Contrato assinado"); os desfechos em si são fixos.
+  wonLabel    String               @map("won_label")
+  lostLabel   String               @map("lost_label")
+  archivedAt  DateTime?            @map("archived_at") @db.Timestamptz(6)
+  createdAt   DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime             @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  updatedById String?              @map("updated_by_id") @db.Uuid
+  company     Company              @relation(fields: [companyId], references: [id])
+  updatedBy   User?                @relation("PipelineUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  stages      PipelineStage[]
+  tags        PipelineTag[]
+  lossReasons PipelineLossReason[]
+  members     PipelineMember[]
+
+  @@unique([companyId, name])
+  @@map("pipelines")
+}
+
+model PipelineStage {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  pipelineId     String   @map("pipeline_id") @db.Uuid
+  name           String
+  color          String
+  position       Int
+  /// Dias na etapa a partir dos quais o negócio aparece como parado; nulo desliga o alerta.
+  staleAfterDays Int?     @map("stale_after_days")
+  pipeline       Pipeline @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+
+  @@index([pipelineId, position])
+  @@map("pipeline_stages")
+}
+
+model PipelineTag {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  pipelineId String   @map("pipeline_id") @db.Uuid
+  name       String
+  color      String
+  position   Int
+  pipeline   Pipeline @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+
+  @@index([pipelineId, position])
+  @@map("pipeline_tags")
+}
+
+model PipelineLossReason {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  pipelineId      String   @map("pipeline_id") @db.Uuid
+  name            String
+  /// O motivo pede a data em que o negócio deve ser retomado.
+  asksRevisitDate Boolean  @default(false) @map("asks_revisit_date")
+  position        Int
+  pipeline        Pipeline @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+
+  @@index([pipelineId, position])
+  @@map("pipeline_loss_reasons")
+}
+
+/// Quem trabalha no pipeline (`vendedor`) e quem o configura (`gestor`). O gestor
+/// do departamento comercial da empresa e o admin alcançam todos os pipelines
+/// da empresa sem precisar estar aqui.
+model PipelineMember {
+  pipelineId String             @map("pipeline_id") @db.Uuid
+  userId     String             @map("user_id") @db.Uuid
+  role       PipelineMemberRole
+  pipeline   Pipeline           @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  user       User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([pipelineId, userId])
+  @@index([userId])
+  @@map("pipeline_members")
 }
 
 /// A commercial opportunity worked from lead to a ganha/perdida decision.

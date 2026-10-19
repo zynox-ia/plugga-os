@@ -16,5 +16,6 @@ export * from "./llm.js";
 export * from "./obra.js";
 export * from "./organization.js";
 export * from "./permissions.js";
+export * from "./pipelines.js";
 export * from "./pluggamob.js";
 export * from "./whatsapp.js";

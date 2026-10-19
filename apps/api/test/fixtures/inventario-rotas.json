@@ -1731,6 +1731,98 @@
     ]
   },
   {
+    "metodo": "GET",
+    "caminho": "/pipelines",
+    "controller": "PipelinesController.list",
+    "acesso": "roles",
+    "papeis": [
+      "comercial",
+      "admin"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "RolesGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/pipelines",
+    "controller": "PipelinesController.create",
+    "acesso": "roles",
+    "papeis": [
+      "comercial",
+      "admin"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "RolesGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "PUT",
+    "caminho": "/pipelines/:id",
+    "controller": "PipelinesController.update",
+    "acesso": "roles",
+    "papeis": [
+      "comercial",
+      "admin"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "RolesGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/pipelines/:id/arquivar",
+    "controller": "PipelinesController.archive",
+    "acesso": "roles",
+    "papeis": [
+      "comercial",
+      "admin"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "RolesGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/pipelines/:id/reativar",
+    "controller": "PipelinesController.restore",
+    "acesso": "roles",
+    "papeis": [
+      "comercial",
+      "admin"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "RolesGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/pipelines/pessoas",
+    "controller": "PipelinesController.people",
+    "acesso": "roles",
+    "papeis": [
+      "comercial",
+      "admin"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "RolesGuard"
+    ]
+  },
+  {
     "metodo": "POST",
     "caminho": "/pluggamob/incidents",
     "controller": "PluggamobController.createIncident",

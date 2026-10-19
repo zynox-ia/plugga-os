@@ -145,6 +145,12 @@ jobs:
       - name: Verify audit events carry no personal data
         run: pnpm --filter @plugga/api test:eventos-pii
 
+      - name: Verify client registry against Postgres
+        run: pnpm --filter @plugga/api test:clientes
+
+      - name: Verify sales pipeline configuration against Postgres
+        run: pnpm --filter @plugga/api test:pipelines
+
       - name: Verify login limiter and session cache against Redis
         run: pnpm --filter @plugga/api test:redis
 
