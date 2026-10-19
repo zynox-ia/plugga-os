@@ -1,6 +1,5 @@
-// Validação e geração de documentos sintéticos (spec 002, US2). Ninguém aqui
-// identifica uma pessoa ou empresa real: a faixa reservada é documentada em
-// specs/002-fundacao-solida/quickstart.md e o scanner a trata como permitida.
+// Validação e geração de documentos sintéticos. Ninguém aqui identifica uma
+// pessoa ou empresa real; as faixas reservadas abaixo são permitidas pelo scanner.
 
 /** CNPJ: raiz começando por 99999 (8 dígitos), filial 0001. CPF: 9 primeiros dígitos começando por 999999. */
 export const FAIXA_CNPJ = "99999";

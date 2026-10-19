@@ -369,8 +369,7 @@ export function ComprasPedidoDetalheView({
 
           {pedido.etapa === "retirada" ? (
             <>
-              {/* Quem confirma é quem pediu o material — ver a divergência
-                  declarada em docs/processos/compras-suprimentos.md. */}
+              {/* Quem confirma é quem pediu o material. */}
               <p className="card-note">
                 O recebimento é confirmado por <strong>{pedido.solicitanteNome}</strong>, que pediu o material.
               </p>

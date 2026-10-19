@@ -18,7 +18,7 @@ import {
  * estadual conta como dia útil e encurta o prazo real. Introduzir feriados
  * depois muda `prazo_em` já gravado e exige backfill — não é troca gratuita.
  *
- * Armazenamento em UTC, calendário em America/Manaus (`docs/AGENT.md`).
+ * Armazenamento em UTC, calendário em America/Manaus.
  */
 
 const FUSO = "America/Manaus";

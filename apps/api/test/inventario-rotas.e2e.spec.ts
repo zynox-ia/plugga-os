@@ -9,10 +9,10 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { AppModule } from "../src/app.module";
 import { listarRotas, type RotaDoInventario } from "../src/core/auth/inventario-rotas";
 
-const ARQUIVO = path.resolve(__dirname, "../../../specs/002-fundacao-solida/contracts/inventario-rotas.json");
+const ARQUIVO = path.resolve(__dirname, "fixtures/inventario-rotas.json");
 
 /**
- * Inventário de rotas (spec 002, US5, FR-020/021/023). Sobe a aplicação, lista
+ * Inventário de rotas. Sobe a aplicação, lista
  * toda rota HTTP com como ela declara o acesso e compara com o arquivo
  * versionado. Rota nova ou alterada faz o teste falhar até o arquivo ser
  * regenerado e revisado (CODEOWNERS cobre o arquivo):

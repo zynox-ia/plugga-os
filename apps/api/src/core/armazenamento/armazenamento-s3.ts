@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { ServicoIndisponivel } from "../../common/errors/dominio";
 
 /**
- * Porta de armazenamento de objetos e a única implementação S3 (spec 002, T193).
+ * Porta de armazenamento de objetos e a única implementação S3.
  * Compras e Obras usam o mesmo cliente, a mesma regra de nome e a mesma política
  * de falha: **lançar**, porque o arquivo é o próprio requisito do processo e um
  * registro que "salvou" sem o arquivo é um registro que não existe.

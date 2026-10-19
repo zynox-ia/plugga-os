@@ -6,7 +6,7 @@
 
 <!-- Link the issue, ticket, ADR, or accepted requirement. -->
 
-Spec: <!-- specs/NNN-short-name/, or "n/a" for a small fix -->
+Issue/ADR: <!-- link ou "n/a" -->
 
 ## Verification
 
@@ -24,7 +24,6 @@ Spec: <!-- specs/NNN-short-name/, or "n/a" for a small fix -->
 - [ ] Jobs remain inventory-only; no production cron was changed
 - [ ] `packages/*` do not import `apps/*`, and `apps/web` and `apps/api` communicate only through HTTP plus `packages/shared`
 - [ ] New or changed mutable agent behavior is locally audited through the agreed contracts
-- [ ] `plan.md` Constitution Check passes, or the violation is justified in Complexity Tracking
 
 ## Handoff / review notes
 

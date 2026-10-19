@@ -22,8 +22,8 @@ import { PrismaService } from "../prisma/prisma.service";
  * Isto é funcionalidade de fundação morando num módulo de domínio. O segundo
  * módulo a ganhar `companyId` deve promovê-la para `core/auth` — `AuthPrincipal`
  * carregando as memberships e um guard reutilizável — e Compras passa a
- * consumi-lo. Promover é mudança de fundação e pede revisão do ARCHITECT,
- * conforme `docs/AGENT.md`. Duplicar esta classe num terceiro módulo, não.
+ * consumi-lo. Promover é mudança de fundação e pede revisão técnica.
+ * Duplicar esta classe num terceiro módulo, não.
  */
 
 /** Compras vive no departamento Financeiro nas duas empresas. */

@@ -1,7 +1,7 @@
 name: plugga-os
 
 # Rotação de logs em todos os serviços: sem isto o json-file cresce sem limite e
-# enche o disco da VPS (spec 002, T173).
+# enche o disco da VPS.
 x-logging: &logging-padrao
   driver: json-file
   options:

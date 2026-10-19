@@ -31,7 +31,7 @@ import type { ProcessoLlm } from "./processo.js";
 /**
  * Chave da integração no catálogo (`integrations.key`). A chamada real só sai
  * com ela em `read_only` ou mais aberto; em `mock` (ou sem registro) o gateway
- * devolve um resultado simulado e não toca a rede (spec 002, US6).
+ * devolve um resultado simulado e não toca a rede.
  */
 export const OPENROUTER_INTEGRATION_KEY = "openrouter";
 

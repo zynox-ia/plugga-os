@@ -1,75 +1,39 @@
 # AGENTS.md
 
-Instruções para agentes de IA neste repositório (Claude Code, Codex e outros). Este arquivo tem **regras e comandos, nunca descrição do código**: a arquitetura se descobre lendo o código que a tarefa exige. Mantenha-o curto.
+Instruções para agentes de IA neste repositório. Leia apenas o código necessário para a tarefa.
 
-<!-- projeto:inicio · escrito pela preparação da casa (fase 4); editável pelo time -->
-## Projeto
+## Projeto e comandos
 
-Sistema operacional interno da Plugga / Waze Energia. Stack: TypeScript · Next.js + NestJS · PostgreSQL.
-Usuário de teste: a definir (o seed não registra uma senha de desenvolvimento).
-
-## Comandos
+Sistema operacional interno da Plugga / Waze Energia. Stack: TypeScript · Next.js · NestJS · PostgreSQL · Redis.
+Usuário de teste local: `admin@plugga.local`; a senha vem de `SEED_ADMIN_PASSWORD` no `.env` local.
 
 | Ação | Comando |
 |---|---|
 | Instalar dependências | `pnpm install --frozen-lockfile` |
-| Subir serviços (Docker) | `docker compose up -d` |
-| Migrations | `pnpm db:migrate` |
-| Seed (dados de exemplo) | `pnpm db:seed` |
-| Subir a aplicação | `pnpm dev` (web 3000; API 3001) |
+| Subir PostgreSQL e Redis locais | `docker compose up -d --wait postgres redis` |
+| Aplicar migrations | `pnpm db:migrate:deploy` |
+| Seed local | `pnpm db:seed` |
+| Subir aplicação | `pnpm dev` (web 3000; API 3001, configuráveis) |
 | Lint | `pnpm lint` |
 | Typecheck | `pnpm typecheck` |
 | Testes | `pnpm test` |
-| Um teste isolado | `pnpm --filter @plugga/api exec vitest run <arquivo>` |
+| Build | `pnpm build` |
+| Teste isolado da API | `pnpm --filter @plugga/api exec vitest run <arquivo>` |
+| Teste isolado da web | `pnpm --filter @plugga/web exec node --test <arquivo>` |
 
-## Skills de engenharia
+## Trabalho
 
-Para tarefas de especificação, implementação, interface, testes, revisão, segurança e entrega, consulte `.agents/skills/using-agent-skills/SKILL.md` e carregue somente as skills pertinentes em `.agents/skills/`. As referências compartilhadas ficam em `.agents/references/`. Fonte: [addyosmani/agent-skills](https://github.com/addyosmani/agent-skills), revisão `aeac41d4d005999432bb7312f7ff06383a91d59d`.
-<!-- projeto:fim -->
+- O Linear é a fonte da verdade para projetos, issues e dependências. Não use milestones, specs, OpenSpec nem Spec Kit: a issue do Linear traz o resultado esperado e os critérios de aceite, e o trabalho vai direto para o código.
+- Use as skills de engenharia do Addy Osmani ([addyosmani/agent-skills](https://github.com/addyosmani/agent-skills), revisão `aeac41d4d005999432bb7312f7ff06383a91d59d`). Comece por `using-agent-skills` e carregue só as pertinentes à tarefa (por exemplo `incremental-implementation`, `test-driven-development`, `frontend-ui-engineering`, `api-and-interface-design`, `code-review-and-quality`). Ficam em `.claude/skills/` (Claude Code) e `.agents/skills/` (Codex), com as referências em `.claude/references/` e `.agents/references/`.
+- Dúvida de negócio vira pergunta ao André. Preserve o escopo da tarefa; achados fora dele viram observação.
+- A pasta principal fica na `develop` e é o localhost do André. Trabalhe e faça commits diretamente nela para que o servidor local em modo watch reflita as edições sem merge ou pull entre branches. Antes de começar, confira a árvore e preserve alterações preexistentes; se houver commits remotos novos, use `git pull --ff-only origin develop` sem descartar alterações locais.
+- Faça commits pequenos, por tarefa, em Conventional Commits em português. Adicione ao commit só os arquivos da tarefa. Após as verificações, envie com `git push origin develop` para rodar a CI; não use force push nem rebase na `develop`.
+- A `main` é produção. Nunca commite ou faça push diretamente nela. A promoção é um PR de `develop` para `main`, revisado e mesclado pelo André. Não promova trabalho incompleto junto com a release.
+- Antes de declarar código pronto, rode lint, typecheck, testes e build. Mudança de comportamento exige teste; não remova ou enfraqueça testes para fazê-los passar. Alteração apenas documental pode ser verificada pelo diff e pela CI.
 
-<!-- dev-workflow:inicio · gerenciado por docs/fluxo/04-atualizar-fluxo.md; não edite neste projeto -->
-## Fluxo de trabalho
+## Segurança e ambiente
 
-Este repositório segue o dev-workflow. A regra completa está em `docs/fluxo/00-convencoes.md`; em conflito, ela vence este arquivo. Se você recebeu um papel (00 Condutor, 01 a 09 em `docs/fluxo/papeis/`, sessão visual), o arquivo do papel vale no que ele define, e este arquivo vale no resto.
-
-### Antes de mudar código
-- Leia `.specify/memory/constitution.md`: ela vale para toda mudança.
-- Leia só o código que a tarefa exige.
-- Faça só o que a issue ou a spec pede. O que encontrar fora do escopo vira observação no PR, não código.
-- Dúvida de negócio não se resolve por suposição: vira pergunta.
-
-### Git
-- Nunca commite em `main` ou `develop`. Nunca use `push --force` nem `rebase` em branch compartilhada. Merge é do André; só o 00 Condutor, no modo automático, mescla na `develop` (regras em `docs/fluxo/02-condutor.md`).
-- Branch `<tipo>/<id>-<slug>` a partir da `develop` (hotfix: a partir da `main`).
-- Commit: `<tipo>(<domínio>): <resumo no imperativo> (<ID>)` (Conventional Commits; resumo em português).
-- PR para a `develop` (hotfix: `main`), título `<tipo>(<domínio>): <título da issue sem o [TIPO] e sem "Spec NNN —", começando em minúscula> (<ID>)`, corpo com `Fixes <ID>`.
-
-### Spec Kit
-- Specs em `specs/NNN-<slug>/` (`spec.md`, `plan.md`, `tasks.md`); feature ativa em `.specify/feature.json`.
-- Skills: `/speckit-<comando>` no Claude Code, `$speckit-<comando>` no Codex. Bugs: `speckit-bug-assess`, `speckit-bug-fix`, `speckit-bug-test`.
-- Um papel por agente, sem pular papéis (`docs/fluxo/papeis/README.md`).
-
-### Qualidade
-- Antes de declarar pronto: lint, typecheck e testes (seção Comandos) passando.
-- Mudança de comportamento vem com teste. Nunca remova, pule ou enfraqueça um teste para fazê-lo passar.
-- Falhas que já existiam estão em `.specify/memory/projeto.md` (*Linha de base*) e não são da sua tarefa.
-
-### Dados, segredos e ambiente
-- Nunca use dados de produção localmente (LGPD). Banco de teste: cópia do banco local da develop ou seed.
-- Nunca commite `.env`, chaves ou credenciais, nem invente valores para eles.
-- Portas: develop 3000, teste do Condutor 3001, sessão visual 3002. Não derrube a aplicação da develop nem use a porta de outro.
-
-### Linear
-- Issues no padrão de `docs/fluxo/00-convencoes.md` (seções 2 a 6): títulos e descrições em português, prefixo `[TIPO]`.
-- Para registrar demandas ou sub-issues: skill `registrar-linear`.
-
-### Onde está o quê
-| Caminho | Conteúdo |
-|---|---|
-| `docs/fluxo/` | Convenções, prompts e skills. Cópia do repositório central: não edite aqui |
-| `docs/guias/` | Os padrões explicados |
-| `docs/roadmap/` | Roadmap e decisões |
-| `.specify/memory/` | Constituição; `projeto.md` (ambiente local, linha de base, time do Linear) |
-| `specs/` | Specs do Spec Kit |
-| `.pipeline/` | Estado do Condutor e das issues (não versionado); não altere fora do seu papel |
-<!-- dev-workflow:fim -->
+- Não acesse ou altere produção nem integrações externas sem aprovação explícita do André. Use dados sintéticos e serviços locais.
+- Nunca registre `.env`, credenciais, tokens ou dados de clientes em commits, documentação, logs, PRs ou Linear.
+- Preserve os limites do monorepo: aplicações podem importar `packages/*`; pacotes não importam aplicações; web e API se comunicam por HTTP e contratos de `packages/shared`.
+- Não pare nem apague serviços, bancos, volumes ou arquivos de outro projeto/agente. Suíte pulada por falta de infraestrutura não conta como executada.
