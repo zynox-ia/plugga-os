@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRef, useState, type FormEvent, type ReactNode } from "react";
 
 import {
+  formatarCep,
   problemasDoCadastro,
   somenteDigitos,
   type ClientDetail,
@@ -14,12 +15,14 @@ import {
 } from "@plugga/shared";
 
 import {
+  documentoFormatado,
   enviar,
   hrefDaFicha,
   ORIGENS,
   ROTULO_MOTIVO,
   ROTULO_ORIGEM,
   ROTULO_TIPO,
+  telefoneFormatado,
   UFS,
   type ErroDoFormulario,
 } from "../lib/clientes";
@@ -192,7 +195,7 @@ export function ClienteForm(props: Propriedades) {
               inputMode="numeric"
               maxLength={20}
               placeholder={ehPj ? "00.000.000/0000-00" : "000.000.000-00"}
-              defaultValue={cliente?.document ?? ""}
+              defaultValue={cliente ? (documentoFormatado(cliente.personType, cliente.document) ?? "") : ""}
               onBlur={conferirDocumento}
               {...invalido("document")}
             />
@@ -212,7 +215,7 @@ export function ClienteForm(props: Propriedades) {
           ) : null}
 
           <Campo id={id("phone")} rotulo="Telefone" erro={erroDo("phone")}>
-            <input id={id("phone")} name="phone" type="tel" maxLength={20} placeholder="(92) 99999-9999" defaultValue={cliente?.phone ?? ""} onBlur={conferirContato} {...invalido("phone")} />
+            <input id={id("phone")} name="phone" type="tel" maxLength={20} placeholder="(92) 99999-9999" defaultValue={telefoneFormatado(cliente?.phone ?? null) ?? ""} onBlur={conferirContato} {...invalido("phone")} />
           </Campo>
           <Campo id={id("email")} rotulo="E-mail" erro={erroDo("email")}>
             <input id={id("email")} name="email" type="email" maxLength={254} defaultValue={cliente?.email ?? ""} onBlur={conferirContato} {...invalido("email")} />
@@ -257,7 +260,7 @@ export function ClienteForm(props: Propriedades) {
         <p className="form-secao">Endereço</p>
         <div className="form-grade">
           <Campo id={id("postalCode")} rotulo="CEP" erro={erroDo("postalCode")}>
-            <input id={id("postalCode")} name="postalCode" inputMode="numeric" maxLength={9} placeholder="69000-000" defaultValue={cliente?.postalCode ?? ""} {...invalido("postalCode")} />
+            <input id={id("postalCode")} name="postalCode" inputMode="numeric" maxLength={9} placeholder="69000-000" defaultValue={cliente?.postalCode ? formatarCep(cliente.postalCode) : ""} {...invalido("postalCode")} />
           </Campo>
           <Campo id={id("street")} rotulo="Logradouro e número" erro={erroDo("street")}>
             <input id={id("street")} name="street" maxLength={200} defaultValue={cliente?.street ?? ""} />

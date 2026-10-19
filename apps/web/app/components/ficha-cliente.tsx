@@ -238,12 +238,16 @@ function Contatos({ cliente, aoMudar }: { cliente: ClientDetail; aoMudar: (clien
   const [editandoId, setEditandoId] = useState<string | "novo" | null>(cliente.contacts.length === 0 ? "novo" : null);
   const [removendoId, setRemovendoId] = useState<string | null>(null);
   const [erro, setErro] = useState<string | null>(null);
+  // Uma ação por vez: a resposta de uma não pode desfazer o que a pessoa abriu enquanto esperava.
+  const [pendente, setPendente] = useState(false);
 
   async function executar(caminho: string, metodo: "PATCH" | "DELETE", corpo?: unknown) {
+    setPendente(true);
     const resposta = await enviar<ClientDetail>(caminho, metodo, corpo);
+    setPendente(false);
     if (!resposta.ok) return setErro(resposta.erro.mensagem);
     setErro(null);
-    setRemovendoId(null);
+    if (metodo === "DELETE") setRemovendoId(null);
     aoMudar(resposta.dados);
   }
 
@@ -283,7 +287,7 @@ function Contatos({ cliente, aoMudar }: { cliente: ClientDetail; aoMudar: (clien
               {removendoId === contato.id ? (
                 <div className="row-actions">
                   <span>Remover {contato.name}?</span>
-                  <button className="button button--small" type="button" onClick={() => executar(`${base}/${contato.id}`, "DELETE")}>
+                  <button className="button button--small" type="button" disabled={pendente} onClick={() => executar(`${base}/${contato.id}`, "DELETE")}>
                     Remover
                   </button>
                   <button className="button button--secondary button--small" type="button" onClick={() => setRemovendoId(null)}>
@@ -293,14 +297,14 @@ function Contatos({ cliente, aoMudar }: { cliente: ClientDetail; aoMudar: (clien
               ) : (
                 <div className="row-actions">
                   {!contato.isPrimary ? (
-                    <button className="button button--secondary button--small" type="button" onClick={() => executar(`${base}/${contato.id}`, "PATCH", { isPrimary: true })}>
+                    <button className="button button--secondary button--small" type="button" disabled={pendente} onClick={() => executar(`${base}/${contato.id}`, "PATCH", { isPrimary: true })}>
                       Tornar principal
                     </button>
                   ) : null}
-                  <button className="button button--secondary button--small" type="button" onClick={() => setEditandoId(contato.id)}>
+                  <button className="button button--secondary button--small" type="button" disabled={pendente} onClick={() => setEditandoId(contato.id)}>
                     Editar
                   </button>
-                  <button className="button button--secondary button--small" type="button" onClick={() => setRemovendoId(contato.id)}>
+                  <button className="button button--secondary button--small" type="button" disabled={pendente} onClick={() => setRemovendoId(contato.id)}>
                     Remover
                   </button>
                 </div>
