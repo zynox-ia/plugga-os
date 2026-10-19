@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Gera, de forma determinística, os dados sintéticos que substituem os reais
-// (spec 002, US2): CNPJ e CPF com dígito válido na faixa reservada (ver
+// para testes: CNPJ e CPF com dígito válido na faixa reservada (ver
 // dados-sinteticos.mjs), nomes e unidades consumidoras fictícios. Grava a lista
 // de permitidos usada pelo scanner. Mesma semente, mesma saída.
 import { writeFileSync } from "node:fs";

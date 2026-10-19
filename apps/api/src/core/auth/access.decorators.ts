@@ -5,7 +5,7 @@ import { PERMISSIONS_METADATA } from "./permissions.decorator";
 import { ROLES_METADATA } from "./roles.decorator";
 
 /**
- * Declaração explícita de acesso (spec 002, US5, contrato inventario-rotas.md).
+ * Declaração explícita de acesso (inventário em apps/api/test/fixtures/inventario-rotas.json).
  * Toda rota declara exatamente um destes: `@Public()`, `@Authenticated()` ou
  * `@Roles(...)`. Rota sem declaração é "undeclared": registrada em log no modo
  * `warn` e negada no modo `enforce` (ver rota-fechada.guard.ts).

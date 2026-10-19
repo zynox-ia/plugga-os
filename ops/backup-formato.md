@@ -1,6 +1,6 @@
 # Contrato: formato do backup externo
 
-Valida FR-011, FR-012, FR-015 e FR-016.
+Descreve o destino, o conteúdo, a criptografia e a prova de restauração do backup externo.
 
 ## Destino
 
@@ -45,7 +45,7 @@ Regra: contagens e tamanhos, nunca nomes de clientes, chaves de objeto com nome 
 - `age` com **dois destinatários**: chave pública do dono (privada offline) e chave pública de teste (privada em `/root/.plugga-restauracao.key`, modo 600, só na VPS).
 - A VPS nunca tem a chave privada do dono.
 - Chave de aplicação do B2 da VPS: **só escrita** (sem apagar, sem listar além do necessário). Chave de leitura (restauração) em arquivo separado, modo 600.
-- Nenhuma chave aparece em linha de comando (`docker inspect`, `ps`): variáveis por arquivo de ambiente ou `--env-file`, não `-e CHAVE=...` (FR-015).
+- Nenhuma chave aparece em linha de comando (`docker inspect`, `ps`): variáveis por arquivo de ambiente ou `--env-file`, não `-e CHAVE=...`.
 
 ## Rotinas
 

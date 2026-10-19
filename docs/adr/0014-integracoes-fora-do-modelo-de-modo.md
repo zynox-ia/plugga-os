@@ -2,8 +2,8 @@
 
 - **Status:** Aceito
 - **Data:** 2026-10-05
-- **Decisores:** dono do sistema, ARCHITECT (revisão pendente)
-- **Contexto:** spec `specs/002-fundacao-solida`, história 6 (T083)
+- **Decisores:** dono do sistema (revisão técnica pendente)
+- **Contexto:** limites de modo das integrações externas
 - **Depende de:** ADR-0005, ADR-0009, ADR-0010
 
 ## Contexto
@@ -19,7 +19,7 @@ estática (`scripts/verifica-rede-externa.mjs`) não virar ruído.
 1. **E-mail transacional (Brevo)** fica fora do modelo de modo. É saída transacional
    própria (convite, redefinição de senha), não leitura nem escrita num sistema de produção
    de terceiros. O isolamento em desenvolvimento e teste continua sendo o `EmailPort` com
-   Mailpit (ADR-0010). É a exceção ao ADR-0010 que a spec pede para registrar: o adaptador
+   Mailpit (ADR-0010). É a exceção ao ADR-0010 registrada nesta decisão: o adaptador
    `email/brevo-email.adapter.ts` chama a rede sem passar pelo gate.
 2. **Armazenamento S3 (SeaweedFS/MinIO) e Redis** são infraestrutura própria do produto,
    não integrações. Têm modo de falha próprio (indisponibilidade), não modo de capacidade.

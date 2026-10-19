@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 /**
- * Envelope único de erro da API (contrato: specs/002-fundacao-solida/contracts/erro-envelope.md).
+ * Envelope único de erro da API.
  * O web decide comportamento pelo `codigo`, nunca pela `mensagem`.
  */
 export const codigosDeErro = [

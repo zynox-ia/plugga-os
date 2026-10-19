@@ -31,7 +31,7 @@ async function comPrazo(sonda: () => Promise<void>): Promise<ResultadoDaSonda> {
   }
 }
 
-/** Prontidão: o app só está pronto se o banco, o Redis e o armazenamento respondem (spec 002, T167). */
+/** Prontidão: o app só está pronto se o banco, o Redis e o armazenamento respondem. */
 @Injectable()
 export class HealthService {
   constructor(

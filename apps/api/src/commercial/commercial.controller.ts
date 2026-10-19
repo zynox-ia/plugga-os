@@ -37,7 +37,7 @@ import { RolesGuard } from "../core/auth/roles.guard";
 import { CommercialService } from "./commercial.service";
 
 /**
- * Contracts have no finer-grained role decision yet (spec §"Limites"), so they
+ * Contracts have no finer-grained role decision yet, so they
  * intentionally share the opportunities mutation roles below rather than
  * inventing a new role. Revisit once RBAC for contracts is decided.
  */

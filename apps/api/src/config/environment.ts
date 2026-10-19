@@ -50,7 +50,7 @@ export const environmentSchema = z
     DEV_AUTH_ENABLED: environmentBoolean.default(false),
     // Rota sem @Public/@Authenticated/@Roles: `warn` só registra em log (padrão,
     // até o inventário ser aprovado); `enforce` nega. Voltar a `warn` não exige
-    // nova publicação (spec 002, US5).
+    // nova publicação.
     ROUTE_GUARD_MODE: z.enum(["warn", "enforce"]).default("enforce"),
     // Express `trust proxy` (ADR-0012). "loopback" is only correct while every
     // process shares a host: once api/web are separate containers the request

@@ -1,4 +1,4 @@
-/** A página de referência visual só existe fora de produção (spec 002, T205). */
+/** A página de referência visual só existe fora de produção. */
 export function designSystemHabilitado(nodeEnv: string | undefined): boolean {
   return nodeEnv !== "production";
 }

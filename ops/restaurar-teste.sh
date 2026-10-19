@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Prova que o backup restaura (FR-016, constituição VI). É o "backup restaurado
+# Prova que o backup restaura. É o "backup restaurado
 # antes" exigido de toda tarefa que mexe na VPS: restaura o dump mais recente num
 # Postgres DESCARTÁVEL e confere que o banco voltou com tabelas. Nunca toca o
 # banco de produção.

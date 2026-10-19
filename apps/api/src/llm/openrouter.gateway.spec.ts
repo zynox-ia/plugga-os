@@ -167,7 +167,7 @@ describe("gateway da OpenRouter", () => {
     });
   });
 
-  describe("modo da integração (spec 002, US6)", () => {
+  describe("modo da integração", () => {
     it("em mock não sai na rede, não lê a chave e devolve resultado identificado como simulado", async () => {
       const fetchMock = vi.fn(async () => Response.json(CORPO_OK));
       vi.stubGlobal("fetch", fetchMock);

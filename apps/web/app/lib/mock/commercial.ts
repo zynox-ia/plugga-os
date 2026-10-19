@@ -2,7 +2,7 @@ import type { ContractSummary, OpportunitySummary } from "@plugga/shared";
 
 /**
  * Fallback local (usado só quando GET /commercial/* não responde). Espelha o
- * wireframe do spec (comercial-clientes) — nomes e etapas ilustrativos, sem
+ * wireframe comercial — nomes e etapas ilustrativos, sem
  * dado real de cliente.
  */
 export const FALLBACK_OPPORTUNITIES: OpportunitySummary[] = [

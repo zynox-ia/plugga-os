@@ -30,8 +30,7 @@ export const eventNames = {
 export type EventName = (typeof eventNames)[keyof typeof eventNames];
 
 /**
- * Catálogo de eventos de auditoria (contrato:
- * specs/002-fundacao-solida/contracts/catalogo-eventos.md).
+ * Catálogo de eventos de auditoria.
  *
  * Nome novo: `<dominio>.<entidade>.<acao_no_passado>`, minúsculas, ASCII.
  * `escopo: "empresa"` grava `company_id`; `pii` é sempre `false` (um `true`

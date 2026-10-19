@@ -36,7 +36,7 @@ export const FALLBACK_AUDITS: AuditSummary[] = [
 
 /**
  * Fallback local (usado só quando GET /energy/cycles não responde). Espelha
- * o wireframe do spec (energia-opm) — nomes e etapas ilustrativos, sem dado
+ * o wireframe de energia — nomes e etapas ilustrativos, sem dado
  * real de cliente.
  */
 export const FALLBACK_CYCLES: CycleSummary[] = [

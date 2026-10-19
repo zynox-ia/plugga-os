@@ -1,6 +1,6 @@
 # ADR-0013 — Empresa como atributo do registro, módulos compartilhados e escopo único
 
-- Status: Aceito (decisão de produto do dono em 2026-10-05; revisão técnica do ARCHITECT pendente) · Data: 2026-10-05 · Decisores: dono do sistema (decisões de produto confirmadas em 2026-10-05), ARCHITECT (revisão pendente) · Contexto: spec `specs/002-fundacao-solida` (história 4) e spec 003 (unificação do produto)
+- Status: Aceito (decisão de produto do dono em 2026-10-05; revisão técnica pendente) · Data: 2026-10-05 · Decisores: dono do sistema · Contexto: unificação do produto e escopo por empresa
 
 ## Contexto
 
@@ -39,7 +39,7 @@ Problemas confirmados na auditoria de 2026-10-05:
      estudos) são filtrados pela empresa do registro.
    - Fornecedor: cadastro único; o vínculo com a empresa vive nos pedidos e lançamentos.
      (Hoje `fornecedores` tem `company_id` e unicidade `(company_id, documento)`; a migração para
-     cadastro único é parte da spec 003.)
+     cadastro único exige uma mudança própria.)
 4. **Lançamento financeiro exige empresa**, porque os CNPJs são distintos e a contabilidade é
    separada. Numeração de pedidos continua por empresa.
 5. **Acesso por área e empresa.** Cada pessoa recebe papéis por área funcional e as empresas em
@@ -50,7 +50,7 @@ Problemas confirmados na auditoria de 2026-10-05:
    o usuário e todo repositório de módulo de negócio o aplica em toda consulta e mutação. Registro
    de empresa não permitida responde "não encontrado". Os dois repositórios de escopo atuais
    (Compras e Obras) são absorvidos por esse componente.
-> **Nota de 2026-10-05 (plano da spec 002).** O acesso já é guardado por (pessoa, empresa, papel) em `user_company_roles`; o defeito está no guard, que ignora a empresa. Por isso a spec 002 **não troca as tabelas de acesso**: ela torna o guard e os repositórios sensíveis à empresa. O agrupamento por área funcional é apresentação e fica na spec 003. As referências abaixo a "(área, empresas)" valem como modelo de apresentação.
+> **Nota de 2026-10-05.** O acesso já é guardado por (pessoa, empresa, papel) em `user_company_roles`; o defeito está no guard, que ignora a empresa. A correção inicial torna o guard e os repositórios sensíveis à empresa, sem trocar as tabelas de acesso. O agrupamento por área funcional é uma mudança de apresentação posterior. As referências abaixo a "(área, empresas)" valem como modelo de apresentação.
 
 7. **Concessão.** Quem concede papéis só concede áreas e empresas que administra; um papel
    concedido numa empresa nunca vale em outra.
@@ -64,12 +64,12 @@ Problemas confirmados na auditoria de 2026-10-05:
    de 2026-08-11 já atribuiu esses acessos. Compras e Obras já têm empresa e permanecem. Casos
    duvidosos vão para fila de decisão manual, nunca são adivinhados.
 
-## Faseamento
+## Ordem das mudanças
 
-- **Spec 002, história 4 (segurança):** campo de empresa nos registros que não o têm, escopo
+- **Segurança e dados:** campo de empresa nos registros que não o têm, escopo
   único em `core/auth`, concessão limitada, testes de negação entre empresas. **Não** altera menu
   nem cadastros.
-- **Spec 003 (produto):** menu único por função, remoção do seletor global e filtros de empresa por
+- **Produto:** menu único por função, remoção do seletor global e filtros de empresa por
   tela, cadastros únicos de cliente e fornecedor, rótulos de empresa nos registros, ajustes das telas de Equipe e acessos.
 
 ## Consequências
@@ -85,13 +85,13 @@ Problemas confirmados na auditoria de 2026-10-05:
 **Negativas**
 
 - Cada tela de negócio precisa implementar e testar seu filtro de empresa; a consistência fica
-  garantida por um componente de filtro compartilhado e por um catálogo de telas e filtros na spec 003.
+  garantida por um componente de filtro compartilhado e por um catálogo de telas e filtros.
 - Mudança de modelo de acesso: o par (empresa, departamento) deixa de existir e as tabelas
   `user_department_access` e `user_company_roles` precisam migrar. Exige migração reversível e
   teste de equivalência (ninguém ganha nem perde alcance sem decisão do dono).
 - Cadastro de cliente visível entre empresas é uma escolha de privacidade que precisa constar na
-  política de dados (spec 002, história 8).
-- Duas specs e uma ordem de entrega a respeitar.
+  política de dados.
+- A correção de isolamento deve preceder a unificação das telas.
 
 **Neutras**
 
@@ -115,5 +115,5 @@ Problemas confirmados na auditoria de 2026-10-05:
 ## Guardas de escopo (o que este ADR NÃO autoriza)
 
 - Dar a qualquer usuário alcance maior que o atual sem concessão explícita.
-- Migrar dados sem backup restaurado e plano de reversão (constituição, princípio VI).
+- Migrar dados sem backup restaurado e plano de reversão.
 - Qualquer escrita, envio ou cutover em sistemas externos (ADR-0005).

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Falha se um componente do web passar de 600 linhas sem estar na lista de exceções,
-// ou se uma exceção crescer além do teto registrado (spec 002, T206).
+// ou se uma exceção crescer além do teto registrado.
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import { fileURLToPath } from "node:url";

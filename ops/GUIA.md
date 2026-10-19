@@ -97,9 +97,9 @@ git push
 
 O leitor e a auditoria de faturas (módulo `energy-efficiency`, pacote
 `auditoria-oraculo`, scripts e testes de corpus) foram removidos da árvore na
-spec 002 (US2): carregavam dado real de cliente. Eles voltam por uma spec
-própria, com fixtures sintéticas desde o início (faixa reservada em
-`specs/002-fundacao-solida/quickstart.md`). O balde `plugga-corpus-faturas` e o
+trabalho anterior: carregavam dado real de cliente. Uma implementação futura
+deve usar fixtures sintéticas desde o início (faixas em
+`scripts/dados-sinteticos.mjs`). O balde `plugga-corpus-faturas` e o
 script `ops/prepara-corpus.sh` continuam existindo na VPS; o conteúdo do balde só
 sai por decisão do dono.
 
@@ -308,7 +308,7 @@ ssh plugga-vps '/root/backup-plugga.sh'
 
 Além do backup local, existe o **backup externo cifrado** (`ops/backup-externo.sh`): banco
 e arquivos de negócio saem da VPS para um bucket B2 privado, cifrados com `age` para dois
-destinatários. Formato completo em `specs/002-fundacao-solida/contracts/backup-formato.md`.
+destinatários. Formato completo em `ops/backup-formato.md`.
 
 ```text
 b2://<bucket>/diario/AAAA/MM/plugga-os-AAAAMMDDTHHMMSSZ.tar.age

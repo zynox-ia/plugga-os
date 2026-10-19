@@ -112,7 +112,7 @@ describe("rota fechada por padrão (e2e)", () => {
 
     const inventario: { metodo: string; caminho: string; acesso: string; papeis: string[] }[] = JSON.parse(
       readFileSync(
-        path.resolve(__dirname, "../../../specs/002-fundacao-solida/contracts/inventario-rotas.json"),
+        path.resolve(__dirname, "fixtures/inventario-rotas.json"),
         "utf8",
       ),
     );
