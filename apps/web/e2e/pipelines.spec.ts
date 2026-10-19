@@ -9,11 +9,11 @@ test.describe("Pipelines — configuração pelo modal (PLU-269)", () => {
     await page.getByRole("button", { name: "Configurar pipelines" }).click();
     const modal = page.getByRole("dialog", { name: "Configurar pipelines" });
 
-    await modal.getByRole("button", { name: "+ Novo pipeline" }).click();
+    await modal.getByRole("button", { name: "Novo pipeline" }).click();
     await modal.getByLabel("Nome do pipeline *").fill(nome);
-    await modal.getByLabel("Plugga", { exact: true }).check();
+    await modal.getByRole("radio", { name: /^Plugga/ }).check();
     await modal.getByRole("tab", { name: "Etapas" }).click();
-    await modal.getByRole("button", { name: "+ Adicionar etapa" }).click();
+    await modal.getByRole("button", { name: "Adicionar etapa" }).click();
     await modal.getByLabel("Nome da etapa 5").fill("Contrato");
     await modal.getByLabel("Nome do Ganho neste pipeline *").fill("Contrato assinado");
     await modal.getByRole("button", { name: "Criar pipeline" }).click();
@@ -23,7 +23,7 @@ test.describe("Pipelines — configuração pelo modal (PLU-269)", () => {
     await page.getByRole("navigation", { name: "Pipelines" }).getByRole("link", { name: new RegExp(nome) }).click();
     const quadro = page.getByRole("region", { name: `Quadro do pipeline ${nome}` });
     await expect(quadro.getByRole("heading", { level: 3 })).toHaveText(["Iniciar atendimento", "Qualificação", "Proposta", "Negociação", "Contrato"]);
-    await expect(quadro.getByText("✓ Contrato assinado")).toBeVisible();
+    await expect(quadro.getByText("Contrato assinado", { exact: true })).toBeVisible();
 
     // O link da aba reabre o mesmo pipeline para quem o recebe.
     await page.goto(page.url());
@@ -31,7 +31,7 @@ test.describe("Pipelines — configuração pelo modal (PLU-269)", () => {
 
     await page.getByRole("button", { name: "Configurar pipelines" }).click();
     await modal.getByRole("button", { name: "Arquivar" }).click();
-    await expect(modal.getByText("Arquivado.", { exact: false })).toBeVisible({ timeout: MUTATION_TIMEOUT_MS });
+    await expect(modal.getByText("Arquivado", { exact: true })).toBeVisible({ timeout: MUTATION_TIMEOUT_MS });
     await modal.getByRole("button", { name: "Fechar" }).click();
     await expect(page.getByRole("navigation", { name: "Pipelines" }).getByRole("link", { name: new RegExp(nome) })).toHaveCount(0);
   });

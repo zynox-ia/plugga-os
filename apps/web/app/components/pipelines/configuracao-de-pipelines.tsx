@@ -9,8 +9,10 @@ import { EMPRESAS_POR_ID } from "../../lib/organizacao";
 import { mesmoConteudo, paraCriacao, paraEdicao, rascunhoDe, rascunhoNovo, type Rascunho } from "../../lib/pipelines";
 import { Modal } from "../modal";
 import { EditorDePipeline } from "./editor-de-pipeline";
+import { Icone } from "./icones";
 
 const DESCARTAR = "Há alterações não salvas neste pipeline. Descartar?";
+const plural = (n: number, um: string, varios: string) => `${n} ${n === 1 ? um : varios}`;
 
 /**
  * Modal "Configurar pipelines" (PLU-269): à esquerda, os pipelines que a pessoa
@@ -21,17 +23,22 @@ export function ConfiguracaoDePipelines({
   pipelines,
   canCreateIn,
   inicialId,
+  comecarNovo = false,
   aoFechar,
 }: {
   pipelines: Pipeline[];
   canCreateIn: CompanyKey[];
   inicialId: string | null;
+  comecarNovo?: boolean;
   aoFechar: () => void;
 }) {
   const [lista, setLista] = useState(() => pipelines.filter((p) => p.canConfigure));
-  const inicial = lista.find((p) => p.id === inicialId && p.archivedAt === null) ?? lista.find((p) => p.archivedAt === null) ?? null;
-  const [original, setOriginal] = useState<Rascunho | null>(() => (inicial ? rascunhoDe(inicial) : null));
-  const [rascunho, setRascunho] = useState<Rascunho | null>(original);
+  const [original, setOriginal] = useState<Rascunho | null>(() => {
+    if (comecarNovo) return null;
+    const inicial = lista.find((p) => p.id === inicialId && p.archivedAt === null) ?? lista.find((p) => p.archivedAt === null);
+    return inicial ? rascunhoDe(inicial) : null;
+  });
+  const [rascunho, setRascunho] = useState<Rascunho | null>(() => (comecarNovo && canCreateIn[0] ? rascunhoNovo(canCreateIn[0]) : original));
   const [erro, setErro] = useState<ErroDoFormulario | null>(null);
   const [salvo, setSalvo] = useState(false);
   const [enviando, setEnviando] = useState(false);
@@ -52,7 +59,7 @@ export function ConfiguracaoDePipelines({
   }
 
   function gravado(pipeline: Pipeline) {
-    setLista((anteriores) => [...anteriores.filter((p) => p.id !== pipeline.id), pipeline]);
+    setLista((anteriores) => (anteriores.some((p) => p.id === pipeline.id) ? anteriores.map((p) => (p.id === pipeline.id ? pipeline : p)) : [...anteriores, pipeline]));
     const novo = rascunhoDe(pipeline);
     setOriginal(novo);
     setRascunho(novo);
@@ -87,38 +94,57 @@ export function ConfiguracaoDePipelines({
   const item = (p: Pipeline) => (
     <li key={p.id}>
       <button type="button" className="config-item" aria-current={rascunho?.id === p.id ? "true" : undefined} onClick={() => abrir(rascunhoDe(p))}>
-        <b>{p.name}</b>
-        <span className={`selo-empresa selo-empresa--${p.companyId}`}>{EMPRESAS_POR_ID[p.companyId].nome}</span>
-        <small>{p.stages.length === 1 ? "1 etapa" : `${p.stages.length} etapas`}</small>
+        <span className="config-item-nome">
+          <span className="ponto-cor" style={{ background: p.color }} aria-hidden="true" />
+          {p.name}
+        </span>
+        <span className="config-item-meta">
+          <span className={`selo-empresa selo-empresa--${p.companyId}`}>{EMPRESAS_POR_ID[p.companyId].nome}</span>
+          {plural(p.stages.length, "etapa", "etapas")} · {plural(p.members.length, "pessoa", "pessoas")}
+        </span>
       </button>
     </li>
   );
 
   return (
     <Modal rotulo="Configurar pipelines" largura="larga" aoFechar={() => podeSair() && aoFechar()}>
-      <div className="modal-topo">
+      <div className="modal-topo config-topo">
         <div>
-          <span className="eyebrow">Comercial · Configuração</span>
+          <span className="eyebrow eyebrow--azul">Comercial · Configuração</span>
           <h2>Configurar pipelines</h2>
         </div>
-        <div className="row-actions">
+        <div className="config-topo-acoes">
           {canCreateIn.length > 0 ? (
             <button className="button button--accent" type="button" onClick={() => abrir(rascunhoNovo(canCreateIn[0]!))}>
-              + Novo pipeline
+              <Icone nome="mais" />
+              Novo pipeline
             </button>
           ) : null}
           <button className="botao-fechar" type="button" aria-label="Fechar" onClick={() => podeSair() && aoFechar()}>
-            ✕
+            <Icone nome="x" />
           </button>
         </div>
       </div>
 
       <div className="config-pipelines">
         <nav className="config-lista" aria-label="Pipelines que você configura">
-          {ativos.length > 0 ? <ul>{ativos.map(item)}</ul> : <p className="ficha-vazio">Nenhum pipeline ativo.</p>}
+          <span className="config-lista-titulo">Pipelines</span>
+          {rascunho && !rascunho.id ? (
+            <div className="config-item config-item--novo" aria-current="true">
+              <span className="config-item-nome">
+                <span className="ponto-cor" style={{ background: rascunho.color }} aria-hidden="true" />
+                {rascunho.name || "Pipeline novo"}
+              </span>
+              <span className="config-item-meta">Ainda não salvo</span>
+            </div>
+          ) : null}
+          {ativos.length > 0 ? <ul>{ativos.map(item)}</ul> : <p className="config-lista-vazia">Nenhum pipeline ativo.</p>}
           {arquivados.length > 0 ? (
-            <details>
-              <summary>Arquivados ({arquivados.length})</summary>
+            <details className="config-arquivados">
+              <summary>
+                <Icone nome="arquivo" tamanho={14} />
+                Arquivados ({arquivados.length})
+              </summary>
               <ul>{arquivados.map(item)}</ul>
             </details>
           ) : null}
@@ -138,9 +164,10 @@ export function ConfiguracaoDePipelines({
               erros={erro?.porCampo ?? {}}
             />
           ) : (
-            <p className="ficha-vazio">
-              {canCreateIn.length > 0 ? "Escolha um pipeline à esquerda ou crie um novo." : "Escolha um pipeline à esquerda."}
-            </p>
+            <div className="config-editor-vazio">
+              <Icone nome="engrenagem" tamanho={26} />
+              <p>{canCreateIn.length > 0 ? "Escolha um pipeline à esquerda ou crie um novo." : "Escolha um pipeline à esquerda."}</p>
+            </div>
           )}
         </div>
       </div>
@@ -148,7 +175,7 @@ export function ConfiguracaoDePipelines({
       {rascunho ? (
         <div className="modal-rodape config-rodape">
           <span className="config-rastro">
-            {atual?.archivedAt ? "Arquivado. " : ""}
+            {atual?.archivedAt ? <span className="selo-arquivado">Arquivado</span> : null}
             {atual?.updatedBy ? `Alterado por ${atual.updatedBy.name} em ${formatarDataHoraCurta(atual.updatedAt)}` : rascunho.id ? "" : "Pipeline novo, ainda não salvo"}
           </span>
           {erro ? (
@@ -157,11 +184,12 @@ export function ConfiguracaoDePipelines({
             </p>
           ) : salvo ? (
             <p className="aviso aviso--sucesso" role="status">
-              Alterações salvas.
+              <Icone nome="check" tamanho={14} /> Alterações salvas.
             </p>
           ) : null}
           {atual ? (
             <button className="button button--secondary" type="button" disabled={enviando} onClick={() => mudarSituacao(atual.archivedAt ? "reativar" : "arquivar")}>
+              <Icone nome="arquivo" />
               {atual.archivedAt ? "Reativar" : "Arquivar"}
             </button>
           ) : null}
