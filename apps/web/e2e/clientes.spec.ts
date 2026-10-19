@@ -70,15 +70,15 @@ test.describe("Clientes — cadastro único (PLU-268)", () => {
     await ficha.getByLabel("Papel").selectOption("decisor");
     await ficha.getByRole("button", { name: "Salvar contato" }).click();
     const juliana = ficha.getByRole("article", { name: "Contato Juliana Prado" });
-    await expect(juliana.getByText("Principal")).toBeVisible({ timeout: MUTATION_TIMEOUT_MS });
+    await expect(juliana.getByText("Principal", { exact: true })).toBeVisible({ timeout: MUTATION_TIMEOUT_MS });
 
     await ficha.getByRole("button", { name: "+ Adicionar contato" }).click();
     await ficha.getByLabel("Nome do contato *").fill("Rodrigo Lima");
     await ficha.getByRole("button", { name: "Salvar contato" }).click();
     const rodrigo = ficha.getByRole("article", { name: "Contato Rodrigo Lima" });
     await rodrigo.getByRole("button", { name: "Tornar principal" }).click();
-    await expect(rodrigo.getByText("Principal")).toBeVisible({ timeout: MUTATION_TIMEOUT_MS });
-    await expect(juliana.getByText("Principal")).toHaveCount(0);
+    await expect(rodrigo.getByText("Principal", { exact: true })).toBeVisible({ timeout: MUTATION_TIMEOUT_MS });
+    await expect(juliana.getByText("Principal", { exact: true })).toHaveCount(0);
   });
 
   test("bloqueia CNPJ repetido e oferece abrir a ficha existente", async ({ page }) => {
