@@ -2,7 +2,6 @@ import { Inject, Injectable } from "@nestjs/common";
 import { Prisma, type ActorType } from "@prisma/client";
 import {
   companyKeys,
-  departamentoComercial,
   listPipelinesResponseSchema,
   pipelinePeopleResponseSchema,
   pipelineSchema,
@@ -21,15 +20,27 @@ import { AuditAppender } from "../audit/audit-appender";
 import { AcessoNegado, Conflito, EstadoInvalido, NaoEncontrado, RequisicaoInvalida } from "../common/errors/dominio";
 import type { AuthPrincipal } from "../core/auth/auth.types";
 import { PrismaService } from "../prisma/prisma.service";
+import { lerAcessoComercial } from "./acesso-comercial";
 import { PipelinesRepository } from "./pipelines.repository";
-import { alteracoes, idsDesconhecidos, idsRemovidos, podeConfigurar, podeCriarEm, podeVer, type AcessoComercial } from "./pipelines.rules";
+import {
+  alteracoes,
+  idsDesconhecidos,
+  idsRemovidos,
+  podeConfigurar,
+  podeCriarEm,
+  podeVer,
+  problemasDosDestinos,
+  trocaEmpresaComNegocios,
+  type AcessoComercial,
+} from "./pipelines.rules";
 
 const COMPLETO = {
-  stages: { orderBy: { position: "asc" } },
+  stages: { orderBy: { position: "asc" }, include: { _count: { select: { deals: true } } } },
   tags: { orderBy: { position: "asc" } },
   lossReasons: { orderBy: { position: "asc" } },
   members: { include: { user: { select: { id: true, name: true } } }, orderBy: { user: { name: "asc" } } },
   updatedBy: { select: { id: true, name: true } },
+  _count: { select: { deals: true } },
 } satisfies Prisma.PipelineInclude;
 
 type LinhaDePipeline = Prisma.PipelineGetPayload<{ include: typeof COMPLETO }>;
@@ -52,10 +63,18 @@ function paraPipeline(linha: LinhaDePipeline, canConfigure: boolean): Pipeline {
     archivedAt: linha.archivedAt?.toISOString() ?? null,
     updatedAt: linha.updatedAt.toISOString(),
     updatedBy: linha.updatedBy,
-    stages: linha.stages.map(({ id, name, color, position, staleAfterDays }) => ({ id, name, color, position, staleAfterDays })),
+    stages: linha.stages.map(({ id, name, color, position, staleAfterDays, _count }) => ({
+      id,
+      name,
+      color,
+      position,
+      staleAfterDays,
+      dealCount: _count.deals,
+    })),
     tags: linha.tags.map(({ id, name, color }) => ({ id, name, color })),
     lossReasons: linha.lossReasons.map(({ id, name, asksRevisitDate }) => ({ id, name, asksRevisitDate })),
     members: linha.members.map((m) => ({ userId: m.userId, name: m.user.name, role: m.role })),
+    dealCount: linha._count.deals,
     canConfigure,
   });
 }
@@ -138,6 +157,12 @@ export class PrismaPipelinesRepository extends PipelinesRepository {
     if (!atual.canConfigure) throw new AcessoNegado("Só gestores deste pipeline alteram a configuração.");
     // Tela desatualizada recebe o motivo certo antes de qualquer outra checagem (ids de etapas já excluídas, por exemplo).
     if (new Date(input.updatedAt).getTime() !== new Date(atual.updatedAt).getTime()) throw new EstadoInvalido(VERSAO_DESATUALIZADA);
+    // Com negócios, ninguém troca a empresa; sem negócios, só quem gere as duas.
+    if (trocaEmpresaComNegocios(atual, input.companyId)) {
+      throw new RequisicaoInvalida("Este pipeline tem negócios e não muda de empresa. Para levar negócios à outra empresa, mova-os para um pipeline dela.", [
+        { campo: "companyId", problema: "pipeline com negócios não muda de empresa" },
+      ]);
+    }
     if (input.companyId !== atual.companyId && !(podeCriarEm(acesso, atual.companyId) && podeCriarEm(acesso, input.companyId))) {
       throw new AcessoNegado("Só quem é gestor comercial das duas empresas troca a empresa do pipeline.");
     }
@@ -148,13 +173,18 @@ export class PrismaPipelinesRepository extends PipelinesRepository {
       ...idsDesconhecidos(atual.lossReasons.map((e) => e.id), input.lossReasons),
     ];
     if (desconhecidos.length > 0) throw new RequisicaoInvalida("A configuração enviada não corresponde a este pipeline. Reabra e tente de novo.");
+    const semDestino = problemasDosDestinos(atual.stages, input.stages, input.stageDestinations);
+    if (semDestino.length > 0) {
+      throw new RequisicaoInvalida(semDestino[0]!, semDestino.map((problema) => ({ campo: "stageDestinations", problema })));
+    }
     if (input.name.toLocaleLowerCase("pt-BR") !== atual.name.toLocaleLowerCase("pt-BR") || input.companyId !== atual.companyId) {
       await this.garantirNomeLivre(input.companyId, input.name, id);
     }
     await this.garantirEquipe(input.companyId, input.members);
 
     const { campos, secoes } = alteracoes(atual, input);
-    const { stages, tags, lossReasons, members, updatedAt, ...gerais } = input;
+    const { stages, tags, lossReasons, members, updatedAt, stageDestinations, ...gerais } = input;
+    const removidas = idsRemovidos(atual.stages.map((e) => e.id), stages);
     await this.comNomeUnico(() =>
       this.prisma.$transaction(async (tx) => {
         // Trava otimista: só grava sobre a versão que a tela leu. O banco guarda
@@ -166,7 +196,27 @@ export class PrismaPipelinesRepository extends PipelinesRepository {
         });
         if (gravado.count === 0) throw new EstadoInvalido(VERSAO_DESATUALIZADA);
 
-        await tx.pipelineStage.deleteMany({ where: { pipelineId: id, id: { in: idsRemovidos(atual.stages.map((e) => e.id), stages) } } });
+        // Antes de excluir, os negócios das etapas removidas vão para o destino escolhido.
+        for (const etapa of atual.stages.filter((e) => removidas.includes(e.id) && e.dealCount > 0)) {
+          const destino = stages.find((e) => e.id === stageDestinations[etapa.id])!;
+          const agora = new Date();
+          const abertos = await tx.deal.findMany({ where: { stageId: etapa.id, status: "open" }, select: { id: true } });
+          await tx.deal.updateMany({ where: { stageId: etapa.id, status: "open" }, data: { stageId: destino.id!, stageEnteredAt: agora } });
+          await tx.deal.updateMany({ where: { stageId: etapa.id }, data: { stageId: destino.id! } });
+          await tx.dealHistory.createMany({
+            data: abertos.map((negocio) => ({
+              dealId: negocio.id,
+              kind: "stage_changed" as const,
+              fromStageId: etapa.id,
+              fromStageName: etapa.name,
+              toStageId: destino.id!,
+              toStageName: destino.name,
+              actorId: principal.id,
+              occurredAt: agora,
+            })),
+          });
+        }
+        await tx.pipelineStage.deleteMany({ where: { pipelineId: id, id: { in: removidas } } });
         for (const [position, { id: etapaId, name, color, staleAfterDays }] of stages.entries()) {
           const dados = { name, color, staleAfterDays, position };
           if (etapaId) await tx.pipelineStage.update({ where: { id: etapaId }, data: dados });
@@ -218,19 +268,8 @@ export class PrismaPipelinesRepository extends PipelinesRepository {
     return this.lerParaQuemPediu(id, principal.id, acesso);
   }
 
-  /** Admin, ou empresas em que a pessoa gere o departamento comercial. */
-  private async acessoDe(pessoaId: string): Promise<AcessoComercial> {
-    const [admin, gestao] = await Promise.all([
-      this.prisma.userPlatformRole.findFirst({ where: { userId: pessoaId, role: { key: "admin" } }, select: { userId: true } }),
-      this.prisma.userDepartmentAccess.findMany({
-        where: { userId: pessoaId, isManager: true, departmentId: { in: Object.values(departamentoComercial) } },
-        select: { companyId: true, departmentId: true },
-      }),
-    ]);
-    const gestorEm = companyKeys.filter((empresa) =>
-      gestao.some((g) => g.companyId === empresa && g.departmentId === departamentoComercial[empresa]),
-    );
-    return { admin: admin !== null, gestorEm };
+  private acessoDe(pessoaId: string): Promise<AcessoComercial> {
+    return lerAcessoComercial(this.prisma, pessoaId);
   }
 
   /** Quem não alcança o pipeline recebe "não encontrado": a existência não vaza. */

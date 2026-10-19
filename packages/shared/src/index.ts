@@ -4,6 +4,7 @@ export * from "./bitrix.js";
 export * from "./clients.js";
 export * from "./commercial.js";
 export * from "./compras.js";
+export * from "./deals.js";
 export * from "./documento.js";
 export * from "./email-status.js";
 export * from "./energy.js";

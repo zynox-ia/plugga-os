@@ -275,6 +275,9 @@ model User {
   clientsOwned                   Client[]                @relation("ClientOwner")
   pipelinesUpdated               Pipeline[]              @relation("PipelineUpdatedBy")
   pipelineMemberships            PipelineMember[]
+  dealsOwned                     Deal[]                  @relation("DealOwner")
+  dealsCreated                   Deal[]                  @relation("DealCreatedBy")
+  dealHistory                    DealHistory[]           @relation("DealHistoryActor")
   contracts                      Contract[]
   marketMigrations               MarketMigration[]
   cycles                         Cycle[]                 @relation("CycleOwner")
@@ -811,6 +814,7 @@ model Client {
   energyStudies     EnergyEfficiencyStudy[]
   obras             Obra[]
   pedidosDeCompra   PedidoDeCompra[]
+  deals             Deal[]
 
   @@index([segment, active])
   @@index([ownerId])
@@ -835,6 +839,7 @@ model ClientContact {
   createdAt       DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt       DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
   client          Client             @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  deals           Deal[]
 
   @@index([clientId])
   @@map("client_contacts")
@@ -871,6 +876,7 @@ model Pipeline {
   tags        PipelineTag[]
   lossReasons PipelineLossReason[]
   members     PipelineMember[]
+  deals       Deal[]
 
   @@unique([companyId, name])
   @@map("pipelines")
@@ -885,18 +891,20 @@ model PipelineStage {
   /// Dias na etapa a partir dos quais o negócio aparece como parado; nulo desliga o alerta.
   staleAfterDays Int?     @map("stale_after_days")
   pipeline       Pipeline @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  deals          Deal[]
 
   @@index([pipelineId, position])
   @@map("pipeline_stages")
 }
 
 model PipelineTag {
-  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  pipelineId String   @map("pipeline_id") @db.Uuid
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  pipelineId String    @map("pipeline_id") @db.Uuid
   name       String
   color      String
   position   Int
-  pipeline   Pipeline @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  pipeline   Pipeline  @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  deals      DealTag[]
 
   @@index([pipelineId, position])
   @@map("pipeline_tags")
@@ -910,6 +918,7 @@ model PipelineLossReason {
   asksRevisitDate Boolean  @default(false) @map("asks_revisit_date")
   position        Int
   pipeline        Pipeline @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  deals           Deal[]
 
   @@index([pipelineId, position])
   @@map("pipeline_loss_reasons")
@@ -928,6 +937,111 @@ model PipelineMember {
   @@id([pipelineId, userId])
   @@index([userId])
   @@map("pipeline_members")
+}
+
+enum DealStatus {
+  open
+  won
+  lost
+
+  @@map("deal_status")
+}
+
+enum DealEventKind {
+  created
+  stage_changed
+  won
+  lost
+  transferred
+
+  @@map("deal_event_kind")
+}
+
+/// Negócio no quadro de um pipeline (PLU-271). A empresa é a do pipeline em que
+/// está, sem cópia aqui: mover de pipeline muda a empresa por construção.
+/// Ganho e Perdido encerram o negócio na etapa em que ele estava.
+model Deal {
+  id                String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  pipelineId        String              @map("pipeline_id") @db.Uuid
+  stageId           String              @map("stage_id") @db.Uuid
+  clientId          String              @map("client_id") @db.Uuid
+  contactId         String?             @map("contact_id") @db.Uuid
+  ownerId           String              @map("owner_id") @db.Uuid
+  title             String
+  value             Decimal?            @db.Decimal(14, 2)
+  /// Previsão de fechamento, data de calendário "AAAA-MM-DD".
+  expectedCloseDate String?             @map("expected_close_date")
+  status            DealStatus          @default(open)
+  stageEnteredAt    DateTime            @default(now()) @map("stage_entered_at") @db.Timestamptz(6)
+  closedAt          DateTime?           @map("closed_at") @db.Timestamptz(6)
+  lossReasonId      String?             @map("loss_reason_id") @db.Uuid
+  /// Nome do motivo no momento da perda: o motivo pode ser renomeado ou excluído depois.
+  lossReasonName    String?             @map("loss_reason_name")
+  lossNote          String?             @map("loss_note")
+  /// Data para voltar a falar com o cliente, quando o motivo de perda pede.
+  revisitOn         String?             @map("revisit_on")
+  createdById       String?             @map("created_by_id") @db.Uuid
+  createdAt         DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  pipeline          Pipeline            @relation(fields: [pipelineId], references: [id])
+  stage             PipelineStage       @relation(fields: [stageId], references: [id])
+  client            Client              @relation(fields: [clientId], references: [id])
+  contact           ClientContact?      @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  owner             User                @relation("DealOwner", fields: [ownerId], references: [id])
+  createdBy         User?               @relation("DealCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  lossReason        PipelineLossReason? @relation(fields: [lossReasonId], references: [id], onDelete: SetNull)
+  tags              DealTag[]
+  consumerUnits     DealConsumerUnit[]
+  history           DealHistory[]
+
+  @@index([pipelineId, status])
+  @@index([stageId])
+  @@index([clientId])
+  @@index([ownerId])
+  @@map("deals")
+}
+
+model DealTag {
+  dealId String      @map("deal_id") @db.Uuid
+  tagId  String      @map("tag_id") @db.Uuid
+  deal   Deal        @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  tag    PipelineTag @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([dealId, tagId])
+  @@index([tagId])
+  @@map("deal_tags")
+}
+
+model DealConsumerUnit {
+  dealId         String       @map("deal_id") @db.Uuid
+  consumerUnitId String       @map("consumer_unit_id") @db.Uuid
+  deal           Deal         @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  consumerUnit   ConsumerUnit @relation(fields: [consumerUnitId], references: [id], onDelete: Cascade)
+
+  @@id([dealId, consumerUnitId])
+  @@index([consumerUnitId])
+  @@map("deal_consumer_units")
+}
+
+/// Histórico do negócio: de onde, para onde, quem e quando. Guarda os nomes da
+/// época, porque etapas e pipelines podem ser renomeados ou excluídos depois.
+model DealHistory {
+  id               String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  dealId           String        @map("deal_id") @db.Uuid
+  kind             DealEventKind
+  fromStageId      String?       @map("from_stage_id") @db.Uuid
+  fromStageName    String?       @map("from_stage_name")
+  toStageId        String?       @map("to_stage_id") @db.Uuid
+  toStageName      String?       @map("to_stage_name")
+  fromPipelineName String?       @map("from_pipeline_name")
+  toPipelineName   String?       @map("to_pipeline_name")
+  actorId          String?       @map("actor_id") @db.Uuid
+  occurredAt       DateTime      @default(now()) @map("occurred_at") @db.Timestamptz(6)
+  deal             Deal          @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  actor            User?         @relation("DealHistoryActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([dealId, occurredAt])
+  @@map("deal_history")
 }
 
 /// A commercial opportunity worked from lead to a ganha/perdida decision.
@@ -1009,6 +1123,7 @@ model ConsumerUnit {
   marketMigrations MarketMigration[]
   cycles           Cycle[]
   energyStudies    EnergyEfficiencyStudy[]
+  deals            DealConsumerUnit[]
 
   @@index([clientId])
   @@map("consumer_units")

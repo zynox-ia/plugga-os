@@ -1,0 +1,298 @@
+import { randomInt, randomUUID } from "node:crypto";
+
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+
+import {
+  bulkDealsRequestSchema,
+  createDealRequestSchema,
+  createPipelineRequestSchema,
+  loseDealRequestSchema,
+  pipelineParaEdicao,
+  updatePipelineRequestSchema,
+  type CompanyKey,
+  type Pipeline,
+} from "@plugga/shared";
+
+import { AuditAppender } from "../src/audit/audit-appender.js";
+import { EstadoInvalido, NaoEncontrado, RequisicaoInvalida } from "../src/common/errors/dominio.js";
+import type { AuthPrincipal } from "../src/core/auth/auth.types.js";
+import { hojeNoFuso } from "../src/negocios/negocios.rules.js";
+import { PrismaNegociosRepository } from "../src/negocios/prisma-negocios.repository.js";
+import { PrismaPipelinesRepository } from "../src/pipelines/prisma-pipelines.repository.js";
+import { PrismaService } from "../src/prisma/prisma.service.js";
+
+/**
+ * Negócios no quadro do pipeline (PLU-271) contra o Postgres de verdade:
+ * criar, mudar de etapa com histórico, ganhar, perder com motivo, mover para
+ * pipeline de outra empresa, ações em lote e as regras de configuração que
+ * dependem dos negócios.
+ *
+ *     pnpm --filter @plugga/api test:negocios
+ */
+const HABILITADO = process.env.RUN_NEGOCIOS_INTEGRATION_TESTS === "true";
+const PRAZO_MS = 60_000;
+
+describe.skipIf(!HABILITADO)("negócios: quadro do pipeline no Postgres", () => {
+  const prisma = new PrismaService();
+  const auditoria = new AuditAppender();
+  const pipelines = new PrismaPipelinesRepository(prisma, auditoria);
+  const negocios = new PrismaNegociosRepository(prisma, auditoria);
+  const marca = `neg-${randomUUID().slice(0, 8)}`;
+  const pessoas = {} as Record<"gestor" | "ana" | "bruno" | "forasteiro" | "pluggaVendedor", AuthPrincipal>;
+  let solar: Pipeline;
+  let mercadoLivre: Pipeline;
+  let clienteId: string;
+  let contatoId: string;
+  let ucId: string;
+  let outroContatoId: string;
+
+  const etapa = (nome: string) => solar.stages.find((e) => e.name === nome)!.id;
+  const novo = (dados: Record<string, unknown> = {}) =>
+    negocios.create(
+      createDealRequestSchema.parse({
+        pipelineId: solar.id,
+        stageId: etapa("Qualificação"),
+        clientId: clienteId,
+        ownerId: pessoas.ana.id,
+        title: `${marca} Galpão logístico — 150 kWp`,
+        value: "620000.00",
+        expectedCloseDate: "2026-12-15",
+        ...dados,
+      }),
+      pessoas.ana,
+    );
+
+  async function pessoa(chave: keyof typeof pessoas, empresa: CompanyKey, gestor = false): Promise<void> {
+    const comercial = await prisma.role.upsert({ where: { key: "comercial" }, create: { key: "comercial", name: "Comercial" }, update: {} });
+    const usuario = await prisma.user.create({
+      data: {
+        email: `${marca}-${chave.toLowerCase()}@teste.local`,
+        name: `${marca} ${chave}`,
+        memberships: {
+          create: {
+            companyId: empresa,
+            roles: { create: { roleId: comercial.id } },
+            departments: { create: { departmentId: empresa === "waze" ? "comercial-obras" : "comercial-clientes", isManager: gestor } },
+          },
+        },
+      },
+    });
+    pessoas[chave] = { id: usuario.id, kind: "user", roles: ["comercial"] };
+  }
+
+  const configuracao = (empresa: CompanyKey, nome: string, etapas: string[], membros: { userId: string; role: "vendedor" | "gestor" }[]) =>
+    createPipelineRequestSchema.parse({
+      companyId: empresa,
+      name: `${marca} ${nome}`,
+      description: null,
+      valueLabel: "Investimento estimado",
+      color: "#0B7A57",
+      wonLabel: "Contrato assinado",
+      lostLabel: "Perdido",
+      stages: etapas.map((name) => ({ name, color: "#00A3FF", staleAfterDays: 7 })),
+      tags: [{ name: "Grupo A", color: "#0077FF" }, { name: "Indicação", color: "#7C5CFF" }],
+      lossReasons: [
+        { name: "Fechou com concorrente", asksRevisitDate: false },
+        { name: "Prazo inadequado", asksRevisitDate: true },
+      ],
+      members: membros,
+    });
+
+  beforeAll(async () => {
+    await prisma.$connect();
+    for (const [id, name] of [["plugga", "Plugga"], ["waze", "Waze Energia"]] as const) {
+      await prisma.company.upsert({ where: { id }, create: { id, name }, update: {} });
+    }
+    await pessoa("gestor", "waze", true);
+    await pessoa("ana", "waze");
+    await pessoa("bruno", "waze");
+    await pessoa("forasteiro", "waze");
+    await pessoa("pluggaVendedor", "plugga");
+    // O gestor comercial da Plugga também é preciso para criar o pipeline de lá.
+    const gestorPlugga = await prisma.user.findUniqueOrThrow({ where: { id: pessoas.pluggaVendedor.id } });
+    await prisma.userDepartmentAccess.update({
+      where: { userId_companyId_departmentId: { userId: gestorPlugga.id, companyId: "plugga", departmentId: "comercial-clientes" } },
+      data: { isManager: true },
+    });
+
+    solar = await pipelines.create(
+      configuracao("waze", "Solar", ["Iniciar atendimento", "Qualificação", "Cotações/Proposta", "Visita técnica"], [
+        { userId: pessoas.ana.id, role: "vendedor" },
+        { userId: pessoas.bruno.id, role: "vendedor" },
+      ]),
+      pessoas.gestor,
+    );
+    mercadoLivre = await pipelines.create(
+      configuracao("plugga", "Mercado Livre", ["Diagnóstico", "Proposta"], [{ userId: pessoas.pluggaVendedor.id, role: "vendedor" }]),
+      pessoas.pluggaVendedor,
+    );
+
+    const cliente = await prisma.client.create({
+      data: {
+        name: `${marca} Logística Igarapé`,
+        contacts: { create: { name: "Juliana Prado", isPrimary: true } },
+        consumerUnits: { create: { code: `9999${randomInt(100_000, 999_999)}`, distributor: "Amazonas Energia" } },
+      },
+      include: { contacts: true, consumerUnits: true },
+    });
+    clienteId = cliente.id;
+    contatoId = cliente.contacts[0]!.id;
+    ucId = cliente.consumerUnits[0]!.id;
+    const outro = await prisma.client.create({ data: { name: `${marca} Outro cliente`, contacts: { create: { name: "Rodrigo Lima" } } }, include: { contacts: true } });
+    outroContatoId = outro.contacts[0]!.id;
+  }, PRAZO_MS);
+
+  afterAll(async () => {
+    // O event_log é só de inserção: o rastro fica, apontando para ids únicos.
+    await prisma.deal.deleteMany({ where: { title: { startsWith: marca } } });
+    await prisma.pipeline.deleteMany({ where: { name: { startsWith: marca } } });
+    await prisma.client.deleteMany({ where: { name: { startsWith: marca } } });
+    await prisma.user.deleteMany({ where: { email: { startsWith: marca } } });
+    await prisma.$disconnect();
+  }, PRAZO_MS);
+
+  it(
+    "a vendedora cria o negócio; a equipe toda o vê, quem está fora não",
+    async () => {
+      const negocio = await novo({ contactId: contatoId, tagIds: [solar.tags[0]!.id], consumerUnitIds: [ucId] });
+
+      expect(negocio).toMatchObject({ status: "open", companyId: "waze", value: "620000.00", expectedCloseDate: "2026-12-15" });
+      expect(negocio.contact?.id).toBe(contatoId);
+      expect(negocio.tags.map((t) => t.name)).toEqual(["Grupo A"]);
+      expect(negocio.consumerUnits.map((u) => u.id)).toEqual([ucId]);
+
+      const doBruno = await negocios.list({ pipelineId: solar.id, status: "open" }, pessoas.bruno);
+      expect(doBruno.deals.map((d) => d.id)).toContain(negocio.id);
+      await expect(negocios.list({ pipelineId: solar.id, status: "open" }, pessoas.forasteiro)).rejects.toBeInstanceOf(NaoEncontrado);
+
+      const historico = await prisma.dealHistory.findMany({ where: { dealId: negocio.id } });
+      expect(historico).toMatchObject([{ kind: "created", toStageName: "Qualificação", actorId: pessoas.ana.id }]);
+      expect(await prisma.eventLog.count({ where: { eventName: "commercial.deal.created", entityId: negocio.id } })).toBe(1);
+    },
+    PRAZO_MS,
+  );
+
+  it(
+    "recusa responsável fora da equipe e contato de outro cliente",
+    async () => {
+      await expect(novo({ ownerId: pessoas.forasteiro.id })).rejects.toBeInstanceOf(RequisicaoInvalida);
+      await expect(novo({ contactId: outroContatoId })).rejects.toBeInstanceOf(RequisicaoInvalida);
+      await expect(novo({ stageId: mercadoLivre.stages[0]!.id })).rejects.toBeInstanceOf(RequisicaoInvalida);
+    },
+    PRAZO_MS,
+  );
+
+  it(
+    "arrastar de Qualificação para Cotações/Proposta grava a etapa e o histórico",
+    async () => {
+      const negocio = await novo();
+      const movido = await negocios.moveStage(negocio.id, { stageId: etapa("Cotações/Proposta") }, pessoas.bruno);
+
+      const relido = (await negocios.list({ pipelineId: solar.id, status: "open" }, pessoas.ana)).deals.find((d) => d.id === negocio.id)!;
+      expect(relido.stageId).toBe(etapa("Cotações/Proposta"));
+      expect(new Date(movido.stageEnteredAt).getTime()).toBeGreaterThanOrEqual(new Date(negocio.stageEnteredAt).getTime());
+      const mudanca = await prisma.dealHistory.findFirst({ where: { dealId: negocio.id, kind: "stage_changed" } });
+      expect(mudanca).toMatchObject({ fromStageName: "Qualificação", toStageName: "Cotações/Proposta", actorId: pessoas.bruno.id });
+    },
+    PRAZO_MS,
+  );
+
+  it(
+    "perder exige motivo e, se o motivo pede, a data de revisita; encerrado não muda de etapa",
+    async () => {
+      const negocio = await novo();
+      const prazo = solar.lossReasons.find((m) => m.name === "Prazo inadequado")!;
+      expect(loseDealRequestSchema.safeParse({}).success).toBe(false);
+      await expect(negocios.lose(negocio.id, loseDealRequestSchema.parse({ lossReasonId: prazo.id }), pessoas.ana)).rejects.toBeInstanceOf(RequisicaoInvalida);
+
+      const perdido = await negocios.lose(negocio.id, loseDealRequestSchema.parse({ lossReasonId: prazo.id, revisitOn: "2099-01-10" }), pessoas.ana);
+      expect(perdido).toMatchObject({ status: "lost", lossReason: "Prazo inadequado", revisitOn: "2099-01-10" });
+      await expect(negocios.moveStage(negocio.id, { stageId: etapa("Visita técnica") }, pessoas.ana)).rejects.toBeInstanceOf(EstadoInvalido);
+
+      const abertos = await negocios.list({ pipelineId: solar.id, status: "open" }, pessoas.ana);
+      const perdidos = await negocios.list({ pipelineId: solar.id, status: "lost" }, pessoas.ana);
+      expect(abertos.deals.some((d) => d.id === negocio.id)).toBe(false);
+      expect(perdidos.deals.some((d) => d.id === negocio.id)).toBe(true);
+      expect(hojeNoFuso()).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    },
+    PRAZO_MS,
+  );
+
+  it(
+    "ganhar encerra o negócio na etapa em que estava",
+    async () => {
+      const negocio = await novo();
+      const ganho = await negocios.win(negocio.id, pessoas.ana);
+      expect(ganho).toMatchObject({ status: "won", stageId: etapa("Qualificação") });
+      expect(ganho.closedAt).not.toBeNull();
+    },
+    PRAZO_MS,
+  );
+
+  it(
+    "mover para o pipeline da Plugga muda a empresa, pede responsável da equipe de lá e mantém o histórico",
+    async () => {
+      const negocio = await novo({ tagIds: [solar.tags[0]!.id] });
+      const destino = { pipelineId: mercadoLivre.id, stageId: mercadoLivre.stages[1]!.id };
+      await expect(negocios.transfer(negocio.id, destino, pessoas.pluggaVendedor)).rejects.toBeInstanceOf(NaoEncontrado);
+      // O gestor comercial da Waze não alcança o pipeline da Plugga: quem move é quem alcança os dois.
+      const admin = await prisma.role.upsert({ where: { key: "admin" }, create: { key: "admin", name: "Admin" }, update: {} });
+      await prisma.userPlatformRole.create({ data: { userId: pessoas.gestor.id, roleId: admin.id } });
+      await expect(negocios.transfer(negocio.id, destino, pessoas.gestor)).rejects.toBeInstanceOf(RequisicaoInvalida);
+
+      const movido = await negocios.transfer(negocio.id, { ...destino, ownerId: pessoas.pluggaVendedor.id }, pessoas.gestor);
+      expect(movido).toMatchObject({ companyId: "plugga", pipelineId: mercadoLivre.id, stageId: mercadoLivre.stages[1]!.id, tags: [] });
+      expect(movido.owner.id).toBe(pessoas.pluggaVendedor.id);
+      const historico = await prisma.dealHistory.findMany({ where: { dealId: negocio.id }, orderBy: { occurredAt: "asc" } });
+      expect(historico.map((h) => h.kind)).toEqual(["created", "transferred"]);
+      expect(historico[1]).toMatchObject({ fromStageName: "Qualificação", toStageName: "Proposta" });
+      await prisma.userPlatformRole.deleteMany({ where: { userId: pessoas.gestor.id } });
+    },
+    PRAZO_MS,
+  );
+
+  it(
+    "ações em lote trocam o responsável, põem etiqueta e movem só os abertos",
+    async () => {
+      const a = await novo();
+      const b = await novo();
+      const ganho = await negocios.win((await novo()).id, pessoas.ana);
+      const ids = [a.id, b.id, ganho.id];
+
+      const lote = (acao: unknown) => negocios.bulk(bulkDealsRequestSchema.parse({ dealIds: ids, action: acao }), pessoas.ana);
+      expect((await lote({ type: "owner", ownerId: pessoas.bruno.id })).deals.every((d) => d.owner.id === pessoas.bruno.id)).toBe(true);
+      expect((await lote({ type: "tag", tagId: solar.tags[1]!.id })).deals.every((d) => d.tags.some((t) => t.name === "Indicação"))).toBe(true);
+      const movidos = (await lote({ type: "stage", stageId: etapa("Visita técnica") })).deals;
+      expect(movidos.find((d) => d.id === a.id)?.stageId).toBe(etapa("Visita técnica"));
+      expect(movidos.find((d) => d.id === ganho.id)?.stageId).toBe(etapa("Qualificação"));
+
+      await expect(
+        negocios.bulk(bulkDealsRequestSchema.parse({ dealIds: [a.id], action: { type: "owner", ownerId: pessoas.forasteiro.id } }), pessoas.ana),
+      ).rejects.toBeInstanceOf(RequisicaoInvalida);
+    },
+    PRAZO_MS,
+  );
+
+  it(
+    "na configuração, pipeline com negócios não troca de empresa e etapa com negócios só sai com destino",
+    async () => {
+      const atual = (await pipelines.list(pessoas.gestor)).pipelines.find((p) => p.id === solar.id)!;
+      expect(atual.dealCount).toBeGreaterThan(0);
+      const salvar = (mudanca: Record<string, unknown>) =>
+        pipelines.update(solar.id, updatePipelineRequestSchema.parse({ ...pipelineParaEdicao(atual), ...mudanca }), pessoas.gestor);
+
+      await expect(salvar({ companyId: "plugga", members: [] })).rejects.toBeInstanceOf(RequisicaoInvalida);
+
+      const qualificacao = etapa("Qualificação");
+      const semQualificacao = pipelineParaEdicao(atual).stages.filter((e) => e.id !== qualificacao);
+      await expect(salvar({ stages: semQualificacao })).rejects.toBeInstanceOf(RequisicaoInvalida);
+
+      const depois = await salvar({ stages: semQualificacao, stageDestinations: { [qualificacao]: etapa("Iniciar atendimento") } });
+      expect(depois.stages.some((e) => e.id === qualificacao)).toBe(false);
+      expect(await prisma.deal.count({ where: { stageId: qualificacao } })).toBe(0);
+      const movidos = await prisma.deal.findMany({ where: { pipelineId: solar.id, stageId: etapa("Iniciar atendimento") } });
+      expect(movidos.length).toBeGreaterThan(0);
+    },
+    PRAZO_MS,
+  );
+});

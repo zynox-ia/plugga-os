@@ -17,10 +17,11 @@ const solar: Pipeline = {
   archivedAt: null,
   updatedAt: "2026-10-19T10:00:00.000Z",
   updatedBy: null,
-  stages: [{ id: "00000000-0000-4000-8000-000000000001", name: "Qualificação", color: "#00A3FF", position: 0, staleAfterDays: 7 }],
+  stages: [{ id: "00000000-0000-4000-8000-000000000001", name: "Qualificação", color: "#00A3FF", position: 0, staleAfterDays: 7, dealCount: 0 }],
   tags: [],
   lossReasons: [],
   members: [{ userId: "00000000-0000-4000-8000-00000000000a", name: "Ana", role: "vendedor" }],
+  dealCount: 0,
   canConfigure: true,
 };
 

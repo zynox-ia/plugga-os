@@ -1,7 +1,17 @@
 import { createPipelineRequestSchema, pipelineParaEdicao, type Pipeline } from "@plugga/shared";
 import { describe, expect, it } from "vitest";
 
-import { alteracoes, idsDesconhecidos, idsRemovidos, podeConfigurar, podeCriarEm, podeVer, type AcessoComercial } from "./pipelines.rules";
+import {
+  alteracoes,
+  idsDesconhecidos,
+  idsRemovidos,
+  podeConfigurar,
+  podeCriarEm,
+  podeVer,
+  problemasDosDestinos,
+  trocaEmpresaComNegocios,
+  type AcessoComercial,
+} from "./pipelines.rules";
 
 const ANA = "00000000-0000-4000-8000-00000000000a";
 const BRUNO = "00000000-0000-4000-8000-00000000000b";
@@ -99,12 +109,13 @@ describe("alterações para a auditoria", () => {
     updatedAt: "2026-10-19T10:00:00.000Z",
     updatedBy: null,
     stages: [
-      { id: ETAPA_1, name: "Qualificação", color: "#00A3FF", position: 0, staleAfterDays: 7 },
-      { id: ETAPA_2, name: "Proposta", color: "#7C5CFF", position: 1, staleAfterDays: null },
+      { id: ETAPA_1, name: "Qualificação", color: "#00A3FF", position: 0, staleAfterDays: 7, dealCount: 2 },
+      { id: ETAPA_2, name: "Proposta", color: "#7C5CFF", position: 1, staleAfterDays: null, dealCount: 0 },
     ],
     tags: [],
     lossReasons: [],
     members: [{ userId: ANA, name: "Ana", role: "vendedor" }],
+    dealCount: 2,
     canConfigure: true,
   };
   const igual = pipelineParaEdicao(antes);
@@ -120,5 +131,28 @@ describe("alterações para a auditoria", () => {
 
   it("trocar o papel de alguém na equipe muda a equipe", () => {
     expect(alteracoes(antes, { ...igual, members: [{ userId: ANA, role: "gestor" }] }).secoes).toEqual(["equipe"]);
+  });
+});
+
+describe("regras que dependem dos negócios", () => {
+  const atuais = [
+    { id: ETAPA_1, name: "Qualificação", dealCount: 3 },
+    { id: ETAPA_2, name: "Proposta", dealCount: 0 },
+  ];
+
+  it("excluir etapa com negócios exige destino entre as etapas mantidas", () => {
+    expect(problemasDosDestinos(atuais, [{ id: ETAPA_2 }], {})).toEqual(['Escolha para qual etapa vão os negócios de "Qualificação".']);
+    expect(problemasDosDestinos(atuais, [{ id: ETAPA_2 }], { [ETAPA_1]: ETAPA_2 })).toEqual([]);
+    expect(problemasDosDestinos(atuais, [{ id: ETAPA_2 }, {}], { [ETAPA_1]: ETAPA_1 })).toHaveLength(1);
+  });
+
+  it("excluir etapa vazia não pede destino", () => {
+    expect(problemasDosDestinos(atuais, [{ id: ETAPA_1 }], {})).toEqual([]);
+  });
+
+  it("pipeline com negócios não troca de empresa; sem negócios, troca", () => {
+    expect(trocaEmpresaComNegocios({ companyId: "waze", dealCount: 1 }, "plugga")).toBe(true);
+    expect(trocaEmpresaComNegocios({ companyId: "waze", dealCount: 1 }, "waze")).toBe(false);
+    expect(trocaEmpresaComNegocios({ companyId: "waze", dealCount: 0 }, "plugga")).toBe(false);
   });
 });

@@ -151,6 +151,9 @@ jobs:
       - name: Verify sales pipeline configuration against Postgres
         run: pnpm --filter @plugga/api test:pipelines
 
+      - name: Verify pipeline deals against Postgres
+        run: pnpm --filter @plugga/api test:negocios
+
       - name: Verify login limiter and session cache against Redis
         run: pnpm --filter @plugga/api test:redis
 

@@ -1370,6 +1370,130 @@
   },
   {
     "metodo": "GET",
+    "caminho": "/negocios",
+    "controller": "NegociosController.list",
+    "acesso": "roles",
+    "papeis": [
+      "comercial",
+      "admin"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "RolesGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/negocios",
+    "controller": "NegociosController.create",
+    "acesso": "roles",
+    "papeis": [
+      "comercial",
+      "admin"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "RolesGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/negocios/:id/etapa",
+    "controller": "NegociosController.moveStage",
+    "acesso": "roles",
+    "papeis": [
+      "comercial",
+      "admin"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "RolesGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/negocios/:id/ganho",
+    "controller": "NegociosController.win",
+    "acesso": "roles",
+    "papeis": [
+      "comercial",
+      "admin"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "RolesGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/negocios/:id/perda",
+    "controller": "NegociosController.lose",
+    "acesso": "roles",
+    "papeis": [
+      "comercial",
+      "admin"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "RolesGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/negocios/:id/transferencia",
+    "controller": "NegociosController.transfer",
+    "acesso": "roles",
+    "papeis": [
+      "comercial",
+      "admin"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "RolesGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/negocios/clientes/:clientId/opcoes",
+    "controller": "NegociosController.clientOptions",
+    "acesso": "roles",
+    "papeis": [
+      "comercial",
+      "admin"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "RolesGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/negocios/lote",
+    "controller": "NegociosController.bulk",
+    "acesso": "roles",
+    "papeis": [
+      "comercial",
+      "admin"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "RolesGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
     "caminho": "/obras/:id",
     "controller": "ObrasController.obra",
     "acesso": "roles",

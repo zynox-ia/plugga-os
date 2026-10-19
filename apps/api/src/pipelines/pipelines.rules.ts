@@ -62,3 +62,27 @@ export function alteracoes(antes: Pipeline, depois: UpdatePipelineRequest): { ca
 
   return { campos: [...campos], secoes };
 }
+
+/**
+ * Etapas excluídas que têm negócios precisam de destino: uma etapa mantida, já
+ * gravada (com id). Devolve o problema de cada etapa sem destino válido.
+ */
+export function problemasDosDestinos(
+  atuais: readonly { id: string; name: string; dealCount: number }[],
+  novas: readonly { id?: string }[],
+  destinos: Readonly<Record<string, string>>,
+): string[] {
+  const mantidas = new Set(novas.flatMap((etapa) => (etapa.id ? [etapa.id] : [])));
+  return atuais
+    .filter((etapa) => etapa.dealCount > 0 && !mantidas.has(etapa.id))
+    .flatMap((etapa) => {
+      const destino = destinos[etapa.id];
+      if (!destino) return [`Escolha para qual etapa vão os negócios de "${etapa.name}".`];
+      if (!mantidas.has(destino)) return [`O destino dos negócios de "${etapa.name}" precisa ser uma etapa mantida.`];
+      return [];
+    });
+}
+
+/** Pipeline com negócios não muda de empresa: os negócios mudariam de dono sem ninguém decidir. */
+export const trocaEmpresaComNegocios = (atual: { companyId: string; dealCount: number }, novaEmpresa: string): boolean =>
+  atual.dealCount > 0 && atual.companyId !== novaEmpresa;

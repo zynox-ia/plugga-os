@@ -110,7 +110,12 @@ export type CreatePipelineRequest = z.infer<typeof createPipelineRequestSchema>;
  * leu: se outra pessoa salvou depois, a API recusa em vez de sobrescrever.
  */
 export const updatePipelineRequestSchema = z
-  .object({ ...camposDoPipeline, updatedAt: isoDate })
+  .object({
+    ...camposDoPipeline,
+    updatedAt: isoDate,
+    /** Etapa excluída que tem negócios → etapa mantida (com id) que os recebe. */
+    stageDestinations: z.record(uuid, uuid).default({}),
+  })
   .strict()
   .superRefine(comRegrasCruzadas);
 export type UpdatePipelineRequest = z.infer<typeof updatePipelineRequestSchema>;
@@ -121,6 +126,8 @@ export const pipelineStageSchema = z.object({
   color: z.string(),
   position: z.number().int(),
   staleAfterDays: z.number().int().nullable(),
+  /** Negócios na etapa, de qualquer situação: excluir a etapa exige escolher o destino deles. */
+  dealCount: z.number().int(),
 });
 export type PipelineStage = z.infer<typeof pipelineStageSchema>;
 
@@ -140,6 +147,8 @@ export const pipelineSchema = z.object({
   tags: z.array(z.object({ id: uuid, name: z.string(), color: z.string() })),
   lossReasons: z.array(z.object({ id: uuid, name: z.string(), asksRevisitDate: z.boolean() })),
   members: z.array(z.object({ userId: uuid, name: z.string(), role: pipelineMemberRoleSchema })),
+  /** Negócios do pipeline, de qualquer situação: com algum, a empresa não muda. */
+  dealCount: z.number().int(),
   /** Se quem pediu pode alterar a configuração deste pipeline. */
   canConfigure: z.boolean(),
 });
@@ -160,6 +169,7 @@ export function pipelineParaEdicao(pipeline: Pipeline): UpdatePipelineRequest {
     lossReasons: pipeline.lossReasons.map(({ id, name, asksRevisitDate }) => ({ id, name, asksRevisitDate })),
     members: pipeline.members.map(({ userId, role }) => ({ userId, role })),
     updatedAt: pipeline.updatedAt,
+    stageDestinations: {},
   };
 }
 

@@ -63,6 +63,7 @@ export function rascunhoNovo(empresa: CompanyKey): Rascunho {
     color: "#0077FF",
     wonLabel: "Ganho",
     lostLabel: "Perdido",
+    stageDestinations: {},
     stages: comChave<UpdatePipelineRequest["stages"][number]>([
       { name: "Iniciar atendimento", color: "#94A3B8", staleAfterDays: 5 },
       { name: "Qualificação", color: "#00A3FF", staleAfterDays: 7 },
@@ -103,7 +104,7 @@ export function paraCriacao(rascunho: Rascunho): CreatePipelineRequest {
 }
 
 export function paraEdicao(rascunho: Rascunho, updatedAt: string): UpdatePipelineRequest {
-  return { ...paraCriacao(rascunho), updatedAt };
+  return { ...paraCriacao(rascunho), updatedAt, stageDestinations: rascunho.stageDestinations };
 }
 
 /** Compara o que vai para a API: a chave local não conta. */
