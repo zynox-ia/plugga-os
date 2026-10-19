@@ -1,20 +1,13 @@
 "use client";
 
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Suspense, type ReactNode } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import type { ReactNode } from "react";
 
-import { EmpresaSwitcher } from "./empresa-switcher";
 import { NotificationsMenu } from "./notifications-menu";
 import { PluggaShell } from "./plugga-shell";
 import { SidebarUser } from "./sidebar-user";
 import { UserMenu } from "./user-menu";
-import { navGroupsForEmpresa, navIdForPathname, tituloForNavId } from "../lib/navigation";
-import {
-  EMPRESA_PADRAO,
-  empresasPermitidas,
-  isEmpresaId,
-  type EmpresaId,
-} from "../lib/organizacao";
+import { navGroupsForAccess, navIdForPathname, tituloForNavId } from "../lib/navigation";
 import { SessionUserProvider, useSessionUser } from "../lib/use-session-user";
 
 /**
@@ -35,41 +28,19 @@ const PUBLIC_AUTH_PATHS = [
   "/termos",
 ];
 
-function ShellWithEmpresa({ children }: { children: ReactNode }) {
+function ShellContent({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
 
   const { usuario } = useSessionUser();
   const acesso = usuario?.access ?? null;
-  const empresas = empresasPermitidas(acesso);
-
-  const parametro = searchParams.get("empresa");
-  const pedida: EmpresaId = isEmpresaId(parametro) ? parametro : EMPRESA_PADRAO;
-  // Um link para `?empresa=waze` nas mãos de quem só tem Plugga não pode abrir
-  // uma Waze vazia: cai na primeira empresa que a pessoa realmente alcança.
-  const empresa: EmpresaId = empresas.includes(pedida) ? pedida : (empresas[0] ?? pedida);
   const navId = navIdForPathname(pathname);
-
-  // A empresa acompanha toda navegação: sair dela por esquecimento de query
-  // string devolveria a pessoa para a Plugga no meio de um fluxo da Waze.
-  const comEmpresa = (rota: string) =>
-    empresa === EMPRESA_PADRAO ? rota : `${rota}?empresa=${empresa}`;
 
   return (
     <PluggaShell
-      navigation={navGroupsForEmpresa(empresa, acesso)}
+      navigation={navGroupsForAccess(acesso)}
       activeId={navId}
-      pageTitle={tituloForNavId(navId, empresa)}
-      empresaSwitcher={
-        <EmpresaSwitcher
-          empresa={empresa}
-          empresas={empresas}
-          onSelect={(proxima) =>
-            router.push(proxima === EMPRESA_PADRAO ? pathname : `${pathname}?empresa=${proxima}`)
-          }
-        />
-      }
+      pageTitle={tituloForNavId(navId)}
       topbarActions={
         <>
           <NotificationsMenu />
@@ -78,7 +49,7 @@ function ShellWithEmpresa({ children }: { children: ReactNode }) {
       }
       sidebarFooter={<SidebarUser />}
       onNavigate={(id) => {
-        if (id.startsWith("/")) router.push(comEmpresa(id));
+        if (id.startsWith("/")) router.push(id);
       }}
     >
       {children}
@@ -93,14 +64,9 @@ export function AppShell({ children }: { children: ReactNode }) {
     return <>{children}</>;
   }
 
-  // useSearchParams exige limite de Suspense para não forçar toda rota a
-  // renderização dinâmica. O provider fica por fora: shell, barra lateral, menu
-  // da conta e as telas leem a mesma resposta de /me, não uma cada.
   return (
     <SessionUserProvider>
-      <Suspense fallback={<div className="app-shell" />}>
-        <ShellWithEmpresa>{children}</ShellWithEmpresa>
-      </Suspense>
+      <ShellContent>{children}</ShellContent>
     </SessionUserProvider>
   );
 }

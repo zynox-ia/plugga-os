@@ -56,14 +56,12 @@ export default function EstruturaPage() {
           </div>
         </div>
         <p className="card-note">
-          Plugga e Waze são <b>contextos separados</b>, não departamentos. Um cliente, um
-          pagamento ou uma obra pertence a uma delas e nunca aparece na outra. O seletor no
-          topo troca o contexto inteiro.
+          Plugga e Waze são empresas, não departamentos. A barra lateral reúne os
+          departamentos em uma navegação única, com Engenharia ao lado das áreas da Plugga.
         </p>
         <p className="card-note">
-          O que atravessa as duas — usuários, jobs, integrações, agentes e o desenho dos
-          processos — fica em <b>Plataforma</b>, fora do seletor. Papel de usuário é por
-          empresa: a mesma pessoa pode ser financeiro na Plugga e nada na Waze.
+          O acesso aos departamentos continua vinculado à pessoa. O que atravessa as duas
+          empresas — usuários, jobs, integrações e agentes — fica em <b>Plataforma</b>.
         </p>
       </ShellCard>
 
@@ -99,13 +97,13 @@ export default function EstruturaPage() {
       <ShellCard className="panel-card">
         <div className="card-heading">
           <div>
-            <span className="eyebrow">Fora do seletor</span>
+            <span className="eyebrow">Áreas compartilhadas</span>
             <h2>Plataforma · as duas empresas</h2>
           </div>
         </div>
         <div className="estrutura-grid">
           <div className="estrutura-departamento">
-            <h3>Visão geral · por empresa</h3>
+            <h3>Visão geral</h3>
             <ListaProcessos processos={VISAO_GERAL} />
           </div>
           <div className="estrutura-departamento">

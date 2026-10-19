@@ -8,14 +8,12 @@ import {
   GLOBAIS,
   VISAO_GERAL,
   departamentosPermitidos,
-  type EmpresaId,
   type Processo,
 } from "./organizacao";
 
 /**
- * Deriva a navegação de `organizacao.ts`: a sidebar é a árvore Empresa →
- * Departamento → Processo, com o que ainda não existe marcado em vez de
- * escondido — assim a estrutura combinada fica visível enquanto é construída.
+ * Deriva a navegação de `organizacao.ts`: uma lista de departamentos e processos,
+ * com o que ainda não existe marcado em vez de escondido.
  *
  * O id do item é a própria rota quando ela existe; para o que não tem tela, um
  * id sintético mantém a chave única sem inventar uma rota que daria 404.
@@ -32,15 +30,18 @@ function navItem(processo: Processo, prefixo: string) {
 
 /**
  * `acesso` ausente = navegação inteira (o estado antes de /me responder, e o
- * uso em teste). Com acesso, entram só os departamentos liberados naquela
- * empresa: o que não é seu não fica "em breve" nem cinza — some, porque a
- * ausência é a informação honesta.
+ * uso em teste). Com acesso, entram só os departamentos liberados. Para os
+ * departamentos que existem nas duas empresas, uma única entrada é exibida.
  */
-export function navGroupsForEmpresa(
-  empresa: EmpresaId,
-  acesso: UserAccess | null = null,
-): ShellNavGroup[] {
-  const departamentos = departamentosPermitidos(empresa, acesso);
+export function navGroupsForAccess(acesso: UserAccess | null = null): ShellNavGroup[] {
+  const plugga = departamentosPermitidos("plugga", acesso);
+  const waze = departamentosPermitidos("waze", acesso);
+  const departamentos = [...plugga];
+  for (const departamento of waze) {
+    if (!departamentos.some((atual) => atual.label === departamento.label)) {
+      departamentos.push(departamento);
+    }
+  }
 
   return [
     {
@@ -53,11 +54,10 @@ export function navGroupsForEmpresa(
     },
     // Macro (departamento) abre e fecha; micro (processo) fica aninhado nele.
     ...departamentos.map((departamento, indice) => ({
-      id: `${empresa}-${departamento.id}`,
+      id: departamento.id,
       label: departamento.label,
       icon: departamento.icon,
       collapsible: true,
-      // A empresa já está no seletor do topo; repeti-la aqui só polui.
       section: indice === 0 ? "Departamentos" : undefined,
       items: departamento.processos.map((processo) => navItem(processo, departamento.id)),
     })),
@@ -107,13 +107,15 @@ export function navIdForPathname(pathname: string): string {
 }
 
 /** Título do topo e do cabeçalho da página para a rota atual. */
-export function tituloForNavId(navId: string, empresa: EmpresaId): string {
+export function tituloForNavId(navId: string): string {
   const todos = [
     ...VISAO_GERAL,
     ...FERRAMENTAS,
     ...CONFIGURACOES,
     ...GLOBAIS,
-    ...EMPRESAS_POR_ID[empresa].departamentos.flatMap((d) => d.processos),
+    ...Object.values(EMPRESAS_POR_ID).flatMap((empresa) =>
+      empresa.departamentos.flatMap((departamento) => departamento.processos),
+    ),
   ];
 
   return todos.find((processo) => processo.rota === navId)?.label ?? "plugga-os";

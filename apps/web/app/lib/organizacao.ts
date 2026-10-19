@@ -1,7 +1,6 @@
 import {
   companyKeys,
   departmentIdsByCompany,
-  visibleCompanies,
   visibleDepartments,
   type CompanyKey,
   type DepartmentId,
@@ -13,14 +12,12 @@ import type { IconName } from "../components/plugga-shell";
 /**
  * Organização do plugga-os: Empresa → Departamento → Processo.
  *
- * Fonte única — a navegação lateral, o seletor de empresa e o mapa em
- * /estrutura leem daqui. Mudar um processo de departamento é mover uma linha,
- * não caçar a mesma informação em três lugares.
+ * Fonte da navegação lateral e do mapa em /estrutura. Mudar um processo de
+ * departamento é mover uma linha.
  *
- * Plugga e Waze não são departamentos: são contextos separados. Um cliente,
- * um pagamento ou uma obra pertence a uma delas e nunca aparece na outra.
- * O que atravessa as duas (usuários, jobs, integrações, o desenho dos
- * processos) vive em GLOBAIS, fora do seletor.
+ * Plugga e Waze não são departamentos. O catálogo preserva a origem de cada
+ * processo, mas a barra lateral apresenta uma navegação única. O que atravessa
+ * as duas (usuários, jobs e integrações) vive em GLOBAIS.
  *
  * Os **identificadores** de empresa e departamento vêm de `@plugga/shared`:
  * é a API que valida acesso contra eles, e rótulo/ícone/processo (que só a
@@ -60,26 +57,11 @@ export type Empresa = {
   id: EmpresaId;
   nome: string;
   descricao: string;
-  /** Duas letras para o seletor enquanto não há marca própria por empresa. */
-  sigla: string;
   departamentos: Departamento[];
 };
 
 export function isEmpresaId(value: string | null | undefined): value is EmpresaId {
   return EMPRESAS.includes(value as EmpresaId);
-}
-
-/**
- * Empresas que a pessoa alcança, na ordem do catálogo. Sem sessão carregada
- * ainda, devolve todas: o shell precisa desenhar antes da resposta de /me, e
- * piscar "nenhuma empresa" para quem tem duas é pior que meio segundo de
- * navegação otimista — a API recusa o que a sessão não permite de qualquer forma.
- */
-export function empresasPermitidas(acesso: UserAccess | null): readonly EmpresaId[] {
-  if (!acesso) {
-    return EMPRESAS;
-  }
-  return visibleCompanies(acesso);
 }
 
 /** Departamentos da empresa liberados para a pessoa, na ordem do catálogo. */
@@ -98,7 +80,6 @@ export function departamentosPermitidos(
 const plugga: Empresa = {
   id: "plugga",
   nome: "Plugga",
-  sigla: "PL",
   descricao: "Consultoria: gestão de energia, OPM e eletromobilidade",
   departamentos: [
     {
@@ -161,7 +142,6 @@ const plugga: Empresa = {
 const waze: Empresa = {
   id: "waze",
   nome: "Waze Energia",
-  sigla: "WZ",
   descricao: "Engenharia e obras: projetos, instalações e serviços",
   departamentos: [
     {
@@ -342,7 +322,7 @@ export function configuracoesParaAcesso(usuario: {
 }
 
 /**
- * Fora do seletor: não pertencem à Plugga nem à Waze. Usuário é único (o papel
+ * Globais: não pertencem à Plugga nem à Waze. Usuário é único (o papel
  * é que é por empresa), e job/integração/agente servem as duas. O desenho dos
  * processos também mora aqui — é uma definição só, instanciada nas duas.
  */

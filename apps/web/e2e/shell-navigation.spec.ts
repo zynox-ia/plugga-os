@@ -1,12 +1,12 @@
 import { expect, test } from "@playwright/test";
+import type { UserAccess } from "@plugga/shared";
 
-import { navGroupsForEmpresa } from "../app/lib/navigation";
+import { navGroupsForAccess } from "../app/lib/navigation";
 import { EMPRESAS_POR_ID, GLOBAIS, VISAO_GERAL } from "../app/lib/organizacao";
 
-const PLUGGA = navGroupsForEmpresa("plugga").flatMap((group) => group.items);
-const WAZE = navGroupsForEmpresa("waze").flatMap((group) => group.items);
+const ITEMS = navGroupsForAccess().flatMap((group) => group.items);
 /** Só o que tem tela navega; o resto aparece marcado como "em breve". */
-const NAVEGAVEIS = PLUGGA.filter((item) => !item.disabled);
+const NAVEGAVEIS = ITEMS.filter((item) => !item.disabled);
 
 /**
  * O nome acessível do botão inclui a etiqueta de status renderizada dentro dele
@@ -37,13 +37,16 @@ async function abrirDepartamentos(page: import("@playwright/test").Page) {
 }
 
 test.describe("Plugga shell — smoke", () => {
-  test("renders skip-link, brand lockup and the Plugga department tree", async ({ page }) => {
+  test("renders skip-link, brand lockup and the unified department tree", async ({ page }) => {
     await page.goto("/");
 
     await expect(page.locator(".skip-link")).toHaveText("Pular para o conteúdo");
     await expect(page.locator(".brand-lockup img")).toBeVisible();
 
-    for (const departamento of EMPRESAS_POR_ID.plugga.departamentos) {
+    for (const departamento of [
+      ...EMPRESAS_POR_ID.plugga.departamentos,
+      EMPRESAS_POR_ID.waze.departamentos.find((item) => item.id === "engenharia-obras")!,
+    ]) {
       await expect(
         page.locator(".sidebar-nav .nav-parent", { hasText: departamento.label }),
       ).toBeVisible();
@@ -51,7 +54,7 @@ test.describe("Plugga shell — smoke", () => {
 
     await abrirDepartamentos(page);
 
-    for (const item of PLUGGA) {
+    for (const item of ITEMS) {
       await expect(
         page.locator(".sidebar-nav").getByRole("button", { name: nomeAcessivel(item), exact: true }),
       ).toBeVisible();
@@ -82,7 +85,7 @@ test.describe("Plugga shell — smoke", () => {
     await page.goto("/");
     await abrirDepartamentos(page);
 
-    const pendente = PLUGGA.find((item) => item.disabled);
+    const pendente = ITEMS.find((item) => item.disabled);
     expect(pendente).toBeDefined();
 
     const botao = page
@@ -124,51 +127,52 @@ test.describe("Plugga shell — smoke", () => {
   }
 });
 
-test.describe("Seletor de empresa", () => {
-  test("troca o contexto e a URL carrega a empresa ativa", async ({ page }) => {
-    await page.goto("/");
+test.describe("Navegação única", () => {
+  test("mostra somente os departamentos permitidos e deduplica os compartilhados", () => {
+    const acesso: UserAccess = {
+      platformRoles: [],
+      companies: [
+        {
+          companyId: "plugga",
+          roles: [],
+          departments: [
+            { departmentId: "comercial-clientes", isManager: false },
+            { departmentId: "financeiro", isManager: false },
+          ],
+        },
+        {
+          companyId: "waze",
+          roles: [],
+          departments: [
+            { departmentId: "engenharia-obras", isManager: false },
+            { departmentId: "financeiro", isManager: false },
+          ],
+        },
+      ],
+    };
+    const departamentos = navGroupsForAccess(acesso).filter((group) => group.collapsible);
 
-    const waze = page.getByRole("button", { name: "Waze Energia" });
-    await expect(waze).toHaveAttribute("aria-pressed", "false");
-
-    await waze.click();
-    await expect(page).toHaveURL((url) => url.searchParams.get("empresa") === "waze", {
-      timeout: 15_000,
-    });
-    await expect(waze).toHaveAttribute("aria-pressed", "true");
+    expect(departamentos.map((group) => group.label)).toEqual(["Comercial", "Financeiro", "Engenharia"]);
+    expect(departamentos.filter((group) => group.label === "Financeiro")).toHaveLength(1);
   });
 
-  test("cada empresa mostra os seus departamentos e nenhum do outro lado", async ({ page }) => {
-    await page.goto("/?empresa=waze");
-
-    await expect(
-      page.locator(".sidebar-nav .nav-parent", { hasText: "Engenharia" }),
-    ).toBeVisible();
-    await expect(
-      page.locator(".sidebar-nav .nav-parent", { hasText: "Energia" }),
-    ).toHaveCount(0);
-
+  test("não mostra seletor nem repete Comercial ou Financeiro", async ({ page }) => {
     await page.goto("/");
-    await expect(
-      page.locator(".sidebar-nav .nav-parent", { hasText: "Energia" }),
-    ).toBeVisible();
-    await expect(
-      page.locator(".sidebar-nav .nav-parent", { hasText: "Engenharia" }),
-    ).toHaveCount(0);
+
+    await expect(page.getByRole("group", { name: "Empresa ativa" })).toHaveCount(0);
+    await expect(page.locator(".sidebar-nav .nav-parent", { hasText: "Engenharia" })).toBeVisible();
+    await expect(page.locator(".sidebar-nav .nav-parent", { hasText: "Energia" })).toBeVisible();
+    await expect(page.locator(".sidebar-nav .nav-parent", { hasText: "Comercial" })).toHaveCount(1);
+    await expect(page.locator(".sidebar-nav .nav-parent", { hasText: "Financeiro" })).toHaveCount(1);
   });
 
-  // Dashboard e pendências são da empresa ativa, então acompanham o seletor.
-  test("a visão geral aparece nas duas empresas", async ({ page }) => {
-    for (const url of ["/", "/?empresa=waze"]) {
-      await page.goto(url);
-      await abrirDepartamentos(page);
-      for (const processo of VISAO_GERAL) {
-        const rotulo =
-          processo.status === "parcial" ? `${processo.label} parcial` : processo.label;
-        await expect(
-          page.locator(".sidebar-nav").getByRole("button", { name: rotulo, exact: true }),
-        ).toBeVisible();
-      }
+  test("visão geral permanece visível sem contexto global de empresa", async ({ page }) => {
+    await page.goto("/");
+    for (const processo of VISAO_GERAL) {
+      const rotulo = processo.status === "parcial" ? `${processo.label} parcial` : processo.label;
+      await expect(
+        page.locator(".sidebar-nav").getByRole("button", { name: rotulo, exact: true }),
+      ).toBeVisible();
     }
   });
 
@@ -185,7 +189,7 @@ test.describe("Seletor de empresa", () => {
     }
   });
 
-  test("a empresa ativa sobrevive à navegação pela sidebar", async ({ page }) => {
+  test("Engenharia navega sem propagar a antiga empresa global", async ({ page }) => {
     await page.goto("/?empresa=waze");
     await abrirDepartamentos(page);
 
@@ -194,7 +198,7 @@ test.describe("Seletor de empresa", () => {
       .getByRole("button", { name: "Obras parcial", exact: true })
       .click();
     await expect(page).toHaveURL((url) => url.pathname === "/engenharia", { timeout: 15_000 });
-    expect(new URL(page.url()).searchParams.get("empresa")).toBe("waze");
+    expect(new URL(page.url()).searchParams.has("empresa")).toBe(false);
   });
 });
 
@@ -221,6 +225,6 @@ test.describe("Mapa da estrutura", () => {
     const financeiro = EMPRESAS_POR_ID.waze.departamentos.find((d) => d.id === "financeiro");
     expect(financeiro?.processos.some((p) => p.label === "Compras")).toBe(true);
     expect(EMPRESAS_POR_ID.waze.departamentos).toHaveLength(3);
-    expect(WAZE.length).toBeGreaterThan(0);
+    expect(navGroupsForAccess().some((group) => group.label === "Engenharia")).toBe(true);
   });
 });
