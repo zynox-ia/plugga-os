@@ -293,7 +293,7 @@ pnpm --filter @plugga/api test:bitrix
 
 ## Qualidade e CI
 
-A CI executa em pull requests e em pushes para `main`, usando o lockfile e os
+A CI executa em pull requests e em pushes para `develop` e `main`, usando o lockfile e os
 mesmos comandos raiz:
 
 ```bash

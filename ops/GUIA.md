@@ -120,7 +120,7 @@ nada automatizado usa é só uma coisa a mais para vazar. Criar tudo isso de nov
 
 > **Proteção ligada em 2026-10-06:** a `main` exige PR e o check de CI, não aceita push forçado e vale também para administradores; o ambiente `production` do GitHub exige a aprovação do dono antes de publicar.
 >
-> **Fluxo de branches (decisão de 2026-10-05).** O trabalho entra na `develop`, que não publica nada. A `main` é produção e só recebe um PR de promoção `develop` → `main`, aprovado pelo dono.
+> **Fluxo de branches.** O André trabalha e faz commits diretamente na `develop`, que também serve ao localhost e não publica nada. O push para `origin/develop` roda a CI. A `main` é produção e só recebe um PR de promoção `develop` → `main`, aprovado pelo dono. Antes de promover, confira que a `develop` contém apenas trabalho pronto para produção.
 
 Um comando. Ele publica o que está na **`main` do GitHub** — então commit e push primeiro.
 

@@ -25,13 +25,14 @@ Usuário de teste local: `admin@plugga.local`; a senha vem de `SEED_ADMIN_PASSWO
 
 - O Linear é a fonte da verdade para projetos, issues e dependências. Não use milestones. O André definirá o novo método de trabalho por tarefa; não use OpenSpec, Spec Kit ou a antiga cadeia de papéis.
 - Dúvida de negócio vira pergunta ao André. Preserve o escopo da tarefa; achados fora dele viram observação.
-- Trabalhe em branch própria a partir da `develop` (hotfix a partir da `main`). Não commite em `main` ou `develop`, não force push nem rebase em branch compartilhada. Merge é do André.
-- Use Conventional Commits em português. Ao abrir PR, descreva mudanças, verificações executadas e pendências reais.
+- A pasta principal fica na `develop` e é o localhost do André. Trabalhe e faça commits diretamente nela para que o servidor local em modo watch reflita as edições sem merge ou pull entre branches. Antes de começar, confira a árvore e preserve alterações preexistentes; se houver commits remotos novos, use `git pull --ff-only origin develop` sem descartar alterações locais.
+- Faça commits pequenos, por tarefa, em Conventional Commits em português. Adicione ao commit só os arquivos da tarefa. Após as verificações, envie com `git push origin develop` para rodar a CI; não use force push nem rebase na `develop`.
+- A `main` é produção. Nunca commite ou faça push diretamente nela. A promoção é um PR de `develop` para `main`, revisado e mesclado pelo André. Não promova trabalho incompleto junto com a release.
 - Antes de declarar código pronto, rode lint, typecheck, testes e build. Mudança de comportamento exige teste; não remova ou enfraqueça testes para fazê-los passar. Alteração apenas documental pode ser verificada pelo diff e pela CI.
 
 ## Segurança e ambiente
 
-- Não acesse ou altere produção nem integrações externas sem ADR aceita e aprovação explícita. Use dados sintéticos e serviços locais.
+- Não acesse ou altere produção nem integrações externas sem aprovação explícita do André. Use dados sintéticos e serviços locais.
 - Nunca registre `.env`, credenciais, tokens ou dados de clientes em commits, documentação, logs, PRs ou Linear.
 - Preserve os limites do monorepo: aplicações podem importar `packages/*`; pacotes não importam aplicações; web e API se comunicam por HTTP e contratos de `packages/shared`.
 - Não pare nem apague serviços, bancos, volumes ou arquivos de outro projeto/agente. Suíte pulada por falta de infraestrutura não conta como executada.
