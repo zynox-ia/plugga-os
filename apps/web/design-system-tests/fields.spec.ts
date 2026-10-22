@@ -15,6 +15,8 @@ test("campos não ganham contorno ou sombra de foco", async ({ page }) => {
   await expect(wrapper).toHaveCSS("outline-style", "none");
   await expect(wrapper).toHaveCSS("box-shadow", "none");
   await expect(wrapper).toHaveCSS("border-color", border);
+  await expect(page.locator('label[for="' + await input.getAttribute("id") + '"]')).toHaveCSS("text-decoration-line", "none");
+  await expect(wrapper).toHaveCSS("background-color", "rgb(243, 244, 246)");
   await page.keyboard.press("Tab");
   const category = page.getByRole("combobox", { name: "Categoria", exact: true });
   await expect(category).toBeFocused();
@@ -30,13 +32,24 @@ test("campos não ganham contorno ou sombra de foco", async ({ page }) => {
 test("categoria usa lista própria, confirma e cancela seleções pelo teclado", async ({ page }) => {
   await page.goto("/design-system");
   const category = page.getByRole("combobox", { name: "Categoria", exact: true });
+  const categoryId = await category.getAttribute("id");
   await category.click();
   await expect(page.getByRole("listbox", { name: "Categoria" })).toBeVisible();
+  await expect(page.locator(`label[for="${categoryId}"]`)).toHaveCSS("text-decoration-line", "none");
+  await expect(page.locator(`button[id="${categoryId}"]`)).toHaveCSS("background-color", "rgb(243, 244, 246)");
   await page.getByRole("option", { name: "Mercado livre", exact: true }).click();
   await expect(category).toHaveText("Mercado livre");
   await expect(category).toHaveAttribute("aria-expanded", "false");
   await category.press("ArrowDown");
   await expect(page.getByRole("option", { name: "Mercado livre", exact: true })).toBeFocused();
+  const selected = page.getByRole("option", { name: "Mercado livre", exact: true });
+  await expect(selected).toHaveCSS("text-decoration-line", "none");
+  const check = selected.locator("svg");
+  await expect(check).toBeVisible();
+  await expect(check).toHaveCSS("color", "rgb(18, 103, 68)");
+  const row = (await selected.boundingBox())!;
+  const mark = (await check.boundingBox())!;
+  expect(row.x + row.width - mark.x - mark.width).toBeLessThanOrEqual(12);
   await page.keyboard.press("End");
   await expect(page.getByRole("option", { name: "Geração distribuída", exact: true })).toBeFocused();
   await page.keyboard.press("Escape");
@@ -82,6 +95,7 @@ test("calendário próprio navega entre meses, seleciona e devolve o foco", asyn
   const calendar = page.getByRole("dialog", { name: "Calendário de Data de início" });
   await expect(calendar).toBeVisible();
   await expect(calendar.getByRole("button", { name: "22 de outubro de 2026", exact: true })).toBeFocused();
+  await expect(calendar.getByRole("button", { name: "22 de outubro de 2026", exact: true })).toHaveCSS("text-decoration-line", "none");
   await calendar.getByRole("button", { name: "Próximo mês", exact: true }).click();
   await calendar.getByRole("button", { name: "15 de novembro de 2026", exact: true }).click();
   await expect(input).toHaveValue("15/11/2026");

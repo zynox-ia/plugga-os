@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
+import { CheckIcon } from "lucide-react";
 
 export type SelectOption = { value: string; label: string; description?: string; disabled?: boolean };
 const normalize = (value: string) => value.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLocaleLowerCase("pt-BR").trim();
@@ -62,7 +63,7 @@ export function Combobox({ label, options, value, onChange, disabled = false, hi
           className={`ui-option ${index === active ? "ui-option--active" : ""}`}
           onMouseDown={(event) => event.preventDefault()} onClick={() => choose(option)}>
           <span>{option.label}{option.description && <small>{option.description}</small>}</span>
-          {option.value === value && <span aria-hidden="true">✓</span>}
+          {option.value === value && <CheckIcon className="ui-option-check" size={16} aria-hidden="true" />}
         </li>)}
       </ul>
       {filtered.length === 0 && <p className="ui-popover-empty" role="status">Nenhuma opção encontrada.</p>}

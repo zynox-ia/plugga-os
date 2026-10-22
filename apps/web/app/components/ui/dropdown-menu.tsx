@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
+import { CheckIcon } from "lucide-react";
 
 export type MenuItem = { id: string; label: string; onSelect: () => void; checked?: boolean; disabled?: boolean; danger?: boolean };
 
@@ -53,7 +54,7 @@ export function DropdownMenu({ label, items, disabled = false }: { label: string
         role={item.checked === undefined ? "menuitem" : "menuitemcheckbox"} aria-checked={item.checked}
         className={`ui-option ${item.danger ? "ui-option--danger" : ""}`}
         onClick={() => { item.onSelect(); if (item.checked === undefined) close(); }}>
-        <span>{item.label}</span>{item.checked !== undefined && <span className="ui-menu-check" aria-hidden="true">{item.checked ? "✓" : ""}</span>}
+        <span>{item.label}</span>{item.checked !== undefined && <span className="ui-menu-check" aria-hidden="true">{item.checked && <CheckIcon size={14} />}</span>}
       </button>)}
     </div>}
   </div>;

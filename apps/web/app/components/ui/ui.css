@@ -3,6 +3,7 @@
   --ui-muted: #536579;
   --ui-primary: var(--color-blue-600, #0066cc);
   --ui-focus: #536579;
+  --ui-focus-bg: #f3f4f6;
   --ui-surface: #fff;
   --ui-subtle: #f3f7fb;
   --ui-border: #8294a9;
@@ -30,9 +31,8 @@
 .ui-input-wrap .ui-input { border: 0; background: transparent; border-radius: inherit; }
 .ui-input::placeholder { color: var(--ui-muted); opacity: 1; }
 .ui-input:focus, .ui-input-wrap:focus-within { outline: none; box-shadow: none; }
-.ui-input:focus-visible, .ui-input-wrap:focus-within { background: #f3f4f6; }
+.ui-input:focus-visible, .ui-input-wrap:focus-within, .ui-field-trigger[data-state="open"] { background: var(--ui-focus-bg); }
 .ui-input-wrap .ui-input:focus { background: transparent; }
-.ui-field:focus-within > label, .ui-field:focus-within > .ui-field-label { text-decoration: underline; text-underline-offset: 4px; text-decoration-thickness: 1px; }
 .ui-input[aria-invalid="true"], .ui-input-wrap:has([aria-invalid="true"]) { border-color: var(--ui-danger); background: #fff6f6; }
 .ui-input:disabled, .ui-input-wrap:has(:disabled) { background: #edf1f5; color: var(--ui-muted); cursor: not-allowed; }
 .ui-input[readonly] { background: var(--ui-subtle); }
@@ -42,19 +42,18 @@
 .ui-field-trigger { display: flex; align-items: center; justify-content: space-between; gap: 12px; cursor: pointer; text-align: left; }
 .ui-field-trigger > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ui-field-trigger > svg { flex-shrink: 0; color: var(--ui-muted); }
-.ui-field:has([data-state="open"]) > label { text-decoration: underline; text-underline-offset: 4px; }
 .ui-field-trigger[data-placeholder] { color: var(--ui-muted); }
 .ui-select-content, .ui-popover-content { z-index: 100; box-sizing: border-box; overflow: auto; border: 1px solid var(--ui-divider); border-radius: 12px; background: var(--ui-surface); color: var(--ui-text); box-shadow: 0 12px 32px #0a192f24; font-family: var(--font-general-sans); outline: none; }
 .ui-select-content { width: var(--radix-select-trigger-width); max-width: calc(100vw - 16px); max-height: min(280px, var(--radix-select-content-available-height)); }
 .ui-select-viewport { padding: 6px; }
 .ui-select-item { position: relative; display: flex; align-items: center; min-height: 38px; padding: 9px 32px 9px 10px; border-radius: 6px; font-size: 13px; line-height: 1.4; cursor: default; user-select: none; outline: none; }
-.ui-select-item[data-highlighted] { background: #e5e7eb; text-decoration: underline; text-underline-offset: 3px; }
+.ui-select-item[data-highlighted] { background: var(--ui-focus-bg); }
 .ui-select-item[data-state="checked"] { font-weight: 500; }
 .ui-select-item[data-disabled] { opacity: .45; pointer-events: none; }
-.ui-select-indicator { position: absolute; right: 10px; display: flex; color: var(--ui-text); }
+.ui-select-indicator { position: absolute; right: 10px; display: flex; color: var(--ui-success); }
 .ui-select-scroll { display: flex; justify-content: center; padding: 4px; }
 .ui-date-trigger { display: grid; place-items: center; align-self: stretch; min-width: 40px; margin: 3px; padding: 0; border: 0; border-radius: 5px; background: transparent; color: var(--ui-muted); cursor: pointer; }
-.ui-date-trigger:hover:not(:disabled), .ui-date-trigger:focus-visible { background: #e5e7eb; color: var(--ui-text); outline: none; box-shadow: none; }
+.ui-date-trigger:hover:not(:disabled), .ui-date-trigger:focus-visible { background: var(--ui-focus-bg); color: var(--ui-text); outline: none; box-shadow: none; }
 .ui-date-trigger:disabled { opacity: .5; cursor: not-allowed; }
 .ui-date-popover { width: 256px; max-width: calc(100vw - 16px); max-height: var(--radix-popover-content-available-height); }
 .ui-calendar { padding: 12px; }
@@ -69,8 +68,7 @@
 .ui-calendar td { color: var(--ui-text); }
 .ui-calendar tr:hover td { background: transparent; }
 .ui-calendar-day { position: relative; display: grid; place-items: center; width: 30px; max-width: 100%; height: 30px; margin-inline: auto; padding: 0; border: 0; border-radius: 6px; background: transparent; color: inherit; font: 400 12px var(--font-general-sans); cursor: pointer; }
-.ui-calendar button:hover:not(:disabled), .ui-calendar button:focus-visible { background: #e5e7eb; outline: none; box-shadow: none; }
-.ui-calendar button:focus-visible { text-decoration: underline; text-underline-offset: 4px; font-weight: 600; }
+.ui-calendar button:hover:not(:disabled), .ui-calendar button:focus-visible { background: var(--ui-focus-bg); outline: none; box-shadow: none; }
 .ui-calendar .ui-calendar-day[data-selected-single="true"] { background: var(--ui-text); color: white; }
 .ui-calendar .rdp-today .ui-calendar-day::after { content: ""; position: absolute; width: 3px; height: 3px; bottom: 3px; border-radius: 50%; background: currentColor; }
 .ui-calendar .rdp-outside { color: var(--ui-muted); }
@@ -78,7 +76,7 @@
 .ui-calendar .rdp-hidden { visibility: hidden; }
 .ui-calendar-footer { display: flex; justify-content: space-between; gap: 8px; padding: 8px 12px; border-top: 1px solid var(--ui-divider); }
 .ui-calendar-footer button { min-height: 28px; padding: 4px 8px; border: 0; border-radius: 6px; background: transparent; color: var(--ui-text); font: 500 12px var(--font-general-sans); cursor: pointer; }
-.ui-calendar-footer button:hover:not(:disabled), .ui-calendar-footer button:focus-visible { outline: none; background: #e5e7eb; text-decoration: underline; text-underline-offset: 3px; }
+.ui-calendar-footer button:hover:not(:disabled), .ui-calendar-footer button:focus-visible { outline: none; background: var(--ui-focus-bg); }
 .ui-calendar-footer button:disabled { opacity: .4; cursor: not-allowed; }
 .ui-field-hint, .ui-field-error { margin: 0; font-size: 12px; line-height: 1.5; color: var(--ui-muted); }
 .ui-field-error { color: var(--ui-danger); }
@@ -99,15 +97,16 @@
 .ui-popover ul { list-style: none; padding: 0; margin: 0; }
 .ui-option { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 38px; padding: 9px 10px; border: 0; border-radius: 6px; background: transparent; color: inherit; text-align: left; font: 400 13px/1.4 var(--font-general-sans); cursor: pointer; }
 .ui-option small { display: block; color: var(--ui-muted); font-size: 11px; margin-top: 2px; }
-.ui-option:hover:not(:disabled), .ui-option--active, .ui-option:focus-visible { background: var(--ui-subtle); }
-.ui-option[aria-selected="true"] { color: var(--ui-primary); font-weight: 500; }
+.ui-option:hover:not(:disabled), .ui-option--active, .ui-option:focus-visible { background: var(--ui-focus-bg); }
+.ui-option[aria-selected="true"] { font-weight: 500; }
+.ui-option-check { flex-shrink: 0; color: var(--ui-success); }
 .ui-option[aria-disabled="true"], .ui-option:disabled { opacity: .5; cursor: not-allowed; }
 .ui-option--danger { color: var(--ui-danger); }
 .ui-popover-empty { margin: 0; padding: 16px 10px; font-size: 13px; color: var(--ui-muted); }
 .ui-menu-trigger { width: 100%; justify-content: space-between; gap: 16px; }
-.ui-menu-trigger:focus-visible, .ui-option:focus-visible { outline: none; box-shadow: none; background: #e5e7eb; text-decoration: underline; text-underline-offset: 3px; }
+.ui-menu-trigger:focus-visible, .ui-menu-trigger[aria-expanded="true"], .ui-option:focus-visible { outline: none; box-shadow: none; background: var(--ui-focus-bg); }
 .ui-menu-check { display: grid; place-items: center; width: 16px; height: 16px; border: 1px solid var(--ui-border); border-radius: 4px; }
-[aria-checked="true"] .ui-menu-check { background: var(--ui-primary); color: white; border-color: var(--ui-primary); }
+[aria-checked="true"] .ui-menu-check { color: var(--ui-success); border-color: var(--ui-success); }
 .ui-chip-list { display: flex; flex-wrap: wrap; gap: 6px; }
 .ui-chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 4px 2px 10px; background: #e7f1fc; color: #164c86; border: 1px solid #b9d5f3; border-radius: 30px; font-size: 12px; }
 .ui-chip button { display: grid; place-items: center; min-width: 26px; min-height: 26px; padding: 0; border: 0; background: transparent; border-radius: 50%; font-size: 18px; color: inherit; cursor: pointer; }

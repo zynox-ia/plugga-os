@@ -41,6 +41,8 @@ test("combobox filtra, seleciona pelo teclado e mantém a escolha ao cancelar", 
   await expect(combo).toHaveValue("Distribuidora Sul");
   await expect(combo).toBeFocused();
   await combo.click();
+  const selected = page.getByRole("option", { name: "Distribuidora Sul", exact: false });
+  await expect(selected.locator("svg")).toHaveCSS("color", "rgb(18, 103, 68)");
   await page.getByRole("heading", { name: "Seletores", exact: true }).click();
   await expect(combo).toHaveAttribute("aria-expanded", "false");
 });
@@ -52,6 +54,7 @@ test("menu com check mantém seleção e devolve o foco ao fechar", async ({ pag
   await trigger.press("ArrowDown");
   const item = page.getByRole("menuitemcheckbox", { name: "Valor" });
   await expect(item).toHaveAttribute("aria-checked", "true");
+  await expect(item.locator("svg")).toHaveCSS("color", "rgb(18, 103, 68)");
   await item.click();
   await expect(item).toHaveAttribute("aria-checked", "false");
   await item.press("Escape");
