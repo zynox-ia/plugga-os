@@ -218,6 +218,19 @@ jobs:
           sudo rm -rf /var/lib/apt/lists/*
           pnpm --filter @plugga/web exec playwright install --with-deps chromium
 
+      - name: Design System interactions and responsive layouts
+        id: design-system
+        run: pnpm --filter @plugga/web test:design-system
+
+      - name: Upload Design System failure artifacts
+        if: ${{ failure() && steps.design-system.outcome == 'failure' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: design-system-failure-${{ github.run_attempt }}
+          path: apps/web/test-results
+          if-no-files-found: warn
+          retention-days: 14
+
       - name: Start API for web e2e
         env:
           DATABASE_URL: postgresql://plugga_os_test:local_test_only_change_me@localhost:55432/plugga_os_test?schema=public

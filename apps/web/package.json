@@ -9,6 +9,7 @@
     "start:standalone": "node scripts/start-standalone.mjs",
     "test": "node --test",
     "test:e2e": "playwright test",
+    "test:design-system": "playwright test --config playwright.design-system.config.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

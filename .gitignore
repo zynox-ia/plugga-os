@@ -63,3 +63,4 @@ apps/web/e2e/.auth/
 
 # Claude Code: configurações pessoais e credenciais locais ficam fora.
 .claude/settings.local.json
+.next-ds/

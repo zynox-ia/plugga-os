@@ -12,6 +12,12 @@ node_modules
 
 **/dist
 **/.next
+**/.next-dev
+**/.next-ds
+**/.auth
+**/.env
+**/.env.*
+!**/.env.example
 **/.turbo
 **/coverage
 **/playwright-report
