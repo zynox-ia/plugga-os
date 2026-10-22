@@ -17,7 +17,7 @@ import { SessionUserProvider, useSessionUser } from "../lib/use-session-user";
  * ficam fora do shell porque são abertas sem conta. `/auth/google/complete`
  * está porque some em milissegundos:
  * montar a aplicação inteira para depois trocar de página é um flash de chrome
- * que a pessoa vê e não entende.
+ * que a pessoa vê e não entende. `/design-system` tem layout próprio dedicado.
  */
 const PUBLIC_AUTH_PATHS = [
   "/login",
@@ -60,7 +60,7 @@ function ShellContent({ children }: { children: ReactNode }) {
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
 
-  if (PUBLIC_AUTH_PATHS.includes(pathname)) {
+  if (PUBLIC_AUTH_PATHS.includes(pathname) || pathname.startsWith("/design-system")) {
     return <>{children}</>;
   }
 
