@@ -43,7 +43,31 @@
   --font-articulat: var(--font-general-sans);
   --font-roobert: var(--font-general-sans);
 
-  /* Brandbook 2025 Original Swatches */
+  /* ========================================================
+     PLUGGA DESIGN SYSTEM 2.0 • BLUE TONAL CANONICAL TOKENS
+     ======================================================== */
+  --color-navy-950: #070E18;
+  --color-navy-900: #0A192F;
+  --color-navy-850: #0F294A;
+  --color-navy-800: #143660;
+
+  --color-blue-700: #004DA8;
+  --color-blue-600: #0066CC;
+  --color-blue-500: #0077FF;
+
+  --color-cyan-400: #00A3FF;
+  --color-cyan-300: #33B5FF;
+  --color-cyan-100: #BAE6FD;
+  --color-cyan-50: #F0F8FF;
+
+  --color-success: #10b981;
+  --color-warning: #f59e0b;
+  --color-danger: #ef4444;
+
+  --surface-card-light: rgba(255, 255, 255, 0.72);
+  --surface-card-dark: #0A192F;
+
+  /* Legacy Swatches (Mantidos para compatibilidade retroativa) */
   --brand-petroleo: #003333;
   --brand-areia: #E0DBC7;
   --brand-laranja: #0077FF;
