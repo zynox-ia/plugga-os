@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, type ReactNode } from "react";
+import { useLayoutEffect, useRef, type ReactNode } from "react";
 
 /**
  * Modal sobre o `<dialog>` nativo: o navegador prende o foco dentro, fecha com
@@ -20,10 +20,14 @@ export function Modal({
 }) {
   const ref = useRef<HTMLDialogElement>(null);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const dialogo = ref.current;
+    const focoAnterior = document.activeElement;
     if (dialogo && !dialogo.open) dialogo.showModal();
-    return () => dialogo?.close();
+    return () => {
+      dialogo?.close();
+      if (focoAnterior instanceof HTMLElement && focoAnterior.isConnected) focoAnterior.focus({ preventScroll: true });
+    };
   }, []);
 
   return (
@@ -34,6 +38,20 @@ export function Modal({
       onCancel={(evento) => {
         evento.preventDefault();
         aoFechar();
+      }}
+      onKeyDown={(evento) => {
+        if (evento.key !== "Tab") return;
+        const focaveis = Array.from(evento.currentTarget.querySelectorAll<HTMLElement>(
+          'a[href], button:not(:disabled), input:not(:disabled):not([type="hidden"]), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])',
+        )).filter((elemento) => elemento.getClientRects().length > 0);
+        const primeiro = focaveis[0];
+        const ultimo = focaveis[focaveis.length - 1];
+        if (!primeiro) { evento.preventDefault(); return; }
+        if (evento.shiftKey && document.activeElement === primeiro) {
+          evento.preventDefault(); ultimo?.focus();
+        } else if (!evento.shiftKey && document.activeElement === ultimo) {
+          evento.preventDefault(); primeiro.focus();
+        }
       }}
       onClick={(evento) => {
         if (evento.target === evento.currentTarget) aoFechar();
