@@ -143,7 +143,7 @@ for (const width of [320, 768, 1024, 1440]) {
     const errors: string[] = [];
     page.on("pageerror", (error) => errors.push(error.message));
     page.on("console", (message) => { if (message.type() === "error") errors.push(message.text()); });
-    for (const slug of ["overview", "colors", "typography", "spacing", "radius", "icons", "buttons", "menus", "navigation", "inputs", "selectors", "selection", "modals", "alerts", "tags", "tables", "cards"]) {
+    for (const slug of ["overview", "colors", "typography", "spacing", "radius", "icons", "buttons", "menus", "navigation", "inputs", "dates", "selectors", "selection", "modals", "alerts", "tags", "tables", "cards"]) {
       await page.goto(`/design-system?item=${slug}`);
       await expect(page.getByRole("main").getByRole("heading", { level: 1 })).toBeVisible();
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), slug).toBe(true);

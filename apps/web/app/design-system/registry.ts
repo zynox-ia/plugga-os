@@ -14,6 +14,7 @@ import { TagsPage } from "./pages/components/tags-page";
 
 import { SelectorsPage } from "./pages/forms/selectors-page";
 import { InputsPage } from "./pages/forms/inputs-page";
+import { DatesPage } from "./pages/forms/dates-page";
 
 import { ModalsPage } from "./pages/feedback/modals-page";
 import { AlertsPage } from "./pages/feedback/alerts-page";
@@ -61,6 +62,7 @@ export const SECTIONS: DocSection[] = [
     title: "Formulários",
     items: [
       { slug: "inputs", title: "Campos de entrada", keywords: "input field textarea data", component: InputsPage },
+      { slug: "dates", title: "Datas e calendário", keywords: "data date picker calendário shadcn", component: DatesPage },
       { slug: "selectors", title: "Seletores", keywords: "select combobox dropdown múltipla", component: SelectorsPage },
       { slug: "selection", title: "Checkbox, radio e switch", keywords: "check seleção controles", component: SelectionPage },
     ],
