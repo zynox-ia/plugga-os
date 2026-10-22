@@ -56,19 +56,19 @@
 .ui-date-trigger { display: grid; place-items: center; align-self: stretch; min-width: 40px; margin: 3px; padding: 0; border: 0; border-radius: 5px; background: transparent; color: var(--ui-muted); cursor: pointer; }
 .ui-date-trigger:hover:not(:disabled), .ui-date-trigger:focus-visible { background: #e5e7eb; color: var(--ui-text); outline: none; box-shadow: none; }
 .ui-date-trigger:disabled { opacity: .5; cursor: not-allowed; }
-.ui-date-popover { width: 304px; max-width: calc(100vw - 16px); max-height: var(--radix-popover-content-available-height); }
-.ui-calendar { padding: 16px; }
+.ui-date-popover { width: 256px; max-width: calc(100vw - 16px); max-height: var(--radix-popover-content-available-height); }
+.ui-calendar { padding: 12px; }
 .ui-calendar .rdp-months { position: relative; }
-.ui-calendar .rdp-nav { position: absolute; inset: 0 0 auto; display: flex; align-items: center; justify-content: space-between; height: 36px; }
-.ui-calendar .rdp-month_caption { display: flex; align-items: center; justify-content: center; height: 36px; padding-inline: 36px; pointer-events: none; }
-.ui-calendar .rdp-caption_label { font-size: 14px; font-weight: 500; text-transform: capitalize; }
-.ui-calendar .rdp-button_previous, .ui-calendar .rdp-button_next { display: grid; place-items: center; width: 32px; height: 32px; padding: 0; border: 0; border-radius: 6px; background: transparent; color: var(--ui-text); cursor: pointer; }
-.ui-calendar .rdp-month_grid { width: 100%; min-width: 0; margin-top: 12px; border-collapse: collapse; table-layout: fixed; }
-.ui-calendar th, .ui-calendar td { height: 38px; padding: 0; border: 0; background: transparent; text-align: center; white-space: normal; }
-.ui-calendar th { height: 28px; color: var(--ui-muted); font: 400 11px var(--font-general-sans); text-transform: none; letter-spacing: 0; }
+.ui-calendar .rdp-nav { position: absolute; inset: 0 0 auto auto; display: flex; align-items: center; gap: 4px; height: 28px; }
+.ui-calendar .rdp-month_caption { display: flex; align-items: center; height: 28px; padding-right: 68px; pointer-events: none; }
+.ui-calendar .rdp-caption_label { font-size: 13px; font-weight: 500; line-height: 20px; text-transform: capitalize; }
+.ui-calendar .rdp-button_previous, .ui-calendar .rdp-button_next { display: grid; place-items: center; width: 28px; height: 28px; padding: 0; border: 0; border-radius: 6px; background: transparent; color: var(--ui-text); cursor: pointer; }
+.ui-calendar .rdp-month_grid { width: 100%; min-width: 0; margin-top: 8px; border-collapse: collapse; table-layout: fixed; }
+.ui-calendar th, .ui-calendar td { height: 32px; padding: 0; border: 0; background: transparent; text-align: center; white-space: normal; }
+.ui-calendar th { height: 24px; color: var(--ui-muted); font: 400 11px var(--font-general-sans); text-transform: none; letter-spacing: 0; }
 .ui-calendar td { color: var(--ui-text); }
 .ui-calendar tr:hover td { background: transparent; }
-.ui-calendar-day { position: relative; display: grid; place-items: center; width: 36px; max-width: 100%; height: 36px; margin-inline: auto; padding: 0; border: 0; border-radius: 8px; background: transparent; color: inherit; font: 400 13px var(--font-general-sans); cursor: pointer; }
+.ui-calendar-day { position: relative; display: grid; place-items: center; width: 30px; max-width: 100%; height: 30px; margin-inline: auto; padding: 0; border: 0; border-radius: 6px; background: transparent; color: inherit; font: 400 12px var(--font-general-sans); cursor: pointer; }
 .ui-calendar button:hover:not(:disabled), .ui-calendar button:focus-visible { background: #e5e7eb; outline: none; box-shadow: none; }
 .ui-calendar button:focus-visible { text-decoration: underline; text-underline-offset: 4px; font-weight: 600; }
 .ui-calendar .ui-calendar-day[data-selected-single="true"] { background: var(--ui-text); color: white; }
@@ -76,11 +76,10 @@
 .ui-calendar .rdp-outside { color: var(--ui-muted); }
 .ui-calendar button:disabled { opacity: .3; cursor: not-allowed; }
 .ui-calendar .rdp-hidden { visibility: hidden; }
-.ui-calendar-footer { display: flex; justify-content: space-between; gap: 8px; padding: 12px 16px; border-top: 1px solid var(--ui-divider); }
-.ui-calendar-footer button { padding: 8px 12px; border: 0; border-radius: 6px; background: transparent; color: var(--ui-text); font: 500 12px var(--font-general-sans); cursor: pointer; }
+.ui-calendar-footer { display: flex; justify-content: space-between; gap: 8px; padding: 8px 12px; border-top: 1px solid var(--ui-divider); }
+.ui-calendar-footer button { min-height: 28px; padding: 4px 8px; border: 0; border-radius: 6px; background: transparent; color: var(--ui-text); font: 500 12px var(--font-general-sans); cursor: pointer; }
 .ui-calendar-footer button:hover:not(:disabled), .ui-calendar-footer button:focus-visible { outline: none; background: #e5e7eb; text-decoration: underline; text-underline-offset: 3px; }
 .ui-calendar-footer button:disabled { opacity: .4; cursor: not-allowed; }
-.ui-calendar-help { margin: 0; padding: 0 16px 12px; color: var(--ui-muted); font-size: 11px; line-height: 1.5; }
 .ui-field-hint, .ui-field-error { margin: 0; font-size: 12px; line-height: 1.5; color: var(--ui-muted); }
 .ui-field-error { color: var(--ui-danger); }
 

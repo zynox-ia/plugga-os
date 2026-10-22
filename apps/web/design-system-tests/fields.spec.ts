@@ -99,6 +99,38 @@ test("calendário próprio navega entre meses, seleciona e devolve o foco", asyn
   await expect(page.locator('input[type="date"]')).toHaveCount(0);
 });
 
+test("calendário compacto acompanha o botão e inverte a abertura perto da borda", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/design-system?item=dates");
+  const trigger = page.getByRole("button", { name: "Abrir calendário de Data da operação" });
+  const calendar = page.getByRole("dialog", { name: "Calendário de Data da operação" });
+  await trigger.click();
+  await expect(calendar).toHaveAttribute("data-side", "bottom");
+  const button = (await trigger.boundingBox())!;
+  const panel = (await calendar.boundingBox())!;
+  expect(Math.abs(panel.x + panel.width - button.x - button.width)).toBeLessThanOrEqual(1);
+  expect(panel.y - button.y - button.height).toBeGreaterThanOrEqual(4);
+  expect(panel.y - button.y - button.height).toBeLessThanOrEqual(10);
+  expect(panel.width).toBeLessThanOrEqual(264);
+  expect(panel.height).toBeLessThanOrEqual(320);
+  await expect(calendar.getByText(/Use as setas/)).toHaveCount(0);
+  const caption = (await calendar.locator(".rdp-month_caption").boundingBox())!;
+  const previous = (await calendar.getByRole("button", { name: "Mês anterior", exact: true }).boundingBox())!;
+  const next = (await calendar.getByRole("button", { name: "Próximo mês", exact: true }).boundingBox())!;
+  expect(previous.x).toBeGreaterThan(caption.x + caption.width / 2);
+  expect(Math.abs(previous.y - next.y)).toBeLessThanOrEqual(1);
+  expect(next.x - previous.x - previous.width).toBeLessThanOrEqual(8);
+  await page.keyboard.press("Escape");
+  await page.setViewportSize({ width: 1440, height: 500 });
+  await trigger.click();
+  await expect(calendar).toHaveAttribute("data-side", "top");
+  const upperPanel = (await calendar.boundingBox())!;
+  const lowerButton = (await trigger.boundingBox())!;
+  expect(upperPanel.y).toBeGreaterThanOrEqual(0);
+  expect(lowerButton.y - upperPanel.y - upperPanel.height).toBeGreaterThanOrEqual(4);
+  expect(lowerButton.y - upperPanel.y - upperPanel.height).toBeLessThanOrEqual(10);
+});
+
 test("data digitada valida dias reais e limites, permite limpar e usar hoje", async ({ page }) => {
   await page.clock.setFixedTime(new Date("2026-10-22T12:00:00"));
   await page.goto("/design-system?item=dates");

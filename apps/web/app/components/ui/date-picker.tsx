@@ -3,7 +3,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { CalendarDaysIcon } from "lucide-react";
 import { Calendar } from "./shadcn/calendar";
-import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from "./shadcn/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "./shadcn/popover";
 import { dateInputError, dateValue, displayDate, maskDateInput, parseDate, parseDateInput } from "./date-value";
 
 export function DatePicker({ label, value, defaultValue = "", onChange, name, min, max, disabled = false, readOnly = false, required = false, hint, error }: {
@@ -60,29 +60,26 @@ export function DatePicker({ label, value, defaultValue = "", onChange, name, mi
   return <div className="ui-field">
     <label htmlFor={id}>{label}{required && <span className="ui-required"> (obrigatório)</span>}</label>
     <Popover open={open && !disabled && !readOnly} onOpenChange={changeOpen}>
-      <PopoverAnchor asChild>
-        <div className="ui-input-wrap ui-date-input-wrap">
-          <input ref={input} id={id} className="ui-input" type="text" inputMode="numeric" autoComplete="off" placeholder="dd/mm/aaaa" maxLength={10}
-            value={draft} disabled={disabled} readOnly={readOnly} required={required} aria-invalid={message ? true : undefined}
-            aria-describedby={`${id}-help`} onBlur={() => setTouched(true)}
-            onInvalid={(event) => { event.preventDefault(); setTouched(true); input.current?.focus(); }}
-            onChange={(event) => {
-              const next = maskDateInput(event.target.value);
-              setDraft(next); setTouched(false);
-              if (!next) update("");
-              else if (!dateInputError(next, { min, max })) update(dateValue(parseDateInput(next)!));
-            }}
-            onKeyDown={(event) => { if (event.key === "ArrowDown") { event.preventDefault(); changeOpen(true); } }} />
-          <PopoverTrigger asChild><button ref={trigger} type="button" className="ui-date-trigger" disabled={disabled || readOnly}
-            aria-label={`Abrir calendário de ${label}`}><CalendarDaysIcon size={18} aria-hidden="true" /></button></PopoverTrigger>
-        </div>
-      </PopoverAnchor>
-      <PopoverContent container={container} aria-label={`Calendário de ${label}`} className="ui-date-popover"
+      <div className="ui-input-wrap ui-date-input-wrap">
+        <input ref={input} id={id} className="ui-input" type="text" inputMode="numeric" autoComplete="off" placeholder="dd/mm/aaaa" maxLength={10}
+          value={draft} disabled={disabled} readOnly={readOnly} required={required} aria-invalid={message ? true : undefined}
+          aria-describedby={`${id}-help`} onBlur={() => setTouched(true)}
+          onInvalid={(event) => { event.preventDefault(); setTouched(true); input.current?.focus(); }}
+          onChange={(event) => {
+            const next = maskDateInput(event.target.value);
+            setDraft(next); setTouched(false);
+            if (!next) update("");
+            else if (!dateInputError(next, { min, max })) update(dateValue(parseDateInput(next)!));
+          }}
+          onKeyDown={(event) => { if (event.key === "ArrowDown") { event.preventDefault(); changeOpen(true); } }} />
+        <PopoverTrigger asChild><button ref={trigger} type="button" className="ui-date-trigger" disabled={disabled || readOnly}
+          aria-label={`Abrir calendário de ${label}`}><CalendarDaysIcon size={18} aria-hidden="true" /></button></PopoverTrigger>
+      </div>
+      <PopoverContent container={container} aria-label={`Calendário de ${label}`} className="ui-date-popover" align="end" sideOffset={8}
         onOpenAutoFocus={(event) => event.preventDefault()}>
         <Calendar mode="single" required selected={issue ? undefined : parsed} onSelect={select} month={month} onMonthChange={setMonth}
           startMonth={minDate} endMonth={maxDate} disabled={[...(minDate ? [{ before: minDate }] : []), ...(maxDate ? [{ after: maxDate }] : [])]} autoFocus />
         <div className="ui-calendar-footer"><button type="button" disabled={todayDisabled} onClick={() => select(today)}>Hoje</button><button type="button" onClick={() => select()}>Limpar</button></div>
-        <p className="ui-calendar-help">Use as setas para navegar e Enter para selecionar.</p>
       </PopoverContent>
     </Popover>
     {name && <input type="hidden" name={name} disabled={disabled} value={parsed && !issue ? dateValue(parsed) : ""} />}

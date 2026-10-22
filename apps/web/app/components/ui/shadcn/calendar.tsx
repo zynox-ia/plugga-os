@@ -9,7 +9,7 @@ import { ptBR } from "react-day-picker/locale";
 
 export function Calendar({ className = "", classNames, showOutsideDays = true, captionLayout = "label", components, ...props }: ComponentProps<typeof DayPicker>) {
   const defaults = getDefaultClassNames();
-  return <DayPicker locale={ptBR} showOutsideDays={showOutsideDays} captionLayout={captionLayout} fixedWeeks
+  return <DayPicker locale={ptBR} showOutsideDays={showOutsideDays} captionLayout={captionLayout}
     className={`ui-calendar ${className}`} classNames={{ ...defaults, ...classNames }}
     labels={{ labelPrevious: () => "Mês anterior", labelNext: () => "Próximo mês",
       labelDayButton: (date) => date.toLocaleDateString("pt-BR", { day: "numeric", month: "long", year: "numeric" }) }}
