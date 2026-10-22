@@ -1,7 +1,9 @@
 import "./ui.css";
 
 export { Button, type ButtonProps } from "./button";
-export { TextField, TextareaField, SelectField } from "./fields";
+export { TextField, TextareaField } from "./fields";
+export { SelectField } from "./select-field";
+export { DatePicker } from "./date-picker";
 export { Checkbox, Radio, Switch } from "./selection";
 export { Combobox, type SelectOption } from "./combobox";
 export { DropdownMenu } from "./dropdown-menu";

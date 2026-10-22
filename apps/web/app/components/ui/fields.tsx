@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from "react";
+import { useId, type InputHTMLAttributes, type ReactNode, type TextareaHTMLAttributes } from "react";
 
 type FieldProps = { label: string; hint?: string; error?: string };
 type FieldFrameProps = FieldProps & { id: string; required?: boolean; children: ReactNode };
@@ -42,12 +42,5 @@ export function TextareaField({ label, hint, error, id, className = "", ...props
   const field = useField({ id, hint, error, describedBy: props["aria-describedby"] });
   return <FieldFrame {...{ label, hint, error }} id={field.id} required={props.required}>
     <textarea rows={3} {...props} {...field} className={`ui-input ui-textarea ${className}`} />
-  </FieldFrame>;
-}
-
-export function SelectField({ label, hint, error, id, className = "", children, ...props }: FieldProps & SelectHTMLAttributes<HTMLSelectElement>) {
-  const field = useField({ id, hint, error, describedBy: props["aria-describedby"] });
-  return <FieldFrame {...{ label, hint, error }} id={field.id} required={props.required}>
-    <select {...props} {...field} className={`ui-input ui-select ${className}`}>{children}</select>
   </FieldFrame>;
 }

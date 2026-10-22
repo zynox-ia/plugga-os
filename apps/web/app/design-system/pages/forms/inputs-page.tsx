@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Alert, Button, TextField, TextareaField } from "../../../components/ui";
+import { Alert, Button, DatePicker, TextField, TextareaField } from "../../../components/ui";
 import { DocPage, DocSection, Playground, Usage } from "../../kit/doc";
 
 export function InputsPage() {
@@ -20,7 +20,7 @@ export function InputsPage() {
       <Playground title="Entradas disponíveis" preview={<div className="ds-two-columns">
         <TextField label="Busca" type="search" placeholder="Buscar pelo nome…" />
         <TextField label="Valor (R$)" type="number" min={0} step="0.01" prefix="R$" placeholder="0,00" />
-        <TextField label="Data de vencimento" type="date" />
+        <DatePicker label="Data de vencimento" />
         <TextField label="Telefone" type="tel" autoComplete="tel" placeholder="(00) 00000-0000" />
         <TextField label="Somente leitura" value="DEMO-001" readOnly />
         <TextField label="Campo desabilitado" value="Indisponível neste exemplo" disabled />

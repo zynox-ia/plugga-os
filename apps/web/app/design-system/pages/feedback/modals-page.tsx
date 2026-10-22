@@ -17,7 +17,7 @@ export function ModalsPage() {
         <div className="ds-row"><Button onClick={() => { setDraft(name); setError(false); setOpen("edit"); }}>Abrir formulário</Button><Button variant="secondary" onClick={() => setOpen("confirm")}>Abrir confirmação</Button></div>
         <p className="ds-demo-note">Nome salvo no exemplo: <strong>{name}</strong></p>
         {message && <Alert tone="success" title={message} />}
-      </div>} controls={<SelectField label="Largura do diálogo" value={size} onChange={(event) => setSize(event.target.value as typeof size)}><option value="estreita">Estreita</option><option value="media">Média</option><option value="larga">Larga</option></SelectField>} />
+      </div>} controls={<SelectField label="Largura do diálogo" value={size} onChange={(value) => setSize(value as typeof size)} options={[{ value: "estreita", label: "Estreita" }, { value: "media", label: "Média" }, { value: "larga", label: "Larga" }]} />} />
       <Usage>{'import { Dialog, Button, TextField } from "../components/ui";\n\n{aberto && <Dialog title="Editar projeto" onClose={fechar}\n  footer={<Button type="submit" form="projeto">Salvar alterações</Button>}>\n  <form id="projeto" onSubmit={salvar}>\n    <TextField label="Nome do projeto" required />\n  </form>\n</Dialog>}'}</Usage>
     </DocSection>
     {open === "edit" && <Dialog title="Editar projeto" description="Altere o nome deste exemplo. As mudanças ficam apenas nesta página." size={size} onClose={() => setOpen(null)}

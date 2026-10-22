@@ -9,6 +9,6 @@ export function RadiusPage() {
         <CodeBadge>{token.name}</CodeBadge><strong>{token.size}</strong><p className="ds-demo-note">{token.usage}</p>
       </div>)}</div>
     </DocSection>
-    <DocSection title="Bordas com uma função" description="Use divisórias suaves para agrupar conteúdo e bordas mais definidas nos campos interativos. O foco recebe um contorno próprio e permanece visível." />
+    <DocSection title="Bordas com uma função" description="Use divisórias suaves para agrupar conteúdo e bordas mais definidas nos campos interativos. Nos campos, o foco é indicado por fundo neutro e rótulo sublinhado, sem contorno azul." />
   </DocPage>;
 }

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { Badge, Button, Switch, TextField, SelectField, Alert } from "../../components/ui";
+import { Badge, Button, Switch, TextField, SelectField, DatePicker, Alert } from "../../components/ui";
 import { DocPage, DocSection } from "../kit/doc";
 import { IconPlus, IconArrowRight } from "../icons";
 
@@ -15,7 +15,7 @@ export function OverviewPage() {
         <div className="ds-example-heading"><div><span className="ds-eyebrow">Componentes em conjunto</span><h2 id="ds-composition-title">Tudo começa com uma boa base.</h2></div><Badge tone="info">Exemplo</Badge></div>
         <form onSubmit={(event) => { event.preventDefault(); setSaved(true); }} onChange={() => setSaved(false)}>
           <TextField label="Nome da operação" defaultValue="Projeto de demonstração" required hint="Um nome claro facilita encontrar a operação depois." />
-          <div className="ds-two-columns"><SelectField label="Categoria" defaultValue="gestao"><option value="gestao">Gestão de energia</option><option value="acl">Mercado livre</option><option value="gd">Geração distribuída</option></SelectField><TextField label="Data de início" type="date" defaultValue="2026-10-22" /></div>
+          <div className="ds-two-columns"><SelectField label="Categoria" defaultValue="gestao" onChange={() => setSaved(false)} options={[{ value: "gestao", label: "Gestão de energia" }, { value: "acl", label: "Mercado livre" }, { value: "gd", label: "Geração distribuída" }]} /><DatePicker label="Data de início" defaultValue="2026-10-22" onChange={() => setSaved(false)} /></div>
           <Switch label="Receber atualizações" description="Acompanhar as mudanças desta operação." defaultChecked />
           <div className="ds-form-footer"><span>Dados demonstrativos</span><Button type="submit"><IconPlus aria-hidden="true" />Criar exemplo</Button></div>
           {saved && <Alert tone="success" title="Exemplo criado">A interação foi concluída apenas nesta demonstração.</Alert>}
