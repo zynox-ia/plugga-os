@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test";
 const MUTATION_TIMEOUT_MS = 15_000;
 
 test.describe("Pipelines — configuração pelo modal (PLU-269)", () => {
-  test("o gestor cria um pipeline, que vira aba com as etapas, e o arquiva", async ({ page }) => {
+  test("o gestor cria um pipeline, escolhe no seletor e o arquiva", async ({ page }) => {
     const nome = `Pipeline E2E ${Date.now()}`;
     await page.goto("/comercial/pipelines");
     await expect(page.getByRole("heading", { level: 1, name: "Pipelines" })).toBeVisible();
@@ -28,12 +28,12 @@ test.describe("Pipelines — configuração pelo modal (PLU-269)", () => {
     await expect(modal.getByRole("status").filter({ hasText: "Alterações salvas." })).toBeVisible({ timeout: MUTATION_TIMEOUT_MS });
 
     await modal.getByRole("button", { name: "Fechar" }).click();
-    await page.getByRole("navigation", { name: "Pipelines" }).getByRole("link", { name: new RegExp(nome) }).click();
+    await page.getByLabel("Selecionar pipeline").selectOption({ label: `${nome} · Plugga` });
     const quadro = page.getByRole("region", { name: `Negócios do pipeline ${nome}` });
     await expect(quadro.getByRole("heading", { level: 3 })).toHaveText(["Iniciar atendimento", "Qualificação", "Proposta", "Negociação", "Contrato"]);
     await expect(quadro.getByText("Contrato assinado", { exact: true })).toBeVisible();
 
-    // O link da aba reabre o mesmo pipeline para quem o recebe.
+    // O endereço reabre o mesmo pipeline para quem o recebe.
     await page.goto(page.url());
     await expect(page.getByRole("region", { name: `Negócios do pipeline ${nome}` })).toBeVisible();
 
@@ -41,6 +41,6 @@ test.describe("Pipelines — configuração pelo modal (PLU-269)", () => {
     await modal.getByRole("button", { name: "Arquivar" }).click();
     await expect(modal.getByText("Arquivado", { exact: true })).toBeVisible({ timeout: MUTATION_TIMEOUT_MS });
     await modal.getByRole("button", { name: "Fechar" }).click();
-    await expect(page.getByRole("navigation", { name: "Pipelines" }).getByRole("link", { name: new RegExp(nome) })).toHaveCount(0);
+    await expect(page.getByLabel("Selecionar pipeline").getByRole("option", { name: new RegExp(nome) })).toHaveCount(0);
   });
 });

@@ -1,27 +1,26 @@
 "use client";
 
 import type { BulkDealsAction, ClientOwner, CompanyKey, Deal, ListDealsResponse, Pipeline } from "@plugga/shared";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { enviar } from "../lib/clientes";
-import type { Visao } from "../lib/negocios";
-import { EMPRESAS_POR_ID } from "../lib/organizacao";
-import { hrefDoPipeline } from "../lib/pipelines";
+import { hrefDaVisao, type Visao } from "../lib/negocios";
 import { useSessionUser } from "../lib/use-session-user";
 import { ConfiguracaoDePipelines } from "./pipelines/configuracao-de-pipelines";
 import { GanhoDoNegocio, PerdaDoNegocio } from "./pipelines/encerrar-negocio";
 import { Icone } from "./pipelines/icones";
 import { NovoNegocio } from "./pipelines/novo-negocio";
+import { NavegacaoPipelines } from "./pipelines/navegacao-pipelines";
 import { QuadroDoPipeline, type AcoesDoNegocio } from "./pipelines/quadro-do-pipeline";
 import { TransferirNegocio } from "./pipelines/transferir-negocio";
+import estilos from "./pipelines/tela-pipelines.module.css";
 
 type Encerramento = { tipo: "ganho" | "perda" | "transferencia"; negocio: Deal };
 
 /**
- * Pipelines de venda: uma aba por pipeline que a pessoa alcança, com os
- * negócios em Kanban ou em Lista (PLU-271). A configuração abre num modal pelo
+ * Pipelines de venda: seletor de processo e visões Kanban, Lista e Calendário.
+ * A configuração abre num modal pelo
  * botão desta tela (PLU-269). As ações mudam a tela na hora e confirmam na API;
  * se a API recusar, o negócio volta para onde estava.
  */
@@ -103,38 +102,26 @@ export function PipelinesView({
   };
 
   return (
-    <div className="pagina-pipelines">
-      <header className="cabecalho-pipelines">
-        <span className="eyebrow eyebrow--azul">Comercial</span>
+    <div className={`pagina-pipelines ${estilos.pagina}`}>
+      <header className={estilos.cabecalho}>
         <h1>Pipelines</h1>
-        <p>{selecionado?.description ?? "Os processos de venda da Plugga e da Waze Energia, um por aba."}</p>
+        {selecionado ? (
+          <div className={estilos.acoes}>
+            {podeConfigurar ? (
+              <button className="button button--secondary" type="button" onClick={() => setConfigurando("editar")}>
+                <Icone nome="engrenagem" /> Configurar pipelines
+              </button>
+            ) : null}
+            <button className="button button--accent" type="button" onClick={() => setCriando({})}>
+              <Icone nome="mais" /> Novo negócio
+            </button>
+          </div>
+        ) : null}
       </header>
 
       {selecionado ? (
         <>
-          <div className="barra-pipelines">
-            <nav className="abas-pipeline" aria-label="Pipelines">
-              {ativos.map((p) => (
-                <Link key={p.id} href={hrefDoPipeline(p.id)} aria-current={p.id === selecionado.id ? "page" : undefined} className="aba-pipeline">
-                  <span className="ponto-cor" style={{ background: p.color }} aria-hidden="true" />
-                  {p.name}
-                  <span className={`selo-empresa selo-empresa--${p.companyId}`}>{EMPRESAS_POR_ID[p.companyId].nome}</span>
-                </Link>
-              ))}
-            </nav>
-            <div className="acoes-pipelines">
-              {podeConfigurar ? (
-                <button className="button button--secondary" type="button" onClick={() => setConfigurando("editar")}>
-                  <Icone nome="engrenagem" />
-                  Configurar pipelines
-                </button>
-              ) : null}
-              <button className="button button--accent" type="button" onClick={() => setCriando({})}>
-                <Icone nome="mais" />
-                Novo negócio
-              </button>
-            </div>
-          </div>
+          <NavegacaoPipelines pipelines={ativos} selecionado={selecionado} visao={visao} />
           {aviso ? (
             <p className="aviso aviso--erro aviso-flutuante" role="alert">
               {aviso}
@@ -150,7 +137,7 @@ export function PipelinesView({
           <h2>{podeConfigurar ? "Crie o primeiro pipeline" : "Nenhum pipeline para você ainda"}</h2>
           <p>
             {podeConfigurar
-              ? "Um pipeline é um processo de venda: nome, empresa, etapas e quem trabalha nele. Cada um vira uma aba desta tela."
+              ? "Organize seu processo de venda: escolha a empresa, as etapas e quem trabalha nele."
               : "Você ainda não está na equipe de nenhum pipeline. Peça ao gestor comercial para incluir você."}
           </p>
           {canCreateIn.length > 0 ? (
@@ -190,7 +177,7 @@ export function PipelinesView({
           aoCriar={(negocio) => {
             setCriando(null);
             if (negocio.pipelineId === selecionado.id) confirmado([negocio]);
-            else router.push(hrefDoPipeline(negocio.pipelineId));
+            else router.push(hrefDaVisao(negocio.pipelineId, visao));
           }}
           aoFechar={() => setCriando(null)}
         />

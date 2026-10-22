@@ -8,7 +8,7 @@ import { FUSO_HORARIO } from "./format.ts";
  * etapa, alerta de parado, somas e filtros. Tudo puro, para testar sem tela.
  */
 
-export type Visao = "kanban" | "lista";
+export type Visao = "kanban" | "lista" | "calendario";
 export type FiltroDeStatus = DealStatus | "todos";
 export type FiltroDePrevisao = "qualquer" | "atrasada" | "este-mes" | "proximo-mes" | "sem-previsao";
 export type Filtros = { busca: string; responsavel: string; etiqueta: string; status: FiltroDeStatus; previsao: FiltroDePrevisao };
@@ -111,7 +111,7 @@ export function ordenar(negocios: readonly Deal[], ordem: Ordem, pipeline: Pipel
 
 export function hrefDaVisao(pipelineId: string, visao: Visao): string {
   const consulta = new URLSearchParams({ pipeline: pipelineId });
-  if (visao === "lista") consulta.set("visao", "lista");
+  if (visao !== "kanban") consulta.set("visao", visao);
   return `/comercial/pipelines?${consulta.toString()}`;
 }
 

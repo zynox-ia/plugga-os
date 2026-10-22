@@ -17,7 +17,7 @@ export default async function PipelinesPage({ searchParams }: { searchParams: Pr
       pipelines={resultado.dados.pipelines}
       canCreateIn={resultado.dados.canCreateIn}
       selecionadoId={selecionado?.id ?? null}
-      visao={visao === "lista" ? "lista" : "kanban"}
+      visao={visao === "lista" || visao === "calendario" ? visao : "kanban"}
       negocios={negocios?.ok ? negocios.dados.deals : []}
       responsaveisDeCliente={responsaveis.ok ? responsaveis.dados.items : []}
     />
