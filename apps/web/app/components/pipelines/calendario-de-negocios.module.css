@@ -20,7 +20,7 @@
 .negocio { min-width: 0; margin-bottom: .5rem; padding: .5rem; border: 1px solid var(--line); border-left: 3px solid var(--cor); border-radius: var(--radius-xs); background: var(--panel-hover); }
 .negocio:last-child { margin-bottom: 0; }
 .tituloNegocio { display: flex; align-items: flex-start; gap: .25rem; }
-.tituloNegocio h4 { flex: 1; min-width: 0; margin: .25rem 0; color: var(--ink); font-size: .75rem; font-weight: 600; line-height: 1.4; overflow-wrap: anywhere; }
+.tituloNegocio h4 { flex: 1; min-width: 0; margin: .25rem 0; color: var(--ink); font-size: .75rem; font-weight: 600; line-height: var(--line-height-subheading); overflow-wrap: anywhere; }
 .tituloNegocio :global(.botao-icone) { width: 1.5rem; height: 1.75rem; min-width: 1.5rem; }
 .cliente { display: block; margin-top: .25rem; overflow: hidden; color: var(--muted); font-size: .6875rem; text-overflow: ellipsis; white-space: nowrap; }
 .valor { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .25rem; margin-top: .5rem; font-size: .6875rem; font-weight: 600; }

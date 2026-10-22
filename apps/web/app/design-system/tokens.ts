@@ -44,10 +44,10 @@ export const RADIUS_TOKENS = [
   { name: "--radius-full", size: "9999px", usage: "Botões e indicadores" },
 ];
 export const TYPOGRAPHY_TOKENS = [
-  { role: "Título de página", size: "32px", weight: 500, example: "Visão geral da operação" },
-  { role: "Título de seção", size: "24px", weight: 500, example: "Acompanhe os resultados" },
-  { role: "Título de cartão", size: "18px", weight: 500, example: "Operações em andamento" },
-  { role: "Texto de apoio", size: "14px", weight: 400, example: "As informações que sua equipe precisa, no momento certo." },
-  { role: "Rótulos e controles", size: "13px", weight: 500, example: "Nome da operação" },
-  { role: "Legendas", size: "12px", weight: 400, example: "Atualizado há poucos minutos" },
+  { role: "Título de página", size: "32px", weight: 500, leading: "1,2", lineHeight: "var(--line-height-title)", example: "Visão geral dos resultados da operação" },
+  { role: "Título de seção", size: "24px", weight: 500, leading: "1,3", lineHeight: "var(--line-height-heading)", example: "Acompanhe os resultados e as próximas entregas" },
+  { role: "Título de cartão", size: "18px", weight: 500, leading: "1,4", lineHeight: "var(--line-height-subheading)", example: "Operações em andamento com a sua equipe" },
+  { role: "Texto de apoio", size: "14px", weight: 400, leading: "1,5", lineHeight: "var(--line-height-body)", example: "As informações que sua equipe precisa para acompanhar as operações e tomar decisões com clareza." },
+  { role: "Rótulos e controles", size: "13px", weight: 500, leading: "1,4", lineHeight: "var(--line-height-control)", example: "Selecione a equipe responsável pela operação" },
+  { role: "Legendas", size: "12px", weight: 400, leading: "1,5", lineHeight: "var(--line-height-body)", example: "Atualizado há poucos minutos. Os dados acompanham as mudanças da operação." },
 ];
