@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { ClipboardListIcon, PaperclipIcon, SlidersHorizontalIcon } from "lucide-react";
-import { Button, Checkbox, Combobox, DatePicker, Dialog, FileDropzone, Heading, MultiSelect, Radio, SelectField, Switch, TextareaField, TextField, IconEdit, IconSave } from "../../../components/ui";
+import { Button, Checkbox, Combobox, CurrencyField, DatePicker, Dialog, FileDropzone, Heading, MultiSelect, Radio, SelectField, Switch, TextareaField, TextField, IconEdit, IconSave } from "../../../components/ui";
 import { DISTRIBUTORS, SERVICES } from "../../kit/example-options";
 
 export type ExampleProject = {
@@ -37,7 +37,7 @@ export function ProjectExampleDialog({ project, size, onClose, onSave }: {
           <Combobox label="Distribuidora" options={DISTRIBUTORS} value={draft.distributor} onChange={(value) => update("distributor", value)} />
           <DatePicker label="Data de início" value={draft.date} onChange={(value) => update("date", value)} />
           <MultiSelect label="Serviços" options={SERVICES} value={draft.services} onChange={(value) => update("services", value)} />
-          <TextField label="Valor estimado" prefix="R$" type="number" min="0" step="0.01" value={draft.budget} onChange={(event) => update("budget", event.target.value)} />
+          <CurrencyField label="Valor estimado" value={draft.budget} onValueChange={(value) => update("budget", value)} />
           <fieldset className="ds-demo-group"><legend>Prioridade</legend><div className="ds-row">
             <Radio name="projectPriority" label="Normal" checked={draft.priority === "normal"} onChange={() => update("priority", "normal")} />
             <Radio name="projectPriority" label="Alta" checked={draft.priority === "alta"} onChange={() => update("priority", "alta")} />

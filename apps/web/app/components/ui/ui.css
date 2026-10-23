@@ -151,6 +151,14 @@
 .ui-heading > span:last-child { min-width: 0; }
 .ui-heading-icon { display: inline-flex; flex: 0 0 1em; width: 1em; height: 1em; margin-top: .14em; }
 .ui-heading-icon > svg { width: 100%; height: 100%; }
+.ui-heading:is(h1, h2) { align-items: center; gap: 12px; }
+.ui-heading:is(h1, h2) > .ui-heading-icon { display: grid; place-items: center; flex: 0 0 32px; width: 32px; height: 32px; margin: 0; border: 1px solid #0066cc; border-radius: 9px; color: white; background: linear-gradient(135deg, var(--ui-text), var(--ui-primary)); }
+.ui-heading:is(h1, h2) > .ui-heading-icon > svg { width: 18px; height: 18px; }
+h1.ui-heading > .ui-heading-icon { flex-basis: 40px; width: 40px; height: 40px; border-radius: 11px; }
+h1.ui-heading > .ui-heading-icon > svg { width: 22px; height: 22px; }
+.modal.ui-dialog { width: min(608px, calc(100vw - 32px)); }
+.modal--estreita.ui-dialog { width: min(448px, calc(100vw - 32px)); }
+.modal--larga.ui-dialog { width: min(864px, calc(100vw - 32px)); }
 .modal-conteudo:has(> .ui-dialog-header) { display: flex; flex-direction: column; overflow: hidden; }
 .ui-dialog-header { display: flex; flex-shrink: 0; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 24px; border-bottom: 1px solid var(--ui-divider); }
 .ui-dialog-header h2 { margin: 0; color: var(--ui-text); font-size: 20px; font-weight: 500; }

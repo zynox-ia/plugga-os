@@ -2,6 +2,7 @@ import "./ui.css";
 
 export { Button, type ButtonProps } from "./button";
 export { TextField, TextareaField } from "./fields";
+export { CurrencyField } from "./currency-field";
 export { SelectField } from "./select-field";
 export { DatePicker } from "./date-picker";
 export { Checkbox, Radio, Switch } from "./selection";

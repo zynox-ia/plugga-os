@@ -13,7 +13,7 @@ export function Dialog({ title, description, icon, onClose, size = "media", chil
   useLayoutEffect(() => {
     if (cancelAutoFocus) footerRef.current?.querySelector<HTMLButtonElement>("button")?.focus();
   }, [cancelAutoFocus]);
-  return <Modal rotulo={title} aoFechar={onClose} largura={size}>
+  return <Modal rotulo={title} aoFechar={onClose} largura={size} className="ui-dialog">
     <header className="ui-dialog-header"><div><Heading icon={icon}>{title}</Heading>{description && <p>{description}</p>}</div>
       <Button variant="secondary" size="sm" icon={<IconX />} iconOnly aria-label="Fechar diálogo" onClick={onClose} />
     </header>

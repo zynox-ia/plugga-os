@@ -1,12 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { Alert, Button, DatePicker, TextField, TextareaField, IconCheck } from "../../../components/ui";
+import { Alert, Button, CurrencyField, DatePicker, TextField, TextareaField, IconCheck } from "../../../components/ui";
 import { DocPage, DocSection, Playground, Usage } from "../../kit/doc";
 
 export function InputsPage() {
   const [name, setName] = useState("Projeto de demonstração");
   const [validated, setValidated] = useState(false);
+  const [amount, setAmount] = useState("25000.00");
   const error = validated && !name.trim() ? "Informe o nome do projeto." : undefined;
   return <DocPage title="Campos de entrada" category="Formulários" description="Rótulo, entrada e texto de apoio formam uma unidade. O mesmo padrão acompanha campos de texto, busca, datas, valores e áreas de texto.">
     <DocSection title="Anatomia e validação" description="O rótulo permanece visível. Mensagens de erro explicam como corrigir a entrada.">
@@ -19,7 +20,7 @@ export function InputsPage() {
     <DocSection title="Tipos e estados" description="Campos desabilitados não recebem foco. Somente leitura permite consultar e copiar o valor.">
       <Playground title="Entradas disponíveis" preview={<div className="ds-two-columns">
         <TextField label="Busca" type="search" placeholder="Buscar pelo nome…" />
-        <TextField label="Valor (R$)" type="number" min={0} step="0.01" prefix="R$" placeholder="0,00" />
+        <CurrencyField label="Valor (R$)" value={amount} onValueChange={setAmount} />
         <DatePicker label="Data de vencimento" />
         <TextField label="Telefone" type="tel" autoComplete="tel" placeholder="(00) 00000-0000" />
         <TextField label="Somente leitura" value="DEMO-001" readOnly />
@@ -28,7 +29,7 @@ export function InputsPage() {
         <TextField label="Senha de exemplo" type="password" autoComplete="new-password" placeholder="Digite uma senha" />
       </div>} />
       <Alert title="Informação antes da entrada">Indique unidades e formatos no rótulo. O placeholder complementa o campo e nunca substitui seu nome.</Alert>
-      <Usage>{'import { TextField, TextareaField } from "../components/ui";\n\n<TextField label="Nome do projeto" required\n  value={nome} onChange={(e) => setNome(e.target.value)}\n  hint="Use um nome fácil de reconhecer." error={erro} />\n<TextareaField label="Observações" maxLength={500} />'}</Usage>
+      <Usage>{'import { TextField, TextareaField, CurrencyField } from "../components/ui";\n\n<TextField label="Nome do projeto" required\n  value={nome} onChange={(e) => setNome(e.target.value)}\n  hint="Use um nome fácil de reconhecer." error={erro} />\n<CurrencyField label="Investimento" value={valor} onValueChange={setValor} />\n// valor: "25000.50"; exibição: R$ 25.000,50.\n<TextareaField label="Observações" maxLength={500} />'}</Usage>
     </DocSection>
   </DocPage>;
 }

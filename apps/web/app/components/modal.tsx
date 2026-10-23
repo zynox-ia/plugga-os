@@ -10,12 +10,14 @@ export function Modal({
   rotulo,
   aoFechar,
   largura = "media",
+  className = "",
   children,
 }: {
   /** Nome acessível do diálogo (normalmente o título visível). */
   rotulo: string;
   aoFechar: () => void;
   largura?: "estreita" | "media" | "larga";
+  className?: string;
   children: ReactNode;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
@@ -33,7 +35,7 @@ export function Modal({
   return (
     <dialog
       ref={ref}
-      className={`modal modal--${largura}`}
+      className={`modal modal--${largura} ${className}`}
       aria-label={rotulo}
       onCancel={(evento) => {
         evento.preventDefault();
