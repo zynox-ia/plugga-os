@@ -1,5 +1,7 @@
 import type { SVGProps } from "react";
 
+export { Download as IconDownload, Eye as IconEye, Save as IconSave, Pencil as IconEdit, RotateCcw as IconReset } from "lucide-react";
+
 export function IconCheck(props: SVGProps<SVGSVGElement>) {
   return (
     <svg aria-hidden="true" focusable="false" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" {...props}>

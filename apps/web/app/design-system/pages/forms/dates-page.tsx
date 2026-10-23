@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Button, DatePicker } from "../../../components/ui";
+import { Button, DatePicker, IconCheck } from "../../../components/ui";
 import { DocPage, DocSection, Playground, Usage } from "../../kit/doc";
 
 export function DatesPage() {
@@ -11,7 +11,7 @@ export function DatesPage() {
     <DocSection title="Uma data, duas formas de escolher" description="Formato brasileiro, navegação entre meses e atalhos para hoje ou para limpar a seleção.">
       <Playground title="Experimente o calendário" preview={<form className="ds-stack" onChange={() => setSaved(false)} onSubmit={(event) => { event.preventDefault(); setSaved(true); }}>
         <div className="ds-two-columns"><DatePicker label="Data da operação" name="data" required value={date} onChange={(next) => { setDate(next); setSaved(false); }} /><DatePicker label="Data opcional" /></div>
-        <div className="ds-row"><Button type="submit">Confirmar data</Button>{saved && <span role="status" className="ds-demo-note">Data confirmada no exemplo.</span>}</div>
+        <div className="ds-row"><Button icon={<IconCheck />} type="submit">Confirmar data</Button>{saved && <span role="status" className="ds-demo-note">Data confirmada no exemplo.</span>}</div>
       </form>} />
     </DocSection>
     <DocSection title="Limites e estados" description="As mesmas regras valem para uma data digitada ou escolhida no calendário.">

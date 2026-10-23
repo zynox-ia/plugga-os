@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Alert, Button, DatePicker, TextField, TextareaField } from "../../../components/ui";
+import { Alert, Button, DatePicker, TextField, TextareaField, IconCheck } from "../../../components/ui";
 import { DocPage, DocSection, Playground, Usage } from "../../kit/doc";
 
 export function InputsPage() {
@@ -13,7 +13,7 @@ export function InputsPage() {
       <Playground title="Formulário de exemplo" preview={<form className="ds-stack" noValidate onSubmit={(event) => { event.preventDefault(); setValidated(true); }}>
         <div className="ds-two-columns"><TextField label="Nome do projeto" required value={name} onChange={(event) => { setName(event.target.value); setValidated(false); }} error={error} hint="Use um nome fácil de reconhecer." /><TextField label="E-mail de contato" type="email" autoComplete="email" placeholder="nome@exemplo.com" hint="Exemplo de campo com formato de e-mail." /></div>
         <TextareaField label="Observações" placeholder="Adicione o contexto que a equipe precisa conhecer." maxLength={500} hint="Até 500 caracteres." />
-        <div className="ds-row"><Button type="submit">Validar exemplo</Button>{validated && !error && <span role="status" className="ds-demo-note">Campos validados.</span>}</div>
+        <div className="ds-row"><Button icon={<IconCheck />} type="submit">Validar exemplo</Button>{validated && !error && <span role="status" className="ds-demo-note">Campos validados.</span>}</div>
       </form>} />
     </DocSection>
     <DocSection title="Tipos e estados" description="Campos desabilitados não recebem foco. Somente leitura permite consultar e copiar o valor.">

@@ -16,6 +16,12 @@
 .ui-button { flex-shrink: 0; font-family: var(--font-general-sans); }
 .ui-button--sm { height: 32px; min-height: 32px; padding-inline: 14px; font-size: 12px; }
 .ui-button--lg { height: 48px; min-height: 48px; padding-inline: 24px; font-size: 14px; }
+.ui-button-icon { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 16px; height: 16px; }
+.ui-button-icon > svg { display: block; width: 16px; height: 16px; }
+.ui-button-label { min-width: 0; }
+.ui-button--icon-only { width: 40px; padding: 0; }
+.ui-button--icon-only.ui-button--sm { width: 32px; padding: 0; }
+.ui-button--icon-only.ui-button--lg { width: 48px; padding: 0; }
 .ui-button.button--perigo, .ui-button.button--perigo:hover:not(:disabled) { background: linear-gradient(120deg, #8f1c22, var(--ui-danger)); border-color: var(--ui-danger); color: white; }
 .ui-button:focus-visible, .ui-option:focus-visible, .ui-chip button:focus-visible {
   outline: 2px solid var(--ui-focus); outline-offset: 3px;
@@ -146,6 +152,7 @@
 .ui-card--dark h3 { color: white; }
 @media (max-width: 767px) {
   .ui-input, .ui-button, .ui-choice { min-height: 44px; }
+  .ui-button--icon-only { min-width: 44px; }
   .ui-input { font-size: 16px; }
   .ui-option { min-height: 44px; }
   .ui-dialog-header, .ui-dialog-body { padding: 16px; }

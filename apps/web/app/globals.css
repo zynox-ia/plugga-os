@@ -712,14 +712,14 @@ h1 { margin-bottom: 4px; color: #0F294A; font: 500 clamp(24px, 2.5vw, 32px)/var(
   border-radius: var(--radius-full);
   cursor: pointer;
   font: 500 13px/var(--line-height-control) var(--font-articulat), "Articulat CF", sans-serif;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: background-color .16s ease, border-color .16s ease, color .16s ease, filter .16s ease;
 }
 .button:hover:not(:disabled) {
   color: #ffffff;
-  transform: translateY(-1px);
+  transform: none;
   background: rgba(224, 219, 199, 0.15);
   border-color: rgba(224, 219, 199, 0.3);
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
+  box-shadow: none;
 }
 
 .button--primary,
@@ -735,13 +735,14 @@ h1 { margin-bottom: 4px; color: #0F294A; font: 500 clamp(24px, 2.5vw, 32px)/var(
   color: #FFFFFF;
   background: linear-gradient(120deg, #0B2240 0%, #0066CC 100%);
   border-color: #0066CC;
-  transform: translateY(-1px);
+  transform: none; filter: brightness(.94);
   box-shadow: none;
 }
 
 /* Botão Secundário Minimalista em Vidro Desfocado (Tonalidade e Borda Delicadas) */
 .button--secondary,
-.button--leaf {
+.button--leaf,
+.button--ghost {
   color: #0F294A;
   background: rgba(15, 41, 74, 0.03);
   backdrop-filter: blur(16px);
@@ -751,11 +752,12 @@ h1 { margin-bottom: 4px; color: #0F294A; font: 500 clamp(24px, 2.5vw, 32px)/var(
   box-shadow: none;
 }
 .button--secondary:hover:not(:disabled),
-.button--leaf:hover:not(:disabled) {
+.button--leaf:hover:not(:disabled),
+.button--ghost:hover:not(:disabled) {
   color: #0F294A;
   background: rgba(15, 41, 74, 0.07);
   border-color: rgba(15, 41, 74, 0.12);
-  transform: translateY(-1px);
+  transform: none;
   box-shadow: none;
 }
 
@@ -815,8 +817,8 @@ h1 { margin-bottom: 4px; color: #0F294A; font: 500 clamp(24px, 2.5vw, 32px)/var(
   color: #0F294A;
   background: rgba(224, 219, 199, 0.85);
   border-color: #E0DBC7;
-  transform: translateY(-1px);
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
+  transform: none;
+  box-shadow: none;
 }
 
 .button--woody {
@@ -830,20 +832,10 @@ h1 { margin-bottom: 4px; color: #0F294A; font: 500 clamp(24px, 2.5vw, 32px)/var(
   color: #0F294A;
   background: rgba(214, 184, 150, 0.85);
   border-color: #D6B896;
-  transform: translateY(-1px);
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
+  transform: none;
+  box-shadow: none;
 }
 
-.button--ghost {
-  color: #0F294A;
-  background: rgba(15, 41, 74, 0.04);
-  border: 1px solid rgba(15, 41, 74, 0.08);
-}
-.button--ghost:hover:not(:disabled) {
-  color: #0F294A;
-  background: rgba(15, 41, 74, 0.08);
-  border-color: rgba(15, 41, 74, 0.15);
-}
 
 .button:disabled,
 .button--primary:disabled,
@@ -1552,9 +1544,9 @@ tbody tr:last-child td { border-bottom: 0; }
 .desfecho-confirmacao .resumo-encerramento { margin: 0; }
 .desfecho-confirmacao--ganho { color: #18794E; background: #F1FAF4; border: 1px solid #BFE5CD; }
 .button--ganho { color: #fff; background: linear-gradient(120deg, #0B5E3F 0%, #18A957 100%); border: 1px solid #18A957; }
-.button--ganho:hover:not(:disabled) { color: #fff; background: linear-gradient(120deg, #0B5E3F 0%, #18A957 100%); transform: translateY(-1px); }
+.button--ganho:hover:not(:disabled) { color: #fff; background: linear-gradient(120deg, #0B5E3F 0%, #18A957 100%); transform: none; filter: brightness(.94); }
 .button--perigo { color: #fff; background: linear-gradient(120deg, #8F1C22 0%, #E5484D 100%); border: 1px solid #E5484D; }
-.button--perigo:hover:not(:disabled) { color: #fff; background: linear-gradient(120deg, #8F1C22 0%, #E5484D 100%); transform: translateY(-1px); }
+.button--perigo:hover:not(:disabled) { color: #fff; background: linear-gradient(120deg, #8F1C22 0%, #E5484D 100%); transform: none; filter: brightness(.94); }
 .motivos-perda { display: grid; gap: 6px; margin: 0; padding: 0; border: 0; }
 .motivos-perda legend { margin-bottom: 8px; padding: 0; color: var(--petroleo); font: 500 13px/var(--line-height-control) Anybody, sans-serif; }
 .opcao-motivo { display: flex; align-items: center; gap: 10px; padding: 10px 12px; color: #0F294A; background: #fff; border: 1.5px solid rgba(15, 41, 74, .1); border-radius: 12px; cursor: pointer; font: 500 13.5px/var(--line-height-control) var(--font-articulat), "Articulat CF", sans-serif; }

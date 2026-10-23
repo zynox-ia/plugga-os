@@ -17,7 +17,7 @@ export function OverviewPage() {
           <TextField label="Nome da operação" defaultValue="Projeto de demonstração" required hint="Um nome claro facilita encontrar a operação depois." />
           <div className="ds-two-columns"><SelectField label="Categoria" defaultValue="gestao" onChange={() => setSaved(false)} options={[{ value: "gestao", label: "Gestão de energia" }, { value: "acl", label: "Mercado livre" }, { value: "gd", label: "Geração distribuída" }]} /><DatePicker label="Data de início" defaultValue="2026-10-22" onChange={() => setSaved(false)} /></div>
           <Switch label="Receber atualizações" description="Acompanhar as mudanças desta operação." defaultChecked />
-          <div className="ds-form-footer"><span>Dados demonstrativos</span><Button type="submit"><IconPlus aria-hidden="true" />Criar exemplo</Button></div>
+          <div className="ds-form-footer"><span>Dados demonstrativos</span><Button icon={<IconPlus />} type="submit">Criar exemplo</Button></div>
           {saved && <Alert tone="success" title="Exemplo criado">A interação foi concluída apenas nesta demonstração.</Alert>}
         </form>
       </section>
