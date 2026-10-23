@@ -44,7 +44,7 @@ test("categoria usa lista própria, confirma e cancela seleções pelo teclado",
   await expect(page.getByRole("option", { name: "Mercado livre", exact: true })).toBeFocused();
   const selected = page.getByRole("option", { name: "Mercado livre", exact: true });
   await expect(selected).toHaveCSS("text-decoration-line", "none");
-  const check = selected.locator("svg");
+  const check = selected.locator(".ui-select-indicator svg");
   await expect(check).toBeVisible();
   await expect(check).toHaveCSS("color", "rgb(18, 103, 68)");
   const row = (await selected.boundingBox())!;

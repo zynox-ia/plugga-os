@@ -42,7 +42,7 @@ test("combobox filtra, seleciona pelo teclado e mantém a escolha ao cancelar", 
   await expect(combo).toBeFocused();
   await combo.click();
   const selected = page.getByRole("option", { name: "Distribuidora Sul", exact: false });
-  await expect(selected.locator("svg")).toHaveCSS("color", "rgb(18, 103, 68)");
+  await expect(selected.locator(".ui-option-check")).toHaveCSS("color", "rgb(18, 103, 68)");
   await page.getByRole("heading", { name: "Seletores", exact: true }).click();
   await expect(combo).toHaveAttribute("aria-expanded", "false");
 });

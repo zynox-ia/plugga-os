@@ -23,6 +23,8 @@ html { text-wrap-style: balance; }
 .controle { line-height: var(--line-height-control); }
 .texto { line-height: var(--line-height-body); }`}</Usage>
     </DocSection>
-    <DocSection title="Hierarquia de conteúdo" description="Um título principal por página, seções em h2 e subdivisões em h3. Reservamos a fonte monoespaçada para valores técnicos e trechos de código." />
+    <DocSection title="Hierarquia de conteúdo" description="Um título principal por página, seções em h2 e subdivisões em h3. Os ícones antecedem os títulos e acompanham seu tamanho; o primeiro bloco fica mais próximo do cabeçalho.">
+      <Usage>{'import { Heading, IconSettings } from "../components/ui";\n\n<Heading as="h1" icon={<IconSettings />}>Configurações</Heading>\n<Heading as="h2">Preferências da equipe</Heading>\n// Ícones são decorativos; o texto continua sendo o nome acessível.'}</Usage>
+    </DocSection>
   </DocPage>;
 }

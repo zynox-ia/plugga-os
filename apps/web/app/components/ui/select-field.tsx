@@ -3,6 +3,7 @@
 import { useId, useRef, useState } from "react";
 import type { SelectOption } from "./combobox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./shadcn/select";
+import { OptionLabel } from "./select-option";
 
 export function SelectField({ label, options, value, defaultValue, onChange, name, id, disabled, required, hint, error, placeholder = "Selecione uma opção" }: {
   label: string; options: readonly SelectOption[]; value?: string; defaultValue?: string;
@@ -19,10 +20,10 @@ export function SelectField({ label, options, value, defaultValue, onChange, nam
       onOpenChange={(open) => { if (open) setContainer(trigger.current?.closest("dialog") ?? null); }}>
       <SelectTrigger ref={trigger} id={fieldId} aria-labelledby={`${fieldId}-label`}
         aria-invalid={error ? true : undefined} aria-describedby={hint || error ? `${fieldId}-help` : undefined}>
-        <SelectValue placeholder={placeholder} />
+        <SelectValue placeholder={<OptionLabel option={{ label: placeholder }} />} />
       </SelectTrigger>
       <SelectContent container={container} aria-labelledby={`${fieldId}-label`}>
-        {options.map((option) => <SelectItem key={option.value} value={option.value} disabled={option.disabled}>{option.label}</SelectItem>)}
+        {options.map((option) => <SelectItem key={option.value} value={option.value} disabled={option.disabled} textValue={option.label}><OptionLabel option={option} /></SelectItem>)}
         {options.length === 0 && <p className="ui-popover-empty">Nenhuma opção disponível.</p>}
       </SelectContent>
     </Select>

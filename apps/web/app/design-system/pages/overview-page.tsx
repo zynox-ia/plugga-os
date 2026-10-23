@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { Badge, Button, Switch, TextField, SelectField, DatePicker, Alert } from "../../components/ui";
+import { Badge, Button, Switch, TextField, SelectField, DatePicker, Alert, Heading } from "../../components/ui";
 import { DocPage, DocSection } from "../kit/doc";
 import { IconPlus, IconArrowRight } from "../icons";
 
@@ -12,7 +12,7 @@ export function OverviewPage() {
     description="A base visual da Plugga, reunida em um só lugar. Explore os padrões, teste as interações e use os mesmos componentes em cada tela.">
     <div className="ds-overview-grid">
       <section className="ds-overview-form" aria-labelledby="ds-composition-title">
-        <div className="ds-example-heading"><div><span className="ds-eyebrow">Componentes em conjunto</span><h2 id="ds-composition-title">Tudo começa com uma boa base.</h2></div><Badge tone="info">Exemplo</Badge></div>
+        <div className="ds-example-heading"><div><span className="ds-eyebrow">Componentes em conjunto</span><Heading id="ds-composition-title">Tudo começa com uma boa base.</Heading></div><Badge tone="info">Exemplo</Badge></div>
         <form onSubmit={(event) => { event.preventDefault(); setSaved(true); }} onChange={() => setSaved(false)}>
           <TextField label="Nome da operação" defaultValue="Projeto de demonstração" required hint="Um nome claro facilita encontrar a operação depois." />
           <div className="ds-two-columns"><SelectField label="Categoria" defaultValue="gestao" onChange={() => setSaved(false)} options={[{ value: "gestao", label: "Gestão de energia" }, { value: "acl", label: "Mercado livre" }, { value: "gd", label: "Geração distribuída" }]} /><DatePicker label="Data de início" defaultValue="2026-10-22" onChange={() => setSaved(false)} /></div>
@@ -22,7 +22,7 @@ export function OverviewPage() {
         </form>
       </section>
       <aside className="ds-overview-principles" aria-label="Princípios da interface">
-        <span className="ds-eyebrow">O que nos conecta</span><h2>Clareza em cada detalhe.</h2>
+        <span className="ds-eyebrow">O que nos conecta</span><Heading>Clareza em cada detalhe.</Heading>
         <ol><li><span>01</span><div><h3>Uma identidade</h3><p>Azul-marinho, superfícies leves e General Sans.</p></div></li><li><span>02</span><div><h3>Comportamento previsível</h3><p>Os mesmos estados e interações em toda a experiência.</p></div></li><li><span>03</span><div><h3>Acesso para todos</h3><p>Rótulos claros, foco visível e navegação por teclado.</p></div></li></ol>
         <div className="ds-palette-strip" aria-label="Paleta da interface"><i /><i /><i /><i /><i /></div>
       </aside>

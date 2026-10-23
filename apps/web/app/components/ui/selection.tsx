@@ -9,7 +9,7 @@ export function Checkbox({ label, description, indeterminate = false, id, classN
   const fieldId = id ?? generatedId;
   const ref = useRef<HTMLInputElement>(null);
   useEffect(() => { if (ref.current) ref.current.indeterminate = indeterminate; }, [indeterminate]);
-  return <label className={`ui-choice ${className}`} htmlFor={fieldId}>
+  return <label className={`ui-choice ui-checkbox ${className}`} htmlFor={fieldId}>
     <input {...props} id={fieldId} ref={ref} type="checkbox" aria-labelledby={`${fieldId}-label`} aria-describedby={description ? `${fieldId}-description` : props["aria-describedby"]} />
     <span><span id={`${fieldId}-label`}>{label}</span>{description && <small id={`${fieldId}-description`}>{description}</small>}</span>
   </label>;

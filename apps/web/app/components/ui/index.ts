@@ -9,6 +9,8 @@ export { Combobox, type SelectOption } from "./combobox";
 export { DropdownMenu } from "./dropdown-menu";
 export { MultiSelect } from "./multi-select";
 export { Dialog } from "./dialog";
+export { Heading } from "./heading";
+export { FileDropzone } from "./file-dropzone";
 export { Tabs } from "./tabs";
 export { Card } from "./card";
 export * from "./icons";

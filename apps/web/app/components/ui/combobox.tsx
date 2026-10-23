@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
-import { CheckIcon } from "lucide-react";
+import { CheckIcon, ChevronDownIcon, SearchIcon } from "lucide-react";
+import { OptionIcon, OptionLabel, type SelectOption } from "./select-option";
 
-export type SelectOption = { value: string; label: string; description?: string; disabled?: boolean };
+export type { SelectOption } from "./select-option";
 const normalize = (value: string) => value.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLocaleLowerCase("pt-BR").trim();
 
 export function Combobox({ label, options, value, onChange, disabled = false, hint, error }: {
@@ -30,6 +31,7 @@ export function Combobox({ label, options, value, onChange, disabled = false, hi
     <label htmlFor={id}>{label}</label>
     <div className="ui-popover-root">
     <div className="ui-input-wrap">
+      <span className="ui-input-leading"><OptionIcon icon={expanded ? <SearchIcon /> : selected?.icon} /></span>
       <input id={id} className="ui-input" role="combobox" autoComplete="off" disabled={disabled}
         aria-expanded={expanded} aria-controls={expanded ? `${id}-list` : undefined} aria-autocomplete="list"
         aria-activedescendant={expanded && active >= 0 && filtered[active] ? `${id}-option-${active}` : undefined}
@@ -54,7 +56,7 @@ export function Combobox({ label, options, value, onChange, disabled = false, hi
             event.preventDefault(); event.stopPropagation(); close();
           } else if (event.key === "Tab") close();
         }} />
-      <span aria-hidden="true" className="ui-input-adornment">⌄</span>
+      <span aria-hidden="true" className="ui-input-adornment"><ChevronDownIcon size={16} /></span>
     </div>
     {expanded && <div className="ui-popover">
       <ul ref={list} id={`${id}-list`} role="listbox" aria-label={label}>
@@ -62,7 +64,7 @@ export function Combobox({ label, options, value, onChange, disabled = false, hi
           aria-selected={option.value === value} aria-disabled={option.disabled || undefined}
           className={`ui-option ${index === active ? "ui-option--active" : ""}`}
           onMouseDown={(event) => event.preventDefault()} onClick={() => choose(option)}>
-          <span>{option.label}{option.description && <small>{option.description}</small>}</span>
+          <OptionLabel option={option} description />
           {option.value === value && <CheckIcon className="ui-option-check" size={16} aria-hidden="true" />}
         </li>)}
       </ul>
