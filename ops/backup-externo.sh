@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 #
-# Backup externo e criptografado (spec 002, US3, FR-011/012/015). Leva o banco e
+# Backup externo e criptografado. Leva o banco e
 # os arquivos de negócio para fora da VPS, no formato de
-# specs/002-fundacao-solida/contracts/backup-formato.md:
+# ops/backup-formato.md:
 #
 #   banco/plugga_os.dump  +  arquivos/<balde>/...  +  LEIAME.txt   ->  tar  ->  age  ->  B2
 #

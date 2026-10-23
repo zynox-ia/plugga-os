@@ -20,7 +20,7 @@ overrides:
   postcss: 8.5.23
   proxy-addr: 2.0.8
   source-map-js: 1.2.2
-  sharp: 0.35.4
+  sharp: 0.35.5
 
 # braces (GHSA-vfj7-8cjw-p6xm, negação de serviço por padrões aninhados) não tem
 # versão corrigida publicada (última: 3.0.3). Só chega por ferramentas de lint

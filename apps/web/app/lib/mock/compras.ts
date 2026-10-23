@@ -111,4 +111,5 @@ export const FALLBACK_SCORECARD: ScorecardCompras = {
     { etapa: "retirada", concluidas: 6, noPrazo: 6, percentual: 100, farol: "verde" },
   ],
   dispensasDeSegregacao: 0,
+  aviso: null,
 };

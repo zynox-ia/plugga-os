@@ -1,0 +1,18 @@
+:root {
+  --line-height-title: 1.2;
+  --line-height-heading: 1.3;
+  --line-height-subheading: 1.4;
+  --line-height-control: 1.4;
+  --line-height-body: 1.5;
+  --line-height-solid: 1;
+}
+
+/* Herdado por toda a interface, inclusive conteúdo em portais. A propriedade
+   longa preserva nowrap, reticências e a formatação dos blocos de código. */
+html { text-wrap-style: balance; }
+body { line-height: var(--line-height-body); }
+h1 { line-height: var(--line-height-title); }
+h2 { line-height: var(--line-height-heading); }
+h3, h4, h5, h6 { line-height: var(--line-height-subheading); }
+button, input, select { line-height: var(--line-height-control); }
+textarea { line-height: var(--line-height-body); }

@@ -311,13 +311,13 @@ describe("limites de entrada — US10 (e2e)", () => {
   describe("falha do armazenamento não vaza detalhe interno (T109)", () => {
     it("devolve 503 genérico e deixa o detalhe só no log, com o requestId", async () => {
       const real = new ArmazenamentoDeCotacoes();
-      (real as unknown as { obterCliente: () => Promise<unknown> }).obterCliente = async () => ({
+      (real as unknown as { s3: { obterCliente: () => Promise<unknown> } }).s3.obterCliente = async () => ({
         send: async () => {
           throw new Error("connect ECONNREFUSED 10.9.8.7:9000 balde-secreto-xyz");
         },
         destroy: () => undefined,
       });
-      vi.spyOn(armazenamento, "guardar").mockImplementation((c, m, n, e) => real.guardar(c, m, n, e));
+      vi.spyOn(armazenamento, "guardar").mockImplementation(((c: Buffer, m: string, n: string, e?: unknown) => (real.guardar as (...a: unknown[]) => Promise<never>)(c, m, n, e)) as never);
       const erros = vi.spyOn(Logger.prototype, "error").mockImplementation(() => undefined);
 
       const resposta = await enviarCotacao("falha", pdf(), "ok.pdf", MIME.pdf);

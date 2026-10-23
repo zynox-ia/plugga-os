@@ -3,7 +3,7 @@ import type { NestExpressApplication } from "@nestjs/platform-express";
 import request from "supertest";
 
 import { AppModule } from "../../src/app.module";
-import { AuditRepository, type EventAppend } from "../../src/audit/audit.repository";
+import { AuditPort, type EventAppend } from "../../src/audit/audit.port";
 import { AuthRepository } from "../../src/auth/auth.repository";
 import {
   GoogleIdentityVerifier,
@@ -59,7 +59,7 @@ export class FakeGoogleVerifier extends GoogleIdentityVerifier {
   }
 }
 
-export class RecordingAuditRepository extends AuditRepository {
+export class RecordingAuditRepository extends AuditPort {
   readonly events: EventAppend[] = [];
 
   async appendEvent(event: EventAppend): Promise<void> {
@@ -92,7 +92,7 @@ export async function bootGoogleHarness(): Promise<GoogleHarness> {
     .useValue(verifier)
     .overrideProvider(EmailPort)
     .useValue(new CapturingEmailPort())
-    .overrideProvider(AuditRepository)
+    .overrideProvider(AuditPort)
     .useValue(audit)
     // Store em memória, sem Redis de verdade: sem este override o
     // SessionService.issue() de todo login federado bateria na rede à toa.

@@ -40,6 +40,7 @@ type RecordedEvent = { eventName: string; entityId: string; actorId: string };
  * than reimplementing the close rule, so this double can't drift from
  * production behavior.
  */
+// @ts-expect-error dublê parcial: não implementa todos os membros do repositório real (dívida registrada na T183)
 class InMemoryEnergyRepository extends EnergyRepository {
   private cycles = new Map<string, CycleDetail>();
   private auditsByCycle = new Map<string, { status: string; divergenceBlocksClosing: boolean }[]>();

@@ -5,13 +5,13 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { AppModule } from "../src/app.module";
 import {
-  AuditRepository,
+  AuditPort,
   type AgentActionAppend,
   type EventAppend,
   type StoredAgentAction,
-} from "../src/audit/audit.repository";
+} from "../src/audit/audit.port";
 
-class InMemoryAuditRepository extends AuditRepository {
+class InMemoryAuditRepository extends AuditPort {
   readonly calls: Array<{ agentAction?: AgentActionAppend; event: EventAppend }> = [];
 
   async appendEvent(event: EventAppend): Promise<void> {
@@ -38,7 +38,7 @@ describe("foundation API (e2e)", () => {
   beforeAll(async () => {
     auditRepository = new InMemoryAuditRepository();
     const module = await Test.createTestingModule({ imports: [AppModule] })
-      .overrideProvider(AuditRepository)
+      .overrideProvider(AuditPort)
       .useValue(auditRepository)
       .compile();
 

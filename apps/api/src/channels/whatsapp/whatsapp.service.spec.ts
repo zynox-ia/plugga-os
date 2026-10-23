@@ -1,15 +1,15 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
 import {
-  AuditRepository,
+  AuditPort,
   type AgentActionAppend,
   type EventAppend,
   type StoredAgentAction,
-} from "../../audit/audit.repository";
+} from "../../audit/audit.port";
 import type { AuthPrincipal } from "../../core/auth/auth.types";
 import { WhatsappService } from "./whatsapp.service";
 
-class AuditSpy extends AuditRepository {
+class AuditSpy extends AuditPort {
   calls: Array<{ action?: AgentActionAppend; event: EventAppend }> = [];
 
   async appendEvent(event: EventAppend): Promise<void> {

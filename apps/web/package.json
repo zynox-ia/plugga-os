@@ -9,12 +9,17 @@
     "start:standalone": "node scripts/start-standalone.mjs",
     "test": "node --test",
     "test:e2e": "playwright test",
+    "test:design-system": "playwright test --config playwright.design-system.config.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@plugga/shared": "workspace:*",
+    "@radix-ui/react-popover": "1.3.1",
+    "@radix-ui/react-select": "2.4.1",
+    "lucide-react": "1.61.0",
     "next": "15.5.24",
     "react": "19.1.1",
+    "react-day-picker": "10.0.2",
     "react-dom": "19.1.1"
   },
   "devDependencies": {

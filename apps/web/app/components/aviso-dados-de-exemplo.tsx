@@ -3,9 +3,8 @@ import { StatusPill } from "./plugga-shell";
 /**
  * Aviso fixo para telas que ainda não têm backend (US12, T130, SC-017).
  *
- * Dashboard e Central de Pendências mostram números de apresentação. Sem este
- * aviso, quem lê não tem como distinguir exemplo de dado real; a navegação
- * também os marca como `parcial` (lib/organizacao.ts).
+ * A Central de Pendências ainda mostra números de apresentação. O aviso
+ * identifica esses dados enquanto não há integração com o pipeline.
  */
 export function AvisoDadosDeExemplo({ detalhe }: { detalhe?: string }) {
   return (

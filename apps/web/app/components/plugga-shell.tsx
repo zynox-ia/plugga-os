@@ -21,8 +21,6 @@ export type ShellNavItem = {
   icon?: IconName;
   /** Desenhado, sem tela ainda: aparece apagado e não navega. */
   disabled?: boolean;
-  /** Tem tela, mas ainda mock/incompleta. */
-  badge?: "parcial";
 };
 
 export type ShellNavGroup = {
@@ -75,7 +73,6 @@ export function PluggaShell({
   onNavigate,
   activeId,
   topbarActions,
-  empresaSwitcher,
   sidebarFooter,
   pageTitle,
 }: {
@@ -86,8 +83,6 @@ export function PluggaShell({
   activeId: string;
   /** Optional extra controls rendered in the topbar, before the avatar (e.g. logout). */
   topbarActions?: ReactNode;
-  /** Seletor Plugga/Waze — primeiro item da direita do topo. */
-  empresaSwitcher?: ReactNode;
   /** Fixo no pé da barra lateral (Configurações). */
   sidebarFooter?: ReactNode;
   /** Título da rota atual. */
@@ -153,8 +148,6 @@ export function PluggaShell({
       >
         <Icon name={item.icon ?? (group.collapsible ? "pulse" : "settings")} />
         <span className="nav-item-label">{item.label}</span>
-        {item.disabled ? <span className="nav-tag">em breve</span> : null}
-        {item.badge === "parcial" ? <span className="nav-tag nav-tag--partial">parcial</span> : null}
       </button>
     ));
 
@@ -255,7 +248,6 @@ export function PluggaShell({
           </div>
 
           <div className="topbar-actions">
-            {empresaSwitcher}
             {topbarActions}
           </div>
         </header>

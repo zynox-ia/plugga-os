@@ -26,7 +26,6 @@ adquire_trava_de_deploy || exit 1
 
 cd /opt/plugga-os
 
-RAIZ=/opt/plugga-os
 SITE=${SITE_URL:-https://os.plugga.app.br}
 BANCO=plugga_os
 

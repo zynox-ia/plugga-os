@@ -1,11 +1,10 @@
 import { expect, test } from "@playwright/test";
 
 /**
- * US12 / SC-017: erro real aparece como erro, e telas sem backend avisam que
- * são exemplo.
+ * Erro real aparece como erro; a Central de Pendências avisa que usa exemplos.
  *
  * Dois grupos:
- *  - contra a pilha real (API + banco do CI): aviso de "Dados de exemplo" e
+ *  - contra a pilha real (API + banco do CI): aviso nas Pendências e
  *    registro inexistente, que só dependem de a API responder 404;
  *  - contra a API simulada (`e2e/support/api-simulada.mjs`): indisponível,
  *    acesso negado e sessão inválida, que não dá para provocar de forma
@@ -16,11 +15,10 @@ import { expect, test } from "@playwright/test";
 
 const UUID_INEXISTENTE = "00000000-0000-4000-8000-00000000ffff";
 
-test.describe("Telas sem backend avisam que são exemplo", () => {
-  test("Dashboard mostra o aviso de dados de exemplo", async ({ page }) => {
+test.describe("Avisos de dados ilustrativos", () => {
+  test("Dashboard não mostra mais o aviso acima do conteúdo", async ({ page }) => {
     await page.goto("/");
-    await expect(page.getByTestId("aviso-dados-de-exemplo")).toBeVisible();
-    await expect(page.getByTestId("aviso-dados-de-exemplo")).toContainText("Dados de exemplo");
+    await expect(page.getByTestId("aviso-dados-de-exemplo")).toHaveCount(0);
   });
 
   test("Central de Pendências mostra o aviso e não afirma integração", async ({ page }) => {

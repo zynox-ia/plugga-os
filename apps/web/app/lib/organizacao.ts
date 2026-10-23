@@ -1,7 +1,6 @@
 import {
   companyKeys,
   departmentIdsByCompany,
-  visibleCompanies,
   visibleDepartments,
   type CompanyKey,
   type DepartmentId,
@@ -13,14 +12,12 @@ import type { IconName } from "../components/plugga-shell";
 /**
  * Organização do plugga-os: Empresa → Departamento → Processo.
  *
- * Fonte única — a navegação lateral, o seletor de empresa e o mapa em
- * /estrutura leem daqui. Mudar um processo de departamento é mover uma linha,
- * não caçar a mesma informação em três lugares.
+ * Fonte da navegação lateral e do mapa em /estrutura. Mudar um processo de
+ * departamento é mover uma linha.
  *
- * Plugga e Waze não são departamentos: são contextos separados. Um cliente,
- * um pagamento ou uma obra pertence a uma delas e nunca aparece na outra.
- * O que atravessa as duas (usuários, jobs, integrações, o desenho dos
- * processos) vive em GLOBAIS, fora do seletor.
+ * Plugga e Waze não são departamentos. O catálogo preserva a origem de cada
+ * processo, mas a barra lateral apresenta uma navegação única. O que atravessa
+ * as duas (usuários, jobs e integrações) vive em GLOBAIS.
  *
  * Os **identificadores** de empresa e departamento vêm de `@plugga/shared`:
  * é a API que valida acesso contra eles, e rótulo/ícone/processo (que só a
@@ -36,9 +33,8 @@ export const EMPRESA_PADRAO: EmpresaId = "plugga";
 
 /**
  * `pronto` tem tela ligada a dado real; `parcial` tem tela, mas ainda é
- * mock ou incompleta; `em-breve` só existe no desenho. O status aparece na
- * própria navegação de propósito: uma tela que promete e não entrega custa
- * mais confiança do que um item honestamente marcado como não construído.
+ * mock ou incompleta; `em-breve` só existe no desenho. A navegação usa o
+ * status para desabilitar processos sem tela, sem exibir etiquetas de status.
  */
 export type ProcessoStatus = "pronto" | "parcial" | "em-breve";
 
@@ -60,26 +56,11 @@ export type Empresa = {
   id: EmpresaId;
   nome: string;
   descricao: string;
-  /** Duas letras para o seletor enquanto não há marca própria por empresa. */
-  sigla: string;
   departamentos: Departamento[];
 };
 
 export function isEmpresaId(value: string | null | undefined): value is EmpresaId {
   return EMPRESAS.includes(value as EmpresaId);
-}
-
-/**
- * Empresas que a pessoa alcança, na ordem do catálogo. Sem sessão carregada
- * ainda, devolve todas: o shell precisa desenhar antes da resposta de /me, e
- * piscar "nenhuma empresa" para quem tem duas é pior que meio segundo de
- * navegação otimista — a API recusa o que a sessão não permite de qualquer forma.
- */
-export function empresasPermitidas(acesso: UserAccess | null): readonly EmpresaId[] {
-  if (!acesso) {
-    return EMPRESAS;
-  }
-  return visibleCompanies(acesso);
 }
 
 /** Departamentos da empresa liberados para a pessoa, na ordem do catálogo. */
@@ -95,25 +76,29 @@ export function departamentosPermitidos(
   return departamentos.filter((departamento) => liberados.has(departamento.id));
 }
 
+/**
+ * Comercial é um módulo só para as duas empresas (ADR-0013): o mesmo catálogo
+ * vale na Plugga e na Waze, e a empresa vem de cada pipeline. Pipelines e
+ * Atividades já aparecem, com tela em construção até as entregas do projeto
+ * [PLU] Comercial. Configurar pipelines não é item de menu: é um botão que abre
+ * um modal na tela de Pipelines (decisões do André, 19/10/2026).
+ */
+const COMERCIAL: Processo[] = [
+  { label: "Pipelines", rota: "/comercial/pipelines", status: "parcial" },
+  { label: "Clientes", rota: "/clientes", status: "pronto" },
+  { label: "Atividades", rota: "/comercial/atividades", status: "parcial" },
+];
+
 const plugga: Empresa = {
   id: "plugga",
   nome: "Plugga",
-  sigla: "PL",
   descricao: "Consultoria: gestão de energia, OPM e eletromobilidade",
   departamentos: [
     {
       id: "comercial-clientes",
       label: "Comercial",
       icon: "users",
-      processos: [
-        { label: "Oportunidades", rota: "/comercial/oportunidades", status: "pronto" },
-        { label: "Contratos de gestão", rota: "/comercial/contratos", status: "pronto" },
-        { label: "Clientes", rota: "/clientes", status: "pronto" },
-        { label: "Relacionamento comercial", rota: "/crm", status: "parcial" },
-        { label: "Propostas", status: "em-breve" },
-        { label: "Carteira", status: "em-breve" },
-        { label: "Comissões", status: "em-breve" },
-      ],
+      processos: COMERCIAL,
     },
     {
       id: "energia-opm",
@@ -125,7 +110,6 @@ const plugga: Empresa = {
         { label: "Migração Mercado Livre", rota: "/energia-opm/migracoes", status: "pronto" },
         { label: "Relatórios de economia", rota: "/energia-opm/relatorios", status: "parcial" },
         { label: "Demanda contratada", status: "em-breve" },
-        { label: "Oportunidades solar / BESS / reativo", status: "em-breve" },
       ],
     },
     {
@@ -161,21 +145,13 @@ const plugga: Empresa = {
 const waze: Empresa = {
   id: "waze",
   nome: "Waze Energia",
-  sigla: "WZ",
   descricao: "Engenharia e obras: projetos, instalações e serviços",
   departamentos: [
     {
       id: "comercial-obras",
       label: "Comercial",
       icon: "users",
-      processos: [
-        { label: "Oportunidades de obra", status: "em-breve" },
-        { label: "Propostas técnicas / comerciais", status: "em-breve" },
-        { label: "Contratos", status: "em-breve" },
-        { label: "Medições comerciais", status: "em-breve" },
-        { label: "Aditivos", status: "em-breve" },
-        { label: "Relacionamento com cliente", status: "em-breve" },
-      ],
+      processos: COMERCIAL,
     },
     {
       id: "engenharia-obras",
@@ -342,7 +318,7 @@ export function configuracoesParaAcesso(usuario: {
 }
 
 /**
- * Fora do seletor: não pertencem à Plugga nem à Waze. Usuário é único (o papel
+ * Globais: não pertencem à Plugga nem à Waze. Usuário é único (o papel
  * é que é por empresa), e job/integração/agente servem as duas. O desenho dos
  * processos também mora aqui — é uma definição só, instanciada nas duas.
  */

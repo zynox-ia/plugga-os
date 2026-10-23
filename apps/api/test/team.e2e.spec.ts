@@ -6,7 +6,7 @@ import type { UserAccess } from "@plugga/shared";
 
 import { AppModule } from "../src/app.module";
 import { configureApp } from "../src/configure-app";
-import { AuditRepository } from "../src/audit/audit.repository";
+import { AuditPort } from "../src/audit/audit.port";
 import { NullSessionCache } from "../src/core/auth/null-session-cache";
 import { SessionCache } from "../src/core/auth/session-cache";
 import { SessionLookupRepository } from "../src/core/auth/session-lookup.repository";
@@ -72,7 +72,7 @@ describe("team API — access by company and department (e2e, in-memory stores)"
       .useValue(new InMemorySessionLookup(store))
       .overrideProvider(EmailPort)
       .useValue(email)
-      .overrideProvider(AuditRepository)
+      .overrideProvider(AuditPort)
       .useValue(new NoopAuditRepository())
       // Testes com store em memória não têm Redis de verdade para cachear; sem
       // este override o SessionService.issue()/revokeAllForUser() de todo

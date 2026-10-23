@@ -1,4 +1,4 @@
-import { BadRequestException } from "@nestjs/common";
+import { EstadoInvalido, RequisicaoInvalida } from "../common/errors/dominio";
 import { CONTRACT_STATUS_SEQUENCE, type ContractStatus, type OpportunityStatus } from "@plugga/shared";
 
 /** Statuses in which an opportunity is still an open, working decision. */
@@ -26,7 +26,7 @@ export const CONTRACT_STATUSES_REQUIRING_OWNER_AND_NEXT_ACTION = new Set<Contrac
 
 export function assertOpportunityOpen(status: OpportunityStatus): void {
   if (!OPEN_OPPORTUNITY_STATUSES.has(status)) {
-    throw new BadRequestException("oportunidade já foi decidida");
+    throw new EstadoInvalido("oportunidade já foi decidida");
   }
 }
 
@@ -35,7 +35,7 @@ export function assertOpportunityHasOwnerAndNextAction(
   nextActionAt: Date | null | undefined,
 ): void {
   if (!ownerId || !nextActionAt) {
-    throw new BadRequestException("oportunidade aberta não pode ficar sem responsável e sem próxima ação");
+    throw new RequisicaoInvalida("oportunidade aberta não pode ficar sem responsável e sem próxima ação");
   }
 }
 
@@ -44,13 +44,13 @@ export function assertContractTransitionAllowed(current: ContractStatus, target:
   // ação sem transicionar), mas encerrado é terminal: aceitar encerrado →
   // encerrado permitiria reescrever datas e assinatura de contrato já fechado.
   if (current === "encerrado") {
-    throw new BadRequestException("o contrato já está encerrado e não admite novas transições");
+    throw new EstadoInvalido("o contrato já está encerrado e não admite novas transições");
   }
   const currentIndex = CONTRACT_STATUS_SEQUENCE.indexOf(current);
   const targetIndex = CONTRACT_STATUS_SEQUENCE.indexOf(target);
   if (targetIndex !== currentIndex && targetIndex !== currentIndex + 1) {
     const nextValid = CONTRACT_STATUS_SEQUENCE[currentIndex + 1];
-    throw new BadRequestException(
+    throw new EstadoInvalido(
       nextValid
         ? `não é possível pular de "${current}" para "${target}"; o próximo estado válido é "${nextValid}"`
         : "o contrato já está encerrado e não admite novas transições",
@@ -60,7 +60,7 @@ export function assertContractTransitionAllowed(current: ContractStatus, target:
 
 export function assertContractCanActivate(signedAt: Date | null | undefined): void {
   if (!signedAt) {
-    throw new BadRequestException(
+    throw new EstadoInvalido(
       "contrato não pode ficar ativo sem assinatura confirmada; permaneça em aguardando_assinatura",
     );
   }
@@ -72,6 +72,6 @@ export function assertContractHasOwnerAndNextAction(
   nextActionAt: Date | null | undefined,
 ): void {
   if (CONTRACT_STATUSES_REQUIRING_OWNER_AND_NEXT_ACTION.has(status) && (!ownerId || !nextActionAt)) {
-    throw new BadRequestException("contrato em andamento não pode ficar sem responsável e sem próxima ação");
+    throw new RequisicaoInvalida("contrato em andamento não pode ficar sem responsável e sem próxima ação");
   }
 }

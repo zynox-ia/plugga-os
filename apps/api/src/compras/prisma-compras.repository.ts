@@ -86,11 +86,17 @@ type PedidoComRelacoes = Prisma.PedidoDeCompraGetPayload<{ include: typeof pedid
 const LIMITE_LISTAGEM = 500;
 
 /**
- * Teto maior para `scorecard`/`diagnostico`: os indicadores filtram por
- * período em memória (ver comentário no ponto de uso), então precisam de mais
- * margem que uma listagem simples para não sub-contar um intervalo legítimo.
+ * Os indicadores leem o período inteiro (FR-033), em páginas, sem teto de
+ * `take` que corte o intervalo pedido. O que sobra é só uma trava de memória
+ * (CWE-770): acima de `LIMITE_PEDIDOS_INDICADOR` pedidos num único período a
+ * leitura para e a resposta leva um aviso explícito de resultado parcial.
  */
-const LIMITE_INDICADOR = 5_000;
+const TAMANHO_PAGINA_INDICADOR = 1_000;
+const LIMITE_PEDIDOS_INDICADOR = 100_000;
+/** O `IN (...)` da contagem de dispensas é fatiado para não estourar o limite de parâmetros do Postgres. */
+const TAMANHO_LOTE_IDS = 5_000;
+const AVISO_PARCIAL =
+  `Resultado parcial: o período tem mais de ${LIMITE_PEDIDOS_INDICADOR.toLocaleString("pt-BR")} pedidos e só os mais recentes entraram no cálculo. Reduza o período.`;
 
 function decimal(valor: Prisma.Decimal | null): string | null {
   return valor === null ? null : valor.toFixed(2);
@@ -892,34 +898,15 @@ export class PrismaComprasRepository extends ComprasRepository {
     const de = new Date(query.de);
     const ate = new Date(query.ate);
 
-    const pedidos = await this.prisma.pedidoDeCompra.findMany({
-      where: { companyId: query.companyId },
-      include: {
-        responsavel: { select: { id: true, name: true } },
-        etapas: true,
-      },
-      // 🔒 SEGURANÇA [VULN-2]: o filtro de período (`de`/`ate`) é aplicado
-      // em memória pelos indicadores abaixo (`assertividadeGlobal` etc.),
-      // não no SQL — então sem `take` o volume trazido do banco cresce com o
-      // HISTÓRICO INTEIRO de pedidos da empresa, não com o período pedido.
-      // O teto aqui é maior que `LIMITE_LISTAGEM` porque o indicador soma
-      // sobre um intervalo de tempo e um teto baixo demais sub-contaria um
-      // período real e legítimo (dívida técnica: o correto é empurrar
-      // `de`/`ate` para o `where` do Prisma; registrado para revisão futura,
-      // fora do escopo desta correção de segurança).
-      take: LIMITE_INDICADOR,
-      orderBy: { createdAt: "desc" },
-    });
+    const { pedidos, parcial } = await this.pedidosDoPeriodo(query.companyId, de, ate);
 
     const passagens = pedidos.flatMap((pedido) => pedido.etapas);
 
-    const dispensas = await this.prisma.eventLog.count({
-      where: {
-        eventName: "compras.segregacao_dispensada",
-        entityId: { in: pedidos.map((pedido) => pedido.id) },
-        occurredAt: { gte: de, lte: ate },
-      },
-    });
+    const dispensas = await this.contarDispensas(
+      pedidos.map((pedido) => pedido.id),
+      de,
+      ate,
+    );
 
     return {
       companyId: query.companyId,
@@ -947,6 +934,7 @@ export class PrismaComprasRepository extends ComprasRepository {
       ),
       cumprimentoSla: cumprimentoSlaPorEtapa(passagens, { de, ate }),
       dispensasDeSegregacao: dispensas,
+      aviso: parcial ? AVISO_PARCIAL : null,
     };
   }
 
@@ -954,14 +942,7 @@ export class PrismaComprasRepository extends ComprasRepository {
     const de = new Date(query.de);
     const ate = new Date(query.ate);
 
-    const pedidos = await this.prisma.pedidoDeCompra.findMany({
-      where: { companyId: query.companyId },
-      include: { etapas: true },
-      // 🔒 SEGURANÇA [VULN-2]: mesma ressalva do `scorecard` acima — o
-      // filtro de período é aplicado em memória, não no SQL.
-      take: LIMITE_INDICADOR,
-      orderBy: { createdAt: "desc" },
-    });
+    const { pedidos, parcial } = await this.pedidosDoPeriodo(query.companyId, de, ate);
 
     const paraAssertividade = pedidos.map((pedido) => ({
       valorOrcado: pedido.valorOrcado.toFixed(2),
@@ -987,7 +968,66 @@ export class PrismaComprasRepository extends ComprasRepository {
         })),
         { de, ate },
       ),
+      aviso: parcial ? AVISO_PARCIAL : null,
     };
+  }
+
+  /**
+   * Pedidos que importam para `[de, ate]`, filtrados no SQL: nasceram até o fim
+   * do período e ou ainda estão abertos ou concluíram a partir do início. Isso
+   * cobre emitidas, concluídas, a fila aberta no fim e as passagens de SLA que
+   * saíram no período (uma passagem só sai antes da conclusão do pedido).
+   *
+   * Leitura paginada por cursor, para o período inteiro. Só a trava de memória
+   * `LIMITE_PEDIDOS_INDICADOR` interrompe; nesse caso `parcial` vem `true`.
+   */
+  /** Trava de memória; protegida só para o teste de integração exercitar o aviso sem criar 100 mil linhas. */
+  protected limitePedidosIndicador = LIMITE_PEDIDOS_INDICADOR;
+
+  private async pedidosDoPeriodo(companyId: string, de: Date, ate: Date) {
+    const where: Prisma.PedidoDeCompraWhereInput = {
+      companyId,
+      createdAt: { lte: ate },
+      OR: [{ concluidoEm: null }, { concluidoEm: { gte: de } }],
+    };
+    const pedidos: Prisma.PedidoDeCompraGetPayload<{
+      include: { responsavel: { select: { id: true; name: true } }; etapas: true };
+    }>[] = [];
+    let cursor: string | undefined;
+    let parcial = false;
+
+    for (;;) {
+      const pagina = await this.prisma.pedidoDeCompra.findMany({
+        where,
+        include: { responsavel: { select: { id: true, name: true } }, etapas: true },
+        orderBy: [{ createdAt: "desc" }, { id: "asc" }],
+        take: TAMANHO_PAGINA_INDICADOR,
+        ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+      });
+      pedidos.push(...pagina);
+      if (pagina.length < TAMANHO_PAGINA_INDICADOR) break;
+      if (pedidos.length >= this.limitePedidosIndicador) {
+        parcial = (await this.prisma.pedidoDeCompra.count({ where })) > pedidos.length;
+        break;
+      }
+      cursor = pagina[pagina.length - 1]?.id;
+    }
+
+    return { pedidos, parcial };
+  }
+
+  private async contarDispensas(pedidoIds: readonly string[], de: Date, ate: Date): Promise<number> {
+    let total = 0;
+    for (let i = 0; i < pedidoIds.length; i += TAMANHO_LOTE_IDS) {
+      total += await this.prisma.eventLog.count({
+        where: {
+          eventName: "compras.segregacao_dispensada",
+          entityId: { in: pedidoIds.slice(i, i + TAMANHO_LOTE_IDS) },
+          occurredAt: { gte: de, lte: ate },
+        },
+      });
+    }
+    return total;
   }
 
   // --- Cadastros de apoio ------------------------------------------------

@@ -21,7 +21,9 @@ import { IntegrationsModule } from "./integrations/integrations.module";
 import { JobsModule } from "./jobs/jobs.module";
 import { JobsQueueModule } from "./jobs/queue/jobs-queue.module";
 import { LoggingModule } from "./logging/logging.module";
+import { NegociosModule } from "./negocios/negocios.module";
 import { ObrasModule } from "./obras/obras.module";
+import { PipelinesModule } from "./pipelines/pipelines.module";
 import { PluggamobModule } from "./pluggamob/pluggamob.module";
 
 const monorepoRootEnvPath = path.resolve(__dirname, "../../../.env");
@@ -48,6 +50,8 @@ const monorepoRootEnvPath = path.resolve(__dirname, "../../../.env");
     PluggamobModule,
     ClientesModule,
     CommercialModule,
+    PipelinesModule,
+    NegociosModule,
     ComprasModule,
     ObrasModule,
     EnergyModule,

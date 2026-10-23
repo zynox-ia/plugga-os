@@ -30,8 +30,7 @@ export const eventNames = {
 export type EventName = (typeof eventNames)[keyof typeof eventNames];
 
 /**
- * Catálogo de eventos de auditoria (contrato:
- * specs/002-fundacao-solida/contracts/catalogo-eventos.md).
+ * Catálogo de eventos de auditoria.
  *
  * Nome novo: `<dominio>.<entidade>.<acao_no_passado>`, minúsculas, ASCII.
  * `escopo: "empresa"` grava `company_id`; `pii` é sempre `false` (um `true`
@@ -61,7 +60,19 @@ export const catalogoEventos = {
   "obras.measurement.recorded": evento("Medição lançada", "empresa"),
   "obras.project_version.created": evento("Versão de projeto criada", "empresa"),
   "commercial.opportunity.won": evento("Oportunidade ganha", "empresa"),
+  "commercial.pipeline.created": evento("Pipeline de venda criado", "empresa"),
+  "commercial.pipeline.updated": evento("Configuração do pipeline alterada", "empresa"),
+  "commercial.pipeline.archived": evento("Pipeline arquivado", "empresa"),
+  "commercial.pipeline.restored": evento("Pipeline reativado", "empresa"),
+  "commercial.deal.created": evento("Negócio criado", "empresa"),
+  "commercial.deal.won": evento("Negócio ganho", "empresa"),
+  "commercial.deal.lost": evento("Negócio perdido", "empresa"),
+  "commercial.deal.transferred": evento("Negócio movido para outro pipeline", "empresa"),
   "clientes.client.created": evento("Cliente criado", "empresa"),
+  // Cadastro de cliente não tem empresa dona (ADR-0013): o escopo é a plataforma.
+  "clientes.contact.added": evento("Contato do cliente adicionado", "plataforma"),
+  "clientes.contact.updated": evento("Contato do cliente alterado", "plataforma"),
+  "clientes.contact.removed": evento("Contato do cliente removido", "plataforma"),
   "compras.pedido.created": evento("Pedido numerado", "empresa"),
   "pluggamob.settlement.approved": evento("Fechamento Pluggamob aprovado", "empresa"),
   "auth.access.changed": evento("Acesso de usuário alterado", "plataforma"),

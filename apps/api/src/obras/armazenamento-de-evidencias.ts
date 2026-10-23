@@ -1,24 +1,13 @@
-import { createHash } from "node:crypto";
-
 import { Injectable } from "@nestjs/common";
 
-import { ServicoIndisponivel } from "../common/errors/dominio";
 import { baldeDe } from "../core/armazenamento/baldes.js";
+import { ArmazenamentoS3, type ObjetoGuardado } from "../core/armazenamento/armazenamento-s3";
 
 /**
- * Onde a evidência de campo fica guardada. Mesmo molde de
- * `compras/armazenamento-de-cotacoes.ts`, com o mesmo argumento de não
- * engolir falha: a evidência é o próprio requisito do POP-OBR-001 §5.1, não
- * apoio à leitura — um registro de evidência que "salvou" sem o arquivo é uma
- * evidência que não existe.
+ * Onde a evidência de campo fica guardada. A falha não é engolida: a evidência é
+ * o próprio requisito do POP-OBR-001 §5.1, não apoio à leitura.
  */
-
-export type EvidenciaGuardada = { chave: string };
-
-type ClienteS3 = {
-  send(comando: unknown): Promise<unknown>;
-  destroy(): void;
-};
+export type EvidenciaGuardada = ObjetoGuardado;
 
 /** POP §5.1: imagem, PDF, documento técnico ou checklist preenchido. */
 const EXTENSAO: Record<string, string> = {
@@ -32,73 +21,18 @@ const EXTENSAO: Record<string, string> = {
 
 export const TIPOS_ACEITOS = Object.keys(EXTENSAO);
 
-function configurado(): boolean {
-  return Boolean(process.env.STORAGE_ENDPOINT);
-}
-
 @Injectable()
 export class ArmazenamentoDeEvidencias {
-  private cliente: ClienteS3 | null = null;
-
-  private nomeDoObjeto(conteudo: Buffer, mime: string, nomeOriginal: string): string {
-    const digital = createHash("sha256").update(conteudo).digest("hex").slice(0, 16);
-    const extensao = EXTENSAO[mime] ?? "bin";
-
-    const limpo = nomeOriginal
-      .normalize("NFD")
-      .replace(/[̀-ͯ]/g, "")
-      .replace(/[^A-Za-z0-9.-]+/g, "-")
-      .replace(/^-+|-+$/g, "")
-      .replace(/\.[A-Za-z0-9]{1,5}$/, "")
-      .slice(0, 60);
-
-    return `evidencias-de-obra/${digital}/${limpo || "evidencia"}.${extensao}`;
-  }
-
-  private async obterCliente(): Promise<ClienteS3> {
-    if (!configurado()) {
-      throw new ServicoIndisponivel(
-        undefined,
-        "armazenamento de anexos não configurado (STORAGE_ENDPOINT); a evidência exige o arquivo anexado",
-      );
-    }
-    if (this.cliente) return this.cliente;
-
-    const { S3Client } = await import("@aws-sdk/client-s3");
-
-    this.cliente = new S3Client({
-      endpoint: process.env.STORAGE_ENDPOINT,
-      region: process.env.STORAGE_REGION || "us-east-1",
-      forcePathStyle: true,
-      credentials: {
-        accessKeyId: process.env.STORAGE_ACCESS_KEY ?? "",
-        secretAccessKey: process.env.STORAGE_SECRET_KEY ?? "",
-      },
-    }) as unknown as ClienteS3;
-
-    return this.cliente;
-  }
+  private readonly s3 = new ArmazenamentoS3({
+    extensoes: EXTENSAO,
+    prefixo: "evidencias-de-obra",
+    nomePadrao: "evidencia",
+    mensagemNaoConfigurado:
+      "armazenamento de anexos não configurado (STORAGE_ENDPOINT); a evidência exige o arquivo anexado",
+  });
 
   async guardar(conteudo: Buffer, mime: string, nomeOriginal: string): Promise<EvidenciaGuardada> {
     // Obras é do departamento Engenharia da Waze.
-    const balde = baldeDe("waze", "engenharia-obras");
-    const cliente = await this.obterCliente();
-    const chave = this.nomeDoObjeto(conteudo, mime, nomeOriginal);
-
-    try {
-      const { PutObjectCommand } = await import("@aws-sdk/client-s3");
-      await cliente.send(
-        new PutObjectCommand({
-          Bucket: balde,
-          Key: chave,
-          Body: conteudo,
-          ContentType: mime,
-        }),
-      );
-      return { chave };
-    } catch (erro) {
-      // O detalhe (SDK, endpoint, balde) vai só para o log, com o requestId; a pessoa recebe a mensagem genérica.
-      throw new ServicoIndisponivel(undefined, erro);
-    }
+    return this.s3.guardarEm(baldeDe("waze", "engenharia-obras"), conteudo, mime, nomeOriginal);
   }
 }

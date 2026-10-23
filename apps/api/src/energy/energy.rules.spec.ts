@@ -1,4 +1,4 @@
-import { BadRequestException } from "@nestjs/common";
+import { EstadoInvalido, RequisicaoInvalida } from "../common/errors/dominio";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -26,11 +26,11 @@ describe("assertAuditOriginMatchesLinks", () => {
   });
 
   it("rejects ciclo_mensal without cycleId", () => {
-    expect(() => assertAuditOriginMatchesLinks("ciclo_mensal", null, null)).toThrow(BadRequestException);
+    expect(() => assertAuditOriginMatchesLinks("ciclo_mensal", null, null)).toThrow(RequisicaoInvalida);
   });
 
   it("rejects ciclo_mensal with both FKs set", () => {
-    expect(() => assertAuditOriginMatchesLinks("ciclo_mensal", CYCLE_ID, MIGRATION_ID)).toThrow(BadRequestException);
+    expect(() => assertAuditOriginMatchesLinks("ciclo_mensal", CYCLE_ID, MIGRATION_ID)).toThrow(RequisicaoInvalida);
   });
 
   it("allows migracao_ml with only marketMigrationId set", () => {
@@ -38,11 +38,11 @@ describe("assertAuditOriginMatchesLinks", () => {
   });
 
   it("rejects migracao_ml without marketMigrationId", () => {
-    expect(() => assertAuditOriginMatchesLinks("migracao_ml", null, null)).toThrow(BadRequestException);
+    expect(() => assertAuditOriginMatchesLinks("migracao_ml", null, null)).toThrow(RequisicaoInvalida);
   });
 
   it("rejects migracao_ml with cycleId set", () => {
-    expect(() => assertAuditOriginMatchesLinks("migracao_ml", CYCLE_ID, null)).toThrow(BadRequestException);
+    expect(() => assertAuditOriginMatchesLinks("migracao_ml", CYCLE_ID, null)).toThrow(RequisicaoInvalida);
   });
 
   it("allows avulsa with no FKs set", () => {
@@ -50,11 +50,11 @@ describe("assertAuditOriginMatchesLinks", () => {
   });
 
   it("rejects avulsa with a cycleId set", () => {
-    expect(() => assertAuditOriginMatchesLinks("avulsa", CYCLE_ID, null)).toThrow(BadRequestException);
+    expect(() => assertAuditOriginMatchesLinks("avulsa", CYCLE_ID, null)).toThrow(RequisicaoInvalida);
   });
 
   it("rejects avulsa with a marketMigrationId set", () => {
-    expect(() => assertAuditOriginMatchesLinks("avulsa", null, MIGRATION_ID)).toThrow(BadRequestException);
+    expect(() => assertAuditOriginMatchesLinks("avulsa", null, MIGRATION_ID)).toThrow(RequisicaoInvalida);
   });
 });
 
@@ -67,7 +67,7 @@ describe("assertAuditCanBeResolved", () => {
   );
 
   it.each(["resolvida", "inconclusiva", "sem_divergencia"] as const)("blocks resolving an already-resolved audit (%s)", (status) => {
-    expect(() => assertAuditCanBeResolved(status)).toThrow(BadRequestException);
+    expect(() => assertAuditCanBeResolved(status)).toThrow(EstadoInvalido);
   });
 });
 
@@ -79,7 +79,7 @@ describe("assertAuditIsContestationType", () => {
   it.each(["conferencia_fatura", "validacao_migracao", "oportunidade"] as const)(
     "blocks opening a contestation from a %s audit",
     (type) => {
-      expect(() => assertAuditIsContestationType(type)).toThrow(BadRequestException);
+      expect(() => assertAuditIsContestationType(type)).toThrow(EstadoInvalido);
     },
   );
 });
@@ -90,7 +90,7 @@ describe("assertAuditCanOpenContestation", () => {
   });
 
   it.each(["resolvida", "inconclusiva", "sem_divergencia"] as const)("blocks once audit is resolved (%s)", (status) => {
-    expect(() => assertAuditCanOpenContestation(status)).toThrow(BadRequestException);
+    expect(() => assertAuditCanOpenContestation(status)).toThrow(EstadoInvalido);
   });
 });
 
@@ -100,7 +100,7 @@ describe("assertAuditHasNoContestation", () => {
   });
 
   it("blocks a second contestation on the same audit", () => {
-    expect(() => assertAuditHasNoContestation(true)).toThrow(BadRequestException);
+    expect(() => assertAuditHasNoContestation(true)).toThrow(EstadoInvalido);
   });
 });
 
@@ -117,20 +117,20 @@ describe("assertContestationTransitionAllowed", () => {
   });
 
   it("blocks skipping a state", () => {
-    expect(() => assertContestationTransitionAllowed("rascunho", "aguardando_distribuidora")).toThrow(BadRequestException);
-    expect(() => assertContestationTransitionAllowed("rascunho", "encerrada")).toThrow(BadRequestException);
+    expect(() => assertContestationTransitionAllowed("rascunho", "aguardando_distribuidora")).toThrow(EstadoInvalido);
+    expect(() => assertContestationTransitionAllowed("rascunho", "encerrada")).toThrow(EstadoInvalido);
   });
 
   it("blocks moving backward", () => {
-    expect(() => assertContestationTransitionAllowed("aberta", "rascunho")).toThrow(BadRequestException);
+    expect(() => assertContestationTransitionAllowed("aberta", "rascunho")).toThrow(EstadoInvalido);
   });
 
   it("blocks re-submitting the same status", () => {
-    expect(() => assertContestationTransitionAllowed("aberta", "aberta")).toThrow(BadRequestException);
+    expect(() => assertContestationTransitionAllowed("aberta", "aberta")).toThrow(EstadoInvalido);
   });
 
   it("blocks any transition once encerrada", () => {
-    expect(() => assertContestationTransitionAllowed("encerrada", "deferida")).toThrow(BadRequestException);
+    expect(() => assertContestationTransitionAllowed("encerrada", "deferida")).toThrow(EstadoInvalido);
   });
 });
 
@@ -140,8 +140,8 @@ describe("assertContestationCanClose", () => {
   });
 
   it("blocks closing without a financial result", () => {
-    expect(() => assertContestationCanClose("encerrada", null)).toThrow(BadRequestException);
-    expect(() => assertContestationCanClose("encerrada", undefined)).toThrow(BadRequestException);
+    expect(() => assertContestationCanClose("encerrada", null)).toThrow(RequisicaoInvalida);
+    expect(() => assertContestationCanClose("encerrada", undefined)).toThrow(RequisicaoInvalida);
   });
 
   it("does not require a financial result for non-closing transitions", () => {
@@ -203,7 +203,7 @@ describe("computeCycleCloseBlockers", () => {
 
 describe("assertCycleCanClose", () => {
   it("throws with the first blocker's message", () => {
-    expect(() => assertCycleCanClose({ ...READY, status: "aguardando_documentos" })).toThrow(BadRequestException);
+    expect(() => assertCycleCanClose({ ...READY, status: "aguardando_documentos" })).toThrow(EstadoInvalido);
   });
 
   it("does not throw when ready", () => {
@@ -213,11 +213,11 @@ describe("assertCycleCanClose", () => {
 
 describe("assertCycleHasOwnerAndNextAction", () => {
   it("throws when an active cycle has no owner", () => {
-    expect(() => assertCycleHasOwnerAndNextAction("em_auditoria", null, new Date())).toThrow(BadRequestException);
+    expect(() => assertCycleHasOwnerAndNextAction("em_auditoria", null, new Date())).toThrow(RequisicaoInvalida);
   });
 
   it("throws when an active cycle has no next action", () => {
-    expect(() => assertCycleHasOwnerAndNextAction("em_auditoria", "owner-1", null)).toThrow(BadRequestException);
+    expect(() => assertCycleHasOwnerAndNextAction("em_auditoria", "owner-1", null)).toThrow(RequisicaoInvalida);
   });
 
   it("allows a closed cycle to have no owner or next action", () => {
@@ -231,7 +231,7 @@ describe("assertMarketMigrationOpen", () => {
   });
 
   it.each(["ativa", "cancelada"] as const)("rejects a decided migration (%s)", (status) => {
-    expect(() => assertMarketMigrationOpen(status)).toThrow(BadRequestException);
+    expect(() => assertMarketMigrationOpen(status)).toThrow(EstadoInvalido);
   });
 });
 
@@ -241,15 +241,15 @@ describe("assertMarketMigrationHasOwnerAndNextAction", () => {
   });
 
   it("blocks when the owner is missing", () => {
-    expect(() => assertMarketMigrationHasOwnerAndNextAction(null, new Date())).toThrow(BadRequestException);
+    expect(() => assertMarketMigrationHasOwnerAndNextAction(null, new Date())).toThrow(RequisicaoInvalida);
   });
 
   it("blocks when the next action is missing", () => {
-    expect(() => assertMarketMigrationHasOwnerAndNextAction("owner-1", null)).toThrow(BadRequestException);
+    expect(() => assertMarketMigrationHasOwnerAndNextAction("owner-1", null)).toThrow(RequisicaoInvalida);
   });
 
   it("blocks when both are missing", () => {
-    expect(() => assertMarketMigrationHasOwnerAndNextAction(null, null)).toThrow(BadRequestException);
+    expect(() => assertMarketMigrationHasOwnerAndNextAction(null, null)).toThrow(RequisicaoInvalida);
   });
 });
 
@@ -266,14 +266,14 @@ describe("assertMarketMigrationStageTransitionAllowed", () => {
   });
 
   it("blocks skipping a stage", () => {
-    expect(() => assertMarketMigrationStageTransitionAllowed("analise", "documentacao")).toThrow(BadRequestException);
+    expect(() => assertMarketMigrationStageTransitionAllowed("analise", "documentacao")).toThrow(EstadoInvalido);
   });
 
   it("blocks moving backward", () => {
-    expect(() => assertMarketMigrationStageTransitionAllowed("ativacao", "analise")).toThrow(BadRequestException);
+    expect(() => assertMarketMigrationStageTransitionAllowed("ativacao", "analise")).toThrow(EstadoInvalido);
   });
 
   it("blocks any transition once at ativacao", () => {
-    expect(() => assertMarketMigrationStageTransitionAllowed("ativacao", "denuncia")).toThrow(BadRequestException);
+    expect(() => assertMarketMigrationStageTransitionAllowed("ativacao", "denuncia")).toThrow(EstadoInvalido);
   });
 });

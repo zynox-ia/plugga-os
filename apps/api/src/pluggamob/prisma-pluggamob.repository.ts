@@ -1,10 +1,10 @@
-import { BadRequestException, Inject, Injectable, NotFoundException } from "@nestjs/common";
+import { Inject, Injectable } from "@nestjs/common";
 import type { ActorType } from "@prisma/client";
 import { evUserProfileSchema, incidentResponseSchema, pluggamobLocationsSchema, pluggamobSessionSchema, pluggamobSessionsSchema, reactivationQueueSchema, settlementDetailSchema, settlementsSchema, type EvContactRequest, type EvOptOutRequest, type EvUserProfile, type IncidentRequest, type IncidentResponse, type PluggamobLocations, type PluggamobSessions, type ReactivationQueue, type ResolveBlockerRequest, type SettlementDetail, type Settlements } from "@plugga/shared";
 
 import { AuditAppender } from "../audit/audit-appender";
 import { transicionar } from "../common/concorrencia";
-import { EstadoInvalido, NaoEncontrado } from "../common/errors/dominio";
+import { EstadoInvalido, NaoEncontrado, RequisicaoInvalida } from "../common/errors/dominio";
 import type { AuthPrincipal } from "../core/auth/auth.types";
 import { PrismaService } from "../prisma/prisma.service";
 import { manausDayWindow } from "./manaus-day";
@@ -57,8 +57,8 @@ export class PrismaPluggamobRepository extends PluggamobRepository {
   async recordContact(userId: string, input: EvContactRequest, principal: AuthPrincipal): Promise<EvUserProfile> {
     const user = await this.prisma.evUser.findUnique({ where: { id: userId }, select: { optedOutAt: true } });
     if (!user) throw new NaoEncontrado("Usuário de recarga não encontrado.");
-    if (user.optedOutAt) throw new BadRequestException("opted-out users cannot receive new contacts");
-    if (input.sessionId && !(await this.prisma.evSession.findFirst({ where: { id: input.sessionId, userId }, select: { id: true } }))) throw new BadRequestException("linked session does not belong to this EV user");
+    if (user.optedOutAt) throw new EstadoInvalido("Esta pessoa pediu para não receber contatos.");
+    if (input.sessionId && !(await this.prisma.evSession.findFirst({ where: { id: input.sessionId, userId }, select: { id: true } }))) throw new RequisicaoInvalida("A sessão informada não pertence a este usuário de recarga.");
     await this.prisma.$transaction(async (tx) => {
       const contact = await tx.evContact.create({ data: { userId, channel: input.channel, outcome: input.outcome, nextActionAt: input.nextActionAt ? new Date(input.nextActionAt) : undefined, sessionId: input.sessionId } });
       await tx.eventLog.create({ data: { eventName: "pluggamob.contact_recorded", entityType: "ev_contact", entityId: contact.id, actorType: this.actorType(principal), actorId: principal.id, payload: { userId, ...input }, occurredAt: new Date() } });
@@ -84,7 +84,7 @@ export class PrismaPluggamobRepository extends PluggamobRepository {
 
   async session(id: string): Promise<PluggamobSessions["items"][number]> {
     const row = await this.prisma.evSession.findUnique({ where: { id }, include: { user: true, location: true, connector: true, incidents: true } });
-    if (!row) throw new NotFoundException("EV session not found");
+    if (!row) throw new NaoEncontrado("Sessão de recarga não encontrada.");
     return pluggamobSessionSchema.parse(this.sessionView(row));
   }
 
@@ -96,7 +96,7 @@ export class PrismaPluggamobRepository extends PluggamobRepository {
 
   async location(id: string): Promise<PluggamobLocations["items"][number]> {
     const row = await this.prisma.location.findUnique({ where: { id }, include: { partner: true, stations: { include: { connectors: true } }, incidents: { where: { status: { in: ["open", "investigating", "blocked"] } } } } });
-    if (!row) throw new NotFoundException("location not found");
+    if (!row) throw new NaoEncontrado("Ponto de recarga não encontrado.");
     return pluggamobLocationsSchema.shape.items.element.parse(this.locationView(row));
   }
 
@@ -117,20 +117,20 @@ export class PrismaPluggamobRepository extends PluggamobRepository {
 
   async settlement(id: string): Promise<SettlementDetail> {
     const row = await this.prisma.settlement.findUnique({ where: { id }, include: { partner: true, lines: true, credits: true } });
-    if (!row) throw new NotFoundException("settlement not found");
+    if (!row) throw new NaoEncontrado("Fechamento não encontrado.");
     return settlementDetailSchema.parse({ ...this.settlementSummary(row), canClose: row.lines.every((line) => !line.blockedReason), blockers: row.lines.filter((line) => line.blockedReason).map((line) => ({ id: line.id, reason: line.blockedReason!, classification: line.classification, amount: line.amount?.toFixed(2) ?? null })), lines: row.lines.map((line) => ({ id: line.id, tokenRfid: line.tokenRfid, classification: line.classification, amount: line.amount?.toFixed(2) ?? null, blockedReason: line.blockedReason })), credits: row.credits.map((credit) => ({ id: credit.id, amount: credit.amount.toFixed(2), status: credit.status, availableAt: credit.availableAt.toISOString() })) });
   }
 
   async resolveBlocker(settlementId: string, lineId: string, input: ResolveBlockerRequest, principal: AuthPrincipal): Promise<SettlementDetail> {
     const line = await this.prisma.settlementLine.findFirst({ where: { id: lineId, settlementId } });
-    if (!line) throw new NotFoundException("settlement line not found");
+    if (!line) throw new NaoEncontrado("Linha do fechamento não encontrada.");
     await this.prisma.$transaction(async (tx) => { await tx.settlementLine.update({ where: { id: lineId }, data: { blockedReason: null } }); await tx.eventLog.create({ data: { eventName: "pluggamob.settlement_blocker_resolved", entityType: "settlement_line", entityId: lineId, actorType: this.actorType(principal), actorId: principal.id, payload: input, occurredAt: new Date() } }); });
     return this.settlement(settlementId);
   }
 
   async requestApproval(id: string, principal: AuthPrincipal): Promise<SettlementDetail> {
     const detail = await this.settlement(id);
-    if (!detail.canClose) throw new BadRequestException("settlement has open blockers");
+    if (!detail.canClose) throw new EstadoInvalido("O fechamento ainda tem pendências em aberto.");
     // Um settlement aprovado (ou já exportado ao parceiro) não pode regredir
     // para revisão: `approve` aprovaria de novo e apagaria o fato do export.
     if (detail.status === "approved" || detail.status === "exported") throw new EstadoInvalido(MENSAGEM_JA_APROVADO);
@@ -145,7 +145,7 @@ export class PrismaPluggamobRepository extends PluggamobRepository {
 
   async approve(id: string, principal: AuthPrincipal): Promise<SettlementDetail> {
     const detail = await this.settlement(id);
-    if (!detail.canClose) throw new BadRequestException("settlement has open blockers");
+    if (!detail.canClose) throw new EstadoInvalido("O fechamento ainda tem pendências em aberto.");
     if (detail.status !== "ready_for_review") throw new EstadoInvalido("O fechamento precisa estar pronto para revisão para ser aprovado.");
     await this.prisma.$transaction(async (tx) => {
       await transicionar(tx.settlement, id, { status: "ready_for_review" }, { status: "approved" }, "Este fechamento já foi aprovado ou mudou de situação. Atualize a página e confira.");

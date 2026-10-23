@@ -1,8 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 /**
- * Não regressão ponta a ponta das defesas do web que a spec 002 manda preservar
- * (FR-080, constituição V): CSP com nonce por requisição, cabeçalhos de segurança
+ * Não regressão ponta a ponta das defesas do web: CSP com nonce por requisição, cabeçalhos de segurança
  * e o portão de sessão. Roda sem sessão, contra o servidor real, porque o que se
  * prova aqui é o que um visitante anônimo recebe.
  */

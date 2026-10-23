@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -9,6 +8,14 @@ import {
   UseGuards,
 } from "@nestjs/common";
 import { ThrottlerGuard } from "@nestjs/throttler";
+import {
+  entradaDeChaveSchema,
+  type EntradaDeChave,
+  type EstadoDaChave,
+  type EstadoDaChaveComCofre,
+} from "@plugga/shared";
+
+import { ZodValidationPipe } from "../common/zod-validation.pipe";
 
 import type { AuthPrincipal } from "../core/auth/auth.types";
 import { CurrentPrincipal } from "../core/auth/current-principal.decorator";
@@ -16,7 +23,7 @@ import { SessionAuthGuard } from "../core/auth/session-auth.guard";
 import { OriginCheckGuard } from "../core/auth/origin-check.guard";
 import { Roles } from "../core/auth/roles.decorator";
 import { RolesGuard } from "../core/auth/roles.guard";
-import { ChaveDeLlmService, type EstadoDaChave } from "./chave.service.js";
+import { ChaveDeLlmService } from "./chave.service.js";
 import { chaveMestraConfigurada } from "./cripto.js";
 
 /**
@@ -37,7 +44,7 @@ export class ChaveController {
 
   @Get()
   @Roles("admin")
-  async estado(): Promise<EstadoDaChave & { cofreConfigurado: boolean }> {
+  async estado(): Promise<EstadoDaChaveComCofre> {
     // A tela precisa saber se o cofre está pronto antes de oferecer o campo:
     // sem chave-mestra, gravar falharia depois de a pessoa colar a credencial,
     // que é a hora errada de descobrir.
@@ -48,12 +55,9 @@ export class ChaveController {
   @Roles("admin")
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
   async gravar(
-    @Body("chave") valor: unknown,
+    @Body(new ZodValidationPipe(entradaDeChaveSchema)) { chave: valor }: EntradaDeChave,
     @CurrentPrincipal() quem?: AuthPrincipal,
   ): Promise<EstadoDaChave> {
-    if (typeof valor !== "string" || valor.trim().length < 8) {
-      throw new BadRequestException("informe a chave da OpenRouter");
-    }
     if (!chaveMestraConfigurada()) {
       // 503 e não 500: é configuração de infraestrutura faltando, e a mensagem
       // diz o comando exato em vez de mandar procurar.

@@ -61,8 +61,10 @@ describe.skipIf(!HABILITADO)("event_log sem dado pessoal", () => {
 
   beforeAll(async () => {
     await prisma.$connect();
+    // O responsável pelo cliente precisa ter papel comercial, de diretoria ou admin (PLU-268).
+    const admin = await prisma.role.upsert({ where: { key: "admin" }, create: { key: "admin", name: "Admin" }, update: {} });
     const user = await prisma.user.create({
-      data: { email: `${marca}-owner@teste.local`, name: `Dono ${marca}`, status: "active" },
+      data: { email: `${marca}-owner@teste.local`, name: `Dono ${marca}`, status: "active", platformRoles: { create: { roleId: admin.id } } },
     });
     principal.id = user.id;
   }, PRAZO_MS);
@@ -78,11 +80,13 @@ describe.skipIf(!HABILITADO)("event_log sem dado pessoal", () => {
   }, PRAZO_MS);
 
   it(
-    "criar e editar cliente, oportunidade e fornecedor não deixa nome, e-mail, telefone nem documento no payload",
+    "criar e editar cliente (com contato), oportunidade e fornecedor não deixa nome, e-mail, telefone nem documento no payload",
     async () => {
-      const criado = await clientes.create({ name: nome, email, phone: telefone }, principal);
+      const criado = await clientes.create({ personType: "pj", name: nome, email, phone: telefone }, principal);
       const clienteId = criado.client.id;
       await clientes.update(clienteId, { name: nomeEditado, email: emailEditado, phone: telefoneEditado }, principal);
+      // Contato do cliente: os eventos de contato também não podem carregar nome, e-mail ou telefone.
+      await clientes.addContact(clienteId, { name: nome, email, phone: telefone }, principal);
       await clientes.inactivate(clienteId, { reason: nota }, principal);
 
       const oportunidade = await comercial.createOpportunity(

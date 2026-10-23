@@ -7,7 +7,7 @@ import { acessoDeclarado } from "./access.decorators";
 export type ModoDaRotaFechada = "warn" | "enforce";
 
 /**
- * Rota fechada por padrão (spec 002, US5; contrato inventario-rotas.md).
+ * Rota fechada por padrão (inventário em apps/api/test/fixtures/inventario-rotas.json).
  * Guard global: toda rota precisa declarar `@Public()`, `@Authenticated()` ou
  * `@Roles(...)` (ou `@Permissions(...)`). Sem declaração:
  *

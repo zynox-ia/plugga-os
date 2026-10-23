@@ -1,6 +1,6 @@
 /**
  * Recusa, na inicialização em produção, segredo que é claramente de exemplo,
- * vazio ou de baixa entropia (spec 002, US11, SEC/FR-051, SC-015).
+ * vazio ou de baixa entropia.
  *
  * Regra de ouro: ser CONSERVADORA. Um falso positivo derruba o boot de uma
  * produção que está saudável; um falso negativo só deixa de avisar. Por isso só

@@ -65,7 +65,6 @@ export function ConfiguracoesView() {
             aria-current={item === secao ? "page" : undefined}
           >
             <span>{item.label}</span>
-            {item.status === "em-breve" ? <span className="nav-tag">em breve</span> : null}
           </button>
         ))}
       </nav>

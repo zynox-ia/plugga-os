@@ -18,11 +18,11 @@ import {
   type SessionUser,
 } from "@plugga/shared";
 
-import { AuditRepository } from "../audit/audit.repository";
+import { AuditPort } from "../audit/audit.port";
 import type { AuthPrincipal } from "../core/auth/auth.types";
 import { SessionCache, type ResolvedSessionUser } from "../core/auth/session-cache";
 import { hashToken } from "../core/auth/token.util";
-import { maskEmail } from "../email/email.util";
+import { maskEmail } from "../common/mascara-email";
 import { AuthRepository } from "./auth.repository";
 import { LimitadorLogin } from "./limitador/limitador-login.service";
 import { PasswordService } from "./password.service";
@@ -56,7 +56,7 @@ export class AuthService {
     @Inject(SessionService) private readonly sessions: SessionService,
     @Inject(LimitadorLogin) private readonly limitador: LimitadorLogin,
     @Inject(ResetEmailDispatcher) private readonly resetEmail: ResetEmailDispatcher,
-    @Inject(AuditRepository) private readonly audit: AuditRepository,
+    @Inject(AuditPort) private readonly audit: AuditPort,
     @Inject(SessionCache) private readonly cache: SessionCache,
   ) {}
 

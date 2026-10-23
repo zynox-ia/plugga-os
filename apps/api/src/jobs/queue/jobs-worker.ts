@@ -44,7 +44,7 @@ export class JobsWorker implements OnApplicationBootstrap, OnModuleDestroy {
       return;
     }
 
-    const redisUrl = this.config.get<string>("REDIS_URL", "redis://localhost:6379");
+    const redisUrl = this.config.getOrThrow<string>("REDIS_URL");
     const concurrency = this.config.get<number>("JOBS_WORKER_CONCURRENCY", 1);
     this.connection = new Redis(redisUrl, { maxRetriesPerRequest: null });
     this.worker = new Worker(JOBS_QUEUE_NAME, (job) => this.dispatch(job), {

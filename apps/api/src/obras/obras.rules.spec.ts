@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException } from "@nestjs/common";
+import { AcessoNegado, EstadoInvalido, RequisicaoInvalida } from "../common/errors/dominio";
 import type { MedicaoStatus, ObraEtapa, ProjetoVersaoStatus, RoleKey } from "@plugga/shared";
 import { describe, expect, it } from "vitest";
 
@@ -54,17 +54,17 @@ describe("assertTransicaoPermitida", () => {
     ["liberada_para_execucao", "medicao_aprovada"],
     ["medicao_aprovada", "em_execucao"],
   ] as [ObraEtapa, ObraEtapa][])("recusa o pulo de %s para %s", (de, para) => {
-    expect(() => assertTransicaoPermitida(de, para)).toThrow(BadRequestException);
+    expect(() => assertTransicaoPermitida(de, para)).toThrow(EstadoInvalido);
   });
 
   it("não permite a reabertura de projeto_aprovado como aresta normal do grafo", () => {
     expect(() => assertTransicaoPermitida("projeto_aprovado", "projeto_em_elaboracao")).toThrow(
-      BadRequestException,
+      EstadoInvalido,
     );
   });
 
   it("trata obra_encerrada como terminal", () => {
-    expect(() => assertTransicaoPermitida("obra_encerrada", "obra_criada")).toThrow(BadRequestException);
+    expect(() => assertTransicaoPermitida("obra_encerrada", "obra_criada")).toThrow(EstadoInvalido);
   });
 
   it("todo estado mensurado tem pelo menos uma saída, exceto o terminal", () => {
@@ -90,7 +90,7 @@ describe("assertEtapaAtual", () => {
     // pendencia_campo e medicao_tecnica chegam ambos em em_execucao; uma ação
     // que só faz sentido vindo de medicao_tecnica não pode aceitar
     // pendencia_campo como origem.
-    expect(() => assertEtapaAtual("pendencia_campo", "medicao_tecnica")).toThrow(BadRequestException);
+    expect(() => assertEtapaAtual("pendencia_campo", "medicao_tecnica")).toThrow(EstadoInvalido);
   });
 });
 
@@ -104,18 +104,18 @@ describe("assertReaberturaDeProjeto", () => {
   });
 
   it("engenheiro sem justificativa é recusado", () => {
-    expect(() => assertReaberturaDeProjeto(ENGENHEIRO, "")).toThrow(BadRequestException);
-    expect(() => assertReaberturaDeProjeto(ENGENHEIRO, null)).toThrow(BadRequestException);
+    expect(() => assertReaberturaDeProjeto(ENGENHEIRO, "")).toThrow(RequisicaoInvalida);
+    expect(() => assertReaberturaDeProjeto(ENGENHEIRO, null)).toThrow(RequisicaoInvalida);
   });
 
   it("supervisor não pode reabrir projeto aprovado", () => {
-    expect(() => assertReaberturaDeProjeto(SUPERVISOR, "motivo qualquer")).toThrow(ForbiddenException);
+    expect(() => assertReaberturaDeProjeto(SUPERVISOR, "motivo qualquer")).toThrow(AcessoNegado);
   });
 });
 
 describe("assertEvidenciaImutavel", () => {
   it("sempre recusa — não existe correção de evidência, só novo registro", () => {
-    expect(() => assertEvidenciaImutavel()).toThrow(ForbiddenException);
+    expect(() => assertEvidenciaImutavel()).toThrow(AcessoNegado);
   });
 });
 
@@ -131,7 +131,7 @@ describe("assertAprCompleta", () => {
     [new Date(), null],
     [null, null],
   ])("recusa quando falta assinatura", (segurancaAssinouEm, supervisorAssinouEm) => {
-    expect(() => assertAprCompleta({ segurancaAssinouEm, supervisorAssinouEm })).toThrow(BadRequestException);
+    expect(() => assertAprCompleta({ segurancaAssinouEm, supervisorAssinouEm })).toThrow(EstadoInvalido);
   });
 });
 
@@ -141,7 +141,7 @@ describe("assertEpiConferido", () => {
   });
 
   it("recusa sem conferência", () => {
-    expect(() => assertEpiConferido({ conferidoEm: null, conferidoPorId: null })).toThrow(BadRequestException);
+    expect(() => assertEpiConferido({ conferidoEm: null, conferidoPorId: null })).toThrow(EstadoInvalido);
   });
 });
 
@@ -152,7 +152,7 @@ describe("assertLiberacaoValida", () => {
 
   it("recusa liberação revogada", () => {
     expect(() => assertLiberacaoValida({ liberadoEm: new Date(), revogadoEm: new Date() })).toThrow(
-      ForbiddenException,
+      AcessoNegado,
     );
   });
 });
@@ -173,7 +173,7 @@ describe("incidenteBloqueiaEtapa", () => {
 
 describe("regras-mãe de bloqueio (POP §1.2)", () => {
   it("técnico puro não edita orçamento", () => {
-    expect(() => assertTecnicoNaoEditaOrcamento(TECNICO)).toThrow(ForbiddenException);
+    expect(() => assertTecnicoNaoEditaOrcamento(TECNICO)).toThrow(AcessoNegado);
   });
 
   it("técnico que também é engenheiro pode editar orçamento", () => {
@@ -181,8 +181,8 @@ describe("regras-mãe de bloqueio (POP §1.2)", () => {
   });
 
   it("campo não altera projeto fora da elaboração", () => {
-    expect(() => assertCampoNaoAlteraProjetoAprovado("projeto_aprovado", TECNICO)).toThrow(ForbiddenException);
-    expect(() => assertCampoNaoAlteraProjetoAprovado("em_execucao", SUPERVISOR)).toThrow(ForbiddenException);
+    expect(() => assertCampoNaoAlteraProjetoAprovado("projeto_aprovado", TECNICO)).toThrow(AcessoNegado);
+    expect(() => assertCampoNaoAlteraProjetoAprovado("em_execucao", SUPERVISOR)).toThrow(AcessoNegado);
   });
 
   it("campo pode editar durante a elaboração", () => {
@@ -195,11 +195,11 @@ describe("regras-mãe de bloqueio (POP §1.2)", () => {
   });
 
   it("almoxarife puro não altera cronograma financeiro", () => {
-    expect(() => assertAlmoxarifeNaoAlteraCronogramaFinanceiro(ALMOXARIFE)).toThrow(ForbiddenException);
+    expect(() => assertAlmoxarifeNaoAlteraCronogramaFinanceiro(ALMOXARIFE)).toThrow(AcessoNegado);
   });
 
   it("financeiro puro não altera medição técnica", () => {
-    expect(() => assertFinanceiroNaoAlteraMedicaoTecnica(FINANCEIRO)).toThrow(ForbiddenException);
+    expect(() => assertFinanceiroNaoAlteraMedicaoTecnica(FINANCEIRO)).toThrow(AcessoNegado);
   });
 
   it("financeiro que também é engenheiro pode alterar medição técnica", () => {
@@ -215,7 +215,7 @@ describe("assertPendenciaAberta", () => {
   });
 
   it("recusa encerrar pendência já encerrada", () => {
-    expect(() => assertPendenciaAberta("encerrada")).toThrow(BadRequestException);
+    expect(() => assertPendenciaAberta("encerrada")).toThrow(EstadoInvalido);
   });
 });
 
@@ -230,7 +230,7 @@ describe("assertMedicaoTransicao", () => {
   it.each(["aprovada", "em_correcao"] as MedicaoStatus[])(
     "trata %s como terminal — correção gera nova medição, não reabre a linha",
     (de) => {
-      expect(() => assertMedicaoTransicao(de, "pendente")).toThrow(BadRequestException);
+      expect(() => assertMedicaoTransicao(de, "pendente")).toThrow(EstadoInvalido);
     },
   );
 });
@@ -247,11 +247,11 @@ describe("assertProjetoVersaoTransicao", () => {
   it.each(["aprovado", "superado"] as ProjetoVersaoStatus[])(
     "trata %s como terminal — reabertura cria nova versão, não move esta linha",
     (de) => {
-      expect(() => assertProjetoVersaoTransicao(de, "elaboracao")).toThrow(BadRequestException);
+      expect(() => assertProjetoVersaoTransicao(de, "elaboracao")).toThrow(EstadoInvalido);
     },
   );
 
   it("recusa pulo de elaboracao direto para aprovado", () => {
-    expect(() => assertProjetoVersaoTransicao("elaboracao", "aprovado")).toThrow(BadRequestException);
+    expect(() => assertProjetoVersaoTransicao("elaboracao", "aprovado")).toThrow(EstadoInvalido);
   });
 });

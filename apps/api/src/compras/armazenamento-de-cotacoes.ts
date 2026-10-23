@@ -1,35 +1,15 @@
-import { createHash } from "node:crypto";
-
 import { Injectable } from "@nestjs/common";
 import type { CompanyKey } from "@plugga/shared";
 
-import { ServicoIndisponivel } from "../common/errors/dominio";
 import { baldeDe } from "../core/armazenamento/baldes.js";
+import { ArmazenamentoS3, type ObjetoGuardado } from "../core/armazenamento/armazenamento-s3";
 
 /**
- * Onde o orçamento anexado ao pedido de compra fica guardado.
- *
- * Mesmo molde de `energy-efficiency/fatura/armazenamento.ts` — S3 falado pelo
- * SDK da AWS, servido pelo SeaweedFS em produção, chave por impressão digital do
- * conteúdo — com **uma diferença deliberada: aqui a falha não é engolida**.
- *
- * Lá o arquivo é apoio à leitura, e o comentário do módulo diz por que guardar
- * não pode bloquear ler: quem precisa lançar uma fatura não fica parado porque
- * um serviço de apoio caiu. Em Compras o anexo é o próprio requisito do
- * processo (POP §2.1, item 6) e a evidência sobre a qual a análise de
- * orçamentos acontece. Um pedido que nasce sem o orçamento é um pedido que o
- * POP considera incompleto, e o Responsável de Compras descobriria isso só ao
- * abrir a tarefa para analisar cotações que não existem.
- *
- * Por isso: storage fora do ar derruba a criação do pedido inteira.
+ * Onde o orçamento anexado ao pedido de compra fica guardado. A falha não é
+ * engolida: o anexo é requisito do processo (POP §2.1, item 6) e a evidência da
+ * análise de orçamentos. Storage fora do ar derruba a criação do pedido inteira.
  */
-
-export type CotacaoGuardada = { chave: string };
-
-type ClienteS3 = {
-  send(comando: unknown): Promise<unknown>;
-  destroy(): void;
-};
+export type CotacaoGuardada = ObjetoGuardado;
 
 /** Orçamento é PDF ou imagem; o resto é engano. */
 const EXTENSAO: Record<string, string> = {
@@ -42,58 +22,17 @@ const EXTENSAO: Record<string, string> = {
 
 export const TIPOS_ACEITOS = Object.keys(EXTENSAO);
 
-function configurado(): boolean {
-  return Boolean(process.env.STORAGE_ENDPOINT);
-}
-
 @Injectable()
 export class ArmazenamentoDeCotacoes {
-  private cliente: ClienteS3 | null = null;
+  private readonly s3 = new ArmazenamentoS3({
+    extensoes: EXTENSAO,
+    prefixo: "cotacoes",
+    nomePadrao: "orcamento",
+    mensagemNaoConfigurado:
+      "armazenamento de anexos não configurado (STORAGE_ENDPOINT); o pedido de compra exige o orçamento anexado",
+  });
 
-  private nomeDoObjeto(conteudo: Buffer, mime: string, nomeOriginal: string): string {
-    const digital = createHash("sha256").update(conteudo).digest("hex").slice(0, 16);
-    const extensao = EXTENSAO[mime] ?? "bin";
-
-    const limpo = nomeOriginal
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(/[^A-Za-z0-9.-]+/g, "-")
-      .replace(/^-+|-+$/g, "")
-      .replace(/\.[A-Za-z0-9]{1,5}$/, "")
-      .slice(0, 60);
-
-    return `cotacoes/${digital}/${limpo || "orcamento"}.${extensao}`;
-  }
-
-  private async obterCliente(): Promise<ClienteS3> {
-    if (!configurado()) {
-      throw new ServicoIndisponivel(
-        undefined,
-        "armazenamento de anexos não configurado (STORAGE_ENDPOINT); o pedido de compra exige o orçamento anexado",
-      );
-    }
-    if (this.cliente) return this.cliente;
-
-    const { S3Client } = await import("@aws-sdk/client-s3");
-
-    this.cliente = new S3Client({
-      endpoint: process.env.STORAGE_ENDPOINT,
-      region: process.env.STORAGE_REGION || "us-east-1",
-      // O servidor S3 serve os baldes por caminho, não por subdomínio.
-      forcePathStyle: true,
-      credentials: {
-        accessKeyId: process.env.STORAGE_ACCESS_KEY ?? "",
-        secretAccessKey: process.env.STORAGE_SECRET_KEY ?? "",
-      },
-    }) as unknown as ClienteS3;
-
-    return this.cliente;
-  }
-
-  /**
-   * Guarda o orçamento. Lança se não conseguir — quem chama está dentro da
-   * criação do pedido, e a criação inteira precisa cair junto.
-   */
+  /** Guarda o orçamento. Lança se não conseguir. */
   async guardar(
     conteudo: Buffer,
     mime: string,
@@ -103,23 +42,6 @@ export class ArmazenamentoDeCotacoes {
     // Compras fica sob o Financeiro, e cada empresa tem o seu balde. Uma empresa
     // inválida falha aqui, antes de qualquer envio.
     const balde = baldeDe(empresa, "financeiro");
-    const cliente = await this.obterCliente();
-    const chave = this.nomeDoObjeto(conteudo, mime, nomeOriginal);
-
-    try {
-      const { PutObjectCommand } = await import("@aws-sdk/client-s3");
-      await cliente.send(
-        new PutObjectCommand({
-          Bucket: balde,
-          Key: chave,
-          Body: conteudo,
-          ContentType: mime,
-        }),
-      );
-      return { chave };
-    } catch (erro) {
-      // O detalhe (SDK, endpoint, balde) vai só para o log, com o requestId; a pessoa recebe a mensagem genérica.
-      throw new ServicoIndisponivel(undefined, erro);
-    }
+    return this.s3.guardarEm(balde, conteudo, mime, nomeOriginal);
   }
 }

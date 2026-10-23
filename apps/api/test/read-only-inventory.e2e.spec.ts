@@ -12,6 +12,7 @@ import {
   type StoredJobRunInventoryItem,
 } from "../src/jobs/jobs.repository";
 
+// @ts-expect-error dublê parcial: não implementa todos os membros do repositório real (dívida registrada na T183)
 class InMemoryIntegrationsRepository extends IntegrationsRepository {
   async findAll(): Promise<StoredIntegrationSummary[]> {
     return [

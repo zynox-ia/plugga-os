@@ -12,8 +12,7 @@
  * falhe em algum ponto futuro que esta auditoria não viu.
  *
  * `strict-dynamic` é o que permite os scripts carregados dinamicamente do
- * UnicornStudio (`unicorn-background.tsx`) e do Google Identity Services
- * (`google-sign-in-button.tsx`) continuarem funcionando: um script já
+ * Google Identity Services (`google-sign-in-button.tsx`) continuarem funcionando: um script já
  * autorizado pelo nonce pode criar e injetar outros `<script src="...">` sem
  * que cada host precise entrar manualmente na allowlist — mas só JavaScript,
  * nunca HTML injetado por dado de usuário, que é o vetor do VULN-1.
@@ -26,7 +25,6 @@ export function buildContentSecurityPolicy(nonce: string, isProduction: boolean)
     // Fallback para navegadores que não suportam strict-dynamic (ignorado
     // pelos que suportam, por especificação do CSP nível 3).
     "https://accounts.google.com",
-    "https://cdn.jsdelivr.net",
   ];
   if (!isProduction) scriptSources.push("'unsafe-eval'");
 
@@ -36,7 +34,7 @@ export function buildContentSecurityPolicy(nonce: string, isProduction: boolean)
     "object-src 'none'",
     "frame-ancestors 'none'",
     "form-action 'self'",
-    "img-src 'self' data: blob: https://assets.unicorn.studio",
+    "img-src 'self' data: blob:",
     "font-src 'self' https://fonts.gstatic.com",
     // style-src continua com 'unsafe-inline': o app usa `style={{ ... }}` do
     // React em vários pontos (ex.: dashboard-view.tsx), que o React emite como

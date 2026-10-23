@@ -16,6 +16,7 @@ import {
 } from "../src/jobs/queue/jobs-queue.port";
 
 /** Mode is mutable so one app can exercise every gate branch. */
+// @ts-expect-error dublê parcial: não implementa todos os membros do repositório real (dívida registrada na T183)
 class ConfigurableBitrixRepository extends BitrixRepository {
   static mode: IntegrationMode | null = "mock";
 

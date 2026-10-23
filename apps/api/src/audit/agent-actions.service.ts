@@ -7,11 +7,11 @@ import {
 } from "@plugga/shared";
 
 import type { AuthPrincipal } from "../core/auth/auth.types";
-import { AuditRepository } from "./audit.repository";
+import { AuditPort } from "./audit.port";
 
 @Injectable()
 export class AgentActionsService {
-  constructor(@Inject(AuditRepository) private readonly repository: AuditRepository) {}
+  constructor(@Inject(AuditPort) private readonly repository: AuditPort) {}
 
   async create(input: CreateAgentAction, principal: AuthPrincipal): Promise<AgentActionResponse> {
     const authenticatedAgent = principal.kind === "service"

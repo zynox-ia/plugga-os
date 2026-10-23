@@ -2,7 +2,7 @@ import { randomBytes } from "node:crypto";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { AuditRepository } from "../audit/audit.repository";
+import { AuditPort } from "../audit/audit.port";
 import { ChaveDeLlmService } from "./chave.service.js";
 import { cifrar } from "./cripto.js";
 import {
@@ -53,7 +53,7 @@ function montar() {
       eventos.push(evento);
     }),
     appendTrail: vi.fn(),
-  } as unknown as AuditRepository;
+  } as unknown as AuditPort;
 
   return { servico: new ChaveDeLlmService(repositorio, auditoria), repositorio, eventos };
 }

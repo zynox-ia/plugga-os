@@ -1,4 +1,5 @@
-import { BadRequestException, Inject, Injectable, ServiceUnavailableException } from "@nestjs/common";
+import { Inject, Injectable } from "@nestjs/common";
+import { Conflito, ServicoIndisponivel } from "../common/errors/dominio";
 import { Prisma, type AuthTokenType } from "@prisma/client";
 import { identityProviderSchema, type IdentityProvider, type UserAccess } from "@plugga/shared";
 
@@ -57,7 +58,7 @@ export class PrismaAuthRepository extends AuthRepository {
       return user ? this.toRecord(user) : null;
     } catch (error) {
       if (error instanceof Prisma.PrismaClientInitializationError) {
-        throw new ServiceUnavailableException("banco de dados indisponível");
+        throw new ServicoIndisponivel("O serviço está indisponível no momento. Tente novamente em instantes.", error);
       }
       throw error;
     }
@@ -121,7 +122,7 @@ export class PrismaAuthRepository extends AuthRepository {
       // antes, mas a corrida só é decidida pela constraint única — traduzida
       // para a mesma mensagem do caminho verificado, em vez de subir como 500.
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-        throw new BadRequestException("a user with this email already exists");
+        throw new Conflito("Já existe uma pessoa com este e-mail.");
       }
       throw error;
     }

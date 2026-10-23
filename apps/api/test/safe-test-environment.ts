@@ -2,7 +2,7 @@ const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1"]);
 
 function parseUrl(rawUrl: string | undefined, variableName: string): URL {
   try {
-    return new URL(rawUrl);
+    return new URL(rawUrl ?? "");
   } catch {
     throw new Error(`LOCAL TEST requires a valid ${variableName}`);
   }

@@ -1,4 +1,5 @@
-import { ForbiddenException, Inject, Injectable } from "@nestjs/common";
+import { Inject, Injectable } from "@nestjs/common";
+import { AcessoNegado } from "../common/errors/dominio";
 import { isDepartmentOfCompany, type CompanyKey } from "@plugga/shared";
 
 import { PrismaService } from "../prisma/prisma.service";
@@ -21,8 +22,8 @@ import { PrismaService } from "../prisma/prisma.service";
  * Isto é funcionalidade de fundação morando num módulo de domínio. O segundo
  * módulo a ganhar `companyId` deve promovê-la para `core/auth` — `AuthPrincipal`
  * carregando as memberships e um guard reutilizável — e Compras passa a
- * consumi-lo. Promover é mudança de fundação e pede revisão do ARCHITECT,
- * conforme `docs/AGENT.md`. Duplicar esta classe num terceiro módulo, não.
+ * consumi-lo. Promover é mudança de fundação e pede revisão técnica.
+ * Duplicar esta classe num terceiro módulo, não.
  */
 
 /** Compras vive no departamento Financeiro nas duas empresas. */
@@ -34,7 +35,7 @@ export abstract class ComprasEscopoRepository {
   /** Igual a `alcanca`, mas recusa em vez de devolver `false`. */
   async assertAlcanca(principalId: string, companyId: CompanyKey): Promise<void> {
     if (!(await this.alcanca(principalId, companyId))) {
-      throw new ForbiddenException(`sem acesso ao departamento de compras da empresa ${companyId}`);
+      throw new AcessoNegado(`sem acesso ao departamento de compras da empresa ${companyId}`);
     }
   }
 }
