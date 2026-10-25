@@ -35,7 +35,7 @@ describe("sitemap da barra lateral", () => {
     const itens = Object.fromEntries(
       navGroupsForAccess().map((grupo) => [grupo.label, grupo.items.map((item) => item.label)]),
     );
-    assert.deepEqual(itens["CRM"], ["Funis", "Clientes", "Propostas", "Contratos"]);
+    assert.deepEqual(itens["CRM"], ["Pipelines", "Clientes", "Propostas", "Contratos"]);
     assert.deepEqual(itens["Suprimentos"], ["Compras", "Fornecedores", "Estoque"]);
     assert.deepEqual(itens["Financeiro"], [
       "Contas a pagar",

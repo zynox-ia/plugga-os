@@ -78,16 +78,16 @@ export function departamentosPermitidos(
 
 /**
  * CRM é um módulo só para as duas empresas (ADR-0013): o mesmo catálogo vale na
- * Plugga e na Waze, e a empresa vem de cada funil. O departamento se chamava
- * Comercial; o André aprovou o nome CRM e os itens Funis, Clientes, Propostas e
- * Contratos (25/10/2026). Atividades saiu do menu, mas `/comercial/atividades`
- * continua existindo. Configurar funis não é item de menu: é um botão que abre
- * um modal na tela de Funis (decisão de 19/10/2026). Só o rótulo mudou: os ids
+ * Plugga e na Waze, e a empresa vem de cada pipeline. O departamento se chamava
+ * Comercial; o André aprovou o nome CRM e os itens Pipelines, Clientes, Propostas e
+ * Contratos (25/10/2026; o rótulo é Pipelines, não Funis). Atividades saiu do menu, mas `/comercial/atividades`
+ * continua existindo. Configurar pipelines não é item de menu: é um botão que abre
+ * um modal na tela de Pipelines (decisão de 19/10/2026). Só o rótulo mudou: os ids
  * `comercial-clientes` e `comercial-obras` seguem iguais, porque são o acesso
  * já concedido.
  */
 const CRM: Processo[] = [
-  { label: "Funis", rota: "/comercial/pipelines", status: "parcial" },
+  { label: "Pipelines", rota: "/comercial/pipelines", status: "parcial" },
   { label: "Clientes", rota: "/clientes", status: "pronto" },
   { label: "Propostas", status: "em-breve" },
   { label: "Contratos", rota: "/comercial/contratos", status: "parcial" },
