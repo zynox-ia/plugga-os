@@ -1,5 +1,26 @@
 import { expect, test } from "@playwright/test";
 
+import { bloquearTerceiros } from "./support/sem-terceiros";
+
+/**
+ * Jobs é tela técnica, só do desenvolvedor (modelo de 4 papéis), então este
+ * caminho entra com a conta de desenvolvimento da equipe de exemplo
+ * (SEED_SAMPLE_TEAM, mesma senha do admin) em vez da sessão de admin da suíte.
+ */
+test.use({
+  storageState: { cookies: [], origins: [] },
+  extraHTTPHeaders: { "x-forwarded-for": "203.0.113.206" },
+});
+
+test.beforeEach(async ({ page }) => {
+  await bloquearTerceiros(page);
+  await page.goto("/login");
+  await page.getByLabel("E-mail", { exact: true }).fill("desenvolvimento@plugga.local");
+  await page.getByLabel("Senha", { exact: true }).fill(process.env.SEED_ADMIN_PASSWORD ?? "local_only_change_me");
+  await page.getByRole("button", { name: "Fazer login" }).click();
+  await expect(page).toHaveURL("/");
+});
+
 test.describe("Golden path — Início → Integrações → Jobs", () => {
   test("walks the P2-6 flow and surfaces live vs mock data correctly", async ({ page }) => {
     await page.goto("/");
