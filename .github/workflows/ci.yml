@@ -180,6 +180,14 @@ jobs:
       - name: Install age for backup tests
         run: sudo apt-get update -qq && sudo apt-get install -y -qq age
 
+      # pg_dump/pg_restore com a mesma versão do serviço (postgres:16), como em
+      # produção, onde rodam dentro do contêiner. O cliente que vem no runner é
+      # mais novo e grava `SET transaction_timeout`, que o servidor 16 recusa.
+      - name: Install PostgreSQL 16 client for backup tests
+        run: |
+          sudo apt-get install -y -qq postgresql-client-16
+          echo /usr/lib/postgresql/16/bin >> "$GITHUB_PATH"
+
       - name: Verify external backup script
         run: bash ops/backup-externo.test.sh
 
