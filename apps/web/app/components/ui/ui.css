@@ -120,6 +120,8 @@
 .ui-option--danger { color: var(--ui-danger); }
 .ui-popover-empty { margin: 0; padding: 16px 10px; font-size: 13px; color: var(--ui-muted); }
 .ui-menu-trigger { width: 100%; justify-content: space-between; gap: 16px; }
+.ui-menu-trigger--icon { width: 32px; padding: 0; gap: 0; }
+.ui-popover-root:has(.ui-menu-trigger--icon) .ui-popover { right: 0; left: auto; width: 220px; }
 .ui-menu-trigger:focus-visible, .ui-menu-trigger[aria-expanded="true"], .ui-option:focus-visible { outline: none; box-shadow: none; background: var(--ui-focus-bg); }
 .ui-menu-check { display: grid; place-items: center; width: 16px; height: 16px; border: 1px solid var(--ui-border); border-radius: 4px; }
 [aria-checked="true"] .ui-menu-check { color: var(--ui-success); border-color: var(--ui-success); }

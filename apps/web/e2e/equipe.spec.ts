@@ -17,7 +17,7 @@ const adminEmail = process.env.SEED_ADMIN_EMAIL ?? "admin@plugga.local";
 
 async function abrirEquipe(page: import("@playwright/test").Page) {
   await page.goto("/configuracoes");
-  await page.getByRole("button", { name: "Equipe e acessos" }).click();
+  await page.getByRole("tab", { name: "Equipe e acessos" }).click();
 }
 
 test.describe("Configurações → Equipe e acessos", () => {
@@ -44,11 +44,25 @@ test.describe("Configurações → Equipe e acessos", () => {
     await expect(linha.getByRole("button", { name: "Desativar" })).toHaveCount(0);
   });
 
-  test("mantém a gestão concentrada na tabela, sem formulário de novo acesso", async ({ page }) => {
+  test("abre o novo acesso em diálogo, sem painel abaixo da tabela", async ({ page }) => {
     await abrirEquipe(page);
 
-    await expect(page.getByRole("button", { name: "Convidar pessoa" })).toHaveCount(0);
-    await expect(page.getByText("Novo acesso", { exact: true })).toHaveCount(0);
+    await expect(page.getByText("Você administra a plataforma", { exact: false })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Novo acesso" })).toBeVisible();
     await expect(page.getByRole("table", { name: "Pessoas com acesso ao sistema" })).toBeVisible();
+    await page.getByRole("button", { name: "Novo acesso" }).click();
+    await expect(page.getByRole("heading", { name: "Novo acesso" })).toBeVisible();
+  });
+
+  test("concentra as ações do membro em detalhes e menu contextual", async ({ page }) => {
+    await abrirEquipe(page);
+
+    const linha = page.locator("tbody tr", { hasText: adminEmail });
+    await expect(linha.getByRole("button", { name: "Visualizar membro" })).toBeVisible();
+    await linha.getByRole("button", { name: /Mais ações para/ }).click();
+    await expect(page.getByRole("menuitem", { name: "Mudar acesso" })).toBeVisible();
+    await expect(page.getByRole("menuitem", { name: "Enviar link de acesso" })).toBeVisible();
+    await expect(page.getByRole("menuitem", { name: "Desativar acesso" })).toBeVisible();
+    await expect(page.getByRole("menuitem", { name: "Remover membro" })).toBeVisible();
   });
 });

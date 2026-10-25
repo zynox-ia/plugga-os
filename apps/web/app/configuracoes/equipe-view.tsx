@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   companyKeys,
-  departmentIdsByCompany,
   type CompanyKey,
   type DepartmentId,
   type TeamListResponse,
@@ -13,7 +12,21 @@ import {
   type UserStatus,
 } from "@plugga/shared";
 
-import { ShellCard, ShellTable, StatusPill } from "../components/plugga-shell";
+import { ShellCard, ShellTable } from "../components/plugga-shell";
+import {
+  Badge,
+  Button,
+  Dialog,
+  DropdownMenu,
+  IconEdit,
+  IconEye,
+  IconPlus,
+  IconReset,
+  IconSave,
+  IconTrash,
+  TextField,
+  type Tone,
+} from "../components/ui";
 import { EMPRESAS_POR_ID } from "../lib/organizacao";
 
 /**
@@ -53,7 +66,7 @@ const STATUS_LABEL: Record<UserStatus, string> = {
   disabled: "Desativado",
 };
 
-const STATUS_TOM: Record<UserStatus, "neutral" | "success" | "danger"> = {
+const STATUS_TOM: Record<UserStatus, Tone> = {
   invited: "neutral",
   active: "success",
   disabled: "danger",
@@ -89,13 +102,30 @@ function resumoAcesso(acesso: UserAccess): string {
   return partes.length > 0 ? partes.join(" | ") : "Sem acesso";
 }
 
-type Formulario = { membro: TeamMember; acesso: UserAccess };
+function tituloAcesso(acesso: UserAccess): string {
+  if (acesso.platformRoles.includes("admin")) return "Administração da plataforma";
 
-type Filtros = {
-  companyId: CompanyKey | "";
-  departmentId: DepartmentId | "";
-  status: UserStatus | "";
-};
+  const papeis = acesso.companies.flatMap((empresa) => empresa.roles);
+  return papeis.length > 0
+    ? [...new Set(papeis)].map((papel) => PAPEL_LABEL[papel] ?? papel).join(" · ")
+    : "Acesso personalizado";
+}
+
+function iniciais(nome: string): string {
+  return nome
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((parte) => parte[0])
+    .join("")
+    .toUpperCase();
+}
+
+const ACESSO_VAZIO: UserAccess = { platformRoles: [], companies: [] };
+
+type Formulario =
+  | { modo: "convite"; nome: string; email: string; acesso: UserAccess }
+  | { modo: "edicao"; membro: TeamMember; acesso: UserAccess };
 
 async function mensagemDeErro(resposta: Response): Promise<string> {
   try {
@@ -119,23 +149,12 @@ export function EquipeView() {
   const [aviso, setAviso] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
   const [formulario, setFormulario] = useState<Formulario | null>(null);
-  const [filtros, setFiltros] = useState<Filtros>({
-    companyId: "",
-    departmentId: "",
-    status: "",
-  });
-
+  const [membroVisualizado, setMembroVisualizado] = useState<TeamMember | null>(null);
   const carregar = useCallback(async () => {
     setCarregando(true);
-    const parametros = new URLSearchParams();
-    if (filtros.companyId) parametros.set("companyId", filtros.companyId);
-    if (filtros.departmentId) parametros.set("departmentId", filtros.departmentId);
-    if (filtros.status) parametros.set("status", filtros.status);
-
-    const busca = parametros.toString();
 
     try {
-      const resposta = await fetch(`/api/auth/users${busca ? `?${busca}` : ""}`, {
+      const resposta = await fetch("/api/auth/users", {
         cache: "no-store",
       });
       if (!resposta.ok) {
@@ -151,7 +170,7 @@ export function EquipeView() {
     } finally {
       setCarregando(false);
     }
-  }, [filtros]);
+  }, []);
 
   useEffect(() => {
     void carregar();
@@ -163,11 +182,21 @@ export function EquipeView() {
     setErro(null);
     setAviso(null);
 
-    const requisicao = fetch(`/api/auth/users/${formulario.membro.id}/access`, {
-      method: "PUT",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ access: formulario.acesso }),
-    });
+    const requisicao = formulario.modo === "convite"
+      ? fetch("/api/auth/invite", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            email: formulario.email,
+            name: formulario.nome,
+            access: formulario.acesso,
+          }),
+        })
+      : fetch(`/api/auth/users/${formulario.membro.id}/access`, {
+          method: "PUT",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ access: formulario.acesso }),
+        });
 
     try {
       const resposta = await requisicao;
@@ -175,7 +204,7 @@ export function EquipeView() {
         setErro(await mensagemDeErro(resposta));
         return;
       }
-      setAviso("Acesso atualizado.");
+      setAviso(formulario.modo === "convite" ? "Convite enviado." : "Acesso atualizado.");
       setFormulario(null);
       await carregar();
     } catch {
@@ -238,83 +267,26 @@ export function EquipeView() {
   }
 
   const escopo = dados.scope;
-  const empresasDoEscopo = escopo.companies.map((empresa) => empresa.companyId);
-  const departamentosDoFiltro = filtros.companyId
-    ? departmentIdsByCompany[filtros.companyId]
-    : [];
-
   return (
     <div className="stack">
-      <ShellCard className="table-card">
+      <ShellCard className="table-card equipe-card">
         <div className="card-heading">
           <div>
             <span className="eyebrow">Configurações</span>
             <h2>Equipe e acessos</h2>
           </div>
-        </div>
-
-        <p className="card-note">
-          {escopo.isPlatformAdmin
-            ? "Você administra a plataforma: alcança as duas empresas e todos os departamentos."
-            : "Você gestiona departamentos. Edita o acesso dentro deles; desativar é do administrador da plataforma."}
-        </p>
-
-        <div className="filter-form">
-          <label className="field">
-            Empresa
-            <select
-              value={filtros.companyId}
-              onChange={(evento) =>
-                setFiltros({
-                  companyId: evento.target.value as CompanyKey | "",
-                  departmentId: "",
-                  status: filtros.status,
-                })
+          {escopo.canInvite ? (
+            <Button
+              variant="primary"
+              icon={<IconPlus />}
+              disabled={salvando}
+              onClick={() =>
+                setFormulario({ modo: "convite", nome: "", email: "", acesso: ACESSO_VAZIO })
               }
             >
-              <option value="">Todas</option>
-              {empresasDoEscopo.map((empresa) => (
-                <option key={empresa} value={empresa}>
-                  {EMPRESAS_POR_ID[empresa].nome}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="field">
-            Departamento
-            <select
-              value={filtros.departmentId}
-              disabled={!filtros.companyId}
-              onChange={(evento) =>
-                setFiltros({ ...filtros, departmentId: evento.target.value as DepartmentId | "" })
-              }
-            >
-              <option value="">Todos</option>
-              {departamentosDoFiltro.map((departamento) => (
-                <option key={departamento} value={departamento}>
-                  {departamentoLabel(filtros.companyId as CompanyKey, departamento)}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="field">
-            Situação
-            <select
-              value={filtros.status}
-              onChange={(evento) =>
-                setFiltros({ ...filtros, status: evento.target.value as UserStatus | "" })
-              }
-            >
-              <option value="">Todas</option>
-              {(Object.keys(STATUS_LABEL) as UserStatus[]).map((status) => (
-                <option key={status} value={status}>
-                  {STATUS_LABEL[status]}
-                </option>
-              ))}
-            </select>
-          </label>
+              Novo acesso
+            </Button>
+          ) : null}
         </div>
 
         {erro ? <p className="card-note auth-error">{erro}</p> : null}
@@ -332,56 +304,78 @@ export function EquipeView() {
           <tbody>
             {dados.members.length === 0 ? (
               <tr>
-                <td colSpan={4}>Nenhuma pessoa encontrada com estes filtros.</td>
+                <td colSpan={4}>Nenhuma pessoa com acesso ao sistema.</td>
               </tr>
             ) : null}
             {dados.members.map((membro) => (
               <tr key={membro.id}>
                 <td>
-                  <strong>{membro.name}</strong>
-                  <br />
-                  <span className="card-note">{membro.email}</span>
+                  <div className="equipe-membro">
+                    <span className="equipe-avatar" aria-hidden="true">{iniciais(membro.name)}</span>
+                    <span>
+                      <strong>{membro.name}</strong>
+                      <span className="card-note">{membro.email}</span>
+                    </span>
+                  </div>
                 </td>
-                <td>{resumoAcesso(membro.access)}</td>
                 <td>
-                  <StatusPill variant={STATUS_TOM[membro.status]}>
+                  <div className="equipe-acesso">
+                    <strong>{tituloAcesso(membro.access)}</strong>
+                    <span>{resumoAcesso(membro.access)}</span>
+                  </div>
+                </td>
+                <td>
+                  <Badge tone={STATUS_TOM[membro.status]}>
                     {STATUS_LABEL[membro.status]}
-                  </StatusPill>
+                  </Badge>
                 </td>
                 <td>
                   <div className="row-actions">
-                    {membro.canManage ? (
-                      <button
-                        className="button button--small"
-                        type="button"
-                        disabled={salvando}
-                        onClick={() =>
-                          setFormulario({ membro, acesso: membro.access })
-                        }
-                      >
-                        Editar acesso
-                      </button>
-                    ) : null}
-                    {membro.canManage && membro.status === "invited" ? (
-                      <button
-                        className="button button--small"
-                        type="button"
-                        disabled={salvando}
-                        onClick={() => void acaoNoMembro(membro, "resend-invite")}
-                      >
-                        Reenviar convite
-                      </button>
-                    ) : null}
-                    {membro.canDeactivate ? (
-                      <button
-                        className="button button--small"
-                        type="button"
-                        disabled={salvando}
-                        onClick={() => void acaoNoMembro(membro, "deactivate")}
-                      >
-                        Desativar
-                      </button>
-                    ) : null}
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      icon={<IconEye />}
+                      onClick={() => setMembroVisualizado(membro)}
+                    >
+                      Visualizar membro
+                    </Button>
+                    <DropdownMenu
+                      label={`Mais ações para ${membro.name}`}
+                      variant="icon"
+                      disabled={salvando}
+                      items={[
+                        {
+                          id: "alterar-acesso",
+                          label: "Mudar acesso",
+                          icon: <IconEdit />,
+                          disabled: !membro.canManage,
+                          onSelect: () => setFormulario({ modo: "edicao", membro, acesso: membro.access }),
+                        },
+                        {
+                          id: "enviar-link",
+                          label: "Enviar link de acesso",
+                          icon: <IconReset />,
+                          disabled: !membro.canManage || membro.status !== "invited",
+                          onSelect: () => void acaoNoMembro(membro, "resend-invite"),
+                        },
+                        {
+                          id: "desativar",
+                          label: "Desativar acesso",
+                          icon: <IconTrash />,
+                          danger: true,
+                          disabled: !membro.canDeactivate,
+                          onSelect: () => void acaoNoMembro(membro, "deactivate"),
+                        },
+                        {
+                          id: "remover",
+                          label: "Remover membro",
+                          icon: <IconTrash />,
+                          danger: true,
+                          disabled: true,
+                          onSelect: () => undefined,
+                        },
+                      ]}
+                    />
                   </div>
                 </td>
               </tr>
@@ -391,41 +385,67 @@ export function EquipeView() {
       </ShellCard>
 
       {formulario ? (
-        <ShellCard className="panel-card">
-          <div className="card-heading">
-            <div>
-              <span className="eyebrow">Editar acesso</span>
-              <h2>{formulario.membro.name}</h2>
+        <Dialog
+          title={formulario.modo === "convite" ? "Novo acesso" : "Editar acesso"}
+          description={formulario.modo === "convite" ? "Cadastre uma nova pessoa e defina o acesso inicial." : formulario.membro.email}
+          icon={formulario.modo === "convite" ? <IconPlus /> : <IconEdit />}
+          onClose={() => setFormulario(null)}
+          size="larga"
+          footer={
+            <Button
+              variant="primary"
+              icon={<IconSave />}
+              loading={salvando}
+              onClick={() => void enviar()}
+            >
+              {formulario.modo === "convite" ? "Enviar convite" : "Salvar acesso"}
+            </Button>
+          }
+        >
+          {formulario.modo === "convite" ? (
+            <div className="ui-field-grid">
+              <TextField
+                label="Nome"
+                value={formulario.nome}
+                required
+                onChange={(evento) => setFormulario({ ...formulario, nome: evento.target.value })}
+              />
+              <TextField
+                label="E-mail"
+                type="email"
+                value={formulario.email}
+                required
+                onChange={(evento) => setFormulario({ ...formulario, email: evento.target.value })}
+              />
             </div>
-          </div>
-
-          <p className="card-note">{formulario.membro.email}</p>
-
+          ) : null}
           <EditorDeAcesso
             escopo={escopo}
             valor={formulario.acesso}
             onChange={(acesso) => setFormulario({ ...formulario, acesso })}
           />
+        </Dialog>
+      ) : null}
 
-          <div className="filter-actions">
-            <button
-              className="button button--accent"
-              type="button"
-              disabled={salvando}
-              onClick={() => void enviar()}
-            >
-              Salvar acesso
-            </button>
-            <button
-              className="button"
-              type="button"
-              disabled={salvando}
-              onClick={() => setFormulario(null)}
-            >
-              Cancelar
-            </button>
-          </div>
-        </ShellCard>
+      {membroVisualizado ? (
+        <Dialog
+          title={membroVisualizado.name}
+          description={membroVisualizado.email}
+          icon={<IconEye />}
+          onClose={() => setMembroVisualizado(null)}
+          size="media"
+        >
+          <dl className="membro-detalhes">
+            <div>
+              <dt>Situação</dt>
+              <dd><Badge tone={STATUS_TOM[membroVisualizado.status]}>{STATUS_LABEL[membroVisualizado.status]}</Badge></dd>
+            </div>
+            <div>
+              <dt>Acesso</dt>
+              <dd>{resumoAcesso(membroVisualizado.access)}</dd>
+            </div>
+          </dl>
+        </Dialog>
       ) : null}
     </div>
   );

@@ -55,14 +55,16 @@ export function ConfiguracoesView() {
 
   return (
     <div className="config-layout">
-      <nav className="config-nav" aria-label="Seções de configuração">
+      <nav className="ui-tabs-list config-nav" aria-label="Seções de configuração" role="tablist">
         {visiveis.map((item, indice) => (
           <button
             key={item.label}
             type="button"
-            className={`config-nav-item${item === secao ? " config-nav-item--active" : ""}`}
+            role="tab"
+            aria-selected={item === secao}
+            tabIndex={item === secao ? 0 : -1}
+            className="ui-tab config-nav-item"
             onClick={() => setAtiva(indice)}
-            aria-current={item === secao ? "page" : undefined}
           >
             <span>{item.label}</span>
           </button>

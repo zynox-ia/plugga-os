@@ -1,6 +1,13 @@
 import type { SVGProps } from "react";
 
-export { Download as IconDownload, Eye as IconEye, Save as IconSave, Pencil as IconEdit, RotateCcw as IconReset } from "lucide-react";
+export {
+  Download as IconDownload,
+  Ellipsis as IconMore,
+  Eye as IconEye,
+  Save as IconSave,
+  Pencil as IconEdit,
+  RotateCcw as IconReset,
+} from "lucide-react";
 
 export function IconCheck(props: SVGProps<SVGSVGElement>) {
   return (

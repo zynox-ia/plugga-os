@@ -2716,12 +2716,41 @@ tbody tr:last-child td { border-bottom: 0; }
 
 /* --- Página de Configurações -------------------------------------------- */
 .config-layout { display: grid; gap: 18px; align-items: start; }
-.config-nav { display: flex; gap: 4px; width: max-content; max-width: 100%; padding: 5px; overflow-x: auto; background: rgba(255, 255, 255, .32); border: 1px solid rgba(255, 255, 255, .62); border-radius: 999px; backdrop-filter: blur(20px) saturate(150%); -webkit-backdrop-filter: blur(20px) saturate(150%); scrollbar-width: none; }
-.config-nav::-webkit-scrollbar { display: none; }
-.config-nav-item { display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center; min-height: 34px; padding: 0 14px; color: rgba(15, 41, 74, .72); text-align: center; background: transparent; border: 0; border-radius: 999px; cursor: pointer; font: 400 12.5px/var(--line-height-control) var(--font-articulat), "Articulat CF", sans-serif; white-space: nowrap; transition: background-color .2s ease, color .2s ease; }
-.config-nav-item:hover { color: var(--ink); background: rgba(15, 41, 74, .08); }
-.config-nav-item:focus-visible { outline: 3px solid var(--folha); outline-offset: 2px; }
-.config-nav-item--active { color: #fff; background: var(--petroleo); font-weight: 500; }
+.config-nav { align-self: start; }
+
+.equipe-card { background: var(--ui-surface); border-color: var(--ui-divider); box-shadow: none; color: var(--ui-text); }
+.equipe-card:hover { background: var(--ui-surface); border-color: var(--ui-divider); box-shadow: none; }
+.equipe-card .card-heading { padding: var(--space-lg); border-color: var(--ui-divider); }
+.equipe-card .eyebrow { color: var(--ui-primary); }
+.equipe-card h2 { color: var(--ui-text); font-family: var(--font-general-sans); }
+.equipe-card .card-note { color: var(--ui-muted); }
+.equipe-filters { gap: var(--space-md); padding: var(--space-md) var(--space-lg) var(--space-lg); }
+.equipe-filters .ui-field { width: min(220px, 100%); }
+.equipe-card th, .equipe-card td { border-color: var(--ui-divider); }
+.equipe-card th { padding: var(--space-sm) var(--space-lg); color: var(--ui-muted); background: var(--ui-subtle); font-size: 11px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; }
+.equipe-card td { padding: var(--space-md) var(--space-lg); vertical-align: middle; }
+.equipe-card tbody tr { transition: background .15s ease; }
+.equipe-card tbody tr:hover td { background: var(--ui-subtle); }
+.equipe-card .row-actions { flex-wrap: nowrap; justify-content: flex-end; gap: var(--space-xs); white-space: nowrap; }
+.equipe-card th:last-child, .equipe-card td:last-child { width: 214px; min-width: 214px; text-align: right; }
+.equipe-membro { display: flex; align-items: center; gap: var(--space-sm); min-width: 220px; }
+.equipe-membro > span:last-child { display: grid; gap: 2px; min-width: 0; }
+.equipe-membro strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.equipe-avatar { display: grid; place-items: center; flex: 0 0 auto; width: 34px; height: 34px; border-radius: 50%; background: var(--ui-focus-bg); color: var(--ui-primary); font-size: 11px; font-weight: 700; letter-spacing: .02em; }
+.equipe-acesso { display: grid; gap: 3px; max-width: 360px; }
+.equipe-acesso strong { font-size: 13px; font-weight: 600; }
+.equipe-acesso span { overflow: hidden; color: var(--ui-muted); font-size: 12px; line-height: var(--line-height-body); text-overflow: ellipsis; white-space: nowrap; }
+.membro-detalhes { display: grid; gap: var(--space-lg); margin: 0; }
+.membro-detalhes div { display: grid; gap: var(--space-xs); }
+.membro-detalhes dt { color: var(--ui-muted); font-size: 12px; font-weight: 500; }
+.membro-detalhes dd { margin: 0; color: var(--ui-text); font-size: 13px; line-height: var(--line-height-body); }
+
+@media (max-width: 760px) {
+  .equipe-card th, .equipe-card td { padding-inline: var(--space-md); }
+  .equipe-acesso { max-width: 240px; }
+  .equipe-card .row-actions .ui-button-label { display: none; }
+  .equipe-card .row-actions .ui-button { width: 32px; padding: 0; }
+}
 
 /* --- Ritmo vertical da navegação ---------------------------------------- */
 /* Cada departamento é um grupo próprio, então o antigo gap de 20px entre
