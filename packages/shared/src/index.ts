@@ -1,3 +1,4 @@
+export * from "./acesso.js";
 export * from "./agent-actions.js";
 export * from "./auth.js";
 export * from "./bitrix.js";

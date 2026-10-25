@@ -1,7 +1,13 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { Conflito, ServicoIndisponivel } from "../common/errors/dominio";
 import { Prisma, type AuthTokenType } from "@prisma/client";
-import { identityProviderSchema, type IdentityProvider, type UserAccess } from "@plugga/shared";
+import {
+  converterAcessoAntigo,
+  identityProviderSchema,
+  platformRoleKeys,
+  type IdentityProvider,
+  type UserAccess,
+} from "@plugga/shared";
 
 import { AuditAppender } from "../audit/audit-appender";
 import { EstadoInvalido } from "../common/errors/dominio";
@@ -325,7 +331,12 @@ export class PrismaAuthRepository extends AuthRepository {
       if (rebaixa) await this.garantirOutroAdminAtivo(tx, userId);
       // Apagar o membership leva papéis e departamentos daquela empresa junto
       // (ON DELETE CASCADE), então revogar uma empresa é uma linha só.
-      await tx.userPlatformRole.deleteMany({ where: { userId } });
+      // Só os papéis de plataforma que o acesso antigo conhece: a tela atual
+      // não enxerga `desenvolvedor`, e editar a pessoa por ela não pode apagá-lo
+      // sem ninguém ver.
+      await tx.userPlatformRole.deleteMany({
+        where: { userId, role: { key: { in: [...platformRoleKeys] } } },
+      });
       await tx.userCompanyMembership.deleteMany({ where: { userId } });
       await this.writeAccess(tx, userId, access);
       await this.appender.append(tx, {
@@ -505,6 +516,17 @@ export class PrismaAuthRepository extends AuthRepository {
         skipDuplicates: true,
       });
     }
+
+    // Espelho no modelo de 4 papéis (acesso.ts), com a mesma regra da migração
+    // de conversão, enquanto as rotas ainda leem o acesso antigo.
+    await tx.userDepartamento.deleteMany({ where: { userId } });
+    await tx.userDepartamento.createMany({
+      data: converterAcessoAntigo(access).departamentos.map(({ departamento, nivel }) => ({
+        userId,
+        departamento,
+        nivel,
+      })),
+    });
   }
 
   private toRecord(user: UserWithAccess): AuthUserRecord {

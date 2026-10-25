@@ -266,6 +266,7 @@ model User {
   updatedAt                      DateTime                @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   platformRoles                  UserPlatformRole[]
   memberships                    UserCompanyMembership[]
+  departamentos                  UserDepartamento[]
   agentActions                   AgentAction[]
   credential                     UserCredential?
   identities                     UserIdentity[]
@@ -472,6 +473,30 @@ model UserCompanyRole {
   @@id([userId, companyId, roleId])
   @@index([roleId])
   @@map("user_company_roles")
+}
+
+enum NivelDeDepartamento {
+  membro
+  gerente
+
+  @@map("nivel_de_departamento")
+}
+
+/// Acesso no modelo de 4 papéis (`packages/shared/src/acesso.ts`): a pessoa é
+/// membro ou gerente de um departamento, sem empresa. Admin e desenvolvedor
+/// ficam em `UserPlatformRole` e não têm linha aqui. Enquanto as rotas ainda
+/// leem o acesso antigo, toda gravação dele também regrava esta tabela com
+/// `converterAcessoAntigo`; quem tem `desenvolvedor` mantém também a linha
+/// `admin`, para o código antigo continuar tratando a pessoa como admin.
+model UserDepartamento {
+  userId       String              @map("user_id") @db.Uuid
+  departamento String
+  nivel        NivelDeDepartamento
+  user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, departamento])
+  @@index([departamento])
+  @@map("user_departamentos")
 }
 
 /// Append-only audit record. The initial migration prevents UPDATE and DELETE.

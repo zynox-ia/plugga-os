@@ -1,5 +1,6 @@
 import { hash } from '@node-rs/argon2';
 import { PrismaClient } from '@prisma/client';
+import { converterAcessoAntigo, userAccessSchema } from '@plugga/shared';
 
 import { argon2Options } from '../src/auth/argon2-options';
 
@@ -7,6 +8,7 @@ const prisma = new PrismaClient();
 
 const roleRows = [
   { key: 'admin', name: 'Administração' },
+  { key: 'desenvolvedor', name: 'Desenvolvimento' },
   { key: 'diretoria', name: 'Diretoria' },
   { key: 'comercial', name: 'Comercial' },
   { key: 'financeiro', name: 'Financeiro' },
@@ -85,6 +87,28 @@ async function grantAccess(
       skipDuplicates: true,
     });
   }
+
+  // Espelho no modelo de 4 papéis, como faz a gravação de acesso da API.
+  // `desenvolvedor` não existe no acesso antigo e fica de fora da conversão.
+  const antigo = userAccessSchema.parse({
+    platformRoles: (grant.platformRoles ?? []).filter((key) => key === 'admin'),
+    companies: (grant.companies ?? []).map((company) => ({
+      companyId: company.companyId,
+      roles: company.roles,
+      departments: company.departments.map((department) => ({
+        departmentId: department.id,
+        isManager: department.isManager ?? false,
+      })),
+    })),
+  });
+  await prisma.userDepartamento.createMany({
+    data: converterAcessoAntigo(antigo).departamentos.map(({ departamento, nivel }) => ({
+      userId,
+      departamento,
+      nivel,
+    })),
+    skipDuplicates: true,
+  });
 }
 
 async function main() {
@@ -124,8 +148,10 @@ async function main() {
     },
   });
 
+  // Desenvolvedor leva também `admin` enquanto as rotas leem o acesso antigo,
+  // que só conhece o admin (ver `UserDepartamento` no schema).
   if (!devUserExisted) {
-    await grantAccess(devUser.id, roleIdByKey, { platformRoles: ['admin'] });
+    await grantAccess(devUser.id, roleIdByKey, { platformRoles: ['admin', 'desenvolvedor'] });
   }
 
   // Real self-hosted admin for local login (ADR-0008). Password comes only from
@@ -160,14 +186,21 @@ async function main() {
     );
   }
 
-  // Equipe de exemplo: as quatro formas de acesso que a autorização precisa
-  // distinguir, para conferir a regra logando em vez de lendo o código.
+  // Equipe de exemplo: as formas de acesso que a autorização precisa
+  // distinguir, para conferir a regra logando em vez de lendo o código. No
+  // modelo de 4 papéis: membro (financeiro.plugga), gerente (gestor.energia),
+  // admin (a conta acima) e desenvolvedor (desenvolvimento).
   //
   // Fica atrás de SEED_SAMPLE_TEAM porque cria contas que fazem login com a
   // MESMA senha local do admin: útil na máquina de quem desenvolve, inaceitável
   // em qualquer ambiente que não seja o seu. Sem a variável, nada é criado.
   if (process.env.SEED_SAMPLE_TEAM === 'true' && adminPassword) {
     const sampleTeam = [
+      {
+        email: 'desenvolvimento@plugga.local',
+        name: 'Desenvolvimento (exemplo)',
+        grant: { platformRoles: ['admin', 'desenvolvedor'] },
+      },
       {
         email: 'financeiro.plugga@plugga.local',
         name: 'Financeiro Plugga (exemplo)',
