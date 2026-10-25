@@ -113,8 +113,8 @@ function mensagemUtil(valor: unknown): string | undefined {
   return texto;
 }
 
-function detalhesDoZod(issues: ReadonlyArray<{ path: ReadonlyArray<string | number>; message: string }>): DetalheDeErro[] {
-  return issues.map((issue) => ({ campo: issue.path.join("."), problema: issue.message }));
+function detalhesDoZod(issues: ReadonlyArray<{ path: ReadonlyArray<PropertyKey>; message: string }>): DetalheDeErro[] {
+  return issues.map((issue) => ({ campo: issue.path.map(String).join("."), problema: issue.message }));
 }
 
 function traduzirHttp(excecao: HttpException): Traducao {

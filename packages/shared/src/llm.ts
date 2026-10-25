@@ -21,10 +21,7 @@ export type EstadoDaChaveComCofre = EstadoDaChave & { cofreConfigurado: boolean 
 
 export const entradaDeChaveSchema = z.object({
   chave: z
-    .string({
-      required_error: "informe a chave da OpenRouter",
-      invalid_type_error: "informe a chave da OpenRouter",
-    })
+    .string({ error: "informe a chave da OpenRouter" })
     .trim()
     .min(8, "informe a chave da OpenRouter"),
 });

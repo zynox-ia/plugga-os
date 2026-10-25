@@ -15,7 +15,7 @@ export type EsquemaDeCorpo<S> = {
   _input: unknown;
   safeParse(
     valor: unknown,
-  ): { success: true; data: S } | { success: false; error: { issues: { message: string; path: (string | number)[] }[] } };
+  ): { success: true; data: S } | { success: false; error: { issues: { message: string; path: PropertyKey[] }[] } };
 };
 
 /**
@@ -36,7 +36,7 @@ export function validarCorpo<S>(
   const resultado = schema.safeParse(corpo);
   if (resultado.success) return { ok: true, dados: resultado.data };
   const message = resultado.error.issues
-    .map((issue) => (issue.path.length > 0 ? `${issue.path.join(".")}: ${issue.message}` : issue.message))
+    .map((issue) => (issue.path.length > 0 ? `${issue.path.map(String).join(".")}: ${issue.message}` : issue.message))
     .join("; ");
   return { ok: false, message: message || "dados inválidos" };
 }
