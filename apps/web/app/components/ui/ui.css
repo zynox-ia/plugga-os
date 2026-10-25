@@ -191,7 +191,10 @@ h1.ui-heading > .ui-heading-icon > svg { width: 22px; height: 22px; }
   .ui-option { min-height: 44px; }
   .ui-dialog-header, .ui-dialog-body { padding: 16px; }
   .ui-dialog-footer { padding: 12px 16px; }
-  .ui-dialog-footer .button { height: auto; min-width: 0; padding: 10px 12px; white-space: normal; }
+  /* `.ui-button` não encolhe por padrão; no rodapé estreito precisa, senão o
+     rótulo não quebra e os dois botões se sobrepõem quando a fonte é um pouco
+     mais larga (Linux, por exemplo). */
+  .ui-dialog-footer .button { flex-shrink: 1; height: auto; min-width: 0; padding: 10px 12px; white-space: normal; }
 }
 @media (prefers-reduced-motion: reduce) {
   .ui-spinner, .ui-skeleton > span { animation: none; }
