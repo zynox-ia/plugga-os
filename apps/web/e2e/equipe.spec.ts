@@ -4,8 +4,7 @@ import { expect, test } from "@playwright/test";
  * Configurações → Equipe e acessos, pela sessão do admin semeado.
  *
  * Cobre o que só o navegador prova: a seção deixou de ser "em breve", a lista
- * chega da API real e o formulário de convite oferece as duas empresas para
- * quem administra a plataforma. As regras de escopo do gestor são exercitadas
+ * chega da API real e a área permanece concentrada na tabela de equipe. As regras de escopo do gestor são exercitadas
  * no e2e da API (apps/api/test/team.e2e.spec.ts), onde dá para criar cada
  * perfil sem depender do estado do banco local.
  */
@@ -25,7 +24,14 @@ test.describe("Configurações → Equipe e acessos", () => {
   test("lista a equipe e mostra o próprio admin com acesso de plataforma", async ({ page }) => {
     await abrirEquipe(page);
 
+    const navegacao = page.locator(".config-nav");
     await expect(page.getByRole("heading", { name: "Equipe e acessos" })).toBeVisible();
+    await expect(navegacao).toHaveCSS("display", "flex");
+    const navBox = await navegacao.boundingBox();
+    const headingBox = await page.getByRole("heading", { name: "Equipe e acessos" }).boundingBox();
+    expect(navBox).not.toBeNull();
+    expect(headingBox).not.toBeNull();
+    expect(navBox!.y).toBeLessThan(headingBox!.y);
     const linha = page.locator("tbody tr", { hasText: adminEmail });
     await expect(linha).toBeVisible();
     await expect(linha).toContainText("Administração da plataforma");
@@ -38,24 +44,11 @@ test.describe("Configurações → Equipe e acessos", () => {
     await expect(linha.getByRole("button", { name: "Desativar" })).toHaveCount(0);
   });
 
-  test("o convite oferece as duas empresas, cada uma com os seus departamentos", async ({
-    page,
-  }) => {
+  test("mantém a gestão concentrada na tabela, sem formulário de novo acesso", async ({ page }) => {
     await abrirEquipe(page);
-    await page.getByRole("button", { name: "Convidar pessoa" }).click();
 
-    const plugga = page.locator("fieldset", { hasText: "Plugga" }).first();
-    await expect(plugga).toBeVisible();
-    await expect(page.locator("fieldset", { hasText: "Waze Energia" }).first()).toBeVisible();
-
-    // Empresa desmarcada não mostra papel nem departamento: eles só existem
-    // dentro dela, e oferecê-los antes sugeriria um acesso solto.
-    await expect(plugga).toContainText("Sem acesso a esta empresa");
-    await plugga.getByRole("checkbox").first().check();
-    await expect(plugga).toContainText("Papéis nesta empresa");
-    await expect(plugga.getByText("Energia", { exact: true })).toBeVisible();
-    await expect(plugga.getByText("Engenharia e Obras", { exact: true })).toHaveCount(0);
-    await expect(plugga.getByText("Suprimentos", { exact: true })).toBeVisible();
-    await expect(plugga.getByText("Marketing", { exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Convidar pessoa" })).toHaveCount(0);
+    await expect(page.getByText("Novo acesso", { exact: true })).toHaveCount(0);
+    await expect(page.getByRole("table", { name: "Pessoas com acesso ao sistema" })).toBeVisible();
   });
 });

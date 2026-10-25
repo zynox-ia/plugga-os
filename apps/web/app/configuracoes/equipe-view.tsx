@@ -19,9 +19,7 @@ import { EMPRESAS_POR_ID } from "../lib/organizacao";
 /**
  * Equipe e acessos.
  *
- * Uma tela só para "quem entra" e "o que alcança": eram duas seções no desenho,
- * mas papel e departamento são campos da mesma linha de acesso — separá-los
- * obrigaria a atravessar de uma tela para a outra a cada convite.
+ * Uma tela só para acompanhar quem já tem acesso e o que alcança.
  *
  * O que aparece aqui é o que o servidor disse que a pessoa pode fazer
  * (`scope`, `canManage`, `canDeactivate`). A tela não recalcula a regra de
@@ -91,11 +89,7 @@ function resumoAcesso(acesso: UserAccess): string {
   return partes.length > 0 ? partes.join(" | ") : "Sem acesso";
 }
 
-const ACESSO_VAZIO: UserAccess = { platformRoles: [], companies: [] };
-
-type Formulario =
-  | { modo: "convite"; email: string; nome: string; acesso: UserAccess }
-  | { modo: "edicao"; membro: TeamMember; acesso: UserAccess };
+type Formulario = { membro: TeamMember; acesso: UserAccess };
 
 type Filtros = {
   companyId: CompanyKey | "";
@@ -169,22 +163,11 @@ export function EquipeView() {
     setErro(null);
     setAviso(null);
 
-    const requisicao =
-      formulario.modo === "convite"
-        ? fetch("/api/auth/invite", {
-            method: "POST",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({
-              email: formulario.email,
-              name: formulario.nome,
-              access: formulario.acesso,
-            }),
-          })
-        : fetch(`/api/auth/users/${formulario.membro.id}/access`, {
-            method: "PUT",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({ access: formulario.acesso }),
-          });
+    const requisicao = fetch(`/api/auth/users/${formulario.membro.id}/access`, {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ access: formulario.acesso }),
+    });
 
     try {
       const resposta = await requisicao;
@@ -192,11 +175,7 @@ export function EquipeView() {
         setErro(await mensagemDeErro(resposta));
         return;
       }
-      setAviso(
-        formulario.modo === "convite"
-          ? `Convite enviado para ${formulario.email}.`
-          : "Acesso atualizado.",
-      );
+      setAviso("Acesso atualizado.");
       setFormulario(null);
       await carregar();
     } catch {
@@ -272,24 +251,12 @@ export function EquipeView() {
             <span className="eyebrow">Configurações</span>
             <h2>Equipe e acessos</h2>
           </div>
-          {escopo.canInvite ? (
-            <button
-              className="button button--accent"
-              type="button"
-              disabled={salvando}
-              onClick={() =>
-                setFormulario({ modo: "convite", email: "", nome: "", acesso: ACESSO_VAZIO })
-              }
-            >
-              Convidar pessoa
-            </button>
-          ) : null}
         </div>
 
         <p className="card-note">
           {escopo.isPlatformAdmin
             ? "Você administra a plataforma: alcança as duas empresas e todos os departamentos."
-            : "Você gestiona departamentos. Convida e edita acesso dentro deles; desativar é do administrador da plataforma."}
+            : "Você gestiona departamentos. Edita o acesso dentro deles; desativar é do administrador da plataforma."}
         </p>
 
         <div className="filter-form">
@@ -389,7 +356,7 @@ export function EquipeView() {
                         type="button"
                         disabled={salvando}
                         onClick={() =>
-                          setFormulario({ modo: "edicao", membro, acesso: membro.access })
+                          setFormulario({ membro, acesso: membro.access })
                         }
                       >
                         Editar acesso
@@ -427,40 +394,12 @@ export function EquipeView() {
         <ShellCard className="panel-card">
           <div className="card-heading">
             <div>
-              <span className="eyebrow">
-                {formulario.modo === "convite" ? "Novo acesso" : "Editar acesso"}
-              </span>
-              <h2>
-                {formulario.modo === "convite" ? "Convidar pessoa" : formulario.membro.name}
-              </h2>
+              <span className="eyebrow">Editar acesso</span>
+              <h2>{formulario.membro.name}</h2>
             </div>
           </div>
 
-          {formulario.modo === "convite" ? (
-            <div className="filter-form">
-              <label className="field">
-                Nome
-                <input
-                  value={formulario.nome}
-                  onChange={(evento) =>
-                    setFormulario({ ...formulario, nome: evento.target.value })
-                  }
-                />
-              </label>
-              <label className="field">
-                E-mail
-                <input
-                  type="email"
-                  value={formulario.email}
-                  onChange={(evento) =>
-                    setFormulario({ ...formulario, email: evento.target.value })
-                  }
-                />
-              </label>
-            </div>
-          ) : (
-            <p className="card-note">{formulario.membro.email}</p>
-          )}
+          <p className="card-note">{formulario.membro.email}</p>
 
           <EditorDeAcesso
             escopo={escopo}
@@ -472,13 +411,10 @@ export function EquipeView() {
             <button
               className="button button--accent"
               type="button"
-              disabled={
-                salvando ||
-                (formulario.modo === "convite" && (!formulario.email || !formulario.nome))
-              }
+              disabled={salvando}
               onClick={() => void enviar()}
             >
-              {formulario.modo === "convite" ? "Enviar convite" : "Salvar acesso"}
+              Salvar acesso
             </button>
             <button
               className="button"
