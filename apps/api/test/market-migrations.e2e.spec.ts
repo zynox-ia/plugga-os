@@ -201,17 +201,17 @@ describe("energy market-migrations API (e2e)", () => {
 
   function asOpm() {
     return {
-      get: (path: string) => request(app.getHttpServer()).get(path).set("x-dev-principal", "local-opm").set("x-dev-roles", "opm"),
-      post: (path: string) => request(app.getHttpServer()).post(path).set("x-dev-principal", "local-opm").set("x-dev-roles", "opm"),
+      get: (path: string) => request(app.getHttpServer()).get(path).set("x-dev-principal", "local-opm").set("x-dev-departamentos", "energia-opm"),
+      post: (path: string) => request(app.getHttpServer()).post(path).set("x-dev-principal", "local-opm").set("x-dev-departamentos", "energia-opm"),
     };
   }
 
   function asViewer() {
     return {
       get: (path: string) =>
-        request(app.getHttpServer()).get(path).set("x-dev-principal", "local-viewer").set("x-dev-roles", "viewer"),
+        request(app.getHttpServer()).get(path).set("x-dev-principal", "local-viewer").set("x-dev-departamentos", "financeiro"),
       post: (path: string) =>
-        request(app.getHttpServer()).post(path).set("x-dev-principal", "local-viewer").set("x-dev-roles", "viewer"),
+        request(app.getHttpServer()).post(path).set("x-dev-principal", "local-viewer").set("x-dev-departamentos", "financeiro"),
     };
   }
 

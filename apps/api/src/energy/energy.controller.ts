@@ -50,14 +50,14 @@ import type { AuthPrincipal } from "../core/auth/auth.types";
 import { CurrentPrincipal } from "../core/auth/current-principal.decorator";
 import { SessionAuthGuard } from "../core/auth/session-auth.guard";
 import { OriginCheckGuard } from "../core/auth/origin-check.guard";
-import { Roles } from "../core/auth/roles.decorator";
+import { Departamento } from "../core/auth/acesso.decorator";
 import { RolesGuard } from "../core/auth/roles.guard";
 import { EnergyService } from "./energy.service";
-import { APPROVE_REPORT, CLOSE_CYCLE, OPERATE_ENERGY, READ_ENERGY, RESOLVE_CONTESTATION } from "./energy.permissions";
+import { APROVAR_EM_ENERGIA, FECHAR_CICLO, OPERAR_ENERGIA, VER_ENERGIA } from "./energy.permissions";
 
 @Controller("energy")
 @UseGuards(SessionAuthGuard, RolesGuard)
-@Roles(...READ_ENERGY)
+@Departamento(VER_ENERGIA)
 export class EnergyController {
   constructor(@Inject(EnergyService) private readonly service: EnergyService) {}
 
@@ -74,7 +74,7 @@ export class EnergyController {
   @Post("market-migrations")
   @HttpCode(201)
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
-  @Roles(...OPERATE_ENERGY)
+  @Departamento(OPERAR_ENERGIA)
   createMarketMigration(
     @Body(new ZodValidationPipe(createMarketMigrationRequestSchema)) input: CreateMarketMigrationRequest,
     @CurrentPrincipal() principal: AuthPrincipal,
@@ -85,7 +85,7 @@ export class EnergyController {
   @Post("market-migrations/:id/stage")
   @HttpCode(200)
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
-  @Roles(...OPERATE_ENERGY)
+  @Departamento(OPERAR_ENERGIA)
   advanceMarketMigrationStage(
     @Param("id", ParseUUIDPipe) id: string,
     @Body(new ZodValidationPipe(advanceMarketMigrationStageRequestSchema)) input: AdvanceMarketMigrationStageRequest,
@@ -97,7 +97,7 @@ export class EnergyController {
   @Post("market-migrations/:id/cancel")
   @HttpCode(200)
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
-  @Roles(...OPERATE_ENERGY)
+  @Departamento(OPERAR_ENERGIA)
   cancelMarketMigration(
     @Param("id", ParseUUIDPipe) id: string,
     @Body(new ZodValidationPipe(cancelMarketMigrationRequestSchema)) input: CancelMarketMigrationRequest,
@@ -109,7 +109,7 @@ export class EnergyController {
   @Post("market-migrations/:id/activate")
   @HttpCode(200)
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
-  @Roles(...OPERATE_ENERGY)
+  @Departamento(OPERAR_ENERGIA)
   activateMarketMigration(
     @Param("id", ParseUUIDPipe) id: string,
     @Body(new ZodValidationPipe(activateMarketMigrationRequestSchema)) input: ActivateMarketMigrationRequest,
@@ -140,7 +140,7 @@ export class EnergyController {
   @Post("cycles")
   @HttpCode(201)
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
-  @Roles(...OPERATE_ENERGY)
+  @Departamento(OPERAR_ENERGIA)
   createCycle(
     @Body(new ZodValidationPipe(createCycleRequestSchema)) input: CreateCycleRequest,
     @CurrentPrincipal() principal: AuthPrincipal,
@@ -151,7 +151,7 @@ export class EnergyController {
   @Post("cycles/:id/documents-received")
   @HttpCode(200)
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
-  @Roles(...OPERATE_ENERGY)
+  @Departamento(OPERAR_ENERGIA)
   markCycleDocumentsReceived(
     @Param("id", ParseUUIDPipe) id: string,
     @Body(new ZodValidationPipe(markCycleDocumentsReceivedRequestSchema)) input: MarkCycleDocumentsReceivedRequest,
@@ -163,7 +163,7 @@ export class EnergyController {
   @Post("cycles/:id/report")
   @HttpCode(200)
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
-  @Roles(...OPERATE_ENERGY)
+  @Departamento(OPERAR_ENERGIA)
   generateCycleReport(
     @Param("id", ParseUUIDPipe) id: string,
     @Body(new ZodValidationPipe(generateCycleReportRequestSchema)) input: GenerateCycleReportRequest,
@@ -175,7 +175,7 @@ export class EnergyController {
   @Post("cycles/:id/approve-report")
   @HttpCode(200)
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
-  @Roles(...APPROVE_REPORT)
+  @Departamento(APROVAR_EM_ENERGIA, "gerente")
   approveCycleReport(
     @Param("id", ParseUUIDPipe) id: string,
     @Body(new ZodValidationPipe(approveCycleReportRequestSchema)) input: ApproveCycleReportRequest,
@@ -187,7 +187,7 @@ export class EnergyController {
   @Post("cycles/:id/send")
   @HttpCode(200)
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
-  @Roles(...OPERATE_ENERGY)
+  @Departamento(OPERAR_ENERGIA)
   sendCycleReport(
     @Param("id", ParseUUIDPipe) id: string,
     @Body(new ZodValidationPipe(sendCycleReportRequestSchema)) input: SendCycleReportRequest,
@@ -199,7 +199,7 @@ export class EnergyController {
   @Post("cycles/:id/close")
   @HttpCode(200)
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
-  @Roles(...CLOSE_CYCLE)
+  @Departamento(FECHAR_CICLO)
   closeCycle(
     @Param("id", ParseUUIDPipe) id: string,
     @Body(new ZodValidationPipe(closeCycleRequestSchema)) input: CloseCycleRequest,
@@ -221,7 +221,7 @@ export class EnergyController {
   @Post("audits")
   @HttpCode(201)
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
-  @Roles(...OPERATE_ENERGY)
+  @Departamento(OPERAR_ENERGIA)
   createAudit(
     @Body(new ZodValidationPipe(createAuditRequestSchema)) input: CreateAuditRequest,
     @CurrentPrincipal() principal: AuthPrincipal,
@@ -232,7 +232,7 @@ export class EnergyController {
   @Post("audits/:id/resolve")
   @HttpCode(200)
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
-  @Roles(...OPERATE_ENERGY)
+  @Departamento(OPERAR_ENERGIA)
   resolveAudit(
     @Param("id", ParseUUIDPipe) id: string,
     @Body(new ZodValidationPipe(resolveAuditRequestSchema)) input: ResolveAuditRequest,
@@ -254,7 +254,7 @@ export class EnergyController {
   @Post("contestations")
   @HttpCode(201)
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
-  @Roles(...OPERATE_ENERGY)
+  @Departamento(OPERAR_ENERGIA)
   createContestation(
     @Body(new ZodValidationPipe(createContestationRequestSchema)) input: CreateContestationRequest,
     @CurrentPrincipal() principal: AuthPrincipal,
@@ -265,7 +265,7 @@ export class EnergyController {
   @Post("contestations/:id/status")
   @HttpCode(200)
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
-  @Roles(...RESOLVE_CONTESTATION)
+  @Departamento(APROVAR_EM_ENERGIA, "gerente")
   updateContestationStatus(
     @Param("id", ParseUUIDPipe) id: string,
     @Body(new ZodValidationPipe(updateContestationStatusRequestSchema)) input: UpdateContestationStatusRequest,

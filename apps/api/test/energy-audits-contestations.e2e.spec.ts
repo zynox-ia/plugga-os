@@ -206,25 +206,25 @@ describe("energy audits/contestations API (e2e)", () => {
 
   function asOpm() {
     return {
-      get: (path: string) => request(app.getHttpServer()).get(path).set("x-dev-principal", "local-opm").set("x-dev-roles", "opm"),
+      get: (path: string) => request(app.getHttpServer()).get(path).set("x-dev-principal", "local-opm").set("x-dev-departamentos", "energia-opm"),
       post: (path: string) =>
-        request(app.getHttpServer()).post(path).set("x-dev-principal", "local-opm").set("x-dev-roles", "opm"),
+        request(app.getHttpServer()).post(path).set("x-dev-principal", "local-opm").set("x-dev-departamentos", "energia-opm"),
     };
   }
 
   function asFinanceiro() {
     return {
       post: (path: string) =>
-        request(app.getHttpServer()).post(path).set("x-dev-principal", "local-financeiro").set("x-dev-roles", "financeiro"),
+        request(app.getHttpServer()).post(path).set("x-dev-principal", "local-financeiro").set("x-dev-departamentos", "financeiro:gerente"),
     };
   }
 
   function asViewer() {
     return {
       get: (path: string) =>
-        request(app.getHttpServer()).get(path).set("x-dev-principal", "local-viewer").set("x-dev-roles", "viewer"),
+        request(app.getHttpServer()).get(path).set("x-dev-principal", "local-viewer").set("x-dev-departamentos", "financeiro"),
       post: (path: string) =>
-        request(app.getHttpServer()).post(path).set("x-dev-principal", "local-viewer").set("x-dev-roles", "viewer"),
+        request(app.getHttpServer()).post(path).set("x-dev-principal", "local-viewer").set("x-dev-departamentos", "financeiro"),
     };
   }
 
@@ -232,7 +232,7 @@ describe("energy audits/contestations API (e2e)", () => {
     await request(app.getHttpServer()).get("/energy/audits").expect(401);
   });
 
-  it("allows a broad read role to list audits but not open one (RBAC)", async () => {
+  it("membro do Financeiro vê as auditorias mas não abre uma", async () => {
     await asViewer().get("/energy/audits").expect(200);
     await asViewer()
       .post("/energy/audits")
@@ -347,7 +347,7 @@ describe("energy audits/contestations API (e2e)", () => {
     expect(repository.events.some((event) => event.eventName === "energy.contestation_created")).toBe(true);
   });
 
-  it("blocks skipping a contestation status transition (RESOLVE_CONTESTATION role, sequence rule)", async () => {
+  it("blocks skipping a contestation status transition (gerente do Financeiro, regra de sequência)", async () => {
     const auditId = "00000000-0000-4000-8000-000000000605";
     repository.seedAudit({ id: auditId, type: "contestacao", status: "divergencia_encontrada" });
     const contestation = await repository.createContestation(
@@ -367,7 +367,7 @@ describe("energy audits/contestations API (e2e)", () => {
     await asFinanceiro().post(`/energy/contestations/${contestation.id}/status`).send({ status: "encerrada" }).expect(409);
   });
 
-  it("only RESOLVE_CONTESTATION roles can transition a contestation (RBAC)", async () => {
+  it("só o gerente do Financeiro decide a contestação; o membro de Energia não", async () => {
     const auditId = "00000000-0000-4000-8000-000000000606";
     repository.seedAudit({ id: auditId, type: "contestacao", status: "divergencia_encontrada" });
     const contestation = await repository.createContestation(

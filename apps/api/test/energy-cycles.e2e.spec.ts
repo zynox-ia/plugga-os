@@ -275,22 +275,22 @@ describe("energy cycles API (e2e)", () => {
 
   function asOpm() {
     return {
-      get: (path: string) => request(app.getHttpServer()).get(path).set("x-dev-principal", "local-opm").set("x-dev-roles", "opm"),
-      post: (path: string) => request(app.getHttpServer()).post(path).set("x-dev-principal", "local-opm").set("x-dev-roles", "opm"),
+      get: (path: string) => request(app.getHttpServer()).get(path).set("x-dev-principal", "local-opm").set("x-dev-departamentos", "energia-opm"),
+      post: (path: string) => request(app.getHttpServer()).post(path).set("x-dev-principal", "local-opm").set("x-dev-departamentos", "energia-opm"),
     };
   }
 
   function asFinanceiro() {
     return {
       post: (path: string) =>
-        request(app.getHttpServer()).post(path).set("x-dev-principal", "local-financeiro").set("x-dev-roles", "financeiro"),
+        request(app.getHttpServer()).post(path).set("x-dev-principal", "local-financeiro").set("x-dev-departamentos", "financeiro:gerente"),
     };
   }
 
   function asViewer() {
     return {
-      get: (path: string) => request(app.getHttpServer()).get(path).set("x-dev-principal", "local-viewer").set("x-dev-roles", "viewer"),
-      post: (path: string) => request(app.getHttpServer()).post(path).set("x-dev-principal", "local-viewer").set("x-dev-roles", "viewer"),
+      get: (path: string) => request(app.getHttpServer()).get(path).set("x-dev-principal", "local-viewer").set("x-dev-departamentos", "financeiro"),
+      post: (path: string) => request(app.getHttpServer()).post(path).set("x-dev-principal", "local-viewer").set("x-dev-departamentos", "financeiro"),
     };
   }
 
@@ -319,7 +319,7 @@ describe("energy cycles API (e2e)", () => {
     await request(app.getHttpServer()).get("/energy/cycles").expect(401);
   });
 
-  it("allows a broad read role to list cycles but not open one", async () => {
+  it("membro do Financeiro vê os ciclos mas não abre um", async () => {
     await asViewer().get("/energy/cycles").expect(200);
     await asViewer()
       .post("/energy/cycles")
@@ -332,6 +332,42 @@ describe("energy cycles API (e2e)", () => {
         nextActionAt: "2027-01-10T12:00:00.000Z",
       })
       .expect(403);
+  });
+
+  it("quem é só do CRM não vê Energia", async () => {
+    await request(app.getHttpServer())
+      .get("/energy/cycles")
+      .set("x-dev-principal", "local-crm")
+      .set("x-dev-departamentos", "crm:gerente")
+      .expect(403);
+  });
+
+  it("só o gerente do Financeiro aprova o relatório: nem o gerente de Energia, nem um membro do Financeiro", async () => {
+    const created = await asOpm()
+      .post("/energy/cycles")
+      .send({
+        clientId: CLIENT_ID,
+        consumerUnitId: CONSUMER_UNIT_ID,
+        competenceMonth: 3,
+        competenceYear: 2031,
+        ownerId: OWNER_ID,
+        nextActionAt: "2031-03-10T12:00:00.000Z",
+      })
+      .expect(201);
+    const id = created.body.id as string;
+    await asOpm().post(`/energy/cycles/${id}/documents-received`).send({}).expect(200);
+    repository.seedAuditsForCycle(id, [{ status: "sem_divergencia", divergenceBlocksClosing: false }]);
+    await asOpm().post(`/energy/cycles/${id}/report`).send({}).expect(200);
+
+    const aprovarComo = (principal: string, departamentos: string) =>
+      request(app.getHttpServer())
+        .post(`/energy/cycles/${id}/approve-report`)
+        .set("x-dev-principal", principal)
+        .set("x-dev-departamentos", departamentos)
+        .send({});
+    await aprovarComo("local-gerente-energia", "energia-opm:gerente").expect(403);
+    await aprovarComo("local-membro-financeiro", "financeiro").expect(403);
+    await aprovarComo("local-gerente-financeiro", "financeiro:gerente").expect(200);
   });
 
   it("rejects a second cycle for the same UC/competence (uniqueness)", async () => {

@@ -116,7 +116,7 @@ type ConsumerUnitRow = {
  * paginação de página deste módulo. Nenhuma delas expõe `page`/`pageSize` na
  * API pública hoje, então um limite fixo é a defesa contra um `findMany` que
  * cresce com a tabela inteira (CWE-770, negação de serviço por esgotamento
- * de memória/CPU) — qualquer usuário com READ_ENERGY (que inclui `viewer`)
+ * de memória/CPU) — qualquer pessoa que vê Energia (`VER_ENERGIA`)
  * podia repetir a chamada e degradar a API.
  */
 const LIMITE_LISTAGEM = 500;

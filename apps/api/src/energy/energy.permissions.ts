@@ -1,13 +1,19 @@
-import type { RoleKey } from "@plugga/shared";
+import type { Departamento } from "@plugga/shared";
 
 /**
- * Named permission constants instead of role arrays scattered across
- * controllers (plano técnico Energia & OPM, seção "Decisões de forma").
- * RBAC is broad for now (opm/financeiro/admin/diretoria); tighten by editing
- * these constants, not by touching every route.
+ * Quem faz o quê em Energia, no modelo de 4 papéis (decisão do André em
+ * 25/10/2026). Admin e desenvolvedor passam em todas por regra do guard.
+ *
+ * - Ver: Energia e Financeiro — o Financeiro aprova o relatório e decide a
+ *   contestação, então precisa enxergar o ciclo.
+ * - Operar (ciclo, relatório, envio, migração, auditoria, abrir contestação):
+ *   membro de Energia.
+ * - Fechar o ciclo: membro de Energia ou do Financeiro, como antes.
+ * - Aprovar o relatório e decidir a contestação: gerente do Financeiro. Quem
+ *   produz não aprova — a separação que já existia entre opm e financeiro.
  */
-export const READ_ENERGY: readonly RoleKey[] = ["opm", "financeiro", "admin", "diretoria", "comercial", "tech", "viewer"];
-export const OPERATE_ENERGY: readonly RoleKey[] = ["opm", "admin"];
-export const APPROVE_REPORT: readonly RoleKey[] = ["financeiro", "admin", "diretoria"];
-export const CLOSE_CYCLE: readonly RoleKey[] = ["opm", "financeiro", "admin"];
-export const RESOLVE_CONTESTATION: readonly RoleKey[] = ["financeiro", "admin", "diretoria"];
+export const VER_ENERGIA: Departamento[] = ["energia-opm", "financeiro"];
+export const OPERAR_ENERGIA: Departamento = "energia-opm";
+export const FECHAR_CICLO: Departamento[] = ["energia-opm", "financeiro"];
+/** Com nível `gerente`. */
+export const APROVAR_EM_ENERGIA: Departamento = "financeiro";

@@ -855,15 +855,10 @@
     "metodo": "GET",
     "caminho": "/energy/audits",
     "controller": "EnergyController.listAudits",
-    "acesso": "roles",
+    "acesso": "acesso",
     "papeis": [
-      "opm",
-      "financeiro",
-      "admin",
-      "diretoria",
-      "comercial",
-      "tech",
-      "viewer"
+      "departamento:energia-opm:membro",
+      "departamento:financeiro:membro"
     ],
     "guards": [
       "SessionAuthGuard",
@@ -874,10 +869,9 @@
     "metodo": "POST",
     "caminho": "/energy/audits",
     "controller": "EnergyController.createAudit",
-    "acesso": "roles",
+    "acesso": "acesso",
     "papeis": [
-      "opm",
-      "admin"
+      "departamento:energia-opm:membro"
     ],
     "guards": [
       "SessionAuthGuard",
@@ -890,15 +884,10 @@
     "metodo": "GET",
     "caminho": "/energy/audits/:id",
     "controller": "EnergyController.audit",
-    "acesso": "roles",
+    "acesso": "acesso",
     "papeis": [
-      "opm",
-      "financeiro",
-      "admin",
-      "diretoria",
-      "comercial",
-      "tech",
-      "viewer"
+      "departamento:energia-opm:membro",
+      "departamento:financeiro:membro"
     ],
     "guards": [
       "SessionAuthGuard",
@@ -909,10 +898,9 @@
     "metodo": "POST",
     "caminho": "/energy/audits/:id/resolve",
     "controller": "EnergyController.resolveAudit",
-    "acesso": "roles",
+    "acesso": "acesso",
     "papeis": [
-      "opm",
-      "admin"
+      "departamento:energia-opm:membro"
     ],
     "guards": [
       "SessionAuthGuard",
@@ -925,15 +913,10 @@
     "metodo": "GET",
     "caminho": "/energy/consumer-units",
     "controller": "EnergyController.listConsumerUnits",
-    "acesso": "roles",
+    "acesso": "acesso",
     "papeis": [
-      "opm",
-      "financeiro",
-      "admin",
-      "diretoria",
-      "comercial",
-      "tech",
-      "viewer"
+      "departamento:energia-opm:membro",
+      "departamento:financeiro:membro"
     ],
     "guards": [
       "SessionAuthGuard",
@@ -944,15 +927,10 @@
     "metodo": "GET",
     "caminho": "/energy/contestations",
     "controller": "EnergyController.listContestations",
-    "acesso": "roles",
+    "acesso": "acesso",
     "papeis": [
-      "opm",
-      "financeiro",
-      "admin",
-      "diretoria",
-      "comercial",
-      "tech",
-      "viewer"
+      "departamento:energia-opm:membro",
+      "departamento:financeiro:membro"
     ],
     "guards": [
       "SessionAuthGuard",
@@ -963,10 +941,9 @@
     "metodo": "POST",
     "caminho": "/energy/contestations",
     "controller": "EnergyController.createContestation",
-    "acesso": "roles",
+    "acesso": "acesso",
     "papeis": [
-      "opm",
-      "admin"
+      "departamento:energia-opm:membro"
     ],
     "guards": [
       "SessionAuthGuard",
@@ -979,15 +956,10 @@
     "metodo": "GET",
     "caminho": "/energy/contestations/:id",
     "controller": "EnergyController.contestation",
-    "acesso": "roles",
+    "acesso": "acesso",
     "papeis": [
-      "opm",
-      "financeiro",
-      "admin",
-      "diretoria",
-      "comercial",
-      "tech",
-      "viewer"
+      "departamento:energia-opm:membro",
+      "departamento:financeiro:membro"
     ],
     "guards": [
       "SessionAuthGuard",
@@ -998,11 +970,9 @@
     "metodo": "POST",
     "caminho": "/energy/contestations/:id/status",
     "controller": "EnergyController.updateContestationStatus",
-    "acesso": "roles",
+    "acesso": "acesso",
     "papeis": [
-      "financeiro",
-      "admin",
-      "diretoria"
+      "departamento:financeiro:gerente"
     ],
     "guards": [
       "SessionAuthGuard",
@@ -1015,15 +985,10 @@
     "metodo": "GET",
     "caminho": "/energy/cycles",
     "controller": "EnergyController.listCycles",
-    "acesso": "roles",
+    "acesso": "acesso",
     "papeis": [
-      "opm",
-      "financeiro",
-      "admin",
-      "diretoria",
-      "comercial",
-      "tech",
-      "viewer"
+      "departamento:energia-opm:membro",
+      "departamento:financeiro:membro"
     ],
     "guards": [
       "SessionAuthGuard",
@@ -1034,10 +999,9 @@
     "metodo": "POST",
     "caminho": "/energy/cycles",
     "controller": "EnergyController.createCycle",
-    "acesso": "roles",
+    "acesso": "acesso",
     "papeis": [
-      "opm",
-      "admin"
+      "departamento:energia-opm:membro"
     ],
     "guards": [
       "SessionAuthGuard",
@@ -1050,15 +1014,10 @@
     "metodo": "GET",
     "caminho": "/energy/cycles/:id",
     "controller": "EnergyController.cycle",
-    "acesso": "roles",
+    "acesso": "acesso",
     "papeis": [
-      "opm",
-      "financeiro",
-      "admin",
-      "diretoria",
-      "comercial",
-      "tech",
-      "viewer"
+      "departamento:energia-opm:membro",
+      "departamento:financeiro:membro"
     ],
     "guards": [
       "SessionAuthGuard",
@@ -1069,11 +1028,9 @@
     "metodo": "POST",
     "caminho": "/energy/cycles/:id/approve-report",
     "controller": "EnergyController.approveCycleReport",
-    "acesso": "roles",
+    "acesso": "acesso",
     "papeis": [
-      "financeiro",
-      "admin",
-      "diretoria"
+      "departamento:financeiro:gerente"
     ],
     "guards": [
       "SessionAuthGuard",
@@ -1086,11 +1043,10 @@
     "metodo": "POST",
     "caminho": "/energy/cycles/:id/close",
     "controller": "EnergyController.closeCycle",
-    "acesso": "roles",
+    "acesso": "acesso",
     "papeis": [
-      "opm",
-      "financeiro",
-      "admin"
+      "departamento:energia-opm:membro",
+      "departamento:financeiro:membro"
     ],
     "guards": [
       "SessionAuthGuard",
@@ -1103,10 +1059,9 @@
     "metodo": "POST",
     "caminho": "/energy/cycles/:id/documents-received",
     "controller": "EnergyController.markCycleDocumentsReceived",
-    "acesso": "roles",
+    "acesso": "acesso",
     "papeis": [
-      "opm",
-      "admin"
+      "departamento:energia-opm:membro"
     ],
     "guards": [
       "SessionAuthGuard",
@@ -1119,10 +1074,9 @@
     "metodo": "POST",
     "caminho": "/energy/cycles/:id/report",
     "controller": "EnergyController.generateCycleReport",
-    "acesso": "roles",
+    "acesso": "acesso",
     "papeis": [
-      "opm",
-      "admin"
+      "departamento:energia-opm:membro"
     ],
     "guards": [
       "SessionAuthGuard",
@@ -1135,10 +1089,9 @@
     "metodo": "POST",
     "caminho": "/energy/cycles/:id/send",
     "controller": "EnergyController.sendCycleReport",
-    "acesso": "roles",
+    "acesso": "acesso",
     "papeis": [
-      "opm",
-      "admin"
+      "departamento:energia-opm:membro"
     ],
     "guards": [
       "SessionAuthGuard",
@@ -1151,15 +1104,10 @@
     "metodo": "GET",
     "caminho": "/energy/market-migrations",
     "controller": "EnergyController.listMarketMigrations",
-    "acesso": "roles",
+    "acesso": "acesso",
     "papeis": [
-      "opm",
-      "financeiro",
-      "admin",
-      "diretoria",
-      "comercial",
-      "tech",
-      "viewer"
+      "departamento:energia-opm:membro",
+      "departamento:financeiro:membro"
     ],
     "guards": [
       "SessionAuthGuard",
@@ -1170,10 +1118,9 @@
     "metodo": "POST",
     "caminho": "/energy/market-migrations",
     "controller": "EnergyController.createMarketMigration",
-    "acesso": "roles",
+    "acesso": "acesso",
     "papeis": [
-      "opm",
-      "admin"
+      "departamento:energia-opm:membro"
     ],
     "guards": [
       "SessionAuthGuard",
@@ -1186,10 +1133,9 @@
     "metodo": "POST",
     "caminho": "/energy/market-migrations/:id/activate",
     "controller": "EnergyController.activateMarketMigration",
-    "acesso": "roles",
+    "acesso": "acesso",
     "papeis": [
-      "opm",
-      "admin"
+      "departamento:energia-opm:membro"
     ],
     "guards": [
       "SessionAuthGuard",
@@ -1202,10 +1148,9 @@
     "metodo": "POST",
     "caminho": "/energy/market-migrations/:id/cancel",
     "controller": "EnergyController.cancelMarketMigration",
-    "acesso": "roles",
+    "acesso": "acesso",
     "papeis": [
-      "opm",
-      "admin"
+      "departamento:energia-opm:membro"
     ],
     "guards": [
       "SessionAuthGuard",
@@ -1218,10 +1163,9 @@
     "metodo": "POST",
     "caminho": "/energy/market-migrations/:id/stage",
     "controller": "EnergyController.advanceMarketMigrationStage",
-    "acesso": "roles",
+    "acesso": "acesso",
     "papeis": [
-      "opm",
-      "admin"
+      "departamento:energia-opm:membro"
     ],
     "guards": [
       "SessionAuthGuard",
@@ -1234,15 +1178,10 @@
     "metodo": "GET",
     "caminho": "/energy/reports",
     "controller": "EnergyController.cycleReports",
-    "acesso": "roles",
+    "acesso": "acesso",
     "papeis": [
-      "opm",
-      "financeiro",
-      "admin",
-      "diretoria",
-      "comercial",
-      "tech",
-      "viewer"
+      "departamento:energia-opm:membro",
+      "departamento:financeiro:membro"
     ],
     "guards": [
       "SessionAuthGuard",
