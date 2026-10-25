@@ -1,4 +1,5 @@
 import type {
+  Acesso,
   CompanyKey,
   DepartmentId,
   IdentityProvider,
@@ -21,6 +22,11 @@ export interface AuthUserRecord {
    * aplicada na leitura (`visibleCompanies`), nunca materializada aqui.
    */
   access: UserAccess;
+  /**
+   * O mesmo acesso no modelo de 4 papéis (`user_departamentos` + papel de
+   * plataforma), que `@Departamento` e `@Plataforma` leem.
+   */
+  acesso: Acesso;
 }
 
 /** A lista da equipe lê exatamente o mesmo registro; o nome existe pela leitura. */

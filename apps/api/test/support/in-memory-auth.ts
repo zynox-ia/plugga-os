@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import { hash as argon2Hash } from "@node-rs/argon2";
-import { flattenRoles, type UserAccess } from "@plugga/shared";
+import { converterAcessoAntigo, flattenRoles, type Acesso, type UserAccess } from "@plugga/shared";
 
 import { argon2Options } from "../../src/auth/argon2-options";
 import { EstadoInvalido } from "../../src/common/errors/dominio";
@@ -39,6 +39,16 @@ export interface StoredUser {
   status: string;
   createdAt: Date;
   access: UserAccess;
+  /**
+   * Acesso no modelo de 4 papéis. Sem ele, vale o espelho do acesso antigo,
+   * como a gravação da API faz no banco (`converterAcessoAntigo`).
+   */
+  acesso?: Acesso;
+}
+
+/** O acesso de 4 papéis que o banco teria para esta pessoa. */
+export function acessoGravado(user: StoredUser): Acesso {
+  return user.acesso ?? converterAcessoAntigo(user.access);
 }
 
 interface StoredSession {
@@ -93,6 +103,7 @@ export class InMemoryStore {
     password?: string;
     status?: string;
     access?: UserAccess;
+    acesso?: Acesso;
   }): Promise<StoredUser> {
     const user: StoredUser = {
       id: randomUUID(),
@@ -101,6 +112,7 @@ export class InMemoryStore {
       status: input.status ?? "active",
       createdAt: new Date(),
       access: input.access ?? access(),
+      acesso: input.acesso,
     };
     this.users.set(user.id, user);
     if (input.password) {
@@ -123,6 +135,7 @@ export class InMemoryAuthRepository extends AuthRepository {
       status: user.status,
       createdAt: user.createdAt,
       access: user.access,
+      acesso: acessoGravado(user),
     };
   }
 
@@ -377,7 +390,7 @@ export class InMemorySessionLookup extends SessionLookupRepository {
       this.store.sessions.delete(tokenHash);
       return null;
     }
-    return { id: user.id, kind: "user", roles: flattenRoles(user.access) };
+    return { id: user.id, kind: "user", roles: flattenRoles(user.access), acesso: acessoGravado(user) };
   }
 }
 

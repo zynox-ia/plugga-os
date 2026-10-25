@@ -18,6 +18,7 @@ import { configureApp } from "../src/configure-app";
 import { EmailPort } from "../src/email/email.port";
 import {
   access,
+  acessoGravado,
   CapturingEmailPort,
   InMemoryAuthRepository,
   InMemorySessionLookup,
@@ -70,13 +71,20 @@ class LookupComCache extends SessionLookupRepository {
   async resolvePrincipal(tokenHash: string, context: SessionLookupContext): Promise<AuthPrincipal | null> {
     const cached = await this.cache.get(tokenHash);
     if (cached) {
-      return { id: cached.user.id, kind: "user", roles: flattenRoles(cached.user.access) };
+      return { id: cached.user.id, kind: "user", roles: flattenRoles(cached.user.access), acesso: cached.user.acesso };
     }
     const principal = await this.inner.resolvePrincipal(tokenHash, context);
     const user = principal ? this.store.users.get(principal.id) : undefined;
     if (principal && user) {
       await this.cache.set(tokenHash, user.id, {
-        user: { id: user.id, email: user.email, name: user.name, status: user.status, access: user.access },
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          status: user.status,
+          access: user.access,
+          acesso: acessoGravado(user),
+        },
       }, 60);
     }
     return principal;

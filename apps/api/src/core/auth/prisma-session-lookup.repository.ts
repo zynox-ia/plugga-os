@@ -9,7 +9,7 @@ import {
   SessionLookupRepository,
   type SessionLookupContext,
 } from "./session-lookup.repository";
-import { mapUserAccess } from "./user-access.mapper";
+import { mapAcesso, mapUserAccess } from "./user-access.mapper";
 
 @Injectable()
 export class PrismaSessionLookupRepository extends SessionLookupRepository {
@@ -41,6 +41,7 @@ export class PrismaSessionLookupRepository extends SessionLookupRepository {
           include: {
             platformRoles: { include: { role: true } },
             memberships: { include: { roles: { include: { role: true } }, departments: true } },
+            departamentos: true,
           },
         },
       },
@@ -72,6 +73,7 @@ export class PrismaSessionLookupRepository extends SessionLookupRepository {
       name: session.user.name,
       status: session.user.status,
       access: mapUserAccess(session.user),
+      acesso: mapAcesso(session.user),
     };
 
     const ttlSeconds = this.config.get<number>("SESSION_CACHE_TTL_SECONDS", 60);
@@ -86,7 +88,7 @@ export class PrismaSessionLookupRepository extends SessionLookupRepository {
   // resolvido por quem precisa do contexto de empresa, lendo o acesso inteiro
   // — carregar isso em toda requisição custaria mais do que rende.
   private toPrincipal(user: ResolvedSessionUser): AuthPrincipal {
-    return { id: user.id, kind: "user", roles: flattenRoles(user.access) };
+    return { id: user.id, kind: "user", roles: flattenRoles(user.access), acesso: user.acesso };
   }
 
   private async applySlidingRenewal(

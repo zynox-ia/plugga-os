@@ -13,6 +13,7 @@ const entrada: SessionCacheEntry = {
     name: "Ana",
     status: "active",
     access: { platformRoles: [], companies: [] },
+    acesso: { plataforma: null, departamentos: [] },
   },
 };
 

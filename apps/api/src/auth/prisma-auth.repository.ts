@@ -11,7 +11,7 @@ import {
 
 import { AuditAppender } from "../audit/audit-appender";
 import { EstadoInvalido } from "../common/errors/dominio";
-import { mapUserAccess } from "../core/auth/user-access.mapper";
+import { mapAcesso, mapUserAccess } from "../core/auth/user-access.mapper";
 import { PrismaService } from "../prisma/prisma.service";
 import {
   AuthRepository,
@@ -41,6 +41,7 @@ const userWithAccess = {
       },
       orderBy: { companyId: "asc" },
     },
+    departamentos: true,
   },
 } satisfies Prisma.UserDefaultArgs;
 
@@ -537,6 +538,7 @@ export class PrismaAuthRepository extends AuthRepository {
       status: user.status,
       createdAt: user.createdAt,
       access: mapUserAccess(user),
+      acesso: mapAcesso(user),
     };
   }
 }

@@ -4,10 +4,13 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 
 import { converterAcessoAntigo, type Acesso, type UserAccess } from "@plugga/shared";
+import { ConfigService } from "@nestjs/config";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { AuditAppender } from "../src/audit/audit-appender.js";
 import { PrismaAuthRepository } from "../src/auth/prisma-auth.repository.js";
+import { NullSessionCache } from "../src/core/auth/null-session-cache.js";
+import { PrismaSessionLookupRepository } from "../src/core/auth/prisma-session-lookup.repository.js";
 import { PrismaService } from "../src/prisma/prisma.service.js";
 
 /**
@@ -163,6 +166,40 @@ describe.skipIf(!HABILITADO)("acesso por departamento (modelo de 4 papéis)", ()
       for (const [caso, access] of Object.entries(CASOS)) {
         expect(await gravado(idPorCaso.get(caso) ?? ""), caso).toEqual(esperado(access));
       }
+    },
+    PRAZO_MS,
+  );
+
+  it(
+    "a sessão resolve o principal com o acesso novo (departamentos e plataforma)",
+    async () => {
+      const sessoes = new PrismaSessionLookupRepository(prisma, new ConfigService({}), new NullSessionCache());
+      const agora = new Date();
+      const abrirSessao = async (userId: string) => {
+        const tokenHash = `hash-${randomUUID()}`;
+        await prisma.session.create({
+          data: {
+            userId,
+            tokenHash,
+            expiresAt: new Date(agora.getTime() + 3_600_000),
+            absoluteExpiresAt: new Date(agora.getTime() + 7_200_000),
+          },
+        });
+        return sessoes.resolvePrincipal(tokenHash, { now: agora });
+      };
+
+      const gestor = await abrirSessao(idPorCaso.get("gestor") ?? "");
+      expect(gestor?.acesso).toEqual({
+        plataforma: null,
+        departamentos: expect.arrayContaining([
+          { departamento: "energia-opm", nivel: "gerente" },
+          { departamento: "financeiro", nivel: "membro" },
+        ]),
+      });
+      expect(gestor?.acesso?.departamentos).toHaveLength(2);
+
+      const admin = await abrirSessao(idPorCaso.get("admin") ?? "");
+      expect(admin?.acesso).toEqual({ plataforma: "admin", departamentos: [] });
     },
     PRAZO_MS,
   );

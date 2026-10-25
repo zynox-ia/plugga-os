@@ -24,6 +24,7 @@ const usuario: AuthUserRecord = {
   status: "active",
   createdAt: new Date("2026-01-01T00:00:00Z"),
   access: { platformRoles: [], companies: [] },
+  acesso: { plataforma: null, departamentos: [] },
 };
 
 function montar(claims: GoogleIdentityClaims, allowedHd?: string) {

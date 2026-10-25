@@ -1,6 +1,12 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { roleKeySchema, type RoleKey } from "@plugga/shared";
+import {
+  acessoADepartamentoSchema,
+  papelDePlataformaSchema,
+  roleKeySchema,
+  type Acesso,
+  type RoleKey,
+} from "@plugga/shared";
 
 import { AuthContext, type AuthenticatedRequest, type AuthPrincipal } from "./auth.types";
 
@@ -26,6 +32,7 @@ export class DevHeaderAuthContext extends AuthContext {
       id,
       kind: id.startsWith("service:") ? "service" : "user",
       roles,
+      acesso: this.parseAcesso(request, roles),
     };
   }
 
@@ -41,6 +48,37 @@ export class DevHeaderAuthContext extends AuthContext {
         const parsed = roleKeySchema.safeParse(role);
         return parsed.success ? [parsed.data] : [];
       });
+  }
+
+  /**
+   * Acesso de 4 papéis: `x-dev-plataforma: admin|desenvolvedor` e
+   * `x-dev-departamentos: crm:membro,suprimentos:gerente`. Sem o primeiro,
+   * `x-dev-roles: admin` vale como admin, como a linha `admin` vale no banco.
+   * Valor desconhecido é ignorado, nunca promovido.
+   */
+  private parseAcesso(request: AuthenticatedRequest, roles: RoleKey[]): Acesso {
+    const plataformaHeader = this.firstHeader(request.headers["x-dev-plataforma"])?.toLowerCase();
+    const plataforma = papelDePlataformaSchema.safeParse(plataformaHeader);
+    if (plataforma.success) {
+      return { plataforma: plataforma.data, departamentos: [] };
+    }
+    if (roles.includes("admin")) {
+      return { plataforma: "admin", departamentos: [] };
+    }
+
+    const vistos = new Set<string>();
+    const departamentos = (this.firstHeader(request.headers["x-dev-departamentos"]) ?? "")
+      .split(",")
+      .flatMap((entrada) => {
+        const [departamento, nivel] = entrada.trim().toLowerCase().split(":");
+        const parsed = acessoADepartamentoSchema.safeParse({ departamento, nivel: nivel ?? "membro" });
+        if (!parsed.success || vistos.has(parsed.data.departamento)) {
+          return [];
+        }
+        vistos.add(parsed.data.departamento);
+        return [parsed.data];
+      });
+    return { plataforma: null, departamentos };
   }
 
   private firstHeader(header: string | string[] | undefined): string | undefined {

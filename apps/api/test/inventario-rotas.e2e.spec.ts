@@ -42,9 +42,18 @@ describe("inventário de rotas (e2e)", () => {
 
   it("cada rota tem um acesso do conjunto conhecido", () => {
     for (const r of rotas) {
-      expect(["public", "authenticated", "roles", "permissions", "undeclared"], `${r.metodo} ${r.caminho}`).toContain(
-        r.acesso,
-      );
+      expect(
+        ["public", "authenticated", "roles", "acesso", "permissions", "undeclared"],
+        `${r.metodo} ${r.caminho}`,
+      ).toContain(r.acesso);
+    }
+  });
+
+  it("toda rota com @Departamento ou @Plataforma passa pelo RolesGuard, que é quem as aplica", () => {
+    // Sem o guard, a declaração existiria só no papel e a rota ficaria aberta a
+    // qualquer pessoa logada.
+    for (const r of rotas.filter((rota) => rota.acesso === "acesso")) {
+      expect(r.guards, `${r.metodo} ${r.caminho} (${r.controller})`).toContain("RolesGuard");
     }
   });
 

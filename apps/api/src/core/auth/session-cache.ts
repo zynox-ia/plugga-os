@@ -1,4 +1,4 @@
-import type { UserAccess } from "@plugga/shared";
+import type { Acesso, UserAccess } from "@plugga/shared";
 
 /**
  * Mesmos campos de `AuthUserRecord` (apps/api/src/auth/auth.repository.ts),
@@ -12,6 +12,7 @@ export interface ResolvedSessionUser {
   name: string;
   status: string;
   access: UserAccess;
+  acesso: Acesso;
 }
 
 export interface SessionCacheEntry {
