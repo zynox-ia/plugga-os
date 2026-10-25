@@ -3,6 +3,17 @@ import { expect, test, type Page } from "@playwright/test";
 const MUTATION_TIMEOUT_MS = 15_000;
 
 /**
+ * O seletor que a pessoa vê, pelo papel acessível. `getByLabel` também acha
+ * cópias escondidas: no build de produção, um recarregamento sob carga às vezes
+ * deixa órfão o bloco de streaming do React (`<div hidden id="S:0">`) com uma
+ * segunda cópia da tela, e o teste falhava por modo estrito sem nada errado no
+ * que aparece na tela.
+ */
+function seletorDePipeline(page: Page) {
+  return page.getByRole("combobox", { name: "Selecionar pipeline" });
+}
+
+/**
  * Cria um pipeline com toda a equipe comercial disponível. Na CI, as contas de
  * exemplo do seed (SEED_SAMPLE_TEAM) dão alguém com papel comercial na Plugga.
  */
@@ -32,7 +43,7 @@ async function criarPipelineComEquipe(page: Page, nome: string): Promise<void> {
   await modal.getByRole("button", { name: "Criar pipeline" }).click();
   await expect(modal.getByRole("status").filter({ hasText: "Alterações salvas." })).toBeVisible({ timeout: MUTATION_TIMEOUT_MS });
   await modal.getByRole("button", { name: "Fechar" }).click();
-  const seletor = page.getByLabel("Selecionar pipeline");
+  const seletor = seletorDePipeline(page);
   const id = await seletor.getByRole("option", { name: new RegExp(nome) }).getAttribute("value");
   expect(id).not.toBeNull();
   await seletor.selectOption(id!);
@@ -154,7 +165,7 @@ test.describe("Negócios no quadro do pipeline (PLU-271)", () => {
     const hoje = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Manaus", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
     const previsao = `${hoje.slice(0, 7)}-15`;
     await criarPipelineComEquipe(page, pipeline);
-    const pipelineId = await page.getByLabel("Selecionar pipeline").inputValue();
+    const pipelineId = await seletorDePipeline(page).inputValue();
     await page.getByRole("link", { name: "Calendário", exact: true }).click();
     await expect(page).toHaveURL(/visao=calendario/);
     await expect(page.getByRole("button", { name: "Filtros", exact: true })).toHaveAttribute("aria-expanded", "false");
@@ -168,7 +179,7 @@ test.describe("Negócios no quadro do pipeline (PLU-271)", () => {
     await configuracao.getByRole("button", { name: "Criar pipeline" }).click();
     await expect(configuracao.getByRole("status").filter({ hasText: "Alterações salvas." })).toBeVisible({ timeout: MUTATION_TIMEOUT_MS });
     await configuracao.getByRole("button", { name: "Fechar" }).click();
-    const seletorPipeline = page.getByLabel("Selecionar pipeline");
+    const seletorPipeline = seletorDePipeline(page);
     const outroPipelineId = await seletorPipeline.getByRole("option", { name: new RegExp(outroPipeline) }).getAttribute("value");
     expect(outroPipelineId).not.toBeNull();
     await seletorPipeline.selectOption(outroPipelineId!);
@@ -232,7 +243,7 @@ test.describe("Negócios no quadro do pipeline (PLU-271)", () => {
 
     await page.reload();
     await expect(page.getByRole("link", { name: "Calendário", exact: true })).toHaveAttribute("aria-current", "page");
-    await expect(page.getByLabel("Selecionar pipeline")).toHaveValue(pipelineId);
+    await expect(seletorDePipeline(page)).toHaveValue(pipelineId);
     await expect(previsto).toBeVisible();
     await previsto.getByRole("button", { name: `Ações de ${comData}` }).click();
     const moverParaQualificacao = page.waitForResponse((response) =>
@@ -253,7 +264,7 @@ test.describe("Negócios no quadro do pipeline (PLU-271)", () => {
     await config.getByRole("button", { name: "Arquivar", exact: true }).click();
     await expect(config.getByText("Arquivado", { exact: true })).toBeVisible({ timeout: MUTATION_TIMEOUT_MS });
     await config.getByRole("button", { name: "Fechar" }).click();
-    await page.getByLabel("Selecionar pipeline").selectOption(outroPipelineId!);
+    await seletorDePipeline(page).selectOption(outroPipelineId!);
     await expect(page.getByRole("region", { name: `Negócios do pipeline ${outroPipeline}`, exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Configurar pipelines" }).click();
     const configOutro = page.getByRole("dialog", { name: "Configurar pipelines" });
