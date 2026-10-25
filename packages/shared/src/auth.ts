@@ -9,6 +9,7 @@ import {
   type CompanyKey,
   type DepartmentId,
 } from "./organization.js";
+import { acessoSchema } from "./acesso.js";
 
 export const roleKeys = [
   "admin",
@@ -330,6 +331,8 @@ export const sessionUserSchema = z
      */
     roles: z.array(roleKeySchema),
     access: userAccessSchema,
+    /** Acesso no modelo de 4 papéis; é o que a navegação e a equipe passam a ler. */
+    acesso: acessoSchema,
   })
   .strict();
 

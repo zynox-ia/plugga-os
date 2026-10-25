@@ -14,10 +14,12 @@ import {
   IdentityLinkError,
   type AuthUserRecord,
   type CreateAuthTokenData,
+  type CreateInvitedMemberData,
   type CreateInvitedUserData,
   type CreateSessionData,
   type LinkIdentityData,
   type SetPasswordOptions,
+  type MemberFilter,
   type TeamFilter,
   type TeamMemberRecord,
   type UserIdentityRecord,
@@ -368,6 +370,48 @@ export class InMemoryAuthRepository extends AuthRepository {
               )),
         );
       })
+      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+      .map((user) => this.toRecord(user));
+  }
+
+  /** Acesso antigo equivalente: só a linha `admin`, como o Prisma deixa depois de apagar as empresas. */
+  private acessoAntigoDe(acesso: Acesso): UserAccess {
+    return { platformRoles: acesso.plataforma === null ? [] : ["admin"], companies: [] };
+  }
+
+  async createInvitedMember(data: CreateInvitedMemberData): Promise<AuthUserRecord> {
+    const user: StoredUser = {
+      id: randomUUID(),
+      email: data.email,
+      name: data.name,
+      status: "invited",
+      createdAt: new Date(),
+      access: this.acessoAntigoDe(data.acesso),
+      acesso: data.acesso,
+    };
+    this.store.users.set(user.id, user);
+    return this.toRecord(user);
+  }
+
+  async replaceAcesso(userId: string, acesso: Acesso): Promise<AuthUserRecord | null> {
+    const user = this.store.users.get(userId);
+    if (!user) {
+      return null;
+    }
+    if (acesso.plataforma === null) this.garantirOutroAdminAtivo(userId);
+    user.access = this.acessoAntigoDe(acesso);
+    user.acesso = acesso;
+    return this.toRecord(user);
+  }
+
+  async listMembers(filter: MemberFilter): Promise<TeamMemberRecord[]> {
+    return [...this.store.users.values()]
+      .filter((user) => !filter.status || user.status === filter.status)
+      .filter(
+        (user) =>
+          !filter.departamento ||
+          acessoGravado(user).departamentos.some((entrada) => entrada.departamento === filter.departamento),
+      )
       .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
       .map((user) => this.toRecord(user));
   }

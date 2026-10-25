@@ -1,6 +1,7 @@
 import type {
   Acesso,
   CompanyKey,
+  Departamento,
   DepartmentId,
   IdentityProvider,
   UserAccess,
@@ -51,6 +52,18 @@ export interface CreateInvitedUserData {
   email: string;
   name: string;
   access: UserAccess;
+}
+
+/** Convite no modelo de 4 papéis (`/equipe`). */
+export interface CreateInvitedMemberData {
+  email: string;
+  name: string;
+  acesso: Acesso;
+}
+
+export interface MemberFilter {
+  departamento?: Departamento;
+  status?: UserStatus;
 }
 
 export interface CreateAuthTokenData {
@@ -171,4 +184,14 @@ export abstract class AuthRepository {
   /** Desativa e grava `auth.user.deactivated` na mesma transação; mesma regra do último admin. */
   abstract deactivateUser(userId: string, actorId: string): Promise<AuthUserRecord | null>;
   abstract listTeam(filter: TeamFilter): Promise<TeamMemberRecord[]>;
+  /**
+   * Modelo de 4 papéis. Grava só o acesso novo (papel de plataforma e
+   * `user_departamentos`) e apaga o acesso antigo por empresa: depois de
+   * editada pela equipe nova, a pessoa não carrega mais cargos do modelo
+   * antigo. Desenvolvedor leva também a linha `admin`, como na transição.
+   */
+  abstract createInvitedMember(data: CreateInvitedMemberData): Promise<AuthUserRecord>;
+  /** Mesma regra do último admin de `replaceAccess`, na mesma transação. */
+  abstract replaceAcesso(userId: string, acesso: Acesso, actorId: string): Promise<AuthUserRecord | null>;
+  abstract listMembers(filter: MemberFilter): Promise<TeamMemberRecord[]>;
 }

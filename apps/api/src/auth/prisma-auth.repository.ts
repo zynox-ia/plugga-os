@@ -2,6 +2,7 @@ import { Inject, Injectable } from "@nestjs/common";
 import { Conflito, ServicoIndisponivel } from "../common/errors/dominio";
 import { Prisma, type AuthTokenType } from "@prisma/client";
 import {
+  type Acesso,
   converterAcessoAntigo,
   identityProviderSchema,
   platformRoleKeys,
@@ -18,10 +19,12 @@ import {
   IdentityLinkError,
   type AuthUserRecord,
   type CreateAuthTokenData,
+  type CreateInvitedMemberData,
   type CreateInvitedUserData,
   type CreateSessionData,
   type LinkIdentityData,
   type SetPasswordOptions,
+  type MemberFilter,
   type TeamFilter,
   type TeamMemberRecord,
   type UserIdentityRecord,
@@ -461,6 +464,98 @@ export class PrismaAuthRepository extends AuthRepository {
       ...userWithAccess,
     });
     return users.map((user) => this.toRecord(user));
+  }
+
+  async createInvitedMember(data: CreateInvitedMemberData): Promise<AuthUserRecord> {
+    try {
+      const user = await this.prisma.$transaction(async (tx) => {
+        const created = await tx.user.create({
+          data: { email: data.email, name: data.name, status: "invited" },
+          select: { id: true },
+        });
+        await this.writeAcesso(tx, created.id, data.acesso);
+        return tx.user.findUniqueOrThrow({ where: { id: created.id }, ...userWithAccess });
+      });
+      return this.toRecord(user);
+    } catch (error) {
+      // Mesma corrida de dois convites simultâneos de `createInvitedUser`.
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+        throw new Conflito("Já existe uma pessoa com este e-mail.");
+      }
+      throw error;
+    }
+  }
+
+  async replaceAcesso(userId: string, acesso: Acesso, actorId: string): Promise<AuthUserRecord | null> {
+    if (!UUID.test(userId)) return null;
+    const exists = await this.prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
+    if (!exists) {
+      return null;
+    }
+
+    const user = await this.prisma.$transaction(async (tx) => {
+      // Sem papel de plataforma a pessoa deixa de ser admin: a regra do último
+      // admin roda na mesma transação da escrita (FR-029), como em replaceAccess.
+      if (acesso.plataforma === null) await this.garantirOutroAdminAtivo(tx, userId);
+      await tx.userPlatformRole.deleteMany({
+        where: { userId, role: { key: { in: ["admin", "desenvolvedor"] } } },
+      });
+      // O acesso antigo por empresa sai junto: quem é editado pela equipe nova
+      // não pode continuar com cargos que a tela nova nem mostra.
+      await tx.userCompanyMembership.deleteMany({ where: { userId } });
+      await this.writeAcesso(tx, userId, acesso);
+      await this.appender.append(tx, {
+        eventName: "auth.access.changed",
+        entityType: "user",
+        entityId: userId,
+        actorType: "user",
+        actorId,
+        payload: { acesso },
+      });
+      return tx.user.findUniqueOrThrow({ where: { id: userId }, ...userWithAccess });
+    });
+
+    return this.toRecord(user);
+  }
+
+  async listMembers(filter: MemberFilter): Promise<TeamMemberRecord[]> {
+    const users = await this.prisma.user.findMany({
+      where: {
+        ...(filter.status ? { status: filter.status } : {}),
+        ...(filter.departamento ? { departamentos: { some: { departamento: filter.departamento } } } : {}),
+      },
+      orderBy: { createdAt: "asc" },
+      // Mesmo teto de `listTeam` (CWE-770): a equipe não é paginada.
+      take: 2_000,
+      ...userWithAccess,
+    });
+    return users.map((user) => this.toRecord(user));
+  }
+
+  /**
+   * Grava o acesso de 4 papéis do zero, com o anterior já removido. Desenvolvedor
+   * leva também `admin`, para o código que ainda lê o acesso antigo continuar
+   * tratando a pessoa como admin.
+   */
+  private async writeAcesso(tx: Prisma.TransactionClient, userId: string, acesso: Acesso): Promise<void> {
+    const chaves =
+      acesso.plataforma === "desenvolvedor" ? ["desenvolvedor", "admin"] : acesso.plataforma === "admin" ? ["admin"] : [];
+    if (chaves.length > 0) {
+      const papeis = await tx.role.findMany({ where: { key: { in: chaves } }, select: { id: true, key: true } });
+      // Mesmo motivo de `writeAccess`: papel fora do catálogo é seed incompleto,
+      // e gravar menos do que foi concedido sem erro é pior que falhar.
+      if (papeis.length !== chaves.length) {
+        throw new Error(`roles missing from the catalog: ${chaves.join(", ")}`);
+      }
+      await tx.userPlatformRole.createMany({
+        data: papeis.map((papel) => ({ userId, roleId: papel.id })),
+        skipDuplicates: true,
+      });
+    }
+    await tx.userDepartamento.deleteMany({ where: { userId } });
+    await tx.userDepartamento.createMany({
+      data: acesso.departamentos.map(({ departamento, nivel }) => ({ userId, departamento, nivel })),
+    });
   }
 
   /** Grava o acesso do zero. Chamado dentro de transação, com o anterior já removido. */

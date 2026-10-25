@@ -22,6 +22,8 @@ import { PrismaAuthRepository } from "./prisma-auth.repository";
 import { ResetEmailDispatcher } from "./reset-email.dispatcher";
 import { ResetEmailHandler } from "./reset-email.handler";
 import { SessionService } from "./session.service";
+import { EquipeController } from "./equipe.controller";
+import { EquipeService } from "./equipe.service";
 import { TeamController } from "./team.controller";
 import { TeamService } from "./team.service";
 
@@ -47,12 +49,13 @@ import { TeamService } from "./team.service";
       }),
     }),
   ],
-  controllers: [AuthController, TeamController],
+  controllers: [AuthController, TeamController, EquipeController],
   providers: [
     AuthService,
     AuthTokenIssuer,
     GoogleAuthService,
     TeamService,
+    EquipeService,
     PasswordService,
     SessionService,
     ResetEmailHandler,

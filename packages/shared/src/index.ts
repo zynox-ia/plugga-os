@@ -9,6 +9,7 @@ export * from "./deals.js";
 export * from "./documento.js";
 export * from "./email-status.js";
 export * from "./energy.js";
+export * from "./equipe.js";
 export * from "./erro.js";
 export * from "./events.js";
 export * from "./identificador.js";

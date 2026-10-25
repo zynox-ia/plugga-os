@@ -43,6 +43,7 @@ export function toSessionUser(user: ResolvedSessionUser): SessionUser {
     status: user.status,
     roles: flattenRoles(user.access),
     access: user.access,
+    acesso: user.acesso,
   });
 }
 

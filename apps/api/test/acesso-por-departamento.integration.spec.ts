@@ -205,6 +205,45 @@ describe.skipIf(!HABILITADO)("acesso por departamento (modelo de 4 papéis)", ()
   );
 
   it(
+    "a equipe nova grava só o acesso novo e apaga o acesso antigo por empresa",
+    async () => {
+      for (const key of ["desenvolvedor", "admin"]) {
+        await prisma.role.upsert({ where: { key }, update: {}, create: { key, name: key } });
+      }
+      const convidado = await repositorio.createInvitedMember({
+        email: "convite-novo@teste.local",
+        name: "Convite novo",
+        acesso: { plataforma: null, departamentos: [{ departamento: "crm", nivel: "gerente" }] },
+      });
+      expect(convidado.acesso).toEqual({ plataforma: null, departamentos: [{ departamento: "crm", nivel: "gerente" }] });
+      expect(convidado.access.companies).toEqual([]);
+
+      // Quem tinha acesso antigo (gestor de Energia) perde as empresas ao ser editado.
+      const gestor = idPorCaso.get("gestor") ?? "";
+      const membro = await repositorio.replaceAcesso(
+        gestor,
+        { plataforma: null, departamentos: [{ departamento: "marketing", nivel: "membro" }] },
+        ator,
+      );
+      expect(membro?.acesso.departamentos).toEqual([{ departamento: "marketing", nivel: "membro" }]);
+      expect(await prisma.userCompanyMembership.count({ where: { userId: gestor } })).toBe(0);
+
+      // Desenvolvedor leva também a linha admin; voltar a admin tira só o desenvolvedor.
+      const dev = await repositorio.replaceAcesso(convidado.id, { plataforma: "desenvolvedor", departamentos: [] }, ator);
+      expect(dev?.acesso).toEqual({ plataforma: "desenvolvedor", departamentos: [] });
+      const chaves = async () =>
+        (await prisma.userPlatformRole.findMany({ where: { userId: convidado.id }, select: { role: { select: { key: true } } } }))
+          .map((linha) => linha.role.key)
+          .sort();
+      expect(await chaves()).toEqual(["admin", "desenvolvedor"]);
+      expect(await prisma.userDepartamento.count({ where: { userId: convidado.id } })).toBe(0);
+      await repositorio.replaceAcesso(convidado.id, { plataforma: "admin", departamentos: [] }, ator);
+      expect(await chaves()).toEqual(["admin"]);
+    },
+    PRAZO_MS,
+  );
+
+  it(
     "editar pela tela atual não apaga o papel de desenvolvedor",
     async () => {
       const userId = idPorCaso.get("admin") ?? "";

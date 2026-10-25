@@ -1190,6 +1190,64 @@
   },
   {
     "metodo": "GET",
+    "caminho": "/equipe",
+    "controller": "EquipeController.listar",
+    "acesso": "authenticated",
+    "papeis": [],
+    "guards": [
+      "SessionAuthGuard"
+    ]
+  },
+  {
+    "metodo": "PUT",
+    "caminho": "/equipe/:id/acesso",
+    "controller": "EquipeController.editarAcesso",
+    "acesso": "authenticated",
+    "papeis": [],
+    "guards": [
+      "OriginCheckGuard",
+      "SessionAuthGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/equipe/:id/desativar",
+    "controller": "EquipeController.desativar",
+    "acesso": "authenticated",
+    "papeis": [],
+    "guards": [
+      "OriginCheckGuard",
+      "SessionAuthGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/equipe/:id/reenviar-convite",
+    "controller": "EquipeController.reenviarConvite",
+    "acesso": "authenticated",
+    "papeis": [],
+    "guards": [
+      "OriginCheckGuard",
+      "SessionAuthGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/equipe/convites",
+    "controller": "EquipeController.convidar",
+    "acesso": "authenticated",
+    "papeis": [],
+    "guards": [
+      "OriginCheckGuard",
+      "SessionAuthGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
     "caminho": "/health",
     "controller": "HealthController.check",
     "acesso": "public",

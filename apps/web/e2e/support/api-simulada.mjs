@@ -20,6 +20,7 @@ const usuario = {
   status: "active",
   roles: [],
   access: { platformRoles: [], companies: [] },
+  acesso: { plataforma: null, departamentos: [] },
 };
 
 const envelope = (codigo, mensagem) => ({ codigo, mensagem, requestId: "req-simulado-1" });
