@@ -319,7 +319,7 @@ export function parseGoogleLoginErrorCode(value: string | undefined): GoogleLogi
 
 export const sessionUserSchema = z
   .object({
-    id: z.string().uuid(),
+    id: z.guid(),
     email: z.string().email(),
     name: z.string(),
     status: userStatusSchema,
@@ -337,7 +337,7 @@ export const meResponseSchema = sessionUserSchema;
 
 export const teamMemberSchema = z
   .object({
-    id: z.string().uuid(),
+    id: z.guid(),
     email: z.string().email(),
     name: z.string(),
     status: userStatusSchema,

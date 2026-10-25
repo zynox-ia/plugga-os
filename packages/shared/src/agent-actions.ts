@@ -40,7 +40,7 @@ export const createAgentActionSchema = z
   .strict();
 
 export const agentActionResponseSchema = z.object({
-  id: z.string().uuid(),
+  id: z.guid(),
   status: agentActionStatusSchema,
   createdAt: z.string().datetime(),
 });

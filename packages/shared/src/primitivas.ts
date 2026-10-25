@@ -7,7 +7,10 @@ import { z } from "zod";
  * quatro cópias sem nada que cobrasse isso. Deliberadamente NÃO reexportadas no
  * index.ts — são detalhe interno dos contratos, não API pública do pacote.
  */
-export const uuid = z.string().uuid();
+// `guid` e não `uuid`: no zod 4, `uuid()` exige os bits de versão e variante
+// da RFC 9562 e recusa ids que o Postgres aceita (fixos como 00000000-…-c1).
+// `guid` é a regra do zod 3: 8-4-4-4-12 hexadecimal.
+export const uuid = z.guid();
 export const isoDate = z.string().datetime();
 export const decimalString = z
   .string()
