@@ -180,13 +180,22 @@ jobs:
       - name: Install age for backup tests
         run: sudo apt-get update -qq && sudo apt-get install -y -qq age
 
-      # pg_dump/pg_restore com a mesma versão do serviço (postgres:16), como em
-      # produção, onde rodam dentro do contêiner. O cliente que vem no runner é
-      # mais novo e grava `SET transaction_timeout`, que o servidor 16 recusa.
-      - name: Install PostgreSQL 16 client for backup tests
+      # pg_dump/pg_restore/psql da mesma imagem do serviço (postgres:16), como
+      # em produção, onde rodam dentro do contêiner. O runner (ubuntu-26.04)
+      # traz um cliente mais novo, que grava `SET transaction_timeout` e o
+      # servidor 16 recusa, e não tem o cliente 16 nos repositórios. Os
+      # arquivos do ensaio ficam em /tmp (mktemp -d), montado no contêiner.
+      - name: Use the PostgreSQL 16 client for backup tests
         run: |
-          sudo apt-get install -y -qq postgresql-client-16
-          echo /usr/lib/postgresql/16/bin >> "$GITHUB_PATH"
+          docker pull -q postgres:16-alpine
+          bin="$RUNNER_TEMP/pg16-bin"
+          mkdir -p "$bin"
+          for ferramenta in pg_dump pg_restore psql; do
+            printf '#!/bin/sh\nexec docker run --rm -i --network host -e PGPASSWORD -v /tmp:/tmp postgres:16-alpine %s "$@"\n' \
+              "$ferramenta" > "$bin/$ferramenta"
+            chmod +x "$bin/$ferramenta"
+          done
+          echo "$bin" >> "$GITHUB_PATH"
 
       - name: Verify external backup script
         run: bash ops/backup-externo.test.sh
