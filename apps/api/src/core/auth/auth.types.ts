@@ -1,15 +1,10 @@
-import type { Acesso, RoleKey } from "@plugga/shared";
+import type { Acesso } from "@plugga/shared";
 
 export interface AuthPrincipal {
   id: string;
   kind: "user" | "service";
-  roles: RoleKey[];
-  /**
-   * Acesso no modelo de 4 papéis, lido por `@Departamento` e `@Plataforma`.
-   * Ausente (serviço, ou principal montado só com `roles`) é nenhum acesso: a
-   * rota que declara um dos dois recusa. Vira obrigatório quando `roles` sair.
-   */
-  acesso?: Acesso;
+  /** O que a pessoa alcança (`@Departamento`/`@Plataforma`). */
+  acesso: Acesso;
 }
 
 export interface AuthenticatedRequest {

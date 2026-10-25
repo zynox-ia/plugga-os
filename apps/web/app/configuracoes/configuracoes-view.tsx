@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { ShellCard, StatusPill } from "../components/plugga-shell";
-import { CONFIGURACOES, configuracoesParaAcesso } from "../lib/organizacao";
+import { CONFIGURACOES, ROTULO_DO_PAPEL, configuracoesParaAcesso } from "../lib/organizacao";
 import { useSessionUser } from "../lib/use-session-user";
 import { ChaveLlmView } from "./chave-llm-view";
 import { EquipeView } from "./equipe-view";
@@ -13,7 +13,7 @@ import { EquipeView } from "./equipe-view";
  * Configurações com navegação própria: o que se ajusta uma vez fica reunido
  * aqui, em vez de disputar espaço na barra lateral com o trabalho do dia.
  *
- * As seções são filtradas pelos papéis da sessão. A entrada em si aparece
+ * As seções são filtradas pelo papel da sessão. A entrada em si aparece
  * sempre na barra — esconder o menu inteiro faz quem não tem acesso procurar
  * onde não existe, e o "você não tem acesso" é a resposta honesta.
  */
@@ -22,7 +22,7 @@ export function ConfiguracoesView() {
   const { usuario, carregando } = useSessionUser();
   const [ativa, setAtiva] = useState(0);
 
-  const visiveis = usuario ? configuracoesParaAcesso(usuario) : [];
+  const visiveis = usuario ? configuracoesParaAcesso(usuario.acesso) : [];
   const secao = visiveis[Math.min(ativa, Math.max(visiveis.length - 1, 0))];
 
   if (carregando) {
@@ -107,7 +107,7 @@ export function ConfiguracoesView() {
         )}
 
         <p className="card-note">
-          Visível para: <b>{secao?.roles.join(", ")}</b>.
+          Visível a partir de: <b>{secao ? ROTULO_DO_PAPEL[secao.minimo] : ""}</b>.
         </p>
       </ShellCard>
       )}

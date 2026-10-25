@@ -60,8 +60,8 @@ import type { AuthPrincipal } from "../core/auth/auth.types";
 import { CurrentPrincipal } from "../core/auth/current-principal.decorator";
 import { SessionAuthGuard } from "../core/auth/session-auth.guard";
 import { OriginCheckGuard } from "../core/auth/origin-check.guard";
-import { Roles } from "../core/auth/roles.decorator";
-import { RolesGuard } from "../core/auth/roles.guard";
+import { Departamento } from "../core/auth/acesso.decorator";
+import { AcessoGuard } from "../core/auth/acesso.guard";
 import {
   ABRIR_PEDIDO,
   CADASTRAR_APOIO,
@@ -80,21 +80,20 @@ const MAXIMO_DE_ANEXOS = 20;
  * Compras e Suprimentos — POP-COMP-001 v2.3.
  *
  * A empresa vem em toda requisição e é provada pelo `ComprasService` antes de
- * qualquer acesso a dado: o `RolesGuard` da plataforma ainda responde "tem o
+ * qualquer acesso a dado: o `AcessoGuard` da plataforma ainda responde "tem o
  * papel?", não "tem o papel *nesta empresa*".
  */
 @Controller("compras")
-@UseGuards(SessionAuthGuard, RolesGuard)
-@Roles(...LER_COMPRAS)
+@UseGuards(SessionAuthGuard, AcessoGuard)
+@Departamento(LER_COMPRAS)
 export class ComprasController {
   constructor(@Inject(ComprasService) private readonly service: ComprasService) {}
 
   @Get("pedidos")
   listarPedidos(
     @Query(new ZodValidationPipe(pedidoListaQuerySchema)) query: PedidoListaQuery,
-    @CurrentPrincipal() principal: AuthPrincipal,
   ): Promise<PedidoLista> {
-    return this.service.listarPedidos(query, principal);
+    return this.service.listarPedidos(query);
   }
 
   @Get("pedidos/:id")
@@ -118,7 +117,7 @@ export class ComprasController {
   @Post("pedidos")
   @HttpCode(201)
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
-  @Roles(...ABRIR_PEDIDO)
+  @Departamento(ABRIR_PEDIDO)
   @UseInterceptors(
     UploadEmDisco(),
     FilesInterceptor("cotacoes", MAXIMO_DE_ANEXOS, {
@@ -158,7 +157,7 @@ export class ComprasController {
   @Post("pedidos/:id/triagem")
   @HttpCode(200)
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
-  @Roles(...OPERAR_COMPRAS)
+  @Departamento(OPERAR_COMPRAS)
   triagem(
     @Param("id", ParseUUIDPipe) id: string,
     @Query("companyId", new ZodValidationPipe(companyKeySchema)) companyId: CompanyKey,
@@ -171,7 +170,7 @@ export class ComprasController {
   @Post("pedidos/:id/estoque")
   @HttpCode(200)
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
-  @Roles(...OPERAR_COMPRAS)
+  @Departamento(OPERAR_COMPRAS)
   decidirEstoque(
     @Param("id", ParseUUIDPipe) id: string,
     @Query("companyId", new ZodValidationPipe(companyKeySchema)) companyId: CompanyKey,
@@ -184,7 +183,7 @@ export class ComprasController {
   @Post("pedidos/:id/necessidade")
   @HttpCode(200)
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
-  @Roles(...OPERAR_COMPRAS)
+  @Departamento(OPERAR_COMPRAS)
   validarNecessidade(
     @Param("id", ParseUUIDPipe) id: string,
     @Query("companyId", new ZodValidationPipe(companyKeySchema)) companyId: CompanyKey,
@@ -197,7 +196,7 @@ export class ComprasController {
   @Post("pedidos/:id/cotacao-selecionada")
   @HttpCode(200)
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
-  @Roles(...OPERAR_COMPRAS)
+  @Departamento(OPERAR_COMPRAS)
   selecionarCotacao(
     @Param("id", ParseUUIDPipe) id: string,
     @Query("companyId", new ZodValidationPipe(companyKeySchema)) companyId: CompanyKey,
@@ -210,7 +209,7 @@ export class ComprasController {
   @Post("pedidos/:id/aprovacao")
   @HttpCode(200)
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
-  @Roles(...DECIDIR_FINANCEIRO)
+  @Departamento(DECIDIR_FINANCEIRO, "gerente")
   decidirAprovacao(
     @Param("id", ParseUUIDPipe) id: string,
     @Query("companyId", new ZodValidationPipe(companyKeySchema)) companyId: CompanyKey,
@@ -223,7 +222,7 @@ export class ComprasController {
   @Post("pedidos/:id/pagamento")
   @HttpCode(200)
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
-  @Roles(...DECIDIR_FINANCEIRO)
+  @Departamento(DECIDIR_FINANCEIRO, "gerente")
   registrarPagamento(
     @Param("id", ParseUUIDPipe) id: string,
     @Query("companyId", new ZodValidationPipe(companyKeySchema)) companyId: CompanyKey,
@@ -236,7 +235,7 @@ export class ComprasController {
   @Post("pedidos/:id/recebimento")
   @HttpCode(200)
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
-  @Roles(...CONFIRMAR_RECEBIMENTO)
+  @Departamento(CONFIRMAR_RECEBIMENTO)
   confirmarRecebimento(
     @Param("id", ParseUUIDPipe) id: string,
     @Query("companyId", new ZodValidationPipe(companyKeySchema)) companyId: CompanyKey,
@@ -249,7 +248,7 @@ export class ComprasController {
   @Post("pedidos/:id/prazo")
   @HttpCode(200)
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
-  @Roles(...RENEGOCIAR_PRAZO)
+  @Departamento(RENEGOCIAR_PRAZO)
   renegociarPrazo(
     @Param("id", ParseUUIDPipe) id: string,
     @Query("companyId", new ZodValidationPipe(companyKeySchema)) companyId: CompanyKey,
@@ -262,31 +261,28 @@ export class ComprasController {
   @Get("scorecard")
   scorecard(
     @Query(new ZodValidationPipe(periodoQuerySchema)) query: PeriodoQuery,
-    @CurrentPrincipal() principal: AuthPrincipal,
   ): Promise<ScorecardCompras> {
-    return this.service.scorecard(query, principal);
+    return this.service.scorecard(query);
   }
 
   @Get("diagnostico")
   diagnostico(
     @Query(new ZodValidationPipe(periodoQuerySchema)) query: PeriodoQuery,
-    @CurrentPrincipal() principal: AuthPrincipal,
   ): Promise<DiagnosticoCompras> {
-    return this.service.diagnostico(query, principal);
+    return this.service.diagnostico(query);
   }
 
   @Get("fornecedores")
   listarFornecedores(
     @Query("companyId", new ZodValidationPipe(companyKeySchema)) companyId: CompanyKey,
-    @CurrentPrincipal() principal: AuthPrincipal,
   ): Promise<FornecedorLista> {
-    return this.service.listarFornecedores(companyId, principal);
+    return this.service.listarFornecedores(companyId);
   }
 
   @Post("fornecedores")
   @HttpCode(201)
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
-  @Roles(...CADASTRAR_APOIO)
+  @Departamento(CADASTRAR_APOIO)
   criarFornecedor(
     @Body(new ZodValidationPipe(criarFornecedorRequestSchema)) input: CriarFornecedorRequest,
     @CurrentPrincipal() principal: AuthPrincipal,
@@ -297,15 +293,14 @@ export class ComprasController {
   @Get("obras")
   listarObras(
     @Query("companyId", new ZodValidationPipe(companyKeySchema)) companyId: CompanyKey,
-    @CurrentPrincipal() principal: AuthPrincipal,
   ): Promise<ObraLista> {
-    return this.service.listarObras(companyId, principal);
+    return this.service.listarObras(companyId);
   }
 
   @Post("obras")
   @HttpCode(201)
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
-  @Roles(...CADASTRAR_APOIO)
+  @Departamento(CADASTRAR_APOIO)
   criarObra(
     @Body(new ZodValidationPipe(criarObraRequestSchema)) input: CriarObraRequest,
     @CurrentPrincipal() principal: AuthPrincipal,

@@ -1,12 +1,10 @@
 import { z } from "zod";
 
-import { acessoSchema, departamentoSchema } from "./acesso.js";
+import { acessoSchema, departamentoSchema, type Acesso } from "./acesso.js";
 import { emailSchema, userStatusSchema } from "./auth.js";
 
 /**
- * Equipe e acessos no modelo de 4 papéis (`acesso.ts`). Substitui os contratos
- * de equipe de `auth.ts` (`teamMemberSchema`, `inviteRequestSchema`…), que
- * falam empresa × departamento × cargo e saem quando a tela migrar.
+ * Equipe e acessos no modelo de 4 papéis (`acesso.ts`).
  *
  * Quem dá cada papel segue a escada:
  * - desenvolvedor dá qualquer papel e vê todo mundo;
@@ -21,6 +19,12 @@ export const papeisDaEquipe = ["desenvolvedor", "admin", "gerente", "membro"] as
 export const papelDaEquipeSchema = z.enum(papeisDaEquipe);
 
 export type PapelDaEquipe = (typeof papeisDaEquipe)[number];
+
+/** O degrau mais alto do acesso: plataforma, senão gerente de algum departamento, senão membro. */
+export function papelDoAcesso(acesso: Acesso): PapelDaEquipe {
+  if (acesso.plataforma !== null) return acesso.plataforma;
+  return acesso.departamentos.some((entrada) => entrada.nivel === "gerente") ? "gerente" : "membro";
+}
 
 /**
  * Acesso que está sendo **concedido**: sem papel de plataforma e sem

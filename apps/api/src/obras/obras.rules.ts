@@ -5,8 +5,24 @@ import {
   type ObraEtapa,
   type PendenciaStatus,
   type ProjetoVersaoStatus,
-  type RoleKey,
+  type Acesso,
+  alcancaDepartamento,
+  alcancaPlataforma,
 } from "@plugga/shared";
+
+/*
+ * Os papéis do POP-OBR-001 no modelo de 4 papéis: a diretoria é o admin; o
+ * engenheiro é o gerente de Engenharia e Obras; o campo (técnico, supervisor,
+ * almoxarife) é quem é membro de Obras ou de Suprimentos sem ser gerente; o
+ * financeiro é quem é do Financeiro.
+ */
+const ehAdmin = (acesso: Acesso): boolean => alcancaPlataforma(acesso, "admin");
+const gereObras = (acesso: Acesso): boolean => alcancaDepartamento(acesso, "engenharia-obras", "gerente");
+const ehDoFinanceiro = (acesso: Acesso): boolean => alcancaDepartamento(acesso, "financeiro");
+const ehDoCampo = (acesso: Acesso): boolean =>
+  !ehAdmin(acesso) &&
+  !gereObras(acesso) &&
+  (alcancaDepartamento(acesso, "engenharia-obras") || alcancaDepartamento(acesso, "suprimentos"));
 
 /**
  * Regras do processo de Execução e Gestão de Obras (POP-OBR-001 §2, §3, §5.1,
@@ -70,25 +86,25 @@ export function assertEtapaAtual(atual: ObraEtapa, esperada: ObraEtapa): void {
 
 /**
  * Reabrir `projeto_aprovado` (POP §3, "Para tirar do estado projeto_aprovado")
- * exige `engenheiro` com justificativa técnica escrita, ou `diretoria` sem
- * justificativa obrigatória — a mesma dupla porta de exceção que o Compras
+ * exige o gerente de Engenharia e Obras com justificativa técnica escrita, ou o
+ * admin sem justificativa obrigatória — a mesma dupla porta de exceção que o Compras
  * usa para a dispensa de segregação, porque o motivo é o mesmo: sem porta,
  * alguém contorna por fora do sistema e não sobra registro.
  */
 export function assertReaberturaDeProjeto(
-  principal: { roles: readonly RoleKey[] },
+  principal: { acesso: Acesso },
   justificativa: string | null | undefined,
 ): void {
-  if (principal.roles.includes("diretoria")) {
+  if (ehAdmin(principal.acesso)) {
     return;
   }
-  if (!principal.roles.includes("engenheiro")) {
+  if (!gereObras(principal.acesso)) {
     throw new AcessoNegado(
-      "reabrir um projeto aprovado é decisão de engenheiro (com justificativa) ou diretoria",
+      "reabrir um projeto aprovado é decisão do gerente de Engenharia e Obras (com justificativa) ou do admin",
     );
   }
   if (!justificativa || justificativa.trim().length === 0) {
-    throw new RequisicaoInvalida("reabertura por engenheiro exige justificativa técnica escrita");
+    throw new RequisicaoInvalida("reabertura pelo gerente de Engenharia e Obras exige justificativa técnica escrita");
   }
 }
 
@@ -165,49 +181,33 @@ export function incidenteBloqueiaEtapa(incidente: { gravidade: string; liberadoE
 
 // --- Regras-mãe de bloqueio (POP §1.2) ------------------------------------
 
-/** POP §1.2, regra 1: técnico não edita orçamento. */
-export function assertTecnicoNaoEditaOrcamento(principal: { roles: readonly RoleKey[] }): void {
-  const ehSomenteTecnico =
-    principal.roles.includes("tecnico") &&
-    !principal.roles.includes("financeiro") &&
-    !principal.roles.includes("engenheiro") &&
-    !principal.roles.includes("diretoria");
-  if (ehSomenteTecnico) {
-    throw new AcessoNegado("técnico não edita orçamento (POP-OBR-001 §1.2)");
+/** POP §1.2, regra 1: o campo não edita orçamento. */
+export function assertTecnicoNaoEditaOrcamento(principal: { acesso: Acesso }): void {
+  if (ehDoCampo(principal.acesso) && !ehDoFinanceiro(principal.acesso)) {
+    throw new AcessoNegado("o campo não edita orçamento (POP-OBR-001 §1.2)");
   }
 }
 
-/** POP §1.2, regra 2: campo (técnico/supervisor) não altera projeto aprovado. */
+/** POP §1.2, regra 2: o campo não altera projeto aprovado. */
 export function assertCampoNaoAlteraProjetoAprovado(
   etapaAtual: ObraEtapa,
-  principal: { roles: readonly RoleKey[] },
+  principal: { acesso: Acesso },
 ): void {
-  const ehCampo = principal.roles.includes("tecnico") || principal.roles.includes("supervisor");
-  const naoEhEngenhariaOuDiretoria =
-    !principal.roles.includes("engenheiro") && !principal.roles.includes("diretoria");
-  if (ehCampo && naoEhEngenhariaOuDiretoria && etapaAtual !== "projeto_em_elaboracao") {
+  if (ehDoCampo(principal.acesso) && etapaAtual !== "projeto_em_elaboracao") {
     throw new AcessoNegado("campo não altera projeto fora da elaboração (POP-OBR-001 §1.2)");
   }
 }
 
-/** POP §1.2, regra 3: almoxarife não altera cronograma financeiro. */
-export function assertAlmoxarifeNaoAlteraCronogramaFinanceiro(principal: { roles: readonly RoleKey[] }): void {
-  const ehSomenteAlmoxarife =
-    principal.roles.includes("almoxarife") &&
-    !principal.roles.includes("financeiro") &&
-    !principal.roles.includes("diretoria");
-  if (ehSomenteAlmoxarife) {
-    throw new AcessoNegado("almoxarife não altera cronograma financeiro (POP-OBR-001 §1.2/§7)");
+/** POP §1.2, regra 3: o campo (almoxarifado incluído) não altera cronograma financeiro. */
+export function assertAlmoxarifeNaoAlteraCronogramaFinanceiro(principal: { acesso: Acesso }): void {
+  if (ehDoCampo(principal.acesso) && !ehDoFinanceiro(principal.acesso)) {
+    throw new AcessoNegado("o campo não altera cronograma financeiro (POP-OBR-001 §1.2/§7)");
   }
 }
 
-/** POP §1.2, regra 5: financeiro não altera medição técnica. */
-export function assertFinanceiroNaoAlteraMedicaoTecnica(principal: { roles: readonly RoleKey[] }): void {
-  const ehSomenteFinanceiro =
-    principal.roles.includes("financeiro") &&
-    !principal.roles.includes("engenheiro") &&
-    !principal.roles.includes("diretoria");
-  if (ehSomenteFinanceiro) {
+/** POP §1.2, regra 5: o Financeiro não altera medição técnica. */
+export function assertFinanceiroNaoAlteraMedicaoTecnica(principal: { acesso: Acesso }): void {
+  if (ehDoFinanceiro(principal.acesso) && !ehAdmin(principal.acesso) && !gereObras(principal.acesso)) {
     throw new AcessoNegado("financeiro não altera medição técnica (POP-OBR-001 §1.2/§9)");
   }
 }

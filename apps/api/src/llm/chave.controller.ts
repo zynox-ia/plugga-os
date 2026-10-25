@@ -21,8 +21,8 @@ import type { AuthPrincipal } from "../core/auth/auth.types";
 import { CurrentPrincipal } from "../core/auth/current-principal.decorator";
 import { SessionAuthGuard } from "../core/auth/session-auth.guard";
 import { OriginCheckGuard } from "../core/auth/origin-check.guard";
-import { Roles } from "../core/auth/roles.decorator";
-import { RolesGuard } from "../core/auth/roles.guard";
+import { Plataforma } from "../core/auth/acesso.decorator";
+import { AcessoGuard } from "../core/auth/acesso.guard";
 import { ChaveDeLlmService } from "./chave.service.js";
 import { chaveMestraConfigurada } from "./cripto.js";
 
@@ -38,12 +38,12 @@ import { chaveMestraConfigurada } from "./cripto.js";
  * quatro últimos: é escrita-apenas, e quem esqueceu grava outra.
  */
 @Controller("llm/chave")
-@UseGuards(SessionAuthGuard, RolesGuard)
+@UseGuards(SessionAuthGuard, AcessoGuard)
 export class ChaveController {
   constructor(private readonly chave: ChaveDeLlmService) {}
 
   @Get()
-  @Roles("admin")
+  @Plataforma("admin")
   async estado(): Promise<EstadoDaChaveComCofre> {
     // A tela precisa saber se o cofre está pronto antes de oferecer o campo:
     // sem chave-mestra, gravar falharia depois de a pessoa colar a credencial,
@@ -52,7 +52,7 @@ export class ChaveController {
   }
 
   @Put()
-  @Roles("admin")
+  @Plataforma("admin")
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
   async gravar(
     @Body(new ZodValidationPipe(entradaDeChaveSchema)) { chave: valor }: EntradaDeChave,
@@ -71,7 +71,7 @@ export class ChaveController {
   }
 
   @Delete()
-  @Roles("admin")
+  @Plataforma("admin")
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
   async apagar(@CurrentPrincipal() quem?: AuthPrincipal): Promise<EstadoDaChave> {
     return this.chave.apagar(quem?.id ?? "desconhecido");

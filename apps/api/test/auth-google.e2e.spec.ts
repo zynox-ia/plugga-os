@@ -17,7 +17,7 @@ import {
   postGoogle,
   type GoogleHarness,
 } from "./support/google-auth-harness";
-import { access, InMemoryAuthRepository } from "./support/in-memory-auth";
+import { InMemoryAuthRepository } from "./support/in-memory-auth";
 
 describe("google login API (e2e, in-memory stores)", () => {
   let harness: GoogleHarness;
@@ -44,7 +44,7 @@ describe("google login API (e2e, in-memory stores)", () => {
     const user = await harness.store.addUser({
       email,
       name: "Pessoa",
-      access: access({ platformRoles: ["admin"] }),
+      acesso: { plataforma: "admin", departamentos: [] },
     });
     if (subject) {
       harness.store.identities.set(subject, {
@@ -99,7 +99,7 @@ describe("google login API (e2e, in-memory stores)", () => {
       email: "convidada@plugga.com.br",
       name: "Convidada",
       status: "invited",
-      access: access({ platformRoles: ["admin"] }),
+      acesso: { plataforma: "admin", departamentos: [] },
     });
     // Convite emitido antes; depois do login Google ele não pode mais valer.
     await new InMemoryAuthRepository(harness.store).replaceAuthToken({

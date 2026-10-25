@@ -1,15 +1,16 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import {
-  acessoADepartamentoSchema,
-  papelDePlataformaSchema,
-  roleKeySchema,
-  type Acesso,
-  type RoleKey,
-} from "@plugga/shared";
+import { acessoADepartamentoSchema, papelDePlataformaSchema, type Acesso } from "@plugga/shared";
 
 import { AuthContext, type AuthenticatedRequest, type AuthPrincipal } from "./auth.types";
 
+/**
+ * Autenticação por cabeçalho, só com `DEV_AUTH_ENABLED` (desenvolvimento e
+ * testes): `x-dev-principal` é o id; o acesso vem de
+ * `x-dev-plataforma: admin|desenvolvedor` ou de
+ * `x-dev-departamentos: crm:membro,suprimentos:gerente`. Valor desconhecido é
+ * ignorado, nunca promovido.
+ */
 @Injectable()
 export class DevHeaderAuthContext extends AuthContext {
   constructor(@Inject(ConfigService) private readonly config: ConfigService) {
@@ -26,44 +27,19 @@ export class DevHeaderAuthContext extends AuthContext {
       return null;
     }
 
-    const roles = this.parseRoles(this.firstHeader(request.headers["x-dev-roles"]));
-
     return {
       id,
       kind: id.startsWith("service:") ? "service" : "user",
-      roles,
-      acesso: this.parseAcesso(request, roles),
+      acesso: this.parseAcesso(request),
     };
   }
 
-  private parseRoles(header: string | undefined): RoleKey[] {
-    if (!header) {
-      return [];
-    }
-
-    return header
-      .split(",")
-      .map((role) => role.trim().toLowerCase())
-      .flatMap((role) => {
-        const parsed = roleKeySchema.safeParse(role);
-        return parsed.success ? [parsed.data] : [];
-      });
-  }
-
-  /**
-   * Acesso de 4 papéis: `x-dev-plataforma: admin|desenvolvedor` e
-   * `x-dev-departamentos: crm:membro,suprimentos:gerente`. Sem o primeiro,
-   * `x-dev-roles: admin` vale como admin, como a linha `admin` vale no banco.
-   * Valor desconhecido é ignorado, nunca promovido.
-   */
-  private parseAcesso(request: AuthenticatedRequest, roles: RoleKey[]): Acesso {
-    const plataformaHeader = this.firstHeader(request.headers["x-dev-plataforma"])?.toLowerCase();
-    const plataforma = papelDePlataformaSchema.safeParse(plataformaHeader);
+  private parseAcesso(request: AuthenticatedRequest): Acesso {
+    const plataforma = papelDePlataformaSchema.safeParse(
+      this.firstHeader(request.headers["x-dev-plataforma"])?.toLowerCase(),
+    );
     if (plataforma.success) {
       return { plataforma: plataforma.data, departamentos: [] };
-    }
-    if (roles.includes("admin")) {
-      return { plataforma: "admin", departamentos: [] };
     }
 
     const vistos = new Set<string>();

@@ -17,7 +17,6 @@ import { SessionLookupRepository } from "../src/core/auth/session-lookup.reposit
 import { EmailPort, type TransactionalEmail } from "../src/email/email.port";
 import { JobsQueue, type EnqueueOptions, type EnqueueResult } from "../src/jobs/queue/jobs-queue.port";
 import {
-  access,
   CapturingEmailPort,
   InMemoryAuthRepository,
   InMemorySessionLookup,
@@ -89,7 +88,7 @@ describe("redefinição de senha: resposta e tempo indistinguíveis (e2e)", () =
   beforeEach(async () => {
     store.clear();
     email.sent.length = 0;
-    await store.addUser({ email: existente, name: "Existe", password: "uma senha longa aqui", access: access() });
+    await store.addUser({ email: existente, name: "Existe", password: "uma senha longa aqui" });
   });
 
   let ip = 0;
@@ -242,8 +241,8 @@ describe("ResetEmailHandler", () => {
     })();
     const handler = new ResetEmailHandler(repository, tokens, audit);
 
-    await store.addUser({ email: "ativa@plugga.local", password: "senha longa aqui 1", access: access() });
-    await store.addUser({ email: "off@plugga.local", password: "senha longa aqui 2", status: "disabled", access: access() });
+    await store.addUser({ email: "ativa@plugga.local", password: "senha longa aqui 1" });
+    await store.addUser({ email: "off@plugga.local", password: "senha longa aqui 2", status: "disabled" });
 
     await handler.process({ email: "nao.existe@plugga.local" });
     await handler.process({ email: "off@plugga.local" });

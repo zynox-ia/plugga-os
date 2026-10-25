@@ -16,8 +16,8 @@ import { ZodValidationPipe } from "../common/zod-validation.pipe";
 import type { AuthPrincipal } from "../core/auth/auth.types";
 import { CurrentPrincipal } from "../core/auth/current-principal.decorator";
 import { OriginCheckGuard } from "../core/auth/origin-check.guard";
-import { Roles } from "../core/auth/roles.decorator";
-import { RolesGuard } from "../core/auth/roles.guard";
+import { Departamento } from "../core/auth/acesso.decorator";
+import { AcessoGuard } from "../core/auth/acesso.guard";
 import { SessionAuthGuard } from "../core/auth/session-auth.guard";
 import { PipelinesService } from "./pipelines.service";
 
@@ -26,8 +26,8 @@ import { PipelinesService } from "./pipelines.service";
  * cada pipeline é decidido pela empresa dele e pela equipe (pipelines.rules.ts).
  */
 @Controller("pipelines")
-@UseGuards(SessionAuthGuard, RolesGuard)
-@Roles("comercial", "admin")
+@UseGuards(SessionAuthGuard, AcessoGuard)
+@Departamento("crm")
 export class PipelinesController {
   constructor(@Inject(PipelinesService) private readonly service: PipelinesService) {}
 

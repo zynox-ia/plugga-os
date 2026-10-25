@@ -51,12 +51,12 @@ import { CurrentPrincipal } from "../core/auth/current-principal.decorator";
 import { SessionAuthGuard } from "../core/auth/session-auth.guard";
 import { OriginCheckGuard } from "../core/auth/origin-check.guard";
 import { Departamento } from "../core/auth/acesso.decorator";
-import { RolesGuard } from "../core/auth/roles.guard";
+import { AcessoGuard } from "../core/auth/acesso.guard";
 import { EnergyService } from "./energy.service";
 import { APROVAR_EM_ENERGIA, FECHAR_CICLO, OPERAR_ENERGIA, VER_ENERGIA } from "./energy.permissions";
 
 @Controller("energy")
-@UseGuards(SessionAuthGuard, RolesGuard)
+@UseGuards(SessionAuthGuard, AcessoGuard)
 @Departamento(VER_ENERGIA)
 export class EnergyController {
   constructor(@Inject(EnergyService) private readonly service: EnergyService) {}

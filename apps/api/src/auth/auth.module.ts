@@ -24,8 +24,6 @@ import { ResetEmailHandler } from "./reset-email.handler";
 import { SessionService } from "./session.service";
 import { EquipeController } from "./equipe.controller";
 import { EquipeService } from "./equipe.service";
-import { TeamController } from "./team.controller";
-import { TeamService } from "./team.service";
 
 @Module({
   imports: [
@@ -49,12 +47,11 @@ import { TeamService } from "./team.service";
       }),
     }),
   ],
-  controllers: [AuthController, TeamController, EquipeController],
+  controllers: [AuthController, EquipeController],
   providers: [
     AuthService,
     AuthTokenIssuer,
     GoogleAuthService,
-    TeamService,
     EquipeService,
     PasswordService,
     SessionService,

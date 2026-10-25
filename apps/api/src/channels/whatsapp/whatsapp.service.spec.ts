@@ -29,7 +29,7 @@ class AuditSpy extends AuditPort {
 const principal: AuthPrincipal = {
   id: "service:unit-test",
   kind: "service",
-  roles: ["tech"],
+  acesso: { plataforma: "desenvolvedor", departamentos: [] },
 };
 
 describe("WhatsappService", () => {
@@ -90,7 +90,7 @@ describe("WhatsappService", () => {
         optedOut: false,
         content: { kind: "text", text: "teste local" },
       },
-      { id: "local-admin", kind: "user", roles: ["admin"] },
+      { id: "local-admin", kind: "user", acesso: { plataforma: "admin", departamentos: [] } },
     );
 
     expect(result.simulated).toBe(true);

@@ -361,7 +361,7 @@ describe("energy audits/contestations API (e2e)", () => {
         expectedResponseAt: "2026-09-06T12:00:00.000Z",
         ownerId: OWNER_ID,
       },
-      { id: OWNER_ID, kind: "user", roles: ["opm"] },
+      { id: OWNER_ID, kind: "user", acesso: { plataforma: null, departamentos: [{ departamento: "energia-opm", nivel: "membro" }] } },
     );
 
     await asFinanceiro().post(`/energy/contestations/${contestation.id}/status`).send({ status: "encerrada" }).expect(409);
@@ -381,7 +381,7 @@ describe("energy audits/contestations API (e2e)", () => {
         expectedResponseAt: "2026-09-06T12:00:00.000Z",
         ownerId: OWNER_ID,
       },
-      { id: OWNER_ID, kind: "user", roles: ["opm"] },
+      { id: OWNER_ID, kind: "user", acesso: { plataforma: null, departamentos: [{ departamento: "energia-opm", nivel: "membro" }] } },
     );
 
     await asOpm().post(`/energy/contestations/${contestation.id}/status`).send({ status: "aberta" }).expect(403);
@@ -407,18 +407,18 @@ describe("energy audits/contestations API (e2e)", () => {
         expectedResponseAt: "2026-09-06T12:00:00.000Z",
         ownerId: OWNER_ID,
       },
-      { id: OWNER_ID, kind: "user", roles: ["opm"] },
+      { id: OWNER_ID, kind: "user", acesso: { plataforma: null, departamentos: [{ departamento: "energia-opm", nivel: "membro" }] } },
     );
-    await repository.updateContestationStatus(contestation.id, { status: "aberta" }, { id: OWNER_ID, kind: "user", roles: ["opm"] });
+    await repository.updateContestationStatus(contestation.id, { status: "aberta" }, { id: OWNER_ID, kind: "user", acesso: { plataforma: null, departamentos: [{ departamento: "energia-opm", nivel: "membro" }] } });
     await repository.updateContestationStatus(
       contestation.id,
       { status: "aguardando_distribuidora" },
-      { id: OWNER_ID, kind: "user", roles: ["opm"] },
+      { id: OWNER_ID, kind: "user", acesso: { plataforma: null, departamentos: [{ departamento: "energia-opm", nivel: "membro" }] } },
     );
     await repository.updateContestationStatus(
       contestation.id,
       { status: "deferida" },
-      { id: OWNER_ID, kind: "user", roles: ["opm"] },
+      { id: OWNER_ID, kind: "user", acesso: { plataforma: null, departamentos: [{ departamento: "energia-opm", nivel: "membro" }] } },
     );
 
     await asFinanceiro().post(`/energy/contestations/${contestation.id}/status`).send({ status: "encerrada" }).expect(400);

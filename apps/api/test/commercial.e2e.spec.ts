@@ -330,18 +330,18 @@ describe("commercial API (e2e)", () => {
   function asComercial() {
     return {
       get: (path: string) =>
-        request(app.getHttpServer()).get(path).set("x-dev-principal", "local-comercial").set("x-dev-roles", "comercial"),
+        request(app.getHttpServer()).get(path).set("x-dev-principal", "local-comercial").set("x-dev-departamentos", "crm:membro"),
       post: (path: string) =>
-        request(app.getHttpServer()).post(path).set("x-dev-principal", "local-comercial").set("x-dev-roles", "comercial"),
+        request(app.getHttpServer()).post(path).set("x-dev-principal", "local-comercial").set("x-dev-departamentos", "crm:membro"),
     };
   }
 
   function asViewer() {
     return {
       get: (path: string) =>
-        request(app.getHttpServer()).get(path).set("x-dev-principal", "local-viewer").set("x-dev-roles", "viewer"),
+        request(app.getHttpServer()).get(path).set("x-dev-principal", "local-viewer").set("x-dev-departamentos", "financeiro:membro"),
       post: (path: string) =>
-        request(app.getHttpServer()).post(path).set("x-dev-principal", "local-viewer").set("x-dev-roles", "viewer"),
+        request(app.getHttpServer()).post(path).set("x-dev-principal", "local-viewer").set("x-dev-departamentos", "financeiro:membro"),
     };
   }
 

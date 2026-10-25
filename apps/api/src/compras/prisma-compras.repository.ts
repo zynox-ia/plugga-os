@@ -235,7 +235,7 @@ export class PrismaComprasRepository extends ComprasRepository {
           aprovouId: linha.aprovouId,
           valorCotado: decimal(linha.valorCotado),
         },
-        { id: principal.id, roles: principal.roles },
+        { id: principal.id, acesso: principal.acesso },
       ),
     });
   }
@@ -625,7 +625,7 @@ export class PrismaComprasRepository extends ComprasRepository {
     const para: ComprasEtapa = input.aprovada ? "pagamento" : "cotacoes";
     assertTransicaoPermitida(pedido.etapa, para);
 
-    assertAlcada(decimal(pedido.valorCotado), principal.roles);
+    assertAlcada(decimal(pedido.valorCotado), principal.acesso);
     const segregacao = assertSegregacao(
       "aprovar",
       {
@@ -633,7 +633,7 @@ export class PrismaComprasRepository extends ComprasRepository {
         selecionouCotacaoId: pedido.selecionouCotacaoId,
         aprovouId: pedido.aprovouId,
       },
-      { id: principal.id, roles: principal.roles },
+      { id: principal.id, acesso: principal.acesso },
       input.dispensaSegregacao,
     );
 
@@ -730,7 +730,7 @@ export class PrismaComprasRepository extends ComprasRepository {
         selecionouCotacaoId: pedido.selecionouCotacaoId,
         aprovouId: pedido.aprovouId,
       },
-      { id: principal.id, roles: principal.roles },
+      { id: principal.id, acesso: principal.acesso },
       input.dispensaSegregacao,
     );
 
@@ -780,7 +780,7 @@ export class PrismaComprasRepository extends ComprasRepository {
 
     const confirmacao = assertConfirmacaoDeRecebimento(
       { solicitanteId: pedido.solicitanteId },
-      { id: principal.id, roles: principal.roles },
+      { id: principal.id, acesso: principal.acesso },
       input.confirmacaoPorTerceiro,
     );
 
@@ -791,7 +791,7 @@ export class PrismaComprasRepository extends ComprasRepository {
         selecionouCotacaoId: pedido.selecionouCotacaoId,
         aprovouId: pedido.aprovouId,
       },
-      { id: principal.id, roles: principal.roles },
+      { id: principal.id, acesso: principal.acesso },
       input.dispensaSegregacao,
     );
 
@@ -834,7 +834,7 @@ export class PrismaComprasRepository extends ComprasRepository {
     assertPodeRenegociarPrazo(aberta?.prazoEm ?? null, agora);
     const passagem = aberta as NonNullable<typeof aberta>;
 
-    // Esticar além da régua do POP §3 é alçada da diretoria: quem é medido pelo
+    // Esticar além da régua do POP §3 é alçada do admin: quem é medido pelo
     // 4.3 não move o próprio vencimento sem alguém de fora olhar.
     const cotacaoEscolhida = pedido.cotacoes.find((linha) => linha.id === pedido.cotacaoSelecionadaId);
     assertAlcadaDePrazo(
@@ -844,7 +844,7 @@ export class PrismaComprasRepository extends ComprasRepository {
         pedido.origemAtendimento,
         cotacaoEscolhida?.prazoEntregaDias ?? null,
       ),
-      principal.roles,
+      principal.acesso,
     );
 
     // O prazo renegociado é contado da entrada na etapa, não de agora: mover a

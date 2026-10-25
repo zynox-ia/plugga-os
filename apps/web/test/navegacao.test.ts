@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import type { UserAccess } from "@plugga/shared";
+import type { Acesso } from "@plugga/shared";
 
-import { ORDEM_DEPARTAMENTOS } from "../app/lib/organizacao.ts";
+import { DEPARTAMENTOS, configuracoesParaAcesso } from "../app/lib/organizacao.ts";
 import { navGroupsForAccess, navIdForPathname, tituloForNavId } from "../app/lib/navigation.ts";
 
-function rotulos(acesso?: UserAccess) {
+function rotulos(acesso?: Acesso) {
   return navGroupsForAccess(acesso ?? null)
     .filter((grupo) => grupo.collapsible)
     .map((grupo) => grupo.label);
@@ -79,24 +79,14 @@ describe("sitemap da barra lateral", () => {
   });
 });
 
-describe("acesso aos departamentos novos", () => {
-  // A migração 20261025000000 copia cada acesso `financeiro` para `suprimentos`.
-  // Quem vê Compras hoje a vê pelo Financeiro e precisa continuar vendo.
-  it("quem tem financeiro e suprimentos vê Compras em Suprimentos", () => {
-    const acesso: UserAccess = {
-      platformRoles: [],
-      companies: [
-        {
-          companyId: "plugga",
-          roles: ["compras"],
-          departments: [
-            { departmentId: "financeiro", isManager: false },
-            { departmentId: "suprimentos", isManager: false },
-          ],
-        },
-      ],
-    };
-    const grupos = navGroupsForAccess(acesso).filter((grupo) => grupo.collapsible);
+describe("barra lateral pelo acesso", () => {
+  const membro = (...departamentos: Acesso["departamentos"][number]["departamento"][]): Acesso => ({
+    plataforma: null,
+    departamentos: departamentos.map((departamento) => ({ departamento, nivel: "membro" })),
+  });
+
+  it("quem é de Financeiro e Suprimentos vê Compras em Suprimentos", () => {
+    const grupos = navGroupsForAccess(membro("financeiro", "suprimentos")).filter((grupo) => grupo.collapsible);
     assert.deepEqual(
       grupos.map((grupo) => grupo.label),
       ["Financeiro", "Suprimentos"],
@@ -105,69 +95,59 @@ describe("acesso aos departamentos novos", () => {
   });
 
   it("não inventa Marketing para quem não recebeu esse acesso", () => {
-    const acesso: UserAccess = {
-      platformRoles: [],
-      companies: [
-        {
-          companyId: "plugga",
-          roles: [],
-          departments: [{ departmentId: "financeiro", isManager: false }],
-        },
-      ],
-    };
-    assert.ok(!rotulos(acesso).includes("Marketing"));
+    assert.ok(!rotulos(membro("financeiro")).includes("Marketing"));
   });
 
-  it("admin de plataforma vê tudo, inclusive os departamentos novos", () => {
-    const labels = rotulos({ platformRoles: ["admin"], companies: [] });
-    assert.ok(labels.includes("Suprimentos"));
-    assert.ok(labels.includes("Marketing"));
+  it("gerente vê o departamento que gere, como o membro", () => {
+    assert.deepEqual(rotulos({ plataforma: null, departamentos: [{ departamento: "crm", nivel: "gerente" }] }), ["CRM"]);
   });
 
-  it("segue a ordem aprovada quando o acesso é misto entre as empresas", () => {
-    const acesso: UserAccess = {
-      platformRoles: [],
-      companies: [
-        {
-          companyId: "plugga",
-          roles: [],
-          departments: [
-            { departmentId: "comercial-clientes", isManager: false },
-            { departmentId: "suprimentos", isManager: false },
-          ],
-        },
-        {
-          companyId: "waze",
-          roles: [],
-          departments: [
-            { departmentId: "engenharia-obras", isManager: false },
-            { departmentId: "suprimentos", isManager: false },
-          ],
-        },
-      ],
-    };
-    assert.deepEqual(rotulos(acesso), ["CRM", "Suprimentos", "Engenharia e Obras"]);
+  it("admin e desenvolvedor veem todos os departamentos", () => {
+    const todos = DEPARTAMENTOS.map((departamento) => departamento.label);
+    assert.deepEqual(rotulos({ plataforma: "admin", departamentos: [] }), todos);
+    assert.deepEqual(rotulos({ plataforma: "desenvolvedor", departamentos: [] }), todos);
   });
 
-  it("a ordem vem da lista explícita do catálogo, não da empresa que o libera", () => {
-    const soWaze: UserAccess = {
-      platformRoles: [],
-      companies: [
-        {
-          companyId: "waze",
-          roles: [],
-          departments: [
-            { departmentId: "marketing", isManager: false },
-            { departmentId: "engenharia-obras", isManager: false },
-            { departmentId: "financeiro", isManager: false },
-            { departmentId: "comercial-obras", isManager: false },
-          ],
-        },
-      ],
-    };
-    assert.deepEqual(rotulos(soWaze), ["CRM", "Financeiro", "Engenharia e Obras", "Marketing"]);
-    assert.deepEqual([...ORDEM_DEPARTAMENTOS], rotulos());
+  it("a ordem vem do catálogo, não da ordem do acesso", () => {
+    assert.deepEqual(rotulos(membro("marketing", "engenharia-obras", "financeiro", "crm")), [
+      "CRM",
+      "Financeiro",
+      "Engenharia e Obras",
+      "Marketing",
+    ]);
+    assert.deepEqual(
+      DEPARTAMENTOS.map((departamento) => departamento.label),
+      rotulos(),
+    );
   });
+});
+
+describe("Configurações pelo papel", () => {
+  const secoes = (acesso: Acesso) => configuracoesParaAcesso(acesso).map((secao) => secao.label);
+
+  it("membro não vê nenhuma seção de configuração do sistema", () => {
+    assert.deepEqual(secoes(membro("crm")), []);
+  });
+
+  it("gerente vê só Equipe e acessos", () => {
+    assert.deepEqual(secoes({ plataforma: null, departamentos: [{ departamento: "crm", nivel: "gerente" }] }), [
+      "Equipe e acessos",
+    ]);
+  });
+
+  it("admin vê o que faz a plataforma funcionar, mas não as telas técnicas", () => {
+    const admin = secoes({ plataforma: "admin", departamentos: [] });
+    assert.ok(admin.includes("Equipe e acessos") && admin.includes("Chave de IA") && admin.includes("Integrações"));
+    assert.ok(!admin.includes("Jobs e automações"));
+  });
+
+  it("desenvolvedor vê tudo, inclusive as telas técnicas", () => {
+    assert.equal(secoes({ plataforma: "desenvolvedor", departamentos: [] }).length, 7);
+  });
+
+  function membro(...departamentos: Acesso["departamentos"][number]["departamento"][]): Acesso {
+    return { plataforma: null, departamentos: departamentos.map((departamento) => ({ departamento, nivel: "membro" })) };
+  }
 });
 
 describe("ícones da barra", () => {

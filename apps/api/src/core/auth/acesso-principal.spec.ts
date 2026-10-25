@@ -54,8 +54,8 @@ describe("DevHeaderAuthContext com o acesso de 4 papéis", () => {
     });
   });
 
-  it("x-dev-roles: admin vale como admin, e valor desconhecido nunca promove", async () => {
-    expect((await resolver({ "x-dev-roles": "admin" }))?.acesso?.plataforma).toBe("admin");
+  it("x-dev-roles não existe mais, e valor desconhecido nunca promove", async () => {
+    expect((await resolver({ "x-dev-roles": "admin" }))?.acesso).toEqual({ plataforma: null, departamentos: [] });
     expect((await resolver({ "x-dev-plataforma": "root", "x-dev-departamentos": "financeiro:dono" }))?.acesso).toEqual({
       plataforma: null,
       departamentos: [],

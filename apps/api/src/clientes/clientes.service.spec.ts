@@ -5,7 +5,7 @@ import type { AuthPrincipal } from "../core/auth/auth.types";
 import { ClientesRepository } from "./clientes.repository";
 import { ClientesService } from "./clientes.service";
 
-const principal: AuthPrincipal = { id: "00000000-0000-4000-8000-000000000001", kind: "user", roles: ["comercial"] };
+const principal: AuthPrincipal = { id: "00000000-0000-4000-8000-000000000001", kind: "user", acesso: { plataforma: null, departamentos: [{ departamento: "crm", nivel: "membro" }] } };
 
 const CLIENTE: ClientDetail = {
   id: "00000000-0000-4000-8000-000000000002",

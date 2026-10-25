@@ -3,6 +3,9 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
+import { papelDoAcesso } from "@plugga/shared";
+
+import { ROTULO_DO_PAPEL } from "../lib/organizacao";
 import { useSessionUser } from "../lib/use-session-user";
 
 /**
@@ -83,7 +86,7 @@ export function UserMenu() {
             <div className="user-menu-header">
               <div className="user-menu-person">
                 <strong>{usuario.name}</strong>
-                {usuario.roles.length > 0 ? <span className="user-menu-role-tag">{usuario.roles[0]}</span> : null}
+                <span className="user-menu-role-tag">{ROTULO_DO_PAPEL[papelDoAcesso(usuario.acesso)]}</span>
               </div>
               <span>{usuario.email}</span>
             </div>

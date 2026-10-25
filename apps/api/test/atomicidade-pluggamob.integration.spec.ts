@@ -24,7 +24,7 @@ describe.skipIf(!HABILITADO)("pluggamob: aprovação de fechamento é condiciona
   const prisma = new PrismaService();
   const repositorio = new PrismaPluggamobRepository(prisma, new AuditAppender());
   const marca = `atom-plug-${randomUUID().slice(0, 8)}`;
-  const principal: AuthPrincipal = { id: randomUUID(), kind: "user", roles: ["admin"] };
+  const principal: AuthPrincipal = { id: randomUUID(), kind: "user", acesso: { plataforma: "admin", departamentos: [] } };
   let parceiroId = "";
   let semana = 0;
 

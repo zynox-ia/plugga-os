@@ -1,16 +1,14 @@
-import type { UserAccess } from "@plugga/shared";
+import type { Acesso } from "@plugga/shared";
 
 import type { IconName, ShellNavGroup } from "../components/plugga-shell";
 import {
-  EMPRESAS_POR_ID,
   CONFIGURACOES,
+  DEPARTAMENTOS,
   FERRAMENTAS,
   GLOBAIS,
-  ORDEM_DEPARTAMENTOS,
   ROTAS_FORA_DO_MENU,
   VISAO_GERAL,
   departamentosPermitidos,
-  type Departamento,
   type Processo,
 } from "./organizacao.ts";
 
@@ -39,21 +37,11 @@ function navItem(processo: Processo, prefixo: string) {
 
 /**
  * `acesso` ausente = navegação inteira (o estado antes de /me responder, e o
- * uso em teste). Com acesso, entram só os departamentos liberados. Para os
- * departamentos que existem nas duas empresas, uma única entrada é exibida.
+ * uso em teste). Com acesso, entram só os departamentos que a pessoa alcança;
+ * admin e desenvolvedor alcançam todos.
  */
-export function navGroupsForAccess(acesso: UserAccess | null = null): ShellNavGroup[] {
-  const plugga = departamentosPermitidos("plugga", acesso);
-  const waze = departamentosPermitidos("waze", acesso);
-  const departamentos = [...plugga];
-  for (const departamento of waze) {
-    if (!departamentos.some((atual) => atual.label === departamento.label)) {
-      departamentos.push(departamento);
-    }
-  }
-  const posicao = (departamento: Departamento) =>
-    (ORDEM_DEPARTAMENTOS as readonly string[]).indexOf(departamento.label);
-  departamentos.sort((a, b) => posicao(a) - posicao(b));
+export function navGroupsForAccess(acesso: Acesso | null = null): ShellNavGroup[] {
+  const departamentos = departamentosPermitidos(acesso);
 
   return [
     {
@@ -98,9 +86,7 @@ export function navIdForPathname(pathname: string): string {
     ...ROTAS_FORA_DO_MENU,
     ...CONFIGURACOES,
     ...GLOBAIS,
-    ...Object.values(EMPRESAS_POR_ID).flatMap((empresa) =>
-      empresa.departamentos.flatMap((departamento) => departamento.processos),
-    ),
+    ...DEPARTAMENTOS.flatMap((departamento) => departamento.processos),
   ]
     .map((processo) => processo.rota)
     .filter((rota): rota is string => Boolean(rota) && rota !== "/");
@@ -122,9 +108,7 @@ export function tituloForNavId(navId: string): string {
     ...ROTAS_FORA_DO_MENU,
     ...CONFIGURACOES,
     ...GLOBAIS,
-    ...Object.values(EMPRESAS_POR_ID).flatMap((empresa) =>
-      empresa.departamentos.flatMap((departamento) => departamento.processos),
-    ),
+    ...DEPARTAMENTOS.flatMap((departamento) => departamento.processos),
   ];
 
   return todos.find((processo) => processo.rota === navId)?.label ?? "plugga-os";

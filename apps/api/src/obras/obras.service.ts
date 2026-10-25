@@ -34,7 +34,6 @@ import type {
 import type { AuthPrincipal } from "../core/auth/auth.types";
 import { inspecionarEnvios, lerEnvio } from "../common/upload/arquivos-enviados";
 import { ArmazenamentoDeEvidencias, TIPOS_ACEITOS } from "./armazenamento-de-evidencias";
-import { ObrasEscopoRepository } from "./obras-escopo.repository";
 import { ObrasRepository } from "./obras.repository";
 
 /** Um arquivo de evidência chegando pela requisição multipart. */
@@ -42,20 +41,18 @@ import { ObrasRepository } from "./obras.repository";
 export type ArquivoDeEvidencia = { path: string; originalname: string; mimetype: string };
 
 /**
- * Orquestra escopo de empresa/departamento + repositório, no molde de
- * `ComprasService`. Toda entrada prova `assertAlcanca` antes de qualquer
- * acesso a dado.
+ * Orquestra o repositório e o armazenamento de evidências. Quem alcança cada
+ * rota é decidido pelo `AcessoGuard` (`obras.permissions.ts`); a empresa da
+ * obra é etiqueta, não fronteira de acesso.
  */
 @Injectable()
 export class ObrasService {
   constructor(
     @Inject(ObrasRepository) private readonly repositorio: ObrasRepository,
-    @Inject(ObrasEscopoRepository) private readonly escopo: ObrasEscopoRepository,
     @Inject(ArmazenamentoDeEvidencias) private readonly armazenamento: ArmazenamentoDeEvidencias,
   ) {}
 
-  async obra(id: string, companyId: CompanyKey, principal: AuthPrincipal): Promise<ObraExecucaoDetalhe> {
-    await this.escopo.assertAlcanca(principal.id, companyId);
+  async obra(id: string, companyId: CompanyKey): Promise<ObraExecucaoDetalhe> {
     return this.repositorio.obra(id, companyId);
   }
 
@@ -64,7 +61,6 @@ export class ObrasService {
     input: AvancarEtapaDeObraRequest,
     principal: AuthPrincipal,
   ): Promise<ObraExecucaoDetalhe> {
-    await this.escopo.assertAlcanca(principal.id, input.companyId);
     return this.repositorio.avancarEtapa(id, input, principal);
   }
 
@@ -73,7 +69,6 @@ export class ObrasService {
     input: ReabrirProjetoRequest,
     principal: AuthPrincipal,
   ): Promise<ObraExecucaoDetalhe> {
-    await this.escopo.assertAlcanca(principal.id, input.companyId);
     return this.repositorio.reabrirProjeto(id, input, principal);
   }
 
@@ -88,7 +83,6 @@ export class ObrasService {
     arquivo: ArquivoDeEvidencia,
     principal: AuthPrincipal,
   ): Promise<ObraExecucaoDetalhe> {
-    await this.escopo.assertAlcanca(principal.id, input.companyId);
     // Tipo conferido pelo conteúdo antes de guardar.
     await inspecionarEnvios([arquivo], TIPOS_ACEITOS);
     const guardado = await this.armazenamento.guardar(
@@ -105,7 +99,6 @@ export class ObrasService {
   }
 
   async registrarEpi(id: string, input: RegistrarEpiRequest, principal: AuthPrincipal): Promise<RegistroEpi> {
-    await this.escopo.assertAlcanca(principal.id, input.companyId);
     return this.repositorio.registrarEpi(id, input, principal);
   }
 
@@ -115,12 +108,10 @@ export class ObrasService {
     input: ConferirEpiRequest,
     principal: AuthPrincipal,
   ): Promise<RegistroEpi> {
-    await this.escopo.assertAlcanca(principal.id, input.companyId);
     return this.repositorio.conferirEpi(id, epiId, input, principal);
   }
 
   async registrarApr(id: string, input: RegistrarAprRequest, principal: AuthPrincipal): Promise<RegistroApr> {
-    await this.escopo.assertAlcanca(principal.id, input.companyId);
     return this.repositorio.registrarApr(id, input, principal);
   }
 
@@ -130,7 +121,6 @@ export class ObrasService {
     input: AssinarAprRequest,
     principal: AuthPrincipal,
   ): Promise<RegistroApr> {
-    await this.escopo.assertAlcanca(principal.id, input.companyId);
     return this.repositorio.assinarApr(id, aprId, input, principal);
   }
 
@@ -139,7 +129,6 @@ export class ObrasService {
     input: RegistrarIncidenteRequest,
     principal: AuthPrincipal,
   ): Promise<Incidente> {
-    await this.escopo.assertAlcanca(principal.id, input.companyId);
     return this.repositorio.registrarIncidente(id, input, principal);
   }
 
@@ -148,7 +137,6 @@ export class ObrasService {
     input: RegistrarLiberacaoRequest,
     principal: AuthPrincipal,
   ): Promise<LiberacaoSeguranca> {
-    await this.escopo.assertAlcanca(principal.id, input.companyId);
     return this.repositorio.registrarLiberacao(id, input, principal);
   }
 
@@ -158,7 +146,6 @@ export class ObrasService {
     input: RevogarLiberacaoRequest,
     principal: AuthPrincipal,
   ): Promise<LiberacaoSeguranca> {
-    await this.escopo.assertAlcanca(principal.id, input.companyId);
     return this.repositorio.revogarLiberacao(id, liberacaoId, input, principal);
   }
 
@@ -167,7 +154,6 @@ export class ObrasService {
     input: RegistrarPendenciaRequest,
     principal: AuthPrincipal,
   ): Promise<PendenciaDeCampo> {
-    await this.escopo.assertAlcanca(principal.id, input.companyId);
     return this.repositorio.registrarPendencia(id, input, principal);
   }
 
@@ -177,7 +163,6 @@ export class ObrasService {
     input: ClassificarPrioridadeRequest,
     principal: AuthPrincipal,
   ): Promise<PendenciaDeCampo> {
-    await this.escopo.assertAlcanca(principal.id, input.companyId);
     return this.repositorio.classificarPrioridadePendencia(id, pendenciaId, input, principal);
   }
 
@@ -187,12 +172,10 @@ export class ObrasService {
     input: EncerrarPendenciaRequest,
     principal: AuthPrincipal,
   ): Promise<PendenciaDeCampo> {
-    await this.escopo.assertAlcanca(principal.id, input.companyId);
     return this.repositorio.encerrarPendencia(id, pendenciaId, input, principal);
   }
 
   async lancarMedicao(id: string, input: LancarMedicaoRequest, principal: AuthPrincipal): Promise<MedicaoTecnica> {
-    await this.escopo.assertAlcanca(principal.id, input.companyId);
     return this.repositorio.lancarMedicao(id, input, principal);
   }
 
@@ -202,7 +185,6 @@ export class ObrasService {
     input: AprovarMedicaoRequest,
     principal: AuthPrincipal,
   ): Promise<MedicaoTecnica> {
-    await this.escopo.assertAlcanca(principal.id, input.companyId);
     return this.repositorio.aprovarMedicao(id, medicaoId, input, principal);
   }
 
@@ -212,7 +194,6 @@ export class ObrasService {
     input: SolicitarCorrecaoMedicaoRequest,
     principal: AuthPrincipal,
   ): Promise<MedicaoTecnica> {
-    await this.escopo.assertAlcanca(principal.id, input.companyId);
     return this.repositorio.solicitarCorrecaoMedicao(id, medicaoId, input, principal);
   }
 
@@ -223,7 +204,6 @@ export class ObrasService {
     arquivo: ArquivoDeEvidencia | null,
     principal: AuthPrincipal,
   ): Promise<ProjetoVersao> {
-    await this.escopo.assertAlcanca(principal.id, input.companyId);
     if (arquivo) await inspecionarEnvios([arquivo], TIPOS_ACEITOS);
     const anexo = arquivo
       ? await this.armazenamento
@@ -239,7 +219,6 @@ export class ObrasService {
     input: EnviarProjetoParaAprovacaoRequest,
     principal: AuthPrincipal,
   ): Promise<ProjetoVersao> {
-    await this.escopo.assertAlcanca(principal.id, input.companyId);
     return this.repositorio.enviarProjetoParaAprovacao(id, versaoId, input, principal);
   }
 
@@ -249,7 +228,6 @@ export class ObrasService {
     input: AprovarProjetoRequest,
     principal: AuthPrincipal,
   ): Promise<ProjetoVersao> {
-    await this.escopo.assertAlcanca(principal.id, input.companyId);
     return this.repositorio.aprovarProjeto(id, versaoId, input, principal);
   }
 
@@ -259,7 +237,6 @@ export class ObrasService {
     input: SolicitarRevisaoDeProjetoRequest,
     principal: AuthPrincipal,
   ): Promise<ProjetoVersao> {
-    await this.escopo.assertAlcanca(principal.id, input.companyId);
     return this.repositorio.solicitarRevisaoDeProjeto(id, versaoId, input, principal);
   }
 }

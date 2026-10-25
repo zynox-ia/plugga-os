@@ -73,28 +73,9 @@ import type { AuthPrincipal } from "../core/auth/auth.types";
 import { CurrentPrincipal } from "../core/auth/current-principal.decorator";
 import { SessionAuthGuard } from "../core/auth/session-auth.guard";
 import { OriginCheckGuard } from "../core/auth/origin-check.guard";
-import { Roles } from "../core/auth/roles.decorator";
-import { RolesGuard } from "../core/auth/roles.guard";
-import {
-  APROVAR_MEDICAO,
-  APROVAR_PROJETO,
-  ASSINAR_APR,
-  AVANCAR_ETAPA,
-  CLASSIFICAR_PRIORIDADE_PENDENCIA,
-  CONFERIR_EPI,
-  CRIAR_VERSAO_DE_PROJETO,
-  ENCERRAR_PENDENCIA,
-  LANCAR_MEDICAO,
-  LER_OBRA,
-  REABRIR_PROJETO,
-  REGISTRAR_APR,
-  REGISTRAR_EPI,
-  REGISTRAR_EVIDENCIA,
-  REGISTRAR_INCIDENTE,
-  REGISTRAR_LIBERACAO,
-  REGISTRAR_PENDENCIA,
-  REVOGAR_LIBERACAO,
-} from "./obras.permissions";
+import { Departamento } from "../core/auth/acesso.decorator";
+import { AcessoGuard } from "../core/auth/acesso.guard";
+import { DECIDIR_OBRA_GERENTE, LER_OBRA, OPERAR_OBRA, OPERAR_OBRA_COM_SUPRIMENTOS } from "./obras.permissions";
 import { ObrasService, type ArquivoDeEvidencia } from "./obras.service";
 
 
@@ -104,15 +85,15 @@ import { ObrasService, type ArquivoDeEvidencia } from "./obras.service";
  * recria o cadastro, só a etapa/evidência/segurança da execução.
  */
 @Controller("obras")
-@UseGuards(SessionAuthGuard, RolesGuard)
-@Roles(...LER_OBRA)
+@UseGuards(SessionAuthGuard, AcessoGuard)
+@Departamento(LER_OBRA)
 export class ObrasController {
   constructor(@Inject(ObrasService) private readonly service: ObrasService) {}
 
   @Post(":id/etapas/avancar")
   @HttpCode(200)
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
-  @Roles(...AVANCAR_ETAPA)
+  @Departamento(DECIDIR_OBRA_GERENTE, "gerente")
   avancarEtapa(
     @Param("id", ParseUUIDPipe) id: string,
     @Body(new ZodValidationPipe(avancarEtapaDeObraRequestSchema)) input: AvancarEtapaDeObraRequest,
@@ -124,7 +105,7 @@ export class ObrasController {
   @Post(":id/projeto/reabrir")
   @HttpCode(200)
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
-  @Roles(...REABRIR_PROJETO)
+  @Departamento(OPERAR_OBRA)
   reabrirProjeto(
     @Param("id", ParseUUIDPipe) id: string,
     @Body(new ZodValidationPipe(reabrirProjetoRequestSchema)) input: ReabrirProjetoRequest,
@@ -141,7 +122,7 @@ export class ObrasController {
   @Post(":id/evidencias")
   @HttpCode(201)
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
-  @Roles(...REGISTRAR_EVIDENCIA)
+  @Departamento(OPERAR_OBRA_COM_SUPRIMENTOS)
   @UseInterceptors(
     UploadEmDisco(),
     FileInterceptor("arquivo", { storage: armazenamentoEmDisco, limits: { fileSize: TAMANHO_MAXIMO_POR_ARQUIVO } }),
@@ -173,7 +154,7 @@ export class ObrasController {
   @Post(":id/epi")
   @HttpCode(201)
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
-  @Roles(...REGISTRAR_EPI)
+  @Departamento(OPERAR_OBRA)
   registrarEpi(
     @Param("id", ParseUUIDPipe) id: string,
     @Body(new ZodValidationPipe(registrarEpiRequestSchema)) input: RegistrarEpiRequest,
@@ -185,7 +166,7 @@ export class ObrasController {
   @Post(":id/epi/:epiId/conferir")
   @HttpCode(200)
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
-  @Roles(...CONFERIR_EPI)
+  @Departamento(DECIDIR_OBRA_GERENTE, "gerente")
   conferirEpi(
     @Param("id", ParseUUIDPipe) id: string,
     @Param("epiId", ParseUUIDPipe) epiId: string,
@@ -198,7 +179,7 @@ export class ObrasController {
   @Post(":id/apr")
   @HttpCode(201)
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
-  @Roles(...REGISTRAR_APR)
+  @Departamento(OPERAR_OBRA)
   registrarApr(
     @Param("id", ParseUUIDPipe) id: string,
     @Body(new ZodValidationPipe(registrarAprRequestSchema)) input: RegistrarAprRequest,
@@ -210,7 +191,7 @@ export class ObrasController {
   @Post(":id/apr/:aprId/assinar")
   @HttpCode(200)
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
-  @Roles(...ASSINAR_APR)
+  @Departamento(OPERAR_OBRA)
   assinarApr(
     @Param("id", ParseUUIDPipe) id: string,
     @Param("aprId", ParseUUIDPipe) aprId: string,
@@ -223,7 +204,7 @@ export class ObrasController {
   @Post(":id/incidentes")
   @HttpCode(201)
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
-  @Roles(...REGISTRAR_INCIDENTE)
+  @Departamento(LER_OBRA)
   registrarIncidente(
     @Param("id", ParseUUIDPipe) id: string,
     @Body(new ZodValidationPipe(registrarIncidenteRequestSchema)) input: RegistrarIncidenteRequest,
@@ -235,7 +216,7 @@ export class ObrasController {
   @Post(":id/liberacoes")
   @HttpCode(201)
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
-  @Roles(...REGISTRAR_LIBERACAO)
+  @Departamento(OPERAR_OBRA)
   registrarLiberacao(
     @Param("id", ParseUUIDPipe) id: string,
     @Body(new ZodValidationPipe(registrarLiberacaoRequestSchema)) input: RegistrarLiberacaoRequest,
@@ -247,7 +228,7 @@ export class ObrasController {
   @Post(":id/liberacoes/:liberacaoId/revogar")
   @HttpCode(200)
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
-  @Roles(...REVOGAR_LIBERACAO)
+  @Departamento(DECIDIR_OBRA_GERENTE, "gerente")
   revogarLiberacao(
     @Param("id", ParseUUIDPipe) id: string,
     @Param("liberacaoId", ParseUUIDPipe) liberacaoId: string,
@@ -260,7 +241,7 @@ export class ObrasController {
   @Post(":id/pendencias")
   @HttpCode(201)
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
-  @Roles(...REGISTRAR_PENDENCIA)
+  @Departamento(OPERAR_OBRA)
   registrarPendencia(
     @Param("id", ParseUUIDPipe) id: string,
     @Body(new ZodValidationPipe(registrarPendenciaRequestSchema)) input: RegistrarPendenciaRequest,
@@ -272,7 +253,7 @@ export class ObrasController {
   @Post(":id/pendencias/:pendenciaId/prioridade")
   @HttpCode(200)
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
-  @Roles(...CLASSIFICAR_PRIORIDADE_PENDENCIA)
+  @Departamento(OPERAR_OBRA)
   classificarPrioridadePendencia(
     @Param("id", ParseUUIDPipe) id: string,
     @Param("pendenciaId", ParseUUIDPipe) pendenciaId: string,
@@ -285,7 +266,7 @@ export class ObrasController {
   @Post(":id/pendencias/:pendenciaId/encerrar")
   @HttpCode(200)
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
-  @Roles(...ENCERRAR_PENDENCIA)
+  @Departamento(OPERAR_OBRA_COM_SUPRIMENTOS)
   encerrarPendencia(
     @Param("id", ParseUUIDPipe) id: string,
     @Param("pendenciaId", ParseUUIDPipe) pendenciaId: string,
@@ -298,7 +279,7 @@ export class ObrasController {
   @Post(":id/medicoes")
   @HttpCode(201)
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
-  @Roles(...LANCAR_MEDICAO)
+  @Departamento(OPERAR_OBRA)
   lancarMedicao(
     @Param("id", ParseUUIDPipe) id: string,
     @Body(new ZodValidationPipe(lancarMedicaoRequestSchema)) input: LancarMedicaoRequest,
@@ -310,7 +291,7 @@ export class ObrasController {
   @Post(":id/medicoes/:medicaoId/aprovar")
   @HttpCode(200)
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
-  @Roles(...APROVAR_MEDICAO)
+  @Departamento(DECIDIR_OBRA_GERENTE, "gerente")
   aprovarMedicao(
     @Param("id", ParseUUIDPipe) id: string,
     @Param("medicaoId", ParseUUIDPipe) medicaoId: string,
@@ -323,7 +304,7 @@ export class ObrasController {
   @Post(":id/medicoes/:medicaoId/solicitar-correcao")
   @HttpCode(200)
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
-  @Roles(...APROVAR_MEDICAO)
+  @Departamento(DECIDIR_OBRA_GERENTE, "gerente")
   solicitarCorrecaoMedicao(
     @Param("id", ParseUUIDPipe) id: string,
     @Param("medicaoId", ParseUUIDPipe) medicaoId: string,
@@ -337,7 +318,7 @@ export class ObrasController {
   @Post(":id/projeto/versoes")
   @HttpCode(201)
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
-  @Roles(...CRIAR_VERSAO_DE_PROJETO)
+  @Departamento(OPERAR_OBRA)
   @UseInterceptors(
     UploadEmDisco(),
     FileInterceptor("arquivo", { storage: armazenamentoEmDisco, limits: { fileSize: TAMANHO_MAXIMO_POR_ARQUIVO } }),
@@ -355,7 +336,7 @@ export class ObrasController {
   @Post(":id/projeto/versoes/:versaoId/enviar-para-aprovacao")
   @HttpCode(200)
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
-  @Roles(...CRIAR_VERSAO_DE_PROJETO)
+  @Departamento(OPERAR_OBRA)
   enviarProjetoParaAprovacao(
     @Param("id", ParseUUIDPipe) id: string,
     @Param("versaoId", ParseUUIDPipe) versaoId: string,
@@ -368,7 +349,7 @@ export class ObrasController {
   @Post(":id/projeto/versoes/:versaoId/aprovar")
   @HttpCode(200)
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
-  @Roles(...APROVAR_PROJETO)
+  @Departamento(DECIDIR_OBRA_GERENTE, "gerente")
   aprovarProjeto(
     @Param("id", ParseUUIDPipe) id: string,
     @Param("versaoId", ParseUUIDPipe) versaoId: string,
@@ -381,7 +362,7 @@ export class ObrasController {
   @Post(":id/projeto/versoes/:versaoId/solicitar-revisao")
   @HttpCode(200)
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
-  @Roles(...APROVAR_PROJETO)
+  @Departamento(DECIDIR_OBRA_GERENTE, "gerente")
   solicitarRevisaoDeProjeto(
     @Param("id", ParseUUIDPipe) id: string,
     @Param("versaoId", ParseUUIDPipe) versaoId: string,
@@ -395,8 +376,7 @@ export class ObrasController {
   obra(
     @Param("id", ParseUUIDPipe) id: string,
     @Query("companyId", new ZodValidationPipe(companyKeySchema)) companyId: CompanyKey,
-    @CurrentPrincipal() principal: AuthPrincipal,
   ): Promise<ObraExecucaoDetalhe> {
-    return this.service.obra(id, companyId, principal);
+    return this.service.obra(id, companyId);
   }
 }

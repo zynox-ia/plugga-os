@@ -47,7 +47,6 @@ type LinhaDePipeline = Prisma.PipelineGetPayload<{ include: typeof COMPLETO }>;
 
 const NAO_ENCONTRADO = "Pipeline não encontrado.";
 const NOME_REPETIDO = "Já existe um pipeline com este nome nesta empresa.";
-const PAPEL_DE_EQUIPE = "comercial";
 const VERSAO_DESATUALIZADA = "Outra pessoa alterou este pipeline enquanto você editava. Reabra para ver a versão atual.";
 
 function paraPipeline(linha: LinhaDePipeline, canConfigure: boolean): Pipeline {
@@ -109,10 +108,10 @@ export class PrismaPipelinesRepository extends PipelinesRepository {
         where: { userId: principal.id, role: "gestor", pipeline: { companyId: query.companyId } },
         select: { userId: true },
       });
-      if (!gestorDeAlgum) throw new AcessoNegado("Só quem configura pipelines da empresa vê a equipe comercial dela.");
+      if (!gestorDeAlgum) throw new AcessoNegado("Só quem configura pipelines vê a equipe do CRM.");
     }
     const pessoas = await this.prisma.user.findMany({
-      where: this.elegivelParaEquipe(query.companyId),
+      where: this.elegivelParaEquipe(),
       orderBy: { name: "asc" },
       select: { id: true, name: true },
     });
@@ -121,9 +120,9 @@ export class PrismaPipelinesRepository extends PipelinesRepository {
 
   async create(input: CreatePipelineRequest, principal: AuthPrincipal): Promise<Pipeline> {
     const acesso = await this.acessoDe(principal.id);
-    if (!podeCriarEm(acesso, input.companyId)) throw new AcessoNegado("Só o gestor comercial da empresa cria pipelines.");
+    if (!podeCriarEm(acesso, input.companyId)) throw new AcessoNegado("Só o gerente do CRM cria pipelines.");
     await this.garantirNomeLivre(input.companyId, input.name);
-    await this.garantirEquipe(input.companyId, input.members);
+    await this.garantirEquipe(input.members);
 
     const { stages, tags, lossReasons, members, ...gerais } = input;
     const id = await this.comNomeUnico(() =>
@@ -164,7 +163,7 @@ export class PrismaPipelinesRepository extends PipelinesRepository {
       ]);
     }
     if (input.companyId !== atual.companyId && !(podeCriarEm(acesso, atual.companyId) && podeCriarEm(acesso, input.companyId))) {
-      throw new AcessoNegado("Só quem é gestor comercial das duas empresas troca a empresa do pipeline.");
+      throw new AcessoNegado("Só o gerente do CRM troca a empresa do pipeline.");
     }
 
     const desconhecidos = [
@@ -180,7 +179,7 @@ export class PrismaPipelinesRepository extends PipelinesRepository {
     if (input.name.toLocaleLowerCase("pt-BR") !== atual.name.toLocaleLowerCase("pt-BR") || input.companyId !== atual.companyId) {
       await this.garantirNomeLivre(input.companyId, input.name, id);
     }
-    await this.garantirEquipe(input.companyId, input.members);
+    await this.garantirEquipe(input.members);
 
     const { campos, secoes } = alteracoes(atual, input);
     const { stages, tags, lossReasons, members, updatedAt, stageDestinations, ...gerais } = input;
@@ -285,20 +284,21 @@ export class PrismaPipelinesRepository extends PipelinesRepository {
     return paraPipeline(linha, podeConfigurar(acesso, pessoaId, linha));
   }
 
-  private elegivelParaEquipe(empresa: CompanyKey): Prisma.UserWhereInput {
-    return { status: "active", memberships: { some: { companyId: empresa, roles: { some: { role: { key: PAPEL_DE_EQUIPE } } } } } };
+  /** Entra na equipe de um pipeline quem é do CRM; a empresa é etiqueta do pipeline, não fronteira de acesso. */
+  private elegivelParaEquipe(): Prisma.UserWhereInput {
+    return { status: "active", departamentos: { some: { departamento: "crm" } } };
   }
 
-  private async garantirEquipe(empresa: CompanyKey, membros: readonly PipelineMemberInput[]): Promise<void> {
+  private async garantirEquipe(membros: readonly PipelineMemberInput[]): Promise<void> {
     if (membros.length === 0) return;
     const ids = membros.map((m) => m.userId);
-    const elegiveis = await this.prisma.user.findMany({ where: { id: { in: ids }, ...this.elegivelParaEquipe(empresa) }, select: { id: true } });
+    const elegiveis = await this.prisma.user.findMany({ where: { id: { in: ids }, ...this.elegivelParaEquipe() }, select: { id: true } });
     const validos = new Set(elegiveis.map((p) => p.id));
     const detalhes = membros.flatMap((m, i) =>
-      validos.has(m.userId) ? [] : [{ campo: `members.${i}.userId`, problema: "sem papel comercial ativo na empresa do pipeline" }],
+      validos.has(m.userId) ? [] : [{ campo: `members.${i}.userId`, problema: "não é do CRM ou não está ativo" }],
     );
     if (detalhes.length > 0) {
-      throw new RequisicaoInvalida("Só pessoas ativas com papel comercial na empresa do pipeline entram na equipe.", detalhes);
+      throw new RequisicaoInvalida("Só pessoas ativas do CRM entram na equipe do pipeline.", detalhes);
     }
   }
 

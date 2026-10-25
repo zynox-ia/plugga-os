@@ -137,7 +137,7 @@ class InMemoryClientesRepository extends ClientesRepository {
 describe("clientes API (e2e)", () => {
   let app: INestApplication;
 
-  const comercial = (r: request.Test) => r.set("x-dev-principal", "local-comercial").set("x-dev-roles", "comercial");
+  const comercial = (r: request.Test) => r.set("x-dev-principal", "local-comercial").set("x-dev-departamentos", "crm:membro");
 
   beforeAll(async () => {
     const module = await Test.createTestingModule({ imports: [AppModule] })
@@ -157,9 +157,13 @@ describe("clientes API (e2e)", () => {
     await request(app.getHttpServer()).get("/clientes").expect(401);
   });
 
-  it("denies the cadastro to roles outside the client domain", async () => {
-    for (const papel of ["viewer", "financeiro", "compras"]) {
-      await request(app.getHttpServer()).get("/clientes").set("x-dev-principal", `local-${papel}`).set("x-dev-roles", papel).expect(403);
+  it("denies the cadastro to departments outside the client domain", async () => {
+    for (const departamento of ["financeiro", "suprimentos", "marketing"]) {
+      await request(app.getHttpServer())
+        .get("/clientes")
+        .set("x-dev-principal", `local-${departamento}`)
+        .set("x-dev-departamentos", `${departamento}:membro`)
+        .expect(403);
     }
   });
 
@@ -229,18 +233,18 @@ describe("clientes API (e2e)", () => {
       .expect((res) => expect(res.body.duplicateCandidates[0].matchedOn).toEqual(["phone"]));
   });
 
-  it("lets other client-domain roles read but only comercial/admin write", async () => {
-    await request(app.getHttpServer()).get("/clientes").set("x-dev-principal", "local-opm").set("x-dev-roles", "opm").expect(200);
+  it("lets other client-domain departments read but only the CRM/admin write", async () => {
+    await request(app.getHttpServer()).get("/clientes").set("x-dev-principal", "local-opm").set("x-dev-departamentos", "energia-opm:membro").expect(200);
     await request(app.getHttpServer())
       .post("/clientes")
       .set("x-dev-principal", "local-opm")
-      .set("x-dev-roles", "opm")
+      .set("x-dev-departamentos", "energia-opm:membro")
       .send({ personType: "pj", name: "Não pode", phone: "92999994120" })
       .expect(403);
     await request(app.getHttpServer())
       .post(`/clientes/${CLIENT_A.id}/contatos`)
       .set("x-dev-principal", "local-tech")
-      .set("x-dev-roles", "tech")
+      .set("x-dev-departamentos", "produto-tecnologia:membro")
       .send({ name: "Juliana" })
       .expect(403);
   });

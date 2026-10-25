@@ -1,6 +1,5 @@
 import { Inject, Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { flattenRoles } from "@plugga/shared";
 
 import { PrismaService } from "../../prisma/prisma.service";
 import type { AuthPrincipal } from "./auth.types";
@@ -9,7 +8,7 @@ import {
   SessionLookupRepository,
   type SessionLookupContext,
 } from "./session-lookup.repository";
-import { mapAcesso, mapUserAccess } from "./user-access.mapper";
+import { mapAcesso } from "./user-access.mapper";
 
 @Injectable()
 export class PrismaSessionLookupRepository extends SessionLookupRepository {
@@ -40,7 +39,6 @@ export class PrismaSessionLookupRepository extends SessionLookupRepository {
         user: {
           include: {
             platformRoles: { include: { role: true } },
-            memberships: { include: { roles: { include: { role: true } }, departments: true } },
             departamentos: true,
           },
         },
@@ -72,7 +70,6 @@ export class PrismaSessionLookupRepository extends SessionLookupRepository {
       email: session.user.email,
       name: session.user.name,
       status: session.user.status,
-      access: mapUserAccess(session.user),
       acesso: mapAcesso(session.user),
     };
 
@@ -83,12 +80,8 @@ export class PrismaSessionLookupRepository extends SessionLookupRepository {
     return this.toPrincipal(resolvedUser);
   }
 
-  // O principal carrega a união achatada dos papéis (plataforma + todas as
-  // empresas), que é o que `RolesGuard` consome. Onde cada papel vale é
-  // resolvido por quem precisa do contexto de empresa, lendo o acesso inteiro
-  // — carregar isso em toda requisição custaria mais do que rende.
   private toPrincipal(user: ResolvedSessionUser): AuthPrincipal {
-    return { id: user.id, kind: "user", roles: flattenRoles(user.access), acesso: user.acesso };
+    return { id: user.id, kind: "user", acesso: user.acesso };
   }
 
   private async applySlidingRenewal(

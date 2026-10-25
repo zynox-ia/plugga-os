@@ -1,11 +1,11 @@
 import { expect, test, type Page } from "@playwright/test";
 
-import { EMPRESAS_POR_ID } from "../app/lib/organizacao";
+import { DEPARTAMENTOS } from "../app/lib/organizacao";
 
 // Rótulos direto do catálogo (organizacao.ts), casados pela rota: a primeira
 // versão colava os textos e quebrou quando a sidebar foi rederivada do
 // catálogo com outros nomes.
-const ENERGIA = EMPRESAS_POR_ID.plugga.departamentos.find((d) => d.id === "energia-opm");
+const ENERGIA = DEPARTAMENTOS.find((d) => d.id === "energia-opm");
 
 function rotulo(rota: string): string {
   const processo = ENERGIA?.processos.find((p) => p.rota === rota);

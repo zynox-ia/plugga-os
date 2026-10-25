@@ -8,7 +8,6 @@ import {
 import {
   authAcknowledgementSchema,
   eventNames,
-  flattenRoles,
   sessionUserSchema,
   type AcceptInviteRequest,
   type AuthAcknowledgement,
@@ -41,8 +40,6 @@ export function toSessionUser(user: ResolvedSessionUser): SessionUser {
     email: user.email,
     name: user.name,
     status: user.status,
-    roles: flattenRoles(user.access),
-    access: user.access,
     acesso: user.acesso,
   });
 }

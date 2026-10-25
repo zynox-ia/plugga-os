@@ -89,7 +89,7 @@ describe("Bitrix read-only import trigger (e2e)", () => {
       await request(app.getHttpServer())
         .post("/integrations/bitrix/import")
         .set("x-dev-principal", "local-viewer")
-        .set("x-dev-roles", "viewer")
+        .set("x-dev-departamentos", "crm:membro")
         .expect(403);
     });
 
@@ -98,7 +98,7 @@ describe("Bitrix read-only import trigger (e2e)", () => {
       const response = await request(app.getHttpServer())
         .post("/integrations/bitrix/import")
         .set("x-dev-principal", "local-admin")
-        .set("x-dev-roles", "admin")
+        .set("x-dev-plataforma", "admin")
         .expect(409);
 
       expect(response.body.message).toMatch(/read_only/);
@@ -110,7 +110,7 @@ describe("Bitrix read-only import trigger (e2e)", () => {
       await request(app.getHttpServer())
         .post("/integrations/bitrix/import")
         .set("x-dev-principal", "local-admin")
-        .set("x-dev-roles", "admin")
+        .set("x-dev-plataforma", "admin")
         .expect(503);
 
       expect(RecordingJobsQueue.calls).toHaveLength(0);
@@ -125,7 +125,7 @@ describe("Bitrix read-only import trigger (e2e)", () => {
         await request(app.getHttpServer())
           .post(path)
           .set("x-dev-principal", "local-admin")
-          .set("x-dev-roles", "admin")
+          .set("x-dev-plataforma", "admin")
           .expect(404);
       }
     });
@@ -150,7 +150,7 @@ describe("Bitrix read-only import trigger (e2e)", () => {
       const response = await request(app.getHttpServer())
         .post("/integrations/bitrix/import")
         .set("x-dev-principal", "local-admin")
-        .set("x-dev-roles", "admin")
+        .set("x-dev-plataforma", "admin")
         .expect(201);
 
       expect(response.body).toEqual({
@@ -170,7 +170,7 @@ describe("Bitrix read-only import trigger (e2e)", () => {
       await request(app.getHttpServer())
         .post("/integrations/bitrix/import")
         .set("x-dev-principal", "local-admin")
-        .set("x-dev-roles", "admin")
+        .set("x-dev-plataforma", "admin")
         .set("origin", "https://evil.example.com")
         .expect(403);
     });
@@ -179,7 +179,7 @@ describe("Bitrix read-only import trigger (e2e)", () => {
       await request(app.getHttpServer())
         .post("/integrations/bitrix/import")
         .set("x-dev-principal", "local-admin")
-        .set("x-dev-roles", "admin")
+        .set("x-dev-plataforma", "admin")
         .set("origin", "http://localhost:3000")
         .expect(201);
     });
@@ -189,7 +189,7 @@ describe("Bitrix read-only import trigger (e2e)", () => {
       await request(app.getHttpServer())
         .post("/integrations/bitrix/import")
         .set("x-dev-principal", "service:migrator")
-        .set("x-dev-roles", "admin")
+        .set("x-dev-plataforma", "admin")
         .expect(201);
 
       expect(RecordingJobsQueue.calls[0]?.options?.triggeredBy).toBe("service:migrator");
@@ -199,7 +199,7 @@ describe("Bitrix read-only import trigger (e2e)", () => {
       const response = await request(app.getHttpServer())
         .post("/integrations/bitrix/import")
         .set("x-dev-principal", "local-admin")
-        .set("x-dev-roles", "admin")
+        .set("x-dev-plataforma", "admin")
         .expect(201);
 
       expect(JSON.stringify(response.body)).not.toContain("local-only-test-token");

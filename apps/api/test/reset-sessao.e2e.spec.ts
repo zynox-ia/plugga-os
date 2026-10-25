@@ -1,4 +1,3 @@
-import { flattenRoles } from "@plugga/shared";
 import { Test } from "@nestjs/testing";
 import type { NestExpressApplication } from "@nestjs/platform-express";
 import request from "supertest";
@@ -17,8 +16,6 @@ import { generateOpaqueToken, hashToken } from "../src/core/auth/token.util";
 import { configureApp } from "../src/configure-app";
 import { EmailPort } from "../src/email/email.port";
 import {
-  access,
-  acessoGravado,
   CapturingEmailPort,
   InMemoryAuthRepository,
   InMemorySessionLookup,
@@ -71,7 +68,7 @@ class LookupComCache extends SessionLookupRepository {
   async resolvePrincipal(tokenHash: string, context: SessionLookupContext): Promise<AuthPrincipal | null> {
     const cached = await this.cache.get(tokenHash);
     if (cached) {
-      return { id: cached.user.id, kind: "user", roles: flattenRoles(cached.user.access), acesso: cached.user.acesso };
+      return { id: cached.user.id, kind: "user", acesso: cached.user.acesso };
     }
     const principal = await this.inner.resolvePrincipal(tokenHash, context);
     const user = principal ? this.store.users.get(principal.id) : undefined;
@@ -82,8 +79,7 @@ class LookupComCache extends SessionLookupRepository {
           email: user.email,
           name: user.name,
           status: user.status,
-          access: user.access,
-          acesso: acessoGravado(user),
+          acesso: user.acesso,
         },
       }, 60);
     }
@@ -137,7 +133,7 @@ describe("redefinição de senha derruba as sessões, inclusive as do cache (e2e
       email: emailAdmin,
       name: "Administração",
       password: senhaAdmin,
-      access: access({ platformRoles: ["admin"] }),
+      acesso: { plataforma: "admin", departamentos: [] },
     });
   });
 

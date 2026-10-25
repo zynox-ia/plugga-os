@@ -328,7 +328,7 @@ export class PrismaObrasRepository implements ObrasRepository {
           obraId: obra.id,
           versao: (ultima?.versao ?? 0) + 1,
           status: "elaboracao",
-          descricao: input.justificativa ?? "reabertura pela diretoria",
+          descricao: input.justificativa ?? "reabertura pelo admin",
           autorId: principal.id,
           justificativaReabertura: input.justificativa ?? null,
         },

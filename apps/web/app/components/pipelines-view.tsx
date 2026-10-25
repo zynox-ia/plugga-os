@@ -138,7 +138,7 @@ export function PipelinesView({
           <p>
             {podeConfigurar
               ? "Organize seu processo de venda: escolha a empresa, as etapas e quem trabalha nele."
-              : "Você ainda não está na equipe de nenhum pipeline. Peça ao gestor comercial para incluir você."}
+              : "Você ainda não está na equipe de nenhum pipeline. Peça ao gerente do CRM para incluir você."}
           </p>
           {canCreateIn.length > 0 ? (
             <button className="button button--accent" type="button" onClick={() => setConfigurando("novo")}>

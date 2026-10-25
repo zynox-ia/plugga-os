@@ -134,13 +134,10 @@ describe("rota fechada por padrão (e2e)", () => {
           .filter((p) => p.startsWith("departamento:"))
           .map((p) => p.slice("departamento:".length));
         const plataforma = rota.papeis.find((p) => p.startsWith("plataforma:"))?.slice("plataforma:".length);
-        const papeis =
-          rota.acesso === "acesso" ? "" : rota.papeis.length > 0 ? rota.papeis.join(",") : "admin";
         const metodo = rota.metodo.toLowerCase() as "get";
         const alvo = request(app.getHttpServer());
         const resposta = await alvo[metodo](url)
           .set("x-dev-principal", "teste-uuid")
-          .set("x-dev-roles", papeis)
           .set("x-dev-departamentos", departamentos.join(","))
           .set("x-dev-plataforma", plataforma ?? "")
           .send({});

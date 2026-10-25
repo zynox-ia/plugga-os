@@ -18,7 +18,7 @@ import type { SessionCacheEntry } from "../src/core/auth/session-cache";
  */
 const HABILITADO = process.env.RUN_REDIS_INTEGRATION_TESTS === "true";
 const PRAZO_MS = 30_000;
-const PREFIXO_CHAVE = "session:v2:principal:";
+const PREFIXO_CHAVE = "session:v3:principal:";
 
 const HMAC_KEY = randomBytes(32).toString("base64");
 
@@ -28,7 +28,6 @@ const entrada: SessionCacheEntry = {
     email: "ana@plugga.local",
     name: "Ana",
     status: "active",
-    access: { platformRoles: [], companies: [] },
     acesso: { plataforma: null, departamentos: [] },
   },
 };
@@ -52,7 +51,7 @@ describe.skipIf(!HABILITADO)("cache de sessão com HMAC (Redis real)", () => {
   }
 
   afterAll(async () => {
-    await direto.del(...hashes.map((h) => PREFIXO_CHAVE + h), "session:v2:by-user:u-hmac-teste");
+    await direto.del(...hashes.map((h) => PREFIXO_CHAVE + h), "session:v3:by-user:u-hmac-teste");
     await direto.quit();
     for (const c of caches) await c.onModuleDestroy();
   }, PRAZO_MS);
@@ -72,7 +71,7 @@ describe.skipIf(!HABILITADO)("cache de sessão com HMAC (Redis real)", () => {
     await selado.set(hash, entrada.user.id, entrada, 60);
 
     const original = (await direto.get(PREFIXO_CHAVE + hash)) as string;
-    const adulterada = original.replace('"platformRoles":[]', '"platformRoles":["admin"]');
+    const adulterada = original.replace('"plataforma":null', '"plataforma":"admin"');
     expect(adulterada).not.toBe(original);
     await direto.set(PREFIXO_CHAVE + hash, adulterada, "EX", 60);
 

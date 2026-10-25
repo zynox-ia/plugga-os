@@ -4,7 +4,6 @@ import type { PipelineMemberRole, PipelinePeopleResponse } from "@plugga/shared"
 import { useEffect, useState, type CSSProperties } from "react";
 
 import { enviar } from "../../lib/clientes";
-import { EMPRESAS_POR_ID } from "../../lib/organizacao";
 import { novaChave } from "../../lib/pipelines";
 import type { PropsDaSecao } from "./editor-de-pipeline";
 import { Avatar, Icone } from "./icones";
@@ -263,7 +262,6 @@ const PAPEIS: { valor: PipelineMemberRole | ""; rotulo: string }[] = [
 export function SecaoEquipe({ rascunho, aoAlterar, erros, nomesDaEquipe }: PropsDaSecao & { nomesDaEquipe: Record<string, string> }) {
   const [pessoas, setPessoas] = useState<PipelinePeopleResponse["people"] | null>(null);
   const [falha, setFalha] = useState<string | null>(null);
-  const empresa = EMPRESAS_POR_ID[rascunho.companyId].nome;
 
   useEffect(() => {
     let vivo = true;
@@ -282,7 +280,7 @@ export function SecaoEquipe({ rascunho, aoAlterar, erros, nomesDaEquipe }: Props
   const papelDe = new Map(rascunho.members.map((m) => [m.userId, m.role]));
   const foraDaLista = rascunho.members
     .filter((m) => !(pessoas ?? []).some((p) => p.id === m.userId))
-    .map((m) => ({ id: m.userId, name: nomesDaEquipe[m.userId] ?? "Pessoa sem papel comercial" }));
+    .map((m) => ({ id: m.userId, name: nomesDaEquipe[m.userId] ?? "Pessoa fora do CRM" }));
   const linhas = [...(pessoas ?? []), ...foraDaLista];
   const semPapel = (pessoas ?? []).filter((p) => !papelDe.has(p.id));
 
@@ -294,13 +292,13 @@ export function SecaoEquipe({ rascunho, aoAlterar, erros, nomesDaEquipe }: Props
   return (
     <div className="secao-lista">
       <p className="dica">
-        Pessoas ativas com papel comercial na {empresa}. O <b>vendedor</b> vê o pipeline e todos os negócios dele; o <b>gestor</b> também altera esta
-        configuração. O gestor comercial da empresa e o admin já alcançam todos os pipelines dela.
+        Pessoas ativas do CRM. O <b>vendedor</b> vê o pipeline e todos os negócios dele; o <b>gestor</b> também altera esta
+        configuração. O gerente do CRM e o admin já alcançam todos os pipelines.
       </p>
       <ErroDaLista texto={erros.members} />
       <ErroDaLista texto={falha ?? undefined} />
       {pessoas === null && !falha ? <p className="lista-vazia">Carregando pessoas…</p> : null}
-      {pessoas !== null && linhas.length === 0 ? <p className="lista-vazia">Ninguém com papel comercial na {empresa} ainda.</p> : null}
+      {pessoas !== null && linhas.length === 0 ? <p className="lista-vazia">Ninguém do CRM ainda.</p> : null}
       {linhas.length > 0 ? (
         <ul className="linhas-config">
           {linhas.map((pessoa) => {

@@ -130,9 +130,6 @@ export const proxyApiMutation = (request: Request, metodo: "POST" | "PATCH", mod
 export const proxyAuthPost = (request: Request, modelo: string, ids?: Ids) =>
   proxyar(request, { metodo: "POST", prefixo: "/auth", modelo, ids, mensagemIndisponivel: "auth service unavailable" });
 
-export const proxyAuthPut = (request: Request, modelo: string, ids?: Ids) =>
-  proxyar(request, { metodo: "PUT", prefixo: "/auth", modelo, ids, mensagemIndisponivel: "auth service unavailable" });
-
 export const proxyAuthGet = (request: Request, modelo: string, ids?: Ids, consulta?: Consulta) =>
   proxyar(request, { metodo: "GET", prefixo: "/auth", modelo, ids, consulta, mensagemIndisponivel: "auth service unavailable" });
 

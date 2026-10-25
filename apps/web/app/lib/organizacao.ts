@@ -1,35 +1,42 @@
 import {
+  alcancaDepartamento,
   companyKeys,
-  departmentIdsByCompany,
-  visibleDepartments,
+  departamentos as idsDosDepartamentos,
+  papelDoAcesso,
+  type Acesso,
   type CompanyKey,
-  type DepartmentId,
-  type UserAccess,
+  type Departamento as DepartamentoId,
+  type PapelDaEquipe,
 } from "@plugga/shared";
 
 import type { IconName } from "../components/plugga-shell";
 
 /**
- * Organização do plugga-os: Empresa → Departamento → Processo.
+ * Organização do plugga-os: Departamento → Processo.
  *
  * Fonte da navegação lateral e do mapa em /estrutura. Mudar um processo de
  * departamento é mover uma linha.
  *
- * Plugga e Waze não são departamentos. O catálogo preserva a origem de cada
- * processo, mas a barra lateral apresenta uma navegação única. O que atravessa
- * as duas (usuários, jobs e integrações) vive em GLOBAIS.
- *
- * Os **identificadores** de empresa e departamento vêm de `@plugga/shared`:
- * é a API que valida acesso contra eles, e rótulo/ícone/processo (que só a
- * navegação usa) continuam aqui. Renomear um id sem mexer no outro lado deixa
- * de compilar em vez de virar um acesso que não aparece em lugar nenhum.
+ * Os 7 departamentos são os do acesso (`@plugga/shared`, `acesso.ts`): a
+ * barra lateral mostra só os que a pessoa alcança. Plugga e Waze não são
+ * departamentos nem fronteira de acesso; são etiqueta dos registros (pedido,
+ * obra, pipeline) e filtro das telas.
  */
 
 export const EMPRESAS = companyKeys;
 export type EmpresaId = CompanyKey;
-export type DepartamentoId = DepartmentId;
 
 export const EMPRESA_PADRAO: EmpresaId = "plugga";
+
+export function isEmpresaId(value: string | null | undefined): value is EmpresaId {
+  return EMPRESAS.includes(value as EmpresaId);
+}
+
+/** Nome e descrição de cada empresa, para a etiqueta dos registros. */
+export const EMPRESAS_POR_ID: Record<EmpresaId, { id: EmpresaId; nome: string; descricao: string }> = {
+  plugga: { id: "plugga", nome: "Plugga", descricao: "Consultoria: gestão de energia, OPM e eletromobilidade" },
+  waze: { id: "waze", nome: "Waze Energia", descricao: "Engenharia e obras: projetos, instalações e serviços" },
+};
 
 /**
  * `pronto` tem tela ligada a dado real; `parcial` tem tela, mas ainda é
@@ -52,176 +59,99 @@ export type Departamento = {
   processos: Processo[];
 };
 
-export type Empresa = {
-  id: EmpresaId;
-  nome: string;
-  descricao: string;
-  departamentos: Departamento[];
-};
-
-export function isEmpresaId(value: string | null | undefined): value is EmpresaId {
-  return EMPRESAS.includes(value as EmpresaId);
-}
-
-/** Departamentos da empresa liberados para a pessoa, na ordem do catálogo. */
-export function departamentosPermitidos(
-  empresa: EmpresaId,
-  acesso: UserAccess | null,
-): Departamento[] {
-  const { departamentos } = EMPRESAS_POR_ID[empresa];
-  if (!acesso) {
-    return departamentos;
-  }
-  const liberados = new Set<string>(visibleDepartments(acesso, empresa));
-  return departamentos.filter((departamento) => liberados.has(departamento.id));
-}
-
 /**
- * CRM é um módulo só para as duas empresas (ADR-0013): o mesmo catálogo vale na
- * Plugga e na Waze, e a empresa vem de cada pipeline. O departamento se chamava
- * Comercial; o André aprovou o nome CRM e os itens Pipelines, Clientes, Propostas e
- * Contratos (25/10/2026; o rótulo é Pipelines, não Funis). Atividades saiu do menu, mas `/comercial/atividades`
- * continua existindo. Configurar pipelines não é item de menu: é um botão que abre
- * um modal na tela de Pipelines (decisão de 19/10/2026). Só o rótulo mudou: os ids
- * `comercial-clientes` e `comercial-obras` seguem iguais, porque são o acesso
- * já concedido.
+ * Os departamentos na ordem da barra lateral (aprovada pelo André em
+ * 25/10/2026). O CRM é um só para as duas empresas (ADR-0013); configurar
+ * pipelines é um botão na tela de Pipelines, não item de menu (19/10/2026).
+ * Suprimentos nasce com Compras, que saiu do Financeiro.
  */
-const CRM: Processo[] = [
-  { label: "Pipelines", rota: "/comercial/pipelines", status: "parcial" },
-  { label: "Clientes", rota: "/clientes", status: "pronto" },
-  { label: "Propostas", status: "em-breve" },
-  { label: "Contratos", rota: "/comercial/contratos", status: "parcial" },
+export const DEPARTAMENTOS: Departamento[] = [
+  {
+    id: "crm",
+    label: "CRM",
+    icon: "users",
+    processos: [
+      { label: "Pipelines", rota: "/comercial/pipelines", status: "parcial" },
+      { label: "Clientes", rota: "/clientes", status: "pronto" },
+      { label: "Propostas", status: "em-breve" },
+      { label: "Contratos", rota: "/comercial/contratos", status: "parcial" },
+    ],
+  },
+  {
+    id: "energia-opm",
+    label: "Energia",
+    icon: "bolt",
+    processos: [
+      { label: "Ciclos mensais", rota: "/energia-opm/ciclos", status: "pronto" },
+      { label: "Auditoria de faturas", rota: "/energia-opm/auditorias", status: "pronto" },
+      { label: "Migração Mercado Livre", rota: "/energia-opm/migracoes", status: "pronto" },
+      { label: "Relatórios de economia", rota: "/energia-opm/relatorios", status: "parcial" },
+      { label: "Demanda contratada", status: "em-breve" },
+    ],
+  },
+  {
+    id: "produto-tecnologia",
+    label: "Eletromobilidade",
+    icon: "pulse",
+    processos: [
+      { label: "PluggaMob", rota: "/pluggamob", status: "parcial" },
+      { label: "EV Point · eletropostos", status: "em-breve" },
+      { label: "Recargas", status: "em-breve" },
+      { label: "Parceiros", status: "em-breve" },
+      { label: "Dashboards do produto", status: "em-breve" },
+    ],
+  },
+  {
+    id: "financeiro",
+    label: "Financeiro",
+    icon: "wallet",
+    processos: [
+      { label: "Contas a pagar", status: "em-breve" },
+      { label: "Contas a receber", status: "em-breve" },
+      { label: "Conciliação", status: "em-breve" },
+      { label: "Fiscal", status: "em-breve" },
+    ],
+  },
+  {
+    id: "suprimentos",
+    label: "Suprimentos",
+    icon: "package",
+    processos: [
+      { label: "Compras", rota: "/compras", status: "pronto" },
+      { label: "Fornecedores", status: "em-breve" },
+      { label: "Estoque", status: "em-breve" },
+    ],
+  },
+  {
+    id: "engenharia-obras",
+    label: "Engenharia e Obras",
+    icon: "hardhat",
+    processos: [
+      { label: "Obras", rota: "/engenharia", status: "parcial" },
+      { label: "Projetos elétricos", status: "em-breve" },
+      { label: "Ordens de serviço", status: "em-breve" },
+      { label: "Instalações", status: "em-breve" },
+      { label: "Manutenção", status: "em-breve" },
+      { label: "Visitas técnicas", status: "em-breve" },
+      { label: "Usinas solares · BESS", status: "em-breve" },
+      { label: "Relatórios de campo · fotos e aceite", status: "em-breve" },
+    ],
+  },
+  {
+    id: "marketing",
+    label: "Marketing",
+    icon: "megaphone",
+    processos: [{ label: "Campanhas", status: "em-breve" }],
+  },
 ];
 
-/**
- * Suprimentos nasce com Compras, que saiu do Financeiro, e vale nas duas
- * empresas. O POP-COMP-001 é um só, e o pedido carrega a empresa desde a
- * primeira migração: a Waze lê a mesma tela com dados que a API já isola por
- * `companyId`. Fornecedores e Estoque ainda não têm tela (a API de fornecedores
- * existe, a tela não). Movimentação de material fica aqui, com quem compra e
- * estoca; retirar e entregar em obra segue como operação de campo.
- */
-const SUPRIMENTOS: Departamento = {
-  id: "suprimentos",
-  label: "Suprimentos",
-  icon: "package",
-  processos: [
-    { label: "Compras", rota: "/compras", status: "pronto" },
-    { label: "Fornecedores", status: "em-breve" },
-    { label: "Estoque", status: "em-breve" },
-  ],
-};
-
-const FINANCEIRO: Departamento = {
-  id: "financeiro",
-  label: "Financeiro",
-  icon: "wallet",
-  processos: [
-    { label: "Contas a pagar", status: "em-breve" },
-    { label: "Contas a receber", status: "em-breve" },
-    { label: "Conciliação", status: "em-breve" },
-    { label: "Fiscal", status: "em-breve" },
-  ],
-};
-
-const MARKETING: Departamento = {
-  id: "marketing",
-  label: "Marketing",
-  icon: "megaphone",
-  processos: [{ label: "Campanhas", status: "em-breve" }],
-};
-
-const plugga: Empresa = {
-  id: "plugga",
-  nome: "Plugga",
-  descricao: "Consultoria: gestão de energia, OPM e eletromobilidade",
-  departamentos: [
-    {
-      id: "comercial-clientes",
-      label: "CRM",
-      icon: "users",
-      processos: CRM,
-    },
-    {
-      id: "energia-opm",
-      label: "Energia",
-      icon: "bolt",
-      processos: [
-        { label: "Ciclos mensais", rota: "/energia-opm/ciclos", status: "pronto" },
-        { label: "Auditoria de faturas", rota: "/energia-opm/auditorias", status: "pronto" },
-        { label: "Migração Mercado Livre", rota: "/energia-opm/migracoes", status: "pronto" },
-        { label: "Relatórios de economia", rota: "/energia-opm/relatorios", status: "parcial" },
-        { label: "Demanda contratada", status: "em-breve" },
-      ],
-    },
-    {
-      id: "produto-tecnologia",
-      label: "Eletromobilidade",
-      icon: "pulse",
-      processos: [
-        { label: "PluggaMob", rota: "/pluggamob", status: "parcial" },
-        { label: "EV Point · eletropostos", status: "em-breve" },
-        { label: "Recargas", status: "em-breve" },
-        { label: "Parceiros", status: "em-breve" },
-        { label: "Dashboards do produto", status: "em-breve" },
-      ],
-    },
-    FINANCEIRO,
-    SUPRIMENTOS,
-    MARKETING,
-  ],
-};
-
-const waze: Empresa = {
-  id: "waze",
-  nome: "Waze Energia",
-  descricao: "Engenharia e obras: projetos, instalações e serviços",
-  departamentos: [
-    {
-      id: "comercial-obras",
-      label: "CRM",
-      icon: "users",
-      processos: CRM,
-    },
-    {
-      id: "engenharia-obras",
-      label: "Engenharia e Obras",
-      icon: "hardhat",
-      processos: [
-        { label: "Obras", rota: "/engenharia", status: "parcial" },
-        { label: "Projetos elétricos", status: "em-breve" },
-        { label: "Ordens de serviço", status: "em-breve" },
-        { label: "Instalações", status: "em-breve" },
-        { label: "Manutenção", status: "em-breve" },
-        { label: "Visitas técnicas", status: "em-breve" },
-        { label: "Usinas solares · BESS", status: "em-breve" },
-        { label: "Relatórios de campo · fotos e aceite", status: "em-breve" },
-      ],
-    },
-    FINANCEIRO,
-    SUPRIMENTOS,
-    MARKETING,
-  ],
-};
-
-export const EMPRESAS_POR_ID: Record<EmpresaId, Empresa> = { plugga, waze };
-
-/**
- * Ordem única dos departamentos na barra lateral (por rótulo, porque o mesmo
- * departamento existe nas duas empresas sob ids diferentes). Aprovada pelo
- * André em 25/10/2026. É só ordem visual: ids e acessos não dependem dela.
- * Departamento fora da lista faz o módulo falhar ao carregar, em vez de cair
- * no fim da barra por acaso.
- */
-export const ORDEM_DEPARTAMENTOS = [
-  "CRM",
-  "Energia",
-  "Eletromobilidade",
-  "Financeiro",
-  "Suprimentos",
-  "Engenharia e Obras",
-  "Marketing",
-] as const;
+/** Departamentos que a pessoa alcança, na ordem da barra. Sem acesso conhecido, todos. */
+export function departamentosPermitidos(acesso: Acesso | null): Departamento[] {
+  if (!acesso) {
+    return DEPARTAMENTOS;
+  }
+  return DEPARTAMENTOS.filter((departamento) => alcancaDepartamento(acesso, departamento.id));
+}
 
 /**
  * Início é só o Dashboard. A Central de Pendências saiu do menu e do código em
@@ -234,9 +164,8 @@ export const VISAO_GERAL: Processo[] = [
 
 /**
  * Ferramentas atravessam todos os departamentos e fecham a barra lateral.
- * Documentos e Relatórios saíram do grupo em 25/10/2026: passam a viver dentro
- * de cada departamento. Configurações é o último item: a entrada aparece para
- * todos e a página filtra as seções por papel (`configuracoesParaAcesso`).
+ * Configurações é o último item: a entrada aparece para todos e a página
+ * filtra as seções pelo papel (`configuracoesParaAcesso`).
  */
 export const FERRAMENTAS: Processo[] = [
   { label: "Agentes IA", rota: "/agentes-ia", status: "parcial" },
@@ -253,41 +182,40 @@ export const ROTAS_FORA_DO_MENU: Processo[] = [
   { label: "Documentos", rota: "/documentos", status: "parcial" },
 ];
 
+/** Como cada papel aparece na tela. */
+export const ROTULO_DO_PAPEL: Record<PapelDaEquipe, string> = {
+  desenvolvedor: "Desenvolvedor",
+  admin: "Admin",
+  gerente: "Gerente",
+  membro: "Membro",
+};
+
+/** Degraus da escada, do menor para o maior. */
+const DEGRAUS: readonly PapelDaEquipe[] = ["membro", "gerente", "admin", "desenvolvedor"];
+
 /**
  * Configurações: o que se ajusta uma vez, não o que se usa todo dia. Entra
  * como **um** item no rodapé da barra, abrindo uma página com as seções
- * abaixo — se virassem sete linhas na sidebar, reconstruiríamos a poluição do
- * Bitrix, com o que se mexe por trimestre ao lado do que se usa por hora.
- *
- * `roles` filtra o que cada pessoa enxerga dentro da página. A entrada em si
- * aparece sempre: esconder o menu inteiro faz quem não tem acesso procurar
- * onde não existe.
+ * abaixo. `minimo` é o menor papel que enxerga a seção: o gerente vê Equipe
+ * (só do próprio departamento), o admin vê o que faz a plataforma funcionar e
+ * o desenvolvedor vê também as telas técnicas. A entrada em si aparece sempre:
+ * esconder o menu inteiro faz quem não tem acesso procurar onde não existe.
  */
 export type SecaoConfiguracao = Processo & {
   descricao: string;
-  roles: readonly string[];
+  minimo: PapelDaEquipe;
   /** Marca a seção que tem tela própria dentro de Configurações. */
   id?: "equipe" | "chave-llm";
-  /**
-   * Também visível para gestor de departamento. Quem gestiona precisa da mesma
-   * porta que o admin — só que a tela atrás dela mostra o escopo dele.
-   */
-  gestor?: boolean;
 };
 
 export const CONFIGURACOES: SecaoConfiguracao[] = [
   {
-    // "Equipe" e "Papéis e permissões" eram a mesma pergunta partida em duas
-    // telas: quem tem acesso, e a que. Separá-las obrigaria a atravessar de uma
-    // para a outra a cada convite; aqui papel e departamento são campos da
-    // mesma linha de acesso.
     id: "equipe",
     label: "Equipe e acessos",
     descricao:
-      "Quem entra, com que papel e em qual empresa/departamento. A mesma pessoa pode ser financeiro na Plugga e nada na Waze.",
+      "Quem entra e o que alcança: membro ou gerente por departamento, admin ou desenvolvedor na plataforma.",
     status: "pronto",
-    roles: ["admin"],
-    gestor: true,
+    minimo: "gerente",
   },
   {
     // Chave de IA: fica em configurações porque troca com frequência e não deve
@@ -297,65 +225,55 @@ export const CONFIGURACOES: SecaoConfiguracao[] = [
     descricao:
       "A credencial da OpenRouter que serve o sistema inteiro. Guardada cifrada, trocável por aqui, e todo consumo dela é medido por processo.",
     status: "pronto",
-    roles: ["admin"],
+    minimo: "admin",
   },
   {
     label: "Departamentos e processos",
     descricao:
       "Desenho dos fluxos: etapas, tarefas, prazos de SLA e KPIs. Uma definição só, usada pelas duas empresas.",
     status: "em-breve",
-    roles: ["admin", "diretoria"],
+    minimo: "admin",
   },
   {
     label: "Empresas",
-    descricao: "Plugga e Waze Energia: identidade e departamentos ativos em cada uma.",
+    descricao: "Plugga e Waze Energia: identidade e etiqueta dos registros.",
     status: "em-breve",
-    roles: ["admin"],
+    minimo: "admin",
   },
   {
     label: "Integrações",
     descricao: "Bitrix, OMIE, PagBank e PluggaMob — modo e saúde de cada uma.",
     rota: "/integracoes",
     status: "pronto",
-    roles: ["admin", "tech"],
+    minimo: "admin",
   },
   {
     label: "Jobs e automações",
     descricao: "Agendamentos, histórico de execução e falhas.",
     rota: "/jobs",
     status: "pronto",
-    roles: ["admin", "tech"],
+    minimo: "desenvolvedor",
   },
   {
     label: "Canais e notificações",
     descricao: "E-mail transacional, Telegram e WhatsApp.",
     status: "em-breve",
-    roles: ["admin", "tech"],
+    minimo: "desenvolvedor",
   },
 ];
 
 /**
- * Seções visíveis para a sessão. Sem papel que alcance nenhuma, nenhuma — e a
- * tela diz isso em vez de mostrar uma lista vazia sem explicação.
+ * Seções visíveis para o acesso. Sem nenhuma, nenhuma — e a tela diz isso em
+ * vez de mostrar uma lista vazia sem explicação.
  */
-export function configuracoesParaAcesso(usuario: {
-  roles: readonly string[];
-  access: UserAccess;
-}): SecaoConfiguracao[] {
-  const gestor = usuario.access.companies.some((empresa) =>
-    empresa.departments.some((departamento) => departamento.isManager),
-  );
-
-  return CONFIGURACOES.filter(
-    (secao) =>
-      secao.roles.some((role) => usuario.roles.includes(role)) || (secao.gestor === true && gestor),
-  );
+export function configuracoesParaAcesso(acesso: Acesso): SecaoConfiguracao[] {
+  const degrau = DEGRAUS.indexOf(papelDoAcesso(acesso));
+  return CONFIGURACOES.filter((secao) => degrau >= DEGRAUS.indexOf(secao.minimo));
 }
 
 /**
- * Globais: não pertencem à Plugga nem à Waze. Usuário é único (o papel
- * é que é por empresa), e job/integração/agente servem as duas. O desenho dos
- * processos também mora aqui — é uma definição só, instanciada nas duas.
+ * Globais: não pertencem a um departamento. Job, integração e agente servem a
+ * todos; o desenho dos processos também mora aqui.
  */
 export const GLOBAIS: Processo[] = [
   { label: "Estrutura do sistema", rota: "/estrutura", status: "pronto" },
@@ -363,35 +281,11 @@ export const GLOBAIS: Processo[] = [
   { label: "Administração", rota: "/administracao", status: "parcial" },
 ];
 
-/**
- * O catálogo de navegação e o de acesso descrevem a mesma estrutura em lados
- * opostos da fronteira HTTP. Esta checagem quebra alto, no carregamento do
- * módulo, se um departamento existir só de um lado — um id novo aqui sem par em
- * `@plugga/shared` viraria um item de menu que ninguém consegue liberar, e o
- * contrário, um acesso concedido que não aparece na tela. Falhar na primeira
- * página aberta em dev é mais barato do que descobrir pela pessoa que ficou
- * sem ver o próprio departamento.
- */
-const _catalogosCasam: Record<EmpresaId, true> = EMPRESAS.reduce(
-  (acumulado, empresa) => {
-    const naNavegacao = EMPRESAS_POR_ID[empresa].departamentos.map((d) => d.id).sort();
-    const noContrato = [...departmentIdsByCompany[empresa]].sort();
-    if (JSON.stringify(naNavegacao) !== JSON.stringify(noContrato)) {
-      throw new Error(
-        `departamentos de ${empresa} divergem entre organizacao.ts e @plugga/shared`,
-      );
-    }
-    return { ...acumulado, [empresa]: true };
-  },
-  {} as Record<EmpresaId, true>,
-);
-void _catalogosCasam;
-
-const _ordemCobreCatalogo = EMPRESAS.every((empresa) =>
-  EMPRESAS_POR_ID[empresa].departamentos.every((departamento) =>
-    (ORDEM_DEPARTAMENTOS as readonly string[]).includes(departamento.label),
-  ),
-);
-if (!_ordemCobreCatalogo) {
-  throw new Error("departamento do catálogo fora de ORDEM_DEPARTAMENTOS em organizacao.ts");
+// Falha no carregamento se um departamento do acesso ficar sem item de menu (ou
+// o contrário): seria um acesso concedido que não aparece na tela.
+const _catalogoCasaComAcesso =
+  JSON.stringify(DEPARTAMENTOS.map((departamento) => departamento.id).sort()) ===
+  JSON.stringify([...idsDosDepartamentos].sort());
+if (!_catalogoCasaComAcesso) {
+  throw new Error("os departamentos de organizacao.ts divergem dos de @plugga/shared (acesso.ts)");
 }

@@ -65,11 +65,11 @@ describe("foundation API (e2e)", () => {
     await request(app.getHttpServer()).post("/agent-actions").send({}).expect(401);
   });
 
-  it("rejects a mutation from a role outside tech/admin", async () => {
+  it("rejects a mutation from a principal outside the desenvolvedor role", async () => {
     await request(app.getHttpServer())
       .post("/agent-actions")
       .set("x-dev-principal", "local-viewer")
-      .set("x-dev-roles", "viewer")
+      .set("x-dev-departamentos", "crm:membro")
       .send({})
       .expect(403);
   });
@@ -78,7 +78,7 @@ describe("foundation API (e2e)", () => {
     await request(app.getHttpServer())
       .post("/agent-actions")
       .set("x-dev-principal", "service:test-agent")
-      .set("x-dev-roles", "tech")
+      .set("x-dev-plataforma", "desenvolvedor")
       .send({ action: "missing-required-fields" })
       .expect(400);
 
@@ -89,7 +89,7 @@ describe("foundation API (e2e)", () => {
     const response = await request(app.getHttpServer())
       .post("/agent-actions")
       .set("x-dev-principal", "service:test-agent")
-      .set("x-dev-roles", "tech")
+      .set("x-dev-plataforma", "desenvolvedor")
       .send({
         agent: "test-agent",
         channel: "api",
@@ -117,7 +117,7 @@ describe("foundation API (e2e)", () => {
     await request(app.getHttpServer())
       .post("/agent-actions")
       .set("x-dev-principal", "service:authenticated-agent")
-      .set("x-dev-roles", "tech")
+      .set("x-dev-plataforma", "desenvolvedor")
       .send({
         agent: "forged-agent",
         channel: "api",
@@ -137,7 +137,7 @@ describe("foundation API (e2e)", () => {
     await request(app.getHttpServer())
       .post("/channels/whatsapp/send")
       .set("x-dev-principal", "local-admin")
-      .set("x-dev-roles", "admin")
+      .set("x-dev-plataforma", "desenvolvedor")
       .send({
         destination: "+5592999991234",
         originDomain: "ops",
@@ -157,7 +157,7 @@ describe("foundation API (e2e)", () => {
     const response = await request(app.getHttpServer())
       .post("/channels/whatsapp/send")
       .set("x-dev-principal", "service:test-agent")
-      .set("x-dev-roles", "admin")
+      .set("x-dev-plataforma", "desenvolvedor")
       .send({
         destination,
         originDomain: "ops",

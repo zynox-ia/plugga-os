@@ -63,7 +63,7 @@ describe.skipIf(!HABILITADO)("clientes: cadastro único no Postgres", () => {
       data: { email: `${marca}-dono@teste.local`, name: `${marca} Dono`, platformRoles: { create: { roleId: admin.id } } },
     });
     const semPapel = await prisma.user.create({ data: { email: `${marca}-sem-papel@teste.local`, name: `${marca} Sem papel` } });
-    principal = { id: dono.id, kind: "user", roles: ["admin"] };
+    principal = { id: dono.id, kind: "user", acesso: { plataforma: "admin", departamentos: [] } };
     semPapelId = semPapel.id;
   }, PRAZO_MS);
 

@@ -4,9 +4,10 @@ import { expect, test } from "@playwright/test";
  * Configurações → Equipe e acessos, pela sessão do admin semeado.
  *
  * Cobre o que só o navegador prova: a seção deixou de ser "em breve", a lista
- * chega da API real e a área permanece concentrada na tabela de equipe. As regras de escopo do gestor são exercitadas
- * no e2e da API (apps/api/test/team.e2e.spec.ts), onde dá para criar cada
- * perfil sem depender do estado do banco local.
+ * chega da API real e a área permanece concentrada na tabela de equipe. A
+ * escada de quem dá cada papel é exercitada no e2e da API
+ * (apps/api/test/equipe.e2e.spec.ts), onde dá para criar cada perfil sem
+ * depender do estado do banco local.
  */
 
 // Cada spec tem o seu IP sintético: os logins da suíte saem todos desta mesma
@@ -34,7 +35,8 @@ test.describe("Configurações → Equipe e acessos", () => {
     expect(navBox!.y).toBeLessThan(headingBox!.y);
     const linha = page.locator("tbody tr", { hasText: adminEmail });
     await expect(linha).toBeVisible();
-    await expect(linha).toContainText("Administração da plataforma");
+    await expect(linha).toContainText("Admin");
+    await expect(linha).toContainText("Todos os departamentos");
   });
 
   test("o admin não pode desativar a si mesmo pela própria lista", async ({ page }) => {
@@ -52,6 +54,27 @@ test.describe("Configurações → Equipe e acessos", () => {
     await expect(page.getByRole("table", { name: "Pessoas com acesso ao sistema" })).toBeVisible();
     await page.getByRole("button", { name: "Novo acesso" }).click();
     await expect(page.getByRole("heading", { name: "Novo acesso" })).toBeVisible();
+  });
+
+  test("o editor escolhe o papel e, para a equipe, membro ou gerente por departamento", async ({ page }) => {
+    await abrirEquipe(page);
+    await page.getByRole("button", { name: "Novo acesso" }).click();
+    const dialogo = page.getByRole("dialog", { name: "Novo acesso" });
+
+    // O admin dá admin, gerente e membro, mas não o papel de desenvolvedor.
+    await expect(dialogo.getByRole("radio", { name: /^Equipe/ })).toBeChecked();
+    await expect(dialogo.getByRole("radio", { name: /^Admin/ })).toBeVisible();
+    await expect(dialogo.getByRole("radio", { name: /^Desenvolvedor/ })).toHaveCount(0);
+
+    await dialogo.getByRole("checkbox", { name: "CRM" }).check();
+    const nivel = dialogo.getByRole("radiogroup", { name: "Nível em CRM" });
+    await expect(nivel.getByRole("radio", { name: /^Membro/ })).toBeChecked();
+    await nivel.getByRole("radio", { name: /^Gerente/ }).check();
+    await expect(nivel.getByRole("radio", { name: /^Gerente/ })).toBeChecked();
+
+    await dialogo.getByRole("radio", { name: /^Admin/ }).check();
+    await expect(dialogo.getByRole("checkbox", { name: "CRM" })).toHaveCount(0);
+    await expect(dialogo.getByText("alcança todos os departamentos")).toBeVisible();
   });
 
   test("concentra as ações do membro em detalhes e menu contextual", async ({ page }) => {

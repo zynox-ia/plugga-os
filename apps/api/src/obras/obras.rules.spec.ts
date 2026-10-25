@@ -1,5 +1,5 @@
 import { AcessoNegado, EstadoInvalido, RequisicaoInvalida } from "../common/errors/dominio";
-import type { MedicaoStatus, ObraEtapa, ProjetoVersaoStatus, RoleKey } from "@plugga/shared";
+import type { Acesso, MedicaoStatus, ObraEtapa, ProjetoVersaoStatus } from "@plugga/shared";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -21,12 +21,17 @@ import {
   incidenteBloqueiaEtapa,
 } from "./obras.rules";
 
-const TECNICO = { roles: ["tecnico"] as RoleKey[] };
-const SUPERVISOR = { roles: ["supervisor"] as RoleKey[] };
-const ENGENHEIRO = { roles: ["engenheiro"] as RoleKey[] };
-const DIRETORIA = { roles: ["diretoria"] as RoleKey[] };
-const ALMOXARIFE = { roles: ["almoxarife"] as RoleKey[] };
-const FINANCEIRO = { roles: ["financeiro"] as RoleKey[] };
+type Entrada = { departamento: "engenharia-obras" | "suprimentos" | "financeiro"; nivel: "membro" | "gerente" };
+const acessoDe = (...departamentos: Entrada[]): { acesso: Acesso } => ({
+  acesso: { plataforma: null, departamentos },
+});
+
+const TECNICO = acessoDe({ departamento: "engenharia-obras", nivel: "membro" });
+const SUPERVISOR = acessoDe({ departamento: "engenharia-obras", nivel: "membro" });
+const ENGENHEIRO = acessoDe({ departamento: "engenharia-obras", nivel: "gerente" });
+const DIRETORIA = { acesso: { plataforma: "admin", departamentos: [] } as Acesso };
+const ALMOXARIFE = acessoDe({ departamento: "suprimentos", nivel: "membro" });
+const FINANCEIRO = acessoDe({ departamento: "financeiro", nivel: "membro" });
 
 describe("assertTransicaoPermitida", () => {
   it.each([
@@ -177,7 +182,7 @@ describe("regras-mãe de bloqueio (POP §1.2)", () => {
   });
 
   it("técnico que também é engenheiro pode editar orçamento", () => {
-    expect(() => assertTecnicoNaoEditaOrcamento({ roles: ["tecnico", "engenheiro"] })).not.toThrow();
+    expect(() => assertTecnicoNaoEditaOrcamento(ENGENHEIRO)).not.toThrow();
   });
 
   it("campo não altera projeto fora da elaboração", () => {
@@ -204,7 +209,10 @@ describe("regras-mãe de bloqueio (POP §1.2)", () => {
 
   it("financeiro que também é engenheiro pode alterar medição técnica", () => {
     expect(() =>
-      assertFinanceiroNaoAlteraMedicaoTecnica({ roles: ["financeiro", "engenheiro"] }),
+      assertFinanceiroNaoAlteraMedicaoTecnica(acessoDe(
+        { departamento: "financeiro", nivel: "membro" },
+        { departamento: "engenharia-obras", nivel: "gerente" },
+      )),
     ).not.toThrow();
   });
 });

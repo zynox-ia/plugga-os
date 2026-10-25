@@ -2,8 +2,9 @@ import type { CompanyKey, Pipeline, PipelineMemberRole, UpdatePipelineRequest } 
 
 /**
  * Quem alcança o quê nos pipelines (PLU-269):
- * - o admin e o gestor do departamento comercial da empresa veem, criam e
- *   configuram todos os pipelines da empresa;
+ * - o admin e o gerente do CRM veem, criam e configuram todos os pipelines
+ *   (o gerente do CRM gere o CRM das duas empresas, por isso `gestorEm` lista
+ *   as duas);
  * - o gestor de um pipeline (equipe, papel `gestor`) configura aquele pipeline;
  * - o vendedor (equipe, papel `vendedor`) só vê o pipeline.
  */

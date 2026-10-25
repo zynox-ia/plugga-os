@@ -11,9 +11,8 @@ import {
 
 /**
  * Declarações de acesso do modelo de 4 papéis (packages/shared/src/acesso.ts).
- * Substituem `@Roles(...)` rota a rota; quem as aplica é o `RolesGuard`, que já
- * está em todo controller com papel — assim declarar `@Departamento` nunca
- * depende de lembrar de trocar o `@UseGuards`.
+ * Quem as aplica é o `AcessoGuard`; o inventário de rotas exige que toda rota
+ * que as declara passe por ele.
  */
 export const DEPARTAMENTO_METADATA = "plugga:departamento";
 export const PLATAFORMA_METADATA = "plugga:plataforma";

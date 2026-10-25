@@ -3,12 +3,12 @@ import { ConfigService } from "@nestjs/config";
 import { emailStatusSchema, type EmailStatus } from "@plugga/shared";
 
 import { SessionAuthGuard } from "../core/auth/session-auth.guard";
-import { Roles } from "../core/auth/roles.decorator";
-import { RolesGuard } from "../core/auth/roles.guard";
+import { Plataforma } from "../core/auth/acesso.decorator";
+import { AcessoGuard } from "../core/auth/acesso.guard";
 
-@Roles("admin", "diretoria", "tech")
+@Plataforma("admin")
 @Controller("email")
-@UseGuards(SessionAuthGuard, RolesGuard)
+@UseGuards(SessionAuthGuard, AcessoGuard)
 export class EmailStatusController {
   constructor(@Inject(ConfigService) private readonly config: ConfigService) {}
 

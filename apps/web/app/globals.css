@@ -2790,16 +2790,9 @@ tbody tr:last-child td { border-bottom: 0; }
 .acesso-editor { display: grid; gap: 14px; padding: 0 18px 4px; }
 .acesso-empresa { display: grid; gap: 12px; margin: 0; padding: 12px 14px; border: 1px solid var(--line); border-radius: 14px; }
 .acesso-empresa legend { padding: 0 4px; }
-.acesso-grupos { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: 18px; }
-.acesso-grupo { display: grid; align-content: start; gap: 7px; }
-.acesso-grupo .eyebrow { margin-bottom: 2px; }
-.acesso-linha { display: flex; align-items: start; gap: 9px; color: var(--ink); font-size: 13.5px; line-height: var(--line-height-control); cursor: pointer; }
-.acesso-linha input { flex: none; width: 16px; height: 16px; margin-top: 1px; }
-.acesso-linha > span { display: grid; gap: 2px; }
-.acesso-linha .card-note { margin: 0; }
-.acesso-linha--aninhada { margin-left: 25px; color: var(--muted); font-size: 12.5px; }
-.acesso-departamento { display: grid; gap: 5px; }
-@media (max-width: 820px) { .acesso-grupos { grid-template-columns: minmax(0, 1fr); } }
+.acesso-niveis { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px 16px; }
+.acesso-niveis--aninhada { margin-left: 28px; }
+.acesso-departamento { display: grid; gap: 6px; }
 
 /* Campo de soltar a conta de luz. A área é grande de propósito: é o primeiro
    passo do fluxo e precisa parecer o lugar óbvio de largar o arquivo. */

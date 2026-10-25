@@ -30,8 +30,8 @@ describe.skipIf(!HABILITADO)("atomicidade de Obras", () => {
   // Marca própria: o `event_log` é só de inserção, então o rastro fica, mas
   // sempre ligado a obras com id único criadas aqui.
   const marca = `it-obras-${randomUUID().slice(0, 8)}`;
-  const principal: AuthPrincipal = { id: "", kind: "user", roles: ["engenheiro"] };
-  const outraPessoa: AuthPrincipal = { id: "", kind: "user", roles: ["seguranca"] };
+  const principal: AuthPrincipal = { id: "", kind: "user", acesso: { plataforma: null, departamentos: [{ departamento: "engenharia-obras", nivel: "gerente" }] } };
+  const outraPessoa: AuthPrincipal = { id: "", kind: "user", acesso: { plataforma: null, departamentos: [{ departamento: "engenharia-obras", nivel: "membro" }] } };
   let obraId = "";
   let obraDeProjetoId = "";
 

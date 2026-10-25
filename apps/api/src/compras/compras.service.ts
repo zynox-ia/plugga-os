@@ -27,7 +27,7 @@ import type {
 import type { AuthPrincipal } from "../core/auth/auth.types";
 import { inspecionarEnvios, lerEnvio } from "../common/upload/arquivos-enviados";
 import { ArmazenamentoDeCotacoes, TIPOS_ACEITOS } from "./armazenamento-de-cotacoes";
-import { ComprasEscopoRepository } from "./compras-escopo.repository";
+import { ResponsavelDeComprasRepository } from "./responsavel-de-compras.repository";
 import { ComprasRepository, type AnexoDeCotacao } from "./compras.repository";
 
 /** Um orçamento chegando pela requisição multipart. */
@@ -39,27 +39,23 @@ export type ArquivoDeCotacao = {
 };
 
 /**
- * Orquestra escopo de empresa + repositório.
- *
- * **Toda** entrada passa por `assertAlcanca` antes de qualquer acesso a dado.
- * A empresa chega na requisição como pretensão do navegador; é aqui que ela
- * vira permissão provada, ou 403.
+ * Orquestra o repositório e o armazenamento de cotações. Quem alcança cada
+ * rota é decidido pelo `AcessoGuard` (`compras.permissions.ts`); a empresa do
+ * pedido é etiqueta, não fronteira de acesso.
  */
 @Injectable()
 export class ComprasService {
   constructor(
     @Inject(ComprasRepository) private readonly repositorio: ComprasRepository,
-    @Inject(ComprasEscopoRepository) private readonly escopo: ComprasEscopoRepository,
+    @Inject(ResponsavelDeComprasRepository) private readonly responsaveis: ResponsavelDeComprasRepository,
     @Inject(ArmazenamentoDeCotacoes) private readonly armazenamento: ArmazenamentoDeCotacoes,
   ) {}
 
-  async listarPedidos(query: PedidoListaQuery, principal: AuthPrincipal): Promise<PedidoLista> {
-    await this.escopo.assertAlcanca(principal.id, query.companyId);
+  async listarPedidos(query: PedidoListaQuery): Promise<PedidoLista> {
     return this.repositorio.listarPedidos(query);
   }
 
   async pedido(id: string, companyId: CompanyKey, principal: AuthPrincipal): Promise<PedidoDetalhe> {
-    await this.escopo.assertAlcanca(principal.id, companyId);
     return this.repositorio.pedido(id, companyId, principal);
   }
 
@@ -79,13 +75,8 @@ export class ComprasService {
     arquivos: readonly ArquivoDeCotacao[],
     principal: AuthPrincipal,
   ): Promise<PedidoDetalhe> {
-    await this.escopo.assertAlcanca(principal.id, input.companyId);
 
-    // O responsável tem de alcançar a mesma empresa. É ele que carrega a
-    // accountability do indicador 4.2 do POP: apontar alguém de outra empresa —
-    // ou de fora do departamento — poria o backlog crítico no nome de quem não
-    // tem como trabalhar o pedido, e o indicador individual viraria ficção.
-    await this.escopo.assertAlcanca(input.responsavelId, input.companyId);
+    await this.responsaveis.assertPodeSerResponsavel(input.responsavelId);
 
     // O tipo é conferido pelo conteúdo antes de guardar qualquer um: um arquivo
     // recusado não deixa os anteriores órfãos no balde.
@@ -111,7 +102,6 @@ export class ComprasService {
     input: TriagemRequest,
     principal: AuthPrincipal,
   ): Promise<PedidoDetalhe> {
-    await this.escopo.assertAlcanca(principal.id, companyId);
     return this.repositorio.triagem(id, companyId, input, principal);
   }
 
@@ -121,7 +111,6 @@ export class ComprasService {
     input: DecisaoEstoqueRequest,
     principal: AuthPrincipal,
   ): Promise<PedidoDetalhe> {
-    await this.escopo.assertAlcanca(principal.id, companyId);
     return this.repositorio.decidirEstoque(id, companyId, input, principal);
   }
 
@@ -131,7 +120,6 @@ export class ComprasService {
     input: ValidarNecessidadeRequest,
     principal: AuthPrincipal,
   ): Promise<PedidoDetalhe> {
-    await this.escopo.assertAlcanca(principal.id, companyId);
     return this.repositorio.validarNecessidade(id, companyId, input, principal);
   }
 
@@ -141,7 +129,6 @@ export class ComprasService {
     input: SelecionarCotacaoRequest,
     principal: AuthPrincipal,
   ): Promise<PedidoDetalhe> {
-    await this.escopo.assertAlcanca(principal.id, companyId);
     return this.repositorio.selecionarCotacao(id, companyId, input, principal);
   }
 
@@ -151,7 +138,6 @@ export class ComprasService {
     input: DecisaoAprovacaoRequest,
     principal: AuthPrincipal,
   ): Promise<PedidoDetalhe> {
-    await this.escopo.assertAlcanca(principal.id, companyId);
     return this.repositorio.decidirAprovacao(id, companyId, input, principal);
   }
 
@@ -161,7 +147,6 @@ export class ComprasService {
     input: RegistrarPagamentoRequest,
     principal: AuthPrincipal,
   ): Promise<PedidoDetalhe> {
-    await this.escopo.assertAlcanca(principal.id, companyId);
     return this.repositorio.registrarPagamento(id, companyId, input, principal);
   }
 
@@ -171,7 +156,6 @@ export class ComprasService {
     input: ConfirmarRecebimentoRequest,
     principal: AuthPrincipal,
   ): Promise<PedidoDetalhe> {
-    await this.escopo.assertAlcanca(principal.id, companyId);
     return this.repositorio.confirmarRecebimento(id, companyId, input, principal);
   }
 
@@ -181,37 +165,30 @@ export class ComprasService {
     input: RenegociarPrazoRequest,
     principal: AuthPrincipal,
   ): Promise<PedidoDetalhe> {
-    await this.escopo.assertAlcanca(principal.id, companyId);
     return this.repositorio.renegociarPrazo(id, companyId, input, principal);
   }
 
-  async scorecard(query: PeriodoQuery, principal: AuthPrincipal): Promise<ScorecardCompras> {
-    await this.escopo.assertAlcanca(principal.id, query.companyId);
+  async scorecard(query: PeriodoQuery): Promise<ScorecardCompras> {
     return this.repositorio.scorecard(query);
   }
 
-  async diagnostico(query: PeriodoQuery, principal: AuthPrincipal): Promise<DiagnosticoCompras> {
-    await this.escopo.assertAlcanca(principal.id, query.companyId);
+  async diagnostico(query: PeriodoQuery): Promise<DiagnosticoCompras> {
     return this.repositorio.diagnostico(query);
   }
 
-  async listarFornecedores(companyId: CompanyKey, principal: AuthPrincipal): Promise<FornecedorLista> {
-    await this.escopo.assertAlcanca(principal.id, companyId);
+  async listarFornecedores(companyId: CompanyKey): Promise<FornecedorLista> {
     return this.repositorio.listarFornecedores(companyId);
   }
 
   async criarFornecedor(input: CriarFornecedorRequest, principal: AuthPrincipal): Promise<Fornecedor> {
-    await this.escopo.assertAlcanca(principal.id, input.companyId);
     return this.repositorio.criarFornecedor(input, principal);
   }
 
-  async listarObras(companyId: CompanyKey, principal: AuthPrincipal): Promise<ObraLista> {
-    await this.escopo.assertAlcanca(principal.id, companyId);
+  async listarObras(companyId: CompanyKey): Promise<ObraLista> {
     return this.repositorio.listarObras(companyId);
   }
 
   async criarObra(input: CriarObraRequest, principal: AuthPrincipal): Promise<Obra> {
-    await this.escopo.assertAlcanca(principal.id, input.companyId);
     return this.repositorio.criarObra(input, principal);
   }
 }

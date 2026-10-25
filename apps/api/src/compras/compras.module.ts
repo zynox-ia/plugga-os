@@ -5,10 +5,7 @@ import { AuditModule } from "../audit/audit.module";
 import { CoreModule } from "../core/core.module";
 import { PrismaModule } from "../prisma/prisma.module";
 import { ArmazenamentoDeCotacoes } from "./armazenamento-de-cotacoes";
-import {
-  ComprasEscopoRepository,
-  PrismaComprasEscopoRepository,
-} from "./compras-escopo.repository";
+import { PrismaResponsavelDeComprasRepository, ResponsavelDeComprasRepository } from "./responsavel-de-compras.repository";
 import { ComprasController } from "./compras.controller";
 import { ComprasRepository } from "./compras.repository";
 import { ComprasService } from "./compras.service";
@@ -21,7 +18,7 @@ import { PrismaComprasRepository } from "./prisma-compras.repository";
     ComprasService,
     ArmazenamentoDeCotacoes,
     { provide: ComprasRepository, useClass: PrismaComprasRepository },
-    { provide: ComprasEscopoRepository, useClass: PrismaComprasEscopoRepository },
+    { provide: ResponsavelDeComprasRepository, useClass: PrismaResponsavelDeComprasRepository },
   ],
 })
 export class ComprasModule {}

@@ -62,22 +62,17 @@ describe.skipIf(!HABILITADO)("negócios: quadro do pipeline no Postgres", () => 
       pessoas.ana,
     );
 
-  async function pessoa(chave: keyof typeof pessoas, empresa: CompanyKey, gestor = false): Promise<void> {
-    const comercial = await prisma.role.upsert({ where: { key: "comercial" }, create: { key: "comercial", name: "Comercial" }, update: {} });
+  /** A empresa é só etiqueta do pipeline: quem é do CRM entra em qualquer um, e o gerente do CRM gere os dois. */
+  async function pessoa(chave: keyof typeof pessoas, gestor = false): Promise<void> {
+    const nivel = gestor ? "gerente" : "membro";
     const usuario = await prisma.user.create({
       data: {
         email: `${marca}-${chave.toLowerCase()}@teste.local`,
         name: `${marca} ${chave}`,
-        memberships: {
-          create: {
-            companyId: empresa,
-            roles: { create: { roleId: comercial.id } },
-            departments: { create: { departmentId: empresa === "waze" ? "comercial-obras" : "comercial-clientes", isManager: gestor } },
-          },
-        },
+        departamentos: { create: { departamento: "crm", nivel } },
       },
     });
-    pessoas[chave] = { id: usuario.id, kind: "user", roles: ["comercial"] };
+    pessoas[chave] = { id: usuario.id, kind: "user", acesso: { plataforma: null, departamentos: [{ departamento: "crm", nivel }] } };
   }
 
   const configuracao = (empresa: CompanyKey, nome: string, etapas: string[], membros: { userId: string; role: "vendedor" | "gestor" }[]) =>
@@ -103,17 +98,11 @@ describe.skipIf(!HABILITADO)("negócios: quadro do pipeline no Postgres", () => 
     for (const [id, name] of [["plugga", "Plugga"], ["waze", "Waze Energia"]] as const) {
       await prisma.company.upsert({ where: { id }, create: { id, name }, update: {} });
     }
-    await pessoa("gestor", "waze", true);
-    await pessoa("ana", "waze");
-    await pessoa("bruno", "waze");
-    await pessoa("forasteiro", "waze");
-    await pessoa("pluggaVendedor", "plugga");
-    // O gestor comercial da Plugga também é preciso para criar o pipeline de lá.
-    const gestorPlugga = await prisma.user.findUniqueOrThrow({ where: { id: pessoas.pluggaVendedor.id } });
-    await prisma.userDepartmentAccess.update({
-      where: { userId_companyId_departmentId: { userId: gestorPlugga.id, companyId: "plugga", departmentId: "comercial-clientes" } },
-      data: { isManager: true },
-    });
+    await pessoa("gestor", true);
+    await pessoa("ana");
+    await pessoa("bruno");
+    await pessoa("forasteiro");
+    await pessoa("pluggaVendedor");
 
     solar = await pipelines.create(
       configuracao("waze", "Solar", ["Iniciar atendimento", "Qualificação", "Cotações/Proposta", "Visita técnica"], [
@@ -124,7 +113,7 @@ describe.skipIf(!HABILITADO)("negócios: quadro do pipeline no Postgres", () => 
     );
     mercadoLivre = await pipelines.create(
       configuracao("plugga", "Mercado Livre", ["Diagnóstico", "Proposta"], [{ userId: pessoas.pluggaVendedor.id, role: "vendedor" }]),
-      pessoas.pluggaVendedor,
+      pessoas.gestor,
     );
 
     const cliente = await prisma.client.create({
@@ -235,9 +224,7 @@ describe.skipIf(!HABILITADO)("negócios: quadro do pipeline no Postgres", () => 
       const negocio = await novo({ tagIds: [solar.tags[0]!.id] });
       const destino = { pipelineId: mercadoLivre.id, stageId: mercadoLivre.stages[1]!.id };
       await expect(negocios.transfer(negocio.id, destino, pessoas.pluggaVendedor)).rejects.toBeInstanceOf(NaoEncontrado);
-      // O gestor comercial da Waze não alcança o pipeline da Plugga: quem move é quem alcança os dois.
-      const admin = await prisma.role.upsert({ where: { key: "admin" }, create: { key: "admin", name: "Admin" }, update: {} });
-      await prisma.userPlatformRole.create({ data: { userId: pessoas.gestor.id, roleId: admin.id } });
+      // O gerente do CRM alcança os dois pipelines: é quem move.
       await expect(negocios.transfer(negocio.id, destino, pessoas.gestor)).rejects.toBeInstanceOf(RequisicaoInvalida);
 
       const movido = await negocios.transfer(negocio.id, { ...destino, ownerId: pessoas.pluggaVendedor.id }, pessoas.gestor);
@@ -246,7 +233,6 @@ describe.skipIf(!HABILITADO)("negócios: quadro do pipeline no Postgres", () => 
       const historico = await prisma.dealHistory.findMany({ where: { dealId: negocio.id }, orderBy: { occurredAt: "asc" } });
       expect(historico.map((h) => h.kind)).toEqual(["created", "transferred"]);
       expect(historico[1]).toMatchObject({ fromStageName: "Qualificação", toStageName: "Proposta" });
-      await prisma.userPlatformRole.deleteMany({ where: { userId: pessoas.gestor.id } });
     },
     PRAZO_MS,
   );

@@ -5,6 +5,7 @@ import {
   eventNames,
   listaDaEquipeSchema,
   membroDaEquipeSchema,
+  papelDoAcesso,
   type Acesso,
   type AuthAcknowledgement,
   type ConsultaDaEquipe,
@@ -38,12 +39,6 @@ const CONCEDIVEIS: Record<PapelDaEquipe, PapelDaEquipe[]> = {
   gerente: ["membro"],
   membro: [],
 };
-
-/** O degrau mais alto do acesso. */
-export function papelDoAcesso(acesso: Acesso): PapelDaEquipe {
-  if (acesso.plataforma !== null) return acesso.plataforma;
-  return acesso.departamentos.some((entrada) => entrada.nivel === "gerente") ? "gerente" : "membro";
-}
 
 /**
  * Equipe e acessos no modelo de 4 papéis. A escada:

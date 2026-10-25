@@ -6,8 +6,17 @@ import {
   type ComprasEtapa,
   type ComprasEtapaMensurada,
   type ComprasOrigemAtendimento,
-  type RoleKey,
+  type Acesso,
+  alcancaDepartamento,
+  alcancaPlataforma,
 } from "@plugga/shared";
+
+/**
+ * Quem decide as exceções do processo (dispensar segregação, esticar prazo além
+ * da régua, confirmar recebimento no lugar do solicitante, aprovar acima da
+ * alçada): admin ou desenvolvedor — no modelo de 4 papéis, o admin aprova tudo.
+ */
+const decideExcecao = (acesso: Acesso): boolean => alcancaPlataforma(acesso, "admin");
 
 /**
  * Regras do processo de compras (POP-COMP-001 §2 e §3) e a segregação de função
@@ -155,14 +164,14 @@ export function paresViolados(
  *
  * Vai existir o dia em que só uma pessoa está disponível. Uma regra sem escape
  * seria contornada por fora do sistema — alguém logaria com a conta de outro —
- * e aí não sobra registro nenhum. Então a dispensa existe, só a diretoria pode
+ * e aí não sobra registro nenhum. Então a dispensa existe, só o admin pode
  * usá-la, exige justificativa escrita, vira evento próprio e aparece contada no
  * scorecard. Quebrar é possível; quebrar em silêncio, não.
  */
 export function assertSegregacao(
   acao: "aprovar" | "pagar" | "receber",
   pedido: PedidoParaSegregacao,
-  principal: { id: string; roles: readonly RoleKey[] },
+  principal: { id: string; acesso: Acesso },
   dispensa?: string,
 ): { dispensada: boolean; pares: ParDeSegregacao[] } {
   const pares = paresViolados(acao, pedido, principal.id);
@@ -174,16 +183,16 @@ export function assertSegregacao(
   if (!dispensa) {
     throw new AcessoNegado(`segregação de função: ${explicacao}`);
   }
-  if (!principal.roles.includes("diretoria")) {
+  if (!decideExcecao(principal.acesso)) {
     throw new AcessoNegado(
-      `só a diretoria pode dispensar a segregação de função (${explicacao})`,
+      `só o admin pode dispensar a segregação de função (${explicacao})`,
     );
   }
   return { dispensada: true, pares };
 }
 
 /**
- * Teto da renegociação sem passar pela diretoria.
+ * Teto da renegociação sem passar pelo admin.
  *
  * Renegociar prazo é o caminho mais barato de maquiar o indicador 4.3: quem é
  * medido pelo cumprimento do SLA pode empurrar o vencimento na véspera e ficar
@@ -192,7 +201,7 @@ export function assertSegregacao(
  *
  * O teto é o próprio prazo do POP §3 para a etapa — renegociar *dentro* da
  * régua é gestão de fluxo normal. Estender **além** dela é decisão de alçada e
- * sobe para a diretoria.
+ * sobe para o admin.
  *
  * Exceção com evidência: na retirada de aquisição externa o teto é o prazo que
  * o fornecedor declarou na cotação escolhida. Ali o prazo maior não é
@@ -213,14 +222,14 @@ export function tetoDeRenegociacao(
 export function assertAlcadaDePrazo(
   prazoSolicitado: number,
   teto: number,
-  roles: readonly RoleKey[],
+  acesso: Acesso,
 ): void {
   if (prazoSolicitado <= teto) {
     return;
   }
-  if (!roles.includes("diretoria")) {
+  if (!decideExcecao(acesso)) {
     throw new AcessoNegado(
-      `esticar o prazo além de ${teto} dias úteis é decisão da diretoria; ` +
+      `esticar o prazo além de ${teto} dias úteis é decisão do admin; ` +
         "dentro da régua do POP §3, renegocie à vontade",
     );
   }
@@ -239,12 +248,12 @@ export function assertAlcadaDePrazo(
  * Vantagem sobre exigir um segundo comprador: não depende do tamanho da equipe
  * de Compras. Todo pedido tem solicitante por construção.
  *
- * A saída de emergência é a diretoria confirmar no lugar dele — por escrito, e
+ * A saída de emergência é o admin confirmar no lugar dele — por escrito, e
  * registrada como desvio. Solicitante de férias não pode travar uma entrega.
  */
 export function assertConfirmacaoDeRecebimento(
   pedido: { solicitanteId: string },
-  principal: { id: string; roles: readonly RoleKey[] },
+  principal: { id: string; acesso: Acesso },
   confirmacaoPorTerceiro?: string,
 ): { porTerceiro: boolean } {
   if (pedido.solicitanteId === principal.id) {
@@ -252,11 +261,11 @@ export function assertConfirmacaoDeRecebimento(
   }
   if (!confirmacaoPorTerceiro) {
     throw new AcessoNegado(
-      "o recebimento é confirmado por quem pediu o material; a diretoria pode confirmar no lugar dele com justificativa",
+      "o recebimento é confirmado por quem pediu o material; o admin pode confirmar no lugar dele com justificativa",
     );
   }
-  if (!principal.roles.includes("diretoria")) {
-    throw new AcessoNegado("só a diretoria confirma recebimento no lugar do solicitante");
+  if (!decideExcecao(principal.acesso)) {
+    throw new AcessoNegado("só o admin confirma recebimento no lugar do solicitante");
   }
   return { porTerceiro: true };
 }
@@ -264,25 +273,27 @@ export function assertConfirmacaoDeRecebimento(
 // --- Alçada de aprovação -------------------------------------------------
 
 /**
- * Quem pode aprovar uma compra deste valor.
+ * Se esta pessoa pode aprovar uma compra deste valor.
  *
- * Com `COMPRAS_ALCADA_FINANCEIRO` nulo — o padrão — a resposta é sempre
- * `financeiro`, que é exatamente o que o POP descreve: ele não define faixa de
- * valor. Definir um teto liga o degrau da diretoria sem mudar mais nada.
+ * Com `COMPRAS_ALCADA_FINANCEIRO` nulo — o padrão — aprova o gerente do
+ * Financeiro (ou o admin), que é o que o POP descreve: ele não define faixa de
+ * valor. Definir um teto deixa só o admin aprovar acima dele.
  */
-export function papeisQuePodemAprovar(valor: string | null): readonly RoleKey[] {
-  if (COMPRAS_ALCADA_FINANCEIRO === null) {
-    return ["financeiro", "diretoria"];
+export function podeAprovarCompra(valor: string | null, acesso: Acesso): boolean {
+  if (decideExcecao(acesso)) {
+    return true;
   }
-  const acimaDaAlcada = valor !== null && Number(valor) > COMPRAS_ALCADA_FINANCEIRO;
-  return acimaDaAlcada ? ["diretoria"] : ["financeiro", "diretoria"];
+  const acimaDaAlcada =
+    COMPRAS_ALCADA_FINANCEIRO !== null && valor !== null && Number(valor) > COMPRAS_ALCADA_FINANCEIRO;
+  return !acimaDaAlcada && alcancaDepartamento(acesso, "financeiro", "gerente");
 }
 
-export function assertAlcada(valor: string | null, roles: readonly RoleKey[]): void {
-  const permitidos = papeisQuePodemAprovar(valor);
-  if (!permitidos.some((papel) => roles.includes(papel))) {
+export function assertAlcada(valor: string | null, acesso: Acesso): void {
+  if (!podeAprovarCompra(valor, acesso)) {
     throw new AcessoNegado(
-      `compras acima de R$ ${COMPRAS_ALCADA_FINANCEIRO} são aprovadas pela diretoria`,
+      COMPRAS_ALCADA_FINANCEIRO === null
+        ? "a compra é aprovada pelo gerente do Financeiro"
+        : `compras acima de R$ ${COMPRAS_ALCADA_FINANCEIRO} são aprovadas pelo admin`,
     );
   }
 }
@@ -298,7 +309,7 @@ export function assertAlcada(valor: string | null, roles: readonly RoleKey[]): v
  */
 export function acoesBloqueadas(
   pedido: PedidoParaSegregacao & { etapa: ComprasEtapa; valorCotado: string | null },
-  principal: { id: string; roles: readonly RoleKey[] },
+  principal: { id: string; acesso: Acesso },
 ): AcaoBloqueada[] {
   const bloqueadas: AcaoBloqueada[] = [];
 
@@ -306,7 +317,7 @@ export function acoesBloqueadas(
     for (const par of paresViolados("aprovar", pedido, principal.id)) {
       bloqueadas.push({ acao: "aprovacao", motivo: MOTIVO[par] });
     }
-    if (!papeisQuePodemAprovar(pedido.valorCotado).some((papel) => principal.roles.includes(papel))) {
+    if (!podeAprovarCompra(pedido.valorCotado, principal.acesso)) {
       bloqueadas.push({ acao: "aprovacao", motivo: "valor acima da sua alçada de aprovação" });
     }
   }
@@ -318,7 +329,7 @@ export function acoesBloqueadas(
   }
 
   if (pedido.etapa === "retirada") {
-    if (pedido.solicitanteId !== principal.id && !principal.roles.includes("diretoria")) {
+    if (pedido.solicitanteId !== principal.id && !decideExcecao(principal.acesso)) {
       bloqueadas.push({
         acao: "recebimento",
         motivo: "só quem pediu o material confirma o recebimento",

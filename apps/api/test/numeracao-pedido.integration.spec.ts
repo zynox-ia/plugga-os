@@ -24,7 +24,7 @@ describe.skipIf(!HABILITADO)("compras: numeração de pedido sob disputa", () =>
   const prisma = new PrismaService();
   const repositorio = new PrismaComprasRepository(prisma, new AuditAppender());
   const marca = `atom-num-${randomUUID().slice(0, 8)}`;
-  const solicitante: AuthPrincipal = { id: "", kind: "user", roles: ["compras"] };
+  const solicitante: AuthPrincipal = { id: "", kind: "user", acesso: { plataforma: null, departamentos: [{ departamento: "suprimentos", nivel: "membro" }] } };
   let obraId = "";
   let fornecedorId = "";
 

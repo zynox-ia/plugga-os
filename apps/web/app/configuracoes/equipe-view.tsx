@@ -2,13 +2,13 @@
 
 import { useCallback, useEffect, useState } from "react";
 import {
-  companyKeys,
-  type CompanyKey,
-  type DepartmentId,
-  type TeamListResponse,
-  type TeamMember,
-  type TeamScope,
-  type UserAccess,
+  papelDoAcesso,
+  type Acesso,
+  type Departamento as DepartamentoId,
+  type EscopoDaEquipe,
+  type ListaDaEquipe,
+  type MembroDaEquipe,
+  type NivelDeDepartamento,
   type UserStatus,
 } from "@plugga/shared";
 
@@ -16,6 +16,7 @@ import { ShellCard, ShellTable } from "../components/plugga-shell";
 import {
   Badge,
   Button,
+  Checkbox,
   Dialog,
   DropdownMenu,
   IconEdit,
@@ -24,41 +25,21 @@ import {
   IconReset,
   IconSave,
   IconTrash,
+  Radio,
   TextField,
   type Tone,
 } from "../components/ui";
-import { EMPRESAS_POR_ID } from "../lib/organizacao";
+import { DEPARTAMENTOS, ROTULO_DO_PAPEL } from "../lib/organizacao";
 
 /**
- * Equipe e acessos.
- *
- * Uma tela só para acompanhar quem já tem acesso e o que alcança.
+ * Equipe e acessos, no modelo de 4 papéis: membro ou gerente por departamento,
+ * admin ou desenvolvedor na plataforma.
  *
  * O que aparece aqui é o que o servidor disse que a pessoa pode fazer
- * (`scope`, `canManage`, `canDeactivate`). A tela não recalcula a regra de
- * escopo: se recalculasse, um dia mostraria um botão que a API recusa — ou
- * esconderia um que ela aceitaria.
+ * (`escopo`, `podeEditar`, `podeDesativar`, `podeReenviarConvite`). A tela não
+ * recalcula a escada: se recalculasse, um dia mostraria um botão que a API
+ * recusa — ou esconderia um que ela aceitaria.
  */
-
-const PAPEL_LABEL: Record<string, string> = {
-  admin: "Administração da plataforma",
-  diretoria: "Diretoria",
-  comercial: "Comercial",
-  pluggamob: "PluggaMob",
-  financeiro: "Financeiro",
-  compras: "Compras",
-  opm: "OPM",
-  tech: "Tecnologia",
-  viewer: "Leitura",
-  projetista: "Projetista",
-  engenheiro: "Engenheiro",
-  supervisor: "Supervisor de obra",
-  tecnico: "Técnico de campo",
-  almoxarife: "Almoxarife",
-  seguranca: "Segurança do trabalho",
-  gestor_suprimentos: "Gestor de Suprimentos",
-  comprador: "Comprador",
-};
 
 const STATUS_LABEL: Record<UserStatus, string> = {
   invited: "Convidado",
@@ -72,43 +53,19 @@ const STATUS_TOM: Record<UserStatus, Tone> = {
   disabled: "danger",
 };
 
-function departamentoLabel(empresa: CompanyKey, departamento: DepartmentId): string {
-  return (
-    EMPRESAS_POR_ID[empresa].departamentos.find((entrada) => entrada.id === departamento)?.label ??
-    departamento
-  );
+const NIVEL_LABEL: Record<NivelDeDepartamento, string> = { membro: "Membro", gerente: "Gerente" };
+
+function departamentoLabel(departamento: DepartamentoId): string {
+  return DEPARTAMENTOS.find((entrada) => entrada.id === departamento)?.label ?? departamento;
 }
 
 /** Uma linha legível do que a pessoa alcança, para caber na tabela. */
-function resumoAcesso(acesso: UserAccess): string {
-  const partes = acesso.platformRoles.map((papel) => PAPEL_LABEL[papel] ?? papel);
-
-  for (const empresa of acesso.companies) {
-    const papeis = empresa.roles.map((papel) => PAPEL_LABEL[papel] ?? papel).join(", ");
-    const departamentos = empresa.departments
-      .map(
-        (departamento) =>
-          departamentoLabel(empresa.companyId, departamento.departmentId) +
-          (departamento.isManager ? " (gestor)" : ""),
-      )
-      .join(", ");
-
-    partes.push(
-      `${EMPRESAS_POR_ID[empresa.companyId].nome} · ${papeis}` +
-        (departamentos ? ` · ${departamentos}` : " · sem departamento"),
-    );
-  }
-
-  return partes.length > 0 ? partes.join(" | ") : "Sem acesso";
-}
-
-function tituloAcesso(acesso: UserAccess): string {
-  if (acesso.platformRoles.includes("admin")) return "Administração da plataforma";
-
-  const papeis = acesso.companies.flatMap((empresa) => empresa.roles);
-  return papeis.length > 0
-    ? [...new Set(papeis)].map((papel) => PAPEL_LABEL[papel] ?? papel).join(" · ")
-    : "Acesso personalizado";
+function resumoAcesso(acesso: Acesso): string {
+  if (acesso.plataforma !== null) return "Todos os departamentos";
+  if (acesso.departamentos.length === 0) return "Sem acesso";
+  return acesso.departamentos
+    .map((entrada) => `${departamentoLabel(entrada.departamento)} (${NIVEL_LABEL[entrada.nivel].toLowerCase()})`)
+    .join(", ");
 }
 
 function iniciais(nome: string): string {
@@ -121,49 +78,48 @@ function iniciais(nome: string): string {
     .toUpperCase();
 }
 
-const ACESSO_VAZIO: UserAccess = { platformRoles: [], companies: [] };
+const ACESSO_VAZIO: Acesso = { plataforma: null, departamentos: [] };
 
 type Formulario =
-  | { modo: "convite"; nome: string; email: string; acesso: UserAccess }
-  | { modo: "edicao"; membro: TeamMember; acesso: UserAccess };
+  | { modo: "convite"; nome: string; email: string; acesso: Acesso }
+  | { modo: "edicao"; membro: MembroDaEquipe; acesso: Acesso };
 
 async function mensagemDeErro(resposta: Response): Promise<string> {
   try {
     const corpo = (await resposta.json()) as {
+      mensagem?: string;
       message?: string;
-      issues?: Array<{ path: string; message: string }>;
+      detalhes?: Array<{ campo: string; problema: string }>;
     };
-    if (corpo.issues?.length) {
-      return corpo.issues.map((issue) => `${issue.path}: ${issue.message}`).join("; ");
+    if (corpo.detalhes?.length) {
+      return corpo.detalhes.map((detalhe) => `${detalhe.campo}: ${detalhe.problema}`).join("; ");
     }
-    return corpo.message ?? `Falha (${resposta.status}).`;
+    return corpo.mensagem ?? corpo.message ?? `Falha (${resposta.status}).`;
   } catch {
     return `Falha (${resposta.status}).`;
   }
 }
 
 export function EquipeView() {
-  const [dados, setDados] = useState<TeamListResponse | null>(null);
+  const [dados, setDados] = useState<ListaDaEquipe | null>(null);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
   const [formulario, setFormulario] = useState<Formulario | null>(null);
-  const [membroVisualizado, setMembroVisualizado] = useState<TeamMember | null>(null);
+  const [membroVisualizado, setMembroVisualizado] = useState<MembroDaEquipe | null>(null);
   const carregar = useCallback(async () => {
     setCarregando(true);
 
     try {
-      const resposta = await fetch("/api/auth/users", {
-        cache: "no-store",
-      });
+      const resposta = await fetch("/api/equipe", { cache: "no-store" });
       if (!resposta.ok) {
         setErro(await mensagemDeErro(resposta));
         setDados(null);
         return;
       }
       setErro(null);
-      setDados((await resposta.json()) as TeamListResponse);
+      setDados((await resposta.json()) as ListaDaEquipe);
     } catch {
       setErro("Não foi possível falar com o servidor.");
       setDados(null);
@@ -182,21 +138,18 @@ export function EquipeView() {
     setErro(null);
     setAviso(null);
 
-    const requisicao = formulario.modo === "convite"
-      ? fetch("/api/auth/invite", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({
-            email: formulario.email,
-            name: formulario.nome,
-            access: formulario.acesso,
-          }),
-        })
-      : fetch(`/api/auth/users/${formulario.membro.id}/access`, {
-          method: "PUT",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ access: formulario.acesso }),
-        });
+    const requisicao =
+      formulario.modo === "convite"
+        ? fetch("/api/equipe/convites", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ email: formulario.email, name: formulario.nome, acesso: formulario.acesso }),
+          })
+        : fetch(`/api/equipe/${formulario.membro.id}/acesso`, {
+            method: "PUT",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ acesso: formulario.acesso }),
+          });
 
     try {
       const resposta = await requisicao;
@@ -214,12 +167,10 @@ export function EquipeView() {
     }
   }
 
-  async function acaoNoMembro(membro: TeamMember, acao: "deactivate" | "resend-invite") {
+  async function acaoNoMembro(membro: MembroDaEquipe, acao: "desativar" | "reenviar-convite") {
     if (
-      acao === "deactivate" &&
-      !window.confirm(
-        `Desativar ${membro.name}? A pessoa perde o acesso e as sessões abertas caem na hora.`,
-      )
+      acao === "desativar" &&
+      !window.confirm(`Desativar ${membro.name}? A pessoa perde o acesso e as sessões abertas caem na hora.`)
     ) {
       return;
     }
@@ -228,12 +179,12 @@ export function EquipeView() {
     setErro(null);
     setAviso(null);
     try {
-      const resposta = await fetch(`/api/auth/users/${membro.id}/${acao}`, { method: "POST" });
+      const resposta = await fetch(`/api/equipe/${membro.id}/${acao}`, { method: "POST" });
       if (!resposta.ok) {
         setErro(await mensagemDeErro(resposta));
         return;
       }
-      setAviso(acao === "deactivate" ? `${membro.name} foi desativado.` : "Convite reenviado.");
+      setAviso(acao === "desativar" ? `${membro.name} foi desativado.` : "Convite reenviado.");
       await carregar();
     } catch {
       setErro("Não foi possível falar com o servidor.");
@@ -259,14 +210,12 @@ export function EquipeView() {
             <h2>Sem acesso a esta área</h2>
           </div>
         </div>
-        <p className="card-note">
-          {erro ?? "Gerir equipe é do administrador da plataforma ou de quem gestiona um departamento."}
-        </p>
+        <p className="card-note">{erro ?? "Gerir equipe é do gerente de um departamento, do admin ou do desenvolvedor."}</p>
       </ShellCard>
     );
   }
 
-  const escopo = dados.scope;
+  const escopo = dados.escopo;
   return (
     <div className="stack">
       <ShellCard className="table-card equipe-card">
@@ -275,14 +224,12 @@ export function EquipeView() {
             <span className="eyebrow">Configurações</span>
             <h2>Equipe e acessos</h2>
           </div>
-          {escopo.canInvite ? (
+          {escopo.podeConvidar ? (
             <Button
               variant="primary"
               icon={<IconPlus />}
               disabled={salvando}
-              onClick={() =>
-                setFormulario({ modo: "convite", nome: "", email: "", acesso: ACESSO_VAZIO })
-              }
+              onClick={() => setFormulario({ modo: "convite", nome: "", email: "", acesso: ACESSO_VAZIO })}
             >
               Novo acesso
             </Button>
@@ -302,12 +249,12 @@ export function EquipeView() {
             </tr>
           </thead>
           <tbody>
-            {dados.members.length === 0 ? (
+            {dados.membros.length === 0 ? (
               <tr>
                 <td colSpan={4}>Nenhuma pessoa com acesso ao sistema.</td>
               </tr>
             ) : null}
-            {dados.members.map((membro) => (
+            {dados.membros.map((membro) => (
               <tr key={membro.id}>
                 <td>
                   <div className="equipe-membro">
@@ -320,14 +267,12 @@ export function EquipeView() {
                 </td>
                 <td>
                   <div className="equipe-acesso">
-                    <strong>{tituloAcesso(membro.access)}</strong>
-                    <span>{resumoAcesso(membro.access)}</span>
+                    <strong>{ROTULO_DO_PAPEL[papelDoAcesso(membro.acesso)]}</strong>
+                    <span>{resumoAcesso(membro.acesso)}</span>
                   </div>
                 </td>
                 <td>
-                  <Badge tone={STATUS_TOM[membro.status]}>
-                    {STATUS_LABEL[membro.status]}
-                  </Badge>
+                  <Badge tone={STATUS_TOM[membro.status]}>{STATUS_LABEL[membro.status]}</Badge>
                 </td>
                 <td>
                   <div className="row-actions">
@@ -348,23 +293,23 @@ export function EquipeView() {
                           id: "alterar-acesso",
                           label: "Mudar acesso",
                           icon: <IconEdit />,
-                          disabled: !membro.canManage,
-                          onSelect: () => setFormulario({ modo: "edicao", membro, acesso: membro.access }),
+                          disabled: !membro.podeEditar,
+                          onSelect: () => setFormulario({ modo: "edicao", membro, acesso: membro.acesso }),
                         },
                         {
                           id: "enviar-link",
                           label: "Enviar link de acesso",
                           icon: <IconReset />,
-                          disabled: !membro.canManage || membro.status !== "invited",
-                          onSelect: () => void acaoNoMembro(membro, "resend-invite"),
+                          disabled: !membro.podeReenviarConvite,
+                          onSelect: () => void acaoNoMembro(membro, "reenviar-convite"),
                         },
                         {
                           id: "desativar",
                           label: "Desativar acesso",
                           icon: <IconTrash />,
                           danger: true,
-                          disabled: !membro.canDeactivate,
-                          onSelect: () => void acaoNoMembro(membro, "deactivate"),
+                          disabled: !membro.podeDesativar,
+                          onSelect: () => void acaoNoMembro(membro, "desativar"),
                         },
                         {
                           id: "remover",
@@ -387,17 +332,14 @@ export function EquipeView() {
       {formulario ? (
         <Dialog
           title={formulario.modo === "convite" ? "Novo acesso" : "Editar acesso"}
-          description={formulario.modo === "convite" ? "Cadastre uma nova pessoa e defina o acesso inicial." : formulario.membro.email}
+          description={
+            formulario.modo === "convite" ? "Cadastre uma nova pessoa e defina o acesso inicial." : formulario.membro.email
+          }
           icon={formulario.modo === "convite" ? <IconPlus /> : <IconEdit />}
           onClose={() => setFormulario(null)}
           size="larga"
           footer={
-            <Button
-              variant="primary"
-              icon={<IconSave />}
-              loading={salvando}
-              onClick={() => void enviar()}
-            >
+            <Button variant="primary" icon={<IconSave />} loading={salvando} onClick={() => void enviar()}>
               {formulario.modo === "convite" ? "Enviar convite" : "Salvar acesso"}
             </Button>
           }
@@ -438,11 +380,17 @@ export function EquipeView() {
           <dl className="membro-detalhes">
             <div>
               <dt>Situação</dt>
-              <dd><Badge tone={STATUS_TOM[membroVisualizado.status]}>{STATUS_LABEL[membroVisualizado.status]}</Badge></dd>
+              <dd>
+                <Badge tone={STATUS_TOM[membroVisualizado.status]}>{STATUS_LABEL[membroVisualizado.status]}</Badge>
+              </dd>
+            </div>
+            <div>
+              <dt>Papel</dt>
+              <dd>{ROTULO_DO_PAPEL[papelDoAcesso(membroVisualizado.acesso)]}</dd>
             </div>
             <div>
               <dt>Acesso</dt>
-              <dd>{resumoAcesso(membroVisualizado.access)}</dd>
+              <dd>{resumoAcesso(membroVisualizado.acesso)}</dd>
             </div>
           </dl>
         </Dialog>
@@ -452,169 +400,111 @@ export function EquipeView() {
 }
 
 /**
- * Editor do acesso. Desenha só o que o escopo do servidor permite conceder —
- * um gestor de Energia não vê a Waze aqui, e não vê papel que ele próprio não
- * tem. Cada empresa é um bloco: entrar nela é uma escolha, e papel e
- * departamento só existem dentro dela.
+ * Editor do acesso. Desenha só o que o escopo do servidor permite conceder: o
+ * papel de plataforma só aparece para quem pode dá-lo, e o gerente vê apenas os
+ * próprios departamentos, sem a opção de gerente.
  */
 function EditorDeAcesso({
   escopo,
   valor,
   onChange,
 }: {
-  escopo: TeamScope;
-  valor: UserAccess;
-  onChange: (proximo: UserAccess) => void;
+  escopo: EscopoDaEquipe;
+  valor: Acesso;
+  onChange: (proximo: Acesso) => void;
 }) {
-  function empresaAtual(companyId: CompanyKey) {
-    return valor.companies.find((empresa) => empresa.companyId === companyId);
+  const podeAdmin = escopo.papeisConcediveis.includes("admin");
+  const podeDesenvolvedor = escopo.papeisConcediveis.includes("desenvolvedor");
+  const podeGerente = escopo.papeisConcediveis.includes("gerente");
+  const departamentos = DEPARTAMENTOS.filter((departamento) => escopo.departamentos.includes(departamento.id));
+
+  function nivelDe(departamento: DepartamentoId): NivelDeDepartamento | null {
+    return valor.departamentos.find((entrada) => entrada.departamento === departamento)?.nivel ?? null;
   }
 
-  function alteraEmpresa(
-    companyId: CompanyKey,
-    altera: (atual: UserAccess["companies"][number]) => UserAccess["companies"][number] | null,
-  ) {
-    const atual = empresaAtual(companyId) ?? { companyId, roles: [], departments: [] };
-    const proxima = altera(atual);
-    const outras = valor.companies.filter((empresa) => empresa.companyId !== companyId);
-    const companies = proxima ? [...outras, proxima] : outras;
-    // Ordem do catálogo, sempre: sem isto marcar e desmarcar a Waze faria a
-    // linha de resumo trocar de ordem sozinha, como se algo mais tivesse mudado.
+  function defineDepartamento(departamento: DepartamentoId, nivel: NivelDeDepartamento | null) {
+    const outros = valor.departamentos.filter((entrada) => entrada.departamento !== departamento);
+    const proximos = nivel ? [...outros, { departamento, nivel }] : outros;
+    // Ordem do catálogo, sempre: sem isto marcar e desmarcar faria o resumo
+    // trocar de ordem sozinho, como se algo mais tivesse mudado.
     onChange({
-      ...valor,
-      companies: companyKeys.flatMap(
-        (chave) => companies.filter((empresa) => empresa.companyId === chave),
-      ),
+      plataforma: null,
+      departamentos: DEPARTAMENTOS.flatMap((entrada) => proximos.filter((item) => item.departamento === entrada.id)),
     });
   }
 
   return (
     <div className="acesso-editor">
-      {escopo.isPlatformAdmin ? (
-        <label className="acesso-linha">
-          <input
-            type="checkbox"
-            checked={valor.platformRoles.includes("admin")}
-            onChange={(evento) =>
-              onChange({ ...valor, platformRoles: evento.target.checked ? ["admin"] : [] })
-            }
-          />
-          <span>
-            <strong>Administração da plataforma</strong>
-            <span className="card-note">
-              Alcança as duas empresas e todos os departamentos, e pode gerir a equipe inteira.
-            </span>
-          </span>
-        </label>
+      {podeAdmin || podeDesenvolvedor ? (
+        <fieldset className="acesso-empresa">
+          <legend className="eyebrow">Papel</legend>
+          <div className="acesso-niveis">
+            <Radio
+              name="papel"
+              label="Equipe"
+              description="Membro ou gerente dos departamentos escolhidos abaixo."
+              checked={valor.plataforma === null}
+              onChange={() => onChange({ plataforma: null, departamentos: [] })}
+            />
+            <Radio
+              name="papel"
+              label="Admin"
+              description="Controla todo o sistema, inclusive aprovar."
+              checked={valor.plataforma === "admin"}
+              onChange={() => onChange({ plataforma: "admin", departamentos: [] })}
+            />
+            {podeDesenvolvedor ? (
+              <Radio
+                name="papel"
+                label="Desenvolvedor"
+                description="Tudo do admin, mais logs, auditoria e telas técnicas."
+                checked={valor.plataforma === "desenvolvedor"}
+                onChange={() => onChange({ plataforma: "desenvolvedor", departamentos: [] })}
+              />
+            ) : null}
+          </div>
+        </fieldset>
       ) : null}
 
-      {escopo.companies.map((empresa) => {
-        const atual = empresaAtual(empresa.companyId);
-        const ligada = atual !== undefined;
-
-        return (
-          <fieldset className="acesso-empresa" key={empresa.companyId}>
-            <legend>
-              <label className="acesso-linha">
-                <input
-                  type="checkbox"
-                  checked={ligada}
-                  onChange={(evento) =>
-                    alteraEmpresa(empresa.companyId, () =>
-                      evento.target.checked
-                        ? { companyId: empresa.companyId, roles: ["viewer"], departments: [] }
-                        : null,
-                    )
-                  }
+      {valor.plataforma === null ? (
+        <fieldset className="acesso-empresa">
+          <legend className="eyebrow">Departamentos</legend>
+          {departamentos.map((departamento) => {
+            const nivel = nivelDe(departamento.id);
+            return (
+              <div className="acesso-departamento" key={departamento.id}>
+                <Checkbox
+                  label={departamento.label}
+                  checked={nivel !== null}
+                  onChange={(evento) => defineDepartamento(departamento.id, evento.target.checked ? "membro" : null)}
                 />
-                <strong>{EMPRESAS_POR_ID[empresa.companyId].nome}</strong>
-              </label>
-            </legend>
-
-            {ligada ? (
-              <div className="acesso-grupos">
-                <div className="acesso-grupo">
-                  <span className="eyebrow">Papéis nesta empresa</span>
-                  {empresa.roles.map((papel) => (
-                    <label className="acesso-linha" key={papel}>
-                      <input
-                        type="checkbox"
-                        checked={atual.roles.includes(papel)}
-                        onChange={(evento) =>
-                          alteraEmpresa(empresa.companyId, (empresaAtual) => ({
-                            ...empresaAtual,
-                            roles: evento.target.checked
-                              ? [...empresaAtual.roles, papel]
-                              : empresaAtual.roles.filter((atualPapel) => atualPapel !== papel),
-                          }))
-                        }
-                      />
-                      <span>{PAPEL_LABEL[papel] ?? papel}</span>
-                    </label>
-                  ))}
-                </div>
-
-                <div className="acesso-grupo">
-                  <span className="eyebrow">Departamentos</span>
-                  {empresa.departmentIds.map((departamento) => {
-                    const liberado = atual.departments.find(
-                      (entrada) => entrada.departmentId === departamento,
-                    );
-                    return (
-                      <div className="acesso-departamento" key={departamento}>
-                        <label className="acesso-linha">
-                          <input
-                            type="checkbox"
-                            checked={liberado !== undefined}
-                            onChange={(evento) =>
-                              alteraEmpresa(empresa.companyId, (empresaAtual) => ({
-                                ...empresaAtual,
-                                departments: evento.target.checked
-                                  ? [
-                                      ...empresaAtual.departments,
-                                      { departmentId: departamento, isManager: false },
-                                    ]
-                                  : empresaAtual.departments.filter(
-                                      (entrada) => entrada.departmentId !== departamento,
-                                    ),
-                              }))
-                            }
-                          />
-                          <span>{departamentoLabel(empresa.companyId, departamento)}</span>
-                        </label>
-
-                        {liberado && empresa.canGrantManager ? (
-                          <label className="acesso-linha acesso-linha--aninhada">
-                            <input
-                              type="checkbox"
-                              checked={liberado.isManager}
-                              onChange={(evento) =>
-                                alteraEmpresa(empresa.companyId, (empresaAtual) => ({
-                                  ...empresaAtual,
-                                  departments: empresaAtual.departments.map((entrada) =>
-                                    entrada.departmentId === departamento
-                                      ? { ...entrada, isManager: evento.target.checked }
-                                      : entrada,
-                                  ),
-                                }))
-                              }
-                            />
-                            <span>Gestor do departamento — pode convidar e editar aqui</span>
-                          </label>
-                        ) : null}
-                      </div>
-                    );
-                  })}
-                </div>
+                {nivel !== null && podeGerente ? (
+                  <div className="acesso-niveis acesso-niveis--aninhada" role="radiogroup" aria-label={`Nível em ${departamento.label}`}>
+                    <Radio
+                      name={`nivel-${departamento.id}`}
+                      label="Membro"
+                      description="Opera o departamento."
+                      checked={nivel === "membro"}
+                      onChange={() => defineDepartamento(departamento.id, "membro")}
+                    />
+                    <Radio
+                      name={`nivel-${departamento.id}`}
+                      label="Gerente"
+                      description="Aprova e gere a equipe do departamento."
+                      checked={nivel === "gerente"}
+                      onChange={() => defineDepartamento(departamento.id, "gerente")}
+                    />
+                  </div>
+                ) : null}
               </div>
-            ) : (
-              <p className="card-note">
-                Sem acesso a esta empresa: não vê os dados nem navega o contexto dela.
-              </p>
-            )}
-          </fieldset>
-        );
-      })}
+            );
+          })}
+        </fieldset>
+      ) : (
+        <p className="card-note">
+          {ROTULO_DO_PAPEL[valor.plataforma]} alcança todos os departamentos; não há departamento para escolher.
+        </p>
+      )}
     </div>
   );
 }

@@ -1,8 +1,8 @@
 import { expect, test } from "@playwright/test";
-import type { UserAccess } from "@plugga/shared";
+import type { Acesso } from "@plugga/shared";
 
 import { navGroupsForAccess } from "../app/lib/navigation";
-import { EMPRESAS_POR_ID, GLOBAIS, VISAO_GERAL } from "../app/lib/organizacao";
+import { DEPARTAMENTOS, GLOBAIS, VISAO_GERAL } from "../app/lib/organizacao";
 
 const ITEMS = navGroupsForAccess().flatMap((group) => group.items);
 /** Só o que tem tela navega; o resto permanece inativo. */
@@ -36,10 +36,7 @@ test.describe("Plugga shell — smoke", () => {
     await expect(page.locator(".skip-link")).toHaveText("Pular para o conteúdo");
     await expect(page.locator(".brand-lockup img")).toBeVisible();
 
-    for (const departamento of [
-      ...EMPRESAS_POR_ID.plugga.departamentos,
-      EMPRESAS_POR_ID.waze.departamentos.find((item) => item.id === "engenharia-obras")!,
-    ]) {
+    for (const departamento of DEPARTAMENTOS) {
       await expect(
         page.locator(".sidebar-nav .nav-parent", { hasText: departamento.label }),
       ).toBeVisible();
@@ -141,28 +138,14 @@ test.describe("Plugga shell — smoke", () => {
 });
 
 test.describe("Navegação única", () => {
-  test("mostra somente os departamentos permitidos e deduplica os compartilhados", () => {
-    const acesso: UserAccess = {
-      platformRoles: [],
-      companies: [
-        {
-          companyId: "plugga",
-          roles: [],
-          departments: [
-            { departmentId: "comercial-clientes", isManager: false },
-            { departmentId: "suprimentos", isManager: false },
-            { departmentId: "financeiro", isManager: false },
-          ],
-        },
-        {
-          companyId: "waze",
-          roles: [],
-          departments: [
-            { departmentId: "engenharia-obras", isManager: false },
-            { departmentId: "suprimentos", isManager: false },
-            { departmentId: "financeiro", isManager: false },
-          ],
-        },
+  test("mostra somente os departamentos que a pessoa alcança, uma vez cada", () => {
+    const acesso: Acesso = {
+      plataforma: null,
+      departamentos: [
+        { departamento: "crm", nivel: "membro" },
+        { departamento: "suprimentos", nivel: "membro" },
+        { departamento: "financeiro", nivel: "gerente" },
+        { departamento: "engenharia-obras", nivel: "membro" },
       ],
     };
     const departamentos = navGroupsForAccess(acesso).filter((group) => group.collapsible);
@@ -238,32 +221,19 @@ test.describe("Navegação única", () => {
 });
 
 test.describe("Mapa da estrutura", () => {
-  test("lista as duas empresas com os seus departamentos", async ({ page }) => {
+  test("lista os departamentos da barra lateral", async ({ page }) => {
     await page.goto("/estrutura");
-
-    // "CRM", "Suprimentos" e "Financeiro" existem nas duas empresas: o mapa só é
-    // legível se cada bloco for lido dentro do seu próprio cartão.
-    for (const empresa of [EMPRESAS_POR_ID.plugga, EMPRESAS_POR_ID.waze]) {
-      const cartao = page.locator(`.estrutura-empresa--${empresa.id}`);
-      await expect(cartao.getByRole("heading", { name: empresa.nome, exact: true })).toBeVisible();
-      for (const departamento of empresa.departamentos) {
-        await expect(
-          cartao.getByRole("heading", { name: departamento.label, exact: true }),
-        ).toBeVisible();
-      }
+    for (const departamento of DEPARTAMENTOS) {
+      await expect(page.getByRole("heading", { name: departamento.label, exact: true })).toBeVisible();
     }
   });
 
-  test("Compras é de Suprimentos nas duas empresas, e sai do Financeiro", async ({ page }) => {
-    await page.goto("/estrutura");
-
-    for (const empresa of [EMPRESAS_POR_ID.plugga, EMPRESAS_POR_ID.waze]) {
-      const suprimentos = empresa.departamentos.find((d) => d.id === "suprimentos");
-      const financeiro = empresa.departamentos.find((d) => d.id === "financeiro");
-      expect(suprimentos?.processos.some((p) => p.label === "Compras")).toBe(true);
-      expect(financeiro?.processos.some((p) => p.label === "Compras")).toBe(false);
-    }
-    expect(EMPRESAS_POR_ID.waze.departamentos).toHaveLength(5);
+  test("Compras é de Suprimentos, e sai do Financeiro", () => {
+    const suprimentos = DEPARTAMENTOS.find((d) => d.id === "suprimentos");
+    const financeiro = DEPARTAMENTOS.find((d) => d.id === "financeiro");
+    expect(suprimentos?.processos.some((p) => p.label === "Compras")).toBe(true);
+    expect(financeiro?.processos.some((p) => p.label === "Compras")).toBe(false);
     expect(navGroupsForAccess().some((group) => group.label === "Engenharia e Obras")).toBe(true);
   });
 });
+

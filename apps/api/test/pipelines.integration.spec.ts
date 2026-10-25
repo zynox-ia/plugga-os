@@ -24,7 +24,7 @@ describe.skipIf(!HABILITADO)("pipelines: configuração no Postgres", () => {
   const prisma = new PrismaService();
   const repositorio = new PrismaPipelinesRepository(prisma, new AuditAppender());
   const marca = `pip-${randomUUID().slice(0, 8)}`;
-  const pessoas: Record<"gestorWaze" | "vendedora" | "forasteiro" | "vendedorPlugga", AuthPrincipal> = {} as never;
+  const pessoas: Record<"gestorWaze" | "vendedora" | "forasteiro" | "vendedorPlugga" | "semCrm", AuthPrincipal> = {} as never;
 
   const configuracao = (dados: { companyId?: CompanyKey; name?: string; members?: { userId: string; role: "vendedor" | "gestor" }[] } = {}) => ({
     companyId: dados.companyId ?? "waze",
@@ -54,35 +54,31 @@ describe.skipIf(!HABILITADO)("pipelines: configuração no Postgres", () => {
   const nomesVistos = async (principal: AuthPrincipal) =>
     (await repositorio.list(principal)).pipelines.map((p) => p.name).filter((nome) => nome.startsWith(marca));
 
-  async function pessoa(chave: keyof typeof pessoas, empresa: CompanyKey, gestor = false): Promise<void> {
-    const comercial = await prisma.role.upsert({ where: { key: "comercial" }, create: { key: "comercial", name: "Comercial" }, update: {} });
-    const departamento = empresa === "waze" ? "comercial-obras" : "comercial-clientes";
+  /** `crm` é o departamento do CRM; sem ele a pessoa existe mas não é elegível à equipe de pipeline. */
+  async function pessoa(chave: keyof typeof pessoas, nivel: "membro" | "gerente" | null = "membro"): Promise<void> {
     const usuario = await prisma.user.create({
       data: {
         email: `${marca}-${chave.toLowerCase()}@teste.local`,
         name: `${marca} ${chave}`,
-        memberships: {
-          create: {
-            companyId: empresa,
-            roles: { create: { roleId: comercial.id } },
-            departments: { create: { departmentId: departamento, isManager: gestor } },
-          },
+        departamentos: {
+          create: nivel === null ? { departamento: "financeiro", nivel: "membro" } : { departamento: "crm", nivel },
         },
       },
     });
-    pessoas[chave] = { id: usuario.id, kind: "user", roles: ["comercial"] };
+    pessoas[chave] = {
+      id: usuario.id,
+      kind: "user",
+      acesso: { plataforma: null, departamentos: [{ departamento: nivel === null ? "financeiro" : "crm", nivel: nivel ?? "membro" }] },
+    };
   }
 
   beforeAll(async () => {
     await prisma.$connect();
-    // Banco de teste recém-migrado não tem o seed: empresas e papel são garantidos aqui.
-    for (const [id, name] of [["plugga", "Plugga"], ["waze", "Waze Energia"]] as const) {
-      await prisma.company.upsert({ where: { id }, create: { id, name }, update: {} });
-    }
-    await pessoa("gestorWaze", "waze", true);
-    await pessoa("vendedora", "waze");
-    await pessoa("forasteiro", "waze");
-    await pessoa("vendedorPlugga", "plugga");
+    await pessoa("gestorWaze", "gerente");
+    await pessoa("vendedora");
+    await pessoa("forasteiro");
+    await pessoa("vendedorPlugga");
+    await pessoa("semCrm", null);
   }, PRAZO_MS);
 
   afterAll(async () => {
@@ -129,15 +125,15 @@ describe.skipIf(!HABILITADO)("pipelines: configuração no Postgres", () => {
   );
 
   it(
-    "só entra na equipe quem tem papel comercial na empresa do pipeline",
+    "só entra na equipe quem é do CRM",
     async () => {
-      const outraEmpresa = configuracao({ name: `${marca} Equipe`, members: [{ userId: pessoas.vendedorPlugga.id, role: "vendedor" }] });
-      await expect(criar(outraEmpresa, pessoas.gestorWaze)).rejects.toBeInstanceOf(RequisicaoInvalida);
+      const foraDoCrm = configuracao({ name: `${marca} Equipe`, members: [{ userId: pessoas.semCrm.id, role: "vendedor" }] });
+      await expect(criar(foraDoCrm, pessoas.gestorWaze)).rejects.toBeInstanceOf(RequisicaoInvalida);
 
       const { people } = await repositorio.people({ companyId: "waze" }, pessoas.gestorWaze);
       const ids = people.map((p) => p.id);
       expect(ids).toEqual(expect.arrayContaining([pessoas.vendedora.id, pessoas.forasteiro.id, pessoas.gestorWaze.id]));
-      expect(ids).not.toContain(pessoas.vendedorPlugga.id);
+      expect(ids).not.toContain(pessoas.semCrm.id);
       await expect(repositorio.people({ companyId: "waze" }, pessoas.vendedora)).rejects.toBeInstanceOf(AcessoNegado);
     },
     PRAZO_MS,

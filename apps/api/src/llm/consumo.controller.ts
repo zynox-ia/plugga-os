@@ -3,14 +3,13 @@ import {
   consultaDeConsumoSchema,
   type ConsultaDeConsumo,
   type ResumoDeConsumo,
-  type RoleKey,
 } from "@plugga/shared";
 
 import { ZodValidationPipe } from "../common/zod-validation.pipe";
 
 import { SessionAuthGuard } from "../core/auth/session-auth.guard";
-import { Roles } from "../core/auth/roles.decorator";
-import { RolesGuard } from "../core/auth/roles.guard";
+import { Departamento } from "../core/auth/acesso.decorator";
+import { AcessoGuard } from "../core/auth/acesso.guard";
 import { ConsumoService } from "./consumo.service.js";
 
 /**
@@ -20,10 +19,8 @@ import { ConsumoService } from "./consumo.service.js";
  * dado sensível de cliente, mas também não é informação de todo mundo: um número
  * de gasto fora de contexto circula mal.
  */
-const VER_CONSUMO: readonly RoleKey[] = ["admin", "diretoria", "financeiro", "tech"];
-
 @Controller("llm/consumo")
-@UseGuards(SessionAuthGuard, RolesGuard)
+@UseGuards(SessionAuthGuard, AcessoGuard)
 export class ConsumoController {
   constructor(private readonly consumo: ConsumoService) {}
 
@@ -32,7 +29,7 @@ export class ConsumoController {
    * a série diária. É uma tela só, e economiza três idas ao servidor.
    */
   @Get()
-  @Roles(...VER_CONSUMO)
+  @Departamento("financeiro", "gerente")
   async resumo(
     @Query(new ZodValidationPipe(consultaDeConsumoSchema)) { desde, ate }: ConsultaDeConsumo,
   ): Promise<ResumoDeConsumo> {

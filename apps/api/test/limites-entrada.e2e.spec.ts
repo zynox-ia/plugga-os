@@ -21,10 +21,9 @@ import {
 import { LimitadorDeUploads } from "../src/common/upload/limitador-de-uploads";
 import { PASTA_BASE } from "../src/common/upload/upload-em-disco";
 import { ArmazenamentoDeCotacoes } from "../src/compras/armazenamento-de-cotacoes";
-import { ComprasEscopoRepository } from "../src/compras/compras-escopo.repository";
+import { ResponsavelDeComprasRepository } from "../src/compras/responsavel-de-compras.repository";
 import { ComprasRepository } from "../src/compras/compras.repository";
 import { ArmazenamentoDeEvidencias } from "../src/obras/armazenamento-de-evidencias";
-import { ObrasEscopoRepository } from "../src/obras/obras-escopo.repository";
 import { ObrasRepository } from "../src/obras/obras.repository";
 
 /**
@@ -51,16 +50,8 @@ function dubleDe<T extends object>(metodos: Record<string, (...args: never[]) =>
 const comprasFalso = dubleDe<ComprasRepository>({
   criarPedido: async () => ({ id: "00000000-0000-4000-8000-900000000001", etapa: "pedido_gerado" }),
 });
-const escopoComprasFalso = dubleDe<ComprasEscopoRepository>({
-  alcanca: async () => true,
-  assertAlcanca: async () => undefined,
-});
 const obrasFalso = dubleDe<ObrasRepository>({
   registrarEvidencia: async () => ({ id: OBRA_ID }),
-});
-const escopoObrasFalso = dubleDe<ObrasEscopoRepository>({
-  alcanca: async () => true,
-  assertAlcanca: async () => undefined,
 });
 
 class ArmazenamentoFalso extends ArmazenamentoDeCotacoes {
@@ -100,16 +91,14 @@ describe("limites de entrada — US10 (e2e)", () => {
     const module = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(ComprasRepository)
       .useValue(comprasFalso)
-      .overrideProvider(ComprasEscopoRepository)
-      .useValue(escopoComprasFalso)
+      .overrideProvider(ResponsavelDeComprasRepository)
+      .useValue(dubleDe<ResponsavelDeComprasRepository>({ assertPodeSerResponsavel: async () => undefined }))
       .overrideProvider(ArmazenamentoDeCotacoes)
       .useValue(armazenamento)
       .overrideProvider(ArmazenamentoDeEvidencias)
       .useValue({ guardar: async () => ({ chave: "evidencias-de-obra/teste/campo.png" }) })
       .overrideProvider(ObrasRepository)
       .useValue(obrasFalso)
-      .overrideProvider(ObrasEscopoRepository)
-      .useValue(escopoObrasFalso)
       .compile();
     app = module.createNestApplication();
     await app.init();
@@ -130,21 +119,22 @@ describe("limites de entrada — US10 (e2e)", () => {
     vi.restoreAllMocks();
   });
 
-  const como = (id: string, roles: string) => ({
+  /** `departamentos` no formato do cabeçalho `x-dev-departamentos` (`depto:nivel`). */
+  const como = (id: string, departamentos: string) => ({
     post: (caminho: string) =>
-      request(app.getHttpServer()).post(caminho).set("x-dev-principal", id).set("x-dev-roles", roles),
+      request(app.getHttpServer()).post(caminho).set("x-dev-principal", id).set("x-dev-departamentos", departamentos),
     get: (caminho: string) =>
-      request(app.getHttpServer()).get(caminho).set("x-dev-principal", id).set("x-dev-roles", roles),
+      request(app.getHttpServer()).get(caminho).set("x-dev-principal", id).set("x-dev-departamentos", departamentos),
   });
 
   const enviarCotacao = (quem: string, arquivo: Buffer, nome: string, tipo: string) =>
-    como(quem, "opm")
+    como(quem, "energia-opm:membro")
       .post("/compras/pedidos")
       .field("payload", payload())
       .attach("cotacoes", arquivo, { filename: nome, contentType: tipo });
 
   const enviarEvidencia = (quem: string, arquivo: Buffer, nome: string, tipo: string) =>
-    como(quem, "tecnico")
+    como(quem, "engenharia-obras:membro")
       .post(`/obras/${OBRA_ID}/evidencias`)
       .field("payload", JSON.stringify({ companyId: "waze", tipo: "pdf", descricao: "Quadro instalado" }))
       .attach("arquivo", arquivo, { filename: nome, contentType: tipo });
@@ -236,7 +226,7 @@ describe("limites de entrada — US10 (e2e)", () => {
       const inicio = performance.now();
       const [legitimo, leitura, ...recusados] = await Promise.all([
         enviarCotacao("legitimo-paralelo", pdf(2), "orcamento.pdf", MIME.pdf),
-        como("legitimo-paralelo", "opm").get("/health"),
+        como("legitimo-paralelo", "energia-opm:membro").get("/health"),
         ...hostisEmParalelo,
       ]);
 
@@ -296,7 +286,7 @@ describe("limites de entrada — US10 (e2e)", () => {
 
     it("recusa requisição de mais de 60 MB mesmo com cada arquivo abaixo de 25 MB", async () => {
       const parte = Buffer.concat([pdf(), Buffer.alloc(20 * 1024 * 1024 + 300 * 1024)]);
-      const resposta = await como("total", "opm")
+      const resposta = await como("total", "energia-opm:membro")
         .post("/compras/pedidos")
         .field("payload", payload())
         .attach("cotacoes", parte, { filename: "a.pdf", contentType: MIME.pdf })

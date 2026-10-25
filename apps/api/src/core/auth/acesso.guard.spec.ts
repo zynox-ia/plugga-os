@@ -6,8 +6,7 @@ import { describe, expect, it } from "vitest";
 import { acessoDeclarado } from "./access.decorators";
 import { Departamento, Plataforma } from "./acesso.decorator";
 import type { AuthPrincipal } from "./auth.types";
-import { Roles } from "./roles.decorator";
-import { RolesGuard } from "./roles.guard";
+import { AcessoGuard } from "./acesso.guard";
 
 class Controlador {
   @Departamento("crm")
@@ -24,10 +23,6 @@ class Controlador {
 
   @Plataforma("desenvolvedor")
   verLogs(): void {}
-
-  @Roles("comercial")
-  @Departamento("crm")
-  papelEDepartamento(): void {}
 }
 
 @Departamento("energia-opm")
@@ -52,7 +47,7 @@ function contexto(
   principal: Partial<AuthPrincipal> | undefined,
 ): ExecutionContext {
   const handler = (classe.prototype as Record<string, () => void>)[metodo];
-  const authPrincipal = principal ? { id: "u", kind: "user", roles: [], ...principal } : undefined;
+  const authPrincipal = principal ? { id: "u", kind: "user", ...principal } : undefined;
   return {
     getHandler: () => handler,
     getClass: () => classe,
@@ -60,7 +55,7 @@ function contexto(
   } as unknown as ExecutionContext;
 }
 
-const guard = new RolesGuard(new Reflector());
+const guard = new AcessoGuard(new Reflector());
 
 function passa(classe: new () => object, metodo: string, principal: Partial<AuthPrincipal> | undefined): boolean {
   try {
@@ -71,7 +66,7 @@ function passa(classe: new () => object, metodo: string, principal: Partial<Auth
   }
 }
 
-describe("RolesGuard com @Departamento e @Plataforma", () => {
+describe("AcessoGuard com @Departamento e @Plataforma", () => {
   it("membro opera o próprio departamento e não entra nos outros", () => {
     expect(passa(Controlador, "operarCrm", { acesso: MEMBRO_CRM })).toBe(true);
     expect(passa(Controlador, "aprovarCompra", { acesso: MEMBRO_CRM })).toBe(false);
@@ -107,16 +102,9 @@ describe("RolesGuard com @Departamento e @Plataforma", () => {
     expect(passa(Controlador, "verLogs", { acesso: ADMIN })).toBe(false);
   });
 
-  it("sem acesso no principal (serviço, ou só papéis antigos) recusa", () => {
-    expect(passa(Controlador, "operarCrm", { roles: ["admin"] })).toBe(false);
+  it("sem acesso no principal (serviço) recusa", () => {
     expect(passa(Controlador, "operarCrm", { kind: "service" })).toBe(false);
     expect(passa(Controlador, "operarCrm", undefined)).toBe(false);
-  });
-
-  it("com @Roles e @Departamento na mesma rota, valem os dois", () => {
-    expect(passa(Controlador, "papelEDepartamento", { roles: ["comercial"], acesso: MEMBRO_CRM })).toBe(true);
-    expect(passa(Controlador, "papelEDepartamento", { roles: [], acesso: MEMBRO_CRM })).toBe(false);
-    expect(passa(Controlador, "papelEDepartamento", { roles: ["comercial"], acesso: GERENTE_SUPRIMENTOS })).toBe(false);
   });
 
   it("a declaração da classe vale para os métodos, e a do método prevalece", () => {
@@ -149,9 +137,5 @@ describe("acessoDeclarado com o modelo de 4 papéis", () => {
       papeis: ["departamento:suprimentos:gerente"],
     });
     expect(declarado(Controlador, "verLogs")).toEqual({ acesso: "acesso", papeis: ["plataforma:desenvolvedor"] });
-  });
-
-  it("@Roles continua prevalecendo na descrição enquanto convive com a declaração nova", () => {
-    expect(declarado(Controlador, "papelEDepartamento").acesso).toBe("roles");
   });
 });

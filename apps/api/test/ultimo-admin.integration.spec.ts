@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 
-import type { UserAccess } from "@plugga/shared";
+import type { Acesso } from "@plugga/shared";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { AuditAppender } from "../src/audit/audit-appender.js";
@@ -26,11 +26,8 @@ const HABILITADO = process.env.RUN_ATOMICIDADE_INTEGRATION_TESTS === "true";
 const PRAZO_MS = 120_000;
 const RODADAS = 8;
 
-const SEM_ADMIN: UserAccess = {
-  platformRoles: [],
-  companies: [{ companyId: "plugga", roles: ["viewer"], departments: [] }],
-};
-const COM_ADMIN: UserAccess = { platformRoles: ["admin"], companies: [] };
+const SEM_ADMIN: Acesso = { plataforma: null, departamentos: [{ departamento: "crm", nivel: "membro" }] };
+const COM_ADMIN: Acesso = { plataforma: "admin", departamentos: [] };
 
 describe.skipIf(!HABILITADO)("último administrador sob concorrência", () => {
   const urlBase = process.env.DATABASE_URL ?? "";
@@ -57,14 +54,9 @@ describe.skipIf(!HABILITADO)("último administrador sob concorrência", () => {
     await prisma.role.createMany({
       data: [
         { key: "admin", name: "Administrador" },
-        { key: "viewer", name: "Leitor" },
+        { key: "desenvolvedor", name: "Desenvolvedor" },
       ],
       skipDuplicates: true,
-    });
-    await prisma.company.upsert({
-      where: { id: "plugga" },
-      create: { id: "plugga", name: "Plugga" },
-      update: {},
     });
     const criar = async (nome: string) =>
       (await prisma.user.create({ data: { email: `${nome}@teste.local`, name: nome, status: "active" } })).id;
@@ -82,7 +74,7 @@ describe.skipIf(!HABILITADO)("último administrador sob concorrência", () => {
   /** Estado de partida de cada rodada: A e B admins ativos, e mais ninguém. */
   async function prepararDoisAdmins(): Promise<void> {
     await prisma.userPlatformRole.deleteMany({});
-    await prisma.userCompanyMembership.deleteMany({});
+    await prisma.userDepartamento.deleteMany({});
     await prisma.user.updateMany({ data: { status: "active" } });
     const admin = await prisma.role.findUniqueOrThrow({ where: { key: "admin" } });
     await prisma.userPlatformRole.createMany({
@@ -112,8 +104,8 @@ describe.skipIf(!HABILITADO)("último administrador sob concorrência", () => {
       for (let i = 0; i < RODADAS; i += 1) {
         await prepararDoisAdmins();
         const resultados = await Promise.allSettled([
-          repositorio.replaceAccess(a, SEM_ADMIN, ator),
-          repositorio.replaceAccess(b, SEM_ADMIN, ator),
+          repositorio.replaceAcesso(a, SEM_ADMIN, ator),
+          repositorio.replaceAcesso(b, SEM_ADMIN, ator),
         ]);
         umaPassaEUmaFalha(resultados);
         expect(await adminsAtivos()).toBe(1);
@@ -144,7 +136,7 @@ describe.skipIf(!HABILITADO)("último administrador sob concorrência", () => {
       for (let i = 0; i < RODADAS; i += 1) {
         await prepararDoisAdmins();
         const resultados = await Promise.allSettled([
-          repositorio.replaceAccess(a, SEM_ADMIN, ator),
+          repositorio.replaceAcesso(a, SEM_ADMIN, ator),
           repositorio.deactivateUser(b, ator),
         ]);
         umaPassaEUmaFalha(resultados);
@@ -165,9 +157,9 @@ describe.skipIf(!HABILITADO)("último administrador sob concorrência", () => {
         orderBy: { occurredAt: "desc" },
       });
 
-      await repositorio.replaceAccess(a, SEM_ADMIN, ator);
+      await repositorio.replaceAcesso(a, SEM_ADMIN, ator);
       await expect(repositorio.deactivateUser(b, ator)).rejects.toBeInstanceOf(EstadoInvalido);
-      await expect(repositorio.replaceAccess(b, SEM_ADMIN, ator)).rejects.toBeInstanceOf(EstadoInvalido);
+      await expect(repositorio.replaceAcesso(b, SEM_ADMIN, ator)).rejects.toBeInstanceOf(EstadoInvalido);
 
       const eventos = await prisma.eventLog.findMany({ where: { eventName: { in: nomes } } });
       expect(eventos).toHaveLength(antes + 1);
@@ -175,7 +167,7 @@ describe.skipIf(!HABILITADO)("último administrador sob concorrência", () => {
       expect((await prisma.user.findUniqueOrThrow({ where: { id: b } })).status).toBe("active");
 
       // Promover continua livre, e com dois admins o rebaixamento volta a ser possível.
-      await expect(repositorio.replaceAccess(a, COM_ADMIN, ator)).resolves.not.toBeNull();
+      await expect(repositorio.replaceAcesso(a, COM_ADMIN, ator)).resolves.not.toBeNull();
       await expect(repositorio.deactivateUser(b, ator)).resolves.not.toBeNull();
     },
     PRAZO_MS,

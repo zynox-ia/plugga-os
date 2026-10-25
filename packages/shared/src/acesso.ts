@@ -1,7 +1,5 @@
 import { z } from "zod";
 
-import type { UserAccess } from "./auth.js";
-import type { DepartmentId } from "./organization.js";
 
 /**
  * Modelo de acesso de 4 papéis (decisão do André em 25/10/2026), que substitui
@@ -15,8 +13,7 @@ import type { DepartmentId } from "./organization.js";
  *   tarefas em segundo plano).
  *
  * O acesso é só por departamento: Plugga e Waze são etiqueta do registro, não
- * fronteira de acesso. Por enquanto este contrato convive com `UserAccess`; as
- * rotas passam a lê-lo uma a uma, e o modelo antigo sai quando nenhuma o usar.
+ * fronteira de acesso.
  */
 
 export const papeisDePlataforma = ["admin", "desenvolvedor"] as const;
@@ -32,9 +29,7 @@ export const nivelDeDepartamentoSchema = z.enum(niveisDeDepartamento);
 export type NivelDeDepartamento = (typeof niveisDeDepartamento)[number];
 
 /**
- * Os departamentos da barra lateral. Os ids antigos foram mantidos onde já
- * existiam; só os dois comerciais (`comercial-clientes` da Plugga e
- * `comercial-obras` da Waze) viram um `crm`, porque o CRM é um só.
+ * Os departamentos da barra lateral. O CRM é um só para as duas empresas.
  */
 export const departamentos = [
   "crm",
@@ -119,50 +114,4 @@ export function alcancaDepartamento(
     return false;
   }
   return nivelMinimo === "membro" || nivel === "gerente";
-}
-
-export function departamentoUnificado(departmentId: DepartmentId): Departamento {
-  if (departmentId === "comercial-clientes" || departmentId === "comercial-obras") {
-    return "crm";
-  }
-  return departmentId;
-}
-
-/**
- * Converte o acesso antigo (empresa × departamento × papel por cargo) no novo.
- * É a mesma regra da migration `acesso_por_departamento_conversao`, e as duas
- * precisam continuar iguais enquanto o acesso antigo ainda for gravado:
- *
- * - admin de plataforma continua admin, sem departamentos;
- * - cada departamento liberado vira acesso ao departamento unificado;
- * - é gerente quem era gestor do departamento ou tinha `diretoria` na empresa;
- * - o mesmo departamento nas duas empresas fica com o nível mais alto.
- *
- * Ninguém vira desenvolvedor por conversão: `tech` era cargo de equipe, e
- * promovê-lo daria a ele mais do que o admin. Desenvolvedor é concedido à mão.
- */
-export function converterAcessoAntigo(antigo: UserAccess): Acesso {
-  if (antigo.platformRoles.includes("admin")) {
-    return { plataforma: "admin", departamentos: [] };
-  }
-
-  const niveis = new Map<Departamento, NivelDeDepartamento>();
-  for (const empresa of antigo.companies) {
-    const diretoria = empresa.roles.includes("diretoria");
-    for (const entrada of empresa.departments) {
-      const departamento = departamentoUnificado(entrada.departmentId);
-      const nivel: NivelDeDepartamento = entrada.isManager || diretoria ? "gerente" : "membro";
-      if (niveis.get(departamento) !== "gerente") {
-        niveis.set(departamento, nivel);
-      }
-    }
-  }
-
-  return {
-    plataforma: null,
-    departamentos: departamentos.flatMap((departamento) => {
-      const nivel = niveis.get(departamento);
-      return nivel ? [{ departamento, nivel }] : [];
-    }),
-  };
 }

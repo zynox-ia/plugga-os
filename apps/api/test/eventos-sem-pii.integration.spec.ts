@@ -32,7 +32,7 @@ describe.skipIf(!HABILITADO)("event_log sem dado pessoal", () => {
   const compras = new PrismaComprasRepository(prisma, auditoria);
 
   const marca = `pii${randomUUID().slice(0, 8)}`;
-  const principal: AuthPrincipal = { id: "", kind: "user", roles: ["admin"] };
+  const principal: AuthPrincipal = { id: "", kind: "user", acesso: { plataforma: "admin", departamentos: [] } };
   const nome = `Fulana ${marca}`;
   const nomeEditado = `Beltrana ${marca}`;
   const email = `${marca}@teste.local`;

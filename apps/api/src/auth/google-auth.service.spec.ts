@@ -23,7 +23,6 @@ const usuario: AuthUserRecord = {
   name: "Ana",
   status: "active",
   createdAt: new Date("2026-01-01T00:00:00Z"),
-  access: { platformRoles: [], companies: [] },
   acesso: { plataforma: null, departamentos: [] },
 };
 

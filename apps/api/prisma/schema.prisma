@@ -265,7 +265,6 @@ model User {
   createdAt                      DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt                      DateTime                @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   platformRoles                  UserPlatformRole[]
-  memberships                    UserCompanyMembership[]
   departamentos                  UserDepartamento[]
   agentActions                   AgentAction[]
   credential                     UserCredential?
@@ -393,7 +392,6 @@ model Role {
   key           String             @unique
   name          String
   platformUsers UserPlatformRole[]
-  companyUsers  UserCompanyRole[]
 
   @@map("roles")
 }
@@ -407,7 +405,6 @@ model Company {
   id           String                  @id
   name         String
   createdAt    DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
-  memberships  UserCompanyMembership[]
   obras        Obra[]
   fornecedores Fornecedor[]
   pedidos      PedidoDeCompra[]
@@ -416,8 +413,8 @@ model Company {
   @@map("companies")
 }
 
-/// Papel de plataforma (hoje só `admin`): vale sobre as duas empresas e é o
-/// único que pode conceder acesso fora do próprio escopo.
+/// Papel de plataforma: `admin` ou `desenvolvedor` (que leva também a linha
+/// `admin`, contada pela regra do último admin). Alcança todo o sistema.
 model UserPlatformRole {
   userId String @map("user_id") @db.Uuid
   roleId String @map("role_id") @db.Uuid
@@ -429,52 +426,6 @@ model UserPlatformRole {
   @@map("user_platform_roles")
 }
 
-/// Acesso da pessoa a uma empresa. A linha existir é o acesso: revogar é
-/// apagá-la, e a revogação de conta inteira segue sendo `users.status`
-/// (ADR-0008) — dois controles de revogação para a mesma coisa divergiriam.
-model UserCompanyMembership {
-  userId      String                 @map("user_id") @db.Uuid
-  companyId   String                 @map("company_id")
-  createdAt   DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
-  user        User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  company     Company                @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  departments UserDepartmentAccess[]
-  roles       UserCompanyRole[]
-
-  @@id([userId, companyId])
-  @@index([companyId])
-  @@map("user_company_memberships")
-}
-
-/// Departamento liberado dentro de uma empresa. `isManager` é a capacidade de
-/// gerir equipe nesse departamento — fica no acesso, e não em um papel global
-/// solto, para que "gestor" nunca signifique gestor de tudo.
-model UserDepartmentAccess {
-  userId       String                @map("user_id") @db.Uuid
-  companyId    String                @map("company_id")
-  departmentId String                @map("department_id")
-  isManager    Boolean               @default(false) @map("is_manager")
-  membership   UserCompanyMembership @relation(fields: [userId, companyId], references: [userId, companyId], onDelete: Cascade)
-
-  @@id([userId, companyId, departmentId])
-  @@index([companyId, departmentId])
-  @@map("user_department_access")
-}
-
-/// Papel no contexto de uma empresa. A mesma pessoa pode ser `financeiro` na
-/// Plugga e `viewer` na Waze.
-model UserCompanyRole {
-  userId     String                @map("user_id") @db.Uuid
-  companyId  String                @map("company_id")
-  roleId     String                @map("role_id") @db.Uuid
-  membership UserCompanyMembership @relation(fields: [userId, companyId], references: [userId, companyId], onDelete: Cascade)
-  role       Role                  @relation(fields: [roleId], references: [id], onDelete: Cascade)
-
-  @@id([userId, companyId, roleId])
-  @@index([roleId])
-  @@map("user_company_roles")
-}
-
 enum NivelDeDepartamento {
   membro
   gerente
@@ -484,10 +435,7 @@ enum NivelDeDepartamento {
 
 /// Acesso no modelo de 4 papéis (`packages/shared/src/acesso.ts`): a pessoa é
 /// membro ou gerente de um departamento, sem empresa. Admin e desenvolvedor
-/// ficam em `UserPlatformRole` e não têm linha aqui. Enquanto as rotas ainda
-/// leem o acesso antigo, toda gravação dele também regrava esta tabela com
-/// `converterAcessoAntigo`; quem tem `desenvolvedor` mantém também a linha
-/// `admin`, para o código antigo continuar tratando a pessoa como admin.
+/// ficam em `UserPlatformRole` e não têm linha aqui.
 model UserDepartamento {
   userId       String              @map("user_id") @db.Uuid
   departamento String

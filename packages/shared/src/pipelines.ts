@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { companyKeySchema, type CompanyKey, type DepartmentId } from "./organization.js";
+import { companyKeySchema } from "./organization.js";
 import { isoDate, uuid } from "./primitivas.js";
 
 /**
@@ -8,12 +8,6 @@ import { isoDate, uuid } from "./primitivas.js";
  * empresa, e todo negócio dele herda essa empresa. Ganho e Perdido são
  * desfechos fixos, não etapas: o pipeline só escolhe como chamá-los.
  */
-
-/** Departamento comercial de cada empresa: quem o gerencia é gestor de todos os pipelines da empresa. */
-export const departamentoComercial: Record<CompanyKey, DepartmentId> = {
-  plugga: "comercial-clientes",
-  waze: "comercial-obras",
-};
 
 export const pipelineMemberRoles = ["vendedor", "gestor"] as const;
 export const pipelineMemberRoleSchema = z.enum(pipelineMemberRoles);
@@ -176,7 +170,7 @@ export function pipelineParaEdicao(pipeline: Pipeline): UpdatePipelineRequest {
 /** Pipelines que a pessoa alcança, arquivados inclusive (a tela decide onde mostrá-los). */
 export const listPipelinesResponseSchema = z.object({
   pipelines: z.array(pipelineSchema),
-  /** Empresas em que a pessoa pode criar pipeline (gestor comercial ou admin). */
+  /** Empresas em que a pessoa pode criar pipeline (gerente do CRM ou admin: as duas). */
   canCreateIn: z.array(companyKeySchema),
 });
 export type ListPipelinesResponse = z.infer<typeof listPipelinesResponseSchema>;
@@ -184,6 +178,6 @@ export type ListPipelinesResponse = z.infer<typeof listPipelinesResponseSchema>;
 export const pipelinePeopleQuerySchema = z.object({ companyId: companyKeySchema }).strict();
 export type PipelinePeopleQuery = z.infer<typeof pipelinePeopleQuerySchema>;
 
-/** Quem pode entrar na equipe de um pipeline da empresa: pessoas ativas com papel comercial nela. */
+/** Quem pode entrar na equipe de um pipeline: pessoas ativas do CRM. */
 export const pipelinePeopleResponseSchema = z.object({ people: z.array(z.object({ id: uuid, name: z.string() })) });
 export type PipelinePeopleResponse = z.infer<typeof pipelinePeopleResponseSchema>;

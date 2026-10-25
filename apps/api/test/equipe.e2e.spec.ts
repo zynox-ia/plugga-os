@@ -2,7 +2,7 @@ import { Test } from "@nestjs/testing";
 import type { NestExpressApplication } from "@nestjs/platform-express";
 import request from "supertest";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import type { Acesso, ListaDaEquipe, MembroDaEquipe, UserAccess } from "@plugga/shared";
+import type { Acesso, ListaDaEquipe, MembroDaEquipe } from "@plugga/shared";
 
 import { AppModule } from "../src/app.module";
 import { configureApp } from "../src/configure-app";
@@ -43,11 +43,6 @@ const MEMBRO_SUPRIMENTOS_E_CRM: Acesso = {
   ],
 };
 
-/** O acesso antigo que acompanha cada papel de plataforma, como no banco. */
-function antigo(acesso: Acesso): UserAccess {
-  return { platformRoles: acesso.plataforma === null ? [] : ["admin"], companies: [] };
-}
-
 describe("equipe e acessos no modelo de 4 papéis (e2e, armazenamento em memória)", () => {
   let app: NestExpressApplication;
   let store: InMemoryStore;
@@ -84,7 +79,6 @@ describe("equipe e acessos no modelo de 4 papéis (e2e, armazenamento em memóri
         email: `${chave}@plugga.local`,
         name: chave,
         password: SENHA,
-        access: antigo(acesso),
         acesso,
       });
     };
@@ -250,8 +244,8 @@ describe("equipe e acessos no modelo de 4 papéis (e2e, armazenamento em memóri
 
   it("o desenvolvedor conta como admin: rebaixar o único admin não deixa a plataforma sem admin", async () => {
     store.clear();
-    await store.addUser({ email: "dev@plugga.local", name: "dev", password: SENHA, access: antigo(DESENVOLVEDOR), acesso: DESENVOLVEDOR });
-    const unico = await store.addUser({ email: "admin@plugga.local", name: "admin", password: SENHA, access: antigo(ADMIN), acesso: ADMIN });
+    await store.addUser({ email: "dev@plugga.local", name: "dev", password: SENHA, acesso: DESENVOLVEDOR });
+    const unico = await store.addUser({ email: "admin@plugga.local", name: "admin", password: SENHA, acesso: ADMIN });
     const dev = await como("dev");
     // Ninguém edita o próprio acesso, então quem rebaixa um admin é sempre outro
     // admin ou um desenvolvedor — que tem a linha `admin` e mantém a plataforma.

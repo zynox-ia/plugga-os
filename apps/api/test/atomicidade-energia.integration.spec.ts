@@ -51,7 +51,7 @@ describe.skipIf(!HABILITADO)("atomicidade do relatório do ciclo de energia", ()
       data: { email: `atomicidade-energia-${sufixo}@teste.invalid`, name: `Teste atomicidade ${sufixo}` },
     });
     userId = user.id;
-    principal = { id: userId, kind: "user", roles: [] };
+    principal = { id: userId, kind: "user", acesso: { plataforma: null, departamentos: [] } };
     const client = await prisma.client.create({ data: { name: `Cliente atomicidade ${sufixo}` } });
     clientId = client.id;
     const unit = await prisma.consumerUnit.create({

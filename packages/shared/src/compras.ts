@@ -91,11 +91,11 @@ export const COMPRAS_FAROL_AMARELO_MINIMO = 85;
 export const COMPRAS_FAROL_VERDE_MAXIMO = 100;
 
 /**
- * Alçada de aprovação: acima deste valor a decisão sobe para `diretoria`.
+ * Alçada de aprovação: acima deste valor a decisão sobe para o admin.
  *
  * Nasce **sem teto** (`null`), o que reproduz o POP exatamente — ele não define
  * faixa de valor, e toda aprovação é da Gestão Financeira. Definir um número
- * liga o degrau da diretoria sem mudar mais nada no fluxo.
+ * liga o degrau do admin sem mudar mais nada no fluxo.
  */
 export const COMPRAS_ALCADA_FINANCEIRO: number | null = null;
 
@@ -363,7 +363,7 @@ export const decisaoAprovacaoRequestSchema = z
     destino: comprasDestinoSchema.optional(),
     obraId: uuid.nullable().optional(),
     clientId: uuid.nullable().optional(),
-    /** Justificativa da dispensa de segregação; só a diretoria pode usar. */
+    /** Justificativa da dispensa de segregação; só o admin pode usar. */
     dispensaSegregacao: z.string().trim().min(10).max(500).optional(),
   })
   .strict()
@@ -397,7 +397,7 @@ export type RegistrarPagamentoRequest = z.infer<typeof registrarPagamentoRequest
  * produto ao solicitante" — é o solicitante que tem o material na mão.
  *
  * `confirmacaoPorTerceiro` é a saída para o dia em que o solicitante não está:
- * a diretoria confirma no lugar dele, por escrito, e o desvio fica registrado.
+ * o admin confirma no lugar dele, por escrito, e o desvio fica registrado.
  */
 export const confirmarRecebimentoRequestSchema = z
   .object({

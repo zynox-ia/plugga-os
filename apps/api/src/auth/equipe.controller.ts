@@ -21,8 +21,7 @@ import { SessionAuthGuard } from "../core/auth/session-auth.guard";
 import { EquipeService } from "./equipe.service";
 
 /**
- * Equipe e acessos no modelo de 4 papéis. Substitui as rotas de equipe em
- * `/auth` (TeamController), que saem quando a tela migrar.
+ * Equipe e acessos no modelo de 4 papéis.
  *
  * Sem `@Departamento`/`@Plataforma`: quem pode o quê depende do alvo e do
  * acesso pedido, coisas que um guard por papel não enxerga. A sessão é exigida
@@ -33,7 +32,7 @@ import { EquipeService } from "./equipe.service";
 export class EquipeController {
   constructor(@Inject(EquipeService) private readonly service: EquipeService) {}
 
-  // Leitura refeita a cada filtro da tela: fora do throttle, como em /auth/users.
+  // Leitura refeita a cada filtro da tela: fica fora do throttle, que é das mutações.
   @Get()
   @SkipThrottle()
   @UseGuards(SessionAuthGuard)

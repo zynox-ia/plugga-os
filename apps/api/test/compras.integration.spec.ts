@@ -30,9 +30,9 @@ describeBanco("Compras contra o Postgres", () => {
   const repositorio = new PrismaComprasRepository(prisma, new AuditAppender());
 
   const marca = `it-${randomUUID().slice(0, 8)}`;
-  const solicitante: AuthPrincipal = { id: "", kind: "user", roles: ["compras"] };
-  const comprador: AuthPrincipal = { id: "", kind: "user", roles: ["compras"] };
-  const financeiro: AuthPrincipal = { id: "", kind: "user", roles: ["financeiro"] };
+  const solicitante: AuthPrincipal = { id: "", kind: "user", acesso: { plataforma: null, departamentos: [{ departamento: "suprimentos", nivel: "membro" }] } };
+  const comprador: AuthPrincipal = { id: "", kind: "user", acesso: { plataforma: null, departamentos: [{ departamento: "suprimentos", nivel: "membro" }] } };
+  const financeiro: AuthPrincipal = { id: "", kind: "user", acesso: { plataforma: null, departamentos: [{ departamento: "financeiro", nivel: "gerente" }] } };
   let obraId = "";
   let fornecedorId = "";
   let fornecedorWazeId = "";
@@ -216,7 +216,7 @@ describeBanco("Compras contra o Postgres", () => {
       id,
       "plugga",
       { valorFaturado: "4800.00" },
-      { ...financeiro, id: comprador.id, roles: ["financeiro"] },
+      { ...financeiro, id: comprador.id },
     );
     // O prazo da retirada veio do cronograma declarado pelo fornecedor (12).
     const retiradaAberta = pago.etapas.find((etapa) => etapa.etapa === "retirada" && etapa.saiuEm === null);
@@ -275,7 +275,7 @@ describeBanco("Compras contra o Postgres", () => {
       id,
       "plugga",
       { valorFaturado: "4500.00" },
-      { ...financeiro, id: comprador.id, roles: ["financeiro"] },
+      { ...financeiro, id: comprador.id },
     );
     await repositorio.confirmarRecebimento(id, "plugga", {}, solicitante);
 

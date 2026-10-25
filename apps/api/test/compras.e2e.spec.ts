@@ -1,7 +1,9 @@
 import { ForbiddenException, NotFoundException, type INestApplication } from "@nestjs/common";
 import { Test } from "@nestjs/testing";
 import type {
+  Acesso,
   CompanyKey,
+  Departamento,
   ComprasEtapa,
   ConfirmarRecebimentoRequest,
   CriarFornecedorRequest,
@@ -31,7 +33,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { AppModule } from "../src/app.module";
 import { ArmazenamentoDeCotacoes } from "../src/compras/armazenamento-de-cotacoes";
 import { pdf } from "../src/common/upload/arquivos-de-teste";
-import { ComprasEscopoRepository } from "../src/compras/compras-escopo.repository";
+import { ResponsavelDeComprasRepository } from "../src/compras/responsavel-de-compras.repository";
 import { ComprasRepository, type AnexoDeCotacao } from "../src/compras/compras.repository";
 import {
   acoesBloqueadas,
@@ -54,16 +56,25 @@ const OBRA_ID = "00000000-0000-4000-8000-000000000102";
 const RESPONSAVEL_ID = "00000000-0000-4000-8000-000000000201";
 
 /** Pessoas distintas: sem isso a segregação de função não teria o que separar. */
-const SOLICITANTE = { id: "local-solicitante", roles: "opm" };
-const COMPRADOR = { id: "local-compras", roles: "compras" };
+type Quem = { id: string; acesso: Acesso };
+const doDepartamento = (departamento: Departamento, nivel: "membro" | "gerente"): Acesso => ({
+  plataforma: null,
+  departamentos: [{ departamento, nivel }],
+});
+
+const SOLICITANTE: Quem = { id: "local-solicitante", acesso: doDepartamento("energia-opm", "membro") };
+const COMPRADOR: Quem = { id: "local-compras", acesso: doDepartamento("suprimentos", "membro") };
 /**
  * Segunda pessoa em Compras. Não é conveniência de teste: a quarta regra de
  * segregação impede que quem escolheu o fornecedor ateste que o material dele
- * chegou, então o caminho externo do POP exige duas pessoas no papel `compras`.
+ * chegou, então o caminho externo do POP exige duas pessoas em Suprimentos.
  */
-const COMPRADOR_2 = { id: "local-compras-2", roles: "compras" };
-const FINANCEIRO = { id: "local-financeiro", roles: "financeiro" };
-const DIRETORIA = { id: "local-diretoria", roles: "diretoria" };
+const COMPRADOR_2: Quem = { id: "local-compras-2", acesso: doDepartamento("suprimentos", "membro") };
+const FINANCEIRO: Quem = { id: "local-financeiro", acesso: doDepartamento("financeiro", "gerente") };
+/** Lê o funil (Financeiro) mas não opera Suprimentos nem decide. */
+const SO_LEITURA: Quem = { id: "local-viewer", acesso: doDepartamento("financeiro", "membro") };
+/** A antiga diretoria: quem decide as exceções do processo é o admin. */
+const DIRETORIA: Quem = { id: "local-diretoria", acesso: { plataforma: "admin", departamentos: [] } };
 
 /**
  * Dublê em memória do `ComprasRepository`, no mesmo padrão do e2e comercial:
@@ -153,7 +164,7 @@ class ComprasEmMemoria extends ComprasRepository {
       ...pedido,
       acoesBloqueadas: acoesBloqueadas(
         { ...this.paraSegregacao(pedido), etapa: pedido.etapa, valorCotado: pedido.valorCotado },
-        { id: principal.id, roles: principal.roles },
+        { id: principal.id, acesso: principal.acesso },
       ),
     };
   }
@@ -320,11 +331,11 @@ class ComprasEmMemoria extends ComprasRepository {
     assertEtapaAtual(pedido.etapa, "aprovacao_compra");
     const para: ComprasEtapa = input.aprovada ? "pagamento" : "cotacoes";
     assertTransicaoPermitida(pedido.etapa, para);
-    assertAlcada(pedido.valorCotado, principal.roles);
+    assertAlcada(pedido.valorCotado, principal.acesso);
     const segregacao = assertSegregacao(
       "aprovar",
       this.paraSegregacao(pedido),
-      { id: principal.id, roles: principal.roles },
+      { id: principal.id, acesso: principal.acesso },
       input.dispensaSegregacao,
     );
 
@@ -359,7 +370,7 @@ class ComprasEmMemoria extends ComprasRepository {
     const segregacao = assertSegregacao(
       "pagar",
       this.paraSegregacao(pedido),
-      { id: principal.id, roles: principal.roles },
+      { id: principal.id, acesso: principal.acesso },
       input.dispensaSegregacao,
     );
 
@@ -386,13 +397,13 @@ class ComprasEmMemoria extends ComprasRepository {
     assertTransicaoPermitida(pedido.etapa, "concluido");
     assertConfirmacaoDeRecebimento(
       { solicitanteId: pedido.solicitanteId },
-      { id: principal.id, roles: principal.roles },
+      { id: principal.id, acesso: principal.acesso },
       input.confirmacaoPorTerceiro,
     );
     const segregacao = assertSegregacao(
       "receber",
       this.paraSegregacao(pedido),
-      { id: principal.id, roles: principal.roles },
+      { id: principal.id, acesso: principal.acesso },
       input.dispensaSegregacao,
     );
 
@@ -424,7 +435,7 @@ class ComprasEmMemoria extends ComprasRepository {
           pedido.origemAtendimento,
           escolhida?.prazoEntregaDias ?? null,
         ),
-        principal.roles,
+        principal.acesso,
       );
     }
     if (aberta) {
@@ -523,10 +534,10 @@ class ComprasEmMemoria extends ComprasRepository {
   }
 }
 
-/** Só a Plugga é alcançável: é o que torna os negativos da Waze verificáveis. */
-class EscopoSoPlugga extends ComprasEscopoRepository {
-  async alcanca(_principalId: string, companyId: CompanyKey): Promise<boolean> {
-    return companyId === "plugga";
+/** O responsável do pedido é sempre de Suprimentos nos testes; a regra de verdade é do repositório Prisma. */
+class ResponsavelSempreValido extends ResponsavelDeComprasRepository {
+  async podeSerResponsavel(): Promise<boolean> {
+    return true;
   }
 }
 
@@ -553,8 +564,8 @@ describe("Compras — POP-COMP-001 (e2e)", () => {
     const module = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(ComprasRepository)
       .useValue(repositorio)
-      .overrideProvider(ComprasEscopoRepository)
-      .useValue(new EscopoSoPlugga())
+      .overrideProvider(ResponsavelDeComprasRepository)
+      .useValue(new ResponsavelSempreValido())
       .overrideProvider(ArmazenamentoDeCotacoes)
       .useValue(armazenamento)
       .compile();
@@ -572,10 +583,16 @@ describe("Compras — POP-COMP-001 (e2e)", () => {
     armazenamento.falhar = false;
   });
 
-  function como(quem: { id: string; roles: string }) {
+  function como(quem: Quem) {
     const servidor = () => request(app.getHttpServer());
-    const cabecalhos = (r: request.Test) =>
-      r.set("x-dev-principal", quem.id).set("x-dev-roles", quem.roles);
+    const cabecalhos = (r: request.Test) => {
+      const base = r.set("x-dev-principal", quem.id);
+      if (quem.acesso.plataforma !== null) return base.set("x-dev-plataforma", quem.acesso.plataforma);
+      return base.set(
+        "x-dev-departamentos",
+        quem.acesso.departamentos.map((entrada) => `${entrada.departamento}:${entrada.nivel}`).join(","),
+      );
+    };
     return {
       get: (caminho: string) => cabecalhos(servidor().get(caminho)),
       post: (caminho: string) => cabecalhos(servidor().post(caminho)),
@@ -940,41 +957,12 @@ describe("Compras — POP-COMP-001 (e2e)", () => {
 
     it("quem só lê não movimenta", async () => {
       const pedido = await criarPedido();
-      await como({ id: "local-viewer", roles: "viewer" })
+      await como(SO_LEITURA)
         .get(`/compras/pedidos/${pedido.id}?companyId=plugga`)
         .expect(200);
-      await como({ id: "local-viewer", roles: "viewer" })
+      await como(SO_LEITURA)
         .post(`/compras/pedidos/${pedido.id}/triagem?companyId=plugga`)
         .send({})
-        .expect(403);
-    });
-  });
-
-  describe("negativos de empresa — Plugga e Waze isoladas", () => {
-    it("recusa listar pedidos de empresa fora do alcance", async () => {
-      await como(COMPRADOR).get("/compras/pedidos?companyId=waze").expect(403);
-    });
-
-    it("recusa ler o detalhe por outra empresa", async () => {
-      const pedido = await criarPedido();
-      await como(COMPRADOR).get(`/compras/pedidos/${pedido.id}?companyId=waze`).expect(403);
-    });
-
-    it("recusa mutação em empresa fora do alcance", async () => {
-      const pedido = await criarPedido();
-      await como(COMPRADOR)
-        .post(`/compras/pedidos/${pedido.id}/triagem?companyId=waze`)
-        .send({})
-        .expect(403);
-    });
-
-    it("recusa cadastrar obra e ler scorecard de outra empresa", async () => {
-      await como(COMPRADOR)
-        .post("/compras/obras")
-        .send({ companyId: "waze", nome: "Obra da Waze" })
-        .expect(403);
-      await como(COMPRADOR)
-        .get("/compras/scorecard?companyId=waze&de=2026-08-01T00:00:00.000Z&ate=2026-08-31T00:00:00.000Z")
         .expect(403);
     });
   });
@@ -984,7 +972,7 @@ describe("Compras — POP-COMP-001 (e2e)", () => {
       const pedido = await ateAprovacao();
       // O solicitante aqui tem papel financeiro, então passa no RolesGuard —
       // e é justamente a segregação que precisa barrar.
-      await como({ id: SOLICITANTE.id, roles: "financeiro" })
+      await como({ ...FINANCEIRO, id: SOLICITANTE.id })
         .post(`/compras/pedidos/${pedido.id}/aprovacao?companyId=plugga`)
         .send({ aprovada: true })
         .expect(403);
@@ -992,7 +980,7 @@ describe("Compras — POP-COMP-001 (e2e)", () => {
 
     it("quem selecionou a cotação não aprova", async () => {
       const pedido = await ateAprovacao();
-      await como({ id: COMPRADOR.id, roles: "financeiro" })
+      await como({ ...FINANCEIRO, id: COMPRADOR.id })
         .post(`/compras/pedidos/${pedido.id}/aprovacao?companyId=plugga`)
         .send({ aprovada: true })
         .expect(403);
@@ -1021,7 +1009,7 @@ describe("Compras — POP-COMP-001 (e2e)", () => {
       const q = `?companyId=plugga`;
       // A diretoria seleciona a cotação e depois aprova: quebra o par, mas
       // assume a quebra por escrito.
-      await como({ id: DIRETORIA.id, roles: "compras" })
+      await como({ ...COMPRADOR, id: DIRETORIA.id })
         .post(`/compras/pedidos/${pedido.id}/aprovacao${q}`)
         .send({ aprovada: false, motivo: "trocar fornecedor" })
         .expect(403);
@@ -1039,7 +1027,7 @@ describe("Compras — POP-COMP-001 (e2e)", () => {
 
     it("o detalhe explica o bloqueio em vez de esconder a ação", async () => {
       const pedido = await ateAprovacao();
-      const detalhe = await como({ id: COMPRADOR.id, roles: "financeiro" })
+      const detalhe = await como({ ...FINANCEIRO, id: COMPRADOR.id })
         .get(`/compras/pedidos/${pedido.id}?companyId=plugga`)
         .expect(200);
       expect(detalhe.body.acoesBloqueadas).toContainEqual({

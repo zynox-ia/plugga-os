@@ -33,7 +33,7 @@ function ShellContent({ children }: { children: ReactNode }) {
   const pathname = usePathname();
 
   const { usuario } = useSessionUser();
-  const acesso = usuario?.access ?? null;
+  const acesso = usuario?.acesso ?? null;
   const navId = navIdForPathname(pathname);
 
   return (

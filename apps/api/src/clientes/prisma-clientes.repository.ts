@@ -53,14 +53,12 @@ const COM_DONO_E_CONTATOS = {
   contacts: true,
 } satisfies Prisma.ClientInclude;
 
-/** Papéis de empresa que podem ser responsáveis por um cliente; o admin de plataforma também pode. */
-const PAPEIS_RESPONSAVEIS = ["comercial", "diretoria"];
-
+/** Quem pode ser responsável por um cliente: alguém ativo do CRM, ou um admin. */
 const PODE_SER_RESPONSAVEL: Prisma.UserWhereInput = {
   status: "active",
   OR: [
     { platformRoles: { some: { role: { key: "admin" } } } },
-    { memberships: { some: { roles: { some: { role: { key: { in: PAPEIS_RESPONSAVEIS } } } } } } },
+    { departamentos: { some: { departamento: "crm" } } },
   ],
 };
 
@@ -280,7 +278,7 @@ export class PrismaClientesRepository extends ClientesRepository {
 
   private async garantirResponsavel(userId: string): Promise<void> {
     const usuario = await this.prisma.user.findFirst({ where: { ...PODE_SER_RESPONSAVEL, id: userId }, select: { id: true } });
-    if (!usuario) throw new RequisicaoInvalida("O responsável precisa ter papel comercial ou de diretoria.");
+    if (!usuario) throw new RequisicaoInvalida("O responsável precisa ser do CRM (ou admin).");
   }
 
   private async garantirDocumentoLivre(document: string, personType: ClientPersonType, excetoId?: string): Promise<void> {

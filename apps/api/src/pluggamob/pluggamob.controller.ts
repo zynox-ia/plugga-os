@@ -7,13 +7,13 @@ import type { AuthPrincipal } from "../core/auth/auth.types";
 import { CurrentPrincipal } from "../core/auth/current-principal.decorator";
 import { SessionAuthGuard } from "../core/auth/session-auth.guard";
 import { OriginCheckGuard } from "../core/auth/origin-check.guard";
-import { Roles } from "../core/auth/roles.decorator";
-import { RolesGuard } from "../core/auth/roles.guard";
+import { Departamento } from "../core/auth/acesso.decorator";
+import { AcessoGuard } from "../core/auth/acesso.guard";
 import { PluggamobService } from "./pluggamob.service";
 
 @Controller("pluggamob")
-@UseGuards(SessionAuthGuard, RolesGuard)
-@Roles("pluggamob", "financeiro", "diretoria", "tech", "admin")
+@UseGuards(SessionAuthGuard, AcessoGuard)
+@Departamento(["produto-tecnologia", "financeiro"])
 export class PluggamobController {
   constructor(@Inject(PluggamobService) private readonly service: PluggamobService) {}
 
@@ -31,7 +31,7 @@ export class PluggamobController {
   @Post("users/:id/contacts")
   @HttpCode(200)
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
-  @Roles("pluggamob", "admin")
+  @Departamento("produto-tecnologia")
   recordContact(@Param("id", ParseUUIDPipe) id: string, @Body(new ZodValidationPipe(evContactRequestSchema)) input: EvContactRequest, @CurrentPrincipal() principal: AuthPrincipal): Promise<EvUserProfile> {
     return this.service.recordContact(id, input, principal);
   }
@@ -39,7 +39,7 @@ export class PluggamobController {
   @Post("users/:id/opt-out")
   @HttpCode(200)
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
-  @Roles("pluggamob", "admin")
+  @Departamento("produto-tecnologia")
   optOut(@Param("id", ParseUUIDPipe) id: string, @Body(new ZodValidationPipe(evOptOutRequestSchema)) input: EvOptOutRequest, @CurrentPrincipal() principal: AuthPrincipal): Promise<EvUserProfile> {
     return this.service.optOut(id, input, principal);
   }
@@ -48,14 +48,14 @@ export class PluggamobController {
   @Get("sessions/:id") session(@Param("id", ParseUUIDPipe) id: string): Promise<PluggamobSessions["items"][number]> { return this.service.session(id); }
   @Get("locations") locations(): Promise<PluggamobLocations> { return this.service.locations(); }
   @Get("locations/:id") location(@Param("id", ParseUUIDPipe) id: string): Promise<PluggamobLocations["items"][number]> { return this.service.location(id); }
-  @Post("incidents") @HttpCode(201) @UseGuards(OriginCheckGuard, ThrottlerGuard) @Roles("pluggamob", "admin")
+  @Post("incidents") @HttpCode(201) @UseGuards(OriginCheckGuard, ThrottlerGuard) @Departamento("produto-tecnologia")
   createIncident(@Body(new ZodValidationPipe(incidentRequestSchema)) input: IncidentRequest, @CurrentPrincipal() principal: AuthPrincipal): Promise<IncidentResponse> { return this.service.createIncident(input, principal); }
   @Get("settlements") settlements(): Promise<Settlements> { return this.service.settlements(); }
   @Get("settlements/:id") settlement(@Param("id", ParseUUIDPipe) id: string): Promise<SettlementDetail> { return this.service.settlement(id); }
-  @Post("settlements/:id/lines/:lineId/resolve-blocker") @HttpCode(200) @UseGuards(OriginCheckGuard, ThrottlerGuard) @Roles("financeiro", "admin")
+  @Post("settlements/:id/lines/:lineId/resolve-blocker") @HttpCode(200) @UseGuards(OriginCheckGuard, ThrottlerGuard) @Departamento("financeiro")
   resolveBlocker(@Param("id", ParseUUIDPipe) id: string, @Param("lineId", ParseUUIDPipe) lineId: string, @Body(new ZodValidationPipe(resolveBlockerRequestSchema)) input: ResolveBlockerRequest, @CurrentPrincipal() principal: AuthPrincipal): Promise<SettlementDetail> { return this.service.resolveBlocker(id, lineId, input, principal); }
-  @Post("settlements/:id/request-approval") @HttpCode(200) @UseGuards(OriginCheckGuard, ThrottlerGuard) @Roles("financeiro", "admin")
+  @Post("settlements/:id/request-approval") @HttpCode(200) @UseGuards(OriginCheckGuard, ThrottlerGuard) @Departamento("financeiro")
   requestApproval(@Param("id", ParseUUIDPipe) id: string, @CurrentPrincipal() principal: AuthPrincipal): Promise<SettlementDetail> { return this.service.requestApproval(id, principal); }
-  @Post("settlements/:id/approve") @HttpCode(200) @UseGuards(OriginCheckGuard, ThrottlerGuard) @Roles("financeiro", "diretoria", "admin")
+  @Post("settlements/:id/approve") @HttpCode(200) @UseGuards(OriginCheckGuard, ThrottlerGuard) @Departamento("financeiro", "gerente")
   approve(@Param("id", ParseUUIDPipe) id: string, @CurrentPrincipal() principal: AuthPrincipal): Promise<SettlementDetail> { return this.service.approve(id, principal); }
 }

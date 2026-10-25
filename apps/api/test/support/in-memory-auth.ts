@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import { hash as argon2Hash } from "@node-rs/argon2";
-import { converterAcessoAntigo, flattenRoles, type Acesso, type UserAccess } from "@plugga/shared";
+import type { Acesso } from "@plugga/shared";
 
 import { argon2Options } from "../../src/auth/argon2-options";
 import { EstadoInvalido } from "../../src/common/errors/dominio";
@@ -15,12 +15,10 @@ import {
   type AuthUserRecord,
   type CreateAuthTokenData,
   type CreateInvitedMemberData,
-  type CreateInvitedUserData,
   type CreateSessionData,
   type LinkIdentityData,
   type SetPasswordOptions,
   type MemberFilter,
-  type TeamFilter,
   type TeamMemberRecord,
   type UserIdentityRecord,
   type ValidAuthToken,
@@ -40,17 +38,8 @@ export interface StoredUser {
   name: string;
   status: string;
   createdAt: Date;
-  access: UserAccess;
-  /**
-   * Acesso no modelo de 4 papéis. Sem ele, vale o espelho do acesso antigo,
-   * como a gravação da API faz no banco (`converterAcessoAntigo`).
-   */
-  acesso?: Acesso;
-}
-
-/** O acesso de 4 papéis que o banco teria para esta pessoa. */
-export function acessoGravado(user: StoredUser): Acesso {
-  return user.acesso ?? converterAcessoAntigo(user.access);
+  /** Acesso no modelo de 4 papéis, como o banco teria. */
+  acesso: Acesso;
 }
 
 interface StoredSession {
@@ -69,8 +58,8 @@ interface StoredToken {
 }
 
 /** Acesso vazio é o default: cada teste concede exatamente o que quer exercitar. */
-export function access(overrides: Partial<UserAccess> = {}): UserAccess {
-  return { platformRoles: [], companies: [], ...overrides };
+export function acessoVazio(): Acesso {
+  return { plataforma: null, departamentos: [] };
 }
 
 export class InMemoryStore {
@@ -104,7 +93,6 @@ export class InMemoryStore {
     name?: string;
     password?: string;
     status?: string;
-    access?: UserAccess;
     acesso?: Acesso;
   }): Promise<StoredUser> {
     const user: StoredUser = {
@@ -113,8 +101,7 @@ export class InMemoryStore {
       name: input.name ?? input.email,
       status: input.status ?? "active",
       createdAt: new Date(),
-      access: input.access ?? access(),
-      acesso: input.acesso,
+      acesso: input.acesso ?? acessoVazio(),
     };
     this.users.set(user.id, user);
     if (input.password) {
@@ -136,8 +123,7 @@ export class InMemoryAuthRepository extends AuthRepository {
       name: user.name,
       status: user.status,
       createdAt: user.createdAt,
-      access: user.access,
-      acesso: acessoGravado(user),
+      acesso: user.acesso,
     };
   }
 
@@ -173,19 +159,6 @@ export class InMemoryAuthRepository extends AuthRepository {
         this.store.sessions.delete(hash);
       }
     }
-  }
-
-  async createInvitedUser(data: CreateInvitedUserData): Promise<AuthUserRecord> {
-    const user: StoredUser = {
-      id: randomUUID(),
-      email: data.email,
-      name: data.name,
-      status: "invited",
-      createdAt: new Date(),
-      access: data.access,
-    };
-    this.store.users.set(user.id, user);
-    return this.toRecord(user);
   }
 
   async replaceAuthToken(data: CreateAuthTokenData): Promise<void> {
@@ -316,23 +289,13 @@ export class InMemoryAuthRepository extends AuthRepository {
   /** Espelha a regra do PrismaAuthRepository: nunca deixa a plataforma sem admin ativo (FR-029). */
   private garantirOutroAdminAtivo(userId: string): void {
     const alvo = this.store.users.get(userId);
-    if (!alvo || alvo.status !== "active" || !alvo.access.platformRoles.includes("admin")) return;
+    if (!alvo || alvo.status !== "active" || alvo.acesso.plataforma === null) return;
     const outros = [...this.store.users.values()].filter(
-      (u) => u.id !== userId && u.status === "active" && u.access.platformRoles.includes("admin"),
+      (u) => u.id !== userId && u.status === "active" && u.acesso.plataforma !== null,
     );
     if (outros.length === 0) {
       throw new EstadoInvalido("A plataforma precisa manter ao menos um administrador ativo.");
     }
-  }
-
-  async replaceAccess(userId: string, next: UserAccess): Promise<AuthUserRecord | null> {
-    const user = this.store.users.get(userId);
-    if (!user) {
-      return null;
-    }
-    if (!next.platformRoles.includes("admin")) this.garantirOutroAdminAtivo(userId);
-    user.access = next;
-    return this.toRecord(user);
   }
 
   async deactivateUser(userId: string): Promise<AuthUserRecord | null> {
@@ -351,34 +314,6 @@ export class InMemoryAuthRepository extends AuthRepository {
     return this.toRecord(user);
   }
 
-  async listTeam(filter: TeamFilter): Promise<TeamMemberRecord[]> {
-    return [...this.store.users.values()]
-      .filter((user) => {
-        if (filter.status && user.status !== filter.status) {
-          return false;
-        }
-        if (!filter.companyId && !filter.departmentId) {
-          return true;
-        }
-        // Empresa e departamento têm de casar no mesmo membership, como no SQL.
-        return user.access.companies.some(
-          (company) =>
-            (!filter.companyId || company.companyId === filter.companyId) &&
-            (!filter.departmentId ||
-              company.departments.some(
-                (department) => department.departmentId === filter.departmentId,
-              )),
-        );
-      })
-      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
-      .map((user) => this.toRecord(user));
-  }
-
-  /** Acesso antigo equivalente: só a linha `admin`, como o Prisma deixa depois de apagar as empresas. */
-  private acessoAntigoDe(acesso: Acesso): UserAccess {
-    return { platformRoles: acesso.plataforma === null ? [] : ["admin"], companies: [] };
-  }
-
   async createInvitedMember(data: CreateInvitedMemberData): Promise<AuthUserRecord> {
     const user: StoredUser = {
       id: randomUUID(),
@@ -386,7 +321,6 @@ export class InMemoryAuthRepository extends AuthRepository {
       name: data.name,
       status: "invited",
       createdAt: new Date(),
-      access: this.acessoAntigoDe(data.acesso),
       acesso: data.acesso,
     };
     this.store.users.set(user.id, user);
@@ -399,7 +333,6 @@ export class InMemoryAuthRepository extends AuthRepository {
       return null;
     }
     if (acesso.plataforma === null) this.garantirOutroAdminAtivo(userId);
-    user.access = this.acessoAntigoDe(acesso);
     user.acesso = acesso;
     return this.toRecord(user);
   }
@@ -410,7 +343,7 @@ export class InMemoryAuthRepository extends AuthRepository {
       .filter(
         (user) =>
           !filter.departamento ||
-          acessoGravado(user).departamentos.some((entrada) => entrada.departamento === filter.departamento),
+          user.acesso.departamentos.some((entrada) => entrada.departamento === filter.departamento),
       )
       .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
       .map((user) => this.toRecord(user));
@@ -434,7 +367,7 @@ export class InMemorySessionLookup extends SessionLookupRepository {
       this.store.sessions.delete(tokenHash);
       return null;
     }
-    return { id: user.id, kind: "user", roles: flattenRoles(user.access), acesso: acessoGravado(user) };
+    return { id: user.id, kind: "user", acesso: user.acesso };
   }
 }
 

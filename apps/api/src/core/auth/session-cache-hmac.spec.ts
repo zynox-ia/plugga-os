@@ -12,7 +12,6 @@ const entrada: SessionCacheEntry = {
     email: "ana@plugga.local",
     name: "Ana",
     status: "active",
-    access: { platformRoles: [], companies: [] },
     acesso: { plataforma: null, departamentos: [] },
   },
 };
@@ -26,7 +25,7 @@ describe("selo HMAC das entradas do cache de sessão (T115)", () => {
 
   it("entrada adulterada é recusada (promoção de papel no Redis)", () => {
     const selada = selarEntrada("hash-1", entrada, CHAVE);
-    const adulterada = selada.replace('"platformRoles":[]', '"platformRoles":["admin"]');
+    const adulterada = selada.replace('"plataforma":null', '"plataforma":"admin"');
     expect(adulterada).not.toBe(selada);
     expect(abrirEntrada("hash-1", adulterada, CHAVE)).toBeNull();
   });

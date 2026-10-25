@@ -1,63 +1,38 @@
-import type { RoleKey } from "@plugga/shared";
+import { departamentos, type Departamento } from "@plugga/shared";
 
 /**
- * Matriz de permissão **por ação**, não por rota.
- *
- * A segregação de função separa ações, então declarar um `@Roles` genérico na
- * classe do controller apagaria justamente a distinção que o POP-COMP-001 §1
- * faz entre Responsável de Compras e Gestão Financeira.
- *
- * `admin` fica de fora do fluxo de propósito: administra plataforma, acesso e
- * papéis — não compra. Deixá-lo aprovar esvaziaria a segregação exatamente para
- * quem tem a chave mestra, que é o oposto do que o controle serve.
+ * Quem faz o quê em Compras, no modelo de 4 papéis. Admin e desenvolvedor
+ * passam em todas por regra do guard. A segregação de função do POP-COMP-001
+ * §1 (quem cota não aprova, quem aprova não paga, quem escolheu o fornecedor
+ * não atesta o recebimento) é por identidade, em `compras.rules.ts`, e não por
+ * papel: duas pessoas do mesmo departamento continuam separadas.
  */
 
-/** Quem enxerga o funil e o scorecard. Leitura é ampla; decidir é que não é. */
-export const LER_COMPRAS: readonly RoleKey[] = [
-  "compras",
-  "financeiro",
-  "diretoria",
-  "admin",
-  "tech",
-  "viewer",
-];
+/** Quem enxerga o funil e o scorecard: Suprimentos opera, o Financeiro decide. */
+export const LER_COMPRAS: Departamento[] = ["suprimentos", "financeiro"];
 
 /**
- * Abrir pedido é capacidade de quem trabalha no departamento, não papel.
- * Quem precisa de material é o engenheiro em obra, o técnico, o administrativo
- * — o `ComprasEscopoRepository` já exige acesso ao departamento Financeiro da
- * empresa, e é esse o filtro que importa aqui.
+ * Abrir pedido é de quem precisa do material, em qualquer departamento: o
+ * engenheiro em obra, o técnico, o administrativo.
  */
-export const ABRIR_PEDIDO: readonly RoleKey[] = [
-  "compras",
-  "financeiro",
-  "diretoria",
-  "opm",
-  "comercial",
-  "pluggamob",
-  "tech",
-];
+export const ABRIR_PEDIDO: Departamento[] = [...departamentos];
 
-/** Responsável de Compras: triagem, estoque, necessidade, seleção de cotação. */
-export const OPERAR_COMPRAS: readonly RoleKey[] = ["compras"];
+/** Triagem, estoque, necessidade e seleção de cotação: Suprimentos. */
+export const OPERAR_COMPRAS: Departamento = "suprimentos";
 
 /**
- * Confirmar recebimento é de **quem pediu o material**, não de um papel.
- *
- * Por isso a lista aqui é larga — a mesma de quem pode abrir pedido, mais nada:
- * o solicitante pode ser o engenheiro em obra, o técnico ou o administrativo, e
- * qualquer um deles precisa alcançar a rota. A autorização de verdade é por
- * pedido (`assertConfirmacaoDeRecebimento`), comparando a identidade de quem
- * confirma com o solicitante daquele pedido. Um papel não teria como expressar
- * isso: "ser o solicitante deste pedido" não é um papel.
+ * Confirmar recebimento é de **quem pediu o material**, então a rota fica tão
+ * aberta quanto abrir pedido; a autorização de verdade é por pedido
+ * (`assertConfirmacaoDeRecebimento`), comparando a identidade de quem confirma
+ * com o solicitante.
  */
-export const CONFIRMAR_RECEBIMENTO: readonly RoleKey[] = ABRIR_PEDIDO;
+export const CONFIRMAR_RECEBIMENTO: Departamento[] = ABRIR_PEDIDO;
 
-/** Gestão Financeira: aprovação e pagamento. Diretoria entra pela alçada. */
-export const DECIDIR_FINANCEIRO: readonly RoleKey[] = ["financeiro", "diretoria"];
+/** Aprovação e pagamento: gerente do Financeiro (com nível `gerente`). */
+export const DECIDIR_FINANCEIRO: Departamento = "financeiro";
 
 /** Renegociar prazo é gestão de fluxo: cabe aos dois lados do processo. */
-export const RENEGOCIAR_PRAZO: readonly RoleKey[] = ["compras", "financeiro", "diretoria"];
+export const RENEGOCIAR_PRAZO: Departamento[] = ["suprimentos", "financeiro"];
 
-/** Cadastrar fornecedor é ponto de controle: fica com Compras. */
-export const CADASTRAR_APOIO: readonly RoleKey[] = ["compras", "financeiro"];
+/** Cadastrar fornecedor e obra de apoio: ponto de controle de quem compra e de quem paga. */
+export const CADASTRAR_APOIO: Departamento[] = ["suprimentos", "financeiro"];

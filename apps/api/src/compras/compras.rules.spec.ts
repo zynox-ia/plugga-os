@@ -1,5 +1,5 @@
 import { AcessoNegado, EstadoInvalido, RequisicaoInvalida } from "../common/errors/dominio";
-import type { ComprasEtapa, RoleKey } from "@plugga/shared";
+import type { Acesso, ComprasEtapa } from "@plugga/shared";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -12,13 +12,19 @@ import {
   assertSegregacao,
   assertTransicaoPermitida,
   tetoDeRenegociacao,
-  papeisQuePodemAprovar,
+  podeAprovarCompra,
   paresViolados,
 } from "./compras.rules";
 
-const COMPRADOR = { id: "usuario-compras", roles: ["compras"] as RoleKey[] };
-const FINANCEIRO = { id: "usuario-financeiro", roles: ["financeiro"] as RoleKey[] };
-const DIRETORIA = { id: "usuario-diretoria", roles: ["diretoria"] as RoleKey[] };
+const acessoDe = (departamento: "suprimentos" | "financeiro", nivel: "membro" | "gerente"): Acesso => ({
+  plataforma: null,
+  departamentos: [{ departamento, nivel }],
+});
+const ACESSO_ADMIN: Acesso = { plataforma: "admin", departamentos: [] };
+
+const COMPRADOR = { id: "usuario-compras", acesso: acessoDe("suprimentos", "membro") };
+const FINANCEIRO = { id: "usuario-financeiro", acesso: acessoDe("financeiro", "gerente") };
+const ADMIN = { id: "usuario-admin", acesso: ACESSO_ADMIN };
 
 const pedidoBase = {
   solicitanteId: "usuario-solicitante",
@@ -135,7 +141,7 @@ describe("assertPodeRenegociarPrazo", () => {
 
 describe("segregação de função", () => {
   it("bloqueia quem abriu o pedido de aprová-lo", () => {
-    const solicitante = { id: pedidoBase.solicitanteId, roles: ["financeiro"] as RoleKey[] };
+    const solicitante = { id: pedidoBase.solicitanteId, acesso: acessoDe("financeiro", "gerente") };
     expect(paresViolados("aprovar", pedidoBase, solicitante.id)).toContain("criou_e_aprova");
     expect(() => assertSegregacao("aprovar", pedidoBase, solicitante)).toThrow(AcessoNegado);
   });
@@ -160,14 +166,14 @@ describe("segregação de função", () => {
     expect(assertSegregacao("aprovar", pedido, FINANCEIRO)).toEqual({ dispensada: false, pares: [] });
   });
 
-  it("aceita dispensa da diretoria com justificativa", () => {
-    const pedido = { ...pedidoBase, selecionouCotacaoId: DIRETORIA.id };
-    const resultado = assertSegregacao("aprovar", pedido, DIRETORIA, "equipe reduzida no feriado");
+  it("aceita dispensa do admin com justificativa", () => {
+    const pedido = { ...pedidoBase, selecionouCotacaoId: ADMIN.id };
+    const resultado = assertSegregacao("aprovar", pedido, ADMIN, "equipe reduzida no feriado");
     expect(resultado.dispensada).toBe(true);
     expect(resultado.pares).toContain("cotou_e_aprova");
   });
 
-  it("recusa dispensa de quem não é diretoria, mesmo com justificativa", () => {
+  it("recusa dispensa de quem não é admin, mesmo com justificativa", () => {
     const pedido = { ...pedidoBase, selecionouCotacaoId: FINANCEIRO.id };
     expect(() => assertSegregacao("aprovar", pedido, FINANCEIRO, "estou sozinho hoje")).toThrow(
       AcessoNegado,
@@ -177,7 +183,10 @@ describe("segregação de função", () => {
 
 describe("alçada", () => {
   it("mantém a aprovação com o financeiro enquanto não houver teto — como o POP descreve", () => {
-    expect(papeisQuePodemAprovar("999999.00")).toContain("financeiro");
+    expect(podeAprovarCompra("999999.00", acessoDe("financeiro", "gerente"))).toBe(true);
+    expect(podeAprovarCompra("999999.00", ACESSO_ADMIN)).toBe(true);
+    expect(podeAprovarCompra("999999.00", acessoDe("financeiro", "membro"))).toBe(false);
+    expect(podeAprovarCompra("100.00", COMPRADOR.acesso)).toBe(false);
   });
 });
 
@@ -221,14 +230,14 @@ describe("alçada de renegociação de prazo", () => {
   });
 
   it("deixa Compras renegociar dentro da régua", () => {
-    expect(() => assertAlcadaDePrazo(5, 5, ["compras"])).not.toThrow();
+    expect(() => assertAlcadaDePrazo(5, 5, COMPRADOR.acesso)).not.toThrow();
   });
 
   it("barra Compras de esticar além da régua", () => {
-    expect(() => assertAlcadaDePrazo(30, 5, ["compras"])).toThrow(AcessoNegado);
+    expect(() => assertAlcadaDePrazo(30, 5, COMPRADOR.acesso)).toThrow(AcessoNegado);
   });
 
-  it("deixa a diretoria esticar", () => {
-    expect(() => assertAlcadaDePrazo(30, 5, ["diretoria"])).not.toThrow();
+  it("deixa o admin esticar", () => {
+    expect(() => assertAlcadaDePrazo(30, 5, ACESSO_ADMIN)).not.toThrow();
   });
 });
