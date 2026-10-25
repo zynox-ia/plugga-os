@@ -1,11 +1,11 @@
 import { expect, test } from "@playwright/test";
 
 /**
- * Erro real aparece como erro; a Central de Pendências avisa que usa exemplos.
+ * Erro real aparece como erro, nunca como tela vazia ou dado inventado.
  *
  * Dois grupos:
- *  - contra a pilha real (API + banco do CI): aviso nas Pendências e
- *    registro inexistente, que só dependem de a API responder 404;
+ *  - contra a pilha real (API + banco do CI): registro inexistente, que só
+ *    depende de a API responder 404;
  *  - contra a API simulada (`e2e/support/api-simulada.mjs`): indisponível,
  *    acesso negado e sessão inválida, que não dá para provocar de forma
  *    determinística com a API real. Esse grupo só roda com
@@ -14,19 +14,6 @@ import { expect, test } from "@playwright/test";
  */
 
 const UUID_INEXISTENTE = "00000000-0000-4000-8000-00000000ffff";
-
-test.describe("Avisos de dados ilustrativos", () => {
-  test("Dashboard não mostra mais o aviso acima do conteúdo", async ({ page }) => {
-    await page.goto("/");
-    await expect(page.getByTestId("aviso-dados-de-exemplo")).toHaveCount(0);
-  });
-
-  test("Central de Pendências mostra o aviso e não afirma integração", async ({ page }) => {
-    await page.goto("/pendencias");
-    await expect(page.getByTestId("aviso-dados-de-exemplo")).toBeVisible();
-    await expect(page.getByText("Integrado ao pipeline")).toHaveCount(0);
-  });
-});
 
 test.describe("Registro inexistente", () => {
   test("UUID que não existe mostra 'não encontrado', não 'indisponível'", async ({ page }) => {

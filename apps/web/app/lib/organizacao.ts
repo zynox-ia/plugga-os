@@ -77,17 +77,59 @@ export function departamentosPermitidos(
 }
 
 /**
- * Comercial é um módulo só para as duas empresas (ADR-0013): o mesmo catálogo
- * vale na Plugga e na Waze, e a empresa vem de cada pipeline. Pipelines e
- * Atividades já aparecem, com tela em construção até as entregas do projeto
- * [PLU] Comercial. Configurar pipelines não é item de menu: é um botão que abre
- * um modal na tela de Pipelines (decisões do André, 19/10/2026).
+ * CRM é um módulo só para as duas empresas (ADR-0013): o mesmo catálogo vale na
+ * Plugga e na Waze, e a empresa vem de cada funil. O departamento se chamava
+ * Comercial; o André aprovou o nome CRM e os itens Funis, Clientes, Propostas e
+ * Contratos (25/10/2026). Atividades saiu do menu, mas `/comercial/atividades`
+ * continua existindo. Configurar funis não é item de menu: é um botão que abre
+ * um modal na tela de Funis (decisão de 19/10/2026). Só o rótulo mudou: os ids
+ * `comercial-clientes` e `comercial-obras` seguem iguais, porque são o acesso
+ * já concedido.
  */
-const COMERCIAL: Processo[] = [
-  { label: "Pipelines", rota: "/comercial/pipelines", status: "parcial" },
+const CRM: Processo[] = [
+  { label: "Funis", rota: "/comercial/pipelines", status: "parcial" },
   { label: "Clientes", rota: "/clientes", status: "pronto" },
-  { label: "Atividades", rota: "/comercial/atividades", status: "parcial" },
+  { label: "Propostas", status: "em-breve" },
+  { label: "Contratos", rota: "/comercial/contratos", status: "parcial" },
 ];
+
+/**
+ * Suprimentos nasce com Compras, que saiu do Financeiro, e vale nas duas
+ * empresas. O POP-COMP-001 é um só, e o pedido carrega a empresa desde a
+ * primeira migração: a Waze lê a mesma tela com dados que a API já isola por
+ * `companyId`. Fornecedores e Estoque ainda não têm tela (a API de fornecedores
+ * existe, a tela não). Movimentação de material fica aqui, com quem compra e
+ * estoca; retirar e entregar em obra segue como operação de campo.
+ */
+const SUPRIMENTOS: Departamento = {
+  id: "suprimentos",
+  label: "Suprimentos",
+  icon: "package",
+  processos: [
+    { label: "Compras", rota: "/compras", status: "pronto" },
+    { label: "Fornecedores", status: "em-breve" },
+    { label: "Estoque", status: "em-breve" },
+  ],
+};
+
+const FINANCEIRO: Departamento = {
+  id: "financeiro",
+  label: "Financeiro",
+  icon: "wallet",
+  processos: [
+    { label: "Contas a pagar", status: "em-breve" },
+    { label: "Contas a receber", status: "em-breve" },
+    { label: "Conciliação", status: "em-breve" },
+    { label: "Fiscal", status: "em-breve" },
+  ],
+};
+
+const MARKETING: Departamento = {
+  id: "marketing",
+  label: "Marketing",
+  icon: "megaphone",
+  processos: [{ label: "Campanhas", status: "em-breve" }],
+};
 
 const plugga: Empresa = {
   id: "plugga",
@@ -96,9 +138,9 @@ const plugga: Empresa = {
   departamentos: [
     {
       id: "comercial-clientes",
-      label: "Comercial",
+      label: "CRM",
       icon: "users",
-      processos: COMERCIAL,
+      processos: CRM,
     },
     {
       id: "energia-opm",
@@ -124,21 +166,9 @@ const plugga: Empresa = {
         { label: "Dashboards do produto", status: "em-breve" },
       ],
     },
-    {
-      id: "financeiro",
-      label: "Financeiro",
-      icon: "wallet",
-      processos: [
-        { label: "Compras", rota: "/compras", status: "pronto" },
-        { label: "Contas a pagar", status: "em-breve" },
-        { label: "Contas a receber", status: "em-breve" },
-        { label: "Comprovantes", status: "em-breve" },
-        { label: "D+14 Plugga", status: "em-breve" },
-        { label: "Fornecedores", status: "em-breve" },
-        { label: "Contratos administrativos", status: "em-breve" },
-        { label: "Fiscal / contábil · OMIE", status: "em-breve" },
-      ],
-    },
+    FINANCEIRO,
+    SUPRIMENTOS,
+    MARKETING,
   ],
 };
 
@@ -149,14 +179,14 @@ const waze: Empresa = {
   departamentos: [
     {
       id: "comercial-obras",
-      label: "Comercial",
+      label: "CRM",
       icon: "users",
-      processos: COMERCIAL,
+      processos: CRM,
     },
     {
       id: "engenharia-obras",
-      label: "Engenharia",
-      icon: "wrench",
+      label: "Engenharia e Obras",
+      icon: "hardhat",
       processos: [
         { label: "Obras", rota: "/engenharia", status: "parcial" },
         { label: "Projetos elétricos", status: "em-breve" },
@@ -166,56 +196,61 @@ const waze: Empresa = {
         { label: "Visitas técnicas", status: "em-breve" },
         { label: "Usinas solares · BESS", status: "em-breve" },
         { label: "Relatórios de campo · fotos e aceite", status: "em-breve" },
-        // Movimentação de material fica com quem usa o material. Comprar é
-        // Financeiro; estocar, retirar e entregar em obra é operação de campo.
-        { label: "Estoque e entrega em obra", status: "em-breve" },
       ],
     },
-    {
-      id: "financeiro",
-      label: "Financeiro",
-      icon: "wallet",
-      processos: [
-        // O POP-COMP-001 vale para as duas empresas, e o pedido carrega a
-        // empresa desde a primeira migração: ligar a Waze aqui é a mesma tela
-        // lendo dados que a API já isola por `companyId`.
-        { label: "Compras", rota: "/compras", status: "pronto" },
-        { label: "Contas a pagar", status: "em-breve" },
-        { label: "Contas a receber", status: "em-breve" },
-        { label: "Comprovantes", status: "em-breve" },
-        { label: "D+14 Waze", status: "em-breve" },
-        { label: "Fornecedores", status: "em-breve" },
-        { label: "Centro de custo por obra", status: "em-breve" },
-        { label: "Conciliação", status: "em-breve" },
-        { label: "Folha / benefícios", status: "em-breve" },
-        { label: "Fiscal · OMIE", status: "em-breve" },
-        { label: "Contratos administrativos", status: "em-breve" },
-      ],
-    },
+    FINANCEIRO,
+    SUPRIMENTOS,
+    MARKETING,
   ],
 };
 
 export const EMPRESAS_POR_ID: Record<EmpresaId, Empresa> = { plugga, waze };
 
 /**
- * Início reúne o que antes eram duas telas disputando o mesmo lugar:
- * o Dashboard e a Central de Pendências. Os indicadores de cada processo
- * moram dentro do próprio departamento, então a tela de entrada fica livre
- * para responder só "o que precisa de mim hoje".
+ * Ordem única dos departamentos na barra lateral (por rótulo, porque o mesmo
+ * departamento existe nas duas empresas sob ids diferentes). Aprovada pelo
+ * André em 25/10/2026. É só ordem visual: ids e acessos não dependem dela.
+ * Departamento fora da lista faz o módulo falhar ao carregar, em vez de cair
+ * no fim da barra por acaso.
+ */
+export const ORDEM_DEPARTAMENTOS = [
+  "CRM",
+  "Energia",
+  "Eletromobilidade",
+  "Financeiro",
+  "Suprimentos",
+  "Engenharia e Obras",
+  "Marketing",
+] as const;
+
+/**
+ * Início é só o Dashboard. A Central de Pendências saiu do menu e do código em
+ * 25/10/2026: era uma tela de exemplo, e a pendência passa a viver dentro de
+ * cada departamento, junto dos indicadores do próprio processo.
  */
 export const VISAO_GERAL: Processo[] = [
   { label: "Dashboard", rota: "/", status: "parcial" },
-  { label: "Central de Pendências", rota: "/pendencias", status: "parcial" },
 ];
 
 /**
- * Ferramentas atravessam todos os departamentos — abrem no dia a dia, mas não
- * pertencem a nenhum. Ficam visíveis na barra, sem competir com a árvore.
+ * Ferramentas atravessam todos os departamentos e fecham a barra lateral.
+ * Documentos e Relatórios saíram do grupo em 25/10/2026: passam a viver dentro
+ * de cada departamento. Configurações é o último item: a entrada aparece para
+ * todos e a página filtra as seções por papel (`configuracoesParaAcesso`).
  */
 export const FERRAMENTAS: Processo[] = [
-  { label: "Documentos", rota: "/documentos", status: "parcial" },
-  { label: "Relatórios", status: "em-breve" },
   { label: "Agentes IA", rota: "/agentes-ia", status: "parcial" },
+  { label: "Configurações", rota: "/configuracoes", status: "pronto" },
+];
+
+/**
+ * Telas que existem mas não têm item no menu. Ficam aqui só para o título do
+ * topo e o destaque de rota as resolverem: Atividades saiu do CRM no sitemap
+ * aprovado em 25/10/2026, e `/comercial/atividades` continua acessível por URL.
+ */
+export const ROTAS_FORA_DO_MENU: Processo[] = [
+  { label: "Atividades", rota: "/comercial/atividades", status: "parcial" },
+  { label: "Documentos", rota: "/documentos", status: "parcial" },
 ];
 
 /**
@@ -323,7 +358,6 @@ export function configuracoesParaAcesso(usuario: {
  * processos também mora aqui — é uma definição só, instanciada nas duas.
  */
 export const GLOBAIS: Processo[] = [
-  { label: "Configurações", rota: "/configuracoes", status: "pronto" },
   { label: "Estrutura do sistema", rota: "/estrutura", status: "pronto" },
   // Rota herdada do Bloco A; o conteúdo dela mora em Configurações → Equipe.
   { label: "Administração", rota: "/administracao", status: "parcial" },
@@ -352,3 +386,12 @@ const _catalogosCasam: Record<EmpresaId, true> = EMPRESAS.reduce(
   {} as Record<EmpresaId, true>,
 );
 void _catalogosCasam;
+
+const _ordemCobreCatalogo = EMPRESAS.every((empresa) =>
+  EMPRESAS_POR_ID[empresa].departamentos.every((departamento) =>
+    (ORDEM_DEPARTAMENTOS as readonly string[]).includes(departamento.label),
+  ),
+);
+if (!_ordemCobreCatalogo) {
+  throw new Error("departamento do catálogo fora de ORDEM_DEPARTAMENTOS em organizacao.ts");
+}

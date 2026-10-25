@@ -176,7 +176,7 @@ async function main() {
             {
               companyId: 'plugga' as const,
               roles: ['financeiro'],
-              departments: [{ id: 'financeiro' }],
+              departments: [{ id: 'financeiro' }, { id: 'suprimentos' }],
             },
           ],
         },
@@ -206,7 +206,7 @@ async function main() {
             {
               companyId: 'plugga' as const,
               roles: ['compras'],
-              departments: [{ id: 'financeiro' }],
+              departments: [{ id: 'financeiro' }, { id: 'suprimentos' }],
             },
           ],
         },
@@ -219,7 +219,7 @@ async function main() {
             {
               companyId: 'plugga' as const,
               roles: ['compras'],
-              departments: [{ id: 'financeiro' }],
+              departments: [{ id: 'financeiro' }, { id: 'suprimentos' }],
             },
           ],
         },
@@ -232,12 +232,12 @@ async function main() {
             {
               companyId: 'plugga' as const,
               roles: ['diretoria'],
-              departments: [{ id: 'financeiro' }],
+              departments: [{ id: 'financeiro' }, { id: 'suprimentos' }],
             },
             {
               companyId: 'waze' as const,
               roles: ['diretoria'],
-              departments: [{ id: 'financeiro' }],
+              departments: [{ id: 'financeiro' }, { id: 'suprimentos' }],
             },
           ],
         },

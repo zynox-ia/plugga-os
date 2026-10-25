@@ -261,13 +261,17 @@ cadastro em `packages/shared/src/organization.ts`.
 
 | Balde | O que guarda |
 |---|---|
-| `plugga-comercial-clientes` | Comercial da Plugga |
+| `plugga-comercial-clientes` | CRM da Plugga |
 | `plugga-energia-opm` | Energia: faturas e estudos de eficiência energética |
 | `plugga-produto-tecnologia` | Eletromobilidade (PluggaMob) |
+| `plugga-suprimentos` | Suprimentos da Plugga (ainda sem arquivos; as cotações de compras seguem em `plugga-financeiro`) |
 | `plugga-financeiro` | Financeiro da Plugga, inclusive cotações de compras |
-| `waze-comercial-obras` | Comercial da Waze |
-| `waze-engenharia-obras` | Engenharia da Waze: evidências de obra |
+| `plugga-marketing` | Marketing da Plugga |
+| `waze-comercial-obras` | CRM da Waze |
+| `waze-engenharia-obras` | Engenharia e Obras da Waze: evidências de obra |
+| `waze-suprimentos` | Suprimentos da Waze (ainda sem arquivos; as cotações de compras seguem em `waze-financeiro`) |
 | `waze-financeiro` | Financeiro da Waze, inclusive cotações de compras |
+| `waze-marketing` | Marketing da Waze |
 | `plugga-backups` | Cópias do banco (credencial própria, expiração em 30 dias/1 ano) |
 | `plugga-corpus-faturas` | Material de teste das distribuidoras (fora do git) |
 

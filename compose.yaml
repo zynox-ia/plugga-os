@@ -94,10 +94,14 @@ services:
         mc mb --ignore-existing plugga/plugga-comercial-clientes
         mc mb --ignore-existing plugga/plugga-energia-opm
         mc mb --ignore-existing plugga/plugga-produto-tecnologia
+        mc mb --ignore-existing plugga/plugga-suprimentos
         mc mb --ignore-existing plugga/plugga-financeiro
+        mc mb --ignore-existing plugga/plugga-marketing
         mc mb --ignore-existing plugga/waze-comercial-obras
         mc mb --ignore-existing plugga/waze-engenharia-obras
+        mc mb --ignore-existing plugga/waze-suprimentos
         mc mb --ignore-existing plugga/waze-financeiro
+        mc mb --ignore-existing plugga/waze-marketing
         mc mb --ignore-existing plugga/"${CORPUS_BUCKET:-plugga-corpus-faturas}"
         mc mb --ignore-existing plugga/plugga-backups
     restart: "no"

@@ -58,8 +58,12 @@ services:
         mc mb --ignore-existing plugga-test/plugga-comercial-clientes
         mc mb --ignore-existing plugga-test/plugga-energia-opm
         mc mb --ignore-existing plugga-test/plugga-produto-tecnologia
+        mc mb --ignore-existing plugga-test/plugga-suprimentos
         mc mb --ignore-existing plugga-test/plugga-financeiro
+        mc mb --ignore-existing plugga-test/plugga-marketing
         mc mb --ignore-existing plugga-test/waze-comercial-obras
         mc mb --ignore-existing plugga-test/waze-engenharia-obras
+        mc mb --ignore-existing plugga-test/waze-suprimentos
         mc mb --ignore-existing plugga-test/waze-financeiro
+        mc mb --ignore-existing plugga-test/waze-marketing
     restart: "no"

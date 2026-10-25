@@ -1,23 +1,33 @@
 import type { UserAccess } from "@plugga/shared";
 
-import type { ShellNavGroup } from "../components/plugga-shell";
+import type { IconName, ShellNavGroup } from "../components/plugga-shell";
 import {
   EMPRESAS_POR_ID,
   CONFIGURACOES,
   FERRAMENTAS,
   GLOBAIS,
+  ORDEM_DEPARTAMENTOS,
+  ROTAS_FORA_DO_MENU,
   VISAO_GERAL,
   departamentosPermitidos,
+  type Departamento,
   type Processo,
-} from "./organizacao";
+} from "./organizacao.ts";
 
 /**
  * Deriva a navegação de `organizacao.ts`: uma lista de departamentos e processos.
- * Processos sem tela permanecem visíveis e desabilitados.
+ * Processos sem tela permanecem visíveis e desabilitados. Ferramentas
+ * (com Configurações no fim) fecha a barra; Atividades não tem item, mas a rota
+ * segue resolvendo título e destaque.
  *
  * O id do item é a própria rota quando ela existe; para o que não tem tela, um
  * id sintético mantém a chave única sem inventar uma rota que daria 404.
  */
+
+const ICONES_FERRAMENTAS: Record<string, IconName> = {
+  "/agentes-ia": "sparkles",
+  "/configuracoes": "settings",
+};
 
 function navItem(processo: Processo, prefixo: string) {
   return {
@@ -41,6 +51,9 @@ export function navGroupsForAccess(acesso: UserAccess | null = null): ShellNavGr
       departamentos.push(departamento);
     }
   }
+  const posicao = (departamento: Departamento) =>
+    (ORDEM_DEPARTAMENTOS as readonly string[]).indexOf(departamento.label);
+  departamentos.sort((a, b) => posicao(a) - posicao(b));
 
   return [
     {
@@ -48,7 +61,7 @@ export function navGroupsForAccess(acesso: UserAccess | null = null): ShellNavGr
       label: "Visão geral",
       items: VISAO_GERAL.map((processo) => ({
         ...navItem(processo, "visao"),
-        icon: processo.rota === "/" ? ("home" as const) : ("pulse" as const),
+        icon: "home" as const,
       })),
     },
     // Macro (departamento) abre e fecha; micro (processo) fica aninhado nele.
@@ -65,12 +78,7 @@ export function navGroupsForAccess(acesso: UserAccess | null = null): ShellNavGr
       label: "Ferramentas",
       items: FERRAMENTAS.map((processo) => ({
         ...navItem(processo, "ferramenta"),
-        icon:
-          processo.rota === "/documentos"
-            ? ("document" as const)
-            : processo.rota === "/agentes-ia"
-            ? ("bolt" as const)
-            : ("chart" as const),
+        icon: ICONES_FERRAMENTAS[processo.rota ?? processo.label] ?? ("chart" as const),
       })),
     },
   ];
@@ -87,6 +95,7 @@ export function navIdForPathname(pathname: string): string {
   const rotas = [
     ...VISAO_GERAL,
     ...FERRAMENTAS,
+    ...ROTAS_FORA_DO_MENU,
     ...CONFIGURACOES,
     ...GLOBAIS,
     ...Object.values(EMPRESAS_POR_ID).flatMap((empresa) =>
@@ -110,6 +119,7 @@ export function tituloForNavId(navId: string): string {
   const todos = [
     ...VISAO_GERAL,
     ...FERRAMENTAS,
+    ...ROTAS_FORA_DO_MENU,
     ...CONFIGURACOES,
     ...GLOBAIS,
     ...Object.values(EMPRESAS_POR_ID).flatMap((empresa) =>

@@ -54,6 +54,28 @@ test.describe("Plugga shell — smoke", () => {
     }
   });
 
+  test("a barra segue o sitemap aprovado, com Ferramentas e Configurações ao fim", async ({ page }) => {
+    await page.goto("/");
+
+    await expect(page.locator(".sidebar-nav .nav-parent .nav-item-label")).toHaveText([
+      "CRM",
+      "Energia",
+      "Eletromobilidade",
+      "Financeiro",
+      "Suprimentos",
+      "Engenharia e Obras",
+      "Marketing",
+    ]);
+    // Ferramentas fecha a barra, com Configurações por último; Atividades fica fora.
+    await expect(page.locator(".sidebar-nav .nav-group--ferramentas .nav-item")).toHaveText([
+      "Agentes IA",
+      "Configurações",
+    ]);
+    await expect(
+      page.locator(".sidebar-nav").getByRole("button", { name: "Atividades", exact: true }),
+    ).toHaveCount(0);
+  });
+
   test("departamento nasce fechado e abre no clique", async ({ page }) => {
     await page.goto("/");
 
@@ -128,6 +150,7 @@ test.describe("Navegação única", () => {
           roles: [],
           departments: [
             { departmentId: "comercial-clientes", isManager: false },
+            { departmentId: "suprimentos", isManager: false },
             { departmentId: "financeiro", isManager: false },
           ],
         },
@@ -136,6 +159,7 @@ test.describe("Navegação única", () => {
           roles: [],
           departments: [
             { departmentId: "engenharia-obras", isManager: false },
+            { departmentId: "suprimentos", isManager: false },
             { departmentId: "financeiro", isManager: false },
           ],
         },
@@ -143,17 +167,25 @@ test.describe("Navegação única", () => {
     };
     const departamentos = navGroupsForAccess(acesso).filter((group) => group.collapsible);
 
-    expect(departamentos.map((group) => group.label)).toEqual(["Comercial", "Financeiro", "Engenharia"]);
+    expect(departamentos.map((group) => group.label)).toEqual([
+      "CRM",
+      "Financeiro",
+      "Suprimentos",
+      "Engenharia e Obras",
+    ]);
     expect(departamentos.filter((group) => group.label === "Financeiro")).toHaveLength(1);
   });
 
-  test("não mostra seletor nem repete Comercial ou Financeiro", async ({ page }) => {
+  test("não mostra seletor nem repete CRM, Suprimentos ou Financeiro", async ({ page }) => {
     await page.goto("/");
 
     await expect(page.getByRole("group", { name: "Empresa ativa" })).toHaveCount(0);
-    await expect(page.locator(".sidebar-nav .nav-parent", { hasText: "Engenharia" })).toBeVisible();
+    await expect(
+      page.locator(".sidebar-nav .nav-parent", { hasText: "Engenharia e Obras" }),
+    ).toBeVisible();
     await expect(page.locator(".sidebar-nav .nav-parent", { hasText: "Energia" })).toBeVisible();
-    await expect(page.locator(".sidebar-nav .nav-parent", { hasText: "Comercial" })).toHaveCount(1);
+    await expect(page.locator(".sidebar-nav .nav-parent", { hasText: "CRM" })).toHaveCount(1);
+    await expect(page.locator(".sidebar-nav .nav-parent", { hasText: "Suprimentos" })).toHaveCount(1);
     await expect(page.locator(".sidebar-nav .nav-parent", { hasText: "Financeiro" })).toHaveCount(1);
     await expect(page.locator(".sidebar-nav .nav-tag")).toHaveCount(0);
   });
@@ -209,7 +241,7 @@ test.describe("Mapa da estrutura", () => {
   test("lista as duas empresas com os seus departamentos", async ({ page }) => {
     await page.goto("/estrutura");
 
-    // "Comercial" e "Financeiro" existem nas duas empresas: o mapa só é
+    // "CRM", "Suprimentos" e "Financeiro" existem nas duas empresas: o mapa só é
     // legível se cada bloco for lido dentro do seu próprio cartão.
     for (const empresa of [EMPRESAS_POR_ID.plugga, EMPRESAS_POR_ID.waze]) {
       const cartao = page.locator(`.estrutura-empresa--${empresa.id}`);
@@ -222,12 +254,16 @@ test.describe("Mapa da estrutura", () => {
     }
   });
 
-  test("Waze não tem departamento de compras próprio — compras é do financeiro", async ({ page }) => {
+  test("Compras é de Suprimentos nas duas empresas, e sai do Financeiro", async ({ page }) => {
     await page.goto("/estrutura");
 
-    const financeiro = EMPRESAS_POR_ID.waze.departamentos.find((d) => d.id === "financeiro");
-    expect(financeiro?.processos.some((p) => p.label === "Compras")).toBe(true);
-    expect(EMPRESAS_POR_ID.waze.departamentos).toHaveLength(3);
-    expect(navGroupsForAccess().some((group) => group.label === "Engenharia")).toBe(true);
+    for (const empresa of [EMPRESAS_POR_ID.plugga, EMPRESAS_POR_ID.waze]) {
+      const suprimentos = empresa.departamentos.find((d) => d.id === "suprimentos");
+      const financeiro = empresa.departamentos.find((d) => d.id === "financeiro");
+      expect(suprimentos?.processos.some((p) => p.label === "Compras")).toBe(true);
+      expect(financeiro?.processos.some((p) => p.label === "Compras")).toBe(false);
+    }
+    expect(EMPRESAS_POR_ID.waze.departamentos).toHaveLength(5);
+    expect(navGroupsForAccess().some((group) => group.label === "Engenharia e Obras")).toBe(true);
   });
 });

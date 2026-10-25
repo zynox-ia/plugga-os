@@ -63,8 +63,8 @@ test.describe("Auth — session gate, login, logout", () => {
     await page.getByRole("menuitem", { name: "Sair" }).click();
     await expect(page).toHaveURL(/\/login$/);
 
-    await page.goto("/pendencias");
-    await expect(page).toHaveURL(/\/login\?redirectTo=%2Fpendencias$/);
+    await page.goto("/clientes");
+    await expect(page).toHaveURL(/\/login\?redirectTo=%2Fclientes$/);
   });
 
   test("an already signed-in visitor hitting /login is sent straight to the dashboard", async ({ page }) => {

@@ -54,6 +54,8 @@ test.describe("Configurações → Equipe e acessos", () => {
     await plugga.getByRole("checkbox").first().check();
     await expect(plugga).toContainText("Papéis nesta empresa");
     await expect(plugga.getByText("Energia", { exact: true })).toBeVisible();
-    await expect(plugga.getByText("Engenharia", { exact: true })).toHaveCount(0);
+    await expect(plugga.getByText("Engenharia e Obras", { exact: true })).toHaveCount(0);
+    await expect(plugga.getByText("Suprimentos", { exact: true })).toBeVisible();
+    await expect(plugga.getByText("Marketing", { exact: true })).toBeVisible();
   });
 });
