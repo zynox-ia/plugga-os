@@ -59,7 +59,7 @@ const STATUS_TOM: Record<UserStatus, Tone> = {
 
 const NIVEL_LABEL: Record<NivelDeDepartamento, string> = { membro: "Membro", gerente: "Gerente" };
 
-const ITENS_POR_PAGINA = 6;
+const ITENS_POR_PAGINA = 7;
 
 function departamentoLabel(departamento: DepartamentoId): string {
   return DEPARTAMENTOS.find((entrada) => entrada.id === departamento)?.label ?? departamento;
@@ -192,9 +192,15 @@ async function mensagemDeErro(resposta: Response): Promise<string> {
   }
 }
 
-export function EquipeView() {
-  const [dados, setDados] = useState<ListaDaEquipe | null>(null);
-  const [carregando, setCarregando] = useState(true);
+export function EquipeView({
+  inicial,
+  aoCarregar,
+}: {
+  inicial: ListaDaEquipe | null;
+  aoCarregar?: (lista: ListaDaEquipe) => void;
+}) {
+  const [dados, setDados] = useState<ListaDaEquipe | null>(inicial);
+  const [carregando, setCarregando] = useState(inicial === null);
   const [erro, setErro] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
@@ -214,18 +220,22 @@ export function EquipeView() {
         return;
       }
       setErro(null);
-      setDados((await resposta.json()) as ListaDaEquipe);
+      const lista = (await resposta.json()) as ListaDaEquipe;
+      setDados(lista);
+      aoCarregar?.(lista);
     } catch {
       setErro("Não foi possível falar com o servidor.");
       setDados(null);
     } finally {
       setCarregando(false);
     }
-  }, []);
+  }, [aoCarregar]);
 
+  // A página já entrega a lista; só busca aqui quando ela não veio (sem acesso
+  // ou API indisponível), para a tela mostrar o erro com a mensagem da API.
   useEffect(() => {
-    void carregar();
-  }, [carregar]);
+    if (inicial === null) void carregar();
+  }, [carregar, inicial]);
 
   useEffect(() => {
     setPagina(1);

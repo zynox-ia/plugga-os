@@ -91,17 +91,17 @@ test.describe("Configurações → Equipe e acessos", () => {
     await expect(page.getByRole("menuitem", { name: "Remover membro" })).toBeVisible();
   });
 
-  test("pagina a tabela com 6 membros por página e alinha ações", async ({ page }) => {
+  test("pagina a tabela com 7 membros por página e alinha ações", async ({ page }) => {
     await abrirEquipe(page);
 
-    // Exatamente 6 linhas na primeira página
+    // Exatamente 7 linhas na primeira página
     const linhas = page.locator(".equipe-card tbody tr");
-    await expect(linhas).toHaveCount(6);
+    await expect(linhas).toHaveCount(7);
 
     // Controles de paginação presentes
     const paginacao = page.locator(".equipe-paginacao");
     await expect(paginacao).toBeVisible();
-    await expect(paginacao).toContainText("Mostrando 1–6 de 9 membros");
+    await expect(paginacao).toContainText("Mostrando 1–7 de 9 membros");
 
     // Botão de 3 pontinhos sem fundo (background transparente)
     const btnTresPontinhos = page.locator(".equipe-card tbody tr:first-child .ui-menu-trigger--icon");
@@ -117,12 +117,12 @@ test.describe("Configurações → Equipe e acessos", () => {
 
     // Navega para a página 2
     await page.getByRole("button", { name: "Próxima página" }).click();
-    await expect(page.locator(".equipe-card tbody tr")).toHaveCount(3);
-    await expect(paginacao).toContainText("Mostrando 7–9 de 9 membros");
+    await expect(page.locator(".equipe-card tbody tr")).toHaveCount(2);
+    await expect(paginacao).toContainText("Mostrando 8–9 de 9 membros");
 
     // Volta para a página 1
     await page.getByRole("button", { name: "Página anterior" }).click();
-    await expect(page.locator(".equipe-card tbody tr")).toHaveCount(6);
-    await expect(paginacao).toContainText("Mostrando 1–6 de 9 membros");
+    await expect(page.locator(".equipe-card tbody tr")).toHaveCount(7);
+    await expect(paginacao).toContainText("Mostrando 1–7 de 9 membros");
   });
 });
