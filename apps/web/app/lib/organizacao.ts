@@ -82,10 +82,10 @@ export const DEPARTAMENTOS: Departamento[] = [
     label: "Energia",
     icon: "bolt",
     processos: [
-      { label: "Ciclos mensais", rota: "/energia-opm/ciclos", status: "pronto" },
-      { label: "Auditoria de faturas", rota: "/energia-opm/auditorias", status: "pronto" },
-      { label: "Migração Mercado Livre", rota: "/energia-opm/migracoes", status: "pronto" },
-      { label: "Relatórios de economia", rota: "/energia-opm/relatorios", status: "parcial" },
+      { label: "Ciclos mensais", status: "em-breve" },
+      { label: "Auditoria de faturas", status: "em-breve" },
+      { label: "Migração Mercado Livre", status: "em-breve" },
+      { label: "Relatórios de economia", status: "em-breve" },
       { label: "Demanda contratada", status: "em-breve" },
     ],
   },
@@ -94,7 +94,7 @@ export const DEPARTAMENTOS: Departamento[] = [
     label: "Eletromobilidade",
     icon: "pulse",
     processos: [
-      { label: "PluggaMob", rota: "/pluggamob", status: "parcial" },
+      { label: "PluggaMob", status: "em-breve" },
       { label: "EV Point · eletropostos", status: "em-breve" },
       { label: "Recargas", status: "em-breve" },
       { label: "Parceiros", status: "em-breve" },
@@ -117,7 +117,7 @@ export const DEPARTAMENTOS: Departamento[] = [
     label: "Suprimentos",
     icon: "package",
     processos: [
-      { label: "Compras", rota: "/compras", status: "pronto" },
+      { label: "Compras", status: "em-breve" },
       { label: "Fornecedores", status: "em-breve" },
       { label: "Estoque", status: "em-breve" },
     ],
@@ -127,7 +127,7 @@ export const DEPARTAMENTOS: Departamento[] = [
     label: "Engenharia e Obras",
     icon: "hardhat",
     processos: [
-      { label: "Obras", rota: "/engenharia", status: "parcial" },
+      { label: "Obras", status: "em-breve" },
       { label: "Projetos elétricos", status: "em-breve" },
       { label: "Ordens de serviço", status: "em-breve" },
       { label: "Instalações", status: "em-breve" },

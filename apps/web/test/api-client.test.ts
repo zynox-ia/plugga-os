@@ -58,11 +58,11 @@ describe("parâmetros", () => {
 
   it("repassa cookie e envia a query codificada", async () => {
     const chamadas: Chamada[] = [];
-    const r = await lerApi(contextoCom(json({ ok: true }), chamadas), "/compras/pedidos", esquema, {}, {
-      consulta: { companyId: "a b&c" },
+    const r = await lerApi(contextoCom(json({ ok: true }), chamadas), "/clientes", esquema, {}, {
+      consulta: { q: "a b&c" },
     });
     assert.equal(r.ok, true);
-    assert.equal(chamadas[0]?.url, "http://api.test/compras/pedidos?companyId=a+b%26c");
+    assert.equal(chamadas[0]?.url, "http://api.test/clientes?q=a+b%26c");
     assert.deepEqual(chamadas[0]?.init.headers, { cookie: "sid=abc" });
     assert.ok(chamadas[0]?.init.signal);
   });

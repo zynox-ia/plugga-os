@@ -1,7 +1,7 @@
 /**
  * Validação de corpo de requisição no navegador, antes do envio (US12, T122, FR-060).
  *
- * Os clientes (`compras-client`, `commercial-client`, `energy-client`) recebiam
+ * Os clientes (`commercial-client`) recebiam
  * `corpo: unknown` e mandavam o que viesse. Agora cada função declara o schema de
  * `@plugga/shared` do endpoint: o tipo do argumento sai dele e o valor é validado
  * (e normalizado) antes de qualquer `fetch`. A API continua validando — esta é a

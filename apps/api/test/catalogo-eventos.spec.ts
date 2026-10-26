@@ -43,7 +43,7 @@ describe("catálogo de eventos de auditoria", () => {
         encontrados.push({ arquivo: path.relative(RAIZ_SRC, arquivo), nome: m[1]! });
       }
     }
-    expect(encontrados.length).toBeGreaterThan(20);
+    expect(encontrados.length).toBeGreaterThan(10);
     const fora = encontrados.filter((e) => !eventoEstaNoCatalogo(e.nome));
     expect(fora, "evento fora do catálogo: acrescente-o a packages/shared/src/events.ts no padrão novo").toEqual([]);
   });

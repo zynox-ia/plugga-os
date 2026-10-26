@@ -35,7 +35,7 @@ describe("inventário de rotas (e2e)", () => {
   });
 
   it("encontra as rotas e não repete método e caminho", () => {
-    expect(rotas.length).toBeGreaterThan(100);
+    expect(rotas.length).toBeGreaterThan(50);
     const chaves = rotas.map((r) => `${r.metodo} ${r.caminho}`);
     expect(new Set(chaves).size).toBe(chaves.length);
   });

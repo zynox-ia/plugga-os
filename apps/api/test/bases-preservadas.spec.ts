@@ -110,8 +110,6 @@ describe("travas otimistas (updateMany condicionado, direto ou via transicionar)
   // Piso = quantas existem hoje. Só pode subir: perder uma é voltar a ter corrida.
   const piso: Record<string, number> = {
     "src/commercial/prisma-commercial.repository.ts": 5,
-    "src/obras/prisma-obras.repository.ts": 1,
-    "src/compras/prisma-compras.repository.ts": 2,
     "src/auth/prisma-auth.repository.ts": 5,
   };
 

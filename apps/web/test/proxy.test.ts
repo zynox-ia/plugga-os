@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { afterEach, beforeEach, describe, it } from "node:test";
 
-import { proxyar, proxyComprasPost } from "../app/lib/proxy.ts";
+import { proxyar } from "../app/lib/proxy.ts";
 
 const ID = "00000000-0000-4000-8000-000000001001";
 const originalFetch = globalThis.fetch;
@@ -69,10 +69,15 @@ describe("proxy genérico (T123/T124)", () => {
     assert.equal((chamadas[1]?.init.headers as Record<string, string>)["x-forwarded-for"], "203.0.113.7");
   });
 
-  it("codifica a query de Compras", async () => {
+  it("codifica a query", async () => {
     simular(() => Response.json({}));
-    await proxyComprasPost(requisicao(), "pedidos/:id/triagem", { id: ID }, { companyId: "a&b" });
-    assert.equal(chamadas[0]?.url, `http://api.test/compras/pedidos/${ID}/triagem?companyId=a%26b`);
+    await proxyar(requisicao(), {
+      metodo: "POST",
+      modelo: "opportunities/:id/lose",
+      ids: { id: ID },
+      consulta: { companyId: "a&b" },
+    });
+    assert.equal(chamadas[0]?.url, `http://api.test/opportunities/${ID}/lose?companyId=a%26b`);
   });
 
   it("recusa origem não permitida com 403, sem chamar a API", async () => {

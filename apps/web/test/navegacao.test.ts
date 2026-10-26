@@ -70,7 +70,7 @@ describe("sitemap da barra lateral", () => {
 
   it("Compras só tem item em Suprimentos", () => {
     const comCompras = navGroupsForAccess().filter((grupo) =>
-      grupo.items.some((item) => item.id === "/compras"),
+      grupo.items.some((item) => item.label === "Compras"),
     );
     assert.deepEqual(
       comCompras.map((grupo) => grupo.label),
@@ -85,13 +85,13 @@ describe("barra lateral pelo acesso", () => {
     departamentos: departamentos.map((departamento) => ({ departamento, nivel: "membro" })),
   });
 
-  it("quem é de Financeiro e Suprimentos vê Compras em Suprimentos", () => {
+  it("quem é de Financeiro e Suprimentos vê Compras em Suprimentos, sem rota (em-breve)", () => {
     const grupos = navGroupsForAccess(membro("financeiro", "suprimentos")).filter((grupo) => grupo.collapsible);
     assert.deepEqual(
       grupos.map((grupo) => grupo.label),
       ["Financeiro", "Suprimentos"],
     );
-    assert.ok(grupos[1]?.items.some((item) => item.id === "/compras" && !item.disabled));
+    assert.ok(grupos[1]?.items.some((item) => item.id === "suprimentos:Compras" && item.disabled));
   });
 
   it("não inventa Marketing para quem não recebeu esse acesso", () => {
@@ -129,16 +129,16 @@ describe("Configurações pelo papel", () => {
     assert.deepEqual(secoes(membro("crm")), []);
   });
 
-  it("gerente vê só Equipe e acessos", () => {
+  it("gerente vê só Equipe e Acessos", () => {
     assert.deepEqual(secoes({ plataforma: null, departamentos: [{ departamento: "crm", nivel: "gerente" }] }), [
-      "Equipe e acessos",
+      "Equipe e Acessos",
     ]);
   });
 
   it("admin vê o que faz a plataforma funcionar, mas não as telas técnicas", () => {
     const admin = secoes({ plataforma: "admin", departamentos: [] });
-    assert.ok(admin.includes("Equipe e acessos") && admin.includes("Chave de IA") && admin.includes("Integrações"));
-    assert.ok(!admin.includes("Jobs e automações"));
+    assert.ok(admin.includes("Equipe e Acessos") && admin.includes("Chave de IA") && admin.includes("Integrações"));
+    assert.ok(!admin.includes("Jobs e Automações"));
   });
 
   it("desenvolvedor vê tudo, inclusive as telas técnicas", () => {

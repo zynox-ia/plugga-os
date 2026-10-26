@@ -29,17 +29,17 @@ const envelope = (codigo, mensagem) => ({ codigo, mensagem, requestId: "req-simu
 const respostas = new Map([
   ["/auth/me", [200, usuario]],
   // indisponível: a API responde 503 neste recurso
-  ["/energy/cycles", [503, envelope("SERVICO_INDISPONIVEL", "Serviço indisponível.")]],
+  ["/commercial/opportunities", [503, envelope("SERVICO_INDISPONIVEL", "Serviço indisponível.")]],
   // sem papel: a API nega acesso
   ["/commercial/contracts", [403, envelope("ACESSO_NEGADO", "Acesso negado.")]],
   // sessão inválida para este recurso
-  ["/energy/audits", [401, envelope("NAO_AUTENTICADO", "Sessão inválida.")]],
+  ["/clientes", [401, envelope("NAO_AUTENTICADO", "Sessão inválida.")]],
 ]);
 
 const servidor = createServer((req, res) => {
   const caminho = new URL(req.url ?? "/", "http://simulada").pathname;
   let alvo = respostas.get(caminho);
-  if (!alvo && /^\/energy\/cycles\/[0-9a-f-]{36}$/.test(caminho)) {
+  if (!alvo && /^\/commercial\/contracts\/[0-9a-f-]{36}$/.test(caminho)) {
     alvo = [404, envelope("NAO_ENCONTRADO", "Registro não encontrado.")];
   }
   const [status, corpo] = alvo ?? [404, envelope("NAO_ENCONTRADO", "Rota não simulada.")];

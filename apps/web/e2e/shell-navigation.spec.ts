@@ -207,15 +207,15 @@ test.describe("Navegação única", () => {
     }
   });
 
-  test("Engenharia navega sem propagar a antiga empresa global", async ({ page }) => {
+  test("CRM navega sem propagar a antiga empresa global", async ({ page }) => {
     await page.goto("/?empresa=waze");
     await abrirDepartamentos(page);
 
     await page
       .locator(".sidebar-nav")
-      .getByRole("button", { name: "Obras", exact: true })
+      .getByRole("button", { name: "Clientes", exact: true })
       .click();
-    await expect(page).toHaveURL((url) => url.pathname === "/engenharia", { timeout: 15_000 });
+    await expect(page).toHaveURL((url) => url.pathname === "/clientes", { timeout: 15_000 });
     expect(new URL(page.url()).searchParams.has("empresa")).toBe(false);
   });
 });
