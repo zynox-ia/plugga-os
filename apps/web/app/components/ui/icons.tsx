@@ -1,6 +1,8 @@
 import type { SVGProps } from "react";
 
 export {
+  ChevronLeft as IconChevronLeft,
+  ChevronRight as IconChevronRight,
   Download as IconDownload,
   Ellipsis as IconMore,
   Eye as IconEye,

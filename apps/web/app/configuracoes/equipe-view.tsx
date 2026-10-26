@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   papelDoAcesso,
   type Acesso,
@@ -19,11 +19,15 @@ import {
   Checkbox,
   Dialog,
   DropdownMenu,
+  IconChevronLeft,
+  IconChevronRight,
+  IconCopy,
   IconEdit,
   IconEye,
   IconPlus,
   IconReset,
   IconSave,
+  IconSearch,
   IconTrash,
   Radio,
   TextField,
@@ -55,6 +59,8 @@ const STATUS_TOM: Record<UserStatus, Tone> = {
 
 const NIVEL_LABEL: Record<NivelDeDepartamento, string> = { membro: "Membro", gerente: "Gerente" };
 
+const ITENS_POR_PAGINA = 6;
+
 function departamentoLabel(departamento: DepartamentoId): string {
   return DEPARTAMENTOS.find((entrada) => entrada.id === departamento)?.label ?? departamento;
 }
@@ -68,6 +74,62 @@ function resumoAcesso(acesso: Acesso): string {
     .join(", ");
 }
 
+function departamentosDoAcesso(acesso: Acesso): DepartamentoId[] {
+  return acesso.plataforma !== null
+    ? DEPARTAMENTOS.map((departamento) => departamento.id)
+    : acesso.departamentos.map((entrada) => entrada.departamento);
+}
+
+function DepartamentosDaEquipe({ acesso }: { acesso: Acesso }) {
+  if (acesso.plataforma !== null) {
+    return (
+      <span className="equipe-departamento equipe-departamento--plataforma">
+        <span className="equipe-dept-dot" aria-hidden="true" />
+        Todos os departamentos
+      </span>
+    );
+  }
+
+  const departamentos = departamentosDoAcesso(acesso);
+  if (departamentos.length === 0) {
+    return <span className="equipe-departamentos-vazio">Sem departamento</span>;
+  }
+
+  return (
+    <div className="equipe-departamentos">
+      {departamentos.slice(0, 2).map((departamento) => (
+        <span
+          className={`equipe-departamento equipe-departamento--${departamento}`}
+          key={departamento}
+        >
+          <span className="equipe-dept-dot" aria-hidden="true" />
+          {departamentoLabel(departamento)}
+        </span>
+      ))}
+      {departamentos.length > 2 ? (
+        <span
+          className="equipe-departamento-contador"
+          title={departamentos.slice(2).map(departamentoLabel).join(", ")}
+        >
+          +{departamentos.length - 2}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
+function PapelBadge({ acesso }: { acesso: Acesso }) {
+  const papel = papelDoAcesso(acesso);
+  return (
+    <div className={`equipe-papel equipe-papel--${papel}`}>
+      <strong>
+        <span className="equipe-papel-dot" aria-hidden="true" />
+        {ROTULO_DO_PAPEL[papel]}
+      </strong>
+    </div>
+  );
+}
+
 function iniciais(nome: string): string {
   return nome
     .trim()
@@ -76,6 +138,36 @@ function iniciais(nome: string): string {
     .map((parte) => parte[0])
     .join("")
     .toUpperCase();
+}
+
+function AvatarMembro({
+  membro,
+}: {
+  membro: MembroDaEquipe & { avatarUrl?: string };
+}) {
+  const [erroImg, setErroImg] = useState(false);
+  const initials = iniciais(membro.name);
+
+  return (
+    <div className="equipe-avatar-wrapper">
+      {membro.avatarUrl && !erroImg ? (
+        <img
+          src={membro.avatarUrl}
+          alt={membro.name}
+          className="equipe-avatar-img"
+          onError={() => setErroImg(true)}
+        />
+      ) : (
+        <span className="equipe-avatar" aria-hidden="true">
+          {initials}
+        </span>
+      )}
+      <span
+        className={`equipe-presence-dot status-${membro.status}`}
+        title={`Situação: ${STATUS_LABEL[membro.status]}`}
+      />
+    </div>
+  );
 }
 
 const ACESSO_VAZIO: Acesso = { plataforma: null, departamentos: [] };
@@ -108,6 +200,9 @@ export function EquipeView() {
   const [salvando, setSalvando] = useState(false);
   const [formulario, setFormulario] = useState<Formulario | null>(null);
   const [membroVisualizado, setMembroVisualizado] = useState<MembroDaEquipe | null>(null);
+  const [busca, setBusca] = useState("");
+  const [pagina, setPagina] = useState(1);
+
   const carregar = useCallback(async () => {
     setCarregando(true);
 
@@ -131,6 +226,30 @@ export function EquipeView() {
   useEffect(() => {
     void carregar();
   }, [carregar]);
+
+  useEffect(() => {
+    setPagina(1);
+  }, [busca]);
+
+  const membrosFiltrados = useMemo(() => {
+    if (!dados) return [];
+    const termo = busca.trim().toLowerCase();
+    if (!termo) return dados.membros;
+    return dados.membros.filter(
+      (m) =>
+        m.name.toLowerCase().includes(termo) ||
+        m.email.toLowerCase().includes(termo)
+    );
+  }, [dados, busca]);
+
+  const totalMembros = membrosFiltrados.length;
+  const totalPaginas = Math.max(1, Math.ceil(totalMembros / ITENS_POR_PAGINA));
+  const paginaAtual = Math.min(pagina, totalPaginas);
+  const inicioIndice = (paginaAtual - 1) * ITENS_POR_PAGINA;
+  const fimIndice = Math.min(inicioIndice + ITENS_POR_PAGINA, totalMembros);
+  const membrosPaginados = useMemo(() => {
+    return membrosFiltrados.slice(inicioIndice, fimIndice);
+  }, [membrosFiltrados, inicioIndice, fimIndice]);
 
   async function enviar(): Promise<void> {
     if (!formulario) return;
@@ -224,16 +343,29 @@ export function EquipeView() {
             <span className="eyebrow">Configurações</span>
             <h2>Equipe e acessos</h2>
           </div>
-          {escopo.podeConvidar ? (
-            <Button
-              variant="primary"
-              icon={<IconPlus />}
-              disabled={salvando}
-              onClick={() => setFormulario({ modo: "convite", nome: "", email: "", acesso: ACESSO_VAZIO })}
-            >
-              Novo acesso
-            </Button>
-          ) : null}
+          <div className="equipe-heading-actions">
+            <div className="equipe-busca">
+              <IconSearch className="equipe-busca-icon" />
+              <input
+                type="search"
+                className="equipe-busca-input"
+                placeholder="Filtrar por nome ou e-mail…"
+                value={busca}
+                onChange={(e) => setBusca(e.target.value)}
+                aria-label="Filtrar pessoas da equipe"
+              />
+            </div>
+            {escopo.podeConvidar ? (
+              <Button
+                variant="primary"
+                icon={<IconPlus />}
+                disabled={salvando}
+                onClick={() => setFormulario({ modo: "convite", nome: "", email: "", acesso: ACESSO_VAZIO })}
+              >
+                Novo acesso
+              </Button>
+            ) : null}
+          </div>
         </div>
 
         {erro ? <p className="card-note auth-error">{erro}</p> : null}
@@ -243,33 +375,38 @@ export function EquipeView() {
           <thead>
             <tr>
               <th>Pessoa</th>
-              <th>Acesso</th>
+              <th>Papel</th>
+              <th>Departamentos</th>
               <th>Situação</th>
               <th>Ações</th>
             </tr>
           </thead>
           <tbody>
-            {dados.membros.length === 0 ? (
+            {membrosFiltrados.length === 0 ? (
               <tr>
-                <td colSpan={4}>Nenhuma pessoa com acesso ao sistema.</td>
+                <td colSpan={5}>
+                  {busca.trim()
+                    ? `Nenhuma pessoa encontrada para "${busca}".`
+                    : "Nenhuma pessoa com acesso ao sistema."}
+                </td>
               </tr>
             ) : null}
-            {dados.membros.map((membro) => (
+            {membrosPaginados.map((membro) => (
               <tr key={membro.id}>
                 <td>
                   <div className="equipe-membro">
-                    <span className="equipe-avatar" aria-hidden="true">{iniciais(membro.name)}</span>
-                    <span>
-                      <strong>{membro.name}</strong>
-                      <span className="card-note">{membro.email}</span>
-                    </span>
+                    <AvatarMembro membro={membro} />
+                    <div className="equipe-membro-info">
+                      <strong className="equipe-membro-nome">{membro.name}</strong>
+                      <span className="equipe-membro-email">{membro.email}</span>
+                    </div>
                   </div>
                 </td>
                 <td>
-                  <div className="equipe-acesso">
-                    <strong>{ROTULO_DO_PAPEL[papelDoAcesso(membro.acesso)]}</strong>
-                    <span>{resumoAcesso(membro.acesso)}</span>
-                  </div>
+                  <PapelBadge acesso={membro.acesso} />
+                </td>
+                <td>
+                  <DepartamentosDaEquipe acesso={membro.acesso} />
                 </td>
                 <td>
                   <Badge tone={STATUS_TOM[membro.status]}>{STATUS_LABEL[membro.status]}</Badge>
@@ -280,10 +417,10 @@ export function EquipeView() {
                       variant="secondary"
                       size="sm"
                       icon={<IconEye />}
+                      iconOnly
+                      aria-label={`Ver detalhes de ${membro.name}`}
                       onClick={() => setMembroVisualizado(membro)}
-                    >
-                      Visualizar membro
-                    </Button>
+                    />
                     <DropdownMenu
                       label={`Mais ações para ${membro.name}`}
                       variant="icon"
@@ -295,6 +432,17 @@ export function EquipeView() {
                           icon: <IconEdit />,
                           disabled: !membro.podeEditar,
                           onSelect: () => setFormulario({ modo: "edicao", membro, acesso: membro.acesso }),
+                        },
+                        {
+                          id: "copiar-email",
+                          label: "Copiar e-mail",
+                          icon: <IconCopy />,
+                          onSelect: () => {
+                            if (typeof navigator !== "undefined" && navigator.clipboard) {
+                              void navigator.clipboard.writeText(membro.email);
+                              setAviso(`E-mail de ${membro.name} copiado.`);
+                            }
+                          },
                         },
                         {
                           id: "enviar-link",
@@ -327,6 +475,52 @@ export function EquipeView() {
             ))}
           </tbody>
         </ShellTable>
+
+        {totalMembros > 0 ? (
+          <div className="equipe-paginacao" aria-label="Paginação da tabela de equipe">
+            <div className="equipe-paginacao-info">
+              Mostrando <strong>{inicioIndice + 1}–{fimIndice}</strong> de <strong>{totalMembros}</strong> {totalMembros === 1 ? "membro" : "membros"}
+            </div>
+            {totalPaginas > 1 ? (
+              <div className="equipe-paginacao-controles">
+                <button
+                  type="button"
+                  className="equipe-paginacao-btn"
+                  disabled={paginaAtual <= 1}
+                  onClick={() => setPagina((p) => Math.max(1, p - 1))}
+                  aria-label="Página anterior"
+                >
+                  <IconChevronLeft width={15} height={15} aria-hidden="true" />
+                  <span>Anterior</span>
+                </button>
+                <div className="equipe-paginacao-paginas">
+                  {Array.from({ length: totalPaginas }, (_, i) => i + 1).map((num) => (
+                    <button
+                      key={num}
+                      type="button"
+                      className={`equipe-paginacao-num ${paginaAtual === num ? "equipe-paginacao-num--ativo" : ""}`}
+                      onClick={() => setPagina(num)}
+                      aria-label={`Ir para a página ${num}`}
+                      aria-current={paginaAtual === num ? "page" : undefined}
+                    >
+                      {num}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  className="equipe-paginacao-btn"
+                  disabled={paginaAtual >= totalPaginas}
+                  onClick={() => setPagina((p) => Math.min(totalPaginas, p + 1))}
+                  aria-label="Próxima página"
+                >
+                  <span>Próxima</span>
+                  <IconChevronRight width={15} height={15} aria-hidden="true" />
+                </button>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
       </ShellCard>
 
       {formulario ? (

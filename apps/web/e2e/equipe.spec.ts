@@ -27,6 +27,8 @@ test.describe("Configurações → Equipe e acessos", () => {
 
     const navegacao = page.locator(".config-nav");
     await expect(page.getByRole("heading", { name: "Equipe e acessos" })).toBeVisible();
+    await expect(page.getByRole("columnheader", { name: "Papel" })).toBeVisible();
+    await expect(page.getByRole("columnheader", { name: "Departamentos" })).toBeVisible();
     await expect(navegacao).toHaveCSS("display", "flex");
     const navBox = await navegacao.boundingBox();
     const headingBox = await page.getByRole("heading", { name: "Equipe e acessos" }).boundingBox();
@@ -81,11 +83,46 @@ test.describe("Configurações → Equipe e acessos", () => {
     await abrirEquipe(page);
 
     const linha = page.locator("tbody tr", { hasText: adminEmail });
-    await expect(linha.getByRole("button", { name: "Visualizar membro" })).toBeVisible();
+    await expect(linha.getByRole("button", { name: /Ver detalhes de/ })).toBeVisible();
     await linha.getByRole("button", { name: /Mais ações para/ }).click();
     await expect(page.getByRole("menuitem", { name: "Mudar acesso" })).toBeVisible();
     await expect(page.getByRole("menuitem", { name: "Enviar link de acesso" })).toBeVisible();
     await expect(page.getByRole("menuitem", { name: "Desativar acesso" })).toBeVisible();
     await expect(page.getByRole("menuitem", { name: "Remover membro" })).toBeVisible();
+  });
+
+  test("pagina a tabela com 6 membros por página e alinha ações", async ({ page }) => {
+    await abrirEquipe(page);
+
+    // Exatamente 6 linhas na primeira página
+    const linhas = page.locator(".equipe-card tbody tr");
+    await expect(linhas).toHaveCount(6);
+
+    // Controles de paginação presentes
+    const paginacao = page.locator(".equipe-paginacao");
+    await expect(paginacao).toBeVisible();
+    await expect(paginacao).toContainText("Mostrando 1–6 de 9 membros");
+
+    // Botão de 3 pontinhos sem fundo (background transparente)
+    const btnTresPontinhos = page.locator(".equipe-card tbody tr:first-child .ui-menu-trigger--icon");
+    await expect(btnTresPontinhos).toBeVisible();
+    const bg = await btnTresPontinhos.evaluate((el) => window.getComputedStyle(el).backgroundColor);
+    expect(bg === "rgba(0, 0, 0, 0)" || bg === "transparent").toBe(true);
+
+    // Cabeçalho de ações e células centralizados
+    const thAcoes = page.locator(".equipe-card th:last-child");
+    await expect(thAcoes).toHaveText("Ações");
+    const thAlign = await thAcoes.evaluate((el) => window.getComputedStyle(el).textAlign);
+    expect(thAlign).toBe("center");
+
+    // Navega para a página 2
+    await page.getByRole("button", { name: "Próxima página" }).click();
+    await expect(page.locator(".equipe-card tbody tr")).toHaveCount(3);
+    await expect(paginacao).toContainText("Mostrando 7–9 de 9 membros");
+
+    // Volta para a página 1
+    await page.getByRole("button", { name: "Página anterior" }).click();
+    await expect(page.locator(".equipe-card tbody tr")).toHaveCount(6);
+    await expect(paginacao).toContainText("Mostrando 1–6 de 9 membros");
   });
 });
