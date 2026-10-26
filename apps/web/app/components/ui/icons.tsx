@@ -1,14 +1,22 @@
 import type { SVGProps } from "react";
 
 export {
+  Briefcase as IconBriefcase,
   ChevronLeft as IconChevronLeft,
   ChevronRight as IconChevronRight,
+  ChevronUp as IconChevronUp,
+  Code as IconCode,
   Download as IconDownload,
   Ellipsis as IconMore,
   Eye as IconEye,
+  Layers as IconLayers,
   Save as IconSave,
   Pencil as IconEdit,
   RotateCcw as IconReset,
+  Send as IconSend,
+  Shield as IconShield,
+  User as IconUser,
+  UserPlus as IconUserPlus,
 } from "lucide-react";
 
 export function IconCheck(props: SVGProps<SVGSVGElement>) {
@@ -117,15 +125,3 @@ export function IconInfo(props: SVGProps<SVGSVGElement>) {
     </svg>
   );
 }
-
-// Aliases para retrocompatibilidade
-export const PaletteIcon = IconSettings;
-export const ComponentsIcon = IconFilter;
-export const TokensIcon = IconCopy;
-export const TypographyIcon = IconInfo;
-export const GridIcon = IconFilter;
-export const RadiusIcon = IconSettings;
-export const CopyIcon = IconCopy;
-export const CheckIcon = IconCheck;
-export const LayersIcon = IconFilter;
-export const StatusIcon = IconInfo;

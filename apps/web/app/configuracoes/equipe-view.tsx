@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import {
   papelDoAcesso,
   type Acesso,
@@ -9,6 +9,7 @@ import {
   type ListaDaEquipe,
   type MembroDaEquipe,
   type NivelDeDepartamento,
+  type PapelDaEquipe,
   type UserStatus,
 } from "@plugga/shared";
 
@@ -19,16 +20,26 @@ import {
   Checkbox,
   Dialog,
   DropdownMenu,
+  Heading,
+  IconBriefcase,
+  IconCheck,
   IconChevronLeft,
   IconChevronRight,
+  IconChevronDown,
+  IconChevronUp,
+  IconCode,
   IconCopy,
   IconEdit,
   IconEye,
-  IconPlus,
+  IconLayers,
   IconReset,
   IconSave,
+  IconSend,
   IconSearch,
+  IconShield,
   IconTrash,
+  IconUser,
+  IconUserPlus,
   Radio,
   TextField,
   type Tone,
@@ -57,21 +68,45 @@ const STATUS_TOM: Record<UserStatus, Tone> = {
   disabled: "danger",
 };
 
-const NIVEL_LABEL: Record<NivelDeDepartamento, string> = { membro: "Membro", gerente: "Gerente" };
+const NIVEL_LABEL: Record<NivelDeDepartamento, string> = { membro: "Membro", gerente: "Diretor" };
+
+const DESCRICAO_DO_DEPARTAMENTO: Record<DepartamentoId, string> = {
+  crm: "Funil de vendas, clientes, propostas comerciais e contratos.",
+  "energia-opm": "Ciclos mensais, auditoria de faturas e migração no Mercado Livre.",
+  "produto-tecnologia": "PluggaMob, infraestrutura de recargas e eletropostos.",
+  financeiro: "Contas a pagar e receber, fluxo de caixa e conciliação bancária.",
+  suprimentos: "Gestão de compras, estoque e homologação de fornecedores.",
+  "engenharia-obras": "Projetos elétricos, ordens de serviço, usinas e campo.",
+  marketing: "Campanhas, geração de leads, comunicação institucional e eventos.",
+};
+
+const PAPEL_DESCRICAO: Record<PapelDaEquipe, string> = {
+  desenvolvedor: "Acesso irrestrito a todas as configurações técnicas, ferramentas de desenvolvimento e dados globais.",
+  admin: "Acesso administrativo amplo a todos os departamentos, configurações da organização e equipe.",
+  gerente: "Liderança e gestão dos departamentos atribuídos, com visualização gerencial e relatórios.",
+  membro: "Acesso operacional restrito aos departamentos e telas específicas liberadas para a função.",
+};
+
+function formatarDataHora(iso: string): string {
+  try {
+    const data = new Date(iso);
+    if (isNaN(data.getTime())) return iso;
+    return data.toLocaleDateString("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return iso;
+  }
+}
 
 const ITENS_POR_PAGINA = 7;
 
 function departamentoLabel(departamento: DepartamentoId): string {
   return DEPARTAMENTOS.find((entrada) => entrada.id === departamento)?.label ?? departamento;
-}
-
-/** Uma linha legível do que a pessoa alcança, para caber na tabela. */
-function resumoAcesso(acesso: Acesso): string {
-  if (acesso.plataforma !== null) return "Todos os departamentos";
-  if (acesso.departamentos.length === 0) return "Sem acesso";
-  return acesso.departamentos
-    .map((entrada) => `${departamentoLabel(entrada.departamento)} (${NIVEL_LABEL[entrada.nivel].toLowerCase()})`)
-    .join(", ");
 }
 
 function departamentosDoAcesso(acesso: Acesso): DepartamentoId[] {
@@ -204,8 +239,13 @@ export function EquipeView({
   const [erro, setErro] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
+  const [erroModal, setErroModal] = useState<string | null>(null);
   const [formulario, setFormulario] = useState<Formulario | null>(null);
   const [membroVisualizado, setMembroVisualizado] = useState<MembroDaEquipe | null>(null);
+  const [membroParaConfirmar, setMembroParaConfirmar] = useState<{
+    membro: MembroDaEquipe;
+    tipo: "desativar" | "remover";
+  } | null>(null);
   const [busca, setBusca] = useState("");
   const [pagina, setPagina] = useState(1);
 
@@ -265,6 +305,7 @@ export function EquipeView({
     if (!formulario) return;
     setSalvando(true);
     setErro(null);
+    setErroModal(null);
     setAviso(null);
 
     const requisicao =
@@ -283,27 +324,20 @@ export function EquipeView({
     try {
       const resposta = await requisicao;
       if (!resposta.ok) {
-        setErro(await mensagemDeErro(resposta));
+        setErroModal(await mensagemDeErro(resposta));
         return;
       }
       setAviso(formulario.modo === "convite" ? "Convite enviado." : "Acesso atualizado.");
       setFormulario(null);
       await carregar();
     } catch {
-      setErro("Não foi possível falar com o servidor.");
+      setErroModal("Não foi possível falar com o servidor.");
     } finally {
       setSalvando(false);
     }
   }
 
   async function acaoNoMembro(membro: MembroDaEquipe, acao: "desativar" | "reenviar-convite") {
-    if (
-      acao === "desativar" &&
-      !window.confirm(`Desativar ${membro.name}? A pessoa perde o acesso e as sessões abertas caem na hora.`)
-    ) {
-      return;
-    }
-
     setSalvando(true);
     setErro(null);
     setAviso(null);
@@ -320,6 +354,13 @@ export function EquipeView({
     } finally {
       setSalvando(false);
     }
+  }
+
+  async function confirmarAcao(): Promise<void> {
+    if (!membroParaConfirmar) return;
+    const { membro } = membroParaConfirmar;
+    setMembroParaConfirmar(null);
+    await acaoNoMembro(membro, "desativar");
   }
 
   if (carregando && !dados) {
@@ -351,7 +392,7 @@ export function EquipeView({
         <div className="card-heading">
           <div>
             <span className="eyebrow">Configurações</span>
-            <h2>Equipe e acessos</h2>
+            <h2>Equipe e Acessos</h2>
           </div>
           <div className="equipe-heading-actions">
             <div className="equipe-busca">
@@ -368,12 +409,10 @@ export function EquipeView({
             {escopo.podeConvidar ? (
               <Button
                 variant="primary"
-                icon={<IconPlus />}
+                icon={<IconUserPlus />}
                 disabled={salvando}
-                onClick={() => setFormulario({ modo: "convite", nome: "", email: "", acesso: ACESSO_VAZIO })}
-              >
-                Novo acesso
-              </Button>
+                onClick={() => { setErroModal(null); setFormulario({ modo: "convite", nome: "", email: "", acesso: ACESSO_VAZIO }); }}
+              >Novo Membro</Button>
             ) : null}
           </div>
         </div>
@@ -441,7 +480,10 @@ export function EquipeView({
                           label: "Mudar acesso",
                           icon: <IconEdit />,
                           disabled: !membro.podeEditar,
-                          onSelect: () => setFormulario({ modo: "edicao", membro, acesso: membro.acesso }),
+                          onSelect: () => {
+                            setErroModal(null);
+                            setFormulario({ modo: "edicao", membro, acesso: membro.acesso });
+                          },
                         },
                         {
                           id: "copiar-email",
@@ -535,68 +577,323 @@ export function EquipeView({
 
       {formulario ? (
         <Dialog
-          title={formulario.modo === "convite" ? "Novo acesso" : "Editar acesso"}
+          title={formulario.modo === "convite" ? "Novo Membro" : "Editar Acesso"}
           description={
-            formulario.modo === "convite" ? "Cadastre uma nova pessoa e defina o acesso inicial." : formulario.membro.email
+            formulario.modo === "convite"
+              ? "Cadastre uma nova pessoa e defina os acessos da conta."
+              : formulario.membro.email
           }
-          icon={formulario.modo === "convite" ? <IconPlus /> : <IconEdit />}
-          onClose={() => setFormulario(null)}
-          size="larga"
+          icon={formulario.modo === "convite" ? <IconUserPlus /> : <IconEdit />}
+          onClose={() => {
+            setFormulario(null);
+            setErroModal(null);
+          }}
+          size="media"
           footer={
-            <Button variant="primary" icon={<IconSave />} loading={salvando} onClick={() => void enviar()}>
+            <Button variant="primary" icon={formulario.modo === "convite" ? <IconSend /> : <IconSave />} loading={salvando} onClick={() => void enviar()}>
               {formulario.modo === "convite" ? "Enviar convite" : "Salvar acesso"}
             </Button>
           }
         >
-          {formulario.modo === "convite" ? (
-            <div className="ui-field-grid">
-              <TextField
-                label="Nome"
-                value={formulario.nome}
-                required
-                onChange={(evento) => setFormulario({ ...formulario, nome: evento.target.value })}
-              />
-              <TextField
-                label="E-mail"
-                type="email"
-                value={formulario.email}
-                required
-                onChange={(evento) => setFormulario({ ...formulario, email: evento.target.value })}
-              />
-            </div>
-          ) : null}
-          <EditorDeAcesso
-            escopo={escopo}
-            valor={formulario.acesso}
-            onChange={(acesso) => setFormulario({ ...formulario, acesso })}
-          />
+          <div className="ui-dialog-form">
+            {erroModal ? <p className="card-note auth-error">{erroModal}</p> : null}
+            {formulario.modo === "convite" ? (
+              <section className="ui-dialog-section">
+                <div className="ui-dialog-section-header">
+                  <Heading as="h3" icon={<IconUser />}>Dados da Pessoa</Heading>
+                  <p className="ui-dialog-section-desc">
+                    Identificação e e-mail corporativo para envio do convite de acesso.
+                  </p>
+                </div>
+                <div className="ui-dialog-grid">
+                  <TextField
+                    label="Nome completo"
+                    value={formulario.nome}
+                    required
+                    placeholder="Ex.: Ana Silva"
+                    onChange={(evento) => setFormulario({ ...formulario, nome: evento.target.value })}
+                  />
+                  <TextField
+                    label="E-mail corporativo"
+                    type="email"
+                    value={formulario.email}
+                    required
+                    placeholder="nome@empresa.com.br"
+                    onChange={(evento) => setFormulario({ ...formulario, email: evento.target.value })}
+                  />
+                </div>
+              </section>
+            ) : null}
+            <EditorDeAcesso
+              escopo={escopo}
+              valor={formulario.acesso}
+              onChange={(acesso) => setFormulario({ ...formulario, acesso })}
+            />
+          </div>
         </Dialog>
       ) : null}
 
       {membroVisualizado ? (
         <Dialog
-          title={membroVisualizado.name}
+          title="Detalhes do Membro"
           description={membroVisualizado.email}
           icon={<IconEye />}
           onClose={() => setMembroVisualizado(null)}
           size="media"
+          cancelText="Fechar"
+          footer={
+            membroVisualizado.podeEditar ? (
+              <Button
+                variant="secondary"
+                icon={<IconEdit />}
+                onClick={() => {
+                  const m = membroVisualizado;
+                  setMembroVisualizado(null);
+                  setErroModal(null);
+                  setFormulario({ modo: "edicao", membro: m, acesso: m.acesso });
+                }}
+              >
+                Editar Acesso
+              </Button>
+            ) : null
+          }
         >
-          <dl className="membro-detalhes">
-            <div>
-              <dt>Situação</dt>
-              <dd>
-                <Badge tone={STATUS_TOM[membroVisualizado.status]}>{STATUS_LABEL[membroVisualizado.status]}</Badge>
-              </dd>
+          <div className="ui-dialog-form">
+            {/* Seção 1: Dados Cadastrais */}
+            <section className="ui-dialog-section">
+              <div className="ui-dialog-section-header">
+                <Heading as="h3" icon={<IconUser />}>Informações da Pessoa</Heading>
+                <p className="ui-dialog-section-desc">
+                  Dados de identificação, e-mail e status da conta corporativa.
+                </p>
+              </div>
+              <div className="ui-view-grid">
+                <div className="ui-view-field">
+                  <span className="ui-view-label">Nome Completo</span>
+                  <span className="ui-view-value">{membroVisualizado.name}</span>
+                </div>
+                <div className="ui-view-field">
+                  <span className="ui-view-label">E-mail Corporativo</span>
+                  <div className="ui-view-value-with-action">
+                    <span className="ui-view-value">{membroVisualizado.email}</span>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      icon={<IconCopy />}
+                      iconOnly
+                      aria-label={`Copiar e-mail de ${membroVisualizado.name}`}
+                      onClick={() => {
+                        if (typeof navigator !== "undefined" && navigator.clipboard) {
+                          void navigator.clipboard.writeText(membroVisualizado.email);
+                          setAviso(`E-mail de ${membroVisualizado.name} copiado.`);
+                        }
+                      }}
+                    />
+                  </div>
+                </div>
+                <div className="ui-view-field">
+                  <span className="ui-view-label">Situação da Conta</span>
+                  <div className="ui-view-value">
+                    <Badge tone={STATUS_TOM[membroVisualizado.status]}>
+                      {STATUS_LABEL[membroVisualizado.status]}
+                    </Badge>
+                  </div>
+                </div>
+                <div className="ui-view-field">
+                  <span className="ui-view-label">Data de Cadastro</span>
+                  <span className="ui-view-value">{formatarDataHora(membroVisualizado.createdAt)}</span>
+                </div>
+              </div>
+            </section>
+
+            {/* Seção 2: Papel e Nível de Acesso */}
+            {(() => {
+              const papel = papelDoAcesso(membroVisualizado.acesso);
+              return (
+                <section className="ui-dialog-section">
+                  <div className="ui-dialog-section-header">
+                    <Heading as="h3" icon={<IconShield />}>Papel e Nível de Acesso</Heading>
+                    <p className="ui-dialog-section-desc">
+                      Nível hierárquico e alcance das permissões na plataforma.
+                    </p>
+                  </div>
+                  <div className="ui-view-role-card">
+                    <div className="ui-view-role-icon">
+                      {papel === "desenvolvedor" && <IconCode width={20} height={20} aria-hidden="true" />}
+                      {papel === "admin" && <IconShield width={20} height={20} aria-hidden="true" />}
+                      {papel === "gerente" && <IconBriefcase width={20} height={20} aria-hidden="true" />}
+                      {papel === "membro" && <IconUser width={20} height={20} aria-hidden="true" />}
+                    </div>
+                    <div className="ui-view-role-info">
+                      <div className="ui-view-role-title">
+                        <strong>{ROTULO_DO_PAPEL[papel]}</strong>
+                        <span className="ui-view-role-pill">
+                          {membroVisualizado.acesso.plataforma !== null ? "Acesso à Plataforma" : "Acesso por Departamento"}
+                        </span>
+                      </div>
+                      <p className="ui-view-role-desc">{PAPEL_DESCRICAO[papel]}</p>
+                    </div>
+                  </div>
+                </section>
+              );
+            })()}
+
+            {/* Seção 3: Departamentos e Telas Liberadas */}
+            <section className="ui-dialog-section">
+              <div className="ui-dialog-section-header">
+                <Heading as="h3" icon={<IconLayers />}>Departamentos e Telas Liberadas</Heading>
+                <p className="ui-dialog-section-desc">
+                  Visão detalhada dos departamentos e telas internas que este membro pode acessar.
+                </p>
+              </div>
+
+              {membroVisualizado.acesso.plataforma !== null ? (
+                <>
+                  <div className="ui-view-global-alert">
+                    <IconShield className="ui-view-global-alert-icon" width={18} height={18} aria-hidden="true" />
+                    <div>
+                      <strong>Acesso Global Liberado:</strong> Como {ROTULO_DO_PAPEL[papelDoAcesso(membroVisualizado.acesso)]}, este membro possui acesso irrestrito a todos os {DEPARTAMENTOS.length} departamentos e todas as telas do sistema.
+                    </div>
+                  </div>
+                  <div className="ui-view-depts-list">
+                    {DEPARTAMENTOS.map((dept) => (
+                      <div key={dept.id} className="ui-view-dept-card">
+                        <div className="ui-view-dept-header">
+                          <div className="ui-view-dept-title-group">
+                            <span className={`equipe-departamento equipe-departamento--${dept.id}`}>
+                              <span className="equipe-dept-dot" aria-hidden="true" />
+                              {dept.label}
+                            </span>
+                            <Badge tone="success">Acesso Total</Badge>
+                          </div>
+                        </div>
+                        <p className="ui-view-dept-desc">{DESCRICAO_DO_DEPARTAMENTO[dept.id]}</p>
+                        <div className="ui-view-processos-group">
+                          <span className="ui-view-processos-label">Telas Liberadas ({dept.processos.length})</span>
+                          <div className="ui-view-tags">
+                            {dept.processos.map((proc) => (
+                              <span key={proc.label} className="ui-view-tag">
+                                <IconCheck width={12} height={12} className="ui-view-tag-check" aria-hidden="true" />
+                                <span>{proc.label}</span>
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              ) : membroVisualizado.acesso.departamentos.length === 0 ? (
+                <div className="ui-view-empty">
+                  Nenhum departamento atribuído a este membro no momento.
+                </div>
+              ) : (
+                (() => {
+                  const deptosAtribuidos = membroVisualizado.acesso.departamentos;
+                  const idsAtribuidos = new Set(deptosAtribuidos.map((d) => d.departamento));
+                  const outrosDepartamentos = DEPARTAMENTOS.filter((d) => !idsAtribuidos.has(d.id));
+
+                  return (
+                    <>
+                      <div className="ui-view-depts-list">
+                        {deptosAtribuidos.map((entrada) => {
+                          const deptInfo = DEPARTAMENTOS.find((d) => d.id === entrada.departamento);
+                          if (!deptInfo) return null;
+                          return (
+                            <div key={deptInfo.id} className="ui-view-dept-card">
+                              <div className="ui-view-dept-header">
+                                <div className="ui-view-dept-title-group">
+                                  <span className={`equipe-departamento equipe-departamento--${deptInfo.id}`}>
+                                    <span className="equipe-dept-dot" aria-hidden="true" />
+                                    {deptInfo.label}
+                                  </span>
+                                  <Badge tone={entrada.nivel === "gerente" ? "info" : "neutral"}>
+                                    {NIVEL_LABEL[entrada.nivel]}
+                                  </Badge>
+                                </div>
+                              </div>
+                              <p className="ui-view-dept-desc">{DESCRICAO_DO_DEPARTAMENTO[deptInfo.id]}</p>
+                              <div className="ui-view-processos-group">
+                                <span className="ui-view-processos-label">Telas Liberadas ({deptInfo.processos.length})</span>
+                                <div className="ui-view-tags">
+                                  {deptInfo.processos.map((proc) => (
+                                    <span key={proc.label} className="ui-view-tag">
+                                      <IconCheck width={12} height={12} className="ui-view-tag-check" aria-hidden="true" />
+                                      <span>{proc.label}</span>
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {outrosDepartamentos.length > 0 ? (
+                        <div className="ui-view-unassigned-section">
+                          <span className="ui-view-unassigned-title">
+                            Departamentos sem acesso ({outrosDepartamentos.length}):
+                          </span>
+                          <div className="ui-view-unassigned-tags">
+                            {outrosDepartamentos.map((d) => (
+                              <span key={d.id} className="ui-view-unassigned-tag">
+                                {d.label}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null}
+                    </>
+                  );
+                })()
+              )}
+            </section>
+          </div>
+        </Dialog>
+      ) : null}
+
+      {membroParaConfirmar ? (
+        <Dialog
+          title={membroParaConfirmar.tipo === "desativar" ? "Desativar Acesso" : "Remover Membro"}
+          description={membroParaConfirmar.membro.email}
+          icon={<IconTrash />}
+          variant="danger"
+          size="estreita"
+          cancelAutoFocus
+          onClose={() => setMembroParaConfirmar(null)}
+          footer={
+            <Button
+              variant="danger"
+              icon={<IconTrash />}
+              loading={salvando}
+              onClick={() => void confirmarAcao()}
+            >
+              {membroParaConfirmar.tipo === "desativar" ? "Desativar Acesso" : "Remover Membro"}
+            </Button>
+          }
+        >
+          <div className="ui-confirm-box">
+            <p className="ui-confirm-message">
+              Tem certeza de que deseja {membroParaConfirmar.tipo === "desativar" ? "desativar o acesso de" : "remover"} <strong>{membroParaConfirmar.membro.name}</strong>?
+            </p>
+            <div className="ui-confirm-alert">
+              A pessoa perderá o acesso ao sistema imediatamente e todas as sessões abertas serão encerradas no mesmo instante.
             </div>
-            <div>
-              <dt>Papel</dt>
-              <dd>{ROTULO_DO_PAPEL[papelDoAcesso(membroVisualizado.acesso)]}</dd>
+            <div className="ui-confirm-details">
+              <div className="ui-confirm-row">
+                <span className="ui-confirm-label">Pessoa:</span>
+                <span className="ui-confirm-value">{membroParaConfirmar.membro.name}</span>
+              </div>
+              <div className="ui-confirm-row">
+                <span className="ui-confirm-label">E-mail:</span>
+                <span className="ui-confirm-value">{membroParaConfirmar.membro.email}</span>
+              </div>
+              <div className="ui-confirm-row">
+                <span className="ui-confirm-label">Papel atual:</span>
+                <span className="ui-confirm-value">{ROTULO_DO_PAPEL[papelDoAcesso(membroParaConfirmar.membro.acesso)]}</span>
+              </div>
             </div>
-            <div>
-              <dt>Acesso</dt>
-              <dd>{resumoAcesso(membroVisualizado.acesso)}</dd>
-            </div>
-          </dl>
+          </div>
         </Dialog>
       ) : null}
     </div>
@@ -604,9 +901,8 @@ export function EquipeView({
 }
 
 /**
- * Editor do acesso. Desenha só o que o escopo do servidor permite conceder: o
- * papel de plataforma só aparece para quem pode dá-lo, e o gerente vê apenas os
- * próprios departamentos, sem a opção de gerente.
+ * Editor do acesso. Desenha os papéis permitidos pelo escopo (Membro, Diretor, Admin, DEV),
+ * e para quem é de departamento permite selecionar os departamentos e expandir suas telas internas (processos).
  */
 function EditorDeAcesso({
   escopo,
@@ -619,96 +915,290 @@ function EditorDeAcesso({
 }) {
   const podeAdmin = escopo.papeisConcediveis.includes("admin");
   const podeDesenvolvedor = escopo.papeisConcediveis.includes("desenvolvedor");
-  const podeGerente = escopo.papeisConcediveis.includes("gerente");
+  const podeDiretor = escopo.papeisConcediveis.includes("gerente");
   const departamentos = DEPARTAMENTOS.filter((departamento) => escopo.departamentos.includes(departamento.id));
 
-  function nivelDe(departamento: DepartamentoId): NivelDeDepartamento | null {
-    return valor.departamentos.find((entrada) => entrada.departamento === departamento)?.nivel ?? null;
+  const papelInicial =
+    valor.plataforma === "desenvolvedor"
+      ? "desenvolvedor"
+      : valor.plataforma === "admin"
+      ? "admin"
+      : valor.departamentos.some((d) => d.nivel === "gerente")
+      ? "diretor"
+      : "membro";
+
+  const [papelAtivo, setPapelAtivo] = useState<"membro" | "diretor" | "admin" | "desenvolvedor">(papelInicial);
+  const [expandidos, setExpandidos] = useState<Set<string>>(() => {
+    return new Set(valor.departamentos.map((d) => d.departamento));
+  });
+
+  const [telasSelecionadas, setTelasSelecionadas] = useState<Record<string, string[]>>(() => {
+    const mapa: Record<string, string[]> = {};
+    for (const d of DEPARTAMENTOS) {
+      mapa[d.id] = d.processos.map((p) => p.label);
+    }
+    return mapa;
+  });
+
+  function selecionarPapel(novoPapel: "membro" | "diretor" | "admin" | "desenvolvedor") {
+    setPapelAtivo(novoPapel);
+    if (novoPapel === "admin") {
+      onChange({ plataforma: "admin", departamentos: [] });
+    } else if (novoPapel === "desenvolvedor") {
+      onChange({ plataforma: "desenvolvedor", departamentos: [] });
+    } else if (novoPapel === "diretor") {
+      onChange({
+        plataforma: null,
+        departamentos: valor.departamentos.map((d) => ({ ...d, nivel: "gerente" as const })),
+      });
+    } else {
+      onChange({
+        plataforma: null,
+        departamentos: valor.departamentos.map((d) => ({ ...d, nivel: "membro" as const })),
+      });
+    }
   }
 
-  function defineDepartamento(departamento: DepartamentoId, nivel: NivelDeDepartamento | null) {
+  function toggleExpansao(deptId: string) {
+    setExpandidos((prev) => {
+      const proximo = new Set(prev);
+      if (proximo.has(deptId)) {
+        proximo.delete(deptId);
+      } else {
+        proximo.add(deptId);
+      }
+      return proximo;
+    });
+  }
+
+  function defineDepartamento(departamento: DepartamentoId, checked: boolean) {
     const outros = valor.departamentos.filter((entrada) => entrada.departamento !== departamento);
-    const proximos = nivel ? [...outros, { departamento, nivel }] : outros;
-    // Ordem do catálogo, sempre: sem isto marcar e desmarcar faria o resumo
-    // trocar de ordem sozinho, como se algo mais tivesse mudado.
+    const nivel: NivelDeDepartamento = papelAtivo === "diretor" ? "gerente" : "membro";
+    const proximos = checked ? [...outros, { departamento, nivel }] : outros;
+
+    if (checked) {
+      setExpandidos((prev) => new Set([...prev, departamento]));
+    } else {
+      setExpandidos((prev) => {
+        const proximo = new Set(prev);
+        proximo.delete(departamento);
+        return proximo;
+      });
+    }
+
     onChange({
       plataforma: null,
       departamentos: DEPARTAMENTOS.flatMap((entrada) => proximos.filter((item) => item.departamento === entrada.id)),
     });
   }
 
+  function toggleTela(deptId: string, telaLabel: string, checked: boolean) {
+    setTelasSelecionadas((prev) => {
+      const atuais = prev[deptId] ?? DEPARTAMENTOS.find((d) => d.id === deptId)?.processos.map((p) => p.label) ?? [];
+      const proximas = checked ? [...atuais, telaLabel] : atuais.filter((l) => l !== telaLabel);
+      return { ...prev, [deptId]: proximas };
+    });
+  }
+
+  function marcarTodasTelas(deptId: string) {
+    const todos = DEPARTAMENTOS.find((d) => d.id === deptId)?.processos.map((p) => p.label) ?? [];
+    setTelasSelecionadas((prev) => ({ ...prev, [deptId]: todos }));
+  }
+
+  function desmarcarTodasTelas(deptId: string) {
+    setTelasSelecionadas((prev) => ({ ...prev, [deptId]: [] }));
+  }
+
+  const isPapelEquipe = papelAtivo === "membro" || papelAtivo === "diretor";
+
   return (
-    <div className="acesso-editor">
-      {podeAdmin || podeDesenvolvedor ? (
-        <fieldset className="acesso-empresa">
-          <legend className="eyebrow">Papel</legend>
-          <div className="acesso-niveis">
-            <Radio
-              name="papel"
-              label="Equipe"
-              description="Membro ou gerente dos departamentos escolhidos abaixo."
-              checked={valor.plataforma === null}
-              onChange={() => onChange({ plataforma: null, departamentos: [] })}
-            />
-            <Radio
-              name="papel"
-              label="Admin"
-              description="Controla todo o sistema, inclusive aprovar."
-              checked={valor.plataforma === "admin"}
-              onChange={() => onChange({ plataforma: "admin", departamentos: [] })}
-            />
-            {podeDesenvolvedor ? (
+    <>
+      <section className="ui-dialog-section">
+        <div className="ui-dialog-section-header">
+          <Heading as="h3" icon={<IconShield />}>Tipo de Papel</Heading>
+          <p className="ui-dialog-section-desc">
+            Escolha se o acesso é restrito aos departamentos e telas ou se abrange toda a plataforma.
+          </p>
+        </div>
+        <div className="ui-role-cards" role="radiogroup" aria-label="Tipo de papel">
+          {podeDesenvolvedor ? (
+            <div
+              className={`ui-role-card ${papelAtivo === "desenvolvedor" ? "ui-role-card--active" : ""}`}
+              onClick={() => selecionarPapel("desenvolvedor")}
+            >
               <Radio
                 name="papel"
-                label="Desenvolvedor"
-                description="Tudo do admin, mais logs, auditoria e telas técnicas."
-                checked={valor.plataforma === "desenvolvedor"}
-                onChange={() => onChange({ plataforma: "desenvolvedor", departamentos: [] })}
+                label="Desenvolvedor (DEV)"
+                checked={papelAtivo === "desenvolvedor"}
+                onChange={() => selecionarPapel("desenvolvedor")}
               />
-            ) : null}
+              <IconCode className="ui-role-card-icon" aria-hidden="true" />
+            </div>
+          ) : null}
+          {podeAdmin ? (
+            <div
+              className={`ui-role-card ${papelAtivo === "admin" ? "ui-role-card--active" : ""}`}
+              onClick={() => selecionarPapel("admin")}
+            >
+              <Radio
+                name="papel"
+                label="Admin"
+                checked={papelAtivo === "admin"}
+                onChange={() => selecionarPapel("admin")}
+              />
+              <IconShield className="ui-role-card-icon" aria-hidden="true" />
+            </div>
+          ) : null}
+          {podeDiretor ? (
+            <div
+              className={`ui-role-card ${papelAtivo === "diretor" ? "ui-role-card--active" : ""}`}
+              onClick={() => selecionarPapel("diretor")}
+            >
+              <Radio
+                name="papel"
+                label="Diretor"
+                checked={papelAtivo === "diretor"}
+                onChange={() => selecionarPapel("diretor")}
+              />
+              <IconBriefcase className="ui-role-card-icon" aria-hidden="true" />
+            </div>
+          ) : null}
+          <div
+            className={`ui-role-card ${papelAtivo === "membro" ? "ui-role-card--active" : ""}`}
+            onClick={() => selecionarPapel("membro")}
+          >
+            <Radio
+              name="papel"
+              label="Membro"
+              checked={papelAtivo === "membro"}
+              onChange={() => selecionarPapel("membro")}
+            />
+            <IconUser className="ui-role-card-icon" aria-hidden="true" />
           </div>
-        </fieldset>
-      ) : null}
+        </div>
+      </section>
 
-      {valor.plataforma === null ? (
-        <fieldset className="acesso-empresa">
-          <legend className="eyebrow">Departamentos</legend>
-          {departamentos.map((departamento) => {
-            const nivel = nivelDe(departamento.id);
-            return (
-              <div className="acesso-departamento" key={departamento.id}>
-                <Checkbox
-                  label={departamento.label}
-                  checked={nivel !== null}
-                  onChange={(evento) => defineDepartamento(departamento.id, evento.target.checked ? "membro" : null)}
-                />
-                {nivel !== null && podeGerente ? (
-                  <div className="acesso-niveis acesso-niveis--aninhada" role="radiogroup" aria-label={`Nível em ${departamento.label}`}>
-                    <Radio
-                      name={`nivel-${departamento.id}`}
-                      label="Membro"
-                      description="Opera o departamento."
-                      checked={nivel === "membro"}
-                      onChange={() => defineDepartamento(departamento.id, "membro")}
-                    />
-                    <Radio
-                      name={`nivel-${departamento.id}`}
-                      label="Gerente"
-                      description="Aprova e gere a equipe do departamento."
-                      checked={nivel === "gerente"}
-                      onChange={() => defineDepartamento(departamento.id, "gerente")}
-                    />
-                  </div>
-                ) : null}
-              </div>
-            );
-          })}
-        </fieldset>
+      {isPapelEquipe ? (
+        <section className="ui-dialog-section">
+          <div className="ui-dialog-section-header">
+            <Heading as="h3" icon={<IconLayers />}>Departamentos e Telas de Acesso</Heading>
+            <p className="ui-dialog-section-desc">
+              Marque os departamentos com acesso e personalize as telas internas liberadas.
+            </p>
+          </div>
+          <div className="ui-dialog-table-wrap">
+            <table className="ui-dialog-table" aria-label="Departamentos e permissões">
+              <thead>
+                <tr>
+                  <th scope="col">Departamento</th>
+                  <th scope="col" style={{ width: "160px", textAlign: "right", whiteSpace: "nowrap" }}>Telas Internas</th>
+                </tr>
+              </thead>
+              <tbody>
+                {departamentos.map((departamento) => {
+                  const selecionado = valor.departamentos.some((entrada) => entrada.departamento === departamento.id);
+                  const isExpandido = expandidos.has(departamento.id);
+                  const totalTelas = departamento.processos.length;
+                  const telasAtivas = (telasSelecionadas[departamento.id] ?? departamento.processos.map((p) => p.label)).length;
+
+                  return (
+                    <Fragment key={departamento.id}>
+                      <tr className={selecionado ? (isExpandido ? "ui-dialog-table-row--expanded" : "ui-dialog-table-row--selected") : undefined}>
+                        <td>
+                          <div className="ui-dialog-table-dept">
+                            <Checkbox
+                              label={departamento.label}
+                              description={DESCRICAO_DO_DEPARTAMENTO[departamento.id]}
+                              checked={selecionado}
+                              onChange={(evento) => defineDepartamento(departamento.id, evento.target.checked)}
+                            />
+                          </div>
+                        </td>
+                        <td style={{ textAlign: "right" }}>
+                          {selecionado ? (
+                            <div className="ui-dept-telas-control">
+                              <button
+                                type="button"
+                                className={`ui-dept-expand-btn ${isExpandido ? "ui-dept-expand-btn--active" : ""}`}
+                                onClick={() => toggleExpansao(departamento.id)}
+                                aria-expanded={isExpandido}
+                                title={isExpandido ? "Recolher telas" : "Expandir telas"}
+                              >
+                                <span className="ui-dept-expand-count">
+                                  {telasAtivas}/{totalTelas}
+                                </span>
+                                {isExpandido ? (
+                                  <IconChevronUp width={14} height={14} aria-hidden="true" />
+                                ) : (
+                                  <IconChevronDown width={14} height={14} aria-hidden="true" />
+                                )}
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="ui-dialog-table-empty">Sem acesso</span>
+                          )}
+                        </td>
+                      </tr>
+                      {selecionado && isExpandido ? (
+                        <tr className="ui-dialog-table-subrow" key={`${departamento.id}-telas`}>
+                          <td colSpan={2}>
+                            <div className="ui-dept-processos-box">
+                              <div className="ui-dept-processos-header">
+                                <span className="ui-dept-processos-title">
+                                  Telas Internas de {departamento.label}:
+                                </span>
+                                <div className="ui-dept-processos-actions">
+                                  <button
+                                    type="button"
+                                    onClick={() => marcarTodasTelas(departamento.id)}
+                                  >
+                                    Marcar todas
+                                  </button>
+                                  <span aria-hidden="true">·</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => desmarcarTodasTelas(departamento.id)}
+                                  >
+                                    Desmarcar todas
+                                  </button>
+                                </div>
+                              </div>
+                              <div className="ui-dept-processos-grid">
+                                {departamento.processos.map((processo) => {
+                                  const marcado = (
+                                    telasSelecionadas[departamento.id] ?? departamento.processos.map((p) => p.label)
+                                  ).includes(processo.label);
+                                  return (
+                                    <div className="ui-processo-item" key={processo.label}>
+                                      <Checkbox
+                                        label={processo.label}
+                                        checked={marcado}
+                                        onChange={(e) =>
+                                          toggleTela(departamento.id, processo.label, e.target.checked)
+                                        }
+                                      />
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      ) : null}
+                    </Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </section>
       ) : (
-        <p className="card-note">
-          {ROTULO_DO_PAPEL[valor.plataforma]} alcança todos os departamentos; não há departamento para escolher.
-        </p>
+        <section className="ui-dialog-section">
+          <p className="card-note">
+            {ROTULO_DO_PAPEL[valor.plataforma!]} alcança todos os departamentos e configurações; não há departamento para escolher.
+          </p>
+        </section>
       )}
-    </div>
+    </>
   );
 }
