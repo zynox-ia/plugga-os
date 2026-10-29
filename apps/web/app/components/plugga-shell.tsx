@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
+import { AssistenteIA } from "./assistente-ia";
 import { BackgroundParticles } from "./background-particles";
 
 export type IconName =
@@ -81,6 +82,7 @@ export function PluggaShell({
   topbarActions,
   sidebarFooter,
   pageTitle,
+  navegando = false,
 }: {
   children: ReactNode;
   navigation: ShellNavGroup[];
@@ -93,6 +95,12 @@ export function PluggaShell({
   sidebarFooter?: ReactNode;
   /** Título da rota atual. */
   pageTitle: string;
+  /**
+   * Troca de tela em andamento. Desenha uma barra fina no topo, que só aparece
+   * se a troca passar de ~150 ms: a tela rápida não pisca, a lenta não parece
+   * travada.
+   */
+  navegando?: boolean;
 }) {
   const [activeView, setActiveView] = useState(activeId);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -120,6 +128,8 @@ export function PluggaShell({
 
   const isOpen = (group: ShellNavGroup) => {
     if (!group.collapsible) return true;
+    // Recolhida nunca expande: só os ícones dos departamentos ficam na barra.
+    if (isCollapsed) return false;
     if (group.id in openGroups) {
       return !!openGroups[group.id];
     }
@@ -129,11 +139,15 @@ export function PluggaShell({
   const toggleGroup = (id: string) => {
     const group = navGroups.find((g) => g.id === id);
     if (!group) return;
+    if (isCollapsed) return;
     const atualmenteAberto = isOpen(group);
-    setOpenGroups((prev) => ({
-      ...prev,
-      [id]: !atualmenteAberto,
-    }));
+    setOpenGroups((prev) => {
+      if (atualmenteAberto) return { ...prev, [id]: false };
+      // Acordeão: só um departamento expandido por vez.
+      const fechados: Record<string, boolean> = {};
+      for (const chave of Object.keys(prev)) fechados[chave] = false;
+      return { ...fechados, [id]: true };
+    });
   };
 
   const mainNavGroups = navGroups.filter((g) => g.id !== "ferramentas");
@@ -152,7 +166,12 @@ export function PluggaShell({
         disabled={item.disabled}
         aria-current={activeView === item.id ? "page" : undefined}
       >
-        <Icon name={item.icon ?? (group.collapsible ? "pulse" : "settings")} />
+        {/* No expandido, só o que declara ícone próprio o leva; os processos de
+            departamento ficam só com o texto. No recolhido o ícone é o único
+            elemento visível do item, então o fallback permanece. */}
+        {isCollapsed || item.icon ? (
+          <Icon name={item.icon ?? (group.collapsible ? "pulse" : "settings")} />
+        ) : null}
         <span className="nav-item-label">{item.label}</span>
       </button>
     ));
@@ -232,6 +251,7 @@ export function PluggaShell({
       </aside>
 
       <div className="shell-main">
+        {navegando ? <div className="navegacao-progresso" role="progressbar" aria-label="Abrindo a tela" /> : null}
         <header className="topbar">
           <button className="menu-toggle" type="button" aria-expanded={mobileNavOpen} aria-controls="main-navigation" onClick={() => setMobileNavOpen((open) => !open)}><span className="sr-only">Abrir navegação</span><span aria-hidden="true">☰</span></button>
 
@@ -261,6 +281,8 @@ export function PluggaShell({
         <main className="main-content" id="main-content">
           {children}
         </main>
+
+        <AssistenteIA />
       </div>
     </div>
   );

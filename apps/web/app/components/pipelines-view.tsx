@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { enviar } from "../lib/clientes";
 import { hrefDaVisao, type Visao } from "../lib/negocios";
 import { useSessionUser } from "../lib/use-session-user";
+import { Button, IconPlus, IconSearch, IconSettings } from "./ui";
 import { ConfiguracaoDePipelines } from "./pipelines/configuracao-de-pipelines";
 import { GanhoDoNegocio, PerdaDoNegocio } from "./pipelines/encerrar-negocio";
 import { Icone } from "./pipelines/icones";
@@ -19,9 +20,9 @@ import estilos from "./pipelines/tela-pipelines.module.css";
 type Encerramento = { tipo: "ganho" | "perda" | "transferencia"; negocio: Deal };
 
 /**
- * Pipelines de venda: seletor de processo e visões Kanban, Lista e Calendário.
- * A configuração abre num modal pelo
- * botão desta tela (PLU-269). As ações mudam a tela na hora e confirmam na API;
+ * Pipelines de venda: seletor de múltiplos funis e visões Kanban e Lista.
+ * A configuração abre num modal pelo botão desta tela (PLU-269).
+ * As ações mudam a tela na hora e confirmam na API;
  * se a API recusar, o negócio volta para onde estava.
  */
 export function PipelinesView({
@@ -41,6 +42,7 @@ export function PipelinesView({
 }) {
   const router = useRouter();
   const { usuario } = useSessionUser();
+  const [busca, setBusca] = useState("");
   const [configurando, setConfigurando] = useState<"editar" | "novo" | null>(null);
   const [negocios, setNegocios] = useState(doServidor);
   const [criando, setCriando] = useState<{ etapaId?: string } | null>(null);
@@ -104,30 +106,57 @@ export function PipelinesView({
   return (
     <div className={`pagina-pipelines ${estilos.pagina}`}>
       <header className={estilos.cabecalho}>
-        <h1>Pipelines</h1>
+        <div className={estilos.tituloGrupo}>
+          <h1 className={estilos.titulo}>Pipelines</h1>
+          <h2 className={estilos.subtitulo}>Gerencie seus funis de vendas e oportunidades comerciais.</h2>
+        </div>
         {selecionado ? (
           <div className={estilos.acoes}>
-            {podeConfigurar ? (
-              <button className="button button--secondary" type="button" onClick={() => setConfigurando("editar")}>
-                <Icone nome="engrenagem" /> Configurar pipelines
-              </button>
-            ) : null}
-            <button className="button button--accent" type="button" onClick={() => setCriando({})}>
-              <Icone nome="mais" /> Novo negócio
-            </button>
+            <div className="equipe-busca">
+              <IconSearch className="equipe-busca-icon" />
+              <input
+                type="search"
+                className="equipe-busca-input"
+                placeholder="Buscar negócio, cliente ou contato…"
+                aria-label="Buscar negócios"
+                value={busca}
+                onChange={(e) => setBusca(e.target.value)}
+              />
+            </div>
+            <Button
+              variant="primary"
+              icon={<IconPlus />}
+              onClick={() => setCriando({})}
+            >
+              Novo negócio
+            </Button>
           </div>
         ) : null}
       </header>
 
       {selecionado ? (
         <>
-          <NavegacaoPipelines pipelines={ativos} selecionado={selecionado} visao={visao} />
+          <NavegacaoPipelines
+            pipelines={ativos}
+            selecionado={selecionado}
+            visao={visao}
+            podeConfigurar={podeConfigurar}
+            aoConfigurar={() => setConfigurando("editar")}
+          />
           {aviso ? (
             <p className="aviso aviso--erro aviso-flutuante" role="alert">
               {aviso}
             </p>
           ) : null}
-          <QuadroDoPipeline key={selecionado.id} pipeline={selecionado} negocios={negocios} visao={visao} usuarioId={usuario?.id ?? null} acoes={acoes} />
+          <QuadroDoPipeline
+            key={selecionado.id}
+            pipeline={selecionado}
+            negocios={negocios}
+            busca={busca}
+            visao={visao}
+            usuarioId={usuario?.id ?? null}
+            acoes={acoes}
+          />
         </>
       ) : (
         <section className="pipelines-vazio">
@@ -141,15 +170,13 @@ export function PipelinesView({
               : "Você ainda não está na equipe de nenhum pipeline. Peça ao gerente do CRM para incluir você."}
           </p>
           {canCreateIn.length > 0 ? (
-            <button className="button button--accent" type="button" onClick={() => setConfigurando("novo")}>
-              <Icone nome="mais" />
+            <Button variant="primary" icon={<IconPlus />} onClick={() => setConfigurando("novo")}>
               Criar pipeline
-            </button>
+            </Button>
           ) : podeConfigurar ? (
-            <button className="button button--secondary" type="button" onClick={() => setConfigurando("editar")}>
-              <Icone nome="engrenagem" />
+            <Button variant="secondary" icon={<IconSettings />} onClick={() => setConfigurando("editar")}>
               Configurar pipelines
-            </button>
+            </Button>
           ) : null}
         </section>
       )}

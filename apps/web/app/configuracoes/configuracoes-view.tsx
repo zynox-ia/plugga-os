@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import type { ListaDaEquipe } from "@plugga/shared";
 
 import { ShellCard, StatusPill } from "../components/plugga-shell";
 import { CONFIGURACOES, ROTULO_DO_PAPEL, configuracoesParaAcesso } from "../lib/organizacao";
@@ -17,10 +18,13 @@ import { EquipeView } from "./equipe-view";
  * sempre na barra — esconder o menu inteiro faz quem não tem acesso procurar
  * onde não existe, e o "você não tem acesso" é a resposta honesta.
  */
-export function ConfiguracoesView() {
+export function ConfiguracoesView({ equipeInicial }: { equipeInicial: ListaDaEquipe | null }) {
   const router = useRouter();
   const { usuario, carregando } = useSessionUser();
   const [ativa, setAtiva] = useState(0);
+  // Guardada aqui para a aba Equipe não voltar com a lista da abertura da
+  // página depois de uma alteração, quando a pessoa troca de aba e retorna.
+  const [equipe, setEquipe] = useState(equipeInicial);
 
   const visiveis = usuario ? configuracoesParaAcesso(usuario.acesso) : [];
   const secao = visiveis[Math.min(ativa, Math.max(visiveis.length - 1, 0))];
@@ -72,7 +76,7 @@ export function ConfiguracoesView() {
       </nav>
 
       {secao?.id === "equipe" ? (
-        <EquipeView />
+        <EquipeView inicial={equipe} aoCarregar={setEquipe} />
       ) : secao?.id === "chave-llm" ? (
         <ChaveLlmView />
       ) : (

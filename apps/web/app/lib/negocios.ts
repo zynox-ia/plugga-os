@@ -8,7 +8,7 @@ import { FUSO_HORARIO } from "./format.ts";
  * etapa, alerta de parado, somas e filtros. Tudo puro, para testar sem tela.
  */
 
-export type Visao = "kanban" | "lista" | "calendario";
+export type Visao = "kanban" | "lista";
 export type FiltroDeStatus = DealStatus | "todos";
 export type FiltroDePrevisao = "qualquer" | "atrasada" | "este-mes" | "proximo-mes" | "sem-previsao";
 export type Filtros = { busca: string; responsavel: string; etiqueta: string; status: FiltroDeStatus; previsao: FiltroDePrevisao };
@@ -60,7 +60,7 @@ function proximoMes(hoje: string): string {
 const normalizar = (texto: string) =>
   texto
     .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
+    .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase();
 
 export function aplicarFiltros(negocios: readonly Deal[], filtros: Filtros, hoje: string): Deal[] {

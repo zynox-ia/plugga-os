@@ -1,4 +1,5 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
+import { User } from "lucide-react";
 
 /** Ícones de traço das telas de Pipelines, no mesmo desenho dos ícones da barra lateral. */
 const TRACOS = {
@@ -132,12 +133,43 @@ export function iniciaisDe(nome: string): string {
   return (primeira + ultima).toUpperCase();
 }
 
-/** Avatar de iniciais, com cor estável por pessoa. */
-export function Avatar({ id, nome, tamanho = "medio" }: { id: string; nome: string; tamanho?: "pequeno" | "medio" }) {
+/** Avatar com foto ou ícone quando não houver foto (padrão global do design system). */
+export function Avatar({
+  id,
+  nome,
+  avatarUrl,
+  tamanho = "medio",
+}: {
+  id: string;
+  nome: string;
+  avatarUrl?: string | null;
+  tamanho?: "pequeno" | "medio";
+}) {
+  const [erroImg, setErroImg] = useState(false);
   const soma = [...id].reduce((total, letra) => total + letra.charCodeAt(0), 0);
+  const corFundo = CORES_DE_AVATAR[soma % CORES_DE_AVATAR.length];
+  const iconeSize = tamanho === "pequeno" ? 13 : 15;
+
+  if (avatarUrl && !erroImg) {
+    return (
+      <img
+        src={avatarUrl}
+        alt={nome}
+        title={nome}
+        className={`avatar-pessoa avatar-pessoa--${tamanho} avatar-pessoa--img`}
+        onError={() => setErroImg(true)}
+      />
+    );
+  }
+
   return (
-    <span className={`avatar-pessoa avatar-pessoa--${tamanho}`} style={{ background: CORES_DE_AVATAR[soma % CORES_DE_AVATAR.length] }} title={nome}>
-      {iniciaisDe(nome)}
+    <span
+      className={`avatar-pessoa avatar-pessoa--${tamanho}`}
+      style={{ background: corFundo }}
+      title={nome}
+      aria-label={nome}
+    >
+      <User size={iconeSize} aria-hidden="true" strokeWidth={2} />
     </span>
   );
 }

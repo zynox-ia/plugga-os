@@ -1,15 +1,16 @@
 "use client";
 
 import type { CompanyKey, Pipeline } from "@plugga/shared";
+import { Archive, Cog } from "lucide-react";
 import { useState } from "react";
 
 import { enviar, type ErroDoFormulario } from "../../lib/clientes";
-import { formatarDataHoraCurta } from "../../lib/format";
 import { EMPRESAS_POR_ID } from "../../lib/organizacao";
 import { mesmoConteudo, paraCriacao, paraEdicao, rascunhoDe, rascunhoNovo, type Rascunho } from "../../lib/pipelines";
 import { Modal } from "../modal";
+import { Button } from "../ui/button";
+import { IconAlertTriangle, IconCheck, IconPlus, IconSettings, IconX } from "../ui/icons";
 import { EditorDePipeline } from "./editor-de-pipeline";
-import { Icone } from "./icones";
 
 const DESCARTAR = "Há alterações não salvas neste pipeline. Descartar?";
 const plural = (n: number, um: string, varios: string) => `${n} ${n === 1 ? um : varios}`;
@@ -93,38 +94,66 @@ export function ConfiguracaoDePipelines({
 
   const item = (p: Pipeline) => (
     <li key={p.id}>
-      <button type="button" className="config-item" aria-current={rascunho?.id === p.id ? "true" : undefined} onClick={() => abrir(rascunhoDe(p))}>
+      <button
+        type="button"
+        className="config-item"
+        aria-current={rascunho?.id === p.id ? "true" : undefined}
+        onClick={() => abrir(rascunhoDe(p))}
+      >
         <span className="config-item-nome">
           <span className="ponto-cor" style={{ background: p.color }} aria-hidden="true" />
           {p.name}
         </span>
         <span className="config-item-meta">
-          <span className={`selo-empresa selo-empresa--${p.companyId}`}>{EMPRESAS_POR_ID[p.companyId].nome}</span>
-          {plural(p.stages.length, "etapa", "etapas")} · {plural(p.members.length, "pessoa", "pessoas")}
+          <span className={`ui-badge ui-tone--${p.companyId === "plugga" ? "info" : "success"} selo-empresa`}>
+            {EMPRESAS_POR_ID[p.companyId].nome}
+          </span>
+          <span className="config-item-contagens">
+            {plural(p.stages.length, "etapa", "etapas")} · {plural(p.members.length, "pessoa", "pessoas")}
+          </span>
         </span>
       </button>
     </li>
   );
 
   return (
-    <Modal rotulo="Configurar pipelines" largura="larga" aoFechar={() => podeSair() && aoFechar()}>
-      <div className="modal-topo config-topo">
-        <div>
-          <span className="eyebrow eyebrow--azul">Comercial · Configuração</span>
-          <h2>Configurar pipelines</h2>
+    <Modal
+      rotulo="Configurar pipelines"
+      largura="larga"
+      className="ui-dialog ui-dialog--config-pipelines"
+      aoFechar={() => podeSair() && aoFechar()}
+    >
+      <header className="ui-dialog-header">
+        <div className="ui-dialog-header-content">
+          <div className="ui-dialog-header-icon" aria-hidden="true">
+            <IconSettings />
+          </div>
+          <div className="ui-dialog-header-text">
+            <h2 className="ui-dialog-title">Configurar pipelines</h2>
+            <p className="ui-dialog-subtitle">Gerencie funis, etapas, etiquetas e permissões da equipe.</p>
+          </div>
         </div>
         <div className="config-topo-acoes">
           {canCreateIn.length > 0 ? (
-            <button className="button button--accent" type="button" onClick={() => abrir(rascunhoNovo(canCreateIn[0]!))}>
-              <Icone nome="mais" />
+            <Button
+              variant="primary"
+              size="sm"
+              icon={<IconPlus />}
+              onClick={() => abrir(rascunhoNovo(canCreateIn[0]!))}
+            >
               Novo pipeline
-            </button>
+            </Button>
           ) : null}
-          <button className="botao-fechar" type="button" aria-label="Fechar" onClick={() => podeSair() && aoFechar()}>
-            <Icone nome="x" />
-          </button>
+          <Button
+            variant="secondary"
+            size="sm"
+            icon={<IconX />}
+            iconOnly
+            aria-label="Fechar diálogo"
+            onClick={() => podeSair() && aoFechar()}
+          />
         </div>
-      </div>
+      </header>
 
       <div className="config-pipelines">
         <nav className="config-lista" aria-label="Pipelines que você configura">
@@ -142,7 +171,7 @@ export function ConfiguracaoDePipelines({
           {arquivados.length > 0 ? (
             <details className="config-arquivados">
               <summary>
-                <Icone nome="arquivo" tamanho={14} />
+                <Archive size={14} aria-hidden="true" />
                 Arquivados ({arquivados.length})
               </summary>
               <ul>{arquivados.map(item)}</ul>
@@ -167,7 +196,7 @@ export function ConfiguracaoDePipelines({
             />
           ) : (
             <div className="config-editor-vazio">
-              <Icone nome="engrenagem" tamanho={26} />
+              <Cog size={28} className="config-editor-vazio-icone" aria-hidden="true" />
               <p>{canCreateIn.length > 0 ? "Escolha um pipeline à esquerda ou crie um novo." : "Escolha um pipeline à esquerda."}</p>
             </div>
           )}
@@ -175,33 +204,51 @@ export function ConfiguracaoDePipelines({
       </div>
 
       {rascunho ? (
-        <div className="modal-rodape config-rodape">
-          <span className="config-rastro">
-            {atual?.archivedAt ? <span className="selo-arquivado">Arquivado</span> : null}
-            {atual?.updatedBy ? `Alterado por ${atual.updatedBy.name} em ${formatarDataHoraCurta(atual.updatedAt)}` : rascunho.id ? "" : "Pipeline novo, ainda não salvo"}
-          </span>
-          {erro ? (
-            <p className="aviso aviso--erro" role="alert">
-              {erro.mensagem}
-            </p>
-          ) : salvo ? (
-            <p className="aviso aviso--sucesso" role="status">
-              <Icone nome="check" tamanho={14} /> Alterações salvas.
-            </p>
-          ) : null}
-          {atual ? (
-            <button className="button button--secondary" type="button" disabled={enviando} onClick={() => mudarSituacao(atual.archivedAt ? "reativar" : "arquivar")}>
-              <Icone nome="arquivo" />
-              {atual.archivedAt ? "Reativar" : "Arquivar"}
-            </button>
-          ) : null}
-          <button className="button button--secondary" type="button" disabled={!sujo || enviando} onClick={() => setRascunho(original)}>
-            Descartar
-          </button>
-          <button className="button button--accent" type="button" disabled={!sujo || enviando} onClick={salvar}>
-            {enviando ? "Salvando…" : rascunho.id ? "Salvar alterações" : "Criar pipeline"}
-          </button>
-        </div>
+        <footer className="ui-dialog-footer config-rodape">
+          <div className="config-rodape-esquerda">
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={!sujo || enviando}
+              onClick={() => setRascunho(original)}
+            >
+              Descartar
+            </Button>
+            {atual?.archivedAt ? <span className="ui-badge ui-tone--warning">Arquivado</span> : null}
+            {erro ? (
+              <p className="aviso aviso--erro" role="alert">
+                <IconAlertTriangle /> {erro.mensagem}
+              </p>
+            ) : salvo ? (
+              <p className="aviso aviso--sucesso" role="status">
+                <IconCheck /> Alterações salvas.
+              </p>
+            ) : null}
+          </div>
+
+          <div className="ui-dialog-actions config-rodape-acoes">
+            {atual ? (
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={enviando}
+                icon={<Archive size={14} />}
+                onClick={() => mudarSituacao(atual.archivedAt ? "reativar" : "arquivar")}
+              >
+                {atual.archivedAt ? "Reativar" : "Arquivar"}
+              </Button>
+            ) : null}
+            <Button
+              variant="primary"
+              size="sm"
+              loading={enviando}
+              disabled={!sujo || enviando}
+              onClick={salvar}
+            >
+              {rascunho.id ? "Salvar alterações" : "Criar pipeline"}
+            </Button>
+          </div>
+        </footer>
       ) : null}
     </Modal>
   );

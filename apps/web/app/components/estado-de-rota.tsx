@@ -6,20 +6,14 @@ import { useEffect } from "react";
 import { ShellCard } from "./plugga-shell";
 
 /**
- * Estados de rota do App Router (US12, T127): carregando, erro inesperado e não
+ * Estados de rota do App Router (US12, T127): erro inesperado e não
  * encontrado, com o mesmo corpo em todos os módulos e só o rótulo mudando.
+ *
+ * Não há `loading.tsx`: com ele, o React segura o conteúdo novo por no mínimo
+ * ~300 ms depois de mostrar o "Carregando…", mesmo quando a tela fica pronta em
+ * 20 ms. A troca de tela roda numa transição (`AppShell`) e o shell mostra uma
+ * barra fina só quando ela demora.
  */
-
-export function CarregandoRota({ modulo }: { modulo?: string }) {
-  return (
-    <ShellCard className="panel-card">
-      <div role="status" aria-live="polite" data-testid="estado-carregando">
-        {modulo ? <span className="eyebrow">{modulo}</span> : null}
-        <p className="card-note">Carregando…</p>
-      </div>
-    </ShellCard>
-  );
-}
 
 export function ErroDeRota({
   error,

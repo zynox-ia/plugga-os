@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import type { ReactNode } from "react";
+import { useTransition, type ReactNode } from "react";
 
 import { NotificationsMenu } from "./notifications-menu";
 import { PluggaShell } from "./plugga-shell";
@@ -33,6 +33,11 @@ function ShellContent({ children }: { children: ReactNode }) {
   const pathname = usePathname();
 
   const { usuario } = useSessionUser();
+  // A troca de tela roda numa transição: o React mantém a tela atual até a
+  // nova estar pronta (sem "Carregando…" de página inteira, que o React segura
+  // por no mínimo ~300 ms mesmo quando o servidor responde em 20 ms) e expõe o
+  // "em andamento" para a barra de progresso do shell.
+  const [navegando, iniciarNavegacao] = useTransition();
   const acesso = usuario?.acesso ?? null;
   const navId = navIdForPathname(pathname);
 
@@ -48,8 +53,9 @@ function ShellContent({ children }: { children: ReactNode }) {
         </>
       }
       sidebarFooter={<SidebarUser />}
+      navegando={navegando}
       onNavigate={(id) => {
-        if (id.startsWith("/")) router.push(id);
+        if (id.startsWith("/")) iniciarNavegacao(() => router.push(id));
       }}
     >
       {children}

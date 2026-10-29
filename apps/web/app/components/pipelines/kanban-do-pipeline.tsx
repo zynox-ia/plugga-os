@@ -1,26 +1,49 @@
 "use client";
 
 import type { Deal, Pipeline } from "@plugga/shared";
-import { useState, type CSSProperties, type DragEvent } from "react";
-import { createPortal } from "react-dom";
+import { Clock, Kanban } from "lucide-react";
+import { useLayoutEffect, useRef, useState, type CSSProperties, type DragEvent, type RefObject } from "react";
 
+import { calcularLayoutKanban, ESPACO_COLUNAS_KANBAN } from "../../lib/layout-kanban";
 import { somaDosValores, valorCurto } from "../../lib/negocios";
 import { CartaoDeNegocio } from "./cartao-de-negocio";
-import { Icone } from "./icones";
 import type { AcoesDoNegocio } from "./quadro-do-pipeline";
 
-type Alvo = { tipo: "etapa"; id: string } | { tipo: "ganho" | "perda" | "transferencia" };
+type Alvo = { tipo: "etapa"; id: string };
 const comCor = (cor: string) => ({ "--cor": cor }) as CSSProperties;
-const mesmoAlvo = (a: Alvo | null, b: Alvo) => a !== null && a.tipo === b.tipo && (a.tipo !== "etapa" || (b.tipo === "etapa" && a.id === b.id));
+const mesmoAlvo = (a: Alvo | null, b: Alvo) => a !== null && a.id === b.id;
 
 /**
- * Kanban: uma coluna por etapa, com quantidade e soma. Arrastar um card para
- * outra coluna muda a etapa; enquanto se arrasta, aparecem as zonas de Ganho,
- * Perdido e Mover para outro pipeline (que não são colunas).
+ * Kanban: uma coluna por etapa, com contagem e soma dos valores.
+ * Arrastar um card entre colunas altera sua etapa.
  */
-export function KanbanDoPipeline({ pipeline, negocios, acoes }: { pipeline: Pipeline; negocios: Deal[]; acoes: AcoesDoNegocio }) {
+export function KanbanDoPipeline({
+  pipeline,
+  negocios,
+  acoes,
+  colunasRef,
+}: {
+  pipeline: Pipeline;
+  negocios: Deal[];
+  acoes: AcoesDoNegocio;
+  colunasRef?: RefObject<HTMLDivElement | null>;
+}) {
   const [arrastando, setArrastando] = useState<Deal | null>(null);
   const [alvo, setAlvo] = useState<Alvo | null>(null);
+  const internoRef = useRef<HTMLDivElement>(null);
+  const refEfetivo = colunasRef ?? internoRef;
+  const areaRef = useRef<HTMLDivElement>(null);
+  const [layout, setLayout] = useState<ReturnType<typeof calcularLayoutKanban> | null>(null);
+
+  useLayoutEffect(() => {
+    const elemento = areaRef.current;
+    if (!elemento) return;
+    const atualizar = () => setLayout(calcularLayoutKanban(elemento.clientWidth, pipeline.stages.length));
+    atualizar();
+    const observer = new ResizeObserver(atualizar);
+    observer.observe(elemento);
+    return () => observer.disconnect();
+  }, [pipeline.stages.length]);
 
   const terminar = () => {
     setArrastando(null);
@@ -46,9 +69,22 @@ export function KanbanDoPipeline({ pipeline, negocios, acoes }: { pipeline: Pipe
   });
 
   return (
-    <>
-      <div className="quadro-colunas">
-        {pipeline.stages.map((etapa, i) => {
+    <div className="quadro-area-colunas" ref={areaRef}>
+      <div
+        className="quadro-colunas"
+        ref={refEfetivo}
+        tabIndex={0}
+        role="region"
+        aria-label="Etapas do pipeline"
+        style={{
+          "--espaco-colunas": `${ESPACO_COLUNAS_KANBAN}px`,
+          ...(layout ? {
+            "--largura-coluna": `${layout.larguraColuna}px`,
+            "--largura-quadro": `${layout.larguraQuadro}px`,
+          } : {}),
+        } as CSSProperties}
+      >
+        {pipeline.stages.map((etapa) => {
           const daEtapa = negocios.filter((n) => n.stageId === etapa.id);
           const destino: Alvo = { tipo: "etapa", id: etapa.id };
           return (
@@ -61,27 +97,24 @@ export function KanbanDoPipeline({ pipeline, negocios, acoes }: { pipeline: Pipe
             >
               <header className="coluna-topo">
                 <div className="coluna-titulo">
-                  <span className="coluna-ordem" aria-hidden="true">
-                    {String(i + 1).padStart(2, "0")}
-                  </span>
+                  <Kanban size={16} className="coluna-titulo-icone" style={{ color: etapa.color }} aria-hidden="true" />
                   <h3 id={`etapa-${etapa.id}`}>{etapa.name}</h3>
-                  <span className="coluna-contagem" aria-label={`${daEtapa.length} negócios`}>
-                    {daEtapa.length}
-                  </span>
-                  <button type="button" className="botao-icone coluna-novo" aria-label={`Novo negócio em ${etapa.name}`} title="Novo negócio nesta etapa" onClick={() => acoes.novoNaEtapa(etapa.id)}>
-                    <Icone nome="mais" tamanho={15} />
-                  </button>
                 </div>
-                <div className="coluna-meta">
-                  <span className="coluna-soma">{valorCurto(somaDosValores(daEtapa))}</span>
-                  {etapa.staleAfterDays !== null ? (
-                    <span className="coluna-parado" title={`O negócio aparece como parado depois de ${etapa.staleAfterDays} dias nesta etapa`}>
-                      <Icone nome="relogio" tamanho={12} />
-                      {etapa.staleAfterDays}d
-                    </span>
-                  ) : null}
-                </div>
+                <span className="coluna-quantidade" aria-label={`${daEtapa.length} negócios`}>
+                  {String(daEtapa.length).padStart(2, "0")}
+                </span>
               </header>
+
+              <div className="coluna-meta">
+                <span className="coluna-soma">{valorCurto(somaDosValores(daEtapa))}</span>
+                {etapa.staleAfterDays !== null ? (
+                  <span className="coluna-parado" title={`O negócio aparece como parado depois de ${etapa.staleAfterDays} dias nesta etapa`}>
+                    <Clock size={11} aria-hidden="true" />
+                    {etapa.staleAfterDays}d
+                  </span>
+                ) : null}
+              </div>
+
               <div className="coluna-corpo">
                 {daEtapa.length > 0 ? (
                   daEtapa.map((negocio) => (
@@ -103,37 +136,6 @@ export function KanbanDoPipeline({ pipeline, negocios, acoes }: { pipeline: Pipe
           );
         })}
       </div>
-
-      {arrastando ? (
-        // Portal: o painel tem backdrop-filter, que prenderia o `fixed` dentro dele.
-        createPortal(
-          <div className="zonas-desfecho" aria-hidden="true">
-            <div className={`zona zona--ganho${alvo?.tipo === "ganho" ? " zona--alvo" : ""}`} {...area({ tipo: "ganho" }, acoes.ganhar)}>
-              <Icone nome="check" /> {pipeline.wonLabel}
-            </div>
-            <div className={`zona zona--perdido${alvo?.tipo === "perda" ? " zona--alvo" : ""}`} {...area({ tipo: "perda" }, acoes.perder)}>
-              <Icone nome="x" /> {pipeline.lostLabel}
-            </div>
-            <div className={`zona zona--mover${alvo?.tipo === "transferencia" ? " zona--alvo" : ""}`} {...area({ tipo: "transferencia" }, acoes.transferir)}>
-              <Icone nome="seta" /> Mover para outro pipeline
-            </div>
-          </div>,
-          document.body,
-        )
-      ) : (
-        <footer className="quadro-rodape">
-          <span className="quadro-rodape-rotulo">Desfechos</span>
-          <span className="desfecho desfecho--ganho">
-            <Icone nome="check" tamanho={14} />
-            {pipeline.wonLabel}
-          </span>
-          <span className="desfecho desfecho--perdido">
-            <Icone nome="x" tamanho={14} />
-            {pipeline.lostLabel}
-          </span>
-          <span className="quadro-rodape-dica">Arraste um negócio até Ganho ou Perdido para encerrá-lo, ou use o menu ⋯ do card.</span>
-        </footer>
-      )}
-    </>
+    </div>
   );
 }

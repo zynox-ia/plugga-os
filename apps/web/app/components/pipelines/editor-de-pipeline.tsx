@@ -5,15 +5,16 @@ import { useState } from "react";
 
 import { EMPRESAS_POR_ID } from "../../lib/organizacao";
 import { CORES, NOME_DA_COR, type Rascunho } from "../../lib/pipelines";
-import { Icone } from "./icones";
-import { SecaoEquipe, SecaoEtapas, SecaoEtiquetas, SecaoMotivos } from "./secoes-do-pipeline";
+import { TextField, TextareaField } from "../ui/fields";
+import { IconAlertTriangle } from "../ui/icons";
+import { Radio } from "../ui/selection";
+import { SecaoEquipe, SecaoEtapas, SecaoEtiquetas } from "./secoes-do-pipeline";
 
-type Aba = "geral" | "etapas" | "etiquetas" | "motivos" | "equipe";
+type Aba = "geral" | "etapas" | "etiquetas" | "equipe";
 const ABAS: { id: Aba; rotulo: string; campos: string[] }[] = [
   { id: "geral", rotulo: "Geral", campos: ["companyId", "name", "description", "valueLabel", "color"] },
   { id: "etapas", rotulo: "Etapas", campos: ["stages", "wonLabel", "lostLabel"] },
   { id: "etiquetas", rotulo: "Etiquetas", campos: ["tags"] },
-  { id: "motivos", rotulo: "Motivos de perda", campos: ["lossReasons"] },
   { id: "equipe", rotulo: "Equipe", campos: ["members"] },
 ];
 
@@ -34,16 +35,10 @@ export function EditorDePipeline({
   totalDeNegocios: number;
 }) {
   const [aba, setAba] = useState<Aba>("geral");
-  const contagem: Partial<Record<Aba, number>> = {
-    etapas: rascunho.stages.length,
-    etiquetas: rascunho.tags.length,
-    motivos: rascunho.lossReasons.length,
-    equipe: rascunho.members.length,
-  };
 
   return (
     <div className="editor-pipeline">
-      <div className="abas abas-editor" role="tablist" aria-label="Seções do pipeline">
+      <nav className="abas-editor" role="tablist" aria-label="Seções do pipeline">
         {ABAS.map((a) => (
           <button
             key={a.id}
@@ -52,19 +47,18 @@ export function EditorDePipeline({
             id={`aba-${a.id}`}
             aria-controls={`painel-${a.id}`}
             aria-selected={aba === a.id}
+            className={`aba-item${aba === a.id ? " aba-item--ativa" : ""}`}
             onClick={() => setAba(a.id)}
           >
-            {a.rotulo}
-            {contagem[a.id] !== undefined ? <span className="aba-contagem">{contagem[a.id]}</span> : null}
+            <span>{a.rotulo}</span>
             {a.campos.some((campo) => erros[campo]) ? <span className="marca-erro" aria-label="(com erro)" /> : null}
           </button>
         ))}
-      </div>
+      </nav>
       <section id={`painel-${aba}`} role="tabpanel" aria-labelledby={`aba-${aba}`} className="painel-pipeline">
         {aba === "geral" ? <SecaoGeral rascunho={rascunho} aoAlterar={aoAlterar} erros={erros} empresasPermitidas={totalDeNegocios > 0 ? [rascunho.companyId] : empresasPermitidas} totalDeNegocios={totalDeNegocios} /> : null}
         {aba === "etapas" ? <SecaoEtapas rascunho={rascunho} aoAlterar={aoAlterar} erros={erros} negociosPorEtapa={negociosPorEtapa} /> : null}
         {aba === "etiquetas" ? <SecaoEtiquetas rascunho={rascunho} aoAlterar={aoAlterar} erros={erros} /> : null}
-        {aba === "motivos" ? <SecaoMotivos rascunho={rascunho} aoAlterar={aoAlterar} erros={erros} /> : null}
         {aba === "equipe" ? <SecaoEquipe rascunho={rascunho} aoAlterar={aoAlterar} erros={erros} nomesDaEquipe={nomesDaEquipe} /> : null}
       </section>
     </div>
@@ -74,79 +68,78 @@ export function EditorDePipeline({
 function SecaoGeral({ rascunho, aoAlterar, erros, empresasPermitidas, totalDeNegocios }: PropsDaSecao & { empresasPermitidas: CompanyKey[]; totalDeNegocios: number }) {
   return (
     <div className="form-grade">
-      <div className="field">
-        <label htmlFor="pipeline-nome">Nome do pipeline *</label>
-        <input
-          id="pipeline-nome"
-          value={rascunho.name}
-          maxLength={60}
-          placeholder="Ex.: Solar"
-          aria-invalid={Boolean(erros.name)}
-          aria-describedby={erros.name ? "pipeline-nome-erro" : undefined}
-          onChange={(e) => aoAlterar({ name: e.target.value })}
-        />
-        {erros.name ? (
-          <span className="erro-campo" id="pipeline-nome-erro">
-            {erros.name}
-          </span>
-        ) : null}
-      </div>
-      <div className="field">
-        <label htmlFor="pipeline-valor">Nome do campo de valor *</label>
-        <input
-          id="pipeline-valor"
-          value={rascunho.valueLabel}
-          maxLength={40}
-          placeholder="Ex.: Investimento estimado"
-          onChange={(e) => aoAlterar({ valueLabel: e.target.value })}
-        />
-      </div>
+      <TextField
+        id="pipeline-nome"
+        label="Nome do pipeline"
+        required
+        value={rascunho.name}
+        maxLength={60}
+        placeholder="Ex.: Solar"
+        error={erros.name}
+        onChange={(e) => aoAlterar({ name: e.target.value })}
+      />
+      <TextField
+        id="pipeline-valor"
+        label="Nome do campo de valor"
+        required
+        value={rascunho.valueLabel}
+        maxLength={40}
+        placeholder="Ex.: Investimento estimado"
+        error={erros.valueLabel}
+        onChange={(e) => aoAlterar({ valueLabel: e.target.value })}
+      />
 
-      <fieldset className="inteira">
-        <legend>Empresa *</legend>
+      <fieldset className="inteira secao-empresa-pipeline">
+        <label className="ui-field-label">
+          Empresa <span className="ui-required">(obrigatório)</span>
+        </label>
         <div className="opcoes-empresa">
           {Object.values(EMPRESAS_POR_ID).map((empresa) => {
             const permitida = empresasPermitidas.includes(empresa.id);
+            const selecionada = rascunho.companyId === empresa.id;
             return (
-              <label key={empresa.id} className={`opcao-empresa opcao-empresa--${empresa.id}${permitida ? "" : " opcao-empresa--bloqueada"}`}>
-                <input
-                  type="radio"
+              <div
+                key={empresa.id}
+                className={`ui-role-card opcao-empresa opcao-empresa--${empresa.id}${selecionada ? " ui-role-card--active" : ""}${permitida ? "" : " opcao-empresa--bloqueada"}`}
+                onClick={() => permitida && aoAlterar({ companyId: empresa.id, members: [] })}
+              >
+                <Radio
                   name="pipeline-empresa"
-                  value={empresa.id}
-                  checked={rascunho.companyId === empresa.id}
+                  label={empresa.nome}
+                  description={empresa.descricao}
+                  checked={selecionada}
                   disabled={!permitida}
                   onChange={() => aoAlterar({ companyId: empresa.id, members: [] })}
                 />
-                <span className="opcao-empresa-texto">
-                  <b>{empresa.nome}</b>
-                  <small>{empresa.descricao}</small>
-                </span>
-              </label>
+              </div>
             );
           })}
         </div>
-        <p className="nota-pipeline">
-          <Icone nome="info" tamanho={14} />
-          {totalDeNegocios > 0
-            ? `Este pipeline tem ${totalDeNegocios === 1 ? "1 negócio" : `${totalDeNegocios} negócios`} e não muda de empresa. Para levar negócios à outra empresa, mova-os para um pipeline dela.`
-            : "Todo negócio deste pipeline pertence a esta empresa. Trocar a empresa limpa a equipe, que vem das pessoas da empresa."}
-        </p>
+        <div className="ui-alert ui-tone--warning nota-pipeline">
+          <IconAlertTriangle className="nota-pipeline-icone" />
+          <div>
+            {totalDeNegocios > 0
+              ? `Este pipeline tem ${totalDeNegocios === 1 ? "1 negócio" : `${totalDeNegocios} negócios`} e não muda de empresa. Para levar negócios à outra empresa, mova-os para um pipeline dela.`
+              : "Todo negócio deste pipeline pertence a esta empresa. Trocar a empresa limpa a equipe, que vem das pessoas da empresa."}
+          </div>
+        </div>
       </fieldset>
 
-      <div className="field inteira">
-        <label htmlFor="pipeline-descricao">Descrição</label>
-        <textarea
+      <div className="inteira">
+        <TextareaField
           id="pipeline-descricao"
+          label="Descrição"
           rows={2}
           maxLength={500}
           placeholder="O que se vende neste pipeline"
           value={rascunho.description ?? ""}
+          error={erros.description}
           onChange={(e) => aoAlterar({ description: e.target.value === "" ? null : e.target.value })}
         />
       </div>
 
-      <fieldset className="inteira">
-        <legend>Cor do pipeline</legend>
+      <fieldset className="inteira secao-cor-pipeline">
+        <label className="ui-field-label">Cor do pipeline</label>
         <div className="paleta" role="radiogroup" aria-label="Cor do pipeline">
           {CORES.map((cor) => (
             <button

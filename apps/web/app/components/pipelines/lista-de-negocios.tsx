@@ -1,10 +1,12 @@
 "use client";
 
 import type { BulkDealsAction, Deal, Pipeline } from "@plugga/shared";
+import { ArrowDown, ArrowUp, ArrowUpDown, Calendar, CheckSquare, Clock, Filter } from "lucide-react";
 import { useState, type CSSProperties } from "react";
 
 import { formatarData } from "../../lib/format";
 import { diasNaEtapa, estaParado, ordenar, ROTULO_STATUS, valorCurto, type Ordem } from "../../lib/negocios";
+import { Button } from "../ui";
 import { MenuDoNegocio } from "./cartao-de-negocio";
 import { Avatar } from "./icones";
 import type { AcoesDoNegocio } from "./quadro-do-pipeline";
@@ -62,33 +64,44 @@ export function ListaDeNegocios({ pipeline, negocios, acoes }: { pipeline: Pipel
   }
 
   if (linhas.length === 0) {
-    return <p className="lista-negocios-vazia">Nenhum negócio com estes filtros.</p>;
+    return (
+      <div className="lista-negocios-vazia" role="status">
+        <Filter size={32} className="lista-negocios-vazia-icone" aria-hidden="true" />
+        <p className="lista-negocios-vazia-titulo">Nenhum negócio com estes filtros.</p>
+        <p className="lista-negocios-vazia-desc">Tente alterar os termos de busca ou limpar os filtros aplicados.</p>
+      </div>
+    );
   }
 
   return (
     <div className="lista-negocios">
       {marcados.length > 0 ? (
         <div className="barra-lote" role="region" aria-label="Ações em lote">
-          <b>{marcados.length === 1 ? "1 selecionado" : `${marcados.length} selecionados`}</b>
-          <select aria-label="Ação em lote" value={lote.tipo} onChange={(e) => setLote({ tipo: e.target.value as Lote["tipo"], valor: "" })}>
-            <option value="owner">Trocar responsável</option>
-            {pipeline.tags.length > 0 ? <option value="tag">Adicionar etiqueta</option> : null}
-            <option value="stage">Mover de etapa</option>
-          </select>
-          <select aria-label="Destino da ação" value={lote.valor} onChange={(e) => setLote((atual) => ({ ...atual, valor: e.target.value }))}>
-            <option value="">Escolha…</option>
-            {opcoesDoLote.map((o) => (
-              <option key={o.id} value={o.id}>
-                {o.nome}
-              </option>
-            ))}
-          </select>
-          <button type="button" className="button button--accent" disabled={!lote.valor || aplicando} onClick={aplicarLote}>
-            {aplicando ? "Aplicando…" : "Aplicar"}
-          </button>
-          <button type="button" className="link-lote" onClick={() => setSelecionados(new Set())}>
-            Limpar seleção
-          </button>
+          <div className="barra-lote-info">
+            <CheckSquare size={16} aria-hidden="true" />
+            <b>{marcados.length === 1 ? "1 selecionado" : `${marcados.length} selecionados`}</b>
+          </div>
+          <div className="barra-lote-controles">
+            <select aria-label="Ação em lote" value={lote.tipo} onChange={(e) => setLote({ tipo: e.target.value as Lote["tipo"], valor: "" })}>
+              <option value="owner">Trocar responsável</option>
+              {pipeline.tags.length > 0 ? <option value="tag">Adicionar etiqueta</option> : null}
+              <option value="stage">Mover de etapa</option>
+            </select>
+            <select aria-label="Destino da ação" value={lote.valor} onChange={(e) => setLote((atual) => ({ ...atual, valor: e.target.value }))}>
+              <option value="">Escolha…</option>
+              {opcoesDoLote.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.nome}
+                </option>
+              ))}
+            </select>
+            <Button variant="primary" size="sm" disabled={!lote.valor || aplicando} onClick={aplicarLote}>
+              {aplicando ? "Aplicando…" : "Aplicar"}
+            </Button>
+            <button type="button" className="link-lote" onClick={() => setSelecionados(new Set())}>
+              Limpar seleção
+            </button>
+          </div>
         </div>
       ) : null}
 
@@ -108,11 +121,19 @@ export function ListaDeNegocios({ pipeline, negocios, acoes }: { pipeline: Pipel
                       className="ordenar"
                       onClick={() => setOrdem((atual) => ({ campo: c.campo!, direcao: atual.campo === c.campo && atual.direcao === "asc" ? "desc" : "asc" }))}
                     >
-                      {c.rotulo}
-                      {ordem.campo === c.campo ? <span aria-hidden="true">{ordem.direcao === "asc" ? " ↑" : " ↓"}</span> : null}
+                      <span>{c.rotulo}</span>
+                      {ordem.campo === c.campo ? (
+                        ordem.direcao === "asc" ? (
+                          <ArrowUp size={13} className="ordenar-icone" aria-hidden="true" />
+                        ) : (
+                          <ArrowDown size={13} className="ordenar-icone" aria-hidden="true" />
+                        )
+                      ) : (
+                        <ArrowUpDown size={12} className="ordenar-icone ordenar-icone--neutro" aria-hidden="true" />
+                      )}
                     </button>
                   ) : (
-                    c.rotulo
+                    <span>{c.rotulo}</span>
                   )}
                 </th>
               ))}
@@ -131,19 +152,29 @@ export function ListaDeNegocios({ pipeline, negocios, acoes }: { pipeline: Pipel
                     <input type="checkbox" aria-label={`Selecionar ${n.title}`} checked={selecionados.has(n.id)} onChange={() => alternar(n.id)} />
                   </td>
                   <td>
-                    <b className="titulo-negocio">{n.title}</b>
-                    {n.status !== "open" ? <span className={`selo-status selo-status--${n.status}`}>{n.status === "won" ? pipeline.wonLabel : ROTULO_STATUS[n.status]}</span> : null}
-                    {n.tags.length > 0 ? (
-                      <span className="etiquetas-linha">
-                        {n.tags.map((t) => (
-                          <span key={t.id} className="etiqueta" style={{ "--cor": t.color } as CSSProperties}>
-                            {t.name}
+                    <div className="celula-titulo-bloco">
+                      <div className="celula-titulo-linha">
+                        <b className="titulo-negocio">{n.title}</b>
+                        {n.status !== "open" ? (
+                          <span className={`selo-status selo-status--${n.status}`}>
+                            {n.status === "won" ? pipeline.wonLabel : ROTULO_STATUS[n.status]}
                           </span>
-                        ))}
-                      </span>
-                    ) : null}
+                        ) : null}
+                      </div>
+                      {n.tags.length > 0 ? (
+                        <span className="etiquetas-linha">
+                          {n.tags.map((t) => (
+                            <span key={t.id} className="etiqueta" style={{ "--cor": t.color } as CSSProperties}>
+                              {t.name}
+                            </span>
+                          ))}
+                        </span>
+                      ) : null}
+                    </div>
                   </td>
-                  <td>{n.client.name}</td>
+                  <td>
+                    <span className="cliente-linha">{n.client.name}</span>
+                  </td>
                   <td>
                     <span className="etapa-linha">
                       <span className="ponto-cor" style={{ background: etapa?.color }} aria-hidden="true" />
@@ -151,15 +182,35 @@ export function ListaDeNegocios({ pipeline, negocios, acoes }: { pipeline: Pipel
                     </span>
                   </td>
                   <td className="valor-linha">{n.value ? valorCurto(Number(n.value)) : "—"}</td>
-                  <td>{n.expectedCloseDate ? formatarData(`${n.expectedCloseDate}T12:00:00Z`) : "—"}</td>
-                  <td className={parado ? "dias-linha dias-linha--parado" : "dias-linha"}>{n.status === "open" ? `${diasNaEtapa(n)}d` : "—"}</td>
+                  <td>
+                    {n.expectedCloseDate ? (
+                      <span className="data-linha">
+                        <Calendar size={12} aria-hidden="true" />
+                        {formatarData(`${n.expectedCloseDate}T12:00:00Z`)}
+                      </span>
+                    ) : (
+                      <span className="sem-dado">—</span>
+                    )}
+                  </td>
+                  <td>
+                    {n.status === "open" ? (
+                      <span className={parado ? "dias-linha dias-linha--parado" : "dias-linha"}>
+                        {parado ? <Clock size={12} aria-hidden="true" /> : null}
+                        {diasNaEtapa(n)}d
+                      </span>
+                    ) : (
+                      <span className="sem-dado">—</span>
+                    )}
+                  </td>
                   <td>
                     <span className="responsavel-linha">
                       <Avatar id={n.owner.id} nome={n.owner.name} tamanho="pequeno" />
-                      {n.owner.name}
+                      <span>{n.owner.name}</span>
                     </span>
                   </td>
-                  <td>{n.status === "open" ? <MenuDoNegocio negocio={n} pipeline={pipeline} acoes={acoes} /> : null}</td>
+                  <td className="coluna-acoes">
+                    {n.status === "open" ? <MenuDoNegocio negocio={n} pipeline={pipeline} acoes={acoes} /> : null}
+                  </td>
                 </tr>
               );
             })}

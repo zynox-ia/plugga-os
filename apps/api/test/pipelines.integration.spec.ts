@@ -181,6 +181,39 @@ describe.skipIf(!HABILITADO)("pipelines: configuração no Postgres", () => {
   );
 
   it(
+    "relê do banco Geral, Etapas, Etiquetas e Equipe após criar e editar",
+    async () => {
+      const entrada = configuracao({ name: `${marca} Persistencia` });
+      const criado = await criar(entrada, pessoas.gestorWaze);
+      const reler = async () => (await repositorio.list(pessoas.gestorWaze)).pipelines.find((p) => p.id === criado.id)!;
+      expect(await reler()).toMatchObject({
+        ...entrada,
+        stages: entrada.stages.map((etapa, position) => ({ ...etapa, position })),
+      });
+
+      const mudanca = {
+        name: `${marca} Persistencia editada`, description: "Descrição alterada", valueLabel: "Receita", color: "#E5484D",
+        stages: [
+          { ...pipelineParaEdicao(criado).stages[1]!, name: "Análise", staleAfterDays: 12 },
+          { ...pipelineParaEdicao(criado).stages[0]!, color: "#F5A524", staleAfterDays: null },
+        ],
+        tags: [{ ...criado.tags[0]!, name: "Prioritário", color: "#18A957" }, { name: "Novo", color: "#0077FF" }],
+        members: [{ userId: pessoas.forasteiro.id, role: "gestor" as const }],
+      };
+      await salvar(criado, mudanca, pessoas.gestorWaze);
+      const lido = await reler();
+      expect(lido).toMatchObject(mudanca);
+      expect(lido.stages).toHaveLength(2);
+      expect(lido.stages.map((e) => e.position)).toEqual([0, 1]);
+      expect(lido.tags).toHaveLength(2);
+      expect(lido.members).toHaveLength(1);
+      expect(await nomesVistos(pessoas.vendedora)).not.toContain(lido.name);
+      expect(await nomesVistos(pessoas.forasteiro)).toContain(lido.name);
+    },
+    PRAZO_MS,
+  );
+
+  it(
     "arquivar mantém o pipeline consultável pela equipe, e reativar o devolve",
     async () => {
       const solar = await criar(configuracao({ name: `${marca} Arquivo` }), pessoas.gestorWaze);

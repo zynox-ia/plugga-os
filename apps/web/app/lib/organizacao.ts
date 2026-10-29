@@ -211,7 +211,7 @@ export type SecaoConfiguracao = Processo & {
 export const CONFIGURACOES: SecaoConfiguracao[] = [
   {
     id: "equipe",
-    label: "Equipe e acessos",
+    label: "Equipe e Acessos",
     descricao:
       "Quem entra e o que alcança: membro ou gerente por departamento, admin ou desenvolvedor na plataforma.",
     status: "pronto",
@@ -228,7 +228,7 @@ export const CONFIGURACOES: SecaoConfiguracao[] = [
     minimo: "admin",
   },
   {
-    label: "Departamentos e processos",
+    label: "Departamentos e Processos",
     descricao:
       "Desenho dos fluxos: etapas, tarefas, prazos de SLA e KPIs. Uma definição só, usada pelas duas empresas.",
     status: "em-breve",
@@ -248,14 +248,14 @@ export const CONFIGURACOES: SecaoConfiguracao[] = [
     minimo: "admin",
   },
   {
-    label: "Jobs e automações",
+    label: "Jobs e Automações",
     descricao: "Agendamentos, histórico de execução e falhas.",
     rota: "/jobs",
     status: "pronto",
     minimo: "desenvolvedor",
   },
   {
-    label: "Canais e notificações",
+    label: "Canais e Notificações",
     descricao: "E-mail transacional, Telegram e WhatsApp.",
     status: "em-breve",
     minimo: "desenvolvedor",

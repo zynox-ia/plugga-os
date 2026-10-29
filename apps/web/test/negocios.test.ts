@@ -3,8 +3,6 @@ import { describe, it } from "node:test";
 
 import type { Deal, Pipeline } from "@plugga/shared";
 
-import { mesRelativo, montarCalendario } from "../app/lib/calendario-negocios.ts";
-
 import {
   aplicarFiltros,
   diasNaEtapa,
@@ -114,49 +112,10 @@ describe("filtros e ordenação da lista", () => {
 describe("endereço e data", () => {
   it("o link guarda pipeline e visão", () => {
     assert.equal(hrefDaVisao("abc", "lista"), "/comercial/pipelines?pipeline=abc&visao=lista");
-    assert.equal(hrefDaVisao("abc", "calendario"), "/comercial/pipelines?pipeline=abc&visao=calendario");
     assert.equal(hrefDaVisao("abc", "kanban"), "/comercial/pipelines?pipeline=abc");
   });
 
   it("hoje é contado em Manaus", () => {
     assert.equal(hojeNoFuso(new Date("2026-10-20T02:00:00Z")), "2026-10-19");
-  });
-});
-
-describe("calendário de previsões", () => {
-  it("navega entre meses atravessando o ano", () => {
-    assert.equal(mesRelativo("2026-12", 1), "2027-01");
-    assert.equal(mesRelativo("2026-01", -1), "2025-12");
-  });
-
-  it("alinha as semanas de segunda a domingo e inclui o dia bissexto", () => {
-    const { dias } = montarCalendario([], "2024-02");
-    assert.equal(dias[0]?.data, "2024-01-29");
-    assert.equal(dias.at(-1)?.data, "2024-03-03");
-    assert.equal(dias.filter((dia) => dia.noMes).length, 29);
-    assert.equal(dias.length % 7, 0);
-  });
-
-  it("agrupa pela data de calendário sem deslocar o dia e preserva os negócios sem previsão", () => {
-    const negocios = [
-      negocio({ id: "1", expectedCloseDate: "2026-10-01" }),
-      negocio({ id: "2", expectedCloseDate: "2026-10-01" }),
-      negocio({ id: "3", expectedCloseDate: "2026-11-01" }),
-      negocio({ id: "4", expectedCloseDate: null }),
-    ];
-    const calendario = montarCalendario(negocios, "2026-10");
-    assert.deepEqual(calendario.dias.find((dia) => dia.data === "2026-10-01")?.negocios.map((n) => n.id), ["1", "2"]);
-    assert.deepEqual(calendario.semPrevisao.map((n) => n.id), ["4"]);
-    assert.equal(calendario.totalNoMes, 2);
-    assert.deepEqual(calendario.dias.flatMap((dia) => dia.negocios.map((n) => n.id)), ["1", "2"]);
-    assert.equal(montarCalendario(negocios, "2026-11").totalNoMes, 1);
-    assert.deepEqual(negocios.map((n) => n.id), ["1", "2", "3", "4"]);
-  });
-
-  it("mantém seis semanas nos meses que precisam delas e aceita mês sem negócios", () => {
-    const calendario = montarCalendario([], "2026-03");
-    assert.equal(calendario.dias.length, 42);
-    assert.equal(calendario.totalNoMes, 0);
-    assert.deepEqual(calendario.semPrevisao, []);
   });
 });

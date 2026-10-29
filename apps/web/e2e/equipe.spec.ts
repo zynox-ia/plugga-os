@@ -18,20 +18,20 @@ const adminEmail = process.env.SEED_ADMIN_EMAIL ?? "admin@plugga.local";
 
 async function abrirEquipe(page: import("@playwright/test").Page) {
   await page.goto("/configuracoes");
-  await page.getByRole("tab", { name: "Equipe e acessos" }).click();
+  await page.getByRole("tab", { name: "Equipe e Acessos" }).click();
 }
 
-test.describe("Configurações → Equipe e acessos", () => {
+test.describe("Configurações → Equipe e Acessos", () => {
   test("lista a equipe e mostra o próprio admin com acesso de plataforma", async ({ page }) => {
     await abrirEquipe(page);
 
     const navegacao = page.locator(".config-nav");
-    await expect(page.getByRole("heading", { name: "Equipe e acessos" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Equipe e Acessos" })).toBeVisible();
     await expect(page.getByRole("columnheader", { name: "Papel" })).toBeVisible();
     await expect(page.getByRole("columnheader", { name: "Departamentos" })).toBeVisible();
     await expect(navegacao).toHaveCSS("display", "flex");
     const navBox = await navegacao.boundingBox();
-    const headingBox = await page.getByRole("heading", { name: "Equipe e acessos" }).boundingBox();
+    const headingBox = await page.getByRole("heading", { name: "Equipe e Acessos" }).boundingBox();
     expect(navBox).not.toBeNull();
     expect(headingBox).not.toBeNull();
     expect(navBox!.y).toBeLessThan(headingBox!.y);
@@ -48,31 +48,36 @@ test.describe("Configurações → Equipe e acessos", () => {
     await expect(linha.getByRole("button", { name: "Desativar" })).toHaveCount(0);
   });
 
-  test("abre o novo acesso em diálogo, sem painel abaixo da tabela", async ({ page }) => {
+  test("abre o novo membro em diálogo, sem painel abaixo da tabela", async ({ page }) => {
     await abrirEquipe(page);
 
     await expect(page.getByText("Você administra a plataforma", { exact: false })).toHaveCount(0);
-    await expect(page.getByRole("button", { name: "Novo acesso" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Novo Membro" })).toBeVisible();
     await expect(page.getByRole("table", { name: "Pessoas com acesso ao sistema" })).toBeVisible();
-    await page.getByRole("button", { name: "Novo acesso" }).click();
-    await expect(page.getByRole("heading", { name: "Novo acesso" })).toBeVisible();
+    await page.getByRole("button", { name: "Novo Membro" }).click();
+    await expect(page.getByRole("heading", { name: "Novo Membro" })).toBeVisible();
   });
 
-  test("o editor escolhe o papel e, para a equipe, membro ou gerente por departamento", async ({ page }) => {
+  test("o editor escolhe o papel (Membro, Diretor, Admin) e expande telas por departamento", async ({ page }) => {
     await abrirEquipe(page);
-    await page.getByRole("button", { name: "Novo acesso" }).click();
-    const dialogo = page.getByRole("dialog", { name: "Novo acesso" });
+    await page.getByRole("button", { name: "Novo Membro" }).click();
+    const dialogo = page.getByRole("dialog", { name: "Novo Membro" });
 
-    // O admin dá admin, gerente e membro, mas não o papel de desenvolvedor.
-    await expect(dialogo.getByRole("radio", { name: /^Equipe/ })).toBeChecked();
+    // O admin dá admin, diretor e membro, mas não o papel de desenvolvedor.
     await expect(dialogo.getByRole("radio", { name: /^Admin/ })).toBeVisible();
+    await expect(dialogo.getByRole("radio", { name: /^Diretor/ })).toBeVisible();
+    await expect(dialogo.getByRole("radio", { name: /^Membro/ })).toBeChecked();
     await expect(dialogo.getByRole("radio", { name: /^Desenvolvedor/ })).toHaveCount(0);
 
     await dialogo.getByRole("checkbox", { name: "CRM" }).check();
-    const nivel = dialogo.getByRole("radiogroup", { name: "Nível em CRM" });
-    await expect(nivel.getByRole("radio", { name: /^Membro/ })).toBeChecked();
-    await nivel.getByRole("radio", { name: /^Gerente/ }).check();
-    await expect(nivel.getByRole("radio", { name: /^Gerente/ })).toBeChecked();
+    await expect(dialogo.getByText("Telas Internas de CRM:")).toBeVisible();
+    await expect(dialogo.getByText("4/4")).toBeVisible();
+    await expect(dialogo.getByLabel("Pipelines")).toBeChecked();
+    await expect(dialogo.getByLabel("Clientes")).toBeChecked();
+    await expect(dialogo.getByText("Em breve")).toHaveCount(0);
+
+    await dialogo.getByRole("radio", { name: /^Diretor/ }).check();
+    await expect(dialogo.getByRole("radio", { name: /^Diretor/ })).toBeChecked();
 
     await dialogo.getByRole("radio", { name: /^Admin/ }).check();
     await expect(dialogo.getByRole("checkbox", { name: "CRM" })).toHaveCount(0);
