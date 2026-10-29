@@ -75,7 +75,7 @@ describe.skipIf(!HABILITADO)("negócios: quadro do pipeline no Postgres", () => 
     pessoas[chave] = { id: usuario.id, kind: "user", acesso: { plataforma: null, departamentos: [{ departamento: "crm", nivel }] } };
   }
 
-  const configuracao = (empresa: CompanyKey, nome: string, etapas: string[], membros: { userId: string; role: "vendedor" | "gestor" }[]) =>
+  const configuracao = (empresa: CompanyKey, nome: string, etapas: string[]) =>
     createPipelineRequestSchema.parse({
       companyId: empresa,
       name: `${marca} ${nome}`,
@@ -90,7 +90,7 @@ describe.skipIf(!HABILITADO)("negócios: quadro do pipeline no Postgres", () => 
         { name: "Fechou com concorrente", asksRevisitDate: false },
         { name: "Prazo inadequado", asksRevisitDate: true },
       ],
-      members: membros,
+      members: [],
     });
 
   beforeAll(async () => {
@@ -105,14 +105,11 @@ describe.skipIf(!HABILITADO)("negócios: quadro do pipeline no Postgres", () => 
     await pessoa("pluggaVendedor");
 
     solar = await pipelines.create(
-      configuracao("waze", "Solar", ["Iniciar atendimento", "Qualificação", "Cotações/Proposta", "Visita técnica"], [
-        { userId: pessoas.ana.id, role: "vendedor" },
-        { userId: pessoas.bruno.id, role: "vendedor" },
-      ]),
+      configuracao("waze", "Solar", ["Iniciar atendimento", "Qualificação", "Cotações/Proposta", "Visita técnica"]),
       pessoas.gestor,
     );
     mercadoLivre = await pipelines.create(
-      configuracao("plugga", "Mercado Livre", ["Diagnóstico", "Proposta"], [{ userId: pessoas.pluggaVendedor.id, role: "vendedor" }]),
+      configuracao("plugga", "Mercado Livre", ["Diagnóstico", "Proposta"]),
       pessoas.gestor,
     );
 

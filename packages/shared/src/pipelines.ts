@@ -57,7 +57,8 @@ const camposDoPipeline = {
   stages: z.array(pipelineStageInputSchema).min(1, "o pipeline precisa de pelo menos uma etapa").max(20),
   tags: z.array(pipelineTagInputSchema).max(40),
   lossReasons: z.array(pipelineLossReasonInputSchema).max(40),
-  members: z.array(pipelineMemberInputSchema).max(200),
+  /** Equipe por funil desativada; [] mantém compatibilidade com clientes existentes. */
+  members: z.array(pipelineMemberInputSchema).max(0, "Gerencie os acessos em Equipe e Acessos.").default([]),
 };
 
 type ConfiguracaoDoPipeline = z.infer<z.ZodObject<typeof camposDoPipeline>>;
@@ -161,7 +162,7 @@ export function pipelineParaEdicao(pipeline: Pipeline): UpdatePipelineRequest {
     stages: pipeline.stages.map(({ id, name, color, staleAfterDays }) => ({ id, name, color, staleAfterDays })),
     tags: pipeline.tags.map(({ id, name, color }) => ({ id, name, color })),
     lossReasons: pipeline.lossReasons.map(({ id, name, asksRevisitDate }) => ({ id, name, asksRevisitDate })),
-    members: pipeline.members.map(({ userId, role }) => ({ userId, role })),
+    members: [],
     updatedAt: pipeline.updatedAt,
     stageDestinations: {},
   };

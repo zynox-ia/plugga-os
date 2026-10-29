@@ -8,14 +8,13 @@ import { CORES, NOME_DA_COR, type Rascunho } from "../../lib/pipelines";
 import { TextField, TextareaField } from "../ui/fields";
 import { IconAlertTriangle } from "../ui/icons";
 import { Radio } from "../ui/selection";
-import { SecaoEquipe, SecaoEtapas, SecaoEtiquetas } from "./secoes-do-pipeline";
+import { SecaoEtapas, SecaoEtiquetas } from "./secoes-do-pipeline";
 
-type Aba = "geral" | "etapas" | "etiquetas" | "equipe";
+type Aba = "geral" | "etapas" | "etiquetas";
 const ABAS: { id: Aba; rotulo: string; campos: string[] }[] = [
   { id: "geral", rotulo: "Geral", campos: ["companyId", "name", "description", "valueLabel", "color"] },
   { id: "etapas", rotulo: "Etapas", campos: ["stages", "wonLabel", "lostLabel"] },
   { id: "etiquetas", rotulo: "Etiquetas", campos: ["tags"] },
-  { id: "equipe", rotulo: "Equipe", campos: ["members"] },
 ];
 
 export type PropsDaSecao = { rascunho: Rascunho; aoAlterar: (parcial: Partial<Rascunho>) => void; erros: Record<string, string> };
@@ -24,13 +23,11 @@ export function EditorDePipeline({
   rascunho,
   aoAlterar,
   empresasPermitidas,
-  nomesDaEquipe,
   negociosPorEtapa,
   totalDeNegocios,
   erros,
 }: PropsDaSecao & {
   empresasPermitidas: CompanyKey[];
-  nomesDaEquipe: Record<string, string>;
   negociosPorEtapa: Record<string, number>;
   totalDeNegocios: number;
 }) {
@@ -59,7 +56,6 @@ export function EditorDePipeline({
         {aba === "geral" ? <SecaoGeral rascunho={rascunho} aoAlterar={aoAlterar} erros={erros} empresasPermitidas={totalDeNegocios > 0 ? [rascunho.companyId] : empresasPermitidas} totalDeNegocios={totalDeNegocios} /> : null}
         {aba === "etapas" ? <SecaoEtapas rascunho={rascunho} aoAlterar={aoAlterar} erros={erros} negociosPorEtapa={negociosPorEtapa} /> : null}
         {aba === "etiquetas" ? <SecaoEtiquetas rascunho={rascunho} aoAlterar={aoAlterar} erros={erros} /> : null}
-        {aba === "equipe" ? <SecaoEquipe rascunho={rascunho} aoAlterar={aoAlterar} erros={erros} nomesDaEquipe={nomesDaEquipe} /> : null}
       </section>
     </div>
   );
@@ -101,7 +97,7 @@ function SecaoGeral({ rascunho, aoAlterar, erros, empresasPermitidas, totalDeNeg
               <div
                 key={empresa.id}
                 className={`ui-role-card opcao-empresa opcao-empresa--${empresa.id}${selecionada ? " ui-role-card--active" : ""}${permitida ? "" : " opcao-empresa--bloqueada"}`}
-                onClick={() => permitida && aoAlterar({ companyId: empresa.id, members: [] })}
+                onClick={() => permitida && aoAlterar({ companyId: empresa.id })}
               >
                 <Radio
                   name="pipeline-empresa"
@@ -109,7 +105,7 @@ function SecaoGeral({ rascunho, aoAlterar, erros, empresasPermitidas, totalDeNeg
                   description={empresa.descricao}
                   checked={selecionada}
                   disabled={!permitida}
-                  onChange={() => aoAlterar({ companyId: empresa.id, members: [] })}
+                  onChange={() => aoAlterar({ companyId: empresa.id })}
                 />
               </div>
             );
@@ -120,7 +116,7 @@ function SecaoGeral({ rascunho, aoAlterar, erros, empresasPermitidas, totalDeNeg
           <div>
             {totalDeNegocios > 0
               ? `Este pipeline tem ${totalDeNegocios === 1 ? "1 negócio" : `${totalDeNegocios} negócios`} e não muda de empresa. Para levar negócios à outra empresa, mova-os para um pipeline dela.`
-              : "Todo negócio deste pipeline pertence a esta empresa. Trocar a empresa limpa a equipe, que vem das pessoas da empresa."}
+              : "Todo negócio deste pipeline pertence a esta empresa. O acesso é compartilhado pela equipe do CRM nas duas empresas."}
           </div>
         </div>
       </fieldset>

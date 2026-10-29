@@ -1,25 +1,24 @@
-import type { CompanyKey, Pipeline, PipelineMemberRole, UpdatePipelineRequest } from "@plugga/shared";
+import type { CompanyKey, Pipeline, UpdatePipelineRequest } from "@plugga/shared";
 
 /**
  * Quem alcança o quê nos pipelines (PLU-269):
  * - o admin e o gerente do CRM veem, criam e configuram todos os pipelines
  *   (o gerente do CRM gere o CRM das duas empresas, por isso `gestorEm` lista
  *   as duas);
- * - o gestor de um pipeline (equipe, papel `gestor`) configura aquele pipeline;
  * - qualquer pessoa ativa com acesso a CRM/Pipelines vê todos os funis;
- *   a equipe específica continua servindo para delegar a configuração.
+ *   permissões de configuração vêm exclusivamente de Equipe e Acessos.
  */
 export type AcessoComercial = { admin: boolean; gestorEm: readonly CompanyKey[]; podeOperar: boolean };
 
-type ComEquipe = { companyId: string; members: readonly { userId: string; role: PipelineMemberRole }[] };
+type PipelineDaEmpresa = { companyId: string };
 
 export const podeCriarEm = (acesso: AcessoComercial, empresa: string): boolean =>
   acesso.podeOperar && (acesso.admin || (acesso.gestorEm as readonly string[]).includes(empresa));
 
 export const podeVer = (acesso: AcessoComercial): boolean => acesso.podeOperar;
 
-export const podeConfigurar = (acesso: AcessoComercial, pessoaId: string, pipeline: ComEquipe): boolean =>
-  acesso.podeOperar && (podeCriarEm(acesso, pipeline.companyId) || pipeline.members.some((m) => m.userId === pessoaId && m.role === "gestor"));
+export const podeConfigurar = (acesso: AcessoComercial, _pessoaId: string, pipeline: PipelineDaEmpresa): boolean =>
+  podeCriarEm(acesso, pipeline.companyId);
 
 /** Ids enviados que não pertencem ao pipeline: sinal de tela desatualizada ou de requisição forjada. */
 export function idsDesconhecidos(existentes: readonly string[], itens: readonly { id?: string }[]): string[] {
@@ -56,10 +55,6 @@ export function alteracoes(antes: Pipeline, depois: UpdatePipelineRequest): { ca
   const motivos = (lista: readonly { id?: string; name: string; asksRevisitDate: boolean }[]) =>
     lista.map(({ id, name, asksRevisitDate }) => [id ?? null, name, asksRevisitDate]);
   if (assinatura(motivos(antes.lossReasons)) !== assinatura(motivos(depois.lossReasons))) secoes.push("motivosDePerda");
-
-  const equipe = (lista: readonly { userId: string; role: string }[]) =>
-    lista.map(({ userId, role }) => `${userId}:${role}`).sort();
-  if (assinatura(equipe(antes.members)) !== assinatura(equipe(depois.members))) secoes.push("equipe");
 
   return { campos: [...campos], secoes };
 }

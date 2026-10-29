@@ -109,7 +109,7 @@ export function ConfiguracaoDePipelines({
             {EMPRESAS_POR_ID[p.companyId].nome}
           </span>
           <span className="config-item-contagens">
-            {plural(p.stages.length, "etapa", "etapas")} · {plural(p.members.length, "pessoa", "pessoas")}
+            {plural(p.stages.length, "etapa", "etapas")}
           </span>
         </span>
       </button>
@@ -130,7 +130,7 @@ export function ConfiguracaoDePipelines({
           </div>
           <div className="ui-dialog-header-text">
             <h2 className="ui-dialog-title">Configurar pipelines</h2>
-            <p className="ui-dialog-subtitle">Gerencie funis, etapas, etiquetas e permissões da equipe.</p>
+            <p className="ui-dialog-subtitle">Gerencie funis, etapas e etiquetas.</p>
           </div>
         </div>
         <div className="config-topo-acoes">
@@ -189,7 +189,6 @@ export function ConfiguracaoDePipelines({
                 setSalvo(false);
               }}
               empresasPermitidas={rascunho.id === null ? canCreateIn : canCreateIn.includes(rascunho.companyId) ? canCreateIn : [rascunho.companyId]}
-              nomesDaEquipe={Object.fromEntries((atual?.members ?? []).map((m) => [m.userId, m.name]))}
               negociosPorEtapa={Object.fromEntries((atual?.stages ?? []).map((e) => [e.id, e.dealCount]))}
               totalDeNegocios={atual?.dealCount ?? 0}
               erros={erro?.porCampo ?? {}}

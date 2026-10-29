@@ -1,16 +1,13 @@
 "use client";
 
-import type { PipelineMemberRole, PipelinePeopleResponse } from "@plugga/shared";
 import { ChevronDown, ChevronUp, GripVertical, Trash2 } from "lucide-react";
-import { useEffect, useState, type CSSProperties } from "react";
+import { useState, type CSSProperties } from "react";
 
-import { enviar } from "../../lib/clientes";
 import { novaChave } from "../../lib/pipelines";
 import { Button } from "../ui/button";
 import { IconPlus } from "../ui/icons";
 import { Switch } from "../ui/selection";
 import type { PropsDaSecao } from "./editor-de-pipeline";
-import { Avatar } from "./icones";
 import { SeletorDeCor } from "./seletor-de-cor";
 
 function mover<T>(lista: T[], de: number, para: number): T[] {
@@ -274,86 +271,6 @@ export function SecaoMotivos({ rascunho, aoAlterar, erros }: PropsDaSecao) {
       >
         Novo motivo
       </Button>
-    </div>
-  );
-}
-
-const PAPEIS: { valor: PipelineMemberRole | ""; rotulo: string }[] = [
-  { valor: "", rotulo: "Fora" },
-  { valor: "vendedor", rotulo: "Vendedor" },
-  { valor: "gestor", rotulo: "Gestor" },
-];
-
-export function SecaoEquipe({ rascunho, aoAlterar, erros, nomesDaEquipe }: PropsDaSecao & { nomesDaEquipe: Record<string, string> }) {
-  const [pessoas, setPessoas] = useState<PipelinePeopleResponse["people"] | null>(null);
-  const [falha, setFalha] = useState<string | null>(null);
-
-  useEffect(() => {
-    let vivo = true;
-    setPessoas(null);
-    setFalha(null);
-    void enviar<PipelinePeopleResponse>(`/api/pipelines/pessoas?companyId=${rascunho.companyId}`, "GET").then((resposta) => {
-      if (!vivo) return;
-      if (resposta.ok) setPessoas(resposta.dados.people);
-      else setFalha(resposta.erro.mensagem);
-    });
-    return () => {
-      vivo = false;
-    };
-  }, [rascunho.companyId]);
-
-  const papelDe = new Map(rascunho.members.map((m) => [m.userId, m.role]));
-  const foraDaLista = rascunho.members
-    .filter((m) => !(pessoas ?? []).some((p) => p.id === m.userId))
-    .map((m) => ({ id: m.userId, name: nomesDaEquipe[m.userId] ?? "Pessoa fora do CRM" }));
-  const linhas = [...(pessoas ?? []), ...foraDaLista];
-  const semPapel = (pessoas ?? []).filter((p) => !papelDe.has(p.id));
-
-  function definir(pessoaId: string, papel: PipelineMemberRole | "") {
-    const outros = rascunho.members.filter((m) => m.userId !== pessoaId);
-    aoAlterar({ members: papel ? [...outros, { userId: pessoaId, role: papel }] : outros });
-  }
-
-  return (
-    <div className="secao-lista">
-      <p className="dica">
-        Pessoas ativas do CRM. O <b>vendedor</b> vê o pipeline e todos os negócios dele; o <b>gestor</b> também altera esta
-        configuração. O gerente do CRM e o admin já alcançam todos os pipelines.
-      </p>
-      <ErroDaLista texto={erros.members} />
-      <ErroDaLista texto={falha ?? undefined} />
-      {pessoas === null && !falha ? <p className="lista-vazia">Carregando pessoas…</p> : null}
-      {pessoas !== null && linhas.length === 0 ? <p className="lista-vazia">Ninguém do CRM ainda.</p> : null}
-      {linhas.length > 0 ? (
-        <ul className="linhas-config">
-          {linhas.map((pessoa) => {
-            const papel = papelDe.get(pessoa.id) ?? "";
-            return (
-              <li key={pessoa.id} className={papel ? "linha-pessoa linha-pessoa--na-equipe" : "linha-pessoa"}>
-                <Avatar id={pessoa.id} nome={pessoa.name} />
-                <span className="nome-pessoa">{pessoa.name}</span>
-                <span className="seletor-tipo" role="radiogroup" aria-label={`Papel de ${pessoa.name} no pipeline`}>
-                  {PAPEIS.map((opcao) => (
-                    <button key={opcao.valor || "fora"} type="button" role="radio" aria-checked={papel === opcao.valor} onClick={() => definir(pessoa.id, opcao.valor)}>
-                      {opcao.rotulo}
-                    </button>
-                  ))}
-                </span>
-              </li>
-            );
-          })}
-        </ul>
-      ) : null}
-      {semPapel.length > 0 ? (
-        <Button
-          variant="secondary"
-          icon={<IconPlus />}
-          className="adicionar-linha-btn"
-          onClick={() => aoAlterar({ members: [...rascunho.members, ...semPapel.map((p) => ({ userId: p.id, role: "vendedor" as const }))] })}
-        >
-          Incluir todos como vendedores
-        </Button>
-      ) : null}
     </div>
   );
 }

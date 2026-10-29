@@ -5,7 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createPipelineRequestSchema, pipelineParaEdicao, updatePipelineRequestSchema, type CompanyKey, type Pipeline } from "@plugga/shared";
 
 import { AuditAppender } from "../src/audit/audit-appender.js";
-import { AcessoNegado, Conflito, EstadoInvalido, NaoEncontrado, RequisicaoInvalida } from "../src/common/errors/dominio.js";
+import { AcessoNegado, Conflito, EstadoInvalido, NaoEncontrado } from "../src/common/errors/dominio.js";
 import type { AuthPrincipal } from "../src/core/auth/auth.types.js";
 import { PrismaPipelinesRepository } from "../src/pipelines/prisma-pipelines.repository.js";
 import { PrismaService } from "../src/prisma/prisma.service.js";
@@ -44,7 +44,7 @@ describe.skipIf(!HABILITADO)("pipelines: configuração no Postgres", () => {
       { name: "Fechou com concorrente", asksRevisitDate: false },
       { name: "Prazo inadequado", asksRevisitDate: true },
     ],
-    members: dados.members ?? [{ userId: pessoas.vendedora.id, role: "vendedor" }],
+    members: dados.members ?? [],
   });
 
   // Mesma validação e normalização que o controller aplica antes do repositório.
@@ -125,10 +125,10 @@ describe.skipIf(!HABILITADO)("pipelines: configuração no Postgres", () => {
   );
 
   it(
-    "só entra na equipe quem é do CRM",
+    "recusa equipe por funil e lista responsáveis do CRM",
     async () => {
       const foraDoCrm = configuracao({ name: `${marca} Equipe`, members: [{ userId: pessoas.semCrm.id, role: "vendedor" }] });
-      await expect(criar(foraDoCrm, pessoas.gestorWaze)).rejects.toBeInstanceOf(RequisicaoInvalida);
+      expect(createPipelineRequestSchema.safeParse(foraDoCrm).success).toBe(false);
 
       const { people } = await repositorio.people({ companyId: "waze" }, pessoas.gestorWaze);
       const ids = people.map((p) => p.id);
@@ -162,17 +162,20 @@ describe.skipIf(!HABILITADO)("pipelines: configuração no Postgres", () => {
   );
 
   it(
-    "o gestor do pipeline configura, mas não troca a empresa; nome repetido na empresa é recusado",
+    "gestor antigo do funil não configura; gestão do CRM salva sem apagar vínculos antigos",
     async () => {
       const solar = await criar(
-        configuracao({ name: `${marca} Gestora`, members: [{ userId: pessoas.vendedora.id, role: "gestor" }] }),
+        configuracao({ name: `${marca} Gestora` }),
         pessoas.gestorWaze,
       );
+      await prisma.pipelineMember.create({ data: { pipelineId: solar.id, userId: pessoas.vendedora.id, role: "gestor" } });
       const daGestora = (await repositorio.list(pessoas.vendedora)).pipelines.find((p) => p.id === solar.id)!;
-      expect(daGestora.canConfigure).toBe(true);
+      expect(daGestora.canConfigure).toBe(false);
+      await expect(salvar(daGestora, { description: "Negado" }, pessoas.vendedora)).rejects.toBeInstanceOf(AcessoNegado);
 
-      const renomeado = await salvar(daGestora, { description: "Usinas e baterias." }, pessoas.vendedora);
+      const renomeado = await salvar(daGestora, { description: "Usinas e baterias." }, pessoas.gestorWaze);
       expect(renomeado.description).toBe("Usinas e baterias.");
+      expect(await prisma.pipelineMember.count({ where: { pipelineId: solar.id } })).toBe(1);
       await expect(salvar(renomeado, { companyId: "plugga", members: [] }, pessoas.vendedora)).rejects.toBeInstanceOf(AcessoNegado);
 
       await expect(criar(configuracao({ name: `${marca} GESTORA` }), pessoas.gestorWaze)).rejects.toBeInstanceOf(Conflito);
@@ -181,7 +184,7 @@ describe.skipIf(!HABILITADO)("pipelines: configuração no Postgres", () => {
   );
 
   it(
-    "relê do banco Geral, Etapas, Etiquetas e Equipe após criar e editar",
+    "relê do banco Geral, Etapas e Etiquetas após criar e editar",
     async () => {
       const entrada = configuracao({ name: `${marca} Persistencia` });
       const criado = await criar(entrada, pessoas.gestorWaze);
@@ -198,7 +201,6 @@ describe.skipIf(!HABILITADO)("pipelines: configuração no Postgres", () => {
           { ...pipelineParaEdicao(criado).stages[0]!, color: "#F5A524", staleAfterDays: null },
         ],
         tags: [{ ...criado.tags[0]!, name: "Prioritário", color: "#18A957" }, { name: "Novo", color: "#0077FF" }],
-        members: [{ userId: pessoas.forasteiro.id, role: "gestor" as const }],
       };
       await salvar(criado, mudanca, pessoas.gestorWaze);
       const lido = await reler();
@@ -206,7 +208,7 @@ describe.skipIf(!HABILITADO)("pipelines: configuração no Postgres", () => {
       expect(lido.stages).toHaveLength(2);
       expect(lido.stages.map((e) => e.position)).toEqual([0, 1]);
       expect(lido.tags).toHaveLength(2);
-      expect(lido.members).toHaveLength(1);
+      expect(lido.members).toHaveLength(0);
       expect(await nomesVistos(pessoas.vendedora)).toContain(lido.name);
       expect(await nomesVistos(pessoas.forasteiro)).toContain(lido.name);
     },

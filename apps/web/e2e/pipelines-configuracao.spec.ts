@@ -58,12 +58,7 @@ test("configuração valida as abas e persiste criação e edição após recarr
     await expect(modal.getByRole("alert").filter({ hasText: "já existe uma etiqueta" })).toBeVisible();
     await modal.getByLabel("Nome da etiqueta 2", { exact: true }).fill("Revisar");
 
-    await modal.getByRole("tab", { name: "Equipe", exact: true }).click();
-    // O ambiente E2E precisa de pelo menos uma pessoa ativa no CRM.
-    const pessoa = modal.getByRole("radiogroup", { name: /^Papel de / }).first();
-    await expect(pessoa).toBeVisible();
-    const rotuloPessoa = (await pessoa.getAttribute("aria-label"))!;
-    await pessoa.getByRole("radio", { name: "Vendedor", exact: true }).click();
+    await expect(modal.getByRole("tab", { name: "Equipe", exact: true })).toHaveCount(0);
     const criada = await salvar(true);
     expect(criada.status()).toBe(201);
     pipeline = await criada.json() as Pipeline;
@@ -80,9 +75,6 @@ test("configuração valida as abas e persiste criação e edição após recarr
     await expect(modal.getByLabel("Nome da etiqueta 1", { exact: true })).toHaveValue("Auditoria");
     await expect(modal.getByLabel("Nome da etiqueta 2", { exact: true })).toHaveValue("Revisar");
     await modal.getByLabel("Nome da etiqueta 1", { exact: true }).fill("Auditado");
-    await modal.getByRole("tab", { name: "Equipe", exact: true }).click();
-    await expect(modal.getByRole("radiogroup", { name: rotuloPessoa, exact: true }).getByRole("radio", { name: "Vendedor", exact: true })).toHaveAttribute("aria-checked", "true");
-    await modal.getByRole("radiogroup", { name: rotuloPessoa, exact: true }).getByRole("radio", { name: "Gestor", exact: true }).click();
     const versaoAnterior = pipelineParaEdicao(pipeline);
     const editada = await salvar();
     expect(editada.status()).toBe(200);
@@ -91,8 +83,7 @@ test("configuração valida as abas e persiste criação e edição após recarr
     await reabrir();
     await modal.getByRole("tab", { name: "Etiquetas", exact: true }).click();
     await expect(modal.getByLabel("Nome da etiqueta 1", { exact: true })).toHaveValue("Auditado");
-    await modal.getByRole("tab", { name: "Equipe", exact: true }).click();
-    await expect(modal.getByRole("radiogroup", { name: rotuloPessoa, exact: true }).getByRole("radio", { name: "Gestor", exact: true })).toHaveAttribute("aria-checked", "true");
+    await expect(modal.getByRole("tab", { name: "Equipe", exact: true })).toHaveCount(0);
 
     const headers = { origin: new URL(page.url()).origin };
     const conflito = await page.request.put(`/api/pipelines/${pipeline.id}`, { headers, data: versaoAnterior });

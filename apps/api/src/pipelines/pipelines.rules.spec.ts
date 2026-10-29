@@ -43,11 +43,11 @@ describe("quem alcança um pipeline", () => {
     expect(podeConfigurar(semAcesso, ANA, solar)).toBe(false);
   });
 
-  it("o gestor do pipeline configura aquele pipeline", () => {
-    expect(podeConfigurar({ ...semAcesso, podeOperar: true }, BRUNO, solar)).toBe(true);
+  it("vínculo antigo de gestor no funil não concede configuração", () => {
+    expect(podeConfigurar({ ...semAcesso, podeOperar: true }, BRUNO, solar)).toBe(false);
   });
 
-  it("quem não está na equipe nem gere a empresa não vê o pipeline", () => {
+  it("quem não tem acesso ao CRM não vê o pipeline", () => {
     expect(podeVer(semAcesso)).toBe(false);
   });
 });
@@ -91,10 +91,10 @@ describe("contrato de criação", () => {
     expect(repetida.error?.issues[0]?.path).toEqual(["stages", 1, "name"]);
   });
 
-  it("recusa a mesma pessoa duas vezes na equipe", () => {
+  it("recusa concessões de equipe por funil", () => {
     const resultado = createPipelineRequestSchema.safeParse({
       ...valido,
-      members: [{ userId: ANA, role: "vendedor" }, { userId: ANA, role: "gestor" }],
+      members: [{ userId: ANA, role: "gestor" }],
     });
     expect(resultado.success).toBe(false);
   });
@@ -134,8 +134,9 @@ describe("alterações para a auditoria", () => {
     expect(alteracoes(antes, depois)).toEqual({ campos: ["wonLabel"], secoes: ["geral", "etapas"] });
   });
 
-  it("trocar o papel de alguém na equipe muda a equipe", () => {
-    expect(alteracoes(antes, { ...igual, members: [{ userId: ANA, role: "gestor" }] }).secoes).toEqual(["equipe"]);
+  it("a equipe antiga não participa da configuração nem da auditoria", () => {
+    expect(igual.members).toEqual([]);
+    expect(alteracoes(antes, igual).secoes).toEqual([]);
   });
 });
 

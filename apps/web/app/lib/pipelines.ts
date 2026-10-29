@@ -4,7 +4,6 @@ import {
   type CompanyKey,
   type CreatePipelineRequest,
   type Pipeline,
-  type PipelineMemberRole,
   type UpdatePipelineRequest,
 } from "@plugga/shared";
 
@@ -20,8 +19,6 @@ export const NOME_DA_COR: Record<(typeof coresDePipeline)[number], string> = {
   "#94A3B8": "Cinza",
 };
 export const CORES = coresDePipeline;
-
-export const ROTULO_PAPEL: Record<PipelineMemberRole, string> = { vendedor: "Vendedor", gestor: "Gestor do pipeline" };
 
 /** Item de lista ainda sem id ganha uma chave local, só para o React. */
 type ComChave<T> = T & { chave: string };
@@ -99,7 +96,7 @@ export function paraCriacao(rascunho: Rascunho): CreatePipelineRequest {
     stages: rascunho.stages.map(({ id, name, color, staleAfterDays }) => ({ id, name, color, staleAfterDays })),
     tags: rascunho.tags.map(({ id, name, color }) => ({ id, name, color })),
     lossReasons: rascunho.lossReasons.map(({ id, name, asksRevisitDate }) => ({ id, name, asksRevisitDate })),
-    members: rascunho.members,
+    members: [],
   };
 }
 

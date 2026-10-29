@@ -115,9 +115,9 @@ export class PrismaPipelinesRepository extends PipelinesRepository {
     const acesso = await this.acessoDe(principal.id);
     if (!podeCriarEm(acesso, input.companyId)) throw new AcessoNegado("Só o gerente do CRM cria pipelines.");
     await this.garantirNomeLivre(input.companyId, input.name);
-    await this.garantirEquipe(input.members);
 
     const { stages, tags, lossReasons, members, ...gerais } = input;
+    this.garantirSemEquipe(members);
     const id = await this.comNomeUnico(() =>
       this.prisma.$transaction(async (tx) => {
         const criado = await tx.pipeline.create({
@@ -127,7 +127,6 @@ export class PrismaPipelinesRepository extends PipelinesRepository {
             stages: { create: comPosicao(stages.map(({ name, color, staleAfterDays }) => ({ name, color, staleAfterDays }))) },
             tags: { create: comPosicao(tags.map(({ name, color }) => ({ name, color }))) },
             lossReasons: { create: comPosicao(lossReasons.map(({ name, asksRevisitDate }) => ({ name, asksRevisitDate }))) },
-            members: { create: members.map(({ userId, role }) => ({ userId, role })) },
           },
           select: { id: true },
         });
@@ -135,7 +134,6 @@ export class PrismaPipelinesRepository extends PipelinesRepository {
           etapas: stages.length,
           etiquetas: tags.length,
           motivosDePerda: lossReasons.length,
-          equipe: members.length,
         });
         return criado.id;
       }),
@@ -146,7 +144,7 @@ export class PrismaPipelinesRepository extends PipelinesRepository {
   async update(id: string, input: UpdatePipelineRequest, principal: AuthPrincipal): Promise<Pipeline> {
     const acesso = await this.acessoDe(principal.id);
     const atual = await this.lerVisivel(id, principal.id, acesso);
-    if (!atual.canConfigure) throw new AcessoNegado("Só gestores deste pipeline alteram a configuração.");
+    if (!atual.canConfigure) throw new AcessoNegado("É necessário acesso de gestão do CRM para configurar pipelines.");
     // Tela desatualizada recebe o motivo certo antes de qualquer outra checagem (ids de etapas já excluídas, por exemplo).
     if (new Date(input.updatedAt).getTime() !== new Date(atual.updatedAt).getTime()) throw new EstadoInvalido(VERSAO_DESATUALIZADA);
     // Com negócios, ninguém troca a empresa; sem negócios, só quem gere as duas.
@@ -172,10 +170,10 @@ export class PrismaPipelinesRepository extends PipelinesRepository {
     if (input.name.toLocaleLowerCase("pt-BR") !== atual.name.toLocaleLowerCase("pt-BR") || input.companyId !== atual.companyId) {
       await this.garantirNomeLivre(input.companyId, input.name, id);
     }
-    await this.garantirEquipe(input.members);
 
     const { campos, secoes } = alteracoes(atual, input);
     const { stages, tags, lossReasons, members, updatedAt, stageDestinations, ...gerais } = input;
+    this.garantirSemEquipe(members);
     const removidas = idsRemovidos(atual.stages.map((e) => e.id), stages);
     await this.comNomeUnico(() =>
       this.prisma.$transaction(async (tx) => {
@@ -229,9 +227,6 @@ export class PrismaPipelinesRepository extends PipelinesRepository {
           else await tx.pipelineLossReason.create({ data: { name, asksRevisitDate, position, pipelineId: id } });
         }
 
-        await tx.pipelineMember.deleteMany({ where: { pipelineId: id } });
-        await tx.pipelineMember.createMany({ data: members.map(({ userId, role }) => ({ pipelineId: id, userId, role })) });
-
         await this.registrar(tx, "commercial.pipeline.updated", id, input.companyId, principal, { campos, secoes });
       }),
     );
@@ -249,7 +244,7 @@ export class PrismaPipelinesRepository extends PipelinesRepository {
   private async mudarSituacao(id: string, principal: AuthPrincipal, arquivar: boolean): Promise<Pipeline> {
     const acesso = await this.acessoDe(principal.id);
     const atual = await this.lerVisivel(id, principal.id, acesso);
-    if (!atual.canConfigure) throw new AcessoNegado("Só gestores deste pipeline o arquivam ou reativam.");
+    if (!atual.canConfigure) throw new AcessoNegado("É necessário acesso de gestão do CRM para arquivar ou reativar pipelines.");
     if ((atual.archivedAt !== null) === arquivar) {
       throw new EstadoInvalido(arquivar ? "O pipeline já está arquivado." : "O pipeline já está ativo.");
     }
@@ -273,21 +268,11 @@ export class PrismaPipelinesRepository extends PipelinesRepository {
 
   private async lerParaQuemPediu(id: string, pessoaId: string, acesso: AcessoComercial): Promise<Pipeline> {
     const linha = await this.prisma.pipeline.findUniqueOrThrow({ where: { id }, include: COMPLETO });
-    // Quem acabou de salvar pode ter tirado a si mesmo da equipe: devolve o que gravou, sem poder configurar.
     return paraPipeline(linha, podeConfigurar(acesso, pessoaId, linha));
   }
 
-  private async garantirEquipe(membros: readonly PipelineMemberInput[]): Promise<void> {
-    if (membros.length === 0) return;
-    const ids = membros.map((m) => m.userId);
-    const elegiveis = await this.prisma.user.findMany({ where: { id: { in: ids }, ...pessoaElegivelParaPipelines }, select: { id: true } });
-    const validos = new Set(elegiveis.map((p) => p.id));
-    const detalhes = membros.flatMap((m, i) =>
-      validos.has(m.userId) ? [] : [{ campo: `members.${i}.userId`, problema: "não é do CRM ou não está ativo" }],
-    );
-    if (detalhes.length > 0) {
-      throw new RequisicaoInvalida("Só pessoas ativas do CRM entram na equipe do pipeline.", detalhes);
-    }
+  private garantirSemEquipe(membros: readonly PipelineMemberInput[]): void {
+    if (membros.length > 0) throw new RequisicaoInvalida("Gerencie os acessos em Equipe e Acessos.");
   }
 
   /** O índice único do banco diferencia maiúsculas; a tela não deve. */
