@@ -844,6 +844,41 @@ select.ui-input {
   font-weight: 500;
 }
 
+/* Seletor de tipo de cliente no modal (Pessoa Jurídica / Física) */
+.ui-dialog-form .seletor-tipo {
+  display: inline-flex;
+  width: fit-content;
+  gap: 4px;
+  padding: 4px;
+  background: var(--ui-subtle, #f3f7fb);
+  border: 1px solid var(--ui-divider);
+  border-radius: var(--radius-sm, 8px);
+}
+.ui-dialog-form .seletor-tipo button {
+  padding: 8px 16px;
+  color: var(--ui-muted, #536579);
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+  font: 500 13px/1.2 var(--font-general-sans), sans-serif;
+  transition: all 0.15s ease;
+}
+.ui-dialog-form .seletor-tipo button:hover:not([aria-checked="true"]) {
+  color: var(--ui-text, #0f294a);
+  background: rgba(15, 41, 74, 0.04);
+}
+.ui-dialog-form .seletor-tipo button[aria-checked="true"] {
+  color: var(--ui-text, #0f294a);
+  background: var(--ui-surface, #ffffff);
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(15, 41, 74, 0.1);
+}
+.ui-dialog-form .seletor-tipo button:focus-visible {
+  outline: 2px solid var(--ui-focus);
+  outline-offset: 1px;
+}
+
 /* Seletor visual de membro/responsável com avatar, nome e e-mail */
 .ui-member-picker {
   position: relative;

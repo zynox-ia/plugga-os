@@ -2,6 +2,7 @@ import type { SVGProps } from "react";
 
 export {
   Briefcase as IconBriefcase,
+  Building2 as IconBuilding,
   ChevronLeft as IconChevronLeft,
   ChevronRight as IconChevronRight,
   ChevronUp as IconChevronUp,
@@ -9,10 +10,14 @@ export {
   Download as IconDownload,
   Ellipsis as IconMore,
   Eye as IconEye,
+  FileText as IconFileText,
   Layers as IconLayers,
-  Save as IconSave,
+  Mail as IconMail,
+  MapPin as IconMapPin,
   Pencil as IconEdit,
+  Phone as IconPhone,
   RotateCcw as IconReset,
+  Save as IconSave,
   Send as IconSend,
   Shield as IconShield,
   User as IconUser,

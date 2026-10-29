@@ -151,25 +151,17 @@ export function ClientesView({
       </ShellCard>
 
       {criando ? (
-        <Modal rotulo="Novo cliente" aoFechar={() => setCriando(false)}>
-          <div className="modal-topo">
-            <h2>Novo cliente</h2>
-            <button className="botao-fechar" type="button" aria-label="Fechar" onClick={() => setCriando(false)}>
-              ✕
-            </button>
-          </div>
-          <ClienteForm
-            modo="criar"
-            responsaveis={responsaveis}
-            aoCancelar={() => setCriando(false)}
-            aoCriar={(resposta) => {
-              setCriando(false);
-              setAvisos(resposta.duplicateCandidates);
-              router.push(hrefDaFicha(resposta.client.id, filtros), { scroll: false });
-              router.refresh();
-            }}
-          />
-        </Modal>
+        <ClienteForm
+          modo="criar"
+          responsaveis={responsaveis}
+          aoCancelar={() => setCriando(false)}
+          aoCriar={(resposta) => {
+            setCriando(false);
+            setAvisos(resposta.duplicateCandidates);
+            router.push(hrefDaFicha(resposta.client.id, filtros), { scroll: false });
+            router.refresh();
+          }}
+        />
       ) : null}
 
       {ficha ? (
