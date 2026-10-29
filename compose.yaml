@@ -145,6 +145,12 @@ services:
       AUTH_SESSION_SECRET: ${AUTH_SESSION_SECRET:?set AUTH_SESSION_SECRET in .env}
       AUTH_APP_BASE_URL: ${AUTH_APP_BASE_URL:-http://localhost:3000}
       AUTH_ALLOWED_ORIGINS: ${AUTH_ALLOWED_ORIGINS:-}
+      SESSION_TTL_MINUTES: ${SESSION_TTL_MINUTES:-720}
+      SESSION_ABSOLUTE_TTL_HOURS: ${SESSION_ABSOLUTE_TTL_HOURS:-720}
+      SESSION_RENEWAL_DEBOUNCE_MINUTES: ${SESSION_RENEWAL_DEBOUNCE_MINUTES:-5}
+      SESSION_CACHE_ENABLED: ${SESSION_CACHE_ENABLED:-true}
+      SESSION_CACHE_TTL_SECONDS: ${SESSION_CACHE_TTL_SECONDS:-60}
+      SESSION_CACHE_HMAC_KEY: ${SESSION_CACHE_HMAC_KEY:-}
       # Login federado com o Google (adendo ao ADR-0008). Desligado por default:
       # é esta variável que faz o rollback do recurso, sem apagar vínculo nenhum.
       # O client id é público, mas é a audiência aceita no ID token — precisa ser

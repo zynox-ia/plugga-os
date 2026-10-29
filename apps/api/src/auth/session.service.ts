@@ -20,9 +20,8 @@ export class SessionService {
 
   /**
    * Creates a session and returns the raw (unhashed) token for the cookie.
-   * Recebe o usuário já resolvido (não só o id) para semear o cache de
-   * sessão aqui — assim o primeiro `/auth/me` depois do login já é cache hit,
-   * em vez de mais uma ida ao Postgres logo na sequência.
+   * O snapshot no cache é mantido por compatibilidade; a autorização e
+   * `/auth/me` sempre revalidam o estado atual no banco.
    */
   async issue(user: ResolvedSessionUser, context: SessionContext): Promise<string> {
     const rawToken = generateOpaqueToken();
@@ -30,18 +29,25 @@ export class SessionService {
     const now = new Date();
     const ttlMinutes = this.config.get<number>("SESSION_TTL_MINUTES", 720);
     const absoluteHours = this.config.get<number>("SESSION_ABSOLUTE_TTL_HOURS", 720);
+    const absoluteExpiresAt = new Date(now.getTime() + absoluteHours * 3_600_000);
+    const expiresAt = new Date(Math.min(now.getTime() + ttlMinutes * 60_000, absoluteExpiresAt.getTime()));
 
     await this.repository.createSession({
       userId: user.id,
       tokenHash,
-      expiresAt: new Date(now.getTime() + ttlMinutes * 60_000),
-      absoluteExpiresAt: new Date(now.getTime() + absoluteHours * 3_600_000),
+      expiresAt,
+      absoluteExpiresAt,
       ip: context.ip ?? null,
       userAgent: context.userAgent ?? null,
     });
 
-    const cacheTtlSeconds = this.config.get<number>("SESSION_CACHE_TTL_SECONDS", 60);
-    await this.cache.set(tokenHash, user.id, { user }, cacheTtlSeconds);
+    const cacheTtlSeconds = Math.min(
+      this.config.get<number>("SESSION_CACHE_TTL_SECONDS", 60),
+      Math.floor((expiresAt.getTime() - Date.now()) / 1_000),
+    );
+    if (cacheTtlSeconds > 0) {
+      await this.cache.set(tokenHash, user.id, { user }, cacheTtlSeconds);
+    }
 
     return rawToken;
   }

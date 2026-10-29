@@ -96,21 +96,18 @@ export const environmentSchema = z
     AUTH_COOKIE_SECURE: environmentBoolean.optional(),
     SESSION_TTL_MINUTES: z.coerce.number().int().min(1).max(43_200).default(720),
     SESSION_ABSOLUTE_TTL_HOURS: z.coerce.number().int().min(1).max(8_760).default(720),
-    // Cache de sessão resolvida em Redis (tokenHash -> usuário + acesso), para
-    // não pagar o join do Postgres em toda requisição autenticada. Botão de
-    // desligar instantâneo: false volta ao comportamento de sempre ir ao banco.
+    // Snapshots de sessão em Redis, mantidos por compatibilidade. Autorização
+    // e /auth/me sempre consultam o banco, mesmo com o cache habilitado.
     SESSION_CACHE_ENABLED: environmentBoolean.default(true),
     SESSION_CACHE_TTL_SECONDS: z.coerce.number().int().min(1).max(3_600).default(60),
     // Autentica cada entrada do cache de sessão com HMAC-SHA256 (US11, T115).
     // Desligado por default: sem a variável o cache se comporta como sempre. Com
     // ela, uma entrada gravada por quem tem acesso ao Redis mas não tem esta
-    // chave é recusada (vira cache miss e a sessão é relida do Postgres). Ligar
+    // chave é recusada pelo cache. Nenhum snapshot concede autoridade. Ligar
     // exige senha no Redis em paralelo (tarefa [VPS], com aprovação do dono).
     SESSION_CACHE_HMAC_KEY: opcional(z.string().min(32)),
     // Piso entre renovações de sessão por atividade (`lastUsedAt`): sem isto, a
-    // renovação escreve no Postgres em toda requisição autenticada, mesmo em
-    // cache hit ela seria pulada, mas uma queda do Redis faria o miss voltar a
-    // escrever a cada requisição — este piso segura isso mesmo nesse cenário.
+    // renovação escreve no Postgres em toda requisição autenticada.
     SESSION_RENEWAL_DEBOUNCE_MINUTES: z.coerce.number().int().min(1).max(1_440).default(5),
     // Comma-separated browser origins accepted on mutating auth routes (CSRF
     // defense in depth alongside SameSite=Lax).
