@@ -260,6 +260,14 @@ export type ListClientsQuery = z.infer<typeof listClientsQuerySchema>;
 export const listClientsResponseSchema = z.object({ items: z.array(clientListItemSchema) });
 export type ListClientsResponse = z.infer<typeof listClientsResponseSchema>;
 
+/** Busca mínima usada pelo pipeline; não concede acesso à ficha do cliente. */
+export const clientSelectionQuerySchema = z.object({ q: z.string().trim().min(2).max(150) }).strict();
+export type ClientSelectionQuery = z.infer<typeof clientSelectionQuerySchema>;
+export const clientSelectionResponseSchema = z.object({ items: z.array(clientListItemSchema.pick({
+  id: true, name: true, documentDisplay: true, primaryContactName: true, city: true,
+})) });
+export type ClientSelectionResponse = z.infer<typeof clientSelectionResponseSchema>;
+
 /** `document` bloqueia; os demais só avisam (nome parecido pega prospect sem documento). */
 export const duplicateMatchReasonSchema = z.enum(["document", "phone", "email", "name"]);
 export type DuplicateMatchReason = z.infer<typeof duplicateMatchReasonSchema>;

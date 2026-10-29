@@ -2,6 +2,11 @@ import { Body, Controller, Delete, Get, HttpCode, Inject, Param, ParseUUIDPipe, 
 import { ThrottlerGuard } from "@nestjs/throttler";
 import {
   clientContactInputSchema,
+  telasPorDepartamento,
+  clientSelectionQuerySchema,
+  clientSelectionResponseSchema,
+  type ClientSelectionQuery,
+  type ClientSelectionResponse,
   createClientRequestSchema,
   duplicateCandidatesQuerySchema,
   inactivateClientRequestSchema,
@@ -27,7 +32,7 @@ import type { AuthPrincipal } from "../core/auth/auth.types";
 import { CurrentPrincipal } from "../core/auth/current-principal.decorator";
 import { SessionAuthGuard } from "../core/auth/session-auth.guard";
 import { OriginCheckGuard } from "../core/auth/origin-check.guard";
-import { Departamento } from "../core/auth/acesso.decorator";
+import { Departamento, Tela } from "../core/auth/acesso.decorator";
 import { AcessoGuard } from "../core/auth/acesso.guard";
 import { ClientesService } from "./clientes.service";
 
@@ -40,6 +45,7 @@ import { ClientesService } from "./clientes.service";
 @Controller("clientes")
 @UseGuards(SessionAuthGuard, AcessoGuard)
 @Departamento(["crm", "energia-opm"])
+@Tela("crm.clientes", ...telasPorDepartamento["energia-opm"])
 export class ClientesController {
   constructor(@Inject(ClientesService) private readonly service: ClientesService) {}
 
@@ -55,8 +61,18 @@ export class ClientesController {
 
   /** Quem pode ser responsável por um cliente: só id e nome. Antes de `:id`, que validaria "responsaveis" como UUID. */
   @Get("responsaveis")
+  @Tela("crm.clientes", "crm.pipelines")
   owners(): Promise<ClientOwnersResponse> {
     return this.service.owners();
+  }
+
+  /** Seleção do negócio: entrega só o resumo necessário, sem abrir o cadastro completo. */
+  @Get("selecao-negocio")
+  @Departamento("crm")
+  @Tela("crm.pipelines")
+  async selecaoNegocio(@Query(new ZodValidationPipe(clientSelectionQuerySchema)) query: ClientSelectionQuery): Promise<ClientSelectionResponse> {
+    const resultado = await this.service.list({ q: query.q, active: "true" });
+    return clientSelectionResponseSchema.parse({ items: resultado.items.slice(0, 8) });
   }
 
   @Get(":id")
@@ -68,6 +84,7 @@ export class ClientesController {
   @HttpCode(201)
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
   @Departamento("crm")
+  @Tela("crm.clientes")
   create(@Body(new ZodValidationPipe(createClientRequestSchema)) input: CreateClientRequest, @CurrentPrincipal() principal: AuthPrincipal): Promise<CreateClientResponse> {
     return this.service.create(input, principal);
   }
@@ -76,6 +93,7 @@ export class ClientesController {
   @HttpCode(200)
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
   @Departamento("crm")
+  @Tela("crm.clientes")
   update(@Param("id", ParseUUIDPipe) id: string, @Body(new ZodValidationPipe(updateClientRequestSchema)) input: UpdateClientRequest, @CurrentPrincipal() principal: AuthPrincipal): Promise<ClientDetail> {
     return this.service.update(id, input, principal);
   }
@@ -84,6 +102,7 @@ export class ClientesController {
   @HttpCode(200)
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
   @Departamento("crm")
+  @Tela("crm.clientes")
   activate(@Param("id", ParseUUIDPipe) id: string, @CurrentPrincipal() principal: AuthPrincipal): Promise<ClientDetail> {
     return this.service.activate(id, principal);
   }
@@ -92,6 +111,7 @@ export class ClientesController {
   @HttpCode(200)
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
   @Departamento("crm")
+  @Tela("crm.clientes")
   inactivate(@Param("id", ParseUUIDPipe) id: string, @Body(new ZodValidationPipe(inactivateClientRequestSchema)) input: InactivateClientRequest, @CurrentPrincipal() principal: AuthPrincipal): Promise<ClientDetail> {
     return this.service.inactivate(id, input, principal);
   }
@@ -100,6 +120,7 @@ export class ClientesController {
   @HttpCode(201)
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
   @Departamento("crm")
+  @Tela("crm.clientes")
   addContact(@Param("id", ParseUUIDPipe) id: string, @Body(new ZodValidationPipe(clientContactInputSchema)) input: ClientContactInput, @CurrentPrincipal() principal: AuthPrincipal): Promise<ClientDetail> {
     return this.service.addContact(id, input, principal);
   }
@@ -108,6 +129,7 @@ export class ClientesController {
   @HttpCode(200)
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
   @Departamento("crm")
+  @Tela("crm.clientes")
   updateContact(
     @Param("id", ParseUUIDPipe) id: string,
     @Param("contatoId", ParseUUIDPipe) contatoId: string,
@@ -121,6 +143,7 @@ export class ClientesController {
   @HttpCode(200)
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
   @Departamento("crm")
+  @Tela("crm.clientes")
   removeContact(@Param("id", ParseUUIDPipe) id: string, @Param("contatoId", ParseUUIDPipe) contatoId: string, @CurrentPrincipal() principal: AuthPrincipal): Promise<ClientDetail> {
     return this.service.removeContact(id, contatoId, principal);
   }

@@ -16,7 +16,7 @@ import { ZodValidationPipe } from "../common/zod-validation.pipe";
 import type { AuthPrincipal } from "../core/auth/auth.types";
 import { CurrentPrincipal } from "../core/auth/current-principal.decorator";
 import { OriginCheckGuard } from "../core/auth/origin-check.guard";
-import { Departamento } from "../core/auth/acesso.decorator";
+import { Departamento, Tela } from "../core/auth/acesso.decorator";
 import { AcessoGuard } from "../core/auth/acesso.guard";
 import { SessionAuthGuard } from "../core/auth/session-auth.guard";
 import { PipelinesService } from "./pipelines.service";
@@ -28,6 +28,7 @@ import { PipelinesService } from "./pipelines.service";
 @Controller("pipelines")
 @UseGuards(SessionAuthGuard, AcessoGuard)
 @Departamento("crm")
+@Tela("crm.pipelines")
 export class PipelinesController {
   constructor(@Inject(PipelinesService) private readonly service: PipelinesService) {}
 

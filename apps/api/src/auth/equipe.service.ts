@@ -1,6 +1,8 @@
 import { ForbiddenException, Inject, Injectable } from "@nestjs/common";
 import {
   authAcknowledgementSchema,
+  alcancaTela,
+  telasPorDepartamento,
   departamentos as todosOsDepartamentos,
   eventNames,
   listaDaEquipeSchema,
@@ -18,7 +20,7 @@ import {
 } from "@plugga/shared";
 
 import { AuditPort } from "../audit/audit.port";
-import { Conflito, EstadoInvalido, NaoEncontrado } from "../common/errors/dominio";
+import { Conflito, EstadoInvalido, NaoEncontrado, ServicoIndisponivel } from "../common/errors/dominio";
 import type { AuthPrincipal } from "../core/auth/auth.types";
 import { SessionCache } from "../core/auth/session-cache";
 import { AuthTokenIssuer } from "./auth-token-issuer.service";
@@ -27,6 +29,7 @@ import { SessionService } from "./session.service";
 
 /** Quem está agindo, relido do banco a cada chamada. */
 interface Ator {
+  acesso: Acesso;
   id: string;
   papel: PapelDaEquipe;
   /** Departamentos em que o ator é gerente. Vazio para admin e desenvolvedor. */
@@ -79,24 +82,16 @@ export class EquipeService {
     this.exigeGestao(ator);
     this.exigeConcedivel(ator, convite.acesso);
 
-    if (await this.repository.findUserByEmail(convite.email)) {
+    const existente = await this.repository.findUserByEmail(convite.email);
+    if (existente && existente.status !== "removed") {
       throw new Conflito("Já existe uma pessoa com este e-mail.");
     }
     const criado = await this.repository.createInvitedMember({
       email: convite.email,
       name: convite.name,
       acesso: convite.acesso,
-    });
-    await this.tokens.sendInvite(criado);
-    await this.audit.appendEvent({
-      eventName: eventNames.authInviteCreated,
-      entityType: "user",
-      entityId: criado.id,
-      actorType: "user",
-      actorId: ator.id,
-      payload: { acesso: convite.acesso },
-      occurredAt: new Date(),
-    });
+    }, ator.id);
+    await this.enviarLink(criado);
     return this.paraMembro(ator, criado);
   }
 
@@ -104,6 +99,9 @@ export class EquipeService {
     const ator = await this.ator(principal);
     this.exigeGestao(ator);
     const alvo = await this.alvoEditavel(ator, userId);
+    acesso = { ...acesso, departamentos: acesso.departamentos.map((entrada) => ({
+      ...entrada, telas: entrada.telas ?? alvo.acesso.departamentos.find((anterior) => anterior.departamento === entrada.departamento)?.telas ?? [],
+    })) };
     this.exigeConcedivel(ator, acesso);
 
     // O último admin é conferido no repositório, na mesma transação (FR-029).
@@ -138,14 +136,12 @@ export class EquipeService {
     const ator = await this.ator(principal);
     this.exigeGestao(ator);
     const alvo = await this.alvoEditavel(ator, userId);
-    // Reenviar para quem já aceitou seria redefinir a senha de uma conta ativa
-    // a partir da lista da equipe; isso sai só por pedido da própria pessoa.
-    if (alvo.status !== "invited") {
-      throw new EstadoInvalido("Só é possível reenviar um convite pendente.");
+    if (alvo.status !== "invited" && alvo.status !== "active") {
+      throw new EstadoInvalido("A conta precisa estar ativa ou com convite pendente.");
     }
-    await this.tokens.sendInvite(alvo);
+    await this.enviarLink(alvo);
     await this.audit.appendEvent({
-      eventName: eventNames.authInviteResent,
+      eventName: alvo.status === "invited" ? eventNames.authInviteResent : eventNames.authResetRequested,
       entityType: "user",
       entityId: userId,
       actorType: "user",
@@ -156,6 +152,25 @@ export class EquipeService {
     return authAcknowledgementSchema.parse({ ok: true });
   }
 
+  private async enviarLink(alvo: TeamMemberRecord): Promise<void> {
+    try {
+      if (alvo.status === "invited") await this.tokens.sendInvite(alvo);
+      else await this.tokens.sendReset(alvo);
+    } catch {
+      throw new ServicoIndisponivel("Cadastro preservado. Não foi possível enviar o e-mail; tente Enviar link de acesso na lista.");
+    }
+  }
+
+  async remover(principal: AuthPrincipal, userId: string): Promise<AuthAcknowledgement> {
+    const ator = await this.ator(principal);
+    const alvo = await this.repository.findUserById(userId);
+    if (!alvo || !this.enxerga(ator, alvo)) throw new NaoEncontrado("Pessoa não encontrada.");
+    if (!this.podeRemover(ator, alvo)) throw new ForbiddenException("member is outside the actor's scope");
+    await this.repository.removeUser(userId, ator.id);
+    await this.sessions.revokeAllForUser(userId);
+    return authAcknowledgementSchema.parse({ ok: true });
+  }
+
   private async ator(principal: AuthPrincipal): Promise<Ator> {
     const registro = await this.repository.findUserById(principal.id);
     if (!registro) {
@@ -163,6 +178,7 @@ export class EquipeService {
     }
     const papel = papelDoAcesso(registro.acesso);
     return {
+      acesso: registro.acesso,
       id: registro.id,
       papel,
       gerencia: new Set(
@@ -181,6 +197,7 @@ export class EquipeService {
 
   /** Quem aparece na lista do ator. O gerente vê quem divide departamento com ele. */
   private enxerga(ator: Ator, alvo: TeamMemberRecord): boolean {
+    if (alvo.status === "removed") return false;
     if (alvo.id === ator.id) return true;
     switch (ator.papel) {
       case "desenvolvedor":
@@ -215,7 +232,8 @@ export class EquipeService {
           alvo.acesso.plataforma === null &&
           alvo.acesso.departamentos.length > 0 &&
           alvo.acesso.departamentos.every(
-            (entrada) => entrada.nivel === "membro" && ator.gerencia.has(entrada.departamento),
+            (entrada) => entrada.nivel === "membro" && ator.gerencia.has(entrada.departamento) &&
+              (entrada.telas ?? telasPorDepartamento[entrada.departamento]).every((tela) => alcancaTela(ator.acesso, tela)),
           )
         );
       default:
@@ -227,6 +245,11 @@ export class EquipeService {
     if (alvo.id === ator.id || alvo.status === "disabled") return false;
     if (ator.papel === "desenvolvedor") return true;
     return ator.papel === "admin" && alvo.acesso.plataforma !== "desenvolvedor";
+  }
+
+  private podeRemover(ator: Ator, alvo: TeamMemberRecord): boolean {
+    return alvo.id !== ator.id && alvo.status !== "removed" &&
+      (ator.papel === "desenvolvedor" || (ator.papel === "admin" && alvo.acesso.plataforma !== "desenvolvedor"));
   }
 
   private async alvoEditavel(ator: Ator, userId: string): Promise<TeamMemberRecord> {
@@ -255,11 +278,15 @@ export class EquipeService {
       if (fora) {
         throw new ForbiddenException(`department ${fora.departamento} is outside the manager's scope`);
       }
+      if (acesso.departamentos.some((entrada) => entrada.telas?.some((tela) => !alcancaTela(ator.acesso, tela)))) {
+        throw new ForbiddenException("screen is outside the manager's scope");
+      }
     }
   }
 
   private escopo(ator: Ator): EscopoDaEquipe {
     return {
+      telasConcediveis: Object.values(telasPorDepartamento).flat().filter((tela) => alcancaTela(ator.acesso, tela)),
       papel: ator.papel,
       podeConvidar: ator.papel !== "membro",
       papeisConcediveis: CONCEDIVEIS[ator.papel],
@@ -283,7 +310,8 @@ export class EquipeService {
       createdAt: registro.createdAt.toISOString(),
       podeEditar,
       podeDesativar: this.podeDesativar(ator, registro),
-      podeReenviarConvite: podeEditar && registro.status === "invited",
+      podeRemover: this.podeRemover(ator, registro),
+      podeReenviarConvite: podeEditar && (registro.status === "invited" || registro.status === "active"),
     });
   }
 }

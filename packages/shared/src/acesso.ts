@@ -45,12 +45,34 @@ export const departamentoSchema = z.enum(departamentos);
 
 export type Departamento = (typeof departamentos)[number];
 
+/** IDs de autorização independentes dos rótulos da interface. */
+export const telasPorDepartamento = {
+  crm: ["crm.pipelines", "crm.clientes", "crm.propostas", "crm.contratos"],
+  "energia-opm": ["energia-opm.ciclos", "energia-opm.auditoria", "energia-opm.migracao", "energia-opm.relatorios", "energia-opm.demanda"],
+  "produto-tecnologia": ["produto-tecnologia.pluggamob", "produto-tecnologia.eletropostos", "produto-tecnologia.recargas", "produto-tecnologia.parceiros", "produto-tecnologia.dashboards"],
+  financeiro: ["financeiro.pagar", "financeiro.receber", "financeiro.conciliacao", "financeiro.fiscal"],
+  suprimentos: ["suprimentos.compras", "suprimentos.fornecedores", "suprimentos.estoque"],
+  "engenharia-obras": ["engenharia-obras.obras", "engenharia-obras.projetos", "engenharia-obras.os", "engenharia-obras.instalacoes", "engenharia-obras.manutencao", "engenharia-obras.visitas", "engenharia-obras.usinas", "engenharia-obras.relatorios"],
+  marketing: ["marketing.campanhas"],
+} as const satisfies Record<Departamento, readonly string[]>;
+
+export type Tela = (typeof telasPorDepartamento)[Departamento][number];
+export const telaSchema = z.enum(Object.values(telasPorDepartamento).flat() as [Tela, ...Tela[]]);
+
 export const acessoADepartamentoSchema = z
   .object({
     departamento: departamentoSchema,
     nivel: nivelDeDepartamentoSchema,
+    /** Omitido apenas por clientes legados; [] revoga todas as telas. */
+    telas: z.array(telaSchema).max(50).optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((entrada, ctx) => {
+    const permitidas: readonly string[] = telasPorDepartamento[entrada.departamento];
+    if (entrada.telas?.some((tela) => !permitidas.includes(tela)) || new Set(entrada.telas).size !== (entrada.telas?.length ?? 0)) {
+      ctx.addIssue({ code: "custom", path: ["telas"], message: "selecione telas distintas deste departamento" });
+    }
+  });
 
 export const acessoSchema = z
   .object({
@@ -84,6 +106,14 @@ export const acessoSchema = z
 
 export type AcessoADepartamento = z.infer<typeof acessoADepartamentoSchema>;
 export type Acesso = z.infer<typeof acessoSchema>;
+
+export function alcancaTela(acesso: Acesso | undefined, tela: Tela): boolean {
+  if (!acesso) return false;
+  if (acesso.plataforma !== null) return true;
+  return acesso.departamentos.some((entrada) =>
+    (entrada.telas ?? telasPorDepartamento[entrada.departamento]).some((permitida) => permitida === tela),
+  );
+}
 
 /** Desenvolvedor alcança tudo o que o admin alcança, e o admin não alcança o desenvolvedor. */
 export function alcancaPlataforma(acesso: Acesso, papel: PapelDePlataforma): boolean {

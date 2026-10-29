@@ -143,11 +143,13 @@ export abstract class AuthRepository {
   ): Promise<void>;
   /** Desativa e grava `auth.user.deactivated` na mesma transação; mesma regra do último admin. */
   abstract deactivateUser(userId: string, actorId: string): Promise<AuthUserRecord | null>;
+  /** Remoção lógica preserva autoria e vínculos; status removed nunca autentica. */
+  abstract removeUser(userId: string, actorId: string): Promise<AuthUserRecord | null>;
   /**
    * Cria a pessoa convidada já com o acesso. Desenvolvedor leva também a linha
    * `admin`, que é o que a regra do último admin conta.
    */
-  abstract createInvitedMember(data: CreateInvitedMemberData): Promise<AuthUserRecord>;
+  abstract createInvitedMember(data: CreateInvitedMemberData, actorId?: string): Promise<AuthUserRecord>;
   /**
    * Substitui o acesso inteiro da pessoa: conceder e revogar são a mesma
    * escrita. Grava `auth.access.changed` na mesma transação e, se rebaixar o

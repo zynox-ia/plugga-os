@@ -77,6 +77,7 @@ export const catalogoEventos = {
   "pluggamob.settlement.approved": evento("Fechamento Pluggamob aprovado", "empresa"),
   "auth.access.changed": evento("Acesso de usuário alterado", "plataforma"),
   "auth.user.deactivated": evento("Usuário desativado", "plataforma"),
+  "auth.user.removed": evento("Membro removido da equipe", "plataforma"),
   "integrations.mode.changed": evento("Modo de integração alterado", "plataforma"),
   "llm.chave.updated": evento("Chave de LLM trocada", "plataforma"),
 } as const satisfies Record<string, DefinicaoDeEvento>;

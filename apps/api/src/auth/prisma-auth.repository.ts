@@ -276,6 +276,14 @@ export class PrismaAuthRepository extends AuthRepository {
   }
 
   async deactivateUser(userId: string, actorId: string): Promise<AuthUserRecord | null> {
+    return this.encerrarAcesso(userId, actorId, "disabled");
+  }
+
+  async removeUser(userId: string, actorId: string): Promise<AuthUserRecord | null> {
+    return this.encerrarAcesso(userId, actorId, "removed");
+  }
+
+  private async encerrarAcesso(userId: string, actorId: string, status: "disabled" | "removed"): Promise<AuthUserRecord | null> {
     if (!UUID.test(userId)) return null;
     const exists = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -294,11 +302,12 @@ export class PrismaAuthRepository extends AuthRepository {
       });
       const atualizado = await tx.user.update({
         where: { id: userId },
-        data: { status: "disabled" },
+        data: { status },
         ...userWithAccess,
       });
+      await tx.session.deleteMany({ where: { userId } });
       await this.appender.append(tx, {
-        eventName: "auth.user.deactivated",
+        eventName: status === "removed" ? "auth.user.removed" : "auth.user.deactivated",
         entityType: "user",
         entityId: userId,
         actorType: "user",
@@ -355,14 +364,29 @@ export class PrismaAuthRepository extends AuthRepository {
     }
   }
 
-  async createInvitedMember(data: CreateInvitedMemberData): Promise<AuthUserRecord> {
+  async createInvitedMember(data: CreateInvitedMemberData, actorId?: string): Promise<AuthUserRecord> {
     try {
       const user = await this.prisma.$transaction(async (tx) => {
-        const created = await tx.user.create({
+        const anterior = await tx.user.findUnique({ where: { email: data.email }, select: { id: true, status: true } });
+        if (anterior && anterior.status !== "removed") throw new Conflito("Já existe uma pessoa com este e-mail.");
+        if (anterior) {
+          // A readmissão é um convite novo, nunca uma restauração de credenciais.
+          const alterado = await tx.user.updateMany({ where: { id: anterior.id, status: "removed" }, data: { name: data.name, status: "invited" } });
+          if (alterado.count !== 1) throw new Conflito("Já existe uma pessoa com este e-mail.");
+          await tx.session.deleteMany({ where: { userId: anterior.id } });
+          await tx.authToken.deleteMany({ where: { userId: anterior.id } });
+          await tx.userCredential.deleteMany({ where: { userId: anterior.id } });
+          await tx.userIdentity.deleteMany({ where: { userId: anterior.id } });
+          await tx.userPlatformRole.deleteMany({ where: { userId: anterior.id } });
+          await tx.userDepartamento.deleteMany({ where: { userId: anterior.id } });
+        }
+        const created = anterior ?? await tx.user.create({
           data: { email: data.email, name: data.name, status: "invited" },
           select: { id: true },
         });
         await this.writeAcesso(tx, created.id, data.acesso);
+        await this.appender.append(tx, { eventName: "auth.invite.created", entityType: "user", entityId: created.id,
+          actorType: actorId ? "user" : "system", actorId: actorId ?? null, payload: { acesso: data.acesso } });
         return tx.user.findUniqueOrThrow({ where: { id: created.id }, ...userWithAccess });
       });
       return this.toRecord(user);
@@ -409,7 +433,7 @@ export class PrismaAuthRepository extends AuthRepository {
   async listMembers(filter: MemberFilter): Promise<TeamMemberRecord[]> {
     const users = await this.prisma.user.findMany({
       where: {
-        ...(filter.status ? { status: filter.status } : {}),
+        status: filter.status ?? { not: "removed" },
         ...(filter.departamento ? { departamentos: { some: { departamento: filter.departamento } } } : {}),
       },
       orderBy: { createdAt: "asc" },
@@ -441,9 +465,13 @@ export class PrismaAuthRepository extends AuthRepository {
         skipDuplicates: true,
       });
     }
+    const anteriores = await tx.userDepartamento.findMany({ where: { userId } });
     await tx.userDepartamento.deleteMany({ where: { userId } });
     await tx.userDepartamento.createMany({
-      data: acesso.departamentos.map(({ departamento, nivel }) => ({ userId, departamento, nivel })),
+      data: acesso.departamentos.map(({ departamento, nivel, telas }) => ({
+        userId, departamento, nivel,
+        telas: telas ?? anteriores.find((entrada) => entrada.departamento === departamento)?.telas ?? [],
+      })),
     });
   }
 

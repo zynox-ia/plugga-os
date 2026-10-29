@@ -3,6 +3,8 @@ import type { Reflector } from "@nestjs/core";
 import {
   alcancaDepartamento,
   alcancaPlataforma,
+  alcancaTela,
+  type Tela as TelaId,
   type Acesso,
   type Departamento as DepartamentoId,
   type NivelDeDepartamento,
@@ -16,6 +18,9 @@ import {
  */
 export const DEPARTAMENTO_METADATA = "plugga:departamento";
 export const PLATAFORMA_METADATA = "plugga:plataforma";
+export const TELA_METADATA = "plugga:tela";
+/** Ao menos uma tela, além das exigências de departamento/plataforma. */
+export const Tela = (...telas: TelaId[]): MethodDecorator & ClassDecorator => SetMetadata(TELA_METADATA, telas);
 
 export interface ExigenciaDeDepartamento {
   departamentos: DepartamentoId[];
@@ -40,6 +45,7 @@ export const Plataforma = (papel: PapelDePlataforma): MethodDecorator & ClassDec
   SetMetadata(PLATAFORMA_METADATA, papel);
 
 export interface ExigenciaDeAcesso {
+  telas?: TelaId[];
   departamento?: ExigenciaDeDepartamento;
   plataforma?: PapelDePlataforma;
 }
@@ -57,6 +63,7 @@ export function exigenciaDeAcesso(
   );
   const plataforma = reflector.getAllAndOverride<PapelDePlataforma | undefined>(PLATAFORMA_METADATA, alvos);
   return {
+    telas: reflector.getAllAndOverride<TelaId[] | undefined>(TELA_METADATA, alvos),
     ...(departamento && departamento.departamentos.length > 0 ? { departamento } : {}),
     ...(plataforma ? { plataforma } : {}),
   };
@@ -71,6 +78,7 @@ export function atendeExigencia(acesso: Acesso | undefined, exigencia: Exigencia
   if (!acesso) {
     return false;
   }
+  if (exigencia.telas && !exigencia.telas.some((tela) => alcancaTela(acesso, tela))) return false;
   if (exigencia.plataforma && !alcancaPlataforma(acesso, exigencia.plataforma)) {
     return false;
   }

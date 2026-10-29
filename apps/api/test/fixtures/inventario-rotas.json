@@ -111,6 +111,12 @@
     "controller": "ClientesController.list",
     "acesso": "acesso",
     "papeis": [
+      "tela:crm.clientes",
+      "tela:energia-opm.ciclos",
+      "tela:energia-opm.auditoria",
+      "tela:energia-opm.migracao",
+      "tela:energia-opm.relatorios",
+      "tela:energia-opm.demanda",
       "departamento:crm:membro",
       "departamento:energia-opm:membro"
     ],
@@ -125,6 +131,7 @@
     "controller": "ClientesController.create",
     "acesso": "acesso",
     "papeis": [
+      "tela:crm.clientes",
       "departamento:crm:membro"
     ],
     "guards": [
@@ -140,6 +147,12 @@
     "controller": "ClientesController.get",
     "acesso": "acesso",
     "papeis": [
+      "tela:crm.clientes",
+      "tela:energia-opm.ciclos",
+      "tela:energia-opm.auditoria",
+      "tela:energia-opm.migracao",
+      "tela:energia-opm.relatorios",
+      "tela:energia-opm.demanda",
       "departamento:crm:membro",
       "departamento:energia-opm:membro"
     ],
@@ -154,6 +167,7 @@
     "controller": "ClientesController.update",
     "acesso": "acesso",
     "papeis": [
+      "tela:crm.clientes",
       "departamento:crm:membro"
     ],
     "guards": [
@@ -169,6 +183,7 @@
     "controller": "ClientesController.activate",
     "acesso": "acesso",
     "papeis": [
+      "tela:crm.clientes",
       "departamento:crm:membro"
     ],
     "guards": [
@@ -184,6 +199,7 @@
     "controller": "ClientesController.addContact",
     "acesso": "acesso",
     "papeis": [
+      "tela:crm.clientes",
       "departamento:crm:membro"
     ],
     "guards": [
@@ -199,6 +215,7 @@
     "controller": "ClientesController.removeContact",
     "acesso": "acesso",
     "papeis": [
+      "tela:crm.clientes",
       "departamento:crm:membro"
     ],
     "guards": [
@@ -214,6 +231,7 @@
     "controller": "ClientesController.updateContact",
     "acesso": "acesso",
     "papeis": [
+      "tela:crm.clientes",
       "departamento:crm:membro"
     ],
     "guards": [
@@ -229,6 +247,7 @@
     "controller": "ClientesController.inactivate",
     "acesso": "acesso",
     "papeis": [
+      "tela:crm.clientes",
       "departamento:crm:membro"
     ],
     "guards": [
@@ -244,6 +263,12 @@
     "controller": "ClientesController.duplicateCandidates",
     "acesso": "acesso",
     "papeis": [
+      "tela:crm.clientes",
+      "tela:energia-opm.ciclos",
+      "tela:energia-opm.auditoria",
+      "tela:energia-opm.migracao",
+      "tela:energia-opm.relatorios",
+      "tela:energia-opm.demanda",
       "departamento:crm:membro",
       "departamento:energia-opm:membro"
     ],
@@ -258,8 +283,24 @@
     "controller": "ClientesController.owners",
     "acesso": "acesso",
     "papeis": [
+      "tela:crm.clientes",
+      "tela:crm.pipelines",
       "departamento:crm:membro",
       "departamento:energia-opm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/clientes/selecao-negocio",
+    "controller": "ClientesController.selecaoNegocio",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.pipelines",
+      "departamento:crm:membro"
     ],
     "guards": [
       "SessionAuthGuard",
@@ -272,6 +313,11 @@
     "controller": "CommercialController.listContracts",
     "acesso": "acesso",
     "papeis": [
+      "tela:crm.contratos",
+      "tela:financeiro.pagar",
+      "tela:financeiro.receber",
+      "tela:financeiro.conciliacao",
+      "tela:financeiro.fiscal",
       "departamento:crm:membro",
       "departamento:financeiro:membro"
     ],
@@ -286,6 +332,7 @@
     "controller": "CommercialController.createContract",
     "acesso": "acesso",
     "papeis": [
+      "tela:crm.contratos",
       "departamento:crm:membro"
     ],
     "guards": [
@@ -301,6 +348,11 @@
     "controller": "CommercialController.contract",
     "acesso": "acesso",
     "papeis": [
+      "tela:crm.contratos",
+      "tela:financeiro.pagar",
+      "tela:financeiro.receber",
+      "tela:financeiro.conciliacao",
+      "tela:financeiro.fiscal",
       "departamento:crm:membro",
       "departamento:financeiro:membro"
     ],
@@ -315,6 +367,7 @@
     "controller": "CommercialController.updateContractStatus",
     "acesso": "acesso",
     "papeis": [
+      "tela:crm.contratos",
       "departamento:crm:membro"
     ],
     "guards": [
@@ -330,6 +383,11 @@
     "controller": "CommercialController.listOpportunities",
     "acesso": "acesso",
     "papeis": [
+      "tela:crm.pipelines",
+      "tela:financeiro.pagar",
+      "tela:financeiro.receber",
+      "tela:financeiro.conciliacao",
+      "tela:financeiro.fiscal",
       "departamento:crm:membro",
       "departamento:financeiro:membro"
     ],
@@ -344,6 +402,7 @@
     "controller": "CommercialController.createOpportunity",
     "acesso": "acesso",
     "papeis": [
+      "tela:crm.pipelines",
       "departamento:crm:membro"
     ],
     "guards": [
@@ -359,6 +418,11 @@
     "controller": "CommercialController.opportunity",
     "acesso": "acesso",
     "papeis": [
+      "tela:crm.pipelines",
+      "tela:financeiro.pagar",
+      "tela:financeiro.receber",
+      "tela:financeiro.conciliacao",
+      "tela:financeiro.fiscal",
       "departamento:crm:membro",
       "departamento:financeiro:membro"
     ],
@@ -373,6 +437,7 @@
     "controller": "CommercialController.registerOpportunityContact",
     "acesso": "acesso",
     "papeis": [
+      "tela:crm.pipelines",
       "departamento:crm:membro"
     ],
     "guards": [
@@ -388,6 +453,7 @@
     "controller": "CommercialController.loseOpportunity",
     "acesso": "acesso",
     "papeis": [
+      "tela:crm.pipelines",
       "departamento:crm:membro"
     ],
     "guards": [
@@ -403,6 +469,7 @@
     "controller": "CommercialController.revisitOpportunity",
     "acesso": "acesso",
     "papeis": [
+      "tela:crm.pipelines",
       "departamento:crm:membro"
     ],
     "guards": [
@@ -418,6 +485,7 @@
     "controller": "CommercialController.updateOpportunityStage",
     "acesso": "acesso",
     "papeis": [
+      "tela:crm.pipelines",
       "departamento:crm:membro"
     ],
     "guards": [
@@ -433,6 +501,7 @@
     "controller": "CommercialController.winOpportunity",
     "acesso": "acesso",
     "papeis": [
+      "tela:crm.pipelines",
       "departamento:crm:membro"
     ],
     "guards": [
@@ -493,6 +562,18 @@
     "metodo": "POST",
     "caminho": "/equipe/:id/reenviar-convite",
     "controller": "EquipeController.reenviarConvite",
+    "acesso": "authenticated",
+    "papeis": [],
+    "guards": [
+      "OriginCheckGuard",
+      "SessionAuthGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/equipe/:id/remover",
+    "controller": "EquipeController.remover",
     "acesso": "authenticated",
     "papeis": [],
     "guards": [
@@ -632,6 +713,7 @@
     "controller": "NegociosController.list",
     "acesso": "acesso",
     "papeis": [
+      "tela:crm.pipelines",
       "departamento:crm:membro"
     ],
     "guards": [
@@ -645,6 +727,7 @@
     "controller": "NegociosController.create",
     "acesso": "acesso",
     "papeis": [
+      "tela:crm.pipelines",
       "departamento:crm:membro"
     ],
     "guards": [
@@ -660,6 +743,7 @@
     "controller": "NegociosController.moveStage",
     "acesso": "acesso",
     "papeis": [
+      "tela:crm.pipelines",
       "departamento:crm:membro"
     ],
     "guards": [
@@ -675,6 +759,7 @@
     "controller": "NegociosController.win",
     "acesso": "acesso",
     "papeis": [
+      "tela:crm.pipelines",
       "departamento:crm:membro"
     ],
     "guards": [
@@ -690,6 +775,7 @@
     "controller": "NegociosController.lose",
     "acesso": "acesso",
     "papeis": [
+      "tela:crm.pipelines",
       "departamento:crm:membro"
     ],
     "guards": [
@@ -705,6 +791,7 @@
     "controller": "NegociosController.transfer",
     "acesso": "acesso",
     "papeis": [
+      "tela:crm.pipelines",
       "departamento:crm:membro"
     ],
     "guards": [
@@ -720,6 +807,7 @@
     "controller": "NegociosController.clientOptions",
     "acesso": "acesso",
     "papeis": [
+      "tela:crm.pipelines",
       "departamento:crm:membro"
     ],
     "guards": [
@@ -733,6 +821,7 @@
     "controller": "NegociosController.bulk",
     "acesso": "acesso",
     "papeis": [
+      "tela:crm.pipelines",
       "departamento:crm:membro"
     ],
     "guards": [
@@ -748,6 +837,7 @@
     "controller": "PipelinesController.list",
     "acesso": "acesso",
     "papeis": [
+      "tela:crm.pipelines",
       "departamento:crm:membro"
     ],
     "guards": [
@@ -761,6 +851,7 @@
     "controller": "PipelinesController.create",
     "acesso": "acesso",
     "papeis": [
+      "tela:crm.pipelines",
       "departamento:crm:membro"
     ],
     "guards": [
@@ -776,6 +867,7 @@
     "controller": "PipelinesController.update",
     "acesso": "acesso",
     "papeis": [
+      "tela:crm.pipelines",
       "departamento:crm:membro"
     ],
     "guards": [
@@ -791,6 +883,7 @@
     "controller": "PipelinesController.archive",
     "acesso": "acesso",
     "papeis": [
+      "tela:crm.pipelines",
       "departamento:crm:membro"
     ],
     "guards": [
@@ -806,6 +899,7 @@
     "controller": "PipelinesController.restore",
     "acesso": "acesso",
     "papeis": [
+      "tela:crm.pipelines",
       "departamento:crm:membro"
     ],
     "guards": [
@@ -821,6 +915,7 @@
     "controller": "PipelinesController.people",
     "acesso": "acesso",
     "papeis": [
+      "tela:crm.pipelines",
       "departamento:crm:membro"
     ],
     "guards": [

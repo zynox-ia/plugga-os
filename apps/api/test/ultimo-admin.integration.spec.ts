@@ -1,5 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
+import { createRequire } from "node:module";
 
 import type { Acesso } from "@plugga/shared";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -44,7 +45,7 @@ describe.skipIf(!HABILITADO)("último administrador sob concorrência", () => {
   beforeAll(async () => {
     await manutencao.$connect();
     await manutencao.$executeRawUnsafe(`CREATE DATABASE "${nomeDoBanco}"`);
-    execFileSync("pnpm", ["exec", "prisma", "migrate", "deploy"], {
+    execFileSync(process.execPath, [createRequire(import.meta.url).resolve("prisma/build/index.js"), "migrate", "deploy"], {
       env: { ...process.env, DATABASE_URL: urlDoBanco },
       stdio: "pipe",
     });

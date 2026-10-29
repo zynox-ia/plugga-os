@@ -36,10 +36,11 @@ export function acessoDeclarado(
     return { acesso: "public", papeis: [] };
   }
   const exigencia = exigenciaDeAcesso(reflector, handler, classe);
-  if (exigencia.plataforma || exigencia.departamento) {
+  if (exigencia.plataforma || exigencia.departamento || exigencia.telas) {
     return {
       acesso: "acesso",
       papeis: [
+        ...(exigencia.telas?.map((tela) => `tela:${tela}`) ?? []),
         ...(exigencia.plataforma ? [`plataforma:${exigencia.plataforma}`] : []),
         ...(exigencia.departamento?.departamentos.map(
           (departamento) => `departamento:${departamento}:${exigencia.departamento?.nivel}`,

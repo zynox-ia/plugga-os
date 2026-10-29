@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { acessoSchema, departamentoSchema, type Acesso } from "./acesso.js";
+import { acessoSchema, departamentoSchema, telaSchema, type Acesso } from "./acesso.js";
 import { emailSchema, userStatusSchema } from "./auth.js";
 
 /**
@@ -52,6 +52,7 @@ export const membroDaEquipeSchema = z
     podeEditar: z.boolean(),
     /** Desativar é de admin e desenvolvedor, nunca de gerente, nunca de si mesmo. */
     podeDesativar: z.boolean(),
+    podeRemover: z.boolean().optional(),
     /** Reenviar convite: quem pode editar, enquanto o convite estiver pendente. */
     podeReenviarConvite: z.boolean(),
   })
@@ -63,6 +64,7 @@ export const membroDaEquipeSchema = z
  */
 export const escopoDaEquipeSchema = z
   .object({
+    telasConcediveis: z.array(telaSchema).optional(),
     /** O papel de quem pede, no degrau mais alto que tem. */
     papel: papelDaEquipeSchema,
     podeConvidar: z.boolean(),

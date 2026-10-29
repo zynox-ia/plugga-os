@@ -440,6 +440,7 @@ model UserDepartamento {
   userId       String              @map("user_id") @db.Uuid
   departamento String
   nivel        NivelDeDepartamento
+  telas        String[]            @default([])
   user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@id([userId, departamento])

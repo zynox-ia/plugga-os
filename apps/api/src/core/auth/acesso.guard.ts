@@ -20,7 +20,7 @@ export class AcessoGuard implements CanActivate {
     const classe = context.getClass() as never;
     const exigencia = exigenciaDeAcesso(this.reflector, handler, classe);
 
-    if (exigencia.departamento || exigencia.plataforma) {
+    if (exigencia.departamento || exigencia.plataforma || exigencia.telas) {
       const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
       if (!atendeExigencia(request.authPrincipal?.acesso, exigencia)) {
         throw new ForbiddenException("principal does not have the required access");

@@ -1,6 +1,7 @@
 import { hash } from '@node-rs/argon2';
 import { PrismaClient } from '@prisma/client';
 import type { Acesso } from '@plugga/shared';
+import { telasPorDepartamento } from '@plugga/shared';
 
 import { argon2Options } from '../src/auth/argon2-options';
 
@@ -52,7 +53,7 @@ async function grantAccess(userId: string, roleIdByKey: Map<string, string>, ace
     skipDuplicates: true,
   });
   await prisma.userDepartamento.createMany({
-    data: acesso.departamentos.map(({ departamento, nivel }) => ({ userId, departamento, nivel })),
+    data: acesso.departamentos.map(({ departamento, nivel, telas }) => ({ userId, departamento, nivel, telas: telas ?? [...telasPorDepartamento[departamento]] })),
     skipDuplicates: true,
   });
 }

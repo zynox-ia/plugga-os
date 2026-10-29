@@ -4,11 +4,15 @@ import type { Acesso } from "@plugga/shared";
 import { describe, expect, it } from "vitest";
 
 import { acessoDeclarado } from "./access.decorators";
-import { Departamento, Plataforma } from "./acesso.decorator";
+import { Departamento, Plataforma, Tela } from "./acesso.decorator";
 import type { AuthPrincipal } from "./auth.types";
 import { AcessoGuard } from "./acesso.guard";
 
 class Controlador {
+  @Departamento("crm")
+  @Tela("crm.clientes")
+  clientes(): void {}
+
   @Departamento("crm")
   operarCrm(): void {}
 
@@ -67,6 +71,13 @@ function passa(classe: new () => object, metodo: string, principal: Partial<Auth
 }
 
 describe("AcessoGuard com @Departamento e @Plataforma", () => {
+  it("tela negada é recusada mesmo para diretor", () => {
+    const acesso: Acesso = { plataforma: null, departamentos: [{ departamento: "crm", nivel: "gerente", telas: ["crm.pipelines"] }] };
+    expect(passa(Controlador, "clientes", { acesso })).toBe(false);
+    acesso.departamentos[0]!.telas = ["crm.clientes"];
+    expect(passa(Controlador, "clientes", { acesso })).toBe(true);
+    expect(passa(Controlador, "clientes", { acesso: ADMIN })).toBe(true);
+  });
   it("membro opera o próprio departamento e não entra nos outros", () => {
     expect(passa(Controlador, "operarCrm", { acesso: MEMBRO_CRM })).toBe(true);
     expect(passa(Controlador, "aprovarCompra", { acesso: MEMBRO_CRM })).toBe(false);

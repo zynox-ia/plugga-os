@@ -1,8 +1,9 @@
 import { Test } from "@nestjs/testing";
 import type { NestExpressApplication } from "@nestjs/platform-express";
 import request from "supertest";
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Acesso, ListaDaEquipe, MembroDaEquipe } from "@plugga/shared";
+import { telasPorDepartamento } from "@plugga/shared";
 
 import { AppModule } from "../src/app.module";
 import { configureApp } from "../src/configure-app";
@@ -12,6 +13,7 @@ import { SessionCache } from "../src/core/auth/session-cache";
 import { SessionLookupRepository } from "../src/core/auth/session-lookup.repository";
 import { EmailPort } from "../src/email/email.port";
 import { AuthRepository } from "../src/auth/auth.repository";
+import { ClientesService } from "../src/clientes/clientes.service";
 import {
   CapturingEmailPort,
   InMemoryAuthRepository,
@@ -123,6 +125,7 @@ describe("equipe e acessos no modelo de 4 papéis (e2e, armazenamento em memóri
       expect(nomes(lista)).toEqual(["admin", "comprador", "desenvolvedor", "duplo", "gerente", "vendedor"]);
       expect(lista.escopo).toEqual({
         papel: "desenvolvedor",
+        telasConcediveis: Object.values(telasPorDepartamento).flat(),
         podeConvidar: true,
         papeisConcediveis: ["desenvolvedor", "admin", "gerente", "membro"],
         departamentos: ["crm", "energia-opm", "produto-tecnologia", "financeiro", "suprimentos", "engenharia-obras", "marketing"],
@@ -185,6 +188,7 @@ describe("equipe e acessos no modelo de 4 papéis (e2e, armazenamento em memóri
       expect(nomes(lista)).toEqual(["comprador", "duplo", "gerente"]);
       expect(lista.escopo).toEqual({
         papel: "gerente",
+        telasConcediveis: [...telasPorDepartamento.suprimentos],
         podeConvidar: true,
         papeisConcediveis: ["membro"],
         departamentos: ["suprimentos"],
@@ -240,6 +244,77 @@ describe("equipe e acessos no modelo de 4 papéis (e2e, armazenamento em memóri
       .post("/equipe/convites")
       .send({ email: "vazio@plugga.local", name: "Vazio", acesso: { plataforma: null, departamentos: [] } })
       .expect(400);
+  });
+
+  it("grava telas e impede gestor de conceder tela que não possui", async () => {
+    const admin = await como("admin");
+    const vendedor = await como("vendedor");
+    const acesso: Acesso = { plataforma: null, departamentos: [{ departamento: "crm", nivel: "membro", telas: ["crm.pipelines"] }] };
+    await admin.put(`/equipe/${pessoas.vendedor!.id}/acesso`).send({ acesso }).expect(200);
+    const lista = (await admin.get("/equipe").expect(200)).body as ListaDaEquipe;
+    expect(membroDe(lista, "vendedor").acesso).toEqual(acesso);
+    pessoas.gerente!.acesso = { plataforma: null, departamentos: [{ departamento: "suprimentos", nivel: "gerente", telas: ["suprimentos.compras"] }] };
+    const gerente = await como("gerente");
+    await gerente.post("/equipe/convites").send({ email: "estoque@teste.local", name: "Estoque", acesso: {
+      plataforma: null, departamentos: [{ departamento: "suprimentos", nivel: "membro", telas: ["suprimentos.estoque"] }],
+    } }).expect(403);
+    // Um membro com telas fora do escopo não pode ter seu acesso substituído pelo gestor.
+    await gerente.put(`/equipe/${pessoas.comprador!.id}/acesso`).send({ acesso: {
+      plataforma: null, departamentos: [{ departamento: "suprimentos", nivel: "membro", telas: ["suprimentos.compras"] }],
+    } }).expect(403);
+    // A mesma sessão aberta antes da alteração já recebe a restrição.
+    await vendedor.get("/clientes").expect(403);
+    await vendedor.get("/commercial/contracts").expect(403);
+  });
+
+  it("Pipelines seleciona clientes sem obter acesso ao cadastro completo", async () => {
+    pessoas.vendedor!.acesso = { plataforma: null, departamentos: [{ departamento: "crm", nivel: "membro", telas: ["crm.pipelines"] }] };
+    const vendedor = await como("vendedor");
+    const listagem = vi.spyOn(app.get(ClientesService), "list").mockResolvedValue({ items: [] });
+    try {
+      await vendedor.get("/clientes/selecao-negocio?q=ab").expect(200, { items: [] });
+      expect(listagem).toHaveBeenCalledWith({ q: "ab", active: "true" });
+      await vendedor.get("/clientes/selecao-negocio?q=a").expect(400);
+      await vendedor.get("/clientes").expect(403);
+      pessoas.vendedor!.acesso.departamentos[0]!.telas = [];
+      await vendedor.get("/clientes/selecao-negocio?q=ab").expect(403);
+    } finally {
+      listagem.mockRestore();
+    }
+  });
+
+  it("envia recuperação para ativo sem trocar a senha nem permitir conta desativada", async () => {
+    const admin = await como("admin");
+    await admin.post(`/equipe/${pessoas.vendedor!.id}/reenviar-convite`).send({}).expect(200);
+    expect(email.sent.at(-1)?.template).toBe("reset");
+    await como("vendedor");
+    await admin.post(`/equipe/${pessoas.vendedor!.id}/desativar`).send({}).expect(200);
+    await admin.post(`/equipe/${pessoas.vendedor!.id}/reenviar-convite`).send({}).expect(409);
+  });
+
+  it("remove logicamente, revoga sessão e permite novo convite com acesso novo", async () => {
+    const admin = await como("admin");
+    const vendedor = await como("vendedor");
+    await admin.post(`/equipe/${pessoas.vendedor!.id}/remover`).send({}).expect(200);
+    await vendedor.get("/auth/me").expect(401);
+    expect(store.users.has(pessoas.vendedor!.id)).toBe(true);
+    const lista = (await admin.get("/equipe").expect(200)).body as ListaDaEquipe;
+    expect(nomes(lista)).not.toContain("vendedor");
+    await admin.put(`/equipe/${pessoas.vendedor!.id}/acesso`).send({ acesso: ADMIN }).expect(404);
+    const resposta = await admin.post("/equipe/convites").send({ email: "vendedor@plugga.local", name: "Novo convite", acesso: MEMBRO_SUPRIMENTOS }).expect(201);
+    expect(resposta.body).toMatchObject({ id: pessoas.vendedor!.id, status: "invited", acesso: MEMBRO_SUPRIMENTOS });
+    await admin.post(`/equipe/${pessoas.admin!.id}/remover`).send({}).expect(403);
+  });
+
+  it("falha de envio preserva cadastro e permite reenviar sem duplicação", async () => {
+    const admin = await como("admin");
+    email.failNext = true;
+    await admin.post("/equipe/convites").send({ email: "falha@teste.local", name: "Falha", acesso: MEMBRO_CRM }).expect(503);
+    const lista = (await admin.get("/equipe").expect(200)).body as ListaDaEquipe;
+    const alvo = membroDe(lista, "Falha");
+    expect(alvo.status).toBe("invited");
+    await admin.post(`/equipe/${alvo.id}/reenviar-convite`).send({}).expect(200);
+    expect([...store.users.values()].filter((u) => u.email === "falha@teste.local")).toHaveLength(1);
   });
 
   it("o desenvolvedor conta como admin: rebaixar o único admin não deixa a plataforma sem admin", async () => {

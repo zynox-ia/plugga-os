@@ -82,4 +82,11 @@ export class EquipeController {
   ): Promise<AuthAcknowledgement> {
     return this.service.reenviarConvite(principal, id);
   }
+
+  @Post(":id/remover")
+  @HttpCode(200)
+  @UseGuards(OriginCheckGuard, SessionAuthGuard, ThrottlerGuard)
+  remover(@Param("id", ParseUUIDPipe) id: string, @CurrentPrincipal() principal: AuthPrincipal): Promise<AuthAcknowledgement> {
+    return this.service.remover(principal, id);
+  }
 }

@@ -2,6 +2,7 @@ import { Body, Controller, Get, HttpCode, Inject, Param, ParseUUIDPipe, Post, Qu
 import { ThrottlerGuard } from "@nestjs/throttler";
 import {
   contractListQuerySchema,
+  telasPorDepartamento,
   createContractRequestSchema,
   createOpportunityRequestSchema,
   loseOpportunityRequestSchema,
@@ -32,7 +33,7 @@ import type { AuthPrincipal } from "../core/auth/auth.types";
 import { CurrentPrincipal } from "../core/auth/current-principal.decorator";
 import { SessionAuthGuard } from "../core/auth/session-auth.guard";
 import { OriginCheckGuard } from "../core/auth/origin-check.guard";
-import { Departamento } from "../core/auth/acesso.decorator";
+import { Departamento, Tela } from "../core/auth/acesso.decorator";
 import { AcessoGuard } from "../core/auth/acesso.guard";
 import { CommercialService } from "./commercial.service";
 
@@ -47,6 +48,7 @@ export class CommercialController {
   constructor(@Inject(CommercialService) private readonly service: CommercialService) {}
 
   @Get("opportunities")
+  @Tela("crm.pipelines", ...telasPorDepartamento.financeiro)
   listOpportunities(
     @Query(new ZodValidationPipe(opportunityListQuerySchema)) query: OpportunityListQuery,
   ): Promise<OpportunityList> {
@@ -54,11 +56,13 @@ export class CommercialController {
   }
 
   @Get("opportunities/:id")
+  @Tela("crm.pipelines", ...telasPorDepartamento.financeiro)
   opportunity(@Param("id", ParseUUIDPipe) id: string): Promise<OpportunityDetail> {
     return this.service.opportunity(id);
   }
 
   @Post("opportunities")
+  @Tela("crm.pipelines")
   @HttpCode(201)
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
   @Departamento("crm")
@@ -70,6 +74,7 @@ export class CommercialController {
   }
 
   @Post("opportunities/:id/stage")
+  @Tela("crm.pipelines")
   @HttpCode(200)
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
   @Departamento("crm")
@@ -82,6 +87,7 @@ export class CommercialController {
   }
 
   @Post("opportunities/:id/contacts")
+  @Tela("crm.pipelines")
   @HttpCode(200)
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
   @Departamento("crm")
@@ -94,6 +100,7 @@ export class CommercialController {
   }
 
   @Post("opportunities/:id/win")
+  @Tela("crm.pipelines")
   @HttpCode(200)
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
   @Departamento("crm")
@@ -106,6 +113,7 @@ export class CommercialController {
   }
 
   @Post("opportunities/:id/lose")
+  @Tela("crm.pipelines")
   @HttpCode(200)
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
   @Departamento("crm")
@@ -118,6 +126,7 @@ export class CommercialController {
   }
 
   @Post("opportunities/:id/revisit")
+  @Tela("crm.pipelines")
   @HttpCode(200)
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
   @Departamento("crm")
@@ -130,6 +139,7 @@ export class CommercialController {
   }
 
   @Get("contracts")
+  @Tela("crm.contratos", ...telasPorDepartamento.financeiro)
   listContracts(
     @Query(new ZodValidationPipe(contractListQuerySchema)) query: ContractListQuery,
   ): Promise<ContractList> {
@@ -137,11 +147,13 @@ export class CommercialController {
   }
 
   @Get("contracts/:id")
+  @Tela("crm.contratos", ...telasPorDepartamento.financeiro)
   contract(@Param("id", ParseUUIDPipe) id: string): Promise<ContractDetail> {
     return this.service.contract(id);
   }
 
   @Post("contracts")
+  @Tela("crm.contratos")
   @HttpCode(201)
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
   @Departamento("crm")
@@ -153,6 +165,7 @@ export class CommercialController {
   }
 
   @Post("contracts/:id/status")
+  @Tela("crm.contratos")
   @HttpCode(200)
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
   @Departamento("crm")

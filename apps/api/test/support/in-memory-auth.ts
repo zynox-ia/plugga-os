@@ -315,8 +315,16 @@ export class InMemoryAuthRepository extends AuthRepository {
   }
 
   async createInvitedMember(data: CreateInvitedMemberData): Promise<AuthUserRecord> {
+    const anterior = this.store.userByEmail(data.email);
+    if (anterior?.status === "removed") {
+      this.store.users.delete(anterior.id);
+      this.store.credentials.delete(anterior.id);
+      for (const [key, token] of this.store.tokens) if (token.userId === anterior.id) this.store.tokens.delete(key);
+      for (const [key, identity] of this.store.identities) if (identity.userId === anterior.id) this.store.identities.delete(key);
+      await this.deleteSessionsForUser(anterior.id);
+    }
     const user: StoredUser = {
-      id: randomUUID(),
+      id: anterior?.id ?? randomUUID(),
       email: data.email,
       name: data.name,
       status: "invited",
@@ -324,6 +332,14 @@ export class InMemoryAuthRepository extends AuthRepository {
       acesso: data.acesso,
     };
     this.store.users.set(user.id, user);
+    return this.toRecord(user);
+  }
+
+  async removeUser(userId: string): Promise<AuthUserRecord | null> {
+    const user = this.store.users.get(userId);
+    if (!user) return null;
+    await this.deactivateUser(userId);
+    user.status = "removed";
     return this.toRecord(user);
   }
 
@@ -339,6 +355,7 @@ export class InMemoryAuthRepository extends AuthRepository {
 
   async listMembers(filter: MemberFilter): Promise<TeamMemberRecord[]> {
     return [...this.store.users.values()]
+      .filter((user) => user.status !== "removed")
       .filter((user) => !filter.status || user.status === filter.status)
       .filter(
         (user) =>

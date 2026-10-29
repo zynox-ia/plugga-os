@@ -1,5 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
+import { createRequire } from "node:module";
 
 import type { Acesso } from "@plugga/shared";
 import { ConfigService } from "@nestjs/config";
@@ -50,11 +51,9 @@ describe.skipIf(!HABILITADO)("acesso por departamento (modelo de 4 papéis)", ()
   beforeAll(async () => {
     await manutencao.$connect();
     await manutencao.$executeRawUnsafe(`CREATE DATABASE "${nomeDoBanco}"`);
-    execFileSync("pnpm", ["exec", "prisma", "migrate", "deploy"], {
+    execFileSync(process.execPath, [createRequire(import.meta.url).resolve("prisma/build/index.js"), "migrate", "deploy"], {
       env: { ...process.env, DATABASE_URL: urlDoBanco },
       stdio: "pipe",
-      // No Windows o pnpm é um .cmd e só abre por shell.
-      shell: process.platform === "win32",
     });
     prisma = new PrismaService({ datasourceUrl: urlDoBanco });
     await prisma.$connect();
@@ -79,6 +78,34 @@ describe.skipIf(!HABILITADO)("acesso por departamento (modelo de 4 papéis)", ()
     await manutencao.$disconnect();
   }, PRAZO_MS);
 
+  it("persiste seleção, omissão preserva e vazio revoga telas", async () => {
+    const criado = await repositorio.createInvitedMember({ email: "telas@teste.local", name: "Telas", acesso: {
+      plataforma: null, departamentos: [{ departamento: "crm", nivel: "membro", telas: ["crm.pipelines"] }],
+    } });
+    expect((await repositorio.findUserById(criado.id))?.acesso.departamentos[0]?.telas).toEqual(["crm.pipelines"]);
+    await repositorio.replaceAcesso(criado.id, { plataforma: null, departamentos: [{ departamento: "crm", nivel: "membro" }] }, ator);
+    expect((await repositorio.findUserById(criado.id))?.acesso.departamentos[0]?.telas).toEqual(["crm.pipelines"]);
+    await repositorio.replaceAcesso(criado.id, { plataforma: null, departamentos: [{ departamento: "crm", nivel: "membro", telas: [] }] }, ator);
+    expect((await repositorio.findUserById(criado.id))?.acesso.departamentos[0]?.telas).toEqual([]);
+  });
+
+  it("remoção conserva a identidade, revoga credenciais e readmissão concede apenas acesso novo", async () => {
+    const antigo = await repositorio.createInvitedMember({ email: "remocao@teste.local", name: "Removido", acesso: {
+      plataforma: null, departamentos: [{ departamento: "crm", nivel: "membro", telas: ["crm.clientes"] }],
+    } });
+    await prisma.user.update({ where: { id: antigo.id }, data: { status: "active", credential: { create: { passwordHash: "hash-sintetico" } } } });
+    await prisma.session.create({ data: { userId: antigo.id, tokenHash: "sessao-sintetica", expiresAt: new Date(Date.now()+60000), absoluteExpiresAt: new Date(Date.now()+120000) } });
+    await repositorio.removeUser(antigo.id, ator);
+    expect((await repositorio.findUserById(antigo.id))?.status).toBe("removed");
+    expect(await prisma.session.count({ where: { userId: antigo.id } })).toBe(0);
+    expect((await repositorio.listMembers({})).some((m) => m.id === antigo.id)).toBe(false);
+    const novo = await repositorio.createInvitedMember({ email: antigo.email, name: "Readmitido", acesso: { plataforma: null, departamentos: [{ departamento: "financeiro", nivel: "membro", telas: [] }] } });
+    expect(novo.id).toBe(antigo.id);
+    expect(novo.status).toBe("invited");
+    expect(novo.acesso.departamentos).toEqual([{ departamento: "financeiro", nivel: "membro", telas: [] }]);
+    expect(await repositorio.findPasswordHash(novo.id)).toBeNull();
+  });
+
   it(
     "a sessão resolve o principal com o acesso novo (departamentos e plataforma)",
     async () => {
@@ -101,8 +128,8 @@ describe.skipIf(!HABILITADO)("acesso por departamento (modelo de 4 papéis)", ()
       expect(gestor?.acesso).toEqual({
         plataforma: null,
         departamentos: expect.arrayContaining([
-          { departamento: "energia-opm", nivel: "gerente" },
-          { departamento: "financeiro", nivel: "membro" },
+          { departamento: "energia-opm", nivel: "gerente", telas: [] },
+          { departamento: "financeiro", nivel: "membro", telas: [] },
         ]),
       });
       expect(gestor?.acesso?.departamentos).toHaveLength(2);
@@ -121,7 +148,7 @@ describe.skipIf(!HABILITADO)("acesso por departamento (modelo de 4 papéis)", ()
         name: "Convite novo",
         acesso: { plataforma: null, departamentos: [{ departamento: "crm", nivel: "gerente" }] },
       });
-      expect(convidado.acesso).toEqual({ plataforma: null, departamentos: [{ departamento: "crm", nivel: "gerente" }] });
+      expect(convidado.acesso).toEqual({ plataforma: null, departamentos: [{ departamento: "crm", nivel: "gerente", telas: [] }] });
 
       // Substituir é gravar do zero: o que a pessoa tinha antes não sobra.
       const gestor = idPorCaso.get("gestor") ?? "";
@@ -130,7 +157,7 @@ describe.skipIf(!HABILITADO)("acesso por departamento (modelo de 4 papéis)", ()
         { plataforma: null, departamentos: [{ departamento: "marketing", nivel: "membro" }] },
         ator,
       );
-      expect(membro?.acesso.departamentos).toEqual([{ departamento: "marketing", nivel: "membro" }]);
+      expect(membro?.acesso.departamentos).toEqual([{ departamento: "marketing", nivel: "membro", telas: [] }]);
 
       // Desenvolvedor leva também a linha admin; voltar a admin tira só o desenvolvedor.
       const dev = await repositorio.replaceAcesso(convidado.id, { plataforma: "desenvolvedor", departamentos: [] }, ator);

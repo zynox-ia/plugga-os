@@ -3,7 +3,7 @@ import { acessoADepartamentoSchema, type Acesso } from "@plugga/shared";
 /** Forma mínima do include do Prisma exigida para montar `Acesso` (modelo de 4 papéis). */
 export interface AcessoSource {
   platformRoles: Array<{ role: { key: string } }>;
-  departamentos: Array<{ departamento: string; nivel: string }>;
+  departamentos: Array<{ departamento: string; nivel: string; telas?: string[] }>;
 }
 
 /**
@@ -26,6 +26,7 @@ export function mapAcesso(user: AcessoSource): Acesso {
       const parsed = acessoADepartamentoSchema.safeParse({
         departamento: linha.departamento,
         nivel: linha.nivel,
+        ...(linha.telas !== undefined ? { telas: linha.telas } : {}),
       });
       return parsed.success ? [parsed.data] : [];
     }),
