@@ -32,18 +32,26 @@ import {
   SelectTrigger,
 } from "../ui/shadcn/select";
 
-const CORES_DE_AVATAR = ["#0066CC", "#0B7A57", "#7C5CFF", "#D97706", "#DC2626", "#0284C7", "#4F46E5"];
+function AvatarResponsavel({ nome, avatarUrl }: { nome: string; avatarUrl?: string | null }) {
+  const [erroImg, setErroImg] = useState(false);
 
-function corDoAvatar(id: string): string {
-  const soma = [...id].reduce((total, letra) => total + letra.charCodeAt(0), 0);
-  return CORES_DE_AVATAR[soma % CORES_DE_AVATAR.length] ?? "#0066CC";
-}
+  if (avatarUrl && !erroImg) {
+    return (
+      <span className="ui-member-avatar" aria-hidden="true">
+        <img
+          src={avatarUrl}
+          alt={nome}
+          onError={() => setErroImg(true)}
+        />
+      </span>
+    );
+  }
 
-function iniciaisDoNome(nome: string): string {
-  const partes = nome.trim().split(/\s+/).filter(Boolean);
-  const primeira = partes[0]?.[0] ?? "?";
-  const ultima = partes.length > 1 ? (partes[partes.length - 1]?.[0] ?? "") : "";
-  return (primeira + ultima).toUpperCase();
+  return (
+    <span className="ui-member-avatar ui-member-avatar--fallback" aria-hidden="true" title={nome}>
+      <IconUser width={15} height={15} />
+    </span>
+  );
 }
 
 function mascaraTelefone(valor: string): string {
@@ -346,13 +354,7 @@ export function NovoNegocio({
               >
                 {responsavelAtual ? (
                   <div className="ui-member-profile">
-                    <span
-                      className="ui-member-avatar"
-                      style={{ background: corDoAvatar(responsavelAtual.userId) }}
-                      aria-hidden="true"
-                    >
-                      {iniciaisDoNome(responsavelAtual.name)}
-                    </span>
+                    <AvatarResponsavel nome={responsavelAtual.name} avatarUrl={(responsavelAtual as { avatarUrl?: string })?.avatarUrl ?? null} />
                     <div className="ui-member-text">
                       <span className="ui-member-name">{responsavelAtual.name}</span>
                       <span className="ui-member-email">{emailDoResponsavel(responsavelAtual)}</span>
@@ -379,13 +381,7 @@ export function NovoNegocio({
                       style={{ minHeight: "46px", padding: "6px 12px" }}
                     >
                       <div className="ui-member-profile">
-                        <span
-                          className="ui-member-avatar"
-                          style={{ background: corDoAvatar(m.userId) }}
-                          aria-hidden="true"
-                        >
-                          {iniciaisDoNome(m.name)}
-                        </span>
+                        <AvatarResponsavel nome={m.name} avatarUrl={(m as { avatarUrl?: string })?.avatarUrl ?? null} />
                         <div className="ui-member-text">
                           <span className="ui-member-name">{m.name}</span>
                           <span className="ui-member-email">{emailDoResponsavel(m)}</span>
