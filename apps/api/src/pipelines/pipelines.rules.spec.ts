@@ -18,32 +18,37 @@ const BRUNO = "00000000-0000-4000-8000-00000000000b";
 const ETAPA_1 = "00000000-0000-4000-8000-000000000001";
 const ETAPA_2 = "00000000-0000-4000-8000-000000000002";
 
-const semAcesso: AcessoComercial = { admin: false, gestorEm: [] };
-const gestorWaze: AcessoComercial = { admin: false, gestorEm: ["waze"] };
-const admin: AcessoComercial = { admin: true, gestorEm: [] };
+const semAcesso: AcessoComercial = { admin: false, podeOperar: false, gestorEm: [] };
+const gestorWaze: AcessoComercial = { admin: false, podeOperar: true, gestorEm: ["waze"] };
+const admin: AcessoComercial = { admin: true, podeOperar: true, gestorEm: [] };
 
 const solar = { companyId: "waze", members: [{ userId: ANA, role: "vendedor" as const }, { userId: BRUNO, role: "gestor" as const }] };
 
 describe("quem alcança um pipeline", () => {
+  it("membro autorizado no CRM vê qualquer funil, sem ganhar configuração", () => {
+    const membro = { admin: false, podeOperar: true, gestorEm: [] };
+    expect(podeVer(membro)).toBe(true);
+    expect(podeConfigurar(membro, "sem-vinculo", solar)).toBe(false);
+  });
   it("o gestor comercial cria e configura só na própria empresa; o admin, em todas", () => {
     expect(podeCriarEm(gestorWaze, "waze")).toBe(true);
     expect(podeCriarEm(gestorWaze, "plugga")).toBe(false);
     expect(podeCriarEm(admin, "plugga")).toBe(true);
     expect(podeConfigurar(gestorWaze, "outra-pessoa", solar)).toBe(true);
-    expect(podeConfigurar({ admin: false, gestorEm: ["plugga"] }, "outra-pessoa", solar)).toBe(false);
+    expect(podeConfigurar({ admin: false, podeOperar: true, gestorEm: ["plugga"] }, "outra-pessoa", solar)).toBe(false);
   });
 
   it("o vendedor da equipe vê, mas não configura", () => {
-    expect(podeVer(semAcesso, ANA, solar)).toBe(true);
+    expect(podeVer({ ...semAcesso, podeOperar: true })).toBe(true);
     expect(podeConfigurar(semAcesso, ANA, solar)).toBe(false);
   });
 
   it("o gestor do pipeline configura aquele pipeline", () => {
-    expect(podeConfigurar(semAcesso, BRUNO, solar)).toBe(true);
+    expect(podeConfigurar({ ...semAcesso, podeOperar: true }, BRUNO, solar)).toBe(true);
   });
 
   it("quem não está na equipe nem gere a empresa não vê o pipeline", () => {
-    expect(podeVer(semAcesso, "outra-pessoa", solar)).toBe(false);
+    expect(podeVer(semAcesso)).toBe(false);
   });
 });
 

@@ -167,9 +167,13 @@ export function pipelineParaEdicao(pipeline: Pipeline): UpdatePipelineRequest {
   };
 }
 
+export const pipelinePersonSchema = z.object({ id: uuid, name: z.string(), email: z.string().email().optional() });
+export type PipelinePerson = z.infer<typeof pipelinePersonSchema>;
+
 /** Pipelines que a pessoa alcança, arquivados inclusive (a tela decide onde mostrá-los). */
 export const listPipelinesResponseSchema = z.object({
   pipelines: z.array(pipelineSchema),
+  responsaveis: z.array(pipelinePersonSchema),
   /** Empresas em que a pessoa pode criar pipeline (gerente do CRM ou admin: as duas). */
   canCreateIn: z.array(companyKeySchema),
 });
@@ -179,5 +183,5 @@ export const pipelinePeopleQuerySchema = z.object({ companyId: companyKeySchema 
 export type PipelinePeopleQuery = z.infer<typeof pipelinePeopleQuerySchema>;
 
 /** Quem pode entrar na equipe de um pipeline: pessoas ativas do CRM. */
-export const pipelinePeopleResponseSchema = z.object({ people: z.array(z.object({ id: uuid, name: z.string() })) });
+export const pipelinePeopleResponseSchema = z.object({ people: z.array(pipelinePersonSchema) });
 export type PipelinePeopleResponse = z.infer<typeof pipelinePeopleResponseSchema>;

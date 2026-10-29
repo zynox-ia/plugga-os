@@ -20,7 +20,7 @@ import { AuditAppender } from "../audit/audit-appender";
 import { AcessoNegado, Conflito, EstadoInvalido, NaoEncontrado, RequisicaoInvalida } from "../common/errors/dominio";
 import type { AuthPrincipal } from "../core/auth/auth.types";
 import { PrismaService } from "../prisma/prisma.service";
-import { lerAcessoComercial } from "./acesso-comercial";
+import { lerAcessoComercial, pessoaElegivelParaPipelines } from "./acesso-comercial";
 import { PipelinesRepository } from "./pipelines.repository";
 import {
   alteracoes,
@@ -91,29 +91,22 @@ export class PrismaPipelinesRepository extends PipelinesRepository {
 
   async list(principal: AuthPrincipal): Promise<ListPipelinesResponse> {
     const acesso = await this.acessoDe(principal.id);
-    const where: Prisma.PipelineWhereInput = acesso.admin
-      ? {}
-      : { OR: [{ companyId: { in: [...acesso.gestorEm] } }, { members: { some: { userId: principal.id } } }] };
-    const linhas = await this.prisma.pipeline.findMany({ where, orderBy: { createdAt: "asc" }, include: COMPLETO });
+    if (!acesso.podeOperar) throw new AcessoNegado("Sem acesso aos pipelines do CRM.");
+    const linhas = await this.prisma.pipeline.findMany({ orderBy: { createdAt: "asc" }, include: COMPLETO });
     return listPipelinesResponseSchema.parse({
       pipelines: linhas.map((linha) => paraPipeline(linha, podeConfigurar(acesso, principal.id, linha))),
+      responsaveis: (await this.people({ companyId: "plugga" }, principal)).people,
       canCreateIn: companyKeys.filter((empresa) => podeCriarEm(acesso, empresa)),
     });
   }
 
-  async people(query: PipelinePeopleQuery, principal: AuthPrincipal): Promise<PipelinePeopleResponse> {
+  async people(_query: PipelinePeopleQuery, principal: AuthPrincipal): Promise<PipelinePeopleResponse> {
     const acesso = await this.acessoDe(principal.id);
-    if (!podeCriarEm(acesso, query.companyId)) {
-      const gestorDeAlgum = await this.prisma.pipelineMember.findFirst({
-        where: { userId: principal.id, role: "gestor", pipeline: { companyId: query.companyId } },
-        select: { userId: true },
-      });
-      if (!gestorDeAlgum) throw new AcessoNegado("Só quem configura pipelines vê a equipe do CRM.");
-    }
+    if (!acesso.podeOperar) throw new AcessoNegado("Sem acesso aos pipelines do CRM.");
     const pessoas = await this.prisma.user.findMany({
-      where: this.elegivelParaEquipe(),
+      where: pessoaElegivelParaPipelines,
       orderBy: { name: "asc" },
-      select: { id: true, name: true },
+      select: { id: true, name: true, email: true },
     });
     return pipelinePeopleResponseSchema.parse({ people: pessoas });
   }
@@ -274,7 +267,7 @@ export class PrismaPipelinesRepository extends PipelinesRepository {
   /** Quem não alcança o pipeline recebe "não encontrado": a existência não vaza. */
   private async lerVisivel(id: string, pessoaId: string, acesso: AcessoComercial): Promise<Pipeline> {
     const linha = await this.prisma.pipeline.findUnique({ where: { id }, include: COMPLETO });
-    if (!linha || !podeVer(acesso, pessoaId, linha)) throw new NaoEncontrado(NAO_ENCONTRADO);
+    if (!linha || !podeVer(acesso)) throw new NaoEncontrado(NAO_ENCONTRADO);
     return paraPipeline(linha, podeConfigurar(acesso, pessoaId, linha));
   }
 
@@ -284,15 +277,10 @@ export class PrismaPipelinesRepository extends PipelinesRepository {
     return paraPipeline(linha, podeConfigurar(acesso, pessoaId, linha));
   }
 
-  /** Entra na equipe de um pipeline quem é do CRM; a empresa é etiqueta do pipeline, não fronteira de acesso. */
-  private elegivelParaEquipe(): Prisma.UserWhereInput {
-    return { status: "active", departamentos: { some: { departamento: "crm" } } };
-  }
-
   private async garantirEquipe(membros: readonly PipelineMemberInput[]): Promise<void> {
     if (membros.length === 0) return;
     const ids = membros.map((m) => m.userId);
-    const elegiveis = await this.prisma.user.findMany({ where: { id: { in: ids }, ...this.elegivelParaEquipe() }, select: { id: true } });
+    const elegiveis = await this.prisma.user.findMany({ where: { id: { in: ids }, ...pessoaElegivelParaPipelines }, select: { id: true } });
     const validos = new Set(elegiveis.map((p) => p.id));
     const detalhes = membros.flatMap((m, i) =>
       validos.has(m.userId) ? [] : [{ campo: `members.${i}.userId`, problema: "não é do CRM ou não está ativo" }],

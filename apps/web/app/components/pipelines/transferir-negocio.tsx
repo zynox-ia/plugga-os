@@ -1,6 +1,6 @@
 "use client";
 
-import type { Deal, Pipeline } from "@plugga/shared";
+import type { Deal, Pipeline, PipelinePerson } from "@plugga/shared";
 import { useState } from "react";
 
 import { enviar } from "../../lib/clientes";
@@ -14,12 +14,14 @@ import { Icone } from "./icones";
  */
 export function TransferirNegocio({
   pipelines,
+  responsaveis,
   origem,
   negocio,
   aoConcluir,
   aoFechar,
 }: {
   pipelines: Pipeline[];
+  responsaveis: PipelinePerson[];
   origem: Pipeline;
   negocio: Deal;
   aoConcluir: (negocio: Deal) => void;
@@ -32,7 +34,7 @@ export function TransferirNegocio({
   const [responsavelId, setResponsavelId] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
-  const responsavelNoDestino = destino?.members.some((m) => m.userId === negocio.owner.id) ?? false;
+  const responsavelNoDestino = responsaveis.some((m) => m.id === negocio.owner.id);
   const trocaEmpresa = destino !== null && destino.companyId !== origem.companyId;
 
   function escolherDestino(id: string) {
@@ -91,20 +93,20 @@ export function TransferirNegocio({
                 ))}
               </select>
             </div>
-            {!responsavelNoDestino && destino?.members.length === 0 ? (
-              <p className="aviso aviso--alerta">{destino.name} ainda não tem equipe. Peça ao gestor para defini-la em Configurar pipelines.</p>
+            {!responsavelNoDestino && responsaveis.length === 0 ? (
+              <p className="aviso aviso--alerta">Nenhuma pessoa ativa com acesso ao CRM está disponível.</p>
             ) : !responsavelNoDestino ? (
               <div className="field">
                 <label htmlFor="transferir-responsavel">Novo responsável *</label>
                 <select id="transferir-responsavel" value={responsavelId} onChange={(e) => setResponsavelId(e.target.value)}>
-                  <option value="">Escolha alguém da equipe do destino</option>
-                  {destino?.members.map((m) => (
-                    <option key={m.userId} value={m.userId}>
+                  <option value="">Escolha alguém com acesso ao CRM</option>
+                  {responsaveis.map((m) => (
+                    <option key={m.id} value={m.id}>
                       {m.name}
                     </option>
                   ))}
                 </select>
-                <span className="dica">{negocio.owner.name} não está na equipe de {destino?.name}.</span>
+                <span className="dica">{negocio.owner.name} não está ativo ou não tem mais acesso ao CRM.</span>
               </div>
             ) : null}
             {trocaEmpresa && destino ? (

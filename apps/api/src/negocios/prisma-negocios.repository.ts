@@ -19,7 +19,7 @@ import {
 import { AuditAppender } from "../audit/audit-appender";
 import { EstadoInvalido, NaoEncontrado, RequisicaoInvalida } from "../common/errors/dominio";
 import type { AuthPrincipal } from "../core/auth/auth.types";
-import { lerAcessoComercial } from "../pipelines/acesso-comercial";
+import { lerAcessoComercial, pessoaElegivelParaPipelines } from "../pipelines/acesso-comercial";
 import { podeVer } from "../pipelines/pipelines.rules";
 import { PrismaService } from "../prisma/prisma.service";
 import { NegociosRepository } from "./negocios.repository";
@@ -111,7 +111,6 @@ export class PrismaNegociosRepository extends NegociosRepository {
     if (pipeline.archivedAt) throw new EstadoInvalido("Pipeline arquivado não recebe negócios novos.");
     const etapa = pipeline.stages.find((e) => e.id === input.stageId);
     if (!etapa) throw invalido("Escolha uma etapa deste pipeline.", "stageId", "etapa de outro pipeline");
-    this.garantirResponsavel(pipeline, input.ownerId);
     if (foraDe(input.tagIds, pipeline.tags.map((t) => t.id)).length > 0) {
       throw invalido("Use só etiquetas deste pipeline.", "tagIds", "etiqueta de outro pipeline");
     }
@@ -130,6 +129,7 @@ export class PrismaNegociosRepository extends NegociosRepository {
     }
 
     const id = await this.prisma.$transaction(async (tx) => {
+      await this.garantirResponsavel(tx, input.ownerId);
       const criado = await tx.deal.create({
         data: {
           pipelineId: pipeline.id,
@@ -211,14 +211,12 @@ export class PrismaNegociosRepository extends NegociosRepository {
     const etapa = destino.stages.find((e) => e.id === input.stageId);
     if (!etapa) throw invalido("Escolha uma etapa do pipeline de destino.", "stageId", "etapa de outro pipeline");
     const responsavel = input.ownerId ?? negocio.ownerId;
-    if (!destino.members.some((m) => m.userId === responsavel)) {
-      throw invalido("O responsável atual não está na equipe do pipeline de destino. Escolha outro.", "ownerId", "fora da equipe do destino");
-    }
     const etapaDeOrigem = origem.stages.find((e) => e.id === negocio.stageId);
 
     await this.prisma.$transaction(async (tx) => {
       // Etiquetas são do pipeline: não acompanham o negócio.
       await tx.dealTag.deleteMany({ where: { dealId: id } });
+      await this.garantirResponsavel(tx, responsavel);
       await tx.deal.update({ where: { id }, data: { pipelineId: destino.id, stageId: etapa.id, ownerId: responsavel, stageEnteredAt: new Date() } });
       await tx.dealHistory.create({
         data: {
@@ -253,7 +251,7 @@ export class PrismaNegociosRepository extends NegociosRepository {
 
     await this.prisma.$transaction(async (tx) => {
       if (action.type === "owner") {
-        this.garantirResponsavel(pipeline, action.ownerId);
+        await this.garantirResponsavel(tx, action.ownerId);
         await tx.deal.updateMany({ where: { id: { in: input.dealIds } }, data: { ownerId: action.ownerId } });
       } else if (action.type === "tag") {
         if (!pipeline.tags.some((t) => t.id === action.tagId)) throw invalido("Use só etiquetas deste pipeline.", "tagId", "etiqueta de outro pipeline");
@@ -290,7 +288,7 @@ export class PrismaNegociosRepository extends NegociosRepository {
       this.prisma.pipeline.findUnique({ where: { id }, include: DO_PIPELINE }),
       lerAcessoComercial(this.prisma, principal.id),
     ]);
-    if (!pipeline || !podeVer(acesso, principal.id, pipeline)) throw new NaoEncontrado(PIPELINE_NAO_ENCONTRADO);
+    if (!pipeline || !podeVer(acesso)) throw new NaoEncontrado(PIPELINE_NAO_ENCONTRADO);
     return pipeline;
   }
 
@@ -304,10 +302,9 @@ export class PrismaNegociosRepository extends NegociosRepository {
     return { negocio, pipeline };
   }
 
-  private garantirResponsavel(pipeline: PipelineDoNegocio, ownerId: string): void {
-    if (!pipeline.members.some((m) => m.userId === ownerId)) {
-      throw invalido("O responsável precisa estar na equipe do pipeline.", "ownerId", "fora da equipe do pipeline");
-    }
+  private async garantirResponsavel(tx: Prisma.TransactionClient, ownerId: string): Promise<void> {
+    const pessoa = await tx.user.findFirst({ where: { id: ownerId, ...pessoaElegivelParaPipelines }, select: { id: true } });
+    if (!pessoa) throw invalido("Escolha uma pessoa ativa com acesso aos pipelines do CRM.", "ownerId", "pessoa inativa ou sem acesso ao CRM/Pipelines");
   }
 
   private async ler(id: string): Promise<Deal> {

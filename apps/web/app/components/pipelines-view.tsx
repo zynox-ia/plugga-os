@@ -1,6 +1,6 @@
 "use client";
 
-import type { BulkDealsAction, ClientOwner, CompanyKey, Deal, ListDealsResponse, Pipeline } from "@plugga/shared";
+import type { BulkDealsAction, PipelinePerson, CompanyKey, Deal, ListDealsResponse, Pipeline } from "@plugga/shared";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -31,14 +31,14 @@ export function PipelinesView({
   selecionadoId,
   visao,
   negocios: doServidor,
-  responsaveisDeCliente,
+  responsaveis,
 }: {
   pipelines: Pipeline[];
   canCreateIn: CompanyKey[];
   selecionadoId: string | null;
   visao: Visao;
   negocios: Deal[];
-  responsaveisDeCliente: ClientOwner[];
+  responsaveis: PipelinePerson[];
 }) {
   const router = useRouter();
   const { usuario } = useSessionUser();
@@ -152,6 +152,7 @@ export function PipelinesView({
           <QuadroDoPipeline
             key={selecionado.id}
             pipeline={selecionado}
+            responsaveis={responsaveis}
             negocios={negocios}
             busca={busca}
             visao={visao}
@@ -168,7 +169,7 @@ export function PipelinesView({
           <p>
             {podeConfigurar
               ? "Organize seu processo de venda: escolha a empresa, as etapas e quem trabalha nele."
-              : "Você ainda não está na equipe de nenhum pipeline. Peça ao gerente do CRM para incluir você."}
+              : "Ainda não há pipelines ativos. Peça ao gerente do CRM para configurar um."}
           </p>
           {canCreateIn.length > 0 ? (
             <Button variant="primary" icon={<IconPlus />} onClick={() => setConfigurando("novo")}>
@@ -201,7 +202,7 @@ export function PipelinesView({
           pipelineInicial={selecionado}
           etapaInicialId={criando.etapaId ?? null}
           usuarioId={usuario?.id ?? null}
-          responsaveisDeCliente={responsaveisDeCliente}
+          responsaveis={responsaveis}
           aoCriar={(negocio) => {
             setCriando(null);
             if (negocio.pipelineId === selecionado.id) confirmado([negocio]);
@@ -218,7 +219,7 @@ export function PipelinesView({
         <PerdaDoNegocio pipeline={selecionado} negocio={encerrando.negocio} aoConcluir={concluir} aoFechar={() => setEncerrando(null)} />
       ) : null}
       {encerrando?.tipo === "transferencia" && selecionado ? (
-        <TransferirNegocio pipelines={ativos} origem={selecionado} negocio={encerrando.negocio} aoConcluir={concluir} aoFechar={() => setEncerrando(null)} />
+        <TransferirNegocio responsaveis={responsaveis} pipelines={ativos} origem={selecionado} negocio={encerrando.negocio} aoConcluir={concluir} aoFechar={() => setEncerrando(null)} />
       ) : null}
     </div>
   );

@@ -61,7 +61,7 @@ describe.skipIf(!HABILITADO)("pipelines: configuração no Postgres", () => {
         email: `${marca}-${chave.toLowerCase()}@teste.local`,
         name: `${marca} ${chave}`,
         departamentos: {
-          create: nivel === null ? { departamento: "financeiro", nivel: "membro" } : { departamento: "crm", nivel },
+          create: nivel === null ? { departamento: "financeiro", nivel: "membro" } : { departamento: "crm", nivel, telas: ["crm.pipelines"] },
         },
       },
     });
@@ -89,7 +89,7 @@ describe.skipIf(!HABILITADO)("pipelines: configuração no Postgres", () => {
   }, PRAZO_MS);
 
   it(
-    "o gestor comercial da Waze cria o Solar com cinco etapas, e só a equipe e a gestão o veem",
+    "o gestor comercial da Waze cria o Solar com cinco etapas, e todos com acesso ao CRM o veem",
     async () => {
       const solar = await criar(configuracao(), pessoas.gestorWaze);
 
@@ -98,8 +98,8 @@ describe.skipIf(!HABILITADO)("pipelines: configuração no Postgres", () => {
       expect(solar.updatedBy?.id).toBe(pessoas.gestorWaze.id);
       expect(await nomesVistos(pessoas.vendedora)).toContain(solar.name);
       expect(await nomesVistos(pessoas.gestorWaze)).toContain(solar.name);
-      expect(await nomesVistos(pessoas.forasteiro)).not.toContain(solar.name);
-      expect(await nomesVistos(pessoas.vendedorPlugga)).not.toContain(solar.name);
+      expect(await nomesVistos(pessoas.forasteiro)).toContain(solar.name);
+      expect(await nomesVistos(pessoas.vendedorPlugga)).toContain(solar.name);
 
       const vistoPelaVendedora = (await repositorio.list(pessoas.vendedora)).pipelines.find((p) => p.id === solar.id);
       expect(vistoPelaVendedora?.canConfigure).toBe(false);
@@ -118,7 +118,7 @@ describe.skipIf(!HABILITADO)("pipelines: configuração no Postgres", () => {
       const solar = await criar(configuracao({ name: `${marca} Bloqueado` }), pessoas.gestorWaze);
       const doVendedor = (await repositorio.list(pessoas.vendedora)).pipelines.find((p) => p.id === solar.id)!;
       await expect(salvar(doVendedor, { name: `${marca} Renomeado` }, pessoas.vendedora)).rejects.toBeInstanceOf(AcessoNegado);
-      await expect(salvar(solar, { name: `${marca} Renomeado` }, pessoas.forasteiro)).rejects.toBeInstanceOf(NaoEncontrado);
+      await expect(salvar(solar, { name: `${marca} Renomeado` }, pessoas.semCrm)).rejects.toBeInstanceOf(NaoEncontrado);
       await expect(repositorio.archive(solar.id, pessoas.vendedora)).rejects.toBeInstanceOf(AcessoNegado);
     },
     PRAZO_MS,
@@ -134,7 +134,7 @@ describe.skipIf(!HABILITADO)("pipelines: configuração no Postgres", () => {
       const ids = people.map((p) => p.id);
       expect(ids).toEqual(expect.arrayContaining([pessoas.vendedora.id, pessoas.forasteiro.id, pessoas.gestorWaze.id]));
       expect(ids).not.toContain(pessoas.semCrm.id);
-      await expect(repositorio.people({ companyId: "waze" }, pessoas.vendedora)).rejects.toBeInstanceOf(AcessoNegado);
+      expect((await repositorio.people({ companyId: "waze" }, pessoas.vendedora)).people.map((p) => p.id)).toEqual(ids);
     },
     PRAZO_MS,
   );
@@ -207,7 +207,7 @@ describe.skipIf(!HABILITADO)("pipelines: configuração no Postgres", () => {
       expect(lido.stages.map((e) => e.position)).toEqual([0, 1]);
       expect(lido.tags).toHaveLength(2);
       expect(lido.members).toHaveLength(1);
-      expect(await nomesVistos(pessoas.vendedora)).not.toContain(lido.name);
+      expect(await nomesVistos(pessoas.vendedora)).toContain(lido.name);
       expect(await nomesVistos(pessoas.forasteiro)).toContain(lido.name);
     },
     PRAZO_MS,

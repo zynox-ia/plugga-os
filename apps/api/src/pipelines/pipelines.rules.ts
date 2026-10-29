@@ -6,20 +6,20 @@ import type { CompanyKey, Pipeline, PipelineMemberRole, UpdatePipelineRequest } 
  *   (o gerente do CRM gere o CRM das duas empresas, por isso `gestorEm` lista
  *   as duas);
  * - o gestor de um pipeline (equipe, papel `gestor`) configura aquele pipeline;
- * - o vendedor (equipe, papel `vendedor`) só vê o pipeline.
+ * - qualquer pessoa ativa com acesso a CRM/Pipelines vê todos os funis;
+ *   a equipe específica continua servindo para delegar a configuração.
  */
-export type AcessoComercial = { admin: boolean; gestorEm: readonly CompanyKey[] };
+export type AcessoComercial = { admin: boolean; gestorEm: readonly CompanyKey[]; podeOperar: boolean };
 
 type ComEquipe = { companyId: string; members: readonly { userId: string; role: PipelineMemberRole }[] };
 
 export const podeCriarEm = (acesso: AcessoComercial, empresa: string): boolean =>
-  acesso.admin || (acesso.gestorEm as readonly string[]).includes(empresa);
+  acesso.podeOperar && (acesso.admin || (acesso.gestorEm as readonly string[]).includes(empresa));
 
-export const podeVer = (acesso: AcessoComercial, pessoaId: string, pipeline: ComEquipe): boolean =>
-  podeCriarEm(acesso, pipeline.companyId) || pipeline.members.some((m) => m.userId === pessoaId);
+export const podeVer = (acesso: AcessoComercial): boolean => acesso.podeOperar;
 
 export const podeConfigurar = (acesso: AcessoComercial, pessoaId: string, pipeline: ComEquipe): boolean =>
-  podeCriarEm(acesso, pipeline.companyId) || pipeline.members.some((m) => m.userId === pessoaId && m.role === "gestor");
+  acesso.podeOperar && (podeCriarEm(acesso, pipeline.companyId) || pipeline.members.some((m) => m.userId === pessoaId && m.role === "gestor"));
 
 /** Ids enviados que não pertencem ao pipeline: sinal de tela desatualizada ou de requisição forjada. */
 export function idsDesconhecidos(existentes: readonly string[], itens: readonly { id?: string }[]): string[] {

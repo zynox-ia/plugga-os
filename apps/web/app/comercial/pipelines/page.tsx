@@ -1,10 +1,10 @@
 import { EstadoDaApi } from "../../components/estado-da-api";
 import { PipelinesView } from "../../components/pipelines-view";
-import { fetchClientOwners, fetchDeals, fetchPipelines } from "../../lib/api";
+import { fetchDeals, fetchPipelines } from "../../lib/api";
 
 export default async function PipelinesPage({ searchParams }: { searchParams: Promise<{ pipeline?: string; visao?: string }> }) {
   const { pipeline, visao } = await searchParams;
-  const [resultado, responsaveis] = await Promise.all([fetchPipelines(), fetchClientOwners()]);
+  const resultado = await fetchPipelines();
   if (!resultado.ok) return <EstadoDaApi erro={resultado.erro} eyebrow="Pipelines" />;
 
   const ativos = resultado.dados.pipelines.filter((p) => p.archivedAt === null);
@@ -19,7 +19,7 @@ export default async function PipelinesPage({ searchParams }: { searchParams: Pr
       selecionadoId={selecionado?.id ?? null}
       visao={visao === "lista" ? "lista" : "kanban"}
       negocios={negocios?.ok ? negocios.dados.deals : []}
-      responsaveisDeCliente={responsaveis.ok ? responsaveis.dados.items : []}
+      responsaveis={resultado.dados.responsaveis}
     />
   );
 }

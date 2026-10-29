@@ -1,6 +1,6 @@
 "use client";
 
-import type { BulkDealsAction, Deal, Pipeline } from "@plugga/shared";
+import type { BulkDealsAction, Deal, Pipeline, PipelinePerson } from "@plugga/shared";
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent, type RefObject } from "react";
 
 import { aplicarFiltros, FILTROS_INICIAIS, hojeNoFuso, type Visao } from "../../lib/negocios";
@@ -138,6 +138,7 @@ function BarraRolagemMinimalista({ containerRef }: { containerRef: RefObject<HTM
 
 /** As duas visões compartilham os dados e ações do mesmo pipeline. */
 export function QuadroDoPipeline({
+  responsaveis,
   pipeline,
   negocios,
   busca,
@@ -145,6 +146,7 @@ export function QuadroDoPipeline({
   acoes,
 }: {
   pipeline: Pipeline;
+  responsaveis: PipelinePerson[];
   negocios: Deal[];
   busca: string;
   visao: Visao;
@@ -174,7 +176,7 @@ export function QuadroDoPipeline({
             colunasRef={colunasRef}
           />
         ) : null}
-        {visao === "lista" ? <ListaDeNegocios pipeline={pipeline} negocios={visiveis} acoes={acoes} /> : null}
+        {visao === "lista" ? <ListaDeNegocios responsaveis={responsaveis} pipeline={pipeline} negocios={visiveis} acoes={acoes} /> : null}
       </section>
     </div>
   );

@@ -1,6 +1,6 @@
 "use client";
 
-import type { BulkDealsAction, Deal, Pipeline } from "@plugga/shared";
+import type { BulkDealsAction, Deal, Pipeline, PipelinePerson } from "@plugga/shared";
 import { ArrowDown, ArrowUp, ArrowUpDown, Calendar, CheckSquare, Clock, Filter } from "lucide-react";
 import { useState, type CSSProperties } from "react";
 
@@ -24,7 +24,7 @@ const COLUNAS: { campo: Ordem["campo"] | null; rotulo: string }[] = [
 type Lote = { tipo: "owner" | "tag" | "stage"; valor: string };
 
 /** Os mesmos negócios do Kanban, em tabela: ordenação, seleção e ações em lote. */
-export function ListaDeNegocios({ pipeline, negocios, acoes }: { pipeline: Pipeline; negocios: Deal[]; acoes: AcoesDoNegocio }) {
+export function ListaDeNegocios({ pipeline, negocios, acoes, responsaveis }: { responsaveis: PipelinePerson[]; pipeline: Pipeline; negocios: Deal[]; acoes: AcoesDoNegocio }) {
   const [ordem, setOrdem] = useState<Ordem>({ campo: "etapa", direcao: "asc" });
   const [selecionados, setSelecionados] = useState<Set<string>>(new Set());
   const [lote, setLote] = useState<Lote>({ tipo: "owner", valor: "" });
@@ -45,7 +45,7 @@ export function ListaDeNegocios({ pipeline, negocios, acoes }: { pipeline: Pipel
 
   const opcoesDoLote =
     lote.tipo === "owner"
-      ? pipeline.members.map((m) => ({ id: m.userId, nome: m.name }))
+      ? responsaveis.map((m) => ({ id: m.id, nome: m.name }))
       : lote.tipo === "tag"
         ? pipeline.tags.map((t) => ({ id: t.id, nome: t.name }))
         : pipeline.stages.map((e) => ({ id: e.id, nome: e.name }));
