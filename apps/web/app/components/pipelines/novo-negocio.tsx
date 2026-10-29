@@ -320,7 +320,7 @@ export function NovoNegocio({
           <div className="ui-dialog-section-header">
             <Heading as="h3" icon={<IconUser />}>Dados do Lead</Heading>
             <p className="ui-dialog-section-desc">
-              Informações de identificação e contato direto do lead.
+              Informações de identificação, contato e responsável da equipe.
             </p>
           </div>
 
@@ -380,48 +380,8 @@ export function NovoNegocio({
               onChange={(ev) => setDocumentoLead(mascaraDocumento(ev.target.value, tipoPessoa))}
             />
           </div>
-        </section>
 
-        {/* Seção 3: Dados da Oportunidade */}
-        <section className="ui-dialog-section">
-          <div className="ui-dialog-section-header">
-            <Heading as="h3" icon={<IconBriefcase />}>Dados da Oportunidade</Heading>
-            <p className="ui-dialog-section-desc">
-              Identificação, valores estimados, prazo e vendedor responsável.
-            </p>
-          </div>
-          <TextField
-            id="negocio-titulo"
-            label="Título *"
-            value={titulo}
-            maxLength={120}
-            placeholder="Ex.: Mariana Costa — usina 120 kWp"
-            error={e.title}
-            onChange={(ev) => {
-              setTitulo(ev.target.value);
-              setTituloEditadoManualmente(true);
-            }}
-          />
-          <div className="ui-dialog-grid">
-            <TextField
-              id="negocio-valor"
-              label={pipeline.valueLabel}
-              prefix="R$"
-              inputMode="numeric"
-              placeholder="0,00"
-              value={valor}
-              error={e.value}
-              hint={!e.value ? "O nome deste campo vem do pipeline." : undefined}
-              onChange={(ev) => setValor(mascaraMoedaBRL(ev.target.value))}
-            />
-            <DatePicker
-              label="Previsão de fechamento"
-              value={previsao}
-              onChange={setPrevisao}
-            />
-          </div>
-
-          {/* Seletor visual de Responsável oficial do Design System com Avatar, Nome e E-mail */}
+          {/* Responsável da equipe posicionado junto aos dados do lead, antes da oportunidade */}
           <div className="ui-field inteira">
             <label id="negocio-responsavel-label" htmlFor="negocio-responsavel">
               Responsável da equipe *
@@ -493,6 +453,46 @@ export function NovoNegocio({
               </SelectContent>
             </Select>
             {e.ownerId ? <p className="ui-field-error">Erro: {e.ownerId}</p> : null}
+          </div>
+        </section>
+
+        {/* Seção 3: Dados da Oportunidade */}
+        <section className="ui-dialog-section">
+          <div className="ui-dialog-section-header">
+            <Heading as="h3" icon={<IconBriefcase />}>Dados da Oportunidade</Heading>
+            <p className="ui-dialog-section-desc">
+              Identificação, valores estimados e prazo de negociação.
+            </p>
+          </div>
+          <TextField
+            id="negocio-titulo"
+            label="Título *"
+            value={titulo}
+            maxLength={120}
+            placeholder="Ex.: Mariana Costa — usina 120 kWp"
+            error={e.title}
+            onChange={(ev) => {
+              setTitulo(ev.target.value);
+              setTituloEditadoManualmente(true);
+            }}
+          />
+          <div className="ui-dialog-grid">
+            <TextField
+              id="negocio-valor"
+              label={pipeline.valueLabel}
+              prefix="R$"
+              inputMode="numeric"
+              placeholder="0,00"
+              value={valor}
+              error={e.value}
+              hint={!e.value ? "O nome deste campo vem do pipeline." : undefined}
+              onChange={(ev) => setValor(mascaraMoedaBRL(ev.target.value))}
+            />
+            <DatePicker
+              label="Previsão de fechamento"
+              value={previsao}
+              onChange={setPrevisao}
+            />
           </div>
 
           {pipeline.tags.length > 0 ? (
