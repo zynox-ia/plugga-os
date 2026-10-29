@@ -4,24 +4,20 @@ import {
   cnpjValido,
   cpfValido,
   somenteDigitos,
-  type ClientOwner,
+  type PipelinePerson,
   type CreateClientResponse,
   type Deal,
   type Pipeline,
 } from "@plugga/shared";
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useRef, useState } from "react";
 
 import { enviar, type ErroDoFormulario } from "../../lib/clientes";
-import { valorDigitadoParaDecimal } from "../../lib/negocios";
 import { EMPRESAS_POR_ID } from "../../lib/organizacao";
 import {
   Alert,
   Button,
-  DatePicker,
   Dialog,
   Heading,
-  IconBriefcase,
-  IconCheck,
   IconLayers,
   IconPlus,
   IconUser,
@@ -76,17 +72,6 @@ function mascaraDocumento(valor: string, tipo: "pf" | "pj"): string {
   return `${s.slice(0, 2)}.${s.slice(2, 5)}.${s.slice(5, 8)}/${s.slice(8, 12)}-${s.slice(12)}`;
 }
 
-/** Formata em tempo real no padrão de moeda brasileira enquanto a pessoa digita. */
-function mascaraMoedaBRL(valor: string): string {
-  const digitos = valor.replace(/\D/g, "");
-  if (!digitos) return "";
-  const centavos = Number(digitos) / 100;
-  return centavos.toLocaleString("pt-BR", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-}
-
 /**
  * Modal de Novo Lead no CRM: direciona o funil e etapa e cadastra os dados do lead.
  */
@@ -95,6 +80,7 @@ export function NovoNegocio({
   pipelineInicial,
   etapaInicialId,
   usuarioId,
+  responsaveis,
   aoCriar,
   aoFechar,
 }: {
@@ -102,14 +88,14 @@ export function NovoNegocio({
   pipelineInicial: Pipeline;
   etapaInicialId: string | null;
   usuarioId: string | null;
-  responsaveisDeCliente: ClientOwner[];
+  responsaveis: PipelinePerson[];
   aoCriar: (negocio: Deal) => void;
   aoFechar: () => void;
 }) {
   const [pipelineId, setPipelineId] = useState(pipelineInicial.id);
   const pipeline = pipelines.find((p) => p.id === pipelineId) ?? pipelineInicial;
-  const responsavelPadrao = (p: Pipeline) =>
-    usuarioId && p.members.some((m) => m.userId === usuarioId) ? usuarioId : (p.members[0]?.userId ?? "");
+  const equipe = responsaveis.map((pessoa) => ({ ...pessoa, userId: pessoa.id }));
+  const responsavelPadrao = () => usuarioId && equipe.some((m) => m.userId === usuarioId) ? usuarioId : (equipe[0]?.userId ?? "");
   const [etapaId, setEtapaId] = useState(etapaInicialId ?? pipelineInicial.stages[0]?.id ?? "");
 
   // Dados do lead
@@ -118,62 +104,22 @@ export function NovoNegocio({
   const [emailLead, setEmailLead] = useState("");
   const [tipoPessoa, setTipoPessoa] = useState<"pf" | "pj">("pj");
   const [documentoLead, setDocumentoLead] = useState("");
-
-  // Dados da oportunidade / negócio
-  const [titulo, setTitulo] = useState("");
-  const [tituloEditadoManualmente, setTituloEditadoManualmente] = useState(false);
-  const [valor, setValor] = useState("");
-  const [previsao, setPrevisao] = useState("");
-  const [responsavelId, setResponsavelId] = useState(responsavelPadrao(pipelineInicial));
-  const [etiquetas, setEtiquetas] = useState<string[]>([]);
+  const [responsavelId, setResponsavelId] = useState(responsavelPadrao());
 
   const responsavelTriggerRef = useRef<HTMLButtonElement>(null);
   const [containerResponsavel, setContainerResponsavel] = useState<HTMLElement | null>(null);
-  const [emailsPorId, setEmailsPorId] = useState<Record<string, string>>({});
 
   const [erro, setErro] = useState<ErroDoFormulario | null>(null);
   const [enviando, setEnviando] = useState(false);
-
-  // Busca e-mails da equipe para enriquecer o seletor visual caso necessário
-  useEffect(() => {
-    let vivo = true;
-    fetch("/api/equipe")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((dados) => {
-        if (!vivo || !dados?.membros) return;
-        const mapa: Record<string, string> = {};
-        for (const m of dados.membros as { id: string; email: string }[]) {
-          mapa[m.id] = m.email;
-        }
-        setEmailsPorId(mapa);
-      })
-      .catch(() => undefined);
-    return () => {
-      vivo = false;
-    };
-  }, []);
-
-  // Sincroniza o título da oportunidade com o nome do lead até edição manual
-  function handleNomeLeadChange(novoNome: string) {
-    setNomeLead(novoNome);
-    if (!tituloEditadoManualmente) {
-      setTitulo(novoNome);
-    }
-  }
 
   function trocarPipeline(id: string) {
     const proximo = pipelines.find((p) => p.id === id);
     if (!proximo) return;
     setPipelineId(id);
     setEtapaId(proximo.stages[0]?.id ?? "");
-    setResponsavelId(responsavelPadrao(proximo));
-    setEtiquetas([]);
   }
 
-  const alternar = (lista: string[], id: string) => (lista.includes(id) ? lista.filter((x) => x !== id) : [...lista, id]);
-
   async function criar() {
-    const decimal = valorDigitadoParaDecimal(valor);
     const porCampo: Record<string, string> = {};
 
     if (!nomeLead.trim()) porCampo.nomeLead = "Informe o nome do lead.";
@@ -191,9 +137,7 @@ export function NovoNegocio({
       }
     }
 
-    if (!titulo.trim()) porCampo.title = "Informe o título da oportunidade.";
     if (!responsavelId) porCampo.ownerId = "Escolha o responsável.";
-    if (decimal === undefined) porCampo.value = "Use só números, como 480.000,00.";
 
     if (Object.keys(porCampo).length > 0) {
       return setErro({ mensagem: "Confira os campos destacados.", porCampo });
@@ -224,17 +168,17 @@ export function NovoNegocio({
       return setErro({ mensagem: msg, porCampo: { ...erroCli.porCampo, ...camposComErro } });
     }
 
-    // 2. Cria o negócio no pipeline e etapa selecionados
+    // 2. Cria o negócio no pipeline e etapa selecionados, usando o nome do lead como título
     const respostaNegocio = await enviar<Deal>("/api/negocios", "POST", {
       pipelineId,
       stageId: etapaId,
       clientId: respostaCliente.dados.client.id,
       contactId: null,
-      title: titulo.trim(),
-      value: decimal,
-      expectedCloseDate: previsao,
+      title: nomeLead.trim(),
+      value: null,
+      expectedCloseDate: null,
       ownerId: responsavelId,
-      tagIds: etiquetas,
+      tagIds: [],
       consumerUnitIds: [],
     });
 
@@ -247,9 +191,9 @@ export function NovoNegocio({
   }
 
   const e = erro?.porCampo ?? {};
-  const responsavelAtual = pipeline.members.find((m) => m.userId === responsavelId);
-  const emailDoResponsavel = (m: (typeof pipeline.members)[number]) =>
-    m.email || emailsPorId[m.userId] || "Equipe comercial";
+  const responsavelAtual = equipe.find((m) => m.userId === responsavelId);
+  const emailDoResponsavel = (m: (typeof equipe)[number]) =>
+    m.email || "Equipe comercial";
 
   return (
     <Dialog
@@ -331,7 +275,7 @@ export function NovoNegocio({
             maxLength={150}
             placeholder="Ex.: Mariana Costa ou Solar Distribuidora"
             error={e.nomeLead}
-            onChange={(ev) => handleNomeLeadChange(ev.target.value)}
+            onChange={(ev) => setNomeLead(ev.target.value)}
           />
 
           <div className="ui-dialog-grid">
@@ -381,7 +325,7 @@ export function NovoNegocio({
             />
           </div>
 
-          {/* Responsável da equipe posicionado junto aos dados do lead, antes da oportunidade */}
+          {/* Responsável da equipe */}
           <div className="ui-field inteira">
             <label id="negocio-responsavel-label" htmlFor="negocio-responsavel">
               Responsável da equipe *
@@ -422,12 +366,12 @@ export function NovoNegocio({
                 container={containerResponsavel}
                 style={{ width: "var(--radix-select-trigger-width)", maxHeight: "260px" }}
               >
-                {pipeline.members.length === 0 ? (
+                {equipe.length === 0 ? (
                   <div style={{ padding: "12px", textAlign: "center", color: "var(--ui-muted)", fontSize: "12px" }}>
-                    Pipeline sem equipe definida
+                    Nenhuma pessoa ativa com acesso ao CRM
                   </div>
                 ) : (
-                  pipeline.members.map((m) => (
+                  equipe.map((m) => (
                     <SelectItem
                       key={m.userId}
                       value={m.userId}
@@ -454,68 +398,6 @@ export function NovoNegocio({
             </Select>
             {e.ownerId ? <p className="ui-field-error">Erro: {e.ownerId}</p> : null}
           </div>
-        </section>
-
-        {/* Seção 3: Dados da Oportunidade */}
-        <section className="ui-dialog-section">
-          <div className="ui-dialog-section-header">
-            <Heading as="h3" icon={<IconBriefcase />}>Dados da Oportunidade</Heading>
-            <p className="ui-dialog-section-desc">
-              Identificação, valores estimados e prazo de negociação.
-            </p>
-          </div>
-          <TextField
-            id="negocio-titulo"
-            label="Título *"
-            value={titulo}
-            maxLength={120}
-            placeholder="Ex.: Mariana Costa — usina 120 kWp"
-            error={e.title}
-            onChange={(ev) => {
-              setTitulo(ev.target.value);
-              setTituloEditadoManualmente(true);
-            }}
-          />
-          <div className="ui-dialog-grid">
-            <TextField
-              id="negocio-valor"
-              label={pipeline.valueLabel}
-              prefix="R$"
-              inputMode="numeric"
-              placeholder="0,00"
-              value={valor}
-              error={e.value}
-              hint={!e.value ? "O nome deste campo vem do pipeline." : undefined}
-              onChange={(ev) => setValor(mascaraMoedaBRL(ev.target.value))}
-            />
-            <DatePicker
-              label="Previsão de fechamento"
-              value={previsao}
-              onChange={setPrevisao}
-            />
-          </div>
-
-          {pipeline.tags.length > 0 ? (
-            <div className="ui-field inteira">
-              <label>Etiquetas</label>
-              <div className="ui-dialog-tags">
-                {pipeline.tags.map((t) => (
-                  <button
-                    key={t.id}
-                    type="button"
-                    className={`ui-dialog-tag ${etiquetas.includes(t.id) ? "ui-dialog-tag--active" : ""}`}
-                    aria-pressed={etiquetas.includes(t.id)}
-                    style={{ "--cor": t.color } as CSSProperties}
-                    onClick={() => setEtiquetas((atual) => alternar(atual, t.id))}
-                  >
-                    <span className="ui-dialog-tag-dot" style={{ backgroundColor: t.color }} />
-                    <span>{t.name}</span>
-                    {etiquetas.includes(t.id) ? <IconCheck width={12} height={12} /> : null}
-                  </button>
-                ))}
-              </div>
-            </div>
-          ) : null}
         </section>
       </div>
     </Dialog>
