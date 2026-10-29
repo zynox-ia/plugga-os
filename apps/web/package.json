@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "build": "next build",
-    "dev": "next dev",
+    "dev": "next dev --turbopack",
     "lint": "eslint . --max-warnings=0",
     "start:standalone": "node scripts/start-standalone.mjs",
     "test": "node --test",
