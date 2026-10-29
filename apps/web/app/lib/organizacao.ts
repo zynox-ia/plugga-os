@@ -1,5 +1,7 @@
 import {
   alcancaDepartamento,
+  alcancaTela,
+  type Tela,
   companyKeys,
   departamentos as idsDosDepartamentos,
   papelDoAcesso,
@@ -46,6 +48,7 @@ export const EMPRESAS_POR_ID: Record<EmpresaId, { id: EmpresaId; nome: string; d
 export type ProcessoStatus = "pronto" | "parcial" | "em-breve";
 
 export type Processo = {
+  id?: Tela;
   label: string;
   /** Ausente enquanto o processo não tem tela. */
   rota?: string;
@@ -71,10 +74,10 @@ export const DEPARTAMENTOS: Departamento[] = [
     label: "CRM",
     icon: "users",
     processos: [
-      { label: "Pipelines", rota: "/comercial/pipelines", status: "parcial" },
-      { label: "Clientes", rota: "/clientes", status: "pronto" },
-      { label: "Propostas", status: "em-breve" },
-      { label: "Contratos", rota: "/comercial/contratos", status: "parcial" },
+      { id: "crm.pipelines", label: "Pipelines", rota: "/comercial/pipelines", status: "parcial" },
+      { id: "crm.clientes", label: "Clientes", rota: "/clientes", status: "pronto" },
+      { id: "crm.propostas", label: "Propostas", status: "em-breve" },
+      { id: "crm.contratos", label: "Contratos", rota: "/comercial/contratos", status: "parcial" },
     ],
   },
   {
@@ -82,11 +85,11 @@ export const DEPARTAMENTOS: Departamento[] = [
     label: "Energia",
     icon: "bolt",
     processos: [
-      { label: "Ciclos mensais", status: "em-breve" },
-      { label: "Auditoria de faturas", status: "em-breve" },
-      { label: "Migração Mercado Livre", status: "em-breve" },
-      { label: "Relatórios de economia", status: "em-breve" },
-      { label: "Demanda contratada", status: "em-breve" },
+      { id: "energia-opm.ciclos", label: "Ciclos mensais", status: "em-breve" },
+      { id: "energia-opm.auditoria", label: "Auditoria de faturas", status: "em-breve" },
+      { id: "energia-opm.migracao", label: "Migração Mercado Livre", status: "em-breve" },
+      { id: "energia-opm.relatorios", label: "Relatórios de economia", status: "em-breve" },
+      { id: "energia-opm.demanda", label: "Demanda contratada", status: "em-breve" },
     ],
   },
   {
@@ -94,11 +97,11 @@ export const DEPARTAMENTOS: Departamento[] = [
     label: "Eletromobilidade",
     icon: "pulse",
     processos: [
-      { label: "PluggaMob", status: "em-breve" },
-      { label: "EV Point · eletropostos", status: "em-breve" },
-      { label: "Recargas", status: "em-breve" },
-      { label: "Parceiros", status: "em-breve" },
-      { label: "Dashboards do produto", status: "em-breve" },
+      { id: "produto-tecnologia.pluggamob", label: "PluggaMob", status: "em-breve" },
+      { id: "produto-tecnologia.eletropostos", label: "EV Point · eletropostos", status: "em-breve" },
+      { id: "produto-tecnologia.recargas", label: "Recargas", status: "em-breve" },
+      { id: "produto-tecnologia.parceiros", label: "Parceiros", status: "em-breve" },
+      { id: "produto-tecnologia.dashboards", label: "Dashboards do produto", status: "em-breve" },
     ],
   },
   {
@@ -106,10 +109,10 @@ export const DEPARTAMENTOS: Departamento[] = [
     label: "Financeiro",
     icon: "wallet",
     processos: [
-      { label: "Contas a pagar", status: "em-breve" },
-      { label: "Contas a receber", status: "em-breve" },
-      { label: "Conciliação", status: "em-breve" },
-      { label: "Fiscal", status: "em-breve" },
+      { id: "financeiro.pagar", label: "Contas a pagar", status: "em-breve" },
+      { id: "financeiro.receber", label: "Contas a receber", status: "em-breve" },
+      { id: "financeiro.conciliacao", label: "Conciliação", status: "em-breve" },
+      { id: "financeiro.fiscal", label: "Fiscal", status: "em-breve" },
     ],
   },
   {
@@ -117,9 +120,9 @@ export const DEPARTAMENTOS: Departamento[] = [
     label: "Suprimentos",
     icon: "package",
     processos: [
-      { label: "Compras", status: "em-breve" },
-      { label: "Fornecedores", status: "em-breve" },
-      { label: "Estoque", status: "em-breve" },
+      { id: "suprimentos.compras", label: "Compras", status: "em-breve" },
+      { id: "suprimentos.fornecedores", label: "Fornecedores", status: "em-breve" },
+      { id: "suprimentos.estoque", label: "Estoque", status: "em-breve" },
     ],
   },
   {
@@ -127,21 +130,21 @@ export const DEPARTAMENTOS: Departamento[] = [
     label: "Engenharia e Obras",
     icon: "hardhat",
     processos: [
-      { label: "Obras", status: "em-breve" },
-      { label: "Projetos elétricos", status: "em-breve" },
-      { label: "Ordens de serviço", status: "em-breve" },
-      { label: "Instalações", status: "em-breve" },
-      { label: "Manutenção", status: "em-breve" },
-      { label: "Visitas técnicas", status: "em-breve" },
-      { label: "Usinas solares · BESS", status: "em-breve" },
-      { label: "Relatórios de campo · fotos e aceite", status: "em-breve" },
+      { id: "engenharia-obras.obras", label: "Obras", status: "em-breve" },
+      { id: "engenharia-obras.projetos", label: "Projetos elétricos", status: "em-breve" },
+      { id: "engenharia-obras.os", label: "Ordens de serviço", status: "em-breve" },
+      { id: "engenharia-obras.instalacoes", label: "Instalações", status: "em-breve" },
+      { id: "engenharia-obras.manutencao", label: "Manutenção", status: "em-breve" },
+      { id: "engenharia-obras.visitas", label: "Visitas técnicas", status: "em-breve" },
+      { id: "engenharia-obras.usinas", label: "Usinas solares · BESS", status: "em-breve" },
+      { id: "engenharia-obras.relatorios", label: "Relatórios de campo · fotos e aceite", status: "em-breve" },
     ],
   },
   {
     id: "marketing",
     label: "Marketing",
     icon: "megaphone",
-    processos: [{ label: "Campanhas", status: "em-breve" }],
+    processos: [{ id: "marketing.campanhas", label: "Campanhas", status: "em-breve" }],
   },
 ];
 
@@ -150,7 +153,9 @@ export function departamentosPermitidos(acesso: Acesso | null): Departamento[] {
   if (!acesso) {
     return DEPARTAMENTOS;
   }
-  return DEPARTAMENTOS.filter((departamento) => alcancaDepartamento(acesso, departamento.id));
+  return DEPARTAMENTOS.filter((departamento) => alcancaDepartamento(acesso, departamento.id)).map((departamento) => ({
+    ...departamento, processos: departamento.processos.filter((processo) => !processo.id || alcancaTela(acesso, processo.id)),
+  }));
 }
 
 /**
@@ -201,7 +206,7 @@ const DEGRAUS: readonly PapelDaEquipe[] = ["membro", "gerente", "admin", "desenv
  * o desenvolvedor vê também as telas técnicas. A entrada em si aparece sempre:
  * esconder o menu inteiro faz quem não tem acesso procurar onde não existe.
  */
-export type SecaoConfiguracao = Processo & {
+export type SecaoConfiguracao = Omit<Processo, "id"> & {
   descricao: string;
   minimo: PapelDaEquipe;
   /** Marca a seção que tem tela própria dentro de Configurações. */

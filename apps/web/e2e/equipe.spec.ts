@@ -96,7 +96,11 @@ test.describe("Configurações → Equipe e Acessos", () => {
     await expect(page.getByRole("menuitem", { name: "Remover membro" })).toBeVisible();
   });
 
-  test("pagina a tabela com 7 membros por página e alinha ações", async ({ page }) => {
+  test("pagina a tabela com 7 membros por página e alinha ações", async ({ page, request }) => {
+    const response = await request.get("/api/equipe");
+    expect(response.ok()).toBe(true);
+    const total = (await response.json()).membros.length;
+    expect(total).toBeGreaterThan(7);
     await abrirEquipe(page);
 
     // Exatamente 7 linhas na primeira página
@@ -106,7 +110,7 @@ test.describe("Configurações → Equipe e Acessos", () => {
     // Controles de paginação presentes
     const paginacao = page.locator(".equipe-paginacao");
     await expect(paginacao).toBeVisible();
-    await expect(paginacao).toContainText("Mostrando 1–7 de 9 membros");
+    await expect(paginacao).toContainText(`Mostrando 1–7 de ${total} membros`);
 
     // Botão de 3 pontinhos sem fundo (background transparente)
     const btnTresPontinhos = page.locator(".equipe-card tbody tr:first-child .ui-menu-trigger--icon");
@@ -122,12 +126,12 @@ test.describe("Configurações → Equipe e Acessos", () => {
 
     // Navega para a página 2
     await page.getByRole("button", { name: "Próxima página" }).click();
-    await expect(page.locator(".equipe-card tbody tr")).toHaveCount(2);
-    await expect(paginacao).toContainText("Mostrando 8–9 de 9 membros");
+    await expect(page.locator(".equipe-card tbody tr")).toHaveCount(Math.min(total - 7, 7));
+    await expect(paginacao).toContainText(`Mostrando 8–${Math.min(total, 14)} de ${total} membros`);
 
     // Volta para a página 1
     await page.getByRole("button", { name: "Página anterior" }).click();
     await expect(page.locator(".equipe-card tbody tr")).toHaveCount(7);
-    await expect(paginacao).toContainText("Mostrando 1–7 de 9 membros");
+    await expect(paginacao).toContainText(`Mostrando 1–7 de ${total} membros`);
   });
 });

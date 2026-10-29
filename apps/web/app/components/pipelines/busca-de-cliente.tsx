@@ -1,9 +1,10 @@
 "use client";
 
-import type { ClientOwner, CreateClientResponse, ListClientsResponse } from "@plugga/shared";
+import { alcancaTela, type ClientOwner, type CreateClientResponse, type ClientSelectionResponse } from "@plugga/shared";
 import { useEffect, useId, useState } from "react";
 
 import { enviar } from "../../lib/clientes";
+import { useSessionUser } from "../../lib/use-session-user";
 import { ClienteForm } from "../cliente-form";
 import { Modal } from "../modal";
 import { Button, IconSearch, IconUser, IconX } from "../ui";
@@ -26,7 +27,8 @@ export function BuscaDeCliente({
   erro?: string;
 }) {
   const [termo, setTermo] = useState("");
-  const [resultados, setResultados] = useState<ListClientsResponse["items"] | null>(null);
+  const [resultados, setResultados] = useState<ClientSelectionResponse["items"] | null>(null);
+  const { usuario } = useSessionUser();
   const [cadastrando, setCadastrando] = useState(false);
   const lista = useId();
 
@@ -35,7 +37,7 @@ export function BuscaDeCliente({
     if (busca.length < 2) return setResultados(null);
     let vivo = true;
     const espera = setTimeout(() => {
-      void enviar<ListClientsResponse>(`/api/clientes?${new URLSearchParams({ q: busca, active: "true" }).toString()}`, "GET").then((resposta) => {
+      void enviar<ClientSelectionResponse>(`/api/negocios/clientes?${new URLSearchParams({ q: busca }).toString()}`, "GET").then((resposta) => {
         if (vivo) setResultados(resposta.ok ? resposta.dados.items.slice(0, 8) : []);
       });
     }, 250);
@@ -97,7 +99,7 @@ export function BuscaDeCliente({
       ) : null}
       <p className="ui-field-hint" style={{ marginTop: 4 }}>
         Não encontrou?{" "}
-        <button type="button" className="link-botao" onClick={() => setCadastrando(true)}>
+        <button type="button" className="link-botao" disabled={!alcancaTela(usuario?.acesso, "crm.clientes")} onClick={() => setCadastrando(true)}>
           + Novo cliente
         </button>{" "}
         sem fechar esta janela.

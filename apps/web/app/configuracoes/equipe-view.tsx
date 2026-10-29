@@ -3,6 +3,9 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import {
   papelDoAcesso,
+  alcancaTela,
+  telasPorDepartamento,
+  type Tela,
   type Acesso,
   type Departamento as DepartamentoId,
   type EscopoDaEquipe,
@@ -314,6 +317,7 @@ export function EquipeView({
       const resposta = await requisicao;
       if (!resposta.ok) {
         setErroModal(await mensagemDeErro(resposta));
+        if (formulario.modo === "convite") await carregar();
         return;
       }
       setAviso(formulario.modo === "convite" ? "Convite enviado." : "Acesso atualizado.");
@@ -326,7 +330,7 @@ export function EquipeView({
     }
   }
 
-  async function acaoNoMembro(membro: MembroDaEquipe, acao: "desativar" | "reenviar-convite") {
+  async function acaoNoMembro(membro: MembroDaEquipe, acao: "desativar" | "remover" | "reenviar-convite"): Promise<boolean> {
     setSalvando(true);
     setErro(null);
     setAviso(null);
@@ -334,22 +338,33 @@ export function EquipeView({
       const resposta = await fetch(`/api/equipe/${membro.id}/${acao}`, { method: "POST" });
       if (!resposta.ok) {
         setErro(await mensagemDeErro(resposta));
-        return;
+        return false;
       }
-      setAviso(acao === "desativar" ? `${membro.name} foi desativado.` : "Convite reenviado.");
+      setAviso(acao === "desativar" ? `${membro.name} foi desativado.` : acao === "remover" ? "Membro removido." : membro.status === "invited" ? "Convite reenviado." : "Link de acesso enviado.");
+      setMembroVisualizado(null);
       await carregar();
+      return true;
     } catch {
       setErro("Não foi possível falar com o servidor.");
+      return false;
     } finally {
       setSalvando(false);
     }
   }
 
+  async function copiarEmail(membro: MembroDaEquipe): Promise<void> {
+    try {
+      await navigator.clipboard.writeText(membro.email);
+      setAviso(`E-mail de ${membro.name} copiado.`);
+    } catch {
+      setErro("Falha ao copiar o e-mail.");
+    }
+  }
+
   async function confirmarAcao(): Promise<void> {
     if (!membroParaConfirmar) return;
-    const { membro } = membroParaConfirmar;
-    setMembroParaConfirmar(null);
-    await acaoNoMembro(membro, "desativar");
+    const { membro, tipo } = membroParaConfirmar;
+    if (await acaoNoMembro(membro, tipo)) setMembroParaConfirmar(null);
   }
 
   if (carregando && !dados) {
@@ -478,12 +493,7 @@ export function EquipeView({
                           id: "copiar-email",
                           label: "Copiar e-mail",
                           icon: <IconCopy />,
-                          onSelect: () => {
-                            if (typeof navigator !== "undefined" && navigator.clipboard) {
-                              void navigator.clipboard.writeText(membro.email);
-                              setAviso(`E-mail de ${membro.name} copiado.`);
-                            }
-                          },
+                          onSelect: () => void copiarEmail(membro),
                         },
                         {
                           id: "enviar-link",
@@ -498,15 +508,15 @@ export function EquipeView({
                           icon: <IconTrash />,
                           danger: true,
                           disabled: !membro.podeDesativar,
-                          onSelect: () => void acaoNoMembro(membro, "desativar"),
+                          onSelect: () => { setErro(null); setMembroParaConfirmar({ membro, tipo: "desativar" }); },
                         },
                         {
                           id: "remover",
                           label: "Remover membro",
                           icon: <IconTrash />,
                           danger: true,
-                          disabled: true,
-                          onSelect: () => undefined,
+                          disabled: !membro.podeRemover,
+                          onSelect: () => { setErro(null); setMembroParaConfirmar({ membro, tipo: "remover" }); },
                         },
                       ]}
                     />
@@ -671,12 +681,7 @@ export function EquipeView({
                       icon={<IconCopy />}
                       iconOnly
                       aria-label={`Copiar e-mail de ${membroVisualizado.name}`}
-                      onClick={() => {
-                        if (typeof navigator !== "undefined" && navigator.clipboard) {
-                          void navigator.clipboard.writeText(membroVisualizado.email);
-                          setAviso(`E-mail de ${membroVisualizado.name} copiado.`);
-                        }
-                      }}
+                      onClick={() => void copiarEmail(membroVisualizado)}
                     />
                   </div>
                 </div>
@@ -788,6 +793,7 @@ export function EquipeView({
                         {deptosAtribuidos.map((entrada) => {
                           const deptInfo = DEPARTAMENTOS.find((d) => d.id === entrada.departamento);
                           if (!deptInfo) return null;
+                          const liberados = deptInfo.processos.filter((proc) => proc.id && alcancaTela(membroVisualizado.acesso, proc.id));
                           return (
                             <div key={deptInfo.id} className="ui-view-dept-card">
                               <div className="ui-view-dept-header">
@@ -803,9 +809,9 @@ export function EquipeView({
                               </div>
                               <p className="ui-view-dept-desc">{DESCRICAO_DO_DEPARTAMENTO[deptInfo.id]}</p>
                               <div className="ui-view-processos-group">
-                                <span className="ui-view-processos-label">Telas Liberadas ({deptInfo.processos.length})</span>
+                                <span className="ui-view-processos-label">Telas Liberadas ({liberados.length})</span>
                                 <div className="ui-view-tags">
-                                  {deptInfo.processos.map((proc) => (
+                                  {liberados.map((proc) => (
                                     <span key={proc.label} className="ui-view-tag">
                                       <IconCheck width={12} height={12} className="ui-view-tag-check" aria-hidden="true" />
                                       <span>{proc.label}</span>
@@ -862,6 +868,7 @@ export function EquipeView({
           }
         >
           <div className="ui-confirm-box">
+            {erro ? <p className="card-note auth-error">{erro}</p> : null}
             <p className="ui-confirm-message">
               Tem certeza de que deseja {membroParaConfirmar.tipo === "desativar" ? "desativar o acesso de" : "remover"} <strong>{membroParaConfirmar.membro.name}</strong>?
             </p>
@@ -921,13 +928,8 @@ function EditorDeAcesso({
     return new Set(valor.departamentos.map((d) => d.departamento));
   });
 
-  const [telasSelecionadas, setTelasSelecionadas] = useState<Record<string, string[]>>(() => {
-    const mapa: Record<string, string[]> = {};
-    for (const d of DEPARTAMENTOS) {
-      mapa[d.id] = d.processos.map((p) => p.label);
-    }
-    return mapa;
-  });
+  const telasSelecionadas = Object.fromEntries(valor.departamentos.map((d) => [d.departamento, d.telas ?? [...telasPorDepartamento[d.departamento]]]));
+  const concediveis = (departamento: DepartamentoId): Tela[] => telasPorDepartamento[departamento].filter((tela) => escopo.telasConcediveis?.includes(tela) ?? true);
 
   function selecionarPapel(novoPapel: "membro" | "diretor" | "admin" | "desenvolvedor") {
     setPapelAtivo(novoPapel);
@@ -963,7 +965,7 @@ function EditorDeAcesso({
   function defineDepartamento(departamento: DepartamentoId, checked: boolean) {
     const outros = valor.departamentos.filter((entrada) => entrada.departamento !== departamento);
     const nivel: NivelDeDepartamento = papelAtivo === "diretor" ? "gerente" : "membro";
-    const proximos = checked ? [...outros, { departamento, nivel }] : outros;
+    const proximos = checked ? [...outros, { departamento, nivel, telas: concediveis(departamento) }] : outros;
 
     if (checked) {
       setExpandidos((prev) => new Set([...prev, departamento]));
@@ -981,21 +983,21 @@ function EditorDeAcesso({
     });
   }
 
-  function toggleTela(deptId: string, telaLabel: string, checked: boolean) {
-    setTelasSelecionadas((prev) => {
-      const atuais = prev[deptId] ?? DEPARTAMENTOS.find((d) => d.id === deptId)?.processos.map((p) => p.label) ?? [];
-      const proximas = checked ? [...atuais, telaLabel] : atuais.filter((l) => l !== telaLabel);
-      return { ...prev, [deptId]: proximas };
-    });
+  function definirTelas(deptId: DepartamentoId, telas: Tela[]) {
+    onChange({ ...valor, departamentos: valor.departamentos.map((d) => d.departamento === deptId ? { ...d, telas } : d) });
   }
 
-  function marcarTodasTelas(deptId: string) {
-    const todos = DEPARTAMENTOS.find((d) => d.id === deptId)?.processos.map((p) => p.label) ?? [];
-    setTelasSelecionadas((prev) => ({ ...prev, [deptId]: todos }));
+  function toggleTela(deptId: DepartamentoId, tela: Tela, checked: boolean) {
+    const atuais = telasSelecionadas[deptId] ?? [];
+    definirTelas(deptId, checked ? [...atuais, tela] : atuais.filter((id) => id !== tela));
   }
 
-  function desmarcarTodasTelas(deptId: string) {
-    setTelasSelecionadas((prev) => ({ ...prev, [deptId]: [] }));
+  function marcarTodasTelas(deptId: DepartamentoId) {
+    definirTelas(deptId, concediveis(deptId));
+  }
+
+  function desmarcarTodasTelas(deptId: DepartamentoId) {
+    definirTelas(deptId, []);
   }
 
   const isPapelEquipe = papelAtivo === "membro" || papelAtivo === "diretor";
@@ -1088,7 +1090,7 @@ function EditorDeAcesso({
                   const selecionado = valor.departamentos.some((entrada) => entrada.departamento === departamento.id);
                   const isExpandido = expandidos.has(departamento.id);
                   const totalTelas = departamento.processos.length;
-                  const telasAtivas = (telasSelecionadas[departamento.id] ?? departamento.processos.map((p) => p.label)).length;
+                  const telasAtivas = (telasSelecionadas[departamento.id] ?? []).length;
 
                   return (
                     <Fragment key={departamento.id}>
@@ -1155,15 +1157,16 @@ function EditorDeAcesso({
                               <div className="ui-dept-processos-grid">
                                 {departamento.processos.map((processo) => {
                                   const marcado = (
-                                    telasSelecionadas[departamento.id] ?? departamento.processos.map((p) => p.label)
-                                  ).includes(processo.label);
+                                    telasSelecionadas[departamento.id] ?? []
+                                  ).includes(processo.id!);
                                   return (
                                     <div className="ui-processo-item" key={processo.label}>
                                       <Checkbox
                                         label={processo.label}
                                         checked={marcado}
+                                        disabled={escopo.telasConcediveis !== undefined && !escopo.telasConcediveis.includes(processo.id!)}
                                         onChange={(e) =>
-                                          toggleTela(departamento.id, processo.label, e.target.checked)
+                                          toggleTela(departamento.id, processo.id!, e.target.checked)
                                         }
                                       />
                                     </div>
