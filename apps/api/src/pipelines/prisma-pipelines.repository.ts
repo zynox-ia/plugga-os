@@ -38,7 +38,7 @@ const COMPLETO = {
   stages: { orderBy: { position: "asc" }, include: { _count: { select: { deals: true } } } },
   tags: { orderBy: { position: "asc" } },
   lossReasons: { orderBy: { position: "asc" } },
-  members: { include: { user: { select: { id: true, name: true } } }, orderBy: { user: { name: "asc" } } },
+  members: { include: { user: { select: { id: true, name: true, email: true } } }, orderBy: { user: { name: "asc" } } },
   updatedBy: { select: { id: true, name: true } },
   _count: { select: { deals: true } },
 } satisfies Prisma.PipelineInclude;
@@ -72,7 +72,7 @@ function paraPipeline(linha: LinhaDePipeline, canConfigure: boolean): Pipeline {
     })),
     tags: linha.tags.map(({ id, name, color }) => ({ id, name, color })),
     lossReasons: linha.lossReasons.map(({ id, name, asksRevisitDate }) => ({ id, name, asksRevisitDate })),
-    members: linha.members.map((m) => ({ userId: m.userId, name: m.user.name, role: m.role })),
+    members: linha.members.map((m) => ({ userId: m.userId, name: m.user.name, email: m.user.email, role: m.role })),
     dealCount: linha._count.deals,
     canConfigure,
   });

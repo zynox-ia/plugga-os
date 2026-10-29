@@ -140,7 +140,7 @@ export const pipelineSchema = z.object({
   stages: z.array(pipelineStageSchema),
   tags: z.array(z.object({ id: uuid, name: z.string(), color: z.string() })),
   lossReasons: z.array(z.object({ id: uuid, name: z.string(), asksRevisitDate: z.boolean() })),
-  members: z.array(z.object({ userId: uuid, name: z.string(), role: pipelineMemberRoleSchema })),
+  members: z.array(z.object({ userId: uuid, name: z.string(), email: z.string().email().optional(), role: pipelineMemberRoleSchema })),
   /** Negócios do pipeline, de qualquer situação: com algum, a empresa não muda. */
   dealCount: z.number().int(),
   /** Se quem pediu pode alterar a configuração deste pipeline. */

@@ -9,7 +9,7 @@ import {
   type Deal,
   type Pipeline,
 } from "@plugga/shared";
-import { useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 
 import { enviar, type ErroDoFormulario } from "../../lib/clientes";
 import { valorDigitadoParaDecimal } from "../../lib/negocios";
@@ -17,16 +17,32 @@ import { EMPRESAS_POR_ID } from "../../lib/organizacao";
 import {
   Alert,
   Button,
+  DatePicker,
   Dialog,
   Heading,
   IconBriefcase,
   IconCheck,
+  IconChevronDown,
   IconLayers,
   IconPlus,
   IconUser,
   IconUserPlus,
   TextField,
 } from "../ui";
+
+const CORES_DE_AVATAR = ["#0066CC", "#0B7A57", "#7C5CFF", "#D97706", "#DC2626", "#0284C7", "#4F46E5"];
+
+function corDoAvatar(id: string): string {
+  const soma = [...id].reduce((total, letra) => total + letra.charCodeAt(0), 0);
+  return CORES_DE_AVATAR[soma % CORES_DE_AVATAR.length] ?? "#0066CC";
+}
+
+function iniciaisDoNome(nome: string): string {
+  const partes = nome.trim().split(/\s+/).filter(Boolean);
+  const primeira = partes[0]?.[0] ?? "?";
+  const ultima = partes.length > 1 ? (partes[partes.length - 1]?.[0] ?? "") : "";
+  return (primeira + ultima).toUpperCase();
+}
 
 function mascaraTelefone(valor: string): string {
   const d = valor.replace(/\D/g, "").slice(0, 11);
@@ -94,8 +110,44 @@ export function NovoNegocio({
   const [responsavelId, setResponsavelId] = useState(responsavelPadrao(pipelineInicial));
   const [etiquetas, setEtiquetas] = useState<string[]>([]);
 
+  // Menu suspenso de seleção visual de responsável
+  const [seletorAberto, setSeletorAberto] = useState(false);
+  const pickerRef = useRef<HTMLDivElement>(null);
+  const [emailsPorId, setEmailsPorId] = useState<Record<string, string>>({});
+
   const [erro, setErro] = useState<ErroDoFormulario | null>(null);
   const [enviando, setEnviando] = useState(false);
+
+  // Busca e-mails reais da equipe para complementar caso necessário
+  useEffect(() => {
+    let vivo = true;
+    fetch("/api/equipe")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((dados) => {
+        if (!vivo || !dados?.membros) return;
+        const mapa: Record<string, string> = {};
+        for (const m of dados.membros as { id: string; email: string }[]) {
+          mapa[m.id] = m.email;
+        }
+        setEmailsPorId(mapa);
+      })
+      .catch(() => undefined);
+    return () => {
+      vivo = false;
+    };
+  }, []);
+
+  // Fecha o dropdown de responsável ao clicar fora
+  useEffect(() => {
+    if (!seletorAberto) return;
+    function handleClickFora(ev: MouseEvent) {
+      if (pickerRef.current && !pickerRef.current.contains(ev.target as Node)) {
+        setSeletorAberto(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickFora);
+    return () => document.removeEventListener("mousedown", handleClickFora);
+  }, [seletorAberto]);
 
   // Sincroniza o título da oportunidade com o nome do lead até edição manual
   function handleNomeLeadChange(novoNome: string) {
@@ -176,7 +228,7 @@ export function NovoNegocio({
       contactId: null,
       title: titulo.trim(),
       value: decimal,
-      expectedCloseDate: previsao,
+      expectedCloseDate: previsao || null,
       ownerId: responsavelId,
       tagIds: etiquetas,
       consumerUnitIds: [],
@@ -191,6 +243,9 @@ export function NovoNegocio({
   }
 
   const e = erro?.porCampo ?? {};
+  const responsavelAtual = pipeline.members.find((m) => m.userId === responsavelId);
+  const emailDoResponsavel = (m: (typeof pipeline.members)[number]) =>
+    m.email || emailsPorId[m.userId] || "Equipe comercial";
 
   return (
     <Dialog
@@ -216,7 +271,7 @@ export function NovoNegocio({
           <Alert tone="danger" title={erro.mensagem} />
         ) : null}
 
-        {/* Seção 1: Pipeline e Etapa (Vem primeiro conforme solicitado) */}
+        {/* Seção 1: Pipeline e Etapa */}
         <section className="ui-dialog-section">
           <div className="ui-dialog-section-header">
             <Heading as="h3" icon={<IconLayers />}>Pipeline e Etapa</Heading>
@@ -261,7 +316,10 @@ export function NovoNegocio({
             </div>
           </div>
           <div className="ui-dialog-notice">
-            <span>A empresa vem do pipeline: este negócio pertence à <strong>{EMPRESAS_POR_ID[pipeline.companyId].nome}</strong>.</span>
+            <span>
+              A empresa vem do pipeline: este negócio pertence à{" "}
+              <span className="ui-dialog-notice-empresa">{EMPRESAS_POR_ID[pipeline.companyId].nome}</span>.
+            </span>
           </div>
         </section>
 
@@ -327,7 +385,7 @@ export function NovoNegocio({
 
             <TextField
               id="lead-documento"
-              label={tipoPessoa === "pf" ? "CPF (opcional)" : "CNPJ (opcional)"}
+              label={tipoPessoa === "pf" ? "CPF" : "CNPJ"}
               value={documentoLead}
               placeholder={tipoPessoa === "pf" ? "000.000.000-00" : "00.000.000/0000-00"}
               error={e.documentoLead}
@@ -368,39 +426,93 @@ export function NovoNegocio({
               hint={!e.value ? "O nome deste campo vem do pipeline." : undefined}
               onChange={(ev) => setValor(ev.target.value)}
             />
-            <div className="ui-field">
-              <label htmlFor="negocio-previsao">Previsão de fechamento</label>
-              <div className="ui-input-wrap">
-                <input
-                  id="negocio-previsao"
-                  type="date"
-                  className="ui-input"
-                  value={previsao}
-                  onChange={(ev) => setPrevisao(ev.target.value)}
-                />
-              </div>
-            </div>
+            <DatePicker
+              label="Previsão de fechamento"
+              value={previsao}
+              onChange={setPrevisao}
+            />
           </div>
-          <div className="ui-field inteira">
-            <label htmlFor="negocio-responsavel">Responsável *</label>
-            <div className="ui-input-wrap">
-              <select
-                id="negocio-responsavel"
-                className="ui-input"
-                value={responsavelId}
+
+          {/* Seletor visual de Responsável com Avatar, Nome e E-mail */}
+          <div className="ui-field inteira" ref={pickerRef}>
+            <label id="negocio-responsavel-label" htmlFor="negocio-responsavel-btn">
+              Responsável da equipe *
+            </label>
+            <div className="ui-member-picker">
+              <button
+                type="button"
+                id="negocio-responsavel-btn"
+                className="ui-member-trigger"
+                aria-haspopup="listbox"
+                aria-expanded={seletorAberto}
                 aria-invalid={Boolean(e.ownerId)}
-                onChange={(ev) => setResponsavelId(ev.target.value)}
+                onClick={() => setSeletorAberto(!seletorAberto)}
               >
-                {pipeline.members.length === 0 ? <option value="">Pipeline sem equipe</option> : null}
-                {pipeline.members.map((m) => (
-                  <option key={m.userId} value={m.userId}>
-                    {m.name}
-                  </option>
-                ))}
-              </select>
+                {responsavelAtual ? (
+                  <div className="ui-member-profile">
+                    <span
+                      className="ui-member-avatar"
+                      style={{ background: corDoAvatar(responsavelAtual.userId) }}
+                      aria-hidden="true"
+                    >
+                      {iniciaisDoNome(responsavelAtual.name)}
+                    </span>
+                    <div className="ui-member-text">
+                      <span className="ui-member-name">{responsavelAtual.name}</span>
+                      <span className="ui-member-email">{emailDoResponsavel(responsavelAtual)}</span>
+                    </div>
+                  </div>
+                ) : (
+                  <span style={{ color: "var(--ui-muted)", fontSize: "13px" }}>Selecione um responsável</span>
+                )}
+                <IconChevronDown className="ui-member-arrow" width={16} height={16} />
+              </button>
+
+              {seletorAberto ? (
+                <div className="ui-member-menu" role="listbox" aria-labelledby="negocio-responsavel-label">
+                  {pipeline.members.length === 0 ? (
+                    <div style={{ padding: "12px", textAlign: "center", color: "var(--ui-muted)", fontSize: "12px" }}>
+                      Pipeline sem equipe definida
+                    </div>
+                  ) : (
+                    pipeline.members.map((m) => {
+                      const selecionado = m.userId === responsavelId;
+                      return (
+                        <button
+                          key={m.userId}
+                          type="button"
+                          role="option"
+                          aria-selected={selecionado}
+                          className={`ui-member-item ${selecionado ? "ui-member-item--selected" : ""}`}
+                          onClick={() => {
+                            setResponsavelId(m.userId);
+                            setSeletorAberto(false);
+                          }}
+                        >
+                          <div className="ui-member-profile">
+                            <span
+                              className="ui-member-avatar"
+                              style={{ background: corDoAvatar(m.userId) }}
+                              aria-hidden="true"
+                            >
+                              {iniciaisDoNome(m.name)}
+                            </span>
+                            <div className="ui-member-text">
+                              <span className="ui-member-name">{m.name}</span>
+                              <span className="ui-member-email">{emailDoResponsavel(m)}</span>
+                            </div>
+                          </div>
+                          {selecionado ? <IconCheck className="ui-member-check" width={16} height={16} /> : null}
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+              ) : null}
             </div>
             {e.ownerId ? <p className="ui-field-error">Erro: {e.ownerId}</p> : null}
           </div>
+
           {pipeline.tags.length > 0 ? (
             <div className="ui-field inteira">
               <label>Etiquetas</label>
