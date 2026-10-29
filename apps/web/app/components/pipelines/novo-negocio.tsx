@@ -1,6 +1,15 @@
 "use client";
 
-import type { ClientOwner, Deal, DealClientOptionsResponse, Pipeline } from "@plugga/shared";
+import {
+  cnpjValido,
+  cpfValido,
+  somenteDigitos,
+  type ClientOwner,
+  type CreateClientResponse,
+  type Deal,
+  type DealClientOptionsResponse,
+  type Pipeline,
+} from "@plugga/shared";
 import { useEffect, useState, type CSSProperties } from "react";
 
 import { enviar, type ErroDoFormulario } from "../../lib/clientes";
@@ -16,13 +25,40 @@ import {
   IconLayers,
   IconPlus,
   IconUser,
+  IconUserPlus,
   TextField,
 } from "../ui";
 import { BuscaDeCliente, type ClienteEscolhido } from "./busca-de-cliente";
 
+function mascaraTelefone(valor: string): string {
+  const d = valor.replace(/\D/g, "").slice(0, 11);
+  if (!d) return "";
+  if (d.length <= 2) return `(${d}`;
+  if (d.length <= 6) return `(${d.slice(0, 2)}) ${d.slice(2)}`;
+  if (d.length <= 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;
+  return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
+}
+
+function mascaraDocumento(valor: string, tipo: "pf" | "pj"): string {
+  const d = valor.replace(/\D/g, "");
+  if (tipo === "pf") {
+    const s = d.slice(0, 11);
+    if (s.length <= 3) return s;
+    if (s.length <= 6) return `${s.slice(0, 3)}.${s.slice(3)}`;
+    if (s.length <= 9) return `${s.slice(0, 3)}.${s.slice(3, 6)}.${s.slice(6)}`;
+    return `${s.slice(0, 3)}.${s.slice(3, 6)}.${s.slice(6, 9)}-${s.slice(9)}`;
+  }
+  const s = d.slice(0, 14);
+  if (s.length <= 2) return s;
+  if (s.length <= 5) return `${s.slice(0, 2)}.${s.slice(2)}`;
+  if (s.length <= 8) return `${s.slice(0, 2)}.${s.slice(2, 5)}.${s.slice(5)}`;
+  if (s.length <= 12) return `${s.slice(0, 2)}.${s.slice(2, 5)}.${s.slice(5, 8)}/${s.slice(8)}`;
+  return `${s.slice(0, 2)}.${s.slice(2, 5)}.${s.slice(5, 8)}/${s.slice(8, 12)}-${s.slice(12)}`;
+}
+
 /**
- * Novo negócio: funil e etapa herdam o contexto atual.
- * Estrutura padronizada no padrão de Dialog do Plugga OS.
+ * Modal de captação de lead / novo negócio no CRM.
+ * Permite cadastrar os dados de contato do novo lead e direcioná-lo no funil.
  */
 export function NovoNegocio({
   pipelines,
@@ -46,25 +82,49 @@ export function NovoNegocio({
   const responsavelPadrao = (p: Pipeline) =>
     usuarioId && p.members.some((m) => m.userId === usuarioId) ? usuarioId : (p.members[0]?.userId ?? "");
   const [etapaId, setEtapaId] = useState(etapaInicialId ?? pipelineInicial.stages[0]?.id ?? "");
-  const [cliente, setCliente] = useState<ClienteEscolhido | null>(null);
+
+  // Modo de lead (novo lead direto vs. cliente existente)
+  const [modoCliente, setModoCliente] = useState<"novo" | "existente">("novo");
+
+  // Dados de captação do novo lead
+  const [nomeLead, setNomeLead] = useState("");
+  const [telefoneLead, setTelefoneLead] = useState("");
+  const [emailLead, setEmailLead] = useState("");
+  const [tipoPessoa, setTipoPessoa] = useState<"pf" | "pj">("pj");
+  const [documentoLead, setDocumentoLead] = useState("");
+
+  // Dados do cliente existente (quando modoCliente === "existente")
+  const [clienteExistente, setClienteExistente] = useState<ClienteEscolhido | null>(null);
   const [opcoes, setOpcoes] = useState<DealClientOptionsResponse | null>(null);
   const [contatoId, setContatoId] = useState("");
   const [ucs, setUcs] = useState<string[]>([]);
+
+  // Dados da oportunidade / negócio
   const [titulo, setTitulo] = useState("");
+  const [tituloEditadoManualmente, setTituloEditadoManualmente] = useState(false);
   const [valor, setValor] = useState("");
   const [previsao, setPrevisao] = useState("");
   const [responsavelId, setResponsavelId] = useState(responsavelPadrao(pipelineInicial));
   const [etiquetas, setEtiquetas] = useState<string[]>([]);
+
   const [erro, setErro] = useState<ErroDoFormulario | null>(null);
   const [enviando, setEnviando] = useState(false);
+
+  // Sincroniza título com nome do lead automaticamente até o usuário editar manualmente
+  function handleNomeLeadChange(novoNome: string) {
+    setNomeLead(novoNome);
+    if (!tituloEditadoManualmente) {
+      setTitulo(novoNome);
+    }
+  }
 
   useEffect(() => {
     setOpcoes(null);
     setContatoId("");
     setUcs([]);
-    if (!cliente) return;
+    if (!clienteExistente) return;
     let vivo = true;
-    void enviar<DealClientOptionsResponse>(`/api/negocios/clientes/${cliente.id}/opcoes`, "GET").then((resposta) => {
+    void enviar<DealClientOptionsResponse>(`/api/negocios/clientes/${clienteExistente.id}/opcoes`, "GET").then((resposta) => {
       if (!vivo || !resposta.ok) return;
       setOpcoes(resposta.dados);
       setContatoId(resposta.dados.contacts.find((c) => c.isPrimary)?.id ?? "");
@@ -72,7 +132,7 @@ export function NovoNegocio({
     return () => {
       vivo = false;
     };
-  }, [cliente]);
+  }, [clienteExistente]);
 
   function trocarPipeline(id: string) {
     const proximo = pipelines.find((p) => p.id === id);
@@ -88,38 +148,95 @@ export function NovoNegocio({
   async function criar() {
     const decimal = valorDigitadoParaDecimal(valor);
     const porCampo: Record<string, string> = {};
-    if (!cliente) porCampo.clientId = "Escolha o cliente.";
-    if (!titulo.trim()) porCampo.title = "Informe o título.";
+
+    if (modoCliente === "novo") {
+      if (!nomeLead.trim()) porCampo.nomeLead = "Informe o nome do lead.";
+      const telLimpo = somenteDigitos(telefoneLead);
+      const emailLimpo = emailLead.trim();
+      if (!telLimpo && !emailLimpo) {
+        porCampo.telefoneLead = "Informe pelo menos um telefone ou e-mail de contato.";
+      }
+      const docLimpo = somenteDigitos(documentoLead);
+      if (docLimpo) {
+        if (tipoPessoa === "pf" && !cpfValido(docLimpo)) {
+          porCampo.documentoLead = "CPF inválido.";
+        } else if (tipoPessoa === "pj" && !cnpjValido(docLimpo)) {
+          porCampo.documentoLead = "CNPJ inválido.";
+        }
+      }
+    } else {
+      if (!clienteExistente) porCampo.clientId = "Escolha o cliente.";
+    }
+
+    if (!titulo.trim()) porCampo.title = "Informe o título da oportunidade.";
     if (!responsavelId) porCampo.ownerId = "Escolha o responsável.";
     if (decimal === undefined) porCampo.value = "Use só números, como 480.000,00.";
-    if (Object.keys(porCampo).length > 0) return setErro({ mensagem: "Confira os campos destacados.", porCampo });
+
+    if (Object.keys(porCampo).length > 0) {
+      return setErro({ mensagem: "Confira os campos destacados.", porCampo });
+    }
 
     setEnviando(true);
     setErro(null);
-    const resposta = await enviar<Deal>("/api/negocios", "POST", {
+
+    let clienteFinalId = clienteExistente?.id;
+
+    // Se for novo lead, cria primeiro o cliente na API
+    if (modoCliente === "novo") {
+      const respostaCliente = await enviar<CreateClientResponse>("/api/clientes", "POST", {
+        personType: tipoPessoa,
+        name: nomeLead.trim(),
+        phone: somenteDigitos(telefoneLead) || null,
+        email: emailLead.trim() || null,
+        document: somenteDigitos(documentoLead) || null,
+        ownerId: responsavelId,
+      });
+
+      if (!respostaCliente.ok) {
+        setEnviando(false);
+        const erroCli = respostaCliente.erro;
+        const msg = erroCli.mensagem || "Não foi possível cadastrar o lead.";
+        const camposComErro: Record<string, string> = {};
+        if (erroCli.porCampo?.document) camposComErro.documentoLead = erroCli.porCampo.document;
+        if (erroCli.porCampo?.phone) camposComErro.telefoneLead = erroCli.porCampo.phone;
+        if (erroCli.porCampo?.email) camposComErro.emailLead = erroCli.porCampo.email;
+        if (erroCli.porCampo?.name) camposComErro.nomeLead = erroCli.porCampo.name;
+        return setErro({ mensagem: msg, porCampo: { ...erroCli.porCampo, ...camposComErro } });
+      }
+
+      clienteFinalId = respostaCliente.dados.client.id;
+    }
+
+    // Cria o negócio vinculado ao cliente
+    const respostaNegocio = await enviar<Deal>("/api/negocios", "POST", {
       pipelineId,
       stageId: etapaId,
-      clientId: cliente!.id,
-      contactId: contatoId || null,
-      title: titulo,
+      clientId: clienteFinalId!,
+      contactId: modoCliente === "existente" ? contatoId || null : null,
+      title: titulo.trim(),
       value: decimal,
       expectedCloseDate: previsao,
       ownerId: responsavelId,
       tagIds: etiquetas,
-      consumerUnitIds: ucs,
+      consumerUnitIds: modoCliente === "existente" ? ucs : [],
     });
+
     setEnviando(false);
-    if (resposta.ok) aoCriar(resposta.dados);
-    else setErro(resposta.erro);
+    if (respostaNegocio.ok) {
+      aoCriar(respostaNegocio.dados);
+    } else {
+      setErro(respostaNegocio.erro);
+    }
   }
 
   const e = erro?.porCampo ?? {};
 
   return (
     <Dialog
-      title="Novo Negócio"
-      description="Abra uma oportunidade no funil de vendas associando cliente, valores e equipe."
-      icon={<IconBriefcase />}
+      title="Novo Lead"
+      accessibleLabel="Novo negócio"
+      description="Cadastre um novo lead no CRM e direcione-o para a etapa do pipeline."
+      icon={<IconUserPlus />}
       onClose={aoFechar}
       size="media"
       footer={
@@ -129,7 +246,7 @@ export function NovoNegocio({
           loading={enviando}
           onClick={criar}
         >
-          Criar negócio
+          {modoCliente === "novo" ? "Cadastrar lead" : "Criar negócio"}
         </Button>
       }
     >
@@ -138,12 +255,161 @@ export function NovoNegocio({
           <Alert tone="danger" title={erro.mensagem} />
         ) : null}
 
-        {/* Seção 1: Pipeline e Etapa */}
+        {/* Seção 1: Dados do Lead (Captação) */}
+        <section className="ui-dialog-section">
+          <div className="ui-dialog-section-header">
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+              <Heading as="h3" icon={<IconUser />}>
+                {modoCliente === "novo" ? "Dados do Lead (Captação)" : "Cliente Selecionado"}
+              </Heading>
+              <button
+                type="button"
+                className="link-botao"
+                style={{ fontSize: "12px" }}
+                onClick={() => {
+                  setModoCliente(modoCliente === "novo" ? "existente" : "novo");
+                  setErro(null);
+                }}
+              >
+                {modoCliente === "novo" ? "Vincular a cliente já cadastrado" : "← Cadastrar novo lead"}
+              </button>
+            </div>
+            <p className="ui-dialog-section-desc">
+              {modoCliente === "novo"
+                ? "Informações de identificação e contato direto obtidas no primeiro atendimento."
+                : "Busque e selecione um cliente já existente na base."}
+            </p>
+          </div>
+
+          {modoCliente === "novo" ? (
+            <>
+              <TextField
+                id="lead-nome"
+                label="Nome do lead / Razão Social *"
+                value={nomeLead}
+                maxLength={150}
+                placeholder="Ex.: Mariana Costa ou Solar Distribuidora"
+                error={e.nomeLead}
+                onChange={(ev) => handleNomeLeadChange(ev.target.value)}
+              />
+
+              <div className="ui-dialog-grid">
+                <TextField
+                  id="lead-telefone"
+                  label="Telefone / WhatsApp *"
+                  value={telefoneLead}
+                  inputMode="tel"
+                  placeholder="(92) 99999-9999"
+                  error={e.telefoneLead}
+                  onChange={(ev) => setTelefoneLead(mascaraTelefone(ev.target.value))}
+                />
+                <TextField
+                  id="lead-email"
+                  label="E-mail"
+                  type="email"
+                  value={emailLead}
+                  placeholder="contato@exemplo.com"
+                  error={e.emailLead}
+                  onChange={(ev) => setEmailLead(ev.target.value)}
+                />
+              </div>
+
+              <div className="ui-dialog-grid">
+                <div className="ui-field">
+                  <label htmlFor="lead-tipo-pessoa">Tipo de pessoa</label>
+                  <div className="ui-input-wrap">
+                    <select
+                      id="lead-tipo-pessoa"
+                      className="ui-input"
+                      value={tipoPessoa}
+                      onChange={(ev) => {
+                        const novoTipo = ev.target.value as "pf" | "pj";
+                        setTipoPessoa(novoTipo);
+                        setDocumentoLead(mascaraDocumento(documentoLead, novoTipo));
+                      }}
+                    >
+                      <option value="pj">Pessoa Jurídica (PJ)</option>
+                      <option value="pf">Pessoa Física (PF)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <TextField
+                  id="lead-documento"
+                  label={tipoPessoa === "pf" ? "CPF (opcional)" : "CNPJ (opcional)"}
+                  value={documentoLead}
+                  placeholder={tipoPessoa === "pf" ? "000.000.000-00" : "00.000.000/0000-00"}
+                  error={e.documentoLead}
+                  onChange={(ev) => setDocumentoLead(mascaraDocumento(ev.target.value, tipoPessoa))}
+                />
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="ui-field inteira">
+                <label htmlFor="negocio-cliente">Cliente *</label>
+                <BuscaDeCliente
+                  cliente={clienteExistente}
+                  aoEscolher={(c) => {
+                    setClienteExistente(c);
+                    if (c && !tituloEditadoManualmente) setTitulo(c.name);
+                  }}
+                  responsaveis={responsaveisDeCliente}
+                  erro={e.clientId}
+                />
+              </div>
+
+              {opcoes && opcoes.contacts.length > 0 ? (
+                <div className="ui-field inteira">
+                  <label htmlFor="negocio-contato">Contato principal</label>
+                  <div className="ui-input-wrap">
+                    <select
+                      id="negocio-contato"
+                      className="ui-input"
+                      value={contatoId}
+                      onChange={(ev) => setContatoId(ev.target.value)}
+                    >
+                      <option value="">Sem contato específico</option>
+                      {opcoes.contacts.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}{c.isPrimary ? " (principal)" : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              ) : null}
+
+              {opcoes && opcoes.consumerUnits.length > 0 ? (
+                <div className="ui-field inteira">
+                  <label>Unidades consumidoras</label>
+                  <div className="ui-dialog-ucs">
+                    {opcoes.consumerUnits.map((u) => (
+                      <label key={u.id} className={`ui-dialog-uc-card ${ucs.includes(u.id) ? "ui-dialog-uc-card--selected" : ""}`}>
+                        <input
+                          type="checkbox"
+                          checked={ucs.includes(u.id)}
+                          onChange={() => setUcs((atual) => alternar(atual, u.id))}
+                        />
+                        <div className="ui-dialog-uc-info">
+                          <strong>{u.code}</strong>
+                          <small>{u.distributor}</small>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+            </>
+          )}
+        </section>
+
+        {/* Seção 2: Pipeline e Etapa */}
         <section className="ui-dialog-section">
           <div className="ui-dialog-section-header">
             <Heading as="h3" icon={<IconLayers />}>Pipeline e Etapa</Heading>
             <p className="ui-dialog-section-desc">
-              Defina o funil de vendas e a etapa inicial onde o negócio entrará.
+              Defina o funil comercial e a etapa inicial onde o lead entrará.
             </p>
           </div>
           <div className="ui-dialog-grid">
@@ -187,66 +453,6 @@ export function NovoNegocio({
           </div>
         </section>
 
-        {/* Seção 2: Cliente e Contato */}
-        <section className="ui-dialog-section">
-          <div className="ui-dialog-section-header">
-            <Heading as="h3" icon={<IconUser />}>Cliente e Contato</Heading>
-            <p className="ui-dialog-section-desc">
-              Selecione o cliente cadastrado e o contato direto para este negócio.
-            </p>
-          </div>
-          <div className="ui-field inteira">
-            <label htmlFor="negocio-cliente">Cliente *</label>
-            <BuscaDeCliente
-              cliente={cliente}
-              aoEscolher={setCliente}
-              responsaveis={responsaveisDeCliente}
-              erro={e.clientId}
-            />
-          </div>
-          <div className="ui-field inteira">
-            <label htmlFor="negocio-contato">Contato</label>
-            <div className="ui-input-wrap">
-              <select
-                id="negocio-contato"
-                className="ui-input"
-                value={contatoId}
-                disabled={!opcoes || opcoes.contacts.length === 0}
-                onChange={(ev) => setContatoId(ev.target.value)}
-              >
-                <option value="">
-                  {!cliente ? "Escolha o cliente primeiro" : opcoes?.contacts.length === 0 ? "Cliente sem contatos" : "Sem contato"}
-                </option>
-                {opcoes?.contacts.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}{c.isPrimary ? " (principal)" : ""}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-          {opcoes && opcoes.consumerUnits.length > 0 ? (
-            <div className="ui-field inteira">
-              <label>Unidades consumidoras deste negócio</label>
-              <div className="ui-dialog-ucs">
-                {opcoes.consumerUnits.map((u) => (
-                  <label key={u.id} className={`ui-dialog-uc-card ${ucs.includes(u.id) ? "ui-dialog-uc-card--selected" : ""}`}>
-                    <input
-                      type="checkbox"
-                      checked={ucs.includes(u.id)}
-                      onChange={() => setUcs((atual) => alternar(atual, u.id))}
-                    />
-                    <div className="ui-dialog-uc-info">
-                      <strong>{u.code}</strong>
-                      <small>{u.distributor}</small>
-                    </div>
-                  </label>
-                ))}
-              </div>
-            </div>
-          ) : null}
-        </section>
-
         {/* Seção 3: Dados da Oportunidade */}
         <section className="ui-dialog-section">
           <div className="ui-dialog-section-header">
@@ -260,9 +466,12 @@ export function NovoNegocio({
             label="Título *"
             value={titulo}
             maxLength={120}
-            placeholder="Ex.: Hotel — usina 120 kWp"
+            placeholder="Ex.: Mariana Costa — usina 120 kWp"
             error={e.title}
-            onChange={(ev) => setTitulo(ev.target.value)}
+            onChange={(ev) => {
+              setTitulo(ev.target.value);
+              setTituloEditadoManualmente(true);
+            }}
           />
           <div className="ui-dialog-grid">
             <TextField

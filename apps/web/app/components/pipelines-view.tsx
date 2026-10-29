@@ -126,9 +126,10 @@ export function PipelinesView({
             <Button
               variant="primary"
               icon={<IconPlus />}
+              aria-label="Novo lead"
               onClick={() => setCriando({})}
             >
-              Novo negócio
+              Novo lead
             </Button>
           </div>
         ) : null}
