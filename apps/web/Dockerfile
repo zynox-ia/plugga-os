@@ -14,6 +14,7 @@ COPY packages/config/package.json packages/config/
 COPY packages/shared/package.json packages/shared/
 COPY apps/api/package.json apps/api/
 COPY apps/web/package.json apps/web/
+COPY apps/api/scripts/ensure-prisma-client.mjs apps/api/scripts/
 COPY apps/api/prisma apps/api/prisma
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
   pnpm install --frozen-lockfile

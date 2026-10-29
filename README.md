@@ -49,6 +49,22 @@ pnpm dev
 Os nomes exatos dos scripts de banco são mantidos no `package.json`. O Compose e
 as migrações destinam-se somente ao banco local definido em `.env`.
 
+No Windows, a instalação e as verificações (`build`, `test`, `typecheck`) reutilizam
+o Prisma Client quando o schema, a versão e os arquivos gerados estão atualizados.
+Isso evita substituir a DLL enquanto a API local a utiliza. Mudanças no schema ou
+na versão continuam exigindo geração, como orienta a
+[documentação do Prisma](https://www.prisma.io/docs/orm/v6/prisma-client/setup-and-configuration/generating-prisma-client).
+Se a geração necessária falhar por DLL em uso, pare somente a API deste projeto,
+execute `pnpm db:generate` e reinicie-a. O comando explícito continua forçando a geração.
+
+O empacotamento `standalone` do Next.js precisa criar links simbólicos. Se o
+Windows negar essa permissão, valide o pacote Linux no Docker local, sem subir
+serviços nem publicar a imagem:
+
+```bash
+docker build --target build -f apps/web/Dockerfile -t plugga-web:verificacao .
+```
+
 Com a API em execução, verifique:
 
 ```bash
