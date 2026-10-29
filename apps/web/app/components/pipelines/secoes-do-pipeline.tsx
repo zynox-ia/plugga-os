@@ -1,12 +1,16 @@
 "use client";
 
 import type { PipelineMemberRole, PipelinePeopleResponse } from "@plugga/shared";
+import { ChevronDown, ChevronUp, GripVertical, Trash2 } from "lucide-react";
 import { useEffect, useState, type CSSProperties } from "react";
 
 import { enviar } from "../../lib/clientes";
 import { novaChave } from "../../lib/pipelines";
+import { Button } from "../ui/button";
+import { IconPlus } from "../ui/icons";
+import { Switch } from "../ui/selection";
 import type { PropsDaSecao } from "./editor-de-pipeline";
-import { Avatar, Icone } from "./icones";
+import { Avatar } from "./icones";
 import { SeletorDeCor } from "./seletor-de-cor";
 
 function mover<T>(lista: T[], de: number, para: number): T[] {
@@ -24,11 +28,39 @@ function ErroDaLista({ texto }: { texto?: string }) {
   ) : null;
 }
 
-function BotaoIcone({ rotulo, icone, aoClicar, desabilitado, perigo }: { rotulo: string; icone: "cima" | "baixo" | "lixeira"; aoClicar: () => void; desabilitado?: boolean; perigo?: boolean }) {
+function BotaoAcaoLinha({
+  rotulo,
+  icone,
+  aoClicar,
+  desabilitado,
+  perigo,
+}: {
+  rotulo: string;
+  icone: "cima" | "baixo" | "lixeira";
+  aoClicar: () => void;
+  desabilitado?: boolean;
+  perigo?: boolean;
+}) {
   return (
-    <button type="button" className={`botao-icone${perigo ? " botao-icone--perigo" : ""}`} aria-label={rotulo} title={rotulo} disabled={desabilitado} onClick={aoClicar}>
-      <Icone nome={icone} tamanho={15} />
-    </button>
+    <Button
+      variant={perigo ? "danger" : "secondary"}
+      size="sm"
+      iconOnly
+      aria-label={rotulo}
+      title={rotulo}
+      disabled={desabilitado}
+      onClick={aoClicar}
+      className={perigo ? "botao-acao--perigo" : ""}
+      icon={
+        icone === "cima" ? (
+          <ChevronUp size={14} />
+        ) : icone === "baixo" ? (
+          <ChevronDown size={14} />
+        ) : (
+          <Trash2 size={14} />
+        )
+      }
+    />
   );
 }
 
@@ -96,7 +128,7 @@ export function SecaoEtapas({ rascunho, aoAlterar, erros, negociosPorEtapa }: Pr
               onDragEnd={soltar}
             >
               <span className="alca" title="Arraste para reordenar" aria-hidden="true" onPointerDown={() => setPega(i)} onPointerUp={() => setPega(null)}>
-                <Icone nome="alca" />
+                <GripVertical size={16} />
               </span>
               <span className="linha-etapa-nome">
                 <SeletorDeCor valor={etapa.color} rotulo={`Cor da etapa ${nome}`} aoMudar={(color) => alterar(i, { color })} />
@@ -117,9 +149,9 @@ export function SecaoEtapas({ rascunho, aoAlterar, erros, negociosPorEtapa }: Pr
                 <span>dias</span>
               </span>
               <span className="acoes-linha">
-                <BotaoIcone rotulo={`Subir ${nome}`} icone="cima" desabilitado={i === 0} aoClicar={() => aoAlterar({ stages: mover(etapas, i, i - 1) })} />
-                <BotaoIcone rotulo={`Descer ${nome}`} icone="baixo" desabilitado={i === etapas.length - 1} aoClicar={() => aoAlterar({ stages: mover(etapas, i, i + 1) })} />
-                <BotaoIcone rotulo={`Excluir ${nome}`} icone="lixeira" perigo desabilitado={etapas.length === 1} aoClicar={() => excluir(i)} />
+                <BotaoAcaoLinha rotulo={`Subir ${nome}`} icone="cima" desabilitado={i === 0} aoClicar={() => aoAlterar({ stages: mover(etapas, i, i - 1) })} />
+                <BotaoAcaoLinha rotulo={`Descer ${nome}`} icone="baixo" desabilitado={i === etapas.length - 1} aoClicar={() => aoAlterar({ stages: mover(etapas, i, i + 1) })} />
+                <BotaoAcaoLinha rotulo={`Excluir ${nome}`} icone="lixeira" perigo desabilitado={etapas.length === 1} aoClicar={() => excluir(i)} />
               </span>
               {excluindo?.indice === i ? (
                 <div className="excluir-etapa" role="group" aria-label={`Excluir ${nome}`}>
@@ -133,45 +165,29 @@ export function SecaoEtapas({ rascunho, aoAlterar, erros, negociosPorEtapa }: Pr
                       </option>
                     ))}
                   </select>
-                  <button type="button" className="button button--perigo" onClick={() => confirmarExclusao(i)}>
+                  <Button variant="danger" size="sm" onClick={() => confirmarExclusao(i)}>
                     Excluir e mover
-                  </button>
-                  <button type="button" className="button button--secondary" onClick={() => setExcluindo(null)}>
+                  </Button>
+                  <Button variant="secondary" size="sm" onClick={() => setExcluindo(null)}>
                     Cancelar
-                  </button>
+                  </Button>
                 </div>
               ) : null}
             </li>
           );
         })}
       </ol>
-      <button
-        type="button"
-        className="adicionar-linha"
+      <Button
+        variant="secondary"
+        size="sm"
+        icon={<IconPlus />}
+        className="adicionar-linha-btn"
         disabled={etapas.length >= 20}
         onClick={() => aoAlterar({ stages: [...etapas, { chave: novaChave(), name: "", color: "#94A3B8", staleAfterDays: null }] })}
       >
-        <Icone nome="mais" tamanho={15} /> Adicionar etapa
-      </button>
+        Adicionar etapa
+      </Button>
       <p className="dica">Arraste pela alça ou use as setas para reordenar. Passado o prazo de parado, o negócio ganha um alerta no quadro; em branco, não alerta.</p>
-
-      <h3 className="form-secao">Desfechos</h3>
-      <div className="desfechos-config">
-        <div className="desfecho-config desfecho-config--ganho">
-          <label htmlFor="pipeline-ganho">
-            <Icone nome="check" tamanho={14} /> Nome do Ganho neste pipeline *
-          </label>
-          <input id="pipeline-ganho" value={rascunho.wonLabel} maxLength={40} onChange={(e) => aoAlterar({ wonLabel: e.target.value })} />
-          <small>Encerra o negócio como venda feita. Ex.: Contrato assinado.</small>
-        </div>
-        <div className="desfecho-config desfecho-config--perdido">
-          <label htmlFor="pipeline-perdido">
-            <Icone nome="x" tamanho={14} /> Nome do Perdido neste pipeline *
-          </label>
-          <input id="pipeline-perdido" value={rascunho.lostLabel} maxLength={40} onChange={(e) => aoAlterar({ lostLabel: e.target.value })} />
-          <small>Encerra o negócio e exige um motivo de perda.</small>
-        </div>
-      </div>
     </div>
   );
 }
@@ -183,7 +199,18 @@ export function SecaoEtiquetas({ rascunho, aoAlterar, erros }: PropsDaSecao) {
 
   return (
     <div className="secao-lista">
-      <p className="dica">As etiquetas pertencem ao pipeline e aparecem nos cards e nos filtros.</p>
+      <div className="secao-etiquetas-topo">
+        <p className="dica">As etiquetas pertencem ao pipeline e aparecem nos cards e nos filtros.</p>
+        <Button
+          variant="primary"
+          size="sm"
+          icon={<IconPlus />}
+          className="botao-nova-etiqueta"
+          onClick={() => aoAlterar({ tags: [...etiquetas, { chave: novaChave(), name: "", color: "#0077FF" }] })}
+        >
+          Nova etiqueta
+        </Button>
+      </div>
       {etiquetas.some((e) => e.name) ? (
         <div className="previa-etiquetas" aria-label="Prévia das etiquetas">
           {etiquetas
@@ -205,14 +232,11 @@ export function SecaoEtiquetas({ rascunho, aoAlterar, erros }: PropsDaSecao) {
               <input aria-label={`Nome da etiqueta ${i + 1}`} value={etiqueta.name} maxLength={40} placeholder="Nome da etiqueta" onChange={(e) => alterar(i, { name: e.target.value })} />
             </span>
             <span className="acoes-linha">
-              <BotaoIcone rotulo={`Excluir etiqueta ${etiqueta.name || i + 1}`} icone="lixeira" perigo aoClicar={() => aoAlterar({ tags: etiquetas.filter((_, j) => j !== i) })} />
+              <BotaoAcaoLinha rotulo={`Excluir etiqueta ${etiqueta.name || i + 1}`} icone="lixeira" perigo aoClicar={() => aoAlterar({ tags: etiquetas.filter((_, j) => j !== i) })} />
             </span>
           </li>
         ))}
       </ul>
-      <button type="button" className="adicionar-linha" onClick={() => aoAlterar({ tags: [...etiquetas, { chave: novaChave(), name: "", color: "#0077FF" }] })}>
-        <Icone nome="mais" tamanho={15} /> Nova etiqueta
-      </button>
     </div>
   );
 }
@@ -231,24 +255,25 @@ export function SecaoMotivos({ rascunho, aoAlterar, erros }: PropsDaSecao) {
         {motivos.map((motivo, i) => (
           <li key={motivo.chave}>
             <input aria-label={`Motivo de perda ${i + 1}`} value={motivo.name} maxLength={80} placeholder="Motivo de perda" onChange={(e) => alterar(i, { name: e.target.value })} />
-            <label className="chave-liga">
-              <input type="checkbox" role="switch" checked={motivo.asksRevisitDate} onChange={(e) => alterar(i, { asksRevisitDate: e.target.checked })} />
-              <span className="chave-liga-trilho" aria-hidden="true" />
-              Pede data para revisitar
-            </label>
+            <Switch
+              label="Pede data para revisitar"
+              checked={motivo.asksRevisitDate}
+              onChange={(e) => alterar(i, { asksRevisitDate: e.target.checked })}
+            />
             <span className="acoes-linha">
-              <BotaoIcone rotulo={`Excluir motivo ${motivo.name || i + 1}`} icone="lixeira" perigo aoClicar={() => aoAlterar({ lossReasons: motivos.filter((_, j) => j !== i) })} />
+              <BotaoAcaoLinha rotulo={`Excluir motivo ${motivo.name || i + 1}`} icone="lixeira" perigo aoClicar={() => aoAlterar({ lossReasons: motivos.filter((_, j) => j !== i) })} />
             </span>
           </li>
         ))}
       </ul>
-      <button
-        type="button"
-        className="adicionar-linha"
+      <Button
+        variant="secondary"
+        icon={<IconPlus />}
+        className="adicionar-linha-btn"
         onClick={() => aoAlterar({ lossReasons: [...motivos, { chave: novaChave(), name: "", asksRevisitDate: false }] })}
       >
-        <Icone nome="mais" tamanho={15} /> Novo motivo
-      </button>
+        Novo motivo
+      </Button>
     </div>
   );
 }
@@ -320,13 +345,14 @@ export function SecaoEquipe({ rascunho, aoAlterar, erros, nomesDaEquipe }: Props
         </ul>
       ) : null}
       {semPapel.length > 0 ? (
-        <button
-          type="button"
-          className="adicionar-linha"
+        <Button
+          variant="secondary"
+          icon={<IconPlus />}
+          className="adicionar-linha-btn"
           onClick={() => aoAlterar({ members: [...rascunho.members, ...semPapel.map((p) => ({ userId: p.id, role: "vendedor" as const }))] })}
         >
-          <Icone nome="equipe" tamanho={15} /> Incluir todos como vendedores
-        </button>
+          Incluir todos como vendedores
+        </Button>
       ) : null}
     </div>
   );

@@ -165,23 +165,12 @@ function PapelBadge({ acesso }: { acesso: Acesso }) {
   );
 }
 
-function iniciais(nome: string): string {
-  return nome
-    .trim()
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((parte) => parte[0])
-    .join("")
-    .toUpperCase();
-}
-
 function AvatarMembro({
   membro,
 }: {
   membro: MembroDaEquipe & { avatarUrl?: string };
 }) {
   const [erroImg, setErroImg] = useState(false);
-  const initials = iniciais(membro.name);
 
   return (
     <div className="equipe-avatar-wrapper">
@@ -193,8 +182,8 @@ function AvatarMembro({
           onError={() => setErroImg(true)}
         />
       ) : (
-        <span className="equipe-avatar" aria-hidden="true">
-          {initials}
+        <span className="equipe-avatar" aria-hidden="true" title={membro.name}>
+          <IconUser className="w-4 h-4" />
         </span>
       )}
       <span

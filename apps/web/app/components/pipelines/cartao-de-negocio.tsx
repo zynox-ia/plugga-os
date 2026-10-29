@@ -1,13 +1,24 @@
 "use client";
 
 import type { Deal, Pipeline } from "@plugga/shared";
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
+import { ArrowRight, Check, CheckSquare, Clock, MoreHorizontal, X } from "lucide-react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
-import { formatarDiaMes } from "../../lib/format";
 import { diasNaEtapa, estaParado, hojeNoFuso, valorCurto } from "../../lib/negocios";
-import { Avatar, Icone } from "./icones";
+import { Avatar } from "./icones";
 import type { AcoesDoNegocio } from "./quadro-do-pipeline";
+
+function formatarDue(dataStr: string | null): string {
+  if (!dataStr) return "Sem data";
+  const d = new Date(`${dataStr.slice(0, 10)}T12:00:00Z`);
+  if (isNaN(d.getTime())) return dataStr;
+  const dia = d.getUTCDate();
+  const meses = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+  const mes = meses[d.getUTCMonth()];
+  const ano = d.getUTCFullYear();
+  return `${dia} ${mes}, ${ano}`;
+}
 
 /**
  * Ações do negócio aberto pelo teclado ou pelo mouse: a alternativa ao arrastar
@@ -95,7 +106,7 @@ export function MenuDoNegocio({ negocio, pipeline, acoes }: { negocio: Deal; pip
           setAberto((a) => !a);
         }}
       >
-        <Icone nome="mais_opcoes" />
+        <MoreHorizontal size={15} aria-hidden="true" />
       </button>
       {aberto
         ? createPortal(
@@ -117,13 +128,13 @@ export function MenuDoNegocio({ negocio, pipeline, acoes }: { negocio: Deal; pip
                 ))}
               <span className="menu-negocio-divisor" role="separator" />
               <button type="button" role="menuitem" className="menu-negocio--ganho" onClick={escolher(() => acoes.ganhar(negocio))}>
-                <Icone nome="check" tamanho={14} /> {pipeline.wonLabel}
+                <Check size={14} aria-hidden="true" /> {pipeline.wonLabel}
               </button>
               <button type="button" role="menuitem" className="menu-negocio--perdido" onClick={escolher(() => acoes.perder(negocio))}>
-                <Icone nome="x" tamanho={14} /> {pipeline.lostLabel}
+                <X size={14} aria-hidden="true" /> {pipeline.lostLabel}
               </button>
               <button type="button" role="menuitem" onClick={escolher(() => acoes.transferir(negocio))}>
-                <Icone nome="seta" tamanho={14} /> Mover para outro pipeline
+                <ArrowRight size={14} aria-hidden="true" /> Mover para outro pipeline
               </button>
             </div>,
             document.body,
@@ -150,7 +161,45 @@ export function CartaoDeNegocio({
 }) {
   const dias = diasNaEtapa(negocio);
   const parado = estaParado(negocio, pipeline);
-  const previsaoVencida = negocio.expectedCloseDate !== null && negocio.expectedCloseDate < hojeNoFuso();
+  const hoje = hojeNoFuso();
+  const previsaoVencida = negocio.expectedCloseDate !== null && negocio.expectedCloseDate < hoje;
+
+  const etapaIndex = pipeline.stages.findIndex((e) => e.id === negocio.stageId);
+  const etapaNumero = etapaIndex >= 0 ? etapaIndex + 1 : 1;
+
+  // Prioridade / Tag baseada em regras ou tags do negócio
+  const primeiraTag = negocio.tags[0];
+  let prioridadeTom: "alta" | "media" | "baixa" = "baixa";
+  let prioridadeRotulo = "Low";
+
+  if (primeiraTag) {
+    const nomeNorm = primeiraTag.name.toLowerCase();
+    if (nomeNorm.includes("alta") || nomeNorm.includes("high")) {
+      prioridadeTom = "alta";
+      prioridadeRotulo = "High";
+    } else if (nomeNorm.includes("baixa") || nomeNorm.includes("low")) {
+      prioridadeTom = "baixa";
+      prioridadeRotulo = "Low";
+    } else if (nomeNorm.includes("media") || nomeNorm.includes("média") || nomeNorm.includes("medium")) {
+      prioridadeTom = "media";
+      prioridadeRotulo = "Medium";
+    } else {
+      prioridadeTom = "media";
+      prioridadeRotulo = primeiraTag.name;
+    }
+  } else if (parado) {
+    prioridadeTom = "alta";
+    prioridadeRotulo = "High";
+  } else if (negocio.value && Number(negocio.value) >= 50000) {
+    prioridadeTom = "alta";
+    prioridadeRotulo = "High";
+  } else if (negocio.value && Number(negocio.value) >= 15000) {
+    prioridadeTom = "media";
+    prioridadeRotulo = "Medium";
+  } else {
+    prioridadeTom = "baixa";
+    prioridadeRotulo = "Low";
+  }
 
   return (
     <article
@@ -164,38 +213,53 @@ export function CartaoDeNegocio({
       }}
       onDragEnd={aoTerminarArrasto}
     >
+      {/* 1. Topo: Due Date + Menu */}
       <div className="cartao-negocio-topo">
-        <h4>{negocio.title}</h4>
+        <div className={`cartao-negocio-due${previsaoVencida ? " cartao-negocio-due--vencida" : ""}`}>
+          <Clock size={12} aria-hidden="true" />
+          <span>Due: {negocio.expectedCloseDate ? formatarDue(negocio.expectedCloseDate) : "Sem prazo"}</span>
+        </div>
         <MenuDoNegocio negocio={negocio} pipeline={pipeline} acoes={acoes} />
       </div>
-      <p className="cartao-negocio-cliente">
-        {negocio.client.name}
-        {negocio.contact ? <span> · {negocio.contact.name}</span> : null}
-      </p>
-      <div className="cartao-negocio-valor">
-        <b>{negocio.value ? valorCurto(Number(negocio.value)) : "Sem valor"}</b>
-        {negocio.expectedCloseDate ? (
-          <span className={previsaoVencida ? "previsao previsao--vencida" : "previsao"} title="Previsão de fechamento">
-            <Icone nome="calendario" tamanho={12} />
-            {formatarDiaMes(`${negocio.expectedCloseDate}T12:00:00Z`)}
-          </span>
-        ) : null}
+
+      {/* 2. Título & Subtítulo */}
+      <div className="cartao-negocio-corpo">
+        <h4>{negocio.title}</h4>
+        <p className="cartao-negocio-cliente">
+          {negocio.client.name}
+          {negocio.contact ? <span> · {negocio.contact.name}</span> : null}
+        </p>
       </div>
-      {negocio.tags.length > 0 ? (
-        <div className="cartao-negocio-etiquetas">
-          {negocio.tags.map((t) => (
-            <span key={t.id} className="etiqueta" style={{ "--cor": t.color } as CSSProperties}>
-              {t.name}
-            </span>
-          ))}
+
+      {/* 3. Milestone / Etapa */}
+      <div className="cartao-negocio-milestone">
+        <CheckSquare size={13} className="cartao-negocio-milestone-icone" aria-hidden="true" />
+        <span>Milestone {etapaIndex >= 0 ? etapaIndex : 0}/{pipeline.stages.length}</span>
+        {negocio.value ? <span className="cartao-negocio-milestone-valor">· {valorCurto(Number(negocio.value))}</span> : null}
+      </div>
+
+      {/* 4. Assigned for */}
+      <div className="cartao-negocio-assigned">
+        <span className="cartao-negocio-assigned-rotulo">Assigned for</span>
+        <div className="cartao-negocio-assigned-avatares">
+          <Avatar id={negocio.owner.id} nome={negocio.owner.name} tamanho="pequeno" />
         </div>
-      ) : null}
+      </div>
+
+      {/* 5. Rodapé: Prioridade + Código/Dias */}
       <div className="cartao-negocio-rodape">
-        <span className={parado ? "dias-na-etapa dias-na-etapa--parado" : "dias-na-etapa"} title={parado ? "Parado além do prazo da etapa" : "Dias nesta etapa"}>
-          <Icone nome="relogio" tamanho={12} />
-          {parado ? `Parado há ${dias}d` : `${dias}d na etapa`}
-        </span>
-        <Avatar id={negocio.owner.id} nome={negocio.owner.name} tamanho="pequeno" />
+        <div className={`cartao-negocio-prioridade cartao-negocio-prioridade--${prioridadeTom}`}>
+          <span className="cartao-negocio-prioridade-icone" aria-hidden="true">▲</span>
+          <span>{prioridadeRotulo}</span>
+        </div>
+
+        <div className="cartao-negocio-meta">
+          <span className="cartao-negocio-codigo">#{etapaNumero}</span>
+          <span className={parado ? "dias-na-etapa dias-na-etapa--parado" : "dias-na-etapa"} title={parado ? "Parado além do prazo da etapa" : "Dias nesta etapa"}>
+            <Clock size={11} aria-hidden="true" />
+            {parado ? `Parado há ${dias}d` : `${dias}d`}
+          </span>
+        </div>
       </div>
     </article>
   );
