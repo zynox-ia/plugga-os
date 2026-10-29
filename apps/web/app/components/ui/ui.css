@@ -815,3 +815,103 @@ h1.ui-heading > .ui-heading-icon > svg { width: 22px; height: 22px; }
   border-radius: var(--radius-sm, 8px);
   border: 1px dashed var(--ui-divider);
 }
+
+/* Campos e elementos para modais e formulários do sistema */
+select.ui-input {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23536579' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 36px;
+  cursor: pointer;
+}
+
+.ui-dialog-notice {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm, 8px);
+  background: var(--ui-subtle, #f3f7fb);
+  border: 1px solid var(--ui-divider);
+  color: var(--ui-muted, #536579);
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+.ui-dialog-notice strong {
+  color: var(--ui-text);
+  font-weight: 600;
+}
+
+.ui-dialog-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.ui-dialog-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 9999px;
+  border: 1px solid var(--ui-border);
+  background: var(--ui-surface);
+  color: var(--ui-text);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.ui-dialog-tag:hover {
+  background: var(--ui-subtle);
+  border-color: rgba(0, 102, 204, 0.3);
+}
+.ui-dialog-tag--active {
+  background: var(--ui-focus-bg);
+  border-color: var(--ui-primary);
+  color: var(--ui-primary);
+  font-weight: 600;
+}
+.ui-dialog-tag-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.ui-dialog-ucs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr));
+  gap: 10px;
+}
+.ui-dialog-uc-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--radius-sm, 8px);
+  background: var(--ui-surface);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.ui-dialog-uc-card:hover {
+  background: var(--ui-subtle);
+}
+.ui-dialog-uc-card--selected {
+  background: var(--ui-focus-bg);
+  border-color: var(--ui-primary);
+}
+.ui-dialog-uc-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.ui-dialog-uc-info strong {
+  font-size: 13px;
+  color: var(--ui-text);
+}
+.ui-dialog-uc-info small {
+  font-size: 11px;
+  color: var(--ui-muted);
+}

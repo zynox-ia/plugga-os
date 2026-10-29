@@ -6,15 +6,23 @@ import { useEffect, useState, type CSSProperties } from "react";
 import { enviar, type ErroDoFormulario } from "../../lib/clientes";
 import { valorDigitadoParaDecimal } from "../../lib/negocios";
 import { EMPRESAS_POR_ID } from "../../lib/organizacao";
-import { Modal } from "../modal";
+import {
+  Alert,
+  Button,
+  Dialog,
+  Heading,
+  IconBriefcase,
+  IconCheck,
+  IconLayers,
+  IconPlus,
+  IconUser,
+  TextField,
+} from "../ui";
 import { BuscaDeCliente, type ClienteEscolhido } from "./busca-de-cliente";
-import { Icone } from "./icones";
 
 /**
- * Novo negócio (PLU-271, wireframe 5). Pipeline e etapa já vêm de onde foi
- * aberto; a empresa vem do pipeline. Obrigatórios: cliente, título e
- * responsável da equipe. Sem <form>: o cadastro de cliente, aberto por cima,
- * tem o próprio formulário.
+ * Novo negócio: funil e etapa herdam o contexto atual.
+ * Estrutura padronizada no padrão de Dialog do Plugga OS.
  */
 export function NovoNegocio({
   pipelines,
@@ -35,7 +43,8 @@ export function NovoNegocio({
 }) {
   const [pipelineId, setPipelineId] = useState(pipelineInicial.id);
   const pipeline = pipelines.find((p) => p.id === pipelineId) ?? pipelineInicial;
-  const responsavelPadrao = (p: Pipeline) => (usuarioId && p.members.some((m) => m.userId === usuarioId) ? usuarioId : (p.members[0]?.userId ?? ""));
+  const responsavelPadrao = (p: Pipeline) =>
+    usuarioId && p.members.some((m) => m.userId === usuarioId) ? usuarioId : (p.members[0]?.userId ?? "");
   const [etapaId, setEtapaId] = useState(etapaInicialId ?? pipelineInicial.stages[0]?.id ?? "");
   const [cliente, setCliente] = useState<ClienteEscolhido | null>(null);
   const [opcoes, setOpcoes] = useState<DealClientOptionsResponse | null>(null);
@@ -107,149 +116,222 @@ export function NovoNegocio({
   const e = erro?.porCampo ?? {};
 
   return (
-    <Modal rotulo="Novo negócio" aoFechar={aoFechar}>
-      <div className="modal-topo">
-        <div>
-          <span className="eyebrow eyebrow--azul">Comercial</span>
-          <h2>Novo negócio</h2>
-        </div>
-        <button className="botao-fechar config-botao-fechar" type="button" aria-label="Fechar" onClick={aoFechar}>
-          <Icone nome="x" />
-        </button>
-      </div>
+    <Dialog
+      title="Novo Negócio"
+      description="Abra uma oportunidade no funil de vendas associando cliente, valores e equipe."
+      icon={<IconBriefcase />}
+      onClose={aoFechar}
+      size="media"
+      footer={
+        <Button
+          variant="primary"
+          icon={<IconPlus />}
+          loading={enviando}
+          onClick={criar}
+        >
+          Criar negócio
+        </Button>
+      }
+    >
+      <div className="ui-dialog-form">
+        {erro?.mensagem ? (
+          <Alert tone="danger" title={erro.mensagem} />
+        ) : null}
 
-      <div className="modal-corpo">
-        <div className="form-grade">
-          <div className="field">
-            <label htmlFor="negocio-pipeline">Pipeline *</label>
-            <select id="negocio-pipeline" value={pipelineId} onChange={(ev) => trocarPipeline(ev.target.value)}>
-              {pipelines.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name} · {EMPRESAS_POR_ID[p.companyId].nome}
-                </option>
-              ))}
-            </select>
+        {/* Seção 1: Pipeline e Etapa */}
+        <section className="ui-dialog-section">
+          <div className="ui-dialog-section-header">
+            <Heading as="h3" icon={<IconLayers />}>Pipeline e Etapa</Heading>
+            <p className="ui-dialog-section-desc">
+              Defina o funil de vendas e a etapa inicial onde o negócio entrará.
+            </p>
           </div>
-          <div className="field">
-            <label htmlFor="negocio-etapa">Etapa inicial *</label>
-            <select id="negocio-etapa" value={etapaId} onChange={(ev) => setEtapaId(ev.target.value)}>
-              {pipeline.stages.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <p className="nota-pipeline inteira">
-            <Icone nome="info" tamanho={14} />A empresa vem do pipeline: este negócio é da {EMPRESAS_POR_ID[pipeline.companyId].nome}.
-          </p>
-
-          <div className="field inteira">
-            <label htmlFor="negocio-cliente">Cliente *</label>
-            <BuscaDeCliente cliente={cliente} aoEscolher={setCliente} responsaveis={responsaveisDeCliente} erro={e.clientId} />
-          </div>
-
-          <div className="field inteira">
-            <label htmlFor="negocio-titulo">Título *</label>
-            <input
-              id="negocio-titulo"
-              value={titulo}
-              maxLength={120}
-              placeholder="Ex.: Hotel — usina 120 kWp"
-              aria-invalid={Boolean(e.title)}
-              onChange={(ev) => setTitulo(ev.target.value)}
-            />
-            {e.title ? <span className="erro-campo">{e.title}</span> : null}
-          </div>
-
-          <div className="field">
-            <label htmlFor="negocio-valor">{pipeline.valueLabel}</label>
-            <div className="campo-moeda">
-              <span aria-hidden="true">R$</span>
-              <input id="negocio-valor" inputMode="decimal" placeholder="0,00" value={valor} aria-invalid={Boolean(e.value)} onChange={(ev) => setValor(ev.target.value)} />
+          <div className="ui-dialog-grid">
+            <div className="ui-field">
+              <label htmlFor="negocio-pipeline">Pipeline *</label>
+              <div className="ui-input-wrap">
+                <select
+                  id="negocio-pipeline"
+                  className="ui-input"
+                  value={pipelineId}
+                  onChange={(ev) => trocarPipeline(ev.target.value)}
+                >
+                  {pipelines.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name} · {EMPRESAS_POR_ID[p.companyId].nome}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
-            {e.value ? <span className="erro-campo">{e.value}</span> : <span className="dica">O nome deste campo vem do pipeline.</span>}
+            <div className="ui-field">
+              <label htmlFor="negocio-etapa">Etapa inicial *</label>
+              <div className="ui-input-wrap">
+                <select
+                  id="negocio-etapa"
+                  className="ui-input"
+                  value={etapaId}
+                  onChange={(ev) => setEtapaId(ev.target.value)}
+                >
+                  {pipeline.stages.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
           </div>
-          <div className="field">
-            <label htmlFor="negocio-previsao">Previsão de fechamento</label>
-            <input id="negocio-previsao" type="date" value={previsao} onChange={(ev) => setPrevisao(ev.target.value)} />
+          <div className="ui-dialog-notice">
+            <span>A empresa vem do pipeline: este negócio pertence à <strong>{EMPRESAS_POR_ID[pipeline.companyId].nome}</strong>.</span>
           </div>
+        </section>
 
-          <div className="field">
+        {/* Seção 2: Cliente e Contato */}
+        <section className="ui-dialog-section">
+          <div className="ui-dialog-section-header">
+            <Heading as="h3" icon={<IconUser />}>Cliente e Contato</Heading>
+            <p className="ui-dialog-section-desc">
+              Selecione o cliente cadastrado e o contato direto para este negócio.
+            </p>
+          </div>
+          <div className="ui-field inteira">
+            <label htmlFor="negocio-cliente">Cliente *</label>
+            <BuscaDeCliente
+              cliente={cliente}
+              aoEscolher={setCliente}
+              responsaveis={responsaveisDeCliente}
+              erro={e.clientId}
+            />
+          </div>
+          <div className="ui-field inteira">
             <label htmlFor="negocio-contato">Contato</label>
-            <select id="negocio-contato" value={contatoId} disabled={!opcoes || opcoes.contacts.length === 0} onChange={(ev) => setContatoId(ev.target.value)}>
-              <option value="">{!cliente ? "Escolha o cliente primeiro" : opcoes?.contacts.length === 0 ? "Cliente sem contatos" : "Sem contato"}</option>
-              {opcoes?.contacts.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                  {c.isPrimary ? " (principal)" : ""}
+            <div className="ui-input-wrap">
+              <select
+                id="negocio-contato"
+                className="ui-input"
+                value={contatoId}
+                disabled={!opcoes || opcoes.contacts.length === 0}
+                onChange={(ev) => setContatoId(ev.target.value)}
+              >
+                <option value="">
+                  {!cliente ? "Escolha o cliente primeiro" : opcoes?.contacts.length === 0 ? "Cliente sem contatos" : "Sem contato"}
                 </option>
-              ))}
-            </select>
+                {opcoes?.contacts.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}{c.isPrimary ? " (principal)" : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
-          <div className="field">
-            <label htmlFor="negocio-responsavel">Responsável *</label>
-            <select id="negocio-responsavel" value={responsavelId} aria-invalid={Boolean(e.ownerId)} onChange={(ev) => setResponsavelId(ev.target.value)}>
-              {pipeline.members.length === 0 ? <option value="">Pipeline sem equipe</option> : null}
-              {pipeline.members.map((m) => (
-                <option key={m.userId} value={m.userId}>
-                  {m.name}
-                </option>
-              ))}
-            </select>
-            {e.ownerId ? <span className="erro-campo">{e.ownerId}</span> : null}
-          </div>
-
           {opcoes && opcoes.consumerUnits.length > 0 ? (
-            <fieldset className="inteira escolha-ucs">
-              <legend>Unidades consumidoras deste negócio</legend>
-              {opcoes.consumerUnits.map((u) => (
-                <label key={u.id} className={`opcao-uc${ucs.includes(u.id) ? " opcao-uc--marcada" : ""}`}>
-                  <input type="checkbox" checked={ucs.includes(u.id)} onChange={() => setUcs((atual) => alternar(atual, u.id))} />
-                  <b>{u.code}</b>
-                  <small>{u.distributor}</small>
-                </label>
-              ))}
-            </fieldset>
+            <div className="ui-field inteira">
+              <label>Unidades consumidoras deste negócio</label>
+              <div className="ui-dialog-ucs">
+                {opcoes.consumerUnits.map((u) => (
+                  <label key={u.id} className={`ui-dialog-uc-card ${ucs.includes(u.id) ? "ui-dialog-uc-card--selected" : ""}`}>
+                    <input
+                      type="checkbox"
+                      checked={ucs.includes(u.id)}
+                      onChange={() => setUcs((atual) => alternar(atual, u.id))}
+                    />
+                    <div className="ui-dialog-uc-info">
+                      <strong>{u.code}</strong>
+                      <small>{u.distributor}</small>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            </div>
           ) : null}
+        </section>
 
+        {/* Seção 3: Dados da Oportunidade */}
+        <section className="ui-dialog-section">
+          <div className="ui-dialog-section-header">
+            <Heading as="h3" icon={<IconBriefcase />}>Dados da Oportunidade</Heading>
+            <p className="ui-dialog-section-desc">
+              Identificação, valores estimados, prazo e vendedor responsável.
+            </p>
+          </div>
+          <TextField
+            id="negocio-titulo"
+            label="Título *"
+            value={titulo}
+            maxLength={120}
+            placeholder="Ex.: Hotel — usina 120 kWp"
+            error={e.title}
+            onChange={(ev) => setTitulo(ev.target.value)}
+          />
+          <div className="ui-dialog-grid">
+            <TextField
+              id="negocio-valor"
+              label={pipeline.valueLabel}
+              prefix="R$"
+              inputMode="decimal"
+              placeholder="0,00"
+              value={valor}
+              error={e.value}
+              hint={!e.value ? "O nome deste campo vem do pipeline." : undefined}
+              onChange={(ev) => setValor(ev.target.value)}
+            />
+            <div className="ui-field">
+              <label htmlFor="negocio-previsao">Previsão de fechamento</label>
+              <div className="ui-input-wrap">
+                <input
+                  id="negocio-previsao"
+                  type="date"
+                  className="ui-input"
+                  value={previsao}
+                  onChange={(ev) => setPrevisao(ev.target.value)}
+                />
+              </div>
+            </div>
+          </div>
+          <div className="ui-field inteira">
+            <label htmlFor="negocio-responsavel">Responsável *</label>
+            <div className="ui-input-wrap">
+              <select
+                id="negocio-responsavel"
+                className="ui-input"
+                value={responsavelId}
+                aria-invalid={Boolean(e.ownerId)}
+                onChange={(ev) => setResponsavelId(ev.target.value)}
+              >
+                {pipeline.members.length === 0 ? <option value="">Pipeline sem equipe</option> : null}
+                {pipeline.members.map((m) => (
+                  <option key={m.userId} value={m.userId}>
+                    {m.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {e.ownerId ? <p className="ui-field-error">Erro: {e.ownerId}</p> : null}
+          </div>
           {pipeline.tags.length > 0 ? (
-            <fieldset className="inteira">
-              <legend>Etiquetas</legend>
-              <div className="escolha-etiquetas">
+            <div className="ui-field inteira">
+              <label>Etiquetas</label>
+              <div className="ui-dialog-tags">
                 {pipeline.tags.map((t) => (
                   <button
                     key={t.id}
                     type="button"
-                    className="etiqueta etiqueta--escolha"
+                    className={`ui-dialog-tag ${etiquetas.includes(t.id) ? "ui-dialog-tag--active" : ""}`}
                     aria-pressed={etiquetas.includes(t.id)}
                     style={{ "--cor": t.color } as CSSProperties}
                     onClick={() => setEtiquetas((atual) => alternar(atual, t.id))}
                   >
-                    {etiquetas.includes(t.id) ? <Icone nome="check" tamanho={12} /> : null}
-                    {t.name}
+                    <span className="ui-dialog-tag-dot" style={{ backgroundColor: t.color }} />
+                    <span>{t.name}</span>
+                    {etiquetas.includes(t.id) ? <IconCheck width={12} height={12} /> : null}
                   </button>
                 ))}
               </div>
-            </fieldset>
+            </div>
           ) : null}
-        </div>
-
-        {erro ? (
-          <p className="aviso aviso--erro" role="alert">
-            {erro.mensagem}
-          </p>
-        ) : null}
+        </section>
       </div>
-
-      <div className="modal-rodape">
-        <button className="button button--secondary" type="button" onClick={aoFechar}>
-          Cancelar
-        </button>
-        <button className="button button--accent" type="button" disabled={enviando} onClick={criar}>
-          {enviando ? "Criando…" : "Criar negócio"}
-        </button>
-      </div>
-    </Modal>
+    </Dialog>
   );
 }

@@ -6,7 +6,7 @@ import { useEffect, useId, useState } from "react";
 import { enviar } from "../../lib/clientes";
 import { ClienteForm } from "../cliente-form";
 import { Modal } from "../modal";
-import { Icone } from "./icones";
+import { Button, IconSearch, IconUser, IconX } from "../ui";
 
 export type ClienteEscolhido = { id: string; name: string; detalhe: string | null };
 
@@ -49,27 +49,30 @@ export function BuscaDeCliente({
     return (
       <div className="cliente-escolhido">
         <span className="cliente-escolhido-icone" aria-hidden="true">
-          <Icone nome="equipe" tamanho={16} />
+          <IconUser width={16} height={16} />
         </span>
-        <span className="cliente-escolhido-texto">
+        <div className="cliente-escolhido-texto">
           <b>{cliente.name}</b>
           {cliente.detalhe ? <small>{cliente.detalhe}</small> : null}
-        </span>
-        <button type="button" className="link-botao" onClick={() => aoEscolher(null)}>
+        </div>
+        <Button variant="secondary" size="sm" type="button" onClick={() => aoEscolher(null)}>
           Trocar
-        </button>
+        </Button>
       </div>
     );
   }
 
   return (
     <div className="busca-cliente">
-      <div className="busca-cliente-campo">
-        <Icone nome="busca" tamanho={15} />
+      <div className={`ui-input-wrap ${erro ? "ui-input-invalid" : ""}`}>
+        <span className="ui-input-leading" aria-hidden="true">
+          <IconSearch width={16} height={16} />
+        </span>
         <input
           id="negocio-cliente"
           type="search"
           role="combobox"
+          className="ui-input"
           aria-expanded={resultados !== null}
           aria-controls={lista}
           aria-invalid={Boolean(erro)}
@@ -92,32 +95,47 @@ export function BuscaDeCliente({
           ))}
         </ul>
       ) : null}
-      <p className="dica">
+      <p className="ui-field-hint" style={{ marginTop: 4 }}>
         Não encontrou?{" "}
         <button type="button" className="link-botao" onClick={() => setCadastrando(true)}>
           + Novo cliente
         </button>{" "}
         sem fechar esta janela.
       </p>
-      {erro ? <span className="erro-campo">{erro}</span> : null}
+      {erro ? <p className="ui-field-error" style={{ margin: 0 }}>Erro: {erro}</p> : null}
 
       {cadastrando ? (
-        <Modal rotulo="Novo cliente" aoFechar={() => setCadastrando(false)}>
-          <div className="modal-topo">
-            <h2>Novo cliente</h2>
-            <button className="botao-fechar config-botao-fechar" type="button" aria-label="Fechar" onClick={() => setCadastrando(false)}>
-              <Icone nome="x" />
-            </button>
+        <Modal rotulo="Novo cliente" aoFechar={() => setCadastrando(false)} largura="media" className="ui-dialog">
+          <header className="ui-dialog-header">
+            <div className="ui-dialog-header-content">
+              <div className="ui-dialog-header-icon" aria-hidden="true">
+                <IconUser width={20} height={20} />
+              </div>
+              <div className="ui-dialog-header-text">
+                <h2 className="ui-dialog-title">Novo cliente</h2>
+                <p className="ui-dialog-subtitle">Cadastre um novo cliente no CRM sem fechar este negócio.</p>
+              </div>
+            </div>
+            <Button
+              variant="secondary"
+              size="sm"
+              icon={<IconX />}
+              iconOnly
+              aria-label="Fechar"
+              onClick={() => setCadastrando(false)}
+            />
+          </header>
+          <div className="ui-dialog-body">
+            <ClienteForm
+              modo="criar"
+              responsaveis={responsaveis}
+              aoCancelar={() => setCadastrando(false)}
+              aoCriar={(resposta: CreateClientResponse) => {
+                setCadastrando(false);
+                aoEscolher({ id: resposta.client.id, name: resposta.client.name, detalhe: null });
+              }}
+            />
           </div>
-          <ClienteForm
-            modo="criar"
-            responsaveis={responsaveis}
-            aoCancelar={() => setCadastrando(false)}
-            aoCriar={(resposta: CreateClientResponse) => {
-              setCadastrando(false);
-              aoEscolher({ id: resposta.client.id, name: resposta.client.name, detalhe: null });
-            }}
-          />
         </Modal>
       ) : null}
     </div>

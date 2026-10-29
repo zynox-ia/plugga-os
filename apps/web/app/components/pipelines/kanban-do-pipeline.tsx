@@ -1,7 +1,7 @@
 "use client";
 
 import type { Deal, Pipeline } from "@plugga/shared";
-import { Clock, Kanban } from "lucide-react";
+import { Clock, Kanban, Plus } from "lucide-react";
 import { useLayoutEffect, useRef, useState, type CSSProperties, type DragEvent, type RefObject } from "react";
 
 import { calcularLayoutKanban, ESPACO_COLUNAS_KANBAN } from "../../lib/layout-kanban";
@@ -100,9 +100,20 @@ export function KanbanDoPipeline({
                   <Kanban size={16} className="coluna-titulo-icone" style={{ color: etapa.color }} aria-hidden="true" />
                   <h3 id={`etapa-${etapa.id}`}>{etapa.name}</h3>
                 </div>
-                <span className="coluna-quantidade" aria-label={`${daEtapa.length} negócios`}>
-                  {String(daEtapa.length).padStart(2, "0")}
-                </span>
+                <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                  <span className="coluna-quantidade" aria-label={`${daEtapa.length} negócios`}>
+                    {String(daEtapa.length).padStart(2, "0")}
+                  </span>
+                  <button
+                    type="button"
+                    className="coluna-novo"
+                    aria-label={`Novo negócio em ${etapa.name}`}
+                    title={`Novo negócio em ${etapa.name}`}
+                    onClick={() => acoes.novoNaEtapa(etapa.id)}
+                  >
+                    <Plus size={14} aria-hidden="true" />
+                  </button>
+                </div>
               </header>
 
               <div className="coluna-meta">
