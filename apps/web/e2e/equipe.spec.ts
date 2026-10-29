@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { randomUUID } from "node:crypto";
 
 /**
  * Configurações → Equipe e acessos, pela sessão do admin semeado.
@@ -96,42 +97,66 @@ test.describe("Configurações → Equipe e Acessos", () => {
     await expect(page.getByRole("menuitem", { name: "Remover membro" })).toBeVisible();
   });
 
-  test("pagina a tabela com 7 membros por página e alinha ações", async ({ page, request }) => {
-    const response = await request.get("/api/equipe");
-    expect(response.ok()).toBe(true);
-    const total = (await response.json()).membros.length;
-    expect(total).toBeGreaterThan(7);
-    await abrirEquipe(page);
+  test("pagina a tabela com 7 membros por página e alinha ações", async ({ page, request, baseURL }) => {
+    const api = new URL(baseURL!);
+    expect(["localhost", "127.0.0.1"]).toContain(api.hostname);
+    api.port = String(Number(api.port) + 1);
+    const statusEmail = await request.get(`${api.origin}/email/status`);
+    expect(statusEmail.ok()).toBe(true);
+    expect(await statusEmail.json()).toMatchObject({ provider: "noop" });
+    // Dados próprios: quantidade e paginação não dependem do seed nem de outros testes.
+    const prefixo = `paginacao-${randomUUID()}`;
+    const ids: string[] = [];
+    const total = 9;
+    try {
+      for (let i = 0; i < total; i++) {
+        const resposta = await request.post("/api/equipe/convites", {
+          headers: { origin: baseURL! },
+          data: { email: `${prefixo}-${i}@teste.local`, name: `Pessoa sintética ${i}`, acesso: {
+            plataforma: null, departamentos: [{ departamento: "crm", nivel: "membro", telas: [] }],
+          } },
+        });
+        expect(resposta.ok()).toBe(true);
+        ids.push((await resposta.json()).id);
+      }
+      await abrirEquipe(page);
+      await page.getByRole("searchbox", { name: "Filtrar pessoas da equipe" }).fill(prefixo);
 
-    // Exatamente 7 linhas na primeira página
-    const linhas = page.locator(".equipe-card tbody tr");
-    await expect(linhas).toHaveCount(7);
+      // Exatamente 7 linhas na primeira página
+      const linhas = page.locator(".equipe-card tbody tr");
+      await expect(linhas).toHaveCount(7);
 
-    // Controles de paginação presentes
-    const paginacao = page.locator(".equipe-paginacao");
-    await expect(paginacao).toBeVisible();
-    await expect(paginacao).toContainText(`Mostrando 1–7 de ${total} membros`);
+      // Controles de paginação presentes
+      const paginacao = page.locator(".equipe-paginacao");
+      await expect(paginacao).toBeVisible();
+      await expect(paginacao).toContainText(`Mostrando 1–7 de ${total} membros`);
 
-    // Botão de 3 pontinhos sem fundo (background transparente)
-    const btnTresPontinhos = page.locator(".equipe-card tbody tr:first-child .ui-menu-trigger--icon");
-    await expect(btnTresPontinhos).toBeVisible();
-    const bg = await btnTresPontinhos.evaluate((el) => window.getComputedStyle(el).backgroundColor);
-    expect(bg === "rgba(0, 0, 0, 0)" || bg === "transparent").toBe(true);
+      // Botão de 3 pontinhos sem fundo (background transparente)
+      const btnTresPontinhos = page.locator(".equipe-card tbody tr:first-child .ui-menu-trigger--icon");
+      await expect(btnTresPontinhos).toBeVisible();
+      const bg = await btnTresPontinhos.evaluate((el) => window.getComputedStyle(el).backgroundColor);
+      expect(bg === "rgba(0, 0, 0, 0)" || bg === "transparent").toBe(true);
 
-    // Cabeçalho de ações e células centralizados
-    const thAcoes = page.locator(".equipe-card th:last-child");
-    await expect(thAcoes).toHaveText("Ações");
-    const thAlign = await thAcoes.evaluate((el) => window.getComputedStyle(el).textAlign);
-    expect(thAlign).toBe("center");
+      // Cabeçalho de ações e células centralizados
+      const thAcoes = page.locator(".equipe-card th:last-child");
+      await expect(thAcoes).toHaveText("Ações");
+      const thAlign = await thAcoes.evaluate((el) => window.getComputedStyle(el).textAlign);
+      expect(thAlign).toBe("center");
 
-    // Navega para a página 2
-    await page.getByRole("button", { name: "Próxima página" }).click();
-    await expect(page.locator(".equipe-card tbody tr")).toHaveCount(Math.min(total - 7, 7));
-    await expect(paginacao).toContainText(`Mostrando 8–${Math.min(total, 14)} de ${total} membros`);
+      // Navega para a página 2
+      await page.getByRole("button", { name: "Próxima página" }).click();
+      await expect(page.locator(".equipe-card tbody tr")).toHaveCount(Math.min(total - 7, 7));
+      await expect(paginacao).toContainText(`Mostrando 8–${Math.min(total, 14)} de ${total} membros`);
 
-    // Volta para a página 1
-    await page.getByRole("button", { name: "Página anterior" }).click();
-    await expect(page.locator(".equipe-card tbody tr")).toHaveCount(7);
-    await expect(paginacao).toContainText(`Mostrando 1–7 de ${total} membros`);
+      // Volta para a página 1
+      await page.getByRole("button", { name: "Página anterior" }).click();
+      await expect(page.locator(".equipe-card tbody tr")).toHaveCount(7);
+      await expect(paginacao).toContainText(`Mostrando 1–7 de ${total} membros`);
+    } finally {
+      for (const id of ids) {
+        const resposta = await request.post(`/api/equipe/${id}/remover`, { headers: { origin: baseURL! }, data: {} });
+        expect(resposta.ok()).toBe(true);
+      }
+    }
   });
 });
