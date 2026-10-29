@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 
 import {
   cnpjValido,
@@ -45,16 +45,10 @@ import {
   TextField,
   TextareaField,
 } from "./ui";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-} from "./ui/shadcn/select";
 
 type Propriedades =
-  | { modo: "criar"; responsaveis: ClientOwner[]; aoCriar: (resposta: CreateClientResponse) => void; aoCancelar: () => void }
-  | { modo: "editar"; cliente: ClientDetail; responsaveis: ClientOwner[]; aoEditar: (cliente: ClientDetail) => void; aoCancelar: () => void };
+  | { modo: "criar"; responsaveis?: ClientOwner[]; aoCriar: (resposta: CreateClientResponse) => void; aoCancelar: () => void }
+  | { modo: "editar"; cliente: ClientDetail; responsaveis?: ClientOwner[]; aoEditar: (cliente: ClientDetail) => void; aoCancelar: () => void };
 
 function mascaraTelefone(valor: string): string {
   const d = valor.replace(/\D/g, "").slice(0, 11);
@@ -88,24 +82,6 @@ function mascaraCep(valor: string): string {
   return `${d.slice(0, 5)}-${d.slice(5)}`;
 }
 
-function AvatarResponsavel({ nome, avatarUrl }: { nome: string; avatarUrl?: string | null }) {
-  const [erroImg, setErroImg] = useState(false);
-
-  if (avatarUrl && !erroImg) {
-    return (
-      <span className="ui-member-avatar" aria-hidden="true">
-        <img src={avatarUrl} alt={nome} onError={() => setErroImg(true)} />
-      </span>
-    );
-  }
-
-  return (
-    <span className="ui-member-avatar ui-member-avatar--fallback" aria-hidden="true" title={nome}>
-      <IconUser width={15} height={15} />
-    </span>
-  );
-}
-
 /**
  * Cadastro e edição de cliente no CRM (PLU-268), padronizado no Design System oficial.
  */
@@ -126,16 +102,16 @@ export function ClienteForm(props: Propriedades) {
   // Campos de contato e atendimento
   const [telefone, setTelefone] = useState(telefoneFormatado(cliente?.phone ?? null) ?? "");
   const [email, setEmail] = useState(cliente?.email ?? "");
-  const [responsavelId, setResponsavelId] = useState(cliente?.owner?.id ?? "");
   const [origem, setOrigem] = useState(cliente?.origin ?? "");
 
-  // Campos de endereço
+  // Campos de endereço e busca automática de CEP
   const [cep, setCep] = useState(cliente?.postalCode ? formatarCep(cliente.postalCode) : "");
   const [logradouro, setLogradouro] = useState(cliente?.street ?? "");
   const [complemento, setComplemento] = useState(cliente?.addressComplement ?? "");
   const [bairro, setBairro] = useState(cliente?.district ?? "");
   const [cidade, setCidade] = useState(cliente?.city ?? "");
   const [uf, setUf] = useState(cliente?.state ?? "");
+  const [buscandoCep, setBuscandoCep] = useState(false);
 
   // Campos de contrato (PF)
   const [rg, setRg] = useState(cliente?.rg ?? "");
@@ -158,37 +134,6 @@ export function ClienteForm(props: Propriedades) {
   const [enviando, setEnviando] = useState(false);
   const [documentoRepetido, setDocumentoRepetido] = useState<ClientDuplicateCandidate | null>(null);
   const [avisos, setAvisos] = useState<ClientDuplicateCandidate[]>([]);
-
-  // Responsável picker do Design System
-  const responsavelTriggerRef = useRef<HTMLButtonElement>(null);
-  const [containerResponsavel, setContainerResponsavel] = useState<HTMLElement | null>(null);
-  const [emailsPorId, setEmailsPorId] = useState<Record<string, string>>({});
-
-  useEffect(() => {
-    let vivo = true;
-    fetch("/api/equipe")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((dados) => {
-        if (!vivo || !dados?.membros) return;
-        const mapa: Record<string, string> = {};
-        for (const m of dados.membros as { id: string; email: string }[]) {
-          mapa[m.id] = m.email;
-        }
-        setEmailsPorId(mapa);
-      })
-      .catch(() => undefined);
-    return () => {
-      vivo = false;
-    };
-  }, []);
-
-  const listaResponsaveis = [...props.responsaveis];
-  if (cliente?.owner && !listaResponsaveis.some((r) => r.id === cliente.owner?.id)) {
-    listaResponsaveis.push(cliente.owner);
-  }
-
-  const responsavelAtual = listaResponsaveis.find((r) => r.id === responsavelId);
-  const emailDoResponsavel = (id: string) => emailsPorId[id] || "Equipe comercial";
 
   const erroDo = (campo: string) => erro?.porCampo[campo];
 
@@ -217,6 +162,33 @@ export function ClienteForm(props: Propriedades) {
       email: email.trim(),
     });
     setAvisos(candidatos.filter((c) => !c.matchedOn.includes("document")));
+  }
+
+  async function consultarCep(cepDigitado: string) {
+    const limpo = somenteDigitos(cepDigitado);
+    if (limpo.length !== 8) return;
+    setBuscandoCep(true);
+    try {
+      const res = await fetch(`/api/cep/${limpo}`);
+      if (res.ok) {
+        const dados = (await res.json()) as {
+          logradouro?: string;
+          bairro?: string;
+          cidade?: string;
+          uf?: string;
+          complemento?: string;
+        };
+        if (dados.logradouro) setLogradouro(dados.logradouro);
+        if (dados.bairro) setBairro(dados.bairro);
+        if (dados.cidade) setCidade(dados.cidade);
+        if (dados.uf) setUf(dados.uf);
+        if (dados.complemento && !complemento) setComplemento(dados.complemento);
+      }
+    } catch {
+      // Silencioso em caso de indisponibilidade
+    } finally {
+      setBuscandoCep(false);
+    }
   }
 
   async function salvar(evento: FormEvent<HTMLFormElement>) {
@@ -256,8 +228,8 @@ export function ClienteForm(props: Propriedades) {
       corpo.birthDate = null;
     }
 
-    if (responsavelId) {
-      corpo.ownerId = responsavelId;
+    if (editando && cliente?.owner?.id) {
+      corpo.ownerId = cliente.owner.id;
     }
 
     if (!editando && ehPj && contatoNome.trim()) {
@@ -410,7 +382,7 @@ export function ClienteForm(props: Propriedades) {
         <div className="ui-dialog-section-header">
           <Heading as="h3" icon={<IconPhone />}>Contato e Atendimento</Heading>
           <p className="ui-dialog-section-desc">
-            Canais de comunicação direta e vendedor responsável.
+            Canais de comunicação direta e canal de captação do cliente.
           </p>
         </div>
 
@@ -461,97 +433,23 @@ export function ClienteForm(props: Propriedades) {
           </div>
         ) : null}
 
-        <div className="ui-dialog-grid">
-          {/* Seletor visual de Responsável oficial com Avatar, Nome e E-mail */}
-          <div className="ui-field">
-            <label id="cliente-responsavel-label" htmlFor="cliente-responsavel">
-              Responsável *
-            </label>
-            <Select
-              value={responsavelId || "auto"}
-              onValueChange={(val) => setResponsavelId(val === "auto" ? "" : val)}
-              onOpenChange={(open) => {
-                if (open) setContainerResponsavel(responsavelTriggerRef.current?.closest("dialog") ?? null);
-              }}
-            >
-              <SelectTrigger
-                ref={responsavelTriggerRef}
-                id="cliente-responsavel"
-                aria-labelledby="cliente-responsavel-label"
-                aria-invalid={Boolean(erroDo("ownerId"))}
-                style={{ minHeight: "46px", padding: "6px 12px" }}
-              >
-                {responsavelAtual ? (
-                  <div className="ui-member-profile">
-                    <AvatarResponsavel nome={responsavelAtual.name} />
-                    <div className="ui-member-text">
-                      <span className="ui-member-name">{responsavelAtual.name}</span>
-                      <span className="ui-member-email">{emailDoResponsavel(responsavelAtual.id)}</span>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="ui-member-profile">
-                    <span className="ui-member-avatar ui-member-avatar--fallback" aria-hidden="true">
-                      <IconUser width={15} height={15} />
-                    </span>
-                    <div className="ui-member-text">
-                      <span className="ui-member-name">Você (quem cadastra)</span>
-                      <span className="ui-member-email">Atribuído ao usuário atual</span>
-                    </div>
-                  </div>
-                )}
-              </SelectTrigger>
-              <SelectContent
-                container={containerResponsavel}
-                style={{ width: "var(--radix-select-trigger-width)", maxHeight: "240px" }}
-              >
-                {!editando ? (
-                  <SelectItem value="auto" textValue="Você (quem cadastra)" style={{ minHeight: "44px", padding: "6px 12px" }}>
-                    <div className="ui-member-profile">
-                      <span className="ui-member-avatar ui-member-avatar--fallback" aria-hidden="true">
-                        <IconUser width={15} height={15} />
-                      </span>
-                      <div className="ui-member-text">
-                        <span className="ui-member-name">Você (quem cadastra)</span>
-                        <span className="ui-member-email">Atribuído ao usuário atual</span>
-                      </div>
-                    </div>
-                  </SelectItem>
-                ) : null}
-                {listaResponsaveis.map((r) => (
-                  <SelectItem key={r.id} value={r.id} textValue={r.name} style={{ minHeight: "44px", padding: "6px 12px" }}>
-                    <div className="ui-member-profile">
-                      <AvatarResponsavel nome={r.name} />
-                      <div className="ui-member-text">
-                        <span className="ui-member-name">{r.name}</span>
-                        <span className="ui-member-email">{emailDoResponsavel(r.id)}</span>
-                      </div>
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {erroDo("ownerId") ? <p className="ui-field-error">Erro: {erroDo("ownerId")}</p> : null}
-          </div>
-
-          <SelectField
-            id="cliente-origem"
-            label="Origem"
-            value={origem}
-            onChange={setOrigem}
-            options={[
-              { value: "", label: "Não informada" },
-              ...ORIGENS.map((o) => ({ value: o, label: ROTULO_ORIGEM[o] })),
-            ]}
-          />
-        </div>
+        <SelectField
+          id="cliente-origem"
+          label="Origem"
+          value={origem}
+          onChange={setOrigem}
+          options={[
+            { value: "", label: "Não informada" },
+            ...ORIGENS.map((o) => ({ value: o, label: ROTULO_ORIGEM[o] })),
+          ]}
+        />
       </section>
 
       {/* Seção 3: Contato Principal (Apenas PJ na criação) */}
       {ehPj && !editando ? (
         <section className="ui-dialog-section">
           <div className="ui-dialog-section-header">
-            <Heading as="h3" icon={<IconUserPlus />}>Contato Principal (opcional)</Heading>
+            <Heading as="h3" icon={<IconUserPlus />}>Contato Principal</Heading>
             <p className="ui-dialog-section-desc">
               Pessoa física responsável pelo contato direto nesta empresa.
             </p>
@@ -607,7 +505,7 @@ export function ClienteForm(props: Propriedades) {
         </section>
       ) : null}
 
-      {/* Seção 4: Endereço */}
+      {/* Seção 4: Endereço (com busca automática por CEP) */}
       <section className="ui-dialog-section">
         <div className="ui-dialog-section-header">
           <Heading as="h3" icon={<IconMapPin />}>Endereço</Heading>
@@ -625,7 +523,19 @@ export function ClienteForm(props: Propriedades) {
             value={cep}
             placeholder="69000-000"
             error={erroDo("postalCode")}
-            onChange={(ev) => setCep(mascaraCep(ev.target.value))}
+            hint={buscandoCep ? "Buscando endereço pelo CEP…" : undefined}
+            onChange={(ev) => {
+              const novoCep = mascaraCep(ev.target.value);
+              setCep(novoCep);
+              if (somenteDigitos(novoCep).length === 8) {
+                void consultarCep(novoCep);
+              }
+            }}
+            onBlur={() => {
+              if (somenteDigitos(cep).length === 8) {
+                void consultarCep(cep);
+              }
+            }}
           />
           <TextField
             id="cliente-street"
