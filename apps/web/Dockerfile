@@ -2,7 +2,7 @@
 
 # Build context is the monorepo root (see compose.yaml): the web app depends on
 # @plugga/shared through a workspace link.
-FROM node:22-bookworm-slim AS base
+FROM node:25-bookworm-slim AS base
 ENV PNPM_HOME=/pnpm PATH=/pnpm:$PATH
 RUN corepack enable
 WORKDIR /app
