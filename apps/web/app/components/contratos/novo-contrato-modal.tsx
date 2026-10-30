@@ -14,9 +14,7 @@ import {
   IconBuilding,
   IconCheck,
   IconFileText,
-  IconSave,
   IconSend,
-  IconShield,
   IconSparkles,
   IconUpload,
   IconUser,
@@ -242,31 +240,20 @@ export function NovoContratoModal({
     <Dialog
       title="Novo Contrato"
       accessibleLabel="Novo contrato"
-      description="Elabore ou importe uma minuta contratual com suporte de IA e envie para assinatura digital."
+      description="Cadastre a minuta contratual e envie para assinatura digital."
       icon={<IconFileText />}
       onClose={aoFechar}
       size="media"
       footer={
-        <>
-          <Button
-            variant="secondary"
-            icon={<IconSave />}
-            loading={pendenteAcao === "rascunho"}
-            disabled={Boolean(pendenteAcao)}
-            onClick={() => void submeter("rascunho")}
-          >
-            Salvar rascunho
-          </Button>
-          <Button
-            variant="primary"
-            icon={<IconSend />}
-            loading={pendenteAcao === "aguardando_assinatura"}
-            disabled={Boolean(pendenteAcao)}
-            onClick={() => void submeter("aguardando_assinatura")}
-          >
-            Enviar para assinatura
-          </Button>
-        </>
+        <Button
+          variant="primary"
+          icon={<IconSend />}
+          loading={pendenteAcao === "aguardando_assinatura"}
+          disabled={Boolean(pendenteAcao)}
+          onClick={() => void submeter("aguardando_assinatura")}
+        >
+          Enviar para assinatura
+        </Button>
       }
     >
       <div className="ui-dialog-form">
@@ -287,6 +274,7 @@ export function NovoContratoModal({
               cliente={cliente}
               aoEscolher={setCliente}
               responsaveis={equipe}
+              podeCriarNovo={false}
             />
           </div>
 
@@ -303,7 +291,7 @@ export function NovoContratoModal({
             }}
           />
 
-          <div className="ui-dialog-grid">
+          <div className="ui-dialog-grid" style={{ alignItems: "end" }}>
             <SelectField
               id="contrato-empresa"
               label="Empresa contratada"
@@ -314,7 +302,7 @@ export function NovoContratoModal({
                 { value: "waze", label: "Waze Energia" },
               ]}
             />
-            <div className="ui-dialog-notice" style={{ marginTop: "24px" }}>
+            <div className="ui-contract-company-notice">
               <span>Contrato sob responsabilidade jurídica da <strong>{empresa === "plugga" ? "Plugga" : "Waze Energia"}</strong>.</span>
             </div>
           </div>
@@ -326,7 +314,7 @@ export function NovoContratoModal({
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
               <Heading as="h3" icon={<IconSparkles />}>Minuta e Análise por IA</Heading>
               <span className="ui-contract-ia-badge">
-                <IconSparkles width={13} height={13} />
+                <IconSparkles width={11} height={11} />
                 <span>IA Integrada</span>
               </span>
             </div>
@@ -576,11 +564,6 @@ export function NovoContratoModal({
               </div>
               <span className="ui-signer-role-pill">Contratada</span>
             </div>
-          </div>
-
-          <div className="ui-dialog-notice" style={{ marginTop: "4px" }}>
-            <IconShield width={16} height={16} style={{ color: "var(--ui-primary)", flexShrink: 0 }} />
-            <span>Assinatura eletrônica com validade jurídica conforme MP 2.200-2/2001 e trilha de auditoria digital.</span>
           </div>
         </section>
       </div>

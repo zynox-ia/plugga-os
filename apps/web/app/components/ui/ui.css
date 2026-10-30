@@ -180,22 +180,24 @@ h1.ui-heading > .ui-heading-icon > svg { width: 22px; height: 22px; }
 }
 .ui-dialog-header-content {
   display: flex;
-  align-items: stretch;
+  align-items: center;
   gap: 12px;
   min-width: 0;
 }
 .ui-dialog-header-icon {
   display: grid;
   place-items: center;
-  align-self: stretch;
-  aspect-ratio: 1 / 1;
+  width: 40px;
+  height: 40px;
   min-width: 40px;
   min-height: 40px;
+  max-width: 40px;
+  max-height: 40px;
   border-radius: 10px;
   color: white;
   background: linear-gradient(135deg, var(--ui-text), var(--ui-primary));
   border: 1px solid #0066cc;
-  flex-shrink: 0;
+  flex: 0 0 40px;
 }
 .ui-dialog-header-icon svg {
   width: 20px;
@@ -212,10 +214,11 @@ h1.ui-heading > .ui-heading-icon > svg { width: 22px; height: 22px; }
 .ui-dialog-header h2 {
   margin: 0;
   color: var(--ui-text);
-  font-size: 17px;
+  font-size: 16px;
   font-weight: 500;
   line-height: 1.25;
   letter-spacing: -0.01em;
+  white-space: nowrap;
 }
 .ui-dialog-header-text p,
 .ui-dialog-header p {
@@ -1162,15 +1165,33 @@ select.ui-input {
 .ui-contract-ia-badge {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 3px 10px;
+  gap: 4px;
+  padding: 2px 7px;
   border-radius: 9999px;
-  background: rgba(0, 102, 204, 0.08);
-  border: 1px solid rgba(0, 102, 204, 0.2);
+  background: rgba(0, 102, 204, 0.06);
+  border: 1px solid rgba(0, 102, 204, 0.15);
   color: var(--ui-primary, #0066cc);
-  font-size: 11.5px;
+  font-size: 10.5px;
   font-weight: 500;
   font-family: var(--font-general-sans), sans-serif;
+}
+.ui-contract-company-notice {
+  display: flex;
+  align-items: center;
+  height: 40px;
+  min-height: 40px;
+  padding: 0 12px;
+  border-radius: var(--radius-sm, 8px);
+  background: var(--ui-subtle, #f3f7fb);
+  border: 1px solid var(--ui-divider);
+  color: var(--ui-muted, #536579);
+  font-size: 12px;
+  line-height: 1.3;
+  box-sizing: border-box;
+}
+.ui-contract-company-notice strong {
+  color: var(--ui-text);
+  font-weight: 500;
 }
 .ui-contract-file-card {
   display: flex;

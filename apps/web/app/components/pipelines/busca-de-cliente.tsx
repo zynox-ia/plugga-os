@@ -19,11 +19,13 @@ export function BuscaDeCliente({
   aoEscolher,
   responsaveis,
   erro,
+  podeCriarNovo = true,
 }: {
   cliente: ClienteEscolhido | null;
   aoEscolher: (cliente: ClienteEscolhido | null) => void;
   responsaveis: ClientOwner[];
   erro?: string;
+  podeCriarNovo?: boolean;
 }) {
   const [termo, setTermo] = useState("");
   const [resultados, setResultados] = useState<ClientSelectionResponse["items"] | null>(null);
@@ -96,16 +98,18 @@ export function BuscaDeCliente({
           ))}
         </ul>
       ) : null}
-      <p className="ui-field-hint" style={{ marginTop: 4 }}>
-        Não encontrou?{" "}
-        <button type="button" className="link-botao" disabled={!alcancaTela(usuario?.acesso, "crm.clientes")} onClick={() => setCadastrando(true)}>
-          + Novo cliente
-        </button>{" "}
-        sem fechar esta janela.
-      </p>
+      {podeCriarNovo ? (
+        <p className="ui-field-hint" style={{ marginTop: 4 }}>
+          Não encontrou?{" "}
+          <button type="button" className="link-botao" disabled={!alcancaTela(usuario?.acesso, "crm.clientes")} onClick={() => setCadastrando(true)}>
+            + Novo cliente
+          </button>{" "}
+          sem fechar esta janela.
+        </p>
+      ) : null}
       {erro ? <p className="ui-field-error" style={{ margin: 0 }}>Erro: {erro}</p> : null}
 
-      {cadastrando ? (
+      {podeCriarNovo && cadastrando ? (
         <ClienteForm
           modo="criar"
           responsaveis={responsaveis}
