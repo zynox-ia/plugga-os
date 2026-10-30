@@ -4,7 +4,7 @@
 # @plugga/shared through a workspace link, so pnpm needs the whole workspace.
 # Debian slim rather than Alpine: @node-rs/argon2 and the Prisma engines are
 # native, and glibc avoids a class of musl-only surprises.
-FROM node:22-bookworm-slim AS base
+FROM node:25-bookworm-slim AS base
 ENV PNPM_HOME=/pnpm PATH=/pnpm:$PATH
 # openssl is required by the Prisma query engine; curl fetches the Tesseract
 # language data in the runtime stage (the slim image ships neither).
