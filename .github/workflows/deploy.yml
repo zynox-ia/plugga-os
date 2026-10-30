@@ -41,7 +41,7 @@ jobs:
     environment: production
     steps:
       - name: Checkout do commit que passou na CI
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
           fetch-depth: 0
