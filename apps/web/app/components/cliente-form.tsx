@@ -34,6 +34,7 @@ import {
   DatePicker,
   Dialog,
   Heading,
+  IconBuilding,
   IconFileText,
   IconMapPin,
   IconPhone,
@@ -297,10 +298,10 @@ export function ClienteForm(props: Propriedades) {
       {/* Seção 1: Identificação do Cliente */}
       <section className="ui-dialog-section">
         <div className="ui-dialog-section-header">
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+          <div className="ui-dialog-section-header-row">
             <Heading as="h3" icon={<IconUser />}>Identificação do Cliente</Heading>
             <div className="seletor-tipo" role="radiogroup" aria-label="Tipo de cliente">
-              {(["pj", "pf"] as const).map((opcao) => (
+              {(["pf", "pj"] as const).map((opcao) => (
                 <button
                   key={opcao}
                   type="button"
@@ -312,7 +313,12 @@ export function ClienteForm(props: Propriedades) {
                     setErro(null);
                   }}
                 >
-                  {ROTULO_TIPO[opcao]}
+                  {opcao === "pf" ? (
+                    <IconUser width={14} height={14} aria-hidden="true" />
+                  ) : (
+                    <IconBuilding width={14} height={14} aria-hidden="true" />
+                  )}
+                  <span>{ROTULO_TIPO[opcao]}</span>
                 </button>
               ))}
             </div>
