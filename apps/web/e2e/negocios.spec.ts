@@ -17,7 +17,7 @@ function seletorDePipeline(page: Page) {
  * Cria um pipeline com toda a equipe comercial disponível. Na CI, as contas de
  * exemplo do seed (SEED_SAMPLE_TEAM) dão alguém com papel comercial na Plugga.
  */
-async function criarPipelineComEquipe(page: Page, nome: string): Promise<void> {
+async function criarPipeline(page: Page, nome: string): Promise<void> {
   await page.goto("/comercial/pipelines");
   await expect(page.getByRole("heading", { level: 1, name: "Pipelines" })).toBeVisible();
   const modal = page.getByRole("dialog", { name: "Configurar pipelines" });
@@ -28,18 +28,11 @@ async function criarPipelineComEquipe(page: Page, nome: string): Promise<void> {
     await page.getByRole("button", { name: "Configurar pipelines" }).click();
     await modal.getByRole("button", { name: "Novo pipeline" }).click();
   }
-  await modal.getByLabel("Nome do pipeline *").fill(nome);
+  await modal.getByLabel(/^Nome do pipeline( \*| \(obrigatório\))$/).fill(nome);
 
-  const incluirTodos = modal.getByRole("button", { name: "Incluir todos como vendedores" });
-  for (const empresa of [/^Plugga/, /^Waze Energia/]) {
-    await modal.getByRole("tab", { name: "Geral" }).click();
-    await modal.getByRole("radio", { name: empresa }).check();
-    await modal.getByRole("tab", { name: /Equipe/ }).click();
-    await expect(modal.getByText("Carregando pessoas…")).toHaveCount(0);
-    if (await incluirTodos.isVisible()) break;
-  }
-  await expect(incluirTodos, "o e2e precisa de alguém com papel comercial (SEED_SAMPLE_TEAM=true)").toBeVisible();
-  await incluirTodos.click();
+  // Equipe por funil saiu: quem pode ser responsável vem de Equipe e Acessos
+  // (SEED_SAMPLE_TEAM=true traz alguém do CRM), então o pipeline só escolhe a empresa.
+  await modal.getByRole("radio", { name: /^Plugga/ }).check();
   await modal.getByRole("button", { name: "Criar pipeline" }).click();
   await expect(modal.getByRole("status").filter({ hasText: "Alterações salvas." })).toBeVisible({ timeout: MUTATION_TIMEOUT_MS });
   await modal.getByRole("button", { name: "Fechar" }).click();
@@ -55,19 +48,19 @@ test.describe("Negócios no quadro do pipeline (PLU-271)", () => {
     const marca = Date.now();
     const pipeline = `Negócios E2E ${marca}`;
     const titulo = `Hotel E2E ${marca} — usina 120 kWp`;
-    await criarPipelineComEquipe(page, pipeline);
+    await criarPipeline(page, pipeline);
 
     // Novo negócio já na coluna Qualificação, cadastrando o cliente sem sair.
     await page.getByRole("button", { name: "Novo negócio em Qualificação" }).click();
     const novo = page.getByRole("dialog", { name: "Novo negócio" });
-    await expect(novo.getByLabel("Etapa inicial *")).toHaveValue(/.+/);
+    await expect(novo.getByLabel(/^Etapa inicial( \*| \(obrigatório\))$/)).toHaveValue(/.+/);
     await novo.getByRole("button", { name: "+ Novo cliente" }).click();
     const cliente = page.getByRole("dialog", { name: "Novo cliente" });
-    await cliente.getByLabel("Nome *").fill(`Hotel Mirante E2E ${marca}`);
+    await cliente.getByLabel(/^Nome( \*| \(obrigatório\))$/).fill(`Hotel Mirante E2E ${marca}`);
     await cliente.getByLabel("Telefone", { exact: true }).fill("(92) 99999-0003");
     await cliente.getByRole("button", { name: "Cadastrar cliente" }).click();
     await expect(novo.getByText(`Hotel Mirante E2E ${marca}`)).toBeVisible({ timeout: MUTATION_TIMEOUT_MS });
-    await novo.getByLabel("Título *").fill(titulo);
+    await novo.getByLabel(/^Título( \*| \(obrigatório\))$/).fill(titulo);
     await novo.getByLabel("Valor").fill("480.000,00");
     await novo.getByRole("button", { name: "Criar negócio" }).click();
 
@@ -130,7 +123,7 @@ test.describe("Negócios no quadro do pipeline (PLU-271)", () => {
     await perda.getByRole("radio", { name: "Prazo inadequado" }).check();
     await perda.getByRole("button", { name: "Confirmar Perdido" }).click();
     await expect(perda.getByRole("alert")).toHaveText("Este motivo pede a data para revisitar.");
-    await perda.getByLabel("Revisitar em *").fill("2099-01-10");
+    await perda.getByLabel(/^Revisitar em( \*| \(obrigatório\))$/).fill("2099-01-10");
     await perda.getByRole("button", { name: "Confirmar Perdido" }).click();
     await expect(card).toHaveCount(0, { timeout: MUTATION_TIMEOUT_MS });
 
@@ -164,7 +157,7 @@ test.describe("Negócios no quadro do pipeline (PLU-271)", () => {
     const comData = `Fechamento E2E ${marca}`;
     const hoje = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Manaus", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
     const previsao = `${hoje.slice(0, 7)}-15`;
-    await criarPipelineComEquipe(page, pipeline);
+    await criarPipeline(page, pipeline);
     const pipelineId = await seletorDePipeline(page).inputValue();
     await page.getByRole("link", { name: "Calendário", exact: true }).click();
     await expect(page).toHaveURL(/visao=calendario/);
@@ -174,7 +167,7 @@ test.describe("Negócios no quadro do pipeline (PLU-271)", () => {
     await page.getByRole("button", { name: "Configurar pipelines" }).click();
     const configuracao = page.getByRole("dialog", { name: "Configurar pipelines" });
     await configuracao.getByRole("button", { name: "Novo pipeline" }).click();
-    await configuracao.getByLabel("Nome do pipeline *").fill(outroPipeline);
+    await configuracao.getByLabel(/^Nome do pipeline( \*| \(obrigatório\))$/).fill(outroPipeline);
     await configuracao.getByRole("radio", { name: /^Plugga/ }).check();
     await configuracao.getByRole("button", { name: "Criar pipeline" }).click();
     await expect(configuracao.getByRole("status").filter({ hasText: "Alterações salvas." })).toBeVisible({ timeout: MUTATION_TIMEOUT_MS });
@@ -196,16 +189,16 @@ test.describe("Negócios no quadro do pipeline (PLU-271)", () => {
       if (titulo === semData) {
         await novo.getByRole("button", { name: "+ Novo cliente" }).click();
         const cliente = page.getByRole("dialog", { name: "Novo cliente" });
-        await cliente.getByLabel("Nome *").fill(nomeCliente);
+        await cliente.getByLabel(/^Nome( \*| \(obrigatório\))$/).fill(nomeCliente);
         await cliente.getByLabel("Telefone", { exact: true }).fill("(92) 99999-0004");
         await cliente.getByRole("button", { name: "Cadastrar cliente" }).click();
       } else {
-        await novo.getByLabel("Cliente *").fill(nomeCliente);
+        await novo.getByLabel(/^Cliente( \*| \(obrigatório\))$/).fill(nomeCliente);
         await novo.getByRole("option", { name: new RegExp(nomeCliente) }).getByRole("button").click();
         await novo.getByLabel("Previsão de fechamento").fill(previsao);
       }
       await expect(novo.getByText(nomeCliente, { exact: true })).toBeVisible({ timeout: MUTATION_TIMEOUT_MS });
-      await novo.getByLabel("Título *").fill(titulo);
+      await novo.getByLabel(/^Título( \*| \(obrigatório\))$/).fill(titulo);
       await novo.getByLabel("Valor").fill("10.000,00");
       await novo.getByRole("button", { name: "Criar negócio" }).click();
       await expect(page.getByRole("article", { name: `Negócio ${titulo}` })).toBeVisible({ timeout: MUTATION_TIMEOUT_MS });

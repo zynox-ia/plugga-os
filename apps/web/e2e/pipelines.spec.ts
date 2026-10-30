@@ -18,12 +18,12 @@ test.describe("Pipelines — configuração pelo modal (PLU-269)", () => {
       await page.getByRole("button", { name: "Configurar pipelines" }).click();
       await modal.getByRole("button", { name: "Novo pipeline" }).click();
     }
-    await modal.getByLabel("Nome do pipeline *").fill(nome);
+    await modal.getByLabel(/^Nome do pipeline( \*| \(obrigatório\))$/).fill(nome);
     await modal.getByRole("radio", { name: /^Plugga/ }).check();
     await modal.getByRole("tab", { name: "Etapas" }).click();
     await modal.getByRole("button", { name: "Adicionar etapa" }).click();
     await modal.getByLabel("Nome da etapa 5").fill("Contrato");
-    await modal.getByLabel("Nome do Ganho neste pipeline *").fill("Contrato assinado");
+    await modal.getByLabel(/^Nome do Ganho neste pipeline( \*| \(obrigatório\))$/).fill("Contrato assinado");
     await modal.getByRole("button", { name: "Criar pipeline" }).click();
     await expect(modal.getByRole("status").filter({ hasText: "Alterações salvas." })).toBeVisible({ timeout: MUTATION_TIMEOUT_MS });
 
