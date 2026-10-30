@@ -32,9 +32,6 @@ export type OpcoesDoProxy = {
   mensagemIndisponivel?: string;
 };
 
-/** Upload de orçamentos é mais lento que uma mutação comum. */
-export const TEMPO_MAXIMO_UPLOAD_MS = 30_000;
-
 function erroLocal(status: number, codigo: string, message: string): Response {
   return Response.json({ codigo, message }, { status });
 }
@@ -130,14 +127,8 @@ export const proxyApiMutation = (request: Request, metodo: "POST" | "PATCH", mod
 export const proxyAuthPost = (request: Request, modelo: string, ids?: Ids) =>
   proxyar(request, { metodo: "POST", prefixo: "/auth", modelo, ids, mensagemIndisponivel: "auth service unavailable" });
 
-export const proxyAuthPut = (request: Request, modelo: string, ids?: Ids) =>
-  proxyar(request, { metodo: "PUT", prefixo: "/auth", modelo, ids, mensagemIndisponivel: "auth service unavailable" });
-
 export const proxyAuthGet = (request: Request, modelo: string, ids?: Ids, consulta?: Consulta) =>
   proxyar(request, { metodo: "GET", prefixo: "/auth", modelo, ids, consulta, mensagemIndisponivel: "auth service unavailable" });
-
-export const proxyEnergyPost = (request: Request, modelo: string, ids?: Ids) =>
-  proxyar(request, { metodo: "POST", prefixo: "/energy", modelo, ids, mensagemIndisponivel: "energy service unavailable" });
 
 export const proxyCommercialPost = (request: Request, modelo: string, ids?: Ids) =>
   proxyar(request, {
@@ -146,25 +137,4 @@ export const proxyCommercialPost = (request: Request, modelo: string, ids?: Ids)
     modelo,
     ids,
     mensagemIndisponivel: "commercial service unavailable",
-  });
-
-export const proxyComprasPost = (request: Request, modelo: string, ids?: Ids, consulta?: Consulta) =>
-  proxyar(request, {
-    metodo: "POST",
-    prefixo: "/compras",
-    modelo,
-    ids,
-    consulta,
-    mensagemIndisponivel: "serviço de compras indisponível",
-  });
-
-/** Criação do pedido de compra: `multipart`, orçamento anexado na geração. */
-export const proxyComprasUpload = (request: Request, modelo: string) =>
-  proxyar(request, {
-    metodo: "POST",
-    prefixo: "/compras",
-    modelo,
-    corpo: "multipart",
-    tempoMaximoMs: TEMPO_MAXIMO_UPLOAD_MS,
-    mensagemIndisponivel: "serviço de compras indisponível",
   });

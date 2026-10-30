@@ -378,3 +378,21 @@ describe("validateEnvironment", () => {
     expect(() => validateEnvironment({ ...base, ROUTE_GUARD_MODE: "off" })).toThrow(/ROUTE_GUARD_MODE/);
   });
 });
+
+describe("variáveis de integração (T196)", () => {
+  const base = {
+    DATABASE_URL: "postgresql://u:p@localhost:55432/db?schema=public",
+    AUTH_SESSION_SECRET: "x".repeat(32),
+    NODE_ENV: "test",
+  };
+
+  it("recusa SECRETS_ENCRYPTION_KEY que não decodifica para 32 bytes", () => {
+    expect(() => validateEnvironment({ ...base, SECRETS_ENCRYPTION_KEY: "curta" })).toThrow(/SECRETS_ENCRYPTION_KEY/);
+  });
+
+  it("aceita 32 bytes em base64 e trata vazio como ausente", () => {
+    const chave = Buffer.alloc(32, 7).toString("base64");
+    expect(validateEnvironment({ ...base, SECRETS_ENCRYPTION_KEY: chave }).SECRETS_ENCRYPTION_KEY).toBe(chave);
+    expect(validateEnvironment({ ...base, SECRETS_ENCRYPTION_KEY: "" }).SECRETS_ENCRYPTION_KEY).toBeUndefined();
+  });
+});

@@ -73,3 +73,8 @@ export class ServicoIndisponivel extends ErroDeDominio {
 export class RequisicaoInvalida extends ErroDeDominio {
   readonly codigo = "REQUISICAO_INVALIDA" as const;
 }
+
+/** A pessoa está autenticada, mas o papel ou o escopo dela não alcança a ação (403 ACESSO_NEGADO). */
+export class AcessoNegado extends ErroDeDominio {
+  readonly codigo = "ACESSO_NEGADO" as const;
+}

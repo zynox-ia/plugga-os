@@ -6,7 +6,7 @@ import { safeRedirect, safeRelativePath } from "../app/lib/safe-redirect.ts";
 describe("safeRelativePath", () => {
   it("accepts an in-app path, with query and fragment", () => {
     assert.equal(safeRelativePath("/clientes"), "/clientes");
-    assert.equal(safeRelativePath("/energia-opm/ciclos?mes=8"), "/energia-opm/ciclos?mes=8");
+    assert.equal(safeRelativePath("/comercial/pipelines?mes=8"), "/comercial/pipelines?mes=8");
     assert.equal(safeRelativePath("/documentos#topo"), "/documentos#topo");
   });
 

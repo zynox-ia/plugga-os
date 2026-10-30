@@ -6,7 +6,9 @@ import { z } from "zod";
  * O web valida antes de montar qualquer caminho para a API: `../..`, `%2F` e
  * qualquer coisa que não seja UUID são recusados sem chamada de rede.
  */
-export const identificadorSchema = z.string().uuid();
+// `guid` mantém a regra do zod 3 (ver `primitivas.ts`): `uuid()` do zod 4
+// recusaria ids válidos no banco que não seguem a RFC 9562.
+export const identificadorSchema = z.guid();
 
 /** Verdadeiro só para UUID bem formado. */
 export function ehIdentificador(valor: unknown): valor is string {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
+import { AssistenteIA } from "./assistente-ia";
 import { BackgroundParticles } from "./background-particles";
 
 export type IconName =
@@ -12,8 +13,11 @@ export type IconName =
   | "bolt"
   | "wrench"
   | "wallet"
-  | "document"
-  | "chart";
+  | "chart"
+  | "hardhat"
+  | "package"
+  | "megaphone"
+  | "sparkles";
 
 export type ShellNavItem = {
   id: string;
@@ -21,8 +25,6 @@ export type ShellNavItem = {
   icon?: IconName;
   /** Desenhado, sem tela ainda: aparece apagado e não navega. */
   disabled?: boolean;
-  /** Tem tela, mas ainda mock/incompleta. */
-  badge?: "parcial";
 };
 
 export type ShellNavGroup = {
@@ -46,8 +48,11 @@ function Icon({ name }: { name: IconName }) {
     bolt: <path d="M13 2 4.5 13.5H11l-1 8.5 8.5-11.5H12l1-8.5Z" />,
     wrench: <path d="M14.7 6.3a4 4 0 0 1 5.3 5L21 12l-8.5 8.5a2.1 2.1 0 0 1-3-3L18 9l.7-1a4 4 0 0 1-4-1.7Z" />,
     wallet: <><rect x="3" y="6" width="18" height="13" rx="2.5" /><path d="M3 10h18M16.5 14.5h.01" /></>,
-    document: <><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /></>,
     chart: <><line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" /><line x1="6" y1="20" x2="6" y2="14" /></>,
+    hardhat: <><path d="M10 10V5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v5" /><path d="M14 6a6 6 0 0 1 6 6v3" /><path d="M4 15v-3a6 6 0 0 1 6-6" /><rect x="2" y="15" width="20" height="4" rx="1" /></>,
+    package: <><path d="m16.5 9.4-9-5.19" /><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" /><polyline points="3.27 6.96 12 12.01 20.73 6.96" /><line x1="12" y1="22.08" x2="12" y2="12" /></>,
+    megaphone: <><path d="m3 11 18-5v12L3 14v-3Z" /><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6" /></>,
+    sparkles: <path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z" />,
   };
 
   return (
@@ -75,9 +80,9 @@ export function PluggaShell({
   onNavigate,
   activeId,
   topbarActions,
-  empresaSwitcher,
   sidebarFooter,
   pageTitle,
+  navegando = false,
 }: {
   children: ReactNode;
   navigation: ShellNavGroup[];
@@ -86,12 +91,16 @@ export function PluggaShell({
   activeId: string;
   /** Optional extra controls rendered in the topbar, before the avatar (e.g. logout). */
   topbarActions?: ReactNode;
-  /** Seletor Plugga/Waze — primeiro item da direita do topo. */
-  empresaSwitcher?: ReactNode;
   /** Fixo no pé da barra lateral (Configurações). */
   sidebarFooter?: ReactNode;
   /** Título da rota atual. */
   pageTitle: string;
+  /**
+   * Troca de tela em andamento. Desenha uma barra fina no topo, que só aparece
+   * se a troca passar de ~150 ms: a tela rápida não pisca, a lenta não parece
+   * travada.
+   */
+  navegando?: boolean;
 }) {
   const [activeView, setActiveView] = useState(activeId);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -119,6 +128,8 @@ export function PluggaShell({
 
   const isOpen = (group: ShellNavGroup) => {
     if (!group.collapsible) return true;
+    // Recolhida nunca expande: só os ícones dos departamentos ficam na barra.
+    if (isCollapsed) return false;
     if (group.id in openGroups) {
       return !!openGroups[group.id];
     }
@@ -128,11 +139,15 @@ export function PluggaShell({
   const toggleGroup = (id: string) => {
     const group = navGroups.find((g) => g.id === id);
     if (!group) return;
+    if (isCollapsed) return;
     const atualmenteAberto = isOpen(group);
-    setOpenGroups((prev) => ({
-      ...prev,
-      [id]: !atualmenteAberto,
-    }));
+    setOpenGroups((prev) => {
+      if (atualmenteAberto) return { ...prev, [id]: false };
+      // Acordeão: só um departamento expandido por vez.
+      const fechados: Record<string, boolean> = {};
+      for (const chave of Object.keys(prev)) fechados[chave] = false;
+      return { ...fechados, [id]: true };
+    });
   };
 
   const mainNavGroups = navGroups.filter((g) => g.id !== "ferramentas");
@@ -151,10 +166,13 @@ export function PluggaShell({
         disabled={item.disabled}
         aria-current={activeView === item.id ? "page" : undefined}
       >
-        <Icon name={item.icon ?? (group.collapsible ? "pulse" : "settings")} />
+        {/* No expandido, só o que declara ícone próprio o leva; os processos de
+            departamento ficam só com o texto. No recolhido o ícone é o único
+            elemento visível do item, então o fallback permanece. */}
+        {isCollapsed || item.icon ? (
+          <Icon name={item.icon ?? (group.collapsible ? "pulse" : "settings")} />
+        ) : null}
         <span className="nav-item-label">{item.label}</span>
-        {item.disabled ? <span className="nav-tag">em breve</span> : null}
-        {item.badge === "parcial" ? <span className="nav-tag nav-tag--partial">parcial</span> : null}
       </button>
     ));
 
@@ -233,6 +251,7 @@ export function PluggaShell({
       </aside>
 
       <div className="shell-main">
+        {navegando ? <div className="navegacao-progresso" role="progressbar" aria-label="Abrindo a tela" /> : null}
         <header className="topbar">
           <button className="menu-toggle" type="button" aria-expanded={mobileNavOpen} aria-controls="main-navigation" onClick={() => setMobileNavOpen((open) => !open)}><span className="sr-only">Abrir navegação</span><span aria-hidden="true">☰</span></button>
 
@@ -255,7 +274,6 @@ export function PluggaShell({
           </div>
 
           <div className="topbar-actions">
-            {empresaSwitcher}
             {topbarActions}
           </div>
         </header>
@@ -263,6 +281,8 @@ export function PluggaShell({
         <main className="main-content" id="main-content">
           {children}
         </main>
+
+        <AssistenteIA />
       </div>
     </div>
   );

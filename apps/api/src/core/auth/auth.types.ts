@@ -1,9 +1,10 @@
-import type { RoleKey } from "@plugga/shared";
+import type { Acesso } from "@plugga/shared";
 
 export interface AuthPrincipal {
   id: string;
   kind: "user" | "service";
-  roles: RoleKey[];
+  /** O que a pessoa alcança (`@Departamento`/`@Plataforma`). */
+  acesso: Acesso;
 }
 
 export interface AuthenticatedRequest {

@@ -1,237 +1,220 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  companyKeys,
-  departmentIdsByCompany,
-  type CompanyKey,
-  type DepartmentId,
-  type TeamListResponse,
-  type TeamMember,
-  type TeamScope,
-  type UserAccess,
-  type UserStatus,
+  papelDoAcesso,
+  type Acesso,
+  type ListaDaEquipe,
+  type MembroDaEquipe,
 } from "@plugga/shared";
 
-import { ShellCard, ShellTable, StatusPill } from "../components/plugga-shell";
-import { EMPRESAS_POR_ID } from "../lib/organizacao";
+import { ShellCard, ShellTable } from "../components/plugga-shell";
+import {
+  Badge,
+  Button,
+  Dialog,
+  DropdownMenu,
+  Heading,
+  IconChevronLeft,
+  IconChevronRight,
+  IconCopy,
+  IconEdit,
+  IconEye,
+  IconReset,
+  IconSave,
+  IconSend,
+  IconSearch,
+  IconTrash,
+  IconUser,
+  IconUserPlus,
+  TextField,
+} from "../components/ui";
+import { ROTULO_DO_PAPEL } from "../lib/organizacao";
+import { DetalhesDoMembro } from "./equipe-detalhes-do-membro";
+import { EditorDeAcesso } from "./equipe-editor-de-acesso";
+import { AvatarMembro, DepartamentosDaEquipe, PapelBadge } from "./equipe-partes";
+import { STATUS_LABEL, STATUS_TOM } from "./equipe-rotulos";
 
 /**
- * Equipe e acessos.
- *
- * Uma tela só para "quem entra" e "o que alcança": eram duas seções no desenho,
- * mas papel e departamento são campos da mesma linha de acesso — separá-los
- * obrigaria a atravessar de uma tela para a outra a cada convite.
+ * Equipe e acessos, no modelo de 4 papéis: membro ou gerente por departamento,
+ * admin ou desenvolvedor na plataforma.
  *
  * O que aparece aqui é o que o servidor disse que a pessoa pode fazer
- * (`scope`, `canManage`, `canDeactivate`). A tela não recalcula a regra de
- * escopo: se recalculasse, um dia mostraria um botão que a API recusa — ou
- * esconderia um que ela aceitaria.
+ * (`escopo`, `podeEditar`, `podeDesativar`, `podeReenviarConvite`). A tela não
+ * recalcula a escada: se recalculasse, um dia mostraria um botão que a API
+ * recusa — ou esconderia um que ela aceitaria.
  */
 
-const PAPEL_LABEL: Record<string, string> = {
-  admin: "Administração da plataforma",
-  diretoria: "Diretoria",
-  comercial: "Comercial",
-  pluggamob: "PluggaMob",
-  financeiro: "Financeiro",
-  compras: "Compras",
-  opm: "OPM",
-  tech: "Tecnologia",
-  viewer: "Leitura",
-  projetista: "Projetista",
-  engenheiro: "Engenheiro",
-  supervisor: "Supervisor de obra",
-  tecnico: "Técnico de campo",
-  almoxarife: "Almoxarife",
-  seguranca: "Segurança do trabalho",
-  gestor_suprimentos: "Gestor de Suprimentos",
-  comprador: "Comprador",
-};
+const ITENS_POR_PAGINA = 7;
 
-const STATUS_LABEL: Record<UserStatus, string> = {
-  invited: "Convidado",
-  active: "Ativo",
-  disabled: "Desativado",
-};
-
-const STATUS_TOM: Record<UserStatus, "neutral" | "success" | "danger"> = {
-  invited: "neutral",
-  active: "success",
-  disabled: "danger",
-};
-
-function departamentoLabel(empresa: CompanyKey, departamento: DepartmentId): string {
-  return (
-    EMPRESAS_POR_ID[empresa].departamentos.find((entrada) => entrada.id === departamento)?.label ??
-    departamento
-  );
-}
-
-/** Uma linha legível do que a pessoa alcança, para caber na tabela. */
-function resumoAcesso(acesso: UserAccess): string {
-  const partes = acesso.platformRoles.map((papel) => PAPEL_LABEL[papel] ?? papel);
-
-  for (const empresa of acesso.companies) {
-    const papeis = empresa.roles.map((papel) => PAPEL_LABEL[papel] ?? papel).join(", ");
-    const departamentos = empresa.departments
-      .map(
-        (departamento) =>
-          departamentoLabel(empresa.companyId, departamento.departmentId) +
-          (departamento.isManager ? " (gestor)" : ""),
-      )
-      .join(", ");
-
-    partes.push(
-      `${EMPRESAS_POR_ID[empresa.companyId].nome} · ${papeis}` +
-        (departamentos ? ` · ${departamentos}` : " · sem departamento"),
-    );
-  }
-
-  return partes.length > 0 ? partes.join(" | ") : "Sem acesso";
-}
-
-const ACESSO_VAZIO: UserAccess = { platformRoles: [], companies: [] };
+const ACESSO_VAZIO: Acesso = { plataforma: null, departamentos: [] };
 
 type Formulario =
-  | { modo: "convite"; email: string; nome: string; acesso: UserAccess }
-  | { modo: "edicao"; membro: TeamMember; acesso: UserAccess };
-
-type Filtros = {
-  companyId: CompanyKey | "";
-  departmentId: DepartmentId | "";
-  status: UserStatus | "";
-};
+  | { modo: "convite"; nome: string; email: string; acesso: Acesso }
+  | { modo: "edicao"; membro: MembroDaEquipe; acesso: Acesso };
 
 async function mensagemDeErro(resposta: Response): Promise<string> {
   try {
     const corpo = (await resposta.json()) as {
+      mensagem?: string;
       message?: string;
-      issues?: Array<{ path: string; message: string }>;
+      detalhes?: Array<{ campo: string; problema: string }>;
     };
-    if (corpo.issues?.length) {
-      return corpo.issues.map((issue) => `${issue.path}: ${issue.message}`).join("; ");
+    if (corpo.detalhes?.length) {
+      return corpo.detalhes.map((detalhe) => `${detalhe.campo}: ${detalhe.problema}`).join("; ");
     }
-    return corpo.message ?? `Falha (${resposta.status}).`;
+    return corpo.mensagem ?? corpo.message ?? `Falha (${resposta.status}).`;
   } catch {
     return `Falha (${resposta.status}).`;
   }
 }
 
-export function EquipeView() {
-  const [dados, setDados] = useState<TeamListResponse | null>(null);
-  const [carregando, setCarregando] = useState(true);
+export function EquipeView({
+  inicial,
+  aoCarregar,
+}: {
+  inicial: ListaDaEquipe | null;
+  aoCarregar?: (lista: ListaDaEquipe) => void;
+}) {
+  const [dados, setDados] = useState<ListaDaEquipe | null>(inicial);
+  const [carregando, setCarregando] = useState(inicial === null);
   const [erro, setErro] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
+  const [erroModal, setErroModal] = useState<string | null>(null);
   const [formulario, setFormulario] = useState<Formulario | null>(null);
-  const [filtros, setFiltros] = useState<Filtros>({
-    companyId: "",
-    departmentId: "",
-    status: "",
-  });
+  const [membroVisualizado, setMembroVisualizado] = useState<MembroDaEquipe | null>(null);
+  const [membroParaConfirmar, setMembroParaConfirmar] = useState<{
+    membro: MembroDaEquipe;
+    tipo: "desativar" | "remover";
+  } | null>(null);
+  const [busca, setBusca] = useState("");
+  const [pagina, setPagina] = useState(1);
 
   const carregar = useCallback(async () => {
     setCarregando(true);
-    const parametros = new URLSearchParams();
-    if (filtros.companyId) parametros.set("companyId", filtros.companyId);
-    if (filtros.departmentId) parametros.set("departmentId", filtros.departmentId);
-    if (filtros.status) parametros.set("status", filtros.status);
-
-    const busca = parametros.toString();
 
     try {
-      const resposta = await fetch(`/api/auth/users${busca ? `?${busca}` : ""}`, {
-        cache: "no-store",
-      });
+      const resposta = await fetch("/api/equipe", { cache: "no-store" });
       if (!resposta.ok) {
         setErro(await mensagemDeErro(resposta));
         setDados(null);
         return;
       }
       setErro(null);
-      setDados((await resposta.json()) as TeamListResponse);
+      const lista = (await resposta.json()) as ListaDaEquipe;
+      setDados(lista);
+      aoCarregar?.(lista);
     } catch {
       setErro("Não foi possível falar com o servidor.");
       setDados(null);
     } finally {
       setCarregando(false);
     }
-  }, [filtros]);
+  }, [aoCarregar]);
+
+  // A página já entrega a lista; só busca aqui quando ela não veio (sem acesso
+  // ou API indisponível), para a tela mostrar o erro com a mensagem da API.
+  useEffect(() => {
+    if (inicial === null) void carregar();
+  }, [carregar, inicial]);
 
   useEffect(() => {
-    void carregar();
-  }, [carregar]);
+    setPagina(1);
+  }, [busca]);
+
+  const membrosFiltrados = useMemo(() => {
+    if (!dados) return [];
+    const termo = busca.trim().toLowerCase();
+    if (!termo) return dados.membros;
+    return dados.membros.filter(
+      (m) =>
+        m.name.toLowerCase().includes(termo) ||
+        m.email.toLowerCase().includes(termo)
+    );
+  }, [dados, busca]);
+
+  const totalMembros = membrosFiltrados.length;
+  const totalPaginas = Math.max(1, Math.ceil(totalMembros / ITENS_POR_PAGINA));
+  const paginaAtual = Math.min(pagina, totalPaginas);
+  const inicioIndice = (paginaAtual - 1) * ITENS_POR_PAGINA;
+  const fimIndice = Math.min(inicioIndice + ITENS_POR_PAGINA, totalMembros);
+  const membrosPaginados = useMemo(() => {
+    return membrosFiltrados.slice(inicioIndice, fimIndice);
+  }, [membrosFiltrados, inicioIndice, fimIndice]);
 
   async function enviar(): Promise<void> {
     if (!formulario) return;
     setSalvando(true);
     setErro(null);
+    setErroModal(null);
     setAviso(null);
 
     const requisicao =
       formulario.modo === "convite"
-        ? fetch("/api/auth/invite", {
+        ? fetch("/api/equipe/convites", {
             method: "POST",
             headers: { "content-type": "application/json" },
-            body: JSON.stringify({
-              email: formulario.email,
-              name: formulario.nome,
-              access: formulario.acesso,
-            }),
+            body: JSON.stringify({ email: formulario.email, name: formulario.nome, acesso: formulario.acesso }),
           })
-        : fetch(`/api/auth/users/${formulario.membro.id}/access`, {
+        : fetch(`/api/equipe/${formulario.membro.id}/acesso`, {
             method: "PUT",
             headers: { "content-type": "application/json" },
-            body: JSON.stringify({ access: formulario.acesso }),
+            body: JSON.stringify({ acesso: formulario.acesso }),
           });
 
     try {
       const resposta = await requisicao;
       if (!resposta.ok) {
-        setErro(await mensagemDeErro(resposta));
+        setErroModal(await mensagemDeErro(resposta));
+        if (formulario.modo === "convite") await carregar();
         return;
       }
-      setAviso(
-        formulario.modo === "convite"
-          ? `Convite enviado para ${formulario.email}.`
-          : "Acesso atualizado.",
-      );
+      setAviso(formulario.modo === "convite" ? "Convite enviado." : "Acesso atualizado.");
       setFormulario(null);
       await carregar();
     } catch {
-      setErro("Não foi possível falar com o servidor.");
+      setErroModal("Não foi possível falar com o servidor.");
     } finally {
       setSalvando(false);
     }
   }
 
-  async function acaoNoMembro(membro: TeamMember, acao: "deactivate" | "resend-invite") {
-    if (
-      acao === "deactivate" &&
-      !window.confirm(
-        `Desativar ${membro.name}? A pessoa perde o acesso e as sessões abertas caem na hora.`,
-      )
-    ) {
-      return;
-    }
-
+  async function acaoNoMembro(membro: MembroDaEquipe, acao: "desativar" | "remover" | "reenviar-convite"): Promise<boolean> {
     setSalvando(true);
     setErro(null);
     setAviso(null);
     try {
-      const resposta = await fetch(`/api/auth/users/${membro.id}/${acao}`, { method: "POST" });
+      const resposta = await fetch(`/api/equipe/${membro.id}/${acao}`, { method: "POST" });
       if (!resposta.ok) {
         setErro(await mensagemDeErro(resposta));
-        return;
+        return false;
       }
-      setAviso(acao === "deactivate" ? `${membro.name} foi desativado.` : "Convite reenviado.");
+      setAviso(acao === "desativar" ? `${membro.name} foi desativado.` : acao === "remover" ? "Membro removido." : membro.status === "invited" ? "Convite reenviado." : "Link de acesso enviado.");
+      setMembroVisualizado(null);
       await carregar();
+      return true;
     } catch {
       setErro("Não foi possível falar com o servidor.");
+      return false;
     } finally {
       setSalvando(false);
     }
+  }
+
+  async function copiarEmail(membro: MembroDaEquipe): Promise<void> {
+    try {
+      await navigator.clipboard.writeText(membro.email);
+      setAviso(`E-mail de ${membro.name} copiado.`);
+    } catch {
+      setErro("Falha ao copiar o e-mail.");
+    }
+  }
+
+  async function confirmarAcao(): Promise<void> {
+    if (!membroParaConfirmar) return;
+    const { membro, tipo } = membroParaConfirmar;
+    if (await acaoNoMembro(membro, tipo)) setMembroParaConfirmar(null);
   }
 
   if (carregando && !dados) {
@@ -251,103 +234,41 @@ export function EquipeView() {
             <h2>Sem acesso a esta área</h2>
           </div>
         </div>
-        <p className="card-note">
-          {erro ?? "Gerir equipe é do administrador da plataforma ou de quem gestiona um departamento."}
-        </p>
+        <p className="card-note">{erro ?? "Gerir equipe é do gerente de um departamento, do admin ou do desenvolvedor."}</p>
       </ShellCard>
     );
   }
 
-  const escopo = dados.scope;
-  const empresasDoEscopo = escopo.companies.map((empresa) => empresa.companyId);
-  const departamentosDoFiltro = filtros.companyId
-    ? departmentIdsByCompany[filtros.companyId]
-    : [];
-
+  const escopo = dados.escopo;
   return (
     <div className="stack">
-      <ShellCard className="table-card">
+      <ShellCard className="table-card equipe-card">
         <div className="card-heading">
           <div>
             <span className="eyebrow">Configurações</span>
-            <h2>Equipe e acessos</h2>
+            <h2>Equipe e Acessos</h2>
           </div>
-          {escopo.canInvite ? (
-            <button
-              className="button button--accent"
-              type="button"
-              disabled={salvando}
-              onClick={() =>
-                setFormulario({ modo: "convite", email: "", nome: "", acesso: ACESSO_VAZIO })
-              }
-            >
-              Convidar pessoa
-            </button>
-          ) : null}
-        </div>
-
-        <p className="card-note">
-          {escopo.isPlatformAdmin
-            ? "Você administra a plataforma: alcança as duas empresas e todos os departamentos."
-            : "Você gestiona departamentos. Convida e edita acesso dentro deles; desativar é do administrador da plataforma."}
-        </p>
-
-        <div className="filter-form">
-          <label className="field">
-            Empresa
-            <select
-              value={filtros.companyId}
-              onChange={(evento) =>
-                setFiltros({
-                  companyId: evento.target.value as CompanyKey | "",
-                  departmentId: "",
-                  status: filtros.status,
-                })
-              }
-            >
-              <option value="">Todas</option>
-              {empresasDoEscopo.map((empresa) => (
-                <option key={empresa} value={empresa}>
-                  {EMPRESAS_POR_ID[empresa].nome}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="field">
-            Departamento
-            <select
-              value={filtros.departmentId}
-              disabled={!filtros.companyId}
-              onChange={(evento) =>
-                setFiltros({ ...filtros, departmentId: evento.target.value as DepartmentId | "" })
-              }
-            >
-              <option value="">Todos</option>
-              {departamentosDoFiltro.map((departamento) => (
-                <option key={departamento} value={departamento}>
-                  {departamentoLabel(filtros.companyId as CompanyKey, departamento)}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="field">
-            Situação
-            <select
-              value={filtros.status}
-              onChange={(evento) =>
-                setFiltros({ ...filtros, status: evento.target.value as UserStatus | "" })
-              }
-            >
-              <option value="">Todas</option>
-              {(Object.keys(STATUS_LABEL) as UserStatus[]).map((status) => (
-                <option key={status} value={status}>
-                  {STATUS_LABEL[status]}
-                </option>
-              ))}
-            </select>
-          </label>
+          <div className="equipe-heading-actions">
+            <div className="equipe-busca">
+              <IconSearch className="equipe-busca-icon" />
+              <input
+                type="search"
+                className="equipe-busca-input"
+                placeholder="Filtrar por nome ou e-mail…"
+                value={busca}
+                onChange={(e) => setBusca(e.target.value)}
+                aria-label="Filtrar pessoas da equipe"
+              />
+            </div>
+            {escopo.podeConvidar ? (
+              <Button
+                variant="primary"
+                icon={<IconUserPlus />}
+                disabled={salvando}
+                onClick={() => { setErroModal(null); setFormulario({ modo: "convite", nome: "", email: "", acesso: ACESSO_VAZIO }); }}
+              >Novo Membro</Button>
+            ) : null}
+          </div>
         </div>
 
         {erro ? <p className="card-note auth-error">{erro}</p> : null}
@@ -357,308 +278,268 @@ export function EquipeView() {
           <thead>
             <tr>
               <th>Pessoa</th>
-              <th>Acesso</th>
+              <th>Papel</th>
+              <th>Departamentos</th>
               <th>Situação</th>
               <th>Ações</th>
             </tr>
           </thead>
           <tbody>
-            {dados.members.length === 0 ? (
+            {membrosFiltrados.length === 0 ? (
               <tr>
-                <td colSpan={4}>Nenhuma pessoa encontrada com estes filtros.</td>
+                <td colSpan={5}>
+                  {busca.trim()
+                    ? `Nenhuma pessoa encontrada para "${busca}".`
+                    : "Nenhuma pessoa com acesso ao sistema."}
+                </td>
               </tr>
             ) : null}
-            {dados.members.map((membro) => (
+            {membrosPaginados.map((membro) => (
               <tr key={membro.id}>
                 <td>
-                  <strong>{membro.name}</strong>
-                  <br />
-                  <span className="card-note">{membro.email}</span>
+                  <div className="equipe-membro">
+                    <AvatarMembro membro={membro} />
+                    <div className="equipe-membro-info">
+                      <strong className="equipe-membro-nome">{membro.name}</strong>
+                      <span className="equipe-membro-email">{membro.email}</span>
+                    </div>
+                  </div>
                 </td>
-                <td>{resumoAcesso(membro.access)}</td>
                 <td>
-                  <StatusPill variant={STATUS_TOM[membro.status]}>
-                    {STATUS_LABEL[membro.status]}
-                  </StatusPill>
+                  <PapelBadge acesso={membro.acesso} />
+                </td>
+                <td>
+                  <DepartamentosDaEquipe acesso={membro.acesso} />
+                </td>
+                <td>
+                  <Badge tone={STATUS_TOM[membro.status]}>{STATUS_LABEL[membro.status]}</Badge>
                 </td>
                 <td>
                   <div className="row-actions">
-                    {membro.canManage ? (
-                      <button
-                        className="button button--small"
-                        type="button"
-                        disabled={salvando}
-                        onClick={() =>
-                          setFormulario({ modo: "edicao", membro, acesso: membro.access })
-                        }
-                      >
-                        Editar acesso
-                      </button>
-                    ) : null}
-                    {membro.canManage && membro.status === "invited" ? (
-                      <button
-                        className="button button--small"
-                        type="button"
-                        disabled={salvando}
-                        onClick={() => void acaoNoMembro(membro, "resend-invite")}
-                      >
-                        Reenviar convite
-                      </button>
-                    ) : null}
-                    {membro.canDeactivate ? (
-                      <button
-                        className="button button--small"
-                        type="button"
-                        disabled={salvando}
-                        onClick={() => void acaoNoMembro(membro, "deactivate")}
-                      >
-                        Desativar
-                      </button>
-                    ) : null}
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      icon={<IconEye />}
+                      iconOnly
+                      aria-label={`Ver detalhes de ${membro.name}`}
+                      onClick={() => setMembroVisualizado(membro)}
+                    />
+                    <DropdownMenu
+                      label={`Mais ações para ${membro.name}`}
+                      variant="icon"
+                      disabled={salvando}
+                      items={[
+                        {
+                          id: "alterar-acesso",
+                          label: "Mudar acesso",
+                          icon: <IconEdit />,
+                          disabled: !membro.podeEditar,
+                          onSelect: () => {
+                            setErroModal(null);
+                            setFormulario({ modo: "edicao", membro, acesso: membro.acesso });
+                          },
+                        },
+                        {
+                          id: "copiar-email",
+                          label: "Copiar e-mail",
+                          icon: <IconCopy />,
+                          onSelect: () => void copiarEmail(membro),
+                        },
+                        {
+                          id: "enviar-link",
+                          label: "Enviar link de acesso",
+                          icon: <IconReset />,
+                          disabled: !membro.podeReenviarConvite,
+                          onSelect: () => void acaoNoMembro(membro, "reenviar-convite"),
+                        },
+                        {
+                          id: "desativar",
+                          label: "Desativar acesso",
+                          icon: <IconTrash />,
+                          danger: true,
+                          disabled: !membro.podeDesativar,
+                          onSelect: () => { setErro(null); setMembroParaConfirmar({ membro, tipo: "desativar" }); },
+                        },
+                        {
+                          id: "remover",
+                          label: "Remover membro",
+                          icon: <IconTrash />,
+                          danger: true,
+                          disabled: !membro.podeRemover,
+                          onSelect: () => { setErro(null); setMembroParaConfirmar({ membro, tipo: "remover" }); },
+                        },
+                      ]}
+                    />
                   </div>
                 </td>
               </tr>
             ))}
           </tbody>
         </ShellTable>
+
+        {totalMembros > 0 ? (
+          <div className="equipe-paginacao" aria-label="Paginação da tabela de equipe">
+            <div className="equipe-paginacao-info">
+              Mostrando <strong>{inicioIndice + 1}–{fimIndice}</strong> de <strong>{totalMembros}</strong> {totalMembros === 1 ? "membro" : "membros"}
+            </div>
+            {totalPaginas > 1 ? (
+              <div className="equipe-paginacao-controles">
+                <button
+                  type="button"
+                  className="equipe-paginacao-btn"
+                  disabled={paginaAtual <= 1}
+                  onClick={() => setPagina((p) => Math.max(1, p - 1))}
+                  aria-label="Página anterior"
+                >
+                  <IconChevronLeft width={15} height={15} aria-hidden="true" />
+                  <span>Anterior</span>
+                </button>
+                <div className="equipe-paginacao-paginas">
+                  {Array.from({ length: totalPaginas }, (_, i) => i + 1).map((num) => (
+                    <button
+                      key={num}
+                      type="button"
+                      className={`equipe-paginacao-num ${paginaAtual === num ? "equipe-paginacao-num--ativo" : ""}`}
+                      onClick={() => setPagina(num)}
+                      aria-label={`Ir para a página ${num}`}
+                      aria-current={paginaAtual === num ? "page" : undefined}
+                    >
+                      {num}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  className="equipe-paginacao-btn"
+                  disabled={paginaAtual >= totalPaginas}
+                  onClick={() => setPagina((p) => Math.min(totalPaginas, p + 1))}
+                  aria-label="Próxima página"
+                >
+                  <span>Próxima</span>
+                  <IconChevronRight width={15} height={15} aria-hidden="true" />
+                </button>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
       </ShellCard>
 
       {formulario ? (
-        <ShellCard className="panel-card">
-          <div className="card-heading">
-            <div>
-              <span className="eyebrow">
-                {formulario.modo === "convite" ? "Novo acesso" : "Editar acesso"}
-              </span>
-              <h2>
-                {formulario.modo === "convite" ? "Convidar pessoa" : formulario.membro.name}
-              </h2>
-            </div>
-          </div>
-
-          {formulario.modo === "convite" ? (
-            <div className="filter-form">
-              <label className="field">
-                Nome
-                <input
-                  value={formulario.nome}
-                  onChange={(evento) =>
-                    setFormulario({ ...formulario, nome: evento.target.value })
-                  }
-                />
-              </label>
-              <label className="field">
-                E-mail
-                <input
-                  type="email"
-                  value={formulario.email}
-                  onChange={(evento) =>
-                    setFormulario({ ...formulario, email: evento.target.value })
-                  }
-                />
-              </label>
-            </div>
-          ) : (
-            <p className="card-note">{formulario.membro.email}</p>
-          )}
-
-          <EditorDeAcesso
-            escopo={escopo}
-            valor={formulario.acesso}
-            onChange={(acesso) => setFormulario({ ...formulario, acesso })}
-          />
-
-          <div className="filter-actions">
-            <button
-              className="button button--accent"
-              type="button"
-              disabled={
-                salvando ||
-                (formulario.modo === "convite" && (!formulario.email || !formulario.nome))
-              }
-              onClick={() => void enviar()}
-            >
+        <Dialog
+          title={formulario.modo === "convite" ? "Novo Membro" : "Editar Acesso"}
+          description={
+            formulario.modo === "convite"
+              ? "Cadastre uma nova pessoa e defina os acessos da conta."
+              : formulario.membro.email
+          }
+          icon={formulario.modo === "convite" ? <IconUserPlus /> : <IconEdit />}
+          onClose={() => {
+            setFormulario(null);
+            setErroModal(null);
+          }}
+          size="media"
+          footer={
+            <Button variant="primary" icon={formulario.modo === "convite" ? <IconSend /> : <IconSave />} loading={salvando} onClick={() => void enviar()}>
               {formulario.modo === "convite" ? "Enviar convite" : "Salvar acesso"}
-            </button>
-            <button
-              className="button"
-              type="button"
-              disabled={salvando}
-              onClick={() => setFormulario(null)}
-            >
-              Cancelar
-            </button>
+            </Button>
+          }
+        >
+          <div className="ui-dialog-form">
+            {erroModal ? <p className="card-note auth-error">{erroModal}</p> : null}
+            {formulario.modo === "convite" ? (
+              <section className="ui-dialog-section">
+                <div className="ui-dialog-section-header">
+                  <Heading as="h3" icon={<IconUser />}>Dados da Pessoa</Heading>
+                  <p className="ui-dialog-section-desc">
+                    Identificação e e-mail corporativo para envio do convite de acesso.
+                  </p>
+                </div>
+                <div className="ui-dialog-grid">
+                  <TextField
+                    label="Nome completo"
+                    value={formulario.nome}
+                    required
+                    placeholder="Ex.: Ana Silva"
+                    onChange={(evento) => setFormulario({ ...formulario, nome: evento.target.value })}
+                  />
+                  <TextField
+                    label="E-mail corporativo"
+                    type="email"
+                    value={formulario.email}
+                    required
+                    placeholder="nome@empresa.com.br"
+                    onChange={(evento) => setFormulario({ ...formulario, email: evento.target.value })}
+                  />
+                </div>
+              </section>
+            ) : null}
+            <EditorDeAcesso
+              escopo={escopo}
+              valor={formulario.acesso}
+              onChange={(acesso) => setFormulario({ ...formulario, acesso })}
+            />
           </div>
-        </ShellCard>
-      ) : null}
-    </div>
-  );
-}
-
-/**
- * Editor do acesso. Desenha só o que o escopo do servidor permite conceder —
- * um gestor de Energia não vê a Waze aqui, e não vê papel que ele próprio não
- * tem. Cada empresa é um bloco: entrar nela é uma escolha, e papel e
- * departamento só existem dentro dela.
- */
-function EditorDeAcesso({
-  escopo,
-  valor,
-  onChange,
-}: {
-  escopo: TeamScope;
-  valor: UserAccess;
-  onChange: (proximo: UserAccess) => void;
-}) {
-  function empresaAtual(companyId: CompanyKey) {
-    return valor.companies.find((empresa) => empresa.companyId === companyId);
-  }
-
-  function alteraEmpresa(
-    companyId: CompanyKey,
-    altera: (atual: UserAccess["companies"][number]) => UserAccess["companies"][number] | null,
-  ) {
-    const atual = empresaAtual(companyId) ?? { companyId, roles: [], departments: [] };
-    const proxima = altera(atual);
-    const outras = valor.companies.filter((empresa) => empresa.companyId !== companyId);
-    const companies = proxima ? [...outras, proxima] : outras;
-    // Ordem do catálogo, sempre: sem isto marcar e desmarcar a Waze faria a
-    // linha de resumo trocar de ordem sozinha, como se algo mais tivesse mudado.
-    onChange({
-      ...valor,
-      companies: companyKeys.flatMap(
-        (chave) => companies.filter((empresa) => empresa.companyId === chave),
-      ),
-    });
-  }
-
-  return (
-    <div className="acesso-editor">
-      {escopo.isPlatformAdmin ? (
-        <label className="acesso-linha">
-          <input
-            type="checkbox"
-            checked={valor.platformRoles.includes("admin")}
-            onChange={(evento) =>
-              onChange({ ...valor, platformRoles: evento.target.checked ? ["admin"] : [] })
-            }
-          />
-          <span>
-            <strong>Administração da plataforma</strong>
-            <span className="card-note">
-              Alcança as duas empresas e todos os departamentos, e pode gerir a equipe inteira.
-            </span>
-          </span>
-        </label>
+        </Dialog>
       ) : null}
 
-      {escopo.companies.map((empresa) => {
-        const atual = empresaAtual(empresa.companyId);
-        const ligada = atual !== undefined;
+      {membroVisualizado ? (
+        <DetalhesDoMembro
+          membro={membroVisualizado}
+          onClose={() => setMembroVisualizado(null)}
+          onEditar={(membro) => {
+            setMembroVisualizado(null);
+            setErroModal(null);
+            setFormulario({ modo: "edicao", membro, acesso: membro.acesso });
+          }}
+          onCopiarEmail={copiarEmail}
+        />
+      ) : null}
 
-        return (
-          <fieldset className="acesso-empresa" key={empresa.companyId}>
-            <legend>
-              <label className="acesso-linha">
-                <input
-                  type="checkbox"
-                  checked={ligada}
-                  onChange={(evento) =>
-                    alteraEmpresa(empresa.companyId, () =>
-                      evento.target.checked
-                        ? { companyId: empresa.companyId, roles: ["viewer"], departments: [] }
-                        : null,
-                    )
-                  }
-                />
-                <strong>{EMPRESAS_POR_ID[empresa.companyId].nome}</strong>
-              </label>
-            </legend>
-
-            {ligada ? (
-              <div className="acesso-grupos">
-                <div className="acesso-grupo">
-                  <span className="eyebrow">Papéis nesta empresa</span>
-                  {empresa.roles.map((papel) => (
-                    <label className="acesso-linha" key={papel}>
-                      <input
-                        type="checkbox"
-                        checked={atual.roles.includes(papel)}
-                        onChange={(evento) =>
-                          alteraEmpresa(empresa.companyId, (empresaAtual) => ({
-                            ...empresaAtual,
-                            roles: evento.target.checked
-                              ? [...empresaAtual.roles, papel]
-                              : empresaAtual.roles.filter((atualPapel) => atualPapel !== papel),
-                          }))
-                        }
-                      />
-                      <span>{PAPEL_LABEL[papel] ?? papel}</span>
-                    </label>
-                  ))}
-                </div>
-
-                <div className="acesso-grupo">
-                  <span className="eyebrow">Departamentos</span>
-                  {empresa.departmentIds.map((departamento) => {
-                    const liberado = atual.departments.find(
-                      (entrada) => entrada.departmentId === departamento,
-                    );
-                    return (
-                      <div className="acesso-departamento" key={departamento}>
-                        <label className="acesso-linha">
-                          <input
-                            type="checkbox"
-                            checked={liberado !== undefined}
-                            onChange={(evento) =>
-                              alteraEmpresa(empresa.companyId, (empresaAtual) => ({
-                                ...empresaAtual,
-                                departments: evento.target.checked
-                                  ? [
-                                      ...empresaAtual.departments,
-                                      { departmentId: departamento, isManager: false },
-                                    ]
-                                  : empresaAtual.departments.filter(
-                                      (entrada) => entrada.departmentId !== departamento,
-                                    ),
-                              }))
-                            }
-                          />
-                          <span>{departamentoLabel(empresa.companyId, departamento)}</span>
-                        </label>
-
-                        {liberado && empresa.canGrantManager ? (
-                          <label className="acesso-linha acesso-linha--aninhada">
-                            <input
-                              type="checkbox"
-                              checked={liberado.isManager}
-                              onChange={(evento) =>
-                                alteraEmpresa(empresa.companyId, (empresaAtual) => ({
-                                  ...empresaAtual,
-                                  departments: empresaAtual.departments.map((entrada) =>
-                                    entrada.departmentId === departamento
-                                      ? { ...entrada, isManager: evento.target.checked }
-                                      : entrada,
-                                  ),
-                                }))
-                              }
-                            />
-                            <span>Gestor do departamento — pode convidar e editar aqui</span>
-                          </label>
-                        ) : null}
-                      </div>
-                    );
-                  })}
-                </div>
+      {membroParaConfirmar ? (
+        <Dialog
+          title={membroParaConfirmar.tipo === "desativar" ? "Desativar Acesso" : "Remover Membro"}
+          description={membroParaConfirmar.membro.email}
+          icon={<IconTrash />}
+          variant="danger"
+          size="estreita"
+          cancelAutoFocus
+          onClose={() => setMembroParaConfirmar(null)}
+          footer={
+            <Button
+              variant="danger"
+              icon={<IconTrash />}
+              loading={salvando}
+              onClick={() => void confirmarAcao()}
+            >
+              {membroParaConfirmar.tipo === "desativar" ? "Desativar Acesso" : "Remover Membro"}
+            </Button>
+          }
+        >
+          <div className="ui-confirm-box">
+            {erro ? <p className="card-note auth-error">{erro}</p> : null}
+            <p className="ui-confirm-message">
+              Tem certeza de que deseja {membroParaConfirmar.tipo === "desativar" ? "desativar o acesso de" : "remover"} <strong>{membroParaConfirmar.membro.name}</strong>?
+            </p>
+            <div className="ui-confirm-alert">
+              A pessoa perderá o acesso ao sistema imediatamente e todas as sessões abertas serão encerradas no mesmo instante.
+            </div>
+            <div className="ui-confirm-details">
+              <div className="ui-confirm-row">
+                <span className="ui-confirm-label">Pessoa:</span>
+                <span className="ui-confirm-value">{membroParaConfirmar.membro.name}</span>
               </div>
-            ) : (
-              <p className="card-note">
-                Sem acesso a esta empresa: não vê os dados nem navega o contexto dela.
-              </p>
-            )}
-          </fieldset>
-        );
-      })}
+              <div className="ui-confirm-row">
+                <span className="ui-confirm-label">E-mail:</span>
+                <span className="ui-confirm-value">{membroParaConfirmar.membro.email}</span>
+              </div>
+              <div className="ui-confirm-row">
+                <span className="ui-confirm-label">Papel atual:</span>
+                <span className="ui-confirm-value">{ROTULO_DO_PAPEL[papelDoAcesso(membroParaConfirmar.membro.acesso)]}</span>
+              </div>
+            </div>
+          </div>
+        </Dialog>
+      ) : null}
     </div>
   );
 }

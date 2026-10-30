@@ -112,7 +112,7 @@ describe("rota fechada por padrão (e2e)", () => {
 
     const inventario: { metodo: string; caminho: string; acesso: string; papeis: string[] }[] = JSON.parse(
       readFileSync(
-        path.resolve(__dirname, "../../../specs/002-fundacao-solida/contracts/inventario-rotas.json"),
+        path.resolve(__dirname, "fixtures/inventario-rotas.json"),
         "utf8",
       ),
     );
@@ -127,12 +127,19 @@ describe("rota fechada por padrão (e2e)", () => {
       const falhas: string[] = [];
       for (const rota of comId) {
         const url = rota.caminho.replace(/:\w+/g, "nao-e-uuid");
-        const papeis = rota.papeis.length > 0 ? rota.papeis.join(",") : "admin";
+        // Rota do modelo de 4 papéis descreve a exigência como
+        // `departamento:<id>:<nível>` ou `plataforma:<papel>`; vira o cabeçalho
+        // de desenvolvimento equivalente, para a chamada passar do guard.
+        const departamentos = rota.papeis
+          .filter((p) => p.startsWith("departamento:"))
+          .map((p) => p.slice("departamento:".length));
+        const plataforma = rota.papeis.find((p) => p.startsWith("plataforma:"))?.slice("plataforma:".length);
         const metodo = rota.metodo.toLowerCase() as "get";
         const alvo = request(app.getHttpServer());
         const resposta = await alvo[metodo](url)
           .set("x-dev-principal", "teste-uuid")
-          .set("x-dev-roles", papeis)
+          .set("x-dev-departamentos", departamentos.join(","))
+          .set("x-dev-plataforma", plataforma ?? "")
           .send({});
         if (resposta.status !== 400 || resposta.body.codigo !== "REQUISICAO_INVALIDA") {
           falhas.push(`${rota.metodo} ${rota.caminho} -> ${resposta.status} ${resposta.body.codigo ?? ""}`);

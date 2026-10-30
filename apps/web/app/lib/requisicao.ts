@@ -1,7 +1,7 @@
 /**
  * Validação de corpo de requisição no navegador, antes do envio (US12, T122, FR-060).
  *
- * Os clientes (`compras-client`, `commercial-client`, `energy-client`) recebiam
+ * Os clientes (`commercial-client`) recebiam
  * `corpo: unknown` e mandavam o que viesse. Agora cada função declara o schema de
  * `@plugga/shared` do endpoint: o tipo do argumento sai dele e o valor é validado
  * (e normalizado) antes de qualquer `fetch`. A API continua validando — esta é a
@@ -15,7 +15,7 @@ export type EsquemaDeCorpo<S> = {
   _input: unknown;
   safeParse(
     valor: unknown,
-  ): { success: true; data: S } | { success: false; error: { issues: { message: string; path: (string | number)[] }[] } };
+  ): { success: true; data: S } | { success: false; error: { issues: { message: string; path: PropertyKey[] }[] } };
 };
 
 /**
@@ -36,7 +36,7 @@ export function validarCorpo<S>(
   const resultado = schema.safeParse(corpo);
   if (resultado.success) return { ok: true, dados: resultado.data };
   const message = resultado.error.issues
-    .map((issue) => (issue.path.length > 0 ? `${issue.path.join(".")}: ${issue.message}` : issue.message))
+    .map((issue) => (issue.path.length > 0 ? `${issue.path.map(String).join(".")}: ${issue.message}` : issue.message))
     .join("; ");
   return { ok: false, message: message || "dados inválidos" };
 }

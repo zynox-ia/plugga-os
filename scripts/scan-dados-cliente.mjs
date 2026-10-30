@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Varredura de dado de cliente real (spec 002, US2, FR-007 a FR-010).
+// Varredura de dado de cliente real.
 // Procura CNPJ e CPF com dígito verificador válido, unidade consumidora e nomes
 // de cliente lidos de CLIENT_NAMES_FILE. O relatório traz arquivo, linha e tipo,
 // NUNCA o valor encontrado.

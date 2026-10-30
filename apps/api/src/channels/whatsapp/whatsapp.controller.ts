@@ -10,14 +10,14 @@ import { ZodValidationPipe } from "../../common/zod-validation.pipe";
 import { CurrentPrincipal } from "../../core/auth/current-principal.decorator";
 import { SessionAuthGuard } from "../../core/auth/session-auth.guard";
 import { OriginCheckGuard } from "../../core/auth/origin-check.guard";
-import { Roles } from "../../core/auth/roles.decorator";
-import { RolesGuard } from "../../core/auth/roles.guard";
+import { Plataforma } from "../../core/auth/acesso.decorator";
+import { AcessoGuard } from "../../core/auth/acesso.guard";
 import type { AuthPrincipal } from "../../core/auth/auth.types";
 import { WhatsappService } from "./whatsapp.service";
 
 @Controller("channels/whatsapp")
-@UseGuards(SessionAuthGuard, RolesGuard)
-@Roles("tech", "admin")
+@UseGuards(SessionAuthGuard, AcessoGuard)
+@Plataforma("desenvolvedor")
 export class WhatsappController {
   constructor(@Inject(WhatsappService) private readonly service: WhatsappService) {}
 

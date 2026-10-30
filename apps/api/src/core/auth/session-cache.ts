@@ -1,17 +1,16 @@
-import type { UserAccess } from "@plugga/shared";
+import type { Acesso } from "@plugga/shared";
 
 /**
  * Mesmos campos de `AuthUserRecord` (apps/api/src/auth/auth.repository.ts),
  * menos `createdAt` — nada aqui lê essa data. `AuthUserRecord` satisfaz esta
- * interface estruturalmente, então os dois lados (guard de autorização e
- * `/auth/me`) podem escrever e ler a mesma entrada sem conversão.
+ * interface estruturalmente, sem conversão.
  */
 export interface ResolvedSessionUser {
   id: string;
   email: string;
   name: string;
   status: string;
-  access: UserAccess;
+  acesso: Acesso;
 }
 
 export interface SessionCacheEntry {
@@ -19,14 +18,15 @@ export interface SessionCacheEntry {
 }
 
 /**
- * Cache de sessão resolvida, por `tokenHash`. Existe para não pagar o
- * `session.findUnique` (join em 4 níveis) + `session.updateMany` de renovação
- * do Postgres em toda requisição autenticada — hoje isso acontece de 2 a 5
- * vezes por troca de tela (middleware + página + `/auth/me`).
+ * Snapshot de sessão, por `tokenHash`, mantido por compatibilidade.
+ * NÃO concede autoridade: guard e `/auth/me` consultam o banco em cada
+ * requisição, mesmo quando SESSION_CACHE_ENABLED=true. Isso custa uma leitura
+ * no banco por resolução, mas garante revogação e acesso atual mesmo com
+ * invalidação perdida ou escrita concorrente posterior ao logout/reset.
  *
  * Toda implementação real precisa falhar aberta: um erro de Redis deve virar
  * cache miss / no-op, nunca uma exceção que derruba login ou navegação. Na
- * pior hipótese, o comportamento volta a ser o de hoje (sempre ir ao banco).
+ * pior hipótese, somente o snapshot deixa de ser atualizado.
  */
 export abstract class SessionCache {
   abstract get(tokenHash: string): Promise<SessionCacheEntry | null>;

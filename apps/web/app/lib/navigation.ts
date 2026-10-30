@@ -1,46 +1,47 @@
-import type { UserAccess } from "@plugga/shared";
+import type { Acesso } from "@plugga/shared";
 
-import type { ShellNavGroup } from "../components/plugga-shell";
+import type { IconName, ShellNavGroup } from "../components/plugga-shell";
 import {
-  EMPRESAS_POR_ID,
   CONFIGURACOES,
+  DEPARTAMENTOS,
   FERRAMENTAS,
   GLOBAIS,
+  ROTAS_FORA_DO_MENU,
   VISAO_GERAL,
   departamentosPermitidos,
-  type EmpresaId,
   type Processo,
-} from "./organizacao";
+} from "./organizacao.ts";
 
 /**
- * Deriva a navegação de `organizacao.ts`: a sidebar é a árvore Empresa →
- * Departamento → Processo, com o que ainda não existe marcado em vez de
- * escondido — assim a estrutura combinada fica visível enquanto é construída.
+ * Deriva a navegação de `organizacao.ts`: uma lista de departamentos e processos.
+ * Processos sem tela permanecem visíveis e desabilitados. Ferramentas
+ * (com Configurações no fim) fecha a barra; Atividades não tem item, mas a rota
+ * segue resolvendo título e destaque.
  *
  * O id do item é a própria rota quando ela existe; para o que não tem tela, um
  * id sintético mantém a chave única sem inventar uma rota que daria 404.
  */
+
+const ICONES_FERRAMENTAS: Record<string, IconName> = {
+  "/agentes-ia": "sparkles",
+  "/configuracoes": "settings",
+};
 
 function navItem(processo: Processo, prefixo: string) {
   return {
     id: processo.rota ?? `${prefixo}:${processo.label}`,
     label: processo.label,
     disabled: processo.status === "em-breve",
-    badge: processo.status === "parcial" ? ("parcial" as const) : undefined,
   };
 }
 
 /**
  * `acesso` ausente = navegação inteira (o estado antes de /me responder, e o
- * uso em teste). Com acesso, entram só os departamentos liberados naquela
- * empresa: o que não é seu não fica "em breve" nem cinza — some, porque a
- * ausência é a informação honesta.
+ * uso em teste). Com acesso, entram só os departamentos que a pessoa alcança;
+ * admin e desenvolvedor alcançam todos.
  */
-export function navGroupsForEmpresa(
-  empresa: EmpresaId,
-  acesso: UserAccess | null = null,
-): ShellNavGroup[] {
-  const departamentos = departamentosPermitidos(empresa, acesso);
+export function navGroupsForAccess(acesso: Acesso | null = null): ShellNavGroup[] {
+  const departamentos = departamentosPermitidos(acesso);
 
   return [
     {
@@ -48,16 +49,15 @@ export function navGroupsForEmpresa(
       label: "Visão geral",
       items: VISAO_GERAL.map((processo) => ({
         ...navItem(processo, "visao"),
-        icon: processo.rota === "/" ? ("home" as const) : ("pulse" as const),
+        icon: "home" as const,
       })),
     },
     // Macro (departamento) abre e fecha; micro (processo) fica aninhado nele.
     ...departamentos.map((departamento, indice) => ({
-      id: `${empresa}-${departamento.id}`,
+      id: departamento.id,
       label: departamento.label,
       icon: departamento.icon,
       collapsible: true,
-      // A empresa já está no seletor do topo; repeti-la aqui só polui.
       section: indice === 0 ? "Departamentos" : undefined,
       items: departamento.processos.map((processo) => navItem(processo, departamento.id)),
     })),
@@ -66,12 +66,7 @@ export function navGroupsForEmpresa(
       label: "Ferramentas",
       items: FERRAMENTAS.map((processo) => ({
         ...navItem(processo, "ferramenta"),
-        icon:
-          processo.rota === "/documentos"
-            ? ("document" as const)
-            : processo.rota === "/agentes-ia"
-            ? ("bolt" as const)
-            : ("chart" as const),
+        icon: ICONES_FERRAMENTAS[processo.rota ?? processo.label] ?? ("chart" as const),
       })),
     },
   ];
@@ -88,11 +83,10 @@ export function navIdForPathname(pathname: string): string {
   const rotas = [
     ...VISAO_GERAL,
     ...FERRAMENTAS,
+    ...ROTAS_FORA_DO_MENU,
     ...CONFIGURACOES,
     ...GLOBAIS,
-    ...Object.values(EMPRESAS_POR_ID).flatMap((empresa) =>
-      empresa.departamentos.flatMap((departamento) => departamento.processos),
-    ),
+    ...DEPARTAMENTOS.flatMap((departamento) => departamento.processos),
   ]
     .map((processo) => processo.rota)
     .filter((rota): rota is string => Boolean(rota) && rota !== "/");
@@ -107,13 +101,14 @@ export function navIdForPathname(pathname: string): string {
 }
 
 /** Título do topo e do cabeçalho da página para a rota atual. */
-export function tituloForNavId(navId: string, empresa: EmpresaId): string {
+export function tituloForNavId(navId: string): string {
   const todos = [
     ...VISAO_GERAL,
     ...FERRAMENTAS,
+    ...ROTAS_FORA_DO_MENU,
     ...CONFIGURACOES,
     ...GLOBAIS,
-    ...EMPRESAS_POR_ID[empresa].departamentos.flatMap((d) => d.processos),
+    ...DEPARTAMENTOS.flatMap((departamento) => departamento.processos),
   ];
 
   return todos.find((processo) => processo.rota === navId)?.label ?? "plugga-os";

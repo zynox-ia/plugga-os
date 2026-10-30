@@ -1,5 +1,13 @@
 name: plugga-os
 
+# Rotação de logs em todos os serviços: sem isto o json-file cresce sem limite e
+# enche o disco da VPS.
+x-logging: &logging-padrao
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
 services:
   postgres:
     image: postgres:16-alpine
@@ -18,6 +26,7 @@ services:
       timeout: 5s
       retries: 10
       start_period: 5s
+    logging: *logging-padrao
     restart: unless-stopped
 
   redis:
@@ -33,6 +42,7 @@ services:
       timeout: 5s
       retries: 10
       start_period: 5s
+    logging: *logging-padrao
     restart: unless-stopped
 
   # Object storage for the invoice files uploaded to the energy-efficiency
@@ -64,6 +74,7 @@ services:
       timeout: 5s
       retries: 10
       start_period: 5s
+    logging: *logging-padrao
     restart: unless-stopped
 
   # Creates the bucket once and exits. Without it the first upload fails on a
@@ -83,10 +94,14 @@ services:
         mc mb --ignore-existing plugga/plugga-comercial-clientes
         mc mb --ignore-existing plugga/plugga-energia-opm
         mc mb --ignore-existing plugga/plugga-produto-tecnologia
+        mc mb --ignore-existing plugga/plugga-suprimentos
         mc mb --ignore-existing plugga/plugga-financeiro
+        mc mb --ignore-existing plugga/plugga-marketing
         mc mb --ignore-existing plugga/waze-comercial-obras
         mc mb --ignore-existing plugga/waze-engenharia-obras
+        mc mb --ignore-existing plugga/waze-suprimentos
         mc mb --ignore-existing plugga/waze-financeiro
+        mc mb --ignore-existing plugga/waze-marketing
         mc mb --ignore-existing plugga/"${CORPUS_BUCKET:-plugga-corpus-faturas}"
         mc mb --ignore-existing plugga/plugga-backups
     restart: "no"
@@ -130,6 +145,12 @@ services:
       AUTH_SESSION_SECRET: ${AUTH_SESSION_SECRET:?set AUTH_SESSION_SECRET in .env}
       AUTH_APP_BASE_URL: ${AUTH_APP_BASE_URL:-http://localhost:3000}
       AUTH_ALLOWED_ORIGINS: ${AUTH_ALLOWED_ORIGINS:-}
+      SESSION_TTL_MINUTES: ${SESSION_TTL_MINUTES:-720}
+      SESSION_ABSOLUTE_TTL_HOURS: ${SESSION_ABSOLUTE_TTL_HOURS:-720}
+      SESSION_RENEWAL_DEBOUNCE_MINUTES: ${SESSION_RENEWAL_DEBOUNCE_MINUTES:-5}
+      SESSION_CACHE_ENABLED: ${SESSION_CACHE_ENABLED:-true}
+      SESSION_CACHE_TTL_SECONDS: ${SESSION_CACHE_TTL_SECONDS:-60}
+      SESSION_CACHE_HMAC_KEY: ${SESSION_CACHE_HMAC_KEY:-}
       # Login federado com o Google (adendo ao ADR-0008). Desligado por default:
       # é esta variável que faz o rollback do recurso, sem apagar vínculo nenhum.
       # O client id é público, mas é a audiência aceita no ID token — precisa ser
@@ -203,6 +224,7 @@ services:
       timeout: 5s
       retries: 10
       start_period: 20s
+    logging: *logging-padrao
     restart: unless-stopped
 
   web:
@@ -232,6 +254,15 @@ services:
     depends_on:
       api:
         condition: service_healthy
+    # Qualquer resposta HTTP abaixo de 500 (a raiz redireciona para o login) prova que o Next atende.
+    healthcheck:
+      test:
+        ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/',{redirect:'manual'}).then(r=>process.exit(r.status<500?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    logging: *logging-padrao
     restart: unless-stopped
 
 volumes:

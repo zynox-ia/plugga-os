@@ -1,15 +1,29 @@
 import { ClientesView } from "../components/clientes-view";
 import { EstadoDaApi } from "../components/estado-da-api";
-import { fetchClients } from "../lib/api";
+import { fetchClient, fetchClientOwners, fetchClients } from "../lib/api";
 
 export default async function ClientesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; segment?: string; active?: string }>;
+  searchParams: Promise<{ q?: string; active?: string; cliente?: string }>;
 }) {
-  const filters = await searchParams;
-  const clientes = await fetchClients(filters);
-  if (!clientes.ok) return <EstadoDaApi erro={clientes.erro} eyebrow="Clientes" />;
+  const { q, active, cliente } = await searchParams;
+  const filtros = { q: q || undefined, active: active === "true" || active === "false" ? active : undefined };
 
-  return <ClientesView items={clientes.dados.items} isLive filters={filters} />;
+  const [lista, responsaveis, ficha] = await Promise.all([
+    fetchClients(filtros),
+    fetchClientOwners(),
+    cliente ? fetchClient(cliente) : Promise.resolve(null),
+  ]);
+  if (!lista.ok) return <EstadoDaApi erro={lista.erro} eyebrow="Clientes" />;
+
+  return (
+    <ClientesView
+      itens={lista.dados.items}
+      filtros={filtros}
+      responsaveis={responsaveis.ok ? responsaveis.dados.items : []}
+      ficha={ficha?.ok ? ficha.dados : null}
+      fichaNaoEncontrada={ficha !== null && !ficha.ok}
+    />
+  );
 }

@@ -16,7 +16,7 @@ export const integrationStatusSchema = z.enum([
 
 export const integrationSummarySchema = z
   .object({
-    id: z.string().uuid(),
+    id: z.guid(),
     key: z.string().trim().min(1).max(100),
     name: z.string().trim().min(1).max(150),
     mode: integrationModeSchema,

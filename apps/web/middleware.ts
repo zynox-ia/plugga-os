@@ -1,4 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { sessionUserSchema, type SessionUser } from "@plugga/shared";
+import { podeAbrirPagina } from "./app/lib/acesso-paginas";
 
 import { buildContentSecurityPolicy } from "./app/lib/content-security-policy";
 import { apiBaseUrl } from "./app/lib/env-runtime";
@@ -74,9 +76,9 @@ function redirectTo(request: NextRequest, pathname: string): URL {
 }
 
 /** True when apps/api's session cookie is accepted by GET /auth/me. */
-async function hasValidSession(request: NextRequest): Promise<boolean> {
+async function readSession(request: NextRequest): Promise<SessionUser | null> {
   const cookie = request.headers.get("cookie");
-  if (!cookie) return false;
+  if (!cookie) return null;
 
   try {
     const response = await fetch(`${apiBaseUrl()}/auth/me`, {
@@ -84,9 +86,11 @@ async function hasValidSession(request: NextRequest): Promise<boolean> {
       signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
       cache: "no-store",
     });
-    return response.ok;
+    if (!response.ok) return null;
+    const resultado = sessionUserSchema.safeParse(await response.json());
+    return resultado.success ? resultado.data : null;
   } catch {
-    return false;
+    return null;
   }
 }
 
@@ -116,7 +120,8 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
     return proximaComCsp(request);
   }
 
-  const authenticated = await hasValidSession(request);
+  const usuario = await readSession(request);
+  const authenticated = usuario !== null;
 
   if (pathname === "/login") {
     return authenticated ? redirectComCsp(request, redirectTo(request, "/")) : proximaComCsp(request);
@@ -126,6 +131,10 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
     const loginUrl = redirectTo(request, "/login");
     if (pathname !== "/") loginUrl.searchParams.set("redirectTo", pathname);
     return redirectComCsp(request, loginUrl);
+  }
+
+  if (usuario && !podeAbrirPagina(usuario.acesso, pathname)) {
+    return redirectComCsp(request, redirectTo(request, "/"));
   }
 
   return proximaComCsp(request);

@@ -6,9 +6,8 @@ import { clientForwardedFor } from "../app/lib/forwarded-for.ts";
 import { safeRelativePath } from "../app/lib/safe-redirect.ts";
 
 /**
- * Não regressão das bases de segurança do web que a spec 002 manda preservar
- * (FR-080, constituição V). A spec mexe em cliente de API e em tratamento de erro
- * do web; estas proteções não podem enfraquecer no caminho. Os testes por
+ * Não regressão das bases de segurança do web. Mudanças no cliente de API e no tratamento de erro
+ * não podem enfraquecer estas proteções. Os testes por
  * unidade ficam nos arquivos próprios (content-security-policy, forwarded-for,
  * safe-redirect); aqui estão os contratos que não podem sumir. O middleware roda
  * no Edge e não carrega em Node puro: ele é provado ponta a ponta em

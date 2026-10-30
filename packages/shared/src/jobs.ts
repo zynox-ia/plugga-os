@@ -10,7 +10,7 @@ export const jobRunStatusSchema = z.enum([
 
 export const jobRunInventoryItemSchema = z
   .object({
-    id: z.string().uuid(),
+    id: z.guid(),
     jobKey: z.string().trim().min(1).max(150),
     integrationKey: z.string().trim().min(1).max(100).nullable(),
     scheduledFor: z.string().datetime().nullable(),

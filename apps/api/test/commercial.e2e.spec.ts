@@ -330,18 +330,18 @@ describe("commercial API (e2e)", () => {
   function asComercial() {
     return {
       get: (path: string) =>
-        request(app.getHttpServer()).get(path).set("x-dev-principal", "local-comercial").set("x-dev-roles", "comercial"),
+        request(app.getHttpServer()).get(path).set("x-dev-principal", "local-comercial").set("x-dev-departamentos", "crm:membro"),
       post: (path: string) =>
-        request(app.getHttpServer()).post(path).set("x-dev-principal", "local-comercial").set("x-dev-roles", "comercial"),
+        request(app.getHttpServer()).post(path).set("x-dev-principal", "local-comercial").set("x-dev-departamentos", "crm:membro"),
     };
   }
 
   function asViewer() {
     return {
       get: (path: string) =>
-        request(app.getHttpServer()).get(path).set("x-dev-principal", "local-viewer").set("x-dev-roles", "viewer"),
+        request(app.getHttpServer()).get(path).set("x-dev-principal", "local-viewer").set("x-dev-departamentos", "financeiro:membro"),
       post: (path: string) =>
-        request(app.getHttpServer()).post(path).set("x-dev-principal", "local-viewer").set("x-dev-roles", "viewer"),
+        request(app.getHttpServer()).post(path).set("x-dev-principal", "local-viewer").set("x-dev-departamentos", "financeiro:membro"),
     };
   }
 
@@ -471,7 +471,7 @@ describe("commercial API (e2e)", () => {
     const id = "00000000-0000-4000-8000-000000000501";
     repository.seedContract({ id, status: "rascunho" });
 
-    await asComercial().post(`/commercial/contracts/${id}/status`).send({ status: "ativo" }).expect(400);
+    await asComercial().post(`/commercial/contracts/${id}/status`).send({ status: "ativo" }).expect(409);
   });
 
   it("blocks a contract without owner/next action from entering revisão interna (blocking rule)", async () => {
@@ -490,7 +490,7 @@ describe("commercial API (e2e)", () => {
       nextActionAt: "2026-08-15T12:00:00.000Z",
     });
 
-    await asComercial().post(`/commercial/contracts/${id}/status`).send({ status: "ativo" }).expect(400);
+    await asComercial().post(`/commercial/contracts/${id}/status`).send({ status: "ativo" }).expect(409);
   });
 
   it("advances a contract through the full sequence and audits every step", async () => {

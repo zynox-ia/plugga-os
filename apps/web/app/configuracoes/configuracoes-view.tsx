@@ -2,9 +2,10 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import type { ListaDaEquipe } from "@plugga/shared";
 
 import { ShellCard, StatusPill } from "../components/plugga-shell";
-import { CONFIGURACOES, configuracoesParaAcesso } from "../lib/organizacao";
+import { CONFIGURACOES, ROTULO_DO_PAPEL, configuracoesParaAcesso } from "../lib/organizacao";
 import { useSessionUser } from "../lib/use-session-user";
 import { ChaveLlmView } from "./chave-llm-view";
 import { EquipeView } from "./equipe-view";
@@ -13,16 +14,19 @@ import { EquipeView } from "./equipe-view";
  * Configurações com navegação própria: o que se ajusta uma vez fica reunido
  * aqui, em vez de disputar espaço na barra lateral com o trabalho do dia.
  *
- * As seções são filtradas pelos papéis da sessão. A entrada em si aparece
+ * As seções são filtradas pelo papel da sessão. A entrada em si aparece
  * sempre na barra — esconder o menu inteiro faz quem não tem acesso procurar
  * onde não existe, e o "você não tem acesso" é a resposta honesta.
  */
-export function ConfiguracoesView() {
+export function ConfiguracoesView({ equipeInicial }: { equipeInicial: ListaDaEquipe | null }) {
   const router = useRouter();
   const { usuario, carregando } = useSessionUser();
   const [ativa, setAtiva] = useState(0);
+  // Guardada aqui para a aba Equipe não voltar com a lista da abertura da
+  // página depois de uma alteração, quando a pessoa troca de aba e retorna.
+  const [equipe, setEquipe] = useState(equipeInicial);
 
-  const visiveis = usuario ? configuracoesParaAcesso(usuario) : [];
+  const visiveis = usuario ? configuracoesParaAcesso(usuario.acesso) : [];
   const secao = visiveis[Math.min(ativa, Math.max(visiveis.length - 1, 0))];
 
   if (carregando) {
@@ -55,23 +59,24 @@ export function ConfiguracoesView() {
 
   return (
     <div className="config-layout">
-      <nav className="config-nav" aria-label="Seções de configuração">
+      <nav className="ui-tabs-list config-nav" aria-label="Seções de configuração" role="tablist">
         {visiveis.map((item, indice) => (
           <button
             key={item.label}
             type="button"
-            className={`config-nav-item${item === secao ? " config-nav-item--active" : ""}`}
+            role="tab"
+            aria-selected={item === secao}
+            tabIndex={item === secao ? 0 : -1}
+            className="ui-tab config-nav-item"
             onClick={() => setAtiva(indice)}
-            aria-current={item === secao ? "page" : undefined}
           >
             <span>{item.label}</span>
-            {item.status === "em-breve" ? <span className="nav-tag">em breve</span> : null}
           </button>
         ))}
       </nav>
 
       {secao?.id === "equipe" ? (
-        <EquipeView />
+        <EquipeView inicial={equipe} aoCarregar={setEquipe} />
       ) : secao?.id === "chave-llm" ? (
         <ChaveLlmView />
       ) : (
@@ -106,7 +111,7 @@ export function ConfiguracoesView() {
         )}
 
         <p className="card-note">
-          Visível para: <b>{secao?.roles.join(", ")}</b>.
+          Visível a partir de: <b>{secao ? ROTULO_DO_PAPEL[secao.minimo] : ""}</b>.
         </p>
       </ShellCard>
       )}

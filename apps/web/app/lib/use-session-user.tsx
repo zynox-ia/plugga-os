@@ -43,8 +43,8 @@ function useBuscaSessao(enabled: boolean): SessaoAtual {
 }
 
 /**
- * Uma leitura de /me por navegação, compartilhada. Barra lateral, menu da conta,
- * seletor de empresa e Configurações perguntam a mesma coisa; sem isto cada um
+ * Uma leitura de /me por navegação, compartilhada. Barra lateral, menu da conta
+ * e Configurações perguntam a mesma coisa; sem isto cada um
  * abriria a própria requisição e poderiam desenhar a partir de respostas
  * diferentes no mesmo instante.
  */
@@ -55,8 +55,8 @@ export function SessionUserProvider({ children }: { children: ReactNode }) {
 
 /**
  * Usuário da sessão atual: identidade + acesso inteiro (empresas, departamentos,
- * papéis por empresa). É o acesso que decide qual empresa aparece no seletor e
- * quais departamentos entram na barra — a lista achatada de papéis não sabe onde
+ * papéis por empresa). É o acesso que decide quais departamentos entram na barra;
+ * a lista achatada de papéis não sabe onde
  * cada papel vale.
  *
  * `carregando` existe para o consumidor não confundir "ainda não sei o acesso"

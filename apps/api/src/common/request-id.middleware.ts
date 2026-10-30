@@ -1,6 +1,9 @@
 import { randomBytes } from "node:crypto";
 
+import { Logger } from "@nestjs/common";
 import type { NextFunction, Request, Response } from "express";
+
+import { contextoDaRequisicao } from "./contexto-requisicao";
 
 const ALFABETO_CROCKFORD = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 
@@ -33,5 +36,17 @@ export function requestIdMiddleware(req: RequisicaoComId, res: Response, next: N
   const id = gerarRequestId();
   req.requestId = id;
   res.setHeader("x-request-id", id);
-  next();
+
+  // Registro de acesso: só método, rota sem query string, status e duração.
+  // Nunca corpo, cookies, cabeçalhos nem query (podem carregar token ou dado pessoal).
+  const inicio = process.hrtime.bigint();
+  res.on("finish", () => {
+    const duracaoMs = Number((process.hrtime.bigint() - inicio) / 1_000_000n);
+    const rota = (req.originalUrl ?? req.url ?? "").split("?")[0];
+    acesso.log(`${req.method} ${rota} ${res.statusCode} ${duracaoMs}ms`);
+  });
+
+  contextoDaRequisicao.run({ requestId: id }, next);
 }
+
+const acesso = new Logger("Acesso");

@@ -1,16 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { User } from "lucide-react";
 import { useSessionUser } from "../lib/use-session-user";
-
-/** Iniciais para o avatar; enquanto a sessão não responde, um traço neutro. */
-function iniciais(nome: string): string {
-  const partes = nome.trim().split(/\s+/).filter(Boolean);
-  if (partes.length === 0) return "·";
-  const primeira = partes[0]?.[0] ?? "";
-  const ultima = partes.length > 1 ? (partes[partes.length - 1]?.[0] ?? "") : "";
-  return (primeira + ultima).toUpperCase();
-}
 
 /**
  * Cartão de quem está logado, no pé da barra lateral. Ocupa o lugar do antigo
@@ -30,7 +22,7 @@ export function SidebarUser() {
   return (
     <div className="sidebar-user" suppressHydrationWarning>
       <span className="sidebar-user-avatar" aria-hidden="true" suppressHydrationWarning>
-        {exibeUsuario ? iniciais(exibeUsuario.name) : "·"}
+        <User size={16} strokeWidth={2} />
       </span>
       <span className="sidebar-user-info" suppressHydrationWarning>
         <strong suppressHydrationWarning>{exibeUsuario?.name ?? "Carregando…"}</strong>

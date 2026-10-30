@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { afterEach, beforeEach, describe, it } from "node:test";
 
-import { proxyar, proxyAuthPut, proxyComprasPost } from "../app/lib/proxy.ts";
+import { proxyar } from "../app/lib/proxy.ts";
 
 const ID = "00000000-0000-4000-8000-000000001001";
 const originalFetch = globalThis.fetch;
@@ -36,7 +36,7 @@ describe("proxy genérico (T123/T124)", () => {
   for (const ruim of ["../..", "..%2F..", "%2F", "123", "x/y"]) {
     it(`recusa identificador ${JSON.stringify(ruim)} com 400 e sem chamar a API`, async () => {
       simular(() => Response.json({}));
-      const r = await proxyAuthPut(requisicao(), "users/:id/access", { id: ruim });
+      const r = await proxyar(requisicao(), { metodo: "PUT", modelo: "equipe/:id/acesso", ids: { id: ruim } });
       assert.equal(r.status, 400);
       assert.equal(chamadas.length, 0);
     });
@@ -44,13 +44,14 @@ describe("proxy genérico (T123/T124)", () => {
 
   it("monta o caminho com prefixo e repassa cookie, origin e corpo", async () => {
     simular(() => Response.json({ ok: true }));
-    const r = await proxyAuthPut(
-      requisicao('{"a":1}', { cookie: "sid=abc", origin: "http://localhost:3000" }),
-      "users/:id/access",
-      { id: ID },
-    );
+    const r = await proxyar(requisicao('{"a":1}', { cookie: "sid=abc", origin: "http://localhost:3000" }), {
+      metodo: "PUT",
+      prefixo: "/auth",
+      modelo: "teste/:id",
+      ids: { id: ID },
+    });
     assert.equal(r.status, 200);
-    assert.equal(chamadas[0]?.url, `http://api.test/auth/users/${ID}/access`);
+    assert.equal(chamadas[0]?.url, `http://api.test/auth/teste/${ID}`);
     assert.equal(chamadas[0]?.init.method, "PUT");
     assert.equal(chamadas[0]?.init.body, '{"a":1}');
     const cab = chamadas[0]?.init.headers as Record<string, string>;
@@ -68,10 +69,15 @@ describe("proxy genérico (T123/T124)", () => {
     assert.equal((chamadas[1]?.init.headers as Record<string, string>)["x-forwarded-for"], "203.0.113.7");
   });
 
-  it("codifica a query de Compras", async () => {
+  it("codifica a query", async () => {
     simular(() => Response.json({}));
-    await proxyComprasPost(requisicao(), "pedidos/:id/triagem", { id: ID }, { companyId: "a&b" });
-    assert.equal(chamadas[0]?.url, `http://api.test/compras/pedidos/${ID}/triagem?companyId=a%26b`);
+    await proxyar(requisicao(), {
+      metodo: "POST",
+      modelo: "opportunities/:id/lose",
+      ids: { id: ID },
+      consulta: { companyId: "a&b" },
+    });
+    assert.equal(chamadas[0]?.url, `http://api.test/opportunities/${ID}/lose?companyId=a%26b`);
   });
 
   it("recusa origem não permitida com 403, sem chamar a API", async () => {

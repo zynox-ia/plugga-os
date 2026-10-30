@@ -1,17 +1,13 @@
 import { z } from "zod";
 
 /**
- * Empresa → Departamento, na fatia que atravessa web e API.
+ * Empresas (etiqueta dos registros) e o catálogo empresa × área que dá nome aos
+ * **baldes de armazenamento de arquivos** (`apps/api/src/core/armazenamento/baldes.ts`):
+ * os baldes `plugga-financeiro`, `waze-engenharia-obras`… já existem no storage,
+ * e renomeá-los é mudança de infraestrutura, não de código.
  *
- * O catálogo completo (rótulos, ícones, processos, rotas) segue em
- * `apps/web/app/lib/organizacao.ts`: é desenho de navegação e só a web usa.
- * Aqui moram apenas os **identificadores**, porque são eles que a API precisa
- * validar ao conceder acesso — um `departmentId` que a API aceitasse sem
- * conferir viraria um acesso a um departamento que não existe, invisível na
- * tela e impossível de revogar por ela.
- *
- * `financeiro` existe nas duas empresas de propósito: acesso é sempre o par
- * (empresa, departamento), nunca o departamento sozinho.
+ * Não é acesso. O acesso é por departamento, sem empresa (`acesso.ts`), e a
+ * navegação lista os departamentos de lá (`apps/web/app/lib/organizacao.ts`).
  */
 
 export const companyKeys = ["plugga", "waze"] as const;
@@ -27,6 +23,8 @@ export const departmentIds = [
   "financeiro",
   "comercial-obras",
   "engenharia-obras",
+  "suprimentos",
+  "marketing",
 ] as const;
 
 export const departmentIdSchema = z.enum(departmentIds);
@@ -34,8 +32,21 @@ export const departmentIdSchema = z.enum(departmentIds);
 export type DepartmentId = (typeof departmentIds)[number];
 
 export const departmentIdsByCompany = {
-  plugga: ["comercial-clientes", "energia-opm", "produto-tecnologia", "financeiro"],
-  waze: ["comercial-obras", "engenharia-obras", "financeiro"],
+  plugga: [
+    "comercial-clientes",
+    "energia-opm",
+    "produto-tecnologia",
+    "suprimentos",
+    "financeiro",
+    "marketing",
+  ],
+  waze: [
+    "comercial-obras",
+    "engenharia-obras",
+    "suprimentos",
+    "financeiro",
+    "marketing",
+  ],
 } as const satisfies Record<CompanyKey, readonly DepartmentId[]>;
 
 /** Um departamento só pertence a uma empresa se o catálogo disser que pertence. */

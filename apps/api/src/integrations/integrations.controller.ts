@@ -2,18 +2,14 @@ import { Controller, Get, Inject, UseGuards } from "@nestjs/common";
 import type { ListIntegrationsResponse } from "@plugga/shared";
 
 import { SessionAuthGuard } from "../core/auth/session-auth.guard";
-import { Roles } from "../core/auth/roles.decorator";
-import { RolesGuard } from "../core/auth/roles.guard";
+import { Plataforma } from "../core/auth/acesso.decorator";
+import { AcessoGuard } from "../core/auth/acesso.guard";
 import { IntegrationsService } from "./integrations.service";
 
-/**
- * Sem @Roles o RolesGuard libera qualquer autenticado. A navegação
- * (apps/web/app/lib/organizacao.ts) só mostra Integrações para admin e tech;
- * diretoria entra pelo mesmo padrão dos relatórios (llm/consumo.controller.ts).
- */
+/** Integrações é tela de administração: admin e desenvolvedor. */
 @Controller("integrations")
-@UseGuards(SessionAuthGuard, RolesGuard)
-@Roles("admin", "diretoria", "tech")
+@UseGuards(SessionAuthGuard, AcessoGuard)
+@Plataforma("admin")
 export class IntegrationsController {
   constructor(@Inject(IntegrationsService) private readonly service: IntegrationsService) {}
 

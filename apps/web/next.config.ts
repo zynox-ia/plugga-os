@@ -38,7 +38,7 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   // Keep development artifacts separate from production builds. Running `next
   // build` while the local server is open must never remove its route manifests.
-  distDir: isProduction ? ".next" : ".next-dev",
+  distDir: isProduction ? ".next" : process.env.DESIGN_SYSTEM_E2E === "true" ? ".next-ds" : ".next-dev",
   poweredByHeader: false,
   reactStrictMode: true,
   transpilePackages: ["@plugga/shared"],

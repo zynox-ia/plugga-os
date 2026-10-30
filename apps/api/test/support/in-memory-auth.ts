@@ -1,11 +1,11 @@
 import { randomUUID } from "node:crypto";
 
 import { hash as argon2Hash } from "@node-rs/argon2";
-import { flattenRoles, type UserAccess } from "@plugga/shared";
+import type { Acesso } from "@plugga/shared";
 
 import { argon2Options } from "../../src/auth/argon2-options";
 import { EstadoInvalido } from "../../src/common/errors/dominio";
-import { AuditRepository } from "../../src/audit/audit.repository";
+import { AuditPort } from "../../src/audit/audit.port";
 import type { AuthPrincipal } from "../../src/core/auth/auth.types";
 import { SessionLookupRepository } from "../../src/core/auth/session-lookup.repository";
 import { EmailPort, type TransactionalEmail } from "../../src/email/email.port";
@@ -14,11 +14,11 @@ import {
   IdentityLinkError,
   type AuthUserRecord,
   type CreateAuthTokenData,
-  type CreateInvitedUserData,
+  type CreateInvitedMemberData,
   type CreateSessionData,
   type LinkIdentityData,
   type SetPasswordOptions,
-  type TeamFilter,
+  type MemberFilter,
   type TeamMemberRecord,
   type UserIdentityRecord,
   type ValidAuthToken,
@@ -38,7 +38,8 @@ export interface StoredUser {
   name: string;
   status: string;
   createdAt: Date;
-  access: UserAccess;
+  /** Acesso no modelo de 4 papéis, como o banco teria. */
+  acesso: Acesso;
 }
 
 interface StoredSession {
@@ -57,8 +58,8 @@ interface StoredToken {
 }
 
 /** Acesso vazio é o default: cada teste concede exatamente o que quer exercitar. */
-export function access(overrides: Partial<UserAccess> = {}): UserAccess {
-  return { platformRoles: [], companies: [], ...overrides };
+export function acessoVazio(): Acesso {
+  return { plataforma: null, departamentos: [] };
 }
 
 export class InMemoryStore {
@@ -92,7 +93,7 @@ export class InMemoryStore {
     name?: string;
     password?: string;
     status?: string;
-    access?: UserAccess;
+    acesso?: Acesso;
   }): Promise<StoredUser> {
     const user: StoredUser = {
       id: randomUUID(),
@@ -100,7 +101,7 @@ export class InMemoryStore {
       name: input.name ?? input.email,
       status: input.status ?? "active",
       createdAt: new Date(),
-      access: input.access ?? access(),
+      acesso: input.acesso ?? acessoVazio(),
     };
     this.users.set(user.id, user);
     if (input.password) {
@@ -122,7 +123,7 @@ export class InMemoryAuthRepository extends AuthRepository {
       name: user.name,
       status: user.status,
       createdAt: user.createdAt,
-      access: user.access,
+      acesso: user.acesso,
     };
   }
 
@@ -158,19 +159,6 @@ export class InMemoryAuthRepository extends AuthRepository {
         this.store.sessions.delete(hash);
       }
     }
-  }
-
-  async createInvitedUser(data: CreateInvitedUserData): Promise<AuthUserRecord> {
-    const user: StoredUser = {
-      id: randomUUID(),
-      email: data.email,
-      name: data.name,
-      status: "invited",
-      createdAt: new Date(),
-      access: data.access,
-    };
-    this.store.users.set(user.id, user);
-    return this.toRecord(user);
   }
 
   async replaceAuthToken(data: CreateAuthTokenData): Promise<void> {
@@ -301,23 +289,13 @@ export class InMemoryAuthRepository extends AuthRepository {
   /** Espelha a regra do PrismaAuthRepository: nunca deixa a plataforma sem admin ativo (FR-029). */
   private garantirOutroAdminAtivo(userId: string): void {
     const alvo = this.store.users.get(userId);
-    if (!alvo || alvo.status !== "active" || !alvo.access.platformRoles.includes("admin")) return;
+    if (!alvo || alvo.status !== "active" || alvo.acesso.plataforma === null) return;
     const outros = [...this.store.users.values()].filter(
-      (u) => u.id !== userId && u.status === "active" && u.access.platformRoles.includes("admin"),
+      (u) => u.id !== userId && u.status === "active" && u.acesso.plataforma !== null,
     );
     if (outros.length === 0) {
       throw new EstadoInvalido("A plataforma precisa manter ao menos um administrador ativo.");
     }
-  }
-
-  async replaceAccess(userId: string, next: UserAccess): Promise<AuthUserRecord | null> {
-    const user = this.store.users.get(userId);
-    if (!user) {
-      return null;
-    }
-    if (!next.platformRoles.includes("admin")) this.garantirOutroAdminAtivo(userId);
-    user.access = next;
-    return this.toRecord(user);
   }
 
   async deactivateUser(userId: string): Promise<AuthUserRecord | null> {
@@ -336,25 +314,54 @@ export class InMemoryAuthRepository extends AuthRepository {
     return this.toRecord(user);
   }
 
-  async listTeam(filter: TeamFilter): Promise<TeamMemberRecord[]> {
+  async createInvitedMember(data: CreateInvitedMemberData): Promise<AuthUserRecord> {
+    const anterior = this.store.userByEmail(data.email);
+    if (anterior?.status === "removed") {
+      this.store.users.delete(anterior.id);
+      this.store.credentials.delete(anterior.id);
+      for (const [key, token] of this.store.tokens) if (token.userId === anterior.id) this.store.tokens.delete(key);
+      for (const [key, identity] of this.store.identities) if (identity.userId === anterior.id) this.store.identities.delete(key);
+      await this.deleteSessionsForUser(anterior.id);
+    }
+    const user: StoredUser = {
+      id: anterior?.id ?? randomUUID(),
+      email: data.email,
+      name: data.name,
+      status: "invited",
+      createdAt: new Date(),
+      acesso: data.acesso,
+    };
+    this.store.users.set(user.id, user);
+    return this.toRecord(user);
+  }
+
+  async removeUser(userId: string): Promise<AuthUserRecord | null> {
+    const user = this.store.users.get(userId);
+    if (!user) return null;
+    await this.deactivateUser(userId);
+    user.status = "removed";
+    return this.toRecord(user);
+  }
+
+  async replaceAcesso(userId: string, acesso: Acesso): Promise<AuthUserRecord | null> {
+    const user = this.store.users.get(userId);
+    if (!user) {
+      return null;
+    }
+    if (acesso.plataforma === null) this.garantirOutroAdminAtivo(userId);
+    user.acesso = acesso;
+    return this.toRecord(user);
+  }
+
+  async listMembers(filter: MemberFilter): Promise<TeamMemberRecord[]> {
     return [...this.store.users.values()]
-      .filter((user) => {
-        if (filter.status && user.status !== filter.status) {
-          return false;
-        }
-        if (!filter.companyId && !filter.departmentId) {
-          return true;
-        }
-        // Empresa e departamento têm de casar no mesmo membership, como no SQL.
-        return user.access.companies.some(
-          (company) =>
-            (!filter.companyId || company.companyId === filter.companyId) &&
-            (!filter.departmentId ||
-              company.departments.some(
-                (department) => department.departmentId === filter.departmentId,
-              )),
-        );
-      })
+      .filter((user) => user.status !== "removed")
+      .filter((user) => !filter.status || user.status === filter.status)
+      .filter(
+        (user) =>
+          !filter.departamento ||
+          user.acesso.departamentos.some((entrada) => entrada.departamento === filter.departamento),
+      )
       .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
       .map((user) => this.toRecord(user));
   }
@@ -365,7 +372,8 @@ export class InMemorySessionLookup extends SessionLookupRepository {
     super();
   }
 
-  async resolvePrincipal(tokenHash: string): Promise<AuthPrincipal | null> {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- assinatura do repositório real
+  async resolvePrincipal(tokenHash: string, _contexto?: unknown): Promise<AuthPrincipal | null> {
     const session = this.store.sessions.get(tokenHash);
     if (!session) {
       return null;
@@ -376,7 +384,7 @@ export class InMemorySessionLookup extends SessionLookupRepository {
       this.store.sessions.delete(tokenHash);
       return null;
     }
-    return { id: user.id, kind: "user", roles: flattenRoles(user.access) };
+    return { id: user.id, kind: "user", acesso: user.acesso };
   }
 }
 
@@ -402,8 +410,9 @@ export class CapturingEmailPort extends EmailPort {
   }
 }
 
-export class NoopAuditRepository extends AuditRepository {
-  async appendEvent(): Promise<void> {}
+export class NoopAuditRepository extends AuditPort {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- assinatura do repositório real
+  async appendEvent(_evento?: unknown): Promise<void> {}
   async appendTrail(): Promise<never> {
     throw new Error("not used in auth e2e");
   }

@@ -13,10 +13,14 @@ describe("baldeDe", () => {
     ["plugga", "comercial-clientes", "plugga-comercial-clientes"],
     ["plugga", "energia-opm", "plugga-energia-opm"],
     ["plugga", "produto-tecnologia", "plugga-produto-tecnologia"],
+    ["plugga", "suprimentos", "plugga-suprimentos"],
     ["plugga", "financeiro", "plugga-financeiro"],
+    ["plugga", "marketing", "plugga-marketing"],
     ["waze", "comercial-obras", "waze-comercial-obras"],
     ["waze", "engenharia-obras", "waze-engenharia-obras"],
+    ["waze", "suprimentos", "waze-suprimentos"],
     ["waze", "financeiro", "waze-financeiro"],
+    ["waze", "marketing", "waze-marketing"],
   ] as const)("%s + %s -> %s", (empresa, departamento, esperado) => {
     expect(baldeDe(empresa, departamento)).toBe(esperado);
   });
@@ -49,7 +53,7 @@ describe("baldesDeNegocio", () => {
     );
 
     expect([...baldesDeNegocio()].sort()).toEqual([...esperados].sort());
-    expect(baldesDeNegocio()).toHaveLength(7);
+    expect(baldesDeNegocio()).toHaveLength(11);
   });
 
   it("todo nome é válido para o S3: minúsculas, dígitos e hífen, de 3 a 63 caracteres", () => {

@@ -2,7 +2,7 @@ import { HttpException } from "@nestjs/common";
 import type { ConfigService } from "@nestjs/config";
 import { describe, expect, it, vi } from "vitest";
 
-import type { AuditRepository, EventAppend } from "../audit/audit.repository";
+import type { AuditPort, EventAppend } from "../audit/audit.port";
 import type { AuthRepository, AuthUserRecord } from "./auth.repository";
 import { GoogleAuthService } from "./google-auth.service";
 import type { GoogleIdentityClaims, GoogleIdentityVerifier } from "./google-identity.verifier";
@@ -23,7 +23,7 @@ const usuario: AuthUserRecord = {
   name: "Ana",
   status: "active",
   createdAt: new Date("2026-01-01T00:00:00Z"),
-  access: { platformRoles: [], companies: [] },
+  acesso: { plataforma: null, departamentos: [] },
 };
 
 function montar(claims: GoogleIdentityClaims, allowedHd?: string) {
@@ -53,7 +53,7 @@ function montar(claims: GoogleIdentityClaims, allowedHd?: string) {
     repository as unknown as AuthRepository,
     verifier as unknown as GoogleIdentityVerifier,
     sessions as unknown as SessionService,
-    audit as unknown as AuditRepository,
+    audit as unknown as AuditPort,
     config as unknown as ConfigService,
   );
   return { servico, repository, sessions, eventos };

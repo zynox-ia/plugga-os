@@ -109,6 +109,39 @@ enum ClientSegment {
   @@map("client_segment")
 }
 
+enum ClientPersonType {
+  pf
+  pj
+
+  @@map("client_person_type")
+}
+
+enum ClientOrigin {
+  indicacao
+  instagram
+  whatsapp
+  site
+  telefone
+  email
+  evento
+  prospeccao_ativa
+  cliente_existente
+  parceiro
+  outro
+
+  @@map("client_origin")
+}
+
+enum ClientContactRole {
+  decisor
+  representante_legal
+  tecnico
+  financeiro
+  outro
+
+  @@map("client_contact_role")
+}
+
 enum OpportunityStage {
   leads
   qualificacao
@@ -232,13 +265,19 @@ model User {
   createdAt                      DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt                      DateTime                @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   platformRoles                  UserPlatformRole[]
-  memberships                    UserCompanyMembership[]
+  departamentos                  UserDepartamento[]
   agentActions                   AgentAction[]
   credential                     UserCredential?
   identities                     UserIdentity[]
   sessions                       Session[]
   authTokens                     AuthToken[]
   opportunities                  Opportunity[]
+  clientsOwned                   Client[]                @relation("ClientOwner")
+  pipelinesUpdated               Pipeline[]              @relation("PipelineUpdatedBy")
+  pipelineMemberships            PipelineMember[]
+  dealsOwned                     Deal[]                  @relation("DealOwner")
+  dealsCreated                   Deal[]                  @relation("DealCreatedBy")
+  dealHistory                    DealHistory[]           @relation("DealHistoryActor")
   contracts                      Contract[]
   marketMigrations               MarketMigration[]
   cycles                         Cycle[]                 @relation("CycleOwner")
@@ -353,7 +392,6 @@ model Role {
   key           String             @unique
   name          String
   platformUsers UserPlatformRole[]
-  companyUsers  UserCompanyRole[]
 
   @@map("roles")
 }
@@ -367,16 +405,16 @@ model Company {
   id           String                  @id
   name         String
   createdAt    DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
-  memberships  UserCompanyMembership[]
   obras        Obra[]
   fornecedores Fornecedor[]
   pedidos      PedidoDeCompra[]
+  pipelines    Pipeline[]
 
   @@map("companies")
 }
 
-/// Papel de plataforma (hoje só `admin`): vale sobre as duas empresas e é o
-/// único que pode conceder acesso fora do próprio escopo.
+/// Papel de plataforma: `admin` ou `desenvolvedor` (que leva também a linha
+/// `admin`, contada pela regra do último admin). Alcança todo o sistema.
 model UserPlatformRole {
   userId String @map("user_id") @db.Uuid
   roleId String @map("role_id") @db.Uuid
@@ -388,50 +426,26 @@ model UserPlatformRole {
   @@map("user_platform_roles")
 }
 
-/// Acesso da pessoa a uma empresa. A linha existir é o acesso: revogar é
-/// apagá-la, e a revogação de conta inteira segue sendo `users.status`
-/// (ADR-0008) — dois controles de revogação para a mesma coisa divergiriam.
-model UserCompanyMembership {
-  userId      String                 @map("user_id") @db.Uuid
-  companyId   String                 @map("company_id")
-  createdAt   DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
-  user        User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  company     Company                @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  departments UserDepartmentAccess[]
-  roles       UserCompanyRole[]
+enum NivelDeDepartamento {
+  membro
+  gerente
 
-  @@id([userId, companyId])
-  @@index([companyId])
-  @@map("user_company_memberships")
+  @@map("nivel_de_departamento")
 }
 
-/// Departamento liberado dentro de uma empresa. `isManager` é a capacidade de
-/// gerir equipe nesse departamento — fica no acesso, e não em um papel global
-/// solto, para que "gestor" nunca signifique gestor de tudo.
-model UserDepartmentAccess {
-  userId       String                @map("user_id") @db.Uuid
-  companyId    String                @map("company_id")
-  departmentId String                @map("department_id")
-  isManager    Boolean               @default(false) @map("is_manager")
-  membership   UserCompanyMembership @relation(fields: [userId, companyId], references: [userId, companyId], onDelete: Cascade)
+/// Acesso no modelo de 4 papéis (`packages/shared/src/acesso.ts`): a pessoa é
+/// membro ou gerente de um departamento, sem empresa. Admin e desenvolvedor
+/// ficam em `UserPlatformRole` e não têm linha aqui.
+model UserDepartamento {
+  userId       String              @map("user_id") @db.Uuid
+  departamento String
+  nivel        NivelDeDepartamento
+  telas        String[]            @default([])
+  user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@id([userId, companyId, departmentId])
-  @@index([companyId, departmentId])
-  @@map("user_department_access")
-}
-
-/// Papel no contexto de uma empresa. A mesma pessoa pode ser `financeiro` na
-/// Plugga e `viewer` na Waze.
-model UserCompanyRole {
-  userId     String                @map("user_id") @db.Uuid
-  companyId  String                @map("company_id")
-  roleId     String                @map("role_id") @db.Uuid
-  membership UserCompanyMembership @relation(fields: [userId, companyId], references: [userId, companyId], onDelete: Cascade)
-  role       Role                  @relation(fields: [roleId], references: [id], onDelete: Cascade)
-
-  @@id([userId, companyId, roleId])
-  @@index([roleId])
-  @@map("user_company_roles")
+  @@id([userId, departamento])
+  @@index([departamento])
+  @@map("user_departamentos")
 }
 
 /// Append-only audit record. The initial migration prevents UPDATE and DELETE.
@@ -731,28 +745,277 @@ model D14Credit {
 
 /// Unique client record. The rest of the product (opportunities, contracts,
 /// PluggaMob ficha) links to this row instead of duplicating identity.
+/// Cadastro único de cliente, PF ou PJ, sem empresa dona (ADR-0013). Campo
+/// opcional não informado fica nulo: nunca valor fictício. `company` e
+/// `segment` são legados do módulo comercial antigo (PLU-268).
 model Client {
-  id               String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name             String
-  company          String?
-  phone            String?
-  email            String?
-  externalId       String?                 @map("external_id")
-  segment          ClientSegment           @default(prospect)
-  active           Boolean                 @default(true)
-  createdAt        DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt        DateTime                @updatedAt @map("updated_at") @db.Timestamptz(6)
-  opportunities    Opportunity[]
-  contracts        Contract[]
-  consumerUnits    ConsumerUnit[]
-  marketMigrations MarketMigration[]
-  cycles           Cycle[]
-  energyStudies    EnergyEfficiencyStudy[]
-  obras            Obra[]
-  pedidosDeCompra  PedidoDeCompra[]
+  id                String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name              String
+  company           String?
+  phone             String?
+  email             String?
+  externalId        String?                 @map("external_id")
+  segment           ClientSegment           @default(prospect)
+  active            Boolean                 @default(true)
+  personType        ClientPersonType        @default(pj) @map("person_type")
+  /// Só dígitos: CNPJ (14) ou CPF (11). Opcional, mas único quando informado.
+  document          String?                 @unique
+  legalName         String?                 @map("legal_name")
+  postalCode        String?                 @map("postal_code")
+  street            String?
+  addressComplement String?                 @map("address_complement")
+  district          String?
+  city              String?
+  state             String?
+  ownerId           String?                 @map("owner_id") @db.Uuid
+  origin            ClientOrigin?
+  notes             String?
+  /// Dados para contrato, só de pessoa física.
+  rg                String?
+  rgIssuer          String?                 @map("rg_issuer")
+  nationality       String?
+  /// AAAA-MM-DD: data de calendário, sem hora nem fuso (regra: DateTime só timestamptz).
+  birthDate         String?                 @map("birth_date")
+  createdAt         DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime                @updatedAt @map("updated_at") @db.Timestamptz(6)
+  owner             User?                   @relation("ClientOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  contacts          ClientContact[]
+  opportunities     Opportunity[]
+  contracts         Contract[]
+  consumerUnits     ConsumerUnit[]
+  marketMigrations  MarketMigration[]
+  cycles            Cycle[]
+  energyStudies     EnergyEfficiencyStudy[]
+  obras             Obra[]
+  pedidosDeCompra   PedidoDeCompra[]
+  deals             Deal[]
 
   @@index([segment, active])
+  @@index([ownerId])
   @@map("clients")
+}
+
+/// Pessoa que fala por um cliente PJ. Um contato por cliente é o principal;
+/// a regra é mantida pela API, na mesma transação que marca o novo principal.
+model ClientContact {
+  id              String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clientId        String             @map("client_id") @db.Uuid
+  name            String
+  jobTitle        String?            @map("job_title")
+  role            ClientContactRole?
+  phone           String?
+  phoneIsWhatsapp Boolean            @default(false) @map("phone_is_whatsapp")
+  email           String?
+  isPrimary       Boolean            @default(false) @map("is_primary")
+  /// CPF e RG do representante legal, usados em contratos e procurações.
+  cpf             String?
+  rg              String?
+  createdAt       DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+  client          Client             @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  deals           Deal[]
+
+  @@index([clientId])
+  @@map("client_contacts")
+}
+
+enum PipelineMemberRole {
+  vendedor
+  gestor
+
+  @@map("pipeline_member_role")
+}
+
+/// Pipeline de venda criado pela tela (PLU-269). Pertence a uma empresa, e todo
+/// negócio dele herda essa empresa. Arquivar esconde o pipeline das abas sem
+/// apagar nada; com negócios, ele nunca é apagado.
+model Pipeline {
+  id          String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId   String               @map("company_id")
+  name        String
+  description String?
+  /// Como a tela chama o valor do negócio neste pipeline (ex.: "Investimento estimado").
+  valueLabel  String               @map("value_label")
+  color       String
+  /// Nomes dos desfechos neste pipeline (ex.: "Contrato assinado"); os desfechos em si são fixos.
+  wonLabel    String               @map("won_label")
+  lostLabel   String               @map("lost_label")
+  archivedAt  DateTime?            @map("archived_at") @db.Timestamptz(6)
+  createdAt   DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime             @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  updatedById String?              @map("updated_by_id") @db.Uuid
+  company     Company              @relation(fields: [companyId], references: [id])
+  updatedBy   User?                @relation("PipelineUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  stages      PipelineStage[]
+  tags        PipelineTag[]
+  lossReasons PipelineLossReason[]
+  members     PipelineMember[]
+  deals       Deal[]
+
+  @@unique([companyId, name])
+  @@map("pipelines")
+}
+
+model PipelineStage {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  pipelineId     String   @map("pipeline_id") @db.Uuid
+  name           String
+  color          String
+  position       Int
+  /// Dias na etapa a partir dos quais o negócio aparece como parado; nulo desliga o alerta.
+  staleAfterDays Int?     @map("stale_after_days")
+  pipeline       Pipeline @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  deals          Deal[]
+
+  @@index([pipelineId, position])
+  @@map("pipeline_stages")
+}
+
+model PipelineTag {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  pipelineId String    @map("pipeline_id") @db.Uuid
+  name       String
+  color      String
+  position   Int
+  pipeline   Pipeline  @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  deals      DealTag[]
+
+  @@index([pipelineId, position])
+  @@map("pipeline_tags")
+}
+
+model PipelineLossReason {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  pipelineId      String   @map("pipeline_id") @db.Uuid
+  name            String
+  /// O motivo pede a data em que o negócio deve ser retomado.
+  asksRevisitDate Boolean  @default(false) @map("asks_revisit_date")
+  position        Int
+  pipeline        Pipeline @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  deals           Deal[]
+
+  @@index([pipelineId, position])
+  @@map("pipeline_loss_reasons")
+}
+
+/// Quem trabalha no pipeline (`vendedor`) e quem o configura (`gestor`). O gestor
+/// do departamento comercial da empresa e o admin alcançam todos os pipelines
+/// da empresa sem precisar estar aqui.
+model PipelineMember {
+  pipelineId String             @map("pipeline_id") @db.Uuid
+  userId     String             @map("user_id") @db.Uuid
+  role       PipelineMemberRole
+  pipeline   Pipeline           @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  user       User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([pipelineId, userId])
+  @@index([userId])
+  @@map("pipeline_members")
+}
+
+enum DealStatus {
+  open
+  won
+  lost
+
+  @@map("deal_status")
+}
+
+enum DealEventKind {
+  created
+  stage_changed
+  won
+  lost
+  transferred
+
+  @@map("deal_event_kind")
+}
+
+/// Negócio no quadro de um pipeline (PLU-271). A empresa é a do pipeline em que
+/// está, sem cópia aqui: mover de pipeline muda a empresa por construção.
+/// Ganho e Perdido encerram o negócio na etapa em que ele estava.
+model Deal {
+  id                String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  pipelineId        String              @map("pipeline_id") @db.Uuid
+  stageId           String              @map("stage_id") @db.Uuid
+  clientId          String              @map("client_id") @db.Uuid
+  contactId         String?             @map("contact_id") @db.Uuid
+  ownerId           String              @map("owner_id") @db.Uuid
+  title             String
+  value             Decimal?            @db.Decimal(14, 2)
+  /// Previsão de fechamento, data de calendário "AAAA-MM-DD".
+  expectedCloseDate String?             @map("expected_close_date")
+  status            DealStatus          @default(open)
+  stageEnteredAt    DateTime            @default(now()) @map("stage_entered_at") @db.Timestamptz(6)
+  closedAt          DateTime?           @map("closed_at") @db.Timestamptz(6)
+  lossReasonId      String?             @map("loss_reason_id") @db.Uuid
+  /// Nome do motivo no momento da perda: o motivo pode ser renomeado ou excluído depois.
+  lossReasonName    String?             @map("loss_reason_name")
+  lossNote          String?             @map("loss_note")
+  /// Data para voltar a falar com o cliente, quando o motivo de perda pede.
+  revisitOn         String?             @map("revisit_on")
+  createdById       String?             @map("created_by_id") @db.Uuid
+  createdAt         DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  pipeline          Pipeline            @relation(fields: [pipelineId], references: [id])
+  stage             PipelineStage       @relation(fields: [stageId], references: [id])
+  client            Client              @relation(fields: [clientId], references: [id])
+  contact           ClientContact?      @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  owner             User                @relation("DealOwner", fields: [ownerId], references: [id])
+  createdBy         User?               @relation("DealCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  lossReason        PipelineLossReason? @relation(fields: [lossReasonId], references: [id], onDelete: SetNull)
+  tags              DealTag[]
+  consumerUnits     DealConsumerUnit[]
+  history           DealHistory[]
+
+  @@index([pipelineId, status])
+  @@index([stageId])
+  @@index([clientId])
+  @@index([ownerId])
+  @@map("deals")
+}
+
+model DealTag {
+  dealId String      @map("deal_id") @db.Uuid
+  tagId  String      @map("tag_id") @db.Uuid
+  deal   Deal        @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  tag    PipelineTag @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([dealId, tagId])
+  @@index([tagId])
+  @@map("deal_tags")
+}
+
+model DealConsumerUnit {
+  dealId         String       @map("deal_id") @db.Uuid
+  consumerUnitId String       @map("consumer_unit_id") @db.Uuid
+  deal           Deal         @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  consumerUnit   ConsumerUnit @relation(fields: [consumerUnitId], references: [id], onDelete: Cascade)
+
+  @@id([dealId, consumerUnitId])
+  @@index([consumerUnitId])
+  @@map("deal_consumer_units")
+}
+
+/// Histórico do negócio: de onde, para onde, quem e quando. Guarda os nomes da
+/// época, porque etapas e pipelines podem ser renomeados ou excluídos depois.
+model DealHistory {
+  id               String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  dealId           String        @map("deal_id") @db.Uuid
+  kind             DealEventKind
+  fromStageId      String?       @map("from_stage_id") @db.Uuid
+  fromStageName    String?       @map("from_stage_name")
+  toStageId        String?       @map("to_stage_id") @db.Uuid
+  toStageName      String?       @map("to_stage_name")
+  fromPipelineName String?       @map("from_pipeline_name")
+  toPipelineName   String?       @map("to_pipeline_name")
+  actorId          String?       @map("actor_id") @db.Uuid
+  occurredAt       DateTime      @default(now()) @map("occurred_at") @db.Timestamptz(6)
+  deal             Deal          @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  actor            User?         @relation("DealHistoryActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([dealId, occurredAt])
+  @@map("deal_history")
 }
 
 /// A commercial opportunity worked from lead to a ganha/perdida decision.
@@ -834,6 +1097,7 @@ model ConsumerUnit {
   marketMigrations MarketMigration[]
   cycles           Cycle[]
   energyStudies    EnergyEfficiencyStudy[]
+  deals            DealConsumerUnit[]
 
   @@index([clientId])
   @@map("consumer_units")

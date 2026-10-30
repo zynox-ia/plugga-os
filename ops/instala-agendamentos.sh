@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # Instala na VPS os agendamentos e o Caddyfile versionados em ops/cron/ e
-# ops/caddy/ (spec 002, US3, FR-014). Idempotente: se o instalado já é igual ao
+# ops/caddy/. Idempotente: se o instalado já é igual ao
 # versionado, não faz nada; se difere, guarda o anterior como <arquivo>.bak-AAAAMMDD
 # (sem sobrescrever um .bak do mesmo dia) e instala o versionado.
 #

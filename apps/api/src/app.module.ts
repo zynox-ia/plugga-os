@@ -9,20 +9,18 @@ import { AuthModule } from "./auth/auth.module";
 import { WhatsappModule } from "./channels/whatsapp/whatsapp.module";
 import { ClientesModule } from "./clientes/clientes.module";
 import { CommercialModule } from "./commercial/commercial.module";
-import { ComprasModule } from "./compras/compras.module";
 import { FiltroGlobalDeExcecoes } from "./common/errors/filtro-global";
 import { validateEnvironment } from "./config/environment";
 import { CoreModule } from "./core/core.module";
 import { LlmModule } from "./llm/llm.module";
-import { EnergyModule } from "./energy/energy.module";
 import { HealthModule } from "./health/health.module";
 import { BitrixModule } from "./integrations/bitrix/bitrix.module";
 import { IntegrationsModule } from "./integrations/integrations.module";
 import { JobsModule } from "./jobs/jobs.module";
 import { JobsQueueModule } from "./jobs/queue/jobs-queue.module";
 import { LoggingModule } from "./logging/logging.module";
-import { ObrasModule } from "./obras/obras.module";
-import { PluggamobModule } from "./pluggamob/pluggamob.module";
+import { NegociosModule } from "./negocios/negocios.module";
+import { PipelinesModule } from "./pipelines/pipelines.module";
 
 const monorepoRootEnvPath = path.resolve(__dirname, "../../../.env");
 
@@ -45,12 +43,10 @@ const monorepoRootEnvPath = path.resolve(__dirname, "../../../.env");
     WhatsappModule,
     IntegrationsModule,
     JobsModule,
-    PluggamobModule,
     ClientesModule,
     CommercialModule,
-    ComprasModule,
-    ObrasModule,
-    EnergyModule,
+    PipelinesModule,
+    NegociosModule,
     LlmModule,
     JobsQueueModule,
     BitrixModule,

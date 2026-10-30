@@ -5,7 +5,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { AppModule } from "../src/app.module";
 import { configureApp } from "../src/configure-app";
-import { AuditRepository } from "../src/audit/audit.repository";
+import { AuditPort } from "../src/audit/audit.port";
 import { NullSessionCache } from "../src/core/auth/null-session-cache";
 import { SessionCache } from "../src/core/auth/session-cache";
 import { SessionLookupRepository } from "../src/core/auth/session-lookup.repository";
@@ -13,7 +13,6 @@ import { EmailPort } from "../src/email/email.port";
 import { AuthRepository } from "../src/auth/auth.repository";
 import { ResetEmailDispatcher } from "../src/auth/reset-email.dispatcher";
 import {
-  access,
   CapturingEmailPort,
   InMemoryAuthRepository,
   InMemorySessionLookup,
@@ -43,7 +42,7 @@ describe("auth API (e2e, in-memory stores)", () => {
       .useValue(new InMemorySessionLookup(store))
       .overrideProvider(EmailPort)
       .useValue(email)
-      .overrideProvider(AuditRepository)
+      .overrideProvider(AuditPort)
       .useValue(new NoopAuditRepository())
       // Testes com store em memória não têm Redis de verdade para cachear; sem
       // este override o SessionService.issue() de todo login real bateria na
@@ -74,7 +73,7 @@ describe("auth API (e2e, in-memory stores)", () => {
       email: adminEmail,
       name: "Administração Local",
       password: adminPassword,
-      access: access({ platformRoles: ["admin"] }),
+      acesso: { plataforma: "admin", departamentos: [] },
     });
   });
 
@@ -116,7 +115,7 @@ describe("auth API (e2e, in-memory stores)", () => {
 
   it("logs in with a real credential and returns the session user", async () => {
     const { response } = await loginAgent(adminEmail, adminPassword);
-    expect(response.body.user).toMatchObject({ email: adminEmail, roles: ["admin"] });
+    expect(response.body.user).toMatchObject({ email: adminEmail, acesso: { plataforma: "admin", departamentos: [] } });
     expect(response.headers["set-cookie"]?.[0]).toContain("plugga_session=");
     expect(response.headers["set-cookie"]?.[0]).toContain("HttpOnly");
   });
@@ -182,7 +181,7 @@ describe("auth API (e2e, in-memory stores)", () => {
         .expect(401);
     }
 
-    await store.addUser({ email: "outra@plugga.local", password: "outra senha longa", access: access() });
+    await store.addUser({ email: "outra@plugga.local", password: "outra senha longa" });
     await loginAgent("outra@plugga.local", "outra senha longa");
     await loginAgent(adminEmail, adminPassword);
   });
@@ -210,7 +209,7 @@ describe("auth API (e2e, in-memory stores)", () => {
     await agent.get("/auth/me").expect(401);
     await request(app.getHttpServer())
       .get("/auth/me")
-      .set("Cookie", rawCookieHeader)
+      .set("Cookie", rawCookieHeader ?? "")
       .expect(401);
   });
 
@@ -237,81 +236,6 @@ describe("auth API (e2e, in-memory stores)", () => {
       .send({ email: "nobody@plugga.local" })
       .expect(200);
     await esperarEnvioDoReset();
-  });
-
-  it("lets an admin invite a user who then accepts and logs in", async () => {
-    const { agent } = await loginAgent(adminEmail, adminPassword);
-    const invited = await agent
-      .post("/auth/invite")
-      .send({
-        email: "opm@plugga.local",
-        name: "OPM",
-        access: {
-          platformRoles: [],
-          companies: [
-            {
-              companyId: "plugga",
-              roles: ["opm"],
-              departments: [{ departmentId: "energia-opm", isManager: false }],
-            },
-          ],
-        },
-      })
-      .expect(201);
-    expect(invited.body).toMatchObject({ email: "opm@plugga.local", status: "invited", roles: ["opm"] });
-
-    // Cannot log in before accepting (no credential, not active).
-    await request(app.getHttpServer())
-      .post("/auth/login")
-      .set("X-Forwarded-For", nextTestIp())
-      .send({ email: "opm@plugga.local", password: "brand new password" })
-      .expect(401);
-
-    const inviteToken = email.lastTokenFor("invite");
-    await request(app.getHttpServer())
-      .post("/auth/accept-invite")
-      .send({ token: inviteToken, password: "brand new password" })
-      .expect(200, { ok: true });
-
-    const { response } = await loginAgent("opm@plugga.local", "brand new password");
-    expect(response.body.user).toMatchObject({ email: "opm@plugga.local", roles: ["opm"] });
-  });
-
-  it("forbids a plain member from the team endpoints", async () => {
-    await store.addUser({
-      email: "viewer@plugga.local",
-      name: "Viewer",
-      password: "viewer password here",
-      access: access({
-        companies: [
-          {
-            companyId: "plugga",
-            roles: ["viewer"],
-            departments: [{ departmentId: "financeiro", isManager: false }],
-          },
-        ],
-      }),
-    });
-
-    const { agent } = await loginAgent("viewer@plugga.local", "viewer password here");
-    await agent.get("/auth/users").expect(403);
-    await agent
-      .post("/auth/invite")
-      .send({
-        email: "x@plugga.local",
-        name: "X",
-        access: {
-          platformRoles: [],
-          companies: [
-            {
-              companyId: "plugga",
-              roles: ["viewer"],
-              departments: [{ departmentId: "financeiro", isManager: false }],
-            },
-          ],
-        },
-      })
-      .expect(403);
   });
 
   it("reset confirm changes the password and revokes existing sessions", async () => {

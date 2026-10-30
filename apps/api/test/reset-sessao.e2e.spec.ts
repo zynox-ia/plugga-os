@@ -1,11 +1,10 @@
-import { flattenRoles } from "@plugga/shared";
 import { Test } from "@nestjs/testing";
 import type { NestExpressApplication } from "@nestjs/platform-express";
 import request from "supertest";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { AppModule } from "../src/app.module";
-import { AuditRepository } from "../src/audit/audit.repository";
+import { AuditPort } from "../src/audit/audit.port";
 import { AuthRepository } from "../src/auth/auth.repository";
 import type { AuthPrincipal } from "../src/core/auth/auth.types";
 import { SessionCache, type SessionCacheEntry } from "../src/core/auth/session-cache";
@@ -17,7 +16,6 @@ import { generateOpaqueToken, hashToken } from "../src/core/auth/token.util";
 import { configureApp } from "../src/configure-app";
 import { EmailPort } from "../src/email/email.port";
 import {
-  access,
   CapturingEmailPort,
   InMemoryAuthRepository,
   InMemorySessionLookup,
@@ -70,13 +68,19 @@ class LookupComCache extends SessionLookupRepository {
   async resolvePrincipal(tokenHash: string, context: SessionLookupContext): Promise<AuthPrincipal | null> {
     const cached = await this.cache.get(tokenHash);
     if (cached) {
-      return { id: cached.user.id, kind: "user", roles: flattenRoles(cached.user.access) };
+      return { id: cached.user.id, kind: "user", acesso: cached.user.acesso };
     }
     const principal = await this.inner.resolvePrincipal(tokenHash, context);
     const user = principal ? this.store.users.get(principal.id) : undefined;
     if (principal && user) {
       await this.cache.set(tokenHash, user.id, {
-        user: { id: user.id, email: user.email, name: user.name, status: user.status, access: user.access },
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          status: user.status,
+          acesso: user.acesso,
+        },
       }, 60);
     }
     return principal;
@@ -107,7 +111,7 @@ describe("redefinição de senha derruba as sessões, inclusive as do cache (e2e
       .useValue(new LookupComCache(store, cache))
       .overrideProvider(EmailPort)
       .useValue(new CapturingEmailPort())
-      .overrideProvider(AuditRepository)
+      .overrideProvider(AuditPort)
       .useValue(new NoopAuditRepository())
       .compile();
 
@@ -129,7 +133,7 @@ describe("redefinição de senha derruba as sessões, inclusive as do cache (e2e
       email: emailAdmin,
       name: "Administração",
       password: senhaAdmin,
-      access: access({ platformRoles: ["admin"] }),
+      acesso: { plataforma: "admin", departamentos: [] },
     });
   });
 

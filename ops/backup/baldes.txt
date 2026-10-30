@@ -6,8 +6,12 @@
 plugga-comercial-clientes
 plugga-energia-opm
 plugga-produto-tecnologia
+plugga-suprimentos
 plugga-financeiro
+plugga-marketing
 waze-comercial-obras
 waze-engenharia-obras
+waze-suprimentos
 waze-financeiro
+waze-marketing
 plugga-corpus-faturas

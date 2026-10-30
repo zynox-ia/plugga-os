@@ -6,7 +6,7 @@ import type { AuthPrincipal } from "../core/auth/auth.types";
 import { CommercialRepository } from "./commercial.repository";
 import { CommercialService } from "./commercial.service";
 
-const principal: AuthPrincipal = { id: "00000000-0000-4000-8000-000000000001", kind: "user", roles: ["comercial"] };
+const principal: AuthPrincipal = { id: "00000000-0000-4000-8000-000000000001", kind: "user", acesso: { plataforma: null, departamentos: [{ departamento: "crm", nivel: "membro" }] } };
 
 const baseOpportunity: OpportunityDetail = {
   id: "00000000-0000-4000-8000-000000000010",

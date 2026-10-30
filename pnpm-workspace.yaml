@@ -3,7 +3,7 @@ packages:
   - packages/*
 
 overrides:
-  brace-expansion@1: 1.1.20
+  brace-expansion@1: 1.1.21
   brace-expansion@2: 2.1.7
   '@nestjs/common': 11.1.18
   '@nestjs/core': 11.1.18
@@ -14,13 +14,15 @@ overrides:
   file-type: 21.3.2
   lodash: 4.18.1
   js-yaml: 4.3.2
-  multer: 2.3.0
+  multer: 2.5.0
+  body-parser@2: 2.4.0
   nanoid: 3.3.18
   path-to-regexp: 8.4.0
   postcss: 8.5.23
   proxy-addr: 2.0.8
+  qs: 6.16.1
   source-map-js: 1.2.2
-  sharp: 0.35.4
+  sharp: 0.35.5
 
 # braces (GHSA-vfj7-8cjw-p6xm, negação de serviço por padrões aninhados) não tem
 # versão corrigida publicada (última: 3.0.3). Só chega por ferramentas de lint

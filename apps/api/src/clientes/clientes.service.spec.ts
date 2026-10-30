@@ -1,21 +1,55 @@
+import type { ClientDetail } from "@plugga/shared";
 import { describe, expect, it } from "vitest";
 
 import type { AuthPrincipal } from "../core/auth/auth.types";
 import { ClientesRepository } from "./clientes.repository";
 import { ClientesService } from "./clientes.service";
 
-const principal: AuthPrincipal = { id: "00000000-0000-4000-8000-000000000001", kind: "user", roles: ["comercial"] };
+const principal: AuthPrincipal = { id: "00000000-0000-4000-8000-000000000001", kind: "user", acesso: { plataforma: null, departamentos: [{ departamento: "crm", nivel: "membro" }] } };
+
+const CLIENTE: ClientDetail = {
+  id: "00000000-0000-4000-8000-000000000002",
+  personType: "pj",
+  name: "Hotel Rio Negro",
+  legalName: null,
+  document: null,
+  phone: "92900000000",
+  email: null,
+  postalCode: null,
+  street: null,
+  addressComplement: null,
+  district: null,
+  city: null,
+  state: null,
+  owner: { id: principal.id, name: "Ana" },
+  origin: null,
+  notes: null,
+  rg: null,
+  rgIssuer: null,
+  nationality: null,
+  birthDate: null,
+  active: true,
+  contacts: [],
+  createdAt: "2026-10-19T00:00:00.000Z",
+  updatedAt: "2026-10-19T00:00:00.000Z",
+};
 
 function fakeRepository(overrides: Partial<ClientesRepository> = {}): ClientesRepository {
+  const naoUsado = async (): Promise<never> => {
+    throw new Error("not used");
+  };
   return {
-    list: async () => { throw new Error("not used"); },
-    get: async () => { throw new Error("not used"); },
-    create: async () => { throw new Error("not used"); },
-    update: async () => { throw new Error("not used"); },
-    activate: async () => { throw new Error("not used"); },
-    inactivate: async () => { throw new Error("not used"); },
-    duplicateCandidates: async () => { throw new Error("not used"); },
-    ficha: async () => { throw new Error("not used"); },
+    list: naoUsado,
+    get: naoUsado,
+    create: naoUsado,
+    update: naoUsado,
+    activate: naoUsado,
+    inactivate: naoUsado,
+    duplicateCandidates: naoUsado,
+    owners: naoUsado,
+    addContact: naoUsado,
+    updateContact: naoUsado,
+    removeContact: naoUsado,
     ...overrides,
   };
 }
@@ -26,99 +60,58 @@ describe("ClientesService", () => {
     const repository = fakeRepository({
       list: async (query) => {
         received = query;
-        return { mode: "mock", items: [] };
+        return { items: [] };
       },
     });
 
-    const query = { q: "solar", segment: "opm" as const, active: "true" as const };
+    const query = { q: "solar", active: "true" as const };
     const result = await new ClientesService(repository).list(query);
 
     expect(received).toEqual(query);
-    expect(result).toEqual({ mode: "mock", items: [] });
+    expect(result).toEqual({ items: [] });
   });
 
   it("surfaces duplicate candidates from create() without blocking the result", async () => {
     const repository = fakeRepository({
       create: async () => ({
-        mode: "mock",
-        client: {
-          id: "00000000-0000-4000-8000-000000000002",
-          name: "Hotel Rio Negro",
-          company: null,
-          phone: "+55 92 90000-0000",
-          email: null,
-          externalId: null,
-          segment: "prospect",
-          active: true,
-          createdAt: "2026-08-07T00:00:00.000Z",
-          updatedAt: "2026-08-07T00:00:00.000Z",
-        },
+        client: CLIENTE,
         duplicateCandidates: [
-          {
-            id: "00000000-0000-4000-8000-000000000003",
-            name: "Hotel Rio Negro Ltda",
-            company: null,
-            phone: "+55 92 90000-0000",
-            email: null,
-            externalId: null,
-            segment: "prospect",
-            active: true,
-            createdAt: "2026-08-01T00:00:00.000Z",
-            updatedAt: "2026-08-01T00:00:00.000Z",
-            matchedOn: ["phone", "name"],
-          },
+          { id: "00000000-0000-4000-8000-000000000003", name: "Hotel Rio Negro Ltda", personType: "pj", matchedOn: ["phone", "name"] },
         ],
       }),
     });
 
     const result = await new ClientesService(repository).create(
-      { name: "Hotel Rio Negro", phone: "+55 92 90000-0000" },
+      { personType: "pj", name: "Hotel Rio Negro", phone: "92900000000" },
       principal,
     );
 
     // Signaled, not blocked: create() still returns the newly created client.
     expect(result.client.name).toBe("Hotel Rio Negro");
-    expect(result.duplicateCandidates).toHaveLength(1);
     expect(result.duplicateCandidates[0]?.matchedOn).toEqual(["phone", "name"]);
   });
 
-  it("delegates the ficha aggregator by id", async () => {
-    let requestedId: string | undefined;
+  it("passes client and contact ids through to the repository", async () => {
+    const chamadas: string[][] = [];
     const repository = fakeRepository({
-      ficha: async (id) => {
-        requestedId = id;
-        return {
-          mode: "mock",
-          resumo: {
-            id,
-            name: "Amazonas Clean",
-            company: null,
-            phone: null,
-            email: null,
-            externalId: null,
-            segment: "prospect",
-            active: true,
-            createdAt: "2026-08-07T00:00:00.000Z",
-            updatedAt: "2026-08-07T00:00:00.000Z",
-          },
-          contatos: [],
-          oportunidades: [],
-          contratos: [],
-          energiaOpm: { available: false, reason: "sem dados" },
-          pluggamob: { available: false, reason: "sem dados" },
-          financeiro: { status: "em_breve", message: "em breve" },
-          documentos: { status: "em_breve", message: "em breve" },
-          timeline: [],
-          acoesDoAgente: [],
-        };
+      updateContact: async (clientId, contactId) => {
+        chamadas.push([clientId, contactId]);
+        return CLIENTE;
+      },
+      removeContact: async (clientId, contactId) => {
+        chamadas.push([clientId, contactId]);
+        return CLIENTE;
       },
     });
+    const service = new ClientesService(repository);
+    const contatoId = "00000000-0000-4000-8000-000000000201";
 
-    const result = await new ClientesService(repository).ficha("00000000-0000-4000-8000-000000000004");
+    await service.updateContact(CLIENTE.id, contatoId, { jobTitle: "Gerente" }, principal);
+    await service.removeContact(CLIENTE.id, contatoId, principal);
 
-    expect(requestedId).toBe("00000000-0000-4000-8000-000000000004");
-    expect(result.resumo.name).toBe("Amazonas Clean");
-    expect(result.energiaOpm).toEqual({ available: false, reason: "sem dados" });
-    expect(result.financeiro).toEqual({ status: "em_breve", message: "em breve" });
+    expect(chamadas).toEqual([
+      [CLIENTE.id, contatoId],
+      [CLIENTE.id, contatoId],
+    ]);
   });
 });

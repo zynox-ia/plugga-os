@@ -3,14 +3,14 @@ import { Prisma } from "@prisma/client";
 
 import { PrismaService } from "../prisma/prisma.service";
 import {
-  AuditRepository,
+  AuditPort,
   type AgentActionAppend,
   type EventAppend,
   type StoredAgentAction,
-} from "./audit.repository";
+} from "./audit.port";
 
 @Injectable()
-export class PrismaAuditRepository extends AuditRepository {
+export class PrismaAuditRepository extends AuditPort {
   constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {
     super();
   }

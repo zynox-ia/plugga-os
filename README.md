@@ -11,7 +11,7 @@ compartilhados.
 > PluggaMob/OCPP, PagBank, WhatsApp, Telegram, OpenClaw e crons de terceiros.
 >
 > Comandos do dia a dia e publicação: **[ops/GUIA.md](ops/GUIA.md)**.
-> Como especificar uma feature nova (Spec Kit): **[docs/AGENT.md](docs/AGENT.md#spec-driven-development-spec-kit)**.
+> Regras para contribuir: **[AGENTS.md](AGENTS.md)**.
 
 ## Estrutura
 
@@ -21,9 +21,6 @@ compartilhados.
 | `apps/api` | API NestJS em monólito modular |
 | `packages/shared` | DTOs, tipos, enums e eventos livres de framework |
 | `packages/config` | Configuração compartilhada de tooling |
-| `docs/adr` | Decisões e limites arquiteturais aceitos |
-| `specs` | Uma pasta por feature (spec, plano e tarefas) no fluxo do Spec Kit |
-| `.specify` | Constituição, templates e scripts do Spec Kit |
 | `ops` | Publicação, backup e o guia de operação |
 
 Aplicações podem importar pacotes; pacotes nunca importam aplicações. Web e API
@@ -51,6 +48,22 @@ pnpm dev
 
 Os nomes exatos dos scripts de banco são mantidos no `package.json`. O Compose e
 as migrações destinam-se somente ao banco local definido em `.env`.
+
+No Windows, a instalação e as verificações (`build`, `test`, `typecheck`) reutilizam
+o Prisma Client quando o schema, a versão e os arquivos gerados estão atualizados.
+Isso evita substituir a DLL enquanto a API local a utiliza. Mudanças no schema ou
+na versão continuam exigindo geração, como orienta a
+[documentação do Prisma](https://www.prisma.io/docs/orm/v6/prisma-client/setup-and-configuration/generating-prisma-client).
+Se a geração necessária falhar por DLL em uso, pare somente a API deste projeto,
+execute `pnpm db:generate` e reinicie-a. O comando explícito continua forçando a geração.
+
+O empacotamento `standalone` do Next.js precisa criar links simbólicos. Se o
+Windows negar essa permissão, valide o pacote Linux no Docker local, sem subir
+serviços nem publicar a imagem:
+
+```bash
+docker build --target build -f apps/web/Dockerfile -t plugga-web:verificacao .
+```
 
 Com a API em execução, verifique:
 
@@ -180,8 +193,7 @@ tokens de uso único entregues por `EmailPort` (ADR-0010).
 | `brevo` | API Brevo na **conta do cliente** (staging/prod); exige `BREVO_API_KEY` |
 
 Local recomendado: `EMAIL_PROVIDER=noop` (já no `.env.example`). O adaptador
-Mailpit foi removido em 10/08/2026 — ver o adendo em
-[ADR-0010](docs/adr/0010-brevo-email-emailport.md#adendo--10082026-mailpit-removido).
+Mailpit foi removido em 10/08/2026.
 Testar o envio de verdade localmente exige `EMAIL_PROVIDER=brevo` com uma
 chave real, o que manda e-mail de verdade — não use para teste de rotina.
 
@@ -297,7 +309,7 @@ pnpm --filter @plugga/api test:bitrix
 
 ## Qualidade e CI
 
-A CI executa em pull requests e em pushes para `main`, usando o lockfile e os
+A CI executa em pull requests e em pushes para `develop` e `main`, usando o lockfile e os
 mesmos comandos raiz:
 
 ```bash
@@ -324,15 +336,6 @@ pnpm build
   papel — ADR-0008); nenhum SaaS de identidade é usado. O antigo stub por header
   permanece apenas como escape hatch local sob `DEV_AUTH_ENABLED`.
 
-Leia o [guia de agentes](docs/AGENT.md) antes de contribuir. Qualquer evolução
-para integração real ou write exige ADR, gates técnicos e aprovação explícita de
+Leia [AGENTS.md](AGENTS.md) antes de contribuir. Qualquer evolução
+para integração real ou escrita exige revisão técnica e aprovação explícita de
 cutover por domínio.
-
-## Documentação
-
-| Documento | Descrição |
-|---|---|
-| [`docs/PRD-plugga-os.md`](docs/PRD-plugga-os.md) | PRD do produto |
-| [`docs/mapa-produto-mvp.md`](docs/mapa-produto-mvp.md) | Mapa resumido de telas |
-| [`docs/adr/README.md`](docs/adr/README.md) | Índice dos ADRs do Bloco A |
-| [`docs/mockup/index.html`](docs/mockup/index.html) | Mockup visual da marca Plugga |

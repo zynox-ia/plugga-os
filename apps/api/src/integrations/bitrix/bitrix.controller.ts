@@ -12,8 +12,8 @@ import type { TriggerBitrixImportResponse } from "@plugga/shared";
 import { CurrentPrincipal } from "../../core/auth/current-principal.decorator";
 import { SessionAuthGuard } from "../../core/auth/session-auth.guard";
 import { OriginCheckGuard } from "../../core/auth/origin-check.guard";
-import { Roles } from "../../core/auth/roles.decorator";
-import { RolesGuard } from "../../core/auth/roles.guard";
+import { Plataforma } from "../../core/auth/acesso.decorator";
+import { AcessoGuard } from "../../core/auth/acesso.guard";
 import type { AuthPrincipal } from "../../core/auth/auth.types";
 import { JobsQueue } from "../../jobs/queue/jobs-queue.port";
 import { BitrixImportService } from "./bitrix-import.service";
@@ -28,7 +28,7 @@ import {
  * 409/503 here are synchronous feedback for the HTTP caller, not the guarantee.
  */
 @Controller("integrations/bitrix")
-@UseGuards(SessionAuthGuard, RolesGuard, OriginCheckGuard, ThrottlerGuard)
+@UseGuards(SessionAuthGuard, AcessoGuard, OriginCheckGuard, ThrottlerGuard)
 export class BitrixController {
   constructor(
     @Inject(BitrixImportService) private readonly importService: BitrixImportService,
@@ -36,7 +36,7 @@ export class BitrixController {
   ) {}
 
   @Post("import")
-  @Roles("admin")
+  @Plataforma("admin")
   async triggerOpmImport(
     @CurrentPrincipal() principal: AuthPrincipal,
   ): Promise<TriggerBitrixImportResponse> {

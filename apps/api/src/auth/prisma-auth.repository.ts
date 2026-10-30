@@ -1,21 +1,22 @@
-import { BadRequestException, Inject, Injectable, ServiceUnavailableException } from "@nestjs/common";
+import { Inject, Injectable } from "@nestjs/common";
+import { Conflito, ServicoIndisponivel } from "../common/errors/dominio";
 import { Prisma, type AuthTokenType } from "@prisma/client";
-import { identityProviderSchema, type IdentityProvider, type UserAccess } from "@plugga/shared";
+import { identityProviderSchema, type Acesso, type IdentityProvider } from "@plugga/shared";
 
 import { AuditAppender } from "../audit/audit-appender";
 import { EstadoInvalido } from "../common/errors/dominio";
-import { mapUserAccess } from "../core/auth/user-access.mapper";
+import { mapAcesso } from "../core/auth/user-access.mapper";
 import { PrismaService } from "../prisma/prisma.service";
 import {
   AuthRepository,
   IdentityLinkError,
   type AuthUserRecord,
   type CreateAuthTokenData,
-  type CreateInvitedUserData,
+  type CreateInvitedMemberData,
   type CreateSessionData,
   type LinkIdentityData,
   type SetPasswordOptions,
-  type TeamFilter,
+  type MemberFilter,
   type TeamMemberRecord,
   type UserIdentityRecord,
   type ValidAuthToken,
@@ -27,13 +28,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const userWithAccess = {
   include: {
     platformRoles: { include: { role: true } },
-    memberships: {
-      include: {
-        roles: { include: { role: true } },
-        departments: true,
-      },
-      orderBy: { companyId: "asc" },
-    },
+    departamentos: true,
   },
 } satisfies Prisma.UserDefaultArgs;
 
@@ -57,7 +52,7 @@ export class PrismaAuthRepository extends AuthRepository {
       return user ? this.toRecord(user) : null;
     } catch (error) {
       if (error instanceof Prisma.PrismaClientInitializationError) {
-        throw new ServiceUnavailableException("banco de dados indisponível");
+        throw new ServicoIndisponivel("O serviço está indisponível no momento. Tente novamente em instantes.", error);
       }
       throw error;
     }
@@ -103,28 +98,6 @@ export class PrismaAuthRepository extends AuthRepository {
 
   async deleteSessionsForUser(userId: string): Promise<void> {
     await this.prisma.session.deleteMany({ where: { userId } });
-  }
-
-  async createInvitedUser(data: CreateInvitedUserData): Promise<AuthUserRecord> {
-    try {
-      const user = await this.prisma.$transaction(async (tx) => {
-        const created = await tx.user.create({
-          data: { email: data.email, name: data.name, status: "invited" },
-          select: { id: true },
-        });
-        await this.writeAccess(tx, created.id, data.access);
-        return tx.user.findUniqueOrThrow({ where: { id: created.id }, ...userWithAccess });
-      });
-      return this.toRecord(user);
-    } catch (error) {
-      // Dois convites simultâneos para o mesmo e-mail: o service verificou
-      // antes, mas a corrida só é decidida pela constraint única — traduzida
-      // para a mesma mensagem do caminho verificado, em vez de subir como 500.
-      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-        throw new BadRequestException("a user with this email already exists");
-      }
-      throw error;
-    }
   }
 
   async replaceAuthToken(data: CreateAuthTokenData): Promise<void> {
@@ -302,46 +275,15 @@ export class PrismaAuthRepository extends AuthRepository {
     });
   }
 
-  async replaceAccess(
-    userId: string,
-    access: UserAccess,
-    actorId: string,
-  ): Promise<AuthUserRecord | null> {
-    if (!UUID.test(userId)) return null;
-    const exists = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: { id: true },
-    });
-    if (!exists) {
-      return null;
-    }
-
-    const rebaixa = !access.platformRoles.includes("admin");
-    const user = await this.prisma.$transaction(async (tx) => {
-      // Rebaixar um admin e contar quem sobra são a MESMA transação, com os
-      // papéis de plataforma travados: dois rebaixamentos simultâneos dos dois
-      // últimos admins se enfileiram, e o segundo recontar vê o primeiro (FR-029).
-      if (rebaixa) await this.garantirOutroAdminAtivo(tx, userId);
-      // Apagar o membership leva papéis e departamentos daquela empresa junto
-      // (ON DELETE CASCADE), então revogar uma empresa é uma linha só.
-      await tx.userPlatformRole.deleteMany({ where: { userId } });
-      await tx.userCompanyMembership.deleteMany({ where: { userId } });
-      await this.writeAccess(tx, userId, access);
-      await this.appender.append(tx, {
-        eventName: "auth.access.changed",
-        entityType: "user",
-        entityId: userId,
-        actorType: "user",
-        actorId,
-        payload: { access },
-      });
-      return tx.user.findUniqueOrThrow({ where: { id: userId }, ...userWithAccess });
-    });
-
-    return this.toRecord(user);
+  async deactivateUser(userId: string, actorId: string): Promise<AuthUserRecord | null> {
+    return this.encerrarAcesso(userId, actorId, "disabled");
   }
 
-  async deactivateUser(userId: string, actorId: string): Promise<AuthUserRecord | null> {
+  async removeUser(userId: string, actorId: string): Promise<AuthUserRecord | null> {
+    return this.encerrarAcesso(userId, actorId, "removed");
+  }
+
+  private async encerrarAcesso(userId: string, actorId: string, status: "disabled" | "removed"): Promise<AuthUserRecord | null> {
     if (!UUID.test(userId)) return null;
     const exists = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -360,11 +302,12 @@ export class PrismaAuthRepository extends AuthRepository {
       });
       const atualizado = await tx.user.update({
         where: { id: userId },
-        data: { status: "disabled" },
+        data: { status },
         ...userWithAccess,
       });
+      await tx.session.deleteMany({ where: { userId } });
       await this.appender.append(tx, {
-        eventName: "auth.user.deactivated",
+        eventName: status === "removed" ? "auth.user.removed" : "auth.user.deactivated",
         entityType: "user",
         entityId: userId,
         actorType: "user",
@@ -421,89 +364,115 @@ export class PrismaAuthRepository extends AuthRepository {
     }
   }
 
-  async listTeam(filter: TeamFilter): Promise<TeamMemberRecord[]> {
-    const membership: Prisma.UserCompanyMembershipWhereInput = {};
-    if (filter.companyId) {
-      membership.companyId = filter.companyId;
+  async createInvitedMember(data: CreateInvitedMemberData, actorId?: string): Promise<AuthUserRecord> {
+    try {
+      const user = await this.prisma.$transaction(async (tx) => {
+        const anterior = await tx.user.findUnique({ where: { email: data.email }, select: { id: true, status: true } });
+        if (anterior && anterior.status !== "removed") throw new Conflito("Já existe uma pessoa com este e-mail.");
+        if (anterior) {
+          // A readmissão é um convite novo, nunca uma restauração de credenciais.
+          const alterado = await tx.user.updateMany({ where: { id: anterior.id, status: "removed" }, data: { name: data.name, status: "invited" } });
+          if (alterado.count !== 1) throw new Conflito("Já existe uma pessoa com este e-mail.");
+          await tx.session.deleteMany({ where: { userId: anterior.id } });
+          await tx.authToken.deleteMany({ where: { userId: anterior.id } });
+          await tx.userCredential.deleteMany({ where: { userId: anterior.id } });
+          await tx.userIdentity.deleteMany({ where: { userId: anterior.id } });
+          await tx.userPlatformRole.deleteMany({ where: { userId: anterior.id } });
+          await tx.userDepartamento.deleteMany({ where: { userId: anterior.id } });
+        }
+        const created = anterior ?? await tx.user.create({
+          data: { email: data.email, name: data.name, status: "invited" },
+          select: { id: true },
+        });
+        await this.writeAcesso(tx, created.id, data.acesso);
+        await this.appender.append(tx, { eventName: "auth.invite.created", entityType: "user", entityId: created.id,
+          actorType: actorId ? "user" : "system", actorId: actorId ?? null, payload: { acesso: data.acesso } });
+        return tx.user.findUniqueOrThrow({ where: { id: created.id }, ...userWithAccess });
+      });
+      return this.toRecord(user);
+    } catch (error) {
+      // Dois convites simultâneos para o mesmo e-mail: o service verificou
+      // antes, mas a corrida só é decidida pela constraint única — traduzida
+      // para a mesma mensagem do caminho verificado, em vez de subir como 500.
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+        throw new Conflito("Já existe uma pessoa com este e-mail.");
+      }
+      throw error;
     }
-    if (filter.departmentId) {
-      membership.departments = { some: { departmentId: filter.departmentId } };
+  }
+
+  async replaceAcesso(userId: string, acesso: Acesso, actorId: string): Promise<AuthUserRecord | null> {
+    if (!UUID.test(userId)) return null;
+    const exists = await this.prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
+    if (!exists) {
+      return null;
     }
 
+    const user = await this.prisma.$transaction(async (tx) => {
+      // Sem papel de plataforma a pessoa deixa de ser admin: a regra do último
+      // admin roda na mesma transação da escrita (FR-029).
+      if (acesso.plataforma === null) await this.garantirOutroAdminAtivo(tx, userId);
+      await tx.userPlatformRole.deleteMany({
+        where: { userId, role: { key: { in: ["admin", "desenvolvedor"] } } },
+      });
+      await this.writeAcesso(tx, userId, acesso);
+      await this.appender.append(tx, {
+        eventName: "auth.access.changed",
+        entityType: "user",
+        entityId: userId,
+        actorType: "user",
+        actorId,
+        payload: { acesso },
+      });
+      return tx.user.findUniqueOrThrow({ where: { id: userId }, ...userWithAccess });
+    });
+
+    return this.toRecord(user);
+  }
+
+  async listMembers(filter: MemberFilter): Promise<TeamMemberRecord[]> {
     const users = await this.prisma.user.findMany({
       where: {
-        ...(filter.status ? { status: filter.status } : {}),
-        // O filtro de empresa e o de departamento casam no MESMO membership: um
-        // acesso "financeiro na Waze" não pode aparecer ao filtrar Plugga +
-        // financeiro só porque as duas condições existem em linhas diferentes.
-        ...(Object.keys(membership).length > 0 ? { memberships: { some: membership } } : {}),
+        status: filter.status ?? { not: "removed" },
+        ...(filter.departamento ? { departamentos: { some: { departamento: filter.departamento } } } : {}),
       },
       orderBy: { createdAt: "asc" },
-      // 🔒 SEGURANÇA [VULN-2, auditoria zero-trust]: teto de defesa contra
-      // `findMany` sem limite (CWE-770) — a API não pagina equipe hoje. 2.000
-      // é bem acima de qualquer organização real usando este sistema
-      // single-tenant (ADR-0008), então nunca deve afetar `assertNotLastAdmin`
-      // (que também usa `listTeam`) em uso legítimo.
+      // 🔒 SEGURANÇA [VULN-2, auditoria zero-trust]: teto contra `findMany` sem
+      // limite (CWE-770) — a equipe não é paginada, e 2.000 é bem acima de
+      // qualquer organização real deste sistema single-tenant (ADR-0008).
       take: 2_000,
       ...userWithAccess,
     });
     return users.map((user) => this.toRecord(user));
   }
 
-  /** Grava o acesso do zero. Chamado dentro de transação, com o anterior já removido. */
-  private async writeAccess(
-    tx: Prisma.TransactionClient,
-    userId: string,
-    access: UserAccess,
-  ): Promise<void> {
-    const chaves = [
-      ...access.platformRoles,
-      ...access.companies.flatMap((company) => company.roles),
-    ];
-    const papeis = await tx.role.findMany({
-      where: { key: { in: [...new Set(chaves)] } },
-      select: { id: true, key: true },
-    });
-    const idPorChave = new Map(papeis.map((papel) => [papel.key, papel.id]));
-
-    // Papel validado pelo contrato que não existe em `roles` significa seed
-    // incompleto. Gravar o que sobrou deixaria a pessoa com menos acesso do que
-    // foi concedido, sem erro em lugar nenhum — melhor a escrita inteira falhar.
-    const ausentes = [...new Set(chaves)].filter((chave) => !idPorChave.has(chave));
-    if (ausentes.length > 0) {
-      throw new Error(`roles missing from the catalog: ${ausentes.join(", ")}`);
-    }
-
-    await tx.userPlatformRole.createMany({
-      data: access.platformRoles.flatMap((key) => {
-        const roleId = idPorChave.get(key);
-        return roleId ? [{ userId, roleId }] : [];
-      }),
-      skipDuplicates: true,
-    });
-
-    for (const company of access.companies) {
-      await tx.userCompanyMembership.create({
-        data: { userId, companyId: company.companyId },
-        select: { userId: true },
-      });
-      await tx.userCompanyRole.createMany({
-        data: company.roles.flatMap((key) => {
-          const roleId = idPorChave.get(key);
-          return roleId ? [{ userId, companyId: company.companyId, roleId }] : [];
-        }),
-        skipDuplicates: true,
-      });
-      await tx.userDepartmentAccess.createMany({
-        data: company.departments.map((department) => ({
-          userId,
-          companyId: company.companyId,
-          departmentId: department.departmentId,
-          isManager: department.isManager,
-        })),
+  /**
+   * Grava o acesso do zero, com os papéis de plataforma anteriores já removidos.
+   * Desenvolvedor leva também `admin`, que é o que a regra do último admin conta.
+   */
+  private async writeAcesso(tx: Prisma.TransactionClient, userId: string, acesso: Acesso): Promise<void> {
+    const chaves =
+      acesso.plataforma === "desenvolvedor" ? ["desenvolvedor", "admin"] : acesso.plataforma === "admin" ? ["admin"] : [];
+    if (chaves.length > 0) {
+      const papeis = await tx.role.findMany({ where: { key: { in: chaves } }, select: { id: true, key: true } });
+      // Papel fora do catálogo é seed incompleto, e gravar menos do que foi
+      // concedido sem erro é pior que falhar.
+      if (papeis.length !== chaves.length) {
+        throw new Error(`roles missing from the catalog: ${chaves.join(", ")}`);
+      }
+      await tx.userPlatformRole.createMany({
+        data: papeis.map((papel) => ({ userId, roleId: papel.id })),
         skipDuplicates: true,
       });
     }
+    const anteriores = await tx.userDepartamento.findMany({ where: { userId } });
+    await tx.userDepartamento.deleteMany({ where: { userId } });
+    await tx.userDepartamento.createMany({
+      data: acesso.departamentos.map(({ departamento, nivel, telas }) => ({
+        userId, departamento, nivel,
+        telas: telas ?? anteriores.find((entrada) => entrada.departamento === departamento)?.telas ?? [],
+      })),
+    });
   }
 
   private toRecord(user: UserWithAccess): AuthUserRecord {
@@ -513,7 +482,7 @@ export class PrismaAuthRepository extends AuthRepository {
       name: user.name,
       status: user.status,
       createdAt: user.createdAt,
-      access: mapUserAccess(user),
+      acesso: mapAcesso(user),
     };
   }
 }

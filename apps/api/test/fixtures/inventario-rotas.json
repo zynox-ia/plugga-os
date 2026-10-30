@@ -1,0 +1,926 @@
+[
+  {
+    "metodo": "POST",
+    "caminho": "/agent-actions",
+    "controller": "AgentActionsController.create",
+    "acesso": "acesso",
+    "papeis": [
+      "plataforma:desenvolvedor"
+    ],
+    "guards": [
+      "OriginCheckGuard",
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/auth/accept-invite",
+    "controller": "AuthController.acceptInvite",
+    "acesso": "public",
+    "papeis": [],
+    "guards": [
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/auth/google",
+    "controller": "AuthController.google",
+    "acesso": "public",
+    "papeis": [],
+    "guards": [
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/auth/login",
+    "controller": "AuthController.login",
+    "acesso": "public",
+    "papeis": [],
+    "guards": [
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/auth/logout",
+    "controller": "AuthController.logout",
+    "acesso": "authenticated",
+    "papeis": [],
+    "guards": [
+      "SessionAuthGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/auth/me",
+    "controller": "AuthController.me",
+    "acesso": "authenticated",
+    "papeis": [],
+    "guards": [
+      "SessionAuthGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/auth/reset/confirm",
+    "controller": "AuthController.confirmReset",
+    "acesso": "public",
+    "papeis": [],
+    "guards": [
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/auth/reset/request",
+    "controller": "AuthController.requestReset",
+    "acesso": "public",
+    "papeis": [],
+    "guards": [
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/channels/whatsapp/send",
+    "controller": "WhatsappController.send",
+    "acesso": "acesso",
+    "papeis": [
+      "plataforma:desenvolvedor"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/clientes",
+    "controller": "ClientesController.list",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.clientes",
+      "tela:energia-opm.ciclos",
+      "tela:energia-opm.auditoria",
+      "tela:energia-opm.migracao",
+      "tela:energia-opm.relatorios",
+      "tela:energia-opm.demanda",
+      "departamento:crm:membro",
+      "departamento:energia-opm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/clientes",
+    "controller": "ClientesController.create",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.clientes",
+      "departamento:crm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/clientes/:id",
+    "controller": "ClientesController.get",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.clientes",
+      "tela:energia-opm.ciclos",
+      "tela:energia-opm.auditoria",
+      "tela:energia-opm.migracao",
+      "tela:energia-opm.relatorios",
+      "tela:energia-opm.demanda",
+      "departamento:crm:membro",
+      "departamento:energia-opm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "PATCH",
+    "caminho": "/clientes/:id",
+    "controller": "ClientesController.update",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.clientes",
+      "departamento:crm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/clientes/:id/activate",
+    "controller": "ClientesController.activate",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.clientes",
+      "departamento:crm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/clientes/:id/contatos",
+    "controller": "ClientesController.addContact",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.clientes",
+      "departamento:crm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "DELETE",
+    "caminho": "/clientes/:id/contatos/:contatoId",
+    "controller": "ClientesController.removeContact",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.clientes",
+      "departamento:crm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "PATCH",
+    "caminho": "/clientes/:id/contatos/:contatoId",
+    "controller": "ClientesController.updateContact",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.clientes",
+      "departamento:crm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/clientes/:id/inactivate",
+    "controller": "ClientesController.inactivate",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.clientes",
+      "departamento:crm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/clientes/duplicates",
+    "controller": "ClientesController.duplicateCandidates",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.clientes",
+      "tela:energia-opm.ciclos",
+      "tela:energia-opm.auditoria",
+      "tela:energia-opm.migracao",
+      "tela:energia-opm.relatorios",
+      "tela:energia-opm.demanda",
+      "departamento:crm:membro",
+      "departamento:energia-opm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/clientes/responsaveis",
+    "controller": "ClientesController.owners",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.clientes",
+      "tela:crm.pipelines",
+      "departamento:crm:membro",
+      "departamento:energia-opm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/clientes/selecao-negocio",
+    "controller": "ClientesController.selecaoNegocio",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.pipelines",
+      "departamento:crm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/commercial/contracts",
+    "controller": "CommercialController.listContracts",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.contratos",
+      "tela:financeiro.pagar",
+      "tela:financeiro.receber",
+      "tela:financeiro.conciliacao",
+      "tela:financeiro.fiscal",
+      "departamento:crm:membro",
+      "departamento:financeiro:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/commercial/contracts",
+    "controller": "CommercialController.createContract",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.contratos",
+      "departamento:crm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/commercial/contracts/:id",
+    "controller": "CommercialController.contract",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.contratos",
+      "tela:financeiro.pagar",
+      "tela:financeiro.receber",
+      "tela:financeiro.conciliacao",
+      "tela:financeiro.fiscal",
+      "departamento:crm:membro",
+      "departamento:financeiro:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/commercial/contracts/:id/status",
+    "controller": "CommercialController.updateContractStatus",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.contratos",
+      "departamento:crm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/commercial/opportunities",
+    "controller": "CommercialController.listOpportunities",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.pipelines",
+      "tela:financeiro.pagar",
+      "tela:financeiro.receber",
+      "tela:financeiro.conciliacao",
+      "tela:financeiro.fiscal",
+      "departamento:crm:membro",
+      "departamento:financeiro:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/commercial/opportunities",
+    "controller": "CommercialController.createOpportunity",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.pipelines",
+      "departamento:crm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/commercial/opportunities/:id",
+    "controller": "CommercialController.opportunity",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.pipelines",
+      "tela:financeiro.pagar",
+      "tela:financeiro.receber",
+      "tela:financeiro.conciliacao",
+      "tela:financeiro.fiscal",
+      "departamento:crm:membro",
+      "departamento:financeiro:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/commercial/opportunities/:id/contacts",
+    "controller": "CommercialController.registerOpportunityContact",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.pipelines",
+      "departamento:crm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/commercial/opportunities/:id/lose",
+    "controller": "CommercialController.loseOpportunity",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.pipelines",
+      "departamento:crm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/commercial/opportunities/:id/revisit",
+    "controller": "CommercialController.revisitOpportunity",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.pipelines",
+      "departamento:crm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/commercial/opportunities/:id/stage",
+    "controller": "CommercialController.updateOpportunityStage",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.pipelines",
+      "departamento:crm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/commercial/opportunities/:id/win",
+    "controller": "CommercialController.winOpportunity",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.pipelines",
+      "departamento:crm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/email/status",
+    "controller": "EmailStatusController.status",
+    "acesso": "acesso",
+    "papeis": [
+      "plataforma:admin"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/equipe",
+    "controller": "EquipeController.listar",
+    "acesso": "authenticated",
+    "papeis": [],
+    "guards": [
+      "SessionAuthGuard"
+    ]
+  },
+  {
+    "metodo": "PUT",
+    "caminho": "/equipe/:id/acesso",
+    "controller": "EquipeController.editarAcesso",
+    "acesso": "authenticated",
+    "papeis": [],
+    "guards": [
+      "OriginCheckGuard",
+      "SessionAuthGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/equipe/:id/desativar",
+    "controller": "EquipeController.desativar",
+    "acesso": "authenticated",
+    "papeis": [],
+    "guards": [
+      "OriginCheckGuard",
+      "SessionAuthGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/equipe/:id/reenviar-convite",
+    "controller": "EquipeController.reenviarConvite",
+    "acesso": "authenticated",
+    "papeis": [],
+    "guards": [
+      "OriginCheckGuard",
+      "SessionAuthGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/equipe/:id/remover",
+    "controller": "EquipeController.remover",
+    "acesso": "authenticated",
+    "papeis": [],
+    "guards": [
+      "OriginCheckGuard",
+      "SessionAuthGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/equipe/convites",
+    "controller": "EquipeController.convidar",
+    "acesso": "authenticated",
+    "papeis": [],
+    "guards": [
+      "OriginCheckGuard",
+      "SessionAuthGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/health",
+    "controller": "HealthController.check",
+    "acesso": "public",
+    "papeis": [],
+    "guards": []
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/health/ready",
+    "controller": "HealthController.ready",
+    "acesso": "public",
+    "papeis": [],
+    "guards": []
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/integrations",
+    "controller": "IntegrationsController.list",
+    "acesso": "acesso",
+    "papeis": [
+      "plataforma:admin"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/integrations/bitrix/import",
+    "controller": "BitrixController.triggerOpmImport",
+    "acesso": "acesso",
+    "papeis": [
+      "plataforma:admin"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/jobs",
+    "controller": "JobsController.list",
+    "acesso": "acesso",
+    "papeis": [
+      "plataforma:desenvolvedor"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "DELETE",
+    "caminho": "/llm/chave",
+    "controller": "ChaveController.apagar",
+    "acesso": "acesso",
+    "papeis": [
+      "plataforma:admin"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/llm/chave",
+    "controller": "ChaveController.estado",
+    "acesso": "acesso",
+    "papeis": [
+      "plataforma:admin"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "PUT",
+    "caminho": "/llm/chave",
+    "controller": "ChaveController.gravar",
+    "acesso": "acesso",
+    "papeis": [
+      "plataforma:admin"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/llm/consumo",
+    "controller": "ConsumoController.resumo",
+    "acesso": "acesso",
+    "papeis": [
+      "departamento:financeiro:gerente"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/negocios",
+    "controller": "NegociosController.list",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.pipelines",
+      "departamento:crm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/negocios",
+    "controller": "NegociosController.create",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.pipelines",
+      "departamento:crm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/negocios/:id/etapa",
+    "controller": "NegociosController.moveStage",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.pipelines",
+      "departamento:crm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/negocios/:id/ganho",
+    "controller": "NegociosController.win",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.pipelines",
+      "departamento:crm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/negocios/:id/perda",
+    "controller": "NegociosController.lose",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.pipelines",
+      "departamento:crm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/negocios/:id/transferencia",
+    "controller": "NegociosController.transfer",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.pipelines",
+      "departamento:crm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/negocios/clientes/:clientId/opcoes",
+    "controller": "NegociosController.clientOptions",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.pipelines",
+      "departamento:crm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/negocios/lote",
+    "controller": "NegociosController.bulk",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.pipelines",
+      "departamento:crm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/pipelines",
+    "controller": "PipelinesController.list",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.pipelines",
+      "departamento:crm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/pipelines",
+    "controller": "PipelinesController.create",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.pipelines",
+      "departamento:crm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "PUT",
+    "caminho": "/pipelines/:id",
+    "controller": "PipelinesController.update",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.pipelines",
+      "departamento:crm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/pipelines/:id/arquivar",
+    "controller": "PipelinesController.archive",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.pipelines",
+      "departamento:crm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/pipelines/:id/reativar",
+    "controller": "PipelinesController.restore",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.pipelines",
+      "departamento:crm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/pipelines/pessoas",
+    "controller": "PipelinesController.people",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.pipelines",
+      "departamento:crm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  }
+]

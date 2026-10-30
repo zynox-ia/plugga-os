@@ -1,11 +1,7 @@
-import type { AuthTokenType } from "@prisma/client";
-import type {
-  CompanyKey,
-  DepartmentId,
-  IdentityProvider,
-  UserAccess,
-  UserStatus,
-} from "@plugga/shared";
+import type { Acesso, Departamento, IdentityProvider, UserStatus } from "@plugga/shared";
+
+/** Tipo de domínio do token de conta; o enum do Prisma fica na camada de persistência. */
+export type TipoDeToken = "invite" | "reset";
 
 export interface AuthUserRecord {
   id: string;
@@ -13,22 +9,12 @@ export interface AuthUserRecord {
   name: string;
   status: string;
   createdAt: Date;
-  /**
-   * Acesso como está gravado: papéis de plataforma + empresas com papéis e
-   * departamentos. É a verdade do banco — a regra "admin alcança tudo" é
-   * aplicada na leitura (`visibleCompanies`), nunca materializada aqui.
-   */
-  access: UserAccess;
+  /** Papel de plataforma + departamentos (`user_departamentos`), como gravado. */
+  acesso: Acesso;
 }
 
 /** A lista da equipe lê exatamente o mesmo registro; o nome existe pela leitura. */
 export type TeamMemberRecord = AuthUserRecord;
-
-export interface TeamFilter {
-  companyId?: CompanyKey;
-  departmentId?: DepartmentId;
-  status?: UserStatus;
-}
 
 export interface CreateSessionData {
   userId: string;
@@ -39,15 +25,21 @@ export interface CreateSessionData {
   userAgent?: string | null;
 }
 
-export interface CreateInvitedUserData {
+/** Convite da equipe (`/equipe`). */
+export interface CreateInvitedMemberData {
   email: string;
   name: string;
-  access: UserAccess;
+  acesso: Acesso;
+}
+
+export interface MemberFilter {
+  departamento?: Departamento;
+  status?: UserStatus;
 }
 
 export interface CreateAuthTokenData {
   userId: string;
-  type: AuthTokenType;
+  type: TipoDeToken;
   tokenHash: string;
   expiresAt: Date;
 }
@@ -111,12 +103,11 @@ export abstract class AuthRepository {
   abstract createSession(data: CreateSessionData): Promise<void>;
   abstract deleteSessionByTokenHash(tokenHash: string): Promise<void>;
   abstract deleteSessionsForUser(userId: string): Promise<void>;
-  abstract createInvitedUser(data: CreateInvitedUserData): Promise<AuthUserRecord>;
   /** Replaces every pending token of the same type for the same user atomically. */
   abstract replaceAuthToken(data: CreateAuthTokenData): Promise<void>;
   abstract findValidToken(
     tokenHash: string,
-    type: AuthTokenType,
+    type: TipoDeToken,
     now: Date,
   ): Promise<ValidAuthToken | null>;
   /**
@@ -150,17 +141,20 @@ export abstract class AuthRepository {
     hostedDomain: string | null,
     now: Date,
   ): Promise<void>;
-  /**
-   * Substitui o acesso inteiro da pessoa. Conceder e revogar são a mesma escrita.
-   * Grava `auth.access.changed` na mesma transação e, se rebaixar o último admin
-   * ativo, lança `EstadoInvalido` sem escrever nada (FR-029).
-   */
-  abstract replaceAccess(
-    userId: string,
-    access: UserAccess,
-    actorId: string,
-  ): Promise<AuthUserRecord | null>;
   /** Desativa e grava `auth.user.deactivated` na mesma transação; mesma regra do último admin. */
   abstract deactivateUser(userId: string, actorId: string): Promise<AuthUserRecord | null>;
-  abstract listTeam(filter: TeamFilter): Promise<TeamMemberRecord[]>;
+  /** Remoção lógica preserva autoria e vínculos; status removed nunca autentica. */
+  abstract removeUser(userId: string, actorId: string): Promise<AuthUserRecord | null>;
+  /**
+   * Cria a pessoa convidada já com o acesso. Desenvolvedor leva também a linha
+   * `admin`, que é o que a regra do último admin conta.
+   */
+  abstract createInvitedMember(data: CreateInvitedMemberData, actorId?: string): Promise<AuthUserRecord>;
+  /**
+   * Substitui o acesso inteiro da pessoa: conceder e revogar são a mesma
+   * escrita. Grava `auth.access.changed` na mesma transação e, se rebaixar o
+   * último admin ativo, lança `EstadoInvalido` sem escrever nada (FR-029).
+   */
+  abstract replaceAcesso(userId: string, acesso: Acesso, actorId: string): Promise<AuthUserRecord | null>;
+  abstract listMembers(filter: MemberFilter): Promise<TeamMemberRecord[]>;
 }

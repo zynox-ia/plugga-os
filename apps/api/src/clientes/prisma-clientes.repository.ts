@@ -1,57 +1,69 @@
-import { BadRequestException, Inject, Injectable, NotFoundException } from "@nestjs/common";
-import type { ActorType, Prisma } from "@prisma/client";
+import { Inject, Injectable } from "@nestjs/common";
+import { Prisma, type ActorType } from "@prisma/client";
 import {
+  clientDetailSchema,
   clientDuplicateCandidatesResponseSchema,
-  clientFichaSchema,
-  clientSummarySchema,
+  clientOwnersResponseSchema,
   createClientResponseSchema,
   listClientsResponseSchema,
+  somenteDigitos,
+  telefoneNacional,
+  type ClientContactInput,
+  type ClientDetail,
   type ClientDuplicateCandidate,
-  type NomeDeEventoAuditavel,
   type ClientDuplicateCandidatesResponse,
-  type ClientFicha,
-  type ClientSummary,
+  type ClientOwnersResponse,
+  type ClientPersonType,
   type CreateClientRequest,
   type CreateClientResponse,
   type DuplicateCandidatesQuery,
   type InactivateClientRequest,
   type ListClientsQuery,
   type ListClientsResponse,
+  type NomeDeEventoAuditavel,
+  type UpdateClientContactRequest,
   type UpdateClientRequest,
 } from "@plugga/shared";
 
 import { AuditAppender } from "../audit/audit-appender";
+import { Conflito, NaoEncontrado, RequisicaoInvalida } from "../common/errors/dominio";
 import type { AuthPrincipal } from "../core/auth/auth.types";
 import { PrismaService } from "../prisma/prisma.service";
 import { ClientesRepository } from "./clientes.repository";
-
-type ClientRow = {
-  id: string;
-  name: string;
-  company: string | null;
-  phone: string | null;
-  email: string | null;
-  externalId: string | null;
-  segment: string;
-  active: boolean;
-  createdAt: Date;
-  updatedAt: Date;
-};
+import { camposInformados, paraDetalhe, paraItemDeLista, problemasDaEdicao } from "./clientes.rules";
 
 /** Digits-only comparison: formatting (spaces, dashes, DDI) must not hide a match. */
 export function onlyDigits(value: string): string {
-  return value.replace(/\D/g, "");
+  return somenteDigitos(value);
 }
 
 /** Diacritic/case/punctuation-insensitive comparison so "José" matches "jose". */
 export function normalizeName(value: string): string {
   return value
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[̀-ͯ]/g, "")
     .toLowerCase()
     .replace(/[^a-z0-9\s]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+const COM_DONO_E_CONTATOS = {
+  owner: { select: { id: true, name: true } },
+  contacts: true,
+} satisfies Prisma.ClientInclude;
+
+/** Quem pode ser responsável por um cliente: alguém ativo do CRM, ou um admin. */
+const PODE_SER_RESPONSAVEL: Prisma.UserWhereInput = {
+  status: "active",
+  OR: [
+    { platformRoles: { some: { role: { key: "admin" } } } },
+    { departamentos: { some: { departamento: "crm" } } },
+  ],
+};
+
+function mensagemDeDocumentoRepetido(personType: ClientPersonType): string {
+  return personType === "pf" ? "Já existe um cliente com este CPF." : "Já existe um cliente com este CNPJ.";
 }
 
 @Injectable()
@@ -65,297 +77,291 @@ export class PrismaClientesRepository extends ClientesRepository {
 
   async list(query: ListClientsQuery): Promise<ListClientsResponse> {
     const where: Prisma.ClientWhereInput = {};
-    if (query.segment) where.segment = query.segment;
     if (query.active !== undefined) where.active = query.active === "true";
     if (query.q) {
-      const term = query.q.trim();
-      where.OR = [
-        { name: { contains: term, mode: "insensitive" } },
-        { company: { contains: term, mode: "insensitive" } },
-        { phone: { contains: term } },
-        { email: { contains: term, mode: "insensitive" } },
-        { externalId: { contains: term, mode: "insensitive" } },
+      const termo = query.q.trim();
+      const texto = { contains: termo, mode: "insensitive" as const };
+      const ou: Prisma.ClientWhereInput[] = [
+        { name: texto },
+        { legalName: texto },
+        { email: texto },
+        { contacts: { some: { OR: [{ name: texto }, { email: texto }] } } },
       ];
+      // Documento e telefone são guardados só com dígitos: "11.222.333" e "(92) 9999" também acham.
+      const digitos = somenteDigitos(termo);
+      if (digitos.length >= 4) {
+        ou.push(
+          { document: { contains: digitos } },
+          { phone: { contains: digitos } },
+          { contacts: { some: { phone: { contains: digitos } } } },
+        );
+      }
+      where.OR = ou;
     }
 
-    const rows = await this.prisma.client.findMany({ where, orderBy: { name: "asc" }, take: 100 });
-    return listClientsResponseSchema.parse({ mode: "mock", items: rows.map((row) => this.summary(row)) });
+    const linhas = await this.prisma.client.findMany({
+      where,
+      orderBy: { name: "asc" },
+      take: 100,
+      include: {
+        owner: { select: { id: true, name: true } },
+        contacts: { select: { name: true, isPrimary: true, createdAt: true } },
+      },
+    });
+    return listClientsResponseSchema.parse({ items: linhas.map(paraItemDeLista) });
   }
 
-  async get(id: string): Promise<ClientSummary> {
-    const row = await this.prisma.client.findUnique({ where: { id } });
-    if (!row) throw new NotFoundException("client not found");
-    return clientSummarySchema.parse(this.summary(row));
+  async get(id: string): Promise<ClientDetail> {
+    const linha = await this.prisma.client.findUnique({ where: { id }, include: COM_DONO_E_CONTATOS });
+    if (!linha) throw new NaoEncontrado("Cliente não encontrado.");
+    return clientDetailSchema.parse(paraDetalhe(linha));
   }
 
   async create(input: CreateClientRequest, principal: AuthPrincipal): Promise<CreateClientResponse> {
-    const candidateRows = await this.findDuplicateRows({ name: input.name, phone: input.phone, email: input.email });
+    const { primaryContact, ownerId, ...campos } = input;
 
-    const created = await this.prisma.$transaction(async (tx) => {
-      const client = await tx.client.create({
-        data: {
-          name: input.name,
-          company: input.company,
-          phone: input.phone,
-          email: input.email,
-          externalId: input.externalId,
-          segment: input.segment ?? "prospect",
-        },
-      });
-      await this.auditoria.append(tx, {
-        eventName: "clientes.client_created" as NomeDeEventoAuditavel,
-        entityType: "client",
-        entityId: client.id,
-        actorType: this.actorType(principal),
-        actorId: principal.id,
-        payload: { campos: Object.keys(input), duplicateCandidateIds: candidateRows.map(([row]) => row.id) },
-        occurredAt: client.createdAt,
-      });
-      return client;
+    // Sem responsável escolhido, o responsável é quem cadastra.
+    const responsavel = ownerId ?? (principal.kind === "user" ? principal.id : undefined);
+    if (!responsavel) throw new RequisicaoInvalida("Informe o responsável pelo cliente.");
+    await this.garantirResponsavel(responsavel);
+    if (campos.document) await this.garantirDocumentoLivre(campos.document, input.personType);
+
+    const avisos = await this.candidatosADuplicata({
+      name: input.name,
+      phone: campos.phone ?? undefined,
+      email: campos.email ?? undefined,
     });
 
-    return createClientResponseSchema.parse({
-      mode: "mock",
-      client: this.summary(created),
-      duplicateCandidates: candidateRows.map(([row, matchedOn]) => this.duplicateCandidate(row, matchedOn)),
-    });
+    const criado = await this.comUnicidadeDeDocumento(input.personType, () =>
+      this.prisma.$transaction(async (tx) => {
+        const cliente = await tx.client.create({
+          data: {
+            ...campos,
+            ownerId: responsavel,
+            ...(primaryContact ? { contacts: { create: { ...primaryContact, isPrimary: true } } } : {}),
+          },
+          include: COM_DONO_E_CONTATOS,
+        });
+        await this.registrar(tx, "clientes.client_created", "client", cliente.id, principal, {
+          campos: camposInformados(input),
+          duplicateCandidateIds: avisos.map((candidato) => candidato.id),
+        });
+        return cliente;
+      }),
+    );
+
+    return createClientResponseSchema.parse({ client: paraDetalhe(criado), duplicateCandidates: avisos });
   }
 
-  async update(id: string, input: UpdateClientRequest, principal: AuthPrincipal): Promise<ClientSummary> {
-    const existing = await this.prisma.client.findUnique({ where: { id } });
-    if (!existing) throw new NotFoundException("client not found");
+  async update(id: string, input: UpdateClientRequest, principal: AuthPrincipal): Promise<ClientDetail> {
+    const atual = await this.prisma.client.findUnique({ where: { id }, include: COM_DONO_E_CONTATOS });
+    if (!atual) throw new NaoEncontrado("Cliente não encontrado.");
 
-    const updated = await this.prisma.$transaction(async (tx) => {
-      const client = await tx.client.update({ where: { id }, data: { ...input } });
-      await this.auditoria.append(tx, {
-        eventName: "clientes.client_updated" as NomeDeEventoAuditavel,
-        entityType: "client",
-        entityId: id,
-        actorType: this.actorType(principal),
-        actorId: principal.id,
-        payload: { campos: Object.keys(input) },
-        occurredAt: new Date(),
-      });
-      return client;
-    });
+    const problemas = problemasDaEdicao(atual, input, atual.contacts.length > 0);
+    if (problemas[0]) throw new RequisicaoInvalida(problemas[0].problema, problemas);
 
-    return clientSummarySchema.parse(this.summary(updated));
+    const tipoFinal = input.personType ?? atual.personType;
+    if (input.ownerId) await this.garantirResponsavel(input.ownerId);
+    if (input.document) await this.garantirDocumentoLivre(input.document, tipoFinal, id);
+
+    const atualizado = await this.comUnicidadeDeDocumento(tipoFinal, () =>
+      this.prisma.$transaction(async (tx) => {
+        const cliente = await tx.client.update({
+          where: { id },
+          data: input,
+          include: COM_DONO_E_CONTATOS,
+        });
+        await this.registrar(tx, "clientes.client_updated", "client", id, principal, { campos: camposInformados(input) });
+        return cliente;
+      }),
+    );
+
+    return clientDetailSchema.parse(paraDetalhe(atualizado));
   }
 
-  async activate(id: string, principal: AuthPrincipal): Promise<ClientSummary> {
-    const existing = await this.prisma.client.findUnique({ where: { id } });
-    if (!existing) throw new NotFoundException("client not found");
-
-    if (existing.active) return clientSummarySchema.parse(this.summary(existing));
-
-    const updated = await this.prisma.$transaction(async (tx) => {
-      const client = await tx.client.update({ where: { id }, data: { active: true } });
-      await this.auditoria.append(tx, {
-        eventName: "clientes.client_activated" as NomeDeEventoAuditavel,
-        entityType: "client",
-        entityId: id,
-        actorType: this.actorType(principal),
-        actorId: principal.id,
-        payload: {},
-        occurredAt: new Date(),
-      });
-      return client;
-    });
-
-    return clientSummarySchema.parse(this.summary(updated));
+  async activate(id: string, principal: AuthPrincipal): Promise<ClientDetail> {
+    return this.mudarSituacao(id, true, "clientes.client_activated", principal, {});
   }
 
-  async inactivate(id: string, input: InactivateClientRequest, principal: AuthPrincipal): Promise<ClientSummary> {
-    const existing = await this.prisma.client.findUnique({ where: { id } });
-    if (!existing) throw new NotFoundException("client not found");
-
-    if (!existing.active) return clientSummarySchema.parse(this.summary(existing));
-
-    const updated = await this.prisma.$transaction(async (tx) => {
-      const client = await tx.client.update({ where: { id }, data: { active: false } });
-      await this.auditoria.append(tx, {
-        eventName: "clientes.client_inactivated" as NomeDeEventoAuditavel,
-        entityType: "client",
-        entityId: id,
-        actorType: this.actorType(principal),
-        actorId: principal.id,
-        payload: { campos: input.reason ? ["reason"] : [] },
-        occurredAt: new Date(),
-      });
-      return client;
-    });
-
-    return clientSummarySchema.parse(this.summary(updated));
+  async inactivate(id: string, input: InactivateClientRequest, principal: AuthPrincipal): Promise<ClientDetail> {
+    return this.mudarSituacao(id, false, "clientes.client_inactivated", principal, { campos: input.reason ? ["reason"] : [] });
   }
 
   async duplicateCandidates(query: DuplicateCandidatesQuery): Promise<ClientDuplicateCandidatesResponse> {
-    if (!query.name && !query.phone && !query.email) {
-      throw new BadRequestException("at least one of name, phone or email is required");
+    if (!query.name && !query.document && !query.phone && !query.email) {
+      throw new RequisicaoInvalida("Informe nome, documento, telefone ou e-mail.");
     }
-    const rows = await this.findDuplicateRows(query);
-    return clientDuplicateCandidatesResponseSchema.parse({
-      mode: "mock",
-      candidates: rows.map(([row, matchedOn]) => this.duplicateCandidate(row, matchedOn)),
-    });
+    const candidatos = await this.candidatosADuplicata(query);
+    return clientDuplicateCandidatesResponseSchema.parse({ candidates: candidatos });
   }
 
-  async ficha(id: string): Promise<ClientFicha> {
-    const client = await this.prisma.client.findUnique({
-      where: { id },
-      include: {
-        opportunities: { include: { contacts: { orderBy: { createdAt: "desc" } } }, orderBy: { createdAt: "desc" } },
-        contracts: { orderBy: { createdAt: "desc" } },
-      },
+  async owners(): Promise<ClientOwnersResponse> {
+    const usuarios = await this.prisma.user.findMany({
+      where: PODE_SER_RESPONSAVEL,
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
     });
-    if (!client) throw new NotFoundException("client not found");
-
-    const opportunityIds = client.opportunities.map((opportunity) => opportunity.id);
-    const contractIds = client.contracts.map((contract) => contract.id);
-
-    const [pluggamobLink, timelineRows, agentActionRows] = await Promise.all([
-      this.pluggamobLink(client.externalId),
-      this.prisma.eventLog.findMany({
-        where: {
-          OR: [
-            { entityType: "client", entityId: id },
-            ...(opportunityIds.length > 0 ? [{ entityType: "opportunity", entityId: { in: opportunityIds } }] : []),
-            ...(contractIds.length > 0 ? [{ entityType: "contract", entityId: { in: contractIds } }] : []),
-          ],
-        },
-        orderBy: { occurredAt: "desc" },
-        take: 50,
-      }),
-      this.prisma.agentAction.findMany({
-        where: { entityType: "client", entityId: id },
-        orderBy: { createdAt: "desc" },
-        take: 50,
-      }),
-    ]);
-
-    const contacts = client.opportunities.flatMap((opportunity) =>
-      opportunity.contacts.map((contact) => ({
-        id: contact.id,
-        channel: contact.channel,
-        outcome: contact.outcome,
-        note: contact.note,
-        createdAt: contact.createdAt.toISOString(),
-        opportunityId: opportunity.id,
-        opportunityTitle: opportunity.title,
-      })),
-    );
-    contacts.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
-
-    return clientFichaSchema.parse({
-      mode: "mock",
-      resumo: this.summary(client),
-      contatos: contacts,
-      oportunidades: client.opportunities.map((opportunity) => ({
-        id: opportunity.id,
-        title: opportunity.title,
-        product: opportunity.product,
-        stage: opportunity.stage,
-        status: opportunity.status,
-        estimatedValue: opportunity.estimatedValue?.toFixed(2) ?? null,
-        nextActionAt: opportunity.nextActionAt?.toISOString() ?? null,
-      })),
-      contratos: client.contracts.map((contract) => ({
-        id: contract.id,
-        status: contract.status,
-        startsAt: contract.startsAt?.toISOString() ?? null,
-        endsAt: contract.endsAt?.toISOString() ?? null,
-        signedAt: contract.signedAt?.toISOString() ?? null,
-      })),
-      energiaOpm: { available: false, reason: "Energia & OPM ainda não tem modelo de domínio implementado neste bloco." },
-      pluggamob: pluggamobLink,
-      financeiro: { status: "em_breve", message: "Financeiro do cliente ainda não foi implementado neste bloco." },
-      documentos: { status: "em_breve", message: "Documentos do cliente ainda não foi implementado neste bloco." },
-      timeline: timelineRows.map((row) => ({
-        id: row.id,
-        eventName: row.eventName,
-        entityType: row.entityType,
-        entityId: row.entityId,
-        actorType: row.actorType,
-        occurredAt: row.occurredAt.toISOString(),
-      })),
-      acoesDoAgente: agentActionRows.map((row) => ({
-        id: row.id,
-        agent: row.agent,
-        action: row.action,
-        decision: row.decision,
-        status: row.status,
-        createdAt: row.createdAt.toISOString(),
-      })),
-    });
+    return clientOwnersResponseSchema.parse({ items: usuarios });
   }
 
-  private async pluggamobLink(externalId: string | null): Promise<ClientFicha["pluggamob"]> {
-    if (!externalId) {
-      return { available: false, reason: "Cliente sem externalId cadastrado — sem vínculo PluggaMob." };
-    }
-    const evUser = await this.prisma.evUser.findUnique({ where: { externalId } });
-    if (!evUser) {
-      return { available: false, reason: "Nenhum usuário PluggaMob (EV Point) encontrado para este externalId." };
-    }
-    return {
-      available: true,
-      externalId: evUser.externalId,
-      segment: evUser.segment,
-      walletBalance: evUser.walletBalance?.toFixed(2) ?? null,
-      lastSessionAt: evUser.lastSessionAt?.toISOString() ?? null,
-      phoneMasked: evUser.phoneMasked,
-    };
+  async addContact(clientId: string, input: ClientContactInput, principal: AuthPrincipal): Promise<ClientDetail> {
+    const cliente = await this.prisma.client.findUnique({
+      where: { id: clientId },
+      select: { personType: true, _count: { select: { contacts: true } } },
+    });
+    if (!cliente) throw new NaoEncontrado("Cliente não encontrado.");
+    if (cliente.personType !== "pj") throw new RequisicaoInvalida("Contatos são só de cliente pessoa jurídica.");
+
+    // O primeiro contato é o principal; marcar outro como principal desmarca o anterior.
+    const seraPrincipal = input.isPrimary === true || cliente._count.contacts === 0;
+    await this.prisma.$transaction(async (tx) => {
+      if (seraPrincipal) await tx.clientContact.updateMany({ where: { clientId, isPrimary: true }, data: { isPrimary: false } });
+      const contato = await tx.clientContact.create({ data: { ...input, clientId, isPrimary: seraPrincipal } });
+      await this.registrar(tx, "clientes.contact.added", "client_contact", contato.id, principal, {
+        clientId,
+        campos: camposInformados(input),
+      });
+    });
+    return this.get(clientId);
   }
 
-  /** Bounded, dependency-free duplicate lookup: a small candidate set from a loose SQL prefilter, narrowed by exact normalized comparison in-process. */
-  private async findDuplicateRows(input: { name?: string; phone?: string; email?: string }): Promise<Array<[ClientRow, ClientDuplicateCandidate["matchedOn"]]>> {
-    const digitsPhone = input.phone ? onlyDigits(input.phone) : null;
-    const emailLower = input.email?.trim().toLowerCase() ?? null;
-    const nameNorm = input.name ? normalizeName(input.name) : null;
-    const nameToken = nameNorm ? nameNorm.split(" ")[0] : null;
+  async updateContact(clientId: string, contactId: string, input: UpdateClientContactRequest, principal: AuthPrincipal): Promise<ClientDetail> {
+    const contato = await this.prisma.clientContact.findFirst({ where: { id: contactId, clientId }, select: { id: true } });
+    if (!contato) throw new NaoEncontrado("Contato não encontrado.");
 
-    const or: Prisma.ClientWhereInput[] = [];
-    if (emailLower) or.push({ email: { equals: emailLower, mode: "insensitive" } });
-    // -4, não -8: num telefone formatado ("90000-0000") os 8 últimos incluem o
-    // hífen e o contains nunca casa; só os 4 finais são contíguos em qualquer
-    // formatação brasileira. O pós-filtro por só-dígitos abaixo decide.
-    if (digitsPhone && digitsPhone.length >= 6) or.push({ phone: { contains: digitsPhone.slice(-4) } });
-    if (nameToken && nameToken.length >= 3) or.push({ name: { contains: nameToken, mode: "insensitive" } });
-    if (or.length === 0) return [];
-
-    // take maior porque o prefiltro de telefone ficou mais largo com 4 dígitos.
-    const rows = await this.prisma.client.findMany({ where: { OR: or }, take: 50 });
-
-    const results: Array<[ClientRow, ClientDuplicateCandidate["matchedOn"]]> = [];
-    for (const row of rows) {
-      const matchedOn: ClientDuplicateCandidate["matchedOn"] = [];
-      if (emailLower && row.email?.toLowerCase() === emailLower) matchedOn.push("email");
-      if (digitsPhone && row.phone && onlyDigits(row.phone) === digitsPhone) matchedOn.push("phone");
-      if (nameNorm) {
-        const rowNameNorm = normalizeName(row.name);
-        if (rowNameNorm === nameNorm || rowNameNorm.includes(nameNorm) || nameNorm.includes(rowNameNorm)) matchedOn.push("name");
+    await this.prisma.$transaction(async (tx) => {
+      if (input.isPrimary === true) {
+        await tx.clientContact.updateMany({ where: { clientId, isPrimary: true, NOT: { id: contactId } }, data: { isPrimary: false } });
       }
-      if (matchedOn.length > 0) results.push([row, matchedOn]);
+      await tx.clientContact.update({ where: { id: contactId }, data: input });
+      await this.registrar(tx, "clientes.contact.updated", "client_contact", contactId, principal, {
+        clientId,
+        campos: camposInformados(input),
+      });
+    });
+    return this.get(clientId);
+  }
+
+  async removeContact(clientId: string, contactId: string, principal: AuthPrincipal): Promise<ClientDetail> {
+    const contato = await this.prisma.clientContact.findFirst({ where: { id: contactId, clientId }, select: { isPrimary: true } });
+    if (!contato) throw new NaoEncontrado("Contato não encontrado.");
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.clientContact.delete({ where: { id: contactId } });
+      // Sem o principal, o contato mais antigo assume, para o cliente não ficar sem referência.
+      if (contato.isPrimary) {
+        const proximo = await tx.clientContact.findFirst({ where: { clientId }, orderBy: { createdAt: "asc" }, select: { id: true } });
+        if (proximo) await tx.clientContact.update({ where: { id: proximo.id }, data: { isPrimary: true } });
+      }
+      await this.registrar(tx, "clientes.contact.removed", "client_contact", contactId, principal, { clientId });
+    });
+    return this.get(clientId);
+  }
+
+  private async mudarSituacao(
+    id: string,
+    ativo: boolean,
+    evento: string,
+    principal: AuthPrincipal,
+    payload: Record<string, unknown>,
+  ): Promise<ClientDetail> {
+    const existente = await this.prisma.client.findUnique({ where: { id }, select: { active: true } });
+    if (!existente) throw new NaoEncontrado("Cliente não encontrado.");
+    if (existente.active !== ativo) {
+      await this.prisma.$transaction(async (tx) => {
+        await tx.client.update({ where: { id }, data: { active: ativo } });
+        await this.registrar(tx, evento, "client", id, principal, payload);
+      });
     }
-    return results;
+    return this.get(id);
   }
 
-  private duplicateCandidate(row: ClientRow, matchedOn: ClientDuplicateCandidate["matchedOn"]): ClientDuplicateCandidate {
-    return { ...this.summary(row), matchedOn };
+  private async garantirResponsavel(userId: string): Promise<void> {
+    const usuario = await this.prisma.user.findFirst({ where: { ...PODE_SER_RESPONSAVEL, id: userId }, select: { id: true } });
+    if (!usuario) throw new RequisicaoInvalida("O responsável precisa ser do CRM (ou admin).");
   }
 
-  private summary(row: ClientRow): ClientSummary {
-    return {
-      id: row.id,
-      name: row.name,
-      company: row.company,
-      phone: row.phone,
-      email: row.email,
-      externalId: row.externalId,
-      segment: row.segment as ClientSummary["segment"],
-      active: row.active,
-      createdAt: row.createdAt.toISOString(),
-      updatedAt: row.updatedAt.toISOString(),
-    };
+  private async garantirDocumentoLivre(document: string, personType: ClientPersonType, excetoId?: string): Promise<void> {
+    const existente = await this.prisma.client.findUnique({ where: { document }, select: { id: true } });
+    if (existente && existente.id !== excetoId) throw new Conflito(mensagemDeDocumentoRepetido(personType));
+  }
+
+  /** Duas gravações simultâneas do mesmo documento: o índice único decide e a segunda vira 409. */
+  private async comUnicidadeDeDocumento<T>(personType: ClientPersonType, gravar: () => Promise<T>): Promise<T> {
+    try {
+      return await gravar();
+    } catch (erro) {
+      if (erro instanceof Prisma.PrismaClientKnownRequestError && erro.code === "P2002") {
+        throw new Conflito(mensagemDeDocumentoRepetido(personType));
+      }
+      throw erro;
+    }
+  }
+
+  /**
+   * Prefiltro largo no SQL e comparação exata em memória, como antes: documento
+   * igual bloqueia (quem chama decide); telefone, e-mail ou nome parecido avisam.
+   * Telefone e e-mail também casam com os contatos de outros clientes.
+   */
+  private async candidatosADuplicata(entrada: DuplicateCandidatesQuery): Promise<ClientDuplicateCandidate[]> {
+    const documento = entrada.document ? somenteDigitos(entrada.document) : null;
+    const telefone = entrada.phone ? telefoneNacional(entrada.phone) : null;
+    const email = entrada.email?.trim().toLowerCase() || null;
+    const nome = entrada.name ? normalizeName(entrada.name) : null;
+    const primeiraPalavra = nome?.split(" ")[0] ?? null;
+
+    const ou: Prisma.ClientWhereInput[] = [];
+    if (documento && documento.length >= 11) ou.push({ document: documento });
+    if (email) {
+      ou.push({ email: { equals: email, mode: "insensitive" } }, { contacts: { some: { email: { equals: email, mode: "insensitive" } } } });
+    }
+    // Só os 4 finais: são contíguos em qualquer formatação; a comparação exata vem depois.
+    if (telefone && telefone.length >= 8) {
+      ou.push({ phone: { contains: telefone.slice(-4) } }, { contacts: { some: { phone: { contains: telefone.slice(-4) } } } });
+    }
+    if (primeiraPalavra && primeiraPalavra.length >= 3) ou.push({ name: { contains: primeiraPalavra, mode: "insensitive" } });
+    if (ou.length === 0) return [];
+
+    const linhas = await this.prisma.client.findMany({
+      where: { OR: ou, ...(entrada.excludeId ? { id: { not: entrada.excludeId } } : {}) },
+      take: 50,
+      select: { id: true, name: true, personType: true, document: true, phone: true, email: true, contacts: { select: { phone: true, email: true } } },
+    });
+
+    const candidatos: ClientDuplicateCandidate[] = [];
+    for (const linha of linhas) {
+      const telefones = [linha.phone, ...linha.contacts.map((c) => c.phone)].filter((t): t is string => !!t);
+      const emails = [linha.email, ...linha.contacts.map((c) => c.email)].filter((e): e is string => !!e).map((e) => e.toLowerCase());
+      const motivos: ClientDuplicateCandidate["matchedOn"] = [];
+      if (documento && linha.document === documento) motivos.push("document");
+      if (telefone && telefones.some((t) => telefoneNacional(t) === telefone)) motivos.push("phone");
+      if (email && emails.includes(email)) motivos.push("email");
+      if (nome) {
+        const nomeDaLinha = normalizeName(linha.name);
+        if (nomeDaLinha === nome || nomeDaLinha.includes(nome) || nome.includes(nomeDaLinha)) motivos.push("name");
+      }
+      if (motivos.length > 0) candidatos.push({ id: linha.id, name: linha.name, personType: linha.personType, matchedOn: motivos });
+    }
+    return candidatos.sort((a, b) => Number(b.matchedOn.includes("document")) - Number(a.matchedOn.includes("document")));
+  }
+
+  private registrar(
+    tx: Prisma.TransactionClient,
+    evento: string,
+    entityType: string,
+    entityId: string,
+    principal: AuthPrincipal,
+    payload: Record<string, unknown>,
+  ): Promise<void> {
+    return this.auditoria.append(tx, {
+      eventName: evento as NomeDeEventoAuditavel,
+      entityType,
+      entityId,
+      actorType: this.actorType(principal),
+      actorId: principal.id,
+      payload,
+      occurredAt: new Date(),
+    });
   }
 
   private actorType(principal: AuthPrincipal): ActorType {

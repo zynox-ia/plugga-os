@@ -11,7 +11,6 @@ import {
   postGoogle,
   type GoogleHarness,
 } from "./support/google-auth-harness";
-import { access } from "./support/in-memory-auth";
 
 /**
  * Arquivo separado de propósito: o ambiente validado do ConfigModule é
@@ -36,7 +35,7 @@ describe("google login API with the feature flag off", () => {
     await harness.store.addUser({
       email: "pessoa@gmail.com",
       name: "Pessoa",
-      access: access({ platformRoles: ["admin"] }),
+      acesso: { plataforma: "admin", departamentos: [] },
     });
 
     const response = await postGoogle(harness.app).expect(403);
@@ -52,7 +51,7 @@ describe("google login API with the feature flag off", () => {
       email: "senha@plugga.local",
       name: "Senha",
       password: "correct horse battery staple",
-      access: access({ platformRoles: ["admin"] }),
+      acesso: { plataforma: "admin", departamentos: [] },
     });
 
     await request(harness.app.getHttpServer())

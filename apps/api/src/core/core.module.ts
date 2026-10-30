@@ -9,10 +9,9 @@ import { SessionAuthGuard } from "./auth/session-auth.guard";
 import { DevHeaderAuthContext } from "./auth/dev-header-auth-context";
 import { NullSessionCache } from "./auth/null-session-cache";
 import { OriginCheckGuard } from "./auth/origin-check.guard";
-import { PermissionsGuard } from "./auth/permissions.guard";
 import { PrismaSessionLookupRepository } from "./auth/prisma-session-lookup.repository";
 import { RedisSessionCache } from "./auth/redis-session-cache";
-import { RolesGuard } from "./auth/roles.guard";
+import { AcessoGuard } from "./auth/acesso.guard";
 import { RotaFechadaGuard } from "./auth/rota-fechada.guard";
 import { SessionAuthContext } from "./auth/session-auth-context";
 import { SessionCache } from "./auth/session-cache";
@@ -61,8 +60,7 @@ import { SessionLookupRepository } from "./auth/session-lookup.repository";
       inject: [ConfigService, SessionAuthContext, DevHeaderAuthContext],
     },
     SessionAuthGuard,
-    RolesGuard,
-    PermissionsGuard,
+    AcessoGuard,
     // Cross-cutting CSRF defense: shared by every module with mutating routes.
     OriginCheckGuard,
     // Guard global: rota sem declaração de acesso (modo warn registra, enforce nega).
@@ -71,8 +69,7 @@ import { SessionLookupRepository } from "./auth/session-lookup.repository";
   exports: [
     AuthContext,
     SessionAuthGuard,
-    RolesGuard,
-    PermissionsGuard,
+    AcessoGuard,
     OriginCheckGuard,
     SessionLookupRepository,
     SessionCache,

@@ -2,6 +2,7 @@ import { Body, Controller, Get, HttpCode, Inject, Param, ParseUUIDPipe, Post, Qu
 import { ThrottlerGuard } from "@nestjs/throttler";
 import {
   contractListQuerySchema,
+  telasPorDepartamento,
   createContractRequestSchema,
   createOpportunityRequestSchema,
   loseOpportunityRequestSchema,
@@ -32,25 +33,22 @@ import type { AuthPrincipal } from "../core/auth/auth.types";
 import { CurrentPrincipal } from "../core/auth/current-principal.decorator";
 import { SessionAuthGuard } from "../core/auth/session-auth.guard";
 import { OriginCheckGuard } from "../core/auth/origin-check.guard";
-import { Roles } from "../core/auth/roles.decorator";
-import { RolesGuard } from "../core/auth/roles.guard";
+import { Departamento, Tela } from "../core/auth/acesso.decorator";
+import { AcessoGuard } from "../core/auth/acesso.guard";
 import { CommercialService } from "./commercial.service";
 
 /**
- * Contracts have no finer-grained role decision yet (spec §"Limites"), so they
- * intentionally share the opportunities mutation roles below rather than
- * inventing a new role. Revisit once RBAC for contracts is decided.
+ * Oportunidades e contratos: o CRM opera; o Financeiro só lê (contratos
+ * alimentam o faturamento).
  */
-const READ_ROLES = ["comercial", "admin", "diretoria", "financeiro", "tech", "viewer"] as const;
-const MUTATE_ROLES = ["comercial", "admin"] as const;
-
 @Controller("commercial")
-@UseGuards(SessionAuthGuard, RolesGuard)
-@Roles(...READ_ROLES)
+@UseGuards(SessionAuthGuard, AcessoGuard)
+@Departamento(["crm", "financeiro"])
 export class CommercialController {
   constructor(@Inject(CommercialService) private readonly service: CommercialService) {}
 
   @Get("opportunities")
+  @Tela("crm.pipelines", ...telasPorDepartamento.financeiro)
   listOpportunities(
     @Query(new ZodValidationPipe(opportunityListQuerySchema)) query: OpportunityListQuery,
   ): Promise<OpportunityList> {
@@ -58,14 +56,16 @@ export class CommercialController {
   }
 
   @Get("opportunities/:id")
+  @Tela("crm.pipelines", ...telasPorDepartamento.financeiro)
   opportunity(@Param("id", ParseUUIDPipe) id: string): Promise<OpportunityDetail> {
     return this.service.opportunity(id);
   }
 
   @Post("opportunities")
+  @Tela("crm.pipelines")
   @HttpCode(201)
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
-  @Roles(...MUTATE_ROLES)
+  @Departamento("crm")
   createOpportunity(
     @Body(new ZodValidationPipe(createOpportunityRequestSchema)) input: CreateOpportunityRequest,
     @CurrentPrincipal() principal: AuthPrincipal,
@@ -74,9 +74,10 @@ export class CommercialController {
   }
 
   @Post("opportunities/:id/stage")
+  @Tela("crm.pipelines")
   @HttpCode(200)
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
-  @Roles(...MUTATE_ROLES)
+  @Departamento("crm")
   updateOpportunityStage(
     @Param("id", ParseUUIDPipe) id: string,
     @Body(new ZodValidationPipe(updateOpportunityStageRequestSchema)) input: UpdateOpportunityStageRequest,
@@ -86,9 +87,10 @@ export class CommercialController {
   }
 
   @Post("opportunities/:id/contacts")
+  @Tela("crm.pipelines")
   @HttpCode(200)
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
-  @Roles(...MUTATE_ROLES)
+  @Departamento("crm")
   registerOpportunityContact(
     @Param("id", ParseUUIDPipe) id: string,
     @Body(new ZodValidationPipe(opportunityContactRequestSchema)) input: OpportunityContactRequest,
@@ -98,9 +100,10 @@ export class CommercialController {
   }
 
   @Post("opportunities/:id/win")
+  @Tela("crm.pipelines")
   @HttpCode(200)
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
-  @Roles(...MUTATE_ROLES)
+  @Departamento("crm")
   winOpportunity(
     @Param("id", ParseUUIDPipe) id: string,
     @Body(new ZodValidationPipe(winOpportunityRequestSchema)) input: WinOpportunityRequest,
@@ -110,9 +113,10 @@ export class CommercialController {
   }
 
   @Post("opportunities/:id/lose")
+  @Tela("crm.pipelines")
   @HttpCode(200)
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
-  @Roles(...MUTATE_ROLES)
+  @Departamento("crm")
   loseOpportunity(
     @Param("id", ParseUUIDPipe) id: string,
     @Body(new ZodValidationPipe(loseOpportunityRequestSchema)) input: LoseOpportunityRequest,
@@ -122,9 +126,10 @@ export class CommercialController {
   }
 
   @Post("opportunities/:id/revisit")
+  @Tela("crm.pipelines")
   @HttpCode(200)
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
-  @Roles(...MUTATE_ROLES)
+  @Departamento("crm")
   revisitOpportunity(
     @Param("id", ParseUUIDPipe) id: string,
     @Body(new ZodValidationPipe(revisitOpportunityRequestSchema)) input: RevisitOpportunityRequest,
@@ -134,6 +139,7 @@ export class CommercialController {
   }
 
   @Get("contracts")
+  @Tela("crm.contratos", ...telasPorDepartamento.financeiro)
   listContracts(
     @Query(new ZodValidationPipe(contractListQuerySchema)) query: ContractListQuery,
   ): Promise<ContractList> {
@@ -141,14 +147,16 @@ export class CommercialController {
   }
 
   @Get("contracts/:id")
+  @Tela("crm.contratos", ...telasPorDepartamento.financeiro)
   contract(@Param("id", ParseUUIDPipe) id: string): Promise<ContractDetail> {
     return this.service.contract(id);
   }
 
   @Post("contracts")
+  @Tela("crm.contratos")
   @HttpCode(201)
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
-  @Roles(...MUTATE_ROLES)
+  @Departamento("crm")
   createContract(
     @Body(new ZodValidationPipe(createContractRequestSchema)) input: CreateContractRequest,
     @CurrentPrincipal() principal: AuthPrincipal,
@@ -157,9 +165,10 @@ export class CommercialController {
   }
 
   @Post("contracts/:id/status")
+  @Tela("crm.contratos")
   @HttpCode(200)
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
-  @Roles(...MUTATE_ROLES)
+  @Departamento("crm")
   updateContractStatus(
     @Param("id", ParseUUIDPipe) id: string,
     @Body(new ZodValidationPipe(updateContractStatusRequestSchema)) input: UpdateContractStatusRequest,

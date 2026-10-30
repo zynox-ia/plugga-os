@@ -162,12 +162,12 @@ test.describe("Login Google — volta do callback", () => {
   test("o destino profundo guardado antes da ida é restaurado", async ({ page }) => {
     await page.goto("/");
     await page.evaluate(() =>
-      window.sessionStorage.setItem("plugga.googleRedirectTo", "/energia-opm/ciclos"),
+      window.sessionStorage.setItem("plugga.googleRedirectTo", "/clientes"),
     );
 
     await page.goto("/auth/google/complete");
 
-    await page.waitForURL((url) => url.pathname === "/energia-opm/ciclos");
+    await page.waitForURL((url) => url.pathname === "/clientes");
     // Consumido: um segundo login não pode herdar o destino do anterior.
     const restante = await page.evaluate(() =>
       window.sessionStorage.getItem("plugga.googleRedirectTo"),

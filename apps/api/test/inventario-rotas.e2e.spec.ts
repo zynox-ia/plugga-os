@@ -9,10 +9,10 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { AppModule } from "../src/app.module";
 import { listarRotas, type RotaDoInventario } from "../src/core/auth/inventario-rotas";
 
-const ARQUIVO = path.resolve(__dirname, "../../../specs/002-fundacao-solida/contracts/inventario-rotas.json");
+const ARQUIVO = path.resolve(__dirname, "fixtures/inventario-rotas.json");
 
 /**
- * Inventário de rotas (spec 002, US5, FR-020/021/023). Sobe a aplicação, lista
+ * Inventário de rotas. Sobe a aplicação, lista
  * toda rota HTTP com como ela declara o acesso e compara com o arquivo
  * versionado. Rota nova ou alterada faz o teste falhar até o arquivo ser
  * regenerado e revisado (CODEOWNERS cobre o arquivo):
@@ -35,16 +35,25 @@ describe("inventário de rotas (e2e)", () => {
   });
 
   it("encontra as rotas e não repete método e caminho", () => {
-    expect(rotas.length).toBeGreaterThan(100);
+    expect(rotas.length).toBeGreaterThan(50);
     const chaves = rotas.map((r) => `${r.metodo} ${r.caminho}`);
     expect(new Set(chaves).size).toBe(chaves.length);
   });
 
   it("cada rota tem um acesso do conjunto conhecido", () => {
     for (const r of rotas) {
-      expect(["public", "authenticated", "roles", "permissions", "undeclared"], `${r.metodo} ${r.caminho}`).toContain(
-        r.acesso,
-      );
+      expect(
+        ["public", "authenticated", "acesso", "undeclared"],
+        `${r.metodo} ${r.caminho}`,
+      ).toContain(r.acesso);
+    }
+  });
+
+  it("toda rota com @Departamento ou @Plataforma passa pelo AcessoGuard, que é quem as aplica", () => {
+    // Sem o guard, a declaração existiria só no papel e a rota ficaria aberta a
+    // qualquer pessoa logada.
+    for (const r of rotas.filter((rota) => rota.acesso === "acesso")) {
+      expect(r.guards, `${r.metodo} ${r.caminho} (${r.controller})`).toContain("AcessoGuard");
     }
   });
 

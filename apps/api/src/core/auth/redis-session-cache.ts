@@ -4,8 +4,10 @@ import { Redis } from "ioredis";
 import { SessionCache, type SessionCacheEntry } from "./session-cache";
 import { abrirEntrada, selarEntrada } from "./session-cache-hmac";
 
-const KEY_PREFIX = "session:v1:principal:";
-const INDEX_PREFIX = "session:v1:by-user:";
+// v3: a entrada leva só `acesso` (modelo de 4 papéis). Trocar o prefixo faz as
+// entradas de formatos anteriores simplesmente não serem lidas.
+const KEY_PREFIX = "session:v3:principal:";
+const INDEX_PREFIX = "session:v3:by-user:";
 /** Folga sobre o TTL da entrada, para o índice por usuário nunca expirar antes dela. */
 const INDEX_TTL_SLACK_SECONDS = 30;
 

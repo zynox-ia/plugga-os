@@ -80,14 +80,14 @@ test("não imprime o valor no relatório", () => {
   assert.ok(!texto.toLowerCase().includes("fulano"));
 });
 
-test("acusa UC ou CNPJ em .md de specs/ e docs/", () => {
+test("acusa UC ou CNPJ em arquivos Markdown", () => {
   const cnpj = documentoForaDaFaixa("cnpj");
   const r = varreArquivos(
-    { "specs/002/relatorio.md": `A unidade UC-${"12"}${"34567"} consome`, "docs/x.md": `CNPJ ${cnpj}` },
+    { "docs/relatorio.md": `A unidade UC-${"12"}${"34567"} consome`, "docs/x.md": `CNPJ ${cnpj}` },
     opcoes,
   );
   assert.deepEqual(r.map((o) => [o.arquivo, o.tipo]), [
-    ["specs/002/relatorio.md", "unidade-consumidora"],
+    ["docs/relatorio.md", "unidade-consumidora"],
     ["docs/x.md", "cnpj"],
   ]);
 });

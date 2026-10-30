@@ -55,7 +55,7 @@ describe.skipIf(!HABILITADO)("comercial: ganhar oportunidade é atômico", () =>
   const prisma = new PrismaService();
   const repositorio = new PrismaCommercialRepository(prisma, new AuditAppender());
   const marca = `atom-com-${randomUUID().slice(0, 8)}`;
-  const principal: AuthPrincipal = { id: randomUUID(), kind: "user", roles: ["comercial"] };
+  const principal: AuthPrincipal = { id: randomUUID(), kind: "user", acesso: { plataforma: null, departamentos: [{ departamento: "crm", nivel: "membro" }] } };
   const oportunidades: string[] = [];
 
   async function novaOportunidade(extra: { status?: "aberta" | "perdida" } = {}): Promise<string> {

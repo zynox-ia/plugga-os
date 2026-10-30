@@ -1,15 +1,15 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
 import {
-  AuditRepository,
+  AuditPort,
   type AgentActionAppend,
   type EventAppend,
   type StoredAgentAction,
-} from "../../audit/audit.repository";
+} from "../../audit/audit.port";
 import type { AuthPrincipal } from "../../core/auth/auth.types";
 import { WhatsappService } from "./whatsapp.service";
 
-class AuditSpy extends AuditRepository {
+class AuditSpy extends AuditPort {
   calls: Array<{ action?: AgentActionAppend; event: EventAppend }> = [];
 
   async appendEvent(event: EventAppend): Promise<void> {
@@ -29,7 +29,7 @@ class AuditSpy extends AuditRepository {
 const principal: AuthPrincipal = {
   id: "service:unit-test",
   kind: "service",
-  roles: ["tech"],
+  acesso: { plataforma: "desenvolvedor", departamentos: [] },
 };
 
 describe("WhatsappService", () => {
@@ -90,7 +90,7 @@ describe("WhatsappService", () => {
         optedOut: false,
         content: { kind: "text", text: "teste local" },
       },
-      { id: "local-admin", kind: "user", roles: ["admin"] },
+      { id: "local-admin", kind: "user", acesso: { plataforma: "admin", departamentos: [] } },
     );
 
     expect(result.simulated).toBe(true);

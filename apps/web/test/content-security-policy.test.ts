@@ -46,9 +46,10 @@ describe("buildContentSecurityPolicy", () => {
     assert.ok(csp.includes("frame-ancestors 'none'"));
   });
 
-  it("preserva as origens externas necessárias (Google Identity, jsDelivr do UnicornStudio)", () => {
+  it("preserva o Google Identity e não autoriza mais jsDelivr nem UnicornStudio", () => {
     const csp = buildContentSecurityPolicy("n", true);
     assert.ok(csp.includes("https://accounts.google.com"));
-    assert.ok(csp.includes("https://cdn.jsdelivr.net"));
+    assert.ok(!csp.includes("cdn.jsdelivr.net"));
+    assert.ok(!csp.includes("unicorn.studio"));
   });
 });

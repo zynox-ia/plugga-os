@@ -12,6 +12,7 @@ import {
   type StoredJobRunInventoryItem,
 } from "../src/jobs/jobs.repository";
 
+// @ts-expect-error dublê parcial: não implementa todos os membros do repositório real (dívida registrada na T183)
 class InMemoryIntegrationsRepository extends IntegrationsRepository {
   async findAll(): Promise<StoredIntegrationSummary[]> {
     return [
@@ -95,7 +96,7 @@ describe("read-only inventory API (e2e)", () => {
     await request(app.getHttpServer())
       .get("/integrations")
       .set("x-dev-principal", "local-viewer")
-      .set("x-dev-roles", "viewer")
+      .set("x-dev-departamentos", "crm:membro")
       .expect(403);
   });
 
@@ -103,7 +104,7 @@ describe("read-only inventory API (e2e)", () => {
     await request(app.getHttpServer())
       .get("/integrations")
       .set("x-dev-principal", "local-tech")
-      .set("x-dev-roles", "tech")
+      .set("x-dev-plataforma", "desenvolvedor")
       .expect(200, {
         items: [
           {
@@ -129,7 +130,7 @@ describe("read-only inventory API (e2e)", () => {
     await request(app.getHttpServer())
       .get("/email/status")
       .set("x-dev-principal", "local-viewer")
-      .set("x-dev-roles", "viewer")
+      .set("x-dev-departamentos", "crm:membro")
       .expect(403);
   });
 
@@ -137,7 +138,7 @@ describe("read-only inventory API (e2e)", () => {
     await request(app.getHttpServer())
       .get("/email/status")
       .set("x-dev-principal", "local-tech")
-      .set("x-dev-roles", "tech")
+      .set("x-dev-plataforma", "desenvolvedor")
       .expect(200, { provider: "brevo", configured: true });
   });
 
@@ -147,7 +148,7 @@ describe("read-only inventory API (e2e)", () => {
     await request(app.getHttpServer())
       .get("/jobs")
       .set("x-dev-principal", "local-viewer")
-      .set("x-dev-roles", "viewer")
+      .set("x-dev-departamentos", "crm:membro")
       .expect(403);
   });
 
@@ -155,7 +156,7 @@ describe("read-only inventory API (e2e)", () => {
     await request(app.getHttpServer())
       .get("/jobs")
       .set("x-dev-principal", "local-tech")
-      .set("x-dev-roles", "tech")
+      .set("x-dev-plataforma", "desenvolvedor")
       .expect(200, {
         inventoryOnly: true,
         items: [

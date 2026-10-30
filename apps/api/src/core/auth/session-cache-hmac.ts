@@ -1,5 +1,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 
+import { acessoSchema } from "@plugga/shared";
+
 import type { SessionCacheEntry } from "./session-cache";
 
 /**
@@ -40,8 +42,8 @@ function entradaBemFormada(valor: unknown): valor is SessionCacheEntry {
     typeof u.email === "string" &&
     typeof u.name === "string" &&
     typeof u.status === "string" &&
-    typeof u.access === "object" &&
-    u.access !== null
+    // O acesso é o que o guard decide; entrada sem ele inteiro não é sessão.
+    acessoSchema.safeParse(u.acesso).success
   );
 }
 

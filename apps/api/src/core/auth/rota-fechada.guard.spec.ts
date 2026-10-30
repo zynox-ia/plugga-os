@@ -3,8 +3,7 @@ import { Reflector } from "@nestjs/core";
 import { describe, expect, it, vi } from "vitest";
 
 import { Authenticated, Public } from "./access.decorators";
-import { Permissions } from "./permissions.decorator";
-import { Roles } from "./roles.decorator";
+import { Departamento, Plataforma } from "./acesso.decorator";
 import { RotaFechadaGuard } from "./rota-fechada.guard";
 
 @Controller("teste")
@@ -12,9 +11,8 @@ class ControladorDeTeste {
   @Get("sem") semDeclaracao(): void {}
   @Get("publica") @Public() publica(): void {}
   @Get("logado") @Authenticated() logado(): void {}
-  @Get("papel") @Roles("admin") comPapel(): void {}
-  @Get("permissao") @Permissions("integrations:read" as never) comPermissao(): void {}
-  @Get("papel-vazio") @Roles() papelVazio(): void {}
+  @Get("papel") @Plataforma("admin") comPapel(): void {}
+  @Get("permissao") @Departamento("crm") comPermissao(): void {}
 }
 
 @Controller("classe")
@@ -58,9 +56,8 @@ describe("RotaFechadaGuard", () => {
     expect(() => guard().canActivate(contexto(ControladorDeTeste, "semDeclaracao"))).toThrow(ForbiddenException);
   });
 
-  it("modo enforce nega rota sem declaração, inclusive @Roles() vazio", () => {
+  it("modo enforce nega rota sem declaração", () => {
     expect(() => guard("enforce").canActivate(contexto(ControladorDeTeste, "semDeclaracao"))).toThrow(ForbiddenException);
-    expect(() => guard("enforce").canActivate(contexto(ControladorDeTeste, "papelVazio"))).toThrow(ForbiddenException);
   });
 
   it("não interfere em contexto que não é HTTP", () => {

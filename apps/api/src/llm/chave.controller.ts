@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -9,14 +8,22 @@ import {
   UseGuards,
 } from "@nestjs/common";
 import { ThrottlerGuard } from "@nestjs/throttler";
+import {
+  entradaDeChaveSchema,
+  type EntradaDeChave,
+  type EstadoDaChave,
+  type EstadoDaChaveComCofre,
+} from "@plugga/shared";
+
+import { ZodValidationPipe } from "../common/zod-validation.pipe";
 
 import type { AuthPrincipal } from "../core/auth/auth.types";
 import { CurrentPrincipal } from "../core/auth/current-principal.decorator";
 import { SessionAuthGuard } from "../core/auth/session-auth.guard";
 import { OriginCheckGuard } from "../core/auth/origin-check.guard";
-import { Roles } from "../core/auth/roles.decorator";
-import { RolesGuard } from "../core/auth/roles.guard";
-import { ChaveDeLlmService, type EstadoDaChave } from "./chave.service.js";
+import { Plataforma } from "../core/auth/acesso.decorator";
+import { AcessoGuard } from "../core/auth/acesso.guard";
+import { ChaveDeLlmService } from "./chave.service.js";
 import { chaveMestraConfigurada } from "./cripto.js";
 
 /**
@@ -31,13 +38,13 @@ import { chaveMestraConfigurada } from "./cripto.js";
  * quatro últimos: é escrita-apenas, e quem esqueceu grava outra.
  */
 @Controller("llm/chave")
-@UseGuards(SessionAuthGuard, RolesGuard)
+@UseGuards(SessionAuthGuard, AcessoGuard)
 export class ChaveController {
   constructor(private readonly chave: ChaveDeLlmService) {}
 
   @Get()
-  @Roles("admin")
-  async estado(): Promise<EstadoDaChave & { cofreConfigurado: boolean }> {
+  @Plataforma("admin")
+  async estado(): Promise<EstadoDaChaveComCofre> {
     // A tela precisa saber se o cofre está pronto antes de oferecer o campo:
     // sem chave-mestra, gravar falharia depois de a pessoa colar a credencial,
     // que é a hora errada de descobrir.
@@ -45,15 +52,12 @@ export class ChaveController {
   }
 
   @Put()
-  @Roles("admin")
+  @Plataforma("admin")
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
   async gravar(
-    @Body("chave") valor: unknown,
+    @Body(new ZodValidationPipe(entradaDeChaveSchema)) { chave: valor }: EntradaDeChave,
     @CurrentPrincipal() quem?: AuthPrincipal,
   ): Promise<EstadoDaChave> {
-    if (typeof valor !== "string" || valor.trim().length < 8) {
-      throw new BadRequestException("informe a chave da OpenRouter");
-    }
     if (!chaveMestraConfigurada()) {
       // 503 e não 500: é configuração de infraestrutura faltando, e a mensagem
       // diz o comando exato em vez de mandar procurar.
@@ -67,7 +71,7 @@ export class ChaveController {
   }
 
   @Delete()
-  @Roles("admin")
+  @Plataforma("admin")
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
   async apagar(@CurrentPrincipal() quem?: AuthPrincipal): Promise<EstadoDaChave> {
     return this.chave.apagar(quem?.id ?? "desconhecido");

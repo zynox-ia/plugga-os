@@ -1,7 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 
 import { EmailPort, type TransactionalEmail } from "./email.port";
-import { maskEmail } from "./email.util";
+import { maskEmail } from "../common/mascara-email";
 
 /**
  * Safe default: records that an email would have been sent, but never sends and

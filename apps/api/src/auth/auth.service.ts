@@ -8,7 +8,6 @@ import {
 import {
   authAcknowledgementSchema,
   eventNames,
-  flattenRoles,
   sessionUserSchema,
   type AcceptInviteRequest,
   type AuthAcknowledgement,
@@ -18,11 +17,11 @@ import {
   type SessionUser,
 } from "@plugga/shared";
 
-import { AuditRepository } from "../audit/audit.repository";
+import { AuditPort } from "../audit/audit.port";
 import type { AuthPrincipal } from "../core/auth/auth.types";
-import { SessionCache, type ResolvedSessionUser } from "../core/auth/session-cache";
+import type { ResolvedSessionUser } from "../core/auth/session-cache";
 import { hashToken } from "../core/auth/token.util";
-import { maskEmail } from "../email/email.util";
+import { maskEmail } from "../common/mascara-email";
 import { AuthRepository } from "./auth.repository";
 import { LimitadorLogin } from "./limitador/limitador-login.service";
 import { PasswordService } from "./password.service";
@@ -41,8 +40,7 @@ export function toSessionUser(user: ResolvedSessionUser): SessionUser {
     email: user.email,
     name: user.name,
     status: user.status,
-    roles: flattenRoles(user.access),
-    access: user.access,
+    acesso: user.acesso,
   });
 }
 
@@ -56,8 +54,7 @@ export class AuthService {
     @Inject(SessionService) private readonly sessions: SessionService,
     @Inject(LimitadorLogin) private readonly limitador: LimitadorLogin,
     @Inject(ResetEmailDispatcher) private readonly resetEmail: ResetEmailDispatcher,
-    @Inject(AuditRepository) private readonly audit: AuditRepository,
-    @Inject(SessionCache) private readonly cache: SessionCache,
+    @Inject(AuditPort) private readonly audit: AuditPort,
   ) {}
 
   async login(input: LoginRequest, context: SessionContext): Promise<LoginResult> {
@@ -107,15 +104,9 @@ export class AuthService {
     return { token, user: toSessionUser(user) };
   }
 
-  /**
-   * `rawToken` é opcional porque o caminho de dev-header (`DEV_AUTH_ENABLED`)
-   * autentica sem cookie de sessão — sem token não há o que cachear, e cai
-   * direto no Postgres como sempre foi.
-   */
-  async me(principal: AuthPrincipal, rawToken?: string): Promise<SessionUser> {
-    const cached = rawToken ? await this.cache.get(hashToken(rawToken)) : null;
-    const user = cached?.user ?? (await this.repository.findUserById(principal.id));
-    if (!user) {
+  async me(principal: AuthPrincipal): Promise<SessionUser> {
+    const user = await this.repository.findUserById(principal.id);
+    if (!user || user.status !== "active") {
       throw new UnauthorizedException("session user no longer exists");
     }
     return toSessionUser(user);
@@ -189,10 +180,8 @@ export class AuthService {
       revokeSessions: true,
     });
 
-    // A transação acima já apagou as sessões do Postgres, mas a entrada no cache
-    // de sessão (Redis, até SESSION_CACHE_TTL_SECONDS) continuaria valendo e a
-    // sessão antiga seguiria entrando até expirar. `revokeAllForUser` também
-    // invalida o cache: a sessão antiga é recusada na hora (US11, T114, SC-014).
+    // Limpa também os snapshots; a recusa já é garantida pelo banco mesmo
+    // quando a invalidação Redis falha ou concorre com uma escrita em voo.
     await this.sessions.revokeAllForUser(token.userId);
 
     await this.audit.appendEvent({

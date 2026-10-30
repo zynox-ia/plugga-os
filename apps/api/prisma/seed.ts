@@ -1,20 +1,16 @@
 import { hash } from '@node-rs/argon2';
 import { PrismaClient } from '@prisma/client';
+import type { Acesso } from '@plugga/shared';
+import { telasPorDepartamento } from '@plugga/shared';
 
 import { argon2Options } from '../src/auth/argon2-options';
 
 const prisma = new PrismaClient();
 
+/** Os dois papéis de plataforma; membro e gerente são por departamento (`user_departamentos`). */
 const roleRows = [
   { key: 'admin', name: 'Administração' },
-  { key: 'diretoria', name: 'Diretoria' },
-  { key: 'comercial', name: 'Comercial' },
-  { key: 'financeiro', name: 'Financeiro' },
-  { key: 'compras', name: 'Compras' },
-  { key: 'pluggamob', name: 'PluggaMob' },
-  { key: 'opm', name: 'OPM' },
-  { key: 'tech', name: 'Tecnologia' },
-  { key: 'viewer', name: 'Leitura' },
+  { key: 'desenvolvedor', name: 'Desenvolvimento' },
 ] as const;
 
 const integrationRows = [
@@ -39,52 +35,38 @@ async function userExists(email: string): Promise<boolean> {
   return user !== null;
 }
 
-type CompanyGrant = {
-  companyId: 'plugga' | 'waze';
-  roles: readonly string[];
-  departments: readonly { id: string; isManager?: boolean }[];
-};
-
 /**
  * Concede acesso a quem acabou de ser criado. Como o resto do seed, só roda no
  * bootstrap da identidade: reconceder a cada `pnpm db:seed` desfaria uma
  * revogação feita pela tela de Equipe — o mesmo problema silencioso que já
- * guarda `status`.
+ * guarda `status`. Desenvolvedor leva também a linha `admin`, que é o que a
+ * regra do último admin conta (como na gravação da API).
  */
-async function grantAccess(
-  userId: string,
-  roleIdByKey: Map<string, string>,
-  grant: { platformRoles?: readonly string[]; companies?: readonly CompanyGrant[] },
-): Promise<void> {
-  for (const key of grant.platformRoles ?? []) {
-    const roleId = roleIdByKey.get(key);
-    if (roleId) {
-      await prisma.userPlatformRole.createMany({ data: [{ userId, roleId }], skipDuplicates: true });
-    }
-  }
+async function grantAccess(userId: string, roleIdByKey: Map<string, string>, acesso: Acesso): Promise<void> {
+  const chaves =
+    acesso.plataforma === 'desenvolvedor' ? ['desenvolvedor', 'admin'] : acesso.plataforma === 'admin' ? ['admin'] : [];
+  await prisma.userPlatformRole.createMany({
+    data: chaves.flatMap((key) => {
+      const roleId = roleIdByKey.get(key);
+      return roleId ? [{ userId, roleId }] : [];
+    }),
+    skipDuplicates: true,
+  });
+  await prisma.userDepartamento.createMany({
+    data: acesso.departamentos.map(({ departamento, nivel, telas }) => ({ userId, departamento, nivel, telas: telas ?? [...telasPorDepartamento[departamento]] })),
+    skipDuplicates: true,
+  });
+}
 
-  for (const company of grant.companies ?? []) {
-    await prisma.userCompanyMembership.createMany({
-      data: [{ userId, companyId: company.companyId }],
-      skipDuplicates: true,
-    });
-    await prisma.userCompanyRole.createMany({
-      data: company.roles.flatMap((key) => {
-        const roleId = roleIdByKey.get(key);
-        return roleId ? [{ userId, companyId: company.companyId, roleId }] : [];
-      }),
-      skipDuplicates: true,
-    });
-    await prisma.userDepartmentAccess.createMany({
-      data: company.departments.map((department) => ({
-        userId,
-        companyId: company.companyId,
-        departmentId: department.id,
-        isManager: department.isManager ?? false,
-      })),
-      skipDuplicates: true,
-    });
-  }
+const ADMIN: Acesso = { plataforma: 'admin', departamentos: [] };
+const DESENVOLVEDOR: Acesso = { plataforma: 'desenvolvedor', departamentos: [] };
+
+function membro(...departamentos: Acesso['departamentos'][number]['departamento'][]): Acesso {
+  return { plataforma: null, departamentos: departamentos.map((departamento) => ({ departamento, nivel: 'membro' })) };
+}
+
+function gerente(departamento: Acesso['departamentos'][number]['departamento']): Acesso {
+  return { plataforma: null, departamentos: [{ departamento, nivel: 'gerente' }] };
 }
 
 async function main() {
@@ -99,7 +81,7 @@ async function main() {
   );
   const roleIdByKey = new Map(roles.map((role) => [role.key, role.id]));
 
-  // Catálogo fixo de empresas: os mesmos ids que a navegação da web usa.
+  // Catálogo fixo de empresas: etiqueta dos registros (obras, pedidos, pipelines).
   await Promise.all(
     companyRows.map((company) =>
       prisma.company.upsert({
@@ -125,7 +107,7 @@ async function main() {
   });
 
   if (!devUserExisted) {
-    await grantAccess(devUser.id, roleIdByKey, { platformRoles: ['admin'] });
+    await grantAccess(devUser.id, roleIdByKey, DESENVOLVEDOR);
   }
 
   // Real self-hosted admin for local login (ADR-0008). Password comes only from
@@ -141,10 +123,9 @@ async function main() {
     create: { email: adminEmail, name: 'Administração Local', status: 'active' },
   });
 
-  // Admin é papel de plataforma: alcança Plugga e Waze sem membership nenhum,
-  // porque o alcance dele é regra, não concessão.
+  // Admin é papel de plataforma: alcança todos os departamentos por regra, sem linha nenhuma.
   if (!adminUserExisted) {
-    await grantAccess(adminUser.id, roleIdByKey, { platformRoles: ['admin'] });
+    await grantAccess(adminUser.id, roleIdByKey, ADMIN);
   }
 
   if (adminPassword) {
@@ -160,106 +141,27 @@ async function main() {
     );
   }
 
-  // Equipe de exemplo: as quatro formas de acesso que a autorização precisa
-  // distinguir, para conferir a regra logando em vez de lendo o código.
+  // Equipe de exemplo: um caso de cada papel, para conferir a regra logando em
+  // vez de lendo o código — desenvolvedor, gerentes (Energia, Financeiro) e
+  // membros (CRM, Financeiro, Suprimentos); o admin é a conta acima.
   //
   // Fica atrás de SEED_SAMPLE_TEAM porque cria contas que fazem login com a
   // MESMA senha local do admin: útil na máquina de quem desenvolve, inaceitável
   // em qualquer ambiente que não seja o seu. Sem a variável, nada é criado.
   if (process.env.SEED_SAMPLE_TEAM === 'true' && adminPassword) {
-    const sampleTeam = [
-      {
-        email: 'financeiro.plugga@plugga.local',
-        name: 'Financeiro Plugga (exemplo)',
-        grant: {
-          companies: [
-            {
-              companyId: 'plugga' as const,
-              roles: ['financeiro'],
-              departments: [{ id: 'financeiro' }],
-            },
-          ],
-        },
-      },
-      {
-        email: 'gestor.energia@plugga.local',
-        name: 'Gestor de Energia (exemplo)',
-        grant: {
-          companies: [
-            {
-              companyId: 'plugga' as const,
-              roles: ['opm'],
-              departments: [{ id: 'energia-opm', isManager: true }],
-            },
-          ],
-        },
-      },
-      // Duas pessoas em Compras, não uma. A segregação de função do
+    const sampleTeam: { email: string; name: string; acesso: Acesso }[] = [
+      { email: 'desenvolvimento@plugga.local', name: 'Desenvolvimento (exemplo)', acesso: DESENVOLVEDOR },
+      { email: 'gestor.energia@plugga.local', name: 'Gerente de Energia (exemplo)', acesso: gerente('energia-opm') },
+      { email: 'gerente.financeiro@plugga.local', name: 'Gerente do Financeiro (exemplo)', acesso: gerente('financeiro') },
+      { email: 'financeiro.plugga@plugga.local', name: 'Financeiro (exemplo)', acesso: membro('financeiro') },
+      // Duas pessoas em Suprimentos, não uma. A segregação de função do
       // POP-COMP-001 §1 exige que quem seleciona a cotação não seja quem aprova
       // nem quem confirma o recebimento — com um comprador só, o caminho
-      // externo do POP não fecha sem dispensa da diretoria a cada pedido.
-      {
-        email: 'compras.plugga@plugga.local',
-        name: 'Responsável de Compras (exemplo)',
-        grant: {
-          companies: [
-            {
-              companyId: 'plugga' as const,
-              roles: ['compras'],
-              departments: [{ id: 'financeiro' }],
-            },
-          ],
-        },
-      },
-      {
-        email: 'compras2.plugga@plugga.local',
-        name: 'Compras · segunda pessoa (exemplo)',
-        grant: {
-          companies: [
-            {
-              companyId: 'plugga' as const,
-              roles: ['compras'],
-              departments: [{ id: 'financeiro' }],
-            },
-          ],
-        },
-      },
-      {
-        email: 'diretoria@plugga.local',
-        name: 'Diretoria (exemplo)',
-        grant: {
-          companies: [
-            {
-              companyId: 'plugga' as const,
-              roles: ['diretoria'],
-              departments: [{ id: 'financeiro' }],
-            },
-            {
-              companyId: 'waze' as const,
-              roles: ['diretoria'],
-              departments: [{ id: 'financeiro' }],
-            },
-          ],
-        },
-      },
-      {
-        email: 'duas.empresas@plugga.local',
-        name: 'Acesso nas duas empresas (exemplo)',
-        grant: {
-          companies: [
-            {
-              companyId: 'plugga' as const,
-              roles: ['comercial'],
-              departments: [{ id: 'comercial-clientes' }],
-            },
-            {
-              companyId: 'waze' as const,
-              roles: ['viewer'],
-              departments: [{ id: 'engenharia-obras' }],
-            },
-          ],
-        },
-      },
+      // externo do POP não fecha sem dispensa do admin a cada pedido.
+      { email: 'compras.plugga@plugga.local', name: 'Responsável de Compras (exemplo)', acesso: membro('suprimentos') },
+      { email: 'compras2.plugga@plugga.local', name: 'Compras · segunda pessoa (exemplo)', acesso: membro('suprimentos') },
+      // Alguém do CRM: o e2e de pipelines precisa de uma pessoa para pôr na equipe.
+      { email: 'vendas.crm@plugga.local', name: 'Vendas CRM (exemplo)', acesso: membro('crm', 'engenharia-obras') },
     ];
 
     const samplePasswordHash = await hash(adminPassword, argon2Options);
@@ -270,14 +172,14 @@ async function main() {
       const user = await prisma.user.create({
         data: { email: sample.email, name: sample.name, status: 'active' },
       });
-      await grantAccess(user.id, roleIdByKey, sample.grant);
+      await grantAccess(user.id, roleIdByKey, sample.acesso);
       await prisma.userCredential.create({
         data: { userId: user.id, passwordHash: samplePasswordHash },
       });
     }
   }
 
-  // Cadastros de apoio de Compras: fornecedores e obras nas duas empresas, para
+// Cadastros de apoio de Compras: fornecedores e obras nas duas empresas, para
   // a tela de novo pedido não abrir vazia numa máquina recém-semeada. São dados
   // sintéticos — nenhum fornecedor real, nenhum CNPJ verdadeiro.
   const fornecedoresDeExemplo = [

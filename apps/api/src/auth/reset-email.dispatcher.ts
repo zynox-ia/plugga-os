@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { Inject, Injectable, Logger, type OnModuleDestroy } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 
-import { maskEmail } from "../email/email.util";
+import { maskEmail } from "../common/mascara-email";
 import { JobsQueue } from "../jobs/queue/jobs-queue.port";
 import { RESET_EMAIL_JOB_KEY, ResetEmailHandler } from "./reset-email.handler";
 

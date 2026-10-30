@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import localFont from "next/font/local";
 
 import "./globals.css";
+import "./typography.css";
 import { AppShell } from "./components/app-shell";
 
 const generalSans = localFont({

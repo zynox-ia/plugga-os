@@ -83,7 +83,7 @@ jobs:
           zricethezav/gitleaks:v8.28.0
           detect --source=/repo --redact --verbose
 
-      # Dado de cliente real fora do git (spec 002, US2). Falha a CI se a árvore
+      # Dado de cliente real fora do git. Falha a CI se a árvore
       # tiver CNPJ/CPF válido, UC ou nome de cliente fora da lista de permitidos.
       # Os nomes vêm do segredo CLIENT_NAMES (um por linha); sem ele só
       # documentos e unidades consumidoras são procurados. O relatório não traz valores.
@@ -107,6 +107,11 @@ jobs:
         run: pnpm db:migrate:deploy
 
       - name: Seed local foundation data
+        env:
+          # Contas de exemplo (uma delas comercial na Plugga): o e2e de negócios
+          # precisa de alguém da equipe comercial para ser responsável. O banco
+          # da CI é descartável e a senha é a fictícia de CI.
+          SEED_SAMPLE_TEAM: "true"
         run: pnpm db:seed
 
       - name: Verify append-only database triggers
@@ -130,23 +135,58 @@ jobs:
       - name: Verify critical operations are atomic under concurrency
         run: pnpm --filter @plugga/api test:atomicidade
 
+      - name: Verify department access mirrors the legacy access
+        run: pnpm --filter @plugga/api test:acesso
+
+      - name: Verify LLM key consumption
+        run: pnpm --filter @plugga/api test:llm
+
       - name: Verify audit events carry no personal data
         run: pnpm --filter @plugga/api test:eventos-pii
+
+      - name: Verify client registry against Postgres
+        run: pnpm --filter @plugga/api test:clientes
+
+      - name: Verify sales pipeline configuration against Postgres
+        run: pnpm --filter @plugga/api test:pipelines
+
+      - name: Verify pipeline deals against Postgres
+        run: pnpm --filter @plugga/api test:negocios
 
       - name: Verify login limiter and session cache against Redis
         run: pnpm --filter @plugga/api test:redis
 
-      # Scripts de publicação e de operação (spec 002): simulador do deploy,
+      # Scripts de publicação e de operação: simulador do deploy,
       # lint do event_log, trava de publicação e restauração de backup. Os
       # ensaios com Postgres usam o serviço desta CI.
       - name: Verify delivery scripts
         run: pnpm test:scripts
+
+      - name: Verify web component size
+        run: node scripts/tamanho-componentes.mjs
 
       - name: Verify deploy lock
         run: bash ops/deploy-trava.test.sh
 
       - name: Install age for backup tests
         run: sudo apt-get update -qq && sudo apt-get install -y -qq age
+
+      # pg_dump/pg_restore/psql da mesma imagem do serviço (postgres:16), como
+      # em produção, onde rodam dentro do contêiner. O runner (ubuntu-26.04)
+      # traz um cliente mais novo, que grava `SET transaction_timeout` e o
+      # servidor 16 recusa, e não tem o cliente 16 nos repositórios. Os
+      # arquivos do ensaio ficam em /tmp (mktemp -d), montado no contêiner.
+      - name: Use the PostgreSQL 16 client for backup tests
+        run: |
+          docker pull -q postgres:16-alpine
+          bin="$RUNNER_TEMP/pg16-bin"
+          mkdir -p "$bin"
+          for ferramenta in pg_dump pg_restore psql; do
+            printf '#!/bin/sh\nexec docker run --rm -i --network host -e PGPASSWORD -v /tmp:/tmp postgres:16-alpine %s "$@"\n' \
+              "$ferramenta" > "$bin/$ferramenta"
+            chmod +x "$bin/$ferramenta"
+          done
+          echo "$bin" >> "$GITHUB_PATH"
 
       - name: Verify external backup script
         run: bash ops/backup-externo.test.sh
@@ -161,6 +201,9 @@ jobs:
 
       - name: Verify schedule installer script
         run: bash ops/instala-agendamentos.test.sh
+
+      - name: Verify platform safety guards
+        run: pnpm test:platform-safety
 
       - name: Lint
         run: pnpm lint
@@ -185,6 +228,19 @@ jobs:
             /etc/apt/sources.list.d/google-chrome.sources
           sudo rm -rf /var/lib/apt/lists/*
           pnpm --filter @plugga/web exec playwright install --with-deps chromium
+
+      - name: Design System interactions and responsive layouts
+        id: design-system
+        run: pnpm --filter @plugga/web test:design-system
+
+      - name: Upload Design System failure artifacts
+        if: ${{ failure() && steps.design-system.outcome == 'failure' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: design-system-failure-${{ github.run_attempt }}
+          path: apps/web/test-results
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Start API for web e2e
         env:
@@ -241,3 +297,28 @@ jobs:
           if [ -f /tmp/plugga-api.pid ]; then
             kill "$(cat /tmp/plugga-api.pid)" || true
           fi
+
+  # Roda em paralelo ao job principal.
+  shell:
+    name: Shell scripts (shellcheck)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run shellcheck on ops and scripts
+        run: |
+          shopt -s nullglob
+          shellcheck --severity=warning ops/*.sh scripts/*.sh
+
+  imagens:
+    name: Docker images (build only)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [api, web]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build runtime image without publishing
+        run: docker build --target runtime --file apps/${{ matrix.app }}/Dockerfile .

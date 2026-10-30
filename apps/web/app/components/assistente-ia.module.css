@@ -1,0 +1,207 @@
+/* Rodapé do shell + chat do Agent (portado do padrão do Zynox, ajustado ao
+   design system do Plugga). A barra vive no fluxo do .shell-main; o painel é
+   absoluto e ancorado nela, sem portal. */
+
+.barra {
+  position: relative;
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: flex-end;
+  height: 48px;
+  padding: 0 16px;
+  border-top: 1px solid rgba(15, 41, 74, 0.12);
+}
+
+.botao {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 34px;
+  padding: 0 10px;
+  color: rgba(15, 41, 74, 0.6);
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font: 400 13px/1 var(--font-articulat), "Articulat CF", sans-serif;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.botao:hover,
+.botaoAberto {
+  color: #0f294a;
+  background: rgba(15, 41, 74, 0.07);
+}
+
+.painel {
+  position: absolute;
+  right: 12px;
+  bottom: calc(100% + 10px);
+  z-index: 80;
+  display: flex;
+  flex-direction: column;
+  width: min(420px, calc(100vw - 32px));
+  height: min(600px, calc(100vh - 160px));
+  color: #ffffff;
+  background: linear-gradient(170deg, #0a192f 0%, #0d2440 100%);
+  border: 1px solid rgba(0, 163, 255, 0.25);
+  border-radius: 14px;
+  box-shadow: 0 18px 45px rgba(5, 19, 41, 0.55);
+  overflow: hidden;
+  animation: painel-ia-entrar 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes painel-ia-entrar {
+  from { transform: translateY(8px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.topo {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px 10px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.topoTitulo {
+  font: 500 13.5px/1 var(--font-articulat), "Articulat CF", sans-serif;
+}
+
+.topoAcoes {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.botaoIcone {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  color: rgba(255, 255, 255, 0.65);
+  background: transparent;
+  border: none;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.botaoIcone:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.conversa {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  overflow-y: auto;
+}
+
+.mensagem {
+  margin: 0;
+  max-width: 88%;
+  padding: 10px 13px;
+  border-radius: 14px;
+  font: 400 13.5px/1.5 var(--font-articulat), "Articulat CF", sans-serif;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+}
+
+.mensagemUsuario {
+  align-self: flex-end;
+  color: #ffffff;
+  background: rgba(0, 163, 255, 0.26);
+  border: 1px solid rgba(0, 163, 255, 0.38);
+  border-bottom-right-radius: 4px;
+}
+
+.mensagemAssistente {
+  align-self: flex-start;
+  color: rgba(255, 255, 255, 0.92);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom-left-radius: 4px;
+}
+
+.sugestoes {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.sugestao {
+  padding: 9px 12px;
+  color: rgba(255, 255, 255, 0.85);
+  background: transparent;
+  border: 1px solid rgba(0, 163, 255, 0.3);
+  border-radius: 10px;
+  cursor: pointer;
+  text-align: left;
+  font: 400 12.5px/1.4 var(--font-articulat), "Articulat CF", sans-serif;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.sugestao:hover {
+  color: #ffffff;
+  background: rgba(0, 163, 255, 0.14);
+  border-color: rgba(0, 163, 255, 0.5);
+}
+
+.entrada {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 12px 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.campo {
+  flex: 1;
+  padding: 10px 12px;
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 10px;
+  resize: none;
+  font: 400 13.5px/1.45 var(--font-articulat), "Articulat CF", sans-serif;
+}
+
+.campo::placeholder {
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.campo:focus {
+  outline: none;
+  border-color: rgba(0, 163, 255, 0.5);
+}
+
+.enviar {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  color: #ffffff;
+  background: rgba(0, 163, 255, 0.3);
+  border: 1px solid rgba(0, 163, 255, 0.45);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.enviar:hover:not(:disabled) {
+  background: rgba(0, 163, 255, 0.5);
+}
+
+.enviar:disabled {
+  opacity: 0.4;
+  cursor: default;
+}

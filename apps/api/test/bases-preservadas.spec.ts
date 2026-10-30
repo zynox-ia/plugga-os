@@ -1,6 +1,5 @@
 /**
- * Não regressão das bases que a spec 002 manda preservar (FR-080, constituição V).
- * A spec 002 mexe em muita coisa; estas são as proteções que já funcionam e que
+ * Não regressão das bases de segurança; estas são as proteções que já funcionam e que
  * nenhuma fatia pode enfraquecer sem que esta suíte fique vermelha. Cada teste
  * diz qual proteção guarda. Os que olham o texto do código existem porque a
  * proteção vive em uma linha de configuração (cookie, compose, schema), e apagar
@@ -111,8 +110,6 @@ describe("travas otimistas (updateMany condicionado, direto ou via transicionar)
   // Piso = quantas existem hoje. Só pode subir: perder uma é voltar a ter corrida.
   const piso: Record<string, number> = {
     "src/commercial/prisma-commercial.repository.ts": 5,
-    "src/obras/prisma-obras.repository.ts": 1,
-    "src/compras/prisma-compras.repository.ts": 2,
     "src/auth/prisma-auth.repository.ts": 5,
   };
 

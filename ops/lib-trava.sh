@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # Trava exclusiva de publicação (FR-005). Carregada por ops/deploy.sh.
 #
 # Duas publicações ao mesmo tempo (o deploy automático e um publicar.sh de

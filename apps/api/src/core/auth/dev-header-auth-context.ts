@@ -1,9 +1,16 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { roleKeySchema, type RoleKey } from "@plugga/shared";
+import { acessoADepartamentoSchema, papelDePlataformaSchema, type Acesso } from "@plugga/shared";
 
 import { AuthContext, type AuthenticatedRequest, type AuthPrincipal } from "./auth.types";
 
+/**
+ * Autenticação por cabeçalho, só com `DEV_AUTH_ENABLED` (desenvolvimento e
+ * testes): `x-dev-principal` é o id; o acesso vem de
+ * `x-dev-plataforma: admin|desenvolvedor` ou de
+ * `x-dev-departamentos: crm:membro,suprimentos:gerente`. Valor desconhecido é
+ * ignorado, nunca promovido.
+ */
 @Injectable()
 export class DevHeaderAuthContext extends AuthContext {
   constructor(@Inject(ConfigService) private readonly config: ConfigService) {
@@ -20,27 +27,34 @@ export class DevHeaderAuthContext extends AuthContext {
       return null;
     }
 
-    const roles = this.parseRoles(this.firstHeader(request.headers["x-dev-roles"]));
-
     return {
       id,
       kind: id.startsWith("service:") ? "service" : "user",
-      roles,
+      acesso: this.parseAcesso(request),
     };
   }
 
-  private parseRoles(header: string | undefined): RoleKey[] {
-    if (!header) {
-      return [];
+  private parseAcesso(request: AuthenticatedRequest): Acesso {
+    const plataforma = papelDePlataformaSchema.safeParse(
+      this.firstHeader(request.headers["x-dev-plataforma"])?.toLowerCase(),
+    );
+    if (plataforma.success) {
+      return { plataforma: plataforma.data, departamentos: [] };
     }
 
-    return header
+    const vistos = new Set<string>();
+    const departamentos = (this.firstHeader(request.headers["x-dev-departamentos"]) ?? "")
       .split(",")
-      .map((role) => role.trim().toLowerCase())
-      .flatMap((role) => {
-        const parsed = roleKeySchema.safeParse(role);
-        return parsed.success ? [parsed.data] : [];
+      .flatMap((entrada) => {
+        const [departamento, nivel] = entrada.trim().toLowerCase().split(":");
+        const parsed = acessoADepartamentoSchema.safeParse({ departamento, nivel: nivel ?? "membro" });
+        if (!parsed.success || vistos.has(parsed.data.departamento)) {
+          return [];
+        }
+        vistos.add(parsed.data.departamento);
+        return [parsed.data];
       });
+    return { plataforma: null, departamentos };
   }
 
   private firstHeader(header: string | string[] | undefined): string | undefined {
