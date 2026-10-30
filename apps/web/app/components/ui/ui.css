@@ -37,7 +37,7 @@
 .ui-input-wrap .ui-input { border: 0; background: transparent; border-radius: inherit; }
 .ui-input::placeholder { color: var(--ui-muted); opacity: 1; }
 .ui-input:focus, .ui-input-wrap:focus-within { outline: none; box-shadow: none; }
-.ui-input:focus-visible, .ui-input-wrap:focus-within, .ui-field-trigger[data-state="open"] { background: var(--ui-focus-bg); border-color: rgba(0, 102, 204, 0.45); }
+.ui-input:focus-visible, .ui-input-wrap:focus-within, .ui-field-trigger[data-state="open"] { background: var(--ui-focus-bg); }
 .ui-input-wrap:hover:not(:has(:disabled)), .ui-input:hover:not(:disabled) { border-color: rgba(130, 148, 169, 0.65); }
 .ui-input-wrap .ui-input:focus { background: transparent; }
 .ui-input[aria-invalid="true"], .ui-input-wrap:has([aria-invalid="true"]) { border-color: var(--ui-danger); background: #fff6f6; }
