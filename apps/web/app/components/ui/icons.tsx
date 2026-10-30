@@ -3,6 +3,7 @@ import type { SVGProps } from "react";
 export {
   Briefcase as IconBriefcase,
   Building2 as IconBuilding,
+  Calendar as IconCalendar,
   ChevronLeft as IconChevronLeft,
   ChevronRight as IconChevronRight,
   ChevronUp as IconChevronUp,
@@ -20,6 +21,8 @@ export {
   Save as IconSave,
   Send as IconSend,
   Shield as IconShield,
+  Sparkles as IconSparkles,
+  Upload as IconUpload,
   User as IconUser,
   UserPlus as IconUserPlus,
 } from "lucide-react";
