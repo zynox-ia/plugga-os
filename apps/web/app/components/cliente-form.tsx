@@ -31,7 +31,6 @@ import {
 import {
   Alert,
   Button,
-  Checkbox,
   DatePicker,
   Dialog,
   Heading,
@@ -124,7 +123,6 @@ export function ClienteForm(props: Propriedades) {
   const [contatoCargo, setContatoCargo] = useState("");
   const [contatoTelefone, setContatoTelefone] = useState("");
   const [contatoEmail, setContatoEmail] = useState("");
-  const [contatoWhatsapp, setContatoWhatsapp] = useState(false);
 
   // Observações
   const [anotacoes, setAnotacoes] = useState(cliente?.notes ?? "");
@@ -237,7 +235,7 @@ export function ClienteForm(props: Propriedades) {
         name: contatoNome.trim(),
         jobTitle: contatoCargo.trim() || null,
         phone: somenteDigitos(contatoTelefone) || null,
-        phoneIsWhatsapp: contatoWhatsapp,
+        phoneIsWhatsapp: false,
         email: contatoEmail.trim() || null,
       };
     }
@@ -334,7 +332,6 @@ export function ClienteForm(props: Propriedades) {
             value={nome}
             placeholder={ehPj ? "Ex.: Solar Distribuidora" : "Ex.: Mariana Costa"}
             error={erroDo("name")}
-            hint={ehPj ? "Como o cliente é conhecido comercialmente." : undefined}
             onChange={(ev) => setNome(ev.target.value)}
             onBlur={conferirContato}
           />
@@ -412,9 +409,6 @@ export function ClienteForm(props: Propriedades) {
             onBlur={conferirContato}
           />
         </div>
-        <p className="ui-field-hint" style={{ marginTop: -6 }}>
-          Informe pelo menos um telefone ou e-mail.
-        </p>
 
         {avisos.length > 0 ? (
           <div role="status">
@@ -478,7 +472,7 @@ export function ClienteForm(props: Propriedades) {
             <TextField
               id="cliente-contatoTelefone"
               name="contatoTelefone"
-              label="Celular"
+              label="Telefone"
               type="tel"
               maxLength={20}
               value={contatoTelefone}
@@ -496,12 +490,6 @@ export function ClienteForm(props: Propriedades) {
               onChange={(ev) => setContatoEmail(ev.target.value)}
             />
           </div>
-          <Checkbox
-            id="cliente-contatoWhatsapp"
-            label="O celular é WhatsApp"
-            checked={contatoWhatsapp}
-            onChange={(ev) => setContatoWhatsapp(ev.target.checked)}
-          />
         </section>
       ) : null}
 
@@ -659,7 +647,7 @@ export function ClienteForm(props: Propriedades) {
         <TextareaField
           id="cliente-notes"
           name="notes"
-          label="Anotações sobre o cliente"
+          aria-label="Anotações sobre o cliente"
           maxLength={2000}
           rows={3}
           value={anotacoes}
