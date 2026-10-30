@@ -1,7 +1,7 @@
 "use client";
 
 import type { Deal, Pipeline } from "@plugga/shared";
-import { ArrowRight, Calendar, Check, Clock, Eye, MoreHorizontal, X } from "lucide-react";
+import { ArrowRight, Calendar, Check, Clock, Eye, MoreHorizontal, User, X } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
@@ -10,20 +10,17 @@ import { Avatar } from "./icones";
 import { DetalhesDoLeadModal } from "./detalhes-do-lead-modal";
 import type { AcoesDoNegocio } from "./quadro-do-pipeline";
 
-function formatarDataCurta(dataStr: string | null): string {
+function formatarDataCompleta(dataStr: string | null): string {
   if (!dataStr) return "";
   const d = new Date(`${dataStr.slice(0, 10)}T12:00:00Z`);
   if (isNaN(d.getTime())) return dataStr;
   const dia = d.getUTCDate();
   const meses = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
   const mes = meses[d.getUTCMonth()];
-  return `${dia} ${mes}`;
+  const ano = d.getUTCFullYear();
+  return `${dia} ${mes}, ${ano}`;
 }
 
-/**
- * Ações do negócio aberto pelo teclado ou pelo mouse: a alternativa ao arrastar
- * para mudar de etapa, ganhar, perder ou mover para outro pipeline.
- */
 export function MenuDoNegocio({
   negocio,
   pipeline,
@@ -103,7 +100,7 @@ export function MenuDoNegocio({
       <button
         ref={botao}
         type="button"
-        className="botao-icone"
+        className="botao-icone cartao-negocio-menu-btn"
         aria-label={`Ações de ${negocio.title}`}
         aria-haspopup="menu"
         aria-expanded={aberto}
@@ -113,7 +110,7 @@ export function MenuDoNegocio({
           setAberto((a) => !a);
         }}
       >
-        <MoreHorizontal size={15} aria-hidden="true" />
+        <MoreHorizontal size={16} aria-hidden="true" />
       </button>
       {aberto
         ? createPortal(
@@ -161,10 +158,12 @@ export function MenuDoNegocio({
 }
 
 /**
- * Card do Kanban do CRM:
- * - Exibe tags reais do lead, título, cliente e valor em destaque.
- * - Fornece o botão direto "Ver lead" para abrir o modal de detalhes do lead.
- * - Elimina dados desnecessários (Milestone, Due:, Assigned for, prioridade fake).
+ * Card do Kanban do CRM ampliado e com distribuição generosa de espaço:
+ * - Área espaçosa para leitura confortável.
+ * - Topo com tags reais, status de parado e menu de ações.
+ * - Título proeminente e dados do cliente/contato.
+ * - Destaque ao valor financeiro do negócio.
+ * - Rodapé organizado com avatar e nome do responsável, previsão de fechamento e botão de ação 'Ver lead'.
  */
 export function CartaoDeNegocio({
   negocio,
@@ -192,7 +191,7 @@ export function CartaoDeNegocio({
   return (
     <>
       <article
-        className={`cartao-negocio${arrastando ? " cartao-negocio--arrastando" : ""}${parado ? " cartao-negocio--parado" : ""}`}
+        className={`cartao-negocio cartao-negocio--ampliado${arrastando ? " cartao-negocio--arrastando" : ""}${parado ? " cartao-negocio--parado" : ""}`}
         aria-label={`Negócio ${negocio.title}`}
         draggable
         onDragStart={(evento) => {
@@ -213,41 +212,36 @@ export function CartaoDeNegocio({
           setModalLeadAberto(true);
         }}
       >
-        {/* 1. Topo: Tags Reais + Ação "Ver lead" + Menu ⋯ */}
+        {/* Bloco 1: Topo com Tags, Alerta de Parado e Ações */}
         <div className="cartao-negocio-topo">
-          <div className="cartao-negocio-tags">
-            {negocio.tags.slice(0, 2).map((tag) => (
-              <span key={tag.id} className="cartao-negocio-tag" style={{ borderLeft: `3px solid ${tag.color}` }}>
-                <span>{tag.name}</span>
+          <div className="cartao-negocio-tags-area">
+            {negocio.tags.map((tag) => (
+              <span
+                key={tag.id}
+                className="cartao-negocio-tag"
+                style={{
+                  borderLeftColor: tag.color,
+                  backgroundColor: `${tag.color}14`,
+                  color: "#0F294A",
+                }}
+              >
+                {tag.name}
               </span>
             ))}
-            {negocio.tags.length > 2 ? (
-              <span className="cartao-negocio-tag" title={negocio.tags.slice(2).map((t) => t.name).join(", ")}>
-                +{negocio.tags.length - 2}
-              </span>
-            ) : null}
-            {parado && negocio.tags.length === 0 ? (
-              <span className="cartao-negocio-alerta-parado" title="Parado além do limite de dias desta etapa">
-                <Clock size={11} aria-hidden="true" />
+            {parado ? (
+              <span className="cartao-negocio-alerta-parado" title="Parado além do prazo configurado nesta etapa">
+                <Clock size={12} aria-hidden="true" />
                 <span>Parado há {dias}d</span>
               </span>
-            ) : null}
+            ) : (
+              <span className="cartao-negocio-dias" title="Tempo nesta etapa">
+                <Clock size={12} aria-hidden="true" />
+                <span>{dias}d na etapa</span>
+              </span>
+            )}
           </div>
 
-          <div className="cartao-negocio-acoes-topo">
-            <button
-              type="button"
-              className="cartao-negocio-btn-ver"
-              aria-label={`Ver lead ${negocio.title}`}
-              title="Ver detalhes do lead"
-              onClick={(e) => {
-                e.stopPropagation();
-                setModalLeadAberto(true);
-              }}
-            >
-              <Eye size={12} aria-hidden="true" />
-              <span>Ver lead</span>
-            </button>
+          <div className="cartao-negocio-topo-acoes">
             <MenuDoNegocio
               negocio={negocio}
               pipeline={pipeline}
@@ -257,45 +251,71 @@ export function CartaoDeNegocio({
           </div>
         </div>
 
-        {/* 2. Corpo: Título, Cliente e Valor em Destaque */}
+        {/* Bloco 2: Título da Oportunidade e Dados do Cliente */}
         <div className="cartao-negocio-corpo">
-          <h4>{negocio.title}</h4>
-          <p className="cartao-negocio-cliente">
-            {negocio.client.name}
-            {negocio.contact ? <span> · {negocio.contact.name}</span> : null}
-          </p>
+          <h4 className="cartao-negocio-titulo">{negocio.title}</h4>
+          <div className="cartao-negocio-cliente-info">
+            <User size={13} className="cartao-negocio-cliente-icone" aria-hidden="true" />
+            <span className="cartao-negocio-cliente-nome">{negocio.client.name}</span>
+            {negocio.contact ? (
+              <span className="cartao-negocio-contato-nome">· {negocio.contact.name}</span>
+            ) : null}
+          </div>
+        </div>
+
+        {/* Bloco 3: Valor Comercial e Previsão */}
+        <div className="cartao-negocio-destaque-linha">
           {negocio.value ? (
-            <div className="cartao-negocio-valor">
-              <span>{valorCurto(Number(negocio.value))}</span>
+            <div className="cartao-negocio-valor-bloco">
+              <span className="cartao-negocio-valor-label">{pipeline.valueLabel || "Valor"}</span>
+              <span className="cartao-negocio-valor">
+                {valorCurto(Number(negocio.value))}
+              </span>
+            </div>
+          ) : (
+            <div className="cartao-negocio-valor-bloco">
+              <span className="cartao-negocio-valor-label">Sem valor</span>
+              <span className="cartao-negocio-valor-vazio">—</span>
+            </div>
+          )}
+
+          {negocio.expectedCloseDate ? (
+            <div className="cartao-negocio-previsao-bloco">
+              <span className="cartao-negocio-previsao-label">Previsão</span>
+              <div
+                className={`cartao-negocio-previsao-tag${previsaoVencida ? " cartao-negocio-previsao-tag--vencida" : ""}`}
+                title={previsaoVencida ? "Previsão de fechamento em atraso" : "Previsão de fechamento"}
+              >
+                <Calendar size={12} aria-hidden="true" />
+                <span>{formatarDataCompleta(negocio.expectedCloseDate)}</span>
+              </div>
             </div>
           ) : null}
         </div>
 
-        {/* 3. Rodapé: Responsável + Previsão / Dias */}
+        {/* Bloco 4: Rodapé Espaçoso com Responsável e Botão 'Ver lead' */}
         <div className="cartao-negocio-rodape">
-          <div className="cartao-negocio-owner" title={`Responsável: ${negocio.owner.name}`}>
+          <div className="cartao-negocio-owner-box" title={`Responsável: ${negocio.owner.name}`}>
             <Avatar id={negocio.owner.id} nome={negocio.owner.name} tamanho="pequeno" />
-            <span className="cartao-negocio-owner-nome">{negocio.owner.name}</span>
+            <div className="cartao-negocio-owner-detalhe">
+              <span className="cartao-negocio-owner-cargo">Responsável</span>
+              <span className="cartao-negocio-owner-nome">{negocio.owner.name}</span>
+            </div>
           </div>
 
-          <div className="cartao-negocio-meta">
-            {negocio.expectedCloseDate ? (
-              <span
-                className={`cartao-negocio-data${previsaoVencida ? " cartao-negocio-data--vencida" : ""}`}
-                title={previsaoVencida ? "Previsão de fechamento em atraso" : "Previsão de fechamento"}
-              >
-                <Calendar size={12} aria-hidden="true" />
-                <span>{formatarDataCurta(negocio.expectedCloseDate)}</span>
-              </span>
-            ) : null}
-            <span
-              className={parado ? "dias-na-etapa dias-na-etapa--parado" : "dias-na-etapa"}
-              title={parado ? "Parado além do prazo da etapa" : "Dias nesta etapa"}
-            >
-              <Clock size={11} aria-hidden="true" />
-              <span>{dias}d</span>
-            </span>
-          </div>
+          <button
+            type="button"
+            className="cartao-negocio-btn-ver-destacado"
+            aria-label={`Ver lead ${negocio.title}`}
+            title="Ver detalhes completos do lead"
+            onClick={(e) => {
+              e.stopPropagation();
+              setModalLeadAberto(true);
+            }}
+          >
+            <Eye size={14} aria-hidden="true" />
+            <span>Ver lead</span>
+          </button>
         </div>
       </article>
 
