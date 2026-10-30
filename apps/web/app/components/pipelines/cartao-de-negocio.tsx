@@ -1,33 +1,40 @@
 "use client";
 
 import type { Deal, Pipeline } from "@plugga/shared";
-import { ArrowRight, Check, CheckSquare, Clock, MoreHorizontal, X } from "lucide-react";
+import { ArrowRight, Calendar, Check, Clock, Eye, MoreHorizontal, X } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 import { diasNaEtapa, estaParado, hojeNoFuso, valorCurto } from "../../lib/negocios";
 import { Avatar } from "./icones";
+import { DetalhesDoLeadModal } from "./detalhes-do-lead-modal";
 import type { AcoesDoNegocio } from "./quadro-do-pipeline";
 
-function formatarDue(dataStr: string | null): string {
-  if (!dataStr) return "Sem data";
+function formatarDataCurta(dataStr: string | null): string {
+  if (!dataStr) return "";
   const d = new Date(`${dataStr.slice(0, 10)}T12:00:00Z`);
   if (isNaN(d.getTime())) return dataStr;
   const dia = d.getUTCDate();
   const meses = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
   const mes = meses[d.getUTCMonth()];
-  const ano = d.getUTCFullYear();
-  return `${dia} ${mes}, ${ano}`;
+  return `${dia} ${mes}`;
 }
 
 /**
  * Ações do negócio aberto pelo teclado ou pelo mouse: a alternativa ao arrastar
- * para mudar de etapa, ganhar, perder ou mover para outro pipeline. O menu
- * abre num portal no <body>, em posição fixa calculada a partir do botão: a
- * coluna rola e o painel tem backdrop-filter, que prenderia um `fixed` dentro
- * dele. O menu acompanha o botão durante a rolagem e fecha quando ele deixa de estar visível.
+ * para mudar de etapa, ganhar, perder ou mover para outro pipeline.
  */
-export function MenuDoNegocio({ negocio, pipeline, acoes }: { negocio: Deal; pipeline: Pipeline; acoes: AcoesDoNegocio }) {
+export function MenuDoNegocio({
+  negocio,
+  pipeline,
+  acoes,
+  aoVerLead,
+}: {
+  negocio: Deal;
+  pipeline: Pipeline;
+  acoes: AcoesDoNegocio;
+  aoVerLead?: () => void;
+}) {
   const [aberto, setAberto] = useState(false);
   const [posicao, setPosicao] = useState<{ top: number; left: number } | null>(null);
   const raiz = useRef<HTMLDivElement>(null);
@@ -46,10 +53,8 @@ export function MenuDoNegocio({ negocio, pipeline, acoes }: { negocio: Deal; pip
     };
   }, [aberto]);
 
-  // Abre abaixo do botão; sem espaço embaixo, abre acima. Sempre dentro da janela.
   useLayoutEffect(() => {
     if (!aberto || !botao.current) return;
-    // Considera também o recorte das colunas e de outros contêineres com overflow.
     const visibilidade = new IntersectionObserver(([entrada]) => {
       if (entrada && !entrada.isIntersecting) setAberto(false);
     });
@@ -86,6 +91,7 @@ export function MenuDoNegocio({ negocio, pipeline, acoes }: { negocio: Deal; pip
     <div
       className="menu-negocio"
       ref={raiz}
+      onClick={(e) => e.stopPropagation()}
       onKeyDown={(evento) => {
         if (evento.key === "Escape" && aberto) {
           evento.preventDefault();
@@ -101,7 +107,8 @@ export function MenuDoNegocio({ negocio, pipeline, acoes }: { negocio: Deal; pip
         aria-label={`Ações de ${negocio.title}`}
         aria-haspopup="menu"
         aria-expanded={aberto}
-        onClick={() => {
+        onClick={(e) => {
+          e.stopPropagation();
           setPosicao(null);
           setAberto((a) => !a);
         }}
@@ -117,6 +124,15 @@ export function MenuDoNegocio({ negocio, pipeline, acoes }: { negocio: Deal; pip
               aria-label={`Ações de ${negocio.title}`}
               style={posicao ? { top: posicao.top, left: posicao.left } : { visibility: "hidden" }}
             >
+              {aoVerLead ? (
+                <>
+                  <button type="button" role="menuitem" onClick={escolher(aoVerLead)}>
+                    <Eye size={14} aria-hidden="true" /> Ver detalhes do lead
+                  </button>
+                  <span className="menu-negocio-divisor" role="separator" />
+                </>
+              ) : null}
+
               <span className="menu-negocio-titulo">Mover para etapa</span>
               {pipeline.stages
                 .filter((e) => e.id !== negocio.stageId)
@@ -144,6 +160,12 @@ export function MenuDoNegocio({ negocio, pipeline, acoes }: { negocio: Deal; pip
   );
 }
 
+/**
+ * Card do Kanban do CRM:
+ * - Exibe tags reais do lead, título, cliente e valor em destaque.
+ * - Fornece o botão direto "Ver lead" para abrir o modal de detalhes do lead.
+ * - Elimina dados desnecessários (Milestone, Due:, Assigned for, prioridade fake).
+ */
 export function CartaoDeNegocio({
   negocio,
   pipeline,
@@ -159,108 +181,133 @@ export function CartaoDeNegocio({
   aoComecarArrasto: () => void;
   aoTerminarArrasto: () => void;
 }) {
+  const [modalLeadAberto, setModalLeadAberto] = useState(false);
+  const arrastou = useRef(false);
+
   const dias = diasNaEtapa(negocio);
   const parado = estaParado(negocio, pipeline);
   const hoje = hojeNoFuso();
   const previsaoVencida = negocio.expectedCloseDate !== null && negocio.expectedCloseDate < hoje;
 
-  const etapaIndex = pipeline.stages.findIndex((e) => e.id === negocio.stageId);
-  const etapaNumero = etapaIndex >= 0 ? etapaIndex + 1 : 1;
-
-  // Prioridade / Tag baseada em regras ou tags do negócio
-  const primeiraTag = negocio.tags[0];
-  let prioridadeTom: "alta" | "media" | "baixa" = "baixa";
-  let prioridadeRotulo = "Low";
-
-  if (primeiraTag) {
-    const nomeNorm = primeiraTag.name.toLowerCase();
-    if (nomeNorm.includes("alta") || nomeNorm.includes("high")) {
-      prioridadeTom = "alta";
-      prioridadeRotulo = "High";
-    } else if (nomeNorm.includes("baixa") || nomeNorm.includes("low")) {
-      prioridadeTom = "baixa";
-      prioridadeRotulo = "Low";
-    } else if (nomeNorm.includes("media") || nomeNorm.includes("média") || nomeNorm.includes("medium")) {
-      prioridadeTom = "media";
-      prioridadeRotulo = "Medium";
-    } else {
-      prioridadeTom = "media";
-      prioridadeRotulo = primeiraTag.name;
-    }
-  } else if (parado) {
-    prioridadeTom = "alta";
-    prioridadeRotulo = "High";
-  } else if (negocio.value && Number(negocio.value) >= 50000) {
-    prioridadeTom = "alta";
-    prioridadeRotulo = "High";
-  } else if (negocio.value && Number(negocio.value) >= 15000) {
-    prioridadeTom = "media";
-    prioridadeRotulo = "Medium";
-  } else {
-    prioridadeTom = "baixa";
-    prioridadeRotulo = "Low";
-  }
-
   return (
-    <article
-      className={`cartao-negocio${arrastando ? " cartao-negocio--arrastando" : ""}${parado ? " cartao-negocio--parado" : ""}`}
-      aria-label={`Negócio ${negocio.title}`}
-      draggable
-      onDragStart={(evento) => {
-        evento.dataTransfer.effectAllowed = "move";
-        evento.dataTransfer.setData("text/plain", negocio.id);
-        aoComecarArrasto();
-      }}
-      onDragEnd={aoTerminarArrasto}
-    >
-      {/* 1. Topo: Due Date + Menu */}
-      <div className="cartao-negocio-topo">
-        <div className={`cartao-negocio-due${previsaoVencida ? " cartao-negocio-due--vencida" : ""}`}>
-          <Clock size={12} aria-hidden="true" />
-          <span>Due: {negocio.expectedCloseDate ? formatarDue(negocio.expectedCloseDate) : "Sem prazo"}</span>
+    <>
+      <article
+        className={`cartao-negocio${arrastando ? " cartao-negocio--arrastando" : ""}${parado ? " cartao-negocio--parado" : ""}`}
+        aria-label={`Negócio ${negocio.title}`}
+        draggable
+        onDragStart={(evento) => {
+          arrastou.current = true;
+          evento.dataTransfer.effectAllowed = "move";
+          evento.dataTransfer.setData("text/plain", negocio.id);
+          aoComecarArrasto();
+        }}
+        onDragEnd={() => {
+          setTimeout(() => {
+            arrastou.current = false;
+          }, 100);
+          aoTerminarArrasto();
+        }}
+        onClick={(e) => {
+          if (arrastou.current) return;
+          if ((e.target as HTMLElement).closest("button")) return;
+          setModalLeadAberto(true);
+        }}
+      >
+        {/* 1. Topo: Tags Reais + Ação "Ver lead" + Menu ⋯ */}
+        <div className="cartao-negocio-topo">
+          <div className="cartao-negocio-tags">
+            {negocio.tags.slice(0, 2).map((tag) => (
+              <span key={tag.id} className="cartao-negocio-tag" style={{ borderLeft: `3px solid ${tag.color}` }}>
+                <span>{tag.name}</span>
+              </span>
+            ))}
+            {negocio.tags.length > 2 ? (
+              <span className="cartao-negocio-tag" title={negocio.tags.slice(2).map((t) => t.name).join(", ")}>
+                +{negocio.tags.length - 2}
+              </span>
+            ) : null}
+            {parado && negocio.tags.length === 0 ? (
+              <span className="cartao-negocio-alerta-parado" title="Parado além do limite de dias desta etapa">
+                <Clock size={11} aria-hidden="true" />
+                <span>Parado há {dias}d</span>
+              </span>
+            ) : null}
+          </div>
+
+          <div className="cartao-negocio-acoes-topo">
+            <button
+              type="button"
+              className="cartao-negocio-btn-ver"
+              aria-label={`Ver lead ${negocio.title}`}
+              title="Ver detalhes do lead"
+              onClick={(e) => {
+                e.stopPropagation();
+                setModalLeadAberto(true);
+              }}
+            >
+              <Eye size={12} aria-hidden="true" />
+              <span>Ver lead</span>
+            </button>
+            <MenuDoNegocio
+              negocio={negocio}
+              pipeline={pipeline}
+              acoes={acoes}
+              aoVerLead={() => setModalLeadAberto(true)}
+            />
+          </div>
         </div>
-        <MenuDoNegocio negocio={negocio} pipeline={pipeline} acoes={acoes} />
-      </div>
 
-      {/* 2. Título & Subtítulo */}
-      <div className="cartao-negocio-corpo">
-        <h4>{negocio.title}</h4>
-        <p className="cartao-negocio-cliente">
-          {negocio.client.name}
-          {negocio.contact ? <span> · {negocio.contact.name}</span> : null}
-        </p>
-      </div>
-
-      {/* 3. Milestone / Etapa */}
-      <div className="cartao-negocio-milestone">
-        <CheckSquare size={13} className="cartao-negocio-milestone-icone" aria-hidden="true" />
-        <span>Milestone {etapaIndex >= 0 ? etapaIndex : 0}/{pipeline.stages.length}</span>
-        {negocio.value ? <span className="cartao-negocio-milestone-valor">· {valorCurto(Number(negocio.value))}</span> : null}
-      </div>
-
-      {/* 4. Assigned for */}
-      <div className="cartao-negocio-assigned">
-        <span className="cartao-negocio-assigned-rotulo">Assigned for</span>
-        <div className="cartao-negocio-assigned-avatares">
-          <Avatar id={negocio.owner.id} nome={negocio.owner.name} tamanho="pequeno" />
-        </div>
-      </div>
-
-      {/* 5. Rodapé: Prioridade + Código/Dias */}
-      <div className="cartao-negocio-rodape">
-        <div className={`cartao-negocio-prioridade cartao-negocio-prioridade--${prioridadeTom}`}>
-          <span className="cartao-negocio-prioridade-icone" aria-hidden="true">▲</span>
-          <span>{prioridadeRotulo}</span>
+        {/* 2. Corpo: Título, Cliente e Valor em Destaque */}
+        <div className="cartao-negocio-corpo">
+          <h4>{negocio.title}</h4>
+          <p className="cartao-negocio-cliente">
+            {negocio.client.name}
+            {negocio.contact ? <span> · {negocio.contact.name}</span> : null}
+          </p>
+          {negocio.value ? (
+            <div className="cartao-negocio-valor">
+              <span>{valorCurto(Number(negocio.value))}</span>
+            </div>
+          ) : null}
         </div>
 
-        <div className="cartao-negocio-meta">
-          <span className="cartao-negocio-codigo">#{etapaNumero}</span>
-          <span className={parado ? "dias-na-etapa dias-na-etapa--parado" : "dias-na-etapa"} title={parado ? "Parado além do prazo da etapa" : "Dias nesta etapa"}>
-            <Clock size={11} aria-hidden="true" />
-            {parado ? `Parado há ${dias}d` : `${dias}d`}
-          </span>
+        {/* 3. Rodapé: Responsável + Previsão / Dias */}
+        <div className="cartao-negocio-rodape">
+          <div className="cartao-negocio-owner" title={`Responsável: ${negocio.owner.name}`}>
+            <Avatar id={negocio.owner.id} nome={negocio.owner.name} tamanho="pequeno" />
+            <span className="cartao-negocio-owner-nome">{negocio.owner.name}</span>
+          </div>
+
+          <div className="cartao-negocio-meta">
+            {negocio.expectedCloseDate ? (
+              <span
+                className={`cartao-negocio-data${previsaoVencida ? " cartao-negocio-data--vencida" : ""}`}
+                title={previsaoVencida ? "Previsão de fechamento em atraso" : "Previsão de fechamento"}
+              >
+                <Calendar size={12} aria-hidden="true" />
+                <span>{formatarDataCurta(negocio.expectedCloseDate)}</span>
+              </span>
+            ) : null}
+            <span
+              className={parado ? "dias-na-etapa dias-na-etapa--parado" : "dias-na-etapa"}
+              title={parado ? "Parado além do prazo da etapa" : "Dias nesta etapa"}
+            >
+              <Clock size={11} aria-hidden="true" />
+              <span>{dias}d</span>
+            </span>
+          </div>
         </div>
-      </div>
-    </article>
+      </article>
+
+      {/* Modal de Detalhes do Lead */}
+      {modalLeadAberto ? (
+        <DetalhesDoLeadModal
+          negocio={negocio}
+          pipeline={pipeline}
+          acoes={acoes}
+          aoFechar={() => setModalLeadAberto(false)}
+        />
+      ) : null}
+    </>
   );
 }

@@ -11,6 +11,7 @@ export {
   Download as IconDownload,
   Ellipsis as IconMore,
   Eye as IconEye,
+  ExternalLink as IconExternalLink,
   FileText as IconFileText,
   Layers as IconLayers,
   Mail as IconMail,
