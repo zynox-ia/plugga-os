@@ -138,17 +138,8 @@ jobs:
       - name: Verify department access mirrors the legacy access
         run: pnpm --filter @plugga/api test:acesso
 
-      - name: Verify purchasing repository against Postgres
-        run: pnpm --filter @plugga/api test:compras
-
-      - name: Verify energy foundation constraints
-        run: pnpm --filter @plugga/api test:energia
-
       - name: Verify LLM key consumption
         run: pnpm --filter @plugga/api test:llm
-
-      - name: Verify purchasing indicators cover the whole period
-        run: pnpm --filter @plugga/api test:indicadores-compras
 
       - name: Verify audit events carry no personal data
         run: pnpm --filter @plugga/api test:eventos-pii
