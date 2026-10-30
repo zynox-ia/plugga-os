@@ -3,7 +3,6 @@
   "limite": 600,
   "excecoes": {
     "apps/web/app/components/dashboard-view.tsx": 1644,
-    "apps/web/app/configuracoes/equipe-view.tsx": 664,
     "apps/web/app/design-system/page.tsx": 605
   }
 }
