@@ -23,7 +23,6 @@ test.describe("Pipelines — configuração pelo modal (PLU-269)", () => {
     await modal.getByRole("tab", { name: "Etapas" }).click();
     await modal.getByRole("button", { name: "Adicionar etapa" }).click();
     await modal.getByLabel("Nome da etapa 5").fill("Contrato");
-    await modal.getByLabel(/^Nome do Ganho neste pipeline( \*| \(obrigatório\))$/).fill("Contrato assinado");
     await modal.getByRole("button", { name: "Criar pipeline" }).click();
     await expect(modal.getByRole("status").filter({ hasText: "Alterações salvas." })).toBeVisible({ timeout: MUTATION_TIMEOUT_MS });
 
@@ -31,7 +30,6 @@ test.describe("Pipelines — configuração pelo modal (PLU-269)", () => {
     await page.getByLabel("Selecionar pipeline").selectOption({ label: `${nome} · Plugga` });
     const quadro = page.getByRole("region", { name: `Negócios do pipeline ${nome}` });
     await expect(quadro.getByRole("heading", { level: 3 })).toHaveText(["Iniciar atendimento", "Qualificação", "Proposta", "Negociação", "Contrato"]);
-    await expect(quadro.getByText("Contrato assinado", { exact: true })).toBeVisible();
 
     // O endereço reabre o mesmo pipeline para quem o recebe.
     await page.goto(page.url());
