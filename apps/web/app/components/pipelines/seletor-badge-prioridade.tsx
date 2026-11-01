@@ -21,7 +21,7 @@ export function SeletorBadgePrioridade({ nome, value, onChange }: {
     <Popover open={aberto} onOpenChange={setAberto}>
       <PopoverTrigger asChild>
         <button type="button" className={styles.prioridadeBadge} data-prioridade={value}
-          aria-label={`Prioridade visual de ${nome}`} title="Seleção visual — não salva no cadastro">
+          aria-label={`Prioridade visual de ${nome}`}>
           <Flag size={12} aria-hidden="true" fill={value === "urgente" ? "currentColor" : "none"} />
           <span>{rotulo}</span>
         </button>
@@ -38,7 +38,6 @@ export function SeletorBadgePrioridade({ nome, value, onChange }: {
             </button>
           ))}
         </div>
-        <small className={styles.paletaAjuda}>Somente visual, sem salvar no cadastro.</small>
       </PopoverContent>
     </Popover>
   );
