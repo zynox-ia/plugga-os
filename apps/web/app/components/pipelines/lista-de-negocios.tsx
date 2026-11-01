@@ -6,8 +6,6 @@ import {
   ArrowUp,
   ArrowUpDown,
   CheckSquare,
-  ChevronLeft,
-  ChevronRight,
   Clock,
   Eye,
   Filter,
@@ -24,7 +22,6 @@ import {
   diasNaEtapa,
   estaParado,
   ordenar,
-  somaDosValores,
   valorCurto,
   type Ordem,
 } from "../../lib/negocios";
@@ -32,6 +29,7 @@ import { ShellCard, ShellTable } from "../plugga-shell";
 import { Button, Checkbox } from "../ui";
 import { MenuDoNegocio } from "./cartao-de-negocio";
 import { DetalhesDoLeadModal } from "./detalhes-do-lead-modal";
+import { PaginacaoDaLista } from "./paginacao-da-lista";
 import type { AcoesDoNegocio } from "./quadro-do-pipeline";
 import styles from "./lista-de-negocios.module.css";
 
@@ -42,7 +40,7 @@ const COLUNAS: { campo: Ordem["campo"] | null; rotulo: string }[] = [
   { campo: "valor", rotulo: "Valor" },
 ];
 
-const ITENS_POR_PAGINA = 10;
+const ITENS_POR_PAGINA = 6;
 
 type Lote = { tipo: "owner" | "tag" | "stage"; valor: string };
 
@@ -81,8 +79,6 @@ export function ListaDeNegocios({
   const linhasPaginadas = useMemo(() => linhas.slice(inicioIndice, fimIndice), [linhas, inicioIndice, fimIndice]);
   const todos = linhasPaginadas.length > 0 && linhasPaginadas.every((n) => selecionados.has(n.id));
   const alguns = linhasPaginadas.some((n) => selecionados.has(n.id));
-
-  const valorTotalPipeline = useMemo(() => somaDosValores(negocios), [negocios]);
 
   // Carrega dados adicionais de contato/documento/endereço dos clientes visíveis
   useEffect(() => {
@@ -219,15 +215,6 @@ export function ListaDeNegocios({
           <div>
             <span className="eyebrow">Visão em lista</span>
             <h2>{pipeline.name}</h2>
-            <div className="card-subtitulo">
-              Mostrando <strong>{totalItens}</strong> {totalItens === 1 ? "lead" : "leads"}
-              {valorTotalPipeline > 0 ? (
-                <>
-                  {" • Total em negociação: "}
-                  <strong>{formatarBRL(valorTotalPipeline)}</strong>
-                </>
-              ) : null}
-            </div>
           </div>
           {totalItens > 0 ? <div className={styles.controles} ref={botaoSelecao}>
             <select aria-label="Ordenar oportunidades" value={`${ordem.campo}:${ordem.direcao}`} onChange={(e) => {
@@ -491,51 +478,7 @@ export function ListaDeNegocios({
               </tbody>
             </ShellTable>
 
-            {/* Paginação */}
-            <div className="lista-paginacao" aria-label="Paginação da lista de leads">
-              <div className="lista-paginacao-info">
-                Mostrando <strong>{inicioIndice + 1}–{fimIndice}</strong> de <strong>{totalItens}</strong>{" "}
-                {totalItens === 1 ? "lead" : "leads"}
-              </div>
-              {totalPaginas > 1 ? (
-                <div className="lista-paginacao-controles">
-                  <button
-                    type="button"
-                    className="lista-paginacao-btn"
-                    disabled={paginaAtual <= 1}
-                    onClick={() => setPagina(Math.max(1, paginaAtual - 1))}
-                    aria-label="Página anterior"
-                  >
-                    <ChevronLeft size={14} aria-hidden="true" />
-                    <span>Anterior</span>
-                  </button>
-                  <div className="lista-paginacao-paginas">
-                    {Array.from({ length: totalPaginas }, (_, i) => i + 1).map((num) => (
-                      <button
-                        key={num}
-                        type="button"
-                        className={`lista-paginacao-num ${paginaAtual === num ? "lista-paginacao-num--ativo" : ""}`}
-                        onClick={() => setPagina(num)}
-                        aria-label={`Ir para a página ${num}`}
-                        aria-current={paginaAtual === num ? "page" : undefined}
-                      >
-                        {num}
-                      </button>
-                    ))}
-                  </div>
-                  <button
-                    type="button"
-                    className="lista-paginacao-btn"
-                    disabled={paginaAtual >= totalPaginas}
-                    onClick={() => setPagina(Math.min(totalPaginas, paginaAtual + 1))}
-                    aria-label="Próxima página"
-                  >
-                    <span>Próxima</span>
-                    <ChevronRight size={14} aria-hidden="true" />
-                  </button>
-                </div>
-              ) : null}
-            </div>
+            <PaginacaoDaLista pagina={paginaAtual} totalItens={totalItens} itensPorPagina={ITENS_POR_PAGINA} aoMudarPagina={setPagina} />
           </>
         )}
       </ShellCard>

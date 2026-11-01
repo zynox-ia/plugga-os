@@ -9,10 +9,26 @@
   min-height: 0;
   max-height: none;
   overflow: visible;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
 
 .lista :global(.lista-negocios-card) {
+  padding: 0;
   border-radius: var(--radius-md);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+
+/* O hover global dos cards usa fundo opaco; a tabela mantém o vidro. */
+.lista :global(.lista-negocios-card),
+.lista :global(.lista-negocios-card):hover {
+  background: color-mix(in srgb, var(--ui-surface) 72%, transparent) !important;
 }
 
 .lista :global(.card-heading) {
@@ -52,6 +68,7 @@
   font-size: 12px;
   text-transform: none;
   letter-spacing: 0;
+  background: color-mix(in srgb, var(--ui-subtle) 65%, transparent);
 }
 
 .lista table th:first-child { width: 34%; }
@@ -70,6 +87,14 @@
 
 .lista table td {
   padding: var(--space-sm) var(--space-md);
+}
+
+.lista table tbody tr:hover td {
+  background: color-mix(in srgb, var(--ui-subtle) 65%, transparent) !important;
+}
+
+.lista table tbody tr[data-selected="true"] td {
+  background: color-mix(in srgb, var(--ui-focus-bg) 65%, transparent) !important;
 }
 
 .lista table tr[data-selected="true"] td:first-child {
@@ -168,13 +193,43 @@
 }
 
 .lista :global(.lista-paginacao) {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
   padding: var(--space-sm) var(--space-md);
   gap: var(--space-sm);
-  background: var(--ui-surface);
+  border-top: 1px solid var(--ui-divider);
+  background: transparent;
+  color: var(--ui-muted);
+  font-size: 12px;
 }
 
-.lista :global(.lista-paginacao-paginas) { flex-wrap: wrap; }
-.lista :global(.lista-paginacao-btn) { min-height: 32px; }
+.lista :global(.lista-paginacao-resumo) { display: flex; flex-direction: column; gap: var(--space-2xs); }
+.lista :global(.lista-paginacao-tamanho) { font-weight: 500; color: var(--ui-text); }
+.lista :global(.lista-paginacao-controles),
+.lista :global(.lista-paginacao-paginas) { display: flex; gap: var(--space-2xs); align-items: center; }
+.lista :global(.lista-paginacao-btn),
+.lista :global(.lista-paginacao-num) { min-width: 28px; min-height: 32px; padding: 0 var(--space-2xs); border-radius: var(--radius-xs); }
+.lista :global(.lista-paginacao-num[aria-current="page"]) { color: var(--ui-surface); background: var(--ui-primary); border-color: var(--ui-primary); }
+.lista :global(.lista-paginacao-reticencias) { padding: 0 var(--space-2xs); }
+.lista :global(.lista-paginacao-salto) { display: flex; justify-content: flex-end; align-items: center; gap: var(--space-xs); }
+.lista :global(.lista-paginacao-salto) label { display: inline-flex; align-items: center; gap: var(--space-xs); white-space: nowrap; }
+.lista :global(.lista-paginacao-salto) input {
+  width: 48px;
+  min-height: 32px;
+  padding: var(--space-2xs);
+  border: 1px solid var(--ui-divider);
+  border-radius: var(--radius-xs);
+  color: var(--ui-text);
+  background: color-mix(in srgb, var(--ui-surface) 65%, transparent);
+  text-align: center;
+  font: inherit;
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+.lista :global(.lista-paginacao-salto) input::-webkit-inner-spin-button,
+.lista :global(.lista-paginacao-salto) input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.lista :global(.lista-paginacao-salto) input:focus-visible { outline: 2px solid var(--ui-primary); outline-offset: 2px; }
 
 .lista :global(.barra-lote) {
   position: sticky;
@@ -203,8 +258,11 @@
   .lista :global(.card-heading) { padding: var(--space-md); }
   .controles { width: 100%; }
   .controles select { flex: 1; min-width: 0; }
-  .lista :global(.lista-paginacao) { flex-direction: column; align-items: flex-start; }
-  .lista :global(.lista-paginacao-controles) { flex-wrap: wrap; }
+  .lista :global(.lista-paginacao) { grid-template-columns: minmax(0, 1fr); }
+  .lista :global(.lista-paginacao-resumo) { flex-direction: row; justify-content: space-between; flex-wrap: wrap; }
+  .lista :global(.lista-paginacao-controles) { flex-wrap: wrap; justify-content: center; }
+  .lista :global(.lista-paginacao-paginas) { order: -1; width: 100%; justify-content: center; }
+  .lista :global(.lista-paginacao-salto) { justify-content: center; }
   .lista :global(.barra-lote) { width: 100%; bottom: var(--space-xl); }
   .lista :global(.barra-lote-controles) { width: 100%; }
   .lista :global(.barra-lote select) { flex: 1; min-width: 0; }

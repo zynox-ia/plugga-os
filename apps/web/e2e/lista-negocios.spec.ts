@@ -1,5 +1,6 @@
 import { expect, test, type APIRequestContext } from "@playwright/test";
 import type { CreateClientResponse, Deal, Pipeline, PipelinePeopleResponse } from "@plugga/shared";
+import { paginasDaLista } from "../app/components/pipelines/paginacao-da-lista";
 
 test.describe.configure({ mode: "default" });
 
@@ -55,6 +56,51 @@ test.afterAll(async ({ request, baseURL }) => {
   if (pipeline) await criar<Pipeline>(request, baseURL!, `/api/pipelines/${pipeline.id}/arquivar`, {});
 });
 
+test("mantém os números da paginação limitados mesmo com milhares de páginas", () => {
+  expect(paginasDaLista(1, 20)).toEqual([1, 2, 3, 20]);
+  expect(paginasDaLista(10, 20)).toEqual([1, 9, 10, 11, 20]);
+  expect(paginasDaLista(20, 20)).toEqual([1, 18, 19, 20]);
+  for (const total of [1, 5, 7, 8, 20, 10_000]) {
+    for (const atual of [1, Math.ceil(total / 2), total]) {
+      const numeros = paginasDaLista(atual, total);
+      expect(numeros.length).toBeLessThanOrEqual(7);
+      expect(numeros).toContain(atual);
+      expect(numeros[0]).toBe(1);
+      expect(numeros.at(-1)).toBe(total);
+      expect(numeros.every((n, i) => n >= 1 && n <= total && (i === 0 || n > numeros[i - 1]!))).toBe(true);
+    }
+  }
+});
+
+test("pagina seis registros com primeira, última e acesso direto à página", async ({ page }) => {
+  await page.goto(`/comercial/pipelines?pipeline=${pipeline.id}&visao=lista`);
+  await expect(page.locator(".lista-negocios-card tbody tr")).toHaveCount(6);
+  await expect(page.locator(".card-subtitulo")).toHaveCount(0);
+  const card = page.locator(".lista-negocios-card");
+  expect((await card.boundingBox())!.width).toBeCloseTo((await page.locator(".painel-quadro").boundingBox())!.width, 0);
+  await expect(card).not.toHaveCSS("backdrop-filter", "none");
+  await expect(page.locator(".lista-paginacao-info")).toHaveText("Mostrando 1–6 de 25 leads");
+  await expect(page.getByRole("button", { name: "Primeira página", exact: true })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Página anterior", exact: true })).toBeDisabled();
+  await page.getByRole("button", { name: "Última página", exact: true }).click();
+  await expect(page.locator(".lista-paginacao-info")).toHaveText("Mostrando 25–25 de 25 leads");
+  await expect(page.locator(".lista-negocios-card tbody tr")).toHaveCount(1);
+  await expect(page.getByRole("button", { name: "Próxima página", exact: true })).toBeDisabled();
+  await page.getByRole("button", { name: "Primeira página", exact: true }).click();
+  await page.getByRole("spinbutton", { name: "Ir para página", exact: true }).fill("3");
+  await page.getByRole("button", { name: "Ir", exact: true }).click();
+  await expect(page.locator(".lista-paginacao-info")).toHaveText("Mostrando 13–18 de 25 leads");
+  await expect(page.getByRole("button", { name: "Ir para a página 3", exact: true })).toHaveAttribute("aria-current", "page");
+  await page.getByRole("spinbutton", { name: "Ir para página", exact: true }).fill("6");
+  await page.getByRole("button", { name: "Ir", exact: true }).click();
+  await expect(page.locator(".lista-paginacao-info")).toHaveText("Mostrando 13–18 de 25 leads");
+  expect(await page.getByRole("spinbutton", { name: "Ir para página", exact: true }).evaluate((el) => el instanceof HTMLInputElement && el.validity.rangeOverflow)).toBe(true);
+  await page.getByRole("spinbutton", { name: "Ir para página", exact: true }).fill("2");
+  await page.getByRole("spinbutton", { name: "Ir para página", exact: true }).press("Enter");
+  await expect(page.locator(".lista-paginacao-info")).toHaveText("Mostrando 7–12 de 25 leads");
+  await expect(page.getByRole("spinbutton", { name: "Ir para página", exact: true })).toBeFocused();
+});
+
 test("exibe cinco títulos e revela a seleção somente ao ativá-la", async ({ page }) => {
   await page.goto(`/comercial/pipelines?pipeline=${pipeline.id}&visao=lista`);
   const tabela = page.getByRole("table", { name: `Lista de leads do pipeline ${pipeline.name}` });
@@ -64,7 +110,7 @@ test("exibe cinco títulos e revela a seleção somente ao ativá-la", async ({ 
   await selecionar.focus();
   await page.keyboard.press("Enter");
   await expect(page.getByRole("button", { name: "Cancelar seleção", exact: true })).toBeFocused();
-  await expect(tabela.getByRole("checkbox")).toHaveCount(11);
+  await expect(tabela.getByRole("checkbox")).toHaveCount(7);
   const linha = tabela.locator("tbody tr").first();
   await linha.getByRole("checkbox").check();
   await expect(linha).toHaveAttribute("data-selected", "true");
@@ -92,6 +138,8 @@ test("mantém a tabela e os controles contidos em telas estreitas", async ({ pag
     const card = page.locator(".lista-negocios-card");
     const limite = await card.boundingBox();
     expect(limite!.x + limite!.width).toBeLessThanOrEqual(width + 1);
+    const rodape = await page.getByRole("navigation", { name: "Paginação da lista de leads" }).boundingBox();
+    expect(rodape!.x + rodape!.width).toBeLessThanOrEqual(width + 1);
     const rolagem = page.locator(".lista-negocios-card .table-wrap");
     expect(await rolagem.evaluate((el) => getComputedStyle(el).overflowX)).toBe("auto");
     await selecionar.click();
@@ -109,18 +157,18 @@ test("mantém a tabela e os controles contidos em telas estreitas", async ({ pag
 test("seleciona apenas a página visível e preserva a seleção explícita de outras páginas", async ({ page }) => {
   await page.goto(`/comercial/pipelines?pipeline=${pipeline.id}&visao=lista`);
   const titulos = await page.locator(".lead-nome").allTextContents();
-  expect(titulos).toHaveLength(10);
+  expect(titulos).toHaveLength(6);
   const idsVisiveis = negocios.filter((n) => titulos.includes(n.title)).map((n) => n.id);
   await page.getByRole("button", { name: "Selecionar leads", exact: true }).click();
   const todos = page.getByRole("checkbox", { name: "Selecionar todos os leads visíveis" });
   await todos.check();
-  await expect(page.getByText("10 leads selecionados", { exact: true })).toBeVisible();
+  await expect(page.getByText("6 leads selecionados", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Próxima página" }).click();
   await expect(todos).not.toBeChecked();
   await todos.check();
-  await expect(page.getByText("20 leads selecionados", { exact: true })).toBeVisible();
+  await expect(page.getByText("12 leads selecionados", { exact: true })).toBeVisible();
   await todos.uncheck();
-  await expect(page.getByText("10 leads selecionados", { exact: true })).toBeVisible();
+  await expect(page.getByText("6 leads selecionados", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Página anterior" }).click();
   await expect(todos).toBeChecked();
 
@@ -142,18 +190,18 @@ test("consulta cada cliente da página uma única vez com respostas em tempos di
     await route.fulfill({ json: clientes[indice] });
   });
   await page.goto(`/comercial/pipelines?pipeline=${pipeline.id}&visao=lista`);
-  await expect(page.locator(".lead-subtitulo").getByText(/lista-cache-/)).toHaveCount(10);
-  expect(chamadas.size).toBe(10);
-  expect([...chamadas.values()]).toEqual(Array(10).fill(1));
+  await expect(page.locator(".lead-subtitulo").getByText(/lista-cache-/)).toHaveCount(6);
+  expect(chamadas.size).toBe(6);
+  expect([...chamadas.values()]).toEqual(Array(6).fill(1));
 });
 
 test("volta uma página após a busca reduzir o número de páginas", async ({ page }) => {
   await page.goto(`/comercial/pipelines?pipeline=${pipeline.id}&visao=lista`);
-  await page.getByRole("button", { name: "Ir para a página 3" }).click();
+  await page.getByRole("button", { name: "Ir para a página 5" }).click();
   await page.getByRole("searchbox", { name: "Buscar negócios" }).fill("Grupo");
-  await expect(page.locator(".lista-paginacao-info")).toHaveText("Mostrando 11–15 de 15 leads");
+  await expect(page.locator(".lista-paginacao-info")).toHaveText("Mostrando 13–15 de 15 leads");
   await page.getByRole("button", { name: "Página anterior" }).click();
-  await expect(page.locator(".lista-paginacao-info")).toHaveText("Mostrando 1–10 de 15 leads");
+  await expect(page.locator(".lista-paginacao-info")).toHaveText("Mostrando 7–12 de 15 leads");
 });
 
 test("negócios encerrados mantêm o menu com acesso aos detalhes e sem ações inválidas", async ({ page }) => {
