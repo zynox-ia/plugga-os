@@ -12,21 +12,28 @@ function nomeAcessivel(item: { label: string }): string {
   return item.label;
 }
 
+const GRUPOS = navGroupsForAccess();
+
+function grupoDe(item: { id: string }) {
+  const grupo = GRUPOS.find((candidato) => candidato.items.some((entrada) => entrada.id === item.id));
+  expect(grupo, `grupo do item ${item.id}`).toBeDefined();
+  return grupo!;
+}
+
 /**
- * Departamento nasce fechado: a barra chega enxuta e a pessoa abre o que usa.
- * Só o departamento da rota atual já vem aberto, para o item ativo não sumir.
- * Quem quiser ver os processos de um departamento precisa abri-lo primeiro —
- * é o que este ajudante faz, e é por isso que ele existe em vez de os testes
- * assumirem a árvore inteira desdobrada.
+ * Departamento nasce fechado e a barra é um acordeão: abrir um fecha o que
+ * estava aberto. Por isso não existe "abrir todos": cada teste abre o
+ * departamento do processo que vai usar, localizado pelo rótulo. Grupos que não
+ * recolhem (Visão geral, Ferramentas) já estão à vista.
  */
-async function abrirDepartamentos(page: import("@playwright/test").Page) {
-  const cabecalhos = page.locator(".sidebar-nav .nav-parent[aria-expanded='false']");
-  for (let i = await cabecalhos.count(); i > 0; i = await cabecalhos.count()) {
-    await cabecalhos.first().click();
-    // Uma por vez: a lista é reavaliada a cada clique porque abrir um
-    // departamento muda o que está no DOM.
-    if ((await cabecalhos.count()) >= i) break;
-  }
+async function abrirGrupo(
+  page: import("@playwright/test").Page,
+  grupo: { label: string; collapsible?: boolean },
+) {
+  if (!grupo.collapsible) return;
+  const cabecalho = page.locator(".sidebar-nav .nav-parent", { hasText: grupo.label });
+  if ((await cabecalho.getAttribute("aria-expanded")) === "false") await cabecalho.click();
+  await expect(cabecalho).toHaveAttribute("aria-expanded", "true");
 }
 
 test.describe("Plugga shell — smoke", () => {
@@ -42,12 +49,13 @@ test.describe("Plugga shell — smoke", () => {
       ).toBeVisible();
     }
 
-    await abrirDepartamentos(page);
-
-    for (const item of ITEMS) {
-      await expect(
-        page.locator(".sidebar-nav").getByRole("button", { name: nomeAcessivel(item), exact: true }),
-      ).toBeVisible();
+    for (const grupo of GRUPOS) {
+      await abrirGrupo(page, grupo);
+      for (const item of grupo.items) {
+        await expect(
+          page.locator(".sidebar-nav").getByRole("button", { name: nomeAcessivel(item), exact: true }),
+        ).toBeVisible();
+      }
     }
   });
 
@@ -93,10 +101,10 @@ test.describe("Plugga shell — smoke", () => {
   // O processo planejado continua visível e inerte, sem etiqueta de status.
   test("processes without a screen are visible and not clickable", async ({ page }) => {
     await page.goto("/");
-    await abrirDepartamentos(page);
 
     const pendente = ITEMS.find((item) => item.disabled);
     expect(pendente).toBeDefined();
+    await abrirGrupo(page, grupoDe(pendente!));
 
     const botao = page
       .locator(".sidebar-nav")
@@ -124,7 +132,7 @@ test.describe("Plugga shell — smoke", () => {
   for (const item of NAVEGAVEIS) {
     test(`nav: "${item.label}" routes to ${item.id}`, async ({ page }) => {
       await page.goto("/");
-      await abrirDepartamentos(page);
+      await abrirGrupo(page, grupoDe(item));
       await page
         .locator(".sidebar-nav")
         .getByRole("button", { name: nomeAcessivel(item), exact: true })
@@ -209,7 +217,7 @@ test.describe("Navegação única", () => {
 
   test("CRM navega sem propagar a antiga empresa global", async ({ page }) => {
     await page.goto("/?empresa=waze");
-    await abrirDepartamentos(page);
+    await abrirGrupo(page, { label: "CRM", collapsible: true });
 
     await page
       .locator(".sidebar-nav")

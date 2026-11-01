@@ -18,8 +18,6 @@ const usuario = {
   email: "simulado@plugga.local",
   name: "Usuário simulado",
   status: "active",
-  roles: [],
-  access: { platformRoles: [], companies: [] },
   acesso: { plataforma: null, departamentos: [] },
 };
 
