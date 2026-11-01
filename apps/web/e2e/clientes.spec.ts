@@ -48,7 +48,7 @@ test.describe("Clientes — cadastro único (PLU-268)", () => {
     const dialogo = page.getByRole("dialog", { name: "Novo cliente" });
     await dialogo.getByLabel("Nome *").fill(nome);
     await dialogo.getByRole("button", { name: "Cadastrar cliente" }).click();
-    await expect(dialogo.getByRole("alert")).toHaveText("Confira os campos destacados.");
+    await expect(dialogo.getByRole("alert").getByText("Confira os campos destacados.", { exact: true })).toBeVisible();
 
     await dialogo.getByLabel("Telefone", { exact: true }).fill("(92) 99999-0001");
     await dialogo.getByRole("button", { name: "Cadastrar cliente" }).click();
@@ -79,6 +79,40 @@ test.describe("Clientes — cadastro único (PLU-268)", () => {
     await rodrigo.getByRole("button", { name: "Tornar principal" }).click();
     await expect(rodrigo.getByText("Principal", { exact: true })).toBeVisible({ timeout: MUTATION_TIMEOUT_MS });
     await expect(juliana.getByText("Principal", { exact: true })).toHaveCount(0);
+  });
+
+  test("preenche o endereço pelo CEP e salva o complemento informado", async ({ page }) => {
+    const nome = `Cliente E2E CEP ${Date.now()}`;
+    await page.route("**/api/cep/69000000", (route) => route.fulfill({ json: {
+      logradouro: "Rua Sintética",
+      bairro: "Bairro de Teste",
+      cidade: "Manaus",
+      uf: "AM",
+      complemento: "Complemento da consulta",
+    } }));
+    await page.goto("/clientes");
+    await page.getByRole("button", { name: "+ Novo cliente" }).click();
+    const dialogo = page.getByRole("dialog", { name: "Novo cliente" });
+    await dialogo.getByLabel("Nome *").fill(nome);
+    await dialogo.getByLabel("E-mail", { exact: true }).fill(`e2e-cep-${Date.now()}@teste.local`);
+    await dialogo.getByLabel("Complemento", { exact: true }).fill("Sala sintética 2");
+    await dialogo.getByLabel("CEP", { exact: true }).fill("69000000");
+    await expect(dialogo.getByLabel("CEP", { exact: true })).toHaveValue("69000-000");
+    await expect(dialogo.getByLabel("Logradouro e número")).toHaveValue("Rua Sintética");
+    await expect(dialogo.getByLabel("Bairro", { exact: true })).toHaveValue("Bairro de Teste");
+    await expect(dialogo.getByLabel("Cidade", { exact: true })).toHaveValue("Manaus");
+    await expect(dialogo.getByRole("combobox", { name: "UF", exact: true })).toHaveText("AM");
+    await expect(dialogo.getByLabel("Complemento", { exact: true })).toHaveValue("Sala sintética 2");
+    const criacao = page.waitForResponse((resposta) => resposta.request().method() === "POST"
+      && new URL(resposta.url()).pathname === "/api/clientes");
+    await dialogo.getByRole("button", { name: "Cadastrar cliente" }).click();
+    const resposta = await criacao;
+    expect(resposta.ok()).toBe(true);
+    expect(resposta.request().postDataJSON()).toMatchObject({
+      postalCode: "69000000", street: "Rua Sintética", district: "Bairro de Teste",
+      city: "Manaus", state: "AM", addressComplement: "Sala sintética 2",
+    });
+    await expect(page.getByRole("dialog", { name: `Ficha de ${nome}` })).toBeVisible();
   });
 
   test("bloqueia CNPJ repetido e oferece abrir a ficha existente", async ({ page }) => {
