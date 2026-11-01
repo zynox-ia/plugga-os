@@ -72,10 +72,12 @@ test("mantém os números da paginação limitados mesmo com milhares de página
   }
 });
 
-test("pagina seis registros com primeira, última e acesso direto à página", async ({ page }) => {
+test("pagina seis registros sem rótulo de tamanho nem campo de salto", async ({ page }) => {
   await page.goto(`/comercial/pipelines?pipeline=${pipeline.id}&visao=lista`);
   await expect(page.locator(".lista-negocios-card tbody tr")).toHaveCount(6);
   await expect(page.locator(".card-subtitulo")).toHaveCount(0);
+  await expect(page.getByText("6 por página", { exact: true })).toHaveCount(0);
+  await expect(page.getByRole("spinbutton", { name: "Ir para página", exact: true })).toHaveCount(0);
   const card = page.locator(".lista-negocios-card");
   expect((await card.boundingBox())!.width).toBeCloseTo((await page.locator(".painel-quadro").boundingBox())!.width, 0);
   await expect(card).not.toHaveCSS("backdrop-filter", "none");
@@ -87,18 +89,31 @@ test("pagina seis registros com primeira, última e acesso direto à página", a
   await expect(page.locator(".lista-negocios-card tbody tr")).toHaveCount(1);
   await expect(page.getByRole("button", { name: "Próxima página", exact: true })).toBeDisabled();
   await page.getByRole("button", { name: "Primeira página", exact: true }).click();
-  await page.getByRole("spinbutton", { name: "Ir para página", exact: true }).fill("3");
-  await page.getByRole("button", { name: "Ir", exact: true }).click();
+  await page.getByRole("button", { name: "Ir para a página 3", exact: true }).click();
   await expect(page.locator(".lista-paginacao-info")).toHaveText("Mostrando 13–18 de 25 leads");
   await expect(page.getByRole("button", { name: "Ir para a página 3", exact: true })).toHaveAttribute("aria-current", "page");
-  await page.getByRole("spinbutton", { name: "Ir para página", exact: true }).fill("6");
-  await page.getByRole("button", { name: "Ir", exact: true }).click();
-  await expect(page.locator(".lista-paginacao-info")).toHaveText("Mostrando 13–18 de 25 leads");
-  expect(await page.getByRole("spinbutton", { name: "Ir para página", exact: true }).evaluate((el) => el instanceof HTMLInputElement && el.validity.rangeOverflow)).toBe(true);
-  await page.getByRole("spinbutton", { name: "Ir para página", exact: true }).fill("2");
-  await page.getByRole("spinbutton", { name: "Ir para página", exact: true }).press("Enter");
+  await page.getByRole("button", { name: "Página anterior", exact: true }).click();
   await expect(page.locator(".lista-paginacao-info")).toHaveText("Mostrando 7–12 de 25 leads");
-  await expect(page.getByRole("spinbutton", { name: "Ir para página", exact: true })).toBeFocused();
+});
+
+test("ordenação usa o seletor do Design System e o cabeçalho alinha com a primeira coluna", async ({ page }) => {
+  await page.goto(`/comercial/pipelines?pipeline=${pipeline.id}&visao=lista`);
+  const cabecalho = await page.locator(".card-heading .eyebrow").boundingBox();
+  const coluna = await page.getByRole("button", { name: "Oportunidade", exact: true }).boundingBox();
+  expect(cabecalho!.x).toBeCloseTo(coluna!.x, 0);
+  const ordenar = page.getByRole("combobox", { name: "Ordenar oportunidades", exact: true });
+  await ordenar.click();
+  const opcoes = page.getByRole("listbox", { name: "Ordenar oportunidades", exact: true });
+  await expect(opcoes).toBeVisible();
+  await expect(opcoes.getByRole("option")).toHaveCount(8);
+  await opcoes.getByRole("option", { name: "Oportunidade: A–Z", exact: true }).click();
+  await expect(page.getByRole("columnheader").first()).toHaveAttribute("aria-sort", "ascending");
+  await expect(page.locator(".lead-nome")).toHaveText(negocios.map((n) => n.title).sort((a, b) => a.localeCompare(b, "pt-BR")).slice(0, 6));
+  await ordenar.focus();
+  await page.keyboard.press("ArrowDown");
+  await expect(opcoes).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(ordenar).toBeFocused();
 });
 
 test("exibe cinco títulos e revela a seleção somente ao ativá-la", async ({ page }) => {
@@ -211,6 +226,7 @@ test("negócios encerrados mantêm o menu com acesso aos detalhes e sem ações 
     await page.getByRole("searchbox", { name: "Buscar negócios" }).fill(encerrado.title);
     const linha = page.getByRole("row").filter({ hasText: encerrado.title });
     await expect(linha.getByText(status, { exact: true })).toBeVisible();
+    await expect(linha.locator(".atividade-linha")).toHaveText(/\d+d na etapa/);
     await linha.getByRole("button", { name: `Ações de ${encerrado.title}`, exact: true }).click();
     const menu = page.getByRole("menu", { name: `Ações de ${encerrado.title}`, exact: true });
     await expect(menu.getByRole("menuitem")).toHaveText(["Ver detalhes do lead"]);

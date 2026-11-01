@@ -26,7 +26,7 @@ import {
   type Ordem,
 } from "../../lib/negocios";
 import { ShellCard, ShellTable } from "../plugga-shell";
-import { Button, Checkbox } from "../ui";
+import { Button, Checkbox, SelectField } from "../ui";
 import { MenuDoNegocio } from "./cartao-de-negocio";
 import { DetalhesDoLeadModal } from "./detalhes-do-lead-modal";
 import { PaginacaoDaLista } from "./paginacao-da-lista";
@@ -41,6 +41,16 @@ const COLUNAS: { campo: Ordem["campo"] | null; rotulo: string }[] = [
 ];
 
 const ITENS_POR_PAGINA = 6;
+const OPCOES_DE_ORDEM = [
+  { value: "etapa:asc", label: "Etapa: início ao fim" },
+  { value: "etapa:desc", label: "Etapa: fim ao início" },
+  { value: "titulo:asc", label: "Oportunidade: A–Z" },
+  { value: "titulo:desc", label: "Oportunidade: Z–A" },
+  { value: "valor:desc", label: "Maior valor" },
+  { value: "valor:asc", label: "Menor valor" },
+  { value: "dias:desc", label: "Mais tempo na etapa" },
+  { value: "dias:asc", label: "Menos tempo na etapa" },
+];
 
 type Lote = { tipo: "owner" | "tag" | "stage"; valor: string };
 
@@ -58,7 +68,7 @@ export function ListaDeNegocios({
   const [ordem, setOrdem] = useState<Ordem>({ campo: "etapa", direcao: "asc" });
   const [selecionados, setSelecionados] = useState<Set<string>>(new Set());
   const [selecionando, setSelecionando] = useState(false);
-  const botaoSelecao = useRef<HTMLDivElement>(null);
+  const botaoSelecao = useRef<HTMLSpanElement>(null);
   const [lote, setLote] = useState<Lote>({ tipo: "owner", valor: "" });
   const [aplicando, setAplicando] = useState(false);
   const [pagina, setPagina] = useState(1);
@@ -216,26 +226,21 @@ export function ListaDeNegocios({
             <span className="eyebrow">Visão em lista</span>
             <h2>{pipeline.name}</h2>
           </div>
-          {totalItens > 0 ? <div className={styles.controles} ref={botaoSelecao}>
-            <select aria-label="Ordenar oportunidades" value={`${ordem.campo}:${ordem.direcao}`} onChange={(e) => {
-              const [campo, direcao] = e.target.value.split(":") as [Ordem["campo"], Ordem["direcao"]];
-              setOrdem({ campo, direcao });
-            }}>
-              <option value="etapa:asc">Etapa: início ao fim</option>
-              <option value="etapa:desc">Etapa: fim ao início</option>
-              <option value="titulo:asc">Oportunidade: A–Z</option>
-              <option value="titulo:desc">Oportunidade: Z–A</option>
-              <option value="valor:desc">Maior valor</option>
-              <option value="valor:asc">Menor valor</option>
-              <option value="dias:desc">Mais tempo na etapa</option>
-              <option value="dias:asc">Menos tempo na etapa</option>
-            </select>
-            <Button variant="secondary" size="sm" icon={<CheckSquare size={14} />} aria-pressed={selecionando} onClick={() => {
-              setSelecionando(!selecionando);
-              setSelecionados(new Set());
-            }}>
-              {selecionando ? "Cancelar seleção" : "Selecionar leads"}
-            </Button>
+          {totalItens > 0 ? <div className={styles.controles}>
+            <div className={styles.ordenacao}>
+              <SelectField label="Ordenar oportunidades" options={OPCOES_DE_ORDEM} value={`${ordem.campo}:${ordem.direcao}`} onChange={(valor) => {
+                const [campo, direcao] = valor.split(":") as [Ordem["campo"], Ordem["direcao"]];
+                setOrdem({ campo, direcao });
+              }} />
+            </div>
+            <span ref={botaoSelecao} className={styles.selecao}>
+              <Button variant="secondary" size="sm" icon={<CheckSquare size={14} />} aria-pressed={selecionando} onClick={() => {
+                setSelecionando(!selecionando);
+                setSelecionados(new Set());
+              }}>
+                {selecionando ? "Cancelar seleção" : "Selecionar leads"}
+              </Button>
+            </span>
           </div> : null}
         </div>
 
@@ -427,12 +432,10 @@ export function ListaDeNegocios({
                             />
                             <span>{etapa?.name ?? "Sem etapa"}</span>
                           </span>
-                          {n.status === "open" ? (
-                            <span className={parado ? "atividade-linha atividade-linha--parado" : "atividade-linha"}>
-                              <Clock size={12} aria-hidden="true" />
-                              <span>{parado ? `Parado há ${dias}d` : `${dias}d na etapa`}</span>
-                            </span>
-                          ) : null}
+                          <span className={parado ? "atividade-linha atividade-linha--parado" : "atividade-linha"}>
+                            <Clock size={12} aria-hidden="true" />
+                            <span>{parado ? `Parado há ${dias}d` : `${dias}d na etapa`}</span>
+                          </span>
                         </div>
                       </td>
                       <td>

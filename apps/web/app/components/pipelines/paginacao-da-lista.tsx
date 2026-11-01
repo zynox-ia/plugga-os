@@ -1,7 +1,7 @@
 "use client";
 
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
-import { Fragment, useEffect, useState } from "react";
+import { Fragment } from "react";
 
 export function paginasDaLista(pagina: number, total: number): number[] {
   if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
@@ -19,16 +19,11 @@ export function PaginacaoDaLista({ pagina, totalItens, itensPorPagina, aoMudarPa
   const inicio = (pagina - 1) * itensPorPagina + 1;
   const fim = Math.min(pagina * itensPorPagina, totalItens);
   const paginas = paginasDaLista(pagina, totalPaginas);
-  const [destino, setDestino] = useState(String(pagina));
-  useEffect(() => setDestino(String(pagina)), [pagina, totalPaginas]);
 
   return <nav className="lista-paginacao" aria-label="Paginação da lista de leads">
-    <div className="lista-paginacao-resumo">
-      <span className="lista-paginacao-tamanho">{itensPorPagina} por página</span>
-      <span className="lista-paginacao-info" role="status">
-        Mostrando <strong>{inicio}–{fim}</strong> de <strong>{totalItens}</strong> {totalItens === 1 ? "lead" : "leads"}
-      </span>
-    </div>
+    <span className="lista-paginacao-info" role="status">
+      Mostrando <strong>{inicio}–{fim}</strong> de <strong>{totalItens}</strong> {totalItens === 1 ? "lead" : "leads"}
+    </span>
     <div className="lista-paginacao-controles">
       <button type="button" className="lista-paginacao-btn" disabled={pagina === 1} onClick={() => aoMudarPagina(1)} aria-label="Primeira página">
         <ChevronsLeft size={14} aria-hidden="true" />
@@ -52,15 +47,5 @@ export function PaginacaoDaLista({ pagina, totalItens, itensPorPagina, aoMudarPa
         <ChevronsRight size={14} aria-hidden="true" />
       </button>
     </div>
-    <form className="lista-paginacao-salto" onSubmit={(event) => {
-      event.preventDefault();
-      const numero = Number(destino);
-      if (Number.isInteger(numero) && numero >= 1 && numero <= totalPaginas) aoMudarPagina(numero);
-    }}>
-      <label>Ir para página
-        <input name="pagina" type="number" inputMode="numeric" min={1} max={totalPaginas} step={1} required value={destino} onChange={(event) => setDestino(event.target.value)} />
-      </label>
-      <button type="submit" className="lista-paginacao-btn">Ir</button>
-    </form>
   </nav>;
 }
