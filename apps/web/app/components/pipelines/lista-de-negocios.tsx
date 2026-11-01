@@ -16,7 +16,7 @@ import {
   Phone,
   User,
 } from "lucide-react";
-import { useEffect, useMemo, useState, type CSSProperties, type MouseEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent } from "react";
 
 import { documentoFormatado, telefoneFormatado } from "../../lib/clientes";
 import { formatarBRL } from "../../lib/format";
@@ -29,31 +29,23 @@ import {
   type Ordem,
 } from "../../lib/negocios";
 import { ShellCard, ShellTable } from "../plugga-shell";
-import { Button } from "../ui";
+import { Button, Checkbox } from "../ui";
 import { MenuDoNegocio } from "./cartao-de-negocio";
 import { DetalhesDoLeadModal } from "./detalhes-do-lead-modal";
 import type { AcoesDoNegocio } from "./quadro-do-pipeline";
+import styles from "./lista-de-negocios.module.css";
 
-const COLUNAS: { campo: Ordem["campo"] | null; rotulo: string; centro?: boolean }[] = [
-  { campo: "titulo", rotulo: "Lead / Oportunidade" },
-  { campo: null, rotulo: "Cliente / Empresa", centro: true },
-  { campo: "etapa", rotulo: "Etapa do Funil", centro: true },
-  { campo: "valor", rotulo: "Valor Estimado", centro: true },
-  { campo: null, rotulo: "Status", centro: true },
-  { campo: "dias", rotulo: "Última Atividade", centro: true },
+const COLUNAS: { campo: Ordem["campo"] | null; rotulo: string }[] = [
+  { campo: "titulo", rotulo: "Oportunidade" },
+  { campo: null, rotulo: "Cliente" },
+  { campo: "etapa", rotulo: "Etapa" },
+  { campo: "valor", rotulo: "Valor" },
 ];
 
 const ITENS_POR_PAGINA = 10;
 
 type Lote = { tipo: "owner" | "tag" | "stage"; valor: string };
 
-/**
- * Tabela de Leads do Pipeline (CRM).
- * Visual refinado e moderno seguindo o design system do Plugga OS.
- * Alinhamento centralizado para campos de empresa, etapa, valor, status e atividade.
- * Subtítulo rico com dados de contato, documento e tags abaixo do nome do lead.
- * Rigor de tipografia: font-weight estritamente <= 500.
- */
 export function ListaDeNegocios({
   pipeline,
   negocios,
@@ -67,6 +59,8 @@ export function ListaDeNegocios({
 }) {
   const [ordem, setOrdem] = useState<Ordem>({ campo: "etapa", direcao: "asc" });
   const [selecionados, setSelecionados] = useState<Set<string>>(new Set());
+  const [selecionando, setSelecionando] = useState(false);
+  const botaoSelecao = useRef<HTMLDivElement>(null);
   const [lote, setLote] = useState<Lote>({ tipo: "owner", valor: "" });
   const [aplicando, setAplicando] = useState(false);
   const [pagina, setPagina] = useState(1);
@@ -86,6 +80,7 @@ export function ListaDeNegocios({
   const fimIndice = Math.min(inicioIndice + ITENS_POR_PAGINA, totalItens);
   const linhasPaginadas = useMemo(() => linhas.slice(inicioIndice, fimIndice), [linhas, inicioIndice, fimIndice]);
   const todos = linhasPaginadas.length > 0 && linhasPaginadas.every((n) => selecionados.has(n.id));
+  const alguns = linhasPaginadas.some((n) => selecionados.has(n.id));
 
   const valorTotalPipeline = useMemo(() => somaDosValores(negocios), [negocios]);
 
@@ -165,16 +160,16 @@ export function ListaDeNegocios({
 
   const aoClicarLinha = (n: Deal, e: MouseEvent<HTMLTableRowElement>) => {
     const alvo = e.target as HTMLElement;
-    if (alvo.closest("input, button, select, a, [role='menuitem']")) return;
+    if (alvo.closest("input, label, button, select, a, [role='menuitem']")) return;
     setLeadSelecionado(n);
   };
 
   return (
-    <div className="lista-negocios">
+    <div className={`lista-negocios ${styles.lista}`}>
       {/* Barra de lote flutuante quando há itens selecionados */}
       {marcados.length > 0 ? (
         <div className="barra-lote" role="region" aria-label="Ações em lote">
-          <div className="barra-lote-info">
+          <div className="barra-lote-info" role="status">
             <CheckSquare size={15} aria-hidden="true" />
             <span>{marcados.length === 1 ? "1 lead selecionado" : `${marcados.length} leads selecionados`}</span>
           </div>
@@ -208,7 +203,10 @@ export function ListaDeNegocios({
             >
               {aplicando ? "Aplicando…" : "Aplicar"}
             </Button>
-            <button type="button" className="link-lote" onClick={() => setSelecionados(new Set())}>
+            <button type="button" className="link-lote" onClick={() => {
+              setSelecionados(new Set());
+              botaoSelecao.current?.querySelector("button")?.focus();
+            }}>
               Limpar seleção
             </button>
           </div>
@@ -219,10 +217,10 @@ export function ListaDeNegocios({
         {/* Cabeçalho do Card */}
         <div className="card-heading">
           <div>
-            <span className="eyebrow">Pipeline · Tabela de Leads</span>
+            <span className="eyebrow">Visão em lista</span>
             <h2>{pipeline.name}</h2>
             <div className="card-subtitulo">
-              Mostrando <strong>{totalItens}</strong> {totalItens === 1 ? "lead ativo" : "leads"}
+              Mostrando <strong>{totalItens}</strong> {totalItens === 1 ? "lead" : "leads"}
               {valorTotalPipeline > 0 ? (
                 <>
                   {" • Total em negociação: "}
@@ -231,6 +229,27 @@ export function ListaDeNegocios({
               ) : null}
             </div>
           </div>
+          {totalItens > 0 ? <div className={styles.controles} ref={botaoSelecao}>
+            <select aria-label="Ordenar oportunidades" value={`${ordem.campo}:${ordem.direcao}`} onChange={(e) => {
+              const [campo, direcao] = e.target.value.split(":") as [Ordem["campo"], Ordem["direcao"]];
+              setOrdem({ campo, direcao });
+            }}>
+              <option value="etapa:asc">Etapa: início ao fim</option>
+              <option value="etapa:desc">Etapa: fim ao início</option>
+              <option value="titulo:asc">Oportunidade: A–Z</option>
+              <option value="titulo:desc">Oportunidade: Z–A</option>
+              <option value="valor:desc">Maior valor</option>
+              <option value="valor:asc">Menor valor</option>
+              <option value="dias:desc">Mais tempo na etapa</option>
+              <option value="dias:asc">Menos tempo na etapa</option>
+            </select>
+            <Button variant="secondary" size="sm" icon={<CheckSquare size={14} />} aria-pressed={selecionando} onClick={() => {
+              setSelecionando(!selecionando);
+              setSelecionados(new Set());
+            }}>
+              {selecionando ? "Cancelar seleção" : "Selecionar leads"}
+            </Button>
+          </div> : null}
         </div>
 
         {totalItens === 0 ? (
@@ -248,19 +267,10 @@ export function ListaDeNegocios({
             <ShellTable caption={`Lista de leads do pipeline ${pipeline.name}`}>
               <thead>
                 <tr>
-                  <th scope="col" className="coluna-marcar">
-                    <input
-                      type="checkbox"
-                      aria-label="Selecionar todos os leads visíveis"
-                      checked={todos}
-                      onChange={alternarTodos}
-                    />
-                  </th>
                   {COLUNAS.map((c) => (
                     <th
                       key={c.rotulo}
                       scope="col"
-                      className={c.centro ? "coluna-centro" : undefined}
                       aria-sort={
                         c.campo && ordem.campo === c.campo
                           ? ordem.direcao === "asc"
@@ -269,31 +279,40 @@ export function ListaDeNegocios({
                           : undefined
                       }
                     >
-                      {c.campo ? (
-                        <button
-                          type="button"
-                          className={c.centro ? "ordenar ordenar--centro" : "ordenar"}
-                          onClick={() =>
-                            setOrdem((atual) => ({
-                              campo: c.campo!,
-                              direcao: atual.campo === c.campo && atual.direcao === "asc" ? "desc" : "asc",
-                            }))
-                          }
-                        >
-                          <span>{c.rotulo}</span>
-                          {ordem.campo === c.campo ? (
-                            ordem.direcao === "asc" ? (
-                              <ArrowUp size={13} className="ordenar-icone" aria-hidden="true" />
+                      <div className={styles.cabecalhoColuna}>
+                        {c.campo === "titulo" && selecionando ? <Checkbox
+                          className={styles.checkbox}
+                          label="Selecionar todos os leads visíveis"
+                          checked={todos}
+                          indeterminate={alguns && !todos}
+                          onChange={alternarTodos}
+                        /> : null}
+                        {c.campo ? (
+                          <button
+                            type="button"
+                            className="ordenar"
+                            onClick={() =>
+                              setOrdem((atual) => ({
+                                campo: c.campo!,
+                                direcao: atual.campo === c.campo && atual.direcao === "asc" ? "desc" : "asc",
+                              }))
+                            }
+                          >
+                            <span>{c.rotulo}</span>
+                            {ordem.campo === c.campo ? (
+                              ordem.direcao === "asc" ? (
+                                <ArrowUp size={13} className="ordenar-icone" aria-hidden="true" />
+                              ) : (
+                                <ArrowDown size={13} className="ordenar-icone" aria-hidden="true" />
+                              )
                             ) : (
-                              <ArrowDown size={13} className="ordenar-icone" aria-hidden="true" />
-                            )
-                          ) : (
-                            <ArrowUpDown size={12} className="ordenar-icone ordenar-icone--neutro" aria-hidden="true" />
-                          )}
-                        </button>
-                      ) : (
-                        <span>{c.rotulo}</span>
-                      )}
+                              <ArrowUpDown size={12} className="ordenar-icone ordenar-icone--neutro" aria-hidden="true" />
+                            )}
+                          </button>
+                        ) : (
+                          <span>{c.rotulo}</span>
+                        )}
+                      </div>
                     </th>
                   ))}
                   <th scope="col" className="coluna-centro">
@@ -328,79 +347,72 @@ export function ListaDeNegocios({
                     <tr
                       key={n.id}
                       className={estaMarcado ? "linha-marcada" : undefined}
+                      data-selected={estaMarcado}
                       onClick={(e) => aoClicarLinha(n, e)}
                     >
-                      {/* 1. Checkbox */}
-                      <td className="coluna-marcar" onClick={(e) => e.stopPropagation()}>
-                        <input
-                          type="checkbox"
-                          aria-label={`Selecionar ${n.title}`}
-                          checked={estaMarcado}
-                          onChange={() => alternar(n.id)}
-                        />
-                      </td>
-
-                      {/* 2. Lead / Oportunidade com Subtítulo Rico */}
                       <td>
-                        <div className="celula-lead-bloco">
-                          <span className="lead-nome">{n.title}</span>
-                          <div className="lead-subtitulo">
-                            {docFormatado ? (
-                              <span className="lead-subtitulo-item" title="Documento do cliente">
-                                {docFormatado}
-                              </span>
-                            ) : null}
-
-                            {n.contact ? (
-                              <>
-                                {docFormatado ? <span className="lead-subtitulo-divisor">•</span> : null}
-                                <span className="lead-subtitulo-item" title="Contato direto">
-                                  <User size={11} aria-hidden="true" />
-                                  <span>{n.contact.name}</span>
+                        <div className={styles.oportunidade}>
+                          {selecionando ? <span onClick={(e) => e.stopPropagation()}>
+                            <Checkbox className={styles.checkbox} label={`Selecionar ${n.title}`} checked={estaMarcado} onChange={() => alternar(n.id)} />
+                          </span> : null}
+                          <div className="celula-lead-bloco">
+                            <button type="button" className={`lead-nome ${styles.titulo}`} onClick={() => setLeadSelecionado(n)}>{n.title}</button>
+                            <div className="lead-subtitulo">
+                              {docFormatado ? (
+                                <span className="lead-subtitulo-item" title="Documento do cliente">
+                                  {docFormatado}
                                 </span>
-                              </>
-                            ) : null}
+                              ) : null}
 
-                            {foneFormatado ? (
-                              <>
-                                <span className="lead-subtitulo-divisor">•</span>
-                                <span className="lead-subtitulo-item" title="Telefone de contato">
-                                  <Phone size={11} aria-hidden="true" />
-                                  <span>{foneFormatado}</span>
-                                </span>
-                              </>
-                            ) : null}
+                              {n.contact ? (
+                                <>
+                                  {docFormatado ? <span className="lead-subtitulo-divisor">•</span> : null}
+                                  <span className="lead-subtitulo-item" title="Contato direto">
+                                    <User size={11} aria-hidden="true" />
+                                    <span>{n.contact.name}</span>
+                                  </span>
+                                </>
+                              ) : null}
 
-                            {detalheCliente?.email ? (
-                              <>
-                                <span className="lead-subtitulo-divisor">•</span>
-                                <span className="lead-subtitulo-item" title="E-mail de contato">
-                                  <Mail size={11} aria-hidden="true" />
-                                  <span>{detalheCliente.email}</span>
-                                </span>
-                              </>
+                              {foneFormatado ? (
+                                <>
+                                  <span className="lead-subtitulo-divisor">•</span>
+                                  <span className="lead-subtitulo-item" title="Telefone de contato">
+                                    <Phone size={11} aria-hidden="true" />
+                                    <span>{foneFormatado}</span>
+                                  </span>
+                                </>
+                              ) : null}
+
+                              {detalheCliente?.email ? (
+                                <>
+                                  <span className="lead-subtitulo-divisor">•</span>
+                                  <span className="lead-subtitulo-item" title="E-mail de contato">
+                                    <Mail size={11} aria-hidden="true" />
+                                    <span>{detalheCliente.email}</span>
+                                  </span>
+                                </>
+                              ) : null}
+                            </div>
+
+                            {n.tags.length > 0 ? (
+                              <div className="etiquetas-linha">
+                                {n.tags.map((t) => (
+                                  <span
+                                    key={t.id}
+                                    className="etiqueta-pill"
+                                    style={{ "--cor": t.color } as CSSProperties}
+                                  >
+                                    <span className="etiqueta-pill-dot" aria-hidden="true" />
+                                    <span>{t.name}</span>
+                                  </span>
+                                ))}
+                              </div>
                             ) : null}
                           </div>
-
-                          {n.tags.length > 0 ? (
-                            <div className="etiquetas-linha">
-                              {n.tags.map((t) => (
-                                <span
-                                  key={t.id}
-                                  className="etiqueta-pill"
-                                  style={{ "--cor": t.color } as CSSProperties}
-                                >
-                                  <span className="etiqueta-pill-dot" aria-hidden="true" />
-                                  <span>{t.name}</span>
-                                </span>
-                              ))}
-                            </div>
-                          ) : null}
                         </div>
                       </td>
-
-                      {/* 3. Cliente / Empresa (Centralizado) */}
-                      <td className="coluna-centro">
+                      <td>
                         <div className="celula-empresa-centro">
                           <span className="empresa-nome">
                             {detalheCliente?.legalName || n.client.name}
@@ -418,53 +430,41 @@ export function ListaDeNegocios({
                           </div>
                         </div>
                       </td>
-
-                      {/* 4. Etapa do Funil (Centralizado) */}
-                      <td className="coluna-centro">
-                        <span className="etapa-pill">
-                          <span
-                            className="etapa-dot"
-                            style={{ background: etapa?.color ?? "var(--ui-primary)" }}
-                            aria-hidden="true"
-                          />
-                          <span>{etapa?.name ?? "Sem etapa"}</span>
-                        </span>
-                      </td>
-
-                      {/* 5. Valor Estimado (Centralizado) */}
-                      <td className="coluna-centro">
-                        <span className="valor-linha" title={n.value ? formatarBRL(n.value) : undefined}>
-                          {n.value ? valorCurto(Number(n.value)) : "—"}
-                        </span>
-                      </td>
-
-                      {/* 6. Status do Lead (Centralizado) */}
-                      <td className="coluna-centro">
-                        <span className={`selo-status-lead selo-status-lead--${n.status}`}>
-                          <span className="selo-status-lead-dot" aria-hidden="true" />
-                          <span>
-                            {n.status === "won"
-                              ? pipeline.wonLabel
-                              : n.status === "lost"
-                                ? pipeline.lostLabel
-                                : "Em aberto"}
+                      <td>
+                        <div className={styles.etapa}>
+                          <span className="etapa-pill">
+                            <span
+                              className="etapa-dot"
+                              style={{ background: etapa?.color ?? "var(--ui-primary)" }}
+                              aria-hidden="true"
+                            />
+                            <span>{etapa?.name ?? "Sem etapa"}</span>
                           </span>
-                        </span>
+                          {n.status === "open" ? (
+                            <span className={parado ? "atividade-linha atividade-linha--parado" : "atividade-linha"}>
+                              <Clock size={12} aria-hidden="true" />
+                              <span>{parado ? `Parado há ${dias}d` : `${dias}d na etapa`}</span>
+                            </span>
+                          ) : null}
+                        </div>
                       </td>
-
-                      {/* 7. Última Atividade / Tempo na Etapa (Centralizado) */}
-                      <td className="coluna-centro">
-                        {n.status === "open" ? (
-                          <span className={parado ? "atividade-linha atividade-linha--parado" : "atividade-linha"}>
-                            <Clock size={12} aria-hidden="true" />
-                            <span>{parado ? `Parado há ${dias}d` : `${dias}d na etapa`}</span>
+                      <td>
+                        <div className={styles.valor}>
+                          <span className="valor-linha" title={n.value ? formatarBRL(n.value) : undefined}>
+                            {n.value ? valorCurto(Number(n.value)) : "—"}
                           </span>
-                        ) : (
-                          <span className="sem-dado">—</span>
-                        )}
+                          <span className={`selo-status-lead selo-status-lead--${n.status}`}>
+                            <span className="selo-status-lead-dot" aria-hidden="true" />
+                            <span>
+                              {n.status === "won"
+                                ? pipeline.wonLabel
+                                : n.status === "lost"
+                                  ? pipeline.lostLabel
+                                  : "Em aberto"}
+                            </span>
+                          </span>
+                        </div>
                       </td>
-
-                      {/* 8. Ações (Centralizado) */}
                       <td className="coluna-acoes coluna-centro" onClick={(e) => e.stopPropagation()}>
                         <div className="lista-negocios-acoes">
                           <button

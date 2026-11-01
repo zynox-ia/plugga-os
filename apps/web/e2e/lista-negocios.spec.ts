@@ -52,11 +52,63 @@ test.afterAll(async ({ request, baseURL }) => {
   if (pipeline) await criar<Pipeline>(request, baseURL!, `/api/pipelines/${pipeline.id}/arquivar`, {});
 });
 
+test("exibe cinco títulos e revela a seleção somente ao ativá-la", async ({ page }) => {
+  await page.goto(`/comercial/pipelines?pipeline=${pipeline.id}&visao=lista`);
+  const tabela = page.getByRole("table", { name: `Lista de leads do pipeline ${pipeline.name}` });
+  await expect(tabela.getByRole("columnheader")).toHaveText(["Oportunidade", "Cliente", "Etapa", "Valor", "Ações"]);
+  await expect(tabela.getByRole("checkbox")).toHaveCount(0);
+  const selecionar = page.getByRole("button", { name: "Selecionar leads", exact: true });
+  await selecionar.focus();
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("button", { name: "Cancelar seleção", exact: true })).toBeFocused();
+  await expect(tabela.getByRole("checkbox")).toHaveCount(11);
+  const linha = tabela.locator("tbody tr").first();
+  await linha.getByRole("checkbox").check();
+  await expect(linha).toHaveAttribute("data-selected", "true");
+  await expect(page.getByText("1 lead selecionado", { exact: true })).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "Detalhes do lead", exact: true })).toHaveCount(0);
+  await expect(tabela.getByRole("checkbox", { name: "Selecionar todos os leads visíveis" })).toHaveJSProperty("indeterminate", true);
+  await expect(tabela.getByRole("columnheader")).toHaveCount(5);
+  await page.getByRole("button", { name: "Limpar seleção", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Cancelar seleção", exact: true })).toBeFocused();
+  await linha.getByRole("checkbox").check();
+  await page.getByRole("button", { name: "Cancelar seleção", exact: true }).click();
+  await expect(tabela.getByRole("checkbox")).toHaveCount(0);
+  await expect(page.getByRole("region", { name: "Ações em lote" })).toHaveCount(0);
+  await selecionar.click();
+  await expect(tabela.getByRole("checkbox").first()).not.toBeChecked();
+  await expect(linha.getByRole("checkbox")).not.toBeChecked();
+});
+
+test("mantém a tabela e os controles contidos em telas estreitas", async ({ page }, testInfo) => {
+  await page.goto(`/comercial/pipelines?pipeline=${pipeline.id}&visao=lista`);
+  for (const width of [320, 768, 1024, 1440]) {
+    await page.setViewportSize({ width, height: 1000 });
+    const selecionar = page.getByRole("button", { name: "Selecionar leads", exact: true });
+    await expect(selecionar).toBeVisible();
+    const card = page.locator(".lista-negocios-card");
+    const limite = await card.boundingBox();
+    expect(limite!.x + limite!.width).toBeLessThanOrEqual(width + 1);
+    const rolagem = page.locator(".lista-negocios-card .table-wrap");
+    expect(await rolagem.evaluate((el) => getComputedStyle(el).overflowX)).toBe("auto");
+    await selecionar.click();
+    await page.getByRole("checkbox", { name: "Selecionar todos os leads visíveis" }).check();
+    const barra = page.getByRole("region", { name: "Ações em lote" });
+    await expect(barra).toBeVisible();
+    await expect(barra).toBeInViewport({ ratio: 1 });
+    const limiteBarra = await barra.boundingBox();
+    expect(limiteBarra!.x + limiteBarra!.width).toBeLessThanOrEqual(width + 1);
+    await page.screenshot({ path: testInfo.outputPath(`lista-${width}.png`), fullPage: true });
+    await page.getByRole("button", { name: "Cancelar seleção", exact: true }).click();
+  }
+});
+
 test("seleciona apenas a página visível e preserva a seleção explícita de outras páginas", async ({ page }) => {
   await page.goto(`/comercial/pipelines?pipeline=${pipeline.id}&visao=lista`);
   const titulos = await page.locator(".lead-nome").allTextContents();
   expect(titulos).toHaveLength(10);
   const idsVisiveis = negocios.filter((n) => titulos.includes(n.title)).map((n) => n.id);
+  await page.getByRole("button", { name: "Selecionar leads", exact: true }).click();
   const todos = page.getByRole("checkbox", { name: "Selecionar todos os leads visíveis" });
   await todos.check();
   await expect(page.getByText("10 leads selecionados", { exact: true })).toBeVisible();
