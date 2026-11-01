@@ -1,11 +1,66 @@
 .pagina {
   display: flex;
+  flex: 1;
+  height: auto;
+  min-height: 0;
+  min-width: 0;
   flex-direction: column;
   gap: 0.75rem;
 }
 
 :global(.main-content):has(> .pagina) {
+  display: flex;
+  flex-direction: column;
   padding-top: 14px;
+  scroll-padding-block: var(--space-xs);
+}
+
+@media (min-width: 821px) {
+  /* Sidebar: 88% de (janela - 24px), centralizada; o Agent ocupa 48px. */
+  :global(.main-content):has(> .pagina) {
+    padding-bottom: max(var(--space-2xs), calc((100dvh - (100dvh - 24px) * 0.88) / 2 - 48px));
+  }
+}
+
+.pagina > header,
+.pagina > .navegacao {
+  flex-shrink: 0;
+}
+
+/* O shell já reserva espaço para o cabeçalho e o rodapé do Agent. */
+.pagina :global(.quadro-pipeline) > :global(.painel-quadro) {
+  flex: 1;
+  height: auto;
+  min-height: 0;
+  max-height: none;
+}
+
+/* A seleção em lote pode exigir mais espaço que uma janela pequena oferece. */
+.pagina:has(:global(.lista-negocios)),
+.pagina :global(.quadro-pipeline):has(:global(.lista-negocios)),
+.pagina :global(.quadro-pipeline) > :global(.painel-quadro):has(> :global(.lista-negocios)) {
+  min-height: min-content;
+}
+
+.pagina :global(.coluna-meta) { flex-shrink: 0; }
+.pagina :global(.coluna-corpo) { overscroll-behavior-y: contain; }
+.pagina :global(.coluna-corpo) > * { flex-shrink: 0; }
+.pagina :global(.coluna-corpo):focus-visible {
+  outline: 2px solid var(--ui-primary);
+  outline-offset: -2px;
+}
+
+/* Em janelas baixas, a página rola sem esmagar a área de trabalho. */
+@media (max-height: 699px) {
+  .pagina { flex: none; }
+  .pagina :global(.quadro-pipeline) { flex: none; }
+  .pagina :global(.quadro-pipeline) > :global(.painel-quadro) {
+    flex: none;
+    height: clamp(320px, 65dvh, 520px);
+  }
+  .pagina :global(.quadro-pipeline) > :global(.painel-quadro):has(> :global(.lista-negocios)) {
+    height: auto;
+  }
 }
 
 @media (max-width: 820px) {

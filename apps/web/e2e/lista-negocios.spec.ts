@@ -96,6 +96,94 @@ test("pagina seis registros sem rótulo de tamanho nem campo de salto", async ({
   await expect(page.locator(".lista-paginacao-info")).toHaveText("Mostrando 7–12 de 25 leads");
 });
 
+test("lista e Kanban rolam por dentro sem deslocar controles ou rodapé do agente", async ({ page }) => {
+  test.setTimeout(60_000);
+  for (const viewport of [{ width: 1440, height: 900 }, { width: 1280, height: 720 }, { width: 1024, height: 768 }, { width: 768, height: 1000 }, { width: 320, height: 1000 }]) {
+    await page.setViewportSize(viewport);
+    for (const visao of ["kanban", "lista"]) {
+      await page.goto(`/comercial/pipelines?pipeline=${pipeline.id}&visao=${visao}`);
+      await expect(page.locator(".painel-quadro")).toBeVisible();
+      await expect.poll(() => page.locator("main").evaluate((el) => el.scrollHeight - el.clientHeight)).toBeLessThanOrEqual(1);
+      const agente = (await page.getByRole("button", { name: "Agent", exact: true }).boundingBox())!;
+      const painel = (await page.locator(".painel-quadro").boundingBox())!;
+      expect(agente.y + agente.height).toBeLessThanOrEqual(viewport.height);
+      expect(painel.y + painel.height).toBeLessThan(agente.y);
+      if (viewport.width > 820) {
+        await expect.poll(async () => {
+          const lateral = (await page.getByRole("complementary", { name: "Navegação principal", exact: true }).boundingBox())!;
+          return Math.abs(painel.y + painel.height - lateral.y - lateral.height);
+        }).toBeLessThanOrEqual(1);
+      }
+      const controle = visao === "lista" ? page.locator(".lista-paginacao") : page.locator(".coluna-topo").first();
+      const antes = (await controle.boundingBox())!;
+      const rolagem = visao === "lista" ? page.getByRole("region", { name: "Oportunidades do pipeline", exact: true }) : page.getByRole("region", { name: "Negócios em Entrada", exact: true });
+      const excedente = await rolagem.evaluate((el) => el.scrollHeight - el.clientHeight);
+      if (visao === "kanban" || viewport.height === 720) expect(excedente).toBeGreaterThan(0);
+      await rolagem.evaluate((el) => { el.scrollTop = el.scrollHeight; });
+      if (excedente > 0) await expect.poll(() => rolagem.evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
+      expect((await controle.boundingBox())!.y).toBeCloseTo(antes.y, 0);
+      if (visao === "kanban" && viewport.height === 720) {
+        await rolagem.focus();
+        await page.keyboard.press("Home");
+        await expect.poll(() => rolagem.evaluate((el) => el.scrollTop)).toBe(0);
+      }
+      if (visao === "lista") {
+        const topo = (await page.locator("thead").boundingBox())!;
+        expect(topo.y).toBeCloseTo((await rolagem.boundingBox())!.y, 0);
+        await rolagem.focus();
+        await page.keyboard.press("Home");
+        await expect.poll(() => rolagem.evaluate((el) => el.scrollTop)).toBe(0);
+        await page.getByRole("button", { name: "Próxima página", exact: true }).click();
+        await expect(page.locator(".lista-paginacao-info")).toHaveText("Mostrando 7–12 de 25 leads");
+      }
+    }
+  }
+});
+
+test("ações em lote, menus e estado vazio continuam acessíveis no painel limitado", async ({ page }) => {
+  test.setTimeout(60_000);
+  for (const viewport of [{ width: 1280, height: 720 }, { width: 320, height: 1000 }, { width: 320, height: 600 }]) {
+    await page.setViewportSize(viewport);
+    await page.goto(`/comercial/pipelines?pipeline=${pipeline.id}&visao=lista`);
+    await page.getByRole("button", { name: "Selecionar leads", exact: true }).click();
+    await page.getByRole("checkbox", { name: "Selecionar todos os leads visíveis", exact: true }).check();
+    const lote = page.getByRole("region", { name: "Ações em lote", exact: true });
+    await lote.scrollIntoViewIfNeeded();
+    await expect(lote).toBeInViewport({ ratio: 1 });
+    const proxima = page.getByRole("button", { name: "Próxima página", exact: true });
+    await proxima.scrollIntoViewIfNeeded();
+    await expect(proxima).toBeInViewport({ ratio: 1 });
+    if (viewport.width > 820) await expect.poll(() => page.locator("main").evaluate((el) => el.scrollHeight - el.clientHeight)).toBeLessThanOrEqual(1);
+    expect((await page.getByRole("region", { name: "Oportunidades do pipeline", exact: true }).boundingBox())!.height).toBeGreaterThanOrEqual(160);
+    await page.getByRole("button", { name: "Cancelar seleção", exact: true }).click();
+    const rolagem = page.getByRole("region", { name: "Oportunidades do pipeline", exact: true });
+    await rolagem.evaluate((el) => { el.scrollTop = el.scrollHeight; el.scrollLeft = el.scrollWidth; });
+    await page.getByRole("button", { name: /^Ações de / }).last().click();
+    await expect(page.locator(".menu-negocio-lista")).toBeInViewport();
+    await page.keyboard.press("Escape");
+    await page.getByRole("searchbox", { name: "Buscar negócios", exact: true }).fill("Sem resultado sintético inexistente");
+    await expect(page.getByText("Nenhum lead encontrado", { exact: true })).toBeVisible();
+    if (viewport.height >= 700) await expect.poll(() => page.locator("main").evaluate((el) => el.scrollHeight - el.clientHeight)).toBeLessThanOrEqual(1);
+    await page.getByRole("button", { name: "Agent", exact: true }).click();
+    await expect(page.getByRole("dialog", { name: "Assistente IA", exact: true })).toBeInViewport();
+    await page.getByRole("button", { name: "Fechar assistente", exact: true }).click();
+  }
+});
+
+test("janelas baixas mantêm o conteúdo alcançável e o agente visível", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 480 });
+  for (const visao of ["kanban", "lista"]) {
+    await page.goto(`/comercial/pipelines?pipeline=${pipeline.id}&visao=${visao}`);
+    const agente = (await page.getByRole("button", { name: "Agent", exact: true }).boundingBox())!;
+    expect(agente.y + agente.height).toBeLessThanOrEqual(480);
+    await page.locator("main").evaluate((el) => { el.scrollTop = el.scrollHeight; });
+    const base = (await page.locator(".painel-quadro").boundingBox())!;
+    expect(base.height).toBeGreaterThanOrEqual(240);
+    expect(base.y + base.height).toBeLessThan(agente.y);
+    if (visao === "lista") await expect(page.getByRole("button", { name: "Próxima página", exact: true })).toBeInViewport();
+  }
+});
+
 test("ordenação usa o seletor do Design System e o cabeçalho alinha com a primeira coluna", async ({ page }) => {
   await page.goto(`/comercial/pipelines?pipeline=${pipeline.id}&visao=lista`);
   const cabecalho = await page.locator(".card-heading .eyebrow").boundingBox();
@@ -158,12 +246,13 @@ test("mantém a tabela e os controles contidos em telas estreitas", async ({ pag
     expect(rodape!.x + rodape!.width).toBeLessThanOrEqual(width + 1);
     const paginacao = await page.locator(".lista-paginacao-controles").boundingBox();
     expect(paginacao!.x + paginacao!.width).toBeCloseTo(rodape!.x + rodape!.width - 16, 0);
-    const rolagem = page.locator(".lista-negocios-card .table-wrap");
+    const rolagem = page.getByRole("region", { name: "Oportunidades do pipeline", exact: true });
     expect(await rolagem.evaluate((el) => getComputedStyle(el).overflowX)).toBe("auto");
     await selecionar.click();
     await page.getByRole("checkbox", { name: "Selecionar todos os leads visíveis" }).check();
     const barra = page.getByRole("region", { name: "Ações em lote" });
     await expect(barra).toBeVisible();
+    await barra.scrollIntoViewIfNeeded();
     await expect(barra).toBeInViewport({ ratio: 1 });
     const limiteBarra = await barra.boundingBox();
     expect(limiteBarra!.x + limiteBarra!.width).toBeLessThanOrEqual(width + 1);

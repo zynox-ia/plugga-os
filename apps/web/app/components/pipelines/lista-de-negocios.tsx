@@ -262,6 +262,7 @@ export function ListaDeNegocios({
           </div>
         ) : (
           <>
+            <div className={styles.rolagemTabela} role="region" aria-label="Oportunidades do pipeline" tabIndex={0}>
             <ShellTable caption={`Lista de leads do pipeline ${pipeline.name}`}>
               <thead>
                 <tr>
@@ -486,6 +487,7 @@ export function ListaDeNegocios({
                 })}
               </tbody>
             </ShellTable>
+            </div>
 
             <PaginacaoDaLista pagina={paginaAtual} totalItens={totalItens} itensPorPagina={ITENS_POR_PAGINA} aoMudarPagina={setPagina} />
           </>

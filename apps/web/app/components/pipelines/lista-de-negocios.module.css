@@ -1,13 +1,14 @@
 .lista {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: min-content;
   min-width: 0;
   position: relative;
 }
 
-/* A lista cresce com as linhas; a altura fixa pertence ao quadro Kanban. */
+/* O próprio card da lista é o painel de vidro, sem um segundo shape. */
 :global(.painel-quadro):has(> .lista) {
-  height: auto;
-  min-height: 0;
-  max-height: none;
   overflow: visible;
   padding: 0;
   border: 0;
@@ -19,6 +20,10 @@
 }
 
 .lista :global(.lista-negocios-card) {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: min-content;
   padding: 0;
   border-radius: var(--radius-md);
   -webkit-backdrop-filter: blur(10px);
@@ -32,6 +37,7 @@
 }
 
 .lista :global(.card-heading) {
+  flex-shrink: 0;
   padding: var(--space-md);
 }
 
@@ -65,8 +71,32 @@
 .selecao { display: flex; }
 .selecao > button { flex: 1; }
 
-.lista :global(.table-wrap) {
-  overscroll-behavior-x: contain;
+.rolagemTabela {
+  flex: 1;
+  /* As linhas não participam do cálculo da altura mínima do painel. */
+  contain: size;
+  min-height: 160px;
+  overflow: auto;
+  scroll-padding-block-start: var(--space-2xl);
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--ui-divider) transparent;
+}
+
+.rolagemTabela :global(.table-wrap) { overflow: visible; }
+
+.rolagemTabela:focus-visible {
+  outline: 2px solid var(--ui-primary);
+  outline-offset: -2px;
+}
+
+.lista thead {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: color-mix(in srgb, var(--ui-surface) 90%, transparent);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
 }
 
 .lista table {
@@ -204,6 +234,7 @@
 }
 
 .lista :global(.lista-paginacao) {
+  flex-shrink: 0;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
@@ -224,8 +255,8 @@
 .lista :global(.lista-paginacao-reticencias) { padding: 0 var(--space-2xs); }
 
 .lista :global(.barra-lote) {
-  position: sticky;
-  bottom: var(--space-xl);
+  position: static;
+  flex-shrink: 0;
   order: 1;
   z-index: 5;
   align-self: center;
@@ -253,7 +284,7 @@
   .lista :global(.lista-paginacao) { grid-template-columns: minmax(0, 1fr); }
   .lista :global(.lista-paginacao-controles) { display: grid; grid-template-columns: repeat(2, 26px) minmax(0, 1fr) repeat(2, 26px); max-width: 100%; }
   .lista :global(.lista-paginacao-paginas) { min-width: 0; flex-wrap: wrap; justify-content: flex-end; }
-  .lista :global(.barra-lote) { width: 100%; bottom: var(--space-xl); }
+  .lista :global(.barra-lote) { width: 100%; }
   .lista :global(.barra-lote-controles) { width: 100%; }
   .lista :global(.barra-lote select) { flex: 1; min-width: 0; }
 }

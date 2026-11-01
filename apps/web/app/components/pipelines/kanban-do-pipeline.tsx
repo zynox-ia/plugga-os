@@ -126,7 +126,7 @@ export function KanbanDoPipeline({
                 ) : null}
               </div>
 
-              <div className="coluna-corpo">
+              <div className="coluna-corpo" role="region" aria-label={`Negócios em ${etapa.name}`} tabIndex={0}>
                 {daEtapa.length > 0 ? (
                   daEtapa.map((negocio) => (
                     <CartaoDeNegocio
