@@ -476,12 +476,13 @@ export function ListaDeNegocios({
                           >
                             <Eye size={14} aria-hidden="true" />
                           </button>
-                          {n.status === "open" ? <MenuDoNegocio
+                          <MenuDoNegocio
                             negocio={n}
                             pipeline={pipeline}
                             acoes={acoes}
                             aoVerLead={() => setLeadSelecionado(n)}
-                          /> : null}
+                            menuClassName={styles.menuVidro}
+                          />
                         </div>
                       </td>
                     </tr>

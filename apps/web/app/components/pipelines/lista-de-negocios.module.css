@@ -60,6 +60,9 @@
 .lista table th:nth-child(4) { width: 14%; }
 .lista table th:last-child { width: 10%; min-width: 88px; }
 
+.lista table th:not(:first-child) { text-align: center; }
+.lista table th:not(:first-child) .cabecalhoColuna { justify-content: center; }
+
 .lista table th + th,
 .lista table td + td {
   border-left: 1px solid var(--ui-divider);
@@ -132,10 +135,14 @@
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: var(--space-xs);
+  gap: var(--space-2xs);
 }
 
+.valor { align-items: center; text-align: center; }
+
 .lista :global(.etapa-pill) {
+  min-height: 0;
+  line-height: var(--line-height-control);
   justify-content: flex-start;
   margin: 0;
   padding: 0;
@@ -145,8 +152,20 @@
   font-size: 12px;
 }
 
-.lista :global(.valor-linha) { font-variant-numeric: tabular-nums; text-align: left; }
-.lista :global(.selo-status-lead) { border-radius: var(--radius-xs); }
+.lista :global(.valor-linha) { font-variant-numeric: tabular-nums; text-align: center; }
+.lista :global(.selo-status-lead) { height: 20px; border-radius: var(--radius-full); }
+
+.menuVidro:global(.menu-negocio-lista) {
+  background: color-mix(in srgb, var(--ui-surface) 65%, transparent);
+  border-color: color-mix(in srgb, var(--ui-surface) 75%, transparent);
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+}
+
+.menuVidro:global(.menu-negocio-lista) button:hover,
+.menuVidro:global(.menu-negocio-lista) button:focus-visible {
+  background: color-mix(in srgb, var(--ui-subtle) 65%, transparent);
+}
 
 .lista :global(.lista-paginacao) {
   padding: var(--space-sm) var(--space-md);

@@ -27,7 +27,7 @@ test.beforeAll(async ({ request, baseURL }) => {
     stages: [
       { name: "Entrada", color: "#0077FF", staleAfterDays: null },
       { name: "Proposta", color: "#00A3FF", staleAfterDays: null },
-    ], tags: [], lossReasons: [], members: [],
+    ], tags: [], lossReasons: [{ name: "Sem interesse", asksRevisitDate: false }], members: [],
   });
   clientes = [];
   for (let i = 0; i < 10; i++) {
@@ -46,6 +46,9 @@ test.beforeAll(async ({ request, baseURL }) => {
     }));
   }
   await criar<Deal>(request, baseURL!, `/api/negocios/${negocios[24]!.id}/ganho`, {});
+  await criar<Deal>(request, baseURL!, `/api/negocios/${negocios[23]!.id}/perda`, {
+    lossReasonId: pipeline.lossReasons[0]!.id, revisitOn: "", note: "",
+  });
 });
 
 test.afterAll(async ({ request, baseURL }) => {
@@ -153,13 +156,33 @@ test("volta uma página após a busca reduzir o número de páginas", async ({ p
   await expect(page.locator(".lista-paginacao-info")).toHaveText("Mostrando 1–10 de 15 leads");
 });
 
-test("negócio encerrado mantém os detalhes sem oferecer ações que a API recusa", async ({ page }) => {
-  const encerrado = negocios[24]!;
+test("negócios encerrados mantêm o menu com acesso aos detalhes e sem ações inválidas", async ({ page }) => {
   await page.goto(`/comercial/pipelines?pipeline=${pipeline.id}&visao=lista`);
-  await page.getByRole("searchbox", { name: "Buscar negócios" }).fill(encerrado.title);
-  const linha = page.getByRole("row").filter({ hasText: encerrado.title });
-  await expect(linha.getByText("Ganho", { exact: true })).toBeVisible();
-  await expect(linha.getByRole("button", { name: `Ações de ${encerrado.title}`, exact: true })).toHaveCount(0);
-  await linha.getByRole("button", { name: `Ver detalhes do lead ${encerrado.title}`, exact: true }).click();
-  await expect(page.getByRole("dialog", { name: "Detalhes do lead", exact: true })).toBeVisible();
+  for (const [indice, status] of [[24, "Ganho"], [23, "Perdido"]] as const) {
+    const encerrado = negocios[indice]!;
+    await page.getByRole("searchbox", { name: "Buscar negócios" }).fill(encerrado.title);
+    const linha = page.getByRole("row").filter({ hasText: encerrado.title });
+    await expect(linha.getByText(status, { exact: true })).toBeVisible();
+    await linha.getByRole("button", { name: `Ações de ${encerrado.title}`, exact: true }).click();
+    const menu = page.getByRole("menu", { name: `Ações de ${encerrado.title}`, exact: true });
+    await expect(menu.getByRole("menuitem")).toHaveText(["Ver detalhes do lead"]);
+    await menu.getByRole("menuitem", { name: "Ver detalhes do lead", exact: true }).click();
+    await expect(page.getByRole("dialog", { name: "Detalhes do lead", exact: true })).toBeVisible();
+    await page.keyboard.press("Escape");
+    await linha.getByRole("button", { name: `Ver detalhes do lead ${encerrado.title}`, exact: true }).click();
+    await expect(page.getByRole("dialog", { name: "Detalhes do lead", exact: true })).toBeVisible();
+    await page.keyboard.press("Escape");
+  }
+});
+
+test("negócio aberto mantém as ações de etapa, ganho, perda e transferência", async ({ page }) => {
+  const aberto = negocios[22]!;
+  await page.goto(`/comercial/pipelines?pipeline=${pipeline.id}&visao=lista`);
+  await page.getByRole("searchbox", { name: "Buscar negócios" }).fill(aberto.title);
+  await page.getByRole("button", { name: `Ações de ${aberto.title}`, exact: true }).click();
+  const menu = page.getByRole("menu", { name: `Ações de ${aberto.title}`, exact: true });
+  await expect(menu).not.toHaveCSS("backdrop-filter", "none");
+  await expect(menu.getByRole("menuitem")).toHaveText([
+    "Ver detalhes do lead", "Proposta", "Ganho", "Perdido", "Mover para outro pipeline",
+  ]);
 });

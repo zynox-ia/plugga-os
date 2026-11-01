@@ -26,11 +26,13 @@ export function MenuDoNegocio({
   pipeline,
   acoes,
   aoVerLead,
+  menuClassName = "",
 }: {
   negocio: Deal;
   pipeline: Pipeline;
   acoes: AcoesDoNegocio;
   aoVerLead?: () => void;
+  menuClassName?: string;
 }) {
   const [aberto, setAberto] = useState(false);
   const [posicao, setPosicao] = useState<{ top: number; left: number } | null>(null);
@@ -116,7 +118,7 @@ export function MenuDoNegocio({
         ? createPortal(
             <div
               ref={menu}
-              className="menu-negocio-lista"
+              className={`menu-negocio-lista ${menuClassName}`}
               role="menu"
               aria-label={`Ações de ${negocio.title}`}
               style={posicao ? { top: posicao.top, left: posicao.left } : { visibility: "hidden" }}
@@ -126,29 +128,31 @@ export function MenuDoNegocio({
                   <button type="button" role="menuitem" onClick={escolher(aoVerLead)}>
                     <Eye size={14} aria-hidden="true" /> Ver detalhes do lead
                   </button>
-                  <span className="menu-negocio-divisor" role="separator" />
+                  {negocio.status === "open" ? <span className="menu-negocio-divisor" role="separator" /> : null}
                 </>
               ) : null}
 
-              <span className="menu-negocio-titulo">Mover para etapa</span>
-              {pipeline.stages
-                .filter((e) => e.id !== negocio.stageId)
-                .map((e) => (
-                  <button key={e.id} type="button" role="menuitem" onClick={escolher(() => void acoes.moverEtapa(negocio, e.id))}>
-                    <span className="ponto-cor" style={{ background: e.color }} aria-hidden="true" />
-                    {e.name}
-                  </button>
-                ))}
-              <span className="menu-negocio-divisor" role="separator" />
-              <button type="button" role="menuitem" className="menu-negocio--ganho" onClick={escolher(() => acoes.ganhar(negocio))}>
-                <Check size={14} aria-hidden="true" /> {pipeline.wonLabel}
-              </button>
-              <button type="button" role="menuitem" className="menu-negocio--perdido" onClick={escolher(() => acoes.perder(negocio))}>
-                <X size={14} aria-hidden="true" /> {pipeline.lostLabel}
-              </button>
-              <button type="button" role="menuitem" onClick={escolher(() => acoes.transferir(negocio))}>
-                <ArrowRight size={14} aria-hidden="true" /> Mover para outro pipeline
-              </button>
+              {negocio.status === "open" ? <>
+                <span className="menu-negocio-titulo">Mover para etapa</span>
+                {pipeline.stages
+                  .filter((e) => e.id !== negocio.stageId)
+                  .map((e) => (
+                    <button key={e.id} type="button" role="menuitem" onClick={escolher(() => void acoes.moverEtapa(negocio, e.id))}>
+                      <span className="ponto-cor" style={{ background: e.color }} aria-hidden="true" />
+                      {e.name}
+                    </button>
+                  ))}
+                <span className="menu-negocio-divisor" role="separator" />
+                <button type="button" role="menuitem" className="menu-negocio--ganho" onClick={escolher(() => acoes.ganhar(negocio))}>
+                  <Check size={14} aria-hidden="true" /> {pipeline.wonLabel}
+                </button>
+                <button type="button" role="menuitem" className="menu-negocio--perdido" onClick={escolher(() => acoes.perder(negocio))}>
+                  <X size={14} aria-hidden="true" /> {pipeline.lostLabel}
+                </button>
+                <button type="button" role="menuitem" onClick={escolher(() => acoes.transferir(negocio))}>
+                  <ArrowRight size={14} aria-hidden="true" /> Mover para outro pipeline
+                </button>
+              </> : null}
             </div>,
             document.body,
           )
