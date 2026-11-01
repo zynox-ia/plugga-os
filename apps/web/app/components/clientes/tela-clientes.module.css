@@ -1,0 +1,7 @@
+:global(.main-content):has(> .pagina) {
+  padding-top: 14px;
+}
+
+@media (max-width: 820px) {
+  :global(.main-content):has(> .pagina) { padding-top: 12px; }
+}

@@ -26,10 +26,10 @@ export function PaginacaoDaLista({ pagina, totalItens, itensPorPagina, aoMudarPa
     </span>
     <div className="lista-paginacao-controles">
       <button type="button" className="lista-paginacao-btn" disabled={pagina === 1} onClick={() => aoMudarPagina(1)} aria-label="Primeira página">
-        <ChevronsLeft size={14} aria-hidden="true" />
+        <ChevronsLeft size={12} aria-hidden="true" />
       </button>
       <button type="button" className="lista-paginacao-btn" disabled={pagina === 1} onClick={() => aoMudarPagina(pagina - 1)} aria-label="Página anterior">
-        <ChevronLeft size={14} aria-hidden="true" />
+        <ChevronLeft size={12} aria-hidden="true" />
       </button>
       <div className="lista-paginacao-paginas">
         {paginas.map((num, indice) => <Fragment key={num}>
@@ -41,10 +41,10 @@ export function PaginacaoDaLista({ pagina, totalItens, itensPorPagina, aoMudarPa
         </Fragment>)}
       </div>
       <button type="button" className="lista-paginacao-btn" disabled={pagina === totalPaginas} onClick={() => aoMudarPagina(pagina + 1)} aria-label="Próxima página">
-        <ChevronRight size={14} aria-hidden="true" />
+        <ChevronRight size={12} aria-hidden="true" />
       </button>
       <button type="button" className="lista-paginacao-btn" disabled={pagina === totalPaginas} onClick={() => aoMudarPagina(totalPaginas)} aria-label="Última página">
-        <ChevronsRight size={14} aria-hidden="true" />
+        <ChevronsRight size={12} aria-hidden="true" />
       </button>
     </div>
   </nav>;

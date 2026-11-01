@@ -102,6 +102,7 @@ test("ordenação usa o seletor do Design System e o cabeçalho alinha com a pri
   const coluna = await page.getByRole("button", { name: "Oportunidade", exact: true }).boundingBox();
   expect(cabecalho!.x).toBeCloseTo(coluna!.x, 0);
   const ordenar = page.getByRole("combobox", { name: "Ordenar oportunidades", exact: true });
+  await expect(ordenar.locator("svg")).toHaveCount(1);
   await ordenar.click();
   const opcoes = page.getByRole("listbox", { name: "Ordenar oportunidades", exact: true });
   await expect(opcoes).toBeVisible();
@@ -155,6 +156,8 @@ test("mantém a tabela e os controles contidos em telas estreitas", async ({ pag
     expect(limite!.x + limite!.width).toBeLessThanOrEqual(width + 1);
     const rodape = await page.getByRole("navigation", { name: "Paginação da lista de leads" }).boundingBox();
     expect(rodape!.x + rodape!.width).toBeLessThanOrEqual(width + 1);
+    const paginacao = await page.locator(".lista-paginacao-controles").boundingBox();
+    expect(paginacao!.x + paginacao!.width).toBeCloseTo(rodape!.x + rodape!.width - 16, 0);
     const rolagem = page.locator(".lista-negocios-card .table-wrap");
     expect(await rolagem.evaluate((el) => getComputedStyle(el).overflowX)).toBe("auto");
     await selecionar.click();

@@ -11,6 +11,7 @@ import { ClienteForm } from "./cliente-form";
 import { FichaCliente } from "./ficha-cliente";
 import { Modal } from "./modal";
 import { ShellCard, ShellTable, StatusPill } from "./plugga-shell";
+import styles from "./clientes/tela-clientes.module.css";
 
 type Filtros = { q?: string; active?: string };
 
@@ -59,7 +60,7 @@ export function ClientesView({
   }
 
   return (
-    <div className="stack">
+    <div className={`stack ${styles.pagina}`}>
       <ShellCard className="table-card">
         <div className="card-heading">
           <div>
