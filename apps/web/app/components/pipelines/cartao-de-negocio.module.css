@@ -28,8 +28,10 @@
 
 .identidade { flex: 1; min-width: 0; }
 .cabecalho { display: flex; justify-content: space-between; align-items: center; gap: var(--space-xs); }
-.codigo { display: inline-flex; align-items: center; gap: var(--space-2xs); color: var(--ui-muted); font-size: 10px; letter-spacing: .02em; font-variant-numeric: tabular-nums; }
-.codigo svg { color: var(--ui-primary); }
+.codigo { display: inline-flex; flex: 1; min-width: 0; align-items: center; gap: var(--space-2xs); color: var(--ui-muted); font-size: 10px; letter-spacing: .02em; font-variant-numeric: tabular-nums; }
+.codigo svg { flex-shrink: 0; color: var(--ui-primary); }
+.codigo > span { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.acoesCabecalho { display: inline-flex; flex-shrink: 0; align-items: center; gap: var(--space-2xs); margin-left: auto; }
 .cabecalho :global(.menu-negocio) { flex-shrink: 0; }
 .cabecalho :global(.cartao-negocio-menu-btn) { width: 24px; height: 24px; color: var(--ui-muted); }
 
@@ -68,22 +70,41 @@
 .status[data-status="won"] { background: color-mix(in srgb, var(--ui-success) 8%, transparent); color: var(--ui-success); }
 .status[data-status="lost"] { background: color-mix(in srgb, var(--ui-danger) 8%, transparent); color: var(--ui-danger); }
 
-.seletorPrioridade { display: inline-flex; min-width: 0; }
-.prioridade:global(.ui-field-trigger) {
+.prioridadeBadge {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
   width: auto;
   height: 24px;
   min-height: 24px;
   gap: var(--space-2xs);
   padding: 0 var(--space-xs);
+  border: 1px solid color-mix(in srgb, var(--ui-primary) 20%, var(--ui-divider));
   border-radius: var(--radius-full);
-  font-size: 11px;
-  color: var(--ui-muted);
-  background: var(--ui-subtle);
+  font: 400 11px/1 var(--font-general-sans), sans-serif;
+  color: var(--ui-primary);
+  background: color-mix(in srgb, var(--ui-primary) 7%, var(--ui-surface));
+  white-space: nowrap;
+  cursor: pointer;
 }
-.prioridade > svg { width: 12px; height: 12px; }
-.prioridade[data-prioridade="urgente"] { color: var(--ui-danger); background: color-mix(in srgb, var(--ui-danger) 7%, var(--ui-surface)); border-color: color-mix(in srgb, var(--ui-danger) 20%, var(--ui-divider)); }
-.prioridade[data-prioridade="medio"] { color: var(--ui-warning); background: color-mix(in srgb, var(--ui-warning) 7%, var(--ui-surface)); border-color: color-mix(in srgb, var(--ui-warning) 20%, var(--ui-divider)); }
-.prioridade[data-prioridade="normal"] { color: var(--ui-primary); background: color-mix(in srgb, var(--ui-primary) 7%, var(--ui-surface)); border-color: color-mix(in srgb, var(--ui-primary) 20%, var(--ui-divider)); }
+.prioridadeBadge > svg { flex-shrink: 0; width: 12px; height: 12px; color: inherit; stroke: currentColor; opacity: 1; }
+.prioridadeBadge[data-prioridade="urgente"] { color: var(--ui-danger); background: color-mix(in srgb, var(--ui-danger) 7%, var(--ui-surface)); border-color: color-mix(in srgb, var(--ui-danger) 20%, var(--ui-divider)); }
+.prioridadeBadge[data-prioridade="medio"] { color: var(--ui-warning); background: color-mix(in srgb, var(--ui-warning) 7%, var(--ui-surface)); border-color: color-mix(in srgb, var(--ui-warning) 20%, var(--ui-divider)); }
+.prioridadeBadge:hover, .prioridadeBadge[aria-pressed="true"] { box-shadow: inset 0 0 0 1px currentColor; }
+.prioridadeBadge:focus-visible { outline: 2px solid var(--ui-primary); outline-offset: 2px; border-radius: var(--radius-full); }
+
+.paletaPrioridade:global(.ui-popover-content) {
+  width: min(260px, calc(100vw - 32px));
+  min-width: 0;
+  padding: var(--space-sm);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--ui-surface) 92%, transparent);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+}
+.paletaTitulo { margin: 0 0 var(--space-xs); color: var(--ui-text); font-size: 12px; font-weight: 500; }
+.paletaOpcoes { display: flex; flex-wrap: wrap; gap: var(--space-xs); }
+.paletaAjuda { display: block; margin-top: var(--space-xs); color: var(--ui-muted); font-size: 10px; }
 
 .etiquetas { display: flex; flex-wrap: wrap; gap: var(--space-2xs); }
 .etiqueta {

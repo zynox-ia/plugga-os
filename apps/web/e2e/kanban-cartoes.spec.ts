@@ -68,12 +68,35 @@ test("prioridade é uma seleção visual e não altera o cadastro do lead", asyn
   const mutacoes: string[] = [];
   page.on("request", (req) => { if (!["GET", "HEAD"].includes(req.method()) && new URL(req.url()).pathname.startsWith("/api/")) mutacoes.push(req.url()); });
   const cartao = page.getByRole("article", { name: `Negócio ${negocio.title}`, exact: true });
-  const prioridade = cartao.getByRole("combobox", { name: `Prioridade visual de ${negocio.title}`, exact: true });
+  const prioridade = cartao.getByRole("button", { name: `Prioridade visual de ${negocio.title}`, exact: true });
   await expect(prioridade).toContainText("Prioridade");
+  await prioridade.focus();
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("dialog", { name: "Escolher prioridade", exact: true })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog", { name: "Escolher prioridade", exact: true })).toHaveCount(0);
+  await expect(prioridade).toBeFocused();
   for (const label of ["Urgente", "Médio", "Normal"]) {
     await prioridade.click();
-    await page.getByRole("option", { name: label, exact: true }).click();
+    const seletor = page.getByRole("dialog", { name: "Escolher prioridade", exact: true });
+    await expect(seletor).toBeInViewport();
+    await seletor.getByRole("button", { name: label, exact: true }).click();
+    await expect(seletor).toHaveCount(0);
+    await expect(prioridade).toBeFocused();
     await expect(prioridade).toContainText(label);
+    if (label === "Urgente") {
+      await expect(prioridade.locator("svg")).toHaveCount(1);
+      const vermelho = await prioridade.evaluate((el) => getComputedStyle(el).getPropertyValue("--ui-danger").trim());
+      await expect(prioridade.locator("svg")).toHaveAttribute("fill", "currentColor");
+      expect(await prioridade.locator("svg").evaluate((el, cor) => {
+        const referencia = document.createElement("span");
+        referencia.style.color = cor;
+        document.body.append(referencia);
+        const esperado = getComputedStyle(referencia).color;
+        referencia.remove();
+        return getComputedStyle(el).color === esperado && getComputedStyle(el).fill === esperado && getComputedStyle(el).opacity === "1";
+      }, vermelho)).toBe(true);
+    }
     await expect(page.getByRole("dialog", { name: "Detalhes do lead", exact: true })).toHaveCount(0);
   }
   expect(mutacoes).toEqual([]);
@@ -88,6 +111,10 @@ test("cartão mantém conteúdo e menu contidos nas quatro larguras e preserva a
     await page.setViewportSize({ width, height: 1000 });
     await expect(cartao).toBeInViewport();
     expect(await cartao.evaluate((el) => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(1);
+    const prioridade = (await cartao.getByRole("button", { name: `Prioridade visual de ${negocio.title}`, exact: true }).boundingBox())!;
+    const acoes = (await cartao.getByRole("button", { name: `Ações de ${negocio.title}`, exact: true }).boundingBox())!;
+    expect(prioridade.x + prioridade.width).toBeLessThanOrEqual(acoes.x);
+    expect(prioridade.y + prioridade.height / 2).toBeCloseTo(acoes.y + acoes.height / 2, 0);
     await cartao.getByRole("button", { name: `Ações de ${negocio.title}`, exact: true }).click();
     const menu = page.getByRole("menu", { name: `Ações de ${negocio.title}`, exact: true });
     await expect(menu).toBeInViewport();

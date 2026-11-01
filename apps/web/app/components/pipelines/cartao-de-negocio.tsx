@@ -1,20 +1,19 @@
 "use client";
 
 import type { Deal, Pipeline } from "@plugga/shared";
-import { ArrowRight, CalendarDays, Check, Clock, Eye, Flag, Infinity as InfinityIcon, MoreHorizontal, User, X } from "lucide-react";
+import { ArrowRight, CalendarDays, Check, Clock, Eye, FileText, MoreHorizontal, User, X } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 
 import { diasNaEtapa, estaParado } from "../../lib/negocios";
 import { formatarDataHora, FUSO_HORARIO } from "../../lib/format";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/shadcn/select";
 import { Avatar } from "./icones";
 import { DetalhesDoLeadModal } from "./detalhes-do-lead-modal";
 import type { AcoesDoNegocio } from "./quadro-do-pipeline";
+import { SeletorBadgePrioridade, type PrioridadeVisual } from "./seletor-badge-prioridade";
 import styles from "./cartao-de-negocio.module.css";
 
 const formatoChegada = new Intl.DateTimeFormat("pt-BR", { day: "numeric", month: "long", timeZone: FUSO_HORARIO });
-const PRIORIDADES_VISUAIS = [{ value: "urgente", label: "Urgente" }, { value: "medio", label: "Médio" }, { value: "normal", label: "Normal" }] as const;
 const STATUS_DO_LEAD = { open: "Em aberto", won: "Contrato assinado", lost: "Perdido" } as const;
 
 export function MenuDoNegocio({
@@ -175,7 +174,7 @@ export function CartaoDeNegocio({
 }) {
   const [modalLeadAberto, setModalLeadAberto] = useState(false);
   // Prévia de interface: não há campo de prioridade no contrato atual do lead.
-  const [prioridadeVisual, setPrioridadeVisual] = useState("");
+  const [prioridadeVisual, setPrioridadeVisual] = useState<PrioridadeVisual>("");
   const arrastou = useRef(false);
   const dias = diasNaEtapa(negocio);
   const parado = estaParado(negocio, pipeline);
@@ -204,10 +203,13 @@ export function CartaoDeNegocio({
       >
         <header className={styles.cabecalho}>
           <span className={styles.codigo} title={`Identificador abreviado. ID completo: ${negocio.id}`}>
-            <InfinityIcon size={15} aria-hidden="true" />
-            PLU-{negocio.id.slice(0, 8).toUpperCase()}
+            <FileText size={14} aria-hidden="true" />
+            <span>PLU-{negocio.id.slice(0, 8).toUpperCase()}</span>
           </span>
-          <MenuDoNegocio negocio={negocio} pipeline={pipeline} acoes={acoes} aoVerLead={() => setModalLeadAberto(true)} menuClassName={styles.menuVidro} />
+          <div className={styles.acoesCabecalho}>
+            <SeletorBadgePrioridade nome={negocio.title} value={prioridadeVisual} onChange={setPrioridadeVisual} />
+            <MenuDoNegocio negocio={negocio} pipeline={pipeline} acoes={acoes} aoVerLead={() => setModalLeadAberto(true)} menuClassName={styles.menuVidro} />
+          </div>
         </header>
         <div className={styles.topo}>
           <div className={styles.identidade}>
@@ -231,24 +233,13 @@ export function CartaoDeNegocio({
           <span className={styles.status} data-status={negocio.status}>{STATUS_DO_LEAD[negocio.status]}</span>
         </div>
 
-        <div className={styles.etiquetas}>
-          <span className={styles.seletorPrioridade} onClick={(evento) => evento.stopPropagation()}>
-            <Select value={prioridadeVisual} onValueChange={setPrioridadeVisual}>
-              <SelectTrigger className={styles.prioridade} data-prioridade={prioridadeVisual} aria-label={`Prioridade visual de ${negocio.title}`} title="Seleção visual — não salva no cadastro">
-                <Flag size={12} aria-hidden="true" />
-                <SelectValue placeholder="Prioridade" />
-              </SelectTrigger>
-              <SelectContent aria-label="Prioridade visual — não salva no cadastro">
-                {PRIORIDADES_VISUAIS.map((opcao) => <SelectItem key={opcao.value} value={opcao.value}>{opcao.label}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </span>
+        {negocio.tags.length > 0 ? <div className={styles.etiquetas}>
           {negocio.tags.map((tag) => (
             <span key={tag.id} className={styles.etiqueta} style={{ "--cor-etiqueta": tag.color } as CSSProperties}>
               {tag.name}
             </span>
           ))}
-        </div>
+        </div> : null}
 
         <footer className={styles.rodape}>
           <div className={styles.responsavel} title={`Responsável: ${negocio.owner.name}`}>
