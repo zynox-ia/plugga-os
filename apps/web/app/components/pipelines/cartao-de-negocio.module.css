@@ -94,7 +94,7 @@
 .prioridadeBadge:focus-visible { outline: 2px solid var(--ui-primary); outline-offset: 2px; border-radius: var(--radius-full); }
 
 .paletaPrioridade:global(.ui-popover-content) {
-  width: min(180px, calc(100vw - 32px));
+  width: min(140px, calc(100vw - 32px));
   min-width: 0;
   padding: var(--space-sm);
   border-radius: var(--radius-md);
@@ -102,7 +102,7 @@
   -webkit-backdrop-filter: blur(16px);
   backdrop-filter: blur(16px);
 }
-.paletaTitulo { margin: 0 0 var(--space-xs); color: var(--ui-text); font-size: 12px; font-weight: 500; }
+.paletaTitulo { margin: 0 0 var(--space-xs); color: var(--ui-text); font-size: 12px; font-weight: 500; text-align: center; }
 .paletaOpcoes { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-xs); }
 .paletaOpcoes .prioridadeBadge { width: 100%; height: 28px; justify-content: flex-start; }
 
