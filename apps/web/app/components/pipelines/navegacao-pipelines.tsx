@@ -22,12 +22,14 @@ export function NavegacaoPipelines({
   visao,
   podeConfigurar = false,
   aoConfigurar,
+  rolagem,
 }: {
   pipelines: Pipeline[];
   selecionado: Pipeline;
   visao: Visao;
   podeConfigurar?: boolean;
   aoConfigurar?: () => void;
+  rolagem?: ReactNode;
 }) {
   const router = useRouter();
   const [aberto, setAberto] = useState(false);
@@ -79,6 +81,8 @@ export function NavegacaoPipelines({
           );
         })}
       </nav>
+
+      {rolagem}
 
       {/* Ações da direita: Botão Configurar Pipelines + Seletor de Funil */}
       <div className={estilos.navegacaoDireita}>

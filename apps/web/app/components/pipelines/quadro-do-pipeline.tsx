@@ -17,11 +17,12 @@ export type AcoesDoNegocio = {
 };
 
 /** Barra de rolagem minimalista (suave, quase invisível, sem setas e com largura compacta). */
-function BarraRolagemMinimalista({ containerRef }: { containerRef: RefObject<HTMLDivElement | null> }) {
+export function BarraRolagemMinimalista({ containerRef, className = "" }: { containerRef: RefObject<HTMLDivElement | null>; className?: string }) {
   const trilhoRef = useRef<HTMLDivElement>(null);
   const [posicao, setPosicao] = useState({ thumbWidth: 48, thumbLeft: 0, visivel: true });
   const [emArrasto, setEmArrasto] = useState(false);
 
+  // O trilho é remontado quando o quadro volta a precisar de rolagem.
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -49,6 +50,7 @@ function BarraRolagemMinimalista({ containerRef }: { containerRef: RefObject<HTM
       ro = new ResizeObserver(atualizar);
       ro.observe(el);
       if (el.firstElementChild) ro.observe(el.firstElementChild);
+      if (trilhoRef.current) ro.observe(trilhoRef.current);
     }
     window.addEventListener("resize", atualizar);
 
@@ -57,7 +59,7 @@ function BarraRolagemMinimalista({ containerRef }: { containerRef: RefObject<HTM
       window.removeEventListener("resize", atualizar);
       ro?.disconnect();
     };
-  }, [containerRef]);
+  }, [containerRef, posicao.visivel]);
 
   const aoClicarTrilho = (e: ReactMouseEvent<HTMLDivElement>) => {
     if (e.target !== trilhoRef.current) return;
@@ -120,7 +122,7 @@ function BarraRolagemMinimalista({ containerRef }: { containerRef: RefObject<HTM
   if (!posicao.visivel) return null;
 
   return (
-    <div className="barra-rolagem-externa" aria-hidden="true">
+    <div className={`barra-rolagem-externa ${className}`} aria-hidden="true">
       <div
         className="barra-rolagem-trilho"
         ref={trilhoRef}
@@ -144,6 +146,7 @@ export function QuadroDoPipeline({
   busca,
   visao,
   acoes,
+  colunasRef,
 }: {
   pipeline: Pipeline;
   responsaveis: PipelinePerson[];
@@ -152,9 +155,9 @@ export function QuadroDoPipeline({
   visao: Visao;
   usuarioId: string | null;
   acoes: AcoesDoNegocio;
+  colunasRef: RefObject<HTMLDivElement | null>;
 }) {
   const hoje = hojeNoFuso();
-  const colunasRef = useRef<HTMLDivElement>(null);
 
   // No Kanban entram os abertos filtrados pela busca; na Lista entram todos filtrados pela busca.
   const visiveis = useMemo(
@@ -164,9 +167,6 @@ export function QuadroDoPipeline({
 
   return (
     <div className="quadro-pipeline" style={{ "--cor": pipeline.color } as CSSProperties}>
-      {/* Barra de rolagem minimalista FORA do shape do painel do kanban */}
-      {visao === "kanban" ? <BarraRolagemMinimalista key={`${pipeline.id}-${pipeline.stages.length}`} containerRef={colunasRef} /> : null}
-
       <section className="painel-quadro" aria-label={`Negócios do pipeline ${pipeline.name}`}>
         {visao === "kanban" ? (
           <KanbanDoPipeline

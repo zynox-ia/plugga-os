@@ -2,7 +2,7 @@
 
 import type { BulkDealsAction, PipelinePerson, CompanyKey, Deal, ListDealsResponse, Pipeline } from "@plugga/shared";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { enviar } from "../lib/clientes";
 import { hrefDaVisao, type Visao } from "../lib/negocios";
@@ -13,7 +13,7 @@ import { GanhoDoNegocio, PerdaDoNegocio } from "./pipelines/encerrar-negocio";
 import { Icone } from "./pipelines/icones";
 import { NovoNegocio } from "./pipelines/novo-negocio";
 import { NavegacaoPipelines } from "./pipelines/navegacao-pipelines";
-import { QuadroDoPipeline, type AcoesDoNegocio } from "./pipelines/quadro-do-pipeline";
+import { BarraRolagemMinimalista, QuadroDoPipeline, type AcoesDoNegocio } from "./pipelines/quadro-do-pipeline";
 import { TransferirNegocio } from "./pipelines/transferir-negocio";
 import estilos from "./pipelines/tela-pipelines.module.css";
 
@@ -41,6 +41,7 @@ export function PipelinesView({
   responsaveis: PipelinePerson[];
 }) {
   const router = useRouter();
+  const colunasRef = useRef<HTMLDivElement>(null);
   const { usuario } = useSessionUser();
   const [busca, setBusca] = useState("");
   const [configurando, setConfigurando] = useState<"editar" | "novo" | null>(null);
@@ -143,6 +144,7 @@ export function PipelinesView({
             visao={visao}
             podeConfigurar={podeConfigurar}
             aoConfigurar={() => setConfigurando("editar")}
+            rolagem={visao === "kanban" ? <BarraRolagemMinimalista key={`${selecionado.id}-${selecionado.stages.length}`} containerRef={colunasRef} className={estilos.rolagem} /> : null}
           />
           {aviso ? (
             <p className="aviso aviso--erro aviso-flutuante" role="alert">
@@ -158,6 +160,7 @@ export function PipelinesView({
             visao={visao}
             usuarioId={usuario?.id ?? null}
             acoes={acoes}
+            colunasRef={colunasRef}
           />
         </>
       ) : (

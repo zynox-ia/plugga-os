@@ -87,6 +87,19 @@
   flex-wrap: wrap;
 }
 
+.rolagem:global(.barra-rolagem-externa) {
+  flex: 1 1 160px;
+  min-width: 80px;
+  max-width: 380px;
+  width: auto;
+  padding: 0;
+}
+
+.rolagem :global(.barra-rolagem-trilho) {
+  width: 100%;
+  max-width: none;
+}
+
 /* Seletor de Múltiplos Funis */
 .seletorContainer {
   position: relative;
@@ -603,6 +616,7 @@
   .cabecalho { align-items: flex-start; }
   .acoes { width: 100%; }
   .navegacao { gap: .75rem; flex-direction: column; align-items: stretch; }
+  .rolagem:global(.barra-rolagem-externa) { flex: none; width: 100%; min-width: 0; max-width: none; height: 20px; }
   .seletorContainer { width: 100%; }
   .seletorTrigger { width: 100%; justify-content: space-between; }
   .popoverFunis { width: 100%; min-width: 100%; }
