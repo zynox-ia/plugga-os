@@ -58,6 +58,8 @@ test("cartão compacto preserva identificação e detalhes sem o bloco de invest
   await page.keyboard.press("Enter");
   const detalhes = page.getByRole("dialog", { name: "Detalhes do lead", exact: true });
   await expect(detalhes).toBeVisible();
+  await expect(detalhes.getByRole("link", { name: "Abrir ficha completa" })).toHaveCount(0);
+  await expect(detalhes.getByText("Unidades Consumidoras Vinculadas:")).toHaveCount(0);
   await expect(detalhes.getByText("Investimento estimado", { exact: true })).toBeVisible();
   await detalhes.getByRole("button", { name: "Fechar", exact: true }).click();
   await expect(detalhes).toHaveCount(0);

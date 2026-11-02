@@ -1,12 +1,10 @@
 "use client";
 
 import type { ClientDetail, Deal, Pipeline } from "@plugga/shared";
-import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import {
   documentoFormatado,
-  hrefDaFicha,
   ROTULO_TIPO,
   telefoneFormatado,
 } from "../../lib/clientes";
@@ -19,7 +17,6 @@ import {
   Heading,
   IconCheck,
   IconCopy,
-  IconExternalLink,
   IconFileText,
   IconLayers,
   IconUser,
@@ -84,11 +81,6 @@ export function DetalhesDoLeadModal({
       cancelText="Fechar"
       footer={
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <Link href={hrefDaFicha(negocio.client.id)} target="_blank">
-            <Button variant="secondary" icon={<IconExternalLink width={14} height={14} />}>
-              Abrir ficha completa
-            </Button>
-          </Link>
           {negocio.status === "open" ? (
             <Button
               variant="primary"
@@ -232,10 +224,10 @@ export function DetalhesDoLeadModal({
         </section>
 
         {/* Seção 3: Etiquetas e Metadados */}
-        {negocio.tags.length > 0 || negocio.consumerUnits.length > 0 ? (
+        {negocio.tags.length > 0 ? (
           <section className="ui-dialog-section">
             <div className="ui-dialog-section-header">
-              <Heading as="h3" icon={<IconFileText />}>Etiquetas e Unidades</Heading>
+              <Heading as="h3" icon={<IconFileText />}>Etiquetas</Heading>
             </div>
 
             {negocio.tags.length > 0 ? (
@@ -253,14 +245,6 @@ export function DetalhesDoLeadModal({
               </div>
             ) : null}
 
-            {negocio.consumerUnits.length > 0 ? (
-              <div style={{ marginTop: "10px", display: "flex", flexDirection: "column", gap: "4px" }}>
-                <span className="ui-view-label">Unidades Consumidoras Vinculadas:</span>
-                <span className="ui-view-value" style={{ fontSize: "12.5px" }}>
-                  {negocio.consumerUnits.map((u) => u.code).join(", ")}
-                </span>
-              </div>
-            ) : null}
           </section>
         ) : null}
       </div>

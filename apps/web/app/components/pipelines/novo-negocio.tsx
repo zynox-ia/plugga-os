@@ -187,7 +187,6 @@ export function NovoNegocio({
       expectedCloseDate: null,
       ownerId: responsavelId,
       tagIds: [],
-      consumerUnitIds: [],
     });
 
     setEnviando(false);
