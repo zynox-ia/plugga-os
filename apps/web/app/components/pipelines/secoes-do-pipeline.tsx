@@ -174,16 +174,6 @@ export function SecaoEtapas({ rascunho, aoAlterar, erros, negociosPorEtapa }: Pr
           );
         })}
       </ol>
-      <Button
-        variant="secondary"
-        size="sm"
-        icon={<IconPlus />}
-        className="adicionar-linha-btn"
-        disabled={etapas.length >= 20}
-        onClick={() => aoAlterar({ stages: [...etapas, { chave: novaChave(), name: "", color: "#94A3B8", staleAfterDays: null }] })}
-      >
-        Adicionar etapa
-      </Button>
       <p className="dica">Passado o prazo de parado, o negócio ganha um alerta no quadro; em branco, não alerta.</p>
     </div>
   );
@@ -196,17 +186,6 @@ export function SecaoEtiquetas({ rascunho, aoAlterar, erros }: PropsDaSecao) {
 
   return (
     <div className="secao-lista">
-      <div className="secao-etiquetas-topo">
-        <Button
-          variant="primary"
-          size="sm"
-          icon={<IconPlus />}
-          className="botao-nova-etiqueta"
-          onClick={() => aoAlterar({ tags: [...etiquetas, { chave: novaChave(), name: "", color: "#0077FF" }] })}
-        >
-          Nova etiqueta
-        </Button>
-      </div>
       {etiquetas.some((e) => e.name) ? (
         <div className="previa-etiquetas" aria-label="Prévia das etiquetas">
           {etiquetas

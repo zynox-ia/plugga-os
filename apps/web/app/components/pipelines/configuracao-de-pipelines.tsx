@@ -134,7 +134,7 @@ export function ConfiguracaoDePipelines({
           </div>
         </div>
         <div className="config-topo-acoes">
-          {canCreateIn.length > 0 ? (
+          {!rascunho && canCreateIn.length > 0 ? (
             <Button
               variant="primary"
               size="sm"
@@ -184,6 +184,7 @@ export function ConfiguracaoDePipelines({
             <EditorDePipeline
               key={rascunho.id ?? "novo"}
               rascunho={rascunho}
+              aoCriarPipeline={canCreateIn.length > 0 ? () => abrir(rascunhoNovo(canCreateIn[0]!)) : undefined}
               aoAlterar={(parcial) => {
                 setRascunho((anterior) => (anterior ? { ...anterior, ...parcial } : anterior));
                 setSalvo(false);
