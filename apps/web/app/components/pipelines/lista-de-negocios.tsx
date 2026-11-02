@@ -424,7 +424,7 @@ export function ListaDeNegocios({
                                 {localidade}
                               </span>
                             ) : (
-                              <span>Plugga CRM</span>
+                              <span>Local não informado</span>
                             )}
                           </div>
                         </div>
