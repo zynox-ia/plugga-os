@@ -237,6 +237,52 @@ describe.skipIf(!HABILITADO)("negócios: quadro do pipeline no Postgres", () => 
     expect(new Set(posicoes.map((p) => p.position.toString())).size).toBe(3);
   });
 
+  it("transfere simultaneamente negócios em sentidos opostos sem deadlock", async () => {
+    const naSolar = await novo();
+    const noMercado = await novo({ pipelineId: mercadoLivre.id, stageId: mercadoLivre.stages[0]!.id });
+    const [paraMercado, paraSolar] = await Promise.all([
+      negocios.transfer(naSolar.id, { pipelineId: mercadoLivre.id, stageId: mercadoLivre.stages[0]!.id }, pessoas.ana),
+      negocios.transfer(noMercado.id, { pipelineId: solar.id, stageId: etapa("Qualificação") }, pessoas.bruno),
+    ]);
+    expect(paraMercado.pipelineId).toBe(mercadoLivre.id);
+    expect(paraSolar.pipelineId).toBe(solar.id);
+  }, PRAZO_MS);
+
+  it("preserva a ordem em mil inserções sucessivas no mesmo intervalo, com rebalanceamento", async () => {
+    const antes = await novo();
+    const ancora = await novo();
+    await prisma.deal.update({ where: { id: antes.id }, data: { position: "10" } });
+    await prisma.deal.update({ where: { id: ancora.id }, data: { position: "10.0000000001" } });
+    const ids = Array.from({ length: 1000 }, () => randomUUID());
+    await prisma.deal.createMany({ data: ids.map((id, index) => ({
+      id, pipelineId: solar.id, stageId: etapa("Visita técnica"), clientId: clienteId,
+      ownerId: pessoas.ana.id, title: `${marca} inserção ${index}`, position: index * 1024,
+    })) });
+    for (const id of ids) {
+      await negocios.moveStage(id, { stageId: ancora.stageId, beforeDealId: ancora.id }, pessoas.ana);
+    }
+    const ordenados = await prisma.deal.findMany({
+      where: { id: { in: [antes.id, ...ids, ancora.id] } },
+      orderBy: [{ position: "asc" }, { id: "asc" }], select: { id: true, position: true },
+    });
+    expect(ordenados.map((n) => n.id)).toEqual([antes.id, ...ids, ancora.id]);
+    expect(new Set(ordenados.map((n) => n.position.toString())).size).toBe(1002);
+    expect(ordenados[0]!.position.toString()).not.toBe("10");
+    const listados = await negocios.list({ pipelineId: solar.id, status: "open" }, pessoas.ana);
+    const selecionados = new Set([antes.id, ...ids, ancora.id]);
+    expect(listados.deals.filter((n) => selecionados.has(n.id)).map((n) => n.id)).toEqual([antes.id, ...ids, ancora.id]);
+  }, 180_000);
+
+  it("lista negócios fechados com desempate determinístico por id em status all", async () => {
+    const a = await novo();
+    const b = await novo();
+    await negocios.win(a.id, pessoas.ana);
+    await negocios.win(b.id, pessoas.ana);
+    await prisma.deal.updateMany({ where: { id: { in: [a.id, b.id] } }, data: { position: "12345" } });
+    const lista = await negocios.list({ pipelineId: solar.id, status: "all" }, pessoas.ana);
+    expect(lista.deals.filter((n) => n.id === a.id || n.id === b.id).map((n) => n.id)).toEqual([a.id, b.id].sort());
+  });
+
   it("criação, transferência e lote entram no topo preservando a ordem do lote", async () => {
     const etapaOrigem = etapa("Qualificação");
     const etapaDestino = etapa("Visita técnica");
