@@ -53,7 +53,7 @@ type Props = {
 };
 
 /* ==========================================================================
-   ABA 1: RESUMO (COCKPIT EXECUTIVO)
+   ABA 1: RESUMO (COCKPIT DO ATENDIMENTO)
    ========================================================================== */
 function AbaResumo({ negocio, pipeline }: { negocio: Deal; pipeline: Pipeline }) {
   const indiceAtual = pipeline.stages.findIndex((item) => item.id === negocio.stageId);
@@ -471,7 +471,7 @@ function AbaOportunidade({ negocio, pipeline }: { negocio: Deal; pipeline: Pipel
 }
 
 /* ==========================================================================
-   ABA 5: PROPOSTA (MOCK DE ALTA FIDELIDADE)
+   ABA 5: PROPOSTA
    ========================================================================== */
 function AbaProposta({ negocio }: { negocio: Deal }) {
   const [downloading, setDownloading] = useState(false);
@@ -531,7 +531,7 @@ function AbaProposta({ negocio }: { negocio: Deal }) {
 }
 
 /* ==========================================================================
-   ABA 6: DOCUMENTOS (DROPZONE E ARQUIVOS CATEGORIZADOS)
+   ABA 6: DOCUMENTOS
    ========================================================================== */
 function AbaDocumentos() {
   const [categoriaAtiva, setCategoriaAtiva] = useState<string>("todas");
@@ -684,223 +684,239 @@ export function DetalhesDoLeadModal({ negocio, pipeline, acoes, aoFechar }: Prop
 
   return (
     <Modal rotulo="Detalhes do lead" aoFechar={aoFechar} largura="larga" className={styles.modal}>
-      {/* HEADER REFINADO (MÁXIMO 3 LINHAS, ÍCONE DE 2 LINHAS) */}
-      <header className={styles.cabecalho}>
-        <div className={styles.iconeHeader} aria-hidden="true">
-          {negocio.client?.personType === "pj" ? <Building2 size={22} /> : <UserRound size={22} />}
-        </div>
-
-        <div className={styles.identidade}>
-          {/* Linha 1: Badges de Contexto */}
-          <div className={styles.linhaTopo}>
-            <h2 className={styles.tituloModalAcessivel}>Detalhes do lead</h2>
-            <span className={styles.tagCodigo} title={`ID completo: ${negocio.id}`}>
-              PLU-{String(negocio.number).padStart(4, "0")}
-            </span>
-            {etapa ? (
-              <span
-                className={styles.tagEtapa}
-                style={{
-                  backgroundColor: etapa.color ? `${etapa.color}15` : "var(--ui-focus-bg)",
-                  borderColor: etapa.color ? `${etapa.color}40` : "var(--ui-divider)",
-                  color: etapa.color || "var(--ui-primary)",
-                }}
-              >
-                <span
-                  className={styles.etapaDot}
-                  style={{ backgroundColor: etapa.color || "var(--ui-primary)" }}
-                />
-                {etapa.name}
-              </span>
-            ) : null}
-            {negocio.priority ? (
-              <span className={`${styles.tagPrioridade} ${styles[`prioridade_${negocio.priority}`]}`}>
-                <span className={styles.prioridadeDot} />
-                {negocio.priority === "urgente"
-                  ? "Urgente"
-                  : negocio.priority === "medio"
-                  ? "Médio"
-                  : "Normal"}
-              </span>
-            ) : null}
+      <div className={styles.layout}>
+        {/* COLUNA ESQUERDA: NAVEGAÇÃO / SIDEBAR DE ABAS */}
+        <aside className={styles.sidebar}>
+          <div className={styles.sidebarHeader}>
+            <div className={styles.sidebarIcone} aria-hidden="true">
+              {negocio.client?.personType === "pj" ? <Building2 size={16} /> : <UserRound size={16} />}
+            </div>
+            <div className={styles.sidebarHeaderInfo}>
+              <span className={styles.sidebarTitulo}>Menu</span>
+              <span className={styles.sidebarSubtitulo}>Navegação</span>
+            </div>
           </div>
-
-          {/* Linha 2: Nome do Lead */}
-          <div className={styles.nomeLead} title={negocio.title}>
-            {negocio.title}
-          </div>
-
-          {/* Linha 3: Metadados */}
-          <div
-            className={styles.meta}
-            title={`ID completo: ${negocio.id} · ${pipeline.name} · ${etapa?.name ?? "Etapa"} · Responsável: ${negocio.owner.name}`}
-          >
-            <span>{pipeline.name}</span>
-            <span className={styles.separador}>·</span>
-            <span className={styles.metaResponsavel}>
-              <span className={styles.avatarMini} aria-hidden="true">
-                {negocio.owner.name.charAt(0).toUpperCase()}
-              </span>
-              {negocio.owner.name}
-            </span>
-            <span className={styles.separador}>·</span>
-            <span className={parado ? styles.tempoParado : styles.tempoNormal}>
-              {dias} {dias === 1 ? "dia" : "dias"} na etapa
-              {parado ? " (parado)" : ""}
-            </span>
-          </div>
-        </div>
-
-        {/* Controles à direita: 1 botão principal e os 3 pontinhos */}
-        <div className={styles.controlesCabecalho}>
-          {negocio.status === "open" ? (
-            <Button variant="primary" size="sm" onClick={() => executar(acoes.ganhar)}>
-              {pipeline.wonLabel}
-            </Button>
-          ) : (
-            <span className={styles.statusPill}>
-              {negocio.status === "won" ? "Lead Ganho" : "Lead Perdido"}
-            </span>
-          )}
 
           <div
-            className={styles.menu}
-            onBlur={(evento) => {
-              if (!evento.currentTarget.contains(evento.relatedTarget)) setMenuAberto(false);
-            }}
-            onKeyDown={(evento) => {
-              if (evento.key === "Escape" && menuAberto) {
-                evento.preventDefault();
-                evento.stopPropagation();
-                setMenuAberto(false);
-                botaoMenu.current?.focus();
-              }
-            }}
+            className={styles.navegacao}
+            role="tablist"
+            aria-label="Seções do lead"
+            aria-orientation="vertical"
+            onKeyDown={navegar}
           >
-            <button
-              ref={botaoMenu}
-              type="button"
-              className={styles.botaoMenu}
-              aria-label="Mais ações do lead"
-              aria-haspopup="menu"
-              aria-expanded={menuAberto}
-              onClick={() => setMenuAberto((aberto) => !aberto)}
-            >
-              <MoreHorizontal size={18} aria-hidden="true" />
-            </button>
-            {menuAberto ? (
-              <div className={styles.menuOpcoes} role="menu" aria-label="Ações do lead">
-                {negocio.status === "open" ? (
-                  <>
-                    <button type="button" role="menuitem" onClick={() => executar(acoes.perder)}>
-                      <X size={14} aria-hidden="true" />
-                      {pipeline.lostLabel}
-                    </button>
-                    <button type="button" role="menuitem" onClick={() => executar(acoes.transferir)}>
-                      <ArrowRight size={14} aria-hidden="true" />
-                      Mover para outro pipeline
-                    </button>
-                    <button
-                      type="button"
-                      role="menuitem"
-                      onClick={() => {
-                        setMenuAberto(false);
-                      }}
-                    >
-                      <UserRound size={14} aria-hidden="true" />
-                      Converter em cliente
-                    </button>
-                    <span className={styles.menuSeparador} role="separator" />
-                  </>
+            {SECOES.map((item, indice) => (
+              <div key={item.id}>
+                {indice === 0 || indice === 3 ? (
+                  <div className={styles.grupo}>
+                    {indice === 0 ? "Informações" : "Serviço & Operação"}
+                  </div>
                 ) : null}
-                <span className={styles.menuTitulo}>Prioridade</span>
-                {(
-                  [
-                    { valor: null, rotulo: "Sem prioridade" },
-                    { valor: "urgente", rotulo: "Urgente" },
-                    { valor: "medio", rotulo: "Médio" },
-                    { valor: "normal", rotulo: "Normal" },
-                  ] as const
-                ).map((opcao) => (
-                  <button
-                    key={opcao.rotulo}
-                    type="button"
-                    role="menuitemradio"
-                    aria-checked={negocio.priority === opcao.valor}
-                    onClick={() => {
-                      setMenuAberto(false);
-                      void acoes.definirPrioridade(negocio, opcao.valor);
-                      botaoMenu.current?.focus();
+                <button
+                  ref={(el) => {
+                    botoes.current[indice] = el;
+                  }}
+                  id={`${id}-${item.id}`}
+                  type="button"
+                  role="tab"
+                  aria-selected={secao === item.id}
+                  aria-controls={`${id}-painel`}
+                  tabIndex={secao === item.id ? 0 : -1}
+                  className={styles.abaBotao}
+                  onClick={() => setSecao(item.id)}
+                >
+                  <item.icone size={15} aria-hidden="true" />
+                  <span>{item.titulo}</span>
+                </button>
+              </div>
+            ))}
+          </div>
+        </aside>
+
+        {/* COLUNA DIREITA: CABEÇALHO + CAMPO DE INFORMAÇÕES */}
+        <div className={styles.painelPrincipal}>
+          {/* CABEÇALHO ALINHADO À DIREITA, ANTES DO CAMPO DE INFORMAÇÕES */}
+          <header className={styles.cabecalho}>
+            <div className={styles.iconeHeader} aria-hidden="true">
+              {negocio.client?.personType === "pj" ? <Building2 size={20} /> : <UserRound size={20} />}
+            </div>
+
+            <div className={styles.identidade}>
+              {/* Linha 1: Badges de Contexto */}
+              <div className={styles.linhaTopo}>
+                <h2 className={styles.tituloModalAcessivel}>Detalhes do lead</h2>
+                <span className={styles.tagCodigo} title={`ID completo: ${negocio.id}`}>
+                  PLU-{String(negocio.number).padStart(4, "0")}
+                </span>
+                {etapa ? (
+                  <span
+                    className={styles.tagEtapa}
+                    style={{
+                      backgroundColor: etapa.color ? `${etapa.color}15` : "var(--ui-focus-bg)",
+                      borderColor: etapa.color ? `${etapa.color}35` : "var(--ui-divider)",
+                      color: etapa.color || "var(--ui-primary)",
                     }}
                   >
-                    {negocio.priority === opcao.valor ? (
-                      <Check size={14} aria-hidden="true" />
-                    ) : (
-                      <span className={styles.menuEspaco} />
-                    )}
-                    {opcao.rotulo}
-                  </button>
-                ))}
+                    <span
+                      className={styles.etapaDot}
+                      style={{ backgroundColor: etapa.color || "var(--ui-primary)" }}
+                    />
+                    {etapa.name}
+                  </span>
+                ) : null}
+                {negocio.priority ? (
+                  <span className={`${styles.tagPrioridade} ${styles[`prioridade_${negocio.priority}`]}`}>
+                    <span className={styles.prioridadeDot} />
+                    {negocio.priority === "urgente"
+                      ? "Urgente"
+                      : negocio.priority === "medio"
+                      ? "Médio"
+                      : "Normal"}
+                  </span>
+                ) : null}
               </div>
-            ) : null}
-          </div>
 
-          <Button
-            variant="secondary"
-            size="sm"
-            icon={<X size={16} />}
-            iconOnly
-            aria-label="Fechar"
-            onClick={aoFechar}
-          />
-        </div>
-      </header>
+              {/* Linha 2: Nome do Lead */}
+              <div className={styles.nomeLead} title={negocio.title}>
+                {negocio.title}
+              </div>
 
-      {/* CORPO DO MODAL (SPLIT VIEW) */}
-      <div className={styles.corpo}>
-        <div
-          className={styles.navegacao}
-          role="tablist"
-          aria-label="Seções do lead"
-          aria-orientation="vertical"
-          onKeyDown={navegar}
-        >
-          {SECOES.map((item, indice) => (
-            <div key={item.id}>
-              {indice === 0 || indice === 3 ? (
-                <div className={styles.grupo}>
-                  {indice === 0 ? "Informações" : "Serviço & Operação"}
-                </div>
-              ) : null}
-              <button
-                ref={(el) => {
-                  botoes.current[indice] = el;
-                }}
-                id={`${id}-${item.id}`}
-                type="button"
-                role="tab"
-                aria-selected={secao === item.id}
-                aria-controls={`${id}-painel`}
-                tabIndex={secao === item.id ? 0 : -1}
-                className={styles.abaBotao}
-                onClick={() => setSecao(item.id)}
+              {/* Linha 3: Metadados */}
+              <div
+                className={styles.meta}
+                title={`ID completo: ${negocio.id} · ${pipeline.name} · ${etapa?.name ?? "Etapa"} · Responsável: ${negocio.owner.name}`}
               >
-                <item.icone size={16} aria-hidden="true" />
-                <span>{item.titulo}</span>
-              </button>
+                <span>{pipeline.name}</span>
+                <span className={styles.separador}>·</span>
+                <span className={styles.metaResponsavel}>
+                  <span className={styles.avatarMini} aria-hidden="true">
+                    {negocio.owner.name.charAt(0).toUpperCase()}
+                  </span>
+                  {negocio.owner.name}
+                </span>
+                <span className={styles.separador}>·</span>
+                <span className={parado ? styles.tempoParado : styles.tempoNormal}>
+                  {dias} {dias === 1 ? "dia" : "dias"} na etapa
+                  {parado ? " (parado)" : ""}
+                </span>
+              </div>
             </div>
-          ))}
-        </div>
 
-        <section
-          className={styles.conteudo}
-          id={`${id}-painel`}
-          role="tabpanel"
-          aria-labelledby={`${id}-${secao}`}
-          tabIndex={0}
-        >
-          <ConteudoSecao secao={secao} negocio={negocio} pipeline={pipeline} />
-        </section>
+            {/* Controles à direita: 1 botão principal e os 3 pontinhos */}
+            <div className={styles.controlesCabecalho}>
+              {negocio.status === "open" ? (
+                <Button variant="primary" size="sm" onClick={() => executar(acoes.ganhar)}>
+                  {pipeline.wonLabel}
+                </Button>
+              ) : (
+                <span className={styles.statusPill}>
+                  {negocio.status === "won" ? "Lead Ganho" : "Lead Perdido"}
+                </span>
+              )}
+
+              <div
+                className={styles.menu}
+                onBlur={(evento) => {
+                  if (!evento.currentTarget.contains(evento.relatedTarget)) setMenuAberto(false);
+                }}
+                onKeyDown={(evento) => {
+                  if (evento.key === "Escape" && menuAberto) {
+                    evento.preventDefault();
+                    evento.stopPropagation();
+                    setMenuAberto(false);
+                    botaoMenu.current?.focus();
+                  }
+                }}
+              >
+                <button
+                  ref={botaoMenu}
+                  type="button"
+                  className={styles.botaoMenu}
+                  aria-label="Mais ações do lead"
+                  aria-haspopup="menu"
+                  aria-expanded={menuAberto}
+                  onClick={() => setMenuAberto((aberto) => !aberto)}
+                >
+                  <MoreHorizontal size={18} aria-hidden="true" />
+                </button>
+                {menuAberto ? (
+                  <div className={styles.menuOpcoes} role="menu" aria-label="Ações do lead">
+                    {negocio.status === "open" ? (
+                      <>
+                        <button type="button" role="menuitem" onClick={() => executar(acoes.perder)}>
+                          <X size={14} aria-hidden="true" />
+                          {pipeline.lostLabel}
+                        </button>
+                        <button type="button" role="menuitem" onClick={() => executar(acoes.transferir)}>
+                          <ArrowRight size={14} aria-hidden="true" />
+                          Mover para outro pipeline
+                        </button>
+                        <button
+                          type="button"
+                          role="menuitem"
+                          onClick={() => {
+                            setMenuAberto(false);
+                          }}
+                        >
+                          <UserRound size={14} aria-hidden="true" />
+                          Converter em cliente
+                        </button>
+                        <span className={styles.menuSeparador} role="separator" />
+                      </>
+                    ) : null}
+                    <span className={styles.menuTitulo}>Prioridade</span>
+                    {(
+                      [
+                        { valor: null, rotulo: "Sem prioridade" },
+                        { valor: "urgente", rotulo: "Urgente" },
+                        { valor: "medio", rotulo: "Médio" },
+                        { valor: "normal", rotulo: "Normal" },
+                      ] as const
+                    ).map((opcao) => (
+                      <button
+                        key={opcao.rotulo}
+                        type="button"
+                        role="menuitemradio"
+                        aria-checked={negocio.priority === opcao.valor}
+                        onClick={() => {
+                          setMenuAberto(false);
+                          void acoes.definirPrioridade(negocio, opcao.valor);
+                          botaoMenu.current?.focus();
+                        }}
+                      >
+                        {negocio.priority === opcao.valor ? (
+                          <Check size={14} aria-hidden="true" />
+                        ) : (
+                          <span className={styles.menuEspaco} />
+                        )}
+                        {opcao.rotulo}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+
+              <Button
+                variant="secondary"
+                size="sm"
+                icon={<X size={16} />}
+                iconOnly
+                aria-label="Fechar"
+                onClick={aoFechar}
+              />
+            </div>
+          </header>
+
+          {/* CAMPO DE INFORMAÇÕES (CONTEÚDO DA ABA SELECIONADA) */}
+          <section
+            className={styles.conteudo}
+            id={`${id}-painel`}
+            role="tabpanel"
+            aria-labelledby={`${id}-${secao}`}
+            tabIndex={0}
+          >
+            <ConteudoSecao secao={secao} negocio={negocio} pipeline={pipeline} />
+          </section>
+        </div>
       </div>
     </Modal>
   );
