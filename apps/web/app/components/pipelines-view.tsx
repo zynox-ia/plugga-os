@@ -81,7 +81,7 @@ export function PipelinesView({
       if (prioridadesPendentes.current.has(negocio.id) || negocio.priority === prioridade) return;
       prioridadesPendentes.current.add(negocio.id);
       setNegocios((atuais) => atuais.map((n) => n.id === negocio.id ? { ...n, priority: prioridade } : n));
-      const resposta = await enviar<Deal>(`/api/negocios/${negocio.id}/prioridade`, "PATCH", { priority: prioridade });
+      const resposta = await enviar<Deal>(`/api/leads/${negocio.id}/prioridade`, "PATCH", { priority: prioridade });
       if (resposta.ok) confirmado([resposta.dados]);
       else {
         setNegocios((atuais) => atuais.map((n) => n.id === negocio.id ? { ...n, priority: negocio.priority } : n));
@@ -92,7 +92,7 @@ export function PipelinesView({
     async moverEtapa(negocio, etapaId) {
       if (negocio.stageId === etapaId) return;
       aplicar([{ ...negocio, stageId: etapaId, stageEnteredAt: new Date().toISOString() }]);
-      const resposta = await enviar<Deal>(`/api/negocios/${negocio.id}/etapa`, "POST", { stageId: etapaId });
+      const resposta = await enviar<Deal>(`/api/leads/${negocio.id}/etapa`, "POST", { stageId: etapaId });
       if (resposta.ok) return confirmado([resposta.dados]);
       aplicar([negocio]);
       setAviso(resposta.erro.mensagem);
@@ -102,7 +102,7 @@ export function PipelinesView({
     transferir: (negocio) => setEncerrando({ tipo: "transferencia", negocio }),
     novoNaEtapa: (etapaId) => setCriando({ etapaId }),
     async emLote(ids: string[], action: BulkDealsAction) {
-      const resposta = await enviar<ListDealsResponse>("/api/negocios/lote", "POST", { dealIds: ids, action });
+      const resposta = await enviar<ListDealsResponse>("/api/leads/lote", "POST", { dealIds: ids, action });
       if (resposta.ok) {
         confirmado(resposta.dados.deals);
         return true;

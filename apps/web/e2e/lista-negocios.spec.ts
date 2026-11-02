@@ -40,14 +40,14 @@ test.beforeAll(async ({ request, baseURL }) => {
   }
   negocios = [];
   for (let i = 0; i < 25; i++) {
-    negocios.push(await criar<Deal>(request, baseURL!, "/api/negocios", {
+    negocios.push(await criar<Deal>(request, baseURL!, "/api/leads", {
       pipelineId: pipeline.id, stageId: pipeline.stages[0]!.id,
       clientId: clientes[i % clientes.length]!.id, ownerId,
       title: `${i < 15 ? "Grupo" : "Extra"} ${marca} ${String(i).padStart(2, "0")}`,
     }));
   }
-  await criar<Deal>(request, baseURL!, `/api/negocios/${negocios[24]!.id}/ganho`, {});
-  await criar<Deal>(request, baseURL!, `/api/negocios/${negocios[23]!.id}/perda`, {
+  await criar<Deal>(request, baseURL!, `/api/leads/${negocios[24]!.id}/ganho`, {});
+  await criar<Deal>(request, baseURL!, `/api/leads/${negocios[23]!.id}/perda`, {
     lossReasonId: pipeline.lossReasons[0]!.id, revisitOn: "", note: "",
   });
 });
@@ -273,10 +273,10 @@ test("seleciona apenas a página visível e preserva a seleção explícita de o
   await page.getByRole("button", { name: "Página anterior" }).click();
   await expect(todos).toBeChecked();
 
-  await page.route("**/api/negocios/lote", (route) => route.fulfill({ json: { deals: [] } }));
+  await page.route("**/api/leads/lote", (route) => route.fulfill({ json: { deals: [] } }));
   await page.getByRole("combobox", { name: "Ação em lote" }).selectOption("stage");
   await page.getByRole("combobox", { name: "Destino da ação" }).selectOption(pipeline.stages[1]!.id);
-  const envio = page.waitForRequest((r) => new URL(r.url()).pathname === "/api/negocios/lote");
+  const envio = page.waitForRequest((r) => new URL(r.url()).pathname === "/api/leads/lote");
   await page.getByRole("button", { name: "Aplicar", exact: true }).click();
   expect((await envio).postDataJSON().dealIds.sort()).toEqual(idsVisiveis.sort());
 });

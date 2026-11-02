@@ -49,7 +49,7 @@ export function TransferirNegocio({
     setEnviando(true);
     setErro(null);
     const corpo = { pipelineId: destino.id, stageId: etapaId, ...(responsavelId ? { ownerId: responsavelId } : {}) };
-    const resposta = await enviar<Deal>(`/api/negocios/${negocio.id}/transferencia`, "POST", corpo);
+    const resposta = await enviar<Deal>(`/api/leads/${negocio.id}/transferencia`, "POST", corpo);
     setEnviando(false);
     if (resposta.ok) aoConcluir(resposta.dados);
     else setErro(resposta.erro.mensagem);

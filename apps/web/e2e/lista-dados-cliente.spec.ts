@@ -19,7 +19,7 @@ test("lista exibe dados do lead sem buscar a ficha de cada cliente", async ({ pa
     const clienteResposta = await request.post("/api/clientes", { headers, data: { personType: "pj", name: nomeCliente, email } });
     expect(clienteResposta.ok()).toBeTruthy();
     const { client } = await clienteResposta.json() as CreateClientResponse;
-    const negocioResposta = await request.post("/api/negocios", { headers, data: {
+    const negocioResposta = await request.post("/api/leads", { headers, data: {
       pipelineId: pipeline.id, stageId: pipeline.stages[0]!.id, clientId: client.id,
       ownerId: pessoas.people[0]!.id, title: `Negócio lista ${marca}`, value: null, expectedCloseDate: null, tagIds: [],
     } });
@@ -42,7 +42,7 @@ test("lista exibe dados do lead sem buscar a ficha de cada cliente", async ({ pa
     const acoes = linha.getByRole("button", { name: `Ações de ${negocio.title}` });
     const menu = page.getByRole("menu", { name: `Ações de ${negocio.title}` });
     await acoes.click();
-    const respostaPrioridade = page.waitForResponse((resposta) => resposta.url().includes(`/api/negocios/${negocio.id}/prioridade`) && resposta.request().method() === "PATCH");
+    const respostaPrioridade = page.waitForResponse((resposta) => resposta.url().includes(`/api/leads/${negocio.id}/prioridade`) && resposta.request().method() === "PATCH");
     await menu.getByRole("menuitemradio", { name: "Urgente" }).click();
     expect((await respostaPrioridade).ok()).toBe(true);
     await acoes.click();
@@ -50,7 +50,7 @@ test("lista exibe dados do lead sem buscar a ficha de cada cliente", async ({ pa
     await page.reload();
     await acoes.click();
     await expect(menu.getByRole("menuitemradio", { name: "Urgente" })).toHaveAttribute("aria-checked", "true");
-    await page.route(`**/api/negocios/${negocio.id}/prioridade`, (rota) => rota.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ message: "Falha ao salvar prioridade" }) }));
+    await page.route(`**/api/leads/${negocio.id}/prioridade`, (rota) => rota.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ message: "Falha ao salvar prioridade" }) }));
     await menu.getByRole("menuitemradio", { name: "Normal" }).click();
     await expect(page.getByRole("alert").filter({ hasText: "Falha ao salvar prioridade" })).toBeVisible();
     await acoes.click();

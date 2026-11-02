@@ -40,7 +40,7 @@ export function GanhoDoNegocio({ pipeline, negocio, aoConcluir, aoFechar }: Prop
 
   async function confirmar() {
     setEnviando(true);
-    const resposta = await enviar<Deal>(`/api/negocios/${negocio.id}/ganho`, "POST");
+    const resposta = await enviar<Deal>(`/api/leads/${negocio.id}/ganho`, "POST");
     setEnviando(false);
     if (resposta.ok) aoConcluir(resposta.dados);
     else setErro(resposta.erro.mensagem);
@@ -88,7 +88,7 @@ export function PerdaDoNegocio({ pipeline, negocio, aoConcluir, aoFechar }: Prop
     if (motivo.asksRevisitDate && !revisita) return setErro({ mensagem: "Este motivo pede a data para revisitar.", porCampo: { revisitOn: "obrigatório" } });
     setEnviando(true);
     setErro(null);
-    const resposta = await enviar<Deal>(`/api/negocios/${negocio.id}/perda`, "POST", { lossReasonId: motivo.id, revisitOn: revisita, note: nota });
+    const resposta = await enviar<Deal>(`/api/leads/${negocio.id}/perda`, "POST", { lossReasonId: motivo.id, revisitOn: revisita, note: nota });
     setEnviando(false);
     if (resposta.ok) aoConcluir(resposta.dados);
     else setErro(resposta.erro);

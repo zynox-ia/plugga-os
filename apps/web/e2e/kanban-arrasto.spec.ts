@@ -34,7 +34,7 @@ test.beforeAll(async ({ request, baseURL }) => {
   const { client } = await criar<CreateClientResponse>(request, baseURL!, "/api/clientes", {
     personType: "pj", name: `Cliente sintético arrasto ${marca}`, email: `arrasto-${marca}@teste.local`,
   });
-  for (let i = 0; i < 3; i++) negocios.push(await criar<Deal>(request, baseURL!, "/api/negocios", {
+  for (let i = 0; i < 3; i++) negocios.push(await criar<Deal>(request, baseURL!, "/api/leads", {
     pipelineId: pipeline.id, stageId: pipeline.stages[0]!.id, clientId: client.id,
     ownerId: pessoas.people[0]!.id, title: `Lead arrasto ${i}`, value: "1000", tagIds: [],
   }));
@@ -108,7 +108,7 @@ test("solta na posição indicada sem inventar persistência de ordem e reverte 
 
   const destino = page.getByRole("region", { name: "Negócios em Etapa 2", exact: true });
   const r = (await destino.boundingBox())!;
-  await page.route("**/api/negocios/*/etapa", (rota) => rota.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ message: "Falha sintética de etapa" }) }));
+  await page.route("**/api/leads/*/etapa", (rota) => rota.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ message: "Falha sintética de etapa" }) }));
   await iniciarArrasto(cartao);
   await arrastarPara(page, r.x + r.width / 2, r.y + 60);
   await expect(destino.getByTestId("kanban-insercao")).toBeVisible();
@@ -116,7 +116,7 @@ test("solta na posição indicada sem inventar persistência de ordem e reverte 
   await destino.dispatchEvent("drop");
   expect((await falha).status()).toBe(500);
   await expect(origem.getByRole("article", { name: nome!, exact: true })).toBeVisible();
-  await page.unroute("**/api/negocios/*/etapa");
+  await page.unroute("**/api/leads/*/etapa");
   await iniciarArrasto(cartao);
   await arrastarPara(page, r.x + r.width / 2, r.y + 60);
   const sucesso = page.waitForResponse((r) => r.request().method() === "POST" && r.url().includes("/etapa"));

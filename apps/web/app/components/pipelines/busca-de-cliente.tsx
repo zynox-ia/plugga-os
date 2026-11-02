@@ -38,7 +38,7 @@ export function BuscaDeCliente({
     if (busca.length < 2) return setResultados(null);
     let vivo = true;
     const espera = setTimeout(() => {
-      void enviar<ClientSelectionResponse>(`/api/negocios/clientes?${new URLSearchParams({ q: busca }).toString()}`, "GET").then((resposta) => {
+      void enviar<ClientSelectionResponse>(`/api/leads/clientes?${new URLSearchParams({ q: busca }).toString()}`, "GET").then((resposta) => {
         if (vivo) setResultados(resposta.ok ? resposta.dados.items.slice(0, 8) : []);
       });
     }, 250);

@@ -98,7 +98,7 @@ test.describe("Negócios no quadro do pipeline (PLU-271)", () => {
 
     await botaoAcoes.click();
     const moverParaProposta = page.waitForResponse((response) =>
-      new URL(response.url()).pathname.match(/^\/api\/negocios\/[^/]+\/etapa$/) !== null
+      new URL(response.url()).pathname.match(/^\/api\/leads\/[^/]+\/etapa$/) !== null
       && response.request().method() === "POST"
       && response.status() === 200,
     );

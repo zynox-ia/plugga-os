@@ -177,7 +177,7 @@ export function NovoNegocio({
     }
 
     // 2. Cria o negócio no pipeline e etapa selecionados, usando o nome do lead como título
-    const respostaNegocio = await enviar<Deal>("/api/negocios", "POST", {
+    const respostaNegocio = await enviar<Deal>("/api/leads", "POST", {
       pipelineId,
       stageId: etapaId,
       clientId: respostaCliente.dados.client.id,

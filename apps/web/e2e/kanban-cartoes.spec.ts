@@ -26,7 +26,7 @@ test.beforeAll(async ({ request, baseURL }) => {
   const { client } = await criar<CreateClientResponse>(request, baseURL!, "/api/clientes", {
     personType: "pj", name: `Cliente sintético dos cartões ${marca}`, email: `cartoes-${marca}@teste.local`,
   });
-  negocio = await criar<Deal>(request, baseURL!, "/api/negocios", {
+  negocio = await criar<Deal>(request, baseURL!, "/api/leads", {
     pipelineId: pipeline.id, stageId: pipeline.stages[0]!.id, clientId: client.id,
     ownerId: pessoas.people[0]!.id, title: "Projeto solar residencial", value: "65000", expectedCloseDate: "2099-12-31",
     tagIds: [pipeline.tags[0]!.id],
@@ -78,7 +78,7 @@ test("prioridade persiste no cadastro do lead", async ({ page }) => {
     await prioridade.click();
     const seletor = page.getByRole("dialog", { name: "Escolher prioridade", exact: true });
     await expect(seletor).toBeInViewport();
-    const resposta = page.waitForResponse((r) => r.url().includes(`/api/negocios/${negocio.id}/prioridade`) && r.request().method() === "PATCH");
+    const resposta = page.waitForResponse((r) => r.url().includes(`/api/leads/${negocio.id}/prioridade`) && r.request().method() === "PATCH");
     await seletor.getByRole("button", { name: label, exact: true }).click();
     expect((await resposta).ok()).toBe(true);
     await expect(seletor).toHaveCount(0);
@@ -129,7 +129,7 @@ test("cartão mantém conteúdo e menu contidos nas quatro larguras e preserva a
   await expect(cartao).toHaveClass(/cartao-negocio--arrastando/);
   await page.mouse.move(alvo.x + alvo.width / 2, alvo.y + 60, { steps: 10 });
   await page.mouse.move(alvo.x + alvo.width / 2 + 1, alvo.y + 61);
-  const persistencia = page.waitForResponse((resposta) => new URL(resposta.url()).pathname === `/api/negocios/${negocio.id}/etapa` && resposta.request().method() === "POST");
+  const persistencia = page.waitForResponse((resposta) => new URL(resposta.url()).pathname === `/api/leads/${negocio.id}/etapa` && resposta.request().method() === "POST");
   await page.mouse.up();
   const resposta = await persistencia;
   expect(resposta.ok()).toBe(true);
