@@ -45,8 +45,9 @@ export function alteracoes(antes: Pipeline, depois: UpdatePipelineRequest): { ca
   const secoes: string[] = [];
   if (campos.length > 0) secoes.push("geral");
 
-  const etapas = (lista: readonly { id?: string; name: string; color: string; staleAfterDays: number | null }[]) =>
-    lista.map(({ id, name, color, staleAfterDays }) => [id ?? null, name, color, staleAfterDays]);
+  const etapas = (
+    lista: readonly { id?: string; name: string; color: string; staleAfterDays: number | null; asksClientConversion: boolean }[],
+  ) => lista.map(({ id, name, color, staleAfterDays, asksClientConversion }) => [id ?? null, name, color, staleAfterDays, asksClientConversion]);
   if (assinatura(etapas(antes.stages)) !== assinatura(etapas(depois.stages))) secoes.push("etapas");
 
   const etiquetas = (lista: readonly { id?: string; name: string; color: string }[]) => lista.map(({ id, name, color }) => [id ?? null, name, color]);

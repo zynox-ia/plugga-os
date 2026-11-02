@@ -31,6 +31,8 @@ export const pipelineStageInputSchema = z
     color: cor,
     /** Dias na etapa a partir dos quais o card ganha o alerta de parado; null desliga. */
     staleAfterDays: z.number().int().min(1).max(365).nullable(),
+    /** Mover um negócio aberto para esta etapa abre o modal de conversão em cliente. */
+    asksClientConversion: z.boolean(),
   })
   .strict();
 export type PipelineStageInput = z.infer<typeof pipelineStageInputSchema>;
@@ -121,6 +123,7 @@ export const pipelineStageSchema = z.object({
   color: z.string(),
   position: z.number().int(),
   staleAfterDays: z.number().int().nullable(),
+  asksClientConversion: z.boolean(),
   /** Negócios na etapa, de qualquer situação: excluir a etapa exige escolher o destino deles. */
   dealCount: z.number().int(),
 });
@@ -159,7 +162,7 @@ export function pipelineParaEdicao(pipeline: Pipeline): UpdatePipelineRequest {
     color: pipeline.color,
     wonLabel: pipeline.wonLabel,
     lostLabel: pipeline.lostLabel,
-    stages: pipeline.stages.map(({ id, name, color, staleAfterDays }) => ({ id, name, color, staleAfterDays })),
+    stages: pipeline.stages.map(({ id, name, color, staleAfterDays, asksClientConversion }) => ({ id, name, color, staleAfterDays, asksClientConversion })),
     tags: pipeline.tags.map(({ id, name, color }) => ({ id, name, color })),
     lossReasons: pipeline.lossReasons.map(({ id, name, asksRevisitDate }) => ({ id, name, asksRevisitDate })),
     members: [],

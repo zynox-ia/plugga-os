@@ -65,9 +65,12 @@ export const catalogoEventos = {
   "commercial.pipeline.archived": evento("Pipeline arquivado", "empresa"),
   "commercial.pipeline.restored": evento("Pipeline reativado", "empresa"),
   "commercial.deal.created": evento("Negócio criado", "empresa"),
+  "commercial.deal.updated": evento("Dados do lead editados", "empresa"),
   "commercial.deal.won": evento("Negócio ganho", "empresa"),
   "commercial.deal.lost": evento("Negócio perdido", "empresa"),
   "commercial.deal.transferred": evento("Negócio movido para outro pipeline", "empresa"),
+  // Sem PII: não grava nome, documento nem contato do cliente, só o vínculo.
+  "commercial.deal.client_converted": evento("Lead convertido em cliente", "empresa"),
   "clientes.client.created": evento("Cliente criado", "empresa"),
   // Cadastro de cliente não tem empresa dona (ADR-0013): o escopo é a plataforma.
   "clientes.contact.added": evento("Contato do cliente adicionado", "plataforma"),

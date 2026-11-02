@@ -10,14 +10,6 @@ import { isoDate, uuid } from "./primitivas.js";
  * 01/01/1900 que o Bitrix grava quando falta o nascimento).
  */
 
-/**
- * @deprecated Segmento legado, que o cadastro novo não usa. Fica só porque o
- * módulo comercial antigo (ganhar oportunidade com cliente novo) ainda o aceita,
- * até a PLU-271 substituí-lo.
- */
-export const clientSegmentSchema = z.enum(["prospect", "opm", "pluggamob", "associacoes_gd", "inativo"]);
-export type ClientSegment = z.infer<typeof clientSegmentSchema>;
-
 export const clientPersonTypeSchema = z.enum(["pf", "pj"]);
 export type ClientPersonType = z.infer<typeof clientPersonTypeSchema>;
 
@@ -48,22 +40,22 @@ export const ufs = [
 export const ufSchema = z.enum(ufs);
 
 /** Formulário manda "" para campo em branco: vira null (não informado). */
-const vazioViraNulo = (valor: unknown) => (typeof valor === "string" && valor.trim() === "" ? null : valor);
+export const vazioViraNulo = (valor: unknown) => (typeof valor === "string" && valor.trim() === "" ? null : valor);
 
-const textoOpcional = (max: number) => z.preprocess(vazioViraNulo, z.string().trim().max(max).nullable()).optional();
+export const textoOpcional = (max: number) => z.preprocess(vazioViraNulo, z.string().trim().max(max).nullable()).optional();
 const digitosOpcionais = (validos: (d: string) => boolean, problema: string) =>
   z
     .preprocess(vazioViraNulo, z.string().transform(somenteDigitos).refine(validos, problema).nullable())
     .optional();
 
-const telefoneOpcional = digitosOpcionais((d) => d.length >= 10 && d.length <= 13, "informe DDD e número");
-const emailOpcional = z.preprocess(vazioViraNulo, z.string().trim().toLowerCase().email("e-mail inválido").max(254).nullable()).optional();
+export const telefoneOpcional = digitosOpcionais((d) => d.length >= 10 && d.length <= 13, "informe DDD e número");
+export const emailOpcional = z.preprocess(vazioViraNulo, z.string().trim().toLowerCase().email("e-mail inválido").max(254).nullable()).optional();
 /** O tipo (CPF ou CNPJ) depende de PF/PJ: o dígito verificador é conferido em `problemasDoCadastro`. */
-const documentoOpcional = digitosOpcionais((d) => d.length === 11 || d.length === 14, "documento incompleto");
+export const documentoOpcional = digitosOpcionais((d) => d.length === 11 || d.length === 14, "documento incompleto");
 const cpfOpcional = digitosOpcionais(cpfValido, "CPF inválido");
-const cepOpcional = digitosOpcionais((d) => d.length === 8, "CEP deve ter 8 dígitos");
-const ufOpcional = z.preprocess(vazioViraNulo, ufSchema.nullable()).optional();
-const origemOpcional = z.preprocess(vazioViraNulo, clientOriginSchema.nullable()).optional();
+export const cepOpcional = digitosOpcionais((d) => d.length === 8, "CEP deve ter 8 dígitos");
+export const ufOpcional = z.preprocess(vazioViraNulo, ufSchema.nullable()).optional();
+export const origemOpcional = z.preprocess(vazioViraNulo, clientOriginSchema.nullable()).optional();
 const papelOpcional = z.preprocess(vazioViraNulo, clientContactRoleSchema.nullable()).optional();
 const dataDeNascimentoOpcional = z
   .preprocess(

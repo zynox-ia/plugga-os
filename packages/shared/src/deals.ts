@@ -1,6 +1,19 @@
 import { z } from "zod";
 
-import { clientPersonTypeSchema } from "./clients.js";
+import {
+  cepOpcional,
+  clientContactInputSchema,
+  clientContactSchema,
+  clientPersonTypeSchema,
+  emailOpcional,
+  documentoOpcional,
+  origemOpcional,
+  problemasDoCadastro,
+  telefoneOpcional,
+  textoOpcional,
+  ufOpcional,
+  type ClientContactInput,
+} from "./clients.js";
 import { companyKeySchema } from "./organization.js";
 import { decimalString, isoDate, uuid } from "./primitivas.js";
 
@@ -8,6 +21,10 @@ import { decimalString, isoDate, uuid } from "./primitivas.js";
  * Negócios no quadro do pipeline (PLU-271). O negócio herda a empresa do
  * pipeline em que está; Ganho e Perdido são desfechos que o encerram, não
  * etapas. Datas de calendário (previsão, revisita) são texto AAAA-MM-DD.
+ *
+ * Desde a PLU-271/Fatia 1, o lead tem dados próprios (não um Client): só vira
+ * cliente por conversão, explícita ou automática por documento. `clientId` é
+ * opcional em todo o ciclo de vida do negócio aberto.
  */
 
 export const dealStatuses = ["open", "won", "lost"] as const;
@@ -28,25 +45,99 @@ const dataDoCalendario = z
 const dataOpcional = z.preprocess(vazioViraNulo, dataDoCalendario.nullable()).optional();
 const valorOpcional = z.preprocess(vazioViraNulo, decimalString.nullable()).optional();
 
+// --------------------------------------------------------------------- lead
+
+/** Campos próprios do lead (PF ou PJ), sem vínculo com cadastro de cliente. */
+const camposDoLead = {
+  personType: clientPersonTypeSchema,
+  name: z.string().trim().min(1, "informe o nome").max(150),
+  legalName: textoOpcional(200),
+  document: documentoOpcional,
+  phone: telefoneOpcional,
+  email: emailOpcional,
+  postalCode: cepOpcional,
+  street: textoOpcional(200),
+  addressComplement: textoOpcional(100),
+  district: textoOpcional(100),
+  city: textoOpcional(100),
+  state: ufOpcional,
+  origin: origemOpcional,
+  notes: textoOpcional(2000),
+};
+
+export const leadProfileInputSchema = z.object(camposDoLead).strict();
+export type LeadProfileInput = z.infer<typeof leadProfileInputSchema>;
+
+/** Edição parcial: `undefined` mantém, `null` apaga. As regras cruzadas rodam na API depois de mesclar. */
+export const updateLeadProfileRequestSchema = z
+  .object({ ...camposDoLead, personType: clientPersonTypeSchema.optional(), name: camposDoLead.name.optional() })
+  .strict();
+export type UpdateLeadProfileRequest = z.infer<typeof updateLeadProfileRequestSchema>;
+
+export const leadProfileSchema = z.object({
+  personType: clientPersonTypeSchema,
+  name: z.string(),
+  legalName: z.string().nullable(),
+  document: z.string().nullable(),
+  phone: z.string().nullable(),
+  email: z.string().nullable(),
+  postalCode: z.string().nullable(),
+  street: z.string().nullable(),
+  addressComplement: z.string().nullable(),
+  district: z.string().nullable(),
+  city: z.string().nullable(),
+  state: z.string().nullable(),
+  origin: z.string().nullable(),
+  notes: z.string().nullable(),
+});
+export type LeadProfile = z.infer<typeof leadProfileSchema>;
+
+/** Contato do próprio lead: mesmo formato do contato de cliente (PLU-271). */
+export const leadContactInputSchema = clientContactInputSchema;
+export type LeadContactInput = ClientContactInput;
+export const leadContactSchema = clientContactSchema;
+export type LeadContact = z.infer<typeof leadContactSchema>;
+
+// -------------------------------------------------------------- negócio
+
 export const createDealRequestSchema = z
   .object({
     pipelineId: uuid,
     stageId: uuid,
-    clientId: uuid,
-    contactId: z.preprocess(vazioViraNulo, uuid.nullable()).optional(),
     title: z.string().trim().min(1, "informe o título").max(120),
     priority: dealPrioritySchema.nullable().optional(),
     value: valorOpcional,
     expectedCloseDate: dataOpcional,
     ownerId: uuid,
     tagIds: z.array(uuid).max(20).default([]),
-    consumerUnitIds: z.array(uuid).max(50).default([]),
+    /** Vincula a um cliente já cadastrado; sem isto, o negócio nasce só com o lead. */
+    clientId: z.preprocess(vazioViraNulo, uuid.nullable()).optional(),
+    lead: leadProfileInputSchema,
+    /** Contato opcional do próprio lead; se informado, nasce já selecionado. */
+    contact: clientContactInputSchema.nullable().optional(),
+  })
+  .strict()
+  .superRefine((input, ctx) => {
+    const problemas = problemasDoCadastro({ ...input.lead, temContatos: !!input.contact });
+    for (const { campo, problema } of problemas) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["lead", campo], message: problema });
+  });
+export type CreateDealRequest = z.infer<typeof createDealRequestSchema>;
+
+/** Edita dados do lead e, opcionalmente, substitui o contato selecionado. `undefined` mantém cada campo. */
+export const updateLeadRequestSchema = z
+  .object({
+    lead: updateLeadProfileRequestSchema.optional(),
+    contact: clientContactInputSchema.nullable().optional(),
   })
   .strict();
-export type CreateDealRequest = z.infer<typeof createDealRequestSchema>;
+export type UpdateLeadRequest = z.infer<typeof updateLeadRequestSchema>;
 
 export const moveDealStageRequestSchema = z.object({ stageId: uuid, beforeDealId: uuid.nullable().optional() }).strict();
 export type MoveDealStageRequest = z.infer<typeof moveDealStageRequestSchema>;
+
+/** Ganhar sempre pode converter o lead em cliente na mesma transação. */
+export const winDealRequestSchema = z.object({ convertToClient: z.boolean().default(false) }).strict();
+export type WinDealRequest = z.infer<typeof winDealRequestSchema>;
 
 /** Perder exige o motivo; a data de revisita é exigida pela API quando o motivo pede. */
 export const loseDealRequestSchema = z
@@ -59,7 +150,9 @@ export const loseDealRequestSchema = z
 export type LoseDealRequest = z.infer<typeof loseDealRequestSchema>;
 
 /** Mover para outro pipeline. O responsável só é pedido se o atual não estiver na equipe do destino. */
-export const transferDealRequestSchema = z.object({ pipelineId: uuid, stageId: uuid, ownerId: uuid.optional() }).strict();
+export const transferDealRequestSchema = z
+  .object({ pipelineId: uuid, stageId: uuid, ownerId: uuid.optional(), convertToClient: z.boolean().default(false) })
+  .strict();
 export type TransferDealRequest = z.infer<typeof transferDealRequestSchema>;
 
 export const bulkDealsActionSchema = z.discriminatedUnion("type", [
@@ -89,15 +182,12 @@ export const dealSchema = z.object({
   title: z.string(),
   value: decimalString.nullable(),
   expectedCloseDate: z.string().nullable(),
-  client: z.object({
-    id: uuid, name: z.string(), personType: clientPersonTypeSchema,
-    document: z.string().nullable(), phone: z.string().nullable(), email: z.string().nullable(),
-    city: z.string().nullable(), state: z.string().nullable(), legalName: z.string().nullable(),
-  }),
-  contact: z.object({ id: uuid, name: z.string() }).nullable(),
+  lead: leadProfileSchema,
+  contact: leadContactSchema.nullable(),
+  /** Só existe depois de uma conversão (manual, ao ganhar ou ao mudar de etapa/pipeline). */
+  client: z.object({ id: uuid, name: z.string() }).nullable(),
   owner: z.object({ id: uuid, name: z.string() }),
   tags: z.array(z.object({ id: uuid, name: z.string(), color: z.string() })),
-  consumerUnits: z.array(z.object({ id: uuid, code: z.string() })),
   /** Quando entrou na etapa atual: base dos "dias na etapa" e do alerta de parado. */
   stageEnteredAt: isoDate,
   closedAt: isoDate.nullable(),
@@ -110,9 +200,29 @@ export type Deal = z.infer<typeof dealSchema>;
 export const listDealsResponseSchema = z.object({ deals: z.array(dealSchema) });
 export type ListDealsResponse = z.infer<typeof listDealsResponseSchema>;
 
-/** O que o formulário do negócio oferece para o cliente escolhido: contatos e UCs. */
+/** O que a conversão oferece pra API decidir entre ambíguos, quando o lead não tem documento. */
+export const convertLeadRequestSchema = z
+  .object({
+    resolution: z
+      .discriminatedUnion("type", [
+        z.object({ type: z.literal("link"), clientId: uuid }).strict(),
+        z.object({ type: z.literal("create") }).strict(),
+      ])
+      .optional(),
+  })
+  .strict();
+export type ConvertLeadRequest = z.infer<typeof convertLeadRequestSchema>;
+
+export const convertLeadResponseSchema = z.object({
+  lead: dealSchema,
+  client: z.object({ id: uuid, name: z.string() }),
+  /** `false` quando vinculou a um cliente já existente, em vez de criar um novo. */
+  created: z.boolean(),
+});
+export type ConvertLeadResponse = z.infer<typeof convertLeadResponseSchema>;
+
+/** O que o formulário do negócio oferece quando o lead já foi vinculado a um cliente: os contatos dele. */
 export const dealClientOptionsResponseSchema = z.object({
   contacts: z.array(z.object({ id: uuid, name: z.string(), isPrimary: z.boolean() })),
-  consumerUnits: z.array(z.object({ id: uuid, code: z.string(), distributor: z.string() })),
 });
 export type DealClientOptionsResponse = z.infer<typeof dealClientOptionsResponseSchema>;

@@ -522,7 +522,6 @@ export class PrismaCommercialRepository extends CommercialRepository {
         company: newClient.company,
         phone: newClient.phone,
         email: newClient.email,
-        segment: newClient.segment ?? "prospect",
       },
     });
     await this.auditoria.append(tx, {

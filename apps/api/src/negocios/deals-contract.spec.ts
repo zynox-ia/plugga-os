@@ -2,14 +2,39 @@ import { describe, expect, it } from "vitest";
 import { bulkDealsActionSchema, createDealRequestSchema, dealSchema, moveDealStageRequestSchema, setDealPriorityRequestSchema } from "@plugga/shared";
 
 describe("contrato do cliente do negócio", () => {
-  it("preserva dados cadastrais e aceita valores nulos", () => {
-    const cliente = {
-      id: "550e8400-e29b-41d4-a716-446655440000", name: "Cliente", personType: "pj",
-      document: "12345678000199", phone: null, email: "cliente@teste.local",
-      city: "Manaus", state: "AM", legalName: null,
-    };
+  it("é nulo até a conversão, e só traz id e nome depois", () => {
+    expect(dealSchema.shape.client.parse(null)).toBeNull();
+    const cliente = { id: "550e8400-e29b-41d4-a716-446655440000", name: "Cliente" };
     expect(dealSchema.shape.client.parse(cliente)).toEqual(cliente);
-    expect(dealSchema.shape.client.safeParse({ ...cliente, document: undefined }).success).toBe(false);
+    expect(dealSchema.shape.client.parse({ ...cliente, document: "12345678000199" })).toEqual(cliente);
+  });
+});
+
+describe("contrato do lead do negócio", () => {
+  it("tem dados próprios e exige telefone ou e-mail", () => {
+    const lead = {
+      pipelineId: "550e8400-e29b-41d4-a716-446655440000",
+      stageId: "550e8400-e29b-41d4-a716-446655440000",
+      title: "Oportunidade Solar",
+      ownerId: "550e8400-e29b-41d4-a716-446655440000",
+      lead: { personType: "pf" as const, name: "Lead sem contato" },
+    };
+    expect(createDealRequestSchema.safeParse(lead).success).toBe(false);
+    expect(createDealRequestSchema.safeParse({ ...lead, lead: { ...lead.lead, phone: "92999990000" } }).success).toBe(true);
+  });
+
+  it("aceita clientId opcional para vincular a um cliente já cadastrado", () => {
+    const base = {
+      pipelineId: "550e8400-e29b-41d4-a716-446655440000",
+      stageId: "550e8400-e29b-41d4-a716-446655440000",
+      title: "Oportunidade Solar",
+      ownerId: "550e8400-e29b-41d4-a716-446655440000",
+      lead: { personType: "pf" as const, name: "Lead vinculado", email: "lead@teste.local" },
+    };
+    expect(createDealRequestSchema.parse(base).clientId).toBeUndefined();
+    expect(createDealRequestSchema.parse({ ...base, clientId: null }).clientId).toBeNull();
+    const clientId = "550e8400-e29b-41d4-a716-446655440000";
+    expect(createDealRequestSchema.parse({ ...base, clientId }).clientId).toBe(clientId);
   });
 });
 

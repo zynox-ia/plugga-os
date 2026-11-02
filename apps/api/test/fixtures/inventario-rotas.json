@@ -682,6 +682,38 @@
     ]
   },
   {
+    "metodo": "PATCH",
+    "caminho": "/leads/:id",
+    "controller": "NegociosController.update",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.pipelines",
+      "departamento:crm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/leads/:id/converter",
+    "controller": "NegociosController.convert",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.pipelines",
+      "departamento:crm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
     "metodo": "POST",
     "caminho": "/leads/:id/etapa",
     "controller": "NegociosController.moveStage",

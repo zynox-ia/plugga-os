@@ -1,9 +1,6 @@
 import { z } from "zod";
 import { decimalString, isoDate, uuid } from "./primitivas.js";
 
-import { clientSegmentSchema } from "./clients.js";
-
-
 export const opportunityStageSchema = z.enum(["leads", "qualificacao", "proposta", "decisao"]);
 export type OpportunityStage = z.infer<typeof opportunityStageSchema>;
 
@@ -134,7 +131,6 @@ export const newClientForOpportunitySchema = z.object({
   company: z.string().trim().max(200).optional(),
   phone: z.string().trim().max(40).optional(),
   email: z.string().trim().toLowerCase().email().max(200).optional(),
-  segment: clientSegmentSchema.optional(),
 });
 export type NewClientForOpportunity = z.infer<typeof newClientForOpportunitySchema>;
 

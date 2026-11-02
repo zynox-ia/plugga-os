@@ -181,6 +181,7 @@ export function traduzir(excecao: unknown): Traducao {
       mensagem: excecao.mensagemParaUsuario,
       detalhes: excecao.detalhes,
       retryAfterSegundos: excecao instanceof LimiteExcedido ? excecao.retryAfterSegundos : undefined,
+      legado: excecao.extras ? { extras: excecao.extras } : undefined,
     };
   }
   if (excecao instanceof HttpException) {

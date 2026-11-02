@@ -1,4 +1,4 @@
-import { randomInt, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
@@ -8,18 +8,36 @@ import {
   createPipelineRequestSchema,
   loseDealRequestSchema,
   pipelineParaEdicao,
+  transferDealRequestSchema,
   updatePipelineRequestSchema,
+  winDealRequestSchema,
   type CompanyKey,
   type Pipeline,
 } from "@plugga/shared";
 
 import { AuditAppender } from "../src/audit/audit-appender.js";
+import { ClientesService } from "../src/clientes/clientes.service.js";
+import { PrismaClientesRepository } from "../src/clientes/prisma-clientes.repository.js";
 import { EstadoInvalido, NaoEncontrado, RequisicaoInvalida } from "../src/common/errors/dominio.js";
 import type { AuthPrincipal } from "../src/core/auth/auth.types.js";
 import { hojeNoFuso } from "../src/negocios/negocios.rules.js";
 import { PrismaNegociosRepository } from "../src/negocios/prisma-negocios.repository.js";
 import { PrismaPipelinesRepository } from "../src/pipelines/prisma-pipelines.repository.js";
 import { PrismaService } from "../src/prisma/prisma.service.js";
+
+const ganhar = (convertToClient = false) => winDealRequestSchema.parse({ convertToClient });
+
+/** Documento sintético (faixa 999999…) com dígito verificador válido. */
+function digitoVerificador(base: number[], pesos: number[]): number {
+  const resto = base.reduce((soma, d, i) => soma + d * pesos[i]!, 0) % 11;
+  return resto < 2 ? 0 : 11 - resto;
+}
+function gerarCpf(): string {
+  const base = [9, 9, 9, 9, 9, 9, ...Array.from({ length: 3 }, () => Math.floor(Math.random() * 10))];
+  const d1 = digitoVerificador(base, [10, 9, 8, 7, 6, 5, 4, 3, 2]);
+  const d2 = digitoVerificador([...base, d1], [11, 10, 9, 8, 7, 6, 5, 4, 3, 2]);
+  return [...base, d1, d2].join("");
+}
 
 /**
  * Negócios no quadro do pipeline (PLU-271) contra o Postgres de verdade:
@@ -36,15 +54,13 @@ describe.skipIf(!HABILITADO)("negócios: quadro do pipeline no Postgres", () => 
   const prisma = new PrismaService();
   const auditoria = new AuditAppender();
   const pipelines = new PrismaPipelinesRepository(prisma, auditoria);
-  const negocios = new PrismaNegociosRepository(prisma, auditoria);
+  const clientes = new ClientesService(new PrismaClientesRepository(prisma, auditoria));
+  const negocios = new PrismaNegociosRepository(prisma, auditoria, clientes);
   const marca = `neg-${randomUUID().slice(0, 8)}`;
   const pessoas = {} as Record<"gestor" | "ana" | "bruno" | "forasteiro" | "pluggaVendedor", AuthPrincipal>;
   let solar: Pipeline;
   let mercadoLivre: Pipeline;
   let clienteId: string;
-  let contatoId: string;
-  let ucId: string;
-  let outroContatoId: string;
 
   const etapa = (nome: string) => solar.stages.find((e) => e.name === nome)!.id;
   const novo = (dados: Record<string, unknown> = {}) =>
@@ -52,11 +68,11 @@ describe.skipIf(!HABILITADO)("negócios: quadro do pipeline no Postgres", () => 
       createDealRequestSchema.parse({
         pipelineId: solar.id,
         stageId: etapa("Qualificação"),
-        clientId: clienteId,
         ownerId: pessoas.ana.id,
         title: `${marca} Galpão logístico — 150 kWp`,
         value: "620000.00",
         expectedCloseDate: "2026-12-15",
+        lead: { personType: "pj", name: `${marca} Lead`, phone: "92999990000" },
         ...dados,
       }),
       pessoas.ana,
@@ -84,7 +100,7 @@ describe.skipIf(!HABILITADO)("negócios: quadro do pipeline no Postgres", () => 
       color: "#0B7A57",
       wonLabel: "Contrato assinado",
       lostLabel: "Perdido",
-      stages: etapas.map((name) => ({ name, color: "#00A3FF", staleAfterDays: 7 })),
+      stages: etapas.map((name) => ({ name, color: "#00A3FF", staleAfterDays: 7, asksClientConversion: false })),
       tags: [{ name: "Grupo A", color: "#0077FF" }, { name: "Indicação", color: "#7C5CFF" }],
       lossReasons: [
         { name: "Fechou com concorrente", asksRevisitDate: false },
@@ -117,16 +133,9 @@ describe.skipIf(!HABILITADO)("negócios: quadro do pipeline no Postgres", () => 
       data: {
         name: `${marca} Logística Igarapé`,
         phone: "(92) 99999-9999", email: "cliente@teste.local", city: "Manaus", state: "AM", legalName: "Logística Exemplo Ltda",
-        contacts: { create: { name: "Juliana Prado", isPrimary: true } },
-        consumerUnits: { create: { code: `9999${randomInt(100_000, 999_999)}`, distributor: "Amazonas Energia" } },
       },
-      include: { contacts: true, consumerUnits: true },
     });
     clienteId = cliente.id;
-    contatoId = cliente.contacts[0]!.id;
-    ucId = cliente.consumerUnits[0]!.id;
-    const outro = await prisma.client.create({ data: { name: `${marca} Outro cliente`, contacts: { create: { name: "Rodrigo Lima" } } }, include: { contacts: true } });
-    outroContatoId = outro.contacts[0]!.id;
   }, PRAZO_MS);
 
   afterAll(async () => {
@@ -139,15 +148,19 @@ describe.skipIf(!HABILITADO)("negócios: quadro do pipeline no Postgres", () => 
   }, PRAZO_MS);
 
   it(
-    "a vendedora cria o negócio; a equipe toda o vê, quem está fora não",
+    "a vendedora cria o lead, já com cliente vinculado e contato próprio; a equipe toda o vê, quem está fora não",
     async () => {
-      const negocio = await novo({ contactId: contatoId, tagIds: [solar.tags[0]!.id], consumerUnitIds: [ucId] });
+      const negocio = await novo({
+        clientId: clienteId,
+        contact: { name: "Juliana Prado" },
+        tagIds: [solar.tags[0]!.id],
+      });
 
       expect(negocio).toMatchObject({ status: "open", companyId: "waze", value: "620000.00", expectedCloseDate: "2026-12-15" });
-      expect(negocio.contact?.id).toBe(contatoId);
-      expect(negocio.client).toMatchObject({ document: null, phone: "(92) 99999-9999", email: "cliente@teste.local", city: "Manaus", state: "AM", legalName: "Logística Exemplo Ltda" });
+      expect(negocio.contact?.name).toBe("Juliana Prado");
+      expect(negocio.lead).toMatchObject({ personType: "pj", name: `${marca} Lead`, phone: "92999990000" });
+      expect(negocio.client).toEqual({ id: clienteId, name: `${marca} Logística Igarapé` });
       expect(negocio.tags.map((t) => t.name)).toEqual(["Grupo A"]);
-      expect(negocio.consumerUnits.map((u) => u.id)).toEqual([ucId]);
 
       const doBruno = await negocios.list({ pipelineId: solar.id, status: "open" }, pessoas.bruno);
       expect(doBruno.deals.map((d) => d.id)).toContain(negocio.id);
@@ -162,10 +175,12 @@ describe.skipIf(!HABILITADO)("negócios: quadro do pipeline no Postgres", () => 
   );
 
   it(
-    "recusa responsável sem acesso ao CRM e contato de outro cliente",
+    "sem clientId o lead nasce sem cliente; recusa responsável sem acesso ao CRM e cliente inexistente",
     async () => {
+      const semCliente = await novo();
+      expect(semCliente.client).toBeNull();
       await expect(novo({ ownerId: pessoas.forasteiro.id })).rejects.toBeInstanceOf(RequisicaoInvalida);
-      await expect(novo({ contactId: outroContatoId })).rejects.toBeInstanceOf(RequisicaoInvalida);
+      await expect(novo({ clientId: randomUUID() })).rejects.toBeInstanceOf(RequisicaoInvalida);
       await expect(novo({ stageId: mercadoLivre.stages[0]!.id })).rejects.toBeInstanceOf(RequisicaoInvalida);
     },
     PRAZO_MS,
@@ -180,7 +195,7 @@ describe.skipIf(!HABILITADO)("negócios: quadro do pipeline no Postgres", () => 
     await negocios.bulk({ dealIds: [primeiro.id, segundo.id], action: { type: "priority", priority: "medio" } }, pessoas.ana);
     const historico = await prisma.dealHistory.findMany({ where: { dealId: primeiro.id, kind: "priority_changed" }, orderBy: { occurredAt: "asc" } });
     expect(historico.map(({ fromPriority, toPriority }) => [fromPriority, toPriority])).toEqual([["urgente", null], [null, "medio"]]);
-    await negocios.win(segundo.id, pessoas.ana);
+    await negocios.win(segundo.id, ganhar(), pessoas.ana);
     await expect(negocios.setPriority(segundo.id, { priority: "normal" }, pessoas.ana)).rejects.toBeInstanceOf(EstadoInvalido);
     await expect(negocios.bulk({ dealIds: [primeiro.id, segundo.id], action: { type: "priority", priority: "normal" } }, pessoas.ana)).rejects.toBeInstanceOf(EstadoInvalido);
     expect((await negocios.list({ pipelineId: solar.id, status: "open" }, pessoas.ana)).deals.find((d) => d.id === primeiro.id)?.priority).toBe("medio");
@@ -241,8 +256,8 @@ describe.skipIf(!HABILITADO)("negócios: quadro do pipeline no Postgres", () => 
     const naSolar = await novo();
     const noMercado = await novo({ pipelineId: mercadoLivre.id, stageId: mercadoLivre.stages[0]!.id });
     const [paraMercado, paraSolar] = await Promise.all([
-      negocios.transfer(naSolar.id, { pipelineId: mercadoLivre.id, stageId: mercadoLivre.stages[0]!.id }, pessoas.ana),
-      negocios.transfer(noMercado.id, { pipelineId: solar.id, stageId: etapa("Qualificação") }, pessoas.bruno),
+      negocios.transfer(naSolar.id, transferDealRequestSchema.parse({ pipelineId: mercadoLivre.id, stageId: mercadoLivre.stages[0]!.id }), pessoas.ana),
+      negocios.transfer(noMercado.id, transferDealRequestSchema.parse({ pipelineId: solar.id, stageId: etapa("Qualificação") }), pessoas.bruno),
     ]);
     expect(paraMercado.pipelineId).toBe(mercadoLivre.id);
     expect(paraSolar.pipelineId).toBe(solar.id);
@@ -258,6 +273,7 @@ describe.skipIf(!HABILITADO)("negócios: quadro do pipeline no Postgres", () => 
       id, pipelineId: solar.id, stageId: etapa("Visita técnica"), clientId: clienteId,
       ownerId: pessoas.ana.id, title: `${marca} inserção ${index}`, position: index * 1024,
     })) });
+    await prisma.leadProfile.createMany({ data: ids.map((dealId) => ({ dealId, personType: "pf" as const, name: `${marca} lead em massa` })) });
     for (const id of ids) {
       await negocios.moveStage(id, { stageId: ancora.stageId, beforeDealId: ancora.id }, pessoas.ana);
     }
@@ -276,8 +292,8 @@ describe.skipIf(!HABILITADO)("negócios: quadro do pipeline no Postgres", () => 
   it("lista negócios fechados com desempate determinístico por id em status all", async () => {
     const a = await novo();
     const b = await novo();
-    await negocios.win(a.id, pessoas.ana);
-    await negocios.win(b.id, pessoas.ana);
+    await negocios.win(a.id, ganhar(), pessoas.ana);
+    await negocios.win(b.id, ganhar(), pessoas.ana);
     await prisma.deal.updateMany({ where: { id: { in: [a.id, b.id] } }, data: { position: "12345" } });
     const lista = await negocios.list({ pipelineId: solar.id, status: "all" }, pessoas.ana);
     expect(lista.deals.filter((n) => n.id === a.id || n.id === b.id).map((n) => n.id)).toEqual([a.id, b.id].sort());
@@ -294,13 +310,13 @@ describe.skipIf(!HABILITADO)("negócios: quadro do pipeline no Postgres", () => 
     const ordem = async () => (await negocios.list({ pipelineId: solar.id, status: "open" }, pessoas.ana)).deals.filter((n) => ids.includes(n.id)).map((n) => n.id);
     expect(await ordem()).toEqual([b.id, a.id, antigo.id]);
     const transferido = await novo({ pipelineId: mercadoLivre.id, stageId: mercadoLivre.stages[0]!.id });
-    await negocios.transfer(transferido.id, { pipelineId: solar.id, stageId: etapaDestino }, pessoas.ana);
+    await negocios.transfer(transferido.id, transferDealRequestSchema.parse({ pipelineId: solar.id, stageId: etapaDestino }), pessoas.ana);
     ids.push(transferido.id);
     expect((await ordem())[0]).toBe(transferido.id);
     const novoNoTopo = await novo({ stageId: etapaDestino });
     ids.push(novoNoTopo.id);
     expect((await ordem())[0]).toBe(novoNoTopo.id);
-    await negocios.win(antigo.id, pessoas.ana);
+    await negocios.win(antigo.id, ganhar(), pessoas.ana);
     await expect(negocios.moveStage(a.id, { stageId: etapaDestino, beforeDealId: antigo.id }, pessoas.ana)).rejects.toBeInstanceOf(RequisicaoInvalida);
     await expect(negocios.moveStage(a.id, { stageId: etapaDestino, beforeDealId: etapaOrigem }, pessoas.ana)).rejects.toBeInstanceOf(RequisicaoInvalida);
   });
@@ -333,7 +349,7 @@ describe.skipIf(!HABILITADO)("negócios: quadro do pipeline no Postgres", () => 
       expect((await pipelines.people({ companyId: "waze" }, pessoas.ana)).people.some((p) => p.id === usuario.id)).toBe(false);
       await expect(novo({ ownerId: usuario.id })).rejects.toBeInstanceOf(RequisicaoInvalida);
       await expect(negocios.bulk(bulkDealsRequestSchema.parse({ dealIds: [criado.id], action: { type: "owner", ownerId: usuario.id } }), pessoas.ana)).rejects.toBeInstanceOf(RequisicaoInvalida);
-      await expect(negocios.transfer(criado.id, { pipelineId: mercadoLivre.id, stageId: mercadoLivre.stages[0]!.id, ownerId: usuario.id }, pessoas.ana)).rejects.toBeInstanceOf(RequisicaoInvalida);
+      await expect(negocios.transfer(criado.id, transferDealRequestSchema.parse({ pipelineId: mercadoLivre.id, stageId: mercadoLivre.stages[0]!.id, ownerId: usuario.id }), pessoas.ana)).rejects.toBeInstanceOf(RequisicaoInvalida);
     }
     expect((await pipelines.people({ companyId: "waze" }, pessoas.ana)).people.some((p) => p.id === pessoas.forasteiro.id)).toBe(false);
     // Revogar a tela derruba imediatamente a elegibilidade, mesmo mantendo o departamento.
@@ -385,7 +401,7 @@ describe.skipIf(!HABILITADO)("negócios: quadro do pipeline no Postgres", () => 
     "ganhar encerra o negócio na etapa em que estava",
     async () => {
       const negocio = await novo();
-      const ganho = await negocios.win(negocio.id, pessoas.ana);
+      const ganho = await negocios.win(negocio.id, ganhar(), pessoas.ana);
       expect(ganho).toMatchObject({ status: "won", stageId: etapa("Qualificação") });
       expect(ganho.closedAt).not.toBeNull();
     },
@@ -396,7 +412,7 @@ describe.skipIf(!HABILITADO)("negócios: quadro do pipeline no Postgres", () => 
     "mover para o pipeline da Plugga muda a empresa e mantém responsável elegível e histórico",
     async () => {
       const negocio = await novo({ tagIds: [solar.tags[0]!.id] });
-      const destino = { pipelineId: mercadoLivre.id, stageId: mercadoLivre.stages[1]!.id };
+      const destino = transferDealRequestSchema.parse({ pipelineId: mercadoLivre.id, stageId: mercadoLivre.stages[1]!.id });
       await expect(negocios.transfer(negocio.id, destino, pessoas.forasteiro)).rejects.toBeInstanceOf(NaoEncontrado);
 
       const movido = await negocios.transfer(negocio.id, destino, pessoas.pluggaVendedor);
@@ -414,7 +430,7 @@ describe.skipIf(!HABILITADO)("negócios: quadro do pipeline no Postgres", () => 
     async () => {
       const a = await novo();
       const b = await novo();
-      const ganho = await negocios.win((await novo()).id, pessoas.ana);
+      const ganho = await negocios.win((await novo()).id, ganhar(), pessoas.ana);
       const ids = [a.id, b.id, ganho.id];
 
       const lote = (acao: unknown) => negocios.bulk(bulkDealsRequestSchema.parse({ dealIds: ids, action: acao }), pessoas.ana);
@@ -453,4 +469,92 @@ describe.skipIf(!HABILITADO)("negócios: quadro do pipeline no Postgres", () => 
     },
     PRAZO_MS,
   );
+
+  describe("conversão do lead em cliente", () => {
+    it("documento igual a um cliente existente vincula, sem sobrescrever dados nem mesclar contatos", async () => {
+      const documento = gerarCpf();
+      const existente = await prisma.client.create({ data: { name: `${marca} Já cadastrado`, document: documento, phone: "92988887777" } });
+      const negocio = await novo({ stageId: etapa("Visita técnica"), lead: { personType: "pf", name: `${marca} Com documento`, document: documento, phone: "92999991111" } });
+
+      const resultado = await negocios.convert(negocio.id, {}, pessoas.ana);
+      expect(resultado.created).toBe(false);
+      expect(resultado.client).toEqual({ id: existente.id, name: existente.name });
+      expect(resultado.lead.client).toEqual({ id: existente.id, name: existente.name });
+
+      const clienteRelido = await prisma.client.findUniqueOrThrow({ where: { id: existente.id } });
+      expect(clienteRelido.name).toBe(existente.name);
+      expect(await prisma.clientContact.count({ where: { clientId: existente.id } })).toBe(0);
+
+      const historico = await prisma.dealHistory.findMany({ where: { dealId: negocio.id, kind: "client_converted" } });
+      expect(historico).toHaveLength(1);
+      expect(await prisma.eventLog.count({ where: { eventName: "commercial.deal.client_converted", entityId: negocio.id } })).toBe(1);
+
+      // Idempotente: converter de novo não repete o histórico nem muda o vínculo.
+      const segunda = await negocios.convert(negocio.id, {}, pessoas.ana);
+      expect(segunda).toEqual(resultado);
+      expect(await prisma.dealHistory.count({ where: { dealId: negocio.id, kind: "client_converted" } })).toBe(1);
+    }, PRAZO_MS);
+
+    it("sem documento e sem candidato, cria um cliente novo copiando perfil e contato", async () => {
+      const marcador = randomUUID().slice(0, 8);
+      const negocio = await novo({
+        stageId: etapa("Visita técnica"),
+        lead: { personType: "pj", name: `${marca} Novo ${marcador}`, email: `${marcador}@teste.local`, city: "Manaus" },
+        contact: { name: "Contato do lead", email: `${marcador}-contato@teste.local` },
+      });
+
+      const resultado = await negocios.convert(negocio.id, {}, pessoas.ana);
+      expect(resultado.created).toBe(true);
+
+      const criado = await prisma.client.findUniqueOrThrow({ where: { id: resultado.client.id }, include: { contacts: true } });
+      expect(criado).toMatchObject({ name: `${marca} Novo ${marcador}`, email: `${marcador}@teste.local`, city: "Manaus" });
+      expect(criado.contacts).toHaveLength(1);
+      expect(criado.contacts[0]).toMatchObject({ name: "Contato do lead", email: `${marcador}-contato@teste.local` });
+    }, PRAZO_MS);
+
+    it("sem documento e com candidato, não mescla sozinho: devolve os candidatos até a escolha explícita", async () => {
+      const marcador = randomUUID().slice(0, 8);
+      const parecido = await prisma.client.create({ data: { name: `${marca} Parecido ${marcador}`, phone: "92977776666" } });
+      const negocio = await novo({ stageId: etapa("Visita técnica"), lead: { personType: "pf", name: `${marca} Parecido ${marcador}`, phone: "92977776666" } });
+
+      const falha = await negocios.convert(negocio.id, {}, pessoas.ana).catch((erro) => erro);
+      expect(falha).toBeInstanceOf(RequisicaoInvalida);
+      expect((falha as RequisicaoInvalida & { extras?: { candidatos?: { id: string }[] } }).extras?.candidatos?.some((c) => c.id === parecido.id)).toBe(true);
+      expect(await prisma.deal.findUniqueOrThrow({ where: { id: negocio.id } }).then((d) => d.clientId)).toBeNull();
+
+      const vinculado = await negocios.convert(negocio.id, { resolution: { type: "link", clientId: parecido.id } }, pessoas.ana);
+      expect(vinculado).toEqual({ created: false, client: { id: parecido.id, name: parecido.name }, lead: vinculado.lead });
+      expect(vinculado.lead.client).toEqual({ id: parecido.id, name: parecido.name });
+    }, PRAZO_MS);
+
+    it("resolution create ignora os candidatos e cria mesmo assim", async () => {
+      const marcador = randomUUID().slice(0, 8);
+      await prisma.client.create({ data: { name: `${marca} Outro parecido ${marcador}`, phone: "92966665555" } });
+      const negocio = await novo({ stageId: etapa("Visita técnica"), lead: { personType: "pf", name: `${marca} Outro parecido ${marcador}`, phone: "92966665555" } });
+
+      const resultado = await negocios.convert(negocio.id, { resolution: { type: "create" } }, pessoas.ana);
+      expect(resultado.created).toBe(true);
+    }, PRAZO_MS);
+
+    it("sem telefone nem e-mail, a conversão falha e nada muda", async () => {
+      // create() já exige telefone ou e-mail; o defeito é simulado direto no banco
+      // para provar que converter() também guarda essa regra, não só a criação.
+      const negocio = await novo({ stageId: etapa("Visita técnica"), lead: { personType: "pf", name: `${marca} Com contato`, phone: "92900001111" } });
+      await prisma.leadProfile.update({ where: { dealId: negocio.id }, data: { phone: null } });
+      await expect(negocios.convert(negocio.id, {}, pessoas.ana)).rejects.toBeInstanceOf(RequisicaoInvalida);
+      expect(await prisma.deal.findUniqueOrThrow({ where: { id: negocio.id } }).then((d) => d.clientId)).toBeNull();
+    }, PRAZO_MS);
+
+    it("ganhar com convertToClient converte na mesma transação; sem o flag, não converte", async () => {
+      const marcador = randomUUID().slice(0, 8);
+      const semConverter = await novo({ stageId: etapa("Visita técnica"), lead: { personType: "pf", name: `${marca} Sem flag ${marcador}`, phone: "92955554444" } });
+      const ganhoSemConverter = await negocios.win(semConverter.id, ganhar(false), pessoas.ana);
+      expect(ganhoSemConverter.client).toBeNull();
+
+      const comConverter = await novo({ stageId: etapa("Visita técnica"), lead: { personType: "pf", name: `${marca} Com flag ${marcador}`, phone: "92944443333" } });
+      const ganhoComConverter = await negocios.win(comConverter.id, ganhar(true), pessoas.ana);
+      expect(ganhoComConverter.status).toBe("won");
+      expect(ganhoComConverter.client).not.toBeNull();
+    }, PRAZO_MS);
+  });
 });

@@ -24,8 +24,8 @@ const AGORA = new Date("2026-10-19T15:00:00Z");
 const pipeline = {
   id: "00000000-0000-4000-8000-0000000000ff",
   stages: [
-    { id: ETAPA_A, name: "Qualificação", color: "#00A3FF", position: 0, staleAfterDays: 7, dealCount: 0 },
-    { id: ETAPA_B, name: "Proposta", color: "#7C5CFF", position: 1, staleAfterDays: null, dealCount: 0 },
+    { id: ETAPA_A, name: "Qualificação", color: "#00A3FF", position: 0, staleAfterDays: 7, asksClientConversion: false, dealCount: 0 },
+    { id: ETAPA_B, name: "Proposta", color: "#7C5CFF", position: 1, staleAfterDays: null, asksClientConversion: false, dealCount: 0 },
   ],
 } as unknown as Pipeline;
 
@@ -40,11 +40,15 @@ function negocio(parcial: Partial<Deal> & { id: string }): Deal {
     number: 1,
     value: null,
     expectedCloseDate: null,
-    client: { id: "00000000-0000-4000-8000-0000000000c1", name: "Logística Igarapé", personType: "pj", document: null, phone: null, email: null, city: null, state: null, legalName: null },
+    lead: {
+      personType: "pj", name: "Logística Igarapé", legalName: null, document: null, phone: null, email: null,
+      postalCode: null, street: null, addressComplement: null, district: null, city: null, state: null,
+      origin: null, notes: null,
+    },
+    client: { id: "00000000-0000-4000-8000-0000000000c1", name: "Logística Igarapé" },
     contact: null,
     owner: { id: ANA, name: "Ana" },
     tags: [],
-    consumerUnits: [],
     stageEnteredAt: "2026-10-18T15:00:00Z",
     closedAt: null,
     lossReason: null,

@@ -38,6 +38,7 @@ describe.skipIf(!HABILITADO)("pipelines: configuração no Postgres", () => {
       name,
       color: "#00A3FF",
       staleAfterDays: i + 3,
+      asksClientConversion: false,
     })),
     tags: [{ name: "Grupo A", color: "#0077FF" }],
     lossReasons: [
@@ -144,7 +145,7 @@ describe.skipIf(!HABILITADO)("pipelines: configuração no Postgres", () => {
     async () => {
       const solar = await criar(configuracao({ name: `${marca} Etapas` }), pessoas.gestorWaze);
       const [primeira, segunda, ...resto] = pipelineParaEdicao(solar).stages;
-      const novas = [{ ...segunda!, name: "Qualificação técnica" }, primeira!, ...resto.slice(1), { name: "Assinatura", color: "#18A957", staleAfterDays: null }];
+      const novas = [{ ...segunda!, name: "Qualificação técnica" }, primeira!, ...resto.slice(1), { name: "Assinatura", color: "#18A957", staleAfterDays: null, asksClientConversion: false }];
 
       const editado = await salvar(solar, { stages: novas, wonLabel: "Usina contratada" }, pessoas.gestorWaze);
 

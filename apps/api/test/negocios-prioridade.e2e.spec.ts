@@ -12,8 +12,10 @@ describe("prioridade do negócio (e2e)", () => {
   const repository = {
     setPriority, moveStage,
     list: vi.fn(async () => ({ deals: [] })),
-    clientOptions: vi.fn(async () => ({ contacts: [], consumerUnits: [] })),
+    clientOptions: vi.fn(async () => ({ contacts: [] })),
     create: vi.fn(async () => ({ ok: true })),
+    update: vi.fn(async () => ({ ok: true })),
+    convert: vi.fn(async () => ({ ok: true })),
     bulk: vi.fn(async () => ({ deals: [] })),
     win: vi.fn(async () => ({ ok: true })),
     lose: vi.fn(async () => ({ ok: true })),
@@ -46,10 +48,15 @@ describe("prioridade do negócio (e2e)", () => {
   it("expõe todas as operações sob leads e remove a rota antiga", async () => {
     await comercial(request(app.getHttpServer()).get(`/leads?pipelineId=${id}`)).expect(200);
     await comercial(request(app.getHttpServer()).get(`/leads/clientes/${id}/opcoes`)).expect(200);
-    await comercial(request(app.getHttpServer()).post("/leads")).send({ pipelineId: id, stageId: id, clientId: id, ownerId: id, title: "Lead" }).expect(201);
+    await comercial(request(app.getHttpServer()).post("/leads")).send({
+      pipelineId: id, stageId: id, clientId: id, ownerId: id, title: "Lead",
+      lead: { personType: "pf", name: "Lead de teste", phone: "92999990000" },
+    }).expect(201);
     await comercial(request(app.getHttpServer()).post("/leads/lote")).send({ dealIds: [id], action: { type: "stage", stageId: id } }).expect(200);
+    await comercial(request(app.getHttpServer()).patch(`/leads/${id}`)).send({ lead: { notes: "atualizado" } }).expect(200);
+    await comercial(request(app.getHttpServer()).post(`/leads/${id}/converter`)).send({}).expect(200);
     await comercial(request(app.getHttpServer()).post(`/leads/${id}/etapa`)).send({ stageId: id }).expect(200);
-    await comercial(request(app.getHttpServer()).post(`/leads/${id}/ganho`)).expect(200);
+    await comercial(request(app.getHttpServer()).post(`/leads/${id}/ganho`)).send({}).expect(200);
     await comercial(request(app.getHttpServer()).post(`/leads/${id}/perda`)).send({ lossReasonId: id }).expect(200);
     await comercial(request(app.getHttpServer()).post(`/leads/${id}/transferencia`)).send({ pipelineId: id, stageId: id }).expect(200);
     await comercial(request(app.getHttpServer()).patch(`/leads/${id}/prioridade`)).send({ priority: "normal" }).expect(200);

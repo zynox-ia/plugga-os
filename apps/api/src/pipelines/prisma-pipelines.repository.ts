@@ -62,12 +62,13 @@ function paraPipeline(linha: LinhaDePipeline, canConfigure: boolean): Pipeline {
     archivedAt: linha.archivedAt?.toISOString() ?? null,
     updatedAt: linha.updatedAt.toISOString(),
     updatedBy: linha.updatedBy,
-    stages: linha.stages.map(({ id, name, color, position, staleAfterDays, _count }) => ({
+    stages: linha.stages.map(({ id, name, color, position, staleAfterDays, asksClientConversion, _count }) => ({
       id,
       name,
       color,
       position,
       staleAfterDays,
+      asksClientConversion,
       dealCount: _count.deals,
     })),
     tags: linha.tags.map(({ id, name, color }) => ({ id, name, color })),
@@ -124,7 +125,7 @@ export class PrismaPipelinesRepository extends PipelinesRepository {
           data: {
             ...gerais,
             updatedById: principal.id,
-            stages: { create: comPosicao(stages.map(({ name, color, staleAfterDays }) => ({ name, color, staleAfterDays }))) },
+            stages: { create: comPosicao(stages.map(({ name, color, staleAfterDays, asksClientConversion }) => ({ name, color, staleAfterDays, asksClientConversion }))) },
             tags: { create: comPosicao(tags.map(({ name, color }) => ({ name, color }))) },
             lossReasons: { create: comPosicao(lossReasons.map(({ name, asksRevisitDate }) => ({ name, asksRevisitDate }))) },
           },
@@ -207,8 +208,8 @@ export class PrismaPipelinesRepository extends PipelinesRepository {
           });
         }
         await tx.pipelineStage.deleteMany({ where: { pipelineId: id, id: { in: removidas } } });
-        for (const [position, { id: etapaId, name, color, staleAfterDays }] of stages.entries()) {
-          const dados = { name, color, staleAfterDays, position };
+        for (const [position, { id: etapaId, name, color, staleAfterDays, asksClientConversion }] of stages.entries()) {
+          const dados = { name, color, staleAfterDays, asksClientConversion, position };
           if (etapaId) await tx.pipelineStage.update({ where: { id: etapaId }, data: dados });
           else await tx.pipelineStage.create({ data: { ...dados, pipelineId: id } });
         }

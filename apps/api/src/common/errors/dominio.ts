@@ -10,6 +10,8 @@ export abstract class ErroDeDominio extends Error {
   constructor(
     readonly mensagemParaUsuario: string,
     readonly detalhes?: { campo: string; problema: string }[],
+    /** Chaves extras no envelope (ex.: candidatos de conversão). Nunca PII sensível não pedida pela tela. */
+    readonly extras?: Record<string, unknown>,
   ) {
     super(mensagemParaUsuario);
     this.name = new.target.name;

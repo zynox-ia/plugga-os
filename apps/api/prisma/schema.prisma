@@ -258,6 +258,8 @@ enum ContestationStatus {
 }
 
 model User {
+  uploadedLeadDocuments LeadDocument[] @relation("LeadDocumentUploader")
+  archivedLeadDocuments LeadDocument[] @relation("LeadDocumentArchiver")
   id                             String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   email                          String                  @unique
   name                           String
@@ -864,6 +866,9 @@ model PipelineStage {
   position       Int
   /// Dias na etapa a partir dos quais o negócio aparece como parado; nulo desliga o alerta.
   staleAfterDays Int?     @map("stale_after_days")
+  /// Mover um negócio aberto para esta etapa (inclusive transferindo de pipeline) abre o
+  /// modal de conversão em cliente; cada pipeline decide em quais etapas isso vale.
+  asksClientConversion Boolean @default(false) @map("asks_client_conversion")
   pipeline       Pipeline @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
   deals          Deal[]
 
@@ -925,6 +930,9 @@ enum DealEventKind {
   created
   stage_changed
   priority_changed
+  document_added
+  document_archived
+  client_converted
   won
   lost
   transferred
@@ -944,12 +952,17 @@ enum DealPriority {
 /// está, sem cópia aqui: mover de pipeline muda a empresa por construção.
 /// Ganho e Perdido encerram o negócio na etapa em que ele estava.
 model Deal {
+  leadContactId String? @map("lead_contact_id") @db.Uuid
+  profile LeadProfile?
+  leadContacts LeadContact[] @relation("LeadContacts")
+  leadContact LeadContact? @relation("SelectedLeadContact", fields: [leadContactId, id], references: [id, dealId], onDelete: NoAction, onUpdate: NoAction, map: "deals_lead_contact_owner_fkey")
+  documents LeadDocument[]
   number Int @unique @default(autoincrement())
   position Decimal @default(0) @db.Decimal(30, 10)
   id                String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   pipelineId        String              @map("pipeline_id") @db.Uuid
   stageId           String              @map("stage_id") @db.Uuid
-  clientId          String              @map("client_id") @db.Uuid
+  clientId          String?             @map("client_id") @db.Uuid
   contactId         String?             @map("contact_id") @db.Uuid
   ownerId           String              @map("owner_id") @db.Uuid
   title             String
@@ -971,7 +984,7 @@ model Deal {
   updatedAt         DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   pipeline          Pipeline            @relation(fields: [pipelineId], references: [id])
   stage             PipelineStage       @relation(fields: [stageId], references: [id])
-  client            Client              @relation(fields: [clientId], references: [id])
+  client            Client?             @relation(fields: [clientId], references: [id], onDelete: Restrict)
   contact           ClientContact?      @relation(fields: [contactId], references: [id], onDelete: SetNull)
   owner             User                @relation("DealOwner", fields: [ownerId], references: [id])
   createdBy         User?               @relation("DealCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
@@ -1960,4 +1973,84 @@ model CotacaoDeCompra {
   @@index([pedidoId])
   @@index([fornecedorId])
   @@map("cotacoes_de_compra")
+}
+
+enum LeadDocumentCategory {
+  proposta
+  conta_de_energia
+  documento_do_cliente
+  procuracao_contrato
+  outros
+  @@map("lead_document_category")
+}
+enum LeadDocumentUploadState {
+  pending
+  ready
+  cleanup
+  @@map("lead_document_upload_state")
+}
+model LeadDocument {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  dealId String @map("deal_id") @db.Uuid
+  category LeadDocumentCategory
+  originalName String @map("original_name")
+  safeName String @map("safe_name")
+  detectedMime String @map("detected_mime")
+  sizeBytes Int @map("size_bytes")
+  storageBucket String @map("storage_bucket")
+  storageKey String @map("storage_key")
+  sha256 String @db.Char(64)
+  uploadState LeadDocumentUploadState @default(pending) @map("upload_state")
+  uploadedById String? @map("uploaded_by_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  archivedAt DateTime? @map("archived_at") @db.Timestamptz(6)
+  archivedById String? @map("archived_by_id") @db.Uuid
+  deal Deal @relation(fields:[dealId], references:[id], onDelete:Restrict, onUpdate:NoAction)
+  uploadedBy User? @relation("LeadDocumentUploader", fields:[uploadedById], references:[id], onDelete:SetNull, onUpdate:NoAction)
+  archivedBy User? @relation("LeadDocumentArchiver", fields:[archivedById], references:[id], onDelete:SetNull, onUpdate:NoAction)
+  @@unique([storageBucket, storageKey])
+  @@index([dealId, archivedAt, createdAt, id], map:"lead_documents_deal_list_idx")
+  @@map("lead_documents")
+}
+model LeadProfile {
+  dealId String @id @map("deal_id") @db.Uuid
+  personType ClientPersonType @map("person_type")
+  name String
+  legalName String? @map("legal_name")
+  document String?
+  phone String?
+  email String?
+  postalCode String? @map("postal_code")
+  street String?
+  addressComplement String? @map("address_complement")
+  district String?
+  city String?
+  state String?
+  origin ClientOrigin?
+  notes String?
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deal Deal @relation(fields:[dealId], references:[id], onDelete:Cascade, onUpdate:NoAction)
+  @@map("lead_profiles")
+}
+model LeadContact {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  dealId String @map("deal_id") @db.Uuid
+  name String
+  jobTitle String? @map("job_title")
+  role ClientContactRole?
+  phone String?
+  phoneIsWhatsapp Boolean @default(false) @map("phone_is_whatsapp")
+  email String?
+  isPrimary Boolean @default(false) @map("is_primary")
+  cpf String?
+  rg String?
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deal Deal @relation("LeadContacts", fields:[dealId], references:[id], onDelete:Cascade, onUpdate:NoAction)
+  selectedBy Deal[] @relation("SelectedLeadContact")
+  @@unique([id, dealId])
+  @@index([dealId])
+  @@map("lead_contacts")
 }
