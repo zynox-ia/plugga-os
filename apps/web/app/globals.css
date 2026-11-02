@@ -1415,7 +1415,7 @@ tbody tr:last-child td { border-bottom: 0; }
 
 /* Modal de configurar pipelines no padrão Design System (IDV Modal Novo Membro) */
 .modal.modal--larga.ui-dialog--config-pipelines {
-  width: min(1056px, calc(100vw - 48px));
+  width: min(1000px, calc(100vw - 48px));
   max-height: min(840px, calc(100dvh - 80px));
 }
 .modal.ui-dialog--config-pipelines .modal-conteudo {

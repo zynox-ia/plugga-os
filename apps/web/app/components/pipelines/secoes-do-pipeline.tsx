@@ -184,7 +184,7 @@ export function SecaoEtapas({ rascunho, aoAlterar, erros, negociosPorEtapa }: Pr
       >
         Adicionar etapa
       </Button>
-      <p className="dica">Arraste pela alça ou use as setas para reordenar. Passado o prazo de parado, o negócio ganha um alerta no quadro; em branco, não alerta.</p>
+      <p className="dica">Passado o prazo de parado, o negócio ganha um alerta no quadro; em branco, não alerta.</p>
     </div>
   );
 }
@@ -197,7 +197,6 @@ export function SecaoEtiquetas({ rascunho, aoAlterar, erros }: PropsDaSecao) {
   return (
     <div className="secao-lista">
       <div className="secao-etiquetas-topo">
-        <p className="dica">As etiquetas pertencem ao pipeline e aparecem nos cards e nos filtros.</p>
         <Button
           variant="primary"
           size="sm"
