@@ -1,6 +1,6 @@
 "use client";
 
-import type { BulkDealsAction, ClientDetail, Deal, Pipeline, PipelinePerson } from "@plugga/shared";
+import type { BulkDealsAction, Deal, Pipeline, PipelinePerson } from "@plugga/shared";
 import {
   ArrowDown,
   ArrowUp,
@@ -14,7 +14,7 @@ import {
   Phone,
   User,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent } from "react";
+import { useMemo, useRef, useState, type CSSProperties, type MouseEvent } from "react";
 
 import { documentoFormatado, telefoneFormatado } from "../../lib/clientes";
 import { formatarBRL } from "../../lib/format";
@@ -75,9 +75,6 @@ export function ListaDeNegocios({
   const [pagina, setPagina] = useState(1);
   const [leadSelecionado, setLeadSelecionado] = useState<Deal | null>(null);
 
-  // Cache de dados complementares de clientes para enriquecimento de linhas visíveis
-  const [cacheClientes, setCacheClientes] = useState<Record<string, ClientDetail>>({});
-
   const linhas = useMemo(() => ordenar(negocios, ordem, pipeline), [negocios, ordem, pipeline]);
   const visiveis = useMemo(() => new Set(linhas.map((n) => n.id)), [linhas]);
   const marcados = useMemo(() => [...selecionados].filter((id) => visiveis.has(id)), [selecionados, visiveis]);
@@ -90,37 +87,6 @@ export function ListaDeNegocios({
   const linhasPaginadas = useMemo(() => linhas.slice(inicioIndice, fimIndice), [linhas, inicioIndice, fimIndice]);
   const todos = linhasPaginadas.length > 0 && linhasPaginadas.every((n) => selecionados.has(n.id));
   const alguns = linhasPaginadas.some((n) => selecionados.has(n.id));
-
-  // Carrega dados adicionais de contato/documento/endereço dos clientes visíveis
-  useEffect(() => {
-    const idsFaltantes = linhasPaginadas
-      .map((l) => l.client.id)
-      .filter((id) => !cacheClientes[id]);
-
-    if (idsFaltantes.length === 0) return;
-
-    let vivo = true;
-    const idsUnicos = Array.from(new Set(idsFaltantes));
-
-    void Promise.all(idsUnicos.map(async (id) => {
-      try {
-        const res = await fetch(`/api/clientes/${id}`);
-        if (!res.ok) return null;
-        const detalhe: ClientDetail = await res.json();
-        return [id, detalhe] as const;
-      } catch {
-        return null;
-      }
-    })).then((resultados) => {
-      if (!vivo) return;
-      const novos = Object.fromEntries(resultados.filter((item) => item !== null));
-      if (Object.keys(novos).length > 0) setCacheClientes((prev) => ({ ...prev, ...novos }));
-    });
-
-    return () => {
-      vivo = false;
-    };
-  }, [linhasPaginadas, cacheClientes]);
 
   const alternar = (id: string) =>
     setSelecionados((atual) => {
@@ -325,7 +291,7 @@ export function ListaDeNegocios({
                   const parado = estaParado(n, pipeline);
                   const dias = diasNaEtapa(n);
                   const estaMarcado = selecionados.has(n.id);
-                  const detalheCliente = cacheClientes[n.client.id];
+                  const detalheCliente = n.client;
 
                   // Documento formatado (CNPJ ou CPF)
                   const docFormatado = detalheCliente?.document
