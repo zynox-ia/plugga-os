@@ -151,34 +151,59 @@ restaura_pacote linhas BACKUP_EXTERNO_ENV="$TMP/hb.env" BACKUP_CURL="$TMP/bin/cu
 grep -q 'ping/SEGREDO_RESTAURA_ZZ/fail"' "$TMP/pings" || falha "faltou o ping de falha"
 ok "heartbeat: ping no sucesso e /fail na falha"
 
-# --externo: baixa o mais recente do destino (mc de mentira lendo de uma pasta)
+# --externo: baixa o mais recente do destino (aws de mentira lendo de uma pasta)
 mkdir -p "$TMP/fake/destino-b2/diario/2026/09" "$TMP/fake/destino-b2/diario/2026/10"
 cp "$TMP/pacote-balde/balde.tar.age" "$TMP/fake/destino-b2/diario/2026/09/plugga-os-20260930T031007Z.tar.age"
 cp "$TMP/pacote-balde/balde.manifesto.json" "$TMP/fake/destino-b2/diario/2026/09/plugga-os-20260930T031007Z.manifesto.json"
 cp "$TMP/pacote-ok/ok.tar.age" "$TMP/fake/destino-b2/diario/2026/10/plugga-os-20261005T031007Z.tar.age"
 cp "$TMP/pacote-ok/ok.manifesto.json" "$TMP/fake/destino-b2/diario/2026/10/plugga-os-20261005T031007Z.manifesto.json"
-cat >"$TMP/bin/mc" <<'MC'
+cat >"$TMP/bin/aws" <<'AWSBIN'
 #!/usr/bin/env bash
 set -euo pipefail
-sub=$1; shift
-args=()
-for a in "$@"; do case "$a" in --quiet | --recursive | --json) ;; *) args+=("$a") ;; esac; done
+ARGS=("$@")
+valor_de() {
+  local flag=$1 i
+  for ((i = 0; i < ${#ARGS[@]}; i++)); do
+    [ "${ARGS[$i]}" = "$flag" ] && { echo "${ARGS[$((i + 1))]}"; return; }
+  done
+}
+extrai_posicionais() {
+  POS=()
+  local pular=0 a
+  for a in "${ARGS[@]:2}"; do
+    if [ "$pular" = 1 ]; then pular=0; continue; fi
+    case "$a" in
+      --quiet) ;;
+      --endpoint-url) pular=1 ;;
+      *) POS+=("$a") ;;
+    esac
+  done
+}
 mapeia() {
   case "$1" in
     /trabalho/*) echo "$RESTAURA_TRABALHO/${1#/trabalho/}" ;;
-    leitura/backups-externos/*) echo "$FAKE_B2/${1#leitura/backups-externos/}" ;;
+    s3://backups-externos/*) echo "$FAKE_B2/${1#s3://backups-externos/}" ;;
   esac
 }
-case "$sub" in
-  ls) (cd "$(mapeia "${args[0]}")" && find . -type f -name '*.age' | sed 's|^\./||' | while read -r f; do
-        printf '{"status":"success","type":"file","size":1,"key":"%s"}\n' "$f"; done) ;;
-  cp) mkdir -p "$(dirname "$(mapeia "${args[1]}")")"; cp "$(mapeia "${args[0]}")" "$(mapeia "${args[1]}")" ;;
+servico=$1 operacao=$2
+case "$servico $operacao" in
+  "s3api list-objects-v2")
+    (cd "$FAKE_B2" && find . -type f | sed 's|^\./||' | while read -r f; do
+      printf '%s\t%s\n' "$f" "$(wc -c <"$f" | tr -d ' ')"
+    done)
+    ;;
+  "s3 cp")
+    extrai_posicionais
+    origem=$(mapeia "${POS[0]}") destino=$(mapeia "${POS[1]}")
+    mkdir -p "$(dirname "$destino")"
+    cp "$origem" "$destino"
+    ;;
 esac
-MC
-chmod +x "$TMP/bin/mc"
-printf 'DESTINO_LEITURA_URL=https://l:SEGREDO@s3.exemplo.test\nDESTINO_BALDE=backups-externos\n' >"$TMP/externo.env"
+AWSBIN
+chmod +x "$TMP/bin/aws"
+printf 'DESTINO_ENDPOINT=https://s3.exemplo.test\nDESTINO_REGIAO=us-west-002\nDESTINO_LEITURA_ACCESS_KEY=l\nDESTINO_LEITURA_SECRET_KEY=SEGREDO\nDESTINO_BALDE=backups-externos\n' >"$TMP/externo.env"
 SAIDA=$(env RESTAURA_CHAVE_AGE="$TMP/teste.key" RESTAURA_REGISTRO="$TMP/registro.log" BACKUP_EXTERNO_ENV="$TMP/externo.env" \
-  BACKUP_MC="$TMP/bin/mc" FAKE_B2="$TMP/fake/destino-b2" BACKUP_DIR_TRABALHO="$TMP/trab-externo" RESTAURA_TRABALHO="$TMP/trab-externo" \
+  BACKUP_AWSCLI="$TMP/bin/aws" FAKE_B2="$TMP/fake/destino-b2" BACKUP_DIR_TRABALHO="$TMP/trab-externo" RESTAURA_TRABALHO="$TMP/trab-externo" \
   bash "$RAIZ/ops/restaurar-teste.sh" --externo 2>&1) \
   || { echo "$SAIDA" >&2; falha "--externo deveria restaurar o mais recente"; }
 printf '%s' "$SAIDA" | grep -q "20261005T031007Z" || falha "não pegou o backup mais recente: $SAIDA"

@@ -308,6 +308,37 @@ Para forçar um backup agora:
 ssh plugga-vps '/root/backup-plugga.sh'
 ```
 
+> **Ação do André na VPS (2026-11).** O `mc` da MinIO (imagem Docker e binário) foi retirado de
+> todos os canais oficiais; `ops/backup-plugga.sh`, `ops/prepara-backup.sh`, `ops/prepara-corpus.sh`,
+> `ops/backup-externo.sh` e `ops/restaurar-teste.sh` passaram a usar o `aws-cli` oficial
+> (`amazon/aws-cli`, fixado por digest) — nada a instalar na VPS, o Docker baixa a imagem na
+> primeira execução. Antes de atualizar a VPS, confira se o backup diário já estava quebrado:
+> `docker images | grep minio/mc` (vazio = a imagem não está em cache local; se o
+> `backup-plugga.sh` de hoje rodou com sucesso, algo ainda a tem). Depois de atualizar:
+> 1. reescreva `/root/.plugga-backup-externo.env` (modo 600) no formato novo, abaixo;
+>    `/root/.plugga-backup.env` (`BACKUP_ACCESS_KEY`/`BACKUP_SECRET_KEY`) não muda;
+> 2. force um backup (`ssh plugga-vps '/root/backup-plugga.sh'`) e confira o log;
+> 3. rode `ops/restaurar-teste.sh --externo` uma vez para provar que o backup externo novo
+>    também restaura, antes de confiar na rotina automática.
+>
+> Formato novo de `/root/.plugga-backup-externo.env`:
+> ```
+> ORIGEM_ENDPOINT=http://seaweedfs:8333
+> ORIGEM_ACCESS_KEY=<chave de leitura dos baldes, do prepara-backup.sh/.env atual>
+> ORIGEM_SECRET_KEY=<idem>
+> DESTINO_ENDPOINT=https://s3.<região>.backblazeb2.com
+> DESTINO_REGIAO=<região do bucket B2, ex. us-west-002>
+> DESTINO_ACCESS_KEY=<chave de ESCRITA do B2>
+> DESTINO_SECRET_KEY=<idem>
+> DESTINO_BALDE=<bucket do B2>
+> DESTINO_LEITURA_ACCESS_KEY=<chave de LEITURA do B2>
+> DESTINO_LEITURA_SECRET_KEY=<idem>
+> HEARTBEAT_URL=<inalterado>
+> ```
+> Antes, essas chaves vinham embutidas numa URL (`DESTINO_URL=https://chave:segredo@...`); o
+> `aws-cli` exige endpoint, chave, segredo e **região** separados (a região entra na assinatura
+> da requisição, o que o `mc` não exigia).
+
 ### Backup externo
 
 Além do backup local, existe o **backup externo cifrado** (`ops/backup-externo.sh`): banco
@@ -362,8 +393,9 @@ no máximo 24 horas de dados** (o último backup diário).
    ```
 
 2. **Arquivos de ambiente.** Recrie o `.env` de produção a partir do cofre de senhas (o modelo
-   é o `.env.example`) e o `/root/.plugga-backup-externo.env` com `DESTINO_URL`,
-   `DESTINO_LEITURA_URL` e `DESTINO_BALDE`. Modo 600 nos dois.
+   é o `.env.example`) e o `/root/.plugga-backup-externo.env` com `DESTINO_ENDPOINT`,
+   `DESTINO_REGIAO`, `DESTINO_LEITURA_ACCESS_KEY`, `DESTINO_LEITURA_SECRET_KEY` e `DESTINO_BALDE`
+   (formato completo na seção "Backup externo" acima). Modo 600 nos dois.
 
 3. **Baixar o backup mais recente.** Com a chave de leitura, pegue o `.tar.age` e o
    `.manifesto.json` do mesmo nome em `diario/` (ou do `mensal/` se precisar voltar mais).
@@ -398,9 +430,9 @@ no máximo 24 horas de dados** (o último backup diário).
    ```
 
 7. **Restaurar os arquivos.** O diretório `arquivos/<balde>/` do pacote tem um espelho de cada
-   balde de negócio. Copie cada um de volta ao SeaweedFS com o `mc` (`mc mirror`
-   `arquivos/<balde> <alias>/<balde>`), um balde por vez, e confira o número de objetos contra
-   `"arquivos"` do manifesto.
+   balde de negócio. Copie cada um de volta ao armazenamento com o `aws-cli`
+   (`aws s3 sync arquivos/<balde> s3://<balde> --endpoint-url http://localhost:59000`), um balde
+   por vez, e confira o número de objetos contra `"arquivos"` do manifesto.
 
 8. **Subir o sistema:** `./ops/publicar.sh` (ou `docker compose --profile app up -d`). Confira
    `curl -fsS http://localhost:3001/health` e entre no sistema com um usuário real.

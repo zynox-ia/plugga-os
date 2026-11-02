@@ -24,9 +24,13 @@
 #   RESTAURA_PGHOST, RESTAURA_PGPORT, RESTAURA_PGUSER  só no modo servidor
 #   RESTAURA_CHAVE_AGE  identidade age de teste, para decifrar o pacote externo
 #   RESTAURA_REGISTRO   arquivo onde anexar o resultado (padrão /var/log/plugga-restaura-teste.log; se não der, só a tela)
-#   BACKUP_EXTERNO_ENV  ambiente do backup externo; para --externo precisa de DESTINO_LEITURA_URL e DESTINO_BALDE;
+#   BACKUP_EXTERNO_ENV  ambiente do backup externo; para --externo precisa de DESTINO_ENDPOINT, DESTINO_REGIAO,
+#                       DESTINO_LEITURA_ACCESS_KEY, DESTINO_LEITURA_SECRET_KEY e DESTINO_BALDE;
 #                       HEARTBEAT_RESTAURA_URL (opcional): ping de sucesso e <URL>/fail em erro
-#   BACKUP_MC, BACKUP_CURL, BACKUP_DIR_TRABALHO  substitutos do mc, do curl e da pasta de trabalho (testes)
+#   BACKUP_AWSCLI, BACKUP_CURL, BACKUP_DIR_TRABALHO  substitutos do aws-cli, do curl e da pasta de trabalho (testes)
+#
+# O `mc` da MinIO deixou de ser distribuído (imagem e binário retirados dos
+# canais oficiais em 2026-11); o cliente agora é o `aws-cli` oficial.
 #
 # Sai com erro (e mensagem) se: o dump não existe ou está vazio, o pg_restore
 # falha (dump adulterado ou truncado), ou o banco volta com tabelas de menos.
@@ -46,7 +50,7 @@ MANIFESTO=""
 PACOTE_DIR=""
 ORIGEM_DESCRICAO=""
 REDE=${REDE:-plugga-os_default}
-MC_IMAGEM=${MC_IMAGEM:-minio/mc:RELEASE.2025-04-16T18-13-26Z}
+AWSCLI_IMAGEM=${AWSCLI_IMAGEM:-amazon/aws-cli@sha256:1b7003e3ecb737b7533d8e16a547b4bc36e912508c3532ae51003aad8d0cd41d}
 CONTEINER=""
 BANCO_TESTE="restauracao_$(date -u +%Y%m%d%H%M%S)_$$"
 
@@ -92,12 +96,14 @@ escolhe_dump() {
     # Padrão da VPS: o mais recente de plugga-backups/diario, com a credencial restrita do backup.
     # shellcheck disable=SC1091
     . /root/.plugga-backup.env
-    local rede=${REDE:-plugga-os_default} mc=${MC_IMAGEM:-minio/mc:RELEASE.2025-04-16T18-13-26Z}
-    local mcx=(docker run --rm -i --network "$rede" -e "MC_HOST_b=http://${BACKUP_ACCESS_KEY}:${BACKUP_SECRET_KEY}@seaweedfs:8333" "$mc")
+    local rede=${REDE:-plugga-os_default} awscli=${AWSCLI_IMAGEM} endpoint=${BACKUP_STORAGE_ENDPOINT:-http://seaweedfs:8333}
+    local awsx=(docker run --rm -i --network "$rede" \
+      -e AWS_ACCESS_KEY_ID="${BACKUP_ACCESS_KEY}" -e AWS_SECRET_ACCESS_KEY="${BACKUP_SECRET_KEY}" -e AWS_DEFAULT_REGION=us-east-1 "$awscli")
     local nome
-    nome=$("${mcx[@]}" ls "b/plugga-backups/diario/" | awk '{print $NF}' | grep '\.dump$' | sort | tail -1 || true)
+    nome=$("${awsx[@]}" s3 ls "s3://plugga-backups/diario/" --endpoint-url "$endpoint" \
+      | awk '{print $NF}' | grep '\.dump$' | sort | tail -1 || true)
     [ -n "$nome" ] || falha "não há dump em plugga-backups/diario"
-    "${mcx[@]}" cat "b/plugga-backups/diario/$nome" >"$TMP/origem.dump"
+    "${awsx[@]}" s3 cp "s3://plugga-backups/diario/$nome" - --endpoint-url "$endpoint" >"$TMP/origem.dump"
     echo "$TMP/origem.dump"
   elif [ -d "$ORIGEM" ]; then
     local mais_recente
@@ -110,12 +116,13 @@ escolhe_dump() {
 }
 
 # ------------------------------------------- 1b. pacote do backup externo
-mc_externo() {
-  if [ -n "${BACKUP_MC:-}" ]; then
-    # shellcheck disable=SC2086
-    ${BACKUP_MC} "$@" </dev/null
+aws_externo() {
+  if [ -n "${BACKUP_AWSCLI:-}" ]; then
+    # shellcheck disable=SC1090
+    (set -a; . "$TMP/aws.env"; set +a; ${BACKUP_AWSCLI} "$@" --endpoint-url "$DESTINO_ENDPOINT" </dev/null)
   else
-    docker run --rm -i --network "$REDE" --env-file "$TMP/mc.env" -v "$TMP:/trabalho" "$MC_IMAGEM" "$@" </dev/null
+    docker run --rm -i --network "$REDE" --env-file "$TMP/aws.env" -v "$TMP:/trabalho" "$AWSCLI_IMAGEM" \
+      "$@" --endpoint-url "$DESTINO_ENDPOINT" </dev/null
   fi
 }
 
@@ -127,21 +134,26 @@ carrega_ambiente_externo() {
 }
 
 baixa_externo() { # roda em subshell: só escreve o caminho no stdout
-  : "${DESTINO_LEITURA_URL:?defina DESTINO_LEITURA_URL em $ENV_ARQ (a restauração lê com a chave de leitura)}"
+  : "${DESTINO_ENDPOINT:?defina DESTINO_ENDPOINT em $ENV_ARQ}"
+  : "${DESTINO_REGIAO:?defina DESTINO_REGIAO em $ENV_ARQ}"
+  : "${DESTINO_LEITURA_ACCESS_KEY:?defina DESTINO_LEITURA_ACCESS_KEY em $ENV_ARQ (a restauração lê com a chave de leitura)}"
+  : "${DESTINO_LEITURA_SECRET_KEY:?defina DESTINO_LEITURA_SECRET_KEY em $ENV_ARQ}"
   : "${DESTINO_BALDE:?defina DESTINO_BALDE em $ENV_ARQ}"
   (
     umask 077
-    printf 'MC_HOST_leitura=%s\n' "$DESTINO_LEITURA_URL" >"$TMP/mc.env"
+    printf 'AWS_ACCESS_KEY_ID=%s\nAWS_SECRET_ACCESS_KEY=%s\nAWS_DEFAULT_REGION=%s\n' \
+      "$DESTINO_LEITURA_ACCESS_KEY" "$DESTINO_LEITURA_SECRET_KEY" "$DESTINO_REGIAO" >"$TMP/aws.env"
   )
   local nome
-  nome=$(mc_externo ls --recursive --json "leitura/$DESTINO_BALDE/diario" \
-    | sed -n 's/.*"key":"\([^"]*\.tar\.age\)".*/\1/p' | sort | tail -1 || true)
+  nome=$(aws_externo s3api list-objects-v2 --bucket "$DESTINO_BALDE" --prefix diario/ \
+      --query 'Contents[].[Key,Size]' --output text \
+    | awk -F'\t' '{print $1}' | grep '\.tar\.age$' | sort | tail -1 || true)
   [ -n "$nome" ] || falha "não há backup externo em $DESTINO_BALDE/diario"
   registro "baixando o mais recente: $nome" >&2
   mkdir -p "$TMP/baixado"
-  mc_externo cp --quiet "leitura/$DESTINO_BALDE/diario/$nome" "/trabalho/baixado/$(basename "$nome")" >/dev/null \
+  aws_externo s3 cp --quiet "s3://$DESTINO_BALDE/$nome" "/trabalho/baixado/$(basename "$nome")" >/dev/null \
     || falha "não consegui baixar $nome"
-  mc_externo cp --quiet "leitura/$DESTINO_BALDE/diario/${nome%.tar.age}.manifesto.json" \
+  aws_externo s3 cp --quiet "s3://$DESTINO_BALDE/${nome%.tar.age}.manifesto.json" \
     "/trabalho/baixado/$(basename "${nome%.tar.age}").manifesto.json" >/dev/null \
     || falha "não consegui baixar o manifesto de $nome"
   echo "$TMP/baixado/$(basename "$nome")"
