@@ -174,7 +174,6 @@ export function SecaoEtapas({ rascunho, aoAlterar, erros, negociosPorEtapa }: Pr
           );
         })}
       </ol>
-      <p className="dica">Passado o prazo de parado, o negócio ganha um alerta no quadro; em branco, não alerta.</p>
     </div>
   );
 }
