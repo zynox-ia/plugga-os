@@ -22,6 +22,26 @@ describe("assertSafeTestDatabaseUrl", () => {
     expect(() => assertSafeTestDatabaseUrl(url, false)).toThrow(/LOCAL TEST/);
   });
 
+  it("allows one explicitly configured local port", () => {
+    const url = "postgresql://plugga_os_test:local_test_only@127.0.0.1:54433/plugga_os_test";
+    expect(() => assertSafeTestDatabaseUrl(url)).toThrow();
+    expect(() => assertSafeTestDatabaseUrl(url, false, "54433")).not.toThrow();
+    expect(() => assertSafeTestDatabaseUrl(url, true, "54433")).toThrow();
+    expect(() => assertSafeTestDatabaseUrl(url, false, "54434")).toThrow();
+  });
+
+  it.each(["", "abc", "1023", "65536", "54433x", " 54433"])("rejects invalid configured port %s", (port) => {
+    expect(() => assertSafeTestDatabaseUrl("postgresql://127.0.0.1:54433/plugga_os_test", false, port)).toThrow();
+  });
+
+  it.each([
+    "postgresql://db.example.invalid:54433/plugga_os_test",
+    "postgresql://127.0.0.1:54433/other",
+    "mysql://127.0.0.1:54433/plugga_os_test",
+  ])("keeps target restrictions with a configured port: %s", (url) => {
+    expect(() => assertSafeTestDatabaseUrl(url, false, "54433")).toThrow();
+  });
+
   it.each([
     "postgresql://plugga_os:local_only@127.0.0.1:55432/plugga_os?schema=public",
     "postgresql://plugga_os_test:local_test_only@127.0.0.1:5432/plugga_os_test?schema=public",

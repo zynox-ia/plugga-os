@@ -61,7 +61,7 @@ process.env.LOGIN_DELAY_MAX_MS = "5";
 process.env.AUTH_SESSION_SECRET ??= "test_only_session_secret_change_me_please";
 
 if (pediramIntegracao) {
-  assertSafeTestDatabaseUrl(process.env.DATABASE_URL, process.env.CI === "true");
+  assertSafeTestDatabaseUrl(process.env.DATABASE_URL, process.env.CI === "true", process.env.PLUGGA_TEST_DB_PORT);
 
   if (process.env.RUN_JOBS_INTEGRATION_TESTS === "true") {
     assertSafeTestRedisUrl(process.env.REDIS_URL);
