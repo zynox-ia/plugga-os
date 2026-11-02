@@ -1,7 +1,7 @@
 "use client";
 
 import type { Deal, Pipeline } from "@plugga/shared";
-import { ArrowRight, CalendarDays, Check, Clock, Eye, FileText, MoreHorizontal, User, X } from "lucide-react";
+import { ArrowRight, CalendarDays, Check, Clock, Eye, FileText, MoreHorizontal, User, UserCheck, X } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 
@@ -100,7 +100,7 @@ export function MenuDoNegocio({
         ref={botao}
         type="button"
         className="botao-icone cartao-negocio-menu-btn"
-        aria-label={`Ações de ${negocio.title}`}
+        aria-label={`Ações de ${negocio.lead.name}`}
         aria-haspopup="menu"
         aria-expanded={aberto}
         onClick={(e) => {
@@ -117,7 +117,7 @@ export function MenuDoNegocio({
               ref={menu}
               className={`menu-negocio-lista ${menuClassName}`}
               role="menu"
-              aria-label={`Ações de ${negocio.title}`}
+              aria-label={`Ações de ${negocio.lead.name}`}
               style={posicao ? { top: posicao.top, left: posicao.left } : { visibility: "hidden" }}
             >
               {aoVerLead ? (
@@ -129,42 +129,59 @@ export function MenuDoNegocio({
                 </>
               ) : null}
 
-              {mostrarPrioridade ? <>
-                <span className="menu-negocio-titulo">Prioridade</span>
-                {([
-                  { valor: null, rotulo: "Sem prioridade" },
-                  { valor: "urgente", rotulo: "Urgente" },
-                  { valor: "medio", rotulo: "Médio" },
-                  { valor: "normal", rotulo: "Normal" },
-                ] as const).map((opcao) => (
-                  <button key={opcao.rotulo} type="button" role="menuitemradio" aria-checked={negocio.priority === opcao.valor} onClick={escolher(() => void acoes.definirPrioridade(negocio, opcao.valor))}>
-                    {negocio.priority === opcao.valor ? <Check size={14} aria-hidden="true" /> : <span style={{ width: 14 }} aria-hidden="true" />}
-                    {opcao.rotulo}
-                  </button>
-                ))}
-                <span className="menu-negocio-divisor" role="separator" />
-              </> : null}
-              {negocio.status === "open" ? <>
-                <span className="menu-negocio-titulo">Mover para etapa</span>
-                {pipeline.stages
-                  .filter((e) => e.id !== negocio.stageId)
-                  .map((e) => (
-                    <button key={e.id} type="button" role="menuitem" onClick={escolher(() => void acoes.moverEtapa(negocio, e.id))}>
-                      <span className="ponto-cor" style={{ background: e.color }} aria-hidden="true" />
-                      {e.name}
+              {mostrarPrioridade ? (
+                <>
+                  <span className="menu-negocio-titulo">Prioridade</span>
+                  {(
+                    [
+                      { valor: null, rotulo: "Sem prioridade" },
+                      { valor: "urgente", rotulo: "Urgente" },
+                      { valor: "medio", rotulo: "Médio" },
+                      { valor: "normal", rotulo: "Normal" },
+                    ] as const
+                  ).map((opcao) => (
+                    <button
+                      key={opcao.rotulo}
+                      type="button"
+                      role="menuitemradio"
+                      aria-checked={negocio.priority === opcao.valor}
+                      onClick={escolher(() => void acoes.definirPrioridade(negocio, opcao.valor))}
+                    >
+                      {negocio.priority === opcao.valor ? <Check size={14} aria-hidden="true" /> : <span style={{ width: 14 }} aria-hidden="true" />}
+                      {opcao.rotulo}
                     </button>
                   ))}
-                <span className="menu-negocio-divisor" role="separator" />
-                <button type="button" role="menuitem" className="menu-negocio--ganho" onClick={escolher(() => acoes.ganhar(negocio))}>
-                  <Check size={14} aria-hidden="true" /> {pipeline.wonLabel}
-                </button>
-                <button type="button" role="menuitem" className="menu-negocio--perdido" onClick={escolher(() => acoes.perder(negocio))}>
-                  <X size={14} aria-hidden="true" /> {pipeline.lostLabel}
-                </button>
-                <button type="button" role="menuitem" onClick={escolher(() => acoes.transferir(negocio))}>
-                  <ArrowRight size={14} aria-hidden="true" /> Mover para outro pipeline
-                </button>
-              </> : null}
+                  <span className="menu-negocio-divisor" role="separator" />
+                </>
+              ) : null}
+              {negocio.status === "open" ? (
+                <>
+                  <span className="menu-negocio-titulo">Mover para etapa</span>
+                  {pipeline.stages
+                    .filter((e) => e.id !== negocio.stageId)
+                    .map((e) => (
+                      <button key={e.id} type="button" role="menuitem" onClick={escolher(() => void acoes.moverEtapa(negocio, e.id))}>
+                        <span className="ponto-cor" style={{ background: e.color }} aria-hidden="true" />
+                        {e.name}
+                      </button>
+                    ))}
+                  <span className="menu-negocio-divisor" role="separator" />
+                  <button type="button" role="menuitem" className="menu-negocio--ganho" onClick={escolher(() => acoes.ganhar(negocio))}>
+                    <Check size={14} aria-hidden="true" /> {pipeline.wonLabel}
+                  </button>
+                  <button type="button" role="menuitem" className="menu-negocio--perdido" onClick={escolher(() => acoes.perder(negocio))}>
+                    <X size={14} aria-hidden="true" /> {pipeline.lostLabel}
+                  </button>
+                  <button type="button" role="menuitem" onClick={escolher(() => acoes.transferir(negocio))}>
+                    <ArrowRight size={14} aria-hidden="true" /> Mover para outro pipeline
+                  </button>
+                  {!negocio.client && acoes.converter ? (
+                    <button type="button" role="menuitem" onClick={escolher(() => acoes.converter?.(negocio))}>
+                      <UserCheck size={14} aria-hidden="true" /> Converter em cliente
+                    </button>
+                  ) : null}
+                </>
+              ) : null}
             </div>,
             document.body,
           )
@@ -193,13 +210,12 @@ export function CartaoDeNegocio({
   const arrastou = useRef(false);
   const dias = diasNaEtapa(negocio);
   const parado = estaParado(negocio, pipeline);
-  const cliente = [negocio.client.name, negocio.contact?.name].filter(Boolean).join(" · ");
 
   return (
     <>
       <article
         className={`cartao-negocio ${styles.cartao}${arrastando ? " cartao-negocio--arrastando" : ""}${parado ? " cartao-negocio--parado" : ""}`}
-        aria-label={`Negócio ${negocio.title}`}
+        aria-label={`Lead ${negocio.lead.name}`}
         draggable
         onDragStart={(evento) => {
           arrastou.current = true;
@@ -219,23 +235,23 @@ export function CartaoDeNegocio({
         <header className={styles.cabecalho}>
           <span className={styles.codigo} title={`Identificador abreviado. ID completo: ${negocio.id}`}>
             <FileText size={14} aria-hidden="true" />
-            <span>PLU-{negocio.id.slice(0, 8).toUpperCase()}</span>
+            <span>PLU-{String(negocio.number).padStart(4, "0")}</span>
           </span>
           <div className={styles.acoesCabecalho}>
-            <SeletorBadgePrioridade nome={negocio.title} value={negocio.priority ?? ""} onChange={(prioridade) => void acoes.definirPrioridade(negocio, prioridade || null)} />
+            <SeletorBadgePrioridade nome={negocio.lead.name} value={negocio.priority ?? ""} onChange={(prioridade) => void acoes.definirPrioridade(negocio, prioridade || null)} />
             <MenuDoNegocio negocio={negocio} pipeline={pipeline} acoes={acoes} aoVerLead={() => setModalLeadAberto(true)} menuClassName={styles.menuVidro} />
           </div>
         </header>
         <div className={styles.topo}>
           <div className={styles.identidade}>
             <h4 className={styles.titulo}>
-              <button type="button" aria-label={`Ver lead ${negocio.title}`} onClick={() => setModalLeadAberto(true)}>
-                {negocio.title}
+              <button type="button" aria-label={`Ver lead ${negocio.lead.name}`} onClick={() => setModalLeadAberto(true)}>
+                {negocio.lead.name}
               </button>
             </h4>
-            <p className={styles.cliente} title={cliente}>
+            <p className={styles.cliente} title={negocio.title}>
               <User size={12} aria-hidden="true" />
-              <span>{cliente}</span>
+              <span>{negocio.title}</span>
             </p>
           </div>
         </div>
@@ -248,13 +264,15 @@ export function CartaoDeNegocio({
           <span className={styles.status} data-status={negocio.status}>{STATUS_DO_LEAD[negocio.status]}</span>
         </div>
 
-        {negocio.tags.length > 0 ? <div className={styles.etiquetas}>
-          {negocio.tags.map((tag) => (
-            <span key={tag.id} className={styles.etiqueta} style={{ "--cor-etiqueta": tag.color } as CSSProperties}>
-              {tag.name}
-            </span>
-          ))}
-        </div> : null}
+        {negocio.tags.length > 0 ? (
+          <div className={styles.etiquetas}>
+            {negocio.tags.map((tag) => (
+              <span key={tag.id} className={styles.etiqueta} style={{ "--cor-etiqueta": tag.color } as CSSProperties}>
+                {tag.name}
+              </span>
+            ))}
+          </div>
+        ) : null}
 
         <footer className={styles.rodape}>
           <div className={styles.responsavel} title={`Responsável: ${negocio.owner.name}`}>

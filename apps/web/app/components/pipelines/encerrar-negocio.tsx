@@ -6,6 +6,7 @@ import { useState, type ReactNode } from "react";
 import { enviar, type ErroDoFormulario } from "../../lib/clientes";
 import { hojeNoFuso, valorCurto } from "../../lib/negocios";
 import { Modal } from "../modal";
+import { Checkbox } from "../ui";
 import { Icone } from "./icones";
 
 type Props = { pipeline: Pipeline; negocio: Deal; aoConcluir: (negocio: Deal) => void; aoFechar: () => void };
@@ -27,7 +28,7 @@ function Topo({ titulo, aoFechar, children }: { titulo: string; aoFechar: () => 
 function Resumo({ negocio }: { negocio: Deal }) {
   return (
     <p className="resumo-encerramento">
-      <b>{negocio.title}</b> · {negocio.client.name}
+      <b>{negocio.title}</b> · {negocio.lead.name}
       {negocio.value ? ` · ${valorCurto(Number(negocio.value))}` : ""}
     </p>
   );
@@ -37,10 +38,11 @@ function Resumo({ negocio }: { negocio: Deal }) {
 export function GanhoDoNegocio({ pipeline, negocio, aoConcluir, aoFechar }: Props) {
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+  const [converterEmCliente, setConverterEmCliente] = useState(!negocio.client);
 
   async function confirmar() {
     setEnviando(true);
-    const resposta = await enviar<Deal>(`/api/leads/${negocio.id}/ganho`, "POST");
+    const resposta = await enviar<Deal>(`/api/leads/${negocio.id}/ganho`, "POST", { convertToClient: converterEmCliente });
     setEnviando(false);
     if (resposta.ok) aoConcluir(resposta.dados);
     else setErro(resposta.erro.mensagem);
@@ -55,6 +57,13 @@ export function GanhoDoNegocio({ pipeline, negocio, aoConcluir, aoFechar }: Prop
           <Resumo negocio={negocio} />
         </div>
         <p className="dica">O negócio sai do quadro e fica na Lista, com a situação {pipeline.wonLabel}.</p>
+        {!negocio.client ? (
+          <Checkbox
+            label="Deseja converter este lead em cliente?"
+            checked={converterEmCliente}
+            onChange={(evento) => setConverterEmCliente(evento.target.checked)}
+          />
+        ) : null}
         {erro ? (
           <p className="aviso aviso--erro" role="alert">
             {erro}

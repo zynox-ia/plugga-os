@@ -59,7 +59,7 @@ export function EditorDePipeline({
       {aba !== "geral" || aoCriarPipeline ? (
         <Button variant="primary" size="sm" icon={<IconPlus />} disabled={aba === "etapas" && rascunho.stages.length >= 20} onClick={() => {
           if (aba === "geral") aoCriarPipeline?.();
-          else if (aba === "etapas") aoAlterar({ stages: [...rascunho.stages, { chave: novaChave(), name: "", color: "#94A3B8", staleAfterDays: null }] });
+          else if (aba === "etapas") aoAlterar({ stages: [...rascunho.stages, { chave: novaChave(), name: "", color: "#94A3B8", staleAfterDays: null, asksClientConversion: false }] });
           else aoAlterar({ tags: [...rascunho.tags, { chave: novaChave(), name: "", color: "#0077FF" }] });
         }}>
           {aba === "geral" ? "Novo pipeline" : aba === "etapas" ? "Adicionar etapa" : "Nova etiqueta"}

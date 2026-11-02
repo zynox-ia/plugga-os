@@ -11,6 +11,7 @@ import { Button, IconPlus, IconSearch, IconSettings } from "./ui";
 import { ConfiguracaoDePipelines } from "./pipelines/configuracao-de-pipelines";
 import { GanhoDoNegocio, PerdaDoNegocio } from "./pipelines/encerrar-negocio";
 import { Icone } from "./pipelines/icones";
+import { ModalDeConversaoDoLead } from "./pipelines/modal-conversao-lead";
 import { NovoNegocio } from "./pipelines/novo-negocio";
 import { NavegacaoPipelines } from "./pipelines/navegacao-pipelines";
 import { BarraRolagemMinimalista, QuadroDoPipeline, type AcoesDoNegocio } from "./pipelines/quadro-do-pipeline";
@@ -49,6 +50,7 @@ export function PipelinesView({
   const [negocios, setNegocios] = useState(doServidor);
   const [criando, setCriando] = useState<{ etapaId?: string } | null>(null);
   const [encerrando, setEncerrando] = useState<Encerramento | null>(null);
+  const [convertendo, setConvertendo] = useState<Deal | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
 
   useEffect(() => setNegocios(doServidor), [doServidor]);
@@ -91,15 +93,23 @@ export function PipelinesView({
     },
     async moverEtapa(negocio, etapaId) {
       if (negocio.stageId === etapaId) return;
+      const etapaDestino = selecionado?.stages.find((e) => e.id === etapaId);
       aplicar([{ ...negocio, stageId: etapaId, stageEnteredAt: new Date().toISOString() }]);
       const resposta = await enviar<Deal>(`/api/leads/${negocio.id}/etapa`, "POST", { stageId: etapaId });
-      if (resposta.ok) return confirmado([resposta.dados]);
+      if (resposta.ok) {
+        confirmado([resposta.dados]);
+        if (etapaDestino?.asksClientConversion && !negocio.client) {
+          setConvertendo(resposta.dados);
+        }
+        return;
+      }
       aplicar([negocio]);
       setAviso(resposta.erro.mensagem);
     },
     ganhar: (negocio) => setEncerrando({ tipo: "ganho", negocio }),
     perder: (negocio) => setEncerrando({ tipo: "perda", negocio }),
     transferir: (negocio) => setEncerrando({ tipo: "transferencia", negocio }),
+    converter: (negocio) => setConvertendo(negocio),
     novoNaEtapa: (etapaId) => setCriando({ etapaId }),
     async emLote(ids: string[], action: BulkDealsAction) {
       const resposta = await enviar<ListDealsResponse>("/api/leads/lote", "POST", { dealIds: ids, action });
@@ -236,6 +246,16 @@ export function PipelinesView({
       ) : null}
       {encerrando?.tipo === "transferencia" && selecionado ? (
         <TransferirNegocio responsaveis={responsaveis} pipelines={ativos} origem={selecionado} negocio={encerrando.negocio} aoConcluir={concluir} aoFechar={() => setEncerrando(null)} />
+      ) : null}
+
+      {convertendo ? (
+        <ModalDeConversaoDoLead
+          negocio={convertendo}
+          aoConcluir={(atualizado) => {
+            confirmado([atualizado]);
+          }}
+          aoFechar={() => setConvertendo(null)}
+        />
       ) : null}
     </div>
   );

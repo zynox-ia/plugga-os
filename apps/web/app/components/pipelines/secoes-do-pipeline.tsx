@@ -145,6 +145,13 @@ export function SecaoEtapas({ rascunho, aoAlterar, erros, negociosPorEtapa }: Pr
                 />
                 <span>dias</span>
               </span>
+              <span className="campo-conversao">
+                <Switch
+                  label="Pergunta sobre conversão em cliente"
+                  checked={etapa.asksClientConversion}
+                  onChange={(e) => alterar(i, { asksClientConversion: e.target.checked })}
+                />
+              </span>
               <span className="acoes-linha">
                 <BotaoAcaoLinha rotulo={`Subir ${nome}`} icone="cima" desabilitado={i === 0} aoClicar={() => aoAlterar({ stages: mover(etapas, i, i - 1) })} />
                 <BotaoAcaoLinha rotulo={`Descer ${nome}`} icone="baixo" desabilitado={i === etapas.length - 1} aoClicar={() => aoAlterar({ stages: mover(etapas, i, i + 1) })} />

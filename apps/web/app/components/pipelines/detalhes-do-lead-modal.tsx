@@ -8,15 +8,13 @@ import {
   Calendar,
   Check,
   Clock,
-  CloudUpload,
   Copy,
-  Download,
-  ExternalLink,
   FileText,
   FolderOpen,
   History,
   LayoutDashboard,
   Mail,
+  MapPin,
   MessageSquare,
   MoreHorizontal,
   Phone,
@@ -26,7 +24,7 @@ import {
 } from "lucide-react";
 import { useId, useRef, useState, type KeyboardEvent } from "react";
 
-import { documentoFormatado, telefoneFormatado } from "../../lib/clientes";
+import { enviar, telefoneFormatado } from "../../lib/clientes";
 import { formatarBRL, formatarData } from "../../lib/format";
 import { diasNaEtapa, estaParado } from "../../lib/negocios";
 import { Modal } from "../modal";
@@ -49,6 +47,7 @@ type Props = {
   negocio: Deal;
   pipeline: Pipeline;
   acoes: AcoesDoNegocio;
+  aoAtualizar?: (negocio: Deal) => void;
   aoFechar: () => void;
 };
 
@@ -60,12 +59,10 @@ function AbaResumo({ negocio, pipeline }: { negocio: Deal; pipeline: Pipeline })
   const dias = diasNaEtapa(negocio);
   const parado = estaParado(negocio, pipeline);
 
-  const valorFormatado = negocio.value ? formatarBRL(negocio.value) : "R$ 45.000,00";
+  const valorFormatado = negocio.value ? formatarBRL(negocio.value) : "—";
   const previsaoFormatada = negocio.expectedCloseDate
     ? formatarData(negocio.expectedCloseDate)
-    : "15/11/2026";
-
-  const telefoneLimpo = negocio.client?.phone?.replace(/\D/g, "") ?? "92981234567";
+    : "—";
 
   return (
     <>
@@ -110,7 +107,7 @@ function AbaResumo({ negocio, pipeline }: { negocio: Deal; pipeline: Pipeline })
             <Sparkles size={13} />
           </div>
           <div className={styles.cockpitCardValor}>{valorFormatado}</div>
-          <div className={styles.cockpitCardSub}>Previsão de contrato</div>
+          <div className={styles.cockpitCardSub}>{negocio.value ? "Valor informado" : "Valor não informado"}</div>
         </div>
 
         <div className={styles.cockpitCard}>
@@ -119,7 +116,7 @@ function AbaResumo({ negocio, pipeline }: { negocio: Deal; pipeline: Pipeline })
             <Calendar size={13} />
           </div>
           <div className={styles.cockpitCardValor}>{previsaoFormatada}</div>
-          <div className={styles.cockpitCardSub}>Em 13 dias corridos</div>
+          <div className={styles.cockpitCardSub}>{negocio.expectedCloseDate ? "Data informada" : "Sem previsão definida"}</div>
         </div>
 
         <div className={styles.cockpitCard}>
@@ -140,8 +137,8 @@ function AbaResumo({ negocio, pipeline }: { negocio: Deal; pipeline: Pipeline })
             <span>Proposta</span>
             <span className="ui-status-dot" style={{ background: "#126744" }} />
           </div>
-          <div className={styles.cockpitCardValor}>Versão 1.2</div>
-          <div className={styles.cockpitCardSub}>Em análise pelo lead</div>
+          <div className={styles.cockpitCardValor}>Em preparação</div>
+          <div className={styles.cockpitCardSub}>A proposta poderá ser anexada nesta aba</div>
         </div>
       </div>
 
@@ -153,38 +150,27 @@ function AbaResumo({ negocio, pipeline }: { negocio: Deal; pipeline: Pipeline })
         <div className={styles.corpoAcao}>
           <div className={styles.tituloAcao}>Próxima ação recomendada</div>
           <div className={styles.textoAcao}>
-            Apresentar minuta da proposta técnica ao decisor comercial e validar titularidade da conta de energia.
+            Registre o próximo passo do atendimento nas notas do lead.
           </div>
         </div>
       </div>
 
       {/* Contato Rápido */}
       <div className={styles.resumoContatoGrid}>
-        <div className={styles.contatoPill}>
+        {negocio.lead.phone ? <div className={styles.contatoPill}>
           <Phone size={16} />
           <div className={styles.contatoPillTextos}>
             <span className={styles.contatoPillLabel}>Telefone</span>
-            <span className={styles.contatoPillValor}>
-              {telefoneFormatado(negocio.client?.phone) || "(92) 98124-5500"}
-            </span>
+            <span className={styles.contatoPillValor}>{telefoneFormatado(negocio.lead.phone)}</span>
           </div>
-          <a
-            href={`https://wa.me/55${telefoneLimpo}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={styles.btnAcaoRapida}
-            style={{ marginLeft: "auto" }}
-          >
-            WhatsApp
-          </a>
-        </div>
+        </div> : null}
 
         <div className={styles.contatoPill}>
           <Mail size={16} />
           <div className={styles.contatoPillTextos}>
             <span className={styles.contatoPillLabel}>E-mail</span>
             <span className={styles.contatoPillValor}>
-              {negocio.client?.email || "contato@empresa.com.br"}
+              {negocio.lead.email || "Não informado"}
             </span>
           </div>
         </div>
@@ -194,9 +180,7 @@ function AbaResumo({ negocio, pipeline }: { negocio: Deal; pipeline: Pipeline })
           <div className={styles.contatoPillTextos}>
             <span className={styles.contatoPillLabel}>Localidade</span>
             <span className={styles.contatoPillValor}>
-              {negocio.client?.city
-                ? `${negocio.client.city} - ${negocio.client.state || "AM"}`
-                : "Manaus - AM"}
+              {[negocio.lead.city, negocio.lead.state].filter(Boolean).join(" - ") || "Não informada"}
             </span>
           </div>
         </div>
@@ -206,18 +190,28 @@ function AbaResumo({ negocio, pipeline }: { negocio: Deal; pipeline: Pipeline })
 }
 
 /* ==========================================================================
-   ABA 2: LEAD (FICHA CADASTRAL 360°)
+   ABA 2: LEAD (FICHA CADASTRAL 360° ENRIQUECIDA E EDITÁVEL)
    ========================================================================== */
-function AbaLead({ negocio }: { negocio: Deal }) {
+function AbaLead({ negocio, aoAtualizar }: { negocio: Deal; aoAtualizar?: (negocio: Deal) => void }) {
   const [copiado, setCopiado] = useState(false);
+  const [salvando, setSalvando] = useState(false);
+  const [mensagemSucesso, setMensagemSucesso] = useState(false);
+  const [mensagemErro, setMensagemErro] = useState<string | null>(null);
+
+  const [nome, setNome] = useState(negocio.lead.name);
+  const [razaoSocial, setRazaoSocial] = useState(negocio.lead.legalName ?? "");
+  const [doc, setDoc] = useState(negocio.lead.document ?? "");
+  const [tel, setTel] = useState(negocio.lead.phone ?? "");
+  const [email, setEmail] = useState(negocio.lead.email ?? "");
+  const [rua, setRua] = useState(negocio.lead.street ?? "");
+  const [bairro, setBairro] = useState(negocio.lead.district ?? "");
+  const [cidade, setCidade] = useState(negocio.lead.city ?? "");
+  const [uf, setUf] = useState(negocio.lead.state ?? "");
+  const [cep, setCep] = useState(negocio.lead.postalCode ?? "");
   const [nota, setNota] = useState(
-    "Cliente demonstrou interesse em plano de geração distribuída para redução de até 25% na tarifa de energia. Decisor principal: Roberto (Diretoria)."
+    negocio.lead.notes ?? ""
   );
 
-  const doc = documentoFormatado(negocio.client?.personType, negocio.client?.document) || "—";
-  const tel = telefoneFormatado(negocio.client?.phone) || "—";
-  const email = negocio.client?.email || "—";
-  const nome = negocio.client?.name || negocio.title || "—";
 
   function copiarEmail() {
     if (email && email !== "—") {
@@ -227,51 +221,130 @@ function AbaLead({ negocio }: { negocio: Deal }) {
     }
   }
 
+  async function salvar() {
+    setSalvando(true);
+    setMensagemErro(null);
+    setMensagemSucesso(false);
+
+    const docLimpo = doc === "—" || !doc.trim() ? null : doc.trim();
+    const telLimpo = tel === "—" || !tel.trim() ? null : tel.trim();
+    const emailLimpo = email === "—" || !email.trim() ? null : email.trim();
+
+    const resposta = await enviar<Deal>(`/api/leads/${negocio.id}`, "PATCH", {
+      lead: {
+        name: nome.trim(),
+        legalName: razaoSocial.trim() || null,
+        document: docLimpo,
+        phone: telLimpo,
+        email: emailLimpo,
+        street: rua.trim() || null,
+        district: bairro.trim() || null,
+        city: cidade.trim() || null,
+        state: uf.trim() || null,
+        postalCode: cep.trim() || null,
+        notes: nota.trim() || null,
+      },
+    });
+
+    setSalvando(false);
+    if (resposta.ok) {
+      setMensagemSucesso(true);
+      setTimeout(() => setMensagemSucesso(false), 3000);
+      aoAtualizar?.(resposta.dados);
+    } else {
+      setMensagemErro(resposta.erro.mensagem);
+    }
+  }
+
   return (
     <>
       <div className={styles.tituloSecao}>
         <h3>Ficha Cadastral 360°</h3>
-        <p>Dados de identificação, canais de contato e anotações do lead.</p>
+        <p>Dados de identificação, canais de contato, dados técnicos e anotações do lead.</p>
       </div>
 
+      {mensagemSucesso ? (
+        <p className="aviso aviso--sucesso" role="status" style={{ marginBottom: "12px" }}>
+          Alterações do lead salvas com sucesso.
+        </p>
+      ) : null}
+
+      {mensagemErro ? (
+        <p className="aviso aviso--erro" role="alert" style={{ marginBottom: "12px" }}>
+          {mensagemErro}
+        </p>
+      ) : null}
+
       <div className={styles.leadCardsGrid}>
-        {/* Identificação */}
+        {/* Card 1: Identificação Principal */}
         <div className={styles.painelCard}>
           <div className={styles.painelCardHeader}>
             <h4>
               <Building2 size={15} /> Identificação Principal
             </h4>
             <span className="ui-badge ui-tone--info">
-              {negocio.client?.personType === "pj" ? "Pessoa Jurídica (PJ)" : "Pessoa Física (PF)"}
+              {negocio.lead.personType === "pj" ? "Pessoa Jurídica (PJ)" : "Pessoa Física (PF)"}
             </span>
           </div>
           <label className={styles.campoEditavel}>
             <span>Nome</span>
-            <input className="ui-input" aria-label="Nome" readOnly value={nome} />
+            <input
+              className="ui-input"
+              aria-label="Nome"
+              value={nome}
+              onChange={(e) => setNome(e.target.value)}
+            />
+          </label>
+          <label className={styles.campoEditavel}>
+            <span>Razão Social</span>
+            <input
+              className="ui-input"
+              aria-label="Razão Social"
+              value={razaoSocial}
+              placeholder={negocio.lead.personType === "pj" ? `${nome} Ltda` : nome}
+              onChange={(e) => setRazaoSocial(e.target.value)}
+            />
           </label>
           <label className={styles.campoEditavel}>
             <span>Documento</span>
-            <input className="ui-input" aria-label="Documento" readOnly value={doc} />
+            <input
+              className="ui-input"
+              aria-label="Documento"
+              value={doc}
+              onFocus={(e) => {
+                if (e.target.value === "—") setDoc("");
+              }}
+              onBlur={(e) => {
+                if (!e.target.value.trim()) setDoc("—");
+              }}
+              onChange={(e) => setDoc(e.target.value)}
+            />
           </label>
           <div className={styles.campoLinha}>
             <span>Origem do Lead</span>
-            <strong>Indicação Comercial · Rede de Parceiros</strong>
+            <strong>{negocio.lead.origin || "Não informada"}</strong>
           </div>
         </div>
 
-        {/* Canais de Contato */}
+        {/* Card 2: Canais de Comunicação & Decisores */}
         <div className={styles.painelCard}>
           <div className={styles.painelCardHeader}>
             <h4>
               <Phone size={15} /> Canais de Comunicação
             </h4>
-            <span className="ui-badge ui-tone--success">Canal verificado</span>
+
           </div>
           <label className={styles.campoEditavel}>
             <span>Telefone</span>
             <div className={styles.campoComAcao}>
-              <input className="ui-input" aria-label="Telefone" readOnly value={tel} />
-              {tel !== "—" ? (
+              <input
+                className="ui-input"
+                aria-label="Telefone"
+                value={tel}
+                placeholder="(92) 98124-5500"
+                onChange={(e) => setTel(e.target.value)}
+              />
+              {tel && tel !== "—" ? (
                 <a
                   href={`https://wa.me/55${tel.replace(/\D/g, "")}`}
                   target="_blank"
@@ -286,8 +359,14 @@ function AbaLead({ negocio }: { negocio: Deal }) {
           <label className={styles.campoEditavel}>
             <span>E-mail</span>
             <div className={styles.campoComAcao}>
-              <input className="ui-input" aria-label="E-mail" readOnly value={email} />
-              {email !== "—" ? (
+              <input
+                className="ui-input"
+                aria-label="E-mail"
+                value={email}
+                placeholder="contato@empresa.com.br"
+                onChange={(e) => setEmail(e.target.value)}
+              />
+              {email && email !== "—" ? (
                 <button type="button" className={styles.btnAcaoRapida} onClick={copiarEmail}>
                   {copiado ? <Check size={12} /> : <Copy size={12} />}
                   {copiado ? "Copiado!" : "Copiar"}
@@ -296,19 +375,82 @@ function AbaLead({ negocio }: { negocio: Deal }) {
             </div>
           </label>
           <div className={styles.campoLinha}>
-            <span>Endereço / Polo de Atendimento</span>
-            <strong>Av. Djalma Batista, 1661 - Manaus, AM</strong>
+            <span>Contato Principal / Decisor</span>
+            <strong>{negocio.contact?.name || "Não informado"}</strong>
           </div>
+        </div>
+
+        {/* Card 3: Endereço & Localização Técnica */}
+        <div className={styles.painelCard}>
+          <div className={styles.painelCardHeader}>
+            <h4>
+              <MapPin size={15} /> Endereço
+            </h4>
+
+          </div>
+          <label className={styles.campoEditavel}>
+            <span>Logradouro</span>
+            <input
+              className="ui-input"
+              aria-label="Logradouro"
+              value={rua}
+              placeholder="Av. Djalma Batista, 1661"
+              onChange={(e) => setRua(e.target.value)}
+            />
+          </label>
+          <label className={styles.campoEditavel}>
+            <span>Bairro</span>
+            <input
+              className="ui-input"
+              aria-label="Bairro"
+              value={bairro}
+              placeholder="Chapada"
+              onChange={(e) => setBairro(e.target.value)}
+            />
+          </label>
+          <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: "8px" }}>
+            <label className={styles.campoEditavel}>
+              <span>Cidade</span>
+              <input
+                className="ui-input"
+                aria-label="Cidade"
+                value={cidade}
+                placeholder="Manaus"
+                onChange={(e) => setCidade(e.target.value)}
+              />
+            </label>
+            <label className={styles.campoEditavel}>
+              <span>UF</span>
+              <input
+                className="ui-input"
+                aria-label="UF"
+                maxLength={2}
+                value={uf}
+                placeholder="AM"
+                onChange={(e) => setUf(e.target.value.toUpperCase())}
+              />
+            </label>
+          </div>
+          <label className={styles.campoEditavel}>
+            <span>CEP</span>
+            <input
+              className="ui-input"
+              aria-label="CEP"
+              value={cep}
+              placeholder="69050-010"
+              onChange={(e) => setCep(e.target.value)}
+            />
+          </label>
         </div>
       </div>
 
       {/* Anotações do Lead */}
-      <div className={styles.painelCard}>
+      <div className={styles.painelCard} style={{ marginTop: "12px" }}>
         <div className={styles.painelCardHeader}>
           <h4>
             <FileText size={15} /> Anotações do Atendimento
           </h4>
-          <span style={{ fontSize: "11px", color: "var(--ui-muted)" }}>Atualizado há 2h por Admin</span>
+          <span style={{ fontSize: "11px", color: "var(--ui-muted)" }}>Atualizado recentemente</span>
         </div>
         <div className={styles.campoEditavel}>
           <textarea
@@ -319,6 +461,13 @@ function AbaLead({ negocio }: { negocio: Deal }) {
           />
         </div>
       </div>
+
+      {/* Barra de Ação de Salvar Edições */}
+      <div style={{ marginTop: "16px", display: "flex", justifyContent: "flex-end" }}>
+        <Button variant="primary" loading={salvando} onClick={salvar}>
+          Salvar alterações do lead
+        </Button>
+      </div>
     </>
   );
 }
@@ -327,68 +476,32 @@ function AbaLead({ negocio }: { negocio: Deal }) {
    ABA 3: HISTÓRICO (TIMELINE DE ATIVIDADES)
    ========================================================================== */
 function AbaHistorico({ negocio }: { negocio: Deal }) {
-  const eventos = [
-    {
-      id: "ev-1",
-      titulo: "Proposta comercial enviada via WhatsApp",
-      data: "Hoje às 11:20",
-      autor: "Admin",
-      icone: FileText,
-    },
-    {
-      id: "ev-2",
-      titulo: "Lead avançou para a etapa Qualificação",
-      data: "Ontem às 16:45",
-      autor: "Admin",
-      icone: ArrowRight,
-    },
-    {
-      id: "ev-3",
-      titulo: "Alinhamento técnico e análise de conta de energia",
-      data: "28/10/2026 às 14:10",
-      autor: "Admin",
-      icone: Phone,
-    },
-    {
-      id: "ev-4",
-      titulo: "Lead cadastrado no pipeline",
-      data: formatarData(negocio.createdAt),
-      autor: "Entrada direta",
-      icone: UserRound,
-    },
-  ];
-
   return (
     <>
       <div className={styles.tituloSecao}>
         <h3>Linha do Tempo de Atividades</h3>
-        <p>Registro cronológico de interações, mudanças de etapas e auditoria.</p>
+        <p>Registro cronológico de interações e mudanças no lead.</p>
       </div>
-
       <div className={styles.timeline}>
-        {eventos.map((ev) => (
-          <div key={ev.id} className={styles.timelineItem}>
-            <div className={styles.timelineDot} />
-            <div className={styles.timelineConteudo}>
-              <div className={styles.timelineTitulo}>{ev.titulo}</div>
-              <div className={styles.timelineMeta}>
-                {ev.data} · Por {ev.autor}
-              </div>
-            </div>
+        <div className={styles.timelineItem}>
+          <div className={styles.timelineDot} />
+          <div className={styles.timelineConteudo}>
+            <div className={styles.timelineTitulo}>Lead cadastrado</div>
+            <div className={styles.timelineMeta}>{formatarData(negocio.createdAt)}</div>
           </div>
-        ))}
+        </div>
+        <p className="aviso aviso--neutro">O histórico completo estará disponível quando a integração de atividades for liberada.</p>
       </div>
     </>
   );
 }
-
 /* ==========================================================================
    ABA 4: OPORTUNIDADE (DADOS COMERCIAIS)
    ========================================================================== */
 function AbaOportunidade({ negocio, pipeline }: { negocio: Deal; pipeline: Pipeline }) {
   const etapa = pipeline.stages.find((item) => item.id === negocio.stageId);
-  const valor = negocio.value ? formatarBRL(negocio.value) : "R$ 45.000,00";
-  const previsao = negocio.expectedCloseDate ? formatarData(negocio.expectedCloseDate) : "15/11/2026";
+  const valor = negocio.value ? formatarBRL(negocio.value) : "Não informado";
+  const previsao = negocio.expectedCloseDate ? formatarData(negocio.expectedCloseDate) : "Não definida";
 
   return (
     <>
@@ -413,8 +526,8 @@ function AbaOportunidade({ negocio, pipeline }: { negocio: Deal; pipeline: Pipel
             <strong>{etapa?.name ?? "Não informada"}</strong>
           </div>
           <div className={styles.campoLinha}>
-            <span>Modelo de Atendimento</span>
-            <strong>Geração Distribuída · Locação Fotovoltaica</strong>
+            <span>Oportunidade</span>
+            <strong>{negocio.title}</strong>
           </div>
         </div>
 
@@ -440,9 +553,9 @@ function AbaOportunidade({ negocio, pipeline }: { negocio: Deal; pipeline: Pipel
       </div>
 
       {/* Etiquetas */}
-      <div className={styles.painelCard}>
+      <div className={styles.painelCard} style={{ marginTop: "12px" }}>
         <div className={styles.painelCardHeader}>
-          <h4>Etiquetas e Segmentação</h4>
+          <h4>Etiquetas</h4>
         </div>
         <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
           {negocio.tags.length ? (
@@ -452,18 +565,7 @@ function AbaOportunidade({ negocio, pipeline }: { negocio: Deal; pipeline: Pipel
                 {tag.name}
               </span>
             ))
-          ) : (
-            <>
-              <span className="ui-dialog-tag">
-                <span className="ui-dialog-tag-dot" style={{ backgroundColor: "#0066cc" }} />
-                Solar Comercial
-              </span>
-              <span className="ui-dialog-tag">
-                <span className="ui-dialog-tag-dot" style={{ backgroundColor: "#126744" }} />
-                Alta Tensão (Grupo A)
-              </span>
-            </>
-          )}
+          ) : <span className="dica">Nenhuma etiqueta aplicada.</span>}
         </div>
       </div>
     </>
@@ -473,190 +575,52 @@ function AbaOportunidade({ negocio, pipeline }: { negocio: Deal; pipeline: Pipel
 /* ==========================================================================
    ABA 5: PROPOSTA
    ========================================================================== */
-function AbaProposta({ negocio }: { negocio: Deal }) {
-  const [downloading, setDownloading] = useState(false);
-
-  function simularDownload() {
-    setDownloading(true);
-    setTimeout(() => setDownloading(false), 1200);
-  }
-
+function AbaProposta() {
   return (
     <>
       <div className={styles.tituloSecao}>
         <h3>Proposta Comercial</h3>
-        <p>Versão ativa dimensionada para o lead e histórico de orçamentos.</p>
+        <p>As propostas deste lead ficarão organizadas nesta seção.</p>
       </div>
-
       <div className={styles.propostaCard}>
         <div className={styles.propostaHeader}>
-          <div className={styles.propostaCodigo}>
-            <strong>PROP-2026-0042</strong>
-            <span>Versão 1.2</span>
-          </div>
-          <span className={styles.propostaStatus}>
-            <span className="ui-status-dot" style={{ background: "#1759a0" }} />
-            Em análise pelo cliente
-          </span>
+          <div className={styles.propostaCodigo}><strong>Nenhuma proposta vinculada</strong></div>
         </div>
-
-        <div className={styles.propostaGrid}>
-          <div className={styles.campoLinha}>
-            <span>Investimento Total</span>
-            <strong style={{ fontSize: "16px", color: "var(--ui-text)" }}>
-              {negocio.value ? formatarBRL(negocio.value) : "R$ 45.000,00"}
-            </strong>
-          </div>
-          <div className={styles.campoLinha}>
-            <span>Economia Projetada</span>
-            <strong style={{ color: "#126744" }}>R$ 18.240,00 / ano</strong>
-          </div>
-          <div className={styles.campoLinha}>
-            <span>Potência Dimensionada</span>
-            <strong>15,4 kWp (42 módulos)</strong>
-          </div>
-        </div>
-
-        <div className={styles.propostaAcoes}>
-          <Button variant="primary" size="sm" icon={<Download size={14} />} onClick={simularDownload}>
-            {downloading ? "Gerando PDF..." : "Visualizar Proposta (PDF)"}
-          </Button>
-          <Button variant="secondary" size="sm" icon={<ExternalLink size={14} />}>
-            Gerar nova versão
-          </Button>
-        </div>
+        <p className={styles.cockpitCardSub}>A integração de propostas será disponibilizada em uma próxima etapa.</p>
       </div>
     </>
   );
 }
-
 /* ==========================================================================
-   ABA 6: DOCUMENTOS
+   ABA 6: DOCUMENTOS (CASCA VISUAL EXPANDIDA)
    ========================================================================== */
 function AbaDocumentos() {
-  const [categoriaAtiva, setCategoriaAtiva] = useState<string>("todas");
-
-  const docs = [
-    {
-      id: "doc-1",
-      nome: "Fatura_de_Energia_CPFL_Setembro.pdf",
-      categoria: "energia",
-      categoriaNome: "Conta de Energia",
-      tamanho: "1.4 MiB",
-      status: "Aprovado",
-    },
-    {
-      id: "doc-2",
-      nome: "Contrato_Social_Consolidado_2026.pdf",
-      categoria: "documento",
-      categoriaNome: "Documento do Cliente",
-      tamanho: "3.8 MiB",
-      status: "Aprovado",
-    },
-    {
-      id: "doc-3",
-      nome: "Minuta_Contrato_Adesao_Solar_v1.docx",
-      categoria: "proposta",
-      categoriaNome: "Procuração / Contrato",
-      tamanho: "820 KiB",
-      status: "Em análise",
-    },
-  ];
-
-  const docsFiltrados =
-    categoriaAtiva === "todas" ? docs : docs.filter((d) => d.categoria === categoriaAtiva);
-
   return (
     <>
       <div className={styles.tituloSecao}>
-        <h3>Documentos</h3>
-        <p>Arquivos organizados por categoria, anexos contratuais e contas de consumo.</p>
+        <h3>Documentos do Lead</h3>
+        <p>Propostas, contas de energia, documentos do cliente, procurações e contratos.</p>
       </div>
-
-      <div className={styles.dropzone} role="region" aria-label="Área de envio de documentos">
-        <CloudUpload size={26} aria-hidden="true" />
-        <strong>Envio de documentos em preparação</strong>
-        <span>PDF, JPG, PNG, DOCX ou XLSX · até 25 MiB por arquivo</span>
-      </div>
-
-      {/* Chips de Categorias */}
-      <div className={styles.chipsCategorias} role="group" aria-label="Filtro por categoria de documento">
-        {[
-          { id: "todas", label: `Todos (${docs.length})` },
-          { id: "energia", label: "Conta de Energia (1)" },
-          { id: "documento", label: "Documento do Cliente (1)" },
-          { id: "proposta", label: "Contrato / Minuta (1)" },
-        ].map((cat) => (
-          <button
-            key={cat.id}
-            type="button"
-            className={`${styles.chipFiltro} ${categoriaAtiva === cat.id ? styles.chipAtivo : ""}`}
-            onClick={() => setCategoriaAtiva(cat.id)}
-          >
-            {cat.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Lista de Documentos */}
-      <div className={styles.documentosLista}>
-        {docsFiltrados.map((doc) => (
-          <div key={doc.id} className={styles.documentoItem}>
-            <div className={styles.docIcone}>
-              <FileText size={16} />
-            </div>
-            <div className={styles.docDetalhes}>
-              <div className={styles.docNome} title={doc.nome}>
-                {doc.nome}
-              </div>
-              <div className={styles.docMeta}>
-                {doc.categoriaNome} · {doc.tamanho}
-              </div>
-            </div>
-            <span className={styles.docStatusBadge}>{doc.status}</span>
-            <Button variant="secondary" size="sm" icon={<Download size={13} />} iconOnly aria-label={`Baixar ${doc.nome}`} />
-          </div>
-        ))}
+      <div className={styles.dropzoneCard} aria-disabled="true">
+        <FolderOpen size={28} className={styles.dropzoneIcone} />
+        <div className={styles.dropzoneTitulo}>Envio de documentos em preparação</div>
+        <div className={styles.dropzoneDesc}>PDF, JPG, PNG, DOCX e XLSX · até 25 MiB por arquivo</div>
+        <div className={styles.dropzoneBadge}>A integração de arquivos será disponibilizada em uma próxima etapa.</div>
       </div>
     </>
   );
 }
-
-/* ==========================================================================
-   ROTEADOR DE CONTEÚDO DAS ABAS
-   ========================================================================== */
-function ConteudoSecao({ secao, negocio, pipeline }: { secao: Secao; negocio: Deal; pipeline: Pipeline }) {
-  switch (secao) {
-    case "resumo":
-      return <AbaResumo negocio={negocio} pipeline={pipeline} />;
-    case "lead":
-      return <AbaLead negocio={negocio} />;
-    case "historico":
-      return <AbaHistorico negocio={negocio} />;
-    case "oportunidade":
-      return <AbaOportunidade negocio={negocio} pipeline={pipeline} />;
-    case "proposta":
-      return <AbaProposta negocio={negocio} />;
-    case "documentos":
-      return <AbaDocumentos />;
-    default:
-      return null;
-  }
-}
-
-/* ==========================================================================
-   COMPONENTE PRINCIPAL DO MODAL DE DETALHES DO LEAD
-   ========================================================================== */
-export function DetalhesDoLeadModal({ negocio, pipeline, acoes, aoFechar }: Props) {
+export function DetalhesDoLeadModal({ negocio, pipeline, acoes, aoAtualizar, aoFechar }: Props) {
   const [secao, setSecao] = useState<Secao>("resumo");
   const [menuAberto, setMenuAberto] = useState(false);
+  const [leadAtual, setLeadAtual] = useState<Deal>(negocio);
   const id = useId();
   const botoes = useRef<(HTMLButtonElement | null)[]>([]);
   const botaoMenu = useRef<HTMLButtonElement>(null);
 
-  const etapa = pipeline.stages.find((item) => item.id === negocio.stageId);
-  const dias = diasNaEtapa(negocio);
-  const parado = estaParado(negocio, pipeline);
+  const etapa = pipeline.stages.find((item) => item.id === leadAtual.stageId);
+  const dias = diasNaEtapa(leadAtual);
+  const parado = estaParado(leadAtual, pipeline);
 
   function navegar(evento: KeyboardEvent<HTMLDivElement>) {
     const indice = SECOES.findIndex((item) => item.id === secao);
@@ -679,64 +643,34 @@ export function DetalhesDoLeadModal({ negocio, pipeline, acoes, aoFechar }: Prop
 
   const executar = (acao: (negocio: Deal) => void) => {
     aoFechar();
-    acao(negocio);
+    acao(leadAtual);
+  };
+
+  const handleAtualizar = (atualizado: Deal) => {
+    setLeadAtual(atualizado);
+    aoAtualizar?.(atualizado);
   };
 
   return (
     <Modal rotulo="Detalhes do lead" aoFechar={aoFechar} largura="larga" className={styles.modal}>
       <div className={styles.layout}>
-        {/* CAMPO 1 (ESQUERDA): NAVEGAÇÃO CONTÍNUA DE PAIINEL */}
+        {/* ==================================================================
+            CAMPO 1 (ESQUERDA): DETALHES DO LEAD NO TOPO + NAVEGAÇÃO DE ABAS
+            ================================================================== */}
         <aside className={styles.sidebar}>
-          <div
-            className={styles.navegacao}
-            role="tablist"
-            aria-label="Seções do lead"
-            aria-orientation="vertical"
-            onKeyDown={navegar}
-          >
-            {SECOES.map((item, indice) => (
-              <div key={item.id}>
-                {indice === 0 || indice === 3 ? (
-                  <div className={styles.grupo}>
-                    {indice === 0 ? "Informações" : "Serviço & Operação"}
-                  </div>
-                ) : null}
-                <button
-                  ref={(el) => {
-                    botoes.current[indice] = el;
-                  }}
-                  id={`${id}-${item.id}`}
-                  type="button"
-                  role="tab"
-                  aria-selected={secao === item.id}
-                  aria-controls={`${id}-painel`}
-                  tabIndex={secao === item.id ? 0 : -1}
-                  className={styles.abaBotao}
-                  onClick={() => setSecao(item.id)}
-                >
-                  <item.icone size={15} aria-hidden="true" />
-                  <span>{item.titulo}</span>
-                </button>
+          {/* BLOCO DE DETALHES DO LEAD (NO TOPO DA ESQUERDA) */}
+          <div className={styles.leadCardLateral}>
+            <div className={styles.leadCardLinhaSuperior}>
+              <div className={styles.iconeLead} aria-hidden="true">
+                {leadAtual.lead.personType === "pj" ? <Building2 size={20} /> : <UserRound size={20} />}
               </div>
-            ))}
-          </div>
-        </aside>
-
-        {/* CAMPO 2 (DIREITA): CABEÇALHO DO LEAD + CAMPO DE INFORMAÇÕES */}
-        <div className={styles.painelPrincipal}>
-          {/* CABEÇALHO NO TOPO DA COLUNA DIREITA */}
-          <header className={styles.cabecalho}>
-            <div className={styles.iconeHeader} aria-hidden="true">
-              {negocio.client?.personType === "pj" ? <Building2 size={20} /> : <UserRound size={20} />}
-            </div>
-
-            <div className={styles.identidade}>
-              {/* Linha 1: Badges de Contexto */}
-              <div className={styles.linhaTopo}>
-                <h2 className={styles.tituloModalAcessivel}>Detalhes do lead</h2>
-                <span className={styles.tagCodigo} title={`ID completo: ${negocio.id}`}>
-                  PLU-{String(negocio.number).padStart(4, "0")}
-                </span>
+              <div className={styles.leadCardBadges}>
+                <div className={styles.leadCardTagsTopo}>
+                  <span className={styles.tagContexto}>DETALHES DO LEAD</span>
+                  <span className={styles.tagCodigo} title={`ID completo: ${leadAtual.id}`}>
+                    PLU-{String(leadAtual.number).padStart(4, "0")}
+                  </span>
+                </div>
                 {etapa ? (
                   <span
                     className={styles.tagEtapa}
@@ -753,53 +687,105 @@ export function DetalhesDoLeadModal({ negocio, pipeline, acoes, aoFechar }: Prop
                     {etapa.name}
                   </span>
                 ) : null}
-                {negocio.priority ? (
-                  <span className={`${styles.tagPrioridade} ${styles[`prioridade_${negocio.priority}`]}`}>
-                    <span className={styles.prioridadeDot} />
-                    {negocio.priority === "urgente"
-                      ? "Urgente"
-                      : negocio.priority === "medio"
-                      ? "Médio"
-                      : "Normal"}
-                  </span>
-                ) : null}
               </div>
+            </div>
 
-              {/* Linha 2: Nome do Lead */}
-              <div className={styles.nomeLead} title={negocio.title}>
-                {negocio.title}
+            {/* Nome / Título do Lead */}
+            <div className={styles.leadCardTitulo} title={leadAtual.lead.name}>
+              {leadAtual.lead.name}
+            </div>
+
+            {/* Metadados: Pipeline, Responsável, Dias na etapa */}
+            <div className={styles.leadCardMeta}>
+              <div className={styles.metaLinha}>
+                <span className={styles.metaRotulo}>Funil</span>
+                <span className={styles.metaValor}>{pipeline.name}</span>
               </div>
-
-              {/* Linha 3: Metadados */}
-              <div
-                className={styles.meta}
-                title={`ID completo: ${negocio.id} · ${pipeline.name} · ${etapa?.name ?? "Etapa"} · Responsável: ${negocio.owner.name}`}
-              >
-                <span>{pipeline.name}</span>
-                <span className={styles.separador}>·</span>
+              <div className={styles.metaLinha}>
+                <span className={styles.metaRotulo}>Responsável</span>
                 <span className={styles.metaResponsavel}>
                   <span className={styles.avatarMini} aria-hidden="true">
-                    {negocio.owner.name.charAt(0).toUpperCase()}
+                    {leadAtual.owner.name.charAt(0).toUpperCase()}
                   </span>
-                  {negocio.owner.name}
+                  {leadAtual.owner.name}
                 </span>
-                <span className={styles.separador}>·</span>
+              </div>
+              <div className={styles.metaLinha}>
+                <span className={styles.metaRotulo}>Permanência</span>
                 <span className={parado ? styles.tempoParado : styles.tempoNormal}>
                   {dias} {dias === 1 ? "dia" : "dias"} na etapa
                   {parado ? " (parado)" : ""}
                 </span>
               </div>
             </div>
+          </div>
 
-            {/* Controles à direita: 1 botão principal e os 3 pontinhos */}
+          {/* MENU / NAVEGAÇÃO DE ABAS */}
+          <div
+            className={styles.navegacao}
+            role="tablist"
+            aria-label="Seções do lead"
+            aria-orientation="vertical"
+            onKeyDown={navegar}
+          >
+            {SECOES.map((item, indice) => (
+              <div key={item.id}>
+                {indice === 0 || indice === 3 ? (
+                  <div className={styles.grupo}>
+                    {indice === 0 ? "Informações" : "Serviço & Operação"}
+                  </div>
+                ) : null}
+                <button
+                  ref={(elemento) => {
+                    botoes.current[indice] = elemento;
+                  }}
+                  type="button"
+                  role="tab"
+                  id={`${id}-${item.id}`}
+                  aria-selected={secao === item.id}
+                  aria-controls={`${id}-painel`}
+                  tabIndex={secao === item.id ? 0 : -1}
+                  className={styles.abaBotao}
+                  onClick={() => setSecao(item.id)}
+                >
+                  <item.icone size={15} aria-hidden="true" />
+                  <span>{item.titulo}</span>
+                </button>
+              </div>
+            ))}
+          </div>
+        </aside>
+
+        {/* ==================================================================
+            CAMPO 2 (DIREITA): TOPO DE AÇÕES + EXIBIÇÃO DAS INFORMAÇÕES
+            ================================================================== */}
+        <div className={styles.painelPrincipal}>
+          {/* HEADER DE AÇÕES NO TOPO DA COLUNA DIREITA */}
+          <header className={styles.cabecalhoDireita}>
+            <div className={styles.cabecalhoContexto}>
+              <h2 className={styles.tituloModalAcessivel}>Detalhes do lead</h2>
+              <span className={styles.secaoAtivaTitulo}>
+                {SECOES.find((s) => s.id === secao)?.titulo}
+              </span>
+              <span className={styles.secaoAtivaDesc}>
+                {secao === "resumo" && "Cockpit e indicadores comerciais"}
+                {secao === "lead" && "Ficha cadastral 360° e dados técnicos"}
+                {secao === "historico" && "Linha do tempo e auditoria"}
+                {secao === "oportunidade" && "Estrutura do negócio e valores"}
+                {secao === "proposta" && "Minuta comercial e condições"}
+                {secao === "documentos" && "Documentos categorizados"}
+              </span>
+            </div>
+
+            {/* Controles de Ação à direita */}
             <div className={styles.controlesCabecalho}>
-              {negocio.status === "open" ? (
+              {leadAtual.status === "open" ? (
                 <Button variant="primary" size="sm" onClick={() => executar(acoes.ganhar)}>
                   {pipeline.wonLabel}
                 </Button>
               ) : (
                 <span className={styles.statusPill}>
-                  {negocio.status === "won" ? "Lead Ganho" : "Lead Perdido"}
+                  {leadAtual.status === "won" ? "Lead Ganho" : "Lead Perdido"}
                 </span>
               )}
 
@@ -830,7 +816,7 @@ export function DetalhesDoLeadModal({ negocio, pipeline, acoes, aoFechar }: Prop
                 </button>
                 {menuAberto ? (
                   <div className={styles.menuOpcoes} role="menu" aria-label="Ações do lead">
-                    {negocio.status === "open" ? (
+                    {leadAtual.status === "open" ? (
                       <>
                         <button type="button" role="menuitem" onClick={() => executar(acoes.perder)}>
                           <X size={14} aria-hidden="true" />
@@ -840,16 +826,20 @@ export function DetalhesDoLeadModal({ negocio, pipeline, acoes, aoFechar }: Prop
                           <ArrowRight size={14} aria-hidden="true" />
                           Mover para outro pipeline
                         </button>
-                        <button
-                          type="button"
-                          role="menuitem"
-                          onClick={() => {
-                            setMenuAberto(false);
-                          }}
-                        >
-                          <UserRound size={14} aria-hidden="true" />
-                          Converter em cliente
-                        </button>
+                        {!leadAtual.client && acoes.converter ? (
+                          <button
+                            type="button"
+                            role="menuitem"
+                            onClick={() => {
+                              setMenuAberto(false);
+                              aoFechar();
+                              acoes.converter?.(leadAtual);
+                            }}
+                          >
+                            <UserRound size={14} aria-hidden="true" />
+                            Converter em cliente
+                          </button>
+                        ) : null}
                         <span className={styles.menuSeparador} role="separator" />
                       </>
                     ) : null}
@@ -866,18 +856,17 @@ export function DetalhesDoLeadModal({ negocio, pipeline, acoes, aoFechar }: Prop
                         key={opcao.rotulo}
                         type="button"
                         role="menuitemradio"
-                        aria-checked={negocio.priority === opcao.valor}
+                        aria-checked={leadAtual.priority === opcao.valor}
                         onClick={() => {
                           setMenuAberto(false);
-                          void acoes.definirPrioridade(negocio, opcao.valor);
-                          botaoMenu.current?.focus();
+                          acoes.definirPrioridade(leadAtual, opcao.valor);
                         }}
                       >
-                        {negocio.priority === opcao.valor ? (
-                          <Check size={14} aria-hidden="true" />
-                        ) : (
-                          <span className={styles.menuEspaco} />
-                        )}
+                        <span
+                          className={`${styles.prioridadeMenuDot} ${
+                            opcao.valor ? styles[`prioridade_${opcao.valor}`] : ""
+                          }`}
+                        />
                         {opcao.rotulo}
                       </button>
                     ))}
@@ -885,26 +874,31 @@ export function DetalhesDoLeadModal({ negocio, pipeline, acoes, aoFechar }: Prop
                 ) : null}
               </div>
 
-              <Button
-                variant="secondary"
-                size="sm"
-                icon={<X size={16} />}
-                iconOnly
-                aria-label="Fechar"
+              {/* Botão Fechar X */}
+              <button
+                type="button"
+                className={styles.botaoFechar}
                 onClick={aoFechar}
-              />
+                aria-label="Fechar"
+              >
+                <X size={18} aria-hidden="true" />
+              </button>
             </div>
           </header>
 
-          {/* CAMPO DE INFORMAÇÕES (CONTEÚDO DA ABA SELECIONADA) */}
+          {/* ÁREA DE EXIBIÇÃO DAS INFORMAÇÕES (ROLANDO SEPARADAMENTE) */}
           <section
-            className={styles.conteudo}
             id={`${id}-painel`}
             role="tabpanel"
             aria-labelledby={`${id}-${secao}`}
-            tabIndex={0}
+            className={styles.conteudo}
           >
-            <ConteudoSecao secao={secao} negocio={negocio} pipeline={pipeline} />
+            {secao === "resumo" && <AbaResumo negocio={leadAtual} pipeline={pipeline} />}
+            {secao === "lead" && <AbaLead negocio={leadAtual} aoAtualizar={handleAtualizar} />}
+            {secao === "historico" && <AbaHistorico negocio={leadAtual} />}
+            {secao === "oportunidade" && <AbaOportunidade negocio={leadAtual} pipeline={pipeline} />}
+            {secao === "proposta" && <AbaProposta />}
+            {secao === "documentos" && <AbaDocumentos />}
           </section>
         </div>
       </div>

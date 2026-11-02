@@ -69,7 +69,7 @@ export function aplicarFiltros(negocios: readonly Deal[], filtros: Filtros, hoje
     if (filtros.status !== "todos" && n.status !== filtros.status) return false;
     if (filtros.responsavel && n.owner.id !== filtros.responsavel) return false;
     if (filtros.etiqueta && !n.tags.some((t) => t.id === filtros.etiqueta)) return false;
-    if (termo && !normalizar(`${n.title} ${n.client.name} ${n.contact?.name ?? ""}`).includes(termo)) return false;
+    if (termo && !normalizar(`${n.title} ${n.lead.name} ${n.client?.name ?? ""} ${n.contact?.name ?? ""}`).includes(termo)) return false;
     const previsao = n.expectedCloseDate;
     switch (filtros.previsao) {
       case "atrasada":

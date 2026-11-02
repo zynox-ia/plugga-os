@@ -1,5 +1,5 @@
 import { expect, test, type APIRequestContext } from "@playwright/test";
-import type { CreateClientResponse, Deal, Pipeline, PipelinePeopleResponse } from "@plugga/shared";
+import type { Deal, Pipeline, PipelinePeopleResponse } from "@plugga/shared";
 
 test.describe.configure({ mode: "default" });
 let pipeline: Pipeline;
@@ -20,16 +20,16 @@ test.beforeAll(async ({ request, baseURL }) => {
   pipeline = await criar<Pipeline>(request, baseURL!, "/api/pipelines", {
     companyId: "plugga", name: `Cartões compactos E2E ${marca}`, description: null,
     valueLabel: "Investimento estimado", color: "#0077FF", wonLabel: "Ganho", lostLabel: "Perdido",
-    stages: ["Entrada", "Proposta", "Negociação", "Fechamento"].map((name) => ({ name, color: "#0077FF", staleAfterDays: null })),
+    stages: ["Entrada", "Proposta", "Negociação", "Fechamento"].map((name) => ({ name, color: "#0077FF", staleAfterDays: null, asksClientConversion: false })),
     tags: [{ name: "Atendimento prioritário", color: "#0077FF" }], lossReasons: [], members: [],
   });
-  const { client } = await criar<CreateClientResponse>(request, baseURL!, "/api/clientes", {
-    personType: "pj", name: `Cliente sintético dos cartões ${marca}`, email: `cartoes-${marca}@teste.local`,
-  });
   negocio = await criar<Deal>(request, baseURL!, "/api/leads", {
-    pipelineId: pipeline.id, stageId: pipeline.stages[0]!.id, clientId: client.id,
+    pipelineId: pipeline.id, stageId: pipeline.stages[0]!.id,
     ownerId: pessoas.people[0]!.id, title: "Projeto solar residencial", value: "65000", expectedCloseDate: "2099-12-31",
     tagIds: [pipeline.tags[0]!.id],
+    lead: {
+      personType: "pj", name: `Cliente sintético dos cartões ${marca}`, email: `cartoes-${marca}@teste.local`,
+    },
   });
 });
 
@@ -40,27 +40,35 @@ test.afterAll(async ({ request, baseURL }) => {
 test("cartão compacto preserva identificação e detalhes sem o bloco de investimento e previsão", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto(`/comercial/pipelines?pipeline=${pipeline.id}`);
-  const cartao = page.getByRole("article", { name: `Negócio ${negocio.title}`, exact: true });
+  const cartao = page.getByRole("article", { name: `Lead ${negocio.lead.name}`, exact: true });
   await expect(cartao).toBeVisible();
   await expect(cartao.getByText("Investimento estimado", { exact: true })).toHaveCount(0);
   await expect(cartao.getByText("Previsão", { exact: true })).toHaveCount(0);
-  await expect(cartao.getByText(negocio.client.name, { exact: true })).toBeVisible();
+  await expect(cartao.getByText(negocio.lead.name, { exact: true })).toBeVisible();
   await expect(cartao.getByText(negocio.owner.name, { exact: true })).toBeVisible();
   await expect(cartao.getByText("Atendimento prioritário", { exact: true })).toBeVisible();
   await expect(cartao.getByText(/\d+d na etapa/)).toBeVisible();
   expect((await cartao.boundingBox())!.height).toBeLessThanOrEqual(240);
   expect((await cartao.boundingBox())!.width).toBeLessThanOrEqual(320);
-  await expect(cartao.getByText(`PLU-${negocio.id.slice(0, 8).toUpperCase()}`, { exact: true })).toBeVisible();
+  await expect(cartao.getByText(`PLU-${String(negocio.number).padStart(4, "0")}`, { exact: true })).toBeVisible();
   await expect(cartao.locator("time")).toHaveAttribute("datetime", negocio.createdAt);
   await expect(cartao.locator("time")).toHaveText(new Intl.DateTimeFormat("pt-BR", { day: "numeric", month: "long", timeZone: "America/Manaus" }).format(new Date(negocio.createdAt)));
   await expect(cartao.getByText("Em aberto", { exact: true })).toBeVisible();
-  await cartao.getByRole("button", { name: `Ver lead ${negocio.title}`, exact: true }).focus();
+  await cartao.getByRole("button", { name: `Ver lead ${negocio.lead.name}`, exact: true }).focus();
   await page.keyboard.press("Enter");
   const detalhes = page.getByRole("dialog", { name: "Detalhes do lead", exact: true });
   await expect(detalhes).toBeVisible();
   const cabecalho = detalhes.locator("header").first();
   await expect(cabecalho.getByRole("button", { name: pipeline.wonLabel, exact: true })).toBeVisible();
   await expect(cabecalho.getByRole("button", { name: pipeline.lostLabel, exact: true })).toHaveCount(0);
+  await cabecalho.getByRole("button", { name: pipeline.wonLabel, exact: true }).click();
+  const confirmarGanho = page.getByRole("dialog", { name: `Marcar como ${pipeline.wonLabel}`, exact: true });
+  await expect(confirmarGanho.getByLabel("Deseja converter este lead em cliente?")).toBeChecked();
+  await confirmarGanho.getByRole("button", { name: "Cancelar", exact: true }).click();
+  await expect(detalhes).toHaveCount(0);
+  await cartao.getByRole("button", { name: `Ver lead ${negocio.lead.name}`, exact: true }).focus();
+  await page.keyboard.press("Enter");
+  await expect(detalhes).toBeVisible();
   await cabecalho.getByRole("button", { name: "Mais ações do lead" }).click();
   await expect(cabecalho.getByRole("menuitem", { name: pipeline.lostLabel })).toBeVisible();
   await expect(cabecalho.getByRole("menuitem", { name: "Mover para outro pipeline" })).toBeVisible();
@@ -78,9 +86,9 @@ test("cartão compacto preserva identificação e detalhes sem o bloco de invest
   await page.keyboard.press("ArrowDown");
   await expect(abas.getByRole("tab", { name: "Lead" })).toBeFocused();
   await expect(abas.getByRole("tab", { name: "Lead" })).toHaveAttribute("aria-selected", "true");
-  await expect(detalhes.getByLabel("Nome", { exact: true })).toHaveValue(negocio.client.name);
-  await expect(detalhes.getByLabel("E-mail", { exact: true })).toHaveValue(negocio.client.email!);
-  await expect(detalhes.getByLabel("Documento", { exact: true })).toHaveValue("—");
+  await expect(detalhes.getByLabel("Nome", { exact: true })).toHaveValue(negocio.lead.name);
+  await expect(detalhes.getByLabel("E-mail", { exact: true })).toHaveValue(negocio.lead.email!);
+  await expect(detalhes.getByLabel("Documento", { exact: true })).toHaveValue("");
   await abas.getByRole("tab", { name: "Oportunidade" }).click();
   await expect(detalhes.getByRole("tabpanel")).toContainText("Investimento estimado");
   await abas.getByRole("tab", { name: "Documentos" }).click();
@@ -92,14 +100,19 @@ test("cartão compacto preserva identificação e detalhes sem o bloco de invest
   expect(await tituloModal.evaluate((el) => el.getBoundingClientRect().height <= parseFloat(getComputedStyle(el).lineHeight) + 1)).toBe(true);
   await expect(cabecalho.getByRole("button", { name: "Mais ações do lead" })).toBeVisible();
   await expect(detalhes.getByRole("tabpanel")).toContainText("até 25 MiB por arquivo");
-  await detalhes.getByRole("button", { name: "Fechar", exact: true }).click();
+  await cabecalho.getByRole("button", { name: "Mais ações do lead" }).click();
+  await page.getByRole("menuitem", { name: "Converter em cliente", exact: true }).click();
+  const conversao = page.getByRole("dialog", { name: "Converter lead em cliente", exact: true });
+  await expect(conversao).toBeVisible();
+  await conversao.getByRole("button", { name: "Cancelar", exact: true }).click();
+  await expect(conversao).toHaveCount(0);
   await expect(detalhes).toHaveCount(0);
 });
 
 test("prioridade persiste no cadastro do lead", async ({ page }) => {
   await page.goto(`/comercial/pipelines?pipeline=${pipeline.id}`);
-  const cartao = page.getByRole("article", { name: `Negócio ${negocio.title}`, exact: true });
-  const prioridade = cartao.getByRole("button", { name: `Prioridade de ${negocio.title}`, exact: true });
+  const cartao = page.getByRole("article", { name: `Lead ${negocio.lead.name}`, exact: true });
+  const prioridade = cartao.getByRole("button", { name: `Prioridade de ${negocio.lead.name}`, exact: true });
   await expect(prioridade).toContainText("Prioridade");
   await prioridade.focus();
   await page.keyboard.press("Enter");
@@ -138,17 +151,17 @@ test("prioridade persiste no cadastro do lead", async ({ page }) => {
 
 test("cartão mantém conteúdo e menu contidos nas quatro larguras e preserva arraste", async ({ page }) => {
   await page.goto(`/comercial/pipelines?pipeline=${pipeline.id}`);
-  const cartao = page.getByRole("article", { name: `Negócio ${negocio.title}`, exact: true });
+  const cartao = page.getByRole("article", { name: `Lead ${negocio.lead.name}`, exact: true });
   for (const width of [320, 768, 1024, 1440]) {
     await page.setViewportSize({ width, height: 1000 });
     await expect(cartao).toBeInViewport();
     expect(await cartao.evaluate((el) => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(1);
-    const prioridade = (await cartao.getByRole("button", { name: `Prioridade de ${negocio.title}`, exact: true }).boundingBox())!;
-    const acoes = (await cartao.getByRole("button", { name: `Ações de ${negocio.title}`, exact: true }).boundingBox())!;
+    const prioridade = (await cartao.getByRole("button", { name: `Prioridade de ${negocio.lead.name}`, exact: true }).boundingBox())!;
+    const acoes = (await cartao.getByRole("button", { name: `Ações de ${negocio.lead.name}`, exact: true }).boundingBox())!;
     expect(prioridade.x + prioridade.width).toBeLessThanOrEqual(acoes.x);
     expect(prioridade.y + prioridade.height / 2).toBeCloseTo(acoes.y + acoes.height / 2, 0);
-    await cartao.getByRole("button", { name: `Ações de ${negocio.title}`, exact: true }).click();
-    const menu = page.getByRole("menu", { name: `Ações de ${negocio.title}`, exact: true });
+    await cartao.getByRole("button", { name: `Ações de ${negocio.lead.name}`, exact: true }).click();
+    const menu = page.getByRole("menu", { name: `Ações de ${negocio.lead.name}`, exact: true });
     await expect(menu).toBeInViewport();
     await page.keyboard.press("Escape");
     await expect(menu).toHaveCount(0);
@@ -167,9 +180,9 @@ test("cartão mantém conteúdo e menu contidos nas quatro larguras e preserva a
   const resposta = await persistencia;
   expect(resposta.ok()).toBe(true);
   expect((await resposta.json()).stageId).toBe(pipeline.stages[1]!.id);
-  await expect(destino.getByRole("article", { name: `Negócio ${negocio.title}`, exact: true })).toBeVisible();
+  await expect(destino.getByRole("article", { name: `Lead ${negocio.lead.name}`, exact: true })).toBeVisible();
   await page.reload();
-  await expect(destino.getByRole("article", { name: `Negócio ${negocio.title}`, exact: true })).toBeVisible();
+  await expect(destino.getByRole("article", { name: `Lead ${negocio.lead.name}`, exact: true })).toBeVisible();
   await expect(cartao.locator("time")).toHaveAttribute("datetime", negocio.createdAt);
-  await expect(cartao.getByText(`PLU-${negocio.id.slice(0, 8).toUpperCase()}`, { exact: true })).toBeVisible();
+  await expect(cartao.getByText(`PLU-${String(negocio.number).padStart(4, "0")}`, { exact: true })).toBeVisible();
 });

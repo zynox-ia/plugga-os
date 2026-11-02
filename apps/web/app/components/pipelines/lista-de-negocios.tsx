@@ -268,20 +268,20 @@ export function ListaDeNegocios({
                   const parado = estaParado(n, pipeline);
                   const dias = diasNaEtapa(n);
                   const estaMarcado = selecionados.has(n.id);
-                  const detalheCliente = n.client;
+                  const lead = n.lead;
 
                   // Documento formatado (CNPJ ou CPF)
-                  const docFormatado = detalheCliente?.document
-                    ? documentoFormatado(detalheCliente.personType, detalheCliente.document)
+                  const docFormatado = lead.document
+                    ? documentoFormatado(lead.personType, lead.document)
                     : null;
 
                   // Telefone formatado
-                  const foneFormatado = detalheCliente?.phone
-                    ? telefoneFormatado(detalheCliente.phone)
+                  const foneFormatado = lead.phone
+                    ? telefoneFormatado(lead.phone)
                     : null;
 
                   // Localização (Cidade / UF)
-                  const localidade = [detalheCliente?.city, detalheCliente?.state]
+                  const localidade = [lead.city, lead.state]
                     .filter(Boolean)
                     .join("/");
 
@@ -295,11 +295,11 @@ export function ListaDeNegocios({
                       <td>
                         <div className={styles.oportunidade}>
                           {selecionando ? <span onClick={(e) => e.stopPropagation()}>
-                            <Checkbox className={styles.checkbox} label={`Selecionar ${n.title}`} checked={estaMarcado} onChange={() => alternar(n.id)} />
+                            <Checkbox className={styles.checkbox} label={`Selecionar ${n.lead.name}`} checked={estaMarcado} onChange={() => alternar(n.id)} />
                           </span> : null}
                           <span className={styles.iconeOportunidade} aria-hidden="true"><Target size={20} /></span>
                           <div className="celula-lead-bloco">
-                            <button type="button" className={`lead-nome ${styles.titulo}`} title={n.title} onClick={() => setLeadSelecionado(n)}>{n.title}</button>
+                            <button type="button" className={`lead-nome ${styles.titulo}`} title={n.lead.name} onClick={() => setLeadSelecionado(n)}>{n.lead.name}</button>
                             <div className="lead-subtitulo">
                               {docFormatado ? (
                                 <span className="lead-subtitulo-item" title="Documento do cliente">
@@ -327,12 +327,12 @@ export function ListaDeNegocios({
                                 </>
                               ) : null}
 
-                              {detalheCliente?.email ? (
+                              {lead.email ? (
                                 <>
                                   <span className="lead-subtitulo-divisor">•</span>
-                                  <span className={`lead-subtitulo-item ${styles.email}`} title={detalheCliente.email}>
+                                  <span className={`lead-subtitulo-item ${styles.email}`} title={lead.email}>
                                     <Mail size={11} aria-hidden="true" />
-                                    <span>{detalheCliente.email}</span>
+                                    <span>{lead.email}</span>
                                   </span>
                                 </>
                               ) : null}
@@ -357,11 +357,11 @@ export function ListaDeNegocios({
                       </td>
                       <td>
                         <div className="celula-empresa-centro">
-                          <span className="empresa-nome" title={detalheCliente.legalName || n.client.name}>
-                            {detalheCliente?.legalName || n.client.name}
+                          <span className="empresa-nome" title={lead.legalName || lead.name}>
+                            {lead.legalName || lead.name}
                           </span>
                           <div className="empresa-sub">
-                            <span className="empresa-badge-tipo">{n.client.personType}</span>
+                            <span className="empresa-badge-tipo">{lead.personType.toUpperCase()}</span>
                             {localidade ? (
                               <span title="Localização">
                                 <MapPin size={10} aria-hidden="true" style={{ display: "inline", verticalAlign: "-1px", marginRight: "2px" }} />
@@ -370,6 +370,11 @@ export function ListaDeNegocios({
                             ) : (
                               <span>Local não informado</span>
                             )}
+                            {n.client ? (
+                              <span className="empresa-badge-cliente" title={`Convertido em cliente: ${n.client.name}`}>
+                                Cliente
+                              </span>
+                            ) : null}
                           </div>
                         </div>
                       </td>

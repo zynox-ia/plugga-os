@@ -1828,7 +1828,7 @@ tbody tr:last-child td { border-bottom: 0; }
 }
 .cabecalho-linhas--etapas,
 .linhas-config li.linha-etapa {
-  grid-template-columns: 24px minmax(0, 1fr) 118px auto;
+  grid-template-columns: 24px minmax(0, 1fr) 118px auto auto;
 }
 .linhas-config {
   display: grid;

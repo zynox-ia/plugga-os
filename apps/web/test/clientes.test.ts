@@ -54,4 +54,19 @@ describe("lerErro", () => {
     assert.equal(lerErro({ codigo: "CONFLITO_UNICIDADE", mensagem: "Já existe um cliente com este CNPJ." }, "padrão").mensagem, "Já existe um cliente com este CNPJ.");
     assert.equal(lerErro(null, "padrão").mensagem, "padrão");
   });
+
+  it("preserva apenas candidatos de conversão válidos no erro da API", () => {
+    const erro = lerErro({
+      codigo: "REQUISICAO_INVALIDA",
+      mensagem: "Escolha como continuar.",
+      candidatos: [
+        { id: "00000000-0000-4000-8000-000000000001", name: "Cliente existente", personType: "pj", matchedOn: ["email"] },
+        { id: "invalido", name: "Ignorado" },
+      ],
+    }, "padrão");
+
+    assert.deepEqual(erro.candidatos?.map(({ id, name }) => ({ id, name })), [
+      { id: "00000000-0000-4000-8000-000000000001", name: "Cliente existente" },
+    ]);
+  });
 });
