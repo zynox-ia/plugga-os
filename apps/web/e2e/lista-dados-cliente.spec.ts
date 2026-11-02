@@ -14,7 +14,7 @@ test("lista exibe dados do lead sem buscar a ficha de cada cliente", async ({ pa
   expect(pipelineResposta.ok()).toBeTruthy();
   const pipeline = await pipelineResposta.json() as Pipeline;
   try {
-    const email = `lista-${marca}@teste.local`;
+    const email = `lista-${marca}-endereco-comprido-para-verificar-layout@teste.local`;
     const clienteResposta = await request.post("/api/clientes", { headers, data: { personType: "pj", name: `Lead sintético ${marca}`, email } });
     expect(clienteResposta.ok()).toBeTruthy();
     const { client } = await clienteResposta.json() as CreateClientResponse;
@@ -30,6 +30,11 @@ test("lista exibe dados do lead sem buscar a ficha de cada cliente", async ({ pa
     const linha = page.getByRole("row").filter({ hasText: negocio.title });
     await expect(linha.getByText(email)).toBeVisible();
     await expect(linha.getByText("Local não informado")).toBeVisible();
+    await page.setViewportSize({ width: 800, height: 800 });
+    const emailTexto = linha.getByText(email);
+    await expect(emailTexto.locator("..")).toHaveAttribute("title", email);
+    expect(await emailTexto.evaluate((el) => el.scrollWidth > el.clientWidth && getComputedStyle(el).textOverflow === "ellipsis")).toBe(true);
+    await expect(linha.locator("svg.lucide-target")).toBeVisible();
     expect(consultas).toEqual([]);
   } finally {
     const resposta = await request.post(`/api/pipelines/${pipeline.id}/arquivar`, { headers });

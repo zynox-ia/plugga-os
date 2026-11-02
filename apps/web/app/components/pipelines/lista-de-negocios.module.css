@@ -171,6 +171,17 @@
 }
 
 .lista :global(.celula-lead-bloco) { min-width: 0; gap: var(--space-2xs); }
+.iconeOportunidade {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 40px;
+  width: 40px;
+  height: 40px;
+  color: var(--ui-muted);
+  border: 1px solid var(--ui-divider);
+  border-radius: var(--radius-sm);
+  background: var(--ui-subtle);
+}
 
 .titulo {
   padding: 0;
@@ -186,11 +197,15 @@
 .lista :global(.lead-subtitulo) {
   font-size: 12px;
   gap: var(--space-2xs);
-  overflow-wrap: anywhere;
+  flex-wrap: nowrap;
+  min-width: 0;
+  overflow: hidden;
 }
 
-.lista :global(.lead-subtitulo-item) { min-width: 0; }
+.lista :global(.lead-subtitulo-item) { min-width: 0; white-space: nowrap; }
 .lista :global(.lead-subtitulo-item svg) { flex-shrink: 0; }
+.email { flex: 0 1 auto; overflow: hidden; }
+.email > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .lista :global(.celula-empresa-centro) { align-items: flex-start; gap: var(--space-2xs); }
 .lista :global(.empresa-nome) { text-align: left; overflow-wrap: anywhere; }

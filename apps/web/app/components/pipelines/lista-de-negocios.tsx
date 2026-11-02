@@ -12,6 +12,7 @@ import {
   Mail,
   MapPin,
   Phone,
+  Target,
   User,
 } from "lucide-react";
 import { useMemo, useRef, useState, type CSSProperties, type MouseEvent } from "react";
@@ -320,6 +321,7 @@ export function ListaDeNegocios({
                           {selecionando ? <span onClick={(e) => e.stopPropagation()}>
                             <Checkbox className={styles.checkbox} label={`Selecionar ${n.title}`} checked={estaMarcado} onChange={() => alternar(n.id)} />
                           </span> : null}
+                          <span className={styles.iconeOportunidade} aria-hidden="true"><Target size={20} /></span>
                           <div className="celula-lead-bloco">
                             <button type="button" className={`lead-nome ${styles.titulo}`} onClick={() => setLeadSelecionado(n)}>{n.title}</button>
                             <div className="lead-subtitulo">
@@ -352,7 +354,7 @@ export function ListaDeNegocios({
                               {detalheCliente?.email ? (
                                 <>
                                   <span className="lead-subtitulo-divisor">•</span>
-                                  <span className="lead-subtitulo-item" title="E-mail de contato">
+                                  <span className={`lead-subtitulo-item ${styles.email}`} title={detalheCliente.email}>
                                     <Mail size={11} aria-hidden="true" />
                                     <span>{detalheCliente.email}</span>
                                   </span>
