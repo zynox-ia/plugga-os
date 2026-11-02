@@ -14,6 +14,7 @@ import {
   Phone,
   Target,
   User,
+  X,
 } from "lucide-react";
 import { useMemo, useRef, useState, type CSSProperties, type MouseEvent } from "react";
 
@@ -28,6 +29,7 @@ import {
 } from "../../lib/negocios";
 import { ShellCard, ShellTable } from "../plugga-shell";
 import { Button, Checkbox } from "../ui";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/shadcn/select";
 import { MenuDoNegocio } from "./cartao-de-negocio";
 import { DetalhesDoLeadModal } from "./detalhes-do-lead-modal";
 import { PaginacaoDaLista } from "./paginacao-da-lista";
@@ -43,7 +45,7 @@ const COLUNAS: { campo: Ordem["campo"] | null; rotulo: string }[] = [
 
 const ITENS_POR_PAGINA = 6;
 
-type Lote = { tipo: "owner" | "tag" | "stage"; valor: string };
+type Lote = { tipo: "owner" | "tag" | "stage" | "priority"; valor: string };
 
 export function ListaDeNegocios({
   pipeline,
@@ -102,7 +104,9 @@ export function ListaDeNegocios({
       ? responsaveis.map((m) => ({ id: m.id, nome: m.name }))
       : lote.tipo === "tag"
         ? pipeline.tags.map((t) => ({ id: t.id, nome: t.name }))
-        : pipeline.stages.map((e) => ({ id: e.id, nome: e.name }));
+        : lote.tipo === "stage"
+          ? pipeline.stages.map((e) => ({ id: e.id, nome: e.name }))
+          : [{ id: "urgente", nome: "Urgente" }, { id: "medio", nome: "Médio" }, { id: "normal", nome: "Normal" }, { id: "sem-prioridade", nome: "Sem prioridade" }];
 
   async function aplicarLote() {
     if (!lote.valor || marcados.length === 0) return;
@@ -111,7 +115,9 @@ export function ListaDeNegocios({
         ? { type: "owner", ownerId: lote.valor }
         : lote.tipo === "tag"
           ? { type: "tag", tagId: lote.valor }
-          : { type: "stage", stageId: lote.valor };
+          : lote.tipo === "stage"
+            ? { type: "stage", stageId: lote.valor }
+            : { type: "priority", priority: lote.valor === "sem-prioridade" ? null : lote.valor as "urgente" | "medio" | "normal" };
     setAplicando(true);
     const ok = await acoes.emLote(marcados, acao);
     setAplicando(false);
@@ -137,27 +143,19 @@ export function ListaDeNegocios({
             <span>{marcados.length === 1 ? "1 lead selecionado" : `${marcados.length} leads selecionados`}</span>
           </div>
           <div className="barra-lote-controles">
-            <select
-              aria-label="Ação em lote"
-              value={lote.tipo}
-              onChange={(e) => setLote({ tipo: e.target.value as Lote["tipo"], valor: "" })}
-            >
-              <option value="owner">Trocar responsável</option>
-              {pipeline.tags.length > 0 ? <option value="tag">Adicionar etiqueta</option> : null}
-              <option value="stage">Mover de etapa</option>
-            </select>
-            <select
-              aria-label="Destino da ação"
-              value={lote.valor}
-              onChange={(e) => setLote((atual) => ({ ...atual, valor: e.target.value }))}
-            >
-              <option value="">Escolha…</option>
-              {opcoesDoLote.map((o) => (
-                <option key={o.id} value={o.id}>
-                  {o.nome}
-                </option>
-              ))}
-            </select>
+            <Select value={lote.tipo} onValueChange={(tipo) => setLote({ tipo: tipo as Lote["tipo"], valor: "" })}>
+              <SelectTrigger className={styles.selectLote} aria-label="Ação em lote"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="owner">Trocar responsável</SelectItem>
+                {pipeline.tags.length > 0 ? <SelectItem value="tag">Adicionar etiqueta</SelectItem> : null}
+                <SelectItem value="stage">Mover de etapa</SelectItem>
+                <SelectItem value="priority">Definir prioridade</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={lote.valor} onValueChange={(valor) => setLote((atual) => ({ ...atual, valor }))}>
+              <SelectTrigger className={styles.selectLote} aria-label="Destino da ação"><SelectValue placeholder="Escolha…" /></SelectTrigger>
+              <SelectContent>{opcoesDoLote.map((o) => <SelectItem key={o.id} value={o.id}>{o.nome}</SelectItem>)}</SelectContent>
+            </Select>
             <Button
               variant="primary"
               size="sm"
@@ -166,12 +164,12 @@ export function ListaDeNegocios({
             >
               {aplicando ? "Aplicando…" : "Aplicar"}
             </Button>
-            <button type="button" className="link-lote" onClick={() => {
+            <Button variant="secondary" size="sm" icon={<X size={14} />} onClick={() => {
               setSelecionados(new Set());
               botaoSelecao.current?.querySelector("button")?.focus();
             }}>
               Limpar seleção
-            </button>
+            </Button>
           </div>
         </div>
       ) : null}

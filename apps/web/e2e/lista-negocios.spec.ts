@@ -274,11 +274,21 @@ test("seleciona apenas a página visível e preserva a seleção explícita de o
   await expect(todos).toBeChecked();
 
   await page.route("**/api/leads/lote", (route) => route.fulfill({ json: { deals: [] } }));
-  await page.getByRole("combobox", { name: "Ação em lote" }).selectOption("stage");
-  await page.getByRole("combobox", { name: "Destino da ação" }).selectOption(pipeline.stages[1]!.id);
+  await page.getByRole("combobox", { name: "Ação em lote" }).click();
+  await page.getByRole("option", { name: "Mover de etapa" }).click();
+  await page.getByRole("combobox", { name: "Destino da ação" }).click();
+  await page.getByRole("option", { name: pipeline.stages[1]!.name, exact: true }).click();
   const envio = page.waitForRequest((r) => new URL(r.url()).pathname === "/api/leads/lote");
   await page.getByRole("button", { name: "Aplicar", exact: true }).click();
   expect((await envio).postDataJSON().dealIds.sort()).toEqual(idsVisiveis.sort());
+  await todos.check();
+  await page.getByRole("combobox", { name: "Ação em lote" }).click();
+  await page.getByRole("option", { name: "Definir prioridade" }).click();
+  await page.getByRole("combobox", { name: "Destino da ação" }).click();
+  await page.getByRole("option", { name: "Sem prioridade", exact: true }).click();
+  const envioPrioridade = page.waitForRequest((r) => new URL(r.url()).pathname === "/api/leads/lote");
+  await page.getByRole("button", { name: "Aplicar", exact: true }).click();
+  expect((await envioPrioridade).postDataJSON().action).toEqual({ type: "priority", priority: null });
 });
 
 test("consulta cada cliente da página uma única vez com respostas em tempos diferentes", async ({ page }) => {

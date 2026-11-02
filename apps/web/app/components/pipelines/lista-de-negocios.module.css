@@ -48,16 +48,7 @@
   gap: var(--space-xs);
 }
 
-.lista :global(.barra-lote select) {
-  max-width: 100%;
-  min-height: 36px;
-  border: 1px solid var(--ui-divider);
-  border-radius: var(--radius-sm);
-  padding: var(--space-xs) var(--space-sm);
-  color: var(--ui-text);
-  background: var(--ui-surface);
-  font: 400 12px/var(--line-height-control) var(--font-general-sans);
-}
+.selectLote { width: 190px; max-width: 100%; min-height: 36px; font-size: 12px; }
 
 .selecao { display: flex; }
 .selecao > button { flex: 1; }
@@ -279,7 +270,6 @@
   box-shadow: 0 4px 16px color-mix(in srgb, var(--ui-text) 10%, transparent);
 }
 
-.lista :global(.link-lote) { color: var(--ui-primary); }
 .lista :global(.barra-lote-info) { white-space: nowrap; }
 
 .lista button:focus-visible,
@@ -296,10 +286,11 @@
   .lista :global(.lista-paginacao-paginas) { min-width: 0; flex-wrap: wrap; justify-content: flex-end; }
   .lista :global(.barra-lote) { width: 100%; }
   .lista :global(.barra-lote-controles) { width: 100%; }
-  .lista :global(.barra-lote select) { flex: 1; min-width: 0; }
+  .selectLote { flex: 1; min-width: 0; }
 }
 
 @media (max-width: 479px) {
   .controles { display: grid; grid-template-columns: minmax(0, 1fr); }
   .lista :global(.barra-lote-controles) { display: grid; grid-template-columns: minmax(0, 1fr); }
+  .selectLote { width: 100%; }
 }
