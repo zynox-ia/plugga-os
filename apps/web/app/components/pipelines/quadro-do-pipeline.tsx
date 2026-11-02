@@ -1,6 +1,6 @@
 "use client";
 
-import type { BulkDealsAction, Deal, Pipeline, PipelinePerson } from "@plugga/shared";
+import type { BulkDealsAction, Deal, DealPriority, Pipeline, PipelinePerson } from "@plugga/shared";
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent, type RefObject } from "react";
 
 import { aplicarFiltros, FILTROS_INICIAIS, hojeNoFuso, type Visao } from "../../lib/negocios";
@@ -8,6 +8,7 @@ import { KanbanDoPipeline } from "./kanban-do-pipeline";
 import { ListaDeNegocios } from "./lista-de-negocios";
 
 export type AcoesDoNegocio = {
+  definirPrioridade: (negocio: Deal, prioridade: DealPriority | null) => Promise<void>;
   moverEtapa: (negocio: Deal, etapaId: string) => Promise<void>;
   ganhar: (negocio: Deal) => void;
   perder: (negocio: Deal) => void;

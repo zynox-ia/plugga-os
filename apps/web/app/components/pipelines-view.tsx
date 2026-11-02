@@ -42,6 +42,7 @@ export function PipelinesView({
 }) {
   const router = useRouter();
   const colunasRef = useRef<HTMLDivElement>(null);
+  const prioridadesPendentes = useRef(new Set<string>());
   const { usuario } = useSessionUser();
   const [busca, setBusca] = useState("");
   const [configurando, setConfigurando] = useState<"editar" | "novo" | null>(null);
@@ -76,6 +77,18 @@ export function PipelinesView({
   }
 
   const acoes: AcoesDoNegocio = {
+    async definirPrioridade(negocio, prioridade) {
+      if (prioridadesPendentes.current.has(negocio.id) || negocio.priority === prioridade) return;
+      prioridadesPendentes.current.add(negocio.id);
+      setNegocios((atuais) => atuais.map((n) => n.id === negocio.id ? { ...n, priority: prioridade } : n));
+      const resposta = await enviar<Deal>(`/api/negocios/${negocio.id}/prioridade`, "PATCH", { priority: prioridade });
+      if (resposta.ok) confirmado([resposta.dados]);
+      else {
+        setNegocios((atuais) => atuais.map((n) => n.id === negocio.id ? { ...n, priority: negocio.priority } : n));
+        setAviso(resposta.erro.mensagem);
+      }
+      prioridadesPendentes.current.delete(negocio.id);
+    },
     async moverEtapa(negocio, etapaId) {
       if (negocio.stageId === etapaId) return;
       aplicar([{ ...negocio, stageId: etapaId, stageEnteredAt: new Date().toISOString() }]);

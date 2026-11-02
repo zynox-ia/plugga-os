@@ -21,7 +21,7 @@ export function SeletorBadgePrioridade({ nome, value, onChange }: {
     <Popover open={aberto} onOpenChange={setAberto}>
       <PopoverTrigger asChild>
         <button type="button" className={styles.prioridadeBadge} data-prioridade={value}
-          aria-label={`Prioridade visual de ${nome}`}>
+          aria-label={`Prioridade de ${nome}`}>
           <Flag size={12} aria-hidden="true" fill={value === "urgente" ? "currentColor" : "none"} />
           <span>{rotulo}</span>
         </button>
@@ -29,7 +29,8 @@ export function SeletorBadgePrioridade({ nome, value, onChange }: {
       <PopoverContent align="end" className={styles.paletaPrioridade} aria-label="Escolher prioridade"
         onClick={(evento) => evento.stopPropagation()}>
         <p className={styles.paletaTitulo}>Prioridade</p>
-        <div className={styles.paletaOpcoes} role="group" aria-label="Prioridade visual">
+        <div className={styles.paletaOpcoes} role="group" aria-label="Prioridade">
+          <button type="button" className={styles.prioridadeBadge} aria-pressed={value === ""} onClick={() => { onChange(""); setAberto(false); }}>Sem prioridade</button>
           {OPCOES.map((opcao) => (
             <button key={opcao.value} type="button" className={styles.prioridadeBadge} data-prioridade={opcao.value}
               aria-pressed={value === opcao.value} onClick={() => { onChange(opcao.value); setAberto(false); }}>

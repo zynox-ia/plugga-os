@@ -15,7 +15,8 @@ test("lista exibe dados do lead sem buscar a ficha de cada cliente", async ({ pa
   const pipeline = await pipelineResposta.json() as Pipeline;
   try {
     const email = `lista-${marca}-endereco-comprido-para-verificar-layout@teste.local`;
-    const clienteResposta = await request.post("/api/clientes", { headers, data: { personType: "pj", name: `Lead sintético ${marca}`, email } });
+    const nomeCliente = `Lead sintético com um nome bastante longo para testar a exibição na tabela ${marca}`;
+    const clienteResposta = await request.post("/api/clientes", { headers, data: { personType: "pj", name: nomeCliente, email } });
     expect(clienteResposta.ok()).toBeTruthy();
     const { client } = await clienteResposta.json() as CreateClientResponse;
     const negocioResposta = await request.post("/api/negocios", { headers, data: {
@@ -35,6 +36,25 @@ test("lista exibe dados do lead sem buscar a ficha de cada cliente", async ({ pa
     await expect(emailTexto.locator("..")).toHaveAttribute("title", email);
     expect(await emailTexto.evaluate((el) => el.scrollWidth > el.clientWidth && getComputedStyle(el).textOverflow === "ellipsis")).toBe(true);
     await expect(linha.locator("svg.lucide-target")).toBeVisible();
+    const nome = linha.getByText(nomeCliente, { exact: true });
+    await expect(nome).toHaveAttribute("title", nomeCliente);
+    expect(await nome.evaluate((el) => el.scrollWidth > el.clientWidth && getComputedStyle(el).textOverflow === "ellipsis")).toBe(true);
+    const acoes = linha.getByRole("button", { name: `Ações de ${negocio.title}` });
+    const menu = page.getByRole("menu", { name: `Ações de ${negocio.title}` });
+    await acoes.click();
+    const respostaPrioridade = page.waitForResponse((resposta) => resposta.url().includes(`/api/negocios/${negocio.id}/prioridade`) && resposta.request().method() === "PATCH");
+    await menu.getByRole("menuitemradio", { name: "Urgente" }).click();
+    expect((await respostaPrioridade).ok()).toBe(true);
+    await acoes.click();
+    await expect(menu.getByRole("menuitemradio", { name: "Urgente" })).toHaveAttribute("aria-checked", "true");
+    await page.reload();
+    await acoes.click();
+    await expect(menu.getByRole("menuitemradio", { name: "Urgente" })).toHaveAttribute("aria-checked", "true");
+    await page.route(`**/api/negocios/${negocio.id}/prioridade`, (rota) => rota.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ message: "Falha ao salvar prioridade" }) }));
+    await menu.getByRole("menuitemradio", { name: "Normal" }).click();
+    await expect(page.getByRole("alert").filter({ hasText: "Falha ao salvar prioridade" })).toBeVisible();
+    await acoes.click();
+    await expect(menu.getByRole("menuitemradio", { name: "Urgente" })).toHaveAttribute("aria-checked", "true");
     expect(consultas).toEqual([]);
   } finally {
     const resposta = await request.post(`/api/pipelines/${pipeline.id}/arquivar`, { headers });

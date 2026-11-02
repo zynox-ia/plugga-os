@@ -10,7 +10,7 @@ import { formatarDataHora, FUSO_HORARIO } from "../../lib/format";
 import { Avatar } from "./icones";
 import { DetalhesDoLeadModal } from "./detalhes-do-lead-modal";
 import type { AcoesDoNegocio } from "./quadro-do-pipeline";
-import { SeletorBadgePrioridade, type PrioridadeVisual } from "./seletor-badge-prioridade";
+import { SeletorBadgePrioridade } from "./seletor-badge-prioridade";
 import styles from "./cartao-de-negocio.module.css";
 
 const formatoChegada = new Intl.DateTimeFormat("pt-BR", { day: "numeric", month: "long", timeZone: FUSO_HORARIO });
@@ -22,12 +22,14 @@ export function MenuDoNegocio({
   acoes,
   aoVerLead,
   menuClassName = "",
+  mostrarPrioridade = false,
 }: {
   negocio: Deal;
   pipeline: Pipeline;
   acoes: AcoesDoNegocio;
   aoVerLead?: () => void;
   menuClassName?: string;
+  mostrarPrioridade?: boolean;
 }) {
   const [aberto, setAberto] = useState(false);
   const [posicao, setPosicao] = useState<{ top: number; left: number } | null>(null);
@@ -127,6 +129,21 @@ export function MenuDoNegocio({
                 </>
               ) : null}
 
+              {mostrarPrioridade ? <>
+                <span className="menu-negocio-titulo">Prioridade</span>
+                {([
+                  { valor: null, rotulo: "Sem prioridade" },
+                  { valor: "urgente", rotulo: "Urgente" },
+                  { valor: "medio", rotulo: "Médio" },
+                  { valor: "normal", rotulo: "Normal" },
+                ] as const).map((opcao) => (
+                  <button key={opcao.rotulo} type="button" role="menuitemradio" aria-checked={negocio.priority === opcao.valor} onClick={escolher(() => void acoes.definirPrioridade(negocio, opcao.valor))}>
+                    {negocio.priority === opcao.valor ? <Check size={14} aria-hidden="true" /> : <span style={{ width: 14 }} aria-hidden="true" />}
+                    {opcao.rotulo}
+                  </button>
+                ))}
+                <span className="menu-negocio-divisor" role="separator" />
+              </> : null}
               {negocio.status === "open" ? <>
                 <span className="menu-negocio-titulo">Mover para etapa</span>
                 {pipeline.stages
@@ -173,8 +190,6 @@ export function CartaoDeNegocio({
   aoTerminarArrasto: () => void;
 }) {
   const [modalLeadAberto, setModalLeadAberto] = useState(false);
-  // Prévia de interface: não há campo de prioridade no contrato atual do lead.
-  const [prioridadeVisual, setPrioridadeVisual] = useState<PrioridadeVisual>("");
   const arrastou = useRef(false);
   const dias = diasNaEtapa(negocio);
   const parado = estaParado(negocio, pipeline);
@@ -207,7 +222,7 @@ export function CartaoDeNegocio({
             <span>PLU-{negocio.id.slice(0, 8).toUpperCase()}</span>
           </span>
           <div className={styles.acoesCabecalho}>
-            <SeletorBadgePrioridade nome={negocio.title} value={prioridadeVisual} onChange={setPrioridadeVisual} />
+            <SeletorBadgePrioridade nome={negocio.title} value={negocio.priority ?? ""} onChange={(prioridade) => void acoes.definirPrioridade(negocio, prioridade || null)} />
             <MenuDoNegocio negocio={negocio} pipeline={pipeline} acoes={acoes} aoVerLead={() => setModalLeadAberto(true)} menuClassName={styles.menuVidro} />
           </div>
         </header>

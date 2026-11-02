@@ -63,12 +63,10 @@ test("cartão compacto preserva identificação e detalhes sem o bloco de invest
   await expect(detalhes).toHaveCount(0);
 });
 
-test("prioridade é uma seleção visual e não altera o cadastro do lead", async ({ page }) => {
+test("prioridade persiste no cadastro do lead", async ({ page }) => {
   await page.goto(`/comercial/pipelines?pipeline=${pipeline.id}`);
-  const mutacoes: string[] = [];
-  page.on("request", (req) => { if (!["GET", "HEAD"].includes(req.method()) && new URL(req.url()).pathname.startsWith("/api/")) mutacoes.push(req.url()); });
   const cartao = page.getByRole("article", { name: `Negócio ${negocio.title}`, exact: true });
-  const prioridade = cartao.getByRole("button", { name: `Prioridade visual de ${negocio.title}`, exact: true });
+  const prioridade = cartao.getByRole("button", { name: `Prioridade de ${negocio.title}`, exact: true });
   await expect(prioridade).toContainText("Prioridade");
   await prioridade.focus();
   await page.keyboard.press("Enter");
@@ -80,7 +78,9 @@ test("prioridade é uma seleção visual e não altera o cadastro do lead", asyn
     await prioridade.click();
     const seletor = page.getByRole("dialog", { name: "Escolher prioridade", exact: true });
     await expect(seletor).toBeInViewport();
+    const resposta = page.waitForResponse((r) => r.url().includes(`/api/negocios/${negocio.id}/prioridade`) && r.request().method() === "PATCH");
     await seletor.getByRole("button", { name: label, exact: true }).click();
+    expect((await resposta).ok()).toBe(true);
     await expect(seletor).toHaveCount(0);
     await expect(prioridade).toBeFocused();
     await expect(prioridade).toContainText(label);
@@ -99,9 +99,8 @@ test("prioridade é uma seleção visual e não altera o cadastro do lead", asyn
     }
     await expect(page.getByRole("dialog", { name: "Detalhes do lead", exact: true })).toHaveCount(0);
   }
-  expect(mutacoes).toEqual([]);
   await page.reload();
-  await expect(prioridade).toContainText("Prioridade");
+  await expect(prioridade).toContainText("Normal");
 });
 
 test("cartão mantém conteúdo e menu contidos nas quatro larguras e preserva arraste", async ({ page }) => {
@@ -111,7 +110,7 @@ test("cartão mantém conteúdo e menu contidos nas quatro larguras e preserva a
     await page.setViewportSize({ width, height: 1000 });
     await expect(cartao).toBeInViewport();
     expect(await cartao.evaluate((el) => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(1);
-    const prioridade = (await cartao.getByRole("button", { name: `Prioridade visual de ${negocio.title}`, exact: true }).boundingBox())!;
+    const prioridade = (await cartao.getByRole("button", { name: `Prioridade de ${negocio.title}`, exact: true }).boundingBox())!;
     const acoes = (await cartao.getByRole("button", { name: `Ações de ${negocio.title}`, exact: true }).boundingBox())!;
     expect(prioridade.x + prioridade.width).toBeLessThanOrEqual(acoes.x);
     expect(prioridade.y + prioridade.height / 2).toBeCloseTo(acoes.y + acoes.height / 2, 0);

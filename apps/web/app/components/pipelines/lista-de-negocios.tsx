@@ -323,7 +323,7 @@ export function ListaDeNegocios({
                           </span> : null}
                           <span className={styles.iconeOportunidade} aria-hidden="true"><Target size={20} /></span>
                           <div className="celula-lead-bloco">
-                            <button type="button" className={`lead-nome ${styles.titulo}`} onClick={() => setLeadSelecionado(n)}>{n.title}</button>
+                            <button type="button" className={`lead-nome ${styles.titulo}`} title={n.title} onClick={() => setLeadSelecionado(n)}>{n.title}</button>
                             <div className="lead-subtitulo">
                               {docFormatado ? (
                                 <span className="lead-subtitulo-item" title="Documento do cliente">
@@ -381,7 +381,7 @@ export function ListaDeNegocios({
                       </td>
                       <td>
                         <div className="celula-empresa-centro">
-                          <span className="empresa-nome">
+                          <span className="empresa-nome" title={detalheCliente.legalName || n.client.name}>
                             {detalheCliente?.legalName || n.client.name}
                           </span>
                           <div className="empresa-sub">
@@ -447,6 +447,7 @@ export function ListaDeNegocios({
                             acoes={acoes}
                             aoVerLead={() => setLeadSelecionado(n)}
                             menuClassName={styles.menuVidro}
+                            mostrarPrioridade
                           />
                         </div>
                       </td>
