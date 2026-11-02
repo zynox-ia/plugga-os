@@ -184,25 +184,19 @@ test("janelas baixas mantêm o conteúdo alcançável e o agente visível", asyn
   }
 });
 
-test("ordenação usa o seletor do Design System e o cabeçalho alinha com a primeira coluna", async ({ page }) => {
+test("ordenação pelo cabeçalho e alinhamento da primeira coluna", async ({ page }) => {
   await page.goto(`/comercial/pipelines?pipeline=${pipeline.id}&visao=lista`);
   const cabecalho = await page.locator(".card-heading .eyebrow").boundingBox();
   const coluna = await page.getByRole("button", { name: "Oportunidade", exact: true }).boundingBox();
   expect(cabecalho!.x).toBeCloseTo(coluna!.x, 0);
-  const ordenar = page.getByRole("combobox", { name: "Ordenar oportunidades", exact: true });
-  await expect(ordenar.locator("svg")).toHaveCount(1);
-  await ordenar.click();
-  const opcoes = page.getByRole("listbox", { name: "Ordenar oportunidades", exact: true });
-  await expect(opcoes).toBeVisible();
-  await expect(opcoes.getByRole("option")).toHaveCount(8);
-  await opcoes.getByRole("option", { name: "Oportunidade: A–Z", exact: true }).click();
+  await expect(page.getByRole("combobox", { name: "Ordenar oportunidades" })).toHaveCount(0);
+  await page.getByRole("button", { name: "Oportunidade", exact: true }).click();
   await expect(page.getByRole("columnheader").first()).toHaveAttribute("aria-sort", "ascending");
   await expect(page.locator(".lead-nome")).toHaveText(negocios.map((n) => n.title).sort((a, b) => a.localeCompare(b, "pt-BR")).slice(0, 6));
-  await ordenar.focus();
-  await page.keyboard.press("ArrowDown");
-  await expect(opcoes).toBeVisible();
-  await page.keyboard.press("Escape");
-  await expect(ordenar).toBeFocused();
+  await page.getByRole("button", { name: "Selecionar leads" }).click();
+  const caixa = (await page.getByRole("checkbox", { name: "Selecionar todos os leads visíveis" }).boundingBox())!;
+  const titulo = (await page.getByRole("button", { name: "Oportunidade", exact: true }).boundingBox())!;
+  expect(Math.abs(caixa.y + caixa.height / 2 - titulo.y - titulo.height / 2)).toBeLessThanOrEqual(1);
 });
 
 test("exibe cinco títulos e revela a seleção somente ao ativá-la", async ({ page }) => {

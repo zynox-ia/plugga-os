@@ -28,7 +28,6 @@ import {
 } from "../../lib/negocios";
 import { ShellCard, ShellTable } from "../plugga-shell";
 import { Button, Checkbox } from "../ui";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/shadcn/select";
 import { MenuDoNegocio } from "./cartao-de-negocio";
 import { DetalhesDoLeadModal } from "./detalhes-do-lead-modal";
 import { PaginacaoDaLista } from "./paginacao-da-lista";
@@ -43,16 +42,6 @@ const COLUNAS: { campo: Ordem["campo"] | null; rotulo: string }[] = [
 ];
 
 const ITENS_POR_PAGINA = 6;
-const OPCOES_DE_ORDEM = [
-  { value: "etapa:asc", label: "Etapa: início ao fim" },
-  { value: "etapa:desc", label: "Etapa: fim ao início" },
-  { value: "titulo:asc", label: "Oportunidade: A–Z" },
-  { value: "titulo:desc", label: "Oportunidade: Z–A" },
-  { value: "valor:desc", label: "Maior valor" },
-  { value: "valor:asc", label: "Menor valor" },
-  { value: "dias:desc", label: "Mais tempo na etapa" },
-  { value: "dias:asc", label: "Menos tempo na etapa" },
-];
 
 type Lote = { tipo: "owner" | "tag" | "stage"; valor: string };
 
@@ -195,17 +184,6 @@ export function ListaDeNegocios({
             <h2>{pipeline.name}</h2>
           </div>
           {totalItens > 0 ? <div className={styles.controles}>
-            <div className={styles.ordenacao}>
-              <Select value={`${ordem.campo}:${ordem.direcao}`} onValueChange={(valor) => {
-                const [campo, direcao] = valor.split(":") as [Ordem["campo"], Ordem["direcao"]];
-                setOrdem({ campo, direcao });
-              }}>
-                <SelectTrigger aria-label="Ordenar oportunidades"><SelectValue /></SelectTrigger>
-                <SelectContent aria-label="Ordenar oportunidades">
-                  {OPCOES_DE_ORDEM.map((opcao) => <SelectItem key={opcao.value} value={opcao.value}>{opcao.label}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
             <span ref={botaoSelecao} className={styles.selecao}>
               <Button variant="secondary" size="sm" icon={<CheckSquare size={14} />} aria-pressed={selecionando} onClick={() => {
                 setSelecionando(!selecionando);

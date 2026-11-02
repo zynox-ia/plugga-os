@@ -59,15 +59,6 @@
   font: 400 12px/var(--line-height-control) var(--font-general-sans);
 }
 
-.ordenacao { width: 210px; min-width: 0; }
-.ordenacao :global(.ui-field-trigger) {
-  height: 32px;
-  min-height: 32px;
-  padding: 0 var(--space-sm);
-  border-radius: var(--radius-full);
-  background: color-mix(in srgb, var(--ui-surface) 65%, transparent);
-  font-size: 12px;
-}
 .selecao { display: flex; }
 .selecao > button { flex: 1; }
 
@@ -151,6 +142,7 @@
 }
 
 .checkbox {
+  align-items: center;
   flex: 0 0 24px;
   width: 24px;
   min-height: 32px;
@@ -158,6 +150,7 @@
   padding: 0;
   gap: 0;
 }
+.checkbox > input { margin: 0; }
 
 /* O rótulo continua disponível para leitores de tela. */
 .checkbox > span {
@@ -298,7 +291,6 @@
 @media (max-width: 767px) {
   .lista :global(.card-heading) { padding: var(--space-md); }
   .controles { width: 100%; }
-  .ordenacao { flex: 1; }
   .lista :global(.lista-paginacao) { grid-template-columns: minmax(0, 1fr); }
   .lista :global(.lista-paginacao-controles) { display: grid; grid-template-columns: repeat(2, 26px) minmax(0, 1fr) repeat(2, 26px); max-width: 100%; }
   .lista :global(.lista-paginacao-paginas) { min-width: 0; flex-wrap: wrap; justify-content: flex-end; }
@@ -309,6 +301,5 @@
 
 @media (max-width: 479px) {
   .controles { display: grid; grid-template-columns: minmax(0, 1fr); }
-  .ordenacao { width: 100%; }
   .lista :global(.barra-lote-controles) { display: grid; grid-template-columns: minmax(0, 1fr); }
 }
