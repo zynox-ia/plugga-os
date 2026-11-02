@@ -1,253 +1,132 @@
-"use client";
+﻿"use client";
 
-import type { ClientDetail, Deal, Pipeline } from "@plugga/shared";
-import { useEffect, useState } from "react";
+import type { Deal, Pipeline } from "@plugga/shared";
+import { ArrowRight, BriefcaseBusiness, CloudUpload, FileText, FolderOpen, History, LayoutDashboard, UserRound, X } from "lucide-react";
+import { useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 
-import {
-  documentoFormatado,
-  ROTULO_TIPO,
-  telefoneFormatado,
-} from "../../lib/clientes";
+import { documentoFormatado, telefoneFormatado } from "../../lib/clientes";
 import { formatarBRL, formatarData } from "../../lib/format";
-import { diasNaEtapa, estaParado } from "../../lib/negocios";
-import { EMPRESAS_POR_ID } from "../../lib/organizacao";
-import {
-  Button,
-  Dialog,
-  Heading,
-  IconCheck,
-  IconCopy,
-  IconFileText,
-  IconLayers,
-  IconUser,
-} from "../ui";
+import { Modal } from "../modal";
+import { Button } from "../ui/button";
 import type { AcoesDoNegocio } from "./quadro-do-pipeline";
+import { SeletorBadgePrioridade } from "./seletor-badge-prioridade";
+import styles from "./detalhes-do-lead-modal.module.css";
 
-export function DetalhesDoLeadModal({
-  negocio,
-  pipeline,
-  acoes,
-  aoFechar,
-}: {
-  negocio: Deal;
-  pipeline: Pipeline;
-  acoes: AcoesDoNegocio;
-  aoFechar: () => void;
-}) {
-  const [cliente, setCliente] = useState<ClientDetail | null>(null);
-  const [carregando, setCarregando] = useState(true);
-  const [copiado, setCopiado] = useState<string | null>(null);
+const SECOES = [
+  { id: "resumo", titulo: "Resumo", icone: LayoutDashboard },
+  { id: "lead", titulo: "Lead", icone: UserRound },
+  { id: "historico", titulo: "Histórico", icone: History },
+  { id: "oportunidade", titulo: "Oportunidade", icone: BriefcaseBusiness },
+  { id: "proposta", titulo: "Proposta", icone: FileText },
+  { id: "documentos", titulo: "Documentos", icone: FolderOpen },
+] as const;
+type Secao = typeof SECOES[number]["id"];
 
-  const etapa = pipeline.stages.find((e) => e.id === negocio.stageId);
-  const dias = diasNaEtapa(negocio);
-  const parado = estaParado(negocio, pipeline);
+type Props = { negocio: Deal; pipeline: Pipeline; acoes: AcoesDoNegocio; aoFechar: () => void };
+type Documento = { id: string; nome: string; categoria: string; estado: "enviando" | "enviado" | "erro" | "duplicado"; progresso?: number };
+type DadosLead = { nome: string; documento: string; telefone: string; email: string };
+type EventoHistorico = { id: string; titulo: string; data: string };
 
-  useEffect(() => {
-    let vivo = true;
-    setCarregando(true);
-    fetch(`/api/clientes/${negocio.client.id}`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((dados: ClientDetail | null) => {
-        if (!vivo) return;
-        setCliente(dados);
-      })
-      .catch(() => undefined)
-      .finally(() => {
-        if (vivo) setCarregando(false);
-      });
-    return () => {
-      vivo = false;
-    };
-  }, [negocio.client.id]);
+function DadosDoLead({ dados, aoSalvar }: { dados: DadosLead; aoSalvar?: (dados: DadosLead) => void }) {
+  const [rascunho, setRascunho] = useState(dados);
+  const campos: { chave: keyof DadosLead; rotulo: string }[] = [
+    { chave: "nome", rotulo: "Nome" }, { chave: "documento", rotulo: "Documento" },
+    { chave: "telefone", rotulo: "Telefone" }, { chave: "email", rotulo: "E-mail" },
+  ];
+  return <>
+    <div className={styles.tituloSecao}><h3>Lead</h3><p>Dados de identificação e contato disponíveis.</p></div>
+    <div className={styles.grade}>{campos.map((campo) => <label className={styles.campo} key={campo.chave}>
+      <span>{campo.rotulo}</span><input className="ui-input" value={rascunho[campo.chave]} disabled={!aoSalvar} onChange={(evento) => setRascunho((atual) => ({ ...atual, [campo.chave]: evento.target.value }))} />
+    </label>)}</div>
+    {aoSalvar ? <Button variant="primary" size="sm" onClick={() => aoSalvar(rascunho)}>Salvar dados</Button> : <p className={styles.observacao}>A edição dos dados do lead estará disponível em breve.</p>}
+  </>;
+}
 
-  function copiar(texto: string, campo: string) {
-    void navigator.clipboard?.writeText(texto);
-    setCopiado(campo);
-    setTimeout(() => setCopiado(null), 2000);
+function Historico({ eventos }: { eventos: EventoHistorico[] | null }) {
+  return <div className={styles.estado}><History size={28} aria-hidden="true" /><h3>Histórico</h3>{eventos === null ? <p>O histórico deste lead estará disponível em breve.</p> : eventos.length ? <ul>{eventos.map((evento) => <li key={evento.id}>{evento.titulo} · {evento.data}</li>)}</ul> : <p>Nenhuma atividade registrada.</p>}</div>;
+}
+
+function Documentos({ documentos, disponivel }: { documentos: Documento[]; disponivel: boolean }) {
+  return <>
+    <div className={styles.tituloSecao}><h3>Documentos</h3><p>Organize os arquivos deste lead por categoria.</p></div>
+    <div className={styles.dropzone} aria-disabled={!disponivel}>
+      <CloudUpload size={24} aria-hidden="true" />
+      <strong>{disponivel ? "Arraste arquivos ou escolha no computador" : "Envio de documentos em preparação"}</strong>
+      <span>PDF, JPG, PNG, DOCX ou XLSX · até 25 MiB por arquivo</span>
+    </div>
+    {documentos.length ? <ul className={styles.documentos}>{documentos.map((documento) => <li key={documento.id}>
+      <FileText size={16} aria-hidden="true" /><span>{documento.nome}<small>{documento.categoria}</small></span>
+      <span role="status">{documento.estado === "enviando" ? `Enviando ${documento.progresso ?? 0}%` : documento.estado === "duplicado" ? "Arquivo duplicado" : documento.estado === "erro" ? "Erro no envio" : "Enviado"}</span>
+    </li>)}</ul> : <p className={styles.vazioTexto}>Nenhum documento disponível.</p>}
+  </>;
+}
+
+function Campo({ nome, children }: { nome: string; children: ReactNode }) {
+  return <div className={styles.campo}><span>{nome}</span><strong>{children || "Não informado"}</strong></div>;
+}
+
+function Etiquetas({ negocio }: { negocio: Deal }) {
+  return <div className={styles.etiquetas}>{negocio.tags.length ? negocio.tags.map((tag) => <span key={tag.id} className="ui-dialog-tag"><span className="ui-dialog-tag-dot" style={{ backgroundColor: tag.color }} />{tag.name}</span>) : <span className={styles.vazioTexto}>Nenhuma etiqueta.</span>}</div>;
+}
+
+function Conteudo({ secao, negocio, pipeline }: { secao: Secao; negocio: Deal; pipeline: Pipeline }) {
+  const etapa = pipeline.stages.find((item) => item.id === negocio.stageId);
+  const valor = negocio.value ? formatarBRL(negocio.value) : "Não informado";
+  const previsao = negocio.expectedCloseDate ? formatarData(negocio.expectedCloseDate) : "Não informada";
+  if (secao === "resumo" || secao === "oportunidade") return <>
+    <div className={styles.tituloSecao}><h3>{secao === "resumo" ? "Resumo" : "Oportunidade"}</h3><p>Informações comerciais deste lead.</p></div>
+    <div className={styles.grade}>
+      <Campo nome="Pipeline">{pipeline.name}</Campo>
+      <Campo nome="Etapa">{etapa?.name ?? "Não informada"}</Campo>
+      <Campo nome={pipeline.valueLabel || "Valor estimado"}>{valor}</Campo>
+      <Campo nome="Previsão de fechamento">{previsao}</Campo>
+      <Campo nome="Responsável">{negocio.owner.name}</Campo>
+    </div>
+    <div className={styles.bloco}><h4>Etiquetas</h4><Etiquetas negocio={negocio} /></div>
+  </>;
+  if (secao === "lead") return <DadosDoLead dados={{ nome: negocio.client.name, documento: documentoFormatado(negocio.client.personType, negocio.client.document) ?? "", telefone: telefoneFormatado(negocio.client.phone) ?? "", email: negocio.client.email ?? "" }} />;
+  if (secao === "historico") return <Historico eventos={null} />;
+  if (secao === "documentos") return <Documentos documentos={[]} disponivel={false} />;
+  const texto = "Os documentos da categoria Proposta aparecerão aqui.";
+  return <div className={styles.estado}><FolderOpen size={28} aria-hidden="true" /><h3>{SECOES.find((item) => item.id === secao)?.titulo}</h3><p>{texto}</p></div>;
+}
+
+export function DetalhesDoLeadModal({ negocio, pipeline, acoes, aoFechar }: Props) {
+  const [secao, setSecao] = useState<Secao>("resumo");
+  const id = useId();
+  const botoes = useRef<(HTMLButtonElement | null)[]>([]);
+  const etapa = pipeline.stages.find((item) => item.id === negocio.stageId);
+  function navegar(evento: KeyboardEvent<HTMLDivElement>) {
+    const indice = SECOES.findIndex((item) => item.id === secao);
+    const proximo = evento.key === "ArrowDown" || evento.key === "ArrowRight" ? (indice + 1) % SECOES.length : evento.key === "ArrowUp" || evento.key === "ArrowLeft" ? (indice + SECOES.length - 1) % SECOES.length : evento.key === "Home" ? 0 : evento.key === "End" ? SECOES.length - 1 : -1;
+    if (proximo < 0) return;
+    evento.preventDefault();
+    setSecao(SECOES[proximo]!.id);
+    botoes.current[proximo]?.focus();
   }
-
-  const tipo = cliente?.personType ?? negocio.client.personType;
-  const docFormatado = documentoFormatado(tipo, cliente?.document ?? null);
-  const telFormatado = telefoneFormatado(cliente?.phone ?? null);
-
-  return (
-    <Dialog
-      title="Detalhes do Lead"
-      accessibleLabel="Detalhes do lead"
-      description={`Visualização completa dos dados de captação e da negociação de ${negocio.title}.`}
-      icon={<IconUser />}
-      onClose={aoFechar}
-      size="media"
-      cancelText="Fechar"
-      footer={
-        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          {negocio.status === "open" ? (
-            <Button
-              variant="primary"
-              icon={<IconCheck width={14} height={14} />}
-              onClick={() => {
-                aoFechar();
-                acoes.ganhar(negocio);
-              }}
-            >
-              {pipeline.wonLabel}
-            </Button>
-          ) : null}
-        </div>
-      }
-    >
-      <div className="ui-dialog-form">
-        {/* Seção 1: Dados do Lead / Contato */}
-        <section className="ui-dialog-section">
-          <div className="ui-dialog-section-header">
-            <Heading as="h3" icon={<IconUser />}>Dados de Identificação e Contato</Heading>
-            <p className="ui-dialog-section-desc">
-              Informações do titular captadas no atendimento inicial.
-            </p>
-          </div>
-
-          <div className="ui-view-grid">
-            <div className="ui-view-field">
-              <span className="ui-view-label">Nome do Lead / Razão Social</span>
-              <span className="ui-view-value">{cliente?.name ?? negocio.client.name}</span>
-            </div>
-            <div className="ui-view-field">
-              <span className="ui-view-label">Tipo de Pessoa</span>
-              <span className="ui-view-value">{ROTULO_TIPO[tipo]}</span>
-            </div>
-            <div className="ui-view-field">
-              <span className="ui-view-label">Telefone / WhatsApp</span>
-              <div className="ui-view-value-with-action">
-                <span className="ui-view-value">{telFormatado ?? (carregando ? "Carregando…" : "—")}</span>
-                {cliente?.phone ? (
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    iconOnly
-                    icon={<IconCopy width={13} height={13} />}
-                    aria-label="Copiar telefone"
-                    onClick={() => copiar(cliente.phone ?? "", "telefone")}
-                  />
-                ) : null}
-              </div>
-              {copiado === "telefone" ? <small style={{ color: "var(--ui-success)", fontSize: "11px" }}>Copiado!</small> : null}
-            </div>
-            <div className="ui-view-field">
-              <span className="ui-view-label">E-mail</span>
-              <div className="ui-view-value-with-action">
-                <span className="ui-view-value">{cliente?.email ?? (carregando ? "Carregando…" : "—")}</span>
-                {cliente?.email ? (
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    iconOnly
-                    icon={<IconCopy width={13} height={13} />}
-                    aria-label="Copiar e-mail"
-                    onClick={() => copiar(cliente.email ?? "", "email")}
-                  />
-                ) : null}
-              </div>
-              {copiado === "email" ? <small style={{ color: "var(--ui-success)", fontSize: "11px" }}>Copiado!</small> : null}
-            </div>
-            {docFormatado ? (
-              <div className="ui-view-field">
-                <span className="ui-view-label">{tipo === "pj" ? "CNPJ" : "CPF"}</span>
-                <span className="ui-view-value">{docFormatado}</span>
-              </div>
-            ) : null}
-            {cliente?.legalName ? (
-              <div className="ui-view-field">
-                <span className="ui-view-label">Razão Social</span>
-                <span className="ui-view-value">{cliente.legalName}</span>
-              </div>
-            ) : null}
-          </div>
-        </section>
-
-        {/* Seção 2: Negociação e Funil */}
-        <section className="ui-dialog-section">
-          <div className="ui-dialog-section-header">
-            <Heading as="h3" icon={<IconLayers />}>Funil Comercial</Heading>
-            <p className="ui-dialog-section-desc">
-              Posição no pipeline, valores negociados e tempo de permanência.
-            </p>
-          </div>
-
-          <div className="ui-view-grid">
-            <div className="ui-view-field">
-              <span className="ui-view-label">Pipeline</span>
-              <span className="ui-view-value">
-                {pipeline.name} · {EMPRESAS_POR_ID[pipeline.companyId].nome}
-              </span>
-            </div>
-            <div className="ui-view-field">
-              <span className="ui-view-label">Etapa Atual</span>
-              <div style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "2px" }}>
-                <span
-                  style={{
-                    width: "10px",
-                    height: "10px",
-                    borderRadius: "50%",
-                    backgroundColor: etapa?.color ?? "#0066cc",
-                    flexShrink: 0,
-                  }}
-                  aria-hidden="true"
-                />
-                <span className="ui-view-value" style={{ fontWeight: 600 }}>
-                  {etapa?.name ?? "Etapa"}
-                </span>
-              </div>
-            </div>
-            <div className="ui-view-field">
-              <span className="ui-view-label">{pipeline.valueLabel || "Valor Estimado"}</span>
-              <span className="ui-view-value" style={{ color: "var(--ui-primary)", fontWeight: 600, fontSize: "15px" }}>
-                {negocio.value ? formatarBRL(negocio.value) : "Sem valor informado"}
-              </span>
-            </div>
-            <div className="ui-view-field">
-              <span className="ui-view-label">Previsão de Fechamento</span>
-              <span className="ui-view-value">
-                {negocio.expectedCloseDate ? formatarData(negocio.expectedCloseDate) : "Sem previsão definida"}
-              </span>
-            </div>
-            <div className="ui-view-field">
-              <span className="ui-view-label">Permanência na Etapa</span>
-              <span className="ui-view-value" style={{ color: parado ? "var(--ui-danger)" : "inherit" }}>
-                {parado ? `⚠️ Parado há ${dias} dias` : `${dias} ${dias === 1 ? "dia" : "dias"}`}
-              </span>
-            </div>
-            <div className="ui-view-field">
-              <span className="ui-view-label">Responsável da Equipe</span>
-              <span className="ui-view-value">{negocio.owner.name}</span>
-            </div>
-          </div>
-        </section>
-
-        {/* Seção 3: Etiquetas e Metadados */}
-        {negocio.tags.length > 0 ? (
-          <section className="ui-dialog-section">
-            <div className="ui-dialog-section-header">
-              <Heading as="h3" icon={<IconFileText />}>Etiquetas</Heading>
-            </div>
-
-            {negocio.tags.length > 0 ? (
-              <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
-                {negocio.tags.map((t) => (
-                  <span
-                    key={t.id}
-                    className="ui-dialog-tag"
-                    style={{ cursor: "default", borderColor: t.color }}
-                  >
-                    <span className="ui-dialog-tag-dot" style={{ backgroundColor: t.color }} />
-                    <span>{t.name}</span>
-                  </span>
-                ))}
-              </div>
-            ) : null}
-
-          </section>
-        ) : null}
+  const executar = (acao: (negocio: Deal) => void) => { aoFechar(); acao(negocio); };
+  return <Modal rotulo="Detalhes do lead" aoFechar={aoFechar} largura="larga" className={styles.modal}>
+    <header className={styles.cabecalho}>
+      <div className={styles.identidade}>
+        <span className={styles.codigo} title={`ID completo: ${negocio.id}`}>PLU-{String(negocio.number).padStart(4, "0")}</span>
+        <h2>{negocio.title}</h2>
+        <div className={styles.meta}><span>{pipeline.name} · {etapa?.name ?? "Etapa"}</span><span>Responsável: {negocio.owner.name}</span><SeletorBadgePrioridade nome={negocio.title} value={negocio.priority ?? ""} onChange={(prioridade) => void acoes.definirPrioridade(negocio, prioridade || null)} /></div>
       </div>
-    </Dialog>
-  );
+      <Button variant="secondary" size="sm" icon={<X size={16} />} iconOnly aria-label="Fechar" onClick={aoFechar} />
+    </header>
+    {negocio.status === "open" ? <div className={styles.acoes}>
+      <Button variant="primary" size="sm" onClick={() => executar(acoes.ganhar)}>{pipeline.wonLabel}</Button>
+      <Button variant="secondary" size="sm" onClick={() => executar(acoes.perder)}>{pipeline.lostLabel}</Button>
+      <Button variant="secondary" size="sm" icon={<ArrowRight size={14} />} onClick={() => executar(acoes.transferir)}>Mover para outro pipeline</Button>
+    </div> : null}
+    <div className={styles.corpo}>
+      <div className={styles.navegacao} role="tablist" aria-label="Seções do lead" aria-orientation="vertical" onKeyDown={navegar}>
+        {SECOES.map((item, indice) => <div key={item.id}>
+          {indice === 0 || indice === 3 ? <div className={styles.grupo}>{indice === 0 ? "Informações" : "Serviço"}</div> : null}
+          <button ref={(el) => { botoes.current[indice] = el; }} id={`${id}-${item.id}`} type="button" role="tab" aria-selected={secao === item.id} aria-controls={`${id}-painel`} tabIndex={secao === item.id ? 0 : -1} onClick={() => setSecao(item.id)}><item.icone size={16} aria-hidden="true" />{item.titulo}</button>
+        </div>)}
+      </div>
+      <section className={styles.conteudo} id={`${id}-painel`} role="tabpanel" aria-labelledby={`${id}-${secao}`} tabIndex={0}><Conteudo secao={secao} negocio={negocio} pipeline={pipeline} /></section>
+    </div>
+  </Modal>;
 }
