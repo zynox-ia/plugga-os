@@ -96,7 +96,7 @@ docker compose run --rm --no-deps \
 
 # ------------------------------------------------------------------ 5. subir
 # Sem nomear serviço: agora que o compose.yaml é sincronizado do repositório,
-# uma mudança no bloco de postgres/redis/seaweedfs chegaria ao arquivo e nunca aos
+# uma mudança no bloco de postgres/redis/rustfs chegaria ao arquivo e nunca aos
 # contêineres — uma divergência mais silenciosa que a que acabamos de fechar.
 #
 # `--profile app` é obrigatório e não é zelo: api e web declaram
@@ -153,7 +153,7 @@ if [ "$ok" -ne 0 ]; then
 
 A versão anterior do programa voltou. O BANCO NÃO FOI REVERTIDO.
 
-Se a falha for de esquema, o backup feito no passo 1 está no SeaweedFS, no
+Se a falha for de esquema, o backup feito no passo 1 está no armazenamento local, no
 balde plugga-backups, em diario/. Restaurar é decisão humana: entre o backup e agora
 pode ter entrado dado que a restauração apagaria.
 

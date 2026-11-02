@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
-# Ensaio de ops/prepara-corpus.sh contra um SeaweedFS (modo mini) descartável.
-# Precisa do Docker. Prova o que interessa das duas chaves do corpus: o leitor lê e
+# Ensaio de ops/prepara-corpus.sh contra um RustFS descartável. Precisa do
+# Docker. Prova o que interessa das duas chaves do corpus: o leitor lê e
 # NÃO escreve, o editor escreve, nenhum enxerga balde de negócio, e rodar de novo não
 # troca a credencial.
 #
@@ -25,13 +25,13 @@ aws() { "${COMPOSE[@]}" exec -T awscli aws "$@" </dev/null; }
 falha() { printf '✗ %s\n' "$*" >&2; exit 1; }
 ok() { printf '✓ %s\n' "$*"; }
 
-echo "▸ subindo SeaweedFS descartável"
-"${COMPOSE[@]}" up -d seaweedfs awscli >/dev/null 2>&1 || falha "docker compose up falhou"
+echo "▸ subindo RustFS descartável"
+"${COMPOSE[@]}" up -d rustfs awscli >/dev/null 2>&1 || falha "docker compose up falhou"
 for _ in $(seq 1 40); do aws s3api list-buckets >/dev/null 2>&1 && pronto=1 && break; sleep 2; done
-[ "${pronto:-0}" = 1 ] || falha "SeaweedFS não ficou pronto"
+[ "${pronto:-0}" = 1 ] || falha "RustFS não ficou pronto"
 aws s3api create-bucket --bucket plugga-energia-opm >/dev/null
 
-export REDE=ensaio-storage_default SEAWEEDFS_CONTAINER=ensaio-storage-seaweedfs-1 ARQUIVO_ENV_CORPUS="$ENV_CORPUS"
+export REDE=ensaio-storage_default RUSTFS_CONTAINER=ensaio-storage-rustfs-1 ARQUIVO_ENV_CORPUS="$ENV_CORPUS"
 
 bash ops/prepara-corpus.sh >"$SAIDA" 2>&1 || { cat "$SAIDA" >&2; falha "prepara-corpus.sh falhou"; }
 grep -q "balde do corpus preparado" "$SAIDA" || falha "não confirmou o balde"

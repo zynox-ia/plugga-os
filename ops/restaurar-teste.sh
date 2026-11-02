@@ -96,7 +96,7 @@ escolhe_dump() {
     # Padrão da VPS: o mais recente de plugga-backups/diario, com a credencial restrita do backup.
     # shellcheck disable=SC1091
     . /root/.plugga-backup.env
-    local rede=${REDE:-plugga-os_default} awscli=${AWSCLI_IMAGEM} endpoint=${BACKUP_STORAGE_ENDPOINT:-http://seaweedfs:8333}
+    local rede=${REDE:-plugga-os_default} awscli=${AWSCLI_IMAGEM} endpoint=${BACKUP_STORAGE_ENDPOINT:-http://rustfs:9000}
     local awsx=(docker run --rm -i --network "$rede" \
       -e AWS_ACCESS_KEY_ID="${BACKUP_ACCESS_KEY}" -e AWS_SECRET_ACCESS_KEY="${BACKUP_SECRET_KEY}" -e AWS_DEFAULT_REGION=us-east-1 "$awscli")
     local nome

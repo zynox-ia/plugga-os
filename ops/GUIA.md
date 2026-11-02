@@ -10,7 +10,7 @@ Abra o **Docker Desktop**, depois:
 
 ```bash
 cd ~/Projects/plugga-os
-docker compose up -d postgres redis seaweedfs seaweedfs-provisiona
+docker compose up -d postgres redis rustfs rustfs-provisiona
 pnpm dev
 ```
 
@@ -22,8 +22,8 @@ O que cada contêiner faz:
 |---|---|
 | `postgres` | o banco — porta **55432** |
 | `redis` | filas de trabalho em segundo plano — porta **56379** |
-| `seaweedfs` | guarda as faturas enviadas — painel em <http://localhost:59001> |
-| `seaweedfs-provisiona` | cria os baldes locais e encerra; é normal ele sair |
+| `rustfs` | guarda as faturas enviadas — painel em <http://localhost:59001> |
+| `rustfs-provisiona` | cria os baldes locais e encerra; é normal ele sair |
 
 **As portas são altas de propósito.** As padrão — 5432, 6379, 1025, 8025, 9000,
 9001 — estão ocupadas pelos túneis para a VPS, então nelas `localhost` é
@@ -174,7 +174,7 @@ só dificulta voltar atrás.
 
 ```bash
 docker compose down -v          # apaga os dados locais
-docker compose up -d postgres redis seaweedfs seaweedfs-provisiona
+docker compose up -d postgres redis rustfs rustfs-provisiona
 pnpm --filter @plugga/api db:migrate:deploy
 pnpm --filter @plugga/api db:seed
 ```
@@ -219,7 +219,7 @@ eles ocupam, em `localhost`:
 5432         banco de produção
 6379         redis de produção
 9000 / 9001  reservadas ao túnel do armazenamento de produção — inclusive o balde dos backups
-             (na VPS o SeaweedFS escuta em 59000/59001, só em 127.0.0.1)
+             (na VPS o RustFS escuta em 59000/59001, só em 127.0.0.1)
 ```
 
 Nessas quatro portas, **`localhost` é produção**. É contraintuitivo e não aparece
@@ -255,7 +255,7 @@ pkill -f "9000:127.0.0.1:9000"      # derruba
 
 ## Armazenamento de arquivos (baldes)
 
-Os arquivos enviados (faturas, cotações, evidências de obra) ficam no SeaweedFS.
+Os arquivos enviados (faturas, cotações, evidências de obra) ficam no RustFS.
 **Não há variável de balde**: o balde é `{empresa}-{departamento}`, derivado do
 cadastro em `packages/shared/src/organization.ts`.
 
@@ -275,7 +275,7 @@ cadastro em `packages/shared/src/organization.ts`.
 | `plugga-backups` | Cópias do banco (credencial própria, expiração em 30 dias/1 ano) |
 | `plugga-corpus-faturas` | Material de teste das distribuidoras (fora do git) |
 
-O `seaweedfs-provisiona` do compose cria todos eles; um teste (`compose-baldes.spec.ts`)
+O `rustfs-provisiona` do compose cria todos eles; um teste (`compose-baldes.spec.ts`)
 falha se um departamento novo do cadastro ficar sem balde.
 
 **Preparar o que mora nos baldes de sistema**, na VPS (idempotente, ensaiado localmente):
@@ -285,10 +285,12 @@ ops/prepara-backup.sh    # usuário restrito e expiração do balde plugga-backu
 ops/prepara-corpus.sh    # chaves de leitura e de escrita do balde do corpus
 ```
 
-Não use `mc admin user` nem `mc admin policy`: eram comandos do MinIO, e no SeaweedFS o
-usuário criado por eles não autentica. Os scripts acima criam os usuários pelo
-`s3.configure` do próprio SeaweedFS. Ensaios locais: `bash ops/prepara-backup.test.sh` e
-`bash ops/prepara-corpus.test.sh`.
+Não use `mc admin user` nem `mc admin policy`: o `mc` foi descontinuado e, de qualquer
+forma, nunca falou com esse servidor por essa via. Os scripts acima criam os usuários
+pela própria API administrativa do RustFS, assinada SigV4 em
+`apps/api/scripts/provisionar-identidade-storage.mjs` (sem `mc admin`), e o resultado é
+provado com a credencial de cada um, não presumido. Ensaios locais: `bash
+ops/prepara-backup.test.sh` e `bash ops/prepara-corpus.test.sh`.
 
 ---
 
@@ -323,7 +325,7 @@ ssh plugga-vps '/root/backup-plugga.sh'
 >
 > Formato novo de `/root/.plugga-backup-externo.env`:
 > ```
-> ORIGEM_ENDPOINT=http://seaweedfs:8333
+> ORIGEM_ENDPOINT=http://rustfs:9000
 > ORIGEM_ACCESS_KEY=<chave de leitura dos baldes, do prepara-backup.sh/.env atual>
 > ORIGEM_SECRET_KEY=<idem>
 > DESTINO_ENDPOINT=https://s3.<região>.backblazeb2.com
@@ -420,7 +422,7 @@ no máximo 24 horas de dados** (o último backup diário).
    Ele restaura num Postgres descartável e compara tabelas, linhas e objetos com o manifesto.
    Só continue se terminar com `✓ restauração ok`.
 
-6. **Subir a infraestrutura** (`docker compose up -d`: Postgres, Redis, SeaweedFS e criação dos
+6. **Subir a infraestrutura** (`docker compose up -d`: Postgres, Redis, RustFS e criação dos
    baldes) e **restaurar o banco** no Postgres de verdade:
 
    ```bash

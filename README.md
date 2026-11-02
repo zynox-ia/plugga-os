@@ -87,7 +87,7 @@ Os dois modos convivem de propósito:
 
 | Comando | Sobe | Para quê |
 |---|---|---|
-| `docker compose up -d` | postgres, redis, seaweedfs | infra para `pnpm dev` |
+| `docker compose up -d` | postgres, redis, rustfs | infra para `pnpm dev` |
 | `docker compose --profile app up -d` | infra + api + web | sistema completo em containers |
 
 Sem o profile nada mudou, então `pnpm dev` continua livre nas portas 3000/3001.
@@ -141,7 +141,7 @@ Como o seed não desfaz mais nada, **resetar o ambiente local é um ato
 explícito** — derrube o volume e recomece:
 
 ```bash
-docker compose down -v      # apaga postgres_data, redis_data e seaweedfs_data (as faturas enviadas)
+docker compose down -v      # apaga postgres_data, redis_data e rustfs_data (as faturas enviadas)
 docker compose up -d
 pnpm db:migrate:deploy
 pnpm db:seed

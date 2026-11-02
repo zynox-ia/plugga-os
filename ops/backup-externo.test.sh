@@ -134,7 +134,7 @@ printf 'plugga-um\nbalde-que-nao-existe\n' >"$TMP/baldes-ruim.txt"
 # papel tem endpoint, chave e região próprios — o aws-cli assina com a região
 # configurada, diferente do mc, que não exigia isso.
 cat >"$TMP/backup.env" <<'ENV'
-ORIGEM_ENDPOINT=http://seaweedfs:8333
+ORIGEM_ENDPOINT=http://rustfs:9000
 ORIGEM_ACCESS_KEY=chaveorigem
 ORIGEM_SECRET_KEY=SEGREDO_ORIGEM_ZZ
 DESTINO_ENDPOINT=https://s3.exemplo.test

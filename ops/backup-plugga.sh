@@ -17,7 +17,7 @@ set -euo pipefail
 
 REDE=plugga-os_default
 AWSCLI_IMAGEM=${AWSCLI_IMAGEM:-amazon/aws-cli@sha256:1b7003e3ecb737b7533d8e16a547b4bc36e912508c3532ae51003aad8d0cd41d}
-ENDPOINT=${BACKUP_STORAGE_ENDPOINT:-http://seaweedfs:8333}
+ENDPOINT=${BACKUP_STORAGE_ENDPOINT:-http://rustfs:9000}
 BALDE=plugga-backups
 BANCO=plugga_os
 

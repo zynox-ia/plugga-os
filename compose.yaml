@@ -45,31 +45,20 @@ services:
     logging: *logging-padrao
     restart: unless-stopped
 
-  # Object storage for the invoice files uploaded to the energy-efficiency
-  # study. Speaks the S3 protocol, so the API talks to it with the AWS SDK and
-  # swapping it for real S3 later is an environment change, not a code change.
-  #
-  # The image is pinned by digest, and not to `latest`: a blind bump could
-  # change the S3 behaviour the API and the backup rely on. Replaces the MinIO
-  # that ran here until 2026-09 (the community edition stopped receiving fixes).
-  seaweedfs:
-    image: chrislusf/seaweedfs@sha256:08d516132314207d10c8e37cbffc1f32b147d870169688734cc61c6231625b62
-    command: ["mini", "-dir=/data", "-ip=0.0.0.0"]
+  # RustFS: armazenamento local e de aplicacao, isolado de outros projetos.
+  rustfs:
+    image: rustfs/rustfs@sha256:8cc9801755448b71a786705ce76692c77e14936cccd87cf2fc31842e58f4d1ff
     environment:
-      # Local-only dummy defaults, same rule as Postgres above: production
-      # credentials never belong in this file.
-      AWS_ACCESS_KEY_ID: ${STORAGE_ACCESS_KEY:?set STORAGE_ACCESS_KEY in .env}
-      AWS_SECRET_ACCESS_KEY: ${STORAGE_SECRET_KEY:?set STORAGE_SECRET_KEY in .env}
+      RUSTFS_ACCESS_KEY: ${STORAGE_ACCESS_KEY:?set STORAGE_ACCESS_KEY in .env}
+      RUSTFS_SECRET_KEY: ${STORAGE_SECRET_KEY:?set STORAGE_SECRET_KEY in .env}
+      RUSTFS_CONSOLE_ENABLE: "true"
     ports:
-      # S3 endpoint the API writes to.
-      - "127.0.0.1:${STORAGE_PORT:-59000}:8333"
-      # Painel de objetos: STORAGE_ADMIN_PORT do .env (59001 no stack local;
-      # a baixa 9001 é o túnel para a produção — ops/GUIA.md).
-      - "127.0.0.1:${STORAGE_ADMIN_PORT:-59001}:23646"
+      - "127.0.0.1:${STORAGE_PORT:-59000}:9000"
+      - "127.0.0.1:${STORAGE_ADMIN_PORT:-59001}:9001"
     volumes:
-      - seaweedfs_data:/data
+      - rustfs_data:/data
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:8333/status"]
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:9000/health/ready"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -77,33 +66,23 @@ services:
     logging: *logging-padrao
     restart: unless-stopped
 
-  # Creates the bucket once and exits. Without it the first upload fails on a
-  # bucket that nobody remembered to create, which is a confusing way to learn
-  # that storage is optional.
-  seaweedfs-provisiona:
-    image: minio/mc:RELEASE.2025-04-16T18-13-26Z
+  rustfs-provisiona:
+    image: plugga-os-api:latest
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
     depends_on:
-      seaweedfs:
+      rustfs:
         condition: service_healthy
-    entrypoint:
-      - /bin/sh
-      - -c
-      - |
-        mc alias set plugga http://seaweedfs:8333 \
-          "${STORAGE_ACCESS_KEY:?set STORAGE_ACCESS_KEY in .env}" "${STORAGE_SECRET_KEY:?set STORAGE_SECRET_KEY in .env}"
-        mc mb --ignore-existing plugga/plugga-comercial-clientes
-        mc mb --ignore-existing plugga/plugga-energia-opm
-        mc mb --ignore-existing plugga/plugga-produto-tecnologia
-        mc mb --ignore-existing plugga/plugga-suprimentos
-        mc mb --ignore-existing plugga/plugga-financeiro
-        mc mb --ignore-existing plugga/plugga-marketing
-        mc mb --ignore-existing plugga/waze-comercial-obras
-        mc mb --ignore-existing plugga/waze-engenharia-obras
-        mc mb --ignore-existing plugga/waze-suprimentos
-        mc mb --ignore-existing plugga/waze-financeiro
-        mc mb --ignore-existing plugga/waze-marketing
-        mc mb --ignore-existing plugga/"${CORPUS_BUCKET:-plugga-corpus-faturas}"
-        mc mb --ignore-existing plugga/plugga-backups
+    environment:
+      STORAGE_ENDPOINT: http://rustfs:9000
+      STORAGE_ACCESS_KEY: ${STORAGE_ACCESS_KEY:?set STORAGE_ACCESS_KEY in .env}
+      STORAGE_SECRET_KEY: ${STORAGE_SECRET_KEY:?set STORAGE_SECRET_KEY in .env}
+      STORAGE_BUCKET: ${STORAGE_BUCKET:-plugga-arquivos}
+      STORAGE_LEGACY_BUCKETS: plugga-comercial-clientes,plugga-energia-opm,plugga-produto-tecnologia,plugga-suprimentos,plugga-financeiro,plugga-marketing,waze-comercial-obras,waze-engenharia-obras,waze-suprimentos,waze-financeiro,waze-marketing,${CORPUS_BUCKET:-plugga-corpus-faturas},plugga-backups
+    volumes:
+      - ./apps/api/scripts/provisionar-storage.mjs:/app/apps/api/scripts/provisionar-storage.mjs:ro
+    command: ["node", "scripts/provisionar-storage.mjs"]
     restart: "no"
 
   # --- Application containers (profile "app") -------------------------------
@@ -185,7 +164,7 @@ services:
       # (localhost:59000, for pnpm dev), and letting it leak into the container
       # would send every upload to the container's own loopback — storage would
       # fail silently on every invoice while the screen reports success.
-      STORAGE_ENDPOINT: http://seaweedfs:8333
+      STORAGE_ENDPOINT: http://rustfs:9000
       STORAGE_REGION: ${STORAGE_REGION:-us-east-1}
       STORAGE_ACCESS_KEY: ${STORAGE_ACCESS_KEY:?set STORAGE_ACCESS_KEY in .env}
       STORAGE_SECRET_KEY: ${STORAGE_SECRET_KEY:?set STORAGE_SECRET_KEY in .env}
@@ -212,10 +191,10 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      seaweedfs:
+      rustfs:
         condition: service_healthy
       # Os baldes precisam existir antes do primeiro upload.
-      seaweedfs-provisiona:
+      rustfs-provisiona:
         condition: service_completed_successfully
     healthcheck:
       test:
@@ -268,4 +247,4 @@ services:
 volumes:
   postgres_data:
   redis_data:
-  seaweedfs_data:
+  rustfs_data:

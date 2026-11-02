@@ -1,36 +1,40 @@
 #!/usr/bin/env bash
-# Prepara o balde do corpus de faturas no armazenamento local: balde próprio e
-# duas chaves. Roda uma vez; é idempotente.
+# Prepara o balde do corpus de faturas no RustFS: balde próprio e duas chaves.
+# Roda uma vez; é idempotente.
 #
-# O `mc` da MinIO deixou de ser distribuído (imagem e binário retirados dos
-# canais oficiais em 2026-11); as operações de dados (balde, prova de
-# escrita/leitura) agora usam o `aws-cli` oficial, que fala o mesmo S3.
+# O servidor S3 anterior tinha o próprio comando de criar as chaves, porque
+# os comandos `mc admin` (MinIO) não serviam ali. No RustFS as chaves
+# nascem pela API administrativa dele mesma (assinada SigV4, em
+# apps/api/scripts/provisionar-identidade-storage.mjs, sem `mc admin`), e o
+# resultado é provado com a credencial de cada uma, não presumido.
 #
 #   leitor  Read,List        vai para os secrets CORPUS_LEITOR_* do GitHub (o job de
 #                            corpus da CI só lê fixture)
 #   editor  Read,Write,List  fica com quem publica fixture; não vai para secret nenhum
 #
-# Substitui o antigo prepara-corpus-minio.sh. Os comandos `mc admin` eram do MinIO e
-# não servem aqui: no SeaweedFS o usuário criado por eles não autentica. As chaves
-# nascem pelo `s3.configure` do próprio SeaweedFS e o resultado é provado com a
-# credencial de cada uma, não presumido.
-#
 # Sem regra de expiração de propósito: o corpus não é dado de produção e não segue a
 # retenção do estudo. Se o balde crescer a ponto de importar, é aí que se decide um
 # prazo — não antes, e não por reflexo.
+#
+# O `mc` da MinIO deixou de ser distribuído (imagem e binário retirados dos
+# canais oficiais em 2026-11); as operações de dados (balde, prova de
+# escrita/leitura) usam o `aws-cli` oficial, que fala o mesmo S3.
 set -euo pipefail
 
+RAIZ=$(cd "$(dirname "$0")/.." && pwd)
 REDE=${REDE:-plugga-os_default}
 AWSCLI_IMAGEM=${AWSCLI_IMAGEM:-amazon/aws-cli@sha256:1b7003e3ecb737b7533d8e16a547b4bc36e912508c3532ae51003aad8d0cd41d}
-ENDPOINT=${BACKUP_STORAGE_ENDPOINT:-http://seaweedfs:8333}
-CONTEINER=${SEAWEEDFS_CONTAINER:-plugga-os-seaweedfs-1}
+NODE_IMAGEM=${NODE_IMAGEM:-node@sha256:fe4f6d74e20370acb04ad889077d14d0f64a9c8ea6a42bc60cddf1e844699914}
+SCRIPT_IDENTIDADE="$RAIZ/apps/api/scripts/provisionar-identidade-storage.mjs"
+ENDPOINT=${BACKUP_STORAGE_ENDPOINT:-http://rustfs:9000}
+CONTEINER=${RUSTFS_CONTAINER:-plugga-os-rustfs-1}
 ARQUIVO_ENV=${ARQUIVO_ENV_CORPUS:-/root/.plugga-corpus.env}
 BALDE=plugga-corpus-faturas
 
 # Credencial raiz lida do contêiner e nunca impressa. `printenv`, não `docker
 # inspect` com template split "=": o split cortava a senha no primeiro '='.
-U=$(docker exec "$CONTEINER" printenv AWS_ACCESS_KEY_ID)
-P=$(docker exec "$CONTEINER" printenv AWS_SECRET_ACCESS_KEY)
+U=$(docker exec "$CONTEINER" printenv RUSTFS_ACCESS_KEY)
+P=$(docker exec "$CONTEINER" printenv RUSTFS_SECRET_KEY)
 
 # Um arquivo de ambiente por credencial, nunca `-e` no `docker run`: evita que
 # a chave apareça no `ps` do host através da linha de comando do próprio docker.
@@ -46,6 +50,31 @@ trap 'rm -f "$AWS_ENV_RAIZ" "$AWS_ENV_LEITOR" "$AWS_ENV_EDITOR"' EXIT
 # `</dev/null`: o docker lê o stdin e engoliria a entrada de quem chama.
 aws_raiz() { docker run --rm --network "$REDE" --env-file "$AWS_ENV_RAIZ" "$AWSCLI_IMAGEM" "$@" --endpoint-url "$ENDPOINT" </dev/null; }
 aws_como() { local envfile=$1; shift; docker run --rm --network "$REDE" --env-file "$envfile" "$AWSCLI_IMAGEM" "$@" --endpoint-url "$ENDPOINT" </dev/null; }
+
+# A credencial da identidade e a política entram por arquivo de ambiente,
+# nunca por `-e`: o mesmo cuidado do aws-cli acima, agora para o script Node.
+provisiona_identidade() { # $1=accessKey $2=secretKey $3=politicaNome $4=politicaJson
+  local envfile
+  envfile=$(mktemp)
+  (
+    umask 077
+    {
+      printf 'STORAGE_ENDPOINT=%s\n' "$ENDPOINT"
+      printf 'STORAGE_ROOT_ACCESS_KEY=%s\n' "$U"
+      printf 'STORAGE_ROOT_SECRET_KEY=%s\n' "$P"
+      printf 'IDENTIDADE_ACCESS_KEY=%s\n' "$1"
+      printf 'IDENTIDADE_SECRET_KEY=%s\n' "$2"
+      printf 'IDENTIDADE_POLITICA_NOME=%s\n' "$3"
+      printf 'IDENTIDADE_POLITICA_JSON=%s\n' "$4"
+    } >"$envfile"
+  )
+  docker run --rm --network "$REDE" --env-file "$envfile" \
+    --mount "type=bind,source=$SCRIPT_IDENTIDADE,target=/provisionar.mjs,readonly" "$NODE_IMAGEM" \
+    node //provisionar.mjs
+  local status=$?
+  rm -f "$envfile"
+  return $status
+}
 
 aws_raiz s3api head-bucket --bucket "$BALDE" >/dev/null 2>&1 || aws_raiz s3api create-bucket --bucket "$BALDE" >/dev/null
 
@@ -67,19 +96,18 @@ fi
 # shellcheck disable=SC1090
 . "$ARQUIVO_ENV"
 
-# A credencial entra pelo stdin do `weed shell`, nunca pela linha de comando:
-# argumento aparece em `ps`. A saída repete o usuário criado, então só é mostrada
-# se falhar, e sem o segredo.
-cria_usuario() {
-  local usuario=$1 chave=$2 segredo=$3 acoes=$4 saida
-  if ! saida=$(printf '%s\n' "s3.configure -user=${usuario} -access_key=${chave} -secret_key=${segredo} -buckets=${BALDE} -actions=${acoes} -apply" |
-    docker exec -i "$CONTEINER" weed shell -master=localhost:9333 2>&1); then
+POLITICA_LEITOR='{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Action":["s3:GetObject"],"Resource":["arn:aws:s3:::plugga-corpus-faturas/*"]},{"Effect":"Allow","Action":["s3:ListBucket"],"Resource":["arn:aws:s3:::plugga-corpus-faturas"]}]}'
+POLITICA_EDITOR='{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Action":["s3:GetObject","s3:PutObject","s3:DeleteObject"],"Resource":["arn:aws:s3:::plugga-corpus-faturas/*"]},{"Effect":"Allow","Action":["s3:ListBucket"],"Resource":["arn:aws:s3:::plugga-corpus-faturas"]}]}'
+
+cria_usuario() { # $1=usuario $2=chave $3=segredo $4=politicaNome $5=politicaJson
+  local usuario=$1 chave=$2 segredo=$3 politicaNome=$4 politicaJson=$5 saida
+  if ! saida=$(provisiona_identidade "$chave" "$segredo" "$politicaNome" "$politicaJson" 2>&1); then
     printf 'falhou (criar %s):\n%s\n' "$usuario" "${saida//$segredo/***}" >&2
     exit 1
   fi
 }
-cria_usuario corpus-leitor "$CORPUS_LEITOR_ACCESS_KEY" "$CORPUS_LEITOR_SECRET_KEY" Read,List
-cria_usuario corpus-editor "$CORPUS_EDITOR_ACCESS_KEY" "$CORPUS_EDITOR_SECRET_KEY" Read,Write,List
+cria_usuario corpus-leitor "$CORPUS_LEITOR_ACCESS_KEY" "$CORPUS_LEITOR_SECRET_KEY" corpus-leitor "$POLITICA_LEITOR"
+cria_usuario corpus-editor "$CORPUS_EDITOR_ACCESS_KEY" "$CORPUS_EDITOR_SECRET_KEY" corpus-editor "$POLITICA_EDITOR"
 
 (
   umask 077

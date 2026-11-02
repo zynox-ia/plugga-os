@@ -1,29 +1,33 @@
 #!/usr/bin/env bash
-# Prepara o destino do backup no armazenamento local: balde próprio, usuário
-# próprio e expiração automática. Roda uma vez; é idempotente.
+# Prepara o destino do backup no RustFS: balde próprio, usuário próprio e
+# expiração automática. Roda uma vez; é idempotente.
 #
-# Substitui o antigo prepara-backup-minio.sh. Os comandos `mc admin policy` e
-# `mc admin user` eram do MinIO e NÃO servem aqui: no SeaweedFS o usuário criado
-# por eles não autentica, e o vínculo de política é recusado. O usuário
-# restrito agora nasce pelo `s3.configure` do próprio SeaweedFS, e o resultado
-# é provado com a credencial dele, não presumido.
+# O servidor S3 anterior tinha o próprio comando de criar usuário restrito,
+# porque os comandos `mc admin user`/`mc admin policy` (MinIO) não serviam
+# ali. No RustFS o usuário nasce pela API administrativa dele mesma
+# (assinada SigV4, em apps/api/scripts/provisionar-identidade-storage.mjs,
+# sem `mc admin`), e o resultado é provado com a credencial dele, não
+# presumido — mesmo formato de antes.
 #
 # O `mc` da MinIO deixou de ser distribuído (imagem e binário retirados dos
 # canais oficiais em 2026-11); as operações de dados (balde, expiração, prova
-# de escrita/leitura) agora usam o `aws-cli` oficial, que fala o mesmo S3.
+# de escrita/leitura) usam o `aws-cli` oficial, que fala o mesmo S3.
 set -euo pipefail
 
+RAIZ=$(cd "$(dirname "$0")/.." && pwd)
 REDE=${REDE:-plugga-os_default}
 AWSCLI_IMAGEM=${AWSCLI_IMAGEM:-amazon/aws-cli@sha256:1b7003e3ecb737b7533d8e16a547b4bc36e912508c3532ae51003aad8d0cd41d}
-ENDPOINT=${BACKUP_STORAGE_ENDPOINT:-http://seaweedfs:8333}
-CONTEINER=${SEAWEEDFS_CONTAINER:-plugga-os-seaweedfs-1}
+NODE_IMAGEM=${NODE_IMAGEM:-node@sha256:fe4f6d74e20370acb04ad889077d14d0f64a9c8ea6a42bc60cddf1e844699914}
+SCRIPT_IDENTIDADE="$RAIZ/apps/api/scripts/provisionar-identidade-storage.mjs"
+ENDPOINT=${BACKUP_STORAGE_ENDPOINT:-http://rustfs:9000}
+CONTEINER=${RUSTFS_CONTAINER:-plugga-os-rustfs-1}
 ARQUIVO_ENV=${ARQUIVO_ENV_BACKUP:-/root/.plugga-backup.env}
 BALDE=plugga-backups
 
 # Credencial raiz lida do contêiner e nunca impressa. `printenv`, não `docker
 # inspect` com template split "=": o split cortava a senha no primeiro '='.
-U=$(docker exec "$CONTEINER" printenv AWS_ACCESS_KEY_ID)
-P=$(docker exec "$CONTEINER" printenv AWS_SECRET_ACCESS_KEY)
+U=$(docker exec "$CONTEINER" printenv RUSTFS_ACCESS_KEY)
+P=$(docker exec "$CONTEINER" printenv RUSTFS_SECRET_KEY)
 
 # Um arquivo de ambiente por credencial, nunca `-e` no `docker run`: evita que
 # a chave apareça no `ps` do host através da linha de comando do próprio docker.
@@ -38,6 +42,31 @@ trap 'rm -f "$AWS_ENV_RAIZ" "$AWS_ENV_BACKUP"' EXIT
 # `</dev/null`: o docker lê o stdin e engoliria a entrada de quem chama.
 aws_raiz() { docker run --rm --network "$REDE" --env-file "$AWS_ENV_RAIZ" "$AWSCLI_IMAGEM" "$@" --endpoint-url "$ENDPOINT" </dev/null; }
 aws_backup() { docker run --rm --network "$REDE" --env-file "$AWS_ENV_BACKUP" "$AWSCLI_IMAGEM" "$@" --endpoint-url "$ENDPOINT" </dev/null; }
+
+# A credencial da identidade e a política entram por arquivo de ambiente,
+# nunca por `-e`: o mesmo cuidado do aws-cli acima, agora para o script Node.
+provisiona_identidade() { # $1=accessKey $2=secretKey $3=politicaNome $4=politicaJson
+  local envfile
+  envfile=$(mktemp)
+  (
+    umask 077
+    {
+      printf 'STORAGE_ENDPOINT=%s\n' "$ENDPOINT"
+      printf 'STORAGE_ROOT_ACCESS_KEY=%s\n' "$U"
+      printf 'STORAGE_ROOT_SECRET_KEY=%s\n' "$P"
+      printf 'IDENTIDADE_ACCESS_KEY=%s\n' "$1"
+      printf 'IDENTIDADE_SECRET_KEY=%s\n' "$2"
+      printf 'IDENTIDADE_POLITICA_NOME=%s\n' "$3"
+      printf 'IDENTIDADE_POLITICA_JSON=%s\n' "$4"
+    } >"$envfile"
+  )
+  docker run --rm --network "$REDE" --env-file "$envfile" \
+    --mount "type=bind,source=$SCRIPT_IDENTIDADE,target=/provisionar.mjs,readonly" "$NODE_IMAGEM" \
+    node //provisionar.mjs
+  local status=$?
+  rm -f "$envfile"
+  return $status
+}
 
 # O backup vive em balde separado dos arquivos de negócio: ciclo de vida
 # diferente, acesso diferente, e um engano num balde da aplicação não deve
@@ -70,11 +99,8 @@ fi
 # shellcheck disable=SC1090,SC1091
 . "$ARQUIVO_ENV"
 
-# A credencial entra pelo stdin do `weed shell`, nunca pela linha de comando:
-# argumento aparece em `ps` para qualquer usuário da máquina. A saída do shell
-# repete o usuário criado, então só é mostrada se falhar, e sem o segredo.
-COMANDO="s3.configure -user=${BACKUP_ACCESS_KEY} -access_key=${BACKUP_ACCESS_KEY} -secret_key=${BACKUP_SECRET_KEY} -buckets=${BALDE} -actions=Read,Write,List -apply"
-if ! SAIDA=$(printf '%s\n' "$COMANDO" | docker exec -i "$CONTEINER" weed shell -master=localhost:9333 2>&1); then
+POLITICA='{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Action":["s3:GetObject","s3:PutObject","s3:DeleteObject"],"Resource":["arn:aws:s3:::plugga-backups/*"]},{"Effect":"Allow","Action":["s3:ListBucket"],"Resource":["arn:aws:s3:::plugga-backups"]}]}'
+if ! SAIDA=$(provisiona_identidade "$BACKUP_ACCESS_KEY" "$BACKUP_SECRET_KEY" "plugga-backup" "$POLITICA" 2>&1); then
   printf 'falhou (criar usuário de backup):\n%s\n' "${SAIDA//$BACKUP_SECRET_KEY/***}" >&2
   exit 1
 fi
