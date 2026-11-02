@@ -58,6 +58,13 @@ test("cartão compacto preserva identificação e detalhes sem o bloco de invest
   await page.keyboard.press("Enter");
   const detalhes = page.getByRole("dialog", { name: "Detalhes do lead", exact: true });
   await expect(detalhes).toBeVisible();
+  const cabecalho = detalhes.locator("header").first();
+  await expect(cabecalho.getByRole("button", { name: pipeline.wonLabel, exact: true })).toBeVisible();
+  await expect(cabecalho.getByRole("button", { name: pipeline.lostLabel, exact: true })).toHaveCount(0);
+  await cabecalho.getByRole("button", { name: "Mais ações do lead" }).click();
+  await expect(cabecalho.getByRole("menuitem", { name: pipeline.lostLabel })).toBeVisible();
+  await expect(cabecalho.getByRole("menuitem", { name: "Mover para outro pipeline" })).toBeVisible();
+  await page.keyboard.press("Escape");
   await expect(detalhes.getByRole("link", { name: "Abrir ficha completa" })).toHaveCount(0);
   await expect(detalhes.getByText("Unidades Consumidoras Vinculadas:")).toHaveCount(0);
   await expect(detalhes.getByText("Investimento estimado", { exact: true })).toBeVisible();
@@ -81,6 +88,9 @@ test("cartão compacto preserva identificação e detalhes sem o bloco de invest
   await expect(detalhes.getByRole("tabpanel")).toContainText("Envio de documentos em preparação");
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(detalhes).toBeInViewport();
+  const tituloModal = cabecalho.getByRole("heading", { name: "Detalhes do lead" });
+  expect(await tituloModal.evaluate((el) => el.getBoundingClientRect().height <= parseFloat(getComputedStyle(el).lineHeight) + 1)).toBe(true);
+  await expect(cabecalho.getByRole("button", { name: "Mais ações do lead" })).toBeVisible();
   await expect(detalhes.getByRole("tabpanel")).toContainText("até 25 MiB por arquivo");
   await detalhes.getByRole("button", { name: "Fechar", exact: true }).click();
   await expect(detalhes).toHaveCount(0);
