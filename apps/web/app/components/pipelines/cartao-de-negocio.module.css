@@ -88,6 +88,8 @@
   cursor: pointer;
 }
 .prioridadeBadge > svg { flex-shrink: 0; width: 12px; height: 12px; color: inherit; stroke: currentColor; opacity: 1; }
+.acoesCabecalho .prioridadeBadge { height: 22px; min-height: 22px; padding-inline: 7px; font-size: 10px; }
+.acoesCabecalho .prioridadeBadge > svg { width: 11px; height: 11px; }
 .prioridadeBadge[data-prioridade="urgente"] { color: var(--ui-danger); background: color-mix(in srgb, var(--ui-danger) 7%, var(--ui-surface)); border-color: color-mix(in srgb, var(--ui-danger) 20%, var(--ui-divider)); }
 .prioridadeBadge[data-prioridade="medio"] { color: var(--ui-warning); background: color-mix(in srgb, var(--ui-warning) 7%, var(--ui-surface)); border-color: color-mix(in srgb, var(--ui-warning) 20%, var(--ui-divider)); }
 .prioridadeBadge[aria-pressed="true"] { border-color: currentColor; }
