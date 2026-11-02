@@ -35,6 +35,7 @@ function negocio(parcial: Partial<Deal> & { id: string }): Deal {
     companyId: "waze",
     stageId: ETAPA_A,
     status: "open",
+    priority: null,
     title: "Negócio",
     value: null,
     expectedCloseDate: null,
