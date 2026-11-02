@@ -122,17 +122,20 @@ export function DetalhesDoLeadModal({ negocio, pipeline, acoes, aoFechar }: Prop
   return <Modal rotulo="Detalhes do lead" aoFechar={aoFechar} largura="larga" className={styles.modal}>
     <header className={styles.cabecalho}>
       <div className={styles.identidade}>
+        <h2>Detalhes do lead</h2>
+        <p className={styles.nomeLead}>{negocio.title}</p>
         <span className={styles.codigo} title={`ID completo: ${negocio.id}`}>PLU-{String(negocio.number).padStart(4, "0")}</span>
-        <h2>{negocio.title}</h2>
         <div className={styles.meta}><span>{pipeline.name} · {etapa?.name ?? "Etapa"}</span><span>Responsável: {negocio.owner.name}</span><SeletorBadgePrioridade nome={negocio.title} value={negocio.priority ?? ""} onChange={(prioridade) => void acoes.definirPrioridade(negocio, prioridade || null)} /></div>
       </div>
-      <Button variant="secondary" size="sm" icon={<X size={16} />} iconOnly aria-label="Fechar" onClick={aoFechar} />
+      <div className={styles.controlesCabecalho}>
+        {negocio.status === "open" ? <div className={styles.acoes}>
+          <Button variant="primary" size="sm" onClick={() => executar(acoes.ganhar)}>{pipeline.wonLabel}</Button>
+          <Button variant="secondary" size="sm" onClick={() => executar(acoes.perder)}>{pipeline.lostLabel}</Button>
+          <Button variant="secondary" size="sm" icon={<ArrowRight size={14} />} onClick={() => executar(acoes.transferir)}>Mover para outro pipeline</Button>
+        </div> : null}
+        <Button variant="secondary" size="sm" icon={<X size={16} />} iconOnly aria-label="Fechar" onClick={aoFechar} />
+      </div>
     </header>
-    {negocio.status === "open" ? <div className={styles.acoes}>
-      <Button variant="primary" size="sm" onClick={() => executar(acoes.ganhar)}>{pipeline.wonLabel}</Button>
-      <Button variant="secondary" size="sm" onClick={() => executar(acoes.perder)}>{pipeline.lostLabel}</Button>
-      <Button variant="secondary" size="sm" icon={<ArrowRight size={14} />} onClick={() => executar(acoes.transferir)}>Mover para outro pipeline</Button>
-    </div> : null}
     <div className={styles.corpo}>
       <div className={styles.navegacao} role="tablist" aria-label="Seções do lead" aria-orientation="vertical" onKeyDown={navegar}>
         {SECOES.map((item, indice) => <div key={item.id}>
