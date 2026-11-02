@@ -61,6 +61,9 @@ test("cartão compacto preserva identificação e detalhes sem o bloco de invest
   await expect(detalhes.getByRole("link", { name: "Abrir ficha completa" })).toHaveCount(0);
   await expect(detalhes.getByText("Unidades Consumidoras Vinculadas:")).toHaveCount(0);
   await expect(detalhes.getByText("Investimento estimado", { exact: true })).toBeVisible();
+  await expect(detalhes.getByRole("tabpanel")).toContainText("Tempo na etapa");
+  await expect(detalhes.getByRole("tabpanel")).toContainText("Proposta");
+  await expect(detalhes.getByRole("tabpanel")).not.toContainText("Responsável");
   await expect(detalhes.getByText(`PLU-${String(negocio.number).padStart(4, "0")}`, { exact: true })).toBeVisible();
   const abas = detalhes.getByRole("tablist", { name: "Seções do lead" });
   await expect(abas.getByRole("tab")).toHaveText(["Resumo", "Lead", "Histórico", "Oportunidade", "Proposta", "Documentos"]);
@@ -68,6 +71,9 @@ test("cartão compacto preserva identificação e detalhes sem o bloco de invest
   await page.keyboard.press("ArrowDown");
   await expect(abas.getByRole("tab", { name: "Lead" })).toBeFocused();
   await expect(abas.getByRole("tab", { name: "Lead" })).toHaveAttribute("aria-selected", "true");
+  await expect(detalhes.getByLabel("Nome", { exact: true })).toHaveValue(negocio.client.name);
+  await expect(detalhes.getByLabel("E-mail", { exact: true })).toHaveValue(negocio.client.email!);
+  await expect(detalhes.getByLabel("Documento", { exact: true })).toHaveValue("—");
   await abas.getByRole("tab", { name: "Oportunidade" }).click();
   await expect(detalhes.getByRole("tabpanel")).toContainText("Investimento estimado");
   await abas.getByRole("tab", { name: "Documentos" }).click();

@@ -6,6 +6,7 @@ import { useId, useRef, useState, type KeyboardEvent, type ReactNode } from "rea
 
 import { documentoFormatado, telefoneFormatado } from "../../lib/clientes";
 import { formatarBRL, formatarData } from "../../lib/format";
+import { diasNaEtapa, estaParado } from "../../lib/negocios";
 import { Modal } from "../modal";
 import { Button } from "../ui/button";
 import type { AcoesDoNegocio } from "./quadro-do-pipeline";
@@ -36,7 +37,7 @@ function DadosDoLead({ dados, aoSalvar }: { dados: DadosLead; aoSalvar?: (dados:
   return <>
     <div className={styles.tituloSecao}><h3>Lead</h3><p>Dados de identificação e contato disponíveis.</p></div>
     <div className={styles.grade}>{campos.map((campo) => <label className={styles.campo} key={campo.chave}>
-      <span>{campo.rotulo}</span><input className="ui-input" value={rascunho[campo.chave]} disabled={!aoSalvar} onChange={(evento) => setRascunho((atual) => ({ ...atual, [campo.chave]: evento.target.value }))} />
+      <span>{campo.rotulo}</span><input className="ui-input" value={aoSalvar ? rascunho[campo.chave] : rascunho[campo.chave] || "—"} disabled={!aoSalvar} onChange={(evento) => setRascunho((atual) => ({ ...atual, [campo.chave]: evento.target.value }))} />
     </label>)}</div>
     {aoSalvar ? <Button variant="primary" size="sm" onClick={() => aoSalvar(rascunho)}>Salvar dados</Button> : <p className={styles.observacao}>A edição dos dados do lead estará disponível em breve.</p>}
   </>;
@@ -61,8 +62,8 @@ function Documentos({ documentos, disponivel }: { documentos: Documento[]; dispo
   </>;
 }
 
-function Campo({ nome, children }: { nome: string; children: ReactNode }) {
-  return <div className={styles.campo}><span>{nome}</span><strong>{children || "Não informado"}</strong></div>;
+function Campo({ nome, children, destaque = false }: { nome: string; children: ReactNode; destaque?: boolean }) {
+  return <div className={`${styles.campo}${destaque ? ` ${styles.destaque}` : ""}`}><span>{nome}</span><strong>{children || "Não informado"}</strong></div>;
 }
 
 function Etiquetas({ negocio }: { negocio: Deal }) {
@@ -73,8 +74,21 @@ function Conteudo({ secao, negocio, pipeline }: { secao: Secao; negocio: Deal; p
   const etapa = pipeline.stages.find((item) => item.id === negocio.stageId);
   const valor = negocio.value ? formatarBRL(negocio.value) : "Não informado";
   const previsao = negocio.expectedCloseDate ? formatarData(negocio.expectedCloseDate) : "Não informada";
-  if (secao === "resumo" || secao === "oportunidade") return <>
-    <div className={styles.tituloSecao}><h3>{secao === "resumo" ? "Resumo" : "Oportunidade"}</h3><p>Informações comerciais deste lead.</p></div>
+  if (secao === "resumo") {
+    const dias = diasNaEtapa(negocio);
+    return <>
+      <div className={styles.tituloSecao}><h3>Resumo</h3><p>Panorama do atendimento e da oportunidade.</p></div>
+      <div className={styles.grade}>
+        <Campo nome={pipeline.valueLabel || "Valor estimado"} destaque>{valor}</Campo>
+        <Campo nome="Previsão de fechamento" destaque>{previsao}</Campo>
+        <Campo nome="Tempo na etapa">{`${dias} ${dias === 1 ? "dia" : "dias"}${estaParado(negocio, pipeline) ? " · Parado" : ""}`}</Campo>
+        <Campo nome="Proposta">Em preparação</Campo>
+        <Campo nome="Número de documentos">Em preparação</Campo>
+      </div>
+    </>;
+  }
+  if (secao === "oportunidade") return <>
+    <div className={styles.tituloSecao}><h3>Oportunidade</h3><p>Informações comerciais deste lead.</p></div>
     <div className={styles.grade}>
       <Campo nome="Pipeline">{pipeline.name}</Campo>
       <Campo nome="Etapa">{etapa?.name ?? "Não informada"}</Campo>

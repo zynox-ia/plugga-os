@@ -52,7 +52,7 @@ test.describe("Negócios no quadro do pipeline (PLU-271)", () => {
 
     // Novo lead já na coluna Qualificação: o modal capta nome e contato, e o
     // responsável vem de Equipe e Acessos (o primeiro elegível já vem escolhido).
-    await page.getByRole("button", { name: "Novo negócio em Qualificação" }).click();
+    await page.getByRole("button", { name: "Novo lead em Qualificação" }).click();
     const novo = page.getByRole("dialog", { name: "Novo negócio" });
     await expect(novo.getByRole("combobox", { name: /^Etapa inicial/ })).toContainText("Qualificação");
     await novo.getByLabel(/^Nome do lead \/ Razão Social( \*| \(obrigatório\))$/).fill(titulo);

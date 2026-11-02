@@ -98,8 +98,8 @@ export function KanbanDoPipeline({
                   <button
                     type="button"
                     className="coluna-novo"
-                    aria-label={`Novo negócio em ${etapa.name}`}
-                    title={`Novo negócio em ${etapa.name}`}
+                    aria-label={`Novo lead em ${etapa.name}`}
+                    title={`Novo lead em ${etapa.name}`}
                     onClick={() => acoes.novoNaEtapa(etapa.id)}
                   >
                     <Plus size={14} aria-hidden="true" />

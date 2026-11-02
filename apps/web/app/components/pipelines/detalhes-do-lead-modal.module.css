@@ -20,6 +20,8 @@
 .campo { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .campo span { color: var(--ui-muted); font-size: 12px; }
 .campo strong { color: var(--ui-text); font-size: 13px; font-weight: 500; overflow-wrap: anywhere; }
+.destaque { padding: 14px; border: 1px solid var(--ui-divider); border-radius: var(--radius-sm); background: var(--ui-subtle); }
+.destaque strong { color: var(--ui-primary); font-size: 16px; font-weight: 600; }
 .bloco { margin-top: 28px; }
 .bloco h4 { margin: 0 0 10px; font-size: 13px; color: var(--ui-text); }
 .etiquetas { display: flex; flex-wrap: wrap; gap: 6px; }
