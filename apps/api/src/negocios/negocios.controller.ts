@@ -33,7 +33,7 @@ import { NegociosService } from "./negocios.service";
  * Negócios no quadro do pipeline (PLU-271). Quem alcança o pipeline (equipe,
  * gerente do CRM ou admin) vê e conduz todos os negócios dele.
  */
-@Controller("negocios")
+@Controller("leads")
 @UseGuards(SessionAuthGuard, AcessoGuard)
 @Departamento("crm")
 @Tela("crm.pipelines")
