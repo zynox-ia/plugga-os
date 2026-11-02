@@ -2,16 +2,17 @@
 
 import type { Deal, Pipeline } from "@plugga/shared";
 import { Clock, Kanban, Plus } from "lucide-react";
-import { useLayoutEffect, useRef, useState, type CSSProperties, type DragEvent, type RefObject } from "react";
+import { Fragment, useLayoutEffect, useRef, useState, type CSSProperties, type RefObject } from "react";
 
 import { calcularLayoutKanban, ESPACO_COLUNAS_KANBAN } from "../../lib/layout-kanban";
 import { somaDosValores, valorCurto } from "../../lib/negocios";
 import { CartaoDeNegocio } from "./cartao-de-negocio";
 import type { AcoesDoNegocio } from "./quadro-do-pipeline";
+import { ordenarCartoes } from "./arrasto-kanban";
+import { useArrastoKanban } from "./use-arrasto-kanban";
+import styles from "./kanban-arrasto.module.css";
 
-type Alvo = { tipo: "etapa"; id: string };
 const comCor = (cor: string) => ({ "--cor": cor }) as CSSProperties;
-const mesmoAlvo = (a: Alvo | null, b: Alvo) => a !== null && a.id === b.id;
 
 /**
  * Kanban: uma coluna por etapa, com contagem e soma dos valores.
@@ -28,10 +29,10 @@ export function KanbanDoPipeline({
   acoes: AcoesDoNegocio;
   colunasRef?: RefObject<HTMLDivElement | null>;
 }) {
-  const [arrastando, setArrastando] = useState<Deal | null>(null);
-  const [alvo, setAlvo] = useState<Alvo | null>(null);
   const internoRef = useRef<HTMLDivElement>(null);
   const refEfetivo = colunasRef ?? internoRef;
+  const { arrasto, alvo, comecar, terminar } = useArrastoKanban(refEfetivo);
+  const [ordens, setOrdens] = useState<Record<string, string[]>>({});
   const areaRef = useRef<HTMLDivElement>(null);
   const [layout, setLayout] = useState<ReturnType<typeof calcularLayoutKanban> | null>(null);
 
@@ -45,33 +46,12 @@ export function KanbanDoPipeline({
     return () => observer.disconnect();
   }, [pipeline.stages.length]);
 
-  const terminar = () => {
-    setArrastando(null);
-    setAlvo(null);
-  };
-
-  /** Eventos de uma área que aceita o card arrastado. */
-  const area = (destino: Alvo, soltar: (negocio: Deal) => void) => ({
-    onDragOver: (evento: DragEvent) => {
-      if (!arrastando) return;
-      evento.preventDefault();
-      if (!mesmoAlvo(alvo, destino)) setAlvo(destino);
-    },
-    onDragLeave: (evento: DragEvent) => {
-      if (!evento.currentTarget.contains(evento.relatedTarget as Node | null)) setAlvo(null);
-    },
-    onDrop: (evento: DragEvent) => {
-      evento.preventDefault();
-      const negocio = arrastando;
-      terminar();
-      if (negocio) soltar(negocio);
-    },
-  });
+  const espaco = <div className={styles.insercao} data-testid="kanban-insercao" aria-hidden="true" style={{ height: arrasto?.altura }} />;
 
   return (
     <div className="quadro-area-colunas" ref={areaRef}>
       <div
-        className="quadro-colunas"
+        className={`quadro-colunas${arrasto ? ` ${styles.rolando}` : ""}`}
         ref={refEfetivo}
         tabIndex={0}
         role="region"
@@ -85,15 +65,26 @@ export function KanbanDoPipeline({
         } as CSSProperties}
       >
         {pipeline.stages.map((etapa) => {
-          const daEtapa = negocios.filter((n) => n.stageId === etapa.id);
-          const destino: Alvo = { tipo: "etapa", id: etapa.id };
+          const daEtapa = ordenarCartoes(negocios.filter((n) => n.stageId === etapa.id), ordens[etapa.id]);
+          const alvoDaEtapa = alvo?.etapaId === etapa.id;
           return (
             <section
               key={etapa.id}
-              className={`coluna-etapa${mesmoAlvo(alvo, destino) && arrastando?.stageId !== etapa.id ? " coluna-etapa--alvo" : ""}`}
+              className="coluna-etapa"
+              data-etapa-id={etapa.id}
               aria-labelledby={`etapa-${etapa.id}`}
               style={comCor(etapa.color)}
-              {...area(destino, (negocio) => void acoes.moverEtapa(negocio, etapa.id))}
+              onDragOver={(evento) => { if (arrasto) evento.preventDefault(); }}
+              onDrop={(evento) => {
+                if (!arrasto || !alvoDaEtapa) return;
+                evento.preventDefault();
+                const ids = daEtapa.filter((n) => n.id !== arrasto.negocio.id).map((n) => n.id);
+                const indice = alvo.antesDeId ? ids.indexOf(alvo.antesDeId) : ids.length;
+                ids.splice(indice < 0 ? ids.length : indice, 0, arrasto.negocio.id);
+                setOrdens((atuais) => ({ ...atuais, [etapa.id]: ids }));
+                void acoes.moverEtapa(arrasto.negocio, etapa.id);
+                terminar();
+              }}
             >
               <header className="coluna-topo">
                 <div className="coluna-titulo">
@@ -126,22 +117,31 @@ export function KanbanDoPipeline({
                 ) : null}
               </div>
 
-              <div className="coluna-corpo" role="region" aria-label={`Negócios em ${etapa.name}`} tabIndex={0}>
+              <div className={`coluna-corpo ${styles.corpo}`} data-corpo-etapa role="region" aria-label={`Negócios em ${etapa.name}`} tabIndex={0}>
                 {daEtapa.length > 0 ? (
                   daEtapa.map((negocio) => (
-                    <CartaoDeNegocio
-                      key={negocio.id}
-                      negocio={negocio}
-                      pipeline={pipeline}
-                      acoes={acoes}
-                      arrastando={arrastando?.id === negocio.id}
-                      aoComecarArrasto={() => setArrastando(negocio)}
-                      aoTerminarArrasto={terminar}
-                    />
+                    <Fragment key={negocio.id}>
+                      {alvoDaEtapa && alvo.antesDeId === negocio.id ? espaco : null}
+                      <div
+                        data-cartao-id={negocio.id}
+                        className={`${styles.cartao}${arrasto?.negocio.id === negocio.id ? ` ${styles.origem}` : ""}`}
+                        style={arrasto?.negocio.id === negocio.id ? { width: arrasto.largura } : undefined}
+                      >
+                        <CartaoDeNegocio
+                          negocio={negocio}
+                          pipeline={pipeline}
+                          acoes={acoes}
+                          arrastando={arrasto?.negocio.id === negocio.id}
+                          aoComecarArrasto={(elemento) => comecar(negocio, elemento)}
+                          aoTerminarArrasto={terminar}
+                        />
+                      </div>
+                    </Fragment>
                   ))
                 ) : (
-                  <p className="coluna-vazia">{arrastando ? "Solte aqui" : "Sem negócios nesta etapa"}</p>
+                  !alvoDaEtapa ? <p className="coluna-vazia">{arrasto ? "Solte aqui" : "Sem negócios nesta etapa"}</p> : null
                 )}
+                {alvoDaEtapa && alvo.antesDeId === null ? espaco : null}
               </div>
             </section>
           );

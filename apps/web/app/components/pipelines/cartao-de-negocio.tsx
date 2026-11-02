@@ -169,7 +169,7 @@ export function CartaoDeNegocio({
   pipeline: Pipeline;
   acoes: AcoesDoNegocio;
   arrastando: boolean;
-  aoComecarArrasto: () => void;
+  aoComecarArrasto: (elemento: HTMLElement) => void;
   aoTerminarArrasto: () => void;
 }) {
   const [modalLeadAberto, setModalLeadAberto] = useState(false);
@@ -190,7 +190,7 @@ export function CartaoDeNegocio({
           arrastou.current = true;
           evento.dataTransfer.effectAllowed = "move";
           evento.dataTransfer.setData("text/plain", negocio.id);
-          aoComecarArrasto();
+          aoComecarArrasto(evento.currentTarget);
         }}
         onDragEnd={() => {
           setTimeout(() => { arrastou.current = false; }, 100);

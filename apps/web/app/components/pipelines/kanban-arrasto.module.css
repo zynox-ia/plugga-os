@@ -1,0 +1,17 @@
+.rolando:global(.quadro-colunas) {
+  scroll-behavior: auto;
+  scroll-snap-type: none;
+  overflow-anchor: none;
+}
+
+.corpo:global(.coluna-corpo) { position: relative; overflow-anchor: none; }
+.cartao { min-width: 0; }
+.origem { position: absolute; inset-inline-start: 0; top: 0; opacity: 0; pointer-events: none; }
+.insercao {
+  box-sizing: border-box;
+  flex-shrink: 0;
+  border: 1.5px dashed color-mix(in srgb, var(--cor) 65%, var(--ui-primary));
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--cor) 5%, transparent);
+  pointer-events: none;
+}
