@@ -944,6 +944,7 @@ enum DealPriority {
 /// está, sem cópia aqui: mover de pipeline muda a empresa por construção.
 /// Ganho e Perdido encerram o negócio na etapa em que ele estava.
 model Deal {
+  number Int @unique @default(autoincrement())
   id                String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   pipelineId        String              @map("pipeline_id") @db.Uuid
   stageId           String              @map("stage_id") @db.Uuid

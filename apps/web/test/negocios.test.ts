@@ -37,6 +37,7 @@ function negocio(parcial: Partial<Deal> & { id: string }): Deal {
     status: "open",
     priority: null,
     title: "Negócio",
+    number: 1,
     value: null,
     expectedCloseDate: null,
     client: { id: "00000000-0000-4000-8000-0000000000c1", name: "Logística Igarapé", personType: "pj", document: null, phone: null, email: null, city: null, state: null, legalName: null },

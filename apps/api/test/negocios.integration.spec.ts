@@ -187,6 +187,18 @@ describe.skipIf(!HABILITADO)("negócios: quadro do pipeline no Postgres", () => 
     await expect(negocios.setPriority(primeiro.id, { priority: "normal" }, pessoas.forasteiro)).rejects.toBeInstanceOf(NaoEncontrado);
   });
 
+  it("gera números únicos globalmente em criações concorrentes entre pipelines", async () => {
+    const negociosCriados = await Promise.all(Array.from({ length: 12 }, (_, indice) => novo(indice % 2 === 0 ? {} : {
+      pipelineId: mercadoLivre.id,
+      stageId: mercadoLivre.stages[0]!.id,
+    })));
+    const numeros = negociosCriados.map((negocio) => negocio.number);
+    expect(numeros.every((numero) => Number.isInteger(numero) && numero > 0)).toBe(true);
+    expect(new Set(numeros).size).toBe(negociosCriados.length);
+    const salvos = await prisma.deal.findMany({ where: { id: { in: negociosCriados.map((negocio) => negocio.id) } }, select: { number: true } });
+    expect(salvos.map((negocio) => negocio.number).sort((a, b) => a - b)).toEqual([...numeros].sort((a, b) => a - b));
+  });
+
   it("responsáveis vêm do acesso ativo: admin, desenvolvedor e CRM sem vínculo no funil", async () => {
     for (const papel of ["admin", "desenvolvedor"] as const) {
       const role = await prisma.role.upsert({ where: { key: papel }, create: { key: papel, name: papel }, update: {} });

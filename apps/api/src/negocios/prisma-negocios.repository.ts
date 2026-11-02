@@ -53,6 +53,7 @@ const SO_ABERTO = "Este negócio já foi encerrado.";
 function paraNegocio(linha: LinhaDeNegocio): Deal {
   return dealSchema.parse({
     id: linha.id,
+    number: linha.number,
     pipelineId: linha.pipelineId,
     companyId: linha.pipeline.companyId,
     stageId: linha.stageId,

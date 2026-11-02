@@ -80,6 +80,7 @@ export type ListDealsQuery = z.infer<typeof listDealsQuerySchema>;
 
 export const dealSchema = z.object({
   id: uuid,
+  number: z.number().int().positive(),
   pipelineId: uuid,
   companyId: companyKeySchema,
   stageId: uuid,

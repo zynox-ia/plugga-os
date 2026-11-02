@@ -24,3 +24,10 @@ describe("contrato de prioridade", () => {
     expect(setDealPriorityRequestSchema.safeParse({}).success).toBe(false);
   });
 });
+
+describe("número do negócio", () => {
+  it("aceita somente inteiros positivos", () => {
+    for (const numero of [1, 42]) expect(dealSchema.shape.number.safeParse(numero).success).toBe(true);
+    for (const numero of [0, -1, 1.5, null]) expect(dealSchema.shape.number.safeParse(numero).success).toBe(false);
+  });
+});
