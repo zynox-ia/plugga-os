@@ -1414,8 +1414,8 @@ tbody tr:last-child td { border-bottom: 0; }
 .config-topo-acoes { display: flex; align-items: center; gap: 8px; }
 
 /* Modal de configurar pipelines no padrão Design System (IDV Modal Novo Membro) */
-.modal.ui-dialog--config-pipelines {
-  width: min(1188px, calc(100vw - 48px));
+.modal.modal--larga.ui-dialog--config-pipelines {
+  width: min(1056px, calc(100vw - 48px));
   max-height: min(840px, calc(100dvh - 80px));
 }
 .modal.ui-dialog--config-pipelines .modal-conteudo {
@@ -2123,7 +2123,7 @@ tbody tr:last-child td { border-bottom: 0; }
   .indicadores-pipeline { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 768px) {
-  .modal.ui-dialog--config-pipelines {
+  .modal.modal--larga.ui-dialog--config-pipelines {
     width: 100vw;
     max-height: 100dvh;
     border-radius: 0;
