@@ -90,7 +90,7 @@ export class PrismaNegociosRepository extends NegociosRepository {
     await this.pipelineVisivel(query.pipelineId, principal);
     const linhas = await this.prisma.deal.findMany({
       where: { pipelineId: query.pipelineId, ...(query.status === "all" ? {} : { status: query.status }) },
-      orderBy: { stageEnteredAt: "desc" },
+      orderBy: [{ position: "asc" }, { id: "asc" }],
       take: 2000,
       include: DO_NEGOCIO,
     });
@@ -132,11 +132,14 @@ export class PrismaNegociosRepository extends NegociosRepository {
     }
 
     const id = await this.prisma.$transaction(async (tx) => {
+      await this.travarPipelines(tx, [pipeline.id]);
       await this.garantirResponsavel(tx, input.ownerId);
+      const position = await this.posicaoNaEtapa(tx, etapa.id, undefined, undefined);
       const criado = await tx.deal.create({
         data: {
           pipelineId: pipeline.id,
           stageId: etapa.id,
+          position,
           clientId: input.clientId,
           contactId: input.contactId ?? null,
           ownerId: input.ownerId,
@@ -158,17 +161,23 @@ export class PrismaNegociosRepository extends NegociosRepository {
   }
 
   async moveStage(id: string, input: MoveDealStageRequest, principal: AuthPrincipal): Promise<Deal> {
-    const { negocio, pipeline } = await this.negocioAberto(id, principal);
-    if (negocio.stageId === input.stageId) return this.ler(id);
+    const { pipeline } = await this.negocioAberto(id, principal);
     const destino = pipeline.stages.find((e) => e.id === input.stageId);
     if (!destino) throw invalido("Escolha uma etapa deste pipeline.", "stageId", "etapa de outro pipeline");
-    const origem = pipeline.stages.find((e) => e.id === negocio.stageId);
 
     await this.prisma.$transaction(async (tx) => {
-      await tx.deal.update({ where: { id }, data: { stageId: destino.id, stageEnteredAt: new Date() } });
-      await tx.dealHistory.create({
-        data: { dealId: id, kind: "stage_changed", fromStageId: origem?.id, fromStageName: origem?.name, toStageId: destino.id, toStageName: destino.name, actorId: principal.id },
-      });
+      await this.travarPipelines(tx, [pipeline.id]);
+      const atual = await this.negocioAtual(tx, id, pipeline.id);
+      if (atual.stageId === destino.id && input.beforeDealId === undefined) return;
+      const position = await this.posicaoNaEtapa(tx, destino.id, id, input.beforeDealId);
+      const mudouEtapa = atual.stageId !== destino.id;
+      await tx.deal.update({ where: { id }, data: { stageId: destino.id, position, ...(mudouEtapa ? { stageEnteredAt: new Date() } : {}) } });
+      if (mudouEtapa) {
+        const origem = pipeline.stages.find((e) => e.id === atual.stageId);
+        await tx.dealHistory.create({
+          data: { dealId: id, kind: "stage_changed", fromStageId: origem?.id, fromStageName: origem?.name, toStageId: destino.id, toStageName: destino.name, actorId: principal.id },
+        });
+      }
     });
     return this.ler(id);
   }
@@ -187,8 +196,10 @@ export class PrismaNegociosRepository extends NegociosRepository {
   }
 
   async win(id: string, principal: AuthPrincipal): Promise<Deal> {
-    const { negocio, pipeline } = await this.negocioAberto(id, principal);
+    const { pipeline } = await this.negocioAberto(id, principal);
     await this.prisma.$transaction(async (tx) => {
+      await this.travarPipelines(tx, [pipeline.id]);
+      const negocio = await this.negocioAtual(tx, id, pipeline.id);
       await tx.deal.update({ where: { id }, data: { status: "won", closedAt: new Date() } });
       await tx.dealHistory.create({ data: { dealId: id, kind: "won", fromStageId: negocio.stageId, actorId: principal.id } });
       await this.registrar(tx, "commercial.deal.won", id, pipeline.companyId, principal, { pipelineId: pipeline.id });
@@ -197,12 +208,14 @@ export class PrismaNegociosRepository extends NegociosRepository {
   }
 
   async lose(id: string, input: LoseDealRequest, principal: AuthPrincipal): Promise<Deal> {
-    const { negocio, pipeline } = await this.negocioAberto(id, principal);
+    const { pipeline } = await this.negocioAberto(id, principal);
     const motivo = pipeline.lossReasons.find((m) => m.id === input.lossReasonId) ?? null;
     const problema = problemaDaPerda(motivo, input.revisitOn, hojeNoFuso());
     if (problema) throw new RequisicaoInvalida("Confira o motivo da perda.", [problema]);
 
     await this.prisma.$transaction(async (tx) => {
+      await this.travarPipelines(tx, [pipeline.id]);
+      const negocio = await this.negocioAtual(tx, id, pipeline.id);
       await tx.deal.update({
         where: { id },
         data: {
@@ -221,20 +234,23 @@ export class PrismaNegociosRepository extends NegociosRepository {
   }
 
   async transfer(id: string, input: TransferDealRequest, principal: AuthPrincipal): Promise<Deal> {
-    const { negocio, pipeline: origem } = await this.negocioAberto(id, principal);
+    const { pipeline: origem } = await this.negocioAberto(id, principal);
     if (input.pipelineId === origem.id) throw invalido("Escolha outro pipeline.", "pipelineId", "o negócio já está neste pipeline");
     const destino = await this.pipelineVisivel(input.pipelineId, principal);
     if (destino.archivedAt) throw new EstadoInvalido("Pipeline arquivado não recebe negócios.");
     const etapa = destino.stages.find((e) => e.id === input.stageId);
     if (!etapa) throw invalido("Escolha uma etapa do pipeline de destino.", "stageId", "etapa de outro pipeline");
-    const responsavel = input.ownerId ?? negocio.ownerId;
-    const etapaDeOrigem = origem.stages.find((e) => e.id === negocio.stageId);
 
     await this.prisma.$transaction(async (tx) => {
+      await this.travarPipelines(tx, [origem.id, destino.id]);
+      const atual = await this.negocioAtual(tx, id, origem.id);
+      const responsavel = input.ownerId ?? atual.ownerId;
+      const etapaDeOrigem = origem.stages.find((e) => e.id === atual.stageId);
+      const position = await this.posicaoNaEtapa(tx, etapa.id, id, undefined);
       // Etiquetas são do pipeline: não acompanham o negócio.
       await tx.dealTag.deleteMany({ where: { dealId: id } });
       await this.garantirResponsavel(tx, responsavel);
-      await tx.deal.update({ where: { id }, data: { pipelineId: destino.id, stageId: etapa.id, ownerId: responsavel, stageEnteredAt: new Date() } });
+      await tx.deal.update({ where: { id }, data: { pipelineId: destino.id, stageId: etapa.id, ownerId: responsavel, position, stageEnteredAt: new Date() } });
       await tx.dealHistory.create({
         data: {
           dealId: id,
@@ -267,6 +283,7 @@ export class PrismaNegociosRepository extends NegociosRepository {
     const { action } = input;
 
     await this.prisma.$transaction(async (tx) => {
+      await this.travarPipelines(tx, [pipeline.id]);
       if (action.type === "owner") {
         await this.garantirResponsavel(tx, action.ownerId);
         await tx.deal.updateMany({ where: { id: { in: input.dealIds } }, data: { ownerId: action.ownerId } });
@@ -286,9 +303,14 @@ export class PrismaNegociosRepository extends NegociosRepository {
         const destino = pipeline.stages.find((e) => e.id === action.stageId);
         if (!destino) throw invalido("Escolha uma etapa deste pipeline.", "stageId", "etapa de outro pipeline");
         // Só os abertos mudam de etapa: ganho e perdido ficam onde foram encerrados.
-        const mover = negocios.filter((n) => n.status === "open" && n.stageId !== destino.id);
+        const atuais = await tx.deal.findMany({ where: { id: { in: input.dealIds }, pipelineId: pipeline.id }, orderBy: [{ position: "asc" }, { id: "asc" }] });
+        if (atuais.length !== new Set(input.dealIds).size) throw new EstadoInvalido("Um negócio mudou de pipeline. Atualize a tela.");
+        const mover = atuais.filter((n) => n.status === "open" && n.stageId !== destino.id);
         const agora = new Date();
-        await tx.deal.updateMany({ where: { id: { in: mover.map((n) => n.id) } }, data: { stageId: destino.id, stageEnteredAt: agora } });
+        for (const negocio of [...mover].reverse()) {
+          const position = await this.posicaoNaEtapa(tx, destino.id, negocio.id, undefined);
+          await tx.deal.update({ where: { id: negocio.id }, data: { stageId: destino.id, stageEnteredAt: agora, position } });
+        }
         await tx.dealHistory.createMany({
           data: mover.map((n) => ({
             dealId: n.id,
@@ -306,6 +328,47 @@ export class PrismaNegociosRepository extends NegociosRepository {
 
     const linhas = await this.prisma.deal.findMany({ where: { id: { in: input.dealIds } }, include: DO_NEGOCIO });
     return listDealsResponseSchema.parse({ deals: linhas.map(paraNegocio) });
+  }
+
+  private async travarPipelines(tx: Prisma.TransactionClient, ids: string[]): Promise<void> {
+    for (const id of [...new Set(ids)].sort()) {
+      await tx.$queryRaw`SELECT id FROM pipelines WHERE id = ${id}::uuid FOR UPDATE`;
+    }
+  }
+
+  private async negocioAtual(tx: Prisma.TransactionClient, id: string, pipelineId: string) {
+    const atual = await tx.deal.findUnique({ where: { id }, select: { id: true, pipelineId: true, stageId: true, status: true, ownerId: true } });
+    if (!atual) throw new NaoEncontrado(NEGOCIO_NAO_ENCONTRADO);
+    if (atual.pipelineId !== pipelineId) throw new EstadoInvalido("O negócio mudou de pipeline. Atualize a tela.");
+    if (atual.status !== "open") throw new EstadoInvalido(SO_ABERTO);
+    return atual;
+  }
+
+  private async posicaoNaEtapa(tx: Prisma.TransactionClient, stageId: string, ignorarId: string | undefined, beforeDealId: string | null | undefined): Promise<Prisma.Decimal> {
+    if (beforeDealId && beforeDealId === ignorarId) throw invalido("Escolha outro negócio como referência.", "beforeDealId", "referência inválida");
+    const carregar = () => tx.deal.findMany({ where: { stageId, ...(ignorarId ? { id: { not: ignorarId } } : {}) }, select: { id: true, position: true, status: true }, orderBy: [{ position: "asc" }, { id: "asc" }] });
+    let itens = await carregar();
+    const calcular = () => {
+      const indice = beforeDealId === null ? itens.length : beforeDealId === undefined ? 0 : itens.findIndex((item) => item.id === beforeDealId && item.status === "open");
+      if (indice < 0) throw invalido("Escolha um negócio aberto desta etapa.", "beforeDealId", "referência inválida");
+      const anterior = itens[indice - 1]?.position;
+      const proximo = itens[indice]?.position;
+      if (!anterior && !proximo) return new Prisma.Decimal(1024);
+      if (!anterior) return proximo!.minus(1024);
+      if (!proximo) return anterior.plus(1024);
+      return anterior.plus(proximo).dividedBy(2).toDecimalPlaces(10);
+    };
+    let position = calcular();
+    const limite = new Prisma.Decimal("99999999999999999999");
+    const colisao = () => itens.some((item) => item.position.equals(position)) || itens.some((item, index) => index > 0 && item.position.equals(itens[index - 1]!.position));
+    if (position.abs().greaterThan(limite) || colisao()) {
+      for (const [indice, item] of itens.entries()) {
+        await tx.deal.update({ where: { id: item.id }, data: { position: new Prisma.Decimal(indice + 1).times(1024) } });
+      }
+      itens = await carregar();
+      position = calcular();
+    }
+    return position;
   }
 
   /** Quem não alcança o pipeline recebe "não encontrado": a existência não vaza. */

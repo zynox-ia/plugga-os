@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bulkDealsActionSchema, createDealRequestSchema, dealSchema, setDealPriorityRequestSchema } from "@plugga/shared";
+import { bulkDealsActionSchema, createDealRequestSchema, dealSchema, moveDealStageRequestSchema, setDealPriorityRequestSchema } from "@plugga/shared";
 
 describe("contrato do cliente do negócio", () => {
   it("preserva dados cadastrais e aceita valores nulos", () => {
@@ -29,5 +29,15 @@ describe("número do negócio", () => {
   it("aceita somente inteiros positivos", () => {
     for (const numero of [1, 42]) expect(dealSchema.shape.number.safeParse(numero).success).toBe(true);
     for (const numero of [0, -1, 1.5, null]) expect(dealSchema.shape.number.safeParse(numero).success).toBe(false);
+  });
+});
+
+describe("referência de ordenação", () => {
+  it("distingue omissão, fim e referência válida", () => {
+    const stageId = "550e8400-e29b-41d4-a716-446655440000";
+    expect(moveDealStageRequestSchema.parse({ stageId })).toEqual({ stageId });
+    expect(moveDealStageRequestSchema.parse({ stageId, beforeDealId: null })).toEqual({ stageId, beforeDealId: null });
+    expect(moveDealStageRequestSchema.safeParse({ stageId, beforeDealId: stageId }).success).toBe(true);
+    expect(moveDealStageRequestSchema.safeParse({ stageId, beforeDealId: "inválido" }).success).toBe(false);
   });
 });

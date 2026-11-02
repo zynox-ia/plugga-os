@@ -45,7 +45,7 @@ export const createDealRequestSchema = z
   .strict();
 export type CreateDealRequest = z.infer<typeof createDealRequestSchema>;
 
-export const moveDealStageRequestSchema = z.object({ stageId: uuid }).strict();
+export const moveDealStageRequestSchema = z.object({ stageId: uuid, beforeDealId: uuid.nullable().optional() }).strict();
 export type MoveDealStageRequest = z.infer<typeof moveDealStageRequestSchema>;
 
 /** Perder exige o motivo; a data de revisita é exigida pela API quando o motivo pede. */

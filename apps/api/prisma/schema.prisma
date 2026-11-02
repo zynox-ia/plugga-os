@@ -945,6 +945,7 @@ enum DealPriority {
 /// Ganho e Perdido encerram o negócio na etapa em que ele estava.
 model Deal {
   number Int @unique @default(autoincrement())
+  position Decimal @default(0) @db.Decimal(30, 10)
   id                String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   pipelineId        String              @map("pipeline_id") @db.Uuid
   stageId           String              @map("stage_id") @db.Uuid
@@ -981,6 +982,7 @@ model Deal {
 
   @@index([pipelineId, status])
   @@index([stageId])
+  @@index([stageId, position])
   @@index([clientId])
   @@index([ownerId])
   @@map("deals")

@@ -199,6 +199,66 @@ describe.skipIf(!HABILITADO)("negócios: quadro do pipeline no Postgres", () => 
     expect(salvos.map((negocio) => negocio.number).sort((a, b) => a - b)).toEqual([...numeros].sort((a, b) => a - b));
   });
 
+  it("persiste ordem, respeita referência e rebalanceia quando o espaço acaba", async () => {
+    const a = await novo();
+    const b = await novo();
+    const c = await novo();
+    const ids = [a.id, b.id, c.id];
+    const ordem = async () => (await negocios.list({ pipelineId: solar.id, status: "open" }, pessoas.ana)).deals.filter((n) => ids.includes(n.id)).map((n) => n.id);
+    expect(await ordem()).toEqual([c.id, b.id, a.id]);
+    const antes = await prisma.deal.findUniqueOrThrow({ where: { id: a.id } });
+    await negocios.moveStage(a.id, { stageId: a.stageId, beforeDealId: c.id }, pessoas.ana);
+    expect(await ordem()).toEqual([a.id, c.id, b.id]);
+    await negocios.moveStage(a.id, { stageId: a.stageId, beforeDealId: null }, pessoas.ana);
+    expect(await ordem()).toEqual([c.id, b.id, a.id]);
+    await negocios.moveStage(a.id, { stageId: a.stageId }, pessoas.ana);
+    expect(await ordem()).toEqual([c.id, b.id, a.id]);
+    const depois = await prisma.deal.findUniqueOrThrow({ where: { id: a.id } });
+    expect(depois.stageEnteredAt).toEqual(antes.stageEnteredAt);
+    expect(await prisma.dealHistory.count({ where: { dealId: a.id, kind: "stage_changed" } })).toBe(0);
+    await expect(negocios.moveStage(a.id, { stageId: a.stageId, beforeDealId: a.id }, pessoas.ana)).rejects.toBeInstanceOf(RequisicaoInvalida);
+    await prisma.deal.update({ where: { id: c.id }, data: { position: "10" } });
+    await prisma.deal.update({ where: { id: b.id }, data: { position: "10.0000000001" } });
+    await negocios.moveStage(a.id, { stageId: a.stageId, beforeDealId: b.id }, pessoas.ana);
+    expect(await ordem()).toEqual([c.id, a.id, b.id]);
+    const posicoes = await prisma.deal.findMany({ where: { id: { in: ids } }, select: { position: true } });
+    expect(new Set(posicoes.map((p) => p.position.toString())).size).toBe(3);
+  });
+
+  it("serializa movimentos simultâneos para a mesma etapa", async () => {
+    const referencia = await novo();
+    const a = await novo({ stageId: etapa("Visita técnica") });
+    const b = await novo({ stageId: etapa("Visita técnica") });
+    await Promise.all([a, b].map((n, index) => negocios.moveStage(n.id, { stageId: referencia.stageId, beforeDealId: referencia.id }, index === 0 ? pessoas.ana : pessoas.bruno)));
+    const encontrados = (await negocios.list({ pipelineId: solar.id, status: "open" }, pessoas.ana)).deals.filter((n) => [a.id, b.id, referencia.id].includes(n.id));
+    expect(new Set(encontrados.slice(0, 2).map((n) => n.id))).toEqual(new Set([a.id, b.id]));
+    expect(encontrados[2]?.id).toBe(referencia.id);
+    const posicoes = await prisma.deal.findMany({ where: { id: { in: [a.id, b.id, referencia.id] } }, select: { position: true } });
+    expect(new Set(posicoes.map((p) => p.position.toString())).size).toBe(3);
+  });
+
+  it("criação, transferência e lote entram no topo preservando a ordem do lote", async () => {
+    const etapaOrigem = etapa("Qualificação");
+    const etapaDestino = etapa("Visita técnica");
+    const antigo = await novo({ stageId: etapaDestino });
+    const a = await novo({ stageId: etapaOrigem });
+    const b = await novo({ stageId: etapaOrigem });
+    await negocios.bulk({ dealIds: [a.id, b.id], action: { type: "stage", stageId: etapaDestino } }, pessoas.ana);
+    const ids = [antigo.id, a.id, b.id];
+    const ordem = async () => (await negocios.list({ pipelineId: solar.id, status: "open" }, pessoas.ana)).deals.filter((n) => ids.includes(n.id)).map((n) => n.id);
+    expect(await ordem()).toEqual([b.id, a.id, antigo.id]);
+    const transferido = await novo({ pipelineId: mercadoLivre.id, stageId: mercadoLivre.stages[0]!.id });
+    await negocios.transfer(transferido.id, { pipelineId: solar.id, stageId: etapaDestino }, pessoas.ana);
+    ids.push(transferido.id);
+    expect((await ordem())[0]).toBe(transferido.id);
+    const novoNoTopo = await novo({ stageId: etapaDestino });
+    ids.push(novoNoTopo.id);
+    expect((await ordem())[0]).toBe(novoNoTopo.id);
+    await negocios.win(antigo.id, pessoas.ana);
+    await expect(negocios.moveStage(a.id, { stageId: etapaDestino, beforeDealId: antigo.id }, pessoas.ana)).rejects.toBeInstanceOf(RequisicaoInvalida);
+    await expect(negocios.moveStage(a.id, { stageId: etapaDestino, beforeDealId: etapaOrigem }, pessoas.ana)).rejects.toBeInstanceOf(RequisicaoInvalida);
+  });
+
   it("responsáveis vêm do acesso ativo: admin, desenvolvedor e CRM sem vínculo no funil", async () => {
     for (const papel of ["admin", "desenvolvedor"] as const) {
       const role = await prisma.role.upsert({ where: { key: papel }, create: { key: papel, name: papel }, update: {} });

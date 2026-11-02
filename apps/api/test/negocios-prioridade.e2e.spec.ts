@@ -8,12 +8,13 @@ import { NegociosRepository } from "../src/negocios/negocios.repository";
 describe("prioridade do negócio (e2e)", () => {
   let app: INestApplication;
   const setPriority = vi.fn(async (_id, input) => input);
+  const moveStage = vi.fn(async (_id, input) => input);
   const id = "00000000-0000-4000-8000-000000000001";
   const comercial = (r: request.Test) => r.set("x-dev-principal", "local-comercial").set("x-dev-departamentos", "crm:membro");
 
   beforeAll(async () => {
     const modulo = await Test.createTestingModule({ imports: [AppModule] })
-      .overrideProvider(NegociosRepository).useValue({ setPriority }).compile();
+      .overrideProvider(NegociosRepository).useValue({ setPriority, moveStage }).compile();
     app = modulo.createNestApplication();
     await app.init();
   });
@@ -24,5 +25,11 @@ describe("prioridade do negócio (e2e)", () => {
     await comercial(request(app.getHttpServer()).patch(`/negocios/${id}/prioridade`)).send({ priority: "alta" }).expect(400);
     await comercial(request(app.getHttpServer()).patch(`/negocios/${id}/prioridade`)).send({ priority: null }).expect(200, { priority: null });
     expect(setPriority).toHaveBeenCalledOnce();
+  });
+
+  it("aceita uma referência de ordenação ou o fim explícito", async () => {
+    await comercial(request(app.getHttpServer()).post(`/negocios/${id}/etapa`)).send({ stageId: id, beforeDealId: null }).expect(200, { stageId: id, beforeDealId: null });
+    await comercial(request(app.getHttpServer()).post(`/negocios/${id}/etapa`)).send({ stageId: id, beforeDealId: "invalido" }).expect(400);
+    expect(moveStage).toHaveBeenCalledOnce();
   });
 });
