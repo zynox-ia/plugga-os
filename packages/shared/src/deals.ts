@@ -80,7 +80,11 @@ export const dealSchema = z.object({
   title: z.string(),
   value: decimalString.nullable(),
   expectedCloseDate: z.string().nullable(),
-  client: z.object({ id: uuid, name: z.string(), personType: clientPersonTypeSchema }),
+  client: z.object({
+    id: uuid, name: z.string(), personType: clientPersonTypeSchema,
+    document: z.string().nullable(), phone: z.string().nullable(), email: z.string().nullable(),
+    city: z.string().nullable(), state: z.string().nullable(), legalName: z.string().nullable(),
+  }),
   contact: z.object({ id: uuid, name: z.string() }).nullable(),
   owner: z.object({ id: uuid, name: z.string() }),
   tags: z.array(z.object({ id: uuid, name: z.string(), color: z.string() })),

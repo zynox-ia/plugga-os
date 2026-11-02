@@ -27,7 +27,7 @@ import { foraDe, hojeNoFuso, problemaDaPerda } from "./negocios.rules";
 
 const DO_NEGOCIO = {
   pipeline: { select: { companyId: true } },
-  client: { select: { id: true, name: true, personType: true } },
+  client: { select: { id: true, name: true, personType: true, document: true, phone: true, email: true, city: true, state: true, legalName: true } },
   contact: { select: { id: true, name: true } },
   owner: { select: { id: true, name: true } },
   tags: { include: { tag: { select: { id: true, name: true, color: true, position: true } } } },

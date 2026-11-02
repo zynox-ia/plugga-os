@@ -116,6 +116,7 @@ describe.skipIf(!HABILITADO)("negócios: quadro do pipeline no Postgres", () => 
     const cliente = await prisma.client.create({
       data: {
         name: `${marca} Logística Igarapé`,
+        phone: "(92) 99999-9999", email: "cliente@teste.local", city: "Manaus", state: "AM", legalName: "Logística Exemplo Ltda",
         contacts: { create: { name: "Juliana Prado", isPrimary: true } },
         consumerUnits: { create: { code: `9999${randomInt(100_000, 999_999)}`, distributor: "Amazonas Energia" } },
       },
@@ -144,11 +145,13 @@ describe.skipIf(!HABILITADO)("negócios: quadro do pipeline no Postgres", () => 
 
       expect(negocio).toMatchObject({ status: "open", companyId: "waze", value: "620000.00", expectedCloseDate: "2026-12-15" });
       expect(negocio.contact?.id).toBe(contatoId);
+      expect(negocio.client).toMatchObject({ document: null, phone: "(92) 99999-9999", email: "cliente@teste.local", city: "Manaus", state: "AM", legalName: "Logística Exemplo Ltda" });
       expect(negocio.tags.map((t) => t.name)).toEqual(["Grupo A"]);
       expect(negocio.consumerUnits.map((u) => u.id)).toEqual([ucId]);
 
       const doBruno = await negocios.list({ pipelineId: solar.id, status: "open" }, pessoas.bruno);
       expect(doBruno.deals.map((d) => d.id)).toContain(negocio.id);
+      expect(doBruno.deals.find((d) => d.id === negocio.id)?.client).toEqual(negocio.client);
       await expect(negocios.list({ pipelineId: solar.id, status: "open" }, pessoas.forasteiro)).rejects.toBeInstanceOf(NaoEncontrado);
 
       const historico = await prisma.dealHistory.findMany({ where: { dealId: negocio.id } });
