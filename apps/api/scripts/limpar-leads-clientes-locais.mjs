@@ -7,8 +7,7 @@ import dotenv from "dotenv";
 import { assertSafeDockerTarget } from "../../../scripts/local-test.mjs";
 
 // Só dados sintéticos locais. A prévia é obrigatória; --apply exige uma prévia
-// aprovada e, no dev, os números autorizados pelo coordenador nesta tarefa.
-const devAprovado = { clients: 499, deals: 1080, deal_history: 1231, deal_tags: 18, client_contacts: 11, consumer_units: 1 };
+// aprovada e contagens explicitamente informadas para todas as tabelas.
 const tabelas = [
   "clients", "deals", "deal_tags", "deal_history", "deal_consumer_units", "client_contacts", "consumer_units",
   "contracts", "cycles", "market_migrations", "energy_efficiency_studies", "audits", "contestations",
@@ -90,12 +89,20 @@ const gatilhosSql = `SELECT c.relname AS tabela,t.tgname AS nome,t.tgenabled AS 
 FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace
 WHERE n.nspname='public' AND NOT t.tgisinternal ORDER BY 1,2`;
 
-export function validarPrevia(atual, aprovada, destino) {
-  if (JSON.stringify(atual) !== JSON.stringify(aprovada)) throw new Error("Recusado: contagem ou dependências mudaram desde a prévia.");
-  for (const { tabela, quantidade } of atual.contagens) {
-    const esperado = destino.porta === "54432" ? (devAprovado[tabela] ?? 0) : undefined;
-    if (esperado !== undefined && quantidade !== esperado) throw new Error(`Recusado: contagem não aprovada em ${tabela}.`);
+export function validarContagens(contagens, esperadas) {
+  if (!esperadas || typeof esperadas !== "object" || Array.isArray(esperadas) ||
+      Object.keys(esperadas).length !== contagens.length ||
+      contagens.some(({ tabela, quantidade }) => !Object.hasOwn(esperadas, tabela) ||
+        !Number.isSafeInteger(esperadas[tabela]) || esperadas[tabela] < 0 || esperadas[tabela] !== quantidade)) {
+    throw new Error("Recusado: contagens esperadas ausentes ou divergentes da recontagem.");
   }
+  const bloqueadas = ["contracts", "cycles", "market_migrations", "energy_efficiency_studies", "audits", "contestations", "opportunities", "obras", "pedidos_de_compra", "lead_documents"];
+  if (contagens.some((x) => bloqueadas.includes(x.tabela) && x.quantidade !== 0)) throw new Error("Recusado: existem dependências que exigem nova revisão.");
+}
+
+export function validarPrevia(atual, aprovada, esperadas) {
+  if (JSON.stringify(atual) !== JSON.stringify(aprovada)) throw new Error("Recusado: contagem ou dependências mudaram desde a prévia.");
+  validarContagens(atual.contagens, esperadas);
   for (const item of atual.dependencias) if (!tabelas.includes(item.tabela)) throw new Error(`Recusado: dependência não inventariada em ${item.tabela}.`);
   if (JSON.stringify(atual.dependencias.map((d) => d.nome).sort()) !== JSON.stringify(fksAprovadas)) throw new Error("Recusado: chaves estrangeiras divergentes do inventário aprovado.");
   for (const fk of atual.dependencias) {
@@ -105,13 +112,15 @@ export function validarPrevia(atual, aprovada, destino) {
   const gatilhos = atual.gatilhos.map((g) => `${g.tabela}.${g.nome}`).sort();
   if (JSON.stringify(gatilhos) !== JSON.stringify(["agent_actions.agent_actions_append_only", "event_log.event_log_append_only", "evidencias_de_obra.evidencias_de_obra_append_only"])) throw new Error("Recusado: gatilhos divergentes do inventário aprovado.");
   if (atual.gatilhos.some((g) => g.ativo !== "O" || !g.definicao.includes("BEFORE DELETE OR UPDATE") || !g.definicao.includes("prevent_audit_mutation()"))) throw new Error("Recusado: proteção append-only alterada.");
-  const bloqueadas = ["contracts", "cycles", "market_migrations", "energy_efficiency_studies", "audits", "contestations", "opportunities", "obras", "pedidos_de_compra", "lead_documents"];
-  if (atual.contagens.some((x) => bloqueadas.includes(x.tabela) && x.quantidade !== 0)) throw new Error("Recusado: há dependências que exigem nova revisão.");
 }
 
 async function executar() {
   const args = process.argv.slice(2);
-  if (!(args.length === 1 && args[0] === "--dry-run") && !(args.length === 3 && args[0] === "--apply" && args[1] === "--snapshot")) throw new Error("Use --dry-run ou --apply --snapshot <arquivo aprovado>.");
+  if (!(args.length === 1 && args[0] === "--dry-run") && !(args.length === 5 && args[0] === "--apply" && args[1] === "--snapshot" && args[3] === "--expect")) throw new Error('Use --dry-run ou --apply --snapshot <arquivo aprovado> --expect <JSON de contagens>.');
+  let esperadas;
+  if (args[0] === "--apply") {
+    try { esperadas = JSON.parse(args[4]); } catch { throw new Error("Recusado: --expect deve conter um objeto JSON de contagens."); }
+  }
   const destino = validarDestino(process.env.DATABASE_URL, process.env.NODE_ENV);
   const ips = inspecionarContainer(destino);
   const client = new PrismaClient();
@@ -124,7 +133,7 @@ async function executar() {
       const atual = { contagens: await tx.$queryRawUnsafe(contagemSql), dependencias: await tx.$queryRawUnsafe(catalogoSql), gatilhos: await tx.$queryRawUnsafe(gatilhosSql) };
       if (args[0] === "--dry-run") { console.log(JSON.stringify(atual, null, 2)); return; }
       const aprovada = JSON.parse(readFileSync(args[2], "utf8"));
-      validarPrevia(atual, aprovada, destino);
+      validarPrevia(atual, aprovada, esperadas);
       await tx.$executeRawUnsafe('DELETE FROM "public"."deals"');
       await tx.$executeRawUnsafe('DELETE FROM "public"."clients"');
     }, { timeout: 120_000 });
