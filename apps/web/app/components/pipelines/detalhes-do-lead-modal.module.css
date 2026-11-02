@@ -21,11 +21,11 @@
 }
 
 /* ==========================================================================
-   LAYOUT SPLIT PRINCIPAL: SIDEBAR ESQUERDA + PAINEL PRINCIPAL À DIREITA
+   LAYOUT SPLIT PRINCIPAL: ESTRITAMENTE 2 CAMPOS (ESQUERDA E DIREITA)
    ========================================================================== */
 .layout {
   display: grid;
-  grid-template-columns: 220px minmax(0, 1fr);
+  grid-template-columns: 216px minmax(0, 1fr);
   min-height: 540px;
   max-height: min(840px, calc(100dvh - 48px));
   overflow: hidden;
@@ -33,7 +33,7 @@
 }
 
 /* ==========================================================================
-   COLUNA ESQUERDA: SIDEBAR DE NAVEGAÇÃO
+   CAMPO 1 (ESQUERDA): PAINEL CONTÍNUO DE NAVEGAÇÃO
    ========================================================================== */
 .sidebar {
   display: flex;
@@ -41,51 +41,10 @@
   background: var(--ui-subtle);
   border-right: 1px solid var(--ui-divider);
   overflow-y: auto;
-}
-
-.sidebarHeader {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 16px 16px 14px;
-  border-bottom: 1px solid var(--ui-divider);
-  flex-shrink: 0;
-}
-
-.sidebarIcone {
-  display: grid;
-  place-items: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  background: var(--ui-focus-bg);
-  color: var(--ui-primary);
-  border: 1px solid rgba(0, 102, 204, 0.18);
-  flex-shrink: 0;
-}
-
-.sidebarHeaderInfo {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.sidebarTitulo {
-  font-size: 10.5px;
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--ui-muted);
-}
-
-.sidebarSubtitulo {
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--ui-text);
+  padding: 16px 10px;
 }
 
 .navegacao {
-  padding: 14px 10px;
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -99,6 +58,10 @@
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.05em;
+}
+
+.navegacao > div:first-child .grupo {
+  padding-top: 4px;
 }
 
 .abaBotao {
@@ -136,7 +99,7 @@
 }
 
 /* ==========================================================================
-   COLUNA DIREITA: PAINEL PRINCIPAL (CABEÇALHO + CAMPO DE INFORMAÇÕES)
+   CAMPO 2 (DIREITA): CABEÇALHO DO LEAD + CAMPO DE INFORMAÇÕES
    ========================================================================== */
 .painelPrincipal {
   display: flex;
@@ -146,10 +109,7 @@
   background: var(--ui-surface);
 }
 
-/* ==========================================================================
-   CABEÇALHO ALINHADO À DIREITA, ANTES DO CAMPO DE INFORMAÇÕES
-   (MÁXIMO 3 LINHAS, ÍCONE DE 2 LINHAS, PESO MÁXIMO 500)
-   ========================================================================== */
+/* Cabeçalho no topo da coluna direita */
 .cabecalho {
   display: flex;
   align-items: center;
@@ -1079,15 +1039,12 @@
     border-right: 0;
     border-bottom: 1px solid var(--ui-divider);
     flex-shrink: 0;
-  }
-  .sidebarHeader {
-    display: none;
+    padding: 8px;
   }
   .navegacao {
     display: flex;
     flex-direction: row;
     overflow-x: auto;
-    padding: 8px;
     gap: 4px;
   }
   .grupo {

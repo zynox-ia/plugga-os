@@ -685,18 +685,8 @@ export function DetalhesDoLeadModal({ negocio, pipeline, acoes, aoFechar }: Prop
   return (
     <Modal rotulo="Detalhes do lead" aoFechar={aoFechar} largura="larga" className={styles.modal}>
       <div className={styles.layout}>
-        {/* COLUNA ESQUERDA: NAVEGAÇÃO / SIDEBAR DE ABAS */}
+        {/* CAMPO 1 (ESQUERDA): NAVEGAÇÃO CONTÍNUA DE PAIINEL */}
         <aside className={styles.sidebar}>
-          <div className={styles.sidebarHeader}>
-            <div className={styles.sidebarIcone} aria-hidden="true">
-              {negocio.client?.personType === "pj" ? <Building2 size={16} /> : <UserRound size={16} />}
-            </div>
-            <div className={styles.sidebarHeaderInfo}>
-              <span className={styles.sidebarTitulo}>Menu</span>
-              <span className={styles.sidebarSubtitulo}>Navegação</span>
-            </div>
-          </div>
-
           <div
             className={styles.navegacao}
             role="tablist"
@@ -732,9 +722,9 @@ export function DetalhesDoLeadModal({ negocio, pipeline, acoes, aoFechar }: Prop
           </div>
         </aside>
 
-        {/* COLUNA DIREITA: CABEÇALHO + CAMPO DE INFORMAÇÕES */}
+        {/* CAMPO 2 (DIREITA): CABEÇALHO DO LEAD + CAMPO DE INFORMAÇÕES */}
         <div className={styles.painelPrincipal}>
-          {/* CABEÇALHO ALINHADO À DIREITA, ANTES DO CAMPO DE INFORMAÇÕES */}
+          {/* CABEÇALHO NO TOPO DA COLUNA DIREITA */}
           <header className={styles.cabecalho}>
             <div className={styles.iconeHeader} aria-hidden="true">
               {negocio.client?.personType === "pj" ? <Building2 size={20} /> : <UserRound size={20} />}
