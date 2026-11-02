@@ -12,6 +12,7 @@ import {
   type ListDealsResponse,
   type LoseDealRequest,
   type MoveDealStageRequest,
+  type SetDealPriorityRequest,
   type NomeDeEventoAuditavel,
   type TransferDealRequest,
 } from "@plugga/shared";
@@ -56,6 +57,7 @@ function paraNegocio(linha: LinhaDeNegocio): Deal {
     companyId: linha.pipeline.companyId,
     stageId: linha.stageId,
     status: linha.status,
+    priority: linha.priority,
     title: linha.title,
     value: linha.value?.toFixed(2) ?? null,
     expectedCloseDate: linha.expectedCloseDate,
@@ -138,6 +140,7 @@ export class PrismaNegociosRepository extends NegociosRepository {
           contactId: input.contactId ?? null,
           ownerId: input.ownerId,
           title: input.title,
+          priority: input.priority ?? null,
           value: input.value ?? null,
           expectedCloseDate: input.expectedCloseDate ?? null,
           createdById: principal.id,
@@ -165,6 +168,19 @@ export class PrismaNegociosRepository extends NegociosRepository {
       await tx.dealHistory.create({
         data: { dealId: id, kind: "stage_changed", fromStageId: origem?.id, fromStageName: origem?.name, toStageId: destino.id, toStageName: destino.name, actorId: principal.id },
       });
+    });
+    return this.ler(id);
+  }
+
+  async setPriority(id: string, input: SetDealPriorityRequest, principal: AuthPrincipal): Promise<Deal> {
+    await this.negocioAberto(id, principal);
+    await this.prisma.$transaction(async (tx) => {
+      const [atual] = await tx.$queryRaw<Array<{ priority: SetDealPriorityRequest["priority"]; status: string }>>`SELECT priority, status FROM deals WHERE id = ${id}::uuid FOR UPDATE`;
+      if (!atual) throw new NaoEncontrado(NEGOCIO_NAO_ENCONTRADO);
+      if (atual.status !== "open") throw new EstadoInvalido(SO_ABERTO);
+      if (atual.priority === input.priority) return;
+      await tx.deal.update({ where: { id }, data: { priority: input.priority } });
+      await tx.dealHistory.create({ data: { dealId: id, kind: "priority_changed", fromPriority: atual.priority, toPriority: input.priority, actorId: principal.id } });
     });
     return this.ler(id);
   }
@@ -256,6 +272,15 @@ export class PrismaNegociosRepository extends NegociosRepository {
       } else if (action.type === "tag") {
         if (!pipeline.tags.some((t) => t.id === action.tagId)) throw invalido("Use só etiquetas deste pipeline.", "tagId", "etiqueta de outro pipeline");
         await tx.dealTag.createMany({ data: input.dealIds.map((dealId) => ({ dealId, tagId: action.tagId })), skipDuplicates: true });
+      } else if (action.type === "priority") {
+        for (const id of [...new Set(input.dealIds)].sort()) {
+          const [atual] = await tx.$queryRaw<Array<{ priority: SetDealPriorityRequest["priority"]; status: string }>>`SELECT priority, status FROM deals WHERE id = ${id}::uuid FOR UPDATE`;
+          if (!atual) throw new NaoEncontrado(NEGOCIO_NAO_ENCONTRADO);
+          if (atual.status !== "open") throw new EstadoInvalido(SO_ABERTO);
+          if (atual.priority === action.priority) continue;
+          await tx.deal.update({ where: { id }, data: { priority: action.priority } });
+          await tx.dealHistory.create({ data: { dealId: id, kind: "priority_changed", fromPriority: atual.priority, toPriority: action.priority, actorId: principal.id } });
+        }
       } else {
         const destino = pipeline.stages.find((e) => e.id === action.stageId);
         if (!destino) throw invalido("Escolha uma etapa deste pipeline.", "stageId", "etapa de outro pipeline");

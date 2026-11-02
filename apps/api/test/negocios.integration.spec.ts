@@ -171,6 +171,22 @@ describe.skipIf(!HABILITADO)("negócios: quadro do pipeline no Postgres", () => 
     PRAZO_MS,
   );
 
+  it("grava, limpa e altera prioridades em lote apenas em negócios abertos", async () => {
+    const primeiro = await novo({ priority: "urgente" });
+    const segundo = await novo();
+    expect(primeiro.priority).toBe("urgente");
+    expect(segundo.priority).toBeNull();
+    expect((await negocios.setPriority(primeiro.id, { priority: null }, pessoas.ana)).priority).toBeNull();
+    await negocios.bulk({ dealIds: [primeiro.id, segundo.id], action: { type: "priority", priority: "medio" } }, pessoas.ana);
+    const historico = await prisma.dealHistory.findMany({ where: { dealId: primeiro.id, kind: "priority_changed" }, orderBy: { occurredAt: "asc" } });
+    expect(historico.map(({ fromPriority, toPriority }) => [fromPriority, toPriority])).toEqual([["urgente", null], [null, "medio"]]);
+    await negocios.win(segundo.id, pessoas.ana);
+    await expect(negocios.setPriority(segundo.id, { priority: "normal" }, pessoas.ana)).rejects.toBeInstanceOf(EstadoInvalido);
+    await expect(negocios.bulk({ dealIds: [primeiro.id, segundo.id], action: { type: "priority", priority: "normal" } }, pessoas.ana)).rejects.toBeInstanceOf(EstadoInvalido);
+    expect((await negocios.list({ pipelineId: solar.id, status: "open" }, pessoas.ana)).deals.find((d) => d.id === primeiro.id)?.priority).toBe("medio");
+    await expect(negocios.setPriority(primeiro.id, { priority: "normal" }, pessoas.forasteiro)).rejects.toBeInstanceOf(NaoEncontrado);
+  });
+
   it("responsáveis vêm do acesso ativo: admin, desenvolvedor e CRM sem vínculo no funil", async () => {
     for (const papel of ["admin", "desenvolvedor"] as const) {
       const role = await prisma.role.upsert({ where: { key: papel }, create: { key: papel, name: papel }, update: {} });

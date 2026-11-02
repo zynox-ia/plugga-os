@@ -924,11 +924,20 @@ enum DealStatus {
 enum DealEventKind {
   created
   stage_changed
+  priority_changed
   won
   lost
   transferred
 
   @@map("deal_event_kind")
+}
+
+enum DealPriority {
+  urgente
+  medio
+  normal
+
+  @@map("deal_priority")
 }
 
 /// Negócio no quadro de um pipeline (PLU-271). A empresa é a do pipeline em que
@@ -946,6 +955,7 @@ model Deal {
   /// Previsão de fechamento, data de calendário "AAAA-MM-DD".
   expectedCloseDate String?             @map("expected_close_date")
   status            DealStatus          @default(open)
+  priority          DealPriority?
   stageEnteredAt    DateTime            @default(now()) @map("stage_entered_at") @db.Timestamptz(6)
   closedAt          DateTime?           @map("closed_at") @db.Timestamptz(6)
   lossReasonId      String?             @map("loss_reason_id") @db.Uuid
@@ -1009,6 +1019,8 @@ model DealHistory {
   toStageName      String?       @map("to_stage_name")
   fromPipelineName String?       @map("from_pipeline_name")
   toPipelineName   String?       @map("to_pipeline_name")
+  fromPriority     DealPriority? @map("from_priority")
+  toPriority       DealPriority? @map("to_priority")
   actorId          String?       @map("actor_id") @db.Uuid
   occurredAt       DateTime      @default(now()) @map("occurred_at") @db.Timestamptz(6)
   deal             Deal          @relation(fields: [dealId], references: [id], onDelete: Cascade)

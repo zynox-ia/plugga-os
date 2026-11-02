@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dealSchema } from "@plugga/shared";
+import { bulkDealsActionSchema, createDealRequestSchema, dealSchema, setDealPriorityRequestSchema } from "@plugga/shared";
 
 describe("contrato do cliente do negócio", () => {
   it("preserva dados cadastrais e aceita valores nulos", () => {
@@ -10,5 +10,17 @@ describe("contrato do cliente do negócio", () => {
     };
     expect(dealSchema.shape.client.parse(cliente)).toEqual(cliente);
     expect(dealSchema.shape.client.safeParse({ ...cliente, document: undefined }).success).toBe(false);
+  });
+});
+
+describe("contrato de prioridade", () => {
+  it("aceita três níveis e limpeza, recusando valores desconhecidos", () => {
+    for (const priority of ["urgente", "medio", "normal", null]) {
+      expect(setDealPriorityRequestSchema.safeParse({ priority }).success).toBe(true);
+      expect(bulkDealsActionSchema.safeParse({ type: "priority", priority }).success).toBe(true);
+      expect(createDealRequestSchema.shape.priority.safeParse(priority).success).toBe(true);
+    }
+    expect(setDealPriorityRequestSchema.safeParse({ priority: "alta" }).success).toBe(false);
+    expect(setDealPriorityRequestSchema.safeParse({}).success).toBe(false);
   });
 });

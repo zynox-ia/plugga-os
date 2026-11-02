@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, Inject, Param, ParseUUIDPipe, Post, Query, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, HttpCode, Inject, Param, ParseUUIDPipe, Patch, Post, Query, UseGuards } from "@nestjs/common";
 import { ThrottlerGuard } from "@nestjs/throttler";
 import {
   bulkDealsRequestSchema,
@@ -6,6 +6,7 @@ import {
   listDealsQuerySchema,
   loseDealRequestSchema,
   moveDealStageRequestSchema,
+  setDealPriorityRequestSchema,
   transferDealRequestSchema,
   type BulkDealsRequest,
   type CreateDealRequest,
@@ -15,6 +16,7 @@ import {
   type ListDealsResponse,
   type LoseDealRequest,
   type MoveDealStageRequest,
+  type SetDealPriorityRequest,
   type TransferDealRequest,
 } from "@plugga/shared";
 
@@ -79,6 +81,12 @@ export class NegociosController {
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
   win(@Param("id", ParseUUIDPipe) id: string, @CurrentPrincipal() principal: AuthPrincipal): Promise<Deal> {
     return this.service.win(id, principal);
+  }
+
+  @Patch(":id/prioridade")
+  @UseGuards(OriginCheckGuard, ThrottlerGuard)
+  setPriority(@Param("id", ParseUUIDPipe) id: string, @Body(new ZodValidationPipe(setDealPriorityRequestSchema)) input: SetDealPriorityRequest, @CurrentPrincipal() principal: AuthPrincipal): Promise<Deal> {
+    return this.service.setPriority(id, input, principal);
   }
 
   @Post(":id/perda")

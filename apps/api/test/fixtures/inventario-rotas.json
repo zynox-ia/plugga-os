@@ -786,6 +786,22 @@
     ]
   },
   {
+    "metodo": "PATCH",
+    "caminho": "/negocios/:id/prioridade",
+    "controller": "NegociosController.setPriority",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.pipelines",
+      "departamento:crm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
     "metodo": "POST",
     "caminho": "/negocios/:id/transferencia",
     "controller": "NegociosController.transfer",

@@ -8,6 +8,7 @@ import type {
   ListDealsResponse,
   LoseDealRequest,
   MoveDealStageRequest,
+  SetDealPriorityRequest,
   TransferDealRequest,
 } from "@plugga/shared";
 
@@ -22,6 +23,7 @@ export class NegociosService {
   clientOptions(clientId: string): Promise<DealClientOptionsResponse> { return this.repository.clientOptions(clientId); }
   create(input: CreateDealRequest, principal: AuthPrincipal): Promise<Deal> { return this.repository.create(input, principal); }
   moveStage(id: string, input: MoveDealStageRequest, principal: AuthPrincipal): Promise<Deal> { return this.repository.moveStage(id, input, principal); }
+  setPriority(id: string, input: SetDealPriorityRequest, principal: AuthPrincipal): Promise<Deal> { return this.repository.setPriority(id, input, principal); }
   win(id: string, principal: AuthPrincipal): Promise<Deal> { return this.repository.win(id, principal); }
   lose(id: string, input: LoseDealRequest, principal: AuthPrincipal): Promise<Deal> { return this.repository.lose(id, input, principal); }
   transfer(id: string, input: TransferDealRequest, principal: AuthPrincipal): Promise<Deal> { return this.repository.transfer(id, input, principal); }

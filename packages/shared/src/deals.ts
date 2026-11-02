@@ -13,6 +13,11 @@ import { decimalString, isoDate, uuid } from "./primitivas.js";
 export const dealStatuses = ["open", "won", "lost"] as const;
 export const dealStatusSchema = z.enum(dealStatuses);
 export type DealStatus = z.infer<typeof dealStatusSchema>;
+export const dealPriorities = ["urgente", "medio", "normal"] as const;
+export const dealPrioritySchema = z.enum(dealPriorities);
+export type DealPriority = z.infer<typeof dealPrioritySchema>;
+export const setDealPriorityRequestSchema = z.object({ priority: dealPrioritySchema.nullable() }).strict();
+export type SetDealPriorityRequest = z.infer<typeof setDealPriorityRequestSchema>;
 
 const vazioViraNulo = (valor: unknown) => (typeof valor === "string" && valor.trim() === "" ? null : valor);
 
@@ -30,6 +35,7 @@ export const createDealRequestSchema = z
     clientId: uuid,
     contactId: z.preprocess(vazioViraNulo, uuid.nullable()).optional(),
     title: z.string().trim().min(1, "informe o título").max(120),
+    priority: dealPrioritySchema.nullable().optional(),
     value: valorOpcional,
     expectedCloseDate: dataOpcional,
     ownerId: uuid,
@@ -60,6 +66,7 @@ export const bulkDealsActionSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("owner"), ownerId: uuid }).strict(),
   z.object({ type: z.literal("tag"), tagId: uuid }).strict(),
   z.object({ type: z.literal("stage"), stageId: uuid }).strict(),
+  z.object({ type: z.literal("priority"), priority: dealPrioritySchema.nullable() }).strict(),
 ]);
 export type BulkDealsAction = z.infer<typeof bulkDealsActionSchema>;
 
@@ -77,6 +84,7 @@ export const dealSchema = z.object({
   companyId: companyKeySchema,
   stageId: uuid,
   status: dealStatusSchema,
+  priority: dealPrioritySchema.nullable(),
   title: z.string(),
   value: decimalString.nullable(),
   expectedCloseDate: z.string().nullable(),

@@ -7,6 +7,7 @@ import type {
   ListDealsResponse,
   LoseDealRequest,
   MoveDealStageRequest,
+  SetDealPriorityRequest,
   TransferDealRequest,
 } from "@plugga/shared";
 
@@ -17,6 +18,7 @@ export abstract class NegociosRepository {
   abstract clientOptions(clientId: string): Promise<DealClientOptionsResponse>;
   abstract create(input: CreateDealRequest, principal: AuthPrincipal): Promise<Deal>;
   abstract moveStage(id: string, input: MoveDealStageRequest, principal: AuthPrincipal): Promise<Deal>;
+  abstract setPriority(id: string, input: SetDealPriorityRequest, principal: AuthPrincipal): Promise<Deal>;
   abstract win(id: string, principal: AuthPrincipal): Promise<Deal>;
   abstract lose(id: string, input: LoseDealRequest, principal: AuthPrincipal): Promise<Deal>;
   abstract transfer(id: string, input: TransferDealRequest, principal: AuthPrincipal): Promise<Deal>;
