@@ -682,6 +682,96 @@
     ]
   },
   {
+    "metodo": "GET",
+    "caminho": "/leads/:dealId/documentos",
+    "controller": "LeadDocumentosController.list",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.pipelines",
+      "departamento:crm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/leads/:dealId/documentos",
+    "controller": "LeadDocumentosController.upload",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.pipelines",
+      "departamento:crm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "PATCH",
+    "caminho": "/leads/:dealId/documentos/:id",
+    "controller": "LeadDocumentosController.update",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.pipelines",
+      "departamento:crm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/leads/:dealId/documentos/:id/arquivar",
+    "controller": "LeadDocumentosController.archive",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.pipelines",
+      "departamento:crm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/leads/:dealId/documentos/:id/download",
+    "controller": "LeadDocumentosController.download",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.pipelines",
+      "departamento:crm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/leads/:dealId/documentos/:id/preview",
+    "controller": "LeadDocumentosController.preview",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.pipelines",
+      "departamento:crm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
     "metodo": "PATCH",
     "caminho": "/leads/:id",
     "controller": "NegociosController.update",

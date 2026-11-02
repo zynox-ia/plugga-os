@@ -13,6 +13,7 @@ export * from "./events.js";
 export * from "./identificador.js";
 export * from "./integrations.js";
 export * from "./jobs.js";
+export * from "./lead-documents.js";
 export * from "./llm.js";
 export * from "./organization.js";
 export * from "./pipelines.js";

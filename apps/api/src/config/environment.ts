@@ -152,6 +152,9 @@ export const environmentSchema = z
     STORAGE_REGION: opcional(z.string().trim().min(1)),
     STORAGE_ACCESS_KEY: opcional(z.string().trim().min(1)),
     STORAGE_SECRET_KEY: opcional(z.string().trim().min(1)),
+    // Balde único (PLU-271): sem ele, o upload de documento do lead responde
+    // "serviço indisponível" em vez de tentar um balde que não existe.
+    STORAGE_BUCKET: opcional(z.string().trim().min(1)),
     // Chave-mestra do cofre de segredos (AES-256): base64 de exatamente 32 bytes.
     // Opcional no boot (sem ela o cofre responde "chave ausente"); se vier, tem
     // de estar certa — erro de tamanho aparece na subida, não no primeiro uso.

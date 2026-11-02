@@ -71,6 +71,9 @@ export const catalogoEventos = {
   "commercial.deal.transferred": evento("Negócio movido para outro pipeline", "empresa"),
   // Sem PII: não grava nome, documento nem contato do cliente, só o vínculo.
   "commercial.deal.client_converted": evento("Lead convertido em cliente", "empresa"),
+  // Sem PII: não grava nome de arquivo nem categoria, só que algo mudou.
+  "commercial.deal.document_added": evento("Documento do lead enviado", "empresa"),
+  "commercial.deal.document_archived": evento("Documento do lead arquivado", "empresa"),
   "clientes.client.created": evento("Cliente criado", "empresa"),
   // Cadastro de cliente não tem empresa dona (ADR-0013): o escopo é a plataforma.
   "clientes.contact.added": evento("Contato do cliente adicionado", "plataforma"),
