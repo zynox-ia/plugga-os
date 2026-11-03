@@ -5,6 +5,7 @@ import Link from "next/link";
 import { hrefDaFicha } from "../../lib/clientes";
 import { PaginacaoDaLista } from "../pipelines/paginacao-da-lista";
 import { ShellCard, ShellTable } from "../plugga-shell";
+import { Button } from "../ui";
 import { AvatarDoCliente, ContatoDoCliente, ResponsavelDoCliente, SituacaoDoCliente, TipoELocalDoCliente } from "./dados-do-cliente";
 import styles from "./tela-clientes.module.css";
 
@@ -23,7 +24,7 @@ export function CardsDeClientes({ itens, filtros, aoAbrir }: Props) {
         <div><dt><UserRound size={12} aria-hidden="true" />{item.personType === "pj" ? "Contato principal" : "Tipo de cadastro"}</dt><dd title={item.personType === "pj" ? item.primaryContactName ?? "Não informado" : "Pessoa Física"}>{item.personType === "pj" ? item.primaryContactName ?? "Não informado" : "Pessoa Física"}</dd></div>
       </dl>
       <ContatoDoCliente cliente={item} />
-      <footer className={styles.cardRodape}><ResponsavelDoCliente cliente={item} comRotulo /><button type="button" className={styles.verFicha} aria-label={`Ver ficha de ${item.name}`} onClick={() => aoAbrir(item.id)}><Eye size={12} aria-hidden="true" />Ver ficha</button></footer>
+      <footer className={styles.cardRodape}><ResponsavelDoCliente cliente={item} comRotulo /><Button size="sm" icon={<Eye size={14} />} aria-label={`Ver ficha de ${item.name}`} onClick={() => aoAbrir(item.id)}>Ver ficha</Button></footer>
     </article>)}
   </div></div>;
 }
