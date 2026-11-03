@@ -31,7 +31,7 @@ import { ShellCard, ShellTable } from "../plugga-shell";
 import { Button, Checkbox } from "../ui";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/shadcn/select";
 import { MenuDoNegocio } from "./cartao-de-negocio";
-import { DetalhesDoLeadModal } from "./detalhes-do-lead-modal";
+
 import { PaginacaoDaLista } from "./paginacao-da-lista";
 import type { AcoesDoNegocio } from "./quadro-do-pipeline";
 import styles from "./lista-de-negocios.module.css";
@@ -65,7 +65,7 @@ export function ListaDeNegocios({
   const [lote, setLote] = useState<Lote>({ tipo: "owner", valor: "" });
   const [aplicando, setAplicando] = useState(false);
   const [pagina, setPagina] = useState(1);
-  const [leadSelecionado, setLeadSelecionado] = useState<Deal | null>(null);
+
 
   const linhas = useMemo(() => ordenar(negocios, ordem, pipeline), [negocios, ordem, pipeline]);
   const visiveis = useMemo(() => new Set(linhas.map((n) => n.id)), [linhas]);
@@ -130,7 +130,7 @@ export function ListaDeNegocios({
   const aoClicarLinha = (n: Deal, e: MouseEvent<HTMLTableRowElement>) => {
     const alvo = e.target as HTMLElement;
     if (alvo.closest("input, label, button, select, a, [role='menuitem']")) return;
-    setLeadSelecionado(n);
+    acoes.abrirDetalhes(n);
   };
 
   return (
@@ -299,7 +299,7 @@ export function ListaDeNegocios({
                           </span> : null}
                           <span className={styles.iconeOportunidade} aria-hidden="true"><Target size={20} /></span>
                           <div className="celula-lead-bloco">
-                            <button type="button" className={`lead-nome ${styles.titulo}`} title={n.lead.name} onClick={() => setLeadSelecionado(n)}>{n.lead.name}</button>
+                            <button type="button" className={`lead-nome ${styles.titulo}`} title={n.lead.name} onClick={() => acoes.abrirDetalhes(n)}>{n.lead.name}</button>
                             <div className="lead-subtitulo">
                               {docFormatado ? (
                                 <span className="lead-subtitulo-item" title="Documento do cliente">
@@ -418,7 +418,7 @@ export function ListaDeNegocios({
                             className="lista-negocios-btn-ver"
                             aria-label={`Ver detalhes do lead ${n.title}`}
                             title="Ver detalhes do lead"
-                            onClick={() => setLeadSelecionado(n)}
+                            onClick={() => acoes.abrirDetalhes(n)}
                           >
                             <Eye size={14} aria-hidden="true" />
                           </button>
@@ -426,7 +426,7 @@ export function ListaDeNegocios({
                             negocio={n}
                             pipeline={pipeline}
                             acoes={acoes}
-                            aoVerLead={() => setLeadSelecionado(n)}
+                            aoVerLead={() => acoes.abrirDetalhes(n)}
                             menuClassName={styles.menuVidro}
                             mostrarPrioridade
                           />
@@ -443,16 +443,6 @@ export function ListaDeNegocios({
           </>
         )}
       </ShellCard>
-
-      {/* Modal de Detalhes do Lead */}
-      {leadSelecionado ? (
-        <DetalhesDoLeadModal
-          negocio={leadSelecionado}
-          pipeline={pipeline}
-          acoes={acoes}
-          aoFechar={() => setLeadSelecionado(null)}
-        />
-      ) : null}
     </div>
   );
 }

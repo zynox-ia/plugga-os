@@ -1,11 +1,12 @@
 "use client";
 
 import type { BulkDealsAction, PipelinePerson, CompanyKey, Deal, ListDealsResponse, Pipeline } from "@plugga/shared";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import { enviar } from "../lib/clientes";
 import { hrefDaVisao, type Visao } from "../lib/negocios";
+import type { TarefaDoLead } from "../lib/tarefas-lead";
 import { useSessionUser } from "../lib/use-session-user";
 import { Button, IconPlus, IconSearch, IconSettings } from "./ui";
 import { ConfiguracaoDePipelines } from "./pipelines/configuracao-de-pipelines";
@@ -16,6 +17,7 @@ import { NovoNegocio } from "./pipelines/novo-negocio";
 import { NavegacaoPipelines } from "./pipelines/navegacao-pipelines";
 import { BarraRolagemMinimalista, QuadroDoPipeline, type AcoesDoNegocio } from "./pipelines/quadro-do-pipeline";
 import { TransferirNegocio } from "./pipelines/transferir-negocio";
+import { DetalhesDoLeadModal } from "./pipelines/detalhes-do-lead-modal";
 import estilos from "./pipelines/tela-pipelines.module.css";
 
 type Encerramento = { tipo: "ganho" | "perda" | "transferencia"; negocio: Deal };
@@ -42,6 +44,8 @@ export function PipelinesView({
   responsaveis: PipelinePerson[];
 }) {
   const router = useRouter();
+  const parametros = useSearchParams();
+  const leadSelecionadoId = parametros.get("lead");
   const colunasRef = useRef<HTMLDivElement>(null);
   const prioridadesPendentes = useRef(new Set<string>());
   const { usuario } = useSessionUser();
@@ -51,6 +55,7 @@ export function PipelinesView({
   const [criando, setCriando] = useState<{ etapaId?: string } | null>(null);
   const [encerrando, setEncerrando] = useState<Encerramento | null>(null);
   const [convertendo, setConvertendo] = useState<Deal | null>(null);
+  const [tarefasPorLead, setTarefasPorLead] = useState<Record<string, TarefaDoLead[]>>({});
   const [aviso, setAviso] = useState<string | null>(null);
 
   useEffect(() => setNegocios(doServidor), [doServidor]);
@@ -78,9 +83,19 @@ export function PipelinesView({
     router.refresh();
   }
 
+  function abrirDetalhes(id: string | null) {
+    const url = new URL(window.location.href);
+    if (id) url.searchParams.set("lead", id);
+    else url.searchParams.delete("lead");
+    window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
+  }
+
   const acoes: AcoesDoNegocio = {
+    abrirDetalhes: (negocio) => abrirDetalhes(negocio.id),
+    atualizar: (negocio) => aplicar([negocio]),
     async definirPrioridade(negocio, prioridade) {
-      if (prioridadesPendentes.current.has(negocio.id) || negocio.priority === prioridade) return;
+      if (prioridadesPendentes.current.has(negocio.id)) return null;
+      if (negocio.priority === prioridade) return negocio;
       prioridadesPendentes.current.add(negocio.id);
       setNegocios((atuais) => atuais.map((n) => n.id === negocio.id ? { ...n, priority: prioridade } : n));
       const resposta = await enviar<Deal>(`/api/leads/${negocio.id}/prioridade`, "PATCH", { priority: prioridade });
@@ -90,21 +105,24 @@ export function PipelinesView({
         setAviso(resposta.erro.mensagem);
       }
       prioridadesPendentes.current.delete(negocio.id);
+      return resposta.ok ? resposta.dados : null;
     },
     async moverEtapa(negocio, etapaId) {
-      if (negocio.stageId === etapaId) return;
+      if (negocio.stageId === etapaId) return negocio;
       const etapaDestino = selecionado?.stages.find((e) => e.id === etapaId);
       aplicar([{ ...negocio, stageId: etapaId, stageEnteredAt: new Date().toISOString() }]);
       const resposta = await enviar<Deal>(`/api/leads/${negocio.id}/etapa`, "POST", { stageId: etapaId });
       if (resposta.ok) {
         confirmado([resposta.dados]);
         if (etapaDestino?.asksClientConversion && !negocio.client) {
+          if (leadSelecionadoId === negocio.id) abrirDetalhes(null);
           setConvertendo(resposta.dados);
         }
-        return;
+        return resposta.dados;
       }
       aplicar([negocio]);
       setAviso(resposta.erro.mensagem);
+      return null;
     },
     ganhar: (negocio) => setEncerrando({ tipo: "ganho", negocio }),
     perder: (negocio) => setEncerrando({ tipo: "perda", negocio }),
@@ -257,6 +275,7 @@ export function PipelinesView({
           aoFechar={() => setConvertendo(null)}
         />
       ) : null}
+      {leadSelecionadoId && selecionado ? <DetalhesDoLeadModal key={leadSelecionadoId} negocioId={leadSelecionadoId} pipeline={selecionado} responsaveis={responsaveis} acoes={acoes} tarefas={tarefasPorLead[leadSelecionadoId] ?? []} aoAlterarTarefas={(atualizar) => setTarefasPorLead((atuais) => ({ ...atuais, [leadSelecionadoId]: typeof atualizar === "function" ? atualizar(atuais[leadSelecionadoId] ?? []) : atualizar }))} aoFechar={() => abrirDetalhes(null)} /> : null}
     </div>
   );
 }

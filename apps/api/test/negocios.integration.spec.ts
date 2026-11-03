@@ -9,6 +9,7 @@ import {
   loseDealRequestSchema,
   pipelineParaEdicao,
   transferDealRequestSchema,
+  updateLeadRequestSchema,
   updatePipelineRequestSchema,
   winDealRequestSchema,
   type CompanyKey,
@@ -146,6 +147,147 @@ describe.skipIf(!HABILITADO)("negócios: quadro do pipeline no Postgres", () => 
     await prisma.user.deleteMany({ where: { email: { startsWith: marca } } });
     await prisma.$disconnect();
   }, PRAZO_MS);
+
+  it("detalhe real respeita acesso atual do CRM e oculta leitura, histórico e edição sem acesso", async () => {
+    const criado = await novo();
+    const detalhe = await negocios.get(criado.id, pessoas.pluggaVendedor);
+    expect(detalhe).toMatchObject({ id: criado.id, title: criado.title, lead: criado.lead, version: expect.any(Number) });
+    const antes = await prisma.eventLog.count({ where: { entityId: criado.id } });
+    await expect(negocios.get(criado.id, pessoas.forasteiro)).rejects.toBeInstanceOf(NaoEncontrado);
+    await expect(negocios.history(criado.id, { limit: 30 }, pessoas.forasteiro)).rejects.toBeInstanceOf(NaoEncontrado);
+    await expect(negocios.update(criado.id, { title: "Não autorizado" }, pessoas.forasteiro)).rejects.toBeInstanceOf(NaoEncontrado);
+    expect((await negocios.get(criado.id, pessoas.ana)).title).toBe(criado.title);
+    expect(await prisma.eventLog.count({ where: { entityId: criado.id } })).toBe(antes);
+  });
+
+  it("edita dados comerciais, origem/endereço/complemento e contato próprio com antes/depois", async () => {
+    const criado = await novo({ contact: { name: "Contato inicial", phone: "92999991111" } });
+    const detalhe = await negocios.get(criado.id, pessoas.ana);
+    const atualizado = await negocios.update(criado.id, updateLeadRequestSchema.parse({
+      version: detalhe.version, title: `${marca} Título alterado`, value: "850.5", expectedCloseDate: "2028-02-29",
+      ownerId: pessoas.bruno.id, tagIds: [solar.tags[0]!.id],
+      lead: { origin: "indicacao", street: "Rua de teste", addressComplement: "Sala sintética", postalCode: "69000000" },
+      contact: { name: "Contato alterado", phone: "92999992222", phoneIsWhatsapp: true },
+    }), pessoas.ana);
+    expect(atualizado).toMatchObject({ value: "850.50", expectedCloseDate: "2028-02-29", owner: { id: pessoas.bruno.id },
+      lead: { origin: "indicacao", addressComplement: "Sala sintética" }, contact: { name: "Contato alterado", phoneIsWhatsapp: true } });
+    expect(atualizado.version).toBeGreaterThan(detalhe.version);
+    const historico = await negocios.history(criado.id, { limit: 100 }, pessoas.ana);
+    expect(historico.entries).toContainEqual(expect.objectContaining({ kind: "field_changed", field: "value", before: "620000.00", after: "850.50", actor: { id: pessoas.ana.id, name: expect.any(String) } }));
+    expect(historico.entries).toContainEqual(expect.objectContaining({ field: "lead.addressComplement", before: null, after: "Sala sintética" }));
+    expect(historico.entries).toContainEqual(expect.objectContaining({ field: "contact.phone", before: "92999991111", after: "92999992222" }));
+    const eventos = await prisma.eventLog.findMany({ where: { entityId: criado.id, eventName: "commercial.deal.updated" } });
+    expect(JSON.stringify(eventos.map((e) => e.payload))).not.toContain("Sala sintética");
+  });
+
+  it("no-op normalizado não escreve versão, histórico nem auditoria, inclusive contato e etiquetas", async () => {
+    const criado = await novo({ tagIds: [solar.tags[0]!.id, solar.tags[1]!.id], contact: { name: "Contato", phone: "92999991111" } });
+    const detalhe = await negocios.get(criado.id, pessoas.ana);
+    const antes = await prisma.eventLog.count({ where: { entityId: criado.id } });
+    const atualizado = await negocios.update(criado.id, updateLeadRequestSchema.parse({ version: detalhe.version,
+      title: detalhe.title, value: "620000", lead: { phone: "(92) 99999-0000" }, contact: { name: "Contato", phone: "(92) 99999-1111" },
+      tagIds: [solar.tags[1]!.id, solar.tags[0]!.id],
+    }), pessoas.ana);
+    expect(atualizado.version).toBe(detalhe.version);
+    expect(await prisma.dealHistory.count({ where: { dealId: criado.id } })).toBe(1);
+    expect(await prisma.eventLog.count({ where: { entityId: criado.id } })).toBe(antes);
+  });
+
+  it("duas edições concorrentes da mesma versão têm um sucesso e um conflito", async () => {
+    const criado = await novo();
+    const detalhe = await negocios.get(criado.id, pessoas.ana);
+    const resultados = await Promise.allSettled([
+      negocios.update(criado.id, { version: detalhe.version, lead: { notes: "Primeira" } }, pessoas.ana),
+      negocios.update(criado.id, { version: detalhe.version, lead: { notes: "Segunda" } }, pessoas.bruno),
+    ]);
+    expect(resultados.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+    const falhas = resultados.filter((r) => r.status === "rejected");
+    expect(falhas).toHaveLength(1);
+    expect(falhas[0]).toMatchObject({ reason: expect.any(EstadoInvalido) });
+    expect(await prisma.dealHistory.count({ where: { dealId: criado.id, kind: "field_changed" } })).toBe(1);
+  });
+
+  it("falha transacional da auditoria reverte dados, versão e histórico", async () => {
+    const criado = await novo();
+    const detalhe = await negocios.get(criado.id, pessoas.ana);
+    const falha = new AuditAppender();
+    falha.append = async () => { throw new Error("falha sintética de auditoria"); };
+    const repositorio = new PrismaNegociosRepository(prisma, falha, clientes);
+    await expect(repositorio.update(criado.id, { version: detalhe.version, title: `${marca} Reverter`, lead: { notes: "Reverter" } }, pessoas.ana)).rejects.toThrow("falha sintética");
+    expect(await negocios.get(criado.id, pessoas.ana)).toEqual(detalhe);
+    expect(await prisma.dealHistory.count({ where: { dealId: criado.id } })).toBe(1);
+  });
+
+  it("histórico pagina sem repetição, inclusive horários iguais, e recusa cursor de outro negócio", async () => {
+    const criado = await novo();
+    await negocios.update(criado.id, { title: `${marca} Paginação`, value: "100" }, pessoas.ana);
+    await negocios.moveStage(criado.id, { stageId: etapa("Visita técnica") }, pessoas.ana);
+    await negocios.win(criado.id, ganhar(), pessoas.ana);
+    await prisma.dealHistory.updateMany({ where: { dealId: criado.id }, data: { occurredAt: new Date("2026-11-02T00:00:00Z") } });
+    const ids: string[] = [];
+    let cursor: string | undefined;
+    do {
+      const pagina = await negocios.history(criado.id, { cursor, limit: 2 }, pessoas.ana);
+      ids.push(...pagina.entries.map((e) => e.id));
+      cursor = pagina.nextCursor ?? undefined;
+    } while (cursor);
+    expect(ids).toHaveLength(5);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(ids).toEqual([...ids].sort().reverse());
+    const outro = await novo();
+    await expect(negocios.history(outro.id, { cursor: ids[0], limit: 2 }, pessoas.ana)).rejects.toBeInstanceOf(RequisicaoInvalida);
+  });
+
+  it("limpa campos e contato, preserva omissões e audita null sem depender de cliente", async () => {
+    const criado = await novo({ contact: { name: "Contato", phone: "92999991111", email: "contato@teste.local" } });
+    const detalhe = await negocios.get(criado.id, pessoas.ana);
+    const limpo = await negocios.update(criado.id, updateLeadRequestSchema.parse({ version: detalhe.version,
+      value: null, expectedCloseDate: null, lead: { addressComplement: "Complemento" }, contact: { name: "Contato", phone: null },
+    }), pessoas.ana);
+    expect(limpo).toMatchObject({ value: null, expectedCloseDate: null, contact: { phone: null, email: "contato@teste.local" } });
+    expect((await negocios.history(criado.id, { limit: 100 }, pessoas.ana)).entries).toContainEqual(expect.objectContaining({ field: "contact.phone", before: "92999991111", after: null }));
+    const removido = await negocios.update(criado.id, { version: limpo.version, contact: null }, pessoas.ana);
+    expect(removido.contact).toBeNull();
+    expect(removido.lead.addressComplement).toBe("Complemento");
+  });
+
+  it("nega etiquetas de outro pipeline e pessoa sem acesso, sem alteração parcial", async () => {
+    const criado = await novo();
+    const detalhe = await negocios.get(criado.id, pessoas.ana);
+    await expect(negocios.update(criado.id, { version: detalhe.version, title: `${marca} Inválido`, tagIds: [mercadoLivre.tags[0]!.id] }, pessoas.ana)).rejects.toBeInstanceOf(RequisicaoInvalida);
+    await expect(negocios.update(criado.id, { version: detalhe.version, ownerId: pessoas.forasteiro.id }, pessoas.ana)).rejects.toBeInstanceOf(RequisicaoInvalida);
+    await expect(negocios.update(criado.id, { version: detalhe.version, lead: { personType: "pf" }, contact: { name: "Contato proibido PF" } }, pessoas.ana)).rejects.toBeInstanceOf(RequisicaoInvalida);
+    expect(await negocios.get(criado.id, pessoas.ana)).toEqual(detalhe);
+    expect(await prisma.dealHistory.count({ where: { dealId: criado.id } })).toBe(1);
+  });
+
+  it("prioridade, etapa, ganho, perda e lote invalidam versões antigas; lote no-op não invalida", async () => {
+    const criado = await novo();
+    let atual = await negocios.get(criado.id, pessoas.ana);
+    const mudar = async (acao: () => Promise<unknown>) => {
+      const anterior = atual;
+      await acao();
+      atual = await negocios.get(criado.id, pessoas.ana);
+      expect(atual.version).toBeGreaterThan(anterior.version);
+      await expect(negocios.update(criado.id, { version: anterior.version, lead: { notes: "Versão vencida" } }, pessoas.ana)).rejects.toBeInstanceOf(EstadoInvalido);
+    };
+    await mudar(() => negocios.setPriority(criado.id, { priority: "urgente" }, pessoas.ana));
+    await mudar(() => negocios.moveStage(criado.id, { stageId: etapa("Visita técnica") }, pessoas.ana));
+    await mudar(() => negocios.bulk({ dealIds: [criado.id], action: { type: "owner", ownerId: pessoas.bruno.id } }, pessoas.ana));
+    await mudar(() => negocios.bulk({ dealIds: [criado.id], action: { type: "tag", tagId: solar.tags[0]!.id } }, pessoas.ana));
+    const antesNoop = atual;
+    const tamanhoHistorico = await prisma.dealHistory.count({ where: { dealId: criado.id } });
+    await negocios.bulk({ dealIds: [criado.id], action: { type: "owner", ownerId: pessoas.bruno.id } }, pessoas.ana);
+    await negocios.bulk({ dealIds: [criado.id], action: { type: "tag", tagId: solar.tags[0]!.id } }, pessoas.ana);
+    expect((await negocios.get(criado.id, pessoas.ana)).version).toBe(antesNoop.version);
+    expect(await prisma.dealHistory.count({ where: { dealId: criado.id } })).toBe(tamanhoHistorico);
+    await mudar(() => negocios.win(criado.id, ganhar(), pessoas.ana));
+    const perdido = await novo();
+    const antesPerda = await negocios.get(perdido.id, pessoas.ana);
+    await negocios.lose(perdido.id, { lossReasonId: solar.lossReasons[0]!.id, note: "Nota sintética" }, pessoas.ana);
+    expect(await negocios.get(perdido.id, pessoas.ana)).toMatchObject({ status: "lost", lossNote: "Nota sintética", version: expect.any(Number) });
+    expect((await negocios.get(perdido.id, pessoas.ana)).version).toBeGreaterThan(antesPerda.version);
+  });
 
   it(
     "a vendedora cria o lead, já com cliente vinculado e contato próprio; a equipe toda o vê, quem está fora não",

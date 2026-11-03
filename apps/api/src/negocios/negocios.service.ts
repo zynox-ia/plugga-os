@@ -5,6 +5,9 @@ import type {
   ConvertLeadResponse,
   CreateDealRequest,
   Deal,
+  DealDetail,
+  ListDealHistoryQuery,
+  ListDealHistoryResponse,
   DealClientOptionsResponse,
   ListDealsQuery,
   ListDealsResponse,
@@ -23,10 +26,12 @@ import { NegociosRepository } from "./negocios.repository";
 export class NegociosService {
   constructor(@Inject(NegociosRepository) private readonly repository: NegociosRepository) {}
 
+  get(id: string, principal: AuthPrincipal): Promise<DealDetail> { return this.repository.get(id, principal); }
+  history(id: string, query: ListDealHistoryQuery, principal: AuthPrincipal): Promise<ListDealHistoryResponse> { return this.repository.history(id, query, principal); }
   list(query: ListDealsQuery, principal: AuthPrincipal): Promise<ListDealsResponse> { return this.repository.list(query, principal); }
   clientOptions(clientId: string): Promise<DealClientOptionsResponse> { return this.repository.clientOptions(clientId); }
   create(input: CreateDealRequest, principal: AuthPrincipal): Promise<Deal> { return this.repository.create(input, principal); }
-  update(id: string, input: UpdateLeadRequest, principal: AuthPrincipal): Promise<Deal> { return this.repository.update(id, input, principal); }
+  update(id: string, input: UpdateLeadRequest, principal: AuthPrincipal): Promise<DealDetail> { return this.repository.update(id, input, principal); }
   convert(id: string, input: ConvertLeadRequest, principal: AuthPrincipal): Promise<ConvertLeadResponse> { return this.repository.convert(id, input, principal); }
   moveStage(id: string, input: MoveDealStageRequest, principal: AuthPrincipal): Promise<Deal> { return this.repository.moveStage(id, input, principal); }
   setPriority(id: string, input: SetDealPriorityRequest, principal: AuthPrincipal): Promise<Deal> { return this.repository.setPriority(id, input, principal); }

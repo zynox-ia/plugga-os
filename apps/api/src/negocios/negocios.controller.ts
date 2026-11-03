@@ -9,7 +9,6 @@ import {
   moveDealStageRequestSchema,
   setDealPriorityRequestSchema,
   transferDealRequestSchema,
-  updateLeadRequestSchema,
   winDealRequestSchema,
   type BulkDealsRequest,
   type ConvertLeadRequest,
@@ -23,7 +22,6 @@ import {
   type MoveDealStageRequest,
   type SetDealPriorityRequest,
   type TransferDealRequest,
-  type UpdateLeadRequest,
   type WinDealRequest,
 } from "@plugga/shared";
 
@@ -71,16 +69,6 @@ export class NegociosController {
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
   bulk(@Body(new ZodValidationPipe(bulkDealsRequestSchema)) input: BulkDealsRequest, @CurrentPrincipal() principal: AuthPrincipal): Promise<ListDealsResponse> {
     return this.service.bulk(input, principal);
-  }
-
-  @Patch(":id")
-  @UseGuards(OriginCheckGuard, ThrottlerGuard)
-  update(
-    @Param("id", ParseUUIDPipe) id: string,
-    @Body(new ZodValidationPipe(updateLeadRequestSchema)) input: UpdateLeadRequest,
-    @CurrentPrincipal() principal: AuthPrincipal,
-  ): Promise<Deal> {
-    return this.service.update(id, input, principal);
   }
 
   /** Vincula a um cliente já cadastrado (documento igual ou escolha explícita) ou cria um novo. Idempotente. */

@@ -4,6 +4,9 @@ import type {
   ConvertLeadResponse,
   CreateDealRequest,
   Deal,
+  DealDetail,
+  ListDealHistoryQuery,
+  ListDealHistoryResponse,
   DealClientOptionsResponse,
   ListDealsQuery,
   ListDealsResponse,
@@ -18,10 +21,12 @@ import type {
 import type { AuthPrincipal } from "../core/auth/auth.types";
 
 export abstract class NegociosRepository {
+  abstract get(id: string, principal: AuthPrincipal): Promise<DealDetail>;
+  abstract history(id: string, query: ListDealHistoryQuery, principal: AuthPrincipal): Promise<ListDealHistoryResponse>;
   abstract list(query: ListDealsQuery, principal: AuthPrincipal): Promise<ListDealsResponse>;
   abstract clientOptions(clientId: string): Promise<DealClientOptionsResponse>;
   abstract create(input: CreateDealRequest, principal: AuthPrincipal): Promise<Deal>;
-  abstract update(id: string, input: UpdateLeadRequest, principal: AuthPrincipal): Promise<Deal>;
+  abstract update(id: string, input: UpdateLeadRequest, principal: AuthPrincipal): Promise<DealDetail>;
   abstract convert(id: string, input: ConvertLeadRequest, principal: AuthPrincipal): Promise<ConvertLeadResponse>;
   abstract moveStage(id: string, input: MoveDealStageRequest, principal: AuthPrincipal): Promise<Deal>;
   abstract setPriority(id: string, input: SetDealPriorityRequest, principal: AuthPrincipal): Promise<Deal>;

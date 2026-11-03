@@ -3,7 +3,8 @@ import { Prisma, type ActorType } from "@prisma/client";
 import {
   convertLeadResponseSchema,
   dealClientOptionsResponseSchema,
-  dealSchema,
+  dealDetailSchema,
+  listDealHistoryResponseSchema,
   listDealsResponseSchema,
   problemasDoCadastro,
   type BulkDealsRequest,
@@ -11,6 +12,10 @@ import {
   type ConvertLeadResponse,
   type CreateDealRequest,
   type Deal,
+  type DealDetail,
+  type DealHistoryValue,
+  type ListDealHistoryQuery,
+  type ListDealHistoryResponse,
   type DealClientOptionsResponse,
   type ListDealsQuery,
   type ListDealsResponse,
@@ -57,9 +62,11 @@ const NEGOCIO_NAO_ENCONTRADO = "Negócio não encontrado.";
 const PIPELINE_NAO_ENCONTRADO = "Pipeline não encontrado.";
 const SO_ABERTO = "Este negócio já foi encerrado.";
 
-function paraNegocio(linha: LinhaDeNegocio): Deal {
-  return dealSchema.parse({
+function paraNegocio(linha: LinhaDeNegocio): DealDetail {
+  return dealDetailSchema.parse({
     id: linha.id,
+    version: linha.version,
+    lossNote: linha.lossNote,
     number: linha.number,
     pipelineId: linha.pipelineId,
     companyId: linha.pipeline.companyId,
@@ -111,6 +118,38 @@ export class PrismaNegociosRepository extends NegociosRepository {
     @Inject(ClientesService) private readonly clientes: ClientesService,
   ) {
     super();
+  }
+
+  async get(id: string, principal: AuthPrincipal): Promise<DealDetail> {
+    await this.negocioVisivel(id, principal);
+    return this.ler(id);
+  }
+
+  async history(id: string, query: ListDealHistoryQuery, principal: AuthPrincipal): Promise<ListDealHistoryResponse> {
+    await this.negocioVisivel(id, principal);
+    if (query.cursor && !await this.prisma.dealHistory.findFirst({ where: { id: query.cursor, dealId: id }, select: { id: true } })) {
+      throw invalido("Atualize o histórico deste negócio.", "cursor", "registro não encontrado neste negócio");
+    }
+    // O cursor nativo usa a precisão do timestamp no Postgres (microssegundos),
+    // sem reconstruir sua posição a partir de Date do JavaScript (milissegundos).
+    const linhas = await this.prisma.dealHistory.findMany({
+      where: { dealId: id },
+      orderBy: [{ occurredAt: "desc" }, { id: "desc" }],
+      ...(query.cursor ? { cursor: { id: query.cursor }, skip: 1 } : {}),
+      take: query.limit + 1,
+      include: { actor: { select: { id: true, name: true } } },
+    });
+    const pagina = linhas.slice(0, query.limit);
+    return listDealHistoryResponseSchema.parse({
+      entries: pagina.map((linha) => ({
+        id: linha.id, kind: linha.kind, occurredAt: linha.occurredAt.toISOString(), actor: linha.actor,
+        field: linha.field, before: linha.beforeValue, after: linha.afterValue,
+        fromStageName: linha.fromStageName, toStageName: linha.toStageName,
+        fromPipelineName: linha.fromPipelineName, toPipelineName: linha.toPipelineName,
+        fromPriority: linha.fromPriority, toPriority: linha.toPriority,
+      })),
+      nextCursor: linhas.length > query.limit ? pagina.at(-1)!.id : null,
+    });
   }
 
   async list(query: ListDealsQuery, principal: AuthPrincipal): Promise<ListDealsResponse> {
@@ -179,33 +218,92 @@ export class PrismaNegociosRepository extends NegociosRepository {
     return this.ler(id);
   }
 
-  async update(id: string, input: UpdateLeadRequest, principal: AuthPrincipal): Promise<Deal> {
+  async update(id: string, input: UpdateLeadRequest, principal: AuthPrincipal): Promise<DealDetail> {
     const { pipeline } = await this.negocioVisivel(id, principal);
-    await this.prisma.$transaction(async (tx) => {
-      const perfilAtual = await tx.leadProfile.findUnique({ where: { dealId: id } });
-      if (!perfilAtual) throw new NaoEncontrado(NEGOCIO_NAO_ENCONTRADO);
-      const negocio = await tx.deal.findUniqueOrThrow({ where: { id }, select: { leadContactId: true } });
-
-      const perfilFinal: PerfilDoLead = { ...perfilAtual, ...input.lead };
+    return this.prisma.$transaction(async (tx) => {
+      await this.travarPipelines(tx, [pipeline.id]);
+      await tx.$queryRaw`SELECT id FROM deals WHERE id = ${id}::uuid FOR UPDATE`;
+      // Confere novamente depois do lock: uma transferência ou revogação pode
+      // ter acontecido entre a leitura da tela e esta transação.
+      const acesso = await lerAcessoComercial(tx, principal.id);
+      const negocio = await tx.deal.findUnique({ where: { id }, include: DO_NEGOCIO });
+      if (!negocio || !podeVer(acesso)) throw new NaoEncontrado(NEGOCIO_NAO_ENCONTRADO);
+      if (negocio.pipelineId !== pipeline.id || (input.version !== undefined && input.version !== negocio.version)) {
+        throw new EstadoInvalido("Este negócio foi alterado. Recarregue os dados antes de salvar.");
+      }
+      if (!negocio.profile) throw new NaoEncontrado(NEGOCIO_NAO_ENCONTRADO);
+      const perfilFinal: PerfilDoLead = { ...negocio.profile, ...input.lead };
       const teraContato = input.contact !== undefined ? input.contact !== null : negocio.leadContactId !== null;
       const problemas = problemasDoCadastro({ ...perfilFinal, temContatos: teraContato });
       if (problemas[0]) throw new RequisicaoInvalida(problemas[0].problema, problemas.map((p) => ({ campo: `lead.${p.campo}`, problema: p.problema })));
-
-      if (input.lead) await tx.leadProfile.update({ where: { dealId: id }, data: input.lead });
-
-      if (input.contact === null) {
-        await tx.deal.update({ where: { id }, data: { leadContactId: null } });
-      } else if (input.contact) {
-        if (negocio.leadContactId) {
-          await tx.leadContact.update({ where: { id: negocio.leadContactId }, data: input.contact });
-        } else {
-          const criado = await tx.leadContact.create({ data: { ...input.contact, dealId: id, isPrimary: true } });
-          await tx.deal.update({ where: { id }, data: { leadContactId: criado.id } });
+      const mudancas: { field: string; before: DealHistoryValue; after: DealHistoryValue }[] = [];
+      const comparar = (field: string, before: DealHistoryValue, after: DealHistoryValue) => {
+        if (JSON.stringify(before) !== JSON.stringify(after)) mudancas.push({ field, before, after });
+      };
+      const dados: Prisma.DealUncheckedUpdateInput = {};
+      if (input.title !== undefined) { comparar("title", negocio.title, input.title); dados.title = input.title; }
+      if (input.value !== undefined) {
+        const valor = input.value === null ? null : new Prisma.Decimal(input.value).toFixed(2);
+        comparar("value", negocio.value?.toFixed(2) ?? null, valor); dados.value = valor;
+      }
+      if (input.expectedCloseDate !== undefined) {
+        comparar("expectedCloseDate", negocio.expectedCloseDate, input.expectedCloseDate); dados.expectedCloseDate = input.expectedCloseDate;
+      }
+      if (input.ownerId !== undefined) {
+        await this.garantirResponsavel(tx, input.ownerId);
+        const responsavel = await tx.user.findUniqueOrThrow({ where: { id: input.ownerId }, select: { id: true, name: true } });
+        // Renomear uma pessoa não altera o responsável do negócio.
+        if (negocio.ownerId !== responsavel.id) comparar("ownerId", negocio.owner, responsavel);
+        dados.ownerId = input.ownerId;
+      }
+      for (const campo of Object.keys(input.lead ?? {}) as Array<keyof NonNullable<UpdateLeadRequest["lead"]>>) {
+        if (input.lead?.[campo] !== undefined) comparar(`lead.${campo}`, negocio.profile[campo], perfilFinal[campo]);
+      }
+      if (input.tagIds !== undefined) {
+        const etiquetas = await tx.pipelineTag.findMany({ where: { pipelineId: pipeline.id }, select: { id: true, name: true } });
+        if (foraDe(input.tagIds, etiquetas.map((t) => t.id)).length > 0) throw invalido("Use só etiquetas deste pipeline.", "tagIds", "etiqueta de outro pipeline");
+        const antes = negocio.tags.map(({ tag }) => ({ id: tag.id, name: tag.name })).sort((a, b) => a.id.localeCompare(b.id));
+        const depois = etiquetas.filter((t) => input.tagIds!.includes(t.id)).sort((a, b) => a.id.localeCompare(b.id));
+        if (antes.map((t) => t.id).join() !== depois.map((t) => t.id).join()) comparar("tagIds", antes, depois);
+      }
+      const camposContato = ["name", "jobTitle", "role", "phone", "phoneIsWhatsapp", "email", "isPrimary", "cpf", "rg"] as const;
+      if (input.contact !== undefined) {
+        for (const campo of camposContato) {
+          const antes = negocio.leadContact?.[campo] ?? null;
+          const informado = input.contact?.[campo];
+          const depois = input.contact === null ? null : informado !== undefined ? informado : negocio.leadContact?.[campo] ?? (campo === "isPrimary" ? true : campo === "phoneIsWhatsapp" ? false : null);
+          comparar(`contact.${campo}`, antes, depois);
         }
       }
-      await this.registrar(tx, "commercial.deal.updated", id, pipeline.companyId, principal, {});
+      if (mudancas.length === 0) return paraNegocio(negocio);
+      if (input.lead && mudancas.some((m) => m.field.startsWith("lead."))) await tx.leadProfile.update({ where: { dealId: id }, data: input.lead });
+      if (mudancas.some((m) => m.field.startsWith("contact."))) {
+        if (input.contact === null) dados.leadContactId = null;
+        else if (input.contact) {
+          if (negocio.leadContactId) {
+            await tx.leadContact.update({ where: { id: negocio.leadContactId, dealId: id }, data: input.contact });
+          } else {
+            const criado = await tx.leadContact.create({ data: { ...input.contact, dealId: id, isPrimary: input.contact.isPrimary ?? true } });
+            dados.leadContactId = criado.id;
+          }
+        }
+      }
+      if (mudancas.some((m) => m.field === "tagIds")) {
+        await tx.dealTag.deleteMany({ where: { dealId: id } });
+        await tx.dealTag.createMany({ data: input.tagIds!.map((tagId) => ({ dealId: id, tagId })) });
+      }
+      // Perfil, contato e etiquetas são tabelas filhas: tocar Deal garante que
+      // sua versão também cubra essas alterações, uma só vez por edição.
+      await tx.deal.update({ where: { id }, data: { ...dados, updatedAt: new Date() } });
+      await tx.dealHistory.createMany({ data: mudancas.map((m) => ({
+        dealId: id, kind: "field_changed", field: m.field,
+        beforeValue: m.before === null ? Prisma.JsonNull : m.before,
+        afterValue: m.after === null ? Prisma.JsonNull : m.after,
+        actorId: principal.id,
+      })) });
+      await this.registrar(tx, "commercial.deal.updated", id, pipeline.companyId, principal, { campos: mudancas.map((m) => m.field) });
+      return paraNegocio(await tx.deal.findUniqueOrThrow({ where: { id }, include: DO_NEGOCIO }));
     });
-    return this.ler(id);
   }
 
   async convert(id: string, input: ConvertLeadRequest, principal: AuthPrincipal): Promise<ConvertLeadResponse> {
@@ -342,10 +440,27 @@ export class PrismaNegociosRepository extends NegociosRepository {
       await this.travarPipelines(tx, [pipeline.id]);
       if (action.type === "owner") {
         await this.garantirResponsavel(tx, action.ownerId);
-        await tx.deal.updateMany({ where: { id: { in: input.dealIds } }, data: { ownerId: action.ownerId } });
+        const atuais = await tx.deal.findMany({ where: { id: { in: input.dealIds }, pipelineId: pipeline.id }, include: { owner: { select: { id: true, name: true } } } });
+        if (atuais.length !== new Set(input.dealIds).size) throw new EstadoInvalido("Um negócio mudou de pipeline. Atualize a tela.");
+        const responsavel = await tx.user.findUniqueOrThrow({ where: { id: action.ownerId }, select: { id: true, name: true } });
+        for (const atual of atuais.filter((n) => n.ownerId !== action.ownerId)) {
+          await tx.deal.update({ where: { id: atual.id }, data: { ownerId: action.ownerId } });
+          await tx.dealHistory.create({ data: { dealId: atual.id, kind: "field_changed", field: "ownerId", beforeValue: atual.owner, afterValue: responsavel, actorId: principal.id } });
+          await this.registrar(tx, "commercial.deal.updated", atual.id, pipeline.companyId, principal, { campos: ["ownerId"] });
+        }
       } else if (action.type === "tag") {
-        if (!pipeline.tags.some((t) => t.id === action.tagId)) throw invalido("Use só etiquetas deste pipeline.", "tagId", "etiqueta de outro pipeline");
-        await tx.dealTag.createMany({ data: input.dealIds.map((dealId) => ({ dealId, tagId: action.tagId })), skipDuplicates: true });
+        const tag = await tx.pipelineTag.findFirst({ where: { id: action.tagId, pipelineId: pipeline.id }, select: { id: true, name: true } });
+        if (!tag) throw invalido("Use só etiquetas deste pipeline.", "tagId", "etiqueta de outro pipeline");
+        const atuais = await tx.deal.findMany({ where: { id: { in: input.dealIds }, pipelineId: pipeline.id }, include: { tags: { include: { tag: { select: { id: true, name: true } } } } } });
+        if (atuais.length !== new Set(input.dealIds).size) throw new EstadoInvalido("Um negócio mudou de pipeline. Atualize a tela.");
+        for (const atual of atuais.filter((n) => !n.tags.some((t) => t.tagId === action.tagId))) {
+          const antes = atual.tags.map((t) => t.tag).sort((a, b) => a.id.localeCompare(b.id));
+          const depois = [...antes, tag].sort((a, b) => a.id.localeCompare(b.id));
+          await tx.dealTag.create({ data: { dealId: atual.id, tagId: tag.id } });
+          await tx.deal.update({ where: { id: atual.id }, data: { updatedAt: new Date() } });
+          await tx.dealHistory.create({ data: { dealId: atual.id, kind: "field_changed", field: "tagIds", beforeValue: antes, afterValue: depois, actorId: principal.id } });
+          await this.registrar(tx, "commercial.deal.updated", atual.id, pipeline.companyId, principal, { campos: ["tagIds"] });
+        }
       } else if (action.type === "priority") {
         for (const id of [...new Set(input.dealIds)].sort()) {
           const [atual] = await tx.$queryRaw<Array<{ priority: SetDealPriorityRequest["priority"]; status: string }>>`SELECT priority, status FROM deals WHERE id = ${id}::uuid FOR UPDATE`;
@@ -577,7 +692,7 @@ export class PrismaNegociosRepository extends NegociosRepository {
     if (!pessoa) throw invalido("Escolha uma pessoa ativa com acesso aos pipelines do CRM.", "ownerId", "pessoa inativa ou sem acesso ao CRM/Pipelines");
   }
 
-  private async ler(id: string): Promise<Deal> {
+  private async ler(id: string): Promise<DealDetail> {
     return paraNegocio(await this.prisma.deal.findUniqueOrThrow({ where: { id }, include: DO_NEGOCIO }));
   }
 

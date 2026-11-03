@@ -126,10 +126,22 @@ export type CreateDealRequest = z.infer<typeof createDealRequestSchema>;
 /** Edita dados do lead e, opcionalmente, substitui o contato selecionado. `undefined` mantém cada campo. */
 export const updateLeadRequestSchema = z
   .object({
+    /** Clientes legados podem omitir; o modal sempre envia a versão lida. */
+    version: z.number().int().positive().optional(),
     lead: updateLeadProfileRequestSchema.optional(),
     contact: clientContactInputSchema.nullable().optional(),
+    title: z.string().trim().min(1, "informe o título").max(120).optional(),
+    value: z.preprocess(vazioViraNulo, decimalString.refine((v) => Number(v) < 1_000_000_000_000, "valor excede o limite de 12 dígitos inteiros").nullable()).optional(),
+    expectedCloseDate: dataOpcional,
+    ownerId: uuid.optional(),
+    tagIds: z.array(uuid).max(20).transform((ids) => [...new Set(ids)]).optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((input, ctx) => {
+    if (input.version === undefined && [input.title, input.value, input.expectedCloseDate, input.ownerId, input.tagIds].some((v) => v !== undefined)) {
+      ctx.addIssue({ code: "custom", path: ["version"], message: "recarregue o negócio e informe a versão antes de editar dados comerciais" });
+    }
+  });
 export type UpdateLeadRequest = z.infer<typeof updateLeadRequestSchema>;
 
 export const moveDealStageRequestSchema = z.object({ stageId: uuid, beforeDealId: uuid.nullable().optional() }).strict();
@@ -196,6 +208,41 @@ export const dealSchema = z.object({
   createdAt: isoDate,
 });
 export type Deal = z.infer<typeof dealSchema>;
+
+/** Detalhe relido do servidor; a versão também cobre perfil e contato próprios. */
+export const dealDetailSchema = dealSchema.extend({ version: z.number().int().positive(), lossNote: z.string().nullable() });
+export type DealDetail = z.infer<typeof dealDetailSchema>;
+export const dealDetailsSchema = dealDetailSchema;
+export type DealDetails = DealDetail;
+
+const historyReferenceSchema = z.object({ id: uuid, name: z.string() });
+export const dealHistoryValueSchema = z.union([
+  z.string(), z.boolean(), z.null(), historyReferenceSchema, z.array(historyReferenceSchema),
+]);
+export type DealHistoryValue = z.infer<typeof dealHistoryValueSchema>;
+export const dealHistoryEntrySchema = z.object({
+  id: uuid,
+  kind: z.enum(["created", "stage_changed", "priority_changed", "document_added", "document_archived", "client_converted", "won", "lost", "transferred", "field_changed"]),
+  occurredAt: isoDate,
+  actor: historyReferenceSchema.nullable(),
+  field: z.string().nullable(),
+  before: dealHistoryValueSchema,
+  after: dealHistoryValueSchema,
+  fromStageName: z.string().nullable(),
+  toStageName: z.string().nullable(),
+  fromPipelineName: z.string().nullable(),
+  toPipelineName: z.string().nullable(),
+  fromPriority: dealPrioritySchema.nullable(),
+  toPriority: dealPrioritySchema.nullable(),
+});
+export type DealHistoryEntry = z.infer<typeof dealHistoryEntrySchema>;
+export const listDealHistoryQuerySchema = z.object({
+  cursor: uuid.optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(30),
+}).strict();
+export type ListDealHistoryQuery = z.infer<typeof listDealHistoryQuerySchema>;
+export const listDealHistoryResponseSchema = z.object({ entries: z.array(dealHistoryEntrySchema), nextCursor: uuid.nullable() });
+export type ListDealHistoryResponse = z.infer<typeof listDealHistoryResponseSchema>;
 
 export const listDealsResponseSchema = z.object({ deals: z.array(dealSchema) });
 export type ListDealsResponse = z.infer<typeof listDealsResponseSchema>;

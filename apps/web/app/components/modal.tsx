@@ -38,6 +38,7 @@ export function Modal({
       className={`modal modal--${largura} ${className}`}
       aria-label={rotulo}
       onCancel={(evento) => {
+        if (evento.target !== evento.currentTarget) return;
         evento.preventDefault();
         aoFechar();
       }}

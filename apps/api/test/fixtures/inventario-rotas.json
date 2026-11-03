@@ -772,17 +772,23 @@
     ]
   },
   {
+    "metodo": "GET",
+    "caminho": "/leads/:id",
+    "controller": "DetalhesNegocioController.get",
+    "acesso": "authenticated",
+    "papeis": [],
+    "guards": [
+      "SessionAuthGuard"
+    ]
+  },
+  {
     "metodo": "PATCH",
     "caminho": "/leads/:id",
-    "controller": "NegociosController.update",
-    "acesso": "acesso",
-    "papeis": [
-      "tela:crm.pipelines",
-      "departamento:crm:membro"
-    ],
+    "controller": "DetalhesNegocioController.update",
+    "acesso": "authenticated",
+    "papeis": [],
     "guards": [
       "SessionAuthGuard",
-      "AcessoGuard",
       "OriginCheckGuard",
       "ThrottlerGuard"
     ]
@@ -833,6 +839,16 @@
       "AcessoGuard",
       "OriginCheckGuard",
       "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/leads/:id/historico",
+    "controller": "DetalhesNegocioController.history",
+    "acesso": "authenticated",
+    "papeis": [],
+    "guards": [
+      "SessionAuthGuard"
     ]
   },
   {

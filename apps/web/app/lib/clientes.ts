@@ -98,6 +98,7 @@ export function lerErro(corpo: unknown, padrao: string): ErroDoFormulario {
   const dados = (corpo ?? {}) as { codigo?: string; mensagem?: string; message?: string; detalhes?: Array<{ campo: string; problema: string }>; candidatos?: unknown[] };
   const porCampo: Record<string, string> = {};
   for (const detalhe of dados.detalhes ?? []) {
+    porCampo[detalhe.campo] ??= detalhe.problema;
     const campo = detalhe.campo.split(".")[0] ?? detalhe.campo;
     porCampo[campo] ??= detalhe.problema;
   }

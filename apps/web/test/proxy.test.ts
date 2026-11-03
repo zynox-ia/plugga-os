@@ -113,4 +113,24 @@ describe("proxy genérico (T123/T124)", () => {
     assert.deepEqual(await r.json(), { mensagem: "negado" });
     assert.equal(r.headers.getSetCookie().length, 1);
   });
+
+  it("preserva os bytes e os cabeçalhos de segurança de documentos", async () => {
+    const bytes = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x00, 0xff, 0x80]);
+    simular(() => new Response(bytes, { headers: {
+      "content-type": "application/pdf",
+      "content-disposition": 'inline; filename="exemplo.pdf"',
+      "content-security-policy": "sandbox",
+      "x-content-type-options": "nosniff",
+      "cache-control": "no-store",
+    } }));
+    const r = await proxyar(requisicao(), {
+      metodo: "GET", modelo: "leads/:id/documentos", ids: { id: ID }, resposta: "arquivo",
+    });
+    assert.deepEqual(new Uint8Array(await r.arrayBuffer()), bytes);
+    assert.equal(r.headers.get("content-type"), "application/pdf");
+    assert.equal(r.headers.get("content-disposition"), 'inline; filename="exemplo.pdf"');
+    assert.equal(r.headers.get("content-security-policy"), "sandbox");
+    assert.equal(r.headers.get("x-content-type-options"), "nosniff");
+    assert.equal(r.headers.get("cache-control"), "no-store");
+  });
 });

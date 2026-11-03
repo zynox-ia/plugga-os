@@ -928,6 +928,7 @@ enum DealStatus {
 
 enum DealEventKind {
   created
+  field_changed
   stage_changed
   priority_changed
   document_added
@@ -952,6 +953,7 @@ enum DealPriority {
 /// está, sem cópia aqui: mover de pipeline muda a empresa por construção.
 /// Ganho e Perdido encerram o negócio na etapa em que ele estava.
 model Deal {
+  version Int @default(1)
   leadContactId String? @map("lead_contact_id") @db.Uuid
   profile LeadProfile?
   leadContacts LeadContact[] @relation("LeadContacts")
@@ -1026,6 +1028,9 @@ model DealConsumerUnit {
 /// Histórico do negócio: de onde, para onde, quem e quando. Guarda os nomes da
 /// época, porque etapas e pipelines podem ser renomeados ou excluídos depois.
 model DealHistory {
+  field            String?
+  beforeValue      Json?         @map("before_value")
+  afterValue       Json?         @map("after_value")
   id               String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   dealId           String        @map("deal_id") @db.Uuid
   kind             DealEventKind
@@ -1043,6 +1048,7 @@ model DealHistory {
   actor            User?         @relation("DealHistoryActor", fields: [actorId], references: [id], onDelete: SetNull)
 
   @@index([dealId, occurredAt])
+  @@index([dealId, occurredAt, id])
   @@map("deal_history")
 }
 

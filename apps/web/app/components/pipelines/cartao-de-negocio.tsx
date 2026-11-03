@@ -8,7 +8,7 @@ import { createPortal } from "react-dom";
 import { diasNaEtapa, estaParado } from "../../lib/negocios";
 import { formatarDataHora, FUSO_HORARIO } from "../../lib/format";
 import { Avatar } from "./icones";
-import { DetalhesDoLeadModal } from "./detalhes-do-lead-modal";
+
 import type { AcoesDoNegocio } from "./quadro-do-pipeline";
 import { SeletorBadgePrioridade } from "./seletor-badge-prioridade";
 import styles from "./cartao-de-negocio.module.css";
@@ -206,7 +206,7 @@ export function CartaoDeNegocio({
   aoComecarArrasto: (elemento: HTMLElement) => void;
   aoTerminarArrasto: () => void;
 }) {
-  const [modalLeadAberto, setModalLeadAberto] = useState(false);
+
   const arrastou = useRef(false);
   const dias = diasNaEtapa(negocio);
   const parado = estaParado(negocio, pipeline);
@@ -229,7 +229,7 @@ export function CartaoDeNegocio({
         }}
         onClick={(e) => {
           if (arrastou.current || (e.target as HTMLElement).closest("button")) return;
-          setModalLeadAberto(true);
+          acoes.abrirDetalhes(negocio);
         }}
       >
         <header className={styles.cabecalho}>
@@ -239,13 +239,13 @@ export function CartaoDeNegocio({
           </span>
           <div className={styles.acoesCabecalho}>
             <SeletorBadgePrioridade nome={negocio.lead.name} value={negocio.priority ?? ""} onChange={(prioridade) => void acoes.definirPrioridade(negocio, prioridade || null)} />
-            <MenuDoNegocio negocio={negocio} pipeline={pipeline} acoes={acoes} aoVerLead={() => setModalLeadAberto(true)} menuClassName={styles.menuVidro} />
+            <MenuDoNegocio negocio={negocio} pipeline={pipeline} acoes={acoes} aoVerLead={() => acoes.abrirDetalhes(negocio)} menuClassName={styles.menuVidro} />
           </div>
         </header>
         <div className={styles.topo}>
           <div className={styles.identidade}>
             <h4 className={styles.titulo}>
-              <button type="button" aria-label={`Ver lead ${negocio.lead.name}`} onClick={() => setModalLeadAberto(true)}>
+              <button type="button" aria-label={`Ver lead ${negocio.lead.name}`} onClick={() => acoes.abrirDetalhes(negocio)}>
                 {negocio.lead.name}
               </button>
             </h4>
@@ -285,10 +285,6 @@ export function CartaoDeNegocio({
           </span>
         </footer>
       </article>
-
-      {modalLeadAberto ? (
-        <DetalhesDoLeadModal negocio={negocio} pipeline={pipeline} acoes={acoes} aoFechar={() => setModalLeadAberto(false)} />
-      ) : null}
     </>
   );
 }
