@@ -135,8 +135,9 @@ test.describe("Clientes — cadastro único (PLU-268)", () => {
     await expect(ficha.getByRole("tab", { name: /Contatos/ })).toHaveCount(0);
 
     await page.goto(`/clientes?q=${encodeURIComponent(nome)}`);
+    await page.getByRole("tab", { name: "Lista", exact: true }).click();
     const linha = page.getByRole("table", { name: "Clientes cadastrados" }).getByRole("row").filter({ hasText: nome });
-    await expect(linha.getByRole("cell", { name: /^•••\.\d{3}\.\d{3}-••$/ })).toBeVisible();
+    await expect(linha.getByText(/^•••\.\d{3}\.\d{3}-••$/, { exact: true })).toBeVisible();
   });
 
   test("inativa e reativa um cliente pela ficha", async ({ page }) => {

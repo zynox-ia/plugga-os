@@ -1,16 +1,17 @@
 "use client";
 
-import Link from "next/link";
+import { Building2, Filter, LayoutGrid, List, LockKeyhole, Plus, Search, UserRound, Users } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 
 import type { ClientDetail, ClientDuplicateCandidate, ClientListItem, ClientOwner } from "@plugga/shared";
 
-import { hrefDaFicha, iniciais } from "../lib/clientes";
+import { hrefDaFicha } from "../lib/clientes";
 import { ClienteForm } from "./cliente-form";
 import { FichaCliente } from "./ficha-cliente";
 import { Modal } from "./modal";
-import { ShellCard, ShellTable, StatusPill } from "./plugga-shell";
+import { Button, SelectField, TextField } from "./ui";
+import { CardsDeClientes, ListaDeClientes } from "./clientes/visualizacoes-clientes";
 import styles from "./clientes/tela-clientes.module.css";
 
 type Filtros = { q?: string; active?: string };
@@ -35,17 +36,29 @@ export function ClientesView({
   const router = useRouter();
   const [q, setQ] = useState(filtros.q ?? "");
   const [active, setActive] = useState(filtros.active ?? "");
+  const [tipo, setTipo] = useState("todos");
+  const [visao, setVisao] = useState<"cards" | "lista">("cards");
+  const [pagina, setPagina] = useState(1);
+  const abasRef = useRef<HTMLDivElement>(null);
   const [criando, setCriando] = useState(false);
   const [avisos, setAvisos] = useState<ClientDuplicateCandidate[]>([]);
 
+  useEffect(() => { setQ(filtros.q ?? ""); setActive(filtros.active ?? ""); }, [filtros.q, filtros.active]);
+
+  const visiveis = itens.filter((item) => tipo === "todos" || item.personType === tipo);
+  const temFiltros = Boolean(q || active || tipo !== "todos");
+
   function buscar(evento: FormEvent) {
     evento.preventDefault();
+    setPagina(1);
     router.push(hrefDaFicha(null, { q: q.trim() || undefined, active: active || undefined }));
   }
 
   function limpar() {
     setQ("");
     setActive("");
+    setTipo("todos");
+    setPagina(1);
     router.push("/clientes");
   }
 
@@ -59,97 +72,55 @@ export function ClientesView({
     router.push(hrefDaFicha(null, filtros), { scroll: false });
   }
 
-  return (
-    <div className={`stack ${styles.pagina}`}>
-      <ShellCard className="table-card">
-        <div className="card-heading">
-          <div>
-            <span className="eyebrow">Comercial</span>
-            <h2>Clientes</h2>
-          </div>
-          <button className="button button--accent" type="button" onClick={() => setCriando(true)}>
-            + Novo cliente
-          </button>
-        </div>
+  function navegarAbas(evento: KeyboardEvent) {
+    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(evento.key)) return;
+    evento.preventDefault();
+    const proxima = evento.key === "Home" ? "cards" : evento.key === "End" ? "lista" : visao === "cards" ? "lista" : "cards";
+    setVisao(proxima);
+    abasRef.current?.querySelector<HTMLButtonElement>(`#clientes-visao-${proxima}`)?.focus();
+  }
 
-        <form className="filter-form" onSubmit={buscar} role="search">
-          <div className="field campo-busca">
-            <label htmlFor="clientes-busca">Buscar por nome, CNPJ/CPF, contato, telefone ou e-mail</label>
-            <input id="clientes-busca" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar…" />
+  return (
+    <div className={styles.pagina}>
+        <header className={styles.cabecalho}>
+          <div>
+            <span className={styles.eyebrow}>Relacionamento</span>
+            <h2>Clientes</h2>
+            <p>Uma visão de quem faz parte da sua carteira.</p>
           </div>
-          <div className="field">
-            <label htmlFor="clientes-situacao">Situação</label>
-            <select id="clientes-situacao" value={active} onChange={(e) => setActive(e.target.value)}>
-              <option value="">Todos</option>
-              <option value="true">Ativos</option>
-              <option value="false">Inativos</option>
-            </select>
+          <Button size="sm" icon={<Plus size={14} />} onClick={() => setCriando(true)} aria-label="+ Novo cliente">
+            Novo cliente
+          </Button>
+        </header>
+
+        <form className={styles.filtros} onSubmit={buscar} role="search" aria-label="Filtrar clientes">
+          <div className={styles.busca}>
+            <button type="submit" className={styles.botaoBusca} aria-label="Buscar clientes"><Search size={16} aria-hidden="true" /></button>
+            <TextField id="clientes-busca" label="Buscar cliente" type="search" maxLength={150} value={q} onChange={(e) => { setQ(e.target.value); setPagina(1); }} placeholder="Nome, documento ou contato…" />
           </div>
-          <div className="filter-actions">
-            <button className="button button--accent" type="submit">
-              Buscar
-            </button>
-            {filtros.q || filtros.active ? (
-              <button className="button button--secondary" type="button" onClick={limpar}>
-                Limpar
-              </button>
-            ) : null}
+          <div className={styles.filtroSituacao}>
+            <SelectField label="Situação" value={active || "todos"} onChange={(valor) => { const situacao = valor === "todos" ? "" : valor; setActive(situacao); setPagina(1); router.push(hrefDaFicha(null, { q: q.trim() || undefined, active: situacao || undefined }), { scroll: false }); }} options={[{ value: "todos", label: "Todos", icon: <Filter /> }, { value: "true", label: "Ativos", icon: <UserRound /> }, { value: "false", label: "Inativos", icon: <UserRound /> }]} />
+          </div>
+          <div className={styles.filtroTipo}>
+            <SelectField label="Tipo de pessoa" value={tipo} onChange={(valor) => { setTipo(valor); setPagina(1); }} options={[{ value: "todos", label: "Todos os clientes", icon: <Users /> }, { value: "pj", label: "Pessoa Jurídica", icon: <Building2 /> }, { value: "pf", label: "Pessoa Física", icon: <UserRound /> }]} />
+          </div>
+          {temFiltros ? <Button variant="secondary" size="sm" onClick={limpar}>Limpar</Button> : null}
+          <div ref={abasRef} className={`ui-tabs-list ${styles.abas}`} role="tablist" aria-label="Visualização de clientes" onKeyDown={navegarAbas}>
+            <button type="button" id="clientes-visao-cards" className="ui-tab" role="tab" aria-selected={visao === "cards"} aria-controls="clientes-cards" tabIndex={visao === "cards" ? 0 : -1} onClick={() => setVisao("cards")}><LayoutGrid size={14} aria-hidden="true" />Cards</button>
+            <button type="button" id="clientes-visao-lista" className="ui-tab" role="tab" aria-selected={visao === "lista"} aria-controls="clientes-lista" tabIndex={visao === "lista" ? 0 : -1} onClick={() => setVisao("lista")}><List size={14} aria-hidden="true" />Lista</button>
           </div>
         </form>
 
         {fichaNaoEncontrada ? (
-          <p className="aviso aviso--alerta" role="status" style={{ margin: "0 22px 14px" }}>
+          <p className="aviso aviso--alerta" role="status">
             Cliente não encontrado. O link pode estar errado ou você não tem acesso a ele.
           </p>
         ) : null}
 
-        <ShellTable caption="Clientes cadastrados">
-          <thead>
-            <tr>
-              <th>Cliente</th>
-              <th>CNPJ / CPF</th>
-              <th>Contato principal</th>
-              <th>Telefone</th>
-              <th>E-mail</th>
-              <th>Responsável</th>
-              <th>Situação</th>
-            </tr>
-          </thead>
-          <tbody>
-            {itens.map((item) => (
-              <tr key={item.id} className="linha-cliente" onClick={() => abrir(item.id)}>
-                <td>
-                  <div className="celula-cliente">
-                    <span className="mini-avatar" aria-hidden="true">
-                      {iniciais(item.name)}
-                    </span>
-                    <div>
-                      <Link href={hrefDaFicha(item.id, filtros)} scroll={false} onClick={(e) => e.stopPropagation()}>
-                        {item.name}
-                      </Link>
-                      <small>{[item.personType === "pj" ? "PJ" : "PF", [item.city, item.state].filter(Boolean).join("/")].filter(Boolean).join(" · ")}</small>
-                    </div>
-                  </div>
-                </td>
-                <td>{item.documentDisplay ?? "—"}</td>
-                <td>{item.primaryContactName ?? "—"}</td>
-                <td>{item.phoneDisplay ?? "—"}</td>
-                <td>{item.email ?? "—"}</td>
-                <td>{item.owner?.name ?? "—"}</td>
-                <td>
-                  <StatusPill variant={item.active ? "success" : "danger"}>{item.active ? "Ativo" : "Inativo"}</StatusPill>
-                </td>
-              </tr>
-            ))}
-            {itens.length === 0 ? (
-              <tr>
-                <td colSpan={7}>{filtros.q ? "Nenhum cliente encontrado para a busca." : "Nenhum cliente cadastrado ainda."}</td>
-              </tr>
-            ) : null}
-          </tbody>
-        </ShellTable>
-        <p className="card-note">CPF e telefone aparecem mascarados na lista; os dados completos ficam na ficha.</p>
-      </ShellCard>
+        {(["cards", "lista"] as const).map((aba) => <section key={aba} id={`clientes-${aba}`} className={styles.conteudo} role="tabpanel" aria-labelledby={`clientes-visao-${aba}`} hidden={visao !== aba} tabIndex={0}>
+          {visao === aba ? visiveis.length === 0 ? <div className={styles.vazio} role="status"><Users size={26} aria-hidden="true" /><h3>{temFiltros ? "Nenhum cliente encontrado para a busca." : "Nenhum cliente cadastrado ainda."}</h3><p>{temFiltros ? "Experimente outro nome ou ajuste os filtros." : "Cadastre o primeiro cliente para começar."}</p>{temFiltros ? <Button variant="secondary" size="sm" onClick={limpar}>Limpar filtros</Button> : null}</div> : aba === "cards" ? <CardsDeClientes itens={visiveis} filtros={filtros} aoAbrir={abrir} /> : <ListaDeClientes itens={visiveis} filtros={filtros} aoAbrir={abrir} pagina={pagina} aoMudarPagina={setPagina} /> : null}
+        </section>)}
+        <p className={styles.privacidade}><LockKeyhole size={12} aria-hidden="true" />CPF e telefone aparecem mascarados na lista; os dados completos ficam na ficha.</p>
 
       {criando ? (
         <ClienteForm

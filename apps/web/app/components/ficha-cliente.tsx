@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { UserRound } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 
@@ -11,7 +12,6 @@ import {
   enderecoEmUmaLinha,
   enviar,
   hrefDaFicha,
-  iniciais,
   PAPEIS,
   ROTULO_MOTIVO,
   ROTULO_ORIGEM,
@@ -77,7 +77,7 @@ export function FichaCliente({
       <div className="modal-topo">
         <div className="ficha-identidade">
           <span className="avatar-cliente" aria-hidden="true">
-            {iniciais(cliente.name)}
+            <UserRound size={24} />
           </span>
           <div>
             <h2>{cliente.name}</h2>
