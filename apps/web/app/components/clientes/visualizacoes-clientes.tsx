@@ -1,6 +1,7 @@
 import type { ClientListItem } from "@plugga/shared";
 import { Eye, FileText, UserRound } from "lucide-react";
 import Link from "next/link";
+import { useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 
 import { hrefDaFicha } from "../../lib/clientes";
 import { PaginacaoDaLista } from "../pipelines/paginacao-da-lista";
@@ -11,9 +12,33 @@ import styles from "./tela-clientes.module.css";
 
 type Props = { itens: ClientListItem[]; filtros: { q?: string; active?: string }; aoAbrir: (id: string) => void };
 const ITENS_POR_PAGINA = 6;
+const LARGURA_MINIMA_CARD = 360;
+const LARGURA_MAXIMA_CARD = 440;
+const ESPACO_CARDS = 16;
 
 export function CardsDeClientes({ itens, filtros, aoAbrir }: Props) {
-  return <div className={styles.areaCards}><div className={styles.grade}>
+  const gradeRef = useRef<HTMLDivElement>(null);
+  const [larguraCard, setLarguraCard] = useState(LARGURA_MAXIMA_CARD);
+
+  useLayoutEffect(() => {
+    const grade = gradeRef.current;
+    if (!grade) return;
+    const observer = new ResizeObserver(([entrada]) => {
+      if (!entrada) return;
+      const largura = entrada.contentRect.width;
+      const colunas = Math.max(1, Math.min(itens.length, Math.floor(
+        (largura + ESPACO_CARDS) / (LARGURA_MINIMA_CARD + ESPACO_CARDS),
+      )));
+      setLarguraCard(Math.min(LARGURA_MAXIMA_CARD, (largura - (colunas - 1) * ESPACO_CARDS) / colunas));
+    });
+    observer.observe(grade);
+    return () => observer.disconnect();
+  }, [itens.length]);
+
+  return <div className={styles.areaCards}><div ref={gradeRef} className={styles.grade} style={{
+    "--largura-card": `${larguraCard}px`,
+    gap: ESPACO_CARDS,
+  } as CSSProperties}>
     {itens.map((item) => <article key={item.id} className={styles.card} aria-label={`Cliente ${item.name}`}>
       <header className={styles.cardTopo}>
         <AvatarDoCliente />
