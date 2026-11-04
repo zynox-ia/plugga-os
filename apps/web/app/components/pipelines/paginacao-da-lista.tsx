@@ -14,7 +14,7 @@ export function PaginacaoDaLista({ pagina, totalItens, itensPorPagina, aoMudarPa
   totalItens: number;
   itensPorPagina: number;
   aoMudarPagina: (pagina: number) => void;
-  entidade?: "leads" | "clientes";
+  entidade?: "leads" | "clientes" | "membros";
 }) {
   const totalPaginas = Math.max(1, Math.ceil(totalItens / itensPorPagina));
   const inicio = (pagina - 1) * itensPorPagina + 1;
@@ -23,7 +23,7 @@ export function PaginacaoDaLista({ pagina, totalItens, itensPorPagina, aoMudarPa
 
   return <nav className="lista-paginacao" aria-label={`Paginação da lista de ${entidade}`}>
     <span className="lista-paginacao-info" role="status">
-      Mostrando <strong>{inicio}–{fim}</strong> de <strong>{totalItens}</strong> {totalItens === 1 ? entidade === "clientes" ? "cliente" : "lead" : entidade}
+      Mostrando <strong>{inicio}–{fim}</strong> de <strong>{totalItens}</strong> {totalItens === 1 ? { clientes: "cliente", leads: "lead", membros: "membro" }[entidade] : entidade}
     </span>
     <div className="lista-paginacao-controles">
       <button type="button" className="lista-paginacao-btn" disabled={pagina === 1} onClick={() => aoMudarPagina(1)} aria-label="Primeira página">

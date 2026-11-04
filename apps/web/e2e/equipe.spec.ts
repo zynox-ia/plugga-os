@@ -23,6 +23,30 @@ async function abrirEquipe(page: import("@playwright/test").Page) {
 }
 
 test.describe("Configurações → Equipe e Acessos", () => {
+  test("painel ocupa a largura disponível e mantém a paginação compacta no rodapé", async ({ page }) => {
+    await abrirEquipe(page);
+    const painel = page.locator(".equipe-card");
+    const paginacao = page.getByRole("navigation", { name: "Paginação da lista de membros" });
+    for (const width of [1440, 1024, 390]) {
+      await page.setViewportSize({ width, height: 900 });
+      await expect(paginacao).toBeVisible();
+      await expect(paginacao.getByRole("button", { name: "Primeira página" })).toHaveCSS("width", "26px");
+      await expect(paginacao.getByRole("button", { name: "Primeira página" })).toHaveCSS("height", "28px");
+      const card = (await painel.boundingBox())!;
+      const area = (await page.locator(".config-layout").boundingBox())!;
+      const rodape = (await paginacao.boundingBox())!;
+      const agent = (await page.getByRole("button", { name: "Agent", exact: true }).boundingBox())!;
+      expect(Math.abs(card.width - area.width)).toBeLessThan(2);
+      expect(Math.abs(card.y + card.height - rodape.y - rodape.height)).toBeLessThan(2);
+      expect(rodape.y + rodape.height).toBeLessThanOrEqual(agent.y);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    }
+    await page.getByLabel("Filtrar pessoas da equipe").fill(adminEmail);
+    await expect(paginacao).toContainText("Mostrando 1–1 de 1 membro");
+    await expect(paginacao.getByRole("button", { name: "Próxima página" })).toBeDisabled();
+    await expect(paginacao.getByRole("button", { name: "Última página" })).toBeDisabled();
+  });
+
   test("lista a equipe e mostra o próprio admin com acesso de plataforma", async ({ page }) => {
     await abrirEquipe(page);
 
@@ -127,7 +151,7 @@ test.describe("Configurações → Equipe e Acessos", () => {
       await expect(linhas).toHaveCount(7);
 
       // Controles de paginação presentes
-      const paginacao = page.locator(".equipe-paginacao");
+      const paginacao = page.getByRole("navigation", { name: "Paginação da lista de membros" });
       await expect(paginacao).toBeVisible();
       await expect(paginacao).toContainText(`Mostrando 1–7 de ${total} membros`);
 
