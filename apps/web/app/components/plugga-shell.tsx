@@ -139,7 +139,11 @@ export function PluggaShell({
   const toggleGroup = (id: string) => {
     const group = navGroups.find((g) => g.id === id);
     if (!group) return;
-    if (isCollapsed) return;
+    if (isCollapsed) {
+      const primeiraOpcao = group.items[0];
+      if (primeiraOpcao && !primeiraOpcao.disabled) selectView(primeiraOpcao.id);
+      return;
+    }
     const atualmenteAberto = isOpen(group);
     setOpenGroups((prev) => {
       if (atualmenteAberto) return { ...prev, [id]: false };
@@ -186,8 +190,10 @@ export function PluggaShell({
               className={`nav-parent${contemAtivo ? " nav-parent--current" : ""}`}
               type="button"
               onClick={() => toggleGroup(group.id)}
-              aria-expanded={aberto}
-              aria-controls={`nav-group-${group.id}`}
+              aria-label={group.label}
+              title={isCollapsed ? group.label : undefined}
+              aria-expanded={isCollapsed ? undefined : aberto}
+              aria-controls={isCollapsed ? undefined : `nav-group-${group.id}`}
             >
               <Icon name={group.icon ?? "briefcase"} />
               <span className="nav-item-label" title={group.label}>{group.label}</span>
