@@ -3893,8 +3893,8 @@ tbody tr:last-child td { border-bottom: 0; }
 .config-layout { display: grid; gap: 18px; align-items: start; }
 .config-nav { align-self: start; }
 
-.equipe-card { background: var(--ui-surface); border-color: var(--ui-divider); box-shadow: none; color: var(--ui-text); font-family: var(--font-general-sans); }
-.equipe-card:hover { background: var(--ui-surface); border-color: var(--ui-divider); box-shadow: none; }
+.equipe-card { background: color-mix(in srgb, var(--ui-surface) 95%, transparent); border-color: var(--ui-divider); box-shadow: none; color: var(--ui-text); font-family: var(--font-general-sans); }
+.equipe-card:hover { background: color-mix(in srgb, var(--ui-surface) 95%, transparent); border-color: var(--ui-divider); box-shadow: none; }
 .equipe-card .card-heading { padding: var(--space-lg); border-color: var(--ui-divider); }
 .equipe-card .eyebrow { color: var(--ui-primary); font-weight: 500; font-family: var(--font-general-sans); }
 .equipe-card h2 { color: var(--ui-text); font-family: var(--font-general-sans); font-weight: 500; }
