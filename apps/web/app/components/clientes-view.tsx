@@ -1,6 +1,6 @@
 "use client";
 
-import { Building2, Filter, LayoutGrid, List, LockKeyhole, Plus, Search, UserRound, Users } from "lucide-react";
+import { Building2, Filter, LayoutGrid, List, Plus, Search, UserRound, Users } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 
@@ -120,7 +120,6 @@ export function ClientesView({
         {(["cards", "lista"] as const).map((aba) => <section key={aba} id={`clientes-${aba}`} className={styles.conteudo} role="tabpanel" aria-labelledby={`clientes-visao-${aba}`} hidden={visao !== aba} tabIndex={0}>
           {visao === aba ? visiveis.length === 0 ? <div className={styles.vazio} role="status"><Users size={26} aria-hidden="true" /><h3>{temFiltros ? "Nenhum cliente encontrado para a busca." : "Nenhum cliente cadastrado ainda."}</h3><p>{temFiltros ? "Experimente outro nome ou ajuste os filtros." : "Cadastre o primeiro cliente para começar."}</p>{temFiltros ? <Button variant="secondary" size="sm" onClick={limpar}>Limpar filtros</Button> : null}</div> : aba === "cards" ? <CardsDeClientes itens={visiveis} filtros={filtros} aoAbrir={abrir} /> : <ListaDeClientes itens={visiveis} filtros={filtros} aoAbrir={abrir} pagina={pagina} aoMudarPagina={setPagina} /> : null}
         </section>)}
-        <p className={styles.privacidade}><LockKeyhole size={12} aria-hidden="true" />CPF e telefone aparecem mascarados na lista; os dados completos ficam na ficha.</p>
 
       {criando ? (
         <ClienteForm
