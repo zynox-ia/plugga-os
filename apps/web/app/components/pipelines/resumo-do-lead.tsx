@@ -8,14 +8,12 @@ import { Button } from "../ui/button";
 import { displayDate } from "../ui/date-value";
 import styles from "./detalhes-do-lead-modal.module.css";
 
-export function ProximaAcaoDoLead({ negocio, aoVerCadastro }: { negocio: Deal; aoVerCadastro: () => void }) {
-  const telefone = negocio.lead.phone?.replace(/\D/g, "");
+export function ProximaAcaoDoLead({ aoVerCadastro }: { negocio: Deal; aoVerCadastro: () => void }) {
   return <div className={styles.proximaAcaoSuperior}>
     <div className={styles.faixaProximaAcao}>
       <span className={styles.iconeFaixa} aria-hidden="true"><Target size={19} /></span>
       <div className={styles.descricaoProximaAcao}><h3>Próxima ação</h3><p>Próxima ação não informada.</p></div>
       <div className={styles.acoesProximaAcao}>
-        {telefone ? <a className={styles.btnAcaoRapida} href={`https://wa.me/${telefone.length <= 11 ? "55" : ""}${telefone}`} target="_blank" rel="noopener noreferrer"><MessageSquare size={14} aria-hidden="true" />WhatsApp</a> : null}
         <Button variant="secondary" size="sm" icon={<ArrowUpRight size={14} />} onClick={aoVerCadastro}>Ver anotações</Button>
       </div>
     </div>

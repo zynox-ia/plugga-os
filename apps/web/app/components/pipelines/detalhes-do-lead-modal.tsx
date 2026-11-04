@@ -1,10 +1,11 @@
 "use client";
 
 import type { Deal, Pipeline, PipelinePerson } from "@plugga/shared";
-import { ArrowRight, BriefcaseBusiness, Building2, FileText, FolderOpen, History, LayoutDashboard, ListTodo, MapPin, MoreHorizontal, Pencil, UserRound, X } from "lucide-react";
+import { ArrowRight, BriefcaseBusiness, Building2, FileText, FolderOpen, History, LayoutDashboard, ListTodo, MapPin, MoreHorizontal, Pencil, Save, UserRound, X } from "lucide-react";
 import { useEffect, useId, useRef, useState, type Dispatch, type KeyboardEvent, type SetStateAction } from "react";
 import { ROTULO_ORIGEM } from "../../lib/clientes";
 import type { TarefaDoLead } from "../../lib/tarefas-lead";
+import type { RascunhoLead } from "../../lib/rascunho-lead";
 import { Modal } from "../modal";
 import { Button } from "../ui/button";
 import { DocumentosDoLead } from "./documentos-do-lead";
@@ -17,15 +18,16 @@ import { CabecalhoResumoDoLead, ProximaAcaoDoLead, ResumoDoLead } from "./resumo
 import { useDetalhesDoLead } from "./use-detalhes-do-lead";
 import { TarefasDoLead } from "./tarefas-do-lead";
 import styles from "./detalhes-do-lead-modal.module.css";
+import perfilStyles from "./perfil-do-lead.module.css";
 
 const SECOES = [
   { id: "resumo", titulo: "Visão geral", descricao: "Indicadores comerciais e próximas ações", icone: LayoutDashboard },
-  { id: "historico", titulo: "Histórico", descricao: "Linha do tempo e autoria das alterações", icone: History },
+  { id: "lead", titulo: "Perfil", descricao: "Identificação, contato e qualificação comercial", icone: UserRound },
   { id: "tarefas", titulo: "Tarefas", descricao: "Atividades e acompanhamento do lead", icone: ListTodo },
   { id: "proposta", titulo: "Propostas", descricao: "Propostas comerciais", icone: FileText },
-  { id: "documentos", titulo: "Documentos", descricao: "Arquivos e documentos categorizados", icone: FolderOpen },
-  { id: "lead", titulo: "Cadastro", descricao: "Ficha cadastral e contato do lead", icone: UserRound },
   { id: "oportunidade", titulo: "Oportunidade", descricao: "Estrutura do negócio e valores", icone: BriefcaseBusiness },
+  { id: "historico", titulo: "Histórico", descricao: "Linha do tempo e autoria das alterações", icone: History },
+  { id: "documentos", titulo: "Documentos", descricao: "Arquivos e documentos categorizados", icone: FolderOpen },
 ] as const;
 type Secao = (typeof SECOES)[number]["id"];
 type Props = { negocioId: string; pipeline: Pipeline; responsaveis: PipelinePerson[]; acoes: AcoesDoNegocio; tarefas: TarefaDoLead[]; aoAlterarTarefas: Dispatch<SetStateAction<TarefaDoLead[]>>; aoFechar: () => void };
@@ -34,6 +36,8 @@ export function DetalhesDoLeadModal({ negocioId, pipeline, responsaveis, acoes, 
   const detalhe = useDetalhesDoLead(negocioId, pipeline.id, acoes.atualizar);
   const { negocio, rascunho } = detalhe;
   const [secao, setSecao] = useState<Secao>("resumo");
+  const [perfilEditando, setPerfilEditando] = useState(false);
+  const inicioEdicao = useRef<Pick<RascunhoLead, "lead" | "ownerId"> | null>(null);
   const [menuAberto, setMenuAberto] = useState(false);
   const [acaoPendente, setAcaoPendente] = useState(false);
   const [erroAcao, setErroAcao] = useState<string | null>(null);
@@ -50,6 +54,7 @@ export function DetalhesDoLeadModal({ negocioId, pipeline, responsaveis, acoes, 
   const ocupado = detalhe.salvando || docsOcupados || acaoPendente || detalhe.carregando;
   const origem = negocio?.lead.origin;
   const origemFormatada = origem ? ROTULO_ORIGEM[origem as keyof typeof ROTULO_ORIGEM] ?? origem : "Origem não informada";
+  const equipe = negocio && !responsaveis.some((pessoa) => pessoa.id === negocio.owner.id) ? [negocio.owner, ...responsaveis] : responsaveis;
 
   useEffect(() => { painel.current?.scrollTo({ top: 0 }); }, [secao]);
 
@@ -66,8 +71,23 @@ export function DetalhesDoLeadModal({ negocioId, pipeline, responsaveis, acoes, 
     else executar();
   }
   function recarregar() {
+    setPerfilEditando(false); inicioEdicao.current = null;
     setDocsChave((valor) => valor + 1); setDocsAlterados(false);
     void detalhe.carregar();
+  }
+  function editarPerfil() {
+    if (!rascunho || ocupado) return;
+    if (!perfilEditando) inicioEdicao.current = { lead: { ...rascunho.lead }, ownerId: rascunho.ownerId };
+    setSecao("lead"); setPerfilEditando(true);
+  }
+  function cancelarPerfil() {
+    const inicio = inicioEdicao.current;
+    if (inicio) detalhe.setRascunho((atual) => atual && { ...atual, lead: inicio.lead, ownerId: inicio.ownerId });
+    detalhe.limparValidacao();
+    inicioEdicao.current = null; setPerfilEditando(false);
+  }
+  async function salvarAlteracoes() {
+    if (await detalhe.salvar()) { setPerfilEditando(false); inicioEdicao.current = null; }
   }
   function executar(acao: (negocio: Deal) => void) {
     if (!negocio) return;
@@ -116,7 +136,7 @@ export function DetalhesDoLeadModal({ negocioId, pipeline, responsaveis, acoes, 
           </div>
         </div>
         <div className={styles.controlesCabecalho}>
-          <Button variant="secondary" size="sm" disabled={!negocio || ocupado} icon={<Pencil size={14} />} onClick={() => setSecao("lead")}>Editar</Button>
+          <Button variant="secondary" size="sm" disabled={!negocio || ocupado} icon={<Pencil size={14} />} onClick={editarPerfil}>Editar</Button>
           {negocio?.status === "open" ? <Button variant="primary" size="sm" disabled={ocupado} onClick={() => executar(acoes.ganhar)}>{pipeline.wonLabel}</Button> : negocio ? <span className={styles.statusPill}>{negocio.status === "won" ? "Lead ganho" : "Lead perdido"}</span> : null}
           <div className={styles.menu} onBlur={(evento) => { if (!evento.currentTarget.contains(evento.relatedTarget)) setMenuAberto(false); }} onKeyDown={(evento) => { if (evento.key === "Escape" && menuAberto) { evento.preventDefault(); evento.stopPropagation(); setMenuAberto(false); botaoMenu.current?.focus(); } }}>
             <button ref={botaoMenu} type="button" className={styles.botaoMenu} disabled={!negocio || ocupado} aria-label="Mais ações do lead" aria-haspopup="menu" aria-expanded={menuAberto} onClick={() => setMenuAberto((aberto) => !aberto)}><MoreHorizontal size={18} aria-hidden="true" /></button>
@@ -151,7 +171,7 @@ export function DetalhesDoLeadModal({ negocioId, pipeline, responsaveis, acoes, 
           {negocio && rascunho ? <>
             {secao === "resumo" ? <ResumoDoLead negocio={negocio} pipeline={pipeline} aoMover={(etapaId) => void mudarEtapa(etapaId)} bloqueado={ocupado || alterado} aoVerHistorico={() => setSecao("historico")} /> : null}
             {secao === "lead" || secao === "oportunidade" ? <fieldset className={styles.formularioSemBorda} disabled={ocupado}>
-              {secao === "lead" ? <FichaDoLead rascunho={rascunho} aoAlterar={detalhe.setRascunho} erros={detalhe.errosCampos} /> : <OportunidadeDoLead rascunho={rascunho} aoAlterar={detalhe.setRascunho} erros={detalhe.errosCampos} pipeline={pipeline} responsaveis={responsaveis.some((p) => p.id === negocio.owner.id) ? responsaveis : [negocio.owner, ...responsaveis]} />}
+              {secao === "lead" ? <FichaDoLead rascunho={rascunho} aoAlterar={detalhe.setRascunho} erros={detalhe.errosCampos} editando={perfilEditando} aoEditar={editarPerfil} responsaveis={equipe} /> : <OportunidadeDoLead rascunho={rascunho} aoAlterar={detalhe.setRascunho} erros={detalhe.errosCampos} pipeline={pipeline} responsaveis={equipe} />}
             </fieldset> : null}
             <div hidden={secao !== "historico"}><HistoricoDoLead id={negocio.id} ativo={secao === "historico"} revisao={detalhe.revisao + historicoRevisao} /></div>
             {secao === "tarefas" ? <TarefasDoLead tarefas={tarefas} aoAlterar={aoAlterarTarefas} responsaveis={responsaveis.some((pessoa) => pessoa.id === negocio.owner.id) ? responsaveis : [negocio.owner, ...responsaveis]} responsavelInicial={negocio.owner.id} /> : null}
@@ -159,7 +179,10 @@ export function DetalhesDoLeadModal({ negocioId, pipeline, responsaveis, acoes, 
             <div hidden={secao !== "documentos"}><DocumentosDoLead key={docsChave} id={negocio.id} ativo={secao === "documentos"} aoRascunho={setDocsAlterados} aoOcupar={setDocsOcupados} aoAtualizar={() => setHistoricoRevisao((valor) => valor + 1)} /></div>
           </> : null}
         </section>
-        {detalhe.alterado ? <div className={styles.barraSalvar}><span>Alterações não salvas nas abas Lead ou Oportunidade.</span><Button size="sm" variant="primary" loading={detalhe.salvando} disabled={ocupado || detalhe.conflito} onClick={() => void detalhe.salvar()}>Salvar alterações</Button></div> : null}
+        {perfilEditando || detalhe.alterado ? <div className={perfilStyles.rodape}>
+          {perfilEditando ? <Button variant="secondary" size="sm" disabled={ocupado} onClick={cancelarPerfil}>Cancelar</Button> : <span>Há alterações não salvas.</span>}
+          <div>{perfilEditando && detalhe.alterado ? <span>Há alterações não salvas.</span> : null}<Button size="sm" icon={<Save />} loading={detalhe.salvando} disabled={ocupado || detalhe.conflito || !detalhe.alterado} onClick={() => void salvarAlteracoes()}>Salvar alterações</Button></div>
+        </div> : null}
       </div>
     </div>
     {saida ? <Modal rotulo="Descartar alterações?" aoFechar={() => setSaida(null)}><div className={styles.confirmacaoSaida}><h2>Descartar alterações?</h2><p>Há textos ou arquivos ainda não salvos. Continuar descarta este rascunho.</p><div className={styles.propostaAcoes}><Button variant="secondary" autoFocus onClick={() => setSaida(null)}>Continuar editando</Button><Button variant="danger" onClick={() => { const acao = saida.executar; setSaida(null); acao(); }}>{saida.recarregar ? "Descartar e recarregar" : "Descartar e fechar"}</Button></div></div></Modal> : null}

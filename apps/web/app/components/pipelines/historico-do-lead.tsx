@@ -10,7 +10,7 @@ import { Button } from "../ui/button";
 import { displayDate } from "../ui/date-value";
 import styles from "./historico-do-lead.module.css";
 
-const CAMPOS: Record<string, string> = { title: "Título", value: "Investimento", expectedCloseDate: "Previsão de fechamento", ownerId: "Responsável", owner: "Responsável", tagIds: "Etiquetas", tags: "Etiquetas", contact: "Contato", "lead.name": "Nome do lead", "lead.email": "E-mail", "lead.phone": "Telefone", "lead.origin": "Origem", "lead.notes": "Anotações", "lead.document": "Documento", "lead.legalName": "Razão social", "lead.personType": "Tipo de pessoa", "lead.street": "Logradouro", "lead.city": "Cidade", "lead.state": "UF", "lead.postalCode": "CEP", "lead.district": "Bairro", "lead.addressComplement": "Complemento" };
+const CAMPOS: Record<string, string> = { "lead.companyName": "Empresa", "lead.landlinePhone": "Telefone fixo", "lead.website": "Site", "lead.mainInterest": "Segmento / interesse principal", "lead.jobTitle": "Cargo / função do contato", title: "Título", value: "Investimento", expectedCloseDate: "Previsão de fechamento", ownerId: "Responsável", owner: "Responsável", tagIds: "Etiquetas", tags: "Etiquetas", contact: "Contato", "lead.name": "Nome do lead", "lead.email": "E-mail", "lead.phone": "Telefone", "lead.origin": "Origem", "lead.notes": "Anotações", "lead.document": "Documento", "lead.legalName": "Razão social", "lead.personType": "Tipo de pessoa", "lead.street": "Logradouro", "lead.city": "Cidade", "lead.state": "UF", "lead.postalCode": "CEP", "lead.district": "Bairro", "lead.addressComplement": "Complemento" };
 const EVENTOS = {
   created: { acao: "cadastrou este lead", icone: UserRoundPlus },
   stage_changed: { acao: "alterou a etapa do negócio", icone: GitPullRequestArrow },

@@ -180,6 +180,38 @@ describe.skipIf(!HABILITADO)("negócios: quadro do pipeline no Postgres", () => 
     expect(JSON.stringify(eventos.map((e) => e.payload))).not.toContain("Sala sintética");
   });
 
+  it("persiste qualificação própria sem contato, audita, preserva omissão e permite limpar", async () => {
+    const campos = { companyName: "Empresa sintética", landlinePhone: "9233334444", website: "https://example.com", mainInterest: "Solar", jobTitle: "Diretora" };
+    const criado = await novo({ lead: { personType: "pf", name: `${marca} Qualificação`, phone: "92999990000", ...campos } });
+    const outro = await novo();
+    const detalhe = await negocios.get(criado.id, pessoas.ana);
+    expect(detalhe).toMatchObject({ lead: campos, contact: null });
+    const mudancas = { companyName: "Outra empresa", landlinePhone: "(92) 3333-5555", website: "http://example.org", mainInterest: "Mercado livre", jobTitle: "Gerente" };
+    const normalizado = { ...mudancas, landlinePhone: "9233335555" };
+    const atualizado = await negocios.update(criado.id, updateLeadRequestSchema.parse({ version: detalhe.version, lead: mudancas }), pessoas.ana);
+    expect((await negocios.get(criado.id, pessoas.ana)).lead).toMatchObject(normalizado);
+    expect(atualizado.version).toBeGreaterThan(detalhe.version);
+    const historico = await negocios.history(criado.id, { limit: 100 }, pessoas.ana);
+    for (const campo of Object.keys(campos) as Array<keyof typeof campos>) {
+      expect(historico.entries).toContainEqual(expect.objectContaining({ field: `lead.${campo}`, before: campos[campo], after: normalizado[campo] }));
+    }
+    const eventos = await prisma.eventLog.findMany({ where: { entityId: criado.id, eventName: "commercial.deal.updated" } });
+    expect(eventos).toHaveLength(1);
+    expect(JSON.stringify(eventos[0]!.payload)).not.toContain("Outra empresa");
+    const noop = await negocios.update(criado.id, updateLeadRequestSchema.parse({ version: atualizado.version, lead: mudancas }), pessoas.ana);
+    expect(noop.version).toBe(atualizado.version);
+    const omitido = await negocios.update(criado.id, { version: atualizado.version, lead: { notes: "Preserva qualificação" } }, pessoas.ana);
+    expect(omitido.lead).toMatchObject(normalizado);
+    await expect(negocios.update(criado.id, { version: detalhe.version, lead: { jobTitle: "Versão antiga" } }, pessoas.ana)).rejects.toBeInstanceOf(EstadoInvalido);
+    await expect(negocios.update(criado.id, { version: omitido.version, lead: { companyName: "Proibido" } }, pessoas.forasteiro)).rejects.toBeInstanceOf(NaoEncontrado);
+    const limpo = await negocios.update(criado.id, updateLeadRequestSchema.parse({ version: omitido.version,
+      lead: { companyName: null, landlinePhone: "", website: " ", mainInterest: null, jobTitle: "" },
+    }), pessoas.ana);
+    expect(limpo.lead).toMatchObject({ companyName: null, landlinePhone: null, website: null, mainInterest: null, jobTitle: null });
+    expect((await negocios.get(outro.id, pessoas.ana)).lead).toMatchObject({ companyName: null, landlinePhone: null, website: null, mainInterest: null, jobTitle: null });
+    expect((await negocios.history(criado.id, { limit: 100 }, pessoas.ana)).entries).toContainEqual(expect.objectContaining({ field: "lead.jobTitle", before: "Gerente", after: null }));
+  });
+
   it("no-op normalizado não escreve versão, histórico nem auditoria, inclusive contato e etiquetas", async () => {
     const criado = await novo({ tagIds: [solar.tags[0]!.id, solar.tags[1]!.id], contact: { name: "Contato", phone: "92999991111" } });
     const detalhe = await negocios.get(criado.id, pessoas.ana);

@@ -41,7 +41,7 @@ function negocio(parcial: Partial<Deal> & { id: string }): Deal {
     value: null,
     expectedCloseDate: null,
     lead: {
-      personType: "pj", name: "Logística Igarapé", legalName: null, document: null, phone: null, email: null,
+      personType: "pj", name: "Logística Igarapé", companyName: null, landlinePhone: null, website: null, mainInterest: null, jobTitle: null, legalName: null, document: null, phone: null, email: null,
       postalCode: null, street: null, addressComplement: null, district: null, city: null, state: null,
       origin: null, notes: null,
     },

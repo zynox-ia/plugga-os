@@ -96,6 +96,11 @@ const invalido = (mensagem: string, campo: string, problema: string) => new Requ
 type PerfilDoLead = {
   personType: "pf" | "pj";
   name: string;
+  companyName: string | null;
+  landlinePhone: string | null;
+  website: string | null;
+  mainInterest: string | null;
+  jobTitle: string | null;
   legalName: string | null;
   document: string | null;
   phone: string | null;

@@ -44,6 +44,8 @@ const dataDoCalendario = z
   .refine((v) => !Number.isNaN(new Date(`${v}T12:00:00Z`).getTime()) && new Date(`${v}T12:00:00Z`).toISOString().startsWith(v), "data inválida");
 const dataOpcional = z.preprocess(vazioViraNulo, dataDoCalendario.nullable()).optional();
 const valorOpcional = z.preprocess(vazioViraNulo, decimalString.nullable()).optional();
+const siteOpcional = z.preprocess(vazioViraNulo, z.string().trim().max(2048).url("URL inválida")
+  .refine((valor) => /^https?:\/\//i.test(valor), "use uma URL http ou https").nullable()).optional();
 
 // --------------------------------------------------------------------- lead
 
@@ -51,6 +53,12 @@ const valorOpcional = z.preprocess(vazioViraNulo, decimalString.nullable()).opti
 const camposDoLead = {
   personType: clientPersonTypeSchema,
   name: z.string().trim().min(1, "informe o nome").max(150),
+  /** Empresa comercial do lead, independente da empresa interna do pipeline. */
+  companyName: textoOpcional(200),
+  landlinePhone: telefoneOpcional,
+  website: siteOpcional,
+  mainInterest: textoOpcional(150),
+  jobTitle: textoOpcional(100),
   legalName: textoOpcional(200),
   document: documentoOpcional,
   phone: telefoneOpcional,
@@ -77,6 +85,11 @@ export type UpdateLeadProfileRequest = z.infer<typeof updateLeadProfileRequestSc
 export const leadProfileSchema = z.object({
   personType: clientPersonTypeSchema,
   name: z.string(),
+  companyName: z.string().nullable(),
+  landlinePhone: z.string().nullable(),
+  website: z.string().nullable(),
+  mainInterest: z.string().nullable(),
+  jobTitle: z.string().nullable(),
   legalName: z.string().nullable(),
   document: z.string().nullable(),
   phone: z.string().nullable(),

@@ -48,4 +48,15 @@ describe("detalhe do lead (HTTP)", () => {
     await semAcesso(request(app.getHttpServer()).patch(`/leads/${id}`)).send({ title: "Não deve salvar", version: 1 }).expect(404);
     expect([repository.get.mock.calls.length, repository.history.mock.calls.length, repository.update.mock.calls.length]).toEqual(antes);
   });
+
+  it("encaminha qualificação normalizada ao PATCH e recusa site inseguro na borda", async () => {
+    const lead = { companyName: " Empresa ", landlinePhone: "(92) 3333-4444", website: " https://example.com ", mainInterest: " Solar ", jobTitle: " Diretora " };
+    const normalizado = { companyName: "Empresa", landlinePhone: "9233334444", website: "https://example.com", mainInterest: "Solar", jobTitle: "Diretora" };
+    const resposta = await comercial(request(app.getHttpServer()).patch(`/leads/${id}`)).send({ version: 1, lead }).expect(200);
+    expect(resposta.body.lead).toEqual(normalizado);
+    expect(repository.update).toHaveBeenLastCalledWith(id, { version: 1, lead: normalizado }, expect.any(Object));
+    const antes = repository.update.mock.calls.length;
+    await comercial(request(app.getHttpServer()).patch(`/leads/${id}`)).send({ version: 1, lead: { website: "javascript:alert(1)" } }).expect(400);
+    expect(repository.update.mock.calls.length).toBe(antes);
+  });
 });

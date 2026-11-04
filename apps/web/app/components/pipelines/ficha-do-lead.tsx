@@ -1,10 +1,18 @@
 "use client";
 
-import { clientContactRoles, clientOrigins, type ClientContactRole, type LeadContactInput } from "@plugga/shared";
-import { Copy, MessageSquare } from "lucide-react";
-import { useId, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
-import { ROTULO_ORIGEM, ROTULO_PAPEL } from "../../lib/clientes";
+import { formatarCep, somenteDigitos, telefoneNacional, ufs, type LeadProfile, type PipelinePerson } from "@plugga/shared";
+import { Building2, Globe, Mail, MapPin, MessageSquare, Pencil, Phone, Target, UserRound } from "lucide-react";
+import { useId, type Dispatch, type InputHTMLAttributes, type ReactNode, type SetStateAction } from "react";
+import { telefoneFormatado } from "../../lib/clientes";
+import { mascaraCep, mascaraTelefone, normalizarSite, urlSiteSeguro } from "../../lib/perfil-lead";
 import type { RascunhoLead } from "../../lib/rascunho-lead";
+import { Button } from "../ui/button";
+import { TextField, TextareaField } from "../ui/fields";
+import { SelectField } from "../ui/select-field";
+import { WhatsAppIcon } from "../ui/whatsapp-icon";
+import { Avatar } from "./icones";
+import { MapaDoEndereco } from "./mapa-do-endereco";
+import perfilStyles from "./perfil-do-lead.module.css";
 import styles from "./detalhes-do-lead-modal.module.css";
 
 export function CampoDoLead({ rotulo, erro, children }: { rotulo: string; erro?: string; children: ReactNode }) {
@@ -22,75 +30,87 @@ export type PropsEdicaoLead = {
   erros: Record<string, string>;
 };
 
-export function FichaDoLead({ rascunho, aoAlterar, erros }: PropsEdicaoLead) {
-  const [copia, setCopia] = useState<string | null>(null);
+function Dado({ label, value, children }: { label: string; value?: string | null; children?: ReactNode }) {
+  return <div className={perfilStyles.dado}><dt>{label}</dt><dd>{value || children || <span className={perfilStyles.ausente}>Não informado</span>}</dd></div>;
+}
+
+export function FichaDoLead({ rascunho, aoAlterar, erros, editando, aoEditar, responsaveis }: PropsEdicaoLead & {
+  editando: boolean; aoEditar: () => void; responsaveis: PipelinePerson[];
+}) {
   const perfil = rascunho.lead;
-  function alterar(campo: keyof RascunhoLead["lead"], valor: string) {
+  function alterar(campo: keyof LeadProfile, valor: string) {
     aoAlterar((atual) => atual && { ...atual, lead: { ...atual.lead, [campo]: valor } });
   }
-  function alterarContato(campo: keyof LeadContactInput, valor: string | boolean) {
-    aoAlterar((atual) => atual?.contact ? { ...atual, contact: { ...atual.contact, [campo]: valor } } : atual);
-  }
-  async function copiar() {
-    try {
-      await navigator.clipboard.writeText(perfil.email ?? "");
-      setCopia("E-mail copiado.");
-    } catch { setCopia("Não foi possível copiar. Selecione o e-mail para copiá-lo."); }
-  }
-  const campo = (rotulo: string, chave: keyof Omit<RascunhoLead["lead"], "personType">, tipo = "text") => <CampoDoLead rotulo={rotulo} erro={erros[`lead.${chave}`]}>
-    <input className="ui-input" type={tipo} aria-label={rotulo} aria-invalid={!!erros[`lead.${chave}`]} value={perfil[chave] ?? ""} onChange={(e) => alterar(chave, e.target.value)} />
-  </CampoDoLead>;
+  const campo = (label: string, chave: keyof Omit<LeadProfile, "personType">, props: InputHTMLAttributes<HTMLInputElement> = {}) => {
+    const telefone = chave === "phone" || chave === "landlinePhone";
+    const cep = chave === "postalCode";
+    const valor = perfil[chave] ?? "";
+    return <TextField label={label} value={telefone ? mascaraTelefone(valor, chave === "landlinePhone") : cep ? mascaraCep(valor) : valor}
+      error={erros[`lead.${chave}`]} onChange={(evento) => {
+        const digitado = evento.target.value;
+        alterar(chave, telefone ? telefoneNacional(digitado).slice(0, chave === "landlinePhone" ? 10 : 11) : cep ? somenteDigitos(digitado).slice(0, 8) : digitado);
+      }} onBlur={(evento) => {
+        if (chave === "email") alterar(chave, evento.target.value.trim());
+        if (chave === "website") alterar(chave, normalizarSite(evento.target.value));
+      }} {...props} />;
+  };
+  const responsavel = responsaveis.find((pessoa) => pessoa.id === rascunho.ownerId);
+  const telefone = somenteDigitos(perfil.phone ?? "");
+  const whatsapp = telefone ? `https://wa.me/${telefone.length <= 11 ? "55" : ""}${telefone}` : null;
+  const site = urlSiteSeguro(perfil.website);
 
-  return <>
-    <div className={styles.tituloSecao}><h3>Ficha cadastral</h3><p>Dados próprios do lead, canais de contato e anotações.</p></div>
-    <div className={styles.leadCardsGrid}>
-      <div className={styles.painelCard}>
-        <div className={styles.painelCardHeader}><h4>Identificação</h4></div>
-        <CampoDoLead rotulo="Tipo de pessoa" erro={erros["lead.personType"]}>
-          <select className="ui-input" value={perfil.personType} onChange={(e) => alterar("personType", e.target.value)}>
-            <option value="pj">Pessoa jurídica (PJ)</option><option value="pf">Pessoa física (PF)</option>
-          </select>
-        </CampoDoLead>
-        {campo("Nome", "name")}{perfil.personType === "pj" ? campo("Razão Social", "legalName") : null}{campo("Documento", "document")}
-        <CampoDoLead rotulo="Origem do lead" erro={erros["lead.origin"]}>
-          <select className="ui-input" value={perfil.origin ?? ""} onChange={(e) => alterar("origin", e.target.value)}>
-            <option value="">Não informada</option>{clientOrigins.map((origem) => <option key={origem} value={origem}>{ROTULO_ORIGEM[origem]}</option>)}
-          </select>
-        </CampoDoLead>
-      </div>
-      <div className={styles.painelCard}>
-        <div className={styles.painelCardHeader}><h4>Canais de comunicação</h4></div>
-        {campo("Telefone", "phone", "tel")}
-        {perfil.phone ? <a className={styles.btnAcaoRapida} href={`https://wa.me/${perfil.phone.replace(/\D/g, "").length <= 11 ? "55" : ""}${perfil.phone.replace(/\D/g, "")}`} target="_blank" rel="noopener noreferrer"><MessageSquare size={14} /> WhatsApp</a> : null}
-        {campo("E-mail", "email", "email")}
-        {perfil.email ? <button type="button" className={styles.btnAcaoRapida} onClick={() => void copiar()}><Copy size={14} /> Copiar e-mail</button> : null}
-        {copia ? <span role="status">{copia}</span> : null}
-      </div>
-      <div className={styles.painelCard}>
-        <div className={styles.painelCardHeader}><h4>Endereço</h4></div>
-        {campo("Logradouro", "street")}{campo("Complemento", "addressComplement")}{campo("Bairro", "district")}
-        <div className={styles.cidadeUf}>{campo("Cidade", "city")}{campo("UF", "state")}</div>
-        {campo("CEP", "postalCode")}
-      </div>
-      <div className={styles.painelCard}>
-        <div className={styles.painelCardHeader}><h4>Contato do lead</h4></div>
-        {rascunho.contact ? <>
-          {([ ["Nome do contato", "name"], ["Cargo do contato", "jobTitle"], ["Telefone do contato", "phone"], ["E-mail do contato", "email"], ["CPF do contato", "cpf"], ["RG do contato", "rg"] ] as const).map(([rotulo, chave]) => <CampoDoLead key={chave} rotulo={rotulo} erro={erros[`contact.${chave}`]}>
-            <input className="ui-input" type={chave === "email" ? "email" : "text"} aria-invalid={!!erros[`contact.${chave}`]} value={rascunho.contact?.[chave] ?? ""} onChange={(e) => alterarContato(chave, e.target.value)} />
-          </CampoDoLead>)}
-          <CampoDoLead rotulo="Papel do contato" erro={erros["contact.role"]}>
-            <select className="ui-input" value={rascunho.contact.role ?? ""} onChange={(e) => alterarContato("role", e.target.value as ClientContactRole)}>
-              <option value="">Não informado</option>{clientContactRoles.map((papel) => <option key={papel} value={papel}>{ROTULO_PAPEL[papel]}</option>)}
-            </select>
-          </CampoDoLead>
-          <label className={styles.opcaoMarcavel}><input type="checkbox" checked={!!rascunho.contact.phoneIsWhatsapp} onChange={(e) => alterarContato("phoneIsWhatsapp", e.target.checked)} /> Telefone do contato tem WhatsApp</label>
-          <label className={styles.opcaoMarcavel}><input type="checkbox" checked={!!rascunho.contact.isPrimary} onChange={(e) => alterarContato("isPrimary", e.target.checked)} /> Contato principal</label>
-          <button type="button" className={styles.btnAcaoRapida} onClick={() => aoAlterar((atual) => atual && { ...atual, contact: null })}>Remover contato do lead</button>
-        </> : <><p className={styles.cockpitCardSub}>Nenhum contato cadastrado neste lead.</p><button type="button" className={styles.btnAcaoRapida} onClick={() => aoAlterar((atual) => atual && { ...atual, contact: { name: "", phone: null, email: null } })}>Adicionar contato do lead</button></>}
-      </div>
+  return <div className={perfilStyles.perfil}>
+    <div className={perfilStyles.cabecalho}><div><h3>Perfil do Lead</h3><p>Informações para conhecer o lead e conduzir a negociação.</p></div><div className={perfilStyles.acoes}>
+      {whatsapp ? <a className="button button--secondary ui-button ui-button--sm" href={whatsapp} target="_blank" rel="noopener noreferrer"><span className="ui-button-icon" aria-hidden="true"><WhatsAppIcon /></span><span className="ui-button-label">WhatsApp</span></a> : null}
+      {editando ? <span className={perfilStyles.emEdicao}><Pencil size={13} aria-hidden="true" />Em edição</span> : <Button size="sm" icon={<Pencil />} onClick={aoEditar}>Editar perfil</Button>}
+    </div></div>
+    <div className={perfilStyles.grade}>
+      <section className={perfilStyles.secao} aria-label="Identificação"><h4><UserRound size={16} aria-hidden="true" />Identificação</h4>
+        {editando ? <div className={perfilStyles.campos}>
+          {campo("Nome / nome fantasia", "name", { required: true, maxLength: 150, autoComplete: "name" })}
+          <SelectField label="Tipo de pessoa" value={perfil.personType} error={erros["lead.personType"]} onChange={(valor) => alterar("personType", valor)} options={[{ value: "pf", label: "Pessoa física", icon: <UserRound /> }, { value: "pj", label: "Pessoa jurídica", icon: <Building2 /> }]} />
+          {campo("Empresa", "companyName", { maxLength: 200, autoComplete: "organization", placeholder: "Se aplicável" })}
+          {campo("Cargo / função do contato", "jobTitle", { maxLength: 100, autoComplete: "organization-title" })}
+        </div> : <dl className={perfilStyles.dados}><Dado label="Nome / nome fantasia" value={perfil.name} /><Dado label="Tipo" value={perfil.personType === "pj" ? "Pessoa jurídica" : "Pessoa física"} /><Dado label="Empresa" value={perfil.companyName} /><Dado label="Cargo / função do contato" value={perfil.jobTitle} /></dl>}
+      </section>
+      <section className={perfilStyles.secao} aria-label="Contato e canais"><h4><MessageSquare size={16} aria-hidden="true" />Contato e canais</h4>
+        {editando ? <div className={perfilStyles.campos}>
+          {campo("Celular / WhatsApp", "phone", { type: "tel", inputMode: "tel", autoComplete: "tel-national", maxLength: 20, placeholder: "(11) 99999-0000" })}
+          {campo("Telefone fixo", "landlinePhone", { type: "tel", inputMode: "tel", maxLength: 20, placeholder: "(11) 3333-4444" })}
+          {campo("E-mail", "email", { type: "email", inputMode: "email", autoComplete: "email", autoCapitalize: "none", spellCheck: false, maxLength: 254 })}
+          {campo("Site", "website", { type: "url", inputMode: "url", autoComplete: "url", maxLength: 2048, placeholder: "https://empresa.com.br" })}
+        </div> : <dl className={perfilStyles.dados}>
+          <Dado label="Celular / WhatsApp">{whatsapp ? <a href={whatsapp} target="_blank" rel="noopener noreferrer"><Phone size={13} aria-hidden="true" />{telefoneFormatado(perfil.phone)}</a> : null}</Dado>
+          <Dado label="Telefone fixo">{perfil.landlinePhone ? <a href={`tel:${somenteDigitos(perfil.landlinePhone)}`}><Phone size={13} aria-hidden="true" />{telefoneFormatado(perfil.landlinePhone)}</a> : null}</Dado>
+          <Dado label="E-mail">{perfil.email ? <a href={`mailto:${perfil.email}`}><Mail size={13} aria-hidden="true" />{perfil.email}</a> : null}</Dado>
+          <Dado label="Site">{site ? <a href={site} target="_blank" rel="noopener noreferrer"><Globe size={13} aria-hidden="true" />{perfil.website}</a> : perfil.website}</Dado>
+        </dl>}
+      </section>
     </div>
-    <CampoDoLead rotulo="Anotações do atendimento" erro={erros["lead.notes"]}>
-      <textarea rows={4} value={perfil.notes ?? ""} onChange={(e) => alterar("notes", e.target.value)} maxLength={2000} />
-    </CampoDoLead>
-  </>;
+    <section className={`${perfilStyles.secao} ${perfilStyles.endereco}`} aria-label="Endereço completo"><h4><MapPin size={16} aria-hidden="true" />Endereço completo<span>Opcional</span></h4>
+      {editando ? <div className={perfilStyles.enderecoGrade}>
+        {campo("CEP", "postalCode", { inputMode: "numeric", autoComplete: "postal-code", placeholder: "00000-000", maxLength: 9 })}
+        <div className={perfilStyles.enderecoLargo}>{campo("Rua / número", "street", { maxLength: 200, autoComplete: "address-line1" })}</div>
+        {campo("Complemento", "addressComplement", { maxLength: 100, autoComplete: "address-line2" })}{campo("Bairro", "district", { maxLength: 100 })}
+        <div className={perfilStyles.enderecoLargo}>{campo("Cidade", "city", { maxLength: 100, autoComplete: "address-level2" })}</div>
+        <SelectField label="Estado / UF" value={perfil.state || "nao-informado"} error={erros["lead.state"]} onChange={(valor) => alterar("state", valor === "nao-informado" ? "" : valor)} options={[{ value: "nao-informado", label: "Não informado" }, ...ufs.map((uf) => ({ value: uf, label: uf, icon: <MapPin /> }))]} />
+      </div> : <dl className={perfilStyles.enderecoGrade}>
+        <Dado label="CEP" value={perfil.postalCode ? formatarCep(perfil.postalCode) : null} /><div className={perfilStyles.enderecoLargo}><Dado label="Rua / número" value={perfil.street} /></div>
+        <Dado label="Complemento" value={perfil.addressComplement} /><Dado label="Bairro" value={perfil.district} /><div className={perfilStyles.enderecoLargo}><Dado label="Cidade" value={perfil.city} /></div><Dado label="Estado / UF" value={perfil.state} />
+      </dl>}
+      <MapaDoEndereco endereco={perfil} />
+    </section>
+    <section className={`${perfilStyles.secao} ${perfilStyles.qualificacao}`} aria-label="Qualificação comercial">
+      <div className={perfilStyles.principal}><h4><Target size={16} aria-hidden="true" />Qualificação comercial</h4>
+        {editando ? <div className={perfilStyles.dadosQualificacao}>
+          <SelectField label="Responsável comercial interno" value={rascunho.ownerId} error={erros.ownerId} onChange={(valor) => aoAlterar((atual) => atual && { ...atual, ownerId: valor })} options={responsaveis.map((pessoa) => ({ value: pessoa.id, label: pessoa.name, icon: <UserRound /> }))} />
+          {campo("Segmento / interesse principal", "mainInterest", { maxLength: 150, placeholder: "Ex.: comércio · redução de custos com energia" })}
+        </div> : <dl className={perfilStyles.dadosQualificacao}>
+          <Dado label="Responsável comercial interno">{responsavel ? <span className={perfilStyles.pessoa}><span aria-hidden="true"><Avatar id={responsavel.id} nome={responsavel.name} tamanho="pequeno" /></span>{responsavel.name}</span> : null}</Dado>
+          <Dado label="Segmento / interesse principal">{perfil.mainInterest || <button type="button" className={perfilStyles.adicionar} onClick={aoEditar}>Adicionar interesse<Pencil size={12} aria-hidden="true" /></button>}</Dado>
+        </dl>}
+      </div>
+      <div className={perfilStyles.observacoes}>{editando ? <TextareaField label="Observações importantes" value={perfil.notes ?? ""} error={erros["lead.notes"]} onChange={(evento) => alterar("notes", evento.target.value)} rows={3} maxLength={2000} /> : <dl><Dado label="Observações importantes" value={perfil.notes} /></dl>}</div>
+    </section>
+  </div>;
 }

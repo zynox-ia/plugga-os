@@ -2023,6 +2023,11 @@ model LeadProfile {
   dealId String @id @map("deal_id") @db.Uuid
   personType ClientPersonType @map("person_type")
   name String
+  companyName String? @map("company_name")
+  landlinePhone String? @map("landline_phone")
+  website String?
+  mainInterest String? @map("main_interest")
+  jobTitle String? @map("job_title")
   legalName String? @map("legal_name")
   document String?
   phone String?

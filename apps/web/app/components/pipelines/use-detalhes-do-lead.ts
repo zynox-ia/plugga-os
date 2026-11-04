@@ -56,19 +56,24 @@ export function useDetalhesDoLead(id: string, pipelineId: string, aoAtualizar: (
 
   const alterado = !!original && !!rascunho && !rascunhosIguais(original, rascunho);
 
+  function limparValidacao() {
+    if (!conflito) { setErro(null); setErrosCampos({}); }
+    setSucesso(false);
+  }
+
   async function salvar() {
-    if (!original || !rascunho || !negocio || salvando || conflito || !alterado) return;
+    if (!original || !rascunho || !negocio || salvando || conflito || !alterado) return false;
     setErro(null);
     setSucesso(false);
     setErrosCampos({});
     let corpo;
     try { corpo = montarAtualizacaoLead(original, rascunho, negocio.version); }
-    catch (falha) { setErro(falha instanceof Error ? falha.message : "Confira os dados informados."); return; }
+    catch (falha) { setErro(falha instanceof Error ? falha.message : "Confira os dados informados."); return false; }
     const validacao = updateLeadRequestSchema.safeParse(corpo);
     if (!validacao.success) {
       setErrosCampos(Object.fromEntries(validacao.error.issues.map((item) => [item.path.join("."), item.message])));
-      setErro("Confira os campos destacados nas abas Lead e Oportunidade.");
-      return;
+      setErro("Confira os campos destacados nas abas Perfil e Oportunidade.");
+      return false;
     }
     setSalvando(true);
     const resposta = await enviar<unknown>(`/api/leads/${id}`, "PATCH", validacao.data);
@@ -76,17 +81,18 @@ export function useDetalhesDoLead(id: string, pipelineId: string, aoAtualizar: (
     if (!resposta.ok) {
       setConflito(resposta.erro.codigo === "CONFLITO_ESTADO");
       setErro(Object.values(resposta.erro.porCampo).join(" · ") || resposta.erro.mensagem);
-      return;
+      return false;
     }
     const resultado = dealDetailSchema.safeParse(resposta.dados);
     if (!resultado.success) {
       setConflito(true);
       setErro("A resposta do salvamento está incompleta. Seus textos foram preservados; recarregue para conferir os dados.");
-      return;
+      return false;
     }
     aplicar(resultado.data);
     setSucesso(true);
+    return true;
   }
 
-  return { negocio, rascunho, setRascunho, carregando, carregar, salvando, salvar, erro, errosCampos, conflito, sucesso, alterado, revisao };
+  return { negocio, rascunho, setRascunho, carregando, carregar, salvando, salvar, limparValidacao, erro, errosCampos, conflito, sucesso, alterado, revisao };
 }

@@ -47,7 +47,7 @@ test("histórico agrupa atividades, pagina sem duplicar e mantém o topo fixo em
   await expect(modal.getByRole("heading", { name: "Próxima ação", exact: true })).toBeVisible();
   const topo = [modal.locator("header").first(), modal.locator('[class*="proximaAcaoSuperior"]'), modal.getByRole("tablist")];
   const posicoes = await Promise.all(topo.map((elemento) => elemento.boundingBox()));
-  for (const nome of ["Histórico", "Propostas", "Documentos", "Cadastro", "Oportunidade", "Visão geral"]) {
+  for (const nome of ["Histórico", "Propostas", "Documentos", "Perfil", "Oportunidade", "Visão geral"]) {
     await modal.getByRole("tab", { name: nome, exact: true }).click();
     await expect(modal.getByRole("heading", { name: "Próxima ação", exact: true })).toBeVisible();
     expect(await Promise.all(topo.map((elemento) => elemento.boundingBox()))).toEqual(posicoes);
@@ -73,7 +73,7 @@ test("histórico agrupa atividades, pagina sem duplicar e mantém o topo fixo em
     expect(rolou).toBeGreaterThan(0);
     expect(await Promise.all(topo.map((elemento) => elemento.boundingBox()))).toEqual(antes);
     expect(await painel.evaluate((elemento) => elemento.scrollWidth <= elemento.clientWidth)).toBe(true);
-    await modal.getByRole("tab", { name: "Cadastro", exact: true }).click();
+    await modal.getByRole("tab", { name: "Perfil", exact: true }).click();
     await expect.poll(() => painel.evaluate((elemento) => elemento.scrollTop)).toBe(0);
     await modal.getByRole("tab", { name: "Histórico", exact: true }).click();
   }

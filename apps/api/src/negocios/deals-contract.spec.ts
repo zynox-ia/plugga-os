@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bulkDealsActionSchema, createDealRequestSchema, dealSchema, moveDealStageRequestSchema, setDealPriorityRequestSchema } from "@plugga/shared";
+import { bulkDealsActionSchema, createDealRequestSchema, dealSchema, moveDealStageRequestSchema, setDealPriorityRequestSchema, updateLeadRequestSchema } from "@plugga/shared";
 
 describe("contrato do cliente do negócio", () => {
   it("é nulo até a conversão, e só traz id e nome depois", () => {
@@ -11,6 +11,33 @@ describe("contrato do cliente do negócio", () => {
 });
 
 describe("contrato do lead do negócio", () => {
+  it("normaliza qualificação comercial, permite omitir e limpar cada campo", () => {
+    const lead = { companyName: " Empresa comercial ", landlinePhone: "(92) 3333-4444", website: " https://example.com/contato ", mainInterest: " Energia solar ", jobTitle: " Diretora " };
+    const normalizado = { companyName: "Empresa comercial", landlinePhone: "9233334444", website: "https://example.com/contato", mainInterest: "Energia solar", jobTitle: "Diretora" };
+    expect(updateLeadRequestSchema.parse({ version: 1, lead }).lead).toEqual(normalizado);
+    expect(updateLeadRequestSchema.parse({ version: 1, lead: {} }).lead).toEqual({});
+    for (const campo of Object.keys(lead)) {
+      for (const valor of [null, "", "   "]) {
+        expect(updateLeadRequestSchema.parse({ version: 1, lead: { [campo]: valor } }).lead).toEqual({ [campo]: null });
+      }
+    }
+    const criado = createDealRequestSchema.parse({
+      pipelineId: "550e8400-e29b-41d4-a716-446655440000", stageId: "550e8400-e29b-41d4-a716-446655440000",
+      ownerId: "550e8400-e29b-41d4-a716-446655440000", title: "Qualificação", lead: { personType: "pf", name: "Lead", phone: "92999990000", ...lead },
+    });
+    expect(criado.lead).toMatchObject(normalizado);
+  });
+
+  it("recusa URLs inseguras, telefones incompletos e textos comerciais excessivos", () => {
+    for (const website of ["javascript:alert(1)", "data:text/html,teste", "ftp://example.com", "example.com", "//example.com", "https://", `https://example.com/${"a".repeat(2048)}`]) {
+      expect(updateLeadRequestSchema.safeParse({ version: 1, lead: { website } }).success).toBe(false);
+    }
+    expect(updateLeadRequestSchema.safeParse({ version: 1, lead: { website: "http://example.com" } }).success).toBe(true);
+    for (const lead of [{ landlinePhone: "3333-4444" }, { companyName: "a".repeat(201) }, { mainInterest: "a".repeat(151) }, { jobTitle: "a".repeat(101) }]) {
+      expect(updateLeadRequestSchema.safeParse({ version: 1, lead }).success).toBe(false);
+    }
+  });
+
   it("tem dados próprios e exige telefone ou e-mail", () => {
     const lead = {
       pipelineId: "550e8400-e29b-41d4-a716-446655440000",

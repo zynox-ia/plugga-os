@@ -44,6 +44,6 @@ export function buildContentSecurityPolicy(nonce: string, isProduction: boolean)
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     `script-src ${scriptSources.join(" ")}`,
     "connect-src 'self' https://storage.googleapis.com",
-    "frame-src https://accounts.google.com https://my.spline.design",
+    "frame-src https://accounts.google.com https://my.spline.design https://maps.google.com https://www.google.com",
   ].join("; ");
 }

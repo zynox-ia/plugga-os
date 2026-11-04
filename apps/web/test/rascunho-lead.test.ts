@@ -5,7 +5,7 @@ import { criarRascunhoLead, montarAtualizacaoLead } from "../app/lib/rascunho-le
 const negocio = {
   title: "Projeto solar", value: "1200.50", expectedCloseDate: null,
   owner: { id: "responsavel", name: "Ana" }, tags: [{ id: "solar", name: "Solar", color: "blue" }],
-  lead: { personType: "pj" as const, name: "Empresa", legalName: null, document: null, phone: null, email: "a@teste.local", postalCode: null, street: null, addressComplement: null, district: null, city: null, state: null, origin: null, notes: null },
+  lead: { personType: "pj" as const, name: "Empresa", companyName: null, landlinePhone: null, website: null, mainInterest: null, jobTitle: null, legalName: null, document: null, phone: null, email: "a@teste.local", postalCode: null, street: null, addressComplement: null, district: null, city: null, state: null, origin: null, notes: null },
   contact: { id: "contato", name: "Ana", jobTitle: "Diretora", role: "decisor" as const, phone: null, phoneIsWhatsapp: false, email: "ana@teste.local", isPrimary: true, cpf: null, rg: "RG existente", createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z" },
 };
 
