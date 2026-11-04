@@ -1,6 +1,6 @@
 "use client";
 
-import { Building2, Filter, LayoutGrid, List, Plus, Search, UserRound, Users } from "lucide-react";
+import { Building2, Filter, LayoutGrid, List, UserRound, Users } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 
@@ -10,9 +10,10 @@ import { hrefDaFicha } from "../lib/clientes";
 import { ClienteForm } from "./cliente-form";
 import { FichaCliente } from "./ficha-cliente";
 import { Modal } from "./modal";
-import { Button, SelectField, TextField } from "./ui";
+import { Button, IconPlus, IconSearch, SelectField } from "./ui";
 import { CardsDeClientes, ListaDeClientes } from "./clientes/visualizacoes-clientes";
 import styles from "./clientes/tela-clientes.module.css";
+import estilosPipelines from "./pipelines/tela-pipelines.module.css";
 
 type Filtros = { q?: string; active?: string };
 
@@ -82,22 +83,28 @@ export function ClientesView({
 
   return (
     <div className={styles.pagina}>
-        <header className={styles.cabecalho}>
-          <div>
-            <span className={styles.eyebrow}>Relacionamento</span>
-            <h2>Clientes</h2>
-            <p>Uma visão de quem faz parte da sua carteira.</p>
+        <header className={estilosPipelines.cabecalho}>
+          <div className={estilosPipelines.tituloGrupo}>
+            <h1 className={estilosPipelines.titulo}>Clientes</h1>
+            <h2 className={estilosPipelines.subtitulo}>Gerencie seus clientes e relacionamentos comerciais.</h2>
           </div>
-          <Button size="sm" icon={<Plus size={14} />} onClick={() => setCriando(true)} aria-label="+ Novo cliente">
-            Novo cliente
-          </Button>
+          <div className={estilosPipelines.acoes}>
+            <form className="equipe-busca" onSubmit={buscar} role="search" aria-label="Buscar clientes">
+              <button type="submit" className={styles.botaoBusca} aria-label="Buscar clientes"><IconSearch className="equipe-busca-icon" /></button>
+              <input id="clientes-busca" className="equipe-busca-input" aria-label="Buscar cliente" type="search" maxLength={150} value={q} onChange={(e) => { setQ(e.target.value); setPagina(1); }} placeholder="Buscar cliente, documento ou contato…" />
+            </form>
+            <Button icon={<IconPlus />} onClick={() => setCriando(true)} aria-label="+ Novo cliente">
+              Novo cliente
+            </Button>
+          </div>
         </header>
 
-        <form className={styles.filtros} onSubmit={buscar} role="search" aria-label="Filtrar clientes">
-          <div className={styles.busca}>
-            <button type="submit" className={styles.botaoBusca} aria-label="Buscar clientes"><Search size={16} aria-hidden="true" /></button>
-            <TextField id="clientes-busca" label="Buscar cliente" type="search" maxLength={150} value={q} onChange={(e) => { setQ(e.target.value); setPagina(1); }} placeholder="Nome, documento ou contato…" />
+        <div className={`${estilosPipelines.navegacao} ${styles.navegacao}`}>
+          <div ref={abasRef} className={`${estilosPipelines.visoes} ${styles.abas}`} role="tablist" aria-label="Visualização de clientes" onKeyDown={navegarAbas}>
+            <button type="button" id="clientes-visao-cards" className="ui-tab" role="tab" aria-selected={visao === "cards"} aria-controls="clientes-cards" tabIndex={visao === "cards" ? 0 : -1} onClick={() => setVisao("cards")}><LayoutGrid size={15} aria-hidden="true" />Cards</button>
+            <button type="button" id="clientes-visao-lista" className="ui-tab" role="tab" aria-selected={visao === "lista"} aria-controls="clientes-lista" tabIndex={visao === "lista" ? 0 : -1} onClick={() => setVisao("lista")}><List size={15} aria-hidden="true" />Lista</button>
           </div>
+          <div className={`${estilosPipelines.navegacaoDireita} ${styles.filtros}`} role="group" aria-label="Filtros de clientes">
           <div className={styles.filtroSituacao}>
             <SelectField label="Situação" value={active || "todos"} onChange={(valor) => { const situacao = valor === "todos" ? "" : valor; setActive(situacao); setPagina(1); router.push(hrefDaFicha(null, { q: q.trim() || undefined, active: situacao || undefined }), { scroll: false }); }} options={[{ value: "todos", label: "Todos", icon: <Filter /> }, { value: "true", label: "Ativos", icon: <UserRound /> }, { value: "false", label: "Inativos", icon: <UserRound /> }]} />
           </div>
@@ -105,11 +112,8 @@ export function ClientesView({
             <SelectField label="Tipo de pessoa" value={tipo} onChange={(valor) => { setTipo(valor); setPagina(1); }} options={[{ value: "todos", label: "Todos os clientes", icon: <Users /> }, { value: "pj", label: "Pessoa Jurídica", icon: <Building2 /> }, { value: "pf", label: "Pessoa Física", icon: <UserRound /> }]} />
           </div>
           {temFiltros ? <Button variant="secondary" size="sm" onClick={limpar}>Limpar</Button> : null}
-          <div ref={abasRef} className={`ui-tabs-list ${styles.abas}`} role="tablist" aria-label="Visualização de clientes" onKeyDown={navegarAbas}>
-            <button type="button" id="clientes-visao-cards" className="ui-tab" role="tab" aria-selected={visao === "cards"} aria-controls="clientes-cards" tabIndex={visao === "cards" ? 0 : -1} onClick={() => setVisao("cards")}><LayoutGrid size={14} aria-hidden="true" />Cards</button>
-            <button type="button" id="clientes-visao-lista" className="ui-tab" role="tab" aria-selected={visao === "lista"} aria-controls="clientes-lista" tabIndex={visao === "lista" ? 0 : -1} onClick={() => setVisao("lista")}><List size={14} aria-hidden="true" />Lista</button>
           </div>
-        </form>
+        </div>
 
         {fichaNaoEncontrada ? (
           <p className="aviso aviso--alerta" role="status">
