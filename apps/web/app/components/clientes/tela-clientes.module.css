@@ -17,7 +17,7 @@
 .conteudo:focus-visible { outline: 2px solid var(--ui-primary); outline-offset: 3px; border-radius: var(--radius-md); }
 .areaCards { flex: 1; min-width: 0; min-height: 0; overflow: auto; overscroll-behavior: contain; }
 .grade { display: grid; grid-template-columns: repeat(auto-fill, minmax(0, min(100%, var(--largura-card, 440px)))); align-content: start; gap: var(--space-sm); padding: 1px; }
-.card { display: flex; flex-direction: column; min-width: 0; gap: var(--space-xs); padding: var(--space-sm); border: 1px solid var(--ui-divider); border-radius: var(--radius-md); background: color-mix(in srgb, var(--ui-surface) 72%, transparent); backdrop-filter: blur(10px); }
+.card { display: flex; flex-direction: column; min-width: 0; gap: var(--space-sm); padding: var(--space-md) var(--space-sm); border: 1px solid var(--ui-divider); border-radius: var(--radius-md); background: color-mix(in srgb, var(--ui-surface) 72%, transparent); backdrop-filter: blur(10px); }
 .cardTopo { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .avatar { display: inline-grid; place-items: center; flex-shrink: 0; width: 36px; height: 36px; border: 1px solid color-mix(in srgb, var(--ui-primary) 14%, var(--ui-surface)); border-radius: var(--radius-full); color: var(--ui-primary); background: color-mix(in srgb, var(--ui-primary) 7%, var(--ui-surface)); }
 .avatarPequeno { width: 26px; height: 26px; color: var(--ui-muted); background: var(--ui-subtle); border-color: var(--ui-divider); }

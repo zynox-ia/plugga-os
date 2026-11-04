@@ -14,7 +14,7 @@ type Props = { itens: ClientListItem[]; filtros: { q?: string; active?: string }
 const ITENS_POR_PAGINA = 6;
 const LARGURA_MINIMA_CARD = 360;
 const LARGURA_MAXIMA_CARD = 440;
-const ESPACO_CARDS = 16;
+const ESPACO_CARDS = 12;
 
 export function CardsDeClientes({ itens, filtros, aoAbrir }: Props) {
   const gradeRef = useRef<HTMLDivElement>(null);
