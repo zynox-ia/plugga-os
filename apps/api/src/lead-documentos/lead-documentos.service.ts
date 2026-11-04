@@ -32,4 +32,8 @@ export class LeadDocumentosService {
   preview(dealId: string, documentId: string, principal: AuthPrincipal): Promise<DownloadDeDocumento> {
     return this.repository.preview(dealId, documentId, principal);
   }
+
+  discardProposalUpload(dealId: string, documentId: string, principal: AuthPrincipal): Promise<void> {
+    return this.repository.discardProposalUpload(dealId, documentId, principal);
+  }
 }

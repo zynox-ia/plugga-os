@@ -19,6 +19,7 @@ import { IntegrationsModule } from "./integrations/integrations.module";
 import { JobsModule } from "./jobs/jobs.module";
 import { JobsQueueModule } from "./jobs/queue/jobs-queue.module";
 import { LeadDocumentosModule } from "./lead-documentos/lead-documentos.module";
+import { LeadPropostasModule } from "./lead-propostas/lead-propostas.module";
 import { LoggingModule } from "./logging/logging.module";
 import { NegociosModule } from "./negocios/negocios.module";
 import { PipelinesModule } from "./pipelines/pipelines.module";
@@ -49,6 +50,7 @@ const monorepoRootEnvPath = path.resolve(__dirname, "../../../.env");
     PipelinesModule,
     NegociosModule,
     LeadDocumentosModule,
+    LeadPropostasModule,
     LlmModule,
     JobsQueueModule,
     BitrixModule,

@@ -1,6 +1,6 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 
 import { ServicoIndisponivel } from "../common/errors/dominio";
 
@@ -46,6 +46,15 @@ export class ArmazenamentoDeDocumentos {
     } finally {
       cliente.destroy();
     }
+  }
+
+  async excluir(key: string): Promise<void> {
+    const cliente = this.cliente();
+    try {
+      await cliente.send(new DeleteObjectCommand({ Bucket: this.balde(), Key: key }));
+    } catch (causa) {
+      throw new ServicoIndisponivel("Não foi possível limpar o documento temporário.", causa);
+    } finally { cliente.destroy(); }
   }
 
   /** Quem chama é responsável por destruir o cliente retornado, depois que o stream terminar. */

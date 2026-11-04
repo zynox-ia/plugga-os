@@ -10,6 +10,7 @@ import { LeadDocumentosService } from "./lead-documentos.service";
 import { PrismaLeadDocumentosRepository } from "./prisma-lead-documentos.repository";
 
 @Module({
+  exports: [LeadDocumentosService],
   imports: [AuditModule, CoreModule, PrismaModule],
   controllers: [LeadDocumentosController],
   providers: [

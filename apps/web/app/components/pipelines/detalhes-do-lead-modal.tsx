@@ -13,6 +13,7 @@ import { FichaDoLead } from "./ficha-do-lead";
 import { HistoricoDoLead } from "./historico-do-lead";
 import { Avatar } from "./icones";
 import { OportunidadeDoLead } from "./oportunidade-do-lead";
+import { PropostasDoLead } from "./propostas-do-lead";
 import type { AcoesDoNegocio } from "./quadro-do-pipeline";
 import { CabecalhoResumoDoLead, ProximaAcaoDoLead, ResumoDoLead } from "./resumo-do-lead";
 import { useDetalhesDoLead } from "./use-detalhes-do-lead";
@@ -44,19 +45,28 @@ export function DetalhesDoLeadModal({ negocioId, pipeline, responsaveis, acoes, 
   const [docsAlterados, setDocsAlterados] = useState(false);
   const [docsOcupados, setDocsOcupados] = useState(false);
   const [docsChave, setDocsChave] = useState(0);
+  const [docsDesatualizados, setDocsDesatualizados] = useState(false);
+  const [propostasAlteradas, setPropostasAlteradas] = useState(false);
+  const [propostasOcupadas, setPropostasOcupadas] = useState(false);
+  const [propostasChave, setPropostasChave] = useState(0);
   const [historicoRevisao, setHistoricoRevisao] = useState(0);
   const [saida, setSaida] = useState<{ executar: () => void; recarregar: boolean } | null>(null);
   const botoes = useRef<(HTMLButtonElement | null)[]>([]);
   const botaoMenu = useRef<HTMLButtonElement>(null);
   const painel = useRef<HTMLElement>(null);
   const id = useId();
-  const alterado = detalhe.alterado || docsAlterados;
-  const ocupado = detalhe.salvando || docsOcupados || acaoPendente || detalhe.carregando;
+  const alterado = detalhe.alterado || docsAlterados || propostasAlteradas;
+  const ocupado = detalhe.salvando || docsOcupados || propostasOcupadas || acaoPendente || detalhe.carregando;
   const origem = negocio?.lead.origin;
   const origemFormatada = origem ? ROTULO_ORIGEM[origem as keyof typeof ROTULO_ORIGEM] ?? origem : "Origem não informada";
   const equipe = negocio && !responsaveis.some((pessoa) => pessoa.id === negocio.owner.id) ? [negocio.owner, ...responsaveis] : responsaveis;
 
   useEffect(() => { painel.current?.scrollTo({ top: 0 }); }, [secao]);
+
+  useEffect(() => {
+    if (!docsDesatualizados || docsAlterados || docsOcupados) return;
+    setDocsChave((valor) => valor + 1); setDocsDesatualizados(false);
+  }, [docsDesatualizados, docsAlterados, docsOcupados]);
 
   useEffect(() => {
     if (!alterado && !ocupado) return;
@@ -66,13 +76,14 @@ export function DetalhesDoLeadModal({ negocioId, pipeline, responsaveis, acoes, 
   }, [alterado, ocupado]);
 
   function pedirSaida(executar = aoFechar, recarregar = false) {
-    if (detalhe.salvando || docsOcupados || acaoPendente) return;
+    if (detalhe.salvando || docsOcupados || propostasOcupadas || acaoPendente) return;
     if (alterado) setSaida({ executar, recarregar });
     else executar();
   }
   function recarregar() {
     setPerfilEditando(false); inicioEdicao.current = null;
     setDocsChave((valor) => valor + 1); setDocsAlterados(false);
+    setPropostasChave((valor) => valor + 1); setPropostasAlteradas(false);
     void detalhe.carregar();
   }
   function editarPerfil() {
@@ -152,7 +163,7 @@ export function DetalhesDoLeadModal({ negocioId, pipeline, responsaveis, acoes, 
               <button type="button" role="menuitem" onClick={() => pedirSaida(recarregar, true)}>Recarregar dados</button>
             </div> : null}
           </div>
-          <button type="button" className={styles.botaoFechar} disabled={detalhe.salvando || docsOcupados || acaoPendente} onClick={() => pedirSaida()} aria-label="Fechar"><X size={18} aria-hidden="true" /></button>
+          <button type="button" className={styles.botaoFechar} disabled={detalhe.salvando || docsOcupados || propostasOcupadas || acaoPendente} onClick={() => pedirSaida()} aria-label="Fechar"><X size={18} aria-hidden="true" /></button>
         </div>
       </header>
       <div className={styles.painelPrincipal}>
@@ -175,7 +186,7 @@ export function DetalhesDoLeadModal({ negocioId, pipeline, responsaveis, acoes, 
             </fieldset> : null}
             <div hidden={secao !== "historico"}><HistoricoDoLead id={negocio.id} ativo={secao === "historico"} revisao={detalhe.revisao + historicoRevisao} /></div>
             {secao === "tarefas" ? <TarefasDoLead tarefas={tarefas} aoAlterar={aoAlterarTarefas} responsaveis={responsaveis.some((pessoa) => pessoa.id === negocio.owner.id) ? responsaveis : [negocio.owner, ...responsaveis]} responsavelInicial={negocio.owner.id} /> : null}
-            {secao === "proposta" ? <><div className={styles.tituloSecao}><h3>Proposta comercial</h3><p>As propostas deste lead ficarão organizadas nesta seção.</p></div><div className={styles.propostaCard}><div className={styles.propostaCodigo}><FileText size={20} aria-hidden="true" /><strong>Propostas ainda não disponíveis</strong></div><p className={styles.cockpitCardSub}>A integração de propostas será disponibilizada em uma próxima etapa.</p></div></> : null}
+            <div hidden={secao !== "proposta"}><PropostasDoLead key={propostasChave} negocio={negocio} ativo={secao === "proposta"} aoRascunho={setPropostasAlteradas} aoOcupar={setPropostasOcupadas} aoGerar={() => { setHistoricoRevisao((valor) => valor + 1); setDocsDesatualizados(true); }} /></div>
             <div hidden={secao !== "documentos"}><DocumentosDoLead key={docsChave} id={negocio.id} ativo={secao === "documentos"} aoRascunho={setDocsAlterados} aoOcupar={setDocsOcupados} aoAtualizar={() => setHistoricoRevisao((valor) => valor + 1)} /></div>
           </> : null}
         </section>

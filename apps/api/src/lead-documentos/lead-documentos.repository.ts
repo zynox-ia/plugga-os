@@ -19,4 +19,6 @@ export abstract class LeadDocumentosRepository {
   abstract archive(dealId: string, documentId: string, principal: AuthPrincipal): Promise<LeadDocument>;
   abstract download(dealId: string, documentId: string, principal: AuthPrincipal): Promise<DownloadDeDocumento>;
   abstract preview(dealId: string, documentId: string, principal: AuthPrincipal): Promise<DownloadDeDocumento>;
+  /** Compensação interna; nunca exposta como exclusão de documentos via HTTP. */
+  abstract discardProposalUpload(dealId: string, documentId: string, principal: AuthPrincipal): Promise<void>;
 }

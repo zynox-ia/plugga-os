@@ -773,6 +773,112 @@
   },
   {
     "metodo": "GET",
+    "caminho": "/leads/:dealId/propostas",
+    "controller": "LeadPropostasController.list",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.pipelines",
+      "departamento:crm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/leads/:dealId/propostas",
+    "controller": "LeadPropostasController.create",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.pipelines",
+      "departamento:crm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "PATCH",
+    "caminho": "/leads/:dealId/propostas/:proposalId",
+    "controller": "LeadPropostasController.update",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.pipelines",
+      "departamento:crm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/leads/:dealId/propostas/:proposalId/download",
+    "controller": "LeadPropostasController.download",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.pipelines",
+      "departamento:crm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/leads/:dealId/propostas/:proposalId/gerar",
+    "controller": "LeadPropostasController.generate",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.pipelines",
+      "departamento:crm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/leads/:dealId/propostas/:proposalId/preview",
+    "controller": "LeadPropostasController.preview",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.pipelines",
+      "departamento:crm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/leads/:dealId/propostas/modelos",
+    "controller": "LeadPropostasController.templates",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.pipelines",
+      "departamento:crm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
     "caminho": "/leads/:id",
     "controller": "DetalhesNegocioController.get",
     "acesso": "authenticated",

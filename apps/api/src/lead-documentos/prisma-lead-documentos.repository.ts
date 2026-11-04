@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import type { Readable } from "node:stream";
 
-import { Inject, Injectable } from "@nestjs/common";
+import { Inject, Injectable, Logger } from "@nestjs/common";
 import { Prisma, type ActorType } from "@prisma/client";
 import {
   leadDocumentPreviewableMimes,
@@ -80,6 +80,7 @@ type LinhaCompleta = Prisma.LeadDocumentGetPayload<{ select: typeof SELECAO }>;
 
 @Injectable()
 export class PrismaLeadDocumentosRepository extends LeadDocumentosRepository {
+  private readonly logger = new Logger(PrismaLeadDocumentosRepository.name);
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(AuditAppender) private readonly auditoria: AuditAppender,
@@ -92,7 +93,7 @@ export class PrismaLeadDocumentosRepository extends LeadDocumentosRepository {
     await this.negocioVisivel(dealId, principal);
     await this.limparPendentesExpirados(dealId);
     const linhas = await this.prisma.leadDocument.findMany({
-      where: { dealId, uploadState: { not: "pending" } },
+      where: { dealId, uploadState: "ready" },
       orderBy: [{ archivedAt: "asc" }, { createdAt: "desc" }, { id: "asc" }],
       select: SELECAO,
     });
@@ -206,6 +207,16 @@ export class PrismaLeadDocumentosRepository extends LeadDocumentosRepository {
     return { documento: paraDocumento(linha), stream: objeto.corpo as Readable, encerrar: () => cliente.destroy() };
   }
 
+  async discardProposalUpload(dealId: string, documentId: string, principal: AuthPrincipal): Promise<void> {
+    // Não depende do acesso atual: serve também quando ele foi revogado durante o envio.
+    // A autoria e a ausência de versão protegem arquivos de terceiros e commits já concluídos.
+    const result = await this.prisma.leadDocument.updateMany({
+      where: { id: documentId, dealId, uploadedById: principal.id, category: "proposta", proposalVersions: { none: {} } },
+      data: { uploadState: "cleanup" },
+    });
+    if (result.count === 1) await this.limparObjetosPendentes(dealId);
+  }
+
   private async documentoPronto(dealId: string, documentId: string): Promise<LinhaCompleta> {
     const linha = await this.prisma.leadDocument.findFirst({ where: { id: documentId, dealId, uploadState: "ready" }, select: SELECAO });
     if (!linha) throw new NaoEncontrado(DOCUMENTO_NAO_ENCONTRADO);
@@ -213,9 +224,24 @@ export class PrismaLeadDocumentosRepository extends LeadDocumentosRepository {
   }
 
   private async limparPendentesExpirados(dealId: string): Promise<void> {
-    await this.prisma.leadDocument.deleteMany({
+    await this.prisma.leadDocument.updateMany({
       where: { dealId, uploadState: "pending", createdAt: { lt: new Date(Date.now() - PRAZO_PENDENTE_MS) } },
+      data: { uploadState: "cleanup" },
     });
+    await this.limparObjetosPendentes(dealId);
+  }
+
+  private async limparObjetosPendentes(dealId: string): Promise<void> {
+    const rows = await this.prisma.leadDocument.findMany({ where: { dealId, uploadState: "cleanup" }, select: { id: true, storageKey: true }, take: 20 });
+    for (const row of rows) {
+      try {
+        await this.armazenamento.excluir(row.storageKey);
+        await this.prisma.leadDocument.deleteMany({ where: { id: row.id, uploadState: "cleanup" } });
+      } catch {
+        // Continua invisível e fora da unicidade por hash; próxima listagem/envio repete a limpeza.
+        this.logger.warn("Limpeza de documento temporário pendente; será repetida.");
+      }
+    }
   }
 
   /** Visível a quem alcança o pipeline do negócio, de qualquer situação (aberto, ganho ou perdido). */

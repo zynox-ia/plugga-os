@@ -19,6 +19,12 @@ describe("buildContentSecurityPolicy", () => {
     const scripts = csp.split(";").find((item) => item.trim().startsWith("script-src"))!;
     assert.ok(!scripts.includes("maps.google.com"));
   });
+  it("permite o worker de PDF somente na própria origem, sem blob nem CDN", () => {
+    for (const production of [false, true]) {
+      const worker = buildContentSecurityPolicy("nonce", production).split(";").find((item) => item.trim().startsWith("worker-src"));
+      assert.equal(worker?.trim(), "worker-src 'self'");
+    }
+  });
   it("nunca inclui 'unsafe-inline' em script-src", () => {
     const csp = buildContentSecurityPolicy("abc123", true);
     const scriptSrc = csp.split(";").find((diretiva) => diretiva.trim().startsWith("script-src"));

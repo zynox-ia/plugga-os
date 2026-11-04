@@ -959,6 +959,7 @@ model Deal {
   leadContacts LeadContact[] @relation("LeadContacts")
   leadContact LeadContact? @relation("SelectedLeadContact", fields: [leadContactId, id], references: [id, dealId], onDelete: NoAction, onUpdate: NoAction, map: "deals_lead_contact_owner_fkey")
   documents LeadDocument[]
+  proposals LeadProposal[]
   number Int @unique @default(autoincrement())
   position Decimal @default(0) @db.Decimal(30, 10)
   id                String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
@@ -1996,6 +1997,7 @@ enum LeadDocumentUploadState {
   @@map("lead_document_upload_state")
 }
 model LeadDocument {
+  proposalVersions LeadProposalVersion[]
   id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   dealId String @map("deal_id") @db.Uuid
   category LeadDocumentCategory
@@ -2018,6 +2020,52 @@ model LeadDocument {
   @@unique([storageBucket, storageKey])
   @@index([dealId, archivedAt, createdAt, id], map:"lead_documents_deal_list_idx")
   @@map("lead_documents")
+}
+
+model LeadProposalTemplate {
+  id String @id @db.Uuid
+  name String
+  description String
+  style String
+  position Int
+  defaults Json @db.JsonB
+  proposals LeadProposal[]
+  @@map("lead_proposal_templates")
+}
+
+model LeadProposal {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  number Int @unique @default(autoincrement())
+  dealId String @map("deal_id") @db.Uuid
+  templateId String @map("template_id") @db.Uuid
+  content Json @db.JsonB
+  status String @default("draft")
+  version Int @default(0)
+  revision Int @default(1)
+  generationToken String? @map("generation_token") @db.Uuid
+  generationStartedAt DateTime? @map("generation_started_at") @db.Timestamptz(6)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deal Deal @relation(fields:[dealId], references:[id], onDelete:Restrict, onUpdate:NoAction)
+  template LeadProposalTemplate @relation(fields:[templateId], references:[id], onDelete:Restrict, onUpdate:NoAction)
+  versions LeadProposalVersion[]
+  @@index([dealId, updatedAt, id])
+  @@map("lead_proposals")
+}
+
+/// Cada versão conserva o conteúdo/modelo usados e referencia o mesmo arquivo de Documentos.
+model LeadProposalVersion {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  proposalId String @map("proposal_id") @db.Uuid
+  version Int
+  documentId String @unique @map("document_id") @db.Uuid
+  content Json @db.JsonB
+  templateSnapshot Json @map("template_snapshot") @db.JsonB
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  proposal LeadProposal @relation(fields:[proposalId], references:[id], onDelete:Restrict, onUpdate:NoAction)
+  document LeadDocument @relation(fields:[documentId], references:[id], onDelete:Restrict, onUpdate:NoAction)
+  @@unique([proposalId, version])
+  @@map("lead_proposal_versions")
 }
 model LeadProfile {
   dealId String @id @map("deal_id") @db.Uuid
