@@ -73,3 +73,31 @@ comprovado, parcialmente comprovado, falha identificada e não verificado.
 Um fluxo só é liberado depois de demonstrar persistência, acesso correto e
 tratamento de falhas pertinentes àquela funcionalidade. Testes pulados e status
 do Linear não substituem prova da versão implementada.
+
+## Preparação da promoção para main — 05/11/2026
+
+André autorizou incluir todas as alterações concluídas e validadas no localhost.
+A entrega será preparada em commits por assunto e em PR de `develop` para `main`.
+O PR permanece em rascunho: André informou que a migração dos arquivos e das
+credenciais de produção de SeaweedFS para RustFS ainda não está confirmada.
+O procedimento e as provas necessárias constam em `ops/GUIA.md`.
+
+Na revisão foram encontrados e encaminhados: configuração do balde na API,
+cobertura do novo balde pelo backup externo, preenchimento dos perfis e contatos
+selecionados dos negócios antigos, seletores E2E desatualizados e retorno de
+foco em Clientes. Os ensaios usam somente os serviços isolados de teste.
+
+Antes de liberar o PR, tratar também o escopo ainda incompleto já registrado
+acima: Atividades continua em memória e não pode ser liberada como cadastro
+persistente. PLU-301, paginação acima de 2.000 leads e calendário/filtros continuam
+pendentes; esta preparação não representa conclusão dessas funcionalidades.
+
+Verificação local desta preparação: lint e tipos aprovados; suíte padrão com
+715 testes da API, 209 da web e 32 compartilhados aprovados. As integrações
+opt-in foram conferidas separadamente: 50 casos de negócios/cadastro/backfill
+e sete de documentos no Postgres/RustFS isolados, todos aprovados. A nova
+migration também foi aplicada pelo comando oficial no banco isolado de teste.
+Os cenários relevantes de Clientes, lista, arraste, conversão, documentos e
+propostas passaram em navegador por grupos. Documentos teve um timeout na
+compilação fria e passou na repetição isolada, sem retries nem alteração do
+limite do teste. A suíte completa de navegador ainda depende da CI da release.

@@ -2,6 +2,11 @@
 
 Os comandos do dia a dia, na ordem em que aparecem.
 
+> **Release bloqueada para Produção:** a migração SeaweedFS → RustFS na VPS não
+> foi confirmada pelo André. As instruções de RustFS abaixo descrevem o destino
+> esperado, não uma migração já executada. Antes de aprovar o deploy, conclua a
+> transição descrita em "Publicar em produção".
+
 ---
 
 ## Começar o dia
@@ -142,6 +147,61 @@ O que acontece, nesta ordem:
 Leva alguns minutos, quase tudo na construção das imagens.
 
 **Se o teste de fumaça reprovar**, o programa anterior volta sozinho e o script avisa. O banco **não** é revertido automaticamente — isso é decisão sua, porque a restauração apagaria o que entrou depois do backup.
+
+### Transição para RustFS: bloqueio desta release
+
+O deploy sincroniza o `compose.yaml` e passa a API para `http://rustfs:9000`.
+Criar baldes vazios não copia os objetos do volume do SeaweedFS nem suas
+identidades e políticas. O teste de fumaça atual verifica login; ele não prova
+que os arquivos antigos continuam acessíveis. André deve autorizar e acompanhar
+esta mudança de infraestrutura antes de liberar a publicação.
+
+1. **Ensaiar com dados sintéticos.** Em ambiente isolado, copiar objetos entre
+   os dois servidores S3 e testar leitura, upload, download, geração de proposta,
+   backup e reversão. Ensaiar as migrations sobre uma base sintética da versão
+   anterior com negócios existentes, não apenas sobre um banco vazio. Conferir
+   os perfis migrados, as permissões do papel da aplicação e a duração dos locks
+   exclusivos em `deals` antes de definir a janela.
+2. **Guardar a origem e uma cópia restaurável.** Registrar as imagens, o compose
+   anterior e os volumes exatos do projeto. Fazer backup coerente do banco e dos
+   objetos para um destino independente da VPS e provar a restauração em ambiente
+   aprovado; dados reais não descem para Local Dev/Test. Não apagar o volume
+   `seaweedfs_data` nem usar `down -v`.
+3. **Preparar o destino sem trocar o tráfego.** Subir o RustFS em rede interna
+   ou portas alternativas: o SeaweedFS ainda pode ocupar as portas publicadas.
+   Criar todos os baldes de origem e o balde de documentos. Conferir as credenciais
+   da API, do backup e dos demais consumidores; recriar as identidades restritas
+   e testar suas permissões com suas próprias chaves. Segredos ficam em arquivos
+   protegidos, fora do Git, dos logs e do PR.
+4. **Copiar e conferir os objetos.** Preservar balde, chave e metadados necessários
+   à leitura. Guardar o manifesto em local protegido e comparar o conjunto de
+   chaves, quantidade e bytes por balde, além do SHA-256 do conteúdo lido na origem
+   e no destino. Divergência impede o corte; apenas contagem ou ETag não basta.
+5. **Fazer o corte sem escritas concorrentes.** Pausar uploads e escritas no CRM,
+   esperar operações em curso e fazer a cópia final com a mesma conferência.
+   A pausa começa antes de `db:migrate:deploy` e termina depois de a nova API estar
+   pronta: a versão antiga ainda não grava perfis de lead e não pode criar negócios
+   depois do preenchimento dos registros antigos. Só então aplicar o compose e
+   apontar os consumidores para o destino validado.
+   `STORAGE_BUCKET` deve ser igual na API e no provisionador. Se seu valor diferir
+   de `plugga-arquivos`, ajustar `ops/backup/baldes.txt` e a política de leitura do
+   backup para o nome efetivo.
+6. **Atualizar e provar as rotinas operacionais.** Conferir qual script o cron
+   executa, inclusive `/root/backup-plugga.sh`: sincronizar o repositório não
+   atualiza automaticamente essa cópia. Atualizar os endpoints e o formato do
+   ambiente do backup externo conforme a seção Backup. Provar leitura de um
+   arquivo antigo, envio e download de um documento sintético, geração de PDF e
+   um novo backup restaurável antes de retomar os escritores.
+7. **Manter um retorno concreto.** Preservar o compose, as imagens, as credenciais
+   e o volume anteriores até o aceite. O rollback automático troca só as imagens
+   de API/web; ele não reverte armazenamento ou banco. Para voltar, pausar as
+   escritas, reconciliar e conferir os objetos criados no RustFS após o corte e
+   restaurar também o compose e os endpoints anteriores. Validar a compatibilidade
+   do programa antigo com o banco migrado. Restaurar o banco exige decisão do André,
+   pois pode descartar gravações posteriores ao backup.
+
+O bloqueio só termina com o aceite do André e evidência das conferências e do
+backup/restauração. Este guia não executa nem atesta essa transição em Produção.
 
 ### Login com o Google
 
