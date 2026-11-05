@@ -14,8 +14,8 @@ test("seletor mostra os responsáveis elegíveis do CRM mesmo sem equipe no funi
   const pipeline = ativos.find((p) => p.members.length === 0) ?? ativos[0]!;
   await page.goto(`/comercial/pipelines?pipeline=${pipeline.id}`);
   await page.getByRole("button", { name: "Novo lead", exact: true }).click();
-  const dialogo = page.getByRole("dialog", { name: "Novo negócio" });
-  await dialogo.locator("#negocio-responsavel").click();
+  const dialogo = page.getByRole("dialog", { name: "Novo lead", exact: true });
+  await dialogo.locator("#lead-responsavel").click();
   const opcoes = page.getByRole("option");
   await expect(opcoes).toHaveCount(responsaveis.length);
   for (const pessoa of responsaveis) {
@@ -23,5 +23,5 @@ test("seletor mostra os responsáveis elegíveis do CRM mesmo sem equipe no funi
   }
   await page.screenshot({ path: testInfo.outputPath("responsaveis-crm.png"), fullPage: true });
   await opcoes.filter({ hasText: responsaveis[0]!.email! }).click();
-  await expect(dialogo.locator("#negocio-responsavel")).toContainText(responsaveis[0]!.name);
+  await expect(dialogo.locator("#lead-responsavel")).toContainText(responsaveis[0]!.name);
 });

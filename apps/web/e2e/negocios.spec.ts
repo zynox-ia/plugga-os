@@ -44,7 +44,7 @@ async function criarPipeline(page: Page, nome: string): Promise<void> {
 }
 
 test.describe("Negócios no quadro do pipeline (PLU-271)", () => {
-  test("cria negócio com cliente novo, muda de etapa, perde com revisita e só exclui a etapa com destino", async ({ page }) => {
+  test("cria lead sem cliente, muda de etapa, perde com revisita e só exclui a etapa com destino", async ({ page }) => {
     const marca = Date.now();
     const pipeline = `Negócios E2E ${marca}`;
     const titulo = `Hotel E2E ${marca} — usina 120 kWp`;
@@ -53,15 +53,19 @@ test.describe("Negócios no quadro do pipeline (PLU-271)", () => {
     // Novo lead já na coluna Qualificação: o modal capta nome e contato, e o
     // responsável vem de Equipe e Acessos (o primeiro elegível já vem escolhido).
     await page.getByRole("button", { name: "Novo lead em Qualificação" }).click();
-    const novo = page.getByRole("dialog", { name: "Novo negócio" });
+    const novo = page.getByRole("dialog", { name: "Novo lead", exact: true });
     await expect(novo.getByRole("combobox", { name: /^Etapa inicial/ })).toContainText("Qualificação");
     await novo.getByLabel(/^Nome do lead \/ Razão Social( \*| \(obrigatório\))$/).fill(titulo);
-    await novo.getByLabel(/^Telefone \/ WhatsApp( \*| \(obrigatório\))$/).fill("(92) 99999-0003");
+    await novo.getByLabel("Telefone / WhatsApp", { exact: true }).fill("(92) 99999-0003");
+    const cadastro = page.waitForResponse((response) => new URL(response.url()).pathname === "/api/leads" && response.request().method() === "POST");
     await novo.getByRole("button", { name: "Cadastrar lead" }).click();
+    const respostaCadastro = await cadastro;
+    expect(respostaCadastro.status()).toBe(201);
+    expect(await respostaCadastro.json()).toMatchObject({ client: null, lead: { name: titulo } });
 
-    const card = page.getByRole("article", { name: `Negócio ${titulo}` });
+    const card = page.getByRole("article", { name: `Lead ${titulo}`, exact: true });
     await expect(card).toBeVisible({ timeout: MUTATION_TIMEOUT_MS });
-    await expect(page.getByRole("region", { name: "Qualificação" }).getByRole("article", { name: `Negócio ${titulo}` })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Negócios em Qualificação", exact: true }).getByRole("article", { name: `Lead ${titulo}`, exact: true })).toBeVisible();
 
     // Muda de etapa pelo menu do card (a alternativa ao arrastar) e continua lá depois de recarregar.
     const viewportOriginal = page.viewportSize();
@@ -104,17 +108,17 @@ test.describe("Negócios no quadro do pipeline (PLU-271)", () => {
     );
     await page.getByRole("menuitem", { name: "Proposta" }).click();
     await moverParaProposta;
-    await expect(page.getByRole("region", { name: "Proposta" }).getByRole("article", { name: `Negócio ${titulo}` })).toBeVisible({ timeout: MUTATION_TIMEOUT_MS });
+    await expect(page.getByRole("region", { name: "Negócios em Proposta", exact: true }).getByRole("article", { name: `Lead ${titulo}`, exact: true })).toBeVisible({ timeout: MUTATION_TIMEOUT_MS });
     await page.reload();
-    await expect(page.getByRole("region", { name: "Proposta" }).getByRole("article", { name: `Negócio ${titulo}` })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Negócios em Proposta", exact: true }).getByRole("article", { name: `Lead ${titulo}`, exact: true })).toBeVisible();
 
-    // Perder exige motivo; "Prazo inadequado" exige a data de revisita.
+    // Perder exige motivo; "Sem retorno / desistiu" exige a data de revisita.
     await card.getByRole("button", { name: `Ações de ${titulo}` }).click();
     await page.getByRole("menuitem", { name: "Perdido" }).click();
     const perda = page.getByRole("dialog", { name: "Marcar como Perdido" });
     await perda.getByRole("button", { name: "Confirmar Perdido" }).click();
     await expect(perda.getByRole("alert")).toHaveText("Escolha o motivo da perda.");
-    await perda.getByRole("radio", { name: "Prazo inadequado" }).check();
+    await perda.getByRole("radio", { name: /^Sem retorno \/ desistiu/ }).check();
     await perda.getByRole("button", { name: "Confirmar Perdido" }).click();
     await expect(perda.getByRole("alert")).toHaveText("Este motivo pede a data para revisitar.");
     await perda.getByLabel(/^Revisitar em( \*| \(obrigatório\))$/).fill("2099-01-10");
