@@ -29,4 +29,11 @@ describe("compose.yaml provisiona todos os baldes", () => {
   it("provisiona o balde unico configuravel", () => {
     expect(bloco).toContain("STORAGE_BUCKET: ${STORAGE_BUCKET:-plugga-arquivos}");
   });
+
+  it("entrega a API o mesmo balde configurado no provisionador", () => {
+    const api = compose.slice(compose.indexOf("\n  api:"), compose.indexOf("\n  web:"));
+    const balde = bloco.match(/^\s+STORAGE_BUCKET: (.+)$/m)?.[1];
+    expect(balde).toBe("${STORAGE_BUCKET:-plugga-arquivos}");
+    expect(api).toContain(`STORAGE_BUCKET: ${balde}`);
+  });
 });
