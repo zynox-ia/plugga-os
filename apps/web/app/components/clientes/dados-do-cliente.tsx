@@ -1,10 +1,12 @@
 import type { ClientListItem } from "@plugga/shared";
-import { Building2, Mail, MapPin, Phone, UserRound } from "lucide-react";
+import { Building2, Check, Mail, MapPin, Phone, UserRound, X } from "lucide-react";
 
+import { Avatar } from "../pipelines/icones";
+import estilosKanban from "../pipelines/cartao-de-negocio.module.css";
 import styles from "./tela-clientes.module.css";
 
-export function AvatarDoCliente({ pequeno = false }: { pequeno?: boolean }) {
-  return <span className={`${styles.avatar}${pequeno ? ` ${styles.avatarPequeno}` : ""}`} data-avatar-cliente aria-hidden="true"><UserRound size={pequeno ? 15 : 19} /></span>;
+export function AvatarDoCliente() {
+  return <span className={styles.avatar} data-avatar-cliente aria-hidden="true"><UserRound size={19} /></span>;
 }
 
 export function TipoELocalDoCliente({ cliente }: { cliente: ClientListItem }) {
@@ -17,20 +19,24 @@ export function TipoELocalDoCliente({ cliente }: { cliente: ClientListItem }) {
   </div>;
 }
 
-export function SituacaoDoCliente({ ativo }: { ativo: boolean }) {
-  return <span className={styles.situacao} data-ativo={ativo}>{ativo ? "Ativo" : "Inativo"}</span>;
+export function SituacaoDoCliente({ ativo, nome, salvando, aoAlternar }: { ativo: boolean; nome: string; salvando: boolean; aoAlternar: () => void }) {
+  return <button type="button" className={`${estilosKanban.status} ${styles.situacao}`} data-status={ativo ? "won" : "lost"}
+    aria-label={`${ativo ? "Inativar" : "Ativar"} cliente ${nome}`} aria-pressed={ativo} aria-busy={salvando || undefined} disabled={salvando}
+    title={salvando ? "Salvando situação…" : `Clique para ${ativo ? "inativar" : "ativar"} o cliente`}
+    onClick={(evento) => { evento.stopPropagation(); aoAlternar(); }}>{ativo ? <Check size={12} aria-hidden="true" /> : <X size={12} aria-hidden="true" />}{ativo ? "Ativo" : "Inativo"}</button>;
 }
 
-export function ContatoDoCliente({ cliente }: { cliente: ClientListItem }) {
+export function ContatoDoCliente({ cliente, mostrarTelefone = true }: { cliente: ClientListItem; mostrarTelefone?: boolean }) {
   return <div className={styles.contatos}>
     <span title={cliente.email ?? "E-mail não informado"}><Mail size={13} aria-hidden="true" /><span>{cliente.email ?? "E-mail não informado"}</span></span>
-    <span><Phone size={13} aria-hidden="true" /><span>{cliente.phoneDisplay ?? "Telefone não informado"}</span></span>
+    {mostrarTelefone ? <span><Phone size={13} aria-hidden="true" /><span>{cliente.phoneDisplay ?? "Telefone não informado"}</span></span> : null}
   </div>;
 }
 
-export function ResponsavelDoCliente({ cliente, comRotulo = false }: { cliente: ClientListItem; comRotulo?: boolean }) {
-  return <div className={styles.responsavel}>
-    <AvatarDoCliente pequeno />
-    <div>{comRotulo ? <small>Responsável</small> : null}<span title={cliente.owner?.name ?? "Não atribuído"}>{cliente.owner?.name ?? "Não atribuído"}</span></div>
+export function ResponsavelDoCliente({ cliente }: { cliente: ClientListItem }) {
+  const nome = cliente.owner?.name ?? "Não atribuído";
+  return <div className={`${estilosKanban.responsavel} ${styles.responsavel}`} title={`Responsável: ${nome}`}>
+    <Avatar id={cliente.owner?.id} nome={nome} tamanho="pequeno" />
+    <span>{nome}</span>
   </div>;
 }

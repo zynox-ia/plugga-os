@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { Building2, Filter, LayoutGrid, List, UserRound, Users } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -6,12 +6,14 @@ import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 
 
 import type { ClientDetail, ClientDuplicateCandidate, ClientListItem, ClientOwner } from "@plugga/shared";
 
-import { hrefDaFicha } from "../lib/clientes";
+import { enviar, hrefDaFicha } from "../lib/clientes";
 import { ClienteForm } from "./cliente-form";
 import { FichaCliente } from "./ficha-cliente";
 import { Modal } from "./modal";
-import { Button, IconPlus, IconSearch, SelectField } from "./ui";
-import { CardsDeClientes, ListaDeClientes } from "./clientes/visualizacoes-clientes";
+import { Button, IconPlus, IconSearch } from "./ui";
+import { FiltroDeClientes } from "./clientes/filtro-de-clientes";
+import { CardsDeClientes } from "./clientes/visualizacoes-clientes";
+import { ListaDeClientes } from "./clientes/lista-clientes";
 import styles from "./clientes/tela-clientes.module.css";
 import estilosPipelines from "./pipelines/tela-pipelines.module.css";
 
@@ -41,12 +43,19 @@ export function ClientesView({
   const [visao, setVisao] = useState<"cards" | "lista">("cards");
   const [pagina, setPagina] = useState(1);
   const abasRef = useRef<HTMLDivElement>(null);
+  const filtroSituacaoRef = useRef<HTMLDivElement>(null);
   const [criando, setCriando] = useState(false);
   const [avisos, setAvisos] = useState<ClientDuplicateCandidate[]>([]);
+  const [clientes, setClientes] = useState(itens);
+  const [erroSituacao, setErroSituacao] = useState<string | null>(null);
+  const pendentesRef = useRef(new Set<string>());
+  const [pendentes, setPendentes] = useState<ReadonlySet<string>>(new Set());
 
   useEffect(() => { setQ(filtros.q ?? ""); setActive(filtros.active ?? ""); }, [filtros.q, filtros.active]);
+  useEffect(() => setClientes(itens), [itens]);
 
-  const visiveis = itens.filter((item) => tipo === "todos" || item.personType === tipo);
+  const visiveis = clientes.filter((item) => (tipo === "todos" || item.personType === tipo)
+    && (!filtros.active || item.active === (filtros.active === "true")));
   const temFiltros = Boolean(q || active || tipo !== "todos");
 
   function buscar(evento: FormEvent) {
@@ -71,6 +80,25 @@ export function ClientesView({
   function fecharFicha() {
     setAvisos([]);
     router.push(hrefDaFicha(null, filtros), { scroll: false });
+  }
+
+  async function mudarSituacao(cliente: ClientListItem) {
+    if (pendentesRef.current.has(cliente.id)) return;
+    pendentesRef.current.add(cliente.id);
+    setPendentes(new Set(pendentesRef.current));
+    setErroSituacao(null);
+    const resposta = await enviar<ClientDetail>(`/api/clientes/${cliente.id}/${cliente.active ? "inactivate" : "activate"}`, "POST", {});
+    if (resposta.ok) {
+      if (filtros.active && resposta.dados.active !== (filtros.active === "true")) {
+        filtroSituacaoRef.current?.querySelector<HTMLButtonElement>('[role="combobox"]')?.focus();
+      }
+      setClientes((atuais) => atuais.map((item) => item.id === cliente.id ? { ...item, active: resposta.dados.active, updatedAt: resposta.dados.updatedAt } : item));
+      router.refresh();
+    } else {
+      setErroSituacao(`Não foi possível alterar a situação de ${cliente.name}: ${resposta.erro.mensagem}`);
+    }
+    pendentesRef.current.delete(cliente.id);
+    setPendentes(new Set(pendentesRef.current));
   }
 
   function navegarAbas(evento: KeyboardEvent) {
@@ -105,15 +133,17 @@ export function ClientesView({
             <button type="button" id="clientes-visao-lista" className="ui-tab" role="tab" aria-selected={visao === "lista"} aria-controls="clientes-lista" tabIndex={visao === "lista" ? 0 : -1} onClick={() => setVisao("lista")}><List size={15} aria-hidden="true" />Lista</button>
           </div>
           <div className={`${estilosPipelines.navegacaoDireita} ${styles.filtros}`} role="group" aria-label="Filtros de clientes">
-          <div className={styles.filtroSituacao}>
-            <SelectField label="Situação" value={active || "todos"} onChange={(valor) => { const situacao = valor === "todos" ? "" : valor; setActive(situacao); setPagina(1); router.push(hrefDaFicha(null, { q: q.trim() || undefined, active: situacao || undefined }), { scroll: false }); }} options={[{ value: "todos", label: "Todos", icon: <Filter /> }, { value: "true", label: "Ativos", icon: <UserRound /> }, { value: "false", label: "Inativos", icon: <UserRound /> }]} />
+          <div ref={filtroSituacaoRef} className={styles.filtroSituacao}>
+            <FiltroDeClientes label="Situação" value={active || "todos"} onChange={(valor) => { const situacao = valor === "todos" ? "" : valor; setActive(situacao); setPagina(1); router.push(hrefDaFicha(null, { q: q.trim() || undefined, active: situacao || undefined }), { scroll: false }); }} options={[{ value: "todos", label: "Todos", icon: <Filter /> }, { value: "true", label: "Ativos", icon: <UserRound /> }, { value: "false", label: "Inativos", icon: <UserRound /> }]} />
           </div>
           <div className={styles.filtroTipo}>
-            <SelectField label="Tipo de pessoa" value={tipo} onChange={(valor) => { setTipo(valor); setPagina(1); }} options={[{ value: "todos", label: "Todos os clientes", icon: <Users /> }, { value: "pj", label: "Pessoa Jurídica", icon: <Building2 /> }, { value: "pf", label: "Pessoa Física", icon: <UserRound /> }]} />
+            <FiltroDeClientes label="Tipo de pessoa" value={tipo} onChange={(valor) => { setTipo(valor); setPagina(1); }} options={[{ value: "todos", label: "Todos os clientes", icon: <Users /> }, { value: "pj", label: "Pessoa Jurídica", icon: <Building2 /> }, { value: "pf", label: "Pessoa Física", icon: <UserRound /> }]} />
           </div>
           {temFiltros ? <Button variant="secondary" size="sm" onClick={limpar}>Limpar</Button> : null}
           </div>
         </div>
+
+        {erroSituacao ? <p className="aviso aviso--erro" role="alert">{erroSituacao}</p> : null}
 
         {fichaNaoEncontrada ? (
           <p className="aviso aviso--alerta" role="status">
@@ -122,7 +152,7 @@ export function ClientesView({
         ) : null}
 
         {(["cards", "lista"] as const).map((aba) => <section key={aba} id={`clientes-${aba}`} className={styles.conteudo} role="tabpanel" aria-labelledby={`clientes-visao-${aba}`} hidden={visao !== aba} tabIndex={0}>
-          {visao === aba ? visiveis.length === 0 ? <div className={styles.vazio} role="status"><Users size={26} aria-hidden="true" /><h3>{temFiltros ? "Nenhum cliente encontrado para a busca." : "Nenhum cliente cadastrado ainda."}</h3><p>{temFiltros ? "Experimente outro nome ou ajuste os filtros." : "Cadastre o primeiro cliente para começar."}</p>{temFiltros ? <Button variant="secondary" size="sm" onClick={limpar}>Limpar filtros</Button> : null}</div> : aba === "cards" ? <CardsDeClientes itens={visiveis} filtros={filtros} aoAbrir={abrir} /> : <ListaDeClientes itens={visiveis} filtros={filtros} aoAbrir={abrir} pagina={pagina} aoMudarPagina={setPagina} /> : null}
+          {visao === aba ? visiveis.length === 0 && aba === "cards" ? <div className={styles.vazio} role="status"><Users size={26} aria-hidden="true" /><h3>{temFiltros ? "Nenhum cliente encontrado para a busca." : "Nenhum cliente cadastrado ainda."}</h3><p>{temFiltros ? "Experimente outro nome ou ajuste os filtros." : "Cadastre o primeiro cliente para começar."}</p>{temFiltros ? <Button variant="secondary" size="sm" onClick={limpar}>Limpar filtros</Button> : null}</div> : aba === "cards" ? <CardsDeClientes itens={visiveis} filtros={filtros} aoAbrir={abrir} aoMudarSituacao={mudarSituacao} pendentes={pendentes} /> : <ListaDeClientes itens={visiveis} filtros={filtros} aoAbrir={abrir} aoMudarSituacao={mudarSituacao} pendentes={pendentes} pagina={pagina} aoMudarPagina={setPagina} filtrado={temFiltros} aoLimparFiltros={limpar} /> : null}
         </section>)}
 
       {criando ? (

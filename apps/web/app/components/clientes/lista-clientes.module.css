@@ -1,0 +1,6 @@
+.lista { min-height: 0; }
+.lista :global(.lista-negocios-card) { min-height: 0; }
+.lista :global(.lista-negocios-card .card-heading) { padding-block: calc(var(--space-md) - 7.5px); }
+.lista .rolagem { min-height: 0; }
+.menu:global(.menu-negocio-lista) { position: relative; }
+.lista [data-tipo-local] { margin-top: 0; gap: var(--space-2xs); font-size: 11px; line-height: 1.3; }
