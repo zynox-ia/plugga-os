@@ -313,8 +313,20 @@ export class PrismaNegociosRepository extends NegociosRepository {
   }
 
   async convert(id: string, input: ConvertLeadRequest, principal: AuthPrincipal): Promise<ConvertLeadResponse> {
-    await this.negocioVisivel(id, principal);
-    const resultado = await this.comRetentativaDeDocumento((tx) => this.converterDentro(tx, id, input.resolution, principal));
+    const { pipeline } = await this.negocioVisivel(id, principal);
+    const resultado = await this.comRetentativaDeDocumento(async (tx) => {
+      await this.travarPipelines(tx, [pipeline.id]);
+      await tx.$queryRaw`SELECT id FROM deals WHERE id = ${id}::uuid FOR UPDATE`;
+      const negocio = await tx.deal.findUnique({ where: { id }, select: { id: true, pipelineId: true, stageId: true, status: true } });
+      const acesso = await lerAcessoComercial(tx, principal.id);
+      if (!negocio || !podeVer(acesso)) throw new NaoEncontrado(NEGOCIO_NAO_ENCONTRADO);
+      if (negocio.pipelineId !== pipeline.id) throw new EstadoInvalido("O negócio mudou de pipeline. Atualize a tela.");
+      if (negocio.status === "lost") throw new EstadoInvalido("Um negócio perdido não pode ser convertido em cliente.");
+
+      const cliente = await this.converterDentro(tx, id, input.resolution, principal);
+      if (negocio.status === "open") await this.ganharDentro(tx, negocio, pipeline, principal);
+      return cliente;
+    });
     return convertLeadResponseSchema.parse({ lead: await this.ler(id), client: { id: resultado.id, name: resultado.name }, created: resultado.created });
   }
 
@@ -358,9 +370,7 @@ export class PrismaNegociosRepository extends NegociosRepository {
     await this.comRetentativaDeDocumento(async (tx) => {
       await this.travarPipelines(tx, [pipeline.id]);
       const negocio = await this.negocioAtual(tx, id, pipeline.id);
-      await tx.deal.update({ where: { id }, data: { status: "won", closedAt: new Date() } });
-      await tx.dealHistory.create({ data: { dealId: id, kind: "won", fromStageId: negocio.stageId, actorId: principal.id } });
-      await this.registrar(tx, "commercial.deal.won", id, pipeline.companyId, principal, { pipelineId: pipeline.id });
+      await this.ganharDentro(tx, negocio, pipeline, principal);
       if (input.convertToClient) await this.converterDentro(tx, id, undefined, principal);
     });
     return this.ler(id);
@@ -428,7 +438,10 @@ export class PrismaNegociosRepository extends NegociosRepository {
         toPipelineId: destino.id,
         fromCompanyId: origem.companyId,
       });
-      if (input.convertToClient) await this.converterDentro(tx, id, undefined, principal);
+      if (input.convertToClient) {
+        await this.converterDentro(tx, id, undefined, principal);
+        await this.ganharDentro(tx, { id, stageId: etapa.id }, destino, principal);
+      }
     });
     return this.ler(id);
   }
@@ -505,6 +518,17 @@ export class PrismaNegociosRepository extends NegociosRepository {
 
     const linhas = await this.prisma.deal.findMany({ where: { id: { in: input.dealIds } }, include: DO_NEGOCIO });
     return listDealsResponseSchema.parse({ deals: linhas.map(paraNegocio) });
+  }
+
+  private async ganharDentro(
+    tx: Prisma.TransactionClient,
+    negocio: { id: string; stageId: string },
+    pipeline: { id: string; companyId: string },
+    principal: AuthPrincipal,
+  ): Promise<void> {
+    await tx.deal.update({ where: { id: negocio.id }, data: { status: "won", closedAt: new Date() } });
+    await tx.dealHistory.create({ data: { dealId: negocio.id, kind: "won", fromStageId: negocio.stageId, actorId: principal.id } });
+    await this.registrar(tx, "commercial.deal.won", negocio.id, pipeline.companyId, principal, { pipelineId: pipeline.id });
   }
 
   /**

@@ -107,6 +107,7 @@ export function TransferirNegocio({
             {perguntaConversao ? (
               <Checkbox
                 label="Deseja converter este lead em cliente ao mover?"
+                description="A negociação será encerrada como ganha e sairá do Kanban."
                 checked={converterEmCliente}
                 onChange={(evento) => setConverterEmCliente(evento.target.checked)}
               />

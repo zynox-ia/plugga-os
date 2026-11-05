@@ -20,7 +20,8 @@ export async function converterLead(
     return { ok: false, erro: { ...resposta.erro, mensagem: problemas.length ? problemas.join(" ") : resposta.erro.mensagem } };
   }
   const resultado = convertLeadResponseSchema.safeParse(resposta.dados);
-  if (!resultado.success || resultado.data.lead.id !== negocio.id || resultado.data.lead.client?.id !== resultado.data.client.id) {
+  if (!resultado.success || resultado.data.lead.id !== negocio.id || resultado.data.lead.client?.id !== resultado.data.client.id
+    || resultado.data.lead.status !== "won" || !resultado.data.lead.closedAt) {
     return { ok: false, erro: { mensagem: "Não foi possível confirmar a conversão. Atualize o quadro para conferir o cliente.", porCampo: {} } };
   }
   return { ok: true, dados: resultado.data };

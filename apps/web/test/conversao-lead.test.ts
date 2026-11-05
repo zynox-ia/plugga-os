@@ -15,7 +15,7 @@ const negocio: Deal = {
   contact: null, client: null, tags: [], stageEnteredAt: "2026-11-05T12:00:00Z", closedAt: null, lossReason: null, revisitOn: null, createdAt: "2026-11-05T12:00:00Z",
 };
 const cliente = { id: "00000000-0000-4000-8000-000000001005", name: "Cliente sintético" };
-const convertido = { ...negocio, client: cliente };
+const convertido = { ...negocio, client: cliente, status: "won" as const, closedAt: "2026-11-05T12:30:00Z" };
 
 test("converte com os dados salvos em um único POST, sem PATCH", async () => {
   const chamadas: string[] = [];
@@ -37,7 +37,7 @@ test("nome com telefone, email ou documento permite conversão", async () => {
     { phone: null, email: null, document: "11222333000181" },
   ]) {
     const atual = { ...negocio, lead: { ...negocio.lead, ...identificador } };
-    globalThis.fetch = async () => Response.json({ lead: { ...atual, client: cliente }, client: cliente, created: true });
+    globalThis.fetch = async () => Response.json({ lead: { ...convertido, lead: atual.lead }, client: cliente, created: true });
     assert.equal((await converterLead(atual)).ok, true);
   }
 });
@@ -97,4 +97,17 @@ test("rede indisponível e resposta de sucesso incompleta não confirmam convers
   assert.equal((await converterLead(negocio)).ok, false);
   globalThis.fetch = async () => Response.json({});
   assert.equal((await converterLead(negocio)).ok, false);
+});
+
+test("conversão só confirma sucesso quando o negócio foi encerrado como ganho", async () => {
+  for (const lead of [{ ...convertido, status: "open", closedAt: null }, { ...convertido, closedAt: null }]) {
+    globalThis.fetch = async () => Response.json({ lead, client: cliente, created: true });
+    assert.equal((await converterLead(negocio)).ok, false);
+  }
+  globalThis.fetch = async () => Response.json({ lead: convertido, client: cliente, created: true });
+  const resposta = await converterLead(negocio);
+  assert.equal(resposta.ok, true);
+  if (!resposta.ok) throw new Error("A conversão deveria concluir");
+  assert.equal(resposta.dados.lead.status, "won");
+  assert.equal(resposta.dados.lead.closedAt, convertido.closedAt);
 });

@@ -31,8 +31,11 @@ trabalho, os limites e as verificações combinadas com André. Não é uma nova
    menos telefone, e-mail ou CPF/CNPJ válido. Mostrar sucesso depois da resposta
    validada da API; possíveis duplicidades exigem escolha explícita. Edição de
    perfil permanece na ficha do lead, sem PATCH no fluxo da conversão.
-   Manual: clicar em Converter em cliente e conferir sucesso e vínculo após
-   recarregar; verificar orientação quando faltarem dados e escolha de duplicidade.
+   Conforme decisão posterior de André, converter também encerra a negociação
+   como ganha na mesma transação e retira o card do Kanban, preservando histórico.
+   A mesma regra vale para a conversão opcional ao transferir entre pipelines.
+   Manual: clicar em Converter em cliente e conferir sucesso, vínculo e saída do
+   Kanban após recarregar; verificar orientação quando faltarem dados e duplicidade.
 3. [PLU-301 — Atualização do quadro](https://linear.app/zynox-dev/issue/PLU-301).
    Atualizar relógio e dados no retorno à aba sem sobrescrever operações pendentes
    ou aceitar respostas antigas. Verificar relógio controlado, falha de rede e

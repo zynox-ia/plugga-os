@@ -590,7 +590,7 @@ describe.skipIf(!HABILITADO)("negócios: quadro do pipeline no Postgres", () => 
       await expect(negocios.transfer(negocio.id, destino, pessoas.forasteiro)).rejects.toBeInstanceOf(NaoEncontrado);
 
       const movido = await negocios.transfer(negocio.id, destino, pessoas.pluggaVendedor);
-      expect(movido).toMatchObject({ companyId: "plugga", pipelineId: mercadoLivre.id, stageId: mercadoLivre.stages[1]!.id, tags: [] });
+      expect(movido).toMatchObject({ companyId: "plugga", pipelineId: mercadoLivre.id, stageId: mercadoLivre.stages[1]!.id, tags: [], status: "open", closedAt: null, client: null });
       expect(movido.owner.id).toBe(pessoas.ana.id);
       const historico = await prisma.dealHistory.findMany({ where: { dealId: negocio.id }, orderBy: { occurredAt: "asc" } });
       expect(historico.map((h) => h.kind)).toEqual(["created", "transferred"]);
@@ -654,6 +654,8 @@ describe.skipIf(!HABILITADO)("negócios: quadro do pipeline no Postgres", () => 
       expect(resultado.created).toBe(false);
       expect(resultado.client).toEqual({ id: existente.id, name: existente.name });
       expect(resultado.lead.client).toEqual({ id: existente.id, name: existente.name });
+      expect(resultado.lead).toMatchObject({ status: "won", closedAt: expect.any(String), stageId: negocio.stageId });
+      expect((await negocios.list({ pipelineId: solar.id, status: "open" }, pessoas.ana)).deals.some((d) => d.id === negocio.id)).toBe(false);
 
       const clienteRelido = await prisma.client.findUniqueOrThrow({ where: { id: existente.id } });
       expect(clienteRelido.name).toBe(existente.name);
@@ -667,6 +669,8 @@ describe.skipIf(!HABILITADO)("negócios: quadro do pipeline no Postgres", () => 
       const segunda = await negocios.convert(negocio.id, {}, pessoas.ana);
       expect(segunda).toEqual(resultado);
       expect(await prisma.dealHistory.count({ where: { dealId: negocio.id, kind: "client_converted" } })).toBe(1);
+      expect(await prisma.dealHistory.count({ where: { dealId: negocio.id, kind: "won" } })).toBe(1);
+      expect(await prisma.eventLog.count({ where: { eventName: "commercial.deal.won", entityId: negocio.id } })).toBe(1);
     }, PRAZO_MS);
 
     it("sem documento e sem candidato, cria um cliente novo copiando perfil e contato", async () => {
@@ -679,6 +683,7 @@ describe.skipIf(!HABILITADO)("negócios: quadro do pipeline no Postgres", () => 
 
       const resultado = await negocios.convert(negocio.id, {}, pessoas.ana);
       expect(resultado.created).toBe(true);
+      expect(resultado.lead).toMatchObject({ status: "won", closedAt: expect.any(String) });
 
       const criado = await prisma.client.findUniqueOrThrow({ where: { id: resultado.client.id }, include: { contacts: true } });
       expect(criado).toMatchObject({ name: `${marca} Novo ${marcador}`, email: `${marcador}@teste.local`, city: "Manaus" });
@@ -694,11 +699,13 @@ describe.skipIf(!HABILITADO)("negócios: quadro do pipeline no Postgres", () => 
       const falha = await negocios.convert(negocio.id, {}, pessoas.ana).catch((erro) => erro);
       expect(falha).toBeInstanceOf(RequisicaoInvalida);
       expect((falha as RequisicaoInvalida & { extras?: { candidatos?: { id: string }[] } }).extras?.candidatos?.some((c) => c.id === parecido.id)).toBe(true);
-      expect(await prisma.deal.findUniqueOrThrow({ where: { id: negocio.id } }).then((d) => d.clientId)).toBeNull();
+      expect(await prisma.deal.findUniqueOrThrow({ where: { id: negocio.id } })).toMatchObject({ clientId: null, status: "open", closedAt: null });
+      expect(await prisma.dealHistory.count({ where: { dealId: negocio.id, kind: "won" } })).toBe(0);
 
       const vinculado = await negocios.convert(negocio.id, { resolution: { type: "link", clientId: parecido.id } }, pessoas.ana);
       expect(vinculado).toEqual({ created: false, client: { id: parecido.id, name: parecido.name }, lead: vinculado.lead });
       expect(vinculado.lead.client).toEqual({ id: parecido.id, name: parecido.name });
+      expect(vinculado.lead.status).toBe("won");
     }, PRAZO_MS);
 
     it("resolution create ignora os candidatos e cria mesmo assim", async () => {
@@ -730,6 +737,70 @@ describe.skipIf(!HABILITADO)("negócios: quadro do pipeline no Postgres", () => 
       await expect(negocios.convert(negocio.id, {}, pessoas.ana)).rejects.toBeInstanceOf(RequisicaoInvalida);
       expect(await prisma.deal.findUniqueOrThrow({ where: { id: negocio.id } }).then((d) => d.clientId)).toBeNull();
       expect(await prisma.dealHistory.count({ where: { dealId: negocio.id, kind: "client_converted" } })).toBe(0);
+      expect(await prisma.deal.findUniqueOrThrow({ where: { id: negocio.id } })).toMatchObject({ status: "open", closedAt: null });
+    }, PRAZO_MS);
+
+    it("converter um lead aberto já vinculado encerra como ganho sem repetir a conversão", async () => {
+      const negocio = await novo({ stageId: etapa("Visita técnica"), clientId: clienteId });
+      const resultado = await negocios.convert(negocio.id, {}, pessoas.ana);
+      expect(resultado).toMatchObject({ created: false, client: { id: clienteId }, lead: { status: "won", closedAt: expect.any(String) } });
+      const relido = await negocios.convert(negocio.id, {}, pessoas.ana);
+      expect(relido).toEqual(resultado);
+      expect(await prisma.dealHistory.count({ where: { dealId: negocio.id, kind: "won" } })).toBe(1);
+      expect(await prisma.dealHistory.count({ where: { dealId: negocio.id, kind: "client_converted" } })).toBe(0);
+    }, PRAZO_MS);
+
+    it("duas conversões simultâneas sem documento criam um cliente e um único ganho", async () => {
+      const marcador = randomUUID();
+      const nome = `${marca} Concorrente ${marcador}`;
+      const negocio = await novo({ stageId: etapa("Visita técnica"), lead: { personType: "pf", name: nome, email: `${marcador}@teste.local` } });
+      const resultados = await Promise.all([pessoas.ana, pessoas.bruno].map((pessoa) => negocios.convert(negocio.id, {}, pessoa)));
+      expect(resultados.map((r) => r.created).sort()).toEqual([false, true]);
+      expect(new Set(resultados.map((r) => r.client.id)).size).toBe(1);
+      expect(resultados.every((r) => r.lead.status === "won")).toBe(true);
+      expect(await prisma.client.count({ where: { name: nome } })).toBe(1);
+      expect(await prisma.dealHistory.count({ where: { dealId: negocio.id, kind: "client_converted" } })).toBe(1);
+      expect(await prisma.dealHistory.count({ where: { dealId: negocio.id, kind: "won" } })).toBe(1);
+      expect(await prisma.eventLog.count({ where: { entityId: negocio.id, eventName: { in: ["commercial.deal.client_converted", "commercial.deal.won"] } } })).toBe(2);
+    }, PRAZO_MS);
+
+    it("falha na auditoria do ganho reverte cliente, vínculo, encerramento e os dois históricos", async () => {
+      const marcador = randomUUID();
+      const nome = `${marca} Reverter conversão ${marcador}`;
+      const negocio = await novo({ stageId: etapa("Visita técnica"), lead: { personType: "pf", name: nome, email: `${marcador}@teste.local` } });
+      const falha = new AuditAppender();
+      falha.append = async (tx, evento) => {
+        if (evento.eventName === "commercial.deal.won") throw new Error("falha sintética na auditoria do ganho");
+        await auditoria.append(tx, evento);
+      };
+      const repositorio = new PrismaNegociosRepository(prisma, falha, clientes);
+      await expect(repositorio.convert(negocio.id, {}, pessoas.ana)).rejects.toThrow("falha sintética");
+      expect(await prisma.client.count({ where: { name: nome } })).toBe(0);
+      expect(await prisma.deal.findUniqueOrThrow({ where: { id: negocio.id } })).toMatchObject({ clientId: null, status: "open", closedAt: null });
+      expect(await prisma.dealHistory.count({ where: { dealId: negocio.id, kind: { in: ["client_converted", "won"] } } })).toBe(0);
+      expect(await prisma.eventLog.count({ where: { entityId: negocio.id, eventName: { in: ["commercial.deal.client_converted", "commercial.deal.won"] } } })).toBe(0);
+    }, PRAZO_MS);
+
+    it("lead perdido não é convertido nem reaberto como ganho", async () => {
+      const marcador = randomUUID();
+      const nome = `${marca} Perdido ${marcador}`;
+      const negocio = await novo({ stageId: etapa("Visita técnica"), lead: { personType: "pf", name: nome, email: `${marcador}@teste.local` } });
+      const motivo = solar.lossReasons.find((m) => !m.asksRevisitDate)!;
+      const perdido = await negocios.lose(negocio.id, loseDealRequestSchema.parse({ lossReasonId: motivo.id }), pessoas.ana);
+      await expect(negocios.convert(negocio.id, {}, pessoas.ana)).rejects.toBeInstanceOf(EstadoInvalido);
+      expect(await negocios.get(negocio.id, pessoas.ana)).toMatchObject({ status: "lost", closedAt: perdido.closedAt, client: null });
+      expect(await prisma.client.count({ where: { name: nome } })).toBe(0);
+      expect(await prisma.dealHistory.count({ where: { dealId: negocio.id, kind: "won" } })).toBe(0);
+    }, PRAZO_MS);
+
+    it("lead ganho sem cliente pode ser convertido mantendo o encerramento original", async () => {
+      const marcador = randomUUID();
+      const negocio = await novo({ stageId: etapa("Visita técnica"), lead: { personType: "pf", name: `${marca} Já ganho ${marcador}`, email: `${marcador}@teste.local` } });
+      const ganho = await negocios.win(negocio.id, ganhar(false), pessoas.ana);
+      const resultado = await negocios.convert(negocio.id, {}, pessoas.ana);
+      expect(resultado.lead).toMatchObject({ status: "won", closedAt: ganho.closedAt, client: { id: resultado.client.id } });
+      expect(await prisma.dealHistory.count({ where: { dealId: negocio.id, kind: "won" } })).toBe(1);
+      expect(await prisma.eventLog.count({ where: { entityId: negocio.id, eventName: "commercial.deal.won" } })).toBe(1);
     }, PRAZO_MS);
 
     it("sem telefone, e-mail ou documento, a conversão falha e nada muda", async () => {
@@ -751,6 +822,39 @@ describe.skipIf(!HABILITADO)("negócios: quadro do pipeline no Postgres", () => 
       const ganhoComConverter = await negocios.win(comConverter.id, ganhar(true), pessoas.ana);
       expect(ganhoComConverter.status).toBe("won");
       expect(ganhoComConverter.client).not.toBeNull();
+    }, PRAZO_MS);
+
+    it("transferir com conversão encerra como ganho na etapa e empresa de destino", async () => {
+      const marcador = randomUUID();
+      const negocio = await novo({ stageId: etapa("Visita técnica"), tagIds: [solar.tags[0]!.id], lead: { personType: "pf", name: `${marca} Transferir e converter ${marcador}`, email: `${marcador}@teste.local` } });
+      const etapaDestino = mercadoLivre.stages[1]!.id;
+      const movido = await negocios.transfer(negocio.id, transferDealRequestSchema.parse({ pipelineId: mercadoLivre.id, stageId: etapaDestino, convertToClient: true }), pessoas.ana);
+
+      expect(movido).toMatchObject({ pipelineId: mercadoLivre.id, companyId: "plugga", stageId: etapaDestino, status: "won", closedAt: expect.any(String), tags: [], client: { id: expect.any(String) } });
+      expect((await negocios.list({ pipelineId: mercadoLivre.id, status: "open" }, pessoas.ana)).deals.some((d) => d.id === negocio.id)).toBe(false);
+      expect(await prisma.dealHistory.count({ where: { dealId: negocio.id, kind: "transferred" } })).toBe(1);
+      expect(await prisma.dealHistory.count({ where: { dealId: negocio.id, kind: "client_converted" } })).toBe(1);
+      expect(await prisma.dealHistory.findFirst({ where: { dealId: negocio.id, kind: "won" } })).toMatchObject({ fromStageId: etapaDestino, actorId: pessoas.ana.id });
+      expect(await prisma.eventLog.findFirst({ where: { entityId: negocio.id, eventName: "commercial.deal.won" } })).toMatchObject({ payload: { companyId: "plugga", pipelineId: mercadoLivre.id } });
+    }, PRAZO_MS);
+
+    it("falha ao ganhar após transferir com conversão reverte transferência, cliente e encerramento", async () => {
+      const marcador = randomUUID();
+      const nome = `${marca} Reverter transferência ${marcador}`;
+      const negocio = await novo({ stageId: etapa("Visita técnica"), tagIds: [solar.tags[0]!.id], lead: { personType: "pf", name: nome, email: `${marcador}@teste.local` } });
+      const antes = await negocios.get(negocio.id, pessoas.ana);
+      const falha = new AuditAppender();
+      falha.append = async (tx, evento) => {
+        if (evento.eventName === "commercial.deal.won") throw new Error("falha sintética na auditoria do ganho após transferência");
+        await auditoria.append(tx, evento);
+      };
+      const repositorio = new PrismaNegociosRepository(prisma, falha, clientes);
+
+      await expect(repositorio.transfer(negocio.id, transferDealRequestSchema.parse({ pipelineId: mercadoLivre.id, stageId: mercadoLivre.stages[1]!.id, convertToClient: true }), pessoas.ana)).rejects.toThrow("falha sintética");
+      expect(await negocios.get(negocio.id, pessoas.ana)).toEqual(antes);
+      expect(await prisma.client.count({ where: { name: nome } })).toBe(0);
+      expect(await prisma.dealHistory.count({ where: { dealId: negocio.id } })).toBe(1);
+      expect(await prisma.eventLog.count({ where: { entityId: negocio.id, eventName: { in: ["commercial.deal.transferred", "commercial.deal.client_converted", "commercial.deal.won"] } } })).toBe(0);
     }, PRAZO_MS);
   });
 });

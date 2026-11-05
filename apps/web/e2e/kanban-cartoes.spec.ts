@@ -114,20 +114,8 @@ test("cartão compacto preserva identificação e detalhes sem o bloco de invest
   await expect(abas.getByRole("tab", { name: "Documentos", exact: true })).toBeVisible();
   await expect(documentos.getByRole("heading", { name: "Documentos do lead", exact: true })).toBeVisible();
   await expect(documentos.getByLabel("Arquivo", { exact: true })).toBeVisible();
-  await cabecalho.getByRole("button", { name: "Mais ações do lead" }).click();
-  const pedidoConversao = page.waitForResponse((r) => r.request().method() === "POST" && r.url().endsWith(`/api/leads/${negocio.id}/converter`));
-  await page.getByRole("menuitem", { name: "Converter em cliente", exact: true }).click();
-  expect((await pedidoConversao).ok()).toBe(true);
-  const sucesso = page.getByRole("dialog", { name: "Cliente convertido com sucesso", exact: true });
-  await expect(sucesso).toBeVisible();
-  await expect(sucesso.getByRole("textbox")).toHaveCount(0);
-  await expect(sucesso.getByRole("button")).toHaveCount(0);
-  await sucesso.press("Escape");
-  await expect(sucesso).toHaveCount(0);
+  await detalhes.getByRole("button", { name: "Fechar", exact: true }).click();
   await expect(detalhes).toHaveCount(0);
-  await page.reload();
-  await cartao.getByRole("button", { name: `Ações de ${negocio.lead.name}`, exact: true }).click();
-  await expect(page.getByRole("menuitem", { name: "Converter em cliente", exact: true })).toHaveCount(0);
 });
 
 test("prioridade persiste no cadastro do lead", async ({ page }) => {
@@ -206,4 +194,38 @@ test("cartão mantém conteúdo e menu contidos nas quatro larguras e preserva a
   await expect(destino.getByRole("article", { name: `Lead ${negocio.lead.name}`, exact: true })).toBeVisible();
   await expect(cartao.locator("time")).toHaveAttribute("datetime", negocio.createdAt);
   await expect(cartao.getByText(`PLU-${String(negocio.number).padStart(4, "0")}`, { exact: true })).toBeVisible();
+});
+
+test("converter cria cliente, encerra como ganho e retira o card do Kanban", async ({ page, request, baseURL }) => {
+  const marca = Date.now();
+  const lead = await criar<Deal>(request, baseURL!, "/api/leads", {
+    pipelineId: pipeline.id, stageId: pipeline.stages[0]!.id, ownerId: negocio.owner.id,
+    title: "Conversão sintética E2E", value: null, expectedCloseDate: null, tagIds: [],
+    lead: { personType: "pj", name: `Lead da conversão ${marca}`, email: `conversao-${marca}@teste.local` },
+  });
+  await page.goto(`/comercial/pipelines?pipeline=${pipeline.id}`);
+  const cartao = page.getByRole("article", { name: `Lead ${lead.lead.name}`, exact: true });
+  await cartao.getByRole("button", { name: `Ações de ${lead.lead.name}`, exact: true }).click();
+  const pedido = page.waitForResponse((r) => r.request().method() === "POST" && r.url().endsWith(`/api/leads/${lead.id}/converter`));
+  await page.getByRole("menuitem", { name: "Converter em cliente", exact: true }).click();
+  const resposta = await pedido;
+  expect(resposta.ok()).toBe(true);
+  const convertido = await resposta.json();
+  expect(convertido.lead.status).toBe("won");
+  expect(convertido.lead.closedAt).not.toBeNull();
+  expect(convertido.lead.client.id).toBe(convertido.client.id);
+  const sucesso = page.getByRole("dialog", { name: "Cliente convertido com sucesso", exact: true });
+  await expect(sucesso).toBeVisible();
+  await expect(sucesso).toHaveCSS("backdrop-filter", /blur\(20px\)/);
+  await expect(sucesso.getByRole("textbox")).toHaveCount(0);
+  await sucesso.getByRole("button", { name: "Fechar confirmação", exact: true }).click();
+  await expect(sucesso).toHaveCount(0);
+  await expect(cartao).toHaveCount(0);
+  await page.reload();
+  await expect(cartao).toHaveCount(0);
+  const leitura = await request.get(`/api/leads/${lead.id}`);
+  expect(leitura.ok()).toBe(true);
+  expect(await leitura.json()).toMatchObject({ status: "won", client: { id: convertido.client.id } });
+  const cliente = await request.get(`/api/clientes/${convertido.client.id}`);
+  expect(cliente.ok()).toBe(true);
 });
