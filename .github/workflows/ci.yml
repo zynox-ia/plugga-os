@@ -56,6 +56,21 @@ jobs:
           --health-timeout 5s
           --health-retries 10
 
+      rustfs:
+        image: rustfs/rustfs@sha256:8cc9801755448b71a786705ce76692c77e14936cccd87cf2fc31842e58f4d1ff
+        env:
+          RUSTFS_ACCESS_KEY: plugga_os_test
+          RUSTFS_SECRET_KEY: local_test_storage_only_change_me
+          RUSTFS_CONSOLE_ENABLE: "false"
+        ports:
+          - 59002:9000
+        options: >-
+          --health-cmd "curl -f http://127.0.0.1:9000/health/ready"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 20
+          --tmpfs /data:uid=10001,gid=10001
+
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -72,6 +87,14 @@ jobs:
 
       - name: Install dependencies from the lockfile
         run: pnpm install --frozen-lockfile
+
+      - name: Provision isolated storage bucket
+        env:
+          STORAGE_ENDPOINT: http://127.0.0.1:59002
+          STORAGE_ACCESS_KEY: plugga_os_test
+          STORAGE_SECRET_KEY: local_test_storage_only_change_me
+          STORAGE_BUCKET: plugga-arquivos
+        run: node apps/api/scripts/provisionar-storage.mjs
 
       - name: Fail on production dependency vulnerabilities
         run: pnpm audit --prod --audit-level high
@@ -152,6 +175,14 @@ jobs:
 
       - name: Verify pipeline deals against Postgres
         run: pnpm --filter @plugga/api test:negocios
+
+      - name: Verify lead documents against Postgres and RustFS
+        env:
+          STORAGE_ENDPOINT: http://127.0.0.1:59002
+          STORAGE_ACCESS_KEY: plugga_os_test
+          STORAGE_SECRET_KEY: local_test_storage_only_change_me
+          STORAGE_BUCKET: plugga-arquivos
+        run: pnpm --filter @plugga/api test:documentos
 
       - name: Verify login limiter and session cache against Redis
         run: pnpm --filter @plugga/api test:redis
@@ -245,6 +276,10 @@ jobs:
       - name: Start API for web e2e
         env:
           DATABASE_URL: postgresql://plugga_os_test:local_test_only_change_me@localhost:55432/plugga_os_test?schema=public
+          STORAGE_ENDPOINT: http://127.0.0.1:59002
+          STORAGE_ACCESS_KEY: plugga_os_test
+          STORAGE_SECRET_KEY: local_test_storage_only_change_me
+          STORAGE_BUCKET: plugga-arquivos
           DEV_AUTH_ENABLED: "true"
           AUTH_SESSION_SECRET: ci_local_only_session_secret_change_me_please
           HOST: 127.0.0.1
@@ -282,12 +317,28 @@ jobs:
           API_INTERNAL_URL: http://127.0.0.1:3001
         run: pnpm test:e2e
 
+      - name: Playwright activities in development preview
+        id: playwright-atividades
+        env:
+          CI: "true"
+          API_INTERNAL_URL: http://127.0.0.1:3001
+        run: pnpm --filter @plugga/web test:atividades-dev
+
       - name: Upload Playwright failure artifacts
         if: ${{ failure() && steps.playwright.outcome == 'failure' }}
         uses: actions/upload-artifact@v4
         with:
           name: playwright-failure-${{ github.run_attempt }}
           path: apps/web/test-results
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Upload development activities failure artifacts
+        if: ${{ failure() && steps.playwright-atividades.outcome == 'failure' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: activities-dev-failure-${{ github.run_attempt }}
+          path: apps/web/test-results/atividades-dev
           if-no-files-found: warn
           retention-days: 14
 

@@ -3,6 +3,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { test } from "node:test";
+import { fileURLToPath } from "node:url";
 
 import { comparar, contarChamadas } from "./verifica-eventlog.mjs";
 
@@ -42,6 +43,6 @@ test("aceita até o que a linha de base permite e avisa a folga", () => {
 test("a árvore real passa na linha de base versionada", async () => {
   const { readFileSync } = await import("node:fs");
   const base = JSON.parse(readFileSync(new URL("./eventlog-legado.json", import.meta.url), "utf8")).arquivos;
-  const real = contarChamadas(new URL("../apps/api/src", import.meta.url).pathname);
+  const real = contarChamadas(fileURLToPath(new URL("../apps/api/src", import.meta.url)));
   assert.deepEqual(comparar(real, base).violacoes, []);
 });

@@ -211,9 +211,9 @@ export function runLocalTestAction(
       "--wait",
       "postgres-test",
       "redis-test",
-      "seaweedfs-test",
+      "rustfs-test",
     );
-    compose("run", "--rm", "seaweedfs-test-provision");
+    compose("run", "--rm", "rustfs-test-provision");
   }
 
   function migrate() {

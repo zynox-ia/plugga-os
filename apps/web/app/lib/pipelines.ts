@@ -21,7 +21,7 @@ export const NOME_DA_COR: Record<(typeof coresDePipeline)[number], string> = {
 export const CORES = coresDePipeline;
 
 /** Item de lista ainda sem id ganha uma chave local, só para o React. */
-type ComChave<T> = T & { chave: string };
+export type ComChave<T> = T & { chave: string };
 
 export type Rascunho = Omit<UpdatePipelineRequest, "stages" | "tags" | "lossReasons" | "updatedAt"> & {
   /** null: pipeline novo, ainda não gravado. */
@@ -35,7 +35,8 @@ export type Rascunho = Omit<UpdatePipelineRequest, "stages" | "tags" | "lossReas
 let sequencia = 0;
 export const novaChave = () => `novo-${++sequencia}`;
 
-const comChave = <T extends { id?: string }>(itens: T[]): ComChave<T>[] => itens.map((item) => ({ ...item, chave: item.id ?? novaChave() }));
+export const comChave = <T extends { id?: string }>(itens: T[]): ComChave<T>[] =>
+  itens.map((item) => ({ ...item, chave: item.id ?? novaChave() }));
 
 export function rascunhoDe(pipeline: Pipeline): Rascunho {
   const edicao = pipelineParaEdicao(pipeline);
@@ -48,7 +49,9 @@ export function rascunhoDe(pipeline: Pipeline): Rascunho {
   };
 }
 
-/** Ponto de partida de um pipeline novo: etapas genéricas e os motivos de perda que o time já usa no Bitrix. */
+export const carregarPipeline = rascunhoDe;
+
+/** Rascunho inicial de um pipeline novo, com sugestões de etapas e motivos. */
 export function rascunhoNovo(empresa: CompanyKey): Rascunho {
   return {
     id: null,
@@ -56,30 +59,24 @@ export function rascunhoNovo(empresa: CompanyKey): Rascunho {
     companyId: empresa,
     name: "",
     description: null,
-    valueLabel: "Valor",
+    valueLabel: "Investimento estimado",
     color: "#0077FF",
     wonLabel: "Ganho",
     lostLabel: "Perdido",
     stageDestinations: {},
     stages: comChave<UpdatePipelineRequest["stages"][number]>([
-      { name: "Iniciar atendimento", color: "#94A3B8", staleAfterDays: 5 },
-      { name: "Qualificação", color: "#00A3FF", staleAfterDays: 7 },
-      { name: "Proposta", color: "#7C5CFF", staleAfterDays: 10 },
-      { name: "Negociação", color: "#F5A524", staleAfterDays: 7 },
+      { name: "Iniciar atendimento", color: "#94A3B8", staleAfterDays: 5, asksClientConversion: false },
+      { name: "Qualificação", color: "#00A3FF", staleAfterDays: 7, asksClientConversion: false },
+      { name: "Proposta", color: "#7C5CFF", staleAfterDays: 10, asksClientConversion: false },
+      { name: "Negociação", color: "#F5A524", staleAfterDays: 7, asksClientConversion: false },
     ]),
     tags: [],
-    lossReasons: comChave<UpdatePipelineRequest["lossReasons"][number]>(
-      [
-        "Fechou com concorrente",
-        "Preço ou condição comercial",
-        "Sem crédito ou financeiro",
-        "Sem viabilidade técnica",
-        "Sem documentação ou fatura",
-        "Sem retorno",
-        "Prazo inadequado",
-        "Desistiu do projeto",
-      ].map((name) => ({ name, asksRevisitDate: name === "Prazo inadequado" })),
-    ),
+    lossReasons: comChave<UpdatePipelineRequest["lossReasons"][number]>([
+      { name: "Preço fora do orçamento", asksRevisitDate: false },
+      { name: "Optou por concorrente", asksRevisitDate: false },
+      { name: "Sem retorno / desistiu", asksRevisitDate: true },
+      { name: "Inviabilidade técnica da UC", asksRevisitDate: false },
+    ]),
     members: [],
   };
 }
@@ -93,7 +90,13 @@ export function paraCriacao(rascunho: Rascunho): CreatePipelineRequest {
     color: rascunho.color,
     wonLabel: rascunho.wonLabel,
     lostLabel: rascunho.lostLabel,
-    stages: rascunho.stages.map(({ id, name, color, staleAfterDays }) => ({ id, name, color, staleAfterDays })),
+    stages: rascunho.stages.map(({ id, name, color, staleAfterDays, asksClientConversion }) => ({
+      id,
+      name,
+      color,
+      staleAfterDays,
+      asksClientConversion,
+    })),
     tags: rascunho.tags.map(({ id, name, color }) => ({ id, name, color })),
     lossReasons: rascunho.lossReasons.map(({ id, name, asksRevisitDate }) => ({ id, name, asksRevisitDate })),
     members: [],
@@ -101,10 +104,13 @@ export function paraCriacao(rascunho: Rascunho): CreatePipelineRequest {
 }
 
 export function paraEdicao(rascunho: Rascunho, updatedAt: string): UpdatePipelineRequest {
-  return { ...paraCriacao(rascunho), updatedAt, stageDestinations: rascunho.stageDestinations };
+  return {
+    ...paraCriacao(rascunho),
+    updatedAt,
+    stageDestinations: rascunho.stageDestinations,
+  };
 }
 
-/** Compara o que vai para a API: a chave local não conta. */
 export function mesmoConteudo(a: Rascunho, b: Rascunho): boolean {
   return JSON.stringify(paraCriacao(a)) === JSON.stringify(paraCriacao(b));
 }

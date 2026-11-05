@@ -41,6 +41,24 @@ describe("iniciais", () => {
 });
 
 describe("lerErro", () => {
+  it("preserva campos do lead e aliases legados sem misturar telefone, e-mail e nome", () => {
+    const erro = lerErro({ detalhes: [
+      { campo: "lead.phone", problema: "Telefone inválido" },
+      { campo: "lead.email", problema: "E-mail inválido" },
+      { campo: "lead.name", problema: "Nome obrigatório" },
+      { campo: "contacts.0.phone", problema: "Telefone do contato inválido" },
+      { campo: "ownerId", problema: "Responsável inválido" },
+    ] }, "padrão");
+
+    assert.equal(erro.porCampo["lead.phone"], "Telefone inválido");
+    assert.equal(erro.porCampo["lead.email"], "E-mail inválido");
+    assert.equal(erro.porCampo["lead.name"], "Nome obrigatório");
+    assert.equal(erro.porCampo.lead, "Telefone inválido");
+    assert.equal(erro.porCampo["contacts.0.phone"], "Telefone do contato inválido");
+    assert.equal(erro.porCampo.contacts, "Telefone do contato inválido");
+    assert.equal(erro.porCampo.ownerId, "Responsável inválido");
+  });
+
   it("separa os problemas por campo quando a API devolve detalhes", () => {
     const erro = lerErro(
       { codigo: "REQUISICAO_INVALIDA", mensagem: "request validation failed", detalhes: [{ campo: "phone", problema: "Informe pelo menos um telefone ou e-mail." }] },
@@ -53,5 +71,20 @@ describe("lerErro", () => {
   it("usa a mensagem da API quando não há campo, e o padrão quando não há corpo", () => {
     assert.equal(lerErro({ codigo: "CONFLITO_UNICIDADE", mensagem: "Já existe um cliente com este CNPJ." }, "padrão").mensagem, "Já existe um cliente com este CNPJ.");
     assert.equal(lerErro(null, "padrão").mensagem, "padrão");
+  });
+
+  it("preserva apenas candidatos de conversão válidos no erro da API", () => {
+    const erro = lerErro({
+      codigo: "REQUISICAO_INVALIDA",
+      mensagem: "Escolha como continuar.",
+      candidatos: [
+        { id: "00000000-0000-4000-8000-000000000001", name: "Cliente existente", personType: "pj", matchedOn: ["email"] },
+        { id: "invalido", name: "Ignorado" },
+      ],
+    }, "padrão");
+
+    assert.deepEqual(erro.candidatos?.map(({ id, name }) => ({ id, name })), [
+      { id: "00000000-0000-4000-8000-000000000001", name: "Cliente existente" },
+    ]);
   });
 });

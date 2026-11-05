@@ -1,6 +1,6 @@
 export const ESPACO_COLUNAS_KANBAN = 16;
-const LARGURA_MINIMA = 336;
-const LARGURA_MAXIMA = 672;
+const LARGURA_MINIMA = 280;
+const LARGURA_MAXIMA = 320;
 
 /** Distribui apenas etapas inteiras; telas estreitas podem ficar abaixo do mínimo. */
 export function calcularLayoutKanban(larguraDisponivel: number, totalEtapas: number) {

@@ -652,6 +652,390 @@
     ]
   },
   {
+    "metodo": "GET",
+    "caminho": "/leads",
+    "controller": "NegociosController.list",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.pipelines",
+      "departamento:crm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/leads",
+    "controller": "NegociosController.create",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.pipelines",
+      "departamento:crm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/leads/:dealId/documentos",
+    "controller": "LeadDocumentosController.list",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.pipelines",
+      "departamento:crm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/leads/:dealId/documentos",
+    "controller": "LeadDocumentosController.upload",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.pipelines",
+      "departamento:crm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "PATCH",
+    "caminho": "/leads/:dealId/documentos/:id",
+    "controller": "LeadDocumentosController.update",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.pipelines",
+      "departamento:crm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/leads/:dealId/documentos/:id/arquivar",
+    "controller": "LeadDocumentosController.archive",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.pipelines",
+      "departamento:crm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/leads/:dealId/documentos/:id/download",
+    "controller": "LeadDocumentosController.download",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.pipelines",
+      "departamento:crm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/leads/:dealId/documentos/:id/preview",
+    "controller": "LeadDocumentosController.preview",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.pipelines",
+      "departamento:crm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/leads/:dealId/propostas",
+    "controller": "LeadPropostasController.list",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.pipelines",
+      "departamento:crm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/leads/:dealId/propostas",
+    "controller": "LeadPropostasController.create",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.pipelines",
+      "departamento:crm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "PATCH",
+    "caminho": "/leads/:dealId/propostas/:proposalId",
+    "controller": "LeadPropostasController.update",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.pipelines",
+      "departamento:crm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/leads/:dealId/propostas/:proposalId/download",
+    "controller": "LeadPropostasController.download",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.pipelines",
+      "departamento:crm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/leads/:dealId/propostas/:proposalId/gerar",
+    "controller": "LeadPropostasController.generate",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.pipelines",
+      "departamento:crm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/leads/:dealId/propostas/:proposalId/preview",
+    "controller": "LeadPropostasController.preview",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.pipelines",
+      "departamento:crm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/leads/:dealId/propostas/modelos",
+    "controller": "LeadPropostasController.templates",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.pipelines",
+      "departamento:crm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/leads/:id",
+    "controller": "DetalhesNegocioController.get",
+    "acesso": "authenticated",
+    "papeis": [],
+    "guards": [
+      "SessionAuthGuard"
+    ]
+  },
+  {
+    "metodo": "PATCH",
+    "caminho": "/leads/:id",
+    "controller": "DetalhesNegocioController.update",
+    "acesso": "authenticated",
+    "papeis": [],
+    "guards": [
+      "SessionAuthGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/leads/:id/converter",
+    "controller": "NegociosController.convert",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.pipelines",
+      "departamento:crm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/leads/:id/etapa",
+    "controller": "NegociosController.moveStage",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.pipelines",
+      "departamento:crm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/leads/:id/ganho",
+    "controller": "NegociosController.win",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.pipelines",
+      "departamento:crm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/leads/:id/historico",
+    "controller": "DetalhesNegocioController.history",
+    "acesso": "authenticated",
+    "papeis": [],
+    "guards": [
+      "SessionAuthGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/leads/:id/perda",
+    "controller": "NegociosController.lose",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.pipelines",
+      "departamento:crm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "PATCH",
+    "caminho": "/leads/:id/prioridade",
+    "controller": "NegociosController.setPriority",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.pipelines",
+      "departamento:crm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/leads/:id/transferencia",
+    "controller": "NegociosController.transfer",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.pipelines",
+      "departamento:crm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/leads/clientes/:clientId/opcoes",
+    "controller": "NegociosController.clientOptions",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.pipelines",
+      "departamento:crm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/leads/lote",
+    "controller": "NegociosController.bulk",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.pipelines",
+      "departamento:crm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
     "metodo": "DELETE",
     "caminho": "/llm/chave",
     "controller": "ChaveController.apagar",
@@ -705,130 +1089,6 @@
     "guards": [
       "SessionAuthGuard",
       "AcessoGuard"
-    ]
-  },
-  {
-    "metodo": "GET",
-    "caminho": "/negocios",
-    "controller": "NegociosController.list",
-    "acesso": "acesso",
-    "papeis": [
-      "tela:crm.pipelines",
-      "departamento:crm:membro"
-    ],
-    "guards": [
-      "SessionAuthGuard",
-      "AcessoGuard"
-    ]
-  },
-  {
-    "metodo": "POST",
-    "caminho": "/negocios",
-    "controller": "NegociosController.create",
-    "acesso": "acesso",
-    "papeis": [
-      "tela:crm.pipelines",
-      "departamento:crm:membro"
-    ],
-    "guards": [
-      "SessionAuthGuard",
-      "AcessoGuard",
-      "OriginCheckGuard",
-      "ThrottlerGuard"
-    ]
-  },
-  {
-    "metodo": "POST",
-    "caminho": "/negocios/:id/etapa",
-    "controller": "NegociosController.moveStage",
-    "acesso": "acesso",
-    "papeis": [
-      "tela:crm.pipelines",
-      "departamento:crm:membro"
-    ],
-    "guards": [
-      "SessionAuthGuard",
-      "AcessoGuard",
-      "OriginCheckGuard",
-      "ThrottlerGuard"
-    ]
-  },
-  {
-    "metodo": "POST",
-    "caminho": "/negocios/:id/ganho",
-    "controller": "NegociosController.win",
-    "acesso": "acesso",
-    "papeis": [
-      "tela:crm.pipelines",
-      "departamento:crm:membro"
-    ],
-    "guards": [
-      "SessionAuthGuard",
-      "AcessoGuard",
-      "OriginCheckGuard",
-      "ThrottlerGuard"
-    ]
-  },
-  {
-    "metodo": "POST",
-    "caminho": "/negocios/:id/perda",
-    "controller": "NegociosController.lose",
-    "acesso": "acesso",
-    "papeis": [
-      "tela:crm.pipelines",
-      "departamento:crm:membro"
-    ],
-    "guards": [
-      "SessionAuthGuard",
-      "AcessoGuard",
-      "OriginCheckGuard",
-      "ThrottlerGuard"
-    ]
-  },
-  {
-    "metodo": "POST",
-    "caminho": "/negocios/:id/transferencia",
-    "controller": "NegociosController.transfer",
-    "acesso": "acesso",
-    "papeis": [
-      "tela:crm.pipelines",
-      "departamento:crm:membro"
-    ],
-    "guards": [
-      "SessionAuthGuard",
-      "AcessoGuard",
-      "OriginCheckGuard",
-      "ThrottlerGuard"
-    ]
-  },
-  {
-    "metodo": "GET",
-    "caminho": "/negocios/clientes/:clientId/opcoes",
-    "controller": "NegociosController.clientOptions",
-    "acesso": "acesso",
-    "papeis": [
-      "tela:crm.pipelines",
-      "departamento:crm:membro"
-    ],
-    "guards": [
-      "SessionAuthGuard",
-      "AcessoGuard"
-    ]
-  },
-  {
-    "metodo": "POST",
-    "caminho": "/negocios/lote",
-    "controller": "NegociosController.bulk",
-    "acesso": "acesso",
-    "papeis": [
-      "tela:crm.pipelines",
-      "departamento:crm:membro"
-    ],
-    "guards": [
-      "SessionAuthGuard",
-      "AcessoGuard",
-      "OriginCheckGuard",
-      "ThrottlerGuard"
     ]
   },
   {

@@ -16,12 +16,12 @@ const formatoDia = new Intl.DateTimeFormat("pt-BR", { weekday: "long", day: "num
 
 function PrevisaoDoNegocio({ negocio, pipeline, acoes }: { negocio: Deal; pipeline: Pipeline; acoes: AcoesDoNegocio }) {
   return (
-    <article className={estilos.negocio} aria-label={`Negócio ${negocio.title}`}>
+    <article className={estilos.negocio} aria-label={`Lead ${negocio.lead.name}`}>
       <div className={estilos.tituloNegocio}>
-        <h4 title={negocio.title}>{negocio.title}</h4>
+        <h4 title={negocio.lead.name}>{negocio.lead.name}</h4>
         {negocio.status === "open" ? <MenuDoNegocio negocio={negocio} pipeline={pipeline} acoes={acoes} /> : null}
       </div>
-      <span className={estilos.cliente} title={negocio.client.name}>{negocio.client.name}</span>
+      <span className={estilos.cliente} title={negocio.title}>{negocio.title}</span>
       <div className={estilos.valor}>
         <span>{negocio.value === null ? "Sem valor" : valorCurto(Number(negocio.value))}</span>
         {negocio.status !== "open" ? <span>{ROTULO_STATUS[negocio.status]}</span> : null}

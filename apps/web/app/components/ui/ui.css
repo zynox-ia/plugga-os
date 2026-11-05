@@ -180,22 +180,24 @@ h1.ui-heading > .ui-heading-icon > svg { width: 22px; height: 22px; }
 }
 .ui-dialog-header-content {
   display: flex;
-  align-items: stretch;
+  align-items: center;
   gap: 12px;
   min-width: 0;
 }
 .ui-dialog-header-icon {
   display: grid;
   place-items: center;
-  align-self: stretch;
-  aspect-ratio: 1 / 1;
+  width: 40px;
+  height: 40px;
   min-width: 40px;
   min-height: 40px;
+  max-width: 40px;
+  max-height: 40px;
   border-radius: 10px;
   color: white;
   background: linear-gradient(135deg, var(--ui-text), var(--ui-primary));
   border: 1px solid #0066cc;
-  flex-shrink: 0;
+  flex: 0 0 40px;
 }
 .ui-dialog-header-icon svg {
   width: 20px;
@@ -212,10 +214,11 @@ h1.ui-heading > .ui-heading-icon > svg { width: 22px; height: 22px; }
 .ui-dialog-header h2 {
   margin: 0;
   color: var(--ui-text);
-  font-size: 17px;
+  font-size: 16px;
   font-weight: 500;
   line-height: 1.25;
   letter-spacing: -0.01em;
+  white-space: nowrap;
 }
 .ui-dialog-header-text p,
 .ui-dialog-header p {
@@ -844,6 +847,66 @@ select.ui-input {
   font-weight: 500;
 }
 
+/* Seletor de tipo de cliente no modal (Pessoa Física / Jurídica) */
+.ui-dialog-section-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+.ui-dialog-section-header-row .ui-heading {
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 500;
+  margin: 0;
+}
+.ui-dialog-form .seletor-tipo {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px;
+  background: var(--ui-subtle, #f3f7fb);
+  border: 1px solid var(--ui-divider);
+  border-radius: var(--radius-sm, 8px);
+  flex-shrink: 0;
+}
+.ui-dialog-form .seletor-tipo button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  color: var(--ui-muted, #536579);
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.2;
+  font-family: var(--font-general-sans), sans-serif;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+.ui-dialog-form .seletor-tipo button:hover:not([aria-checked="true"]) {
+  color: var(--ui-text, #0f294a);
+  background: rgba(15, 41, 74, 0.04);
+}
+.ui-dialog-form .seletor-tipo button[aria-checked="true"] {
+  color: var(--ui-text, #0f294a);
+  background: var(--ui-surface, #ffffff);
+  font-weight: 500;
+  box-shadow: 0 1px 3px rgba(15, 41, 74, 0.08);
+}
+.ui-dialog-form .seletor-tipo button:focus-visible {
+  outline: 2px solid var(--ui-focus);
+  outline-offset: 1px;
+}
+.ui-dialog-form .seletor-tipo button svg {
+  color: inherit;
+  flex-shrink: 0;
+}
+
 /* Seletor visual de membro/responsável com avatar, nome e e-mail */
 .ui-member-picker {
   position: relative;
@@ -1053,3 +1116,175 @@ select.ui-input {
   font-size: 11px;
   color: var(--ui-muted);
 }
+
+/* Área de Minuta Contratual com IA e Drag & Drop */
+.ui-contract-dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 24px 20px;
+  border: 1.5px dashed rgba(0, 102, 204, 0.3);
+  border-radius: var(--radius-md, 12px);
+  background: linear-gradient(180deg, rgba(240, 247, 255, 0.6) 0%, rgba(243, 247, 251, 0.4) 100%);
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.ui-contract-dropzone:hover,
+.ui-contract-dropzone[data-dragging="true"] {
+  border-color: var(--ui-primary, #0066cc);
+  background: var(--ui-focus-bg, #f0f7ff);
+  box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.08);
+}
+.ui-contract-dropzone-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: #ffffff;
+  border: 1px solid rgba(0, 102, 204, 0.18);
+  display: grid;
+  place-items: center;
+  color: var(--ui-primary, #0066cc);
+  box-shadow: 0 2px 6px rgba(15, 41, 74, 0.06);
+}
+.ui-contract-dropzone-title {
+  margin: 0;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--ui-text, #0f294a);
+  font-family: var(--font-general-sans), sans-serif;
+}
+.ui-contract-dropzone-desc {
+  margin: 0;
+  font-size: 12px;
+  color: var(--ui-muted, #536579);
+  line-height: 1.35;
+}
+.ui-contract-ia-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: 9999px;
+  background: rgba(0, 102, 204, 0.06);
+  border: 1px solid rgba(0, 102, 204, 0.15);
+  color: var(--ui-primary, #0066cc);
+  font-size: 10.5px;
+  font-weight: 500;
+  font-family: var(--font-general-sans), sans-serif;
+}
+.ui-contract-company-notice {
+  display: flex;
+  align-items: center;
+  height: 40px;
+  min-height: 40px;
+  padding: 0 12px;
+  border-radius: var(--radius-sm, 8px);
+  background: var(--ui-subtle, #f3f7fb);
+  border: 1px solid var(--ui-divider);
+  color: var(--ui-muted, #536579);
+  font-size: 12px;
+  line-height: 1.3;
+  box-sizing: border-box;
+}
+.ui-contract-company-notice strong {
+  color: var(--ui-text);
+  font-weight: 500;
+}
+.ui-contract-file-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  background: #ffffff;
+  border: 1px solid var(--ui-divider);
+  border-radius: var(--radius-sm, 8px);
+  box-shadow: 0 1px 3px rgba(15, 41, 74, 0.04);
+}
+.ui-contract-file-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+}
+.ui-contract-file-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: var(--ui-subtle, #f3f7fb);
+  border: 1px solid var(--ui-divider);
+  display: grid;
+  place-items: center;
+  color: var(--ui-primary, #0066cc);
+  flex-shrink: 0;
+}
+.ui-contract-file-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.ui-contract-file-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ui-text, #0f294a);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ui-contract-file-meta {
+  font-size: 11.5px;
+  color: var(--ui-muted, #536579);
+}
+.ui-contract-ia-success {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: rgba(0, 135, 90, 0.06);
+  border: 1px solid rgba(0, 135, 90, 0.18);
+  border-radius: var(--radius-sm, 8px);
+  color: #00875a;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.35;
+}
+
+/* Signatários da Assinatura Digital */
+.ui-signers-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ui-signer-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--ui-divider);
+  border-radius: var(--radius-sm, 8px);
+  background: var(--ui-surface, #ffffff);
+}
+.ui-signer-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+}
+.ui-signer-role-pill {
+  font-size: 11px;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  background: var(--ui-subtle, #f3f7fb);
+  border: 1px solid var(--ui-divider);
+  color: var(--ui-muted, #536579);
+  flex-shrink: 0;
+}
+

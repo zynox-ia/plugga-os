@@ -87,7 +87,7 @@ Os dois modos convivem de propósito:
 
 | Comando | Sobe | Para quê |
 |---|---|---|
-| `docker compose up -d` | postgres, redis, seaweedfs | infra para `pnpm dev` |
+| `docker compose up -d` | postgres, redis, rustfs | infra para `pnpm dev` |
 | `docker compose --profile app up -d` | infra + api + web | sistema completo em containers |
 
 Sem o profile nada mudou, então `pnpm dev` continua livre nas portas 3000/3001.
@@ -141,7 +141,7 @@ Como o seed não desfaz mais nada, **resetar o ambiente local é um ato
 explícito** — derrube o volume e recomece:
 
 ```bash
-docker compose down -v      # apaga postgres_data, redis_data e seaweedfs_data (as faturas enviadas)
+docker compose down -v      # apaga postgres_data, redis_data e rustfs_data (as faturas enviadas)
 docker compose up -d
 pnpm db:migrate:deploy
 pnpm db:seed
@@ -318,6 +318,18 @@ pnpm typecheck
 pnpm test
 pnpm build
 ```
+
+Com a API de teste isolada em execução, `pnpm --filter @plugga/web test:e2e`
+verifica o artefato de produção e exige `pnpm build` antes. A suíte recusa uma
+porta ocupada; não reutiliza o servidor de desenvolvimento do André.
+`PLAYWRIGHT_BASE_URL` permite indicar outro servidor de teste, que deve executar
+o artefato de produção para os testes da ficha do lead.
+
+O preview de tarefas temporárias fica somente em desenvolvimento e teste.
+`pnpm --filter @plugga/web test:atividades-dev` preserva seu fluxo completo em
+Next DEV na porta 3220, com saída ignorada em `dist/atividades-e2e`. Ele usa a
+API de teste já iniciada em 3221; `API_INTERNAL_URL` permite escolher outra,
+como a API efêmera da CI em 3001. Nenhuma dessas suítes inicia ou reseta banco.
 
 ## Segurança e escopo do Bloco A
 

@@ -40,6 +40,11 @@ describe("inventário de rotas (e2e)", () => {
     expect(new Set(chaves).size).toBe(chaves.length);
   });
 
+  it("cadastro deste recurso publica POST /leads, sem aliases /negocios ou /deals", () => {
+    expect(rotas.filter((r) => r.metodo === "POST" && r.caminho === "/leads")).toHaveLength(1);
+    expect(rotas.filter((r) => /^\/(negocios|deals)(\/|$)/.test(r.caminho))).toEqual([]);
+  });
+
   it("cada rota tem um acesso do conjunto conhecido", () => {
     for (const r of rotas) {
       expect(

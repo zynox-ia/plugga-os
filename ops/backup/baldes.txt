@@ -1,5 +1,7 @@
 # Baldes copiados pelo backup externo (ops/backup-externo.sh). Um por linha.
-# São os baldes de negócio ({empresa}-{departamento}) e o corpus de faturas.
+# São os baldes de negócio ({empresa}-{departamento}), os documentos dos leads
+# e o corpus de faturas. Se STORAGE_BUCKET mudar, atualize esta lista e a
+# permissão de leitura da identidade do backup antes de aceitar novos arquivos.
 # `plugga-backups` (backup local) fica de fora de propósito, para não recursar.
 # Um teste na API compara esta lista com o cadastro de baldes: balde novo sem
 # entrada aqui reprova a CI.
@@ -15,3 +17,4 @@ waze-suprimentos
 waze-financeiro
 waze-marketing
 plugga-corpus-faturas
+plugga-arquivos

@@ -4,9 +4,10 @@ import type { CompanyKey } from "@plugga/shared";
 import { useState } from "react";
 
 import { EMPRESAS_POR_ID } from "../../lib/organizacao";
-import { CORES, NOME_DA_COR, type Rascunho } from "../../lib/pipelines";
+import { CORES, NOME_DA_COR, novaChave, type Rascunho } from "../../lib/pipelines";
+import { Button } from "../ui/button";
 import { TextField, TextareaField } from "../ui/fields";
-import { IconAlertTriangle } from "../ui/icons";
+import { IconAlertTriangle, IconPlus } from "../ui/icons";
 import { Radio } from "../ui/selection";
 import { SecaoEtapas, SecaoEtiquetas } from "./secoes-do-pipeline";
 
@@ -26,15 +27,18 @@ export function EditorDePipeline({
   negociosPorEtapa,
   totalDeNegocios,
   erros,
+  aoCriarPipeline,
 }: PropsDaSecao & {
   empresasPermitidas: CompanyKey[];
   negociosPorEtapa: Record<string, number>;
   totalDeNegocios: number;
+  aoCriarPipeline?: () => void;
 }) {
   const [aba, setAba] = useState<Aba>("geral");
 
   return (
     <div className="editor-pipeline">
+      <header className="editor-pipeline-topo">
       <nav className="abas-editor" role="tablist" aria-label="Seções do pipeline">
         {ABAS.map((a) => (
           <button
@@ -52,6 +56,16 @@ export function EditorDePipeline({
           </button>
         ))}
       </nav>
+      {aba !== "geral" || aoCriarPipeline ? (
+        <Button variant="primary" size="sm" icon={<IconPlus />} disabled={aba === "etapas" && rascunho.stages.length >= 20} onClick={() => {
+          if (aba === "geral") aoCriarPipeline?.();
+          else if (aba === "etapas") aoAlterar({ stages: [...rascunho.stages, { chave: novaChave(), name: "", color: "#94A3B8", staleAfterDays: null, asksClientConversion: false }] });
+          else aoAlterar({ tags: [...rascunho.tags, { chave: novaChave(), name: "", color: "#0077FF" }] });
+        }}>
+          {aba === "geral" ? "Novo pipeline" : aba === "etapas" ? "Adicionar etapa" : "Nova etiqueta"}
+        </Button>
+      ) : null}
+      </header>
       <section id={`painel-${aba}`} role="tabpanel" aria-labelledby={`aba-${aba}`} className="painel-pipeline">
         {aba === "geral" ? <SecaoGeral rascunho={rascunho} aoAlterar={aoAlterar} erros={erros} empresasPermitidas={totalDeNegocios > 0 ? [rascunho.companyId] : empresasPermitidas} totalDeNegocios={totalDeNegocios} /> : null}
         {aba === "etapas" ? <SecaoEtapas rascunho={rascunho} aoAlterar={aoAlterar} erros={erros} negociosPorEtapa={negociosPorEtapa} /> : null}

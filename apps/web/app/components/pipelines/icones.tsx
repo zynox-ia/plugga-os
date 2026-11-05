@@ -124,30 +124,17 @@ export function Icone({ nome, tamanho = 16 }: { nome: NomeDoIcone; tamanho?: num
   );
 }
 
-const CORES_DE_AVATAR = ["#0077FF", "#7C5CFF", "#0B7A57", "#F5A524", "#E5484D", "#00A3FF"];
-
-export function iniciaisDe(nome: string): string {
-  const partes = nome.trim().split(/\s+/).filter(Boolean);
-  const primeira = partes[0]?.[0] ?? "?";
-  const ultima = partes.length > 1 ? (partes[partes.length - 1]?.[0] ?? "") : "";
-  return (primeira + ultima).toUpperCase();
-}
-
-/** Avatar com foto ou ícone quando não houver foto (padrão global do design system). */
 export function Avatar({
-  id,
   nome,
   avatarUrl,
   tamanho = "medio",
 }: {
-  id: string;
+  id?: string;
   nome: string;
   avatarUrl?: string | null;
   tamanho?: "pequeno" | "medio";
 }) {
   const [erroImg, setErroImg] = useState(false);
-  const soma = [...id].reduce((total, letra) => total + letra.charCodeAt(0), 0);
-  const corFundo = CORES_DE_AVATAR[soma % CORES_DE_AVATAR.length];
   const iconeSize = tamanho === "pequeno" ? 13 : 15;
 
   if (avatarUrl && !erroImg) {
@@ -165,7 +152,7 @@ export function Avatar({
   return (
     <span
       className={`avatar-pessoa avatar-pessoa--${tamanho}`}
-      style={{ background: corFundo }}
+      style={{ background: "#F1F5F9", color: "#52667A", border: "1px solid rgba(15, 41, 74, 0.1)" }}
       title={nome}
       aria-label={nome}
     >

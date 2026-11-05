@@ -28,6 +28,8 @@ export type OpcoesDoProxy = {
   /** Query: texto bruto (`?a=1`) ou pares; valores vazios são omitidos. */
   consulta?: string | Record<string, string | undefined>;
   corpo?: "json" | "multipart" | "nenhum";
+  /** Downloads preservam o stream binário e os cabeçalhos seguros da API. */
+  resposta?: "arquivo";
   tempoMaximoMs?: number;
   mensagemIndisponivel?: string;
 };
@@ -102,15 +104,21 @@ export async function proxyar(request: Request, opcoes: OpcoesDoProxy): Promise<
     return erroLocal(503, "SERVICO_INDISPONIVEL", opcoes.mensagemIndisponivel ?? "API indisponível");
   }
 
-  return repassar(upstream);
+  return repassar(upstream, opcoes.resposta);
 }
 
-async function repassar(upstream: Response): Promise<Response> {
-  const texto = await upstream.text();
-  const resposta = new Response(texto, {
+async function repassar(upstream: Response, tipo?: "arquivo"): Promise<Response> {
+  const corpo = tipo === "arquivo" ? upstream.body : await upstream.text();
+  const resposta = new Response(corpo, {
     status: upstream.status,
     headers: { "content-type": upstream.headers.get("content-type") ?? "application/json" },
   });
+  if (tipo === "arquivo") {
+    for (const nome of ["content-disposition", "content-security-policy", "x-content-type-options", "cache-control"]) {
+      const valor = upstream.headers.get(nome);
+      if (valor) resposta.headers.set(nome, valor);
+    }
+  }
   for (const setCookie of upstream.headers.getSetCookie()) {
     resposta.headers.append("set-cookie", setCookie);
   }

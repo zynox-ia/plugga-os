@@ -8,11 +8,18 @@ function parseUrl(rawUrl: string | undefined, variableName: string): URL {
   }
 }
 
-export function assertSafeTestDatabaseUrl(rawUrl: string, ci = false): void {
+export function assertSafeTestDatabaseUrl(rawUrl: string, ci = false, localPort?: string): void {
   const url = parseUrl(rawUrl, "DATABASE_URL");
 
   const port = url.port || "5432";
   const allowedPorts = ci ? new Set(["55432", "55433"]) : new Set(["55433"]);
+  if (!ci && localPort !== undefined) {
+    const number = Number(localPort);
+    if (!/^\d+$/.test(localPort) || number < 1024 || number > 65535) {
+      throw new Error("Invalid PLUGGA_TEST_DB_PORT");
+    }
+    allowedPorts.add(String(number));
+  }
 
   if (
     url.protocol !== "postgresql:" ||

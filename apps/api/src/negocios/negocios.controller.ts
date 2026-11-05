@@ -1,13 +1,18 @@
-import { Body, Controller, Get, HttpCode, Inject, Param, ParseUUIDPipe, Post, Query, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, HttpCode, Inject, Param, ParseUUIDPipe, Patch, Post, Query, UseGuards } from "@nestjs/common";
 import { ThrottlerGuard } from "@nestjs/throttler";
 import {
   bulkDealsRequestSchema,
+  convertLeadRequestSchema,
   createDealRequestSchema,
   listDealsQuerySchema,
   loseDealRequestSchema,
   moveDealStageRequestSchema,
+  setDealPriorityRequestSchema,
   transferDealRequestSchema,
+  winDealRequestSchema,
   type BulkDealsRequest,
+  type ConvertLeadRequest,
+  type ConvertLeadResponse,
   type CreateDealRequest,
   type Deal,
   type DealClientOptionsResponse,
@@ -15,7 +20,9 @@ import {
   type ListDealsResponse,
   type LoseDealRequest,
   type MoveDealStageRequest,
+  type SetDealPriorityRequest,
   type TransferDealRequest,
+  type WinDealRequest,
 } from "@plugga/shared";
 
 import { ZodValidationPipe } from "../common/zod-validation.pipe";
@@ -28,10 +35,11 @@ import { SessionAuthGuard } from "../core/auth/session-auth.guard";
 import { NegociosService } from "./negocios.service";
 
 /**
- * Negócios no quadro do pipeline (PLU-271). Quem alcança o pipeline (equipe,
- * gerente do CRM ou admin) vê e conduz todos os negócios dele.
+ * Leads no quadro do pipeline (PLU-271). Quem alcança o pipeline (equipe,
+ * gerente do CRM ou admin) vê e conduz todos os negócios dele. Lead tem dados
+ * próprios; só vira cliente por conversão (manual, ao ganhar ou ao transferir).
  */
-@Controller("negocios")
+@Controller("leads")
 @UseGuards(SessionAuthGuard, AcessoGuard)
 @Departamento("crm")
 @Tela("crm.pipelines")
@@ -43,7 +51,7 @@ export class NegociosController {
     return this.service.list(query, principal);
   }
 
-  /** Contatos e UCs do cliente, para o formulário do negócio. */
+  /** Contatos do cliente já vinculado, para o formulário do negócio. */
   @Get("clientes/:clientId/opcoes")
   clientOptions(@Param("clientId", ParseUUIDPipe) clientId: string): Promise<DealClientOptionsResponse> {
     return this.service.clientOptions(clientId);
@@ -63,6 +71,18 @@ export class NegociosController {
     return this.service.bulk(input, principal);
   }
 
+  /** Vincula a um cliente já cadastrado (documento igual ou escolha explícita) ou cria um novo. Idempotente. */
+  @Post(":id/converter")
+  @HttpCode(200)
+  @UseGuards(OriginCheckGuard, ThrottlerGuard)
+  convert(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body(new ZodValidationPipe(convertLeadRequestSchema)) input: ConvertLeadRequest,
+    @CurrentPrincipal() principal: AuthPrincipal,
+  ): Promise<ConvertLeadResponse> {
+    return this.service.convert(id, input, principal);
+  }
+
   @Post(":id/etapa")
   @HttpCode(200)
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
@@ -77,8 +97,18 @@ export class NegociosController {
   @Post(":id/ganho")
   @HttpCode(200)
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
-  win(@Param("id", ParseUUIDPipe) id: string, @CurrentPrincipal() principal: AuthPrincipal): Promise<Deal> {
-    return this.service.win(id, principal);
+  win(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body(new ZodValidationPipe(winDealRequestSchema)) input: WinDealRequest,
+    @CurrentPrincipal() principal: AuthPrincipal,
+  ): Promise<Deal> {
+    return this.service.win(id, input, principal);
+  }
+
+  @Patch(":id/prioridade")
+  @UseGuards(OriginCheckGuard, ThrottlerGuard)
+  setPriority(@Param("id", ParseUUIDPipe) id: string, @Body(new ZodValidationPipe(setDealPriorityRequestSchema)) input: SetDealPriorityRequest, @CurrentPrincipal() principal: AuthPrincipal): Promise<Deal> {
+    return this.service.setPriority(id, input, principal);
   }
 
   @Post(":id/perda")

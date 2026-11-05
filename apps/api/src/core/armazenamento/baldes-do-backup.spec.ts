@@ -13,10 +13,10 @@ function lista(): string[] {
     .filter((linha) => linha !== "" && !linha.startsWith("#"));
 }
 
-/** T050: o backup externo copia exatamente os baldes de negócio e o corpus. */
+/** O backup externo cobre os arquivos legados, os documentos novos e o corpus. */
 describe("ops/backup/baldes.txt", () => {
-  it("lista todos os baldes de negócio e o corpus de faturas", () => {
-    expect([...lista()].sort()).toEqual([...baldesDeNegocio(), BALDES_DE_SISTEMA.corpus].sort());
+  it("lista todos os baldes de negócio, os documentos dos leads e o corpus de faturas", () => {
+    expect([...lista()].sort()).toEqual([...baldesDeNegocio(), "plugga-arquivos", BALDES_DE_SISTEMA.corpus].sort());
   });
 
   it("não inclui o balde do backup local (evita recursão)", () => {

@@ -69,7 +69,7 @@ describe("contrato de criação", () => {
     color: "#0b7a57",
     wonLabel: "Contrato assinado",
     lostLabel: "Perdido",
-    stages: [{ name: "Qualificação", color: "#00a3ff", staleAfterDays: 7 }],
+    stages: [{ name: "Qualificação", color: "#00a3ff", staleAfterDays: 7, asksClientConversion: false }],
     tags: [],
     lossReasons: [],
     members: [],
@@ -85,7 +85,7 @@ describe("contrato de criação", () => {
     expect(createPipelineRequestSchema.safeParse({ ...valido, stages: [] }).success).toBe(false);
     const repetida = createPipelineRequestSchema.safeParse({
       ...valido,
-      stages: [...valido.stages, { name: "qualificação ", color: "#00A3FF", staleAfterDays: null }],
+      stages: [...valido.stages, { name: "qualificação ", color: "#00A3FF", staleAfterDays: null, asksClientConversion: false }],
     });
     expect(repetida.success).toBe(false);
     expect(repetida.error?.issues[0]?.path).toEqual(["stages", 1, "name"]);
@@ -114,8 +114,8 @@ describe("alterações para a auditoria", () => {
     updatedAt: "2026-10-19T10:00:00.000Z",
     updatedBy: null,
     stages: [
-      { id: ETAPA_1, name: "Qualificação", color: "#00A3FF", position: 0, staleAfterDays: 7, dealCount: 2 },
-      { id: ETAPA_2, name: "Proposta", color: "#7C5CFF", position: 1, staleAfterDays: null, dealCount: 0 },
+      { id: ETAPA_1, name: "Qualificação", color: "#00A3FF", position: 0, staleAfterDays: 7, asksClientConversion: false, dealCount: 2 },
+      { id: ETAPA_2, name: "Proposta", color: "#7C5CFF", position: 1, staleAfterDays: null, asksClientConversion: false, dealCount: 0 },
     ],
     tags: [],
     lossReasons: [],

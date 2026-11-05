@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 #
-# Ensaio de ops/backup-externo.sh sem Docker, sem VPS e sem B2: o `mc` é um
+# Ensaio de ops/backup-externo.sh sem Docker, sem VPS e sem B2: o `aws` é um
 # imitador que trabalha em pastas (origem/, destino/), o banco é um dump de
 # mentira e o curl só registra a URL do heartbeat. Prova:
 #   - caso feliz: arquivo .tar.age cifrado para os dois destinatários, manifesto
 #     coerente com o arquivo, conteúdo certo ao decifrar;
 #   - origem vazia (baldes ou banco) falha e nada chega ao destino;
 #   - arquivo com tamanho ou SHA-256 diferente do manifesto falha;
-#   - nenhuma chave aparece em argv (nem no `mc`, nem no `curl`);
+#   - nenhuma chave aparece em argv (nem no `aws`, nem no `curl`);
 #   - heartbeat: ping de sucesso no caso feliz, /fail nos demais.
 # Precisa de `age` e `age-keygen`.
 set -euo pipefail
@@ -23,60 +23,99 @@ command -v age >/dev/null && command -v age-keygen >/dev/null || falha "precisa 
 BIN="$TMP/bin"
 mkdir -p "$BIN"
 
-# --- mc de mentira: alias origem/ e destino/ (e leitura/ = destino/) viram pastas
-cat >"$BIN/mc" <<'MC'
+# --- aws de mentira: alias origem/ e destino/ (e leitura = destino) viram pastas.
+# O papel é decidido pela AWS_ACCESS_KEY_ID (cada papel tem a sua, como no
+# arquivo de ambiente de verdade), não por um alias: é assim que o aws-cli real
+# decide com qual credencial assinar cada chamada.
+cat >"$BIN/aws" <<'AWSBIN'
 #!/usr/bin/env bash
 set -euo pipefail
 echo "$*" >>"$FAKE_LOG"
-sub=$1; shift
-args=()
-for a in "$@"; do case "$a" in --quiet | --recursive | --json) ;; *) args+=("$a") ;; esac; done
+ARGS=("$@")
+
+valor_de() { # $1 = --flag ; procura em ARGS
+  local flag=$1 i
+  for ((i = 0; i < ${#ARGS[@]}; i++)); do
+    [ "${ARGS[$i]}" = "$flag" ] && { echo "${ARGS[$((i + 1))]}"; return; }
+  done
+}
+
+extrai_posicionais() { # define POS[] a partir de ARGS[2..], pulando flags conhecidas
+  POS=()
+  local pular=0 a
+  for a in "${ARGS[@]:2}"; do
+    if [ "$pular" = 1 ]; then pular=0; continue; fi
+    case "$a" in
+      --quiet) ;;
+      --endpoint-url) pular=1 ;;
+      *) POS+=("$a") ;;
+    esac
+  done
+}
+
 mapeia() {
   case "$1" in
     /trabalho/*) echo "$BACKUP_DIR_TRABALHO/${1#/trabalho/}" ;;
-    origem/*) echo "$FAKE_ROOT/origem/${1#origem/}" ;;
-    destino/*) echo "$FAKE_ROOT/destino/${1#destino/}" ;;
-    leitura/*) echo "$FAKE_ROOT/destino/${1#leitura/}" ;;
+    s3://*)
+      local resto=${1#s3://}
+      case "$AWS_ACCESS_KEY_ID" in
+        chaveorigem) echo "$FAKE_ROOT/origem/$resto" ;;
+        *) echo "$FAKE_ROOT/destino/$resto" ;;
+      esac
+      ;;
     *) echo "$1" ;;
   esac
 }
-case "$sub" in
-  ls)
-    dir=$(mapeia "${args[0]}")
+
+servico=$1 operacao=$2
+case "$servico $operacao" in
+  "s3api list-objects-v2")
+    balde=$(valor_de --bucket)
+    dir="$FAKE_ROOT/origem/$balde"
     [ -d "$dir" ] || exit 1
-    (cd "$dir" && find . -type f | sed 's|^\./||' | while read -r f; do
-      printf '{"status":"success","type":"file","size":%s,"key":"%s"}\n' "$(wc -c <"$f" | tr -d ' ')" "$f"
-    done)
+    saida=$( (cd "$dir" && find . -type f | sed 's|^\./||' | while read -r f; do
+      printf '%s\t%s\n' "$f" "$(wc -c <"$f" | tr -d ' ')"
+    done) )
+    [ -n "$saida" ] && printf '%s\n' "$saida" || echo None
     ;;
-  mirror)
-    mkdir -p "$(mapeia "${args[1]}")"
-    cp -r "$(mapeia "${args[0]}")/." "$(mapeia "${args[1]}")/"
-    ;;
-  cp)
-    destino=$(mapeia "${args[1]}")
-    mkdir -p "$(dirname "$destino")"
-    cp "$(mapeia "${args[0]}")" "$destino"
-    case "${args[1]}" in destino/*.tar.age)
-      [ "${FAKE_APENDA:-0}" != 1 ] || printf 'x' >>"$destino"
-      [ "${FAKE_TROCA:-0}" != 1 ] || { printf 'Z' | dd of="$destino" bs=1 seek=20 conv=notrunc 2>/dev/null; }
-      ;;
-    esac
-    ;;
-  stat)
-    arq=$(mapeia "${args[0]}")
+  "s3api head-object")
+    balde=$(valor_de --bucket) chave=$(valor_de --key)
+    arq="$FAKE_ROOT/destino/$balde/$chave"
     [ -f "$arq" ] || exit 1
-    printf '{"status":"success","size":%s}\n' "$(wc -c <"$arq" | tr -d ' ')"
+    printf '{\n    "ContentLength": %s\n}\n' "$(wc -c <"$arq" | tr -d ' ')"
     ;;
-  cat) cat "$(mapeia "${args[0]}")" ;;
-  *) echo "mc de mentira: subcomando desconhecido $sub" >&2; exit 2 ;;
+  "s3 sync")
+    extrai_posicionais
+    origem=$(mapeia "${POS[0]}") destino=$(mapeia "${POS[1]}")
+    mkdir -p "$destino"
+    cp -r "$origem/." "$destino/"
+    ;;
+  "s3 cp")
+    extrai_posicionais
+    origem=${POS[0]} destino=${POS[1]}
+    if [ "$destino" = "-" ]; then
+      cat "$(mapeia "$origem")"
+    else
+      local_destino=$(mapeia "$destino")
+      mkdir -p "$(dirname "$local_destino")"
+      cp "$(mapeia "$origem")" "$local_destino"
+      case "$destino" in
+        s3://*.tar.age)
+          [ "${FAKE_APENDA:-0}" != 1 ] || printf 'x' >>"$local_destino"
+          [ "${FAKE_TROCA:-0}" != 1 ] || { printf 'Z' | dd of="$local_destino" bs=1 seek=20 conv=notrunc 2>/dev/null; }
+          ;;
+      esac
+    fi
+    ;;
+  *) echo "aws de mentira: operação desconhecida: $servico $operacao" >&2; exit 2 ;;
 esac
-MC
+AWSBIN
 cat >"$BIN/curl" <<'CURL'
 #!/usr/bin/env bash
 echo "args: $*" >>"$FAKE_LOG"
 cat >>"$FAKE_PINGS"
 CURL
-chmod +x "$BIN/mc" "$BIN/curl"
+chmod +x "$BIN/aws" "$BIN/curl"
 
 # --- chaves age: dono e teste
 age-keygen -o "$TMP/dono.key" 2>/dev/null
@@ -91,11 +130,19 @@ age-keygen -y "$TMP/dono.key" >"$TMP/um-so.txt"
 printf '# baldes de teste\nplugga-um\nwaze-dois\n' >"$TMP/baldes.txt"
 printf 'plugga-um\nbalde-que-nao-existe\n' >"$TMP/baldes-ruim.txt"
 
-# Ambiente com "segredos" reconhecíveis: nenhum pode aparecer em argv.
+# Ambiente com "segredos" reconhecíveis: nenhum pode aparecer em argv. Cada
+# papel tem endpoint, chave e região próprios — o aws-cli assina com a região
+# configurada, diferente do mc, que não exigia isso.
 cat >"$TMP/backup.env" <<'ENV'
-ORIGEM_URL=http://chaveorigem:SEGREDO_ORIGEM_ZZ@seaweedfs:8333
-DESTINO_URL=https://chavedestino:SEGREDO_DESTINO_ZZ@s3.exemplo.test
-DESTINO_LEITURA_URL=https://chaveleitura:SEGREDO_LEITURA_ZZ@s3.exemplo.test
+ORIGEM_ENDPOINT=http://rustfs:9000
+ORIGEM_ACCESS_KEY=chaveorigem
+ORIGEM_SECRET_KEY=SEGREDO_ORIGEM_ZZ
+DESTINO_ENDPOINT=https://s3.exemplo.test
+DESTINO_REGIAO=us-west-002
+DESTINO_ACCESS_KEY=chavedestino
+DESTINO_SECRET_KEY=SEGREDO_DESTINO_ZZ
+DESTINO_LEITURA_ACCESS_KEY=chaveleitura
+DESTINO_LEITURA_SECRET_KEY=SEGREDO_LEITURA_ZZ
 DESTINO_BALDE=backups-externos
 HEARTBEAT_URL=https://hc.exemplo.test/ping/SEGREDO_PING_ZZ
 ENV
@@ -105,7 +152,7 @@ executa() {
   local dir=$1
   shift
   env FAKE_ROOT="$dir/fake" FAKE_LOG="$dir/log" FAKE_PINGS="$dir/pings" BACKUP_DIR_TRABALHO="$dir/trab" \
-    BACKUP_MC="$BIN/mc" BACKUP_CURL="$BIN/curl" \
+    BACKUP_AWSCLI="$BIN/aws" BACKUP_CURL="$BIN/curl" \
     BACKUP_EXTERNO_ENV="$TMP/backup.env" BACKUP_RECEPTORES="$TMP/recipients.txt" BACKUP_BALDES="$TMP/baldes.txt" \
     BACKUP_AGORA=20261005T031007Z \
     BACKUP_DUMP_CMD="printf 'PGDMP-de-mentira'" \
@@ -148,8 +195,8 @@ if grep -q '/fail' "$D/pings"; then falha "o caso feliz mandou ping de falha"; f
 ok "caso feliz: cifrado para dono e teste, manifesto coerente, heartbeat de sucesso"
 
 # 2. nenhuma chave em argv --------------------------------------------------
-if grep -q 'SEGREDO' "$D/log"; then falha "uma chave apareceu em argv (mc ou curl)"; fi
-if grep -nE 'docker run[^\n]* -e [A-Z_]+=|MC_HOST_[a-z]+=http' "$RAIZ/ops/backup-externo.sh" | grep -v 'printf' | grep -q .; then
+if grep -q 'SEGREDO' "$D/log"; then falha "uma chave apareceu em argv (aws ou curl)"; fi
+if grep -nE 'docker run[^\n]* -e [A-Z_]+=' "$RAIZ/ops/backup-externo.sh" | grep -v 'printf' | grep -q .; then
   falha "o script passa chave por -e/linha de comando"
 fi
 grep -q -- '--env-file' "$RAIZ/ops/backup-externo.sh" || falha "o script deveria usar --env-file"

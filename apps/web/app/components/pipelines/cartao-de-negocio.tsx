@@ -1,33 +1,36 @@
 "use client";
 
 import type { Deal, Pipeline } from "@plugga/shared";
-import { ArrowRight, Check, CheckSquare, Clock, MoreHorizontal, X } from "lucide-react";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { ArrowRight, CalendarDays, Check, Clock, Eye, FileText, MoreHorizontal, User, UserCheck, X } from "lucide-react";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 
-import { diasNaEtapa, estaParado, hojeNoFuso, valorCurto } from "../../lib/negocios";
+import { diasNaEtapa, estaParado } from "../../lib/negocios";
+import { formatarDataHora, FUSO_HORARIO } from "../../lib/format";
 import { Avatar } from "./icones";
+
 import type { AcoesDoNegocio } from "./quadro-do-pipeline";
+import { SeletorBadgePrioridade } from "./seletor-badge-prioridade";
+import styles from "./cartao-de-negocio.module.css";
 
-function formatarDue(dataStr: string | null): string {
-  if (!dataStr) return "Sem data";
-  const d = new Date(`${dataStr.slice(0, 10)}T12:00:00Z`);
-  if (isNaN(d.getTime())) return dataStr;
-  const dia = d.getUTCDate();
-  const meses = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
-  const mes = meses[d.getUTCMonth()];
-  const ano = d.getUTCFullYear();
-  return `${dia} ${mes}, ${ano}`;
-}
+const formatoChegada = new Intl.DateTimeFormat("pt-BR", { day: "numeric", month: "long", timeZone: FUSO_HORARIO });
+const STATUS_DO_LEAD = { open: "Em aberto", won: "Contrato assinado", lost: "Perdido" } as const;
 
-/**
- * Ações do negócio aberto pelo teclado ou pelo mouse: a alternativa ao arrastar
- * para mudar de etapa, ganhar, perder ou mover para outro pipeline. O menu
- * abre num portal no <body>, em posição fixa calculada a partir do botão: a
- * coluna rola e o painel tem backdrop-filter, que prenderia um `fixed` dentro
- * dele. O menu acompanha o botão durante a rolagem e fecha quando ele deixa de estar visível.
- */
-export function MenuDoNegocio({ negocio, pipeline, acoes }: { negocio: Deal; pipeline: Pipeline; acoes: AcoesDoNegocio }) {
+export function MenuDoNegocio({
+  negocio,
+  pipeline,
+  acoes,
+  aoVerLead,
+  menuClassName = "",
+  mostrarPrioridade = false,
+}: {
+  negocio: Deal;
+  pipeline: Pipeline;
+  acoes: AcoesDoNegocio;
+  aoVerLead?: () => void;
+  menuClassName?: string;
+  mostrarPrioridade?: boolean;
+}) {
   const [aberto, setAberto] = useState(false);
   const [posicao, setPosicao] = useState<{ top: number; left: number } | null>(null);
   const raiz = useRef<HTMLDivElement>(null);
@@ -46,10 +49,8 @@ export function MenuDoNegocio({ negocio, pipeline, acoes }: { negocio: Deal; pip
     };
   }, [aberto]);
 
-  // Abre abaixo do botão; sem espaço embaixo, abre acima. Sempre dentro da janela.
   useLayoutEffect(() => {
     if (!aberto || !botao.current) return;
-    // Considera também o recorte das colunas e de outros contêineres com overflow.
     const visibilidade = new IntersectionObserver(([entrada]) => {
       if (entrada && !entrada.isIntersecting) setAberto(false);
     });
@@ -86,6 +87,7 @@ export function MenuDoNegocio({ negocio, pipeline, acoes }: { negocio: Deal; pip
     <div
       className="menu-negocio"
       ref={raiz}
+      onClick={(e) => e.stopPropagation()}
       onKeyDown={(evento) => {
         if (evento.key === "Escape" && aberto) {
           evento.preventDefault();
@@ -97,45 +99,89 @@ export function MenuDoNegocio({ negocio, pipeline, acoes }: { negocio: Deal; pip
       <button
         ref={botao}
         type="button"
-        className="botao-icone"
-        aria-label={`Ações de ${negocio.title}`}
+        className="botao-icone cartao-negocio-menu-btn"
+        aria-label={`Ações de ${negocio.lead.name}`}
         aria-haspopup="menu"
         aria-expanded={aberto}
-        onClick={() => {
+        onClick={(e) => {
+          e.stopPropagation();
           setPosicao(null);
           setAberto((a) => !a);
         }}
       >
-        <MoreHorizontal size={15} aria-hidden="true" />
+        <MoreHorizontal size={16} aria-hidden="true" />
       </button>
       {aberto
         ? createPortal(
             <div
               ref={menu}
-              className="menu-negocio-lista"
+              className={`menu-negocio-lista ${menuClassName}`}
               role="menu"
-              aria-label={`Ações de ${negocio.title}`}
+              aria-label={`Ações de ${negocio.lead.name}`}
               style={posicao ? { top: posicao.top, left: posicao.left } : { visibility: "hidden" }}
             >
-              <span className="menu-negocio-titulo">Mover para etapa</span>
-              {pipeline.stages
-                .filter((e) => e.id !== negocio.stageId)
-                .map((e) => (
-                  <button key={e.id} type="button" role="menuitem" onClick={escolher(() => void acoes.moverEtapa(negocio, e.id))}>
-                    <span className="ponto-cor" style={{ background: e.color }} aria-hidden="true" />
-                    {e.name}
+              {aoVerLead ? (
+                <>
+                  <button type="button" role="menuitem" onClick={escolher(aoVerLead)}>
+                    <Eye size={14} aria-hidden="true" /> Ver detalhes do lead
                   </button>
-                ))}
-              <span className="menu-negocio-divisor" role="separator" />
-              <button type="button" role="menuitem" className="menu-negocio--ganho" onClick={escolher(() => acoes.ganhar(negocio))}>
-                <Check size={14} aria-hidden="true" /> {pipeline.wonLabel}
-              </button>
-              <button type="button" role="menuitem" className="menu-negocio--perdido" onClick={escolher(() => acoes.perder(negocio))}>
-                <X size={14} aria-hidden="true" /> {pipeline.lostLabel}
-              </button>
-              <button type="button" role="menuitem" onClick={escolher(() => acoes.transferir(negocio))}>
-                <ArrowRight size={14} aria-hidden="true" /> Mover para outro pipeline
-              </button>
+                  {negocio.status === "open" ? <span className="menu-negocio-divisor" role="separator" /> : null}
+                </>
+              ) : null}
+
+              {mostrarPrioridade ? (
+                <>
+                  <span className="menu-negocio-titulo">Prioridade</span>
+                  {(
+                    [
+                      { valor: null, rotulo: "Sem prioridade" },
+                      { valor: "urgente", rotulo: "Urgente" },
+                      { valor: "medio", rotulo: "Médio" },
+                      { valor: "normal", rotulo: "Normal" },
+                    ] as const
+                  ).map((opcao) => (
+                    <button
+                      key={opcao.rotulo}
+                      type="button"
+                      role="menuitemradio"
+                      aria-checked={negocio.priority === opcao.valor}
+                      onClick={escolher(() => void acoes.definirPrioridade(negocio, opcao.valor))}
+                    >
+                      {negocio.priority === opcao.valor ? <Check size={14} aria-hidden="true" /> : <span style={{ width: 14 }} aria-hidden="true" />}
+                      {opcao.rotulo}
+                    </button>
+                  ))}
+                  <span className="menu-negocio-divisor" role="separator" />
+                </>
+              ) : null}
+              {negocio.status === "open" ? (
+                <>
+                  <span className="menu-negocio-titulo">Mover para etapa</span>
+                  {pipeline.stages
+                    .filter((e) => e.id !== negocio.stageId)
+                    .map((e) => (
+                      <button key={e.id} type="button" role="menuitem" onClick={escolher(() => void acoes.moverEtapa(negocio, e.id))}>
+                        <span className="ponto-cor" style={{ background: e.color }} aria-hidden="true" />
+                        {e.name}
+                      </button>
+                    ))}
+                  <span className="menu-negocio-divisor" role="separator" />
+                  <button type="button" role="menuitem" className="menu-negocio--ganho" onClick={escolher(() => acoes.ganhar(negocio))}>
+                    <Check size={14} aria-hidden="true" /> {pipeline.wonLabel}
+                  </button>
+                  <button type="button" role="menuitem" className="menu-negocio--perdido" onClick={escolher(() => acoes.perder(negocio))}>
+                    <X size={14} aria-hidden="true" /> {pipeline.lostLabel}
+                  </button>
+                  <button type="button" role="menuitem" onClick={escolher(() => acoes.transferir(negocio))}>
+                    <ArrowRight size={14} aria-hidden="true" /> Mover para outro pipeline
+                  </button>
+                  {!negocio.client && acoes.converter ? (
+                    <button type="button" role="menuitem" disabled={Boolean(acoes.convertendoId)} onClick={escolher(() => acoes.converter?.(negocio))}>
+                      <UserCheck size={14} aria-hidden="true" /> {acoes.convertendoId === negocio.id ? "Convertendo…" : "Converter em cliente"}
+                    </button>
+                  ) : null}
+                </>
+              ) : null}
             </div>,
             document.body,
           )
@@ -144,6 +190,7 @@ export function MenuDoNegocio({ negocio, pipeline, acoes }: { negocio: Deal; pip
   );
 }
 
+/** Cartão compacto: identificação, etiquetas e acompanhamento do atendimento. */
 export function CartaoDeNegocio({
   negocio,
   pipeline,
@@ -156,111 +203,88 @@ export function CartaoDeNegocio({
   pipeline: Pipeline;
   acoes: AcoesDoNegocio;
   arrastando: boolean;
-  aoComecarArrasto: () => void;
+  aoComecarArrasto: (elemento: HTMLElement) => void;
   aoTerminarArrasto: () => void;
 }) {
+
+  const arrastou = useRef(false);
   const dias = diasNaEtapa(negocio);
   const parado = estaParado(negocio, pipeline);
-  const hoje = hojeNoFuso();
-  const previsaoVencida = negocio.expectedCloseDate !== null && negocio.expectedCloseDate < hoje;
-
-  const etapaIndex = pipeline.stages.findIndex((e) => e.id === negocio.stageId);
-  const etapaNumero = etapaIndex >= 0 ? etapaIndex + 1 : 1;
-
-  // Prioridade / Tag baseada em regras ou tags do negócio
-  const primeiraTag = negocio.tags[0];
-  let prioridadeTom: "alta" | "media" | "baixa" = "baixa";
-  let prioridadeRotulo = "Low";
-
-  if (primeiraTag) {
-    const nomeNorm = primeiraTag.name.toLowerCase();
-    if (nomeNorm.includes("alta") || nomeNorm.includes("high")) {
-      prioridadeTom = "alta";
-      prioridadeRotulo = "High";
-    } else if (nomeNorm.includes("baixa") || nomeNorm.includes("low")) {
-      prioridadeTom = "baixa";
-      prioridadeRotulo = "Low";
-    } else if (nomeNorm.includes("media") || nomeNorm.includes("média") || nomeNorm.includes("medium")) {
-      prioridadeTom = "media";
-      prioridadeRotulo = "Medium";
-    } else {
-      prioridadeTom = "media";
-      prioridadeRotulo = primeiraTag.name;
-    }
-  } else if (parado) {
-    prioridadeTom = "alta";
-    prioridadeRotulo = "High";
-  } else if (negocio.value && Number(negocio.value) >= 50000) {
-    prioridadeTom = "alta";
-    prioridadeRotulo = "High";
-  } else if (negocio.value && Number(negocio.value) >= 15000) {
-    prioridadeTom = "media";
-    prioridadeRotulo = "Medium";
-  } else {
-    prioridadeTom = "baixa";
-    prioridadeRotulo = "Low";
-  }
 
   return (
-    <article
-      className={`cartao-negocio${arrastando ? " cartao-negocio--arrastando" : ""}${parado ? " cartao-negocio--parado" : ""}`}
-      aria-label={`Negócio ${negocio.title}`}
-      draggable
-      onDragStart={(evento) => {
-        evento.dataTransfer.effectAllowed = "move";
-        evento.dataTransfer.setData("text/plain", negocio.id);
-        aoComecarArrasto();
-      }}
-      onDragEnd={aoTerminarArrasto}
-    >
-      {/* 1. Topo: Due Date + Menu */}
-      <div className="cartao-negocio-topo">
-        <div className={`cartao-negocio-due${previsaoVencida ? " cartao-negocio-due--vencida" : ""}`}>
-          <Clock size={12} aria-hidden="true" />
-          <span>Due: {negocio.expectedCloseDate ? formatarDue(negocio.expectedCloseDate) : "Sem prazo"}</span>
-        </div>
-        <MenuDoNegocio negocio={negocio} pipeline={pipeline} acoes={acoes} />
-      </div>
-
-      {/* 2. Título & Subtítulo */}
-      <div className="cartao-negocio-corpo">
-        <h4>{negocio.title}</h4>
-        <p className="cartao-negocio-cliente">
-          {negocio.client.name}
-          {negocio.contact ? <span> · {negocio.contact.name}</span> : null}
-        </p>
-      </div>
-
-      {/* 3. Milestone / Etapa */}
-      <div className="cartao-negocio-milestone">
-        <CheckSquare size={13} className="cartao-negocio-milestone-icone" aria-hidden="true" />
-        <span>Milestone {etapaIndex >= 0 ? etapaIndex : 0}/{pipeline.stages.length}</span>
-        {negocio.value ? <span className="cartao-negocio-milestone-valor">· {valorCurto(Number(negocio.value))}</span> : null}
-      </div>
-
-      {/* 4. Assigned for */}
-      <div className="cartao-negocio-assigned">
-        <span className="cartao-negocio-assigned-rotulo">Assigned for</span>
-        <div className="cartao-negocio-assigned-avatares">
-          <Avatar id={negocio.owner.id} nome={negocio.owner.name} tamanho="pequeno" />
-        </div>
-      </div>
-
-      {/* 5. Rodapé: Prioridade + Código/Dias */}
-      <div className="cartao-negocio-rodape">
-        <div className={`cartao-negocio-prioridade cartao-negocio-prioridade--${prioridadeTom}`}>
-          <span className="cartao-negocio-prioridade-icone" aria-hidden="true">▲</span>
-          <span>{prioridadeRotulo}</span>
-        </div>
-
-        <div className="cartao-negocio-meta">
-          <span className="cartao-negocio-codigo">#{etapaNumero}</span>
-          <span className={parado ? "dias-na-etapa dias-na-etapa--parado" : "dias-na-etapa"} title={parado ? "Parado além do prazo da etapa" : "Dias nesta etapa"}>
-            <Clock size={11} aria-hidden="true" />
-            {parado ? `Parado há ${dias}d` : `${dias}d`}
+    <>
+      <article
+        className={`cartao-negocio ${styles.cartao}${arrastando ? " cartao-negocio--arrastando" : ""}${parado ? " cartao-negocio--parado" : ""}`}
+        aria-label={`Lead ${negocio.lead.name}`}
+        draggable
+        onDragStart={(evento) => {
+          arrastou.current = true;
+          evento.dataTransfer.effectAllowed = "move";
+          evento.dataTransfer.setData("text/plain", negocio.id);
+          aoComecarArrasto(evento.currentTarget);
+        }}
+        onDragEnd={() => {
+          setTimeout(() => { arrastou.current = false; }, 100);
+          aoTerminarArrasto();
+        }}
+        onClick={(e) => {
+          if (arrastou.current || (e.target as HTMLElement).closest("button")) return;
+          acoes.abrirDetalhes(negocio);
+        }}
+      >
+        <header className={styles.cabecalho}>
+          <span className={styles.codigo} title={`Identificador abreviado. ID completo: ${negocio.id}`}>
+            <FileText size={14} aria-hidden="true" />
+            <span>PLU-{String(negocio.number).padStart(4, "0")}</span>
           </span>
+          <div className={styles.acoesCabecalho}>
+            <SeletorBadgePrioridade nome={negocio.lead.name} value={negocio.priority ?? ""} onChange={(prioridade) => void acoes.definirPrioridade(negocio, prioridade || null)} />
+            <MenuDoNegocio negocio={negocio} pipeline={pipeline} acoes={acoes} aoVerLead={() => acoes.abrirDetalhes(negocio)} menuClassName={styles.menuVidro} />
+          </div>
+        </header>
+        <div className={styles.topo}>
+          <div className={styles.identidade}>
+            <h4 className={styles.titulo}>
+              <button type="button" aria-label={`Ver lead ${negocio.lead.name}`} onClick={() => acoes.abrirDetalhes(negocio)}>
+                {negocio.lead.name}
+              </button>
+            </h4>
+            <p className={styles.cliente} title={negocio.title}>
+              <User size={12} aria-hidden="true" />
+              <span>{negocio.title}</span>
+            </p>
+          </div>
         </div>
-      </div>
-    </article>
+
+        <div className={styles.metadados}>
+          <span className={styles.chegada} title={`Chegada em ${formatarDataHora(negocio.createdAt)}`}>
+            <span className={styles.calendario}><CalendarDays size={14} aria-hidden="true" /></span>
+            <time dateTime={negocio.createdAt}>{formatoChegada.format(new Date(negocio.createdAt))}</time>
+          </span>
+          <span className={styles.status} data-status={negocio.status}>{STATUS_DO_LEAD[negocio.status]}</span>
+        </div>
+
+        {negocio.tags.length > 0 ? (
+          <div className={styles.etiquetas}>
+            {negocio.tags.map((tag) => (
+              <span key={tag.id} className={styles.etiqueta} style={{ "--cor-etiqueta": tag.color } as CSSProperties}>
+                {tag.name}
+              </span>
+            ))}
+          </div>
+        ) : null}
+
+        <footer className={styles.rodape}>
+          <div className={styles.responsavel} title={`Responsável: ${negocio.owner.name}`}>
+            <Avatar id={negocio.owner.id} nome={negocio.owner.name} tamanho="pequeno" />
+            <span>{negocio.owner.name}</span>
+          </div>
+          <span className={`${styles.dias}${parado ? ` ${styles.parado}` : ""}`} title={parado ? "Parado além do prazo configurado nesta etapa" : "Tempo nesta etapa"}>
+            <Clock size={12} aria-hidden="true" />
+            {parado ? `Parado há ${dias}d` : `${dias}d na etapa`}
+          </span>
+        </footer>
+      </article>
+    </>
   );
 }

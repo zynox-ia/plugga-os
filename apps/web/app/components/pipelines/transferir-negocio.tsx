@@ -6,6 +6,7 @@ import { useState } from "react";
 import { enviar } from "../../lib/clientes";
 import { EMPRESAS_POR_ID } from "../../lib/organizacao";
 import { Modal } from "../modal";
+import { Checkbox } from "../ui";
 import { Icone } from "./icones";
 
 /**
@@ -31,16 +32,21 @@ export function TransferirNegocio({
   const [destinoId, setDestinoId] = useState(destinos[0]?.id ?? "");
   const destino = destinos.find((p) => p.id === destinoId) ?? null;
   const [etapaId, setEtapaId] = useState(destinos[0]?.stages[0]?.id ?? "");
+  const [converterEmCliente, setConverterEmCliente] = useState(Boolean(destinos[0]?.stages[0]?.asksClientConversion && !negocio.client));
   const [responsavelId, setResponsavelId] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const responsavelNoDestino = responsaveis.some((m) => m.id === negocio.owner.id);
   const trocaEmpresa = destino !== null && destino.companyId !== origem.companyId;
+  const etapaDestino = destino?.stages.find((stage) => stage.id === etapaId);
+  const perguntaConversao = Boolean(etapaDestino?.asksClientConversion && !negocio.client);
 
   function escolherDestino(id: string) {
     const proximo = destinos.find((p) => p.id === id);
     setDestinoId(id);
-    setEtapaId(proximo?.stages[0]?.id ?? "");
+    const primeiraEtapa = proximo?.stages[0];
+    setEtapaId(primeiraEtapa?.id ?? "");
+    setConverterEmCliente(Boolean(primeiraEtapa?.asksClientConversion && !negocio.client));
     setResponsavelId("");
   }
 
@@ -48,8 +54,8 @@ export function TransferirNegocio({
     if (!destino) return;
     setEnviando(true);
     setErro(null);
-    const corpo = { pipelineId: destino.id, stageId: etapaId, ...(responsavelId ? { ownerId: responsavelId } : {}) };
-    const resposta = await enviar<Deal>(`/api/negocios/${negocio.id}/transferencia`, "POST", corpo);
+    const corpo = { pipelineId: destino.id, stageId: etapaId, ...(responsavelId ? { ownerId: responsavelId } : {}), convertToClient: perguntaConversao && converterEmCliente };
+    const resposta = await enviar<Deal>(`/api/leads/${negocio.id}/transferencia`, "POST", corpo);
     setEnviando(false);
     if (resposta.ok) aoConcluir(resposta.dados);
     else setErro(resposta.erro.mensagem);
@@ -61,7 +67,7 @@ export function TransferirNegocio({
         <div>
           <h2>Mover para outro pipeline</h2>
           <p className="resumo-encerramento">
-            <b>{negocio.title}</b> · {negocio.client.name}
+            <b>{negocio.title}</b> · {negocio.lead.name}
           </p>
         </div>
         <button className="botao-fechar config-botao-fechar" type="button" aria-label="Fechar" onClick={aoFechar}>
@@ -85,7 +91,12 @@ export function TransferirNegocio({
             </div>
             <div className="field">
               <label htmlFor="transferir-etapa">Etapa *</label>
-              <select id="transferir-etapa" value={etapaId} onChange={(e) => setEtapaId(e.target.value)}>
+              <select id="transferir-etapa" value={etapaId} onChange={(e) => {
+                const id = e.target.value;
+                setEtapaId(id);
+                const etapa = destino?.stages.find((stage) => stage.id === id);
+                setConverterEmCliente(Boolean(etapa?.asksClientConversion && !negocio.client));
+              }}>
                 {destino?.stages.map((e) => (
                   <option key={e.id} value={e.id}>
                     {e.name}
@@ -93,6 +104,14 @@ export function TransferirNegocio({
                 ))}
               </select>
             </div>
+            {perguntaConversao ? (
+              <Checkbox
+                label="Deseja converter este lead em cliente ao mover?"
+                description="A negociação será encerrada como ganha e sairá do Kanban."
+                checked={converterEmCliente}
+                onChange={(evento) => setConverterEmCliente(evento.target.checked)}
+              />
+            ) : null}
             {!responsavelNoDestino && responsaveis.length === 0 ? (
               <p className="aviso aviso--alerta">Nenhuma pessoa ativa com acesso ao CRM está disponível.</p>
             ) : !responsavelNoDestino ? (

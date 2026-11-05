@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
-# Ensaio de ops/prepara-corpus.sh contra um SeaweedFS (modo mini) descartável.
-# Precisa do Docker. Prova o que interessa das duas chaves do corpus: o leitor lê e
+# Ensaio de ops/prepara-corpus.sh contra um RustFS descartável. Precisa do
+# Docker. Prova o que interessa das duas chaves do corpus: o leitor lê e
 # NÃO escreve, o editor escreve, nenhum enxerga balde de negócio, e rodar de novo não
 # troca a credencial.
 #
@@ -21,17 +21,17 @@ SAIDA=$(mktemp)
 limpa() { "${COMPOSE[@]}" down -v >/dev/null 2>&1 || true; rm -f "$ENV_CORPUS" "$SAIDA"; }
 trap limpa EXIT
 
-mc() { "${COMPOSE[@]}" exec -T mc mc "$@" </dev/null; }
+aws() { "${COMPOSE[@]}" exec -T awscli aws "$@" </dev/null; }
 falha() { printf '✗ %s\n' "$*" >&2; exit 1; }
 ok() { printf '✓ %s\n' "$*"; }
 
-echo "▸ subindo SeaweedFS descartável"
-"${COMPOSE[@]}" up -d seaweedfs mc >/dev/null 2>&1 || falha "docker compose up falhou"
-for _ in $(seq 1 40); do mc ls dest >/dev/null 2>&1 && pronto=1 && break; sleep 2; done
-[ "${pronto:-0}" = 1 ] || falha "SeaweedFS não ficou pronto"
-mc mb --ignore-existing dest/plugga-energia-opm >/dev/null
+echo "▸ subindo RustFS descartável"
+"${COMPOSE[@]}" up -d rustfs awscli >/dev/null 2>&1 || falha "docker compose up falhou"
+for _ in $(seq 1 40); do aws s3api list-buckets >/dev/null 2>&1 && pronto=1 && break; sleep 2; done
+[ "${pronto:-0}" = 1 ] || falha "RustFS não ficou pronto"
+aws s3api create-bucket --bucket plugga-energia-opm >/dev/null
 
-export REDE=ensaio-storage_default SEAWEEDFS_CONTAINER=ensaio-storage-seaweedfs-1 ARQUIVO_ENV_CORPUS="$ENV_CORPUS"
+export REDE=ensaio-storage_default RUSTFS_CONTAINER=ensaio-storage-rustfs-1 ARQUIVO_ENV_CORPUS="$ENV_CORPUS"
 
 bash ops/prepara-corpus.sh >"$SAIDA" 2>&1 || { cat "$SAIDA" >&2; falha "prepara-corpus.sh falhou"; }
 grep -q "balde do corpus preparado" "$SAIDA" || falha "não confirmou o balde"
@@ -44,20 +44,25 @@ for segredo in "$CORPUS_LEITOR_SECRET_KEY" "$CORPUS_EDITOR_SECRET_KEY"; do
 done
 ok "segredos do corpus não aparecem na saída"
 
-no_mc() { local url=$1 cmd=$2; "${COMPOSE[@]}" exec -T -e MC_HOST_u="$url" mc sh -c "$cmd" </dev/null; }
-LEITOR="http://${CORPUS_LEITOR_ACCESS_KEY}:${CORPUS_LEITOR_SECRET_KEY}@seaweedfs:8333"
-EDITOR="http://${CORPUS_EDITOR_ACCESS_KEY}:${CORPUS_EDITOR_SECRET_KEY}@seaweedfs:8333"
+aws_como() { # $1=access $2=secret ; resto = args do aws
+  local access=$1 secret=$2
+  shift 2
+  "${COMPOSE[@]}" exec -T -e AWS_ACCESS_KEY_ID="$access" -e AWS_SECRET_ACCESS_KEY="$secret" awscli aws "$@" </dev/null
+}
+aws_leitor() { aws_como "$CORPUS_LEITOR_ACCESS_KEY" "$CORPUS_LEITOR_SECRET_KEY" "$@"; }
+aws_editor() { aws_como "$CORPUS_EDITOR_ACCESS_KEY" "$CORPUS_EDITOR_SECRET_KEY" "$@"; }
 
-no_mc "$EDITOR" 'echo fixture > /tmp/f && mc cp /tmp/f u/plugga-corpus-faturas/roraima-teste.pdf' >/dev/null 2>&1 || falha "editor não grava fixture"
+printf 'fixture' | aws_editor s3 cp - s3://plugga-corpus-faturas/roraima-teste.pdf >/dev/null 2>&1 \
+  || falha "editor não grava fixture"
 ok "editor grava fixture"
-no_mc "$LEITOR" 'mc cat u/plugga-corpus-faturas/roraima-teste.pdf' >/dev/null 2>&1 || falha "leitor não lê fixture"
+aws_leitor s3 cp s3://plugga-corpus-faturas/roraima-teste.pdf - >/dev/null 2>&1 || falha "leitor não lê fixture"
 ok "leitor lê fixture"
-if no_mc "$LEITOR" 'echo x > /tmp/f && mc cp /tmp/f u/plugga-corpus-faturas/invasao.pdf' >/dev/null 2>&1; then
+if printf 'x' | aws_leitor s3 cp - s3://plugga-corpus-faturas/invasao.pdf >/dev/null 2>&1; then
   falha "leitor conseguiu escrever no corpus"
 fi
 ok "leitor é NEGADO na escrita"
-for quem in "$LEITOR" "$EDITOR"; do
-  if no_mc "$quem" 'echo x > /tmp/f && mc cp /tmp/f u/plugga-energia-opm/faturas/invasao' >/dev/null 2>&1; then
+for quem in aws_leitor aws_editor; do
+  if printf 'x' | "$quem" s3 cp - s3://plugga-energia-opm/faturas/invasao >/dev/null 2>&1; then
     falha "uma chave do corpus gravou em plugga-energia-opm"
   fi
 done
@@ -66,7 +71,8 @@ ok "nenhuma chave do corpus alcança plugga-energia-opm"
 ANTES=$(cat "$ENV_CORPUS")
 bash ops/prepara-corpus.sh >"$SAIDA" 2>&1 || { cat "$SAIDA" >&2; falha "segunda execução falhou"; }
 [ "$ANTES" = "$(cat "$ENV_CORPUS")" ] || falha "segunda execução trocou as credenciais"
-no_mc "$LEITOR" 'mc cat u/plugga-corpus-faturas/roraima-teste.pdf' >/dev/null 2>&1 || falha "leitor deixou de ler após reexecução"
+aws_leitor s3 cp s3://plugga-corpus-faturas/roraima-teste.pdf - >/dev/null 2>&1 \
+  || falha "leitor deixou de ler após reexecução"
 ok "reexecução é idempotente e o dado continua lá"
 
 echo

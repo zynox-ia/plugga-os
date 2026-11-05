@@ -10,6 +10,21 @@ import { buildContentSecurityPolicy } from "../app/lib/content-security-policy.t
  * um nonce único por requisição + `'strict-dynamic'`.
  */
 describe("buildContentSecurityPolicy", () => {
+  it("autoriza os frames do Maps sem liberar scripts nem hosts genéricos do Google", () => {
+    const csp = buildContentSecurityPolicy("nonce", true);
+    const frames = csp.split(";").find((item) => item.trim().startsWith("frame-src"))!;
+    assert.ok(frames.includes("https://maps.google.com"));
+    assert.ok(frames.includes("https://www.google.com"));
+    assert.ok(!frames.includes("*.google.com"));
+    const scripts = csp.split(";").find((item) => item.trim().startsWith("script-src"))!;
+    assert.ok(!scripts.includes("maps.google.com"));
+  });
+  it("permite o worker de PDF somente na própria origem, sem blob nem CDN", () => {
+    for (const production of [false, true]) {
+      const worker = buildContentSecurityPolicy("nonce", production).split(";").find((item) => item.trim().startsWith("worker-src"));
+      assert.equal(worker?.trim(), "worker-src 'self'");
+    }
+  });
   it("nunca inclui 'unsafe-inline' em script-src", () => {
     const csp = buildContentSecurityPolicy("abc123", true);
     const scriptSrc = csp.split(";").find((diretiva) => diretiva.trim().startsWith("script-src"));

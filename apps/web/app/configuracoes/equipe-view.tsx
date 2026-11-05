@@ -9,14 +9,13 @@ import {
 } from "@plugga/shared";
 
 import { ShellCard, ShellTable } from "../components/plugga-shell";
+import { PaginacaoDaLista } from "../components/pipelines/paginacao-da-lista";
 import {
   Badge,
   Button,
   Dialog,
   DropdownMenu,
   Heading,
-  IconChevronLeft,
-  IconChevronRight,
   IconCopy,
   IconEdit,
   IconEye,
@@ -241,7 +240,7 @@ export function EquipeView({
 
   const escopo = dados.escopo;
   return (
-    <div className="stack">
+    <div className="stack equipe-layout">
       <ShellCard className="table-card equipe-card">
         <div className="card-heading">
           <div>
@@ -274,6 +273,7 @@ export function EquipeView({
         {erro ? <p className="card-note auth-error">{erro}</p> : null}
         {aviso ? <p className="card-note auth-success">{aviso}</p> : null}
 
+        <div className="equipe-rolagem" role="region" aria-label="Tabela da equipe" tabIndex={0}>
         <ShellTable caption="Pessoas com acesso ao sistema">
           <thead>
             <tr>
@@ -376,51 +376,10 @@ export function EquipeView({
             ))}
           </tbody>
         </ShellTable>
+        </div>
 
         {totalMembros > 0 ? (
-          <div className="equipe-paginacao" aria-label="Paginação da tabela de equipe">
-            <div className="equipe-paginacao-info">
-              Mostrando <strong>{inicioIndice + 1}–{fimIndice}</strong> de <strong>{totalMembros}</strong> {totalMembros === 1 ? "membro" : "membros"}
-            </div>
-            {totalPaginas > 1 ? (
-              <div className="equipe-paginacao-controles">
-                <button
-                  type="button"
-                  className="equipe-paginacao-btn"
-                  disabled={paginaAtual <= 1}
-                  onClick={() => setPagina((p) => Math.max(1, p - 1))}
-                  aria-label="Página anterior"
-                >
-                  <IconChevronLeft width={15} height={15} aria-hidden="true" />
-                  <span>Anterior</span>
-                </button>
-                <div className="equipe-paginacao-paginas">
-                  {Array.from({ length: totalPaginas }, (_, i) => i + 1).map((num) => (
-                    <button
-                      key={num}
-                      type="button"
-                      className={`equipe-paginacao-num ${paginaAtual === num ? "equipe-paginacao-num--ativo" : ""}`}
-                      onClick={() => setPagina(num)}
-                      aria-label={`Ir para a página ${num}`}
-                      aria-current={paginaAtual === num ? "page" : undefined}
-                    >
-                      {num}
-                    </button>
-                  ))}
-                </div>
-                <button
-                  type="button"
-                  className="equipe-paginacao-btn"
-                  disabled={paginaAtual >= totalPaginas}
-                  onClick={() => setPagina((p) => Math.min(totalPaginas, p + 1))}
-                  aria-label="Próxima página"
-                >
-                  <span>Próxima</span>
-                  <IconChevronRight width={15} height={15} aria-hidden="true" />
-                </button>
-              </div>
-            ) : null}
-          </div>
+          <PaginacaoDaLista pagina={paginaAtual} totalItens={totalMembros} itensPorPagina={ITENS_POR_PAGINA} aoMudarPagina={setPagina} entidade="membros" />
         ) : null}
       </ShellCard>
 

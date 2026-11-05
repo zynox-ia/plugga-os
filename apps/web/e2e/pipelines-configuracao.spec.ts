@@ -1,6 +1,26 @@
 import { expect, test } from "@playwright/test";
 import { pipelineParaEdicao, type Pipeline } from "@plugga/shared";
 
+test("ação da barra acompanha a aba selecionada", async ({ page }) => {
+  await page.goto("/comercial/pipelines");
+  await page.getByRole("button", { name: "Configurar pipelines", exact: true }).click();
+  const modal = page.getByRole("dialog", { name: "Configurar pipelines" });
+  const barra = modal.locator(".editor-pipeline > header");
+  await expect(barra.getByRole("button", { name: "Novo pipeline" })).toBeVisible();
+  await modal.getByRole("tab", { name: "Etapas" }).click();
+  await expect(barra.getByRole("button", { name: "Novo pipeline" })).toHaveCount(0);
+  const etapas = modal.locator('input[aria-label^="Nome da etapa "]');
+  const quantidade = await etapas.count();
+  await barra.getByRole("button", { name: "Adicionar etapa" }).click();
+  await expect(etapas).toHaveCount(quantidade + 1);
+  await modal.getByRole("tab", { name: "Etiquetas" }).click();
+  await expect(barra.getByRole("button", { name: "Adicionar etapa" })).toHaveCount(0);
+  const etiquetas = modal.locator('input[aria-label^="Nome da etiqueta "]');
+  const total = await etiquetas.count();
+  await barra.getByRole("button", { name: "Nova etiqueta" }).click();
+  await expect(etiquetas).toHaveCount(total + 1);
+});
+
 test("configuração valida as abas e persiste criação e edição após recarregar", async ({ page }) => {
   test.setTimeout(90_000);
   const nome = `Configuração E2E ${Date.now()}`;

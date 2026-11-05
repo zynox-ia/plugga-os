@@ -1,0 +1,63 @@
+.escopoModal :global(.modal.ui-dialog) { width: min(486.4px, calc(100vw - 48px)); }
+.escopoModal :global(.modal.ui-dialog.modal--estreita) { width: min(448px, calc(100vw - 32px)); }
+.identidadeFormulario, .gradeFormulario { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.identidadeFormulario { --task-field-height: 42px; }
+.identidadeFormulario :global(.ui-input-wrap), .responsavelTrigger { height: var(--task-field-height); min-height: var(--task-field-height); }
+.responsavelTrigger { padding: 0 12px; }
+.prioridades { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.prioridade[data-prioridade="normal"], .prioridadeDetalhes[data-prioridade="normal"], .prioridadeCartao[data-prioridade="normal"] { --task-priority-color: var(--ui-primary); }
+.prioridade[data-prioridade="medio"], .prioridadeDetalhes[data-prioridade="medio"], .prioridadeCartao[data-prioridade="medio"] { --task-priority-color: var(--ui-warning); }
+.prioridade[data-prioridade="urgente"], .prioridadeDetalhes[data-prioridade="urgente"], .prioridadeCartao[data-prioridade="urgente"] { --task-priority-color: var(--ui-danger); }
+.prioridades .prioridade {
+  position: relative; justify-content: center; min-width: 0; padding: 10px 8px; gap: 6px;
+  color: var(--task-priority-color); border-color: color-mix(in srgb, var(--task-priority-color) 40%, var(--ui-divider));
+  box-shadow: none; background: color-mix(in srgb, var(--task-priority-color) 4%, var(--ui-surface));
+}
+.prioridades .prioridade:hover { background: color-mix(in srgb, var(--task-priority-color) 8%, var(--ui-surface)); }
+.prioridades .prioridade:has(input:checked) { border-color: var(--task-priority-color); background: color-mix(in srgb, var(--task-priority-color) 14%, var(--ui-surface)); }
+.prioridade > svg { flex: 0 0 14px; }
+.prioridade > input { position: absolute; width: 1px; height: 1px; opacity: 0; margin: 0; }
+.prioridade:has(input:focus-visible) { outline: 2px solid var(--ui-focus); outline-offset: 3px; }
+.tituloDetalhes { display: flex; align-items: center; gap: 10px; }
+.tituloDetalhes h3 { flex: 1; min-width: 0; margin: 0; font-size: 17px; font-weight: 500; line-height: 1.4; overflow-wrap: anywhere; }
+.tituloDetalhes > :last-child { flex-shrink: 0; }
+.dadosDetalhes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px 14px; margin: 0; }
+.dadosDetalhes dt { color: var(--ui-muted); font-size: 12px; margin-bottom: 6px; }
+.dadosDetalhes dd { margin: 0; font-size: 13px; color: var(--ui-text); }
+.dadosDetalhes .prioridadeDetalhes { display: flex; align-items: center; gap: 6px; color: var(--task-priority-color); }
+.descricaoDetalhes p { margin: 8px 0 0; font-size: 13px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.tarefas { display: flex; flex-direction: column; gap: 20px; min-height: 340px; height: 100%; }
+.barraTarefas { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.barraTarefas h3 { margin: 0; font-size: 16px; font-weight: 500; }
+.barraTarefas p { margin: 6px 0 0; font-size: 12px; color: var(--ui-muted); }
+.barraTarefas > button { flex-shrink: 0; }
+.quadro { display: grid; grid-template-columns: repeat(3, minmax(250px, 1fr)); gap: 24px; flex: 1; min-height: 280px; overflow: auto; padding: 2px; }
+.coluna { display: flex; flex-direction: column; min-height: 0; border-radius: var(--radius-md); }
+.colunaAlvo { background: color-mix(in srgb, var(--ui-primary) 5%, transparent); outline: 1px dashed var(--ui-primary); outline-offset: -1px; }
+.iconeColuna { color: var(--ui-primary); flex-shrink: 0; }
+.acoesColuna { display: flex; align-items: center; gap: 12px; }
+.lista { display: flex; flex-direction: column; gap: 12px; flex: 1; min-height: 0; overflow-y: auto; padding: 2px; }
+.colunaVazia { margin: 0; padding: 32px 12px; color: var(--ui-muted); text-align: center; font-size: 12px; }
+.cartao { border: 1px solid var(--ui-divider); border-radius: var(--radius-md); background: var(--ui-surface); box-shadow: 0 2px 6px color-mix(in srgb, var(--ui-text) 4%, transparent); padding: 14px; cursor: grab; }
+.cartao:focus-visible { outline: 2px solid var(--ui-focus); outline-offset: 2px; }
+.arrastando { opacity: .45; }
+.topoCartao { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.codigo { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; letter-spacing: .04em; color: var(--ui-muted); }
+.acoesCartao { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+.prioridadeCartao { display: inline-flex; align-items: center; gap: 4px; color: var(--task-priority-color); font-size: 11px; font-weight: 500; white-space: nowrap; }
+.menuTrigger:global(.button--secondary), .menuTrigger:global(.button--secondary):hover, .menuTrigger:global(.button--secondary):active { width: 32px; height: 32px; min-height: 32px; background: transparent; border: 0; border-radius: 0; box-shadow: none; }
+.menuConteudo { width: 220px; padding: 4px; }
+.menuConteudo :global(.ui-option) { width: 100%; font: inherit; font-size: 13px; }
+.tituloCartao { display: block; width: 100%; border: 0; padding: 0; background: transparent; text-align: left; font: inherit; color: var(--ui-text); font-size: 14px; font-weight: 500; line-height: 1.4; overflow-wrap: anywhere; cursor: pointer; }
+.descricaoCartao { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; margin: 8px 0 0; font-size: 12px; line-height: 1.5; color: var(--ui-muted); }
+.rodapeCartao { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 16px; padding-top: 10px; border-top: 1px solid var(--ui-divider); font-size: 11px; color: var(--ui-muted); }
+.pessoaCartao { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.pessoaCartao > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rodapeCartao time { flex-shrink: 0; }
+@media (max-width: 767px) { .identidadeFormulario { --task-field-height: 46px; } }
+@media (max-width: 480px) {
+  .identidadeFormulario, .gradeFormulario, .dadosDetalhes { grid-template-columns: minmax(0, 1fr); }
+  .prioridades .prioridade { padding-inline: 4px; gap: 4px; font-size: 12px; }
+  .prioridade > svg { width: 12px; flex-basis: 12px; }
+  .barraTarefas { align-items: flex-start; }
+}

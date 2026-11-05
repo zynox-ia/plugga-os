@@ -36,6 +36,7 @@ export function buildContentSecurityPolicy(nonce: string, isProduction: boolean)
     "form-action 'self'",
     "img-src 'self' data: blob:",
     "font-src 'self' https://fonts.gstatic.com",
+    "worker-src 'self'",
     // style-src continua com 'unsafe-inline': o app usa `style={{ ... }}` do
     // React em vários pontos (ex.: dashboard-view.tsx), que o React emite como
     // atributo `style="..."` inline. Não há XSS conhecido por essa via — CSS
@@ -44,6 +45,6 @@ export function buildContentSecurityPolicy(nonce: string, isProduction: boolean)
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     `script-src ${scriptSources.join(" ")}`,
     "connect-src 'self' https://storage.googleapis.com",
-    "frame-src https://accounts.google.com https://my.spline.design",
+    "frame-src https://accounts.google.com https://my.spline.design https://maps.google.com https://www.google.com",
   ].join("; ");
 }

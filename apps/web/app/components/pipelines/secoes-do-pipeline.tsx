@@ -145,6 +145,13 @@ export function SecaoEtapas({ rascunho, aoAlterar, erros, negociosPorEtapa }: Pr
                 />
                 <span>dias</span>
               </span>
+              <span className="campo-conversao">
+                <Switch
+                  label="Pergunta sobre conversão em cliente"
+                  checked={etapa.asksClientConversion}
+                  onChange={(e) => alterar(i, { asksClientConversion: e.target.checked })}
+                />
+              </span>
               <span className="acoes-linha">
                 <BotaoAcaoLinha rotulo={`Subir ${nome}`} icone="cima" desabilitado={i === 0} aoClicar={() => aoAlterar({ stages: mover(etapas, i, i - 1) })} />
                 <BotaoAcaoLinha rotulo={`Descer ${nome}`} icone="baixo" desabilitado={i === etapas.length - 1} aoClicar={() => aoAlterar({ stages: mover(etapas, i, i + 1) })} />
@@ -174,17 +181,6 @@ export function SecaoEtapas({ rascunho, aoAlterar, erros, negociosPorEtapa }: Pr
           );
         })}
       </ol>
-      <Button
-        variant="secondary"
-        size="sm"
-        icon={<IconPlus />}
-        className="adicionar-linha-btn"
-        disabled={etapas.length >= 20}
-        onClick={() => aoAlterar({ stages: [...etapas, { chave: novaChave(), name: "", color: "#94A3B8", staleAfterDays: null }] })}
-      >
-        Adicionar etapa
-      </Button>
-      <p className="dica">Arraste pela alça ou use as setas para reordenar. Passado o prazo de parado, o negócio ganha um alerta no quadro; em branco, não alerta.</p>
     </div>
   );
 }
@@ -196,18 +192,6 @@ export function SecaoEtiquetas({ rascunho, aoAlterar, erros }: PropsDaSecao) {
 
   return (
     <div className="secao-lista">
-      <div className="secao-etiquetas-topo">
-        <p className="dica">As etiquetas pertencem ao pipeline e aparecem nos cards e nos filtros.</p>
-        <Button
-          variant="primary"
-          size="sm"
-          icon={<IconPlus />}
-          className="botao-nova-etiqueta"
-          onClick={() => aoAlterar({ tags: [...etiquetas, { chave: novaChave(), name: "", color: "#0077FF" }] })}
-        >
-          Nova etiqueta
-        </Button>
-      </div>
       {etiquetas.some((e) => e.name) ? (
         <div className="previa-etiquetas" aria-label="Prévia das etiquetas">
           {etiquetas

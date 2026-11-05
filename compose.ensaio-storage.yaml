@@ -1,26 +1,35 @@
 # Ensaio dos scripts de armazenamento (ops/prepara-backup.test.sh e
 # ops/prepara-corpus.test.sh).
 #
-# Sobe um SeaweedFS descartável, sem porta publicada e sem volume nomeado: nada aqui
+# Sobe um RustFS descartável, sem porta publicada e sem volume nomeado: nada aqui
 # encosta no ambiente de desenvolvimento nem em produção. A senha nunca fica escrita
 # aqui: os scripts de ensaio geram uma nova a cada execução e a passam em
 # ENSAIO_SEGREDO (é isso também que mantém o scanner de segredos da CI calado, sem
 # lista de exceções).
+#
+# O `mc` da MinIO deixou de ser distribuído (imagem e binário retirados dos
+# canais oficiais em 2026-11); o cliente de linha de comando agora é o
+# `aws-cli` oficial, fixado por digest. A criação de usuário/política fica a
+# cargo de `apps/api/scripts/provisionar-identidade-storage.mjs`, rodado numa
+# imagem `node` fixada, sem precisar de `mc admin`.
 name: ensaio-storage
 
 services:
-  seaweedfs:
-    # Mesma imagem e mesmo modo do compose.yaml de produção.
-    image: chrislusf/seaweedfs@sha256:08d516132314207d10c8e37cbffc1f32b147d870169688734cc61c6231625b62
-    command: ["mini", "-dir=/data", "-ip=0.0.0.0"]
+  rustfs:
+    # Mesma imagem e mesmo digest do compose.yaml de produção.
+    image: rustfs/rustfs@sha256:8cc9801755448b71a786705ce76692c77e14936cccd87cf2fc31842e58f4d1ff
+    environment:
+      RUSTFS_ACCESS_KEY: ensaio
+      RUSTFS_SECRET_KEY: ${ENSAIO_SEGREDO:?defina ENSAIO_SEGREDO (os scripts de ensaio fazem isso)}
+      RUSTFS_CONSOLE_ENABLE: "false"
+
+  # Só o cliente aws-cli, usado como ferramenta de linha de comando S3.
+  awscli:
+    image: amazon/aws-cli@sha256:1b7003e3ecb737b7533d8e16a547b4bc36e912508c3532ae51003aad8d0cd41d
+    depends_on: [rustfs]
     environment:
       AWS_ACCESS_KEY_ID: ensaio
-      AWS_SECRET_ACCESS_KEY: ${ENSAIO_SEGREDO:?defina ENSAIO_SEGREDO (os scripts de ensaio fazem isso)}
-
-  # Só o cliente `mc`, usado como ferramenta de linha de comando S3.
-  mc:
-    image: minio/mc:RELEASE.2025-04-16T18-13-26Z
-    depends_on: [seaweedfs]
-    environment:
-      MC_HOST_dest: http://ensaio:${ENSAIO_SEGREDO:?defina ENSAIO_SEGREDO}@seaweedfs:8333
+      AWS_SECRET_ACCESS_KEY: ${ENSAIO_SEGREDO:?defina ENSAIO_SEGREDO}
+      AWS_DEFAULT_REGION: us-east-1
+      AWS_ENDPOINT_URL: http://rustfs:9000
     entrypoint: ["sleep", "3600"]

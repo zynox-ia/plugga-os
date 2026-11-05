@@ -1,0 +1,299 @@
+.lista {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: min-content;
+  min-width: 0;
+  position: relative;
+}
+
+/* O próprio card da lista é o painel de vidro, sem um segundo shape. */
+:global(.painel-quadro):has(> .lista) {
+  overflow: visible;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+.lista :global(.lista-negocios-card) {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: min-content;
+  padding: 0;
+  border-radius: var(--radius-md);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+
+/* O hover global dos cards usa fundo opaco; a tabela mantém o vidro. */
+.lista :global(.lista-negocios-card),
+.lista :global(.lista-negocios-card):hover {
+  background: color-mix(in srgb, var(--ui-surface) 72%, transparent) !important;
+}
+
+.lista :global(.card-heading) {
+  flex-shrink: 0;
+  padding: var(--space-md);
+}
+
+.controles {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+
+.selectLote { width: 190px; max-width: 100%; min-height: 36px; font-size: 12px; }
+
+.selecao { display: flex; }
+.selecao > button { flex: 1; }
+
+.rolagemTabela {
+  flex: 1;
+  /* As linhas não participam do cálculo da altura mínima do painel. */
+  contain: size;
+  min-height: 160px;
+  overflow: auto;
+  scroll-padding-block-start: var(--space-2xl);
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--ui-divider) transparent;
+}
+
+.rolagemTabela :global(.table-wrap) { overflow: visible; }
+
+.rolagemTabela:focus-visible {
+  outline: 2px solid var(--ui-primary);
+  outline-offset: -2px;
+}
+
+.lista thead {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: color-mix(in srgb, var(--ui-surface) 90%, transparent);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+
+.lista table {
+  min-width: 760px;
+  table-layout: fixed;
+}
+
+.lista table th {
+  padding: var(--space-sm) var(--space-md);
+  font-size: 12px;
+  text-transform: none;
+  letter-spacing: 0;
+  background: color-mix(in srgb, var(--ui-subtle) 65%, transparent);
+}
+
+.lista table th:first-child { width: 34%; }
+.lista table th:nth-child(2) { width: 24%; }
+.lista table th:nth-child(3) { width: 18%; }
+.lista table th:nth-child(4) { width: 14%; }
+.lista table th:last-child { width: 10%; min-width: 88px; }
+
+.lista table th:not(:first-child) { text-align: center; }
+.lista table th:not(:first-child) .cabecalhoColuna { justify-content: center; }
+
+.lista table th + th,
+.lista table td + td {
+  border-left: 1px solid var(--ui-divider);
+}
+
+.lista table td {
+  padding: var(--space-sm) var(--space-md);
+}
+
+.lista table tbody tr:hover td {
+  background: color-mix(in srgb, var(--ui-subtle) 65%, transparent) !important;
+}
+
+.lista table tbody tr[data-selected="true"] td {
+  background: color-mix(in srgb, var(--ui-focus-bg) 65%, transparent) !important;
+}
+
+.lista table tr[data-selected="true"] td:first-child {
+  box-shadow: inset 2px 0 var(--ui-primary);
+}
+
+.cabecalhoColuna,
+.oportunidade {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.checkbox {
+  align-items: center;
+  flex: 0 0 24px;
+  width: 24px;
+  min-height: 32px;
+  margin: 0;
+  padding: 0;
+  gap: 0;
+}
+.checkbox > input { margin: 0; }
+
+/* O rótulo continua disponível para leitores de tela. */
+.checkbox > span {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.lista :global(.celula-lead-bloco) { min-width: 0; gap: var(--space-2xs); }
+.iconeOportunidade {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 40px;
+  width: 40px;
+  height: 40px;
+  color: var(--ui-muted);
+  border: 1px solid var(--ui-divider);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--ui-subtle) 75%, var(--ui-surface));
+}
+
+.titulo {
+  padding: 0;
+  border: 0;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.titulo:hover { color: var(--ui-primary); }
+
+.lista :global(.lead-subtitulo) {
+  font-size: 12px;
+  gap: var(--space-2xs);
+  flex-wrap: nowrap;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.lista :global(.lead-subtitulo-item) { min-width: 0; white-space: nowrap; }
+.lista :global(.lead-subtitulo-item svg) { flex-shrink: 0; }
+.email { flex: 0 1 auto; overflow: hidden; }
+.email > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.lista :global(.celula-empresa-centro) { align-items: flex-start; gap: var(--space-2xs); max-width: 100%; min-width: 0; }
+.lista :global(.empresa-nome) { display: block; max-width: 100%; min-width: 0; overflow: hidden; text-align: left; text-overflow: ellipsis; white-space: nowrap; }
+.lista :global(.empresa-sub) { flex-wrap: wrap; justify-content: flex-start; }
+
+.etapa,
+.valor {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2xs);
+}
+
+.valor { align-items: center; text-align: center; }
+
+.lista :global(.etapa-pill) {
+  min-height: 0;
+  line-height: var(--line-height-control);
+  justify-content: flex-start;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  white-space: normal;
+  font-size: 12px;
+}
+
+.lista :global(.valor-linha) { font-variant-numeric: tabular-nums; text-align: center; }
+.lista :global(.selo-status-lead) { height: 20px; border-radius: var(--radius-full); }
+
+.menuVidro:global(.menu-negocio-lista) {
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  backdrop-filter: blur(24px) saturate(180%);
+  border-radius: 18px;
+  box-shadow: 0 20px 50px rgba(15, 41, 74, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+.menuVidro:global(.menu-negocio-lista) button:hover,
+.menuVidro:global(.menu-negocio-lista) button:focus-visible {
+  background: rgba(15, 41, 74, 0.06);
+}
+
+.lista :global(.lista-paginacao) {
+  flex-shrink: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  padding: var(--space-sm) var(--space-md);
+  gap: var(--space-sm);
+  border-top: 1px solid var(--ui-divider);
+  background: transparent;
+  color: var(--ui-muted);
+  font-size: 12px;
+}
+
+.lista :global(.lista-paginacao-controles),
+.lista :global(.lista-paginacao-paginas) { display: flex; gap: var(--space-2xs); align-items: center; }
+.lista :global(.lista-paginacao-controles) { justify-self: end; justify-content: flex-end; }
+.lista :global(.lista-paginacao-btn),
+.lista :global(.lista-paginacao-num) { width: 26px; height: 28px; min-width: 26px; min-height: 28px; padding: 0; border-radius: var(--radius-xs); }
+.lista :global(.lista-paginacao-num[aria-current="page"]) { color: var(--ui-primary); background: transparent; border-color: transparent; box-shadow: inset 0 -1px var(--ui-primary); }
+.lista :global(.lista-paginacao-reticencias) { padding: 0 var(--space-2xs); }
+
+.lista :global(.barra-lote) {
+  position: static;
+  flex-shrink: 0;
+  order: 1;
+  z-index: 5;
+  align-self: center;
+  max-width: 100%;
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--ui-divider);
+  color: var(--ui-text);
+  background: var(--ui-surface);
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--ui-text) 10%, transparent);
+}
+
+.lista :global(.barra-lote-info) { white-space: nowrap; }
+
+.lista button:focus-visible,
+.lista select:focus-visible {
+  outline: 2px solid var(--ui-primary);
+  outline-offset: 3px;
+}
+
+@media (max-width: 767px) {
+  .lista :global(.card-heading) { padding: var(--space-md); }
+  .controles { width: 100%; }
+  .lista :global(.lista-paginacao) { grid-template-columns: minmax(0, 1fr); }
+  .lista :global(.lista-paginacao-controles) { display: grid; grid-template-columns: repeat(2, 26px) minmax(0, 1fr) repeat(2, 26px); max-width: 100%; }
+  .lista :global(.lista-paginacao-paginas) { min-width: 0; flex-wrap: wrap; justify-content: flex-end; }
+  .lista :global(.barra-lote) { width: 100%; }
+  .lista :global(.barra-lote-controles) { width: 100%; }
+  .selectLote { flex: 1; min-width: 0; }
+}
+
+@media (max-width: 479px) {
+  .controles { display: grid; grid-template-columns: minmax(0, 1fr); }
+  .lista :global(.barra-lote-controles) { display: grid; grid-template-columns: minmax(0, 1fr); }
+  .selectLote { width: 100%; }
+}

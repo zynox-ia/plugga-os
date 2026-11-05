@@ -14,6 +14,25 @@ function nomeAcessivel(item: { label: string }): string {
 
 const GRUPOS = navGroupsForAccess();
 
+test.describe("Barra lateral recolhida", () => {
+  for (const grupo of GRUPOS.filter((grupo) => grupo.collapsible)) {
+    test(`${grupo.label}: clique segue a primeira opção do departamento`, async ({ page }) => {
+      await page.goto("/");
+      await page.getByTitle("Recolher barra lateral", { exact: true }).click();
+      const primeiraOpcao = grupo.items[0];
+      const departamento = page.locator(".nav-parent").filter({ hasText: grupo.label });
+
+      await departamento.click();
+
+      await expect(page).toHaveURL((url) => url.pathname === (
+        primeiraOpcao && !primeiraOpcao.disabled ? primeiraOpcao.id : "/"
+      ));
+      await expect(page.locator(".sidebar")).toHaveClass(/sidebar--collapsed/);
+      await expect(page.locator(".nav-children")).toHaveCount(0);
+    });
+  }
+});
+
 function grupoDe(item: { id: string }) {
   const grupo = GRUPOS.find((candidato) => candidato.items.some((entrada) => entrada.id === item.id));
   expect(grupo, `grupo do item ${item.id}`).toBeDefined();

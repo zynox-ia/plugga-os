@@ -5,7 +5,6 @@ import {
   cpfValido,
   somenteDigitos,
   type PipelinePerson,
-  type CreateClientResponse,
   type Deal,
   type Pipeline,
 } from "@plugga/shared";
@@ -32,21 +31,7 @@ import {
   SelectTrigger,
 } from "../ui/shadcn/select";
 
-function AvatarResponsavel({ nome, avatarUrl }: { nome: string; avatarUrl?: string | null }) {
-  const [erroImg, setErroImg] = useState(false);
-
-  if (avatarUrl && !erroImg) {
-    return (
-      <span className="ui-member-avatar" aria-hidden="true">
-        <img
-          src={avatarUrl}
-          alt={nome}
-          onError={() => setErroImg(true)}
-        />
-      </span>
-    );
-  }
-
+function AvatarResponsavel({ nome }: { nome: string }) {
   return (
     <span className="ui-member-avatar ui-member-avatar--fallback" aria-hidden="true" title={nome}>
       <IconUser width={15} height={15} />
@@ -154,40 +139,31 @@ export function NovoNegocio({
     setEnviando(true);
     setErro(null);
 
-    // 1. Cria o cliente no CRM com os dados do lead
-    const respostaCliente = await enviar<CreateClientResponse>("/api/clientes", "POST", {
-      personType: tipoPessoa,
-      name: nomeLead.trim(),
-      phone: somenteDigitos(telefoneLead) || null,
-      email: emailLead.trim() || null,
-      document: somenteDigitos(documentoLead) || null,
-      ownerId: responsavelId,
-    });
-
-    if (!respostaCliente.ok) {
-      setEnviando(false);
-      const erroCli = respostaCliente.erro;
-      const msg = erroCli.mensagem || "Não foi possível cadastrar o lead.";
-      const camposComErro: Record<string, string> = {};
-      if (erroCli.porCampo?.document) camposComErro.documentoLead = erroCli.porCampo.document;
-      if (erroCli.porCampo?.phone) camposComErro.telefoneLead = erroCli.porCampo.phone;
-      if (erroCli.porCampo?.email) camposComErro.emailLead = erroCli.porCampo.email;
-      if (erroCli.porCampo?.name) camposComErro.nomeLead = erroCli.porCampo.name;
-      return setErro({ mensagem: msg, porCampo: { ...erroCli.porCampo, ...camposComErro } });
-    }
-
-    // 2. Cria o negócio no pipeline e etapa selecionados, usando o nome do lead como título
-    const respostaNegocio = await enviar<Deal>("/api/negocios", "POST", {
+    // O cadastro envia os dados próprios do lead, sem criar um cliente antes.
+    const respostaNegocio = await enviar<Deal>("/api/leads", "POST", {
       pipelineId,
       stageId: etapaId,
-      clientId: respostaCliente.dados.client.id,
-      contactId: null,
       title: nomeLead.trim(),
       value: null,
       expectedCloseDate: null,
       ownerId: responsavelId,
       tagIds: [],
-      consumerUnitIds: [],
+      lead: {
+        personType: tipoPessoa,
+        name: nomeLead.trim(),
+        phone: telLimpo || null,
+        email: emailLimpo || null,
+        document: docLimpo || null,
+        postalCode: null,
+        street: null,
+        addressComplement: null,
+        district: null,
+        city: null,
+        state: null,
+        origin: null,
+        notes: null,
+        legalName: null,
+      },
     });
 
     setEnviando(false);
@@ -206,7 +182,7 @@ export function NovoNegocio({
   return (
     <Dialog
       title="Novo Lead"
-      accessibleLabel="Novo negócio"
+      accessibleLabel="Novo lead"
       description="Cadastre um novo lead no CRM e direcione-o para a etapa do pipeline."
       icon={<IconUserPlus />}
       onClose={aoFechar}
@@ -223,24 +199,25 @@ export function NovoNegocio({
       }
     >
       <div className="ui-dialog-form">
-        {erro?.mensagem ? (
-          <Alert tone="danger" title={erro.mensagem} />
+        {erro ? (
+          <Alert tone="danger" title={erro.mensagem || "Não foi possível cadastrar o lead."} />
         ) : null}
 
         {/* Seção 1: Pipeline e Etapa */}
-        <section className="ui-dialog-section">
+        <section className="ui-dialog-section" aria-labelledby="secao-funil">
           <div className="ui-dialog-section-header">
-            <Heading as="h3" icon={<IconLayers />}>Pipeline e Etapa</Heading>
+            <Heading as="h3" id="secao-funil" icon={<IconLayers />}>Pipeline e Etapa</Heading>
             <p className="ui-dialog-section-desc">
               Defina o funil comercial e a etapa inicial onde o lead entrará.
             </p>
           </div>
           <div className="ui-dialog-grid">
             <SelectField
-              id="negocio-pipeline"
+              id="lead-pipeline"
               label="Pipeline"
               required
               value={pipelineId}
+              error={e.pipelineId}
               onChange={trocarPipeline}
               options={pipelines.map((p) => ({
                 value: p.id,
@@ -248,10 +225,11 @@ export function NovoNegocio({
               }))}
             />
             <SelectField
-              id="negocio-etapa"
+              id="lead-etapa"
               label="Etapa inicial"
               required
               value={etapaId}
+              error={e.stageId}
               onChange={setEtapaId}
               options={pipeline.stages.map((s) => ({
                 value: s.id,
@@ -261,16 +239,16 @@ export function NovoNegocio({
           </div>
           <div className="ui-dialog-notice">
             <span>
-              A empresa vem do pipeline: este negócio pertence à{" "}
+              A empresa vem do pipeline: este lead pertence à{" "}
               <span className="ui-dialog-notice-empresa">{EMPRESAS_POR_ID[pipeline.companyId].nome}</span>.
             </span>
           </div>
         </section>
 
         {/* Seção 2: Dados do Lead */}
-        <section className="ui-dialog-section">
+        <section className="ui-dialog-section" aria-labelledby="secao-dados-lead">
           <div className="ui-dialog-section-header">
-            <Heading as="h3" icon={<IconUser />}>Dados do Lead</Heading>
+            <Heading as="h3" id="secao-dados-lead" icon={<IconUser />}>Dados do Lead</Heading>
             <p className="ui-dialog-section-desc">
               Informações de identificação, contato e responsável da equipe.
             </p>
@@ -278,22 +256,22 @@ export function NovoNegocio({
 
           <TextField
             id="lead-nome"
-            label="Nome do lead / Razão Social *"
+            label="Nome do lead / Razão Social"
+            required
             value={nomeLead}
-            maxLength={150}
             placeholder="Ex.: Mariana Costa ou Solar Distribuidora"
-            error={e.nomeLead}
+            error={e.nomeLead ?? e["lead.name"] ?? e.title}
             onChange={(ev) => setNomeLead(ev.target.value)}
           />
 
           <div className="ui-dialog-grid">
             <TextField
               id="lead-telefone"
-              label="Telefone / WhatsApp *"
+              label="Telefone / WhatsApp"
               value={telefoneLead}
               inputMode="tel"
               placeholder="(92) 99999-9999"
-              error={e.telefoneLead}
+              error={e.telefoneLead ?? e["lead.phone"]}
               onChange={(ev) => setTelefoneLead(mascaraTelefone(ev.target.value))}
             />
             <TextField
@@ -302,7 +280,7 @@ export function NovoNegocio({
               type="email"
               value={emailLead}
               placeholder="contato@exemplo.com"
-              error={e.emailLead}
+              error={e.emailLead ?? e["lead.email"]}
               onChange={(ev) => setEmailLead(ev.target.value)}
             />
           </div>
@@ -312,10 +290,11 @@ export function NovoNegocio({
               id="lead-tipo-pessoa"
               label="Tipo de pessoa"
               value={tipoPessoa}
+              error={e["lead.personType"]}
               onChange={(val) => {
                 const novoTipo = val as "pf" | "pj";
                 setTipoPessoa(novoTipo);
-                setDocumentoLead(mascaraDocumento(documentoLead, novoTipo));
+                setDocumentoLead("");
               }}
               options={[
                 { value: "pj", label: "Pessoa Jurídica (PJ)" },
@@ -328,33 +307,38 @@ export function NovoNegocio({
               label={tipoPessoa === "pf" ? "CPF" : "CNPJ"}
               value={documentoLead}
               placeholder={tipoPessoa === "pf" ? "000.000.000-00" : "00.000.000/0000-00"}
-              error={e.documentoLead}
+              error={e.documentoLead ?? e["lead.document"]}
               onChange={(ev) => setDocumentoLead(mascaraDocumento(ev.target.value, tipoPessoa))}
             />
           </div>
 
           {/* Responsável da equipe */}
-          <div className="ui-field inteira">
-            <label id="negocio-responsavel-label" htmlFor="negocio-responsavel">
+          <div
+            className="ui-field inteira"
+            ref={(node) => {
+              if (node && containerResponsavel !== node) setContainerResponsavel(node);
+            }}
+          >
+            <label id="negocio-responsavel-label" htmlFor="lead-responsavel">
               Responsável da equipe *
             </label>
             <Select
               value={responsavelId}
-              onValueChange={setResponsavelId}
-              onOpenChange={(open) => {
-                if (open) setContainerResponsavel(responsavelTriggerRef.current?.closest("dialog") ?? null);
+              onValueChange={(val) => {
+                setResponsavelId(val);
+                setErro((atual) => atual ? { ...atual, porCampo: { ...atual.porCampo, ownerId: "" } } : null);
               }}
             >
               <SelectTrigger
                 ref={responsavelTriggerRef}
-                id="negocio-responsavel"
+                id="lead-responsavel"
                 aria-labelledby="negocio-responsavel-label"
                 aria-invalid={Boolean(e.ownerId)}
                 style={{ minHeight: "48px", padding: "6px 12px" }}
               >
                 {responsavelAtual ? (
                   <div className="ui-member-profile">
-                    <AvatarResponsavel nome={responsavelAtual.name} avatarUrl={(responsavelAtual as { avatarUrl?: string })?.avatarUrl ?? null} />
+                    <AvatarResponsavel nome={responsavelAtual.name} />
                     <div className="ui-member-text">
                       <span className="ui-member-name">{responsavelAtual.name}</span>
                       <span className="ui-member-email">{emailDoResponsavel(responsavelAtual)}</span>
@@ -381,7 +365,7 @@ export function NovoNegocio({
                       style={{ minHeight: "46px", padding: "6px 12px" }}
                     >
                       <div className="ui-member-profile">
-                        <AvatarResponsavel nome={m.name} avatarUrl={(m as { avatarUrl?: string })?.avatarUrl ?? null} />
+                        <AvatarResponsavel nome={m.name} />
                         <div className="ui-member-text">
                           <span className="ui-member-name">{m.name}</span>
                           <span className="ui-member-email">{emailDoResponsavel(m)}</span>
@@ -392,7 +376,7 @@ export function NovoNegocio({
                 )}
               </SelectContent>
             </Select>
-            {e.ownerId ? <p className="ui-field-error">Erro: {e.ownerId}</p> : null}
+            {e.ownerId ? <p className="ui-field-error" role="alert">{e.ownerId}</p> : null}
           </div>
         </section>
       </div>

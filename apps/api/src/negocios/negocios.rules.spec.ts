@@ -36,7 +36,14 @@ describe("hoje no fuso da operação", () => {
 });
 
 describe("contrato de criação do negócio", () => {
-  const valido = { pipelineId: ID, stageId: ID, clientId: ID, ownerId: ID, title: "Galpão logístico — 150 kWp" };
+  const valido = {
+    pipelineId: ID,
+    stageId: ID,
+    clientId: ID,
+    ownerId: ID,
+    title: "Galpão logístico — 150 kWp",
+    lead: { personType: "pj" as const, name: "Lead de teste", phone: "92999990000" },
+  };
 
   it("valor e previsão em branco viram nulos; listas começam vazias", () => {
     const negocio = createDealRequestSchema.parse({ ...valido, value: "", expectedCloseDate: "" });

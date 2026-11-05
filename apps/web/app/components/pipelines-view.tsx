@@ -1,23 +1,33 @@
 "use client";
 
-import type { BulkDealsAction, PipelinePerson, CompanyKey, Deal, ListDealsResponse, Pipeline } from "@plugga/shared";
-import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import type { BulkDealsAction, ClientDuplicateCandidate, ConvertLeadResponse, PipelinePerson, CompanyKey, Deal, ListDealsResponse, Pipeline } from "@plugga/shared";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 
 import { enviar } from "../lib/clientes";
+import { converterLead } from "../lib/conversao-lead";
 import { hrefDaVisao, type Visao } from "../lib/negocios";
+import type { TarefaDoLead } from "../lib/tarefas-lead";
 import { useSessionUser } from "../lib/use-session-user";
-import { Button, IconPlus, IconSearch, IconSettings } from "./ui";
+import { Alert, Button, Dialog, IconPlus, IconSearch, IconSettings } from "./ui";
 import { ConfiguracaoDePipelines } from "./pipelines/configuracao-de-pipelines";
+import { moverCartao } from "./pipelines/arrasto-kanban";
 import { GanhoDoNegocio, PerdaDoNegocio } from "./pipelines/encerrar-negocio";
 import { Icone } from "./pipelines/icones";
+import { EscolhaDeClienteNaConversao, SucessoDaConversao } from "./pipelines/modal-conversao-lead";
 import { NovoNegocio } from "./pipelines/novo-negocio";
 import { NavegacaoPipelines } from "./pipelines/navegacao-pipelines";
-import { QuadroDoPipeline, type AcoesDoNegocio } from "./pipelines/quadro-do-pipeline";
+import { BarraRolagemMinimalista, QuadroDoPipeline, type AcoesDoNegocio } from "./pipelines/quadro-do-pipeline";
 import { TransferirNegocio } from "./pipelines/transferir-negocio";
+import { DetalhesDoLeadModal } from "./pipelines/detalhes-do-lead-modal";
 import estilos from "./pipelines/tela-pipelines.module.css";
 
 type Encerramento = { tipo: "ganho" | "perda" | "transferencia"; negocio: Deal };
+type Conversao =
+  | { tipo: "convite" | "enviando"; negocio: Deal }
+  | { tipo: "erro"; negocio: Deal; mensagem: string }
+  | { tipo: "escolha"; negocio: Deal; candidatos: ClientDuplicateCandidate[]; enviando: boolean; erro: string | null }
+  | { tipo: "sucesso"; resultado: ConvertLeadResponse };
 
 /**
  * Pipelines de venda: seletor de múltiplos funis e visões Kanban e Lista.
@@ -41,12 +51,20 @@ export function PipelinesView({
   responsaveis: PipelinePerson[];
 }) {
   const router = useRouter();
+  const parametros = useSearchParams();
+  const leadSelecionadoId = parametros.get("lead");
+  const colunasRef = useRef<HTMLDivElement>(null);
+  const prioridadesPendentes = useRef(new Set<string>());
+  const movimentoPendente = useRef(false);
+  const conversaoPendente = useRef(false);
   const { usuario } = useSessionUser();
   const [busca, setBusca] = useState("");
   const [configurando, setConfigurando] = useState<"editar" | "novo" | null>(null);
   const [negocios, setNegocios] = useState(doServidor);
   const [criando, setCriando] = useState<{ etapaId?: string } | null>(null);
   const [encerrando, setEncerrando] = useState<Encerramento | null>(null);
+  const [convertendo, setConvertendo] = useState<Conversao | null>(null);
+  const [tarefasPorLead, setTarefasPorLead] = useState<Record<string, TarefaDoLead[]>>({});
   const [aviso, setAviso] = useState<string | null>(null);
 
   useEffect(() => setNegocios(doServidor), [doServidor]);
@@ -74,21 +92,90 @@ export function PipelinesView({
     router.refresh();
   }
 
+  function abrirDetalhes(id: string | null) {
+    const url = new URL(window.location.href);
+    if (id) url.searchParams.set("lead", id);
+    else url.searchParams.delete("lead");
+    window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
+  }
+
+  function fecharConversao() {
+    const id = convertendo?.tipo === "sucesso" ? convertendo.resultado.lead.id : convertendo?.negocio.id;
+    setConvertendo(null);
+    requestAnimationFrame(() => {
+      const alvo = document.querySelector<HTMLElement>(`[data-cartao-id="${id}"] button[aria-label^="Ver lead"]`)
+        ?? document.querySelector<HTMLElement>('input[aria-label="Buscar negócios"]');
+      alvo?.focus({ preventScroll: true });
+    });
+  }
+
+  async function converter(negocio: Deal, destino?: string) {
+    if (conversaoPendente.current) return;
+    conversaoPendente.current = true;
+    const escolha = convertendo?.tipo === "escolha" && convertendo.negocio.id === negocio.id ? convertendo : null;
+    setConvertendo(escolha ? { ...escolha, enviando: true, erro: null } : { tipo: "enviando", negocio });
+    const resposta = await converterLead(negocio, destino);
+    conversaoPendente.current = false;
+    if (resposta.ok) {
+      confirmado([resposta.dados.lead]);
+      setConvertendo({ tipo: "sucesso", resultado: resposta.dados });
+    } else if (resposta.erro.candidatos?.length) {
+      setConvertendo({ tipo: "escolha", negocio, candidatos: resposta.erro.candidatos, enviando: false, erro: null });
+    } else if (escolha) {
+      setConvertendo({ ...escolha, enviando: false, erro: resposta.erro.mensagem });
+    } else {
+      setConvertendo({ tipo: "erro", negocio, mensagem: resposta.erro.mensagem });
+    }
+  }
+
   const acoes: AcoesDoNegocio = {
-    async moverEtapa(negocio, etapaId) {
-      if (negocio.stageId === etapaId) return;
-      aplicar([{ ...negocio, stageId: etapaId, stageEnteredAt: new Date().toISOString() }]);
-      const resposta = await enviar<Deal>(`/api/negocios/${negocio.id}/etapa`, "POST", { stageId: etapaId });
-      if (resposta.ok) return confirmado([resposta.dados]);
-      aplicar([negocio]);
+    abrirDetalhes: (negocio) => abrirDetalhes(negocio.id),
+    atualizar: (negocio) => aplicar([negocio]),
+    async definirPrioridade(negocio, prioridade) {
+      if (prioridadesPendentes.current.has(negocio.id)) return null;
+      if (negocio.priority === prioridade) return negocio;
+      prioridadesPendentes.current.add(negocio.id);
+      setNegocios((atuais) => atuais.map((n) => n.id === negocio.id ? { ...n, priority: prioridade } : n));
+      const resposta = await enviar<Deal>(`/api/leads/${negocio.id}/prioridade`, "PATCH", { priority: prioridade });
+      if (resposta.ok) confirmado([resposta.dados]);
+      else {
+        setNegocios((atuais) => atuais.map((n) => n.id === negocio.id ? { ...n, priority: negocio.priority } : n));
+        setAviso(resposta.erro.mensagem);
+      }
+      prioridadesPendentes.current.delete(negocio.id);
+      return resposta.ok ? resposta.dados : null;
+    },
+    async moverEtapa(negocio, etapaId, antesDeId) {
+      if (movimentoPendente.current) return null;
+      const mudouEtapa = negocio.stageId !== etapaId;
+      if (!mudouEtapa && antesDeId === undefined) return negocio;
+      movimentoPendente.current = true;
+      const etapaDestino = selecionado?.stages.find((e) => e.id === etapaId);
+      const indiceOriginal = negocios.findIndex((n) => n.id === negocio.id);
+      const seguinteOriginal = negocios.slice(indiceOriginal + 1).find((n) => n.stageId === negocio.stageId && n.status === "open")?.id ?? null;
+      setNegocios((atuais) => moverCartao(atuais, negocio.id, etapaId, antesDeId, new Date().toISOString()));
+      const resposta = await enviar<Deal>(`/api/leads/${negocio.id}/etapa`, "POST", { stageId: etapaId, beforeDealId: antesDeId });
+      movimentoPendente.current = false;
+      if (resposta.ok) {
+        confirmado([resposta.dados]);
+        if (mudouEtapa && etapaDestino?.asksClientConversion && !negocio.client) {
+          if (leadSelecionadoId === negocio.id) abrirDetalhes(null);
+          setConvertendo((atual) => atual ?? { tipo: "convite", negocio: resposta.dados });
+        }
+        return resposta.dados;
+      }
+      setNegocios((atuais) => moverCartao(atuais, negocio.id, negocio.stageId, seguinteOriginal, negocio.stageEnteredAt));
       setAviso(resposta.erro.mensagem);
+      return null;
     },
     ganhar: (negocio) => setEncerrando({ tipo: "ganho", negocio }),
     perder: (negocio) => setEncerrando({ tipo: "perda", negocio }),
     transferir: (negocio) => setEncerrando({ tipo: "transferencia", negocio }),
+    converter: (negocio) => { void converter(negocio); },
+    convertendoId: convertendo?.tipo === "enviando" || (convertendo?.tipo === "escolha" && convertendo.enviando) ? convertendo.negocio.id : null,
     novoNaEtapa: (etapaId) => setCriando({ etapaId }),
     async emLote(ids: string[], action: BulkDealsAction) {
-      const resposta = await enviar<ListDealsResponse>("/api/negocios/lote", "POST", { dealIds: ids, action });
+      const resposta = await enviar<ListDealsResponse>("/api/leads/lote", "POST", { dealIds: ids, action });
       if (resposta.ok) {
         confirmado(resposta.dados.deals);
         return true;
@@ -135,6 +222,23 @@ export function PipelinesView({
         ) : null}
       </header>
 
+      {convertendo?.tipo === "enviando" ? <span className="sr-only" role="status">Convertendo lead em cliente…</span> : null}
+      {convertendo?.tipo === "convite" ? (
+        <Dialog title="Deseja converter em cliente?" size="estreita" onClose={() => setConvertendo(null)} cancelText="Agora não"
+          footer={<Button onClick={() => { void converter(convertendo.negocio); }}>Converter em cliente</Button>}>
+          <p>{convertendo.negocio.lead.name}</p>
+        </Dialog>
+      ) : null}
+      {convertendo?.tipo === "erro" ? (
+        <Alert tone="danger" title="Não foi possível converter">
+          <p>{convertendo.mensagem}</p>
+          <div className="ui-dialog-actions">
+            <Button variant="secondary" onClick={() => { abrirDetalhes(convertendo.negocio.id); setConvertendo(null); }}>Abrir dados do lead</Button>
+            <Button variant="secondary" onClick={() => setConvertendo(null)}>Fechar</Button>
+          </div>
+        </Alert>
+      ) : null}
+
       {selecionado ? (
         <>
           <NavegacaoPipelines
@@ -143,6 +247,7 @@ export function PipelinesView({
             visao={visao}
             podeConfigurar={podeConfigurar}
             aoConfigurar={() => setConfigurando("editar")}
+            rolagem={visao === "kanban" ? <BarraRolagemMinimalista key={`${selecionado.id}-${selecionado.stages.length}`} containerRef={colunasRef} className={estilos.rolagem} /> : null}
           />
           {aviso ? (
             <p className="aviso aviso--erro aviso-flutuante" role="alert">
@@ -158,6 +263,7 @@ export function PipelinesView({
             visao={visao}
             usuarioId={usuario?.id ?? null}
             acoes={acoes}
+            colunasRef={colunasRef}
           />
         </>
       ) : (
@@ -221,6 +327,19 @@ export function PipelinesView({
       {encerrando?.tipo === "transferencia" && selecionado ? (
         <TransferirNegocio responsaveis={responsaveis} pipelines={ativos} origem={selecionado} negocio={encerrando.negocio} aoConcluir={concluir} aoFechar={() => setEncerrando(null)} />
       ) : null}
+
+      {convertendo?.tipo === "sucesso" ? (
+        <SucessoDaConversao clienteNome={convertendo.resultado.client.name}
+          aoFechar={fecharConversao}
+        />
+      ) : null}
+      {convertendo?.tipo === "escolha" ? (
+        <EscolhaDeClienteNaConversao candidatos={convertendo.candidatos} enviando={convertendo.enviando} erro={convertendo.erro}
+          aoEscolher={(destino) => { void converter(convertendo.negocio, destino); }}
+          aoFechar={() => { if (!conversaoPendente.current) fecharConversao(); }}
+        />
+      ) : null}
+      {leadSelecionadoId && selecionado ? <DetalhesDoLeadModal key={leadSelecionadoId} negocioId={leadSelecionadoId} pipeline={selecionado} responsaveis={responsaveis} acoes={acoes} tarefas={tarefasPorLead[leadSelecionadoId] ?? []} aoAlterarTarefas={(atualizar) => setTarefasPorLead((atuais) => ({ ...atuais, [leadSelecionadoId]: typeof atualizar === "function" ? atualizar(atuais[leadSelecionadoId] ?? []) : atualizar }))} aoFechar={() => abrirDetalhes(null)} /> : null}
     </div>
   );
 }

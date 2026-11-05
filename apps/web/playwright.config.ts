@@ -31,17 +31,15 @@ export default defineConfig({
   webServer: process.env.PLAYWRIGHT_BASE_URL
     ? undefined
     : {
-        // CI serves the same standalone tree assembled by the Dockerfile. The
+        // A suíte principal verifica produção e exige `pnpm build` antes.
+        // O preview de tarefas temporárias usa test:atividades-dev, com Next DEV.
+        // The suite serves the same standalone tree assembled by the Dockerfile. The
         // helper copies static/public before booting; `next start` is unsupported
         // when next.config.ts uses `output: "standalone"`.
-        //
-        // Dev deliberately has no --hostname: an explicit loopback hostname can
-        // canonicalize redirects to "localhost" and drop the 127.0.0.1 cookie.
-        command: process.env.CI
-          ? "node scripts/start-standalone.mjs"
-          : "pnpm exec next dev --port 3000",
+        command: "node scripts/start-standalone.mjs",
         url: "http://127.0.0.1:3000",
-        reuseExistingServer: !process.env.CI,
+        // Recusa uma porta ocupada em vez de testar o localhost DEV do André.
+        reuseExistingServer: false,
         timeout: 120_000,
         // O login Google fica LIGADO na suíte, com um client id de mentira: o
         // que os testes exercitam é a nossa metade do fluxo (renderização,

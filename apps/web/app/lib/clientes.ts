@@ -1,5 +1,6 @@
 import {
   clientContactRoles,
+  clientDuplicateCandidateSchema,
   clientOrigins,
   formatarCep,
   formatarCnpj,
@@ -90,18 +91,23 @@ export function hrefDaFicha(id: string | null, filtros: { q?: string; active?: s
   return texto ? `/clientes?${texto}` : "/clientes";
 }
 
-export type ErroDoFormulario = { mensagem: string; codigo?: string; porCampo: Record<string, string> };
+export type ErroDoFormulario = { mensagem: string; codigo?: string; porCampo: Record<string, string>; candidatos?: ClientDuplicateCandidate[] };
 
 /** Envelope da API (`{ codigo, mensagem, detalhes }`) ou do proxy (`{ codigo, message }`). */
 export function lerErro(corpo: unknown, padrao: string): ErroDoFormulario {
-  const dados = (corpo ?? {}) as { codigo?: string; mensagem?: string; message?: string; detalhes?: Array<{ campo: string; problema: string }> };
+  const dados = (corpo ?? {}) as { codigo?: string; mensagem?: string; message?: string; detalhes?: Array<{ campo: string; problema: string }>; candidatos?: unknown[] };
   const porCampo: Record<string, string> = {};
   for (const detalhe of dados.detalhes ?? []) {
+    porCampo[detalhe.campo] ??= detalhe.problema;
     const campo = detalhe.campo.split(".")[0] ?? detalhe.campo;
     porCampo[campo] ??= detalhe.problema;
   }
   const mensagem = Object.keys(porCampo).length > 0 ? "Confira os campos destacados." : (dados.mensagem ?? dados.message ?? padrao);
-  return { mensagem, codigo: dados.codigo, porCampo };
+  const candidatos = dados.candidatos?.flatMap((candidato) => {
+    const resultado = clientDuplicateCandidateSchema.safeParse(candidato);
+    return resultado.success ? [resultado.data] : [];
+  });
+  return { mensagem, codigo: dados.codigo, porCampo, ...(candidatos ? { candidatos } : {}) };
 }
 
 export type RespostaDeEnvio<T> = { ok: true; dados: T } | { ok: false; erro: ErroDoFormulario };

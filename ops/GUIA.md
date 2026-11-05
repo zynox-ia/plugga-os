@@ -2,6 +2,12 @@
 
 Os comandos do dia a dia, na ordem em que aparecem.
 
+> **Esta publicação não executa a migração SeaweedFS → RustFS.** Antes de copiar
+> o código para a aplicação, o workflow confere containers, volume, endpoint e
+> acesso ao balde legado. Se a produção ainda usa SeaweedFS ou outro volume,
+> o deploy para sem alterar os serviços. Nesse caso, conclua a transição descrita
+> em "Publicar em produção" antes de repetir a publicação.
+
 ---
 
 ## Começar o dia
@@ -10,7 +16,7 @@ Abra o **Docker Desktop**, depois:
 
 ```bash
 cd ~/Projects/plugga-os
-docker compose up -d postgres redis seaweedfs seaweedfs-provisiona
+docker compose up -d postgres redis rustfs rustfs-provisiona
 pnpm dev
 ```
 
@@ -22,8 +28,8 @@ O que cada contêiner faz:
 |---|---|
 | `postgres` | o banco — porta **55432** |
 | `redis` | filas de trabalho em segundo plano — porta **56379** |
-| `seaweedfs` | guarda as faturas enviadas — painel em <http://localhost:59001> |
-| `seaweedfs-provisiona` | cria os baldes locais e encerra; é normal ele sair |
+| `rustfs` | guarda as faturas enviadas — painel em <http://localhost:59001> |
+| `rustfs-provisiona` | cria os baldes locais e encerra; é normal ele sair |
 
 **As portas são altas de propósito.** As padrão — 5432, 6379, 1025, 8025, 9000,
 9001 — estão ocupadas pelos túneis para a VPS, então nelas `localhost` é
@@ -134,14 +140,84 @@ O que acontece, nesta ordem:
 1. backup do banco          existe de onde voltar
 2. marca a versão atual     reverter fica instantâneo
 3. constrói as imagens
-4. migra o banco            ← junto com o programa, nunca separado
+4. pausa API/web, faz backup final, migra e confere permissões da aplicação
 5. sobe api e web
 6. teste de fumaça          volta atrás sozinho se reprovar
 ```
 
 Leva alguns minutos, quase tudo na construção das imagens.
 
-**Se o teste de fumaça reprovar**, o programa anterior volta sozinho e o script avisa. O banco **não** é revertido automaticamente — isso é decisão sua, porque a restauração apagaria o que entrou depois do backup.
+**Se a publicação falhar depois da pausa**, o script só restaura as imagens
+anteriores quando o banco continua compatível. Se já houver negócio sem cliente,
+se a consulta falhar ou se faltar uma imagem anterior, preserva as tags atuais e
+tenta reativar a versão atual, registrando a necessidade de intervenção. O banco
+**não** é restaurado automaticamente — isso é decisão sua, porque apagaria
+gravações posteriores ao backup.
+
+Antes das migrations, API/web são paradas após o build e é feito um backup final.
+A sonda posterior usa o papel da aplicação para conferir as permissões necessárias
+do CRM, sem ler dados pessoais nem executar `GRANT`. Se faltar permissão, o erro
+interrompe a publicação antes de receber tráfego novo.
+
+### Transição para RustFS: bloqueio desta release
+
+O deploy sincroniza o `compose.yaml` e passa a API para `http://rustfs:9000`.
+Criar baldes vazios não copia os objetos do volume do SeaweedFS nem suas
+identidades e políticas. O teste de fumaça atual verifica login; ele não prova
+que os arquivos antigos continuam acessíveis. André deve autorizar e acompanhar
+esta mudança de infraestrutura antes de liberar a publicação.
+
+O passo `Conferir armazenamento antes da publicação` roda antes do rsync. Ele
+exige o RustFS atual no volume `plugga-os_rustfs_data` e o mesmo endpoint da nova
+configuração. Readiness e HEAD do balde legado comprovam continuidade de acesso;
+não substituem a comparação integral dos objetos durante uma migração.
+
+1. **Ensaiar com dados sintéticos.** Em ambiente isolado, copiar objetos entre
+   os dois servidores S3 e testar leitura, upload, download, geração de proposta,
+   backup e reversão. Ensaiar as migrations sobre uma base sintética da versão
+   anterior com negócios existentes, não apenas sobre um banco vazio. Conferir
+   os perfis migrados, as permissões do papel da aplicação e a duração dos locks
+   exclusivos em `deals` antes de definir a janela.
+2. **Guardar a origem e uma cópia restaurável.** Registrar as imagens, o compose
+   anterior e os volumes exatos do projeto. Fazer backup coerente do banco e dos
+   objetos para um destino independente da VPS e provar a restauração em ambiente
+   aprovado; dados reais não descem para Local Dev/Test. Não apagar o volume
+   `seaweedfs_data` nem usar `down -v`.
+3. **Preparar o destino sem trocar o tráfego.** Subir o RustFS em rede interna
+   ou portas alternativas: o SeaweedFS ainda pode ocupar as portas publicadas.
+   Criar todos os baldes de origem e o balde de documentos. Conferir as credenciais
+   da API, do backup e dos demais consumidores; recriar as identidades restritas
+   e testar suas permissões com suas próprias chaves. Segredos ficam em arquivos
+   protegidos, fora do Git, dos logs e do PR.
+4. **Copiar e conferir os objetos.** Preservar balde, chave e metadados necessários
+   à leitura. Guardar o manifesto em local protegido e comparar o conjunto de
+   chaves, quantidade e bytes por balde, além do SHA-256 do conteúdo lido na origem
+   e no destino. Divergência impede o corte; apenas contagem ou ETag não basta.
+5. **Fazer o corte sem escritas concorrentes.** Pausar uploads e escritas no CRM,
+   esperar operações em curso e fazer a cópia final com a mesma conferência.
+   A pausa começa antes de `db:migrate:deploy` e termina depois de a nova API estar
+   pronta: a versão antiga ainda não grava perfis de lead e não pode criar negócios
+   depois do preenchimento dos registros antigos. Só então aplicar o compose e
+   apontar os consumidores para o destino validado.
+   `STORAGE_BUCKET` deve ser igual na API e no provisionador. Se seu valor diferir
+   de `plugga-arquivos`, ajustar `ops/backup/baldes.txt` e a política de leitura do
+   backup para o nome efetivo.
+6. **Atualizar e provar as rotinas operacionais.** Conferir qual script o cron
+   executa, inclusive `/root/backup-plugga.sh`: sincronizar o repositório não
+   atualiza automaticamente essa cópia. Atualizar os endpoints e o formato do
+   ambiente do backup externo conforme a seção Backup. Provar leitura de um
+   arquivo antigo, envio e download de um documento sintético, geração de PDF e
+   um novo backup restaurável antes de retomar os escritores.
+7. **Manter um retorno concreto.** Preservar o compose, as imagens, as credenciais
+   e o volume anteriores até o aceite. O rollback automático troca só as imagens
+   de API/web; ele não reverte armazenamento ou banco. Para voltar, pausar as
+   escritas, reconciliar e conferir os objetos criados no RustFS após o corte e
+   restaurar também o compose e os endpoints anteriores. Validar a compatibilidade
+   do programa antigo com o banco migrado. Restaurar o banco exige decisão do André,
+   pois pode descartar gravações posteriores ao backup.
+
+O bloqueio só termina com o aceite do André e evidência das conferências e do
+backup/restauração. Este guia não executa nem atesta essa transição em Produção.
 
 ### Login com o Google
 
@@ -174,7 +250,7 @@ só dificulta voltar atrás.
 
 ```bash
 docker compose down -v          # apaga os dados locais
-docker compose up -d postgres redis seaweedfs seaweedfs-provisiona
+docker compose up -d postgres redis rustfs rustfs-provisiona
 pnpm --filter @plugga/api db:migrate:deploy
 pnpm --filter @plugga/api db:seed
 ```
@@ -219,7 +295,7 @@ eles ocupam, em `localhost`:
 5432         banco de produção
 6379         redis de produção
 9000 / 9001  reservadas ao túnel do armazenamento de produção — inclusive o balde dos backups
-             (na VPS o SeaweedFS escuta em 59000/59001, só em 127.0.0.1)
+             (na VPS o RustFS escuta em 59000/59001, só em 127.0.0.1)
 ```
 
 Nessas quatro portas, **`localhost` é produção**. É contraintuitivo e não aparece
@@ -255,7 +331,7 @@ pkill -f "9000:127.0.0.1:9000"      # derruba
 
 ## Armazenamento de arquivos (baldes)
 
-Os arquivos enviados (faturas, cotações, evidências de obra) ficam no SeaweedFS.
+Os arquivos enviados (faturas, cotações, evidências de obra) ficam no RustFS.
 **Não há variável de balde**: o balde é `{empresa}-{departamento}`, derivado do
 cadastro em `packages/shared/src/organization.ts`.
 
@@ -275,7 +351,7 @@ cadastro em `packages/shared/src/organization.ts`.
 | `plugga-backups` | Cópias do banco (credencial própria, expiração em 30 dias/1 ano) |
 | `plugga-corpus-faturas` | Material de teste das distribuidoras (fora do git) |
 
-O `seaweedfs-provisiona` do compose cria todos eles; um teste (`compose-baldes.spec.ts`)
+O `rustfs-provisiona` do compose cria todos eles; um teste (`compose-baldes.spec.ts`)
 falha se um departamento novo do cadastro ficar sem balde.
 
 **Preparar o que mora nos baldes de sistema**, na VPS (idempotente, ensaiado localmente):
@@ -285,10 +361,12 @@ ops/prepara-backup.sh    # usuário restrito e expiração do balde plugga-backu
 ops/prepara-corpus.sh    # chaves de leitura e de escrita do balde do corpus
 ```
 
-Não use `mc admin user` nem `mc admin policy`: eram comandos do MinIO, e no SeaweedFS o
-usuário criado por eles não autentica. Os scripts acima criam os usuários pelo
-`s3.configure` do próprio SeaweedFS. Ensaios locais: `bash ops/prepara-backup.test.sh` e
-`bash ops/prepara-corpus.test.sh`.
+Não use `mc admin user` nem `mc admin policy`: o `mc` foi descontinuado e, de qualquer
+forma, nunca falou com esse servidor por essa via. Os scripts acima criam os usuários
+pela própria API administrativa do RustFS, assinada SigV4 em
+`apps/api/scripts/provisionar-identidade-storage.mjs` (sem `mc admin`), e o resultado é
+provado com a credencial de cada um, não presumido. Ensaios locais: `bash
+ops/prepara-backup.test.sh` e `bash ops/prepara-corpus.test.sh`.
 
 ---
 
@@ -307,6 +385,37 @@ Para forçar um backup agora:
 ```bash
 ssh plugga-vps '/root/backup-plugga.sh'
 ```
+
+> **Ação do André na VPS (2026-11).** O `mc` da MinIO (imagem Docker e binário) foi retirado de
+> todos os canais oficiais; `ops/backup-plugga.sh`, `ops/prepara-backup.sh`, `ops/prepara-corpus.sh`,
+> `ops/backup-externo.sh` e `ops/restaurar-teste.sh` passaram a usar o `aws-cli` oficial
+> (`amazon/aws-cli`, fixado por digest) — nada a instalar na VPS, o Docker baixa a imagem na
+> primeira execução. Antes de atualizar a VPS, confira se o backup diário já estava quebrado:
+> `docker images | grep minio/mc` (vazio = a imagem não está em cache local; se o
+> `backup-plugga.sh` de hoje rodou com sucesso, algo ainda a tem). Depois de atualizar:
+> 1. reescreva `/root/.plugga-backup-externo.env` (modo 600) no formato novo, abaixo;
+>    `/root/.plugga-backup.env` (`BACKUP_ACCESS_KEY`/`BACKUP_SECRET_KEY`) não muda;
+> 2. force um backup (`ssh plugga-vps '/root/backup-plugga.sh'`) e confira o log;
+> 3. rode `ops/restaurar-teste.sh --externo` uma vez para provar que o backup externo novo
+>    também restaura, antes de confiar na rotina automática.
+>
+> Formato novo de `/root/.plugga-backup-externo.env`:
+> ```
+> ORIGEM_ENDPOINT=http://rustfs:9000
+> ORIGEM_ACCESS_KEY=<chave de leitura dos baldes, do prepara-backup.sh/.env atual>
+> ORIGEM_SECRET_KEY=<idem>
+> DESTINO_ENDPOINT=https://s3.<região>.backblazeb2.com
+> DESTINO_REGIAO=<região do bucket B2, ex. us-west-002>
+> DESTINO_ACCESS_KEY=<chave de ESCRITA do B2>
+> DESTINO_SECRET_KEY=<idem>
+> DESTINO_BALDE=<bucket do B2>
+> DESTINO_LEITURA_ACCESS_KEY=<chave de LEITURA do B2>
+> DESTINO_LEITURA_SECRET_KEY=<idem>
+> HEARTBEAT_URL=<inalterado>
+> ```
+> Antes, essas chaves vinham embutidas numa URL (`DESTINO_URL=https://chave:segredo@...`); o
+> `aws-cli` exige endpoint, chave, segredo e **região** separados (a região entra na assinatura
+> da requisição, o que o `mc` não exigia).
 
 ### Backup externo
 
@@ -362,8 +471,9 @@ no máximo 24 horas de dados** (o último backup diário).
    ```
 
 2. **Arquivos de ambiente.** Recrie o `.env` de produção a partir do cofre de senhas (o modelo
-   é o `.env.example`) e o `/root/.plugga-backup-externo.env` com `DESTINO_URL`,
-   `DESTINO_LEITURA_URL` e `DESTINO_BALDE`. Modo 600 nos dois.
+   é o `.env.example`) e o `/root/.plugga-backup-externo.env` com `DESTINO_ENDPOINT`,
+   `DESTINO_REGIAO`, `DESTINO_LEITURA_ACCESS_KEY`, `DESTINO_LEITURA_SECRET_KEY` e `DESTINO_BALDE`
+   (formato completo na seção "Backup externo" acima). Modo 600 nos dois.
 
 3. **Baixar o backup mais recente.** Com a chave de leitura, pegue o `.tar.age` e o
    `.manifesto.json` do mesmo nome em `diario/` (ou do `mensal/` se precisar voltar mais).
@@ -388,7 +498,7 @@ no máximo 24 horas de dados** (o último backup diário).
    Ele restaura num Postgres descartável e compara tabelas, linhas e objetos com o manifesto.
    Só continue se terminar com `✓ restauração ok`.
 
-6. **Subir a infraestrutura** (`docker compose up -d`: Postgres, Redis, SeaweedFS e criação dos
+6. **Subir a infraestrutura** (`docker compose up -d`: Postgres, Redis, RustFS e criação dos
    baldes) e **restaurar o banco** no Postgres de verdade:
 
    ```bash
@@ -398,9 +508,9 @@ no máximo 24 horas de dados** (o último backup diário).
    ```
 
 7. **Restaurar os arquivos.** O diretório `arquivos/<balde>/` do pacote tem um espelho de cada
-   balde de negócio. Copie cada um de volta ao SeaweedFS com o `mc` (`mc mirror`
-   `arquivos/<balde> <alias>/<balde>`), um balde por vez, e confira o número de objetos contra
-   `"arquivos"` do manifesto.
+   balde de negócio. Copie cada um de volta ao armazenamento com o `aws-cli`
+   (`aws s3 sync arquivos/<balde> s3://<balde> --endpoint-url http://localhost:59000`), um balde
+   por vez, e confira o número de objetos contra `"arquivos"` do manifesto.
 
 8. **Subir o sistema:** `./ops/publicar.sh` (ou `docker compose --profile app up -d`). Confira
    `curl -fsS http://localhost:3001/health` e entre no sistema com um usuário real.

@@ -6,8 +6,7 @@ import { useEffect, useId, useState } from "react";
 import { enviar } from "../../lib/clientes";
 import { useSessionUser } from "../../lib/use-session-user";
 import { ClienteForm } from "../cliente-form";
-import { Modal } from "../modal";
-import { Button, IconSearch, IconUser, IconX } from "../ui";
+import { Button, IconSearch, IconUser } from "../ui";
 
 export type ClienteEscolhido = { id: string; name: string; detalhe: string | null };
 
@@ -20,11 +19,13 @@ export function BuscaDeCliente({
   aoEscolher,
   responsaveis,
   erro,
+  podeCriarNovo = true,
 }: {
   cliente: ClienteEscolhido | null;
   aoEscolher: (cliente: ClienteEscolhido | null) => void;
   responsaveis: ClientOwner[];
   erro?: string;
+  podeCriarNovo?: boolean;
 }) {
   const [termo, setTermo] = useState("");
   const [resultados, setResultados] = useState<ClientSelectionResponse["items"] | null>(null);
@@ -37,7 +38,7 @@ export function BuscaDeCliente({
     if (busca.length < 2) return setResultados(null);
     let vivo = true;
     const espera = setTimeout(() => {
-      void enviar<ClientSelectionResponse>(`/api/negocios/clientes?${new URLSearchParams({ q: busca }).toString()}`, "GET").then((resposta) => {
+      void enviar<ClientSelectionResponse>(`/api/leads/clientes?${new URLSearchParams({ q: busca }).toString()}`, "GET").then((resposta) => {
         if (vivo) setResultados(resposta.ok ? resposta.dados.items.slice(0, 8) : []);
       });
     }, 250);
@@ -97,48 +98,27 @@ export function BuscaDeCliente({
           ))}
         </ul>
       ) : null}
-      <p className="ui-field-hint" style={{ marginTop: 4 }}>
-        Não encontrou?{" "}
-        <button type="button" className="link-botao" disabled={!alcancaTela(usuario?.acesso, "crm.clientes")} onClick={() => setCadastrando(true)}>
-          + Novo cliente
-        </button>{" "}
-        sem fechar esta janela.
-      </p>
+      {podeCriarNovo ? (
+        <p className="ui-field-hint" style={{ marginTop: 4 }}>
+          Não encontrou?{" "}
+          <button type="button" className="link-botao" disabled={!alcancaTela(usuario?.acesso, "crm.clientes")} onClick={() => setCadastrando(true)}>
+            + Novo cliente
+          </button>{" "}
+          sem fechar esta janela.
+        </p>
+      ) : null}
       {erro ? <p className="ui-field-error" style={{ margin: 0 }}>Erro: {erro}</p> : null}
 
-      {cadastrando ? (
-        <Modal rotulo="Novo cliente" aoFechar={() => setCadastrando(false)} largura="media" className="ui-dialog">
-          <header className="ui-dialog-header">
-            <div className="ui-dialog-header-content">
-              <div className="ui-dialog-header-icon" aria-hidden="true">
-                <IconUser width={20} height={20} />
-              </div>
-              <div className="ui-dialog-header-text">
-                <h2 className="ui-dialog-title">Novo cliente</h2>
-                <p className="ui-dialog-subtitle">Cadastre um novo cliente no CRM sem fechar este negócio.</p>
-              </div>
-            </div>
-            <Button
-              variant="secondary"
-              size="sm"
-              icon={<IconX />}
-              iconOnly
-              aria-label="Fechar"
-              onClick={() => setCadastrando(false)}
-            />
-          </header>
-          <div className="ui-dialog-body">
-            <ClienteForm
-              modo="criar"
-              responsaveis={responsaveis}
-              aoCancelar={() => setCadastrando(false)}
-              aoCriar={(resposta: CreateClientResponse) => {
-                setCadastrando(false);
-                aoEscolher({ id: resposta.client.id, name: resposta.client.name, detalhe: null });
-              }}
-            />
-          </div>
-        </Modal>
+      {podeCriarNovo && cadastrando ? (
+        <ClienteForm
+          modo="criar"
+          responsaveis={responsaveis}
+          aoCancelar={() => setCadastrando(false)}
+          aoCriar={(resposta: CreateClientResponse) => {
+            setCadastrando(false);
+            aoEscolher({ id: resposta.client.id, name: resposta.client.name, detalhe: null });
+          }}
+        />
       ) : null}
     </div>
   );

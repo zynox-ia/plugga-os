@@ -2,13 +2,13 @@
 
 import { useId, type InputHTMLAttributes, type ReactNode, type TextareaHTMLAttributes } from "react";
 
-type FieldProps = { label: string; hint?: string; error?: string };
+type FieldProps = { label?: string; hint?: string; error?: string };
 type FieldFrameProps = FieldProps & { id: string; required?: boolean; children: ReactNode };
 
 function FieldFrame({ label, hint, error, id, required, children }: FieldFrameProps) {
   return (
     <div className="ui-field">
-      <label htmlFor={id}>{label}{required && <span className="ui-required"> (obrigatório)</span>}</label>
+      {label ? <label htmlFor={id}>{label}{required && <span className="ui-required"> (obrigatório)</span>}</label> : null}
       {children}
       {(error || hint) && <p id={`${id}-help`} className={error ? "ui-field-error" : "ui-field-hint"}>
         {error ? `Erro: ${error}` : hint}
