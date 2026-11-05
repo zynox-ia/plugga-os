@@ -5,6 +5,7 @@ import { ArrowRight, BriefcaseBusiness, Building2, FileText, FolderOpen, History
 import { useEffect, useId, useRef, useState, type Dispatch, type KeyboardEvent, type SetStateAction } from "react";
 import { ROTULO_ORIGEM } from "../../lib/clientes";
 import type { TarefaDoLead } from "../../lib/tarefas-lead";
+import { tarefasHabilitadas } from "../../lib/tarefas-habilitadas";
 import type { RascunhoLead } from "../../lib/rascunho-lead";
 import { Modal } from "../modal";
 import { Button } from "../ui/button";
@@ -21,7 +22,8 @@ import { TarefasDoLead } from "./tarefas-do-lead";
 import styles from "./detalhes-do-lead-modal.module.css";
 import perfilStyles from "./perfil-do-lead.module.css";
 
-const SECOES = [
+const TAREFAS_HABILITADAS = tarefasHabilitadas(process.env.NODE_ENV);
+const SECOES = ([
   { id: "resumo", titulo: "Visão geral", descricao: "Indicadores comerciais e próximas ações", icone: LayoutDashboard },
   { id: "lead", titulo: "Perfil", descricao: "Identificação, contato e qualificação comercial", icone: UserRound },
   { id: "tarefas", titulo: "Tarefas", descricao: "Atividades e acompanhamento do lead", icone: ListTodo },
@@ -29,7 +31,7 @@ const SECOES = [
   { id: "oportunidade", titulo: "Oportunidade", descricao: "Estrutura do negócio e valores", icone: BriefcaseBusiness },
   { id: "historico", titulo: "Histórico", descricao: "Linha do tempo e autoria das alterações", icone: History },
   { id: "documentos", titulo: "Documentos", descricao: "Arquivos e documentos categorizados", icone: FolderOpen },
-] as const;
+] as const).filter((secao) => secao.id !== "tarefas" || TAREFAS_HABILITADAS);
 type Secao = (typeof SECOES)[number]["id"];
 type Props = { negocioId: string; pipeline: Pipeline; responsaveis: PipelinePerson[]; acoes: AcoesDoNegocio; tarefas: TarefaDoLead[]; aoAlterarTarefas: Dispatch<SetStateAction<TarefaDoLead[]>>; aoFechar: () => void };
 
@@ -185,7 +187,7 @@ export function DetalhesDoLeadModal({ negocioId, pipeline, responsaveis, acoes, 
               {secao === "lead" ? <FichaDoLead rascunho={rascunho} aoAlterar={detalhe.setRascunho} erros={detalhe.errosCampos} editando={perfilEditando} aoEditar={editarPerfil} responsaveis={equipe} /> : <OportunidadeDoLead rascunho={rascunho} aoAlterar={detalhe.setRascunho} erros={detalhe.errosCampos} pipeline={pipeline} responsaveis={equipe} />}
             </fieldset> : null}
             <div hidden={secao !== "historico"}><HistoricoDoLead id={negocio.id} ativo={secao === "historico"} revisao={detalhe.revisao + historicoRevisao} /></div>
-            {secao === "tarefas" ? <TarefasDoLead tarefas={tarefas} aoAlterar={aoAlterarTarefas} responsaveis={responsaveis.some((pessoa) => pessoa.id === negocio.owner.id) ? responsaveis : [negocio.owner, ...responsaveis]} responsavelInicial={negocio.owner.id} /> : null}
+            {TAREFAS_HABILITADAS && secao === "tarefas" ? <TarefasDoLead tarefas={tarefas} aoAlterar={aoAlterarTarefas} responsaveis={responsaveis.some((pessoa) => pessoa.id === negocio.owner.id) ? responsaveis : [negocio.owner, ...responsaveis]} responsavelInicial={negocio.owner.id} /> : null}
             <div hidden={secao !== "proposta"}><PropostasDoLead key={propostasChave} negocio={negocio} ativo={secao === "proposta"} aoRascunho={setPropostasAlteradas} aoOcupar={setPropostasOcupadas} aoGerar={() => { setHistoricoRevisao((valor) => valor + 1); setDocsDesatualizados(true); }} /></div>
             <div hidden={secao !== "documentos"}><DocumentosDoLead key={docsChave} id={negocio.id} ativo={secao === "documentos"} aoRascunho={setDocsAlterados} aoOcupar={setDocsOcupados} aoAtualizar={() => setHistoricoRevisao((valor) => valor + 1)} /></div>
           </> : null}

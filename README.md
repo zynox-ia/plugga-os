@@ -319,6 +319,18 @@ pnpm test
 pnpm build
 ```
 
+Com a API de teste isolada em execução, `pnpm --filter @plugga/web test:e2e`
+verifica o artefato de produção e exige `pnpm build` antes. A suíte recusa uma
+porta ocupada; não reutiliza o servidor de desenvolvimento do André.
+`PLAYWRIGHT_BASE_URL` permite indicar outro servidor de teste, que deve executar
+o artefato de produção para os testes da ficha do lead.
+
+O preview de tarefas temporárias fica somente em desenvolvimento e teste.
+`pnpm --filter @plugga/web test:atividades-dev` preserva seu fluxo completo em
+Next DEV na porta 3220, com saída ignorada em `dist/atividades-e2e`. Ele usa a
+API de teste já iniciada em 3221; `API_INTERNAL_URL` permite escolher outra,
+como a API efêmera da CI em 3001. Nenhuma dessas suítes inicia ou reseta banco.
+
 ## Segurança e escopo do Bloco A
 
 - `.env.example` contém somente placeholders. Nunca versione `.env`, tokens,

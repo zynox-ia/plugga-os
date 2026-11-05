@@ -29,7 +29,7 @@ test("perfil aplica máscaras ao digitar, valida e persiste a qualificação sem
   await page.getByRole("button", { name: `Ver lead ${negocio.lead.name}`, exact: true }).click();
   const modal = page.getByRole("dialog", { name: "Detalhes do lead", exact: true });
   const abas = modal.getByRole("tablist", { name: "Seções do lead" });
-  await expect(abas.getByRole("tab")).toHaveText(["Visão geral", "Perfil", "Tarefas", "Propostas", "Oportunidade", "Histórico", "Documentos"]);
+  await expect(abas.getByRole("tab")).toHaveText(["Visão geral", "Perfil", "Propostas", "Oportunidade", "Histórico", "Documentos"]);
   await abas.getByRole("tab", { name: "Perfil", exact: true }).click();
   const editar = modal.getByRole("button", { name: "Editar perfil", exact: true });
   await expect(editar.locator(".ui-button-label")).toHaveCSS("color", "rgb(255, 255, 255)");
