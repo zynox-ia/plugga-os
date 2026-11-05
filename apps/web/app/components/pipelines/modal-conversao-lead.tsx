@@ -1,12 +1,11 @@
 "use client";
 
-import type { ClientDuplicateCandidate, ConvertLeadResponse, Deal } from "@plugga/shared";
+import type { Deal } from "@plugga/shared";
 import { useState } from "react";
 
-import { enviar } from "../../lib/clientes";
+import { converterLead, dadosDeConversao, erroCampoConversao, type DadosDeConversao } from "../../lib/conversao-lead";
 import { Button, Dialog, TextField } from "../ui";
 
-type DadosDeConversao = { nome: string; documento: string; telefone: string; email: string };
 type Candidato = { id: string; nome: string };
 
 /** Apresentação preparada para o contrato de conversão; a ação é fornecida por quem abrir o modal. */
@@ -103,12 +102,8 @@ export function ModalDeConversaoDoLead({
   aoConcluir: (negocio: Deal) => void;
   aoFechar: () => void;
 }) {
-  const [rascunho, setRascunho] = useState({
-    nome: negocio.lead.name,
-    documento: negocio.lead.document ?? "",
-    telefone: negocio.lead.phone ?? "",
-    email: negocio.lead.email ?? "",
-  });
+  const [perfilSalvo, setPerfilSalvo] = useState(negocio);
+  const [rascunho, setRascunho] = useState(() => dadosDeConversao(negocio.lead));
   const [destino, setDestino] = useState<string>("");
   const [candidatos, setCandidatos] = useState<{ id: string; nome: string }[]>([]);
   const [erros, setErros] = useState<Record<string, string>>({});
@@ -120,41 +115,11 @@ export function ModalDeConversaoDoLead({
     setErroGeral(null);
     setErros({});
 
-    const alterou =
-      rascunho.nome !== negocio.lead.name ||
-      rascunho.documento !== (negocio.lead.document ?? "") ||
-      rascunho.telefone !== (negocio.lead.phone ?? "") ||
-      rascunho.email !== (negocio.lead.email ?? "");
-
-    if (alterou) {
-      const respAtualiza = await enviar<Deal>(`/api/leads/${negocio.id}`, "PATCH", {
-        lead: {
-          name: rascunho.nome.trim(),
-          document: rascunho.documento.trim() || null,
-          phone: rascunho.telefone.trim() || null,
-          email: rascunho.email.trim() || null,
-        },
-      });
-      if (!respAtualiza.ok) {
-        setEnviando(false);
-        setErroGeral(respAtualiza.erro.mensagem);
-        setErros(respAtualiza.erro.porCampo);
-        return;
-      }
-    }
-
-    const resolution =
-      destino === "novo"
-        ? ({ type: "create" } as const)
-        : destino
-          ? ({ type: "link", clientId: destino } as const)
-          : undefined;
-
-    const resp = await enviar<ConvertLeadResponse & { candidatos?: ClientDuplicateCandidate[] }>(
-      `/api/leads/${negocio.id}/converter`,
-      "POST",
-      resolution ? { resolution } : {},
-    );
+    const resp = await converterLead(perfilSalvo, rascunho, destino, (atualizado) => {
+      setPerfilSalvo(atualizado);
+      setRascunho(dadosDeConversao(atualizado.lead));
+      aoConcluir(atualizado);
+    });
 
     setEnviando(false);
     if (resp.ok) {
@@ -195,29 +160,33 @@ export function ModalDeConversaoDoLead({
         <TextField
           id="conversao-nome"
           label="Nome"
+          disabled={enviando}
           value={rascunho.nome}
-          error={erros.name || erros.nome}
+          error={erroCampoConversao(erros, "name")}
           onChange={(e) => setRascunho((a) => ({ ...a, nome: e.target.value }))}
         />
         <TextField
           id="conversao-documento"
           label="CPF ou CNPJ"
+          disabled={enviando}
           value={rascunho.documento}
-          error={erros.document || erros.documento}
+          error={erroCampoConversao(erros, "document")}
           onChange={(e) => setRascunho((a) => ({ ...a, documento: e.target.value }))}
         />
         <TextField
           id="conversao-telefone"
           label="Telefone"
+          disabled={enviando}
           value={rascunho.telefone}
-          error={erros.phone || erros.telefone}
+          error={erroCampoConversao(erros, "phone")}
           onChange={(e) => setRascunho((a) => ({ ...a, telefone: e.target.value }))}
         />
         <TextField
           id="conversao-email"
           label="E-mail"
+          disabled={enviando}
           value={rascunho.email}
-          error={erros.email}
+          error={erroCampoConversao(erros, "email")}
           onChange={(e) => setRascunho((a) => ({ ...a, email: e.target.value }))}
         />
 
@@ -230,6 +199,7 @@ export function ModalDeConversaoDoLead({
                   type="radio"
                   name="destino-conversao"
                   value={candidato.id}
+                  disabled={enviando}
                   checked={destino === candidato.id}
                   onChange={() => setDestino(candidato.id)}
                 />
@@ -241,6 +211,7 @@ export function ModalDeConversaoDoLead({
                 type="radio"
                 name="destino-conversao"
                 value="novo"
+                disabled={enviando}
                 checked={destino === "novo"}
                 onChange={() => setDestino("novo")}
               />
