@@ -8,7 +8,7 @@ test("lista exibe dados do lead sem buscar a ficha de cada cliente", async ({ pa
   const pessoas = await (await request.get("/api/pipelines/pessoas?companyId=plugga")).json() as PipelinePeopleResponse;
   const pipelineResposta = await request.post("/api/pipelines", { headers, data: {
     companyId: "plugga", name: `Lista E2E ${marca}`, description: null, valueLabel: "Valor", color: "#0077FF",
-    wonLabel: "Ganho", lostLabel: "Perdido", stages: ["Entrada", "Proposta"].map((name) => ({ name, color: "#0077FF", staleAfterDays: null })),
+    wonLabel: "Ganho", lostLabel: "Perdido", stages: ["Entrada", "Proposta"].map((name) => ({ name, color: "#0077FF", staleAfterDays: null, asksClientConversion: false })),
     tags: [], lossReasons: [], members: [],
   } });
   expect(pipelineResposta.ok()).toBeTruthy();
@@ -22,13 +22,14 @@ test("lista exibe dados do lead sem buscar a ficha de cada cliente", async ({ pa
     const negocioResposta = await request.post("/api/leads", { headers, data: {
       pipelineId: pipeline.id, stageId: pipeline.stages[0]!.id, clientId: client.id,
       ownerId: pessoas.people[0]!.id, title: `Negócio lista ${marca}`, value: null, expectedCloseDate: null, tagIds: [],
+      lead: { personType: "pj", name: nomeCliente, email },
     } });
     expect(negocioResposta.ok()).toBeTruthy();
     const negocio = await negocioResposta.json() as Deal;
     const consultas: string[] = [];
     page.on("request", (req) => { if (/\/api\/clientes\/[\w-]+(?:\?|$)/.test(req.url())) consultas.push(req.url()); });
     await page.goto(`/comercial/pipelines?pipeline=${pipeline.id}&visao=lista`);
-    const linha = page.getByRole("row").filter({ hasText: negocio.title });
+    const linha = page.getByRole("row").filter({ has: page.getByRole("button", { name: `Ver detalhes do lead ${negocio.title}`, exact: true }) });
     await expect(linha.getByText(email)).toBeVisible();
     await expect(linha.getByText("Local não informado")).toBeVisible();
     await page.setViewportSize({ width: 800, height: 800 });
@@ -36,11 +37,11 @@ test("lista exibe dados do lead sem buscar a ficha de cada cliente", async ({ pa
     await expect(emailTexto.locator("..")).toHaveAttribute("title", email);
     expect(await emailTexto.evaluate((el) => el.scrollWidth > el.clientWidth && getComputedStyle(el).textOverflow === "ellipsis")).toBe(true);
     await expect(linha.locator("svg.lucide-target")).toBeVisible();
-    const nome = linha.getByText(nomeCliente, { exact: true });
+    const nome = linha.getByRole("button", { name: nomeCliente, exact: true });
     await expect(nome).toHaveAttribute("title", nomeCliente);
     expect(await nome.evaluate((el) => el.scrollWidth > el.clientWidth && getComputedStyle(el).textOverflow === "ellipsis")).toBe(true);
-    const acoes = linha.getByRole("button", { name: `Ações de ${negocio.title}` });
-    const menu = page.getByRole("menu", { name: `Ações de ${negocio.title}` });
+    const acoes = linha.getByRole("button", { name: `Ações de ${negocio.lead.name}`, exact: true });
+    const menu = page.getByRole("menu", { name: `Ações de ${negocio.lead.name}`, exact: true });
     await acoes.click();
     const respostaPrioridade = page.waitForResponse((resposta) => resposta.url().includes(`/api/leads/${negocio.id}/prioridade`) && resposta.request().method() === "PATCH");
     await menu.getByRole("menuitemradio", { name: "Urgente" }).click();

@@ -26,8 +26,8 @@ test.beforeAll(async ({ request, baseURL }) => {
     companyId: "plugga", name: `Lista E2E ${marca}`, description: null,
     valueLabel: "Valor", color: "#0077FF", wonLabel: "Ganho", lostLabel: "Perdido",
     stages: [
-      { name: "Entrada", color: "#0077FF", staleAfterDays: null },
-      { name: "Proposta", color: "#00A3FF", staleAfterDays: null },
+      { name: "Entrada", color: "#0077FF", staleAfterDays: null, asksClientConversion: false },
+      { name: "Proposta", color: "#00A3FF", staleAfterDays: null, asksClientConversion: false },
     ], tags: [], lossReasons: [{ name: "Sem interesse", asksRevisitDate: false }], members: [],
   });
   clientes = [];
@@ -44,6 +44,7 @@ test.beforeAll(async ({ request, baseURL }) => {
       pipelineId: pipeline.id, stageId: pipeline.stages[0]!.id,
       clientId: clientes[i % clientes.length]!.id, ownerId,
       title: `${i < 15 ? "Grupo" : "Extra"} ${marca} ${String(i).padStart(2, "0")}`,
+      lead: { personType: "pj", name: `${i < 15 ? "Grupo" : "Extra"} ${marca} ${String(i).padStart(2, "0")}`, email: `lista-lead-${marca}-${i}@teste.local` },
     }));
   }
   await criar<Deal>(request, baseURL!, `/api/leads/${negocios[24]!.id}/ganho`, {});
@@ -291,19 +292,18 @@ test("seleciona apenas a página visível e preserva a seleção explícita de o
   expect((await envioPrioridade).postDataJSON().action).toEqual({ type: "priority", priority: null });
 });
 
-test("consulta cada cliente da página uma única vez com respostas em tempos diferentes", async ({ page }) => {
-  const chamadas = new Map<string, number>();
+test("exibe o e-mail de cada lead da página sem consultar as fichas dos clientes", async ({ page }) => {
+  const chamadas: string[] = [];
   await page.route(/\/api\/clientes\/[0-9a-f-]{36}$/, async (route) => {
-    const id = new URL(route.request().url()).pathname.split("/").at(-1)!;
-    chamadas.set(id, (chamadas.get(id) ?? 0) + 1);
-    const indice = clientes.findIndex((cliente) => cliente.id === id);
-    await new Promise((resolve) => setTimeout(resolve, 50 + indice * 40));
-    await route.fulfill({ json: clientes[indice] });
+    chamadas.push(route.request().url());
+    await route.fulfill({ status: 503, json: { mensagem: "A lista não deve consultar fichas de clientes." } });
   });
   await page.goto(`/comercial/pipelines?pipeline=${pipeline.id}&visao=lista`);
-  await expect(page.locator(".lead-subtitulo").getByText(/lista-cache-/)).toHaveCount(6);
-  expect(chamadas.size).toBe(6);
-  expect([...chamadas.values()]).toEqual(Array(6).fill(1));
+  const emails = page.locator(".lead-subtitulo").getByText(/lista-lead-/);
+  await expect(emails).toHaveCount(6);
+  const nomes = await page.locator(".lead-nome").allTextContents();
+  expect(await emails.allTextContents()).toEqual(nomes.map((nome) => negocios.find((negocio) => negocio.lead.name === nome)!.lead.email));
+  expect(chamadas).toEqual([]);
 });
 
 test("volta uma página após a busca reduzir o número de páginas", async ({ page }) => {

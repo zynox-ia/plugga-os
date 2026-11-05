@@ -11,7 +11,7 @@ test.beforeAll(async ({ request, baseURL }) => {
       data: {
         companyId: "plugga", name: `Rolagem ${quantidade} E2E ${Date.now()}`, description: null,
         valueLabel: "Valor", color: "#0077FF", wonLabel: "Ganho", lostLabel: "Perdido",
-        stages: Array.from({ length: quantidade }, (_, i) => ({ name: `Etapa ${i + 1}`, color: "#0077FF", staleAfterDays: null })),
+        stages: Array.from({ length: quantidade }, (_, i) => ({ name: `Etapa ${i + 1}`, color: "#0077FF", staleAfterDays: null, asksClientConversion: false })),
         tags: [], lossReasons: [], members: [],
       },
     });

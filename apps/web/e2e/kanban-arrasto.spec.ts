@@ -28,7 +28,7 @@ test.beforeAll(async ({ request, baseURL }) => {
   pipeline = await criar<Pipeline>(request, baseURL!, "/api/pipelines", {
     companyId: "plugga", name: `Arrasto E2E ${marca}`, description: null,
     valueLabel: "Investimento", color: "#0077FF", wonLabel: "Ganho", lostLabel: "Perdido",
-    stages: Array.from({ length: 7 }, (_, i) => ({ name: `Etapa ${i + 1}`, color: "#0077FF", staleAfterDays: null })),
+    stages: Array.from({ length: 7 }, (_, i) => ({ name: `Etapa ${i + 1}`, color: "#0077FF", staleAfterDays: null, asksClientConversion: false })),
     tags: [], lossReasons: [], members: [],
   });
   const { client } = await criar<CreateClientResponse>(request, baseURL!, "/api/clientes", {
@@ -37,6 +37,7 @@ test.beforeAll(async ({ request, baseURL }) => {
   for (let i = 0; i < 3; i++) negocios.push(await criar<Deal>(request, baseURL!, "/api/leads", {
     pipelineId: pipeline.id, stageId: pipeline.stages[0]!.id, clientId: client.id,
     ownerId: pessoas.people[0]!.id, title: `Lead arrasto ${i}`, value: "1000", tagIds: [],
+    lead: { personType: "pj", name: `Lead arrasto ${i}`, email: `arrasto-lead-${marca}-${i}@teste.local` },
   }));
 });
 test.afterAll(async ({ request, baseURL }) => {
