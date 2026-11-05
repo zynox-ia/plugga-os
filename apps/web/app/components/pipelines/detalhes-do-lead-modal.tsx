@@ -123,7 +123,8 @@ export function DetalhesDoLeadModal({ negocioId, pipeline, responsaveis, acoes, 
     else setErroAcao("Não foi possível alterar a prioridade. Tente novamente.");
   }
   function navegar(evento: KeyboardEvent<HTMLDivElement>) {
-    const indice = SECOES.findIndex((item) => item.id === secao);
+    const indiceFocado = botoes.current.findIndex((botao) => botao === evento.target);
+    const indice = indiceFocado >= 0 ? indiceFocado : SECOES.findIndex((item) => item.id === secao);
     const proximo = evento.key === "ArrowDown" || evento.key === "ArrowRight" ? (indice + 1) % SECOES.length
       : evento.key === "ArrowUp" || evento.key === "ArrowLeft" ? (indice + SECOES.length - 1) % SECOES.length
       : evento.key === "Home" ? 0 : evento.key === "End" ? SECOES.length - 1 : -1;

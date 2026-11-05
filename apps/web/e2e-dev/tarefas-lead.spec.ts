@@ -47,7 +47,10 @@ test("tarefas permitem criar, mover, editar e excluir, isoladas por lead durante
   const abas = await lead.getByRole("tab").allTextContents();
   expect(abas.indexOf("Tarefas")).toBeGreaterThanOrEqual(0);
   expect(abas.indexOf("Tarefas")).toBeLessThan(abas.indexOf("Propostas"));
-  await lead.getByRole("tab", { name: "Tarefas", exact: true }).click();
+  await lead.getByRole("tab", { name: "Perfil", exact: true }).focus();
+  await page.keyboard.press("ArrowRight");
+  await expect(lead.getByRole("tab", { name: "Tarefas", exact: true })).toBeFocused();
+  await expect(lead.getByRole("tab", { name: "Tarefas", exact: true })).toHaveAttribute("aria-selected", "true");
   expect(await Promise.all(topo.map((elemento) => elemento.boundingBox()))).toEqual(posicoes);
   await expect(lead.getByRole("heading", { name: "Próxima ação", exact: true })).toBeVisible();
 
