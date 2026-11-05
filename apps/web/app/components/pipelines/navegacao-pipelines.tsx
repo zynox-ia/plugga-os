@@ -136,7 +136,7 @@ export function NavegacaoPipelines({
         {aberto && (
           <div className={estilos.popoverFunis} role="listbox" aria-label="Funis de vendas disponíveis">
             <div className={estilos.popoverHeader}>
-              <span className={estilos.popoverHeaderTitulo}>Funis Disponíveis</span>
+              <span className={estilos.popoverHeaderTitulo}>Funis disponíveis</span>
               <span className={estilos.popoverHeaderContador}>
                 {pipelines.length} {pipelines.length === 1 ? "funil" : "funis"}
               </span>
@@ -153,16 +153,9 @@ export function NavegacaoPipelines({
                   className={`${estilos.popoverItem} ${ativo ? estilos.popoverItemAtivo : ""}`}
                   onClick={() => selecionarPipeline(pipeline.id)}
                 >
-                  <div className={estilos.popoverItemEsquerda}>
-                    <span
-                      className={estilos.seletorCorDot}
-                      style={{ backgroundColor: pipeline.color || "#0077FF" }}
-                      aria-hidden="true"
-                    />
-                    <div className={estilos.popoverItemTexto}>
-                      <span className={estilos.popoverItemNome}>{pipeline.name}</span>
-                      <span className={estilos.popoverItemEmpresa}>{empresa}</span>
-                    </div>
+                  <div className={estilos.popoverItemTexto}>
+                    <span className={estilos.popoverItemNome}>{pipeline.name}</span>
+                    <span className={estilos.popoverItemEmpresa}>{empresa}</span>
                   </div>
                   {ativo && <Check size={16} className={estilos.popoverItemCheck} aria-hidden="true" />}
                 </button>

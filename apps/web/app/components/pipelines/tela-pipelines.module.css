@@ -232,10 +232,14 @@
   max-height: 320px;
   overflow-y: auto;
   padding: 6px;
-  background: var(--ui-surface, #ffffff);
+  background: color-mix(in srgb, var(--ui-surface) 94%, transparent);
   border: 1px solid var(--ui-divider, #dbe4ed);
   border-radius: var(--radius-md, 12px);
-  box-shadow: 0 12px 32px rgba(10, 25, 47, 0.12);
+  box-shadow: 0 12px 32px color-mix(in srgb, var(--ui-text) 10%, transparent), 0 2px 6px color-mix(in srgb, var(--ui-text) 4%, transparent);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  font-family: var(--font-general-sans), sans-serif;
+  font-weight: 400;
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -245,22 +249,24 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 6px 10px 4px;
+  padding: 6px 10px 10px;
   border-bottom: 1px solid var(--ui-divider, #dbe4ed);
   margin-bottom: 4px;
 }
 
 .popoverHeaderTitulo {
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  font-size: 12px;
+  font-weight: 500;
   color: var(--ui-muted, #536579);
-  font-family: var(--font-articulat), "Articulat CF", sans-serif;
+  font-family: inherit;
 }
 
 .popoverHeaderContador {
+  padding: 2px 6px;
+  border-radius: var(--radius-full);
+  background: var(--ui-subtle);
   font-size: 11px;
+  font-weight: 400;
   color: var(--ui-muted, #536579);
 }
 
@@ -270,15 +276,16 @@
   justify-content: space-between;
   gap: 12px;
   width: 100%;
-  padding: 8px 10px;
-  border: 0;
+  padding: 10px 12px;
+  border: 1px solid transparent;
   border-radius: var(--radius-sm, 8px);
   background: transparent;
   color: var(--ui-text, #0f294a);
-  font-family: var(--font-articulat), "Articulat CF", sans-serif;
+  font-family: inherit;
+  font-weight: 500;
   text-align: left;
   cursor: pointer;
-  transition: background 0.12s ease;
+  transition: background 0.12s ease, border-color 0.12s ease;
 }
 
 .popoverItem:hover {
@@ -287,15 +294,8 @@
 
 .popoverItemAtivo {
   background: var(--ui-focus-bg, #f0f7ff);
-  font-weight: 600;
-}
-
-.popoverItemEsquerda {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-  flex: 1;
+  border-color: color-mix(in srgb, var(--ui-primary) 18%, transparent);
+  font-weight: 500;
 }
 
 .popoverItemTexto {
@@ -303,6 +303,7 @@
   flex-direction: column;
   gap: 2px;
   min-width: 0;
+  flex: 1;
 }
 
 .popoverItemNome {
@@ -315,11 +316,12 @@
 }
 
 .popoverItemAtivo .popoverItemNome {
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .popoverItemEmpresa {
-  font-size: 11px;
+  font-size: 11.5px;
+  font-weight: 400;
   color: var(--ui-muted, #536579);
 }
 
