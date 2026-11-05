@@ -34,7 +34,7 @@ test("nome com telefone, email ou documento permite conversão", async () => {
   for (const identificador of [
     { phone: "11999999999", email: null, document: null },
     { phone: null, email: "lead@teste.local", document: null },
-    { phone: null, email: null, document: "11222333000181" },
+    { phone: null, email: null, document: "99999999000191" },
   ]) {
     const atual = { ...negocio, lead: { ...negocio.lead, ...identificador } };
     globalThis.fetch = async () => Response.json({ lead: { ...convertido, lead: atual.lead }, client: cliente, created: true });
