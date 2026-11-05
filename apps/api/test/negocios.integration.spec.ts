@@ -710,7 +710,29 @@ describe.skipIf(!HABILITADO)("negócios: quadro do pipeline no Postgres", () => 
       expect(resultado.created).toBe(true);
     }, PRAZO_MS);
 
-    it("sem telefone nem e-mail, a conversão falha e nada muda", async () => {
+    it("converte só com nome e CPF salvo, sem exigir telefone ou e-mail", async () => {
+      const documento = gerarCpf();
+      const negocio = await novo({ stageId: etapa("Visita técnica"), lead: { personType: "pf", name: `${marca} Só documento`, document: documento, phone: "92999991111" } });
+      await prisma.leadProfile.update({ where: { dealId: negocio.id }, data: { phone: null } });
+
+      const resultado = await negocios.convert(negocio.id, {}, pessoas.ana);
+      expect(resultado.created).toBe(true);
+      const cliente = await prisma.client.findUniqueOrThrow({ where: { id: resultado.client.id } });
+      expect(cliente).toMatchObject({ name: negocio.lead.name, document: documento, phone: null, email: null });
+      expect((await negocios.convert(negocio.id, {}, pessoas.ana)).client.id).toBe(cliente.id);
+      expect(await prisma.dealHistory.count({ where: { dealId: negocio.id, kind: "client_converted" } })).toBe(1);
+    }, PRAZO_MS);
+
+    it("recusa conversão com nome vazio mesmo tendo telefone e e-mail salvos", async () => {
+      const negocio = await novo({ stageId: etapa("Visita técnica"), lead: { personType: "pf", name: `${marca} Nome obrigatório`, phone: "92999991111", email: "lead@teste.local" } });
+      await prisma.leadProfile.update({ where: { dealId: negocio.id }, data: { name: "   " } });
+
+      await expect(negocios.convert(negocio.id, {}, pessoas.ana)).rejects.toBeInstanceOf(RequisicaoInvalida);
+      expect(await prisma.deal.findUniqueOrThrow({ where: { id: negocio.id } }).then((d) => d.clientId)).toBeNull();
+      expect(await prisma.dealHistory.count({ where: { dealId: negocio.id, kind: "client_converted" } })).toBe(0);
+    }, PRAZO_MS);
+
+    it("sem telefone, e-mail ou documento, a conversão falha e nada muda", async () => {
       // create() já exige telefone ou e-mail; o defeito é simulado direto no banco
       // para provar que converter() também guarda essa regra, não só a criação.
       const negocio = await novo({ stageId: etapa("Visita técnica"), lead: { personType: "pf", name: `${marca} Com contato`, phone: "92900001111" } });

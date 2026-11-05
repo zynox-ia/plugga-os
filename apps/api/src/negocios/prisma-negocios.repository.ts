@@ -6,6 +6,7 @@ import {
   dealDetailSchema,
   listDealHistoryResponseSchema,
   listDealsResponseSchema,
+  problemasDaConversaoDoLead,
   problemasDoCadastro,
   type BulkDealsRequest,
   type ConvertLeadRequest,
@@ -529,7 +530,7 @@ export class PrismaNegociosRepository extends NegociosRepository {
     const perfil = await tx.leadProfile.findUnique({ where: { dealId: id } });
     if (!perfil) throw new EstadoInvalido("Este negócio não tem dados de lead.");
     const totalContatos = await tx.leadContact.count({ where: { dealId: id } });
-    const problemas = problemasDoCadastro({ ...perfil, temContatos: totalContatos > 0 });
+    const problemas = problemasDaConversaoDoLead({ ...perfil, temContatos: totalContatos > 0 });
     if (problemas[0]) throw new RequisicaoInvalida(problemas[0].problema, problemas.map((p) => ({ campo: `lead.${p.campo}`, problema: p.problema })));
 
     if (perfil.document) {
