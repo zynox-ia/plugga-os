@@ -1,33 +1,27 @@
-import type { ConvertLeadResponse, Deal } from "@plugga/shared";
+import { convertLeadResponseSchema, problemasDaConversaoDoLead, type ConvertLeadResponse, type Deal } from "@plugga/shared";
 import { enviar, type RespostaDeEnvio } from "./clientes.ts";
 
-export type DadosDeConversao = { nome: string; documento: string; telefone: string; email: string };
-
-export function dadosDeConversao(lead: Deal["lead"]): DadosDeConversao {
-  return { nome: lead.name, documento: lead.document ?? "", telefone: lead.phone ?? "", email: lead.email ?? "" };
-}
-
-export function erroCampoConversao(erros: Record<string, string>, campo: "name" | "document" | "phone" | "email") {
-  const aliases = { name: "nome", document: "documento", phone: "telefone", email: "email" };
-  return erros[`lead.${campo}`] || erros[campo] || erros[aliases[campo]];
-}
-
-/** Salva o perfil editado antes de pedir sua conversão em cliente. */
+/** Converte usando somente o perfil já salvo; edição acontece na ficha do lead. */
 export async function converterLead(
-  negocio: Pick<Deal, "id" | "lead">,
-  rascunho: DadosDeConversao,
-  destino: string,
-  aoAtualizar: (negocio: Deal) => void,
+  negocio: Pick<Deal, "id" | "lead" | "client">,
+  destino?: string,
 ): Promise<RespostaDeEnvio<ConvertLeadResponse>> {
-  const original = dadosDeConversao(negocio.lead);
-  const alterou = rascunho.nome !== original.nome || rascunho.documento !== original.documento || rascunho.telefone !== original.telefone || rascunho.email !== original.email;
-  if (alterou) {
-    const resposta = await enviar<Deal>(`/api/leads/${negocio.id}`, "PATCH", {
-      lead: { name: rascunho.nome.trim(), document: rascunho.documento.trim() || null, phone: rascunho.telefone.trim() || null, email: rascunho.email.trim() || null },
-    });
-    if (!resposta.ok) return resposta;
-    aoAtualizar(resposta.dados);
+  const problemas = negocio.client ? [] : problemasDaConversaoDoLead(negocio.lead);
+  if (problemas.length) {
+    return { ok: false, erro: {
+      mensagem: problemas.map((p) => p.problema).join(" "),
+      porCampo: Object.fromEntries(problemas.map((p) => [`lead.${p.campo}`, p.problema])),
+    } };
   }
   const resolution = destino === "novo" ? { type: "create" } : destino ? { type: "link", clientId: destino } : undefined;
-  return enviar<ConvertLeadResponse>(`/api/leads/${negocio.id}/converter`, "POST", resolution ? { resolution } : {});
+  const resposta = await enviar<unknown>(`/api/leads/${negocio.id}/converter`, "POST", resolution ? { resolution } : {});
+  if (!resposta.ok) {
+    const problemas = [...new Set(Object.values(resposta.erro.porCampo))];
+    return { ok: false, erro: { ...resposta.erro, mensagem: problemas.length ? problemas.join(" ") : resposta.erro.mensagem } };
+  }
+  const resultado = convertLeadResponseSchema.safeParse(resposta.dados);
+  if (!resultado.success || resultado.data.lead.id !== negocio.id || resultado.data.lead.client?.id !== resultado.data.client.id) {
+    return { ok: false, erro: { mensagem: "Não foi possível confirmar a conversão. Atualize o quadro para conferir o cliente.", porCampo: {} } };
+  }
+  return { ok: true, dados: resultado.data };
 }

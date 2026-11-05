@@ -115,12 +115,19 @@ test("cartão compacto preserva identificação e detalhes sem o bloco de invest
   await expect(documentos.getByRole("heading", { name: "Documentos do lead", exact: true })).toBeVisible();
   await expect(documentos.getByLabel("Arquivo", { exact: true })).toBeVisible();
   await cabecalho.getByRole("button", { name: "Mais ações do lead" }).click();
+  const pedidoConversao = page.waitForResponse((r) => r.request().method() === "POST" && r.url().endsWith(`/api/leads/${negocio.id}/converter`));
   await page.getByRole("menuitem", { name: "Converter em cliente", exact: true }).click();
-  const conversao = page.getByRole("dialog", { name: "Converter lead em cliente", exact: true });
-  await expect(conversao).toBeVisible();
-  await conversao.getByRole("button", { name: "Cancelar", exact: true }).click();
-  await expect(conversao).toHaveCount(0);
+  expect((await pedidoConversao).ok()).toBe(true);
+  const sucesso = page.getByRole("dialog", { name: "Cliente convertido com sucesso", exact: true });
+  await expect(sucesso).toBeVisible();
+  await expect(sucesso.getByRole("textbox")).toHaveCount(0);
+  await expect(sucesso.getByRole("button")).toHaveCount(0);
+  await sucesso.press("Escape");
+  await expect(sucesso).toHaveCount(0);
   await expect(detalhes).toHaveCount(0);
+  await page.reload();
+  await cartao.getByRole("button", { name: `Ações de ${negocio.lead.name}`, exact: true }).click();
+  await expect(page.getByRole("menuitem", { name: "Converter em cliente", exact: true })).toHaveCount(0);
 });
 
 test("prioridade persiste no cadastro do lead", async ({ page }) => {

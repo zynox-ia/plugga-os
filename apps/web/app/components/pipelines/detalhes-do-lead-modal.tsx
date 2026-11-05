@@ -155,7 +155,7 @@ export function DetalhesDoLeadModal({ negocioId, pipeline, responsaveis, acoes, 
               {negocio.status === "open" ? <>
                 <button type="button" role="menuitem" onClick={() => executar(acoes.perder)}><X size={14} />{pipeline.lostLabel}</button>
                 <button type="button" role="menuitem" onClick={() => executar(acoes.transferir)}><ArrowRight size={14} />Mover para outro pipeline</button>
-                {!negocio.client && acoes.converter ? <button type="button" role="menuitem" onClick={() => executar(acoes.converter!)}><UserRound size={14} />Converter em cliente</button> : null}
+                {!negocio.client && acoes.converter ? <button type="button" role="menuitem" disabled={Boolean(acoes.convertendoId)} onClick={() => executar(acoes.converter!)}><UserRound size={14} />Converter em cliente</button> : null}
                 <span className={styles.menuSeparador} role="separator" />
               </> : null}
               <span className={styles.menuTitulo}>Prioridade</span>

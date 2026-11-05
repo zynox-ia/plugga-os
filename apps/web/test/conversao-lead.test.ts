@@ -1,8 +1,7 @@
 import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
 import type { Deal } from "@plugga/shared";
-import { lerErro } from "../app/lib/clientes.ts";
-import { converterLead, dadosDeConversao, erroCampoConversao } from "../app/lib/conversao-lead.ts";
+import { converterLead } from "../app/lib/conversao-lead.ts";
 
 const originalFetch = globalThis.fetch;
 afterEach(() => { globalThis.fetch = originalFetch; });
@@ -15,86 +14,87 @@ const negocio: Deal = {
   owner: { id: "00000000-0000-4000-8000-000000001004", name: "Responsável sintético" },
   contact: null, client: null, tags: [], stageEnteredAt: "2026-11-05T12:00:00Z", closedAt: null, lossReason: null, revisitOn: null, createdAt: "2026-11-05T12:00:00Z",
 };
+const cliente = { id: "00000000-0000-4000-8000-000000001005", name: "Cliente sintético" };
+const convertido = { ...negocio, client: cliente };
 
-test("associa cada erro lead.campo à entrada correta da conversão", () => {
-  const erros = lerErro({ detalhes: [
-    { campo: "lead.name", problema: "Informe o nome" },
-    { campo: "lead.document", problema: "Documento inválido" },
-    { campo: "lead.phone", problema: "Telefone inválido" },
-    { campo: "lead.email", problema: "E-mail inválido" },
-  ] }, "Falha").porCampo;
-  assert.equal(erroCampoConversao(erros, "name"), "Informe o nome");
-  assert.equal(erroCampoConversao(erros, "document"), "Documento inválido");
-  assert.equal(erroCampoConversao(erros, "phone"), "Telefone inválido");
-  assert.equal(erroCampoConversao(erros, "email"), "E-mail inválido");
-  assert.equal(erroCampoConversao({ nome: "Alias legado" }, "name"), "Alias legado");
-  assert.equal(erroCampoConversao({}, "phone"), undefined);
-});
-
-test("publica o perfil salvo antes da conversão recusada e mantém o rascunho", async () => {
-  const rascunho = { ...dadosDeConversao(negocio.lead), nome: "Lead corrigido" };
-  const salvo = { ...negocio, lead: { ...negocio.lead, name: rascunho.nome } };
-  const eventos: string[] = [];
-  globalThis.fetch = async (_url, init) => {
-    eventos.push(init!.method!);
-    return init?.method === "PATCH" ? Response.json(salvo) : Response.json({ mensagem: "Informe o documento", detalhes: [{ campo: "lead.document", problema: "Documento obrigatório" }] }, { status: 400 });
-  };
-  const resultado = await converterLead(negocio, rascunho, "", (atualizado) => { eventos.push(`perfil:${atualizado.lead.name}`); });
-  assert.deepEqual(eventos, ["PATCH", "perfil:Lead corrigido", "POST"]);
-  assert.equal(resultado.ok, false);
-  if (resultado.ok) throw new Error("A conversão deveria ser recusada");
-  assert.equal(erroCampoConversao(resultado.erro.porCampo, "document"), "Documento obrigatório");
-  assert.equal(rascunho.nome, "Lead corrigido");
-  assert.equal(negocio.lead.name, "Lead sintético");
-});
-
-test("PATCH recusado não converte nem anuncia perfil salvo", async () => {
-  const rascunho = { ...dadosDeConversao(negocio.lead), email: "inválido" };
-  const metodos: string[] = [];
-  let atualizou = false;
-  globalThis.fetch = async (_url, init) => {
-    metodos.push(init!.method!);
-    return Response.json({ detalhes: [{ campo: "lead.email", problema: "E-mail inválido" }] }, { status: 400 });
-  };
-  const resultado = await converterLead(negocio, rascunho, "", () => { atualizou = true; });
-  assert.equal(resultado.ok, false);
-  assert.deepEqual(metodos, ["PATCH"]);
-  assert.equal(atualizou, false);
-  assert.equal(rascunho.email, "inválido");
-});
-
-test("nova tentativa usa o perfil já salvo e preserva escolha de duplicidade", async () => {
-  const candidato = { id: "00000000-0000-4000-8000-000000001005", name: "Cliente sintético", personType: "pj", matchedOn: ["email"] };
-  const salvo = { ...negocio, lead: { ...negocio.lead, name: "Nome salvo" } };
-  let atual = negocio;
-  const chamadas: { metodo?: string; corpo: unknown }[] = [];
-  let tentativas = 0;
-  globalThis.fetch = async (_url, init) => {
-    chamadas.push({ metodo: init?.method, corpo: JSON.parse(String(init?.body)) });
-    if (init?.method === "PATCH") return Response.json(salvo);
-    if (++tentativas === 1) return Response.json({ mensagem: "Escolha o cliente", candidatos: [candidato] }, { status: 400 });
-    return Response.json({ lead: { ...salvo, client: { id: candidato.id, name: candidato.name } }, client: { id: candidato.id, name: candidato.name }, created: false });
-  };
-  const atualizar = (perfil: Deal) => { atual = perfil; };
-  const recusada = await converterLead(atual, dadosDeConversao(salvo.lead), "", atualizar);
-  assert.equal(recusada.ok, false);
-  if (recusada.ok) throw new Error("A duplicidade deveria exigir escolha");
-  assert.equal(recusada.erro.candidatos?.[0]?.id, candidato.id);
-  const convertida = await converterLead(atual, dadosDeConversao(salvo.lead), candidato.id, atualizar);
-  assert.equal(convertida.ok, true);
-  assert.deepEqual(chamadas.map(({ metodo }) => metodo), ["PATCH", "POST", "POST"]);
-  assert.deepEqual(chamadas[2]?.corpo, { resolution: { type: "link", clientId: candidato.id } });
-});
-
-test("conversão sem edição não salva perfil e permite criar cliente após escolha", async () => {
-  let alterou = false;
+test("converte com os dados salvos em um único POST, sem PATCH", async () => {
+  const chamadas: string[] = [];
   globalThis.fetch = async (url, init) => {
     assert.equal(String(url), `/api/leads/${negocio.id}/converter`);
-    assert.equal(init?.method, "POST");
-    assert.deepEqual(JSON.parse(String(init?.body)), { resolution: { type: "create" } });
-    return Response.json({ lead: negocio, client: { id: "00000000-0000-4000-8000-000000001005", name: "Cliente sintético" }, created: true });
+    chamadas.push(init!.method!);
+    assert.deepEqual(JSON.parse(String(init?.body)), {});
+    return Response.json({ lead: convertido, client: cliente, created: true });
   };
-  const resultado = await converterLead(negocio, dadosDeConversao(negocio.lead), "novo", () => { alterou = true; });
-  assert.equal(resultado.ok, true);
-  assert.equal(alterou, false);
+  assert.equal((await converterLead(negocio)).ok, true);
+  assert.deepEqual(chamadas, ["POST"]);
+  assert.equal(negocio.client, null);
+});
+
+test("nome com telefone, email ou documento permite conversão", async () => {
+  for (const identificador of [
+    { phone: "11999999999", email: null, document: null },
+    { phone: null, email: "lead@teste.local", document: null },
+    { phone: null, email: null, document: "11222333000181" },
+  ]) {
+    const atual = { ...negocio, lead: { ...negocio.lead, ...identificador } };
+    globalThis.fetch = async () => Response.json({ lead: { ...atual, client: cliente }, client: cliente, created: true });
+    assert.equal((await converterLead(atual)).ok, true);
+  }
+});
+
+test("só nome ou nome ausente não envia conversão nem anuncia sucesso", async () => {
+  globalThis.fetch = async () => { assert.fail("dados insuficientes não devem enviar requisição"); };
+  for (const perfil of [
+    { ...negocio.lead, phone: null, email: null, document: null },
+    { ...negocio.lead, name: "   " },
+  ]) {
+    const resultado = await converterLead({ ...negocio, lead: perfil });
+    assert.equal(resultado.ok, false);
+    if (resultado.ok) throw new Error("A conversão deveria ser recusada");
+    assert.ok(resultado.erro.mensagem.length > 0);
+  }
+});
+
+test("documento inválido não é tratado como dado suficiente", async () => {
+  globalThis.fetch = async () => { assert.fail("documento inválido não deve ser enviado"); };
+  assert.equal((await converterLead({ ...negocio, lead: { ...negocio.lead, email: null, document: "11111111111111" } })).ok, false);
+});
+
+test("duplicidade preserva candidatos e exige escolha explícita antes de vincular", async () => {
+  const candidato = { ...cliente, personType: "pj", matchedOn: ["email"] };
+  const chamadas: unknown[] = [];
+  globalThis.fetch = async (_url, init) => {
+    chamadas.push(JSON.parse(String(init?.body)));
+    if (chamadas.length === 1) return Response.json({ mensagem: "Escolha o cliente", candidatos: [candidato] }, { status: 400 });
+    return Response.json({ lead: convertido, client: cliente, created: false });
+  };
+  const recusada = await converterLead(negocio);
+  assert.equal(recusada.ok, false);
+  if (recusada.ok) throw new Error("A duplicidade deveria exigir escolha");
+  assert.equal(recusada.erro.candidatos?.[0]?.id, cliente.id);
+  assert.equal((await converterLead(negocio, cliente.id)).ok, true);
+  assert.deepEqual(chamadas, [{}, { resolution: { type: "link", clientId: cliente.id } }]);
+});
+
+test("criar novo cliente continua dependendo de escolha explícita", async () => {
+  globalThis.fetch = async (_url, init) => {
+    assert.deepEqual(JSON.parse(String(init?.body)), { resolution: { type: "create" } });
+    return Response.json({ lead: convertido, client: cliente, created: true });
+  };
+  assert.equal((await converterLead(negocio, "novo")).ok, true);
+});
+
+test("erros por campo viram orientação legível sem pedir campos destacados inexistentes", async () => {
+  globalThis.fetch = async () => Response.json({ detalhes: [{ campo: "lead.document", problema: "CPF inválido." }] }, { status: 400 });
+  const resultado = await converterLead(negocio);
+  assert.equal(resultado.ok, false);
+  if (resultado.ok) throw new Error("A conversão deveria ser recusada");
+  assert.equal(resultado.erro.mensagem, "CPF inválido.");
+});
+
+test("rede indisponível e resposta de sucesso incompleta não confirmam conversão", async () => {
+  globalThis.fetch = async () => { throw new Error("Falha sintética de rede"); };
+  assert.equal((await converterLead(negocio)).ok, false);
+  globalThis.fetch = async () => Response.json({});
+  assert.equal((await converterLead(negocio)).ok, false);
 });

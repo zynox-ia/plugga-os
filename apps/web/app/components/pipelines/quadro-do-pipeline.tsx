@@ -18,6 +18,7 @@ export type AcoesDoNegocio = {
   novoNaEtapa: (etapaId: string) => void;
   emLote: (ids: string[], acao: BulkDealsAction) => Promise<boolean>;
   converter?: (negocio: Deal) => void;
+  convertendoId?: string | null;
 };
 
 /** Barra de rolagem minimalista (suave, quase invisível, sem setas e com largura compacta). */

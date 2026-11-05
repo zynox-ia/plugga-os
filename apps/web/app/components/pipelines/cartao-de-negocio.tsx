@@ -176,8 +176,8 @@ export function MenuDoNegocio({
                     <ArrowRight size={14} aria-hidden="true" /> Mover para outro pipeline
                   </button>
                   {!negocio.client && acoes.converter ? (
-                    <button type="button" role="menuitem" onClick={escolher(() => acoes.converter?.(negocio))}>
-                      <UserCheck size={14} aria-hidden="true" /> Converter em cliente
+                    <button type="button" role="menuitem" disabled={Boolean(acoes.convertendoId)} onClick={escolher(() => acoes.converter?.(negocio))}>
+                      <UserCheck size={14} aria-hidden="true" /> {acoes.convertendoId === negocio.id ? "Convertendo…" : "Converter em cliente"}
                     </button>
                   ) : null}
                 </>
