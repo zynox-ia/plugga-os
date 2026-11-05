@@ -26,10 +26,13 @@ trabalho, os limites e as verificações combinadas com André. Não é uma nova
    ao apenas reordenar. Manual: arrastar, recarregar e conferir; em falha, o card
    deve voltar à posição confirmada.
 2. [PLU-302 — Feedback e estado da conversão](https://linear.app/zynox-dev/issue/PLU-302).
-   Exibir erros `lead.*` nos campos; aplicar o perfil salvo mesmo que a conversão
-   subsequente falhe. Verificar PATCH bem-sucedido seguido de POST recusado e
-   correção/reenvio. Manual: alterar perfil na conversão, provocar uma recusa,
-   cancelar e conferir os dados já salvos sem recarregar.
+   Converter diretamente com os dados salvos, sem formulário ou confirmação
+   preliminar, conforme ajuste solicitado por André em 05/11. Exigir nome e pelo
+   menos telefone, e-mail ou CPF/CNPJ válido. Mostrar sucesso depois da resposta
+   validada da API; possíveis duplicidades exigem escolha explícita. Edição de
+   perfil permanece na ficha do lead, sem PATCH no fluxo da conversão.
+   Manual: clicar em Converter em cliente e conferir sucesso e vínculo após
+   recarregar; verificar orientação quando faltarem dados e escolha de duplicidade.
 3. [PLU-301 — Atualização do quadro](https://linear.app/zynox-dev/issue/PLU-301).
    Atualizar relógio e dados no retorno à aba sem sobrescrever operações pendentes
    ou aceitar respostas antigas. Verificar relógio controlado, falha de rede e
