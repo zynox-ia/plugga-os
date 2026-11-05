@@ -8,7 +8,7 @@
 #   1. backup do banco
 #   2. guarda a imagem atual, para poder voltar
 #   3. constrói as imagens novas
-#   4. migra o banco
+#   4. pausa escritores, faz backup final e migra o banco
 #   5. sobe api e web
 #   6. teste de fumaça — e volta atrás se falhar
 #
@@ -17,7 +17,7 @@
 # esquema novo e o programa procurando uma tabela que não existia mais. Duas
 # horas sem login, porque eram dois atos separados que dependiam de alguém
 # lembrar da ordem. Aqui são um só.
-set -euo pipefail
+set -Eeuo pipefail
 
 # Uma publicação por vez: antes de qualquer passo, inclusive o backup.
 # shellcheck disable=SC1091
@@ -60,7 +60,7 @@ docker compose build api web
 # O papel da aplicação (plugga_app) não tem permissão para criar tabela — é a
 # trava criada depois do incidente de perda de dados. Migração roda como dono,
 # com a senha lida do próprio contêiner e nunca impressa.
-registro "4/6 · migrando o banco"
+registro "4/6 · preparando a janela de migração"
 # `printenv` dentro do contêiner, não `docker inspect` com template split "=":
 # o split cortava a senha no primeiro '=' — e senha gerada em base64 tem '='.
 SENHA_DONO=$(docker exec plugga-os-postgres-1 printenv POSTGRES_PASSWORD || true)
@@ -86,13 +86,71 @@ codifica_url() {
 }
 SENHA_ENC=$(codifica_url "$SENHA_DONO")
 
+# Um programa antigo não lê negócios novos sem cliente. Se não for possível
+# provar a compatibilidade, preserva as tags atuais e tenta reativá-las.
+recusa_reversao() {
+  falhou "$1 Reversão automática recusada; intervenção do André necessária."
+  if ! docker compose up -d --no-deps --no-build api web; then
+    falhou "A versão atual também não subiu; reativação manual necessária."
+  fi
+  return 1
+}
+
+reativa_versao_anterior() {
+  # Fecha a corrida entre conferir o banco e trocar as imagens, inclusive se
+  # a versão nova já estava atendendo durante o teste de fumaça.
+  docker compose stop api web || return 1
+  local sem_cliente
+  if ! sem_cliente=$(docker exec plugga-os-postgres-1 psql -U "$BANCO" -d "$BANCO" -Atqc \
+    'SELECT EXISTS (SELECT 1 FROM deals WHERE client_id IS NULL);'); then
+    recusa_reversao "Não foi possível conferir a compatibilidade do banco."
+    return 1
+  fi
+  if [ "$sem_cliente" != "f" ]; then
+    recusa_reversao "Há negócio sem cliente ou resposta de compatibilidade desconhecida."
+    return 1
+  fi
+  for servico in api web; do
+    if ! docker image inspect "plugga-os-${servico}:anterior" >/dev/null 2>&1; then
+      recusa_reversao "A imagem anterior de ${servico} não está disponível."
+      return 1
+    fi
+  done
+  for servico in api web; do
+    docker tag "plugga-os-${servico}:anterior" "plugga-os-${servico}:latest" || return 1
+  done
+  docker compose up -d --no-deps --no-build api web || return 1
+  falhou "A versão anterior do programa voltou. O BANCO NÃO FOI REVERTIDO."
+}
+
+falha_publicacao() {
+  local codigo=$1
+  trap - ERR
+  falhou "A publicação falhou; tentando reativar a aplicação sem alterar banco ou armazenamento."
+  if ! reativa_versao_anterior; then
+    falhou "Recuperação automática incompleta; intervenção do André necessária. O banco não foi restaurado."
+  fi
+  exit "$codigo"
+}
+
+# O backup final e o backfill precisam da mesma janela sem escritores. O trap
+# só começa aqui: falhar no build não interrompe a aplicação que está atendendo.
+trap 'falha_publicacao "$?"' ERR
+registro "4/6 · parando api/web e fazendo o backup final"
+docker compose stop api web
+/root/backup-plugga.sh
+
 # Dentro da rede do compose o host do banco é "postgres", que a trava do
 # run-local-prisma aceita.
+registro "4/6 · migrando o banco sem escritores"
 docker compose run --rm --no-deps \
   -e NODE_ENV=production \
   -e ALLOW_PRODUCTION_MIGRATION=true \
   -e DATABASE_URL="postgresql://${BANCO}:${SENHA_ENC}@postgres:5432/${BANCO}?schema=public" \
   api pnpm db:migrate:deploy
+
+# Confere os grants do papel da aplicação antes de aceitar tráfego novo.
+docker compose run --rm --no-deps -T api node --input-type=module - --verificar-permissoes-crm < ops/verificar-permissoes-crm.mjs
 
 # ------------------------------------------------------------------ 5. subir
 # Sem nomear serviço: agora que o compose.yaml é sincronizado do repositório,
@@ -138,28 +196,10 @@ LOGIN=$(curl -s -o /dev/null -w '%{http_code}' --max-time 25 \
 verifica "login chega ao banco" "401" "$LOGIN" || ok=1
 
 if [ "$ok" -ne 0 ]; then
-  falhou "teste de fumaça reprovou — voltando para a versão anterior"
-  for servico in api web; do
-    if docker image inspect "plugga-os-${servico}:anterior" >/dev/null 2>&1; then
-      docker tag "plugga-os-${servico}:anterior" "plugga-os-${servico}:latest"
-    fi
-  done
-  # Aqui os serviços SÃO nomeados, ao contrário do passo 5, e é de propósito:
-  # o rollback reverte a imagem da aplicação e nada mais. Subir a infra junto
-  # aplicaria, no meio de uma falha, uma mudança de compose que ninguém pediu e
-  # que talvez seja a causa do problema que se está tentando desfazer.
-  docker compose up -d api web
-  cat >&2 <<AVISO
-
-A versão anterior do programa voltou. O BANCO NÃO FOI REVERTIDO.
-
-Se a falha for de esquema, o backup feito no passo 1 está no armazenamento local, no
-balde plugga-backups, em diario/. Restaurar é decisão humana: entre o backup e agora
-pode ter entrado dado que a restauração apagaria.
-
-AVISO
-  exit 1
+  falhou "teste de fumaça reprovou"
+  falha_publicacao 1
 fi
 
+trap - ERR
 registro "publicado"
 docker compose ps --format 'table {{.Name}}\t{{.Status}}' | grep -E 'api|web' || true
