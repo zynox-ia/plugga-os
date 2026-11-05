@@ -63,6 +63,10 @@ jobs:
             echo "publicar=true" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Conferir armazenamento antes da publicação
+        if: steps.ponta.outputs.publicar == 'true'
+        run: sudo bash ops/preflight-storage-publicacao.sh
+
       - name: Sincronizar para /opt/plugga-os
         if: steps.ponta.outputs.publicar == 'true'
         run: |
