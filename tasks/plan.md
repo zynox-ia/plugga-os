@@ -101,3 +101,17 @@ Os cenários relevantes de Clientes, lista, arraste, conversão, documentos e
 propostas passaram em navegador por grupos. Documentos teve um timeout na
 compilação fria e passou na repetição isolada, sem retries nem alteração do
 limite do teste. A suíte completa de navegador ainda depende da CI da release.
+
+André autorizou mesclar o PR #81 e acompanhar a publicação pelo GitHub Actions.
+As duas falhas da CI foram reproduzidas como ausência de RustFS/configuração no
+ambiente de teste; os mesmos E2Es de documentos e propostas passaram com storage.
+A CI passa a provisionar armazenamento isolado e executar a integração real.
+
+Atividades permanece disponível apenas em DEV/teste e foi retirada da produção,
+inclusive da navegação por teclado. O CRUD temporário completo segue coberto por
+uma suíte DEV separada, além da prova de ausência na suíte de produção.
+
+O deploy agora confere o armazenamento atual antes do rsync, pausa API/web na
+janela do backup final/migrations, verifica permissões com o papel da aplicação
+e recusa rollback incompatível. Isso não atesta nem executa a migração RustFS na
+produção: um estado legado interrompe o workflow antes da alteração dos serviços.

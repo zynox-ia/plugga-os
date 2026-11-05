@@ -2,10 +2,11 @@
 
 Os comandos do dia a dia, na ordem em que aparecem.
 
-> **Release bloqueada para Produção:** a migração SeaweedFS → RustFS na VPS não
-> foi confirmada pelo André. As instruções de RustFS abaixo descrevem o destino
-> esperado, não uma migração já executada. Antes de aprovar o deploy, conclua a
-> transição descrita em "Publicar em produção".
+> **Esta publicação não executa a migração SeaweedFS → RustFS.** Antes de copiar
+> o código para a aplicação, o workflow confere containers, volume, endpoint e
+> acesso ao balde legado. Se a produção ainda usa SeaweedFS ou outro volume,
+> o deploy para sem alterar os serviços. Nesse caso, conclua a transição descrita
+> em "Publicar em produção" antes de repetir a publicação.
 
 ---
 
@@ -139,14 +140,24 @@ O que acontece, nesta ordem:
 1. backup do banco          existe de onde voltar
 2. marca a versão atual     reverter fica instantâneo
 3. constrói as imagens
-4. migra o banco            ← junto com o programa, nunca separado
+4. pausa API/web, faz backup final, migra e confere permissões da aplicação
 5. sobe api e web
 6. teste de fumaça          volta atrás sozinho se reprovar
 ```
 
 Leva alguns minutos, quase tudo na construção das imagens.
 
-**Se o teste de fumaça reprovar**, o programa anterior volta sozinho e o script avisa. O banco **não** é revertido automaticamente — isso é decisão sua, porque a restauração apagaria o que entrou depois do backup.
+**Se a publicação falhar depois da pausa**, o script só restaura as imagens
+anteriores quando o banco continua compatível. Se já houver negócio sem cliente,
+se a consulta falhar ou se faltar uma imagem anterior, preserva as tags atuais e
+tenta reativar a versão atual, registrando a necessidade de intervenção. O banco
+**não** é restaurado automaticamente — isso é decisão sua, porque apagaria
+gravações posteriores ao backup.
+
+Antes das migrations, API/web são paradas após o build e é feito um backup final.
+A sonda posterior usa o papel da aplicação para conferir as permissões necessárias
+do CRM, sem ler dados pessoais nem executar `GRANT`. Se faltar permissão, o erro
+interrompe a publicação antes de receber tráfego novo.
 
 ### Transição para RustFS: bloqueio desta release
 
@@ -155,6 +166,11 @@ Criar baldes vazios não copia os objetos do volume do SeaweedFS nem suas
 identidades e políticas. O teste de fumaça atual verifica login; ele não prova
 que os arquivos antigos continuam acessíveis. André deve autorizar e acompanhar
 esta mudança de infraestrutura antes de liberar a publicação.
+
+O passo `Conferir armazenamento antes da publicação` roda antes do rsync. Ele
+exige o RustFS atual no volume `plugga-os_rustfs_data` e o mesmo endpoint da nova
+configuração. Readiness e HEAD do balde legado comprovam continuidade de acesso;
+não substituem a comparação integral dos objetos durante uma migração.
 
 1. **Ensaiar com dados sintéticos.** Em ambiente isolado, copiar objetos entre
    os dois servidores S3 e testar leitura, upload, download, geração de proposta,
