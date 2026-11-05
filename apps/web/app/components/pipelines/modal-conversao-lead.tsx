@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, UsersRound } from "lucide-react";
+import { Check, UsersRound, X } from "lucide-react";
 import { useState } from "react";
 
 import { Modal } from "../modal";
@@ -14,6 +14,8 @@ export function SucessoDaConversao({ clienteNome, aoFechar }: {
   return (
     <Modal rotulo="Cliente convertido com sucesso" largura="estreita" className={`ui-dialog ${styles.modalSucesso}`} aoFechar={aoFechar}>
       <div className={styles.sucesso} tabIndex={-1}>
+        <Button variant="secondary" size="sm" iconOnly icon={<X />} aria-label="Fechar confirmação"
+          className={styles.fecharSucesso} onClick={aoFechar} />
         <span className={styles.destaqueSucesso} aria-hidden="true">
           <span className={styles.marcaSucesso}><Check size={28} strokeWidth={2.5} absoluteStrokeWidth /></span>
         </span>

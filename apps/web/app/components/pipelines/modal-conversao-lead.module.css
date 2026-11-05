@@ -12,6 +12,20 @@
     0 24px 64px -20px color-mix(in srgb, var(--ui-text) 28%, transparent);
 }
 
+:global(.modal.ui-dialog).modalSucesso::backdrop {
+  background: color-mix(in srgb, var(--ui-text) 20%, transparent);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+
+@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+  :global(.modal.ui-dialog).modalSucesso {
+    background: color-mix(in srgb, var(--ui-surface) 88%, transparent);
+    -webkit-backdrop-filter: blur(20px) saturate(140%);
+    backdrop-filter: blur(20px) saturate(140%);
+  }
+}
+
 :global(.modal.ui-dialog).modalSucesso :global(.modal-conteudo) {
   max-height: inherit;
   overscroll-behavior: contain;
@@ -24,9 +38,27 @@
   justify-items: center;
   gap: var(--space-lg);
   padding-block: calc(var(--space-xl) + var(--space-xs));
-  padding-inline: min(var(--space-xl), 8vw);
+  padding-inline: min(var(--space-lg), 6vw);
   text-align: center;
   outline: none;
+}
+
+.modalSucesso .fecharSucesso {
+  position: absolute;
+  inset-block-start: var(--space-sm);
+  inset-inline-end: var(--space-sm);
+  color: var(--ui-muted);
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+
+@media (hover: hover) {
+  .modalSucesso .fecharSucesso:hover {
+    color: var(--ui-text);
+    background: var(--ui-subtle);
+    border-color: transparent;
+  }
 }
 
 .destaqueSucesso {
