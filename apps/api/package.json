@@ -22,7 +22,7 @@
     "test:jobs": "node scripts/run-flagged-test.mjs RUN_JOBS_INTEGRATION_TESTS test/jobs-queue.integration.spec.ts",
     "test:clientes": "node scripts/run-flagged-test.mjs RUN_CLIENTES_INTEGRATION_TESTS test/clientes.integration.spec.ts",
     "test:pipelines": "node scripts/run-flagged-test.mjs RUN_PIPELINES_INTEGRATION_TESTS test/pipelines.integration.spec.ts",
-    "test:negocios": "node scripts/run-flagged-test.mjs RUN_NEGOCIOS_INTEGRATION_TESTS test/negocios.integration.spec.ts",
+    "test:negocios": "node scripts/run-flagged-test.mjs RUN_NEGOCIOS_INTEGRATION_TESTS test/negocios.integration.spec.ts test/novo-lead.integration.spec.ts test/lead-perfil-backfill.integration.spec.ts --no-file-parallelism",
     "test:documentos": "node scripts/run-flagged-test.mjs RUN_STORAGE_INTEGRATION_TESTS test/lead-documentos.integration.spec.ts",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.test.json",
     "test:llm": "node scripts/run-flagged-test.mjs RUN_LLM_INTEGRATION_TESTS test/llm-consumo.integration.spec.ts",
