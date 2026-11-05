@@ -10,6 +10,7 @@ import type { TarefaDoLead } from "../lib/tarefas-lead";
 import { useSessionUser } from "../lib/use-session-user";
 import { Button, IconPlus, IconSearch, IconSettings } from "./ui";
 import { ConfiguracaoDePipelines } from "./pipelines/configuracao-de-pipelines";
+import { moverCartao } from "./pipelines/arrasto-kanban";
 import { GanhoDoNegocio, PerdaDoNegocio } from "./pipelines/encerrar-negocio";
 import { Icone } from "./pipelines/icones";
 import { ModalDeConversaoDoLead } from "./pipelines/modal-conversao-lead";
@@ -48,6 +49,7 @@ export function PipelinesView({
   const leadSelecionadoId = parametros.get("lead");
   const colunasRef = useRef<HTMLDivElement>(null);
   const prioridadesPendentes = useRef(new Set<string>());
+  const movimentoPendente = useRef(false);
   const { usuario } = useSessionUser();
   const [busca, setBusca] = useState("");
   const [configurando, setConfigurando] = useState<"editar" | "novo" | null>(null);
@@ -107,20 +109,26 @@ export function PipelinesView({
       prioridadesPendentes.current.delete(negocio.id);
       return resposta.ok ? resposta.dados : null;
     },
-    async moverEtapa(negocio, etapaId) {
-      if (negocio.stageId === etapaId) return negocio;
+    async moverEtapa(negocio, etapaId, antesDeId) {
+      if (movimentoPendente.current) return null;
+      const mudouEtapa = negocio.stageId !== etapaId;
+      if (!mudouEtapa && antesDeId === undefined) return negocio;
+      movimentoPendente.current = true;
       const etapaDestino = selecionado?.stages.find((e) => e.id === etapaId);
-      aplicar([{ ...negocio, stageId: etapaId, stageEnteredAt: new Date().toISOString() }]);
-      const resposta = await enviar<Deal>(`/api/leads/${negocio.id}/etapa`, "POST", { stageId: etapaId });
+      const indiceOriginal = negocios.findIndex((n) => n.id === negocio.id);
+      const seguinteOriginal = negocios.slice(indiceOriginal + 1).find((n) => n.stageId === negocio.stageId && n.status === "open")?.id ?? null;
+      setNegocios((atuais) => moverCartao(atuais, negocio.id, etapaId, antesDeId, new Date().toISOString()));
+      const resposta = await enviar<Deal>(`/api/leads/${negocio.id}/etapa`, "POST", { stageId: etapaId, beforeDealId: antesDeId });
+      movimentoPendente.current = false;
       if (resposta.ok) {
         confirmado([resposta.dados]);
-        if (etapaDestino?.asksClientConversion && !negocio.client) {
+        if (mudouEtapa && etapaDestino?.asksClientConversion && !negocio.client) {
           if (leadSelecionadoId === negocio.id) abrirDetalhes(null);
           setConvertendo(resposta.dados);
         }
         return resposta.dados;
       }
-      aplicar([negocio]);
+      setNegocios((atuais) => moverCartao(atuais, negocio.id, negocio.stageId, seguinteOriginal, negocio.stageEnteredAt));
       setAviso(resposta.erro.mensagem);
       return null;
     },

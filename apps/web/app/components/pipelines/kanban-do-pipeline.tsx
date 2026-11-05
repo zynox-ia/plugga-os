@@ -8,7 +8,6 @@ import { calcularLayoutKanban, ESPACO_COLUNAS_KANBAN } from "../../lib/layout-ka
 import { somaDosValores, valorCurto } from "../../lib/negocios";
 import { CartaoDeNegocio } from "./cartao-de-negocio";
 import type { AcoesDoNegocio } from "./quadro-do-pipeline";
-import { ordenarCartoes } from "./arrasto-kanban";
 import { useArrastoKanban } from "./use-arrasto-kanban";
 import styles from "./kanban-arrasto.module.css";
 
@@ -32,7 +31,6 @@ export function KanbanDoPipeline({
   const internoRef = useRef<HTMLDivElement>(null);
   const refEfetivo = colunasRef ?? internoRef;
   const { arrasto, alvo, comecar, terminar } = useArrastoKanban(refEfetivo);
-  const [ordens, setOrdens] = useState<Record<string, string[]>>({});
   const areaRef = useRef<HTMLDivElement>(null);
   const [layout, setLayout] = useState<ReturnType<typeof calcularLayoutKanban> | null>(null);
 
@@ -65,7 +63,7 @@ export function KanbanDoPipeline({
         } as CSSProperties}
       >
         {pipeline.stages.map((etapa) => {
-          const daEtapa = ordenarCartoes(negocios.filter((n) => n.stageId === etapa.id), ordens[etapa.id]);
+          const daEtapa = negocios.filter((n) => n.stageId === etapa.id);
           const alvoDaEtapa = alvo?.etapaId === etapa.id;
           return (
             <section
@@ -78,11 +76,7 @@ export function KanbanDoPipeline({
               onDrop={(evento) => {
                 if (!arrasto || !alvoDaEtapa) return;
                 evento.preventDefault();
-                const ids = daEtapa.filter((n) => n.id !== arrasto.negocio.id).map((n) => n.id);
-                const indice = alvo.antesDeId ? ids.indexOf(alvo.antesDeId) : ids.length;
-                ids.splice(indice < 0 ? ids.length : indice, 0, arrasto.negocio.id);
-                setOrdens((atuais) => ({ ...atuais, [etapa.id]: ids }));
-                void acoes.moverEtapa(arrasto.negocio, etapa.id);
+                void acoes.moverEtapa(arrasto.negocio, etapa.id, alvo.antesDeId);
                 terminar();
               }}
             >

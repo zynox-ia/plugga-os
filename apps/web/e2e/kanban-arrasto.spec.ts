@@ -91,24 +91,42 @@ test("rola nas duas bordas com ponteiro parado e restaura o scroll ao cancelar",
   expect(await quadro.evaluate((el) => getComputedStyle(el).scrollSnapType)).toBe("x mandatory");
 });
 
-test("solta na posição indicada sem inventar persistência de ordem e reverte falha de etapa", async ({ page }) => {
+test("persiste a posição indicada e restaura a ordem quando o servidor recusa", async ({ page, request }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto(`/comercial/pipelines?pipeline=${pipeline.id}`);
   const origem = page.getByRole("region", { name: "Negócios em Etapa 1", exact: true });
   const nome = await origem.getByRole("article").first().getAttribute("aria-label");
   const cartao = page.getByRole("article", { name: nome!, exact: true });
+  const id = await cartao.locator("..").getAttribute("data-cartao-id");
+  const antes = await (await request.get(`/api/leads/${id}`)).json();
   const ultimo = (await origem.getByRole("article").last().boundingBox())!;
   const mutacoes: string[] = [];
   page.on("request", (r) => { if (r.method() === "POST" && r.url().includes("/etapa")) mutacoes.push(r.url()); });
   await iniciarArrasto(cartao);
   await arrastarPara(page, ultimo.x + ultimo.width / 2, ultimo.y + ultimo.height - 10);
+  const reordenacao = page.waitForResponse((r) => r.request().method() === "POST" && r.url().includes("/etapa"));
   await origem.dispatchEvent("drop");
+  const reordenado = await reordenacao;
+  expect(reordenado.ok()).toBe(true);
+  expect(reordenado.request().postDataJSON()).toEqual({ stageId: pipeline.stages[0]!.id, beforeDealId: null });
+  expect((await reordenado.json()).stageEnteredAt).toBe(antes.stageEnteredAt);
   await expect(origem.getByRole("article").last()).toHaveAttribute("aria-label", nome!);
-  expect(mutacoes).toEqual([]);
+  expect(mutacoes).toHaveLength(1);
+  await page.reload();
+  await expect(origem.getByRole("article").last()).toHaveAttribute("aria-label", nome!);
+
+  const ordemConfirmada = await origem.locator("[data-cartao-id]").evaluateAll((els) => els.map((el) => el.getAttribute("data-cartao-id")));
+  await page.route("**/api/leads/*/etapa", (rota) => rota.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ message: "Falha sintética de etapa" }) }));
+  const primeiro = (await origem.getByRole("article").first().boundingBox())!;
+  await iniciarArrasto(cartao);
+  await arrastarPara(page, primeiro.x + primeiro.width / 2, primeiro.y + 2);
+  const ordemRecusada = page.waitForResponse((r) => r.request().method() === "POST" && r.url().includes("/etapa"));
+  await origem.dispatchEvent("drop");
+  expect((await ordemRecusada).status()).toBe(500);
+  await expect.poll(() => origem.locator("[data-cartao-id]").evaluateAll((els) => els.map((el) => el.getAttribute("data-cartao-id")))).toEqual(ordemConfirmada);
 
   const destino = page.getByRole("region", { name: "Negócios em Etapa 2", exact: true });
   const r = (await destino.boundingBox())!;
-  await page.route("**/api/leads/*/etapa", (rota) => rota.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ message: "Falha sintética de etapa" }) }));
   await iniciarArrasto(cartao);
   await arrastarPara(page, r.x + r.width / 2, r.y + 60);
   await expect(destino.getByTestId("kanban-insercao")).toBeVisible();

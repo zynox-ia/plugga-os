@@ -7,9 +7,17 @@ export function velocidadeNaBorda(ponteiro: number, inicio: number, fim: number)
   return 0;
 }
 
-/** Ordem apenas desta visualização. A etapa e os cartões existentes vêm dos dados reais. */
-export function ordenarCartoes<T extends { id: string }>(cartoes: T[], ordem?: string[]): T[] {
-  if (!ordem) return cartoes;
-  const posicoes = new Map(ordem.map((id, indice) => [id, indice]));
-  return [...cartoes].sort((a, b) => (posicoes.get(a.id) ?? -1) - (posicoes.get(b.id) ?? -1));
+/** A ordem fica na mesma lista dos dados; a releitura do servidor continua sendo canônica. */
+export function moverCartao<T extends { id: string; stageId: string; stageEnteredAt: string }>(
+  cartoes: readonly T[], id: string, etapaId: string, antesDeId: string | null | undefined, entrouEm: string,
+): T[] {
+  const negocio = cartoes.find((n) => n.id === id);
+  if (!negocio) return [...cartoes];
+  const restantes = cartoes.filter((n) => n.id !== id);
+  const referencia = antesDeId === undefined ? restantes.find((n) => n.stageId === etapaId)?.id : antesDeId;
+  const indice = restantes.findIndex((n) => n.id === referencia && n.stageId === etapaId);
+  restantes.splice(indice < 0 ? restantes.length : indice, 0, {
+    ...negocio, stageId: etapaId, stageEnteredAt: negocio.stageId === etapaId ? negocio.stageEnteredAt : entrouEm,
+  });
+  return restantes;
 }

@@ -9,7 +9,7 @@ import { ListaDeNegocios } from "./lista-de-negocios";
 
 export type AcoesDoNegocio = {
   definirPrioridade: (negocio: Deal, prioridade: DealPriority | null) => Promise<Deal | null>;
-  moverEtapa: (negocio: Deal, etapaId: string) => Promise<Deal | null>;
+  moverEtapa: (negocio: Deal, etapaId: string, antesDeId?: string | null) => Promise<Deal | null>;
   abrirDetalhes: (negocio: Deal) => void;
   atualizar: (negocio: Deal) => void;
   ganhar: (negocio: Deal) => void;
