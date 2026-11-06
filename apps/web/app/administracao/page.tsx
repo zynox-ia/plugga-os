@@ -1,4 +1,5 @@
 import { PlaceholderScreen } from "../components/placeholder-screen";
+import { exigirPagina } from "../lib/exigir-pagina";
 
 /**
  * Rota herdada do Bloco A. Gestão de pessoas e acessos passou a viver em
@@ -6,7 +7,8 @@ import { PlaceholderScreen } from "../components/placeholder-screen";
  * ainda apontam para cá, e mandar embora sem dizer para onde é pior que um
  * cartão que aponta o caminho.
  */
-export default function AdministracaoPage() {
+export default async function AdministracaoPage() {
+  await exigirPagina("/administracao");
   return (
     <PlaceholderScreen
       title="Administração"

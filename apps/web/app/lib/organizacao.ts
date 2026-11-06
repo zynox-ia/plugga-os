@@ -12,6 +12,7 @@ import {
 } from "@plugga/shared";
 
 import type { IconName } from "../components/plugga-shell";
+import { podeAbrirPagina } from "./acesso-paginas.ts";
 
 /**
  * Organização do plugga-os: Departamento → Processo.
@@ -210,7 +211,7 @@ export type SecaoConfiguracao = Omit<Processo, "id"> & {
   descricao: string;
   minimo: PapelDaEquipe;
   /** Marca a seção que tem tela própria dentro de Configurações. */
-  id?: "equipe" | "chave-llm";
+  id?: "equipe" | "chave-llm" | "desenvolvedor";
 };
 
 export const CONFIGURACOES: SecaoConfiguracao[] = [
@@ -273,7 +274,11 @@ export const CONFIGURACOES: SecaoConfiguracao[] = [
  */
 export function configuracoesParaAcesso(acesso: Acesso): SecaoConfiguracao[] {
   const degrau = DEGRAUS.indexOf(papelDoAcesso(acesso));
-  return CONFIGURACOES.filter((secao) => degrau >= DEGRAUS.indexOf(secao.minimo));
+  return CONFIGURACOES.filter((secao) =>
+    degrau >= DEGRAUS.indexOf(secao.minimo)
+    && (secao.id !== "desenvolvedor" || acesso.plataforma === "desenvolvedor")
+    && (!secao.rota || podeAbrirPagina(acesso, secao.rota)),
+  );
 }
 
 /**

@@ -1,8 +1,10 @@
 import { EstadoDaApi } from "../../components/estado-da-api";
 import { PipelinesView } from "../../components/pipelines-view";
 import { fetchDeals, fetchPipelines } from "../../lib/api";
+import { exigirPagina } from "../../lib/exigir-pagina";
 
 export default async function PipelinesPage({ searchParams }: { searchParams: Promise<{ pipeline?: string; visao?: string }> }) {
+  await exigirPagina("/comercial/pipelines");
   const { pipeline, visao } = await searchParams;
   const resultado = await fetchPipelines();
   if (!resultado.ok) return <EstadoDaApi erro={resultado.erro} eyebrow="Pipelines" />;

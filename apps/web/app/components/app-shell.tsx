@@ -43,7 +43,7 @@ function ShellContent({ children }: { children: ReactNode }) {
 
   return (
     <PluggaShell
-      navigation={navGroupsForAccess(acesso)}
+      navigation={usuario ? navGroupsForAccess(acesso) : []}
       activeId={navId}
       pageTitle={tituloForNavId(navId)}
       topbarActions={

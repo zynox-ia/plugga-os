@@ -1,6 +1,8 @@
 import { PlaceholderScreen } from "../../components/placeholder-screen";
+import { exigirPagina } from "../../lib/exigir-pagina";
 
-export default function AtividadesPage() {
+export default async function AtividadesPage() {
+  await exigirPagina("/comercial/atividades");
   return (
     <PlaceholderScreen
       title="Atividades"
