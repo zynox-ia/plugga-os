@@ -29,6 +29,7 @@ import { transicionar } from "../common/concorrencia";
 import { NaoEncontrado, RequisicaoInvalida } from "../common/errors/dominio";
 import type { AuthPrincipal } from "../core/auth/auth.types";
 import { exigeAtribuicaoPermitida, filtroDoResponsavel } from "../core/auth/escopo-registros";
+import { pessoaElegivelParaPipelines } from "../pipelines/acesso-comercial";
 import { PrismaService } from "../prisma/prisma.service";
 import { CommercialRepository } from "./commercial.repository";
 import {
@@ -120,6 +121,14 @@ const LIMITE_LISTAGEM = 500;
 
 const MENSAGEM_JA_DECIDIDA = "Esta oportunidade já foi decidida por outra pessoa. Atualize a página e confira.";
 
+const PESSOA_ELEGIVEL_PARA_CONTRATOS = {
+  status: "active",
+  OR: [
+    { platformRoles: { some: { role: { key: { in: ["admin", "desenvolvedor"] } } } } },
+    { departamentos: { some: { departamento: "crm", telas: { has: "crm.contratos" } } } },
+  ],
+} satisfies Prisma.UserWhereInput;
+
 @Injectable()
 export class PrismaCommercialRepository extends CommercialRepository {
   constructor(
@@ -156,7 +165,7 @@ export class PrismaCommercialRepository extends CommercialRepository {
     if (input.clientId && !(await this.clientExists(input.clientId, principal))) {
       throw new NaoEncontrado("O cliente vinculado não foi encontrado.");
     }
-    if (!(await this.ownerExists(ownerId))) {
+    if (!(await this.ownerExists(ownerId, "crm.pipelines"))) {
       throw new NaoEncontrado("O responsável informado não foi encontrado.");
     }
 
@@ -196,7 +205,7 @@ export class PrismaCommercialRepository extends CommercialRepository {
     if (!current) throw new NaoEncontrado("Oportunidade não encontrada.");
     if (input.ownerId !== undefined) exigeAtribuicaoPermitida(principal, input.ownerId, "crm", ["crm.pipelines"]);
     assertOpportunityOpen(current.status);
-    if (input.ownerId && !(await this.ownerExists(input.ownerId))) {
+    if (input.ownerId && input.ownerId !== current.ownerId && !(await this.ownerExists(input.ownerId, "crm.pipelines"))) {
       throw new NaoEncontrado("O responsável informado não foi encontrado.");
     }
 
@@ -341,7 +350,7 @@ export class PrismaCommercialRepository extends CommercialRepository {
     if (!current) throw new NaoEncontrado("Oportunidade não encontrada.");
     if (input.ownerId !== undefined) exigeAtribuicaoPermitida(principal, input.ownerId, "crm", ["crm.pipelines"]);
     assertOpportunityOpen(current.status);
-    if (input.ownerId && !(await this.ownerExists(input.ownerId))) {
+    if (input.ownerId && input.ownerId !== current.ownerId && !(await this.ownerExists(input.ownerId, "crm.pipelines"))) {
       throw new NaoEncontrado("O responsável informado não foi encontrado.");
     }
 
@@ -422,7 +431,7 @@ export class PrismaCommercialRepository extends CommercialRepository {
       clientId = input.clientId!;
     }
     if (!(await this.clientExists(clientId, principal))) throw new NaoEncontrado("Cliente não encontrado.");
-    if (!(await this.ownerExists(ownerId))) {
+    if (!(await this.ownerExists(ownerId, "crm.contratos"))) {
       throw new NaoEncontrado("O responsável informado não foi encontrado.");
     }
 
@@ -463,7 +472,7 @@ export class PrismaCommercialRepository extends CommercialRepository {
     const current = await this.prisma.comContexto((tx) => tx.contract.findUnique({ where: { id, ...filtroDeContratos(principal, "crm") } }));
     if (!current) throw new NaoEncontrado("Contrato não encontrado.");
     if (input.ownerId !== undefined) exigeAtribuicaoPermitida(principal, input.ownerId, "crm", ["crm.contratos"]);
-    if (input.ownerId && !(await this.ownerExists(input.ownerId))) {
+    if (input.ownerId && input.ownerId !== current.ownerId && !(await this.ownerExists(input.ownerId, "crm.contratos"))) {
       throw new NaoEncontrado("O responsável informado não foi encontrado.");
     }
 
@@ -574,8 +583,9 @@ export class PrismaCommercialRepository extends CommercialRepository {
     return client !== null;
   }
 
-  private async ownerExists(id: string): Promise<boolean> {
-    const user = await this.prisma.comContexto((tx) => tx.user.findUnique({ where: { id }, select: { id: true } }));
+  private async ownerExists(id: string, tela: "crm.pipelines" | "crm.contratos"): Promise<boolean> {
+    const elegivel = tela === "crm.pipelines" ? pessoaElegivelParaPipelines : PESSOA_ELEGIVEL_PARA_CONTRATOS;
+    const user = await this.prisma.comContexto((tx) => tx.user.findFirst({ where: { id, ...elegivel }, select: { id: true } }));
     return user !== null;
   }
 
