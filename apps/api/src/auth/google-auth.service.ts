@@ -141,6 +141,11 @@ export class GoogleAuthService {
       ? await this.loginWithExistingIdentity(identity.id, identity.userId, email, claims)
       : await this.linkFirstTime(email, claims);
 
+    if (user.tipo === "agente_ia") {
+      await this.refuse("user_not_eligible", email, user.id);
+      throw new GoogleLoginException("unauthorized", HttpStatus.UNAUTHORIZED);
+    }
+
     const token = await this.sessions.issue(user, context);
     await this.audit.appendEvent({
       eventName: eventNames.authLoginSucceeded,
@@ -169,7 +174,7 @@ export class GoogleAuthService {
     }
     // O status local vence a validade do token: desativar alguém tem de
     // fechar TODOS os caminhos de entrada, não só o da senha.
-    if (user.status !== "active") {
+    if (user.tipo === "agente_ia" || user.status !== "active") {
       await this.refuse("user_not_eligible", email, user.id);
       throw new GoogleLoginException("unauthorized", HttpStatus.UNAUTHORIZED);
     }
@@ -207,7 +212,7 @@ export class GoogleAuthService {
       await this.refuse("user_not_found", email);
       throw new GoogleLoginException("unauthorized", HttpStatus.UNAUTHORIZED);
     }
-    if (user.status !== "active" && user.status !== "invited") {
+    if (user.tipo === "agente_ia" || (user.status !== "active" && user.status !== "invited")) {
       await this.refuse("user_not_eligible", email, user.id);
       throw new GoogleLoginException("unauthorized", HttpStatus.UNAUTHORIZED);
     }

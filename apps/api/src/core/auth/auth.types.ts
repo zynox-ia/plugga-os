@@ -16,6 +16,8 @@ export interface AuthenticatedRequest {
   authPrincipal?: AuthPrincipal;
   /** Capacidade interna validada pelo cookie assinado; nunca serializar ou registrar em logs. */
   databaseSessionHash?: string;
+  /** Capacidade da identidade de IA validada; nunca serializar ou registrar. */
+  databaseAgentHash?: string;
 }
 
 export abstract class AuthContext {

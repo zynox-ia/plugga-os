@@ -40,6 +40,7 @@ function fakeRepository(overrides: Partial<ClientesRepository> = {}): ClientesRe
   };
   return {
     list: naoUsado,
+    selecaoNegocio: naoUsado,
     get: naoUsado,
     create: naoUsado,
     update: naoUsado,

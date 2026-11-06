@@ -4,7 +4,6 @@ import {
   clientContactInputSchema,
   telasPorDepartamento,
   clientSelectionQuerySchema,
-  clientSelectionResponseSchema,
   type ClientSelectionQuery,
   type ClientSelectionResponse,
   createClientRequestSchema,
@@ -70,9 +69,8 @@ export class ClientesController {
   @Get("selecao-negocio")
   @Departamento("crm")
   @Tela("crm.pipelines")
-  async selecaoNegocio(@Query(new ZodValidationPipe(clientSelectionQuerySchema)) query: ClientSelectionQuery, @CurrentPrincipal() principal: AuthPrincipal): Promise<ClientSelectionResponse> {
-    const resultado = await this.service.list({ q: query.q, active: "true" }, principal);
-    return clientSelectionResponseSchema.parse({ items: resultado.items.slice(0, 8) });
+  selecaoNegocio(@Query(new ZodValidationPipe(clientSelectionQuerySchema)) query: ClientSelectionQuery, @CurrentPrincipal() principal: AuthPrincipal): Promise<ClientSelectionResponse> {
+    return this.service.selecaoNegocio(query, principal);
   }
 
   @Get(":id")

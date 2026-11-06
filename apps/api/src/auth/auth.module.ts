@@ -26,6 +26,10 @@ import { ResetEmailHandler } from "./reset-email.handler";
 import { SessionService } from "./session.service";
 import { EquipeController } from "./equipe.controller";
 import { EquipeService } from "./equipe.service";
+import { AgentesEquipeController } from "./agentes-equipe.controller";
+import { AgentesEquipeService } from "./agentes-equipe.service";
+import { AgentesRepository } from "./agentes.repository";
+import { PrismaAgentesRepository } from "./prisma-agentes.repository";
 
 @Module({
   imports: [
@@ -49,12 +53,14 @@ import { EquipeService } from "./equipe.service";
       }),
     }),
   ],
-  controllers: [AuthController, EquipeController],
+  controllers: [AuthController, EquipeController, AgentesEquipeController],
   providers: [
     AuthService,
     AuthTokenIssuer,
     GoogleAuthService,
     EquipeService,
+    AgentesEquipeService,
+    { provide: AgentesRepository, useClass: PrismaAgentesRepository },
     PasswordService,
     SessionService,
     ResetEmailHandler,

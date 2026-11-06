@@ -70,7 +70,10 @@ describe.skipIf(!HABILITADO)("RLS: permissões no login real da aplicação", ()
       if (["admin", "dev"].includes(nome)) {
         const key = nome === "dev" ? "desenvolvedor" : "admin";
         const papel = await root.role.upsert({ where: { key }, create: { key, name: key }, update: {} });
-        await root.userPlatformRole.create({ data: { userId: pessoa.id, roleId: papel.id } });
+        await root.userPlatformRole.createMany({ data: [
+          { userId: pessoa.id, roleId: papel.id },
+          ...(nome === "dev" ? [{ userId: pessoa.id, roleId: (await root.role.findUniqueOrThrow({ where: { key: "admin" } })).id }] : []),
+        ] });
       } else {
         await root.userDepartamento.create({ data: {
           userId: pessoa.id, departamento: nome === "financeiro" ? "financeiro" : "crm",
@@ -114,14 +117,14 @@ describe.skipIf(!HABILITADO)("RLS: permissões no login real da aplicação", ()
     await root.$disconnect();
   }, PRAZO);
 
-  it("habilita e força RLS nos 72 modelos e mantém os grupos sem bypass", async () => {
+  it("habilita e força RLS em todos os modelos e mantém os grupos sem bypass", async () => {
     const tabelas = Prisma.dmmf.datamodel.models.map((m) => m.dbName ?? m.name);
-    expect(tabelas).toHaveLength(72);
+    expect(tabelas).toHaveLength(73);
     const flags = await root.$queryRaw<{ nome: string; ativo: boolean; forcado: boolean }[]>`
       SELECT c.relname AS nome, c.relrowsecurity AS ativo, c.relforcerowsecurity AS forcado
       FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
       WHERE n.nspname = 'public' AND c.relname = ANY(${tabelas}::text[])`;
-    expect(flags).toHaveLength(72);
+    expect(flags).toHaveLength(tabelas.length);
     expect(flags.every((f) => f.ativo && f.forcado)).toBe(true);
     const grupos = await root.$queryRaw<{ seguro: boolean }[]>`SELECT NOT rolsuper AND NOT rolbypassrls AND NOT rolcanlogin AS seguro FROM pg_roles WHERE rolname IN ('plugga_runtime', 'plugga_auth_runtime', 'plugga_jobs_runtime')`;
     expect(grupos).toHaveLength(3);

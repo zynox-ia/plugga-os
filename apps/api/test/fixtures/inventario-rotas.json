@@ -3,14 +3,12 @@
     "metodo": "POST",
     "caminho": "/agent-actions",
     "controller": "AgentActionsController.create",
-    "acesso": "acesso",
-    "papeis": [
-      "plataforma:desenvolvedor"
-    ],
+    "acesso": "authenticated",
+    "papeis": [],
     "guards": [
       "OriginCheckGuard",
       "SessionAuthGuard",
-      "AcessoGuard"
+      "IdentidadeAgenteGuard"
     ]
   },
   {
@@ -584,6 +582,42 @@
   },
   {
     "metodo": "POST",
+    "caminho": "/equipe/agentes",
+    "controller": "AgentesEquipeController.criar",
+    "acesso": "authenticated",
+    "papeis": [],
+    "guards": [
+      "OriginCheckGuard",
+      "SessionAuthGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/equipe/agentes/:id/credencial",
+    "controller": "AgentesEquipeController.emitirCredencial",
+    "acesso": "authenticated",
+    "papeis": [],
+    "guards": [
+      "OriginCheckGuard",
+      "SessionAuthGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/equipe/agentes/:id/revogar-credencial",
+    "controller": "AgentesEquipeController.revogarCredencial",
+    "acesso": "authenticated",
+    "papeis": [],
+    "guards": [
+      "OriginCheckGuard",
+      "SessionAuthGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
     "caminho": "/equipe/convites",
     "controller": "EquipeController.convidar",
     "acesso": "authenticated",
@@ -1084,6 +1118,10 @@
     "controller": "ConsumoController.resumo",
     "acesso": "acesso",
     "papeis": [
+      "tela:financeiro.pagar",
+      "tela:financeiro.receber",
+      "tela:financeiro.conciliacao",
+      "tela:financeiro.fiscal",
       "departamento:financeiro:gerente"
     ],
     "guards": [

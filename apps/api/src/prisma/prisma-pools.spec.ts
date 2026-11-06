@@ -41,6 +41,18 @@ describe("pools de banco isolados", () => {
     expect(() => new PrismaJobsService()).toThrow(/JOBS_DATABASE_URL/);
   });
 
+  it.each([
+    "postgresql://auth:sintetica@externo.invalid:55433/plugga_os_test",
+    "postgresql://auth:sintetica@127.0.0.1:55434/plugga_os_test",
+    "postgresql://auth:sintetica@127.0.0.1:55433/outro_banco",
+    "https://auth:sintetica@127.0.0.1:55433/plugga_os_test",
+  ])("recusa pool apontando para outro destino sem expor a URL", (url) => {
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("DATABASE_URL", "postgresql://app:sintetica@127.0.0.1:55433/plugga_os_test");
+    vi.stubEnv("AUTH_DATABASE_URL", url);
+    expect(() => new PrismaAuthService()).toThrow("AUTH_DATABASE_URL exige o mesmo banco e um login distinto dos outros pools.");
+  });
+
   it("não usa fallback auth em integração RLS e não expõe URL inválida no erro", () => {
     vi.stubEnv("RUN_RLS_INTEGRATION_TESTS", "true");
     vi.stubEnv("AUTH_DATABASE_URL", "");

@@ -9,6 +9,7 @@ export interface AuthUserRecord {
   name: string;
   status: string;
   createdAt: Date;
+  tipo?: "pessoa" | "agente_ia";
   /** Papel de plataforma + departamentos (`user_departamentos`), como gravado. */
   acesso: Acesso;
 }

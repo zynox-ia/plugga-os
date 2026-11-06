@@ -15,7 +15,7 @@ somente no ambiente local sintético ou após aprovação explícita do André.
 | Conexão | Grupo | Superfície |
 | --- | --- | --- |
 | `DATABASE_URL` | `plugga_runtime` | Negócio por sessão e políticas abaixo |
-| `AUTH_DATABASE_URL` | `plugga_auth_runtime` | users, credentials, identities, sessions, auth_tokens, roles e duas tabelas de ACL; event_log INSERT/SELECT para auditoria de autenticação |
+| `AUTH_DATABASE_URL` | `plugga_auth_runtime` | users, credentials, identities, sessions, auth_tokens, roles, ACL e agent_identities; event_log INSERT/SELECT para auditoria de autenticação |
 | `JOBS_DATABASE_URL` | `plugga_jobs_runtime` | integrations, job_runs, bitrix_mirror_records; event_log INSERT/SELECT de eventos system |
 
 O pool auth é uma capacidade privilegiada: só autenticação e gestão de acesso
@@ -59,15 +59,16 @@ Exceções explícitas: roles, companies e templates de proposta são catálogos
 somente de leitura para qualquer sessão ativa. Empresa **não é tenant**.
 Energia, obras, mobilidade e compras sem regra de API ativa permanecem fechados
 para membros/gerentes, inclusive seus filhos; plataforma pode operar. Não há
-scoping de empresa inventado para essas tabelas. `agent_actions` é somente
-leitura técnica; futuras capacidades de agente devem estender `usuario_id()`
-sem acrescentar bypass por flag. `llm_chamadas` é legível pela gestão financeira
+scoping de empresa inventado para essas tabelas. `agent_actions` permite leitura
+técnica ao Desenvolvedor e leitura/inserção da própria trilha à identidade de IA,
+limitada à entidade própria e à tela correspondente. `llm_chamadas` é legível pela gestão financeira
 com ao menos uma tela financeira e plataforma; só aceita inserção do processo
 `fatura.visao` por sessão autorizada às telas de execução. Segredos e integrações
 exigem plataforma; jobs e leitura de event_log exigem desenvolvedor.
 
-`event_log` no runtime aceita INSERT com actor_type=user e ator igual ao usuário
-da sessão; SELECT é técnico. Inserções de auditoria comuns precisam evitar
+`event_log` no runtime aceita INSERT com actor_type=user para sessão humana ou
+actor_type=agent para credencial de IA, com ator igual à identidade autenticada;
+SELECT é técnico. Inserções de auditoria comuns precisam evitar
 RETURNING, pois RETURNING também exige a policy SELECT. O mesmo vale para
 `llm_chamadas` quando o executor não tem acesso ao relatório financeiro. Não
 amplie a leitura para fazer INSERT RETURNING funcionar.
@@ -80,3 +81,26 @@ restritas. Limpa exclusivamente seus IDs/logins, preservando catálogos existent
 e auditoria append-only. Suíte pulada não comprova RLS; execute também lint,
 typecheck, testes e build antes de declarar a entrega pronta. Não aplicar esta
 migration a produção sem o provisionamento e a aprovação correspondentes.
+
+As migrations seguintes completam os vínculos. `20261106020000_vinculos_e_agentes`
+acrescenta a identidade de IA (73º modelo também ENABLE/FORCE), integridade de
+autoria e constraints de concessão. `20261106030000_rls_identidade_agente` resolve
+a credencial de IA revogável no banco, exige identidade ativa, membro de um único
+departamento e sem papel de plataforma. Não aceita sessão humana de agente nem
+contextos misturados. A trilha de IA exige entidade própria e tela correspondente;
+o próprio agente não pode registrar uma aprovação humana.
+
+`20261106040000_rls_leituras_relacionadas` preserva o cliente obrigatório do
+contrato. CRM Contratos pode ler os cadastros necessários para criar contratos;
+Financeiro lê somente clientes vinculados a contratos visíveis. Para membro,
+contrato e cliente precisam pertencer à própria identidade. A projeção HTTP
+do cliente no contrato continua limitada a id/nome e não concede sua tela nem
+escrita no cadastro. Gerentes de CRM também podem resolver os responsáveis
+Admin/Desenvolvedor elegíveis, que não possuem uma linha de departamento.
+O diretório preserva também a resolução de responsáveis e autores históricos
+dos registros autorizados à gerência, mesmo depois de saírem do CRM ou terem
+a conta removida/desativada. Isso não os torna elegíveis a novas atribuições.
+
+Contas ativas sem qualquer concessão continuam sem acesso a dados de negócio;
+nenhuma permissão é preenchida automaticamente. A migração rejeita inconsistências
+por contagem e preserva o histórico. Não apaga nem remapeia dados antigos.

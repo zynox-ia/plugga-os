@@ -590,9 +590,12 @@ describe.skipIf(!HABILITADO)("negócios: quadro do pipeline no Postgres", () => 
     let administrador: AuthPrincipal = pessoas.gestor;
     for (const papel of ["admin", "desenvolvedor"] as const) {
       const role = await prisma.role.upsert({ where: { key: papel }, create: { key: papel, name: papel }, update: {} });
+      const papeis = papel === "desenvolvedor"
+        ? [role, await prisma.role.upsert({ where: { key: "admin" }, create: { key: "admin", name: "Admin" }, update: {} })]
+        : [role];
       const usuario = await prisma.user.create({ data: {
         email: `${marca}-${papel}@teste.local`, name: `${marca} ${papel}`, status: "active",
-        platformRoles: { create: { roleId: role.id } },
+        platformRoles: { create: papeis.map(({ id: roleId }) => ({ roleId })) },
       } });
       const principal: AuthPrincipal = { id: usuario.id, kind: "user", acesso: { plataforma: papel, departamentos: [] } };
       if (papel === "admin") administrador = principal;

@@ -3,6 +3,8 @@ import type {
   ClientDetail,
   ClientDuplicateCandidatesResponse,
   ClientOwnersResponse,
+  ClientSelectionQuery,
+  ClientSelectionResponse,
   CreateClientRequest,
   CreateClientResponse,
   DuplicateCandidatesQuery,
@@ -17,6 +19,7 @@ import type { AuthPrincipal } from "../core/auth/auth.types";
 
 export abstract class ClientesRepository {
   abstract list(query: ListClientsQuery, principal: AuthPrincipal): Promise<ListClientsResponse>;
+  abstract selecaoNegocio(query: ClientSelectionQuery, principal: AuthPrincipal): Promise<ClientSelectionResponse>;
   abstract get(id: string, principal: AuthPrincipal): Promise<ClientDetail>;
   abstract create(input: CreateClientRequest, principal: AuthPrincipal): Promise<CreateClientResponse>;
   abstract update(id: string, input: UpdateClientRequest, principal: AuthPrincipal): Promise<ClientDetail>;

@@ -5,6 +5,8 @@ import type {
   ClientDetail,
   ClientDuplicateCandidatesResponse,
   ClientOwnersResponse,
+  ClientSelectionQuery,
+  ClientSelectionResponse,
   CreateClientRequest,
   CreateClientResponse,
   DuplicateCandidatesQuery,
@@ -64,6 +66,16 @@ const CONTATO_ID = "00000000-0000-4000-8000-000000000201";
 /** Repositório em memória: o teste cobre rotas, papéis e validação; as regras de banco têm teste próprio. */
 class InMemoryClientesRepository extends ClientesRepository {
   clients = [CLIENT_A, CLIENT_B, CLIENT_ALHEIO];
+
+  async selecaoNegocio(query: ClientSelectionQuery, principal: AuthPrincipal): Promise<ClientSelectionResponse> {
+    const termo = query.q.toLowerCase();
+    const items = this.clients.filter((c) => c.active && (gerenciaRegistros(principal, "crm", ["crm.pipelines"]) || c.owner?.id === principal.id)
+      && (c.name.toLowerCase().includes(termo) || (c.document ?? "").includes(termo))).slice(0, 8);
+    return { items: items.map((c) => {
+      const item = paraItemDeLista({ ...c, updatedAt: new Date(c.updatedAt), contacts: c.contacts.map((ct) => ({ ...ct, createdAt: new Date(ct.createdAt) })) });
+      return { id: item.id, name: item.name, documentDisplay: item.documentDisplay, primaryContactName: item.primaryContactName, city: item.city };
+    }) };
+  }
 
   async list(query: ListClientsQuery, principal: AuthPrincipal): Promise<ListClientsResponse> {
     const termo = query.q?.toLowerCase();

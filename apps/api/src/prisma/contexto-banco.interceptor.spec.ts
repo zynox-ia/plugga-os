@@ -54,4 +54,12 @@ describe("contexto autenticado de banco", () => {
     }), { handle: () => defer(async () => contextoBanco.getStore()?.sessionHash) });
     expect(await lastValueFrom(observable)).toBeUndefined();
   });
+
+  it("escolhe somente a capacidade correspondente à identidade autenticada", async () => {
+    const executar = (kind: "user" | "service") => lastValueFrom(new ContextoBancoInterceptor().intercept(contextoHttp({
+      headers: {}, authPrincipal: { ...principal, kind }, databaseSessionHash: "sessao", databaseAgentHash: "agente",
+    }), { handle: () => defer(async () => contextoBanco.getStore()) }));
+    expect(await executar("user")).toEqual({ sessionHash: "sessao", agentHash: undefined });
+    expect(await executar("service")).toEqual({ sessionHash: undefined, agentHash: "agente" });
+  });
 });

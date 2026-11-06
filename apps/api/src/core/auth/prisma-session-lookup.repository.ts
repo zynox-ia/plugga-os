@@ -36,6 +36,7 @@ export class PrismaSessionLookupRepository extends SessionLookupRepository {
           include: {
             platformRoles: { include: { role: true } },
             departamentos: true,
+            agentIdentity: { select: { userId: true } },
           },
         },
       },
@@ -48,7 +49,7 @@ export class PrismaSessionLookupRepository extends SessionLookupRepository {
 
     const expired =
       session.expiresAt <= context.now || session.absoluteExpiresAt <= context.now;
-    const inactiveUser = session.user.status !== "active";
+    const inactiveUser = session.user.status !== "active" || Boolean(session.user.agentIdentity);
 
     if (expired || inactiveUser) {
       // Best-effort cleanup of a session that can never authenticate again.

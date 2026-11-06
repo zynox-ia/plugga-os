@@ -4,6 +4,9 @@ import { APP_GUARD, APP_INTERCEPTOR } from "@nestjs/core";
 
 import { PrismaModule } from "../prisma/prisma.module";
 import { AuthContext } from "./auth/auth.types";
+import { AgentAuthContext } from "./auth/agent-auth-context";
+import { AgentLookupRepository } from "./auth/agent-lookup.repository";
+import { PrismaAgentLookupRepository } from "./auth/prisma-agent-lookup.repository";
 import { CompositeAuthContext } from "./auth/composite-auth-context";
 import { ContextoBancoInterceptor } from "./auth/contexto-banco.interceptor";
 import { SessionAuthGuard } from "./auth/session-auth.guard";
@@ -22,6 +25,8 @@ import { SessionLookupRepository } from "./auth/session-lookup.repository";
   imports: [PrismaModule],
   providers: [
     { provide: SessionLookupRepository, useClass: PrismaSessionLookupRepository },
+    { provide: AgentLookupRepository, useClass: PrismaAgentLookupRepository },
+    AgentAuthContext,
     SessionAuthContext,
     DevHeaderAuthContext,
     {
@@ -39,26 +44,31 @@ import { SessionLookupRepository } from "./auth/session-lookup.repository";
       inject: [ConfigService],
     },
     {
-      // Default provider is the real session context. When DEV_AUTH_ENABLED is
-      // on (local/e2e only), a composite also accepts the x-dev-* header path.
+      // Bearer explícito não pode cair para o cookie se for inválido ou revogado.
       provide: AuthContext,
       useFactory: (
         config: ConfigService,
         session: SessionAuthContext,
+        agent: AgentAuthContext,
         devHeader: DevHeaderAuthContext,
       ): AuthContext => {
+        const persistido: AuthContext = {
+          resolve: (request) => request.headers.authorization === undefined
+            ? session.resolve(request)
+            : agent.resolve(request),
+        };
         // Atalho de desenvolvimento: só em ambiente local ou de teste (FR-023).
         // A validação do ambiente já recusa DEV_AUTH_ENABLED em produção; aqui é a
         // segunda barreira, e o aviso deixa o atalho ligado visível no log.
         const atalho =
           config.get<boolean>("DEV_AUTH_ENABLED", false) && config.get<string>("NODE_ENV") !== "production";
-        if (!atalho) return session;
+        if (!atalho) return persistido;
         new Logger("CoreModule").warn(
           "DEV_AUTH_ENABLED ligado: os cabeçalhos x-dev-* autenticam qualquer requisição. Só para ambiente local ou de teste.",
         );
-        return new CompositeAuthContext([devHeader, session]);
+        return new CompositeAuthContext([devHeader, persistido]);
       },
-      inject: [ConfigService, SessionAuthContext, DevHeaderAuthContext],
+      inject: [ConfigService, SessionAuthContext, AgentAuthContext, DevHeaderAuthContext],
     },
     SessionAuthGuard,
     AcessoGuard,
@@ -74,6 +84,7 @@ import { SessionLookupRepository } from "./auth/session-lookup.repository";
     AcessoGuard,
     OriginCheckGuard,
     SessionLookupRepository,
+    AgentLookupRepository,
     SessionCache,
   ],
 })

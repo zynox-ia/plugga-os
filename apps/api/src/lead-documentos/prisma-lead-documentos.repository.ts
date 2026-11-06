@@ -290,6 +290,6 @@ export class PrismaLeadDocumentosRepository extends LeadDocumentosRepository {
   }
 
   private actorType(principal: AuthPrincipal): ActorType {
-    return principal.kind === "user" ? "user" : "system";
+    return principal.kind === "user" ? "user" : "agent";
   }
 }

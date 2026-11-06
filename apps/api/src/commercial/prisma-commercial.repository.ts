@@ -639,6 +639,6 @@ export class PrismaCommercialRepository extends CommercialRepository {
   }
 
   private actorType(principal: AuthPrincipal): ActorType {
-    return principal.kind === "user" ? "user" : "system";
+    return principal.kind === "user" ? "user" : "agent";
   }
 }

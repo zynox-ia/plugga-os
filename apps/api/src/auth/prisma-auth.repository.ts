@@ -29,6 +29,7 @@ const userWithAccess = {
   include: {
     platformRoles: { include: { role: true } },
     departamentos: true,
+    agentIdentity: { select: { userId: true } },
   },
 } satisfies Prisma.UserDefaultArgs;
 
@@ -204,12 +205,12 @@ export class PrismaAuthRepository extends AuthRepository {
       const user = await this.prisma.$transaction(async (tx) => {
         const atual = await tx.user.findUnique({
           where: { id: data.userId },
-          select: { status: true },
+          select: { status: true, agentIdentity: { select: { userId: true } } },
         });
         if (!atual) {
           throw new IdentityLinkError("user_not_found");
         }
-        if (atual.status !== "active" && atual.status !== "invited") {
+        if (atual.agentIdentity || (atual.status !== "active" && atual.status !== "invited")) {
           throw new IdentityLinkError("user_not_eligible");
         }
 
@@ -483,6 +484,7 @@ export class PrismaAuthRepository extends AuthRepository {
       status: user.status,
       createdAt: user.createdAt,
       acesso: mapAcesso(user),
+      tipo: user.agentIdentity ? "agente_ia" : "pessoa",
     };
   }
 }

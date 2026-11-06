@@ -4,6 +4,8 @@ import type {
   ClientDetail,
   ClientDuplicateCandidatesResponse,
   ClientOwnersResponse,
+  ClientSelectionQuery,
+  ClientSelectionResponse,
   CreateClientRequest,
   CreateClientResponse,
   DuplicateCandidatesQuery,
@@ -22,6 +24,7 @@ export class ClientesService {
   constructor(@Inject(ClientesRepository) private readonly repository: ClientesRepository) {}
 
   list(query: ListClientsQuery, principal: AuthPrincipal): Promise<ListClientsResponse> { return this.repository.list(query, principal); }
+  selecaoNegocio(query: ClientSelectionQuery, principal: AuthPrincipal): Promise<ClientSelectionResponse> { return this.repository.selecaoNegocio(query, principal); }
   get(id: string, principal: AuthPrincipal): Promise<ClientDetail> { return this.repository.get(id, principal); }
   create(input: CreateClientRequest, principal: AuthPrincipal): Promise<CreateClientResponse> { return this.repository.create(input, principal); }
   update(id: string, input: UpdateClientRequest, principal: AuthPrincipal): Promise<ClientDetail> { return this.repository.update(id, input, principal); }

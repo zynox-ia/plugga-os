@@ -273,6 +273,11 @@ model User {
   identities                     UserIdentity[]
   sessions                       Session[]
   authTokens                     AuthToken[]
+  agentIdentity                  AgentIdentity?
+  studiesOwned                   EnergyEfficiencyStudy[] @relation("EnergyStudyOwner")
+  studiesCreated                 EnergyEfficiencyStudy[] @relation("EnergyStudyCreator")
+  studiesApproved                EnergyEfficiencyStudy[] @relation("EnergyStudyApprover")
+  invoiceTypesApproved           EnergyInvoiceTypeApproval[]
   opportunities                  Opportunity[]
   clientsOwned                   Client[]                @relation("ClientOwner")
   pipelinesUpdated               Pipeline[]              @relation("PipelineUpdatedBy")
@@ -444,16 +449,35 @@ model UserDepartamento {
   nivel        NivelDeDepartamento
   telas        String[]            @default([])
   user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  agentIdentity AgentIdentity?
 
   @@id([userId, departamento])
   @@index([departamento])
   @@map("user_departamentos")
 }
 
+/// Identidade de IA: participa da equipe como membro de um único departamento.
+/// Credencial opaca revogável; só o hash fica no banco, nunca no diretório.
+model AgentIdentity {
+  userId              String    @id @map("user_id") @db.Uuid
+  departamento        String
+  tokenHash           String?   @unique @map("token_hash")
+  credentialExpiresAt DateTime? @map("credential_expires_at") @db.Timestamptz(6)
+  revokedAt           DateTime? @map("revoked_at") @db.Timestamptz(6)
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  membership          UserDepartamento @relation(fields: [userId, departamento], references: [userId, departamento], onDelete: NoAction, onUpdate: NoAction, map: "agent_identities_membership_fkey")
+  actions             AgentAction[]
+
+  @@unique([userId, departamento])
+  @@map("agent_identities")
+}
+
 /// Append-only audit record. The initial migration prevents UPDATE and DELETE.
 model AgentAction {
   id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   agent          String
+  agentUserId    String?  @map("agent_user_id") @db.Uuid
   requestedById  String?  @map("requested_by") @db.Uuid
   channel        String
   action         String
@@ -468,8 +492,10 @@ model AgentAction {
   error          String?
   createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   requestedBy    User?    @relation(fields: [requestedById], references: [id], onDelete: SetNull)
+  identity       AgentIdentity? @relation(fields: [agentUserId], references: [userId], onDelete: Restrict)
 
   @@index([requestedById])
+  @@index([agentUserId])
   @@index([createdAt])
   @@index([entityType, entityId])
   @@map("agent_actions")
@@ -1354,6 +1380,9 @@ model EnergyEfficiencyStudy {
   client         Client               @relation(fields: [clientId], references: [id], onDelete: Restrict)
   consumerUnit   ConsumerUnit         @relation(fields: [consumerUnitId], references: [id], onDelete: Restrict)
   premiseVersion EnergyPremiseVersion @relation(fields: [premiseVersionId], references: [id], onDelete: Restrict)
+  owner          User?                @relation("EnergyStudyOwner", fields: [ownerId], references: [id], onDelete: Restrict, map: "energy_study_owner_fkey")
+  createdBy      User?                @relation("EnergyStudyCreator", fields: [createdById], references: [id], onDelete: Restrict, map: "energy_study_creator_fkey")
+  approvedBy     User?                @relation("EnergyStudyApprover", fields: [approvedById], references: [id], onDelete: Restrict, map: "energy_study_approver_fkey")
 
   @@unique([consumerUnitId, competenceYear, competenceMonth, version, revision], map: "energy_study_uc_competencia_versao_key")
   @@index([status])
@@ -1376,6 +1405,8 @@ model EnergyInvoiceTypeApproval {
   approvedByText String   @map("approved_by_text")
   approvedAt     DateTime @map("approved_at") @db.Timestamptz(6)
   createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  approvedBy     User?    @relation(fields: [approvedById], references: [id], onDelete: Restrict, map: "energy_invoice_approver_fkey")
 
   @@map("energy_invoice_type_approvals")
 }

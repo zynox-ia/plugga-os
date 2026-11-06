@@ -270,10 +270,10 @@ describe("equipe e acessos no modelo de 4 papéis (e2e, armazenamento em memóri
   it("Pipelines seleciona clientes sem obter acesso ao cadastro completo", async () => {
     pessoas.vendedor!.acesso = { plataforma: null, departamentos: [{ departamento: "crm", nivel: "membro", telas: ["crm.pipelines"] }] };
     const vendedor = await como("vendedor");
-    const listagem = vi.spyOn(app.get(ClientesService), "list").mockResolvedValue({ items: [] });
+    const listagem = vi.spyOn(app.get(ClientesService), "selecaoNegocio").mockResolvedValue({ items: [] });
     try {
       await vendedor.get("/clientes/selecao-negocio?q=ab").expect(200, { items: [] });
-      expect(listagem).toHaveBeenCalledWith({ q: "ab", active: "true" }, {
+      expect(listagem).toHaveBeenCalledWith({ q: "ab" }, {
         id: pessoas.vendedor!.id, kind: "user", acesso: pessoas.vendedor!.acesso,
       });
       await vendedor.get("/clientes/selecao-negocio?q=a").expect(400);

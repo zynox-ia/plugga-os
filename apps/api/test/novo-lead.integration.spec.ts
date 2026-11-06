@@ -24,9 +24,10 @@ describe.skipIf(process.env.RUN_NEGOCIOS_INTEGRATION_TESTS !== "true")("novo lea
       const papel = nome === "desenvolvedor"
         ? await prisma.role.upsert({ where: { key: nome }, update: {}, create: { key: nome, name: "Desenvolvedor" } })
         : null;
+      const papeis = papel ? [papel, await prisma.role.upsert({ where: { key: "admin" }, update: {}, create: { key: "admin", name: "Admin" } })] : [];
       const pessoa = await prisma.user.create({ data: {
         email: `${marca}-${nome}@teste.local`, name: `${marca} ${nome}`, status: "active",
-        ...(papel ? { platformRoles: { create: { roleId: papel.id } } } : { departamentos: { create: {
+        ...(papel ? { platformRoles: { create: papeis.map(({ id: roleId }) => ({ roleId })) } } : { departamentos: { create: {
           departamento: "crm", nivel: "membro", telas: nome === "crm" ? ["crm.pipelines"] : [],
         } } }),
       } });

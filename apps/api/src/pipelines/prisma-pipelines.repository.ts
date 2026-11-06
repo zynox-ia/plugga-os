@@ -22,6 +22,7 @@ import type { AuthPrincipal } from "../core/auth/auth.types";
 import { PrismaService } from "../prisma/prisma.service";
 import { filtroDoResponsavelComercial, lerAcessoComercial, pessoaElegivelParaPipelines } from "./acesso-comercial";
 import { PipelinesRepository } from "./pipelines.repository";
+import { travarPipelines } from "./travar-pipelines";
 import {
   alteracoes,
   idsDesconhecidos,
@@ -188,6 +189,7 @@ export class PrismaPipelinesRepository extends PipelinesRepository {
     const removidas = idsRemovidos(atual.stages.map((e) => e.id), stages);
     await this.comNomeUnico(() =>
       this.prisma.comContexto(async (tx) => {
+        await travarPipelines(tx, [id]);
         // Trava otimista: só grava sobre a versão que a tela leu. O banco guarda
         // microssegundos e o ISO da tela só milissegundos, daí o intervalo.
         const lido = new Date(updatedAt);
@@ -260,6 +262,7 @@ export class PrismaPipelinesRepository extends PipelinesRepository {
       throw new EstadoInvalido(arquivar ? "O pipeline já está arquivado." : "O pipeline já está ativo.");
     }
     await this.prisma.comContexto(async (tx) => {
+      await travarPipelines(tx, [id]);
       await tx.pipeline.update({ where: { id }, data: { archivedAt: arquivar ? new Date() : null, updatedById: principal.id } });
       await this.registrar(tx, arquivar ? "commercial.pipeline.archived" : "commercial.pipeline.restored", id, atual.companyId, principal, {});
     });
@@ -326,6 +329,6 @@ export class PrismaPipelinesRepository extends PipelinesRepository {
   }
 
   private actorType(principal: AuthPrincipal): ActorType {
-    return principal.kind === "user" ? "user" : "system";
+    return principal.kind === "user" ? "user" : "agent";
   }
 }

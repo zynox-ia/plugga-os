@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { AuditAppender } from "../audit/audit-appender";
 import type { ClientesService } from "../clientes/clientes.service";
-import { AcessoNegado, NaoEncontrado } from "../common/errors/dominio";
+import { AcessoNegado, EstadoInvalido, NaoEncontrado, RequisicaoInvalida } from "../common/errors/dominio";
 import type { AuthPrincipal } from "../core/auth/auth.types";
 import * as acesso from "../pipelines/acesso-comercial";
 import { PrismaService } from "../prisma/prisma.service";
@@ -24,6 +24,7 @@ function setup(ownerId = "outra-pessoa") {
   const auditWrite = vi.spyOn(prisma.eventLog, "createMany");
   vi.spyOn(prisma.deal, "findUniqueOrThrow").mockRejectedValue(new Error("Leitura de conteúdo não autorizada."));
   vi.spyOn(prisma, "$queryRaw").mockResolvedValue([]);
+  vi.spyOn(prisma, "$executeRaw").mockResolvedValue(1);
   vi.spyOn(prisma, "comContexto").mockImplementation(async (callback: unknown) => {
     if (typeof callback !== "function") throw new Error("Callback de contexto esperado.");
     return callback(prisma);
@@ -113,5 +114,75 @@ describe("Negócios: isolamento por responsável com acesso atual", () => {
     await expect(repo.moveStage("negocio", { stageId: "etapa", beforeDealId: "alheio" }, principal)).rejects.toThrow("Escolha um negócio aberto desta etapa.");
     expect(list).toHaveBeenCalledWith(expect.objectContaining({ where: { stageId: "etapa", ownerId: principal.id, id: { not: "negocio" } } }));
     expect(write).not.toHaveBeenCalled();
+  });
+});
+
+describe("Negócios: configuração relida depois de aguardar o lock", () => {
+  function aguardarLock(prisma: PrismaService) {
+    let liberar!: (count: number) => void;
+    const bloqueado = new Promise<number>((resolve) => { liberar = resolve; });
+    vi.mocked(prisma.$executeRaw).mockReturnValueOnce(bloqueado as never);
+    return liberar;
+  }
+
+  it.each(["arquivar", "remover etapa", "remover etiqueta", "revogar acesso"] as const)("criação recusa %s ocorrido entre a leitura inicial e a aquisição do lock", async (mudanca) => {
+    const { repo, prisma, create, auditWrite } = setup(principal.id);
+    let atual = { ...pipeline, tags: [{ id: "tag" }] };
+    vi.mocked(prisma.pipeline.findUnique).mockImplementation(() => Promise.resolve(atual) as never);
+    vi.spyOn(prisma.user, "findFirst").mockResolvedValue({ id: principal.id } as never);
+    create.mockRejectedValue(new Error("Persistência indevida"));
+    const liberar = aguardarLock(prisma);
+    const trabalho = repo.create({ pipelineId: pipeline.id, stageId: "etapa", ownerId: principal.id, title: "Novo", tagIds: ["tag"], lead: { personType: "pf", name: "Lead" } } as never, principal);
+    await vi.waitFor(() => expect(prisma.$executeRaw).toHaveBeenCalledOnce());
+    expect(create).not.toHaveBeenCalled();
+    if (mudanca === "arquivar") atual = { ...atual, archivedAt: new Date() } as never;
+    else if (mudanca === "remover etapa") atual = { ...atual, stages: [] };
+    else if (mudanca === "remover etiqueta") atual = { ...atual, tags: [] };
+    else vi.mocked(acesso.lerAcessoComercial).mockResolvedValue({ podeOperar: false, admin: false, gestorEm: [] });
+    liberar(1);
+    await expect(trabalho).rejects.toBeInstanceOf(mudanca === "arquivar" ? EstadoInvalido : mudanca === "revogar acesso" ? NaoEncontrado : RequisicaoInvalida);
+    expect(create).not.toHaveBeenCalled();
+    expect(auditWrite).not.toHaveBeenCalled();
+  });
+
+  it("transferência recusa destino arquivado enquanto aguardava as chaves", async () => {
+    const { repo, prisma, write, auditWrite } = setup(principal.id);
+    let arquivado = false;
+    vi.mocked(prisma.pipeline.findUnique).mockImplementation((args) => Promise.resolve(args.where.id === pipeline.id ? pipeline : {
+      ...pipeline, id: "destino", archivedAt: arquivado ? new Date() : null,
+    }) as never);
+    const removerTags = vi.spyOn(prisma.dealTag, "deleteMany").mockResolvedValue({ count: 0 });
+    vi.spyOn(prisma.user, "findFirst").mockResolvedValue({ id: principal.id } as never);
+    write.mockRejectedValue(new Error("Persistência indevida"));
+    const liberar = aguardarLock(prisma);
+    const trabalho = repo.transfer("negocio", { pipelineId: "destino", stageId: "etapa", convertToClient: false }, principal);
+    await vi.waitFor(() => expect(prisma.$executeRaw).toHaveBeenCalledOnce());
+    arquivado = true;
+    liberar(1);
+    await expect(trabalho).rejects.toBeInstanceOf(EstadoInvalido);
+    expect(removerTags).not.toHaveBeenCalled();
+    expect(write).not.toHaveBeenCalled();
+    expect(auditWrite).not.toHaveBeenCalled();
+  });
+
+  it.each(["etapa", "motivo"] as const)("mutação recusa %s removido da configuração enquanto aguardava o lock", async (tipo) => {
+    const { repo, prisma, write, auditWrite } = setup(principal.id);
+    let removido = false;
+    vi.mocked(prisma.pipeline.findUnique).mockImplementation(() => Promise.resolve({
+      ...pipeline,
+      stages: removido ? pipeline.stages : [...pipeline.stages, { id: "destino" }],
+      lossReasons: removido ? [] : [{ id: "motivo", name: "Motivo", asksRevisitDate: false }],
+    }) as never);
+    write.mockRejectedValue(new Error("Persistência indevida"));
+    const liberar = aguardarLock(prisma);
+    const trabalho = tipo === "etapa"
+      ? repo.moveStage("negocio", { stageId: "destino" }, principal)
+      : repo.lose("negocio", { lossReasonId: "motivo" }, principal);
+    await vi.waitFor(() => expect(prisma.$executeRaw).toHaveBeenCalledOnce());
+    removido = true;
+    liberar(1);
+    await expect(trabalho).rejects.toBeInstanceOf(RequisicaoInvalida);
+    expect(write).not.toHaveBeenCalled();
+    expect(auditWrite).not.toHaveBeenCalled();
   });
 });

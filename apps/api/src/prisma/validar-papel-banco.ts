@@ -43,9 +43,9 @@ export async function validarPapelBanco(prisma: PrismaClient, grupo: Grupo): Pro
         NOT EXISTS (SELECT 1 FROM objetos o WHERE o.nspname = 'public' AND o.relkind IN ('r', 'p')
           AND pg_catalog.has_table_privilege(o.oid, 'SELECT, INSERT, UPDATE, DELETE')
           AND CASE ${grupo}::text
-            WHEN 'plugga_auth_runtime' THEN o.relname NOT IN ('users', 'user_credentials', 'user_identities', 'sessions', 'auth_tokens', 'roles', 'user_platform_roles', 'user_departamentos', 'event_log')
+            WHEN 'plugga_auth_runtime' THEN o.relname NOT IN ('users', 'user_credentials', 'user_identities', 'sessions', 'auth_tokens', 'roles', 'user_platform_roles', 'user_departamentos', 'agent_identities', 'event_log')
             WHEN 'plugga_jobs_runtime' THEN o.relname NOT IN ('integrations', 'bitrix_mirror_records', 'job_runs', 'event_log')
-            ELSE o.relname IN ('user_credentials', 'user_identities', 'sessions', 'auth_tokens', '_prisma_migrations')
+            ELSE o.relname IN ('user_credentials', 'user_identities', 'sessions', 'auth_tokens', 'agent_identities', '_prisma_migrations')
           END) AS "escopoDoPool",
         NOT EXISTS (SELECT 1 FROM objetos o WHERE o.nspname = 'public' AND o.relkind IN ('r', 'p')
           AND o.relname <> '_prisma_migrations' AND NOT (o.relrowsecurity AND o.relforcerowsecurity)) AS "rlsAtiva"

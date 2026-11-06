@@ -4,6 +4,7 @@ import {
   clientDetailSchema,
   clientDuplicateCandidatesResponseSchema,
   clientOwnersResponseSchema,
+  clientSelectionResponseSchema,
   createClientResponseSchema,
   listClientsResponseSchema,
   somenteDigitos,
@@ -15,6 +16,8 @@ import {
   type ClientDuplicateCandidatesResponse,
   type ClientOwnersResponse,
   type ClientPersonType,
+  type ClientSelectionQuery,
+  type ClientSelectionResponse,
   type CreateClientRequest,
   type CreateClientResponse,
   type DuplicateCandidatesQuery,
@@ -32,7 +35,7 @@ import type { AuthPrincipal } from "../core/auth/auth.types";
 import { exigeAtribuicaoPermitida, filtroDoResponsavel, gerenciaRegistros } from "../core/auth/escopo-registros";
 import { PrismaService } from "../prisma/prisma.service";
 import { ClientesRepository } from "./clientes.repository";
-import { camposInformados, paraDetalhe, paraItemDeLista, problemasDaEdicao } from "./clientes.rules";
+import { camposInformados, paraDetalhe, paraItemDeLista, paraSelecaoDeNegocio, problemasDaEdicao } from "./clientes.rules";
 
 /** Digits-only comparison: formatting (spaces, dashes, DDI) must not hide a match. */
 export function onlyDigits(value: string): string {
@@ -70,6 +73,22 @@ function mensagemDeDocumentoRepetido(personType: ClientPersonType): string {
   return personType === "pf" ? "Já existe um cliente com este CPF." : "Já existe um cliente com este CNPJ.";
 }
 
+function buscaDeClientes(q: string | undefined): Prisma.ClientWhereInput {
+  if (!q) return {};
+  const termo = q.trim();
+  const texto = { contains: termo, mode: "insensitive" as const };
+  const OR: Prisma.ClientWhereInput[] = [
+    { name: texto }, { legalName: texto }, { email: texto },
+    { contacts: { some: { OR: [{ name: texto }, { email: texto }] } } },
+  ];
+  const digitos = somenteDigitos(termo);
+  if (digitos.length >= 4) OR.push(
+    { document: { contains: digitos } }, { phone: { contains: digitos } },
+    { contacts: { some: { phone: { contains: digitos } } } },
+  );
+  return { OR };
+}
+
 @Injectable()
 export class PrismaClientesRepository extends ClientesRepository {
   constructor(
@@ -80,28 +99,8 @@ export class PrismaClientesRepository extends ClientesRepository {
   }
 
   async list(query: ListClientsQuery, principal: AuthPrincipal): Promise<ListClientsResponse> {
-    const where: Prisma.ClientWhereInput = filtroDoResponsavel(principal, ["crm", "energia-opm"], TELAS_LEITURA);
+    const where: Prisma.ClientWhereInput = { ...filtroDoResponsavel(principal, ["crm", "energia-opm"], TELAS_LEITURA), ...buscaDeClientes(query.q) };
     if (query.active !== undefined) where.active = query.active === "true";
-    if (query.q) {
-      const termo = query.q.trim();
-      const texto = { contains: termo, mode: "insensitive" as const };
-      const ou: Prisma.ClientWhereInput[] = [
-        { name: texto },
-        { legalName: texto },
-        { email: texto },
-        { contacts: { some: { OR: [{ name: texto }, { email: texto }] } } },
-      ];
-      // Documento e telefone são guardados só com dígitos: "11.222.333" e "(92) 9999" também acham.
-      const digitos = somenteDigitos(termo);
-      if (digitos.length >= 4) {
-        ou.push(
-          { document: { contains: digitos } },
-          { phone: { contains: digitos } },
-          { contacts: { some: { phone: { contains: digitos } } } },
-        );
-      }
-      where.OR = ou;
-    }
 
     const linhas = await this.prisma.comContexto((tx) => tx.client.findMany({
       where,
@@ -115,6 +114,19 @@ export class PrismaClientesRepository extends ClientesRepository {
     return listClientsResponseSchema.parse({ items: linhas.map(paraItemDeLista) });
   }
 
+  async selecaoNegocio(query: ClientSelectionQuery, principal: AuthPrincipal): Promise<ClientSelectionResponse> {
+    const linhas = await this.prisma.comContexto((tx) => tx.client.findMany({
+      where: { ...filtroDoResponsavel(principal, "crm", ["crm.pipelines"]), ...buscaDeClientes(query.q), active: true },
+      orderBy: { name: "asc" },
+      take: 8,
+      select: {
+        id: true, name: true, personType: true, document: true, city: true,
+        contacts: { select: { name: true, isPrimary: true, createdAt: true }, orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }], take: 1 },
+      },
+    }));
+    return clientSelectionResponseSchema.parse({ items: linhas.map(paraSelecaoDeNegocio) });
+  }
+
   async get(id: string, principal: AuthPrincipal): Promise<ClientDetail> {
     const linha = await this.prisma.comContexto((tx) => tx.client.findUnique({ where: { id, ...filtroDoResponsavel(principal, ["crm", "energia-opm"], TELAS_LEITURA) }, include: COM_DONO_E_CONTATOS }));
     if (!linha) throw new NaoEncontrado("Cliente não encontrado.");
@@ -125,7 +137,7 @@ export class PrismaClientesRepository extends ClientesRepository {
     const { primaryContact, ownerId, ...campos } = input;
 
     // Sem responsável escolhido, o responsável é quem cadastra.
-    const responsavel = ownerId ?? (principal.kind === "user" ? principal.id : undefined);
+    const responsavel = ownerId ?? principal.id;
     if (!responsavel) throw new RequisicaoInvalida("Informe o responsável pelo cliente.");
     exigeAtribuicaoPermitida(principal, responsavel, "crm", ["crm.clientes"]);
     await this.garantirResponsavel(responsavel);
@@ -378,6 +390,6 @@ export class PrismaClientesRepository extends ClientesRepository {
   }
 
   private actorType(principal: AuthPrincipal): ActorType {
-    return principal.kind === "user" ? "user" : "system";
+    return principal.kind === "user" ? "user" : "agent";
   }
 }

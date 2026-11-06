@@ -5,6 +5,7 @@ export type TipoDeAtor = "user" | "agent" | "system";
 
 export interface AgentActionAppend {
   agent: string;
+  agentUserId?: string;
   requestedById: string | null;
   channel: string;
   action: string;
