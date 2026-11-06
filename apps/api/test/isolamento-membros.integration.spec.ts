@@ -16,6 +16,7 @@ import { NullSessionCache } from "../src/core/auth/null-session-cache";
 import { PrismaSessionLookupRepository } from "../src/core/auth/prisma-session-lookup.repository";
 import { SessionCache } from "../src/core/auth/session-cache";
 import { SessionLookupRepository } from "../src/core/auth/session-lookup.repository";
+import { hashToken } from "../src/core/auth/token.util";
 import { ArmazenamentoDeDocumentos } from "../src/lead-documentos/armazenamento-de-documentos";
 import { PrismaAuthService } from "../src/prisma/prisma-auth.service";
 import { PrismaJobsService } from "../src/prisma/prisma-jobs.service";
@@ -27,7 +28,7 @@ const HABILITADO = process.env.RUN_PERMISSOES_INTEGRATION_TESTS === "true";
 const PRAZO_MS = 120_000;
 const ORIGIN = "http://localhost:3000";
 const TELAS_CRM: Tela[] = ["crm.pipelines", "crm.clientes", "crm.contratos", "crm.propostas"];
-type Persona = "membroA" | "membroB" | "gerente" | "admin" | "desenvolvedor" | "semTela" | "outroDepartamento";
+type Persona = "membroA" | "membroB" | "gerente" | "gerenteLimitado" | "admin" | "desenvolvedor" | "semTela" | "outroDepartamento";
 
 /** HTTP e RLS com três logins reais restritos; o administrador só prepara/verifica fixtures sintéticas. */
 describe.skipIf(!HABILITADO)("isolamento dos membros com sessão real (HTTP + PostgreSQL)", () => {
@@ -46,10 +47,11 @@ describe.skipIf(!HABILITADO)("isolamento dos membros com sessão real (HTTP + Po
     membroA: { plataforma: null, departamentos: [{ departamento: "crm", nivel: "membro", telas: TELAS_CRM }] },
     membroB: { plataforma: null, departamentos: [{ departamento: "crm", nivel: "membro", telas: TELAS_CRM }] },
     gerente: { plataforma: null, departamentos: [{ departamento: "crm", nivel: "gerente", telas: TELAS_CRM }] },
+    gerenteLimitado: { plataforma: null, departamentos: [{ departamento: "crm", nivel: "gerente", telas: ["crm.clientes"] }] },
     admin: { plataforma: "admin", departamentos: [] },
     desenvolvedor: { plataforma: "desenvolvedor", departamentos: [] },
     semTela: { plataforma: null, departamentos: [{ departamento: "crm", nivel: "membro", telas: [] }] },
-    outroDepartamento: { plataforma: null, departamentos: [{ departamento: "marketing", nivel: "membro", telas: [] }] },
+    outroDepartamento: { plataforma: null, departamentos: [{ departamento: "marketing", nivel: "gerente", telas: ["marketing.campanhas"] }] },
   };
   const personas = Object.keys(acessos) as Persona[];
   const pessoas = Object.fromEntries(personas.map((persona) => [persona, {
@@ -75,6 +77,9 @@ describe.skipIf(!HABILITADO)("isolamento dos membros com sessão real (HTTP + Po
     jobs: { login: `${marcaLogin}_jobs`, grupo: "plugga_jobs_runtime", variavel: "JOBS_DATABASE_URL" },
   } as const;
   const loginsCriados: string[] = [];
+  const agentesCriados: string[] = [];
+  const clientesExtras: string[] = [];
+  let agenteIA: { id: string; token: string; clientId: string; dealId: string } | undefined;
   const chamadasStorage = {
     enviar: vi.fn(), ler: vi.fn(), excluir: vi.fn(),
   };
@@ -92,9 +97,50 @@ describe.skipIf(!HABILITADO)("isolamento dos membros com sessão real (HTTP + Po
     return request(app.getHttpServer())[method](path).set("Cookie", cookie).set("Origin", ORIGIN);
   }
 
+  function agente() {
+    if (!agenteIA) throw new Error("Identidade de IA sintética não foi criada.");
+    return agenteIA;
+  }
+
+  function httpAgente(method: "get" | "post" | "patch", path: string, token = agente().token): request.Test {
+    if (!app) throw new Error("Aplicação não inicializada.");
+    return request(app.getHttpServer())[method](path).set("Origin", ORIGIN).set("Authorization", `Bearer ${token}`);
+  }
+
+  function idRecebido(valor: unknown): string {
+    if (typeof valor !== "string" || !/^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/i.test(valor)) {
+      throw new Error("A API não retornou um UUID válido.");
+    }
+    return valor;
+  }
+
+  function tokenRecebido(valor: unknown): string {
+    if (typeof valor !== "string" || !/^plg_agent_[A-Za-z0-9_-]{43}$/.test(valor)) throw new Error("A API não retornou uma credencial de IA válida.");
+    return valor;
+  }
+
   function definirAmbiente(nome: string, valor: string): void {
     ambienteOriginal.set(nome, process.env[nome]);
     process.env[nome] = valor;
+  }
+
+  async function comAcessosTemporarios(alteracoes: Partial<Record<Persona, Acesso>>, verificar: () => Promise<void>): Promise<void> {
+    if (!app) throw new Error("Aplicação não inicializada.");
+    const repository = app.get<AuthRepository>(AuthRepository);
+    const anteriores: { id: string; acesso: Acesso }[] = [];
+    try {
+      for (const persona of personas) {
+        const acesso = alteracoes[persona];
+        if (!acesso) continue;
+        const pessoa = await repository.findUserById(pessoas[persona].id);
+        if (!pessoa) throw new Error("Persona sintética não foi encontrada.");
+        anteriores.push({ id: pessoa.id, acesso: pessoa.acesso });
+        await repository.replaceAcesso(pessoa.id, acesso, pessoas.desenvolvedor.id);
+      }
+      await verificar();
+    } finally {
+      for (const anterior of anteriores.reverse()) await repository.replaceAcesso(anterior.id, anterior.acesso, pessoas.desenvolvedor.id);
+    }
   }
 
   async function estado() {
@@ -191,6 +237,8 @@ describe.skipIf(!HABILITADO)("isolamento dos membros com sessão real (HTTP + Po
       } });
     }
     for (const persona of personas) await repository.replaceAcesso(pessoas[persona].id, acessos[persona], pessoas.desenvolvedor.id);
+    const papeisDev = await db.userPlatformRole.findMany({ where: { userId: pessoas.desenvolvedor.id }, select: { role: { select: { key: true } } } });
+    expect(papeisDev.map((linha) => linha.role.key).sort()).toEqual(["admin", "desenvolvedor"]);
     await db.pipeline.create({ data: {
       id: pipelineId, companyId: "plugga", name: `${prefixo} funil`, valueLabel: "Valor sintético", color: "#123456", wonLabel: "Ganho", lostLabel: "Perdido",
       stages: { create: [
@@ -269,13 +317,20 @@ describe.skipIf(!HABILITADO)("isolamento dos membros com sessão real (HTTP + Po
         await prisma.leadProposalTemplate.deleteMany({ where: { id: modeloId } });
         await prisma.contract.deleteMany({ where: { ownerId: { in: userIds } } });
         await prisma.opportunity.deleteMany({ where: { ownerId: { in: userIds } } });
-        await prisma.client.deleteMany({ where: { ownerId: { in: userIds } } });
-        await prisma.user.deleteMany({ where: { id: { in: userIds } } });
+        await prisma.client.deleteMany({ where: { OR: [{ ownerId: { in: userIds } }, { id: { in: clientesExtras } }] } });
+        const comTrilha = await prisma.agentAction.findMany({ where: { agentUserId: { in: agentesCriados } }, select: { agentUserId: true } });
+        const preservar = agentesCriados.filter((id) => comTrilha.some((linha) => linha.agentUserId === id));
+        // A trilha é append-only e referencia sua identidade: conserva a autoria revogada.
+        await prisma.agentIdentity.updateMany({ where: { userId: { in: preservar } }, data: { tokenHash: null, credentialExpiresAt: null, revokedAt: new Date() } });
+        await prisma.user.updateMany({ where: { id: { in: preservar } }, data: { status: "removed" } });
+        await prisma.agentIdentity.deleteMany({ where: { userId: { in: agentesCriados.filter((id) => !preservar.includes(id)) } } });
+        await prisma.user.deleteMany({ where: { id: { in: userIds.filter((id) => !preservar.includes(id)) } } });
         await prisma.role.deleteMany({ where: { id: { in: papeisCriados } } });
         // event_log é append-only: os eventos sintéticos ficam no banco descartável.
       }
     } finally {
       cookies.clear();
+      if (agenteIA) agenteIA.token = "";
       try {
         await app?.close();
       } finally {
@@ -472,7 +527,7 @@ describe.skipIf(!HABILITADO)("isolamento dos membros com sessão real (HTTP + Po
     }
   });
 
-  it("membro sem tela ou de outro departamento não alcança os recursos de CRM", async () => {
+  it("pessoa sem tela de CRM ou de outro departamento não alcança os recursos de CRM", async () => {
     for (const persona of ["semTela", "outroDepartamento"] as const) {
       for (const path of ["/pipelines", `/leads?pipelineId=${pipelineId}`, "/clientes", "/commercial/opportunities", "/commercial/contracts", `/leads/${registros.B.dealId}/documentos`, `/leads/${registros.B.dealId}/propostas`]) {
         await http(persona, "get", path).expect(403);
@@ -506,6 +561,368 @@ describe.skipIf(!HABILITADO)("isolamento dos membros com sessão real (HTTP + Po
       await banco().userDepartamento.update({ where: { userId_departamento: { userId: pessoas.membroA.id, departamento: "crm" } }, data: { telas: TELAS_CRM } });
     }
     await http("membroA", "get", `/leads/${a.dealId}`).expect(200);
+  });
+
+  it("gerente cria agente membro do CRM com telas limitadas e emite credencial sem expô-la no diretório", async () => {
+    const telas = ["crm.pipelines", "crm.clientes"];
+    const criado = await http("gerente", "post", "/equipe/agentes").send({ name: `${prefixo} IA`, departamento: "crm", telas }).expect(201);
+    const id = idRecebido(criado.body.id);
+    agentesCriados.push(id);
+    userIds.push(id);
+    agenteIA = { id, token: "", clientId: "", dealId: "" };
+    expect(criado.body.tipo).toBe("agente_ia");
+    expect(criado.body.acesso).toEqual({ plataforma: null, departamentos: [{ departamento: "crm", nivel: "membro", telas }] });
+    expect("token" in criado.body || "tokenHash" in criado.body).toBe(false);
+    const identidade = await banco().agentIdentity.findUniqueOrThrow({ where: { userId: id } });
+    expect(identidade.departamento).toBe("crm");
+    expect(identidade.tokenHash === null).toBe(true);
+    expect(await banco().userDepartamento.count({ where: { userId: id } })).toBe(1);
+    expect(await banco().userPlatformRole.count({ where: { userId: id } })).toBe(0);
+    expect(await banco().userCredential.count({ where: { userId: id } })).toBe(0);
+    const credencial = await http("gerente", "post", `/equipe/agentes/${id}/credencial`).send({}).expect(200);
+    expect(credencial.headers["cache-control"]).toBe("no-store");
+    agenteIA.token = tokenRecebido(credencial.body.token);
+    expect(credencial.body.userId).toBe(id);
+    const persistida = await banco().agentIdentity.findUniqueOrThrow({ where: { userId: id } });
+    expect(persistida.tokenHash === hashToken(agenteIA.token)).toBe(true);
+    expect(persistida.tokenHash === agenteIA.token).toBe(false);
+    expect((persistida.credentialExpiresAt?.getTime() ?? 0) > Date.now()).toBe(true);
+    const diretorio = await http("gerente", "get", "/equipe").expect(200);
+    expect(diretorio.body.membros.some((membro: { id: string; tipo: string }) => membro.id === id && membro.tipo === "agente_ia")).toBe(true);
+    const serializado = JSON.stringify(diretorio.body);
+    expect(serializado.includes(agenteIA.token) || serializado.includes(persistida.tokenHash ?? "tokenHash")).toBe(false);
+    expect(serializado.includes('"tokenHash"') || serializado.includes('"token"')).toBe(false);
+    expect(await banco().session.count({ where: { userId: id } })).toBe(0);
+  });
+
+  it("membro, gerente de outro departamento e a própria IA não gerem agentes nem ampliam telas", async () => {
+    const ia = agente();
+    const input = { name: `${prefixo} IA bloqueada`, departamento: "crm", telas: ["crm.pipelines", "crm.clientes"] };
+    const antes = await banco().agentIdentity.count();
+    const hashAntes = (await banco().agentIdentity.findUniqueOrThrow({ where: { userId: ia.id } })).tokenHash;
+    for (const persona of ["membroA", "outroDepartamento", "gerenteLimitado"] as const) {
+      await http(persona, "post", "/equipe/agentes").send(input).expect(403);
+    }
+    await http("membroA", "post", `/equipe/agentes/${ia.id}/credencial`).send({}).expect(403);
+    await http("membroA", "post", `/equipe/agentes/${ia.id}/revogar-credencial`).send({}).expect(403);
+    await http("outroDepartamento", "post", `/equipe/agentes/${ia.id}/credencial`).send({}).expect(404);
+    await http("outroDepartamento", "post", `/equipe/agentes/${ia.id}/revogar-credencial`).send({}).expect(404);
+    await httpAgente("post", "/equipe/agentes").send(input).expect(403);
+    await httpAgente("post", `/equipe/agentes/${ia.id}/credencial`).send({}).expect(403);
+    await httpAgente("post", `/equipe/agentes/${ia.id}/revogar-credencial`).send({}).expect(403);
+    await httpAgente("get", "/equipe").expect(403);
+    await httpAgente("get", "/jobs").expect(403);
+    expect(await banco().agentIdentity.count()).toBe(antes);
+    expect((await banco().agentIdentity.findUniqueOrThrow({ where: { userId: ia.id } })).tokenHash === hashAntes).toBe(true);
+  });
+
+  it("Bearer real da IA permite criar, ler e editar cliente e negócio próprios, ocultando B", async () => {
+    const ia = agente();
+    const email = `ia-${execucao}@sintetico.example.test`;
+    const cliente = await httpAgente("post", "/clientes").send({ personType: "pj", name: `${prefixo} cliente IA`, email, ownerId: ia.id }).expect(201);
+    ia.clientId = idRecebido(cliente.body.client.id);
+    const negocio = await httpAgente("post", "/leads").send({
+      pipelineId, stageId: etapaId, ownerId: ia.id, title: `${prefixo} negócio IA`,
+      lead: { personType: "pj", name: `${prefixo} perfil IA`, email },
+    }).expect(201);
+    ia.dealId = idRecebido(negocio.body.id);
+    await httpAgente("get", `/clientes/${ia.clientId}`).expect(200);
+    await httpAgente("get", `/leads/${ia.dealId}`).expect(200);
+    await httpAgente("patch", `/clientes/${ia.clientId}`).send({ notes: "Sintético editado pela própria IA" }).expect(200);
+    await httpAgente("patch", `/leads/${ia.dealId}`).send({ version: 1, title: `${prefixo} negócio IA editado` }).expect(200);
+    const clientes = await httpAgente("get", `/clientes?q=${encodeURIComponent(prefixo)}`).expect(200);
+    expect(clientes.body.items.map((item: { id: string }) => item.id)).toEqual([ia.clientId]);
+    const negocios = await httpAgente("get", `/leads?pipelineId=${pipelineId}`).expect(200);
+    expect(negocios.body.deals.map((item: { id: string }) => item.id)).toEqual([ia.dealId]);
+    const antes = await estado();
+    await httpAgente("get", `/clientes/${registros.B.clientId}`).expect(404);
+    await httpAgente("get", `/leads/${registros.B.dealId}`).expect(404);
+    await httpAgente("get", `/leads/${registros.B.dealId}/historico`).expect(404);
+    await httpAgente("patch", `/clientes/${registros.B.clientId}`).send({ name: "Sintético bloqueado" }).expect(404);
+    const versaoB = (await banco().deal.findUniqueOrThrow({ where: { id: registros.B.dealId } })).version;
+    await httpAgente("patch", `/leads/${registros.B.dealId}`).send({ version: versaoB, title: "Sintético bloqueado" }).expect(404);
+    expect(await estado()).toEqual(antes);
+    expect((await banco().client.findUniqueOrThrow({ where: { id: ia.clientId } })).ownerId).toBe(ia.id);
+    expect((await banco().deal.findUniqueOrThrow({ where: { id: ia.dealId } })).ownerId).toBe(ia.id);
+  });
+
+  it("IA permanece membro: não atribui registros a terceiros nem alcança telas não concedidas", async () => {
+    const ia = agente();
+    const antes = await estado();
+    const version = (await banco().deal.findUniqueOrThrow({ where: { id: ia.dealId } })).version;
+    const ownerId = pessoas.membroB.id;
+    await httpAgente("patch", `/clientes/${ia.clientId}`).send({ ownerId }).expect(403);
+    await httpAgente("patch", `/leads/${ia.dealId}`).send({ version, ownerId }).expect(403);
+    await httpAgente("post", "/leads/lote").send({ dealIds: [ia.dealId], action: { type: "owner", ownerId } }).expect(403);
+    await httpAgente("post", "/clientes").send({ personType: "pj", name: "Sintético bloqueado IA", email: `bloqueado-${execucao}@sintetico.example.test`, ownerId }).expect(403);
+    await httpAgente("post", "/leads").send({ pipelineId, stageId: etapaId, ownerId, title: "Sintético bloqueado IA", lead: { personType: "pj", name: "Sintético bloqueado IA", email: `bloqueado-${execucao}@sintetico.example.test` } }).expect(403);
+    await httpAgente("get", "/commercial/contracts").expect(403);
+    await httpAgente("get", "/jobs").expect(403);
+    expect(await estado()).toEqual(antes);
+  });
+
+  it("trilha de IA só registra entidades próprias e não aceita autoaprovação ou identidade forjada", async () => {
+    const ia = agente();
+    const antes = await banco().agentAction.count({ where: { agentUserId: ia.id } });
+    const eventosAntes = await banco().eventLog.count({ where: { actorType: "agent", actorId: ia.id, eventName: "agent.action.recorded" } });
+    const input = {
+      agent: ia.id, channel: "sintetico", action: "crm.observar", entityType: "client", entityId: ia.clientId,
+      decision: "allowed", approvalStatus: "not_required", status: "recorded", input: { observacao: "Sintético" }, payload: { observacao: "Sintético" },
+      result: "Sintético não deve ser persistido", error: "Sintético não deve ser persistido",
+    };
+    for (const [entityType, entityId] of [["client", ia.clientId], ["deal", ia.dealId]]) {
+      const resposta = await httpAgente("post", "/agent-actions").send({ ...input, entityType, entityId }).expect(201);
+      const trilha = await banco().agentAction.findUniqueOrThrow({ where: { id: idRecebido(resposta.body.id) } });
+      expect({ agent: trilha.agent, agentUserId: trilha.agentUserId, requestedById: trilha.requestedById, entityType: trilha.entityType, entityId: trilha.entityId }).toEqual({
+        agent: ia.id, agentUserId: ia.id, requestedById: null, entityType, entityId,
+      });
+      expect(trilha.input).toEqual({});
+      expect(trilha.payload).toEqual({});
+      expect(trilha.result).toBeNull();
+      expect(trilha.error).toBeNull();
+    }
+    await httpAgente("post", "/agent-actions").send({ ...input, entityId: registros.B.clientId }).expect(403);
+    await httpAgente("post", "/agent-actions").send({ ...input, entityType: "deal", entityId: registros.B.dealId }).expect(403);
+    await httpAgente("post", "/agent-actions").send({ ...input, approvalStatus: "approved" }).expect(403);
+    await httpAgente("post", "/agent-actions").send({ ...input, agent: pessoas.membroB.id }).expect(403);
+    await http("admin", "post", "/agent-actions").send(input).expect(403);
+    expect(await banco().agentAction.count({ where: { agentUserId: ia.id } })).toBe(antes + 2);
+    expect(await banco().eventLog.count({ where: { actorType: "agent", actorId: ia.id, eventName: "agent.action.recorded" } })).toBe(eventosAntes + 2);
+  });
+
+  it("rotação invalida o Bearer anterior imediatamente e mantém a nova credencial utilizável", async () => {
+    const ia = agente();
+    const anterior = ia.token;
+    await httpAgente("get", `/clientes/${ia.clientId}`, anterior).expect(200);
+    const resposta = await http("gerente", "post", `/equipe/agentes/${ia.id}/credencial`).send({}).expect(200);
+    expect(resposta.headers["cache-control"]).toBe("no-store");
+    ia.token = tokenRecebido(resposta.body.token);
+    expect(ia.token === anterior).toBe(false);
+    await httpAgente("get", `/clientes/${ia.clientId}`, anterior).expect(401);
+    await http("admin", "get", `/clientes/${ia.clientId}`).set("Authorization", `Bearer ${anterior}`).expect(401);
+    await httpAgente("get", `/clientes/${ia.clientId}`).expect(200);
+    const hash = (await banco().agentIdentity.findUniqueOrThrow({ where: { userId: ia.id } })).tokenHash;
+    expect(hash === hashToken(ia.token)).toBe(true);
+    expect(hash === hashToken(anterior)).toBe(false);
+  });
+
+  it("Bearer inválido com cookie administrativo é recusado sem recorrer à sessão do cookie", async () => {
+    const inexistente = `plg_agent_${randomBytes(32).toString("base64url")}`;
+    await http("admin", "get", `/clientes/${registros.B.clientId}`).expect(200);
+    await http("admin", "get", `/clientes/${registros.B.clientId}`).set("Authorization", `Bearer ${inexistente}`).expect(401);
+    await http("admin", "get", `/clientes/${registros.B.clientId}`).set("Authorization", "Bearer invalido").expect(401);
+  });
+
+  it("revogação da credencial nega a próxima requisição e não altera a trilha já registrada", async () => {
+    const ia = agente();
+    const trilhasAntes = await banco().agentAction.count({ where: { agentUserId: ia.id } });
+    await httpAgente("get", `/leads/${ia.dealId}`).expect(200);
+    await http("gerente", "post", `/equipe/agentes/${ia.id}/revogar-credencial`).send({}).expect(200);
+    await httpAgente("get", `/leads/${ia.dealId}`).expect(401);
+    await httpAgente("get", `/clientes/${ia.clientId}`).expect(401);
+    await http("admin", "get", `/clientes/${ia.clientId}`).set("Authorization", `Bearer ${ia.token}`).expect(401);
+    const identidade = await banco().agentIdentity.findUniqueOrThrow({ where: { userId: ia.id } });
+    expect(identidade.tokenHash === null && identidade.credentialExpiresAt === null && identidade.revokedAt !== null).toBe(true);
+    expect(await banco().agentAction.count({ where: { agentUserId: ia.id } })).toBe(trilhasAntes);
+  });
+
+  it("CRM com apenas Contratos lê o escopo devido e cria contrato no cliente próprio ainda sem contrato", async () => {
+    const clientId = randomUUID();
+    clientesExtras.push(clientId);
+    let contratoCriado: string | undefined;
+    await banco().client.create({ data: { id: clientId, name: `${prefixo} cliente para contrato mínimo`, email: `contrato-${execucao}@sintetico.example.test`, ownerId: pessoas.membroA.id } });
+    try {
+      await comAcessosTemporarios({
+        membroA: { plataforma: null, departamentos: [{ departamento: "crm", nivel: "membro", telas: ["crm.contratos"] }] },
+        gerente: { plataforma: null, departamentos: [{ departamento: "crm", nivel: "gerente", telas: ["crm.contratos"] }] },
+      }, async () => {
+        const proprio = await http("membroA", "get", `/commercial/contracts/${registros.A.contractId}`).expect(200);
+        expect(proprio.body.clientId).toBe(registros.A.clientId);
+        expect(typeof proprio.body.clientName).toBe("string");
+        await http("membroA", "get", `/commercial/contracts/${registros.B.contractId}`).expect(404);
+        const listaMembro = await http("membroA", "get", "/commercial/contracts").expect(200);
+        expect(listaMembro.body.items.map((item: { id: string }) => item.id)).toEqual([registros.A.contractId]);
+        const listaGerente = await http("gerente", "get", "/commercial/contracts").expect(200);
+        expect(listaGerente.body.items.map((item: { id: string }) => item.id)).toEqual(expect.arrayContaining([registros.A.contractId, registros.B.contractId]));
+        for (const r of Object.values(registros)) {
+          const contrato = await http("gerente", "get", `/commercial/contracts/${r.contractId}`).expect(200);
+          expect(contrato.body.clientId).toBe(r.clientId);
+          expect(typeof contrato.body.clientName).toBe("string");
+        }
+        await http("membroA", "get", `/clientes/${clientId}`).expect(403);
+        expect(await banco().contract.count({ where: { clientId } })).toBe(0);
+        const criado = await http("membroA", "post", "/commercial/contracts").send({ clientId, ownerId: pessoas.membroA.id }).expect(201);
+        contratoCriado = idRecebido(criado.body.id);
+        expect(criado.body.clientId).toBe(clientId);
+        expect(criado.body.ownerId).toBe(pessoas.membroA.id);
+        await http("membroA", "get", `/commercial/contracts/${contratoCriado}`).expect(200);
+      });
+    } finally {
+      if (contratoCriado) await banco().contract.deleteMany({ where: { id: contratoCriado } });
+      await banco().client.deleteMany({ where: { id: clientId } });
+    }
+  });
+
+  it("gerente Financeiro com apenas Receber materializa contratos e seus clientes sem acesso à tela Clientes", async () => {
+    await comAcessosTemporarios({
+      outroDepartamento: { plataforma: null, departamentos: [{ departamento: "financeiro", nivel: "gerente", telas: ["financeiro.receber"] }] },
+    }, async () => {
+      const lista = await http("outroDepartamento", "get", "/commercial/contracts").expect(200);
+      expect(lista.body.items.map((item: { id: string }) => item.id)).toEqual(expect.arrayContaining([registros.A.contractId, registros.B.contractId]));
+      for (const r of Object.values(registros)) {
+        const resposta = await http("outroDepartamento", "get", `/commercial/contracts/${r.contractId}`).expect(200);
+        expect(resposta.body.clientId).toBe(r.clientId);
+        expect(typeof resposta.body.clientName).toBe("string");
+      }
+      await http("outroDepartamento", "get", "/clientes").expect(403);
+      await http("outroDepartamento", "get", `/clientes/${registros.B.clientId}`).expect(403);
+    });
+  });
+
+  it("gerente de apenas Pipelines carrega negócios, membros e responsáveis Admin/Dev sem departamento", async () => {
+    const dados = (["admin", "desenvolvedor"] as const).map((persona) => ({ persona, clientId: randomUUID(), dealId: randomUUID() }));
+    try {
+      for (const { persona, clientId, dealId } of dados) {
+        const ownerId = pessoas[persona].id;
+        expect(await banco().userDepartamento.count({ where: { userId: ownerId } })).toBe(0);
+        clientesExtras.push(clientId);
+        const email = `plataforma-${persona}-${execucao}@sintetico.example.test`;
+        await banco().client.create({ data: { id: clientId, ownerId, name: `${prefixo} plataforma ${persona}`, email } });
+        await banco().deal.create({ data: {
+          id: dealId, ownerId, pipelineId, stageId: etapaId, clientId, title: `${prefixo} plataforma ${persona}`,
+          profile: { create: { personType: "pj", name: `${prefixo} plataforma ${persona}`, email } },
+        } });
+        await banco().pipelineMember.create({ data: { pipelineId, userId: ownerId, role: "vendedor" } });
+      }
+      await comAcessosTemporarios({
+        gerente: { plataforma: null, departamentos: [{ departamento: "crm", nivel: "gerente", telas: ["crm.pipelines"] }] },
+      }, async () => {
+        const lista = await http("gerente", "get", `/leads?pipelineId=${pipelineId}`).expect(200);
+        for (const { persona, clientId, dealId } of dados) {
+          expect(lista.body.deals.some((item: { id: string; owner: { id: string } }) => item.id === dealId && item.owner.id === pessoas[persona].id)).toBe(true);
+          const detalhe = await http("gerente", "get", `/leads/${dealId}`).expect(200);
+          expect(detalhe.body.owner.id).toBe(pessoas[persona].id);
+          expect(detalhe.body.client.id).toBe(clientId);
+        }
+        const funis = await http("gerente", "get", "/pipelines").expect(200);
+        const funil = funis.body.pipelines.find((item: { id: string }) => item.id === pipelineId);
+        expect(funil.members.map((item: { userId: string }) => item.userId)).toEqual(expect.arrayContaining([pessoas.admin.id, pessoas.desenvolvedor.id]));
+        expect(funis.body.responsaveis.map((item: { id: string }) => item.id)).toEqual(expect.arrayContaining([pessoas.admin.id, pessoas.desenvolvedor.id]));
+        const candidatos = await http("gerente", "get", "/pipelines/pessoas?companyId=plugga").expect(200);
+        expect(candidatos.body.people.map((item: { id: string }) => item.id)).toEqual(expect.arrayContaining([pessoas.admin.id, pessoas.desenvolvedor.id]));
+        const responsaveis = await http("gerente", "get", "/clientes/responsaveis").expect(200);
+        expect(responsaveis.body.items.map((item: { id: string }) => item.id)).toEqual(expect.arrayContaining([pessoas.admin.id, pessoas.desenvolvedor.id]));
+        const clientes = await http("gerente", "get", `/clientes/selecao-negocio?q=${encodeURIComponent(`${prefixo} plataforma`)}`).expect(200);
+        expect(clientes.body.items.map((item: { id: string }) => item.id).sort()).toEqual(dados.map((item) => item.clientId).sort());
+      });
+    } finally {
+      await banco().deal.deleteMany({ where: { id: { in: dados.map((item) => item.dealId) } } });
+      await banco().pipelineMember.deleteMany({ where: { pipelineId, userId: { in: dados.map((item) => pessoas[item.persona].id) } } });
+      await banco().client.deleteMany({ where: { id: { in: dados.map((item) => item.clientId) } } });
+    }
+  });
+
+  it("seletor de apenas Pipelines oferece cliente B e compartilhado ao gerente e somente A ao membro", async () => {
+    const compartilhadoId = randomUUID();
+    clientesExtras.push(compartilhadoId);
+    await banco().client.create({ data: { id: compartilhadoId, name: `${prefixo} cliente compartilhado`, ownerId: null } });
+    try {
+      await comAcessosTemporarios({
+        gerente: { plataforma: null, departamentos: [{ departamento: "crm", nivel: "gerente", telas: ["crm.pipelines"] }] },
+        membroA: { plataforma: null, departamentos: [{ departamento: "crm", nivel: "membro", telas: ["crm.pipelines"] }] },
+      }, async () => {
+        const path = `/clientes/selecao-negocio?q=${encodeURIComponent(prefixo)}`;
+        const gerencia = await http("gerente", "get", path).expect(200);
+        expect(gerencia.body.items.map((item: { id: string }) => item.id)).toEqual(expect.arrayContaining([registros.A.clientId, registros.B.clientId, compartilhadoId]));
+        const membro = await http("membroA", "get", path).expect(200);
+        expect(membro.body.items.map((item: { id: string }) => item.id)).toEqual([registros.A.clientId]);
+        await http("gerente", "get", "/clientes").expect(403);
+        await http("membroA", "get", "/clientes").expect(403);
+      });
+    } finally {
+      await banco().client.deleteMany({ where: { id: compartilhadoId } });
+    }
+  });
+
+  it("criações HTTP concorrentes do mesmo membro recebem posições distintas com login runtime restrito", async () => {
+    const quantidade = 8;
+    try {
+      await comAcessosTemporarios({
+        membroA: { plataforma: null, departamentos: [{ departamento: "crm", nivel: "membro", telas: ["crm.pipelines"] }] },
+      }, async () => {
+        const resultados = await Promise.allSettled(Array.from({ length: quantidade }, (_, indice) =>
+          http("membroA", "post", "/leads").send({
+            pipelineId: pipelineDestinoId, stageId: etapaDestinoId, ownerId: pessoas.membroA.id,
+            title: `${prefixo} concorrente ${indice}`,
+            lead: { personType: "pj", name: `${prefixo} concorrente ${indice}`, email: `concorrente-${indice}-${execucao}@sintetico.example.test` },
+          }).expect(201),
+        ));
+        expect(resultados.map((resultado) => resultado.status)).toEqual(Array(quantidade).fill("fulfilled"));
+        const ids = resultados.flatMap((resultado) => resultado.status === "fulfilled" ? [idRecebido(resultado.value.body.id)] : []);
+        expect(new Set(ids).size).toBe(quantidade);
+        const linhas = await banco().deal.findMany({ where: { id: { in: ids } }, orderBy: { position: "asc" } });
+        expect(linhas).toHaveLength(quantidade);
+        expect(new Set(linhas.map((linha) => linha.position.toString())).size).toBe(quantidade);
+        expect(linhas.every((linha) => linha.ownerId === pessoas.membroA.id && linha.stageId === etapaDestinoId && linha.pipelineId === pipelineDestinoId)).toBe(true);
+        const quadro = await http("membroA", "get", `/leads?pipelineId=${pipelineDestinoId}`).expect(200);
+        expect(quadro.body.deals.map((item: { id: string }) => item.id)).toEqual(linhas.map((linha) => linha.id));
+      });
+    } finally {
+      await banco().deal.deleteMany({ where: { pipelineId: pipelineDestinoId, stageId: etapaDestinoId, ownerId: pessoas.membroA.id } });
+    }
+  });
+
+  it("gerente preserva o responsável histórico que saiu do CRM, foi desativado ou removido, sem torná-lo elegível novamente", async () => {
+    const ownerId = randomUUID();
+    const clientId = randomUUID();
+    const dealId = randomUUID();
+    const name = `${prefixo} responsável histórico`;
+    const email = `historico-${execucao}@sintetico.example.test`;
+    userIds.push(ownerId);
+    clientesExtras.push(clientId);
+    try {
+      await banco().user.create({ data: {
+        id: ownerId, name, email, status: "active",
+        departamentos: { create: { departamento: "crm", nivel: "membro", telas: ["crm.pipelines", "crm.clientes"] } },
+      } });
+      await banco().client.create({ data: { id: clientId, name: `${prefixo} cliente histórico`, email, ownerId } });
+      await banco().deal.create({ data: {
+        id: dealId, ownerId, pipelineId, stageId: etapaId, clientId, title: `${prefixo} negócio histórico`,
+        profile: { create: { personType: "pj", name: `${prefixo} perfil histórico`, email } },
+        history: { create: { kind: "created", actorId: ownerId, toStageName: "Sintético início" } },
+      } });
+      await banco().userDepartamento.deleteMany({ where: { userId: ownerId } });
+      await banco().userDepartamento.create({ data: { userId: ownerId, departamento: "financeiro", nivel: "membro", telas: ["financeiro.receber"] } });
+      expect(await banco().userPlatformRole.count({ where: { userId: ownerId } })).toBe(0);
+      await comAcessosTemporarios({
+        gerente: { plataforma: null, departamentos: [{ departamento: "crm", nivel: "gerente", telas: ["crm.pipelines"] }] },
+      }, async () => {
+        for (const status of ["active", "disabled", "removed"]) {
+          await banco().user.update({ where: { id: ownerId }, data: { status } });
+          const lista = await http("gerente", "get", `/leads?pipelineId=${pipelineId}`).expect(200);
+          const item = lista.body.deals.find((negocio: { id: string }) => negocio.id === dealId);
+          expect(item?.owner).toEqual({ id: ownerId, name });
+          const detalhe = await http("gerente", "get", `/leads/${dealId}`).expect(200);
+          expect(detalhe.body.owner).toEqual({ id: ownerId, name });
+          expect(detalhe.body.client.id).toBe(clientId);
+          const historico = await http("gerente", "get", `/leads/${dealId}/historico`).expect(200);
+          expect(historico.body.entries.some((entrada: { actor: { id: string; name: string } | null }) => entrada.actor?.id === ownerId && entrada.actor.name === name)).toBe(true);
+          const candidatos = await http("gerente", "get", "/pipelines/pessoas?companyId=plugga").expect(200);
+          expect(candidatos.body.people.some((pessoa: { id: string }) => pessoa.id === ownerId)).toBe(false);
+          const responsaveis = await http("gerente", "get", "/clientes/responsaveis").expect(200);
+          expect(responsaveis.body.items.some((pessoa: { id: string }) => pessoa.id === ownerId)).toBe(false);
+          if (status === "active") {
+            const antes = await banco().deal.findUniqueOrThrow({ where: { id: registros.A.dealId } });
+            await http("gerente", "patch", `/leads/${registros.A.dealId}`).send({ version: antes.version, ownerId }).expect(400);
+            expect(await banco().deal.findUniqueOrThrow({ where: { id: registros.A.dealId } })).toEqual(antes);
+          }
+        }
+      });
+    } finally {
+      await banco().deal.deleteMany({ where: { id: dealId } });
+      await banco().client.deleteMany({ where: { id: clientId } });
+      await banco().user.deleteMany({ where: { id: ownerId } });
+    }
   });
 
   it("metadados e recusas por acesso não fazem I/O no armazenamento", () => {

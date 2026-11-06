@@ -161,6 +161,20 @@ jobs:
       - name: Verify department access mirrors the legacy access
         run: pnpm --filter @plugga/api test:acesso
 
+      - name: Verify member isolation, restricted RLS and AI identities
+        env:
+          RUN_RLS_INTEGRATION_TESTS: "true"
+          RUN_PERMISSOES_INTEGRATION_TESTS: "true"
+          RUN_VINCULOS_INTEGRATION_TESTS: "true"
+          PLUGGA_TEST_IGNORE_ENV_FILE: "true"
+          JOBS_ENABLED: "false"
+        run: >-
+          pnpm --filter @plugga/api exec vitest run
+          test/rls-permissoes.integration.spec.ts
+          test/isolamento-membros.integration.spec.ts
+          test/vinculos-equipe.integration.spec.ts
+          --no-file-parallelism
+
       - name: Verify LLM key consumption
         run: pnpm --filter @plugga/api test:llm
 
