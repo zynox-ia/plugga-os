@@ -4,7 +4,7 @@ import { ConfigService } from "@nestjs/config";
 import type { NestExpressApplication } from "@nestjs/platform-express";
 import { Test } from "@nestjs/testing";
 import type { Acesso, LeadProposalContent, Tela } from "@plugga/shared";
-import { Prisma, PrismaClient } from "@prisma/client";
+import { PrismaClient } from "@prisma/client";
 import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
@@ -12,7 +12,6 @@ import { AuthRepository } from "../src/auth/auth.repository";
 import { PasswordService } from "../src/auth/password.service";
 import { PrismaAuthRepository } from "../src/auth/prisma-auth.repository";
 import { configureApp } from "../src/configure-app";
-import { FiltroGlobalDeExcecoes } from "../src/common/errors/filtro-global";
 import { NullSessionCache } from "../src/core/auth/null-session-cache";
 import { PrismaSessionLookupRepository } from "../src/core/auth/prisma-session-lookup.repository";
 import { SessionCache } from "../src/core/auth/session-cache";
@@ -847,13 +846,6 @@ describe.skipIf(!HABILITADO)("isolamento dos membros com sessão real (HTTP + Po
 
   it("criações HTTP concorrentes do mesmo membro recebem posições distintas com login runtime restrito", async () => {
     const quantidade = 8;
-    // Códigos, sem mensagens/queries/credenciais, permitem diagnosticar falhas no runner da CI.
-    const codigos: string[] = [];
-    const tratar = FiltroGlobalDeExcecoes.prototype.catch;
-    const observar = vi.spyOn(FiltroGlobalDeExcecoes.prototype, "catch").mockImplementation(function (this: FiltroGlobalDeExcecoes, excecao, host) {
-      if (excecao instanceof Prisma.PrismaClientKnownRequestError) codigos.push(excecao.code);
-      return tratar.call(this, excecao, host);
-    });
     try {
       await comAcessosTemporarios({
         membroA: { plataforma: null, departamentos: [{ departamento: "crm", nivel: "membro", telas: ["crm.pipelines"] }] },
@@ -863,11 +855,18 @@ describe.skipIf(!HABILITADO)("isolamento dos membros com sessão real (HTTP + Po
             pipelineId: pipelineDestinoId, stageId: etapaDestinoId, ownerId: pessoas.membroA.id,
             title: `${prefixo} concorrente ${indice}`,
             lead: { personType: "pj", name: `${prefixo} concorrente ${indice}`, email: `concorrente-${indice}-${execucao}@sintetico.example.test` },
-          }).expect(201),
+          }),
         ));
-        const falhasHttp = resultados.flatMap((resultado) => resultado.status === "rejected"
-          ? [String(resultado.reason).match(/expected \d+ [A-Za-z ]+, got \d+ [A-Za-z ]+/)?.[0] ?? "requisição recusada"] : []);
-        expect(resultados.map((resultado) => resultado.status), `HTTP: ${falhasHttp.join(", ")}; Prisma: ${codigos.join(", ")}`).toEqual(Array(quantidade).fill("fulfilled"));
+        const statusHttp = resultados.map((resultado) => resultado.status === "fulfilled" ? resultado.value.status : "falha de transporte");
+        // Contagem antes da limpeza distingue falha de escrita da materialização após commit, sem expor dados.
+        const persistidos = await banco().deal.count({ where: {
+          pipelineId: pipelineDestinoId, stageId: etapaDestinoId, ownerId: pessoas.membroA.id,
+          title: { startsWith: `${prefixo} concorrente ` },
+        } });
+        const diagnostico = `HTTP: ${statusHttp.join(", ")}; persistidos: ${persistidos}/${quantidade}`;
+        expect(resultados.map((resultado) => resultado.status), diagnostico).toEqual(Array(quantidade).fill("fulfilled"));
+        expect(statusHttp, diagnostico).toEqual(Array(quantidade).fill(201));
+        expect(persistidos).toBe(quantidade);
         const ids = resultados.flatMap((resultado) => resultado.status === "fulfilled" ? [idRecebido(resultado.value.body.id)] : []);
         expect(new Set(ids).size).toBe(quantidade);
         const linhas = await banco().deal.findMany({ where: { id: { in: ids } }, orderBy: { position: "asc" } });
@@ -878,7 +877,6 @@ describe.skipIf(!HABILITADO)("isolamento dos membros com sessão real (HTTP + Po
         expect(quadro.body.deals.map((item: { id: string }) => item.id)).toEqual(linhas.map((linha) => linha.id));
       });
     } finally {
-      observar.mockRestore();
       await banco().deal.deleteMany({ where: { pipelineId: pipelineDestinoId, stageId: etapaDestinoId, ownerId: pessoas.membroA.id } });
     }
   });
