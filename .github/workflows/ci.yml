@@ -287,9 +287,34 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
+      - name: Provision restricted database logins for web e2e
+        env:
+          PGHOST: localhost
+          PGPORT: "55432"
+          PGDATABASE: plugga_os_test
+          PGUSER: plugga_os_test
+          PGPASSWORD: local_test_only_change_me
+        run: |
+          for pool in runtime auth jobs; do
+            password=$(openssl rand -hex 32)
+            echo "::add-mask::$password"
+            psql -X --no-password --set=ON_ERROR_STOP=1 \
+              --set=role_name="plugga_ci_$pool" --set=role_password="$password" <<'SQL'
+          CREATE ROLE :"role_name" LOGIN INHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD :'role_password';
+          SQL
+            printf 'WEB_E2E_%s_DATABASE_URL=postgresql://plugga_ci_%s:%s@localhost:55432/plugga_os_test?schema=public\n' \
+              "${pool^^}" "$pool" "$password" >> "$GITHUB_ENV"
+          done
+          psql -X --no-password --set=ON_ERROR_STOP=1 \
+            --set=runtime_role=plugga_ci_runtime --set=auth_role=plugga_ci_auth --set=jobs_role=plugga_ci_jobs \
+            --file=ops/configurar-papeis-aplicacao.sql
+
       - name: Start API for web e2e
         env:
-          DATABASE_URL: postgresql://plugga_os_test:local_test_only_change_me@localhost:55432/plugga_os_test?schema=public
+          DATABASE_URL: ${{ env.WEB_E2E_RUNTIME_DATABASE_URL }}
+          AUTH_DATABASE_URL: ${{ env.WEB_E2E_AUTH_DATABASE_URL }}
+          JOBS_DATABASE_URL: ${{ env.WEB_E2E_JOBS_DATABASE_URL }}
+          JOBS_ENABLED: "false"
           STORAGE_ENDPOINT: http://127.0.0.1:59002
           STORAGE_ACCESS_KEY: plugga_os_test
           STORAGE_SECRET_KEY: local_test_storage_only_change_me

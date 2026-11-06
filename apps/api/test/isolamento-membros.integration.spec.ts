@@ -162,7 +162,7 @@ describe.skipIf(!HABILITADO)("isolamento dos membros com sessão real (HTTP + Po
 
   beforeAll(async () => {
     const urlAdministrativa = process.env.DATABASE_URL ?? "";
-    assertSafeTestDatabaseUrl(urlAdministrativa);
+    assertSafeTestDatabaseUrl(urlAdministrativa, process.env.CI === "true", process.env.PLUGGA_TEST_DB_PORT);
     if (process.env.PLUGGA_TEST_IGNORE_ENV_FILE !== "true") throw new Error("Execute com o runner hermético, sem carregar .env.");
     const db = new PrismaClient({ datasourceUrl: urlAdministrativa });
     prisma = db;
