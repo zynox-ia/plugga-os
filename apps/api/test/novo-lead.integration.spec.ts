@@ -113,7 +113,7 @@ describe.skipIf(process.env.RUN_NEGOCIOS_INTEGRATION_TESTS !== "true")("novo lea
       { body: { ...base, lead: { ...base.lead, phone: null, email: null } }, campo: "lead.phone" },
     ];
     for (const caso of casos) {
-      const resposta = await postar(caso.body).expect(400);
+      const resposta = await postar(caso.body, caso.campo === "ownerId" ? "desenvolvedor" : "crm").expect(400);
       expect(resposta.body.detalhes).toContainEqual(expect.objectContaining({ campo: caso.campo }));
     }
     expect(await prisma.deal.count({ where: { pipelineId: { in: pipelines.map((p) => p.id) } } })).toBe(antes);

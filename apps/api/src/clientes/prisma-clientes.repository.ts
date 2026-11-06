@@ -8,6 +8,7 @@ import {
   listClientsResponseSchema,
   somenteDigitos,
   telefoneNacional,
+  telasPorDepartamento,
   type ClientContactInput,
   type ClientDetail,
   type ClientDuplicateCandidate,
@@ -28,6 +29,7 @@ import {
 import { AuditAppender } from "../audit/audit-appender";
 import { Conflito, NaoEncontrado, RequisicaoInvalida } from "../common/errors/dominio";
 import type { AuthPrincipal } from "../core/auth/auth.types";
+import { exigeAtribuicaoPermitida, filtroDoResponsavel, gerenciaRegistros } from "../core/auth/escopo-registros";
 import { PrismaService } from "../prisma/prisma.service";
 import { ClientesRepository } from "./clientes.repository";
 import { camposInformados, paraDetalhe, paraItemDeLista, problemasDaEdicao } from "./clientes.rules";
@@ -47,6 +49,8 @@ export function normalizeName(value: string): string {
     .replace(/\s+/g, " ")
     .trim();
 }
+
+const TELAS_LEITURA = ["crm.clientes", ...telasPorDepartamento["energia-opm"]] as const;
 
 const COM_DONO_E_CONTATOS = {
   owner: { select: { id: true, name: true } },
@@ -75,8 +79,8 @@ export class PrismaClientesRepository extends ClientesRepository {
     super();
   }
 
-  async list(query: ListClientsQuery): Promise<ListClientsResponse> {
-    const where: Prisma.ClientWhereInput = {};
+  async list(query: ListClientsQuery, principal: AuthPrincipal): Promise<ListClientsResponse> {
+    const where: Prisma.ClientWhereInput = filtroDoResponsavel(principal, ["crm", "energia-opm"], TELAS_LEITURA);
     if (query.active !== undefined) where.active = query.active === "true";
     if (query.q) {
       const termo = query.q.trim();
@@ -111,8 +115,8 @@ export class PrismaClientesRepository extends ClientesRepository {
     return listClientsResponseSchema.parse({ items: linhas.map(paraItemDeLista) });
   }
 
-  async get(id: string): Promise<ClientDetail> {
-    const linha = await this.prisma.client.findUnique({ where: { id }, include: COM_DONO_E_CONTATOS });
+  async get(id: string, principal: AuthPrincipal): Promise<ClientDetail> {
+    const linha = await this.prisma.client.findUnique({ where: { id, ...filtroDoResponsavel(principal, ["crm", "energia-opm"], TELAS_LEITURA) }, include: COM_DONO_E_CONTATOS });
     if (!linha) throw new NaoEncontrado("Cliente não encontrado.");
     return clientDetailSchema.parse(paraDetalhe(linha));
   }
@@ -123,6 +127,7 @@ export class PrismaClientesRepository extends ClientesRepository {
     // Sem responsável escolhido, o responsável é quem cadastra.
     const responsavel = ownerId ?? (principal.kind === "user" ? principal.id : undefined);
     if (!responsavel) throw new RequisicaoInvalida("Informe o responsável pelo cliente.");
+    exigeAtribuicaoPermitida(principal, responsavel, "crm", ["crm.clientes"]);
     await this.garantirResponsavel(responsavel);
     if (campos.document) await this.garantirDocumentoLivre(campos.document, input.personType);
 
@@ -130,7 +135,7 @@ export class PrismaClientesRepository extends ClientesRepository {
       name: input.name,
       phone: campos.phone ?? undefined,
       email: campos.email ?? undefined,
-    });
+    }, principal);
 
     const criado = await this.comUnicidadeDeDocumento(input.personType, () =>
       this.prisma.$transaction(async (tx) => {
@@ -154,8 +159,9 @@ export class PrismaClientesRepository extends ClientesRepository {
   }
 
   async update(id: string, input: UpdateClientRequest, principal: AuthPrincipal): Promise<ClientDetail> {
-    const atual = await this.prisma.client.findUnique({ where: { id }, include: COM_DONO_E_CONTATOS });
+    const atual = await this.prisma.client.findUnique({ where: { id, ...filtroDoResponsavel(principal, "crm", ["crm.clientes"]) }, include: COM_DONO_E_CONTATOS });
     if (!atual) throw new NaoEncontrado("Cliente não encontrado.");
+    if (input.ownerId !== undefined) exigeAtribuicaoPermitida(principal, input.ownerId, "crm", ["crm.clientes"]);
 
     const problemas = problemasDaEdicao(atual, input, atual.contacts.length > 0);
     if (problemas[0]) throw new RequisicaoInvalida(problemas[0].problema, problemas);
@@ -167,7 +173,7 @@ export class PrismaClientesRepository extends ClientesRepository {
     const atualizado = await this.comUnicidadeDeDocumento(tipoFinal, () =>
       this.prisma.$transaction(async (tx) => {
         const cliente = await tx.client.update({
-          where: { id },
+          where: { id, ...filtroDoResponsavel(principal, "crm", ["crm.clientes"]) },
           data: input,
           include: COM_DONO_E_CONTATOS,
         });
@@ -187,17 +193,17 @@ export class PrismaClientesRepository extends ClientesRepository {
     return this.mudarSituacao(id, false, "clientes.client_inactivated", principal, { campos: input.reason ? ["reason"] : [] });
   }
 
-  async duplicateCandidates(query: DuplicateCandidatesQuery): Promise<ClientDuplicateCandidatesResponse> {
+  async duplicateCandidates(query: DuplicateCandidatesQuery, principal: AuthPrincipal): Promise<ClientDuplicateCandidatesResponse> {
     if (!query.name && !query.document && !query.phone && !query.email) {
       throw new RequisicaoInvalida("Informe nome, documento, telefone ou e-mail.");
     }
-    const candidatos = await this.candidatosADuplicata(query);
+    const candidatos = await this.candidatosADuplicata(query, principal);
     return clientDuplicateCandidatesResponseSchema.parse({ candidates: candidatos });
   }
 
-  async owners(): Promise<ClientOwnersResponse> {
+  async owners(principal: AuthPrincipal): Promise<ClientOwnersResponse> {
     const usuarios = await this.prisma.user.findMany({
-      where: PODE_SER_RESPONSAVEL,
+      where: { ...PODE_SER_RESPONSAVEL, ...(!gerenciaRegistros(principal, "crm", ["crm.clientes", "crm.pipelines"]) ? { id: principal.id } : {}) },
       select: { id: true, name: true },
       orderBy: { name: "asc" },
     });
@@ -206,7 +212,7 @@ export class PrismaClientesRepository extends ClientesRepository {
 
   async addContact(clientId: string, input: ClientContactInput, principal: AuthPrincipal): Promise<ClientDetail> {
     const cliente = await this.prisma.client.findUnique({
-      where: { id: clientId },
+      where: { id: clientId, ...filtroDoResponsavel(principal, "crm", ["crm.clientes"]) },
       select: { personType: true, _count: { select: { contacts: true } } },
     });
     if (!cliente) throw new NaoEncontrado("Cliente não encontrado.");
@@ -216,16 +222,17 @@ export class PrismaClientesRepository extends ClientesRepository {
     const seraPrincipal = input.isPrimary === true || cliente._count.contacts === 0;
     await this.prisma.$transaction(async (tx) => {
       if (seraPrincipal) await tx.clientContact.updateMany({ where: { clientId, isPrimary: true }, data: { isPrimary: false } });
-      const contato = await tx.clientContact.create({ data: { ...input, clientId, isPrimary: seraPrincipal } });
+      const contato = await tx.clientContact.create({ data: { ...input, client: { connect: { id: clientId, ...filtroDoResponsavel(principal, "crm", ["crm.clientes"]) } }, isPrimary: seraPrincipal } });
       await this.registrar(tx, "clientes.contact.added", "client_contact", contato.id, principal, {
         clientId,
         campos: camposInformados(input),
       });
     });
-    return this.get(clientId);
+    return this.get(clientId, principal);
   }
 
   async updateContact(clientId: string, contactId: string, input: UpdateClientContactRequest, principal: AuthPrincipal): Promise<ClientDetail> {
+    await this.garantirClienteDaEscrita(clientId, principal);
     const contato = await this.prisma.clientContact.findFirst({ where: { id: contactId, clientId }, select: { id: true } });
     if (!contato) throw new NaoEncontrado("Contato não encontrado.");
 
@@ -233,21 +240,22 @@ export class PrismaClientesRepository extends ClientesRepository {
       if (input.isPrimary === true) {
         await tx.clientContact.updateMany({ where: { clientId, isPrimary: true, NOT: { id: contactId } }, data: { isPrimary: false } });
       }
-      await tx.clientContact.update({ where: { id: contactId }, data: input });
+      await tx.clientContact.update({ where: { id: contactId, clientId, client: filtroDoResponsavel(principal, "crm", ["crm.clientes"]) }, data: input });
       await this.registrar(tx, "clientes.contact.updated", "client_contact", contactId, principal, {
         clientId,
         campos: camposInformados(input),
       });
     });
-    return this.get(clientId);
+    return this.get(clientId, principal);
   }
 
   async removeContact(clientId: string, contactId: string, principal: AuthPrincipal): Promise<ClientDetail> {
+    await this.garantirClienteDaEscrita(clientId, principal);
     const contato = await this.prisma.clientContact.findFirst({ where: { id: contactId, clientId }, select: { isPrimary: true } });
     if (!contato) throw new NaoEncontrado("Contato não encontrado.");
 
     await this.prisma.$transaction(async (tx) => {
-      await tx.clientContact.delete({ where: { id: contactId } });
+      await tx.clientContact.delete({ where: { id: contactId, clientId, client: filtroDoResponsavel(principal, "crm", ["crm.clientes"]) } });
       // Sem o principal, o contato mais antigo assume, para o cliente não ficar sem referência.
       if (contato.isPrimary) {
         const proximo = await tx.clientContact.findFirst({ where: { clientId }, orderBy: { createdAt: "asc" }, select: { id: true } });
@@ -255,7 +263,7 @@ export class PrismaClientesRepository extends ClientesRepository {
       }
       await this.registrar(tx, "clientes.contact.removed", "client_contact", contactId, principal, { clientId });
     });
-    return this.get(clientId);
+    return this.get(clientId, principal);
   }
 
   private async mudarSituacao(
@@ -265,15 +273,20 @@ export class PrismaClientesRepository extends ClientesRepository {
     principal: AuthPrincipal,
     payload: Record<string, unknown>,
   ): Promise<ClientDetail> {
-    const existente = await this.prisma.client.findUnique({ where: { id }, select: { active: true } });
+    const existente = await this.prisma.client.findUnique({ where: { id, ...filtroDoResponsavel(principal, "crm", ["crm.clientes"]) }, select: { active: true } });
     if (!existente) throw new NaoEncontrado("Cliente não encontrado.");
     if (existente.active !== ativo) {
       await this.prisma.$transaction(async (tx) => {
-        await tx.client.update({ where: { id }, data: { active: ativo } });
+        await tx.client.update({ where: { id, ...filtroDoResponsavel(principal, "crm", ["crm.clientes"]) }, data: { active: ativo } });
         await this.registrar(tx, evento, "client", id, principal, payload);
       });
     }
-    return this.get(id);
+    return this.get(id, principal);
+  }
+
+  private async garantirClienteDaEscrita(id: string, principal: AuthPrincipal): Promise<void> {
+    const cliente = await this.prisma.client.findUnique({ where: { id, ...filtroDoResponsavel(principal, "crm", ["crm.clientes"]) }, select: { id: true } });
+    if (!cliente) throw new NaoEncontrado("Cliente não encontrado.");
   }
 
   private async garantirResponsavel(userId: string): Promise<void> {
@@ -303,7 +316,7 @@ export class PrismaClientesRepository extends ClientesRepository {
    * igual bloqueia (quem chama decide); telefone, e-mail ou nome parecido avisam.
    * Telefone e e-mail também casam com os contatos de outros clientes.
    */
-  private async candidatosADuplicata(entrada: DuplicateCandidatesQuery): Promise<ClientDuplicateCandidate[]> {
+  private async candidatosADuplicata(entrada: DuplicateCandidatesQuery, principal: AuthPrincipal): Promise<ClientDuplicateCandidate[]> {
     const documento = entrada.document ? somenteDigitos(entrada.document) : null;
     const telefone = entrada.phone ? telefoneNacional(entrada.phone) : null;
     const email = entrada.email?.trim().toLowerCase() || null;
@@ -323,7 +336,7 @@ export class PrismaClientesRepository extends ClientesRepository {
     if (ou.length === 0) return [];
 
     const linhas = await this.prisma.client.findMany({
-      where: { OR: ou, ...(entrada.excludeId ? { id: { not: entrada.excludeId } } : {}) },
+      where: { ...filtroDoResponsavel(principal, ["crm", "energia-opm"], TELAS_LEITURA), OR: ou, ...(entrada.excludeId ? { id: { not: entrada.excludeId } } : {}) },
       take: 50,
       select: { id: true, name: true, personType: true, document: true, phone: true, email: true, contacts: { select: { phone: true, email: true } } },
     });

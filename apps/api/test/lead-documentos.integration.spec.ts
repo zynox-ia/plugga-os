@@ -112,6 +112,19 @@ describe.skipIf(!HABILITADO)("documentos do lead: envio e consulta no Postgres +
       const buffer = PDF();
       const documento = await documentos.upload(dealId, "proposta", { buffer, originalName: "Proposta Setembro.pdf" }, pessoas.ana);
 
+      // A tela do CRM e um vínculo antigo no funil não abrem arquivos de outro dono.
+      await prisma.pipelineMember.create({ data: { pipelineId: pipeline.id, userId: pessoas.bruno.id, role: "gestor" } });
+      const negados = [
+        () => documentos.list(dealId, pessoas.bruno),
+        () => documentos.upload(dealId, "outros", { buffer: PDF(), originalName: "proibido.pdf" }, pessoas.bruno),
+        () => documentos.update(dealId, documento.id, { originalName: "proibido.pdf" }, pessoas.bruno),
+        () => documentos.archive(dealId, documento.id, pessoas.bruno),
+        () => documentos.download(dealId, documento.id, pessoas.bruno),
+        () => documentos.preview(dealId, documento.id, pessoas.bruno),
+      ];
+      for (const negado of negados) await expect(negado()).rejects.toBeInstanceOf(NaoEncontrado);
+      await prisma.pipelineMember.deleteMany({ where: { pipelineId: pipeline.id, userId: pessoas.bruno.id } });
+
       expect(documento).toMatchObject({
         dealId,
         category: "proposta",
@@ -123,16 +136,16 @@ describe.skipIf(!HABILITADO)("documentos do lead: envio e consulta no Postgres +
         archivedAt: null,
       });
 
-      const lista = await documentos.list(dealId, pessoas.bruno);
+      const lista = await documentos.list(dealId, pessoas.gestor);
       expect(lista.documents.map((d) => d.id)).toContain(documento.id);
 
-      const baixado = await documentos.download(dealId, documento.id, pessoas.bruno);
+      const baixado = await documentos.download(dealId, documento.id, pessoas.gestor);
       const partes: Buffer[] = [];
       for await (const parte of baixado.stream) partes.push(parte as Buffer);
       baixado.encerrar();
       expect(Buffer.concat(partes).equals(buffer)).toBe(true);
 
-      const previa = await documentos.preview(dealId, documento.id, pessoas.bruno);
+      const previa = await documentos.preview(dealId, documento.id, pessoas.gestor);
       previa.stream.destroy();
       previa.encerrar();
       expect(previa.documento.canPreview).toBe(true);
@@ -193,7 +206,7 @@ describe.skipIf(!HABILITADO)("documentos do lead: envio e consulta no Postgres +
   it(
     "arquiva por quem enviou; quem é de fora não vê o negócio nem o documento (404, sem revelar existência)",
     async () => {
-      const documento = await documentos.upload(dealId, "outros", { buffer: PDF(), originalName: "arquivar-me.pdf" }, pessoas.bruno);
+      const documento = await documentos.upload(dealId, "outros", { buffer: PDF(), originalName: "arquivar-me.pdf" }, pessoas.gestor);
 
       await expect(documentos.list(dealId, pessoas.forasteiro)).rejects.toBeInstanceOf(NaoEncontrado);
       await expect(
@@ -202,12 +215,15 @@ describe.skipIf(!HABILITADO)("documentos do lead: envio e consulta no Postgres +
       await expect(documentos.archive(dealId, documento.id, pessoas.forasteiro)).rejects.toBeInstanceOf(NaoEncontrado);
       await expect(documentos.download(dealId, documento.id, pessoas.forasteiro)).rejects.toBeInstanceOf(NaoEncontrado);
 
-      const arquivado = await documentos.archive(dealId, documento.id, pessoas.bruno);
+      const arquivado = await documentos.archive(dealId, documento.id, pessoas.gestor);
       expect(arquivado.archivedAt).not.toBeNull();
-      expect(arquivado.archivedBy).toMatchObject({ id: pessoas.bruno.id });
+      expect(arquivado.archivedBy).toMatchObject({ id: pessoas.gestor.id });
+      const vistoPelaDona = (await documentos.list(dealId, pessoas.ana)).documents.find((d) => d.id === documento.id)!;
+      expect(vistoPelaDona.uploadedBy).toBeNull();
+      expect(vistoPelaDona.archivedBy).toBeNull();
 
       const historico = await prisma.dealHistory.findMany({ where: { dealId, kind: "document_archived" } });
-      expect(historico.map((h) => h.actorId)).toContain(pessoas.bruno.id);
+      expect(historico.map((h) => h.actorId)).toContain(pessoas.gestor.id);
     },
     PRAZO_MS,
   );

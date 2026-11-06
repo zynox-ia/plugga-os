@@ -29,6 +29,7 @@ import {
   assertOpportunityHasOwnerAndNextAction,
   assertOpportunityOpen,
 } from "../src/commercial/commercial.rules";
+import { exigeAtribuicaoPermitida, exigeRegistroVisivel, gerenciaRegistros } from "../src/core/auth/escopo-registros";
 import type { AuthPrincipal } from "../src/core/auth/auth.types";
 
 const OWNER_ID = "00000000-0000-4000-8000-000000000201";
@@ -110,24 +111,27 @@ class InMemoryCommercialRepository extends CommercialRepository {
     return contract;
   }
 
-  async listOpportunities(query: OpportunityListQuery): Promise<OpportunityList> {
+  async listOpportunities(query: OpportunityListQuery, principal: AuthPrincipal): Promise<OpportunityList> {
     return {
       items: [...this.opportunities.values()].filter(
         (item) =>
           (!query.stage || item.stage === query.stage) &&
+          (gerenciaRegistros(principal, ["crm", "financeiro"]) || item.ownerId === principal.id) &&
           (!query.status || item.status === query.status) &&
           (!query.ownerId || item.ownerId === query.ownerId),
       ),
     };
   }
 
-  async opportunity(id: string): Promise<OpportunityDetail> {
+  async opportunity(id: string, principal: AuthPrincipal): Promise<OpportunityDetail> {
     const found = this.opportunities.get(id);
     if (!found) throw new NotFoundException("opportunity not found");
+    exigeRegistroVisivel(principal, found.ownerId, ["crm", "financeiro"], "Registro n?o encontrado.");
     return found;
   }
 
   async createOpportunity(input: CreateOpportunityRequest, principal: AuthPrincipal): Promise<OpportunityDetail> {
+    exigeAtribuicaoPermitida(principal, input.ownerId ?? principal.id, "crm");
     const id = this.nextId("opp");
     const created = this.seedOpportunity({
       id,
@@ -149,8 +153,9 @@ class InMemoryCommercialRepository extends CommercialRepository {
     input: UpdateOpportunityStageRequest,
     principal: AuthPrincipal,
   ): Promise<OpportunityDetail> {
-    const current = await this.opportunity(id);
+    const current = await this.opportunity(id, principal);
     assertOpportunityOpen(current.status);
+    if (input.ownerId !== undefined) exigeAtribuicaoPermitida(principal, input.ownerId, "crm");
     const nextOwnerId = input.ownerId ?? current.ownerId;
     const nextActionAt = input.nextActionAt ?? current.nextActionAt;
     assertOpportunityHasOwnerAndNextAction(nextOwnerId, nextActionAt ? new Date(nextActionAt) : null);
@@ -171,7 +176,7 @@ class InMemoryCommercialRepository extends CommercialRepository {
     input: OpportunityContactRequest,
     principal: AuthPrincipal,
   ): Promise<OpportunityDetail> {
-    const current = await this.opportunity(id);
+    const current = await this.opportunity(id, principal);
     const contactId = this.nextId("contact");
     const updated: StoredOpportunity = {
       ...current,
@@ -186,7 +191,7 @@ class InMemoryCommercialRepository extends CommercialRepository {
   }
 
   async winOpportunity(id: string, input: WinOpportunityRequest, principal: AuthPrincipal): Promise<OpportunityDetail> {
-    const current = await this.opportunity(id);
+    const current = await this.opportunity(id, principal);
     assertOpportunityOpen(current.status);
     const clientId = input.clientId ?? this.nextId("client");
     const updated: StoredOpportunity = { ...current, status: "ganha", clientId, decidedAt: "2026-08-06T12:00:00.000Z" };
@@ -196,7 +201,7 @@ class InMemoryCommercialRepository extends CommercialRepository {
   }
 
   async loseOpportunity(id: string, input: LoseOpportunityRequest, principal: AuthPrincipal): Promise<OpportunityDetail> {
-    const current = await this.opportunity(id);
+    const current = await this.opportunity(id, principal);
     assertOpportunityOpen(current.status);
     const updated: StoredOpportunity = {
       ...current,
@@ -214,8 +219,9 @@ class InMemoryCommercialRepository extends CommercialRepository {
     input: RevisitOpportunityRequest,
     principal: AuthPrincipal,
   ): Promise<OpportunityDetail> {
-    const current = await this.opportunity(id);
+    const current = await this.opportunity(id, principal);
     assertOpportunityOpen(current.status);
+    if (input.ownerId !== undefined) exigeAtribuicaoPermitida(principal, input.ownerId, "crm");
     const nextOwnerId = input.ownerId ?? current.ownerId;
     const updated: StoredOpportunity = {
       ...current,
@@ -229,10 +235,11 @@ class InMemoryCommercialRepository extends CommercialRepository {
     return updated;
   }
 
-  async listContracts(query: ContractListQuery): Promise<ContractList> {
+  async listContracts(query: ContractListQuery, principal: AuthPrincipal): Promise<ContractList> {
     return {
       items: [...this.contracts.values()].filter(
         (item) =>
+          (gerenciaRegistros(principal, ["crm", "financeiro"]) || item.ownerId === principal.id) &&
           (!query.status || item.status === query.status) &&
           (!query.clientId || item.clientId === query.clientId) &&
           (!query.ownerId || item.ownerId === query.ownerId),
@@ -240,18 +247,20 @@ class InMemoryCommercialRepository extends CommercialRepository {
     };
   }
 
-  async contract(id: string): Promise<ContractDetail> {
+  async contract(id: string, principal: AuthPrincipal): Promise<ContractDetail> {
     const found = this.contracts.get(id);
     if (!found) throw new NotFoundException("contract not found");
+    exigeRegistroVisivel(principal, found.ownerId, ["crm", "financeiro"], "Registro n?o encontrado.");
     return found;
   }
 
   async createContract(input: CreateContractRequest, principal: AuthPrincipal): Promise<ContractDetail> {
+    exigeAtribuicaoPermitida(principal, input.ownerId ?? principal.id, "crm");
     let clientId: string;
     let opportunityId: string | null = null;
 
     if (input.opportunityId) {
-      const opportunity = await this.opportunity(input.opportunityId);
+      const opportunity = await this.opportunity(input.opportunityId, principal);
       if (opportunity.status !== "ganha") {
         throw new BadRequestException("um contrato só nasce de uma oportunidade ganha");
       }
@@ -266,7 +275,7 @@ class InMemoryCommercialRepository extends CommercialRepository {
       id,
       clientId,
       opportunityId,
-      ownerId: input.ownerId ?? null,
+      ownerId: input.ownerId ?? principal.id,
       nextActionAt: input.nextActionAt ?? null,
       nextActionNote: input.nextActionNote ?? null,
     });
@@ -279,9 +288,10 @@ class InMemoryCommercialRepository extends CommercialRepository {
     input: UpdateContractStatusRequest,
     principal: AuthPrincipal,
   ): Promise<ContractDetail> {
-    const current = await this.contract(id);
+    const current = await this.contract(id, principal);
     assertContractTransitionAllowed(current.status as ContractStatus, input.status);
 
+    if (input.ownerId !== undefined) exigeAtribuicaoPermitida(principal, input.ownerId, "crm");
     const nextOwnerId = input.ownerId ?? current.ownerId;
     const nextActionAt = input.nextActionAt ?? current.nextActionAt;
     const signedAt = input.signedAt ?? current.signedAt;
@@ -330,9 +340,9 @@ describe("commercial API (e2e)", () => {
   function asComercial() {
     return {
       get: (path: string) =>
-        request(app.getHttpServer()).get(path).set("x-dev-principal", "local-comercial").set("x-dev-departamentos", "crm:membro"),
+        request(app.getHttpServer()).get(path).set("x-dev-principal", OWNER_ID).set("x-dev-departamentos", "crm:gerente"),
       post: (path: string) =>
-        request(app.getHttpServer()).post(path).set("x-dev-principal", "local-comercial").set("x-dev-departamentos", "crm:membro"),
+        request(app.getHttpServer()).post(path).set("x-dev-principal", OWNER_ID).set("x-dev-departamentos", "crm:gerente"),
     };
   }
 
@@ -347,6 +357,34 @@ describe("commercial API (e2e)", () => {
 
   it("requires authentication to read opportunities", async () => {
     await request(app.getHttpServer()).get("/commercial/opportunities").expect(401);
+  });
+
+  it("membro opera os próprios registros e não lê nem altera os de outro responsável", async () => {
+    const propriaId = "00000000-0000-4000-8000-000000000701";
+    const alheiaId = "00000000-0000-4000-8000-000000000702";
+    const contratoId = "00000000-0000-4000-8000-000000000703";
+    repository.seedOpportunity({ id: propriaId, ownerId: OWNER_ID });
+    repository.seedOpportunity({ id: alheiaId, ownerId: OTHER_OWNER_ID });
+    repository.seedContract({ id: contratoId, ownerId: OTHER_OWNER_ID });
+    const membro = (r: request.Test) => r.set("x-dev-principal", OWNER_ID).set("x-dev-departamentos", "crm:membro");
+    await membro(request(app.getHttpServer()).get(`/commercial/opportunities/${propriaId}`)).expect(200);
+    await membro(request(app.getHttpServer()).post(`/commercial/opportunities/${propriaId}/stage`)).send({ stage: "decisao" }).expect(200);
+    await membro(request(app.getHttpServer()).get(`/commercial/opportunities?ownerId=${OTHER_OWNER_ID}`)).expect(200).expect((res) => expect(res.body.items).toEqual([]));
+    await membro(request(app.getHttpServer()).get(`/commercial/contracts?ownerId=${OTHER_OWNER_ID}`)).expect(200).expect((res) => expect(res.body.items).toEqual([]));
+    await membro(request(app.getHttpServer()).get(`/commercial/opportunities/${alheiaId}`)).expect(404);
+    await membro(request(app.getHttpServer()).get(`/commercial/contracts/${contratoId}`)).expect(404);
+    for (const [acao, body] of [
+      ["stage", { stage: "decisao" }],
+      ["contacts", { channel: "phone", outcome: "connected" }],
+      ["win", { clientId: CLIENT_ID }],
+      ["lose", { lossReason: "Teste" }],
+      ["revisit", { nextActionAt: "2026-12-01T12:00:00.000Z", nextActionNote: "Retomar" }],
+    ] as const) await membro(request(app.getHttpServer()).post(`/commercial/opportunities/${alheiaId}/${acao}`)).send(body).expect(404);
+    await membro(request(app.getHttpServer()).post(`/commercial/contracts/${contratoId}/status`)).send({ status: "revisao_interna" }).expect(404);
+    await membro(request(app.getHttpServer()).post(`/commercial/opportunities/${propriaId}/stage`)).send({ stage: "decisao", ownerId: OTHER_OWNER_ID }).expect(403);
+    await membro(request(app.getHttpServer()).post("/commercial/opportunities")).send({ title: "Teste", product: "OPM", ownerId: OTHER_OWNER_ID, nextActionAt: "2026-12-01T12:00:00.000Z" }).expect(403);
+    await asComercial().get(`/commercial/opportunities/${alheiaId}`).expect(200);
+    expect(repository.events.some((event) => event.entityId === alheiaId || event.entityId === contratoId)).toBe(false);
   });
 
   it("allows a broad read role to list opportunities but not mutate them", async () => {

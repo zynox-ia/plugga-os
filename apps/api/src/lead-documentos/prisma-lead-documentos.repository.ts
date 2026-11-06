@@ -18,8 +18,8 @@ import {
 import { AuditAppender } from "../audit/audit-appender";
 import { ArquivoRecusado, Conflito, LimiteExcedido, NaoEncontrado, TipoNaoPermitido } from "../common/errors/dominio";
 import type { AuthPrincipal } from "../core/auth/auth.types";
-import { lerAcessoComercial } from "../pipelines/acesso-comercial";
-import { podeConfigurar, podeVer } from "../pipelines/pipelines.rules";
+import { exigeDonoComercial, lerAcessoComercial, pessoaVisivelComercial } from "../pipelines/acesso-comercial";
+import { podeConfigurar, podeVer, type AcessoComercial } from "../pipelines/pipelines.rules";
 import { PrismaService } from "../prisma/prisma.service";
 import { ArmazenamentoDeDocumentos } from "./armazenamento-de-documentos";
 import { detectarTipo } from "./deteccao-de-tipo";
@@ -42,7 +42,7 @@ function paraDocumento(linha: {
   updatedAt: Date;
   archivedAt: Date | null;
   archivedBy: { id: string; name: string } | null;
-}): LeadDocument {
+}, pessoaId: string, acesso: AcessoComercial): LeadDocument {
   return leadDocumentSchema.parse({
     id: linha.id,
     dealId: linha.dealId,
@@ -51,11 +51,11 @@ function paraDocumento(linha: {
     sizeBytes: linha.sizeBytes,
     detectedMime: linha.detectedMime,
     canPreview: (leadDocumentPreviewableMimes as readonly string[]).includes(linha.detectedMime),
-    uploadedBy: linha.uploadedBy,
+    uploadedBy: pessoaVisivelComercial(acesso, pessoaId, linha.uploadedBy),
     createdAt: linha.createdAt.toISOString(),
     updatedAt: linha.updatedAt.toISOString(),
     archivedAt: linha.archivedAt?.toISOString() ?? null,
-    archivedBy: linha.archivedBy,
+    archivedBy: pessoaVisivelComercial(acesso, pessoaId, linha.archivedBy),
   });
 }
 
@@ -90,14 +90,14 @@ export class PrismaLeadDocumentosRepository extends LeadDocumentosRepository {
   }
 
   async list(dealId: string, principal: AuthPrincipal): Promise<ListLeadDocumentsResponse> {
-    await this.negocioVisivel(dealId, principal);
+    const { acesso } = await this.negocioVisivel(dealId, principal);
     await this.limparPendentesExpirados(dealId);
     const linhas = await this.prisma.leadDocument.findMany({
       where: { dealId, uploadState: "ready" },
       orderBy: [{ archivedAt: "asc" }, { createdAt: "desc" }, { id: "asc" }],
       select: SELECAO,
     });
-    return listLeadDocumentsResponseSchema.parse({ documents: linhas.map(paraDocumento) });
+    return listLeadDocumentsResponseSchema.parse({ documents: linhas.map((linha) => paraDocumento(linha, principal.id, acesso)) });
   }
 
   async upload(dealId: string, categoria: LeadDocumentCategory, arquivo: ArquivoEnviado, principal: AuthPrincipal): Promise<LeadDocument> {
@@ -153,58 +153,61 @@ export class PrismaLeadDocumentosRepository extends LeadDocumentosRepository {
     await this.armazenamento.enviar(chave, arquivo.buffer, tipo);
 
     await this.prisma.$transaction(async (tx) => {
+      await this.negocioVisivel(dealId, principal, tx);
       await tx.leadDocument.update({ where: { id: documentoId }, data: { uploadState: "ready" } });
       await tx.dealHistory.create({ data: { dealId, kind: "document_added", actorId: principal.id } });
       await this.registrar(tx, "commercial.deal.document_added", dealId, pipeline.companyId, principal, {});
     });
-    return this.ler(documentoId);
+    return this.ler(documentoId, principal);
   }
 
   async update(dealId: string, documentId: string, input: UpdateLeadDocumentRequest, principal: AuthPrincipal): Promise<LeadDocument> {
-    await this.negocioVisivel(dealId, principal);
-    const atual = await this.prisma.leadDocument.findFirst({ where: { id: documentId, dealId }, select: { id: true } });
-    if (!atual) throw new NaoEncontrado(DOCUMENTO_NAO_ENCONTRADO);
-    await this.prisma.leadDocument.update({
-      where: { id: documentId },
-      data: { ...(input.originalName !== undefined ? { originalName: input.originalName } : {}), ...(input.category ? { category: input.category } : {}) },
+    await this.prisma.$transaction(async (tx) => {
+      await this.negocioVisivel(dealId, principal, tx);
+      const atual = await tx.leadDocument.findFirst({ where: { id: documentId, dealId }, select: { id: true } });
+      if (!atual) throw new NaoEncontrado(DOCUMENTO_NAO_ENCONTRADO);
+      await tx.leadDocument.update({
+        where: { id: documentId },
+        data: { ...(input.originalName !== undefined ? { originalName: input.originalName } : {}), ...(input.category ? { category: input.category } : {}) },
+      });
     });
-    return this.ler(documentId);
+    return this.ler(documentId, principal);
   }
 
   async archive(dealId: string, documentId: string, principal: AuthPrincipal): Promise<LeadDocument> {
-    const { pipeline } = await this.negocioVisivel(dealId, principal);
-    const atual = await this.prisma.leadDocument.findFirst({ where: { id: documentId, dealId }, select: { uploadedById: true, archivedAt: true } });
-    if (!atual) throw new NaoEncontrado(DOCUMENTO_NAO_ENCONTRADO);
+    await this.prisma.$transaction(async (tx) => {
+      const { pipeline } = await this.negocioVisivel(dealId, principal, tx);
+      const atual = await tx.leadDocument.findFirst({ where: { id: documentId, dealId }, select: { uploadedById: true, archivedAt: true } });
+      if (!atual) throw new NaoEncontrado(DOCUMENTO_NAO_ENCONTRADO);
 
-    const acesso = await lerAcessoComercial(this.prisma, principal.id);
-    const podeArquivar = atual.uploadedById === principal.id || podeConfigurar(acesso, principal.id, pipeline) || acesso.admin;
-    if (!podeArquivar) throw new NaoEncontrado(DOCUMENTO_NAO_ENCONTRADO);
+      const acesso = await lerAcessoComercial(tx, principal.id);
+      const podeArquivar = atual.uploadedById === principal.id || podeConfigurar(acesso, principal.id, pipeline) || acesso.admin;
+      if (!podeArquivar) throw new NaoEncontrado(DOCUMENTO_NAO_ENCONTRADO);
 
-    if (!atual.archivedAt) {
-      await this.prisma.$transaction(async (tx) => {
+      if (!atual.archivedAt) {
         await tx.leadDocument.update({ where: { id: documentId }, data: { archivedAt: new Date(), archivedById: principal.id } });
         await tx.dealHistory.create({ data: { dealId, kind: "document_archived", actorId: principal.id } });
         await this.registrar(tx, "commercial.deal.document_archived", dealId, pipeline.companyId, principal, {});
-      });
-    }
-    return this.ler(documentId);
+      }
+    });
+    return this.ler(documentId, principal);
   }
 
   async download(dealId: string, documentId: string, principal: AuthPrincipal): Promise<DownloadDeDocumento> {
-    await this.negocioVisivel(dealId, principal);
+    const { acesso } = await this.negocioVisivel(dealId, principal);
     const linha = await this.documentoPronto(dealId, documentId);
     const { objeto, cliente } = await this.armazenamento.ler(linha.storageKey);
-    return { documento: paraDocumento(linha), stream: objeto.corpo as Readable, encerrar: () => cliente.destroy() };
+    return { documento: paraDocumento(linha, principal.id, acesso), stream: objeto.corpo as Readable, encerrar: () => cliente.destroy() };
   }
 
   async preview(dealId: string, documentId: string, principal: AuthPrincipal): Promise<DownloadDeDocumento> {
-    await this.negocioVisivel(dealId, principal);
+    const { acesso } = await this.negocioVisivel(dealId, principal);
     const linha = await this.documentoPronto(dealId, documentId);
     if (!(leadDocumentPreviewableMimes as readonly string[]).includes(linha.detectedMime)) {
       throw new TipoNaoPermitido("Este tipo de documento não tem pré-visualização.");
     }
     const { objeto, cliente } = await this.armazenamento.ler(linha.storageKey);
-    return { documento: paraDocumento(linha), stream: objeto.corpo as Readable, encerrar: () => cliente.destroy() };
+    return { documento: paraDocumento(linha, principal.id, acesso), stream: objeto.corpo as Readable, encerrar: () => cliente.destroy() };
   }
 
   async discardProposalUpload(dealId: string, documentId: string, principal: AuthPrincipal): Promise<void> {
@@ -245,19 +248,24 @@ export class PrismaLeadDocumentosRepository extends LeadDocumentosRepository {
   }
 
   /** Visível a quem alcança o pipeline do negócio, de qualquer situação (aberto, ganho ou perdido). */
-  private async negocioVisivel(dealId: string, principal: AuthPrincipal): Promise<{ pipeline: { id: string; companyId: string } }> {
-    const negocio = await this.prisma.deal.findUnique({ where: { id: dealId }, select: { pipelineId: true } });
+  private async negocioVisivel(dealId: string, principal: AuthPrincipal, tx?: Prisma.TransactionClient): Promise<{ pipeline: { id: string; companyId: string }; acesso: AcessoComercial }> {
+    const banco = tx ?? this.prisma;
+    if (tx) await tx.$queryRaw`SELECT id FROM deals WHERE id = ${dealId}::uuid FOR UPDATE`;
+    const negocio = await banco.deal.findUnique({ where: { id: dealId }, select: { pipelineId: true, ownerId: true } });
     if (!negocio) throw new NaoEncontrado(NEGOCIO_NAO_ENCONTRADO);
     const [pipeline, acesso] = await Promise.all([
-      this.prisma.pipeline.findUnique({ where: { id: negocio.pipelineId }, select: { id: true, companyId: true } }),
-      lerAcessoComercial(this.prisma, principal.id),
+      banco.pipeline.findUnique({ where: { id: negocio.pipelineId }, select: { id: true, companyId: true } }),
+      lerAcessoComercial(banco, principal.id),
     ]);
     if (!pipeline || !podeVer(acesso)) throw new NaoEncontrado(NEGOCIO_NAO_ENCONTRADO);
-    return { pipeline };
+    exigeDonoComercial(acesso, principal.id, negocio.ownerId);
+    return { pipeline, acesso };
   }
 
-  private async ler(id: string): Promise<LeadDocument> {
-    return paraDocumento(await this.prisma.leadDocument.findUniqueOrThrow({ where: { id }, select: SELECAO }));
+  private async ler(id: string, principal: AuthPrincipal): Promise<LeadDocument> {
+    const documento = await this.prisma.leadDocument.findUniqueOrThrow({ where: { id }, select: SELECAO });
+    const { acesso } = await this.negocioVisivel(documento.dealId, principal);
+    return paraDocumento(documento, principal.id, acesso);
   }
 
   private registrar(

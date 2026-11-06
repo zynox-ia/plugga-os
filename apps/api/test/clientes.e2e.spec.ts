@@ -8,6 +8,8 @@ import type {
   CreateClientRequest,
   CreateClientResponse,
   DuplicateCandidatesQuery,
+  InactivateClientRequest,
+  UpdateClientContactRequest,
   ListClientsQuery,
   ListClientsResponse,
   UpdateClientRequest,
@@ -18,6 +20,8 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { AppModule } from "../src/app.module";
 import { paraItemDeLista } from "../src/clientes/clientes.rules";
 import { ClientesRepository } from "../src/clientes/clientes.repository";
+import type { AuthPrincipal } from "../src/core/auth/auth.types";
+import { exigeAtribuicaoPermitida, exigeRegistroVisivel, gerenciaRegistros } from "../src/core/auth/escopo-registros";
 import { Conflito, NaoEncontrado } from "../src/common/errors/dominio";
 
 // Documento da faixa sintética do projeto (scripts/dados-sinteticos.mjs), com dígito verificador válido.
@@ -54,15 +58,16 @@ function cliente(dados: Partial<ClientDetail> & Pick<ClientDetail, "id" | "name"
 
 const CLIENT_A = cliente({ id: "00000000-0000-4000-8000-000000000101", name: "Hotel Rio Negro", document: CNPJ, phone: "92900000000" });
 const CLIENT_B = cliente({ id: "00000000-0000-4000-8000-000000000102", name: "Amazonas Clean", email: "contato@clean.example" });
+const CLIENT_ALHEIO = cliente({ id: "00000000-0000-4000-8000-000000000103", name: "Cliente restrito", owner: { id: "00000000-0000-4000-8000-000000000099", name: "Outra pessoa" } });
 const CONTATO_ID = "00000000-0000-4000-8000-000000000201";
 
 /** Repositório em memória: o teste cobre rotas, papéis e validação; as regras de banco têm teste próprio. */
 class InMemoryClientesRepository extends ClientesRepository {
-  clients = [CLIENT_A, CLIENT_B];
+  clients = [CLIENT_A, CLIENT_B, CLIENT_ALHEIO];
 
-  async list(query: ListClientsQuery): Promise<ListClientsResponse> {
+  async list(query: ListClientsQuery, principal: AuthPrincipal): Promise<ListClientsResponse> {
     const termo = query.q?.toLowerCase();
-    const itens = this.clients.filter((c) => !termo || c.name.toLowerCase().includes(termo) || (c.document ?? "").includes(termo));
+    const itens = this.clients.filter((c) => (gerenciaRegistros(principal, ["crm", "energia-opm"]) || c.owner?.id === principal.id) && (!termo || c.name.toLowerCase().includes(termo) || (c.document ?? "").includes(termo)));
     return {
       items: itens.map((c) =>
         paraItemDeLista({ ...c, updatedAt: new Date(c.updatedAt), contacts: c.contacts.map((ct) => ({ ...ct, createdAt: new Date(ct.createdAt) })) }),
@@ -70,44 +75,47 @@ class InMemoryClientesRepository extends ClientesRepository {
     };
   }
 
-  async get(id: string): Promise<ClientDetail> {
+  async get(id: string, principal: AuthPrincipal): Promise<ClientDetail> {
     const encontrado = this.clients.find((c) => c.id === id);
     if (!encontrado) throw new NaoEncontrado("Cliente não encontrado.");
+    exigeRegistroVisivel(principal, encontrado.owner?.id, ["crm", "energia-opm"], "Cliente n?o encontrado.");
     return encontrado;
   }
 
-  async create(input: CreateClientRequest): Promise<CreateClientResponse> {
+  async create(input: CreateClientRequest, principal: AuthPrincipal): Promise<CreateClientResponse> {
+    exigeAtribuicaoPermitida(principal, input.ownerId ?? principal.id, "crm");
     if (input.document && this.clients.some((c) => c.document === input.document)) throw new Conflito("Já existe um cliente com este CNPJ.");
     const novo = cliente({ id: "00000000-0000-4000-8000-000000000199", name: input.name, document: input.document ?? null, phone: input.phone ?? null });
     const duplicateCandidates = input.phone === CLIENT_A.phone ? [{ id: CLIENT_A.id, name: CLIENT_A.name, personType: "pj" as const, matchedOn: ["phone" as const] }] : [];
     return { client: novo, duplicateCandidates };
   }
 
-  async update(id: string, input: UpdateClientRequest): Promise<ClientDetail> {
-    return { ...(await this.get(id)), ...(input.name ? { name: input.name } : {}) };
+  async update(id: string, input: UpdateClientRequest, principal: AuthPrincipal): Promise<ClientDetail> {
+    if (input.ownerId !== undefined) exigeAtribuicaoPermitida(principal, input.ownerId, "crm");
+    return { ...(await this.get(id, principal)), ...(input.name ? { name: input.name } : {}) };
   }
 
-  async activate(id: string): Promise<ClientDetail> {
-    return { ...(await this.get(id)), active: true };
+  async activate(id: string, principal: AuthPrincipal): Promise<ClientDetail> {
+    return { ...(await this.get(id, principal)), active: true };
   }
 
-  async inactivate(id: string): Promise<ClientDetail> {
-    return { ...(await this.get(id)), active: false };
+  async inactivate(id: string, _input: InactivateClientRequest, principal: AuthPrincipal): Promise<ClientDetail> {
+    return { ...(await this.get(id, principal)), active: false };
   }
 
-  async duplicateCandidates(query: DuplicateCandidatesQuery): Promise<ClientDuplicateCandidatesResponse> {
-    const candidates = query.document && query.document.replace(/\D/g, "") === CNPJ
+  async duplicateCandidates(query: DuplicateCandidatesQuery, principal: AuthPrincipal): Promise<ClientDuplicateCandidatesResponse> {
+    const candidates = (gerenciaRegistros(principal, ["crm", "energia-opm"]) || CLIENT_A.owner?.id === principal.id) && query.document && query.document.replace(/\D/g, "") === CNPJ
       ? [{ id: CLIENT_A.id, name: CLIENT_A.name, personType: "pj" as const, matchedOn: ["document" as const] }]
       : [];
     return { candidates };
   }
 
-  async owners(): Promise<ClientOwnersResponse> {
-    return { items: [DONO] };
+  async owners(principal: AuthPrincipal): Promise<ClientOwnersResponse> {
+    return { items: [DONO].filter((owner) => gerenciaRegistros(principal, "crm") || owner.id === principal.id) };
   }
 
-  async addContact(clientId: string, input: ClientContactInput): Promise<ClientDetail> {
-    const atual = await this.get(clientId);
+  async addContact(clientId: string, input: ClientContactInput, principal: AuthPrincipal): Promise<ClientDetail> {
+    const atual = await this.get(clientId, principal);
     const contato = {
       id: CONTATO_ID,
       name: input.name,
@@ -125,19 +133,19 @@ class InMemoryClientesRepository extends ClientesRepository {
     return { ...atual, contacts: [contato] };
   }
 
-  async updateContact(clientId: string): Promise<ClientDetail> {
-    return this.get(clientId);
+  async updateContact(clientId: string, _contactId: string, _input: UpdateClientContactRequest, principal: AuthPrincipal): Promise<ClientDetail> {
+    return this.get(clientId, principal);
   }
 
-  async removeContact(clientId: string): Promise<ClientDetail> {
-    return this.get(clientId);
+  async removeContact(clientId: string, _contactId: string, principal: AuthPrincipal): Promise<ClientDetail> {
+    return this.get(clientId, principal);
   }
 }
 
 describe("clientes API (e2e)", () => {
   let app: INestApplication;
 
-  const comercial = (r: request.Test) => r.set("x-dev-principal", "local-comercial").set("x-dev-departamentos", "crm:membro");
+  const comercial = (r: request.Test) => r.set("x-dev-principal", DONO.id).set("x-dev-departamentos", "crm:membro");
 
   beforeAll(async () => {
     const module = await Test.createTestingModule({ imports: [AppModule] })
@@ -155,6 +163,28 @@ describe("clientes API (e2e)", () => {
 
   it("requires authentication", async () => {
     await request(app.getHttpServer()).get("/clientes").expect(401);
+  });
+
+  it("membro não acessa cliente alheio por lista, seletor, ID ou operações de contato", async () => {
+    for (const caminho of ["/clientes", "/clientes/selecao-negocio?q=Cliente", "/clientes?active=true"]) {
+      const resposta = await comercial(request(app.getHttpServer()).get(caminho)).expect(200);
+      expect(resposta.body.items.map((item: { id: string }) => item.id)).not.toContain(CLIENT_ALHEIO.id);
+    }
+    await comercial(request(app.getHttpServer()).get(`/clientes/${CLIENT_ALHEIO.id}`)).expect(404);
+    await comercial(request(app.getHttpServer()).patch(`/clientes/${CLIENT_ALHEIO.id}`)).send({ name: "Invasão" }).expect(404);
+    await comercial(request(app.getHttpServer()).post(`/clientes/${CLIENT_ALHEIO.id}/activate`)).expect(404);
+    await comercial(request(app.getHttpServer()).post(`/clientes/${CLIENT_ALHEIO.id}/inactivate`)).send({}).expect(404);
+    await comercial(request(app.getHttpServer()).post(`/clientes/${CLIENT_ALHEIO.id}/contatos`)).send({ name: "Invasão" }).expect(404);
+    await comercial(request(app.getHttpServer()).patch(`/clientes/${CLIENT_ALHEIO.id}/contatos/${CONTATO_ID}`)).send({ name: "Invasão" }).expect(404);
+    await comercial(request(app.getHttpServer()).delete(`/clientes/${CLIENT_ALHEIO.id}/contatos/${CONTATO_ID}`)).expect(404);
+    await comercial(request(app.getHttpServer()).patch(`/clientes/${CLIENT_A.id}`)).send({ ownerId: CLIENT_ALHEIO.owner!.id }).expect(403);
+  });
+
+  it("outro membro não recebe duplicatas nem opções de responsável de outra pessoa", async () => {
+    const outro = (r: request.Test) => r.set("x-dev-principal", CLIENT_ALHEIO.owner!.id).set("x-dev-departamentos", "crm:membro");
+    await outro(request(app.getHttpServer()).get(`/clientes/duplicates?document=${CNPJ}`)).expect(200).expect((res) => expect(res.body.candidates).toEqual([]));
+    await outro(request(app.getHttpServer()).get("/clientes/responsaveis")).expect(200).expect((res) => expect(res.body.items).toEqual([]));
+    await request(app.getHttpServer()).get(`/clientes/${CLIENT_ALHEIO.id}`).set("x-dev-principal", DONO.id).set("x-dev-departamentos", "crm:gerente").expect(200);
   });
 
   it("denies the cadastro to departments outside the client domain", async () => {

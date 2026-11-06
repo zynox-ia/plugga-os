@@ -19,6 +19,7 @@ const row = {
 
 function setup() {
   const prisma = new PrismaService();
+  vi.spyOn(prisma, "$queryRaw").mockResolvedValue([]);
   vi.spyOn(prisma, "$transaction").mockImplementation(async (callback: unknown) => {
     if (typeof callback !== "function") throw new Error("Teste requer transação interativa.");
     return callback(prisma);
@@ -27,7 +28,7 @@ function setup() {
   const deal = vi.spyOn(prisma.deal, "findUnique").mockResolvedValue(null);
   deal.mockResolvedValue({
     profile: { name: "João", companyName: "Energia", email: "joao@example.test", phone: "92999999999", city: "Manaus", state: "AM", jobTitle: "Diretor", mainInterest: "Solar", notes: "Observações" },
-    title: "Negócio", owner: { name: "André" }, value: { toFixed: () => "18500.00" },
+    title: "Negócio", ownerId: principal.id, owner: { name: "André" }, value: { toFixed: () => "18500.00" },
   } as never);
   const read = vi.spyOn(prisma.leadProposal, "findFirst").mockResolvedValue(row as never);
   const write = vi.spyOn(prisma.leadProposal, "updateMany").mockResolvedValue({ count: 1 });
@@ -50,6 +51,23 @@ describe("Persistência das propostas: isolamento e concorrência", () => {
     vi.mocked(access.lerAcessoComercial).mockResolvedValue({ podeOperar: false, admin: false, gestorEm: [] });
     await expect(repo.get(row.dealId, row.id, principal)).rejects.toBeInstanceOf(NaoEncontrado);
     expect(read).not.toHaveBeenCalled();
+  });
+  it("recusa todos os caminhos de proposta do negócio de outro membro, mesmo com papel antigo na sessão", async () => {
+    const { repo, read, write, deal } = setup();
+    deal.mockResolvedValue({ ownerId: "outro" } as never);
+    vi.mocked(access.lerAcessoComercial).mockResolvedValue({ podeOperar: true, admin: false, gestorEm: [] });
+    const operations = [
+      () => repo.list(row.dealId, principal),
+      () => repo.templates(row.dealId, principal),
+      () => repo.get(row.dealId, row.id, principal),
+      () => repo.create(row.dealId, { templateId: row.templateId, content }, principal),
+      () => repo.update(row.dealId, row.id, { revision: 1, templateId: row.templateId, content }, principal),
+      () => repo.beginGeneration(row.dealId, row.id, 1, principal),
+      () => repo.completeGeneration(row.dealId, { proposal: row, token: "token" } as never, { id: "doc" } as LeadDocument, principal),
+    ];
+    for (const operation of operations) await expect(operation()).rejects.toBeInstanceOf(NaoEncontrado);
+    expect(read).not.toHaveBeenCalled();
+    expect(write).not.toHaveBeenCalled();
   });
   it("reserva geração com CAS de revisão, estado e token livre", async () => {
     const { repo, write } = setup();
@@ -83,6 +101,16 @@ describe("Persistência das propostas: isolamento e concorrência", () => {
     const generation = await repo.beginGeneration(row.dealId, row.id, 1, principal);
     write.mockClear();
     vi.mocked(access.lerAcessoComercial).mockResolvedValue({ podeOperar: false, admin: false, gestorEm: [] });
+    await expect(repo.completeGeneration(row.dealId, generation, { id: "doc" } as LeadDocument, principal)).rejects.toBeInstanceOf(NaoEncontrado);
+    expect(write).not.toHaveBeenCalled();
+    expect(version).not.toHaveBeenCalled();
+  });
+  it("transferência do responsável durante a geração impede concluir o PDF", async () => {
+    const { repo, version, write, deal } = setup();
+    vi.mocked(access.lerAcessoComercial).mockResolvedValue({ podeOperar: true, admin: false, gestorEm: [] });
+    const generation = await repo.beginGeneration(row.dealId, row.id, 1, principal);
+    write.mockClear();
+    deal.mockResolvedValue({ ownerId: "outro" } as never);
     await expect(repo.completeGeneration(row.dealId, generation, { id: "doc" } as LeadDocument, principal)).rejects.toBeInstanceOf(NaoEncontrado);
     expect(write).not.toHaveBeenCalled();
     expect(version).not.toHaveBeenCalled();

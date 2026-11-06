@@ -273,7 +273,9 @@ describe("equipe e acessos no modelo de 4 papéis (e2e, armazenamento em memóri
     const listagem = vi.spyOn(app.get(ClientesService), "list").mockResolvedValue({ items: [] });
     try {
       await vendedor.get("/clientes/selecao-negocio?q=ab").expect(200, { items: [] });
-      expect(listagem).toHaveBeenCalledWith({ q: "ab", active: "true" });
+      expect(listagem).toHaveBeenCalledWith({ q: "ab", active: "true" }, {
+        id: pessoas.vendedor!.id, kind: "user", acesso: pessoas.vendedor!.acesso,
+      });
       await vendedor.get("/clientes/selecao-negocio?q=a").expect(400);
       await vendedor.get("/clientes").expect(403);
       pessoas.vendedor!.acesso.departamentos[0]!.telas = [];

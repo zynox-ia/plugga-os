@@ -135,7 +135,7 @@ describe.skipIf(!HABILITADO)("pipelines: configuração no Postgres", () => {
       const ids = people.map((p) => p.id);
       expect(ids).toEqual(expect.arrayContaining([pessoas.vendedora.id, pessoas.forasteiro.id, pessoas.gestorWaze.id]));
       expect(ids).not.toContain(pessoas.semCrm.id);
-      expect((await repositorio.people({ companyId: "waze" }, pessoas.vendedora)).people.map((p) => p.id)).toEqual(ids);
+      expect((await repositorio.people({ companyId: "waze" }, pessoas.vendedora)).people.map((p) => p.id)).toEqual([pessoas.vendedora.id]);
     },
     PRAZO_MS,
   );

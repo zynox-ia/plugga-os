@@ -19,7 +19,7 @@ import {
 import { AuditAppender } from "../src/audit/audit-appender.js";
 import { ClientesService } from "../src/clientes/clientes.service.js";
 import { PrismaClientesRepository } from "../src/clientes/prisma-clientes.repository.js";
-import { EstadoInvalido, NaoEncontrado, RequisicaoInvalida } from "../src/common/errors/dominio.js";
+import { AcessoNegado, EstadoInvalido, NaoEncontrado, RequisicaoInvalida } from "../src/common/errors/dominio.js";
 import type { AuthPrincipal } from "../src/core/auth/auth.types.js";
 import { hojeNoFuso } from "../src/negocios/negocios.rules.js";
 import { PrismaNegociosRepository } from "../src/negocios/prisma-negocios.repository.js";
@@ -64,7 +64,7 @@ describe.skipIf(!HABILITADO)("negócios: quadro do pipeline no Postgres", () => 
   let clienteId: string;
 
   const etapa = (nome: string) => solar.stages.find((e) => e.name === nome)!.id;
-  const novo = (dados: Record<string, unknown> = {}) =>
+  const novo = (dados: Record<string, unknown> = {}, principal = pessoas.ana) =>
     negocios.create(
       createDealRequestSchema.parse({
         pipelineId: solar.id,
@@ -76,7 +76,7 @@ describe.skipIf(!HABILITADO)("negócios: quadro do pipeline no Postgres", () => 
         lead: { personType: "pj", name: `${marca} Lead`, phone: "92999990000" },
         ...dados,
       }),
-      pessoas.ana,
+      principal,
     );
 
   /** A empresa é só etiqueta do pipeline: quem é do CRM entra em qualquer um, e o gerente do CRM gere os dois. */
@@ -132,7 +132,7 @@ describe.skipIf(!HABILITADO)("negócios: quadro do pipeline no Postgres", () => 
 
     const cliente = await prisma.client.create({
       data: {
-        name: `${marca} Logística Igarapé`,
+        ownerId: pessoas.ana.id, name: `${marca} Logística Igarapé`,
         phone: "(92) 99999-9999", email: "cliente@teste.local", city: "Manaus", state: "AM", legalName: "Logística Exemplo Ltda",
       },
     });
@@ -150,7 +150,8 @@ describe.skipIf(!HABILITADO)("negócios: quadro do pipeline no Postgres", () => 
 
   it("detalhe real respeita acesso atual do CRM e oculta leitura, histórico e edição sem acesso", async () => {
     const criado = await novo();
-    const detalhe = await negocios.get(criado.id, pessoas.pluggaVendedor);
+    const detalhe = await negocios.get(criado.id, pessoas.gestor);
+    await expect(negocios.get(criado.id, pessoas.pluggaVendedor)).rejects.toBeInstanceOf(NaoEncontrado);
     expect(detalhe).toMatchObject({ id: criado.id, title: criado.title, lead: criado.lead, version: expect.any(Number) });
     const antes = await prisma.eventLog.count({ where: { entityId: criado.id } });
     await expect(negocios.get(criado.id, pessoas.forasteiro)).rejects.toBeInstanceOf(NaoEncontrado);
@@ -160,20 +161,109 @@ describe.skipIf(!HABILITADO)("negócios: quadro do pipeline no Postgres", () => 
     expect(await prisma.eventLog.count({ where: { entityId: criado.id } })).toBe(antes);
   });
 
+  it("membro só vê seus negócios e contagens, e lote misto não altera nenhum registro", async () => {
+    const proprio = await novo();
+    const alheio = await novo({ ownerId: pessoas.bruno.id }, pessoas.gestor);
+    const antes = await prisma.deal.findMany({ where: { id: { in: [proprio.id, alheio.id] } }, orderBy: { id: "asc" } });
+    const historicos = await prisma.dealHistory.count({ where: { dealId: { in: [proprio.id, alheio.id] } } });
+    const operations = [
+      () => negocios.get(alheio.id, pessoas.ana),
+      () => negocios.history(alheio.id, { limit: 30 }, pessoas.ana),
+      () => negocios.update(alheio.id, { title: `${marca} proibido` }, pessoas.ana),
+      () => negocios.moveStage(alheio.id, { stageId: etapa("Visita técnica") }, pessoas.ana),
+      () => negocios.setPriority(alheio.id, { priority: "urgente" }, pessoas.ana),
+      () => negocios.win(alheio.id, ganhar(), pessoas.ana),
+      () => negocios.lose(alheio.id, { lossReasonId: solar.lossReasons[0]!.id }, pessoas.ana),
+      () => negocios.convert(alheio.id, {}, pessoas.ana),
+      () => negocios.transfer(alheio.id, transferDealRequestSchema.parse({ pipelineId: mercadoLivre.id, stageId: mercadoLivre.stages[0]!.id }), pessoas.ana),
+    ];
+    for (const operation of operations) await expect(operation()).rejects.toBeInstanceOf(NaoEncontrado);
+    for (const action of [
+      { type: "priority", priority: "urgente" }, { type: "owner", ownerId: pessoas.ana.id },
+      { type: "tag", tagId: solar.tags[0]!.id }, { type: "stage", stageId: etapa("Visita técnica") },
+    ]) await expect(negocios.bulk(bulkDealsRequestSchema.parse({ dealIds: [proprio.id, alheio.id], action }), pessoas.ana)).rejects.toBeInstanceOf(NaoEncontrado);
+    await expect(negocios.moveStage(proprio.id, { stageId: proprio.stageId, beforeDealId: alheio.id }, pessoas.ana)).rejects.toBeInstanceOf(RequisicaoInvalida);
+    expect(await prisma.deal.findMany({ where: { id: { in: [proprio.id, alheio.id] } }, orderBy: { id: "asc" } })).toEqual(antes);
+    expect(await prisma.dealHistory.count({ where: { dealId: { in: [proprio.id, alheio.id] } } })).toBe(historicos);
+    expect((await negocios.list({ pipelineId: solar.id, status: "all" }, pessoas.ana)).deals.every((n) => n.owner.id === pessoas.ana.id)).toBe(true);
+    for (const pessoa of [pessoas.ana, pessoas.bruno]) {
+      const lista = await pipelines.list(pessoa);
+      expect(lista.responsaveis.map((r) => r.id)).toEqual([pessoa.id]);
+      const funil = lista.pipelines.find((p) => p.id === solar.id)!;
+      expect(funil.dealCount).toBe(await prisma.deal.count({ where: { pipelineId: solar.id, ownerId: pessoa.id } }));
+      for (const stage of funil.stages) expect(stage.dealCount).toBe(await prisma.deal.count({ where: { stageId: stage.id, ownerId: pessoa.id } }));
+    }
+    expect((await negocios.get(alheio.id, pessoas.gestor)).owner.id).toBe(pessoas.bruno.id);
+  });
+
+  it("só gestão atribui a outra pessoa, mesmo com vínculo antigo de gestor do funil", async () => {
+    const proprio = await novo();
+    await prisma.pipelineMember.create({ data: { pipelineId: solar.id, userId: pessoas.ana.id, role: "gestor" } });
+    try {
+      await expect(novo({ ownerId: pessoas.bruno.id })).rejects.toBeInstanceOf(AcessoNegado);
+      await expect(negocios.update(proprio.id, { ownerId: pessoas.bruno.id }, pessoas.ana)).rejects.toBeInstanceOf(AcessoNegado);
+      await expect(negocios.transfer(proprio.id, transferDealRequestSchema.parse({ pipelineId: mercadoLivre.id, stageId: mercadoLivre.stages[0]!.id, ownerId: pessoas.bruno.id }), pessoas.ana)).rejects.toBeInstanceOf(AcessoNegado);
+      await expect(negocios.bulk({ dealIds: [proprio.id], action: { type: "owner", ownerId: pessoas.bruno.id } }, pessoas.ana)).rejects.toBeInstanceOf(AcessoNegado);
+      expect((await negocios.get(proprio.id, pessoas.ana)).owner.id).toBe(pessoas.ana.id);
+    } finally {
+      await prisma.pipelineMember.deleteMany({ where: { pipelineId: solar.id, userId: pessoas.ana.id } });
+    }
+    await prisma.userDepartamento.updateMany({ where: { userId: pessoas.gestor.id }, data: { nivel: "membro" } });
+    try {
+      await expect(negocios.get(proprio.id, pessoas.gestor)).rejects.toBeInstanceOf(NaoEncontrado);
+    } finally {
+      await prisma.userDepartamento.updateMany({ where: { userId: pessoas.gestor.id }, data: { nivel: "gerente" } });
+    }
+  });
+
+  it("mudança de dono do cliente oculta o vínculo e minimiza autores sem apagar o histórico", async () => {
+    const cliente = await prisma.client.create({ data: { ownerId: pessoas.ana.id, name: `${marca} Cliente transferido` } });
+    const proprio = await novo({ clientId: cliente.id });
+    expect(proprio.client?.id).toBe(cliente.id);
+    await negocios.update(proprio.id, { title: `${marca} Edição da gestão` }, pessoas.gestor);
+    await prisma.client.update({ where: { id: cliente.id }, data: { ownerId: pessoas.bruno.id } });
+    const detalhe = await negocios.get(proprio.id, pessoas.ana);
+    expect(detalhe.client).toBeNull();
+    expect((await negocios.list({ pipelineId: solar.id, status: "all" }, pessoas.ana)).deals.find((d) => d.id === proprio.id)?.client).toBeNull();
+    await expect(negocios.clientOptions(cliente.id, pessoas.ana)).rejects.toBeInstanceOf(NaoEncontrado);
+    const historico = await negocios.history(proprio.id, { limit: 30 }, pessoas.ana);
+    expect(historico.entries.find((e) => e.kind === "field_changed")?.actor).toBeNull();
+    expect((await negocios.get(proprio.id, pessoas.gestor)).client).toMatchObject({ id: cliente.id, name: cliente.name });
+    expect((await negocios.history(proprio.id, { limit: 30 }, pessoas.gestor)).entries.find((e) => e.kind === "field_changed")?.actor?.id).toBe(pessoas.gestor.id);
+    expect((await pipelines.list(pessoas.ana)).pipelines.find((p) => p.id === solar.id)?.updatedBy).toBeNull();
+    expect((await prisma.deal.findUniqueOrThrow({ where: { id: proprio.id } })).clientId).toBe(cliente.id);
+    expect(await prisma.dealHistory.count({ where: { dealId: proprio.id, actorId: pessoas.gestor.id } })).toBe(1);
+  });
+
+  it("seleção, contatos, vínculo e conversão não expõem cliente de outro responsável ou compartilhado", async () => {
+    const privado = await prisma.client.create({ data: { ownerId: pessoas.bruno.id, name: `${marca} Privado`, document: gerarCpf(), contacts: { create: { name: "Contato privado" } } } });
+    const compartilhado = await prisma.client.create({ data: { name: `${marca} Compartilhado`, contacts: { create: { name: "Contato compartilhado" } } } });
+    for (const cliente of [privado, compartilhado]) {
+      await expect(negocios.clientOptions(cliente.id, pessoas.ana)).rejects.toBeInstanceOf(NaoEncontrado);
+      expect((await negocios.clientOptions(cliente.id, pessoas.gestor)).contacts).toHaveLength(1);
+      await expect(novo({ clientId: cliente.id })).rejects.toBeInstanceOf(NaoEncontrado);
+    }
+    const porEscolha = await novo({ lead: { personType: "pf", name: `${marca} Escolha`, phone: "92999990000" } });
+    await expect(negocios.convert(porEscolha.id, { resolution: { type: "link", clientId: privado.id } }, pessoas.ana)).rejects.toBeInstanceOf(NaoEncontrado);
+    const porDocumento = await novo({ lead: { personType: "pf", name: `${marca} Documento`, document: privado.document, phone: "92999990000" } });
+    await expect(negocios.convert(porDocumento.id, {}, pessoas.ana)).rejects.toBeInstanceOf(NaoEncontrado);
+    expect(await prisma.deal.count({ where: { id: { in: [porEscolha.id, porDocumento.id] }, clientId: null, status: "open" } })).toBe(2);
+  });
+
   it("edita dados comerciais, origem/endereço/complemento e contato próprio com antes/depois", async () => {
     const criado = await novo({ contact: { name: "Contato inicial", phone: "92999991111" } });
-    const detalhe = await negocios.get(criado.id, pessoas.ana);
+    const detalhe = await negocios.get(criado.id, pessoas.gestor);
     const atualizado = await negocios.update(criado.id, updateLeadRequestSchema.parse({
       version: detalhe.version, title: `${marca} Título alterado`, value: "850.5", expectedCloseDate: "2028-02-29",
       ownerId: pessoas.bruno.id, tagIds: [solar.tags[0]!.id],
       lead: { origin: "indicacao", street: "Rua de teste", addressComplement: "Sala sintética", postalCode: "69000000" },
       contact: { name: "Contato alterado", phone: "92999992222", phoneIsWhatsapp: true },
-    }), pessoas.ana);
+    }), pessoas.gestor);
     expect(atualizado).toMatchObject({ value: "850.50", expectedCloseDate: "2028-02-29", owner: { id: pessoas.bruno.id },
       lead: { origin: "indicacao", addressComplement: "Sala sintética" }, contact: { name: "Contato alterado", phoneIsWhatsapp: true } });
     expect(atualizado.version).toBeGreaterThan(detalhe.version);
-    const historico = await negocios.history(criado.id, { limit: 100 }, pessoas.ana);
-    expect(historico.entries).toContainEqual(expect.objectContaining({ kind: "field_changed", field: "value", before: "620000.00", after: "850.50", actor: { id: pessoas.ana.id, name: expect.any(String) } }));
+    const historico = await negocios.history(criado.id, { limit: 100 }, pessoas.gestor);
+    expect(historico.entries).toContainEqual(expect.objectContaining({ kind: "field_changed", field: "value", before: "620000.00", after: "850.50", actor: { id: pessoas.gestor.id, name: expect.any(String) } }));
     expect(historico.entries).toContainEqual(expect.objectContaining({ field: "lead.addressComplement", before: null, after: "Sala sintética" }));
     expect(historico.entries).toContainEqual(expect.objectContaining({ field: "contact.phone", before: "92999991111", after: "92999992222" }));
     const eventos = await prisma.eventLog.findMany({ where: { entityId: criado.id, eventName: "commercial.deal.updated" } });
@@ -230,7 +320,7 @@ describe.skipIf(!HABILITADO)("negócios: quadro do pipeline no Postgres", () => 
     const detalhe = await negocios.get(criado.id, pessoas.ana);
     const resultados = await Promise.allSettled([
       negocios.update(criado.id, { version: detalhe.version, lead: { notes: "Primeira" } }, pessoas.ana),
-      negocios.update(criado.id, { version: detalhe.version, lead: { notes: "Segunda" } }, pessoas.bruno),
+      negocios.update(criado.id, { version: detalhe.version, lead: { notes: "Segunda" } }, pessoas.gestor),
     ]);
     expect(resultados.filter((r) => r.status === "fulfilled")).toHaveLength(1);
     const falhas = resultados.filter((r) => r.status === "rejected");
@@ -287,7 +377,7 @@ describe.skipIf(!HABILITADO)("negócios: quadro do pipeline no Postgres", () => 
     const criado = await novo();
     const detalhe = await negocios.get(criado.id, pessoas.ana);
     await expect(negocios.update(criado.id, { version: detalhe.version, title: `${marca} Inválido`, tagIds: [mercadoLivre.tags[0]!.id] }, pessoas.ana)).rejects.toBeInstanceOf(RequisicaoInvalida);
-    await expect(negocios.update(criado.id, { version: detalhe.version, ownerId: pessoas.forasteiro.id }, pessoas.ana)).rejects.toBeInstanceOf(RequisicaoInvalida);
+    await expect(negocios.update(criado.id, { version: detalhe.version, ownerId: pessoas.forasteiro.id }, pessoas.gestor)).rejects.toBeInstanceOf(RequisicaoInvalida);
     await expect(negocios.update(criado.id, { version: detalhe.version, lead: { personType: "pf" }, contact: { name: "Contato proibido PF" } }, pessoas.ana)).rejects.toBeInstanceOf(RequisicaoInvalida);
     expect(await negocios.get(criado.id, pessoas.ana)).toEqual(detalhe);
     expect(await prisma.dealHistory.count({ where: { dealId: criado.id } })).toBe(1);
@@ -295,34 +385,34 @@ describe.skipIf(!HABILITADO)("negócios: quadro do pipeline no Postgres", () => 
 
   it("prioridade, etapa, ganho, perda e lote invalidam versões antigas; lote no-op não invalida", async () => {
     const criado = await novo();
-    let atual = await negocios.get(criado.id, pessoas.ana);
+    let atual = await negocios.get(criado.id, pessoas.gestor);
     const mudar = async (acao: () => Promise<unknown>) => {
       const anterior = atual;
       await acao();
-      atual = await negocios.get(criado.id, pessoas.ana);
+      atual = await negocios.get(criado.id, pessoas.gestor);
       expect(atual.version).toBeGreaterThan(anterior.version);
-      await expect(negocios.update(criado.id, { version: anterior.version, lead: { notes: "Versão vencida" } }, pessoas.ana)).rejects.toBeInstanceOf(EstadoInvalido);
+      await expect(negocios.update(criado.id, { version: anterior.version, lead: { notes: "Versão vencida" } }, pessoas.gestor)).rejects.toBeInstanceOf(EstadoInvalido);
     };
-    await mudar(() => negocios.setPriority(criado.id, { priority: "urgente" }, pessoas.ana));
-    await mudar(() => negocios.moveStage(criado.id, { stageId: etapa("Visita técnica") }, pessoas.ana));
-    await mudar(() => negocios.bulk({ dealIds: [criado.id], action: { type: "owner", ownerId: pessoas.bruno.id } }, pessoas.ana));
-    await mudar(() => negocios.bulk({ dealIds: [criado.id], action: { type: "tag", tagId: solar.tags[0]!.id } }, pessoas.ana));
+    await mudar(() => negocios.setPriority(criado.id, { priority: "urgente" }, pessoas.gestor));
+    await mudar(() => negocios.moveStage(criado.id, { stageId: etapa("Visita técnica") }, pessoas.gestor));
+    await mudar(() => negocios.bulk({ dealIds: [criado.id], action: { type: "owner", ownerId: pessoas.bruno.id } }, pessoas.gestor));
+    await mudar(() => negocios.bulk({ dealIds: [criado.id], action: { type: "tag", tagId: solar.tags[0]!.id } }, pessoas.gestor));
     const antesNoop = atual;
     const tamanhoHistorico = await prisma.dealHistory.count({ where: { dealId: criado.id } });
-    await negocios.bulk({ dealIds: [criado.id], action: { type: "owner", ownerId: pessoas.bruno.id } }, pessoas.ana);
-    await negocios.bulk({ dealIds: [criado.id], action: { type: "tag", tagId: solar.tags[0]!.id } }, pessoas.ana);
-    expect((await negocios.get(criado.id, pessoas.ana)).version).toBe(antesNoop.version);
+    await negocios.bulk({ dealIds: [criado.id], action: { type: "owner", ownerId: pessoas.bruno.id } }, pessoas.gestor);
+    await negocios.bulk({ dealIds: [criado.id], action: { type: "tag", tagId: solar.tags[0]!.id } }, pessoas.gestor);
+    expect((await negocios.get(criado.id, pessoas.gestor)).version).toBe(antesNoop.version);
     expect(await prisma.dealHistory.count({ where: { dealId: criado.id } })).toBe(tamanhoHistorico);
-    await mudar(() => negocios.win(criado.id, ganhar(), pessoas.ana));
+    await mudar(() => negocios.win(criado.id, ganhar(), pessoas.gestor));
     const perdido = await novo();
-    const antesPerda = await negocios.get(perdido.id, pessoas.ana);
-    await negocios.lose(perdido.id, { lossReasonId: solar.lossReasons[0]!.id, note: "Nota sintética" }, pessoas.ana);
-    expect(await negocios.get(perdido.id, pessoas.ana)).toMatchObject({ status: "lost", lossNote: "Nota sintética", version: expect.any(Number) });
-    expect((await negocios.get(perdido.id, pessoas.ana)).version).toBeGreaterThan(antesPerda.version);
+    const antesPerda = await negocios.get(perdido.id, pessoas.gestor);
+    await negocios.lose(perdido.id, { lossReasonId: solar.lossReasons[0]!.id, note: "Nota sintética" }, pessoas.gestor);
+    expect(await negocios.get(perdido.id, pessoas.gestor)).toMatchObject({ status: "lost", lossNote: "Nota sintética", version: expect.any(Number) });
+    expect((await negocios.get(perdido.id, pessoas.gestor)).version).toBeGreaterThan(antesPerda.version);
   });
 
   it(
-    "a vendedora cria o lead, já com cliente vinculado e contato próprio; a equipe toda o vê, quem está fora não",
+    "a vendedora cria o lead, já com cliente vinculado e contato próprio; a gestão o vê e outros membros não",
     async () => {
       const negocio = await novo({
         clientId: clienteId,
@@ -337,8 +427,9 @@ describe.skipIf(!HABILITADO)("negócios: quadro do pipeline no Postgres", () => 
       expect(negocio.tags.map((t) => t.name)).toEqual(["Grupo A"]);
 
       const doBruno = await negocios.list({ pipelineId: solar.id, status: "open" }, pessoas.bruno);
-      expect(doBruno.deals.map((d) => d.id)).toContain(negocio.id);
-      expect(doBruno.deals.find((d) => d.id === negocio.id)?.client).toEqual(negocio.client);
+      expect(doBruno.deals.map((d) => d.id)).not.toContain(negocio.id);
+      const doGestor = await negocios.list({ pipelineId: solar.id, status: "open" }, pessoas.gestor);
+      expect(doGestor.deals.find((d) => d.id === negocio.id)?.client).toEqual(negocio.client);
       await expect(negocios.list({ pipelineId: solar.id, status: "open" }, pessoas.forasteiro)).rejects.toBeInstanceOf(NaoEncontrado);
 
       const historico = await prisma.dealHistory.findMany({ where: { dealId: negocio.id } });
@@ -353,7 +444,7 @@ describe.skipIf(!HABILITADO)("negócios: quadro do pipeline no Postgres", () => 
     async () => {
       const semCliente = await novo();
       expect(semCliente.client).toBeNull();
-      await expect(novo({ ownerId: pessoas.forasteiro.id })).rejects.toBeInstanceOf(RequisicaoInvalida);
+      await expect(novo({ ownerId: pessoas.forasteiro.id }, pessoas.gestor)).rejects.toBeInstanceOf(RequisicaoInvalida);
       await expect(novo({ clientId: randomUUID() })).rejects.toBeInstanceOf(RequisicaoInvalida);
       await expect(novo({ stageId: mercadoLivre.stages[0]!.id })).rejects.toBeInstanceOf(RequisicaoInvalida);
     },
@@ -418,7 +509,7 @@ describe.skipIf(!HABILITADO)("negócios: quadro do pipeline no Postgres", () => 
     const referencia = await novo();
     const a = await novo({ stageId: etapa("Visita técnica") });
     const b = await novo({ stageId: etapa("Visita técnica") });
-    await Promise.all([a, b].map((n, index) => negocios.moveStage(n.id, { stageId: referencia.stageId, beforeDealId: referencia.id }, index === 0 ? pessoas.ana : pessoas.bruno)));
+    await Promise.all([a, b].map((n, index) => negocios.moveStage(n.id, { stageId: referencia.stageId, beforeDealId: referencia.id }, index === 0 ? pessoas.ana : pessoas.gestor)));
     const encontrados = (await negocios.list({ pipelineId: solar.id, status: "open" }, pessoas.ana)).deals.filter((n) => [a.id, b.id, referencia.id].includes(n.id));
     expect(new Set(encontrados.slice(0, 2).map((n) => n.id))).toEqual(new Set([a.id, b.id]));
     expect(encontrados[2]?.id).toBe(referencia.id);
@@ -431,7 +522,7 @@ describe.skipIf(!HABILITADO)("negócios: quadro do pipeline no Postgres", () => 
     const noMercado = await novo({ pipelineId: mercadoLivre.id, stageId: mercadoLivre.stages[0]!.id });
     const [paraMercado, paraSolar] = await Promise.all([
       negocios.transfer(naSolar.id, transferDealRequestSchema.parse({ pipelineId: mercadoLivre.id, stageId: mercadoLivre.stages[0]!.id }), pessoas.ana),
-      negocios.transfer(noMercado.id, transferDealRequestSchema.parse({ pipelineId: solar.id, stageId: etapa("Qualificação") }), pessoas.bruno),
+      negocios.transfer(noMercado.id, transferDealRequestSchema.parse({ pipelineId: solar.id, stageId: etapa("Qualificação") }), pessoas.gestor),
     ]);
     expect(paraMercado.pipelineId).toBe(mercadoLivre.id);
     expect(paraSolar.pipelineId).toBe(solar.id);
@@ -496,6 +587,7 @@ describe.skipIf(!HABILITADO)("negócios: quadro do pipeline no Postgres", () => 
   });
 
   it("responsáveis vêm do acesso ativo: admin, desenvolvedor e CRM sem vínculo no funil", async () => {
+    let administrador: AuthPrincipal = pessoas.gestor;
     for (const papel of ["admin", "desenvolvedor"] as const) {
       const role = await prisma.role.upsert({ where: { key: papel }, create: { key: papel, name: papel }, update: {} });
       const usuario = await prisma.user.create({ data: {
@@ -503,14 +595,15 @@ describe.skipIf(!HABILITADO)("negócios: quadro do pipeline no Postgres", () => 
         platformRoles: { create: { roleId: role.id } },
       } });
       const principal: AuthPrincipal = { id: usuario.id, kind: "user", acesso: { plataforma: papel, departamentos: [] } };
+      if (papel === "admin") administrador = principal;
       const lista = await pipelines.list(principal);
       expect(lista.pipelines.some((p) => p.id === solar.id)).toBe(true);
       expect(lista.responsaveis).toContainEqual({ id: usuario.id, name: usuario.name, email: usuario.email });
-      expect((await novo({ ownerId: usuario.id })).owner.id).toBe(usuario.id);
+      expect((await novo({ ownerId: usuario.id }, administrador)).owner.id).toBe(usuario.id);
       expect(await prisma.pipelineMember.count({ where: { userId: usuario.id } })).toBe(0);
     }
     // Gestor do CRM também pode ser responsável sem equipe atribuída no pipeline.
-    const criado = await novo({ ownerId: pessoas.gestor.id });
+    const criado = await novo({ ownerId: pessoas.gestor.id }, administrador);
     expect(criado.owner.id).toBe(pessoas.gestor.id);
     const lista = await pipelines.list(pessoas.ana);
     expect(lista.canCreateIn).toEqual([]);
@@ -521,15 +614,15 @@ describe.skipIf(!HABILITADO)("negócios: quadro do pipeline no Postgres", () => 
         departamentos: { create: { departamento: "crm", nivel: "membro", telas: ["crm.pipelines"] } },
       } });
       expect((await pipelines.people({ companyId: "waze" }, pessoas.ana)).people.some((p) => p.id === usuario.id)).toBe(false);
-      await expect(novo({ ownerId: usuario.id })).rejects.toBeInstanceOf(RequisicaoInvalida);
-      await expect(negocios.bulk(bulkDealsRequestSchema.parse({ dealIds: [criado.id], action: { type: "owner", ownerId: usuario.id } }), pessoas.ana)).rejects.toBeInstanceOf(RequisicaoInvalida);
-      await expect(negocios.transfer(criado.id, transferDealRequestSchema.parse({ pipelineId: mercadoLivre.id, stageId: mercadoLivre.stages[0]!.id, ownerId: usuario.id }), pessoas.ana)).rejects.toBeInstanceOf(RequisicaoInvalida);
+      await expect(novo({ ownerId: usuario.id }, administrador)).rejects.toBeInstanceOf(RequisicaoInvalida);
+      await expect(negocios.bulk(bulkDealsRequestSchema.parse({ dealIds: [criado.id], action: { type: "owner", ownerId: usuario.id } }), administrador)).rejects.toBeInstanceOf(RequisicaoInvalida);
+      await expect(negocios.transfer(criado.id, transferDealRequestSchema.parse({ pipelineId: mercadoLivre.id, stageId: mercadoLivre.stages[0]!.id, ownerId: usuario.id }), administrador)).rejects.toBeInstanceOf(RequisicaoInvalida);
     }
     expect((await pipelines.people({ companyId: "waze" }, pessoas.ana)).people.some((p) => p.id === pessoas.forasteiro.id)).toBe(false);
     // Revogar a tela derruba imediatamente a elegibilidade, mesmo mantendo o departamento.
     await prisma.userDepartamento.updateMany({ where: { userId: pessoas.gestor.id }, data: { telas: [] } });
     try {
-      await expect(novo({ ownerId: pessoas.gestor.id })).rejects.toBeInstanceOf(RequisicaoInvalida);
+      await expect(novo({ ownerId: pessoas.gestor.id }, administrador)).rejects.toBeInstanceOf(RequisicaoInvalida);
     } finally {
       await prisma.userDepartamento.updateMany({ where: { userId: pessoas.gestor.id }, data: { telas: ["crm.pipelines"] } });
     }
@@ -539,13 +632,13 @@ describe.skipIf(!HABILITADO)("negócios: quadro do pipeline no Postgres", () => 
     "arrastar de Qualificação para Cotações/Proposta grava a etapa e o histórico",
     async () => {
       const negocio = await novo();
-      const movido = await negocios.moveStage(negocio.id, { stageId: etapa("Cotações/Proposta") }, pessoas.bruno);
+      const movido = await negocios.moveStage(negocio.id, { stageId: etapa("Cotações/Proposta") }, pessoas.gestor);
 
       const relido = (await negocios.list({ pipelineId: solar.id, status: "open" }, pessoas.ana)).deals.find((d) => d.id === negocio.id)!;
       expect(relido.stageId).toBe(etapa("Cotações/Proposta"));
       expect(new Date(movido.stageEnteredAt).getTime()).toBeGreaterThanOrEqual(new Date(negocio.stageEnteredAt).getTime());
       const mudanca = await prisma.dealHistory.findFirst({ where: { dealId: negocio.id, kind: "stage_changed" } });
-      expect(mudanca).toMatchObject({ fromStageName: "Qualificação", toStageName: "Cotações/Proposta", actorId: pessoas.bruno.id });
+      expect(mudanca).toMatchObject({ fromStageName: "Qualificação", toStageName: "Cotações/Proposta", actorId: pessoas.gestor.id });
     },
     PRAZO_MS,
   );
@@ -589,7 +682,7 @@ describe.skipIf(!HABILITADO)("negócios: quadro do pipeline no Postgres", () => 
       const destino = transferDealRequestSchema.parse({ pipelineId: mercadoLivre.id, stageId: mercadoLivre.stages[1]!.id });
       await expect(negocios.transfer(negocio.id, destino, pessoas.forasteiro)).rejects.toBeInstanceOf(NaoEncontrado);
 
-      const movido = await negocios.transfer(negocio.id, destino, pessoas.pluggaVendedor);
+      const movido = await negocios.transfer(negocio.id, destino, pessoas.ana);
       expect(movido).toMatchObject({ companyId: "plugga", pipelineId: mercadoLivre.id, stageId: mercadoLivre.stages[1]!.id, tags: [], status: "open", closedAt: null, client: null });
       expect(movido.owner.id).toBe(pessoas.ana.id);
       const historico = await prisma.dealHistory.findMany({ where: { dealId: negocio.id }, orderBy: { occurredAt: "asc" } });
@@ -604,10 +697,10 @@ describe.skipIf(!HABILITADO)("negócios: quadro do pipeline no Postgres", () => 
     async () => {
       const a = await novo();
       const b = await novo();
-      const ganho = await negocios.win((await novo()).id, ganhar(), pessoas.ana);
+      const ganho = await negocios.win((await novo()).id, ganhar(), pessoas.gestor);
       const ids = [a.id, b.id, ganho.id];
 
-      const lote = (acao: unknown) => negocios.bulk(bulkDealsRequestSchema.parse({ dealIds: ids, action: acao }), pessoas.ana);
+      const lote = (acao: unknown) => negocios.bulk(bulkDealsRequestSchema.parse({ dealIds: ids, action: acao }), pessoas.gestor);
       expect((await lote({ type: "owner", ownerId: pessoas.bruno.id })).deals.every((d) => d.owner.id === pessoas.bruno.id)).toBe(true);
       expect((await lote({ type: "tag", tagId: solar.tags[1]!.id })).deals.every((d) => d.tags.some((t) => t.name === "Indicação"))).toBe(true);
       const movidos = (await lote({ type: "stage", stageId: etapa("Visita técnica") })).deals;
@@ -615,7 +708,7 @@ describe.skipIf(!HABILITADO)("negócios: quadro do pipeline no Postgres", () => 
       expect(movidos.find((d) => d.id === ganho.id)?.stageId).toBe(etapa("Qualificação"));
 
       await expect(
-        negocios.bulk(bulkDealsRequestSchema.parse({ dealIds: [a.id], action: { type: "owner", ownerId: pessoas.forasteiro.id } }), pessoas.ana),
+        negocios.bulk(bulkDealsRequestSchema.parse({ dealIds: [a.id], action: { type: "owner", ownerId: pessoas.forasteiro.id } }), pessoas.gestor),
       ).rejects.toBeInstanceOf(RequisicaoInvalida);
     },
     PRAZO_MS,
@@ -647,7 +740,7 @@ describe.skipIf(!HABILITADO)("negócios: quadro do pipeline no Postgres", () => 
   describe("conversão do lead em cliente", () => {
     it("documento igual a um cliente existente vincula, sem sobrescrever dados nem mesclar contatos", async () => {
       const documento = gerarCpf();
-      const existente = await prisma.client.create({ data: { name: `${marca} Já cadastrado`, document: documento, phone: "92988887777" } });
+      const existente = await prisma.client.create({ data: { ownerId: pessoas.ana.id, name: `${marca} Já cadastrado`, document: documento, phone: "92988887777" } });
       const negocio = await novo({ stageId: etapa("Visita técnica"), lead: { personType: "pf", name: `${marca} Com documento`, document: documento, phone: "92999991111" } });
 
       const resultado = await negocios.convert(negocio.id, {}, pessoas.ana);
@@ -693,7 +786,7 @@ describe.skipIf(!HABILITADO)("negócios: quadro do pipeline no Postgres", () => 
 
     it("sem documento e com candidato, não mescla sozinho: devolve os candidatos até a escolha explícita", async () => {
       const marcador = randomUUID().slice(0, 8);
-      const parecido = await prisma.client.create({ data: { name: `${marca} Parecido ${marcador}`, phone: "92977776666" } });
+      const parecido = await prisma.client.create({ data: { ownerId: pessoas.ana.id, name: `${marca} Parecido ${marcador}`, phone: "92977776666" } });
       const negocio = await novo({ stageId: etapa("Visita técnica"), lead: { personType: "pf", name: `${marca} Parecido ${marcador}`, phone: "92977776666" } });
 
       const falha = await negocios.convert(negocio.id, {}, pessoas.ana).catch((erro) => erro);
@@ -710,7 +803,7 @@ describe.skipIf(!HABILITADO)("negócios: quadro do pipeline no Postgres", () => 
 
     it("resolution create ignora os candidatos e cria mesmo assim", async () => {
       const marcador = randomUUID().slice(0, 8);
-      await prisma.client.create({ data: { name: `${marca} Outro parecido ${marcador}`, phone: "92966665555" } });
+      await prisma.client.create({ data: { ownerId: pessoas.ana.id, name: `${marca} Outro parecido ${marcador}`, phone: "92966665555" } });
       const negocio = await novo({ stageId: etapa("Visita técnica"), lead: { personType: "pf", name: `${marca} Outro parecido ${marcador}`, phone: "92966665555" } });
 
       const resultado = await negocios.convert(negocio.id, { resolution: { type: "create" } }, pessoas.ana);
@@ -754,7 +847,7 @@ describe.skipIf(!HABILITADO)("negócios: quadro do pipeline no Postgres", () => 
       const marcador = randomUUID();
       const nome = `${marca} Concorrente ${marcador}`;
       const negocio = await novo({ stageId: etapa("Visita técnica"), lead: { personType: "pf", name: nome, email: `${marcador}@teste.local` } });
-      const resultados = await Promise.all([pessoas.ana, pessoas.bruno].map((pessoa) => negocios.convert(negocio.id, {}, pessoa)));
+      const resultados = await Promise.all([pessoas.ana, pessoas.gestor].map((pessoa) => negocios.convert(negocio.id, {}, pessoa)));
       expect(resultados.map((r) => r.created).sort()).toEqual([false, true]);
       expect(new Set(resultados.map((r) => r.client.id)).size).toBe(1);
       expect(resultados.every((r) => r.lead.status === "won")).toBe(true);

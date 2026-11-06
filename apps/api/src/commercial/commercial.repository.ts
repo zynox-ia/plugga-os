@@ -18,8 +18,8 @@ import type {
 import type { AuthPrincipal } from "../core/auth/auth.types";
 
 export abstract class CommercialRepository {
-  abstract listOpportunities(query: OpportunityListQuery): Promise<OpportunityList>;
-  abstract opportunity(id: string): Promise<OpportunityDetail>;
+  abstract listOpportunities(query: OpportunityListQuery, principal: AuthPrincipal): Promise<OpportunityList>;
+  abstract opportunity(id: string, principal: AuthPrincipal): Promise<OpportunityDetail>;
   abstract createOpportunity(
     input: CreateOpportunityRequest,
     principal: AuthPrincipal,
@@ -50,8 +50,8 @@ export abstract class CommercialRepository {
     principal: AuthPrincipal,
   ): Promise<OpportunityDetail>;
 
-  abstract listContracts(query: ContractListQuery): Promise<ContractList>;
-  abstract contract(id: string): Promise<ContractDetail>;
+  abstract listContracts(query: ContractListQuery, principal: AuthPrincipal): Promise<ContractList>;
+  abstract contract(id: string, principal: AuthPrincipal): Promise<ContractDetail>;
   abstract createContract(input: CreateContractRequest, principal: AuthPrincipal): Promise<ContractDetail>;
   abstract updateContractStatus(
     id: string,

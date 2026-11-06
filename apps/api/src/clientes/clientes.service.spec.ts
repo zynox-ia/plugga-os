@@ -58,14 +58,15 @@ describe("ClientesService", () => {
   it("delegates search/filter to the repository with the query untouched", async () => {
     let received: unknown;
     const repository = fakeRepository({
-      list: async (query) => {
+      list: async (query, actor) => {
+        expect(actor).toBe(principal);
         received = query;
         return { items: [] };
       },
     });
 
     const query = { q: "solar", active: "true" as const };
-    const result = await new ClientesService(repository).list(query);
+    const result = await new ClientesService(repository).list(query, principal);
 
     expect(received).toEqual(query);
     expect(result).toEqual({ items: [] });

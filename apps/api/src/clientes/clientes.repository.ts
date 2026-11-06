@@ -16,14 +16,14 @@ import type {
 import type { AuthPrincipal } from "../core/auth/auth.types";
 
 export abstract class ClientesRepository {
-  abstract list(query: ListClientsQuery): Promise<ListClientsResponse>;
-  abstract get(id: string): Promise<ClientDetail>;
+  abstract list(query: ListClientsQuery, principal: AuthPrincipal): Promise<ListClientsResponse>;
+  abstract get(id: string, principal: AuthPrincipal): Promise<ClientDetail>;
   abstract create(input: CreateClientRequest, principal: AuthPrincipal): Promise<CreateClientResponse>;
   abstract update(id: string, input: UpdateClientRequest, principal: AuthPrincipal): Promise<ClientDetail>;
   abstract activate(id: string, principal: AuthPrincipal): Promise<ClientDetail>;
   abstract inactivate(id: string, input: InactivateClientRequest, principal: AuthPrincipal): Promise<ClientDetail>;
-  abstract duplicateCandidates(query: DuplicateCandidatesQuery): Promise<ClientDuplicateCandidatesResponse>;
-  abstract owners(): Promise<ClientOwnersResponse>;
+  abstract duplicateCandidates(query: DuplicateCandidatesQuery, principal: AuthPrincipal): Promise<ClientDuplicateCandidatesResponse>;
+  abstract owners(principal: AuthPrincipal): Promise<ClientOwnersResponse>;
   abstract addContact(clientId: string, input: ClientContactInput, principal: AuthPrincipal): Promise<ClientDetail>;
   abstract updateContact(clientId: string, contactId: string, input: UpdateClientContactRequest, principal: AuthPrincipal): Promise<ClientDetail>;
   abstract removeContact(clientId: string, contactId: string, principal: AuthPrincipal): Promise<ClientDetail>;

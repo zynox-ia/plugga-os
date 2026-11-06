@@ -6,7 +6,7 @@ import { clientContactInputSchema, createClientRequestSchema, updateClientReques
 
 import { AuditAppender } from "../src/audit/audit-appender.js";
 import { PrismaClientesRepository } from "../src/clientes/prisma-clientes.repository.js";
-import { Conflito, RequisicaoInvalida } from "../src/common/errors/dominio.js";
+import { AcessoNegado, Conflito, NaoEncontrado, RequisicaoInvalida } from "../src/common/errors/dominio.js";
 import type { AuthPrincipal } from "../src/core/auth/auth.types.js";
 import { PrismaService } from "../src/prisma/prisma.service.js";
 
@@ -98,7 +98,7 @@ describe.skipIf(!HABILITADO)("clientes: cadastro único no Postgres", () => {
         criar({ personType: "pj", name: `${marca} Hotel Filial`, email: `${marca}-f@teste.local`, document: cnpj }),
       ).rejects.toBeInstanceOf(Conflito);
 
-      const { candidates } = await repositorio.duplicateCandidates({ document: cnpj });
+      const { candidates } = await repositorio.duplicateCandidates({ document: cnpj }, principal);
       expect(candidates[0]).toMatchObject({ id: client.id, matchedOn: expect.arrayContaining(["document"]) });
     },
     PRAZO_MS,
@@ -167,14 +167,14 @@ describe.skipIf(!HABILITADO)("clientes: cadastro único no Postgres", () => {
       await criar({ personType: "pf", name: `${marca} Marcos`, email: `${marca}-m@teste.local`, document: cpf });
 
       const formatado = `${cnpj.slice(0, 2)}.${cnpj.slice(2, 5)}.${cnpj.slice(5, 8)}/${cnpj.slice(8, 12)}-${cnpj.slice(12)}`;
-      const peloCnpj = await repositorio.list({ q: formatado });
+      const peloCnpj = await repositorio.list({ q: formatado }, principal);
       expect(peloCnpj.items.map((i) => i.name)).toEqual([`${marca} Clínica`]);
       expect(peloCnpj.items[0]?.phoneDisplay).toBe("(92) 3•••-7700");
 
-      const peloContato = await repositorio.list({ q: `${marca} Dra Helena` });
+      const peloContato = await repositorio.list({ q: `${marca} Dra Helena` }, principal);
       expect(peloContato.items.map((i) => i.name)).toEqual([`${marca} Clínica`]);
 
-      const pf = await repositorio.list({ q: `${marca} Marcos` });
+      const pf = await repositorio.list({ q: `${marca} Marcos` }, principal);
       expect(pf.items[0]?.documentDisplay).toBe(`•••.${cpf.slice(3, 6)}.${cpf.slice(6, 9)}-••`);
     },
     PRAZO_MS,
@@ -192,4 +192,37 @@ describe.skipIf(!HABILITADO)("clientes: cadastro único no Postgres", () => {
     },
     PRAZO_MS,
   );
+  it("membro não encontra cliente ou contatos alheios nem transfere seu próprio cliente", async () => {
+    const usuario = await prisma.user.create({
+      data: { email: `${marca}-membro@teste.local`, name: `${marca} Membro`, departamentos: { create: { departamento: "crm", nivel: "membro" } } },
+    });
+    const membro: AuthPrincipal = { id: usuario.id, kind: "user", acesso: { plataforma: null, departamentos: [{ departamento: "crm", nivel: "membro" }] } };
+    const telefone = telefoneAleatorio();
+    const { client: alheio } = await criar({ personType: "pj", name: `${marca} Restrito`, email: `${marca}-restrito@teste.local`, primaryContact: { name: `${marca} Contato restrito`, phone: telefone } });
+    const { client: proprio, duplicateCandidates } = await repositorio.create(createClientRequestSchema.parse({ personType: "pj", name: `${marca} Próprio`, phone: telefone }), membro);
+
+    expect(proprio.owner?.id).toBe(membro.id);
+    expect(duplicateCandidates).not.toContainEqual(expect.objectContaining({ id: alheio.id }));
+    expect((await repositorio.list({ q: `${marca} Contato restrito` }, membro)).items).toEqual([]);
+    expect((await repositorio.list({ q: marca }, membro)).items.map((item) => item.id)).toEqual([proprio.id]);
+    expect((await repositorio.duplicateCandidates({ phone: telefone }, membro)).candidates.map((item) => item.id)).toEqual([proprio.id]);
+    expect((await repositorio.owners(membro)).items.map((item) => item.id)).toEqual([membro.id]);
+    const contatoId = alheio.contacts[0]!.id;
+    for (const acao of [
+      () => repositorio.get(alheio.id, membro),
+      () => repositorio.update(alheio.id, { name: "Invasão" }, membro),
+      () => repositorio.activate(alheio.id, membro),
+      () => repositorio.inactivate(alheio.id, {}, membro),
+      () => repositorio.addContact(alheio.id, { name: "Invasão" }, membro),
+      () => repositorio.updateContact(alheio.id, contatoId, { name: "Invasão" }, membro),
+      () => repositorio.removeContact(alheio.id, contatoId, membro),
+    ]) await expect(acao()).rejects.toBeInstanceOf(NaoEncontrado);
+    await expect(repositorio.update(proprio.id, { ownerId: principal.id }, membro)).rejects.toBeInstanceOf(AcessoNegado);
+    await expect(repositorio.create(createClientRequestSchema.parse({ personType: "pj", name: `${marca} Atribuição`, phone: telefoneAleatorio(), ownerId: principal.id }), membro)).rejects.toBeInstanceOf(AcessoNegado);
+
+    const gerente: AuthPrincipal = { ...membro, acesso: { plataforma: null, departamentos: [{ departamento: "crm", nivel: "gerente" }] } };
+    expect((await repositorio.get(alheio.id, gerente)).id).toBe(alheio.id);
+    expect((await repositorio.list({ q: marca }, gerente)).items.map((item) => item.id)).toContain(alheio.id);
+    expect((await repositorio.get(alheio.id, principal)).contacts[0]?.name).toBe(`${marca} Contato restrito`);
+  }, PRAZO_MS);
 });
