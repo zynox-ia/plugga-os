@@ -231,6 +231,46 @@ describe.skipIf(!HABILITADO)("RLS: permissões no login real da aplicação", ()
     expect(pipeline?.members).toHaveLength(2);
   });
 
+  it("WITH CHECK recusa vínculos comerciais alheios e clientes incoerentes, preservando os próprios e os da gerência", async () => {
+    const oportunidades = [randomUUID(), randomUUID(), randomUUID()];
+    const contratos = [randomUUID(), randomUUID(), randomUUID(), randomUUID()];
+    const a = pessoas.get("a")!.id;
+    const b = pessoas.get("b")!.id;
+    try {
+      await contexto("a", (tx) => tx.opportunity.create({ data: {
+        id: oportunidades[0]!, title: marca, product: marca, ownerId: a, clientId: registros.get("a")!,
+      } }));
+      await root.opportunity.create({ data: {
+        id: oportunidades[1]!, title: marca, product: marca, ownerId: b, clientId: registros.get("b")!,
+      } });
+      await expect(contexto("a", (tx) => tx.opportunity.create({ data: {
+        id: oportunidades[2]!, title: marca, product: marca, ownerId: a, clientId: registros.get("b")!,
+      } }))).rejects.toThrow();
+      await expect(contexto("a", (tx) => tx.opportunity.update({ where: { id: oportunidades[0]! }, data: { clientId: registros.get("b")! } }))).rejects.toThrow();
+      expect((await root.opportunity.findUniqueOrThrow({ where: { id: oportunidades[0]! } })).clientId).toBe(registros.get("a"));
+
+      await contexto("a", (tx) => tx.contract.create({ data: {
+        id: contratos[0]!, ownerId: a, clientId: registros.get("a")!, opportunityId: oportunidades[0]!,
+      } }));
+      await expect(contexto("a", (tx) => tx.contract.create({ data: {
+        id: contratos[1]!, ownerId: a, clientId: registros.get("a")!, opportunityId: oportunidades[1]!,
+      } }))).rejects.toThrow();
+      await expect(contexto("a", (tx) => tx.contract.update({ where: { id: contratos[0]! }, data: { opportunityId: oportunidades[1]! } }))).rejects.toThrow();
+      expect((await root.contract.findUniqueOrThrow({ where: { id: contratos[0]! } })).opportunityId).toBe(oportunidades[0]);
+
+      await expect(contexto("gerente", (tx) => tx.contract.create({ data: {
+        id: contratos[2]!, ownerId: a, clientId: registros.get("a")!, opportunityId: oportunidades[1]!,
+      } }))).rejects.toThrow();
+      await contexto("gerente", (tx) => tx.contract.create({ data: {
+        id: contratos[3]!, ownerId: a, clientId: registros.get("b")!, opportunityId: oportunidades[1]!,
+      } }));
+      expect(await root.contract.count({ where: { id: { in: contratos } } })).toBe(2);
+    } finally {
+      await root.contract.deleteMany({ where: { id: { in: contratos } } });
+      await root.opportunity.deleteMany({ where: { id: { in: oportunidades } } });
+    }
+  });
+
   it("gerente da tela enxerga todos; não combina nível e tela de departamentos distintos", async () => {
     expect(await idsVisiveis("gerente")).toHaveLength(3);
     expect(await idsVisiveis("misto")).toEqual([registros.get("misto")]);

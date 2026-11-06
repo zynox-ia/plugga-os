@@ -104,3 +104,15 @@ a conta removida/desativada. Isso não os torna elegíveis a novas atribuições
 Contas ativas sem qualquer concessão continuam sem acesso a dados de negócio;
 nenhuma permissão é preenchida automaticamente. A migração rejeita inconsistências
 por contagem e preserva o histórico. Não apaga nem remapeia dados antigos.
+
+`20261106050000_rls_vinculos_comerciais` acrescenta WITH CHECK aos vínculos de
+oportunidades e contratos. Cliente opcional de oportunidade precisa estar no
+escopo de Pipelines; oportunidade opcional de contrato precisa estar no escopo
+e, quando tiver cliente, coincidir com o cliente do contrato. Gerência preserva
+seu alcance por tela; uma FK existente não substitui a autorização do vínculo.
+
+Pendência da revisão final (PLU-309): RLS de linhas, sozinha, ainda não mascara
+colunas/JSON de referências e autoria alheias em registros próprios do legado.
+As projeções HTTP ocultam esses campos, mas esse isolamento de campos ainda não
+está completo no caminho SQL. A regra de manter a linha com campos ocultos ou
+ocultá-la inteira aguarda decisão do André; não publicar como barreira concluída.
