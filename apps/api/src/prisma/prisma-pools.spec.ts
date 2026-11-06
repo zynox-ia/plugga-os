@@ -91,6 +91,7 @@ describe("pools de banco isolados", () => {
 
   it("valida cada pool quando há infraestrutura RLS explícita", async () => {
     vi.stubEnv("RUN_RLS_INTEGRATION_TESTS", "true");
+    vi.stubEnv("DATABASE_URL", "postgresql://app:sintetica@127.0.0.1:55433/plugga_os_test");
     vi.stubEnv("AUTH_DATABASE_URL", "postgresql://auth:sintetica@127.0.0.1:55433/plugga_os_test");
     vi.stubEnv("JOBS_DATABASE_URL", "postgresql://jobs:sintetica@127.0.0.1:55433/plugga_os_test");
     vi.stubEnv("JOBS_ENABLED", "true");
