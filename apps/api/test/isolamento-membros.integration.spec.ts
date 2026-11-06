@@ -4,6 +4,7 @@ import { ConfigService } from "@nestjs/config";
 import type { NestExpressApplication } from "@nestjs/platform-express";
 import { Test } from "@nestjs/testing";
 import type { Acesso, LeadProposalContent, Tela } from "@plugga/shared";
+import { PrismaClient } from "@prisma/client";
 import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
@@ -16,7 +17,10 @@ import { PrismaSessionLookupRepository } from "../src/core/auth/prisma-session-l
 import { SessionCache } from "../src/core/auth/session-cache";
 import { SessionLookupRepository } from "../src/core/auth/session-lookup.repository";
 import { ArmazenamentoDeDocumentos } from "../src/lead-documentos/armazenamento-de-documentos";
+import { PrismaAuthService } from "../src/prisma/prisma-auth.service";
+import { PrismaJobsService } from "../src/prisma/prisma-jobs.service";
 import { PrismaService } from "../src/prisma/prisma.service";
+import { validarPapelBanco } from "../src/prisma/validar-papel-banco";
 import { assertSafeTestDatabaseUrl } from "./safe-test-environment";
 
 const HABILITADO = process.env.RUN_PERMISSOES_INTEGRATION_TESTS === "true";
@@ -25,7 +29,7 @@ const ORIGIN = "http://localhost:3000";
 const TELAS_CRM: Tela[] = ["crm.pipelines", "crm.clientes", "crm.contratos", "crm.propostas"];
 type Persona = "membroA" | "membroB" | "gerente" | "admin" | "desenvolvedor" | "semTela" | "outroDepartamento";
 
-/** HTTP, cookie assinado, credenciais Argon2 e repositórios reais; somente dados sintéticos. */
+/** HTTP e RLS com três logins reais restritos; o administrador só prepara/verifica fixtures sintéticas. */
 describe.skipIf(!HABILITADO)("isolamento dos membros com sessão real (HTTP + PostgreSQL)", () => {
   const execucao = randomUUID();
   const prefixo = `Sintético permissões ${execucao.slice(0, 8)}`;
@@ -64,13 +68,20 @@ describe.skipIf(!HABILITADO)("isolamento dos membros com sessão real (HTTP + Po
   };
   const ambienteOriginal = new Map<string, string | undefined>();
   const papeisCriados: string[] = [];
+  const marcaLogin = `rls_http_${randomBytes(8).toString("hex")}`;
+  const pools = {
+    app: { login: `${marcaLogin}_app`, grupo: "plugga_runtime", variavel: "DATABASE_URL" },
+    auth: { login: `${marcaLogin}_auth`, grupo: "plugga_auth_runtime", variavel: "AUTH_DATABASE_URL" },
+    jobs: { login: `${marcaLogin}_jobs`, grupo: "plugga_jobs_runtime", variavel: "JOBS_DATABASE_URL" },
+  } as const;
+  const loginsCriados: string[] = [];
   const chamadasStorage = {
     enviar: vi.fn(), ler: vi.fn(), excluir: vi.fn(),
   };
   let app: NestExpressApplication | undefined;
-  let prisma: PrismaService | undefined;
+  let prisma: PrismaClient | undefined;
 
-  function banco(): PrismaService {
+  function banco(): PrismaClient {
     if (!prisma) throw new Error("Banco sintético não foi inicializado.");
     return prisma;
   }
@@ -104,8 +115,31 @@ describe.skipIf(!HABILITADO)("isolamento dos membros com sessão real (HTTP + Po
   }
 
   beforeAll(async () => {
-    assertSafeTestDatabaseUrl(process.env.DATABASE_URL ?? "");
+    const urlAdministrativa = process.env.DATABASE_URL ?? "";
+    assertSafeTestDatabaseUrl(urlAdministrativa);
     if (process.env.PLUGGA_TEST_IGNORE_ENV_FILE !== "true") throw new Error("Execute com o runner hermético, sem carregar .env.");
+    const db = new PrismaClient({ datasourceUrl: urlAdministrativa });
+    prisma = db;
+    await db.$connect();
+    const [executor] = await db.$queryRaw<{ superuser: boolean }[]>`SELECT rolsuper AS superuser FROM pg_roles WHERE rolname = current_user`;
+    expect(executor?.superuser, "Fixtures exigem administrador do banco local isolado").toBe(true);
+    for (const { login, grupo, variavel } of Object.values(pools)) {
+      if (!/^rls_http_[a-f0-9]+_(app|auth|jobs)$/.test(login)) throw new Error("Login sintético inválido.");
+      const senhaBanco = randomBytes(32).toString("hex");
+      await db.$transaction(async (tx) => {
+        await tx.$executeRaw`SELECT set_config('plugga.test_role', ${login}, true)`;
+        await tx.$executeRaw`SELECT set_config('plugga.test_password', ${senhaBanco}, true)`;
+        await tx.$executeRawUnsafe(`DO $fixture$ BEGIN EXECUTE format('CREATE ROLE %I LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD %L', current_setting('plugga.test_role'), current_setting('plugga.test_password')); END $fixture$`);
+      });
+      loginsCriados.push(login);
+      await db.$executeRawUnsafe(`GRANT ${grupo} TO "${login}"`);
+      const url = new URL(urlAdministrativa);
+      url.username = login;
+      url.password = senhaBanco;
+      url.searchParams.set("connection_limit", "2");
+      definirAmbiente(variavel, url.toString());
+    }
+    definirAmbiente("RUN_RLS_INTEGRATION_TESTS", "true");
     definirAmbiente("DEV_AUTH_ENABLED", "false");
     definirAmbiente("SESSION_CACHE_ENABLED", "false");
     definirAmbiente("JOBS_ENABLED", "false");
@@ -124,8 +158,19 @@ describe.skipIf(!HABILITADO)("isolamento dos membros com sessão real (HTTP + Po
     configureApp(app);
     await app.init();
     await app.listen(0, "127.0.0.1");
-    const db = app.get<PrismaService>(PrismaService);
-    prisma = db;
+    const runtime = app.get<PrismaService>(PrismaService);
+    const auth = app.get<PrismaAuthService>(PrismaAuthService);
+    const jobs = app.get<PrismaJobsService>(PrismaJobsService);
+    expect(process.env.RUN_RLS_INTEGRATION_TESTS).toBe("true");
+    for (const [cliente, pool] of [[runtime, pools.app], [auth, pools.auth], [jobs, pools.jobs]] as const) {
+      // O mesmo validador executado no boot confere ACL, grupos, propriedade e FORCE RLS.
+      await expect(validarPapelBanco(cliente, pool.grupo)).resolves.toBeUndefined();
+      const [identidade] = await cliente.$queryRaw<{ login: string; direto: boolean; seguro: boolean }[]>`
+        SELECT current_user AS login, current_user = session_user AS direto,
+          NOT (rolsuper OR rolbypassrls OR rolcreatedb OR rolcreaterole OR rolreplication) AS seguro
+        FROM pg_roles WHERE rolname = current_user`;
+      expect(identidade).toEqual({ login: pool.login, direto: true, seguro: true });
+    }
     const repository = app.get(AuthRepository);
     expect(repository).toBeInstanceOf(PrismaAuthRepository);
     expect(app.get(SessionLookupRepository)).toBeInstanceOf(PrismaSessionLookupRepository);
@@ -199,6 +244,15 @@ describe.skipIf(!HABILITADO)("isolamento dos membros com sessão real (HTTP + Po
       cookies.set(persona, cookie);
     }
     expect(await db.session.count({ where: { userId: { in: userIds } } })).toBe(personas.length);
+    // Fixtures existem, mas a conexão runtime fora do contexto HTTP não as alcança.
+    expect(await db.client.count({ where: { ownerId: { in: userIds } } })).toBe(2);
+    expect(await runtime.client.findMany()).toEqual([]);
+    expect(await runtime.deal.count()).toBe(0);
+    expect(await runtime.opportunity.count()).toBe(0);
+    expect(await runtime.contract.count()).toBe(0);
+    await expect(runtime.session.findMany()).rejects.toThrow();
+    await expect(auth.client.findMany()).rejects.toThrow();
+    await expect(jobs.user.findMany()).rejects.toThrow();
   }, PRAZO_MS);
 
   afterAll(async () => {
@@ -222,10 +276,18 @@ describe.skipIf(!HABILITADO)("isolamento dos membros com sessão real (HTTP + Po
       }
     } finally {
       cookies.clear();
-      await app?.close();
-      for (const [nome, valor] of ambienteOriginal) {
-        if (valor === undefined) delete process.env[nome];
-        else process.env[nome] = valor;
+      try {
+        await app?.close();
+      } finally {
+        try {
+          for (const login of loginsCriados) await prisma?.$executeRawUnsafe(`DROP ROLE IF EXISTS "${login}"`);
+        } finally {
+          await prisma?.$disconnect();
+          for (const [nome, valor] of ambienteOriginal) {
+            if (valor === undefined) delete process.env[nome];
+            else process.env[nome] = valor;
+          }
+        }
       }
     }
   }, PRAZO_MS);

@@ -19,6 +19,7 @@ export class SessionAuthContext extends AuthContext {
   }
 
   async resolve(request: AuthenticatedRequest): Promise<AuthPrincipal | null> {
+    delete request.databaseSessionHash;
     // Só o cookie assinado vale. O Set-Cookie sempre sai com `signed: true` e o
     // logout também só lê `signedCookies`; aceitar o não assinado aqui tornaria
     // a assinatura HMAC decorativa — quem tivesse o token bruto autenticaria
@@ -29,6 +30,9 @@ export class SessionAuthContext extends AuthContext {
       return null;
     }
 
-    return this.sessions.resolvePrincipal(hashToken(rawToken), { now: new Date() });
+    const tokenHash = hashToken(rawToken);
+    const principal = await this.sessions.resolvePrincipal(tokenHash, { now: new Date() });
+    if (principal) request.databaseSessionHash = tokenHash;
+    return principal;
   }
 }

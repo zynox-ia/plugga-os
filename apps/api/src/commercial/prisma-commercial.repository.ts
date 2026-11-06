@@ -130,7 +130,7 @@ export class PrismaCommercialRepository extends CommercialRepository {
   }
 
   async listOpportunities(query: OpportunityListQuery, principal: AuthPrincipal): Promise<OpportunityList> {
-    const rows = await this.prisma.opportunity.findMany({
+    const rows = await this.prisma.comContexto((tx) => tx.opportunity.findMany({
       where: {
         stage: query.stage,
         status: query.status,
@@ -140,12 +140,12 @@ export class PrismaCommercialRepository extends CommercialRepository {
       include: opportunityInclude(principal),
       orderBy: [{ nextActionAt: { sort: "asc", nulls: "last" } }, { createdAt: "desc" }],
       take: LIMITE_LISTAGEM,
-    });
+    }));
     return opportunityListSchema.parse({ items: rows.map((row) => this.opportunitySummary(row)) });
   }
 
   async opportunity(id: string, principal: AuthPrincipal): Promise<OpportunityDetail> {
-    const row = await this.prisma.opportunity.findUnique({ where: { id, ...filtroDoResponsavel(principal, ["crm", "financeiro"], TELAS_OPORTUNIDADES) }, include: opportunityInclude(principal) });
+    const row = await this.prisma.comContexto((tx) => tx.opportunity.findUnique({ where: { id, ...filtroDoResponsavel(principal, ["crm", "financeiro"], TELAS_OPORTUNIDADES) }, include: opportunityInclude(principal) }));
     if (!row) throw new NaoEncontrado("Oportunidade não encontrada.");
     return this.opportunityDetail(row);
   }
@@ -160,7 +160,7 @@ export class PrismaCommercialRepository extends CommercialRepository {
       throw new NaoEncontrado("O responsável informado não foi encontrado.");
     }
 
-    const created = await this.prisma.$transaction(async (tx) => {
+    const created = await this.prisma.comContexto(async (tx) => {
       const row = await tx.opportunity.create({
         data: {
           title: input.title,
@@ -192,7 +192,7 @@ export class PrismaCommercialRepository extends CommercialRepository {
     input: UpdateOpportunityStageRequest,
     principal: AuthPrincipal,
   ): Promise<OpportunityDetail> {
-    const current = await this.prisma.opportunity.findUnique({ where: { id, ...filtroDoResponsavel(principal, "crm", ["crm.pipelines"]) } });
+    const current = await this.prisma.comContexto((tx) => tx.opportunity.findUnique({ where: { id, ...filtroDoResponsavel(principal, "crm", ["crm.pipelines"]) } }));
     if (!current) throw new NaoEncontrado("Oportunidade não encontrada.");
     if (input.ownerId !== undefined) exigeAtribuicaoPermitida(principal, input.ownerId, "crm", ["crm.pipelines"]);
     assertOpportunityOpen(current.status);
@@ -204,7 +204,7 @@ export class PrismaCommercialRepository extends CommercialRepository {
     const nextActionAt = input.nextActionAt ? new Date(input.nextActionAt) : current.nextActionAt;
     assertOpportunityHasOwnerAndNextAction(nextOwnerId, nextActionAt);
 
-    await this.prisma.$transaction(async (tx) => {
+    await this.prisma.comContexto(async (tx) => {
       // O guard lá fora dá a mensagem amigável, mas roda antes da transação:
       // duas decisões concorrentes passariam ambas por ele. Recondicionar o
       // status no updateMany fecha a corrida, e o rollback leva o evento junto.
@@ -220,7 +220,7 @@ export class PrismaCommercialRepository extends CommercialRepository {
         },
         MENSAGEM_JA_DECIDIDA,
       );
-      await tx.eventLog.create({
+      await tx.eventLog.createMany({
         data: {
           eventName: "commercial.opportunity_stage_updated",
           entityType: "opportunity",
@@ -241,10 +241,10 @@ export class PrismaCommercialRepository extends CommercialRepository {
     input: OpportunityContactRequest,
     principal: AuthPrincipal,
   ): Promise<OpportunityDetail> {
-    const current = await this.prisma.opportunity.findUnique({ where: { id, ...filtroDoResponsavel(principal, "crm", ["crm.pipelines"]) }, select: { id: true } });
+    const current = await this.prisma.comContexto((tx) => tx.opportunity.findUnique({ where: { id, ...filtroDoResponsavel(principal, "crm", ["crm.pipelines"]) }, select: { id: true } }));
     if (!current) throw new NaoEncontrado("Oportunidade não encontrada.");
 
-    await this.prisma.$transaction(async (tx) => {
+    await this.prisma.comContexto(async (tx) => {
       const contact = await tx.opportunityContact.create({
         data: { opportunity: { connect: { id, ...filtroDoResponsavel(principal, "crm", ["crm.pipelines"]) } }, channel: input.channel, outcome: input.outcome, note: input.note },
       });
@@ -267,14 +267,14 @@ export class PrismaCommercialRepository extends CommercialRepository {
     input: WinOpportunityRequest,
     principal: AuthPrincipal,
   ): Promise<OpportunityDetail> {
-    const current = await this.prisma.opportunity.findUnique({ where: { id, ...filtroDoResponsavel(principal, "crm", ["crm.pipelines"]) } });
+    const current = await this.prisma.comContexto((tx) => tx.opportunity.findUnique({ where: { id, ...filtroDoResponsavel(principal, "crm", ["crm.pipelines"]) } }));
     if (!current) throw new NaoEncontrado("Oportunidade não encontrada.");
     assertOpportunityOpen(current.status);
 
     // Cliente e marcação como ganha na MESMA transação: se a segunda parte
     // falhar (ou outra pessoa decidir antes), o rollback leva o cliente junto
     // e não sobra cadastro órfão.
-    await this.prisma.$transaction(async (tx) => {
+    await this.prisma.comContexto(async (tx) => {
       const now = new Date();
       const clientId = await this.resolveClientForWin(tx, input, principal, now);
       await transicionar(
@@ -303,11 +303,11 @@ export class PrismaCommercialRepository extends CommercialRepository {
     input: LoseOpportunityRequest,
     principal: AuthPrincipal,
   ): Promise<OpportunityDetail> {
-    const current = await this.prisma.opportunity.findUnique({ where: { id, ...filtroDoResponsavel(principal, "crm", ["crm.pipelines"]) } });
+    const current = await this.prisma.comContexto((tx) => tx.opportunity.findUnique({ where: { id, ...filtroDoResponsavel(principal, "crm", ["crm.pipelines"]) } }));
     if (!current) throw new NaoEncontrado("Oportunidade não encontrada.");
     assertOpportunityOpen(current.status);
 
-    await this.prisma.$transaction(async (tx) => {
+    await this.prisma.comContexto(async (tx) => {
       const now = new Date();
       await transicionar(
         tx.opportunity,
@@ -316,7 +316,7 @@ export class PrismaCommercialRepository extends CommercialRepository {
         { status: "perdida", lossReason: input.lossReason, decidedAt: now },
         MENSAGEM_JA_DECIDIDA,
       );
-      await tx.eventLog.create({
+      await tx.eventLog.createMany({
         data: {
           eventName: "commercial.opportunity_lost",
           entityType: "opportunity",
@@ -337,7 +337,7 @@ export class PrismaCommercialRepository extends CommercialRepository {
     input: RevisitOpportunityRequest,
     principal: AuthPrincipal,
   ): Promise<OpportunityDetail> {
-    const current = await this.prisma.opportunity.findUnique({ where: { id, ...filtroDoResponsavel(principal, "crm", ["crm.pipelines"]) } });
+    const current = await this.prisma.comContexto((tx) => tx.opportunity.findUnique({ where: { id, ...filtroDoResponsavel(principal, "crm", ["crm.pipelines"]) } }));
     if (!current) throw new NaoEncontrado("Oportunidade não encontrada.");
     if (input.ownerId !== undefined) exigeAtribuicaoPermitida(principal, input.ownerId, "crm", ["crm.pipelines"]);
     assertOpportunityOpen(current.status);
@@ -350,7 +350,7 @@ export class PrismaCommercialRepository extends CommercialRepository {
       throw new RequisicaoInvalida("Revisitar exige um responsável definido.");
     }
 
-    await this.prisma.$transaction(async (tx) => {
+    await this.prisma.comContexto(async (tx) => {
       await transicionar(
         tx.opportunity,
         id,
@@ -363,7 +363,7 @@ export class PrismaCommercialRepository extends CommercialRepository {
         },
         MENSAGEM_JA_DECIDIDA,
       );
-      await tx.eventLog.create({
+      await tx.eventLog.createMany({
         data: {
           eventName: "commercial.opportunity_revisit_scheduled",
           entityType: "opportunity",
@@ -380,7 +380,7 @@ export class PrismaCommercialRepository extends CommercialRepository {
   }
 
   async listContracts(query: ContractListQuery, principal: AuthPrincipal): Promise<ContractList> {
-    const rows = await this.prisma.contract.findMany({
+    const rows = await this.prisma.comContexto((tx) => tx.contract.findMany({
       where: {
         status: query.status,
         clientId: query.clientId,
@@ -391,12 +391,12 @@ export class PrismaCommercialRepository extends CommercialRepository {
       orderBy: [{ nextActionAt: { sort: "asc", nulls: "last" } }, { updatedAt: "desc" }],
       // 🔒 SEGURANÇA [VULN-2]
       take: LIMITE_LISTAGEM,
-    });
+    }));
     return contractListSchema.parse({ items: rows.map((row) => this.contractView(row)) });
   }
 
   async contract(id: string, principal: AuthPrincipal): Promise<ContractDetail> {
-    const row = await this.prisma.contract.findUnique({ where: { id, ...filtroDeContratos(principal) }, include: contractInclude(principal) });
+    const row = await this.prisma.comContexto((tx) => tx.contract.findUnique({ where: { id, ...filtroDeContratos(principal) }, include: contractInclude(principal) }));
     if (!row) throw new NaoEncontrado("Contrato não encontrado.");
     return contractDetailSchema.parse(this.contractView(row));
   }
@@ -408,7 +408,7 @@ export class PrismaCommercialRepository extends CommercialRepository {
     let opportunityId: string | undefined;
 
     if (input.opportunityId) {
-      const opportunity = await this.prisma.opportunity.findUnique({ where: { id: input.opportunityId, ...filtroDoResponsavel(principal, "crm", ["crm.pipelines"]) } });
+      const opportunity = await this.prisma.comContexto((tx) => tx.opportunity.findUnique({ where: { id: input.opportunityId, ...filtroDoResponsavel(principal, "crm", ["crm.pipelines"]) } }));
       if (!opportunity) throw new NaoEncontrado("Oportunidade não encontrada.");
       if (opportunity.status !== "ganha") {
         throw new RequisicaoInvalida("Um contrato só nasce de uma oportunidade ganha.");
@@ -426,7 +426,7 @@ export class PrismaCommercialRepository extends CommercialRepository {
       throw new NaoEncontrado("O responsável informado não foi encontrado.");
     }
 
-    const created = await this.prisma.$transaction(async (tx) => {
+    const created = await this.prisma.comContexto(async (tx) => {
       const row = await tx.contract.create({
         data: {
           clientId,
@@ -438,7 +438,7 @@ export class PrismaCommercialRepository extends CommercialRepository {
           nextActionNote: input.nextActionNote,
         },
       });
-      await tx.eventLog.create({
+      await tx.eventLog.createMany({
         data: {
           eventName: "commercial.contract_created",
           entityType: "contract",
@@ -460,7 +460,7 @@ export class PrismaCommercialRepository extends CommercialRepository {
     input: UpdateContractStatusRequest,
     principal: AuthPrincipal,
   ): Promise<ContractDetail> {
-    const current = await this.prisma.contract.findUnique({ where: { id, ...filtroDeContratos(principal, "crm") } });
+    const current = await this.prisma.comContexto((tx) => tx.contract.findUnique({ where: { id, ...filtroDeContratos(principal, "crm") } }));
     if (!current) throw new NaoEncontrado("Contrato não encontrado.");
     if (input.ownerId !== undefined) exigeAtribuicaoPermitida(principal, input.ownerId, "crm", ["crm.contratos"]);
     if (input.ownerId && !(await this.ownerExists(input.ownerId))) {
@@ -482,7 +482,7 @@ export class PrismaCommercialRepository extends CommercialRepository {
 
     assertContractHasOwnerAndNextAction(input.status, nextOwnerId, nextActionAt);
 
-    await this.prisma.$transaction(async (tx) => {
+    await this.prisma.comContexto(async (tx) => {
       await transicionar(
         tx.contract,
         id,
@@ -498,7 +498,7 @@ export class PrismaCommercialRepository extends CommercialRepository {
         },
         `Não é possível aplicar a transição: o contrato já não está em "${current.status}".`,
       );
-      await tx.eventLog.create({
+      await tx.eventLog.createMany({
         data: {
           eventName: "commercial.contract_status_updated",
           entityType: "contract",
@@ -570,12 +570,12 @@ export class PrismaCommercialRepository extends CommercialRepository {
   }
 
   private async clientExists(id: string, principal: AuthPrincipal): Promise<boolean> {
-    const client = await this.prisma.client.findUnique({ where: { id, ...filtroDoResponsavel(principal, "crm", ["crm.pipelines", "crm.contratos"]) }, select: { id: true } });
+    const client = await this.prisma.comContexto((tx) => tx.client.findUnique({ where: { id, ...filtroDoResponsavel(principal, "crm", ["crm.pipelines", "crm.contratos"]) }, select: { id: true } }));
     return client !== null;
   }
 
   private async ownerExists(id: string): Promise<boolean> {
-    const user = await this.prisma.user.findUnique({ where: { id }, select: { id: true } });
+    const user = await this.prisma.comContexto((tx) => tx.user.findUnique({ where: { id }, select: { id: true } }));
     return user !== null;
   }
 

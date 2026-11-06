@@ -46,14 +46,14 @@ export class PrismaLeadPropostasRepository extends LeadPropostasRepository {
   constructor(@Inject(PrismaService) private readonly prisma: PrismaService) { super(); }
 
   async list(dealId: string, principal: AuthPrincipal) {
-    const { acesso } = await this.visible(this.prisma, dealId, principal);
-    const rows = await this.prisma.leadProposal.findMany({ where: { dealId }, orderBy: [{ updatedAt: "desc" }, { id: "asc" }], include: INCLUDE });
+    const { acesso } = await this.prisma.comContexto((tx) => this.visible(tx, dealId, principal));
+    const rows = await this.prisma.comContexto((tx) => tx.leadProposal.findMany({ where: { dealId }, orderBy: [{ updatedAt: "desc" }, { id: "asc" }], include: INCLUDE }));
     return { proposals: rows.map((row) => paraProposta(row, principal.id, acesso)) };
   }
 
   async templates(dealId: string, principal: AuthPrincipal) {
-    const deal = await this.visible(this.prisma, dealId, principal);
-    const templates = await this.prisma.leadProposalTemplate.findMany({ orderBy: [{ position: "asc" }, { id: "asc" }] });
+    const deal = await this.prisma.comContexto((tx) => this.visible(tx, dealId, principal));
+    const templates = await this.prisma.comContexto((tx) => tx.leadProposalTemplate.findMany({ orderBy: [{ position: "asc" }, { id: "asc" }] }));
     const expiry = new Date(`${hojeNoFuso()}T12:00:00Z`);
     expiry.setUTCDate(expiry.getUTCDate() + 15);
     const lead = deal.profile;
@@ -73,12 +73,14 @@ export class PrismaLeadPropostasRepository extends LeadPropostasRepository {
   }
 
   async get(dealId: string, id: string, principal: AuthPrincipal) {
-    const { acesso } = await this.visible(this.prisma, dealId, principal);
-    return paraProposta(await this.row(this.prisma, dealId, id), principal.id, acesso);
+    return this.prisma.comContexto(async (tx) => {
+      const { acesso } = await this.visible(tx, dealId, principal);
+      return paraProposta(await this.row(tx, dealId, id), principal.id, acesso);
+    });
   }
 
   async create(dealId: string, input: CreateLeadProposalRequest, principal: AuthPrincipal) {
-    return this.prisma.$transaction(async (tx) => {
+    return this.prisma.comContexto(async (tx) => {
       const { acesso } = await this.visible(tx, dealId, principal, true);
       await this.template(tx, input.templateId);
       return paraProposta(await tx.leadProposal.create({ data: { dealId, templateId: input.templateId, content: input.content }, include: INCLUDE }), principal.id, acesso);
@@ -86,7 +88,7 @@ export class PrismaLeadPropostasRepository extends LeadPropostasRepository {
   }
 
   async update(dealId: string, id: string, input: UpdateLeadProposalRequest, principal: AuthPrincipal) {
-    return this.prisma.$transaction(async (tx) => {
+    return this.prisma.comContexto(async (tx) => {
       const { acesso } = await this.visible(tx, dealId, principal, true);
       await this.row(tx, dealId, id);
       await this.template(tx, input.templateId);
@@ -100,7 +102,7 @@ export class PrismaLeadPropostasRepository extends LeadPropostasRepository {
   }
 
   async beginGeneration(dealId: string, id: string, revision: number, principal: AuthPrincipal): Promise<GeracaoDeProposta> {
-    return this.prisma.$transaction(async (tx) => {
+    return this.prisma.comContexto(async (tx) => {
       const { acesso } = await this.visible(tx, dealId, principal, true);
       await this.row(tx, dealId, id);
       const token = randomUUID();
@@ -114,7 +116,7 @@ export class PrismaLeadPropostasRepository extends LeadPropostasRepository {
   }
 
   async completeGeneration(dealId: string, generation: GeracaoDeProposta, document: LeadDocument, principal: AuthPrincipal) {
-    return this.prisma.$transaction(async (tx) => {
+    return this.prisma.comContexto(async (tx) => {
       // A sessão e o negócio podem ter mudado enquanto o PDF era enviado ao storage.
       const { acesso } = await this.visible(tx, dealId, principal, true);
       const { proposal, token } = generation;
@@ -134,7 +136,7 @@ export class PrismaLeadPropostasRepository extends LeadPropostasRepository {
   }
 
   async releaseGeneration(id: string, token: string) {
-    await this.prisma.leadProposal.updateMany({ where: { id, generationToken: token }, data: { generationToken: null, generationStartedAt: null } });
+    await this.prisma.comContexto((tx) => tx.leadProposal.updateMany({ where: { id, generationToken: token }, data: { generationToken: null, generationStartedAt: null } }));
   }
 
   private unlocked(): Prisma.LeadProposalWhereInput[] {

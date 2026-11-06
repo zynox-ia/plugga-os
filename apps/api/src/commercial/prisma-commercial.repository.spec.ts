@@ -10,14 +10,20 @@ const membro: AuthPrincipal = { id: "00000000-0000-4000-8000-000000000001", kind
 const outroId = "00000000-0000-4000-8000-000000000002";
 
 function contexto() {
-  const prisma = {
-    opportunity: { findMany: vi.fn().mockResolvedValue([]), findUnique: vi.fn().mockResolvedValue(null) },
-    contract: { findMany: vi.fn().mockResolvedValue([]), findUnique: vi.fn().mockResolvedValue(null) },
-    client: { findUnique: vi.fn().mockResolvedValue(null) },
+  const gravar = vi.fn().mockRejectedValue(new Error("Gravação inesperada"));
+  const banco = {
+    opportunity: { findMany: vi.fn().mockResolvedValue([]), findUnique: vi.fn().mockResolvedValue(null), create: gravar, updateMany: gravar },
+    opportunityContact: { create: gravar },
+    contract: { findMany: vi.fn().mockResolvedValue([]), findUnique: vi.fn().mockResolvedValue(null), create: gravar, updateMany: gravar },
+    client: { findUnique: vi.fn().mockResolvedValue(null), findMany: vi.fn().mockResolvedValue([]), create: gravar },
     user: { findUnique: vi.fn().mockResolvedValue(null) },
-    $transaction: vi.fn(),
+    eventLog: { createMany: gravar },
   };
-  return { prisma, repository: new PrismaCommercialRepository(prisma as unknown as PrismaService, new AuditAppender()) };
+  const prisma = {
+    ...banco,
+    comContexto: vi.fn(<T>(fn: (tx: typeof banco) => Promise<T>) => fn(banco)),
+  };
+  return { prisma, gravar, repository: new PrismaCommercialRepository(prisma as unknown as PrismaService, new AuditAppender()) };
 }
 
 describe("Comercial: isolamento por responsável", () => {
@@ -63,13 +69,13 @@ describe("Comercial: isolamento por responsável", () => {
   });
 
   it("exige também cliente próprio ao listar, detalhar ou alterar contrato de membro", async () => {
-    const { prisma, repository } = contexto();
+    const { prisma, gravar, repository } = contexto();
     await repository.listContracts({}, membro);
     await expect(repository.contract(outroId, membro)).rejects.toBeInstanceOf(NaoEncontrado);
     await expect(repository.updateContractStatus(outroId, { status: "revisao_interna" }, membro)).rejects.toBeInstanceOf(NaoEncontrado);
     expect(prisma.contract.findMany.mock.calls[0]?.[0].where.client).toEqual({ ownerId: membro.id });
     for (const [args] of prisma.contract.findUnique.mock.calls) expect(args.where.client).toEqual({ ownerId: membro.id });
-    expect(prisma.$transaction).not.toHaveBeenCalled();
+    expect(gravar).not.toHaveBeenCalled();
   });
 
   it("não restringe cliente do contrato quando há gestão autorizada da tela", async () => {
@@ -85,7 +91,7 @@ describe("Comercial: isolamento por responsável", () => {
   });
 
   it("consulta detalhes e mutações somente dentro do escopo, antes de regras ou gravações", async () => {
-    const { prisma, repository } = contexto();
+    const { prisma, gravar, repository } = contexto();
     const acoes = [
       () => repository.opportunity(outroId, membro),
       () => repository.contract(outroId, membro),
@@ -101,7 +107,7 @@ describe("Comercial: isolamento por responsável", () => {
     for (const delegate of [prisma.opportunity, prisma.contract]) {
       for (const [args] of delegate.findUnique.mock.calls) expect(args.where.ownerId).toBe(membro.id);
     }
-    expect(prisma.$transaction).not.toHaveBeenCalled();
+    expect(gravar).not.toHaveBeenCalled();
   });
 
   it("recusa criar oportunidade atribuída a outra pessoa", async () => {
@@ -111,9 +117,9 @@ describe("Comercial: isolamento por responsável", () => {
   });
 
   it("recusa vincular cliente alheio na criação", async () => {
-    const { prisma, repository } = contexto();
+    const { prisma, gravar, repository } = contexto();
     await expect(repository.createOpportunity({ title: "Teste", product: "OPM", ownerId: membro.id, clientId: outroId, nextActionAt: "2026-12-01T00:00:00.000Z" }, membro)).rejects.toBeInstanceOf(NaoEncontrado);
     expect(prisma.client.findUnique.mock.calls[0]?.[0].where).toMatchObject({ id: outroId, ownerId: membro.id });
-    expect(prisma.$transaction).not.toHaveBeenCalled();
+    expect(gravar).not.toHaveBeenCalled();
   });
 });

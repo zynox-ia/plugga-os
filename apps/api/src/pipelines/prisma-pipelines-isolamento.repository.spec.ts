@@ -10,6 +10,10 @@ const principal: AuthPrincipal = { id: "membro", kind: "user", acesso: { platafo
 
 function setup(gerente = false) {
   const prisma = new PrismaService();
+  vi.spyOn(prisma, "comContexto").mockImplementation(async (callback: unknown) => {
+    if (typeof callback !== "function") throw new Error("Callback de contexto esperado.");
+    return callback(prisma);
+  });
   vi.spyOn(acesso, "lerAcessoComercial").mockResolvedValue({ podeOperar: true, admin: false, gestorEm: gerente ? ["plugga", "waze"] : [] });
   const pipelines = vi.spyOn(prisma.pipeline, "findMany").mockResolvedValue([]);
   const people = vi.spyOn(prisma.user, "findMany").mockResolvedValue([]);

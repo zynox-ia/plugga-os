@@ -6,7 +6,7 @@ import { identityProviderSchema, type Acesso, type IdentityProvider } from "@plu
 import { AuditAppender } from "../audit/audit-appender";
 import { EstadoInvalido } from "../common/errors/dominio";
 import { mapAcesso } from "../core/auth/user-access.mapper";
-import { PrismaService } from "../prisma/prisma.service";
+import { PrismaAuthService } from "../prisma/prisma-auth.service";
 import {
   AuthRepository,
   IdentityLinkError,
@@ -37,7 +37,7 @@ type UserWithAccess = Prisma.UserGetPayload<typeof userWithAccess>;
 @Injectable()
 export class PrismaAuthRepository extends AuthRepository {
   constructor(
-    @Inject(PrismaService) private readonly prisma: PrismaService,
+    @Inject(PrismaAuthService) private readonly prisma: PrismaAuthService,
     @Inject(AuditAppender) private readonly appender: AuditAppender,
   ) {
     super();

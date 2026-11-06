@@ -1,7 +1,7 @@
 import { Inject, Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 
-import { PrismaService } from "../../prisma/prisma.service";
+import { PrismaAuthService } from "../../prisma/prisma-auth.service";
 import type { AuthPrincipal } from "./auth.types";
 import { SessionCache, type ResolvedSessionUser } from "./session-cache";
 import {
@@ -15,7 +15,7 @@ export class PrismaSessionLookupRepository extends SessionLookupRepository {
   private readonly logger = new Logger(PrismaSessionLookupRepository.name);
 
   constructor(
-    @Inject(PrismaService) private readonly prisma: PrismaService,
+    @Inject(PrismaAuthService) private readonly prisma: PrismaAuthService,
     @Inject(ConfigService) private readonly config: ConfigService,
     @Inject(SessionCache) private readonly cache: SessionCache,
   ) {

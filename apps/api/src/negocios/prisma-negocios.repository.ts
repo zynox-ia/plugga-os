@@ -135,18 +135,18 @@ export class PrismaNegociosRepository extends NegociosRepository {
   async history(id: string, query: ListDealHistoryQuery, principal: AuthPrincipal): Promise<ListDealHistoryResponse> {
     const { pipeline } = await this.negocioVisivel(id, principal);
     const valorVisivel = (field: string | null, valor: Prisma.JsonValue) => field === "ownerId" && valor !== null && typeof valor === "object" && !Array.isArray(valor) && valor.id !== principal.id && filtroDoResponsavelComercial(pipeline.acesso, principal.id).ownerId ? null : valor;
-    if (query.cursor && !await this.prisma.dealHistory.findFirst({ where: { id: query.cursor, dealId: id }, select: { id: true } })) {
+    if (query.cursor && !await this.prisma.comContexto((tx) => tx.dealHistory.findFirst({ where: { id: query.cursor, dealId: id }, select: { id: true } }))) {
       throw invalido("Atualize o histórico deste negócio.", "cursor", "registro não encontrado neste negócio");
     }
     // O cursor nativo usa a precisão do timestamp no Postgres (microssegundos),
     // sem reconstruir sua posição a partir de Date do JavaScript (milissegundos).
-    const linhas = await this.prisma.dealHistory.findMany({
+    const linhas = await this.prisma.comContexto((tx) => tx.dealHistory.findMany({
       where: { dealId: id },
       orderBy: [{ occurredAt: "desc" }, { id: "desc" }],
       ...(query.cursor ? { cursor: { id: query.cursor }, skip: 1 } : {}),
       take: query.limit + 1,
       include: { actor: { select: { id: true, name: true } } },
-    });
+    }));
     const pagina = linhas.slice(0, query.limit);
     return listDealHistoryResponseSchema.parse({
       entries: pagina.map((linha) => ({
@@ -162,21 +162,21 @@ export class PrismaNegociosRepository extends NegociosRepository {
 
   async list(query: ListDealsQuery, principal: AuthPrincipal): Promise<ListDealsResponse> {
     const pipeline = await this.pipelineVisivel(query.pipelineId, principal);
-    const linhas = await this.prisma.deal.findMany({
+    const linhas = await this.prisma.comContexto((tx) => tx.deal.findMany({
       where: { pipelineId: query.pipelineId, ...filtroDoResponsavelComercial(pipeline.acesso, principal.id), ...(query.status === "all" ? {} : { status: query.status }) },
       orderBy: [{ position: "asc" }, { id: "asc" }],
       take: 2000,
       include: DO_NEGOCIO,
-    });
+    }));
     return listDealsResponseSchema.parse({ deals: linhas.map((linha) => paraNegocio(linha, principal.id, pipeline.acesso)) });
   }
 
   async clientOptions(clientId: string, principal: AuthPrincipal): Promise<DealClientOptionsResponse> {
-    const acesso = await lerAcessoComercial(this.prisma, principal.id);
-    const cliente = await this.prisma.client.findUnique({
+    const acesso = await this.prisma.comContexto((tx) => lerAcessoComercial(tx, principal.id));
+    const cliente = await this.prisma.comContexto((tx) => tx.client.findUnique({
       where: { id: clientId },
       select: { ownerId: true, contacts: { select: { id: true, name: true, isPrimary: true }, orderBy: [{ isPrimary: "desc" }, { name: "asc" }] } },
-    });
+    }));
     if (!cliente) throw new NaoEncontrado("Cliente não encontrado.");
     exigeDonoComercial(acesso, principal.id, cliente.ownerId, "Cliente não encontrado.");
     return dealClientOptionsResponseSchema.parse(cliente);
@@ -191,14 +191,15 @@ export class PrismaNegociosRepository extends NegociosRepository {
     if (foraDe(input.tagIds, pipeline.tags.map((t) => t.id)).length > 0) {
       throw invalido("Use só etiquetas deste pipeline.", "tagIds", "etiqueta de outro pipeline");
     }
-    if (input.clientId) {
-      const cliente = await this.prisma.client.findUnique({ where: { id: input.clientId }, select: { active: true, ownerId: true } });
+    const clientId = input.clientId;
+    if (clientId) {
+      const cliente = await this.prisma.comContexto((tx) => tx.client.findUnique({ where: { id: clientId }, select: { active: true, ownerId: true } }));
       if (!cliente) throw invalido("Escolha um cliente cadastrado.", "clientId", "cliente não encontrado");
       exigeDonoComercial(pipeline.acesso, principal.id, cliente.ownerId, "Cliente não encontrado.");
       if (!cliente.active) throw invalido("Este cliente está inativo. Reative-o antes de vincular um lead.", "clientId", "cliente inativo");
     }
 
-    const id = await this.prisma.$transaction(async (tx) => {
+    const id = await this.prisma.comContexto(async (tx) => {
       await this.travarPipelines(tx, [pipeline.id]);
       const acesso = await lerAcessoComercial(tx, principal.id);
       if (!podeVer(acesso)) throw new NaoEncontrado(PIPELINE_NAO_ENCONTRADO);
@@ -236,7 +237,7 @@ export class PrismaNegociosRepository extends NegociosRepository {
 
   async update(id: string, input: UpdateLeadRequest, principal: AuthPrincipal): Promise<DealDetail> {
     const { pipeline } = await this.negocioVisivel(id, principal);
-    return this.prisma.$transaction(async (tx) => {
+    return this.prisma.comContexto(async (tx) => {
       await this.travarPipelines(tx, [pipeline.id]);
       await tx.$queryRaw`SELECT id FROM deals WHERE id = ${id}::uuid FOR UPDATE`;
       // Confere novamente depois do lock: uma transferência ou revogação pode
@@ -348,7 +349,7 @@ export class PrismaNegociosRepository extends NegociosRepository {
     const destino = pipeline.stages.find((e) => e.id === input.stageId);
     if (!destino) throw invalido("Escolha uma etapa deste pipeline.", "stageId", "etapa de outro pipeline");
 
-    await this.prisma.$transaction(async (tx) => {
+    await this.prisma.comContexto(async (tx) => {
       await this.travarPipelines(tx, [pipeline.id]);
       const atual = await this.negocioAtual(tx, id, pipeline.id, principal);
       if (atual.stageId === destino.id && input.beforeDealId === undefined) return;
@@ -367,7 +368,7 @@ export class PrismaNegociosRepository extends NegociosRepository {
 
   async setPriority(id: string, input: SetDealPriorityRequest, principal: AuthPrincipal): Promise<Deal> {
     const { pipeline } = await this.negocioAberto(id, principal);
-    await this.prisma.$transaction(async (tx) => {
+    await this.prisma.comContexto(async (tx) => {
       const [atual] = await tx.$queryRaw<Array<{ priority: SetDealPriorityRequest["priority"]; status: string }>>`SELECT priority, status FROM deals WHERE id = ${id}::uuid FOR UPDATE`;
       if (!atual) throw new NaoEncontrado(NEGOCIO_NAO_ENCONTRADO);
       await this.negocioAtual(tx, id, pipeline.id, principal);
@@ -396,7 +397,7 @@ export class PrismaNegociosRepository extends NegociosRepository {
     const problema = problemaDaPerda(motivo, input.revisitOn, hojeNoFuso());
     if (problema) throw new RequisicaoInvalida("Confira o motivo da perda.", [problema]);
 
-    await this.prisma.$transaction(async (tx) => {
+    await this.prisma.comContexto(async (tx) => {
       await this.travarPipelines(tx, [pipeline.id]);
       const negocio = await this.negocioAtual(tx, id, pipeline.id, principal);
       await tx.deal.update({
@@ -462,8 +463,8 @@ export class PrismaNegociosRepository extends NegociosRepository {
   }
 
   async bulk(input: BulkDealsRequest, principal: AuthPrincipal): Promise<ListDealsResponse> {
-    const acesso = await lerAcessoComercial(this.prisma, principal.id);
-    const negocios = await this.prisma.deal.findMany({ where: { id: { in: input.dealIds } }, select: { id: true, pipelineId: true, stageId: true, status: true, ownerId: true } });
+    const acesso = await this.prisma.comContexto((tx) => lerAcessoComercial(tx, principal.id));
+    const negocios = await this.prisma.comContexto((tx) => tx.deal.findMany({ where: { id: { in: input.dealIds } }, select: { id: true, pipelineId: true, stageId: true, status: true, ownerId: true } }));
     if (!podeVer(acesso) || negocios.length !== new Set(input.dealIds).size) throw new NaoEncontrado(NEGOCIO_NAO_ENCONTRADO);
     for (const negocio of negocios) exigeDonoComercial(acesso, principal.id, negocio.ownerId);
     const pipelines = new Set(negocios.map((n) => n.pipelineId));
@@ -473,7 +474,7 @@ export class PrismaNegociosRepository extends NegociosRepository {
     const pipeline = await this.pipelineVisivel([...pipelines][0]!, principal);
     const { action } = input;
 
-    await this.prisma.$transaction(async (tx) => {
+    await this.prisma.comContexto(async (tx) => {
       await this.travarPipelines(tx, [pipeline.id]);
       // Valida o lote inteiro depois dos locks, antes da primeira escrita.
       for (const id of [...new Set(input.dealIds)].sort()) await tx.$queryRaw`SELECT id FROM deals WHERE id = ${id}::uuid FOR UPDATE`;
@@ -541,9 +542,9 @@ export class PrismaNegociosRepository extends NegociosRepository {
       }
     });
 
-    const acessoFinal = await lerAcessoComercial(this.prisma, principal.id);
+    const acessoFinal = await this.prisma.comContexto((tx) => lerAcessoComercial(tx, principal.id));
     if (!podeVer(acessoFinal)) throw new NaoEncontrado(NEGOCIO_NAO_ENCONTRADO);
-    const linhas = await this.prisma.deal.findMany({ where: { id: { in: input.dealIds }, ...filtroDoResponsavelComercial(acessoFinal, principal.id) }, include: DO_NEGOCIO });
+    const linhas = await this.prisma.comContexto((tx) => tx.deal.findMany({ where: { id: { in: input.dealIds }, ...filtroDoResponsavelComercial(acessoFinal, principal.id) }, include: DO_NEGOCIO }));
     return listDealsResponseSchema.parse({ deals: linhas.map((linha) => paraNegocio(linha, principal.id, acessoFinal)) });
   }
 
@@ -676,7 +677,7 @@ export class PrismaNegociosRepository extends NegociosRepository {
   private async comRetentativaDeDocumento<T>(fn: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
     for (let tentativa = 0; tentativa < 2; tentativa++) {
       try {
-        return await this.prisma.$transaction((tx) => fn(tx));
+        return await this.prisma.comContexto((tx) => fn(tx));
       } catch (erro) {
         if (tentativa === 0 && erro instanceof Prisma.PrismaClientKnownRequestError && erro.code === "P2002") continue;
         throw erro;
@@ -732,8 +733,8 @@ export class PrismaNegociosRepository extends NegociosRepository {
   /** Quem não alcança o pipeline recebe "não encontrado": a existência não vaza. */
   private async pipelineVisivel(id: string, principal: AuthPrincipal): Promise<PipelineDoNegocio> {
     const [pipeline, acesso] = await Promise.all([
-      this.prisma.pipeline.findUnique({ where: { id }, include: DO_PIPELINE }),
-      lerAcessoComercial(this.prisma, principal.id),
+      this.prisma.comContexto((tx) => tx.pipeline.findUnique({ where: { id }, include: DO_PIPELINE })),
+      this.prisma.comContexto((tx) => lerAcessoComercial(tx, principal.id)),
     ]);
     if (!pipeline || !podeVer(acesso)) throw new NaoEncontrado(PIPELINE_NAO_ENCONTRADO);
     return { ...pipeline, acesso };
@@ -747,7 +748,7 @@ export class PrismaNegociosRepository extends NegociosRepository {
 
   /** Visível a quem alcança o pipeline, independente do negócio estar aberto, ganho ou perdido. */
   private async negocioVisivel(id: string, principal: AuthPrincipal) {
-    const negocio = await this.prisma.deal.findUnique({ where: { id }, select: { id: true, pipelineId: true, stageId: true, ownerId: true, status: true } });
+    const negocio = await this.prisma.comContexto((tx) => tx.deal.findUnique({ where: { id }, select: { id: true, pipelineId: true, stageId: true, ownerId: true, status: true } }));
     if (!negocio) throw new NaoEncontrado(NEGOCIO_NAO_ENCONTRADO);
     const pipeline = await this.pipelineVisivel(negocio.pipelineId, principal).catch(() => {
       throw new NaoEncontrado(NEGOCIO_NAO_ENCONTRADO);
@@ -770,7 +771,7 @@ export class PrismaNegociosRepository extends NegociosRepository {
 
   private async ler(id: string, principal: AuthPrincipal): Promise<DealDetail> {
     const { pipeline } = await this.negocioVisivel(id, principal);
-    const negocio = await this.prisma.deal.findUnique({ where: { id, ...filtroDoResponsavelComercial(pipeline.acesso, principal.id) }, include: DO_NEGOCIO });
+    const negocio = await this.prisma.comContexto((tx) => tx.deal.findUnique({ where: { id, ...filtroDoResponsavelComercial(pipeline.acesso, principal.id) }, include: DO_NEGOCIO }));
     if (!negocio) throw new NaoEncontrado(NEGOCIO_NAO_ENCONTRADO);
     return paraNegocio(negocio, principal.id, pipeline.acesso);
   }

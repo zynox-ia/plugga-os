@@ -1,10 +1,11 @@
 import { Logger, Module } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { APP_GUARD } from "@nestjs/core";
+import { APP_GUARD, APP_INTERCEPTOR } from "@nestjs/core";
 
 import { PrismaModule } from "../prisma/prisma.module";
 import { AuthContext } from "./auth/auth.types";
 import { CompositeAuthContext } from "./auth/composite-auth-context";
+import { ContextoBancoInterceptor } from "./auth/contexto-banco.interceptor";
 import { SessionAuthGuard } from "./auth/session-auth.guard";
 import { DevHeaderAuthContext } from "./auth/dev-header-auth-context";
 import { NullSessionCache } from "./auth/null-session-cache";
@@ -65,6 +66,7 @@ import { SessionLookupRepository } from "./auth/session-lookup.repository";
     OriginCheckGuard,
     // Guard global: rota sem declaração de acesso (modo warn registra, enforce nega).
     { provide: APP_GUARD, useClass: RotaFechadaGuard },
+    { provide: APP_INTERCEPTOR, useClass: ContextoBancoInterceptor },
   ],
   exports: [
     AuthContext,

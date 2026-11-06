@@ -16,8 +16,8 @@ describe("Documentos: isolamento do negócio pai", () => {
   it("recusa listar, enviar, editar, arquivar, baixar e visualizar arquivos alheios sem acessar storage", async () => {
     const prisma = new PrismaService();
     vi.spyOn(prisma, "$queryRaw").mockResolvedValue([]);
-    vi.spyOn(prisma, "$transaction").mockImplementation(async (callback: unknown) => {
-      if (typeof callback !== "function") throw new Error("Transação interativa esperada.");
+    vi.spyOn(prisma, "comContexto").mockImplementation(async (callback: unknown) => {
+      if (typeof callback !== "function") throw new Error("Callback de contexto esperado.");
       return callback(prisma);
     });
     const storage = new ArmazenamentoDeDocumentos(new ConfigService());

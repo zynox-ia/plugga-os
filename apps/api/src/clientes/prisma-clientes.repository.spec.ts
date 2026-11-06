@@ -11,13 +11,18 @@ const gerente: AuthPrincipal = { ...membro, acesso: { plataforma: null, departam
 const outroId = "00000000-0000-4000-8000-000000000002";
 
 function contexto() {
-  const prisma = {
-    client: { findMany: vi.fn().mockResolvedValue([]), findUnique: vi.fn().mockResolvedValue(null) },
-    clientContact: { findFirst: vi.fn().mockResolvedValue(null) },
+  const gravar = vi.fn().mockRejectedValue(new Error("Gravação inesperada"));
+  const banco = {
+    client: { findMany: vi.fn().mockResolvedValue([]), findUnique: vi.fn().mockResolvedValue(null), create: gravar, update: gravar },
+    clientContact: { findFirst: vi.fn().mockResolvedValue(null), create: gravar, update: gravar, updateMany: gravar, delete: gravar },
     user: { findMany: vi.fn().mockResolvedValue([]), findFirst: vi.fn().mockResolvedValue({ id: membro.id }) },
-    $transaction: vi.fn(),
+    eventLog: { createMany: gravar },
   };
-  return { prisma, repository: new PrismaClientesRepository(prisma as unknown as PrismaService, new AuditAppender()) };
+  const prisma = {
+    ...banco,
+    comContexto: vi.fn(<T>(fn: (tx: typeof banco) => Promise<T>) => fn(banco)),
+  };
+  return { prisma, gravar, repository: new PrismaClientesRepository(prisma as unknown as PrismaService, new AuditAppender()) };
 }
 
 describe("Clientes: isolamento por responsável", () => {
@@ -57,7 +62,7 @@ describe("Clientes: isolamento por responsável", () => {
   });
 
   it("bloqueia ativação, edição e todos os contatos de cliente alheio antes de gravar", async () => {
-    const { prisma, repository } = contexto();
+    const { prisma, gravar, repository } = contexto();
     const acoes = [
       () => repository.update(outroId, { name: "Alterado" }, membro),
       () => repository.activate(outroId, membro),
@@ -67,14 +72,14 @@ describe("Clientes: isolamento por responsável", () => {
       () => repository.removeContact(outroId, outroId, membro),
     ];
     for (const acao of acoes) await expect(acao()).rejects.toBeInstanceOf(NaoEncontrado);
-    expect(prisma.$transaction).not.toHaveBeenCalled();
+    expect(gravar).not.toHaveBeenCalled();
     for (const [args] of prisma.client.findUnique.mock.calls) expect(args.where.ownerId).toBe(membro.id);
   });
 
   it("recusa atribuir um cliente novo a outra pessoa antes de consultar seus dados", async () => {
-    const { prisma, repository } = contexto();
+    const { prisma, gravar, repository } = contexto();
     await expect(repository.create({ personType: "pj", name: "Sintético", ownerId: outroId }, membro)).rejects.toBeInstanceOf(AcessoNegado);
     expect(prisma.user.findFirst).not.toHaveBeenCalled();
-    expect(prisma.$transaction).not.toHaveBeenCalled();
+    expect(gravar).not.toHaveBeenCalled();
   });
 });

@@ -2,6 +2,7 @@ import { Inject, Module, type OnModuleInit } from "@nestjs/common";
 import { ThrottlerModule } from "@nestjs/throttler";
 
 import { AuditModule } from "../audit/audit.module";
+import { AuditPort } from "../audit/audit.port";
 import { CoreModule } from "../core/core.module";
 import { EmailModule } from "../email/email.module";
 import { JobHandlerRegistry } from "../jobs/queue/job-handler-registry";
@@ -19,6 +20,7 @@ import { ContadorThrottlerStorage } from "./limitador/contador-throttler-storage
 import { LimitadorModule } from "./limitador/limitador.module";
 import { PasswordService } from "./password.service";
 import { PrismaAuthRepository } from "./prisma-auth.repository";
+import { PrismaAuthAuditRepository } from "../audit/prisma-auth-audit.repository";
 import { ResetEmailDispatcher } from "./reset-email.dispatcher";
 import { ResetEmailHandler } from "./reset-email.handler";
 import { SessionService } from "./session.service";
@@ -58,6 +60,7 @@ import { EquipeService } from "./equipe.service";
     ResetEmailHandler,
     ResetEmailDispatcher,
     { provide: AuthRepository, useClass: PrismaAuthRepository },
+    { provide: AuditPort, useClass: PrismaAuthAuditRepository },
     // A porta é o que permite exercitar toda a política de vínculo sem rede e
     // sem conta Google real — e sem abrir um atalho por variável de ambiente,
     // que existiria também em produção.

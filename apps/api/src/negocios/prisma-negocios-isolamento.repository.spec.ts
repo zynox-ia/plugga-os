@@ -19,20 +19,23 @@ function setup(ownerId = "outra-pessoa") {
   const history = vi.spyOn(prisma.dealHistory, "findMany").mockResolvedValue([]);
   const list = vi.spyOn(prisma.deal, "findMany").mockResolvedValue([]);
   const write = vi.spyOn(prisma.deal, "update");
+  const create = vi.spyOn(prisma.deal, "create");
+  const historyWrite = vi.spyOn(prisma.dealHistory, "createMany");
+  const auditWrite = vi.spyOn(prisma.eventLog, "createMany");
   vi.spyOn(prisma.deal, "findUniqueOrThrow").mockRejectedValue(new Error("Leitura de conteúdo não autorizada."));
   vi.spyOn(prisma, "$queryRaw").mockResolvedValue([]);
-  const tx = vi.spyOn(prisma, "$transaction").mockImplementation(async (callback: unknown) => {
-    if (typeof callback !== "function") throw new Error("Transação interativa esperada.");
+  vi.spyOn(prisma, "comContexto").mockImplementation(async (callback: unknown) => {
+    if (typeof callback !== "function") throw new Error("Callback de contexto esperado.");
     return callback(prisma);
   });
-  return { prisma, repo: new PrismaNegociosRepository(prisma, new AuditAppender(), {} as ClientesService), history, list, write, tx };
+  return { prisma, repo: new PrismaNegociosRepository(prisma, new AuditAppender(), {} as ClientesService), history, list, write, create, historyWrite, auditWrite };
 }
 
 afterEach(() => vi.restoreAllMocks());
 
 describe("Negócios: isolamento por responsável com acesso atual", () => {
   it("oculta detalhe, histórico e todas as mutações do negócio de outro membro", async () => {
-    const { repo, write, tx } = setup();
+    const { repo, write, create, historyWrite, auditWrite } = setup();
     const operations = [
       () => repo.get("negocio", principal),
       () => repo.history("negocio", { limit: 30 }, principal),
@@ -46,7 +49,9 @@ describe("Negócios: isolamento por responsável com acesso atual", () => {
     ];
     for (const operation of operations) await expect(operation()).rejects.toBeInstanceOf(NaoEncontrado);
     expect(write).not.toHaveBeenCalled();
-    expect(tx).not.toHaveBeenCalled();
+    expect(create).not.toHaveBeenCalled();
+    expect(historyWrite).not.toHaveBeenCalled();
+    expect(auditWrite).not.toHaveBeenCalled();
   });
 
   it("filtra lista pelo dono mesmo com sessão antiga de admin e mantém histórico próprio", async () => {
@@ -62,10 +67,13 @@ describe("Negócios: isolamento por responsável com acesso atual", () => {
     await expect(repo.history("negocio", { limit: 30 }, principal)).resolves.toEqual({ entries: [], nextCursor: null });
   });
 
-  it("recusa atribuição de novo negócio a outro responsável antes da transação", async () => {
-    const { repo, tx } = setup();
+  it("recusa atribuição de novo negócio a outro responsável antes de persistir", async () => {
+    const { repo, create, write, historyWrite, auditWrite } = setup();
     await expect(repo.create({ pipelineId: pipeline.id, stageId: "etapa", ownerId: "outro", title: "Novo", tagIds: [], lead: { personType: "pf", name: "Lead" } } as never, principal)).rejects.toBeInstanceOf(AcessoNegado);
-    expect(tx).not.toHaveBeenCalled();
+    expect(create).not.toHaveBeenCalled();
+    expect(write).not.toHaveBeenCalled();
+    expect(historyWrite).not.toHaveBeenCalled();
+    expect(auditWrite).not.toHaveBeenCalled();
   });
 
   it("oculta contatos do cliente de outro responsável", async () => {
@@ -75,10 +83,12 @@ describe("Negócios: isolamento por responsável com acesso atual", () => {
   });
 
   it("recusa lote misto antes de gravar qualquer registro", async () => {
-    const { repo, list, tx } = setup();
+    const { repo, list, write, historyWrite, auditWrite } = setup();
     list.mockResolvedValue([{ id: "proprio", pipelineId: pipeline.id, ownerId: principal.id, stageId: "etapa", status: "open" }, { id: "alheio", pipelineId: pipeline.id, ownerId: "outro", stageId: "etapa", status: "open" }] as never);
     await expect(repo.bulk({ dealIds: ["proprio", "alheio"], action: { type: "priority", priority: null } }, principal)).rejects.toBeInstanceOf(NaoEncontrado);
-    expect(tx).not.toHaveBeenCalled();
+    expect(write).not.toHaveBeenCalled();
+    expect(historyWrite).not.toHaveBeenCalled();
+    expect(auditWrite).not.toHaveBeenCalled();
   });
 
   it("revalida o responsável após esperar pelo lock da edição", async () => {

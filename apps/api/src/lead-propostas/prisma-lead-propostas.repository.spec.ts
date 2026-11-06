@@ -20,8 +20,8 @@ const row = {
 function setup() {
   const prisma = new PrismaService();
   vi.spyOn(prisma, "$queryRaw").mockResolvedValue([]);
-  vi.spyOn(prisma, "$transaction").mockImplementation(async (callback: unknown) => {
-    if (typeof callback !== "function") throw new Error("Teste requer transação interativa.");
+  vi.spyOn(prisma, "comContexto").mockImplementation(async (callback: unknown) => {
+    if (typeof callback !== "function") throw new Error("Callback de contexto esperado.");
     return callback(prisma);
   });
   vi.spyOn(access, "lerAcessoComercial").mockResolvedValue({ podeOperar: true, admin: true, gestorEm: [] });

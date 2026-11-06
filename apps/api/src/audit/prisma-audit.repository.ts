@@ -16,36 +16,35 @@ export class PrismaAuditRepository extends AuditPort {
   }
 
   async appendEvent(event: EventAppend): Promise<void> {
-    await this.prisma.eventLog.create({
+    await this.prisma.comContexto((tx) => tx.eventLog.createMany({
       data: {
         ...event,
         payload: event.payload as Prisma.InputJsonObject,
       },
-      select: { id: true },
-    });
+    }));
   }
 
   async appendTrail(
     agentAction: AgentActionAppend,
     event: EventAppend,
   ): Promise<StoredAgentAction> {
-    const [storedAction] = await this.prisma.$transaction([
-      this.prisma.agentAction.create({
+    const storedAction = await this.prisma.comContexto(async (tx) => {
+      const action = await tx.agentAction.create({
         data: {
           ...agentAction,
           input: agentAction.input as Prisma.InputJsonObject,
           payload: agentAction.payload as Prisma.InputJsonObject,
         },
         select: { id: true, status: true, createdAt: true },
-      }),
-      this.prisma.eventLog.create({
+      });
+      await tx.eventLog.createMany({
         data: {
           ...event,
           payload: event.payload as Prisma.InputJsonObject,
         },
-        select: { id: true },
-      }),
-    ]);
+      });
+      return action;
+    });
 
     return {
       id: storedAction.id,

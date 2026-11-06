@@ -5,6 +5,9 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { AppModule } from "../src/app.module";
 import { NegociosRepository } from "../src/negocios/negocios.repository";
+import { PrismaAuthService } from "../src/prisma/prisma-auth.service";
+import { PrismaJobsService } from "../src/prisma/prisma-jobs.service";
+import { PrismaService } from "../src/prisma/prisma.service";
 
 describe("detalhe do lead (HTTP)", () => {
   let app: INestApplication;
@@ -19,6 +22,9 @@ describe("detalhe do lead (HTTP)", () => {
 
   beforeAll(async () => {
     const modulo = await Test.createTestingModule({ imports: [AppModule] })
+      .overrideProvider(PrismaService).useValue({})
+      .overrideProvider(PrismaAuthService).useValue({})
+      .overrideProvider(PrismaJobsService).useValue({})
       .overrideProvider(NegociosRepository).useValue(repository).compile();
     app = modulo.createNestApplication();
     await app.init();

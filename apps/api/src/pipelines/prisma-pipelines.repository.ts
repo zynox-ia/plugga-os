@@ -103,7 +103,7 @@ export class PrismaPipelinesRepository extends PipelinesRepository {
   async list(principal: AuthPrincipal): Promise<ListPipelinesResponse> {
     const acesso = await this.acessoDe(principal.id);
     if (!acesso.podeOperar) throw new AcessoNegado("Sem acesso aos pipelines do CRM.");
-    const linhas = await this.prisma.pipeline.findMany({ orderBy: { createdAt: "asc" }, include: completoPara(acesso, principal.id) });
+    const linhas = await this.prisma.comContexto((tx) => tx.pipeline.findMany({ orderBy: { createdAt: "asc" }, include: completoPara(acesso, principal.id) }));
     return listPipelinesResponseSchema.parse({
       pipelines: linhas.map((linha) => paraPipeline(linha, podeConfigurar(acesso, principal.id, linha), principal.id)),
       responsaveis: (await this.people({ companyId: "plugga" }, principal)).people,
@@ -114,11 +114,11 @@ export class PrismaPipelinesRepository extends PipelinesRepository {
   async people(_query: PipelinePeopleQuery, principal: AuthPrincipal): Promise<PipelinePeopleResponse> {
     const acesso = await this.acessoDe(principal.id);
     if (!acesso.podeOperar) throw new AcessoNegado("Sem acesso aos pipelines do CRM.");
-    const pessoas = await this.prisma.user.findMany({
+    const pessoas = await this.prisma.comContexto((tx) => tx.user.findMany({
       where: { ...pessoaElegivelParaPipelines, ...(filtroDoResponsavelComercial(acesso, principal.id).ownerId ? { id: principal.id } : {}) },
       orderBy: { name: "asc" },
       select: { id: true, name: true, email: true },
-    });
+    }));
     return pipelinePeopleResponseSchema.parse({ people: pessoas });
   }
 
@@ -130,7 +130,7 @@ export class PrismaPipelinesRepository extends PipelinesRepository {
     const { stages, tags, lossReasons, members, ...gerais } = input;
     this.garantirSemEquipe(members);
     const id = await this.comNomeUnico(() =>
-      this.prisma.$transaction(async (tx) => {
+      this.prisma.comContexto(async (tx) => {
         const criado = await tx.pipeline.create({
           data: {
             ...gerais,
@@ -187,7 +187,7 @@ export class PrismaPipelinesRepository extends PipelinesRepository {
     this.garantirSemEquipe(members);
     const removidas = idsRemovidos(atual.stages.map((e) => e.id), stages);
     await this.comNomeUnico(() =>
-      this.prisma.$transaction(async (tx) => {
+      this.prisma.comContexto(async (tx) => {
         // Trava otimista: só grava sobre a versão que a tela leu. O banco guarda
         // microssegundos e o ISO da tela só milissegundos, daí o intervalo.
         const lido = new Date(updatedAt);
@@ -259,7 +259,7 @@ export class PrismaPipelinesRepository extends PipelinesRepository {
     if ((atual.archivedAt !== null) === arquivar) {
       throw new EstadoInvalido(arquivar ? "O pipeline já está arquivado." : "O pipeline já está ativo.");
     }
-    await this.prisma.$transaction(async (tx) => {
+    await this.prisma.comContexto(async (tx) => {
       await tx.pipeline.update({ where: { id }, data: { archivedAt: arquivar ? new Date() : null, updatedById: principal.id } });
       await this.registrar(tx, arquivar ? "commercial.pipeline.archived" : "commercial.pipeline.restored", id, atual.companyId, principal, {});
     });
@@ -267,18 +267,18 @@ export class PrismaPipelinesRepository extends PipelinesRepository {
   }
 
   private acessoDe(pessoaId: string): Promise<AcessoComercial> {
-    return lerAcessoComercial(this.prisma, pessoaId);
+    return this.prisma.comContexto((tx) => lerAcessoComercial(tx, pessoaId));
   }
 
   /** Quem não alcança o pipeline recebe "não encontrado": a existência não vaza. */
   private async lerVisivel(id: string, pessoaId: string, acesso: AcessoComercial): Promise<Pipeline> {
-    const linha = await this.prisma.pipeline.findUnique({ where: { id }, include: completoPara(acesso, pessoaId) });
+    const linha = await this.prisma.comContexto((tx) => tx.pipeline.findUnique({ where: { id }, include: completoPara(acesso, pessoaId) }));
     if (!linha || !podeVer(acesso)) throw new NaoEncontrado(NAO_ENCONTRADO);
     return paraPipeline(linha, podeConfigurar(acesso, pessoaId, linha), pessoaId);
   }
 
   private async lerParaQuemPediu(id: string, pessoaId: string, acesso: AcessoComercial): Promise<Pipeline> {
-    const linha = await this.prisma.pipeline.findUniqueOrThrow({ where: { id }, include: completoPara(acesso, pessoaId) });
+    const linha = await this.prisma.comContexto((tx) => tx.pipeline.findUniqueOrThrow({ where: { id }, include: completoPara(acesso, pessoaId) }));
     return paraPipeline(linha, podeConfigurar(acesso, pessoaId, linha), pessoaId);
   }
 
@@ -288,10 +288,10 @@ export class PrismaPipelinesRepository extends PipelinesRepository {
 
   /** O índice único do banco diferencia maiúsculas; a tela não deve. */
   private async garantirNomeLivre(empresa: CompanyKey, nome: string, exceto?: string): Promise<void> {
-    const outro = await this.prisma.pipeline.findFirst({
+    const outro = await this.prisma.comContexto((tx) => tx.pipeline.findFirst({
       where: { companyId: empresa, name: { equals: nome, mode: "insensitive" }, ...(exceto ? { id: { not: exceto } } : {}) },
       select: { id: true },
-    });
+    }));
     if (outro) throw new Conflito(NOME_REPETIDO, [{ campo: "name", problema: "nome já usado nesta empresa" }]);
   }
 
