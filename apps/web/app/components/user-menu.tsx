@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { papelDoAcesso } from "@plugga/shared";
 
-import { ROTULO_DO_PAPEL } from "../lib/organizacao";
+import { ROTULO_DO_PAPEL, configuracoesParaAcesso } from "../lib/organizacao";
 import { useSessionUser } from "../lib/use-session-user";
 
 /**
@@ -92,11 +92,12 @@ export function UserMenu() {
             </div>
           ) : null}
 
+          {usuario && configuracoesParaAcesso(usuario.acesso).some((secao) => secao.id === "sistema") ? (
           <button
             className="user-menu-item"
             type="button"
             role="menuitem"
-            onClick={() => irPara("/configuracoes")}
+            onClick={() => irPara("/configuracoes?aba=sistema")}
           >
             <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="3.2" />
@@ -104,14 +105,15 @@ export function UserMenu() {
             </svg>
             Configurações do sistema
           </button>
-          <button className="user-menu-item" type="button" role="menuitem" onClick={() => irPara("/configuracoes")}>
+          ) : null}
+          <button className="user-menu-item" type="button" role="menuitem" onClick={() => irPara("/configuracoes?aba=perfil")}>
             <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="8" r="4" />
               <path d="M4 21a8 8 0 0 1 16 0" />
             </svg>
             Meu perfil
           </button>
-          <button className="user-menu-item" type="button" role="menuitem" onClick={() => irPara("/configuracoes")}>
+          <button className="user-menu-item" type="button" role="menuitem" onClick={() => irPara("/configuracoes?aba=notificacoes")}>
             <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
               <path d="M4 6h10" />
               <path d="M18 6h2" />

@@ -139,23 +139,31 @@ describe("barra lateral pelo acesso", () => {
 describe("Configurações pelo papel", () => {
   const secoes = (acesso: Acesso) => configuracoesParaAcesso(acesso).map((secao) => secao.label);
 
-  it("membro não vê nenhuma seção de configuração do sistema", () => {
-    assert.deepEqual(secoes(membro("crm")), []);
+  it("membro vê as configurações pessoais (Perfil & Segurança, Notificações)", () => {
+    assert.deepEqual(secoes(membro("crm")), ["Perfil & Segurança", "Notificações"]);
   });
 
-  it("gerente vê só Equipe e Acessos", () => {
+  it("gerente vê as configurações pessoais e Equipe e Acessos", () => {
     assert.deepEqual(secoes({ plataforma: null, departamentos: [{ departamento: "crm", nivel: "gerente" }] }), [
+      "Perfil & Segurança",
+      "Notificações",
       "Equipe e Acessos",
     ]);
   });
 
-  it("admin vê o que faz a plataforma funcionar, mas não as telas técnicas", () => {
+  it("admin vê as configurações administrativas sem ferramentas técnicas", () => {
     const admin = secoes({ plataforma: "admin", departamentos: [] });
-    assert.ok(admin.includes("Equipe e Acessos") && admin.includes("Chave de IA") && admin.includes("Integrações"));
-    assert.ok(!admin.includes("Jobs e Automações"));
+    assert.deepEqual(admin, [
+      "Perfil & Segurança",
+      "Notificações",
+      "Equipe e Acessos",
+      "Configurações do Sistema",
+      "Integrações",
+      "Chave de IA",
+    ]);
   });
 
-  it("desenvolvedor vê tudo, inclusive as telas técnicas", () => {
+  it("desenvolvedor vê todas as configurações e ferramentas técnicas", () => {
     assert.equal(secoes({ plataforma: "desenvolvedor", departamentos: [] }).length, 7);
   });
 

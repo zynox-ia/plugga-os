@@ -1,0 +1,445 @@
+/* Navegação por abas horizontais justificadas (mesma altura e alinhamento do CRM) */
+.navegacaoAbas {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  min-height: 48px;
+  border-bottom: 1px solid var(--ui-divider);
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  background: transparent;
+  margin: 0;
+  flex-shrink: 0;
+  box-sizing: border-box;
+}
+
+.abaBotao {
+  flex: 1 1 0;
+  min-width: max-content;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 48px;
+  min-height: 48px;
+  padding: 0 16px;
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  color: var(--ui-muted);
+  font-family: var(--font-general-sans), sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.15s ease, border-color 0.15s ease, background-color 0.15s ease;
+  position: relative;
+  bottom: -1px;
+  box-sizing: border-box;
+}
+
+.abaBotao:focus-visible {
+  outline: 2px solid var(--ui-primary);
+  outline-offset: -3px;
+}
+
+.abaBotao:hover {
+  color: var(--ui-text);
+  background: rgba(15, 41, 74, 0.03);
+}
+
+.abaBotao[aria-selected="true"] {
+  color: var(--ui-primary);
+  border-bottom-color: var(--ui-primary);
+  font-weight: 500;
+  background: transparent;
+}
+
+.abaBotao svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  color: inherit;
+  stroke-width: 1.7;
+}
+
+/* Regra do design system: peso máximo de fontes em 500 */
+.painel strong,
+.painel b,
+.navegacaoAbas strong,
+.navegacaoAbas b,
+.cardPerfilUnificado strong,
+.cardPerfilUnificado b {
+  font-weight: 500;
+}
+
+.painel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  padding-bottom: 24px;
+  font-family: var(--font-general-sans), sans-serif;
+}
+
+.cabecalho {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 0 8px;
+  border-bottom: 1px solid var(--ui-divider);
+}
+
+.cabecalhoTexto h3 {
+  margin: 0;
+  color: var(--ui-text);
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.cabecalhoTexto p {
+  margin: 3px 0 0;
+  font-size: 12.5px;
+  color: var(--ui-muted);
+  line-height: 1.4;
+}
+
+.cabecalhoAcoes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.grade {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.secaoLarga {
+  grid-column: 1 / -1;
+}
+
+/* Cards no padrão de vidro e espaçamento do Dashboard */
+.secao {
+  min-width: 0;
+  padding: 16px 18px;
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  border-radius: 18px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.68) 0%, rgba(255, 255, 255, 0.48) 100%);
+  -webkit-backdrop-filter: blur(44px) saturate(190%);
+  backdrop-filter: blur(44px) saturate(190%);
+  box-shadow: 0 10px 30px -4px rgba(10, 25, 47, 0.08), inset 0 1px 1px 0 rgba(255, 255, 255, 0.90), inset 0 -1px 1px 0 rgba(0, 0, 0, 0.03);
+}
+
+.secao h4 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 12px;
+  color: var(--ui-text);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.secao h4 svg {
+  color: var(--ui-primary);
+  flex-shrink: 0;
+  width: 15px;
+  height: 15px;
+}
+
+.campos {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 14px;
+  margin: 0;
+}
+
+.camposUnicaColuna {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.linhaDupla {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 14px;
+}
+
+.campoLargo {
+  grid-column: 1 / -1;
+}
+
+.rodape {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
+  padding-top: 14px;
+  border-top: 1px solid var(--ui-divider);
+}
+
+/* Card Unificado de Perfil: Simples, Direto e Objetivo */
+.cardPerfilUnificado {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 20px 22px;
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  border-radius: 18px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.68) 0%, rgba(255, 255, 255, 0.48) 100%);
+  -webkit-backdrop-filter: blur(44px) saturate(190%);
+  backdrop-filter: blur(44px) saturate(190%);
+  box-shadow: 0 10px 30px -4px rgba(10, 25, 47, 0.08), inset 0 1px 1px 0 rgba(255, 255, 255, 0.90), inset 0 -1px 1px 0 rgba(0, 0, 0, 0.03);
+  box-sizing: border-box;
+}
+
+.perfilTopoUnificado {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--ui-divider);
+}
+
+.perfilTopoInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  flex: 1;
+}
+
+.perfilTopoTituloLinha {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.perfilTopoTituloLinha strong {
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--ui-text);
+  font-family: var(--font-articulat), "Articulat CF", sans-serif;
+}
+
+.perfilTopoEmail {
+  font-size: 13px;
+  color: var(--ui-muted);
+}
+
+.perfilTopoMeta {
+  font-size: 11.5px;
+  color: var(--ui-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.perfilGradeCampos {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 18px;
+}
+
+.perfilRodape {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--ui-divider);
+  flex-wrap: wrap;
+}
+
+.perfilRodapeNota {
+  font-size: 12px;
+  color: var(--ui-muted);
+  margin: 0;
+}
+
+/* Foto do Perfil 4x5 e Dropzone */
+.fotoContainer4x5 {
+  position: relative;
+  width: 100px;
+  height: 125px;
+  aspect-ratio: 4 / 5;
+  border-radius: 14px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.fotoDropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100px;
+  height: 125px;
+  aspect-ratio: 4 / 5;
+  border: 1.5px dashed var(--ui-divider);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.45);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  color: var(--ui-muted);
+  cursor: pointer;
+  text-align: center;
+  padding: 10px;
+  box-sizing: border-box;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.fotoDropzone:hover,
+.fotoDropzone[data-dragging="true"] {
+  border-color: var(--ui-primary);
+  background: rgba(0, 163, 255, 0.08);
+  color: var(--ui-primary);
+  transform: translateY(-1px);
+}
+
+.fotoDropzone svg {
+  color: inherit;
+  transition: transform 0.2s ease;
+}
+
+.fotoDropzone:hover svg {
+  transform: scale(1.08);
+}
+
+.fotoDropzoneTexto {
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.2;
+}
+
+.fotoImagem {
+  width: 100px;
+  height: 125px;
+  aspect-ratio: 4 / 5;
+  object-fit: cover;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  box-shadow: 0 4px 16px rgba(15, 41, 74, 0.12);
+  display: block;
+}
+
+.fotoRemoverBtn {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(15, 41, 74, 0.75);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: white;
+  border: 0;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  padding: 0;
+  z-index: 2;
+}
+
+.fotoRemoverBtn:hover {
+  background: #dc2626;
+  transform: scale(1.08);
+}
+
+/* Linha de Sessão / Conexão */
+.linhaSessao {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--ui-divider);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.45);
+}
+
+.linhaSessaoInfo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.linhaSessaoInfo svg {
+  color: var(--ui-primary);
+  flex-shrink: 0;
+}
+
+.linhaSessaoInfo strong {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--ui-text);
+}
+
+.linhaSessaoInfo span {
+  display: block;
+  font-size: 11.5px;
+  color: var(--ui-muted);
+}
+
+/* Grade de Status de Serviços / Developer */
+.gridStatusServicos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 10px;
+}
+
+.cardServico {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--ui-divider);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.45);
+}
+
+.cardServicoTopo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.cardServicoTopo strong {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--ui-text);
+}
+
+.cardServicoDetalhe {
+  font-size: 11px;
+  color: var(--ui-muted);
+}
+
+@media (max-width: 767px) {
+  .grade, .campos, .perfilGradeCampos {
+    grid-template-columns: 1fr;
+  }
+  .perfilTopoUnificado {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
