@@ -1,4 +1,4 @@
-import { Inject, Injectable } from "@nestjs/common";
+import { Inject, Injectable, UnauthorizedException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 
 import { SessionCache, type ResolvedSessionUser } from "../core/auth/session-cache";
@@ -24,6 +24,7 @@ export class SessionService {
    * `/auth/me` sempre revalidam o estado atual no banco.
    */
   async issue(user: ResolvedSessionUser, context: SessionContext): Promise<string> {
+    if (user.tipo === "agente_ia") throw new UnauthorizedException("Agentes usam credenciais próprias.");
     const rawToken = generateOpaqueToken();
     const tokenHash = hashToken(rawToken);
     const now = new Date();

@@ -4,7 +4,7 @@ import type { Deal, Pipeline } from "@plugga/shared";
 import { useState, type ReactNode } from "react";
 
 import { enviar, type ErroDoFormulario } from "../../lib/clientes";
-import { hojeNoFuso, valorCurto } from "../../lib/negocios";
+import { hojeNoFuso, negocioConvertido, valorCurto } from "../../lib/negocios";
 import { Modal } from "../modal";
 import { Checkbox } from "../ui";
 import { Icone } from "./icones";
@@ -38,7 +38,7 @@ function Resumo({ negocio }: { negocio: Deal }) {
 export function GanhoDoNegocio({ pipeline, negocio, aoConcluir, aoFechar }: Props) {
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
-  const [converterEmCliente, setConverterEmCliente] = useState(!negocio.client);
+  const [converterEmCliente, setConverterEmCliente] = useState(!negocioConvertido(negocio));
 
   async function confirmar() {
     setEnviando(true);
@@ -57,7 +57,7 @@ export function GanhoDoNegocio({ pipeline, negocio, aoConcluir, aoFechar }: Prop
           <Resumo negocio={negocio} />
         </div>
         <p className="dica">O negócio sai do quadro e fica na Lista, com a situação {pipeline.wonLabel}.</p>
-        {!negocio.client ? (
+        {!negocioConvertido(negocio) ? (
           <Checkbox
             label="Deseja converter este lead em cliente?"
             checked={converterEmCliente}

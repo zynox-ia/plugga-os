@@ -18,7 +18,12 @@ const usuario = {
   email: "simulado@plugga.local",
   name: "Usuário simulado",
   status: "active",
-  acesso: { plataforma: null, departamentos: [] },
+  acesso: process.env.DESIGN_SYSTEM_E2E === "true"
+    ? { plataforma: "desenvolvedor", departamentos: [] }
+    : {
+        plataforma: null,
+        departamentos: [{ departamento: "crm", nivel: "membro", telas: ["crm.pipelines", "crm.contratos", "crm.clientes"] }],
+      },
 };
 
 const envelope = (codigo, mensagem) => ({ codigo, mensagem, requestId: "req-simulado-1" });

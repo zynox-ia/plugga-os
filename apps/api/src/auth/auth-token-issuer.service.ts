@@ -12,6 +12,7 @@ export interface TokenRecipient {
   id: string;
   email: string;
   name: string;
+  tipo?: "pessoa" | "agente_ia";
 }
 
 /**
@@ -43,6 +44,7 @@ export class AuthTokenIssuer {
     ttlMinutes: number,
     linkPath: string,
   ): Promise<void> {
+    if (user.tipo === "agente_ia") return;
     const rawToken = generateOpaqueToken();
     await this.repository.replaceAuthToken({
       userId: user.id,

@@ -51,14 +51,15 @@ export class CommercialController {
   @Tela("crm.pipelines", ...telasPorDepartamento.financeiro)
   listOpportunities(
     @Query(new ZodValidationPipe(opportunityListQuerySchema)) query: OpportunityListQuery,
+    @CurrentPrincipal() principal: AuthPrincipal,
   ): Promise<OpportunityList> {
-    return this.service.listOpportunities(query);
+    return this.service.listOpportunities(query, principal);
   }
 
   @Get("opportunities/:id")
   @Tela("crm.pipelines", ...telasPorDepartamento.financeiro)
-  opportunity(@Param("id", ParseUUIDPipe) id: string): Promise<OpportunityDetail> {
-    return this.service.opportunity(id);
+  opportunity(@Param("id", ParseUUIDPipe) id: string, @CurrentPrincipal() principal: AuthPrincipal): Promise<OpportunityDetail> {
+    return this.service.opportunity(id, principal);
   }
 
   @Post("opportunities")
@@ -142,14 +143,15 @@ export class CommercialController {
   @Tela("crm.contratos", ...telasPorDepartamento.financeiro)
   listContracts(
     @Query(new ZodValidationPipe(contractListQuerySchema)) query: ContractListQuery,
+    @CurrentPrincipal() principal: AuthPrincipal,
   ): Promise<ContractList> {
-    return this.service.listContracts(query);
+    return this.service.listContracts(query, principal);
   }
 
   @Get("contracts/:id")
   @Tela("crm.contratos", ...telasPorDepartamento.financeiro)
-  contract(@Param("id", ParseUUIDPipe) id: string): Promise<ContractDetail> {
-    return this.service.contract(id);
+  contract(@Param("id", ParseUUIDPipe) id: string, @CurrentPrincipal() principal: AuthPrincipal): Promise<ContractDetail> {
+    return this.service.contract(id, principal);
   }
 
   @Post("contracts")

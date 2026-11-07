@@ -40,6 +40,7 @@ export interface StoredUser {
   createdAt: Date;
   /** Acesso no modelo de 4 papéis, como o banco teria. */
   acesso: Acesso;
+  tipo?: "pessoa" | "agente_ia";
 }
 
 interface StoredSession {
@@ -94,6 +95,7 @@ export class InMemoryStore {
     password?: string;
     status?: string;
     acesso?: Acesso;
+    tipo?: "pessoa" | "agente_ia";
   }): Promise<StoredUser> {
     const user: StoredUser = {
       id: randomUUID(),
@@ -102,6 +104,7 @@ export class InMemoryStore {
       status: input.status ?? "active",
       createdAt: new Date(),
       acesso: input.acesso ?? acessoVazio(),
+      ...(input.tipo ? { tipo: input.tipo } : {}),
     };
     this.users.set(user.id, user);
     if (input.password) {
@@ -124,6 +127,7 @@ export class InMemoryAuthRepository extends AuthRepository {
       status: user.status,
       createdAt: user.createdAt,
       acesso: user.acesso,
+      ...(user.tipo ? { tipo: user.tipo } : {}),
     };
   }
 

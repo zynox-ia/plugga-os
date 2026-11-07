@@ -10,7 +10,7 @@ import {
 import { EstadoInvalido, NaoEncontrado } from "../common/errors/dominio";
 import type { AuthPrincipal } from "../core/auth/auth.types";
 import { hojeNoFuso } from "../negocios/negocios.rules";
-import { lerAcessoComercial } from "../pipelines/acesso-comercial";
+import { exigeOperacaoComercial, lerAcessoComercial } from "../pipelines/acesso-comercial";
 import { podeVer } from "../pipelines/pipelines.rules";
 import { PrismaService } from "../prisma/prisma.service";
 import { type GeracaoDeProposta, LeadPropostasRepository } from "./lead-propostas.repository";
@@ -34,7 +34,8 @@ function paraProposta(row: Linha): LeadProposal {
   return leadProposalSchema.parse({
     ...row, templateName: template.name, templateStyle: template.style,
     document: doc ? leadDocumentSchema.parse({
-      ...doc, canPreview: true, createdAt: doc.createdAt.toISOString(), updatedAt: doc.updatedAt.toISOString(), archivedAt: doc.archivedAt?.toISOString() ?? null,
+      ...doc, uploadedBy: doc.uploadedBy, archivedBy: doc.archivedBy,
+      canPreview: true, createdAt: doc.createdAt.toISOString(), updatedAt: doc.updatedAt.toISOString(), archivedAt: doc.archivedAt?.toISOString() ?? null,
     }) : null,
     createdAt: row.createdAt.toISOString(), updatedAt: row.updatedAt.toISOString(),
   });
@@ -45,14 +46,14 @@ export class PrismaLeadPropostasRepository extends LeadPropostasRepository {
   constructor(@Inject(PrismaService) private readonly prisma: PrismaService) { super(); }
 
   async list(dealId: string, principal: AuthPrincipal) {
-    await this.visible(this.prisma, dealId, principal);
-    const rows = await this.prisma.leadProposal.findMany({ where: { dealId }, orderBy: [{ updatedAt: "desc" }, { id: "asc" }], include: INCLUDE });
-    return { proposals: rows.map(paraProposta) };
+    await this.prisma.comContexto((tx) => this.visible(tx, dealId, principal));
+    const rows = await this.prisma.comContexto((tx) => tx.leadProposal.findMany({ where: { dealId }, orderBy: [{ updatedAt: "desc" }, { id: "asc" }], include: INCLUDE }));
+    return { proposals: rows.map((row) => paraProposta(row)) };
   }
 
   async templates(dealId: string, principal: AuthPrincipal) {
-    const deal = await this.visible(this.prisma, dealId, principal);
-    const templates = await this.prisma.leadProposalTemplate.findMany({ orderBy: [{ position: "asc" }, { id: "asc" }] });
+    const deal = await this.prisma.comContexto((tx) => this.visible(tx, dealId, principal));
+    const templates = await this.prisma.comContexto((tx) => tx.leadProposalTemplate.findMany({ orderBy: [{ position: "asc" }, { id: "asc" }] }));
     const expiry = new Date(`${hojeNoFuso()}T12:00:00Z`);
     expiry.setUTCDate(expiry.getUTCDate() + 15);
     const lead = deal.profile;
@@ -72,21 +73,23 @@ export class PrismaLeadPropostasRepository extends LeadPropostasRepository {
   }
 
   async get(dealId: string, id: string, principal: AuthPrincipal) {
-    await this.visible(this.prisma, dealId, principal);
-    return paraProposta(await this.row(this.prisma, dealId, id));
+    return this.prisma.comContexto(async (tx) => {
+      await this.visible(tx, dealId, principal);
+      return paraProposta(await this.row(tx, dealId, id));
+    });
   }
 
   async create(dealId: string, input: CreateLeadProposalRequest, principal: AuthPrincipal) {
-    return this.prisma.$transaction(async (tx) => {
-      await this.visible(tx, dealId, principal);
+    return this.prisma.comContexto(async (tx) => {
+      await this.visible(tx, dealId, principal, true);
       await this.template(tx, input.templateId);
       return paraProposta(await tx.leadProposal.create({ data: { dealId, templateId: input.templateId, content: input.content }, include: INCLUDE }));
     });
   }
 
   async update(dealId: string, id: string, input: UpdateLeadProposalRequest, principal: AuthPrincipal) {
-    return this.prisma.$transaction(async (tx) => {
-      await this.visible(tx, dealId, principal);
+    return this.prisma.comContexto(async (tx) => {
+      await this.visible(tx, dealId, principal, true);
       await this.row(tx, dealId, id);
       await this.template(tx, input.templateId);
       const updated = await tx.leadProposal.updateMany({
@@ -99,8 +102,8 @@ export class PrismaLeadPropostasRepository extends LeadPropostasRepository {
   }
 
   async beginGeneration(dealId: string, id: string, revision: number, principal: AuthPrincipal): Promise<GeracaoDeProposta> {
-    return this.prisma.$transaction(async (tx) => {
-      await this.visible(tx, dealId, principal);
+    return this.prisma.comContexto(async (tx) => {
+      await this.visible(tx, dealId, principal, true);
       await this.row(tx, dealId, id);
       const token = randomUUID();
       const claimed = await tx.leadProposal.updateMany({
@@ -113,9 +116,9 @@ export class PrismaLeadPropostasRepository extends LeadPropostasRepository {
   }
 
   async completeGeneration(dealId: string, generation: GeracaoDeProposta, document: LeadDocument, principal: AuthPrincipal) {
-    return this.prisma.$transaction(async (tx) => {
+    return this.prisma.comContexto(async (tx) => {
       // A sessão e o negócio podem ter mudado enquanto o PDF era enviado ao storage.
-      await this.visible(tx, dealId, principal);
+      await this.visible(tx, dealId, principal, true);
       const { proposal, token } = generation;
       const stored = await tx.leadDocument.findFirst({ where: { id: document.id, dealId, uploadState: "ready", category: "proposta" }, select: { id: true } });
       if (!stored) throw new NaoEncontrado("Documento não encontrado.");
@@ -133,7 +136,7 @@ export class PrismaLeadPropostasRepository extends LeadPropostasRepository {
   }
 
   async releaseGeneration(id: string, token: string) {
-    await this.prisma.leadProposal.updateMany({ where: { id, generationToken: token }, data: { generationToken: null, generationStartedAt: null } });
+    await this.prisma.comContexto((tx) => tx.leadProposal.updateMany({ where: { id, generationToken: token }, data: { generationToken: null, generationStartedAt: null } }));
   }
 
   private unlocked(): Prisma.LeadProposalWhereInput[] {
@@ -153,12 +156,14 @@ export class PrismaLeadPropostasRepository extends LeadPropostasRepository {
     return row;
   }
 
-  private async visible(tx: Banco, dealId: string, principal: AuthPrincipal) {
+  private async visible(tx: Banco, dealId: string, principal: AuthPrincipal, lock = false) {
+    if (lock) await tx.$queryRaw`SELECT id FROM deals WHERE id = ${dealId}::uuid FOR UPDATE`;
     const [deal, access] = await Promise.all([
       tx.deal.findUnique({ where: { id: dealId }, include: { profile: true, owner: { select: { name: true } } } }),
       lerAcessoComercial(tx, principal.id),
     ]);
     if (!deal || !podeVer(access)) throw new NaoEncontrado("Negócio não encontrado.");
-    return deal;
+    exigeOperacaoComercial(access);
+    return { ...deal, acesso: access };
   }
 }

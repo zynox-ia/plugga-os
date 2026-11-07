@@ -4,6 +4,7 @@ import type { Deal, Pipeline, PipelinePerson } from "@plugga/shared";
 import { ArrowRight, BriefcaseBusiness, Building2, FileText, FolderOpen, History, LayoutDashboard, ListTodo, MapPin, MoreHorizontal, Pencil, Save, UserRound, X } from "lucide-react";
 import { useEffect, useId, useRef, useState, type Dispatch, type KeyboardEvent, type SetStateAction } from "react";
 import { ROTULO_ORIGEM } from "../../lib/clientes";
+import { negocioConvertido } from "../../lib/negocios";
 import type { TarefaDoLead } from "../../lib/tarefas-lead";
 import { tarefasHabilitadas } from "../../lib/tarefas-habilitadas";
 import type { RascunhoLead } from "../../lib/rascunho-lead";
@@ -33,9 +34,9 @@ const SECOES = ([
   { id: "documentos", titulo: "Documentos", descricao: "Arquivos e documentos categorizados", icone: FolderOpen },
 ] as const).filter((secao) => secao.id !== "tarefas" || TAREFAS_HABILITADAS);
 type Secao = (typeof SECOES)[number]["id"];
-type Props = { negocioId: string; pipeline: Pipeline; responsaveis: PipelinePerson[]; acoes: AcoesDoNegocio; tarefas: TarefaDoLead[]; aoAlterarTarefas: Dispatch<SetStateAction<TarefaDoLead[]>>; aoFechar: () => void };
+type Props = { negocioId: string; pipeline: Pipeline; responsaveis: PipelinePerson[]; podeAtribuir: boolean; acoes: AcoesDoNegocio; tarefas: TarefaDoLead[]; aoAlterarTarefas: Dispatch<SetStateAction<TarefaDoLead[]>>; aoFechar: () => void };
 
-export function DetalhesDoLeadModal({ negocioId, pipeline, responsaveis, acoes, tarefas, aoAlterarTarefas, aoFechar }: Props) {
+export function DetalhesDoLeadModal({ negocioId, pipeline, responsaveis, podeAtribuir, acoes, tarefas, aoAlterarTarefas, aoFechar }: Props) {
   const detalhe = useDetalhesDoLead(negocioId, pipeline.id, acoes.atualizar);
   const { negocio, rascunho } = detalhe;
   const [secao, setSecao] = useState<Secao>("resumo");
@@ -158,7 +159,7 @@ export function DetalhesDoLeadModal({ negocioId, pipeline, responsaveis, acoes, 
               {negocio.status === "open" ? <>
                 <button type="button" role="menuitem" onClick={() => executar(acoes.perder)}><X size={14} />{pipeline.lostLabel}</button>
                 <button type="button" role="menuitem" onClick={() => executar(acoes.transferir)}><ArrowRight size={14} />Mover para outro pipeline</button>
-                {!negocio.client && acoes.converter ? <button type="button" role="menuitem" disabled={Boolean(acoes.convertendoId)} onClick={() => executar(acoes.converter!)}><UserRound size={14} />Converter em cliente</button> : null}
+                {!negocioConvertido(negocio) && acoes.converter ? <button type="button" role="menuitem" disabled={Boolean(acoes.convertendoId)} onClick={() => executar(acoes.converter!)}><UserRound size={14} />Converter em cliente</button> : null}
                 <span className={styles.menuSeparador} role="separator" />
               </> : null}
               <span className={styles.menuTitulo}>Prioridade</span>
@@ -185,7 +186,7 @@ export function DetalhesDoLeadModal({ negocioId, pipeline, responsaveis, acoes, 
           {negocio && rascunho ? <>
             {secao === "resumo" ? <ResumoDoLead negocio={negocio} pipeline={pipeline} aoMover={(etapaId) => void mudarEtapa(etapaId)} bloqueado={ocupado || alterado} aoVerHistorico={() => setSecao("historico")} /> : null}
             {secao === "lead" || secao === "oportunidade" ? <fieldset className={styles.formularioSemBorda} disabled={ocupado}>
-              {secao === "lead" ? <FichaDoLead rascunho={rascunho} aoAlterar={detalhe.setRascunho} erros={detalhe.errosCampos} editando={perfilEditando} aoEditar={editarPerfil} responsaveis={equipe} /> : <OportunidadeDoLead rascunho={rascunho} aoAlterar={detalhe.setRascunho} erros={detalhe.errosCampos} pipeline={pipeline} responsaveis={equipe} />}
+              {secao === "lead" ? <FichaDoLead podeAtribuir={podeAtribuir} rascunho={rascunho} aoAlterar={detalhe.setRascunho} erros={detalhe.errosCampos} editando={perfilEditando} aoEditar={editarPerfil} responsaveis={equipe} /> : <OportunidadeDoLead podeAtribuir={podeAtribuir} rascunho={rascunho} aoAlterar={detalhe.setRascunho} erros={detalhe.errosCampos} pipeline={pipeline} responsaveis={equipe} />}
             </fieldset> : null}
             <div hidden={secao !== "historico"}><HistoricoDoLead id={negocio.id} ativo={secao === "historico"} revisao={detalhe.revisao + historicoRevisao} /></div>
             {TAREFAS_HABILITADAS && secao === "tarefas" ? <TarefasDoLead tarefas={tarefas} aoAlterar={aoAlterarTarefas} responsaveis={responsaveis.some((pessoa) => pessoa.id === negocio.owner.id) ? responsaveis : [negocio.owner, ...responsaveis]} responsavelInicial={negocio.owner.id} /> : null}

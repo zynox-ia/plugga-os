@@ -104,6 +104,7 @@ describe.skipIf(!HABILITADO)("pipelines: configuração no Postgres", () => {
 
       const vistoPelaVendedora = (await repositorio.list(pessoas.vendedora)).pipelines.find((p) => p.id === solar.id);
       expect(vistoPelaVendedora?.canConfigure).toBe(false);
+      expect(vistoPelaVendedora?.updatedBy?.id).toBe(pessoas.gestorWaze.id);
 
       const eventos = await prisma.eventLog.findMany({ where: { eventName: "commercial.pipeline.created", entityId: solar.id } });
       expect(eventos).toHaveLength(1);
@@ -135,7 +136,10 @@ describe.skipIf(!HABILITADO)("pipelines: configuração no Postgres", () => {
       const ids = people.map((p) => p.id);
       expect(ids).toEqual(expect.arrayContaining([pessoas.vendedora.id, pessoas.forasteiro.id, pessoas.gestorWaze.id]));
       expect(ids).not.toContain(pessoas.semCrm.id);
-      expect((await repositorio.people({ companyId: "waze" }, pessoas.vendedora)).people.map((p) => p.id)).toEqual(ids);
+      const vistosPeloMembro = (await repositorio.people({ companyId: "waze" }, pessoas.vendedora)).people;
+      expect(vistosPeloMembro.map((p) => p.id)).toEqual(expect.arrayContaining([pessoas.vendedora.id, pessoas.forasteiro.id, pessoas.gestorWaze.id, pessoas.vendedorPlugga.id]));
+      expect(vistosPeloMembro.map((p) => p.id)).not.toContain(pessoas.semCrm.id);
+      expect(vistosPeloMembro.every((p) => p.email === undefined)).toBe(true);
     },
     PRAZO_MS,
   );

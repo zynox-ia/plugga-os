@@ -1,6 +1,8 @@
 import { PlaceholderScreen } from "../components/placeholder-screen";
+import { exigirPagina } from "../lib/exigir-pagina";
 
-export default function DocumentosPage() {
+export default async function DocumentosPage() {
+  await exigirPagina("/documentos");
   return (
     <PlaceholderScreen
       title="Documentos"

@@ -41,6 +41,9 @@ export const environmentSchema = z
     HOST: z.string().trim().min(1).default("127.0.0.1"),
     PORT: z.coerce.number().int().min(1).max(65_535).default(3_001),
     DATABASE_URL: z.string().startsWith("postgresql://"),
+    // Pools distintos no mesmo banco; opcoesDoPool e o boot validam os privilégios.
+    AUTH_DATABASE_URL: opcional(z.string().trim().startsWith("postgresql://")),
+    JOBS_DATABASE_URL: opcional(z.string().trim().startsWith("postgresql://")),
     // Redis backing BullMQ (ADR-0007/0011). Local-only host, like DATABASE_URL.
     REDIS_URL: z.string().trim().min(1).default("redis://localhost:56379"),
     // Whether this process runs the BullMQ queue + worker. Off by default so the

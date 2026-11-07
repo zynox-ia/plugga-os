@@ -1,4 +1,5 @@
 import {
+  alcancaTela,
   clientContactRoles,
   clientDuplicateCandidateSchema,
   clientOrigins,
@@ -12,6 +13,8 @@ import {
   type ClientDuplicateCandidate,
   type ClientOrigin,
   type ClientPersonType,
+  type ClientSelectionResponse,
+  type Acesso,
 } from "@plugga/shared";
 
 /** Rótulos, formatação e envio do cadastro de clientes (PLU-268), usados pela lista, pelo formulário e pela ficha. */
@@ -125,4 +128,11 @@ export async function enviar<T>(caminho: string, metodo: "GET" | "POST" | "PUT" 
   } catch {
     return { ok: false, erro: { mensagem: "Sem conexão com o servidor. Tente de novo.", porCampo: {} } };
   }
+}
+
+export async function buscarClientesParaNegocio(termo: string, acesso: Acesso | undefined): Promise<ClientSelectionResponse["items"]> {
+  const q = termo.trim();
+  if (!alcancaTela(acesso, "crm.clientes") || q.length < 2) return [];
+  const resposta = await enviar<ClientSelectionResponse>(`/api/leads/clientes?${new URLSearchParams({ q }).toString()}`, "GET");
+  return resposta.ok ? resposta.dados.items.slice(0, 8) : [];
 }

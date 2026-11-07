@@ -42,7 +42,7 @@ export class ResetEmailHandler implements JobHandler<ResetEmailPayload> {
     // Só conta ATIVA recebe token. Conta inexistente ou desativada termina aqui,
     // sem erro e sem log com o e-mail: nada que diferencie o caso para quem
     // olha de fora, e a fila não tenta de novo o que não é falha.
-    if (!user || user.status !== "active") {
+    if (!user || user.tipo === "agente_ia" || user.status !== "active") {
       return;
     }
 

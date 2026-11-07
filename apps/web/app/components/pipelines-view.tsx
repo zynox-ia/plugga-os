@@ -1,12 +1,12 @@
 "use client";
 
-import type { BulkDealsAction, ClientDuplicateCandidate, ConvertLeadResponse, PipelinePerson, CompanyKey, Deal, ListDealsResponse, Pipeline } from "@plugga/shared";
+import { alcancaTela, type BulkDealsAction, type ClientDuplicateCandidate, type ConvertLeadResponse, type PipelinePerson, type CompanyKey, type Deal, type ListDealsResponse, type Pipeline } from "@plugga/shared";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import { enviar } from "../lib/clientes";
 import { converterLead } from "../lib/conversao-lead";
-import { hrefDaVisao, type Visao } from "../lib/negocios";
+import { hrefDaVisao, negocioConvertido, podeAtribuirLead, type Visao } from "../lib/negocios";
 import type { TarefaDoLead } from "../lib/tarefas-lead";
 import { useSessionUser } from "../lib/use-session-user";
 import { Alert, Button, Dialog, IconPlus, IconSearch, IconSettings } from "./ui";
@@ -58,6 +58,8 @@ export function PipelinesView({
   const movimentoPendente = useRef(false);
   const conversaoPendente = useRef(false);
   const { usuario } = useSessionUser();
+  const podeVerClientes = alcancaTela(usuario?.acesso, "crm.clientes");
+  const podeAtribuir = podeAtribuirLead(usuario?.acesso);
   const [busca, setBusca] = useState("");
   const [configurando, setConfigurando] = useState<"editar" | "novo" | null>(null);
   const [negocios, setNegocios] = useState(doServidor);
@@ -114,12 +116,12 @@ export function PipelinesView({
     conversaoPendente.current = true;
     const escolha = convertendo?.tipo === "escolha" && convertendo.negocio.id === negocio.id ? convertendo : null;
     setConvertendo(escolha ? { ...escolha, enviando: true, erro: null } : { tipo: "enviando", negocio });
-    const resposta = await converterLead(negocio, destino);
+    const resposta = await converterLead(negocio, destino, podeVerClientes);
     conversaoPendente.current = false;
     if (resposta.ok) {
       confirmado([resposta.dados.lead]);
       setConvertendo({ tipo: "sucesso", resultado: resposta.dados });
-    } else if (resposta.erro.candidatos?.length) {
+    } else if (podeVerClientes && resposta.erro.candidatos?.length) {
       setConvertendo({ tipo: "escolha", negocio, candidatos: resposta.erro.candidatos, enviando: false, erro: null });
     } else if (escolha) {
       setConvertendo({ ...escolha, enviando: false, erro: resposta.erro.mensagem });
@@ -158,7 +160,7 @@ export function PipelinesView({
       movimentoPendente.current = false;
       if (resposta.ok) {
         confirmado([resposta.dados]);
-        if (mudouEtapa && etapaDestino?.asksClientConversion && !negocio.client) {
+        if (mudouEtapa && etapaDestino?.asksClientConversion && !negocioConvertido(resposta.dados)) {
           if (leadSelecionadoId === negocio.id) abrirDetalhes(null);
           setConvertendo((atual) => atual ?? { tipo: "convite", negocio: resposta.dados });
         }
@@ -308,6 +310,7 @@ export function PipelinesView({
           pipelineInicial={selecionado}
           etapaInicialId={criando.etapaId ?? null}
           usuarioId={usuario?.id ?? null}
+          podeAtribuir={podeAtribuir}
           responsaveis={responsaveis}
           aoCriar={(negocio) => {
             setCriando(null);
@@ -325,21 +328,21 @@ export function PipelinesView({
         <PerdaDoNegocio pipeline={selecionado} negocio={encerrando.negocio} aoConcluir={concluir} aoFechar={() => setEncerrando(null)} />
       ) : null}
       {encerrando?.tipo === "transferencia" && selecionado ? (
-        <TransferirNegocio responsaveis={responsaveis} pipelines={ativos} origem={selecionado} negocio={encerrando.negocio} aoConcluir={concluir} aoFechar={() => setEncerrando(null)} />
+        <TransferirNegocio podeAtribuir={podeAtribuir} responsaveis={responsaveis} pipelines={ativos} origem={selecionado} negocio={encerrando.negocio} aoConcluir={concluir} aoFechar={() => setEncerrando(null)} />
       ) : null}
 
       {convertendo?.tipo === "sucesso" ? (
-        <SucessoDaConversao clienteNome={convertendo.resultado.client.name}
+        <SucessoDaConversao clienteNome={podeVerClientes ? convertendo.resultado.client?.name ?? null : null}
           aoFechar={fecharConversao}
         />
       ) : null}
-      {convertendo?.tipo === "escolha" ? (
+      {podeVerClientes && convertendo?.tipo === "escolha" ? (
         <EscolhaDeClienteNaConversao candidatos={convertendo.candidatos} enviando={convertendo.enviando} erro={convertendo.erro}
           aoEscolher={(destino) => { void converter(convertendo.negocio, destino); }}
           aoFechar={() => { if (!conversaoPendente.current) fecharConversao(); }}
         />
       ) : null}
-      {leadSelecionadoId && selecionado ? <DetalhesDoLeadModal key={leadSelecionadoId} negocioId={leadSelecionadoId} pipeline={selecionado} responsaveis={responsaveis} acoes={acoes} tarefas={tarefasPorLead[leadSelecionadoId] ?? []} aoAlterarTarefas={(atualizar) => setTarefasPorLead((atuais) => ({ ...atuais, [leadSelecionadoId]: typeof atualizar === "function" ? atualizar(atuais[leadSelecionadoId] ?? []) : atualizar }))} aoFechar={() => abrirDetalhes(null)} /> : null}
+      {leadSelecionadoId && selecionado ? <DetalhesDoLeadModal podeAtribuir={podeAtribuir} key={leadSelecionadoId} negocioId={leadSelecionadoId} pipeline={selecionado} responsaveis={responsaveis} acoes={acoes} tarefas={tarefasPorLead[leadSelecionadoId] ?? []} aoAlterarTarefas={(atualizar) => setTarefasPorLead((atuais) => ({ ...atuais, [leadSelecionadoId]: typeof atualizar === "function" ? atualizar(atuais[leadSelecionadoId] ?? []) : atualizar }))} aoFechar={() => abrirDetalhes(null)} /> : null}
     </div>
   );
 }

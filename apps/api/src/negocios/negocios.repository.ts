@@ -24,7 +24,7 @@ export abstract class NegociosRepository {
   abstract get(id: string, principal: AuthPrincipal): Promise<DealDetail>;
   abstract history(id: string, query: ListDealHistoryQuery, principal: AuthPrincipal): Promise<ListDealHistoryResponse>;
   abstract list(query: ListDealsQuery, principal: AuthPrincipal): Promise<ListDealsResponse>;
-  abstract clientOptions(clientId: string): Promise<DealClientOptionsResponse>;
+  abstract clientOptions(clientId: string, principal: AuthPrincipal): Promise<DealClientOptionsResponse>;
   abstract create(input: CreateDealRequest, principal: AuthPrincipal): Promise<Deal>;
   abstract update(id: string, input: UpdateLeadRequest, principal: AuthPrincipal): Promise<DealDetail>;
   abstract convert(id: string, input: ConvertLeadRequest, principal: AuthPrincipal): Promise<ConvertLeadResponse>;

@@ -5,7 +5,7 @@ import { AuditAppender, PayloadDeAuditoriaInvalido, type EventoParaRegistro } fr
 
 function transacaoFalsa() {
   const create = vi.fn().mockResolvedValue({ id: "1" });
-  return { tx: { eventLog: { create } } as unknown as Prisma.TransactionClient, create };
+  return { tx: { eventLog: { createMany: create } } as unknown as Prisma.TransactionClient, create };
 }
 
 const base: EventoParaRegistro = {

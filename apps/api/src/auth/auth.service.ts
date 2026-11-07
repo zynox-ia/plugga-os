@@ -73,7 +73,7 @@ export class AuthService {
       await this.passwords.verifyAgainstDummy(input.password);
     }
 
-    if (!user || user.status !== "active" || !passwordValid) {
+    if (!user || user.tipo === "agente_ia" || user.status !== "active" || !passwordValid) {
       await this.audit.appendEvent({
         eventName: eventNames.authLoginFailed,
         entityType: "auth",
@@ -105,8 +105,9 @@ export class AuthService {
   }
 
   async me(principal: AuthPrincipal): Promise<SessionUser> {
+    if (principal.kind !== "user") throw new UnauthorizedException("Sessão de pessoa necessária.");
     const user = await this.repository.findUserById(principal.id);
-    if (!user || user.status !== "active") {
+    if (!user || user.tipo === "agente_ia" || user.status !== "active") {
       throw new UnauthorizedException("session user no longer exists");
     }
     return toSessionUser(user);

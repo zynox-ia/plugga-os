@@ -47,7 +47,7 @@ export class ChaveDeLlmService {
 
     let valor: string | null = null;
     try {
-      const linha = await this.segredos.buscar(CHAVE_OPENROUTER);
+      const linha = await this.segredos.buscarChaveDaFatura();
       if (linha) {
         valor = decifrar({ conteudo: linha.valorCifrado, iv: linha.iv, tag: linha.tag });
       }

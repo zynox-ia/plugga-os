@@ -119,7 +119,7 @@ export function motivoDeRejeicaoDoPayload(valor: unknown, caminho = "payload"): 
 @Injectable()
 export class AuditAppender {
   async append(tx: Prisma.TransactionClient, evento: EventoParaRegistro): Promise<void> {
-    if (!tx || typeof tx.eventLog?.create !== "function") {
+    if (!tx || typeof tx.eventLog?.createMany !== "function") {
       throw new PayloadDeAuditoriaInvalido("o registro exige uma transação (tx)");
     }
     if (!eventoEstaNoCatalogo(evento.eventName)) {
@@ -129,7 +129,7 @@ export class AuditAppender {
     if (motivo) {
       throw new PayloadDeAuditoriaInvalido(motivo);
     }
-    await tx.eventLog.create({
+    await tx.eventLog.createMany({
       data: {
         eventName: evento.eventName,
         entityType: evento.entityType,
@@ -139,7 +139,6 @@ export class AuditAppender {
         payload: evento.payload as Prisma.InputJsonObject,
         occurredAt: evento.occurredAt ?? new Date(),
       },
-      select: { id: true },
     });
   }
 }

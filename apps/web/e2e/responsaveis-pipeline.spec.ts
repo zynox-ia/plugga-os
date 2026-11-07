@@ -18,10 +18,11 @@ test("seletor mostra os responsáveis elegíveis do CRM mesmo sem equipe no funi
   await dialogo.locator("#lead-responsavel").click();
   const opcoes = page.getByRole("option");
   await expect(opcoes).toHaveCount(responsaveis.length);
-  for (const pessoa of responsaveis) {
-    await expect(opcoes.filter({ hasText: pessoa.email! })).toContainText(pessoa.name);
+  for (const [indice, pessoa] of responsaveis.entries()) {
+    expect(pessoa).not.toHaveProperty("email");
+    await expect(opcoes.nth(indice).locator(".ui-member-name")).toHaveText(pessoa.name);
   }
   await page.screenshot({ path: testInfo.outputPath("responsaveis-crm.png"), fullPage: true });
-  await opcoes.filter({ hasText: responsaveis[0]!.email! }).click();
+  await opcoes.first().click();
   await expect(dialogo.locator("#lead-responsavel")).toContainText(responsaveis[0]!.name);
 });

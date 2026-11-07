@@ -3,14 +3,12 @@
     "metodo": "POST",
     "caminho": "/agent-actions",
     "controller": "AgentActionsController.create",
-    "acesso": "acesso",
-    "papeis": [
-      "plataforma:desenvolvedor"
-    ],
+    "acesso": "authenticated",
+    "papeis": [],
     "guards": [
       "OriginCheckGuard",
       "SessionAuthGuard",
-      "AcessoGuard"
+      "IdentidadeAgenteGuard"
     ]
   },
   {
@@ -112,13 +110,7 @@
     "acesso": "acesso",
     "papeis": [
       "tela:crm.clientes",
-      "tela:energia-opm.ciclos",
-      "tela:energia-opm.auditoria",
-      "tela:energia-opm.migracao",
-      "tela:energia-opm.relatorios",
-      "tela:energia-opm.demanda",
-      "departamento:crm:membro",
-      "departamento:energia-opm:membro"
+      "departamento:crm:membro"
     ],
     "guards": [
       "SessionAuthGuard",
@@ -148,13 +140,7 @@
     "acesso": "acesso",
     "papeis": [
       "tela:crm.clientes",
-      "tela:energia-opm.ciclos",
-      "tela:energia-opm.auditoria",
-      "tela:energia-opm.migracao",
-      "tela:energia-opm.relatorios",
-      "tela:energia-opm.demanda",
-      "departamento:crm:membro",
-      "departamento:energia-opm:membro"
+      "departamento:crm:membro"
     ],
     "guards": [
       "SessionAuthGuard",
@@ -264,13 +250,7 @@
     "acesso": "acesso",
     "papeis": [
       "tela:crm.clientes",
-      "tela:energia-opm.ciclos",
-      "tela:energia-opm.auditoria",
-      "tela:energia-opm.migracao",
-      "tela:energia-opm.relatorios",
-      "tela:energia-opm.demanda",
-      "departamento:crm:membro",
-      "departamento:energia-opm:membro"
+      "departamento:crm:membro"
     ],
     "guards": [
       "SessionAuthGuard",
@@ -284,9 +264,7 @@
     "acesso": "acesso",
     "papeis": [
       "tela:crm.clientes",
-      "tela:crm.pipelines",
-      "departamento:crm:membro",
-      "departamento:energia-opm:membro"
+      "departamento:crm:membro"
     ],
     "guards": [
       "SessionAuthGuard",
@@ -299,7 +277,7 @@
     "controller": "ClientesController.selecaoNegocio",
     "acesso": "acesso",
     "papeis": [
-      "tela:crm.pipelines",
+      "tela:crm.clientes",
       "departamento:crm:membro"
     ],
     "guards": [
@@ -574,6 +552,42 @@
     "metodo": "POST",
     "caminho": "/equipe/:id/remover",
     "controller": "EquipeController.remover",
+    "acesso": "authenticated",
+    "papeis": [],
+    "guards": [
+      "OriginCheckGuard",
+      "SessionAuthGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/equipe/agentes",
+    "controller": "AgentesEquipeController.criar",
+    "acesso": "authenticated",
+    "papeis": [],
+    "guards": [
+      "OriginCheckGuard",
+      "SessionAuthGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/equipe/agentes/:id/credencial",
+    "controller": "AgentesEquipeController.emitirCredencial",
+    "acesso": "authenticated",
+    "papeis": [],
+    "guards": [
+      "OriginCheckGuard",
+      "SessionAuthGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/equipe/agentes/:id/revogar-credencial",
+    "controller": "AgentesEquipeController.revogarCredencial",
     "acesso": "authenticated",
     "papeis": [],
     "guards": [
@@ -1011,7 +1025,7 @@
     "controller": "NegociosController.clientOptions",
     "acesso": "acesso",
     "papeis": [
-      "tela:crm.pipelines",
+      "tela:crm.clientes",
       "departamento:crm:membro"
     ],
     "guards": [
@@ -1084,6 +1098,10 @@
     "controller": "ConsumoController.resumo",
     "acesso": "acesso",
     "papeis": [
+      "tela:financeiro.pagar",
+      "tela:financeiro.receber",
+      "tela:financeiro.conciliacao",
+      "tela:financeiro.fiscal",
       "departamento:financeiro:gerente"
     ],
     "guards": [

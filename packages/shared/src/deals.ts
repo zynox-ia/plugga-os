@@ -211,6 +211,8 @@ export const dealSchema = z.object({
   contact: leadContactSchema.nullable(),
   /** Só existe depois de uma conversão (manual, ao ganhar ou ao mudar de etapa/pipeline). */
   client: z.object({ id: uuid, name: z.string() }).nullable(),
+  /** Estado do lead; não concede leitura do cadastro de cliente vinculado. */
+  converted: z.boolean().optional(),
   owner: z.object({ id: uuid, name: z.string() }),
   tags: z.array(z.object({ id: uuid, name: z.string(), color: z.string() })),
   /** Quando entrou na etapa atual: base dos "dias na etapa" e do alerta de parado. */
@@ -275,9 +277,9 @@ export type ConvertLeadRequest = z.infer<typeof convertLeadRequestSchema>;
 
 export const convertLeadResponseSchema = z.object({
   lead: dealSchema,
-  client: z.object({ id: uuid, name: z.string() }),
-  /** `false` quando vinculou a um cliente já existente, em vez de criar um novo. */
-  created: z.boolean(),
+  client: z.object({ id: uuid, name: z.string() }).nullable(),
+  /** `false` ao vincular cadastro existente; nulo quando Clientes não está autorizado. */
+  created: z.boolean().nullable(),
 });
 export type ConvertLeadResponse = z.infer<typeof convertLeadResponseSchema>;
 

@@ -1,6 +1,8 @@
 import { PlaceholderScreen } from "../components/placeholder-screen";
+import { exigirPagina } from "../lib/exigir-pagina";
 
-export default function AgentesIaPage() {
+export default async function AgentesIaPage() {
+  await exigirPagina("/agentes-ia");
   return (
     <PlaceholderScreen
       title="Agentes IA"

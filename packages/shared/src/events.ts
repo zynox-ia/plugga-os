@@ -84,6 +84,9 @@ export const catalogoEventos = {
   "auth.access.changed": evento("Acesso de usuário alterado", "plataforma"),
   "auth.user.deactivated": evento("Usuário desativado", "plataforma"),
   "auth.user.removed": evento("Membro removido da equipe", "plataforma"),
+  "auth.agent.created": evento("Identidade de IA criada na equipe", "plataforma"),
+  "auth.agent.credential_rotated": evento("Credencial de IA emitida ou rotacionada", "plataforma"),
+  "auth.agent.credential_revoked": evento("Credencial de IA revogada", "plataforma"),
   "integrations.mode.changed": evento("Modo de integração alterado", "plataforma"),
   "llm.chave.updated": evento("Chave de LLM trocada", "plataforma"),
 } as const satisfies Record<string, DefinicaoDeEvento>;

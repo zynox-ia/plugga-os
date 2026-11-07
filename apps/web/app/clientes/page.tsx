@@ -1,12 +1,14 @@
 import { ClientesView } from "../components/clientes-view";
 import { EstadoDaApi } from "../components/estado-da-api";
 import { fetchClient, fetchClientOwners, fetchClients } from "../lib/api";
+import { exigirPagina } from "../lib/exigir-pagina";
 
 export default async function ClientesPage({
   searchParams,
 }: {
   searchParams: Promise<{ q?: string; active?: string; cliente?: string }>;
 }) {
+  await exigirPagina("/clientes");
   const { q, active, cliente } = await searchParams;
   const filtros = { q: q || undefined, active: active === "true" || active === "false" ? active : undefined };
 

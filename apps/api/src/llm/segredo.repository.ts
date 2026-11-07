@@ -25,6 +25,10 @@ export type GravarSegredo = {
  */
 export abstract class SegredoRepository {
   abstract buscar(chave: string): Promise<SegredoGuardado | null>;
+  /** Só o material cifrado para o gateway; nunca exposto em uma rota. */
+  async buscarChaveDaFatura(): Promise<Pick<SegredoGuardado, "valorCifrado" | "iv" | "tag"> | null> {
+    return this.buscar("openrouter.api_key");
+  }
   abstract gravar(dados: GravarSegredo): Promise<void>;
   abstract apagar(chave: string): Promise<void>;
 }

@@ -109,6 +109,9 @@ services:
       # aplicação — ou por um ambiente de desenvolvimento apontado para cá —
       # falha por permissão em vez de apagar o banco.
       DATABASE_URL: postgresql://${APP_DB_USER:-plugga_app}:${APP_DB_PASSWORD:?set APP_DB_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-plugga_os}?schema=public
+      # Logins distintos, mesmo host/banco. Nunca usar o dono/migrador nestes pools.
+      AUTH_DATABASE_URL: ${AUTH_DATABASE_URL:?provisione o pool de autenticacao restrito}
+      JOBS_DATABASE_URL: ${JOBS_DATABASE_URL:-}
       REDIS_URL: redis://redis:6379
       # `web` reaches the API over the Compose bridge, which is NOT loopback.
       # Left untrusted on purpose: web forwards no X-Forwarded-For unless

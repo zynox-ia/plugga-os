@@ -1,6 +1,7 @@
 import { Controller, Get, Query, UseGuards } from "@nestjs/common";
 import {
   consultaDeConsumoSchema,
+  telasPorDepartamento,
   type ConsultaDeConsumo,
   type ResumoDeConsumo,
 } from "@plugga/shared";
@@ -8,7 +9,7 @@ import {
 import { ZodValidationPipe } from "../common/zod-validation.pipe";
 
 import { SessionAuthGuard } from "../core/auth/session-auth.guard";
-import { Departamento } from "../core/auth/acesso.decorator";
+import { Departamento, Tela } from "../core/auth/acesso.decorator";
 import { AcessoGuard } from "../core/auth/acesso.guard";
 import { ConsumoService } from "./consumo.service.js";
 
@@ -30,6 +31,7 @@ export class ConsumoController {
    */
   @Get()
   @Departamento("financeiro", "gerente")
+  @Tela(...telasPorDepartamento.financeiro)
   async resumo(
     @Query(new ZodValidationPipe(consultaDeConsumoSchema)) { desde, ate }: ConsultaDeConsumo,
   ): Promise<ResumoDeConsumo> {

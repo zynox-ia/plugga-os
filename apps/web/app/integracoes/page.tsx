@@ -1,11 +1,13 @@
 import { EstadoDaApi } from "../components/estado-da-api";
 import { IntegracoesView } from "../components/integracoes-view";
 import { fetchEmailStatus, fetchIntegrations } from "../lib/api";
+import { exigirPagina } from "../lib/exigir-pagina";
 import { resolverEstado } from "../lib/estado-da-api";
 import { FALLBACK_EMAIL_STATUS } from "../lib/mock/email-status";
 import { FALLBACK_INTEGRATIONS } from "../lib/mock/integrations";
 
 export default async function IntegracoesPage() {
+  await exigirPagina("/integracoes");
   const [integracoes, email] = await Promise.all([fetchIntegrations(), fetchEmailStatus()]);
   const estadoIntegracoes = resolverEstado(integracoes, (resposta) => resposta.items, FALLBACK_INTEGRATIONS);
   if (estadoIntegracoes.estado === "erro") return <EstadoDaApi erro={estadoIntegracoes.erro} eyebrow="Plataforma" />;

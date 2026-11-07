@@ -251,11 +251,18 @@ pausado ou migrado).
 |---|---|
 | `JOBS_ENABLED` | `false` por default: a API sobe sem Redis e a fila fica desabilitada (enqueue falha explicitamente, nunca descarta job em silêncio). `true` liga a fila + worker neste processo. |
 | `REDIS_URL` | Redis local (guard de host local, como `DATABASE_URL`). |
+| `AUTH_DATABASE_URL` | Pool obrigatório de autenticação/equipe, login restrito distinto do runtime no mesmo banco. |
+| `JOBS_DATABASE_URL` | Pool distinto de jobs/espelho, obrigatório quando `JOBS_ENABLED=true`. |
 | `JOBS_WORKER_CONCURRENCY` | Jobs processados em paralelo pelo worker (default `1`). |
 
 Cada execução alimenta `job_runs` (`running → success/failed`, com
 `attempt`, `duration_ms`, `error`, `triggered_by`) — observabilidade por
 ADR-0007. Nenhum token/segredo entra em log.
+
+As permissões dos três pools e o provisionamento antes de publicar estão em
+[RLS de permissões](ops/rls-permissoes.md). Migrations usam o migrador separado;
+a API recusa iniciar como dono das tabelas, superuser ou BYPASSRLS. Não publique
+esta mudança antes de provisionar os logins e conferir os vínculos existentes.
 
 Smoke da fila ponta a ponta (enqueue → worker → `job_runs`), com Redis + Postgres
 do Compose; também roda na CI:

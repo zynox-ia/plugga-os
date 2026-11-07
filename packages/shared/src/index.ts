@@ -1,5 +1,6 @@
 export * from "./acesso.js";
 export * from "./agent-actions.js";
+export * from "./agentes-equipe.js";
 export * from "./auth.js";
 export * from "./bitrix.js";
 export * from "./clients.js";

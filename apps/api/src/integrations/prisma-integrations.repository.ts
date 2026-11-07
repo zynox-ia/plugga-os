@@ -20,10 +20,8 @@ export class PrismaIntegrationsRepository extends IntegrationsRepository {
   }
 
   async findModeByKey(key: string): Promise<IntegrationMode | null> {
-    const integration = await this.prisma.integration.findUnique({
-      where: { key },
-      select: { mode: true },
-    });
+    const [integration] = await this.prisma.comContexto((tx) => tx.$queryRaw<{ mode: IntegrationMode | null }[]>`
+      SELECT plugga_security.modo_integracao(${key}) AS mode`);
     return integration?.mode ?? null;
   }
 
@@ -32,7 +30,7 @@ export class PrismaIntegrationsRepository extends IntegrationsRepository {
     modo: IntegrationMode,
     autorId: string,
   ): Promise<ResultadoDaTrocaDeModo | null> {
-    return this.prisma.$transaction(async (tx) => {
+    return this.prisma.comContexto(async (tx) => {
       const existente = await tx.integration.findUnique({
         where: { key },
         select: { mode: true },
@@ -55,7 +53,7 @@ export class PrismaIntegrationsRepository extends IntegrationsRepository {
   }
 
   findAll(): Promise<StoredIntegrationSummary[]> {
-    return this.prisma.integration.findMany({
+    return this.prisma.comContexto((tx) => tx.integration.findMany({
       orderBy: { key: "asc" },
       select: {
         id: true,
@@ -73,6 +71,6 @@ export class PrismaIntegrationsRepository extends IntegrationsRepository {
       // DoS aqui é baixo, mas o teto entra por consistência defensiva com o
       // resto da correção (CWE-770).
       take: 200,
-    });
+    }));
   }
 }

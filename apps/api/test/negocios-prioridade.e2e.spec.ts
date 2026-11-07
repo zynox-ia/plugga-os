@@ -3,7 +3,11 @@ import { Test } from "@nestjs/testing";
 import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { AppModule } from "../src/app.module";
+import { AuthContext, type AuthPrincipal } from "../src/core/auth/auth.types";
 import { NegociosRepository } from "../src/negocios/negocios.repository";
+import { PrismaAuthService } from "../src/prisma/prisma-auth.service";
+import { PrismaJobsService } from "../src/prisma/prisma-jobs.service";
+import { PrismaService } from "../src/prisma/prisma.service";
 
 describe("prioridade do negócio (e2e)", () => {
   let app: INestApplication;
@@ -26,6 +30,9 @@ describe("prioridade do negócio (e2e)", () => {
 
   beforeAll(async () => {
     const modulo = await Test.createTestingModule({ imports: [AppModule] })
+      .overrideProvider(PrismaService).useValue({})
+      .overrideProvider(PrismaAuthService).useValue({})
+      .overrideProvider(PrismaJobsService).useValue({})
       .overrideProvider(NegociosRepository).useValue(repository).compile();
     app = modulo.createNestApplication();
     await app.init();
@@ -61,5 +68,28 @@ describe("prioridade do negócio (e2e)", () => {
     await comercial(request(app.getHttpServer()).post(`/leads/${id}/transferencia`)).send({ pipelineId: id, stageId: id }).expect(200);
     await comercial(request(app.getHttpServer()).patch(`/leads/${id}/prioridade`)).send({ priority: "normal" }).expect(200);
     await comercial(request(app.getHttpServer()).get("/negocios")).expect(404);
+  });
+
+  it("Pipelines permite operar leads sem liberar Clientes, e Clientes nao libera Pipelines", async () => {
+    const principal: AuthPrincipal = {
+      id, kind: "user", acesso: { plataforma: null, departamentos: [{ departamento: "crm", nivel: "membro", telas: ["crm.pipelines"] }] },
+    };
+    const resolver = vi.spyOn(app.get<AuthContext>(AuthContext), "resolve").mockResolvedValue(principal);
+    try {
+      await request(app.getHttpServer()).get(`/leads?pipelineId=${id}`).expect(200);
+      await request(app.getHttpServer()).patch(`/leads/${id}/prioridade`).send({ priority: "normal" }).expect(200);
+      await request(app.getHttpServer()).post(`/leads/${id}/converter`).send({}).expect(200);
+      const clientesAntes = repository.clientOptions.mock.calls.length;
+      await request(app.getHttpServer()).get(`/leads/clientes/${id}/opcoes`).expect(403);
+      expect(repository.clientOptions.mock.calls.length).toBe(clientesAntes);
+      resolver.mockResolvedValue({ ...principal, acesso: { plataforma: null, departamentos: [{ departamento: "crm", nivel: "membro", telas: ["crm.clientes"] }] } });
+      const antes = [repository.list.mock.calls.length, setPriority.mock.calls.length, repository.convert.mock.calls.length];
+      await request(app.getHttpServer()).get(`/leads?pipelineId=${id}`).expect(403);
+      await request(app.getHttpServer()).patch(`/leads/${id}/prioridade`).send({ priority: "normal" }).expect(403);
+      await request(app.getHttpServer()).post(`/leads/${id}/converter`).send({}).expect(403);
+      expect([repository.list.mock.calls.length, setPriority.mock.calls.length, repository.convert.mock.calls.length]).toEqual(antes);
+    } finally {
+      resolver.mockRestore();
+    }
   });
 });

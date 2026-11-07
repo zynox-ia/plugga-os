@@ -3,7 +3,7 @@ import { describe, it } from "node:test";
 
 import type { Acesso } from "@plugga/shared";
 
-import { DEPARTAMENTOS, configuracoesParaAcesso } from "../app/lib/organizacao.ts";
+import { CONFIGURACOES, DEPARTAMENTOS, configuracoesParaAcesso } from "../app/lib/organizacao.ts";
 import { navGroupsForAccess, navIdForPathname, tituloForNavId } from "../app/lib/navigation.ts";
 
 function rotulos(acesso?: Acesso) {
@@ -11,6 +11,20 @@ function rotulos(acesso?: Acesso) {
     .filter((grupo) => grupo.collapsible)
     .map((grupo) => grupo.label);
 }
+
+it("seção técnica continua exclusiva do Desenvolvedor mesmo com mínimo cadastrado como Admin", () => {
+  const quantidade = CONFIGURACOES.length;
+  CONFIGURACOES.push({ id: "desenvolvedor", label: "Desenvolvedor", descricao: "Técnico", status: "pronto", minimo: "admin" });
+  CONFIGURACOES.push({ label: "Jobs", descricao: "Técnico", rota: "/jobs", status: "pronto", minimo: "admin" });
+  try {
+    const admin = configuracoesParaAcesso({ plataforma: "admin", departamentos: [] });
+    assert.ok(!admin.some((secao) => secao.id === "desenvolvedor" || secao.rota === "/jobs"));
+    const dev = configuracoesParaAcesso({ plataforma: "desenvolvedor", departamentos: [] });
+    assert.ok(dev.some((secao) => secao.id === "desenvolvedor"));
+  } finally {
+    CONFIGURACOES.splice(quantidade);
+  }
+});
 
 describe("sitemap da barra lateral", () => {
   it("segue a ordem aprovada, com Visão geral primeiro", () => {

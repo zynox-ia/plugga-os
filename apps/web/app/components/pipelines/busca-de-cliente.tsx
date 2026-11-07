@@ -3,7 +3,7 @@
 import { alcancaTela, type ClientOwner, type CreateClientResponse, type ClientSelectionResponse } from "@plugga/shared";
 import { useEffect, useId, useState } from "react";
 
-import { enviar } from "../../lib/clientes";
+import { buscarClientesParaNegocio } from "../../lib/clientes";
 import { useSessionUser } from "../../lib/use-session-user";
 import { ClienteForm } from "../cliente-form";
 import { Button, IconSearch, IconUser } from "../ui";
@@ -30,23 +30,26 @@ export function BuscaDeCliente({
   const [termo, setTermo] = useState("");
   const [resultados, setResultados] = useState<ClientSelectionResponse["items"] | null>(null);
   const { usuario } = useSessionUser();
+  const podeVerClientes = alcancaTela(usuario?.acesso, "crm.clientes");
   const [cadastrando, setCadastrando] = useState(false);
   const lista = useId();
 
   useEffect(() => {
     const busca = termo.trim();
-    if (busca.length < 2) return setResultados(null);
+    if (!podeVerClientes || busca.length < 2) return setResultados(null);
     let vivo = true;
     const espera = setTimeout(() => {
-      void enviar<ClientSelectionResponse>(`/api/leads/clientes?${new URLSearchParams({ q: busca }).toString()}`, "GET").then((resposta) => {
-        if (vivo) setResultados(resposta.ok ? resposta.dados.items.slice(0, 8) : []);
+      void buscarClientesParaNegocio(busca, usuario?.acesso).then((items) => {
+        if (vivo) setResultados(items);
       });
     }, 250);
     return () => {
       vivo = false;
       clearTimeout(espera);
     };
-  }, [termo]);
+  }, [termo, podeVerClientes, usuario?.acesso]);
+
+  if (!podeVerClientes) return null;
 
   if (cliente) {
     return (

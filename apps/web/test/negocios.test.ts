@@ -10,11 +10,31 @@ import {
   FILTROS_INICIAIS,
   hojeNoFuso,
   hrefDaVisao,
+  negocioConvertido,
   ordenar,
+  podeAtribuirLead,
   somaDosValores,
   valorCurto,
   valorDigitadoParaDecimal,
 } from "../app/lib/negocios.ts";
+
+it("flag de conversão independe da leitura do cliente e mantém fallback dos registros antigos", () => {
+  const cliente = { id: "00000000-0000-4000-8000-000000000001", name: "Cliente sintético" };
+  assert.equal(negocioConvertido({ converted: true, client: null }), true);
+  assert.equal(negocioConvertido({ converted: false, client: cliente }), false);
+  assert.equal(negocioConvertido({ client: null }), false);
+  assert.equal(negocioConvertido({ client: cliente }), true);
+});
+
+it("somente gestão do CRM com Pipelines atribui leads, sem combinar departamentos", () => {
+  assert.equal(podeAtribuirLead(undefined), false);
+  assert.equal(podeAtribuirLead({ plataforma: null, departamentos: [{ departamento: "crm", nivel: "membro", telas: ["crm.pipelines"] }] }), false);
+  assert.equal(podeAtribuirLead({ plataforma: null, departamentos: [{ departamento: "financeiro", nivel: "gerente", telas: ["financeiro.receber"] }, { departamento: "crm", nivel: "membro", telas: ["crm.pipelines"] }] }), false);
+  assert.equal(podeAtribuirLead({ plataforma: null, departamentos: [{ departamento: "crm", nivel: "gerente", telas: ["crm.clientes"] }] }), false);
+  assert.equal(podeAtribuirLead({ plataforma: null, departamentos: [{ departamento: "crm", nivel: "gerente", telas: ["crm.pipelines"] }] }), true);
+  assert.equal(podeAtribuirLead({ plataforma: "admin", departamentos: [] }), true);
+  assert.equal(podeAtribuirLead({ plataforma: "desenvolvedor", departamentos: [] }), true);
+});
 
 const ETAPA_A = "00000000-0000-4000-8000-0000000000a1";
 const ETAPA_B = "00000000-0000-4000-8000-0000000000b2";

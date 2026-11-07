@@ -248,11 +248,10 @@ test.describe("Navegação única", () => {
 });
 
 test.describe("Mapa da estrutura", () => {
-  test("lista os departamentos da barra lateral", async ({ page }) => {
+  test("Admin não abre a tela técnica de estrutura por URL direta", async ({ page }) => {
     await page.goto("/estrutura");
-    for (const departamento of DEPARTAMENTOS) {
-      await expect(page.getByRole("heading", { name: departamento.label, exact: true })).toBeVisible();
-    }
+    await expect(page).toHaveURL("/");
+    await expect(page.getByRole("heading", { name: "Departamento → Processo", exact: true })).toHaveCount(0);
   });
 
   test("Compras é de Suprimentos, e sai do Financeiro", () => {

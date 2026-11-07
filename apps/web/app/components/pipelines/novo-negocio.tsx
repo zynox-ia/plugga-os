@@ -73,6 +73,7 @@ export function NovoNegocio({
   pipelineInicial,
   etapaInicialId,
   usuarioId,
+  podeAtribuir,
   responsaveis,
   aoCriar,
   aoFechar,
@@ -81,13 +82,14 @@ export function NovoNegocio({
   pipelineInicial: Pipeline;
   etapaInicialId: string | null;
   usuarioId: string | null;
+  podeAtribuir: boolean;
   responsaveis: PipelinePerson[];
   aoCriar: (negocio: Deal) => void;
   aoFechar: () => void;
 }) {
   const [pipelineId, setPipelineId] = useState(pipelineInicial.id);
   const pipeline = pipelines.find((p) => p.id === pipelineId) ?? pipelineInicial;
-  const equipe = responsaveis.map((pessoa) => ({ ...pessoa, userId: pessoa.id }));
+  const equipe = responsaveis.filter((pessoa) => podeAtribuir || pessoa.id === usuarioId).map((pessoa) => ({ ...pessoa, userId: pessoa.id }));
   const responsavelPadrao = () => usuarioId && equipe.some((m) => m.userId === usuarioId) ? usuarioId : (equipe[0]?.userId ?? "");
   const [etapaId, setEtapaId] = useState(etapaInicialId ?? pipelineInicial.stages[0]?.id ?? "");
 
@@ -98,6 +100,7 @@ export function NovoNegocio({
   const [tipoPessoa, setTipoPessoa] = useState<"pf" | "pj">("pj");
   const [documentoLead, setDocumentoLead] = useState("");
   const [responsavelId, setResponsavelId] = useState(responsavelPadrao());
+  const responsavelEfetivo = podeAtribuir ? responsavelId : usuarioId ?? "";
 
   const responsavelTriggerRef = useRef<HTMLButtonElement>(null);
   const [containerResponsavel, setContainerResponsavel] = useState<HTMLElement | null>(null);
@@ -130,7 +133,7 @@ export function NovoNegocio({
       }
     }
 
-    if (!responsavelId) porCampo.ownerId = "Escolha o responsável.";
+    if (!responsavelEfetivo) porCampo.ownerId = "Escolha o responsável.";
 
     if (Object.keys(porCampo).length > 0) {
       return setErro({ mensagem: "Confira os campos destacados.", porCampo });
@@ -146,7 +149,7 @@ export function NovoNegocio({
       title: nomeLead.trim(),
       value: null,
       expectedCloseDate: null,
-      ownerId: responsavelId,
+      ownerId: responsavelEfetivo,
       tagIds: [],
       lead: {
         personType: tipoPessoa,
@@ -175,7 +178,7 @@ export function NovoNegocio({
   }
 
   const e = erro?.porCampo ?? {};
-  const responsavelAtual = equipe.find((m) => m.userId === responsavelId);
+  const responsavelAtual = equipe.find((m) => m.userId === responsavelEfetivo);
   const emailDoResponsavel = (m: (typeof equipe)[number]) =>
     m.email || "Equipe comercial";
 
@@ -323,7 +326,8 @@ export function NovoNegocio({
               Responsável da equipe *
             </label>
             <Select
-              value={responsavelId}
+              value={responsavelEfetivo}
+              disabled={!podeAtribuir}
               onValueChange={(val) => {
                 setResponsavelId(val);
                 setErro((atual) => atual ? { ...atual, porCampo: { ...atual.porCampo, ownerId: "" } } : null);
