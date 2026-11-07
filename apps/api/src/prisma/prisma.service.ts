@@ -31,12 +31,13 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
       return fn(atual.tx);
     }
 
+    // Absorve rajadas na fila do pool sem ampliar o prazo de execução da transação.
     return this.$transaction(async (tx) => {
       await tx.$executeRaw`
         SELECT set_config('plugga.session_hash', ${contexto.sessionHash ?? ""}, true),
                set_config('plugga.agent_hash', ${contexto.agentHash ?? ""}, true)`;
       return transacaoAtual.run({ cliente: this, tx, contexto }, () => fn(tx));
-    }, opcoes);
+    }, { ...opcoes, maxWait: opcoes?.maxWait ?? 10_000 });
   }
 
   async onModuleDestroy(): Promise<void> {

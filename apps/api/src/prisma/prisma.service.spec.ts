@@ -41,9 +41,9 @@ describe("PrismaService.comContexto", () => {
 
   it("limpa as duas capacidades sem autenticação e preserva as opções externas", async () => {
     const { prisma, comandos, transacao } = bancoSimulado();
-    await prisma.comContexto(async () => "anônimo", { timeout: 2_000 });
+    await prisma.comContexto(async () => "anônimo", { maxWait: 250, timeout: 2_000 });
     expect(comandos).toEqual([["", ""]]);
-    expect(transacao).toHaveBeenCalledWith(expect.any(Function), { timeout: 2_000 });
+    expect(transacao).toHaveBeenCalledWith(expect.any(Function), { maxWait: 250, timeout: 2_000 });
   });
 
   it("transporta agente sem inventar sessão de usuário", async () => {

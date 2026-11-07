@@ -20,6 +20,7 @@ import { hashToken } from "../src/core/auth/token.util";
 import { ArmazenamentoDeDocumentos } from "../src/lead-documentos/armazenamento-de-documentos";
 import { PrismaAuthService } from "../src/prisma/prisma-auth.service";
 import { PrismaJobsService } from "../src/prisma/prisma-jobs.service";
+import { contextoBanco } from "../src/prisma/contexto-banco";
 import { PrismaService } from "../src/prisma/prisma.service";
 import { validarPapelBanco } from "../src/prisma/validar-papel-banco";
 import { assertSafeTestDatabaseUrl } from "./safe-test-environment";
@@ -852,6 +853,64 @@ describe.skipIf(!HABILITADO)("permissões por tela com sessão real (HTTP + Post
     } finally {
       await banco().client.deleteMany({ where: { id: compartilhadoId } });
     }
+  });
+
+  it("fila de conexoes acima de dois segundos preserva identidade e RLS de cada sessao", async () => {
+    if (!app) throw new Error("Aplicacao nao inicializada.");
+    const runtime = app.get<PrismaService>(PrismaService);
+    const alvos = await Promise.all((["membroA", "membroB"] as const).map(async (persona) => {
+      const { tokenHash } = await banco().session.findFirstOrThrow({
+        where: { userId: pessoas[persona].id }, select: { tokenHash: true },
+      });
+      return { id: pessoas[persona].id, sessionHash: tokenHash };
+    }));
+    await comAcessosTemporarios({
+      membroB: { plataforma: null, departamentos: [{ departamento: "crm", nivel: "membro", telas: ["crm.pipelines"] }] },
+    }, async () => {
+      let liberar!: () => void;
+      const barreira = new Promise<void>((resolve) => { liberar = resolve; });
+      const inicios = alvos.map(() => {
+        let sinalizar!: () => void;
+        let falhar!: (erro: unknown) => void;
+        const pronto = new Promise<void>((resolve, reject) => { sinalizar = resolve; falhar = reject; });
+        return { pronto, sinalizar, falhar };
+      });
+      // Ambos so iniciam a espera SQL depois que as duas leituras estao na fila.
+      const bloqueios = Promise.allSettled(alvos.map((alvo, indice) =>
+        contextoBanco.run({ sessionHash: alvo.sessionHash }, () => runtime.comContexto(async (tx) => {
+          inicios[indice]!.sinalizar();
+          await barreira;
+          await tx.$executeRaw`SELECT pg_sleep(2.5)`;
+        })).catch((erro: unknown) => { inicios[indice]!.falhar(erro); throw erro; }),
+      ));
+      try {
+        await Promise.all(inicios.map(({ pronto }) => pronto));
+        const fila = Promise.allSettled(alvos.map((alvo) =>
+          contextoBanco.run({ sessionHash: alvo.sessionHash }, () => runtime.comContexto((tx) =>
+            tx.$queryRaw<{ id: string; clientes: number }[]>`
+              SELECT plugga_security.usuario_id() AS id,
+                (SELECT count(*)::integer FROM public.clients
+                  WHERE id IN (${registros.A.clientId}::uuid, ${registros.B.clientId}::uuid)) AS clientes`,
+          )),
+        ));
+        liberar();
+        const leituras = await fila;
+        expect((await bloqueios).map(({ status }) => status)).toEqual(["fulfilled", "fulfilled"]);
+        expect(leituras.map(({ status }) => status)).toEqual(["fulfilled", "fulfilled"]);
+        expect(leituras.map((resultado, indice) => resultado.status === "fulfilled" && resultado.value[0]?.id === alvos[indice]!.id)).toEqual([true, true]);
+        expect(leituras.flatMap((resultado) => resultado.status === "fulfilled" ? resultado.value.map(({ clientes }) => clientes) : [])).toEqual([2, 0]);
+      } finally {
+        liberar();
+        await bloqueios;
+      }
+    });
+    expect(contextoBanco.getStore() === undefined).toBe(true);
+    const limpas = (await Promise.all([0, 1].map(() => runtime.$queryRaw<{ pid: number; semIdentidade: boolean; semCapacidade: boolean }[]>`
+      SELECT pg_backend_pid() AS pid, plugga_security.usuario_id() IS NULL AS "semIdentidade",
+        nullif(current_setting('plugga.session_hash', true), '') IS NULL AS "semCapacidade"
+      FROM pg_sleep(0.05)`))).flat();
+    expect(new Set(limpas.map(({ pid }) => pid)).size).toBe(2);
+    expect(limpas.every(({ semIdentidade, semCapacidade }) => semIdentidade && semCapacidade)).toBe(true);
   });
 
   it("criações HTTP concorrentes do mesmo membro recebem posições distintas com login runtime restrito", async () => {

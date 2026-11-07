@@ -34,6 +34,10 @@ autenticam. Helpers privilegiados usam SECURITY DEFINER, search_path fixo,
 tabelas qualificadas e EXECUTE revogado de PUBLIC. Runtime nunca recebe SELECT
 das sessões ou credenciais.
 
+`comContexto` espera até 10 segundos por uma conexão/transação disponível;
+o prazo padrão de execução da transação continua em 5 segundos. Opções
+explícitas do chamador prevalecem. Não há repetição automática de escritas.
+
 No runtime, `users` concede SELECT somente de **id, name e status**, ainda
 sujeito à policy de diretório. Isso permite responsáveis elegíveis e autoria
 dos registros visíveis, sem e-mail nem cadastro completo da conta. Nomes
