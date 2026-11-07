@@ -119,7 +119,7 @@ export function ConfiguracoesView({
 
   return (
     <div className="config-layout">
-      <nav className={styles.navegacaoAbas} aria-label="Seções de configuração" role="tablist">
+      <nav className={`config-nav ${styles.navegacaoAbas}`} aria-label="Seções de configuração" role="tablist">
         {visiveis.map((item, indice) => {
           const IconeComp = item.id ? ICONE_DA_SECAO[item.id] : null;
           const selecionado = item === secao;
@@ -152,7 +152,7 @@ export function ConfiguracoesView({
         })}
       </nav>
 
-      <div role="tabpanel" id={`config-painel-${secao?.id}`} aria-labelledby={`config-aba-${secao?.id}`} tabIndex={0}>
+      <div className={secao?.id === "equipe" ? "equipe-layout" : undefined} role="tabpanel" id={`config-painel-${secao?.id}`} aria-labelledby={`config-aba-${secao?.id}`} tabIndex={0}>
       {secao?.id === "perfil" ? (
         <PerfilView />
       ) : secao?.id === "notificacoes" ? (
