@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { ConfigService } from "@nestjs/config";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-import { createDealRequestSchema, createPipelineRequestSchema, type Pipeline } from "@plugga/shared";
+import { createDealRequestSchema, createPipelineRequestSchema, type Pipeline, type Tela } from "@plugga/shared";
 
 import { AuditAppender } from "../src/audit/audit-appender.js";
 import { ClientesService } from "../src/clientes/clientes.service.js";
@@ -50,14 +50,15 @@ describe.skipIf(!HABILITADO)("documentos do lead: envio e consulta no Postgres +
 
   async function pessoa(chave: keyof typeof pessoas, gestor = false): Promise<void> {
     const nivel = gestor ? "gerente" : "membro";
+    const telas: Tela[] = chave === "forasteiro" ? [] : ["crm.pipelines"];
     const usuario = await prisma.user.create({
       data: {
         email: `${marca}-${chave}@teste.local`,
         name: `${marca} ${chave}`,
-        departamentos: { create: { departamento: "crm", nivel, telas: chave === "forasteiro" ? [] : ["crm.pipelines"] } },
+        departamentos: { create: { departamento: "crm", nivel, telas } },
       },
     });
-    pessoas[chave] = { id: usuario.id, kind: "user", acesso: { plataforma: null, departamentos: [{ departamento: "crm", nivel }] } };
+    pessoas[chave] = { id: usuario.id, kind: "user", acesso: { plataforma: null, departamentos: [{ departamento: "crm", nivel, telas }] } };
   }
 
   beforeAll(async () => {
@@ -112,18 +113,45 @@ describe.skipIf(!HABILITADO)("documentos do lead: envio e consulta no Postgres +
       const buffer = PDF();
       const documento = await documentos.upload(dealId, "proposta", { buffer, originalName: "Proposta Setembro.pdf" }, pessoas.ana);
 
-      // A tela do CRM e um vínculo antigo no funil não abrem arquivos de outro dono.
+      // Pipelines libera documentos do lead de Ana para Bruno. O vinculo legado
+      // de gestor do funil continua sem conceder gestao para arquivar de terceiros.
       await prisma.pipelineMember.create({ data: { pipelineId: pipeline.id, userId: pessoas.bruno.id, role: "gestor" } });
-      const negados = [
-        () => documentos.list(dealId, pessoas.bruno),
-        () => documentos.upload(dealId, "outros", { buffer: PDF(), originalName: "proibido.pdf" }, pessoas.bruno),
-        () => documentos.update(dealId, documento.id, { originalName: "proibido.pdf" }, pessoas.bruno),
-        () => documentos.archive(dealId, documento.id, pessoas.bruno),
-        () => documentos.download(dealId, documento.id, pessoas.bruno),
-        () => documentos.preview(dealId, documento.id, pessoas.bruno),
-      ];
-      for (const negado of negados) await expect(negado()).rejects.toBeInstanceOf(NaoEncontrado);
-      await prisma.pipelineMember.deleteMany({ where: { pipelineId: pipeline.id, userId: pessoas.bruno.id } });
+      try {
+        expect((await documentos.list(dealId, pessoas.bruno)).documents).toContainEqual(expect.objectContaining({
+          id: documento.id, uploadedBy: { id: pessoas.ana.id, name: `${marca} ana` },
+        }));
+        const deBruno = await documentos.upload(dealId, "outros", { buffer: PDF(), originalName: "enviado-por-bruno.pdf" }, pessoas.bruno);
+        expect(deBruno.uploadedBy).toEqual({ id: pessoas.bruno.id, name: `${marca} bruno` });
+        expect((await documentos.update(dealId, documento.id, { originalName: "Proposta revisada por Bruno.pdf" }, pessoas.bruno)).originalName).toBe("Proposta revisada por Bruno.pdf");
+        const downloadDoBruno = await documentos.download(dealId, documento.id, pessoas.bruno);
+        const partesDoBruno: Buffer[] = [];
+        for await (const parte of downloadDoBruno.stream) partesDoBruno.push(parte as Buffer);
+        downloadDoBruno.encerrar();
+        expect(Buffer.concat(partesDoBruno).equals(buffer)).toBe(true);
+        const previewDoBruno = await documentos.preview(dealId, documento.id, pessoas.bruno);
+        previewDoBruno.stream.destroy();
+        previewDoBruno.encerrar();
+        expect(previewDoBruno.documento.canPreview).toBe(true);
+
+        await expect(documentos.archive(dealId, documento.id, pessoas.bruno)).rejects.toBeInstanceOf(NaoEncontrado);
+        expect((await prisma.leadDocument.findUniqueOrThrow({ where: { id: documento.id } })).archivedAt).toBeNull();
+        expect((await documentos.archive(dealId, deBruno.id, pessoas.bruno)).archivedBy).toEqual({ id: pessoas.bruno.id, name: `${marca} bruno` });
+
+        const outroLead = await negocios.create(createDealRequestSchema.parse({
+          pipelineId: pipeline.id, stageId: pipeline.stages[0]!.id, ownerId: pessoas.bruno.id,
+          title: `${marca} Outro lead`, lead: { personType: "pf", name: `${marca} Outro lead`, phone: "92999990123" },
+        }), pessoas.bruno);
+        for (const negado of [
+          () => documentos.update(outroLead.id, documento.id, { originalName: "vinculo-incorreto.pdf" }, pessoas.bruno),
+          () => documentos.archive(outroLead.id, documento.id, pessoas.ana),
+          () => documentos.download(outroLead.id, documento.id, pessoas.bruno),
+          () => documentos.preview(outroLead.id, documento.id, pessoas.bruno),
+        ]) await expect(negado()).rejects.toBeInstanceOf(NaoEncontrado);
+        expect((await documentos.list(outroLead.id, pessoas.bruno)).documents).toEqual([]);
+        expect((await prisma.leadDocument.findUniqueOrThrow({ where: { id: documento.id } })).dealId).toBe(dealId);
+      } finally {
+        await prisma.pipelineMember.deleteMany({ where: { pipelineId: pipeline.id, userId: pessoas.bruno.id } });
+      }
 
       expect(documento).toMatchObject({
         dealId,
@@ -151,10 +179,10 @@ describe.skipIf(!HABILITADO)("documentos do lead: envio e consulta no Postgres +
       expect(previa.documento.canPreview).toBe(true);
 
       const historico = await prisma.dealHistory.findMany({ where: { dealId, kind: "document_added" } });
-      expect(historico).toMatchObject([{ actorId: pessoas.ana.id }]);
+      expect(historico.map((item) => item.actorId).sort()).toEqual([pessoas.ana.id, pessoas.bruno.id].sort());
       expect(
         await prisma.eventLog.count({ where: { eventName: "commercial.deal.document_added", entityId: dealId } }),
-      ).toBe(1);
+      ).toBe(2);
     },
     PRAZO_MS,
   );
@@ -204,9 +232,9 @@ describe.skipIf(!HABILITADO)("documentos do lead: envio e consulta no Postgres +
   );
 
   it(
-    "arquiva por quem enviou; quem é de fora não vê o negócio nem o documento (404, sem revelar existência)",
+    "a gestao arquiva documento de membro; sem tela nao ve negocio ou documento (404)",
     async () => {
-      const documento = await documentos.upload(dealId, "outros", { buffer: PDF(), originalName: "arquivar-me.pdf" }, pessoas.gestor);
+      const documento = await documentos.upload(dealId, "outros", { buffer: PDF(), originalName: "arquivar-me.pdf" }, pessoas.ana);
 
       await expect(documentos.list(dealId, pessoas.forasteiro)).rejects.toBeInstanceOf(NaoEncontrado);
       await expect(
@@ -214,13 +242,15 @@ describe.skipIf(!HABILITADO)("documentos do lead: envio e consulta no Postgres +
       ).rejects.toBeInstanceOf(NaoEncontrado);
       await expect(documentos.archive(dealId, documento.id, pessoas.forasteiro)).rejects.toBeInstanceOf(NaoEncontrado);
       await expect(documentos.download(dealId, documento.id, pessoas.forasteiro)).rejects.toBeInstanceOf(NaoEncontrado);
+      await expect(documentos.preview(dealId, documento.id, pessoas.forasteiro)).rejects.toBeInstanceOf(NaoEncontrado);
+      await expect(documentos.update(dealId, documento.id, { originalName: "bloqueado.pdf" }, pessoas.forasteiro)).rejects.toBeInstanceOf(NaoEncontrado);
 
       const arquivado = await documentos.archive(dealId, documento.id, pessoas.gestor);
       expect(arquivado.archivedAt).not.toBeNull();
       expect(arquivado.archivedBy).toMatchObject({ id: pessoas.gestor.id });
       const vistoPelaDona = (await documentos.list(dealId, pessoas.ana)).documents.find((d) => d.id === documento.id)!;
-      expect(vistoPelaDona.uploadedBy).toBeNull();
-      expect(vistoPelaDona.archivedBy).toBeNull();
+      expect(vistoPelaDona.uploadedBy).toEqual({ id: pessoas.ana.id, name: `${marca} ana` });
+      expect(vistoPelaDona.archivedBy).toEqual({ id: pessoas.gestor.id, name: `${marca} gestor` });
 
       const historico = await prisma.dealHistory.findMany({ where: { dealId, kind: "document_archived" } });
       expect(historico.map((h) => h.actorId)).toContain(pessoas.gestor.id);

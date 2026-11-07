@@ -18,7 +18,7 @@ export default defineConfig({
     {
       command: "node e2e/support/api-simulada.mjs",
       url: "http://127.0.0.1:3198/auth/me",
-      env: { API_SIMULADA_PORT: "3198" },
+      env: { API_SIMULADA_PORT: "3198", DESIGN_SYSTEM_E2E: "true" },
     },
     {
       command: "pnpm exec next dev --port 3118",

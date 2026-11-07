@@ -15,7 +15,9 @@ async function criar<T>(request: APIRequestContext, origin: string, url: string,
 test.beforeAll(async ({ request, baseURL }) => {
   expect(["localhost", "127.0.0.1"]).toContain(new URL(baseURL!).hostname);
   const pessoas: PipelinePeopleResponse = await (await request.get("/api/pipelines/pessoas?companyId=plugga")).json();
-  responsavel = pessoas.people.find((pessoa) => pessoa.email)!;
+  expect(pessoas.people.length).toBeGreaterThan(0);
+  for (const pessoa of pessoas.people) expect(pessoa).not.toHaveProperty("email");
+  responsavel = pessoas.people[0]!;
   pipeline = await criar(request, baseURL!, "/api/pipelines", {
     companyId: "plugga", name: `Tarefas E2E ${Date.now()}`, description: null,
     valueLabel: "Investimento", color: "#0077FF", wonLabel: "Ganho", lostLabel: "Perdido",
@@ -84,8 +86,9 @@ test("tarefas permitem criar, mover, editar e excluir, isoladas por lead durante
   await novo.getByLabel(/Título da tarefa/).fill("Preparar proposta");
   const seletor = novo.getByRole("combobox", { name: "Responsável" });
   await seletor.click();
-  const opcao = page.getByRole("option").filter({ hasText: responsavel.name }).first();
-  await expect(opcao).toContainText(responsavel.email!);
+  const opcao = page.getByRole("option").first();
+  await expect(opcao.locator(".ui-member-name")).toHaveText(responsavel.name);
+  await expect(opcao.locator(".ui-member-email")).toHaveText("Equipe comercial");
   await opcao.click();
   await novo.getByLabel(/^Data de início/).fill(datas.amanha);
   await novo.getByLabel("Data de fim", { exact: true }).fill(datas.ontem);
