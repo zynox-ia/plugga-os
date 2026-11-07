@@ -1,118 +1,106 @@
-# RLS de permissões (PLU-306)
+# Permissões por tela e RLS (PLU-306 / PLU-309)
 
-A migration `20261106010000_isolamento_rls` habilita **ENABLE + FORCE RLS nos
-72 modelos**. A conexão da aplicação nunca pode ser dona de objetos, herdar o
-dono/migrador, ter SUPERUSER/BYPASSRLS, CREATE/DDL, TRUNCATE ou pertencer a outro
-pool. O migrador precisa poder criar os grupos NOLOGIN e o schema de segurança.
-Nenhum login ou senha é criado pela migration.
+O contrato atual é **acesso por tela**. Membro com `crm.pipelines` pode ver e
+trabalhar todos os leads dessa tela; responsável e autoria não restringem a
+leitura. Gerência vale no departamento e nas telas concedidas, sem combinar
+nível de um departamento com tela de outro. Admin mantém o alcance
+administrativo; Desenvolvedor acrescenta as telas técnicas.
 
-Provisione três logins distintos com credenciais fora do repositório e execute
-`configurar-papeis-aplicacao.sql` com as variáveis psql `runtime_role`, `auth_role`
-e `jobs_role`. O script valida nomes, atributos, ownership e privilégios antes
-de conceder os grupos. Não altera serviços nem troca credenciais. Faça isso
-somente no ambiente local sintético ou após aprovação explícita do André.
+As migrations desta entrega protegem **73 modelos com ENABLE + FORCE RLS**:
+`20261106010000_isolamento_rls` cobre os 72 originais e
+`20261106020000_vinculos_e_agentes` acrescenta `agent_identities`.
+`20261106060000_permissoes_por_tela` substitui a regra anterior por responsável,
+fecha a leitura de Clientes e acrescenta a conversão controlada e os triggers
+de escrita. Nenhum dado histórico é apagado ou remapeado.
+`_prisma_migrations` é metadado do migrador, não um modelo de negócio.
 
-| Conexão | Grupo | Superfície |
+| Conexão | Grupo | Capacidade |
 | --- | --- | --- |
-| `DATABASE_URL` | `plugga_runtime` | Negócio por sessão e políticas abaixo |
-| `AUTH_DATABASE_URL` | `plugga_auth_runtime` | users, credentials, identities, sessions, auth_tokens, roles, ACL e agent_identities; event_log INSERT/SELECT para auditoria de autenticação |
-| `JOBS_DATABASE_URL` | `plugga_jobs_runtime` | integrations, job_runs, bitrix_mirror_records; event_log INSERT/SELECT de eventos system |
+| `DATABASE_URL` | `plugga_runtime` | Negócio com contexto autenticado e policies por tela |
+| `AUTH_DATABASE_URL` | `plugga_auth_runtime` | Autenticação, equipe, ACL e identidades; auditoria de autenticação |
+| `JOBS_DATABASE_URL` | `plugga_jobs_runtime` | integrations, job_runs, bitrix_mirror_records e auditoria de sistema |
 
-O pool auth é uma capacidade privilegiada: só autenticação e gestão de acesso
-devem recebê-lo. Não acessa negócio. O pool jobs também não acessa usuários,
-credenciais ou negócio. Não use os pools privilegiados para contornar recusas
-do pool de aplicação.
+São três logins distintos, sem SUPERUSER, BYPASSRLS, propriedade de objetos,
+herança do migrador, CREATE/DDL, TRUNCATE ou privilégios de outro pool. Os grupos
+são NOLOGIN. O pool auth não acessa negócio; jobs não acessa usuários,
+credenciais ou negócio. O validador de boot recusa pools incompatíveis; o
+modo de testes unitários não substitui a execução explícita dos testes RLS.
 
-Em cada transação da aplicação, configure `plugga.session_hash` com `set_config`
-e `is_local=true`, na **mesma conexão** das consultas. O helper
-`plugga_security.usuario_id()` resolve o hash em sessions e exige usuário ativo,
-expiração deslizante e absoluta válidas. O hash é uma capacidade secreta: nunca
-retorne/logue hashes e nunca permita SELECT de sessions ao runtime. UUID, flag
-de sistema e `app.user_id` forjados não autenticam. Todos os helpers usam
-SECURITY DEFINER, search_path fixo, tabelas qualificadas e EXECUTE revogado de
-PUBLIC. A policy SELECT exclusiva do migrador evita recursão dos helpers mesmo
-com FORCE RLS e migrador sem bypass; nenhum runtime pode herdar esse papel.
+O contexto vem da sessão humana ou da credencial de IA validada. A aplicação
+define `plugga.session_hash` ou `plugga.agent_hash` por `set_config(..., true)`
+na mesma conexão/transação das consultas. `usuario_id()` exige identidade
+ativa e credencial/sessão vigente; contextos misturados e UUIDs forjados não
+autenticam. Helpers privilegiados usam SECURITY DEFINER, search_path fixo,
+tabelas qualificadas e EXECUTE revogado de PUBLIC. Runtime nunca recebe SELECT
+das sessões ou credenciais.
 
-Membros precisam da tela do recurso e só operam registros cujo owner é seu
-usuário. Gerentes alcançam todos os registros das telas concedidas no mesmo
-departamento. Não se combina nível de um departamento com tela de outro.
-Admin alcança negócio e configuração; desenvolvedor inclui o acesso técnico.
-Clientes podem ser lidos por CRM clientes/pipelines e pelas telas de energia;
-oportunidades e contratos também têm leitura financeira por ownership/gestão.
-Escrita usa a tela específica de CRM. A conversão de pipeline pode inserir um
-cliente conforme ownership/gestão e seus contatos; alterar/excluir contatos
-exige CRM Clientes. Famílias do negócio herdam o acesso ao pai. Unidades
-consumidoras têm exceção somente SELECT pelo cliente acessível em Pipelines.
-O gateway de fatura lê somente o modo da OpenRouter e o material cifrado da
-chave através de funções restritas à tela de execução. Não recebe SELECT do
-catálogo de integrações nem da tabela de segredos. A API de configuração
-continua reservada à plataforma. Isso preserva a execução autorizada sem
-ampliar o acesso às telas técnicas.
-INSERT/UPDATE de negócio validam cliente visível por Pipelines, contato do
-mesmo cliente, etapa e motivo do mesmo pipeline. Etiquetas, UCs e versões de
-proposta também validam o vínculo ao pai.
-Metadados de pipelines são legíveis pela tela; sua configuração exige gerente
-CRM dessa tela. Membros só leem sua própria participação no pipeline. ACL e
-usuários só têm SELECT no runtime; escrita usa auth.
+No runtime, `users` concede SELECT somente de **id, name e status**, ainda
+sujeito à policy de diretório. Isso permite responsáveis elegíveis e autoria
+dos registros visíveis, sem e-mail nem cadastro completo da conta. Nomes
+históricos permanecem após desativação ou mudança de departamento; isso não
+torna a pessoa elegível a novas atribuições. Atribuir a terceiros exige gestão
+da tela no CRM ou plataforma e destinatário ativo/elegível; os triggers de
+`validar_escrita_crm` complementam a validação da API.
 
-Exceções explícitas: roles, companies e templates de proposta são catálogos
-somente de leitura para qualquer sessão ativa. Empresa **não é tenant**.
-Energia, obras, mobilidade e compras sem regra de API ativa permanecem fechados
-para membros/gerentes, inclusive seus filhos; plataforma pode operar. Não há
-scoping de empresa inventado para essas tabelas. `agent_actions` permite leitura
-técnica ao Desenvolvedor e leitura/inserção da própria trilha à identidade de IA,
-limitada à entidade própria e à tela correspondente. `llm_chamadas` é legível pela gestão financeira
-com ao menos uma tela financeira e plataforma; só aceita inserção do processo
-`fatura.visao` por sessão autorizada às telas de execução. Segredos e integrações
-exigem plataforma; jobs e leitura de event_log exigem desenvolvedor.
+Pipelines compartilha leads, contagens, equipe, documentos e propostas da tela
+autorizada. Filhos continuam vinculados ao negócio correto: um ID de arquivo
+ou proposta não autoriza usá-lo no caminho de outro negócio. Perfil, contato,
+autoria e histórico são dados/snapshots do lead visível, inclusive ações de
+outras pessoas. Não acompanham alterações posteriores do cadastro convertido.
 
-`event_log` no runtime aceita INSERT com actor_type=user para sessão humana ou
-actor_type=agent para credencial de IA, com ator igual à identidade autenticada;
-SELECT é técnico. Inserções de auditoria comuns precisam evitar
-RETURNING, pois RETURNING também exige a policy SELECT. O mesmo vale para
-`llm_chamadas` quando o executor não tem acesso ao relatório financeiro. Não
-amplie a leitura para fazer INSERT RETURNING funcionar.
+**Clientes exige `crm.clientes`**, inclusive seletores, duplicatas, contatos e
+leitura do cadastro. Converter não concede essa tela. Sem ela, o lead mantém
+seu snapshot e informa `converted: true`, mas sua projeção `client` é nula; a
+resposta da conversão traz `client: null` e `created: null`, sem nome ou ID do
+cadastro, candidatos ou link para ele. A escolha manual de cliente exige Clientes.
+O trigger impede criar ou alterar diretamente esses vínculos sem a tela,
+preservando vínculos anteriores durante as demais edições do lead.
 
-Teste opt-in: `RUN_RLS_INTEGRATION_TESTS=true` e o runner local hermético do
-integrador, com `--filter @plugga/api exec vitest run test/rls-permissoes.integration.spec.ts`.
-O teste exige root de `plugga_os_test` em loopback/porta autorizada só para
-fixtures, cria logins aleatórios em memória e faz as asserções em conexões reais
-restritas. Limpa exclusivamente seus IDs/logins, preservando catálogos existentes
-e auditoria append-only. Suíte pulada não comprova RLS; execute também lint,
-typecheck, testes e build antes de declarar a entrega pronta. Não aplicar esta
-migration a produção sem o provisionamento e a aprovação correspondentes.
+A única assinatura de conversão exposta é
+`plugga_security.converter_lead_snapshot(alvo uuid) RETURNS boolean`.
+Ela recebe somente o ID do lead, revalida a identidade/tela após as travas e
+usa o perfil e os contatos já persistidos para criar ou vincular o cliente.
+Não aceita payload de cadastro nem ID de cliente escolhido pelo chamador.
+Com Clientes, retorna true se criou e false se reutilizou/já estava vinculado;
+para Pipelines sem Clientes, retorna sempre NULL. Casos que precisam de
+validação de cadastro falham com orientação genérica, sem devolver candidatos.
+EXECUTE é concedido ao runtime, não a PUBLIC. As policies exclusivas do dono
+para essa operação não são concedidas aos pools de aplicação.
 
-As migrations seguintes completam os vínculos. `20261106020000_vinculos_e_agentes`
-acrescenta a identidade de IA (73º modelo também ENABLE/FORCE), integridade de
-autoria e constraints de concessão. `20261106030000_rls_identidade_agente` resolve
-a credencial de IA revogável no banco, exige identidade ativa, membro de um único
-departamento e sem papel de plataforma. Não aceita sessão humana de agente nem
-contextos misturados. A trilha de IA exige entidade própria e tela correspondente;
-o próprio agente não pode registrar uma aprovação humana.
+Contratos seguem as telas já existentes de CRM/Financeiro, sem conceder acesso
+ao cadastro de Clientes. `clientes_dos_contratos(uuid[])` retorna somente
+`contract_id`, id e nome do cliente vinculado aos contratos autorizados.
+A oportunidade opcional deve ser coerente com o cliente; criar ou trocar esse
+vínculo exige Pipelines. **Isolamento por responsável de contratos fica adiado**;
+esta entrega não cria a regra de “contrato próprio” nem redesenha Financeiro.
 
-`20261106040000_rls_leituras_relacionadas` preserva o cliente obrigatório do
-contrato. CRM Contratos pode ler os cadastros necessários para criar contratos;
-Financeiro lê somente clientes vinculados a contratos visíveis. Para membro,
-contrato e cliente precisam pertencer à própria identidade. A projeção HTTP
-do cliente no contrato continua limitada a id/nome e não concede sua tela nem
-escrita no cadastro. Gerentes de CRM também podem resolver os responsáveis
-Admin/Desenvolvedor elegíveis, que não possuem uma linha de departamento.
-O diretório preserva também a resolução de responsáveis e autores históricos
-dos registros autorizados à gerência, mesmo depois de saírem do CRM ou terem
-a conta removida/desativada. Isso não os torna elegíveis a novas atribuições.
+IA conserva identidade de equipe, nível Membro em um único departamento, sem
+login humano ou papel de plataforma. Seu alcance das entidades segue a tela,
+como o humano. A trilha continua vinculada à própria identidade, não permite
+autoaprovação e não abre trilhas alheias ou telas técnicas. `event_log` exige
+ator igual à identidade autenticada; leitura técnica de eventos/jobs exige
+Desenvolvedor. Auditoria e registros LLM devem evitar INSERT RETURNING quando
+a sessão não tem SELECT da tabela.
 
-Contas ativas sem qualquer concessão continuam sem acesso a dados de negócio;
-nenhuma permissão é preenchida automaticamente. A migração rejeita inconsistências
-por contagem e preserva o histórico. Não apaga nem remapeia dados antigos.
+Roles, companies e templates de proposta são catálogos globais de leitura
+para sessão ativa; company não é tenant. Domínios sem regra operacional ativa
+permanecem fechados a Membro/Gerente. As funções restritas do executor de faturas
+não concedem SELECT de tabelas de integrações/segredos nem sua configuração.
 
-`20261106050000_rls_vinculos_comerciais` acrescenta WITH CHECK aos vínculos de
-oportunidades e contratos. Cliente opcional de oportunidade precisa estar no
-escopo de Pipelines; oportunidade opcional de contrato precisa estar no escopo
-e, quando tiver cliente, coincidir com o cliente do contrato. Gerência preserva
-seu alcance por tela; uma FK existente não substitui a autorização do vínculo.
+Para ativar, provisione os três logins fora do repositório e execute
+`configurar-papeis-aplicacao.sql` com `runtime_role`, `auth_role` e
+`jobs_role`. O script valida e concede grupos; não cria senhas/logins.
+Coordene as migrations com a versão que propaga o contexto: rollback apenas
+do aplicativo antigo pode interromper o acesso. Produção exige aprovação
+explícita do André e não foi acessada por esta atualização documental.
 
-Pendência da revisão final (PLU-309): RLS de linhas, sozinha, ainda não mascara
-colunas/JSON de referências e autoria alheias em registros próprios do legado.
-As projeções HTTP ocultam esses campos, mas esse isolamento de campos ainda não
-está completo no caminho SQL. A regra de manter a linha com campos ocultos ou
-ocultá-la inteira aguarda decisão do André; não publicar como barreira concluída.
+A evidência de execução fica no PR e no Linear, com SHA e ambiente. Os arquivos
+`rls-permissoes.integration.spec.ts`, `isolamento-membros.integration.spec.ts`
+e `vinculos-equipe.integration.spec.ts` usam, respectivamente, as flags opt-in
+`RUN_RLS_INTEGRATION_TESTS`, `RUN_PERMISSOES_INTEGRATION_TESTS` e
+`RUN_VINCULOS_INTEGRATION_TESTS` com valor `true`, em ambiente local sintético
+com `PLUGGA_TEST_IGNORE_ENV_FILE=true`. Preparação usa conexão
+administrativa somente para fixtures; as asserções usam logins restritos.
+Suítes puladas, leitura de código e nomes de etapas da CI não comprovam
+execução. Este documento descreve o contrato implementado e não certifica
+gates de CI, navegador ou produção que não tenham sido efetivamente executados.
