@@ -34,9 +34,10 @@ function setup(ownerId = "outra-pessoa") {
 
 afterEach(() => vi.restoreAllMocks());
 
-describe("Negócios: isolamento por responsável com acesso atual", () => {
-  it("oculta detalhe, histórico e todas as mutações do negócio de outro membro", async () => {
-    const { repo, write, create, historyWrite, auditWrite } = setup();
+describe("Negócios: acesso por tela conforme definição do André", () => {
+  it("oculta detalhe, histórico e mutações quando a tela foi revogada", async () => {
+    const { repo, prisma, history, write, create, historyWrite, auditWrite } = setup();
+    vi.mocked(acesso.lerAcessoComercial).mockResolvedValue({ podeOperar: false, admin: false, gestorEm: [] });
     const operations = [
       () => repo.get("negocio", principal),
       () => repo.history("negocio", { limit: 30 }, principal),
@@ -53,12 +54,14 @@ describe("Negócios: isolamento por responsável com acesso atual", () => {
     expect(create).not.toHaveBeenCalled();
     expect(historyWrite).not.toHaveBeenCalled();
     expect(auditWrite).not.toHaveBeenCalled();
+    expect(history).not.toHaveBeenCalled();
+    expect(prisma.$queryRaw).not.toHaveBeenCalled();
   });
 
-  it("filtra lista pelo dono mesmo com sessão antiga de admin e mantém histórico próprio", async () => {
-    const { repo, list } = setup(principal.id);
+  it("consulta os leads da tela sem filtro de responsável e preserva o histórico autorizado", async () => {
+    const { repo, list } = setup();
     await expect(repo.list({ pipelineId: pipeline.id, status: "all" }, principal)).resolves.toEqual({ deals: [] });
-    expect(list).toHaveBeenCalledWith(expect.objectContaining({ where: { pipelineId: pipeline.id, ownerId: principal.id } }));
+    expect(list).toHaveBeenCalledWith(expect.objectContaining({ where: { pipelineId: pipeline.id } }));
     await expect(repo.history("negocio", { limit: 30 }, principal)).resolves.toEqual({ entries: [], nextCursor: null });
   });
 
@@ -66,6 +69,37 @@ describe("Negócios: isolamento por responsável com acesso atual", () => {
     const { repo } = setup();
     vi.mocked(acesso.lerAcessoComercial).mockResolvedValue({ podeOperar: true, admin: false, gestorEm: ["plugga", "waze"] });
     await expect(repo.history("negocio", { limit: 30 }, principal)).resolves.toEqual({ entries: [], nextCursor: null });
+  });
+
+  it.each(["membro", "outra-pessoa"])("preserva autoria e snapshots de um lead da tela com responsável %s", async (ownerId) => {
+    const membro = { ...principal, id: "00000000-0000-4000-8000-000000000001" };
+    const autor = { id: "00000000-0000-4000-8000-000000000002", name: "Autora anterior" };
+    const atual = { id: membro.id, name: "Responsável atual" };
+    const { repo, prisma, history } = setup(ownerId);
+    history.mockResolvedValue([{
+      id: "00000000-0000-4000-8000-000000000003", kind: "field_changed", occurredAt: new Date("2026-11-06T12:00:00Z"),
+      actorId: autor.id, actor: autor,
+      field: "ownerId", beforeValue: autor, afterValue: atual,
+      fromStageName: null, toStageName: null, fromPipelineName: null, toPipelineName: null,
+      fromPriority: null, toPriority: null,
+    }] as never);
+    // André autorizou todos os leads da tela e a preservação de sua autoria/histórico.
+    const result = await repo.history("negocio", { limit: 30 }, membro);
+
+    expect(result.entries).toHaveLength(1);
+    expect(result.entries[0]).toMatchObject({ actor: autor, before: autor, after: atual });
+    expect(Object.keys(result.entries[0]!.actor!)).toEqual(["id", "name"]);
+    expect(prisma.$queryRaw).not.toHaveBeenCalled();
+  });
+
+  it("recusa cursor de outro negócio antes de consultar histórico ou autores", async () => {
+    const { repo, prisma, history } = setup(principal.id);
+    vi.spyOn(prisma.dealHistory, "findFirst").mockResolvedValue(null);
+
+    await expect(repo.history("negocio", { limit: 30, cursor: "00000000-0000-4000-8000-000000000004" }, principal)).rejects.toBeInstanceOf(RequisicaoInvalida);
+
+    expect(history).not.toHaveBeenCalled();
+    expect(prisma.$queryRaw).not.toHaveBeenCalled();
   });
 
   it("recusa atribuição de novo negócio a outro responsável antes de persistir", async () => {
@@ -77,23 +111,26 @@ describe("Negócios: isolamento por responsável com acesso atual", () => {
     expect(auditWrite).not.toHaveBeenCalled();
   });
 
-  it("oculta contatos do cliente de outro responsável", async () => {
+  it("não consulta contatos de cliente sem a permissão de Clientes", async () => {
     const { repo, prisma } = setup();
     vi.spyOn(prisma.client, "findUnique").mockResolvedValue({ ownerId: "outro", contacts: [] } as never);
-    await expect(repo.clientOptions("cliente", principal)).rejects.toBeInstanceOf(NaoEncontrado);
+    await expect(repo.clientOptions("cliente", principal)).rejects.toBeInstanceOf(AcessoNegado);
+    expect(prisma.client.findUnique).not.toHaveBeenCalled();
   });
 
-  it("recusa lote misto antes de gravar qualquer registro", async () => {
+  it("recusa lote com ID inexistente antes de gravar qualquer registro", async () => {
     const { repo, list, write, historyWrite, auditWrite } = setup();
-    list.mockResolvedValue([{ id: "proprio", pipelineId: pipeline.id, ownerId: principal.id, stageId: "etapa", status: "open" }, { id: "alheio", pipelineId: pipeline.id, ownerId: "outro", stageId: "etapa", status: "open" }] as never);
-    await expect(repo.bulk({ dealIds: ["proprio", "alheio"], action: { type: "priority", priority: null } }, principal)).rejects.toBeInstanceOf(NaoEncontrado);
+    list.mockResolvedValue([{ id: "proprio", pipelineId: pipeline.id, ownerId: principal.id, stageId: "etapa", status: "open" }] as never);
+    await expect(repo.bulk({ dealIds: ["proprio", "inexistente"], action: { type: "priority", priority: null } }, principal)).rejects.toBeInstanceOf(NaoEncontrado);
     expect(write).not.toHaveBeenCalled();
     expect(historyWrite).not.toHaveBeenCalled();
     expect(auditWrite).not.toHaveBeenCalled();
   });
 
-  it("revalida o responsável após esperar pelo lock da edição", async () => {
+  it("revalida a permissão da tela após esperar pelo lock da edição", async () => {
     const { repo, prisma, write } = setup(principal.id);
+    vi.mocked(acesso.lerAcessoComercial).mockResolvedValueOnce({ podeOperar: true, admin: false, gestorEm: [] })
+      .mockResolvedValue({ podeOperar: false, admin: false, gestorEm: [] });
     vi.mocked(prisma.deal.findUnique)
       .mockResolvedValueOnce({ id: "negocio", ownerId: principal.id, pipelineId: pipeline.id, status: "open", stageId: "etapa" } as never)
       .mockResolvedValueOnce({ ownerId: "outro", pipelineId: pipeline.id } as never);
@@ -104,15 +141,15 @@ describe("Negócios: isolamento por responsável com acesso atual", () => {
   it("revalida o lote completo após o lock e reverte antes da primeira escrita", async () => {
     const { repo, list, write } = setup(principal.id);
     list.mockResolvedValueOnce([{ id: "negocio", pipelineId: pipeline.id, ownerId: principal.id }] as never)
-      .mockResolvedValueOnce([{ id: "negocio", ownerId: "outro" }] as never);
+      .mockResolvedValueOnce([] as never);
     await expect(repo.bulk({ dealIds: ["negocio"], action: { type: "priority", priority: "urgente" } }, principal)).rejects.toBeInstanceOf(NaoEncontrado);
     expect(write).not.toHaveBeenCalled();
   });
 
-  it("a ordenação não aceita negócio alheio como referência nem o inclui no rebalanceamento", async () => {
+  it("a ordenação recusa referência que não pertence à etapa e não filtra por responsável", async () => {
     const { repo, list, write } = setup(principal.id);
     await expect(repo.moveStage("negocio", { stageId: "etapa", beforeDealId: "alheio" }, principal)).rejects.toThrow("Escolha um negócio aberto desta etapa.");
-    expect(list).toHaveBeenCalledWith(expect.objectContaining({ where: { stageId: "etapa", ownerId: principal.id, id: { not: "negocio" } } }));
+    expect(list).toHaveBeenCalledWith(expect.objectContaining({ where: { stageId: "etapa", id: { not: "negocio" } } }));
     expect(write).not.toHaveBeenCalled();
   });
 });

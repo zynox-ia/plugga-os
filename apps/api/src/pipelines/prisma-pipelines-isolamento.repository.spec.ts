@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { pipelineParaEdicao, updatePipelineRequestSchema } from "@plugga/shared";
 
 import { AuditAppender } from "../audit/audit-appender";
+import { AcessoNegado } from "../common/errors/dominio";
 import type { AuthPrincipal } from "../core/auth/auth.types";
 import { PrismaService } from "../prisma/prisma.service";
 import * as acesso from "./acesso-comercial";
@@ -22,25 +23,35 @@ function setup(gerente = false) {
 }
 afterEach(() => vi.restoreAllMocks());
 
-describe("Pipelines: metadados sem negócios de outros membros", () => {
-  it("restringe contagens, membros antigos e diretório ao responsável atual", async () => {
+describe("Pipelines: metadados compartilhados da tela autorizada", () => {
+  it("inclui contagens e membros de toda a tela sem expor e-mail no diretório", async () => {
     const { repo, pipelines, people } = setup();
     await repo.list(principal);
     expect(pipelines).toHaveBeenCalledWith(expect.objectContaining({ include: expect.objectContaining({
-      stages: expect.objectContaining({ include: { _count: { select: { deals: { where: { ownerId: principal.id } } } } } }),
-      _count: { select: { deals: { where: { ownerId: principal.id } } } },
-      members: expect.objectContaining({ where: { userId: principal.id } }),
+      stages: expect.objectContaining({ include: { _count: { select: { deals: true } } } }),
+      _count: { select: { deals: true } },
+      members: expect.objectContaining({ include: { user: { select: { id: true, name: true } } } }),
     }) }));
-    expect(people).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ id: principal.id }) }));
+    expect(people.mock.calls[0]?.[0]?.where).not.toHaveProperty("id");
+    expect(people).toHaveBeenCalledWith(expect.objectContaining({ select: { id: true, name: true } }));
   });
 
   it("mantém contagens gerais e catálogo elegível para a gestão atual do CRM", async () => {
     const { repo, pipelines, people } = setup(true);
     await repo.list(principal);
     expect(pipelines).toHaveBeenCalledWith(expect.objectContaining({
-      include: expect.objectContaining({ _count: { select: { deals: { where: {} } } } }),
+      include: expect.objectContaining({ _count: { select: { deals: true } } }),
     }));
     expect(people.mock.calls[0]?.[0]?.where).not.toHaveProperty("id");
+  });
+
+  it("revogação da tela impede ler contagens e diretório mesmo com papel antigo na sessão", async () => {
+    const { repo, pipelines, people } = setup();
+    vi.mocked(acesso.lerAcessoComercial).mockResolvedValue({ podeOperar: false, admin: false, gestorEm: [] });
+    await expect(repo.list(principal)).rejects.toBeInstanceOf(AcessoNegado);
+    await expect(repo.people({ companyId: "plugga" }, principal)).rejects.toBeInstanceOf(AcessoNegado);
+    expect(pipelines).not.toHaveBeenCalled();
+    expect(people).not.toHaveBeenCalled();
   });
 });
 

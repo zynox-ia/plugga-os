@@ -4,6 +4,7 @@ import type { Deal, Pipeline, PipelinePerson } from "@plugga/shared";
 import { useState } from "react";
 
 import { enviar } from "../../lib/clientes";
+import { negocioConvertido } from "../../lib/negocios";
 import { EMPRESAS_POR_ID } from "../../lib/organizacao";
 import { Modal } from "../modal";
 import { Checkbox } from "../ui";
@@ -18,6 +19,7 @@ export function TransferirNegocio({
   responsaveis,
   origem,
   negocio,
+  podeAtribuir,
   aoConcluir,
   aoFechar,
 }: {
@@ -25,6 +27,7 @@ export function TransferirNegocio({
   responsaveis: PipelinePerson[];
   origem: Pipeline;
   negocio: Deal;
+  podeAtribuir: boolean;
   aoConcluir: (negocio: Deal) => void;
   aoFechar: () => void;
 }) {
@@ -32,29 +35,29 @@ export function TransferirNegocio({
   const [destinoId, setDestinoId] = useState(destinos[0]?.id ?? "");
   const destino = destinos.find((p) => p.id === destinoId) ?? null;
   const [etapaId, setEtapaId] = useState(destinos[0]?.stages[0]?.id ?? "");
-  const [converterEmCliente, setConverterEmCliente] = useState(Boolean(destinos[0]?.stages[0]?.asksClientConversion && !negocio.client));
+  const [converterEmCliente, setConverterEmCliente] = useState(Boolean(destinos[0]?.stages[0]?.asksClientConversion && !negocioConvertido(negocio)));
   const [responsavelId, setResponsavelId] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const responsavelNoDestino = responsaveis.some((m) => m.id === negocio.owner.id);
   const trocaEmpresa = destino !== null && destino.companyId !== origem.companyId;
   const etapaDestino = destino?.stages.find((stage) => stage.id === etapaId);
-  const perguntaConversao = Boolean(etapaDestino?.asksClientConversion && !negocio.client);
+  const perguntaConversao = Boolean(etapaDestino?.asksClientConversion && !negocioConvertido(negocio));
 
   function escolherDestino(id: string) {
     const proximo = destinos.find((p) => p.id === id);
     setDestinoId(id);
     const primeiraEtapa = proximo?.stages[0];
     setEtapaId(primeiraEtapa?.id ?? "");
-    setConverterEmCliente(Boolean(primeiraEtapa?.asksClientConversion && !negocio.client));
+    setConverterEmCliente(Boolean(primeiraEtapa?.asksClientConversion && !negocioConvertido(negocio)));
     setResponsavelId("");
   }
 
   async function confirmar() {
-    if (!destino) return;
+    if (!destino || (!responsavelNoDestino && (!podeAtribuir || !responsavelId))) return;
     setEnviando(true);
     setErro(null);
-    const corpo = { pipelineId: destino.id, stageId: etapaId, ...(responsavelId ? { ownerId: responsavelId } : {}), convertToClient: perguntaConversao && converterEmCliente };
+    const corpo = { pipelineId: destino.id, stageId: etapaId, ...(podeAtribuir && responsavelId ? { ownerId: responsavelId } : {}), convertToClient: perguntaConversao && converterEmCliente };
     const resposta = await enviar<Deal>(`/api/leads/${negocio.id}/transferencia`, "POST", corpo);
     setEnviando(false);
     if (resposta.ok) aoConcluir(resposta.dados);
@@ -95,7 +98,7 @@ export function TransferirNegocio({
                 const id = e.target.value;
                 setEtapaId(id);
                 const etapa = destino?.stages.find((stage) => stage.id === id);
-                setConverterEmCliente(Boolean(etapa?.asksClientConversion && !negocio.client));
+                setConverterEmCliente(Boolean(etapa?.asksClientConversion && !negocioConvertido(negocio)));
               }}>
                 {destino?.stages.map((e) => (
                   <option key={e.id} value={e.id}>
@@ -112,7 +115,9 @@ export function TransferirNegocio({
                 onChange={(evento) => setConverterEmCliente(evento.target.checked)}
               />
             ) : null}
-            {!responsavelNoDestino && responsaveis.length === 0 ? (
+            {!responsavelNoDestino && !podeAtribuir ? (
+              <p className="aviso aviso--alerta">Peça à gestão para escolher um responsável ativo para este negócio.</p>
+            ) : !responsavelNoDestino && responsaveis.length === 0 ? (
               <p className="aviso aviso--alerta">Nenhuma pessoa ativa com acesso ao CRM está disponível.</p>
             ) : !responsavelNoDestino ? (
               <div className="field">
@@ -145,7 +150,7 @@ export function TransferirNegocio({
         <button className="button button--secondary" type="button" onClick={aoFechar}>
           Cancelar
         </button>
-        <button className="button button--accent" type="button" disabled={enviando || !destino || !etapaId || (!responsavelNoDestino && !responsavelId)} onClick={confirmar}>
+        <button className="button button--accent" type="button" disabled={enviando || !destino || !etapaId || (!responsavelNoDestino && (!podeAtribuir || !responsavelId))} onClick={confirmar}>
           <Icone nome="seta" /> {enviando ? "Movendo…" : "Mover negócio"}
         </button>
       </div>

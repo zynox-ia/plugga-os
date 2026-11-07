@@ -5,7 +5,7 @@ import { ArrowRight, CalendarDays, Check, Clock, Eye, FileText, MoreHorizontal, 
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 
-import { diasNaEtapa, estaParado } from "../../lib/negocios";
+import { diasNaEtapa, estaParado, negocioConvertido } from "../../lib/negocios";
 import { formatarDataHora, FUSO_HORARIO } from "../../lib/format";
 import { Avatar } from "./icones";
 
@@ -175,7 +175,7 @@ export function MenuDoNegocio({
                   <button type="button" role="menuitem" onClick={escolher(() => acoes.transferir(negocio))}>
                     <ArrowRight size={14} aria-hidden="true" /> Mover para outro pipeline
                   </button>
-                  {!negocio.client && acoes.converter ? (
+                  {!negocioConvertido(negocio) && acoes.converter ? (
                     <button type="button" role="menuitem" disabled={Boolean(acoes.convertendoId)} onClick={escolher(() => acoes.converter?.(negocio))}>
                       <UserCheck size={14} aria-hidden="true" /> {acoes.convertendoId === negocio.id ? "Convertendo…" : "Converter em cliente"}
                     </button>

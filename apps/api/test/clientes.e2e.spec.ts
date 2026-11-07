@@ -17,13 +17,13 @@ import type {
   UpdateClientRequest,
 } from "@plugga/shared";
 import request from "supertest";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { AppModule } from "../src/app.module";
 import { paraItemDeLista } from "../src/clientes/clientes.rules";
 import { ClientesRepository } from "../src/clientes/clientes.repository";
-import type { AuthPrincipal } from "../src/core/auth/auth.types";
-import { exigeAtribuicaoPermitida, exigeRegistroVisivel, gerenciaRegistros } from "../src/core/auth/escopo-registros";
+import { AuthContext, type AuthPrincipal } from "../src/core/auth/auth.types";
+import { exigeAcessoATela, exigeAtribuicaoPermitida, gerenciaRegistros } from "../src/core/auth/escopo-registros";
 import { Conflito, NaoEncontrado } from "../src/common/errors/dominio";
 
 // Documento da faixa sintética do projeto (scripts/dados-sinteticos.mjs), com dígito verificador válido.
@@ -68,9 +68,9 @@ class InMemoryClientesRepository extends ClientesRepository {
   clients = [CLIENT_A, CLIENT_B, CLIENT_ALHEIO];
 
   async selecaoNegocio(query: ClientSelectionQuery, principal: AuthPrincipal): Promise<ClientSelectionResponse> {
+    exigeAcessoATela(principal, "crm.clientes");
     const termo = query.q.toLowerCase();
-    const items = this.clients.filter((c) => c.active && (gerenciaRegistros(principal, "crm", ["crm.pipelines"]) || c.owner?.id === principal.id)
-      && (c.name.toLowerCase().includes(termo) || (c.document ?? "").includes(termo))).slice(0, 8);
+    const items = this.clients.filter((c) => c.active && (c.name.toLowerCase().includes(termo) || (c.document ?? "").includes(termo))).slice(0, 8);
     return { items: items.map((c) => {
       const item = paraItemDeLista({ ...c, updatedAt: new Date(c.updatedAt), contacts: c.contacts.map((ct) => ({ ...ct, createdAt: new Date(ct.createdAt) })) });
       return { id: item.id, name: item.name, documentDisplay: item.documentDisplay, primaryContactName: item.primaryContactName, city: item.city };
@@ -78,8 +78,9 @@ class InMemoryClientesRepository extends ClientesRepository {
   }
 
   async list(query: ListClientsQuery, principal: AuthPrincipal): Promise<ListClientsResponse> {
+    exigeAcessoATela(principal, "crm.clientes");
     const termo = query.q?.toLowerCase();
-    const itens = this.clients.filter((c) => (gerenciaRegistros(principal, ["crm", "energia-opm"]) || c.owner?.id === principal.id) && (!termo || c.name.toLowerCase().includes(termo) || (c.document ?? "").includes(termo)));
+    const itens = this.clients.filter((c) => (!termo || c.name.toLowerCase().includes(termo) || (c.document ?? "").includes(termo)));
     return {
       items: itens.map((c) =>
         paraItemDeLista({ ...c, updatedAt: new Date(c.updatedAt), contacts: c.contacts.map((ct) => ({ ...ct, createdAt: new Date(ct.createdAt) })) }),
@@ -90,7 +91,7 @@ class InMemoryClientesRepository extends ClientesRepository {
   async get(id: string, principal: AuthPrincipal): Promise<ClientDetail> {
     const encontrado = this.clients.find((c) => c.id === id);
     if (!encontrado) throw new NaoEncontrado("Cliente não encontrado.");
-    exigeRegistroVisivel(principal, encontrado.owner?.id, ["crm", "energia-opm"], "Cliente n?o encontrado.");
+    exigeAcessoATela(principal, "crm.clientes");
     return encontrado;
   }
 
@@ -103,8 +104,9 @@ class InMemoryClientesRepository extends ClientesRepository {
   }
 
   async update(id: string, input: UpdateClientRequest, principal: AuthPrincipal): Promise<ClientDetail> {
-    if (input.ownerId !== undefined) exigeAtribuicaoPermitida(principal, input.ownerId, "crm");
-    return { ...(await this.get(id, principal)), ...(input.name ? { name: input.name } : {}) };
+    const atual = await this.get(id, principal);
+    if (input.ownerId !== undefined && input.ownerId !== atual.owner?.id) exigeAtribuicaoPermitida(principal, input.ownerId, "crm");
+    return { ...atual, ...(input.name ? { name: input.name } : {}) };
   }
 
   async activate(id: string, principal: AuthPrincipal): Promise<ClientDetail> {
@@ -116,7 +118,8 @@ class InMemoryClientesRepository extends ClientesRepository {
   }
 
   async duplicateCandidates(query: DuplicateCandidatesQuery, principal: AuthPrincipal): Promise<ClientDuplicateCandidatesResponse> {
-    const candidates = (gerenciaRegistros(principal, ["crm", "energia-opm"]) || CLIENT_A.owner?.id === principal.id) && query.document && query.document.replace(/\D/g, "") === CNPJ
+    exigeAcessoATela(principal, "crm.clientes");
+    const candidates = query.document && query.document.replace(/\D/g, "") === CNPJ
       ? [{ id: CLIENT_A.id, name: CLIENT_A.name, personType: "pj" as const, matchedOn: ["document" as const] }]
       : [];
     return { candidates };
@@ -177,26 +180,38 @@ describe("clientes API (e2e)", () => {
     await request(app.getHttpServer()).get("/clientes").expect(401);
   });
 
-  it("membro não acessa cliente alheio por lista, seletor, ID ou operações de contato", async () => {
+  it("Membro com Clientes ve e opera os registros da tela sem isolamento pelo responsavel", async () => {
     for (const caminho of ["/clientes", "/clientes/selecao-negocio?q=Cliente", "/clientes?active=true"]) {
       const resposta = await comercial(request(app.getHttpServer()).get(caminho)).expect(200);
-      expect(resposta.body.items.map((item: { id: string }) => item.id)).not.toContain(CLIENT_ALHEIO.id);
+      expect(resposta.body.items.map((item: { id: string }) => item.id)).toContain(CLIENT_ALHEIO.id);
     }
-    await comercial(request(app.getHttpServer()).get(`/clientes/${CLIENT_ALHEIO.id}`)).expect(404);
-    await comercial(request(app.getHttpServer()).patch(`/clientes/${CLIENT_ALHEIO.id}`)).send({ name: "Invasão" }).expect(404);
-    await comercial(request(app.getHttpServer()).post(`/clientes/${CLIENT_ALHEIO.id}/activate`)).expect(404);
-    await comercial(request(app.getHttpServer()).post(`/clientes/${CLIENT_ALHEIO.id}/inactivate`)).send({}).expect(404);
-    await comercial(request(app.getHttpServer()).post(`/clientes/${CLIENT_ALHEIO.id}/contatos`)).send({ name: "Invasão" }).expect(404);
-    await comercial(request(app.getHttpServer()).patch(`/clientes/${CLIENT_ALHEIO.id}/contatos/${CONTATO_ID}`)).send({ name: "Invasão" }).expect(404);
-    await comercial(request(app.getHttpServer()).delete(`/clientes/${CLIENT_ALHEIO.id}/contatos/${CONTATO_ID}`)).expect(404);
+    await comercial(request(app.getHttpServer()).get(`/clientes/${CLIENT_ALHEIO.id}`)).expect(200);
+    await comercial(request(app.getHttpServer()).patch(`/clientes/${CLIENT_ALHEIO.id}`)).send({ name: "Atualizado" }).expect(200);
+    await comercial(request(app.getHttpServer()).post(`/clientes/${CLIENT_ALHEIO.id}/activate`)).expect(200);
+    await comercial(request(app.getHttpServer()).post(`/clientes/${CLIENT_ALHEIO.id}/inactivate`)).send({}).expect(200);
+    await comercial(request(app.getHttpServer()).post(`/clientes/${CLIENT_ALHEIO.id}/contatos`)).send({ name: "Contato" }).expect(201);
+    await comercial(request(app.getHttpServer()).patch(`/clientes/${CLIENT_ALHEIO.id}/contatos/${CONTATO_ID}`)).send({ name: "Contato" }).expect(200);
+    await comercial(request(app.getHttpServer()).delete(`/clientes/${CLIENT_ALHEIO.id}/contatos/${CONTATO_ID}`)).expect(200);
     await comercial(request(app.getHttpServer()).patch(`/clientes/${CLIENT_A.id}`)).send({ ownerId: CLIENT_ALHEIO.owner!.id }).expect(403);
   });
 
-  it("outro membro não recebe duplicatas nem opções de responsável de outra pessoa", async () => {
+  it("duplicatas da tela sao compartilhadas, mas opcoes de atribuicao continuam restritas", async () => {
     const outro = (r: request.Test) => r.set("x-dev-principal", CLIENT_ALHEIO.owner!.id).set("x-dev-departamentos", "crm:membro");
-    await outro(request(app.getHttpServer()).get(`/clientes/duplicates?document=${CNPJ}`)).expect(200).expect((res) => expect(res.body.candidates).toEqual([]));
+    await outro(request(app.getHttpServer()).get(`/clientes/duplicates?document=${CNPJ}`)).expect(200).expect((res) => expect(res.body.candidates.map((c: { id: string }) => c.id)).toContain(CLIENT_A.id));
     await outro(request(app.getHttpServer()).get("/clientes/responsaveis")).expect(200).expect((res) => expect(res.body.items).toEqual([]));
-    await request(app.getHttpServer()).get(`/clientes/${CLIENT_ALHEIO.id}`).set("x-dev-principal", DONO.id).set("x-dev-departamentos", "crm:gerente").expect(200);
+  });
+
+  it("Pipelines sem Clientes nao le cadastro, seletor, duplicatas ou responsaveis", async () => {
+    const resolver = vi.spyOn(app.get<AuthContext>(AuthContext), "resolve").mockResolvedValue({
+      id: DONO.id, kind: "user", acesso: { plataforma: null, departamentos: [{ departamento: "crm", nivel: "membro", telas: ["crm.pipelines"] }] },
+    });
+    try {
+      for (const caminho of ["/clientes", "/clientes/selecao-negocio?q=Cliente", "/clientes/duplicates?name=Cliente", "/clientes/responsaveis", `/clientes/${CLIENT_A.id}`]) {
+        await request(app.getHttpServer()).get(caminho).expect(403);
+      }
+    } finally {
+      resolver.mockRestore();
+    }
   });
 
   it("denies the cadastro to departments outside the client domain", async () => {
@@ -275,8 +290,8 @@ describe("clientes API (e2e)", () => {
       .expect((res) => expect(res.body.duplicateCandidates[0].matchedOn).toEqual(["phone"]));
   });
 
-  it("lets other client-domain departments read but only the CRM/admin write", async () => {
-    await request(app.getHttpServer()).get("/clientes").set("x-dev-principal", "local-opm").set("x-dev-departamentos", "energia-opm:membro").expect(200);
+  it("Energia sem Clientes nao acessa o cadastro completo", async () => {
+    await request(app.getHttpServer()).get("/clientes").set("x-dev-principal", "local-opm").set("x-dev-departamentos", "energia-opm:membro").expect(403);
     await request(app.getHttpServer())
       .post("/clientes")
       .set("x-dev-principal", "local-opm")

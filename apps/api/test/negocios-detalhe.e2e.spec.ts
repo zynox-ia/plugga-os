@@ -4,6 +4,7 @@ import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { AppModule } from "../src/app.module";
+import { AuthContext, type AuthPrincipal } from "../src/core/auth/auth.types";
 import { NegociosRepository } from "../src/negocios/negocios.repository";
 import { PrismaAuthService } from "../src/prisma/prisma-auth.service";
 import { PrismaJobsService } from "../src/prisma/prisma-jobs.service";
@@ -64,5 +65,23 @@ describe("detalhe do lead (HTTP)", () => {
     const antes = repository.update.mock.calls.length;
     await comercial(request(app.getHttpServer()).patch(`/leads/${id}`)).send({ version: 1, lead: { website: "javascript:alert(1)" } }).expect(400);
     expect(repository.update.mock.calls.length).toBe(antes);
+  });
+
+  it("revalida a tela a cada requisicao, mesmo mantendo a pessoa no CRM", async () => {
+    const principal: AuthPrincipal = {
+      id, kind: "user", acesso: { plataforma: null, departamentos: [{ departamento: "crm", nivel: "membro", telas: ["crm.pipelines"] }] },
+    };
+    const resolver = vi.spyOn(app.get<AuthContext>(AuthContext), "resolve").mockResolvedValue(principal);
+    try {
+      await request(app.getHttpServer()).get(`/leads/${id}`).expect(200);
+      resolver.mockResolvedValue({ ...principal, acesso: { plataforma: null, departamentos: [{ departamento: "crm", nivel: "membro", telas: ["crm.clientes"] }] } });
+      const antes = [repository.get.mock.calls.length, repository.history.mock.calls.length, repository.update.mock.calls.length];
+      await request(app.getHttpServer()).get(`/leads/${id}`).expect(404);
+      await request(app.getHttpServer()).get(`/leads/${id}/historico`).expect(404);
+      await request(app.getHttpServer()).patch(`/leads/${id}`).send({ title: "Bloqueado", version: 1 }).expect(404);
+      expect([repository.get.mock.calls.length, repository.history.mock.calls.length, repository.update.mock.calls.length]).toEqual(antes);
+    } finally {
+      resolver.mockRestore();
+    }
   });
 });

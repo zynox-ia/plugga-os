@@ -31,7 +31,8 @@ const TELAS_CRM: Tela[] = ["crm.pipelines", "crm.clientes", "crm.contratos", "cr
 type Persona = "membroA" | "membroB" | "gerente" | "gerenteLimitado" | "admin" | "desenvolvedor" | "semTela" | "outroDepartamento";
 
 /** HTTP e RLS com três logins reais restritos; o administrador só prepara/verifica fixtures sintéticas. */
-describe.skipIf(!HABILITADO)("isolamento dos membros com sessão real (HTTP + PostgreSQL)", () => {
+// Cada cenário pode incluir dezenas de requisições reais; este prazo não altera o da aplicação.
+describe.skipIf(!HABILITADO)("permissões por tela com sessão real (HTTP + PostgreSQL)", { timeout: PRAZO_MS }, () => {
   const execucao = randomUUID();
   const prefixo = `Sintético permissões ${execucao.slice(0, 8)}`;
   const pipelineId = randomUUID();
@@ -347,43 +348,43 @@ describe.skipIf(!HABILITADO)("isolamento dos membros com sessão real (HTTP + Po
     }
   }, PRAZO_MS);
 
-  it("membro lista somente seus registros e filtros do responsável não ampliam acesso", async () => {
+  it("membro consulta os registros das telas concedidas sem isolamento individual", async () => {
     const a = registros.A;
     const b = registros.B;
     const leads = await http("membroA", "get", `/leads?pipelineId=${pipelineId}`).expect(200);
-    expect(leads.body.deals.map((item: { id: string }) => item.id)).toEqual([a.dealId]);
+    expect(leads.body.deals.map((item: { id: string }) => item.id)).toEqual(expect.arrayContaining([a.dealId, b.dealId]));
     const clientes = await http("membroA", "get", `/clientes?q=${encodeURIComponent(prefixo)}`).expect(200);
-    expect(clientes.body.items.map((item: { id: string }) => item.id)).toEqual([a.clientId]);
+    expect(clientes.body.items.map((item: { id: string }) => item.id)).toEqual(expect.arrayContaining([a.clientId, b.clientId]));
     for (const [path, id, idAlheio] of [["opportunities", a.opportunityId, b.opportunityId], ["contracts", a.contractId, b.contractId]]) {
       const lista = await http("membroA", "get", `/commercial/${path}`).expect(200);
-      expect(lista.body.items.map((item: { id: string }) => item.id)).toEqual([id]);
-      expect(JSON.stringify(lista.body)).not.toContain(idAlheio);
+      expect(lista.body.items.map((item: { id: string }) => item.id)).toEqual(expect.arrayContaining([id, idAlheio]));
+      expect(JSON.stringify(lista.body)).toContain(idAlheio);
       const forjada = await http("membroA", "get", `/commercial/${path}?ownerId=${pessoas.membroB.id}`).expect(200);
-      expect(forjada.body.items).toEqual([]);
+      expect(forjada.body.items.map((item: { id: string }) => item.id)).toEqual([idAlheio]);
     }
     await http("membroA", "get", `/leads?pipelineId=${pipelineId}&ownerId=${pessoas.membroB.id}`).expect(400);
     await http("membroA", "get", `/clientes?ownerId=${pessoas.membroB.id}`).expect(400);
     const selecao = await http("membroA", "get", `/clientes/selecao-negocio?q=${encodeURIComponent(prefixo)}`).expect(200);
-    expect(selecao.body.items.map((item: { id: string }) => item.id)).toEqual([a.clientId]);
+    expect(selecao.body.items.map((item: { id: string }) => item.id)).toEqual(expect.arrayContaining([a.clientId, b.clientId]));
     const duplicatas = await http("membroA", "get", `/clientes/duplicates?email=${encodeURIComponent(`b-${execucao}@sintetico.example.test`)}`).expect(200);
-    expect(duplicatas.body.candidates).toEqual([]);
+    expect(duplicatas.body.candidates.map((item: { id: string }) => item.id)).toContain(b.clientId);
   });
 
-  it("contadores do pipeline, equipe e diretórios de responsáveis ficam no escopo do membro", async () => {
+  it("contadores e referências do Pipeline incluem todos os leads da tela, sem permitir configurar", async () => {
     const resposta = await http("membroA", "get", "/pipelines").expect(200);
     const pipeline = resposta.body.pipelines.find((item: { id: string }) => item.id === pipelineId);
-    expect(pipeline).toMatchObject({ canConfigure: false, dealCount: 1 });
-    expect(pipeline.stages.find((item: { id: string }) => item.id === etapaId).dealCount).toBe(1);
-    expect(pipeline.members.map((item: { userId: string }) => item.userId)).toEqual([pessoas.membroA.id]);
-    expect(resposta.body.responsaveis.map((item: { id: string }) => item.id)).toEqual([pessoas.membroA.id]);
+    expect(pipeline).toMatchObject({ canConfigure: false, dealCount: 2 });
+    expect(pipeline.stages.find((item: { id: string }) => item.id === etapaId).dealCount).toBe(2);
+    expect(pipeline.members.map((item: { userId: string }) => item.userId)).toEqual(expect.arrayContaining([pessoas.membroA.id, pessoas.membroB.id]));
+    expect(resposta.body.responsaveis.map((item: { id: string }) => item.id)).toEqual(expect.arrayContaining([pessoas.membroA.id, pessoas.membroB.id]));
     expect(resposta.body.canCreateIn).toEqual([]);
     const pessoasDoFunil = await http("membroA", "get", "/pipelines/pessoas?companyId=plugga").expect(200);
-    expect(pessoasDoFunil.body.people.map((item: { id: string }) => item.id)).toEqual([pessoas.membroA.id]);
+    expect(pessoasDoFunil.body.people.map((item: { id: string }) => item.id)).toEqual(expect.arrayContaining([pessoas.membroA.id, pessoas.membroB.id]));
     const donos = await http("membroA", "get", "/clientes/responsaveis").expect(200);
     expect(donos.body.items.map((item: { id: string }) => item.id)).toEqual([pessoas.membroA.id]);
   });
 
-  it("IDs alheios ocultam detalhe, perfil, histórico, cliente, oportunidade, contrato e anexos", async () => {
+  it("sem tela, IDs conhecidos não abrem detalhe, histórico, cadastros ou arquivos", async () => {
     const b = registros.B;
     for (const path of [
       `/leads/${b.dealId}`, `/leads/${b.dealId}/historico`, `/leads/clientes/${b.clientId}/opcoes`, `/clientes/${b.clientId}`,
@@ -391,41 +392,42 @@ describe.skipIf(!HABILITADO)("isolamento dos membros com sessão real (HTTP + Po
       `/leads/${b.dealId}/documentos`, `/leads/${b.dealId}/documentos/${b.documentId}/download`, `/leads/${b.dealId}/documentos/${b.documentId}/preview`,
       `/leads/${b.dealId}/propostas`, `/leads/${b.dealId}/propostas/modelos`,
       `/leads/${b.dealId}/propostas/${b.proposalId}/preview`, `/leads/${b.dealId}/propostas/${b.proposalId}/download`,
-    ]) await http("membroA", "get", path).expect(404);
+    ]) await http("semTela", "get", path).expect(path === `/leads/${b.dealId}` || path === `/leads/${b.dealId}/historico` ? 404 : 403);
   });
 
-  it("mutações alheias válidas retornam 404 e preservam registros, histórico e auditoria", async () => {
+  it("sem tela, mutações válidas são negadas e preservam estado, histórico e auditoria", async () => {
     const b = registros.B;
     const antes = await estado();
-    await http("membroA", "patch", `/leads/${b.dealId}`).send({ version: 1, title: "Sintético bloqueado", lead: { notes: "Sintético bloqueado" } }).expect(404);
-    await http("membroA", "patch", `/leads/${b.dealId}/prioridade`).send({ priority: "urgente" }).expect(404);
-    await http("membroA", "post", `/leads/${b.dealId}/etapa`).send({ stageId: outraEtapaId }).expect(404);
-    await http("membroA", "post", `/leads/${b.dealId}/ganho`).send({ convertToClient: false }).expect(404);
-    await http("membroA", "post", `/leads/${b.dealId}/perda`).send({ lossReasonId: motivoId }).expect(404);
-    await http("membroA", "post", `/leads/${b.dealId}/converter`).send({ resolution: { type: "link", clientId: registros.A.clientId } }).expect(404);
-    await http("membroA", "post", `/leads/${b.dealId}/transferencia`).send({ pipelineId, stageId: outraEtapaId }).expect(404);
-    await http("membroA", "patch", `/clientes/${b.clientId}`).send({ name: "Sintético bloqueado" }).expect(404);
-    await http("membroA", "post", `/clientes/${b.clientId}/inactivate`).send({ reason: "Sintético bloqueado" }).expect(404);
-    await http("membroA", "post", `/clientes/${b.clientId}/activate`).send({}).expect(404);
-    await http("membroA", "post", `/clientes/${b.clientId}/contatos`).send({ name: "Sintético bloqueado" }).expect(404);
-    await http("membroA", "patch", `/clientes/${b.clientId}/contatos/${b.contactId}`).send({ name: "Sintético bloqueado" }).expect(404);
-    await http("membroA", "delete", `/clientes/${b.clientId}/contatos/${b.contactId}`).expect(404);
-    await http("membroA", "post", `/commercial/opportunities/${b.opportunityId}/stage`).send({ stage: "qualificacao" }).expect(404);
-    await http("membroA", "post", `/commercial/opportunities/${b.opportunityId}/contacts`).send({ channel: "email", outcome: "connected" }).expect(404);
-    await http("membroA", "post", `/commercial/opportunities/${b.opportunityId}/win`).send({ clientId: registros.A.clientId }).expect(404);
-    await http("membroA", "post", `/commercial/opportunities/${b.opportunityId}/lose`).send({ lossReason: "Sintético bloqueado" }).expect(404);
-    await http("membroA", "post", `/commercial/opportunities/${b.opportunityId}/revisit`).send({ nextActionAt: new Date(Date.now() + 86_400_000).toISOString(), nextActionNote: "Sintético bloqueado" }).expect(404);
-    await http("membroA", "post", `/commercial/contracts/${b.contractId}/status`).send({ status: "revisao_interna" }).expect(404);
-    await http("membroA", "patch", `/leads/${b.dealId}/documentos/${b.documentId}`).send({ originalName: "sintetico-bloqueado.pdf" }).expect(404);
-    await http("membroA", "post", `/leads/${b.dealId}/documentos/${b.documentId}/arquivar`).send({}).expect(404);
-    await http("membroA", "post", `/leads/${b.dealId}/propostas`).send({ templateId: modeloId, content: conteudo }).expect(404);
-    await http("membroA", "patch", `/leads/${b.dealId}/propostas/${b.proposalId}`).send({ revision: 1, templateId: modeloId, content: conteudo }).expect(404);
-    await http("membroA", "post", `/leads/${b.dealId}/propostas/${b.proposalId}/gerar`).send({ revision: 1 }).expect(404);
+    await http("semTela", "patch", `/leads/${b.dealId}`).send({ version: 1, title: "Sintético bloqueado", lead: { notes: "Sintético bloqueado" } }).expect(404);
+    await http("semTela", "patch", `/leads/${b.dealId}/prioridade`).send({ priority: "urgente" }).expect(403);
+    await http("semTela", "post", `/leads/${b.dealId}/etapa`).send({ stageId: outraEtapaId }).expect(403);
+    await http("semTela", "post", `/leads/${b.dealId}/ganho`).send({ convertToClient: false }).expect(403);
+    await http("semTela", "post", `/leads/${b.dealId}/perda`).send({ lossReasonId: motivoId }).expect(403);
+    await http("semTela", "post", `/leads/${b.dealId}/converter`).send({ resolution: { type: "link", clientId: registros.A.clientId } }).expect(403);
+    await http("semTela", "post", `/leads/${b.dealId}/transferencia`).send({ pipelineId, stageId: outraEtapaId }).expect(403);
+    await http("semTela", "patch", `/clientes/${b.clientId}`).send({ name: "Sintético bloqueado" }).expect(403);
+    await http("semTela", "post", `/clientes/${b.clientId}/inactivate`).send({ reason: "Sintético bloqueado" }).expect(403);
+    await http("semTela", "post", `/clientes/${b.clientId}/activate`).send({}).expect(403);
+    await http("semTela", "post", `/clientes/${b.clientId}/contatos`).send({ name: "Sintético bloqueado" }).expect(403);
+    await http("semTela", "patch", `/clientes/${b.clientId}/contatos/${b.contactId}`).send({ name: "Sintético bloqueado" }).expect(403);
+    await http("semTela", "delete", `/clientes/${b.clientId}/contatos/${b.contactId}`).expect(403);
+    await http("semTela", "post", `/commercial/opportunities/${b.opportunityId}/stage`).send({ stage: "qualificacao" }).expect(403);
+    await http("semTela", "post", `/commercial/opportunities/${b.opportunityId}/contacts`).send({ channel: "email", outcome: "connected" }).expect(403);
+    await http("semTela", "post", `/commercial/opportunities/${b.opportunityId}/win`).send({ clientId: registros.A.clientId }).expect(403);
+    await http("semTela", "post", `/commercial/opportunities/${b.opportunityId}/lose`).send({ lossReason: "Sintético bloqueado" }).expect(403);
+    await http("semTela", "post", `/commercial/opportunities/${b.opportunityId}/revisit`).send({ nextActionAt: new Date(Date.now() + 86_400_000).toISOString(), nextActionNote: "Sintético bloqueado" }).expect(403);
+    await http("semTela", "post", `/commercial/contracts/${b.contractId}/status`).send({ status: "revisao_interna" }).expect(403);
+    await http("semTela", "patch", `/leads/${b.dealId}/documentos/${b.documentId}`).send({ originalName: "sintetico-bloqueado.pdf" }).expect(403);
+    await http("semTela", "post", `/leads/${b.dealId}/documentos/${b.documentId}/arquivar`).send({}).expect(403);
+    await http("semTela", "post", `/leads/${b.dealId}/propostas`).send({ templateId: modeloId, content: conteudo }).expect(403);
+    await http("semTela", "patch", `/leads/${b.dealId}/propostas/${b.proposalId}`).send({ revision: 1, templateId: modeloId, content: conteudo }).expect(403);
+    await http("semTela", "post", `/leads/${b.dealId}/propostas/${b.proposalId}/gerar`).send({ revision: 1 }).expect(403);
     expect(await estado()).toEqual(antes);
   });
 
-  it("lote misto é negado atomicamente, inclusive quando o primeiro ID é próprio", async () => {
-    for (const dealIds of [[registros.A.dealId, registros.B.dealId], [registros.B.dealId, registros.A.dealId]]) {
+  it("lote com ID inexistente é negado atomicamente em ambas as ordens", async () => {
+    const inexistente = randomUUID();
+    for (const dealIds of [[registros.A.dealId, inexistente], [inexistente, registros.A.dealId]]) {
       const antes = await estado();
       await http("membroA", "post", "/leads/lote").send({ dealIds, action: { type: "priority", priority: "urgente" } }).expect(404);
       expect(await estado()).toEqual(antes);
@@ -450,18 +452,27 @@ describe.skipIf(!HABILITADO)("isolamento dos membros com sessão real (HTTP + Po
     expect(await estado()).toEqual(antes);
   });
 
-  it("IDs relacionados alheios não podem ser vinculados a um registro próprio", async () => {
+  it("Clientes exige sua tela e IDs de arquivos continuam vinculados ao negócio do caminho", async () => {
+    await comAcessosTemporarios({
+      membroA: { plataforma: null, departamentos: [{ departamento: "crm", nivel: "membro", telas: ["crm.pipelines"] }] },
+    }, async () => {
+      const antes = await estado();
+      await http("membroA", "post", `/leads/${registros.A.dealId}/converter`).send({ resolution: { type: "link", clientId: registros.B.clientId } }).expect(403);
+      await http("membroA", "post", "/leads").send({
+        pipelineId, stageId: etapaId, ownerId: pessoas.membroA.id, clientId: registros.B.clientId,
+        title: "Sintético bloqueado", lead: { personType: "pj", name: "Sintético bloqueado", email: `sem-clientes-${execucao}@sintetico.example.test` },
+      }).expect(403);
+      await http("membroA", "get", `/clientes/${registros.B.clientId}`).expect(403);
+      await http("membroA", "get", `/leads/clientes/${registros.B.clientId}/opcoes`).expect(403);
+      expect(await estado()).toEqual(antes);
+    });
     const antes = await estado();
-    await http("membroA", "post", `/leads/${registros.A.dealId}/converter`).send({ resolution: { type: "link", clientId: registros.B.clientId } }).expect(404);
-    await http("membroA", "post", "/commercial/opportunities").send({ title: "Sintético bloqueado", product: "Sintético", ownerId: pessoas.membroA.id, clientId: registros.B.clientId, nextActionAt: new Date(Date.now() + 86_400_000).toISOString() }).expect(404);
-    await http("membroA", "post", "/commercial/contracts").send({ clientId: registros.B.clientId, ownerId: pessoas.membroA.id }).expect(404);
-    await http("membroA", "post", "/commercial/contracts").send({ opportunityId: registros.B.opportunityId, ownerId: pessoas.membroA.id }).expect(404);
     await http("membroA", "patch", `/leads/${registros.A.dealId}/documentos/${registros.B.documentId}`).send({ originalName: "sintetico-bloqueado.pdf" }).expect(404);
     await http("membroA", "patch", `/leads/${registros.A.dealId}/propostas/${registros.B.proposalId}`).send({ revision: 1, templateId: modeloId, content: conteudo }).expect(404);
     expect(await estado()).toEqual(antes);
   });
 
-  it("ambos os membros podem ler os próprios dados e o dono pode editá-los", async () => {
+  it("membros podem ler e operar os registros da tela, inclusive de outro responsável", async () => {
     for (const [persona, r] of [["membroA", registros.A], ["membroB", registros.B]] as const) {
       const detalhe = await http(persona, "get", `/leads/${r.dealId}`).expect(200);
       expect(detalhe.body.owner.id).toBe(pessoas[persona].id);
@@ -479,16 +490,16 @@ describe.skipIf(!HABILITADO)("isolamento dos membros com sessão real (HTTP + Po
       expect(propostas.body.proposals.map((item: { id: string }) => item.id)).toEqual([r.proposalId]);
     }
     const b = registros.B;
-    await http("membroB", "patch", `/leads/${b.dealId}`).send({ version: 1, title: `${prefixo} negócio B editado` }).expect(200);
-    await http("membroB", "patch", `/clientes/${b.clientId}/contatos/${b.contactId}`).send({ jobTitle: "Sintético responsável" }).expect(200);
-    await http("membroB", "post", `/commercial/opportunities/${b.opportunityId}/stage`).send({ stage: "qualificacao" }).expect(200);
-    await http("membroB", "post", `/commercial/contracts/${b.contractId}/status`).send({ status: "revisao_interna" }).expect(200);
-    await http("membroB", "patch", `/leads/${b.dealId}/documentos/${b.documentId}`).send({ category: "documento_do_cliente" }).expect(200);
-    await http("membroB", "patch", `/leads/${b.dealId}/propostas/${b.proposalId}`).send({ revision: 1, templateId: modeloId, content: conteudo }).expect(200);
+    await http("membroA", "patch", `/leads/${b.dealId}`).send({ version: 1, title: `${prefixo} negócio B editado` }).expect(200);
+    await http("membroA", "patch", `/clientes/${b.clientId}/contatos/${b.contactId}`).send({ jobTitle: "Sintético responsável" }).expect(200);
+    await http("membroA", "post", `/commercial/opportunities/${b.opportunityId}/stage`).send({ stage: "qualificacao" }).expect(200);
+    await http("membroA", "post", `/commercial/contracts/${b.contractId}/status`).send({ status: "revisao_interna" }).expect(200);
+    await http("membroA", "patch", `/leads/${b.dealId}/documentos/${b.documentId}`).send({ category: "documento_do_cliente" }).expect(200);
+    await http("membroA", "patch", `/leads/${b.dealId}/propostas/${b.proposalId}`).send({ revision: 1, templateId: modeloId, content: conteudo }).expect(200);
   });
 
-  it("gerente, admin e desenvolvedor alcançam os registros dos dois membros", async () => {
-    for (const persona of ["gerente", "admin", "desenvolvedor"] as const) {
+  it("todos os papéis com as telas concedidas alcançam os registros do CRM", async () => {
+    for (const persona of ["membroA", "membroB", "gerente", "admin", "desenvolvedor"] as const) {
       const leads = await http(persona, "get", `/leads?pipelineId=${pipelineId}`).expect(200);
       expect(leads.body.deals.map((item: { id: string }) => item.id).sort()).toEqual([registros.A.dealId, registros.B.dealId].sort());
       for (const [path, ids] of [
@@ -505,7 +516,7 @@ describe.skipIf(!HABILITADO)("isolamento dos membros com sessão real (HTTP + Po
         }
       }
       const funis = await http(persona, "get", "/pipelines").expect(200);
-      expect(funis.body.pipelines.find((item: { id: string }) => item.id === pipelineId)).toMatchObject({ canConfigure: true, dealCount: 2 });
+      expect(funis.body.pipelines.find((item: { id: string }) => item.id === pipelineId)).toMatchObject({ canConfigure: !["membroA", "membroB"].includes(persona), dealCount: 2 });
       expect(funis.body.responsaveis.map((item: { id: string }) => item.id)).toEqual(expect.arrayContaining([pessoas.membroA.id, pessoas.membroB.id]));
     }
   });
@@ -525,7 +536,7 @@ describe.skipIf(!HABILITADO)("isolamento dos membros com sessão real (HTTP + Po
         expect((await banco().contract.findUniqueOrThrow({ where: { id: a.contractId } })).ownerId).toBe(ownerId);
       }
     }
-  });
+  }, PRAZO_MS);
 
   it("pessoa sem tela de CRM ou de outro departamento não alcança os recursos de CRM", async () => {
     for (const persona of ["semTela", "outroDepartamento"] as const) {
@@ -541,7 +552,10 @@ describe.skipIf(!HABILITADO)("isolamento dos membros com sessão real (HTTP + Po
     await http("gerente", "get", "/jobs").expect(403);
     await http("desenvolvedor", "get", "/jobs").expect(200);
     await http("membroA", "get", "/jobs").set("x-dev-principal", pessoas.desenvolvedor.id).set("x-dev-plataforma", "desenvolvedor").expect(403);
-    await http("membroA", "get", `/leads/${registros.B.dealId}`).set("x-dev-principal", pessoas.admin.id).set("x-dev-plataforma", "admin").set("x-dev-departamentos", "crm:gerente").expect(404);
+    await http("membroA", "get", `/leads/${registros.B.dealId}`).set("x-dev-principal", pessoas.admin.id).set("x-dev-plataforma", "admin").set("x-dev-departamentos", "crm:gerente").expect(200);
+    const me = await http("membroA", "get", "/auth/me").set("x-dev-principal", pessoas.admin.id).set("x-dev-plataforma", "admin").expect(200);
+    expect(me.body.id).toBe(pessoas.membroA.id);
+    expect(me.body.acesso.plataforma).toBeNull();
     if (!app) throw new Error("Aplicação não inicializada.");
     await request(app.getHttpServer()).get("/jobs").set("x-dev-principal", pessoas.desenvolvedor.id).set("x-dev-plataforma", "desenvolvedor").expect(401);
   });
@@ -616,7 +630,7 @@ describe.skipIf(!HABILITADO)("isolamento dos membros com sessão real (HTTP + Po
     expect((await banco().agentIdentity.findUniqueOrThrow({ where: { userId: ia.id } })).tokenHash === hashAntes).toBe(true);
   });
 
-  it("Bearer real da IA permite criar, ler e editar cliente e negócio próprios, ocultando B", async () => {
+  it("Bearer real da IA opera os registros das telas concedidas sem assumir o responsável deles", async () => {
     const ia = agente();
     const email = `ia-${execucao}@sintetico.example.test`;
     const cliente = await httpAgente("post", "/clientes").send({ personType: "pj", name: `${prefixo} cliente IA`, email, ownerId: ia.id }).expect(201);
@@ -631,17 +645,17 @@ describe.skipIf(!HABILITADO)("isolamento dos membros com sessão real (HTTP + Po
     await httpAgente("patch", `/clientes/${ia.clientId}`).send({ notes: "Sintético editado pela própria IA" }).expect(200);
     await httpAgente("patch", `/leads/${ia.dealId}`).send({ version: 1, title: `${prefixo} negócio IA editado` }).expect(200);
     const clientes = await httpAgente("get", `/clientes?q=${encodeURIComponent(prefixo)}`).expect(200);
-    expect(clientes.body.items.map((item: { id: string }) => item.id)).toEqual([ia.clientId]);
+    expect(clientes.body.items.map((item: { id: string }) => item.id)).toEqual(expect.arrayContaining([registros.A.clientId, registros.B.clientId, ia.clientId]));
     const negocios = await httpAgente("get", `/leads?pipelineId=${pipelineId}`).expect(200);
-    expect(negocios.body.deals.map((item: { id: string }) => item.id)).toEqual([ia.dealId]);
-    const antes = await estado();
-    await httpAgente("get", `/clientes/${registros.B.clientId}`).expect(404);
-    await httpAgente("get", `/leads/${registros.B.dealId}`).expect(404);
-    await httpAgente("get", `/leads/${registros.B.dealId}/historico`).expect(404);
-    await httpAgente("patch", `/clientes/${registros.B.clientId}`).send({ name: "Sintético bloqueado" }).expect(404);
+    expect(negocios.body.deals.map((item: { id: string }) => item.id)).toEqual(expect.arrayContaining([registros.A.dealId, registros.B.dealId, ia.dealId]));
+    await httpAgente("get", `/clientes/${registros.B.clientId}`).expect(200);
+    await httpAgente("get", `/leads/${registros.B.dealId}`).expect(200);
+    await httpAgente("get", `/leads/${registros.B.dealId}/historico`).expect(200);
+    await httpAgente("patch", `/clientes/${registros.B.clientId}`).send({ name: `${prefixo} cliente B compartilhado` }).expect(200);
     const versaoB = (await banco().deal.findUniqueOrThrow({ where: { id: registros.B.dealId } })).version;
-    await httpAgente("patch", `/leads/${registros.B.dealId}`).send({ version: versaoB, title: "Sintético bloqueado" }).expect(404);
-    expect(await estado()).toEqual(antes);
+    await httpAgente("patch", `/leads/${registros.B.dealId}`).send({ version: versaoB, title: `${prefixo} negócio B compartilhado` }).expect(200);
+    expect((await banco().client.findUniqueOrThrow({ where: { id: registros.B.clientId } })).ownerId).toBe(pessoas.membroB.id);
+    expect((await banco().deal.findUniqueOrThrow({ where: { id: registros.B.dealId } })).ownerId).toBe(pessoas.membroB.id);
     expect((await banco().client.findUniqueOrThrow({ where: { id: ia.clientId } })).ownerId).toBe(ia.id);
     expect((await banco().deal.findUniqueOrThrow({ where: { id: ia.dealId } })).ownerId).toBe(ia.id);
   });
@@ -661,7 +675,7 @@ describe.skipIf(!HABILITADO)("isolamento dos membros com sessão real (HTTP + Po
     expect(await estado()).toEqual(antes);
   });
 
-  it("trilha de IA só registra entidades próprias e não aceita autoaprovação ou identidade forjada", async () => {
+  it("trilha de IA respeita as telas concedidas, identidade própria e proibição de autoaprovação", async () => {
     const ia = agente();
     const antes = await banco().agentAction.count({ where: { agentUserId: ia.id } });
     const eventosAntes = await banco().eventLog.count({ where: { actorType: "agent", actorId: ia.id, eventName: "agent.action.recorded" } });
@@ -670,7 +684,7 @@ describe.skipIf(!HABILITADO)("isolamento dos membros com sessão real (HTTP + Po
       decision: "allowed", approvalStatus: "not_required", status: "recorded", input: { observacao: "Sintético" }, payload: { observacao: "Sintético" },
       result: "Sintético não deve ser persistido", error: "Sintético não deve ser persistido",
     };
-    for (const [entityType, entityId] of [["client", ia.clientId], ["deal", ia.dealId]]) {
+    for (const [entityType, entityId] of [["client", ia.clientId], ["deal", ia.dealId], ["client", registros.B.clientId], ["deal", registros.B.dealId]]) {
       const resposta = await httpAgente("post", "/agent-actions").send({ ...input, entityType, entityId }).expect(201);
       const trilha = await banco().agentAction.findUniqueOrThrow({ where: { id: idRecebido(resposta.body.id) } });
       expect({ agent: trilha.agent, agentUserId: trilha.agentUserId, requestedById: trilha.requestedById, entityType: trilha.entityType, entityId: trilha.entityId }).toEqual({
@@ -681,13 +695,12 @@ describe.skipIf(!HABILITADO)("isolamento dos membros com sessão real (HTTP + Po
       expect(trilha.result).toBeNull();
       expect(trilha.error).toBeNull();
     }
-    await httpAgente("post", "/agent-actions").send({ ...input, entityId: registros.B.clientId }).expect(403);
-    await httpAgente("post", "/agent-actions").send({ ...input, entityType: "deal", entityId: registros.B.dealId }).expect(403);
+    await httpAgente("post", "/agent-actions").send({ ...input, entityType: "contract", entityId: registros.B.contractId }).expect(403);
     await httpAgente("post", "/agent-actions").send({ ...input, approvalStatus: "approved" }).expect(403);
     await httpAgente("post", "/agent-actions").send({ ...input, agent: pessoas.membroB.id }).expect(403);
     await http("admin", "post", "/agent-actions").send(input).expect(403);
-    expect(await banco().agentAction.count({ where: { agentUserId: ia.id } })).toBe(antes + 2);
-    expect(await banco().eventLog.count({ where: { actorType: "agent", actorId: ia.id, eventName: "agent.action.recorded" } })).toBe(eventosAntes + 2);
+    expect(await banco().agentAction.count({ where: { agentUserId: ia.id } })).toBe(antes + 4);
+    expect(await banco().eventLog.count({ where: { actorType: "agent", actorId: ia.id, eventName: "agent.action.recorded" } })).toBe(eventosAntes + 4);
   });
 
   it("rotação invalida o Bearer anterior imediatamente e mantém a nova credencial utilizável", async () => {
@@ -726,7 +739,7 @@ describe.skipIf(!HABILITADO)("isolamento dos membros com sessão real (HTTP + Po
     expect(await banco().agentAction.count({ where: { agentUserId: ia.id } })).toBe(trilhasAntes);
   });
 
-  it("CRM com apenas Contratos lê o escopo devido e cria contrato no cliente próprio ainda sem contrato", async () => {
+  it("Contratos compartilha os registros da tela e só projeta o cliente necessário ao contrato", async () => {
     const clientId = randomUUID();
     clientesExtras.push(clientId);
     let contratoCriado: string | undefined;
@@ -739,9 +752,9 @@ describe.skipIf(!HABILITADO)("isolamento dos membros com sessão real (HTTP + Po
         const proprio = await http("membroA", "get", `/commercial/contracts/${registros.A.contractId}`).expect(200);
         expect(proprio.body.clientId).toBe(registros.A.clientId);
         expect(typeof proprio.body.clientName).toBe("string");
-        await http("membroA", "get", `/commercial/contracts/${registros.B.contractId}`).expect(404);
+        await http("membroA", "get", `/commercial/contracts/${registros.B.contractId}`).expect(200);
         const listaMembro = await http("membroA", "get", "/commercial/contracts").expect(200);
-        expect(listaMembro.body.items.map((item: { id: string }) => item.id)).toEqual([registros.A.contractId]);
+        expect(listaMembro.body.items.map((item: { id: string }) => item.id)).toEqual(expect.arrayContaining([registros.A.contractId, registros.B.contractId]));
         const listaGerente = await http("gerente", "get", "/commercial/contracts").expect(200);
         expect(listaGerente.body.items.map((item: { id: string }) => item.id)).toEqual(expect.arrayContaining([registros.A.contractId, registros.B.contractId]));
         for (const r of Object.values(registros)) {
@@ -798,11 +811,12 @@ describe.skipIf(!HABILITADO)("isolamento dos membros com sessão real (HTTP + Po
         gerente: { plataforma: null, departamentos: [{ departamento: "crm", nivel: "gerente", telas: ["crm.pipelines"] }] },
       }, async () => {
         const lista = await http("gerente", "get", `/leads?pipelineId=${pipelineId}`).expect(200);
-        for (const { persona, clientId, dealId } of dados) {
+        for (const { persona, dealId } of dados) {
           expect(lista.body.deals.some((item: { id: string; owner: { id: string } }) => item.id === dealId && item.owner.id === pessoas[persona].id)).toBe(true);
           const detalhe = await http("gerente", "get", `/leads/${dealId}`).expect(200);
           expect(detalhe.body.owner.id).toBe(pessoas[persona].id);
-          expect(detalhe.body.client.id).toBe(clientId);
+          expect(detalhe.body.client).toBeNull();
+          expect(detalhe.body.converted).toBe(true);
         }
         const funis = await http("gerente", "get", "/pipelines").expect(200);
         const funil = funis.body.pipelines.find((item: { id: string }) => item.id === pipelineId);
@@ -810,10 +824,8 @@ describe.skipIf(!HABILITADO)("isolamento dos membros com sessão real (HTTP + Po
         expect(funis.body.responsaveis.map((item: { id: string }) => item.id)).toEqual(expect.arrayContaining([pessoas.admin.id, pessoas.desenvolvedor.id]));
         const candidatos = await http("gerente", "get", "/pipelines/pessoas?companyId=plugga").expect(200);
         expect(candidatos.body.people.map((item: { id: string }) => item.id)).toEqual(expect.arrayContaining([pessoas.admin.id, pessoas.desenvolvedor.id]));
-        const responsaveis = await http("gerente", "get", "/clientes/responsaveis").expect(200);
-        expect(responsaveis.body.items.map((item: { id: string }) => item.id)).toEqual(expect.arrayContaining([pessoas.admin.id, pessoas.desenvolvedor.id]));
-        const clientes = await http("gerente", "get", `/clientes/selecao-negocio?q=${encodeURIComponent(`${prefixo} plataforma`)}`).expect(200);
-        expect(clientes.body.items.map((item: { id: string }) => item.id).sort()).toEqual(dados.map((item) => item.clientId).sort());
+        await http("gerente", "get", "/clientes/responsaveis").expect(403);
+        await http("gerente", "get", `/clientes/selecao-negocio?q=${encodeURIComponent(`${prefixo} plataforma`)}`).expect(403);
       });
     } finally {
       await banco().deal.deleteMany({ where: { id: { in: dados.map((item) => item.dealId) } } });
@@ -822,7 +834,7 @@ describe.skipIf(!HABILITADO)("isolamento dos membros com sessão real (HTTP + Po
     }
   });
 
-  it("seletor de apenas Pipelines oferece cliente B e compartilhado ao gerente e somente A ao membro", async () => {
+  it("somente Pipelines não libera o seletor de Clientes, inclusive para o gerente", async () => {
     const compartilhadoId = randomUUID();
     clientesExtras.push(compartilhadoId);
     await banco().client.create({ data: { id: compartilhadoId, name: `${prefixo} cliente compartilhado`, ownerId: null } });
@@ -832,10 +844,8 @@ describe.skipIf(!HABILITADO)("isolamento dos membros com sessão real (HTTP + Po
         membroA: { plataforma: null, departamentos: [{ departamento: "crm", nivel: "membro", telas: ["crm.pipelines"] }] },
       }, async () => {
         const path = `/clientes/selecao-negocio?q=${encodeURIComponent(prefixo)}`;
-        const gerencia = await http("gerente", "get", path).expect(200);
-        expect(gerencia.body.items.map((item: { id: string }) => item.id)).toEqual(expect.arrayContaining([registros.A.clientId, registros.B.clientId, compartilhadoId]));
-        const membro = await http("membroA", "get", path).expect(200);
-        expect(membro.body.items.map((item: { id: string }) => item.id)).toEqual([registros.A.clientId]);
+        await http("gerente", "get", path).expect(403);
+        await http("membroA", "get", path).expect(403);
         await http("gerente", "get", "/clientes").expect(403);
         await http("membroA", "get", "/clientes").expect(403);
       });
@@ -913,13 +923,13 @@ describe.skipIf(!HABILITADO)("isolamento dos membros com sessão real (HTTP + Po
           expect(item?.owner).toEqual({ id: ownerId, name });
           const detalhe = await http("gerente", "get", `/leads/${dealId}`).expect(200);
           expect(detalhe.body.owner).toEqual({ id: ownerId, name });
-          expect(detalhe.body.client.id).toBe(clientId);
+          expect(detalhe.body.client).toBeNull();
+          expect(detalhe.body.converted).toBe(true);
           const historico = await http("gerente", "get", `/leads/${dealId}/historico`).expect(200);
           expect(historico.body.entries.some((entrada: { actor: { id: string; name: string } | null }) => entrada.actor?.id === ownerId && entrada.actor.name === name)).toBe(true);
           const candidatos = await http("gerente", "get", "/pipelines/pessoas?companyId=plugga").expect(200);
           expect(candidatos.body.people.some((pessoa: { id: string }) => pessoa.id === ownerId)).toBe(false);
-          const responsaveis = await http("gerente", "get", "/clientes/responsaveis").expect(200);
-          expect(responsaveis.body.items.some((pessoa: { id: string }) => pessoa.id === ownerId)).toBe(false);
+          await http("gerente", "get", "/clientes/responsaveis").expect(403);
           if (status === "active") {
             const antes = await banco().deal.findUniqueOrThrow({ where: { id: registros.A.dealId } });
             await http("gerente", "patch", `/leads/${registros.A.dealId}`).send({ version: antes.version, ownerId }).expect(400);
@@ -931,6 +941,83 @@ describe.skipIf(!HABILITADO)("isolamento dos membros com sessão real (HTTP + Po
       await banco().deal.deleteMany({ where: { id: dealId } });
       await banco().client.deleteMany({ where: { id: clientId } });
       await banco().user.deleteMany({ where: { id: ownerId } });
+    }
+  }, PRAZO_MS);
+
+  it("Membro com Clientes converte lead de outro responsável, inclusive após confirmação de duplicata, sem atribuição arbitrária", async () => {
+    for (const duplicata of [false, true]) {
+      const dealId = randomUUID();
+      let clientId: string | undefined;
+      const email = duplicata ? `b-${execucao}@sintetico.example.test` : `compartilhado-${execucao}@sintetico.example.test`;
+      try {
+        await banco().deal.create({ data: {
+          id: dealId, pipelineId, stageId: etapaId, ownerId: pessoas.membroB.id, title: `${prefixo} conversão compartilhada`,
+          profile: { create: { personType: "pj", name: `${prefixo} snapshot compartilhado ${duplicata}`, email } },
+        } });
+        if (duplicata) {
+          const conflito = await http("membroA", "post", `/leads/${dealId}/converter`).send({}).expect(400);
+          expect(conflito.body.candidatos?.length).toBeGreaterThan(0);
+          expect((await banco().deal.findUniqueOrThrow({ where: { id: dealId } })).clientId).toBeNull();
+        }
+        const convertido = await http("membroA", "post", `/leads/${dealId}/converter`).send(duplicata ? { resolution: { type: "create" } } : {}).expect(200);
+        clientId = idRecebido(convertido.body.client.id);
+        expect(convertido.body.created).toBe(true);
+        expect(convertido.body.lead).toMatchObject({ id: dealId, converted: true, owner: { id: pessoas.membroB.id } });
+        expect((await banco().client.findUniqueOrThrow({ where: { id: clientId } })).ownerId).toBe(pessoas.membroB.id);
+        await http("membroA", "post", "/clientes").send({
+          personType: "pj", name: `${prefixo} atribuição manual proibida`, email: `manual-${execucao}@sintetico.example.test`, ownerId: pessoas.membroB.id,
+        }).expect(403);
+      } finally {
+        await banco().deal.deleteMany({ where: { id: dealId } });
+        if (clientId) await banco().client.deleteMany({ where: { id: clientId } });
+      }
+    }
+  }, PRAZO_MS);
+
+  it("converter com somente Pipelines preserva o lead, não concede Clientes e não sincroniza dados do cadastro", async () => {
+    let dealId: string | undefined;
+    let clientId: string | undefined;
+    const email = `cego-${execucao}@sintetico.example.test`;
+    try {
+      await comAcessosTemporarios({
+        membroA: { plataforma: null, departamentos: [{ departamento: "crm", nivel: "membro", telas: ["crm.pipelines"] }] },
+      }, async () => {
+        const novo = await http("membroA", "post", "/leads").send({
+          pipelineId, stageId: etapaId, ownerId: pessoas.membroA.id,
+          title: `${prefixo} conversão por tela`,
+          lead: { personType: "pj", name: `${prefixo} snapshot da conversão`, email },
+        }).expect(201);
+        dealId = idRecebido(novo.body.id);
+        expect(novo.body.converted).toBe(false);
+        const convertido = await http("membroA", "post", `/leads/${dealId}/converter`).send({}).expect(200);
+        expect(convertido.body.client).toBeNull();
+        expect(convertido.body.created).toBeNull();
+        expect(convertido.body.lead).toMatchObject({ id: dealId, converted: true, client: null, lead: { email } });
+        const persistido = await banco().deal.findUniqueOrThrow({ where: { id: dealId } });
+        clientId = idRecebido(persistido.clientId);
+        const contagem = await banco().dealHistory.count({ where: { dealId, kind: "client_converted" } });
+        expect(contagem).toBe(1);
+        await http("membroA", "get", `/clientes/${clientId}`).expect(403);
+        await http("membroA", "get", "/clientes").expect(403);
+        await http("membroA", "get", `/clientes/selecao-negocio?q=${encodeURIComponent(prefixo)}`).expect(403);
+        await http("membroA", "get", `/clientes/duplicates?email=${encodeURIComponent(email)}`).expect(403);
+        await http("membroA", "get", `/leads/clientes/${clientId}/opcoes`).expect(403);
+        await banco().client.update({ where: { id: clientId }, data: {
+          name: `${prefixo} cadastro atualizado`, email: `atualizado-${execucao}@sintetico.example.test`,
+        } });
+        const depois = await http("membroA", "get", `/leads/${dealId}`).expect(200);
+        expect(depois.body).toMatchObject({ converted: true, client: null, lead: { name: `${prefixo} snapshot da conversão`, email } });
+        await http("membroA", "patch", `/leads/${dealId}`).send({
+          version: depois.body.version, title: `${prefixo} lead convertido continua editável`,
+        }).expect(200);
+        const novamente = await http("membroA", "post", `/leads/${dealId}/converter`).send({}).expect(200);
+        expect(novamente.body).toMatchObject({ client: null, created: null, lead: { converted: true } });
+        expect(await banco().dealHistory.count({ where: { dealId, kind: "client_converted" } })).toBe(contagem);
+        expect((await banco().deal.findUniqueOrThrow({ where: { id: dealId } })).clientId).toBe(clientId);
+      });
+    } finally {
+      if (dealId) await banco().deal.deleteMany({ where: { id: dealId } });
+      if (clientId) await banco().client.deleteMany({ where: { id: clientId } });
     }
   }, PRAZO_MS);
 

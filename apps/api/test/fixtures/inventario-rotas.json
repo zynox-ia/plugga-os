@@ -110,13 +110,7 @@
     "acesso": "acesso",
     "papeis": [
       "tela:crm.clientes",
-      "tela:energia-opm.ciclos",
-      "tela:energia-opm.auditoria",
-      "tela:energia-opm.migracao",
-      "tela:energia-opm.relatorios",
-      "tela:energia-opm.demanda",
-      "departamento:crm:membro",
-      "departamento:energia-opm:membro"
+      "departamento:crm:membro"
     ],
     "guards": [
       "SessionAuthGuard",
@@ -146,13 +140,7 @@
     "acesso": "acesso",
     "papeis": [
       "tela:crm.clientes",
-      "tela:energia-opm.ciclos",
-      "tela:energia-opm.auditoria",
-      "tela:energia-opm.migracao",
-      "tela:energia-opm.relatorios",
-      "tela:energia-opm.demanda",
-      "departamento:crm:membro",
-      "departamento:energia-opm:membro"
+      "departamento:crm:membro"
     ],
     "guards": [
       "SessionAuthGuard",
@@ -262,13 +250,7 @@
     "acesso": "acesso",
     "papeis": [
       "tela:crm.clientes",
-      "tela:energia-opm.ciclos",
-      "tela:energia-opm.auditoria",
-      "tela:energia-opm.migracao",
-      "tela:energia-opm.relatorios",
-      "tela:energia-opm.demanda",
-      "departamento:crm:membro",
-      "departamento:energia-opm:membro"
+      "departamento:crm:membro"
     ],
     "guards": [
       "SessionAuthGuard",
@@ -282,9 +264,7 @@
     "acesso": "acesso",
     "papeis": [
       "tela:crm.clientes",
-      "tela:crm.pipelines",
-      "departamento:crm:membro",
-      "departamento:energia-opm:membro"
+      "departamento:crm:membro"
     ],
     "guards": [
       "SessionAuthGuard",
@@ -297,7 +277,7 @@
     "controller": "ClientesController.selecaoNegocio",
     "acesso": "acesso",
     "papeis": [
-      "tela:crm.pipelines",
+      "tela:crm.clientes",
       "departamento:crm:membro"
     ],
     "guards": [
@@ -1045,7 +1025,7 @@
     "controller": "NegociosController.clientOptions",
     "acesso": "acesso",
     "papeis": [
-      "tela:crm.pipelines",
+      "tela:crm.clientes",
       "departamento:crm:membro"
     ],
     "guards": [

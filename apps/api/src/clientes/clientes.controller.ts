@@ -2,7 +2,6 @@ import { Body, Controller, Delete, Get, HttpCode, Inject, Param, ParseUUIDPipe, 
 import { ThrottlerGuard } from "@nestjs/throttler";
 import {
   clientContactInputSchema,
-  telasPorDepartamento,
   clientSelectionQuerySchema,
   type ClientSelectionQuery,
   type ClientSelectionResponse,
@@ -37,14 +36,13 @@ import { ClientesService } from "./clientes.service";
 
 /**
  * Cadastro único de clientes (PLU-268). Leitura para quem trabalha com clientes
- * em qualquer empresa (ADR-0013: o cadastro não tem empresa dona). Leitura
- * para o CRM e para Energia, que acompanha os mesmos clientes; escrita só
- * para o CRM.
+ * em qualquer empresa (ADR-0013: o cadastro não tem empresa dona). O cadastro
+ * completo exige a tela Clientes; uma tela relacionada não concede essa leitura.
  */
 @Controller("clientes")
 @UseGuards(SessionAuthGuard, AcessoGuard)
-@Departamento(["crm", "energia-opm"])
-@Tela("crm.clientes", ...telasPorDepartamento["energia-opm"])
+@Departamento("crm")
+@Tela("crm.clientes")
 export class ClientesController {
   constructor(@Inject(ClientesService) private readonly service: ClientesService) {}
 
@@ -60,7 +58,7 @@ export class ClientesController {
 
   /** Quem pode ser responsável por um cliente: só id e nome. Antes de `:id`, que validaria "responsaveis" como UUID. */
   @Get("responsaveis")
-  @Tela("crm.clientes", "crm.pipelines")
+  @Tela("crm.clientes")
   owners(@CurrentPrincipal() principal: AuthPrincipal): Promise<ClientOwnersResponse> {
     return this.service.owners(principal);
   }
@@ -68,7 +66,7 @@ export class ClientesController {
   /** Seleção do negócio: entrega só o resumo necessário, sem abrir o cadastro completo. */
   @Get("selecao-negocio")
   @Departamento("crm")
-  @Tela("crm.pipelines")
+  @Tela("crm.clientes")
   selecaoNegocio(@Query(new ZodValidationPipe(clientSelectionQuerySchema)) query: ClientSelectionQuery, @CurrentPrincipal() principal: AuthPrincipal): Promise<ClientSelectionResponse> {
     return this.service.selecaoNegocio(query, principal);
   }

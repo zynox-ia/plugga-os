@@ -5,20 +5,13 @@ import { AcessoNegado, NaoEncontrado } from "../common/errors/dominio";
 
 import type { AcessoComercial } from "./pipelines.rules";
 
-/** Usa a permissão relida do banco; o papel guardado na sessão pode estar revogado. */
-export const filtroDoResponsavelComercial = (acesso: AcessoComercial, pessoaId: string): { ownerId?: string } =>
-  acesso.admin || acesso.gestorEm.length > 0 ? {} : { ownerId: pessoaId };
-
-export function pessoaVisivelComercial<T extends { id: string }>(acesso: AcessoComercial, pessoaId: string, pessoa: T | null): T | null {
-  return pessoa && filtroDoResponsavelComercial(acesso, pessoaId).ownerId && pessoa.id !== pessoaId ? null : pessoa;
-}
-
-export function exigeDonoComercial(acesso: AcessoComercial, pessoaId: string, ownerId: string | null | undefined, mensagem = "Negócio não encontrado."): void {
-  if (!acesso.podeOperar || (filtroDoResponsavelComercial(acesso, pessoaId).ownerId && ownerId !== pessoaId)) throw new NaoEncontrado(mensagem);
+/** A tela libera os leads; ownership não é uma restrição desta etapa (decisão do André). */
+export function exigeOperacaoComercial(acesso: AcessoComercial, mensagem = "Negócio não encontrado."): void {
+  if (!acesso.podeOperar) throw new NaoEncontrado(mensagem);
 }
 
 export function exigeAtribuicaoComercial(acesso: AcessoComercial, pessoaId: string, ownerId: string): void {
-  if (filtroDoResponsavelComercial(acesso, pessoaId).ownerId && ownerId !== pessoaId) throw new AcessoNegado("Somente a gestão pode atribuir registros a outra pessoa.");
+  if (!acesso.admin && acesso.gestorEm.length === 0 && ownerId !== pessoaId) throw new AcessoNegado("Somente a gestão pode atribuir registros a outra pessoa.");
 }
 
 /**
@@ -28,13 +21,14 @@ export function exigeAtribuicaoComercial(acesso: AcessoComercial, pessoaId: stri
  * negócios, que seguem o mesmo alcance (pipelines.rules.ts).
  */
 export async function lerAcessoComercial(prisma: PrismaClient | Prisma.TransactionClient, pessoaId: string): Promise<AcessoComercial> {
-  const pessoa = await prisma.user.findUnique({ where: { id: pessoaId }, include: {
+  const pessoa = await prisma.user.findUnique({ where: { id: pessoaId }, select: { status: true,
     platformRoles: { include: { role: true } }, departamentos: true,
   } });
   const acesso = pessoa ? mapAcesso(pessoa) : undefined;
   const podeOperar = pessoa?.status === "active" && alcancaTela(acesso, "crm.pipelines");
   return {
     podeOperar,
+    podeVerClientes: pessoa?.status === "active" && alcancaTela(acesso, "crm.clientes"),
     admin: podeOperar && acesso?.plataforma !== null,
     gestorEm: podeOperar && acesso?.departamentos.some((d) => d.departamento === "crm" && d.nivel === "gerente") ? [...companyKeys] : [],
   };

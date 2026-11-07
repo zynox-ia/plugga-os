@@ -10,7 +10,7 @@ const PRAZO = 60_000;
 
 // A conexão administrativa prepara fixtures; as asserções usam OUTRO login,
 // sem ser dono e sem SET ROLE. Nunca executar em banco compartilhado/produção.
-describe.skipIf(!HABILITADO)("RLS: permissões no login real da aplicação", () => {
+describe.skipIf(!HABILITADO)("RLS: permissões no login real da aplicação", { timeout: PRAZO }, () => {
   const root = new PrismaClient();
   const marca = `rls_${randomBytes(8).toString("hex")}`;
   const logins = { app: `${marca}_app`, auth: `${marca}_auth`, jobs: `${marca}_jobs` };
@@ -23,6 +23,7 @@ describe.skipIf(!HABILITADO)("RLS: permissões no login real da aplicação", ()
   const clientesExtras: string[] = [];
   let ambienteValidado = false;
   let pipelineId: string;
+  let etapaId: string;
   let empresaId: string;
 
   const app = () => clientes.app!;
@@ -61,7 +62,7 @@ describe.skipIf(!HABILITADO)("RLS: permissões no login real da aplicação", ()
     }
     empresaId = marca;
     await root.company.create({ data: { id: empresaId, name: marca } });
-    for (const nome of ["a", "b", "gerente", "misto", "admin", "dev", "sem-tela", "financeiro"]) {
+    for (const nome of ["a", "b", "gerente", "misto", "admin", "dev", "sem-tela", "financeiro", "pipeline", "contratos"]) {
       const pessoa = await root.user.create({ data: { name: marca, email: `${marca}-${nome}@teste.local` } });
       idsUsuarios.push(pessoa.id);
       const hash = randomBytes(32).toString("hex");
@@ -78,7 +79,8 @@ describe.skipIf(!HABILITADO)("RLS: permissões no login real da aplicação", ()
         await root.userDepartamento.create({ data: {
           userId: pessoa.id, departamento: nome === "financeiro" ? "financeiro" : "crm",
           nivel: ["gerente", "misto", "financeiro"].includes(nome) ? "gerente" : "membro",
-          telas: ["misto", "sem-tela"].includes(nome) ? [] : nome === "financeiro" ? ["financeiro.receber"] : ["crm.clientes", "crm.pipelines", "crm.contratos"],
+          telas: ["misto", "sem-tela"].includes(nome) ? [] : nome === "financeiro" ? ["financeiro.receber"]
+            : nome === "pipeline" ? ["crm.pipelines"] : nome === "contratos" ? ["crm.contratos"] : ["crm.clientes", "crm.pipelines", "crm.contratos"],
         } });
       }
     }
@@ -93,9 +95,15 @@ describe.skipIf(!HABILITADO)("RLS: permissões no login real da aplicação", ()
     }
     const pipeline = await root.pipeline.create({ data: { companyId: empresaId, name: marca, valueLabel: "Valor", color: "blue", wonLabel: "Ganho", lostLabel: "Perdido", stages: { create: { name: marca, color: "blue", position: 0 } } }, include: { stages: true } });
     pipelineId = pipeline.id;
+    etapaId = pipeline.stages[0]!.id;
     for (const nome of ["a", "b"]) {
       await root.pipelineMember.create({ data: { pipelineId, userId: pessoas.get(nome)!.id, role: "vendedor" } });
-      await root.deal.create({ data: { title: marca, ownerId: pessoas.get(nome)!.id, pipelineId, stageId: pipeline.stages[0]!.id, clientId: registros.get(nome)!, profile: { create: { name: marca, personType: "pj" } } } });
+      const negocio = await root.deal.create({ data: {
+        title: marca, ownerId: pessoas.get(nome)!.id, createdById: pessoas.get(nome === "a" ? "b" : "a")!.id,
+        pipelineId, stageId: etapaId, clientId: registros.get(nome)!, profile: { create: { name: marca, personType: "pj" } },
+        history: { create: { kind: "created", actorId: pessoas.get(nome === "a" ? "b" : "a")!.id } },
+      } });
+      if (nome === "b") await root.dealConsumerUnit.create({ data: { dealId: negocio.id, consumerUnitId: unidades.get(nome)! } });
     }
   }, PRAZO);
 
@@ -135,6 +143,14 @@ describe.skipIf(!HABILITADO)("RLS: permissões no login real da aplicação", ()
         NOT has_schema_privilege(current_user, 'public', 'CREATE') AND NOT has_database_privilege(current_user, current_database(), 'CREATE') AND NOT has_table_privilege(current_user, 'clients', 'TRUNCATE') AS "semDdl"
       FROM pg_roles r WHERE r.rolname = current_user`;
     expect(login).toEqual({ seguro: true, semDono: true, semDdl: true });
+    expect(await root.$queryRaw`SELECT
+      has_function_privilege(${logins.app}, 'plugga_security.converter_lead_snapshot(uuid)', 'EXECUTE') AS app,
+      has_function_privilege(${logins.auth}, 'plugga_security.converter_lead_snapshot(uuid)', 'EXECUTE') AS auth,
+      has_function_privilege(${logins.jobs}, 'plugga_security.converter_lead_snapshot(uuid)', 'EXECUTE') AS jobs
+    `).toEqual([{ app: true, auth: false, jobs: false }]);
+    expect(await root.$queryRaw`SELECT to_regprocedure('plugga_security.converter_lead_snapshot(uuid,boolean)') IS NULL AS ausente`).toEqual([{ ausente: true }]);
+    expect(await root.$queryRaw`SELECT prosecdef AS definer FROM pg_proc
+      WHERE oid = 'plugga_security.validar_escrita_crm()'::regprocedure`).toEqual([{ definer: false }]);
   });
 
   it("sem contexto e GUCs forjadas não concedem leitura nem escrita", async () => {
@@ -147,19 +163,23 @@ describe.skipIf(!HABILITADO)("RLS: permissões no login real da aplicação", ()
     expect(linhas).toEqual([]);
   });
 
-  it("membro A não lê nem altera B, inclusive raw SQL, joins e filhos", async () => {
-    expect(await idsVisiveis("a")).toEqual([registros.get("a")]);
+  it("a tela permite ler e trabalhar registros de outros responsáveis sem apagar autoria", async () => {
+    expect(await idsVisiveis("a")).toEqual([...registros.values()]);
     await contexto("a", async (tx) => {
-      expect(await tx.client.updateMany({ where: { id: registros.get("b")! }, data: { notes: marca } })).toMatchObject({ count: 0 });
+      expect(await tx.client.updateMany({ where: { id: registros.get("b")! }, data: { notes: marca } })).toMatchObject({ count: 1 });
       const contatos = await tx.$queryRaw<{ id: string }[]>`SELECT c.id FROM public.clients c JOIN public.client_contacts cc ON cc.client_id = c.id WHERE c.id = ${registros.get("b")!}::uuid`;
-      expect(contatos).toEqual([]);
-      const negocios = await tx.deal.findMany({ where: { pipelineId }, include: { profile: true } });
-      expect(negocios).toHaveLength(1);
-      expect(negocios[0]!.ownerId).toBe(pessoas.get("a")!.id);
+      expect(contatos).toEqual([{ id: registros.get("b") }]);
+      const negocios = await tx.deal.findMany({ where: { pipelineId }, include: { profile: true, history: { include: { actor: { select: { id: true, name: true } } } } } });
+      expect(negocios).toHaveLength(2);
+      const alheio = negocios.find((negocio) => negocio.ownerId === pessoas.get("b")!.id)!;
+      expect(alheio.createdById).toBe(pessoas.get("a")!.id);
+      expect(alheio.history[0]!.actor).toMatchObject({ id: pessoas.get("a")!.id });
+      await tx.deal.update({ where: { id: alheio.id }, data: { title: `${marca} editado` } });
     });
     await expect(contexto("a", (tx) => tx.client.create({ data: { name: marca, ownerId: pessoas.get("b")!.id } }))).rejects.toThrow();
     await expect(contexto("a", (tx) => tx.client.update({ where: { id: registros.get("a")! }, data: { ownerId: pessoas.get("b")!.id } }))).rejects.toThrow();
-    await expect(contexto("a", (tx) => tx.clientContact.create({ data: { name: marca, clientId: registros.get("b")! } }))).rejects.toThrow();
+    await contexto("a", (tx) => tx.clientContact.update({ where: { id: contatos.get("b")! }, data: { name: marca } }));
+    expect(await contexto("sem-tela", (tx) => tx.deal.findMany({ where: { pipelineId } }))).toEqual([]);
   });
 
   it("permite CRUD próprio e escrita de gestão", async () => {
@@ -172,25 +192,49 @@ describe.skipIf(!HABILITADO)("RLS: permissões no login real da aplicação", ()
     expect(await contexto("gerente", (tx) => tx.client.updateMany({ where: { id: registros.get("b")! }, data: { notes: "gestão sintética" } }))).toMatchObject({ count: 1 });
   });
 
-  it("pipeline permite conversão com contatos e SELECT de UCs sem abrir escrita de cliente", async () => {
-    const id = pessoas.get("a")!.id;
-    await root.userDepartamento.update({ where: { userId_departamento: { userId: id, departamento: "crm" } }, data: { telas: ["crm.pipelines"] } });
+  it("Pipelines converte o snapshot sem ler Clientes, contatos ou UCs e preserva vínculos já convertidos", async () => {
+    const negocio = await root.deal.create({ data: {
+      title: marca, ownerId: pessoas.get("b")!.id, pipelineId, stageId: etapaId,
+      profile: { create: { name: `Snapshot ${randomUUID()}`, personType: "pj", email: `${randomUUID()}@sintetico.invalid` } },
+      leadContacts: { create: { name: "Contato do snapshot", email: `${randomUUID()}@sintetico.invalid` } },
+    }, include: { profile: true, leadContacts: true } });
     try {
-      await contexto("a", async (tx) => {
-        const cliente = await tx.client.create({ data: { name: marca, ownerId: id, contacts: { create: { name: marca } } }, include: { contacts: true } });
-        clientesExtras.push(cliente.id);
-        expect(cliente.contacts).toHaveLength(1);
-        const ucs = await tx.consumerUnit.findMany({ where: { id: { in: [...unidades.values()] } } });
-        expect(ucs.map((u) => u.id)).toEqual([unidades.get("a")]);
-        const membros = await tx.pipelineMember.findMany({ where: { pipelineId }, include: { user: true } });
-        expect(membros).toHaveLength(1);
-        expect(membros[0]!.userId).toBe(id);
+      await contexto("pipeline", async (tx) => {
+        await tx.$executeRaw`SELECT plugga_security.converter_lead_snapshot(${negocio.id}::uuid)`;
+        expect(await tx.client.findMany()).toEqual([]);
+        expect(await tx.clientContact.findMany()).toEqual([]);
+        expect(await tx.consumerUnit.findMany()).toEqual([]);
+        expect(await tx.dealConsumerUnit.findMany({ where: { deal: { pipelineId } } })).toEqual([]);
+        const membros = await tx.pipelineMember.findMany({ where: { pipelineId }, include: { user: { select: { id: true, name: true, status: true } } } });
+        expect(membros).toHaveLength(2);
       });
-      await expect(contexto("a", (tx) => tx.client.update({ where: { id: registros.get("a")! }, data: { notes: marca } }))).rejects.toThrow();
-      await expect(contexto("a", (tx) => tx.clientContact.update({ where: { id: contatos.get("a")! }, data: { name: marca } }))).rejects.toThrow();
-      await expect(contexto("a", (tx) => tx.consumerUnit.update({ where: { id: unidades.get("a")! }, data: { code: marca } }))).rejects.toThrow();
+      const convertido = await root.deal.findUniqueOrThrow({ where: { id: negocio.id } });
+      const clienteId = convertido.clientId!;
+      clientesExtras.push(clienteId);
+      const cliente = await root.client.findUniqueOrThrow({ where: { id: clienteId }, include: { contacts: true } });
+      expect(cliente).toMatchObject({ name: negocio.profile!.name, email: negocio.profile!.email, ownerId: pessoas.get("b")!.id });
+      expect(cliente.contacts[0]).toMatchObject({ name: negocio.leadContacts[0]!.name, email: negocio.leadContacts[0]!.email });
+      await root.client.update({ where: { id: clienteId }, data: { name: "Cadastro alterado depois", email: "novo@sintetico.invalid" } });
+      await contexto("pipeline", async (tx) => {
+        const visivel = await tx.deal.findUniqueOrThrow({ where: { id: negocio.id }, include: { profile: true, leadContacts: true, client: true } });
+        expect(visivel.client).toBeNull();
+        expect(visivel.profile).toEqual(negocio.profile);
+        expect(visivel.leadContacts).toEqual(negocio.leadContacts);
+        await tx.deal.update({ where: { id: negocio.id }, data: { title: "Lead editado depois da conversão" } });
+        await tx.$executeRaw`SELECT plugga_security.converter_lead_snapshot(${negocio.id}::uuid)`;
+      });
+      expect((await root.deal.findUniqueOrThrow({ where: { id: negocio.id } })).clientId).toBe(clienteId);
+      expect(await root.dealHistory.count({ where: { dealId: negocio.id, kind: "client_converted" } })).toBe(1);
+      expect(await root.eventLog.count({ where: { entityId: negocio.id, eventName: "commercial.deal.client_converted" } })).toBe(1);
+      await expect(contexto("pipeline", (tx) => tx.client.create({ data: { name: marca, ownerId: pessoas.get("pipeline")!.id } }))).rejects.toThrow();
+      await expect(contexto("pipeline", (tx) => tx.clientContact.create({ data: { clientId: clienteId, name: marca } }))).rejects.toThrow();
+      await expect(contexto("pipeline", (tx) => tx.client.update({ where: { id: clienteId }, data: { notes: marca } }))).rejects.toThrow();
+      await expect(contexto("pipeline", (tx) => tx.deal.update({ where: { id: negocio.id }, data: { clientId: registros.get("b")! } }))).rejects.toThrow();
+      await expect(contexto("pipeline", (tx) => tx.deal.update({ where: { id: negocio.id }, data: { clientId: null } }))).rejects.toThrow();
+      await expect(contexto("pipeline", (tx) => tx.deal.update({ where: { id: negocio.id }, data: { contactId: contatos.get("b")! } }))).rejects.toThrow();
+      await expect(contexto("pipeline", (tx) => tx.deal.create({ data: { title: marca, ownerId: pessoas.get("pipeline")!.id, pipelineId, stageId: etapaId, clientId: clienteId } }))).rejects.toThrow();
     } finally {
-      await root.userDepartamento.update({ where: { userId_departamento: { userId: id, departamento: "crm" } }, data: { telas: ["crm.clientes", "crm.pipelines", "crm.contratos"] } });
+      await root.deal.delete({ where: { id: negocio.id } });
     }
   });
 
@@ -218,20 +262,221 @@ describe.skipIf(!HABILITADO)("RLS: permissões no login real da aplicação", ()
     }
   });
 
-  it("WITH CHECK impede vincular negócio próprio a cliente, contato ou UC alheios", async () => {
+  it("a conversão restrita é atômica, exige sessão/tela e não deixa cliente após rollback", async () => {
+    const email = `${randomUUID()}@sintetico.invalid`;
+    const negocio = await root.deal.create({ data: {
+      title: marca, ownerId: pessoas.get("b")!.id, pipelineId, stageId: etapaId,
+      profile: { create: { name: `Rollback ${randomUUID()}`, personType: "pj", email } },
+    } });
+    try {
+      await expect(app().$executeRaw`SELECT plugga_security.converter_lead_snapshot(${negocio.id}::uuid)`).rejects.toThrow();
+      await expect(contexto("sem-tela", (tx) => tx.$executeRaw`SELECT plugga_security.converter_lead_snapshot(${negocio.id}::uuid)`)).rejects.toThrow();
+      await expect(contexto("pipeline", async (tx) => {
+        await tx.$executeRaw`SELECT plugga_security.converter_lead_snapshot(${negocio.id}::uuid)`;
+        throw new Error("rollback sintético da conversão");
+      })).rejects.toThrow("rollback sintético da conversão");
+      expect((await root.deal.findUniqueOrThrow({ where: { id: negocio.id } })).clientId).toBeNull();
+      expect(await root.client.count({ where: { email } })).toBe(0);
+      expect(await root.dealHistory.count({ where: { dealId: negocio.id, kind: "client_converted" } })).toBe(0);
+      expect(await root.eventLog.count({ where: { entityId: negocio.id } })).toBe(0);
+    } finally {
+      await root.deal.delete({ where: { id: negocio.id } });
+    }
+  });
+
+  it("a RPC permite converter o snapshot de outro responsável e só revela criação a quem tem Clientes", async () => {
+    const negocios = [];
+    try {
+      for (const operador of ["a", "pipeline"]) {
+        const negocio = await root.deal.create({ data: {
+          title: marca, ownerId: pessoas.get("b")!.id, pipelineId, stageId: etapaId,
+          profile: { create: { name: `Conversao ${randomUUID()}`, personType: "pj", email: `${randomUUID()}@sintetico.invalid` } },
+        } });
+        negocios.push(negocio);
+        const resultado = await contexto(operador, (tx) => tx.$queryRaw<Array<{ criado: boolean | null }>>`SELECT plugga_security.converter_lead_snapshot(${negocio.id}::uuid) AS criado`);
+        expect(resultado).toEqual([{ criado: operador === "a" ? true : null }]);
+        const convertido = await root.deal.findUniqueOrThrow({ where: { id: negocio.id } });
+        clientesExtras.push(convertido.clientId!);
+        expect((await root.client.findUniqueOrThrow({ where: { id: convertido.clientId! } })).ownerId).toBe(pessoas.get("b")!.id);
+        expect(await contexto("a", (tx) => tx.$queryRaw`SELECT plugga_security.converter_lead_snapshot(${negocio.id}::uuid) AS criado`)).toEqual([{ criado: false }]);
+        expect(await contexto("pipeline", (tx) => tx.$queryRaw`SELECT plugga_security.converter_lead_snapshot(${negocio.id}::uuid) AS criado`)).toEqual([{ criado: null }]);
+      }
+      // A exceção limitada ao snapshot não concede atribuição explícita a terceiros.
+      await expect(contexto("a", (tx) => tx.client.create({ data: { name: marca, ownerId: pessoas.get("b")!.id } }))).rejects.toThrow("ATRIBUICAO_REQUER_GESTAO");
+    } finally {
+      await root.deal.deleteMany({ where: { id: { in: negocios.map((n) => n.id) } } });
+    }
+  });
+
+  it("a licença de Clientes permite criar do snapshot sem contornar documento único; Pipelines exige resolução", async () => {
+    const nome = `Duplicata ${randomUUID()}`;
+    const existente = await root.client.create({ data: { name: nome, ownerId: pessoas.get("b")!.id } });
+    clientesExtras.push(existente.id);
+    const negocio = await root.deal.create({ data: {
+      title: marca, ownerId: pessoas.get("b")!.id, pipelineId, stageId: etapaId,
+      profile: { create: { name: nome, personType: "pj", email: `${randomUUID()}@sintetico.invalid` } },
+    } });
+    let comDocumentoId: string | undefined;
+    try {
+      await expect(contexto("pipeline", (tx) => tx.$executeRaw`SELECT plugga_security.converter_lead_snapshot(${negocio.id}::uuid)`)).rejects.toThrow("CONVERSAO_REQUER_CLIENTES");
+      expect(await contexto("a", (tx) => tx.$queryRaw`SELECT plugga_security.converter_lead_snapshot(${negocio.id}::uuid) AS criado`)).toEqual([{ criado: true }]);
+      const clienteId = (await root.deal.findUniqueOrThrow({ where: { id: negocio.id } })).clientId!;
+      clientesExtras.push(clienteId);
+      expect(clienteId).not.toBe(existente.id);
+      expect(await root.client.count({ where: { name: nome } })).toBe(2);
+      const documento = randomUUID().replaceAll("-", "");
+      await root.client.update({ where: { id: existente.id }, data: { document: documento } });
+      const cadastroAntes = await root.client.findUniqueOrThrow({ where: { id: existente.id } });
+      const comDocumento = await root.deal.create({ data: {
+        title: marca, ownerId: pessoas.get("b")!.id, pipelineId, stageId: etapaId,
+        profile: { create: { name: `Outro snapshot ${randomUUID()}`, personType: "pj", document: documento, email: `${randomUUID()}@sintetico.invalid` } },
+      } });
+      comDocumentoId = comDocumento.id;
+      expect(await contexto("a", (tx) => tx.$queryRaw`SELECT plugga_security.converter_lead_snapshot(${comDocumento.id}::uuid) AS criado`)).toEqual([{ criado: false }]);
+      expect((await root.deal.findUniqueOrThrow({ where: { id: comDocumento.id } })).clientId).toBe(existente.id);
+      expect(await root.client.findUniqueOrThrow({ where: { id: existente.id } })).toEqual(cadastroAntes);
+      expect(await root.client.count({ where: { document: documento } })).toBe(1);
+    } finally {
+      await root.deal.deleteMany({ where: { id: { in: [negocio.id, ...(comDocumentoId ? [comDocumentoId] : [])] } } });
+    }
+  });
+
+  it("a deduplicação por documento converge entre pipelines sem revelar nem alterar o cadastro encontrado", async () => {
+    const documento = randomUUID().replaceAll("-", "");
+    const nomeDoCadastro = `Cadastro ${randomUUID()}`;
+    const existente = await root.client.create({ data: { name: nomeDoCadastro, document: documento, ownerId: pessoas.get("b")!.id } });
+    clientesExtras.push(existente.id);
+    const outroPipeline = await root.pipeline.create({ data: {
+      companyId: empresaId, name: `${marca} alternativo`, color: "blue", valueLabel: "Valor", wonLabel: "Ganho", lostLabel: "Perdido",
+      stages: { create: { name: marca, color: "blue", position: 0 } },
+    }, include: { stages: true } });
+    const negocios = [];
+    try {
+      for (const { funil, etapa } of [{ funil: pipelineId, etapa: etapaId }, { funil: outroPipeline.id, etapa: outroPipeline.stages[0]!.id }]) {
+        negocios.push(await root.deal.create({ data: {
+          title: marca, ownerId: pessoas.get("b")!.id, pipelineId: funil, stageId: etapa,
+          profile: { create: { name: `Snapshot ${randomUUID()}`, personType: "pj", document: documento, email: `${randomUUID()}@sintetico.invalid` } },
+          leadContacts: { create: { name: "Contato que não deve alterar cadastro existente", email: `${randomUUID()}@sintetico.invalid` } },
+        } }));
+      }
+      await Promise.all(negocios.map((negocio) => contexto("pipeline", (tx) => tx.$executeRaw`SELECT plugga_security.converter_lead_snapshot(${negocio.id}::uuid)`)));
+      expect(await root.client.count({ where: { document: documento } })).toBe(1);
+      expect(await root.client.findUniqueOrThrow({ where: { id: existente.id } })).toEqual(existente);
+      expect(await root.clientContact.count({ where: { clientId: existente.id } })).toBe(0);
+      expect((await root.deal.findMany({ where: { id: { in: negocios.map((n) => n.id) } } })).every((n) => n.clientId === existente.id)).toBe(true);
+      expect(await idsVisiveis("pipeline")).toEqual([]);
+      // Sem cliente anterior: a mesma corrida também precisa convergir pelo índice único.
+      const novoDocumento = randomUUID().replaceAll("-", "");
+      for (const negocio of negocios) {
+        await root.deal.update({ where: { id: negocio.id }, data: { clientId: null } });
+        await root.leadProfile.update({ where: { dealId: negocio.id }, data: { document: novoDocumento } });
+      }
+      await Promise.all(negocios.map((negocio) => contexto("pipeline", (tx) => tx.$executeRaw`SELECT plugga_security.converter_lead_snapshot(${negocio.id}::uuid)`)));
+      const novo = await root.client.findUniqueOrThrow({ where: { document: novoDocumento } });
+      clientesExtras.push(novo.id);
+      expect(await root.client.count({ where: { document: novoDocumento } })).toBe(1);
+      expect((await root.deal.findMany({ where: { id: { in: negocios.map((n) => n.id) } } })).every((n) => n.clientId === novo.id)).toBe(true);
+    } finally {
+      await root.deal.deleteMany({ where: { id: { in: negocios.map((n) => n.id) } } });
+      await root.pipeline.delete({ where: { id: outroPipeline.id } });
+    }
+  });
+
+  it.each(["email", "telefone", "nome"])("duplicata possível por %s exige Clientes sem expor candidatos", async (criterio) => {
+    const email = `${randomUUID()}@sintetico.invalid`;
+    const telefone = `92${String(BigInt(`0x${randomBytes(5).toString("hex")}`)).padStart(9, "9").slice(-9)}`;
+    const nome = `Duplicata ${randomUUID()}`;
+    const cliente = await root.client.create({ data: {
+      name: criterio === "nome" ? `${nome} matriz` : `Cadastro ${randomUUID()}`,
+      phone: criterio === "telefone" ? `+55${telefone}` : null,
+      ownerId: pessoas.get("b")!.id,
+      contacts: criterio === "email" ? { create: { name: "Contato cadastral", email } } : undefined,
+    } });
+    clientesExtras.push(cliente.id);
+    const negocio = await root.deal.create({ data: {
+      title: marca, ownerId: pessoas.get("b")!.id, pipelineId, stageId: etapaId,
+      profile: { create: { name: criterio === "nome" ? nome : `Snapshot ${randomUUID()}`, personType: "pj", email, phone: telefone } },
+    } });
+    try {
+      await expect(contexto("pipeline", (tx) => tx.$executeRaw`SELECT plugga_security.converter_lead_snapshot(${negocio.id}::uuid)`)).rejects.toThrow("CONVERSAO_REQUER_CLIENTES");
+      expect((await root.deal.findUniqueOrThrow({ where: { id: negocio.id } })).clientId).toBeNull();
+      expect(await root.dealHistory.count({ where: { dealId: negocio.id, kind: "client_converted" } })).toBe(0);
+      expect(await root.eventLog.count({ where: { entityId: negocio.id } })).toBe(0);
+      expect(await contexto("pipeline", (tx) => tx.client.findMany({ where: { id: cliente.id } }))).toEqual([]);
+    } finally {
+      await root.deal.delete({ where: { id: negocio.id } });
+    }
+  });
+
+  it("Contratos e Financeiro recebem só id/nome dos clientes de seus contratos, em lote", async () => {
+    const contratos = await Promise.all(["a", "b"].map((nome) => root.contract.create({ data: {
+      ownerId: pessoas.get(nome)!.id, clientId: registros.get(nome)!,
+    } })));
+    const ids = contratos.map((c) => c.id);
+    try {
+      for (const pessoa of ["contratos", "financeiro"]) {
+        await contexto(pessoa, async (tx) => {
+          expect(await tx.contract.findMany({ where: { id: { in: ids } }, select: { id: true } })).toHaveLength(2);
+          expect(await tx.client.findMany()).toEqual([]);
+          expect(await tx.clientContact.findMany()).toEqual([]);
+          expect(await tx.$queryRaw`SELECT plugga_security.cliente_para_contrato(${registros.get("misto")!}::uuid) AS permitido`).toEqual([{ permitido: false }]);
+          const linhas = await tx.$queryRaw<Array<{ contract_id: string; id: string; name: string }>>`SELECT * FROM plugga_security.clientes_dos_contratos(${ids}::uuid[])`;
+          expect(linhas).toHaveLength(2);
+          for (const linha of linhas) expect(Object.keys(linha).sort()).toEqual(["contract_id", "id", "name"]);
+          expect(linhas.map((linha) => linha.id).sort()).toEqual([registros.get("a"), registros.get("b")].sort());
+        });
+      }
+      expect(await contexto("pipeline", (tx) => tx.$queryRaw`SELECT * FROM plugga_security.clientes_dos_contratos(${ids}::uuid[])`)).toEqual([]);
+      expect(await contexto("sem-tela", (tx) => tx.$queryRaw`SELECT * FROM plugga_security.clientes_dos_contratos(${ids}::uuid[])`)).toEqual([]);
+    } finally {
+      await root.contract.deleteMany({ where: { id: { in: ids } } });
+    }
+  });
+
+  it("Contratos sem Pipelines preserva oportunidade existente, mas não cria nem troca esse vínculo", async () => {
+    const oportunidades = [randomUUID(), randomUUID()];
+    const contratos = [randomUUID(), randomUUID()];
+    const ator = pessoas.get("contratos")!.id;
+    try {
+      for (const id of oportunidades) await root.opportunity.create({ data: {
+        id, title: marca, product: marca, status: "ganha", ownerId: pessoas.get("b")!.id, clientId: registros.get("a")!,
+      } });
+      await root.contract.create({ data: { id: contratos[0]!, ownerId: ator, clientId: registros.get("a")!, opportunityId: oportunidades[0]! } });
+      expect(await contexto("contratos", (tx) => tx.opportunity.findMany({ where: { id: { in: oportunidades } } }))).toEqual([]);
+      await expect(contexto("contratos", (tx) => tx.contract.create({ data: {
+        id: contratos[1]!, ownerId: ator, clientId: registros.get("a")!, opportunityId: oportunidades[1]!,
+      } }))).rejects.toThrow("VINCULO_OPORTUNIDADE_REQUER_PIPELINES");
+      await expect(contexto("contratos", (tx) => tx.contract.update({ where: { id: contratos[0]! }, data: { opportunityId: oportunidades[1]! } }))).rejects.toThrow("VINCULO_OPORTUNIDADE_REQUER_PIPELINES");
+      await expect(contexto("contratos", (tx) => tx.contract.update({ where: { id: contratos[0]! }, data: { opportunityId: null } }))).rejects.toThrow("VINCULO_OPORTUNIDADE_REQUER_PIPELINES");
+      await contexto("contratos", (tx) => tx.contract.update({ where: { id: contratos[0]! }, data: { status: "revisao_interna", opportunityId: oportunidades[0]! } }));
+      await root.userDepartamento.update({ where: { userId_departamento: { userId: ator, departamento: "crm" } }, data: { telas: ["crm.contratos", "crm.pipelines"] } });
+      await contexto("contratos", (tx) => tx.contract.create({ data: {
+        id: contratos[1]!, ownerId: ator, clientId: registros.get("a")!, opportunityId: oportunidades[1]!,
+      } }));
+      await root.userDepartamento.update({ where: { userId_departamento: { userId: ator, departamento: "crm" } }, data: { telas: ["crm.contratos"] } });
+      expect(await contexto("contratos", (tx) => tx.contract.update({ where: { id: contratos[1]! }, data: { status: "revisao_interna", opportunityId: oportunidades[1]! } }))).toMatchObject({ opportunityId: oportunidades[1] });
+    } finally {
+      await root.userDepartamento.update({ where: { userId_departamento: { userId: ator, departamento: "crm" } }, data: { telas: ["crm.contratos"] } });
+      await root.contract.deleteMany({ where: { id: { in: contratos } } });
+      await root.opportunity.deleteMany({ where: { id: { in: oportunidades } } });
+    }
+  });
+
+  it("WITH CHECK preserva a coerência entre cliente, contato e UC sem restringir pelo responsável", async () => {
     const negocio = await root.deal.findFirstOrThrow({ where: { pipelineId, ownerId: pessoas.get("a")!.id } });
-    await expect(contexto("a", (tx) => tx.deal.update({ where: { id: negocio.id }, data: { clientId: registros.get("b")! } }))).rejects.toThrow();
     await expect(contexto("a", (tx) => tx.deal.update({ where: { id: negocio.id }, data: { contactId: contatos.get("b")! } }))).rejects.toThrow();
     await expect(contexto("a", (tx) => tx.dealConsumerUnit.create({ data: { dealId: negocio.id, consumerUnitId: unidades.get("b")! } }))).rejects.toThrow();
     await contexto("a", async (tx) => {
-      await tx.deal.update({ where: { id: negocio.id }, data: { contactId: contatos.get("a")! } });
+      await tx.deal.update({ where: { id: negocio.id }, data: { clientId: registros.get("b")!, contactId: contatos.get("b")! } });
+      await tx.dealConsumerUnit.create({ data: { dealId: negocio.id, consumerUnitId: unidades.get("b")! } });
+      await tx.deal.update({ where: { id: negocio.id }, data: { clientId: registros.get("a")!, contactId: contatos.get("a")! } });
       await tx.dealConsumerUnit.create({ data: { dealId: negocio.id, consumerUnitId: unidades.get("a")! } });
     });
-    const pipeline = await contexto("gerente", (tx) => tx.pipeline.findUnique({ where: { id: pipelineId }, include: { members: { include: { user: true } } } }));
+    const pipeline = await contexto("gerente", (tx) => tx.pipeline.findUnique({ where: { id: pipelineId }, include: { members: { include: { user: { select: { id: true, name: true, status: true } } } } } }));
     expect(pipeline?.members).toHaveLength(2);
   });
 
-  it("WITH CHECK recusa vínculos comerciais alheios e clientes incoerentes, preservando os próprios e os da gerência", async () => {
+  it("WITH CHECK permite vínculos da tela e recusa cliente incoerente com a oportunidade", async () => {
     const oportunidades = [randomUUID(), randomUUID(), randomUUID()];
     const contratos = [randomUUID(), randomUUID(), randomUUID(), randomUUID()];
     const a = pessoas.get("a")!.id;
@@ -243,10 +488,12 @@ describe.skipIf(!HABILITADO)("RLS: permissões no login real da aplicação", ()
       await root.opportunity.create({ data: {
         id: oportunidades[1]!, title: marca, product: marca, ownerId: b, clientId: registros.get("b")!,
       } });
-      await expect(contexto("a", (tx) => tx.opportunity.create({ data: {
+      await contexto("a", (tx) => tx.opportunity.create({ data: {
         id: oportunidades[2]!, title: marca, product: marca, ownerId: a, clientId: registros.get("b")!,
-      } }))).rejects.toThrow();
-      await expect(contexto("a", (tx) => tx.opportunity.update({ where: { id: oportunidades[0]! }, data: { clientId: registros.get("b")! } }))).rejects.toThrow();
+      } }));
+      await contexto("a", (tx) => tx.opportunity.update({ where: { id: oportunidades[0]! }, data: { clientId: registros.get("b")! } }));
+      expect((await root.opportunity.findUniqueOrThrow({ where: { id: oportunidades[0]! } })).clientId).toBe(registros.get("b"));
+      await contexto("a", (tx) => tx.opportunity.update({ where: { id: oportunidades[0]! }, data: { clientId: registros.get("a")! } }));
       expect((await root.opportunity.findUniqueOrThrow({ where: { id: oportunidades[0]! } })).clientId).toBe(registros.get("a"));
 
       await contexto("a", (tx) => tx.contract.create({ data: {
@@ -271,13 +518,46 @@ describe.skipIf(!HABILITADO)("RLS: permissões no login real da aplicação", ()
     }
   });
 
-  it("gerente da tela enxerga todos; não combina nível e tela de departamentos distintos", async () => {
+  it("a tela, e não o nível ou o responsável, determina a leitura do cadastro", async () => {
     expect(await idsVisiveis("gerente")).toHaveLength(3);
-    expect(await idsVisiveis("misto")).toEqual([registros.get("misto")]);
+    expect(await idsVisiveis("a")).toHaveLength(3);
+    expect(await idsVisiveis("misto")).toEqual([]);
     expect(await idsVisiveis("sem-tela")).toEqual([]);
+    expect(await idsVisiveis("pipeline")).toEqual([]);
+    expect(await idsVisiveis("contratos")).toEqual([]);
     expect(await idsVisiveis("admin")).toHaveLength(3);
     expect(await idsVisiveis("dev")).toHaveLength(3);
     expect(await idsVisiveis("financeiro")).toEqual([]);
+  });
+
+  it("editar outro responsável não concede atribuição a terceiros nem reabilita destinatário inelegível", async () => {
+    const a = pessoas.get("a")!.id;
+    const b = pessoas.get("b")!.id;
+    const negocio = await root.deal.findFirstOrThrow({ where: { pipelineId, ownerId: a } });
+    const oportunidade = await root.opportunity.create({ data: { title: marca, product: marca, ownerId: a } });
+    const contrato = await root.contract.create({ data: { ownerId: a, clientId: registros.get("a")! } });
+    const atribuir = (ownerId: string) => [
+      (tx: Prisma.TransactionClient) => tx.client.updateMany({ where: { id: registros.get("a")! }, data: { ownerId } }),
+      (tx: Prisma.TransactionClient) => tx.deal.updateMany({ where: { id: negocio.id }, data: { ownerId } }),
+      (tx: Prisma.TransactionClient) => tx.opportunity.updateMany({ where: { id: oportunidade.id }, data: { ownerId } }),
+      (tx: Prisma.TransactionClient) => tx.contract.updateMany({ where: { id: contrato.id }, data: { ownerId } }),
+    ];
+    try {
+      for (const operacao of atribuir(b)) await expect(contexto("a", operacao)).rejects.toThrow("ATRIBUICAO_REQUER_GESTAO");
+      await root.user.update({ where: { id: b }, data: { status: "disabled" } });
+      for (const operacao of atribuir(b)) await expect(contexto("gerente", operacao)).rejects.toThrow("RESPONSAVEL_INELEGIVEL");
+      expect(await contexto("pipeline", (tx) => tx.user.findUnique({ where: { id: b }, select: { id: true, name: true, status: true } }))).toMatchObject({ id: b, status: "disabled" });
+      await root.user.update({ where: { id: b }, data: { status: "active" } });
+      for (const operacao of atribuir(b)) expect(await contexto("gerente", operacao)).toMatchObject({ count: 1 });
+      await expect(contexto("gerente", (tx) => tx.contract.updateMany({ where: { id: contrato.id }, data: { ownerId: pessoas.get("pipeline")!.id } }))).rejects.toThrow("RESPONSAVEL_INELEGIVEL");
+      await expect(contexto("gerente", (tx) => tx.client.updateMany({ where: { id: registros.get("a")! }, data: { ownerId: pessoas.get("pipeline")!.id } }))).rejects.toThrow("RESPONSAVEL_INELEGIVEL");
+    } finally {
+      await root.user.update({ where: { id: b }, data: { status: "active" } });
+      await root.client.update({ where: { id: registros.get("a")! }, data: { ownerId: a } });
+      await root.deal.update({ where: { id: negocio.id }, data: { ownerId: a } });
+      await root.contract.delete({ where: { id: contrato.id } });
+      await root.opportunity.delete({ where: { id: oportunidade.id } });
+    }
   });
 
   it("revoga tela, sessão expirada e usuário inativo na próxima consulta", async () => {
@@ -294,8 +574,8 @@ describe.skipIf(!HABILITADO)("RLS: permissões no login real da aplicação", ()
   });
 
   it("contextos concorrentes não vazam e SET LOCAL termina junto da transação", async () => {
-    const resultado = await Promise.all(Array.from({ length: 12 }, (_, i) => idsVisiveis(i % 2 ? "a" : "b")));
-    resultado.forEach((ids, i) => expect(ids).toEqual([registros.get(i % 2 ? "a" : "b")]));
+    const resultado = await Promise.all(Array.from({ length: 12 }, (_, i) => idsVisiveis(i % 2 ? "pipeline" : "a")));
+    resultado.forEach((ids, i) => expect(ids).toEqual(i % 2 ? [] : [...registros.values()]));
     expect(await app().client.count()).toBe(0);
     await expect(contexto("a", async () => { throw new Error("rollback sintético"); })).rejects.toThrow("rollback sintético");
     expect(await app().client.count()).toBe(0);
@@ -311,10 +591,11 @@ describe.skipIf(!HABILITADO)("RLS: permissões no login real da aplicação", ()
     await expect(clientes.auth!.client.findMany()).rejects.toThrow();
     await expect(clientes.jobs!.user.findMany()).rejects.toThrow();
     await expect(clientes.jobs!.client.findMany()).rejects.toThrow();
-    expect(await clientes.auth!.session.count({ where: { userId: { in: idsUsuarios } } })).toBe(8);
+    expect(await clientes.auth!.session.count({ where: { userId: { in: idsUsuarios } } })).toBe(idsUsuarios.length);
     expect(await clientes.jobs!.jobRun.findMany({ where: { jobKey: marca } })).toEqual([]);
-    expect(await contexto("a", (tx) => tx.user.findMany({ where: { id: { in: idsUsuarios } } }))).toHaveLength(1);
-    expect(await contexto("gerente", (tx) => tx.user.findMany({ where: { id: pessoas.get("b")!.id } }))).toHaveLength(1);
+    expect(await contexto("pipeline", (tx) => tx.user.findMany({ where: { id: pessoas.get("b")!.id }, select: { id: true, name: true, status: true } }))).toHaveLength(1);
+    await expect(contexto("pipeline", (tx) => tx.user.findMany({ select: { email: true } }))).rejects.toThrow();
+    await expect(contexto("admin", (tx) => tx.user.findMany({ select: { email: true } }))).rejects.toThrow();
   });
 
   it("separa leitura técnica, catálogos ativos e domínios ainda fechados", async () => {

@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
@@ -13,6 +13,8 @@ import {
   updatePipelineRequestSchema,
   winDealRequestSchema,
   type CompanyKey,
+  type ConvertLeadResponse,
+  type Tela,
   type Pipeline,
 } from "@plugga/shared";
 
@@ -24,7 +26,15 @@ import type { AuthPrincipal } from "../src/core/auth/auth.types.js";
 import { hojeNoFuso } from "../src/negocios/negocios.rules.js";
 import { PrismaNegociosRepository } from "../src/negocios/prisma-negocios.repository.js";
 import { PrismaPipelinesRepository } from "../src/pipelines/prisma-pipelines.repository.js";
+import { contextoBanco } from "../src/prisma/contexto-banco.js";
 import { PrismaService } from "../src/prisma/prisma.service.js";
+
+/** Estes cenarios de cadastro/deduplicacao concedem Clientes no banco e no DTO. */
+function clienteDaConversao(resultado: ConvertLeadResponse) {
+  expect(resultado.client, "Conversao com Clientes deve devolver a referencia autorizada").not.toBeNull();
+  if (!resultado.client) throw new Error("Referencia de cliente ausente no cenario com Clientes");
+  return resultado.client;
+}
 
 const ganhar = (convertToClient = false) => winDealRequestSchema.parse({ convertToClient });
 
@@ -33,11 +43,20 @@ function digitoVerificador(base: number[], pesos: number[]): number {
   const resto = base.reduce((soma, d, i) => soma + d * pesos[i]!, 0) % 11;
   return resto < 2 ? 0 : 11 - resto;
 }
+const cpfsGerados = new Set<string>();
 function gerarCpf(): string {
-  const base = [9, 9, 9, 9, 9, 9, ...Array.from({ length: 3 }, () => Math.floor(Math.random() * 10))];
-  const d1 = digitoVerificador(base, [10, 9, 8, 7, 6, 5, 4, 3, 2]);
-  const d2 = digitoVerificador([...base, d1], [11, 10, 9, 8, 7, 6, 5, 4, 3, 2]);
-  return [...base, d1, d2].join("");
+  if (cpfsGerados.size === 999) throw new Error("Faixa sintetica de CPF esgotada.");
+  for (;;) {
+    // Exclui sufixo 999 (todos os digitos iguais) e colisoes nesta execucao.
+    const sufixo = String(Math.floor(Math.random() * 999)).padStart(3, "0");
+    const base = [9, 9, 9, 9, 9, 9, ...sufixo.split("").map(Number)];
+    const d1 = digitoVerificador(base, [10, 9, 8, 7, 6, 5, 4, 3, 2]);
+    const d2 = digitoVerificador([...base, d1], [11, 10, 9, 8, 7, 6, 5, 4, 3, 2]);
+    const cpf = [...base, d1, d2].join("");
+    if (cpfsGerados.has(cpf)) continue;
+    cpfsGerados.add(cpf);
+    return cpf;
+  }
 }
 
 /**
@@ -56,12 +75,39 @@ describe.skipIf(!HABILITADO)("negócios: quadro do pipeline no Postgres", () => 
   const auditoria = new AuditAppender();
   const pipelines = new PrismaPipelinesRepository(prisma, auditoria);
   const clientes = new ClientesService(new PrismaClientesRepository(prisma, auditoria));
-  const negocios = new PrismaNegociosRepository(prisma, auditoria, clientes);
+  const sessoes = new Map<string, string>();
+  const negocios = comSessaoDoAtor(new PrismaNegociosRepository(prisma, auditoria, clientes));
   const marca = `neg-${randomUUID().slice(0, 8)}`;
   const pessoas = {} as Record<"gestor" | "ana" | "bruno" | "forasteiro" | "pluggaVendedor", AuthPrincipal>;
   let solar: Pipeline;
   let mercadoLivre: Pipeline;
   let clienteId: string;
+
+  async function autenticar(principal: AuthPrincipal): Promise<AuthPrincipal> {
+    const sessionHash = randomBytes(32).toString("hex");
+    await prisma.session.create({ data: {
+      userId: principal.id, tokenHash: sessionHash,
+      expiresAt: new Date(Date.now() + 3_600_000), absoluteExpiresAt: new Date(Date.now() + 7_200_000),
+    } });
+    sessoes.set(principal.id, sessionHash);
+    return principal;
+  }
+
+  /** O repositorio e a RPC reais recebem a capacidade da sessao persistida do ator. */
+  function comSessaoDoAtor(repositorio: PrismaNegociosRepository): PrismaNegociosRepository {
+    return new Proxy(repositorio, {
+      get(alvo, chave) {
+        const metodo = Reflect.get(alvo, chave) as unknown;
+        if (typeof metodo !== "function") return metodo;
+        return (...args: unknown[]) => {
+          const ator = args.at(-1) as AuthPrincipal;
+          const sessionHash = sessoes.get(ator.id);
+          if (!sessionHash) throw new Error("Ator de fixture sem sessao persistida.");
+          return contextoBanco.run({ sessionHash }, () => Reflect.apply(metodo, alvo, args));
+        };
+      },
+    });
+  }
 
   const etapa = (nome: string) => solar.stages.find((e) => e.name === nome)!.id;
   const novo = (dados: Record<string, unknown> = {}, principal = pessoas.ana) =>
@@ -82,14 +128,15 @@ describe.skipIf(!HABILITADO)("negócios: quadro do pipeline no Postgres", () => 
   /** A empresa é só etiqueta do pipeline: quem é do CRM entra em qualquer um, e o gerente do CRM gere os dois. */
   async function pessoa(chave: keyof typeof pessoas, gestor = false): Promise<void> {
     const nivel = gestor ? "gerente" : "membro";
+    const telas: Tela[] = chave === "forasteiro" ? [] : ["crm.pipelines", "crm.clientes"];
     const usuario = await prisma.user.create({
       data: {
         email: `${marca}-${chave.toLowerCase()}@teste.local`,
         name: `${marca} ${chave}`,
-        departamentos: { create: { departamento: "crm", nivel, telas: chave === "forasteiro" ? [] : ["crm.pipelines"] } },
+        departamentos: { create: { departamento: "crm", nivel, telas } },
       },
     });
-    pessoas[chave] = { id: usuario.id, kind: "user", acesso: { plataforma: null, departamentos: [{ departamento: "crm", nivel }] } };
+    pessoas[chave] = await autenticar({ id: usuario.id, kind: "user", acesso: { plataforma: null, departamentos: [{ departamento: "crm", nivel, telas }] } });
   }
 
   const configuracao = (empresa: CompanyKey, nome: string, etapas: string[]) =>
@@ -144,14 +191,16 @@ describe.skipIf(!HABILITADO)("negócios: quadro do pipeline no Postgres", () => 
     await prisma.deal.deleteMany({ where: { title: { startsWith: marca } } });
     await prisma.pipeline.deleteMany({ where: { name: { startsWith: marca } } });
     await prisma.client.deleteMany({ where: { name: { startsWith: marca } } });
+    await prisma.session.deleteMany({ where: { userId: { in: [...sessoes.keys()] } } });
     await prisma.user.deleteMany({ where: { email: { startsWith: marca } } });
+    sessoes.clear();
     await prisma.$disconnect();
   }, PRAZO_MS);
 
   it("detalhe real respeita acesso atual do CRM e oculta leitura, histórico e edição sem acesso", async () => {
     const criado = await novo();
     const detalhe = await negocios.get(criado.id, pessoas.gestor);
-    await expect(negocios.get(criado.id, pessoas.pluggaVendedor)).rejects.toBeInstanceOf(NaoEncontrado);
+    await expect(negocios.get(criado.id, pessoas.pluggaVendedor)).resolves.toMatchObject({ id: criado.id });
     expect(detalhe).toMatchObject({ id: criado.id, title: criado.title, lead: criado.lead, version: expect.any(Number) });
     const antes = await prisma.eventLog.count({ where: { entityId: criado.id } });
     await expect(negocios.get(criado.id, pessoas.forasteiro)).rejects.toBeInstanceOf(NaoEncontrado);
@@ -161,40 +210,37 @@ describe.skipIf(!HABILITADO)("negócios: quadro do pipeline no Postgres", () => 
     expect(await prisma.eventLog.count({ where: { entityId: criado.id } })).toBe(antes);
   });
 
-  it("membro só vê seus negócios e contagens, e lote misto não altera nenhum registro", async () => {
+  it("Membro com Pipelines ve e trabalha nos leads de todos os responsaveis", async () => {
     const proprio = await novo();
     const alheio = await novo({ ownerId: pessoas.bruno.id }, pessoas.gestor);
-    const antes = await prisma.deal.findMany({ where: { id: { in: [proprio.id, alheio.id] } }, orderBy: { id: "asc" } });
-    const historicos = await prisma.dealHistory.count({ where: { dealId: { in: [proprio.id, alheio.id] } } });
-    const operations = [
-      () => negocios.get(alheio.id, pessoas.ana),
-      () => negocios.history(alheio.id, { limit: 30 }, pessoas.ana),
-      () => negocios.update(alheio.id, { title: `${marca} proibido` }, pessoas.ana),
-      () => negocios.moveStage(alheio.id, { stageId: etapa("Visita técnica") }, pessoas.ana),
-      () => negocios.setPriority(alheio.id, { priority: "urgente" }, pessoas.ana),
-      () => negocios.win(alheio.id, ganhar(), pessoas.ana),
-      () => negocios.lose(alheio.id, { lossReasonId: solar.lossReasons[0]!.id }, pessoas.ana),
-      () => negocios.convert(alheio.id, {}, pessoas.ana),
-      () => negocios.transfer(alheio.id, transferDealRequestSchema.parse({ pipelineId: mercadoLivre.id, stageId: mercadoLivre.stages[0]!.id }), pessoas.ana),
-    ];
-    for (const operation of operations) await expect(operation()).rejects.toBeInstanceOf(NaoEncontrado);
+    expect((await negocios.get(alheio.id, pessoas.ana)).owner.id).toBe(pessoas.bruno.id);
+    expect((await negocios.history(alheio.id, { limit: 30 }, pessoas.ana)).entries)
+      .toContainEqual(expect.objectContaining({ kind: "created", actor: { id: pessoas.gestor.id, name: expect.any(String) } }));
+    const editado = await negocios.update(alheio.id, { title: `${marca} compartilhado` }, pessoas.ana);
+    expect(editado).toMatchObject({ title: `${marca} compartilhado`, owner: { id: pessoas.bruno.id } });
+    await negocios.moveStage(alheio.id, { stageId: etapa("Visita técnica") }, pessoas.ana);
+    await negocios.setPriority(alheio.id, { priority: "urgente" }, pessoas.ana);
     for (const action of [
-      { type: "priority", priority: "urgente" }, { type: "owner", ownerId: pessoas.ana.id },
+      { type: "priority", priority: "urgente" },
       { type: "tag", tagId: solar.tags[0]!.id }, { type: "stage", stageId: etapa("Visita técnica") },
-    ]) await expect(negocios.bulk(bulkDealsRequestSchema.parse({ dealIds: [proprio.id, alheio.id], action }), pessoas.ana)).rejects.toBeInstanceOf(NaoEncontrado);
-    await expect(negocios.moveStage(proprio.id, { stageId: proprio.stageId, beforeDealId: alheio.id }, pessoas.ana)).rejects.toBeInstanceOf(RequisicaoInvalida);
-    expect(await prisma.deal.findMany({ where: { id: { in: [proprio.id, alheio.id] } }, orderBy: { id: "asc" } })).toEqual(antes);
-    expect(await prisma.dealHistory.count({ where: { dealId: { in: [proprio.id, alheio.id] } } })).toBe(historicos);
-    expect((await negocios.list({ pipelineId: solar.id, status: "all" }, pessoas.ana)).deals.every((n) => n.owner.id === pessoas.ana.id)).toBe(true);
+    ]) {
+      const lote = await negocios.bulk(bulkDealsRequestSchema.parse({ dealIds: [proprio.id, alheio.id], action }), pessoas.ana);
+      expect(lote.deals.map((item) => item.id).sort()).toEqual([proprio.id, alheio.id].sort());
+    }
+    await expect(negocios.moveStage(proprio.id, { stageId: etapa("Visita técnica"), beforeDealId: alheio.id }, pessoas.ana)).resolves.toMatchObject({ id: proprio.id });
     for (const pessoa of [pessoas.ana, pessoas.bruno]) {
       const lista = await pipelines.list(pessoa);
-      expect(lista.responsaveis.map((r) => r.id)).toEqual([pessoa.id]);
+      expect(lista.responsaveis.map((r) => r.id)).toEqual(expect.arrayContaining([pessoas.ana.id, pessoas.bruno.id]));
       const funil = lista.pipelines.find((p) => p.id === solar.id)!;
-      expect(funil.dealCount).toBe(await prisma.deal.count({ where: { pipelineId: solar.id, ownerId: pessoa.id } }));
-      for (const stage of funil.stages) expect(stage.dealCount).toBe(await prisma.deal.count({ where: { stageId: stage.id, ownerId: pessoa.id } }));
+      expect(funil.dealCount).toBe(await prisma.deal.count({ where: { pipelineId: solar.id } }));
+      for (const stage of funil.stages) expect(stage.dealCount).toBe(await prisma.deal.count({ where: { stageId: stage.id } }));
+      expect((await negocios.list({ pipelineId: solar.id, status: "all" }, pessoa)).deals.map((item) => item.id))
+        .toEqual(expect.arrayContaining([proprio.id, alheio.id]));
     }
-    expect((await negocios.get(alheio.id, pessoas.gestor)).owner.id).toBe(pessoas.bruno.id);
-  });
+    const transferivel = await novo({ ownerId: pessoas.bruno.id }, pessoas.gestor);
+    await expect(negocios.transfer(transferivel.id, transferDealRequestSchema.parse({ pipelineId: mercadoLivre.id, stageId: mercadoLivre.stages[0]!.id }), pessoas.ana))
+      .resolves.toMatchObject({ owner: { id: pessoas.bruno.id }, pipelineId: mercadoLivre.id });
+  }, PRAZO_MS);
 
   it("só gestão atribui a outra pessoa, mesmo com vínculo antigo de gestor do funil", async () => {
     const proprio = await novo();
@@ -210,45 +256,50 @@ describe.skipIf(!HABILITADO)("negócios: quadro do pipeline no Postgres", () => 
     }
     await prisma.userDepartamento.updateMany({ where: { userId: pessoas.gestor.id }, data: { nivel: "membro" } });
     try {
-      await expect(negocios.get(proprio.id, pessoas.gestor)).rejects.toBeInstanceOf(NaoEncontrado);
+      await expect(negocios.get(proprio.id, pessoas.gestor)).resolves.toMatchObject({ id: proprio.id });
+      await expect(novo({ ownerId: pessoas.bruno.id }, pessoas.gestor)).rejects.toBeInstanceOf(AcessoNegado);
     } finally {
       await prisma.userDepartamento.updateMany({ where: { userId: pessoas.gestor.id }, data: { nivel: "gerente" } });
     }
   });
 
-  it("mudança de dono do cliente oculta o vínculo e minimiza autores sem apagar o histórico", async () => {
+  it("a tela, nao o dono, controla o cliente relacionado; o lead e seu historico continuam visiveis", async () => {
     const cliente = await prisma.client.create({ data: { ownerId: pessoas.ana.id, name: `${marca} Cliente transferido` } });
     const proprio = await novo({ clientId: cliente.id });
-    expect(proprio.client?.id).toBe(cliente.id);
-    await negocios.update(proprio.id, { title: `${marca} Edição da gestão` }, pessoas.gestor);
+    await negocios.update(proprio.id, { title: `${marca} Edicao da gestao` }, pessoas.gestor);
     await prisma.client.update({ where: { id: cliente.id }, data: { ownerId: pessoas.bruno.id } });
-    const detalhe = await negocios.get(proprio.id, pessoas.ana);
-    expect(detalhe.client).toBeNull();
-    expect((await negocios.list({ pipelineId: solar.id, status: "all" }, pessoas.ana)).deals.find((d) => d.id === proprio.id)?.client).toBeNull();
-    await expect(negocios.clientOptions(cliente.id, pessoas.ana)).rejects.toBeInstanceOf(NaoEncontrado);
-    const historico = await negocios.history(proprio.id, { limit: 30 }, pessoas.ana);
-    expect(historico.entries.find((e) => e.kind === "field_changed")?.actor).toBeNull();
-    expect((await negocios.get(proprio.id, pessoas.gestor)).client).toMatchObject({ id: cliente.id, name: cliente.name });
-    expect((await negocios.history(proprio.id, { limit: 30 }, pessoas.gestor)).entries.find((e) => e.kind === "field_changed")?.actor?.id).toBe(pessoas.gestor.id);
-    expect((await pipelines.list(pessoas.ana)).pipelines.find((p) => p.id === solar.id)?.updatedBy).toBeNull();
-    expect((await prisma.deal.findUniqueOrThrow({ where: { id: proprio.id } })).clientId).toBe(cliente.id);
-    expect(await prisma.dealHistory.count({ where: { dealId: proprio.id, actorId: pessoas.gestor.id } })).toBe(1);
-  });
+    expect((await negocios.get(proprio.id, pessoas.ana)).client).toMatchObject({ id: cliente.id, name: cliente.name });
+    const pipelineOnly: AuthPrincipal = { ...pessoas.ana, acesso: { plataforma: null, departamentos: [{ departamento: "crm", nivel: "membro", telas: ["crm.pipelines"] }] } };
+    await prisma.userDepartamento.updateMany({ where: { userId: pessoas.ana.id }, data: { telas: ["crm.pipelines"] } });
+    try {
+      const detalhe = await negocios.get(proprio.id, pipelineOnly);
+      expect(detalhe).toMatchObject({ id: proprio.id, client: null, lead: { name: proprio.lead.name } });
+      expect((await negocios.list({ pipelineId: solar.id, status: "all" }, pipelineOnly)).deals.find((d) => d.id === proprio.id)?.client).toBeNull();
+      await expect(negocios.clientOptions(cliente.id, pipelineOnly)).rejects.toBeInstanceOf(AcessoNegado);
+      const historico = await negocios.history(proprio.id, { limit: 30 }, pipelineOnly);
+      expect(historico.entries.find((e) => e.kind === "field_changed")?.actor?.id).toBe(pessoas.gestor.id);
+      expect((await prisma.deal.findUniqueOrThrow({ where: { id: proprio.id } })).clientId).toBe(cliente.id);
+      expect(await prisma.dealHistory.count({ where: { dealId: proprio.id, actorId: pessoas.gestor.id } })).toBe(1);
+    } finally {
+      await prisma.userDepartamento.updateMany({ where: { userId: pessoas.ana.id }, data: { telas: ["crm.pipelines", "crm.clientes"] } });
+    }
+  }, PRAZO_MS);
 
-  it("seleção, contatos, vínculo e conversão não expõem cliente de outro responsável ou compartilhado", async () => {
+  it("Clientes concedido permite contatos, vinculos e deduplicacao independentemente do responsavel", async () => {
     const privado = await prisma.client.create({ data: { ownerId: pessoas.bruno.id, name: `${marca} Privado`, document: gerarCpf(), contacts: { create: { name: "Contato privado" } } } });
     const compartilhado = await prisma.client.create({ data: { name: `${marca} Compartilhado`, contacts: { create: { name: "Contato compartilhado" } } } });
     for (const cliente of [privado, compartilhado]) {
-      await expect(negocios.clientOptions(cliente.id, pessoas.ana)).rejects.toBeInstanceOf(NaoEncontrado);
-      expect((await negocios.clientOptions(cliente.id, pessoas.gestor)).contacts).toHaveLength(1);
-      await expect(novo({ clientId: cliente.id })).rejects.toBeInstanceOf(NaoEncontrado);
+      expect((await negocios.clientOptions(cliente.id, pessoas.ana)).contacts).toHaveLength(1);
+      expect((await novo({ clientId: cliente.id })).client).toMatchObject({ id: cliente.id });
     }
     const porEscolha = await novo({ lead: { personType: "pf", name: `${marca} Escolha`, phone: "92999990000" } });
-    await expect(negocios.convert(porEscolha.id, { resolution: { type: "link", clientId: privado.id } }, pessoas.ana)).rejects.toBeInstanceOf(NaoEncontrado);
     const porDocumento = await novo({ lead: { personType: "pf", name: `${marca} Documento`, document: privado.document, phone: "92999990000" } });
-    await expect(negocios.convert(porDocumento.id, {}, pessoas.ana)).rejects.toBeInstanceOf(NaoEncontrado);
-    expect(await prisma.deal.count({ where: { id: { in: [porEscolha.id, porDocumento.id] }, clientId: null, status: "open" } })).toBe(2);
-  });
+    const escolhido = await negocios.convert(porEscolha.id, { resolution: { type: "link", clientId: privado.id } }, pessoas.ana);
+    const encontrado = await negocios.convert(porDocumento.id, {}, pessoas.ana);
+    expect(clienteDaConversao(escolhido).id).toBe(privado.id);
+    expect(clienteDaConversao(encontrado).id).toBe(privado.id);
+    expect(await prisma.deal.count({ where: { id: { in: [porEscolha.id, porDocumento.id] }, clientId: privado.id, status: "won" } })).toBe(2);
+  }, PRAZO_MS);
 
   it("edita dados comerciais, origem/endereço/complemento e contato próprio com antes/depois", async () => {
     const criado = await novo({ contact: { name: "Contato inicial", phone: "92999991111" } });
@@ -334,7 +385,7 @@ describe.skipIf(!HABILITADO)("negócios: quadro do pipeline no Postgres", () => 
     const detalhe = await negocios.get(criado.id, pessoas.ana);
     const falha = new AuditAppender();
     falha.append = async () => { throw new Error("falha sintética de auditoria"); };
-    const repositorio = new PrismaNegociosRepository(prisma, falha, clientes);
+    const repositorio = comSessaoDoAtor(new PrismaNegociosRepository(prisma, falha, clientes));
     await expect(repositorio.update(criado.id, { version: detalhe.version, title: `${marca} Reverter`, lead: { notes: "Reverter" } }, pessoas.ana)).rejects.toThrow("falha sintética");
     expect(await negocios.get(criado.id, pessoas.ana)).toEqual(detalhe);
     expect(await prisma.dealHistory.count({ where: { dealId: criado.id } })).toBe(1);
@@ -412,7 +463,7 @@ describe.skipIf(!HABILITADO)("negócios: quadro do pipeline no Postgres", () => 
   });
 
   it(
-    "a vendedora cria o lead, já com cliente vinculado e contato próprio; a gestão o vê e outros membros não",
+    "a vendedora cria o lead com cliente e contato; todos com as telas concedidas o veem",
     async () => {
       const negocio = await novo({
         clientId: clienteId,
@@ -427,7 +478,7 @@ describe.skipIf(!HABILITADO)("negócios: quadro do pipeline no Postgres", () => 
       expect(negocio.tags.map((t) => t.name)).toEqual(["Grupo A"]);
 
       const doBruno = await negocios.list({ pipelineId: solar.id, status: "open" }, pessoas.bruno);
-      expect(doBruno.deals.map((d) => d.id)).not.toContain(negocio.id);
+      expect(doBruno.deals.map((d) => d.id)).toContain(negocio.id);
       const doGestor = await negocios.list({ pipelineId: solar.id, status: "open" }, pessoas.gestor);
       expect(doGestor.deals.find((d) => d.id === negocio.id)?.client).toEqual(negocio.client);
       await expect(negocios.list({ pipelineId: solar.id, status: "open" }, pessoas.forasteiro)).rejects.toBeInstanceOf(NaoEncontrado);
@@ -597,11 +648,11 @@ describe.skipIf(!HABILITADO)("negócios: quadro do pipeline no Postgres", () => 
         email: `${marca}-${papel}@teste.local`, name: `${marca} ${papel}`, status: "active",
         platformRoles: { create: papeis.map(({ id: roleId }) => ({ roleId })) },
       } });
-      const principal: AuthPrincipal = { id: usuario.id, kind: "user", acesso: { plataforma: papel, departamentos: [] } };
+      const principal = await autenticar({ id: usuario.id, kind: "user", acesso: { plataforma: papel, departamentos: [] } });
       if (papel === "admin") administrador = principal;
       const lista = await pipelines.list(principal);
       expect(lista.pipelines.some((p) => p.id === solar.id)).toBe(true);
-      expect(lista.responsaveis).toContainEqual({ id: usuario.id, name: usuario.name, email: usuario.email });
+      expect(lista.responsaveis).toContainEqual({ id: usuario.id, name: usuario.name });
       expect((await novo({ ownerId: usuario.id }, administrador)).owner.id).toBe(usuario.id);
       expect(await prisma.pipelineMember.count({ where: { userId: usuario.id } })).toBe(0);
     }
@@ -627,7 +678,7 @@ describe.skipIf(!HABILITADO)("negócios: quadro do pipeline no Postgres", () => 
     try {
       await expect(novo({ ownerId: pessoas.gestor.id }, administrador)).rejects.toBeInstanceOf(RequisicaoInvalida);
     } finally {
-      await prisma.userDepartamento.updateMany({ where: { userId: pessoas.gestor.id }, data: { telas: ["crm.pipelines"] } });
+      await prisma.userDepartamento.updateMany({ where: { userId: pessoas.gestor.id }, data: { telas: ["crm.pipelines", "crm.clientes"] } });
     }
   }, PRAZO_MS);
 
@@ -781,7 +832,7 @@ describe.skipIf(!HABILITADO)("negócios: quadro do pipeline no Postgres", () => 
       expect(resultado.created).toBe(true);
       expect(resultado.lead).toMatchObject({ status: "won", closedAt: expect.any(String) });
 
-      const criado = await prisma.client.findUniqueOrThrow({ where: { id: resultado.client.id }, include: { contacts: true } });
+      const criado = await prisma.client.findUniqueOrThrow({ where: { id: clienteDaConversao(resultado).id }, include: { contacts: true } });
       expect(criado).toMatchObject({ name: `${marca} Novo ${marcador}`, email: `${marcador}@teste.local`, city: "Manaus" });
       expect(criado.contacts).toHaveLength(1);
       expect(criado.contacts[0]).toMatchObject({ name: "Contato do lead", email: `${marcador}-contato@teste.local` });
@@ -820,9 +871,9 @@ describe.skipIf(!HABILITADO)("negócios: quadro do pipeline no Postgres", () => 
 
       const resultado = await negocios.convert(negocio.id, {}, pessoas.ana);
       expect(resultado.created).toBe(true);
-      const cliente = await prisma.client.findUniqueOrThrow({ where: { id: resultado.client.id } });
+      const cliente = await prisma.client.findUniqueOrThrow({ where: { id: clienteDaConversao(resultado).id } });
       expect(cliente).toMatchObject({ name: negocio.lead.name, document: documento, phone: null, email: null });
-      expect((await negocios.convert(negocio.id, {}, pessoas.ana)).client.id).toBe(cliente.id);
+      expect(clienteDaConversao(await negocios.convert(negocio.id, {}, pessoas.ana)).id).toBe(cliente.id);
       expect(await prisma.dealHistory.count({ where: { dealId: negocio.id, kind: "client_converted" } })).toBe(1);
     }, PRAZO_MS);
 
@@ -852,7 +903,7 @@ describe.skipIf(!HABILITADO)("negócios: quadro do pipeline no Postgres", () => 
       const negocio = await novo({ stageId: etapa("Visita técnica"), lead: { personType: "pf", name: nome, email: `${marcador}@teste.local` } });
       const resultados = await Promise.all([pessoas.ana, pessoas.gestor].map((pessoa) => negocios.convert(negocio.id, {}, pessoa)));
       expect(resultados.map((r) => r.created).sort()).toEqual([false, true]);
-      expect(new Set(resultados.map((r) => r.client.id)).size).toBe(1);
+      expect(new Set(resultados.map((r) => clienteDaConversao(r).id)).size).toBe(1);
       expect(resultados.every((r) => r.lead.status === "won")).toBe(true);
       expect(await prisma.client.count({ where: { name: nome } })).toBe(1);
       expect(await prisma.dealHistory.count({ where: { dealId: negocio.id, kind: "client_converted" } })).toBe(1);
@@ -869,7 +920,7 @@ describe.skipIf(!HABILITADO)("negócios: quadro do pipeline no Postgres", () => 
         if (evento.eventName === "commercial.deal.won") throw new Error("falha sintética na auditoria do ganho");
         await auditoria.append(tx, evento);
       };
-      const repositorio = new PrismaNegociosRepository(prisma, falha, clientes);
+      const repositorio = comSessaoDoAtor(new PrismaNegociosRepository(prisma, falha, clientes));
       await expect(repositorio.convert(negocio.id, {}, pessoas.ana)).rejects.toThrow("falha sintética");
       expect(await prisma.client.count({ where: { name: nome } })).toBe(0);
       expect(await prisma.deal.findUniqueOrThrow({ where: { id: negocio.id } })).toMatchObject({ clientId: null, status: "open", closedAt: null });
@@ -894,7 +945,7 @@ describe.skipIf(!HABILITADO)("negócios: quadro do pipeline no Postgres", () => 
       const negocio = await novo({ stageId: etapa("Visita técnica"), lead: { personType: "pf", name: `${marca} Já ganho ${marcador}`, email: `${marcador}@teste.local` } });
       const ganho = await negocios.win(negocio.id, ganhar(false), pessoas.ana);
       const resultado = await negocios.convert(negocio.id, {}, pessoas.ana);
-      expect(resultado.lead).toMatchObject({ status: "won", closedAt: ganho.closedAt, client: { id: resultado.client.id } });
+      expect(resultado.lead).toMatchObject({ status: "won", closedAt: ganho.closedAt, client: { id: clienteDaConversao(resultado).id } });
       expect(await prisma.dealHistory.count({ where: { dealId: negocio.id, kind: "won" } })).toBe(1);
       expect(await prisma.eventLog.count({ where: { entityId: negocio.id, eventName: "commercial.deal.won" } })).toBe(1);
     }, PRAZO_MS);
@@ -944,7 +995,7 @@ describe.skipIf(!HABILITADO)("negócios: quadro do pipeline no Postgres", () => 
         if (evento.eventName === "commercial.deal.won") throw new Error("falha sintética na auditoria do ganho após transferência");
         await auditoria.append(tx, evento);
       };
-      const repositorio = new PrismaNegociosRepository(prisma, falha, clientes);
+      const repositorio = comSessaoDoAtor(new PrismaNegociosRepository(prisma, falha, clientes));
 
       await expect(repositorio.transfer(negocio.id, transferDealRequestSchema.parse({ pipelineId: mercadoLivre.id, stageId: mercadoLivre.stages[1]!.id, convertToClient: true }), pessoas.ana)).rejects.toThrow("falha sintética");
       expect(await negocios.get(negocio.id, pessoas.ana)).toEqual(antes);

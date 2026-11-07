@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { AuditAppender } from "../audit/audit-appender";
+import { AcessoNegado } from "../common/errors/dominio";
 import type { AuthPrincipal } from "../core/auth/auth.types";
 import type { PrismaService } from "../prisma/prisma.service";
 import { ClientesController } from "./clientes.controller";
@@ -28,9 +29,12 @@ function setup() {
 }
 
 describe("Seleção de clientes para negócios", () => {
-  it("gerente só de Pipelines seleciona clientes próprios, alheios e compartilhados com projeção mínima", async () => {
+  it("Membro com Clientes seleciona todos os clientes com projeção mínima, sem filtro por responsável", async () => {
     const { controller, findMany } = setup();
-    const result = await controller.selecaoNegocio({ q: "Hotel" }, gerentePipelines);
+    const membroClientes: AuthPrincipal = { ...gerentePipelines, acesso: { plataforma: null, departamentos: [
+      { departamento: "crm", nivel: "membro", telas: ["crm.clientes"] },
+    ] } };
+    const result = await controller.selecaoNegocio({ q: "Hotel" }, membroClientes);
     expect(result.items.map((item) => item.id)).toEqual(registros.map((row) => row.id));
     expect(Object.keys(result.items[0]!).sort()).toEqual(["city", "documentDisplay", "id", "name", "primaryContactName"]);
     expect(result.items[0]?.documentDisplay).not.toBe(registros[0]?.document);
@@ -39,19 +43,20 @@ describe("Seleção de clientes para negócios", () => {
     expect(findMany.mock.calls[0]?.[0]).not.toHaveProperty("include");
   });
 
-  it("a seleção não amplia a listagem geral para gerência só de Pipelines com leitura de membro em Energia", async () => {
-    const { service } = setup();
-    const result = await service.list({ q: "Hotel" }, gerentePipelines);
-    expect(result.items.map((item) => item.id)).toEqual([registros[0]!.id]);
+  it("gerência só de Pipelines não lê nem seleciona Clientes, mesmo com acesso a Energia", async () => {
+    const { service, findMany } = setup();
+    await expect(service.list({ q: "Hotel" }, gerentePipelines)).rejects.toBeInstanceOf(AcessoNegado);
+    await expect(service.selecaoNegocio({ q: "Hotel" }, gerentePipelines)).rejects.toBeInstanceOf(AcessoNegado);
+    expect(findMany).not.toHaveBeenCalled();
   });
 
-  it("gerência em Energia não amplia a seleção do membro de Pipelines", async () => {
-    const { controller } = setup();
+  it("gerência em Energia não concede seleção de Clientes ao membro de Pipelines", async () => {
+    const { controller, findMany } = setup();
     const membroPipelines: AuthPrincipal = { ...gerentePipelines, acesso: { plataforma: null, departamentos: [
       { departamento: "crm", nivel: "membro", telas: ["crm.pipelines"] },
       { departamento: "energia-opm", nivel: "gerente" },
     ] } };
-    const result = await controller.selecaoNegocio({ q: "Hotel" }, membroPipelines);
-    expect(result.items.map((item) => item.id)).toEqual([registros[0]!.id]);
+    await expect(controller.selecaoNegocio({ q: "Hotel" }, membroPipelines)).rejects.toBeInstanceOf(AcessoNegado);
+    expect(findMany).not.toHaveBeenCalled();
   });
 });

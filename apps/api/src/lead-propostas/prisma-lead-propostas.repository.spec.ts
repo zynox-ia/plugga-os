@@ -52,10 +52,10 @@ describe("Persistência das propostas: isolamento e concorrência", () => {
     await expect(repo.get(row.dealId, row.id, principal)).rejects.toBeInstanceOf(NaoEncontrado);
     expect(read).not.toHaveBeenCalled();
   });
-  it("recusa todos os caminhos de proposta do negócio de outro membro, mesmo com papel antigo na sessão", async () => {
+  it("tela revogada recusa todos os caminhos de proposta, mesmo com papel antigo na sessão", async () => {
     const { repo, read, write, deal } = setup();
     deal.mockResolvedValue({ ownerId: "outro" } as never);
-    vi.mocked(access.lerAcessoComercial).mockResolvedValue({ podeOperar: true, admin: false, gestorEm: [] });
+    vi.mocked(access.lerAcessoComercial).mockResolvedValue({ podeOperar: false, admin: false, gestorEm: [] });
     const operations = [
       () => repo.list(row.dealId, principal),
       () => repo.templates(row.dealId, principal),
@@ -68,6 +68,20 @@ describe("Persistência das propostas: isolamento e concorrência", () => {
     for (const operation of operations) await expect(operation()).rejects.toBeInstanceOf(NaoEncontrado);
     expect(read).not.toHaveBeenCalled();
     expect(write).not.toHaveBeenCalled();
+  });
+  it("membro lê e edita proposta do lead de outro responsável na tela compartilhada", async () => {
+    const { repo, read, write, deal, prisma } = setup();
+    deal.mockResolvedValue({ ownerId: "outro" } as never);
+    vi.mocked(access.lerAcessoComercial).mockResolvedValue({ podeOperar: true, admin: false, gestorEm: [] });
+    vi.spyOn(prisma.leadProposal, "findMany").mockResolvedValue([row] as never);
+    vi.spyOn(prisma.leadProposal, "create").mockResolvedValue(row as never);
+
+    await expect(repo.list(row.dealId, principal)).resolves.toMatchObject({ proposals: [{ id: row.id }] });
+    await expect(repo.get(row.dealId, row.id, principal)).resolves.toMatchObject({ id: row.id });
+    await expect(repo.create(row.dealId, { templateId: row.templateId, content }, principal)).resolves.toMatchObject({ id: row.id });
+    await expect(repo.update(row.dealId, row.id, { revision: 1, templateId: row.templateId, content }, principal)).resolves.toMatchObject({ id: row.id });
+    expect(read).toHaveBeenCalledWith(expect.objectContaining({ where: { id: row.id, dealId: row.dealId } }));
+    expect(write).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ id: row.id, dealId: row.dealId, revision: 1 }) }));
   });
   it("reserva geração com CAS de revisão, estado e token livre", async () => {
     const { repo, write } = setup();
@@ -105,13 +119,24 @@ describe("Persistência das propostas: isolamento e concorrência", () => {
     expect(write).not.toHaveBeenCalled();
     expect(version).not.toHaveBeenCalled();
   });
-  it("transferência do responsável durante a geração impede concluir o PDF", async () => {
-    const { repo, version, write, deal } = setup();
+  it("troca de responsável durante a geração preserva a conclusão enquanto a tela continua autorizada", async () => {
+    const { repo, version, write, deal, prisma } = setup();
     vi.mocked(access.lerAcessoComercial).mockResolvedValue({ podeOperar: true, admin: false, gestorEm: [] });
     const generation = await repo.beginGeneration(row.dealId, row.id, 1, principal);
     write.mockClear();
     deal.mockResolvedValue({ ownerId: "outro" } as never);
-    await expect(repo.completeGeneration(row.dealId, generation, { id: "doc" } as LeadDocument, principal)).rejects.toBeInstanceOf(NaoEncontrado);
+    vi.spyOn(prisma.leadDocument, "findFirst").mockResolvedValue({ id: "doc" } as never);
+    await expect(repo.completeGeneration(row.dealId, generation, { id: "doc" } as LeadDocument, principal)).resolves.toMatchObject({ id: row.id });
+    expect(write).toHaveBeenCalledOnce();
+    expect(version).toHaveBeenCalledOnce();
+  });
+  it("conclusão recusa arquivo de outro negócio antes de alterar proposta ou versão", async () => {
+    const { repo, prisma, write, version } = setup();
+    const generation = await repo.beginGeneration(row.dealId, row.id, 1, principal);
+    write.mockClear();
+    const documento = vi.spyOn(prisma.leadDocument, "findFirst").mockResolvedValue(null);
+    await expect(repo.completeGeneration(row.dealId, generation, { id: "doc-outro-pai" } as LeadDocument, principal)).rejects.toBeInstanceOf(NaoEncontrado);
+    expect(documento).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "doc-outro-pai", dealId: row.dealId, uploadState: "ready", category: "proposta" } }));
     expect(write).not.toHaveBeenCalled();
     expect(version).not.toHaveBeenCalled();
   });

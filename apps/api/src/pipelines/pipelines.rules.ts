@@ -8,7 +8,7 @@ import type { CompanyKey, Pipeline, UpdatePipelineRequest } from "@plugga/shared
  * - qualquer pessoa ativa com acesso a CRM/Pipelines vê todos os funis;
  *   permissões de configuração vêm exclusivamente de Equipe e Acessos.
  */
-export type AcessoComercial = { admin: boolean; gestorEm: readonly CompanyKey[]; podeOperar: boolean };
+export type AcessoComercial = { admin: boolean; gestorEm: readonly CompanyKey[]; podeOperar: boolean; podeVerClientes?: boolean };
 
 type PipelineDaEmpresa = { companyId: string };
 

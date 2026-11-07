@@ -20,7 +20,7 @@ import { AuditAppender } from "../audit/audit-appender";
 import { AcessoNegado, Conflito, EstadoInvalido, NaoEncontrado, RequisicaoInvalida } from "../common/errors/dominio";
 import type { AuthPrincipal } from "../core/auth/auth.types";
 import { PrismaService } from "../prisma/prisma.service";
-import { filtroDoResponsavelComercial, lerAcessoComercial, pessoaElegivelParaPipelines } from "./acesso-comercial";
+import { lerAcessoComercial, pessoaElegivelParaPipelines } from "./acesso-comercial";
 import { PipelinesRepository } from "./pipelines.repository";
 import { travarPipelines } from "./travar-pipelines";
 import {
@@ -39,28 +39,18 @@ const COMPLETO = {
   stages: { orderBy: { position: "asc" }, include: { _count: { select: { deals: true } } } },
   tags: { orderBy: { position: "asc" } },
   lossReasons: { orderBy: { position: "asc" } },
-  members: { include: { user: { select: { id: true, name: true, email: true } } }, orderBy: { user: { name: "asc" } } },
+  members: { include: { user: { select: { id: true, name: true } } }, orderBy: { user: { name: "asc" } } },
   updatedBy: { select: { id: true, name: true } },
   _count: { select: { deals: true } },
 } satisfies Prisma.PipelineInclude;
 
 type LinhaDePipeline = Prisma.PipelineGetPayload<{ include: typeof COMPLETO }>;
 
-function completoPara(acesso: AcessoComercial, pessoaId: string) {
-  const filtro = filtroDoResponsavelComercial(acesso, pessoaId);
-  return {
-    ...COMPLETO,
-    stages: { ...COMPLETO.stages, include: { _count: { select: { deals: { where: filtro } } } } },
-    members: { ...COMPLETO.members, ...(filtro.ownerId ? { where: { userId: pessoaId } } : {}) },
-    _count: { select: { deals: { where: filtro } } },
-  } satisfies Prisma.PipelineInclude;
-}
-
 const NAO_ENCONTRADO = "Pipeline não encontrado.";
 const NOME_REPETIDO = "Já existe um pipeline com este nome nesta empresa.";
 const VERSAO_DESATUALIZADA = "Outra pessoa alterou este pipeline enquanto você editava. Reabra para ver a versão atual.";
 
-function paraPipeline(linha: LinhaDePipeline, canConfigure: boolean, pessoaId: string): Pipeline {
+function paraPipeline(linha: LinhaDePipeline, canConfigure: boolean): Pipeline {
   return pipelineSchema.parse({
     id: linha.id,
     companyId: linha.companyId,
@@ -72,7 +62,7 @@ function paraPipeline(linha: LinhaDePipeline, canConfigure: boolean, pessoaId: s
     lostLabel: linha.lostLabel,
     archivedAt: linha.archivedAt?.toISOString() ?? null,
     updatedAt: linha.updatedAt.toISOString(),
-    updatedBy: canConfigure || linha.updatedBy?.id === pessoaId ? linha.updatedBy : null,
+    updatedBy: linha.updatedBy,
     stages: linha.stages.map(({ id, name, color, position, staleAfterDays, asksClientConversion, _count }) => ({
       id,
       name,
@@ -84,7 +74,7 @@ function paraPipeline(linha: LinhaDePipeline, canConfigure: boolean, pessoaId: s
     })),
     tags: linha.tags.map(({ id, name, color }) => ({ id, name, color })),
     lossReasons: linha.lossReasons.map(({ id, name, asksRevisitDate }) => ({ id, name, asksRevisitDate })),
-    members: linha.members.filter((m) => canConfigure || m.userId === pessoaId).map((m) => ({ userId: m.userId, name: m.user.name, email: m.user.email, role: m.role })),
+    members: linha.members.map((m) => ({ userId: m.userId, name: m.user.name, role: m.role })),
     dealCount: linha._count.deals,
     canConfigure,
   });
@@ -104,9 +94,9 @@ export class PrismaPipelinesRepository extends PipelinesRepository {
   async list(principal: AuthPrincipal): Promise<ListPipelinesResponse> {
     const acesso = await this.acessoDe(principal.id);
     if (!acesso.podeOperar) throw new AcessoNegado("Sem acesso aos pipelines do CRM.");
-    const linhas = await this.prisma.comContexto((tx) => tx.pipeline.findMany({ orderBy: { createdAt: "asc" }, include: completoPara(acesso, principal.id) }));
+    const linhas = await this.prisma.comContexto((tx) => tx.pipeline.findMany({ orderBy: { createdAt: "asc" }, include: COMPLETO }));
     return listPipelinesResponseSchema.parse({
-      pipelines: linhas.map((linha) => paraPipeline(linha, podeConfigurar(acesso, principal.id, linha), principal.id)),
+      pipelines: linhas.map((linha) => paraPipeline(linha, podeConfigurar(acesso, principal.id, linha))),
       responsaveis: (await this.people({ companyId: "plugga" }, principal)).people,
       canCreateIn: companyKeys.filter((empresa) => podeCriarEm(acesso, empresa)),
     });
@@ -116,9 +106,9 @@ export class PrismaPipelinesRepository extends PipelinesRepository {
     const acesso = await this.acessoDe(principal.id);
     if (!acesso.podeOperar) throw new AcessoNegado("Sem acesso aos pipelines do CRM.");
     const pessoas = await this.prisma.comContexto((tx) => tx.user.findMany({
-      where: { ...pessoaElegivelParaPipelines, ...(filtroDoResponsavelComercial(acesso, principal.id).ownerId ? { id: principal.id } : {}) },
+      where: pessoaElegivelParaPipelines,
       orderBy: { name: "asc" },
-      select: { id: true, name: true, email: true },
+      select: { id: true, name: true },
     }));
     return pipelinePeopleResponseSchema.parse({ people: pessoas });
   }
@@ -275,14 +265,14 @@ export class PrismaPipelinesRepository extends PipelinesRepository {
 
   /** Quem não alcança o pipeline recebe "não encontrado": a existência não vaza. */
   private async lerVisivel(id: string, pessoaId: string, acesso: AcessoComercial): Promise<Pipeline> {
-    const linha = await this.prisma.comContexto((tx) => tx.pipeline.findUnique({ where: { id }, include: completoPara(acesso, pessoaId) }));
+    const linha = await this.prisma.comContexto((tx) => tx.pipeline.findUnique({ where: { id }, include: COMPLETO }));
     if (!linha || !podeVer(acesso)) throw new NaoEncontrado(NAO_ENCONTRADO);
-    return paraPipeline(linha, podeConfigurar(acesso, pessoaId, linha), pessoaId);
+    return paraPipeline(linha, podeConfigurar(acesso, pessoaId, linha));
   }
 
   private async lerParaQuemPediu(id: string, pessoaId: string, acesso: AcessoComercial): Promise<Pipeline> {
-    const linha = await this.prisma.comContexto((tx) => tx.pipeline.findUniqueOrThrow({ where: { id }, include: completoPara(acesso, pessoaId) }));
-    return paraPipeline(linha, podeConfigurar(acesso, pessoaId, linha), pessoaId);
+    const linha = await this.prisma.comContexto((tx) => tx.pipeline.findUniqueOrThrow({ where: { id }, include: COMPLETO }));
+    return paraPipeline(linha, podeConfigurar(acesso, pessoaId, linha));
   }
 
   private garantirSemEquipe(membros: readonly PipelineMemberInput[]): void {

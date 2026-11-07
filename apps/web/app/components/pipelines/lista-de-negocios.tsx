@@ -1,6 +1,6 @@
 "use client";
 
-import type { BulkDealsAction, Deal, Pipeline, PipelinePerson } from "@plugga/shared";
+import { alcancaTela, type BulkDealsAction, type Deal, type Pipeline, type PipelinePerson } from "@plugga/shared";
 import {
   ArrowDown,
   ArrowUp,
@@ -23,10 +23,13 @@ import { formatarBRL } from "../../lib/format";
 import {
   diasNaEtapa,
   estaParado,
+  negocioConvertido,
   ordenar,
+  podeAtribuirLead,
   valorCurto,
   type Ordem,
 } from "../../lib/negocios";
+import { useSessionUser } from "../../lib/use-session-user";
 import { ShellCard, ShellTable } from "../plugga-shell";
 import { Button, Checkbox } from "../ui";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/shadcn/select";
@@ -58,11 +61,14 @@ export function ListaDeNegocios({
   negocios: Deal[];
   acoes: AcoesDoNegocio;
 }) {
+  const { usuario } = useSessionUser();
+  const podeAtribuir = podeAtribuirLead(usuario?.acesso);
+  const podeVerClientes = alcancaTela(usuario?.acesso, "crm.clientes");
   const [ordem, setOrdem] = useState<Ordem>({ campo: "etapa", direcao: "asc" });
   const [selecionados, setSelecionados] = useState<Set<string>>(new Set());
   const [selecionando, setSelecionando] = useState(false);
   const botaoSelecao = useRef<HTMLSpanElement>(null);
-  const [lote, setLote] = useState<Lote>({ tipo: "owner", valor: "" });
+  const [lote, setLote] = useState<Lote>({ tipo: podeAtribuir ? "owner" : "stage", valor: "" });
   const [aplicando, setAplicando] = useState(false);
   const [pagina, setPagina] = useState(1);
 
@@ -109,7 +115,7 @@ export function ListaDeNegocios({
           : [{ id: "urgente", nome: "Urgente" }, { id: "medio", nome: "Médio" }, { id: "normal", nome: "Normal" }, { id: "sem-prioridade", nome: "Sem prioridade" }];
 
   async function aplicarLote() {
-    if (!lote.valor || marcados.length === 0) return;
+    if (!lote.valor || marcados.length === 0 || (lote.tipo === "owner" && !podeAtribuir)) return;
     const acao: BulkDealsAction =
       lote.tipo === "owner"
         ? { type: "owner", ownerId: lote.valor }
@@ -146,7 +152,7 @@ export function ListaDeNegocios({
             <Select value={lote.tipo} onValueChange={(tipo) => setLote({ tipo: tipo as Lote["tipo"], valor: "" })}>
               <SelectTrigger className={styles.selectLote} aria-label="Ação em lote"><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="owner">Trocar responsável</SelectItem>
+                {podeAtribuir ? <SelectItem value="owner">Trocar responsável</SelectItem> : null}
                 {pipeline.tags.length > 0 ? <SelectItem value="tag">Adicionar etiqueta</SelectItem> : null}
                 <SelectItem value="stage">Mover de etapa</SelectItem>
                 <SelectItem value="priority">Definir prioridade</SelectItem>
@@ -159,7 +165,7 @@ export function ListaDeNegocios({
             <Button
               variant="primary"
               size="sm"
-              disabled={!lote.valor || aplicando}
+              disabled={!lote.valor || aplicando || (lote.tipo === "owner" && !podeAtribuir)}
               onClick={aplicarLote}
             >
               {aplicando ? "Aplicando…" : "Aplicar"}
@@ -370,8 +376,8 @@ export function ListaDeNegocios({
                             ) : (
                               <span>Local não informado</span>
                             )}
-                            {n.client ? (
-                              <span className="empresa-badge-cliente" title={`Convertido em cliente: ${n.client.name}`}>
+                            {negocioConvertido(n) ? (
+                              <span className="empresa-badge-cliente" title={podeVerClientes && n.client ? `Convertido em cliente: ${n.client.name}` : "Convertido em cliente"}>
                                 Cliente
                               </span>
                             ) : null}

@@ -35,8 +35,8 @@ import { SessionAuthGuard } from "../core/auth/session-auth.guard";
 import { NegociosService } from "./negocios.service";
 
 /**
- * Leads no quadro do pipeline (PLU-271). Membros conduzem os próprios negócios;
- * a gestão do CRM alcança os demais. Lead tem dados
+ * Leads no quadro do pipeline (PLU-271). A tela concede acesso aos seus leads,
+ * sem limitar pelo responsável. Lead tem dados
  * próprios; só vira cliente por conversão (manual, ao ganhar ou ao transferir).
  */
 @Controller("leads")
@@ -53,6 +53,7 @@ export class NegociosController {
 
   /** Contatos do cliente já vinculado, para o formulário do negócio. */
   @Get("clientes/:clientId/opcoes")
+  @Tela("crm.clientes")
   clientOptions(@Param("clientId", ParseUUIDPipe) clientId: string, @CurrentPrincipal() principal: AuthPrincipal): Promise<DealClientOptionsResponse> {
     return this.service.clientOptions(clientId, principal);
   }

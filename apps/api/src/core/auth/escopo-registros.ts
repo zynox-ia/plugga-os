@@ -1,9 +1,9 @@
-import { telasPorDepartamento, type Departamento, type Tela } from "@plugga/shared";
+import { alcancaTela, telasPorDepartamento, type Departamento, type Tela } from "@plugga/shared";
 
-import { AcessoNegado, NaoEncontrado } from "../../common/errors/dominio";
+import { AcessoNegado } from "../../common/errors/dominio";
 import type { AuthPrincipal } from "./auth.types";
 
-/** Papéis de gestão mantêm o alcance do departamento; membro opera só o próprio registro. */
+/** Gestão e atribuição são independentes da visualização do conteúdo da tela. */
 export function gerenciaRegistros(principal: AuthPrincipal, departamentos: Departamento | readonly Departamento[], telas?: readonly Tela[]): boolean {
   const alvos = typeof departamentos === "string" ? [departamentos] : departamentos;
   if (principal.acesso.plataforma !== null) return true;
@@ -11,24 +11,8 @@ export function gerenciaRegistros(principal: AuthPrincipal, departamentos: Depar
     && (entrada.telas ?? telasPorDepartamento[entrada.departamento]).some((tela) => !telas || telas.includes(tela)));
 }
 
-export function filtroDoResponsavel(
-  principal: AuthPrincipal,
-  departamentos: Departamento | readonly Departamento[],
-  telas?: readonly Tela[],
-): { ownerId?: string } {
-  return gerenciaRegistros(principal, departamentos, telas) ? {} : { ownerId: principal.id };
-}
-
-export function exigeRegistroVisivel(
-  principal: AuthPrincipal,
-  ownerId: string | null | undefined,
-  departamentos: Departamento | readonly Departamento[],
-  mensagem: string,
-  telas?: readonly Tela[],
-): void {
-  if (!gerenciaRegistros(principal, departamentos, telas) && ownerId !== principal.id) {
-    throw new NaoEncontrado(mensagem);
-  }
+export function exigeAcessoATela(principal: AuthPrincipal, ...telas: readonly Tela[]): void {
+  if (!telas.some((tela) => alcancaTela(principal.acesso, tela))) throw new AcessoNegado("Você não tem acesso a esta tela.");
 }
 
 export function exigeAtribuicaoPermitida(

@@ -111,3 +111,51 @@ test("conversão só confirma sucesso quando o negócio foi encerrado como ganho
   assert.equal(resposta.dados.lead.status, "won");
   assert.equal(resposta.dados.lead.closedAt, convertido.closedAt);
 });
+
+test("conversão sem Clientes confirma apenas o lead e não consulta cadastro nem seletores", async () => {
+  const chamadas: string[] = [];
+  const oculto = { ...convertido, converted: true, client: null };
+  globalThis.fetch = async (url, init) => {
+    chamadas.push(String(url));
+    assert.equal(init?.method, "POST");
+    assert.deepEqual(JSON.parse(String(init?.body)), {});
+    return Response.json({ lead: oculto, client: null, created: null });
+  };
+
+  const resposta = await converterLead(negocio, undefined, false);
+
+  assert.equal(resposta.ok, true);
+  if (!resposta.ok) throw new Error("A conversão deveria concluir sem expor o cadastro");
+  assert.equal(resposta.dados.lead.converted, true);
+  assert.equal(resposta.dados.lead.client, null);
+  assert.equal(resposta.dados.client, null);
+  assert.equal(resposta.dados.created, null);
+  assert.deepEqual(chamadas, [`/api/leads/${negocio.id}/converter`]);
+  assert.ok(!JSON.stringify(resposta.dados).includes(cliente.name));
+});
+
+test("flag de conversão preserva idempotência mesmo com cliente oculto e perfil agora incompleto", async () => {
+  const oculto = { ...convertido, converted: true, client: null, lead: { ...negocio.lead, email: null, phone: null, document: null } };
+  let chamadas = 0;
+  globalThis.fetch = async () => {
+    chamadas += 1;
+    return Response.json({ lead: oculto, client: null, created: null });
+  };
+
+  assert.equal((await converterLead(oculto, undefined, false)).ok, true);
+  assert.equal(chamadas, 1);
+});
+
+test("sem Clientes não envia resolução manual nem oferece candidatos recebidos por erro", async () => {
+  globalThis.fetch = async () => { assert.fail("a escolha manual não deve enviar requisição sem a tela Clientes"); };
+  assert.equal((await converterLead(negocio, cliente.id, false)).ok, false);
+  assert.equal((await converterLead(negocio, "novo", false)).ok, false);
+  globalThis.fetch = async () => Response.json({ mensagem: `Escolha ${cliente.name}`, candidatos: [{ ...cliente, personType: "pj", matchedOn: ["email"] }] }, { status: 400 });
+
+  const resposta = await converterLead(negocio, undefined, false);
+
+  assert.equal(resposta.ok, false);
+  if (resposta.ok) throw new Error("A conversão deveria informar a pendência sem candidatos");
+  assert.equal(resposta.erro.candidatos, undefined);
+  assert.ok(!JSON.stringify(resposta.erro).includes(cliente.name));
+});

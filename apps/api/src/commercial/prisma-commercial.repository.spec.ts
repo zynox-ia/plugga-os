@@ -18,6 +18,7 @@ function contexto() {
     client: { findUnique: vi.fn().mockResolvedValue(null), findMany: vi.fn().mockResolvedValue([]), create: gravar },
     user: { findUnique: vi.fn().mockResolvedValue(null), findFirst: vi.fn().mockResolvedValue(null) },
     eventLog: { createMany: gravar },
+    $queryRaw: vi.fn().mockResolvedValue([]),
   };
   const prisma = {
     ...banco,
@@ -26,71 +27,86 @@ function contexto() {
   return { prisma, gravar, repository: new PrismaCommercialRepository(prisma as unknown as PrismaService, new AuditAppender()) };
 }
 
-describe("Comercial: isolamento por responsável", () => {
-  it("o filtro opcional ownerId não substitui o escopo de oportunidades e contratos", async () => {
+const soPipelines: AuthPrincipal = { ...membro, acesso: { plataforma: null, departamentos: [{ departamento: "crm", nivel: "membro", telas: ["crm.pipelines"] }] } };
+const soContratos: AuthPrincipal = { ...membro, acesso: { plataforma: null, departamentos: [{ departamento: "crm", nivel: "membro", telas: ["crm.contratos"] }] } };
+const semTela: AuthPrincipal = { ...membro, acesso: { plataforma: null, departamentos: [{ departamento: "crm", nivel: "membro", telas: [] }] } };
+
+describe("Comercial: conteudo da tela autorizada", () => {
+  it("ownerId opcional e um filtro de busca, sem isolamento pelo responsavel", async () => {
     const { prisma, repository } = contexto();
     await repository.listOpportunities({ ownerId: outroId }, membro);
     await repository.listContracts({ ownerId: outroId }, membro);
     for (const delegate of [prisma.opportunity, prisma.contract]) {
       const where = delegate.findMany.mock.calls[0]?.[0].where;
-      expect(where).toMatchObject({ ownerId: membro.id, AND: { ownerId: outroId } });
+      expect(where).toMatchObject({ AND: { ownerId: outroId } });
+      expect(where).not.toHaveProperty("ownerId");
     }
   });
 
-  it("mantém o alcance de gestão do CRM e Financeiro", async () => {
+  it("Membros do CRM ou Financeiro leem os contratos da tela sem filtro individual", async () => {
     const { prisma, repository } = contexto();
     for (const departamento of ["crm", "financeiro"] as const) {
-      const gerente: AuthPrincipal = { ...membro, acesso: { plataforma: null, departamentos: [{ departamento, nivel: "gerente" }] } };
-      await repository.listContracts({}, gerente);
+      await repository.listContracts({}, { ...membro, acesso: { plataforma: null, departamentos: [{ departamento, nivel: "membro" }] } });
     }
-    for (const [args] of prisma.contract.findMany.mock.calls) expect(args.where.ownerId).toBeUndefined();
+    for (const [args] of prisma.contract.findMany.mock.calls) {
+      expect(args.where).not.toHaveProperty("ownerId");
+      expect(args.where).not.toHaveProperty("client");
+    }
   });
 
-  it("gerência de outra tela do CRM não amplia leitura de membro no Financeiro", async () => {
-    const { prisma, repository } = contexto();
-    await repository.listContracts({}, { ...membro, acesso: { plataforma: null, departamentos: [
-      { departamento: "crm", nivel: "gerente", telas: ["crm.pipelines"] },
-      { departamento: "financeiro", nivel: "membro" },
-    ] } });
-    await repository.listOpportunities({}, { ...membro, acesso: { plataforma: null, departamentos: [
-      { departamento: "crm", nivel: "gerente", telas: ["crm.contratos"] },
-      { departamento: "financeiro", nivel: "membro" },
-    ] } });
-    expect(prisma.contract.findMany.mock.calls[0]?.[0].where.ownerId).toBe(membro.id);
-    expect(prisma.opportunity.findMany.mock.calls[0]?.[0].where.ownerId).toBe(membro.id);
-  });
-
-  it("filtra clientes e contratos relacionados sem usar gerência de outra tela", async () => {
-    const { prisma, repository } = contexto();
-    await repository.listOpportunities({}, membro);
-    const include = prisma.opportunity.findMany.mock.calls[0]?.[0].include;
-    expect(include.client.where.ownerId).toBe(membro.id);
-    expect(include.contracts.where.ownerId).toBe(membro.id);
-  });
-
-  it("exige também cliente próprio ao listar, detalhar ou alterar contrato de membro", async () => {
+  it("sem a tela pertinente recusa leitura e operacoes antes de consultar o banco", async () => {
     const { prisma, gravar, repository } = contexto();
-    await repository.listContracts({}, membro);
-    await expect(repository.contract(outroId, membro)).rejects.toBeInstanceOf(NaoEncontrado);
-    await expect(repository.updateContractStatus(outroId, { status: "revisao_interna" }, membro)).rejects.toBeInstanceOf(NaoEncontrado);
-    expect(prisma.contract.findMany.mock.calls[0]?.[0].where.client).toEqual({ ownerId: membro.id });
-    for (const [args] of prisma.contract.findUnique.mock.calls) expect(args.where.client).toEqual({ ownerId: membro.id });
+    const acoes = [
+      () => repository.listOpportunities({}, soContratos),
+      () => repository.opportunity(outroId, soContratos),
+      () => repository.listContracts({}, soPipelines),
+      () => repository.contract(outroId, soPipelines),
+      () => repository.createOpportunity({ title: "Sintetico", product: "OPM", ownerId: membro.id, nextActionAt: "2026-12-01T00:00:00.000Z" }, semTela),
+      () => repository.updateOpportunityStage(outroId, { stage: "decisao" }, semTela),
+      () => repository.registerOpportunityContact(outroId, { channel: "phone", outcome: "connected" }, semTela),
+      () => repository.winOpportunity(outroId, { clientId: outroId }, semTela),
+      () => repository.loseOpportunity(outroId, { lossReason: "Sintetico" }, semTela),
+      () => repository.revisitOpportunity(outroId, { nextActionAt: "2026-12-01T00:00:00.000Z", nextActionNote: "Retomar" }, semTela),
+      () => repository.createContract({ clientId: outroId }, semTela),
+      () => repository.updateContractStatus(outroId, { status: "encerrado" }, semTela),
+    ];
+    for (const acao of acoes) await expect(acao()).rejects.toBeInstanceOf(AcessoNegado);
+    for (const delegate of [prisma.opportunity, prisma.contract]) {
+      expect(delegate.findUnique).not.toHaveBeenCalled();
+      expect(delegate.findMany).not.toHaveBeenCalled();
+    }
     expect(gravar).not.toHaveBeenCalled();
   });
 
-  it("não restringe cliente do contrato quando há gestão autorizada da tela", async () => {
+  it("Pipelines nao inclui dados do cliente nem contratos de uma tela nao concedida", async () => {
     const { prisma, repository } = contexto();
-    await repository.listContracts({}, { ...membro, acesso: { plataforma: null, departamentos: [{ departamento: "crm", nivel: "gerente", telas: ["crm.contratos"] }] } });
-    expect(prisma.contract.findMany.mock.calls[0]?.[0].where.client).toBeUndefined();
+    await repository.listOpportunities({}, soPipelines);
+    const include = prisma.opportunity.findMany.mock.calls[0]?.[0].include;
+    expect(include.client.where).toEqual({ id: { in: [] } });
+    expect(include.contracts.where).toEqual({ id: { in: [] } });
+    await repository.listOpportunities({}, membro);
+    const autorizado = prisma.opportunity.findMany.mock.calls[1]?.[0].include;
+    expect(autorizado.client.where).toEqual({});
+    expect(autorizado.contracts.where).toEqual({});
   });
 
-  it("filtra a oportunidade opcional vinculada ao contrato antes de expor seu ID", async () => {
-    const { prisma, repository } = contexto();
-    await repository.listContracts({}, membro);
-    expect(prisma.contract.findMany.mock.calls[0]?.[0].include.opportunity?.where.ownerId).toBe(membro.id);
+  it("Contratos usa apenas a projecao id/nome do cliente, sem SELECT da relacao obrigatoria", async () => {
+    const { prisma, repository } = contextoComHistorico();
+    prisma.contract.findMany.mockResolvedValue([await prisma.contract.findUnique({ where: { id: registroId } })]);
+    const result = await repository.listContracts({}, soContratos);
+    expect(result.items[0]).toMatchObject({ id: registroId, clientId: clienteId, clientName: "Cliente sintetico" });
+    expect(prisma.contract.findMany.mock.calls[0]?.[0].include).not.toHaveProperty("client");
+    expect(prisma.$queryRaw).toHaveBeenCalled();
+    expect(prisma.client.findUnique).not.toHaveBeenCalled();
   });
 
-  it("consulta detalhes e mutações somente dentro do escopo, antes de regras ou gravações", async () => {
+  it("Contratos nao inclui oportunidade sem a tela correspondente", async () => {
+    const { prisma, repository } = contexto();
+    await repository.listContracts({}, soContratos);
+    expect(prisma.contract.findMany.mock.calls[0]?.[0].include.opportunity.where).toEqual({ id: { in: [] } });
+  });
+
+  it("consulta registros inexistentes por ID sem impor dono e sem gravar", async () => {
     const { prisma, gravar, repository } = contexto();
     const acoes = [
       () => repository.opportunity(outroId, membro),
@@ -98,29 +114,38 @@ describe("Comercial: isolamento por responsável", () => {
       () => repository.updateOpportunityStage(outroId, { stage: "decisao" }, membro),
       () => repository.registerOpportunityContact(outroId, { channel: "phone", outcome: "connected" }, membro),
       () => repository.winOpportunity(outroId, { clientId: outroId }, membro),
-      () => repository.loseOpportunity(outroId, { lossReason: "teste" }, membro),
+      () => repository.loseOpportunity(outroId, { lossReason: "Sintetico" }, membro),
       () => repository.revisitOpportunity(outroId, { nextActionAt: "2026-12-01T00:00:00.000Z", nextActionNote: "Retomar" }, membro),
       () => repository.updateContractStatus(outroId, { status: "encerrado" }, membro),
       () => repository.createContract({ opportunityId: outroId, ownerId: membro.id }, membro),
     ];
     for (const acao of acoes) await expect(acao()).rejects.toBeInstanceOf(NaoEncontrado);
     for (const delegate of [prisma.opportunity, prisma.contract]) {
-      for (const [args] of delegate.findUnique.mock.calls) expect(args.where.ownerId).toBe(membro.id);
+      for (const [args] of delegate.findUnique.mock.calls) expect(args.where).toEqual({ id: outroId });
     }
     expect(gravar).not.toHaveBeenCalled();
   });
 
-  it("recusa criar oportunidade atribuída a outra pessoa", async () => {
+  it("Membro continua sem atribuir oportunidade a outra pessoa", async () => {
     const { prisma, repository } = contexto();
     await expect(repository.createOpportunity({ title: "Teste", product: "OPM", ownerId: outroId, nextActionAt: "2026-12-01T00:00:00.000Z" }, membro)).rejects.toBeInstanceOf(AcessoNegado);
-    expect(prisma.user.findUnique).not.toHaveBeenCalled();
+    expect(prisma.user.findFirst).not.toHaveBeenCalled();
   });
 
-  it("recusa vincular cliente alheio na criação", async () => {
+  it("Pipelines nao permite consultar ou criar cliente pelo fluxo manual de oportunidade", async () => {
     const { prisma, gravar, repository } = contexto();
-    await expect(repository.createOpportunity({ title: "Teste", product: "OPM", ownerId: membro.id, clientId: outroId, nextActionAt: "2026-12-01T00:00:00.000Z" }, membro)).rejects.toBeInstanceOf(NaoEncontrado);
-    expect(prisma.client.findUnique.mock.calls[0]?.[0].where).toMatchObject({ id: outroId, ownerId: membro.id });
+    await expect(repository.createOpportunity({ title: "Teste", product: "OPM", ownerId: membro.id, clientId: outroId, nextActionAt: "2026-12-01T00:00:00.000Z" }, soPipelines)).rejects.toBeInstanceOf(AcessoNegado);
+    await expect(repository.winOpportunity(outroId, { clientId: outroId }, soPipelines)).rejects.toBeInstanceOf(AcessoNegado);
+    expect(prisma.client.findUnique).not.toHaveBeenCalled();
+    expect(prisma.client.findMany).not.toHaveBeenCalled();
     expect(gravar).not.toHaveBeenCalled();
+  });
+
+  it("Contrato com tela propria valida o cliente por booleano sem abrir seu cadastro", async () => {
+    const { prisma, repository } = contextoComHistorico();
+    prisma.user.findFirst.mockResolvedValue({ id: membro.id });
+    await expect(repository.createContract({ clientId: clienteId }, soContratos)).resolves.toMatchObject({ id: registroId });
+    expect(prisma.client.findUnique).not.toHaveBeenCalled();
   });
 });
 
@@ -153,6 +178,9 @@ function contextoComHistorico() {
   prisma.opportunity.updateMany = vi.fn().mockResolvedValue({ count: 1 });
   prisma.contract.updateMany = vi.fn().mockResolvedValue({ count: 1 });
   prisma.eventLog.createMany = vi.fn().mockResolvedValue({ count: 1 });
+  prisma.$queryRaw.mockImplementation(async (sql: TemplateStringsArray) => sql.join("").includes("clientes_dos_contratos")
+    ? [{ contract_id: registroId, id: clienteId, name: "Cliente sintetico" }]
+    : [{ permitido: true }]);
   return contextoAtual;
 }
 
@@ -165,6 +193,19 @@ const acoesDeAtribuicao = [
 ] as const;
 
 describe("Comercial: elegibilidade de novas atribuições", () => {
+  it.each([undefined, outroId])("Membro opera registro de outro responsavel sem o reatribuir (%s)", async (ownerId) => {
+    const acoes = [
+      (repo: PrismaCommercialRepository) => repo.updateOpportunityStage(registroId, { stage: "decisao", ownerId }, membro),
+      (repo: PrismaCommercialRepository) => repo.revisitOpportunity(registroId, { ownerId, nextActionAt: proximaAcao, nextActionNote: "Retomar" }, membro),
+      (repo: PrismaCommercialRepository) => repo.updateContractStatus(registroId, { status: "revisao_interna", ownerId }, membro),
+    ];
+    for (const acao of acoes) {
+      const { prisma, repository } = contextoComHistorico();
+      await expect(acao(repository)).resolves.toMatchObject({ ownerId: outroId });
+      expect(prisma.user.findFirst).not.toHaveBeenCalled();
+    }
+  });
+
   it.each(["disabled", "removed", "active"])("não atribui a conta histórica %s sem concessão operacional", async (status) => {
     for (const acao of acoesDeAtribuicao) {
       const { prisma, repository } = contextoComHistorico();

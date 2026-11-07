@@ -1,4 +1,4 @@
-import type { Deal, DealStatus, Pipeline } from "@plugga/shared";
+import { alcancaDepartamento, alcancaTela, type Acesso, type Deal, type DealStatus, type Pipeline } from "@plugga/shared";
 
 // Extensão explícita: este módulo também roda sob `node --test` (test/negocios.test.ts).
 import { FUSO_HORARIO } from "./format.ts";
@@ -17,6 +17,14 @@ export type Ordem = { campo: "titulo" | "valor" | "previsao" | "dias" | "etapa";
 export const FILTROS_INICIAIS: Filtros = { busca: "", responsavel: "", etiqueta: "", status: "open", previsao: "qualquer" };
 
 export const ROTULO_STATUS: Record<DealStatus, string> = { open: "Aberto", won: "Ganho", lost: "Perdido" };
+
+export function negocioConvertido(negocio: Pick<Deal, "client"> & { converted?: boolean }): boolean {
+  return negocio.converted ?? negocio.client !== null;
+}
+
+export function podeAtribuirLead(acesso: Acesso | undefined): boolean {
+  return !!acesso && alcancaDepartamento(acesso, "crm", "gerente") && alcancaTela(acesso, "crm.pipelines");
+}
 
 const DIA_MS = 86_400_000;
 

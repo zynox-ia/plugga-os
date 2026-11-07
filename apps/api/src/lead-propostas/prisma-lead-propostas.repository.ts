@@ -10,8 +10,8 @@ import {
 import { EstadoInvalido, NaoEncontrado } from "../common/errors/dominio";
 import type { AuthPrincipal } from "../core/auth/auth.types";
 import { hojeNoFuso } from "../negocios/negocios.rules";
-import { exigeDonoComercial, lerAcessoComercial, pessoaVisivelComercial } from "../pipelines/acesso-comercial";
-import { podeVer, type AcessoComercial } from "../pipelines/pipelines.rules";
+import { exigeOperacaoComercial, lerAcessoComercial } from "../pipelines/acesso-comercial";
+import { podeVer } from "../pipelines/pipelines.rules";
 import { PrismaService } from "../prisma/prisma.service";
 import { type GeracaoDeProposta, LeadPropostasRepository } from "./lead-propostas.repository";
 
@@ -26,7 +26,7 @@ type Banco = Prisma.TransactionClient;
 const CONFLITO = "Esta proposta mudou ou está sendo gerada. Atualize a tela e tente novamente.";
 const PRAZO_GERACAO_MS = 15 * 60 * 1000;
 
-function paraProposta(row: Linha, pessoaId: string, acesso: AcessoComercial): LeadProposal {
+function paraProposta(row: Linha): LeadProposal {
   const latest = row.versions[0];
   const doc = latest?.document;
   // A configuração pode mudar; uma versão gerada continua descrevendo seu snapshot.
@@ -34,7 +34,7 @@ function paraProposta(row: Linha, pessoaId: string, acesso: AcessoComercial): Le
   return leadProposalSchema.parse({
     ...row, templateName: template.name, templateStyle: template.style,
     document: doc ? leadDocumentSchema.parse({
-      ...doc, uploadedBy: pessoaVisivelComercial(acesso, pessoaId, doc.uploadedBy), archivedBy: pessoaVisivelComercial(acesso, pessoaId, doc.archivedBy),
+      ...doc, uploadedBy: doc.uploadedBy, archivedBy: doc.archivedBy,
       canPreview: true, createdAt: doc.createdAt.toISOString(), updatedAt: doc.updatedAt.toISOString(), archivedAt: doc.archivedAt?.toISOString() ?? null,
     }) : null,
     createdAt: row.createdAt.toISOString(), updatedAt: row.updatedAt.toISOString(),
@@ -46,9 +46,9 @@ export class PrismaLeadPropostasRepository extends LeadPropostasRepository {
   constructor(@Inject(PrismaService) private readonly prisma: PrismaService) { super(); }
 
   async list(dealId: string, principal: AuthPrincipal) {
-    const { acesso } = await this.prisma.comContexto((tx) => this.visible(tx, dealId, principal));
+    await this.prisma.comContexto((tx) => this.visible(tx, dealId, principal));
     const rows = await this.prisma.comContexto((tx) => tx.leadProposal.findMany({ where: { dealId }, orderBy: [{ updatedAt: "desc" }, { id: "asc" }], include: INCLUDE }));
-    return { proposals: rows.map((row) => paraProposta(row, principal.id, acesso)) };
+    return { proposals: rows.map((row) => paraProposta(row)) };
   }
 
   async templates(dealId: string, principal: AuthPrincipal) {
@@ -74,22 +74,22 @@ export class PrismaLeadPropostasRepository extends LeadPropostasRepository {
 
   async get(dealId: string, id: string, principal: AuthPrincipal) {
     return this.prisma.comContexto(async (tx) => {
-      const { acesso } = await this.visible(tx, dealId, principal);
-      return paraProposta(await this.row(tx, dealId, id), principal.id, acesso);
+      await this.visible(tx, dealId, principal);
+      return paraProposta(await this.row(tx, dealId, id));
     });
   }
 
   async create(dealId: string, input: CreateLeadProposalRequest, principal: AuthPrincipal) {
     return this.prisma.comContexto(async (tx) => {
-      const { acesso } = await this.visible(tx, dealId, principal, true);
+      await this.visible(tx, dealId, principal, true);
       await this.template(tx, input.templateId);
-      return paraProposta(await tx.leadProposal.create({ data: { dealId, templateId: input.templateId, content: input.content }, include: INCLUDE }), principal.id, acesso);
+      return paraProposta(await tx.leadProposal.create({ data: { dealId, templateId: input.templateId, content: input.content }, include: INCLUDE }));
     });
   }
 
   async update(dealId: string, id: string, input: UpdateLeadProposalRequest, principal: AuthPrincipal) {
     return this.prisma.comContexto(async (tx) => {
-      const { acesso } = await this.visible(tx, dealId, principal, true);
+      await this.visible(tx, dealId, principal, true);
       await this.row(tx, dealId, id);
       await this.template(tx, input.templateId);
       const updated = await tx.leadProposal.updateMany({
@@ -97,13 +97,13 @@ export class PrismaLeadPropostasRepository extends LeadPropostasRepository {
         data: { templateId: input.templateId, content: input.content, status: "draft", revision: { increment: 1 }, generationToken: null, generationStartedAt: null },
       });
       if (updated.count !== 1) throw new EstadoInvalido(CONFLITO);
-      return paraProposta(await this.row(tx, dealId, id), principal.id, acesso);
+      return paraProposta(await this.row(tx, dealId, id));
     });
   }
 
   async beginGeneration(dealId: string, id: string, revision: number, principal: AuthPrincipal): Promise<GeracaoDeProposta> {
     return this.prisma.comContexto(async (tx) => {
-      const { acesso } = await this.visible(tx, dealId, principal, true);
+      await this.visible(tx, dealId, principal, true);
       await this.row(tx, dealId, id);
       const token = randomUUID();
       const claimed = await tx.leadProposal.updateMany({
@@ -111,14 +111,14 @@ export class PrismaLeadPropostasRepository extends LeadPropostasRepository {
         data: { generationToken: token, generationStartedAt: new Date() },
       });
       if (claimed.count !== 1) throw new EstadoInvalido(CONFLITO);
-      return { proposal: paraProposta(await this.row(tx, dealId, id), principal.id, acesso), token };
+      return { proposal: paraProposta(await this.row(tx, dealId, id)), token };
     });
   }
 
   async completeGeneration(dealId: string, generation: GeracaoDeProposta, document: LeadDocument, principal: AuthPrincipal) {
     return this.prisma.comContexto(async (tx) => {
       // A sessão e o negócio podem ter mudado enquanto o PDF era enviado ao storage.
-      const { acesso } = await this.visible(tx, dealId, principal, true);
+      await this.visible(tx, dealId, principal, true);
       const { proposal, token } = generation;
       const stored = await tx.leadDocument.findFirst({ where: { id: document.id, dealId, uploadState: "ready", category: "proposta" }, select: { id: true } });
       if (!stored) throw new NaoEncontrado("Documento não encontrado.");
@@ -131,7 +131,7 @@ export class PrismaLeadPropostasRepository extends LeadPropostasRepository {
         proposalId: proposal.id, version: proposal.version + 1, documentId: document.id, content: proposal.content,
         templateSnapshot: { id: proposal.templateId, name: proposal.templateName, style: proposal.templateStyle },
       } });
-      return paraProposta(await this.row(tx, dealId, proposal.id), principal.id, acesso);
+      return paraProposta(await this.row(tx, dealId, proposal.id));
     });
   }
 
@@ -163,7 +163,7 @@ export class PrismaLeadPropostasRepository extends LeadPropostasRepository {
       lerAcessoComercial(tx, principal.id),
     ]);
     if (!deal || !podeVer(access)) throw new NaoEncontrado("Negócio não encontrado.");
-    exigeDonoComercial(access, principal.id, deal.ownerId);
+    exigeOperacaoComercial(access);
     return { ...deal, acesso: access };
   }
 }

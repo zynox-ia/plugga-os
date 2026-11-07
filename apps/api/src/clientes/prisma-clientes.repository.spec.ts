@@ -25,12 +25,14 @@ function contexto() {
   return { prisma, gravar, repository: new PrismaClientesRepository(prisma as unknown as PrismaService, new AuditAppender()) };
 }
 
-describe("Clientes: isolamento por responsável", () => {
-  it("aplica o escopo no banco antes da busca por nome, contatos e duplicatas", async () => {
+const soPipelines: AuthPrincipal = { ...membro, acesso: { plataforma: null, departamentos: [{ departamento: "crm", nivel: "membro", telas: ["crm.pipelines"] }] } };
+
+describe("Clientes: acesso por tela", () => {
+  it("a tela Clientes não restringe a busca e as duplicatas ao próprio responsável", async () => {
     const { prisma, repository } = contexto();
     await repository.list({ q: "hotel" }, membro);
     await repository.duplicateCandidates({ email: "sintetico@teste.local" }, membro);
-    expect(prisma.client.findMany.mock.calls.map(([args]) => args.where.ownerId)).toEqual([membro.id, membro.id]);
+    for (const [args] of prisma.client.findMany.mock.calls) expect(args.where).not.toHaveProperty("ownerId");
   });
 
   it("mantém a busca de gestão sem restrição de dono", async () => {
@@ -39,41 +41,51 @@ describe("Clientes: isolamento por responsável", () => {
     expect(prisma.client.findMany.mock.calls[0]?.[0].where).not.toHaveProperty("ownerId");
   });
 
-  it("não combina gerência sem tela de clientes com leitura de membro em Energia", async () => {
+  it("gerência de Pipelines e acesso a Energia não concedem o cadastro completo de Clientes", async () => {
     const { prisma, repository } = contexto();
     const misto: AuthPrincipal = { ...membro, acesso: { plataforma: null, departamentos: [
       { departamento: "crm", nivel: "gerente", telas: ["crm.pipelines"] },
       { departamento: "energia-opm", nivel: "membro" },
     ] } };
-    await repository.list({}, misto);
-    expect(prisma.client.findMany.mock.calls[0]?.[0].where.ownerId).toBe(membro.id);
+    await expect(repository.list({}, misto)).rejects.toBeInstanceOf(AcessoNegado);
+    expect(prisma.client.findMany).not.toHaveBeenCalled();
   });
 
   it("limita opções de responsável ao próprio membro", async () => {
     const { prisma, repository } = contexto();
     await repository.owners(membro);
     expect(prisma.user.findMany.mock.calls[0]?.[0].where.id).toBe(membro.id);
+    expect(prisma.user.findMany.mock.calls[0]?.[0].where.OR).toContainEqual({ departamentos: { some: { departamento: "crm", telas: { has: "crm.clientes" } } } });
   });
 
-  it("consulta o ID somente dentro do escopo obrigatório", async () => {
+  it("consulta o ID na tela autorizada sem impor ownership individual", async () => {
     const { prisma, repository } = contexto();
     await expect(repository.get(outroId, membro)).rejects.toBeInstanceOf(NaoEncontrado);
-    expect(prisma.client.findUnique.mock.calls[0]?.[0].where).toMatchObject({ id: outroId, ownerId: membro.id });
+    expect(prisma.client.findUnique.mock.calls[0]?.[0].where).toEqual({ id: outroId });
   });
 
-  it("bloqueia ativação, edição e todos os contatos de cliente alheio antes de gravar", async () => {
+  it("sem Clientes bloqueia leitura, seleção, duplicatas, edição e contatos antes de consultar ou gravar", async () => {
     const { prisma, gravar, repository } = contexto();
     const acoes = [
-      () => repository.update(outroId, { name: "Alterado" }, membro),
-      () => repository.activate(outroId, membro),
-      () => repository.inactivate(outroId, {}, membro),
-      () => repository.addContact(outroId, { name: "Contato" }, membro),
-      () => repository.updateContact(outroId, outroId, { name: "Contato" }, membro),
-      () => repository.removeContact(outroId, outroId, membro),
+      () => repository.list({}, soPipelines),
+      () => repository.get(outroId, soPipelines),
+      () => repository.selecaoNegocio({ q: "Sintético" }, soPipelines),
+      () => repository.duplicateCandidates({ name: "Sintético" }, soPipelines),
+      () => repository.owners(soPipelines),
+      () => repository.create({ personType: "pj", name: "Sintético" }, soPipelines),
+      () => repository.update(outroId, { name: "Alterado" }, soPipelines),
+      () => repository.activate(outroId, soPipelines),
+      () => repository.inactivate(outroId, {}, soPipelines),
+      () => repository.addContact(outroId, { name: "Contato" }, soPipelines),
+      () => repository.updateContact(outroId, outroId, { name: "Contato" }, soPipelines),
+      () => repository.removeContact(outroId, outroId, soPipelines),
     ];
-    for (const acao of acoes) await expect(acao()).rejects.toBeInstanceOf(NaoEncontrado);
+    for (const acao of acoes) await expect(acao()).rejects.toBeInstanceOf(AcessoNegado);
     expect(gravar).not.toHaveBeenCalled();
-    for (const [args] of prisma.client.findUnique.mock.calls) expect(args.where.ownerId).toBe(membro.id);
+    expect(prisma.client.findUnique).not.toHaveBeenCalled();
+    expect(prisma.client.findMany).not.toHaveBeenCalled();
+    expect(prisma.user.findMany).not.toHaveBeenCalled();
+    expect(prisma.user.findFirst).not.toHaveBeenCalled();
   });
 
   it("recusa atribuir um cliente novo a outra pessoa antes de consultar seus dados", async () => {

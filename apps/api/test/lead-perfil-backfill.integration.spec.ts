@@ -53,13 +53,13 @@ describe.skipIf(process.env.RUN_NEGOCIOS_INTEGRATION_TESTS !== "true")("upgrade 
       CREATE TRIGGER "deals_increment_version" BEFORE UPDATE ON "${schema}"."deals" FOR EACH ROW EXECUTE FUNCTION "${schema}"."increment_deal_version"();
     END $versao_backfill$;`);
 
-    const usuario = await prisma.user.create({ data: { email: "backfill@teste.local", name: "Pessoa sintética", departamentos: { create: { departamento: "crm", nivel: "membro", telas: ["crm.pipelines"] } } } });
-    principal = { id: usuario.id, kind: "user", acesso: { plataforma: null, departamentos: [{ departamento: "crm", nivel: "membro", telas: ["crm.pipelines"] }] } };
+    const usuario = await prisma.user.create({ data: { email: "backfill@teste.local", name: "Pessoa sintética", departamentos: { create: { departamento: "crm", nivel: "membro", telas: ["crm.pipelines", "crm.clientes"] } } } });
+    principal = { id: usuario.id, kind: "user", acesso: { plataforma: null, departamentos: [{ departamento: "crm", nivel: "membro", telas: ["crm.pipelines", "crm.clientes"] }] } };
     await prisma.company.create({ data: { id: "plugga", name: "Plugga" } });
     const pipeline = await prisma.pipeline.create({ data: { companyId: "plugga", name: "Pipeline sintético", color: "#0077FF", valueLabel: "Valor", wonLabel: "Ganho", lostLabel: "Perdido", stages: { create: { name: "Legado", color: "#0077FF", position: 0 } } }, include: { stages: true } });
     pipelineId = pipeline.id;
     stageId = pipeline.stages[0]!.id;
-    // A leitura positiva da migração usa cliente próprio; cadastro sem dono não é visível ao membro.
+    // A leitura positiva de cadastro usa Clientes concedido no banco e no DTO.
     const cliente = await prisma.client.create({ data: { ownerId: principal.id, personType: "pj", name: "Cliente sintético legado", company: "Empresa comercial sintética", legalName: "Razão social sintética", phone: "92999990000", email: "cliente@teste.local", postalCode: "69000000", street: "Rua sintética", addressComplement: "Sala sintética", district: "Bairro sintético", city: "Manaus", state: "AM", origin: "indicacao", notes: "Observação sintética", contacts: { create: { name: "Contato sintético escolhido", jobTitle: "Responsável", phone: "92988880000", email: "contato@teste.local", phoneIsWhatsapp: true, role: "decisor", isPrimary: true } } }, include: { contacts: true } });
     clientId = cliente.id;
     contactId = cliente.contacts[0]!.id;

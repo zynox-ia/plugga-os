@@ -1,24 +1,25 @@
 import { BadRequestException, NotFoundException, type INestApplication } from "@nestjs/common";
 import { Test } from "@nestjs/testing";
-import type {
-  ContractDetail,
-  ContractList,
-  ContractListQuery,
-  ContractStatus,
-  CreateContractRequest,
-  CreateOpportunityRequest,
-  LoseOpportunityRequest,
-  OpportunityContactRequest,
-  OpportunityDetail,
-  OpportunityList,
-  OpportunityListQuery,
-  RevisitOpportunityRequest,
-  UpdateContractStatusRequest,
-  UpdateOpportunityStageRequest,
-  WinOpportunityRequest,
+import {
+  telasPorDepartamento,
+  type ContractDetail,
+  type ContractList,
+  type ContractListQuery,
+  type ContractStatus,
+  type CreateContractRequest,
+  type CreateOpportunityRequest,
+  type LoseOpportunityRequest,
+  type OpportunityContactRequest,
+  type OpportunityDetail,
+  type OpportunityList,
+  type OpportunityListQuery,
+  type RevisitOpportunityRequest,
+  type UpdateContractStatusRequest,
+  type UpdateOpportunityStageRequest,
+  type WinOpportunityRequest,
 } from "@plugga/shared";
 import request from "supertest";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { AppModule } from "../src/app.module";
 import { CommercialRepository } from "../src/commercial/commercial.repository";
@@ -29,8 +30,8 @@ import {
   assertOpportunityHasOwnerAndNextAction,
   assertOpportunityOpen,
 } from "../src/commercial/commercial.rules";
-import { exigeAtribuicaoPermitida, exigeRegistroVisivel, gerenciaRegistros } from "../src/core/auth/escopo-registros";
-import type { AuthPrincipal } from "../src/core/auth/auth.types";
+import { exigeAcessoATela, exigeAtribuicaoPermitida } from "../src/core/auth/escopo-registros";
+import { AuthContext, type AuthPrincipal } from "../src/core/auth/auth.types";
 
 const OWNER_ID = "00000000-0000-4000-8000-000000000201";
 const OTHER_OWNER_ID = "00000000-0000-4000-8000-000000000202";
@@ -112,11 +113,11 @@ class InMemoryCommercialRepository extends CommercialRepository {
   }
 
   async listOpportunities(query: OpportunityListQuery, principal: AuthPrincipal): Promise<OpportunityList> {
+    exigeAcessoATela(principal, "crm.pipelines", ...telasPorDepartamento.financeiro);
     return {
       items: [...this.opportunities.values()].filter(
         (item) =>
           (!query.stage || item.stage === query.stage) &&
-          (gerenciaRegistros(principal, ["crm", "financeiro"]) || item.ownerId === principal.id) &&
           (!query.status || item.status === query.status) &&
           (!query.ownerId || item.ownerId === query.ownerId),
       ),
@@ -126,7 +127,7 @@ class InMemoryCommercialRepository extends CommercialRepository {
   async opportunity(id: string, principal: AuthPrincipal): Promise<OpportunityDetail> {
     const found = this.opportunities.get(id);
     if (!found) throw new NotFoundException("opportunity not found");
-    exigeRegistroVisivel(principal, found.ownerId, ["crm", "financeiro"], "Registro n?o encontrado.");
+    exigeAcessoATela(principal, "crm.pipelines", ...telasPorDepartamento.financeiro);
     return found;
   }
 
@@ -155,7 +156,7 @@ class InMemoryCommercialRepository extends CommercialRepository {
   ): Promise<OpportunityDetail> {
     const current = await this.opportunity(id, principal);
     assertOpportunityOpen(current.status);
-    if (input.ownerId !== undefined) exigeAtribuicaoPermitida(principal, input.ownerId, "crm");
+    if (input.ownerId !== undefined && input.ownerId !== current.ownerId) exigeAtribuicaoPermitida(principal, input.ownerId, "crm");
     const nextOwnerId = input.ownerId ?? current.ownerId;
     const nextActionAt = input.nextActionAt ?? current.nextActionAt;
     assertOpportunityHasOwnerAndNextAction(nextOwnerId, nextActionAt ? new Date(nextActionAt) : null);
@@ -191,6 +192,7 @@ class InMemoryCommercialRepository extends CommercialRepository {
   }
 
   async winOpportunity(id: string, input: WinOpportunityRequest, principal: AuthPrincipal): Promise<OpportunityDetail> {
+    exigeAcessoATela(principal, "crm.clientes");
     const current = await this.opportunity(id, principal);
     assertOpportunityOpen(current.status);
     const clientId = input.clientId ?? this.nextId("client");
@@ -221,7 +223,7 @@ class InMemoryCommercialRepository extends CommercialRepository {
   ): Promise<OpportunityDetail> {
     const current = await this.opportunity(id, principal);
     assertOpportunityOpen(current.status);
-    if (input.ownerId !== undefined) exigeAtribuicaoPermitida(principal, input.ownerId, "crm");
+    if (input.ownerId !== undefined && input.ownerId !== current.ownerId) exigeAtribuicaoPermitida(principal, input.ownerId, "crm");
     const nextOwnerId = input.ownerId ?? current.ownerId;
     const updated: StoredOpportunity = {
       ...current,
@@ -236,10 +238,10 @@ class InMemoryCommercialRepository extends CommercialRepository {
   }
 
   async listContracts(query: ContractListQuery, principal: AuthPrincipal): Promise<ContractList> {
+    exigeAcessoATela(principal, "crm.contratos", ...telasPorDepartamento.financeiro);
     return {
       items: [...this.contracts.values()].filter(
         (item) =>
-          (gerenciaRegistros(principal, ["crm", "financeiro"]) || item.ownerId === principal.id) &&
           (!query.status || item.status === query.status) &&
           (!query.clientId || item.clientId === query.clientId) &&
           (!query.ownerId || item.ownerId === query.ownerId),
@@ -250,7 +252,7 @@ class InMemoryCommercialRepository extends CommercialRepository {
   async contract(id: string, principal: AuthPrincipal): Promise<ContractDetail> {
     const found = this.contracts.get(id);
     if (!found) throw new NotFoundException("contract not found");
-    exigeRegistroVisivel(principal, found.ownerId, ["crm", "financeiro"], "Registro n?o encontrado.");
+    exigeAcessoATela(principal, "crm.contratos", ...telasPorDepartamento.financeiro);
     return found;
   }
 
@@ -291,7 +293,7 @@ class InMemoryCommercialRepository extends CommercialRepository {
     const current = await this.contract(id, principal);
     assertContractTransitionAllowed(current.status as ContractStatus, input.status);
 
-    if (input.ownerId !== undefined) exigeAtribuicaoPermitida(principal, input.ownerId, "crm");
+    if (input.ownerId !== undefined && input.ownerId !== current.ownerId) exigeAtribuicaoPermitida(principal, input.ownerId, "crm");
     const nextOwnerId = input.ownerId ?? current.ownerId;
     const nextActionAt = input.nextActionAt ?? current.nextActionAt;
     const signedAt = input.signedAt ?? current.signedAt;
@@ -359,7 +361,7 @@ describe("commercial API (e2e)", () => {
     await request(app.getHttpServer()).get("/commercial/opportunities").expect(401);
   });
 
-  it("membro opera os próprios registros e não lê nem altera os de outro responsável", async () => {
+  it("Membro ve e opera os registros da tela sem ganhar atribuicao a terceiros", async () => {
     const propriaId = "00000000-0000-4000-8000-000000000701";
     const alheiaId = "00000000-0000-4000-8000-000000000702";
     const contratoId = "00000000-0000-4000-8000-000000000703";
@@ -368,23 +370,39 @@ describe("commercial API (e2e)", () => {
     repository.seedContract({ id: contratoId, ownerId: OTHER_OWNER_ID });
     const membro = (r: request.Test) => r.set("x-dev-principal", OWNER_ID).set("x-dev-departamentos", "crm:membro");
     await membro(request(app.getHttpServer()).get(`/commercial/opportunities/${propriaId}`)).expect(200);
-    await membro(request(app.getHttpServer()).post(`/commercial/opportunities/${propriaId}/stage`)).send({ stage: "decisao" }).expect(200);
-    await membro(request(app.getHttpServer()).get(`/commercial/opportunities?ownerId=${OTHER_OWNER_ID}`)).expect(200).expect((res) => expect(res.body.items).toEqual([]));
-    await membro(request(app.getHttpServer()).get(`/commercial/contracts?ownerId=${OTHER_OWNER_ID}`)).expect(200).expect((res) => expect(res.body.items).toEqual([]));
-    await membro(request(app.getHttpServer()).get(`/commercial/opportunities/${alheiaId}`)).expect(404);
-    await membro(request(app.getHttpServer()).get(`/commercial/contracts/${contratoId}`)).expect(404);
+    await membro(request(app.getHttpServer()).get(`/commercial/opportunities?ownerId=${OTHER_OWNER_ID}`)).expect(200).expect((res) => expect(res.body.items.map((item: { id: string }) => item.id)).toContain(alheiaId));
+    await membro(request(app.getHttpServer()).get(`/commercial/contracts?ownerId=${OTHER_OWNER_ID}`)).expect(200).expect((res) => expect(res.body.items.map((item: { id: string }) => item.id)).toContain(contratoId));
+    await membro(request(app.getHttpServer()).get(`/commercial/opportunities/${alheiaId}`)).expect(200);
+    await membro(request(app.getHttpServer()).get(`/commercial/contracts/${contratoId}`)).expect(200);
     for (const [acao, body] of [
       ["stage", { stage: "decisao" }],
       ["contacts", { channel: "phone", outcome: "connected" }],
       ["win", { clientId: CLIENT_ID }],
       ["lose", { lossReason: "Teste" }],
       ["revisit", { nextActionAt: "2026-12-01T12:00:00.000Z", nextActionNote: "Retomar" }],
-    ] as const) await membro(request(app.getHttpServer()).post(`/commercial/opportunities/${alheiaId}/${acao}`)).send(body).expect(404);
-    await membro(request(app.getHttpServer()).post(`/commercial/contracts/${contratoId}/status`)).send({ status: "revisao_interna" }).expect(404);
+    ] as const) {
+      repository.seedOpportunity({ id: alheiaId, ownerId: OTHER_OWNER_ID });
+      await membro(request(app.getHttpServer()).post(`/commercial/opportunities/${alheiaId}/${acao}`)).send(body).expect(200);
+    }
+    await membro(request(app.getHttpServer()).post(`/commercial/contracts/${contratoId}/status`)).send({ status: "revisao_interna", nextActionAt: "2026-12-01T12:00:00.000Z" }).expect(200);
     await membro(request(app.getHttpServer()).post(`/commercial/opportunities/${propriaId}/stage`)).send({ stage: "decisao", ownerId: OTHER_OWNER_ID }).expect(403);
     await membro(request(app.getHttpServer()).post("/commercial/opportunities")).send({ title: "Teste", product: "OPM", ownerId: OTHER_OWNER_ID, nextActionAt: "2026-12-01T12:00:00.000Z" }).expect(403);
-    await asComercial().get(`/commercial/opportunities/${alheiaId}`).expect(200);
-    expect(repository.events.some((event) => event.entityId === alheiaId || event.entityId === contratoId)).toBe(false);
+    expect(repository.events.some((event) => event.entityId === alheiaId)).toBe(true);
+  });
+
+  it("Pipelines nao concede Contratos nem acesso manual ao cadastro do cliente", async () => {
+    const id = "00000000-0000-4000-8000-000000000704";
+    repository.seedOpportunity({ id, ownerId: OTHER_OWNER_ID });
+    const resolver = vi.spyOn(app.get<AuthContext>(AuthContext), "resolve").mockResolvedValue({
+      id: OWNER_ID, kind: "user", acesso: { plataforma: null, departamentos: [{ departamento: "crm", nivel: "membro", telas: ["crm.pipelines"] }] },
+    });
+    try {
+      await request(app.getHttpServer()).get(`/commercial/opportunities/${id}`).expect(200);
+      await request(app.getHttpServer()).get("/commercial/contracts").expect(403);
+      await request(app.getHttpServer()).post(`/commercial/opportunities/${id}/win`).send({ clientId: CLIENT_ID }).expect(403);
+    } finally {
+      resolver.mockRestore();
+    }
   });
 
   it("allows a broad read role to list opportunities but not mutate them", async () => {

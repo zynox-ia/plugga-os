@@ -12,10 +12,10 @@ export class PrismaAgentActionScope extends AgentActionScope {
   constructor(@Inject(PrismaService) private readonly prisma: PrismaService) { super(); }
 
   async permite(principal: AuthPrincipal, entityType: string, entityId: string): Promise<boolean> {
-    const tela = telas[entityType];
+    const tela = Object.hasOwn(telas, entityType) ? telas[entityType] : undefined;
     if (!tela || !alcancaTela(principal.acesso, tela) || !/^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/i.test(entityId)) return false;
     return this.prisma.comContexto(async (tx) => {
-      const consulta = { where: { id: entityId, ownerId: principal.id }, select: { id: true } };
+      const consulta = { where: { id: entityId }, select: { id: true } };
       const registro = entityType === "client" ? await tx.client.findFirst(consulta)
         : entityType === "deal" ? await tx.deal.findFirst(consulta)
           : entityType === "opportunity" ? await tx.opportunity.findFirst(consulta)

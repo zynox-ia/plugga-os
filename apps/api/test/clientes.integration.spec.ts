@@ -6,7 +6,7 @@ import { clientContactInputSchema, createClientRequestSchema, updateClientReques
 
 import { AuditAppender } from "../src/audit/audit-appender.js";
 import { PrismaClientesRepository } from "../src/clientes/prisma-clientes.repository.js";
-import { AcessoNegado, Conflito, NaoEncontrado, RequisicaoInvalida } from "../src/common/errors/dominio.js";
+import { AcessoNegado, Conflito, RequisicaoInvalida } from "../src/common/errors/dominio.js";
 import type { AuthPrincipal } from "../src/core/auth/auth.types.js";
 import { PrismaService } from "../src/prisma/prisma.service.js";
 
@@ -192,37 +192,50 @@ describe.skipIf(!HABILITADO)("clientes: cadastro único no Postgres", () => {
     },
     PRAZO_MS,
   );
-  it("membro não encontra cliente ou contatos alheios nem transfere seu próprio cliente", async () => {
+  it("Clientes permite cadastros e contatos de todos; atribuir a terceiros continua reservado a gestao", async () => {
     const usuario = await prisma.user.create({
-      data: { email: `${marca}-membro@teste.local`, name: `${marca} Membro`, departamentos: { create: { departamento: "crm", nivel: "membro" } } },
+      data: { email: `${marca}-membro@teste.local`, name: `${marca} Membro`, departamentos: { create: { departamento: "crm", nivel: "membro", telas: ["crm.clientes"] } } },
     });
-    const membro: AuthPrincipal = { id: usuario.id, kind: "user", acesso: { plataforma: null, departamentos: [{ departamento: "crm", nivel: "membro" }] } };
+    const membro: AuthPrincipal = { id: usuario.id, kind: "user", acesso: { plataforma: null, departamentos: [{ departamento: "crm", nivel: "membro", telas: ["crm.clientes"] }] } };
     const telefone = telefoneAleatorio();
     const { client: alheio } = await criar({ personType: "pj", name: `${marca} Restrito`, email: `${marca}-restrito@teste.local`, primaryContact: { name: `${marca} Contato restrito`, phone: telefone } });
     const { client: proprio, duplicateCandidates } = await repositorio.create(createClientRequestSchema.parse({ personType: "pj", name: `${marca} Próprio`, phone: telefone }), membro);
 
     expect(proprio.owner?.id).toBe(membro.id);
-    expect(duplicateCandidates).not.toContainEqual(expect.objectContaining({ id: alheio.id }));
-    expect((await repositorio.list({ q: `${marca} Contato restrito` }, membro)).items).toEqual([]);
-    expect((await repositorio.list({ q: marca }, membro)).items.map((item) => item.id)).toEqual([proprio.id]);
-    expect((await repositorio.duplicateCandidates({ phone: telefone }, membro)).candidates.map((item) => item.id)).toEqual([proprio.id]);
+    expect(duplicateCandidates).toContainEqual(expect.objectContaining({ id: alheio.id }));
+    expect((await repositorio.list({ q: `${marca} Contato restrito` }, membro)).items.map((item) => item.id)).toEqual([alheio.id]);
+    expect((await repositorio.list({ q: marca }, membro)).items.map((item) => item.id)).toEqual(expect.arrayContaining([proprio.id, alheio.id]));
+    expect((await repositorio.duplicateCandidates({ phone: telefone }, membro)).candidates.map((item) => item.id).sort()).toEqual([proprio.id, alheio.id].sort());
     expect((await repositorio.owners(membro)).items.map((item) => item.id)).toEqual([membro.id]);
     const contatoId = alheio.contacts[0]!.id;
-    for (const acao of [
-      () => repositorio.get(alheio.id, membro),
-      () => repositorio.update(alheio.id, { name: "Invasão" }, membro),
-      () => repositorio.activate(alheio.id, membro),
-      () => repositorio.inactivate(alheio.id, {}, membro),
-      () => repositorio.addContact(alheio.id, { name: "Invasão" }, membro),
-      () => repositorio.updateContact(alheio.id, contatoId, { name: "Invasão" }, membro),
-      () => repositorio.removeContact(alheio.id, contatoId, membro),
-    ]) await expect(acao()).rejects.toBeInstanceOf(NaoEncontrado);
+    expect((await repositorio.get(alheio.id, membro)).contacts[0]?.id).toBe(contatoId);
+    expect((await repositorio.update(alheio.id, { name: `${marca} Editado pelo membro` }, membro)).owner?.id).toBe(principal.id);
+    expect((await repositorio.inactivate(alheio.id, {}, membro)).active).toBe(false);
+    expect((await repositorio.activate(alheio.id, membro)).active).toBe(true);
+    const comNovoContato = await repositorio.addContact(alheio.id, { name: `${marca} Novo contato` }, membro);
+    expect(comNovoContato.contacts).toHaveLength(2);
+    expect((await repositorio.updateContact(alheio.id, contatoId, { name: `${marca} Contato editado` }, membro)).contacts)
+      .toContainEqual(expect.objectContaining({ id: contatoId, name: `${marca} Contato editado` }));
+    expect((await repositorio.removeContact(alheio.id, contatoId, membro)).contacts).not.toContainEqual(expect.objectContaining({ id: contatoId }));
     await expect(repositorio.update(proprio.id, { ownerId: principal.id }, membro)).rejects.toBeInstanceOf(AcessoNegado);
     await expect(repositorio.create(createClientRequestSchema.parse({ personType: "pj", name: `${marca} Atribuição`, phone: telefoneAleatorio(), ownerId: principal.id }), membro)).rejects.toBeInstanceOf(AcessoNegado);
 
-    const gerente: AuthPrincipal = { ...membro, acesso: { plataforma: null, departamentos: [{ departamento: "crm", nivel: "gerente" }] } };
-    expect((await repositorio.get(alheio.id, gerente)).id).toBe(alheio.id);
-    expect((await repositorio.list({ q: marca }, gerente)).items.map((item) => item.id)).toContain(alheio.id);
-    expect((await repositorio.get(alheio.id, principal)).contacts[0]?.name).toBe(`${marca} Contato restrito`);
+    const semClientes = await prisma.user.create({ data: {
+      email: `${marca}-pipeline@teste.local`, name: `${marca} Sem Clientes`,
+      departamentos: { create: { departamento: "crm", nivel: "membro", telas: ["crm.pipelines"] } },
+    } });
+    const pipelineOnly: AuthPrincipal = { id: semClientes.id, kind: "user", acesso: { plataforma: null, departamentos: [{ departamento: "crm", nivel: "membro", telas: ["crm.pipelines"] }] } };
+    const eventosAntes = await prisma.eventLog.count({ where: { entityId: alheio.id } });
+    for (const acao of [
+      () => repositorio.get(alheio.id, pipelineOnly),
+      () => repositorio.list({ q: marca }, pipelineOnly),
+      () => repositorio.duplicateCandidates({ phone: telefone }, pipelineOnly),
+      () => repositorio.owners(pipelineOnly),
+      () => repositorio.update(alheio.id, { name: `${marca} Bloqueado` }, pipelineOnly),
+      () => repositorio.inactivate(alheio.id, {}, pipelineOnly),
+      () => repositorio.addContact(alheio.id, { name: `${marca} Bloqueado` }, pipelineOnly),
+    ]) await expect(acao()).rejects.toBeInstanceOf(AcessoNegado);
+    expect((await repositorio.get(alheio.id, principal)).name).toBe(`${marca} Editado pelo membro`);
+    expect(await prisma.eventLog.count({ where: { entityId: alheio.id } })).toBe(eventosAntes);
   }, PRAZO_MS);
 });
