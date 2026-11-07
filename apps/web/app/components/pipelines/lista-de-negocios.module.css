@@ -224,12 +224,12 @@
 .lista :global(.selo-status-lead) { height: 20px; border-radius: var(--radius-full); }
 
 .menuVidro:global(.menu-negocio-lista) {
-  padding: 8px;
+  padding: 6px;
   background: rgba(255, 255, 255, 0.82);
   border: 1px solid rgba(255, 255, 255, 0.85);
   -webkit-backdrop-filter: blur(24px) saturate(180%);
   backdrop-filter: blur(24px) saturate(180%);
-  border-radius: 18px;
+  border-radius: 14px;
   box-shadow: 0 20px 50px rgba(15, 41, 74, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.9);
 }
 

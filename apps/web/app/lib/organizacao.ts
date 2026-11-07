@@ -211,10 +211,24 @@ export type SecaoConfiguracao = Omit<Processo, "id"> & {
   descricao: string;
   minimo: PapelDaEquipe;
   /** Marca a seção que tem tela própria dentro de Configurações. */
-  id?: "equipe" | "chave-llm" | "desenvolvedor";
+  id?: "perfil" | "notificacoes" | "equipe" | "sistema" | "integracoes" | "chave-llm" | "desenvolvedor";
 };
 
 export const CONFIGURACOES: SecaoConfiguracao[] = [
+  {
+    id: "perfil",
+    label: "Perfil & Segurança",
+    descricao: "Identificação, dados de contato, senha e controle de sessões ativas.",
+    status: "pronto",
+    minimo: "membro",
+  },
+  {
+    id: "notificacoes",
+    label: "Notificações",
+    descricao: "Preferências de alertas no CRM, prazos de tarefas e notificações por e-mail.",
+    status: "em-breve",
+    minimo: "membro",
+  },
   {
     id: "equipe",
     label: "Equipe e Acessos",
@@ -224,46 +238,32 @@ export const CONFIGURACOES: SecaoConfiguracao[] = [
     minimo: "gerente",
   },
   {
-    // Chave de IA: fica em configurações porque troca com frequência e não deve
-    // exigir edição de arquivo e reinício de contêiner a cada rotação.
-    id: "chave-llm",
-    label: "Chave de IA",
-    descricao:
-      "A credencial da OpenRouter que serve o sistema inteiro. Guardada cifrada, trocável por aqui, e todo consumo dela é medido por processo.",
-    status: "pronto",
-    minimo: "admin",
-  },
-  {
-    label: "Departamentos e Processos",
-    descricao:
-      "Desenho dos fluxos: etapas, tarefas, prazos de SLA e KPIs. Uma definição só, usada pelas duas empresas.",
+    id: "sistema",
+    label: "Configurações do Sistema",
+    descricao: "Parâmetros gerais da organização, políticas do CRM e regras da plataforma.",
     status: "em-breve",
     minimo: "admin",
   },
   {
-    label: "Empresas",
-    descricao: "Plugga e Waze Energia: identidade e etiqueta dos registros.",
-    status: "em-breve",
-    minimo: "admin",
-  },
-  {
+    id: "integracoes",
     label: "Integrações",
-    descricao: "Bitrix, OMIE, PagBank e PluggaMob — modo e saúde de cada uma.",
+    descricao: "Bitrix, WhatsApp, Brevo (e-mail), OMIE e PagBank — modo e saúde de cada uma.",
     rota: "/integracoes",
     status: "pronto",
     minimo: "admin",
   },
   {
-    label: "Jobs e Automações",
-    descricao: "Agendamentos, histórico de execução e falhas.",
-    rota: "/jobs",
+    id: "chave-llm",
+    label: "Chave de IA",
+    descricao: "Chave usada pelos agentes de IA, guardada no cofre da plataforma.",
     status: "pronto",
-    minimo: "desenvolvedor",
+    minimo: "admin",
   },
   {
-    label: "Canais e Notificações",
-    descricao: "E-mail transacional, Telegram e WhatsApp.",
-    status: "em-breve",
+    id: "desenvolvedor",
+    label: "Desenvolvedor",
+    descricao: "Execu\u00e7\u00f5es dos jobs e ferramentas t\u00e9cnicas.",
+    status: "pronto",
     minimo: "desenvolvedor",
   },
 ];

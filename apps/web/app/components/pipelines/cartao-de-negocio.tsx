@@ -1,7 +1,7 @@
 "use client";
 
 import type { Deal, Pipeline } from "@plugga/shared";
-import { ArrowRight, CalendarDays, Check, Clock, Eye, FileText, MoreHorizontal, User, UserCheck, X } from "lucide-react";
+import { ArrowRight, CalendarDays, Check, Clock, Eye, FileText, Kanban, MoreHorizontal, User, UserCheck, X } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 
@@ -123,7 +123,7 @@ export function MenuDoNegocio({
               {aoVerLead ? (
                 <>
                   <button type="button" role="menuitem" onClick={escolher(aoVerLead)}>
-                    <Eye size={14} aria-hidden="true" /> Ver detalhes do lead
+                    <Eye size={15} strokeWidth={1.7} aria-hidden="true" /> Ver detalhes do lead
                   </button>
                   {negocio.status === "open" ? <span className="menu-negocio-divisor" role="separator" /> : null}
                 </>
@@ -147,7 +147,7 @@ export function MenuDoNegocio({
                       aria-checked={negocio.priority === opcao.valor}
                       onClick={escolher(() => void acoes.definirPrioridade(negocio, opcao.valor))}
                     >
-                      {negocio.priority === opcao.valor ? <Check size={14} aria-hidden="true" /> : <span style={{ width: 14 }} aria-hidden="true" />}
+                      {negocio.priority === opcao.valor ? <Check size={15} strokeWidth={1.7} aria-hidden="true" /> : <span style={{ width: 15, height: 15, display: "inline-block", flexShrink: 0 }} aria-hidden="true" />}
                       {opcao.rotulo}
                     </button>
                   ))}
@@ -161,23 +161,23 @@ export function MenuDoNegocio({
                     .filter((e) => e.id !== negocio.stageId)
                     .map((e) => (
                       <button key={e.id} type="button" role="menuitem" onClick={escolher(() => void acoes.moverEtapa(negocio, e.id))}>
-                        <span className="ponto-cor" style={{ background: e.color }} aria-hidden="true" />
+                        <Kanban size={15} strokeWidth={1.7} style={{ color: e.color }} aria-hidden="true" />
                         {e.name}
                       </button>
                     ))}
                   <span className="menu-negocio-divisor" role="separator" />
                   <button type="button" role="menuitem" className="menu-negocio--ganho" onClick={escolher(() => acoes.ganhar(negocio))}>
-                    <Check size={14} aria-hidden="true" /> {pipeline.wonLabel}
+                    <Check size={15} strokeWidth={1.7} aria-hidden="true" /> {pipeline.wonLabel}
                   </button>
                   <button type="button" role="menuitem" className="menu-negocio--perdido" onClick={escolher(() => acoes.perder(negocio))}>
-                    <X size={14} aria-hidden="true" /> {pipeline.lostLabel}
+                    <X size={15} strokeWidth={1.7} aria-hidden="true" /> {pipeline.lostLabel}
                   </button>
                   <button type="button" role="menuitem" onClick={escolher(() => acoes.transferir(negocio))}>
-                    <ArrowRight size={14} aria-hidden="true" /> Mover para outro pipeline
+                    <ArrowRight size={15} strokeWidth={1.7} aria-hidden="true" /> Mover para outro pipeline
                   </button>
                   {!negocioConvertido(negocio) && acoes.converter ? (
                     <button type="button" role="menuitem" disabled={Boolean(acoes.convertendoId)} onClick={escolher(() => acoes.converter?.(negocio))}>
-                      <UserCheck size={14} aria-hidden="true" /> {acoes.convertendoId === negocio.id ? "Convertendo…" : "Converter em cliente"}
+                      <UserCheck size={15} strokeWidth={1.7} aria-hidden="true" /> {acoes.convertendoId === negocio.id ? "Convertendo…" : "Converter em cliente"}
                     </button>
                   ) : null}
                 </>
