@@ -164,7 +164,7 @@ export function ConfiguracoesView({
       ) : secao?.id === "chave-llm" ? (
         <ChaveLlmView />
       ) : secao?.id === "integracoes" && erroIntegracoes ? (
-        <EstadoDaApi erro={erroIntegracoes} eyebrow="Integra??es" />
+        <EstadoDaApi erro={erroIntegracoes} eyebrow="Integrações" />
       ) : secao?.id === "integracoes" && integracoesDados ? (
         <IntegracoesView
           items={integracoesDados.items}

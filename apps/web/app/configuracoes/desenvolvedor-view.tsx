@@ -25,7 +25,6 @@ export function DesenvolvedorView({ jobsDados, erroJobs }: DesenvolvedorViewProp
         </div>
         <div className={styles.cabecalhoAcoes}>
           <Link href="/jobs" className="button button--secondary ui-button ui-button--sm">Ver jobs</Link>
-          <Link href="/relatorios" className="button button--secondary ui-button ui-button--sm">Ver relatórios</Link>
         </div>
       </header>
 
