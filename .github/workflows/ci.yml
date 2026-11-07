@@ -298,16 +298,16 @@ jobs:
           for pool in runtime auth jobs; do
             password=$(openssl rand -hex 32)
             echo "::add-mask::$password"
-            psql -X --no-password --set=ON_ERROR_STOP=1 \
+            psql -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" -X --no-password --set=ON_ERROR_STOP=1 \
               --set=role_name="plugga_ci_$pool" --set=role_password="$password" <<'SQL'
           CREATE ROLE :"role_name" LOGIN INHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD :'role_password';
           SQL
             printf 'WEB_E2E_%s_DATABASE_URL=postgresql://plugga_ci_%s:%s@localhost:55432/plugga_os_test?schema=public\n' \
               "${pool^^}" "$pool" "$password" >> "$GITHUB_ENV"
           done
-          psql -X --no-password --set=ON_ERROR_STOP=1 \
+          psql -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" -X --no-password --set=ON_ERROR_STOP=1 \
             --set=runtime_role=plugga_ci_runtime --set=auth_role=plugga_ci_auth --set=jobs_role=plugga_ci_jobs \
-            --file=ops/configurar-papeis-aplicacao.sql
+            < ops/configurar-papeis-aplicacao.sql
 
       - name: Start API for web e2e
         env:
