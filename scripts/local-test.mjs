@@ -160,6 +160,7 @@ export function buildLocalTestEnvironment(sourceEnvironment = process.env) {
     REDIS_URL: "redis://127.0.0.1:56380",
     DEV_AUTH_ENABLED: "true",
     AUTH_SESSION_SECRET: "local_test_only_session_secret_change_me_please",
+    MFA_ENCRYPTION_KEY: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
     EMAIL_PROVIDER: "noop",
     SEED_ADMIN_EMAIL: "admin@plugga.test",
     SEED_ADMIN_PASSWORD: "local_test_only_seed_password_change_me",

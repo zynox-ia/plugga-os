@@ -24,6 +24,8 @@ jobs:
       REDIS_URL: redis://localhost:56380
       # Local CI-only dummy values (not secrets); auth boot/seed require them.
       AUTH_SESSION_SECRET: ci_local_only_session_secret_change_me_please
+      # Chave sintética de 32 bytes zerados, exclusiva dos testes de 2FA.
+      MFA_ENCRYPTION_KEY: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
       SEED_ADMIN_PASSWORD: ci_local_only_change_me
 
     services:
@@ -200,6 +202,9 @@ jobs:
 
       - name: Verify login limiter and session cache against Redis
         run: pnpm --filter @plugga/api test:redis
+
+      - name: Verify MFA isolation and concurrent recovery against Postgres
+        run: pnpm --filter @plugga/api test:mfa
 
       # Scripts de publicação e de operação: simulador do deploy,
       # lint do event_log, trava de publicação e restauração de backup. Os

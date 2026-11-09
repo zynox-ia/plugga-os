@@ -215,12 +215,13 @@ test("explicit Docker host or context overrides stop before inspection and comma
   }
 });
 
-test("migrate-from-zero pins test-only seed settings over hostile ambient values", () => {
+test("migrate-from-zero pins test-only seed and MFA settings over hostile ambient values", () => {
   const { calls, runner } = createRunner();
   runLocalTestAction("migrate-from-zero", runner, localDockerTarget, {
     SEED_ADMIN_EMAIL: "production-admin@example.com",
     SEED_ADMIN_PASSWORD: "production-password",
     SEED_SAMPLE_TEAM: "true",
+    MFA_ENCRYPTION_KEY: "ambient-key-must-not-reach-tests",
   });
 
   const seedCall = calls.find((call) => call.args.includes("db:seed"));
@@ -230,6 +231,7 @@ test("migrate-from-zero pins test-only seed settings over hostile ambient values
     "local_test_only_seed_password_change_me",
   );
   assert.equal(seedCall.env.SEED_SAMPLE_TEAM, "false");
+  assert.equal(seedCall.env.MFA_ENCRYPTION_KEY, Buffer.alloc(32).toString("base64"));
 });
 
 test("storage integration overrides developer targets with dedicated test values", () => {
