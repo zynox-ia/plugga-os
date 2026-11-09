@@ -115,18 +115,16 @@ export function SegurancaView() {
   return (
     <section className={`${config.secao} ${styles.stack} ${styles.card}`} aria-label="Autenticação em duas etapas">
       <div className={styles.header}>
-        <div>
-          <h3>
-            <ShieldCheck size={18} aria-hidden="true" />
-            Autenticação em duas etapas
-          </h3>
-          <p className={styles.note}>
-            Proteja sua conta com um aplicativo autenticador. A ativação é opcional para todos os papéis.
-          </p>
-        </div>
+        <h3>
+          <ShieldCheck size={18} aria-hidden="true" />
+          Autenticação em duas etapas
+        </h3>
         {status && (
           <Badge tone={status.enabled ? "success" : "neutral"}>{status.enabled ? "Ativada" : "Desativada"}</Badge>
         )}
+        <p className={styles.note}>
+          Proteja sua conta com um aplicativo autenticador. A ativação é opcional para todos os papéis.
+        </p>
       </div>
 
       {error && !action && <Alert tone="danger" title={error} />}

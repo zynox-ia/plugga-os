@@ -74,6 +74,12 @@ test("Segurança alinha senha e 2FA na mesma linha e empilha os cartões no celu
     const mfa = page.getByRole("region", { name: "Autenticação em duas etapas", exact: true });
     await expect(password).toBeVisible();
     await expect(mfa).toBeVisible();
+    const titleBox = await mfa.getByRole("heading", { name: "Autenticação em duas etapas", exact: true }).boundingBox();
+    const badge = mfa.getByText("Desativada", { exact: true });
+    await expect(badge).toBeVisible();
+    const badgeBox = await badge.boundingBox();
+    expect(badgeBox!.x).toBeGreaterThanOrEqual(titleBox!.x + titleBox!.width);
+    expect(Math.abs((badgeBox!.y + badgeBox!.height / 2) - (titleBox!.y + titleBox!.height / 2))).toBeLessThan(2);
     await expect(password.getByText("Alteração de senha em preparação", { exact: true })).toHaveCount(0);
     await expect(password.getByText("A troca de senha nesta tela ainda não está disponível.", { exact: true })).toHaveCount(0);
     await expect(page.getByRole("region", { name: "Dados da sessão atual", exact: true })).toHaveCount(0);
