@@ -51,12 +51,13 @@ test.describe("Configurações → Equipe e Acessos", () => {
     await abrirEquipe(page);
 
     const navegacao = page.locator(".config-nav");
-    await expect(page.getByRole("heading", { name: "Equipe e Acessos" })).toBeVisible();
+    const titulo = page.getByRole("heading", { name: "Equipe e Acessos", level: 1, exact: true });
+    await expect(titulo).toBeVisible();
     await expect(page.getByRole("columnheader", { name: "Papel" })).toBeVisible();
     await expect(page.getByRole("columnheader", { name: "Departamentos" })).toBeVisible();
     await expect(navegacao).toHaveCSS("display", "flex");
     const navBox = await navegacao.boundingBox();
-    const headingBox = await page.getByRole("heading", { name: "Equipe e Acessos" }).boundingBox();
+    const headingBox = await titulo.boundingBox();
     expect(navBox).not.toBeNull();
     expect(headingBox).not.toBeNull();
     expect(navBox!.y).toBeLessThan(headingBox!.y);
