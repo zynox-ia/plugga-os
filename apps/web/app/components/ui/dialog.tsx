@@ -17,6 +17,7 @@ export function Dialog({
   cancelAutoFocus = false,
   cancelText = "Cancelar",
   accessibleLabel,
+  className,
 }: {
   title: string;
   description?: string;
@@ -29,6 +30,7 @@ export function Dialog({
   cancelAutoFocus?: boolean;
   cancelText?: string;
   accessibleLabel?: string;
+  className?: string;
 }) {
   const footerRef = useRef<HTMLElement>(null);
   useLayoutEffect(() => {
@@ -36,7 +38,7 @@ export function Dialog({
   }, [cancelAutoFocus]);
 
   return (
-    <Modal rotulo={accessibleLabel ?? title} aoFechar={onClose} largura={size} className="ui-dialog">
+    <Modal rotulo={accessibleLabel ?? title} aoFechar={onClose} largura={size} className={className ? `ui-dialog ${className}` : "ui-dialog"}>
       <header className="ui-dialog-header">
         <div className="ui-dialog-header-content">
           {icon ? (

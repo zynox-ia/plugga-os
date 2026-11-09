@@ -21,6 +21,7 @@ import { SessionUserProvider, useSessionUser } from "../lib/use-session-user";
  */
 const PUBLIC_AUTH_PATHS = [
   "/login",
+  "/auth/mfa",
   "/auth/accept-invite",
   "/auth/reset",
   "/auth/google/complete",

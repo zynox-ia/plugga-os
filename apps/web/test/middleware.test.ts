@@ -17,4 +17,9 @@ describe("shouldBypassSessionCheck", () => {
     assert.equal(shouldBypassSessionCheck("/login"), false);
     assert.equal(shouldBypassSessionCheck("/clientes"), false);
   });
+
+  it("permite o desafio pendente sem liberar suas subrotas como páginas públicas", () => {
+    assert.equal(shouldBypassSessionCheck("/auth/mfa"), true);
+    assert.equal(shouldBypassSessionCheck("/auth/mfa/qualquer"), false);
+  });
 });

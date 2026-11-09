@@ -102,7 +102,10 @@ export async function handleGoogleCallback(
     return failure("unauthorized");
   }
 
-  const cookie = request.headers.get("cookie");
+  // O retorno cross-site do Google usa apenas o double-submit próprio.
+  // Sessões ou desafios anteriores não participam desta autenticação primária.
+  const cookie = request.headers.get("cookie")?.split(";").map((part) => part.trim())
+    .filter((part) => part.startsWith("g_csrf_token=")).join("; ");
   const forwardedFor = clientForwardedFor(request);
 
   let upstream: Response;
@@ -131,5 +134,7 @@ export async function handleGoogleCallback(
 
   // A sessão é a MESMA do login por senha; aqui ela só muda de origem para o
   // domínio do app, sem que o browser precise falar com a API diretamente.
-  return redirect(GOOGLE_COMPLETE_PATH, upstream.headers.getSetCookie());
+  const body: unknown = await upstream.json().catch(() => null);
+  const requiresMfa = body !== null && typeof body === "object" && "requiresMfa" in body && body.requiresMfa === true;
+  return redirect(requiresMfa ? `/auth/mfa?redirectTo=${encodeURIComponent(GOOGLE_COMPLETE_PATH)}` : GOOGLE_COMPLETE_PATH, upstream.headers.getSetCookie());
 }

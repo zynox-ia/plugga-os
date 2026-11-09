@@ -18,6 +18,7 @@ import {
   IconUser,
 } from "../components/ui";
 import { DEPARTAMENTOS, ROTULO_DO_PAPEL } from "../lib/organizacao";
+import { MfaRemoverDeMembro } from "./mfa-remover-de-membro";
 import {
   DESCRICAO_DO_DEPARTAMENTO,
   NIVEL_LABEL,
@@ -59,6 +60,7 @@ export function DetalhesDoMembro({
         }
       >
         <div className="ui-dialog-form">
+          <MfaRemoverDeMembro id={membro.id} name={membro.name} tipo={membro.tipo} />
           {/* Seção 1: Dados Cadastrais */}
           <section className="ui-dialog-section">
             <div className="ui-dialog-section-header">

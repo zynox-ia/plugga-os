@@ -7,7 +7,7 @@ import { test } from "node:test";
 import { podeAbrirPagina } from "../app/lib/acesso-paginas.ts";
 
 const app = fileURLToPath(new URL("../app/", import.meta.url));
-const publicas = new Set(["/login", "/auth/accept-invite", "/auth/reset", "/privacidade", "/termos"]);
+const publicas = new Set(["/login", "/auth/mfa", "/auth/accept-invite", "/auth/reset", "/privacidade", "/termos"]);
 const arquivos = readdirSync(app, { recursive: true, withFileTypes: true })
   .filter((arquivo) => arquivo.isFile() && arquivo.name === "page.tsx")
   .map((arquivo) => join(arquivo.parentPath, arquivo.name));

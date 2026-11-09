@@ -7,6 +7,7 @@ import { Alert, Badge, Button, TextField } from "../components/ui";
 import { ROTULO_DO_PAPEL } from "../lib/organizacao";
 import { useSessionUser } from "../lib/use-session-user";
 import styles from "./configuracoes.module.css";
+import { SegurancaView } from "./seguranca-view";
 
 export function PerfilView() {
   const { usuario } = useSessionUser();
@@ -16,6 +17,7 @@ export function PerfilView() {
 
   return (
     <div className={styles.painel}>
+      <SegurancaView />
       <Alert tone="info" title="Perfil em preparação">
         Você pode consultar seus dados. A edição do perfil, a foto e a troca de senha estão em preparação.
       </Alert>

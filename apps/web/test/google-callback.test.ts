@@ -52,6 +52,22 @@ afterEach(() => {
 });
 
 describe("handleGoogleCallback", () => {
+  it("encaminha somente o cookie double-submit do Google, sem sessão ou pendência anteriores", async () => {
+    const recorded: Recorded[] = [];
+    await handleGoogleCallback(googlePost(undefined, { cookie: `plugga_session=old; g_csrf_token=${CSRF}; plugga_mfa_pending=old` }), {
+      fetchImpl: stubUpstream(Response.json({ requiresMfa: true }), recorded),
+    });
+    assert.equal((recorded[0]?.init.headers as Record<string, string>).cookie, `g_csrf_token=${CSRF}`);
+  });
+  it("leva o login Google protegido ao segundo fator sem emitir destino autenticado", async () => {
+    const response = await handleGoogleCallback(googlePost(), {
+      fetchImpl: stubUpstream(Response.json({ requiresMfa: true }, {
+        headers: { "set-cookie": "plugga_mfa_pending=signed; HttpOnly; Path=/; SameSite=Lax" },
+      })),
+    });
+    assert.equal(response.headers.get("location"), "/auth/mfa?redirectTo=%2Fauth%2Fgoogle%2Fcomplete");
+    assert.ok(response.headers.getSetCookie().some((cookie) => cookie.startsWith("plugga_mfa_pending=")));
+  });
   for (const state of ["remember", "session"]) {
     it(`preserva a preferência ${state} junto da credencial e do CSRF`, async () => {
       const recorded: Recorded[] = [];

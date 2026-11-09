@@ -1,4 +1,4 @@
-const PUBLIC_PATHS = ["/login", "/auth/accept-invite", "/auth/reset", "/privacidade", "/termos"];
+const PUBLIC_PATHS = ["/login", "/auth/mfa", "/auth/accept-invite", "/auth/reset", "/privacidade", "/termos"];
 
 /** Public background assets and pages except login do not need a session lookup. */
 export function shouldBypassSessionCheck(pathname: string): boolean {

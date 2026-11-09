@@ -1,0 +1,4 @@
+.field:focus-within {
+  outline: 2px solid var(--ui-muted, #536579);
+  outline-offset: 2px;
+}

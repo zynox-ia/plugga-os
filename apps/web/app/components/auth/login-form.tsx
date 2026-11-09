@@ -46,6 +46,12 @@ export function LoginForm({
       });
 
       if (response.ok) {
+        const result: unknown = await response.json();
+        const requiresMfa = result !== null && typeof result === "object" && "requiresMfa" in result && result.requiresMfa === true;
+        if (requiresMfa) {
+          router.push(`/auth/mfa?redirectTo=${encodeURIComponent(safeRedirect(redirectTo))}`);
+          return;
+        }
         router.push(safeRedirect(redirectTo));
         router.refresh();
         return;
