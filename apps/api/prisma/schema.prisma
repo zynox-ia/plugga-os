@@ -893,6 +893,7 @@ enum PipelineMemberRole {
 /// negócio dele herda essa empresa. Arquivar esconde o pipeline das abas sem
 /// apagar nada; com negócios, ele nunca é apagado.
 model Pipeline {
+  processProfile Json? @map("process_profile") @db.JsonB
   fields      Json                 @default("[]") @db.JsonB
   id          String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   companyId   String               @map("company_id")
@@ -1015,6 +1016,7 @@ enum DealPriority {
 /// está, sem cópia aqui: mover de pipeline muda a empresa por construção.
 /// Ganho e Perdido encerram o negócio na etapa em que ele estava.
 model Deal {
+  solarProject Json? @map("solar_project") @db.JsonB
   customFields Json @default("{}") @map("custom_fields") @db.JsonB
   version Int @default(1)
   leadContactId String? @map("lead_contact_id") @db.Uuid

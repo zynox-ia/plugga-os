@@ -107,6 +107,7 @@ export function paraCriacao(rascunho: Rascunho): CreatePipelineRequest {
     lossReasons: rascunho.lossReasons.map(({ id, name, asksRevisitDate }) => ({ id, name, asksRevisitDate })),
     members: [],
     fields: rascunho.fields.map(({ id, name, type, options, showOnCard, showInList }) => ({ id, name, type, options: options?.map(({ id, name }) => ({ id, name })), showOnCard, showInList })),
+    ...(rascunho.processProfile !== undefined ? { processProfile: rascunho.processProfile } : {}),
   };
 }
 

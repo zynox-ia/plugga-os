@@ -26,6 +26,16 @@ const solar: Pipeline = {
 };
 
 describe("rascunho de pipeline", () => {
+  it("a edição de nomes preserva a associação Solar por referências estáveis", () => {
+    const id = (numero: number) => `00000000-0000-4000-8000-${String(numero).padStart(12, "0")}`;
+    const profile = { key: "solar_commercial" as const, version: 1 as const, bindings: {
+      installationType: { fieldId: id(20), options: { residential: id(30), commercial: id(31), rural: id(32) } },
+      averageConsumptionKwh: { fieldId: id(21) }, roofType: { fieldId: id(22) }, availableAreaM2: { fieldId: id(23) }, estimatedPowerKwp: { fieldId: id(24) },
+    } };
+    const rascunho = { ...rascunhoDe({ ...solar, processProfile: profile }), name: "Solar renomeado" };
+    assert.deepEqual(paraEdicao(rascunho, solar.updatedAt).processProfile, profile);
+    assert.equal("processProfile" in paraCriacao(rascunhoNovo("plugga")), false);
+  });
   it("atualiza o pipeline lido sem remover outros funis ou alterar sua ordem", () => {
     const outro = { ...solar, id: "outro", name: "Mercado Livre" };
     const atualizado = { ...solar, name: "Solar atual" };

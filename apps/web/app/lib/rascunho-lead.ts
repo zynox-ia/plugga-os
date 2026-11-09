@@ -1,7 +1,7 @@
-import type { Deal, LeadContactInput, UpdateLeadRequest } from "@plugga/shared";
+import type { DealDetail, LeadContactInput, UpdateLeadRequest } from "@plugga/shared";
 import { displayCurrency, parseCurrencyInput } from "../components/ui/currency-value.ts";
 
-type DadosEditaveis = Pick<Deal, "lead" | "contact" | "title" | "value" | "expectedCloseDate" | "owner" | "tags" | "customFields">;
+type DadosEditaveis = Pick<DealDetail, "lead" | "contact" | "title" | "value" | "expectedCloseDate" | "owner" | "tags" | "customFields" | "solarProject">;
 
 export function criarRascunhoLead(negocio: DadosEditaveis) {
   const contato = negocio.contact;
@@ -18,6 +18,9 @@ export function criarRascunhoLead(negocio: DadosEditaveis) {
     ownerId: negocio.owner.id,
     tagIds: negocio.tags.map((tag) => tag.id),
     customFields: { ...negocio.customFields },
+    solarProject: negocio.solarProject === undefined ? undefined : negocio.solarProject === null
+      ? { principalUc: null, beneficiaryUcs: [], primaryEnergyBillDocumentId: null }
+      : structuredClone(negocio.solarProject),
   };
 }
 
@@ -42,5 +45,6 @@ export function montarAtualizacaoLead(original: RascunhoLead, atual: RascunhoLea
     .filter((id) => original.customFields[id] !== atual.customFields[id])
     .map((id) => [id, atual.customFields[id] ?? null]));
   if (Object.keys(campos).length) corpo.customFields = campos;
+  if (atual.solarProject !== undefined && JSON.stringify(original.solarProject) !== JSON.stringify(atual.solarProject)) corpo.solarProject = atual.solarProject;
   return corpo;
 }

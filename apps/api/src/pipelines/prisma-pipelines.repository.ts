@@ -27,6 +27,7 @@ import { travarPipelines } from "./travar-pipelines";
 import { configurarCampos, lerCampos, type ContagensDeCampos } from "./custom-fields.rules";
 import { contarValores, removerValores } from "./custom-fields.persistence";
 import { contarNegociosDosPipelines } from "./pipeline-counts.persistence";
+import { configurarPerfilDeProcesso, lerPerfilDeProcesso } from "./solar-profile.rules";
 import {
   alteracoes,
   idsDesconhecidos,
@@ -49,7 +50,7 @@ const COMPLETO = {
 } satisfies Prisma.PipelineInclude;
 
 // Contagens aninhadas repetem a leitura/RLS de deals por relação. A listagem
-// carrega só definições e agrega negócios uma vez para todos os pipelines.
+// carrega só definições e agrega negócios uma vez por lote de pipelines.
 const PARA_LISTAGEM = {
   ...COMPLETO,
   stages: { orderBy: { position: "asc" } },
@@ -61,9 +62,11 @@ type LinhaDePipeline = Prisma.PipelineGetPayload<{ include: typeof COMPLETO }>;
 const NAO_ENCONTRADO = "Pipeline não encontrado.";
 const NOME_REPETIDO = "Já existe um pipeline com este nome nesta empresa.";
 const VERSAO_DESATUALIZADA = "Outra pessoa alterou este pipeline enquanto você editava. Reabra para ver a versão atual.";
+const PIPELINES_POR_LOTE = 25;
 
 function paraPipeline(linha: LinhaDePipeline, canConfigure: boolean, counts: ContagensDeCampos = {}): Pipeline {
   return pipelineSchema.parse({
+    processProfile: lerPerfilDeProcesso(linha.processProfile),
     fields: lerCampos(linha.fields).map((field) => ({ ...field, valueCount: counts[field.id]?.count ?? 0 })),
     id: linha.id,
     companyId: linha.companyId,
@@ -107,19 +110,27 @@ export class PrismaPipelinesRepository extends PipelinesRepository {
   async list(principal: AuthPrincipal, query: ListPipelinesQuery = {}): Promise<ListPipelinesResponse> {
     const acesso = await this.acessoDe(principal.id);
     if (!acesso.podeOperar) throw new AcessoNegado("Sem acesso aos pipelines do CRM.");
-    const { linhas, counts } = await this.prisma.comContexto(async (tx) => {
-      const definitions = await tx.pipeline.findMany({ ...(query.pipelineId ? { where: { id: query.pipelineId } } : {}), orderBy: { createdAt: "asc" }, include: PARA_LISTAGEM });
-      const totals = await contarNegociosDosPipelines(tx, definitions.map((pipeline) => pipeline.id));
-      const linhas = definitions.map((pipeline) => ({
-        ...pipeline,
-        _count: { deals: totals.pipelines.get(pipeline.id) ?? 0 },
-        stages: pipeline.stages.map((stage) => ({ ...stage, _count: { deals: totals.stages.get(stage.id) ?? 0 } })),
-      }));
-      const counts = await contarValores(tx, linhas.flatMap((linha) => lerCampos(linha.fields)));
-      return { linhas, counts };
-    });
+    // O catálogo mantém arquivados. Lotes internos limitam cada transação RLS
+    // ao orçamento existente, sem paginação pública nem snapshot global novo.
+    const ids = query.pipelineId ? [query.pipelineId.toLowerCase()] : await this.prisma.comContexto(async (tx) =>
+      (await tx.pipeline.findMany({ select: { id: true }, orderBy: { createdAt: "asc" } })).map(({ id }) => id));
+    const porId = new Map<string, Pipeline>();
+    for (let offset = 0; offset < ids.length; offset += PIPELINES_POR_LOTE) {
+      const lote = ids.slice(offset, offset + PIPELINES_POR_LOTE);
+      const pipelines = await this.prisma.comContexto(async (tx) => {
+        const definitions = await tx.pipeline.findMany({ where: { id: query.pipelineId ?? { in: lote } }, orderBy: { createdAt: "asc" }, include: PARA_LISTAGEM });
+        const totals = await contarNegociosDosPipelines(tx, definitions.map((pipeline) => pipeline.id));
+        const counts = await contarValores(tx, definitions.flatMap((linha) => lerCampos(linha.fields)));
+        return definitions.map((pipeline) => paraPipeline({
+          ...pipeline,
+          _count: { deals: totals.pipelines.get(pipeline.id) ?? 0 },
+          stages: pipeline.stages.map((stage) => ({ ...stage, _count: { deals: totals.stages.get(stage.id) ?? 0 } })),
+        }, podeConfigurar(acesso, principal.id, pipeline), counts));
+      });
+      for (const pipeline of pipelines) porId.set(pipeline.id, pipeline);
+    }
     return listPipelinesResponseSchema.parse({
-      pipelines: linhas.map((linha) => paraPipeline(linha, podeConfigurar(acesso, principal.id, linha), counts)),
+      pipelines: ids.flatMap((id) => porId.has(id) ? [porId.get(id)!] : []),
       responsaveis: (await this.people({ companyId: "plugga" }, principal)).people,
       canCreateIn: companyKeys.filter((empresa) => podeCriarEm(acesso, empresa)),
     });
@@ -141,14 +152,17 @@ export class PrismaPipelinesRepository extends PipelinesRepository {
     if (!podeCriarEm(acesso, input.companyId)) throw new AcessoNegado("Só o gerente do CRM cria pipelines.");
     await this.garantirNomeLivre(input.companyId, input.name);
 
-    const { stages, tags, lossReasons, members, fields, ...gerais } = input;
+    const { stages, tags, lossReasons, members, fields, processProfile, ...gerais } = input;
     this.garantirSemEquipe(members);
     const id = await this.comNomeUnico(() =>
       this.prisma.comContexto(async (tx) => {
+        const definitions = configurarCampos([], fields ?? [], [], {});
+        const profile = configurarPerfilDeProcesso(null, processProfile, definitions);
         const criado = await tx.pipeline.create({
           data: {
             ...gerais,
-            fields: configurarCampos([], fields ?? [], [], {}),
+            fields: definitions,
+            processProfile: profile ?? Prisma.DbNull,
             updatedById: principal.id,
             stages: { create: comPosicao(stages.map(({ name, color, staleAfterDays, asksClientConversion }) => ({ name, color, staleAfterDays, asksClientConversion }))) },
             tags: { create: comPosicao(tags.map(({ name, color }) => ({ name, color }))) },
@@ -198,24 +212,25 @@ export class PrismaPipelinesRepository extends PipelinesRepository {
     }
 
     const { campos, secoes } = alteracoes(atual, input);
-    const { stages, tags, lossReasons, members, updatedAt, stageDestinations, fields, confirmedFieldRemovals, ...gerais } = input;
+    const { stages, tags, lossReasons, members, updatedAt, stageDestinations, fields, confirmedFieldRemovals, processProfile, ...gerais } = input;
     this.garantirSemEquipe(members);
     const removidas = idsRemovidos(atual.stages.map((e) => e.id), stages);
     await this.comNomeUnico(() =>
       this.prisma.comContexto(async (tx) => {
         await travarPipelines(tx, [id]);
-        const current = await tx.pipeline.findUnique({ where: { id }, select: { fields: true, updatedAt: true } });
+        const current = await tx.pipeline.findUnique({ where: { id }, select: { fields: true, processProfile: true, updatedAt: true } });
         if (!current) throw new NaoEncontrado(NAO_ENCONTRADO);
         if (current.updatedAt.getTime() !== new Date(updatedAt).getTime()) throw new EstadoInvalido(VERSAO_DESATUALIZADA);
         const definitions = lerCampos(current.fields);
         const counts = fields === undefined ? {} : await contarValores(tx, definitions);
         const next = fields === undefined ? undefined : configurarCampos(definitions, fields, confirmedFieldRemovals ?? [], counts);
+        const profile = configurarPerfilDeProcesso(lerPerfilDeProcesso(current.processProfile), processProfile, next ?? definitions);
         // Trava otimista: só grava sobre a versão que a tela leu. O banco guarda
         // microssegundos e o ISO da tela só milissegundos, daí o intervalo.
         const lido = new Date(updatedAt);
         const gravado = await tx.pipeline.updateMany({
           where: { id, updatedAt: { gte: lido, lt: new Date(lido.getTime() + 1) } },
-          data: { ...gerais, ...(next === undefined ? {} : { fields: next }), updatedById: principal.id },
+          data: { ...gerais, ...(next === undefined ? {} : { fields: next }), processProfile: profile ?? Prisma.DbNull, updatedById: principal.id },
         });
         if (gravado.count === 0) throw new EstadoInvalido(VERSAO_DESATUALIZADA);
         if (next) await removerValores(tx, definitions.filter((field) => !next.some((item) => item.id === field.id)), principal.id,

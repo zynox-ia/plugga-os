@@ -10,6 +10,8 @@ import { Button } from "../ui/button";
 import { displayDate } from "../ui/date-value";
 import styles from "./historico-do-lead.module.css";
 
+const CAMPOS_SOLAR: Record<string, string> = { "solar:principalUc": "UC principal", "solar:beneficiaryUcs": "UCs beneficiárias", "solar:primaryEnergyBillDocumentId": "Conta de energia principal" };
+
 const CAMPOS: Record<string, string> = { "lead.companyName": "Empresa", "lead.landlinePhone": "Telefone fixo", "lead.website": "Site", "lead.mainInterest": "Segmento / interesse principal", "lead.jobTitle": "Cargo / função do contato", title: "Título", value: "Investimento", expectedCloseDate: "Previsão de fechamento", ownerId: "Responsável", owner: "Responsável", tagIds: "Etiquetas", tags: "Etiquetas", contact: "Contato", "lead.name": "Nome do lead", "lead.email": "E-mail", "lead.phone": "Telefone", "lead.origin": "Origem", "lead.notes": "Anotações", "lead.document": "Documento", "lead.legalName": "Razão social", "lead.personType": "Tipo de pessoa", "lead.street": "Logradouro", "lead.city": "Cidade", "lead.state": "UF", "lead.postalCode": "CEP", "lead.district": "Bairro", "lead.addressComplement": "Complemento" };
 const EVENTOS = {
   created: { acao: "cadastrou este lead", icone: UserRoundPlus },
@@ -49,7 +51,7 @@ function AtividadeHistorico({ entrada }: { entrada: DealHistoryEntry }) {
       <div className={styles.historicoLinha}>
         <span className={styles.historicoAvatar} aria-hidden="true">{entrada.actor ? nome.trim().split(/\s+/).slice(0, 2).map((parte) => parte[0]).join("").toUpperCase() : <UserRound size={13} />}</span>
         <p><strong>{nome}</strong> {EVENTOS[entrada.kind].acao}
-          {entrada.kind === "field_changed" ? <> <strong>{entrada.field?.startsWith("custom:") ? entrada.field.slice(7) : entrada.field ? CAMPOS[entrada.field] ?? "um campo do cadastro" : "os dados do lead"}</strong></> : null}
+          {entrada.kind === "field_changed" ? <> <strong>{entrada.field?.startsWith("custom:") ? entrada.field.slice(7) : entrada.field ? CAMPOS_SOLAR[entrada.field] ?? CAMPOS[entrada.field] ?? "um campo do cadastro" : "os dados do lead"}</strong></> : null}
           {entrada.kind === "priority_changed" ? <> para <strong>{entrada.toPriority ? PRIORIDADES[entrada.toPriority] : "Sem prioridade"}</strong></> : null}
         </p>
       </div>

@@ -22,3 +22,4 @@ export * from "./organization.js";
 export * from "./pipelines.js";
 export * from "./whatsapp.js";
 export * from "./custom-fields.js";
+export * from "./solar.js";

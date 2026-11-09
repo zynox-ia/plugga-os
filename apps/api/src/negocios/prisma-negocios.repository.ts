@@ -1,4 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
+import { randomUUID } from "node:crypto";
 import { Prisma, type ActorType } from "@prisma/client";
 import {
   convertLeadResponseSchema,
@@ -39,12 +40,14 @@ import { podeVer } from "../pipelines/pipelines.rules";
 import { travarPipelines } from "../pipelines/travar-pipelines";
 import { lerCampos, lerValores, valoresDoPipeline } from "../pipelines/custom-fields.rules";
 import { prepararValores } from "../pipelines/custom-fields.persistence";
+import { lerPerfilDeProcesso } from "../pipelines/solar-profile.rules";
+import { lerProjetoSolar, prepararProjetoSolar } from "./solar-project.persistence";
 import { PrismaService } from "../prisma/prisma.service";
 import { NegociosRepository } from "./negocios.repository";
 import { foraDe, hojeNoFuso, problemaDaPerda } from "./negocios.rules";
 
 const DO_NEGOCIO = {
-  pipeline: { select: { companyId: true, fields: true } },
+  pipeline: { select: { companyId: true, fields: true, processProfile: true } },
   client: { select: { id: true, name: true, ownerId: true } },
   profile: true,
   leadContact: true,
@@ -70,6 +73,7 @@ const SO_ABERTO = "Este negócio já foi encerrado.";
 function paraNegocio(linha: LinhaDeNegocio, acesso: AcessoComercial): DealDetail {
   const cliente = acesso.admin || acesso.podeVerClientes ? linha.client : null;
   return dealDetailSchema.parse({
+    ...(lerPerfilDeProcesso(linha.pipeline.processProfile) ? { solarProject: lerProjetoSolar(linha.solarProject) } : {}),
     customFields: valoresDoPipeline(lerCampos(linha.pipeline.fields), lerValores(linha.customFields)),
     id: linha.id,
     version: linha.version,
@@ -208,9 +212,12 @@ export class PrismaNegociosRepository extends NegociosRepository {
       }
       await this.garantirResponsavel(tx, input.ownerId);
       const custom = await prepararValores(tx, lerCampos(atual.fields), input.customFields ?? {});
+      const dealId = randomUUID();
+      const solar = input.solarProject === undefined ? undefined : await prepararProjetoSolar(tx, atual.processProfile, dealId, input.solarProject, null);
       const position = await this.posicaoNaEtapa(tx, etapa.id, undefined, undefined);
       const criado = await tx.deal.create({
         data: {
+          id: dealId,
           pipelineId: atual.id,
           stageId: etapa.id,
           position,
@@ -221,6 +228,7 @@ export class PrismaNegociosRepository extends NegociosRepository {
           value: input.value ?? null,
           expectedCloseDate: input.expectedCloseDate ?? null,
           customFields: custom.values,
+          ...(solar ? { solarProject: solar.project } : {}),
           createdById: principal.id,
           tags: { create: input.tagIds.map((tagId) => ({ tagId })) },
           profile: { create: { ...input.lead } },
@@ -231,6 +239,11 @@ export class PrismaNegociosRepository extends NegociosRepository {
       if (custom.changes.length) await tx.dealHistory.createMany({ data: custom.changes.map((change) => ({
         dealId: criado.id, kind: "field_changed", field: change.field,
         beforeValue: Prisma.JsonNull, afterValue: change.after === null ? Prisma.JsonNull : change.after, actorId: principal.id,
+      })) });
+      if (solar?.changes.length) await tx.dealHistory.createMany({ data: solar.changes.map((change) => ({
+        dealId: criado.id, kind: "field_changed", field: change.field,
+        beforeValue: change.before === null ? Prisma.JsonNull : change.before,
+        afterValue: change.after === null ? Prisma.JsonNull : change.after, actorId: principal.id,
       })) });
       if (input.contact) {
         const contato = await tx.leadContact.create({ data: { ...input.contact, dealId: criado.id, isPrimary: true } });
@@ -267,6 +280,12 @@ export class PrismaNegociosRepository extends NegociosRepository {
         if (JSON.stringify(before) !== JSON.stringify(after)) mudancas.push({ field, before, after });
       };
       const dados: Prisma.DealUncheckedUpdateInput = {};
+      if (input.solarProject !== undefined) {
+        if (input.version === undefined) throw invalido("Recarregue o negócio e informe a versão antes de editar a ficha.", "version", "versão obrigatória");
+        const solar = await prepararProjetoSolar(tx, pipelineAtual.processProfile, id, input.solarProject, negocio.solarProject);
+        mudancas.push(...solar.changes);
+        dados.solarProject = solar.project;
+      }
       let customFieldIds: string[] = [];
       if (input.customFields !== undefined) {
         if (input.version === undefined) throw invalido("Recarregue o negócio e informe a versão antes de editar campos.", "version", "versão obrigatória");
@@ -311,7 +330,7 @@ export class PrismaNegociosRepository extends NegociosRepository {
           comparar(`contact.${campo}`, antes, depois);
         }
       }
-      if (mudancas.length === 0) return paraNegocio(negocio, acesso);
+      if (mudancas.length === 0 && !(input.solarProject !== undefined && negocio.solarProject === null)) return paraNegocio(negocio, acesso);
       if (input.lead && mudancas.some((m) => m.field.startsWith("lead."))) await tx.leadProfile.update({ where: { dealId: id }, data: input.lead });
       if (mudancas.some((m) => m.field.startsWith("contact."))) {
         if (input.contact === null) dados.leadContactId = null;

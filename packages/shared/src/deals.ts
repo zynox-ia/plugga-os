@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { dealSolarProjectSchema } from "./solar.js";
 import { customFieldValuesSchema } from "./custom-fields.js";
 
 import {
@@ -116,6 +117,7 @@ export type LeadContact = z.infer<typeof leadContactSchema>;
 
 export const createDealRequestSchema = z
   .object({
+    solarProject: dealSolarProjectSchema.optional(),
     customFields: customFieldValuesSchema.optional(),
     pipelineId: uuid,
     stageId: uuid,
@@ -141,6 +143,7 @@ export type CreateDealRequest = z.infer<typeof createDealRequestSchema>;
 /** Edita dados do lead e, opcionalmente, substitui o contato selecionado. `undefined` mantém cada campo. */
 export const updateLeadRequestSchema = z
   .object({
+    solarProject: dealSolarProjectSchema.optional(),
     customFields: customFieldValuesSchema.optional(),
     /** Clientes legados podem omitir; o modal sempre envia a versão lida. */
     version: z.number().int().positive().optional(),
@@ -154,7 +157,7 @@ export const updateLeadRequestSchema = z
   })
   .strict()
   .superRefine((input, ctx) => {
-    if (input.version === undefined && [input.title, input.value, input.expectedCloseDate, input.ownerId, input.tagIds, input.customFields].some((v) => v !== undefined)) {
+    if (input.version === undefined && [input.title, input.value, input.expectedCloseDate, input.ownerId, input.tagIds, input.customFields, input.solarProject].some((v) => v !== undefined)) {
       ctx.addIssue({ code: "custom", path: ["version"], message: "recarregue o negócio e informe a versão antes de editar dados comerciais" });
     }
   });
@@ -229,7 +232,7 @@ export const dealSchema = z.object({
 export type Deal = z.infer<typeof dealSchema>;
 
 /** Detalhe relido do servidor; a versão também cobre perfil e contato próprios. */
-export const dealDetailSchema = dealSchema.extend({ version: z.number().int().positive(), lossNote: z.string().nullable() });
+export const dealDetailSchema = dealSchema.extend({ version: z.number().int().positive(), lossNote: z.string().nullable(), solarProject: dealSolarProjectSchema.nullable().optional() });
 export type DealDetail = z.infer<typeof dealDetailSchema>;
 export const dealDetailsSchema = dealDetailSchema;
 export type DealDetails = DealDetail;

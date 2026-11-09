@@ -80,6 +80,7 @@ export function useDetalhesDoLead(id: string, pipelineId: string, aoAtualizar: (
     setSalvando(false);
     if (!resposta.ok) {
       setConflito(resposta.erro.codigo === "CONFLITO_ESTADO");
+      setErrosCampos(resposta.erro.porCampo);
       setErro(Object.values(resposta.erro.porCampo).join(" · ") || resposta.erro.mensagem);
       return false;
     }

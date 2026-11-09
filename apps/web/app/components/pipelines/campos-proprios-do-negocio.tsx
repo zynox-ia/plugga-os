@@ -4,15 +4,17 @@ import type { Pipeline, PipelinePerson } from "@plugga/shared";
 import { TextField } from "../ui/fields";
 import type { PropsEdicaoLead } from "./ficha-do-lead";
 import styles from "./detalhes-do-lead-modal.module.css";
+import camposStyles from "./campos-proprios-do-negocio.module.css";
 
 export function CamposPropriosDoNegocio({ pipeline, responsaveis, rascunho, aoAlterar, erros }: PropsEdicaoLead & { pipeline: Pipeline; responsaveis: PipelinePerson[] }) {
   if (!pipeline.fields?.length) return null;
+  const solar = pipeline.processProfile?.key === "solar_commercial";
   function alterar(id: string, valor: string | boolean | null) {
     aoAlterar((atual) => atual && { ...atual, customFields: { ...atual.customFields, [id]: valor } });
   }
-  return <div className={styles.painelCard}>
-    <div className={styles.painelCardHeader}><h4>Dados de {pipeline.name}</h4></div>
-    {erros.customFields ? <p className="ui-field-error" role="alert">{erros.customFields}</p> : null}
+  return <div className={`${styles.painelCard}${solar ? ` ${camposStyles.solar}` : ""}`}>
+    <div className={`${styles.painelCardHeader}${solar ? ` ${camposStyles.inteira}` : ""}`}><h4>Dados de {pipeline.name}</h4></div>
+    {erros.customFields ? <p className={`ui-field-error${solar ? ` ${camposStyles.inteira}` : ""}`} role="alert">{erros.customFields}</p> : null}
     {pipeline.fields.map((campo) => {
       const valor = rascunho.customFields[campo.id];
       const id = `campo-negocio-${campo.id}`;

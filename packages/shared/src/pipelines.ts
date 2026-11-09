@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { pipelineFieldsInputSchema, pipelineFieldSchema } from "./custom-fields.js";
+import { pipelineProcessProfileSchema } from "./solar.js";
 
 import { companyKeySchema } from "./organization.js";
 import { isoDate, uuid } from "./primitivas.js";
@@ -54,6 +55,7 @@ export const pipelineMemberInputSchema = z.object({ userId: uuid, role: pipeline
 export type PipelineMemberInput = z.infer<typeof pipelineMemberInputSchema>;
 
 const camposDoPipeline = {
+  processProfile: pipelineProcessProfileSchema.nullable().optional(),
   fields: pipelineFieldsInputSchema.optional(),
   companyId: companyKeySchema,
   name: nome(60),
@@ -137,6 +139,7 @@ export const pipelineStageSchema = z.object({
 export type PipelineStage = z.infer<typeof pipelineStageSchema>;
 
 export const pipelineSchema = z.object({
+  processProfile: pipelineProcessProfileSchema.nullable().optional(),
   fields: z.array(pipelineFieldSchema).optional(),
   id: uuid,
   companyId: companyKeySchema,
@@ -163,6 +166,7 @@ export type Pipeline = z.infer<typeof pipelineSchema>;
 /** O pipeline lido, no formato que a edição devolve (sem o que só a API decide). */
 export function pipelineParaEdicao(pipeline: Pipeline): UpdatePipelineRequest {
   return {
+    ...(pipeline.processProfile === undefined ? {} : { processProfile: pipeline.processProfile }),
     ...(pipeline.fields === undefined ? {} : { fields: pipeline.fields.map(({ id, name, type, options, showOnCard, showInList }) => ({ id, name, type, options, showOnCard, showInList })) }),
     companyId: pipeline.companyId,
     name: pipeline.name,

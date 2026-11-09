@@ -1,0 +1,70 @@
+.ficha {
+  grid-column: 1 / -1;
+  min-inline-size: 0;
+}
+
+.principais {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr));
+  gap: var(--space-md);
+}
+
+.documentos,
+.lista {
+  display: grid;
+  align-content: start;
+  gap: var(--space-sm);
+  min-inline-size: 0;
+}
+
+.beneficiarias {
+  display: grid;
+  gap: var(--space-sm);
+  min-inline-size: 0;
+  margin: var(--space-sm) 0 0;
+  padding: 0;
+  border: 0;
+}
+
+.beneficiarias legend {
+  margin-block-end: var(--space-sm);
+  padding: 0;
+  color: var(--ui-text);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.linha {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: var(--space-sm);
+}
+
+.remover {
+  margin-block-start: var(--space-lg);
+}
+
+.acoes,
+.falha {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+.ajuda,
+.estado,
+.aviso,
+.falha p {
+  margin: 0;
+  color: var(--ui-muted);
+  font-size: 13px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.aviso,
+.falha p {
+  color: var(--ui-text);
+}

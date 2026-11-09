@@ -25,14 +25,10 @@ function setup(gerente = false) {
 afterEach(() => vi.restoreAllMocks());
 
 describe("Pipelines: metadados compartilhados da tela autorizada", () => {
-  it("inclui contagens e membros de toda a tela sem expor e-mail no diretório", async () => {
+  it("catálogo vazio consulta só IDs e mantém diretório sem expor e-mail", async () => {
     const { repo, pipelines, people, counts } = setup();
     const result = await repo.list(principal);
-    expect(pipelines).toHaveBeenCalledWith(expect.objectContaining({ include: expect.objectContaining({
-      stages: { orderBy: { position: "asc" } },
-      _count: false,
-      members: expect.objectContaining({ include: { user: { select: { id: true, name: true } } } }),
-    }) }));
+    expect(pipelines).toHaveBeenCalledWith({ select: { id: true }, orderBy: { createdAt: "asc" } });
     expect(result.pipelines).toEqual([]);
     expect(counts).not.toHaveBeenCalled();
     expect(people.mock.calls[0]?.[0]?.where).not.toHaveProperty("id");
