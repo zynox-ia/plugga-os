@@ -13,6 +13,12 @@ const MAX_WIDTH = 400;
 
 type ScriptState = "loading" | "ready" | "failed";
 
+type GoogleWindow = Window & {
+  google?: { accounts: { id: {
+    renderButton(parent: HTMLElement, options: Record<string, string | number>): void;
+  } } };
+};
+
 /**
  * Botão oficial "Entrar com o Google", renderizado pelo próprio Google Identity
  * Services em modo redirect.
@@ -30,10 +36,12 @@ export function GoogleSignInButton({
   clientId,
   loginUri,
   redirectTo,
+  rememberMe,
 }: {
   clientId: string;
   loginUri: string;
   redirectTo?: string;
+  rememberMe: boolean;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [scriptState, setScriptState] = useState<ScriptState>("loading");
@@ -68,23 +76,41 @@ export function GoogleSignInButton({
     container.querySelector(".g_id_signin")?.setAttribute("data-width", String(largura));
 
     const existente = document.querySelector<HTMLScriptElement>(`script[src="${GIS_SCRIPT_SRC}"]`);
-    if (existente) {
-      // Navegação client-side de volta ao /login: o script já está na página e
-      // não dispara `load` de novo, mas a biblioteca reprocessa o DOM sozinha.
+    if ((window as GoogleWindow).google?.accounts.id) {
       setScriptState("ready");
       return;
     }
 
-    const script = document.createElement("script");
+    const script = existente ?? document.createElement("script");
     script.src = GIS_SCRIPT_SRC;
     script.async = true;
     script.defer = true;
-    script.addEventListener("load", () => setScriptState("ready"));
+    const loaded = () => setScriptState("ready");
+    const failed = () => setScriptState("failed");
+    script.addEventListener("load", loaded);
     // Bloqueador de rastreadores, rede corporativa fechada, Google fora do ar:
     // some só o botão. E-mail e senha continuam sendo o caminho completo.
-    script.addEventListener("error", () => setScriptState("failed"));
-    document.head.appendChild(script);
+    script.addEventListener("error", failed);
+    if (!existente) document.head.appendChild(script);
+    return () => {
+      script.removeEventListener("load", loaded);
+      script.removeEventListener("error", failed);
+    };
   }, []);
+
+  useEffect(() => {
+    const slot = containerRef.current?.querySelector<HTMLElement>(".g_id_signin");
+    const google = (window as GoogleWindow).google?.accounts.id;
+    if (scriptState !== "ready" || !slot || !google) return;
+    // O GIS captura state ao renderizar; mudar só data-state deixa o iframe antigo.
+    slot.replaceChildren();
+    google.renderButton(slot, {
+      type: "standard", shape: "pill", theme: "outline", text: "signin_with",
+      size: "large", logo_alignment: "left", locale: "pt-BR",
+      width: Number(slot.dataset.width),
+      state: rememberMe ? "remember" : "session",
+    });
+  }, [rememberMe, scriptState]);
 
   // O separador vive AQUI dentro, e não na tela de login, para sumir junto com
   // o botão. Quando o script do Google é bloqueado, um "ou" sozinho no meio da
@@ -112,6 +138,7 @@ export function GoogleSignInButton({
         />
         <div
           className="g_id_signin"
+          data-state={rememberMe ? "remember" : "session"}
           data-type="standard"
           data-shape="pill"
           data-theme="outline"

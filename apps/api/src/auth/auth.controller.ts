@@ -6,6 +6,7 @@ import {
   acceptInviteRequestSchema,
   googleCallbackSchema,
   loginRequestSchema,
+  REMEMBERED_SESSION_TTL_SECONDS,
   resetConfirmRequestSchema,
   resetRequestSchema,
   type AcceptInviteRequest,
@@ -67,7 +68,7 @@ export class AuthController {
       ip: request.ip,
       userAgent: request.headers["user-agent"],
     });
-    response.cookie(SESSION_COOKIE_NAME, token, this.cookieOptions());
+    response.cookie(SESSION_COOKIE_NAME, token, this.cookieOptions(input.rememberMe ?? false));
     return { user };
   }
 
@@ -101,9 +102,9 @@ export class AuthController {
         // comparação com o corpo é o que a torna útil.
         csrfFromCookie: request.cookies?.[GOOGLE_CSRF_COOKIE] as string | undefined,
       },
-      { ip: request.ip, userAgent: request.headers["user-agent"] },
+      { ip: request.ip, userAgent: request.headers["user-agent"], rememberMe: input.state === "remember" },
     );
-    response.cookie(SESSION_COOKIE_NAME, token, this.cookieOptions());
+    response.cookie(SESSION_COOKIE_NAME, token, this.cookieOptions(input.state === "remember"));
     return { user };
   }
 
@@ -170,11 +171,10 @@ export class AuthController {
     return this.service.confirmReset(input);
   }
 
-  private cookieOptions(): CookieOptions {
-    const absoluteHours = this.config.get<number>("SESSION_ABSOLUTE_TTL_HOURS", 720);
+  private cookieOptions(rememberMe: boolean): CookieOptions {
     return {
       ...this.clearCookieOptions(),
-      maxAge: absoluteHours * 3_600_000,
+      ...(rememberMe ? { maxAge: REMEMBERED_SESSION_TTL_SECONDS * 1_000 } : {}),
     };
   }
 

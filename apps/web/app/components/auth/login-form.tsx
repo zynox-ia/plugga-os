@@ -42,7 +42,7 @@ export function LoginForm({
       const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, rememberMe }),
       });
 
       if (response.ok) {
@@ -189,6 +189,7 @@ export function LoginForm({
           clientId={google.clientId}
           loginUri={google.loginUri}
           redirectTo={redirectTo}
+          rememberMe={rememberMe}
         />
       ) : null}
     </div>

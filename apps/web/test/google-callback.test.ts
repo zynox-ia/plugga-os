@@ -52,6 +52,17 @@ afterEach(() => {
 });
 
 describe("handleGoogleCallback", () => {
+  for (const state of ["remember", "session"]) {
+    it(`preserva a preferência ${state} junto da credencial e do CSRF`, async () => {
+      const recorded: Recorded[] = [];
+      const body = new URLSearchParams({ credential: CREDENTIAL, g_csrf_token: CSRF, state }).toString();
+      await handleGoogleCallback(googlePost(body), {
+        fetchImpl: stubUpstream(new Response("{}", { status: 200 }), recorded),
+      });
+      assert.equal(recorded[0]?.init.body, body);
+    });
+  }
+
   it("forwards the raw form and the cookie, then redirects with the session cookie", async () => {
     const recorded: Recorded[] = [];
     const upstream = new Response(JSON.stringify({ user: { id: "u1" } }), {

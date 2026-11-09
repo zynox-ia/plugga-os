@@ -107,7 +107,10 @@ export class PrismaSessionLookupRepository extends SessionLookupRepository {
 
     const ttlMinutes = this.config.get<number>("SESSION_TTL_MINUTES", 720);
     const slidingExpiry = new Date(now.getTime() + ttlMinutes * 60_000);
-    const nextExpiry = slidingExpiry < absoluteExpiresAt ? slidingExpiry : absoluteExpiresAt;
+    // Novos logins têm os dois prazos iguais: são fixos desde a emissão.
+    // Legadas continuam deslizando; se já chegaram ao teto, também o preservam.
+    const fixedExpiry = expiresAt.getTime() === absoluteExpiresAt.getTime();
+    const nextExpiry = fixedExpiry || slidingExpiry >= absoluteExpiresAt ? absoluteExpiresAt : slidingExpiry;
 
     // Logout, reset ou desativação entre leitura e renovação recusam a sessão.
     const renewed = await this.prisma.session.updateMany({

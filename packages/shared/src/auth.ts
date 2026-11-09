@@ -29,10 +29,16 @@ export const passwordSchema = z.string().min(12).max(200);
 
 const opaqueTokenSchema = z.string().trim().min(16).max(512);
 
+/** Prazos fixos desde o login para novas sessões (PLU-311). */
+export const REMEMBERED_SESSION_TTL_SECONDS = 7 * 24 * 60 * 60;
+export const STANDARD_SESSION_TTL_SECONDS = 12 * 60 * 60;
+
 export const loginRequestSchema = z
   .object({
     email: emailSchema,
     password: z.string().min(1).max(200),
+    /** Ausente equivale a false nos novos logins. */
+    rememberMe: z.boolean().optional(),
   })
   .strict();
 
@@ -76,6 +82,8 @@ export type IdentityProvider = (typeof identityProviders)[number];
 export const googleCallbackSchema = z.object({
   credential: z.string().trim().min(1).max(8_192),
   g_csrf_token: z.string().trim().min(1).max(256),
+  /** Preferência enviada pelo botão GIS; ausente equivale a sessão de 12h. */
+  state: z.enum(["remember", "session"]).optional(),
 });
 
 export type GoogleCallback = z.infer<typeof googleCallbackSchema>;

@@ -146,7 +146,7 @@ export class GoogleAuthService {
       throw new GoogleLoginException("unauthorized", HttpStatus.UNAUTHORIZED);
     }
 
-    const token = await this.sessions.issue(user, context);
+    const token = await this.sessions.issue(user, { ...context, rememberMe: context.rememberMe ?? false });
     await this.audit.appendEvent({
       eventName: eventNames.authLoginSucceeded,
       entityType: "user",

@@ -1,5 +1,6 @@
 import { Inject, Injectable, UnauthorizedException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
+import { REMEMBERED_SESSION_TTL_SECONDS, STANDARD_SESSION_TTL_SECONDS } from "@plugga/shared";
 
 import { SessionCache, type ResolvedSessionUser } from "../core/auth/session-cache";
 import { generateOpaqueToken, hashToken } from "../core/auth/token.util";
@@ -8,6 +9,8 @@ import { AuthRepository } from "./auth.repository";
 export interface SessionContext {
   ip?: string | null;
   userAgent?: string | null;
+  /** Ausente mantém a emissão legada para chamadas internas. Logins sempre informam boolean. */
+  rememberMe?: boolean;
 }
 
 @Injectable()
@@ -30,8 +33,13 @@ export class SessionService {
     const now = new Date();
     const ttlMinutes = this.config.get<number>("SESSION_TTL_MINUTES", 720);
     const absoluteHours = this.config.get<number>("SESSION_ABSOLUTE_TTL_HOURS", 720);
-    const absoluteExpiresAt = new Date(now.getTime() + absoluteHours * 3_600_000);
-    const expiresAt = new Date(Math.min(now.getTime() + ttlMinutes * 60_000, absoluteExpiresAt.getTime()));
+    const legacyPolicy = context.rememberMe === undefined;
+    const fixedTtlSeconds = context.rememberMe ? REMEMBERED_SESSION_TTL_SECONDS : STANDARD_SESSION_TTL_SECONDS;
+    const absoluteExpiresAt = new Date(now.getTime() + (legacyPolicy
+      ? absoluteHours * 3_600_000 : fixedTtlSeconds * 1_000));
+    const expiresAt = legacyPolicy
+      ? new Date(Math.min(now.getTime() + ttlMinutes * 60_000, absoluteExpiresAt.getTime()))
+      : absoluteExpiresAt;
 
     await this.repository.createSession({
       userId: user.id,
