@@ -113,7 +113,7 @@ export function SegurancaView() {
   }
 
   return (
-    <section className={`${config.secao} ${styles.stack}`} aria-label="Autenticação em duas etapas">
+    <section className={`${config.secao} ${styles.stack} ${styles.card}`} aria-label="Autenticação em duas etapas">
       <div className={styles.header}>
         <div>
           <h3>

@@ -5,6 +5,11 @@
   color: var(--ui-text);
 }
 
+.card {
+  container-type: inline-size;
+  align-content: start;
+}
+
 .dialog :global(.ui-dialog-title) {
   white-space: normal;
   overflow-wrap: anywhere;
@@ -151,6 +156,12 @@
     font-size: 16px;
   }
 
+  .actions > button {
+    flex: 1 1 auto;
+  }
+}
+
+@container (max-width: 600px) {
   .setup {
     grid-template-columns: minmax(0, 1fr);
   }

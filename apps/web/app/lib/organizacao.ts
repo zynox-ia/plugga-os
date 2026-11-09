@@ -211,14 +211,21 @@ export type SecaoConfiguracao = Omit<Processo, "id"> & {
   descricao: string;
   minimo: PapelDaEquipe;
   /** Marca a seção que tem tela própria dentro de Configurações. */
-  id?: "perfil" | "notificacoes" | "equipe" | "sistema" | "integracoes" | "chave-llm" | "desenvolvedor";
+  id?: "perfil" | "seguranca" | "notificacoes" | "equipe" | "integracoes" | "chave-llm" | "desenvolvedor";
 };
 
 export const CONFIGURACOES: SecaoConfiguracao[] = [
   {
     id: "perfil",
-    label: "Perfil & Segurança",
-    descricao: "Identificação, dados de contato, senha e controle de sessões ativas.",
+    label: "Perfil",
+    descricao: "Identificação, foto e dados de contato da sua conta.",
+    status: "pronto",
+    minimo: "membro",
+  },
+  {
+    id: "seguranca",
+    label: "Segurança",
+    descricao: "Autenticação em duas etapas e senha de acesso à sua conta.",
     status: "pronto",
     minimo: "membro",
   },
@@ -236,13 +243,6 @@ export const CONFIGURACOES: SecaoConfiguracao[] = [
       "Quem entra e o que alcança: membro ou gerente por departamento, admin ou desenvolvedor na plataforma.",
     status: "pronto",
     minimo: "gerente",
-  },
-  {
-    id: "sistema",
-    label: "Configurações do Sistema",
-    descricao: "Parâmetros gerais da organização, políticas do CRM e regras da plataforma.",
-    status: "em-breve",
-    minimo: "admin",
   },
   {
     id: "integracoes",

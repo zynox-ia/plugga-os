@@ -139,13 +139,14 @@ describe("barra lateral pelo acesso", () => {
 describe("Configurações pelo papel", () => {
   const secoes = (acesso: Acesso) => configuracoesParaAcesso(acesso).map((secao) => secao.label);
 
-  it("membro vê as configurações pessoais (Perfil & Segurança, Notificações)", () => {
-    assert.deepEqual(secoes(membro("crm")), ["Perfil & Segurança", "Notificações"]);
+  it("membro vê Perfil e Segurança separados nas configurações pessoais", () => {
+    assert.deepEqual(secoes(membro("crm")), ["Perfil", "Segurança", "Notificações"]);
   });
 
   it("gerente vê as configurações pessoais e Equipe e Acessos", () => {
     assert.deepEqual(secoes({ plataforma: null, departamentos: [{ departamento: "crm", nivel: "gerente" }] }), [
-      "Perfil & Segurança",
+      "Perfil",
+      "Segurança",
       "Notificações",
       "Equipe e Acessos",
     ]);
@@ -154,17 +155,25 @@ describe("Configurações pelo papel", () => {
   it("admin vê as configurações administrativas sem ferramentas técnicas", () => {
     const admin = secoes({ plataforma: "admin", departamentos: [] });
     assert.deepEqual(admin, [
-      "Perfil & Segurança",
+      "Perfil",
+      "Segurança",
       "Notificações",
       "Equipe e Acessos",
-      "Configurações do Sistema",
       "Integrações",
       "Chave de IA",
     ]);
   });
 
   it("desenvolvedor vê todas as configurações e ferramentas técnicas", () => {
-    assert.equal(secoes({ plataforma: "desenvolvedor", departamentos: [] }).length, 7);
+    assert.deepEqual(secoes({ plataforma: "desenvolvedor", departamentos: [] }), [
+      "Perfil",
+      "Segurança",
+      "Notificações",
+      "Equipe e Acessos",
+      "Integrações",
+      "Chave de IA",
+      "Desenvolvedor",
+    ]);
   });
 
   function membro(...departamentos: Acesso["departamentos"][number]["departamento"][]): Acesso {

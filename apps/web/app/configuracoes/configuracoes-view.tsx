@@ -1,6 +1,6 @@
 "use client";
 
-import { Bell, Cable, KeyRound, Settings, Terminal, UserRound, Users } from "lucide-react";
+import { Bell, Cable, KeyRound, ShieldCheck, Terminal, UserRound, Users } from "lucide-react";
 import { useEffect, useMemo, useState, type ComponentType } from "react";
 import type {
   EmailStatus,
@@ -21,13 +21,13 @@ import { DesenvolvedorView } from "./desenvolvedor-view";
 import { EquipeView } from "./equipe-view";
 import { NotificacoesView } from "./notificacoes-view";
 import { PerfilView } from "./perfil-view";
-import { SistemaView } from "./sistema-view";
+import { SegurancaDaContaView } from "./seguranca-da-conta-view";
 
 const ICONE_DA_SECAO: Record<string, ComponentType<{ size?: number; className?: string; "aria-hidden"?: boolean }>> = {
   perfil: UserRound,
+  seguranca: ShieldCheck,
   notificacoes: Bell,
   equipe: Users,
-  sistema: Settings,
   integracoes: Cable,
   "chave-llm": KeyRound,
   desenvolvedor: Terminal,
@@ -72,8 +72,7 @@ export function ConfiguracoesView({
   // Sincroniza a aba ativa quando as seções visíveis ou o abaInicial mudarem
   useEffect(() => {
     if (abaInicial && visiveis.length > 0) {
-      const idAlvo = abaInicial === "seguranca" ? "perfil" : abaInicial;
-      setAtiva(idAlvo);
+      setAtiva(abaInicial);
     }
   }, [abaInicial, visiveis]);
 
@@ -155,12 +154,12 @@ export function ConfiguracoesView({
       <div className={secao?.id === "equipe" ? "equipe-layout" : undefined} role="tabpanel" id={`config-painel-${secao?.id}`} aria-labelledby={`config-aba-${secao?.id}`} tabIndex={0}>
       {secao?.id === "perfil" ? (
         <PerfilView />
+      ) : secao?.id === "seguranca" ? (
+        <SegurancaDaContaView />
       ) : secao?.id === "notificacoes" ? (
         <NotificacoesView />
       ) : secao?.id === "equipe" ? (
         <EquipeView inicial={equipe} aoCarregar={setEquipe} />
-      ) : secao?.id === "sistema" ? (
-        <SistemaView />
       ) : secao?.id === "chave-llm" ? (
         <ChaveLlmView />
       ) : secao?.id === "integracoes" && erroIntegracoes ? (
