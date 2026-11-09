@@ -9,7 +9,8 @@ test("perfil sem API de edição não persiste foto nem simula gravação", () =
   assert.doesNotMatch(perfil, /\b(localStorage|sessionStorage|FileReader|setTimeout|fetch)\b/);
   assert.doesNotMatch(perfil, /<form\b|type="file"|\bon(?:Submit|Change|Input|Click|Drop)=/);
   assert.doesNotMatch(perfil, /Perfil atualizado|Senha atualizada|salvas com sucesso/);
-  assert.match(perfil, /Perfil em preparação/);
+  assert.match(perfil, /Dados somente para consulta/);
+  assert.match(perfil, /Edição e foto em preparação/);
 });
 
 test("campos de senha permanecem vazios e desabilitados, sem coleta", () => {

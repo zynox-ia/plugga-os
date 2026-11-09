@@ -257,15 +257,18 @@
 }
 
 .perfilTopoTituloLinha strong {
+  max-width: 100%;
   font-size: 18px;
   font-weight: 500;
   color: var(--ui-text);
-  font-family: var(--font-articulat), "Articulat CF", sans-serif;
+  font-family: var(--font-general-sans), sans-serif;
+  overflow-wrap: anywhere;
 }
 
 .perfilTopoEmail {
   font-size: 13px;
   color: var(--ui-muted);
+  overflow-wrap: anywhere;
 }
 
 .perfilTopoMeta {
@@ -273,6 +276,24 @@
   color: var(--ui-muted);
   text-transform: uppercase;
   letter-spacing: 0.04em;
+}
+
+.perfilDados {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+
+.perfilDadosTitulo {
+  margin: 0;
+  color: var(--ui-text);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.perfilGradeCampos :global(.ui-input-wrap):focus-within {
+  outline: 2px solid var(--ui-primary);
+  outline-offset: 2px;
 }
 
 .perfilGradeCampos {
@@ -292,103 +313,31 @@
 }
 
 .perfilRodapeNota {
+  display: flex;
+  align-items: flex-start;
+  flex: 1 1 260px;
+  gap: 8px;
   font-size: 12px;
   color: var(--ui-muted);
   margin: 0;
+  line-height: var(--line-height-body);
 }
 
-/* Foto do Perfil 4x5 e Dropzone */
-.fotoContainer4x5 {
-  position: relative;
-  width: 100px;
-  height: 125px;
-  aspect-ratio: 4 / 5;
-  border-radius: 14px;
-  overflow: hidden;
+.perfilRodapeNota svg {
   flex-shrink: 0;
+  margin-block-start: 1px;
 }
 
-.fotoDropzone {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  width: 100px;
-  height: 125px;
-  aspect-ratio: 4 / 5;
-  border: 1.5px dashed var(--ui-divider);
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.45);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  color: var(--ui-muted);
-  cursor: pointer;
-  text-align: center;
-  padding: 10px;
-  box-sizing: border-box;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-  flex-shrink: 0;
-  user-select: none;
-}
-
-.fotoDropzone:hover,
-.fotoDropzone[data-dragging="true"] {
-  border-color: var(--ui-primary);
-  background: rgba(0, 163, 255, 0.08);
-  color: var(--ui-primary);
-  transform: translateY(-1px);
-}
-
-.fotoDropzone svg {
-  color: inherit;
-  transition: transform 0.2s ease;
-}
-
-.fotoDropzone:hover svg {
-  transform: scale(1.08);
-}
-
-.fotoDropzoneTexto {
-  font-size: 11px;
-  font-weight: 500;
-  line-height: 1.2;
-}
-
-.fotoImagem {
-  width: 100px;
-  height: 125px;
-  aspect-ratio: 4 / 5;
-  object-fit: cover;
-  border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.85);
-  box-shadow: 0 4px 16px rgba(15, 41, 74, 0.12);
-  display: block;
-}
-
-.fotoRemoverBtn {
-  position: absolute;
-  top: 5px;
-  right: 5px;
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  background: rgba(15, 41, 74, 0.75);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  color: white;
-  border: 0;
+.perfilAvatar {
   display: grid;
   place-items: center;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  padding: 0;
-  z-index: 2;
-}
-
-.fotoRemoverBtn:hover {
-  background: #dc2626;
-  transform: scale(1.08);
+  flex-shrink: 0;
+  width: 72px;
+  height: 72px;
+  border: 1px solid var(--ui-divider);
+  border-radius: 50%;
+  background: var(--ui-subtle);
+  color: var(--ui-primary);
 }
 
 /* Linha de Sessão / Conexão */
@@ -467,7 +416,16 @@
     grid-template-columns: 1fr;
   }
   .perfilTopoUnificado {
-    flex-direction: column;
-    align-items: flex-start;
+    gap: 16px;
+  }
+  .perfilAvatar {
+    width: 64px;
+    height: 64px;
+  }
+  .perfilGradeCampos input {
+    font-size: 16px;
+  }
+  .perfilRodape > button {
+    width: 100%;
   }
 }

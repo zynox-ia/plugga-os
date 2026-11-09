@@ -115,3 +115,42 @@ test("cada seção de Configurações apresenta título H1 e subtítulo H2 no to
     }
   }
 });
+
+test("Perfil agrupa os dados em um cartão responsivo e preserva a consulta da conta", async ({ page, request }) => {
+  const response = await request.get("/api/auth/me");
+  expect(response.status()).toBe(200);
+  const user = await response.json();
+  const name = "Alexandre de Oliveira Albuquerque da Silva e Souza";
+  const email = `alexandre.${"a".repeat(40)}@departamento.example.test`;
+  await page.route("**/api/auth/me", (route) => route.fulfill({ json: { ...user, name, email } }));
+  for (const viewport of [{ width: 1366, height: 960 }, { width: 320, height: 844 }]) {
+    await page.setViewportSize(viewport);
+    await page.goto("/configuracoes?aba=perfil");
+    const profile = page.getByRole("region", { name: "Identificação e contato", exact: true });
+    const nameField = profile.getByLabel("Nome Completo", { exact: true });
+    const emailField = profile.getByLabel("E-mail", { exact: true });
+    const phoneField = profile.getByLabel("Celular / WhatsApp", { exact: true });
+    await expect(nameField).toHaveValue(name);
+    await expect(emailField).toHaveValue(email);
+    await expect(nameField).toHaveAttribute("readonly", "");
+    await expect(emailField).toHaveAttribute("readonly", "");
+    await expect(phoneField).toBeDisabled();
+    await expect(profile.getByRole("button", { name: "Salvar perfil", exact: true })).toBeDisabled();
+    await expect(profile.getByText(name, { exact: true })).toBeVisible();
+    await expect(profile.getByRole("alert")).toHaveCount(0);
+    await expect(profile.locator('input[type="file"]')).toHaveCount(0);
+    const emailBox = await emailField.boundingBox();
+    const phoneBox = await phoneField.boundingBox();
+    if (viewport.width > 767) {
+      expect(Math.abs(emailBox!.y - phoneBox!.y)).toBeLessThan(2);
+      expect(phoneBox!.x).toBeGreaterThanOrEqual(emailBox!.x + emailBox!.width);
+    } else {
+      expect(phoneBox!.y).toBeGreaterThan(emailBox!.y);
+    }
+    expect(await profile.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true);
+    await page.getByRole("tabpanel").focus();
+    await page.keyboard.press("Tab");
+    await expect(nameField).toBeFocused();
+    expect(await nameField.evaluate((node) => getComputedStyle(node.parentElement!).outlineStyle)).toBe("solid");
+  }
+});
