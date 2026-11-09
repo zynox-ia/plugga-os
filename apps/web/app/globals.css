@@ -2993,7 +2993,7 @@ tbody tr:last-child td { border-bottom: 0; }
 
 .auth-card-footer {
   margin-top: 22px;
-  font: 400 13px/var(--line-height-body) Anek, sans-serif;
+  font: 400 13px/var(--line-height-body) var(--font-general-sans), sans-serif;
 }
 
 .auth-card-footer a {
@@ -3022,7 +3022,7 @@ tbody tr:last-child td { border-bottom: 0; }
   color: var(--muted);
   margin: 0 0 24px;
   line-height: var(--line-height-body);
-  font-family: Anek, sans-serif;
+  font-family: var(--font-general-sans), sans-serif;
   white-space: nowrap;
 }
 
@@ -3126,7 +3126,7 @@ tbody tr:last-child td { border-bottom: 0; }
 .auth-reset-hint {
   margin: -6px 0 0;
   color: var(--muted);
-  font: 400 12px/var(--line-height-body) Anek, sans-serif;
+  font: 400 12px/var(--line-height-body) var(--font-general-sans), sans-serif;
 }
 
 .auth-reset-status {
@@ -3138,7 +3138,7 @@ tbody tr:last-child td { border-bottom: 0; }
   background: rgba(0, 163, 255, 0.1);
   border: 1px solid rgba(0, 163, 255, 0.25);
   border-radius: 14px;
-  font: 400 13px/var(--line-height-body) Anek, sans-serif;
+  font: 400 13px/var(--line-height-body) var(--font-general-sans), sans-serif;
   text-align: center;
 }
 
@@ -3198,7 +3198,7 @@ tbody tr:last-child td { border-bottom: 0; }
   outline: none;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
-  font-family: Anek, sans-serif;
+  font-family: var(--font-general-sans), sans-serif;
   transform: translateZ(0);
   contain: layout style;
   display: flex;
@@ -3366,7 +3366,7 @@ tbody tr:last-child td { border-bottom: 0; }
   max-width: 310px;
   margin: 14px auto 0;
   color: var(--muted);
-  font: 400 12.5px/var(--line-height-body) Anek, sans-serif;
+  font: 400 12.5px/var(--line-height-body) var(--font-general-sans), sans-serif;
   text-align: center;
   text-wrap: balance;
 }

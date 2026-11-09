@@ -8,6 +8,36 @@ async function pending(page: import("@playwright/test").Page) {
   await page.route("**/api/auth/mfa/challenge", (route) => route.fulfill({ json: { pending: true, expiresAt: new Date(Date.now() + 300_000).toISOString() } }));
 }
 
+test("autenticação usa a General Sans do projeto nos avisos, rótulos e campos em desktop e celular", async ({ page }) => {
+  await pending(page);
+  for (const viewport of [{ width: 1366, height: 900 }, { width: 390, height: 844 }]) {
+    await page.setViewportSize(viewport);
+    for (const path of ["/auth/mfa", "/login", "/auth/reset?token=synthetic-preview-token"]) {
+      await page.goto(path);
+      await page.getByRole("heading", { level: 1 }).waitFor();
+      if (path === "/auth/mfa") await page.getByLabel("Código de verificação ou recuperação").waitFor();
+      await page.evaluate(() => document.fonts.ready);
+      const typography = await page.evaluate(() => {
+        const family = (value: string) => value.split(",")[0]!.replace(/["']/g, "").trim();
+        const expected = [
+          family(getComputedStyle(document.documentElement).getPropertyValue("--font-general-sans")),
+          family(getComputedStyle(document.body).fontFamily),
+        ];
+        const selector = ".auth-form-title, .auth-form-subtitle, .auth-card-footer, .auth-pill-input, .auth-pill-label, .auth-legal-notice, .auth-reset-hint, .auth-reset-status, .ui-field label, .ui-required, .ui-field-hint, .ui-input, .ui-button";
+        return {
+          expected,
+          loaded: expected.every((name) => [...document.fonts].some((font) => family(font.family) === name && font.status === "loaded")),
+          elements: [...document.querySelectorAll(selector)].map((node) => ({ element: node.className || node.tagName, family: family(getComputedStyle(node).fontFamily) })),
+        };
+      });
+      expect(typography.expected.every(Boolean)).toBe(true);
+      expect(typography.loaded).toBe(true);
+      expect(typography.elements.length).toBeGreaterThan(5);
+      expect(typography.elements.filter((item) => !typography.expected.includes(item.family)), `${path} em ${viewport.width}px`).toEqual([]);
+    }
+  }
+});
+
 test("nova tentativa de carregar o desafio remove o erro anterior após recuperar a conexão", async ({ page }) => {
   let attempts = 0;
   await page.route("**/api/auth/mfa/challenge", async (route) => {
