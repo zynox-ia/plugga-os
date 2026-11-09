@@ -152,6 +152,10 @@ export function ConfiguracoesView({
       </nav>
 
       <div className={secao?.id === "equipe" ? "equipe-layout" : undefined} role="tabpanel" id={`config-painel-${secao?.id}`} aria-labelledby={`config-aba-${secao?.id}`} tabIndex={0}>
+      <header className={styles.cabecalhoPagina}>
+        <h1>{secao?.label}</h1>
+        <h2>{secao?.descricao}</h2>
+      </header>
       {secao?.id === "perfil" ? (
         <PerfilView />
       ) : secao?.id === "seguranca" ? (

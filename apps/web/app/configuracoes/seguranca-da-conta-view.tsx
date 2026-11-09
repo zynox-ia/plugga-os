@@ -2,7 +2,7 @@
 
 import { KeyRound, Lock } from "lucide-react";
 
-import { Alert, Button, TextField } from "../components/ui";
+import { Button, TextField } from "../components/ui";
 import { useSessionUser } from "../lib/use-session-user";
 import styles from "./configuracoes.module.css";
 import { SegurancaView } from "./seguranca-view";
@@ -20,9 +20,6 @@ export function SegurancaDaContaView() {
             Alterar Senha de Acesso
           </h4>
           <div className={styles.camposUnicaColuna}>
-            <Alert tone="info" title="Alteração de senha em preparação">
-              A troca de senha nesta tela ainda não está disponível.
-            </Alert>
             <TextField
               type="password"
               label="Senha Atual"

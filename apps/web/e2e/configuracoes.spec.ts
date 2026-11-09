@@ -74,6 +74,8 @@ test("Segurança alinha senha e 2FA na mesma linha e empilha os cartões no celu
     const mfa = page.getByRole("region", { name: "Autenticação em duas etapas", exact: true });
     await expect(password).toBeVisible();
     await expect(mfa).toBeVisible();
+    await expect(password.getByText("Alteração de senha em preparação", { exact: true })).toHaveCount(0);
+    await expect(password.getByText("A troca de senha nesta tela ainda não está disponível.", { exact: true })).toHaveCount(0);
     await expect(page.getByRole("region", { name: "Dados da sessão atual", exact: true })).toHaveCount(0);
     const left = await password.boundingBox();
     const right = await mfa.boundingBox();
@@ -87,5 +89,23 @@ test("Segurança alinha senha e 2FA na mesma linha e empilha os cartões no celu
     await expect(mfa.getByRole("img", { name: /QR code/ })).toBeVisible();
     await expect(mfa.getByLabel("Código do aplicativo")).toBeVisible();
     expect(await mfa.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true);
+  }
+});
+
+test("cada seção de Configurações apresenta título H1 e subtítulo H2 no topo", async ({ page }) => {
+  await page.route("**/api/auth/mfa/status", (route) => route.fulfill({ json: { enabled: false, recentlyVerified: false, recoveryCodesRemaining: 0 } }));
+  for (const viewport of [{ width: 1366, height: 960 }, { width: 320, height: 844 }]) {
+    await page.setViewportSize(viewport);
+    await page.goto("/configuracoes?aba=perfil");
+    await expect(page.getByRole("tab", { name: "Perfil", exact: true })).toHaveAttribute("aria-selected", "true");
+    const sections = await page.getByRole("tab").allTextContents();
+    for (const section of sections) {
+      await page.getByRole("tab", { name: section, exact: true }).click();
+      const title = page.getByRole("heading", { level: 1 });
+      await expect(title).toHaveText(section);
+      const header = page.locator("header").filter({ has: title });
+      await expect(header.getByRole("heading", { level: 2 })).not.toBeEmpty();
+      expect(await header.evaluate((node) => node.scrollWidth <= node.clientWidth), `${section} em ${viewport.width}px`).toBe(true);
+    }
   }
 });
