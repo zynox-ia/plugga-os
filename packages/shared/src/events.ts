@@ -49,6 +49,13 @@ const evento = (descricao: string, escopo: DefinicaoDeEvento["escopo"]): Definic
 });
 
 export const catalogoEventos = {
+  "auth.mfa.enabled": evento("Segundo fator ativado", "plataforma"),
+  "auth.mfa.rotated": evento("Autenticador trocado", "plataforma"),
+  "auth.mfa.disabled": evento("Segundo fator desativado pelo titular", "plataforma"),
+  "auth.mfa.removed": evento("Segundo fator removido por desenvolvedor", "plataforma"),
+  "auth.mfa.emergency_removed": evento("Segundo fator removido por procedimento emergencial", "plataforma"),
+  "auth.mfa.recovery_codes_rotated": evento("Códigos de recuperação substituídos", "plataforma"),
+  "auth.mfa.verified": evento("Segundo fator confirmado", "plataforma"),
   "energy_efficiency.study.approved": evento("Estudo de eficiência energética aprovado", "empresa"),
   "energy_efficiency.study.sent": evento("Estudo enviado ao cliente", "empresa"),
   "energy.invoice_type.approved": evento("Tipo de fatura aprovado", "empresa"),

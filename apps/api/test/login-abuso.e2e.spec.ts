@@ -1,3 +1,5 @@
+import { MfaRepository } from "../src/auth/mfa.repository";
+import { InMemoryMfaRepository } from "./support/in-memory-mfa";
 import "./support/login-abuso-env";
 
 import { Test } from "@nestjs/testing";
@@ -51,6 +53,8 @@ interface Ambiente {
 
 async function subirApp(contador: ContadorTentativas, store: InMemoryStore): Promise<Ambiente> {
   const module = await Test.createTestingModule({ imports: [AppModule] })
+    .overrideProvider(MfaRepository)
+    .useValue(new InMemoryMfaRepository(store))
     .overrideProvider(AuthRepository)
     .useValue(new InMemoryAuthRepository(store))
     .overrideProvider(SessionLookupRepository)

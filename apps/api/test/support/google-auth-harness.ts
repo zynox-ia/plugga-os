@@ -1,3 +1,5 @@
+import { MfaRepository } from "../../src/auth/mfa.repository";
+import { InMemoryMfaRepository } from "./in-memory-mfa";
 import { Test } from "@nestjs/testing";
 import type { NestExpressApplication } from "@nestjs/platform-express";
 import request from "supertest";
@@ -84,6 +86,8 @@ export async function bootGoogleHarness(): Promise<GoogleHarness> {
   const audit = new RecordingAuditRepository();
 
   const module = await Test.createTestingModule({ imports: [AppModule] })
+    .overrideProvider(MfaRepository)
+    .useValue(new InMemoryMfaRepository(store))
     .overrideProvider(AuthRepository)
     .useValue(new InMemoryAuthRepository(store))
     .overrideProvider(SessionLookupRepository)

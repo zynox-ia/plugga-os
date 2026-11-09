@@ -140,6 +140,24 @@ export const sessionUserSchema = z
 
 export const meResponseSchema = sessionUserSchema;
 
+export const loginResponseSchema = z.union([
+  z.object({ user: sessionUserSchema }).strict(),
+  z.object({ requiresMfa: z.literal(true) }).strict(),
+]);
+export const mfaCodeRequestSchema = z.object({ code: z.string().trim().min(6).max(64) }).strict();
+export const mfaRemoveRequestSchema = z.object({ reason: z.string().trim().min(10).max(500) }).strict();
+export const mfaStatusSchema = z.object({ enabled: z.boolean(), recoveryCodesRemaining: z.number().int().nonnegative(), recentlyVerified: z.boolean() }).strict();
+export const mfaChallengeSchema = z.object({ pending: z.boolean(), expiresAt: z.iso.datetime().nullable() }).strict();
+export const mfaSetupSchema = z.object({ secret: z.string(), otpauthUri: z.string().startsWith("otpauth://"), expiresAt: z.iso.datetime() }).strict();
+export const mfaRecoveryCodesSchema = z.object({ recoveryCodes: z.array(z.string()).length(10) }).strict();
+export type LoginResponse = z.infer<typeof loginResponseSchema>;
+export type MfaCodeRequest = z.infer<typeof mfaCodeRequestSchema>;
+export type MfaRemoveRequest = z.infer<typeof mfaRemoveRequestSchema>;
+export type MfaStatus = z.infer<typeof mfaStatusSchema>;
+export type MfaChallenge = z.infer<typeof mfaChallengeSchema>;
+export type MfaSetup = z.infer<typeof mfaSetupSchema>;
+export type MfaRecoveryCodes = z.infer<typeof mfaRecoveryCodesSchema>;
+
 // Generic, non-enumerating acknowledgement for flows that must not reveal
 // whether an account exists (login failure, reset request).
 export const authAcknowledgementSchema = z

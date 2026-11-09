@@ -38,6 +38,10 @@ function opcional<T extends z.ZodTypeAny>(schema: T) {
 export const environmentSchema = z
   .object({
     NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
+    MFA_ENCRYPTION_KEY: opcional(z.string().refine((value) => {
+      const decoded = Buffer.from(value, "base64");
+      return decoded.length === 32 && decoded.toString("base64") === value;
+    }, "MFA_ENCRYPTION_KEY must be canonical base64 encoding of 32 bytes")),
     HOST: z.string().trim().min(1).default("127.0.0.1"),
     PORT: z.coerce.number().int().min(1).max(65_535).default(3_001),
     DATABASE_URL: z.string().startsWith("postgresql://"),

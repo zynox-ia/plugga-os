@@ -1,3 +1,5 @@
+import { MfaRepository } from "../src/auth/mfa.repository";
+import { InMemoryMfaRepository } from "./support/in-memory-mfa";
 import { Test } from "@nestjs/testing";
 import type { NestExpressApplication } from "@nestjs/platform-express";
 import request from "supertest";
@@ -36,7 +38,9 @@ describe("auth API (e2e, in-memory stores)", () => {
     email = new CapturingEmailPort();
 
     const module = await Test.createTestingModule({ imports: [AppModule] })
-      .overrideProvider(AuthRepository)
+      .overrideProvider(MfaRepository)
+    .useValue(new InMemoryMfaRepository(store))
+    .overrideProvider(AuthRepository)
       .useValue(new InMemoryAuthRepository(store))
       .overrideProvider(SessionLookupRepository)
       .useValue(new InMemorySessionLookup(store))

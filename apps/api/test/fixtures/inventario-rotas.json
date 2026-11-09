@@ -68,6 +68,123 @@
   },
   {
     "metodo": "POST",
+    "caminho": "/auth/mfa/cancel",
+    "controller": "MfaController.cancel",
+    "acesso": "public",
+    "papeis": [],
+    "guards": [
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/auth/mfa/challenge",
+    "controller": "MfaController.challenge",
+    "acesso": "public",
+    "papeis": [],
+    "guards": [
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/auth/mfa/confirm",
+    "controller": "MfaController.confirm",
+    "acesso": "authenticated",
+    "papeis": [],
+    "guards": [
+      "OriginCheckGuard",
+      "ThrottlerGuard",
+      "SessionAuthGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/auth/mfa/disable",
+    "controller": "MfaController.disable",
+    "acesso": "authenticated",
+    "papeis": [],
+    "guards": [
+      "OriginCheckGuard",
+      "ThrottlerGuard",
+      "SessionAuthGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/auth/mfa/enable",
+    "controller": "MfaController.enable",
+    "acesso": "authenticated",
+    "papeis": [],
+    "guards": [
+      "OriginCheckGuard",
+      "ThrottlerGuard",
+      "SessionAuthGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/auth/mfa/recovery-codes",
+    "controller": "MfaController.recoveryCodes",
+    "acesso": "authenticated",
+    "papeis": [],
+    "guards": [
+      "OriginCheckGuard",
+      "ThrottlerGuard",
+      "SessionAuthGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/auth/mfa/setup",
+    "controller": "MfaController.setup",
+    "acesso": "authenticated",
+    "papeis": [],
+    "guards": [
+      "OriginCheckGuard",
+      "ThrottlerGuard",
+      "SessionAuthGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/auth/mfa/status",
+    "controller": "MfaController.status",
+    "acesso": "authenticated",
+    "papeis": [],
+    "guards": [
+      "OriginCheckGuard",
+      "ThrottlerGuard",
+      "SessionAuthGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/auth/mfa/users/:id/remove",
+    "controller": "MfaController.remove",
+    "acesso": "authenticated",
+    "papeis": [],
+    "guards": [
+      "OriginCheckGuard",
+      "ThrottlerGuard",
+      "SessionAuthGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/auth/mfa/verify",
+    "controller": "MfaController.verify",
+    "acesso": "public",
+    "papeis": [],
+    "guards": [
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
     "caminho": "/auth/reset/confirm",
     "controller": "AuthController.confirmReset",
     "acesso": "public",

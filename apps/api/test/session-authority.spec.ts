@@ -162,14 +162,14 @@ describe("o banco permanece autoridade sobre snapshots de sessão", () => {
 
   it("/me retorna o acesso atual do banco mesmo com perfil antigo cacheado", async () => {
     const { repository } = setup();
-    const auth = new AuthService(repository as never, {} as never, {} as never, {} as never, {} as never, {} as never);
+    const auth = new AuthService(repository as never, {} as never, {} as never, {} as never, {} as never, {} as never, {} as never);
     expect((await auth.me(principal)).acesso.plataforma).toBeNull();
   });
 
   it("/me recusa usuário desativado depois do guard", async () => {
     const { repository } = setup();
     repository.findUserById.mockResolvedValue({ ...user, status: "disabled", acesso: { plataforma: null, departamentos: [] } });
-    const auth = new AuthService(repository as never, {} as never, {} as never, {} as never, {} as never, {} as never);
+    const auth = new AuthService(repository as never, {} as never, {} as never, {} as never, {} as never, {} as never, {} as never);
     await expect(auth.me(principal)).rejects.toBeInstanceOf(UnauthorizedException);
   });
 });

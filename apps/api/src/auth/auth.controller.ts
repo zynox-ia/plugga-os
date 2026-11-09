@@ -13,10 +13,10 @@ import {
   type AuthAcknowledgement,
   type GoogleCallback,
   type LoginRequest,
+  type LoginResponse,
   type MeResponse,
   type ResetConfirmRequest,
   type ResetRequest,
-  type SessionUser,
 } from "@plugga/shared";
 
 import { Authenticated, Public } from "../core/auth/access.decorators";
@@ -28,6 +28,7 @@ import { SESSION_COOKIE_NAME } from "../core/auth/token.util";
 import { AuthService } from "./auth.service";
 import { GoogleAuthService } from "./google-auth.service";
 import { OriginCheckGuard } from "../core/auth/origin-check.guard";
+import { MFA_PENDING_COOKIE, MFA_WINDOW_MS, type MfaLoginResult } from "./mfa.service";
 
 /** Teto de proteção do servidor (não é limite de tentativas): ver `login`. */
 const LIMITE_LOGIN_POR_MINUTO_E_ORIGEM = 120;
@@ -63,13 +64,12 @@ export class AuthController {
     @Body(new ZodValidationPipe(loginRequestSchema)) input: LoginRequest,
     @Req() request: Request,
     @Res({ passthrough: true }) response: Response,
-  ): Promise<{ user: SessionUser }> {
-    const { token, user } = await this.service.login(input, {
+  ): Promise<LoginResponse> {
+    const result = await this.service.login(input, {
       ip: request.ip,
       userAgent: request.headers["user-agent"],
     });
-    response.cookie(SESSION_COOKIE_NAME, token, this.cookieOptions(input.rememberMe ?? false));
-    return { user };
+    return this.loginResponse(result, response, input.rememberMe ?? false);
   }
 
   /**
@@ -92,8 +92,8 @@ export class AuthController {
     @Body(new ZodValidationPipe(googleCallbackSchema)) input: GoogleCallback,
     @Req() request: Request,
     @Res({ passthrough: true }) response: Response,
-  ): Promise<{ user: SessionUser }> {
-    const { token, user } = await this.googleAuth.login(
+  ): Promise<LoginResponse> {
+    const result = await this.googleAuth.login(
       {
         credential: input.credential,
         csrfFromBody: input.g_csrf_token,
@@ -104,8 +104,7 @@ export class AuthController {
       },
       { ip: request.ip, userAgent: request.headers["user-agent"], rememberMe: input.state === "remember" },
     );
-    response.cookie(SESSION_COOKIE_NAME, token, this.cookieOptions(input.state === "remember"));
-    return { user };
+    return this.loginResponse(result, response, input.state === "remember");
   }
 
   // Every navigation goes through the web app's session-gating middleware,
@@ -176,6 +175,18 @@ export class AuthController {
       ...this.clearCookieOptions(),
       ...(rememberMe ? { maxAge: REMEMBERED_SESSION_TTL_SECONDS * 1_000 } : {}),
     };
+  }
+
+  private loginResponse(result: MfaLoginResult, response: Response, rememberMe: boolean): LoginResponse {
+    response.setHeader("Cache-Control", "no-store");
+    if ("requiresMfa" in result) {
+      response.cookie(MFA_PENDING_COOKIE, result.pendingToken, { ...this.clearCookieOptions(), maxAge: MFA_WINDOW_MS });
+      response.clearCookie(SESSION_COOKIE_NAME, this.clearCookieOptions());
+      return { requiresMfa: true };
+    }
+    response.cookie(SESSION_COOKIE_NAME, result.token, this.cookieOptions(rememberMe));
+    response.clearCookie(MFA_PENDING_COOKIE, this.clearCookieOptions());
+    return { user: result.user };
   }
 
   private clearCookieOptions(): CookieOptions {

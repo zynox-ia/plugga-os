@@ -27,11 +27,9 @@ import { LimitadorLogin } from "./limitador/limitador-login.service";
 import { PasswordService } from "./password.service";
 import { ResetEmailDispatcher } from "./reset-email.dispatcher";
 import { SessionService, type SessionContext } from "./session.service";
+import { MfaService, type MfaLoginResult } from "./mfa.service";
 
-export interface LoginResult {
-  token: string;
-  user: SessionUser;
-}
+export type LoginResult = MfaLoginResult;
 
 /** Converte o registro do banco (ou o cache) no usuário de sessão que web e API trocam. */
 export function toSessionUser(user: ResolvedSessionUser): SessionUser {
@@ -55,6 +53,7 @@ export class AuthService {
     @Inject(LimitadorLogin) private readonly limitador: LimitadorLogin,
     @Inject(ResetEmailDispatcher) private readonly resetEmail: ResetEmailDispatcher,
     @Inject(AuditPort) private readonly audit: AuditPort,
+    @Inject(MfaService) private readonly mfa: MfaService,
   ) {}
 
   async login(input: LoginRequest, context: SessionContext): Promise<LoginResult> {
@@ -90,7 +89,8 @@ export class AuthService {
     }
 
     await this.limitador.registrarSucesso(input.email);
-    const token = await this.sessions.issue(user, { ...context, rememberMe: input.rememberMe ?? false });
+    const result = await this.mfa.beginLogin(user.id, { ...context, rememberMe: input.rememberMe ?? false }, { method: "password", credentialHash: passwordHash! });
+    if ("requiresMfa" in result) return result;
     await this.audit.appendEvent({
       eventName: eventNames.authLoginSucceeded,
       entityType: "user",
@@ -101,7 +101,7 @@ export class AuthService {
       occurredAt: new Date(),
     });
 
-    return { token, user: toSessionUser(user) };
+    return result;
   }
 
   async me(principal: AuthPrincipal): Promise<SessionUser> {

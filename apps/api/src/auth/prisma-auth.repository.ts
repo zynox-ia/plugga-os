@@ -139,6 +139,8 @@ export class PrismaAuthRepository extends AuthRepository {
     options: SetPasswordOptions,
   ): Promise<void> {
     await this.prisma.$transaction(async (tx) => {
+      // Serialize password reset with MFA login/management. Reset never removes a factor.
+      await tx.$queryRaw`SELECT id FROM users WHERE id = ${userId}::uuid FOR UPDATE`;
       const consumed = await tx.authToken.updateMany({
         where: { id: tokenId, consumedAt: null },
         data: { consumedAt },
@@ -168,6 +170,10 @@ export class PrismaAuthRepository extends AuthRepository {
       }
 
       if (options.revokeSessions) {
+        await tx.mfaChallenge.deleteMany({ where: { userId } });
+        await tx.userMfa.updateMany({ where: { userId }, data: {
+          revision: { increment: 1 }, pendingSecret: null, pendingExpiresAt: null, pendingSessionHash: null,
+        } });
         await tx.session.deleteMany({ where: { userId } });
       }
     });
@@ -378,6 +384,8 @@ export class PrismaAuthRepository extends AuthRepository {
           await tx.authToken.deleteMany({ where: { userId: anterior.id } });
           await tx.userCredential.deleteMany({ where: { userId: anterior.id } });
           await tx.userIdentity.deleteMany({ where: { userId: anterior.id } });
+          await tx.mfaChallenge.deleteMany({ where: { userId: anterior.id } });
+          await tx.userMfa.deleteMany({ where: { userId: anterior.id } });
           await tx.userPlatformRole.deleteMany({ where: { userId: anterior.id } });
           await tx.userDepartamento.deleteMany({ where: { userId: anterior.id } });
         }
@@ -413,6 +421,8 @@ export class PrismaAuthRepository extends AuthRepository {
       // Sem papel de plataforma a pessoa deixa de ser admin: a regra do último
       // admin roda na mesma transação da escrita (FR-029).
       if (acesso.plataforma === null) await this.garantirOutroAdminAtivo(tx, userId);
+      // Revalidation of a developer's MFA capability shares this user lock.
+      await tx.$queryRaw`SELECT id FROM users WHERE id = ${userId}::uuid FOR UPDATE`;
       await tx.userPlatformRole.deleteMany({
         where: { userId, role: { key: { in: ["admin", "desenvolvedor"] } } },
       });

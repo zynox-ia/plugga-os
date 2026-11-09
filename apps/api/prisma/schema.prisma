@@ -272,6 +272,8 @@ model User {
   credential                     UserCredential?
   identities                     UserIdentity[]
   sessions                       Session[]
+  mfa                            UserMfa?
+  mfaChallenges                  MfaChallenge[]
   authTokens                     AuthToken[]
   agentIdentity                  AgentIdentity?
   studiesOwned                   EnergyEfficiencyStudy[] @relation("EnergyStudyOwner")
@@ -372,11 +374,44 @@ model Session {
   lastUsedAt        DateTime @default(now()) @map("last_used_at") @db.Timestamptz(6)
   ip                String?
   userAgent         String?  @map("user_agent")
+  mfaVerifiedAt     DateTime? @map("mfa_verified_at") @db.Timestamptz(6)
+  mfaRevision       Int?      @map("mfa_revision")
   user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([expiresAt])
   @@map("sessions")
+}
+
+/// Opt-in factor; unfinished enrollment never replaces the active secret.
+model UserMfa {
+  userId             String @id @map("user_id") @db.Uuid
+  encryptedSecret    String? @map("encrypted_secret")
+  revision           Int @default(0)
+  recoveryHashes     String[] @default([]) @map("recovery_hashes")
+  lastTotpStep       Int @default(-1) @map("last_totp_step")
+  pendingSecret      String? @map("pending_secret")
+  pendingExpiresAt   DateTime? @map("pending_expires_at") @db.Timestamptz(6)
+  pendingSessionHash String? @map("pending_session_hash")
+  failedAttempts     Int @default(0) @map("failed_attempts")
+  blockedUntil       DateTime? @map("blocked_until") @db.Timestamptz(6)
+  user               User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@map("user_mfa")
+}
+
+/// Hash of an opaque pre-session capability; never authorizes normal API reads.
+model MfaChallenge {
+  tokenHash String @id @map("token_hash")
+  userId String @map("user_id") @db.Uuid
+  revision Int
+  rememberMe Boolean @map("remember_me")
+  expiresAt DateTime @map("expires_at") @db.Timestamptz(6)
+  attempts Int @default(0)
+  method String
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("mfa_challenges")
 }
 
 /// Single-use invite/reset token. Only the hash is stored; consumedAt marks use.

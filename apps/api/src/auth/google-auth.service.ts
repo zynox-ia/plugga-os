@@ -11,13 +11,14 @@ import {
 import { AuditPort } from "../audit/audit.port";
 import { maskEmail } from "../common/mascara-email";
 import { AuthRepository, IdentityLinkError, type AuthUserRecord } from "./auth.repository";
-import { toSessionUser, type LoginResult } from "./auth.service";
+import type { LoginResult } from "./auth.service";
 import {
   GoogleIdentityVerifier,
   GoogleVerificationError,
   type GoogleIdentityClaims,
 } from "./google-identity.verifier";
-import { SessionService, type SessionContext } from "./session.service";
+import type { SessionContext } from "./session.service";
+import { MfaService } from "./mfa.service";
 
 const PROVIDER = "google" as const;
 
@@ -85,9 +86,8 @@ function constantTimeEquals(a: string, b: string): boolean {
  *
  * O Google prova QUEM é a pessoa. Quem decide se ela entra continua sendo o
  * Postgres do cliente: usuário, status, empresas, departamentos, papéis e
- * sessão. Por isso este serviço termina chamando o MESMO `SessionService.issue`
- * do login por senha — não existe uma segunda sessão, nem um segundo cookie,
- * nem um segundo lugar de onde revogar acesso.
+ * sessão. Por isso este serviço termina no mesmo fluxo MFA do login por senha:
+ * a decisão sobre segundo fator e a emissão da sessão compartilham uma transação.
  */
 @Injectable()
 export class GoogleAuthService {
@@ -96,7 +96,7 @@ export class GoogleAuthService {
   constructor(
     @Inject(AuthRepository) private readonly repository: AuthRepository,
     @Inject(GoogleIdentityVerifier) private readonly verifier: GoogleIdentityVerifier,
-    @Inject(SessionService) private readonly sessions: SessionService,
+    @Inject(MfaService) private readonly mfa: MfaService,
     @Inject(AuditPort) private readonly audit: AuditPort,
     @Inject(ConfigService) private readonly config: ConfigService,
   ) {}
@@ -146,7 +146,8 @@ export class GoogleAuthService {
       throw new GoogleLoginException("unauthorized", HttpStatus.UNAUTHORIZED);
     }
 
-    const token = await this.sessions.issue(user, { ...context, rememberMe: context.rememberMe ?? false });
+    const result = await this.mfa.beginLogin(user.id, { ...context, rememberMe: context.rememberMe ?? false }, { method: "google", subject: claims.subject });
+    if ("requiresMfa" in result) return result;
     await this.audit.appendEvent({
       eventName: eventNames.authLoginSucceeded,
       entityType: "user",
@@ -157,7 +158,7 @@ export class GoogleAuthService {
       occurredAt: new Date(),
     });
 
-    return { token, user: toSessionUser(user) };
+    return result;
   }
 
   /** Logins seguintes: a busca é por `sub`; o e-mail pode ter mudado no meio. */

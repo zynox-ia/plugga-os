@@ -69,6 +69,8 @@ export class OriginCheckGuard implements CanActivate {
   private temCookieDeSessao(request: AuthenticatedRequest): boolean {
     return Boolean(
       request.signedCookies?.[SESSION_COOKIE_NAME] || request.cookies?.[SESSION_COOKIE_NAME],
+    ) || Boolean(
+      request.signedCookies?.["plugga_mfa_pending"] || request.cookies?.["plugga_mfa_pending"],
     );
   }
 

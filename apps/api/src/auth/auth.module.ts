@@ -30,6 +30,10 @@ import { AgentesEquipeController } from "./agentes-equipe.controller";
 import { AgentesEquipeService } from "./agentes-equipe.service";
 import { AgentesRepository } from "./agentes.repository";
 import { PrismaAgentesRepository } from "./prisma-agentes.repository";
+import { MfaService } from "./mfa.service";
+import { MfaRepository } from "./mfa.repository";
+import { PrismaMfaRepository } from "./prisma-mfa.repository";
+import { MfaController } from "./mfa.controller";
 
 @Module({
   imports: [
@@ -53,9 +57,11 @@ import { PrismaAgentesRepository } from "./prisma-agentes.repository";
       }),
     }),
   ],
-  controllers: [AuthController, EquipeController, AgentesEquipeController],
+  controllers: [AuthController, MfaController, EquipeController, AgentesEquipeController],
   providers: [
     AuthService,
+    MfaService,
+    { provide: MfaRepository, useClass: PrismaMfaRepository },
     AuthTokenIssuer,
     GoogleAuthService,
     EquipeService,

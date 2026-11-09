@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import { hash as argon2Hash } from "@node-rs/argon2";
 import type { Acesso } from "@plugga/shared";
+import type { MfaFactor, MfaPending } from "../../src/auth/mfa.repository";
 
 import { argon2Options } from "../../src/auth/argon2-options";
 import { EstadoInvalido } from "../../src/common/errors/dominio";
@@ -47,6 +48,9 @@ interface StoredSession {
   userId: string;
   expiresAt: Date;
   absoluteExpiresAt: Date;
+  createdAt: Date;
+  mfaVerifiedAt?: Date | null;
+  mfaRevision?: number | null;
 }
 
 interface StoredToken {
@@ -64,6 +68,8 @@ export function acessoVazio(): Acesso {
 }
 
 export class InMemoryStore {
+  readonly mfaFactors = new Map<string, MfaFactor>();
+  readonly mfaChallenges = new Map<string, MfaPending>();
   readonly users = new Map<string, StoredUser>();
   readonly credentials = new Map<string, string>();
   readonly sessions = new Map<string, StoredSession>();
@@ -81,6 +87,7 @@ export class InMemoryStore {
   }
 
   clear(): void {
+    this.mfaFactors.clear(); this.mfaChallenges.clear();
     this.users.clear();
     this.credentials.clear();
     this.sessions.clear();
@@ -150,6 +157,7 @@ export class InMemoryAuthRepository extends AuthRepository {
       userId: data.userId,
       expiresAt: data.expiresAt,
       absoluteExpiresAt: data.absoluteExpiresAt,
+      createdAt: new Date(),
     });
   }
 
@@ -221,6 +229,9 @@ export class InMemoryAuthRepository extends AuthRepository {
     }
     if (options.revokeSessions) {
       await this.deleteSessionsForUser(userId);
+      for (const [hash, pending] of this.store.mfaChallenges) if (pending.userId === userId) this.store.mfaChallenges.delete(hash);
+      const factor = this.store.mfaFactors.get(userId);
+      if (factor) { factor.revision += 1; factor.pendingSecret = null; factor.pendingExpiresAt = null; factor.pendingSessionHash = null; }
     }
   }
 
@@ -323,6 +334,8 @@ export class InMemoryAuthRepository extends AuthRepository {
     if (anterior?.status === "removed") {
       this.store.users.delete(anterior.id);
       this.store.credentials.delete(anterior.id);
+      this.store.mfaFactors.delete(anterior.id);
+      for (const [hash, pending] of this.store.mfaChallenges) if (pending.userId === anterior.id) this.store.mfaChallenges.delete(hash);
       for (const [key, token] of this.store.tokens) if (token.userId === anterior.id) this.store.tokens.delete(key);
       for (const [key, identity] of this.store.identities) if (identity.userId === anterior.id) this.store.identities.delete(key);
       await this.deleteSessionsForUser(anterior.id);
