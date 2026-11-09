@@ -4,6 +4,7 @@ import {
   type CompanyKey,
   type CreatePipelineRequest,
   type Pipeline,
+  type PipelineFieldInput,
   type UpdatePipelineRequest,
 } from "@plugga/shared";
 
@@ -23,13 +24,14 @@ export const CORES = coresDePipeline;
 /** Item de lista ainda sem id ganha uma chave local, só para o React. */
 export type ComChave<T> = T & { chave: string };
 
-export type Rascunho = Omit<UpdatePipelineRequest, "stages" | "tags" | "lossReasons" | "updatedAt"> & {
+export type Rascunho = Omit<UpdatePipelineRequest, "stages" | "tags" | "lossReasons" | "updatedAt" | "fields"> & {
   /** null: pipeline novo, ainda não gravado. */
   id: string | null;
   updatedAt: string | null;
   stages: ComChave<UpdatePipelineRequest["stages"][number]>[];
   tags: ComChave<UpdatePipelineRequest["tags"][number]>[];
   lossReasons: ComChave<UpdatePipelineRequest["lossReasons"][number]>[];
+  fields: ComChave<PipelineFieldInput & { valueCount?: number }>[];
 };
 
 let sequencia = 0;
@@ -46,6 +48,8 @@ export function rascunhoDe(pipeline: Pipeline): Rascunho {
     stages: comChave(edicao.stages),
     tags: comChave(edicao.tags),
     lossReasons: comChave(edicao.lossReasons),
+    fields: comChave((edicao.fields ?? []).map((field) => ({ ...field, valueCount: pipeline.fields?.find((item) => item.id === field.id)?.valueCount ?? 0 }))),
+    confirmedFieldRemovals: [],
   };
 }
 
@@ -78,6 +82,8 @@ export function rascunhoNovo(empresa: CompanyKey): Rascunho {
       { name: "Inviabilidade técnica da UC", asksRevisitDate: false },
     ]),
     members: [],
+    fields: [],
+    confirmedFieldRemovals: [],
   };
 }
 
@@ -100,6 +106,7 @@ export function paraCriacao(rascunho: Rascunho): CreatePipelineRequest {
     tags: rascunho.tags.map(({ id, name, color }) => ({ id, name, color })),
     lossReasons: rascunho.lossReasons.map(({ id, name, asksRevisitDate }) => ({ id, name, asksRevisitDate })),
     members: [],
+    fields: rascunho.fields.map(({ id, name, type, options, showOnCard, showInList }) => ({ id, name, type, options: options?.map(({ id, name }) => ({ id, name })), showOnCard, showInList })),
   };
 }
 
@@ -108,11 +115,43 @@ export function paraEdicao(rascunho: Rascunho, updatedAt: string): UpdatePipelin
     ...paraCriacao(rascunho),
     updatedAt,
     stageDestinations: rascunho.stageDestinations,
+    confirmedFieldRemovals: rascunho.confirmedFieldRemovals ?? [],
   };
 }
 
 export function mesmoConteudo(a: Rascunho, b: Rascunho): boolean {
   return JSON.stringify(paraCriacao(a)) === JSON.stringify(paraCriacao(b));
+}
+
+export function mesclarPipelineAtual(lista: Pipeline[], atual: Pipeline): Pipeline[] {
+  return lista.map((pipeline) => pipeline.id === atual.id ? atual : pipeline);
+}
+
+/** Revalida apenas metadados de uso; definições, campos novos e versão continuam no rascunho. */
+export function conferirCamposAntesDeSalvar(original: Rascunho, rascunho: Rascunho, atual: Pipeline) {
+  if (atual.updatedAt !== rascunho.updatedAt) return { conflito: true as const };
+  const presentes = new Set(rascunho.fields.map((campo) => campo.id));
+  const confirmados = new Set(rascunho.confirmedFieldRemovals ?? []);
+  const removidos = (atual.fields ?? []).filter((campo) => {
+    const anterior = original.fields.find((item) => item.id === campo.id);
+    return anterior && !presentes.has(campo.id) && campo.valueCount > 0
+      && (!confirmados.has(campo.id) || campo.valueCount !== anterior.valueCount);
+  });
+  const atualizarContagens = (anterior: Rascunho): Rascunho => ({
+    ...anterior,
+    fields: anterior.fields.map((campo) => campo.id
+      ? { ...campo, valueCount: atual.fields?.find((item) => item.id === campo.id)?.valueCount ?? 0 }
+      : campo),
+  });
+  return {
+    conflito: false as const,
+    original: atualizarContagens(original),
+    rascunho: {
+      ...atualizarContagens(rascunho),
+      confirmedFieldRemovals: [...confirmados].filter((id) => !removidos.some((campo) => campo.id === id)),
+    },
+    removidos,
+  };
 }
 
 export function hrefDoPipeline(id: string | null): string {

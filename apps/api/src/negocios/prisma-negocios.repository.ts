@@ -37,12 +37,14 @@ import { exigeAtribuicaoComercial, exigeOperacaoComercial, lerAcessoComercial, p
 import type { AcessoComercial } from "../pipelines/pipelines.rules";
 import { podeVer } from "../pipelines/pipelines.rules";
 import { travarPipelines } from "../pipelines/travar-pipelines";
+import { lerCampos, lerValores, valoresDoPipeline } from "../pipelines/custom-fields.rules";
+import { prepararValores } from "../pipelines/custom-fields.persistence";
 import { PrismaService } from "../prisma/prisma.service";
 import { NegociosRepository } from "./negocios.repository";
 import { foraDe, hojeNoFuso, problemaDaPerda } from "./negocios.rules";
 
 const DO_NEGOCIO = {
-  pipeline: { select: { companyId: true } },
+  pipeline: { select: { companyId: true, fields: true } },
   client: { select: { id: true, name: true, ownerId: true } },
   profile: true,
   leadContact: true,
@@ -68,6 +70,7 @@ const SO_ABERTO = "Este negócio já foi encerrado.";
 function paraNegocio(linha: LinhaDeNegocio, acesso: AcessoComercial): DealDetail {
   const cliente = acesso.admin || acesso.podeVerClientes ? linha.client : null;
   return dealDetailSchema.parse({
+    customFields: valoresDoPipeline(lerCampos(linha.pipeline.fields), lerValores(linha.customFields)),
     id: linha.id,
     version: linha.version,
     lossNote: linha.lossNote,
@@ -204,6 +207,7 @@ export class PrismaNegociosRepository extends NegociosRepository {
         if (!cliente.active) throw invalido("Este cliente está inativo. Reative-o antes de vincular um lead.", "clientId", "cliente inativo");
       }
       await this.garantirResponsavel(tx, input.ownerId);
+      const custom = await prepararValores(tx, lerCampos(atual.fields), input.customFields ?? {});
       const position = await this.posicaoNaEtapa(tx, etapa.id, undefined, undefined);
       const criado = await tx.deal.create({
         data: {
@@ -216,6 +220,7 @@ export class PrismaNegociosRepository extends NegociosRepository {
           priority: input.priority ?? null,
           value: input.value ?? null,
           expectedCloseDate: input.expectedCloseDate ?? null,
+          customFields: custom.values,
           createdById: principal.id,
           tags: { create: input.tagIds.map((tagId) => ({ tagId })) },
           profile: { create: { ...input.lead } },
@@ -223,6 +228,10 @@ export class PrismaNegociosRepository extends NegociosRepository {
         },
         select: { id: true },
       });
+      if (custom.changes.length) await tx.dealHistory.createMany({ data: custom.changes.map((change) => ({
+        dealId: criado.id, kind: "field_changed", field: change.field,
+        beforeValue: Prisma.JsonNull, afterValue: change.after === null ? Prisma.JsonNull : change.after, actorId: principal.id,
+      })) });
       if (input.contact) {
         const contato = await tx.leadContact.create({ data: { ...input.contact, dealId: criado.id, isPrimary: true } });
         await tx.deal.update({ where: { id: criado.id }, data: { leadContactId: contato.id } });
@@ -258,6 +267,15 @@ export class PrismaNegociosRepository extends NegociosRepository {
         if (JSON.stringify(before) !== JSON.stringify(after)) mudancas.push({ field, before, after });
       };
       const dados: Prisma.DealUncheckedUpdateInput = {};
+      let customFieldIds: string[] = [];
+      if (input.customFields !== undefined) {
+        if (input.version === undefined) throw invalido("Recarregue o negócio e informe a versão antes de editar campos.", "version", "versão obrigatória");
+        const before = lerValores(negocio.customFields);
+        const custom = await prepararValores(tx, lerCampos(pipelineAtual.fields), input.customFields, before);
+        mudancas.push(...custom.changes);
+        customFieldIds = custom.changes.map((change) => change.fieldId);
+        dados.customFields = { ...before, ...custom.values };
+      }
       if (input.title !== undefined) { comparar("title", negocio.title, input.title); dados.title = input.title; }
       if (input.value !== undefined) {
         const valor = input.value === null ? null : new Prisma.Decimal(input.value).toFixed(2);
@@ -319,7 +337,9 @@ export class PrismaNegociosRepository extends NegociosRepository {
         afterValue: m.after === null ? Prisma.JsonNull : m.after,
         actorId: principal.id,
       })) });
-      await this.registrar(tx, "commercial.deal.updated", id, pipelineAtual.companyId, principal, { campos: mudancas.map((m) => m.field) });
+      await this.registrar(tx, "commercial.deal.updated", id, pipelineAtual.companyId, principal, {
+        campos: mudancas.filter((m) => !m.field.startsWith("custom:")).map((m) => m.field), customFieldIds,
+      });
       return paraNegocio(await tx.deal.findUniqueOrThrow({ where: { id }, include: DO_NEGOCIO }), acesso);
     });
   }

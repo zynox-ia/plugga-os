@@ -43,6 +43,10 @@ const assinatura = (valor: unknown) => JSON.stringify(valor);
 export function alteracoes(antes: Pipeline, depois: UpdatePipelineRequest): { campos: string[]; secoes: string[] } {
   const campos = CAMPOS_GERAIS.filter((campo) => antes[campo] !== depois[campo]);
   const secoes: string[] = [];
+  if (depois.fields !== undefined) {
+    const campos = (lista: NonNullable<Pipeline["fields"]> | NonNullable<UpdatePipelineRequest["fields"]>) => lista.map(({ id, name, type, options, showOnCard, showInList }) => ({ id, name, type, options: options ?? [], showOnCard, showInList }));
+    if (assinatura(campos(antes.fields ?? [])) !== assinatura(campos(depois.fields))) secoes.push("campos");
+  }
   if (campos.length > 0) secoes.push("geral");
 
   const etapas = (

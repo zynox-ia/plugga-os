@@ -100,6 +100,15 @@
 .lista table th:nth-child(4) { width: 14%; }
 .lista table th:last-child { width: 10%; min-width: 88px; }
 
+.comCampos table { min-width: calc(780px + var(--colunas-personalizadas) * 160px); }
+.comCampos table th:first-child { width: 260px; }
+.comCampos table th:nth-child(2) { width: 180px; }
+.comCampos table th:nth-child(3) { width: 140px; }
+.comCampos table th:nth-child(4) { width: 110px; }
+.comCampos table th.cabecalhoCampo { width: 160px; overflow-wrap: anywhere; }
+.comCampos table th:last-child { width: 88px; }
+.campoPersonalizado { color: var(--ui-text); text-align: center; overflow-wrap: anywhere; white-space: pre-wrap; }
+
 .lista table th:not(:first-child) { text-align: center; }
 .lista table th:not(:first-child) .cabecalhoColuna { justify-content: center; }
 

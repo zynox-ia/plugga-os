@@ -1,7 +1,12 @@
 import { z } from "zod";
+import { pipelineFieldsInputSchema, pipelineFieldSchema } from "./custom-fields.js";
 
 import { companyKeySchema } from "./organization.js";
 import { isoDate, uuid } from "./primitivas.js";
+
+/** Sem filtro, mantém o catálogo completo; o id permite revalidar só um pipeline. */
+export const listPipelinesQuerySchema = z.object({ pipelineId: uuid.optional() }).strict();
+export type ListPipelinesQuery = z.infer<typeof listPipelinesQuerySchema>;
 
 /**
  * Pipelines de venda configuráveis (PLU-269). Cada pipeline pertence a uma
@@ -49,6 +54,7 @@ export const pipelineMemberInputSchema = z.object({ userId: uuid, role: pipeline
 export type PipelineMemberInput = z.infer<typeof pipelineMemberInputSchema>;
 
 const camposDoPipeline = {
+  fields: pipelineFieldsInputSchema.optional(),
   companyId: companyKeySchema,
   name: nome(60),
   description: textoOpcional(500),
@@ -110,6 +116,7 @@ export const updatePipelineRequestSchema = z
   .object({
     ...camposDoPipeline,
     updatedAt: isoDate,
+    confirmedFieldRemovals: z.array(uuid).max(40).optional(),
     /** Etapa excluída que tem negócios → etapa mantida (com id) que os recebe. */
     stageDestinations: z.record(uuid, uuid).default({}),
   })
@@ -130,6 +137,7 @@ export const pipelineStageSchema = z.object({
 export type PipelineStage = z.infer<typeof pipelineStageSchema>;
 
 export const pipelineSchema = z.object({
+  fields: z.array(pipelineFieldSchema).optional(),
   id: uuid,
   companyId: companyKeySchema,
   name: z.string(),
@@ -155,6 +163,7 @@ export type Pipeline = z.infer<typeof pipelineSchema>;
 /** O pipeline lido, no formato que a edição devolve (sem o que só a API decide). */
 export function pipelineParaEdicao(pipeline: Pipeline): UpdatePipelineRequest {
   return {
+    ...(pipeline.fields === undefined ? {} : { fields: pipeline.fields.map(({ id, name, type, options, showOnCard, showInList }) => ({ id, name, type, options, showOnCard, showInList })) }),
     companyId: pipeline.companyId,
     name: pipeline.name,
     description: pipeline.description,

@@ -1,7 +1,7 @@
 import type { Deal, LeadContactInput, UpdateLeadRequest } from "@plugga/shared";
 import { displayCurrency, parseCurrencyInput } from "../components/ui/currency-value.ts";
 
-type DadosEditaveis = Pick<Deal, "lead" | "contact" | "title" | "value" | "expectedCloseDate" | "owner" | "tags">;
+type DadosEditaveis = Pick<Deal, "lead" | "contact" | "title" | "value" | "expectedCloseDate" | "owner" | "tags" | "customFields">;
 
 export function criarRascunhoLead(negocio: DadosEditaveis) {
   const contato = negocio.contact;
@@ -17,6 +17,7 @@ export function criarRascunhoLead(negocio: DadosEditaveis) {
     expectedCloseDate: negocio.expectedCloseDate ?? "",
     ownerId: negocio.owner.id,
     tagIds: negocio.tags.map((tag) => tag.id),
+    customFields: { ...negocio.customFields },
   };
 }
 
@@ -37,5 +38,9 @@ export function montarAtualizacaoLead(original: RascunhoLead, atual: RascunhoLea
   if (original.expectedCloseDate !== atual.expectedCloseDate) corpo.expectedCloseDate = atual.expectedCloseDate || null;
   if (original.ownerId !== atual.ownerId) corpo.ownerId = atual.ownerId;
   if (JSON.stringify(original.tagIds) !== JSON.stringify(atual.tagIds)) corpo.tagIds = atual.tagIds;
+  const campos = Object.fromEntries(Object.keys({ ...original.customFields, ...atual.customFields })
+    .filter((id) => original.customFields[id] !== atual.customFields[id])
+    .map((id) => [id, atual.customFields[id] ?? null]));
+  if (Object.keys(campos).length) corpo.customFields = campos;
   return corpo;
 }

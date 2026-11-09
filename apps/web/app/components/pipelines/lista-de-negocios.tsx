@@ -20,6 +20,7 @@ import { useMemo, useRef, useState, type CSSProperties, type MouseEvent } from "
 
 import { documentoFormatado, telefoneFormatado } from "../../lib/clientes";
 import { formatarBRL } from "../../lib/format";
+import { formatarCampoDoPipeline } from "../../lib/campos-do-pipeline";
 import {
   diasNaEtapa,
   estaParado,
@@ -71,7 +72,7 @@ export function ListaDeNegocios({
   const [lote, setLote] = useState<Lote>({ tipo: podeAtribuir ? "owner" : "stage", valor: "" });
   const [aplicando, setAplicando] = useState(false);
   const [pagina, setPagina] = useState(1);
-
+  const camposNaLista = (pipeline.fields ?? []).filter((campo) => campo.showInList);
 
   const linhas = useMemo(() => ordenar(negocios, ordem, pipeline), [negocios, ordem, pipeline]);
   const visiveis = useMemo(() => new Set(linhas.map((n) => n.id)), [linhas]);
@@ -211,7 +212,7 @@ export function ListaDeNegocios({
           </div>
         ) : (
           <>
-            <div className={styles.rolagemTabela} role="region" aria-label="Oportunidades do pipeline" tabIndex={0}>
+            <div className={`${styles.rolagemTabela}${camposNaLista.length ? ` ${styles.comCampos}` : ""}`} style={{ "--colunas-personalizadas": camposNaLista.length } as CSSProperties} role="region" aria-label="Oportunidades do pipeline" tabIndex={0}>
             <ShellTable caption={`Lista de leads do pipeline ${pipeline.name}`}>
               <thead>
                 <tr>
@@ -262,6 +263,9 @@ export function ListaDeNegocios({
                         )}
                       </div>
                     </th>
+                  ))}
+                  {camposNaLista.map((campo) => (
+                    <th key={campo.id} scope="col" className={styles.cabecalhoCampo}>{campo.name}</th>
                   ))}
                   <th scope="col" className="coluna-centro">
                     <span>Ações</span>
@@ -417,6 +421,11 @@ export function ListaDeNegocios({
                           </span>
                         </div>
                       </td>
+                      {camposNaLista.map((campo) => (
+                        <td key={campo.id} className={styles.campoPersonalizado}>
+                          {formatarCampoDoPipeline(campo, n.customFields?.[campo.id], responsaveis)}
+                        </td>
+                      ))}
                       <td className="coluna-acoes coluna-centro" onClick={(e) => e.stopPropagation()}>
                         <div className="lista-negocios-acoes">
                           <button

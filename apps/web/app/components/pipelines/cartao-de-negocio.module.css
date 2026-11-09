@@ -122,6 +122,18 @@
   overflow-wrap: anywhere;
 }
 
+.campos {
+  display: grid;
+  gap: var(--space-2xs);
+  margin: 0;
+  color: var(--ui-text);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.campo { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--space-xs); }
+.campo dt { color: var(--ui-muted); overflow-wrap: anywhere; }
+.campo dd { min-width: 0; margin: 0; text-align: end; overflow-wrap: anywhere; white-space: pre-wrap; }
+
 .rodape {
   display: flex;
   align-items: center;

@@ -2,9 +2,11 @@ import { Body, Controller, Get, HttpCode, Inject, Param, ParseUUIDPipe, Post, Pu
 import { ThrottlerGuard } from "@nestjs/throttler";
 import {
   createPipelineRequestSchema,
+  listPipelinesQuerySchema,
   pipelinePeopleQuerySchema,
   updatePipelineRequestSchema,
   type CreatePipelineRequest,
+  type ListPipelinesQuery,
   type ListPipelinesResponse,
   type Pipeline,
   type PipelinePeopleQuery,
@@ -33,8 +35,8 @@ export class PipelinesController {
   constructor(@Inject(PipelinesService) private readonly service: PipelinesService) {}
 
   @Get()
-  list(@CurrentPrincipal() principal: AuthPrincipal): Promise<ListPipelinesResponse> {
-    return this.service.list(principal);
+  list(@CurrentPrincipal() principal: AuthPrincipal, @Query(new ZodValidationPipe(listPipelinesQuerySchema)) query: ListPipelinesQuery): Promise<ListPipelinesResponse> {
+    return this.service.list(principal, query);
   }
 
   /** Quem pode entrar na equipe de um pipeline da empresa. */

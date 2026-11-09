@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { customFieldValuesSchema } from "./custom-fields.js";
 
 import {
   cepOpcional,
@@ -115,6 +116,7 @@ export type LeadContact = z.infer<typeof leadContactSchema>;
 
 export const createDealRequestSchema = z
   .object({
+    customFields: customFieldValuesSchema.optional(),
     pipelineId: uuid,
     stageId: uuid,
     title: z.string().trim().min(1, "informe o título").max(120),
@@ -139,6 +141,7 @@ export type CreateDealRequest = z.infer<typeof createDealRequestSchema>;
 /** Edita dados do lead e, opcionalmente, substitui o contato selecionado. `undefined` mantém cada campo. */
 export const updateLeadRequestSchema = z
   .object({
+    customFields: customFieldValuesSchema.optional(),
     /** Clientes legados podem omitir; o modal sempre envia a versão lida. */
     version: z.number().int().positive().optional(),
     lead: updateLeadProfileRequestSchema.optional(),
@@ -151,7 +154,7 @@ export const updateLeadRequestSchema = z
   })
   .strict()
   .superRefine((input, ctx) => {
-    if (input.version === undefined && [input.title, input.value, input.expectedCloseDate, input.ownerId, input.tagIds].some((v) => v !== undefined)) {
+    if (input.version === undefined && [input.title, input.value, input.expectedCloseDate, input.ownerId, input.tagIds, input.customFields].some((v) => v !== undefined)) {
       ctx.addIssue({ code: "custom", path: ["version"], message: "recarregue o negócio e informe a versão antes de editar dados comerciais" });
     }
   });
@@ -197,6 +200,7 @@ export const listDealsQuerySchema = z
 export type ListDealsQuery = z.infer<typeof listDealsQuerySchema>;
 
 export const dealSchema = z.object({
+  customFields: customFieldValuesSchema.optional(),
   id: uuid,
   number: z.number().int().positive(),
   pipelineId: uuid,

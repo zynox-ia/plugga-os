@@ -1,16 +1,17 @@
 "use client";
 
-import type { CompanyKey, Pipeline } from "@plugga/shared";
+import type { CompanyKey, ListPipelinesResponse, Pipeline, PipelineField } from "@plugga/shared";
 import { Archive, Cog } from "lucide-react";
 import { useState } from "react";
 
 import { enviar, type ErroDoFormulario } from "../../lib/clientes";
 import { EMPRESAS_POR_ID } from "../../lib/organizacao";
-import { mesmoConteudo, paraCriacao, paraEdicao, rascunhoDe, rascunhoNovo, type Rascunho } from "../../lib/pipelines";
+import { conferirCamposAntesDeSalvar, mesclarPipelineAtual, mesmoConteudo, paraCriacao, paraEdicao, rascunhoDe, rascunhoNovo, type Rascunho } from "../../lib/pipelines";
 import { Modal } from "../modal";
 import { Button } from "../ui/button";
 import { IconAlertTriangle, IconCheck, IconPlus, IconSettings, IconX } from "../ui/icons";
 import { EditorDePipeline } from "./editor-de-pipeline";
+import estilosCampos from "./campos-do-pipeline.module.css";
 
 const DESCARTAR = "Há alterações não salvas neste pipeline. Descartar?";
 const plural = (n: number, um: string, varios: string) => `${n} ${n === 1 ? um : varios}`;
@@ -43,6 +44,7 @@ export function ConfiguracaoDePipelines({
   const [erro, setErro] = useState<ErroDoFormulario | null>(null);
   const [salvo, setSalvo] = useState(false);
   const [enviando, setEnviando] = useState(false);
+  const [confirmandoRemocoes, setConfirmandoRemocoes] = useState<PipelineField[] | null>(null);
 
   const atual = rascunho?.id ? (lista.find((p) => p.id === rascunho.id) ?? null) : null;
   const sujo = rascunho !== null && (original === null || !mesmoConteudo(rascunho, original));
@@ -51,8 +53,19 @@ export function ConfiguracaoDePipelines({
 
   const podeSair = () => !sujo || window.confirm(DESCARTAR);
 
-  function abrir(proximo: Rascunho) {
-    if (!podeSair()) return;
+  async function abrir(proximo: Rascunho) {
+    if (enviando || !podeSair()) return;
+    if (proximo.id) {
+      setEnviando(true);
+      setErro(null);
+      const resposta = await enviar<ListPipelinesResponse>(`/api/pipelines?pipelineId=${encodeURIComponent(proximo.id)}`, "GET");
+      setEnviando(false);
+      if (!resposta.ok) return setErro(resposta.erro);
+      const atual = resposta.dados.pipelines.find((pipeline) => pipeline.id === proximo.id && pipeline.canConfigure);
+      if (!atual) return setErro({ mensagem: "Você não pode mais configurar este pipeline. Suas alterações foram preservadas.", porCampo: {} });
+      setLista((lista) => mesclarPipelineAtual(lista, atual));
+      proximo = rascunhoDe(atual);
+    }
     setOriginal(proximo.id ? proximo : null);
     setRascunho(proximo);
     setErro(null);
@@ -66,15 +79,43 @@ export function ConfiguracaoDePipelines({
     setRascunho(novo);
   }
 
-  async function salvar() {
-    if (!rascunho) return;
+  async function salvar(remocoesConfirmadas: string[] = []) {
+    if (!rascunho || enviando) return;
     setEnviando(true);
     setErro(null);
     setSalvo(false);
+    setConfirmandoRemocoes(null);
+    let paraSalvar = { ...rascunho, confirmedFieldRemovals: [...new Set([...(rascunho.confirmedFieldRemovals ?? []), ...remocoesConfirmadas])] };
+    if (rascunho.id && original) {
+      const leitura = await enviar<ListPipelinesResponse>(`/api/pipelines?pipelineId=${encodeURIComponent(rascunho.id)}`, "GET");
+      if (!leitura.ok) {
+        setEnviando(false);
+        return setErro(leitura.erro);
+      }
+      const atual = leitura.dados.pipelines.find((p) => p.id === rascunho.id && p.canConfigure);
+      if (!atual) {
+        setEnviando(false);
+        return setErro({ mensagem: "Você não pode mais configurar este pipeline. Suas alterações foram preservadas.", porCampo: {} });
+      }
+      const conferido = conferirCamposAntesDeSalvar(original, paraSalvar, atual);
+      if (conferido.conflito) {
+        setEnviando(false);
+        return setErro({ mensagem: "Outra pessoa alterou este pipeline. Suas alterações foram preservadas; reabra a configuração para ver a versão atual.", porCampo: {} });
+      }
+      paraSalvar = conferido.rascunho;
+      setLista((lista) => mesclarPipelineAtual(lista, atual));
+      setOriginal(conferido.original);
+      setRascunho(paraSalvar);
+      if (conferido.removidos.length) {
+        setConfirmandoRemocoes(conferido.removidos);
+        setEnviando(false);
+        return;
+      }
+    }
     const resposta =
-      rascunho.id && rascunho.updatedAt
-        ? await enviar<Pipeline>(`/api/pipelines/${rascunho.id}`, "PUT", paraEdicao(rascunho, rascunho.updatedAt))
-        : await enviar<Pipeline>("/api/pipelines", "POST", paraCriacao(rascunho));
+      paraSalvar.id && paraSalvar.updatedAt
+        ? await enviar<Pipeline>(`/api/pipelines/${paraSalvar.id}`, "PUT", paraEdicao(paraSalvar, paraSalvar.updatedAt))
+        : await enviar<Pipeline>("/api/pipelines", "POST", paraCriacao(paraSalvar));
     setEnviando(false);
     if (!resposta.ok) return setErro(resposta.erro);
     gravado(resposta.dados);
@@ -97,6 +138,7 @@ export function ConfiguracaoDePipelines({
       <button
         type="button"
         className="config-item"
+        disabled={enviando}
         aria-current={rascunho?.id === p.id ? "true" : undefined}
         onClick={() => abrir(rascunhoDe(p))}
       >
@@ -116,12 +158,12 @@ export function ConfiguracaoDePipelines({
     </li>
   );
 
-  return (
+  return (<>
     <Modal
       rotulo="Configurar pipelines"
       largura="larga"
       className="ui-dialog ui-dialog--config-pipelines"
-      aoFechar={() => podeSair() && aoFechar()}
+      aoFechar={() => !enviando && podeSair() && aoFechar()}
     >
       <header className="ui-dialog-header">
         <div className="ui-dialog-header-content">
@@ -150,7 +192,8 @@ export function ConfiguracaoDePipelines({
             icon={<IconX />}
             iconOnly
             aria-label="Fechar diálogo"
-            onClick={() => podeSair() && aoFechar()}
+            disabled={enviando}
+            onClick={() => !enviando && podeSair() && aoFechar()}
           />
         </div>
       </header>
@@ -179,7 +222,7 @@ export function ConfiguracaoDePipelines({
           ) : null}
         </nav>
 
-        <div className="config-editor">
+        <div className="config-editor" inert={enviando}>
           {rascunho ? (
             <EditorDePipeline
               key={rascunho.id ?? "novo"}
@@ -243,7 +286,7 @@ export function ConfiguracaoDePipelines({
               size="sm"
               loading={enviando}
               disabled={!sujo || enviando}
-              onClick={salvar}
+              onClick={() => { void salvar(); }}
             >
               {rascunho.id ? "Salvar alterações" : "Criar pipeline"}
             </Button>
@@ -251,5 +294,18 @@ export function ConfiguracaoDePipelines({
         </footer>
       ) : null}
     </Modal>
-  );
+    {confirmandoRemocoes ? (
+      <Modal rotulo="Excluir campos preenchidos?" aoFechar={() => setConfirmandoRemocoes(null)}>
+        <div className={estilosCampos.confirmacao}>
+          <h2>Excluir campos preenchidos?</h2>
+          <p>Confira as contagens atuais. Ao salvar, os valores destes campos serão removidos. O histórico anterior será preservado.</p>
+          <ul>{confirmandoRemocoes.map((campo) => <li key={campo.id}>“{campo.name}”: {plural(campo.valueCount, "negócio", "negócios")}</li>)}</ul>
+          <div className={estilosCampos.acoes}>
+            <Button variant="secondary" autoFocus onClick={() => setConfirmandoRemocoes(null)}>Continuar editando</Button>
+            <Button variant="danger" onClick={() => { void salvar(confirmandoRemocoes.map((campo) => campo.id)); }}>Excluir campos e salvar</Button>
+          </div>
+        </div>
+      </Modal>
+    ) : null}
+  </>);
 }

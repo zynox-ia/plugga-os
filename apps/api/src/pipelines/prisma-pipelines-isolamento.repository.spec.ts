@@ -19,29 +19,31 @@ function setup(gerente = false) {
   vi.spyOn(acesso, "lerAcessoComercial").mockResolvedValue({ podeOperar: true, admin: false, gestorEm: gerente ? ["plugga", "waze"] : [] });
   const pipelines = vi.spyOn(prisma.pipeline, "findMany").mockResolvedValue([]);
   const people = vi.spyOn(prisma.user, "findMany").mockResolvedValue([]);
-  return { repo: new PrismaPipelinesRepository(prisma, new AuditAppender()), prisma, pipelines, people };
+  const counts = vi.spyOn(prisma, "$queryRaw").mockResolvedValue([]);
+  return { repo: new PrismaPipelinesRepository(prisma, new AuditAppender()), prisma, pipelines, people, counts };
 }
 afterEach(() => vi.restoreAllMocks());
 
 describe("Pipelines: metadados compartilhados da tela autorizada", () => {
   it("inclui contagens e membros de toda a tela sem expor e-mail no diretório", async () => {
-    const { repo, pipelines, people } = setup();
-    await repo.list(principal);
+    const { repo, pipelines, people, counts } = setup();
+    const result = await repo.list(principal);
     expect(pipelines).toHaveBeenCalledWith(expect.objectContaining({ include: expect.objectContaining({
-      stages: expect.objectContaining({ include: { _count: { select: { deals: true } } } }),
-      _count: { select: { deals: true } },
+      stages: { orderBy: { position: "asc" } },
+      _count: false,
       members: expect.objectContaining({ include: { user: { select: { id: true, name: true } } } }),
     }) }));
+    expect(result.pipelines).toEqual([]);
+    expect(counts).not.toHaveBeenCalled();
     expect(people.mock.calls[0]?.[0]?.where).not.toHaveProperty("id");
     expect(people).toHaveBeenCalledWith(expect.objectContaining({ select: { id: true, name: true } }));
   });
 
   it("mantém contagens gerais e catálogo elegível para a gestão atual do CRM", async () => {
-    const { repo, pipelines, people } = setup(true);
-    await repo.list(principal);
-    expect(pipelines).toHaveBeenCalledWith(expect.objectContaining({
-      include: expect.objectContaining({ _count: { select: { deals: true } } }),
-    }));
+    const { repo, people } = setup(true);
+    const result = await repo.list(principal);
+    expect(result.canCreateIn).toEqual(["plugga", "waze"]);
+    expect(result.pipelines).toEqual([]);
     expect(people.mock.calls[0]?.[0]?.where).not.toHaveProperty("id");
   });
 
@@ -52,6 +54,23 @@ describe("Pipelines: metadados compartilhados da tela autorizada", () => {
     await expect(repo.people({ companyId: "plugga" }, principal)).rejects.toBeInstanceOf(AcessoNegado);
     expect(pipelines).not.toHaveBeenCalled();
     expect(people).not.toHaveBeenCalled();
+  });
+
+  it("revalida somente o pipeline pedido, sem filtrar arquivados nem alterar as permissões gerais", async () => {
+    const { repo, pipelines, counts } = setup();
+    const pipelineId = "00000000-0000-4000-8000-000000000100";
+    const result = await repo.list(principal, { pipelineId });
+    expect(pipelines).toHaveBeenCalledWith(expect.objectContaining({ where: { id: pipelineId } }));
+    expect(result).toMatchObject({ pipelines: [], canCreateIn: [] });
+    expect(counts).not.toHaveBeenCalled();
+  });
+
+  it("o filtro não dá acesso quando CRM/Pipelines foi revogado", async () => {
+    const { repo, pipelines, counts } = setup();
+    vi.mocked(acesso.lerAcessoComercial).mockResolvedValue({ podeOperar: false, admin: false, gestorEm: [] });
+    await expect(repo.list(principal, { pipelineId: "00000000-0000-4000-8000-000000000100" })).rejects.toBeInstanceOf(AcessoNegado);
+    expect(pipelines).not.toHaveBeenCalled();
+    expect(counts).not.toHaveBeenCalled();
   });
 });
 

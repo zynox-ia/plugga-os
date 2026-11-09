@@ -1,5 +1,6 @@
 import type {
   CreatePipelineRequest,
+  ListPipelinesQuery,
   ListPipelinesResponse,
   Pipeline,
   PipelinePeopleQuery,
@@ -10,7 +11,7 @@ import type {
 import type { AuthPrincipal } from "../core/auth/auth.types";
 
 export abstract class PipelinesRepository {
-  abstract list(principal: AuthPrincipal): Promise<ListPipelinesResponse>;
+  abstract list(principal: AuthPrincipal, query?: ListPipelinesQuery): Promise<ListPipelinesResponse>;
   abstract people(query: PipelinePeopleQuery, principal: AuthPrincipal): Promise<PipelinePeopleResponse>;
   abstract create(input: CreatePipelineRequest, principal: AuthPrincipal): Promise<Pipeline>;
   abstract update(id: string, input: UpdatePipelineRequest, principal: AuthPrincipal): Promise<Pipeline>;

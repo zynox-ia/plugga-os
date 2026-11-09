@@ -9,6 +9,16 @@ const negocio = {
   contact: { id: "contato", name: "Ana", jobTitle: "Diretora", role: "decisor" as const, phone: null, phoneIsWhatsapp: false, email: "ana@teste.local", isPrimary: true, cpf: null, rg: "RG existente", createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z" },
 };
 
+test("campos próprios preservam zero e falso e enviam apenas alterações e limpezas explícitas", () => {
+  const original = criarRascunhoLead({ ...negocio, customFields: { numero: "0", aceite: false, texto: "anterior" } });
+  assert.equal(original.customFields.aceite, false);
+  assert.equal(original.customFields.numero, "0");
+  const corpo = montarAtualizacaoLead(original, { ...original, customFields: { ...original.customFields, texto: null } }, 8);
+  assert.deepEqual(corpo.customFields, { texto: null });
+  assert.equal(corpo.version, 8);
+  assert.equal("customFields" in montarAtualizacaoLead(original, original, 8), false);
+});
+
 test("alterações carregam versão e apenas os grupos editados, sem metadados do contato", () => {
   const original = criarRascunhoLead(negocio);
   const rascunho = { ...original, contact: { ...original.contact!, name: "Ana editada" } };

@@ -1,12 +1,13 @@
 "use client";
 
-import { alcancaTela, type BulkDealsAction, type ClientDuplicateCandidate, type ConvertLeadResponse, type PipelinePerson, type CompanyKey, type Deal, type ListDealsResponse, type Pipeline } from "@plugga/shared";
+import { alcancaTela, type BulkDealsAction, type ClientDuplicateCandidate, type ConvertLeadResponse, type PipelinePerson, type CompanyKey, type Deal, type ListDealsResponse, type ListPipelinesResponse, type Pipeline } from "@plugga/shared";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import { enviar } from "../lib/clientes";
 import { converterLead } from "../lib/conversao-lead";
 import { hrefDaVisao, negocioConvertido, podeAtribuirLead, type Visao } from "../lib/negocios";
+import { mesclarPipelineAtual } from "../lib/pipelines";
 import type { TarefaDoLead } from "../lib/tarefas-lead";
 import { useSessionUser } from "../lib/use-session-user";
 import { Alert, Button, Dialog, IconPlus, IconSearch, IconSettings } from "./ui";
@@ -57,11 +58,12 @@ export function PipelinesView({
   const prioridadesPendentes = useRef(new Set<string>());
   const movimentoPendente = useRef(false);
   const conversaoPendente = useRef(false);
+  const configuracaoPendente = useRef(false);
   const { usuario } = useSessionUser();
   const podeVerClientes = alcancaTela(usuario?.acesso, "crm.clientes");
   const podeAtribuir = podeAtribuirLead(usuario?.acesso);
   const [busca, setBusca] = useState("");
-  const [configurando, setConfigurando] = useState<"editar" | "novo" | null>(null);
+  const [configurando, setConfigurando] = useState<{ tipo: "editar" | "novo"; dados: ListPipelinesResponse } | null>(null);
   const [negocios, setNegocios] = useState(doServidor);
   const [criando, setCriando] = useState<{ etapaId?: string } | null>(null);
   const [encerrando, setEncerrando] = useState<Encerramento | null>(null);
@@ -79,6 +81,22 @@ export function PipelinesView({
   const ativos = pipelines.filter((p) => p.archivedAt === null);
   const selecionado = ativos.find((p) => p.id === selecionadoId) ?? null;
   const podeConfigurar = canCreateIn.length > 0 || pipelines.some((p) => p.canConfigure);
+
+  async function abrirConfiguracao(tipo: "editar" | "novo") {
+    if (configuracaoPendente.current) return;
+    const pipelineId = selecionado?.id ?? pipelines.find((pipeline) => pipeline.canConfigure)?.id;
+    if (tipo === "novo" || !pipelineId) {
+      setConfigurando({ tipo, dados: { pipelines, canCreateIn, responsaveis } });
+      return;
+    }
+    configuracaoPendente.current = true;
+    const resposta = await enviar<ListPipelinesResponse>(`/api/pipelines?pipelineId=${encodeURIComponent(pipelineId)}`, "GET");
+    configuracaoPendente.current = false;
+    if (!resposta.ok) return setAviso(resposta.erro.mensagem);
+    const atual = resposta.dados.pipelines.find((pipeline) => pipeline.id === pipelineId && pipeline.canConfigure);
+    if (!atual) return setAviso("Você não pode mais configurar este pipeline.");
+    setConfigurando({ tipo, dados: { ...resposta.dados, pipelines: mesclarPipelineAtual(pipelines, atual) } });
+  }
 
   /** Troca os negócios atualizados na lista; quem foi para outro pipeline sai do quadro. */
   function aplicar(atualizados: Deal[]) {
@@ -248,7 +266,7 @@ export function PipelinesView({
             selecionado={selecionado}
             visao={visao}
             podeConfigurar={podeConfigurar}
-            aoConfigurar={() => setConfigurando("editar")}
+            aoConfigurar={() => { void abrirConfiguracao("editar"); }}
             rolagem={visao === "kanban" ? <BarraRolagemMinimalista key={`${selecionado.id}-${selecionado.stages.length}`} containerRef={colunasRef} className={estilos.rolagem} /> : null}
           />
           {aviso ? (
@@ -280,23 +298,24 @@ export function PipelinesView({
               : "Ainda não há pipelines ativos. Peça ao gerente do CRM para configurar um."}
           </p>
           {canCreateIn.length > 0 ? (
-            <Button variant="primary" icon={<IconPlus />} onClick={() => setConfigurando("novo")}>
+            <Button variant="primary" icon={<IconPlus />} onClick={() => { void abrirConfiguracao("novo"); }}>
               Criar pipeline
             </Button>
           ) : podeConfigurar ? (
-            <Button variant="secondary" icon={<IconSettings />} onClick={() => setConfigurando("editar")}>
+            <Button variant="secondary" icon={<IconSettings />} onClick={() => { void abrirConfiguracao("editar"); }}>
               Configurar pipelines
             </Button>
           ) : null}
+          {aviso ? <p className="aviso aviso--erro" role="alert">{aviso}</p> : null}
         </section>
       )}
 
       {configurando ? (
         <ConfiguracaoDePipelines
-          pipelines={pipelines}
-          canCreateIn={canCreateIn}
+          pipelines={configurando.dados.pipelines}
+          canCreateIn={configurando.dados.canCreateIn}
           inicialId={selecionado?.id ?? null}
-          comecarNovo={configurando === "novo"}
+          comecarNovo={configurando.tipo === "novo"}
           aoFechar={() => {
             setConfigurando(null);
             router.refresh();

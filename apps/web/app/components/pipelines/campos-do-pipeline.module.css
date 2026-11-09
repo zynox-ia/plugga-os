@@ -1,0 +1,18 @@
+.lista { display: grid; gap: 16px; }
+.filtros { margin-bottom: 16px; padding: 12px 16px; border: 1px solid var(--line); border-radius: 12px; }
+.filtros summary { cursor: pointer; font-size: 13px; }
+.filtros[open] summary { margin-bottom: 12px; }
+.campo { display: grid; gap: 16px; padding: 20px; border: 1px solid var(--line); border-radius: 12px; }
+.topo { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+.topo h3 { flex: 1 1 140px; margin: 0; font-size: 14px; overflow-wrap: anywhere; }
+.topo .acoes { margin-left: auto; }
+.acoes { display: flex; gap: 6px; flex-shrink: 0; }
+.grade { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.opcoes { display: grid; gap: 10px; }
+.opcao { display: flex; align-items: center; gap: 8px; }
+.opcao > :first-child { flex: 1; }
+.nota { margin: 0; font-size: 13px; color: var(--muted); line-height: 1.5; }
+.confirmacao { display: grid; gap: 16px; padding: 24px; }
+.confirmacao h2, .confirmacao p { margin: 0; }
+.confirmacao .acoes { justify-content: flex-end; flex-wrap: wrap; }
+@media (max-width: 640px) { .grade { grid-template-columns: 1fr; } .campo { padding: 14px; } .topo { align-items: flex-start; } }

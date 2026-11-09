@@ -6,6 +6,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from
 import { createPortal } from "react-dom";
 
 import { diasNaEtapa, estaParado, negocioConvertido } from "../../lib/negocios";
+import { formatarCampoDoPipeline } from "../../lib/campos-do-pipeline";
 import { formatarDataHora, FUSO_HORARIO } from "../../lib/format";
 import { Avatar } from "./icones";
 
@@ -194,6 +195,7 @@ export function MenuDoNegocio({
 export function CartaoDeNegocio({
   negocio,
   pipeline,
+  pessoas,
   acoes,
   arrastando,
   aoComecarArrasto,
@@ -201,6 +203,7 @@ export function CartaoDeNegocio({
 }: {
   negocio: Deal;
   pipeline: Pipeline;
+  pessoas?: { id: string; name: string }[];
   acoes: AcoesDoNegocio;
   arrastando: boolean;
   aoComecarArrasto: (elemento: HTMLElement) => void;
@@ -210,6 +213,10 @@ export function CartaoDeNegocio({
   const arrastou = useRef(false);
   const dias = diasNaEtapa(negocio);
   const parado = estaParado(negocio, pipeline);
+  const camposDoCartao = (pipeline.fields ?? []).filter((campo) => {
+    const valor = negocio.customFields?.[campo.id];
+    return campo.showOnCard && valor !== null && valor !== undefined && valor !== "";
+  });
 
   return (
     <>
@@ -272,6 +279,17 @@ export function CartaoDeNegocio({
               </span>
             ))}
           </div>
+        ) : null}
+
+        {camposDoCartao.length > 0 ? (
+          <dl className={styles.campos} aria-label="Campos do pipeline">
+            {camposDoCartao.map((campo) => (
+              <div key={campo.id} className={styles.campo}>
+                <dt>{campo.name}</dt>
+                <dd>{formatarCampoDoPipeline(campo, negocio.customFields?.[campo.id], pessoas ?? [negocio.owner])}</dd>
+              </div>
+            ))}
+          </dl>
         ) : null}
 
         <footer className={styles.rodape}>

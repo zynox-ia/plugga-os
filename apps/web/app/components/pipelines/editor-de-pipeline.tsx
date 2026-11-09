@@ -10,12 +10,14 @@ import { TextField, TextareaField } from "../ui/fields";
 import { IconAlertTriangle, IconPlus } from "../ui/icons";
 import { Radio } from "../ui/selection";
 import { SecaoEtapas, SecaoEtiquetas } from "./secoes-do-pipeline";
+import { SecaoCamposDoPipeline } from "./secao-campos-do-pipeline";
 
-type Aba = "geral" | "etapas" | "etiquetas";
+type Aba = "geral" | "etapas" | "etiquetas" | "campos";
 const ABAS: { id: Aba; rotulo: string; campos: string[] }[] = [
   { id: "geral", rotulo: "Geral", campos: ["companyId", "name", "description", "valueLabel", "color"] },
   { id: "etapas", rotulo: "Etapas", campos: ["stages", "wonLabel", "lostLabel"] },
   { id: "etiquetas", rotulo: "Etiquetas", campos: ["tags"] },
+  { id: "campos", rotulo: "Campos", campos: ["fields"] },
 ];
 
 export type PropsDaSecao = { rascunho: Rascunho; aoAlterar: (parcial: Partial<Rascunho>) => void; erros: Record<string, string> };
@@ -57,12 +59,13 @@ export function EditorDePipeline({
         ))}
       </nav>
       {aba !== "geral" || aoCriarPipeline ? (
-        <Button variant="primary" size="sm" icon={<IconPlus />} disabled={aba === "etapas" && rascunho.stages.length >= 20} onClick={() => {
+        <Button variant="primary" size="sm" icon={<IconPlus />} disabled={(aba === "etapas" && rascunho.stages.length >= 20) || (aba === "campos" && rascunho.fields.length >= 40)} onClick={() => {
           if (aba === "geral") aoCriarPipeline?.();
           else if (aba === "etapas") aoAlterar({ stages: [...rascunho.stages, { chave: novaChave(), name: "", color: "#94A3B8", staleAfterDays: null, asksClientConversion: false }] });
+          else if (aba === "campos") aoAlterar({ fields: [...rascunho.fields, { chave: novaChave(), name: "", type: "text", options: [], showOnCard: false, showInList: false }] });
           else aoAlterar({ tags: [...rascunho.tags, { chave: novaChave(), name: "", color: "#0077FF" }] });
         }}>
-          {aba === "geral" ? "Novo pipeline" : aba === "etapas" ? "Adicionar etapa" : "Nova etiqueta"}
+          {aba === "geral" ? "Novo pipeline" : aba === "etapas" ? "Adicionar etapa" : aba === "campos" ? "Adicionar campo" : "Nova etiqueta"}
         </Button>
       ) : null}
       </header>
@@ -70,6 +73,7 @@ export function EditorDePipeline({
         {aba === "geral" ? <SecaoGeral rascunho={rascunho} aoAlterar={aoAlterar} erros={erros} empresasPermitidas={totalDeNegocios > 0 ? [rascunho.companyId] : empresasPermitidas} totalDeNegocios={totalDeNegocios} /> : null}
         {aba === "etapas" ? <SecaoEtapas rascunho={rascunho} aoAlterar={aoAlterar} erros={erros} negociosPorEtapa={negociosPorEtapa} /> : null}
         {aba === "etiquetas" ? <SecaoEtiquetas rascunho={rascunho} aoAlterar={aoAlterar} erros={erros} /> : null}
+        {aba === "campos" ? <SecaoCamposDoPipeline rascunho={rascunho} aoAlterar={aoAlterar} erros={erros} /> : null}
       </section>
     </div>
   );

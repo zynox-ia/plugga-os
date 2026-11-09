@@ -1,6 +1,6 @@
 "use client";
 
-import type { Deal, Pipeline } from "@plugga/shared";
+import type { Deal, Pipeline, PipelinePerson } from "@plugga/shared";
 import { Clock, Kanban, Plus } from "lucide-react";
 import { Fragment, useLayoutEffect, useRef, useState, type CSSProperties, type RefObject } from "react";
 
@@ -19,11 +19,13 @@ const comCor = (cor: string) => ({ "--cor": cor }) as CSSProperties;
  */
 export function KanbanDoPipeline({
   pipeline,
+  responsaveis = [],
   negocios,
   acoes,
   colunasRef,
 }: {
   pipeline: Pipeline;
+  responsaveis?: PipelinePerson[];
   negocios: Deal[];
   acoes: AcoesDoNegocio;
   colunasRef?: RefObject<HTMLDivElement | null>;
@@ -122,6 +124,7 @@ export function KanbanDoPipeline({
                         style={arrasto?.negocio.id === negocio.id ? { width: arrasto.largura } : undefined}
                       >
                         <CartaoDeNegocio
+                          pessoas={responsaveis}
                           negocio={negocio}
                           pipeline={pipeline}
                           acoes={acoes}

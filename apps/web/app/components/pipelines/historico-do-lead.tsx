@@ -49,7 +49,7 @@ function AtividadeHistorico({ entrada }: { entrada: DealHistoryEntry }) {
       <div className={styles.historicoLinha}>
         <span className={styles.historicoAvatar} aria-hidden="true">{entrada.actor ? nome.trim().split(/\s+/).slice(0, 2).map((parte) => parte[0]).join("").toUpperCase() : <UserRound size={13} />}</span>
         <p><strong>{nome}</strong> {EVENTOS[entrada.kind].acao}
-          {entrada.kind === "field_changed" ? <> <strong>{entrada.field ? CAMPOS[entrada.field] ?? "um campo do cadastro" : "os dados do lead"}</strong></> : null}
+          {entrada.kind === "field_changed" ? <> <strong>{entrada.field?.startsWith("custom:") ? entrada.field.slice(7) : entrada.field ? CAMPOS[entrada.field] ?? "um campo do cadastro" : "os dados do lead"}</strong></> : null}
           {entrada.kind === "priority_changed" ? <> para <strong>{entrada.toPriority ? PRIORIDADES[entrada.toPriority] : "Sem prioridade"}</strong></> : null}
         </p>
       </div>

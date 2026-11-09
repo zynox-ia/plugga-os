@@ -3,6 +3,7 @@
 import type { Pipeline, PipelinePerson } from "@plugga/shared";
 import { CampoDoLead, type PropsEdicaoLead } from "./ficha-do-lead";
 import styles from "./detalhes-do-lead-modal.module.css";
+import { CamposPropriosDoNegocio } from "./campos-proprios-do-negocio";
 
 export function OportunidadeDoLead({ rascunho, aoAlterar, erros, pipeline, responsaveis, podeAtribuir }: PropsEdicaoLead & { pipeline: Pipeline; responsaveis: PipelinePerson[]; podeAtribuir: boolean }) {
   const alterar = (campo: "title" | "value" | "expectedCloseDate" | "ownerId", valor: string) => aoAlterar((atual) => atual && { ...atual, [campo]: valor });
@@ -23,6 +24,7 @@ export function OportunidadeDoLead({ rascunho, aoAlterar, erros, pipeline, respo
           <span className="ui-dialog-tag-dot" style={{ backgroundColor: tag.color }} />{tag.name}
         </label>) : <p className={styles.cockpitCardSub}>Nenhuma etiqueta configurada neste pipeline.</p>}{erros.tagIds ? <span className={styles.erroCampo}>{erros.tagIds}</span> : null}</fieldset>
       </div>
+      <CamposPropriosDoNegocio pipeline={pipeline} responsaveis={responsaveis} rascunho={rascunho} aoAlterar={aoAlterar} erros={erros} />
     </div>
   </>;
 }

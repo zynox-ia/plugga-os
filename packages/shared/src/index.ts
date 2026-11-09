@@ -21,3 +21,4 @@ export * from "./llm.js";
 export * from "./organization.js";
 export * from "./pipelines.js";
 export * from "./whatsapp.js";
+export * from "./custom-fields.js";
