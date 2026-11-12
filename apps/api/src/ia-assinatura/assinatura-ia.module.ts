@@ -2,9 +2,6 @@ import { Module } from "@nestjs/common";
 
 import { AuditModule } from "../audit/audit.module";
 import { CoreModule } from "../core/core.module";
-import { PrismaSegredoRepository } from "../llm/prisma-segredo.repository.js";
-import { SegredoRepository } from "../llm/segredo.repository.js";
-import { PrismaModule } from "../prisma/prisma.module";
 import { AssinaturaIaController } from "./assinatura-ia.controller";
 import { AssinaturaIaService } from "./assinatura-ia.service";
 import { CliProxyHttpAdapter } from "./cliproxy-http.adapter";
@@ -18,12 +15,11 @@ import { CliProxyPort } from "./cliproxy.port";
  * CLIPROXY_URL, CLIPROXY_MANAGEMENT_KEY e CLIPROXY_API_KEY (ver docs/ia-assinatura.md).
  */
 @Module({
-  imports: [AuditModule, CoreModule, PrismaModule],
+  imports: [AuditModule, CoreModule],
   controllers: [AssinaturaIaController],
   providers: [
     AssinaturaIaService,
     { provide: CliProxyPort, useClass: CliProxyHttpAdapter },
-    { provide: SegredoRepository, useClass: PrismaSegredoRepository },
   ],
 })
 export class AssinaturaIaModule {}

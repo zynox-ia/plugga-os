@@ -27,8 +27,8 @@ export const INTEGRACOES: readonly IntegracaoDoCatalogo[] = [
   { id: "autentique", label: "Autentique", escopo: "plataforma" },
   { id: "omie", label: "OMIE", escopo: "plataforma" },
   { id: "openrouter", label: "OpenRouter", escopo: "plataforma" },
-  { id: "claude-assinatura", label: "Claude (assinatura)", escopo: "plataforma" },
-  { id: "codex-assinatura", label: "Codex (assinatura)", escopo: "plataforma" },
+  { id: "claude-assinatura", label: "Claude", escopo: "plataforma" },
+  { id: "codex-assinatura", label: "Codex", escopo: "plataforma" },
   { id: "google-oauth", label: "Google (OAuth)", escopo: "plataforma" },
   { id: "google-calendar", label: "Google Calendar", escopo: "pessoal" },
 ];

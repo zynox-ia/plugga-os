@@ -1058,21 +1058,6 @@
   },
   {
     "metodo": "POST",
-    "caminho": "/integracoes/ia-assinatura/:provedor/risco",
-    "controller": "AssinaturaIaController.aceitarRisco",
-    "acesso": "acesso",
-    "papeis": [
-      "plataforma:desenvolvedor"
-    ],
-    "guards": [
-      "SessionAuthGuard",
-      "AcessoGuard",
-      "OriginCheckGuard",
-      "ThrottlerGuard"
-    ]
-  },
-  {
-    "metodo": "POST",
     "caminho": "/integracoes/ia-assinatura/:provedor/teste",
     "controller": "AssinaturaIaController.testar",
     "acesso": "acesso",

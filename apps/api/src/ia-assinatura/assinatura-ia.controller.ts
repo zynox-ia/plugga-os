@@ -52,8 +52,7 @@ async function comTraducao<T>(trabalho: () => Promise<T>): Promise<T> {
 
 /**
  * Claude e Codex pela assinatura, via proxy de CLI. Só desenvolvedor: é infraestrutura
- * da plataforma e o login usa a conta de uma pessoa. O aceite do risco é registrado
- * e exigido antes do login.
+ * da plataforma e o login usa a conta de uma pessoa.
  */
 @Controller("integracoes/ia-assinatura/:provedor")
 @UseGuards(SessionAuthGuard, AcessoGuard)
@@ -64,14 +63,6 @@ export class AssinaturaIaController {
   @Plataforma("desenvolvedor")
   estado(@Param("provedor", provedorPipe) provedor: ProvedorDeAssinatura): Promise<EstadoDaAssinatura> {
     return this.servico.estado(provedor);
-  }
-
-  @Post("risco")
-  @HttpCode(200)
-  @Plataforma("desenvolvedor")
-  @UseGuards(OriginCheckGuard, ThrottlerGuard)
-  aceitarRisco(@Param("provedor", provedorPipe) provedor: ProvedorDeAssinatura, @CurrentPrincipal() quem?: AuthPrincipal): Promise<EstadoDaAssinatura> {
-    return this.servico.aceitarRisco(provedor, quem?.id ?? "desconhecido");
   }
 
   @Post("login")

@@ -1,27 +1,17 @@
-import { randomBytes } from "node:crypto";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 
-import { ConflictException, NotFoundException } from "@nestjs/common";
+import { NotFoundException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import type { ContaDeAssinatura, ProvedorDeAssinatura } from "@plugga/shared";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { AuditPort } from "../audit/audit.port";
-import { SegredoRepository, type GravarSegredo, type SegredoGuardado } from "../llm/segredo.repository.js";
 import { AssinaturaIaService } from "./assinatura-ia.service";
 import { CliProxyHttpAdapter } from "./cliproxy-http.adapter";
 import { CliProxyFalhouError, CliProxyPort } from "./cliproxy.port";
 
-class CofreEmMemoria extends SegredoRepository {
-  linhas = new Map<string, SegredoGuardado>();
-  async buscar(chave: string): Promise<SegredoGuardado | null> { return this.linhas.get(chave) ?? null; }
-  async gravar(d: GravarSegredo): Promise<void> { this.linhas.set(d.chave, { ...d, atualizadoEm: new Date("2026-11-13T10:00:00Z") }); }
-  async apagar(chave: string): Promise<void> { this.linhas.delete(chave); }
-}
-
 function montar(proxyPronto = true) {
-  const cofre = new CofreEmMemoria();
   const contas: Record<ProvedorDeAssinatura, ContaDeAssinatura[]> = {
     claude: [{ arquivo: "claude-ana.json", email: "ana@teste.local" }],
     codex: [{ arquivo: "codex-bia.json", email: null }],
@@ -37,69 +27,28 @@ function montar(proxyPronto = true) {
   };
   const eventos: { eventName: string; actorId: string | null; payload: unknown }[] = [];
   const auditoria = { appendEvent: vi.fn(async (e: { eventName: string; actorId: string | null; payload: unknown }) => { eventos.push(e); }), appendTrail: vi.fn() } as unknown as AuditPort;
-  return { servico: new AssinaturaIaService(cofre, proxy as unknown as CliProxyPort, auditoria), cofre, proxy, eventos };
+  return { servico: new AssinaturaIaService(proxy as unknown as CliProxyPort, auditoria), proxy, eventos };
 }
 
-const mestraAnterior = process.env.SECRETS_ENCRYPTION_KEY;
-beforeEach(() => { process.env.SECRETS_ENCRYPTION_KEY = randomBytes(32).toString("base64"); });
-afterEach(() => {
-  vi.unstubAllGlobals();
-  if (mestraAnterior === undefined) delete process.env.SECRETS_ENCRYPTION_KEY;
-  else process.env.SECRETS_ENCRYPTION_KEY = mestraAnterior;
-});
+afterEach(() => vi.unstubAllGlobals());
 
-describe("IA pela assinatura: as travas", () => {
-  it("sem o aceite do risco registrado o login nem começa", async () => {
-    const { servico, proxy, eventos } = montar();
-
-    await expect(servico.iniciarLogin("claude", "dev")).rejects.toThrow(ConflictException);
-
-    expect(proxy.iniciarLogin).not.toHaveBeenCalled();
-    expect(eventos).toHaveLength(0);
-  });
-
-  it("com o aceite, o login começa; e o aceite é de um provedor só", async () => {
+describe("IA pela assinatura: login e contas", () => {
+  it("o login vai direto ao proxy e devolve o link do provedor", async () => {
     const { servico, proxy } = montar();
-    await servico.aceitarRisco("claude", "dev-1");
 
     expect(await servico.iniciarLogin("claude", "dev-1")).toEqual({ url: "https://auth.exemplo.test/login?x=1", estado: "estado-1" });
     expect(proxy.iniciarLogin).toHaveBeenCalledWith("claude");
-    await expect(servico.iniciarLogin("codex", "dev-1")).rejects.toThrow(ConflictException);
+    expect(await servico.iniciarLogin("codex", "dev-1")).toBeDefined();
   });
 
-  it("o aceite fica guardado cifrado e aparece no estado com quem e quando", async () => {
-    const { servico, cofre } = montar();
-
-    const estado = await servico.aceitarRisco("codex", "dev-1");
-
-    expect(estado).toMatchObject({ provedor: "codex", riscoAceito: true, riscoAceitoPor: "dev-1" });
-    expect(estado.riscoAceitoEm).toMatch(/^\d{4}-\d{2}-\d{2}T/);
-    expect(cofre.linhas.get("integracao.assinatura.codex")?.valorCifrado).not.toContain("dev-1");
-  });
-
-  it("aceite que não decifra mais não vale: pede de novo", async () => {
-    const { servico, cofre } = montar();
-    await servico.aceitarRisco("claude", "dev");
-    process.env.SECRETS_ENCRYPTION_KEY = randomBytes(32).toString("base64");
-
-    expect((await servico.estado("claude")).riscoAceito).toBe(false);
-    await expect(servico.iniciarLogin("claude", "dev")).rejects.toThrow(ConflictException);
-    expect(cofre.linhas.size).toBe(1);
-  });
-
-  it("audita aceite, login e remoção com o provedor e sem token", async () => {
+  it("audita o início do login e a remoção da conta com o provedor e sem token", async () => {
     const { servico, eventos } = montar();
 
-    await servico.aceitarRisco("claude", "dev-1");
     await servico.iniciarLogin("claude", "dev-1");
     await servico.removerConta("claude", "claude-ana.json", "dev-1");
 
-    expect(eventos.map((e) => e.eventName)).toEqual([
-      "integracao.ia_assinatura.risk_accepted",
-      "integracao.ia_assinatura.login_started",
-      "integracao.ia_assinatura.account_removed",
-    ]);
-    expect(eventos.every((e) => JSON.stringify(e.payload) === '{"provedor":"claude"}')).toBe(true);
+    expect(eventos.map((e) => e.eventName)).toEqual(["integracao.ia_assinatura.login_started", "integracao.ia_assinatura.account_removed"]);
+    expect(eventos.every((e) => JSON.stringify(e.payload) === '{"provedor":"claude"}' && e.actorId === "dev-1")).toBe(true);
   });
 
   it("só remove conta do próprio provedor: o nome do arquivo vem da tela e não vale por si", async () => {

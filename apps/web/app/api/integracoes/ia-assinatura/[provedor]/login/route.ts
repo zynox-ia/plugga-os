@@ -6,7 +6,7 @@ function provedorInvalido(): Response {
   return Response.json({ codigo: "REQUISICAO_INVALIDA", message: "Provedor desconhecido." }, { status: 400 });
 }
 
-/** Pede o link de login da assinatura. A API exige o aceite do risco já registrado. */
+/** Pede o link de login da assinatura ao proxy. */
 export async function POST(request: Request, { params }: { params: Promise<{ provedor: string }> }): Promise<Response> {
   const { provedor } = await params;
   if (!PROVEDORES.has(provedor)) return provedorInvalido();

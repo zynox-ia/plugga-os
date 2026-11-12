@@ -4,26 +4,23 @@ import { Bot, TerminalSquare } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import type { EstadoDaAssinatura, LoginDeAssinatura, ProvedorDeAssinatura, SituacaoDoLogin } from "@plugga/shared";
 
-import { Alert, Button, Switch } from "../components/ui";
-import { formatarDataHora } from "../lib/format";
+import { Alert, Button } from "../components/ui";
 import { detalheDoErro } from "./integracao-api";
 import { AvisosDaIntegracao, CartaoDeIntegracao, type IconeDaIntegracao, type JanelaDaIntegracao, type SeloDaIntegracao } from "./integracao-cartao";
 import styles from "./integracoes.module.css";
 
 type Vista = "gerenciar" | "conectar" | "remover";
 
-const CONFIG: Record<ProvedorDeAssinatura, { nome: string; Icone: IconeDaIntegracao; descricao: string; risco: string }> = {
+const CONFIG: Record<ProvedorDeAssinatura, { nome: string; Icone: IconeDaIntegracao; descricao: string }> = {
   claude: {
-    nome: "Claude (assinatura)",
+    nome: "Claude",
     Icone: Bot,
     descricao: "Claude pela assinatura de uma pessoa, por proxy de CLI. Só para tarefas internas, sem dado de cliente.",
-    risco: "A Anthropic não permite rotear requisições por credenciais de plano (Pro, Max) em sistemas de terceiros e pode bloquear a conta da assinatura sem aviso. O caminho oficial é a chave de API do Console.",
   },
   codex: {
-    nome: "Codex (assinatura)",
+    nome: "Codex",
     Icone: TerminalSquare,
     descricao: "Codex pela assinatura do ChatGPT de uma pessoa, por proxy de CLI. Só para tarefas internas, sem dado de cliente.",
-    risco: "A OpenAI recomenda chave de API para automação e não documenta o uso do login do ChatGPT por terceiros. A regra pode mudar, e o token de login fica guardado no proxy, no servidor.",
   },
 };
 
@@ -31,13 +28,12 @@ const INTERVALO_MS = 2_000;
 const LIMITE_DA_ESPERA_MS = 5 * 60_000;
 
 /**
- * Claude ou Codex pela assinatura, por um proxy de CLI. O cartão conduz: aceite do
- * risco (registrado e auditado), link de login do provedor e acompanhamento do
- * resultado. O token do login mora no proxy; esta tela nunca o vê, só lista e
- * remove contas.
+ * Claude ou Codex pela assinatura, por um proxy de CLI. O cartão conduz o login: pede o
+ * link do provedor e acompanha o resultado. O token do login mora no proxy; esta tela
+ * nunca o vê, só lista e remove contas.
  */
 export function IntegracaoAssinaturaIa({ provedor }: { provedor: ProvedorDeAssinatura }) {
-  const { nome, Icone, descricao, risco } = CONFIG[provedor];
+  const { nome, Icone, descricao } = CONFIG[provedor];
   const base = `/api/integracoes/ia-assinatura/${provedor}`;
 
   const [estado, setEstado] = useState<EstadoDaAssinatura | null>(null);
@@ -47,7 +43,6 @@ export function IntegracaoAssinaturaIa({ provedor }: { provedor: ProvedorDeAssin
   const [ocupado, setOcupado] = useState<"login" | "teste" | "remocao" | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
-  const [entendo, setEntendo] = useState(false);
   const [login, setLogin] = useState<(LoginDeAssinatura & { iniciadoEm: number }) | null>(null);
   const [contaParaRemover, setContaParaRemover] = useState<string | null>(null);
 
@@ -106,7 +101,6 @@ export function IntegracaoAssinaturaIa({ provedor }: { provedor: ProvedorDeAssin
     setErro(null);
     setAviso(null);
     setLogin(null);
-    setEntendo(false);
     setVista(proxima);
     setAberta(true);
   }
@@ -136,11 +130,6 @@ export function IntegracaoAssinaturaIa({ provedor }: { provedor: ProvedorDeAssin
 
   async function iniciarLogin() {
     setAviso(null);
-    if (!estado?.riscoAceito) {
-      const aceite = await chamar<EstadoDaAssinatura>("login", () => fetch(`${base}/risco`, { method: "POST" }), "não foi possível registrar o aceite");
-      if (!aceite) return;
-      setEstado(aceite);
-    }
     const novo = await chamar<LoginDeAssinatura>("login", () => fetch(`${base}/login`, { method: "POST" }), "não foi possível iniciar o login");
     if (novo) setLogin({ ...novo, iniciadoEm: Date.now() });
   }
@@ -218,9 +207,6 @@ export function IntegracaoAssinaturaIa({ provedor }: { provedor: ProvedorDeAssin
           ) : (
             <p className={styles.nota}>Nenhuma conta conectada.</p>
           )}
-          {estado?.riscoAceito && estado.riscoAceitoEm ? (
-            <p className={styles.nota}>Risco aceito em {formatarDataHora(estado.riscoAceitoEm)}. Uso restrito a tarefas internas, sem dado de cliente.</p>
-          ) : null}
         </>
       ),
       rodape: (
@@ -231,7 +217,7 @@ export function IntegracaoAssinaturaIa({ provedor }: { provedor: ProvedorDeAssin
       ),
     };
   } else if (aberta && vista === "conectar") {
-    const podeIniciar = estado?.proxy === "ok" && (estado.riscoAceito || entendo);
+    const podeIniciar = estado?.proxy === "ok";
     janela = {
       titulo: `Conectar o ${provedor === "claude" ? "Claude" : "Codex"}`,
       descricao: "O login é feito no site do provedor. O token fica no proxy, não no Plugga OS.",
@@ -249,15 +235,7 @@ export function IntegracaoAssinaturaIa({ provedor }: { provedor: ProvedorDeAssin
               <p className={styles.nota} role="status">Aguardando você concluir o login…</p>
             </div>
           ) : (
-            <>
-              <Alert tone="warning" title="Antes de continuar: isto tem risco">{risco}</Alert>
-              <p className={styles.nota}>Uso restrito a <strong>tarefas internas, sem dado de cliente</strong>: fatura e cadastro de cliente continuam só pelo OpenRouter.</p>
-              {estado?.riscoAceito && estado.riscoAceitoEm ? (
-                <p className={styles.nota}>Você já registrou que entende o risco em {formatarDataHora(estado.riscoAceitoEm)}.</p>
-              ) : (
-                <Switch label="Entendo o risco e assumo" description="Fica registrado na auditoria, com quem e quando." checked={entendo} onChange={(e) => setEntendo(e.target.checked)} />
-              )}
-            </>
+            <p className={styles.nota}>Ao iniciar, o Plugga OS pede o link de login ao proxy. Você entra no site do provedor com a conta da assinatura e volta para esta tela.</p>
           )}
         </>
       ),

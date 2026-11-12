@@ -26,10 +26,6 @@ export type EstadoDaAssinatura = {
   provedor: ProvedorDeAssinatura;
   /** `nao_configurado`: faltam as variáveis do proxy na API; `fora_do_ar`: configurado, mas não responde. */
   proxy: "ok" | "fora_do_ar" | "nao_configurado";
-  /** O desenvolvedor registrou que entende o risco de usar a assinatura assim. */
-  riscoAceito: boolean;
-  riscoAceitoEm: string | null;
-  riscoAceitoPor: string | null;
   contas: ContaDeAssinatura[];
 };
 
