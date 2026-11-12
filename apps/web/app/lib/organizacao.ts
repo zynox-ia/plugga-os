@@ -247,7 +247,7 @@ export const CONFIGURACOES: SecaoConfiguracao[] = [
   {
     id: "integracoes",
     label: "Integrações",
-    descricao: "Bitrix, WhatsApp, Brevo (e-mail), OMIE e PagBank — modo e saúde de cada uma.",
+    descricao: "Conexões da empresa com outros sistemas, usadas pelo back-end e pelas telas do Plugga OS.",
     rota: "/integracoes",
     status: "pronto",
     minimo: "admin",

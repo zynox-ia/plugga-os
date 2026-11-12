@@ -43,10 +43,8 @@ test("cockpit global não é enviado no HTML de membros e gerentes de departamen
 
 test("Configura\u00e7\u00f5es autoriza integra\u00e7\u00f5es e jobs antes de consultar e preserva erros", () => {
   const pagina = readFileSync(join(app, "configuracoes/page.tsx"), "utf8");
-  assert.match(pagina, /veIntegracoes \? fetchIntegrations\(\) : null/);
-  assert.match(pagina, /veIntegracoes \? fetchEmailStatus\(\) : null/);
+  assert.doesNotMatch(pagina, /fetchIntegrations|fetchEmailStatus/);
   assert.match(pagina, /veJobs \? fetchJobs\(\) : null/);
-  assert.match(pagina, /erroIntegracoes=/);
   assert.match(pagina, /erroJobs=/);
   assert.doesNotMatch(pagina, /FALLBACK_|estado === "erro" \? .*dados/);
 });

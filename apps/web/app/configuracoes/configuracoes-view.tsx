@@ -2,23 +2,17 @@
 
 import { Bell, Cable, KeyRound, ShieldCheck, Terminal, UserRound, Users } from "lucide-react";
 import { useEffect, useMemo, useState, type ComponentType } from "react";
-import type {
-  EmailStatus,
-  IntegrationSummary,
-  JobRunInventoryItem,
-  ListaDaEquipe,
-} from "@plugga/shared";
+import type { JobRunInventoryItem, ListaDaEquipe } from "@plugga/shared";
 
-import { EstadoDaApi } from "../components/estado-da-api";
 import type { ErroDeApi } from "../lib/api-core";
 import { ChaveLlmView } from "./chave-llm-view";
-import { IntegracoesView } from "../components/integracoes-view";
 import { ShellCard, StatusPill } from "../components/plugga-shell";
 import { CONFIGURACOES, ROTULO_DO_PAPEL, configuracoesParaAcesso } from "../lib/organizacao";
 import { useSessionUser } from "../lib/use-session-user";
 import styles from "./configuracoes.module.css";
 import { DesenvolvedorView } from "./desenvolvedor-view";
 import { EquipeView } from "./equipe-view";
+import { IntegracoesView } from "./integracoes-view";
 import { NotificacoesView } from "./notificacoes-view";
 import { PerfilView } from "./perfil-view";
 import { SegurancaDaContaView } from "./seguranca-da-conta-view";
@@ -35,15 +29,8 @@ const ICONE_DA_SECAO: Record<string, ComponentType<{ size?: number; className?: 
 
 export type ConfiguracoesViewProps = {
   abaInicial?: string | null;
-  erroIntegracoes?: ErroDeApi | null;
   erroJobs?: ErroDeApi | null;
   equipeInicial: ListaDaEquipe | null;
-  integracoesDados?: {
-    items: IntegrationSummary[];
-    isLive: boolean;
-    emailStatus: EmailStatus;
-    isEmailStatusLive: boolean;
-  } | null;
   jobsDados?: {
     items: JobRunInventoryItem[];
     isLive: boolean;
@@ -57,9 +44,7 @@ export type ConfiguracoesViewProps = {
 export function ConfiguracoesView({
   abaInicial,
   equipeInicial,
-  integracoesDados,
   jobsDados,
-  erroIntegracoes,
   erroJobs,
 }: ConfiguracoesViewProps) {
   const { usuario, carregando } = useSessionUser();
@@ -166,15 +151,8 @@ export function ConfiguracoesView({
         <EquipeView inicial={equipe} aoCarregar={setEquipe} />
       ) : secao?.id === "chave-llm" ? (
         <ChaveLlmView />
-      ) : secao?.id === "integracoes" && erroIntegracoes ? (
-        <EstadoDaApi erro={erroIntegracoes} eyebrow="Integrações" />
-      ) : secao?.id === "integracoes" && integracoesDados ? (
-        <IntegracoesView
-          items={integracoesDados.items}
-          isLive={integracoesDados.isLive}
-          emailStatus={integracoesDados.emailStatus}
-          isEmailStatusLive={integracoesDados.isEmailStatusLive}
-        />
+      ) : secao?.id === "integracoes" ? (
+        <IntegracoesView />
       ) : secao?.id === "desenvolvedor" ? (
         <DesenvolvedorView jobsDados={jobsDados} erroJobs={erroJobs} />
       ) : (
