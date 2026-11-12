@@ -11,7 +11,7 @@ const admin: Acesso = { plataforma: "admin", departamentos: [] };
 const desenvolvedor: Acesso = { plataforma: "desenvolvedor", departamentos: [] };
 
 test("Brevo, consulta de CNPJ e CEP e credenciais do Google são integrações de plataforma: só o desenvolvedor as vê", () => {
-  const dePlataforma = ["brevo", "cadastro", "telegram", "autentique", "omie", "google-oauth"];
+  const dePlataforma = ["brevo", "cadastro", "telegram", "autentique", "omie", "openrouter", "google-oauth"];
   const doDesenvolvedor = integracoesParaAcesso(desenvolvedor).map((i) => i.id);
   for (const id of dePlataforma) assert.ok(doDesenvolvedor.includes(id as never), id);
   for (const acesso of [membro, gerente, admin]) {

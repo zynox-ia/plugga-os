@@ -1547,7 +1547,7 @@
     "controller": "ChaveController.apagar",
     "acesso": "acesso",
     "papeis": [
-      "plataforma:admin"
+      "plataforma:desenvolvedor"
     ],
     "guards": [
       "SessionAuthGuard",
@@ -1562,7 +1562,7 @@
     "controller": "ChaveController.estado",
     "acesso": "acesso",
     "papeis": [
-      "plataforma:admin"
+      "plataforma:desenvolvedor"
     ],
     "guards": [
       "SessionAuthGuard",
@@ -1575,7 +1575,7 @@
     "controller": "ChaveController.gravar",
     "acesso": "acesso",
     "papeis": [
-      "plataforma:admin"
+      "plataforma:desenvolvedor"
     ],
     "guards": [
       "SessionAuthGuard",

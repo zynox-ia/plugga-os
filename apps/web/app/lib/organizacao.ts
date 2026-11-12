@@ -211,7 +211,7 @@ export type SecaoConfiguracao = Omit<Processo, "id"> & {
   descricao: string;
   minimo: PapelDaEquipe;
   /** Marca a seção que tem tela própria dentro de Configurações. */
-  id?: "perfil" | "seguranca" | "notificacoes" | "equipe" | "integracoes" | "chave-llm" | "desenvolvedor";
+  id?: "perfil" | "seguranca" | "notificacoes" | "equipe" | "integracoes" | "desenvolvedor";
 };
 
 export const CONFIGURACOES: SecaoConfiguracao[] = [
@@ -251,13 +251,6 @@ export const CONFIGURACOES: SecaoConfiguracao[] = [
     rota: "/integracoes",
     status: "pronto",
     minimo: "membro",
-  },
-  {
-    id: "chave-llm",
-    label: "Chave de IA",
-    descricao: "Chave usada pelos agentes de IA, guardada no cofre da plataforma.",
-    status: "pronto",
-    minimo: "admin",
   },
   {
     id: "desenvolvedor",

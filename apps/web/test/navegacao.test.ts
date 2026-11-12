@@ -161,7 +161,6 @@ describe("Configurações pelo papel", () => {
       "Notificações",
       "Equipe e Acessos",
       "Integrações",
-      "Chave de IA",
     ]);
   });
 
@@ -172,7 +171,6 @@ describe("Configurações pelo papel", () => {
       "Notificações",
       "Equipe e Acessos",
       "Integrações",
-      "Chave de IA",
       "Desenvolvedor",
     ]);
   });

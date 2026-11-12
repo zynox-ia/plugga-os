@@ -266,7 +266,7 @@ describe.skipIf(!HABILITADO)("RLS: permissões no login real da aplicação", { 
   it("segredos técnicos (email.*) são só do desenvolvedor; as demais chaves seguem com o admin", async () => {
     const tecnica = `email.${marca}`;
     const comum = `comum.${marca}`;
-    const outrasTecnicas = [`google.${marca}`, `integracao.${marca}`];
+    const outrasTecnicas = [`google.${marca}`, `integracao.${marca}`, `openrouter.${marca}`];
     const material = { valorCifrado: "cifra-sintetica", iv: "iv-sintetico", tag: "tag-sintetica", ultimosQuatro: "fake" };
     try {
       await root.segredoDoSistema.createMany({ data: [{ chave: tecnica, ...material }, { chave: comum, ...material }, ...outrasTecnicas.map((chave) => ({ chave, ...material }))] });

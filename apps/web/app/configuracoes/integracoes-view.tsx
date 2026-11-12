@@ -6,6 +6,7 @@ import { IntegracaoCadastro } from "./integracao-cadastro";
 import { IntegracaoTelegram } from "./integracao-telegram";
 import { IntegracaoAutentique } from "./integracao-autentique";
 import { IntegracaoOmie } from "./integracao-omie";
+import { IntegracaoOpenRouter } from "./integracao-openrouter";
 import { IntegracaoGoogleCalendar } from "./integracao-google-calendar";
 import { IntegracaoGoogleOAuth } from "./integracao-google-oauth";
 import styles from "./integracoes.module.css";
@@ -33,6 +34,8 @@ export function IntegracoesView({ acesso, escopo }: { acesso: Acesso; escopo: Es
             return <IntegracaoAutentique key={integracao.id} />;
           case "omie":
             return <IntegracaoOmie key={integracao.id} />;
+          case "openrouter":
+            return <IntegracaoOpenRouter key={integracao.id} />;
           case "google-oauth":
             return <IntegracaoGoogleOAuth key={integracao.id} />;
           case "google-calendar":

@@ -1,11 +1,10 @@
 "use client";
 
-import { Bell, Cable, KeyRound, ShieldCheck, Terminal, UserRound, Users } from "lucide-react";
+import { Bell, Cable, ShieldCheck, Terminal, UserRound, Users } from "lucide-react";
 import { useEffect, useMemo, useState, type ComponentType } from "react";
 import type { JobRunInventoryItem, ListaDaEquipe } from "@plugga/shared";
 
 import type { ErroDeApi } from "../lib/api-core";
-import { ChaveLlmView } from "./chave-llm-view";
 import { ShellCard, StatusPill } from "../components/plugga-shell";
 import { CONFIGURACOES, ROTULO_DO_PAPEL, configuracoesParaAcesso } from "../lib/organizacao";
 import { useSessionUser } from "../lib/use-session-user";
@@ -23,7 +22,6 @@ const ICONE_DA_SECAO: Record<string, ComponentType<{ size?: number; className?: 
   notificacoes: Bell,
   equipe: Users,
   integracoes: Cable,
-  "chave-llm": KeyRound,
   desenvolvedor: Terminal,
 };
 
@@ -153,8 +151,6 @@ export function ConfiguracoesView({
         <NotificacoesView />
       ) : secao?.id === "equipe" ? (
         <EquipeView inicial={equipe} aoCarregar={setEquipe} />
-      ) : secao?.id === "chave-llm" ? (
-        <ChaveLlmView />
       ) : secao?.id === "integracoes" && usuario ? (
         <IntegracoesView acesso={usuario.acesso} escopo="pessoal" />
       ) : secao?.id === "desenvolvedor" ? (
