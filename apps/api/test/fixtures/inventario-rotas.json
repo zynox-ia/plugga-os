@@ -916,6 +916,64 @@
   },
   {
     "metodo": "GET",
+    "caminho": "/integracoes/autentique",
+    "controller": "AutentiqueController.estado",
+    "acesso": "acesso",
+    "papeis": [
+      "plataforma:desenvolvedor"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "DELETE",
+    "caminho": "/integracoes/autentique/:empresa",
+    "controller": "AutentiqueController.apagar",
+    "acesso": "acesso",
+    "papeis": [
+      "plataforma:desenvolvedor"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "PUT",
+    "caminho": "/integracoes/autentique/:empresa",
+    "controller": "AutentiqueController.gravar",
+    "acesso": "acesso",
+    "papeis": [
+      "plataforma:desenvolvedor"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/integracoes/autentique/:empresa/teste",
+    "controller": "AutentiqueController.testar",
+    "acesso": "acesso",
+    "papeis": [
+      "plataforma:desenvolvedor"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
     "caminho": "/integracoes/cadastro",
     "controller": "CadastroIntegracaoController.estado",
     "acesso": "acesso",

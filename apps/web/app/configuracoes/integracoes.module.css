@@ -131,3 +131,29 @@
   overflow-wrap: anywhere;
   user-select: all;
 }
+
+.contas {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.conta {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--ui-subtle);
+}
+
+.contaTopo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--ui-text);
+  font-size: 13.5px;
+}

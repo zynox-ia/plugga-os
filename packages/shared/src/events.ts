@@ -34,6 +34,9 @@ export const eventNames = {
   // Telegram conectado, trocado ou desconectado pela tela. Quem e quando; nunca o token.
   telegramConectado: "integracao.telegram.connected",
   telegramDesconectado: "integracao.telegram.disconnected",
+  // Conta da Autentique de uma empresa conectada ou desconectada pela tela. Quem, quando e qual empresa; nunca o token.
+  autentiqueConectada: "integracao.autentique.connected",
+  autentiqueDesconectada: "integracao.autentique.disconnected",
   // Credenciais do app OAuth do Google (plataforma) e conexão da agenda de cada pessoa.
   // Quem e quando; nunca o client secret nem token.
   googleOAuthConectado: "google.oauth.connected",
@@ -181,6 +184,8 @@ export const eventosLegados: readonly string[] = [
   "integracao.cadastro.deactivated",
   "integracao.telegram.connected",
   "integracao.telegram.disconnected",
+  "integracao.autentique.connected",
+  "integracao.autentique.disconnected",
   "google.oauth.connected",
   "google.oauth.disconnected",
   "google.calendar.connected",

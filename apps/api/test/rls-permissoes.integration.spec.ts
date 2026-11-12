@@ -338,6 +338,30 @@ describe.skipIf(!HABILITADO)("RLS: permissões no login real da aplicação", { 
     }
   });
 
+  it("config_autentique entrega só a conta da empresa pedida, nada para empresa desconhecida e nada ao pool de autenticação", async () => {
+    const chaves = ["integracao.autentique.plugga", "integracao.autentique.waze", "integracao.autentique.outra"];
+    const anteriores = await root.segredoDoSistema.findMany({ where: { chave: { in: chaves } } });
+    const linha = (chave: string) => ({ chave, valorCifrado: `cifra-${chave}`, iv: "iv-sintetico", tag: "tag-sintetica", ultimosQuatro: "fake" });
+    const ler = (cliente: PrismaClient, empresa: string) => cliente.$queryRaw<{ valorCifrado: string }[]>`SELECT * FROM plugga_security.config_autentique(${empresa})`;
+    try {
+      await root.segredoDoSistema.deleteMany({ where: { chave: { in: chaves } } });
+      await root.segredoDoSistema.createMany({ data: chaves.map(linha) });
+
+      // Cada empresa recebe só a própria conta, nunca a da outra.
+      expect(await ler(clientes.jobs!, "plugga")).toEqual([{ valorCifrado: "cifra-integracao.autentique.plugga", iv: "iv-sintetico", tag: "tag-sintetica" }]);
+      expect(await ler(clientes.jobs!, "waze")).toEqual([{ valorCifrado: "cifra-integracao.autentique.waze", iv: "iv-sintetico", tag: "tag-sintetica" }]);
+      expect(await contexto("a", (tx) => tx.$queryRaw<{ valorCifrado: string }[]>`SELECT * FROM plugga_security.config_autentique('waze')`)).toEqual([{ valorCifrado: "cifra-integracao.autentique.waze", iv: "iv-sintetico", tag: "tag-sintetica" }]);
+      // Empresa fora da lista não devolve nada, mesmo com a linha existindo no cofre; curinga e injeção também não.
+      for (const empresa of ["outra", "%", "plugga' OR '1'='1", ""]) expect(await ler(clientes.jobs!, empresa)).toEqual([]);
+      // A função devolve texto cifrado, não dá acesso à tabela; o pool de autenticação não a executa.
+      expect(await contexto("a", (tx) => tx.segredoDoSistema.findMany({ where: { chave: { in: chaves } } }))).toEqual([]);
+      await expect(ler(clientes.auth!, "plugga")).rejects.toThrow();
+    } finally {
+      await root.segredoDoSistema.deleteMany({ where: { chave: { in: chaves } } });
+      if (anteriores.length > 0) await root.segredoDoSistema.createMany({ data: anteriores });
+    }
+  });
+
   it("a conversão restrita é atômica, exige sessão/tela e não deixa cliente após rollback", async () => {
     const email = `${randomUUID()}@sintetico.invalid`;
     const negocio = await root.deal.create({ data: {

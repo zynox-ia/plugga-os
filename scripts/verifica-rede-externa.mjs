@@ -25,6 +25,8 @@ export const EXCECOES = {
     "Agenda do Google de cada pessoa: só chama o Google quando a plataforma cadastrou o app OAuth no cofre e a própria pessoa conectou a conta. O modo de integração é global e não vale para uma conexão pessoal; o isolamento em teste é o adaptador falso atrás do GoogleCalendarPort.",
   "telegram/telegram-http.adapter.ts":
     "Avisos para o canal da equipe: só envia (sendMessage) depois de o desenvolvedor conectar o bot no cofre, e cada aviso respeita o liga/desliga próprio no TelegramNotificadorService. O modo mock/leitura/escrita é de integração de dados e não se aplica a notificação (ADR-0014).",
+  "autentique/autentique-http.adapter.ts":
+    "Assinatura eletrônica: só fala com a Autentique depois de o desenvolvedor conectar o token da empresa no cofre, e cada chamada usa a conta da empresa do documento. O modo mock/leitura/escrita é de integração de dados e não se aplica a assinatura (ADR-0014).",
   "integrations/bitrix/http-bitrix-read.client.ts":
     "Cliente cru do Bitrix; o gate (read_only + flag) é aplicado por BitrixImportService antes de qualquer leitura (ADR-0009).",
 };
