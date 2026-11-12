@@ -32,7 +32,11 @@ function enxerga(acesso: Acesso, integracao: IntegracaoDoCatalogo): boolean {
   return integracao.escopo === "pessoal" || alcancaPlataforma(acesso, "desenvolvedor");
 }
 
-/** As integrações que esta pessoa pode ver, na ordem do catálogo. */
-export function integracoesParaAcesso(acesso: Acesso): IntegracaoDoCatalogo[] {
-  return INTEGRACOES.filter((integracao) => enxerga(acesso, integracao));
+/**
+ * As integrações que esta pessoa pode ver, na ordem do catálogo. Com `escopo`, só as
+ * daquele tipo: as pessoais moram na aba Integrações das configurações e as de
+ * plataforma, na tela do Desenvolvedor.
+ */
+export function integracoesParaAcesso(acesso: Acesso, escopo?: EscopoDaIntegracao): IntegracaoDoCatalogo[] {
+  return INTEGRACOES.filter((integracao) => (escopo === undefined || integracao.escopo === escopo) && enxerga(acesso, integracao));
 }

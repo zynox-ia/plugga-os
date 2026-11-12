@@ -1,33 +1,24 @@
 ﻿"use client";
 
-import type { JobRunInventoryItem } from "@plugga/shared";
+import type { Acesso, JobRunInventoryItem } from "@plugga/shared";
 import { Cpu, Server, Terminal, Webhook } from "lucide-react";
 import Link from "next/link";
 
 import { EstadoDaApi } from "../components/estado-da-api";
 import { JobsView } from "../components/jobs-view";
-import { Badge, TextField } from "../components/ui";
+import { Badge, Tabs, TextField } from "../components/ui";
 import { erroDe, type ErroDeApi } from "../lib/api-core";
 import styles from "./configuracoes.module.css";
+import { IntegracoesView } from "./integracoes-view";
 
 type DesenvolvedorViewProps = {
   jobsDados?: { items: JobRunInventoryItem[]; isLive: boolean } | null;
   erroJobs?: ErroDeApi | null;
+  acesso?: Acesso | null;
 };
 
-export function DesenvolvedorView({ jobsDados, erroJobs }: DesenvolvedorViewProps) {
-  return (
-    <div className={styles.painel}>
-      <header className={styles.cabecalho}>
-        <div className={styles.cabecalhoTexto}>
-          <h3>Painel do Desenvolvedor & Infraestrutura</h3>
-          <p>Execuções de jobs e informações técnicas disponíveis para consulta.</p>
-        </div>
-        <div className={styles.cabecalhoAcoes}>
-          <Link href="/jobs" className="button button--secondary ui-button ui-button--sm">Ver jobs</Link>
-        </div>
-      </header>
-
+export function DesenvolvedorView({ jobsDados, erroJobs, acesso }: DesenvolvedorViewProps) {
+  const visaoGeral = (
       <div className={styles.grade}>
         <section className={`${styles.secao} ${styles.secaoLarga}`} aria-label="Status dos serviços">
           <h4>
@@ -78,6 +69,31 @@ export function DesenvolvedorView({ jobsDados, erroJobs }: DesenvolvedorViewProp
           )}
         </section>
       </div>
+  );
+
+  return (
+    <div className={styles.painel}>
+      <header className={styles.cabecalho}>
+        <div className={styles.cabecalhoTexto}>
+          <h3>Painel do Desenvolvedor & Infraestrutura</h3>
+          <p>Execuções de jobs e informações técnicas disponíveis para consulta.</p>
+        </div>
+        <div className={styles.cabecalhoAcoes}>
+          <Link href="/jobs" className="button button--secondary ui-button ui-button--sm">Ver jobs</Link>
+        </div>
+      </header>
+
+      <Tabs
+        label="Seções do desenvolvedor"
+        items={[
+          { id: "geral", label: "Visão geral", content: visaoGeral },
+          {
+            id: "integracoes",
+            label: "Integrações",
+            content: acesso ? <IntegracoesView acesso={acesso} escopo="plataforma" /> : null,
+          },
+        ]}
+      />
     </div>
   );
 }

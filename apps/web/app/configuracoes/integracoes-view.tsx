@@ -1,6 +1,6 @@
 import type { Acesso } from "@plugga/shared";
 
-import { integracoesParaAcesso } from "../lib/integracoes";
+import { integracoesParaAcesso, type EscopoDaIntegracao } from "../lib/integracoes";
 import { IntegracaoBrevo } from "./integracao-brevo";
 import { IntegracaoCadastro } from "./integracao-cadastro";
 import { IntegracaoTelegram } from "./integracao-telegram";
@@ -10,11 +10,12 @@ import styles from "./integracoes.module.css";
 
 /**
  * Integrações: cada uma é um cartão, e a pessoa só vê as do catálogo que o papel
- * dela alcança (`integracoesParaAcesso`). A integração nova entra no catálogo e
- * aqui; título e descrição vêm do cabeçalho da página.
+ * dela alcança (`integracoesParaAcesso`). O `escopo` separa os dois lugares: as
+ * pessoais na aba Integrações, as de plataforma na tela do Desenvolvedor. A
+ * integração nova entra no catálogo e aqui.
  */
-export function IntegracoesView({ acesso }: { acesso: Acesso }) {
-  const visiveis = integracoesParaAcesso(acesso);
+export function IntegracoesView({ acesso, escopo }: { acesso: Acesso; escopo: EscopoDaIntegracao }) {
+  const visiveis = integracoesParaAcesso(acesso, escopo);
 
   return (
     <div className={styles.catalogo}>

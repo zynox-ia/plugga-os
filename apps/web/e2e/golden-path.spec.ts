@@ -35,7 +35,7 @@ test.describe("Golden path — Início → Integrações → Jobs", () => {
     await page.goto("/integracoes");
     await expect(page).toHaveURL(/\/configuracoes\?aba=integracoes$/);
     await expect(page.getByRole("heading", { name: "Integrações", level: 1 })).toBeVisible();
-    await expect(page.getByRole("article", { name: "Brevo" })).toBeVisible();
+    await expect(page.getByRole("article", { name: "Google Calendar" })).toBeVisible();
 
     await page.goto("/jobs");
     await expect(page).toHaveURL(/\/jobs$/);

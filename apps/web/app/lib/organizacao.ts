@@ -247,7 +247,7 @@ export const CONFIGURACOES: SecaoConfiguracao[] = [
   {
     id: "integracoes",
     label: "Integrações",
-    descricao: "Conexões com outros sistemas: as da sua conta e, para o desenvolvedor, as da plataforma.",
+    descricao: "Conexões da sua conta com outros sistemas, como a agenda do Google.",
     rota: "/integracoes",
     status: "pronto",
     minimo: "membro",
@@ -262,7 +262,7 @@ export const CONFIGURACOES: SecaoConfiguracao[] = [
   {
     id: "desenvolvedor",
     label: "Desenvolvedor",
-    descricao: "Execu\u00e7\u00f5es dos jobs e ferramentas t\u00e9cnicas.",
+    descricao: "Execu\u00e7\u00f5es dos jobs, integra\u00e7\u00f5es da plataforma e ferramentas t\u00e9cnicas.",
     status: "pronto",
     minimo: "desenvolvedor",
   },

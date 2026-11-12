@@ -152,9 +152,9 @@ export function ConfiguracoesView({
       ) : secao?.id === "chave-llm" ? (
         <ChaveLlmView />
       ) : secao?.id === "integracoes" && usuario ? (
-        <IntegracoesView acesso={usuario.acesso} />
+        <IntegracoesView acesso={usuario.acesso} escopo="pessoal" />
       ) : secao?.id === "desenvolvedor" ? (
-        <DesenvolvedorView jobsDados={jobsDados} erroJobs={erroJobs} />
+        <DesenvolvedorView jobsDados={jobsDados} erroJobs={erroJobs} acesso={usuario?.acesso ?? null} />
       ) : (
         <ShellCard className="panel-card">
           <div className="card-heading">
