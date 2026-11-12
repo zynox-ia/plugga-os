@@ -37,6 +37,9 @@ export const eventNames = {
   // Conta da Autentique de uma empresa conectada ou desconectada pela tela. Quem, quando e qual empresa; nunca o token.
   autentiqueConectada: "integracao.autentique.connected",
   autentiqueDesconectada: "integracao.autentique.disconnected",
+  // Conta do OMIE conectada ou desconectada pela tela. Quem e quando; nunca a chave nem o segredo.
+  omieConectado: "integracao.omie.connected",
+  omieDesconectado: "integracao.omie.disconnected",
   // Credenciais do app OAuth do Google (plataforma) e conexão da agenda de cada pessoa.
   // Quem e quando; nunca o client secret nem token.
   googleOAuthConectado: "google.oauth.connected",
@@ -186,6 +189,8 @@ export const eventosLegados: readonly string[] = [
   "integracao.telegram.disconnected",
   "integracao.autentique.connected",
   "integracao.autentique.disconnected",
+  "integracao.omie.connected",
+  "integracao.omie.disconnected",
   "google.oauth.connected",
   "google.oauth.disconnected",
   "google.calendar.connected",

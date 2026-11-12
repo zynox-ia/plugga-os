@@ -362,6 +362,26 @@ describe.skipIf(!HABILITADO)("RLS: permissões no login real da aplicação", { 
     }
   });
 
+  it("config_omie entrega só o texto cifrado à aplicação e às rotinas; o pool de autenticação não executa", async () => {
+    const chave = "integracao.omie";
+    const anterior = await root.segredoDoSistema.findUnique({ where: { chave } });
+    const material = { valorCifrado: "cifra-sintetica", iv: "iv-sintetico", tag: "tag-sintetica", ultimosQuatro: "fake" };
+    const ler = (cliente: PrismaClient) => cliente.$queryRaw<{ valorCifrado: string; iv: string; tag: string }[]>`SELECT * FROM plugga_security.config_omie()`;
+    try {
+      await root.segredoDoSistema.upsert({ where: { chave }, create: { chave, ...material }, update: material });
+
+      expect(await ler(clientes.jobs!)).toEqual([{ valorCifrado: "cifra-sintetica", iv: "iv-sintetico", tag: "tag-sintetica" }]);
+      expect(await contexto("a", (tx) => tx.$queryRaw`SELECT * FROM plugga_security.config_omie()`)).toEqual([{ valorCifrado: "cifra-sintetica", iv: "iv-sintetico", tag: "tag-sintetica" }]);
+      // A função devolve texto cifrado, não dá acesso à tabela; quem não é desenvolvedor não a lê nem a grava.
+      expect(await contexto("a", (tx) => tx.segredoDoSistema.findMany({ where: { chave } }))).toEqual([]);
+      expect(await contexto("admin", (tx) => tx.segredoDoSistema.findMany({ where: { chave } }))).toEqual([]);
+      await expect(ler(clientes.auth!)).rejects.toThrow();
+    } finally {
+      if (anterior) await root.segredoDoSistema.update({ where: { id: anterior.id }, data: anterior });
+      else await root.segredoDoSistema.deleteMany({ where: { chave } });
+    }
+  });
+
   it("a conversão restrita é atômica, exige sessão/tela e não deixa cliente após rollback", async () => {
     const email = `${randomUUID()}@sintetico.invalid`;
     const negocio = await root.deal.create({ data: {
