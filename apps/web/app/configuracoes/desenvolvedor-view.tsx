@@ -1,99 +1,87 @@
-﻿"use client";
+"use client";
 
 import type { Acesso, JobRunInventoryItem } from "@plugga/shared";
-import { Cpu, Server, Terminal, Webhook } from "lucide-react";
-import Link from "next/link";
+import type { KeyboardEvent } from "react";
 
 import { EstadoDaApi } from "../components/estado-da-api";
 import { JobsView } from "../components/jobs-view";
-import { Badge, Tabs, TextField } from "../components/ui";
 import { erroDe, type ErroDeApi } from "../lib/api-core";
-import styles from "./configuracoes.module.css";
 import { IntegracoesView } from "./integracoes-view";
 
+export type SubAbaDoDesenvolvedor = "integracoes" | "jobs";
+
+const SUB_ABAS: { id: SubAbaDoDesenvolvedor; rotulo: string }[] = [
+  { id: "integracoes", rotulo: "Integrações" },
+  { id: "jobs", rotulo: "Jobs" },
+];
+
+const idDaAba = (id: SubAbaDoDesenvolvedor) => `desenvolvedor-aba-${id}`;
+const ID_DO_PAINEL = "desenvolvedor-painel";
+
+/**
+ * O seletor das seções do desenvolvedor. Mora no cabeçalho da página, na mesma linha do
+ * título e alinhado à direita, e controla o que `DesenvolvedorView` mostra.
+ */
+export function SubAbasDoDesenvolvedor({ valor, aoMudar }: { valor: SubAbaDoDesenvolvedor; aoMudar: (id: SubAbaDoDesenvolvedor) => void }) {
+  function teclas(evento: KeyboardEvent<HTMLDivElement>) {
+    const atual = SUB_ABAS.findIndex((aba) => aba.id === valor);
+    const proxima = evento.key === "ArrowRight" ? (atual + 1) % SUB_ABAS.length
+      : evento.key === "ArrowLeft" ? (atual - 1 + SUB_ABAS.length) % SUB_ABAS.length
+      : evento.key === "Home" ? 0
+      : evento.key === "End" ? SUB_ABAS.length - 1
+      : null;
+    if (proxima === null) return;
+    evento.preventDefault();
+    const destino = SUB_ABAS[proxima];
+    if (!destino) return;
+    aoMudar(destino.id);
+    evento.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]')[proxima]?.focus();
+  }
+
+  return (
+    <div role="tablist" aria-label="Seções do desenvolvedor" className="ui-tabs-list" onKeyDown={teclas}>
+      {SUB_ABAS.map((aba) => (
+        <button
+          key={aba.id}
+          type="button"
+          role="tab"
+          id={idDaAba(aba.id)}
+          aria-controls={ID_DO_PAINEL}
+          aria-selected={valor === aba.id}
+          tabIndex={valor === aba.id ? 0 : -1}
+          className="ui-tab"
+          onClick={() => aoMudar(aba.id)}
+        >
+          {aba.rotulo}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 type DesenvolvedorViewProps = {
+  subAba: SubAbaDoDesenvolvedor;
   jobsDados?: { items: JobRunInventoryItem[]; isLive: boolean } | null;
   erroJobs?: ErroDeApi | null;
   acesso?: Acesso | null;
 };
 
-export function DesenvolvedorView({ jobsDados, erroJobs, acesso }: DesenvolvedorViewProps) {
-  const visaoGeral = (
-      <div className={styles.grade}>
-        <section className={`${styles.secao} ${styles.secaoLarga}`} aria-label="Status dos serviços">
-          <h4>
-            <Server size={16} aria-hidden="true" />
-            Serviços & Infraestrutura
-          </h4>
-          <p className="card-note">A saúde dos serviços não foi verificada nesta tela.</p>
-          <div className={styles.gridStatusServicos}>
-            {["PostgreSQL", "Redis", "API NestJS", "RustFS Storage"].map((servico) => (
-              <div className={styles.cardServico} key={servico}>
-                <div className={styles.cardServicoTopo}>
-                  <strong>{servico}</strong>
-                  <Badge tone="neutral">Não verificado</Badge>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        <section className={styles.secao} aria-label="Ambiente e runtime">
-          <h4>
-            <Terminal size={16} aria-hidden="true" />
-            Ambiente & Runtime
-          </h4>
-          <div className={styles.camposUnicaColuna}>
-            <TextField label="Ambiente atual" value="Não verificado" readOnly />
-            <TextField label="Última verificação de saúde" value="Não disponível" readOnly />
-          </div>
-        </section>
-
-        <section className={styles.secao} aria-label="Webhooks">
-          <h4>
-            <Webhook size={16} aria-hidden="true" />
-            Webhooks
-          </h4>
-          <p className="card-note">Configuração e disponibilidade de webhooks não verificadas nesta tela.</p>
-        </section>
-
-        <section className={`${styles.secao} ${styles.secaoLarga}`} aria-label="Execuções de jobs">
-          <h4>
-            <Cpu size={16} aria-hidden="true" />
-            Execuções de jobs
-          </h4>
-          {!erroJobs && jobsDados?.isLive ? (
-            <JobsView items={jobsDados.items} isLive={jobsDados.isLive} />
-          ) : (
-            <EstadoDaApi erro={erroJobs ?? erroDe("indisponivel")} eyebrow="Jobs" />
-          )}
-        </section>
-      </div>
-  );
-
+/**
+ * Tela do desenvolvedor: o que só ele mexe. O título, a descrição e o seletor de
+ * seções vêm do cabeçalho de Configurações. Só entra aqui o que tem dado ou ação
+ * reais: as integrações da plataforma e a execução dos jobs. Estado de VPS e de
+ * ambiente não aparece, porque esta tela não o mede.
+ */
+export function DesenvolvedorView({ subAba, jobsDados, erroJobs, acesso }: DesenvolvedorViewProps) {
   return (
-    <div className={styles.painel}>
-      <header className={styles.cabecalho}>
-        <div className={styles.cabecalhoTexto}>
-          <h3>Painel do Desenvolvedor & Infraestrutura</h3>
-          <p>Execuções de jobs e informações técnicas disponíveis para consulta.</p>
-        </div>
-        <div className={styles.cabecalhoAcoes}>
-          <Link href="/jobs" className="button button--secondary ui-button ui-button--sm">Ver jobs</Link>
-        </div>
-      </header>
-
-      <Tabs
-        label="Seções do desenvolvedor"
-        items={[
-          { id: "geral", label: "Visão geral", content: visaoGeral },
-          {
-            id: "integracoes",
-            label: "Integrações",
-            content: acesso ? <IntegracoesView acesso={acesso} escopo="plataforma" /> : null,
-          },
-        ]}
-      />
+    <div role="tabpanel" id={ID_DO_PAINEL} aria-labelledby={idDaAba(subAba)}>
+      {subAba === "integracoes" ? (
+        acesso ? <IntegracoesView acesso={acesso} escopo="plataforma" /> : null
+      ) : !erroJobs && jobsDados?.isLive ? (
+        <JobsView items={jobsDados.items} isLive={jobsDados.isLive} />
+      ) : (
+        <EstadoDaApi erro={erroJobs ?? erroDe("indisponivel")} eyebrow="Jobs" />
+      )}
     </div>
   );
 }

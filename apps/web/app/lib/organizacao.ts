@@ -262,7 +262,7 @@ export const CONFIGURACOES: SecaoConfiguracao[] = [
   {
     id: "desenvolvedor",
     label: "Desenvolvedor",
-    descricao: "Execu\u00e7\u00f5es dos jobs, integra\u00e7\u00f5es da plataforma e ferramentas t\u00e9cnicas.",
+    descricao: "Integra\u00e7\u00f5es da plataforma e execu\u00e7\u00f5es dos jobs.",
     status: "pronto",
     minimo: "desenvolvedor",
   },

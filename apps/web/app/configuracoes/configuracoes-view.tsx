@@ -10,7 +10,7 @@ import { ShellCard, StatusPill } from "../components/plugga-shell";
 import { CONFIGURACOES, ROTULO_DO_PAPEL, configuracoesParaAcesso } from "../lib/organizacao";
 import { useSessionUser } from "../lib/use-session-user";
 import styles from "./configuracoes.module.css";
-import { DesenvolvedorView } from "./desenvolvedor-view";
+import { DesenvolvedorView, SubAbasDoDesenvolvedor, type SubAbaDoDesenvolvedor } from "./desenvolvedor-view";
 import { EquipeView } from "./equipe-view";
 import { IntegracoesView } from "./integracoes-view";
 import { NotificacoesView } from "./notificacoes-view";
@@ -53,6 +53,7 @@ export function ConfiguracoesView({
 
   const [ativa, setAtiva] = useState<string | undefined>();
   const [equipe, setEquipe] = useState(equipeInicial);
+  const [subDev, setSubDev] = useState<SubAbaDoDesenvolvedor>("integracoes");
 
   // Sincroniza a aba ativa quando as seções visíveis ou o abaInicial mudarem
   useEffect(() => {
@@ -138,8 +139,11 @@ export function ConfiguracoesView({
 
       <div className={secao?.id === "equipe" ? "equipe-layout" : undefined} role="tabpanel" id={`config-painel-${secao?.id}`} aria-labelledby={`config-aba-${secao?.id}`} tabIndex={0}>
       <header className={styles.cabecalhoPagina}>
-        <h1>{secao?.label}</h1>
-        <h2>{secao?.descricao}</h2>
+        <div className={styles.cabecalhoTextos}>
+          <h1>{secao?.label}</h1>
+          <h2>{secao?.descricao}</h2>
+        </div>
+        {secao?.id === "desenvolvedor" ? <SubAbasDoDesenvolvedor valor={subDev} aoMudar={setSubDev} /> : null}
       </header>
       {secao?.id === "perfil" ? (
         <PerfilView />
@@ -154,7 +158,7 @@ export function ConfiguracoesView({
       ) : secao?.id === "integracoes" && usuario ? (
         <IntegracoesView acesso={usuario.acesso} escopo="pessoal" />
       ) : secao?.id === "desenvolvedor" ? (
-        <DesenvolvedorView jobsDados={jobsDados} erroJobs={erroJobs} acesso={usuario?.acesso ?? null} />
+        <DesenvolvedorView subAba={subDev} jobsDados={jobsDados} erroJobs={erroJobs} acesso={usuario?.acesso ?? null} />
       ) : (
         <ShellCard className="panel-card">
           <div className="card-heading">
