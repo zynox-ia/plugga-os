@@ -28,6 +28,12 @@ export const eventNames = {
   // Brevo conectado, trocado ou desconectado pela tela. Quem e quando; nunca a chave.
   emailBrevoConectado: "email.brevo.connected",
   emailBrevoDesconectado: "email.brevo.disconnected",
+  // Credenciais do app OAuth do Google (plataforma) e conexão da agenda de cada pessoa.
+  // Quem e quando; nunca o client secret nem token.
+  googleOAuthConectado: "google.oauth.connected",
+  googleOAuthDesconectado: "google.oauth.disconnected",
+  googleCalendarConectado: "google.calendar.connected",
+  googleCalendarDesconectado: "google.calendar.disconnected",
 } as const;
 
 export type EventName = (typeof eventNames)[keyof typeof eventNames];
@@ -165,6 +171,10 @@ export const eventosLegados: readonly string[] = [
   "llm.chave.apagada",
   "email.brevo.connected",
   "email.brevo.disconnected",
+  "google.oauth.connected",
+  "google.oauth.disconnected",
+  "google.calendar.connected",
+  "google.calendar.disconnected",
 ];
 
 /** Evento que o `AuditAppender` aceita: do catálogo novo ou legado. */

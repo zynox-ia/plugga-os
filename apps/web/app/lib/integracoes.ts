@@ -15,13 +15,14 @@ import { alcancaPlataforma, type Acesso } from "@plugga/shared";
 export type EscopoDaIntegracao = "plataforma" | "pessoal";
 
 export type IntegracaoDoCatalogo = {
-  id: "brevo";
+  id: "brevo" | "google-oauth";
   label: string;
   escopo: EscopoDaIntegracao;
 };
 
 export const INTEGRACOES: readonly IntegracaoDoCatalogo[] = [
   { id: "brevo", label: "Brevo", escopo: "plataforma" },
+  { id: "google-oauth", label: "Google (OAuth)", escopo: "plataforma" },
 ];
 
 function enxerga(acesso: Acesso, integracao: IntegracaoDoCatalogo): boolean {

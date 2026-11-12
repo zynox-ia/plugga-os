@@ -8,6 +8,7 @@ export * from "./commercial.js";
 export * from "./deals.js";
 export * from "./documento.js";
 export * from "./email-status.js";
+export * from "./google-calendar.js";
 export * from "./equipe.js";
 export * from "./erro.js";
 export * from "./events.js";

@@ -106,3 +106,28 @@
   font-size: 12.5px;
   line-height: 1.5;
 }
+
+.cadastro {
+  display: grid;
+  gap: 8px;
+}
+
+.copiavel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.codigo {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--ui-subtle);
+  color: var(--ui-text);
+  font-size: 12px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  user-select: all;
+}
