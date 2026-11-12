@@ -31,6 +31,9 @@ export const eventNames = {
   // Consulta de CNPJ e CEP ligada ou desligada pela plataforma.
   integracaoCadastroAtivada: "integracao.cadastro.activated",
   integracaoCadastroDesativada: "integracao.cadastro.deactivated",
+  // Telegram conectado, trocado ou desconectado pela tela. Quem e quando; nunca o token.
+  telegramConectado: "integracao.telegram.connected",
+  telegramDesconectado: "integracao.telegram.disconnected",
   // Credenciais do app OAuth do Google (plataforma) e conexão da agenda de cada pessoa.
   // Quem e quando; nunca o client secret nem token.
   googleOAuthConectado: "google.oauth.connected",
@@ -176,6 +179,8 @@ export const eventosLegados: readonly string[] = [
   "email.brevo.disconnected",
   "integracao.cadastro.activated",
   "integracao.cadastro.deactivated",
+  "integracao.telegram.connected",
+  "integracao.telegram.disconnected",
   "google.oauth.connected",
   "google.oauth.disconnected",
   "google.calendar.connected",

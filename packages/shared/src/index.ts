@@ -25,3 +25,4 @@ export * from "./whatsapp.js";
 export * from "./custom-fields.js";
 export * from "./solar.js";
 export * from "./cadastro.js";
+export * from "./telegram.js";

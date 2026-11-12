@@ -3,6 +3,7 @@ import type { Acesso } from "@plugga/shared";
 import { integracoesParaAcesso } from "../lib/integracoes";
 import { IntegracaoBrevo } from "./integracao-brevo";
 import { IntegracaoCadastro } from "./integracao-cadastro";
+import { IntegracaoTelegram } from "./integracao-telegram";
 import { IntegracaoGoogleCalendar } from "./integracao-google-calendar";
 import { IntegracaoGoogleOAuth } from "./integracao-google-oauth";
 import styles from "./integracoes.module.css";
@@ -23,6 +24,8 @@ export function IntegracoesView({ acesso }: { acesso: Acesso }) {
             return <IntegracaoBrevo key={integracao.id} />;
           case "cadastro":
             return <IntegracaoCadastro key={integracao.id} />;
+          case "telegram":
+            return <IntegracaoTelegram key={integracao.id} />;
           case "google-oauth":
             return <IntegracaoGoogleOAuth key={integracao.id} />;
           case "google-calendar":

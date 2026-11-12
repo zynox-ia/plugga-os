@@ -943,6 +943,64 @@
     ]
   },
   {
+    "metodo": "DELETE",
+    "caminho": "/integracoes/telegram",
+    "controller": "TelegramController.apagar",
+    "acesso": "acesso",
+    "papeis": [
+      "plataforma:desenvolvedor"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/integracoes/telegram",
+    "controller": "TelegramController.estado",
+    "acesso": "acesso",
+    "papeis": [
+      "plataforma:desenvolvedor"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "PUT",
+    "caminho": "/integracoes/telegram",
+    "controller": "TelegramController.gravar",
+    "acesso": "acesso",
+    "papeis": [
+      "plataforma:desenvolvedor"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/integracoes/telegram/teste",
+    "controller": "TelegramController.testar",
+    "acesso": "acesso",
+    "papeis": [
+      "plataforma:desenvolvedor"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
     "metodo": "GET",
     "caminho": "/integrations",
     "controller": "IntegrationsController.list",

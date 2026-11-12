@@ -23,6 +23,8 @@ export const EXCECOES = {
     "Consulta pública de CNPJ e CEP: só leitura, sem credencial. O liga/desliga da plataforma é aplicado por ConsultaCadastralService antes de qualquer chamada; o modo mock/leitura/escrita não se aplica a dado público (ADR-0014).",
   "google-calendar/google-calendar-http.adapter.ts":
     "Agenda do Google de cada pessoa: só chama o Google quando a plataforma cadastrou o app OAuth no cofre e a própria pessoa conectou a conta. O modo de integração é global e não vale para uma conexão pessoal; o isolamento em teste é o adaptador falso atrás do GoogleCalendarPort.",
+  "telegram/telegram-http.adapter.ts":
+    "Avisos para o canal da equipe: só envia (sendMessage) depois de o desenvolvedor conectar o bot no cofre, e cada aviso respeita o liga/desliga próprio no TelegramNotificadorService. O modo mock/leitura/escrita é de integração de dados e não se aplica a notificação (ADR-0014).",
   "integrations/bitrix/http-bitrix-read.client.ts":
     "Cliente cru do Bitrix; o gate (read_only + flag) é aplicado por BitrixImportService antes de qualquer leitura (ADR-0009).",
 };

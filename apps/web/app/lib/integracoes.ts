@@ -15,7 +15,7 @@ import { alcancaPlataforma, type Acesso } from "@plugga/shared";
 export type EscopoDaIntegracao = "plataforma" | "pessoal";
 
 export type IntegracaoDoCatalogo = {
-  id: "brevo" | "google-oauth" | "cadastro" | "google-calendar";
+  id: "brevo" | "google-oauth" | "cadastro" | "google-calendar" | "telegram";
   label: string;
   escopo: EscopoDaIntegracao;
 };
@@ -23,6 +23,7 @@ export type IntegracaoDoCatalogo = {
 export const INTEGRACOES: readonly IntegracaoDoCatalogo[] = [
   { id: "brevo", label: "Brevo", escopo: "plataforma" },
   { id: "cadastro", label: "Consulta de CNPJ e CEP", escopo: "plataforma" },
+  { id: "telegram", label: "Telegram", escopo: "plataforma" },
   { id: "google-oauth", label: "Google (OAuth)", escopo: "plataforma" },
   { id: "google-calendar", label: "Google Calendar", escopo: "pessoal" },
 ];
