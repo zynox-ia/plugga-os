@@ -55,6 +55,17 @@ describe("BrasilApiAdapter", () => {
     expect(JSON.stringify(empresa)).not.toContain("segredo-do-provedor");
   });
 
+  it("identifica o sistema com User-Agent em toda consulta (sem ele a BrasilAPI responde 403 no CNPJ)", async () => {
+    const chamada = responder(200, { razao_social: "X LTDA", cep: "69000000", street: "Rua Teste" });
+
+    await new BrasilApiAdapter().consultarCnpj("11222333000181");
+    await new BrasilApiAdapter().consultarCep("69000000");
+
+    for (const [, init] of chamada.mock.calls as [string, RequestInit][]) {
+      expect((init.headers as Record<string, string>)["user-agent"]).toMatch(/^Plugga-OS\/\d/);
+    }
+  });
+
   it("campo ausente vira null e a consulta continua", async () => {
     responder(200, { razao_social: "SÓ O NOME LTDA" });
 

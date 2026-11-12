@@ -5,6 +5,12 @@ import { ConsultaCadastralPort, FonteIndisponivelError } from "./consulta-cadast
 
 const BASE = "https://brasilapi.com.br/api";
 const PRAZO_MS = 8_000;
+/**
+ * A BrasilAPI barra com 403 (Cloudflare) o endpoint de CNPJ quando a requisição não traz
+ * `User-Agent`, e o `fetch` do Node não manda um. O de CEP não tem esse filtro, então o
+ * defeito só aparecia no CNPJ. Identificar o sistema também é o combinado de uso justo.
+ */
+const USER_AGENT = "Plugga-OS/1.0 (consulta cadastral)";
 
 type Bruto = Record<string, unknown>;
 
@@ -77,7 +83,7 @@ export class BrasilApiAdapter extends ConsultaCadastralPort {
   private async buscar(url: string): Promise<Bruto | null> {
     let resposta: Response;
     try {
-      resposta = await fetch(url, { headers: { accept: "application/json" }, signal: AbortSignal.timeout(PRAZO_MS) });
+      resposta = await fetch(url, { headers: { accept: "application/json", "user-agent": USER_AGENT }, signal: AbortSignal.timeout(PRAZO_MS) });
     } catch {
       throw new FonteIndisponivelError("sem resposta no prazo");
     }
