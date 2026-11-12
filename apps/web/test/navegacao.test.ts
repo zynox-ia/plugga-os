@@ -139,26 +139,28 @@ describe("barra lateral pelo acesso", () => {
 describe("Configurações pelo papel", () => {
   const secoes = (acesso: Acesso) => configuracoesParaAcesso(acesso).map((secao) => secao.label);
 
-  it("membro vê Perfil e Segurança separados nas configurações pessoais", () => {
-    assert.deepEqual(secoes(membro("crm")), ["Perfil", "Segurança", "Notificações"]);
+  it("membro vê as configurações pessoais, com Integrações por causa da agenda do Google", () => {
+    assert.deepEqual(secoes(membro("crm")), ["Perfil", "Segurança", "Notificações", "Integrações"]);
   });
 
-  it("gerente vê as configurações pessoais e Equipe e Acessos", () => {
+  it("gerente vê as configurações pessoais, Equipe e Acessos e Integrações", () => {
     assert.deepEqual(secoes({ plataforma: null, departamentos: [{ departamento: "crm", nivel: "gerente" }] }), [
       "Perfil",
       "Segurança",
       "Notificações",
       "Equipe e Acessos",
+      "Integrações",
     ]);
   });
 
-  it("admin vê as configurações administrativas, sem ferramentas técnicas nem integrações de plataforma", () => {
+  it("admin vê as configurações administrativas, sem ferramentas técnicas; em Integrações só as pessoais", () => {
     const admin = secoes({ plataforma: "admin", departamentos: [] });
     assert.deepEqual(admin, [
       "Perfil",
       "Segurança",
       "Notificações",
       "Equipe e Acessos",
+      "Integrações",
       "Chave de IA",
     ]);
   });

@@ -127,7 +127,8 @@ describe.skipIf(!HABILITADO)("RLS: permissões no login real da aplicação", { 
 
   it("habilita e força RLS em todos os modelos e mantém os grupos sem bypass", async () => {
     const tabelas = Prisma.dmmf.datamodel.models.map((m) => m.dbName ?? m.name);
-    expect(tabelas).toHaveLength(75);
+    expect(tabelas).toHaveLength(76);
+    expect(tabelas).toContain("conexoes_google_calendar");
     const flags = await root.$queryRaw<{ nome: string; ativo: boolean; forcado: boolean }[]>`
       SELECT c.relname AS nome, c.relrowsecurity AS ativo, c.relforcerowsecurity AS forcado
       FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace

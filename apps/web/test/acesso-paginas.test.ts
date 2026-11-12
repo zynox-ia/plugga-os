@@ -21,10 +21,11 @@ test("rotas técnicas negam Admin e só aceitam Desenvolvedor", () => {
   }
 });
 
-test("/integracoes só abre para quem enxerga ao menos uma integração (hoje, só a de plataforma)", () => {
+test("/integracoes abre para todo papel, porque o Google Calendar é integração pessoal", () => {
   assert.equal(podeAbrirPagina({ plataforma: "desenvolvedor", departamentos: [] }, "/integracoes"), true);
-  assert.equal(podeAbrirPagina({ plataforma: "admin", departamentos: [] }, "/integracoes"), false);
-  assert.equal(podeAbrirPagina({ plataforma: null, departamentos: [{ departamento: "crm", nivel: "gerente" }] }, "/integracoes"), false);
+  assert.equal(podeAbrirPagina({ plataforma: "admin", departamentos: [] }, "/integracoes"), true);
+  assert.equal(podeAbrirPagina({ plataforma: null, departamentos: [{ departamento: "crm", nivel: "gerente" }] }, "/integracoes"), true);
+  assert.equal(podeAbrirPagina({ plataforma: null, departamentos: [{ departamento: "crm", nivel: "membro" }] }, "/integracoes"), true);
 });
 
 test("páginas sem regra negam acesso inclusive à plataforma; prefixos parecidos não herdam concessão", () => {

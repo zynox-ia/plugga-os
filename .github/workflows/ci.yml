@@ -175,6 +175,7 @@ jobs:
           test/rls-permissoes.integration.spec.ts
           test/isolamento-membros.integration.spec.ts
           test/vinculos-equipe.integration.spec.ts
+          test/google-calendar.integration.spec.ts
           --no-file-parallelism
 
       - name: Verify LLM key consumption

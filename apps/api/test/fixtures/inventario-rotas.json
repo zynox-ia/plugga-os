@@ -807,6 +807,56 @@
   },
   {
     "metodo": "DELETE",
+    "caminho": "/google/calendar/conexao",
+    "controller": "GoogleCalendarController.desconectar",
+    "acesso": "authenticated",
+    "papeis": [],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/google/calendar/conexao",
+    "controller": "GoogleCalendarController.estado",
+    "acesso": "authenticated",
+    "papeis": [],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/google/calendar/conexao/autorizacao",
+    "controller": "GoogleCalendarController.iniciar",
+    "acesso": "authenticated",
+    "papeis": [],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/google/calendar/conexao/retorno",
+    "controller": "GoogleCalendarController.concluir",
+    "acesso": "authenticated",
+    "papeis": [],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "DELETE",
     "caminho": "/google/oauth",
     "controller": "GoogleOAuthController.apagar",
     "acesso": "acesso",
