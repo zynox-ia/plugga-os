@@ -122,7 +122,6 @@ export function IntegracaoGoogleCalendar() {
     janela = {
       titulo: "Google Calendar",
       descricao: DESCRICAO,
-      tamanho: "media",
       aoFechar: fechar,
       conteudo: (
         <>
@@ -154,7 +153,6 @@ export function IntegracaoGoogleCalendar() {
     janela = {
       titulo: "Desconectar o Google Calendar?",
       descricao: "O Plugga OS deixa de acessar a sua agenda e revoga a autorização no Google. Os eventos que já estão na sua agenda não são apagados.",
-      tamanho: "estreita",
       perigo: true,
       textoFechar: "Cancelar",
       aoFechar: fechar,

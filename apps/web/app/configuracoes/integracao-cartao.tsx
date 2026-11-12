@@ -23,8 +23,6 @@ export type AcaoDoCartao = {
 export type JanelaDaIntegracao = {
   titulo: string;
   descricao: string;
-  /** Formulário e confirmação são estreitos; o que lista dados e ações é médio. */
-  tamanho: "estreita" | "media";
   /** Confirmação de algo destrutivo (cabeçalho vermelho). */
   perigo?: boolean;
   /** Texto do botão da esquerda: "Fechar" quando só se olha, "Cancelar" quando há o que descartar. */
@@ -43,7 +41,9 @@ export type JanelaDaIntegracao = {
  * consulta, ir ao Google), o botão a executa e o resultado aparece na própria linha do
  * cartão, em `alerta`.
  *
- * O modal leva o ícone grande ao lado do título, como os demais modais do sistema.
+ * O modal leva o ícone grande ao lado do título, como os demais modais do sistema, e tem
+ * SEMPRE a mesma largura (estreita): conteúdo que passa da altura rola por dentro, com o
+ * cabeçalho e o rodapé fixos.
  */
 export function CartaoDeIntegracao({
   nome,
@@ -99,7 +99,7 @@ export function CartaoDeIntegracao({
           description={janela.descricao}
           icon={<Icone size={20} aria-hidden />}
           variant={janela.perigo ? "danger" : "default"}
-          size={janela.tamanho}
+          size="estreita"
           cancelText={janela.textoFechar ?? "Fechar"}
           onClose={janela.aoFechar}
           footer={janela.rodape}

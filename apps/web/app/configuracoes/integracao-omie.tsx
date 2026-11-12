@@ -141,7 +141,6 @@ export function IntegracaoOmie() {
     janela = {
       titulo: "OMIE",
       descricao: DESCRICAO,
-      tamanho: "media",
       aoFechar: fechar,
       conteudo: (
         <>
@@ -168,7 +167,6 @@ export function IntegracaoOmie() {
     janela = {
       titulo: estado?.conectado ? "Editar a conexão do OMIE" : "Conectar o OMIE",
       descricao: "A chave e o segredo ficam guardados cifrados no cofre da plataforma e não são exibidos depois de salvos.",
-      tamanho: "estreita",
       textoFechar: "Cancelar",
       aoFechar: fechar,
       rodape: <Button type="submit" form="form-omie" loading={ocupado === "formulario"}>Salvar conexão</Button>,
@@ -201,7 +199,6 @@ export function IntegracaoOmie() {
     janela = {
       titulo: "Desconectar o OMIE?",
       descricao: "O sistema deixa de enviar clientes, pedidos e notas ao OMIE até você conectar de novo.",
-      tamanho: "estreita",
       perigo: true,
       textoFechar: "Cancelar",
       aoFechar: fechar,

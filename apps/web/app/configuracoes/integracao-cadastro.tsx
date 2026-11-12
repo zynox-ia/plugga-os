@@ -119,7 +119,6 @@ export function IntegracaoCadastro() {
     ? {
         titulo: "Consulta de CNPJ e CEP",
         descricao: DESCRICAO,
-        tamanho: "media",
         aoFechar: fechar,
         rodape: (
           <>

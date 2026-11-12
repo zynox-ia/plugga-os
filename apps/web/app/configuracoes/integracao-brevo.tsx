@@ -151,7 +151,6 @@ export function IntegracaoBrevo() {
     janela = {
       titulo: "Brevo",
       descricao: DESCRICAO,
-      tamanho: "media",
       aoFechar: fechar,
       conteudo: (
         <>
@@ -181,7 +180,6 @@ export function IntegracaoBrevo() {
     janela = {
       titulo: estado?.origem === "cofre" ? "Editar a conexão do Brevo" : "Conectar o Brevo",
       descricao: "A chave fica guardada cifrada no cofre da plataforma e não é exibida depois de salva.",
-      tamanho: "estreita",
       textoFechar: "Cancelar",
       aoFechar: fechar,
       rodape: <Button type="submit" form="form-brevo" loading={ocupado}>Salvar conexão</Button>,
@@ -214,7 +212,6 @@ export function IntegracaoBrevo() {
     janela = {
       titulo: "Enviar e-mail de teste",
       descricao: "Usa a conexão atual para confirmar que o envio funciona.",
-      tamanho: "estreita",
       textoFechar: "Cancelar",
       aoFechar: fechar,
       rodape: <Button type="submit" form="form-brevo-teste" loading={ocupado}>Enviar teste</Button>,
@@ -229,7 +226,6 @@ export function IntegracaoBrevo() {
     janela = {
       titulo: "Desconectar o Brevo?",
       descricao: "O sistema volta a usar a configuração do ambiente do servidor. Sem ela, nenhum e-mail é enviado: convites e redefinições de senha deixam de chegar.",
-      tamanho: "estreita",
       perigo: true,
       textoFechar: "Cancelar",
       aoFechar: fechar,

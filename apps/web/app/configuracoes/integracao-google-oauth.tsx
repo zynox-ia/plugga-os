@@ -173,7 +173,6 @@ export function IntegracaoGoogleOAuth() {
     janela = {
       titulo: "Google (OAuth)",
       descricao: DESCRICAO,
-      tamanho: "media",
       aoFechar: fechar,
       conteudo: (
         <>
@@ -199,7 +198,6 @@ export function IntegracaoGoogleOAuth() {
     janela = {
       titulo: estado?.origem === "cofre" ? "Editar credenciais do Google" : "Cadastrar credenciais do Google",
       descricao: "A chave secreta fica guardada cifrada no cofre da plataforma e não é exibida depois de salva.",
-      tamanho: "media",
       textoFechar: "Cancelar",
       aoFechar: fechar,
       rodape: <Button type="submit" form="form-google-oauth" loading={ocupado}>Salvar credenciais</Button>,
@@ -235,7 +233,6 @@ export function IntegracaoGoogleOAuth() {
     janela = {
       titulo: "Remover as credenciais do Google?",
       descricao: "Ninguém consegue conectar uma agenda nova, e as já conectadas ficam sem uso, até cadastrar de novo.",
-      tamanho: "estreita",
       perigo: true,
       textoFechar: "Cancelar",
       aoFechar: fechar,

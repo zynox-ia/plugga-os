@@ -139,7 +139,6 @@ export function IntegracaoTelegram() {
     janela = {
       titulo: "Telegram",
       descricao: DESCRICAO,
-      tamanho: "media",
       aoFechar: fechar,
       conteudo: (
         <>
@@ -166,7 +165,6 @@ export function IntegracaoTelegram() {
     janela = {
       titulo: estado?.conectado ? "Editar a conexão do Telegram" : "Conectar o Telegram",
       descricao: "O token fica guardado cifrado no cofre da plataforma e não é exibido depois de salvo.",
-      tamanho: "estreita",
       textoFechar: "Cancelar",
       aoFechar: fechar,
       rodape: <Button type="submit" form="form-telegram" loading={ocupado === "formulario"}>Salvar conexão</Button>,
@@ -201,7 +199,6 @@ export function IntegracaoTelegram() {
     janela = {
       titulo: "Desconectar o Telegram?",
       descricao: "Nenhum aviso sai mais para o canal da equipe até você conectar de novo.",
-      tamanho: "estreita",
       perigo: true,
       textoFechar: "Cancelar",
       aoFechar: fechar,

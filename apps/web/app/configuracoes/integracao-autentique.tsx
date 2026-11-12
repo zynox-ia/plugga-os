@@ -145,7 +145,6 @@ export function IntegracaoAutentique() {
     janela = {
       titulo: "Autentique",
       descricao: DESCRICAO,
-      tamanho: "media",
       aoFechar: fechar,
       conteudo: (
         <>
@@ -192,7 +191,6 @@ export function IntegracaoAutentique() {
     janela = {
       titulo: `${conta?.conectada ? "Editar" : "Conectar"} a Autentique da ${alvo}`,
       descricao: "O token fica guardado cifrado no cofre da plataforma e não é exibido depois de salvo.",
-      tamanho: "estreita",
       textoFechar: "Cancelar",
       aoFechar: fechar,
       rodape: <Button type="submit" form="form-autentique" loading={ocupado === "formulario"}>Salvar conta</Button>,
@@ -223,7 +221,6 @@ export function IntegracaoAutentique() {
     janela = {
       titulo: `Desconectar a Autentique da ${alvo}?`,
       descricao: `Os contratos da ${alvo} deixam de poder ser enviados para assinatura até você conectar de novo. A conta da outra empresa não é afetada.`,
-      tamanho: "estreita",
       perigo: true,
       textoFechar: "Cancelar",
       aoFechar: fechar,
