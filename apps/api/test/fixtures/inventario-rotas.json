@@ -206,6 +206,28 @@
     ]
   },
   {
+    "metodo": "GET",
+    "caminho": "/cadastro/cep/:cep",
+    "controller": "CadastroController.cep",
+    "acesso": "authenticated",
+    "papeis": [],
+    "guards": [
+      "SessionAuthGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/cadastro/cnpj/:cnpj",
+    "controller": "CadastroController.cnpj",
+    "acesso": "authenticated",
+    "papeis": [],
+    "guards": [
+      "SessionAuthGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
     "metodo": "POST",
     "caminho": "/channels/whatsapp/send",
     "controller": "WhatsappController.send",
@@ -841,6 +863,34 @@
     "acesso": "public",
     "papeis": [],
     "guards": []
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/integracoes/cadastro",
+    "controller": "CadastroIntegracaoController.estado",
+    "acesso": "acesso",
+    "papeis": [
+      "plataforma:desenvolvedor"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "PUT",
+    "caminho": "/integracoes/cadastro",
+    "controller": "CadastroIntegracaoController.definir",
+    "acesso": "acesso",
+    "papeis": [
+      "plataforma:desenvolvedor"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
   },
   {
     "metodo": "GET",

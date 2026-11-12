@@ -12,6 +12,7 @@ import { CommercialModule } from "./commercial/commercial.module";
 import { FiltroGlobalDeExcecoes } from "./common/errors/filtro-global";
 import { validateEnvironment } from "./config/environment";
 import { CoreModule } from "./core/core.module";
+import { CadastroModule } from "./cadastro/cadastro.module";
 import { GoogleCalendarModule } from "./google-calendar/google-calendar.module";
 import { LlmModule } from "./llm/llm.module";
 import { HealthModule } from "./health/health.module";
@@ -54,6 +55,7 @@ const monorepoRootEnvPath = path.resolve(__dirname, "../../../.env");
     LeadPropostasModule,
     LlmModule,
     GoogleCalendarModule,
+    CadastroModule,
     JobsQueueModule,
     BitrixModule,
   ],

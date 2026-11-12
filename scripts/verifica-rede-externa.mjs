@@ -19,6 +19,8 @@ const PADROES_DE_REDE = [
 export const EXCECOES = {
   "email/brevo-email.adapter.ts":
     "E-mail transacional fica fora do modelo de modo; o isolamento em desenvolvimento é Mailpit atrás do EmailPort (ADR-0010, ADR-0014).",
+  "cadastro/brasilapi.adapter.ts":
+    "Consulta pública de CNPJ e CEP: só leitura, sem credencial. O liga/desliga da plataforma é aplicado por ConsultaCadastralService antes de qualquer chamada; o modo mock/leitura/escrita não se aplica a dado público (ADR-0014).",
   "integrations/bitrix/http-bitrix-read.client.ts":
     "Cliente cru do Bitrix; o gate (read_only + flag) é aplicado por BitrixImportService antes de qualquer leitura (ADR-0009).",
 };

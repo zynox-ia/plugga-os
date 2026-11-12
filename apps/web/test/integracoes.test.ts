@@ -10,8 +10,8 @@ const gerente: Acesso = { plataforma: null, departamentos: [{ departamento: "crm
 const admin: Acesso = { plataforma: "admin", departamentos: [] };
 const desenvolvedor: Acesso = { plataforma: "desenvolvedor", departamentos: [] };
 
-test("Brevo e as credenciais do Google são integrações de plataforma: só o desenvolvedor as vê", () => {
-  assert.deepEqual(integracoesParaAcesso(desenvolvedor).map((i) => i.id), ["brevo", "google-oauth"]);
+test("Brevo, consulta de CNPJ e CEP e credenciais do Google são integrações de plataforma: só o desenvolvedor as vê", () => {
+  assert.deepEqual(integracoesParaAcesso(desenvolvedor).map((i) => i.id), ["brevo", "cadastro", "google-oauth"]);
   for (const acesso of [membro, gerente, admin]) {
     assert.deepEqual(integracoesParaAcesso(acesso), []);
   }

@@ -265,9 +265,15 @@ describe.skipIf(!HABILITADO)("RLS: permissões no login real da aplicação", { 
   it("segredos técnicos (email.*) são só do desenvolvedor; as demais chaves seguem com o admin", async () => {
     const tecnica = `email.${marca}`;
     const comum = `comum.${marca}`;
+    const outrasTecnicas = [`google.${marca}`, `integracao.${marca}`];
     const material = { valorCifrado: "cifra-sintetica", iv: "iv-sintetico", tag: "tag-sintetica", ultimosQuatro: "fake" };
     try {
-      await root.segredoDoSistema.createMany({ data: [{ chave: tecnica, ...material }, { chave: comum, ...material }] });
+      await root.segredoDoSistema.createMany({ data: [{ chave: tecnica, ...material }, { chave: comum, ...material }, ...outrasTecnicas.map((chave) => ({ chave, ...material }))] });
+      for (const chave of outrasTecnicas) {
+        expect(await contexto("admin", (tx) => tx.segredoDoSistema.findMany({ where: { chave } }))).toEqual([]);
+        await expect(contexto("admin", (tx) => tx.segredoDoSistema.create({ data: { chave: `${chave}.novo`, ...material } }))).rejects.toThrow();
+        expect(await contexto("dev", (tx) => tx.segredoDoSistema.findMany({ where: { chave }, select: { chave: true } }))).toEqual([{ chave }]);
+      }
 
       // Admin não enxerga nem toca o segredo técnico; a chave comum continua dele.
       const doAdmin = await contexto("admin", (tx) => tx.segredoDoSistema.findMany({ where: { chave: { in: [tecnica, comum] } }, select: { chave: true } }));
@@ -285,7 +291,30 @@ describe.skipIf(!HABILITADO)("RLS: permissões no login real da aplicação", { 
       // Quem não é da plataforma não vê nenhum dos dois.
       expect(await contexto("gerente", (tx) => tx.segredoDoSistema.findMany({ where: { chave: { in: [tecnica, comum] } } }))).toEqual([]);
     } finally {
-      await root.segredoDoSistema.deleteMany({ where: { chave: { in: [tecnica, comum, `email.${marca}.novo`] } } });
+      await root.segredoDoSistema.deleteMany({ where: { chave: { in: [tecnica, comum, `email.${marca}.novo`, ...outrasTecnicas, ...outrasTecnicas.map((c) => `${c}.novo`)] } } });
+    }
+  });
+
+  it("integracao_ativa só diz 'ligada ou não' a quem tem sessão e nunca abre o cofre", async () => {
+    const chave = `integracao.${marca}`;
+    const consulta = (pessoa: string) => contexto(pessoa, (tx) => tx.$queryRaw<{ ativa: boolean }[]>`SELECT plugga_security.integracao_ativa(${marca}) AS ativa`);
+    try {
+      expect(await consulta("a")).toEqual([{ ativa: false }]);
+      await root.segredoDoSistema.create({ data: { chave, valorCifrado: "cifra-sintetica", iv: "iv-sintetico", tag: "tag-sintetica", ultimosQuatro: "" } });
+
+      // Qualquer pessoa com sessão vê "ligada", mesmo sem alcançar a tabela.
+      for (const pessoa of ["a", "gerente", "admin", "dev", "sem-tela"]) expect(await consulta(pessoa)).toEqual([{ ativa: true }]);
+      expect(await contexto("a", (tx) => tx.segredoDoSistema.findMany({ where: { chave } }))).toEqual([]);
+      expect(await contexto("a", (tx) => tx.$queryRaw<{ ativa: boolean }[]>`SELECT plugga_security.integracao_ativa('outra-coisa') AS ativa`)).toEqual([{ ativa: false }]);
+
+      // Sem sessão válida, nunca.
+      const semSessao = await app().$transaction(async (tx) => {
+        await tx.$executeRaw`SELECT set_config('plugga.session_hash', ${randomUUID()}, true)`;
+        return tx.$queryRaw<{ ativa: boolean }[]>`SELECT plugga_security.integracao_ativa(${marca}) AS ativa`;
+      });
+      expect(semSessao).toEqual([{ ativa: false }]);
+    } finally {
+      await root.segredoDoSistema.deleteMany({ where: { chave } });
     }
   });
 
