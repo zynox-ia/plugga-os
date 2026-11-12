@@ -612,7 +612,7 @@
     "controller": "BrevoController.apagar",
     "acesso": "acesso",
     "papeis": [
-      "plataforma:admin"
+      "plataforma:desenvolvedor"
     ],
     "guards": [
       "SessionAuthGuard",
@@ -627,7 +627,7 @@
     "controller": "BrevoController.estado",
     "acesso": "acesso",
     "papeis": [
-      "plataforma:admin"
+      "plataforma:desenvolvedor"
     ],
     "guards": [
       "SessionAuthGuard",
@@ -640,7 +640,7 @@
     "controller": "BrevoController.gravar",
     "acesso": "acesso",
     "papeis": [
-      "plataforma:admin"
+      "plataforma:desenvolvedor"
     ],
     "guards": [
       "SessionAuthGuard",
@@ -655,7 +655,7 @@
     "controller": "BrevoController.testar",
     "acesso": "acesso",
     "papeis": [
-      "plataforma:admin"
+      "plataforma:desenvolvedor"
     ],
     "guards": [
       "SessionAuthGuard",
@@ -670,7 +670,7 @@
     "controller": "EmailStatusController.status",
     "acesso": "acesso",
     "papeis": [
-      "plataforma:admin"
+      "plataforma:desenvolvedor"
     ],
     "guards": [
       "SessionAuthGuard",

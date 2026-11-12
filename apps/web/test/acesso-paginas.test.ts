@@ -19,7 +19,11 @@ test("rotas técnicas negam Admin e só aceitam Desenvolvedor", () => {
     assert.equal(podeAbrirPagina({ plataforma: "desenvolvedor", departamentos: [] }, caminho), true, caminho);
     assert.equal(podeAbrirPagina({ plataforma: null, departamentos: [] }, caminho), false, caminho);
   }
-  assert.equal(podeAbrirPagina({ plataforma: "admin", departamentos: [] }, "/integracoes"), true);
+});
+
+test("/integracoes só abre para quem enxerga ao menos uma integração (hoje, só a de plataforma)", () => {
+  assert.equal(podeAbrirPagina({ plataforma: "desenvolvedor", departamentos: [] }, "/integracoes"), true);
+  assert.equal(podeAbrirPagina({ plataforma: "admin", departamentos: [] }, "/integracoes"), false);
   assert.equal(podeAbrirPagina({ plataforma: null, departamentos: [{ departamento: "crm", nivel: "gerente" }] }, "/integracoes"), false);
 });
 

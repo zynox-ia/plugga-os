@@ -247,10 +247,10 @@ export const CONFIGURACOES: SecaoConfiguracao[] = [
   {
     id: "integracoes",
     label: "Integrações",
-    descricao: "Conexões da empresa com outros sistemas, usadas pelo back-end e pelas telas do Plugga OS.",
+    descricao: "Conexões com outros sistemas: as da sua conta e, para o desenvolvedor, as da plataforma.",
     rota: "/integracoes",
     status: "pronto",
-    minimo: "admin",
+    minimo: "membro",
   },
   {
     id: "chave-llm",

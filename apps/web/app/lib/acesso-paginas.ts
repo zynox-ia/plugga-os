@@ -1,5 +1,7 @@
 import { alcancaPlataforma, alcancaTela, papelDoAcesso, type Acesso, type Tela } from "@plugga/shared";
 
+import { integracoesParaAcesso } from "./integracoes.ts";
+
 const paginas: ReadonlyArray<readonly [string, Tela]> = [
   ["/clientes", "crm.clientes"],
   ["/comercial/pipelines", "crm.pipelines"],
@@ -13,7 +15,7 @@ const paginas: ReadonlyArray<readonly [string, Tela]> = [
 export function podeAbrirPagina(acesso: Acesso, pathname: string): boolean {
   if (["/", "/configuracoes", "/agentes-ia", "/auth/google/complete"].includes(pathname)) return true;
   if (pathname === "/administracao") return papelDoAcesso(acesso) !== "membro";
-  if (pathname === "/integracoes") return alcancaPlataforma(acesso, "admin");
+  if (pathname === "/integracoes") return integracoesParaAcesso(acesso).length > 0;
   if (["/jobs", "/estrutura"].includes(pathname) || pathname === "/design-system" || pathname.startsWith("/design-system/")) {
     return alcancaPlataforma(acesso, "desenvolvedor");
   }

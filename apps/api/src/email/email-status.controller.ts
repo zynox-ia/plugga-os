@@ -6,7 +6,7 @@ import { SessionAuthGuard } from "../core/auth/session-auth.guard";
 import { Plataforma } from "../core/auth/acesso.decorator";
 import { AcessoGuard } from "../core/auth/acesso.guard";
 
-@Plataforma("admin")
+@Plataforma("desenvolvedor")
 @Controller("email")
 @UseGuards(SessionAuthGuard, AcessoGuard)
 export class EmailStatusController {

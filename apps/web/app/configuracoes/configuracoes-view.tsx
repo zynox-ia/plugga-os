@@ -151,8 +151,8 @@ export function ConfiguracoesView({
         <EquipeView inicial={equipe} aoCarregar={setEquipe} />
       ) : secao?.id === "chave-llm" ? (
         <ChaveLlmView />
-      ) : secao?.id === "integracoes" ? (
-        <IntegracoesView />
+      ) : secao?.id === "integracoes" && usuario ? (
+        <IntegracoesView acesso={usuario.acesso} />
       ) : secao?.id === "desenvolvedor" ? (
         <DesenvolvedorView jobsDados={jobsDados} erroJobs={erroJobs} />
       ) : (

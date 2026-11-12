@@ -33,8 +33,9 @@ import { BrevoCofreService } from "./brevo-cofre.service";
 import { BrevoEmailAdapter } from "./brevo-email.adapter";
 
 /**
- * O Brevo da empresa pela tela. Só admin: quem troca a credencial redireciona
- * todo e-mail do sistema. A chave é escrita-apenas: nunca volta na resposta.
+ * O Brevo da plataforma pela tela. Só desenvolvedor: é infraestrutura do sistema, e
+ * quem troca a credencial redireciona todo e-mail dele. Um admin comum não entra.
+ * A chave é escrita-apenas: nunca volta na resposta.
  */
 @Controller("email/brevo")
 @UseGuards(SessionAuthGuard, AcessoGuard)
@@ -45,13 +46,13 @@ export class BrevoController {
   ) {}
 
   @Get()
-  @Plataforma("admin")
+  @Plataforma("desenvolvedor")
   async estado(): Promise<EstadoDoBrevoComCofre> {
     return { ...(await this.cofre.estado()), cofreConfigurado: chaveMestraConfigurada() };
   }
 
   @Put()
-  @Plataforma("admin")
+  @Plataforma("desenvolvedor")
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
   async gravar(
     @Body(new ZodValidationPipe(entradaDoBrevoSchema)) entrada: EntradaDoBrevo,
@@ -67,16 +68,16 @@ export class BrevoController {
   }
 
   @Delete()
-  @Plataforma("admin")
+  @Plataforma("desenvolvedor")
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
   async apagar(@CurrentPrincipal() quem?: AuthPrincipal): Promise<EstadoDoBrevo> {
     return this.cofre.apagar(quem?.id ?? "desconhecido");
   }
 
-  /** Manda um e-mail de teste com a configuração em uso. Só roda a pedido do admin. */
+  /** Manda um e-mail de teste com a configuração em uso. Só roda a pedido do desenvolvedor. */
   @Post("teste")
   @HttpCode(200)
-  @Plataforma("admin")
+  @Plataforma("desenvolvedor")
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
   async testar(
     @Body(new ZodValidationPipe(entradaDeTesteDoBrevoSchema)) { destinatario }: EntradaDeTesteDoBrevo,

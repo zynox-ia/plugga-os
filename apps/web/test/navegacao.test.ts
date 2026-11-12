@@ -152,14 +152,13 @@ describe("Configurações pelo papel", () => {
     ]);
   });
 
-  it("admin vê as configurações administrativas sem ferramentas técnicas", () => {
+  it("admin vê as configurações administrativas, sem ferramentas técnicas nem integrações de plataforma", () => {
     const admin = secoes({ plataforma: "admin", departamentos: [] });
     assert.deepEqual(admin, [
       "Perfil",
       "Segurança",
       "Notificações",
       "Equipe e Acessos",
-      "Integrações",
       "Chave de IA",
     ]);
   });
