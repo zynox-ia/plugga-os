@@ -262,6 +262,33 @@ describe.skipIf(!HABILITADO)("RLS: permissões no login real da aplicação", { 
     }
   });
 
+  it("segredos técnicos (email.*) são só do desenvolvedor; as demais chaves seguem com o admin", async () => {
+    const tecnica = `email.${marca}`;
+    const comum = `comum.${marca}`;
+    const material = { valorCifrado: "cifra-sintetica", iv: "iv-sintetico", tag: "tag-sintetica", ultimosQuatro: "fake" };
+    try {
+      await root.segredoDoSistema.createMany({ data: [{ chave: tecnica, ...material }, { chave: comum, ...material }] });
+
+      // Admin não enxerga nem toca o segredo técnico; a chave comum continua dele.
+      const doAdmin = await contexto("admin", (tx) => tx.segredoDoSistema.findMany({ where: { chave: { in: [tecnica, comum] } }, select: { chave: true } }));
+      expect(doAdmin.map((linha) => linha.chave)).toEqual([comum]);
+      await expect(contexto("admin", (tx) => tx.segredoDoSistema.create({ data: { chave: `email.${marca}.novo`, ...material } }))).rejects.toThrow();
+      expect(await contexto("admin", (tx) => tx.segredoDoSistema.updateMany({ where: { chave: tecnica }, data: { ultimosQuatro: "troc" } }))).toMatchObject({ count: 0 });
+      expect(await contexto("admin", (tx) => tx.segredoDoSistema.deleteMany({ where: { chave: tecnica } }))).toMatchObject({ count: 0 });
+      expect(await contexto("admin", (tx) => tx.segredoDoSistema.updateMany({ where: { chave: comum }, data: { ultimosQuatro: "ok01" } }))).toMatchObject({ count: 1 });
+
+      // Desenvolvedor lê e grava os dois.
+      const doDev = await contexto("dev", (tx) => tx.segredoDoSistema.findMany({ where: { chave: { in: [tecnica, comum] } }, select: { chave: true } }));
+      expect(doDev.map((linha) => linha.chave).sort()).toEqual([comum, tecnica].sort());
+      expect(await contexto("dev", (tx) => tx.segredoDoSistema.updateMany({ where: { chave: tecnica }, data: { ultimosQuatro: "dev1" } }))).toMatchObject({ count: 1 });
+
+      // Quem não é da plataforma não vê nenhum dos dois.
+      expect(await contexto("gerente", (tx) => tx.segredoDoSistema.findMany({ where: { chave: { in: [tecnica, comum] } } }))).toEqual([]);
+    } finally {
+      await root.segredoDoSistema.deleteMany({ where: { chave: { in: [tecnica, comum, `email.${marca}.novo`] } } });
+    }
+  });
+
   it("a conversão restrita é atômica, exige sessão/tela e não deixa cliente após rollback", async () => {
     const email = `${randomUUID()}@sintetico.invalid`;
     const negocio = await root.deal.create({ data: {
