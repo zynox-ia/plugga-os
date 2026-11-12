@@ -28,3 +28,4 @@ export * from "./cadastro.js";
 export * from "./telegram.js";
 export * from "./autentique.js";
 export * from "./omie.js";
+export * from "./ia-assinatura.js";

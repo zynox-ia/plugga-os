@@ -29,6 +29,8 @@ export const EXCECOES = {
     "Assinatura eletrônica: só fala com a Autentique depois de o desenvolvedor conectar o token da empresa no cofre, e cada chamada usa a conta da empresa do documento. O modo mock/leitura/escrita é de integração de dados e não se aplica a assinatura (ADR-0014).",
   "omie/omie-http.adapter.ts":
     "Financeiro e nota fiscal: só fala com o OMIE depois de o desenvolvedor conectar a chave e o segredo do app no cofre. O modo mock/leitura/escrita do ADR-0005 é de integração de dados e não se aplica à conta única do OMIE da plataforma (ADR-0014).",
+  "ia-assinatura/cliproxy-http.adapter.ts":
+    "Fala só com o proxy de CLI configurado em CLIPROXY_URL (por padrão local), que guarda os logins da assinatura. Não chama provedor de IA, só login, lista de contas e de modelos; o aceite do risco é exigido antes do login e o uso é restrito a tarefa interna (ADR-0014).",
   "integrations/bitrix/http-bitrix-read.client.ts":
     "Cliente cru do Bitrix; o gate (read_only + flag) é aplicado por BitrixImportService antes de qualquer leitura (ADR-0009).",
 };

@@ -249,7 +249,35 @@ services:
     logging: *logging-padrao
     restart: unless-stopped
 
+  # --- IA pela assinatura (Claude e Codex) ----------------------------------
+  # Proxy de CLI (CLIProxyAPI): guarda os logins da assinatura e os expõe como API
+  # compatível com a OpenAI. OPCIONAL e fora do `up` padrão: só sobe com
+  # `docker compose --profile ia-assinatura up -d cliproxy`, depois de
+  # `node scripts/cliproxy-config.mjs`. Segurança:
+  #  - todas as portas publicadas só em 127.0.0.1;
+  #  - o gerenciamento exige a chave longa gerada pelo script (allow-remote é
+  #    necessário porque, por trás da porta publicada, o proxy enxerga o gateway
+  #    do Docker e não 127.0.0.1);
+  #  - fixe a imagem por tag/digest revisado em CLIPROXY_IMAGE: este serviço guarda
+  #    tokens de login de assinatura, e `latest` muda sem aviso.
+  # Uso restrito a tarefa interna, sem dado de cliente (ver docs/ia-assinatura.md).
+  cliproxy:
+    profiles: ["ia-assinatura"]
+    image: ${CLIPROXY_IMAGE:-eceasy/cli-proxy-api:latest}
+    restart: unless-stopped
+    logging: *logging-padrao
+    ports:
+      - "127.0.0.1:${CLIPROXY_PORT:-8317}:8317"
+      # Retorno (callback) do login no navegador da própria máquina. 54545: Claude
+      # (documentado). 1455: Codex (porta padrão do login do Codex; confirmar na 1ª vez).
+      - "127.0.0.1:54545:54545"
+      - "127.0.0.1:1455:1455"
+    volumes:
+      - ./.local/cliproxy/config.yaml:/CLIProxyAPI/config.yaml:ro
+      - cliproxy_auth:/root/.cli-proxy-api
+
 volumes:
   postgres_data:
   redis_data:
   rustfs_data:
+  cliproxy_auth:

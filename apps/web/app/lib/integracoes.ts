@@ -15,7 +15,7 @@ import { alcancaPlataforma, type Acesso } from "@plugga/shared";
 export type EscopoDaIntegracao = "plataforma" | "pessoal";
 
 export type IntegracaoDoCatalogo = {
-  id: "brevo" | "google-oauth" | "cadastro" | "google-calendar" | "telegram" | "autentique" | "omie" | "openrouter";
+  id: "brevo" | "google-oauth" | "cadastro" | "google-calendar" | "telegram" | "autentique" | "omie" | "openrouter" | "claude-assinatura" | "codex-assinatura";
   label: string;
   escopo: EscopoDaIntegracao;
 };
@@ -27,6 +27,8 @@ export const INTEGRACOES: readonly IntegracaoDoCatalogo[] = [
   { id: "autentique", label: "Autentique", escopo: "plataforma" },
   { id: "omie", label: "OMIE", escopo: "plataforma" },
   { id: "openrouter", label: "OpenRouter", escopo: "plataforma" },
+  { id: "claude-assinatura", label: "Claude (assinatura)", escopo: "plataforma" },
+  { id: "codex-assinatura", label: "Codex (assinatura)", escopo: "plataforma" },
   { id: "google-oauth", label: "Google (OAuth)", escopo: "plataforma" },
   { id: "google-calendar", label: "Google Calendar", escopo: "pessoal" },
 ];

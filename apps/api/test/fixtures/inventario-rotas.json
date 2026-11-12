@@ -1001,6 +1001,92 @@
     ]
   },
   {
+    "metodo": "GET",
+    "caminho": "/integracoes/ia-assinatura/:provedor",
+    "controller": "AssinaturaIaController.estado",
+    "acesso": "acesso",
+    "papeis": [
+      "plataforma:desenvolvedor"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "DELETE",
+    "caminho": "/integracoes/ia-assinatura/:provedor/contas",
+    "controller": "AssinaturaIaController.removerConta",
+    "acesso": "acesso",
+    "papeis": [
+      "plataforma:desenvolvedor"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/integracoes/ia-assinatura/:provedor/login",
+    "controller": "AssinaturaIaController.situacaoDoLogin",
+    "acesso": "acesso",
+    "papeis": [
+      "plataforma:desenvolvedor"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/integracoes/ia-assinatura/:provedor/login",
+    "controller": "AssinaturaIaController.iniciarLogin",
+    "acesso": "acesso",
+    "papeis": [
+      "plataforma:desenvolvedor"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/integracoes/ia-assinatura/:provedor/risco",
+    "controller": "AssinaturaIaController.aceitarRisco",
+    "acesso": "acesso",
+    "papeis": [
+      "plataforma:desenvolvedor"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/integracoes/ia-assinatura/:provedor/teste",
+    "controller": "AssinaturaIaController.testar",
+    "acesso": "acesso",
+    "papeis": [
+      "plataforma:desenvolvedor"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
     "metodo": "DELETE",
     "caminho": "/integracoes/omie",
     "controller": "OmieController.apagar",

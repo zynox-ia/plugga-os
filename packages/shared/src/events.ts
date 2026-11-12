@@ -40,6 +40,10 @@ export const eventNames = {
   // Conta do OMIE conectada ou desconectada pela tela. Quem e quando; nunca a chave nem o segredo.
   omieConectado: "integracao.omie.connected",
   omieDesconectado: "integracao.omie.disconnected",
+  // IA pela assinatura (Claude e Codex): aceite do risco, início do login e conta removida. Quem e quando; nunca token.
+  iaAssinaturaRiscoAceito: "integracao.ia_assinatura.risk_accepted",
+  iaAssinaturaLoginIniciado: "integracao.ia_assinatura.login_started",
+  iaAssinaturaContaRemovida: "integracao.ia_assinatura.account_removed",
   // Credenciais do app OAuth do Google (plataforma) e conexão da agenda de cada pessoa.
   // Quem e quando; nunca o client secret nem token.
   googleOAuthConectado: "google.oauth.connected",
@@ -191,6 +195,9 @@ export const eventosLegados: readonly string[] = [
   "integracao.autentique.disconnected",
   "integracao.omie.connected",
   "integracao.omie.disconnected",
+  "integracao.ia_assinatura.risk_accepted",
+  "integracao.ia_assinatura.login_started",
+  "integracao.ia_assinatura.account_removed",
   "google.oauth.connected",
   "google.oauth.disconnected",
   "google.calendar.connected",

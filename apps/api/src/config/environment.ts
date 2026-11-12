@@ -170,6 +170,10 @@ export const environmentSchema = z
         message: "deve ser base64 de exatamente 32 bytes (openssl rand -base64 32)",
       }),
     ),
+    // Proxy de CLI (CLIProxyAPI) para Claude e Codex pela assinatura: opcional e só do desenvolvedor.
+    CLIPROXY_URL: opcional(z.string().trim().url()),
+    CLIPROXY_MANAGEMENT_KEY: opcional(z.string().trim().min(16)),
+    CLIPROXY_API_KEY: opcional(z.string().trim().min(16)),
     OPENROUTER_API_KEY: opcional(z.string().trim().min(1)),
     OPENROUTER_BASE_URL: opcional(z.string().trim().url()),
     OPENROUTER_MODELO: opcional(z.string().trim().min(1)),

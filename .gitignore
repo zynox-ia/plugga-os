@@ -67,3 +67,6 @@ apps/web/e2e/.auth/
 
 # ZCode
 .zcode/
+
+# Segredos e dados locais de ferramentas auxiliares (ex.: proxy de CLI)
+.local/
