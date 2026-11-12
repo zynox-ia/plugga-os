@@ -25,6 +25,9 @@ export const eventNames = {
   // quando a conta do mês surpreende; o valor nunca entra no registro.
   llmChaveGravada: "llm.chave.gravada",
   llmChaveApagada: "llm.chave.apagada",
+  // Brevo conectado, trocado ou desconectado pela tela. Quem e quando; nunca a chave.
+  emailBrevoConectado: "email.brevo.connected",
+  emailBrevoDesconectado: "email.brevo.disconnected",
 } as const;
 
 export type EventName = (typeof eventNames)[keyof typeof eventNames];
@@ -160,6 +163,8 @@ export const eventosLegados: readonly string[] = [
   "pluggamob.user_opted_out",
   "llm.chave.gravada",
   "llm.chave.apagada",
+  "email.brevo.connected",
+  "email.brevo.disconnected",
 ];
 
 /** Evento que o `AuditAppender` aceita: do catálogo novo ou legado. */

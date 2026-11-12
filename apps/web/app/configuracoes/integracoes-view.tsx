@@ -1,17 +1,15 @@
-import { EmptyState } from "../components/ui";
-import styles from "./configuracoes.module.css";
+import { IntegracaoBrevo } from "./integracao-brevo";
+import styles from "./integracoes.module.css";
 
 /**
- * Integrações da empresa: conexões da Plugga com sistemas externos, usadas
- * pelo back-end e pelas demais telas. Começa limpa; cada integração entra aqui
- * quando for construída. O título e a descrição vêm do cabeçalho da página.
+ * Integrações da empresa: conexões da Plugga com sistemas externos, usadas pelo
+ * back-end e pelas demais telas. Cada integração é um cartão; a próxima entra
+ * aqui quando for construída. Título e descrição vêm do cabeçalho da página.
  */
 export function IntegracoesView() {
   return (
-    <div className={styles.painel}>
-      <EmptyState title="Nenhuma integração conectada">
-        As integrações da empresa aparecerão aqui, com o estado de cada conexão.
-      </EmptyState>
+    <div className={styles.catalogo}>
+      <IntegracaoBrevo />
     </div>
   );
 }

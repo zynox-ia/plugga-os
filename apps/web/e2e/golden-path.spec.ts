@@ -34,8 +34,8 @@ test.describe("Golden path — Início → Integrações → Jobs", () => {
     // Integrações e Jobs saíram da barra lateral e vivem em Configurações.
     await page.goto("/integracoes");
     await expect(page).toHaveURL(/\/configuracoes\?aba=integracoes$/);
-    await expect(page.getByRole("heading", { name: "Integrações da empresa" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Nenhuma integração conectada" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Integrações", level: 1 })).toBeVisible();
+    await expect(page.getByRole("article", { name: "Brevo" })).toBeVisible();
 
     await page.goto("/jobs");
     await expect(page).toHaveURL(/\/jobs$/);
