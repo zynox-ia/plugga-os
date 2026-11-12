@@ -1,23 +1,49 @@
 "use client";
 
-import { useEffect, useState, type ComponentType, type ReactNode } from "react";
+import type { ComponentType, ReactNode } from "react";
 
-import { Badge, Button, Dialog, type Tone } from "../components/ui";
+import { Alert, Badge, Button, Dialog, type Tone } from "../components/ui";
 import styles from "./integracoes.module.css";
 
 export type SeloDaIntegracao = { tom: Tone; texto: string };
 
 export type IconeDaIntegracao = ComponentType<{ size?: number; "aria-hidden"?: boolean }>;
 
+/** O que o botão do cartão faz: sempre a ação mais provável do estado atual, direto. */
+export type AcaoDoCartao = {
+  rotulo: string;
+  /** Verdadeiro para a ação principal (conectar, ligar); falso para gerenciar o que já existe. */
+  destaque?: boolean;
+  carregando?: boolean;
+  desabilitada?: boolean;
+  aoClicar: () => void;
+};
+
+/** O modal aberto no momento, já montado pela integração para o estado em que ela está. */
+export type JanelaDaIntegracao = {
+  titulo: string;
+  descricao: string;
+  /** Formulário e confirmação são estreitos; o que lista dados e ações é médio. */
+  tamanho: "estreita" | "media";
+  /** Confirmação de algo destrutivo (cabeçalho vermelho). */
+  perigo?: boolean;
+  /** Texto do botão da esquerda: "Fechar" quando só se olha, "Cancelar" quando há o que descartar. */
+  textoFechar?: string;
+  /** Os botões da direita: a ação do formulário ou as ações de quem gerencia. */
+  rodape?: ReactNode;
+  aoFechar: () => void;
+  conteudo: ReactNode;
+};
+
 /**
- * O cartão de toda integração: sempre o mesmo desenho e a mesma altura. O cartão só
- * diz o que ela é, em que estado está e uma linha de resumo; tudo o mais (detalhes,
- * teste, credenciais, formulários, confirmações) mora no modal que o botão abre, com
- * o ícone grande ao lado do título como nos demais modais do sistema.
+ * O cartão de toda integração: sempre o mesmo desenho e a mesma altura. Diz o que ela
+ * é, em que estado está e uma linha de resumo, e tem UM botão que faz direto a ação do
+ * momento: "Conectar" abre o formulário de conexão (sem tela no meio); "Gerenciar"
+ * abre os dados com as ações no rodapé. Quando a ação não precisa de tela (ligar uma
+ * consulta, ir ao Google), o botão a executa e o resultado aparece na própria linha do
+ * cartão, em `alerta`.
  *
- * O modal abre sozinho quando `abrirQuando` fica verdadeiro (ex.: a volta do
- * consentimento do Google, cujo resultado precisa ser visto). `aoFechar` deixa a integração limpar o
- * que não pode ficar de uma abertura para a outra, como um token digitado.
+ * O modal leva o ícone grande ao lado do título, como os demais modais do sistema.
  */
 export function CartaoDeIntegracao({
   nome,
@@ -25,13 +51,9 @@ export function CartaoDeIntegracao({
   descricao,
   selo,
   resumo,
-  acao = "Configurar",
-  tamanho = "media",
-  textoFechar = "Fechar",
-  rodape,
-  abrirQuando = false,
-  aoFechar,
-  children,
+  alerta,
+  acao,
+  janela,
 }: {
   nome: string;
   Icone: IconeDaIntegracao;
@@ -39,27 +61,11 @@ export function CartaoDeIntegracao({
   selo: SeloDaIntegracao;
   /** Uma linha curta com o essencial do estado. */
   resumo: string;
-  acao?: string;
-  tamanho?: "estreita" | "media" | "larga";
-  textoFechar?: string;
-  /** Botões da direita no rodapé do modal (ex.: o salvar do formulário aberto). */
-  rodape?: ReactNode;
-  abrirQuando?: boolean;
-  aoFechar?: () => void;
-  /** O conteúdo do modal. */
-  children: ReactNode;
+  /** Falha de uma ação sem modal: substitui o resumo, em destaque. */
+  alerta?: string | null;
+  acao: AcaoDoCartao;
+  janela?: JanelaDaIntegracao | null;
 }) {
-  const [aberto, setAberto] = useState(false);
-
-  useEffect(() => {
-    if (abrirQuando) setAberto(true);
-  }, [abrirQuando]);
-
-  function fechar() {
-    setAberto(false);
-    aoFechar?.();
-  }
-
   return (
     <article className={styles.cartao} aria-label={nome}>
       <div className={styles.topo}>
@@ -71,25 +77,70 @@ export function CartaoDeIntegracao({
         <Badge tone={selo.tom}>{selo.texto}</Badge>
       </div>
 
-      <p className={styles.resumo}>{resumo}</p>
+      <p className={alerta ? `${styles.resumo} ${styles.resumoErro}` : styles.resumo} role={alerta ? "alert" : undefined}>
+        {alerta ?? resumo}
+      </p>
 
       <div className={styles.acoes}>
-        <Button variant="secondary" size="sm" onClick={() => setAberto(true)}>{acao}</Button>
+        <Button
+          variant={acao.destaque ? "primary" : "secondary"}
+          size="sm"
+          onClick={acao.aoClicar}
+          loading={acao.carregando}
+          disabled={acao.desabilitada}
+        >
+          {acao.rotulo}
+        </Button>
       </div>
 
-      {aberto ? (
+      {janela ? (
         <Dialog
-          title={nome}
-          description={descricao}
+          title={janela.titulo}
+          description={janela.descricao}
           icon={<Icone size={20} aria-hidden />}
-          size={tamanho}
-          cancelText={textoFechar}
-          onClose={fechar}
-          footer={rodape}
+          variant={janela.perigo ? "danger" : "default"}
+          size={janela.tamanho}
+          cancelText={janela.textoFechar ?? "Fechar"}
+          onClose={janela.aoFechar}
+          footer={janela.rodape}
         >
-          {children}
+          {janela.conteudo}
         </Dialog>
       ) : null}
     </article>
+  );
+}
+
+/**
+ * Os avisos que toda integração repete no topo do modal: falha ao ler, resultado da
+ * última ação, erro da ação em curso e as duas condições do cofre.
+ */
+export function AvisosDaIntegracao({
+  falhaAoLer,
+  aviso,
+  erro,
+  cofreConfigurado,
+  ilegivel,
+}: {
+  falhaAoLer?: string | null;
+  aviso?: string | null;
+  erro?: string | null;
+  cofreConfigurado?: boolean;
+  /** Título e texto do aviso de "guardado e não lê mais", quando a linha do cofre ficou ilegível. */
+  ilegivel?: { titulo: string; texto: string } | null;
+}) {
+  return (
+    <>
+      {falhaAoLer ? <Alert tone="danger" title={falhaAoLer} /> : null}
+      {aviso ? <Alert tone="success" title={aviso} /> : null}
+      {erro ? <Alert tone="danger" title={erro} /> : null}
+      {cofreConfigurado === false ? (
+        <Alert tone="warning" title="O cofre não está pronto">
+          Falta a variável <code>SECRETS_ENCRYPTION_KEY</code> no ambiente da API. Gere com{" "}
+          <code>openssl rand -base64 32</code> e reinicie a API antes de conectar.
+        </Alert>
+      ) : null}
+      {ilegivel ? <Alert tone="warning" title={ilegivel.titulo}>{ilegivel.texto}</Alert> : null}
+    </>
   );
 }

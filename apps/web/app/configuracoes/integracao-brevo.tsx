@@ -4,13 +4,15 @@ import { Mail } from "lucide-react";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import type { EstadoDoBrevoComCofre } from "@plugga/shared";
 
-import { Alert, Button, TextField } from "../components/ui";
+import { Button, TextField } from "../components/ui";
 import { formatarDataHora } from "../lib/format";
 import { detalheDoErro } from "./integracao-api";
-import { CartaoDeIntegracao, type SeloDaIntegracao } from "./integracao-cartao";
+import { AvisosDaIntegracao, CartaoDeIntegracao, type JanelaDaIntegracao, type SeloDaIntegracao } from "./integracao-cartao";
 import styles from "./integracoes.module.css";
 
-type Vista = "inicio" | "conectar" | "teste" | "desconectar";
+type Vista = "gerenciar" | "conectar" | "teste" | "desconectar";
+
+const DESCRICAO = "E-mails do sistema: convite de acesso e redefinição de senha.";
 
 /**
  * Brevo: o provedor de e-mail do sistema (convite de acesso e redefinição de
@@ -20,7 +22,8 @@ type Vista = "inicio" | "conectar" | "teste" | "desconectar";
 export function IntegracaoBrevo() {
   const [estado, setEstado] = useState<EstadoDoBrevoComCofre | null>(null);
   const [falhaAoLer, setFalhaAoLer] = useState<string | null>(null);
-  const [vista, setVista] = useState<Vista>("inicio");
+  const [aberta, setAberta] = useState(false);
+  const [vista, setVista] = useState<Vista>("gerenciar");
   const [ocupado, setOcupado] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
@@ -53,13 +56,14 @@ export function IntegracaoBrevo() {
       setRemetenteEmail(estado?.remetente?.email ?? "");
     }
     setVista(proxima);
+    setAberta(true);
   }
 
-  function aoFechar() {
+  function fechar() {
     setChave("");
     setErro(null);
     setAviso(null);
-    setVista("inicio");
+    setAberta(false);
   }
 
   async function enviar(chamada: () => Promise<Response>, padrao: string): Promise<Response | null> {
@@ -91,7 +95,7 @@ export function IntegracaoBrevo() {
     setChave("");
     if (!resposta) return;
     await carregar();
-    setVista("inicio");
+    setVista("gerenciar");
     setAviso("Brevo conectado. Os próximos e-mails do sistema saem por ele.");
   }
 
@@ -106,7 +110,7 @@ export function IntegracaoBrevo() {
       "não foi possível enviar o e-mail de teste",
     );
     if (!resposta) return;
-    setVista("inicio");
+    setVista("gerenciar");
     setAviso(`E-mail de teste enviado para ${destinatario}.`);
   }
 
@@ -114,8 +118,7 @@ export function IntegracaoBrevo() {
     const resposta = await enviar(() => fetch("/api/email/brevo", { method: "DELETE" }), "não foi possível desconectar o Brevo");
     if (!resposta) return;
     await carregar();
-    setVista("inicio");
-    setAviso("Brevo desconectado da tela. O sistema voltou à configuração do ambiente.");
+    fechar();
   }
 
   const selo: SeloDaIntegracao = !estado
@@ -132,39 +135,27 @@ export function IntegracaoBrevo() {
       ? `Remetente: ${estado.remetente.email}`
       : "Nenhum remetente conectado";
 
-  const rodape =
-    vista === "conectar" ? <Button type="submit" form="form-brevo" loading={ocupado}>Salvar conexão</Button>
-    : vista === "teste" ? <Button type="submit" form="form-brevo-teste" loading={ocupado}>Enviar teste</Button>
-    : vista === "desconectar" ? <Button variant="danger" onClick={desconectar} loading={ocupado}>Desconectar</Button>
-    : undefined;
+  const avisos = (
+    <AvisosDaIntegracao
+      falhaAoLer={falhaAoLer}
+      aviso={aviso}
+      erro={erro}
+      cofreConfigurado={estado?.cofreConfigurado}
+      ilegivel={estado?.origem === "cofre_ilegivel" ? { titulo: "A configuração guardada não pode mais ser lida", texto: "A chave-mestra do cofre mudou. Conecte de novo para gravar a chave." } : null}
+    />
+  );
 
-  return (
-    <CartaoDeIntegracao
-      nome="Brevo"
-      Icone={Mail}
-      descricao="E-mails do sistema: convite de acesso e redefinição de senha."
-      selo={selo}
-      resumo={resumo}
-      rodape={rodape}
-      aoFechar={aoFechar}
-    >
-      {falhaAoLer ? <Alert tone="danger" title={falhaAoLer} /> : null}
-      {aviso ? <Alert tone="success" title={aviso} /> : null}
-      {erro ? <Alert tone="danger" title={erro} /> : null}
-      {estado?.cofreConfigurado === false ? (
-        <Alert tone="warning" title="O cofre não está pronto">
-          Falta a variável <code>SECRETS_ENCRYPTION_KEY</code> no ambiente da API. Gere com{" "}
-          <code>openssl rand -base64 32</code> e reinicie a API antes de conectar.
-        </Alert>
-      ) : null}
-      {estado?.origem === "cofre_ilegivel" ? (
-        <Alert tone="warning" title="A configuração guardada não pode mais ser lida">
-          A chave-mestra do cofre mudou. Conecte de novo para gravar a chave.
-        </Alert>
-      ) : null}
-
-      {vista === "inicio" ? (
+  const doCofre = estado?.origem === "cofre" || estado?.origem === "cofre_ilegivel";
+  let janela: JanelaDaIntegracao | null = null;
+  if (aberta && vista === "gerenciar") {
+    janela = {
+      titulo: "Brevo",
+      descricao: DESCRICAO,
+      tamanho: "media",
+      aoFechar: fechar,
+      conteudo: (
         <>
+          {avisos}
           {estado?.conectado && estado.remetente ? (
             <dl className={styles.detalhes}>
               <div><dt>Remetente</dt><dd>{estado.remetente.nome} &lt;{estado.remetente.email}&gt;</dd></div>
@@ -174,27 +165,29 @@ export function IntegracaoBrevo() {
             </dl>
           ) : null}
           {estado?.origem === "ambiente" ? (
-            <p className={styles.nota}>
-              Configurado pelo ambiente do servidor. Conectar aqui passa a valer no lugar dele, sem reiniciar nada.
-            </p>
+            <p className={styles.nota}>Configurado pelo ambiente do servidor. Conectar pela tela passa a valer no lugar dele, sem reiniciar nada.</p>
           ) : null}
-          <div className={styles.acoes}>
-            <Button variant={estado?.conectado ? "secondary" : "primary"} size="sm" onClick={() => ir("conectar")} disabled={!estado}>
-              {estado?.origem === "cofre" ? "Editar conexão" : "Conectar"}
-            </Button>
-            {estado?.conectado ? (
-              <Button variant="secondary" size="sm" onClick={() => ir("teste")}>Enviar e-mail de teste</Button>
-            ) : null}
-            {estado?.origem === "cofre" || estado?.origem === "cofre_ilegivel" ? (
-              <Button variant="danger" size="sm" onClick={() => ir("desconectar")}>Desconectar</Button>
-            ) : null}
-          </div>
         </>
-      ) : null}
-
-      {vista === "conectar" ? (
+      ),
+      rodape: (
+        <>
+          {doCofre ? <Button variant="danger" onClick={() => ir("desconectar")}>Desconectar</Button> : null}
+          {estado?.conectado ? <Button variant="secondary" onClick={() => ir("teste")}>Enviar e-mail de teste</Button> : null}
+          <Button onClick={() => ir("conectar")}>{estado?.origem === "cofre" ? "Editar conexão" : "Conectar pela tela"}</Button>
+        </>
+      ),
+    };
+  } else if (aberta && vista === "conectar") {
+    janela = {
+      titulo: estado?.origem === "cofre" ? "Editar a conexão do Brevo" : "Conectar o Brevo",
+      descricao: "A chave fica guardada cifrada no cofre da plataforma e não é exibida depois de salva.",
+      tamanho: "estreita",
+      textoFechar: "Cancelar",
+      aoFechar: fechar,
+      rodape: <Button type="submit" form="form-brevo" loading={ocupado}>Salvar conexão</Button>,
+      conteudo: (
         <form id="form-brevo" className={styles.formulario} onSubmit={conectar}>
-          <p className={styles.nota}>A chave fica guardada cifrada no cofre da plataforma e não é exibida depois de salva.</p>
+          {avisos}
           <TextField
             label="Chave da API"
             hint={estado?.origem === "cofre" ? "Cole a chave de novo para salvar as alterações." : "Gerada no painel do Brevo, em SMTP e API."}
@@ -215,21 +208,45 @@ export function IntegracaoBrevo() {
             onChange={(e) => setRemetenteEmail(e.target.value)}
           />
         </form>
-      ) : null}
-
-      {vista === "teste" ? (
+      ),
+    };
+  } else if (aberta && vista === "teste") {
+    janela = {
+      titulo: "Enviar e-mail de teste",
+      descricao: "Usa a conexão atual para confirmar que o envio funciona.",
+      tamanho: "estreita",
+      textoFechar: "Cancelar",
+      aoFechar: fechar,
+      rodape: <Button type="submit" form="form-brevo-teste" loading={ocupado}>Enviar teste</Button>,
+      conteudo: (
         <form id="form-brevo-teste" className={styles.formulario} onSubmit={testar}>
-          <p className={styles.nota}>Usa a conexão atual para confirmar que o envio funciona.</p>
+          {avisos}
           <TextField label="Enviar para" type="email" required value={destinatario} onChange={(e) => setDestinatario(e.target.value)} />
         </form>
-      ) : null}
+      ),
+    };
+  } else if (aberta && vista === "desconectar") {
+    janela = {
+      titulo: "Desconectar o Brevo?",
+      descricao: "O sistema volta a usar a configuração do ambiente do servidor. Sem ela, nenhum e-mail é enviado: convites e redefinições de senha deixam de chegar.",
+      tamanho: "estreita",
+      perigo: true,
+      textoFechar: "Cancelar",
+      aoFechar: fechar,
+      rodape: <Button variant="danger" onClick={desconectar} loading={ocupado}>Desconectar</Button>,
+      conteudo: avisos,
+    };
+  }
 
-      {vista === "desconectar" ? (
-        <p className={styles.nota}>
-          O sistema volta a usar a configuração do ambiente do servidor. Sem ela, nenhum e-mail é enviado: convites e
-          redefinições de senha deixam de chegar.
-        </p>
-      ) : null}
-    </CartaoDeIntegracao>
+  return (
+    <CartaoDeIntegracao
+      nome="Brevo"
+      Icone={Mail}
+      descricao={DESCRICAO}
+      selo={selo}
+      resumo={resumo}
+      acao={{ rotulo: estado?.conectado ? "Gerenciar" : "Conectar", destaque: !estado?.conectado, desabilitada: !estado, aoClicar: () => ir(estado?.conectado ? "gerenciar" : "conectar") }}
+      janela={janela}
+    />
   );
 }

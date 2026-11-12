@@ -147,12 +147,28 @@
 }
 
 .conta {
-  display: grid;
-  gap: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
   min-width: 0;
   padding: 12px 14px;
   border-radius: 12px;
   background: var(--ui-subtle);
+}
+
+.contaInfo {
+  display: grid;
+  flex: 1 1 220px;
+  gap: 4px;
+  min-width: 0;
+}
+
+.contaAcoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .contaTopo {
@@ -177,3 +193,10 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+.resumoErro {
+  background: color-mix(in srgb, var(--ui-danger) 8%, var(--ui-surface));
+  color: var(--ui-danger);
+  white-space: normal;
+}
+

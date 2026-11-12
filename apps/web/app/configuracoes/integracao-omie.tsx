@@ -4,13 +4,15 @@ import { Landmark } from "lucide-react";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import type { EmpresaDoOmie, EstadoDoOmieComCofre } from "@plugga/shared";
 
-import { Alert, Button, TextField } from "../components/ui";
+import { Button, TextField } from "../components/ui";
 import { formatarDataHora } from "../lib/format";
 import { detalheDoErro } from "./integracao-api";
-import { CartaoDeIntegracao, type SeloDaIntegracao } from "./integracao-cartao";
+import { AvisosDaIntegracao, CartaoDeIntegracao, type JanelaDaIntegracao, type SeloDaIntegracao } from "./integracao-cartao";
 import styles from "./integracoes.module.css";
 
-type Vista = "inicio" | "conectar" | "desconectar";
+type Vista = "gerenciar" | "conectar" | "desconectar";
+
+const DESCRICAO = "Financeiro e notas fiscais (NF-e e NFS-e), com uma conta só para a plataforma.";
 
 function cnpjComMascara(cnpj: string): string {
   return cnpj.length === 14 ? cnpj.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5") : cnpj;
@@ -24,7 +26,8 @@ function cnpjComMascara(cnpj: string): string {
 export function IntegracaoOmie() {
   const [estado, setEstado] = useState<EstadoDoOmieComCofre | null>(null);
   const [falhaAoLer, setFalhaAoLer] = useState<string | null>(null);
-  const [vista, setVista] = useState<Vista>("inicio");
+  const [aberta, setAberta] = useState(false);
+  const [vista, setVista] = useState<Vista>("gerenciar");
   const [ocupado, setOcupado] = useState<"teste" | "formulario" | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
@@ -53,14 +56,15 @@ export function IntegracaoOmie() {
     setAppKey("");
     setAppSecret("");
     setVista(proxima);
+    setAberta(true);
   }
 
-  function aoFechar() {
+  function fechar() {
     setAppKey("");
     setAppSecret("");
     setErro(null);
     setAviso(null);
-    setVista("inicio");
+    setAberta(false);
   }
 
   async function chamar(quem: "teste" | "formulario", chamada: () => Promise<Response>, padrao: string): Promise<Response | null> {
@@ -91,7 +95,7 @@ export function IntegracaoOmie() {
     if (!resposta) return;
     setEmpresa(null);
     await carregar();
-    setVista("inicio");
+    setVista("gerenciar");
     setAviso("OMIE conectado. Use “Testar conta” para conferir de qual empresa é.");
   }
 
@@ -109,8 +113,7 @@ export function IntegracaoOmie() {
     if (!resposta) return;
     setEmpresa(null);
     await carregar();
-    setVista("inicio");
-    setAviso("OMIE desconectado. Nada mais é enviado ao financeiro até conectar de novo.");
+    fechar();
   }
 
   const selo: SeloDaIntegracao = !estado
@@ -123,38 +126,26 @@ export function IntegracaoOmie() {
 
   const resumo = !estado ? "Consultando o estado…" : estado.conectado ? `Chave do app ${estado.mascara}` : "Nenhuma conta conectada";
 
-  const rodape =
-    vista === "conectar" ? <Button type="submit" form="form-omie" loading={ocupado === "formulario"}>Salvar conexão</Button>
-    : vista === "desconectar" ? <Button variant="danger" onClick={desconectar} loading={ocupado === "formulario"}>Desconectar</Button>
-    : undefined;
+  const avisos = (
+    <AvisosDaIntegracao
+      falhaAoLer={falhaAoLer}
+      aviso={aviso}
+      erro={erro}
+      cofreConfigurado={estado?.cofreConfigurado}
+      ilegivel={estado?.origem === "cofre_ilegivel" ? { titulo: "A configuração guardada não pode mais ser lida", texto: "A chave-mestra do cofre mudou. Conecte de novo para gravar a chave e o segredo." } : null}
+    />
+  );
 
-  return (
-    <CartaoDeIntegracao
-      nome="OMIE"
-      Icone={Landmark}
-      descricao="Financeiro e notas fiscais (NF-e e NFS-e), com uma conta só para a plataforma."
-      selo={selo}
-      resumo={resumo}
-      rodape={rodape}
-      aoFechar={aoFechar}
-    >
-      {falhaAoLer ? <Alert tone="danger" title={falhaAoLer} /> : null}
-      {aviso ? <Alert tone="success" title={aviso} /> : null}
-      {erro ? <Alert tone="danger" title={erro} /> : null}
-      {estado?.cofreConfigurado === false ? (
-        <Alert tone="warning" title="O cofre não está pronto">
-          Falta a variável <code>SECRETS_ENCRYPTION_KEY</code> no ambiente da API. Gere com{" "}
-          <code>openssl rand -base64 32</code> e reinicie a API antes de conectar.
-        </Alert>
-      ) : null}
-      {estado?.origem === "cofre_ilegivel" ? (
-        <Alert tone="warning" title="A configuração guardada não pode mais ser lida">
-          A chave-mestra do cofre mudou. Conecte de novo para gravar a chave e o segredo.
-        </Alert>
-      ) : null}
-
-      {vista === "inicio" ? (
+  let janela: JanelaDaIntegracao | null = null;
+  if (aberta && vista === "gerenciar") {
+    janela = {
+      titulo: "OMIE",
+      descricao: DESCRICAO,
+      tamanho: "media",
+      aoFechar: fechar,
+      conteudo: (
         <>
+          {avisos}
           {estado?.conectado ? (
             <dl className={styles.detalhes}>
               <div><dt>Chave do app</dt><dd>{estado.mascara}</dd></div>
@@ -163,23 +154,27 @@ export function IntegracaoOmie() {
               {empresa?.cnpj ? <div><dt>CNPJ</dt><dd>{cnpjComMascara(empresa.cnpj)}</dd></div> : null}
             </dl>
           ) : null}
-          <div className={styles.acoes}>
-            <Button variant={estado?.conectado ? "secondary" : "primary"} size="sm" onClick={() => ir("conectar")} disabled={!estado}>
-              {estado?.conectado ? "Editar conexão" : "Conectar"}
-            </Button>
-            {estado?.conectado ? (
-              <Button variant="secondary" size="sm" onClick={testar} loading={ocupado === "teste"}>Testar conta</Button>
-            ) : null}
-            {estado?.origem === "cofre" || estado?.origem === "cofre_ilegivel" ? (
-              <Button variant="danger" size="sm" onClick={() => ir("desconectar")}>Desconectar</Button>
-            ) : null}
-          </div>
         </>
-      ) : null}
-
-      {vista === "conectar" ? (
+      ),
+      rodape: (
+        <>
+          <Button variant="danger" onClick={() => ir("desconectar")}>Desconectar</Button>
+          {estado?.conectado ? <Button variant="secondary" onClick={testar} loading={ocupado === "teste"}>Testar conta</Button> : null}
+          <Button onClick={() => ir("conectar")}>Editar conexão</Button>
+        </>
+      ),
+    };
+  } else if (aberta && vista === "conectar") {
+    janela = {
+      titulo: estado?.conectado ? "Editar a conexão do OMIE" : "Conectar o OMIE",
+      descricao: "A chave e o segredo ficam guardados cifrados no cofre da plataforma e não são exibidos depois de salvos.",
+      tamanho: "estreita",
+      textoFechar: "Cancelar",
+      aoFechar: fechar,
+      rodape: <Button type="submit" form="form-omie" loading={ocupado === "formulario"}>Salvar conexão</Button>,
+      conteudo: (
         <form id="form-omie" className={styles.formulario} onSubmit={conectar}>
-          <p className={styles.nota}>A chave e o segredo ficam guardados cifrados no cofre da plataforma e não são exibidos depois de salvos.</p>
+          {avisos}
           <TextField
             label="Chave do app (App Key)"
             hint={estado?.conectado ? "Cole a chave e o segredo de novo para salvar as alterações." : "No OMIE: Configurações › Meus aplicativos (só administradores)."}
@@ -200,11 +195,30 @@ export function IntegracaoOmie() {
             onChange={(e) => setAppSecret(e.target.value)}
           />
         </form>
-      ) : null}
+      ),
+    };
+  } else if (aberta && vista === "desconectar") {
+    janela = {
+      titulo: "Desconectar o OMIE?",
+      descricao: "O sistema deixa de enviar clientes, pedidos e notas ao OMIE até você conectar de novo.",
+      tamanho: "estreita",
+      perigo: true,
+      textoFechar: "Cancelar",
+      aoFechar: fechar,
+      rodape: <Button variant="danger" onClick={desconectar} loading={ocupado === "formulario"}>Desconectar</Button>,
+      conteudo: avisos,
+    };
+  }
 
-      {vista === "desconectar" ? (
-        <p className={styles.nota}>O sistema deixa de enviar clientes, pedidos e notas ao OMIE até você conectar de novo.</p>
-      ) : null}
-    </CartaoDeIntegracao>
+  return (
+    <CartaoDeIntegracao
+      nome="OMIE"
+      Icone={Landmark}
+      descricao={DESCRICAO}
+      selo={selo}
+      resumo={resumo}
+      acao={{ rotulo: estado?.conectado ? "Gerenciar" : "Conectar", destaque: !estado?.conectado, desabilitada: !estado, aoClicar: () => ir(estado?.conectado ? "gerenciar" : "conectar") }}
+      janela={janela}
+    />
   );
 }
