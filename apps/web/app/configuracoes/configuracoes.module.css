@@ -190,6 +190,21 @@
   font-weight: 500;
 }
 
+/* Segurança: os dois cartões têm alturas diferentes; não esticar um até o outro. */
+.gradeSeguranca {
+  align-items: start;
+}
+
+/* Mesmo peso de título do cartão de autenticação em duas etapas, ao lado. */
+.secao h4.tituloDaSecao {
+  font-size: 16px;
+}
+
+.secao h4.tituloDaSecao svg {
+  width: 18px;
+  height: 18px;
+}
+
 .secao h4 svg {
   color: var(--ui-primary);
   flex-shrink: 0;

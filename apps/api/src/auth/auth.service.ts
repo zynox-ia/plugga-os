@@ -3,6 +3,7 @@ import {
   Inject,
   Injectable,
   Logger,
+  ConflictException,
   UnauthorizedException,
 } from "@nestjs/common";
 import {
@@ -11,6 +12,7 @@ import {
   sessionUserSchema,
   type AcceptInviteRequest,
   type AuthAcknowledgement,
+  type ChangePasswordRequest,
   type LoginRequest,
   type ResetConfirmRequest,
   type ResetRequest,
@@ -119,6 +121,48 @@ export class AuthService {
     }
     await this.audit.appendEvent({
       eventName: eventNames.authLogout,
+      entityType: "user",
+      entityId: principal.id,
+      actorType: "user",
+      actorId: principal.id,
+      payload: {},
+      occurredAt: new Date(),
+    });
+    return this.ack();
+  }
+
+  /**
+   * Troca de senha de quem já está logado. Exige a senha atual (uma sessão roubada sozinha não
+   * troca a senha), recusa senha igual à atual, e encerra as outras sessões mantendo esta.
+   * Erro da senha atual conta para o mesmo limite do login, para não virar via de tentativa.
+   * Conta que entra só pelo Google não tem senha para trocar.
+   */
+  async changePassword(
+    principal: AuthPrincipal,
+    rawToken: string | undefined,
+    input: ChangePasswordRequest,
+    context: { ip?: string | undefined },
+  ): Promise<AuthAcknowledgement> {
+    if (!rawToken) throw new UnauthorizedException("invalid session");
+    const passwordHash = await this.repository.findPasswordHash(principal.id);
+    if (!passwordHash) {
+      throw new ConflictException("Esta conta entra pelo Google e não tem senha para trocar.");
+    }
+    const user = await this.repository.findUserById(principal.id);
+
+    if (!(await this.passwords.verify(passwordHash, input.currentPassword))) {
+      if (user) await this.limitador.penalizar(user.email, context.ip);
+      throw new BadRequestException("A senha atual não confere.");
+    }
+    if (input.currentPassword === input.newPassword) {
+      throw new BadRequestException("A nova senha precisa ser diferente da atual.");
+    }
+
+    await this.repository.changePassword(principal.id, await this.passwords.hash(input.newPassword), hashToken(rawToken));
+    await this.sessions.invalidarCacheDe(principal.id);
+
+    await this.audit.appendEvent({
+      eventName: eventNames.authPasswordChanged,
       entityType: "user",
       entityId: principal.id,
       actorType: "user",

@@ -101,6 +101,19 @@ export class PrismaAuthRepository extends AuthRepository {
     await this.prisma.session.deleteMany({ where: { userId } });
   }
 
+  async changePassword(userId: string, passwordHash: string, keepTokenHash: string): Promise<void> {
+    await this.prisma.$transaction(async (tx) => {
+      // Serializa com o login/gestão de MFA e com a redefinição de senha da mesma pessoa.
+      await tx.$queryRaw`SELECT id FROM users WHERE id = ${userId}::uuid FOR UPDATE`;
+      await tx.userCredential.upsert({
+        where: { userId },
+        create: { userId, passwordHash },
+        update: { passwordHash },
+      });
+      await tx.session.deleteMany({ where: { userId, tokenHash: { not: keepTokenHash } } });
+    });
+  }
+
   async replaceAuthToken(data: CreateAuthTokenData): Promise<void> {
     await this.prisma.$transaction(async (tx) => {
       // Serializes concurrent reissues for one user before replacing the pending

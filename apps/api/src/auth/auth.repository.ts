@@ -122,6 +122,11 @@ export abstract class AuthRepository {
     consumedAt: Date,
     options: SetPasswordOptions,
   ): Promise<void>;
+  /**
+   * Troca a senha de quem já está logado e encerra as OUTRAS sessões na mesma transação,
+   * mantendo a que fez a troca (`keepTokenHash`). Serializa com o MFA, como a redefinição.
+   */
+  abstract changePassword(userId: string, passwordHash: string, keepTokenHash: string): Promise<void>;
   /** Vínculo federado pelo par (provedor, subject) — nunca pelo e-mail. */
   abstract findIdentityBySubject(
     provider: IdentityProvider,

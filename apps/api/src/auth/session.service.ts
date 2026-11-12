@@ -67,6 +67,11 @@ export class SessionService {
     await this.cache.invalidate(tokenHash);
   }
 
+  /** Limpa os snapshots em cache da pessoa; o banco já recusa as sessões que a troca de senha apagou. */
+  async invalidarCacheDe(userId: string): Promise<void> {
+    await this.cache.invalidateAllForUser(userId);
+  }
+
   async revokeAllForUser(userId: string): Promise<void> {
     await this.repository.deleteSessionsForUser(userId);
     await this.cache.invalidateAllForUser(userId);

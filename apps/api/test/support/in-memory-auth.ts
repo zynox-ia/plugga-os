@@ -165,6 +165,13 @@ export class InMemoryAuthRepository extends AuthRepository {
     this.store.sessions.delete(tokenHash);
   }
 
+  async changePassword(userId: string, passwordHash: string, keepTokenHash: string): Promise<void> {
+    this.store.credentials.set(userId, passwordHash);
+    for (const [hash, session] of this.store.sessions) {
+      if (session.userId === userId && hash !== keepTokenHash) this.store.sessions.delete(hash);
+    }
+  }
+
   async deleteSessionsForUser(userId: string): Promise<void> {
     for (const [hash, session] of this.store.sessions) {
       if (session.userId === userId) {

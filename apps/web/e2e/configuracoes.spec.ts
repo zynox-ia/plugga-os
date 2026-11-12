@@ -10,8 +10,8 @@ test("deep link pessoal permite trocar abas pelo mouse e teclado", async ({ page
   await expect(page.getByRole("tabpanel")).toHaveAccessibleName("Segurança");
   await expect(page.getByRole("region", { name: "Autenticação em duas etapas", exact: true })).toBeVisible();
   await expect(page.getByRole("region", { name: "Identificação e contato", exact: true })).toHaveCount(0);
-  await expect(page.getByLabel("Senha Atual", { exact: true })).toBeDisabled();
-  await expect(page.getByLabel("Senha Atual", { exact: true })).toHaveValue("");
+  await expect(page.getByLabel("Senha atual", { exact: true })).toBeEnabled();
+  await expect(page.getByLabel("Senha atual", { exact: true })).toHaveValue("");
   await page.reload();
   await expect(seguranca).toHaveAttribute("aria-selected", "true");
   await notificacoes.click();
@@ -25,7 +25,7 @@ test("deep link pessoal permite trocar abas pelo mouse e teclado", async ({ page
   await expect(perfil).toBeFocused();
   await expect(perfil).toHaveAttribute("aria-selected", "true");
   await expect(page.getByRole("region", { name: "Identificação e contato", exact: true })).toBeVisible();
-  await expect(page.getByLabel("Senha Atual", { exact: true })).toHaveCount(0);
+  await expect(page.getByLabel("Senha atual", { exact: true })).toHaveCount(0);
   await expect(page.getByRole("region", { name: "Autenticação em duas etapas", exact: true })).toHaveCount(0);
   await perfil.press("ArrowRight");
   await expect(seguranca).toBeFocused();
@@ -34,6 +34,46 @@ test("deep link pessoal permite trocar abas pelo mouse e teclado", async ({ page
   await expect(notificacoes).toHaveAttribute("aria-selected", "true");
   await page.reload();
   await expect(notificacoes).toHaveAttribute("aria-selected", "true");
+});
+
+test("troca de senha: valida na tela, mostra a recusa do servidor e confirma o sucesso", async ({ page }) => {
+  await page.route("**/api/auth/mfa/status", (route) => route.fulfill({ json: { enabled: false, recentlyVerified: false, recoveryCodesRemaining: 0 } }));
+  const pedidos: unknown[] = [];
+  let resposta: { status: number; json: object } = { status: 400, json: { message: "A senha atual não confere." } };
+  await page.route("**/api/auth/password", (route) => {
+    pedidos.push(route.request().postDataJSON());
+    return route.fulfill(resposta);
+  });
+  await page.goto("/configuracoes?aba=seguranca");
+  const atual = page.getByLabel("Senha atual", { exact: true });
+  const nova = page.getByLabel("Nova senha", { exact: true });
+  const confirmacao = page.getByLabel("Confirmar nova senha", { exact: true });
+  const enviar = page.getByRole("button", { name: "Atualizar senha" });
+
+  await enviar.click();
+  await expect(page.getByText("Informe a senha atual.")).toBeVisible();
+  expect(pedidos).toHaveLength(0);
+
+  await atual.fill("senha-atual-qualquer");
+  await nova.fill("curta");
+  await enviar.click();
+  await expect(page.getByText("Use pelo menos 12 caracteres.")).toBeVisible();
+  await nova.fill("frase nova bem comprida");
+  await confirmacao.fill("frase diferente da nova");
+  await enviar.click();
+  await expect(page.getByText("As senhas não são iguais.")).toBeVisible();
+  expect(pedidos).toHaveLength(0);
+
+  await confirmacao.fill("frase nova bem comprida");
+  await enviar.click();
+  await expect(page.getByRole("alert").filter({ hasText: "A senha atual não confere." })).toBeVisible();
+  expect(pedidos).toEqual([{ currentPassword: "senha-atual-qualquer", newPassword: "frase nova bem comprida" }]);
+
+  resposta = { status: 200, json: { ok: true } };
+  await enviar.click();
+  await expect(page.getByText("Senha atualizada.")).toBeVisible();
+  await expect(atual).toHaveValue("");
+  await expect(nova).toHaveValue("");
 });
 
 test("Perfil não consulta MFA e links antigos não exibem os campos de sistema", async ({ page }) => {

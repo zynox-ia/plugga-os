@@ -55,6 +55,14 @@ export const resetRequestSchema = z
   })
   .strict();
 
+/** Troca de senha por quem já está logado: exige a senha atual e segue a mesma política da nova. */
+export const changePasswordRequestSchema = z
+  .object({
+    currentPassword: z.string().min(1).max(200),
+    newPassword: passwordSchema,
+  })
+  .strict();
+
 export const resetConfirmRequestSchema = z
   .object({
     token: opaqueTokenSchema,
@@ -169,6 +177,7 @@ export const authAcknowledgementSchema = z
 export type LoginRequest = z.infer<typeof loginRequestSchema>;
 export type AcceptInviteRequest = z.infer<typeof acceptInviteRequestSchema>;
 export type ResetRequest = z.infer<typeof resetRequestSchema>;
+export type ChangePasswordRequest = z.infer<typeof changePasswordRequestSchema>;
 export type ResetConfirmRequest = z.infer<typeof resetConfirmRequestSchema>;
 export type SessionUser = z.infer<typeof sessionUserSchema>;
 export type MeResponse = z.infer<typeof meResponseSchema>;

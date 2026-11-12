@@ -99,7 +99,7 @@ export function UserMenu() {
             </svg>
             Meu perfil
           </button>
-          <button className="user-menu-item" type="button" role="menuitem" onClick={() => irPara("/configuracoes?aba=notificacoes")}>
+          <button className="user-menu-item" type="button" role="menuitem" onClick={() => irPara("/configuracoes")}>
             <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
               <path d="M4 6h10" />
               <path d="M18 6h2" />
@@ -108,7 +108,7 @@ export function UserMenu() {
               <path d="M12 18h8" />
               <path d="M10 18a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z" />
             </svg>
-            Preferências
+            Configurações
           </button>
 
           <div className="user-menu-divider" role="separator" />

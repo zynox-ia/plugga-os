@@ -13,13 +13,15 @@ test("perfil sem API de edição não persiste foto nem simula gravação", () =
   assert.match(perfil, /Edição e foto em preparação/);
 });
 
-test("campos de senha permanecem vazios e desabilitados, sem coleta", () => {
+test("troca de senha: três campos com autocomplete certo, sem guardar a senha no navegador", () => {
   const campos = [...seguranca.matchAll(/<TextField\s+type="password"[\s\S]*?\/>/g)];
   assert.equal(campos.length, 3);
-  for (const [campo] of campos) {
-    assert.match(campo, /value=""/);
-    assert.match(campo, /\bdisabled\b/);
-  }
+  assert.match(campos[0]![0], /autoComplete="current-password"/);
+  assert.match(campos[1]![0], /autoComplete="new-password"/);
+  assert.match(campos[2]![0], /autoComplete="new-password"/);
+  for (const [campo] of campos) assert.doesNotMatch(campo, /\bdisabled\b|placeholder=/);
+  assert.doesNotMatch(seguranca, /\b(localStorage|sessionStorage|console\.)/);
+  assert.match(seguranca, /fetch\("\/api\/auth\/password"/);
 });
 
 test("identificação vem da sessão atual e não afirma método ou saúde não consultados", () => {

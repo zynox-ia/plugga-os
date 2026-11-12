@@ -4,6 +4,7 @@ import { SkipThrottle, Throttle, ThrottlerGuard } from "@nestjs/throttler";
 import type { CookieOptions, Request, Response } from "express";
 import {
   acceptInviteRequestSchema,
+  changePasswordRequestSchema,
   googleCallbackSchema,
   loginRequestSchema,
   REMEMBERED_SESSION_TTL_SECONDS,
@@ -11,6 +12,7 @@ import {
   resetRequestSchema,
   type AcceptInviteRequest,
   type AuthAcknowledgement,
+  type ChangePasswordRequest,
   type GoogleCallback,
   type LoginRequest,
   type LoginResponse,
@@ -135,6 +137,20 @@ export class AuthController {
     const result = await this.service.logout(rawToken, principal);
     response.clearCookie(SESSION_COOKIE_NAME, this.clearCookieOptions());
     return result;
+  }
+
+  @Authenticated()
+  @Post("password")
+  @HttpCode(200)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @UseGuards(SessionAuthGuard, OriginCheckGuard, ThrottlerGuard)
+  changePassword(
+    @CurrentPrincipal() principal: AuthPrincipal,
+    @Req() request: Request,
+    @Body(new ZodValidationPipe(changePasswordRequestSchema)) input: ChangePasswordRequest,
+  ): Promise<AuthAcknowledgement> {
+    const rawToken = request.signedCookies?.[SESSION_COOKIE_NAME] as string | undefined;
+    return this.service.changePassword(principal, rawToken, input, { ip: request.ip });
   }
 
   @Public()

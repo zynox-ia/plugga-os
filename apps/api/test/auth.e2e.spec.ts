@@ -293,6 +293,57 @@ describe("auth API (e2e, in-memory stores)", () => {
       .expect(200, { ok: true });
   });
 
+  describe("troca de senha por quem já está logado", () => {
+    const novaSenha = "uma senha nova bem longa";
+
+    it("troca a senha, mantém esta sessão, encerra as outras e a senha antiga deixa de valer", async () => {
+      const { agent } = await loginAgent(adminEmail, adminPassword);
+      const { agent: outroDispositivo } = await loginAgent(adminEmail, adminPassword);
+
+      await agent.post("/auth/password").send({ currentPassword: adminPassword, newPassword: novaSenha }).expect(200, { ok: true });
+
+      await agent.get("/auth/me").expect(200);
+      await outroDispositivo.get("/auth/me").expect(401);
+      await request(app.getHttpServer()).post("/auth/login").set("X-Forwarded-For", nextTestIp()).send({ email: adminEmail, password: adminPassword }).expect(401);
+      await loginAgent(adminEmail, novaSenha);
+    });
+
+    it("recusa a senha atual errada e conta isso para o limite de tentativas", async () => {
+      const { agent } = await loginAgent(adminEmail, adminPassword);
+
+      const resposta = await agent.post("/auth/password").send({ currentPassword: "não é a senha atual", newPassword: novaSenha }).expect(400);
+
+      expect(resposta.body.message).toBe("A senha atual não confere.");
+      await loginAgent(adminEmail, adminPassword);
+    });
+
+    it("recusa senha nova igual à atual e senha nova curta", async () => {
+      const { agent } = await loginAgent(adminEmail, adminPassword);
+
+      const igual = await agent.post("/auth/password").send({ currentPassword: adminPassword, newPassword: adminPassword }).expect(400);
+      expect(igual.body.message).toBe("A nova senha precisa ser diferente da atual.");
+      await agent.post("/auth/password").send({ currentPassword: adminPassword, newPassword: "curta" }).expect(400);
+      await loginAgent(adminEmail, adminPassword);
+    });
+
+    it("exige sessão: sem login, não troca nada", async () => {
+      await request(app.getHttpServer())
+        .post("/auth/password")
+        .set("Origin", "http://localhost:3000")
+        .send({ currentPassword: adminPassword, newPassword: novaSenha })
+        .expect(401);
+      await loginAgent(adminEmail, adminPassword);
+    });
+
+    it("recusa campo a mais e pedido sem Origin", async () => {
+      const { agent } = await loginAgent(adminEmail, adminPassword);
+
+      await agent.post("/auth/password").send({ currentPassword: adminPassword, newPassword: novaSenha, userId: "outra-pessoa" }).expect(400);
+      await request(app.getHttpServer()).post("/auth/password").send({ currentPassword: adminPassword, newPassword: novaSenha }).expect(401);
+      await loginAgent(adminEmail, adminPassword);
+    });
+  });
+
   it("answers reset requests for unknown emails generically", async () => {
     await request(app.getHttpServer())
       .post("/auth/reset/request")

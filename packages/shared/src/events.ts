@@ -10,6 +10,8 @@ export const eventNames = {
   authInviteAccepted: "auth.invite.accepted",
   authResetRequested: "auth.reset.requested",
   authResetCompleted: "auth.reset.completed",
+  /** Troca de senha pela própria pessoa, logada. Nunca carrega a senha. */
+  authPasswordChanged: "auth.password.changed",
   authInviteResent: "auth.invite.resent",
   /**
    * Primeiro vínculo entre um usuário local e uma conta Google. Fica separado de
@@ -197,6 +199,7 @@ export const eventosLegados: readonly string[] = [
   "integracao.ia_assinatura.login_started",
   "integracao.ia_assinatura.account_removed",
   "google.oauth.connected",
+  "auth.password.changed",
   "google.oauth.disconnected",
   "google.calendar.connected",
   "google.calendar.disconnected",

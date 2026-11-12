@@ -279,6 +279,18 @@
     "acesso": "acesso",
     "papeis": [
       "tela:crm.clientes",
+  {
+    "metodo": "POST",
+    "caminho": "/auth/password",
+    "controller": "AuthController.changePassword",
+    "acesso": "authenticated",
+    "papeis": [],
+    "guards": [
+      "SessionAuthGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
       "departamento:crm:membro"
     ],
     "guards": [
