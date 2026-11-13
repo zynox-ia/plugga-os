@@ -76,26 +76,35 @@ test("troca de senha: valida na tela, mostra a recusa do servidor e confirma o s
   await expect(nova).toHaveValue("");
 });
 
-test("Notificações separa os avisos do sistema e os do e-mail, em cartões de mesma altura", async ({ page }) => {
+test("Notificações é uma tabela com duas colunas: no sistema e por e-mail", async ({ page }) => {
   await page.setViewportSize({ width: 1366, height: 960 });
   await page.goto("/configuracoes?aba=notificacoes");
-  const sistema = page.getByRole("region", { name: "No sistema", exact: true });
-  const email = page.getByRole("region", { name: "Por e-mail", exact: true });
-  await expect(sistema.getByRole("switch")).toHaveCount(4);
-  await expect(email.getByRole("switch")).toHaveCount(4);
-  await expect(sistema.getByRole("switch", { name: "Novos leads atribuídos" })).toBeDisabled();
-  await expect(email.getByRole("switch", { name: "Resumo semanal" })).not.toBeChecked();
-  await expect(sistema.getByText("Resumo semanal")).toHaveCount(0);
-  const left = (await sistema.boundingBox())!;
-  const right = (await email.boundingBox())!;
-  expect(Math.abs(left.y - right.y)).toBeLessThan(2);
-  expect(Math.abs(left.height - right.height)).toBeLessThan(2);
-  expect(right.x).toBeGreaterThanOrEqual(left.x + left.width);
+  const tabela = page.getByRole("table", { name: "Quando ser avisado, em cada canal" });
+  await expect(tabela.getByRole("columnheader", { name: "No sistema" })).toBeVisible();
+  await expect(tabela.getByRole("columnheader", { name: "Por e-mail" })).toBeVisible();
+  await expect(tabela.getByRole("row")).toHaveCount(6);
+  await expect(tabela.getByRole("switch")).toHaveCount(8);
+  const leadsNoSistema = tabela.getByRole("switch", { name: "Novos leads atribuídos, no sistema" });
+  await expect(leadsNoSistema).toBeChecked();
+  await expect(leadsNoSistema).toBeDisabled();
+  await expect(tabela.getByRole("switch", { name: "Novos leads atribuídos, por e-mail" })).not.toBeChecked();
+  // O resumo semanal só existe no e-mail; o avanço de etapas, só no sistema.
+  await expect(tabela.getByRole("switch", { name: /Resumo semanal, no sistema/ })).toHaveCount(0);
+  await expect(tabela.getByRole("switch", { name: /Resumo semanal, por e-mail/ })).toHaveCount(1);
+  await expect(tabela.getByRole("switch", { name: /Avanço de etapas no pipeline, por e-mail/ })).toHaveCount(0);
+  // As duas colunas ficam lado a lado, cada chave na coluna do seu canal.
+  const titulos = {
+    sistema: (await tabela.getByRole("columnheader", { name: "No sistema" }).boundingBox())!,
+    email: (await tabela.getByRole("columnheader", { name: "Por e-mail" }).boundingBox())!,
+  };
+  const sistemaBox = (await leadsNoSistema.boundingBox())!;
+  const emailBox = (await tabela.getByRole("switch", { name: "Novos leads atribuídos, por e-mail" }).boundingBox())!;
+  expect(sistemaBox.x).toBeGreaterThanOrEqual(titulos.sistema.x);
+  expect(sistemaBox.x + sistemaBox.width).toBeLessThanOrEqual(titulos.sistema.x + titulos.sistema.width);
+  expect(emailBox.x).toBeGreaterThanOrEqual(titulos.email.x);
+  expect(emailBox.x).toBeGreaterThan(sistemaBox.x);
   await expect(page.getByRole("button", { name: "Salvar preferências", exact: true })).toBeDisabled();
   await page.setViewportSize({ width: 390, height: 844 });
-  const empilhados = (await sistema.boundingBox())!;
-  const abaixo = (await email.boundingBox())!;
-  expect(abaixo.y).toBeGreaterThanOrEqual(empilhados.y + empilhados.height);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
 
