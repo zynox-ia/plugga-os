@@ -498,6 +498,52 @@
   gap: 12px 14px;
 }
 
+/* ---------- Notificações: um cartão por canal (sistema e e-mail) ---------- */
+
+.pagina {
+  display: grid;
+  gap: 16px;
+  padding-bottom: 24px;
+}
+
+.gradeDeCanais {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: stretch;
+  gap: 16px;
+}
+
+.compacto .corpo {
+  gap: 12px;
+  padding: 16px 20px 18px;
+}
+
+.avisos {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.avisos li {
+  padding: 12px 0;
+  border-top: 1px solid var(--ui-divider);
+}
+
+.avisos li:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.avisos li:last-child {
+  padding-bottom: 0;
+}
+
+.acaoDaPagina {
+  display: flex;
+  justify-content: flex-end;
+}
+
 /* ---------- Autenticação em duas etapas ---------- */
 
 .fluxo {
@@ -677,6 +723,9 @@
 }
 
 @media (max-width: 960px) {
+  .gradeDeCanais {
+    grid-template-columns: minmax(0, 1fr);
+  }
   .gradeSeguranca {
     grid-template-columns: minmax(0, 1fr);
     grid-auto-rows: auto;
@@ -729,7 +778,8 @@
     height: 46px;
     min-height: 46px;
   }
-  .acaoNoRodape > button {
+  .acaoNoRodape > button,
+  .acaoDaPagina > button {
     width: 100%;
   }
   .faixa {

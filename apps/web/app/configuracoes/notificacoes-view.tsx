@@ -1,90 +1,122 @@
 "use client";
 
-import { Bell, Save, Target } from "lucide-react";
+import { Bell, Mail, Save } from "lucide-react";
 
-import { Alert, Button, Switch } from "../components/ui";
-import styles from "./configuracoes.module.css";
+import { Badge, Button, Switch } from "../components/ui";
+import { CartaoDaConfiguracao } from "./cartao";
+import styles from "./cartoes.module.css";
+
+type Aviso = { id: string; label: string; description: string; ligado: boolean };
+
+/** O que chega no sino da barra superior. */
+const NO_SISTEMA: Aviso[] = [
+  {
+    id: "sistema-leads",
+    label: "Novos leads atribuídos",
+    description: "Ao receber um lead ou oportunidade na sua carteira.",
+    ligado: true,
+  },
+  {
+    id: "sistema-etapas",
+    label: "Avanço de etapas no pipeline",
+    description: "Quando uma oportunidade sua mudar de fase no funil.",
+    ligado: true,
+  },
+  {
+    id: "sistema-tarefas",
+    label: "Lembretes de tarefas e atividades",
+    description: "Compromissos agendados e prazos que vencem.",
+    ligado: true,
+  },
+  {
+    id: "sistema-seguranca",
+    label: "Alertas de segurança e logins",
+    description: "Novos acessos identificados na sua conta.",
+    ligado: true,
+  },
+];
+
+/** O que chega na caixa de entrada. */
+const POR_EMAIL: Aviso[] = [
+  {
+    id: "email-leads",
+    label: "Novos leads atribuídos",
+    description: "Um e-mail ao receber um lead ou oportunidade.",
+    ligado: false,
+  },
+  {
+    id: "email-tarefas",
+    label: "Lembretes de tarefas e atividades",
+    description: "Resumo dos compromissos e prazos do dia, no início da manhã.",
+    ligado: true,
+  },
+  {
+    id: "email-seguranca",
+    label: "Alertas de segurança e logins",
+    description: "Novos acessos identificados na sua conta.",
+    ligado: true,
+  },
+  {
+    id: "email-resumo",
+    label: "Resumo semanal",
+    description: "Oportunidades, fechamentos e metas, toda segunda-feira.",
+    ligado: false,
+  },
+];
+
+function ListaDeAvisos({ avisos }: { avisos: Aviso[] }) {
+  return (
+    <ul className={styles.avisos}>
+      {avisos.map((aviso) => (
+        <li key={aviso.id}>
+          <Switch
+            id={aviso.id}
+            label={aviso.label}
+            description={aviso.description}
+            defaultChecked={aviso.ligado}
+            disabled
+          />
+        </li>
+      ))}
+    </ul>
+  );
+}
 
 export function NotificacoesView() {
+  const emPreparacao = <Badge tone="neutral">Em preparação</Badge>;
+
   return (
-    <div className={styles.painel}>
-      <header className={styles.cabecalho}>
-        <div className={styles.cabecalhoTexto}>
-          <h3>Preferências de Notificações</h3>
-          <p>Exemplos de alertas do CRM, prazos operacionais e canais de entrega.</p>
-        </div>
-        <div className={styles.cabecalhoAcoes}>
-          <Button
-            variant="primary"
-            size="sm"
-            icon={<Save size={14} />}
-            disabled
-          >
-            Salvar preferências
-          </Button>
-        </div>
-      </header>
-
-      <Alert title="Em preparação">
-        As opções abaixo são ilustrativas. Estas preferências ainda não podem ser alteradas ou aplicadas.
-      </Alert>
-
-      <div className={styles.grade}>
-        {/* Seção 1: CRM & Vendas */}
-        <section className={styles.secao} aria-label="Notificações do CRM">
-          <h4>
-            <Target size={16} aria-hidden="true" />
-            CRM & Vendas
-          </h4>
-          <div className={styles.camposUnicaColuna}>
-            <Switch
-              label="Novos leads atribuídos"
-              description="Notificação imediata ao receber um lead ou oportunidade na sua carteira."
-              defaultChecked
-              disabled
-            />
-            <Switch
-              label="Avanço de etapas no pipeline"
-              description="Avisos quando oportunidades em que você é responsável mudarem de fase no funil."
-              defaultChecked
-              disabled
-            />
-            <Switch
-              label="Lembretes de tarefas e atividades"
-              description="Notificações de compromissos agendados e alertas de prazos no início do dia."
-              defaultChecked
-              disabled
-            />
+    <div className={styles.pagina}>
+      <div className={styles.gradeDeCanais}>
+        <CartaoDaConfiguracao
+          titulo="No sistema"
+          tituloId="notificacoes-sistema-titulo"
+          icone={<Bell />}
+          selo={emPreparacao}
+          className={styles.compacto}
+        >
+          <div className={styles.corpo}>
+            <ListaDeAvisos avisos={NO_SISTEMA} />
           </div>
-        </section>
+        </CartaoDaConfiguracao>
 
-        {/* Seção 2: Comunicação & Sistema */}
-        <section className={styles.secao} aria-label="Comunicação e alertas">
-          <h4>
-            <Bell size={16} aria-hidden="true" />
-            Comunicação & Sistema
-          </h4>
-          <div className={styles.camposUnicaColuna}>
-            <Switch
-              label="Alertas na barra superior"
-              description="Exibir contador e painel suspenso no ícone de notificações da topbar."
-              defaultChecked
-              disabled
-            />
-            <Switch
-              label="Alertas de segurança e logins"
-              description="Avisos sobre novos acessos identificados na sua conta corporativa."
-              defaultChecked
-              disabled
-            />
-            <Switch
-              label="Resumo semanal por e-mail"
-              description="Consolidado de oportunidades, fechamentos e metas enviado toda segunda-feira."
-              defaultChecked={false}
-              disabled
-            />
+        <CartaoDaConfiguracao
+          titulo="Por e-mail"
+          tituloId="notificacoes-email-titulo"
+          icone={<Mail />}
+          selo={emPreparacao}
+          className={styles.compacto}
+        >
+          <div className={styles.corpo}>
+            <ListaDeAvisos avisos={POR_EMAIL} />
           </div>
-        </section>
+        </CartaoDaConfiguracao>
+      </div>
+
+      <div className={styles.acaoDaPagina}>
+        <Button variant="primary" icon={<Save size={14} />} className={styles.botaoDoCartao} disabled>
+          Salvar preferências
+        </Button>
       </div>
     </div>
   );

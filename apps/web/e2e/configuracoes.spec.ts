@@ -76,6 +76,29 @@ test("troca de senha: valida na tela, mostra a recusa do servidor e confirma o s
   await expect(nova).toHaveValue("");
 });
 
+test("Notificações separa os avisos do sistema e os do e-mail, em cartões de mesma altura", async ({ page }) => {
+  await page.setViewportSize({ width: 1366, height: 960 });
+  await page.goto("/configuracoes?aba=notificacoes");
+  const sistema = page.getByRole("region", { name: "No sistema", exact: true });
+  const email = page.getByRole("region", { name: "Por e-mail", exact: true });
+  await expect(sistema.getByRole("switch")).toHaveCount(4);
+  await expect(email.getByRole("switch")).toHaveCount(4);
+  await expect(sistema.getByRole("switch", { name: "Novos leads atribuídos" })).toBeDisabled();
+  await expect(email.getByRole("switch", { name: "Resumo semanal" })).not.toBeChecked();
+  await expect(sistema.getByText("Resumo semanal")).toHaveCount(0);
+  const left = (await sistema.boundingBox())!;
+  const right = (await email.boundingBox())!;
+  expect(Math.abs(left.y - right.y)).toBeLessThan(2);
+  expect(Math.abs(left.height - right.height)).toBeLessThan(2);
+  expect(right.x).toBeGreaterThanOrEqual(left.x + left.width);
+  await expect(page.getByRole("button", { name: "Salvar preferências", exact: true })).toBeDisabled();
+  await page.setViewportSize({ width: 390, height: 844 });
+  const empilhados = (await sistema.boundingBox())!;
+  const abaixo = (await email.boundingBox())!;
+  expect(abaixo.y).toBeGreaterThanOrEqual(empilhados.y + empilhados.height);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});
+
 test("Perfil não consulta MFA e links antigos não exibem os campos de sistema", async ({ page }) => {
   let mfaRequests = 0;
   await page.route("**/api/auth/mfa/status", (route) => {
