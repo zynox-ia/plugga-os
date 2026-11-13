@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { Check } from "lucide-react";
 import qrcode from "qrcode-generator";
 import type { MfaSetup } from "@plugga/shared";
 import { Alert, Button, TextField } from "../components/ui";
@@ -19,8 +20,6 @@ export function MfaSetupForm({
   onCancel: () => void;
 }) {
   const [code, setCode] = useState("");
-  const [copied, setCopied] = useState(false);
-  const [copyError, setCopyError] = useState("");
   const [expired, setExpired] = useState(Date.parse(setup.expiresAt) <= Date.now());
 
   const qr = useMemo(() => {
@@ -47,29 +46,14 @@ export function MfaSetupForm({
     setCode("");
   }
 
-  async function copySecret() {
-    setCopyError("");
-    setCopied(false);
-    try {
-      await navigator.clipboard.writeText(setup.secret);
-      setCopied(true);
-    } catch {
-      setCopyError("Não foi possível copiar. Selecione a chave e copie manualmente.");
-    }
-  }
-
   return (
-    <div className={styles.stack}>
-      <Alert title="Adicione a conta ao seu aplicativo autenticador">
-        Escaneie o QR code ou digite a chave manualmente. Depois, confirme o primeiro código do app para concluir. Até
-        essa confirmação, seu acesso continua como antes.
-      </Alert>
+    <div className={`${styles.stack} ${styles.setupRaiz}`}>
       {expired ? (
         <Alert tone="warning" title="Configuração expirada">
           Cancele e inicie a configuração novamente.
         </Alert>
       ) : (
-        <div className={styles.setup}>
+        <form className={styles.setup} onSubmit={submit}>
           <div className={styles.qrContainer}>
             <img
               className={styles.qr}
@@ -79,39 +63,25 @@ export function MfaSetupForm({
               alt="QR code para cadastrar sua conta no aplicativo autenticador"
             />
           </div>
-          <form className={styles.stack} onSubmit={submit}>
-            <div className={styles.secretWrap}>
-              <div className={styles.secretInput}>
-                <TextField
-                  label="Chave para configuração manual"
-                  value={setup.secret}
-                  readOnly
-                  spellCheck={false}
-                  autoComplete="off"
-                />
-              </div>
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                onClick={copySecret}
-                className={styles.copySecretBtn}
-              >
-                {copied ? "Chave copiada" : "Copiar chave"}
-              </Button>
-            </div>
-            {copyError && <p role="alert" className={styles.note}>{copyError}</p>}
-            <MfaCodeField value={code} onChange={setCode} recovery={false} disabled={busy} />
-            <div className={styles.actions}>
-              <Button type="submit" loading={busy}>
-                Confirmar primeiro código
-              </Button>
-              <Button type="button" variant="secondary" disabled={busy} onClick={onCancel}>
-                Cancelar configuração
-              </Button>
-            </div>
-          </form>
-        </div>
+          <div className={styles.camposDaConfiguracao}>
+            <TextField
+              label="Chave para configuração manual"
+              value={setup.secret}
+              readOnly
+              spellCheck={false}
+              autoComplete="off"
+            />
+            <MfaCodeField value={code} onChange={setCode} recovery={false} disabled={busy} semDica />
+          </div>
+          <div className={styles.acoesDaConfiguracao}>
+            <Button type="button" variant="secondary" disabled={busy} onClick={onCancel}>
+              Cancelar configuração
+            </Button>
+            <Button type="submit" icon={<Check size={14} />} loading={busy}>
+              Confirmar primeiro código
+            </Button>
+          </div>
+        </form>
       )}
       {expired && (
         <div className={styles.actions}>

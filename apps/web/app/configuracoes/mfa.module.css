@@ -53,19 +53,45 @@
   align-items: center;
 }
 
-.setup {
-  display: grid;
-  grid-template-columns: minmax(0, 168px) minmax(0, 1fr);
-  align-items: start;
-  gap: 20px;
+/* A configuração ocupa a altura do cartão: os botões ficam na base, como nos outros estados. */
+.setupRaiz {
+  flex: 1;
+  grid-template-rows: minmax(0, 1fr);
 }
 
-/* Formulário da configuração mais justo, para caber no cartão sem rolagem. */
-.setup .stack {
+/* QR code à esquerda, chave e código à direita; embaixo, Cancelar à esquerda e Confirmar à direita. */
+.setup {
+  align-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(0, 200px) minmax(0, 1fr);
+  grid-template-areas:
+    "qr campos"
+    "acoes acoes";
+  align-items: start;
+  gap: 14px 16px;
+}
+
+.camposDaConfiguracao {
+  grid-area: campos;
+  display: grid;
   gap: 12px;
+  min-width: 0;
+}
+
+.acoesDaConfiguracao {
+  grid-area: acoes;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.acoesDaConfiguracao > button {
+  flex: 0 0 auto;
 }
 
 .qrContainer {
+  grid-area: qr;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -78,29 +104,10 @@
 .qr {
   display: block;
   width: 100%;
-  max-width: 152px;
+  max-width: 184px;
   height: auto;
   image-rendering: pixelated;
   border-radius: 6px;
-}
-
-.secretWrap {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: 8px;
-  width: 100%;
-  min-width: 0;
-}
-
-.secretInput {
-  flex: 1 1 200px;
-  min-width: 0;
-}
-
-.copySecretBtn {
-  margin-bottom: 2px;
-  flex-shrink: 0;
 }
 
 .codes {
@@ -186,14 +193,22 @@
 }
 
 @container (max-width: 600px) {
-  .setup {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
   .actions > button {
     flex: 1 1 auto;
   }
+}
 
+@container (max-width: 480px) {
+  .setup {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "qr"
+      "campos"
+      "acoes";
+  }
+}
+
+@container (max-width: 440px) {
   .codes {
     grid-template-columns: minmax(0, 1fr);
   }

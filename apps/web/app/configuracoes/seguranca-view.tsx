@@ -127,7 +127,7 @@ export function SegurancaView({ aoMudarEstado }: { aoMudarEstado?: (estado: Esta
       titulo="Autenticação em duas etapas"
       tituloId="mfa-titulo"
       icone={<QrCode />}
-      className={cartoes.cartaoDoMfa}
+      className={`${cartoes.cartaoDoMfa} ${cartoes.compacto}`}
       selo={
         status ? <Badge tone={status.enabled ? "success" : "neutral"}>{status.enabled ? "Ativada" : "Desativada"}</Badge> : null
       }

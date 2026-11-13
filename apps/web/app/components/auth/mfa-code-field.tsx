@@ -8,21 +8,26 @@ export function MfaCodeField({
   onChange,
   recovery = true,
   disabled = false,
+  semDica = false,
 }: {
   value: string;
   onChange: (code: string) => void;
   recovery?: boolean;
   disabled?: boolean;
+  /** Esconde a linha de ajuda sob o campo (telas onde o espaço é curto). */
+  semDica?: boolean;
 }) {
   return (
     <TextField
       className={styles.field}
       label={recovery ? "Código de verificação ou recuperação" : "Código do aplicativo"}
-      hint={
-        recovery
-          ? "Use os 6 dígitos do app ou um código de recuperação ainda não utilizado."
-          : "Digite os 6 dígitos exibidos no seu aplicativo autenticador."
-      }
+      {...(semDica
+        ? {}
+        : {
+            hint: recovery
+              ? "Use os 6 dígitos do app ou um código de recuperação ainda não utilizado."
+              : "Digite os 6 dígitos exibidos no seu aplicativo autenticador.",
+          })}
       placeholder={recovery ? "000000 ou ABCD-EFGH-IJKL" : "000000"}
       name="code"
       value={value}

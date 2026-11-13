@@ -106,7 +106,7 @@ function FormularioDeSenha() {
   }
 
   return (
-    <form className={styles.formulario} onSubmit={enviar} noValidate>
+    <form className={`${styles.formulario} ${styles.compacto}`} onSubmit={enviar} noValidate>
       <CampoDeSenha
         label="Senha atual"
         value={atual}
@@ -115,24 +115,26 @@ function FormularioDeSenha() {
         error={erroAtual}
         maxLength={200}
       />
-      <CampoDeSenha
-        label="Nova senha"
-        value={nova}
-        onChange={(e) => setNova(e.target.value)}
-        autoComplete="new-password"
-        extra={<MedidorDeTamanho tamanho={nova.length} legendaId={legendaId} />}
-        aria-describedby={legendaId}
-        error={erroNova}
-        maxLength={200}
-      />
-      <CampoDeSenha
-        label="Confirmar nova senha"
-        value={confirmacao}
-        onChange={(e) => setConfirmacao(e.target.value)}
-        autoComplete="new-password"
-        error={erroConfirmacao}
-        maxLength={200}
-      />
+      <div className={styles.duplaDeSenhas}>
+        <CampoDeSenha
+          label="Nova senha"
+          value={nova}
+          onChange={(e) => setNova(e.target.value)}
+          autoComplete="new-password"
+          extra={<MedidorDeTamanho tamanho={nova.length} legendaId={legendaId} />}
+          aria-describedby={legendaId}
+          error={erroNova}
+          maxLength={200}
+        />
+        <CampoDeSenha
+          label="Confirmar nova senha"
+          value={confirmacao}
+          onChange={(e) => setConfirmacao(e.target.value)}
+          autoComplete="new-password"
+          error={erroConfirmacao}
+          maxLength={200}
+        />
+      </div>
       {resultado ? <Alert tone={resultado.tom} title={resultado.titulo}>{resultado.texto}</Alert> : null}
       <div className={styles.acaoNoRodape}>
         <Button type="submit" variant="primary" icon={<KeyRound size={14} />} className={styles.botaoDoCartao} disabled={enviando}>
@@ -202,6 +204,7 @@ export function SegurancaDaContaView() {
           tituloId="senha-titulo"
           icone={<Lock />}
           rotulo="Segurança e senha"
+          className={styles.compacto}
         >
           <FormularioDeSenha />
         </CartaoDaConfiguracao>

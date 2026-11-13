@@ -23,12 +23,7 @@ test("cópia só confirma sucesso após o navegador aceitar e oferece alternativ
   await page.goto("/configuracoes?aba=seguranca");
   const security = page.getByRole("region", { name: "Autenticação em duas etapas", exact: true });
   await security.getByRole("button", { name: "Ativar autenticação em duas etapas" }).click();
-  await security.getByRole("button", { name: "Copiar chave", exact: true }).click();
-  await expect(security.getByRole("alert")).toContainText("Selecione a chave e copie manualmente");
-  await expect(security.getByRole("button", { name: "Chave copiada", exact: true })).toHaveCount(0);
-  await security.getByRole("button", { name: "Copiar chave", exact: true }).click();
-  await expect(security.getByRole("button", { name: "Chave copiada", exact: true })).toBeVisible();
-  await expect(security.getByText(/Selecione a chave e copie manualmente/)).toHaveCount(0);
+  await expect(security.getByRole("button", { name: "Copiar chave" })).toHaveCount(0);
   await security.getByLabel("Código do aplicativo").fill("123456");
   await security.getByRole("button", { name: "Confirmar primeiro código" }).click();
   await security.getByRole("button", { name: "Copiar códigos", exact: true }).click();
