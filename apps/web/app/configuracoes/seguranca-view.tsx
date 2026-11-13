@@ -10,7 +10,6 @@ import cartoes from "./cartoes.module.css";
 import { MfaActionDialog, type MfaAction } from "./mfa-action-dialog";
 import { MfaRecoveryCodes as RecoveryCodes } from "./mfa-recovery-codes";
 import { MfaSetupForm } from "./mfa-setup";
-import config from "./configuracoes.module.css";
 import styles from "./mfa.module.css";
 
 export type EstadoDoMfa = { carregado: boolean; ativada: boolean; focado: boolean };

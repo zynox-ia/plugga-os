@@ -204,43 +204,22 @@
   color: var(--ui-primary);
 }
 
-.camposTres {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+/* Nome, e-mail, celular e o botão de salvar na mesma linha; o botão tem a altura dos campos (40px). */
+.camposComAcao {
+  grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+  align-items: end;
   gap: 18px 20px;
 }
 
-.rodapeFicha {
+.acaoDaFicha {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 16px;
-  padding: 16px 24px 18px;
-  border-top: 1px solid var(--ui-divider);
+  align-items: flex-end;
 }
 
-.nota {
-  display: flex;
-  align-items: flex-start;
-  flex: 1 1 280px;
-  gap: 8px;
-  margin: 0;
-  padding: 10px 12px;
-  border: 1px solid #bcd7f4;
-  border-radius: var(--radius-md, 12px);
-  background: rgba(234, 243, 255, 0.7);
-  color: #2d4764;
-  font-size: 12.5px;
-  line-height: 1.5;
-}
-
-.nota svg {
-  flex-shrink: 0;
-  width: 16px;
-  height: 16px;
-  margin-top: 2px;
-  color: #1759a0;
+/* 42px = altura do campo (40px + a borda de 1px de cada lado). */
+.acaoDaFicha > button {
+  height: 42px;
+  min-height: 42px;
 }
 
 /* ---------- Segurança ---------- */
@@ -625,8 +604,11 @@
 }
 
 @media (max-width: 1100px) {
-  .camposTres {
+  .camposComAcao {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .acaoDaFicha > button {
+    width: 100%;
   }
 }
 
@@ -666,13 +648,14 @@
     padding: 18px;
     gap: 16px;
   }
-  .camposTres {
+  .camposComAcao {
     grid-template-columns: minmax(0, 1fr);
   }
-  .rodapeFicha {
-    padding: 14px 18px 18px;
+  /* No celular os campos sobem para 44px (+ borda). */
+  .acaoDaFicha > button {
+    height: 46px;
+    min-height: 46px;
   }
-  .rodapeFicha > button,
   .acaoNoRodape > button {
     width: 100%;
   }
@@ -702,9 +685,6 @@
   }
   .cofre {
     align-items: flex-start;
-  }
-  .nota {
-    flex-basis: 100%;
   }
 }
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { papelDoAcesso } from "@plugga/shared";
-import { Building2, Camera, Info, Lock, Mail, Save, UserRound } from "lucide-react";
+import { Building2, Camera, Lock, Mail, Save, UserRound } from "lucide-react";
 
 import { Badge, Button, TextField } from "../components/ui";
 import { ROTULO_DO_PAPEL } from "../lib/organizacao";
@@ -75,7 +75,7 @@ export function PerfilView() {
           </Badge>
         }
       >
-        <div className={`${styles.corpo} ${styles.camposTres}`}>
+        <div className={`${styles.corpo} ${styles.camposComAcao}`}>
           <TextField
             label="Nome Completo"
             value={usuario.name}
@@ -93,16 +93,12 @@ export function PerfilView() {
             disabled
             placeholder="Em preparação"
           />
+          <div className={styles.acaoDaFicha}>
+            <Button type="button" variant="primary" icon={<Save size={14} />} disabled>
+              Salvar perfil
+            </Button>
+          </div>
         </div>
-        <footer className={styles.rodapeFicha}>
-          <p className={styles.nota}>
-            <Info aria-hidden="true" />
-            <span>Dados somente para consulta. Edição e foto em preparação.</span>
-          </p>
-          <Button type="button" variant="primary" size="sm" icon={<Save size={14} />} disabled>
-            Salvar perfil
-          </Button>
-        </footer>
       </CartaoDaConfiguracao>
     </div>
   );
