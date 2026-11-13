@@ -17,7 +17,9 @@ function montar(opcoes: { hash?: string | null; senhaConfere?: boolean } = {}) {
   const senhas = { verify: vi.fn(async () => opcoes.senhaConfere ?? true), hash: vi.fn(async (s: string) => `hash(${s})`) };
   const sessoes = { invalidarCacheDe: vi.fn(async () => undefined) };
   const limitador = { penalizar: vi.fn(async () => undefined) };
-  const auditoria = { appendEvent: vi.fn(async (_evento: { eventName: string; payload: unknown }) => undefined) };
+  const auditoria = {
+    appendEvent: vi.fn<(evento: { eventName: string; payload: unknown }) => Promise<void>>().mockResolvedValue(undefined),
+  };
   const servico = new AuthService(repositorio as never, senhas as never, sessoes as never, limitador as never, {} as never, auditoria as never, {} as never);
   return { servico, repositorio, senhas, sessoes, limitador, auditoria };
 }
