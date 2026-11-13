@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ArrowRight, KeyRound, LockKeyhole, ShieldCheck, Smartphone } from "lucide-react";
+import { ArrowRight, KeyRound, LockKeyhole, QrCode, ShieldCheck, Smartphone } from "lucide-react";
 import type { MfaRecoveryCodes, MfaSetup, MfaStatus } from "@plugga/shared";
 import { Alert, Badge, Button } from "../components/ui";
 import { MfaError, mfaRequest } from "../lib/mfa-client";
@@ -127,7 +127,7 @@ export function SegurancaView({ aoMudarEstado }: { aoMudarEstado?: (estado: Esta
     <CartaoDaConfiguracao
       titulo="Autenticação em duas etapas"
       tituloId="mfa-titulo"
-      icone={<ShieldCheck />}
+      icone={<QrCode />}
       selo={
         status ? <Badge tone={status.enabled ? "success" : "neutral"}>{status.enabled ? "Ativada" : "Desativada"}</Badge> : null
       }
@@ -215,11 +215,6 @@ export function SegurancaView({ aoMudarEstado }: { aoMudarEstado?: (estado: Esta
               </li>
             </ol>
           )}
-          <p className={styles.note}>
-            {status.enabled
-              ? `Novos logins por senha e Google exigem o segundo fator. Códigos de recuperação restantes: ${status.recoveryCodesRemaining}.`
-              : "Após ativar, todos os novos logins por senha e Google pedirão um código do app ou de recuperação."}
-          </p>
           <div className={styles.actions}>
             {status.enabled ? (
               <>
@@ -255,7 +250,13 @@ export function SegurancaView({ aoMudarEstado }: { aoMudarEstado?: (estado: Esta
                 </Button>
               </>
             ) : (
-              <Button loading={busy} onClick={() => void execute("setup")}>
+              <Button
+                variant="primary"
+                icon={<ShieldCheck size={14} />}
+                className={cartoes.botaoDoCartao}
+                loading={busy}
+                onClick={() => void execute("setup")}
+              >
                 Ativar autenticação em duas etapas
               </Button>
             )}

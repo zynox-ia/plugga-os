@@ -94,7 +94,7 @@ export function PerfilView() {
             placeholder="Em preparação"
           />
           <div className={styles.acaoDaFicha}>
-            <Button type="button" variant="primary" icon={<Save size={14} />} disabled>
+            <Button type="button" variant="primary" icon={<Save size={14} />} className={styles.botaoDoCartao} disabled>
               Salvar perfil
             </Button>
           </div>

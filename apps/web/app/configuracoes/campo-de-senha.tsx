@@ -25,6 +25,7 @@ export function CampoDeSenha({
   const id = useId();
   const [visivel, setVisivel] = useState(false);
   const ajudaId = `${id}-help`;
+  const descrito = [props["aria-describedby"], error || hint ? ajudaId : undefined].filter(Boolean).join(" ") || undefined;
 
   return (
     <div className="ui-field">
@@ -36,7 +37,7 @@ export function CampoDeSenha({
           type={visivel ? "text" : "password"}
           className="ui-input"
           aria-invalid={error ? true : undefined}
-          aria-describedby={error || hint ? ajudaId : undefined}
+          aria-describedby={descrito}
         />
         <button
           type="button"

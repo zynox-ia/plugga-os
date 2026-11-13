@@ -217,7 +217,7 @@
 }
 
 /* 42px = altura do campo (40px + a borda de 1px de cada lado). */
-.acaoDaFicha > button {
+.botaoDoCartao {
   height: 42px;
   min-height: 42px;
 }
@@ -652,7 +652,7 @@
     grid-template-columns: minmax(0, 1fr);
   }
   /* No celular os campos sobem para 44px (+ borda). */
-  .acaoDaFicha > button {
+  .botaoDoCartao {
     height: 46px;
     min-height: 46px;
   }

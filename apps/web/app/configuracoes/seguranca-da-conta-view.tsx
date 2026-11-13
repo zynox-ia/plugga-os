@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useId, useState, type FormEvent } from "react";
 import { CheckCircle2, Circle, KeyRound, Lock, ShieldCheck } from "lucide-react";
 
 import { Alert, Button } from "../components/ui";
@@ -53,7 +53,7 @@ async function trocarSenha(senhaAtual: string, senhaNova: string): Promise<Resul
   return { tom: "danger", titulo: "Não foi possível trocar a senha.", texto: "Confira os campos e tente novamente." };
 }
 
-function MedidorDeTamanho({ tamanho }: { tamanho: number }) {
+function MedidorDeTamanho({ tamanho, legendaId }: { tamanho: number; legendaId: string }) {
   const completo = tamanho >= TAMANHO_MINIMO;
   const largura = Math.min(100, Math.round((tamanho / TAMANHO_MINIMO) * 100));
   return (
@@ -61,7 +61,7 @@ function MedidorDeTamanho({ tamanho }: { tamanho: number }) {
       <div className={styles.trilho} aria-hidden="true">
         <i style={{ width: `${largura}%` }} />
       </div>
-      <p className={styles.legenda} aria-live="polite">
+      <p id={legendaId} className={styles.legenda} aria-live="polite">
         {completo ? <CheckCircle2 aria-hidden="true" /> : null}
         {completo ? "Tamanho suficiente" : `${tamanho} de ${TAMANHO_MINIMO} caracteres`}
       </p>
@@ -70,6 +70,7 @@ function MedidorDeTamanho({ tamanho }: { tamanho: number }) {
 }
 
 function FormularioDeSenha() {
+  const legendaId = useId();
   const [atual, setAtual] = useState("");
   const [nova, setNova] = useState("");
   const [confirmacao, setConfirmacao] = useState("");
@@ -119,8 +120,8 @@ function FormularioDeSenha() {
         value={nova}
         onChange={(e) => setNova(e.target.value)}
         autoComplete="new-password"
-        extra={<MedidorDeTamanho tamanho={nova.length} />}
-        hint={`Mínimo de ${TAMANHO_MINIMO} caracteres. Frases longas funcionam bem.`}
+        extra={<MedidorDeTamanho tamanho={nova.length} legendaId={legendaId} />}
+        aria-describedby={legendaId}
         error={erroNova}
         maxLength={200}
       />
@@ -134,7 +135,7 @@ function FormularioDeSenha() {
       />
       {resultado ? <Alert tone={resultado.tom} title={resultado.titulo}>{resultado.texto}</Alert> : null}
       <div className={styles.acaoNoRodape}>
-        <Button type="submit" variant="primary" size="sm" icon={<KeyRound size={14} />} disabled={enviando}>
+        <Button type="submit" variant="primary" icon={<KeyRound size={14} />} className={styles.botaoDoCartao} disabled={enviando}>
           {enviando ? "Atualizando…" : "Atualizar senha"}
         </Button>
       </div>
@@ -148,8 +149,8 @@ function FaixaDeProtecao({ mfa }: { mfa: EstadoDoMfa }) {
   const resumo = verificando
     ? "Verificando a proteção da conta…"
     : protegida
-      ? "Sua conta exige senha ou Google e, em cada novo login, um código do aplicativo autenticador."
-      : "Sua conta entra por senha ou Google. Ative a autenticação em duas etapas para exigir também um código do aplicativo em cada login.";
+      ? "Cada novo login exige um código do aplicativo autenticador."
+      : "Ative a autenticação em duas etapas para exigir um código do aplicativo em cada login.";
   return (
     <section
       className={`${styles.vidro} ${styles.faixa} ${protegida ? styles.faixaProtegida : ""}`}
@@ -169,18 +170,16 @@ function FaixaDeProtecao({ mfa }: { mfa: EstadoDoMfa }) {
         </div>
         <ul className={styles.rotulos}>
           <li className={`${styles.camada} ${styles.camadaOk}`}>
-            <CheckCircle2 aria-hidden="true" />
-            <span>
-              Entrada
-              <small>Senha ou Google</small>
-            </span>
+            <CheckCircle2 role="img" aria-label="Ativa" />
+            <span>Entrada</span>
           </li>
           <li className={`${styles.camada} ${protegida ? styles.camadaOk : styles.camadaPendente}`}>
-            {protegida ? <CheckCircle2 aria-hidden="true" /> : <Circle aria-hidden="true" />}
-            <span>
-              Duas etapas
-              <small>{verificando ? "Verificando" : protegida ? "Código a cada login" : "Opcional"}</small>
-            </span>
+            {protegida ? (
+              <CheckCircle2 role="img" aria-label="Ativada" />
+            ) : (
+              <Circle role="img" aria-label={verificando ? "Verificando" : "Desativada"} />
+            )}
+            <span>Duas etapas</span>
           </li>
         </ul>
       </div>
