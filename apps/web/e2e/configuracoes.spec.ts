@@ -133,8 +133,21 @@ test("Segurança alinha senha e 2FA na mesma linha e empilha os cartões no celu
     } else {
       expect(right!.y).toBeGreaterThanOrEqual(left!.y + left!.height);
     }
-    await mfa.getByRole("button", { name: "Ativar autenticação em duas etapas", exact: true }).click();
+    const ativar = mfa.getByRole("button", { name: "Ativar autenticação em duas etapas", exact: true });
+    const alturaAntes = (await mfa.boundingBox())!.height;
+    if (viewport.width > 960) {
+      // "Ativar" e "Atualizar senha" ficam alinhados na base dos cartões.
+      const baseAtivar = (await ativar.boundingBox())!;
+      const baseSenha = (await password.getByRole("button", { name: "Atualizar senha", exact: true }).boundingBox())!;
+      expect(Math.abs(baseAtivar.y + baseAtivar.height - (baseSenha.y + baseSenha.height))).toBeLessThan(2);
+    }
+    await ativar.click();
     await expect(mfa.getByRole("img", { name: /QR code/ })).toBeVisible();
+    if (viewport.width > 960) {
+      // Configurar o autenticador não aumenta o cartão: o layout fica dentro do mesmo espaço.
+      expect(Math.abs((await mfa.boundingBox())!.height - alturaAntes)).toBeLessThan(2);
+      expect(Math.abs((await password.boundingBox())!.height - alturaAntes)).toBeLessThan(2);
+    }
     await expect(mfa.getByLabel("Código do aplicativo")).toBeVisible();
     expect(await mfa.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true);
   }

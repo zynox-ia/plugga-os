@@ -189,13 +189,13 @@ function FaixaDeProtecao({ mfa }: { mfa: EstadoDoMfa }) {
 
 export function SegurancaDaContaView() {
   const { usuario } = useSessionUser();
-  const [mfa, setMfa] = useState<EstadoDoMfa>({ carregado: false, ativada: false, focado: false });
+  const [mfa, setMfa] = useState<EstadoDoMfa>({ carregado: false, ativada: false });
   if (!usuario) return null;
 
   return (
     <div className={styles.seguranca}>
       <FaixaDeProtecao mfa={mfa} />
-      <div className={`${styles.gradeSeguranca} ${mfa.focado ? styles.gradeFocada : ""}`}>
+      <div className={styles.gradeSeguranca}>
         <SegurancaView aoMudarEstado={setMfa} />
         <CartaoDaConfiguracao
           titulo="Alterar senha de acesso"

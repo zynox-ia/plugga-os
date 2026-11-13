@@ -12,7 +12,7 @@ import { MfaRecoveryCodes as RecoveryCodes } from "./mfa-recovery-codes";
 import { MfaSetupForm } from "./mfa-setup";
 import styles from "./mfa.module.css";
 
-export type EstadoDoMfa = { carregado: boolean; ativada: boolean; focado: boolean };
+export type EstadoDoMfa = { carregado: boolean; ativada: boolean };
 
 export function SegurancaView({ aoMudarEstado }: { aoMudarEstado?: (estado: EstadoDoMfa) => void } = {}) {
   const [status, setStatus] = useState<MfaStatus | null>(null);
@@ -42,13 +42,12 @@ export function SegurancaView({ aoMudarEstado }: { aoMudarEstado?: (estado: Esta
     };
   }, [reload]);
 
-  // A tela avisa a faixa de proteção e decide se o cartão ocupa a linha toda (configurando ou salvando códigos).
+  // A faixa de proteção, no alto da página, acompanha o estado carregado do 2FA.
   const carregado = status !== null;
   const ativada = status?.enabled === true;
-  const focado = setup !== null || codes !== null;
   useEffect(() => {
-    aoMudarEstado?.({ carregado, ativada, focado });
-  }, [aoMudarEstado, carregado, ativada, focado]);
+    aoMudarEstado?.({ carregado, ativada });
+  }, [aoMudarEstado, carregado, ativada]);
 
   function fail(err: unknown) {
     setError(err instanceof Error ? err.message : "Não foi possível concluir. Tente novamente.");
@@ -128,14 +127,18 @@ export function SegurancaView({ aoMudarEstado }: { aoMudarEstado?: (estado: Esta
       titulo="Autenticação em duas etapas"
       tituloId="mfa-titulo"
       icone={<QrCode />}
+      className={cartoes.cartaoDoMfa}
       selo={
         status ? <Badge tone={status.enabled ? "success" : "neutral"}>{status.enabled ? "Ativada" : "Desativada"}</Badge> : null
       }
     >
-    <div className={`${styles.stack} ${cartoes.corpo}`}>
-      <p className={styles.note}>
-        Proteja sua conta com um aplicativo autenticador. A ativação é opcional para todos os papéis.
-      </p>
+    <div className={`${styles.stack} ${cartoes.corpoDoMfa}`}>
+      {/* Durante a configuração o espaço vai para o QR code e o código: o cartão não cresce. */}
+      {!setup && (
+        <p className={styles.note}>
+          Proteja sua conta com um aplicativo autenticador. A ativação é opcional para todos os papéis.
+        </p>
+      )}
 
       {error && !action && <Alert tone="danger" title={error} />}
       {notice && <Alert tone="success" title={notice} />}
@@ -215,7 +218,14 @@ export function SegurancaView({ aoMudarEstado }: { aoMudarEstado?: (estado: Esta
               </li>
             </ol>
           )}
-          <div className={styles.actions}>
+          <p className={cartoes.rodapeDoCartao}>
+            <KeyRound aria-hidden="true" />
+            <span>
+              Guarde os códigos de recuperação fora do autenticador. Se perder ambos, solicite a recuperação a um
+              Desenvolvedor da equipe.
+            </span>
+          </p>
+          <div className={`${styles.actions} ${cartoes.acaoNoRodape}`}>
             {status.enabled ? (
               <>
                 <Button
@@ -261,13 +271,6 @@ export function SegurancaView({ aoMudarEstado }: { aoMudarEstado?: (estado: Esta
               </Button>
             )}
           </div>
-          <p className={cartoes.rodapeDoCartao}>
-            <KeyRound aria-hidden="true" />
-            <span>
-              Guarde os códigos de recuperação fora do autenticador. Se perder ambos, solicite a recuperação a um
-              Desenvolvedor da equipe.
-            </span>
-          </p>
         </>
       )}
 

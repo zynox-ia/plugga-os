@@ -106,15 +106,20 @@ export function MfaSetupForm({
               <Button type="submit" loading={busy}>
                 Confirmar primeiro código
               </Button>
+              <Button type="button" variant="secondary" disabled={busy} onClick={onCancel}>
+                Cancelar configuração
+              </Button>
             </div>
           </form>
         </div>
       )}
-      <div className={styles.actions}>
-        <Button variant="secondary" disabled={busy} onClick={onCancel}>
-          Cancelar configuração
-        </Button>
-      </div>
+      {expired && (
+        <div className={styles.actions}>
+          <Button variant="secondary" disabled={busy} onClick={onCancel}>
+            Cancelar configuração
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

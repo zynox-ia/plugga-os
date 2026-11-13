@@ -352,9 +352,23 @@
   gap: 16px;
 }
 
-/* Configurando o autenticador ou salvando os códigos: o cartão ganha a largura toda. */
-.gradeFocada {
-  grid-template-columns: minmax(0, 1fr);
+/*
+ * O cartão de 2FA não aumenta a linha: a altura vem do cartão da senha e, se o conteúdo do 2FA
+ * (QR code, códigos de recuperação) for maior, o corpo do cartão rola por dentro.
+ */
+.cartaoDoMfa {
+  contain: size;
+}
+
+.corpoDoMfa {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 0;
+  padding: 22px 24px 24px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .formulario {
@@ -616,6 +630,13 @@
   .gradeSeguranca {
     grid-template-columns: minmax(0, 1fr);
   }
+  /* Empilhados, cada cartão volta a ter a altura do próprio conteúdo. */
+  .cartaoDoMfa {
+    contain: none;
+  }
+  .corpoDoMfa {
+    overflow-y: visible;
+  }
 }
 
 @media (max-width: 767px) {
@@ -644,6 +665,7 @@
     padding: 16px 18px 14px;
   }
   .corpo,
+  .corpoDoMfa,
   .formulario {
     padding: 18px;
     gap: 16px;

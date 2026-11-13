@@ -55,9 +55,14 @@
 
 .setup {
   display: grid;
-  grid-template-columns: minmax(0, 220px) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 168px) minmax(0, 1fr);
   align-items: start;
-  gap: 24px;
+  gap: 20px;
+}
+
+/* Formulário da configuração mais justo, para caber no cartão sem rolagem. */
+.setup .stack {
+  gap: 12px;
 }
 
 .qrContainer {
@@ -67,13 +72,13 @@
   background: var(--ui-surface, #ffffff);
   border: 1px solid var(--ui-divider, #dbe4ed);
   border-radius: 12px;
-  padding: 12px;
+  padding: 8px;
 }
 
 .qr {
   display: block;
   width: 100%;
-  max-width: 220px;
+  max-width: 152px;
   height: auto;
   image-rendering: pixelated;
   border-radius: 6px;
