@@ -1,17 +1,21 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ShieldCheck } from "lucide-react";
+import { ArrowRight, KeyRound, LockKeyhole, ShieldCheck, Smartphone } from "lucide-react";
 import type { MfaRecoveryCodes, MfaSetup, MfaStatus } from "@plugga/shared";
 import { Alert, Badge, Button } from "../components/ui";
 import { MfaError, mfaRequest } from "../lib/mfa-client";
+import { CartaoDaConfiguracao } from "./cartao";
+import cartoes from "./cartoes.module.css";
 import { MfaActionDialog, type MfaAction } from "./mfa-action-dialog";
 import { MfaRecoveryCodes as RecoveryCodes } from "./mfa-recovery-codes";
 import { MfaSetupForm } from "./mfa-setup";
 import config from "./configuracoes.module.css";
 import styles from "./mfa.module.css";
 
-export function SegurancaView() {
+export type EstadoDoMfa = { carregado: boolean; ativada: boolean; focado: boolean };
+
+export function SegurancaView({ aoMudarEstado }: { aoMudarEstado?: (estado: EstadoDoMfa) => void } = {}) {
   const [status, setStatus] = useState<MfaStatus | null>(null);
   const [setup, setSetup] = useState<MfaSetup | null>(null);
   const [codes, setCodes] = useState<string[] | null>(null);
@@ -38,6 +42,14 @@ export function SegurancaView() {
       active = false;
     };
   }, [reload]);
+
+  // A tela avisa a faixa de proteção e decide se o cartão ocupa a linha toda (configurando ou salvando códigos).
+  const carregado = status !== null;
+  const ativada = status?.enabled === true;
+  const focado = setup !== null || codes !== null;
+  useEffect(() => {
+    aoMudarEstado?.({ carregado, ativada, focado });
+  }, [aoMudarEstado, carregado, ativada, focado]);
 
   function fail(err: unknown) {
     setError(err instanceof Error ? err.message : "Não foi possível concluir. Tente novamente.");
@@ -113,19 +125,18 @@ export function SegurancaView() {
   }
 
   return (
-    <section className={`${config.secao} ${styles.stack} ${styles.card}`} aria-label="Autenticação em duas etapas">
-      <div className={styles.header}>
-        <h3>
-          <ShieldCheck size={18} aria-hidden="true" />
-          Autenticação em duas etapas
-        </h3>
-        {status && (
-          <Badge tone={status.enabled ? "success" : "neutral"}>{status.enabled ? "Ativada" : "Desativada"}</Badge>
-        )}
-        <p className={styles.note}>
-          Proteja sua conta com um aplicativo autenticador. A ativação é opcional para todos os papéis.
-        </p>
-      </div>
+    <CartaoDaConfiguracao
+      titulo="Autenticação em duas etapas"
+      tituloId="mfa-titulo"
+      icone={<ShieldCheck />}
+      selo={
+        status ? <Badge tone={status.enabled ? "success" : "neutral"}>{status.enabled ? "Ativada" : "Desativada"}</Badge> : null
+      }
+    >
+    <div className={`${styles.stack} ${cartoes.corpo}`}>
+      <p className={styles.note}>
+        Proteja sua conta com um aplicativo autenticador. A ativação é opcional para todos os papéis.
+      </p>
 
       {error && !action && <Alert tone="danger" title={error} />}
       {notice && <Alert tone="success" title={notice} />}
@@ -169,6 +180,42 @@ export function SegurancaView() {
         />
       ) : (
         <>
+          {status.enabled ? (
+            <div className={cartoes.cofre}>
+              <span className={cartoes.cofreNumero} aria-hidden="true">
+                {status.recoveryCodesRemaining}
+              </span>
+              <div className={cartoes.cofreTexto}>
+                <strong>Códigos de recuperação</strong>
+                <span>Cada código funciona uma única vez.</span>
+                <div className={cartoes.pontos} aria-hidden="true">
+                  {Array.from({ length: 10 }, (_, indice) => (
+                    <i key={indice} className={indice < status.recoveryCodesRemaining ? cartoes.ligado : ""} />
+                  ))}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <ol className={cartoes.fluxo} aria-label="Como o login passa a funcionar">
+              <li>
+                <span className={cartoes.passoIcone} aria-hidden="true">
+                  <LockKeyhole />
+                </span>
+                <strong>Senha ou Google</strong>
+                <span className={cartoes.descricao}>Como você entra hoje.</span>
+              </li>
+              <li className={cartoes.seta} aria-hidden="true">
+                <ArrowRight size={16} />
+              </li>
+              <li className={cartoes.novo}>
+                <span className={cartoes.passoIcone} aria-hidden="true">
+                  <Smartphone />
+                </span>
+                <strong>Código do app ou de recuperação</strong>
+                <span className={cartoes.descricao}>Passa a ser pedido.</span>
+              </li>
+            </ol>
+          )}
           <p className={styles.note}>
             {status.enabled
               ? `Novos logins por senha e Google exigem o segundo fator. Códigos de recuperação restantes: ${status.recoveryCodesRemaining}.`
@@ -214,9 +261,12 @@ export function SegurancaView() {
               </Button>
             )}
           </div>
-          <p className={styles.note}>
-            Guarde os códigos de recuperação fora do autenticador. Se perder ambos, solicite a recuperação a um
-            Desenvolvedor da equipe.
+          <p className={cartoes.rodapeDoCartao}>
+            <KeyRound aria-hidden="true" />
+            <span>
+              Guarde os códigos de recuperação fora do autenticador. Se perder ambos, solicite a recuperação a um
+              Desenvolvedor da equipe.
+            </span>
           </p>
         </>
       )}
@@ -234,6 +284,7 @@ export function SegurancaView() {
           onSubmit={(code) => execute(action, code)}
         />
       )}
-    </section>
+    </div>
+    </CartaoDaConfiguracao>
   );
 }

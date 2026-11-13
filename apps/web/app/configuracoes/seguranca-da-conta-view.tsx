@@ -1,12 +1,14 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { KeyRound, Lock } from "lucide-react";
+import { CheckCircle2, Circle, KeyRound, Lock, ShieldCheck } from "lucide-react";
 
-import { Alert, Button, TextField } from "../components/ui";
+import { Alert, Button } from "../components/ui";
 import { useSessionUser } from "../lib/use-session-user";
-import styles from "./configuracoes.module.css";
-import { SegurancaView } from "./seguranca-view";
+import { CampoDeSenha } from "./campo-de-senha";
+import { CartaoDaConfiguracao } from "./cartao";
+import styles from "./cartoes.module.css";
+import { SegurancaView, type EstadoDoMfa } from "./seguranca-view";
 
 const TAMANHO_MINIMO = 12;
 
@@ -51,6 +53,22 @@ async function trocarSenha(senhaAtual: string, senhaNova: string): Promise<Resul
   return { tom: "danger", titulo: "Não foi possível trocar a senha.", texto: "Confira os campos e tente novamente." };
 }
 
+function MedidorDeTamanho({ tamanho }: { tamanho: number }) {
+  const completo = tamanho >= TAMANHO_MINIMO;
+  const largura = Math.min(100, Math.round((tamanho / TAMANHO_MINIMO) * 100));
+  return (
+    <div className={`${styles.medidor} ${completo ? styles.medidorOk : ""}`}>
+      <div className={styles.trilho} aria-hidden="true">
+        <i style={{ width: `${largura}%` }} />
+      </div>
+      <p className={styles.legenda} aria-live="polite">
+        {completo ? <CheckCircle2 aria-hidden="true" /> : null}
+        {completo ? "Tamanho suficiente" : `${tamanho} de ${TAMANHO_MINIMO} caracteres`}
+      </p>
+    </div>
+  );
+}
+
 function FormularioDeSenha() {
   const [atual, setAtual] = useState("");
   const [nova, setNova] = useState("");
@@ -87,9 +105,8 @@ function FormularioDeSenha() {
   }
 
   return (
-    <form className={styles.camposUnicaColuna} onSubmit={enviar} noValidate>
-      <TextField
-        type="password"
+    <form className={styles.formulario} onSubmit={enviar} noValidate>
+      <CampoDeSenha
         label="Senha atual"
         value={atual}
         onChange={(e) => setAtual(e.target.value)}
@@ -97,18 +114,17 @@ function FormularioDeSenha() {
         error={erroAtual}
         maxLength={200}
       />
-      <TextField
-        type="password"
+      <CampoDeSenha
         label="Nova senha"
         value={nova}
         onChange={(e) => setNova(e.target.value)}
         autoComplete="new-password"
+        extra={<MedidorDeTamanho tamanho={nova.length} />}
         hint={`Mínimo de ${TAMANHO_MINIMO} caracteres. Frases longas funcionam bem.`}
         error={erroNova}
         maxLength={200}
       />
-      <TextField
-        type="password"
+      <CampoDeSenha
         label="Confirmar nova senha"
         value={confirmacao}
         onChange={(e) => setConfirmacao(e.target.value)}
@@ -117,7 +133,7 @@ function FormularioDeSenha() {
         maxLength={200}
       />
       {resultado ? <Alert tone={resultado.tom} title={resultado.titulo}>{resultado.texto}</Alert> : null}
-      <div className={styles.rodape}>
+      <div className={styles.acaoNoRodape}>
         <Button type="submit" variant="primary" size="sm" icon={<KeyRound size={14} />} disabled={enviando}>
           {enviando ? "Atualizando…" : "Atualizar senha"}
         </Button>
@@ -126,22 +142,70 @@ function FormularioDeSenha() {
   );
 }
 
+function FaixaDeProtecao({ mfa }: { mfa: EstadoDoMfa }) {
+  const verificando = !mfa.carregado;
+  const protegida = mfa.carregado && mfa.ativada;
+  const resumo = verificando
+    ? "Verificando a proteção da conta…"
+    : protegida
+      ? "Sua conta exige senha ou Google e, em cada novo login, um código do aplicativo autenticador."
+      : "Sua conta entra por senha ou Google. Ative a autenticação em duas etapas para exigir também um código do aplicativo em cada login.";
+  return (
+    <section
+      className={`${styles.vidro} ${styles.faixa} ${protegida ? styles.faixaProtegida : ""}`}
+      aria-labelledby="protecao-titulo"
+    >
+      <span className={styles.faixaIcone} aria-hidden="true">
+        <ShieldCheck strokeWidth={1.5} />
+      </span>
+      <div className={styles.faixaTexto}>
+        <h2 id="protecao-titulo">Proteção da conta</h2>
+        <p aria-live="polite">{resumo}</p>
+      </div>
+      <div className={styles.camadas}>
+        <div className={styles.barra} aria-hidden="true">
+          <i className={styles.ligada} />
+          <i className={protegida ? styles.ligada : ""} />
+        </div>
+        <ul className={styles.rotulos}>
+          <li className={`${styles.camada} ${styles.camadaOk}`}>
+            <CheckCircle2 aria-hidden="true" />
+            <span>
+              Entrada
+              <small>Senha ou Google</small>
+            </span>
+          </li>
+          <li className={`${styles.camada} ${protegida ? styles.camadaOk : styles.camadaPendente}`}>
+            {protegida ? <CheckCircle2 aria-hidden="true" /> : <Circle aria-hidden="true" />}
+            <span>
+              Duas etapas
+              <small>{verificando ? "Verificando" : protegida ? "Código a cada login" : "Opcional"}</small>
+            </span>
+          </li>
+        </ul>
+      </div>
+    </section>
+  );
+}
+
 export function SegurancaDaContaView() {
   const { usuario } = useSessionUser();
+  const [mfa, setMfa] = useState<EstadoDoMfa>({ carregado: false, ativada: false, focado: false });
   if (!usuario) return null;
 
   return (
-    <div className={styles.painel}>
-      <div className={`${styles.grade} ${styles.gradeSeguranca}`}>
-        <section className={styles.secao} aria-label="Segurança e senha">
-          <h4 className={styles.tituloDaSecao}>
-            <Lock size={16} aria-hidden="true" />
-            Alterar senha de acesso
-          </h4>
+    <div className={styles.seguranca}>
+      <FaixaDeProtecao mfa={mfa} />
+      <div className={`${styles.gradeSeguranca} ${mfa.focado ? styles.gradeFocada : ""}`}>
+        <SegurancaView aoMudarEstado={setMfa} />
+        <CartaoDaConfiguracao
+          titulo="Alterar senha de acesso"
+          tituloId="senha-titulo"
+          icone={<Lock />}
+          rotulo="Segurança e senha"
+        >
           <FormularioDeSenha />
-        </section>
-
-        <SegurancaView />
+        </CartaoDaConfiguracao>
       </div>
     </div>
   );

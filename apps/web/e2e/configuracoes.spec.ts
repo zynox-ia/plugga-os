@@ -123,10 +123,12 @@ test("Segurança alinha senha e 2FA na mesma linha e empilha os cartões no celu
     await expect(password.getByText("Alteração de senha em preparação", { exact: true })).toHaveCount(0);
     await expect(password.getByText("A troca de senha nesta tela ainda não está disponível.", { exact: true })).toHaveCount(0);
     await expect(page.getByRole("region", { name: "Dados da sessão atual", exact: true })).toHaveCount(0);
-    const left = await password.boundingBox();
-    const right = await mfa.boundingBox();
-    if (viewport.width > 767) {
+    const left = await mfa.boundingBox();
+    const right = await password.boundingBox();
+    if (viewport.width > 960) {
+      // Cartões lado a lado: mesmo topo e mesma altura (equilíbrio).
       expect(Math.abs(left!.y - right!.y)).toBeLessThan(2);
+      expect(Math.abs(left!.height - right!.height)).toBeLessThan(2);
       expect(right!.x).toBeGreaterThanOrEqual(left!.x + left!.width);
     } else {
       expect(right!.y).toBeGreaterThanOrEqual(left!.y + left!.height);
@@ -166,7 +168,8 @@ test("Perfil agrupa os dados em um cartão responsivo e preserva a consulta da c
   for (const viewport of [{ width: 1366, height: 960 }, { width: 320, height: 844 }]) {
     await page.setViewportSize(viewport);
     await page.goto("/configuracoes?aba=perfil");
-    const profile = page.getByRole("region", { name: "Identificação e contato", exact: true });
+    const identity = page.getByRole("region", { name: "Identificação e contato", exact: true });
+    const profile = page.getByRole("region", { name: "Informações pessoais", exact: true });
     const nameField = profile.getByLabel("Nome Completo", { exact: true });
     const emailField = profile.getByLabel("E-mail", { exact: true });
     const phoneField = profile.getByLabel("Celular / WhatsApp", { exact: true });
@@ -176,7 +179,7 @@ test("Perfil agrupa os dados em um cartão responsivo e preserva a consulta da c
     await expect(emailField).toHaveAttribute("readonly", "");
     await expect(phoneField).toBeDisabled();
     await expect(profile.getByRole("button", { name: "Salvar perfil", exact: true })).toBeDisabled();
-    await expect(profile.getByText(name, { exact: true })).toBeVisible();
+    await expect(identity.getByText(name, { exact: true })).toBeVisible();
     await expect(profile.getByRole("alert")).toHaveCount(0);
     await expect(profile.locator('input[type="file"]')).toHaveCount(0);
     const emailBox = await emailField.boundingBox();

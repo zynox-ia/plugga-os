@@ -14,7 +14,7 @@ test("perfil sem API de edição não persiste foto nem simula gravação", () =
 });
 
 test("troca de senha: três campos com autocomplete certo, sem guardar a senha no navegador", () => {
-  const campos = [...seguranca.matchAll(/<TextField\s+type="password"[\s\S]*?\/>/g)];
+  const campos = [...seguranca.matchAll(/<CampoDeSenha[\s\S]*?\/>/g)];
   assert.equal(campos.length, 3);
   assert.match(campos[0]![0], /autoComplete="current-password"/);
   assert.match(campos[1]![0], /autoComplete="new-password"/);
@@ -33,6 +33,6 @@ test("identificação vem da sessão atual e não afirma método ou saúde não 
 
 test("perfil mantém dados pessoais e segurança reúne senha e segundo fator sem o cartão de sessão", () => {
   assert.doesNotMatch(perfil, /SegurancaView|type="password"|Dados da sessão atual/);
-  assert.match(seguranca, /<SegurancaView\s*\/>/);
+  assert.match(seguranca, /<SegurancaView\b/);
   assert.doesNotMatch(seguranca, /Dados da sessão atual|Métodos de Autenticação|usuario\.email/);
 });

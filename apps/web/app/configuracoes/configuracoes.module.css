@@ -71,9 +71,7 @@
 .painel strong,
 .painel b,
 .navegacaoAbas strong,
-.navegacaoAbas b,
-.cardPerfilUnificado strong,
-.cardPerfilUnificado b {
+.navegacaoAbas b {
   font-weight: 500;
 }
 
@@ -190,21 +188,6 @@
   font-weight: 500;
 }
 
-/* Segurança: os dois cartões têm alturas diferentes; não esticar um até o outro. */
-.gradeSeguranca {
-  align-items: start;
-}
-
-/* Mesmo peso de título do cartão de autenticação em duas etapas, ao lado. */
-.secao h4.tituloDaSecao {
-  font-size: 16px;
-}
-
-.secao h4.tituloDaSecao svg {
-  width: 18px;
-  height: 18px;
-}
-
 .secao h4 svg {
   color: var(--ui-primary);
   flex-shrink: 0;
@@ -244,128 +227,6 @@
   border-top: 1px solid var(--ui-divider);
 }
 
-/* Card Unificado de Perfil: Simples, Direto e Objetivo */
-.cardPerfilUnificado {
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-  padding: 20px 22px;
-  border: 1px solid rgba(255, 255, 255, 0.75);
-  border-radius: 18px;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.68) 0%, rgba(255, 255, 255, 0.48) 100%);
-  -webkit-backdrop-filter: blur(44px) saturate(190%);
-  backdrop-filter: blur(44px) saturate(190%);
-  box-shadow: 0 10px 30px -4px rgba(10, 25, 47, 0.08), inset 0 1px 1px 0 rgba(255, 255, 255, 0.90), inset 0 -1px 1px 0 rgba(0, 0, 0, 0.03);
-  box-sizing: border-box;
-}
-
-.perfilTopoUnificado {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-  padding-bottom: 18px;
-  border-bottom: 1px solid var(--ui-divider);
-}
-
-.perfilTopoInfo {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 0;
-  flex: 1;
-}
-
-.perfilTopoTituloLinha {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.perfilTopoTituloLinha strong {
-  max-width: 100%;
-  font-size: 18px;
-  font-weight: 500;
-  color: var(--ui-text);
-  font-family: var(--font-general-sans), sans-serif;
-  overflow-wrap: anywhere;
-}
-
-.perfilTopoEmail {
-  font-size: 13px;
-  color: var(--ui-muted);
-  overflow-wrap: anywhere;
-}
-
-.perfilTopoMeta {
-  font-size: 11.5px;
-  color: var(--ui-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.perfilDados {
-  display: grid;
-  gap: 14px;
-  min-width: 0;
-}
-
-.perfilDadosTitulo {
-  margin: 0;
-  color: var(--ui-text);
-  font-size: 14px;
-  font-weight: 500;
-}
-
-.perfilGradeCampos :global(.ui-input-wrap):focus-within {
-  outline: 2px solid var(--ui-primary);
-  outline-offset: 2px;
-}
-
-.perfilGradeCampos {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px 18px;
-}
-
-.perfilRodape {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding-top: 16px;
-  border-top: 1px solid var(--ui-divider);
-  flex-wrap: wrap;
-}
-
-.perfilRodapeNota {
-  display: flex;
-  align-items: flex-start;
-  flex: 1 1 260px;
-  gap: 8px;
-  font-size: 12px;
-  color: var(--ui-muted);
-  margin: 0;
-  line-height: var(--line-height-body);
-}
-
-.perfilRodapeNota svg {
-  flex-shrink: 0;
-  margin-block-start: 1px;
-}
-
-.perfilAvatar {
-  display: grid;
-  place-items: center;
-  flex-shrink: 0;
-  width: 72px;
-  height: 72px;
-  border: 1px solid var(--ui-divider);
-  border-radius: 50%;
-  background: var(--ui-subtle);
-  color: var(--ui-primary);
-}
-
 /* Linha de Sessão / Conexão */
 .linhaSessao {
   display: flex;
@@ -403,20 +264,7 @@
 }
 
 @media (max-width: 767px) {
-  .grade, .campos, .perfilGradeCampos {
+  .grade, .campos {
     grid-template-columns: 1fr;
-  }
-  .perfilTopoUnificado {
-    gap: 16px;
-  }
-  .perfilAvatar {
-    width: 64px;
-    height: 64px;
-  }
-  .perfilGradeCampos input {
-    font-size: 16px;
-  }
-  .perfilRodape > button {
-    width: 100%;
   }
 }

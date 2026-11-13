@@ -1,0 +1,716 @@
+/* Cartões das abas Perfil e Segurança: cabeçalho com ícone, divisória e corpo. */
+
+.vidro {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  border-radius: var(--radius-lg, 18px);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.68) 0%, rgba(255, 255, 255, 0.48) 100%);
+  -webkit-backdrop-filter: blur(44px) saturate(190%);
+  backdrop-filter: blur(44px) saturate(190%);
+  box-shadow: 0 10px 30px -4px rgba(10, 25, 47, 0.08), inset 0 1px 1px 0 rgba(255, 255, 255, 0.9),
+    inset 0 -1px 1px 0 rgba(0, 0, 0, 0.03);
+  container-type: inline-size;
+}
+
+.cabecalho {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 18px 24px 16px;
+  border-bottom: 1px solid var(--ui-divider);
+}
+
+.icone {
+  display: grid;
+  place-items: center;
+  flex: 0 0 38px;
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  color: #fff;
+  background: linear-gradient(135deg, var(--color-navy-850) 0%, var(--color-blue-600) 100%);
+  box-shadow: 0 6px 14px -6px rgba(0, 102, 204, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+
+.icone svg {
+  width: 19px;
+  height: 19px;
+}
+
+.titulo {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  color: var(--ui-text);
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1.35;
+}
+
+.corpo {
+  display: grid;
+  flex: 1;
+  align-content: start;
+  gap: 18px;
+  min-width: 0;
+  padding: 22px 24px 24px;
+}
+
+/* Foco visível nos campos dos cartões (o campo em si zera o contorno). */
+.corpo :global(.ui-input-wrap):focus-within,
+.formulario :global(.ui-input-wrap):focus-within {
+  outline: 2px solid var(--ui-primary);
+  outline-offset: 2px;
+}
+
+/* ---------- Perfil ---------- */
+
+.perfil {
+  display: grid;
+  gap: 16px;
+  padding-bottom: 24px;
+}
+
+.credencial {
+  overflow: hidden;
+}
+
+.capa {
+  position: relative;
+  height: 116px;
+  background: radial-gradient(120% 160% at 100% 0%, rgba(51, 181, 255, 0.55) 0%, rgba(51, 181, 255, 0) 55%),
+    linear-gradient(120deg, var(--color-navy-900) 0%, var(--color-navy-850) 45%, var(--color-blue-600) 100%);
+}
+
+.capa::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: 0.5;
+  background: repeating-linear-gradient(115deg, rgba(255, 255, 255, 0.07) 0 1px, transparent 1px 22px);
+  -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 70%);
+  mask-image: linear-gradient(90deg, transparent 0%, #000 70%);
+}
+
+.arcos {
+  position: absolute;
+  right: -40px;
+  top: -60px;
+  width: 300px;
+  height: 300px;
+  opacity: 0.55;
+}
+
+.corpoCredencial {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 6px 22px;
+  padding: 0 28px 24px;
+}
+
+.avatarBloco {
+  position: relative;
+  flex: 0 0 auto;
+  margin-top: -48px;
+}
+
+.avatar {
+  display: grid;
+  place-items: center;
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  color: #fff;
+  background: linear-gradient(135deg, var(--color-navy-850) 0%, var(--color-blue-600) 100%);
+  box-shadow: 0 0 0 5px rgba(255, 255, 255, 0.92), 0 12px 26px -8px rgba(0, 102, 204, 0.55);
+}
+
+.avatar svg {
+  width: 40px;
+  height: 40px;
+}
+
+.avatarFoto {
+  position: absolute;
+  right: -2px;
+  bottom: 2px;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  color: var(--ui-muted);
+  background: #edf1f5;
+  cursor: not-allowed;
+}
+
+.avatarFoto svg {
+  width: 14px;
+  height: 14px;
+}
+
+.identidade {
+  flex: 1 1 280px;
+  min-width: 0;
+  padding-top: 14px;
+}
+
+.nome {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin: 0;
+  color: var(--ui-text);
+  font-size: 22px;
+  font-weight: 500;
+  line-height: 1.25;
+  letter-spacing: -0.015em;
+  overflow-wrap: anywhere;
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.meta li {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  padding: 4px 12px 4px 10px;
+  border: 1px solid var(--ui-divider);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.65);
+  color: var(--ui-text);
+  font-size: 12.5px;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.meta svg {
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  color: var(--ui-primary);
+}
+
+.camposTres {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px 20px;
+}
+
+.rodapeFicha {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding: 16px 24px 18px;
+  border-top: 1px solid var(--ui-divider);
+}
+
+.nota {
+  display: flex;
+  align-items: flex-start;
+  flex: 1 1 280px;
+  gap: 8px;
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid #bcd7f4;
+  border-radius: var(--radius-md, 12px);
+  background: rgba(234, 243, 255, 0.7);
+  color: #2d4764;
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.nota svg {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+  color: #1759a0;
+}
+
+/* ---------- Segurança ---------- */
+
+.seguranca {
+  display: grid;
+  gap: 16px;
+  padding-bottom: 24px;
+}
+
+.faixa {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) minmax(260px, 420px);
+  align-items: center;
+  gap: 18px 24px;
+  padding: 20px 24px;
+}
+
+.faixaIcone {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  color: #fff;
+  background: linear-gradient(135deg, var(--color-navy-850) 0%, var(--color-blue-600) 100%);
+  box-shadow: 0 10px 22px -8px rgba(0, 102, 204, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+
+.faixaIcone svg {
+  width: 26px;
+  height: 26px;
+}
+
+.faixaProtegida .faixaIcone {
+  background: linear-gradient(135deg, #0b5d3f 0%, #19a06a 100%);
+  box-shadow: 0 10px 22px -8px rgba(18, 103, 68, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+
+.faixaTexto h2 {
+  margin: 0;
+  color: var(--ui-text);
+  font-size: 17px;
+  font-weight: 500;
+  line-height: 1.3;
+}
+
+.faixaTexto p {
+  max-width: 60ch;
+  margin: 3px 0 0;
+  color: var(--ui-muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.camadas {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.barra {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.barra i {
+  display: block;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(15, 41, 74, 0.12);
+  transition: background 0.3s ease;
+}
+
+.barra i.ligada {
+  background: linear-gradient(90deg, var(--color-blue-600), var(--color-cyan-400));
+}
+
+.faixaProtegida .barra i.ligada {
+  background: linear-gradient(90deg, #19a06a, #34c58b);
+}
+
+.rotulos {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.camada {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  color: var(--ui-text);
+  font-size: 12.5px;
+  line-height: 1.3;
+}
+
+.camada svg {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+}
+
+.camadaOk svg {
+  color: #126744;
+}
+
+.camadaPendente svg {
+  color: var(--ui-muted);
+}
+
+.camada small {
+  display: block;
+  color: var(--ui-muted);
+  font-size: 11.5px;
+}
+
+/* Os dois cartões têm sempre a mesma altura; o rodapé de ação fica ancorado embaixo. */
+.gradeSeguranca {
+  display: grid;
+  grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+  align-items: stretch;
+  gap: 16px;
+}
+
+/* Configurando o autenticador ou salvando os códigos: o cartão ganha a largura toda. */
+.gradeFocada {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.formulario {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 18px;
+  min-width: 0;
+  padding: 22px 24px 24px;
+}
+
+.acaoNoRodape {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: auto;
+  padding-top: 4px;
+}
+
+.olho {
+  display: grid;
+  place-items: center;
+  flex: 0 0 40px;
+  width: 40px;
+  height: 40px;
+  margin-right: 2px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ui-muted);
+  cursor: pointer;
+}
+
+.olho:hover {
+  background: rgba(15, 41, 74, 0.06);
+  color: var(--ui-text);
+}
+
+.olho:focus-visible {
+  outline: 2px solid var(--ui-primary);
+  outline-offset: -2px;
+}
+
+.olho svg {
+  width: 16px;
+  height: 16px;
+}
+
+.medidor {
+  display: grid;
+  gap: 6px;
+}
+
+.trilho {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(15, 41, 74, 0.12);
+}
+
+.trilho i {
+  display: block;
+  width: 0;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--color-blue-600), var(--color-cyan-400));
+  transition: width 0.25s ease, background 0.25s ease;
+}
+
+.medidorOk .trilho i {
+  background: linear-gradient(90deg, #19a06a, #34c58b);
+}
+
+.legenda {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  color: var(--ui-muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.medidorOk .legenda {
+  color: #126744;
+}
+
+.legenda svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* ---------- Autenticação em duas etapas ---------- */
+
+.fluxo {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.fluxo li {
+  display: grid;
+  flex: 1 1 0;
+  justify-items: start;
+  align-content: start;
+  gap: 8px;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--ui-divider);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.fluxo li.seta {
+  flex: 0 0 18px;
+  justify-items: center;
+  align-content: center;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ui-muted);
+}
+
+.fluxo li.novo {
+  border-color: #bcd7f4;
+  background: linear-gradient(160deg, rgba(234, 243, 255, 0.95), rgba(255, 255, 255, 0.8));
+}
+
+.passoIcone {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid #bcd7f4;
+  border-radius: 10px;
+  background: #eaf3ff;
+  color: var(--ui-primary);
+}
+
+.passoIcone svg {
+  width: 17px;
+  height: 17px;
+}
+
+.fluxo strong {
+  color: var(--ui-text);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.3;
+}
+
+.fluxo span.descricao {
+  color: var(--ui-muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.cofre {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 16px;
+  border: 1px solid var(--ui-divider);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.cofreNumero {
+  display: grid;
+  place-items: center;
+  flex: 0 0 56px;
+  width: 56px;
+  height: 56px;
+  border: 1px solid #bcd7f4;
+  border-radius: 14px;
+  background: #eaf3ff;
+  color: var(--ui-text);
+  font-size: 24px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+
+.cofreTexto strong {
+  display: block;
+  color: var(--ui-text);
+  font-size: 13.5px;
+  font-weight: 500;
+}
+
+.cofreTexto span {
+  display: block;
+  margin-top: 2px;
+  color: var(--ui-muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.pontos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.pontos i {
+  width: 14px;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(15, 41, 74, 0.14);
+}
+
+.pontos i.ligado {
+  background: var(--color-blue-600);
+}
+
+.rodapeDoCartao {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--ui-divider);
+  color: var(--ui-muted);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.rodapeDoCartao svg {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+  color: var(--ui-primary);
+}
+
+/* ---------- Responsivo ---------- */
+
+@media (max-width: 1180px) {
+  .faixa {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .camadas {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 1100px) {
+  .camposTres {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 960px) {
+  .gradeSeguranca {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 767px) {
+  .capa {
+    height: 92px;
+  }
+  .corpoCredencial {
+    gap: 4px 16px;
+    padding: 0 18px 20px;
+  }
+  .avatarBloco {
+    margin-top: -40px;
+  }
+  .avatar {
+    width: 80px;
+    height: 80px;
+  }
+  .avatar svg {
+    width: 34px;
+    height: 34px;
+  }
+  .nome {
+    font-size: 19px;
+  }
+  .cabecalho {
+    padding: 16px 18px 14px;
+  }
+  .corpo,
+  .formulario {
+    padding: 18px;
+    gap: 16px;
+  }
+  .camposTres {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .rodapeFicha {
+    padding: 14px 18px 18px;
+  }
+  .rodapeFicha > button,
+  .acaoNoRodape > button {
+    width: 100%;
+  }
+  .faixa {
+    gap: 14px;
+    padding: 18px;
+  }
+  .faixaIcone {
+    width: 44px;
+    height: 44px;
+    border-radius: 13px;
+  }
+  .faixaIcone svg {
+    width: 22px;
+    height: 22px;
+  }
+  .rotulos {
+    grid-template-columns: 1fr;
+  }
+  .fluxo {
+    flex-direction: column;
+  }
+  .fluxo li.seta {
+    flex: 0 0 auto;
+    height: 14px;
+    transform: rotate(90deg);
+  }
+  .cofre {
+    align-items: flex-start;
+  }
+  .nota {
+    flex-basis: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .barra i,
+  .trilho i {
+    transition: none;
+  }
+}

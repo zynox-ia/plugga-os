@@ -105,17 +105,32 @@
   margin: 0;
   padding: 0;
   list-style: none;
+  counter-reset: codigo;
 }
 
-.codes code {
-  display: block;
-  padding: 10px 12px;
+.codes li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 12px 4px 10px;
   border: 1px solid var(--ui-divider, #dbe4ed);
   border-radius: 8px;
   background: var(--ui-subtle, #f3f7fb);
+  counter-increment: codigo;
+}
+
+.codes li::before {
+  content: counter(codigo, decimal-leading-zero);
+  color: var(--ui-muted);
+  font: 500 11px var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace);
+}
+
+.codes code {
+  flex: 1;
+  padding: 6px 0;
   font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace);
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 500;
   letter-spacing: 0.05em;
   color: var(--ui-text);
   overflow-wrap: anywhere;
