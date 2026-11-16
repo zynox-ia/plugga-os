@@ -1,12 +1,13 @@
-import { convertLeadResponseSchema, problemasDaConversaoDoLead, type ConvertLeadResponse, type Deal } from "@plugga/shared";
+import { convertLeadResponseSchema, problemasDaConversaoDoLead, type ConvertLeadResponse, type Deal, type DealTransitionOrigin } from "@plugga/shared";
 import { enviar, type RespostaDeEnvio } from "./clientes.ts";
 import { negocioConvertido } from "./negocios.ts";
 
 /** Converte usando somente o perfil já salvo; edição acontece na ficha do lead. */
 export async function converterLead(
-  negocio: Pick<Deal, "id" | "lead" | "client"> & { converted?: boolean },
+  negocio: Pick<Deal, "id" | "lead" | "client" | "version"> & { converted?: boolean },
   destino?: string,
   podeVerClientes = true,
+  origem: DealTransitionOrigin = "quadro",
 ): Promise<RespostaDeEnvio<ConvertLeadResponse>> {
   if (destino && !podeVerClientes) {
     return { ok: false, erro: { mensagem: "A escolha de cadastro exige acesso à tela Clientes.", porCampo: {} } };
@@ -19,7 +20,7 @@ export async function converterLead(
     } };
   }
   const resolution = destino === "novo" ? { type: "create" } : destino ? { type: "link", clientId: destino } : undefined;
-  const resposta = await enviar<unknown>(`/api/leads/${negocio.id}/converter`, "POST", resolution ? { resolution } : {});
+  const resposta = await enviar<unknown>(`/api/leads/${negocio.id}/converter`, "POST", { version: negocio.version, origin: origem, ...(resolution ? { resolution } : {}) });
   if (!resposta.ok) {
     if (!podeVerClientes && resposta.erro.candidatos?.length) {
       return { ok: false, erro: { mensagem: "Não foi possível concluir a conversão. Peça à gestão para verificar os cadastros.", porCampo: {} } };

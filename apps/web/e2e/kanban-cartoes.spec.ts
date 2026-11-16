@@ -38,6 +38,8 @@ test.afterAll(async ({ request, baseURL }) => {
 });
 
 test("cartão compacto preserva identificação e detalhes sem o bloco de investimento e previsão", async ({ page }) => {
+  const chamadasSolar: string[] = [];
+  page.on("request", (requisicao) => { if (/\/api\/leads\/[^/?]+\/(projetos-solares|propostas)(\?|$)/.test(requisicao.url())) chamadasSolar.push(requisicao.url()); });
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto(`/comercial/pipelines?pipeline=${pipeline.id}`);
   const cartao = page.getByRole("article", { name: `Lead ${negocio.lead.name}`, exact: true });
@@ -86,7 +88,7 @@ test("cartão compacto preserva identificação e detalhes sem o bloco de invest
   await expect(indicadores.getByText("Proposta comercial", { exact: true })).toBeVisible();
   const abas = detalhes.getByRole("tablist", { name: "Seções do lead" });
   await expect(abas).toHaveAttribute("aria-orientation", "horizontal");
-  await expect(abas.getByRole("tab")).toHaveText(["Visão geral", "Perfil", "Propostas", "Oportunidade", "Histórico", "Documentos"]);
+  await expect(abas.getByRole("tab")).toHaveText(["Visão geral", "Perfil", "Tarefas", "Propostas", "Oportunidade", "Histórico", "Documentos"]);
   await abas.getByRole("tab", { name: "Visão geral", exact: true }).focus();
   await page.keyboard.press("ArrowRight");
   await expect(abas.getByRole("tab", { name: "Perfil", exact: true })).toBeFocused();
@@ -115,6 +117,7 @@ test("cartão compacto preserva identificação e detalhes sem o bloco de invest
   await expect(documentos.getByRole("button", { name: "Enviar documentos", exact: true })).toBeVisible();
   await detalhes.getByRole("button", { name: "Fechar", exact: true }).click();
   await expect(detalhes).toHaveCount(0);
+  expect(chamadasSolar, "pipeline não-Solar não deve consultar projetos-solares nem propostas").toEqual([]);
 });
 
 test("prioridade persiste no cadastro do lead", async ({ page }) => {

@@ -1,6 +1,6 @@
 "use client";
 
-import type { BulkDealsAction, Deal, DealPriority, Pipeline, PipelinePerson } from "@plugga/shared";
+import type { BulkDealsAction, Deal, DealPriority, DealTransitionOrigin, Pipeline, PipelinePerson } from "@plugga/shared";
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent, type RefObject } from "react";
 
 import { aplicarFiltros, FILTROS_INICIAIS, hojeNoFuso, type Visao } from "../../lib/negocios";
@@ -12,15 +12,16 @@ import campoStyles from "./campos-do-pipeline.module.css";
 
 export type AcoesDoNegocio = {
   definirPrioridade: (negocio: Deal, prioridade: DealPriority | null) => Promise<Deal | null>;
-  moverEtapa: (negocio: Deal, etapaId: string, antesDeId?: string | null) => Promise<Deal | null>;
+  /** `aoRecusar` recebe o motivo da recusa do servidor (ex.: pendências do processo Solar) quando o aviso do quadro não está visível. */
+  moverEtapa: (negocio: Deal, etapaId: string, antesDeId?: string | null, origem?: DealTransitionOrigin, aoRecusar?: (mensagem: string) => void) => Promise<Deal | null>;
   abrirDetalhes: (negocio: Deal) => void;
   atualizar: (negocio: Deal) => void;
-  ganhar: (negocio: Deal) => void;
-  perder: (negocio: Deal) => void;
+  ganhar: (negocio: Deal, origem?: DealTransitionOrigin) => void;
+  perder: (negocio: Deal, origem?: DealTransitionOrigin) => void;
   transferir: (negocio: Deal) => void;
   novoNaEtapa: (etapaId: string) => void;
   emLote: (ids: string[], acao: BulkDealsAction) => Promise<boolean>;
-  converter?: (negocio: Deal) => void;
+  converter?: (negocio: Deal, origem?: DealTransitionOrigin) => void;
   convertendoId?: string | null;
 };
 

@@ -115,12 +115,13 @@ export function lerErro(corpo: unknown, padrao: string): ErroDoFormulario {
 
 export type RespostaDeEnvio<T> = { ok: true; dados: T } | { ok: false; erro: ErroDoFormulario };
 
-export async function enviar<T>(caminho: string, metodo: "GET" | "POST" | "PUT" | "PATCH" | "DELETE", corpo?: unknown): Promise<RespostaDeEnvio<T>> {
+export async function enviar<T>(caminho: string, metodo: "GET" | "POST" | "PUT" | "PATCH" | "DELETE", corpo?: unknown, signal?: AbortSignal): Promise<RespostaDeEnvio<T>> {
   try {
     const resposta = await fetch(caminho, {
       method: metodo,
       headers: corpo === undefined ? undefined : { "content-type": "application/json" },
       body: corpo === undefined ? undefined : JSON.stringify(corpo),
+      signal,
     });
     const dados = await resposta.json().catch(() => null);
     if (!resposta.ok) return { ok: false, erro: lerErro(dados, "Não foi possível salvar. Tente de novo.") };

@@ -1,6 +1,6 @@
 "use client";
 
-import type { Deal, Pipeline } from "@plugga/shared";
+import type { Deal, DealTransitionOrigin, Pipeline } from "@plugga/shared";
 import { useState, type ReactNode } from "react";
 
 import { enviar, type ErroDoFormulario } from "../../lib/clientes";
@@ -9,7 +9,7 @@ import { Modal } from "../modal";
 import { Checkbox } from "../ui";
 import { Icone } from "./icones";
 
-type Props = { pipeline: Pipeline; negocio: Deal; aoConcluir: (negocio: Deal) => void; aoFechar: () => void };
+type Props = { pipeline: Pipeline; negocio: Deal; origem?: DealTransitionOrigin; aoConcluir: (negocio: Deal) => void; aoFechar: () => void };
 
 function Topo({ titulo, aoFechar, children }: { titulo: string; aoFechar: () => void; children?: ReactNode }) {
   return (
@@ -35,14 +35,14 @@ function Resumo({ negocio }: { negocio: Deal }) {
 }
 
 /** Ganho encerra o negócio na etapa em que ele está; não tem volta pela tela. */
-export function GanhoDoNegocio({ pipeline, negocio, aoConcluir, aoFechar }: Props) {
+export function GanhoDoNegocio({ pipeline, negocio, origem = "quadro", aoConcluir, aoFechar }: Props) {
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [converterEmCliente, setConverterEmCliente] = useState(!negocioConvertido(negocio));
 
   async function confirmar() {
     setEnviando(true);
-    const resposta = await enviar<Deal>(`/api/leads/${negocio.id}/ganho`, "POST", { convertToClient: converterEmCliente });
+    const resposta = await enviar<Deal>(`/api/leads/${negocio.id}/ganho`, "POST", { convertToClient: converterEmCliente, version: negocio.version, origin: origem });
     setEnviando(false);
     if (resposta.ok) aoConcluir(resposta.dados);
     else setErro(resposta.erro.mensagem);
@@ -83,7 +83,7 @@ export function GanhoDoNegocio({ pipeline, negocio, aoConcluir, aoFechar }: Prop
 }
 
 /** Perdido exige motivo; se o motivo pede, a data para voltar a falar com o cliente. */
-export function PerdaDoNegocio({ pipeline, negocio, aoConcluir, aoFechar }: Props) {
+export function PerdaDoNegocio({ pipeline, negocio, origem = "quadro", aoConcluir, aoFechar }: Props) {
   const [motivoId, setMotivoId] = useState<string | null>(null);
   const [revisita, setRevisita] = useState("");
   const [nota, setNota] = useState("");
@@ -97,7 +97,7 @@ export function PerdaDoNegocio({ pipeline, negocio, aoConcluir, aoFechar }: Prop
     if (motivo.asksRevisitDate && !revisita) return setErro({ mensagem: "Este motivo pede a data para revisitar.", porCampo: { revisitOn: "obrigatório" } });
     setEnviando(true);
     setErro(null);
-    const resposta = await enviar<Deal>(`/api/leads/${negocio.id}/perda`, "POST", { lossReasonId: motivo.id, revisitOn: revisita, note: nota });
+    const resposta = await enviar<Deal>(`/api/leads/${negocio.id}/perda`, "POST", { lossReasonId: motivo.id, revisitOn: revisita, note: nota, version: negocio.version, origin: origem });
     setEnviando(false);
     if (resposta.ok) aoConcluir(resposta.dados);
     else setErro(resposta.erro);

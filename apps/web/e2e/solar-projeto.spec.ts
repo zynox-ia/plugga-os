@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { pipelineParaEdicao, type DealDetail, type LeadDocument, type Pipeline, type PipelinePeopleResponse, type PipelineProcessProfile } from "@plugga/shared";
+import { pipelineParaEdicao, type DealDetail, type Pipeline, type PipelinePeopleResponse, type PipelineProcessProfile } from "@plugga/shared";
 
 const pipelinesCriados: string[] = [];
 test.afterEach(async ({ request, baseURL }) => {
@@ -9,8 +9,8 @@ test.afterEach(async ({ request, baseURL }) => {
   }
 });
 
-test("ficha Solar guarda UCs sem cliente, seleciona conta tipada e preserva referência indisponível", async ({ page, request, baseURL }, testInfo) => {
-  test.setTimeout(90_000);
+test("aba Projetos cria card no modal sem virar card do Kanban, valida UC repetida, persiste após reload e recusa conta indisponível", async ({ page, request, baseURL }, testInfo) => {
+  test.setTimeout(120_000);
   expect(["localhost", "127.0.0.1"]).toContain(new URL(baseURL!).hostname);
   const headers = { origin: baseURL! };
   const pessoas: PipelinePeopleResponse = await (await request.get("/api/pipelines/pessoas?companyId=plugga")).json();
@@ -35,62 +35,156 @@ test("ficha Solar guarda UCs sem cliente, seleciona conta tipada e preserva refe
   expect(associacao.status()).toBe(200);
   pipeline = await associacao.json();
   const negocio = await criar<DealDetail>("/api/leads", { pipelineId: pipeline.id, stageId: pipeline.stages[0]!.id, ownerId: pessoas.people[0]!.id, title: "Projeto UC sintético", lead: { personType: "pj", name: "Lead Solar sintético", email: "solar-projeto@teste.local" } });
-  const upload = await request.post(`/api/leads/${negocio.id}/documentos`, { headers, multipart: { category: "conta_de_energia", arquivo: { name: "conta-principal-sintetica.png", mimeType: "image/png", buffer: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/a3sAAAAASUVORK5CYII=", "base64") } } });
-  expect(upload.status()).toBe(201);
-  const conta: LeadDocument = await upload.json();
+
   await page.goto(`/comercial/pipelines?pipeline=${pipeline.id}`);
   const ficha = page.getByRole("dialog", { name: "Detalhes do lead", exact: true });
-  const abrirFicha = async () => { await page.getByRole("button", { name: "Ver lead Lead Solar sintético", exact: true }).click(); await ficha.getByRole("tab", { name: "Oportunidade", exact: true }).click(); };
-  const salvar = async () => {
-    const gravacao = page.waitForResponse((resposta) => resposta.request().method() === "PATCH" && resposta.url().endsWith(`/api/leads/${negocio.id}`));
-    await ficha.getByRole("button", { name: "Salvar alterações", exact: true }).click();
-    expect((await gravacao).status()).toBe(200);
-    await expect(ficha.getByText("Alterações salvas.", { exact: true })).toBeVisible();
-  };
-  await abrirFicha();
-  await ficha.getByLabel("UC principal", { exact: true }).fill("000001-0");
-  await ficha.getByRole("button", { name: "Adicionar UC beneficiária", exact: true }).click();
-  await ficha.getByLabel("UC beneficiária 1", { exact: true }).fill("000001-0");
-  await ficha.getByRole("button", { name: "Salvar alterações", exact: true }).click();
-  await expect(ficha.getByText("UC repetida nesta ficha", { exact: false })).toBeVisible();
-  await ficha.getByLabel("UC beneficiária 1", { exact: true }).fill("000002-0");
-  await ficha.getByLabel("Conta de energia principal", { exact: true }).selectOption(conta.id);
-  const reclassificada = await request.patch(`/api/leads/${negocio.id}/documentos/${conta.id}`, { headers, data: { category: "outros" } });
-  expect(reclassificada.ok()).toBe(true);
-  const recusada = page.waitForResponse((resposta) => resposta.request().method() === "PATCH" && resposta.url().endsWith(`/api/leads/${negocio.id}`));
-  await ficha.getByRole("button", { name: "Salvar alterações", exact: true }).click();
-  expect((await recusada).status()).toBe(400);
-  await expect(ficha.getByLabel("UC principal", { exact: true })).toHaveValue("000001-0");
-  await expect(ficha.getByLabel("Conta de energia principal", { exact: true })).toHaveAttribute("aria-invalid", "true");
-  const restaurada = await request.patch(`/api/leads/${negocio.id}/documentos/${conta.id}`, { headers, data: { category: "conta_de_energia" } });
-  expect(restaurada.ok()).toBe(true);
-  await salvar();
+  const projetosSolaresCarregados = page.waitForResponse((resposta) => resposta.request().method() === "GET" && resposta.url().endsWith(`/api/leads/${negocio.id}/projetos-solares`));
+  const propostasCarregadas = page.waitForResponse((resposta) => resposta.request().method() === "GET" && resposta.url().endsWith(`/api/leads/${negocio.id}/propostas`));
+  await page.getByRole("button", { name: "Ver lead Lead Solar sintético", exact: true }).click();
+  expect((await projetosSolaresCarregados).status()).toBe(200);
+  expect((await propostasCarregadas).status()).toBe(200);
+  const abas = ficha.getByRole("tablist", { name: "Seções do lead", exact: true });
+  await expect(abas.getByRole("tab", { name: "Projetos", exact: true })).toBeVisible();
+  await expect(abas.getByRole("tab", { name: "Oportunidade", exact: true })).toHaveCount(0);
+  await ficha.getByRole("tab", { name: "Projetos", exact: true }).click();
+  await ficha.getByRole("button", { name: "Novo projeto", exact: true }).click();
+  const modal = page.getByRole("dialog", { name: "Novo projeto", exact: true });
+  await modal.locator("#projeto-instalacao").click();
+  await page.getByRole("option", { name: "Rural", exact: true }).click();
+  await modal.getByLabel(/Consumo médio \(kWh\)/).fill("1.840,5");
+  await modal.getByLabel(/Unidade consumidora \(UC\)/).fill("004578912");
+
+  // UC beneficiária repetindo a UC principal: a mesma validação do servidor (ucsDistintas, packages/shared/src/solar.ts)
+  // que antes rejeitava "UC repetida nesta ficha" na ficha única agora rejeita por projeto, com "UC repetida neste projeto".
+  await modal.getByRole("button", { name: "Adicionar UC beneficiária", exact: true }).click();
+  await modal.getByLabel("UC beneficiária 1", { exact: true }).fill("004578912");
+  await modal.getByRole("button", { name: "Criar projeto", exact: true }).click();
+  await expect(modal.getByRole("alert").filter({ hasText: "UC repetida neste projeto" })).toBeVisible();
+  await modal.getByLabel("UC beneficiária 1", { exact: true }).fill("004578913");
+
+  // Conta de energia anexada pelo próprio formulário (não há mais seleção de documento já existente,
+  // como na ficha única do HEAD): o upload acontece aqui e o id entra em energyBillDocumentIds.
+  await modal.locator('input[type="file"]').setInputFiles({
+    name: "conta-principal-sintetica.png", mimeType: "image/png",
+    buffer: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/a3sAAAAASUVORK5CYII=", "base64"),
+  });
+  const linhaContaPrincipal = modal.getByRole("button", { name: "Remover conta-principal-sintetica.png", exact: true }).locator("xpath=..");
+  await expect(linhaContaPrincipal).toContainText("Anexada");
+
+  await modal.locator("#projeto-telhado").click();
+  await page.getByRole("option", { name: "Metálico", exact: true }).click();
+  await modal.getByLabel(/Área disponível \(m²\)/).fill("190");
+  await modal.getByLabel(/Potência estimada \(kWp\)/).fill("15,2");
+  await modal.getByLabel(/Investimento estimado \(R\$\)/).fill("117500,00");
+  const criacao = page.waitForResponse((resposta) => resposta.request().method() === "POST" && resposta.url().endsWith(`/api/leads/${negocio.id}/projetos-solares`));
+  await modal.getByRole("button", { name: "Criar projeto", exact: true }).click();
+  expect((await criacao).status()).toBe(201);
+  await expect(ficha.getByRole("listitem", { name: "Rural · UC 004578912", exact: true })).toBeVisible();
+  await expect(ficha.getByText("Projeto criado.", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Ver lead .*004578912/ })).toHaveCount(0);
+  await page.screenshot({ path: testInfo.outputPath("projetos-solar-desktop.png") });
+
+  const lista = await request.get(`/api/leads/${negocio.id}/projetos-solares`);
+  expect(lista.status()).toBe(200);
+  const projetos = await lista.json();
+  expect(projetos.projects).toHaveLength(1);
+  const projeto = projetos.projects[0];
+  expect(projeto.consumerUnit).toBe("004578912");
+  expect(projeto.beneficiaryUcs[0]?.code).toBe("004578913");
+  expect(projeto.energyBillDocumentIds).toHaveLength(1);
+  const contaId: string = projeto.energyBillDocumentIds[0];
+
+  // Persistência de UC principal/beneficiária após reload (antes verificada nos campos da ficha
+  // única; agora na visualização somente leitura do próprio projeto).
   await ficha.getByRole("button", { name: "Fechar", exact: true }).click();
   await page.reload();
-  await abrirFicha();
-  await expect(ficha.getByLabel("UC principal", { exact: true })).toHaveValue("000001-0");
-  await expect(ficha.getByLabel("UC beneficiária 1", { exact: true })).toHaveValue("000002-0");
-  await expect(ficha.getByLabel("Conta de energia principal", { exact: true })).toHaveValue(conta.id);
-  await page.screenshot({ path: testInfo.outputPath("ficha-solar-desktop.png") });
+  await page.getByRole("button", { name: "Ver lead Lead Solar sintético", exact: true }).click();
+  await ficha.getByRole("tab", { name: "Projetos", exact: true }).click();
+  await ficha.getByRole("button", { name: "Visualizar Rural · UC 004578912", exact: true }).click();
+  const detalhesProjeto = page.getByRole("dialog", { name: "Detalhes do projeto", exact: true });
+  await expect(detalhesProjeto.getByText("004578912", { exact: true })).toBeVisible();
+  await expect(detalhesProjeto.getByText("004578913", { exact: true })).toBeVisible();
+
+  // Layout mobile 320px sem overflow: no HEAD a ficha única cobria tanto a leitura quanto o
+  // formulário editável; aqui são diálogos diferentes, então checamos os dois — o de detalhes
+  // (leitura) e, a seguir, o de edição (formulário).
   await page.setViewportSize({ width: 320, height: 844 });
-  await ficha.getByLabel("UC principal", { exact: true }).scrollIntoViewIfNeeded();
-  expect(await ficha.evaluate((dialogo) => dialogo.scrollWidth <= dialogo.clientWidth + 1)).toBe(true);
-  await page.screenshot({ path: testInfo.outputPath("ficha-solar-mobile.png") });
-  const arquivada = await request.post(`/api/leads/${negocio.id}/documentos/${conta.id}/arquivar`, { headers });
-  expect(arquivada.ok()).toBe(true);
-  await ficha.getByRole("tab", { name: "Documentos", exact: true }).click();
-  await ficha.getByRole("tab", { name: "Oportunidade", exact: true }).click();
-  await expect(ficha.getByText("A conta selecionada está indisponível.", { exact: false })).toBeVisible();
-  await expect(ficha.getByLabel("Conta de energia principal", { exact: true })).toHaveValue(conta.id);
-  await ficha.getByLabel("UC beneficiária 1", { exact: true }).fill("000003-0");
-  await salvar();
-  const atualizado: DealDetail = await (await request.get(`/api/leads/${negocio.id}`)).json();
-  expect(atualizado.client).toBeNull();
-  expect(atualizado.solarProject?.principalUc?.code).toBe("000001-0");
-  expect(atualizado.solarProject?.primaryEnergyBillDocumentId).toBe(conta.id);
-  expect(atualizado.solarProject?.beneficiaryUcs[0]?.code).toBe("000003-0");
-  await ficha.getByRole("button", { name: "Fechar", exact: true }).click();
+  expect(await detalhesProjeto.evaluate((dialogo) => dialogo.scrollWidth <= dialogo.clientWidth + 1)).toBe(true);
+  await page.screenshot({ path: testInfo.outputPath("projetos-solar-mobile.png") });
+  await detalhesProjeto.getByRole("button", { name: "Editar projeto", exact: true }).click();
+  const edicao = page.getByRole("dialog", { name: "Editar projeto", exact: true });
+  await edicao.getByLabel(/Unidade consumidora \(UC\)/).scrollIntoViewIfNeeded();
+  expect(await edicao.evaluate((dialogo) => dialogo.scrollWidth <= dialogo.clientWidth + 1)).toBe(true);
+  await page.screenshot({ path: testInfo.outputPath("projeto-edicao-mobile.png") });
   await page.setViewportSize({ width: 1280, height: 900 });
+
+  // Conta arquivada depois de persistida no projeto: o PLU-313 registra que "as referências
+  // indisponíveis são preservadas com aviso" — diferente do HEAD (ficha única), aqui o servidor
+  // (validarContas em prisma-lead-projetos-solares.repository.ts) só recusa uma conta NOVA
+  // indisponível; uma referência já salva não trava o salvamento de outra alteração no projeto.
+  const arquivada = await request.post(`/api/leads/${negocio.id}/documentos/${contaId}/arquivar`, { headers });
+  expect(arquivada.ok()).toBe(true);
+  await edicao.getByLabel(/Potência estimada \(kWp\)/).fill("16");
+  const preservada = page.waitForResponse((resposta) => resposta.request().method() === "PATCH" && resposta.url().endsWith(`/api/leads/${negocio.id}/projetos-solares/${projeto.id}`));
+  await edicao.getByRole("button", { name: "Salvar alterações", exact: true }).click();
+  expect((await preservada).status()).toBe(200);
+  await expect(ficha.getByText("Projeto atualizado.", { exact: true })).toBeVisible();
+  const comContaArquivada = await (await request.get(`/api/leads/${negocio.id}/projetos-solares`)).json();
+  expect(comContaArquivada.projects[0].estimatedPowerKwp).toBe("16");
+  expect(comContaArquivada.projects[0].energyBillDocumentIds).toEqual([contaId]);
+
+  // Reabrindo para editar, a referência preservada aparece com o aviso (não fica silenciosa).
+  await ficha.getByRole("button", { name: "Visualizar Rural · UC 004578912", exact: true }).click();
+  await detalhesProjeto.getByRole("button", { name: "Editar projeto", exact: true }).click();
+  await expect(edicao.getByText("Conta indisponível (reclassificada ou arquivada)", { exact: false })).toBeVisible();
+
+  // Falha ao consultar os documentos (rede/HTTP/resposta inválida) nunca é tratada como
+  // "disponível": a conta arquivada não pode aparecer como "Anexada" sem aviso.
+  await edicao.getByRole("button", { name: "Cancelar", exact: true }).click();
+  await page.route(`**/api/leads/${negocio.id}/documentos`, (rota) => rota.fulfill({ status: 500, contentType: "application/json", body: "{}" }));
+  await ficha.getByRole("button", { name: "Visualizar Rural · UC 004578912", exact: true }).click();
+  await detalhesProjeto.getByRole("button", { name: "Editar projeto", exact: true }).click();
+  await expect(edicao.getByText("Não foi possível verificar a disponibilidade das contas.", { exact: true })).toBeVisible();
+  await expect(edicao.getByText("Conta indisponível", { exact: false })).toHaveCount(0);
+  await page.unroute(`**/api/leads/${negocio.id}/documentos`);
+  await edicao.getByRole("button", { name: "Tentar novamente", exact: true }).click();
+  await expect(edicao.getByText("Conta indisponível (reclassificada ou arquivada)", { exact: false })).toBeVisible();
+
+  // Uma conta NOVA que fica indisponível antes do salvamento continua recusada — diferente da já
+  // preservada acima, porque ainda não foi persistida no projeto.
+  const envio = page.waitForResponse((resposta) => resposta.request().method() === "POST" && resposta.url().includes(`/api/leads/${negocio.id}/documentos`));
+  await edicao.locator('input[type="file"]').setInputFiles({
+    name: "conta-nova-sintetica.png", mimeType: "image/png",
+    buffer: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/a3sAAAAASUVORK5CYII=", "base64"),
+  });
+  const contaNova = await (await envio).json();
+  // Duas contas já convivem no formulário aqui (a arquivada preservada + a nova): associa a
+  // asserção à LINHA da conta nova pelo botão de remover, que carrega o nome do arquivo.
+  const linhaContaNova = edicao.getByRole("button", { name: "Remover conta-nova-sintetica.png", exact: true }).locator("xpath=..");
+  await expect(linhaContaNova).toContainText("Anexada");
+  const reclassificada = await request.patch(`/api/leads/${negocio.id}/documentos/${contaNova.id}`, { headers, data: { category: "outros" } });
+  expect(reclassificada.ok()).toBe(true);
+  const recusada = page.waitForResponse((resposta) => resposta.request().method() === "PATCH" && resposta.url().endsWith(`/api/leads/${negocio.id}/projetos-solares/${projeto.id}`));
+  await edicao.getByRole("button", { name: "Salvar alterações", exact: true }).click();
+  expect((await recusada).status()).toBe(400);
+  // `lerErro` (lib/clientes.ts:108) troca a mensagem específica do servidor por "Confira os campos
+  // destacados." sempre que a resposta vem com porCampo preenchido — é o comportamento já existente
+  // para qualquer RequisicaoInvalida com porCampo, não algo novo desta correção.
+  await expect(edicao.getByText("Confira os campos destacados.", { exact: true })).toBeVisible();
+  await expect(edicao.getByLabel(/Unidade consumidora \(UC\)/)).toHaveValue("004578912");
+
+  // Restaurando a categoria, o mesmo salvamento passa a aceitar a conta nova.
+  const restaurada = await request.patch(`/api/leads/${negocio.id}/documentos/${contaNova.id}`, { headers, data: { category: "conta_de_energia" } });
+  expect(restaurada.ok()).toBe(true);
+  const salva = page.waitForResponse((resposta) => resposta.request().method() === "PATCH" && resposta.url().endsWith(`/api/leads/${negocio.id}/projetos-solares/${projeto.id}`));
+  await edicao.getByRole("button", { name: "Salvar alterações", exact: true }).click();
+  expect((await salva).status()).toBe(200);
+  const atualizado = await (await request.get(`/api/leads/${negocio.id}/projetos-solares`)).json();
+  expect(atualizado.projects[0].consumerUnit).toBe("004578912");
+  expect(atualizado.projects[0].beneficiaryUcs[0]?.code).toBe("004578913");
+  expect(atualizado.projects[0].energyBillDocumentIds.sort()).toEqual([contaId, contaNova.id].sort());
+
+  await ficha.getByRole("button", { name: "Fechar", exact: true }).click();
   await page.getByRole("button", { name: "Configurar pipelines", exact: true }).click();
   const config = page.getByRole("dialog", { name: "Configurar pipelines", exact: true });
   await config.getByRole("tab", { name: "Campos", exact: true }).click();

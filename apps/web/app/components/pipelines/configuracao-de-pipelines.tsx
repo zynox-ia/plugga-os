@@ -236,6 +236,13 @@ export function ConfiguracaoDePipelines({
               negociosPorEtapa={Object.fromEntries((atual?.stages ?? []).map((e) => [e.id, e.dealCount]))}
               totalDeNegocios={atual?.dealCount ?? 0}
               erros={erro?.porCampo ?? {}}
+              processoSolar={rascunho.id ? { alteracoesPendentes: sujo, aoAtivado: async () => {
+                const resposta = await enviar<ListPipelinesResponse>(`/api/pipelines?pipelineId=${encodeURIComponent(rascunho.id!)}`, "GET");
+                const atualizado = resposta.ok ? resposta.dados.pipelines.find((pipeline) => pipeline.id === rascunho.id) : null;
+                if (!atualizado) throw new Error("Processo ativado. Reabra a configuração para ver as etapas atualizadas.");
+                gravado(atualizado);
+                setSalvo(true);
+              } } : undefined}
             />
           ) : (
             <div className="config-editor-vazio">

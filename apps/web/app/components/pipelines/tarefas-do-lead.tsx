@@ -1,88 +1,113 @@
 "use client";
 
-import type { PipelinePerson } from "@plugga/shared";
+import type { Activity, ActivityStatus, PipelinePerson } from "@plugga/shared";
 import { Kanban, Plus } from "lucide-react";
-import { useId, useLayoutEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
+import { useId, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { COLUNAS_TAREFAS, moverTarefa, type DadosTarefa, type StatusTarefa, type TarefaDoLead } from "../../lib/tarefas-lead";
+import { formatarDataHoraCurta } from "../../lib/format";
+import { alteracoesDoAgendamento } from "../../lib/agendamento-atividade";
 import { Button } from "../ui/button";
-import { TarefaCard } from "./tarefa-card";
-import { ExcluirTarefaModal, TarefaDetalhesModal } from "./tarefa-detalhes-modal";
-import { TarefaFormularioModal } from "./tarefa-formulario-modal";
-import styles from "./tarefas-do-lead.module.css";
+import { AgendamentoAtividadeModal, TIPOS_ATIVIDADE } from "./agendamento-atividade-form";
+import { ConcluirAtividadeModal } from "./concluir-atividade-modal";
+import { HistoricoAtividadeModal } from "./historico-atividade-modal";
+import type { ControleAtividadesDoNegocio } from "./use-atividades-do-negocio";
+import styles from "./atividades-do-negocio.module.css";
+import quadroStyles from "./tarefas-do-lead.module.css";
 
-type Janela = { tipo: "novo"; status: StatusTarefa } | { tipo: "detalhes" | "editar" | "excluir"; id: string; voltarAosDetalhes?: boolean };
+const COLUNAS = [
+  { id: "todo", nome: "A fazer", cor: "#7F8FA3" },
+  { id: "doing", nome: "Em andamento", cor: "#0066CC" },
+  { id: "done", nome: "Concluído", cor: "#126744" },
+] as const;
+type Janela = { tipo: "nova" } | { tipo: "editar" | "concluir" | "historico"; atividade: Activity };
 
-export function TarefasDoLead({ tarefas, aoAlterar, responsaveis, responsavelInicial }: {
-  tarefas: TarefaDoLead[]; aoAlterar: Dispatch<SetStateAction<TarefaDoLead[]>>; responsaveis: PipelinePerson[]; responsavelInicial: string;
+export function TarefasDoLead({ negocioId, controle, responsaveis, responsavelInicial, aoAlterarRascunho }: {
+  negocioId: string; controle: ControleAtividadesDoNegocio; responsaveis: PipelinePerson[]; responsavelInicial: string;
+  aoAlterarRascunho: (alterado: boolean) => void;
 }) {
   const [janela, setJanela] = useState<Janela | null>(null);
-  const [arrastando, setArrastando] = useState<string | null>(null);
-  const [alvo, setAlvo] = useState<StatusTarefa | null>(null);
   const [mensagem, setMensagem] = useState("");
-  const idArrasto = useRef<string | null>(null);
-  const cartaoParaFocar = useRef<string | null>(null);
+  const [alvo, setAlvo] = useState<ActivityStatus | null>(null);
+  const arrastando = useRef<Activity | null>(null);
   const quadro = useRef<HTMLDivElement>(null);
-  const instrucoesId = useId();
-  const prefixoId = useId();
-  const selecionada = janela && "id" in janela ? tarefas.find((item) => item.id === janela.id) : undefined;
-
+  const focoPendente = useRef<string | null>(null);
+  const prefixo = useId();
+  const bloqueado = controle.salvando || controle.carregando;
+  const ordenadas = [...controle.atividades].sort((a, b) => a.currentRound.dueAt.localeCompare(b.currentRound.dueAt) || a.id.localeCompare(b.id));
   useLayoutEffect(() => {
-    if (!cartaoParaFocar.current) return;
-    quadro.current?.querySelector<HTMLElement>(`[data-tarefa-id="${cartaoParaFocar.current}"]`)?.focus({ preventScroll: true });
-    cartaoParaFocar.current = null;
-  }, [tarefas]);
-
-  function mover(id: string, destino: StatusTarefa, manterFoco = false) {
-    if (manterFoco) cartaoParaFocar.current = id;
-    aoAlterar((atuais) => moverTarefa(atuais, id, destino));
-    const tarefa = tarefas.find((item) => item.id === id);
-    if (tarefa) setMensagem(`Tarefa ${tarefa.titulo} movida para ${COLUNAS_TAREFAS.find((coluna) => coluna.id === destino)?.titulo}.`);
+    if (janela || !focoPendente.current) return;
+    quadro.current?.querySelector<HTMLElement>(`[data-atividade-id="${focoPendente.current}"]`)?.focus({ preventScroll: true });
+    focoPendente.current = null;
+  }, [controle.atividades, janela]);
+  function fecharJanela() { if (janela && "atividade" in janela) focoPendente.current = janela.atividade.id; setJanela(null); }
+  function abrir(proxima: Janela) { controle.limparErro(); setJanela(proxima); }
+  async function mover(atividade: Activity, destino: ActivityStatus) {
+    if (bloqueado || atividade.currentRound.status === destino || atividade.currentRound.status === "done") return;
+    if (destino === "done") { abrir({ tipo: "concluir", atividade }); return; }
+    focoPendente.current = atividade.id;
+    if (await controle.atualizar(atividade, { status: destino })) setMensagem(`Atividade ${atividade.title} movida para ${COLUNAS.find((coluna) => coluna.id === destino)?.nome}.`);
+    else focoPendente.current = null;
   }
-  function terminarArrasto() { idArrasto.current = null; setArrastando(null); setAlvo(null); }
-  function salvar(dados: DadosTarefa) {
-    if (janela?.tipo === "editar" && selecionada) {
-      const id = selecionada.id;
-      aoAlterar((atuais) => atuais.map((item) => item.id === id ? { ...dados, id, status: item.status } : item));
-      setMensagem("Tarefa atualizada.");
-    } else {
-      const id = crypto.randomUUID();
-      aoAlterar((atuais) => [{ ...dados, id }, ...atuais]);
-      setMensagem("Tarefa criada.");
-    }
-    setJanela(null);
-  }
-
-  const modais = <>
-    {janela?.tipo === "novo" || (janela?.tipo === "editar" && selecionada) ? <TarefaFormularioModal key={janela.tipo === "novo" ? "nova" : selecionada!.id} tarefa={janela.tipo === "editar" ? selecionada : undefined} statusInicial={janela.tipo === "novo" ? janela.status : selecionada!.status} responsaveis={responsaveis} responsavelInicial={responsavelInicial} aoSalvar={salvar} aoFechar={() => setJanela(null)} /> : null}
-    {janela?.tipo === "detalhes" && selecionada ? <TarefaDetalhesModal tarefa={selecionada} responsaveis={responsaveis} aoFechar={() => setJanela(null)} aoEditar={() => setJanela({ tipo: "editar", id: selecionada.id })} aoExcluir={() => setJanela({ tipo: "excluir", id: selecionada.id, voltarAosDetalhes: true })} /> : null}
-    {janela?.tipo === "excluir" && selecionada ? <ExcluirTarefaModal tarefa={selecionada} aoFechar={() => setJanela(janela.voltarAosDetalhes ? { tipo: "detalhes", id: selecionada.id } : null)} aoExcluir={() => {
-      const id = selecionada.id;
-      aoAlterar((atuais) => atuais.filter((item) => item.id !== id));
-      setMensagem("Tarefa excluída."); setJanela(null);
-    }} /> : null}
-  </>;
-
-  return <div className={styles.tarefas}>
-    <header className={styles.barraTarefas}><div><h3>Tarefas do lead</h3><p>Organize as próximas atividades deste negócio.</p></div><Button variant="primary" size="sm" icon={<Plus />} onClick={() => setJanela({ tipo: "novo", status: "todo" })}>Nova tarefa</Button></header>
-    <p id={instrucoesId} className="sr-only">Arraste uma tarefa entre colunas ou, com o cartão em foco, use Alt e as setas para a esquerda ou direita.</p>
-    <span className="sr-only" role="status" aria-live="polite">{mensagem}</span>
-    <div ref={quadro} className={styles.quadro}>
-      {COLUNAS_TAREFAS.map((coluna) => {
-        const itens = tarefas.filter((item) => item.status === coluna.id);
-        return <section key={coluna.id} className={`${styles.coluna} ${alvo === coluna.id ? styles.colunaAlvo : ""}`} data-tarefa-coluna={coluna.id} aria-labelledby={`${prefixoId}-${coluna.id}`}
-          onDragOver={(evento) => { if (idArrasto.current) { evento.preventDefault(); evento.dataTransfer.dropEffect = "move"; setAlvo(coluna.id); } }}
+  return <div className={quadroStyles.tarefas}>
+    <header className={styles.barra}><div><h3>Tarefas do lead</h3><p className={styles.ajuda}>Atividades e prazos em Manaus.</p></div><div className={styles.acoes}>
+      <Button variant="primary" size="sm" icon={<Plus />} disabled={bloqueado} onClick={() => abrir({ tipo: "nova" })}>Nova atividade</Button>
+    </div></header>
+    <p id={`${prefixo}-ajuda`} className="sr-only">Arraste entre colunas ou use Alt e as setas com o cartão em foco. Para concluir, registre o resultado.</p>
+    <span className="sr-only" role="status">{mensagem}</span>
+    {controle.erro && !janela ? <p className="aviso aviso--erro" role="alert">{controle.erro.mensagem}</p> : null}
+    {controle.carregando ? <p role="status">Carregando atividades…</p> : <div ref={quadro} className={quadroStyles.quadro} aria-label="Atividades do negócio">
+      {COLUNAS.map((coluna) => {
+        const atividades = ordenadas.filter((atividade) => atividade.currentRound.status === coluna.id);
+        return <section key={coluna.id} className={`${quadroStyles.coluna}${alvo === coluna.id ? ` ${quadroStyles.colunaAlvo}` : ""}`} aria-labelledby={`${prefixo}-${coluna.id}`}
+          onDragOver={(evento) => { if (arrastando.current && !bloqueado) { evento.preventDefault(); setAlvo(coluna.id); } }}
           onDragLeave={(evento) => { if (!(evento.relatedTarget instanceof Node) || !evento.currentTarget.contains(evento.relatedTarget)) setAlvo(null); }}
-          onDrop={(evento) => { evento.preventDefault(); if (idArrasto.current) mover(idArrasto.current, coluna.id); terminarArrasto(); }}>
-          <header className="coluna-topo"><div className="coluna-titulo"><Kanban size={16} aria-hidden="true" className={styles.iconeColuna} /><h3 id={`${prefixoId}-${coluna.id}`}>{coluna.titulo}</h3></div><div className={styles.acoesColuna}><span className="coluna-quantidade" aria-label={`${itens.length} tarefas`}>{String(itens.length).padStart(2, "0")}</span><button type="button" className="coluna-novo" aria-label={`Nova tarefa em ${coluna.titulo}`} onClick={() => setJanela({ tipo: "novo", status: coluna.id })}><Plus size={14} aria-hidden="true" /></button></div></header>
-          <div className={styles.lista}>
-            {itens.length ? itens.map((tarefa) => <TarefaCard key={tarefa.id} tarefa={tarefa} responsavel={responsaveis.find((item) => item.id === tarefa.responsavelId)} instrucoesId={instrucoesId} arrastando={arrastando === tarefa.id}
-              aoVer={() => setJanela({ tipo: "detalhes", id: tarefa.id })} aoEditar={() => setJanela({ tipo: "editar", id: tarefa.id })} aoExcluir={() => setJanela({ tipo: "excluir", id: tarefa.id })} aoMover={(destino) => mover(tarefa.id, destino, true)}
-              aoIniciarArrasto={(evento) => { idArrasto.current = tarefa.id; setArrastando(tarefa.id); evento.dataTransfer.setData("text/plain", tarefa.id); evento.dataTransfer.effectAllowed = "move"; }} aoTerminarArrasto={terminarArrasto} />) : <p className={styles.colunaVazia}>{arrastando ? "Solte aqui" : "Nenhuma tarefa nesta coluna"}</p>}
-          </div>
+          onDrop={(evento) => { evento.preventDefault(); const atividade = arrastando.current; arrastando.current = null; setAlvo(null); if (atividade) void mover(atividade, coluna.id); }}>
+          <header className="coluna-topo">
+            <div className="coluna-titulo">
+              <Kanban size={16} className="coluna-titulo-icone" style={{ color: coluna.cor }} aria-hidden="true" />
+              <h3 id={`${prefixo}-${coluna.id}`}>{coluna.nome}</h3>
+            </div>
+            <span className="coluna-quantidade" aria-label={`${atividades.length} atividades`}>{String(atividades.length).padStart(2, "0")}</span>
+          </header>
+          <div className={quadroStyles.lista}>{atividades.length ? atividades.map((atividade) => {
+            const rodada = atividade.currentRound;
+            const atrasada = rodada.status !== "done" && new Date(rodada.dueAt).getTime() < Date.now();
+            return <article key={atividade.id} data-atividade-id={atividade.id} className={styles.atividade} aria-label={`Atividade ${atividade.title}`} tabIndex={0} aria-describedby={`${prefixo}-ajuda`} draggable={!bloqueado && rodada.status !== "done"}
+              onDragStart={(evento) => { arrastando.current = atividade; evento.dataTransfer.setData("text/plain", atividade.id); }} onDragEnd={() => { arrastando.current = null; setAlvo(null); }}
+              onKeyDown={(evento) => {
+                if (!evento.altKey || !["ArrowLeft", "ArrowRight"].includes(evento.key)) return;
+                evento.preventDefault(); evento.stopPropagation();
+                const indice = COLUNAS.findIndex((item) => item.id === rodada.status);
+                const destino = COLUNAS[Math.max(0, Math.min(2, indice + (evento.key === "ArrowRight" ? 1 : -1)))]!.id;
+                void mover(atividade, destino);
+              }}>
+              <span className={styles.meta}>{TIPOS_ATIVIDADE[atividade.type]} · Rodada {rodada.number}</span><h4>{atividade.title}</h4>
+              {atividade.notes ? <p>{atividade.notes}</p> : null}
+              <span className={styles.meta}>{responsaveis.find((pessoa) => pessoa.id === rodada.ownerId)?.name ?? "Responsável indisponível"}</span>
+              <time className={`${styles.meta}${atrasada ? ` ${styles.atrasada}` : ""}`} dateTime={rodada.dueAt}>{atrasada ? "Atrasada · " : "Prazo: "}{formatarDataHoraCurta(rodada.dueAt)}</time>
+              {rodada.outcome ? <p>{rodada.outcome.summary}</p> : null}
+              <div className={styles.acoes}>
+                {rodada.status !== "done" ? <Button variant="secondary" size="sm" disabled={bloqueado} onClick={() => void mover(atividade, rodada.status === "todo" ? "doing" : "todo")}>{rodada.status === "todo" ? "Iniciar" : "Voltar a fazer"}</Button> : null}
+                {rodada.status !== "done" ? <><Button variant="secondary" size="sm" disabled={bloqueado} onClick={() => abrir({ tipo: "editar", atividade })}>Editar</Button><Button variant="primary" size="sm" disabled={bloqueado} onClick={() => abrir({ tipo: "concluir", atividade })}>Concluir</Button></> : null}
+                <Button variant="secondary" size="sm" disabled={bloqueado} onClick={() => abrir({ tipo: "historico", atividade })}>Ver histórico</Button>
+              </div>
+            </article>;
+          }) : <p className={quadroStyles.colunaVazia}>Nenhuma atividade nesta coluna.</p>}</div>
         </section>;
       })}
-    </div>
-    {janela ? createPortal(modais, document.body) : null}
+    </div>}
+    {janela ? createPortal(<>
+      {janela.tipo === "nova" || janela.tipo === "editar" ? <AgendamentoAtividadeModal key={janela.tipo === "nova" ? "nova" : janela.atividade.id} atividade={janela.tipo === "editar" ? janela.atividade : undefined} pessoas={responsaveis} ownerId={responsavelInicial} salvando={controle.salvando} erro={controle.erro} aoAlterarRascunho={aoAlterarRascunho} aoFechar={fecharJanela} aoSalvar={async (dados, requestId) => {
+        const patch = janela.tipo === "editar" ? alteracoesDoAgendamento(janela.atividade, dados) : null;
+        if (patch && !Object.keys(patch).length) { setMensagem("Nenhuma alteração para salvar."); return true; }
+        const salva = janela.tipo === "editar" ? await controle.atualizar(janela.atividade, patch!) : await controle.criar({ ...dados, requestId, target: { kind: "deal", dealId: negocioId } });
+        if (salva) setMensagem(janela.tipo === "editar" ? "Atividade atualizada." : "Atividade criada.");
+        return !!salva;
+      }} /> : null}
+      {janela.tipo === "concluir" ? <ConcluirAtividadeModal atividade={janela.atividade} pessoas={responsaveis} salvando={controle.salvando} erro={controle.erro} aoAlterarRascunho={aoAlterarRascunho} aoFechar={fecharJanela} aoConcluir={async (dados) => {
+        const concluida = await controle.concluir(janela.atividade, dados); if (concluida) setMensagem("Atividade concluída."); return !!concluida;
+      }} /> : null}
+      {janela.tipo === "historico" ? <HistoricoAtividadeModal atividade={janela.atividade} pessoas={responsaveis} aoFechar={() => setJanela(null)} /> : null}
+    </>, document.body) : null}
   </div>;
 }

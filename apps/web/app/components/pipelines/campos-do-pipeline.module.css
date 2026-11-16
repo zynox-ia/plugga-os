@@ -16,3 +16,9 @@
 .confirmacao h2, .confirmacao p { margin: 0; }
 .confirmacao .acoes { justify-content: flex-end; flex-wrap: wrap; }
 @media (max-width: 640px) { .grade { grid-template-columns: 1fr; } .campo { padding: 14px; } .topo { align-items: flex-start; } }
+
+.mapaProcesso { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 0; }
+.mapaProcesso dt { margin: 0 0 3px; font-size: 12px; color: var(--ui-muted); }
+.mapaProcesso dd { display: flex; align-items: center; gap: 6px; margin: 0; font-size: 14px; font-weight: 500; color: var(--ui-text); }
+.mapaProcesso dd svg { color: var(--ui-success); }
+@media (max-width: 640px) { .mapaProcesso { grid-template-columns: minmax(0, 1fr); } }

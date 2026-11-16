@@ -57,7 +57,7 @@ export function TransferirNegocio({
     if (!destino || (!responsavelNoDestino && (!podeAtribuir || !responsavelId))) return;
     setEnviando(true);
     setErro(null);
-    const corpo = { pipelineId: destino.id, stageId: etapaId, ...(podeAtribuir && responsavelId ? { ownerId: responsavelId } : {}), convertToClient: perguntaConversao && converterEmCliente };
+    const corpo = { pipelineId: destino.id, stageId: etapaId, ...(podeAtribuir && responsavelId ? { ownerId: responsavelId } : {}), convertToClient: perguntaConversao && converterEmCliente, version: negocio.version };
     const resposta = await enviar<Deal>(`/api/leads/${negocio.id}/transferencia`, "POST", corpo);
     setEnviando(false);
     if (resposta.ok) aoConcluir(resposta.dados);

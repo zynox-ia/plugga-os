@@ -67,6 +67,10 @@ test("configuração valida as abas e persiste criação e edição após recarr
     await modal.getByLabel("Dias para alertar parado em Triagem", { exact: true }).fill("366");
     expect((await salvar(true)).status()).toBe(400);
     await modal.getByLabel("Dias para alertar parado em Triagem", { exact: true }).fill("9");
+    const linhaTriagem = modal.getByLabel("Dias para alertar parado em Triagem", { exact: true }).locator("xpath=ancestor::li[1]");
+    await expect(linhaTriagem.getByRole("switch", { name: "Pergunta sobre conversão em cliente" })).not.toBeChecked();
+    await linhaTriagem.getByRole("switch", { name: "Pergunta sobre conversão em cliente" }).click();
+    await expect(linhaTriagem.getByRole("switch", { name: "Pergunta sobre conversão em cliente" })).toBeChecked();
     await modal.getByRole("button", { name: "Descer Triagem", exact: true }).click();
 
     await modal.getByRole("tab", { name: "Etiquetas", exact: true }).click();
@@ -91,6 +95,8 @@ test("configuração valida as abas e persiste criação e edição após recarr
     await modal.getByRole("tab", { name: "Etapas", exact: true }).click();
     await expect(modal.getByLabel("Nome da etapa 1", { exact: true })).toHaveValue("Proposta auditada");
     await expect(modal.getByLabel("Dias para alertar parado em Triagem", { exact: true })).toHaveValue("9");
+    const linhaTriagemReaberta = modal.getByLabel("Dias para alertar parado em Triagem", { exact: true }).locator("xpath=ancestor::li[1]");
+    await expect(linhaTriagemReaberta.getByRole("switch", { name: "Pergunta sobre conversão em cliente" })).toBeChecked();
     await modal.getByRole("tab", { name: "Etiquetas", exact: true }).click();
     await expect(modal.getByLabel("Nome da etiqueta 1", { exact: true })).toHaveValue("Auditoria");
     await expect(modal.getByLabel("Nome da etiqueta 2", { exact: true })).toHaveValue("Revisar");
