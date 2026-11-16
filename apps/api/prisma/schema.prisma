@@ -259,6 +259,7 @@ enum ContestationStatus {
 
 model User {
   conexaoGoogleCalendar ConexaoGoogleCalendar?
+  activityRounds ActivityRound[]
   uploadedLeadDocuments LeadDocument[] @relation("LeadDocumentUploader")
   archivedLeadDocuments LeadDocument[] @relation("LeadDocumentArchiver")
   id                             String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
@@ -813,6 +814,7 @@ model D14Credit {
 /// opcional não informado fica nulo: nunca valor fictício. `company` e
 /// `segment` são legados do módulo comercial antigo (PLU-268).
 model Client {
+  activities Activity[]
   id                String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   name              String
   company           String?
@@ -1017,7 +1019,9 @@ enum DealPriority {
 /// está, sem cópia aqui: mover de pipeline muda a empresa por construção.
 /// Ganho e Perdido encerram o negócio na etapa em que ele estava.
 model Deal {
+  activities Activity[]
   solarProject Json? @map("solar_project") @db.JsonB
+  solarProjects Json @default("[]") @map("solar_projects") @db.JsonB
   customFields Json @default("{}") @map("custom_fields") @db.JsonB
   version Int @default(1)
   leadContactId String? @map("lead_contact_id") @db.Uuid
@@ -2084,6 +2088,7 @@ enum LeadDocumentUploadState {
   @@map("lead_document_upload_state")
 }
 model LeadDocument {
+  activityEvidence ActivityRoundEvidence[]
   proposalVersions LeadProposalVersion[]
   id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   dealId String @map("deal_id") @db.Uuid
@@ -2107,6 +2112,87 @@ model LeadDocument {
   @@unique([storageBucket, storageKey])
   @@index([dealId, archivedAt, createdAt, id], map:"lead_documents_deal_list_idx")
   @@map("lead_documents")
+}
+
+/// Base única de atividades comerciais; dados operacionais pertencem à rodada vigente.
+model Activity {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  dealId String? @map("deal_id") @db.Uuid
+  clientId String? @map("client_id") @db.Uuid
+  type String
+  title String
+  notes String @default("")
+  priority String @default("normal")
+  origin String @default("manual")
+  ruleKey String? @map("rule_key")
+  createdByType String @map("created_by_type")
+  createdById String @map("created_by_id") @db.Uuid
+  creationRequestId String @map("creation_request_id") @db.Uuid
+  creationHash String @map("creation_hash") @db.Char(64)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  version Int @default(1)
+  currentRoundNumber Int @default(1) @map("current_round_number")
+  deal Deal? @relation(fields: [dealId], references: [id], onDelete: Restrict)
+  client Client? @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  rounds ActivityRound[] @relation("ActivityRounds")
+  previousRounds ActivityRound[] @relation("ActivityNext")
+  changes ActivityChange[]
+  @@unique([createdByType, createdById, creationRequestId])
+  @@index([dealId, id])
+  @@index([clientId, id])
+  @@map("activities")
+}
+
+model ActivityRound {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  activityId String @map("activity_id") @db.Uuid
+  number Int
+  status String @default("todo")
+  ownerId String @map("owner_id") @db.Uuid
+  startsAt DateTime @map("starts_at") @db.Timestamptz(6)
+  dueAt DateTime @map("due_at") @db.Timestamptz(6)
+  openedAt DateTime @default(now()) @map("opened_at") @db.Timestamptz(6)
+  openedByType String @map("opened_by_type")
+  openedById String @map("opened_by_id") @db.Uuid
+  sourceTransitionId String? @map("source_transition_id") @db.Uuid
+  endedAt DateTime? @map("ended_at") @db.Timestamptz(6)
+  endReason String? @map("end_reason")
+  completedAt DateTime? @map("completed_at") @db.Timestamptz(6)
+  completedByType String? @map("completed_by_type")
+  completedById String? @map("completed_by_id") @db.Uuid
+  outcomeSummary String? @map("outcome_summary")
+  nextActivityId String? @map("next_activity_id") @db.Uuid
+  activity Activity @relation("ActivityRounds", fields: [activityId], references: [id], onDelete: Restrict)
+  owner User @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  nextActivity Activity? @relation("ActivityNext", fields: [nextActivityId], references: [id], onDelete: Restrict)
+  evidence ActivityRoundEvidence[]
+  @@unique([activityId, number])
+  @@unique([activityId, sourceTransitionId])
+  @@index([ownerId, dueAt])
+  @@map("activity_rounds")
+}
+
+model ActivityChange {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  activityId String @map("activity_id") @db.Uuid
+  version Int
+  kind String
+  actorType String @map("actor_type")
+  actorId String @map("actor_id") @db.Uuid
+  occurredAt DateTime @default(now()) @map("occurred_at") @db.Timestamptz(6)
+  snapshot Json @db.JsonB
+  activity Activity @relation(fields: [activityId], references: [id], onDelete: Restrict)
+  @@unique([activityId, version])
+  @@map("activity_changes")
+}
+
+model ActivityRoundEvidence {
+  roundId String @map("round_id") @db.Uuid
+  leadDocumentId String @map("lead_document_id") @db.Uuid
+  round ActivityRound @relation(fields: [roundId], references: [id], onDelete: Restrict)
+  document LeadDocument @relation(fields: [leadDocumentId], references: [id], onDelete: Restrict)
+  @@id([roundId, leadDocumentId])
+  @@map("activity_round_evidence")
 }
 
 model LeadProposalTemplate {

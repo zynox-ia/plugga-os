@@ -12,6 +12,102 @@
     ]
   },
   {
+    "metodo": "GET",
+    "caminho": "/atividades",
+    "controller": "AtividadesController.list",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.pipelines",
+      "tela:crm.clientes",
+      "departamento:crm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/atividades",
+    "controller": "AtividadesController.create",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.pipelines",
+      "tela:crm.clientes",
+      "departamento:crm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/atividades/:id",
+    "controller": "AtividadesController.get",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.pipelines",
+      "tela:crm.clientes",
+      "departamento:crm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "PATCH",
+    "caminho": "/atividades/:id",
+    "controller": "AtividadesController.update",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.pipelines",
+      "tela:crm.clientes",
+      "departamento:crm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/atividades/:id/conclusao",
+    "controller": "AtividadesController.complete",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.pipelines",
+      "tela:crm.clientes",
+      "departamento:crm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/atividades/:id/historico",
+    "controller": "AtividadesController.history",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.pipelines",
+      "tela:crm.clientes",
+      "departamento:crm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
     "metodo": "POST",
     "caminho": "/auth/accept-invite",
     "controller": "AuthController.acceptInvite",
@@ -185,6 +281,18 @@
   },
   {
     "metodo": "POST",
+    "caminho": "/auth/password",
+    "controller": "AuthController.changePassword",
+    "acesso": "authenticated",
+    "papeis": [],
+    "guards": [
+      "SessionAuthGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
     "caminho": "/auth/reset/confirm",
     "controller": "AuthController.confirmReset",
     "acesso": "public",
@@ -279,18 +387,6 @@
     "acesso": "acesso",
     "papeis": [
       "tela:crm.clientes",
-  {
-    "metodo": "POST",
-    "caminho": "/auth/password",
-    "controller": "AuthController.changePassword",
-    "acesso": "authenticated",
-    "papeis": [],
-    "guards": [
-      "SessionAuthGuard",
-      "OriginCheckGuard",
-      "ThrottlerGuard"
-    ]
-  },
       "departamento:crm:membro"
     ],
     "guards": [
@@ -1362,6 +1458,66 @@
   },
   {
     "metodo": "GET",
+    "caminho": "/leads/:dealId/processo-solar",
+    "controller": "ProcessoSolarController.situacao",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.pipelines",
+      "departamento:crm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/leads/:dealId/projetos-solares",
+    "controller": "LeadProjetosSolaresController.list",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.pipelines",
+      "departamento:crm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/leads/:dealId/projetos-solares",
+    "controller": "LeadProjetosSolaresController.create",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.pipelines",
+      "departamento:crm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "PATCH",
+    "caminho": "/leads/:dealId/projetos-solares/:projectId",
+    "controller": "LeadProjetosSolaresController.update",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.pipelines",
+      "departamento:crm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
     "caminho": "/leads/:dealId/propostas",
     "controller": "LeadPropostasController.list",
     "acesso": "acesso",
@@ -1750,6 +1906,22 @@
     "metodo": "POST",
     "caminho": "/pipelines/:id/reativar",
     "controller": "PipelinesController.restore",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.pipelines",
+      "departamento:crm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/pipelines/:pipelineId/processo-solar/ativacao",
+    "controller": "ProcessoSolarController.ativar",
     "acesso": "acesso",
     "papeis": [
       "tela:crm.pipelines",

@@ -127,8 +127,9 @@ describe.skipIf(!HABILITADO)("RLS: permissões no login real da aplicação", { 
 
   it("habilita e força RLS em todos os modelos e mantém os grupos sem bypass", async () => {
     const tabelas = Prisma.dmmf.datamodel.models.map((m) => m.dbName ?? m.name);
-    expect(tabelas).toHaveLength(76);
+    expect(tabelas).toHaveLength(80);
     expect(tabelas).toContain("conexoes_google_calendar");
+    expect(tabelas).toEqual(expect.arrayContaining(["activities", "activity_rounds", "activity_changes", "activity_round_evidence"]));
     const flags = await root.$queryRaw<{ nome: string; ativo: boolean; forcado: boolean }[]>`
       SELECT c.relname AS nome, c.relrowsecurity AS ativo, c.relforcerowsecurity AS forcado
       FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
@@ -719,8 +720,15 @@ describe.skipIf(!HABILITADO)("RLS: permissões no login real da aplicação", { 
   });
 
   it("separa leitura técnica, catálogos ativos e domínios ainda fechados", async () => {
-    expect(await contexto("a", (tx) => tx.eventLog.findMany())).toEqual([]);
-    expect(await contexto("admin", (tx) => tx.eventLog.findMany())).toEqual([]);
+    const evento = await root.eventLog.create({ data: {
+      eventName: "commercial.deal.created", entityType: "deal", entityId: randomUUID(), actorType: "system",
+      payload: {}, occurredAt: new Date(),
+    }, select: { id: true } });
+    // A mesma linha existe e é legível pela persona técnica. A negação não
+    // depende de varrer eventos de outras execuções no banco compartilhado.
+    expect(await contexto("a", (tx) => tx.eventLog.findUnique({ where: { id: evento.id }, select: { id: true } }))).toBeNull();
+    expect(await contexto("admin", (tx) => tx.eventLog.findUnique({ where: { id: evento.id }, select: { id: true } }))).toBeNull();
+    expect(await contexto("dev", (tx) => tx.eventLog.findUnique({ where: { id: evento.id }, select: { id: true } }))).toEqual(evento);
     expect(await contexto("a", (tx) => tx.company.findMany({ where: { id: empresaId } }))).toHaveLength(1);
     expect(await app().company.count()).toBe(0);
     expect(await contexto("gerente", (tx) => tx.obra.findMany())).toEqual([]);

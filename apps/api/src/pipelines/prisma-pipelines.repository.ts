@@ -27,7 +27,8 @@ import { travarPipelines } from "./travar-pipelines";
 import { configurarCampos, lerCampos, type ContagensDeCampos } from "./custom-fields.rules";
 import { contarValores, removerValores } from "./custom-fields.persistence";
 import { contarNegociosDosPipelines } from "./pipeline-counts.persistence";
-import { configurarPerfilDeProcesso, lerPerfilDeProcesso } from "./solar-profile.rules";
+import { configurarPerfilDeProcesso, lerPerfilDeProcesso, problemaDasEtapasDoProcesso } from "./solar-profile.rules";
+import { executarTransicaoNegocio, travarNegociosDaConfiguracao } from "../negocios/transicao-negocio.persistence";
 import {
   alteracoes,
   idsDesconhecidos,
@@ -225,6 +226,8 @@ export class PrismaPipelinesRepository extends PipelinesRepository {
         const counts = fields === undefined ? {} : await contarValores(tx, definitions);
         const next = fields === undefined ? undefined : configurarCampos(definitions, fields, confirmedFieldRemovals ?? [], counts);
         const profile = configurarPerfilDeProcesso(lerPerfilDeProcesso(current.processProfile), processProfile, next ?? definitions);
+        const problemaDoProcesso = profile?.activation ? problemaDasEtapasDoProcesso(profile.activation, stages, removidas) : null;
+        if (problemaDoProcesso) throw new RequisicaoInvalida(problemaDoProcesso, [{ campo: "stages", problema: problemaDoProcesso }]);
         // Trava otimista: só grava sobre a versão que a tela leu. O banco guarda
         // microssegundos e o ISO da tela só milissegundos, daí o intervalo.
         const lido = new Date(updatedAt);
@@ -233,32 +236,17 @@ export class PrismaPipelinesRepository extends PipelinesRepository {
           data: { ...gerais, ...(next === undefined ? {} : { fields: next }), processProfile: profile ?? Prisma.DbNull, updatedById: principal.id },
         });
         if (gravado.count === 0) throw new EstadoInvalido(VERSAO_DESATUALIZADA);
-        if (next) await removerValores(tx, definitions.filter((field) => !next.some((item) => item.id === field.id)), principal.id,
-          atual.stages.filter((stage) => removidas.includes(stage.id) && stage.dealCount > 0).map((stage) => {
-            const destination = stages.find((item) => item.id === stageDestinations[stage.id])!;
-            return { fromId: stage.id, fromName: stage.name, toId: destination.id!, toName: destination.name };
-          }));
-
-        // Antes de excluir, os negócios das etapas removidas vão para o destino escolhido.
-        for (const etapa of atual.stages.filter((e) => removidas.includes(e.id) && e.dealCount > 0)) {
-          const destino = stages.find((e) => e.id === stageDestinations[etapa.id])!;
-          const agora = new Date();
-          const abertos = await tx.deal.findMany({ where: { stageId: etapa.id, status: "open" }, select: { id: true } });
-          await tx.deal.updateMany({ where: { stageId: etapa.id, status: "open" }, data: { stageId: destino.id!, stageEnteredAt: agora } });
-          await tx.deal.updateMany({ where: { stageId: etapa.id }, data: { stageId: destino.id! } });
-          await tx.dealHistory.createMany({
-            data: abertos.map((negocio) => ({
-              dealId: negocio.id,
-              kind: "stage_changed" as const,
-              fromStageId: etapa.id,
-              fromStageName: etapa.name,
-              toStageId: destino.id!,
-              toStageName: destino.name,
-              actorId: principal.id,
-              occurredAt: agora,
-            })),
-          });
-        }
+        const removedFields = next ? definitions.filter((field) => !next.some((item) => item.id === field.id)) : [];
+        await travarNegociosDaConfiguracao(tx, id, removidas, removedFields);
+        const realocados = removidas.length ? await tx.deal.findMany({ where: { pipelineId: id, stageId: { in: removidas } }, select: { id: true, stageId: true, version: true }, orderBy: { id: "asc" } }) : [];
+        await removerValores(tx, removedFields, principal.id, realocados.map((deal) => deal.id));
+        const agora = new Date();
+        const moves = realocados.map((negocio) => {
+          const destino = stages.find((stage) => stage.id === stageDestinations[negocio.stageId]);
+          if (!destino?.id) throw new RequisicaoInvalida("Escolha uma etapa mantida para receber os negócios da etapa removida.");
+          return { dealId: negocio.id, version: negocio.version, toStageId: destino.id, toStageName: destino.name };
+        });
+        await executarTransicaoNegocio(tx, this.auditoria, principal, agora, { kind: "reallocate_batch", pipelineId: id, removedFields, moves });
         await tx.pipelineStage.deleteMany({ where: { pipelineId: id, id: { in: removidas } } });
         for (const [position, { id: etapaId, name, color, staleAfterDays, asksClientConversion }] of stages.entries()) {
           const dados = { name, color, staleAfterDays, asksClientConversion, position };
@@ -316,8 +304,14 @@ export class PrismaPipelinesRepository extends PipelinesRepository {
   /** Quem não alcança o pipeline recebe "não encontrado": a existência não vaza. */
   private async lerVisivel(id: string, pessoaId: string, acesso: AcessoComercial): Promise<Pipeline> {
     const { linha, counts } = await this.prisma.comContexto(async (tx) => {
-      const linha = await tx.pipeline.findUnique({ where: { id }, include: COMPLETO });
-      const counts = linha ? await contarValores(tx, lerCampos(linha.fields)) : {};
+      const definition = await tx.pipeline.findUnique({ where: { id }, include: PARA_LISTAGEM });
+      if (!definition) return { linha: null, counts: {} };
+      const totals = await contarNegociosDosPipelines(tx, [id]);
+      const linha = {
+        ...definition, _count: { deals: totals.pipelines.get(id) ?? 0 },
+        stages: definition.stages.map((stage) => ({ ...stage, _count: { deals: totals.stages.get(stage.id) ?? 0 } })),
+      };
+      const counts = await contarValores(tx, lerCampos(linha.fields));
       return { linha, counts };
     });
     if (!linha || !podeVer(acesso)) throw new NaoEncontrado(NAO_ENCONTRADO);

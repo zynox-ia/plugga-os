@@ -163,17 +163,21 @@ export const updateLeadRequestSchema = z
   });
 export type UpdateLeadRequest = z.infer<typeof updateLeadRequestSchema>;
 
-export const moveDealStageRequestSchema = z.object({ stageId: uuid, beforeDealId: uuid.nullable().optional() }).strict();
+export const dealTransitionOriginSchema = z.enum(["quadro", "ficha", "api"]);
+export type DealTransitionOrigin = z.infer<typeof dealTransitionOriginSchema>;
+const transitionContext = { version: z.number().int().positive().optional(), origin: dealTransitionOriginSchema.optional() };
+export const moveDealStageRequestSchema = z.object({ stageId: uuid, beforeDealId: uuid.nullable().optional(), ...transitionContext }).strict();
 export type MoveDealStageRequest = z.infer<typeof moveDealStageRequestSchema>;
 
 /** Ganhar sempre pode converter o lead em cliente na mesma transação. */
-export const winDealRequestSchema = z.object({ convertToClient: z.boolean().default(false) }).strict();
+export const winDealRequestSchema = z.object({ convertToClient: z.boolean().default(false), ...transitionContext }).strict();
 export type WinDealRequest = z.infer<typeof winDealRequestSchema>;
 
 /** Perder exige o motivo; a data de revisita é exigida pela API quando o motivo pede. */
 export const loseDealRequestSchema = z
   .object({
     lossReasonId: uuid,
+    ...transitionContext,
     revisitOn: dataOpcional,
     note: z.preprocess(vazioViraNulo, z.string().trim().max(500).nullable()).optional(),
   })
@@ -182,7 +186,7 @@ export type LoseDealRequest = z.infer<typeof loseDealRequestSchema>;
 
 /** Mover para outro pipeline. O responsável só é pedido se o atual não estiver na equipe do destino. */
 export const transferDealRequestSchema = z
-  .object({ pipelineId: uuid, stageId: uuid, ownerId: uuid.optional(), convertToClient: z.boolean().default(false) })
+  .object({ pipelineId: uuid, stageId: uuid, ownerId: uuid.optional(), convertToClient: z.boolean().default(false), version: transitionContext.version })
   .strict();
 export type TransferDealRequest = z.infer<typeof transferDealRequestSchema>;
 
@@ -194,7 +198,15 @@ export const bulkDealsActionSchema = z.discriminatedUnion("type", [
 ]);
 export type BulkDealsAction = z.infer<typeof bulkDealsActionSchema>;
 
-export const bulkDealsRequestSchema = z.object({ dealIds: z.array(uuid).min(1).max(200), action: bulkDealsActionSchema }).strict();
+const dealVersions = z.record(uuid, z.number().int().positive())
+  .refine((values) => new Set(Object.keys(values).map((id) => id.toLowerCase())).size === Object.keys(values).length, "identificador repetido no mapa de versões")
+  .transform((values) => Object.fromEntries(Object.entries(values).map(([id, version]) => [id.toLowerCase(), version])));
+export const bulkDealsRequestSchema = z.object({ dealIds: z.array(uuid).min(1).max(200), action: bulkDealsActionSchema, versions: dealVersions.optional() }).strict().superRefine((input, ctx) => {
+  if (input.versions === undefined) return;
+  const ids = new Set(input.dealIds.map((id) => id.toLowerCase()));
+  const versions = Object.keys(input.versions).map((id) => id.toLowerCase());
+  if (versions.length !== ids.size || versions.some((id) => !ids.has(id))) ctx.addIssue({ code: "custom", path: ["versions"], message: "informe a versão de todos e somente os negócios selecionados" });
+});
 export type BulkDealsRequest = z.infer<typeof bulkDealsRequestSchema>;
 
 export const listDealsQuerySchema = z
@@ -203,6 +215,8 @@ export const listDealsQuerySchema = z
 export type ListDealsQuery = z.infer<typeof listDealsQuerySchema>;
 
 export const dealSchema = z.object({
+  /** A produção sempre envia a versão persistida; opcional apenas para consumidores legados. */
+  version: z.number().int().positive().optional(),
   customFields: customFieldValuesSchema.optional(),
   id: uuid,
   number: z.number().int().positive(),
@@ -272,6 +286,7 @@ export type ListDealsResponse = z.infer<typeof listDealsResponseSchema>;
 /** O que a conversão oferece pra API decidir entre ambíguos, quando o lead não tem documento. */
 export const convertLeadRequestSchema = z
   .object({
+    ...transitionContext,
     resolution: z
       .discriminatedUnion("type", [
         z.object({ type: z.literal("link"), clientId: uuid }).strict(),

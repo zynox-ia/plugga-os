@@ -89,4 +89,30 @@ describe("AuditAppender", () => {
 
     expect((erro as Error).message).not.toContain("pessoa@exemplo.com");
   });
+
+  it("grava um lote validado na transação em uma única chamada", async () => {
+    const { tx, create } = transacaoFalsa();
+    const occurredAt = new Date("2026-11-09T12:00:00Z");
+    const eventos = [base, { ...base, entityId: "00000000-0000-4000-8000-000000000003" }].map((evento) => ({ ...evento, occurredAt }));
+    await appender.appendMany(tx, eventos);
+    expect(create).toHaveBeenCalledOnce();
+    expect(create.mock.calls[0]![0].data).toEqual(eventos);
+  });
+
+  it("valida o lote inteiro antes de gravar e não expõe o dado pessoal rejeitado", async () => {
+    const { tx, create } = transacaoFalsa();
+    const erro = await appender.appendMany(tx, [base, { ...base, payload: { ref: "pessoa@exemplo.com" } }]).catch((erro: unknown) => erro);
+    expect(erro).toBeInstanceOf(PayloadDeAuditoriaInvalido);
+    expect((erro as Error).message).not.toContain("pessoa@exemplo.com");
+    expect(create).not.toHaveBeenCalled();
+    await expect(appender.appendMany(tx, [base, { ...base, eventName: "inexistente.evento.novo" as never }])).rejects.toThrow(/fora do catálogo/);
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it("lote exige tx e lote vazio não grava uma linha artificial", async () => {
+    await expect(appender.appendMany(undefined as never, [])).rejects.toBeInstanceOf(PayloadDeAuditoriaInvalido);
+    const { tx, create } = transacaoFalsa();
+    await appender.appendMany(tx, []);
+    expect(create).not.toHaveBeenCalled();
+  });
 });

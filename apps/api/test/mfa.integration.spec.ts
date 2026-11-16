@@ -135,7 +135,7 @@ describe.skipIf(!ENABLED)("MFA em PostgreSQL com login auth restrito e concorrê
   });
   it("rollback de auditoria desfaz consumo, fator e revogação", async () => {
     const { user, hash, codes } = await enroll();
-    const failing = makeService({ append: async () => { throw new Error("synthetic audit failure"); } } as AuditAppender);
+    const failing = makeService(Object.assign(new AuditAppender(), { append: async () => { throw new Error("synthetic audit failure"); } }));
     await expect(failing.disable(user.id, hash)).rejects.toThrow();
     expect((await service.status(user.id, hash)).enabled).toBe(true);
     const primary = await service.beginLogin(user.id, {}, PROOF); if (!("requiresMfa" in primary)) throw new Error("missing challenge");

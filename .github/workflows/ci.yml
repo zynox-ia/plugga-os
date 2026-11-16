@@ -193,6 +193,9 @@ jobs:
       - name: Verify pipeline deals against Postgres
         run: pnpm --filter @plugga/api test:negocios
 
+      - name: Verify activities, access and concurrent completion against Postgres
+        run: pnpm --filter @plugga/api test:atividades
+
       - name: Verify lead documents against Postgres and RustFS
         env:
           STORAGE_ENDPOINT: http://127.0.0.1:59002

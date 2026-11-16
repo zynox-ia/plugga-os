@@ -16,6 +16,14 @@ _Avoid_: Negócio como sinônimo do cadastro de cliente.
 Negociação comercial referente a um projeto/instalação de sistema solar. Uma mesma pessoa ou empresa pode ter vários negócios Solar, cada um com sua negociação, seu dimensionamento e seu kit.
 _Avoid_: Cliente ou unidade consumidora como sinônimo do negócio.
 
+**Atividade comercial**:
+Próximo passo agendado de um negócio ou cliente, com responsável, data e hora de Manaus. Pode ser tarefa, ligação, reunião ou visita; sua conclusão registra o resultado e permite agendar a próxima atividade.
+_Avoid_: Anotação livre como sinônimo de atividade agendada.
+
+**Rodada da atividade**:
+Execução da mesma atividade com seu responsável, prazo, resultado e evidências. Uma reabertura preserva as rodadas anteriores e inicia outra rodada sob a mesma identidade de atividade.
+_Avoid_: Apagar a conclusão anterior ou criar uma atividade independente para representar a reabertura.
+
 **UC principal do Solar**:
 Unidade consumidora do local de instalação do sistema negociado no negócio Solar.
 _Avoid_: UC beneficiária como sinônimo da unidade do local de instalação.

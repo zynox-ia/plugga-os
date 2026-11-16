@@ -24,6 +24,8 @@ export * from "./pipelines.js";
 export * from "./whatsapp.js";
 export * from "./custom-fields.js";
 export * from "./solar.js";
+export * from "./activities.js";
+export * from "./processo-solar.js";
 export * from "./cadastro.js";
 export * from "./telegram.js";
 export * from "./autentique.js";

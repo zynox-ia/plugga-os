@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { PipelineField, PipelineProcessProfile } from "@plugga/shared";
 
-import { configurarPerfilDeProcesso } from "./solar-profile.rules";
+import { configurarPerfilDeProcesso, problemaDasEtapasDoProcesso } from "./solar-profile.rules";
 
 const id = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
 const profile: PipelineProcessProfile = { key: "solar_commercial", version: 1, bindings: {
@@ -35,5 +35,22 @@ describe("associação estável do processo Solar", () => {
     expect(() => configurarPerfilDeProcesso(null, profile, [])).toThrow();
     expect(() => configurarPerfilDeProcesso(null, { ...profile, bindings: { ...profile.bindings, availableAreaM2: profile.bindings.averageConsumptionKwh } }, fields)).toThrow();
     expect(() => configurarPerfilDeProcesso(null, { ...profile, bindings: { ...profile.bindings, installationType: { ...profile.bindings.installationType, options: { residential: id(9), commercial: id(7), rural: id(8) } } } }, fields)).toThrow();
+  });
+  it("preserva a ativação contra a tela de configuração e ignora ativação enviada na criação", () => {
+    const activation = { stages: { atendimento: id(11), qualificacao: id(12), proposta: id(13), visita: id(14), documentos: id(15), validacaoKit: id(16) }, activatedAt: "2026-11-16T12:00:00.000Z", activatedById: id(17) };
+    const ativo = { ...profile, activation };
+    expect(configurarPerfilDeProcesso(ativo, profile, fields)).toEqual(ativo);
+    expect(configurarPerfilDeProcesso(ativo, undefined, fields)).toEqual(ativo);
+    expect(() => configurarPerfilDeProcesso(ativo, null, fields)).toThrow();
+    expect(configurarPerfilDeProcesso(null, ativo, fields)).toEqual(profile);
+  });
+  it("com o processo ativo, etapas não são removidas, acrescentadas nem reordenadas", () => {
+    const stages = { atendimento: id(11), qualificacao: id(12), proposta: id(13), visita: id(14), documentos: id(15), validacaoKit: id(16) };
+    const activation = { stages, activatedAt: "2026-11-16T12:00:00.000Z", activatedById: id(17) };
+    const ordem = Object.values(stages).map((stageId) => ({ id: stageId }));
+    expect(problemaDasEtapasDoProcesso(activation, ordem, [])).toBeNull();
+    expect(problemaDasEtapasDoProcesso(activation, ordem.slice(1), [id(11)])).toMatch(/removidas/);
+    expect(problemaDasEtapasDoProcesso(activation, [...ordem, { id: undefined }], [])).toMatch(/novas/);
+    expect(problemaDasEtapasDoProcesso(activation, [...ordem].reverse(), [])).toMatch(/ordem/);
   });
 });

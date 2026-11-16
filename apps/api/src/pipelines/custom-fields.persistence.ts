@@ -54,13 +54,14 @@ export async function prepararValores(tx: Prisma.TransactionClient, fields: read
 /** Confirmação de remoção apaga inclusive os valores preservados na origem. */
 export async function removerValores(
   tx: Prisma.TransactionClient, fields: readonly PipelineField[], actorId: string,
-  stageMoves: readonly { fromId: string; fromName: string; toId: string; toName: string }[] = [],
+  negociosRealocados: readonly string[] = [],
 ): Promise<void> {
   if (!fields.length) return;
   const ids = fields.map((field) => field.id);
+  const excluirRealocados = negociosRealocados.length ? Prisma.sql`AND id NOT IN (${Prisma.join(negociosRealocados.map((id) => Prisma.sql`${id}::uuid`))})` : Prisma.empty;
   // Ordem fixa de locks também protege edições de campos do pipeline destino.
   const deals = await tx.$queryRaw<{ id: string; custom_fields: Prisma.JsonValue; stage_id: string; status: string }[]>(Prisma.sql`
-    SELECT id, custom_fields, stage_id, status FROM deals WHERE custom_fields ?| ARRAY[${Prisma.join(ids)}]::text[] ORDER BY id FOR UPDATE`);
+    SELECT id, custom_fields, stage_id, status FROM deals WHERE custom_fields ?| ARRAY[${Prisma.join(ids)}]::text[] ${excluirRealocados} ORDER BY id FOR UPDATE`);
   const personIds = new Set(deals.flatMap((deal) => {
     const values = lerValores(deal.custom_fields);
     return fields.flatMap((field) => field.type === "person" && typeof values[field.id] === "string" ? [String(values[field.id])] : []);
@@ -71,18 +72,8 @@ export async function removerValores(
     const values = lerValores(deal.custom_fields);
     const changes = fields.filter((field) => values[field.id] !== undefined && values[field.id] !== null);
     for (const id of ids) delete values[id];
-    const move = stageMoves.find((stage) => stage.fromId === deal.stage_id);
-    const now = new Date();
-    // A mesma configuração pode excluir etapa e campo. Mova já esta linha:
-    // o fluxo de etapas depois só encontra as restantes, sem version +2.
-    await tx.deal.update({ where: { id: deal.id }, data: {
-      customFields: values,
-      ...(move ? { stageId: move.toId, ...(deal.status === "open" ? { stageEnteredAt: now } : {}) } : {}),
-    } });
-    if (move && deal.status === "open") await tx.dealHistory.create({ data: {
-      dealId: deal.id, kind: "stage_changed", fromStageId: move.fromId, fromStageName: move.fromName,
-      toStageId: move.toId, toStageName: move.toName, actorId, occurredAt: now,
-    } });
+    // A realocação compõe campos+etapa no executor, sem incrementar a versão duas vezes.
+    await tx.deal.update({ where: { id: deal.id }, data: { customFields: values } });
     if (changes.length) await tx.dealHistory.createMany({ data: changes.map((field) => ({
       dealId: deal.id, kind: "field_changed", field: `custom:${field.name}`,
       beforeValue: valorNoHistorico(field, lerValores(deal.custom_fields)[field.id], names) ?? Prisma.JsonNull,

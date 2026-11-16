@@ -5,6 +5,7 @@ import { APP_FILTER } from "@nestjs/core";
 import { ConfigModule } from "@nestjs/config";
 
 import { AuditModule } from "./audit/audit.module";
+import { AtividadesModule } from "./atividades/atividades.module";
 import { AuthModule } from "./auth/auth.module";
 import { WhatsappModule } from "./channels/whatsapp/whatsapp.module";
 import { ClientesModule } from "./clientes/clientes.module";
@@ -25,7 +26,9 @@ import { IntegrationsModule } from "./integrations/integrations.module";
 import { JobsModule } from "./jobs/jobs.module";
 import { JobsQueueModule } from "./jobs/queue/jobs-queue.module";
 import { LeadDocumentosModule } from "./lead-documentos/lead-documentos.module";
+import { LeadProjetosSolaresModule } from "./lead-projetos-solares/lead-projetos-solares.module";
 import { LeadPropostasModule } from "./lead-propostas/lead-propostas.module";
+import { ProcessoSolarModule } from "./processo-solar/processo-solar.module";
 import { LoggingModule } from "./logging/logging.module";
 import { NegociosModule } from "./negocios/negocios.module";
 import { PipelinesModule } from "./pipelines/pipelines.module";
@@ -56,7 +59,10 @@ const monorepoRootEnvPath = path.resolve(__dirname, "../../../.env");
     PipelinesModule,
     NegociosModule,
     LeadDocumentosModule,
+    LeadProjetosSolaresModule,
     LeadPropostasModule,
+    AtividadesModule,
+    ProcessoSolarModule,
     LlmModule,
     GoogleCalendarModule,
     CadastroModule,
