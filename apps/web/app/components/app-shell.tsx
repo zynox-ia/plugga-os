@@ -41,6 +41,7 @@ function ShellContent({ children }: { children: ReactNode }) {
   const [navegando, iniciarNavegacao] = useTransition();
   const acesso = usuario?.acesso ?? null;
   const navId = navIdForPathname(pathname);
+  const exibirExemploDeMeta = process.env.NODE_ENV === "development";
 
   return (
     <PluggaShell
@@ -53,7 +54,30 @@ function ShellContent({ children }: { children: ReactNode }) {
           <UserMenu />
         </>
       }
-      sidebarFooter={<SidebarUser />}
+      sidebarFooter={
+        <div className="sidebar-bottom">
+          {usuario ? (
+            <section className="sidebar-goal" aria-label="Meta trimestral">
+              <div className="sidebar-goal-header">
+                <span>Meta trimestral</span>
+                {exibirExemploDeMeta ? <strong>49%</strong> : null}
+              </div>
+              <div className="sidebar-goal-track" aria-hidden="true">
+                {exibirExemploDeMeta ? (
+                  <>
+                    <span className="sidebar-goal-fill" style={{ inlineSize: "49%" }} />
+                    <span className="sidebar-goal-marker" style={{ insetInlineStart: "45%" }} />
+                  </>
+                ) : null}
+              </div>
+              <small>
+                {exibirExemploDeMeta ? "Exemplo · R$ 2,16 mi de R$ 4,4 mi · 50 dias restantes" : "Meta não configurada"}
+              </small>
+            </section>
+          ) : null}
+          <SidebarUser />
+        </div>
+      }
       navegando={navegando}
       onNavigate={(id) => {
         if (id.startsWith("/")) iniciarNavegacao(() => router.push(id));

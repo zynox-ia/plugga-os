@@ -3874,6 +3874,55 @@ tbody tr:last-child td { border-bottom: 0; }
 .notifications-menu-dot { width: 6px; height: 6px; background: rgba(15, 41, 74, 0.25); border-radius: 50%; }
 .notifications-menu-dot--unread { background: #0F294A; box-shadow: 0 0 6px rgba(15, 41, 74, 0.4); }
 
+.sidebar-bottom { flex: none; }
+
+.sidebar-goal {
+  display: grid;
+  gap: var(--space-xs);
+  padding: var(--space-sm);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  color: rgba(255, 255, 255, 0.8);
+  font: 500 12px/var(--line-height-control) var(--font-general-sans);
+  font-variant-numeric: tabular-nums;
+}
+
+.sidebar--collapsed .sidebar-goal { display: none; }
+
+.sidebar-goal-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-xs);
+  font-weight: 600;
+}
+
+.sidebar-goal-header strong { color: var(--color-cyan-50); font-size: 15px; }
+.sidebar-goal small { font-size: 11px; }
+
+.sidebar-goal-track {
+  position: relative;
+  block-size: 6px;
+  border-radius: var(--radius-full);
+  background: rgba(255, 255, 255, 0.17);
+}
+
+.sidebar-goal-fill {
+  display: block;
+  block-size: 100%;
+  border-radius: inherit;
+  background: var(--color-cyan-400);
+}
+
+.sidebar-goal-marker {
+  position: absolute;
+  inset-block: -2px;
+  inline-size: 2px;
+  border-radius: var(--radius-full);
+  background: var(--color-warning);
+}
+
 /* --- Cartão do usuário no pé da barra ----------------------------------- */
 .sidebar-user {
   display: flex;

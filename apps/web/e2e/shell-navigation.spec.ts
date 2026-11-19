@@ -56,6 +56,19 @@ async function abrirGrupo(
 }
 
 test.describe("Plugga shell — smoke", () => {
+  test("mostra a meta acima do perfil e a esconde ao recolher a barra", async ({ page }) => {
+    await page.goto("/");
+
+    const meta = page.getByRole("region", { name: "Meta trimestral" });
+    const perfil = page.locator(".sidebar-user");
+    await expect(page.locator(".sidebar-goal + .sidebar-user")).toBeVisible();
+    await expect(meta).toBeVisible();
+
+    await page.getByTitle("Recolher barra lateral", { exact: true }).click();
+    await expect(meta).toBeHidden();
+    await expect(perfil).toBeVisible();
+  });
+
   test("renders skip-link, brand lockup and the unified department tree", async ({ page }) => {
     await page.goto("/");
 
