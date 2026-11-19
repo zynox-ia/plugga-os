@@ -37,7 +37,6 @@
 .linhaMeta { fill: none; stroke: var(--ui-muted); stroke-dasharray: 4 5; stroke-width: 1.25; opacity: .55; }
 .linhaProjecao { fill: none; stroke: var(--ui-primary); stroke-width: 2; stroke-dasharray: 6 6; stroke-linecap: round; stroke-linejoin: round; }
 .pontoRealizado { fill: var(--ui-primary); stroke: var(--ui-surface); stroke-width: 2; }
-.marcadorHistorico { fill: var(--ui-surface); stroke: var(--ui-primary); stroke-width: 2; }
 .marcadorHoje { stroke: var(--ui-warning, var(--ui-primary)); stroke-width: 1.5; }
 .rotuloHoje { fill: var(--ui-warning, var(--ui-primary)); font-size: 10px; font-weight: 600; }
 .linhaHover { stroke: var(--ui-border-strong, var(--ui-muted)); stroke-width: 1; }

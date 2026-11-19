@@ -79,7 +79,6 @@ function GraficoPrevisao({ serie, meta, selecionado, cenario }: { serie: PontoPr
   const tooltip = hover === null ? null : serie[hover];
   const xyTooltip = hover === null ? null : ponto(valoresProjetados[hover] ?? 0, hover);
   const datasChave = Array.from({ length: 7 }, (_, indice) => Math.round(indice * (serie.length - 1) / 6));
-  const marcadoresHistoricos = Array.from({ length: Math.min(7, hojeIndice) }, (_, indice) => Math.round(indice * (hojeIndice - 1) / Math.max(1, Math.min(7, hojeIndice) - 1)));
 
   useLayoutEffect(() => {
     const elementoGrafico = graficoRef.current;
@@ -115,10 +114,6 @@ function GraficoPrevisao({ serie, meta, selecionado, cenario }: { serie: PontoPr
         <path d={linha(realizados.map((item) => item.realizado))} className={styles.linhaRealizada} />
         <path d={linha(serie.map((item) => item.ritmoMeta))} className={styles.linhaMeta} />
         <path d={linha(valoresProjetados, hojeIndice)} className={styles.linhaProjecao} />
-        {marcadoresHistoricos.map((indice) => {
-          const xy = ponto(serie[indice]?.realizado ?? 0, indice);
-          return <circle key={indice} cx={xy.x} cy={xy.y} r="3" className={styles.marcadorHistorico} />;
-        })}
         <circle cx={ponto(realizadoHoje, hojeIndice).x} cy={ponto(realizadoHoje, hojeIndice).y} r="4" className={styles.pontoRealizado} />
         {datasChave.map((indice) => {
           const xy = ponto(valoresProjetados[indice] ?? 0, indice);
