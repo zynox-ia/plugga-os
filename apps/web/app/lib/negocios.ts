@@ -9,7 +9,7 @@ import { campoCorrespondeAoFiltro } from "./campos-do-pipeline.ts";
  * etapa, alerta de parado, somas e filtros. Tudo puro, para testar sem tela.
  */
 
-export type Visao = "kanban" | "lista";
+export type Visao = "kanban" | "lista" | "previsao";
 export type FiltroDeStatus = DealStatus | "todos";
 export type FiltroDePrevisao = "qualquer" | "atrasada" | "este-mes" | "proximo-mes" | "sem-previsao";
 export type Filtros = { busca: string; responsavel: string; etiqueta: string; status: FiltroDeStatus; previsao: FiltroDePrevisao };

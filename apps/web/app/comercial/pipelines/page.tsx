@@ -11,7 +11,8 @@ export default async function PipelinesPage({ searchParams }: { searchParams: Pr
 
   const ativos = resultado.dados.pipelines.filter((p) => p.archivedAt === null);
   const selecionado = ativos.find((p) => p.id === pipeline) ?? ativos[0] ?? null;
-  const negocios = selecionado ? await fetchDeals(selecionado.id) : null;
+  const visaoAtual = visao === "lista" || visao === "previsao" ? visao : "kanban";
+  const negocios = selecionado ? await fetchDeals(selecionado.id, visaoAtual === "kanban" ? "open" : "all") : null;
   if (negocios && !negocios.ok) return <EstadoDaApi erro={negocios.erro} eyebrow="Pipelines" />;
 
   return (
@@ -19,7 +20,7 @@ export default async function PipelinesPage({ searchParams }: { searchParams: Pr
       pipelines={resultado.dados.pipelines}
       canCreateIn={resultado.dados.canCreateIn}
       selecionadoId={selecionado?.id ?? null}
-      visao={visao === "lista" ? "lista" : "kanban"}
+      visao={visaoAtual}
       negocios={negocios?.ok ? negocios.dados.deals : []}
       responsaveis={resultado.dados.responsaveis}
     />

@@ -181,7 +181,7 @@ export function QuadroDoPipeline({
 
   return (
     <div className="quadro-pipeline" style={{ "--cor": pipeline.color } as CSSProperties}>
-      {camposFiltraveis.length ? <details className={campoStyles.filtros}><summary>Filtrar por dados de {pipeline.name}</summary><div className={campoStyles.grade}>
+      {visao === "kanban" && camposFiltraveis.length ? <details className={campoStyles.filtros}><summary>Filtrar por dados de {pipeline.name}</summary><div className={campoStyles.grade}>
         <div className="ui-field"><label htmlFor="filtro-campo-pipeline">Campo</label><select id="filtro-campo-pipeline" className="ui-input" value={filtroAtual.campoId} onChange={(e) => setFiltroCampo({ pipelineId: pipeline.id, campoId: e.target.value, valor: "" })}><option value="">Todos os campos</option>{camposFiltraveis.map((campo) => <option key={campo.id} value={campo.id}>{campo.name}</option>)}</select></div>
         <TextField label="Valor do filtro" value={filtroAtual.valor} disabled={!campoFiltrado} placeholder={campoFiltrado?.type === "boolean" ? "Sim ou Não" : "Digite o valor exibido"} onChange={(e) => setFiltroCampo({ ...filtroAtual, valor: e.target.value })} />
       </div></details> : null}

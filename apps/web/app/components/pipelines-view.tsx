@@ -20,6 +20,7 @@ import { NavegacaoPipelines } from "./pipelines/navegacao-pipelines";
 import { BarraRolagemMinimalista, QuadroDoPipeline, type AcoesDoNegocio } from "./pipelines/quadro-do-pipeline";
 import { TransferirNegocio } from "./pipelines/transferir-negocio";
 import { DetalhesDoLeadModal } from "./pipelines/detalhes-do-lead-modal";
+import { PrevisaoDoPipeline } from "./pipelines/previsao-do-pipeline";
 import estilos from "./pipelines/tela-pipelines.module.css";
 
 type Encerramento = { tipo: "ganho" | "perda" | "transferencia"; negocio: Deal; origem?: DealTransitionOrigin };
@@ -224,7 +225,7 @@ export function PipelinesView({
         </div>
         {selecionado ? (
           <div className={estilos.acoes}>
-            <div className="equipe-busca">
+            {visao !== "lista" ? <div className="equipe-busca">
               <IconSearch className="equipe-busca-icon" />
               <input
                 type="search"
@@ -234,7 +235,7 @@ export function PipelinesView({
                 value={busca}
                 onChange={(e) => setBusca(e.target.value)}
               />
-            </div>
+            </div> : null}
             <Button
               variant="primary"
               icon={<IconPlus />}
@@ -279,17 +280,21 @@ export function PipelinesView({
               {aviso}
             </p>
           ) : null}
-          <QuadroDoPipeline
-            key={selecionado.id}
-            pipeline={selecionado}
-            responsaveis={responsaveis}
-            negocios={negocios}
-            busca={busca}
-            visao={visao}
-            usuarioId={usuario?.id ?? null}
-            acoes={acoes}
-            colunasRef={colunasRef}
-          />
+          {visao === "previsao" ? (
+            <PrevisaoDoPipeline key={selecionado.id} pipeline={selecionado} negocios={negocios} busca={busca} />
+          ) : (
+            <QuadroDoPipeline
+              key={selecionado.id}
+              pipeline={selecionado}
+              responsaveis={responsaveis}
+              negocios={negocios}
+              busca={visao === "lista" ? "" : busca}
+              visao={visao}
+              usuarioId={usuario?.id ?? null}
+              acoes={acoes}
+              colunasRef={colunasRef}
+            />
+          )}
         </>
       ) : (
         <section className="pipelines-vazio">

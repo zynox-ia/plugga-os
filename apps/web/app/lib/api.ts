@@ -1,4 +1,5 @@
 import {
+  type DealStatus,
   clientDetailSchema,
   clientOwnersResponseSchema,
   contractDetailSchema,
@@ -71,7 +72,8 @@ export const fetchClientOwners = () => lerApi("/clientes/responsaveis", clientOw
 export const fetchPipelines = () => lerApi("/pipelines", listPipelinesResponseSchema);
 
 /** GET /leads: os negócios de um pipeline, em qualquer situação (o quadro e a lista filtram). */
-export const fetchDeals = (pipelineId: string) => lerApi("/leads", listDealsResponseSchema, {}, { consulta: { pipelineId, status: "all" } });
+export const fetchDeals = (pipelineId: string, status: DealStatus | "all" = "all") =>
+  lerApi("/leads", listDealsResponseSchema, {}, { consulta: { pipelineId, status } });
 
 export const fetchOpportunities = () => lerApi("/commercial/opportunities", opportunityListSchema);
 

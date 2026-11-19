@@ -1,7 +1,7 @@
 "use client";
 
 import type { Pipeline } from "@plugga/shared";
-import { Check, ChevronDown, Kanban, List } from "lucide-react";
+import { ChartNoAxesCombined, Check, ChevronDown, Kanban, List } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
@@ -12,8 +12,9 @@ import { Button, IconSettings } from "../ui";
 import estilos from "./tela-pipelines.module.css";
 
 const VISOES: { valor: Visao; rotulo: string; icone: (props: { size?: number; className?: string }) => ReactNode }[] = [
-  { valor: "kanban", rotulo: "Kanban", icone: Kanban },
-  { valor: "lista", rotulo: "Lista", icone: List },
+  { valor: "kanban", rotulo: "Quadro", icone: Kanban },
+  { valor: "lista", rotulo: "Todos os negócios", icone: List },
+  { valor: "previsao", rotulo: "Previsão", icone: ChartNoAxesCombined },
 ];
 
 export function NavegacaoPipelines({
