@@ -2218,7 +2218,6 @@ tbody tr:last-child td { border-bottom: 0; }
 }
 .cartao-negocio:active { cursor: grabbing; }
 .cartao-negocio--arrastando { opacity: .35; transform: scale(0.98); }
-.cartao-negocio--parado { border-left: 4px solid #E5484D; }
 
 /* Bloco 1: Topo com Tags e Ações */
 .cartao-negocio-topo {

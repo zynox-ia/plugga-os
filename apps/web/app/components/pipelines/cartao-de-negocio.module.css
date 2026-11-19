@@ -16,10 +16,6 @@
   transform: none;
 }
 
-.cartao:global(.cartao-negocio--parado) {
-  border-inline-start: 2px solid var(--ui-danger);
-}
-
 .topo {
   display: flex;
   align-items: flex-start;
