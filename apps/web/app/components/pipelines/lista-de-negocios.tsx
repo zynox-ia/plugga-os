@@ -7,8 +7,6 @@ import {
   ArrowUpDown,
   CheckSquare,
   Download,
-  Search,
-  AlertTriangle,
   Filter,
   SolarPanel,
   X,
@@ -61,10 +59,7 @@ export function ListaDeNegocios({
   const { usuario } = useSessionUser();
   const podeAtribuir = podeAtribuirLead(usuario?.acesso);
   const [ordem, setOrdem] = useState<{ campo: CampoOrdenacaoLista; direcao: "asc" | "desc" }>({ campo: "etapa", direcao: "asc" });
-  const [busca, setBusca] = useState("");
-  const [responsavel, setResponsavel] = useState("");
   const [situacao, setSituacao] = useState<SituacaoLista>("open");
-  const [emRisco, setEmRisco] = useState(false);
   const [selecionados, setSelecionados] = useState<Set<string>>(new Set());
   const [selecionando, setSelecionando] = useState(false);
   const botaoSelecao = useRef<HTMLSpanElement>(null);
@@ -72,7 +67,7 @@ export function ListaDeNegocios({
   const [aplicando, setAplicando] = useState(false);
   const [pagina, setPagina] = useState(1);
 
-  const filtrados = useMemo(() => filtrarNegociosLista(negocios, { busca, responsavel, situacao, emRisco }, pipeline), [negocios, busca, responsavel, situacao, emRisco, pipeline]);
+  const filtrados = useMemo(() => filtrarNegociosLista(negocios, { busca: "", responsavel: "", situacao, emRisco: false }, pipeline), [negocios, situacao, pipeline]);
   const linhas = useMemo(() => ordenarNegociosLista(filtrados, ordem, pipeline), [filtrados, ordem, pipeline]);
   const visiveis = useMemo(() => new Set(linhas.map((n) => n.id)), [linhas]);
   const marcados = useMemo(() => [...selecionados].filter((id) => visiveis.has(id)), [selecionados, visiveis]);
@@ -191,14 +186,6 @@ export function ListaDeNegocios({
         </div>
       ) : null}
 
-      <div className={styles.toolbar}>
-        <label className={styles.busca}><Search size={15} aria-hidden="true" /><input type="search" placeholder="Buscar negócio ou cliente" aria-label="Buscar negócio ou cliente" value={busca} onChange={(evento) => { setBusca(evento.target.value); setPagina(1); }} /></label>
-        <Select value={responsavel || "todos"} onValueChange={(valor) => { setResponsavel(valor === "todos" ? "" : valor); setPagina(1); }}>
-          <SelectTrigger className={styles.filtroResponsavel} aria-label="Filtrar por responsável"><SelectValue /></SelectTrigger>
-          <SelectContent><SelectItem value="todos">Todos os responsáveis</SelectItem>{responsaveis.map((pessoa) => <SelectItem key={pessoa.id} value={pessoa.id}>{pessoa.name}</SelectItem>)}</SelectContent>
-        </Select>
-        <Button className={emRisco ? styles.filtroRiscoAtivo : undefined} variant="secondary" size="sm" icon={<AlertTriangle size={14} />} aria-pressed={emRisco} onClick={() => { setEmRisco((atual) => !atual); setPagina(1); }}>Em risco</Button>
-      </div>
 
       <ShellCard className="table-card lista-negocios-card">
         <div className="card-heading">

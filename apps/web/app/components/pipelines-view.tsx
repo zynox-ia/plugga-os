@@ -220,7 +220,7 @@ export function PipelinesView({
         </div>
         {selecionado ? (
           <div className={estilos.acoes}>
-            {visao !== "lista" ? <div className="equipe-busca">
+            <div className="equipe-busca">
               <IconSearch className="equipe-busca-icon" />
               <input
                 type="search"
@@ -230,7 +230,7 @@ export function PipelinesView({
                 value={busca}
                 onChange={(e) => setBusca(e.target.value)}
               />
-            </div> : null}
+            </div>
             <Button
               variant="primary"
               icon={<IconPlus />}
@@ -284,7 +284,7 @@ export function PipelinesView({
               pipeline={selecionado}
               responsaveis={responsaveis}
               negocios={negocios}
-              busca={visao === "lista" ? "" : busca}
+              busca={busca}
               visao={visao}
               usuarioId={usuario?.id ?? null}
               acoes={acoes}

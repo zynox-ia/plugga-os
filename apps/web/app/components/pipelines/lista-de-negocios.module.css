@@ -286,13 +286,7 @@
   outline-offset: 3px;
 }
 
-.toolbar, .cabecalhoTabela, .controlesTabela { display: flex; align-items: center; gap: var(--space-sm); }
-.toolbar { width: 100%; flex-wrap: nowrap; padding: 0; margin-bottom: var(--space-md); }
-.busca { display: flex; align-items: center; gap: var(--space-xs); flex: 0 0 260px; width: 260px; min-width: 0; max-width: 260px; height: 36px; padding: 0 var(--space-sm); border: 1px solid var(--ui-divider); border-radius: var(--radius-sm); color: var(--ui-muted); background: var(--ui-surface); }
-.busca input { width: 100%; min-width: 0; border: 0; outline: 0; color: var(--ui-text); background: transparent; font: inherit; font-size: 13px; }
-.busca input::placeholder { color: var(--ui-muted); }
-.busca:focus-within { border-color: var(--ui-focus); outline: 2px solid var(--ui-focus); outline-offset: 2px; }
-.filtroResponsavel { width: 210px; min-height: 36px; font-size: 12px; }
+.cabecalhoTabela, .controlesTabela { display: flex; align-items: center; gap: var(--space-sm); }
 .cabecalhoTabela { width: 100%; justify-content: space-between; flex-wrap: nowrap; padding: 0; }
 .cabecalhoTabela h2 { margin: 0 0 3px; font-size: 16px; font-weight: 600; color: var(--ui-text); }
 .cabecalhoTabela > div:first-child > span { color: var(--ui-muted); font-size: 12px; }
@@ -346,9 +340,6 @@
   .lista :global(.lista-negocios-card) { padding-inline: var(--space-md); }
   .lista :global(.card-heading) { padding: var(--space-md) 0 var(--space-sm); }
   .controles { width: 100%; }
-  .toolbar { flex-wrap: wrap; padding: 0; gap: 8px; }
-  .busca { flex: 1 0 100%; width: 100%; max-width: none; min-width: 0; }
-  .filtroResponsavel { flex: 1 1 0; width: auto; min-width: 0; justify-content: flex-start; }
   .cabecalhoTabela { align-items: flex-start; flex-wrap: wrap; padding: 0; }
   .controlesTabela { display: grid; grid-template-columns: 36px 36px minmax(0, 1fr); width: 100%; justify-content: stretch; }
   .segmentado { grid-column: 1 / -1; width: 100%; max-width: 100%; overflow: hidden; }
