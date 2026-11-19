@@ -10,7 +10,7 @@ import {
   Search,
   AlertTriangle,
   Filter,
-  Target,
+  SolarPanel,
   X,
 } from "lucide-react";
 import { useMemo, useRef, useState, type CSSProperties, type MouseEvent } from "react";
@@ -303,7 +303,7 @@ export function ListaDeNegocios({
                           {selecionando ? <span>
                             <Checkbox className={styles.checkbox} label={`Selecionar ${n.lead.name}`} checked={estaMarcado} onChange={() => alternar(n.id)} />
                           </span> : null}
-                          <span className={styles.iconeOportunidade} style={{ "--cor-etapa": etapa?.color ?? "var(--ui-primary)" } as CSSProperties} aria-hidden="true"><Target size={18} /></span>
+                          <span className={styles.iconeOportunidade} style={{ "--cor-etapa": etapa?.color ?? "var(--ui-primary)" } as CSSProperties} aria-hidden="true"><SolarPanel size={16} strokeWidth={1.8} /></span>
                           <div className="celula-lead-bloco">
                             <button type="button" className={`lead-nome ${styles.titulo}`} title={n.title} onClick={() => acoes.abrirDetalhes(n)}>{n.title}</button>
                             <span className={styles.codigo}>PLU-{String(n.number).padStart(4, "0")} · {n.lead.mainInterest || n.lead.companyName || n.lead.name}</span>

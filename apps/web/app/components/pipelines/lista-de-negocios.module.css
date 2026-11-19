@@ -338,7 +338,7 @@
 .acaoLinha { flex: 0 0 auto; margin-left: auto; opacity: 0; transition: opacity 120ms ease; }
 .lista tbody tr:hover .acaoLinha, .lista tbody tr:focus-within .acaoLinha, .acaoLinha:focus-within { opacity: 1; }
 .oportunidade { align-items: center; gap: 11px; }
-.iconeOportunidade { flex-basis: 32px; width: 32px; height: 32px; border: 0; border-radius: 8px; color: var(--cor-etapa); background: color-mix(in srgb, var(--cor-etapa) 12%, var(--ui-surface)); }
+.iconeOportunidade { flex-basis: 32px; width: 32px; height: 32px; min-width: 32px; min-height: 32px; border: 0; border-radius: 8px; color: var(--cor-etapa); background: color-mix(in srgb, var(--cor-etapa) 15%, transparent); }
 .lista :global(.celula-lead-bloco) { gap: 3px; }
 .titulo { display: block; max-width: 100%; font-size: 13px; line-height: 1.3; font-weight: 600; }
 
