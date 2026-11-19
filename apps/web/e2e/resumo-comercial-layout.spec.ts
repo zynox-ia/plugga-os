@@ -73,6 +73,19 @@ test("visão geral identifica a etapa atual e mantém os campos legíveis com e 
     assertSemSobreposicao(await retangulosDosCampos(resumoComum), `pipeline comum, ${largura}px, Resumo comercial`);
   }
   await page.setViewportSize({ width: 1440, height: 900 });
+  const painel = ficha.getByRole("tabpanel", { name: "Visão geral" });
+  const margens = await painel.evaluate((elemento) => {
+    const resumo = elemento.querySelector('[aria-label="Indicadores do negócio"]')!.getBoundingClientRect();
+    const caixa = elemento.getBoundingClientRect();
+    const estilo = getComputedStyle(elemento);
+    const esquerda = caixa.left + elemento.clientLeft;
+    return {
+      esquerda: resumo.left - esquerda - parseFloat(estilo.paddingLeft),
+      direita: esquerda + elemento.clientWidth - resumo.right - parseFloat(estilo.paddingRight),
+    };
+  });
+  expect(margens.esquerda).toBeCloseTo(0, 0);
+  expect(margens.direita).toBeCloseTo(0, 0);
   await ficha.getByRole("list", { name: "Etapas do negócio" }).getByRole("button", { name: "Proposta", exact: true }).click();
   await expect(etapaAtual).toContainText("Proposta");
   await expect.poll(async () => {

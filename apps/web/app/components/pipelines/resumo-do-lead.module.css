@@ -1,8 +1,7 @@
 .resumo {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 20px;
-  max-width: 432px;
-  margin-inline: auto;
   color: var(--ui-text);
   font-weight: 400;
 }
