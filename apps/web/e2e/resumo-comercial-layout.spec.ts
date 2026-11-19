@@ -9,35 +9,30 @@ test.afterEach(async ({ request, baseURL }) => {
   }
 });
 
-/** Retângulos das linhas do dl (um por `div` filho direto), na ordem em que aparecem no DOM. */
-async function retangulosDasLinhas(regiao: Locator): Promise<{ top: number; bottom: number }[]> {
+async function retangulosDosCampos(regiao: Locator) {
   return regiao.locator("dl > div").evaluateAll((elementos) =>
     elementos.map((elemento) => {
       const rect = elemento.getBoundingClientRect();
-      return { top: rect.top, bottom: rect.bottom };
+      return { top: rect.top, right: rect.right, bottom: rect.bottom, left: rect.left };
     }),
   );
 }
 
-/**
- * Nenhuma linha pode sobrepor a seguinte. Em vez de só "top crescente" (que não pegaria uma caixa
- * alta demais invadindo a próxima), exige: altura real renderizada (>10px, descarta caixa colapsada)
- * e o fim de cada linha (bottom) antes ou exatamente no início da próxima (top) — a mesma condição
- * medida ao vivo (getBoundingClientRect) que comprovou o defeito do QA e a correção, nos dois
- * cartões, nas 3 larguras/cenários.
- */
-function assertSemSobreposicao(linhas: { top: number; bottom: number }[], contexto: string) {
-  expect(linhas.length, `${contexto}: deveria ter pelo menos uma linha`).toBeGreaterThan(0);
-  for (const linha of linhas) {
-    expect(linha.bottom - linha.top, `${contexto}: linha com altura suspeita (colapsada?)`).toBeGreaterThan(10);
+function assertSemSobreposicao(campos: Awaited<ReturnType<typeof retangulosDosCampos>>, contexto: string) {
+  expect(campos.length, `${contexto}: deveria ter pelo menos um campo`).toBeGreaterThan(0);
+  for (const campo of campos) {
+    expect(campo.bottom - campo.top, `${contexto}: campo colapsado`).toBeGreaterThan(10);
+    expect(campo.right - campo.left, `${contexto}: campo sem espaço horizontal`).toBeGreaterThan(10);
   }
-  for (let i = 1; i < linhas.length; i++) {
-    expect(linhas[i]!.top, `${contexto}: linha ${i} deveria começar depois da linha ${i - 1}`).toBeGreaterThan(linhas[i - 1]!.top);
-    expect(linhas[i]!.top, `${contexto}: linha ${i} sobrepõe a linha ${i - 1}`).toBeGreaterThanOrEqual(linhas[i - 1]!.bottom);
+  for (const [indice, campo] of campos.entries()) {
+    for (const outro of campos.slice(indice + 1)) {
+      const sobrepoe = campo.left < outro.right && campo.right > outro.left && campo.top < outro.bottom && campo.bottom > outro.top;
+      expect(sobrepoe, `${contexto}: dois campos estão sobrepostos`).toBe(false);
+    }
   }
 }
 
-test("resumo comercial: linhas do subgrid nunca se sobrepõem, com telefone/origem em qualquer pipeline e Solar com/sem pendências", async ({ page, request, baseURL }) => {
+test("visão geral identifica a etapa atual e mantém os campos legíveis com e sem pendências Solar", async ({ page, request, baseURL }) => {
   test.setTimeout(90_000);
   expect(["localhost", "127.0.0.1"]).toContain(new URL(baseURL!).hostname);
   const headers = { origin: baseURL! };
@@ -48,13 +43,12 @@ test("resumo comercial: linhas do subgrid nunca se sobrepõem, com telefone/orig
     return resposta.json();
   };
 
-  // --- Pipeline comum (não-Solar): Telefone + Origem do lead, 2 linhas, nos mesmos dt/dd. ---
   const comum = await criar<Pipeline>("/api/pipelines", {
     companyId: "plugga", name: `Resumo layout comum ${Date.now()}`, description: null, valueLabel: "Valor", color: "#0077FF", wonLabel: "Ganho", lostLabel: "Perdido",
-    stages: [{ name: "Entrada", color: "#0077FF", staleAfterDays: null, asksClientConversion: false }], tags: [], lossReasons: [],
+    stages: ["Entrada", "Proposta"].map((name) => ({ name, color: "#0077FF", staleAfterDays: null, asksClientConversion: false })), tags: [], lossReasons: [],
   });
   pipelinesCriados.push(comum.id);
-  await criar<DealDetail>("/api/leads", {
+  const negocioComum = await criar<DealDetail>("/api/leads", {
     pipelineId: comum.id, stageId: comum.stages[0]!.id, ownerId: pessoas.people[0]!.id, title: "Negócio comum de layout",
     lead: { personType: "pj", name: "Lead comum de layout", email: "layout-comum@teste.local", phone: "92999990001", origin: "indicacao" },
   });
@@ -62,27 +56,39 @@ test("resumo comercial: linhas do subgrid nunca se sobrepõem, com telefone/orig
   await page.goto(`/comercial/pipelines?pipeline=${comum.id}`);
   const ficha = page.getByRole("dialog", { name: "Detalhes do lead", exact: true });
   await page.getByRole("button", { name: "Ver lead Lead comum de layout", exact: true }).click();
+  const etapaAtual = ficha.getByRole("list", { name: "Etapas do negócio" }).locator('[aria-current="step"]');
+  await expect(etapaAtual).toContainText("Entrada");
   const resumoComum = ficha.getByRole("region", { name: "Resumo comercial" });
-  await expect(resumoComum.locator("dl > div")).toHaveCount(2);
-  await expect(resumoComum.locator("dl > div").nth(0)).toContainText("Telefone");
-  await expect(resumoComum.locator("dl > div").nth(0)).toContainText("(92) 99999-0001");
-  await expect(resumoComum.locator("dl > div").nth(1)).toContainText("Origem do lead");
-  await expect(resumoComum.locator("dl > div").nth(1)).toContainText("Indicação");
-  // Rodapé de telefone (.contatosRodape) foi removido: o número aparece uma única vez, no cartão.
+  await expect(resumoComum.locator("dl > div")).toHaveCount(4);
+  await expect(resumoComum.locator("dl > div").last()).toContainText("Origem do lead");
+  await expect(resumoComum.locator("dl > div").last()).toContainText("Indicação");
   await expect(ficha.getByText("(92) 99999-0001")).toHaveCount(1);
+  await expect(ficha.getByRole("link", { name: "Ligar para Lead comum de layout" })).toHaveAttribute("href", "tel:92999990001");
   await expect(ficha.getByText("Solicitação / dor", { exact: true })).toHaveCount(0);
   await expect(ficha.getByText("Solução indicada", { exact: true })).toHaveCount(0);
   await expect(ficha.getByText("Impedimento", { exact: true })).toHaveCount(0);
 
   for (const largura of [1440, 390]) {
     await page.setViewportSize({ width: largura, height: 900 });
-    assertSemSobreposicao(await retangulosDasLinhas(resumoComum), `pipeline comum, ${largura}px, Resumo comercial`);
-    assertSemSobreposicao(await retangulosDasLinhas(ficha.getByRole("region", { name: "Indicadores do negócio" })), `pipeline comum, ${largura}px, Indicadores`);
+    assertSemSobreposicao(await retangulosDosCampos(resumoComum), `pipeline comum, ${largura}px, Resumo comercial`);
   }
   await page.setViewportSize({ width: 1440, height: 900 });
+  await ficha.getByRole("list", { name: "Etapas do negócio" }).getByRole("button", { name: "Proposta", exact: true }).click();
+  await expect(etapaAtual).toContainText("Proposta");
+  await expect.poll(async () => {
+    const detalhe = await (await request.get(`/api/leads/${negocioComum.id}`)).json() as DealDetail;
+    return detalhe.stageId;
+  }).toBe(comum.stages[1]!.id);
+  const anotacao = ficha.getByRole("textbox", { name: "Adicionar anotação" });
+  await anotacao.fill("Anotação sintética do resumo");
+  await ficha.getByRole("button", { name: "Adicionar", exact: true }).click();
+  await expect(anotacao).toHaveValue("");
+  await expect.poll(async () => {
+    const detalhe = await (await request.get(`/api/leads/${negocioComum.id}`)).json() as DealDetail;
+    return detalhe.lead.notes;
+  }).toBe("Anotação sintética do resumo");
   await ficha.getByRole("button", { name: "Fechar", exact: true }).click();
 
-  // --- Pipeline Solar ativado: com pendência (sem projeto) soma 4 linhas; sem pendência (projeto completo) soma 3. ---
   const campo = (name: string, type: "select" | "number", options: string[] = []) => ({ name, type, options: options.map((name) => ({ name })), showOnCard: false, showInList: true });
   let solar = await criar<Pipeline>("/api/pipelines", {
     companyId: "plugga", name: `Resumo layout solar ${Date.now()}`, description: null, valueLabel: "Valor", color: "#0077FF", wonLabel: "Ganho", lostLabel: "Perdido",
@@ -123,21 +129,18 @@ test("resumo comercial: linhas do subgrid nunca se sobrepõem, com telefone/orig
 
   await page.goto(`/comercial/pipelines?pipeline=${solar.id}`);
   await page.getByRole("button", { name: "Ver lead Lead Solar de layout", exact: true }).click();
+  await expect(etapaAtual).toContainText("Qualificação");
   const resumoSolar = ficha.getByRole("region", { name: "Resumo comercial" });
-  // Sem projeto, na Qualificação: a pendência aparece — Telefone, Origem do lead, Projeto Solar, Para avançar.
-  // Timeout maior que o padrão: sob carga paralela, a consulta de pendências do cartão (fetch
-  // assíncrono próprio) pode demorar mais que os 5s default para resolver.
-  await expect(resumoSolar.locator("dl > div")).toHaveCount(4, { timeout: 15_000 });
-  await expect(resumoSolar.locator("dl > div").nth(3)).toContainText("Para avançar");
-  const indicadoresSolar = ficha.getByRole("region", { name: "Indicadores do negócio" });
+  await expect(resumoSolar.locator("dl > div")).toHaveCount(4);
+  const pendencias = ficha.getByRole("region", { name: "Resumo do negócio" });
+  const situacaoPendente = await (await request.get(`/api/leads/${negocioSolar.id}/processo-solar`, { headers })).json();
+  await expect(pendencias).toContainText(situacaoPendente.pendencies[0].message, { timeout: 15_000 });
   for (const largura of [1440, 390]) {
     await page.setViewportSize({ width: largura, height: 900 });
-    assertSemSobreposicao(await retangulosDasLinhas(resumoSolar), `pipeline Solar com pendência, ${largura}px, Resumo comercial`);
-    assertSemSobreposicao(await retangulosDasLinhas(indicadoresSolar), `pipeline Solar com pendência, ${largura}px, Indicadores`);
+    assertSemSobreposicao(await retangulosDosCampos(resumoSolar), `pipeline Solar com pendência, ${largura}px, Resumo comercial`);
   }
   await page.setViewportSize({ width: 1440, height: 900 });
 
-  // Projeto completo (tipo, consumo, UC e conta) elimina a pendência: Telefone, Origem do lead, Projeto Solar.
   await ficha.getByRole("tab", { name: "Projetos", exact: true }).click();
   await ficha.getByRole("button", { name: "Novo projeto", exact: true }).click();
   const modal = page.getByRole("dialog", { name: "Novo projeto", exact: true });
@@ -155,12 +158,12 @@ test("resumo comercial: linhas do subgrid nunca se sobrepõem, com telefone/orig
   expect((await criacao).status()).toBe(201);
   await ficha.getByRole("tab", { name: "Visão geral", exact: true }).click();
 
-  await expect(resumoSolar.locator("dl > div")).toHaveCount(3);
-  await expect(resumoSolar.getByText("Para avançar", { exact: true })).toHaveCount(0);
+  await expect(resumoSolar.locator("dl > div")).toHaveCount(4);
+  await expect(resumoSolar).toContainText("500 kWh/mês");
+  await expect(pendencias).not.toContainText(situacaoPendente.pendencies[0].message);
   for (const largura of [1440, 390]) {
     await page.setViewportSize({ width: largura, height: 900 });
-    assertSemSobreposicao(await retangulosDasLinhas(resumoSolar), `pipeline Solar sem pendência, ${largura}px, Resumo comercial`);
-    assertSemSobreposicao(await retangulosDasLinhas(indicadoresSolar), `pipeline Solar sem pendência, ${largura}px, Indicadores`);
+    assertSemSobreposicao(await retangulosDosCampos(resumoSolar), `pipeline Solar sem pendência, ${largura}px, Resumo comercial`);
   }
   await page.setViewportSize({ width: 1440, height: 900 });
   await ficha.getByRole("button", { name: "Fechar", exact: true }).click();

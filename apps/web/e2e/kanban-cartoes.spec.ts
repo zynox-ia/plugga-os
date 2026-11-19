@@ -79,13 +79,13 @@ test("cartão compacto preserva identificação e detalhes sem o bloco de invest
   await expect(detalhes.getByText("Unidades Consumidoras Vinculadas:")).toHaveCount(0);
   await expect(cabecalho.getByRole("heading", { name: negocio.lead.name, exact: true })).toBeVisible();
   await expect(cabecalho.getByText(negocio.owner.name, { exact: true })).toBeVisible();
-  await expect(detalhes.getByRole("heading", { name: "Próxima ação", exact: true })).toBeVisible();
+  await expect(detalhes.getByRole("heading", { name: "Próximo passo", exact: true })).toBeVisible();
   const indicadores = detalhes.getByRole("region", { name: "Indicadores do negócio" });
-  await expect(indicadores.getByText("Valor do negócio", { exact: true })).toBeVisible();
   await expect(indicadores).toContainText("65.000,00");
-  await expect(indicadores.getByText("Previsão de fechamento", { exact: true })).toBeVisible();
-  await expect(indicadores).toContainText("31/12/2099");
-  await expect(indicadores.getByText("Proposta comercial", { exact: true })).toBeVisible();
+  const resumo = detalhes.getByRole("region", { name: "Resumo comercial" });
+  await expect(resumo.getByText("Previsão de fechamento", { exact: true })).toBeVisible();
+  await expect(resumo).toContainText("31/12/2099");
+  await expect(detalhes.getByRole("tab", { name: "Propostas", exact: true })).toBeEnabled();
   const abas = detalhes.getByRole("tablist", { name: "Seções do lead" });
   await expect(abas).toHaveAttribute("aria-orientation", "horizontal");
   await expect(abas.getByRole("tab")).toHaveText(["Visão geral", "Perfil", "Tarefas", "Propostas", "Oportunidade", "Histórico", "Documentos"]);

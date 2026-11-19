@@ -61,13 +61,13 @@ export function useDetalhesDoLead(id: string, pipelineId: string, aoAtualizar: (
     setSucesso(false);
   }
 
-  async function salvar() {
-    if (!original || !rascunho || !negocio || salvando || conflito || !alterado) return false;
+  async function salvar(rascunhoAtual = rascunho) {
+    if (!original || !rascunhoAtual || !negocio || salvando || conflito || rascunhosIguais(original, rascunhoAtual)) return false;
     setErro(null);
     setSucesso(false);
     setErrosCampos({});
     let corpo;
-    try { corpo = montarAtualizacaoLead(original, rascunho, negocio.version); }
+    try { corpo = montarAtualizacaoLead(original, rascunhoAtual, negocio.version); }
     catch (falha) { setErro(falha instanceof Error ? falha.message : "Confira os dados informados."); return false; }
     const validacao = updateLeadRequestSchema.safeParse(corpo);
     if (!validacao.success) {

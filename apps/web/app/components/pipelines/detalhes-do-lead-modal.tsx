@@ -19,7 +19,7 @@ import { ProjetosDoLead } from "./projetos-do-lead";
 import { useProcessoSolar } from "./use-processo-solar";
 import { PropostasDoLead } from "./propostas-do-lead";
 import type { AcoesDoNegocio } from "./quadro-do-pipeline";
-import { CabecalhoResumoDoLead, ProximaAcaoDoLead, ResumoDoLead } from "./resumo-do-lead";
+import { ProximaAcaoDoLead, ResumoDoLead } from "./resumo-do-lead";
 import { useDetalhesDoLead } from "./use-detalhes-do-lead";
 import { TarefasDoLead } from "./tarefas-do-lead";
 import { useAtividadesDoNegocio } from "./use-atividades-do-negocio";
@@ -130,7 +130,7 @@ export function DetalhesDoLeadModal({ negocioId, pipeline, responsaveis, podeAtr
     pedirSaida(() => { aoFechar(); acao(negocio, "ficha"); });
   }
   async function mudarEtapa(etapaId: string) {
-    if (!negocio || ocupado || alterado) return;
+    if (!negocio || ocupado || alterado || negocio.status !== "open") return;
     setAcaoPendente(true); setErroAcao(null);
     let motivo = "Não foi possível mudar a etapa. Tente novamente.";
     const atualizado = await acoes.moverEtapa(negocio, etapaId, undefined, "ficha", (mensagem) => { motivo = mensagem; });
@@ -154,6 +154,19 @@ export function DetalhesDoLeadModal({ negocioId, pipeline, responsaveis, podeAtr
       : evento.key === "Home" ? 0 : evento.key === "End" ? secoes.length - 1 : -1;
     if (proximo < 0) return;
     evento.preventDefault(); setSecao(secoes[proximo]!.id); botoes.current[proximo]?.focus();
+  }
+
+  function abrirSecao(destino: Secao) {
+    const indice = secoes.findIndex((item) => item.id === destino);
+    if (indice < 0) return;
+    setSecao(destino);
+    botoes.current[indice]?.focus({ preventScroll: true });
+  }
+
+  async function adicionarAnotacao(texto: string) {
+    if (!rascunho || ocupado || alterado || detalhe.conflito) return false;
+    const notes = [rascunho.lead.notes, texto].filter(Boolean).join("\n\n");
+    return detalhe.salvar({ ...rascunho, lead: { ...rascunho.lead, notes } });
   }
 
   return <Modal rotulo="Detalhes do lead" aoFechar={() => pedirSaida()} largura="larga" className={styles.modal}>
@@ -194,20 +207,24 @@ export function DetalhesDoLeadModal({ negocioId, pipeline, responsaveis, podeAtr
         </div>
       </header>
       <div className={styles.painelPrincipal}>
-        {negocio ? <ProximaAcaoDoLead atividade={proxima} responsavel={equipe.find((pessoa) => pessoa.id === proxima?.currentRound.ownerId)?.name} carregando={atividades.carregando} erro={!!atividades.erro} aoVerAtividades={() => setSecao("tarefas")} /> : null}
         <div className={styles.navegacao} role="tablist" aria-label="Seções do lead" aria-orientation="horizontal" onKeyDown={navegar}>
           {secoes.map((item, indice) => <div key={item.id}>
             <button ref={(elemento) => { botoes.current[indice] = elemento; }} type="button" role="tab" id={`${id}-${item.id}`} aria-selected={secao === item.id} aria-controls={`${id}-painel`} tabIndex={secao === item.id ? 0 : -1} className={styles.abaBotao} onClick={() => setSecao(item.id)}><item.icone size={15} aria-hidden="true" /><span>{item.titulo}</span></button>
           </div>)}
         </div>
+        {negocio && secao !== "resumo" ? <ProximaAcaoDoLead atividade={proxima} responsavel={equipe.find((pessoa) => pessoa.id === proxima?.currentRound.ownerId)?.name} carregando={atividades.carregando} erro={!!atividades.erro} aoVerAtividades={() => abrirSecao("tarefas")} /> : null}
         <section ref={painel} id={`${id}-painel`} role="tabpanel" aria-labelledby={`${id}-${secao}`} className={styles.conteudo}>
-          {negocio && secao === "resumo" ? <CabecalhoResumoDoLead negocio={negocio} pipeline={pipeline} pendencias={processo.situacao?.pendencies} /> : null}
           {detalhe.carregando ? <p role="status">Carregando dados do lead…</p> : null}
           {detalhe.erro ? <div className="aviso aviso--erro" role="alert">{detalhe.erro}{!negocio ? <Button size="sm" variant="secondary" onClick={() => void detalhe.carregar()}>Tentar novamente</Button> : null}{detalhe.conflito ? <><p>Seu rascunho foi preservado. Recarregar substituirá os textos pelos dados atuais.</p><Button size="sm" variant="secondary" onClick={() => pedirSaida(recarregar, true)}>Recarregar dados atuais</Button></> : null}</div> : null}
           {erroAcao ? <p role="alert" className="aviso aviso--erro">{erroAcao}</p> : null}
           {detalhe.sucesso && !detalhe.alterado ? <p role="status" className="aviso aviso--sucesso">Alterações salvas.</p> : null}
           {negocio && rascunho ? <>
-            {secao === "resumo" ? <ResumoDoLead pipeline={pipeline} aoMover={(etapaId) => void mudarEtapa(etapaId)} bloqueado={ocupado || alterado} aoVerHistorico={() => setSecao("historico")} /> : null}
+            {secao === "resumo" ? (
+              <ResumoDoLead negocio={negocio} pipeline={pipeline} pendencias={processo.situacao?.pendencies}
+                atividades={atividades} proxima={proxima} responsaveis={equipe} bloqueado={ocupado || alterado || detalhe.conflito}
+                aoVerAtividades={() => abrirSecao("tarefas")} aoMover={(etapaId) => void mudarEtapa(etapaId)}
+                aoGanhar={() => executar(acoes.ganhar)} aoPerder={() => executar(acoes.perder)} aoAdicionarAnotacao={adicionarAnotacao} />
+            ) : null}
             {secao === "lead" || secao === "oportunidade" ? <fieldset className={styles.formularioSemBorda} disabled={ocupado}>
               {secao === "lead" ? <FichaDoLead podeAtribuir={podeAtribuir} rascunho={rascunho} aoAlterar={detalhe.setRascunho} erros={detalhe.errosCampos} editando={perfilEditando} aoEditar={editarPerfil} responsaveis={equipe} /> : <OportunidadeDoLead negocioId={negocio.id} aoVerDocumentos={() => setSecao("documentos")} podeAtribuir={podeAtribuir} rascunho={rascunho} aoAlterar={detalhe.setRascunho} erros={detalhe.errosCampos} pipeline={pipeline} responsaveis={equipe} />}
             </fieldset> : null}
