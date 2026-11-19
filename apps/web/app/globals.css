@@ -1,4 +1,12 @@
 @font-face {
+  font-family: "General Sans Light";
+  src: url("/fonts/GeneralSans-Light.woff2") format("woff2");
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
   font-family: "General Sans";
   src: url("/fonts/GeneralSans-Regular.woff2") format("woff2");
   font-weight: 400;
@@ -3898,7 +3906,11 @@ tbody tr:last-child td { border-bottom: 0; }
 }
 
 .sidebar-goal-header strong { color: var(--color-cyan-50); font-size: 15px; font-weight: inherit; }
-.sidebar-goal small { font-size: 11px; font-weight: 400; }
+.sidebar-goal small {
+  font-family: "General Sans Light", var(--font-general-sans);
+  font-size: 11px;
+  font-weight: 300;
+}
 
 .sidebar-goal-track {
   position: relative;
