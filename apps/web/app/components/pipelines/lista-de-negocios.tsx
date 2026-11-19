@@ -1,35 +1,29 @@
 "use client";
 
-import { alcancaTela, type BulkDealsAction, type Deal, type Pipeline, type PipelinePerson } from "@plugga/shared";
+import { type BulkDealsAction, type Deal, type Pipeline, type PipelinePerson } from "@plugga/shared";
 import {
   ArrowDown,
   ArrowUp,
   ArrowUpDown,
   CheckSquare,
-  Clock,
-  Eye,
+  Download,
+  Search,
+  AlertTriangle,
   Filter,
-  Mail,
-  MapPin,
-  Phone,
   Target,
-  User,
   X,
 } from "lucide-react";
 import { useMemo, useRef, useState, type CSSProperties, type MouseEvent } from "react";
 
-import { documentoFormatado, telefoneFormatado } from "../../lib/clientes";
-import { formatarBRL } from "../../lib/format";
-import { formatarCampoDoPipeline } from "../../lib/campos-do-pipeline";
+import { formatarBRL, formatarData } from "../../lib/format";
+import { iniciais } from "../../lib/clientes";
 import {
   diasNaEtapa,
   estaParado,
-  negocioConvertido,
-  ordenar,
+  hojeNoFuso,
   podeAtribuirLead,
-  valorCurto,
-  type Ordem,
 } from "../../lib/negocios";
+import { camposPersonalizadosNaLista, csvNegocios, dataDeFechamentoExibida, diasEmAtrasoDoFechamento, diasParaFechamento, filtrarNegociosLista, ordenarNegociosLista, valorPonderadoDoNegocio, type CampoOrdenacaoLista, type SituacaoLista } from "../../lib/negocios/lista-de-negocios";
 import { useSessionUser } from "../../lib/use-session-user";
 import { ShellCard, ShellTable } from "../plugga-shell";
 import { Button, Checkbox } from "../ui";
@@ -40,11 +34,13 @@ import { PaginacaoDaLista } from "./paginacao-da-lista";
 import type { AcoesDoNegocio } from "./quadro-do-pipeline";
 import styles from "./lista-de-negocios.module.css";
 
-const COLUNAS: { campo: Ordem["campo"] | null; rotulo: string }[] = [
-  { campo: "titulo", rotulo: "Oportunidade" },
-  { campo: null, rotulo: "Cliente" },
+const COLUNAS: { campo: CampoOrdenacaoLista; rotulo: string }[] = [
+  { campo: "negocio", rotulo: "Negócio" },
   { campo: "etapa", rotulo: "Etapa" },
   { campo: "valor", rotulo: "Valor" },
+  { campo: "fechamento", rotulo: "Fechamento" },
+  { campo: "responsavel", rotulo: "Responsável" },
+  { campo: "contato", rotulo: "Na etapa há" },
 ];
 
 const ITENS_POR_PAGINA = 6;
@@ -64,17 +60,20 @@ export function ListaDeNegocios({
 }) {
   const { usuario } = useSessionUser();
   const podeAtribuir = podeAtribuirLead(usuario?.acesso);
-  const podeVerClientes = alcancaTela(usuario?.acesso, "crm.clientes");
-  const [ordem, setOrdem] = useState<Ordem>({ campo: "etapa", direcao: "asc" });
+  const [ordem, setOrdem] = useState<{ campo: CampoOrdenacaoLista; direcao: "asc" | "desc" }>({ campo: "etapa", direcao: "asc" });
+  const [busca, setBusca] = useState("");
+  const [responsavel, setResponsavel] = useState("");
+  const [situacao, setSituacao] = useState<SituacaoLista>("open");
+  const [emRisco, setEmRisco] = useState(false);
   const [selecionados, setSelecionados] = useState<Set<string>>(new Set());
   const [selecionando, setSelecionando] = useState(false);
   const botaoSelecao = useRef<HTMLSpanElement>(null);
   const [lote, setLote] = useState<Lote>({ tipo: podeAtribuir ? "owner" : "stage", valor: "" });
   const [aplicando, setAplicando] = useState(false);
   const [pagina, setPagina] = useState(1);
-  const camposNaLista = (pipeline.fields ?? []).filter((campo) => campo.showInList);
 
-  const linhas = useMemo(() => ordenar(negocios, ordem, pipeline), [negocios, ordem, pipeline]);
+  const filtrados = useMemo(() => filtrarNegociosLista(negocios, { busca, responsavel, situacao, emRisco }, pipeline), [negocios, busca, responsavel, situacao, emRisco, pipeline]);
+  const linhas = useMemo(() => ordenarNegociosLista(filtrados, ordem, pipeline), [filtrados, ordem, pipeline]);
   const visiveis = useMemo(() => new Set(linhas.map((n) => n.id)), [linhas]);
   const marcados = useMemo(() => [...selecionados].filter((id) => visiveis.has(id)), [selecionados, visiveis]);
 
@@ -86,6 +85,17 @@ export function ListaDeNegocios({
   const linhasPaginadas = useMemo(() => linhas.slice(inicioIndice, fimIndice), [linhas, inicioIndice, fimIndice]);
   const todos = linhasPaginadas.length > 0 && linhasPaginadas.every((n) => selecionados.has(n.id));
   const alguns = linhasPaginadas.some((n) => selecionados.has(n.id));
+  const valorTotal = linhas.reduce((total, negocio) => total + (negocio.value ? Number(negocio.value) : 0), 0);
+
+  const exportar = () => {
+    const blob = new Blob([csvNegocios(linhas, pipeline)], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "negocios.csv";
+    link.click();
+    URL.revokeObjectURL(url);
+  };
 
   const alternar = (id: string) =>
     setSelecionados((atual) => {
@@ -173,7 +183,7 @@ export function ListaDeNegocios({
             </Button>
             <Button variant="secondary" size="sm" icon={<X size={14} />} onClick={() => {
               setSelecionados(new Set());
-              botaoSelecao.current?.querySelector("button")?.focus();
+        botaoSelecao.current?.querySelector("button")?.focus();
             }}>
               Limpar seleção
             </Button>
@@ -181,23 +191,27 @@ export function ListaDeNegocios({
         </div>
       ) : null}
 
+      <div className={styles.toolbar}>
+        <label className={styles.busca}><Search size={15} aria-hidden="true" /><input type="search" placeholder="Buscar negócio ou cliente" aria-label="Buscar negócio ou cliente" value={busca} onChange={(evento) => { setBusca(evento.target.value); setPagina(1); }} /></label>
+        <Select value={responsavel || "todos"} onValueChange={(valor) => { setResponsavel(valor === "todos" ? "" : valor); setPagina(1); }}>
+          <SelectTrigger className={styles.filtroResponsavel} aria-label="Filtrar por responsável"><SelectValue /></SelectTrigger>
+          <SelectContent><SelectItem value="todos">Todos os responsáveis</SelectItem>{responsaveis.map((pessoa) => <SelectItem key={pessoa.id} value={pessoa.id}>{pessoa.name}</SelectItem>)}</SelectContent>
+        </Select>
+        <Button className={emRisco ? styles.filtroRiscoAtivo : undefined} variant="secondary" size="sm" icon={<AlertTriangle size={14} />} aria-pressed={emRisco} onClick={() => { setEmRisco((atual) => !atual); setPagina(1); }}>Em risco</Button>
+      </div>
+
       <ShellCard className="table-card lista-negocios-card">
-        {/* Cabeçalho do Card */}
         <div className="card-heading">
-          <div>
-            <span className="eyebrow">Visão em lista</span>
-            <h2>{pipeline.name}</h2>
+          <div className={styles.cabecalhoTabela}>
+            <div><h2>{totalItens} {totalItens === 1 ? "negócio" : "negócios"}</h2><span>{formatarBRL(valorTotal)} no total</span></div>
+            <div className={styles.controlesTabela}>
+              <div className={styles.segmentado} role="group" aria-label="Situação">
+                {([ ["open", "Em aberto"], ["won", "Ganhos"], ["lost", "Perdidos"], ["all", "Todos"] ] as const).map(([valor, rotulo]) => <button key={valor} type="button" aria-pressed={situacao === valor} onClick={() => { setSituacao(valor); setPagina(1); }}>{rotulo}</button>)}
+              </div>
+              <Button variant="secondary" size="sm" icon={<Download size={14} />} iconOnly aria-label="Exportar CSV" title="Exportar CSV" onClick={exportar} />
+              {totalItens > 0 ? <span ref={botaoSelecao} className={styles.selecaoIcone}><Button variant="secondary" size="sm" icon={<CheckSquare size={14} />} iconOnly aria-label={selecionando ? "Cancelar seleção" : "Selecionar negócios"} title={selecionando ? "Cancelar seleção" : "Selecionar negócios"} aria-pressed={selecionando} onClick={() => { setSelecionando(!selecionando); setSelecionados(new Set()); }} /></span> : null}
+            </div>
           </div>
-          {totalItens > 0 ? <div className={styles.controles}>
-            <span ref={botaoSelecao} className={styles.selecao}>
-              <Button variant="secondary" size="sm" icon={<CheckSquare size={14} />} aria-pressed={selecionando} onClick={() => {
-                setSelecionando(!selecionando);
-                setSelecionados(new Set());
-              }}>
-                {selecionando ? "Cancelar seleção" : "Selecionar leads"}
-              </Button>
-            </span>
-          </div> : null}
         </div>
 
         {totalItens === 0 ? (
@@ -212,8 +226,8 @@ export function ListaDeNegocios({
           </div>
         ) : (
           <>
-            <div className={`${styles.rolagemTabela}${camposNaLista.length ? ` ${styles.comCampos}` : ""}`} style={{ "--colunas-personalizadas": camposNaLista.length } as CSSProperties} role="region" aria-label="Oportunidades do pipeline" tabIndex={0}>
-            <ShellTable caption={`Lista de leads do pipeline ${pipeline.name}`}>
+            <div className={styles.rolagemTabela} role="region" aria-label="Oportunidades do pipeline" tabIndex={0}>
+            <ShellTable caption={`Lista de negócios do pipeline ${pipeline.name}`}>
               <thead>
                 <tr>
                   {COLUNAS.map((c) => (
@@ -229,15 +243,14 @@ export function ListaDeNegocios({
                       }
                     >
                       <div className={styles.cabecalhoColuna}>
-                        {c.campo === "titulo" && selecionando ? <Checkbox
+                        {c.campo === "negocio" && selecionando ? <Checkbox
                           className={styles.checkbox}
                           label="Selecionar todos os leads visíveis"
                           checked={todos}
                           indeterminate={alguns && !todos}
                           onChange={alternarTodos}
                         /> : null}
-                        {c.campo ? (
-                          <button
+                        <button
                             type="button"
                             className="ordenar"
                             onClick={() =>
@@ -258,18 +271,9 @@ export function ListaDeNegocios({
                               <ArrowUpDown size={12} className="ordenar-icone ordenar-icone--neutro" aria-hidden="true" />
                             )}
                           </button>
-                        ) : (
-                          <span>{c.rotulo}</span>
-                        )}
                       </div>
                     </th>
                   ))}
-                  {camposNaLista.map((campo) => (
-                    <th key={campo.id} scope="col" className={styles.cabecalhoCampo}>{campo.name}</th>
-                  ))}
-                  <th scope="col" className="coluna-centro">
-                    <span>Ações</span>
-                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -277,23 +281,13 @@ export function ListaDeNegocios({
                   const etapa = pipeline.stages.find((e) => e.id === n.stageId);
                   const parado = estaParado(n, pipeline);
                   const dias = diasNaEtapa(n);
+                  const camposLista = camposPersonalizadosNaLista(n, pipeline, responsaveis);
+                  const camposListaVisiveis = camposLista.slice(0, 3);
+                  const camposListaRestantes = Math.max(0, camposLista.length - camposListaVisiveis.length);
                   const estaMarcado = selecionados.has(n.id);
-                  const lead = n.lead;
-
-                  // Documento formatado (CNPJ ou CPF)
-                  const docFormatado = lead.document
-                    ? documentoFormatado(lead.personType, lead.document)
-                    : null;
-
-                  // Telefone formatado
-                  const foneFormatado = lead.phone
-                    ? telefoneFormatado(lead.phone)
-                    : null;
-
-                  // Localização (Cidade / UF)
-                  const localidade = [lead.city, lead.state]
-                    .filter(Boolean)
-                    .join("/");
+                  const diasAteFechamento = n.expectedCloseDate ? diasParaFechamento(n.expectedCloseDate, hojeNoFuso()) : null;
+                  const diasEmAtraso = diasEmAtrasoDoFechamento(n, hojeNoFuso());
+                  const dataDeFechamento = dataDeFechamentoExibida(n);
 
                   return (
                     <tr
@@ -301,96 +295,31 @@ export function ListaDeNegocios({
                       className={estaMarcado ? "linha-marcada" : undefined}
                       data-selected={estaMarcado}
                       onClick={(e) => aoClicarLinha(n, e)}
+                      tabIndex={0}
+                      onKeyDown={(evento) => { if (evento.target === evento.currentTarget && evento.key === "Enter") acoes.abrirDetalhes(n); }}
                     >
-                      <td>
+                      <td data-l="Negócio">
                         <div className={styles.oportunidade}>
-                          {selecionando ? <span onClick={(e) => e.stopPropagation()}>
+                          {selecionando ? <span>
                             <Checkbox className={styles.checkbox} label={`Selecionar ${n.lead.name}`} checked={estaMarcado} onChange={() => alternar(n.id)} />
                           </span> : null}
-                          <span className={styles.iconeOportunidade} aria-hidden="true"><Target size={20} /></span>
+                          <span className={styles.iconeOportunidade} style={{ "--cor-etapa": etapa?.color ?? "var(--ui-primary)" } as CSSProperties} aria-hidden="true"><Target size={18} /></span>
                           <div className="celula-lead-bloco">
-                            <button type="button" className={`lead-nome ${styles.titulo}`} title={n.lead.name} onClick={() => acoes.abrirDetalhes(n)}>{n.lead.name}</button>
-                            <div className="lead-subtitulo">
-                              {docFormatado ? (
-                                <span className="lead-subtitulo-item" title="Documento do cliente">
-                                  {docFormatado}
-                                </span>
-                              ) : null}
-
-                              {n.contact ? (
-                                <>
-                                  {docFormatado ? <span className="lead-subtitulo-divisor">•</span> : null}
-                                  <span className="lead-subtitulo-item" title="Contato direto">
-                                    <User size={11} aria-hidden="true" />
-                                    <span>{n.contact.name}</span>
-                                  </span>
-                                </>
-                              ) : null}
-
-                              {foneFormatado ? (
-                                <>
-                                  <span className="lead-subtitulo-divisor">•</span>
-                                  <span className="lead-subtitulo-item" title="Telefone de contato">
-                                    <Phone size={11} aria-hidden="true" />
-                                    <span>{foneFormatado}</span>
-                                  </span>
-                                </>
-                              ) : null}
-
-                              {lead.email ? (
-                                <>
-                                  <span className="lead-subtitulo-divisor">•</span>
-                                  <span className={`lead-subtitulo-item ${styles.email}`} title={lead.email}>
-                                    <Mail size={11} aria-hidden="true" />
-                                    <span>{lead.email}</span>
-                                  </span>
-                                </>
-                              ) : null}
-                            </div>
-
-                            {n.tags.length > 0 ? (
-                              <div className="etiquetas-linha">
-                                {n.tags.map((t) => (
-                                  <span
-                                    key={t.id}
-                                    className="etiqueta-pill"
-                                    style={{ "--cor": t.color } as CSSProperties}
-                                  >
-                                    <span className="etiqueta-pill-dot" aria-hidden="true" />
-                                    <span>{t.name}</span>
-                                  </span>
-                                ))}
-                              </div>
-                            ) : null}
+                            <button type="button" className={`lead-nome ${styles.titulo}`} title={n.title} onClick={() => acoes.abrirDetalhes(n)}>{n.title}</button>
+                            <span className={styles.codigo}>PLU-{String(n.number).padStart(4, "0")} · {n.lead.mainInterest || n.lead.companyName || n.lead.name}</span>
+                            {camposLista.length > 0 ? <span className={styles.camposLista} title={camposLista.join(" · ")}>
+                              {camposListaVisiveis.map((campo, indice) => <span className={styles.campoLista} key={`${n.id}-campo-${indice}`}>
+                                {indice > 0 ? <span className={styles.separadorCampoLista} aria-hidden="true">·</span> : null}
+                                <span className={styles.valorCampoLista}>{campo}</span>
+                              </span>)}
+                              {camposListaRestantes > 0 ? <span className={styles.contadorCamposLista}>+{camposListaRestantes}</span> : null}
+                            </span> : null}
                           </div>
                         </div>
                       </td>
-                      <td>
-                        <div className="celula-empresa-centro">
-                          <span className="empresa-nome" title={lead.legalName || lead.name}>
-                            {lead.legalName || lead.name}
-                          </span>
-                          <div className="empresa-sub">
-                            <span className="empresa-badge-tipo">{lead.personType.toUpperCase()}</span>
-                            {localidade ? (
-                              <span title="Localização">
-                                <MapPin size={10} aria-hidden="true" style={{ display: "inline", verticalAlign: "-1px", marginRight: "2px" }} />
-                                {localidade}
-                              </span>
-                            ) : (
-                              <span>Local não informado</span>
-                            )}
-                            {negocioConvertido(n) ? (
-                              <span className="empresa-badge-cliente" title={podeVerClientes && n.client ? `Convertido em cliente: ${n.client.name}` : "Convertido em cliente"}>
-                                Cliente
-                              </span>
-                            ) : null}
-                          </div>
-                        </div>
-                      </td>
-                      <td>
+                      <td data-l="Etapa">
                         <div className={styles.etapa}>
-                          <span className="etapa-pill">
+                          <span className={`etapa-pill ${styles.badgeEtapa}`} style={{ "--cor-etapa": etapa?.color ?? "var(--ui-primary)" } as CSSProperties}>
                             <span
                               className="etapa-dot"
                               style={{ background: etapa?.color ?? "var(--ui-primary)" }}
@@ -398,55 +327,18 @@ export function ListaDeNegocios({
                             />
                             <span>{etapa?.name ?? "Sem etapa"}</span>
                           </span>
-                          <span className={parado ? "atividade-linha atividade-linha--parado" : "atividade-linha"}>
-                            <Clock size={12} aria-hidden="true" />
-                            <span>{parado ? `Parado há ${dias}d` : `${dias}d na etapa`}</span>
-                          </span>
+                          {parado ? <span className={styles.alertaRisco}>Parado há {dias} dias</span> : null}
                         </div>
                       </td>
-                      <td>
+                      <td data-l="Valor">
                         <div className={styles.valor}>
-                          <span className="valor-linha" title={n.value ? formatarBRL(n.value) : undefined}>
-                            {n.value ? valorCurto(Number(n.value)) : "—"}
-                          </span>
-                          <span className={`selo-status-lead selo-status-lead--${n.status}`}>
-                            <span className="selo-status-lead-dot" aria-hidden="true" />
-                            <span>
-                              {n.status === "won"
-                                ? pipeline.wonLabel
-                                : n.status === "lost"
-                                  ? pipeline.lostLabel
-                                  : "Em aberto"}
-                            </span>
-                          </span>
+                          <strong>{formatarBRL(n.value)}</strong>
+                          <small>{formatarBRL(valorPonderadoDoNegocio(n, pipeline))} ponderado</small>
                         </div>
                       </td>
-                      {camposNaLista.map((campo) => (
-                        <td key={campo.id} className={styles.campoPersonalizado}>
-                          {formatarCampoDoPipeline(campo, n.customFields?.[campo.id], responsaveis)}
-                        </td>
-                      ))}
-                      <td className="coluna-acoes coluna-centro" onClick={(e) => e.stopPropagation()}>
-                        <div className="lista-negocios-acoes">
-                          <button
-                            type="button"
-                            className="lista-negocios-btn-ver"
-                            aria-label={`Ver detalhes do lead ${n.title}`}
-                            title="Ver detalhes do lead"
-                            onClick={() => acoes.abrirDetalhes(n)}
-                          >
-                            <Eye size={14} aria-hidden="true" />
-                          </button>
-                          <MenuDoNegocio
-                            negocio={n}
-                            pipeline={pipeline}
-                            acoes={acoes}
-                            aoVerLead={() => acoes.abrirDetalhes(n)}
-                            menuClassName={styles.menuVidro}
-                            mostrarPrioridade
-                          />
-                        </div>
-                      </td>
+                      <td data-l="Fechamento"><div className={styles.fechamento}>{dataDeFechamento ? <><span>{formatarData(dataDeFechamento)}</span>{n.status !== "open" && n.closedAt ? <small>Encerrado</small> : n.status === "open" ? <small>{diasEmAtraso != null ? `atrasado há ${diasEmAtraso} dias` : diasAteFechamento === 0 ? "hoje" : `em ${diasAteFechamento} dias`}</small> : null}</> : <span>Sem previsão</span>}</div></td>
+                      <td data-l="Responsável"><div className={styles.responsavel} title={n.owner.name}><span className={styles.avatarResponsavel} style={{ "--cor-avatar": `hsl(${[...n.owner.name].reduce((hash, letra) => (hash * 31 + letra.charCodeAt(0)) % 360, 7)} 52% 42%)` } as CSSProperties} aria-hidden="true">{iniciais(n.owner.name)}</span><strong>{n.owner.name.split(/\s+/)[0]}</strong></div></td>
+                      <td data-l="Na etapa há"><div className={styles.contato}><span>{dias === 0 ? "hoje" : `${dias} dias`}</span><span className={styles.acaoLinha}><MenuDoNegocio negocio={n} pipeline={pipeline} acoes={acoes} aoVerLead={() => acoes.abrirDetalhes(n)} menuClassName={styles.menuVidro} mostrarPrioridade /></span></div></td>
                     </tr>
                   );
                 })}
@@ -454,7 +346,7 @@ export function ListaDeNegocios({
             </ShellTable>
             </div>
 
-            <PaginacaoDaLista pagina={paginaAtual} totalItens={totalItens} itensPorPagina={ITENS_POR_PAGINA} aoMudarPagina={setPagina} />
+            <PaginacaoDaLista entidade="negocios" pagina={paginaAtual} totalItens={totalItens} itensPorPagina={ITENS_POR_PAGINA} aoMudarPagina={setPagina} />
           </>
         )}
       </ShellCard>
