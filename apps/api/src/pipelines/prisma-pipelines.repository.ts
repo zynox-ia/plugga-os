@@ -111,15 +111,22 @@ export class PrismaPipelinesRepository extends PipelinesRepository {
   async list(principal: AuthPrincipal, query: ListPipelinesQuery = {}): Promise<ListPipelinesResponse> {
     const acesso = await this.acessoDe(principal.id);
     if (!acesso.podeOperar) throw new AcessoNegado("Sem acesso aos pipelines do CRM.");
-    // O catálogo mantém arquivados. Lotes internos limitam cada transação RLS
-    // ao orçamento existente, sem paginação pública nem snapshot global novo.
+    // Lotes internos limitam cada transação RLS. A tela de vendas exclui
+    // arquivados antes de carregar definições e calcular contagens.
+    const filtroDeStatus = query.status === "active" ? { archivedAt: null } : undefined;
     const ids = query.pipelineId ? [query.pipelineId.toLowerCase()] : await this.prisma.comContexto(async (tx) =>
-      (await tx.pipeline.findMany({ select: { id: true }, orderBy: { createdAt: "asc" } })).map(({ id }) => id));
+      (await tx.pipeline.findMany({
+        ...(filtroDeStatus && { where: filtroDeStatus }), select: { id: true }, orderBy: { createdAt: "asc" },
+      })).map(({ id }) => id));
     const porId = new Map<string, Pipeline>();
     for (let offset = 0; offset < ids.length; offset += PIPELINES_POR_LOTE) {
       const lote = ids.slice(offset, offset + PIPELINES_POR_LOTE);
       const pipelines = await this.prisma.comContexto(async (tx) => {
-        const definitions = await tx.pipeline.findMany({ where: { id: query.pipelineId ?? { in: lote } }, orderBy: { createdAt: "asc" }, include: PARA_LISTAGEM });
+        const definitions = await tx.pipeline.findMany({
+          where: { id: query.pipelineId ?? { in: lote }, ...filtroDeStatus },
+          orderBy: { createdAt: "asc" },
+          include: PARA_LISTAGEM,
+        });
         const totals = await contarNegociosDosPipelines(tx, definitions.map((pipeline) => pipeline.id));
         const counts = await contarValores(tx, definitions.flatMap((linha) => lerCampos(linha.fields)));
         return definitions.map((pipeline) => paraPipeline({

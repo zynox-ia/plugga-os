@@ -22,6 +22,7 @@ export function NavegacaoPipelines({
   selecionado,
   visao,
   podeConfigurar = false,
+  carregandoConfiguracao = false,
   aoConfigurar,
   rolagem,
 }: {
@@ -29,6 +30,7 @@ export function NavegacaoPipelines({
   selecionado: Pipeline;
   visao: Visao;
   podeConfigurar?: boolean;
+  carregandoConfiguracao?: boolean;
   aoConfigurar?: () => void;
   rolagem?: ReactNode;
 }) {
@@ -91,6 +93,7 @@ export function NavegacaoPipelines({
           <Button
             variant="secondary"
             icon={<IconSettings />}
+            loading={carregandoConfiguracao}
             onClick={aoConfigurar}
           >
             Configurar pipelines

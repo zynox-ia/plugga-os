@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { pipelineParaEdicao, updatePipelineRequestSchema } from "@plugga/shared";
+import { listPipelinesQuerySchema, pipelineParaEdicao, updatePipelineRequestSchema } from "@plugga/shared";
 
 import { AuditAppender } from "../audit/audit-appender";
 import { AcessoNegado } from "../common/errors/dominio";
@@ -41,6 +41,22 @@ describe("Pipelines: metadados compartilhados da tela autorizada", () => {
     expect(result.canCreateIn).toEqual(["plugga", "waze"]);
     expect(result.pipelines).toEqual([]);
     expect(people.mock.calls[0]?.[0]?.where).not.toHaveProperty("id");
+  });
+
+  it("limita os lotes aos funis ativos antes de consultar definições e contagens", async () => {
+    const { repo, pipelines, counts } = setup();
+    const id = "00000000-0000-4000-8000-000000000100";
+    pipelines.mockResolvedValueOnce([{ id }] as never);
+
+    await repo.list(principal, listPipelinesQuerySchema.parse({ status: "active" }));
+
+    expect(pipelines).toHaveBeenNthCalledWith(1, {
+      where: { archivedAt: null }, select: { id: true }, orderBy: { createdAt: "asc" },
+    });
+    expect(pipelines).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      where: { id: { in: [id] }, archivedAt: null },
+    }));
+    expect(counts).not.toHaveBeenCalled();
   });
 
   it("revogação da tela impede ler contagens e diretório mesmo com papel antigo na sessão", async () => {

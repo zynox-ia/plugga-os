@@ -5,8 +5,11 @@ import { pipelineProcessProfileSchema } from "./solar.js";
 import { companyKeySchema } from "./organization.js";
 import { isoDate, uuid } from "./primitivas.js";
 
-/** Sem filtro, mantém o catálogo completo; o id permite revalidar só um pipeline. */
-export const listPipelinesQuerySchema = z.object({ pipelineId: uuid.optional() }).strict();
+/** Sem filtro, mantém o catálogo completo; a tela de vendas pede apenas funis ativos. */
+export const listPipelinesQuerySchema = z.object({
+  pipelineId: uuid.optional(),
+  status: z.literal("active").optional(),
+}).strict();
 export type ListPipelinesQuery = z.infer<typeof listPipelinesQuerySchema>;
 
 /**

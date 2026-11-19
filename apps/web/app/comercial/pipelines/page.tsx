@@ -1,12 +1,12 @@
 import { EstadoDaApi } from "../../components/estado-da-api";
 import { PipelinesView } from "../../components/pipelines-view";
-import { fetchDeals, fetchPipelines } from "../../lib/api";
+import { fetchDeals, fetchPipelinesAtivos } from "../../lib/api";
 import { exigirPagina } from "../../lib/exigir-pagina";
 
 export default async function PipelinesPage({ searchParams }: { searchParams: Promise<{ pipeline?: string; visao?: string }> }) {
   await exigirPagina("/comercial/pipelines");
   const { pipeline, visao } = await searchParams;
-  const resultado = await fetchPipelines();
+  const resultado = await fetchPipelinesAtivos();
   if (!resultado.ok) return <EstadoDaApi erro={resultado.erro} eyebrow="Pipelines" />;
 
   const ativos = resultado.dados.pipelines.filter((p) => p.archivedAt === null);

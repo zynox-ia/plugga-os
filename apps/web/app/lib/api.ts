@@ -69,7 +69,8 @@ export const fetchClient = (id: string) => lerApi("/clientes/:id", clientDetailS
 export const fetchClientOwners = () => lerApi("/clientes/responsaveis", clientOwnersResponseSchema);
 
 /** GET /pipelines: os pipelines que a pessoa alcança, com etapas, equipe e se pode configurá-los. */
-export const fetchPipelines = () => lerApi("/pipelines", listPipelinesResponseSchema);
+export const fetchPipelinesAtivos = () =>
+  lerApi("/pipelines", listPipelinesResponseSchema, {}, { consulta: { status: "active" } });
 
 /** GET /leads: os negócios de um pipeline, em qualquer situação (o quadro e a lista filtram). */
 export const fetchDeals = (pipelineId: string, status: DealStatus | "all" = "all") =>
