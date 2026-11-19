@@ -195,8 +195,8 @@ export function ListaDeNegocios({
               <div className={styles.segmentado} role="group" aria-label="Situação">
                 {([ ["open", "Em aberto"], ["won", "Ganhos"], ["lost", "Perdidos"], ["all", "Todos"] ] as const).map(([valor, rotulo]) => <button key={valor} type="button" aria-pressed={situacao === valor} onClick={() => { setSituacao(valor); setPagina(1); }}>{rotulo}</button>)}
               </div>
-              <Button variant="secondary" size="sm" icon={<Download size={14} />} iconOnly aria-label="Exportar CSV" title="Exportar CSV" onClick={exportar} />
-              {totalItens > 0 ? <span ref={botaoSelecao} className={styles.selecaoIcone}><Button variant="secondary" size="sm" icon={<CheckSquare size={14} />} iconOnly aria-label={selecionando ? "Cancelar seleção" : "Selecionar negócios"} title={selecionando ? "Cancelar seleção" : "Selecionar negócios"} aria-pressed={selecionando} onClick={() => { setSelecionando(!selecionando); setSelecionados(new Set()); }} /></span> : null}
+              <Button className={styles.botaoIcone} variant="secondary" size="sm" icon={<Download size={16} />} iconOnly aria-label="Exportar CSV" title="Exportar CSV" onClick={exportar} />
+              {totalItens > 0 ? <span ref={botaoSelecao} className={styles.selecaoIcone}><Button className={styles.botaoIcone} variant="secondary" size="sm" icon={<CheckSquare size={16} />} iconOnly aria-label={selecionando ? "Cancelar seleção" : "Selecionar negócios"} title={selecionando ? "Cancelar seleção" : "Selecionar negócios"} aria-pressed={selecionando} onClick={() => { setSelecionando(!selecionando); setSelecionados(new Set()); }} /></span> : null}
             </div>
           </div>
         </div>
