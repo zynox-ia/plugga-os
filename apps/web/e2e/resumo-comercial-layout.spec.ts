@@ -142,6 +142,7 @@ test("visão geral identifica a etapa atual e mantém os campos legíveis com e 
 
   await page.goto(`/comercial/pipelines?pipeline=${solar.id}`);
   await page.getByRole("button", { name: "Ver lead Lead Solar de layout", exact: true }).click();
+  await expect(page.getByText(`Filtrar por dados de ${solar.name}`, { exact: true })).toHaveCount(0);
   await expect(etapaAtual).toContainText("Qualificação");
   const resumoSolar = ficha.getByRole("region", { name: "Resumo comercial" });
   await expect(resumoSolar.locator("dl > div")).toHaveCount(4);

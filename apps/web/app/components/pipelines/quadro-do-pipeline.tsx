@@ -169,7 +169,8 @@ export function QuadroDoPipeline({
   const hoje = hojeNoFuso();
   const [filtroCampo, setFiltroCampo] = useState({ pipelineId: pipeline.id, campoId: "", valor: "" });
   const filtroAtual = filtroCampo.pipelineId === pipeline.id ? filtroCampo : { pipelineId: pipeline.id, campoId: "", valor: "" };
-  const campoFiltrado = pipeline.fields?.find((campo) => campo.id === filtroAtual.campoId);
+  const camposFiltraveis = pipeline.processProfile?.key === "solar_commercial" ? [] : (pipeline.fields ?? []);
+  const campoFiltrado = camposFiltraveis.find((campo) => campo.id === filtroAtual.campoId);
 
   // No Kanban entram os abertos filtrados pela busca; na Lista entram todos filtrados pela busca.
   const visiveis = useMemo(
@@ -180,8 +181,8 @@ export function QuadroDoPipeline({
 
   return (
     <div className="quadro-pipeline" style={{ "--cor": pipeline.color } as CSSProperties}>
-      {pipeline.fields?.length ? <details className={campoStyles.filtros}><summary>Filtrar por dados de {pipeline.name}</summary><div className={campoStyles.grade}>
-        <div className="ui-field"><label htmlFor="filtro-campo-pipeline">Campo</label><select id="filtro-campo-pipeline" className="ui-input" value={filtroAtual.campoId} onChange={(e) => setFiltroCampo({ pipelineId: pipeline.id, campoId: e.target.value, valor: "" })}><option value="">Todos os campos</option>{pipeline.fields.map((campo) => <option key={campo.id} value={campo.id}>{campo.name}</option>)}</select></div>
+      {camposFiltraveis.length ? <details className={campoStyles.filtros}><summary>Filtrar por dados de {pipeline.name}</summary><div className={campoStyles.grade}>
+        <div className="ui-field"><label htmlFor="filtro-campo-pipeline">Campo</label><select id="filtro-campo-pipeline" className="ui-input" value={filtroAtual.campoId} onChange={(e) => setFiltroCampo({ pipelineId: pipeline.id, campoId: e.target.value, valor: "" })}><option value="">Todos os campos</option>{camposFiltraveis.map((campo) => <option key={campo.id} value={campo.id}>{campo.name}</option>)}</select></div>
         <TextField label="Valor do filtro" value={filtroAtual.valor} disabled={!campoFiltrado} placeholder={campoFiltrado?.type === "boolean" ? "Sim ou Não" : "Digite o valor exibido"} onChange={(e) => setFiltroCampo({ ...filtroAtual, valor: e.target.value })} />
       </div></details> : null}
       <section className="painel-quadro" aria-label={`Negócios do pipeline ${pipeline.name}`}>
