@@ -19,21 +19,20 @@
   backdrop-filter: none;
 }
 
-.lista :global(.lista-negocios-card) {
+/* Cartão e tabela seguem a tabela de Equipe e Acessos (Configurações). */
+.lista :global(.lista-negocios-card),
+.lista :global(.lista-negocios-card):hover {
   display: flex;
   flex-direction: column;
   flex: 1;
   min-height: min-content;
-  padding: 0 20px;
-  border-radius: var(--radius-md);
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
-}
-
-/* O hover global dos cards usa fundo opaco; a tabela mantém o vidro. */
-.lista :global(.lista-negocios-card),
-.lista :global(.lista-negocios-card):hover {
-  background: color-mix(in srgb, var(--ui-surface) 72%, transparent) !important;
+  padding: 0;
+  border-color: var(--ui-divider);
+  border-radius: var(--radius-xl);
+  background: color-mix(in srgb, var(--ui-surface) 95%, transparent) !important;
+  box-shadow: none;
+  color: var(--ui-text);
+  font-family: var(--font-general-sans);
 }
 
 .lista :global(.card-heading) {
@@ -42,7 +41,8 @@
   align-items: center;
   gap: var(--space-sm);
   flex-shrink: 0;
-  padding: var(--space-md) 0;
+  padding: var(--space-md);
+  border-color: var(--ui-divider);
 }
 
 /* ---------- Cabeçalho do cartão ---------- */
@@ -50,8 +50,8 @@
 .cabecalhoTabela,
 .controlesTabela { display: flex; align-items: center; gap: var(--space-sm); }
 .cabecalhoTabela { width: 100%; justify-content: space-between; flex-wrap: nowrap; }
-.cabecalhoTabela h2 { margin: 0 0 2px; color: var(--ui-text); font-size: 16px; font-weight: 600; }
-.cabecalhoTabela > div:first-child > span { color: var(--ui-muted); font-size: 12px; }
+.cabecalhoTabela h2 { margin: 0; color: var(--ui-text); font-family: var(--font-general-sans); font-weight: 500; }
+.cabecalhoTabela > div:first-child > span { display: block; margin-top: 2px; color: var(--ui-muted); font-size: 12px; }
 .controlesTabela { flex-wrap: nowrap; justify-content: flex-end; gap: var(--space-xs); }
 .selecaoIcone { display: contents; }
 
@@ -64,7 +64,6 @@
   border: 1px solid var(--ui-divider);
   border-radius: var(--radius-full);
   background: var(--ui-surface);
-  box-shadow: 0 1px 3px color-mix(in srgb, var(--ui-text) 4%, transparent);
 }
 .segmentado button {
   min-height: 28px;
@@ -81,31 +80,7 @@
   transition: background-color .15s ease, color .15s ease;
 }
 .segmentado button:hover { color: var(--ui-text); background: var(--ui-subtle); }
-.segmentado button[aria-pressed="true"] {
-  color: #ffffff;
-  background: var(--ui-text);
-  font-weight: 600;
-  box-shadow: 0 1px 3px color-mix(in srgb, var(--ui-text) 18%, transparent);
-}
-
-/* Botões de ícone redondos, na mesma família do segmentado. */
-.botaoIcone:global(.ui-button) {
-  display: inline-grid;
-  place-items: center;
-  width: 38px;
-  height: 38px;
-  min-width: 38px;
-  min-height: 38px;
-  padding: 0;
-  border: 1px solid var(--ui-divider);
-  border-radius: var(--radius-full);
-  color: var(--ui-muted);
-  background: var(--ui-surface);
-  box-shadow: 0 1px 3px color-mix(in srgb, var(--ui-text) 4%, transparent);
-}
-.botaoIcone:global(.ui-button):hover { color: var(--ui-text); background: var(--ui-subtle); }
-.botaoIcone:global(.ui-button)[aria-pressed="true"] { color: #ffffff; border-color: var(--ui-text); background: var(--ui-text); }
-.botaoIcone:global(.ui-button) svg { width: 16px; height: 16px; }
+.segmentado button[aria-pressed="true"] { color: #ffffff; background: var(--ui-text); font-weight: 600; }
 
 .selectLote { width: 190px; max-width: 100%; min-height: 36px; font-size: 12px; }
 
@@ -125,87 +100,70 @@
 .rolagemTabela :global(.table-wrap) { overflow: visible; }
 .rolagemTabela:focus-visible { outline: 2px solid var(--ui-primary); outline-offset: -2px; }
 
-.lista table { width: 100%; min-width: 920px; table-layout: fixed; border-collapse: separate; border-spacing: 0; }
+.lista table { width: 100%; min-width: 980px; table-layout: fixed; }
+.lista thead { position: sticky; top: 0; z-index: 2; background: color-mix(in srgb, var(--ui-surface) 90%, transparent); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
 
-.lista thead { position: sticky; top: 0; z-index: 2; }
-
+.lista table th,
+.lista table td { border-color: var(--ui-divider); }
 .lista table th {
-  height: 40px;
-  padding: 0 12px;
-  border-top: 1px solid var(--ui-divider);
-  border-bottom: 1px solid var(--ui-divider);
+  padding: var(--space-sm) var(--space-md);
   color: var(--ui-muted);
-  background: color-mix(in srgb, var(--ui-subtle) 92%, var(--ui-surface));
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
-  font-family: inherit;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: .04em;
-  text-transform: uppercase;
+  background: color-mix(in srgb, var(--ui-subtle) 65%, transparent);
+  font-family: var(--font-general-sans);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
   text-align: center;
-  vertical-align: middle;
 }
-.lista table th:first-child { text-align: left; border-left: 1px solid var(--ui-divider); border-radius: var(--radius-sm) 0 0 var(--radius-sm); }
-.lista table th:last-child { border-right: 1px solid var(--ui-divider); border-radius: 0 var(--radius-sm) var(--radius-sm) 0; }
+.lista table td { padding: var(--space-sm) var(--space-md); vertical-align: middle; text-align: center; white-space: nowrap; }
+.lista table th:first-child,
+.lista table td:first-child { text-align: left; }
+.lista table td:first-child { min-width: 0; white-space: normal; }
+.lista table tbody tr { transition: background .15s ease; cursor: pointer; }
+.lista table tbody tr:hover td { background: var(--ui-subtle); }
+.lista table tbody tr[data-selected="true"] td { background: var(--ui-focus-bg); }
+.lista table tr[data-selected="true"] td:first-child { box-shadow: inset 2px 0 var(--ui-primary); }
 
-.lista table th:first-child { width: 31%; }
-.lista table th:nth-child(2) { width: 15%; }
-.lista table th:nth-child(3) { width: 14%; }
-.lista table th:nth-child(4) { width: 15%; }
-.lista table th:nth-child(5) { width: 13%; }
-.lista table th:nth-child(6) { width: 12%; }
+.lista table th:nth-child(1) { width: 29%; }
+.lista table th:nth-child(2) { width: 14%; }
+.lista table th:nth-child(3) { width: 13%; }
+.lista table th:nth-child(4) { width: 13%; }
+.lista table th:nth-child(5) { width: 12%; }
+.lista table th:nth-child(6) { width: 10%; }
+.lista table th:last-child { width: 100px; min-width: 100px; }
 
 .cabecalhoColuna { display: flex; align-items: center; justify-content: center; gap: var(--space-xs); min-width: 0; }
 .lista table th:first-child .cabecalhoColuna { justify-content: flex-start; }
 
-/* Ícone de ordenação discreto: só aparece no hover, no foco ou na coluna ordenada. */
-.lista table th :global(.ordenar) { gap: 4px; color: inherit; font-weight: inherit; letter-spacing: inherit; text-transform: inherit; }
-.lista table th :global(.ordenar):hover { color: var(--ui-text); }
-.lista table th :global(.ordenar-icone) { width: 12px; height: 12px; color: var(--ui-text); }
-.lista table th :global(.ordenar-icone--neutro) { opacity: 0; color: var(--ui-muted); transition: opacity .15s ease; }
+/* Ordenação discreta: a seta só aparece no hover, no foco ou na coluna ordenada. */
+.lista table th :global(.ordenar) { gap: 4px; }
+.lista table th :global(.ordenar-icone) { width: 12px; height: 12px; }
+.lista table th :global(.ordenar-icone--neutro) { opacity: 0; transition: opacity .15s ease; }
 .lista table th:hover :global(.ordenar-icone--neutro),
-.lista table th :global(.ordenar):focus-visible :global(.ordenar-icone--neutro) { opacity: 1; }
+.lista table th :global(.ordenar):focus-visible :global(.ordenar-icone--neutro) { opacity: .6; }
 .lista table th[aria-sort] { color: var(--ui-text); }
-
-.lista table td {
-  padding: 12px;
-  border-bottom: 1px solid var(--ui-divider);
-  color: var(--ui-text);
-  font-weight: 500;
-  text-align: center;
-  vertical-align: middle;
-  white-space: nowrap;
-}
-.lista table td:first-child { min-width: 0; text-align: left; white-space: normal; }
-.lista table tbody tr:last-child td { border-bottom: 0; }
-
-.lista table tbody tr { cursor: pointer; }
-.lista table tbody tr:hover td { background: color-mix(in srgb, var(--ui-subtle) 65%, transparent) !important; }
-.lista table tbody tr[data-selected="true"] td { background: color-mix(in srgb, var(--ui-focus-bg) 65%, transparent) !important; }
-.lista table tr[data-selected="true"] td:first-child { box-shadow: inset 2px 0 var(--ui-primary); }
 
 .checkbox { align-items: center; flex: 0 0 24px; width: 24px; min-height: 32px; margin: 0; padding: 0; gap: 0; }
 .checkbox > input { margin: 0; }
 /* O rótulo continua disponível para leitores de tela. */
 .checkbox > span { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
-/* Coluna Negócio */
-.oportunidade { display: flex; align-items: center; gap: 12px; min-width: 0; }
-/* Mesmo ícone de entidade das telas de Clientes. */
+/* Coluna Negócio: mesma composição da pessoa em Equipe e Acessos. */
+.oportunidade { display: flex; align-items: center; gap: var(--space-sm); min-width: 0; text-align: left; }
 .iconeOportunidade {
-  display: inline-grid;
+  display: grid;
   place-items: center;
-  flex: 0 0 36px;
-  width: 36px;
-  height: 36px;
-  border: 1px solid var(--ui-divider);
-  border-radius: var(--radius-sm);
-  color: var(--ui-muted);
-  background: color-mix(in srgb, var(--ui-subtle) 75%, var(--ui-surface));
+  flex: 0 0 34px;
+  width: 34px;
+  height: 34px;
+  border: 1px solid rgba(0, 119, 255, 0.18);
+  border-radius: 50%;
+  color: var(--ui-primary);
+  background: var(--ui-focus-bg);
 }
 .iconeOportunidade svg { width: 16px; height: 16px; }
-.lista :global(.celula-lead-bloco) { display: flex; flex-direction: column; min-width: 0; gap: 3px; }
+.lista :global(.celula-lead-bloco) { display: flex; flex-direction: column; min-width: 0; gap: 2px; }
 .titulo {
   display: block;
   max-width: 100%;
@@ -215,59 +173,77 @@
   border: 0;
   color: var(--ui-text);
   background: none;
+  font-family: var(--font-general-sans);
   font-size: 13px;
-  font-weight: 600;
-  line-height: 1.3;
+  font-weight: 500;
+  line-height: 1.35;
   text-align: left;
   text-overflow: ellipsis;
   white-space: nowrap;
   cursor: pointer;
 }
 .titulo:hover { color: var(--ui-primary); }
-.codigo { display: block; color: var(--ui-muted); font-size: 11px; line-height: 1.4; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.camposLista { display: flex; align-items: center; min-width: 0; overflow: hidden; color: var(--ui-muted); font-size: 11px; line-height: 1.4; white-space: nowrap; }
+.codigo { display: block; overflow: hidden; color: var(--ui-muted); font-size: 12px; font-weight: 400; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
+.camposLista { display: flex; align-items: center; min-width: 0; overflow: hidden; color: var(--ui-muted); font-size: 11px; line-height: 1.35; white-space: nowrap; }
 .campoLista { display: flex; align-items: center; min-width: 0; flex: 0 1 auto; overflow: hidden; }
 .valorCampoLista { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .separadorCampoLista { flex: 0 0 auto; margin-inline: 4px; }
 .contadorCamposLista { flex: 0 0 auto; margin-left: 4px; }
 
-/* Demais colunas: tudo centralizado sob o título. */
+/* Demais colunas: centralizadas sob o título. */
 .etapa,
 .valor,
 .fechamento { display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; }
+/* Selo da etapa no mesmo formato do selo de papel da equipe. */
 .badgeEtapa:global(.etapa-pill) {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  justify-content: center;
+  gap: 5px;
   min-height: 24px;
   margin: 0;
-  padding: 0 10px;
-  border: 1px solid color-mix(in srgb, var(--cor-etapa) 24%, var(--ui-divider));
-  border-radius: var(--radius-full);
+  padding: 2px 10px;
+  border: 1px solid var(--ui-divider);
+  border-radius: 9999px;
   color: var(--ui-text);
-  background: color-mix(in srgb, var(--cor-etapa) 10%, var(--ui-surface));
+  background: var(--ui-subtle);
+  font-family: var(--font-general-sans);
   font-size: 11px;
-  font-weight: 600;
-  line-height: 1;
+  font-weight: 500;
+  line-height: var(--line-height-control);
   white-space: nowrap;
 }
-.badgeEtapa :global(.etapa-dot) { flex: 0 0 6px; width: 6px; height: 6px; border-radius: 50%; }
+.badgeEtapa :global(.etapa-dot) { flex: 0 0 5px; width: 5px; height: 5px; border-radius: 50%; }
 .alertaRisco { color: var(--ui-warning, #865400); font-size: 11px; font-weight: 400; }
-.valor strong { color: var(--ui-text); font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.valor strong { color: var(--ui-text); font-size: 13px; font-weight: 500; font-variant-numeric: tabular-nums; }
 .valor small,
-.fechamento small { color: var(--ui-muted); font-size: 11px; font-weight: 400; }
-.fechamento { color: var(--ui-text); font-size: 12px; }
+.fechamento small { color: var(--ui-muted); font-size: 12px; font-weight: 400; }
+.fechamento { color: var(--ui-text); font-size: 13px; }
 .responsavel { display: flex; align-items: center; justify-content: center; gap: var(--space-xs); min-width: 0; }
-.avatarResponsavel { display: grid; place-items: center; flex: 0 0 24px; width: 24px; height: 24px; border-radius: 50%; color: var(--cor-avatar, var(--ui-primary)); background: color-mix(in srgb, var(--cor-avatar, var(--ui-primary)) 15%, var(--ui-surface)); font-size: 9px; font-weight: 700; }
-.responsavel strong { min-width: 0; overflow: hidden; color: var(--ui-text); font-size: 12px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.iconeResponsavel { flex: 0 0 auto; color: var(--ui-muted); }
+.responsavel strong { min-width: 0; overflow: hidden; color: var(--ui-text); font-size: 13px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.contato { color: var(--ui-text); font-size: 13px; }
 
-/* Última coluna: o texto fica centrado; o menu da linha não desloca o centro. */
-.lista table td:last-child { position: relative; }
-.contato { color: var(--ui-muted); font-size: 12px; }
-.acaoLinha { position: absolute; top: 50%; right: 4px; transform: translateY(-50%); opacity: 0; transition: opacity 120ms ease; }
-.lista tbody tr:hover .acaoLinha,
-.lista tbody tr:focus-within .acaoLinha,
-.acaoLinha:focus-within { opacity: 1; }
+/* Coluna Ações: olho + três pontinhos, como em Equipe e Acessos. */
+.acoesLinha { display: inline-flex; align-items: center; justify-content: center; flex-wrap: nowrap; gap: 4px; width: 100%; white-space: nowrap; }
+.acoesLinha :global(.cartao-negocio-menu-btn) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  min-height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm, 6px);
+  color: var(--ui-muted);
+  background: transparent;
+  box-shadow: none;
+  cursor: pointer;
+  transition: color .15s ease, background-color .15s ease;
+}
+.acoesLinha :global(.cartao-negocio-menu-btn):hover,
+.acoesLinha :global(.cartao-negocio-menu-btn)[aria-expanded="true"] { color: var(--ui-text); background: rgba(15, 41, 74, 0.06); }
 
 .menuVidro:global(.menu-negocio-lista) {
   padding: 6px;
@@ -298,9 +274,6 @@
 .lista :global(.lista-paginacao-controles),
 .lista :global(.lista-paginacao-paginas) { display: flex; gap: var(--space-2xs); align-items: center; }
 .lista :global(.lista-paginacao-controles) { justify-self: end; justify-content: flex-end; }
-.lista :global(.lista-paginacao-btn),
-.lista :global(.lista-paginacao-num) { width: 28px; height: 28px; min-width: 28px; min-height: 28px; padding: 0; border-radius: var(--radius-full); }
-.lista :global(.lista-paginacao-num[aria-current="page"]) { color: #ffffff; background: var(--ui-text); border-color: var(--ui-text); box-shadow: none; }
 .lista :global(.lista-paginacao-reticencias) { padding: 0 var(--space-2xs); }
 
 .lista :global(.barra-lote) {
@@ -324,13 +297,11 @@
 /* ---------- Celular ---------- */
 
 @media (max-width: 767px) {
-  .lista :global(.lista-negocios-card) { padding-inline: var(--space-md); }
   .cabecalhoTabela { align-items: flex-start; flex-wrap: wrap; }
-  .controlesTabela { display: grid; grid-template-columns: 38px 38px minmax(0, 1fr); width: 100%; justify-content: stretch; }
-  .segmentado { grid-column: 1 / -1; grid-row: 1; width: 100%; max-width: 100%; overflow: hidden; }
+  .controlesTabela { flex-wrap: wrap; width: 100%; justify-content: flex-start; }
+  .segmentado { flex: 1 0 100%; width: 100%; max-width: 100%; overflow: hidden; }
   .segmentado button { flex: 1 1 0; min-width: 0; padding-inline: 4px; }
-  .controlesTabela > button { grid-column: 1; grid-row: 2; }
-  .selecaoIcone > button { grid-column: 2; grid-row: 2; }
+  .rolagemTabela { padding-inline: var(--space-md); }
   .rolagemTabela { min-height: 0; overflow: visible; contain: none; }
   .lista table { min-width: 0; table-layout: auto; }
   .lista thead { display: none; }
@@ -345,11 +316,11 @@
   .valor,
   .fechamento { align-items: flex-start; text-align: left; }
   .responsavel { justify-content: flex-start; }
-  /* No celular o menu da linha fica no canto superior direito do item. */
+  /* No celular as ações ficam no canto superior direito do item. */
   .lista tbody tr { position: relative; }
-  .lista table td:first-child { padding-right: 36px; }
-  .lista table td:last-child { position: static; }
-  .acaoLinha { top: 12px; right: 0; transform: none; opacity: 1; }
+  .lista table td:first-child { padding-right: 80px; }
+  .lista table td:last-child { position: absolute; top: 12px; right: 0; width: auto; }
+  .lista tbody tr:hover td { background: transparent; }
   .lista :global(.lista-paginacao) { grid-template-columns: minmax(0, 1fr); }
   .lista :global(.lista-paginacao-controles) { display: grid; grid-template-columns: repeat(2, 28px) minmax(0, 1fr) repeat(2, 28px); max-width: 100%; }
   .lista :global(.lista-paginacao-paginas) { min-width: 0; flex-wrap: wrap; justify-content: flex-end; }

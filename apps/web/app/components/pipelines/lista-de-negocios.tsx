@@ -7,14 +7,15 @@ import {
   ArrowUpDown,
   CheckSquare,
   Download,
+  Eye,
   Filter,
   SolarPanel,
+  User,
   X,
 } from "lucide-react";
 import { useMemo, useRef, useState, type CSSProperties, type MouseEvent } from "react";
 
 import { formatarBRL, formatarData } from "../../lib/format";
-import { iniciais } from "../../lib/clientes";
 import {
   diasNaEtapa,
   estaParado,
@@ -195,8 +196,8 @@ export function ListaDeNegocios({
               <div className={styles.segmentado} role="group" aria-label="Situação">
                 {([ ["open", "Em aberto"], ["won", "Ganhos"], ["lost", "Perdidos"], ["all", "Todos"] ] as const).map(([valor, rotulo]) => <button key={valor} type="button" aria-pressed={situacao === valor} onClick={() => { setSituacao(valor); setPagina(1); }}>{rotulo}</button>)}
               </div>
-              <Button className={styles.botaoIcone} variant="secondary" size="sm" icon={<Download size={16} />} iconOnly aria-label="Exportar CSV" title="Exportar CSV" onClick={exportar} />
-              {totalItens > 0 ? <span ref={botaoSelecao} className={styles.selecaoIcone}><Button className={styles.botaoIcone} variant="secondary" size="sm" icon={<CheckSquare size={16} />} iconOnly aria-label={selecionando ? "Cancelar seleção" : "Selecionar negócios"} title={selecionando ? "Cancelar seleção" : "Selecionar negócios"} aria-pressed={selecionando} onClick={() => { setSelecionando(!selecionando); setSelecionados(new Set()); }} /></span> : null}
+              <Button variant="secondary" size="sm" icon={<Download />} iconOnly aria-label="Exportar CSV" title="Exportar CSV" onClick={exportar} />
+              {totalItens > 0 ? <span ref={botaoSelecao} className={styles.selecaoIcone}><Button variant="secondary" size="sm" icon={<CheckSquare />} iconOnly aria-label={selecionando ? "Cancelar seleção" : "Selecionar negócios"} title={selecionando ? "Cancelar seleção" : "Selecionar negócios"} aria-pressed={selecionando} onClick={() => { setSelecionando(!selecionando); setSelecionados(new Set()); }} /></span> : null}
             </div>
           </div>
         </div>
@@ -261,6 +262,7 @@ export function ListaDeNegocios({
                       </div>
                     </th>
                   ))}
+                  <th scope="col">Ações</th>
                 </tr>
               </thead>
               <tbody>
@@ -290,7 +292,7 @@ export function ListaDeNegocios({
                           {selecionando ? <span>
                             <Checkbox className={styles.checkbox} label={`Selecionar ${n.lead.name}`} checked={estaMarcado} onChange={() => alternar(n.id)} />
                           </span> : null}
-                          <span className={styles.iconeOportunidade} style={{ "--cor-etapa": etapa?.color ?? "var(--ui-primary)" } as CSSProperties} aria-hidden="true"><SolarPanel size={16} strokeWidth={1.8} /></span>
+                          <span className={styles.iconeOportunidade} aria-hidden="true"><SolarPanel size={16} strokeWidth={1.8} /></span>
                           <div className="celula-lead-bloco">
                             <button type="button" className={`lead-nome ${styles.titulo}`} title={n.title} onClick={() => acoes.abrirDetalhes(n)}>{n.title}</button>
                             <span className={styles.codigo}>PLU-{String(n.number).padStart(4, "0")} · {n.lead.mainInterest || n.lead.companyName || n.lead.name}</span>
@@ -324,8 +326,12 @@ export function ListaDeNegocios({
                         </div>
                       </td>
                       <td data-l="Fechamento"><div className={styles.fechamento}>{dataDeFechamento ? <><span>{formatarData(dataDeFechamento)}</span>{n.status !== "open" && n.closedAt ? <small>Encerrado</small> : n.status === "open" ? <small>{diasEmAtraso != null ? `atrasado há ${diasEmAtraso} dias` : diasAteFechamento === 0 ? "hoje" : `em ${diasAteFechamento} dias`}</small> : null}</> : <span>Sem previsão</span>}</div></td>
-                      <td data-l="Responsável"><div className={styles.responsavel} title={n.owner.name}><span className={styles.avatarResponsavel} style={{ "--cor-avatar": `hsl(${[...n.owner.name].reduce((hash, letra) => (hash * 31 + letra.charCodeAt(0)) % 360, 7)} 52% 42%)` } as CSSProperties} aria-hidden="true">{iniciais(n.owner.name)}</span><strong>{n.owner.name.split(/\s+/)[0]}</strong></div></td>
-                      <td data-l="Na etapa há"><div className={styles.contato}><span>{dias === 0 ? "hoje" : `${dias} dias`}</span><span className={styles.acaoLinha}><MenuDoNegocio negocio={n} pipeline={pipeline} acoes={acoes} aoVerLead={() => acoes.abrirDetalhes(n)} menuClassName={styles.menuVidro} mostrarPrioridade /></span></div></td>
+                      <td data-l="Responsável"><div className={styles.responsavel} title={n.owner.name}><User className={styles.iconeResponsavel} size={14} strokeWidth={2} aria-hidden="true" /><strong>{n.owner.name.split(/\s+/)[0]}</strong></div></td>
+                      <td data-l="Na etapa há"><span className={styles.contato}>{dias === 0 ? "hoje" : `${dias} dias`}</span></td>
+                      <td className={styles.colunaAcoes}><div className={styles.acoesLinha}>
+                        <Button variant="secondary" size="sm" icon={<Eye />} iconOnly aria-label={`Ver detalhes de ${n.title}`} onClick={() => acoes.abrirDetalhes(n)} />
+                        <MenuDoNegocio negocio={n} pipeline={pipeline} acoes={acoes} aoVerLead={() => acoes.abrirDetalhes(n)} menuClassName={styles.menuVidro} mostrarPrioridade />
+                      </div></td>
                     </tr>
                   );
                 })}
