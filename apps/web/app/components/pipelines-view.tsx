@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import { enviar } from "../lib/clientes";
 import { converterLead } from "../lib/conversao-lead";
 import { hrefDaVisao, negocioConvertido, podeAtribuirLead, type Visao } from "../lib/negocios";
+import { COREOGRAFIA, useEntrada } from "../lib/movimento";
 import { useSessionUser } from "../lib/use-session-user";
 import { Alert, Button, Dialog, IconPlus, IconSearch, IconSettings } from "./ui";
 import { ConfiguracaoDePipelines } from "./pipelines/configuracao-de-pipelines";
@@ -54,6 +55,11 @@ export function PipelinesView({
   const parametros = useSearchParams();
   const leadSelecionadoId = parametros.get("lead");
   const colunasRef = useRef<HTMLDivElement>(null);
+  const raiz = useRef<HTMLDivElement>(null);
+  useEntrada(raiz, (passos) => {
+    passos.titulos(".plg-titulo", COREOGRAFIA.pipelines.titulo);
+    passos.itens(".plg-item", COREOGRAFIA.pipelines.acoes);
+  }, { rota: "/comercial/pipelines" });
   const prioridadesPendentes = useRef(new Set<string>());
   const movimentoPendente = useRef(false);
   const conversaoPendente = useRef(false);
@@ -212,15 +218,15 @@ export function PipelinesView({
   };
 
   return (
-    <div className={`pagina-pipelines ${estilos.pagina}`}>
+    <div ref={raiz} className={`pagina-pipelines ${estilos.pagina}`} data-plg-raiz="" data-plg-aguarda="">
       <header className={estilos.cabecalho}>
         <div className={estilos.tituloGrupo}>
-          <h1 className={estilos.titulo}>Pipelines</h1>
-          <h2 className={estilos.subtitulo}>Gerencie seus funis de vendas e oportunidades comerciais.</h2>
+          <h1 className={estilos.titulo}><span className="plg-mascara"><span className="plg-titulo">Pipelines</span></span></h1>
+          <h2 className={estilos.subtitulo}><span className="plg-mascara"><span className="plg-titulo">Gerencie seus funis de vendas e oportunidades comerciais.</span></span></h2>
         </div>
         {selecionado ? (
           <div className={estilos.acoes}>
-            <div className="equipe-busca">
+            <div className="equipe-busca plg-item">
               <IconSearch className="equipe-busca-icon" />
               <input
                 type="search"
@@ -232,6 +238,7 @@ export function PipelinesView({
               />
             </div>
             <Button
+              className="plg-item"
               variant="primary"
               icon={<IconPlus />}
               aria-label="Novo lead"

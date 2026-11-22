@@ -1,7 +1,7 @@
 "use client";
 
 import { useLayoutEffect, useRef, type ReactElement, type ReactNode } from "react";
-import { Modal } from "../modal";
+import { FecharModal, Modal } from "../modal";
 import { Button } from "./button";
 import { IconX } from "./icons";
 
@@ -54,11 +54,11 @@ export function Dialog({
             {description ? <p className="ui-dialog-subtitle">{description}</p> : null}
           </div>
         </div>
-        <Button variant="secondary" size="sm" icon={<IconX />} iconOnly aria-label="Fechar diálogo" onClick={onClose} />
+        <FecharModal>{(fechar) => <Button variant="secondary" size="sm" icon={<IconX />} iconOnly aria-label="Fechar diálogo" onClick={fechar} />}</FecharModal>
       </header>
       <div className="ui-dialog-body">{children}</div>
       <footer ref={footerRef} className="ui-dialog-footer">
-        <Button variant="secondary" onClick={onClose}>{cancelText}</Button>
+        <FecharModal>{(fechar) => <Button variant="secondary" onClick={fechar}>{cancelText}</Button>}</FecharModal>
         {footer && <div className="ui-dialog-actions">{footer}</div>}
       </footer>
     </Modal>

@@ -8,7 +8,7 @@ import { negocioConvertido } from "../../lib/negocios";
 import { tarefasHabilitadas } from "../../lib/tarefas-habilitadas";
 import { proximaAtividade } from "../../lib/proxima-atividade";
 import type { RascunhoLead } from "../../lib/rascunho-lead";
-import { Modal } from "../modal";
+import { FecharModal, Modal } from "../modal";
 import { Button } from "../ui/button";
 import { DocumentosDoLead } from "./documentos-do-lead";
 import { FichaDoLead } from "./ficha-do-lead";
@@ -100,8 +100,11 @@ export function DetalhesDoLeadModal({ negocioId, pipeline, responsaveis, podeAtr
     return () => window.removeEventListener("beforeunload", avisar);
   }, [alterado, ocupado]);
 
+  const ocupadoParaSair = detalhe.salvando || docsOcupados || propostasOcupadas || projetosOcupados || atividades.salvando || acaoPendente;
+  /** Fechar sem confirmação nem bloqueio: só então a saída do modal anima (PLU-325). */
+  const podeSairDireto = !ocupadoParaSair && !alterado;
   function pedirSaida(executar = aoFechar, recarregar = false) {
-    if (detalhe.salvando || docsOcupados || propostasOcupadas || projetosOcupados || atividades.salvando || acaoPendente) return;
+    if (ocupadoParaSair) return;
     if (alterado) setSaida({ executar, recarregar });
     else executar();
   }
@@ -169,9 +172,9 @@ export function DetalhesDoLeadModal({ negocioId, pipeline, responsaveis, podeAtr
     return detalhe.salvar({ ...rascunho, lead: { ...rascunho.lead, notes } });
   }
 
-  return <Modal rotulo="Detalhes do lead" aoFechar={() => pedirSaida()} largura="larga" className={styles.modal}>
+  return <Modal rotulo="Detalhes do lead" aoFechar={() => pedirSaida()} saidaAnimada={podeSairDireto} largura="larga" className={styles.modal}>
     <div className={styles.layout}>
-      <header className={styles.cabecalhoLead}>
+      <header className={`${styles.cabecalhoLead} plg-parte`}>
         <div className={styles.identidadeCabecalho}>
           <div className={styles.leadCardLinhaSuperior}>
             <div className={styles.iconeLead} aria-hidden="true">{negocio?.lead.personType === "pf" ? <UserRound size={20} /> : <Building2 size={20} />}</div>
@@ -190,8 +193,8 @@ export function DetalhesDoLeadModal({ negocioId, pipeline, responsaveis, podeAtr
           <Button variant="secondary" size="sm" disabled={!negocio || ocupado} icon={<Pencil size={14} />} onClick={editarPerfil}>Editar</Button>
           {negocio && negocio.status !== "open" ? <span className={styles.statusPill}>{negocio.status === "won" ? "Lead ganho" : "Lead perdido"}</span> : null}
           <div className={styles.menu} onBlur={(evento) => { if (!evento.currentTarget.contains(evento.relatedTarget)) setMenuAberto(false); }} onKeyDown={(evento) => { if (evento.key === "Escape" && menuAberto) { evento.preventDefault(); evento.stopPropagation(); setMenuAberto(false); botaoMenu.current?.focus(); } }}>
-            <button ref={botaoMenu} type="button" className={styles.botaoMenu} disabled={!negocio || ocupado} aria-label="Mais ações do lead" aria-haspopup="menu" aria-expanded={menuAberto} onClick={() => setMenuAberto((aberto) => !aberto)}><MoreHorizontal size={18} aria-hidden="true" /></button>
-            {menuAberto && negocio ? <div className={styles.menuOpcoes} role="menu" aria-label="Ações do lead">
+            <button ref={botaoMenu} type="button" className={`${styles.botaoMenu} plg-pressiona`} disabled={!negocio || ocupado} aria-label="Mais ações do lead" aria-haspopup="menu" aria-expanded={menuAberto} onClick={() => setMenuAberto((aberto) => !aberto)}><MoreHorizontal size={18} aria-hidden="true" /></button>
+            {menuAberto && negocio ? <div className={`${styles.menuOpcoes} plg-surge plg-surge--direita`} role="menu" aria-label="Ações do lead">
               {negocio.status === "open" ? <>
                 <button type="button" role="menuitem" onClick={() => executar(acoes.perder)}><X size={14} />{pipeline.lostLabel}</button>
                 <button type="button" role="menuitem" onClick={() => executar(acoes.transferir)}><ArrowRight size={14} />Mover para outro pipeline</button>
@@ -203,17 +206,17 @@ export function DetalhesDoLeadModal({ negocioId, pipeline, responsaveis, podeAtr
               <button type="button" role="menuitem" onClick={() => pedirSaida(recarregar, true)}>Recarregar dados</button>
             </div> : null}
           </div>
-          <button type="button" className={styles.botaoFechar} disabled={detalhe.salvando || docsOcupados || propostasOcupadas || projetosOcupados || acaoPendente} onClick={() => pedirSaida()} aria-label="Fechar"><X size={18} aria-hidden="true" /></button>
+          <FecharModal>{(fechar) => <button type="button" className={`${styles.botaoFechar} plg-pressiona`} disabled={detalhe.salvando || docsOcupados || propostasOcupadas || projetosOcupados || acaoPendente} onClick={fechar} aria-label="Fechar"><X size={18} aria-hidden="true" /></button>}</FecharModal>
         </div>
       </header>
       <div className={styles.painelPrincipal}>
-        <div className={styles.navegacao} role="tablist" aria-label="Seções do lead" aria-orientation="horizontal" onKeyDown={navegar}>
+        <div className={`${styles.navegacao} plg-parte`} role="tablist" aria-label="Seções do lead" aria-orientation="horizontal" onKeyDown={navegar}>
           {secoes.map((item, indice) => <div key={item.id}>
             <button ref={(elemento) => { botoes.current[indice] = elemento; }} type="button" role="tab" id={`${id}-${item.id}`} aria-selected={secao === item.id} aria-controls={`${id}-painel`} tabIndex={secao === item.id ? 0 : -1} className={styles.abaBotao} onClick={() => setSecao(item.id)}><item.icone size={15} aria-hidden="true" /><span>{item.titulo}</span></button>
           </div>)}
         </div>
         {negocio && secao !== "resumo" ? <ProximaAcaoDoLead atividade={proxima} responsavel={equipe.find((pessoa) => pessoa.id === proxima?.currentRound.ownerId)?.name} carregando={atividades.carregando} erro={!!atividades.erro} aoVerAtividades={() => abrirSecao("tarefas")} /> : null}
-        <section ref={painel} id={`${id}-painel`} role="tabpanel" aria-labelledby={`${id}-${secao}`} className={styles.conteudo}>
+        <section ref={painel} id={`${id}-painel`} role="tabpanel" aria-labelledby={`${id}-${secao}`} className={`${styles.conteudo} plg-parte`}>
           {detalhe.carregando ? <p role="status">Carregando dados do lead…</p> : null}
           {detalhe.erro ? <div className="aviso aviso--erro" role="alert">{detalhe.erro}{!negocio ? <Button size="sm" variant="secondary" onClick={() => void detalhe.carregar()}>Tentar novamente</Button> : null}{detalhe.conflito ? <><p>Seu rascunho foi preservado. Recarregar substituirá os textos pelos dados atuais.</p><Button size="sm" variant="secondary" onClick={() => pedirSaida(recarregar, true)}>Recarregar dados atuais</Button></> : null}</div> : null}
           {erroAcao ? <p role="alert" className="aviso aviso--erro">{erroAcao}</p> : null}

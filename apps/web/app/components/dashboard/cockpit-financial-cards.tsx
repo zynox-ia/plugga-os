@@ -331,7 +331,7 @@ export function CustosTributosCard() {
 
         <div style={{ display: "flex", height: "7px", width: "100%", borderRadius: "999px", overflow: "hidden", background: "rgba(15, 41, 74, 0.06)", gap: "2px" }}>
           {items.map((it) => (
-            <div key={it.label} style={{ width: `${it.pct}%`, background: it.color, borderRadius: "999px", transition: "width 0.3s ease" }} title={`${it.label}: ${it.amount} (${it.pct}%)`} />
+            <div key={it.label} className="plg-barra" style={{ width: `${it.pct}%`, background: it.color, borderRadius: "999px", transition: "width 0.3s ease" }} title={`${it.label}: ${it.amount} (${it.pct}%)`} />
           ))}
         </div>
       </div>
@@ -385,9 +385,9 @@ export function CashflowAgingCard() {
         </div>
 
         <div style={{ display: "flex", height: "7px", width: "100%", borderRadius: "999px", overflow: "hidden", background: "rgba(15, 41, 74, 0.06)", gap: "2px" }}>
-          <div style={{ width: "93.4%", height: "100%", background: "#10b981", borderRadius: "999px 0 0 999px" }} title="No prazo: 93,4%" />
-          <div style={{ width: "5.4%", height: "100%", background: "#f59e0b" }} title="1-30 dias: 5,4%" />
-          <div style={{ width: "1.2%", height: "100%", background: "#dc2626", borderRadius: "0 999px 999px 0" }} title=">30 dias: 1,2%" />
+          <div className="plg-barra" style={{ width: "93.4%", height: "100%", background: "#10b981", borderRadius: "999px 0 0 999px" }} title="No prazo: 93,4%" />
+          <div className="plg-barra" style={{ width: "5.4%", height: "100%", background: "#f59e0b" }} title="1-30 dias: 5,4%" />
+          <div className="plg-barra" style={{ width: "1.2%", height: "100%", background: "#dc2626", borderRadius: "0 999px 999px 0" }} title=">30 dias: 1,2%" />
         </div>
       </div>
 

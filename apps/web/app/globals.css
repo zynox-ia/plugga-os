@@ -145,6 +145,23 @@
   --topbar-control-top: calc((var(--topbar-height) - var(--topbar-control-height)) / 2);
   /* Folga inferior da sidebar (a mesma de quando ela era centralizada com 88% da altura). */
   --sidebar-bottom-gap: calc(12px + (100vh - 24px) * 0.06);
+
+  /* Movimento (PLU-325). As entradas são GSAP e os números delas ficam em
+     app/lib/movimento.ts; estes tokens servem ao que continua em CSS (clique,
+     hover, menus, fundo do modal). Bloco "Movimento" no fim deste arquivo. */
+  --motion-fast: 120ms;      /* clique */
+  --motion-exit: 200ms;      /* saída do modal (o fundo acompanha) */
+  --motion-backdrop: 300ms;  /* fundo do modal entrando */
+  --motion-menu: 400ms;      /* menus e popovers */
+  --motion-lift: 450ms;      /* hover de cartão */
+  --motion-fallback: 1.5s;   /* sem JS, a tela aparece sozinha depois disto */
+  --ease-standard: cubic-bezier(.4, 0, .2, 1);
+  --ease-power3-out: cubic-bezier(.215, .61, .355, 1);
+  --ease-back-out: cubic-bezier(.34, 1.8, .64, 1); /* ~ back.out(2) do GSAP */
+  --motion-scale-menu: .92;
+  --motion-shift-menu: -6px;
+  --motion-lift-y: -4px;
+  --motion-scale-press: .97;
 }
 
 * { box-sizing: border-box; }
@@ -4425,4 +4442,70 @@ tbody tr:last-child td { border-bottom: 0; }
   .legal-root { --legal-gutter: 16px; padding: var(--legal-gutter); }
   .legal-page--glass { border-radius: 22px; }
   .legal-header { align-items: flex-start; flex-direction: column; gap: 18px; }
+}
+
+/* ==========================================================================
+   MOVIMENTO (PLU-325)
+   As entradas de tela, cartões, listas, barras e modal são GSAP
+   (app/lib/movimento.ts). Aqui fica o que é CSS:
+   - a espera da tela pelo JS, com fallback: a raiz marcada com
+     data-plg-aguarda fica transparente só enquanto o JS não chega e aparece
+     sozinha depois de --motion-fallback; o JS tira a marca no 1º paint;
+   - hover dos cartões (.plg-lift), ligado só depois da entrada (data-plg-pronto);
+   - menus e popovers abrindo da origem, o fundo do modal e o clique.
+   Só translate/scale/opacity, sem will-change, tudo sob
+   prefers-reduced-motion: no-preference.
+   ========================================================================== */
+.plg-mascara { display: block; overflow: clip; padding-block-end: .12em; margin-block-end: -.12em; }
+.plg-mascara > .plg-titulo { display: block; }
+.plg-surge--direita,
+.notifications-menu-panel,
+.user-menu-panel,
+.ui-popover-root:has(.ui-menu-trigger--icon) .ui-popover { --plg-origem: top right; }
+
+@keyframes plg-aguarda { from { opacity: 0; } }
+@keyframes plg-surgir { from { opacity: 0; scale: var(--motion-scale-menu); translate: 0 var(--motion-shift-menu); } }
+@keyframes plg-esmaecer { from { opacity: 0; } }
+@keyframes plg-esmaecer-saida { to { opacity: 0; } }
+
+@media (prefers-reduced-motion: no-preference) {
+  /* A tela espera o JS (que a revela antes do 1º paint) ou o fallback. */
+  [data-plg-aguarda] { animation: plg-aguarda 0s linear var(--motion-fallback) backwards; }
+
+  /* Fundo do modal: entra com fade e sai junto com a saída do modal. */
+  .modal[open]::backdrop { animation: plg-esmaecer var(--motion-backdrop) var(--ease-standard) backwards; }
+  .modal.modal--saindo::backdrop { animation: plg-esmaecer-saida var(--motion-exit) var(--ease-standard) forwards; }
+
+  /* Menus e popovers: escala e leve descida a partir do gatilho, com sobra. */
+  .plg-surge,
+  .ui-popover,
+  .menu-negocio-lista,
+  .notifications-menu-panel,
+  .user-menu-panel {
+    transform-origin: var(--plg-origem, top left);
+    animation: plg-surgir var(--motion-menu) var(--ease-back-out) backwards;
+  }
+  .ui-popover-content[data-state="open"],
+  .ui-select-content[data-state="open"] {
+    animation: plg-surgir var(--motion-menu) var(--ease-back-out) backwards;
+  }
+  .ui-popover-content[data-state="open"] { transform-origin: var(--radix-popover-content-transform-origin); }
+  .ui-select-content[data-state="open"] { transform-origin: var(--radix-select-content-transform-origin); }
+
+  /* Clique: afunda na hora em que aperta e volta curto ao soltar. As
+     transições de cor já existentes são repetidas para somar a escala. */
+  .button { transition: background-color .16s ease, border-color .16s ease, color .16s ease, filter .16s ease, scale var(--motion-fast) var(--ease-standard); }
+  .topbar-icon { transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1), scale var(--motion-fast) var(--ease-standard); }
+  .coluna-novo { transition: background-color .15s ease, color .15s ease, scale var(--motion-fast) var(--ease-standard); }
+  :is(.button, .topbar-icon, .coluna-novo, .cartao-negocio-menu-btn, .plg-pressiona):not(:disabled):active {
+    scale: var(--motion-scale-press);
+    transition-duration: 0s;
+  }
+}
+
+/* Hover de cartão: só com mouse de verdade e depois da entrada. `translate`
+   é independente do `transform` do arrasto e dos tweens. */
+@media (prefers-reduced-motion: no-preference) and (hover: hover) and (pointer: fine) {
+  [data-plg-pronto] .plg-lift { transition: translate var(--motion-lift) var(--ease-power3-out); }
+  [data-plg-pronto] .plg-lift:hover { translate: 0 var(--motion-lift-y); }
 }

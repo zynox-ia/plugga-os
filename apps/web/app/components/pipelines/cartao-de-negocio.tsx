@@ -33,7 +33,7 @@ export function MenuDoNegocio({
   mostrarPrioridade?: boolean;
 }) {
   const [aberto, setAberto] = useState(false);
-  const [posicao, setPosicao] = useState<{ top: number; left: number } | null>(null);
+  const [posicao, setPosicao] = useState<{ top: number; left: number; origem: string } | null>(null);
   const raiz = useRef<HTMLDivElement>(null);
   const botao = useRef<HTMLButtonElement>(null);
   const menu = useRef<HTMLDivElement>(null);
@@ -67,7 +67,8 @@ export function MenuDoNegocio({
       const abaixo = alvo.bottom + 4;
       const top = abaixo + height > window.innerHeight - 8 ? Math.max(8, alvo.top - 4 - height) : abaixo;
       const left = Math.max(8, Math.min(window.innerWidth - width - 8, alvo.right - width));
-      setPosicao({ top, left });
+      // O menu cresce a partir do botão: de cima quando abre abaixo, de baixo quando vira para cima.
+      setPosicao({ top, left, origem: top === abaixo ? "top right" : "bottom right" });
     };
     posicionar();
     window.addEventListener("scroll", posicionar, true);
@@ -119,7 +120,7 @@ export function MenuDoNegocio({
               className={`menu-negocio-lista ${menuClassName}`}
               role="menu"
               aria-label={`Ações de ${negocio.lead.name}`}
-              style={posicao ? { top: posicao.top, left: posicao.left } : { visibility: "hidden" }}
+              style={posicao ? { top: posicao.top, left: posicao.left, "--plg-origem": posicao.origem } as CSSProperties : { visibility: "hidden" }}
             >
               {aoVerLead ? (
                 <>

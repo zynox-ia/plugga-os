@@ -16,6 +16,7 @@ import {
 import { useMemo, useRef, useState, type CSSProperties, type MouseEvent } from "react";
 
 import { formatarBRL } from "../../lib/format";
+import { COREOGRAFIA, useEntrada } from "../../lib/movimento";
 import {
   diasNaEtapa,
   estaParado,
@@ -65,6 +66,14 @@ export function ListaDeNegocios({
   const [lote, setLote] = useState<Lote>({ tipo: podeAtribuir ? "owner" : "stage", valor: "" });
   const [aplicando, setAplicando] = useState(false);
   const [pagina, setPagina] = useState(1);
+  const raiz = useRef<HTMLDivElement>(null);
+  // Entrada (PLU-325): topo da tabela, linhas em cascata (com teto) e as
+  // etapas saltando no fim. Só na montagem: filtrar, ordenar e paginar não re-animam.
+  useEntrada(raiz, (passos) => {
+    passos.itens(".card-heading", COREOGRAFIA.lista.cabecalho);
+    passos.itens("tbody > tr", COREOGRAFIA.lista.linhas);
+    passos.pilulas("tbody .etapa-pill", COREOGRAFIA.lista.pilulas);
+  });
 
   const filtrados = useMemo(() => filtrarNegociosLista(negocios, { busca: "", responsavel: "", situacao, emRisco: false }, pipeline), [negocios, situacao, pipeline]);
   const linhas = useMemo(() => ordenarNegociosLista(filtrados, ordem, pipeline), [filtrados, ordem, pipeline]);
@@ -145,7 +154,7 @@ export function ListaDeNegocios({
   };
 
   return (
-    <div className={`lista-negocios ${styles.lista}`}>
+    <div ref={raiz} className={`lista-negocios ${styles.lista}`} data-plg-raiz="">
       {/* Barra de lote flutuante quando há itens selecionados */}
       {marcados.length > 0 ? (
         <div className="barra-lote" role="region" aria-label="Ações em lote">

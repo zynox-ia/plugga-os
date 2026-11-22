@@ -66,7 +66,7 @@ export function NavegacaoPipelines({
   const empresaSelecionada = EMPRESAS_POR_ID[selecionado.companyId]?.nome ?? selecionado.companyId;
 
   return (
-    <div className={estilos.navegacao}>
+    <div className={`${estilos.navegacao} plg-item`}>
       {/* Alternador de Visão (Segmented Control: Kanban / Lista) à esquerda */}
       <nav className={estilos.visoes} aria-label="Visualização dos negócios">
         {VISOES.map((opcao) => {
@@ -138,7 +138,7 @@ export function NavegacaoPipelines({
         </select>
 
         {aberto && (
-          <div className={estilos.popoverFunis} role="listbox" aria-label="Funis de vendas disponíveis">
+          <div className={`${estilos.popoverFunis} plg-surge plg-surge--direita`} role="listbox" aria-label="Funis de vendas disponíveis">
             <div className={estilos.popoverHeader}>
               <span className={estilos.popoverHeaderTitulo}>Funis disponíveis</span>
               <span className={estilos.popoverHeaderContador}>
