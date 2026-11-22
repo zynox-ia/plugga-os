@@ -366,7 +366,6 @@
 .visoes a[aria-current="page"] {
   background: var(--ui-text, #0f294a);
   color: #ffffff;
-  font-weight: 600;
   box-shadow: 0 1px 3px rgba(10, 25, 47, 0.18);
 }
 

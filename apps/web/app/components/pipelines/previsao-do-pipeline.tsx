@@ -1,9 +1,12 @@
 "use client";
 
 import type { Deal, Pipeline } from "@plugga/shared";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { Check } from "lucide-react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from "react";
 
+import { iniciais } from "../../lib/clientes";
 import { aplicarFiltros, FILTROS_INICIAIS, hojeNoFuso, valorCurto } from "../../lib/negocios";
+import { ShellCard } from "../plugga-shell";
 import { calcularPrevisao, calcularProjecaoSelecionada, idsSelecionadosDaPipeline, META_TRIMESTRAL_EXEMPLO, valorDoNegocioNoCenario, type CenárioPrevisao, type PontoPrevisao, type SelecaoDaPrevisao } from "../../lib/previsao";
 import styles from "./previsao-do-pipeline.module.css";
 
@@ -33,7 +36,7 @@ function GraficoPrevisao({ serie, meta, selecionado, cenario }: { serie: PontoPr
   }, []);
   const mobile = largura < 640;
   const altura = 290;
-  const alturaGrafico = mobile ? 290 : 366;
+  const alturaGrafico = altura;
   const deslocamentoSvg = (alturaGrafico - altura) / 2;
   const margem = { topo: 18, direita: 12, baixo: 32, esquerda: mobile ? 44 : 58 };
   const plotLargura = largura - margem.esquerda - margem.direita;
@@ -141,65 +144,129 @@ export function PrevisaoDoPipeline({ pipeline, negocios, busca }: { pipeline: Pi
   const meta = META_TRIMESTRAL_EXEMPLO;
   const cenarios = CENARIOS.map((item) => ({ ...item, ...dados.cenarios[item.id] }));
 
+  const tomDaBarra: Record<CenárioPrevisao, string | undefined> = { comprometido: styles.barraAmbar, provavel: styles.barraPrimaria, melhor: styles.barraCeu };
+  const nomeDoCenario = CENARIOS.find((item) => item.id === cenario)?.nome ?? "Projeção";
+  const totalSelecionado = dados.realizado + projecaoSelecionada.valor;
+
+  function alternarNegocio(id: string, incluir: boolean) {
+    setSelecao((atual) => {
+      const disponiveis = new Set(dados.negociosAbertos.map((item) => item.id));
+      const novos = atual?.pipelineId === pipeline.id
+        ? new Set([...atual.ids].filter((item) => disponiveis.has(item)))
+        : disponiveis;
+      if (incluir) novos.add(id);
+      else novos.delete(id);
+      return { pipelineId: pipeline.id, ids: novos };
+    });
+  }
+
   return (
     <main className={styles.pagina}>
-      <section className={styles.cenarios} role="radiogroup" aria-label="Cenário da projeção">
+      <div className={styles.cenarios} role="radiogroup" aria-label="Cenário de previsão">
         {cenarios.map((item) => (
-          <label key={item.id} className={`${styles.cenario} ${cenario === item.id ? styles.cenarioAtivo : ""}`}>
-            <input type="radio" name="cenario-previsao" value={item.id} checked={cenario === item.id} onChange={() => setCenario(item.id)} />
-            <span className={styles.cenarioTitulo}>{item.nome}<i aria-hidden="true" /></span>
-            <strong className={styles.cenarioValor}>{moeda(item.valor)}</strong>
-            <small className={styles.cenarioLegenda}>{item.legenda} · {Math.round(item.percentualMeta)}% da meta</small>
-            <span className={styles.cenarioMeta} aria-label={`${Math.round(item.percentualMeta)}% da meta`}><span className={styles.barraMeta}><span style={{ inlineSize: `${Math.min(100, Math.max(0, item.percentualMeta))}%` }} /></span></span>
-          </label>
+          <ShellCard key={item.id} className={`${styles.cartao} ${styles.cenario} ${cenario === item.id ? styles.cenarioAtivo : ""}`}>
+            <button type="button" role="radio" aria-checked={cenario === item.id} className={styles.cenarioBotao} onClick={() => setCenario(item.id)}>
+              <span className={styles.cenarioRotulo}>{item.nome}<i aria-hidden="true" /></span>
+              <b className={styles.cenarioValor}>{moeda(item.valor)}</b>
+              <small className={styles.cenarioNota}>{item.legenda} · {Math.round(item.percentualMeta)}% da meta</small>
+              <span className={`${styles.barra} ${tomDaBarra[item.id]}`} aria-hidden="true"><span style={{ inlineSize: `${Math.min(100, Math.max(0, item.percentualMeta))}%` }} /></span>
+            </button>
+          </ShellCard>
         ))}
-      </section>
-
-      <div className={styles.gradePrincipal}>
-        <section className={styles.painel} aria-labelledby="previsao-grafico-titulo">
-          <header className={styles.cabecalhoPainel}>
-            <div><h2 id="previsao-grafico-titulo">O trimestre, semana a semana</h2><p>Ganhos até aqui {moeda(dados.realizado)} · {CENARIOS.find((item) => item.id === cenario)?.nome.toLowerCase()} projeta {moeda(dados.cenarios[cenario].valor)} · Meta: Exemplo</p></div>
-            <ul className={styles.legenda} aria-label="Séries do gráfico"><li><span className={styles.chaveRealizada} /> Ganho</li><li><span className={styles.chaveProjecao} /> Projeção</li><li><span className={styles.chaveMeta} /> Ritmo da meta</li></ul>
-          </header>
-          <GraficoPrevisao serie={dados.serie} meta={meta} selecionado={dados.cenarios[cenario].valor} cenario={CENARIOS.find((item) => item.id === cenario)?.nome ?? "Projeção"} />
-        </section>
-
-        <section className={`${styles.painel} ${styles.painelSelecao}`} aria-labelledby="previsao-selecao-titulo">
-          <header className={styles.cabecalhoPainel}><div><h2 id="previsao-selecao-titulo">Sua projeção</h2><p>Inclua ou retire negócios do cálculo</p></div></header>
-          <strong className={styles.totalSelecao}>{moeda(dados.realizado + projecaoSelecionada.valor)}</strong>
-          <span className={styles.subTotalSelecao}>{Math.round((dados.realizado + projecaoSelecionada.valor) / meta * 100)}% de {moeda(meta)} · {quantidadeIncluida} selecionados</span>
-          {negociosDoTrimestre.length ? (
-            <ul className={styles.listaNegocios}>
-              {negociosDoTrimestre.map((deal) => (
-                <li key={deal.id}>
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={idsIncluidos.has(deal.id)}
-                      onChange={(evento) => setSelecao((atual) => {
-                        const disponiveis = new Set(dados.negociosAbertos.map((item) => item.id));
-                        const novos = atual?.pipelineId === pipeline.id
-                          ? new Set([...atual.ids].filter((id) => disponiveis.has(id)))
-                          : disponiveis;
-                        if (evento.target.checked) novos.add(deal.id);
-                        else novos.delete(deal.id);
-                        return { pipelineId: pipeline.id, ids: novos };
-                      })}
-                    />
-                    <span className={styles.nomeNegocio}><strong>{deal.title}</strong><small>{deal.owner.name} · {deal.expectedCloseDate ? dataCurta(deal.expectedCloseDate) : "Sem previsão"}</small></span>
-                    <strong className={!idsIncluidos.has(deal.id) ? styles.negocioDesmarcado : ""}>{valorCurto(valorDoNegocioNoCenario(deal, cenario, pipeline.stages))}</strong>
-                  </label>
-                </li>
-              ))}
-            </ul>
-          ) : <p className={styles.vazio}>Nenhum negócio aberto com fechamento previsto neste trimestre.</p>}
-        </section>
       </div>
 
-      <section className={`${styles.painel} ${styles.painelVendedores}`} aria-labelledby="previsao-vendedores-titulo">
-        <header className={styles.cabecalhoPainel}><div><h2 id="previsao-vendedores-titulo">Por vendedor</h2><p>Meta dividida igualmente entre responsáveis · Exemplo</p></div></header>
-        {dados.vendedores.length ? <div className={styles.tabelaRolagem}><table><thead><tr><th>Vendedor</th><th>Meta</th><th>Ganho</th><th>Comprometido</th><th>Mais provável</th><th>Lacuna</th></tr></thead><tbody>{dados.vendedores.map((vendedor) => <tr key={vendedor.id}><th scope="row">{vendedor.nome}</th><td data-label="Meta">{valorCurto(vendedor.meta)}</td><td data-label="Ganho">{valorCurto(vendedor.ganho)}</td><td data-label="Comprometido">{valorCurto(vendedor.comprometido)}</td><td data-label="Mais provável">{valorCurto(vendedor.provavel)}</td><td data-label="Lacuna">{valorCurto(vendedor.lacuna)}</td></tr>)}</tbody></table></div> : <p className={styles.vazio}>Ainda não há negócios com responsável neste trimestre.</p>}
-      </section>
+      <div className={styles.gradePrincipal}>
+        <ShellCard className={`${styles.cartao} ${styles.cartaoGrafico}`}>
+          <header className={styles.cabecalho}>
+            <div>
+              <h2 className={styles.titulo}>O trimestre, semana a semana</h2>
+              <p className={styles.subtitulo}>Ganhos até aqui {moeda(dados.realizado)} · {nomeDoCenario.toLowerCase()} projeta {moeda(dados.cenarios[cenario].valor)}</p>
+            </div>
+            <div className={styles.legenda} aria-label="Séries do gráfico">
+              <span><i className={styles.chaveGanho} />Ganho</span>
+              <span><i className={styles.chaveProjecao} />Projeção</span>
+              <span><i className={styles.chaveMeta} />Ritmo da meta</span>
+            </div>
+          </header>
+          <GraficoPrevisao serie={dados.serie} meta={meta} selecionado={dados.cenarios[cenario].valor} cenario={nomeDoCenario} />
+        </ShellCard>
+
+        <ShellCard className={`${styles.cartao} ${styles.cartaoProjecao}`}>
+          <header className={styles.cabecalho}>
+            <div>
+              <h2 className={styles.titulo}>Sua projeção</h2>
+              <p className={styles.subtitulo}>Marque ou desmarque negócios</p>
+            </div>
+          </header>
+          <p className={styles.minhaProjecao}>
+            <b>{moeda(totalSelecionado)}</b>
+            <small>{Math.round((totalSelecionado / meta) * 100)}% de {moeda(meta)} · {quantidadeIncluida} {quantidadeIncluida === 1 ? "negócio" : "negócios"}</small>
+          </p>
+          {negociosDoTrimestre.length ? (
+            <ul className={styles.negocios}>
+              {negociosDoTrimestre.map((deal) => {
+                const incluido = idsIncluidos.has(deal.id);
+                return (
+                  <li key={deal.id}>
+                    <label className={styles.negocio}>
+                      <input type="checkbox" checked={incluido} onChange={(evento) => alternarNegocio(deal.id, evento.target.checked)} />
+                      <span className={styles.caixa} aria-hidden="true"><Check size={14} strokeWidth={2.6} /></span>
+                      <span className={styles.negocioCorpo}>
+                        <b>{deal.title}</b>
+                        <small>{pipeline.stages.find((etapa) => etapa.id === deal.stageId)?.name ?? "Sem etapa"} · {deal.expectedCloseDate ? dataCurta(deal.expectedCloseDate) : "Sem previsão"}</small>
+                      </span>
+                      <span className={styles.negocioValor}>{valorCurto(valorDoNegocioNoCenario(deal, cenario, pipeline.stages))}</span>
+                    </label>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : <p className={styles.vazio}>Nenhum negócio aberto com fechamento previsto neste trimestre.</p>}
+        </ShellCard>
+      </div>
+
+      <ShellCard className={styles.cartao}>
+        <header className={styles.cabecalho}>
+          <div>
+            <h2 className={styles.titulo}>Por vendedor</h2>
+            <p className={styles.subtitulo}>Meta, valor ganho e projeção de cada carteira · meta de exemplo</p>
+          </div>
+        </header>
+        {dados.vendedores.length ? (
+          <div className={styles.tabelaRolagem}>
+            <table className={styles.tabela}>
+              <thead>
+                <tr><th>Vendedor</th><th className={styles.direita}>Meta</th><th className={styles.direita}>Ganho</th><th className={styles.direita}>Comprometido</th><th className={styles.direita}>Mais provável</th><th>Atingimento</th></tr>
+              </thead>
+              <tbody>
+                {dados.vendedores.map((vendedor) => {
+                  const atingimento = vendedor.meta > 0 ? ((vendedor.ganho + vendedor.provavel) / vendedor.meta) * 100 : 0;
+                  return (
+                    <tr key={vendedor.id}>
+                      <td data-l="Vendedor">
+                        <span className={styles.vendedor}>
+                          <span className={styles.avatar} style={{ "--cor-avatar": `hsl(${[...vendedor.nome].reduce((hash, letra) => (hash * 31 + letra.charCodeAt(0)) % 360, 7)} 52% 42%)` } as CSSProperties} aria-hidden="true">{iniciais(vendedor.nome)}</span>
+                          <b>{vendedor.nome}</b>
+                        </span>
+                      </td>
+                      <td data-l="Meta" className={styles.direita}>{valorCurto(vendedor.meta)}</td>
+                      <td data-l="Ganho" className={styles.direita}>{valorCurto(vendedor.ganho)}</td>
+                      <td data-l="Comprometido" className={styles.direita}>{valorCurto(vendedor.comprometido)}</td>
+                      <td data-l="Mais provável" className={styles.direita}>{valorCurto(vendedor.provavel)}</td>
+                      <td data-l="Atingimento">
+                        <span className={styles.atingimento}>
+                          <span className={`${styles.barra} ${atingimento >= 100 ? styles.barraBoa : styles.barraPrimaria}`} aria-hidden="true"><span style={{ inlineSize: `${Math.min(100, Math.max(0, atingimento))}%` }} /></span>
+                          <span>{Math.round(atingimento)}%</span>
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : <p className={styles.vazio}>Ainda não há negócios com responsável neste trimestre.</p>}
+      </ShellCard>
     </main>
   );
 }
