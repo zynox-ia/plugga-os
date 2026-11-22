@@ -95,20 +95,21 @@ export function ResumoDoLead({
   return (
     <div className={visao.resumo}>
       <section aria-label="Indicadores do negócio" className={visao.indicadores}>
+        {/* O nome do lead já está no cabeçalho do modal: aqui ficam etapa e valor. */}
         <header className={visao.identidade}>
           <span className={visao.iconeNegocio} aria-hidden="true"><BriefcaseBusiness size={24} /></span>
-          <div>
+          <div className={visao.identidadeTexto}>
             <p className={visao.muted}>PLU-{String(negocio.number).padStart(4, "0")} · {negocio.title}</p>
-            <h3>{negocio.lead.name}</h3>
             {situacao ? <span className={visao.etapaAtual}>{situacao}</span> : null}
           </div>
+          <div className={visao.valor}>
+            {negocio.value === null
+              ? <span className={visao.valorVazio} title="Valor não informado"><span className="sr-only">Valor do negócio: não informado. </span>R$ 0,00</span>
+              : <span><span className="sr-only">Valor do negócio: </span>{formatarBRL(negocio.value)}</span>}
+            {negocio.closedAt ? <small>Fechado em {formatarData(negocio.closedAt)}</small>
+              : parado ? <small className={visao.parado}>Parado há {diasNaEtapa(negocio)} dias</small> : null}
+          </div>
         </header>
-
-        <div className={visao.valor}>
-          <span><span className="sr-only">Valor do negócio: </span>{negocio.value === null ? "Valor não informado" : formatarBRL(negocio.value)}</span>
-          {negocio.closedAt ? <small>Fechado em {formatarData(negocio.closedAt)}</small>
-            : parado ? <small className={visao.parado}>Parado há {diasNaEtapa(negocio)} dias</small> : null}
-        </div>
 
         {negocio.status !== "lost" ? (
           <ol className={visao.trilha} aria-label="Etapas do negócio">
@@ -196,8 +197,8 @@ export function ResumoDoLead({
 
       {!encerrado ? (
         <footer className={visao.rodape}>
-          <Button size="sm" variant="secondary" icon={<X size={15} />} disabled={bloqueado} onClick={aoPerder}>Marcar como {pipeline.lostLabel.toLowerCase()}</Button>
-          <Button size="sm" icon={<Trophy size={15} />} disabled={bloqueado} onClick={aoGanhar}>Marcar como {pipeline.wonLabel.toLowerCase()}</Button>
+          <Button size="md" variant="secondary" icon={<X size={15} />} disabled={bloqueado} onClick={aoPerder}>{pipeline.lostLabel}</Button>
+          <Button size="md" icon={<Trophy size={15} />} disabled={bloqueado} onClick={aoGanhar}>{pipeline.wonLabel}</Button>
         </footer>
       ) : null}
     </div>

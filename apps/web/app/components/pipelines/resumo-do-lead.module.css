@@ -10,13 +10,14 @@
 
 .identidade {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 14px;
 }
 
 .identidade > div { min-width: 0; }
-.identidade p { margin: 0 0 2px; font-size: 12.5px; overflow-wrap: anywhere; }
-.identidade h3 { margin: 0; color: var(--ui-text); font-size: 22px; font-weight: 500; overflow-wrap: anywhere; }
+/* Código do negócio e, logo abaixo, a etapa (o nome do lead já está no cabeçalho do modal). */
+.identidadeTexto { display: flex; flex: 1; flex-direction: column; align-items: flex-start; gap: 6px; }
+.identidade p { margin: 0; font-size: 12.5px; overflow-wrap: anywhere; }
 
 .iconeNegocio {
   inline-size: 48px;
@@ -31,7 +32,7 @@
 
 .etapaAtual {
   display: inline-flex;
-  margin-block-start: 8px;
+  flex: none;
   padding: 2px 8px;
   border: 1px solid var(--ui-divider);
   border-radius: var(--radius-full);
@@ -41,21 +42,27 @@
   font-weight: 500;
 }
 
+/* Valor à direita da linha de identidade. */
 .valor {
   display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 12px;
+  flex: none;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  margin-inline-start: auto;
+  text-align: right;
 }
 
 .valor > span {
-  font-size: 34px;
+  font-size: 28px;
   line-height: var(--line-height-solid);
-  letter-spacing: -.025em;
+  letter-spacing: -.02em;
   font-weight: 500;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
-.valor small { font-size: 13.5px; color: var(--ui-muted); }
+.valor > .valorVazio { color: var(--ui-muted); opacity: .55; }
+.valor small { font-size: 12.5px; color: var(--ui-muted); }
 .valor .parado, .parado { color: var(--ui-danger); }
 .muted { color: var(--ui-muted); }
 
@@ -249,4 +256,10 @@
   padding: 14px 0;
   border-block-start: 1px solid var(--ui-divider);
   background: var(--ui-surface);
+}
+
+/* Telas estreitas: o valor desce para a linha de baixo, ainda alinhado à direita. */
+@media (max-width: 640px) {
+  .identidade { flex-wrap: wrap; }
+  .identidade .valor { flex-basis: 100%; }
 }

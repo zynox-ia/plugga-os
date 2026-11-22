@@ -188,7 +188,7 @@ export function DetalhesDoLeadModal({ negocioId, pipeline, responsaveis, podeAtr
         </div>
         <div className={styles.controlesCabecalho}>
           <Button variant="secondary" size="sm" disabled={!negocio || ocupado} icon={<Pencil size={14} />} onClick={editarPerfil}>Editar</Button>
-          {negocio?.status === "open" ? <Button variant="primary" size="sm" disabled={ocupado} onClick={() => executar(acoes.ganhar)}>{pipeline.wonLabel}</Button> : negocio ? <span className={styles.statusPill}>{negocio.status === "won" ? "Lead ganho" : "Lead perdido"}</span> : null}
+          {negocio && negocio.status !== "open" ? <span className={styles.statusPill}>{negocio.status === "won" ? "Lead ganho" : "Lead perdido"}</span> : null}
           <div className={styles.menu} onBlur={(evento) => { if (!evento.currentTarget.contains(evento.relatedTarget)) setMenuAberto(false); }} onKeyDown={(evento) => { if (evento.key === "Escape" && menuAberto) { evento.preventDefault(); evento.stopPropagation(); setMenuAberto(false); botaoMenu.current?.focus(); } }}>
             <button ref={botaoMenu} type="button" className={styles.botaoMenu} disabled={!negocio || ocupado} aria-label="Mais ações do lead" aria-haspopup="menu" aria-expanded={menuAberto} onClick={() => setMenuAberto((aberto) => !aberto)}><MoreHorizontal size={18} aria-hidden="true" /></button>
             {menuAberto && negocio ? <div className={styles.menuOpcoes} role="menu" aria-label="Ações do lead">
