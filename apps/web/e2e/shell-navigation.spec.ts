@@ -101,7 +101,6 @@ test.describe("Plugga shell — smoke", () => {
       "Financeiro",
       "Suprimentos",
       "Engenharia e Obras",
-      "Marketing",
     ]);
     // Ferramentas fecha a barra, com Configurações por último; Atividades fica fora.
     await expect(page.locator(".sidebar-nav .nav-group--ferramentas .nav-item")).toHaveText([

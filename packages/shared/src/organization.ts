@@ -24,7 +24,6 @@ export const departmentIds = [
   "comercial-obras",
   "engenharia-obras",
   "suprimentos",
-  "marketing",
 ] as const;
 
 export const departmentIdSchema = z.enum(departmentIds);
@@ -38,14 +37,12 @@ export const departmentIdsByCompany = {
     "produto-tecnologia",
     "suprimentos",
     "financeiro",
-    "marketing",
   ],
   waze: [
     "comercial-obras",
     "engenharia-obras",
     "suprimentos",
     "financeiro",
-    "marketing",
   ],
 } as const satisfies Record<CompanyKey, readonly DepartmentId[]>;
 

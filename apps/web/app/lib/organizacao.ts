@@ -20,7 +20,7 @@ import { podeAbrirPagina } from "./acesso-paginas.ts";
  * Fonte da navegação lateral e do mapa em /estrutura. Mudar um processo de
  * departamento é mover uma linha.
  *
- * Os 7 departamentos são os do acesso (`@plugga/shared`, `acesso.ts`): a
+ * Os 6 departamentos são os do acesso (`@plugga/shared`, `acesso.ts`): a
  * barra lateral mostra só os que a pessoa alcança. Plugga e Waze não são
  * departamentos nem fronteira de acesso; são etiqueta dos registros (pedido,
  * obra, pipeline) e filtro das telas.
@@ -140,12 +140,6 @@ export const DEPARTAMENTOS: Departamento[] = [
       { id: "engenharia-obras.usinas", label: "Usinas solares · BESS", status: "em-breve" },
       { id: "engenharia-obras.relatorios", label: "Relatórios de campo · fotos e aceite", status: "em-breve" },
     ],
-  },
-  {
-    id: "marketing",
-    label: "Marketing",
-    icon: "megaphone",
-    processos: [{ id: "marketing.campanhas", label: "Campanhas", status: "em-breve" }],
   },
 ];
 

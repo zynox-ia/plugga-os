@@ -60,6 +60,14 @@ describe.skipIf(!HABILITADO)("coerência persistida da equipe e das identidades 
     }
   });
 
+  it("o banco recusa departamento fora do catálogo shared, inclusive o Marketing removido", async () => {
+    const userId = await usuario();
+    for (const [departamento, telas] of [["marketing", []], ["marketing", ["marketing.campanhas"]], ["inventado", []]] as const) {
+      await expect(db.userDepartamento.create({ data: { userId, departamento, nivel: "membro", telas: [...telas] } })).rejects.toThrow();
+    }
+    expect(await db.userDepartamento.count({ where: { userId } })).toBe(0);
+  });
+
   it("plataforma não coexiste com departamento e desenvolvedor requer admin na mesma transação", async () => {
     const userId = await usuario();
     await db.userDepartamento.create({ data: { userId, departamento: "crm", nivel: "membro", telas: [] } });

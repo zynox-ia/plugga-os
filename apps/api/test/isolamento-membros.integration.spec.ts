@@ -53,7 +53,7 @@ describe.skipIf(!HABILITADO)("permissões por tela com sessão real (HTTP + Post
     admin: { plataforma: "admin", departamentos: [] },
     desenvolvedor: { plataforma: "desenvolvedor", departamentos: [] },
     semTela: { plataforma: null, departamentos: [{ departamento: "crm", nivel: "membro", telas: [] }] },
-    outroDepartamento: { plataforma: null, departamentos: [{ departamento: "marketing", nivel: "gerente", telas: ["marketing.campanhas"] }] },
+    outroDepartamento: { plataforma: null, departamentos: [{ departamento: "engenharia-obras", nivel: "gerente", telas: ["engenharia-obras.obras"] }] },
   };
   const personas = Object.keys(acessos) as Persona[];
   const pessoas = Object.fromEntries(personas.map((persona) => [persona, {

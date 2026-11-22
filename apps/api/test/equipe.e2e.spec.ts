@@ -132,7 +132,7 @@ describe("equipe e acessos no modelo de 4 papéis (e2e, armazenamento em memóri
         telasConcediveis: Object.values(telasPorDepartamento).flat(),
         podeConvidar: true,
         papeisConcediveis: ["desenvolvedor", "admin", "gerente", "membro"],
-        departamentos: ["crm", "energia-opm", "produto-tecnologia", "financeiro", "suprimentos", "engenharia-obras", "marketing"],
+        departamentos: ["crm", "energia-opm", "produto-tecnologia", "financeiro", "suprimentos", "engenharia-obras"],
       });
       expect(membroDe(lista, "admin").podeEditar).toBe(true);
       expect(membroDe(lista, "desenvolvedor").podeEditar).toBe(false);

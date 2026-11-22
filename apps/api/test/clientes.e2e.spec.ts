@@ -215,7 +215,7 @@ describe("clientes API (e2e)", () => {
   });
 
   it("denies the cadastro to departments outside the client domain", async () => {
-    for (const departamento of ["financeiro", "suprimentos", "marketing"]) {
+    for (const departamento of ["financeiro", "suprimentos", "engenharia-obras"]) {
       await request(app.getHttpServer())
         .get("/clientes")
         .set("x-dev-principal", `local-${departamento}`)

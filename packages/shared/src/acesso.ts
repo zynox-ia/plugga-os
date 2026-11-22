@@ -38,7 +38,6 @@ export const departamentos = [
   "financeiro",
   "suprimentos",
   "engenharia-obras",
-  "marketing",
 ] as const;
 
 export const departamentoSchema = z.enum(departamentos);
@@ -53,7 +52,6 @@ export const telasPorDepartamento = {
   financeiro: ["financeiro.pagar", "financeiro.receber", "financeiro.conciliacao", "financeiro.fiscal"],
   suprimentos: ["suprimentos.compras", "suprimentos.fornecedores", "suprimentos.estoque"],
   "engenharia-obras": ["engenharia-obras.obras", "engenharia-obras.projetos", "engenharia-obras.os", "engenharia-obras.instalacoes", "engenharia-obras.manutencao", "engenharia-obras.visitas", "engenharia-obras.usinas", "engenharia-obras.relatorios"],
-  marketing: ["marketing.campanhas"],
 } as const satisfies Record<Departamento, readonly string[]>;
 
 export type Tela = (typeof telasPorDepartamento)[Departamento][number];

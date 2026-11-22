@@ -30,7 +30,6 @@ export const DESCRICAO_DO_DEPARTAMENTO: Record<DepartamentoId, string> = {
   financeiro: "Contas a pagar e receber, fluxo de caixa e conciliação bancária.",
   suprimentos: "Gestão de compras, estoque e homologação de fornecedores.",
   "engenharia-obras": "Projetos elétricos, ordens de serviço, usinas e campo.",
-  marketing: "Campanhas, geração de leads, comunicação institucional e eventos.",
 };
 
 export const PAPEL_DESCRICAO: Record<PapelDaEquipe, string> = {

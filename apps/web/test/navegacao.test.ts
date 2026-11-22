@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import type { Acesso } from "@plugga/shared";
+import { departamentos, type Acesso } from "@plugga/shared";
 
 import { CONFIGURACOES, DEPARTAMENTOS, configuracoesParaAcesso } from "../app/lib/organizacao.ts";
 import { navGroupsForAccess, navIdForPathname, tituloForNavId } from "../app/lib/navigation.ts";
@@ -39,7 +39,6 @@ describe("sitemap da barra lateral", () => {
         "Financeiro",
         "Suprimentos",
         "Engenharia e Obras",
-        "Marketing",
         "Ferramentas",
       ],
     );
@@ -57,7 +56,6 @@ describe("sitemap da barra lateral", () => {
       "Conciliação",
       "Fiscal",
     ]);
-    assert.deepEqual(itens["Marketing"], ["Campanhas"]);
     assert.ok(!itens["Engenharia e Obras"]?.includes("Estoque e entrega em obra"));
   });
 
@@ -108,8 +106,14 @@ describe("barra lateral pelo acesso", () => {
     assert.ok(grupos[1]?.items.some((item) => item.id === "suprimentos:Compras" && item.disabled));
   });
 
-  it("não inventa Marketing para quem não recebeu esse acesso", () => {
-    assert.ok(!rotulos(membro("financeiro")).includes("Marketing"));
+  it("não inventa departamento para quem não recebeu esse acesso", () => {
+    assert.deepEqual(rotulos(membro("financeiro")), ["Financeiro"]);
+  });
+
+  it("não mostra departamento fora do catálogo de acesso", () => {
+    const grupos = navGroupsForAccess().filter((grupo) => grupo.collapsible);
+    assert.deepEqual(grupos.map((grupo) => grupo.id).sort(), [...departamentos].sort());
+    assert.ok(!grupos.some((grupo) => grupo.label === "Marketing"), "Marketing saiu da barra lateral");
   });
 
   it("gerente vê o departamento que gere, como o membro", () => {
@@ -123,11 +127,11 @@ describe("barra lateral pelo acesso", () => {
   });
 
   it("a ordem vem do catálogo, não da ordem do acesso", () => {
-    assert.deepEqual(rotulos(membro("marketing", "engenharia-obras", "financeiro", "crm")), [
+    assert.deepEqual(rotulos(membro("engenharia-obras", "suprimentos", "financeiro", "crm")), [
       "CRM",
       "Financeiro",
+      "Suprimentos",
       "Engenharia e Obras",
-      "Marketing",
     ]);
     assert.deepEqual(
       DEPARTAMENTOS.map((departamento) => departamento.label),

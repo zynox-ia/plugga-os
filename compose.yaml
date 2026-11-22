@@ -79,7 +79,7 @@ services:
       STORAGE_ACCESS_KEY: ${STORAGE_ACCESS_KEY:?set STORAGE_ACCESS_KEY in .env}
       STORAGE_SECRET_KEY: ${STORAGE_SECRET_KEY:?set STORAGE_SECRET_KEY in .env}
       STORAGE_BUCKET: ${STORAGE_BUCKET:-plugga-arquivos}
-      STORAGE_LEGACY_BUCKETS: plugga-comercial-clientes,plugga-energia-opm,plugga-produto-tecnologia,plugga-suprimentos,plugga-financeiro,plugga-marketing,waze-comercial-obras,waze-engenharia-obras,waze-suprimentos,waze-financeiro,waze-marketing,${CORPUS_BUCKET:-plugga-corpus-faturas},plugga-backups
+      STORAGE_LEGACY_BUCKETS: plugga-comercial-clientes,plugga-energia-opm,plugga-produto-tecnologia,plugga-suprimentos,plugga-financeiro,waze-comercial-obras,waze-engenharia-obras,waze-suprimentos,waze-financeiro,${CORPUS_BUCKET:-plugga-corpus-faturas},plugga-backups
     volumes:
       - ./apps/api/scripts/provisionar-storage.mjs:/app/apps/api/scripts/provisionar-storage.mjs:ro
     command: ["node", "scripts/provisionar-storage.mjs"]
