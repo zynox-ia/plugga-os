@@ -15,14 +15,13 @@ import {
 } from "lucide-react";
 import { useMemo, useRef, useState, type CSSProperties, type MouseEvent } from "react";
 
-import { formatarBRL, formatarData } from "../../lib/format";
+import { formatarBRL } from "../../lib/format";
 import {
   diasNaEtapa,
   estaParado,
-  hojeNoFuso,
   podeAtribuirLead,
 } from "../../lib/negocios";
-import { camposPersonalizadosNaLista, csvNegocios, dataDeFechamentoExibida, diasEmAtrasoDoFechamento, diasParaFechamento, filtrarNegociosLista, ordenarNegociosLista, valorPonderadoDoNegocio, type CampoOrdenacaoLista, type SituacaoLista } from "../../lib/negocios/lista-de-negocios";
+import { camposPersonalizadosNaLista, csvNegocios, filtrarNegociosLista, ordenarNegociosLista, valorPonderadoDoNegocio, type CampoOrdenacaoLista, type SituacaoLista } from "../../lib/negocios/lista-de-negocios";
 import { useSessionUser } from "../../lib/use-session-user";
 import { ShellCard, ShellTable } from "../plugga-shell";
 import { Button, Checkbox } from "../ui";
@@ -37,7 +36,6 @@ const COLUNAS: { campo: CampoOrdenacaoLista; rotulo: string }[] = [
   { campo: "negocio", rotulo: "Negócio" },
   { campo: "etapa", rotulo: "Etapa" },
   { campo: "valor", rotulo: "Valor" },
-  { campo: "fechamento", rotulo: "Fechamento" },
   { campo: "responsavel", rotulo: "Responsável" },
   { campo: "contato", rotulo: "Na etapa há" },
 ];
@@ -274,9 +272,6 @@ export function ListaDeNegocios({
                   const camposListaVisiveis = camposLista.slice(0, 3);
                   const camposListaRestantes = Math.max(0, camposLista.length - camposListaVisiveis.length);
                   const estaMarcado = selecionados.has(n.id);
-                  const diasAteFechamento = n.expectedCloseDate ? diasParaFechamento(n.expectedCloseDate, hojeNoFuso()) : null;
-                  const diasEmAtraso = diasEmAtrasoDoFechamento(n, hojeNoFuso());
-                  const dataDeFechamento = dataDeFechamentoExibida(n);
 
                   return (
                     <tr
@@ -325,7 +320,6 @@ export function ListaDeNegocios({
                           <small>{formatarBRL(valorPonderadoDoNegocio(n, pipeline))} ponderado</small>
                         </div>
                       </td>
-                      <td data-l="Fechamento"><div className={styles.fechamento}>{dataDeFechamento ? <><span>{formatarData(dataDeFechamento)}</span>{n.status !== "open" && n.closedAt ? <small>Encerrado</small> : n.status === "open" ? <small>{diasEmAtraso != null ? `atrasado há ${diasEmAtraso} dias` : diasAteFechamento === 0 ? "hoje" : `em ${diasAteFechamento} dias`}</small> : null}</> : <span>Sem previsão</span>}</div></td>
                       <td data-l="Responsável"><div className={styles.responsavel} title={n.owner.name}><User className={styles.iconeResponsavel} size={14} strokeWidth={2} aria-hidden="true" /><strong>{n.owner.name.split(/\s+/)[0]}</strong></div></td>
                       <td data-l="Na etapa há"><span className={styles.contato}>{dias === 0 ? "hoje" : `${dias} dias`}</span></td>
                       <td className={styles.colunaAcoes}><div className={styles.acoesLinha}>

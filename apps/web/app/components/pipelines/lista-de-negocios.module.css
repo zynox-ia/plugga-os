@@ -100,7 +100,7 @@
 .rolagemTabela :global(.table-wrap) { overflow: visible; }
 .rolagemTabela:focus-visible { outline: 2px solid var(--ui-primary); outline-offset: -2px; }
 
-.lista table { width: 100%; min-width: 980px; table-layout: fixed; }
+.lista table { width: 100%; min-width: 860px; table-layout: fixed; }
 .lista thead { position: sticky; top: 0; z-index: 2; background: color-mix(in srgb, var(--ui-surface) 90%, transparent); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
 
 .lista table th,
@@ -125,12 +125,11 @@
 .lista table tbody tr[data-selected="true"] td { background: var(--ui-focus-bg); }
 .lista table tr[data-selected="true"] td:first-child { box-shadow: inset 2px 0 var(--ui-primary); }
 
-.lista table th:nth-child(1) { width: 29%; }
-.lista table th:nth-child(2) { width: 14%; }
-.lista table th:nth-child(3) { width: 13%; }
-.lista table th:nth-child(4) { width: 13%; }
-.lista table th:nth-child(5) { width: 12%; }
-.lista table th:nth-child(6) { width: 10%; }
+.lista table th:nth-child(1) { width: 32%; }
+.lista table th:nth-child(2) { width: 17%; }
+.lista table th:nth-child(3) { width: 16%; }
+.lista table th:nth-child(4) { width: 16%; }
+.lista table th:nth-child(5) { width: 10%; }
 .lista table th:last-child { width: 100px; min-width: 100px; }
 
 .cabecalhoColuna { display: flex; align-items: center; justify-content: center; gap: var(--space-xs); min-width: 0; }
@@ -192,8 +191,7 @@
 
 /* Demais colunas: centralizadas sob o título. */
 .etapa,
-.valor,
-.fechamento { display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; }
+.valor { display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; }
 /* Selo da etapa no mesmo formato do selo de papel da equipe. */
 .badgeEtapa:global(.etapa-pill) {
   display: inline-flex;
@@ -216,9 +214,7 @@
 .badgeEtapa :global(.etapa-dot) { flex: 0 0 5px; width: 5px; height: 5px; border-radius: 50%; }
 .alertaRisco { color: var(--ui-warning, #865400); font-size: 11px; font-weight: 400; }
 .valor strong { color: var(--ui-text); font-size: 13px; font-weight: 500; font-variant-numeric: tabular-nums; }
-.valor small,
-.fechamento small { color: var(--ui-muted); font-size: 12px; font-weight: 400; }
-.fechamento { color: var(--ui-text); font-size: 13px; }
+.valor small { color: var(--ui-muted); font-size: 12px; font-weight: 400; }
 .responsavel { display: flex; align-items: center; justify-content: center; gap: var(--space-xs); min-width: 0; }
 .iconeResponsavel { flex: 0 0 auto; color: var(--ui-muted); }
 .responsavel strong { min-width: 0; overflow: hidden; color: var(--ui-text); font-size: 13px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
@@ -313,8 +309,7 @@
   .lista table td[data-l]::before { content: attr(data-l); display: block; margin-bottom: 3px; color: var(--ui-muted); font-size: 10px; font-weight: 600; }
   .lista table td:first-child::before { display: none; content: none; }
   .etapa,
-  .valor,
-  .fechamento { align-items: flex-start; text-align: left; }
+  .valor { align-items: flex-start; text-align: left; }
   .responsavel { justify-content: flex-start; }
   /* No celular as ações ficam no canto superior direito do item. */
   .lista tbody tr { position: relative; }
