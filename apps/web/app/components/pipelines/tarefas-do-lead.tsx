@@ -1,12 +1,15 @@
 "use client";
 
 import type { Activity, ActivityStatus, PipelinePerson } from "@plugga/shared";
-import { Kanban, Plus } from "lucide-react";
-import { useId, useLayoutEffect, useRef, useState } from "react";
+import { Check, Clock, History, Kanban, ListTodo, MapPin, MoreHorizontal, Pencil, Phone, Play, Plus, RotateCcw, Users } from "lucide-react";
+import { useId, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { formatarDataHoraCurta } from "../../lib/format";
 import { alteracoesDoAgendamento } from "../../lib/agendamento-atividade";
 import { Button } from "../ui/button";
+import { OptionLabel } from "../ui/select-option";
+import { Popover, PopoverContent, PopoverTrigger } from "../ui/shadcn/popover";
+import { Avatar } from "./icones";
 import { AgendamentoAtividadeModal, TIPOS_ATIVIDADE } from "./agendamento-atividade-form";
 import { ConcluirAtividadeModal } from "./concluir-atividade-modal";
 import { HistoricoAtividadeModal } from "./historico-atividade-modal";
@@ -72,26 +75,15 @@ export function TarefasDoLead({ negocioId, controle, responsaveis, responsavelIn
           <div className={quadroStyles.lista}>{atividades.length ? atividades.map((atividade) => {
             const rodada = atividade.currentRound;
             const atrasada = rodada.status !== "done" && new Date(rodada.dueAt).getTime() < Date.now();
-            return <article key={atividade.id} data-atividade-id={atividade.id} className={styles.atividade} aria-label={`Atividade ${atividade.title}`} tabIndex={0} aria-describedby={`${prefixo}-ajuda`} draggable={!bloqueado && rodada.status !== "done"}
-              onDragStart={(evento) => { arrastando.current = atividade; evento.dataTransfer.setData("text/plain", atividade.id); }} onDragEnd={() => { arrastando.current = null; setAlvo(null); }}
-              onKeyDown={(evento) => {
-                if (!evento.altKey || !["ArrowLeft", "ArrowRight"].includes(evento.key)) return;
-                evento.preventDefault(); evento.stopPropagation();
+            return <CartaoAtividade key={atividade.id} atividade={atividade} cor={coluna.cor} atrasada={atrasada} bloqueado={bloqueado} descricaoId={`${prefixo}-ajuda`}
+              responsavel={responsaveis.find((pessoa) => pessoa.id === rodada.ownerId)}
+              aoIniciarArrasto={() => { arrastando.current = atividade; }} aoTerminarArrasto={() => { arrastando.current = null; setAlvo(null); }}
+              aoMoverTeclado={(direcao) => {
                 const indice = COLUNAS.findIndex((item) => item.id === rodada.status);
-                const destino = COLUNAS[Math.max(0, Math.min(2, indice + (evento.key === "ArrowRight" ? 1 : -1)))]!.id;
-                void mover(atividade, destino);
-              }}>
-              <span className={styles.meta}>{TIPOS_ATIVIDADE[atividade.type]} · Rodada {rodada.number}</span><h4>{atividade.title}</h4>
-              {atividade.notes ? <p>{atividade.notes}</p> : null}
-              <span className={styles.meta}>{responsaveis.find((pessoa) => pessoa.id === rodada.ownerId)?.name ?? "Responsável indisponível"}</span>
-              <time className={`${styles.meta}${atrasada ? ` ${styles.atrasada}` : ""}`} dateTime={rodada.dueAt}>{atrasada ? "Atrasada · " : "Prazo: "}{formatarDataHoraCurta(rodada.dueAt)}</time>
-              {rodada.outcome ? <p>{rodada.outcome.summary}</p> : null}
-              <div className={styles.acoes}>
-                {rodada.status !== "done" ? <Button variant="secondary" size="sm" disabled={bloqueado} onClick={() => void mover(atividade, rodada.status === "todo" ? "doing" : "todo")}>{rodada.status === "todo" ? "Iniciar" : "Voltar a fazer"}</Button> : null}
-                {rodada.status !== "done" ? <><Button variant="secondary" size="sm" disabled={bloqueado} onClick={() => abrir({ tipo: "editar", atividade })}>Editar</Button><Button variant="primary" size="sm" disabled={bloqueado} onClick={() => abrir({ tipo: "concluir", atividade })}>Concluir</Button></> : null}
-                <Button variant="secondary" size="sm" disabled={bloqueado} onClick={() => abrir({ tipo: "historico", atividade })}>Ver histórico</Button>
-              </div>
-            </article>;
+                void mover(atividade, COLUNAS[Math.max(0, Math.min(2, indice + direcao))]!.id);
+              }}
+              aoAlternarAndamento={() => void mover(atividade, rodada.status === "todo" ? "doing" : "todo")}
+              aoEditar={() => abrir({ tipo: "editar", atividade })} aoConcluir={() => abrir({ tipo: "concluir", atividade })} aoHistorico={() => abrir({ tipo: "historico", atividade })} />;
           }) : <p className={quadroStyles.colunaVazia}>Nenhuma atividade nesta coluna.</p>}</div>
         </section>;
       })}
@@ -110,4 +102,61 @@ export function TarefasDoLead({ negocioId, controle, responsaveis, responsavelIn
       {janela.tipo === "historico" ? <HistoricoAtividadeModal atividade={janela.atividade} pessoas={responsaveis} aoFechar={() => setJanela(null)} /> : null}
     </>, document.body) : null}
   </div>;
+}
+
+const ICONE_DO_TIPO = { task: ListTodo, call: Phone, meeting: Users, visit: MapPin } as const;
+
+/** Cartão de atividade no formato do cartão de negócio do Quadro: tipo, título, responsável e prazo. */
+function CartaoAtividade({ atividade, cor, atrasada, bloqueado, descricaoId, responsavel, aoIniciarArrasto, aoTerminarArrasto, aoMoverTeclado, aoAlternarAndamento, aoEditar, aoConcluir, aoHistorico }: {
+  atividade: Activity; cor: string; atrasada: boolean; bloqueado: boolean; descricaoId: string; responsavel?: PipelinePerson;
+  aoIniciarArrasto: () => void; aoTerminarArrasto: () => void; aoMoverTeclado: (direcao: 1 | -1) => void;
+  aoAlternarAndamento: () => void; aoEditar: () => void; aoConcluir: () => void; aoHistorico: () => void;
+}) {
+  const rodada = atividade.currentRound;
+  const concluida = rodada.status === "done";
+  const Icone = ICONE_DO_TIPO[atividade.type] ?? ListTodo;
+  const horas = (new Date(rodada.dueAt).getTime() - Date.now()) / 36e5;
+  const tomPrazo = concluida ? quadroStyles.prazoConcluido : atrasada ? quadroStyles.prazoAtrasado : horas <= 48 ? quadroStyles.prazoProximo : "";
+  const [menuAberto, setMenuAberto] = useState(false);
+  const [container, setContainer] = useState<HTMLElement | null>(null);
+  const gatilho = useRef<HTMLButtonElement>(null);
+  const escolher = (acao: () => void) => () => { setMenuAberto(false); acao(); };
+
+  return <article data-atividade-id={atividade.id} className={`${quadroStyles.cartaoAtividade}${concluida ? ` ${quadroStyles.cartaoConcluido}` : ""}`}
+    style={{ "--cor-coluna": cor } as CSSProperties} aria-label={`Atividade ${atividade.title}`} tabIndex={0} aria-describedby={descricaoId}
+    draggable={!bloqueado && !concluida}
+    onDragStart={(evento) => { if ((evento.target as HTMLElement).closest("button")) { evento.preventDefault(); return; } aoIniciarArrasto(); evento.dataTransfer.setData("text/plain", atividade.id); }}
+    onDragEnd={aoTerminarArrasto}
+    onKeyDown={(evento) => {
+      if (!evento.altKey || !["ArrowLeft", "ArrowRight"].includes(evento.key)) return;
+      evento.preventDefault(); evento.stopPropagation();
+      aoMoverTeclado(evento.key === "ArrowRight" ? 1 : -1);
+    }}>
+    <div className={quadroStyles.topoAtividade}>
+      <span className={quadroStyles.iconeAtividade} aria-hidden="true"><Icone size={15} /></span>
+      <span className={quadroStyles.tipoAtividade}>{TIPOS_ATIVIDADE[atividade.type]} · Rodada {rodada.number}</span>
+      {!concluida ? <button type="button" className={quadroStyles.botaoConcluir} disabled={bloqueado} onClick={aoConcluir} aria-label={`Concluir ${atividade.title}`} title="Concluir"><Check size={14} strokeWidth={2.4} /></button> : null}
+      <Popover open={menuAberto} onOpenChange={(aberto) => { if (aberto) setContainer(gatilho.current?.closest("dialog") ?? null); setMenuAberto(aberto); }}>
+        <PopoverTrigger asChild>
+          <button ref={gatilho} type="button" className={quadroStyles.botaoMais} disabled={bloqueado} aria-label={`Ações de ${atividade.title}`} aria-haspopup="menu"><MoreHorizontal size={16} /></button>
+        </PopoverTrigger>
+        <PopoverContent container={container} className={quadroStyles.menuAtividade} align="end" role="menu" aria-label={`Ações de ${atividade.title}`}>
+          {!concluida ? <button type="button" role="menuitem" className="ui-option" onClick={escolher(aoAlternarAndamento)}><OptionLabel option={{ label: rodada.status === "todo" ? "Iniciar" : "Voltar a fazer", icon: rodada.status === "todo" ? <Play /> : <RotateCcw /> }} /></button> : null}
+          {!concluida ? <button type="button" role="menuitem" className="ui-option" onClick={escolher(aoEditar)}><OptionLabel option={{ label: "Editar", icon: <Pencil /> }} /></button> : null}
+          <button type="button" role="menuitem" className="ui-option" onClick={escolher(aoHistorico)}><OptionLabel option={{ label: "Ver histórico", icon: <History /> }} /></button>
+        </PopoverContent>
+      </Popover>
+    </div>
+    <h4 className={quadroStyles.tituloAtividade}>{atividade.title}</h4>
+    {atividade.notes ? <p className={quadroStyles.notaAtividade}>{atividade.notes}</p> : null}
+    {rodada.outcome ? <p className={quadroStyles.resultadoAtividade}><Check size={12} aria-hidden="true" />{rodada.outcome.summary}</p> : null}
+    <footer className={quadroStyles.rodapeAtividade}>
+      <span className={quadroStyles.pessoaAtividade}>
+        {responsavel ? <><Avatar id={responsavel.id} nome={responsavel.name} tamanho="pequeno" /><span>{responsavel.name.split(/\s+/)[0]}</span></> : <span>Responsável indisponível</span>}
+      </span>
+      <time className={`${quadroStyles.prazoAtividade} ${tomPrazo}`} dateTime={rodada.dueAt}>
+        <Clock size={12} aria-hidden="true" />{atrasada ? "Atrasada · " : ""}{formatarDataHoraCurta(rodada.dueAt)}
+      </time>
+    </footer>
+  </article>;
 }
