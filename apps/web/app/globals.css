@@ -138,6 +138,13 @@
   --space-3xl: 64px;
 
   --sidebar-width: 312px;
+
+  /* Topo do shell: a linha de cima da sidebar acompanha a linha de cima do campo de busca. */
+  --topbar-height: 68px;
+  --topbar-control-height: 38px;
+  --topbar-control-top: calc((var(--topbar-height) - var(--topbar-control-height)) / 2);
+  /* Folga inferior da sidebar (a mesma de quando ela era centralizada com 88% da altura). */
+  --sidebar-bottom-gap: calc(12px + (100vh - 24px) * 0.06);
 }
 
 * { box-sizing: border-box; }
@@ -206,18 +213,18 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--folha); outline
 .sidebar {
   position: sticky;
   top: 0;
-  /* 88% da altura da viewport, centralizada na coluna. */
-  align-self: center;
+  /* Cresce para cima: o topo alinha com o do campo de busca; a base não muda. */
+  align-self: start;
   display: flex;
-  height: calc((100vh - 24px) * 0.88);
-  height: calc((100dvh - 24px) * 0.88);
-  max-height: calc((100vh - 24px) * 0.88);
-  max-height: calc((100dvh - 24px) * 0.88);
+  height: calc(100vh - var(--topbar-control-top) - var(--sidebar-bottom-gap));
+  height: calc(100dvh - var(--topbar-control-top) - var(--sidebar-bottom-gap));
+  max-height: calc(100vh - var(--topbar-control-top) - var(--sidebar-bottom-gap));
+  max-height: calc(100dvh - var(--topbar-control-top) - var(--sidebar-bottom-gap));
   flex-direction: column;
   justify-content: space-between;
   gap: 14px;
   padding: 22px 18px 20px;
-  margin: 12px 6px 12px 12px;
+  margin: var(--topbar-control-top) 6px var(--sidebar-bottom-gap) 12px;
   color: #FFFFFF;
   background: linear-gradient(155deg, #0A192F 0%, #0F2B4A 60%, #051329 100%);
   border: 1px solid rgba(0, 163, 255, 0.25);
@@ -304,10 +311,10 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--folha); outline
 
 /* Collapsed Sidebar Hidden Elements */
 .sidebar--collapsed {
-  height: calc((100vh - 24px) * 0.88) !important;
-  height: calc((100dvh - 24px) * 0.88) !important;
+  height: calc(100vh - var(--topbar-control-top) - var(--sidebar-bottom-gap)) !important;
+  height: calc(100dvh - var(--topbar-control-top) - var(--sidebar-bottom-gap)) !important;
   width: 72px;
-  padding: 12px 8px;
+  padding: 0 8px 12px;
   align-items: center;
   gap: 12px;
   background: none !important;
@@ -605,7 +612,7 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--folha); outline
   align-items: center;
   justify-content: space-between;
   gap: 18px;
-  min-height: 68px;
+  min-height: var(--topbar-height);
   padding: 14px 16px;
   margin: 0;
   background: transparent;
@@ -660,7 +667,7 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--folha); outline
 }
 .topbar-search input {
   width: 100%;
-  height: 38px;
+  height: var(--topbar-control-height);
   padding: 0 40px 0 38px;
   color: #0F294A;
   background: rgba(255, 255, 255, 0.45);
@@ -4058,7 +4065,7 @@ tbody tr:last-child td { border-bottom: 0; }
 .config-layout:has(.equipe-layout) { display: flex; flex-direction: column; align-items: stretch; flex: 1; min-width: 0; min-height: min-content; gap: var(--space-sm); }
 .config-layout:has(.equipe-layout) > .config-nav { flex-shrink: 0; }
 .equipe-layout { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: min-content; }
-.equipe-card { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: min-content; padding: 0; border-radius: var(--radius-md); background: color-mix(in srgb, var(--ui-surface) 95%, transparent); border-color: var(--ui-divider); box-shadow: none; color: var(--ui-text); font-family: var(--font-general-sans); }
+.equipe-card { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: min-content; padding: 0; border-radius: var(--radius-xl); background: color-mix(in srgb, var(--ui-surface) 95%, transparent); border-color: var(--ui-divider); box-shadow: none; color: var(--ui-text); font-family: var(--font-general-sans); }
 .equipe-card:hover { background: color-mix(in srgb, var(--ui-surface) 95%, transparent); border-color: var(--ui-divider); box-shadow: none; }
 .equipe-card .card-heading { flex-shrink: 0; padding: var(--space-md); border-color: var(--ui-divider); }
 .equipe-rolagem { flex: 1; contain: size; min-height: 160px; overflow: auto; scroll-padding-block-start: var(--space-2xl); overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: var(--ui-divider) transparent; }
