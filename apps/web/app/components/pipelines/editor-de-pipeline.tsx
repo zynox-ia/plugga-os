@@ -135,14 +135,14 @@ function SecaoGeral({ rascunho, aoAlterar, erros, empresasPermitidas, totalDeNeg
             );
           })}
         </div>
-        <div className="ui-alert ui-tone--warning nota-pipeline">
-          <IconAlertTriangle className="nota-pipeline-icone" />
-          <div>
-            {totalDeNegocios > 0
-              ? `Este pipeline tem ${totalDeNegocios === 1 ? "1 negócio" : `${totalDeNegocios} negócios`} e não muda de empresa. Para levar negócios à outra empresa, mova-os para um pipeline dela.`
-              : "Todo negócio deste pipeline pertence a esta empresa. O acesso é compartilhado pela equipe do CRM nas duas empresas."}
+        {totalDeNegocios === 0 && (
+          <div className="ui-alert ui-tone--warning nota-pipeline">
+            <IconAlertTriangle className="nota-pipeline-icone" />
+            <div>
+              Todo negócio deste pipeline pertence a esta empresa. O acesso é compartilhado pela equipe do CRM nas duas empresas.
+            </div>
           </div>
-        </div>
+        )}
       </fieldset>
 
       <div className="inteira">
