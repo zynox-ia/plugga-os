@@ -39,11 +39,16 @@ test("aba Projetos cria card no modal sem virar card do Kanban, valida UC repeti
   await page.goto(`/comercial/pipelines?pipeline=${pipeline.id}`);
   const ficha = page.getByRole("dialog", { name: "Detalhes do lead", exact: true });
   const projetosSolaresCarregados = page.waitForResponse((resposta) => resposta.request().method() === "GET" && resposta.url().endsWith(`/api/leads/${negocio.id}/projetos-solares`));
-  const propostasCarregadas = page.waitForResponse((resposta) => resposta.request().method() === "GET" && resposta.url().endsWith(`/api/leads/${negocio.id}/propostas`));
+  // As propostas carregam só quando a aba Propostas abre (decisão do André): abrir a ficha não as busca.
+  const pedidosDePropostas: string[] = [];
+  page.on("request", (pedido) => { if (pedido.method() === "GET" && pedido.url().endsWith(`/api/leads/${negocio.id}/propostas`)) pedidosDePropostas.push(pedido.url()); });
   await page.getByRole("button", { name: "Ver lead Lead Solar sintético", exact: true }).click();
   expect((await projetosSolaresCarregados).status()).toBe(200);
-  expect((await propostasCarregadas).status()).toBe(200);
   const abas = ficha.getByRole("tablist", { name: "Seções do lead", exact: true });
+  expect(pedidosDePropostas).toEqual([]);
+  const propostasCarregadas = page.waitForResponse((resposta) => resposta.request().method() === "GET" && resposta.url().endsWith(`/api/leads/${negocio.id}/propostas`));
+  await abas.getByRole("tab", { name: "Propostas", exact: true }).click();
+  expect((await propostasCarregadas).status()).toBe(200);
   await expect(abas.getByRole("tab", { name: "Projetos", exact: true })).toBeVisible();
   await expect(abas.getByRole("tab", { name: "Oportunidade", exact: true })).toHaveCount(0);
   await ficha.getByRole("tab", { name: "Projetos", exact: true }).click();

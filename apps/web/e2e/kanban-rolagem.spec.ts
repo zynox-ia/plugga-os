@@ -5,7 +5,9 @@ const pipelines: Pipeline[] = [];
 
 test.beforeAll(async ({ request, baseURL }) => {
   expect(["localhost", "127.0.0.1"]).toContain(new URL(baseURL!).hostname);
-  for (const quantidade of [4, 2]) {
+  // Com o cabeçalho único do funil (85fb0be) 4 etapas cabem a 1440 px e a barra some, como deve:
+  // o quadro com 8 etapas transborda a 1440 e cabe a 3840; o de 2 nunca transborda.
+  for (const quantidade of [8, 2]) {
     const resposta = await request.post("/api/pipelines", {
       headers: { origin: baseURL! },
       data: {
@@ -69,9 +71,9 @@ test("barra ocupa o centro da navegação e mantém clique, arraste e sincroniza
   await expect(barra).toBeHidden();
   await page.getByRole("combobox", { name: "Selecionar pipeline", exact: true }).selectOption(pipeline.id);
   await expect(barra).toBeVisible();
-  await page.getByRole("link", { name: "Lista", exact: true }).click();
+  await page.getByRole("link", { name: "Todos os negócios", exact: true }).click();
   await expect(barra).toHaveCount(0);
-  await page.getByRole("link", { name: "Kanban", exact: true }).click();
+  await page.getByRole("link", { name: "Quadro", exact: true }).click();
   await expect(barra).toBeVisible();
 
   for (const width of [768, 320]) {
