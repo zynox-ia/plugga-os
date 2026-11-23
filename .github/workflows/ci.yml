@@ -27,6 +27,11 @@ jobs:
       # Chave sintética de 32 bytes zerados, exclusiva dos testes de 2FA.
       MFA_ENCRYPTION_KEY: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
       SEED_ADMIN_PASSWORD: ci_local_only_change_me
+      # Portão do Financeiro em construção (apps/web/app/lib/recursos.ts): ligado
+      # na CI para os testes rodarem; a produção fica sem as variáveis até o
+      # módulo estar completo. A web lê a NEXT_PUBLIC_ no build; a API, a outra.
+      NEXT_PUBLIC_FINANCEIRO_HABILITADO: "true"
+      FINANCEIRO_HABILITADO: "true"
 
     services:
       postgres:

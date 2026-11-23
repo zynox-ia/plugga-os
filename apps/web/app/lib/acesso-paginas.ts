@@ -2,6 +2,7 @@ import { alcancaPlataforma, alcancaTela, papelDoAcesso, type Acesso, type Tela }
 
 import { integracoesParaAcesso } from "./integracoes.ts";
 import { podeVerCompras } from "./papel-em-compras.ts";
+import { financeiroHabilitado, type AmbienteDosRecursos } from "./recursos.ts";
 
 /**
  * Lançamentos (e a Visão geral) do Financeiro juntam saídas (`financeiro.pagar`)
@@ -25,8 +26,11 @@ const paginas: ReadonlyArray<readonly [string, Tela | readonly Tela[]]> = [
   ["/financeiro/lancamentos", TELAS_DOS_LANCAMENTOS],
 ];
 
-export function podeAbrirPagina(acesso: Acesso, pathname: string): boolean {
+/** `ambiente` só existe para o teste do portão; a tela usa o do build. */
+export function podeAbrirPagina(acesso: Acesso, pathname: string, ambiente?: AmbienteDosRecursos): boolean {
   if (["/", "/configuracoes", "/agentes-ia", "/auth/google/complete"].includes(pathname)) return true;
+  // Portão do Financeiro em construção: desligado, nenhuma página dele abre (lib/recursos.ts).
+  if ((pathname === "/financeiro" || pathname.startsWith("/financeiro/")) && !financeiroHabilitado(ambiente)) return false;
   if (pathname === "/administracao") return papelDoAcesso(acesso) !== "membro";
   if (pathname === "/integracoes") return integracoesParaAcesso(acesso, "pessoal").length > 0;
   if (["/jobs", "/estrutura"].includes(pathname) || pathname === "/design-system" || pathname.startsWith("/design-system/")) {
