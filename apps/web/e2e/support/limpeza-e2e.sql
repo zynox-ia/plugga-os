@@ -49,8 +49,12 @@ ALTER TABLE historico_de_lancamento DISABLE TRIGGER historico_de_lancamento_appe
 -- "E2E <run>" ancorado no fim: o run abc123 não casa "E2E abc1234". O runId é só
 -- [A-Za-z0-9_-] (conferido acima), então pode entrar na expressão sem escape.
 CREATE TEMP TABLE e2e_marca ON COMMIT DROP AS SELECT '(^|[^A-Za-z0-9_-])E2E ' || current_setting('e2e.run') || '([^A-Za-z0-9_-]|$)' AS marca;
+-- Ordens de serviço da Engenharia (PLU-345) com a marca na descrição; o pedido de
+-- material de uma delas sai junto, mesmo sem a marca no título.
+CREATE TEMP TABLE e2e_os ON COMMIT DROP AS
+  SELECT id FROM ordens_de_servico WHERE descricao ~ (SELECT marca FROM e2e_marca);
 CREATE TEMP TABLE e2e_ped ON COMMIT DROP AS
-  SELECT id FROM pedidos_de_compra WHERE titulo ~ (SELECT marca FROM e2e_marca);
+  SELECT id FROM pedidos_de_compra WHERE titulo ~ (SELECT marca FROM e2e_marca) OR ordem_de_servico_id IN (SELECT id FROM e2e_os);
 CREATE TEMP TABLE e2e_item ON COMMIT DROP AS
   SELECT id FROM itens_de_estoque WHERE nome ~ (SELECT marca FROM e2e_marca);
 CREATE TEMP TABLE e2e_forn ON COMMIT DROP AS
@@ -67,7 +71,8 @@ BEGIN
     OR EXISTS (SELECT 1 FROM movimentacoes_de_estoque WHERE pedido_id IN (SELECT id FROM e2e_ped) AND item_id NOT IN (SELECT id FROM e2e_item))
     OR EXISTS (SELECT 1 FROM reservas_de_estoque WHERE pedido_id IN (SELECT id FROM e2e_ped) AND item_id NOT IN (SELECT id FROM e2e_item))
     OR EXISTS (SELECT 1 FROM lancamentos WHERE (pedido_de_compra_id IN (SELECT id FROM e2e_ped) OR fornecedor_id IN (SELECT id FROM e2e_forn))
-      AND id NOT IN (SELECT id FROM e2e_lanc)) THEN
+      AND id NOT IN (SELECT id FROM e2e_lanc))
+    OR EXISTS (SELECT 1 FROM ordens_de_servico WHERE ordem_anterior_id IN (SELECT id FROM e2e_os) AND id NOT IN (SELECT id FROM e2e_os)) THEN
     RAISE EXCEPTION 'um registro fora deste run depende dele: nada foi apagado';
   END IF;
 END $dependentes$;
@@ -77,7 +82,9 @@ SELECT 'arquivo' AS tipo, arquivo_chave FROM cotacoes_de_compra WHERE pedido_id 
 UNION ALL
 SELECT 'arquivo', arquivo_chave FROM comprovantes_de_pagamento WHERE pedido_id IN (SELECT id FROM e2e_ped)
 UNION ALL
-SELECT 'arquivo', arquivo_chave FROM anexos_de_lancamento WHERE lancamento_id IN (SELECT id FROM e2e_lanc);
+SELECT 'arquivo', arquivo_chave FROM anexos_de_lancamento WHERE lancamento_id IN (SELECT id FROM e2e_lanc)
+UNION ALL
+SELECT 'arquivo', arquivo_chave FROM arquivos_de_ordens_de_servico WHERE ordem_id IN (SELECT id FROM e2e_os);
 
 -- O que pende do lançamento (PLU-337) sai antes dele: anexos, linha do tempo e UCs.
 DELETE FROM anexos_de_lancamento WHERE lancamento_id IN (SELECT id FROM e2e_lanc);
@@ -92,6 +99,12 @@ DELETE FROM cotacoes_de_compra WHERE pedido_id IN (SELECT id FROM e2e_ped);
 DELETE FROM pedidos_de_compra_etapas WHERE pedido_id IN (SELECT id FROM e2e_ped);
 DELETE FROM itens_de_pedido WHERE pedido_id IN (SELECT id FROM e2e_ped);
 DELETE FROM pedidos_de_compra WHERE id IN (SELECT id FROM e2e_ped);
+-- A O.S. sai depois dos pedidos de material: termo (aponta para os arquivos),
+-- arquivos, linha do tempo e a O.S. Os gatilhos da O.S. são só de UPDATE.
+DELETE FROM termos_de_ordens_de_servico WHERE ordem_id IN (SELECT id FROM e2e_os);
+DELETE FROM arquivos_de_ordens_de_servico WHERE ordem_id IN (SELECT id FROM e2e_os);
+DELETE FROM historico_de_ordens_de_servico WHERE ordem_id IN (SELECT id FROM e2e_os);
+DELETE FROM ordens_de_servico WHERE id IN (SELECT id FROM e2e_os);
 DELETE FROM itens_de_estoque WHERE id IN (SELECT id FROM e2e_item);
 DELETE FROM fornecedores WHERE id IN (SELECT id FROM e2e_forn);
 
@@ -100,5 +113,5 @@ ALTER TABLE comprovantes_de_pagamento ENABLE TRIGGER comprovantes_de_pagamento_s
 ALTER TABLE anexos_de_lancamento ENABLE TRIGGER anexos_de_lancamento_so_substitui;
 ALTER TABLE historico_de_lancamento ENABLE TRIGGER historico_de_lancamento_append_only;
 
-SELECT (SELECT count(*) FROM e2e_lanc) AS lancamentos, (SELECT count(*) FROM e2e_ped) AS pedidos,
+SELECT (SELECT count(*) FROM e2e_lanc) AS lancamentos, (SELECT count(*) FROM e2e_ped) AS pedidos, (SELECT count(*) FROM e2e_os) AS ordens_de_servico,
        (SELECT count(*) FROM e2e_item) AS itens_de_estoque, (SELECT count(*) FROM e2e_forn) AS fornecedores;
