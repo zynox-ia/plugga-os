@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common";
 
 import { AuditModule } from "../audit/audit.module";
 import { CoreModule } from "../core/core.module";
+import { FinanceiroHabilitadoGuard } from "../financeiro/financeiro-habilitado.guard";
 import { PrismaSegredoRepository } from "../llm/prisma-segredo.repository.js";
 import { SegredoRepository } from "../llm/segredo.repository.js";
 import { PrismaModule } from "../prisma/prisma.module";
@@ -20,6 +21,7 @@ import { PrismaOmieLeitura } from "./prisma-omie-leitura.repository";
   imports: [AuditModule, CoreModule, PrismaModule],
   controllers: [OmieController, OmieEmpresasController],
   providers: [
+    FinanceiroHabilitadoGuard,
     OmieCofreService,
     OmieConexoesService,
     PrismaOmieConexoesRepository,

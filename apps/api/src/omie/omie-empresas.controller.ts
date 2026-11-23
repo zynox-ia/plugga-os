@@ -33,6 +33,7 @@ import type { AuthPrincipal } from "../core/auth/auth.types";
 import { CurrentPrincipal } from "../core/auth/current-principal.decorator";
 import { OriginCheckGuard } from "../core/auth/origin-check.guard";
 import { SessionAuthGuard } from "../core/auth/session-auth.guard";
+import { FinanceiroHabilitadoGuard } from "../financeiro/financeiro-habilitado.guard";
 import { chaveMestraConfigurada } from "../llm/cripto.js";
 import { MENSAGEM_DO_OMIE } from "./omie.controller";
 import { OmieConexoesService } from "./omie-conexoes.service";
@@ -43,10 +44,12 @@ const EMPRESA = new ParseEnumPipe(companyKeys);
 /**
  * O OMIE por empresa (PLU-342) em Configurações › Integrações. Quem gere: Desenvolvedor,
  * Admin e Gerente do Financeiro (D6). O segredo é escrita-apenas. O CNPJ da empresa,
- * contra o qual a conexão é conferida, é só da plataforma.
+ * contra o qual a conexão é conferida, é só da plataforma. Atrás do portão do
+ * Financeiro até o módulo ficar completo (decisão do Coordenador): fechado, 404, e
+ * o cartão da conta única segue valendo.
  */
 @Controller("integracoes/omie/empresas")
-@UseGuards(SessionAuthGuard, AcessoGuard)
+@UseGuards(FinanceiroHabilitadoGuard, SessionAuthGuard, AcessoGuard)
 @Departamento("financeiro", "gerente")
 export class OmieEmpresasController {
   constructor(@Inject(OmieConexoesService) private readonly conexoes: OmieConexoesService) {}
