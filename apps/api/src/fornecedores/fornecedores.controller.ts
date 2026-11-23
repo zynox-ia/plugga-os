@@ -63,8 +63,14 @@ export class FornecedoresController {
     return this.fornecedores.criar(input, principal);
   }
 
-  /** POST porque grava auditoria: quem viu os dados de pagamento completos, quando e por quê. */
+  /**
+   * POST porque grava auditoria: quem viu os dados de pagamento completos, quando e
+   * por quê. Além de quem tem a tela Fornecedores, o Financeiro (membro ou gerente)
+   * revela, porque é quem paga. A declaração do método substitui a da classe.
+   */
   @Post(":id/dados-de-pagamento/revelar")
+  @Departamento(["suprimentos", "financeiro"])
+  @Tela("suprimentos.fornecedores", "financeiro.pagar", "financeiro.receber", "financeiro.conciliacao", "financeiro.fiscal")
   @HttpCode(200)
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
   revelar(

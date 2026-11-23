@@ -158,6 +158,20 @@ describe("fornecedores API (e2e)", () => {
     }
   });
 
+  it("o Financeiro, membro ou gerente, revela para pagar, mas não abre o resto do cadastro", async () => {
+    for (const nivel of ["membro", "gerente"]) {
+      const financeiro = (r: request.Test) => r.set("x-dev-principal", PESSOA).set("x-dev-departamentos", `financeiro:${nivel}`);
+      await financeiro(request(app.getHttpServer()).post(`/suprimentos/fornecedores/${ID}/dados-de-pagamento/revelar`)).send({ motivo: "copiar" }).expect(200);
+      await financeiro(request(app.getHttpServer()).get("/suprimentos/fornecedores")).expect(403);
+      await financeiro(request(app.getHttpServer()).get(`/suprimentos/fornecedores/${ID}`)).expect(403);
+      await financeiro(request(app.getHttpServer()).patch(`/suprimentos/fornecedores/${ID}`)).send({ nome: "X" }).expect(403);
+    }
+    for (const departamento of ["crm:gerente", "engenharia-obras:membro"]) {
+      await request(app.getHttpServer()).post(`/suprimentos/fornecedores/${ID}/dados-de-pagamento/revelar`)
+        .set("x-dev-principal", PESSOA).set("x-dev-departamentos", departamento).send({ motivo: "mostrar" }).expect(403);
+    }
+  });
+
   it("não há rota de exclusão", async () => {
     await suprimentos(request(app.getHttpServer()).delete(`/suprimentos/fornecedores/${ID}`)).expect(404);
   });
