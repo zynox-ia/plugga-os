@@ -1,6 +1,9 @@
 import { expect, test } from "@playwright/test";
 import type { CreateClientResponse } from "@plugga/shared";
 
+// IP sintético próprio: as criações pela API não dividem o balde de throttle com a suíte paralela (429 na CI 45233111029).
+test.use({ extraHTTPHeaders: { "x-forwarded-for": "203.0.113.243" } });
+
 const prefixo = `Carteira E2E ${Date.now()}`;
 const ids: string[] = [];
 

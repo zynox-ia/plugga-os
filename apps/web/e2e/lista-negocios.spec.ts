@@ -2,6 +2,9 @@ import { expect, test, type APIRequestContext } from "@playwright/test";
 import type { CreateClientResponse, Deal, Pipeline, PipelinePeopleResponse } from "@plugga/shared";
 import { paginasDaLista } from "../app/components/pipelines/paginacao-da-lista";
 
+// IP sintético próprio: as criações pela API não dividem o balde de throttle com a suíte paralela (429 na CI 45233111029).
+test.use({ extraHTTPHeaders: { "x-forwarded-for": "203.0.113.241" } });
+
 test.describe.configure({ mode: "default" });
 
 let pipeline: Pipeline;

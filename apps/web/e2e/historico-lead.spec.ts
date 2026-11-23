@@ -2,6 +2,9 @@ import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
 import type { Deal, DealHistoryEntry, Pipeline, PipelinePeopleResponse } from "@plugga/shared";
 
+// IP sintético próprio: as criações pela API não dividem o balde de throttle com a suíte paralela (429 na CI 45233111029).
+test.use({ extraHTTPHeaders: { "x-forwarded-for": "203.0.113.245" } });
+
 let pipeline: Pipeline;
 let negocio: Deal;
 const notas = "Cliente solicitou uma proposta para reduzir os custos de energia. Retomar contato após a análise das faturas.";

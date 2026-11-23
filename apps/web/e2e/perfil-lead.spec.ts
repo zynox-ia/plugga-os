@@ -1,6 +1,9 @@
 import { expect, test, type APIRequestContext } from "@playwright/test";
 import type { Deal, Pipeline, PipelinePeopleResponse } from "@plugga/shared";
 
+// IP sintético próprio: as criações pela API não dividem o balde de throttle com a suíte paralela (429 na CI 45233111029).
+test.use({ extraHTTPHeaders: { "x-forwarded-for": "203.0.113.242" } });
+
 let pipeline: Pipeline;
 let negocio: Deal;
 async function criar<T>(request: APIRequestContext, origin: string, url: string, data: object): Promise<T> {
