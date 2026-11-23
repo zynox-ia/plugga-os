@@ -15,6 +15,10 @@ const AUTH_STORAGE_STATE = process.env.PLAYWRIGHT_AUTH_FILE || "e2e/.auth/admin.
 
 export default defineConfig({
   testDir: "./e2e",
+  // Cada execução tem um runId (E2E_RUN_ID); o que os specs criam leva a marca
+  // dele no nome e sai no fim, se houver E2E_CLEANUP_DATABASE_URL (banco local).
+  globalSetup: "./e2e/support/execucao-setup.ts",
+  globalTeardown: "./e2e/support/execucao-teardown.ts",
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,

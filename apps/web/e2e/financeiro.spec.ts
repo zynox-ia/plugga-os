@@ -1,11 +1,13 @@
 import { expect as expectPadrao, test, type Page } from "@playwright/test";
 
+import { marcaDaExecucao } from "./support/execucao";
 import { bloquearTerceiros } from "./support/sem-terceiros";
 
 /**
  * Financeiro (PLU-336): a conta a pagar avulsa pela tela de Lançamentos, da
  * criação à aprovação, e o cancelamento com motivo. Dados sintéticos; as
- * categorias e contas correntes vêm do seed local.
+ * categorias e contas correntes vêm do seed local. O que o spec cria leva a
+ * marca da execução e sai no teardown (e2e/support/execucao-teardown.ts).
  */
 
 test.use({ extraHTTPHeaders: { "x-forwarded-for": "203.0.113.236" } });
@@ -27,7 +29,7 @@ async function escolher(page: Page, dialogo: ReturnType<Page["getByRole"]>, camp
 }
 
 async function criarConta(page: Page, baseURL: string, descricao: string) {
-  const fornecedor = await page.request.post("/api/suprimentos/fornecedores", { data: { nome: `Fornecedor E2E ${descricao}`, categoria: "servico" }, headers: { origin: new URL(baseURL).origin } });
+  const fornecedor = await page.request.post("/api/suprimentos/fornecedores", { data: { nome: `Fornecedor ${descricao}`, categoria: "servico" }, headers: { origin: new URL(baseURL).origin } });
   expect(fornecedor.status(), await fornecedor.text()).toBe(201);
   const { nome } = (await fornecedor.json()) as { nome: string };
 
@@ -59,7 +61,7 @@ async function criarConta(page: Page, baseURL: string, descricao: string) {
 
 test("conta a pagar avulsa nasce aberta e a Gerente aprova pela ficha", async ({ page, baseURL }) => {
   await bloquearTerceiros(page);
-  const descricao = `Honorários E2E ${Date.now().toString(36)} (sintético)`;
+  const descricao = `Honorários ${marcaDaExecucao()} ${Date.now().toString(36)} (sintético)`;
   await criarConta(page, baseURL!, descricao);
 
   await ficha(page).getByRole("button", { name: "Aprovar" }).click();
@@ -79,7 +81,7 @@ test("conta a pagar avulsa nasce aberta e a Gerente aprova pela ficha", async ({
 
 test("cancelar pede o motivo, e a ficha mostra onde parou", async ({ page, baseURL }) => {
   await bloquearTerceiros(page);
-  const descricao = `Assinatura E2E ${Date.now().toString(36)} (sintético)`;
+  const descricao = `Assinatura ${marcaDaExecucao()} ${Date.now().toString(36)} (sintético)`;
   await criarConta(page, baseURL!, descricao);
 
   await ficha(page).getByRole("button", { name: "Recusar" }).click();
