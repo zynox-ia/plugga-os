@@ -206,10 +206,13 @@ export class PrismaUsinasRepository {
     return this.prisma.comContexto(async (tx) => {
       const plataformas = await tx.plataformaDeInversor.findMany({ where: { ativa: true }, select: { id: true, nome: true } });
       const plataformaDe = (valor: string) => plataformas.find((p) => nomeComparavel(p.nome) === nomeComparavel(valor) || p.id === idDaPlataforma(valor));
+      // Todos os clientes da planilha numa consulta só, pelo nome exato.
+      const nomes = [...new Set(linhas.map((l) => l.cliente.trim()).filter((n) => n.length > 0))];
+      const achados = nomes.length === 0 ? [] : await tx.$queryRaw<{ id: string; name: string }[]>`SELECT id, name FROM plugga_security.clientes_para_engenharia_por_nome(${nomes}::text[])`;
       const clientes = new Map<string, { id: string; nome: string }[]>();
-      for (const nome of new Set(linhas.map((l) => l.cliente).filter((n) => n.trim().length >= 2))) {
-        const achados = await tx.$queryRaw<{ id: string; name: string }[]>`SELECT id, name FROM plugga_security.clientes_para_engenharia(${nome}, NULL::uuid[])`;
-        clientes.set(nomeComparavel(nome), achados.filter((c) => nomeComparavel(c.name) === nomeComparavel(nome)).map((c) => ({ id: c.id, nome: c.name })));
+      for (const c of achados) {
+        const chave = nomeComparavel(c.name);
+        clientes.set(chave, [...(clientes.get(chave) ?? []), { id: c.id, nome: c.name }]);
       }
       const idsDeClientes = [...new Set([...clientes.values()].flat().map((c) => c.id))];
       const ucs = idsDeClientes.length === 0 ? [] : await tx.$queryRaw<{ id: string; client_id: string; code: string }[]>`
@@ -239,20 +242,28 @@ export class PrismaUsinasRepository {
         resultado.push({ linha: l.linha, situacao, problemas, usina });
         if (situacao === "pronta") prontas.push({ linha: l, clienteId: cliente!.id, ucId: uc!.id, plataformaId: plataforma!.id, empresa: l.empresa! });
       }
-      if (gravar) {
-        for (const p of prontas) {
-          const criada = await tx.usina.create({
-            data: {
-              companyId: p.empresa, clientId: p.clienteId, consumerUnitId: p.ucId, nome: p.linha.nome, plataformaId: p.plataformaId, potenciaKwp: p.linha.potenciaKwp!,
-              fabricante: p.linha.fabricante, modelo: p.linha.modelo, numeroSerie: p.linha.numeroSerie,
-              comissionadaEm: inicioDoDiaEmManaus(p.linha.comissionadaEm ?? hoje), origem: "importacao", criadoPorId: principal.id,
-            },
-            select: { id: true },
-          });
-          await this.registrar(tx, "engenharia.usina.created", "usina", criada.id, p.empresa, principal, { plataformaId: p.plataformaId, origem: "importacao" });
-        }
-        for (const r of resultado) if (r.situacao === "pronta") r.situacao = "gravada";
+      if (gravar && prontas.length > 0) {
+        // Em lote: uma inserção das usinas e uma dos eventos.
+        const criadas = await tx.usina.createManyAndReturn({
+          data: prontas.map((p) => ({
+            companyId: p.empresa, clientId: p.clienteId, consumerUnitId: p.ucId, nome: p.linha.nome, plataformaId: p.plataformaId, potenciaKwp: p.linha.potenciaKwp!,
+            fabricante: p.linha.fabricante, modelo: p.linha.modelo, numeroSerie: p.linha.numeroSerie,
+            comissionadaEm: inicioDoDiaEmManaus(p.linha.comissionadaEm ?? hoje), origem: "importacao" as const, criadoPorId: principal.id,
+          })),
+          select: { id: true, companyId: true, plataformaId: true },
+        });
+        await this.auditoria.appendMany(tx, criadas.map((c) => ({
+          eventName: "engenharia.usina.created" as const,
+          entityType: "usina",
+          entityId: c.id,
+          companyId: c.companyId,
+          actorType: principal.kind === "user" ? ("user" as const) : ("agent" as const),
+          actorId: principal.id,
+          payload: { plataformaId: c.plataformaId, origem: "importacao" },
+          occurredAt: new Date(),
+        })));
       }
+      if (gravar) for (const r of resultado) if (r.situacao === "pronta") r.situacao = "gravada";
       return {
         gravou: gravar,
         resumo: {
@@ -264,7 +275,8 @@ export class PrismaUsinasRepository {
         },
         linhas: resultado,
       };
-    });
+      // Planilha grande (até 2000 linhas): mais que os 5 s padrão da transação interativa.
+    }, { timeout: 60_000 });
   }
 
   // ------------------------------------------------------------ monitoramento

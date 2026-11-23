@@ -1,4 +1,4 @@
-import { randomBytes } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 
 import { conferirPlataformaSchema, criarOrdemDeServicoSchema, criarUsinaSchema, importarUsinasSchema, type Acesso } from "@plugga/shared";
 import { Prisma, PrismaClient } from "@prisma/client";
@@ -257,5 +257,28 @@ describe.skipIf(!HABILITADO)("engenharia: usinas e monitoramento no Postgres", {
     expect((await importar("nao")).linhas[0]!.situacao).toBe("ja_existe");
     await expect(como("os", () => servico.importar(importarUsinasSchema.parse({ empresaPadrao: "waze" }), { buffer: Buffer.from(planilha), nomeOriginal: "x.csv" }, principal("os")))).rejects.toThrow(AcessoNegado);
     await expect(como("usinas", () => servico.importar(importarUsinasSchema.parse({ empresaPadrao: "waze" }), { buffer: Buffer.from("A;B\n1;2"), nomeOriginal: "x.csv" }, principal("usinas")))).rejects.toThrow(RequisicaoInvalida);
+  });
+
+  it("importa uma planilha grande (2000 linhas, 500 clientes, sintética) numa transação, em dry-run e gravando", async () => {
+    const clientes = Array.from({ length: 500 }, (_, i) => ({ id: randomUUID(), name: `${marca} Carga ${String(i).padStart(3, "0")}` }));
+    await root.client.createMany({ data: clientes });
+    await root.consumerUnit.createMany({ data: clientes.flatMap((c, i) => Array.from({ length: 4 }, (_, k) => ({ clientId: c.id, code: `${marca}-c${i}-${k}`, distributor: "x" }))) });
+    const linhas = ["Cliente;UC;Usina;Plataforma;kWp"];
+    clientes.forEach((c, i) => { for (let k = 0; k < 4; k += 1) linhas.push(`${c.name};${marca}-c${i}-${k};Usina ${k};${marca} Plataforma;${5 + k},5`); });
+    const planilha = Buffer.from(linhas.join("\n"), "utf8");
+    const importar = (gravar: "sim" | "nao") => como("usinas", () => servico.importar(importarUsinasSchema.parse({ empresaPadrao: "waze", gravar }), { buffer: planilha, nomeOriginal: "carga.csv" }, principal("usinas")));
+
+    const inicio = Date.now();
+    const conferencia = await importar("nao");
+    const conferir = Date.now() - inicio;
+    expect(conferencia.resumo).toMatchObject({ linhas: 2000, prontas: 2000, erros: 0 });
+    const meio = Date.now();
+    const gravada = await importar("sim");
+    const gravar = Date.now() - meio;
+    expect(gravada.resumo).toMatchObject({ gravadas: 2000, erros: 0 });
+    expect(await root.usina.count({ where: { clientId: { in: clientes.map((c) => c.id) }, origem: "importacao" } })).toBe(2000);
+    // Bem abaixo dos 60 s da transação da importação (e dos 5 s padrão do Prisma, que derrubavam a versão por linha).
+    expect(conferir).toBeLessThan(15_000);
+    expect(gravar).toBeLessThan(30_000);
   });
 });
