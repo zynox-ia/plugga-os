@@ -31,7 +31,9 @@ export function financeiroHabilitado(
 /**
  * Engenharia e Obras (PLU-345 a PLU-350): o mesmo portão do Financeiro, com a
  * variável `NEXT_PUBLIC_ENGENHARIA_HABILITADO` (e `ENGENHARIA_HABILITADO` na API).
- * Desligado, o menu fica em breve e `/engenharia/*` responde 404.
+ * Desligado, o menu fica em breve e nenhuma página `/engenharia/*` abre: o
+ * middleware leva à página inicial (e o `exigirPagina`, ao 404). As rotas da
+ * API respondem 404 com `ENGENHARIA_HABILITADO` desligado.
  */
 export function engenhariaHabilitado(
   ambiente: AmbienteDosRecursos = {

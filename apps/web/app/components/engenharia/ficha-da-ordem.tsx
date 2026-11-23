@@ -1,8 +1,8 @@
 "use client";
 
 import { CODIGO_CHECKIN_ANTECIPADO, type AcaoDaOrdemDeServico, type OpcoesDaEngenhariaResposta, type OrdemDeServico } from "@plugga/shared";
-import { Ban, CalendarCheck, Camera, ClipboardPen, History, LayoutGrid, MapPin, Package, Undo2, Wrench, X, type LucideIcon } from "lucide-react";
-import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
+import { Ban, CalendarCheck, Camera, ClipboardPen, History, LayoutGrid, MapPin, Package, Pencil, ShoppingCart, Signature, Undo2, Wrench, X, type LucideIcon } from "lucide-react";
+import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 
 import { hojeEmManaus } from "../../lib/compras";
 import { agoraEmManaus, problemasDoAdiamento, problemasDoAgendamento, quandoNaFicha, ROTULO_DO_TIPO } from "../../lib/ordens-de-servico";
@@ -15,11 +15,14 @@ import { Alert, Button, DatePicker, Dialog, TextareaField } from "../ui";
 import { EquipamentoDaOrdem, EvidenciasDaOrdem, LinhaDoTempoDaOrdem, MaterialDaOrdem } from "./abas-da-ordem";
 import { agirNaOrdem, enviarArquivoDaOrdem, problemaDaFoto, relerOrdem, type RespostaDaOrdem } from "./envios";
 import styles from "./ficha-da-ordem.module.css";
+import { OrdemForm } from "./ordem-form";
 import { IconeDoTipo } from "./partes";
+import { PedirMaterial } from "./pedir-material";
+import type { TermoNaTelaRef } from "./termo-da-ordem";
 import { VisaoGeralDaOrdem, type Agendamento, type Laudo } from "./visao-geral-da-ordem";
 
 type Aba = "geral" | "equipamento" | "evidencias" | "material" | "tempo";
-type Janela = null | "adiar" | "cancelar" | { antecipado: string | null };
+type Janela = null | "adiar" | "cancelar" | "editar" | "material" | { antecipado: string | null };
 
 const AVISO: Partial<Record<AcaoDaOrdemDeServico["acao"], string>> = {
   agendar: "O.S. agendada.",
@@ -41,19 +44,12 @@ const agendamentoDe = (o: OrdemDeServico): Agendamento => ({
  * ações que a API permite agora. Cada passagem exige o seu dado: técnico e
  * data, check-in, laudo com fotos e o termo.
  */
-export function FichaDaOrdem({ ordem: inicial, opcoes, podeAbrirCompras, aoFechar, aoAtualizar, extras }: {
+export function FichaDaOrdem({ ordem: inicial, opcoes, podeAbrirCompras, aoFechar, aoAtualizar }: {
   ordem: OrdemDeServico;
   opcoes: OpcoesDaEngenhariaResposta | null;
   podeAbrirCompras: boolean;
   aoFechar: () => void;
   aoAtualizar: () => void;
-  /** Termo, pedir material e editar entram por aqui (cada um com a sua janela). */
-  extras?: {
-    botaoEditar?: (ordem: OrdemDeServico, ocupado: boolean) => ReactNode;
-    botaoDoTermo?: (ordem: OrdemDeServico, ocupado: boolean) => ReactNode;
-    botaoDeMaterial?: (ordem: OrdemDeServico, ocupado: boolean) => ReactNode;
-    janelas?: (ordem: OrdemDeServico, atualizada: (o: OrdemDeServico, aviso: string) => void) => ReactNode;
-  };
 }) {
   const id = useId();
   const [ordem, setOrdem] = useState(inicial);
@@ -68,6 +64,7 @@ export function FichaDaOrdem({ ordem: inicial, opcoes, podeAbrirCompras, aoFecha
   const [errosDoLaudo, setErrosDoLaudo] = useState<Partial<Record<keyof Laudo, string>>>({});
   const [remarcando, setRemarcando] = useState(false);
   const botoes = useRef<(HTMLButtonElement | null)[]>([]);
+  const termo = useRef<TermoNaTelaRef>(null);
   const hoje = hojeEmManaus();
 
   // O servidor recarrega a ficha depois de cada ação (router.refresh); a versão mais nova vence.
@@ -135,6 +132,19 @@ export function FichaDaOrdem({ ordem: inicial, opcoes, podeAbrirCompras, aoFecha
     if (ultima) atualizada(ultima, arquivos.length === 1 ? "Foto enviada." : `${arquivos.length} fotos enviadas.`);
   }
 
+  /** O termo assinado (na tela ou o PDF) conclui a O.S. */
+  function concluida(r: RespostaDaOrdem | null, comoPdf: boolean) {
+    if (!r) return;
+    if (r.ok) atualizada(r.dados, comoPdf ? "O.S. concluída com o termo assinado em PDF." : "O.S. concluída: o termo assinado ficou guardado em PDF.");
+    else void aposErro(r);
+  }
+  async function concluirComOTermo() {
+    setOcupado(true); setErro(null); setAviso(null);
+    const r = await termo.current?.concluir() ?? null;
+    setOcupado(false);
+    concluida(r, false);
+  }
+
   const pode = (a: OrdemDeServico["acoesPermitidas"][number]) => ordem.acoesPermitidas.includes(a);
   const abas: { id: Aba; titulo: string; curto: string; conta?: number; icone: LucideIcon }[] = [
     { id: "geral", titulo: "Visão geral", curto: "Geral", icone: LayoutGrid },
@@ -159,7 +169,8 @@ export function FichaDaOrdem({ ordem: inicial, opcoes, podeAbrirCompras, aoFecha
         ? <Button icon={<MapPin size={15} />} disabled={ocupado} onClick={() => void agir({ acao: "check_in" })}>Fazer check-in</Button>
         : ordem.situacao === "em_campo" && pode("registrar_laudo")
           ? <Button icon={<ClipboardPen size={15} />} disabled={ocupado} onClick={registrarLaudo}>Registrar laudo</Button>
-          : ordem.situacao === "laudo" ? extras?.botaoDoTermo?.(ordem, ocupado) ?? null : null;
+          : ordem.situacao === "laudo" && pode("colher_termo")
+            ? <Button icon={<Signature size={15} />} disabled={ocupado} onClick={() => { if (aba !== "geral") setAba("geral"); else void concluirComOTermo(); }}>Concluir com o termo</Button> : null;
   const encerrada = ordem.situacao === "concluida" || ordem.situacao === "cancelada";
   const rodape = !encerrada && (pode("cancelar") || pode("adiar") || principal) ? <footer className={`${fichaCompras.rodape} ${styles.rodape}`}>
     {pode("cancelar") ? <Button variant="secondary" className={fichaCompras.perigo} icon={<Ban size={15} />} disabled={ocupado} onClick={() => setJanela("cancelar")}>Cancelar O.S.</Button> : null}
@@ -192,7 +203,7 @@ export function FichaDaOrdem({ ordem: inicial, opcoes, podeAbrirCompras, aoFecha
           </div>
         </div>
         <div className={detalhes.controlesCabecalho}>
-          {pode("editar") ? extras?.botaoEditar?.(ordem, ocupado) : null}
+          {pode("editar") ? <Button variant="secondary" size="sm" icon={<Pencil size={14} />} disabled={ocupado} onClick={() => setJanela("editar")}>Editar</Button> : null}
           <FecharModal>{(fechar) => <button type="button" className={`${detalhes.botaoFechar} plg-pressiona`} disabled={ocupado} onClick={fechar} aria-label="Fechar"><X size={18} aria-hidden="true" /></button>}</FecharModal>
         </div>
       </header>
@@ -210,11 +221,12 @@ export function FichaDaOrdem({ ordem: inicial, opcoes, podeAbrirCompras, aoFecha
             {erro ? <p role="alert" className="aviso aviso--erro">{erro}</p> : null}
             {aviso ? <p role="status" className="aviso aviso--sucesso">{aviso}</p> : null}
           </div> : null}
-          {aba === "geral" ? <VisaoGeralDaOrdem ordem={ordem} opcoes={opcoes} hoje={hoje} ocupado={ocupado} aoVerEvidencias={verEvidencias}
+          {aba === "geral" ? <VisaoGeralDaOrdem ordem={ordem} opcoes={opcoes} hoje={hoje} ocupado={ocupado} aoVerEvidencias={verEvidencias} termo={termo}
+            aoPdfAssinado={(r) => { setErro(null); setAviso(null); concluida(r, true); }}
             estado={{ agendamento, errosDoAgendamento, aoAgendamento: setAgendamento, laudo, errosDoLaudo, aoLaudo: setLaudo, remarcando, aoRemarcar: setRemarcando }} /> : null}
           {aba === "equipamento" ? <EquipamentoDaOrdem ordem={ordem} /> : null}
           {aba === "evidencias" ? <EvidenciasDaOrdem ordem={ordem} ocupado={ocupado} aoEnviar={(arquivos) => void enviarFotos(arquivos)} /> : null}
-          {aba === "material" ? <MaterialDaOrdem ordem={ordem} podeAbrirCompras={podeAbrirCompras} acaoDePedir={pode("pedir_material") ? extras?.botaoDeMaterial?.(ordem, ocupado) : null} /> : null}
+          {aba === "material" ? <MaterialDaOrdem ordem={ordem} podeAbrirCompras={podeAbrirCompras} acaoDePedir={pode("pedir_material") ? <Button size="sm" icon={<ShoppingCart size={14} />} disabled={ocupado} onClick={() => setJanela("material")}>Pedir material</Button> : null} /> : null}
           {aba === "tempo" ? <LinhaDoTempoDaOrdem ordem={ordem} hoje={hoje} /> : null}
         </section>
         {/* Fora da rolagem, como no protótipo: as ações da etapa ficam à vista em qualquer aba. */}
@@ -228,7 +240,9 @@ export function FichaDaOrdem({ ordem: inicial, opcoes, podeAbrirCompras, aoFecha
       aoConfirmar={async (motivo) => { const ok = await agir({ acao: "cancelar", motivo }); if (ok) setJanela(null); return ok; }} /> : null}
     {janela && typeof janela === "object" ? <CheckinAntecipado agendadaPara={janela.antecipado} hoje={hoje} ocupado={ocupado} aoCancelar={() => setJanela(null)}
       aoConfirmar={async () => { const ok = await agir({ acao: "check_in", confirmarAntecipado: true }); setJanela(null); return ok; }} /> : null}
-    {extras?.janelas?.(ordem, atualizada)}
+    {janela === "editar" ? <OrdemForm ordem={ordem} hoje={hoje} aoCancelar={() => setJanela(null)} aoSalvar={(o) => { setJanela(null); atualizada(o, "O.S. atualizada."); }} /> : null}
+    {janela === "material" ? <PedirMaterial ordem={ordem} hoje={hoje} aoCancelar={() => setJanela(null)}
+      aoPedir={(o) => { setJanela(null); const novo = o.pedidosDeMaterial.find((p) => !ordem.pedidosDeMaterial.some((x) => x.id === p.id)); atualizada(o, novo ? `Material pedido em Compras: PC-${String(novo.numero).padStart(4, "0")}.` : "Material pedido em Compras."); setAba("material"); }} /> : null}
   </>;
 }
 

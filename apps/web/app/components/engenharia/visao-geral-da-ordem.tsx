@@ -2,7 +2,7 @@
 
 import type { OpcoesDaEngenhariaResposta, OrdemDeServico } from "@plugga/shared";
 import { Ban, CalendarCheck, CalendarDays, Check, CheckCircle2, ClipboardPen, Clock, FileText, MapPin, Signature, Undo2, UserRound, Users, X, type LucideIcon } from "lucide-react";
-import type { ReactNode } from "react";
+import type { ReactNode, RefObject } from "react";
 
 import { dataEmManaus, diaLegivel, ROTULO_DA_EMPRESA } from "../../lib/compras";
 import {
@@ -23,7 +23,9 @@ import visao from "../pipelines/resumo-do-lead.module.css";
 import { CampoDeMenu } from "../suprimentos/menu-com-busca";
 import { Button, DatePicker, TextareaField } from "../ui";
 import styles from "./ficha-da-ordem.module.css";
+import type { RespostaDaOrdem } from "./envios";
 import { IconeDoTipo } from "./partes";
+import { PdfAssinado, TermoNaTela, type TermoNaTelaRef } from "./termo-da-ordem";
 
 const TOM = { ok: fichaCompras.prazoOk, hoje: fichaCompras.prazoHoje, vencido: fichaCompras.prazoVencido } as const;
 const ROTULO_DA_ORIGEM = { manual: "Manual", monitoramento: "Monitoramento", crm: "CRM", robo: "Robô" } as const;
@@ -118,7 +120,9 @@ function FormularioDeAgendamento({ ordem, opcoes, hoje, estado, ocupado }: { ord
 }
 
 /** O bloco da etapa atual: agendar, check-in, laudo, termo, ou o encerramento. */
-function AcaoDaEtapa({ ordem, opcoes, hoje, estado, ocupado, aoVerEvidencias }: { ordem: OrdemDeServico; opcoes: OpcoesDaEngenhariaResposta | null; hoje: string; estado: EstadoDaVisaoGeral; ocupado: boolean; aoVerEvidencias: () => void }) {
+type DoTermo = { termo: RefObject<TermoNaTelaRef | null>; aoPdfAssinado: (r: RespostaDaOrdem) => void };
+
+function AcaoDaEtapa({ ordem, opcoes, hoje, estado, ocupado, aoVerEvidencias, termo, aoPdfAssinado }: { ordem: OrdemDeServico; opcoes: OpcoesDaEngenhariaResposta | null; hoje: string; estado: EstadoDaVisaoGeral; ocupado: boolean; aoVerEvidencias: () => void } & DoTermo) {
   const pode = (a: OrdemDeServico["acoesPermitidas"][number]) => ordem.acoesPermitidas.includes(a);
   switch (ordem.situacao) {
     case "cancelada": {
@@ -173,17 +177,20 @@ function AcaoDaEtapa({ ordem, opcoes, hoje, estado, ocupado, aoVerEvidencias }: 
           <div><dt>Feito:</dt><dd>{laudo.feito}</dd></div>
           {laudo.recomendacao ? <div><dt>Recomendação:</dt><dd>{laudo.recomendacao}</dd></div> : null}
         </dl> : null}
-        <p>O cliente assina o termo na tela do celular do técnico, ou o PDF assinado à parte é anexado. O termo conclui a O.S.</p>
+        {pode("colher_termo") ? <>
+          <TermoNaTela ref={termo} ordem={ordem} desligado={ocupado} />
+          <PdfAssinado ordem={ordem} desligado={ocupado} aoEnviar={aoPdfAssinado} />
+        </> : <p className={fichaCompras.muted}>Falta o termo assinado pelo cliente, que conclui a O.S.</p>}
       </Destaque>;
     }
   }
 }
 
 /** Visão geral da ficha: indicadores e trilha, o que falta, a ação da etapa, os dados e o rodapé com as ações. */
-export function VisaoGeralDaOrdem({ ordem, opcoes, hoje, ocupado, estado, aoVerEvidencias }: {
+export function VisaoGeralDaOrdem({ ordem, opcoes, hoje, ocupado, estado, aoVerEvidencias, termo, aoPdfAssinado }: {
   ordem: OrdemDeServico; opcoes: OpcoesDaEngenhariaResposta | null; hoje: string; ocupado: boolean; estado: EstadoDaVisaoGeral;
   aoVerEvidencias: () => void;
-}) {
+} & DoTermo) {
   const quando = ordem.situacao === "adiada" && ordem.adiamento ? diaLegivel(ordem.adiamento.novaData) : quandoNaFicha(ordem.agendadaPara, hoje);
   const prazo = prazoDaOrdem(ordem, hoje);
   const encerrada = ordem.situacao === "concluida" || ordem.situacao === "cancelada";
@@ -205,7 +212,7 @@ export function VisaoGeralDaOrdem({ ordem, opcoes, hoje, ocupado, estado, aoVerE
 
     {encerrada ? null : <PainelDoPasso ordem={ordem} hoje={hoje} />}
 
-    <AcaoDaEtapa ordem={ordem} opcoes={opcoes} hoje={hoje} estado={estado} ocupado={ocupado} aoVerEvidencias={aoVerEvidencias} />
+    <AcaoDaEtapa ordem={ordem} opcoes={opcoes} hoje={hoje} estado={estado} ocupado={ocupado} aoVerEvidencias={aoVerEvidencias} termo={termo} aoPdfAssinado={aoPdfAssinado} />
 
     <section aria-label="Dados da O.S.">
       <dl className={visao.grade}>

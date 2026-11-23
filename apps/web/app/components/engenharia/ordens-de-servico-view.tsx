@@ -55,11 +55,12 @@ import estilosPipelines from "../pipelines/tela-pipelines.module.css";
 import { CardDeMetrica, MetricasDoTopo } from "../suprimentos/card-de-metrica";
 import { PontoDaEmpresa } from "../suprimentos/empresa";
 import { FiltroComBusca } from "../suprimentos/menu-com-busca";
-import { Button, IconSearch } from "../ui";
+import { Button, IconPlus, IconSearch } from "../ui";
 import { CardsDeOrdens } from "./cards-de-ordens";
 import { FichaDaOrdem } from "./ficha-da-ordem";
 import styles from "./engenharia.module.css";
 import { ListaDeOrdens } from "./lista-de-ordens";
+import { OrdemForm } from "./ordem-form";
 import { ICONE_DO_TIPO } from "./partes";
 import { QuadroDeOrdens } from "./quadro-de-ordens";
 
@@ -103,6 +104,9 @@ export function OrdensDeServicoView({ filtros, lista, quadro, opcoes, hoje, fich
 }) {
   const router = useRouter();
   const [busca, setBusca] = useState(filtros.busca ?? "");
+  const [criando, setCriando] = useState(false);
+  const [aviso, setAviso] = useState<string | null>(null);
+  useEffect(() => { if (!aviso) return; const t = setTimeout(() => setAviso(null), 5000); return () => clearTimeout(t); }, [aviso]);
   const abasRef = useRef<HTMLDivElement>(null);
   const colunasRef = useRef<HTMLDivElement>(null);
   useEffect(() => setBusca(filtros.busca ?? ""), [filtros.busca]);
@@ -190,6 +194,9 @@ export function OrdensDeServicoView({ filtros, lista, quadro, opcoes, hoje, fich
         <h1 className={estilosPipelines.titulo}>Ordens de serviço</h1>
         <h2 className={`${estilosPipelines.subtitulo} ${styles.subtitulo}`}>Todo serviço técnico, do pedido ao termo assinado.</h2>
       </div>
+      <div className={estilosPipelines.acoes}>
+        <Button icon={<IconPlus />} onClick={() => setCriando(true)}>Nova O.S.</Button>
+      </div>
     </header>
 
     <MetricasDoTopo rotulo="Resumo das ordens de serviço">
@@ -212,6 +219,7 @@ export function OrdensDeServicoView({ filtros, lista, quadro, opcoes, hoje, fich
         {filtrosDaTela.map(([rotulo, filtro]) => <div key={rotulo} className={styles.filtro}>{filtro}</div>)}
         {filtrado ? <Button variant="secondary" size="sm" onClick={limpar}>Limpar</Button> : null}
       </div>}
+      acoesQuandoPresa={<Button size="md" iconOnly icon={<IconPlus />} aria-label="Nova O.S." title="Nova O.S." onClick={() => setCriando(true)} />}
       movel={{
         visao: { rotulo: "Visualização", opcoes: ORDEM_DAS_VISOES.map((id) => { const { rotulo, icone: Icone } = VISOES[id]; return { value: id, label: rotulo, icon: <Icone /> }; }), valor: filtros.visao, aoMudar: (v) => ir({ visao: v as VisaoDasOrdens }) },
         filtrosAtivos: filtrosAtivosNasOrdens(filtros),
@@ -224,6 +232,7 @@ export function OrdensDeServicoView({ filtros, lista, quadro, opcoes, hoje, fich
     {/* A lista para em 200 (LIMITE_DA_LISTA_DE_ORDENS). */}
     {!ehQuadro && lista.total > lista.itens.length
       ? <p className={styles.teto} role="status">Mostrando as {lista.itens.length} mais recentes de {lista.total} O.S. Use os filtros para ver as demais.</p> : null}
+    {aviso ? <p className="aviso aviso--sucesso" role="status">{aviso}</p> : null}
     {falhaDaFicha === "nao_encontrada" ? <p className="aviso aviso--alerta" role="status">O.S. não encontrada. O link pode estar errado ou ela não é de uma tela que você alcança.</p> : null}
     {falhaDaFicha === "indisponivel" ? <p className="aviso aviso--erro" role="alert">Não foi possível abrir a O.S. agora. Tente de novo em instantes.</p> : null}
     {opcoes === null ? <p className="aviso aviso--alerta" role="status">Não foi possível carregar os técnicos: o filtro de técnico fica de fora até recarregar a página.</p> : null}
@@ -231,6 +240,8 @@ export function OrdensDeServicoView({ filtros, lista, quadro, opcoes, hoje, fich
     <section id="os-conteudo" className={`${estilosClientes.conteudo} ${styles.conteudo}`} role="tabpanel" aria-labelledby={`os-visao-${filtros.visao}`}>{conteudo}</section>
 
     {ficha ? <FichaDaOrdem key={ficha.id} ordem={ficha} opcoes={opcoes} podeAbrirCompras={podeAbrirCompras} aoFechar={fecharFicha} aoAtualizar={() => router.refresh()} /> : null}
+    {criando ? <OrdemForm empresaInicial={filtros.empresa} hoje={hoje} aoCancelar={() => setCriando(false)}
+      aoSalvar={(o) => { setCriando(false); setAviso(`${o.codigo} criada: falta agendar.`); router.push(hrefDasOrdens(filtros, o.id), { scroll: false }); router.refresh(); }} /> : null}
   </div>;
 }
 
