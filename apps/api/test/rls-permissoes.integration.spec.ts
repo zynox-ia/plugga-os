@@ -719,6 +719,45 @@ describe.skipIf(!HABILITADO)("RLS: permissões no login real da aplicação", { 
     await expect(contexto("admin", (tx) => tx.user.findMany({ select: { email: true } }))).rejects.toThrow();
   });
 
+  it("fornecedores: lê quem tem Fornecedores, Compras ou Financeiro; só Fornecedores escreve; ninguém apaga", async () => {
+    for (const [nome, telas] of [["fornecedores", ["suprimentos.fornecedores"]], ["compras", ["suprimentos.compras"]]] as const) {
+      const pessoa = await root.user.create({ data: { name: marca, email: `${marca}-${nome}@teste.local` } });
+      idsUsuarios.push(pessoa.id);
+      const hash = randomBytes(32).toString("hex");
+      pessoas.set(nome, { id: pessoa.id, hash });
+      await root.session.create({ data: { userId: pessoa.id, tokenHash: hash, expiresAt: new Date(Date.now() + 3_600_000), absoluteExpiresAt: new Date(Date.now() + 7_200_000) } });
+      await root.userDepartamento.create({ data: { userId: pessoa.id, departamento: "suprimentos", nivel: "membro", telas: [...telas] } });
+    }
+    const existente = await root.fornecedor.create({ data: { nome: marca, categoria: "outros" } });
+    const ids = [existente.id];
+    const deste = { id: existente.id };
+    try {
+      for (const nome of ["fornecedores", "compras", "financeiro", "admin"]) {
+        expect(await contexto(nome, (tx) => tx.fornecedor.findUnique({ where: deste, select: { id: true } })), nome).toEqual(deste);
+      }
+      for (const nome of ["a", "gerente", "sem-tela"]) {
+        expect(await contexto(nome, (tx) => tx.fornecedor.findUnique({ where: deste, select: { id: true } })), nome).toBeNull();
+      }
+
+      const criado = await contexto("fornecedores", (tx) => tx.fornecedor.create({ data: { nome: `${marca}-novo`, categoria: "servico" }, select: { id: true } }));
+      ids.push(criado.id);
+      expect((await contexto("fornecedores", (tx) => tx.fornecedor.updateMany({ where: deste, data: { ativo: false } }))).count).toBe(1);
+
+      await expect(contexto("compras", (tx) => tx.fornecedor.create({ data: { nome: `${marca}-compras`, categoria: "servico" } }))).rejects.toThrow();
+      await expect(contexto("financeiro", (tx) => tx.fornecedor.create({ data: { nome: `${marca}-fin`, categoria: "servico" } }))).rejects.toThrow();
+      expect((await contexto("compras", (tx) => tx.fornecedor.updateMany({ where: deste, data: { ativo: true } }))).count).toBe(0);
+      expect((await contexto("financeiro", (tx) => tx.fornecedor.updateMany({ where: deste, data: { ativo: true } }))).count).toBe(0);
+
+      // Sem política de DELETE: fornecedor sai de uso por inativação, nem a plataforma apaga.
+      for (const nome of ["fornecedores", "admin"]) {
+        expect((await contexto(nome, (tx) => tx.fornecedor.deleteMany({ where: deste }))).count, nome).toBe(0);
+      }
+      expect(await root.fornecedor.findUnique({ where: deste, select: { ativo: true } })).toEqual({ ativo: false });
+    } finally {
+      await root.fornecedor.deleteMany({ where: { id: { in: ids } } });
+    }
+  });
+
   it("separa leitura técnica, catálogos ativos e domínios ainda fechados", async () => {
     const evento = await root.eventLog.create({ data: {
       eventName: "commercial.deal.created", entityType: "deal", entityId: randomUUID(), actorType: "system",

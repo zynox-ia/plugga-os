@@ -298,6 +298,8 @@ model User {
   pedidosSolicitados             PedidoDeCompra[]        @relation("PedidoSolicitante")
   pedidosResponsavel             PedidoDeCompra[]        @relation("PedidoResponsavel")
   passagensDeCompra              PedidoDeCompraEtapa[]
+  fornecedoresCriados            Fornecedor[]            @relation("FornecedorCriadoPor")
+  fornecedoresAtualizados        Fornecedor[]            @relation("FornecedorAtualizadoPor")
   passagensDeObra                ObraEtapaHistorico[]
   evidenciasDeObra               EvidenciaDeObra[]
   epiColaborador                 RegistroEpi[]           @relation("EpiColaborador")
@@ -450,7 +452,6 @@ model Company {
   name         String
   createdAt    DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
   obras        Obra[]
-  fornecedores Fornecedor[]
   pedidos      PedidoDeCompra[]
   pipelines    Pipeline[]
 
@@ -1619,24 +1620,57 @@ enum ComprasDestino {
   @@map("compras_destino")
 }
 
-/// Quem fornece. Cadastro próprio, e não texto livre na cotação: é o ponto de
-/// controle de quem entra na lista de quem a empresa paga, e o que permite
-/// perguntar quanto se pagou a um fornecedor no ano.
+/// Fornecedor de Suprimentos (PLU-326). Cadastro único das duas empresas
+/// (decisão do André em 23/11/2026): não tem empresa, e o documento, quando
+/// informado, é único no cadastro todo. Não é apagado: sai de uso por inativação.
 model Fornecedor {
-  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  companyId String   @map("company_id")
-  nome      String
-  documento String?
-  ativo     Boolean  @default(true)
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id                String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nome              String
+  nomeFantasia      String?              @map("nome_fantasia")
+  /// CPF (11) ou CNPJ (14), só dígitos.
+  documento         String?              @unique
+  categoria         FornecedorCategoria
+  contatoNome       String?              @map("contato_nome")
+  telefone          String?
+  email             String?
+  cidade            String?
+  uf                String?
+  formasDePagamento FormaDePagamento[]   @default([]) @map("formas_de_pagamento")
+  chavePix          String?              @map("chave_pix")
+  dadosBancarios    String?              @map("dados_bancarios")
+  observacoes       String?
+  ativo             Boolean              @default(true)
+  criadoPorId       String?              @map("criado_por_id") @db.Uuid
+  atualizadoPorId   String?              @map("atualizado_por_id") @db.Uuid
+  createdAt         DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  company  Company           @relation(fields: [companyId], references: [id])
-  cotacoes CotacaoDeCompra[]
+  criadoPor     User?             @relation("FornecedorCriadoPor", fields: [criadoPorId], references: [id], onDelete: SetNull)
+  atualizadoPor User?             @relation("FornecedorAtualizadoPor", fields: [atualizadoPorId], references: [id], onDelete: SetNull)
+  cotacoes      CotacaoDeCompra[]
 
-  @@unique([companyId, documento])
-  @@index([companyId, ativo])
+  @@index([ativo, nome])
   @@map("fornecedores")
+}
+
+enum FornecedorCategoria {
+  kit_solar
+  material_eletrico
+  material_de_obra
+  servico
+  escritorio
+  outros
+
+  @@map("fornecedor_categoria")
+}
+
+enum FormaDePagamento {
+  pix
+  boleto
+  cartao_credito
+  transferencia
+
+  @@map("forma_de_pagamento")
 }
 
 /// Cadastro mínimo de obra. Nasce operado pela tela de Compras porque é ela que

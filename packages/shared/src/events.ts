@@ -115,6 +115,11 @@ export const catalogoEventos = {
   "clientes.contact.updated": evento("Contato do cliente alterado", "plataforma"),
   "clientes.contact.removed": evento("Contato do cliente removido", "plataforma"),
   "compras.pedido.created": evento("Pedido numerado", "empresa"),
+  // Fornecedor é cadastro único das duas empresas: o escopo é a plataforma. Sem PII, só os nomes dos campos.
+  "suprimentos.fornecedor.created": evento("Fornecedor cadastrado", "plataforma"),
+  "suprimentos.fornecedor.updated": evento("Fornecedor alterado", "plataforma"),
+  "suprimentos.fornecedor.inactivated": evento("Fornecedor inativado", "plataforma"),
+  "suprimentos.fornecedor.reactivated": evento("Fornecedor reativado", "plataforma"),
   "pluggamob.settlement.approved": evento("Fechamento Pluggamob aprovado", "empresa"),
   "auth.access.changed": evento("Acesso de usuário alterado", "plataforma"),
   "auth.user.deactivated": evento("Usuário desativado", "plataforma"),

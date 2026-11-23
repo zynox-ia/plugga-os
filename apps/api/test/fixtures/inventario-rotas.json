@@ -1947,5 +1947,97 @@
       "SessionAuthGuard",
       "AcessoGuard"
     ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/suprimentos/fornecedores",
+    "controller": "FornecedoresController.listar",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:suprimentos.fornecedores",
+      "departamento:suprimentos:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/suprimentos/fornecedores",
+    "controller": "FornecedoresController.criar",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:suprimentos.fornecedores",
+      "departamento:suprimentos:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/suprimentos/fornecedores/:id",
+    "controller": "FornecedoresController.obter",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:suprimentos.fornecedores",
+      "departamento:suprimentos:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "PATCH",
+    "caminho": "/suprimentos/fornecedores/:id",
+    "controller": "FornecedoresController.editar",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:suprimentos.fornecedores",
+      "departamento:suprimentos:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/suprimentos/fornecedores/:id/inativar",
+    "controller": "FornecedoresController.inativar",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:suprimentos.fornecedores",
+      "departamento:suprimentos:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/suprimentos/fornecedores/:id/reativar",
+    "controller": "FornecedoresController.reativar",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:suprimentos.fornecedores",
+      "departamento:suprimentos:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
   }
 ]

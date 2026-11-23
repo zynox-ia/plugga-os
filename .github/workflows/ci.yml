@@ -187,6 +187,9 @@ jobs:
       - name: Verify client registry against Postgres
         run: pnpm --filter @plugga/api test:clientes
 
+      - name: Verify supplier registry against Postgres
+        run: pnpm --filter @plugga/api test:fornecedores
+
       - name: Verify sales pipeline configuration against Postgres
         run: pnpm --filter @plugga/api test:pipelines
 
