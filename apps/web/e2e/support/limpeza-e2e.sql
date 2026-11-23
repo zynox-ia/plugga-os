@@ -46,14 +46,27 @@ ALTER TABLE comprovantes_de_pagamento DISABLE TRIGGER comprovantes_de_pagamento_
 ALTER TABLE anexos_de_lancamento DISABLE TRIGGER anexos_de_lancamento_so_substitui;
 ALTER TABLE historico_de_lancamento DISABLE TRIGGER historico_de_lancamento_append_only;
 ALTER TABLE omie_envios DISABLE TRIGGER omie_envios_coerente;
+-- Usinas do run (PLU-347): a O.S. aponta para a usina e a usina pode apontar para a
+-- O.S. de comissionamento; o vínculo da O.S. é desfeito antes de apagar, só aqui.
+ALTER TABLE ordens_de_servico DISABLE TRIGGER ordens_de_servico_encerrada_nao_muda;
 
 -- "E2E <run>" ancorado no fim: o run abc123 não casa "E2E abc1234". O runId é só
 -- [A-Za-z0-9_-] (conferido acima), então pode entrar na expressão sem escape.
 CREATE TEMP TABLE e2e_marca ON COMMIT DROP AS SELECT '(^|[^A-Za-z0-9_-])E2E ' || current_setting('e2e.run') || '([^A-Za-z0-9_-]|$)' AS marca;
--- Ordens de serviço da Engenharia (PLU-345) com a marca na descrição; o pedido de
--- material de uma delas sai junto, mesmo sem a marca no título.
+-- Usinas (PLU-347) com a marca no nome, e plataformas de inversor criadas pelo run.
+CREATE TEMP TABLE e2e_usina ON COMMIT DROP AS
+  SELECT id FROM usinas WHERE nome ~ (SELECT marca FROM e2e_marca);
+CREATE TEMP TABLE e2e_plataforma ON COMMIT DROP AS
+  SELECT id FROM plataformas_de_inversor WHERE nome ~ (SELECT marca FROM e2e_marca);
+-- Conferências com ao menos uma usina do run; uma que tenha usina de fora aborta (abaixo).
+CREATE TEMP TABLE e2e_conferencia ON COMMIT DROP AS
+  SELECT DISTINCT conferencia_id AS id FROM resultados_da_conferencia WHERE usina_id IN (SELECT id FROM e2e_usina)
+  UNION SELECT id FROM conferencias_de_plataforma WHERE plataforma_id IN (SELECT id FROM e2e_plataforma);
+-- Ordens de serviço da Engenharia (PLU-345) com a marca na descrição, e as das
+-- usinas do run (as que o monitoramento abriu); o pedido de material de uma delas
+-- sai junto, mesmo sem a marca no título.
 CREATE TEMP TABLE e2e_os ON COMMIT DROP AS
-  SELECT id FROM ordens_de_servico WHERE descricao ~ (SELECT marca FROM e2e_marca);
+  SELECT id FROM ordens_de_servico WHERE descricao ~ (SELECT marca FROM e2e_marca) OR usina_id IN (SELECT id FROM e2e_usina);
 -- Tarefas dos departamentos (PLU-349) com a marca no título.
 CREATE TEMP TABLE e2e_tarefa ON COMMIT DROP AS
   SELECT id FROM tarefas WHERE titulo ~ (SELECT marca FROM e2e_marca);
@@ -76,7 +89,11 @@ BEGIN
     OR EXISTS (SELECT 1 FROM reservas_de_estoque WHERE pedido_id IN (SELECT id FROM e2e_ped) AND item_id NOT IN (SELECT id FROM e2e_item))
     OR EXISTS (SELECT 1 FROM lancamentos WHERE (pedido_de_compra_id IN (SELECT id FROM e2e_ped) OR fornecedor_id IN (SELECT id FROM e2e_forn))
       AND id NOT IN (SELECT id FROM e2e_lanc))
-    OR EXISTS (SELECT 1 FROM ordens_de_servico WHERE ordem_anterior_id IN (SELECT id FROM e2e_os) AND id NOT IN (SELECT id FROM e2e_os)) THEN
+    OR EXISTS (SELECT 1 FROM ordens_de_servico WHERE ordem_anterior_id IN (SELECT id FROM e2e_os) AND id NOT IN (SELECT id FROM e2e_os))
+    OR EXISTS (SELECT 1 FROM resultados_da_conferencia WHERE conferencia_id IN (SELECT id FROM e2e_conferencia) AND usina_id NOT IN (SELECT id FROM e2e_usina))
+    OR EXISTS (SELECT 1 FROM resultados_da_conferencia WHERE ordem_de_servico_id IN (SELECT id FROM e2e_os) AND conferencia_id NOT IN (SELECT id FROM e2e_conferencia))
+    OR EXISTS (SELECT 1 FROM usinas WHERE ordem_de_comissionamento_id IN (SELECT id FROM e2e_os) AND id NOT IN (SELECT id FROM e2e_usina))
+    OR EXISTS (SELECT 1 FROM usinas WHERE plataforma_id IN (SELECT id FROM e2e_plataforma) AND id NOT IN (SELECT id FROM e2e_usina)) THEN
     RAISE EXCEPTION 'um registro fora deste run depende dele: nada foi apagado';
   END IF;
 END $dependentes$;
@@ -89,6 +106,8 @@ UNION ALL
 SELECT 'arquivo', arquivo_chave FROM anexos_de_lancamento WHERE lancamento_id IN (SELECT id FROM e2e_lanc)
 UNION ALL
 SELECT 'arquivo', arquivo_chave FROM arquivos_de_ordens_de_servico WHERE ordem_id IN (SELECT id FROM e2e_os)
+UNION ALL
+SELECT 'arquivo', print_chave FROM conferencias_de_plataforma WHERE id IN (SELECT id FROM e2e_conferencia)
 UNION ALL
 SELECT 'arquivo', e.arquivo_chave FROM evidencias_de_tarefa e JOIN ocorrencias_de_tarefa o ON o.id = e.ocorrencia_id WHERE o.tarefa_id IN (SELECT id FROM e2e_tarefa);
 
@@ -107,12 +126,19 @@ DELETE FROM cotacoes_de_compra WHERE pedido_id IN (SELECT id FROM e2e_ped);
 DELETE FROM pedidos_de_compra_etapas WHERE pedido_id IN (SELECT id FROM e2e_ped);
 DELETE FROM itens_de_pedido WHERE pedido_id IN (SELECT id FROM e2e_ped);
 DELETE FROM pedidos_de_compra WHERE id IN (SELECT id FROM e2e_ped);
+-- O monitoramento do run: resultados, conferências e os vínculos usina↔O.S.
+DELETE FROM resultados_da_conferencia WHERE conferencia_id IN (SELECT id FROM e2e_conferencia);
+DELETE FROM conferencias_de_plataforma WHERE id IN (SELECT id FROM e2e_conferencia);
+UPDATE ordens_de_servico SET usina_id = NULL WHERE id IN (SELECT id FROM e2e_os) AND usina_id IS NOT NULL;
+-- A usina sai antes da O.S. de comissionamento dela.
+DELETE FROM usinas WHERE id IN (SELECT id FROM e2e_usina);
 -- A O.S. sai depois dos pedidos de material: termo (aponta para os arquivos),
 -- arquivos, linha do tempo e a O.S. Os gatilhos da O.S. são só de UPDATE.
 DELETE FROM termos_de_ordens_de_servico WHERE ordem_id IN (SELECT id FROM e2e_os);
 DELETE FROM arquivos_de_ordens_de_servico WHERE ordem_id IN (SELECT id FROM e2e_os);
 DELETE FROM historico_de_ordens_de_servico WHERE ordem_id IN (SELECT id FROM e2e_os);
 DELETE FROM ordens_de_servico WHERE id IN (SELECT id FROM e2e_os);
+DELETE FROM plataformas_de_inversor WHERE id IN (SELECT id FROM e2e_plataforma);
 -- A tarefa sai com as ocorrências e as evidências (instruções, conclusão e
 -- encerramento são colunas delas). Os gatilhos das tarefas são só de UPDATE.
 DELETE FROM evidencias_de_tarefa WHERE ocorrencia_id IN (SELECT id FROM ocorrencias_de_tarefa WHERE tarefa_id IN (SELECT id FROM e2e_tarefa));
@@ -126,6 +152,7 @@ ALTER TABLE comprovantes_de_pagamento ENABLE TRIGGER comprovantes_de_pagamento_s
 ALTER TABLE anexos_de_lancamento ENABLE TRIGGER anexos_de_lancamento_so_substitui;
 ALTER TABLE historico_de_lancamento ENABLE TRIGGER historico_de_lancamento_append_only;
 ALTER TABLE omie_envios ENABLE TRIGGER omie_envios_coerente;
+ALTER TABLE ordens_de_servico ENABLE TRIGGER ordens_de_servico_encerrada_nao_muda;
 
-SELECT (SELECT count(*) FROM e2e_lanc) AS lancamentos, (SELECT count(*) FROM e2e_ped) AS pedidos, (SELECT count(*) FROM e2e_os) AS ordens_de_servico, (SELECT count(*) FROM e2e_tarefa) AS tarefas,
+SELECT (SELECT count(*) FROM e2e_lanc) AS lancamentos, (SELECT count(*) FROM e2e_ped) AS pedidos, (SELECT count(*) FROM e2e_os) AS ordens_de_servico, (SELECT count(*) FROM e2e_tarefa) AS tarefas, (SELECT count(*) FROM e2e_usina) AS usinas,
        (SELECT count(*) FROM e2e_item) AS itens_de_estoque, (SELECT count(*) FROM e2e_forn) AS fornecedores;

@@ -55,7 +55,7 @@ export default function limparExecucao(): void {
   if (resultado.status !== 0) throw new Error(`limpeza dos e2e falhou: ${(resultado.stderr || resultado.stdout || "").trim().split("\n").slice(-3).join(" ")}`);
 
   // Última linha: o que foi apagado, na ordem das colunas do SELECT final de limpeza-e2e.sql.
-  const ROTULOS = ["lançamentos", "pedidos", "ordens de serviço", "tarefas", "itens de estoque", "fornecedores"];
+  const ROTULOS = ["lançamentos", "pedidos", "ordens de serviço", "tarefas", "usinas", "itens de estoque", "fornecedores"];
   const contagens = resultado.stdout.trim().split("\n").at(-1)?.split("|") ?? [];
   if (contagens.length === ROTULOS.length) {
     console.log(`[e2e] limpeza da execução ${run}: ${contagens.map((n, i) => `${n} ${ROTULOS[i]}`).join(", ")}.`);
