@@ -1262,6 +1262,22 @@
     ]
   },
   {
+    "metodo": "POST",
+    "caminho": "/engenharia/usinas/importacao",
+    "controller": "UsinasController.importar",
+    "acesso": "acesso",
+    "papeis": [
+      "departamento:engenharia-obras:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
     "metodo": "GET",
     "caminho": "/engenharia/visao-geral",
     "controller": "VisaoGeralDaEngenhariaController.visaoGeral",

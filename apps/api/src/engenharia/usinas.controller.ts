@@ -2,7 +2,11 @@ import { Body, Controller, Get, HttpCode, Inject, Param, ParseUUIDPipe, Patch, P
 import { FileInterceptor } from "@nestjs/platform-express";
 import { ThrottlerGuard } from "@nestjs/throttler";
 import {
+  PLANILHA_DE_USINAS_MAX_BYTES,
   PRINT_DA_CONFERENCIA_MAX_BYTES,
+  importarUsinasSchema,
+  type ImportacaoDeUsinas,
+  type ImportarUsinas,
   conferirPlataformaSchema,
   criarPlataformaSchema,
   criarUsinaSchema,
@@ -38,6 +42,7 @@ import { UsinasService } from "./usinas.service";
 
 const COM_PRINT = FileInterceptor("print", { limits: { fileSize: PRINT_DA_CONFERENCIA_MAX_BYTES * 2 } });
 const PLATAFORMA = new ZodValidationPipe(idDePlataformaSchema);
+const COM_PLANILHA = FileInterceptor("arquivo", { limits: { fileSize: PLANILHA_DE_USINAS_MAX_BYTES * 2 } });
 
 /**
  * Usinas da Engenharia (PLU-347). Entra quem é da Engenharia; o serviço decide
@@ -59,6 +64,19 @@ export class UsinasController {
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
   criar(@Body(new ZodValidationPipe(criarUsinaSchema)) input: CriarUsina, @CurrentPrincipal() principal: AuthPrincipal): Promise<Usina> {
     return this.usinas.criarUsina(input, principal);
+  }
+
+  /** Importação única da planilha de levantamento (E3): confere por padrão; grava com `gravar=sim`. */
+  @Post("importacao")
+  @HttpCode(200)
+  @UseGuards(OriginCheckGuard, ThrottlerGuard)
+  @UseInterceptors(COM_PLANILHA)
+  importar(
+    @Body(new ZodValidationPipe(importarUsinasSchema)) dados: ImportarUsinas,
+    @UploadedFile() arquivo: Express.Multer.File | undefined,
+    @CurrentPrincipal() principal: AuthPrincipal,
+  ): Promise<ImportacaoDeUsinas> {
+    return this.usinas.importar(dados, arquivo && { buffer: arquivo.buffer, nomeOriginal: arquivo.originalname }, principal);
   }
 
   @Get(":id")

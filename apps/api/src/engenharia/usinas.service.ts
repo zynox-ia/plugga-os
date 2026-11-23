@@ -3,7 +3,12 @@ import { randomUUID } from "node:crypto";
 import { Inject, Injectable, Logger } from "@nestjs/common";
 import {
   PRAZO_PADRAO_DO_TIPO,
+  LINHAS_DA_PLANILHA_MAX,
+  PLANILHA_DE_USINAS_MAX_BYTES,
   PRINT_DA_CONFERENCIA_MAX_BYTES,
+  importacaoDeUsinasSchema,
+  type ImportacaoDeUsinas,
+  type ImportarUsinas,
   listarPlataformasRespostaSchema,
   listarUsinasRespostaSchema,
   monitoramentoDoDiaSchema,
@@ -35,6 +40,7 @@ import { detectarTipo } from "../lead-documentos/deteccao-de-tipo";
 import { nomeSeguro } from "../lead-documentos/lead-documentos.rules";
 import { TarefasService } from "../tarefas/tarefas.service";
 import { RELOGIO_DA_ENGENHARIA, type Relogio } from "./engenharia.service";
+import { lerCsv, lerLinhas, normalizarLinha } from "./importacao-de-usinas";
 import { PrismaEngenhariaRepository } from "./prisma-engenharia.repository";
 import { PrismaUsinasRepository, type ArquivoGuardado, type LinhaDaUsina, type LinhaDoResultado, type Nomes } from "./prisma-usinas.repository";
 import {
@@ -135,6 +141,28 @@ export class UsinasService {
     this.exigirOperacao(principal);
     await this.repositorio.editarUsina(id, input, principal, this.agora());
     return this.usina(id, principal);
+  }
+
+  /**
+   * Importa a planilha de levantamento (E3): sem `gravar`, só confere e devolve o
+   * que casou; com `gravar`, cria as prontas. A planilha fica só em memória: não é
+   * guardada, não vai para log nem para evento.
+   */
+  async importar(dados: ImportarUsinas, arquivo: ArquivoRecebido | undefined, principal: AuthPrincipal): Promise<ImportacaoDeUsinas> {
+    this.exigirOperacao(principal);
+    if (!arquivo || arquivo.buffer.length === 0) throw new RequisicaoInvalida("Envie a planilha em CSV.", [{ campo: "arquivo", problema: "Exporte a planilha como CSV." }]);
+    if (arquivo.buffer.length > PLANILHA_DE_USINAS_MAX_BYTES) throw new LimiteExcedido("A planilha é maior que o limite de 2 MiB.", "ARQUIVO_GRANDE_DEMAIS");
+    if (arquivo.buffer.includes(0)) throw new TipoNaoPermitido("Envie a planilha exportada como CSV, não o arquivo do Excel.");
+    const { linhas, faltando } = lerLinhas(lerCsv(arquivo.buffer.toString("utf8")), dados.mapeamento);
+    if (faltando.length > 0) {
+      throw new RequisicaoInvalida("A planilha não tem as colunas obrigatórias.", faltando.map((campo) => ({ campo: `mapeamento.${campo}`, problema: "Diga qual coluna da planilha tem este dado." })));
+    }
+    if (linhas.length === 0) throw new RequisicaoInvalida("A planilha não tem linhas.", [{ campo: "arquivo", problema: "Confira o arquivo." }]);
+    if (linhas.length > LINHAS_DA_PLANILHA_MAX) throw new LimiteExcedido(`A planilha passa de ${LINHAS_DA_PLANILHA_MAX} linhas.`, "ARQUIVO_GRANDE_DEMAIS");
+    const agora = this.agora();
+    const hoje = diaEmManaus(agora);
+    const normalizadas = linhas.map((l) => normalizarLinha(l, dados.empresaPadrao, hoje));
+    return importacaoDeUsinasSchema.parse(await this.repositorio.importar(normalizadas, dados.gravar === "sim", principal, agora));
   }
 
   // ------------------------------------------------------------ monitoramento

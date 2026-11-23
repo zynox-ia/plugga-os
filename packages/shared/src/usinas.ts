@@ -30,6 +30,7 @@ import { isoDate, uuid } from "./primitivas.js";
  * GET   /engenharia/monitoramento?empresa=       o dia (MonitoramentoDoDia)
  * POST  /engenharia/monitoramento/:plataformaId/conferir   multipart: empresa, resultados (JSON), arquivo `print` → MonitoramentoDoDia
  * GET   /engenharia/monitoramento/conferencias/:id/print   o print (inline)
+ * POST  /engenharia/usinas/importacao            multipart: arquivo (CSV), mapeamento (JSON), empresaPadrao, gravar → ImportacaoDeUsinas
  * GET   /engenharia/plataformas                  (ListarPlataformasResposta)
  * POST  /engenharia/plataformas                  (CriarPlataforma → ListarPlataformasResposta), gerente
  * PATCH /engenharia/plataformas/:id              (EditarPlataforma → ListarPlataformasResposta), gerente
@@ -173,6 +174,66 @@ export type ConferirPlataforma = z.infer<typeof conferirPlataformaSchema>;
 
 export const monitoramentoQuerySchema = z.object({ empresa: companyKeySchema.optional() }).strict();
 export type MonitoramentoQuery = z.infer<typeof monitoramentoQuerySchema>;
+
+// ---------------------------------------------------------------- importação (E3)
+
+/** A planilha de levantamento, em CSV (vírgula ou ponto e vírgula), até este tamanho. Lida só em memória: nunca é guardada nem logada. */
+export const PLANILHA_DE_USINAS_MAX_BYTES = 2 * 1024 * 1024;
+export const LINHAS_DA_PLANILHA_MAX = 2000;
+
+/** Campos da usina que a planilha pode trazer e o cabeçalho de cada um. */
+export const camposDaImportacao = ["cliente", "uc", "nome", "plataforma", "potenciaKwp", "fabricante", "modelo", "numeroSerie", "comissionadaEm", "empresa"] as const;
+export type CampoDaImportacao = (typeof camposDaImportacao)[number];
+
+/** Cabeçalhos padrão; o mapeamento enviado substitui os que vierem. */
+export const MAPEAMENTO_PADRAO_DA_IMPORTACAO: Record<CampoDaImportacao, string> = {
+  cliente: "Cliente", uc: "UC", nome: "Usina", plataforma: "Plataforma", potenciaKwp: "kWp",
+  fabricante: "Fabricante", modelo: "Modelo", numeroSerie: "Número de série", comissionadaEm: "Comissionamento", empresa: "Empresa",
+};
+
+export const importarUsinasSchema = z
+  .object({
+    /** JSON { campo: "Cabeçalho na planilha" }; os que faltarem usam o padrão. */
+    mapeamento: z
+      .preprocess((v) => {
+        if (typeof v !== "string" || v.trim() === "") return v === "" ? {} : v;
+        try {
+          return JSON.parse(v);
+        } catch {
+          return v;
+        }
+      }, z.partialRecord(z.enum(camposDaImportacao), z.string().trim().min(1).max(80)))
+      .default({}),
+    /** Empresa das linhas sem a coluna de empresa. */
+    empresaPadrao: companyKeySchema,
+    /** "sim" grava as linhas prontas numa transação só; sem isso, só confere (dry-run). */
+    gravar: z.enum(["sim", "nao"]).default("nao"),
+  })
+  .strict();
+export type ImportarUsinas = z.infer<typeof importarUsinasSchema>;
+
+export const situacoesDaLinhaImportada = ["pronta", "ja_existe", "erro", "gravada"] as const;
+
+export const importacaoDeUsinasSchema = z.object({
+  gravou: z.boolean(),
+  resumo: z.object({
+    linhas: z.number().int().nonnegative(),
+    prontas: z.number().int().nonnegative(),
+    jaExistem: z.number().int().nonnegative(),
+    erros: z.number().int().nonnegative(),
+    gravadas: z.number().int().nonnegative(),
+  }),
+  /** Uma por linha de dado (a 1ª linha da planilha é o cabeçalho, então a primeira é a linha 2). */
+  linhas: z.array(
+    z.object({
+      linha: z.number().int().positive(),
+      situacao: z.enum(situacoesDaLinhaImportada),
+      problemas: z.array(z.string()),
+      usina: z.object({ nome: z.string(), cliente: z.string(), uc: z.string(), plataforma: z.string(), potenciaKwp: z.string(), empresa: companyKeySchema }).nullable(),
+    }),
+  ),
+});
+export type ImportacaoDeUsinas = z.infer<typeof importacaoDeUsinasSchema>;
 
 // ---------------------------------------------------------------- saídas
 

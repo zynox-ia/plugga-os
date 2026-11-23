@@ -1,6 +1,6 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { Prisma, type SituacaoDoMonitoramento } from "@prisma/client";
-import type { CompanyKey, CriarPlataforma, CriarUsina, EditarPlataforma, EditarUsina, ListarUsinasQuery } from "@plugga/shared";
+import type { CompanyKey, CriarPlataforma, CriarUsina, EditarPlataforma, EditarUsina, ImportacaoDeUsinas, ListarUsinasQuery } from "@plugga/shared";
 
 import { AuditAppender } from "../audit/audit-appender";
 import { Conflito, EstadoInvalido, NaoEncontrado, RequisicaoInvalida } from "../common/errors/dominio";
@@ -8,7 +8,8 @@ import { diaEmManaus, inicioDoDiaEmManaus } from "../compras/dias-uteis";
 import type { AuthPrincipal } from "../core/auth/auth.types";
 import { PrismaService } from "../prisma/prisma.service";
 import { ENCERRADAS } from "./engenharia.rules";
-import { idDaPlataforma } from "./usinas.rules";
+import { codigoDeUc, nomeComparavel, type LinhaNormalizada } from "./importacao-de-usinas";
+import { idDaPlataforma, kwpCurto } from "./usinas.rules";
 
 export type Nomes = ReadonlyMap<string, string>;
 export type ArquivoGuardado = { chave: string; nome: string; tamanho: number; tipo: string };
@@ -191,6 +192,79 @@ export class PrismaUsinasRepository {
       });
       await this.registrar(tx, "engenharia.usina.updated", "usina", id, atual.companyId, principal, { campos: Object.keys(input).sort() });
     }));
+  }
+
+  /**
+   * Importação da planilha (E3): casa cada linha com o cliente (nome exato), a UC
+   * do cliente (código) e a plataforma (nome ou id); marca as que já existem
+   * (mesma UC e nome) e as repetidas na planilha. Com `gravar`, cria as prontas
+   * numa transação só, com a origem "importacao". Sem data de comissionamento,
+   * vale o dia da importação.
+   */
+  async importar(linhas: LinhaNormalizada[], gravar: boolean, principal: AuthPrincipal, agora: Date): Promise<ImportacaoDeUsinas> {
+    const hoje = diaEmManaus(agora);
+    return this.prisma.comContexto(async (tx) => {
+      const plataformas = await tx.plataformaDeInversor.findMany({ where: { ativa: true }, select: { id: true, nome: true } });
+      const plataformaDe = (valor: string) => plataformas.find((p) => nomeComparavel(p.nome) === nomeComparavel(valor) || p.id === idDaPlataforma(valor));
+      const clientes = new Map<string, { id: string; nome: string }[]>();
+      for (const nome of new Set(linhas.map((l) => l.cliente).filter((n) => n.trim().length >= 2))) {
+        const achados = await tx.$queryRaw<{ id: string; name: string }[]>`SELECT id, name FROM plugga_security.clientes_para_engenharia(${nome}, NULL::uuid[])`;
+        clientes.set(nomeComparavel(nome), achados.filter((c) => nomeComparavel(c.name) === nomeComparavel(nome)).map((c) => ({ id: c.id, nome: c.name })));
+      }
+      const idsDeClientes = [...new Set([...clientes.values()].flat().map((c) => c.id))];
+      const ucs = idsDeClientes.length === 0 ? [] : await tx.$queryRaw<{ id: string; client_id: string; code: string }[]>`
+        SELECT id, client_id, code FROM plugga_security.ucs_para_engenharia(${idsDeClientes}::uuid[])`;
+      const existentes = ucs.length === 0 ? [] : await tx.usina.findMany({ where: { ativa: true, consumerUnitId: { in: ucs.map((u) => u.id) } }, select: { consumerUnitId: true, nome: true } });
+      const vistas = new Set<string>();
+      const resultado: ImportacaoDeUsinas["linhas"] = [];
+      const prontas: { linha: LinhaNormalizada; clienteId: string; ucId: string; plataformaId: string; empresa: CompanyKey }[] = [];
+      for (const l of linhas) {
+        const problemas = [...l.problemas];
+        const candidatos = clientes.get(nomeComparavel(l.cliente)) ?? [];
+        if (l.cliente && candidatos.length === 0) problemas.push("cliente não encontrado no cadastro (nome exato)");
+        if (candidatos.length > 1) problemas.push("mais de um cliente com esse nome");
+        const cliente = candidatos.length === 1 ? candidatos[0]! : null;
+        const uc = cliente ? ucs.find((u) => u.client_id === cliente.id && codigoDeUc(u.code) === codigoDeUc(l.uc)) : undefined;
+        if (cliente && l.uc && !uc) problemas.push("UC não é do cliente");
+        const plataforma = l.plataforma ? plataformaDe(l.plataforma) : undefined;
+        if (l.plataforma && !plataforma) problemas.push("plataforma desconhecida");
+        const chave = uc ? `${uc.id}|${nomeComparavel(l.nome)}` : null;
+        if (chave && vistas.has(chave)) problemas.push("usina repetida na planilha");
+        const jaExiste = uc ? existentes.some((e) => e.consumerUnitId === uc.id && nomeComparavel(e.nome) === nomeComparavel(l.nome)) : false;
+        const usina = cliente && uc && plataforma && l.potenciaKwp && l.empresa
+          ? { nome: l.nome, cliente: cliente.nome, uc: uc.code, plataforma: plataforma.nome, potenciaKwp: kwpCurto(l.potenciaKwp), empresa: l.empresa }
+          : null;
+        if (chave) vistas.add(chave);
+        const situacao = problemas.length > 0 ? "erro" : jaExiste ? "ja_existe" : "pronta";
+        resultado.push({ linha: l.linha, situacao, problemas, usina });
+        if (situacao === "pronta") prontas.push({ linha: l, clienteId: cliente!.id, ucId: uc!.id, plataformaId: plataforma!.id, empresa: l.empresa! });
+      }
+      if (gravar) {
+        for (const p of prontas) {
+          const criada = await tx.usina.create({
+            data: {
+              companyId: p.empresa, clientId: p.clienteId, consumerUnitId: p.ucId, nome: p.linha.nome, plataformaId: p.plataformaId, potenciaKwp: p.linha.potenciaKwp!,
+              fabricante: p.linha.fabricante, modelo: p.linha.modelo, numeroSerie: p.linha.numeroSerie,
+              comissionadaEm: inicioDoDiaEmManaus(p.linha.comissionadaEm ?? hoje), origem: "importacao", criadoPorId: principal.id,
+            },
+            select: { id: true },
+          });
+          await this.registrar(tx, "engenharia.usina.created", "usina", criada.id, p.empresa, principal, { plataformaId: p.plataformaId, origem: "importacao" });
+        }
+        for (const r of resultado) if (r.situacao === "pronta") r.situacao = "gravada";
+      }
+      return {
+        gravou: gravar,
+        resumo: {
+          linhas: resultado.length,
+          prontas: gravar ? 0 : prontas.length,
+          jaExistem: resultado.filter((r) => r.situacao === "ja_existe").length,
+          erros: resultado.filter((r) => r.situacao === "erro").length,
+          gravadas: gravar ? prontas.length : 0,
+        },
+        linhas: resultado,
+      };
+    });
   }
 
   // ------------------------------------------------------------ monitoramento

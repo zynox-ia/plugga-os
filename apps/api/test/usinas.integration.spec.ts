@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 
-import { conferirPlataformaSchema, criarOrdemDeServicoSchema, criarUsinaSchema, type Acesso } from "@plugga/shared";
+import { conferirPlataformaSchema, criarOrdemDeServicoSchema, criarUsinaSchema, importarUsinasSchema, type Acesso } from "@plugga/shared";
 import { Prisma, PrismaClient } from "@prisma/client";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
@@ -229,5 +229,33 @@ describe.skipIf(!HABILITADO)("engenharia: usinas e monitoramento no Postgres", {
     await expect(criar({ clienteId: outro })).rejects.toThrow(RequisicaoInvalida);
     const id = await criar({});
     expect(await root.ordemDeServico.findUniqueOrThrow({ where: { id } })).toMatchObject({ usinaId: usina, equipamento: "Inversor", fabricante: "Growatt", numeroSerie: "GRT-1" });
+  });
+
+  it("importa a planilha (sintética): confere sem gravar, aponta os erros e grava as prontas com a origem importação", async () => {
+    const planilha = [
+      "Cliente;UC;Usina;Plataforma;kWp;Comissionamento",
+      `${marca} Cliente;${marca}-uc;${marca} importada;${marca} Plataforma;8,5;10/01/2025`,
+      `${marca} Cliente;${marca}-uc;${marca} telhado;${marca} Plataforma;12,4;14/03/2025`,
+      `${marca} Ninguém;123;${marca} x;${marca} Plataforma;5;`,
+      `${marca} Cliente;${marca}-outra;${marca} y;Inexistente;5;`,
+      `${marca} Cliente;${marca}-uc;${marca} importada;${marca} Plataforma;8,5;10/01/2025`,
+    ].join("\n");
+    const importar = (gravar: "sim" | "nao") => como("usinas", () => servico.importar(importarUsinasSchema.parse({ empresaPadrao: "waze", gravar }), { buffer: Buffer.from(planilha, "utf8"), nomeOriginal: "levantamento.csv" }, principal("usinas")));
+
+    const conferencia = await importar("nao");
+    expect(conferencia).toMatchObject({ gravou: false, resumo: { linhas: 5, prontas: 1, jaExistem: 1, erros: 3, gravadas: 0 } });
+    expect(conferencia.linhas.map((l) => l.situacao)).toEqual(["pronta", "ja_existe", "erro", "erro", "erro"]);
+    expect(conferencia.linhas[2]!.problemas).toContain("cliente não encontrado no cadastro (nome exato)");
+    expect(conferencia.linhas[3]!.problemas).toEqual(expect.arrayContaining(["UC não é do cliente", "plataforma desconhecida"]));
+    expect(conferencia.linhas[4]!.problemas).toContain("usina repetida na planilha");
+    expect(await root.usina.count({ where: { nome: `${marca} importada` } })).toBe(0);
+
+    const gravada = await importar("sim");
+    expect(gravada).toMatchObject({ gravou: true, resumo: { gravadas: 1, prontas: 0 } });
+    expect(await root.usina.findFirstOrThrow({ where: { nome: `${marca} importada` } })).toMatchObject({ origem: "importacao", companyId: "waze", consumerUnitId: ucId });
+    // De novo, a mesma linha já existe.
+    expect((await importar("nao")).linhas[0]!.situacao).toBe("ja_existe");
+    await expect(como("os", () => servico.importar(importarUsinasSchema.parse({ empresaPadrao: "waze" }), { buffer: Buffer.from(planilha), nomeOriginal: "x.csv" }, principal("os")))).rejects.toThrow(AcessoNegado);
+    await expect(como("usinas", () => servico.importar(importarUsinasSchema.parse({ empresaPadrao: "waze" }), { buffer: Buffer.from("A;B\n1;2"), nomeOriginal: "x.csv" }, principal("usinas")))).rejects.toThrow(RequisicaoInvalida);
   });
 });
