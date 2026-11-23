@@ -847,6 +847,50 @@
   },
   {
     "metodo": "GET",
+    "caminho": "/engenharia/monitoramento",
+    "controller": "MonitoramentoController.doDia",
+    "acesso": "acesso",
+    "papeis": [
+      "departamento:engenharia-obras:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/engenharia/monitoramento/:plataformaId/conferir",
+    "controller": "MonitoramentoController.conferir",
+    "acesso": "acesso",
+    "papeis": [
+      "departamento:engenharia-obras:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/engenharia/monitoramento/conferencias/:id/print",
+    "controller": "MonitoramentoController.print",
+    "acesso": "acesso",
+    "papeis": [
+      "departamento:engenharia-obras:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
     "caminho": "/engenharia/ordens-de-servico",
     "controller": "EngenhariaController.listar",
     "acesso": "acesso",
@@ -1109,6 +1153,112 @@
       "EngenhariaHabilitadaGuard",
       "SessionAuthGuard",
       "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/engenharia/plataformas",
+    "controller": "PlataformasController.listar",
+    "acesso": "acesso",
+    "papeis": [
+      "departamento:engenharia-obras:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/engenharia/plataformas",
+    "controller": "PlataformasController.criar",
+    "acesso": "acesso",
+    "papeis": [
+      "departamento:engenharia-obras:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "PATCH",
+    "caminho": "/engenharia/plataformas/:id",
+    "controller": "PlataformasController.editar",
+    "acesso": "acesso",
+    "papeis": [
+      "departamento:engenharia-obras:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/engenharia/usinas",
+    "controller": "UsinasController.listar",
+    "acesso": "acesso",
+    "papeis": [
+      "departamento:engenharia-obras:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/engenharia/usinas",
+    "controller": "UsinasController.criar",
+    "acesso": "acesso",
+    "papeis": [
+      "departamento:engenharia-obras:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/engenharia/usinas/:id",
+    "controller": "UsinasController.obter",
+    "acesso": "acesso",
+    "papeis": [
+      "departamento:engenharia-obras:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "PATCH",
+    "caminho": "/engenharia/usinas/:id",
+    "controller": "UsinasController.editar",
+    "acesso": "acesso",
+    "papeis": [
+      "departamento:engenharia-obras:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
     ]
   },
   {

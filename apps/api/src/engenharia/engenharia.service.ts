@@ -49,6 +49,7 @@ import { nomeSeguro } from "../lead-documentos/lead-documentos.rules";
 import { paraFicha, paraResumo } from "./engenharia.mapeamento";
 import { exigirAcao, gerenteDasOrdens as gerenteDaEngenharia, operaOrdens } from "./engenharia.rules";
 import { PrismaEngenhariaRepository, type ArquivoGuardado } from "./prisma-engenharia.repository";
+import { PrismaUsinasRepository } from "./prisma-usinas.repository";
 import { TermoDaOrdemPdf } from "./termo-da-ordem.pdf";
 
 export const RELOGIO_DA_ENGENHARIA = Symbol("RELOGIO_DA_ENGENHARIA");
@@ -74,6 +75,7 @@ export class EngenhariaService {
     @Inject(ComprasService) private readonly compras: ComprasService,
     @Inject(TermoDaOrdemPdf) private readonly pdf: TermoDaOrdemPdf,
     @Inject(TarefasService) private readonly tarefas: TarefasService,
+    @Inject(PrismaUsinasRepository) private readonly usinas: PrismaUsinasRepository,
     @Inject(RELOGIO_DA_ENGENHARIA) private readonly agora: Relogio,
   ) {}
 
@@ -105,15 +107,16 @@ export class EngenhariaService {
   /** O dia da Engenharia: metric cards, campo de hoje, atrasadas e as tarefas de hoje. */
   async visaoGeral(query: VisaoGeralDaEngenhariaQuery, principal: AuthPrincipal): Promise<VisaoGeralDaEngenharia> {
     const agora = this.agora();
-    const [r, tarefas] = await Promise.all([
+    const [r, tarefas, monitoramento] = await Promise.all([
       this.repositorio.visaoGeral(query.empresa, agora),
       this.tarefas.listar("engenharia-obras", { periodo: "hoje", ...(query.empresa ? { empresa: query.empresa } : {}) }, principal),
+      this.usinas.resumoDoDia(query.empresa, diaEmManaus(agora)),
     ]);
     const resumo = (linha: (typeof r.campoHoje)[number]) => paraResumo(linha, r.pessoas, r.clientes, agora);
     const ordem = { atrasada: 0, vence_hoje: 1, no_prazo: 2, concluida: 3 } as const;
     return visaoGeralDaEngenhariaRespostaSchema.parse({
       hoje: tarefas.hoje,
-      metricas: { emAberto: r.emAberto, atrasadas: r.atrasadas, emCampoHoje: r.emCampoHoje, usinasComAtencao: null },
+      metricas: { emAberto: r.emAberto, atrasadas: r.atrasadas, emCampoHoje: r.emCampoHoje, usinasComAtencao: monitoramento.usinasComAtencao },
       campoHoje: r.campoHoje.map(resumo),
       atrasadas: { total: r.atrasadas, itens: r.maisAtrasadas.map(resumo) },
       tarefasHoje: {
@@ -121,7 +124,7 @@ export class EngenhariaService {
         total: tarefas.progresso.total,
         itens: [...tarefas.itens].sort((a, b) => ordem[a.situacao] - ordem[b.situacao]).slice(0, 8),
       },
-      monitoramentoHoje: null,
+      monitoramentoHoje: { conferidas: monitoramento.conferidas, total: monitoramento.total, pendentes: monitoramento.pendentes },
       protocolos: null,
     });
   }

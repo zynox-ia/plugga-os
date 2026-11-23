@@ -10,6 +10,9 @@ import { EngenhariaHabilitadaGuard } from "./engenharia-habilitada.guard";
 import { ConfiguracoesDaEngenhariaController, EngenhariaController, VisaoGeralDaEngenhariaController } from "./engenharia.controller";
 import { EngenhariaService, RELOGIO_DA_ENGENHARIA } from "./engenharia.service";
 import { PrismaEngenhariaRepository } from "./prisma-engenharia.repository";
+import { PrismaUsinasRepository } from "./prisma-usinas.repository";
+import { MonitoramentoController, PlataformasController, UsinasController } from "./usinas.controller";
+import { UsinasService } from "./usinas.service";
 import { TermoDaOrdemPdf } from "./termo-da-ordem.pdf";
 
 /**
@@ -18,11 +21,13 @@ import { TermoDaOrdemPdf } from "./termo-da-ordem.pdf";
  */
 @Module({
   imports: [AuditModule, CoreModule, PrismaModule, ComprasModule, TarefasModule],
-  controllers: [EngenhariaController, VisaoGeralDaEngenhariaController, ConfiguracoesDaEngenhariaController],
+  controllers: [EngenhariaController, VisaoGeralDaEngenhariaController, ConfiguracoesDaEngenhariaController, UsinasController, MonitoramentoController, PlataformasController],
   providers: [
     EngenhariaHabilitadaGuard,
     EngenhariaService,
     PrismaEngenhariaRepository,
+    PrismaUsinasRepository,
+    UsinasService,
     ArmazenamentoDeDocumentos,
     TermoDaOrdemPdf,
     { provide: RELOGIO_DA_ENGENHARIA, useValue: () => new Date() },

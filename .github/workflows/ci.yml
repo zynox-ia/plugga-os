@@ -213,6 +213,9 @@ jobs:
       - name: Verify department tasks against Postgres
         run: pnpm --filter @plugga/api test:tarefas
 
+      - name: Verify power plants and daily monitoring against Postgres
+        run: pnpm --filter @plugga/api test:usinas
+
       - name: Verify sales pipeline configuration against Postgres
         run: pnpm --filter @plugga/api test:pipelines
 

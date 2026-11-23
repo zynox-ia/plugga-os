@@ -209,6 +209,13 @@ export class PrismaEngenhariaRepository {
     garantirDiaNaoPassado(input.prazo, agora, "prazo");
     return this.comVinculosValidos(() => this.prisma.comContexto(async (tx) => {
       if (input.ucId) await this.garantirUc(tx, input.clienteId, input.ucId);
+      // A usina é do cliente e está ativa; o equipamento vem dela quando não é informado.
+      const usina = input.usinaId
+        ? await tx.usina.findUnique({ where: { id: input.usinaId }, select: { clientId: true, companyId: true, ativa: true, fabricante: true, modelo: true, numeroSerie: true } })
+        : null;
+      if (input.usinaId && (!usina || !usina.ativa || usina.clientId !== input.clienteId || usina.companyId !== input.empresa)) {
+        throw new RequisicaoInvalida("A usina precisa ser ativa, do mesmo cliente e da mesma empresa da O.S.", [{ campo: "usinaId", problema: "Escolha uma usina do cliente nesta empresa." }]);
+      }
       if (input.ordemAnteriorId) {
         const anterior = await tx.ordemDeServico.findUnique({ where: { id: input.ordemAnteriorId }, select: { situacao: true, clientId: true } });
         if (!anterior || anterior.situacao !== "concluida" || anterior.clientId !== input.clienteId) {
@@ -227,11 +234,12 @@ export class PrismaEngenhariaRepository {
           local: input.local ?? null,
           descricao: input.descricao,
           prazo: inicioDoDiaEmManaus(input.prazo),
-          equipamento: input.equipamento ?? null,
-          fabricante: input.fabricante ?? null,
-          modelo: input.modelo ?? null,
-          numeroSerie: input.numeroSerie ?? null,
+          equipamento: input.equipamento ?? (usina ? "Inversor" : null),
+          fabricante: input.fabricante ?? usina?.fabricante ?? null,
+          modelo: input.modelo ?? usina?.modelo ?? null,
+          numeroSerie: input.numeroSerie ?? usina?.numeroSerie ?? null,
           ordemAnteriorId: input.ordemAnteriorId ?? null,
+          usinaId: input.usinaId ?? null,
           criadoPorId: principal.id,
         },
         select: { id: true, numero: true },
