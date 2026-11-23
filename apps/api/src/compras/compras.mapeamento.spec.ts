@@ -42,6 +42,7 @@ const linha = (dados: Partial<LinhaDoResumo> = {}): LinhaDoResumo => ({
   canceladoEm: null,
   canceladoPorId: null,
   motivoCancelamento: null,
+  ordemDeServicoId: null,
   createdAt: new Date("2026-11-20T12:00:00Z"),
   updatedAt: new Date("2026-11-20T12:00:00Z"),
   solicitante: { id: "00000000-0000-4000-8000-000000000001", name: "Ana" },

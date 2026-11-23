@@ -346,6 +346,16 @@ model User {
   medicoesAprovadas              MedicaoTecnica[]            @relation("MedicaoAprovadoPor")
   versoesDeProjetoAutor          ProjetoVersao[]             @relation("ProjetoVersaoAutor")
   versoesDeProjetoAprovadas      ProjetoVersao[]             @relation("ProjetoVersaoAprovadoPor")
+  ordensCriadas                  OrdemDeServico[]            @relation("OrdemCriadaPor")
+  ordensComoTecnico              OrdemDeServico[]            @relation("OrdemTecnico")
+  ordensComoApoio                OrdemDeServico[]            @relation("OrdemApoio")
+  laudosDeOrdem                  OrdemDeServico[]            @relation("OrdemLaudoPor")
+  ordensAdiadas                  OrdemDeServico[]            @relation("OrdemAdiadaPor")
+  ordensCanceladas               OrdemDeServico[]            @relation("OrdemCanceladaPor")
+  historicoDeOrdens              HistoricoDeOrdemDeServico[] @relation("HistoricoDeOrdemPor")
+  arquivosDeOrdemEnviados        ArquivoDeOrdemDeServico[]   @relation("ArquivoDeOrdemEnviadoPor")
+  arquivosDeOrdemSubstituidos    ArquivoDeOrdemDeServico[]   @relation("ArquivoDeOrdemSubstituidoPor")
+  termosDeOrdemColetados         TermoDeOrdemDeServico[]     @relation("TermoDeOrdemColetadoPor")
 
   @@map("users")
 }
@@ -493,6 +503,7 @@ model Company {
   lancamentos Lancamento[]
   omieConexao OmieConexao?
   pipelines Pipeline[]
+  ordensDeServico OrdemDeServico[]
 
   @@map("companies")
 }
@@ -897,6 +908,7 @@ model Client {
   movimentacoesDeEstoque MovimentacaoDeEstoque[]
   lancamentos       Lancamento[]
   deals             Deal[]
+  ordensDeServico   OrdemDeServico[]
 
   @@index([segment, active])
   @@index([ownerId])
@@ -1248,6 +1260,7 @@ model ConsumerUnit {
 
   @@index([clientId])
   lancamentos      UcDeLancamento[]
+  ordensDeServico  OrdemDeServico[]
   @@map("consumer_units")
 }
 
@@ -2081,10 +2094,13 @@ model PedidoDeCompra {
   canceladoEm                DateTime?                 @map("cancelado_em") @db.Timestamptz(6)
   canceladoPorId             String?                   @map("cancelado_por_id") @db.Uuid
   motivoCancelamento         String?                   @map("motivo_cancelamento")
+  /// O.S. que pediu o material (PLU-345). Quem é só da Engenharia cria e lê apenas estes pedidos.
+  ordemDeServicoId           String?                   @map("ordem_de_servico_id") @db.Uuid
   createdAt                  DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt                  DateTime                  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   company                  Company                  @relation(fields: [companyId], references: [id])
+  ordemDeServico           OrdemDeServico?          @relation(fields: [ordemDeServicoId], references: [id], onDelete: Restrict)
   obra                     Obra?                    @relation(fields: [obraId], references: [id], onDelete: SetNull)
   client                   Client?                  @relation(fields: [clientId], references: [id], onDelete: SetNull)
   solicitante              User                     @relation("PedidoSolicitante", fields: [solicitanteId], references: [id])
@@ -2109,6 +2125,7 @@ model PedidoDeCompra {
   @@index([responsavelId])
   @@index([concluidoEm])
   @@index([createdAt])
+  @@index([ordemDeServicoId])
   @@map("pedidos_de_compra")
 }
 
@@ -2879,4 +2896,202 @@ model UcDeLancamento {
 
   @@id([lancamentoId, consumerUnitId])
   @@map("ucs_de_lancamento")
+}
+
+// ---------------------------------------------------------------- Engenharia: ordens de serviço (PLU-345)
+
+enum TipoDeOrdemDeServico {
+  manutencao
+  limpeza
+  garantia
+  emergencia
+  visita_tecnica
+  instalacao
+  configuracao
+  comissionamento
+  orcamento_tecnico
+  eletroposto
+  grid_zero_bess
+  analise_energia
+  outros
+
+  @@map("tipo_de_ordem_de_servico")
+}
+
+enum SituacaoDaOrdemDeServico {
+  aberta
+  agendada
+  em_campo
+  laudo
+  concluida
+  adiada
+  cancelada
+
+  @@map("situacao_da_ordem_de_servico")
+}
+
+enum PrioridadeDaOrdemDeServico {
+  baixa
+  normal
+  alta
+  urgente
+
+  @@map("prioridade_da_ordem_de_servico")
+}
+
+enum OrigemDaOrdemDeServico {
+  manual
+  monitoramento
+  crm
+  robo
+
+  @@map("origem_da_ordem_de_servico")
+}
+
+enum ModoDeAssinaturaDoTermo {
+  desenhada
+  nome_digitado
+  pdf_externo
+
+  @@map("modo_de_assinatura_do_termo")
+}
+
+enum CategoriaDeArquivoDaOrdem {
+  foto
+  assinatura
+  termo_pdf
+
+  @@map("categoria_de_arquivo_da_ordem")
+}
+
+/// Ordem de serviço da Engenharia (PLU-345), no lugar das tarefas "O.S ..." do
+/// Bitrix. Numeração global (OS-0001); a empresa é campo e filtro. Não se apaga
+/// e a concluída não reabre: a continuação é outra O.S. com `ordemAnteriorId`.
+model OrdemDeServico {
+  id                  String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  numero              Int                        @unique @default(autoincrement())
+  companyId           String                     @map("company_id")
+  tipo                TipoDeOrdemDeServico
+  situacao            SituacaoDaOrdemDeServico   @default(aberta)
+  prioridade          PrioridadeDaOrdemDeServico @default(normal)
+  origem              OrigemDaOrdemDeServico     @default(manual)
+  canal               String?
+  clientId            String                     @map("client_id") @db.Uuid
+  consumerUnitId      String?                    @map("consumer_unit_id") @db.Uuid
+  local               String?
+  descricao           String
+  /// Dia-limite de atendimento: início do dia em Manaus.
+  prazo               DateTime                   @db.Timestamptz(6)
+  equipamento         String?
+  fabricante          String?
+  modelo              String?
+  numeroSerie         String?                    @map("numero_serie")
+  tecnicoId           String?                    @map("tecnico_id") @db.Uuid
+  apoioId             String?                    @map("apoio_id") @db.Uuid
+  agendadaPara        DateTime?                  @map("agendada_para") @db.Timestamptz(6)
+  checkinEm           DateTime?                  @map("checkin_em") @db.Timestamptz(6)
+  laudoEncontrado     String?                    @map("laudo_encontrado")
+  laudoFeito          String?                    @map("laudo_feito")
+  laudoRecomendacao   String?                    @map("laudo_recomendacao")
+  laudoEm             DateTime?                  @map("laudo_em") @db.Timestamptz(6)
+  laudoPorId          String?                    @map("laudo_por_id") @db.Uuid
+  adiamentoMotivo     String?                    @map("adiamento_motivo")
+  adiadaPara          DateTime?                  @map("adiada_para") @db.Timestamptz(6)
+  adiadaEm            DateTime?                  @map("adiada_em") @db.Timestamptz(6)
+  adiadaPorId         String?                    @map("adiada_por_id") @db.Uuid
+  cancelamentoMotivo  String?                    @map("cancelamento_motivo")
+  canceladaEm         DateTime?                  @map("cancelada_em") @db.Timestamptz(6)
+  canceladaPorId      String?                    @map("cancelada_por_id") @db.Uuid
+  /// Em que situação estava quando foi cancelada.
+  canceladaEmSituacao SituacaoDaOrdemDeServico?  @map("cancelada_em_situacao")
+  concluidaEm         DateTime?                  @map("concluida_em") @db.Timestamptz(6)
+  ordemAnteriorId     String?                    @map("ordem_anterior_id") @db.Uuid
+  criadoPorId         String?                    @map("criado_por_id") @db.Uuid
+  createdAt           DateTime                   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime                   @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  company         Company                     @relation(fields: [companyId], references: [id])
+  client          Client                      @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  consumerUnit    ConsumerUnit?               @relation(fields: [consumerUnitId], references: [id], onDelete: Restrict)
+  tecnico         User?                       @relation("OrdemTecnico", fields: [tecnicoId], references: [id], onDelete: SetNull)
+  apoio           User?                       @relation("OrdemApoio", fields: [apoioId], references: [id], onDelete: SetNull)
+  laudoPor        User?                       @relation("OrdemLaudoPor", fields: [laudoPorId], references: [id], onDelete: SetNull)
+  adiadaPor       User?                       @relation("OrdemAdiadaPor", fields: [adiadaPorId], references: [id], onDelete: SetNull)
+  canceladaPor    User?                       @relation("OrdemCanceladaPor", fields: [canceladaPorId], references: [id], onDelete: SetNull)
+  criadoPor       User?                       @relation("OrdemCriadaPor", fields: [criadoPorId], references: [id], onDelete: SetNull)
+  ordemAnterior   OrdemDeServico?             @relation("OrdemContinuacao", fields: [ordemAnteriorId], references: [id], onDelete: Restrict)
+  continuacoes    OrdemDeServico[]            @relation("OrdemContinuacao")
+  historico       HistoricoDeOrdemDeServico[]
+  arquivos        ArquivoDeOrdemDeServico[]
+  termo           TermoDeOrdemDeServico?
+  pedidosDeCompra PedidoDeCompra[]
+
+  @@index([situacao, createdAt])
+  @@index([tecnicoId, agendadaPara])
+  @@index([clientId])
+  @@map("ordens_de_servico")
+}
+
+/// Linha do tempo da O.S. Só se insere: nem UPDATE nem DELETE.
+model HistoricoDeOrdemDeServico {
+  id      String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ordemId String   @map("ordem_id") @db.Uuid
+  tipo    String
+  /// Dados da passagem (datas, técnico); nunca o documento de quem assinou.
+  dados   Json     @default("{}") @db.JsonB
+  detalhe String?
+  porId   String?  @map("por_id") @db.Uuid
+  em      DateTime @default(now()) @db.Timestamptz(6)
+
+  ordem OrdemDeServico @relation(fields: [ordemId], references: [id], onDelete: Restrict)
+  por   User?          @relation("HistoricoDeOrdemPor", fields: [porId], references: [id], onDelete: SetNull)
+
+  @@index([ordemId, em])
+  @@map("historico_de_ordens_de_servico")
+}
+
+/// Foto do laudo, assinatura desenhada ou PDF do termo, no armazenamento do
+/// Plugga OS. Nunca se apaga: o UPDATE só marca a substituição, uma vez.
+model ArquivoDeOrdemDeServico {
+  id               String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ordemId          String                    @map("ordem_id") @db.Uuid
+  categoria        CategoriaDeArquivoDaOrdem
+  arquivoChave     String                    @map("arquivo_chave")
+  arquivoNome      String                    @map("arquivo_nome")
+  arquivoTamanho   Int                       @map("arquivo_tamanho")
+  arquivoTipo      String                    @map("arquivo_tipo")
+  enviadoPorId     String?                   @map("enviado_por_id") @db.Uuid
+  enviadoEm        DateTime                  @default(now()) @map("enviado_em") @db.Timestamptz(6)
+  substituidoEm    DateTime?                 @map("substituido_em") @db.Timestamptz(6)
+  substituidoPorId String?                   @map("substituido_por_id") @db.Uuid
+
+  ordem           OrdemDeServico         @relation(fields: [ordemId], references: [id], onDelete: Restrict)
+  enviadoPor      User?                  @relation("ArquivoDeOrdemEnviadoPor", fields: [enviadoPorId], references: [id], onDelete: SetNull)
+  substituidoPor  User?                  @relation("ArquivoDeOrdemSubstituidoPor", fields: [substituidoPorId], references: [id], onDelete: SetNull)
+  termoAssinatura TermoDeOrdemDeServico? @relation("TermoAssinatura")
+  termoPdf        TermoDeOrdemDeServico? @relation("TermoPdf")
+
+  @@index([ordemId, categoria, enviadoEm])
+  @@map("arquivos_de_ordens_de_servico")
+}
+
+/// Termo assinado (E2). Um por O.S., porque a concluída não reabre. O documento
+/// de quem assina fica só aqui e no PDF; nunca em evento, log ou histórico.
+model TermoDeOrdemDeServico {
+  id                  String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ordemId             String                  @unique @map("ordem_id") @db.Uuid
+  modo                ModoDeAssinaturaDoTermo
+  nome                String?
+  documento           String?
+  assinaturaArquivoId String?                 @unique @map("assinatura_arquivo_id") @db.Uuid
+  pdfArquivoId        String                  @unique @map("pdf_arquivo_id") @db.Uuid
+  coletadoPorId       String?                 @map("coletado_por_id") @db.Uuid
+  assinadoEm          DateTime                @default(now()) @map("assinado_em") @db.Timestamptz(6)
+
+  ordem             OrdemDeServico           @relation(fields: [ordemId], references: [id], onDelete: Restrict)
+  assinaturaArquivo ArquivoDeOrdemDeServico? @relation("TermoAssinatura", fields: [assinaturaArquivoId], references: [id], onDelete: Restrict)
+  pdfArquivo        ArquivoDeOrdemDeServico  @relation("TermoPdf", fields: [pdfArquivoId], references: [id], onDelete: Restrict)
+  coletadoPor       User?                    @relation("TermoDeOrdemColetadoPor", fields: [coletadoPorId], references: [id], onDelete: SetNull)
+
+  @@map("termos_de_ordens_de_servico")
 }
