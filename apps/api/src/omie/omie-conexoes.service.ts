@@ -13,9 +13,9 @@ import type { AuthPrincipal } from "../core/auth/auth.types";
 import { chaveMestraConfigurada, cifrar, decifrar } from "../llm/cripto.js";
 import { SegredoRepository, type SegredoGuardado } from "../llm/segredo.repository.js";
 import { CHAVE_OMIE } from "./omie-cofre.service";
-import { avaliarTeste, outraEmpresa, situacaoDaConexao } from "./omie-conexoes.rules";
+import { situacaoDaConexao } from "./omie-conexoes.rules";
 import { OmiePort, type CredenciaisDoOmie } from "./omie.port";
-import { PrismaOmieConexoesRepository, type LinhaDaConexao } from "./prisma-omie-conexoes.repository";
+import { PrismaOmieConexoesRepository, empresasDoTeste, type LinhaDaConexao } from "./prisma-omie-conexoes.repository";
 
 /** Uma linha cifrada no cofre por empresa: `integracao.omie.<empresa>`. */
 export const chaveDoOmie = (empresa: CompanyKey): string => `integracao.omie.${empresa}`;
@@ -102,14 +102,15 @@ export class OmieConexoesService {
     return this.estado();
   }
 
-  /** "É esta a empresa?": o CNPJ que a pessoa viu tem de ser o que o teste trouxe. */
+  /** "É esta a empresa?": o CNPJ que a pessoa viu tem de ser o que o teste trouxe, no mesmo par. */
   async confirmar(empresa: CompanyKey, cnpj: string, principal: AuthPrincipal): Promise<EstadoDasConexoesOmie> {
     const atual = (await this.estado()).conexoes.find((c) => c.empresa === empresa)!;
     if (atual.situacao !== "a_confirmar") throw new EstadoInvalido("Só se confirma a conexão testada que espera confirmação.");
-    const [testada] = atual.ultimoTeste?.empresas ?? [];
-    if (!testada || testada.cnpj !== cnpj) throw new EstadoInvalido("O CNPJ não é o que o teste trouxe. Teste de novo.");
-    await this.conexoes.confirmar(empresa, cnpj, testada.razaoSocial, principal, new Date());
+    const linha = (await this.conexoes.linhas()).get(empresa);
+    if (!linha?.ultimoTesteEm) throw new EstadoInvalido("Teste a conexão antes de confirmar.");
+    const resultado = await this.conexoes.confirmar(empresa, { versao: linha.segredoAtualizadoEm, testeEm: linha.ultimoTesteEm, cnpj }, principal, new Date());
     this.cache.delete(empresa);
+    if (resultado.tipo === "bloqueada") throw new EstadoInvalido("Este CNPJ é o da outra empresa: a conexão ficou bloqueada. Confira o par.");
     await this.substituirContaAntiga(empresa);
     return this.estado();
   }
@@ -155,13 +156,7 @@ export class OmieConexoesService {
   }
 
   private async registrarTeste(empresa: CompanyKey, versao: Date, empresas: EmpresaDoOmie[], principal: AuthPrincipal): Promise<void> {
-    const [linhas, cnpjs] = await Promise.all([this.conexoes.linhas(), this.conexoes.cnpjsDoCadastro()]);
-    const outra = linhas.get(outraEmpresa(empresa));
-    const resultado = avaliarTeste(empresas, cnpjs.get(empresa) ?? null, outra?.confirmadaEm ? outra.cnpjConfirmado : null);
-    await this.conexoes.registrarTeste(empresa, versao, empresas, {
-      bloqueio: resultado.tipo === "bloqueada" ? resultado.bloqueio : null,
-      confirmar: resultado.tipo === "conectada" ? { cnpj: resultado.cnpj, razaoSocial: resultado.razaoSocial } : null,
-    }, principal, new Date());
+    const resultado = await this.conexoes.registrarTeste(empresa, versao, empresas, principal, new Date());
     this.cache.delete(empresa);
     if (resultado.tipo === "conectada") await this.substituirContaAntiga(empresa);
   }
@@ -197,7 +192,7 @@ export class OmieConexoesService {
       mascara: par ? `••••${par.ultimosQuatro}` : null,
       cnpjDoCadastro,
       ultimoTeste: valeParaOPar && linha?.ultimoTesteEm
-        ? { em: linha.ultimoTesteEm.toISOString(), por: linha.ultimoTestePor?.name ?? null, empresas: (linha.ultimoTeste ?? []) as EmpresaDoOmie[] }
+        ? { em: linha.ultimoTesteEm.toISOString(), por: linha.ultimoTestePor?.name ?? null, ...empresasDoTeste(linha.ultimoTeste) }
         : null,
       confirmada: situacao === "conectada" && linha?.confirmadaEm && linha.cnpjConfirmado
         ? { em: linha.confirmadaEm.toISOString(), por: linha.confirmadaPor?.name ?? null, cnpj: linha.cnpjConfirmado, razaoSocial: linha.razaoSocialConfirmada }

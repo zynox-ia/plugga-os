@@ -12,18 +12,25 @@ export type ResultadoDoTeste =
   | { tipo: "conectada"; cnpj: string; razaoSocial: string | null }
   | { tipo: "a_confirmar"; cnpj: string; razaoSocial: string | null };
 
+/** O que se sabe da outra empresa da conta: o CNPJ do cadastro e o confirmado. */
+export type OutraEmpresa = { cnpjDoCadastro: string | null; cnpjConfirmado: string | null };
+
 export function avaliarTeste(
   empresas: readonly EmpresaDoOmie[],
   cnpjDoCadastro: string | null,
-  cnpjConfirmadoDaOutra: string | null,
+  outra: OutraEmpresa,
 ): ResultadoDoTeste {
   if (empresas.length !== 1) return { tipo: "bloqueada", bloqueio: empresas.length === 0 ? "sem_cnpj" : "mais_de_uma_empresa" };
   const [empresa] = empresas as [EmpresaDoOmie];
   if (!empresa.cnpj) return { tipo: "bloqueada", bloqueio: "sem_cnpj" };
-  if (cnpjConfirmadoDaOutra && empresa.cnpj === cnpjConfirmadoDaOutra) return { tipo: "bloqueada", bloqueio: "cnpj_de_outra_empresa" };
+  // O par que devolve o CNPJ da outra empresa (cadastrado ou já confirmado) é o par dela.
+  if (empresa.cnpj === outra.cnpjDoCadastro || empresa.cnpj === outra.cnpjConfirmado) return { tipo: "bloqueada", bloqueio: "cnpj_de_outra_empresa" };
   if (cnpjDoCadastro && empresa.cnpj !== cnpjDoCadastro) return { tipo: "bloqueada", bloqueio: "cnpj_diferente_do_cadastro" };
   return { tipo: cnpjDoCadastro ? "conectada" : "a_confirmar", cnpj: empresa.cnpj, razaoSocial: empresa.razaoSocial };
 }
+
+/** Quantas empresas do teste se guardam: o bastante para mostrar o bloqueio. */
+export const EMPRESAS_GUARDADAS_DO_TESTE = 2;
 
 export type EstadoGuardado = {
   /** Quando o par em uso foi gravado; nulo sem par. */

@@ -18,20 +18,22 @@ const empresa = (cnpj: string | null, razaoSocial = "EMPRESA SINTÉTICA"): Empre
 
 describe("avaliarTeste", () => {
   it("uma empresa só, com o CNPJ do cadastro: conectada", () => {
-    expect(avaliarTeste([empresa(PLUGGA)], PLUGGA, null)).toMatchObject({ tipo: "conectada", cnpj: PLUGGA });
+    expect(avaliarTeste([empresa(PLUGGA)], PLUGGA, { cnpjDoCadastro: null, cnpjConfirmado: null })).toMatchObject({ tipo: "conectada", cnpj: PLUGGA });
   });
 
   it("sem CNPJ no cadastro: espera confirmação", () => {
-    expect(avaliarTeste([empresa(PLUGGA)], null, null)).toMatchObject({ tipo: "a_confirmar", cnpj: PLUGGA });
+    expect(avaliarTeste([empresa(PLUGGA)], null, { cnpjDoCadastro: null, cnpjConfirmado: null })).toMatchObject({ tipo: "a_confirmar", cnpj: PLUGGA });
   });
 
   it("bloqueia o que não identifica uma empresa só, e a certa", () => {
     const bloqueio = (r: ReturnType<typeof avaliarTeste>) => (r.tipo === "bloqueada" ? r.bloqueio : null);
-    expect(bloqueio(avaliarTeste([empresa(PLUGGA), empresa(WAZE)], null, null))).toBe("mais_de_uma_empresa");
-    expect(bloqueio(avaliarTeste([], null, null))).toBe("sem_cnpj");
-    expect(bloqueio(avaliarTeste([empresa(null)], null, null))).toBe("sem_cnpj");
-    expect(bloqueio(avaliarTeste([empresa(WAZE)], null, WAZE))).toBe("cnpj_de_outra_empresa");
-    expect(bloqueio(avaliarTeste([empresa(WAZE)], PLUGGA, null))).toBe("cnpj_diferente_do_cadastro");
+    expect(bloqueio(avaliarTeste([empresa(PLUGGA), empresa(WAZE)], null, { cnpjDoCadastro: null, cnpjConfirmado: null }))).toBe("mais_de_uma_empresa");
+    expect(bloqueio(avaliarTeste([], null, { cnpjDoCadastro: null, cnpjConfirmado: null }))).toBe("sem_cnpj");
+    expect(bloqueio(avaliarTeste([empresa(null)], null, { cnpjDoCadastro: null, cnpjConfirmado: null }))).toBe("sem_cnpj");
+    expect(bloqueio(avaliarTeste([empresa(WAZE)], null, { cnpjDoCadastro: null, cnpjConfirmado: WAZE }))).toBe("cnpj_de_outra_empresa");
+    // O CNPJ do cadastro da outra empresa também bloqueia, mesmo sem ela confirmada.
+    expect(bloqueio(avaliarTeste([empresa(WAZE)], null, { cnpjDoCadastro: WAZE, cnpjConfirmado: null }))).toBe("cnpj_de_outra_empresa");
+    expect(bloqueio(avaliarTeste([empresa(WAZE)], PLUGGA, { cnpjDoCadastro: null, cnpjConfirmado: null }))).toBe("cnpj_diferente_do_cadastro");
   });
 });
 
@@ -78,18 +80,32 @@ function conferencia() {
     confirmadaEm: null, confirmadaPorId: null, cnpjConfirmado: null, razaoSocialConfirmada: null, updatedAt: new Date(),
     ultimoTestePor: null, confirmadaPor: null,
   });
+  const outra = (e: CompanyKey) => {
+    const o: CompanyKey = e === "plugga" ? "waze" : "plugga";
+    const linha = linhas.get(o);
+    return { cnpjDoCadastro: cnpjs.get(o) ?? null, cnpjConfirmado: linha?.confirmadaEm ? linha.cnpjConfirmado : null };
+  };
   const repo = {
     linhas: async () => new Map(linhas),
     cnpjsDoCadastro: async () => new Map(cnpjs),
     definirCnpj: async (e: CompanyKey, c: string | null) => { cnpjs.set(e, c); eventos.push("cnpj"); },
     reiniciar: async (e: CompanyKey, v: Date) => { linhas.set(e, base(e, v)); eventos.push(`conectada:${e}`); },
-    registrarTeste: async (e: CompanyKey, v: Date, empresas: EmpresaDoOmie[], r: { bloqueio: BloqueioDaConexaoOmie | null; confirmar: { cnpj: string; razaoSocial: string | null } | null }, _p: AuthPrincipal, agora: Date) => {
-      linhas.set(e, { ...base(e, v), ultimoTesteEm: agora, ultimoTeste: empresas as never, bloqueio: r.bloqueio, confirmadaEm: r.confirmar ? agora : null, cnpjConfirmado: r.confirmar?.cnpj ?? null });
+    registrarTeste: async (e: CompanyKey, v: Date, empresas: EmpresaDoOmie[], _p: AuthPrincipal, agora: Date) => {
+      const r = avaliarTeste(empresas, cnpjs.get(e) ?? null, outra(e));
+      const confirmar = r.tipo === "conectada" ? r : null;
+      linhas.set(e, { ...base(e, v), ultimoTesteEm: agora, ultimoTeste: { empresas: empresas.slice(0, 2), total: empresas.length } as never, bloqueio: r.tipo === "bloqueada" ? r.bloqueio : null, confirmadaEm: confirmar ? agora : null, cnpjConfirmado: confirmar?.cnpj ?? null });
       eventos.push(`testada:${e}`);
+      return r;
     },
-    confirmar: async (e: CompanyKey, cnpj: string, _r: string | null, _p: AuthPrincipal, agora: Date) => {
-      linhas.set(e, { ...linhas.get(e)!, confirmadaEm: agora, cnpjConfirmado: cnpj });
+    confirmar: async (e: CompanyKey, visto: { versao: Date; testeEm: Date; cnpj: string }, _p: AuthPrincipal, agora: Date) => {
+      const linha = linhas.get(e)!;
+      if (linha.segredoAtualizadoEm.getTime() !== visto.versao.getTime() || linha.ultimoTesteEm?.getTime() !== visto.testeEm.getTime()) throw new Error("O par mudou");
+      const testadas = (linha.ultimoTeste as unknown as { empresas: EmpresaDoOmie[] }).empresas;
+      if (testadas[0]?.cnpj !== visto.cnpj) throw new Error("O CNPJ não é o que o teste trouxe");
+      const r = avaliarTeste(testadas, cnpjs.get(e) ?? null, outra(e));
+      linhas.set(e, r.tipo === "bloqueada" ? { ...linha, bloqueio: r.bloqueio } : { ...linha, confirmadaEm: agora, cnpjConfirmado: visto.cnpj });
       eventos.push(`confirmada:${e}`);
+      return r;
     },
     registrarDesconexao: async (e: CompanyKey) => { eventos.push(`desconectada:${e}`); },
     registrarContaAntigaMovida: async (_p: AuthPrincipal, apagada: boolean) => { eventos.push(`movida:${apagada}`); },
@@ -160,6 +176,27 @@ describe("OmieConexoesService", () => {
     expect(await da("waze")).toMatchObject({ situacao: "bloqueada", bloqueio: "cnpj_de_outra_empresa" });
     await expect(servico.confirmar("waze", PLUGGA, quem)).rejects.toThrow("Só se confirma");
     expect(await servico.credenciais("waze")).toBeNull();
+  });
+
+  it("cenário A: os dois pares devolvem o mesmo CNPJ sem cadastro; a segunda confirmação é bloqueada", async () => {
+    omie.listarEmpresas.mockResolvedValue([empresa(PLUGGA)]);
+    await servico.gravar("plugga", PAR, quem);
+    await servico.testar("plugga", quem);
+    await servico.gravar("waze", { appKey: "chave-waze-0001", appSecret: "segredo-sintetico-waze1" }, quem);
+    await servico.testar("waze", quem);
+    expect((await da("waze")).situacao).toBe("a_confirmar");
+    await servico.confirmar("plugga", PLUGGA, quem);
+    await expect(servico.confirmar("waze", PLUGGA, quem)).rejects.toThrow("é o da outra empresa");
+    expect(await da("waze")).toMatchObject({ situacao: "bloqueada", bloqueio: "cnpj_de_outra_empresa" });
+    expect(await servico.credenciais("waze")).toBeNull();
+  });
+
+  it("cenário B: o par da Plugga que devolve o CNPJ cadastrado da Waze é bloqueado", async () => {
+    c.cnpjs.set("waze", WAZE);
+    omie.listarEmpresas.mockResolvedValue([empresa(WAZE)]);
+    await servico.gravar("plugga", PAR, quem);
+    await servico.testar("plugga", quem);
+    expect(await da("plugga")).toMatchObject({ situacao: "bloqueada", bloqueio: "cnpj_de_outra_empresa" });
   });
 
   it("a conta antiga vira o par da Plugga e só some quando a Plugga fica conectada", async () => {

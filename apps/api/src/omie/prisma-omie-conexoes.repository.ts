@@ -1,15 +1,25 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
-import type { BloqueioDaConexaoOmie, CompanyKey, EmpresaDoOmie, NomeDeEventoDoCatalogo } from "@plugga/shared";
+import type { CompanyKey, EmpresaDoOmie, NomeDeEventoDoCatalogo } from "@plugga/shared";
 
 import { AuditAppender } from "../audit/audit-appender";
-import { AcessoNegado, Conflito } from "../common/errors/dominio";
+import { AcessoNegado, Conflito, EstadoInvalido } from "../common/errors/dominio";
 import type { AuthPrincipal } from "../core/auth/auth.types";
 import { PrismaService } from "../prisma/prisma.service";
+import { EMPRESAS_GUARDADAS_DO_TESTE, avaliarTeste, outraEmpresa, type OutraEmpresa, type ResultadoDoTeste } from "./omie-conexoes.rules";
 
 const PESSOA = { select: { id: true, name: true } } as const;
 const INCLUDE = { ultimoTestePor: PESSOA, confirmadaPor: PESSOA } satisfies Prisma.OmieConexaoInclude;
 export type LinhaDaConexao = Prisma.OmieConexaoGetPayload<{ include: typeof INCLUDE }>;
+
+const PAR_MUDOU = "O par mudou ou o teste já não é o mesmo. Teste de novo.";
+
+/** O que o teste guardou: as primeiras empresas e o total (aceita a lista solta de antes). */
+export function empresasDoTeste(guardado: Prisma.JsonValue | null): { empresas: EmpresaDoOmie[]; total: number } {
+  if (Array.isArray(guardado)) return { empresas: guardado as unknown as EmpresaDoOmie[], total: guardado.length };
+  const g = (guardado ?? {}) as { empresas?: EmpresaDoOmie[]; total?: number };
+  return { empresas: g.empresas ?? [], total: g.total ?? g.empresas?.length ?? 0 };
+}
 
 /**
  * A conferência dos pares do OMIE (PLU-342) e o CNPJ das empresas. O par em si
@@ -60,43 +70,105 @@ export class PrismaOmieConexoesRepository {
     });
   }
 
-  async registrarTeste(
-    empresa: CompanyKey,
-    segredoAtualizadoEm: Date,
-    empresas: EmpresaDoOmie[],
-    resultado: { bloqueio: BloqueioDaConexaoOmie | null; confirmar: { cnpj: string; razaoSocial: string | null } | null },
-    principal: AuthPrincipal,
-    agora: Date,
-  ): Promise<void> {
-    const dados = {
-      segredoAtualizadoEm,
-      ultimoTesteEm: agora,
-      ultimoTestePorId: principal.id,
-      ultimoTeste: empresas as unknown as Prisma.InputJsonValue,
-      bloqueio: resultado.bloqueio,
-      confirmadaEm: resultado.confirmar ? agora : null,
-      confirmadaPorId: resultado.confirmar ? principal.id : null,
-      cnpjConfirmado: resultado.confirmar?.cnpj ?? null,
-      razaoSocialConfirmada: resultado.confirmar?.razaoSocial ?? null,
-    };
-    await this.prisma.comContexto(async (tx) => {
-      await tx.omieConexao.upsert({ where: { companyId: empresa }, create: { companyId: empresa, ...dados }, update: dados });
-      await this.registrar(tx, "integracoes.omie.testada", empresa, principal, {
-        resultado: resultado.bloqueio ?? (resultado.confirmar ? "conectada" : "a_confirmar"),
-        empresas: empresas.length,
-      });
-      if (resultado.confirmar) await this.registrar(tx, "integracoes.omie.confirmada", empresa, principal, { automatica: true });
-    });
-  }
-
-  async confirmar(empresa: CompanyKey, cnpj: string, razaoSocial: string | null, principal: AuthPrincipal, agora: Date): Promise<void> {
-    await this.prisma.comContexto(async (tx) => {
+  /**
+   * Grava o resultado do teste, decidido aqui com as duas conferências travadas: o
+   * CNPJ da outra empresa (cadastrado ou confirmado) é lido no estado de agora. Um
+   * teste de um par que foi trocado no meio do caminho não é gravado.
+   */
+  async registrarTeste(empresa: CompanyKey, versao: Date, empresas: EmpresaDoOmie[], principal: AuthPrincipal, agora: Date): Promise<ResultadoDoTeste> {
+    return this.comCnpjUnico(() => this.prisma.comContexto(async (tx) => {
+      await this.travar(tx);
+      const atual = await tx.omieConexao.findUnique({ where: { companyId: empresa }, select: { segredoAtualizadoEm: true } });
+      if (!atual || atual.segredoAtualizadoEm.getTime() !== versao.getTime()) throw new EstadoInvalido(PAR_MUDOU);
+      const { cnpjDoCadastro, outra } = await this.contexto(tx, empresa);
+      const resultado = avaliarTeste(empresas, cnpjDoCadastro, outra);
+      const confirmar = resultado.tipo === "conectada" ? resultado : null;
       await tx.omieConexao.update({
         where: { companyId: empresa },
-        data: { confirmadaEm: agora, confirmadaPorId: principal.id, cnpjConfirmado: cnpj, razaoSocialConfirmada: razaoSocial },
+        data: {
+          ultimoTesteEm: agora,
+          ultimoTestePorId: principal.id,
+          // Só o bastante para mostrar o bloqueio: as duas primeiras e o total.
+          ultimoTeste: { empresas: empresas.slice(0, EMPRESAS_GUARDADAS_DO_TESTE), total: empresas.length } as unknown as Prisma.InputJsonValue,
+          bloqueio: resultado.tipo === "bloqueada" ? resultado.bloqueio : null,
+          confirmadaEm: confirmar ? agora : null,
+          confirmadaPorId: confirmar ? principal.id : null,
+          cnpjConfirmado: confirmar?.cnpj ?? null,
+          razaoSocialConfirmada: confirmar?.razaoSocial ?? null,
+        },
       });
-      await this.registrar(tx, "integracoes.omie.confirmada", empresa, principal, { automatica: false });
-    });
+      await this.registrar(tx, "integracoes.omie.testada", empresa, principal, {
+        resultado: resultado.tipo === "bloqueada" ? resultado.bloqueio : resultado.tipo,
+        empresas: empresas.length,
+      });
+      if (confirmar) await this.registrar(tx, "integracoes.omie.confirmada", empresa, principal, { automatica: true });
+      return resultado;
+    }));
+  }
+
+  /**
+   * "É esta a empresa?": reavalia com o estado de agora, com as duas conferências
+   * travadas, e só confirma a mesma versão do par e o mesmo teste que a pessoa viu.
+   * Se o CNPJ virou o da outra empresa nesse meio-tempo, grava o bloqueio.
+   */
+  async confirmar(
+    empresa: CompanyKey,
+    visto: { versao: Date; testeEm: Date; cnpj: string },
+    principal: AuthPrincipal,
+    agora: Date,
+  ): Promise<ResultadoDoTeste> {
+    return this.comCnpjUnico(() => this.prisma.comContexto(async (tx) => {
+      await this.travar(tx);
+      const linha = await tx.omieConexao.findUnique({ where: { companyId: empresa } });
+      if (!linha || linha.segredoAtualizadoEm.getTime() !== visto.versao.getTime() || linha.ultimoTesteEm?.getTime() !== visto.testeEm.getTime()
+        || linha.confirmadaEm !== null || linha.bloqueio !== null) {
+        throw new EstadoInvalido(PAR_MUDOU);
+      }
+      const testadas = empresasDoTeste(linha.ultimoTeste).empresas;
+      if (testadas.length !== 1 || testadas[0]!.cnpj !== visto.cnpj) throw new EstadoInvalido("O CNPJ não é o que o teste trouxe. Teste de novo.");
+      const { cnpjDoCadastro, outra } = await this.contexto(tx, empresa);
+      const resultado = avaliarTeste(testadas, cnpjDoCadastro, outra);
+      const ondeOTesteVisto = { companyId: empresa, segredoAtualizadoEm: visto.versao, ultimoTesteEm: visto.testeEm, confirmadaEm: null };
+      const { count } = await tx.omieConexao.updateMany({
+        where: ondeOTesteVisto,
+        data: resultado.tipo === "bloqueada"
+          ? { bloqueio: resultado.bloqueio }
+          : { confirmadaEm: agora, confirmadaPorId: principal.id, cnpjConfirmado: visto.cnpj, razaoSocialConfirmada: testadas[0]!.razaoSocial },
+      });
+      if (count !== 1) throw new EstadoInvalido(PAR_MUDOU);
+      if (resultado.tipo !== "bloqueada") await this.registrar(tx, "integracoes.omie.confirmada", empresa, principal, { automatica: false });
+      return resultado;
+    }));
+  }
+
+  /** As duas conferências, na mesma ordem para não haver impasse. */
+  private async travar(tx: Prisma.TransactionClient): Promise<void> {
+    await tx.$queryRaw`SELECT company_id FROM public.omie_conexoes WHERE company_id IN ('plugga', 'waze') ORDER BY company_id FOR UPDATE`;
+  }
+
+  private async contexto(tx: Prisma.TransactionClient, empresa: CompanyKey): Promise<{ cnpjDoCadastro: string | null; outra: OutraEmpresa }> {
+    const outraId = outraEmpresa(empresa);
+    const [cadastros, conferenciaDaOutra] = await Promise.all([
+      tx.company.findMany({ where: { id: { in: [empresa, outraId] } }, select: { id: true, cnpj: true } }),
+      tx.omieConexao.findUnique({ where: { companyId: outraId }, select: { confirmadaEm: true, cnpjConfirmado: true } }),
+    ]);
+    const cadastroDe = (id: string) => cadastros.find((c) => c.id === id)?.cnpj ?? null;
+    return {
+      cnpjDoCadastro: cadastroDe(empresa),
+      outra: { cnpjDoCadastro: cadastroDe(outraId), cnpjConfirmado: conferenciaDaOutra?.confirmadaEm ? conferenciaDaOutra.cnpjConfirmado : null },
+    };
+  }
+
+  /** A última barreira: o índice único de cnpj_confirmado entre as conexões confirmadas. */
+  private async comCnpjUnico<T>(fazer: () => Promise<T>): Promise<T> {
+    try {
+      return await fazer();
+    } catch (erro) {
+      if (erro instanceof Prisma.PrismaClientKnownRequestError && erro.code === "P2002") {
+        throw new Conflito("Este CNPJ já está confirmado na outra empresa.");
+      }
+      throw erro;
+    }
   }
 
   async registrarDesconexao(empresa: CompanyKey, principal: AuthPrincipal): Promise<void> {

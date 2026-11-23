@@ -80,7 +80,26 @@ describe.skipIf(!HABILITADO)("omie por empresa no Postgres", () => {
     expect(JSON.stringify(eventos)).not.toContain(par.appSecret);
   }, PRAZO_MS);
 
+  it("duas confirmações simultâneas do mesmo CNPJ nas duas empresas: só uma fica conectada", async () => {
+    await prisma.company.updateMany({ where: { id: { in: ["plugga", "waze"] } }, data: { cnpj: null } });
+    await servico.gravar("plugga", { appKey: "chave-plugga-0042", appSecret: "segredo-sintetico-plugga-42" }, principal);
+    await servico.gravar("waze", { appKey: "chave-waze-0044", appSecret: "segredo-sintetico-waze-44" }, principal);
+    await servico.testar("plugga", principal);
+    await servico.testar("waze", principal);
+    const resultados = await Promise.allSettled([servico.confirmar("plugga", CNPJ, principal), servico.confirmar("waze", CNPJ, principal)]);
+    expect(resultados.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+    const estado = await servico.estado();
+    expect(estado.conexoes.filter((c) => c.situacao === "conectada")).toHaveLength(1);
+    expect(estado.conexoes.find((c) => c.situacao !== "conectada")).toMatchObject({ situacao: "bloqueada", bloqueio: "cnpj_de_outra_empresa" });
+    // A última barreira: nem o dono do banco grava o mesmo CNPJ confirmado nas duas.
+    const outra = estado.conexoes.find((c) => c.situacao !== "conectada")!.empresa;
+    await expect(prisma.omieConexao.update({ where: { companyId: outra }, data: { bloqueio: null, confirmadaEm: new Date(), cnpjConfirmado: CNPJ } })).rejects.toThrow();
+    await prisma.segredoDoSistema.deleteMany({ where: { chave: chaveDoOmie("plugga") } });
+  }, PRAZO_MS);
+
   it("com o CNPJ no cadastro, o teste conecta sozinho; o CNPJ diferente bloqueia", async () => {
+    await prisma.omieConexao.deleteMany({ where: { companyId: "plugga" } });
+    await servico.gravar("waze", { appKey: "chave-waze-0045", appSecret: "segredo-sintetico-waze-45" }, principal);
     // A permissão da função que grava o CNPJ está em rls-permissoes; aqui o dono do banco grava direto.
     await prisma.company.update({ where: { id: "waze" }, data: { cnpj: CNPJ } });
     await servico.testar("waze", principal);

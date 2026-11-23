@@ -80,8 +80,11 @@ export type ConexaoOmieDaEmpresa = {
   mascara: string | null;
   /** CNPJ da empresa no cadastro do Plugga OS, só dígitos; nulo até alguém preencher. */
   cnpjDoCadastro: string | null;
-  /** O que o último `ListarEmpresas` devolveu. */
-  ultimoTeste: { em: string; por: string | null; empresas: EmpresaDoOmie[] } | null;
+  /**
+   * O que o último `ListarEmpresas` devolveu: até as duas primeiras empresas e, em
+   * `total`, quantas vieram (a API sempre manda; ausente, vale `empresas.length`).
+   */
+  ultimoTeste: { em: string; por: string | null; empresas: EmpresaDoOmie[]; total?: number } | null;
   /** Quem confirmou e quando; nulo enquanto não está conectada. */
   confirmada: { em: string; por: string | null; cnpj: string; razaoSocial: string | null } | null;
   atualizadoEm: string | null;
