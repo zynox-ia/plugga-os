@@ -37,7 +37,7 @@ import { GoogleOAuthCofreService, GoogleOAuthLeitura } from "./google-oauth-cofr
  */
 
 const ORIGEM = "http://localhost:3000";
-const CLIENTE = { clientId: "1234567890-abcdefg.apps.googleusercontent.com", clientSecret: "GOCSPX-segredo-sintetico-9z8y" };
+const CLIENTE = { clientId: "1234567890-abcdefg.apps.googleusercontent.com", clientSecret: "GOCSPX-ficticio-ficticio" };
 const ACESSOS: Record<string, Acesso> = {
   desenvolvedor: { plataforma: "desenvolvedor", departamentos: [] },
   admin: { plataforma: "admin", departamentos: [] },

@@ -10,7 +10,7 @@ import { GoogleApiError, type EventoDeAgenda } from "./google-calendar.port";
  * o que volta. Nenhum teste aqui alcança o Google.
  */
 
-const APP = { clientId: "1234567890-abcdefg.apps.googleusercontent.com", clientSecret: "GOCSPX-segredo-sintetico-9z8y" };
+const APP = { clientId: "1234567890-abcdefg.apps.googleusercontent.com", clientSecret: "GOCSPX-ficticio-ficticio" };
 
 type Pedido = { url: string; init: RequestInit };
 let pedidos: Pedido[];

@@ -55,8 +55,8 @@ const ACESSOS: Record<string, Acesso> = {
 };
 
 const ORIGEM = "http://localhost:3000";
-const CORPO = { clientId: "1234567890-abcdefg.apps.googleusercontent.com", clientSecret: "GOCSPX-segredo-sintetico-9z8y" };
-const SEGREDO = "GOCSPX-segredo-sintetico-9z8y";
+const CORPO = { clientId: "1234567890-abcdefg.apps.googleusercontent.com", clientSecret: "GOCSPX-ficticio-ficticio" };
+const SEGREDO = "GOCSPX-ficticio-ficticio";
 const mestraAnterior = process.env.SECRETS_ENCRYPTION_KEY;
 
 let app: INestApplication;
@@ -149,8 +149,8 @@ describe("/google/oauth: gravar e apagar", () => {
       .send(CORPO)
       .expect(200);
 
-    expect(resposta.body).toMatchObject({ conectado: true, clientId: CORPO.clientId, mascara: "••••9z8y" });
-    expect(JSON.stringify(resposta.body)).not.toContain("segredo-sintetico");
+    expect(resposta.body).toMatchObject({ conectado: true, clientId: CORPO.clientId, mascara: "••••icio" });
+    expect(JSON.stringify(resposta.body)).not.toContain("ficticio-ficticio");
     expect(repositorio.linha?.valorCifrado).not.toContain("GOCSPX");
 
     const lido = await request(servidor()).get("/google/oauth").set("x-papel", "desenvolvedor").expect(200);

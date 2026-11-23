@@ -55,7 +55,7 @@ function montar(ambiente: Record<string, unknown> = {}) {
 
 const ENTRADA = {
   clientId: "1234567890-abcdefg.apps.googleusercontent.com",
-  clientSecret: "GOCSPX-segredo-sintetico-9z8y",
+  clientSecret: "GOCSPX-ficticio-ficticio",
 };
 const mestraAnterior = process.env.SECRETS_ENCRYPTION_KEY;
 
@@ -89,10 +89,10 @@ describe("credenciais do Google no cofre", () => {
       conectado: true,
       origem: "cofre",
       clientId: ENTRADA.clientId,
-      mascara: "••••9z8y",
+      mascara: "••••icio",
       atualizadoPor: "andre",
     });
-    expect(JSON.stringify(estado)).not.toContain("segredo-sintetico");
+    expect(JSON.stringify(estado)).not.toContain("ficticio-ficticio");
   });
 
   it("informa a URI de redirecionamento e os escopos para o cadastro no Google Cloud", async () => {

@@ -28,7 +28,7 @@ import { abrirState, selarState } from "./google-oauth-state";
  * 5. sem as credenciais da plataforma, ninguém conecta.
  */
 
-const CLIENTE = { clientId: "1234567890-abcdefg.apps.googleusercontent.com", clientSecret: "GOCSPX-segredo-sintetico-9z8y" };
+const CLIENTE = { clientId: "1234567890-abcdefg.apps.googleusercontent.com", clientSecret: "GOCSPX-ficticio-ficticio" };
 const ANA = { userId: "00000000-0000-4000-8000-00000000000a", sessaoHash: "hash-da-sessao-da-ana" };
 const BRUNO = { userId: "00000000-0000-4000-8000-00000000000b", sessaoHash: "hash-da-sessao-do-bruno" };
 const mestraAnterior = process.env.SECRETS_ENCRYPTION_KEY;
@@ -137,7 +137,7 @@ describe("concluir o consentimento", () => {
     const respostas = [await conectar(ctx), await ctx.servico.estado(ANA.userId)];
 
     for (const resposta of respostas) {
-      expect(JSON.stringify(resposta)).not.toContain("sintetico");
+      expect(JSON.stringify(resposta)).not.toMatch(/sintetico|ficticio/);
       expect(Object.keys(resposta).sort()).toEqual(["conectadoEm", "conectado", "disponivel", "email"].sort());
     }
   });
