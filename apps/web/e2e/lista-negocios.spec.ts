@@ -33,8 +33,10 @@ test.beforeAll(async ({ request, baseURL }) => {
       { name: "Proposta", color: "#00A3FF", staleAfterDays: null, asksClientConversion: false },
     ], tags: [], lossReasons: [{ name: "Sem interesse", asksRevisitDate: false }], members: [],
   });
+  // A API limita 60 mutações por minuto e IP, e o beforeAll volta a rodar no worker que
+  // reinicia após uma falha: com um cliente, são 29 criações por rodada, e duas cabem no limite.
   clientes = [];
-  for (let i = 0; i < 10; i++) {
+  for (let i = 0; i < 1; i++) {
     const { client } = await criar<CreateClientResponse>(request, baseURL!, "/api/clientes", {
       personType: "pj", name: `Cliente sintético lista ${marca} ${i}`,
       email: `lista-cache-${marca}-${i}@teste.local`,
@@ -108,6 +110,18 @@ test("lista e Kanban rolam por dentro sem deslocar controles ou rodapé do agent
     for (const visao of ["kanban", "lista"]) {
       await page.goto(`/comercial/pipelines?pipeline=${pipeline.id}&visao=${visao}`);
       await expect(page.locator(".painel-quadro")).toBeVisible();
+      if (visao === "lista" && viewport.width < 768) {
+        // Desde o 66225cc a lista no celular vira cartões que rolam com a página, sem rolagem interna.
+        const regiao = page.getByRole("region", { name: "Oportunidades do pipeline", exact: true });
+        expect(await regiao.evaluate((el) => getComputedStyle(el).overflowY)).toBe("visible");
+        await expect(page.getByRole("button", { name: "Agent", exact: true })).toBeInViewport();
+        const proxima = page.getByRole("button", { name: "Próxima página", exact: true });
+        await proxima.scrollIntoViewIfNeeded();
+        await expect(proxima).toBeInViewport({ ratio: 1 });
+        await proxima.click();
+        await expect(page.locator(".lista-paginacao-info")).toHaveText("Mostrando 7–12 de 23 negócios");
+        continue;
+      }
       await expect.poll(() => page.locator("main").evaluate((el) => el.scrollHeight - el.clientHeight)).toBeLessThanOrEqual(1);
       const agente = (await page.getByRole("button", { name: "Agent", exact: true }).boundingBox())!;
       const painel = (await page.locator(".painel-quadro").boundingBox())!;
@@ -247,7 +261,8 @@ test("mantém a tabela e os controles contidos em telas estreitas", async ({ pag
     const paginacao = await page.locator(".lista-paginacao-controles").boundingBox();
     expect(paginacao!.x + paginacao!.width).toBeCloseTo(rodape!.x + rodape!.width - 16, 0);
     const rolagem = page.getByRole("region", { name: "Oportunidades do pipeline", exact: true });
-    expect(await rolagem.evaluate((el) => getComputedStyle(el).overflowX)).toBe("auto");
+    // No celular (< 768 px) a tabela vira cartões que cabem na largura e rolam com a página.
+    expect(await rolagem.evaluate((el) => getComputedStyle(el).overflowX)).toBe(width < 768 ? "visible" : "auto");
     await selecionar.click();
     await page.getByRole("checkbox", { name: "Selecionar todos os leads visíveis" }).check();
     const barra = page.getByRole("region", { name: "Ações em lote" });
