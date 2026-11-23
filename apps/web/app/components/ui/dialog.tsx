@@ -50,7 +50,7 @@ export function Dialog({
             </div>
           ) : null}
           <div className="ui-dialog-header-text">
-            <h2 className="ui-dialog-title">{title}</h2>
+            <h2 className="ui-dialog-title" title={title}>{title}</h2>
             {description ? <p className="ui-dialog-subtitle">{description}</p> : null}
           </div>
         </div>
