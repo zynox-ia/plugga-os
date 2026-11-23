@@ -102,7 +102,7 @@ describe.skipIf(!HABILITADO)("fornecedores: cadastro único no Postgres", () => 
     expect(porDocumento.itens.map((f) => f.id)).toContain(ativo.id);
   }, PRAZO_MS);
 
-  it("edição com null apaga, inativar é idempotente e id inexistente é 404", async () => {
+  it("edição com null apaga, edição vazia e situação repetida não gravam, id inexistente é 404", async () => {
     const criado = await criar({ nome: `${marca} Edição`, categoria: "outros", chavePix: "chave-sintetica" });
     expect((await editar(criado.id, { chavePix: null })).chavePix).toBeNull();
 
@@ -111,5 +111,13 @@ describe.skipIf(!HABILITADO)("fornecedores: cadastro único no Postgres", () => 
     expect(await prisma.eventLog.count({ where: { eventName: "suprimentos.fornecedor.inactivated", entityId: criado.id } })).toBe(1);
 
     await expect(repositorio.obter(randomUUID())).rejects.toBeInstanceOf(NaoEncontrado);
+
+    const antes = await prisma.fornecedor.findUniqueOrThrow({ where: { id: criado.id }, select: { updatedAt: true } });
+    await editar(criado.id, {});
+    expect(await prisma.fornecedor.findUniqueOrThrow({ where: { id: criado.id }, select: { updatedAt: true } })).toEqual(antes);
+    expect(await prisma.eventLog.count({ where: { eventName: "suprimentos.fornecedor.updated", entityId: criado.id } })).toBe(1);
+
+    await Promise.all([repositorio.mudarSituacao(criado.id, true, principal), repositorio.mudarSituacao(criado.id, true, principal)]);
+    expect(await prisma.eventLog.count({ where: { eventName: "suprimentos.fornecedor.reactivated", entityId: criado.id } })).toBe(1);
   }, PRAZO_MS);
 });

@@ -26,7 +26,11 @@ import {
   paraItemDaLista,
 } from "./fornecedores.rules";
 
-/** Teto da lista: o cadastro é pequeno (dezenas), e a tela filtra por busca. */
+/**
+ * Teto da lista: o cadastro é pequeno (dezenas), e a tela filtra por busca.
+ * A contagem não tem teto, então passar de 500 aparece como contagem maior que
+ * os itens; se o cadastro crescer, a lista ganha paginação.
+ */
 const LIMITE_DA_LISTA = 500;
 
 const DOCUMENTO_REPETIDO = [{ campo: "documento", problema: "Já existe um fornecedor com este documento." }];
@@ -83,6 +87,8 @@ export class PrismaFornecedoresRepository extends FornecedoresRepository {
 
   async editar(id: string, input: EditarFornecedor, principal: AuthPrincipal): Promise<Fornecedor> {
     await this.garantirExistente(id);
+    // Edição sem campo nenhum não grava, não muda a autoria nem gera evento.
+    if (camposInformados(input).length === 0) return this.obter(id);
     if (input.documento) await this.garantirDocumentoLivre(input.documento, id);
     const editado = await this.comDocumentoUnico(() => this.prisma.comContexto(async (tx) => {
       const linha = await tx.fornecedor.update({
@@ -96,15 +102,19 @@ export class PrismaFornecedoresRepository extends FornecedoresRepository {
     return fornecedorSchema.parse(paraFornecedor(editado));
   }
 
-  /** Idempotente: inativar quem já está inativo não grava nada nem gera evento. */
+  /**
+   * Idempotente: inativar quem já está inativo não grava nada nem gera evento.
+   * A troca é condicional à situação oposta, então duas requisições simultâneas
+   * geram um evento só.
+   */
   async mudarSituacao(id: string, ativo: boolean, principal: AuthPrincipal): Promise<Fornecedor> {
-    const atual = await this.garantirExistente(id);
-    if (atual.ativo !== ativo) {
-      await this.prisma.comContexto(async (tx) => {
-        await tx.fornecedor.update({ where: { id }, data: { ativo, atualizadoPorId: principal.id } });
+    await this.garantirExistente(id);
+    await this.prisma.comContexto(async (tx) => {
+      const { count } = await tx.fornecedor.updateMany({ where: { id, ativo: !ativo }, data: { ativo, atualizadoPorId: principal.id } });
+      if (count === 1) {
         await this.registrar(tx, ativo ? "suprimentos.fornecedor.reactivated" : "suprimentos.fornecedor.inactivated", id, principal, {});
-      });
-    }
+      }
+    });
     return this.obter(id);
   }
 
