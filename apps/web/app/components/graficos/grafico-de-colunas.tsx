@@ -129,13 +129,14 @@ export function GraficoDeColunas({ titulo, series, pontos, formatarValor, format
     </div>
     <details className={styles.tabela}>
       <summary>Ver os números</summary>
-      <table>
+      {/* Papéis explícitos: a semântica de tabela sobrevive quando ela vira cards (display block/grid). */}
+      <table role="table">
         <caption className="sr-only">{titulo}</caption>
-        <thead><tr><th scope="col">Período</th>{series.map((s) => <th key={s.chave} scope="col">{s.rotulo}</th>)}{saldo ? <th scope="col">{saldo.rotulo}</th> : null}</tr></thead>
-        <tbody>{pontos.map((p, k) => <tr key={k}>
-          <th scope="row">{p.rotulo}{p.previsto ? ` · ${legendaDoPrevisto.toLowerCase()}` : ""}</th>
-          {series.map((s) => <td key={s.chave} data-l={s.rotulo}>{formatarValor(p.valores[s.chave] ?? 0)}</td>)}
-          {saldo && series.length >= 2 ? <td data-l={saldo.rotulo}>{saldo.formatar((p.valores[series[0]!.chave] ?? 0) - (p.valores[series[1]!.chave] ?? 0))}</td> : null}
+        <thead role="rowgroup"><tr role="row"><th role="columnheader" scope="col">Período</th>{series.map((s) => <th key={s.chave} role="columnheader" scope="col">{s.rotulo}</th>)}{saldo ? <th role="columnheader" scope="col">{saldo.rotulo}</th> : null}</tr></thead>
+        <tbody role="rowgroup">{pontos.map((p, k) => <tr key={k} role="row">
+          <th role="rowheader" scope="row">{p.rotulo}{p.previsto ? ` · ${legendaDoPrevisto.toLowerCase()}` : ""}</th>
+          {series.map((s) => <td key={s.chave} role="cell" data-l={s.rotulo}>{formatarValor(p.valores[s.chave] ?? 0)}</td>)}
+          {saldo && series.length >= 2 ? <td role="cell" data-l={saldo.rotulo}>{saldo.formatar((p.valores[series[0]!.chave] ?? 0) - (p.valores[series[1]!.chave] ?? 0))}</td> : null}
         </tr>)}</tbody>
       </table>
     </details>
