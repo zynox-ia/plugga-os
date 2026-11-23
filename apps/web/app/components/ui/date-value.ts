@@ -27,6 +27,17 @@ export function maskDateInput(value: string): string {
   return [digits.slice(0, 2), digits.slice(2, 4), digits.slice(4)].filter(Boolean).join("/");
 }
 
+/**
+ * Valor que o formulário recebe para o texto digitado: a data (aaaa-mm-dd) quando
+ * vale, e "" quando o campo está vazio ou o texto não vale (incompleto, inexistente
+ * ou fora do min/max). Uma data inválida nunca deixa o formulário com a anterior.
+ */
+export function valorDigitado(texto: string, limites: { min?: string; max?: string }): { valor: string; valido: boolean } {
+  if (!texto) return { valor: "", valido: true };
+  if (dateInputError(texto, limites)) return { valor: "", valido: false };
+  return { valor: dateValue(parseDateInput(texto)!), valido: true };
+}
+
 export function dateInputError(value: string, { min, max, required }: { min?: string; max?: string; required?: boolean }): string | undefined {
   if (!value) return required ? "Informe uma data." : undefined;
   const parsed = parseDateInput(value);

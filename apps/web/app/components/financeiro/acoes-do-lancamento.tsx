@@ -23,7 +23,6 @@ import visao from "../pipelines/resumo-do-lead.module.css";
 import { CampoDeMenu } from "../suprimentos/menu-com-busca";
 import { Alert, Button, DatePicker, Dialog, FileDropzone, TextField, TextareaField } from "../ui";
 import styles from "./ficha.module.css";
-import { dataDigitadaInvalida } from "./partes";
 
 type Agir = (acao: AcaoDoLancamento) => Promise<boolean>;
 /** Anexa e devolve o problema, ou nulo. */
@@ -129,7 +128,6 @@ function FormDoPagamento({ l, opcoes, ocupado, hoje, formId, aoAgir, aoAnexar }:
 
   async function enviar(evento: FormEvent<HTMLFormElement>) {
     evento.preventDefault();
-    if (dataDigitadaInvalida(evento.currentTarget, pagoEm)) return;
     const { corpo, porCampo } = corpoDoPagamento({ forma, contaCorrenteId: conta, pagoEm, temComprovante: Boolean(l.comprovanteAtual) || arquivo.length > 0 }, hoje);
     const problema = arquivo[0] ? problemaDoAnexo(arquivo[0]) : null;
     if (problema) porCampo.comprovante = problema;
@@ -251,7 +249,6 @@ export function RegistrarRecebimento({ l, opcoes, hoje, aoVoltar, aoAgir, aoAnex
   const [enviando, setEnviando] = useState(false);
   async function confirmar(evento: FormEvent<HTMLFormElement>) {
     evento.preventDefault();
-    if (dataDigitadaInvalida(evento.currentTarget, recebidoEm)) return;
     const { corpo, porCampo } = corpoDoRecebimento({ contaCorrenteId: conta, recebidoEm, valor }, hoje);
     const p = arquivo[0] ? problemaDoAnexo(arquivo[0]) : null;
     if (p) porCampo.comprovante = p;

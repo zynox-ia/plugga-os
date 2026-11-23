@@ -14,7 +14,6 @@ import estilosCompras from "../compras/compras.module.css";
 import { CampoDeMenu } from "../suprimentos/menu-com-busca";
 import { Alert, Button, Checkbox, DatePicker, Dialog, TextField, TextareaField } from "../ui";
 import styles from "./ficha.module.css";
-import { dataDigitadaInvalida } from "./partes";
 
 type Cliente = ClientesDoFinanceiroResposta["itens"][number];
 
@@ -78,7 +77,6 @@ export function NovaCobranca({ opcoes, aoCancelar, aoSalvar, aoAbrirExistente }:
 
   async function salvar(evento: FormEvent<HTMLFormElement>) {
     evento.preventDefault();
-    if (dataDigitadaInvalida(evento.currentTarget, campos.vencimento)) return;
     const { corpo, porCampo } = corpoDaCobranca(campos);
     setErros(porCampo); setMensagem(null); setRepetida(null);
     if (!corpo) { setMensagem("Confira os campos destacados."); focarErro(); return; }

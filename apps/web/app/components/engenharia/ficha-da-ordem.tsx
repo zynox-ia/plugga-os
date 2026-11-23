@@ -12,6 +12,7 @@ import { Avatar } from "../pipelines/icones";
 import detalhes from "../pipelines/detalhes-do-lead-modal.module.css";
 import { EmpresaComPonto } from "../suprimentos/empresa";
 import { Alert, Button, DatePicker, Dialog, TextareaField } from "../ui";
+import { dataInvalidaEm } from "../ui/date-picker";
 import { EquipamentoDaOrdem, EvidenciasDaOrdem, LinhaDoTempoDaOrdem, MaterialDaOrdem } from "./abas-da-ordem";
 import { agirNaOrdem, enviarArquivoDaOrdem, problemaDaFoto, relerOrdem, type RespostaDaOrdem } from "./envios";
 import styles from "./ficha-da-ordem.module.css";
@@ -103,6 +104,7 @@ export function FichaDaOrdem({ ordem: inicial, opcoes, podeAbrirCompras, aoFecha
   }
 
   function agendar() {
+    if (dataInvalidaEm(document.getElementById(`${id}-painel`))) return;
     const problemas = problemasDoAgendamento(agendamento, hoje, agoraEmManaus());
     setErrosDoAgendamento(problemas);
     if (Object.values(problemas).some(Boolean)) return;

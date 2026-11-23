@@ -21,7 +21,6 @@ import {
 import { CampoDeMenu } from "../suprimentos/menu-com-busca";
 import { Alert, Button, DatePicker, Dialog, Heading, TextField, TextareaField } from "../ui";
 import { displayCurrency } from "../ui/currency-value";
-import { dataDigitadaInvalida } from "./partes";
 
 /**
  * Nova conta a pagar avulsa (contabilidade, imposto, assinatura, reembolso).
@@ -71,7 +70,6 @@ export function ContaAPagarForm({ opcoes, lancamento, gerente, aoCancelar, aoSal
 
   async function salvar(evento: FormEvent<HTMLFormElement>) {
     evento.preventDefault();
-    if (dataDigitadaInvalida(evento.currentTarget, campos.vencimento)) return;
     let corpo: Record<string, unknown> | undefined;
     let porCampo: Record<string, string>;
     if (lancamento) ({ corpo, porCampo } = corpoDaEdicao(inicial, campos));

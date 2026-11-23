@@ -4,7 +4,22 @@ import { useEffect, useId, useRef, useState } from "react";
 import { CalendarDaysIcon } from "lucide-react";
 import { Calendar } from "./shadcn/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "./shadcn/popover";
-import { dateInputError, dateValue, displayDate, maskDateInput, parseDate, parseDateInput } from "./date-value";
+import { dateInputError, dateValue, displayDate, maskDateInput, parseDate, parseDateInput, valorDigitado } from "./date-value";
+
+/**
+ * Para envios fora de um <form> (botão com onClick): procura em `raiz` um DatePicker
+ * com data digitada que não vale (incompleta, inexistente ou fora do min/max). Se
+ * achar, o campo mostra o erro e ganha o foco, e a função responde true para o
+ * envio parar. Campo vazio fica com a validação de quem chama (required).
+ * Dentro de um <form>, o próprio DatePicker já segura o submit.
+ */
+export function dataInvalidaEm(raiz: ParentNode | null | undefined): boolean {
+  const campo = [...(raiz?.querySelectorAll<HTMLInputElement>(".ui-date-input-wrap input") ?? [])]
+    .find((input) => !input.disabled && !input.readOnly && input.value !== "" && !input.checkValidity());
+  if (!campo) return false;
+  campo.focus();
+  return true;
+}
 
 export function DatePicker({ label, value, defaultValue = "", onChange, name, min, max, disabled = false, readOnly = false, required = false, hint, error }: {
   label: string; value?: string; defaultValue?: string; onChange?: (value: string) => void; name?: string;
@@ -20,13 +35,20 @@ export function DatePicker({ label, value, defaultValue = "", onChange, name, mi
   const [open, setOpen] = useState(false);
   const [month, setMonth] = useState<Date>();
   const [container, setContainer] = useState<HTMLElement | null>(null);
+  // Último valor avisado ao formulário: quando o value volta com ele, o texto digitado
+  // fica como está (um "" por data inválida não apaga o que a pessoa está digitando).
+  const emitido = useRef<string | undefined>(undefined);
   const issue = dateInputError(draft, { min, max, required });
   const message = error || (touched ? issue : undefined);
   const parsed = parseDateInput(draft);
   const minDate = min ? parseDate(min) : undefined;
   const maxDate = max ? parseDate(max) : undefined;
 
-  useEffect(() => { setDraft(displayDate(current)); setTouched(false); }, [current]);
+  useEffect(() => {
+    if (current === emitido.current) return;
+    emitido.current = undefined;
+    setDraft(displayDate(current)); setTouched(false);
+  }, [current]);
   useEffect(() => { input.current?.setCustomValidity(error || issue || ""); }, [issue, error]);
   useEffect(() => {
     const form = input.current?.form;
@@ -37,8 +59,26 @@ export function DatePicker({ label, value, defaultValue = "", onChange, name, mi
     form?.addEventListener("reset", reset);
     return () => form?.removeEventListener("reset", reset);
   }, [value, defaultValue]);
+  // Data digitada inválida segura o envio do formulário, inclusive com noValidate: o
+  // listener no próprio form corre antes do onSubmit do React (delegado na raiz).
+  // Campo vazio fica com a validação do formulário (required).
+  useEffect(() => {
+    const form = input.current?.form;
+    if (!form) return;
+    const segurar = (event: SubmitEvent) => {
+      const campo = input.current;
+      if (!campo || campo.disabled || campo.readOnly || !dateInputError(campo.value, { min, max })) return;
+      event.preventDefault(); event.stopImmediatePropagation();
+      setTouched(true); campo.focus();
+    };
+    form.addEventListener("submit", segurar);
+    return () => form.removeEventListener("submit", segurar);
+  }, [min, max]);
 
-  const update = (next: string) => { setInternalValue(next); onChange?.(next); };
+  const update = (next: string) => {
+    if (next === current) return;
+    emitido.current = next; setInternalValue(next); onChange?.(next);
+  };
   const select = (date?: Date) => {
     const next = date ? dateValue(date) : "";
     update(next); setDraft(displayDate(next)); setTouched(false); setOpen(false);
@@ -68,8 +108,7 @@ export function DatePicker({ label, value, defaultValue = "", onChange, name, mi
           onChange={(event) => {
             const next = maskDateInput(event.target.value);
             setDraft(next); setTouched(false);
-            if (!next) update("");
-            else if (!dateInputError(next, { min, max })) update(dateValue(parseDateInput(next)!));
+            update(valorDigitado(next, { min, max }).valor);
           }}
           onKeyDown={(event) => { if (event.key === "ArrowDown") { event.preventDefault(); changeOpen(true); } }} />
         <PopoverTrigger asChild><button ref={trigger} type="button" className="ui-date-trigger" disabled={disabled || readOnly}

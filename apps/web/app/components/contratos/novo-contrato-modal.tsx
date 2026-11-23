@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type DragEvent } from "react";
 
 import { createContract, updateContractStatus } from "../../lib/commercial-client";
 import { BuscaDeCliente, type ClienteEscolhido } from "../pipelines/busca-de-cliente";
+import { dataInvalidaEm } from "../ui/date-picker";
 import {
   Alert,
   Button,
@@ -90,6 +91,7 @@ export function NovoContratoModal({
   const [erro, setErro] = useState<string | null>(null);
 
   const responsavelTriggerRef = useRef<HTMLButtonElement>(null);
+  const vigenciaRef = useRef<HTMLDivElement>(null);
   const [containerResponsavel, setContainerResponsavel] = useState<HTMLElement | null>(null);
 
   // Carrega membros da equipe disponíveis
@@ -170,6 +172,8 @@ export function NovoContratoModal({
   }
 
   async function submeter(destino: "rascunho" | "aguardando_assinatura") {
+    // Data da vigência digitada sem valer não vai como "sem data": o campo mostra o erro.
+    if (dataInvalidaEm(vigenciaRef.current)) return;
     if (!cliente) {
       setErro("Selecione o cliente contratante.");
       return;
@@ -497,7 +501,7 @@ export function NovoContratoModal({
             </div>
           </div>
 
-          <div className="ui-dialog-grid">
+          <div ref={vigenciaRef} className="ui-dialog-grid">
             <DatePicker
               label="Início da vigência"
               value={inicioVigencia}
