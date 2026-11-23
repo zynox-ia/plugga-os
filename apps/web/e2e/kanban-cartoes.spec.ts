@@ -64,9 +64,12 @@ test("cartão compacto preserva identificação e detalhes sem o bloco de invest
   const detalhes = page.getByRole("dialog", { name: "Detalhes do lead", exact: true });
   await expect(detalhes).toBeVisible();
   const cabecalho = detalhes.locator("header").first();
-  await expect(cabecalho.getByRole("button", { name: pipeline.wonLabel, exact: true })).toBeVisible();
+  // Desde o 1f32452 os botões de encerramento saíram do cabeçalho e ficam no rodapé do resumo do lead.
+  await expect(cabecalho.getByRole("button", { name: pipeline.wonLabel, exact: true })).toHaveCount(0);
   await expect(cabecalho.getByRole("button", { name: pipeline.lostLabel, exact: true })).toHaveCount(0);
-  await cabecalho.getByRole("button", { name: pipeline.wonLabel, exact: true }).click();
+  const encerramento = detalhes.locator("footer").filter({ has: page.getByRole("button", { name: pipeline.wonLabel, exact: true }) });
+  await expect(encerramento.getByRole("button", { name: pipeline.lostLabel, exact: true })).toBeVisible();
+  await encerramento.getByRole("button", { name: pipeline.wonLabel, exact: true }).click();
   const confirmarGanho = page.getByRole("dialog", { name: `Marcar como ${pipeline.wonLabel}`, exact: true });
   await expect(confirmarGanho.getByLabel("Deseja converter este lead em cliente?")).toBeChecked();
   await confirmarGanho.getByRole("button", { name: "Cancelar", exact: true }).click();

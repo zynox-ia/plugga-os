@@ -55,7 +55,7 @@ test("campos próprios persistem por tipo, aparecem no quadro e exigem confirma�
     await expect(cartao).toContainText("Laje");
     await expect(cartao).toContainText("1.234,50");
     await expect(cartao).toContainText("09/11/2026");
-    await page.getByRole("link", { name: "Lista", exact: true }).click();
+    await page.getByRole("link", { name: "Todos os negócios", exact: true }).click();
     await page.waitForURL(/visao=lista/);
     await expect(page.getByRole("columnheader", { name: "Consumo", exact: true })).toBeVisible();
     await expect(page.getByRole("columnheader", { name: "Autorizado", exact: true })).toBeVisible();

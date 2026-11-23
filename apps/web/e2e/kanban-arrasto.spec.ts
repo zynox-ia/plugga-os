@@ -109,7 +109,8 @@ test("persiste a posição indicada e restaura a ordem quando o servidor recusa"
   await origem.dispatchEvent("drop");
   const reordenado = await reordenacao;
   expect(reordenado.ok()).toBe(true);
-  expect(reordenado.request().postDataJSON()).toEqual({ stageId: pipeline.stages[0]!.id, beforeDealId: null });
+  // Desde o 7094cae a transição leva a origem e a versão do negócio (controle de concorrência).
+  expect(reordenado.request().postDataJSON()).toEqual({ stageId: pipeline.stages[0]!.id, beforeDealId: null, origin: "quadro", version: antes.version });
   expect((await reordenado.json()).stageEnteredAt).toBe(antes.stageEnteredAt);
   await expect(origem.getByRole("article").last()).toHaveAttribute("aria-label", nome!);
   expect(mutacoes).toHaveLength(1);

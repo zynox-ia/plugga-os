@@ -126,7 +126,7 @@ test.describe("Negócios no quadro do pipeline (PLU-271)", () => {
     await expect(card).toHaveCount(0, { timeout: MUTATION_TIMEOUT_MS });
 
     // Na Lista, com os perdidos, o negócio aparece com a situação.
-    await page.getByRole("link", { name: "Lista" }).click();
+    await page.getByRole("link", { name: "Todos os negócios", exact: true }).click();
     await expect(page).toHaveURL(/visao=lista/);
     const linha = page.getByRole("row").filter({ hasText: titulo });
     await expect(linha.getByText("Perdido", { exact: true })).toBeVisible();

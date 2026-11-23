@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { randomUUID } from "node:crypto";
+import { confirmarEmailDesligado } from "./support/email-desligado";
 
 /**
  * Configurações → Equipe e acessos, pela sessão do admin semeado.
@@ -126,9 +127,7 @@ test.describe("Configurações → Equipe e Acessos", () => {
     const api = new URL(baseURL!);
     expect(["localhost", "127.0.0.1"]).toContain(api.hostname);
     api.port = String(Number(api.port) + 1);
-    const statusEmail = await request.get(`${api.origin}/email/status`);
-    expect(statusEmail.ok()).toBe(true);
-    expect(await statusEmail.json()).toMatchObject({ provider: "noop" });
+    await confirmarEmailDesligado(baseURL!, api.origin, "203.0.113.247");
     // Dados próprios: quantidade e paginação não dependem do seed nem de outros testes.
     const prefixo = `paginacao-${randomUUID()}`;
     const ids: string[] = [];
