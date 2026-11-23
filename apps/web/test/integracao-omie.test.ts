@@ -10,6 +10,7 @@ import {
   empresaDoTeste,
   empresasNoTeste,
   podeDefinirCnpj,
+  resultadoDaAcao,
   resumoDoCartao,
   seloDoCartao,
   textoDoBloqueio,
@@ -77,5 +78,50 @@ describe("cartão do OMIE", () => {
     assert.equal(cnpjDigitado("123").erro, "informe os 14 dígitos do CNPJ.");
     assert.equal(podeDefinirCnpj({ plataforma: "admin" }), true);
     assert.equal(podeDefinirCnpj({ plataforma: null }), false);
+  });
+});
+
+describe("aviso geral depois de cada ação, lido do cartão que a API devolve", () => {
+  const confirmadaPlugga = { situacao: "conectada" as const, mascara: "••••1234", confirmada: { em: "2026-11-23T14:00:00.000Z", por: "Gerente (sintético)", cnpj: "12345678000190", razaoSocial: "Plugga Exemplo (sintético)" } };
+
+  it("trocar a chave da Waze pela já confirmada na Plugga e testar: erro com a explicação, nunca 'Teste feito.'", () => {
+    // Trocar a chave grava o par e volta para "a testar".
+    const depoisDeTrocar = estado(confirmadaPlugga, { situacao: "a_testar", mascara: "••••1234" });
+    assert.deepEqual(resultadoDaAcao("gravar", "waze", depoisDeTrocar), { tom: "sucesso", texto: "Chave da Waze Energia guardada. Use “Testar” para conferir de qual empresa ela é." });
+    // O teste devolve o CNPJ já confirmado na Plugga: a Waze fica bloqueada.
+    const depoisDeTestar = estado(confirmadaPlugga, { situacao: "bloqueada", bloqueio: "cnpj_de_outra_empresa", mascara: "••••1234", ultimoTeste: teste("12345678000190") });
+    const r = resultadoDaAcao("testar", "waze", depoisDeTestar);
+    assert.equal(r.tom, "erro");
+    assert.match(r.texto, /^Conexão da Waze Energia bloqueada\. Esta chave é da outra empresa/);
+  });
+
+  it("testar: conectada e a confirmar saem em sucesso; sem situação conhecida, 'Teste feito.'", () => {
+    assert.deepEqual(resultadoDaAcao("testar", "plugga", estado(confirmadaPlugga, {})), { tom: "sucesso", texto: "Plugga conectada: o CNPJ confere com o cadastro." });
+    assert.match(resultadoDaAcao("testar", "waze", estado({}, { situacao: "a_confirmar", mascara: "••••9", ultimoTeste: teste("98765432000110") })).texto, /Confira se é mesmo a Waze Energia/);
+    assert.deepEqual(resultadoDaAcao("testar", "waze", null), { tom: "sucesso", texto: "Teste feito." });
+  });
+
+  it("qualquer ação que deixe a empresa bloqueada ou ilegível sai em erro (confirmar, mover a conta antiga)", () => {
+    const bloqueadaPlugga = estado({ situacao: "bloqueada", bloqueio: "mais_de_uma_empresa", ultimoTeste: { ...teste("1", "2"), total: 3 } }, {}, { mascara: "••••a1b2", atualizadoEm: "2026-11-01T00:00:00.000Z" });
+    const mover = resultadoDaAcao("mover", "plugga", bloqueadaPlugga);
+    assert.equal(mover.tom, "erro");
+    assert.match(mover.texto, /devolveu 3 empresas.*A conta antiga continua guardada\.$/);
+    assert.equal(resultadoDaAcao("confirmar", "plugga", bloqueadaPlugga).tom, "erro");
+    assert.equal(resultadoDaAcao("testar", "waze", estado({}, { situacao: "ilegivel" })).tom, "erro");
+  });
+
+  it("gravar na Waze o CNPJ com que a Plugga foi confirmada bloqueia a Plugga: o aviso sai em erro, falando dela", () => {
+    const depois = estado({ situacao: "bloqueada", bloqueio: "cnpj_diferente_do_cadastro", mascara: "••••1234" }, { cnpjDoCadastro: "12345678000190" });
+    const r = resultadoDaAcao("cnpj", "waze", depois);
+    assert.equal(r.tom, "erro");
+    assert.match(r.texto, /^CNPJ da Waze Energia gravado\. A conexão da Plugga ficou bloqueada: O CNPJ que o OMIE devolveu não é o do cadastro da Plugga/);
+    assert.equal(resultadoDaAcao("cnpj_removido", "waze", depois).tom, "erro");
+  });
+
+  it("desconectar, CNPJ e mover que conecta saem em sucesso", () => {
+    assert.equal(resultadoDaAcao("desconectar", "waze", estado({}, {})).texto, "OMIE da Waze Energia desconectado.");
+    assert.equal(resultadoDaAcao("cnpj", "plugga", estado({}, {})).texto, "CNPJ da Plugga gravado. Teste a chave de novo para conferir.");
+    assert.equal(resultadoDaAcao("cnpj_removido", "plugga", estado({}, {})).texto, "CNPJ da Plugga removido do cadastro.");
+    assert.equal(resultadoDaAcao("mover", "plugga", estado(confirmadaPlugga, {})).texto, "A conta antiga virou a chave da Plugga, conferida pelo CNPJ.");
   });
 });

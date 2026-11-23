@@ -13,8 +13,10 @@ import {
   empresaDoTeste,
   empresasNoTeste,
   podeDefinirCnpj,
+  resultadoDaAcao,
   resumoDoCartao,
   SELO_DA_SITUACAO,
+  type AcaoDoCartaoOmie,
   seloDoCartao,
   textoDoBloqueio,
 } from "../lib/integracao-omie";
@@ -113,19 +115,19 @@ export function IntegracaoOmie({ acesso }: { acesso: Acesso }) {
   }
 
   /**
-   * As ações devolvem o estado atualizado da conexão; relê o cartão inteiro para o
-   * selo e a conta antiga. Um resultado `{ erro }` (o teste bloqueou) sai no aviso
-   * de erro, não no de sucesso.
+   * Toda rota devolve o cartão inteiro (EstadoDasConexoesOmie): ele vira o estado
+   * da tela, e o aviso geral sai do resultado da ação nesse estado
+   * (`resultadoDaAcao`). Um aviso só, nunca contraditório com a linha da empresa.
    */
-  async function depois(resposta: Response | null, mensagem: (c: ConexaoOmieDaEmpresa | null) => string | { erro: string }): Promise<boolean> {
+  async function depois(resposta: Response | null, acao: AcaoDoCartaoOmie, empresa: CompanyKey): Promise<boolean> {
     if (!resposta) return false;
-    const conexao = (await resposta.json().catch(() => null)) as ConexaoOmieDaEmpresa | null;
-    await carregar();
+    const novo = (await resposta.json().catch(() => null)) as EstadoDasConexoesOmie | null;
+    if (novo?.conexoes) setEstado(novo);
+    else await carregar();
     setVista({ tipo: "gerenciar" });
-    const texto = mensagem(conexao);
-    // Um aviso só por vez: o verde da ação anterior não fica junto do vermelho novo.
-    if (typeof texto === "string") { setErro(null); setAviso(texto); }
-    else { setAviso(null); setErro(texto.erro); }
+    const resultado = resultadoDaAcao(acao, empresa, novo?.conexoes ? novo : null);
+    if (resultado.tom === "sucesso") { setErro(null); setAviso(resultado.texto); }
+    else { setAviso(null); setErro(resultado.texto); }
     return true;
   }
 
@@ -143,16 +145,13 @@ export function IntegracaoOmie({ acesso }: { acesso: Acesso }) {
     // A chave e o segredo saem da tela antes de qualquer outra coisa, também na falha.
     limparCampos();
     if (!resposta) { setErro((atual) => `${atual ?? "Não foi possível gravar a chave."} Por segurança, os campos foram limpos: digite a chave e o segredo de novo.`); return; }
-    await depois(resposta, () => `Chave da ${nome(empresa)} guardada. Use “Testar” para conferir de qual empresa ela é.`);
+    await depois(resposta, "gravar", empresa);
   }
 
   async function testar(empresa: CompanyKey) {
     setAviso(null);
     const resposta = await chamar(`${empresa}:teste`, () => fetch(`/api/integracoes/omie/empresas/${empresa}/teste`, { method: "POST" }), "não foi possível testar a chave");
-    await depois(resposta, (c) => c?.situacao === "conectada" ? `${nome(empresa)} conectada: o CNPJ confere com o cadastro.`
-      : c?.situacao === "a_confirmar" ? `Teste feito. Confira se é mesmo a ${nome(empresa)} e confirme.`
-      : c?.situacao === "bloqueada" ? { erro: `Conexão da ${nome(empresa)} bloqueada. ${c.bloqueio ? textoDoBloqueio(c.bloqueio, empresa, empresasNoTeste(c)) : ""}`.trim() }
-      : "Teste feito.");
+    await depois(resposta, "testar", empresa);
   }
 
   async function confirmar(conexao: ConexaoOmieDaEmpresa) {
@@ -164,14 +163,14 @@ export function IntegracaoOmie({ acesso }: { acesso: Acesso }) {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ cnpj: doTeste.cnpj }),
     }), "não foi possível confirmar a empresa");
-    await depois(resposta, () => `${nome(conexao.empresa)} conectada.`);
+    await depois(resposta, "confirmar", conexao.empresa);
   }
 
   async function desconectar() {
     if (vista.tipo !== "desconectar") return;
     const { empresa } = vista;
     const resposta = await chamar("formulario", () => fetch(`/api/integracoes/omie/empresas/${empresa}`, { method: "DELETE" }), "não foi possível desconectar");
-    await depois(resposta, () => `OMIE da ${nome(empresa)} desconectado.`);
+    await depois(resposta, "desconectar", empresa);
   }
 
   async function salvarCnpj(evento: FormEvent) {
@@ -185,16 +184,13 @@ export function IntegracaoOmie({ acesso }: { acesso: Acesso }) {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ cnpj: digitado.cnpj }),
     }), "não foi possível gravar o CNPJ");
-    await depois(resposta, () => digitado.cnpj ? `CNPJ da ${nome(empresa)} gravado. Teste a chave de novo para conferir.` : `CNPJ da ${nome(empresa)} removido do cadastro.`);
+    await depois(resposta, digitado.cnpj ? "cnpj" : "cnpj_removido", empresa);
   }
 
   async function moverContaAntiga() {
     setAviso(null);
     const resposta = await chamar("mover", () => fetch("/api/integracoes/omie/empresas/plugga/mover-conta-antiga", { method: "POST" }), "não foi possível mover a conta antiga");
-    await depois(resposta, (c) => c?.situacao === "conectada" ? "A conta antiga virou a chave da Plugga, conferida pelo CNPJ."
-      : c?.situacao === "a_confirmar" ? "A conta antiga foi testada. Confirme se é a Plugga; até lá ela continua guardada."
-      : c?.situacao === "bloqueada" ? { erro: `${c.bloqueio ? textoDoBloqueio(c.bloqueio, "plugga", empresasNoTeste(c)) : "A conexão ficou bloqueada."} A conta antiga continua guardada.` }
-      : "A conta antiga foi testada e continua guardada até a confirmação.");
+    await depois(resposta, "mover", "plugga");
   }
 
   const conexoes = estado?.conexoes ?? [];

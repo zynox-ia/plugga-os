@@ -85,3 +85,44 @@ export function acoesDaConexao(c: Pick<ConexaoOmieDaEmpresa, "situacao" | "masca
 
 /** O CNPJ do cadastro é a referência da conferência: só Admin e Desenvolvedor o definem (a API garante). */
 export const podeDefinirCnpj = (acesso: Pick<Acesso, "plataforma">): boolean => acesso.plataforma !== null;
+
+// ---------------------------------------------------------------- resultado das ações
+
+export type AcaoDoCartaoOmie = "gravar" | "testar" | "confirmar" | "desconectar" | "cnpj" | "cnpj_removido" | "mover";
+
+/**
+ * O aviso geral depois de uma ação, lido do estado que a API devolve (todas as
+ * rotas devolvem o cartão inteiro). Um aviso só, que nunca contradiz a linha da
+ * empresa: se ela ficou bloqueada ou ilegível, o aviso é de erro, com a explicação.
+ */
+export function resultadoDaAcao(acao: AcaoDoCartaoOmie, empresa: CompanyKey, estado: EstadoDasConexoesOmie | null): { tom: "sucesso" | "erro"; texto: string } {
+  const conexao = estado?.conexoes.find((c) => c.empresa === empresa) ?? null;
+  const nome = NOME[empresa];
+  if (conexao?.situacao === "bloqueada") {
+    const motivo = conexao.bloqueio ? textoDoBloqueio(conexao.bloqueio, empresa, empresasNoTeste(conexao)) : "O teste não conferiu a empresa.";
+    const antiga = acao === "mover" && estado?.contaAntiga ? " A conta antiga continua guardada." : "";
+    return { tom: "erro", texto: `Conexão da ${nome} bloqueada. ${motivo}${antiga}` };
+  }
+  if (conexao?.situacao === "ilegivel") return { tom: "erro", texto: `A chave da ${nome} não pode ser lida: a chave-mestra do cofre mudou. Conecte de novo.` };
+  // O CNPJ do cadastro reavalia as duas conexões: gravar o de uma pode bloquear a outra.
+  if (acao === "cnpj" || acao === "cnpj_removido") {
+    const outra = estado?.conexoes.find((c) => c.empresa !== empresa && c.situacao === "bloqueada");
+    if (outra) {
+      const feito = acao === "cnpj" ? `CNPJ da ${nome} gravado.` : `CNPJ da ${nome} removido do cadastro.`;
+      const motivo = outra.bloqueio ? textoDoBloqueio(outra.bloqueio, outra.empresa, empresasNoTeste(outra)) : "O teste não conferiu a empresa.";
+      return { tom: "erro", texto: `${feito} A conexão da ${NOME[outra.empresa]} ficou bloqueada: ${motivo}` };
+    }
+  }
+  switch (acao) {
+    case "gravar": return { tom: "sucesso", texto: `Chave da ${nome} guardada. Use “Testar” para conferir de qual empresa ela é.` };
+    case "desconectar": return { tom: "sucesso", texto: `OMIE da ${nome} desconectado.` };
+    case "cnpj": return { tom: "sucesso", texto: `CNPJ da ${nome} gravado. Teste a chave de novo para conferir.` };
+    case "cnpj_removido": return { tom: "sucesso", texto: `CNPJ da ${nome} removido do cadastro.` };
+    case "confirmar":
+    case "testar":
+    case "mover":
+      if (conexao?.situacao === "conectada") return { tom: "sucesso", texto: acao === "mover" ? "A conta antiga virou a chave da Plugga, conferida pelo CNPJ." : `${nome} conectada: o CNPJ confere${acao === "confirmar" ? "" : " com o cadastro"}.` };
+      if (conexao?.situacao === "a_confirmar") return { tom: "sucesso", texto: `Teste feito. Confira se é mesmo a ${nome} e confirme.${acao === "mover" ? " Até lá, a conta antiga continua guardada." : ""}` };
+      return { tom: "sucesso", texto: "Teste feito." };
+  }
+}
