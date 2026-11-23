@@ -1,13 +1,13 @@
 import { expect, test } from "@playwright/test";
-import { PRAZO_PADRAO_DO_TIPO } from "@plugga/shared";
+import { PRAZO_PADRAO_DO_TIPO, type ConfiguracoesDaEngenharia } from "@plugga/shared";
 
 import { bloquearTerceiros } from "./support/sem-terceiros";
 
 /**
  * Visão geral e Configurações da Engenharia (PLU-349): os metric cards abrem as
  * O.S. filtradas; o prazo padrão de um tipo muda nas Configurações e pré-preenche
- * a Nova O.S. O teste usa o tipo Outros (o menos usado) e devolve o prazo no fim; a
- * configuração não leva a marca da execução, então o teardown não a restaura.
+ * a Nova O.S. O teste usa o tipo Outros (o menos usado) e devolve o prazo e quem agenda
+ * no fim; a configuração não leva a marca da execução, então o teardown não a restaura.
  */
 
 test.use({ extraHTTPHeaders: { "x-forwarded-for": "203.0.113.216" }, contextOptions: { reducedMotion: "reduce" } });
@@ -24,6 +24,13 @@ test("Visão geral: cards abrem as O.S. filtradas; Configurações mudam o prazo
   // O card Atrasadas abre as O.S. com o filtro de atenção.
   await page.getByRole("button", { name: /^Atrasadas/ }).click();
   await expect(page).toHaveURL(/\/engenharia\/ordens-de-servico\?situacao=atrasadas/, DEPOIS_DA_ACAO);
+
+  // O que está configurado para Outros agora, para devolver no fim (se a leitura falhar, vale o padrão do contrato).
+  const antes = await request.get("/api/engenharia/configuracoes");
+  const atual = antes.ok() ? ((await antes.json()) as ConfiguracoesDaEngenharia).tipos.find((t) => t.tipo === "outros") : undefined;
+  const devolver = { prazoPadraoDiasUteis: atual?.prazoPadraoDiasUteis ?? PRAZO_PADRAO_DO_TIPO.outros, agendadorId: atual?.agendador?.id ?? null };
+  // Um 5 lido aqui seria o que este teste grava: só pode ser sobra de uma corrida interrompida.
+  if (devolver.prazoPadraoDiasUteis === 5) devolver.prazoPadraoDiasUteis = PRAZO_PADRAO_DO_TIPO.outros;
 
   // Configurações: Outros passa a ter 5 dias úteis.
   await page.goto("/engenharia/visao-geral");
@@ -52,8 +59,8 @@ test("Visão geral: cards abrem as O.S. filtradas; Configurações mudam o prazo
     await page.getByRole("option", { name: "Outros" }).click();
     await expect(nova.getByRole("textbox", { name: /^Prazo/ })).toHaveValue(esperado);
   } finally {
-    // Volta ao padrão do contrato (e não ao valor lido no início, que uma corrida interrompida pode ter deixado mudado).
-    const volta = await request.put("/api/engenharia/configuracoes/tipos/outros", { headers: { origin: baseURL! }, data: { prazoPadraoDiasUteis: PRAZO_PADRAO_DO_TIPO.outros, agendadorId: null } });
-    expect(volta.ok(), "o prazo de Outros não voltou ao padrão").toBeTruthy();
+    // Devolve o prazo e quem agenda de antes; conferido, para uma falha aqui não passar calada.
+    const volta = await request.put("/api/engenharia/configuracoes/tipos/outros", { headers: { origin: baseURL! }, data: devolver });
+    expect(volta.ok(), "a configuração de Outros não voltou ao que era").toBeTruthy();
   }
 });
