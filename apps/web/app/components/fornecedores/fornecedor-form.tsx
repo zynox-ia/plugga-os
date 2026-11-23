@@ -28,10 +28,13 @@ type Propriedades = {
   aoCancelar: () => void;
 };
 
+/** Telefone gravado com o 55 do país e digitado sem ele é o mesmo número. */
+const semDdi = (valor: unknown) => (typeof valor === "string" && /^55\d{10,11}$/.test(valor) ? valor.slice(2) : valor);
+
 /** Só os campos cujo valor difere do que está gravado; formas de pagamento comparadas como conjunto. */
 function camposAlterados(atual: Fornecedor, corpo: Record<string, unknown>): Record<string, unknown> {
-  const normalizar = (valor: unknown) => (Array.isArray(valor) ? JSON.stringify([...valor].sort()) : JSON.stringify(valor ?? null));
-  return Object.fromEntries(Object.entries(corpo).filter(([campo, valor]) => normalizar(valor) !== normalizar(atual[campo as keyof Fornecedor])));
+  const normalizar = (campo: string, valor: unknown) => (Array.isArray(valor) ? JSON.stringify([...valor].sort()) : JSON.stringify((campo === "telefone" ? semDdi(valor) : valor) ?? null));
+  return Object.fromEntries(Object.entries(corpo).filter(([campo, valor]) => normalizar(campo, valor) !== normalizar(campo, atual[campo as keyof Fornecedor])));
 }
 
 /** Criar e editar fornecedor (PLU-326). Na edição, campo vazio vai como `null` e apaga. */

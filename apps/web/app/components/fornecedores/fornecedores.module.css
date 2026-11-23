@@ -11,7 +11,7 @@
 
 .contagem strong {
   color: var(--ui-text);
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .grade {
@@ -107,4 +107,22 @@
   .cidadeUf {
     grid-template-columns: minmax(0, 1fr) 96px !important;
   }
+}
+
+/* Peso máximo 500 (regra do André): o <strong> do navegador é 700. */
+.lista strong,
+.contagem strong {
+  font-weight: 500;
+}
+
+/* Tabela: colunas ao centro, a primeira à esquerda (pedido do André no protótipo). */
+.lista :global(table) :is(th, td):not(:first-child) {
+  text-align: center;
+}
+
+.lista :global(table) td:not(:first-child) > div {
+  justify-content: center;
+  align-items: center;
+  margin-inline: auto;
+  text-align: center;
 }
