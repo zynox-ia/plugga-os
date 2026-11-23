@@ -108,7 +108,14 @@ const textoOpcional = (max: number) =>
   z.preprocess((v) => (typeof v === "string" && v.trim() === "" ? null : v), z.string().trim().max(max).nullable()).optional();
 
 /** Dia do calendário (AAAA-MM-DD), lido no fuso de Manaus. */
-export const diaDoCalendario = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "use o formato AAAA-MM-DD");
+export const diaDoCalendario = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "use o formato AAAA-MM-DD")
+  .refine((v) => {
+    const [ano, mes, dia] = v.split("-").map(Number) as [number, number, number];
+    const data = new Date(Date.UTC(ano, mes - 1, dia));
+    return data.getUTCFullYear() === ano && data.getUTCMonth() === mes - 1 && data.getUTCDate() === dia;
+  }, "data inexistente");
 
 /** Quantidade com até 3 casas, maior que zero. */
 export const quantidadeString = z
@@ -152,7 +159,7 @@ export const criarPedidoDeCompraSchema = z
     ...destinoComVinculo,
     itens: z.array(itemDoPedidoEntradaSchema).min(1, "inclua pelo menos um item").max(100),
     prazoEntregaDesejado: diaDoCalendario,
-    valorOrcado: decimalString.nullable().optional(),
+    valorOrcado: valorPositivo.nullable().optional(),
     /** Ausente: quem cria é o solicitante. */
     solicitanteId: uuid.optional(),
     responsavelId: uuid.nullable().optional(),
@@ -168,6 +175,8 @@ export type CriarPedidoDeCompra = z.infer<typeof criarPedidoDeCompraSchema>;
  * Edição dos dados do pedido enquanto ele está em andamento. Os itens só mudam
  * até a análise de estoque: depois disso as cotações já foram pedidas sobre eles.
  * O destino é conferido na API depois de mesclar com o que já existe.
+ * A empresa pode mudar sem mexer no número: a numeração é única e global, não
+ * por empresa (decisão do coordenador em 23/11/2026, protótipo PC-0131).
  */
 export const editarPedidoDeCompraSchema = z
   .object({
@@ -179,7 +188,7 @@ export const editarPedidoDeCompraSchema = z
     clientId: uuid.nullable().optional(),
     itens: z.array(itemDoPedidoEntradaSchema).min(1, "inclua pelo menos um item").max(100).optional(),
     prazoEntregaDesejado: diaDoCalendario.optional(),
-    valorOrcado: decimalString.nullable().optional(),
+    valorOrcado: valorPositivo.nullable().optional(),
     solicitanteId: uuid.optional(),
     responsavelId: uuid.nullable().optional(),
   })
@@ -194,7 +203,7 @@ export const registrarCotacaoSchema = z
   .object({
     fornecedorId: uuid,
     valor: valorPositivo,
-    valorFrete: z.preprocess((v) => (v === "" ? null : v), decimalString.nullable()).optional(),
+    valorFrete: z.preprocess((v) => (typeof v === "string" && v.trim() === "" ? null : v), decimalString.nullable()).optional(),
     /** Prazo de entrega declarado pelo fornecedor, em dias úteis. */
     prazoEntregaDias: z.preprocess(
       (v) => (v === "" || v === undefined || v === null ? null : Number(v)),
@@ -230,7 +239,7 @@ export const acaoDoPedidoSchema = z.discriminatedUnion("acao", [
    * retirada → concluido. Valor faturado obrigatório na aquisição; no
    * atendimento por estoque é opcional (o material já estava pago).
    */
-  z.object({ acao: z.literal("confirmar_recebimento"), valorFaturado: decimalString.nullable().optional(), observacao: textoOpcional(1000) }).strict(),
+  z.object({ acao: z.literal("confirmar_recebimento"), valorFaturado: valorPositivo.nullable().optional(), observacao: textoOpcional(1000) }).strict(),
   /** Qualquer etapa antes de concluido. */
   z.object({ acao: z.literal("cancelar"), motivo: texto(1, 1000, "informe o motivo do cancelamento") }).strict(),
 ]);
@@ -247,6 +256,9 @@ export const acoesDoPedido = [
   "confirmar_recebimento",
   "cancelar",
 ] as const satisfies readonly NomeDaAcaoDoPedido[];
+// Falha a compilação se uma ação nova entrar na união sem entrar na lista acima.
+const _todasAsAcoesListadas: Exclude<NomeDaAcaoDoPedido, (typeof acoesDoPedido)[number]> extends never ? true : never = true;
+void _todasAsAcoesListadas;
 
 /** Obra mínima para o destino do pedido. */
 export const criarObraSchema = z
@@ -318,6 +330,7 @@ export const destinoDoPedidoSchema = z.object({
 export const pedidoDeCompraSchema = z.object({
   id: uuid,
   empresa: companyKeySchema,
+  /** Único e global (PC-0131), não por empresa. */
   numero: z.number().int().positive(),
   titulo: z.string(),
   descricao: z.string().nullable(),
@@ -395,9 +408,14 @@ const filtrosDoQuadro = {
 export const quadroDeComprasQuerySchema = z.object(filtrosDoQuadro).strict();
 export type QuadroDeComprasQuery = z.infer<typeof quadroDeComprasQuerySchema>;
 
+/** Sem período no filtro, a coluna Concluído mostra só os concluídos nestes últimos dias. */
+export const DIAS_DE_CONCLUIDOS_NO_QUADRO = 30;
+
 /**
  * Uma coluna por etapa, na ordem de `etapasDeCompra`. Cancelados ficam fora do
- * quadro (aparecem na lista). Totais por coluna somam `valor` dos cards.
+ * quadro (aparecem na lista). Totais por coluna somam `valor` dos cards. Sem
+ * `de`/`ate`, a coluna `concluido` traz só os concluídos nos últimos
+ * `DIAS_DE_CONCLUIDOS_NO_QUADRO` dias; as etapas em andamento vêm todas.
  */
 export const quadroDeComprasRespostaSchema = z.object({
   colunas: z.array(
@@ -424,7 +442,13 @@ export const listarPedidosDeCompraQuerySchema = z
   .strict();
 export type ListarPedidosDeCompraQuery = z.infer<typeof listarPedidosDeCompraQuerySchema>;
 
-export const listarPedidosDeCompraRespostaSchema = z.object({ itens: z.array(pedidoDeCompraResumoSchema) });
+/** A lista traz os mais recentes primeiro, até este teto; `total` conta todos os que casam com o filtro. */
+export const LIMITE_DA_LISTA_DE_PEDIDOS = 200;
+
+export const listarPedidosDeCompraRespostaSchema = z.object({
+  itens: z.array(pedidoDeCompraResumoSchema),
+  total: z.number().int().nonnegative(),
+});
 export type ListarPedidosDeCompraResposta = z.infer<typeof listarPedidosDeCompraRespostaSchema>;
 
 /** Opções dos selects do formulário: pessoas com acesso a Compras, obras ativas e fornecedores ativos. */

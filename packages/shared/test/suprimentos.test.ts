@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 
 import {
   acaoDoPedidoSchema,
+  acoesDoPedido,
   criarPedidoDeCompraSchema,
   etapasDeCompraComPrazo,
   PRAZO_DA_ETAPA_DE_COMPRA_EM_DIAS_UTEIS,
@@ -95,6 +96,29 @@ describe("acaoDoPedidoSchema", () => {
 
   it("recusa ação desconhecida", () => {
     assert.equal(acaoDoPedidoSchema.safeParse({ acao: "concluir" }).success, false);
+  });
+});
+
+describe("achados da revisão do 00aac54", () => {
+  const base = { empresa: "plugga", titulo: "Cabos", destino: "interno", itens: [{ descricao: "Cabo", quantidade: "1" }] };
+
+  it("recusa dia inexistente", () => {
+    assert.equal(criarPedidoDeCompraSchema.safeParse({ ...base, prazoEntregaDesejado: "2026-02-31" }).success, false);
+    assert.equal(criarPedidoDeCompraSchema.safeParse({ ...base, prazoEntregaDesejado: "2028-02-29" }).success, true);
+  });
+
+  it("frete só com espaços vira não informado", () => {
+    assert.equal(registrarCotacaoSchema.parse({ fornecedorId: UUID, valor: "10", valorFrete: "  " }).valorFrete, null);
+  });
+
+  it("orçado e faturado zero são recusados", () => {
+    assert.equal(criarPedidoDeCompraSchema.safeParse({ ...base, prazoEntregaDesejado: "2026-12-01", valorOrcado: "0" }).success, false);
+    assert.equal(acaoDoPedidoSchema.safeParse({ acao: "confirmar_recebimento", valorFaturado: "0" }).success, false);
+  });
+
+  it("a lista de ações tem todas as ações da união", () => {
+    const daUniao = acaoDoPedidoSchema.options.map((opcao) => opcao.shape.acao.value).sort();
+    assert.deepEqual([...acoesDoPedido].sort(), daUniao);
   });
 });
 
