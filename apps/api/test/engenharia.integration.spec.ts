@@ -75,7 +75,8 @@ describe.skipIf(!HABILITADO)("engenharia: ordens de serviço no Postgres", { tim
     compras = new ComprasService(new PrismaComprasRepository(app, auditoria, new MovimentosDeEstoque(auditoria)), {} as never, () => AGORA);
 
     for (const id of ["plugga", "waze"]) await root.company.upsert({ where: { id }, create: { id, name: id }, update: {} });
-    const perfis: Record<string, { departamento: string; telas: string[] }> = {
+    const perfis: Record<string, { departamento: string; telas: string[]; nivel?: "membro" | "gerente" }> = {
+      gerente: { departamento: "engenharia-obras", telas: ["engenharia-obras.os"], nivel: "gerente" },
       eng: { departamento: "engenharia-obras", telas: ["engenharia-obras.os"] },
       tecnico: { departamento: "engenharia-obras", telas: ["engenharia-obras.manutencao"] },
       compras: { departamento: "suprimentos", telas: ["suprimentos.compras"] },
@@ -85,8 +86,8 @@ describe.skipIf(!HABILITADO)("engenharia: ordens de serviço no Postgres", { tim
       const pessoa = await root.user.create({ data: { name: `${marca} ${nome}`, email: `${marca}-${nome}@teste.local` } });
       const hash = randomBytes(32).toString("hex");
       await root.session.create({ data: { userId: pessoa.id, tokenHash: hash, expiresAt: new Date(Date.now() + 3_600_000), absoluteExpiresAt: new Date(Date.now() + 7_200_000) } });
-      await root.userDepartamento.create({ data: { userId: pessoa.id, departamento: perfil.departamento, nivel: "membro", telas: perfil.telas } });
-      pessoas.set(nome, { id: pessoa.id, hash, acesso: { plataforma: null, departamentos: [{ departamento: perfil.departamento, nivel: "membro", telas: perfil.telas }] } as Acesso });
+      await root.userDepartamento.create({ data: { userId: pessoa.id, departamento: perfil.departamento, nivel: perfil.nivel ?? "membro", telas: perfil.telas } });
+      pessoas.set(nome, { id: pessoa.id, hash, acesso: { plataforma: null, departamentos: [{ departamento: perfil.departamento, nivel: perfil.nivel ?? "membro", telas: perfil.telas }] } as Acesso });
     }
     const cliente = await root.client.create({ data: { name: `${marca} Cliente Solar` } });
     clienteId = cliente.id;
@@ -109,6 +110,7 @@ describe.skipIf(!HABILITADO)("engenharia: ordens de serviço no Postgres", { tim
         await t.arquivoDeOrdemDeServico.deleteMany({ where: { ordemId: { in: ordens } } });
         await t.historicoDeOrdemDeServico.deleteMany({ where: { ordemId: { in: ordens } } });
         await t.ordemDeServico.deleteMany({ where: { id: { in: ordens } } });
+        await t.configuracaoDeTipoDeOrdem.deleteMany({ where: { tipo: "limpeza" } });
       });
       if (clienteId) await root.client.deleteMany({ where: { id: clienteId } });
       await root.user.deleteMany({ where: { email: { startsWith: marca } } });
@@ -275,5 +277,18 @@ describe.skipIf(!HABILITADO)("engenharia: ordens de serviço no Postgres", { tim
     expect(r.campoHoje.map((l) => l.id)).toContain(hoje);
     expect(r.maisAtrasadas.length).toBeLessThanOrEqual(5);
     expect((await como("eng", () => repo.visaoGeral("plugga", AGORA))).campoHoje.map((l) => l.id)).not.toContain(hoje);
+  });
+
+  it("configura o prazo padrão e quem agenda de um tipo: só o gerente da Engenharia, e a pessoa precisa ser da Engenharia", async () => {
+    const r = await como("eng", () => repo.configuracoes());
+    expect(r.linhas.find((l) => l.tipo === "limpeza")).toBeUndefined();
+    await expect(como("eng", () => repo.editarTipo("limpeza", { prazoPadraoDiasUteis: 5, agendadorId: null }, principal("eng"), AGORA))).rejects.toThrow(/row-level security/);
+    await expect(como("gerente", () => repo.editarTipo("limpeza", { prazoPadraoDiasUteis: 5, agendadorId: pessoas.get("compras")!.id }, principal("gerente"), AGORA))).rejects.toThrow(RequisicaoInvalida);
+    await como("gerente", () => repo.editarTipo("limpeza", { prazoPadraoDiasUteis: 5, agendadorId: pessoas.get("tecnico")!.id }, principal("gerente"), AGORA));
+    const depois = await como("eng", () => repo.configuracoes());
+    expect(depois.linhas.find((l) => l.tipo === "limpeza")).toMatchObject({ prazoPadraoDiasUteis: 5, agendadorId: pessoas.get("tecnico")!.id, atualizadoPorId: pessoas.get("gerente")!.id });
+    expect(depois.pessoas.get(pessoas.get("gerente")!.id)).toBe(`${marca} gerente`);
+    await expect(tx("gerente", (t) => t.configuracaoDeTipoDeOrdem.deleteMany({ where: { tipo: "limpeza" } }))).rejects.toThrow(/permission denied/);
+    expect(await tx("compras", (t) => t.configuracaoDeTipoDeOrdem.count())).toBe(0);
   });
 });

@@ -166,6 +166,7 @@ export const catalogoEventos = {
   "engenharia.ordem.adiada": evento("Ordem de serviço adiada", "empresa"),
   "engenharia.ordem.cancelada": evento("Ordem de serviço cancelada", "empresa"),
   "engenharia.ordem.material_pedido": evento("Material pedido a Compras pela ordem de serviço", "empresa"),
+  "engenharia.tipo_de_ordem.configurado": evento("Prazo padrão ou agendador de um tipo de O.S. alterado", "plataforma"),
   // Tarefas dos departamentos (PLU-349, PLU-340). Sem PII: o resultado fica na ocorrência, não no evento.
   "tarefas.tarefa.created": evento("Tarefa do departamento criada", "empresa"),
   "tarefas.tarefa.encerrada": evento("Tarefa do departamento encerrada", "empresa"),

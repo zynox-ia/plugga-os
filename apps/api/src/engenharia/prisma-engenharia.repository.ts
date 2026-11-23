@@ -1,5 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { Prisma, type ModoDeAssinaturaDoTermo, type SituacaoDaOrdemDeServico } from "@prisma/client";
+import { Prisma, type ModoDeAssinaturaDoTermo, type SituacaoDaOrdemDeServico, type TipoDeOrdemDeServico } from "@prisma/client";
 import {
   DIAS_DE_CONCLUIDAS_NO_QUADRO,
   LIMITE_DA_LISTA_DE_ORDENS,
@@ -7,6 +7,7 @@ import {
   type AcaoDaOrdemDeServico,
   type ContagensDasColunas,
   type CriarOrdemDeServico,
+  type EditarConfiguracaoDeTipoDeOrdem,
   type EditarOrdemDeServico,
   type ListarOrdensDeServicoQuery,
   type NomeDeEventoDoCatalogo,
@@ -121,6 +122,32 @@ export class PrismaEngenhariaRepository {
         tx.ordemDeServico.findMany({ where: atrasadas, select: SELECT_DO_RESUMO, orderBy: [{ prazo: "asc" }, { createdAt: "asc" }], take: 5 }),
       ]);
       return { emAberto, atrasadas: nAtrasadas, emCampoHoje, campoHoje, maisAtrasadas, ...(await this.nomesDasLinhas(tx, [...campoHoje, ...maisAtrasadas])) };
+    });
+  }
+
+  /** Configurações gravadas dos tipos e as O.S. em andamento de cada um. */
+  async configuracoes(): Promise<{
+    linhas: { tipo: TipoDeOrdemDeServico; prazoPadraoDiasUteis: number; agendadorId: string | null; atualizadoPorId: string | null; atualizadoEm: Date }[];
+    abertas: Map<TipoDeOrdemDeServico, number>;
+    pessoas: Nomes;
+  }> {
+    return this.prisma.comContexto(async (tx) => {
+      const [linhas, porTipo] = await Promise.all([
+        tx.configuracaoDeTipoDeOrdem.findMany(),
+        tx.ordemDeServico.groupBy({ by: ["tipo"], where: { situacao: { notIn: [...ENCERRADAS] } }, _count: { _all: true } }),
+      ]);
+      const pessoas = await this.nomesDePessoas(tx, linhas.flatMap((l) => [l.agendadorId, l.atualizadoPorId].filter((id): id is string => id !== null)));
+      return { linhas, abertas: new Map(porTipo.map((g) => [g.tipo, g._count._all])), pessoas };
+    });
+  }
+
+  /** Grava a configuração do tipo; quem agenda precisa ser pessoa ativa da Engenharia. */
+  async editarTipo(tipo: TipoDeOrdemDeServico, input: EditarConfiguracaoDeTipoDeOrdem, principal: AuthPrincipal, agora: Date): Promise<void> {
+    await this.prisma.comContexto(async (tx) => {
+      await this.garantirTecnicos(tx, input.agendadorId ? [input.agendadorId] : []);
+      const dados = { prazoPadraoDiasUteis: input.prazoPadraoDiasUteis, agendadorId: input.agendadorId, atualizadoPorId: principal.id, atualizadoEm: agora };
+      await tx.configuracaoDeTipoDeOrdem.upsert({ where: { tipo }, create: { tipo, ...dados }, update: dados });
+      await this.registrar(tx, "engenharia.tipo_de_ordem.configurado", tipo, null, principal, { tipo, prazoPadraoDiasUteis: input.prazoPadraoDiasUteis, comAgendador: input.agendadorId !== null });
     });
   }
 
@@ -324,12 +351,12 @@ export class PrismaEngenhariaRepository {
     return tx.historicoDeOrdemDeServico.create({ data: { ordemId, tipo: registro.tipo, dados: registro.dados, detalhe: registro.detalhe, porId: principal.id, em: agora } });
   }
 
-  private registrar(tx: Prisma.TransactionClient, eventName: NomeDeEventoDoCatalogo, entityId: string, companyId: string, principal: AuthPrincipal, payload: Record<string, unknown>): Promise<void> {
+  private registrar(tx: Prisma.TransactionClient, eventName: NomeDeEventoDoCatalogo, entityId: string, companyId: string | null, principal: AuthPrincipal, payload: Record<string, unknown>): Promise<void> {
     return this.auditoria.append(tx, {
       eventName,
-      entityType: "ordem_de_servico",
+      entityType: eventName === "engenharia.tipo_de_ordem.configurado" ? "tipo_de_ordem" : "ordem_de_servico",
       entityId,
-      companyId,
+      ...(companyId ? { companyId } : {}),
       actorType: principal.kind === "user" ? "user" : "agent",
       actorId: principal.id,
       payload,

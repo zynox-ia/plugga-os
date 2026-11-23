@@ -449,8 +449,49 @@ export const opcoesDaEngenhariaRespostaSchema = z.object({
   tipos: z.array(tipoDeOrdemDeServicoSchema),
   prioridades: z.array(prioridadeDaOrdemDeServicoSchema),
   origens: z.array(origemDaOrdemDeServicoSchema),
+  /** Prazo sugerido para a Nova O.S. de cada tipo, pelo prazo padrão das Configurações (PLU-349). */
+  prazoSugerido: z.record(tipoDeOrdemDeServicoSchema, diaDoCalendario),
 });
 export type OpcoesDaEngenhariaResposta = z.infer<typeof opcoesDaEngenhariaRespostaSchema>;
+
+// ---------------------------------------------------------------- configurações (PLU-349)
+
+/**
+ * Prazo padrão de cada tipo, em dias úteis (feriado conta como dia útil), quando
+ * ninguém mudou nas Configurações. 0 = no mesmo dia.
+ */
+export const PRAZO_PADRAO_DO_TIPO: Record<TipoDeOrdemDeServico, number> = {
+  manutencao: 3, limpeza: 3, garantia: 3, emergencia: 0, visita_tecnica: 3, instalacao: 3, configuracao: 3,
+  comissionamento: 3, orcamento_tecnico: 2, eletroposto: 3, grid_zero_bess: 3, analise_energia: 3, outros: 3,
+};
+
+export const configuracaoDeTipoDeOrdemSchema = z.object({
+  tipo: tipoDeOrdemDeServicoSchema,
+  prazoPadraoDiasUteis: z.number().int().min(0).max(30),
+  /** O prazo que a Nova O.S. de hoje sugere. */
+  prazoSugerido: diaDoCalendario,
+  /** Quem agenda as O.S. do tipo; nulo = qualquer pessoa da Engenharia. */
+  agendador: pessoa.nullable(),
+  /** O.S. do tipo em andamento. */
+  abertas: z.number().int().nonnegative(),
+  /** Nulo enquanto vale o padrão. */
+  atualizado: registro.nullable(),
+});
+export type ConfiguracaoDeTipoDeOrdem = z.infer<typeof configuracaoDeTipoDeOrdemSchema>;
+
+/** `GET /engenharia/configuracoes`. As Plataformas entram com as Usinas (PLU-347). */
+export const configuracoesDaEngenhariaRespostaSchema = z.object({
+  tipos: z.array(configuracaoDeTipoDeOrdemSchema),
+  /** Gerente da Engenharia ou plataforma. */
+  podeEditar: z.boolean(),
+});
+export type ConfiguracoesDaEngenharia = z.infer<typeof configuracoesDaEngenhariaRespostaSchema>;
+
+/** `PUT /engenharia/configuracoes/tipos/:tipo`. */
+export const editarConfiguracaoDeTipoDeOrdemSchema = z
+  .object({ prazoPadraoDiasUteis: z.number().int().min(0, "de 0 a 30").max(30, "de 0 a 30"), agendadorId: uuid.nullable() })
+  .strict();
+export type EditarConfiguracaoDeTipoDeOrdem = z.infer<typeof editarConfiguracaoDeTipoDeOrdemSchema>;
 
 // ---------------------------------------------------------------- visão geral (PLU-349)
 

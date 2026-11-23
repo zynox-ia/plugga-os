@@ -25,6 +25,8 @@ const servico = {
   anexarTermoAssinado: vi.fn().mockResolvedValue({ id: ID }),
   pedirMaterial: vi.fn().mockResolvedValue({ id: ID }),
   visaoGeral: vi.fn().mockResolvedValue({ metricas: {} }),
+  configuracoes: vi.fn().mockResolvedValue({ tipos: [] }),
+  editarTipo: vi.fn().mockResolvedValue({ tipos: [] }),
 };
 
 describe("ordens de serviço da Engenharia (e2e)", () => {
@@ -58,6 +60,16 @@ describe("ordens de serviço da Engenharia (e2e)", () => {
     expect(servico.visaoGeral).toHaveBeenLastCalledWith({ empresa: "waze" }, expect.anything());
     await como("engenharia-obras:membro")(http().get("/engenharia/visao-geral?empresa=outra")).expect(400);
     await como("crm:gerente")(http().get("/engenharia/visao-geral")).expect(403);
+  });
+
+  it("as Configurações validam o tipo e o prazo antes do serviço", async () => {
+    await engenharia(http().get("/engenharia/configuracoes")).expect(200);
+    await engenharia(http().put("/engenharia/configuracoes/tipos/inventado")).send({ prazoPadraoDiasUteis: 2, agendadorId: null }).expect(400);
+    await engenharia(http().put("/engenharia/configuracoes/tipos/limpeza")).send({ prazoPadraoDiasUteis: 31, agendadorId: null }).expect(400);
+    await engenharia(http().put("/engenharia/configuracoes/tipos/limpeza")).send({ prazoPadraoDiasUteis: 2 }).expect(400);
+    expect(servico.editarTipo).not.toHaveBeenCalled();
+    await engenharia(http().put("/engenharia/configuracoes/tipos/limpeza")).send({ prazoPadraoDiasUteis: 2, agendadorId: null }).expect(200);
+    expect(servico.editarTipo).toHaveBeenCalledWith("limpeza", { prazoPadraoDiasUteis: 2, agendadorId: null }, expect.anything());
   });
 
   it("valida filtros, criação e ações antes do serviço", async () => {
@@ -107,6 +119,7 @@ describe("ordens de serviço da Engenharia (e2e)", () => {
       await http().get("/engenharia/ordens-de-servico").expect(404);
       await http().get("/engenharia/ordens-de-servico/quadro").expect(404);
       await http().get("/engenharia/visao-geral").expect(404);
+      await http().get("/engenharia/configuracoes").expect(404);
       expect(servico.listar).not.toHaveBeenCalled();
     } finally {
       espiao.mockRestore();

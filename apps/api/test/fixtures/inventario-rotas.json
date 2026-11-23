@@ -809,6 +809,44 @@
   },
   {
     "metodo": "GET",
+    "caminho": "/engenharia/configuracoes",
+    "controller": "ConfiguracoesDaEngenhariaController.configuracoes",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:engenharia-obras.os",
+      "tela:engenharia-obras.instalacoes",
+      "tela:engenharia-obras.manutencao",
+      "tela:engenharia-obras.visitas",
+      "departamento:engenharia-obras:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "PUT",
+    "caminho": "/engenharia/configuracoes/tipos/:tipo",
+    "controller": "ConfiguracoesDaEngenhariaController.editarTipo",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:engenharia-obras.os",
+      "tela:engenharia-obras.instalacoes",
+      "tela:engenharia-obras.manutencao",
+      "tela:engenharia-obras.visitas",
+      "departamento:engenharia-obras:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
     "caminho": "/engenharia/ordens-de-servico",
     "controller": "EngenhariaController.listar",
     "acesso": "acesso",

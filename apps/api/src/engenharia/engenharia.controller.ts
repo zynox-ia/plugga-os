@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, Inject, Param, ParseUUIDPipe, Patch, Post, Query, Res, UploadedFile, UseGuards, UseInterceptors } from "@nestjs/common";
+import { Body, Controller, Get, HttpCode, Inject, Param, ParseUUIDPipe, Patch, Post, Put, Query, Res, UploadedFile, UseGuards, UseInterceptors } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { ThrottlerGuard } from "@nestjs/throttler";
 import {
@@ -25,6 +25,11 @@ import {
   type QuadroDeOrdensQuery,
   type QuadroDeOrdensResposta,
   type VisaoGeralDaEngenharia,
+  editarConfiguracaoDeTipoDeOrdemSchema,
+  tipoDeOrdemDeServicoSchema,
+  type ConfiguracoesDaEngenharia,
+  type EditarConfiguracaoDeTipoDeOrdem,
+  type TipoDeOrdemDeServico,
   type VisaoGeralDaEngenhariaQuery,
   visaoGeralDaEngenhariaQuerySchema,
 } from "@plugga/shared";
@@ -193,5 +198,33 @@ export class VisaoGeralDaEngenhariaController {
   @Get()
   visaoGeral(@Query(new ZodValidationPipe(visaoGeralDaEngenhariaQuerySchema)) query: VisaoGeralDaEngenhariaQuery, @CurrentPrincipal() principal: AuthPrincipal): Promise<VisaoGeralDaEngenharia> {
     return this.engenharia.visaoGeral(query, principal);
+  }
+}
+
+/**
+ * Configurações da Engenharia (PLU-349): os tipos de O.S., com o prazo padrão
+ * e quem agenda. Lê quem opera as O.S.; muda o gerente da Engenharia.
+ */
+@Controller("engenharia/configuracoes")
+@UseGuards(EngenhariaHabilitadaGuard, SessionAuthGuard, AcessoGuard)
+@Departamento(["engenharia-obras"])
+@Tela(...TELAS_DAS_ORDENS)
+export class ConfiguracoesDaEngenhariaController {
+  constructor(@Inject(EngenhariaService) private readonly engenharia: EngenhariaService) {}
+
+  @Get()
+  configuracoes(@CurrentPrincipal() principal: AuthPrincipal): Promise<ConfiguracoesDaEngenharia> {
+    return this.engenharia.configuracoes(principal);
+  }
+
+  @Put("tipos/:tipo")
+  @HttpCode(200)
+  @UseGuards(OriginCheckGuard, ThrottlerGuard)
+  editarTipo(
+    @Param("tipo", new ZodValidationPipe(tipoDeOrdemDeServicoSchema)) tipo: TipoDeOrdemDeServico,
+    @Body(new ZodValidationPipe(editarConfiguracaoDeTipoDeOrdemSchema)) input: EditarConfiguracaoDeTipoDeOrdem,
+    @CurrentPrincipal() principal: AuthPrincipal,
+  ): Promise<ConfiguracoesDaEngenharia> {
+    return this.engenharia.editarTipo(tipo, input, principal);
   }
 }

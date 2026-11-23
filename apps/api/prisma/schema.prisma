@@ -362,6 +362,8 @@ model User {
   tarefasCriadas                 Tarefa[]                    @relation("TarefaCriadaPor")
   ocorrenciasConcluidas          OcorrenciaDeTarefa[]        @relation("OcorrenciaConcluidaPor")
   evidenciasDeTarefaEnviadas     EvidenciaDeTarefa[]         @relation("EvidenciaDeTarefaEnviadaPor")
+  tiposDeOrdemQueAgenda          ConfiguracaoDeTipoDeOrdem[] @relation("TipoDeOrdemAgendador")
+  tiposDeOrdemAtualizados        ConfiguracaoDeTipoDeOrdem[] @relation("TipoDeOrdemAtualizadoPor")
 
   @@map("users")
 }
@@ -3210,4 +3212,20 @@ model EvidenciaDeTarefa {
 
   @@index([ocorrenciaId])
   @@map("evidencias_de_tarefa")
+}
+
+/// Configuração de um tipo de O.S. (PLU-349, Configurações da Engenharia): o
+/// prazo padrão em dias úteis, que sugere o prazo da Nova O.S., e quem agenda.
+/// Sem linha, o tipo usa o padrão do código. Não se apaga.
+model ConfiguracaoDeTipoDeOrdem {
+  tipo                 TipoDeOrdemDeServico @id
+  prazoPadraoDiasUteis Int                  @map("prazo_padrao_dias_uteis")
+  agendadorId          String?              @map("agendador_id") @db.Uuid
+  atualizadoPorId      String?              @map("atualizado_por_id") @db.Uuid
+  atualizadoEm         DateTime             @default(now()) @map("atualizado_em") @db.Timestamptz(6)
+
+  agendador     User? @relation("TipoDeOrdemAgendador", fields: [agendadorId], references: [id], onDelete: SetNull)
+  atualizadoPor User? @relation("TipoDeOrdemAtualizadoPor", fields: [atualizadoPorId], references: [id], onDelete: SetNull)
+
+  @@map("configuracoes_de_tipo_de_ordem")
 }

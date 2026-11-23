@@ -29,11 +29,17 @@ import {
   type QuadroDeOrdensQuery,
   type QuadroDeOrdensResposta,
   type VisaoGeralDaEngenharia,
+  PRAZO_PADRAO_DO_TIPO,
+  configuracoesDaEngenhariaRespostaSchema,
+  type ConfiguracoesDaEngenharia,
+  type EditarConfiguracaoDeTipoDeOrdem,
+  type TipoDeOrdemDeServico,
   type VisaoGeralDaEngenhariaQuery,
   visaoGeralDaEngenhariaRespostaSchema,
 } from "@plugga/shared";
 
 import { AcessoNegado, ArquivoRecusado, LimiteExcedido, RequisicaoInvalida, TipoNaoPermitido } from "../common/errors/dominio";
+import { adicionarDiasUteis, diaEmManaus } from "../compras/dias-uteis";
 import { ComprasService } from "../compras/compras.service";
 import type { AuthPrincipal } from "../core/auth/auth.types";
 import { TarefasService } from "../tarefas/tarefas.service";
@@ -122,12 +128,50 @@ export class EngenhariaService {
 
   async opcoes(principal: AuthPrincipal): Promise<OpcoesDaEngenhariaResposta> {
     this.exigirAcesso(principal);
+    const [tecnicos, { linhas }] = await Promise.all([this.repositorio.tecnicos(), this.repositorio.configuracoes()]);
+    const agora = this.agora();
+    const prazos = this.prazosPadrao(linhas);
     return opcoesDaEngenhariaRespostaSchema.parse({
-      tecnicos: await this.repositorio.tecnicos(),
+      tecnicos,
       tipos: [...tiposDeOrdemDeServico],
       prioridades: [...prioridadesDaOrdemDeServico],
       origens: [...origensDaOrdemDeServico],
+      prazoSugerido: Object.fromEntries(tiposDeOrdemDeServico.map((tipo) => [tipo, prazoSugerido(agora, prazos[tipo])])),
     });
+  }
+
+  /** Configurações da Engenharia: os tipos de O.S. (as Plataformas entram com a PLU-347). */
+  async configuracoes(principal: AuthPrincipal): Promise<ConfiguracoesDaEngenharia> {
+    this.exigirAcesso(principal);
+    const agora = this.agora();
+    const { linhas, abertas, pessoas } = await this.repositorio.configuracoes();
+    const prazos = this.prazosPadrao(linhas);
+    const nome = (id: string | null) => (id ? { id, nome: pessoas.get(id) ?? "Pessoa sem acesso" } : null);
+    return configuracoesDaEngenhariaRespostaSchema.parse({
+      tipos: tiposDeOrdemDeServico.map((tipo) => {
+        const linha = linhas.find((l) => l.tipo === tipo);
+        return {
+          tipo,
+          prazoPadraoDiasUteis: prazos[tipo],
+          prazoSugerido: prazoSugerido(agora, prazos[tipo]),
+          agendador: nome(linha?.agendadorId ?? null),
+          abertas: abertas.get(tipo) ?? 0,
+          atualizado: linha ? { por: nome(linha.atualizadoPorId), em: linha.atualizadoEm.toISOString() } : null,
+        };
+      }),
+      podeEditar: gerenteDaEngenharia(principal),
+    });
+  }
+
+  async editarTipo(tipo: TipoDeOrdemDeServico, input: EditarConfiguracaoDeTipoDeOrdem, principal: AuthPrincipal): Promise<ConfiguracoesDaEngenharia> {
+    this.exigirAcesso(principal);
+    if (!gerenteDaEngenharia(principal)) throw new AcessoNegado("As configurações da Engenharia são do gerente do departamento.");
+    await this.repositorio.editarTipo(tipo, input, principal, this.agora());
+    return this.configuracoes(principal);
+  }
+
+  private prazosPadrao(linhas: { tipo: TipoDeOrdemDeServico; prazoPadraoDiasUteis: number }[]): Record<TipoDeOrdemDeServico, number> {
+    return Object.fromEntries(tiposDeOrdemDeServico.map((tipo) => [tipo, linhas.find((l) => l.tipo === tipo)?.prazoPadraoDiasUteis ?? PRAZO_PADRAO_DO_TIPO[tipo]])) as Record<TipoDeOrdemDeServico, number>;
   }
 
   async buscarClientes(busca: string, principal: AuthPrincipal): Promise<BuscarClientesDaEngenhariaResposta> {
@@ -281,4 +325,13 @@ export class EngenhariaService {
     const { objeto, cliente } = await this.armazenamento.ler(arquivo.chave);
     return { arquivo, stream: objeto.corpo, encerrar: () => cliente.destroy() };
   }
+}
+
+/** Hoje (0) ou o fim do n-ésimo dia útil a partir de hoje (feriado conta como dia útil). */
+function prazoSugerido(agora: Date, diasUteis: number): string {
+  return diasUteis === 0 ? diaEmManaus(agora) : diaEmManaus(adicionarDiasUteis(agora, diasUteis));
+}
+
+function gerenteDaEngenharia(principal: AuthPrincipal): boolean {
+  return principal.acesso.plataforma !== null || principal.acesso.departamentos.some((d) => d.departamento === "engenharia-obras" && d.nivel === "gerente");
 }
