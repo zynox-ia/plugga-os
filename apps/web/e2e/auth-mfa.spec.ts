@@ -16,7 +16,9 @@ test("autenticação usa a General Sans do projeto nos avisos, rótulos e campos
       await page.goto(path);
       await page.getByRole("heading", { level: 1 }).waitFor();
       if (path === "/auth/mfa") await page.getByLabel("Código de verificação ou recuperação").waitFor();
-      await page.evaluate(() => document.fonts.ready);
+      // fonts.ready pode resolver antes de a fonte começar a carregar (com movimento reduzido a
+      // cena 3D sai e a tela pronta chega antes): pede a fonte do corpo e espera ela, sem corrida.
+      await page.evaluate(async () => { await document.fonts.load(`16px ${getComputedStyle(document.body).fontFamily}`); await document.fonts.ready; });
       const typography = await page.evaluate(() => {
         const family = (value: string) => value.split(",")[0]!.replace(/["']/g, "").trim();
         const expected = [
