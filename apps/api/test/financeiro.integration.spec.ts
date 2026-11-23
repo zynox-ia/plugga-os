@@ -211,7 +211,7 @@ describe.skipIf(!HABILITADO)("financeiro: lançamentos no Postgres", () => {
     expect(detalhe.ucs).toEqual([{ id: ucDoCliente, codigo: `${marca}-UC1` }]);
     const repetida = await cobranca({ valor: "1.00" }).catch((e: unknown) => e);
     expect(repetida).toBeInstanceOf(Conflito);
-    expect((repetida as Conflito).extras).toEqual({ existente: { id, codigo: detalhe.codigo }, id });
+    expect((repetida as Conflito).extras).toEqual({ existente: { id, codigo: detalhe.codigo } });
     expect(await repositorio.sugestaoDeCobranca("plugga", ids.cliente, "2027-06")).toEqual({ valor: "4850.00", competencia: "2027-05", codigo: detalhe.codigo });
     expect(await repositorio.sugestaoDeCobranca("waze", ids.cliente, "2027-06")).toEqual({ valor: null, competencia: null, codigo: null });
     expect((await comoAdmin(() => repositorio.buscarClientesComUcs(`${marca} Clien`))).find((c) => c.id === ids.cliente)?.ucs).toEqual([{ id: ucDoCliente, codigo: `${marca}-UC1` }]);

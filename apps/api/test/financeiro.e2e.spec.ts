@@ -127,9 +127,10 @@ describe("financeiro API (e2e)", () => {
 
   it("cobrança repetida: o 409 leva a existente em `existente`, sem colidir com o `codigo` do envelope", async () => {
     const cobranca = { empresa: "plugga", clientId: ID, competencia: "2026-11", categoriaId: ID, descricao: "Gestão", valor: "4850.00", vencimento: "2026-12-10" };
-    servico.criarCobranca.mockRejectedValueOnce(new Conflito("Já existe a CR-0012 deste cliente nesta competência.", undefined, { existente: { codigo: "CR-0012", id: ID }, id: ID }));
+    servico.criarCobranca.mockRejectedValueOnce(new Conflito("Já existe a CR-0012 deste cliente nesta competência.", undefined, { existente: { codigo: "CR-0012", id: ID } }));
     const resposta = await financeiro(http().post("/financeiro/cobrancas")).send(cobranca).expect(409);
-    expect(resposta.body).toMatchObject({ codigo: "CONFLITO_UNICIDADE", existente: { codigo: "CR-0012", id: ID }, id: ID });
+    expect(resposta.body).toMatchObject({ codigo: "CONFLITO_UNICIDADE", existente: { codigo: "CR-0012", id: ID } });
+    expect(resposta.body).not.toHaveProperty("id");
   });
 
   it("o .zip dos comprovantes valida o período e sai como anexo", async () => {

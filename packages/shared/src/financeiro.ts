@@ -526,7 +526,7 @@ export type ResumoDosLancamentosResposta = z.infer<typeof resumoDosLancamentosRe
 /**
  * `POST financeiro/cobrancas` → Lancamento (entrada `gerada`, origem `cobranca_manual`).
  * Uma por cliente, empresa e competência (F3): a repetida é 409 com
- * `extras: { codigo, id }` da existente. Categoria de receita da empresa; as UCs
+ * `existente: { codigo, id }` da existente. Categoria de receita da empresa; as UCs
  * são do cliente e ficam listadas dentro da cobrança.
  */
 export const criarCobrancaSchema = z
