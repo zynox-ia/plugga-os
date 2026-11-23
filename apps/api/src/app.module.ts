@@ -19,6 +19,7 @@ import { EstoqueModule } from "./estoque/estoque.module";
 import { FinanceiroModule } from "./financeiro/financeiro.module";
 import { FornecedoresModule } from "./fornecedores/fornecedores.module";
 import { CadastroModule } from "./cadastro/cadastro.module";
+import { TarefasModule } from "./tarefas/tarefas.module";
 import { TelegramModule } from "./telegram/telegram.module";
 import { AutentiqueModule } from "./autentique/autentique.module";
 import { OmieModule } from "./omie/omie.module";
@@ -65,6 +66,7 @@ const monorepoRootEnvPath = path.resolve(__dirname, "../../../.env");
     EstoqueModule,
     FinanceiroModule,
     EngenhariaModule,
+    TarefasModule,
     CommercialModule,
     PipelinesModule,
     NegociosModule,

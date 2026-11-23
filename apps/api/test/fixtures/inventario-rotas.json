@@ -3165,5 +3165,123 @@
       "OriginCheckGuard",
       "ThrottlerGuard"
     ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/tarefas/:departamento",
+    "controller": "TarefasController.listar",
+    "acesso": "acesso",
+    "papeis": [
+      "departamento:financeiro:membro",
+      "departamento:engenharia-obras:membro",
+      "departamento:energia-opm:membro"
+    ],
+    "guards": [
+      "PortaoDoDepartamentoGuard",
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/tarefas/:departamento",
+    "controller": "TarefasController.criar",
+    "acesso": "acesso",
+    "papeis": [
+      "departamento:financeiro:membro",
+      "departamento:engenharia-obras:membro",
+      "departamento:energia-opm:membro"
+    ],
+    "guards": [
+      "PortaoDoDepartamentoGuard",
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/tarefas/:departamento/:tarefaId",
+    "controller": "TarefasController.obter",
+    "acesso": "acesso",
+    "papeis": [
+      "departamento:financeiro:membro",
+      "departamento:engenharia-obras:membro",
+      "departamento:energia-opm:membro"
+    ],
+    "guards": [
+      "PortaoDoDepartamentoGuard",
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/tarefas/:departamento/:tarefaId/encerrar",
+    "controller": "TarefasController.encerrar",
+    "acesso": "acesso",
+    "papeis": [
+      "departamento:financeiro:membro",
+      "departamento:engenharia-obras:membro",
+      "departamento:energia-opm:membro"
+    ],
+    "guards": [
+      "PortaoDoDepartamentoGuard",
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/tarefas/:departamento/ocorrencias/:id/concluir",
+    "controller": "TarefasController.concluir",
+    "acesso": "acesso",
+    "papeis": [
+      "departamento:financeiro:membro",
+      "departamento:engenharia-obras:membro",
+      "departamento:energia-opm:membro"
+    ],
+    "guards": [
+      "PortaoDoDepartamentoGuard",
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/tarefas/:departamento/ocorrencias/:id/evidencias/:evidenciaId",
+    "controller": "TarefasController.evidencia",
+    "acesso": "acesso",
+    "papeis": [
+      "departamento:financeiro:membro",
+      "departamento:engenharia-obras:membro",
+      "departamento:energia-opm:membro"
+    ],
+    "guards": [
+      "PortaoDoDepartamentoGuard",
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/tarefas/:departamento/opcoes",
+    "controller": "TarefasController.opcoes",
+    "acesso": "acesso",
+    "papeis": [
+      "departamento:financeiro:membro",
+      "departamento:engenharia-obras:membro",
+      "departamento:energia-opm:membro"
+    ],
+    "guards": [
+      "PortaoDoDepartamentoGuard",
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
   }
 ]

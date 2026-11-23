@@ -166,6 +166,10 @@ export const catalogoEventos = {
   "engenharia.ordem.adiada": evento("Ordem de serviço adiada", "empresa"),
   "engenharia.ordem.cancelada": evento("Ordem de serviço cancelada", "empresa"),
   "engenharia.ordem.material_pedido": evento("Material pedido a Compras pela ordem de serviço", "empresa"),
+  // Tarefas dos departamentos (PLU-349, PLU-340). Sem PII: o resultado fica na ocorrência, não no evento.
+  "tarefas.tarefa.created": evento("Tarefa do departamento criada", "empresa"),
+  "tarefas.tarefa.encerrada": evento("Tarefa do departamento encerrada", "empresa"),
+  "tarefas.ocorrencia.concluida": evento("Tarefa do dia concluída", "empresa"),
   // OMIE por empresa (PLU-342). Nunca a chave, o segredo nem a resposta do OMIE.
   "integracoes.omie.conectada": evento("Par do OMIE da empresa gravado", "empresa"),
   "integracoes.omie.desconectada": evento("Par do OMIE da empresa removido", "empresa"),

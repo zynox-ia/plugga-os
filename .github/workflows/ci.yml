@@ -210,6 +210,9 @@ jobs:
       - name: Verify engineering service orders against Postgres
         run: pnpm --filter @plugga/api test:engenharia
 
+      - name: Verify department tasks against Postgres
+        run: pnpm --filter @plugga/api test:tarefas
+
       - name: Verify sales pipeline configuration against Postgres
         run: pnpm --filter @plugga/api test:pipelines
 
