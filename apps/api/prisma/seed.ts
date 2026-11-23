@@ -154,6 +154,9 @@ async function main() {
       { email: 'gestor.energia@plugga.local', name: 'Gerente de Energia (exemplo)', acesso: gerente('energia-opm') },
       { email: 'gerente.financeiro@plugga.local', name: 'Gerente do Financeiro (exemplo)', acesso: gerente('financeiro') },
       { email: 'financeiro.plugga@plugga.local', name: 'Financeiro (exemplo)', acesso: membro('financeiro') },
+      // Membro só do Financeiro para o e2e de Compras (aprova o gerente, paga o membro). Conta
+      // própria porque a financeiro.plugga de máquinas antigas pode ter outros departamentos.
+      { email: 'financeiro.membro.e2e@plugga.local', name: 'Financeiro · e2e (exemplo)', acesso: membro('financeiro') },
       // Duas pessoas em Suprimentos, não uma. A segregação de função do
       // POP-COMP-001 §1 exige que quem seleciona a cotação não seja quem aprova
       // nem quem confirma o recebimento — com um comprador só, o caminho

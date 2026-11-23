@@ -61,10 +61,14 @@ test("Fornecedores abre só com a tela suprimentos.fornecedores (PLU-326)", () =
   assert.equal(podeAbrirPagina({ plataforma: null, departamentos: [{ departamento: "suprimentos", nivel: "membro" }] }, "/suprimentos/fornecedores-outros"), false);
 });
 
-test("Compras abre só com a tela suprimentos.compras (PLU-328)", () => {
+test("Compras abre com a tela suprimentos.compras ou com o Financeiro (PLU-328)", () => {
   const caminho = "/suprimentos/compras";
   assert.equal(podeAbrirPagina({ plataforma: null, departamentos: [{ departamento: "suprimentos", nivel: "membro", telas: ["suprimentos.compras"] }] }, caminho), true);
   assert.equal(podeAbrirPagina({ plataforma: null, departamentos: [{ departamento: "suprimentos", nivel: "membro", telas: ["suprimentos.fornecedores"] }] }, caminho), false);
-  assert.equal(podeAbrirPagina({ plataforma: null, departamentos: [{ departamento: "financeiro", nivel: "gerente" }] }, caminho), false);
+  // O Financeiro também abre: o gerente aprova e revisa, o membro paga (regra da API, decisão do André).
+  assert.equal(podeAbrirPagina({ plataforma: null, departamentos: [{ departamento: "financeiro", nivel: "gerente" }] }, caminho), true);
+  assert.equal(podeAbrirPagina({ plataforma: null, departamentos: [{ departamento: "financeiro", nivel: "membro" }] }, `${caminho}?pedido=x`.split("?")[0]!), true);
+  assert.equal(podeAbrirPagina({ plataforma: null, departamentos: [{ departamento: "crm", nivel: "gerente" }] }, caminho), false);
+  assert.equal(podeAbrirPagina({ plataforma: null, departamentos: [{ departamento: "engenharia-obras", nivel: "membro" }] }, caminho), false);
   assert.equal(podeAbrirPagina({ plataforma: "admin", departamentos: [] }, caminho), true);
 });

@@ -3,9 +3,10 @@ import { ComprasView } from "../../components/compras/compras-view";
 import { fetchOpcoesDeCompra, fetchPedidoDeCompra, fetchPedidosDeCompra, fetchQuadroDeCompras } from "../../lib/api";
 import { consultaDaApi, hojeEmManaus, lerFiltrosDeCompras } from "../../lib/compras";
 import { exigirPagina } from "../../lib/exigir-pagina";
+import { podeCriarPedido } from "../../lib/papel-em-compras";
 
 export default async function ComprasPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
-  await exigirPagina("/suprimentos/compras");
+  const sessao = await exigirPagina("/suprimentos/compras");
   const parametros = await searchParams;
   const filtros = lerFiltrosDeCompras(parametros);
   const consulta = consultaDaApi(filtros, hojeEmManaus());
@@ -33,6 +34,7 @@ export default async function ComprasPage({ searchParams }: { searchParams: Prom
       opcoes={opcoes.dados}
       ficha={ficha?.ok ? ficha.dados : null}
       fichaNaoEncontrada={ficha !== null && !ficha.ok}
+      podeCriar={podeCriarPedido(sessao.acesso)}
     />
   );
 }

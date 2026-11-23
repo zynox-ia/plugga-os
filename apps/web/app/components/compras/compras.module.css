@@ -284,3 +284,8 @@
 .codigoComEmpresa .empresa {
   font-size: inherit;
 }
+
+/* O selo de prazo das colunas vem do Pipelines com peso 600; aqui o máximo é 500 (regra do André). */
+.areaQuadro :global(.coluna-parado) {
+  font-weight: 500;
+}

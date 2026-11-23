@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect as expectPadrao, test, type Page } from "@playwright/test";
 
 import { bloquearTerceiros } from "./support/sem-terceiros";
 
@@ -8,6 +8,11 @@ import { bloquearTerceiros } from "./support/sem-terceiros";
  */
 
 test.use({ extraHTTPHeaders: { "x-forwarded-for": "203.0.113.228" } });
+
+// Cada ação vai à API e recarrega a tela; com a API de desenvolvimento ocupada uma ação passa de 3 s.
+// O fluxo tem uma dezena delas, então o teste e as esperas têm folga, sem mudar o que é verificado.
+const expect = expectPadrao.configure({ timeout: 15_000 });
+test.describe.configure({ timeout: 120_000 });
 
 const PDF = { name: "cotacao-e2e.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n") };
 
@@ -79,4 +84,57 @@ test("pedido de compra vai de Pedido gerado a Concluído pela ficha", async ({ p
 
   await ficha(page).getByRole("tab", { name: "Linha do tempo" }).click();
   await expect(ficha(page).getByText("confirmou o recebimento", { exact: false })).toBeVisible();
+});
+
+/**
+ * O Financeiro decide sobre o pedido que Compras conduziu: o gerente aprova, o
+ * membro paga. Nenhum dos dois cria pedido nem mexe nas etapas de Compras.
+ * Usa as contas de exemplo do seed (SEED_SAMPLE_TEAM), como o e2e de negócios.
+ */
+test("o gerente do Financeiro aprova e o membro do Financeiro paga", async ({ page, browser, baseURL }) => {
+  await bloquearTerceiros(page);
+  const origin = new URL(baseURL!).origin;
+  const sufixo = Date.now().toString(36);
+  const json = async (r: Awaited<ReturnType<typeof page.request.post>>) => { expect(r.ok(), await r.text()).toBeTruthy(); return r.json(); };
+
+  // Compras (admin) leva o pedido até Aprovação pela API.
+  const fornecedor = await json(await page.request.post("/api/suprimentos/fornecedores", { data: { nome: `Fornecedor Fin ${sufixo} (sintético)`, categoria: "material_eletrico" }, headers: { origin } }));
+  const pedido = await json(await page.request.post("/api/suprimentos/compras/pedidos", { headers: { origin }, data: { empresa: "plugga", titulo: `Aprovação E2E ${sufixo} (sintético)`, destino: "interno", itens: [{ descricao: "Disjuntor de teste", quantidade: "3", unidade: "un" }], prazoEntregaDesejado: "2030-12-10" } }));
+  const acao = (corpo: object) => page.request.post(`/api/suprimentos/compras/pedidos/${pedido.id}/acoes`, { headers: { origin }, data: corpo }).then(json);
+  await acao({ acao: "iniciar_analise" });
+  await acao({ acao: "decidir_estoque", origem: "aquisicao" });
+  const cotado = await json(await page.request.post(`/api/suprimentos/compras/pedidos/${pedido.id}/cotacoes`, { headers: { origin }, multipart: { fornecedorId: fornecedor.id, valor: "300.00", arquivo: PDF } }));
+  await acao({ acao: "selecionar_cotacao", cotacaoId: cotado.cotacoes[0].id });
+  await acao({ acao: "enviar_para_aprovacao" });
+
+  async function comoFinanceiro(email: string, ip: string) {
+    const contexto = await browser.newContext({ baseURL, storageState: { cookies: [], origins: [] }, extraHTTPHeaders: { "x-forwarded-for": ip } });
+    const pagina = await contexto.newPage();
+    await bloquearTerceiros(pagina);
+    const login = await pagina.request.post("/api/auth/login", { headers: { origin }, data: { email, password: process.env.SEED_ADMIN_PASSWORD ?? "local_only_change_me" } });
+    expect(login.ok(), `login de ${email} (precisa de SEED_SAMPLE_TEAM=true no seed)`).toBeTruthy();
+    await pagina.goto(`/suprimentos/compras?pedido=${pedido.id}`);
+    await expect(ficha(pagina).getByRole("heading", { name: `Aprovação E2E ${sufixo} (sintético)` })).toBeVisible();
+    // Abre a tela, mas não cria pedido nem edita o pedido de Compras.
+    await expect(pagina.getByRole("button", { name: "Novo pedido" })).toHaveCount(0);
+    await expect(ficha(pagina).getByRole("button", { name: "Editar" })).toHaveCount(0);
+    return { contexto, pagina };
+  }
+
+  const gerente = await comoFinanceiro("gerente.financeiro@plugga.local", "203.0.113.229");
+  // A barra mostra Suprimentos › Compras para quem é só do Financeiro (a ficha aberta deixa o resto inerte, por isso o DOM).
+  await expect(gerente.pagina.locator(".nav-item[aria-current=page]", { hasText: "Compras" })).toBeAttached();
+  await expect(ficha(gerente.pagina).getByRole("button", { name: "Revisar cotações" })).toBeVisible();
+  await ficha(gerente.pagina).getByRole("button", { name: "Aprovar compra" }).click();
+  await expect(ficha(gerente.pagina).locator(".aviso--sucesso")).toHaveText("Compra aprovada.");
+  await gerente.contexto.close();
+
+  const membro = await comoFinanceiro("financeiro.membro.e2e@plugga.local", "203.0.113.230");
+  await expect(ficha(membro.pagina).getByRole("button", { name: "Aprovar compra" })).toHaveCount(0);
+  await ficha(membro.pagina).getByRole("radio", { name: "PIX" }).click();
+  await ficha(membro.pagina).getByRole("button", { name: "Registrar pagamento" }).click();
+  await expect(ficha(membro.pagina).locator(".aviso--sucesso")).toHaveText("Pagamento registrado.");
+  // Confirmar o recebimento é de Compras: o membro do Financeiro não vê o botão.
+  await expect(ficha(membro.pagina).getByRole("button", { name: "Confirmar recebimento" })).toHaveCount(0);
+  await membro.contexto.close();
 });

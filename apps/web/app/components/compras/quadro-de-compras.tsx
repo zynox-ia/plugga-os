@@ -69,7 +69,8 @@ export function QuadroDeCompras({ colunas, cancelados, colunasRef, aoAbrir, aoNo
   cancelados: PedidoDeCompraResumo[] | null;
   colunasRef: RefObject<HTMLDivElement | null>;
   aoAbrir: (id: string) => void;
-  aoNovo: () => void;
+  /** Ausente para quem não cria pedido (o Financeiro). */
+  aoNovo?: () => void;
 }) {
   const areaRef = useRef<HTMLDivElement>(null);
   const todas: ColunaDoQuadro[] = cancelados
@@ -100,7 +101,7 @@ export function QuadroDeCompras({ colunas, cancelados, colunasRef, aoAbrir, aoNo
             <div className="coluna-titulo"><Kanban size={16} className="coluna-titulo-icone" style={{ color: cor }} aria-hidden="true" /><h3 id={`etapa-${coluna.etapa}`}>{nome}</h3></div>
             <div className={styles.topoDireita}>
               <span className="coluna-quantidade" aria-label={`${coluna.quantidade} pedidos`}>{String(coluna.quantidade).padStart(2, "0")}</span>
-              {coluna.etapa === "pedido_gerado" ? <button type="button" className="coluna-novo" aria-label="Novo pedido" title="Novo pedido" onClick={aoNovo}><Plus size={14} aria-hidden="true" /></button> : null}
+              {coluna.etapa === "pedido_gerado" && aoNovo ? <button type="button" className="coluna-novo" aria-label="Novo pedido" title="Novo pedido" onClick={aoNovo}><Plus size={14} aria-hidden="true" /></button> : null}
             </div>
           </header>
           <div className="coluna-meta">

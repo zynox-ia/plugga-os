@@ -32,8 +32,10 @@ function casaComBusca(p: PedidoDeCompraResumo, busca: string): boolean {
  * empresa como filtro, e a lista de todos os pedidos. Filtros e ficha vão no
  * endereço; a etapa só avança pela ação da ficha.
  */
-export function ComprasView({ filtros, colunas, pedidos, total, opcoes, ficha, fichaNaoEncontrada }: {
+export function ComprasView({ filtros, colunas, pedidos, total, opcoes, ficha, fichaNaoEncontrada, podeCriar }: {
   filtros: FiltrosDeCompras;
+  /** Só quem opera Compras cria pedido; o Financeiro abre a tela para aprovar e pagar. */
+  podeCriar: boolean;
   colunas: Coluna[];
   pedidos: PedidoDeCompraResumo[];
   total: number;
@@ -82,7 +84,7 @@ export function ComprasView({ filtros, colunas, pedidos, total, opcoes, ficha, f
             <button type="submit" className={estilosClientes.botaoBusca} aria-label="Buscar pedidos"><IconSearch className="equipe-busca-icon" /></button>
             <input className="equipe-busca-input" type="search" maxLength={150} aria-label="Buscar pedido por número, título ou destino" value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar pedido, item ou destino…" />
           </form>
-          <Button icon={<IconPlus />} onClick={() => setCriando(true)}>Novo pedido</Button>
+          {podeCriar ? <Button icon={<IconPlus />} onClick={() => setCriando(true)}>Novo pedido</Button> : null}
         </div>
       </header>
 
@@ -116,9 +118,9 @@ export function ComprasView({ filtros, colunas, pedidos, total, opcoes, ficha, f
                 <div className="lista-negocios-vazia-icone" aria-hidden="true"><ShoppingCart size={22} /></div>
                 <h3 className="lista-negocios-vazia-titulo">Nenhum pedido de compra ainda</h3>
                 <p className="lista-negocios-vazia-desc">Quando alguém pedir material ou serviço, o pedido entra em “Pedido gerado” e segue pelas etapas daqui.</p>
-                <Button size="sm" icon={<IconPlus />} onClick={() => setCriando(true)}>Abrir o primeiro pedido</Button>
+                {podeCriar ? <Button size="sm" icon={<IconPlus />} onClick={() => setCriando(true)}>Abrir o primeiro pedido</Button> : null}
               </div></div> : null}
-              <QuadroDeCompras colunas={colunasVisiveis} cancelados={canceladosVisiveis} colunasRef={colunasRef} aoAbrir={abrir} aoNovo={() => setCriando(true)} />
+              <QuadroDeCompras colunas={colunasVisiveis} cancelados={canceladosVisiveis} colunasRef={colunasRef} aoAbrir={abrir} aoNovo={podeCriar ? () => setCriando(true) : undefined} />
             </div>
           </section>
         </div>
@@ -126,7 +128,7 @@ export function ComprasView({ filtros, colunas, pedidos, total, opcoes, ficha, f
         <ListaDeCompras pedidos={pedidos} total={total} situacao={filtros.situacao} filtrado={filtrado} aoMudarSituacao={(situacao) => ir({ situacao })} aoAbrir={abrir} aoLimpar={limpar} />
       )}
 
-      {criando ? <NovoPedido opcoes={opcoes} aoCancelar={() => setCriando(false)} aoSalvar={(pedido) => { setCriando(false); ir({}, pedido.id); router.refresh(); }} /> : null}
+      {criando && podeCriar ? <NovoPedido opcoes={opcoes} aoCancelar={() => setCriando(false)} aoSalvar={(pedido) => { setCriando(false); ir({}, pedido.id); router.refresh(); }} /> : null}
       {ficha ? <FichaDoPedido key={ficha.id} pedido={ficha} opcoes={opcoes} aoFechar={fecharFicha} aoAtualizar={() => router.refresh()} /> : null}
     </div>
   );

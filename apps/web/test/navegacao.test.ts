@@ -108,6 +108,16 @@ describe("barra lateral pelo acesso", () => {
     assert.equal(tituloForNavId("/suprimentos/compras"), "Compras");
   });
 
+  it("quem é só do Financeiro vê Suprimentos com Compras e nada mais (PLU-328)", () => {
+    for (const nivel of ["membro", "gerente"] as const) {
+      const grupos = navGroupsForAccess({ plataforma: null, departamentos: [{ departamento: "financeiro", nivel }] }).filter((grupo) => grupo.collapsible);
+      assert.deepEqual(grupos.map((grupo) => grupo.label), ["Financeiro", "Suprimentos"]);
+      assert.deepEqual(grupos[1]?.items.map((item) => item.id), ["/suprimentos/compras"]);
+    }
+    // Quem não é de Compras nem do Financeiro não vê Suprimentos.
+    assert.ok(!navGroupsForAccess(membro("crm")).some((grupo) => grupo.label === "Suprimentos"));
+  });
+
   it("Fornecedores sai do em-breve e aponta para a tela (PLU-326)", () => {
     const suprimentos = navGroupsForAccess(membro("suprimentos")).find((grupo) => grupo.label === "Suprimentos");
     assert.ok(suprimentos?.items.some((item) => item.id === "/suprimentos/fornecedores" && !item.disabled));
@@ -116,7 +126,9 @@ describe("barra lateral pelo acesso", () => {
   });
 
   it("não inventa departamento para quem não recebeu esse acesso", () => {
-    assert.deepEqual(rotulos(membro("financeiro")), ["Financeiro"]);
+    assert.deepEqual(rotulos(membro("engenharia-obras")), ["Engenharia e Obras"]);
+    // Exceção decidida (PLU-328): o Financeiro vê Suprimentos só com Compras, que é onde aprova e paga.
+    assert.deepEqual(rotulos(membro("financeiro")), ["Financeiro", "Suprimentos"]);
   });
 
   it("não mostra departamento fora do catálogo de acesso", () => {

@@ -1,6 +1,7 @@
 import { alcancaPlataforma, alcancaTela, papelDoAcesso, type Acesso, type Tela } from "@plugga/shared";
 
 import { integracoesParaAcesso } from "./integracoes.ts";
+import { podeVerCompras } from "./papel-em-compras.ts";
 
 const paginas: ReadonlyArray<readonly [string, Tela]> = [
   ["/clientes", "crm.clientes"],
@@ -22,6 +23,8 @@ export function podeAbrirPagina(acesso: Acesso, pathname: string): boolean {
   if (["/jobs", "/estrutura"].includes(pathname) || pathname === "/design-system" || pathname.startsWith("/design-system/")) {
     return alcancaPlataforma(acesso, "desenvolvedor");
   }
+  // Compras abre também para o Financeiro, que aprova e paga (mesma regra da API).
+  if (pathname === "/suprimentos/compras" || pathname.startsWith("/suprimentos/compras/")) return podeVerCompras(acesso);
   const pagina = paginas.find(([prefixo]) => pathname === prefixo || pathname.startsWith(`${prefixo}/`));
   // Tela nova precisa declarar acesso antes de ficar disponível por URL.
   return pagina !== undefined && alcancaTela(acesso, pagina[1]);

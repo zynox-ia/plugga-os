@@ -33,8 +33,8 @@ const pedido = (parcial: Partial<PedidoDeCompra> = {}): PedidoDeCompra => ({
   prazoEntregaDesejado: "2026-12-04", etapa: "cotacoes", situacao: "em_andamento", origemAtendimento: "aquisicao",
   valorOrcado: "1000.00", valorCotado: null, valorFaturado: null, solicitante: PESSOA, responsavel: null,
   cotacoes: [], cotacaoSelecionadaId: null, pagamento: null, comprovantePendente: null,
-  passagens: [{ etapa: "cotacoes", entrouEm: "2026-11-20T13:00:00.000Z", prazoDiasUteis: 5, prazoEm: "2026-11-28T03:59:59.999Z", saiuEm: null, cumpriuPrazo: null, situacaoDoPrazo: "no_prazo", responsavel: null }],
-  marcos: { criado: { por: PESSOA, em: "2026-11-18T12:00:00.000Z" }, analiseIniciada: null, estoqueDecidido: null, cotacaoSelecionada: null, aprovado: null, recebimentoConfirmado: null, cancelado: null },
+  passagens: [{ etapa: "cotacoes", entrouEm: "2026-11-20T13:00:00.000Z", prazoDiasUteis: 5, prazoEm: "2026-11-28T03:59:59.999Z", saiuEm: null, cumpriuPrazo: null, situacaoDoPrazo: "no_prazo", responsavel: null, observacao: null }],
+  marcos: { criado: { por: PESSOA, em: "2026-11-18T12:00:00.000Z" }, analiseIniciada: null, estoqueDecidido: null, cotacaoSelecionada: null, aprovado: null, revisoes: [], recebimentoConfirmado: null, cancelado: null },
   acoesPermitidas: [], podeEditar: true, podeRegistrarCotacao: true,
   createdAt: "2026-11-18T12:00:00.000Z", updatedAt: "2026-11-20T14:00:00.000Z",
   ...parcial,
@@ -89,15 +89,16 @@ describe("atividade do pedido", () => {
   it("monta a partir dos marcos, mais recente primeiro, e agrupa por dia de Manaus", () => {
     const p = pedido({
       cotacoes: [cotacao(B, "900.00", 5)], cotacaoSelecionadaId: B,
-      marcos: { ...pedido().marcos, cancelado: { por: PESSOA, em: "2026-11-24T03:00:00.000Z", motivo: "Obra adiada" } },
+      marcos: { ...pedido().marcos, revisoes: [{ por: PESSOA, em: "2026-11-21T15:00:00.000Z", motivo: "Pedir frete incluso" }], cancelado: { por: PESSOA, em: "2026-11-24T03:00:00.000Z", motivo: "Obra adiada" } },
       situacao: "cancelado",
     });
     const lista = atividadesDoPedido(p);
-    assert.deepEqual(lista.map((a) => a.chave), ["cancelado", `cotacao-${B}`, "criado"]);
+    assert.deepEqual(lista.map((a) => a.chave), ["cancelado", "revisao-0", `cotacao-${B}`, "criado"]);
+    assert.equal(lista[1]?.nota, "Pedir frete incluso");
     assert.equal(lista[0]?.nota, "Obra adiada");
     assert.equal(lista[0]?.texto, "cancelou o pedido em Cotações");
     const dias = atividadesPorDia(lista, "2026-11-23");
-    assert.deepEqual(dias.map((d) => d.rotulo), ["Hoje", "20 nov 2026", "18 nov 2026"]);
+    assert.deepEqual(dias.map((d) => d.rotulo), ["Hoje", "21 nov 2026", "20 nov 2026", "18 nov 2026"]);
   });
 });
 

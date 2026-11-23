@@ -54,6 +54,12 @@ export type Processo = {
   /** Ausente enquanto o processo não tem tela. */
   rota?: string;
   status: ProcessoStatus;
+  /**
+   * A tela também serve a outro departamento (Compras para o Financeiro, que
+   * aprova e paga): aparece na barra para quem abre a página, mesmo sem o
+   * departamento dono.
+   */
+  compartilhado?: true;
 };
 
 export type Departamento = {
@@ -121,7 +127,7 @@ export const DEPARTAMENTOS: Departamento[] = [
     label: "Suprimentos",
     icon: "package",
     processos: [
-      { id: "suprimentos.compras", label: "Compras", rota: "/suprimentos/compras", status: "pronto" },
+      { id: "suprimentos.compras", label: "Compras", rota: "/suprimentos/compras", status: "pronto", compartilhado: true },
       { id: "suprimentos.fornecedores", label: "Fornecedores", rota: "/suprimentos/fornecedores", status: "pronto" },
       { id: "suprimentos.estoque", label: "Estoque", rota: "/suprimentos/estoque", status: "pronto" },
     ],
@@ -148,9 +154,11 @@ export function departamentosPermitidos(acesso: Acesso | null): Departamento[] {
   if (!acesso) {
     return DEPARTAMENTOS;
   }
-  return DEPARTAMENTOS.filter((departamento) => alcancaDepartamento(acesso, departamento.id)).map((departamento) => ({
-    ...departamento, processos: departamento.processos.filter((processo) => !processo.id || alcancaTela(acesso, processo.id)),
-  }));
+  const visivel = (departamento: Departamento, processo: Processo) =>
+    (alcancaDepartamento(acesso, departamento.id) && (!processo.id || alcancaTela(acesso, processo.id)))
+    || Boolean(processo.compartilhado && processo.rota && podeAbrirPagina(acesso, processo.rota));
+  return DEPARTAMENTOS.map((departamento) => ({ ...departamento, processos: departamento.processos.filter((processo) => visivel(departamento, processo)) }))
+    .filter((departamento) => alcancaDepartamento(acesso, departamento.id) || departamento.processos.length > 0);
 }
 
 /**
