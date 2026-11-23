@@ -22,6 +22,8 @@ function diaFuturo(dias: number): string {
 }
 
 const ficha = (page: Page) => page.locator("dialog[open]").first();
+/** A ficha vem do servidor depois do router.push: com a máquina carregada (vários agentes e o dev), passa de 15 s. */
+const ABRIR_A_FICHA = { timeout: 30_000 };
 
 /** PDF mínimo, com cabeçalho e fim: a API confere o tipo pelo conteúdo. */
 const PDF_SINTETICO = Buffer.from(["%PDF-1.4", "% comprovante sintetico", "1 0 obj << >> endobj", "trailer << >>", "%%EOF", ""].join("\n"));
@@ -57,7 +59,7 @@ async function criarConta(page: Page, baseURL: string, descricao: string) {
   await nova.getByRole("button", { name: "Criar conta" }).click();
 
   // A conta nasce aberta e a ficha abre nela.
-  await expect(ficha(page).getByRole("heading", { name: descricao })).toBeVisible();
+  await expect(ficha(page).getByRole("heading", { name: descricao })).toBeVisible(ABRIR_A_FICHA);
   await expect(ficha(page).getByText("R$ 1.234,56").first()).toBeVisible();
   await expect(ficha(page).getByText("Aberta").first()).toBeVisible();
   return nome;
@@ -149,10 +151,14 @@ test("cobrança manual: uma por cliente e competência, e a repetida oferece abr
     await page.getByRole("button", { name: "Nova cobrança" }).first().click();
     const nova = page.getByRole("dialog", { name: "Nova cobrança" });
     await escolher(page, nova, /Empresa/, "Waze Energia");
-    // A competência mais antiga da lista, para não esbarrar numa cobrança do seed.
+    // Uma das duas competências mais antigas, escolhida pela marca do run: dois runs ao
+    // mesmo tempo no mesmo banco (o cliente do seed é compartilhado) raramente batem.
     await nova.getByRole("combobox", { name: /Competência/ }).click();
-    await page.getByRole("listbox").last().getByRole("option").last().click();
-    await nova.getByLabel(/^Cliente/).fill("Clínica Exemplo");
+    const sorteio = [...marcaDaExecucao()].reduce((soma, letra) => soma + letra.charCodeAt(0), 0) % 2;
+    await page.getByRole("listbox").last().getByRole("option").nth(2 + sorteio).click();
+    // O cliente do seed (apps/api/prisma/seed.ts), que existe também na CI: a limpeza
+    // dos e2e não apaga clientes, então o spec não cria o seu.
+    await nova.getByLabel(/^Cliente/).fill("Cliente com UC");
     await nova.getByRole("list", { name: "Clientes encontrados" }).getByRole("button").first().click();
     await escolher(page, nova, /Categoria/);
     await nova.getByLabel("Descrição").fill(descricao);
@@ -163,7 +169,7 @@ test("cobrança manual: uma por cliente e competência, e a repetida oferece abr
   }
 
   await preencher();
-  await expect(ficha(page).getByRole("heading", { name: descricao })).toBeVisible();
+  await expect(ficha(page).getByRole("heading", { name: descricao })).toBeVisible(ABRIR_A_FICHA);
   await expect(ficha(page).getByText("Gerada").first()).toBeVisible();
   await expect(ficha(page).getByRole("region", { name: "Emitir a nota fiscal" })).toBeVisible();
   await ficha(page).getByRole("button", { name: "Fechar" }).click();
@@ -172,7 +178,57 @@ test("cobrança manual: uma por cliente e competência, e a repetida oferece abr
   const repetida = await preencher();
   await expect(repetida.getByText(/Já existe a cobrança CR-/)).toBeVisible();
   await repetida.getByRole("button", { name: /Abrir CR-/ }).click();
-  await expect(ficha(page).getByRole("heading", { name: descricao })).toBeVisible();
+  await expect(ficha(page).getByRole("heading", { name: descricao })).toBeVisible(ABRIR_A_FICHA);
+});
+
+test("Tentar de novo sem envio com erro de verdade (409): a ficha relê o lançamento e o botão some", async ({ page, baseURL }) => {
+  await bloquearTerceiros(page);
+  const descricao = `Tarifa ${marcaDaExecucao()} ${Date.now().toString(36)} (sintético)`;
+  await criarConta(page, baseURL!, descricao);
+
+  // No local a gravação no OMIE não está liberada e nada chega a "erro": a resposta
+  // da aprovação (real) volta com o envio recusado, só no navegador.
+  await page.route("**/api/financeiro/lancamentos/*/acoes", async (rota) => {
+    const resposta = await rota.fetch();
+    const l = await resposta.json();
+    await rota.fulfill({ response: resposta, json: { ...l, omie: { estado: "erro", codigo: null, motivo: "recusada" } } });
+  });
+  await ficha(page).getByRole("button", { name: "Aprovar" }).click();
+  await expect(ficha(page).getByText("Não foi ao OMIE da Waze Energia: o OMIE recusou o lançamento; confira categoria, conta corrente e valor.")).toBeVisible();
+
+  // 409: nenhum envio com erro de verdade; a ficha relê o lançamento e o botão some.
+  await page.route("**/api/financeiro/lancamentos/*/omie/tentar-de-novo", (rota) =>
+    rota.fulfill({ status: 409, json: { codigo: "CONFLITO_ESTADO", mensagem: "Nenhum envio ao OMIE com erro neste lançamento." } }));
+  await ficha(page).getByRole("button", { name: "Tentar de novo" }).click();
+  await expect(ficha(page).getByText("Nenhum envio ao OMIE com erro neste lançamento.")).toBeVisible();
+  await expect(ficha(page).getByRole("button", { name: "Tentar de novo" })).toHaveCount(0);
+
+});
+
+test("Tentar de novo com sucesso: o envio volta à fila e a linha do tempo registra", async ({ page, baseURL }) => {
+  await bloquearTerceiros(page);
+  const descricao = `Tarifa ${marcaDaExecucao()} ${Date.now().toString(36)} (sintético)`;
+  await criarConta(page, baseURL!, descricao);
+  await page.route("**/api/financeiro/lancamentos/*/acoes", async (rota) => {
+    const resposta = await rota.fetch();
+    const l = await resposta.json();
+    await rota.fulfill({ response: resposta, json: { ...l, omie: { estado: "erro", codigo: null, motivo: "indisponivel" } } });
+  });
+  await ficha(page).getByRole("button", { name: "Aprovar" }).click();
+  await page.route("**/api/financeiro/lancamentos/*/omie/tentar-de-novo", async (rota) => {
+    const atual = await (await page.request.get(rota.request().url().replace("/omie/tentar-de-novo", ""))).json();
+    await rota.fulfill({ json: {
+      ...atual, updatedAt: new Date().toISOString(), omie: { estado: "enviando", codigo: null, motivo: null },
+      linhaDoTempo: [{ tipo: "omie", em: new Date().toISOString(), por: null, resumo: "Envio ao OMIE pedido de novo", texto: null }, ...atual.linhaDoTempo],
+    } });
+  });
+  await ficha(page).getByRole("tab", { name: "OMIE" }).click();
+  await expect(ficha(page).getByText("Não foi ao OMIE da Waze Energia: o OMIE não respondeu.")).toBeVisible();
+  await ficha(page).getByRole("button", { name: "Tentar de novo" }).click();
+  await expect(ficha(page).locator(".aviso--sucesso")).toContainText("Envio ao OMIE da Waze Energia pedido de novo.");
+  await expect(ficha(page).getByText("Enviando ao OMIE da Waze Energia…")).toBeVisible();
+  await ficha(page).getByRole("tab", { name: "Linha do tempo" }).click();
+  await expect(ficha(page).getByRole("region", { name: "Linha do tempo do lançamento" }).getByText("Envio ao OMIE pedido de novo")).toBeVisible();
 });
 
 test("cancelar pede o motivo, e a ficha mostra onde parou", async ({ page, baseURL }) => {
