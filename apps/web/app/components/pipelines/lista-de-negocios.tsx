@@ -88,6 +88,7 @@ export function ListaDeNegocios({
   const linhasPaginadas = useMemo(() => linhas.slice(inicioIndice, fimIndice), [linhas, inicioIndice, fimIndice]);
   const todos = linhasPaginadas.length > 0 && linhasPaginadas.every((n) => selecionados.has(n.id));
   const alguns = linhasPaginadas.some((n) => selecionados.has(n.id));
+  const selecionadosNaPagina = linhasPaginadas.filter((n) => selecionados.has(n.id)).length;
   const valorTotal = linhas.reduce((total, negocio) => total + (negocio.value ? Number(negocio.value) : 0), 0);
 
   const exportar = () => {
@@ -221,6 +222,16 @@ export function ListaDeNegocios({
           </div>
         ) : (
           <>
+            {/* No celular o cabeçalho da tabela some (cartões): o "selecionar todos" vem para cima dos cartões. */}
+            {selecionando ? <div className={styles.selecionarTodosCelular}>
+              <Checkbox
+                label="Selecionar todos os leads visíveis"
+                description={`${selecionadosNaPagina} de ${linhasPaginadas.length} nesta página`}
+                checked={todos}
+                indeterminate={alguns && !todos}
+                onChange={alternarTodos}
+              />
+            </div> : null}
             <div className={styles.rolagemTabela} role="region" aria-label="Oportunidades do pipeline" tabIndex={0}>
             <ShellTable caption={`Lista de negócios do pipeline ${pipeline.name}`}>
               <thead>

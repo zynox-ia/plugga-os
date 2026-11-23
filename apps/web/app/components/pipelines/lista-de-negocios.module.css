@@ -146,6 +146,8 @@
 .checkbox { align-items: center; flex: 0 0 24px; width: 24px; min-height: 32px; margin: 0; padding: 0; gap: 0; }
 .checkbox > input { margin: 0; }
 /* O rótulo continua disponível para leitores de tela. */
+/* Fora do celular o "selecionar todos" fica no cabeçalho da tabela. */
+.selecionarTodosCelular { display: none; }
 .checkbox > span { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
 /* Coluna Negócio: mesma composição da pessoa em Equipe e Acessos. */
@@ -299,6 +301,8 @@
   .segmentado button { flex: 1 1 0; min-width: 0; padding-inline: 4px; }
   .rolagemTabela { padding-inline: var(--space-md); }
   .rolagemTabela { min-height: 0; overflow: visible; contain: none; }
+  .selecionarTodosCelular { display: flex; padding: 0 var(--space-md) var(--space-xs); border-bottom: 1px solid var(--ui-divider); }
+  .selecionarTodosCelular :global(.ui-checkbox) { align-items: center; min-height: 44px; }
   .lista table { min-width: 0; table-layout: auto; }
   .lista thead { display: none; }
   .lista tbody { display: block; }

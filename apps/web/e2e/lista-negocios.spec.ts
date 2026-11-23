@@ -264,7 +264,14 @@ test("mantém a tabela e os controles contidos em telas estreitas", async ({ pag
     // No celular (< 768 px) a tabela vira cartões que cabem na largura e rolam com a página.
     expect(await rolagem.evaluate((el) => getComputedStyle(el).overflowX)).toBe(width < 768 ? "visible" : "auto");
     await selecionar.click();
-    await page.getByRole("checkbox", { name: "Selecionar todos os leads visíveis" }).check();
+    const todos = page.getByRole("checkbox", { name: "Selecionar todos os leads visíveis" });
+    if (width < 768) {
+      // No celular o cabeçalho some: o "selecionar todos" fica acima dos cartões, com a contagem da página.
+      await expect(todos).toHaveAccessibleDescription("0 de 6 nesta página");
+      expect((await todos.boundingBox())!.y).toBeLessThan((await page.locator("tbody tr").first().boundingBox())!.y);
+    }
+    await todos.check();
+    if (width < 768) await expect(todos).toHaveAccessibleDescription("6 de 6 nesta página");
     const barra = page.getByRole("region", { name: "Ações em lote" });
     await expect(barra).toBeVisible();
     await barra.scrollIntoViewIfNeeded();
