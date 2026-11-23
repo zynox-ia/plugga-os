@@ -1,4 +1,4 @@
-import { alcancaPlataforma, alcancaTela, papelDoAcesso, type Acesso, type Tela } from "@plugga/shared";
+import { alcancaPlataforma, alcancaTela, papelDoAcesso, telasPorDepartamento, type Acesso, type Tela } from "@plugga/shared";
 
 import { integracoesParaAcesso } from "./integracoes.ts";
 import { podeVerCompras } from "./papel-em-compras.ts";
@@ -28,6 +28,8 @@ const paginas: ReadonlyArray<readonly [string, Tela | readonly Tela[]]> = [
   ["/suprimentos/estoque", "suprimentos.estoque"],
   ["/financeiro/lancamentos", TELAS_DOS_LANCAMENTOS],
   ["/engenharia/ordens-de-servico", TELAS_DAS_ORDENS_DE_SERVICO],
+  // Tarefas da Engenharia abrem com qualquer tela do departamento (PLU-349).
+  ["/engenharia/tarefas", telasPorDepartamento["engenharia-obras"]],
 ];
 
 /** `ambiente` só existe para o teste do portão; a tela usa o do build. */

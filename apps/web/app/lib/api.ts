@@ -26,6 +26,9 @@ import {
   listIntegrationsResponseSchema,
   listJobRunsResponseSchema,
   listarOrdensDeServicoRespostaSchema,
+  listarTarefasRespostaSchema,
+  opcoesDeTarefasRespostaSchema,
+  type DepartamentoComTarefas,
   opcoesDaEngenhariaRespostaSchema,
   ordemDeServicoSchema,
   quadroDeOrdensRespostaSchema,
@@ -182,3 +185,10 @@ export const fetchOrdemDeServico = (id: string) => lerApi("/engenharia/ordens-de
 
 /** GET /engenharia/ordens-de-servico/opcoes: técnicos e os enums dos menus. */
 export const fetchOpcoesDaEngenharia = () => lerApi("/engenharia/ordens-de-servico/opcoes", opcoesDaEngenhariaRespostaSchema);
+
+/** GET /tarefas/:departamento: as ocorrências do período, o progresso e as contagens (PLU-349, PLU-340). */
+export const fetchTarefas = (departamento: DepartamentoComTarefas, consulta: Record<string, string | undefined>) =>
+  lerApi(`/tarefas/${departamento}`, listarTarefasRespostaSchema, {}, { consulta });
+
+/** GET /tarefas/:departamento/opcoes: pessoas, categorias e se a pessoa pode criar. */
+export const fetchOpcoesDeTarefas = (departamento: DepartamentoComTarefas) => lerApi(`/tarefas/${departamento}/opcoes`, opcoesDeTarefasRespostaSchema);
