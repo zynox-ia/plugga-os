@@ -3,6 +3,9 @@ import { randomUUID } from "node:crypto";
 import { Inject, Injectable, Logger } from "@nestjs/common";
 import {
   ARQUIVO_DE_COMPRA_MAX_BYTES,
+  atendimentoPeloEstoqueSchema,
+  type AtendimentoPeloEstoque,
+  type VincularItensAoEstoque,
   LIMITE_DA_LISTA_DE_PEDIDOS,
   buscarClientesDeCompraRespostaSchema,
   listarPedidosDeCompraRespostaSchema,
@@ -138,6 +141,17 @@ export class ComprasService {
       await this.descartar(guardado.chave);
       throw erro;
     }
+    return this.obter(id, principal);
+  }
+
+  async atendimento(id: string, principal: AuthPrincipal): Promise<AtendimentoPeloEstoque> {
+    this.exigirLeitura(principal);
+    return atendimentoPeloEstoqueSchema.parse(await this.repositorio.atendimento(id));
+  }
+
+  async vincularItensAoEstoque(id: string, input: VincularItensAoEstoque, principal: AuthPrincipal): Promise<PedidoDeCompra> {
+    this.exigirOperacao(principal);
+    await this.repositorio.vincularItens(id, input, principal);
     return this.obter(id, principal);
   }
 

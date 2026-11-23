@@ -193,6 +193,9 @@ jobs:
       - name: Verify purchase orders against Postgres
         run: pnpm --filter @plugga/api test:compras
 
+      - name: Verify stock balances and reservations against Postgres
+        run: pnpm --filter @plugga/api test:estoque
+
       - name: Verify sales pipeline configuration against Postgres
         run: pnpm --filter @plugga/api test:pipelines
 

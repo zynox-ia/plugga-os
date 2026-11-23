@@ -1,9 +1,12 @@
-import { Body, Controller, Get, HttpCode, Inject, Param, ParseUUIDPipe, Patch, Post, Query, Res, UploadedFile, UseGuards, UseInterceptors } from "@nestjs/common";
+import { Body, Controller, Get, HttpCode, Inject, Param, ParseUUIDPipe, Patch, Post, Put, Query, Res, UploadedFile, UseGuards, UseInterceptors } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { ThrottlerGuard } from "@nestjs/throttler";
 import {
   ARQUIVO_DE_COMPRA_MAX_BYTES,
   acaoDoPedidoSchema,
+  vincularItensAoEstoqueSchema,
+  type AtendimentoPeloEstoque,
+  type VincularItensAoEstoque,
   buscarClientesDeCompraQuerySchema,
   criarObraSchema,
   criarPedidoDeCompraSchema,
@@ -113,6 +116,22 @@ export class ComprasController {
     @CurrentPrincipal() principal: AuthPrincipal,
   ): Promise<PedidoDeCompra> {
     return this.compras.executarAcao(id, acao, principal);
+  }
+
+  @Get("pedidos/:id/atendimento")
+  atendimento(@Param("id", ParseUUIDPipe) id: string, @CurrentPrincipal() principal: AuthPrincipal): Promise<AtendimentoPeloEstoque> {
+    return this.compras.atendimento(id, principal);
+  }
+
+  @Put("pedidos/:id/vinculos-de-estoque")
+  @HttpCode(200)
+  @UseGuards(OriginCheckGuard, ThrottlerGuard)
+  vincularAoEstoque(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body(new ZodValidationPipe(vincularItensAoEstoqueSchema)) input: VincularItensAoEstoque,
+    @CurrentPrincipal() principal: AuthPrincipal,
+  ): Promise<PedidoDeCompra> {
+    return this.compras.vincularItensAoEstoque(id, input, principal);
   }
 
   @Post("pedidos/:id/cotacoes")

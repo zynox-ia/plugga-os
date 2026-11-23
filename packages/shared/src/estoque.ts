@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { diaDoCalendario, quantidadeString } from "./compras.js";
+import { diaDoCalendario, obraDeCompraSchema, quantidadeString } from "./compras.js";
 import { companyKeySchema } from "./organization.js";
 import { decimalString, isoDate, uuid } from "./primitivas.js";
 
@@ -432,3 +432,12 @@ export const abrirPedidoDeReposicaoSchema = z
 export type AbrirPedidoDeReposicao = z.infer<typeof abrirPedidoDeReposicaoSchema>;
 export const pedidoDeReposicaoAbertoSchema = z.object({ pedidoId: uuid, numero: z.number().int().positive() });
 export type PedidoDeReposicaoAberto = z.infer<typeof pedidoDeReposicaoAbertoSchema>;
+
+/**
+ * Opções do registro de movimentação: `GET /suprimentos/estoque/opcoes`, com as
+ * obras ativas para o destino da saída. A busca de cliente é
+ * `GET /suprimentos/estoque/clientes?busca=`, com os schemas de Compras
+ * (`buscarClientesDeCompraQuerySchema`/`RespostaSchema`): só id e nome.
+ */
+export const opcoesDeEstoqueRespostaSchema = z.object({ obras: z.array(obraDeCompraSchema) });
+export type OpcoesDeEstoqueResposta = z.infer<typeof opcoesDeEstoqueRespostaSchema>;

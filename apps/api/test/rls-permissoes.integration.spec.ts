@@ -127,7 +127,7 @@ describe.skipIf(!HABILITADO)("RLS: permissões no login real da aplicação", { 
 
   it("habilita e força RLS em todos os modelos e mantém os grupos sem bypass", async () => {
     const tabelas = Prisma.dmmf.datamodel.models.map((m) => m.dbName ?? m.name);
-    expect(tabelas).toHaveLength(81);
+    expect(tabelas).toHaveLength(84);
     expect(tabelas).toContain("conexoes_google_calendar");
     expect(tabelas).toEqual(expect.arrayContaining(["activities", "activity_rounds", "activity_changes", "activity_round_evidence"]));
     const flags = await root.$queryRaw<{ nome: string; ativo: boolean; forcado: boolean }[]>`
@@ -810,6 +810,48 @@ describe.skipIf(!HABILITADO)("RLS: permissões no login real da aplicação", { 
       // Evidência não sai em cascata (ON DELETE RESTRICT): comprovantes antes dos pedidos.
       await root.comprovanteDePagamento.deleteMany({ where: { pedido: { titulo: { startsWith: marca } } } });
       await root.pedidoDeCompra.deleteMany({ where: { titulo: { startsWith: marca } } });
+    }
+  });
+
+  it("estoque: lê Estoque, Compras e Financeiro; cadastra só Estoque; movimentação só se insere; nada se apaga", async () => {
+    const pessoa = await root.user.create({ data: { name: `${marca}-est`, email: `${marca}-est@teste.local` } });
+    idsUsuarios.push(pessoa.id);
+    const hash = randomBytes(32).toString("hex");
+    pessoas.set("estoque", { id: pessoa.id, hash });
+    await root.session.create({ data: { userId: pessoa.id, tokenHash: hash, expiresAt: new Date(Date.now() + 3_600_000), absoluteExpiresAt: new Date(Date.now() + 7_200_000) } });
+    await root.userDepartamento.create({ data: { userId: pessoa.id, departamento: "suprimentos", nivel: "membro", telas: ["suprimentos.estoque"] } });
+    const item = await root.itemDeEstoque.create({ data: { companyId: empresaId, codigo: "RLS-1", nome: marca, categoria: "outros", unidade: "un" }, select: { id: true } });
+    const pedido = await root.pedidoDeCompra.create({ data: { companyId: empresaId, titulo: `${marca}-est`, destino: "interno", solicitanteId: pessoa.id, prazoEntregaDesejado: new Date() }, select: { id: true } });
+    try {
+      for (const nome of ["estoque", "financeiro", "admin"]) {
+        expect(await contexto(nome, (tx) => tx.itemDeEstoque.findUnique({ where: item, select: { id: true } })), nome).toEqual(item);
+      }
+      for (const nome of ["a", "gerente", "sem-tela"]) {
+        expect(await contexto(nome, (tx) => tx.itemDeEstoque.findUnique({ where: item, select: { id: true } })), nome).toBeNull();
+      }
+      // Estoque lê o pedido que reserva (só leitura); o CRM não.
+      expect(await contexto("estoque", (tx) => tx.pedidoDeCompra.findUnique({ where: pedido, select: { id: true } }))).toEqual(pedido);
+      expect(await contexto("a", (tx) => tx.pedidoDeCompra.findUnique({ where: pedido, select: { id: true } }))).toBeNull();
+      await expect(contexto("estoque", (tx) => tx.pedidoDeCompra.updateMany({ where: pedido, data: { titulo: "x" } }))).resolves.toEqual({ count: 0 });
+
+      const novo = await contexto("estoque", (tx) => tx.itemDeEstoque.create({ data: { companyId: empresaId, codigo: "RLS-2", nome: `${marca}-2`, categoria: "outros", unidade: "un" }, select: { id: true } }));
+      await expect(contexto("financeiro", (tx) => tx.itemDeEstoque.create({ data: { companyId: empresaId, codigo: "RLS-3", nome: `${marca}-3`, categoria: "outros", unidade: "un" } }))).rejects.toThrow();
+
+      const movimento = { itemId: novo.id, tipo: "entrada" as const, data: new Date("2026-11-23T00:00:00Z"), quantidade: 1, custoUnitario: 1, origem: "outra" as const, saldoDepois: 1, registradaPorId: pessoa.id };
+      const criado = await contexto("estoque", (tx) => tx.movimentacaoDeEstoque.create({ data: movimento, select: { id: true } }));
+      await expect(contexto("estoque", (tx) => tx.movimentacaoDeEstoque.update({ where: criado, data: { quantidade: 2 } }))).rejects.toThrow();
+      // Sem GRANT de DELETE: recusado antes de chegar à política.
+      await expect(contexto("admin", (tx) => tx.movimentacaoDeEstoque.deleteMany({ where: criado }))).rejects.toThrow(/permission denied/);
+      await expect(contexto("admin", (tx) => tx.itemDeEstoque.deleteMany({ where: item }))).rejects.toThrow(/permission denied/);
+      // O diretório mostra quem registrou a movimentação para quem tem Estoque.
+      expect(await contexto("estoque", (tx) => tx.user.findUnique({ where: { id: pessoa.id }, select: { id: true } }))).toEqual({ id: pessoa.id });
+    } finally {
+      await root.$transaction(async (tx) => {
+        await tx.$executeRawUnsafe("SET LOCAL session_replication_role = replica");
+        await tx.movimentacaoDeEstoque.deleteMany({ where: { item: { nome: { startsWith: marca } } } });
+        await tx.itemDeEstoque.deleteMany({ where: { nome: { startsWith: marca } } });
+        await tx.pedidoDeCompra.deleteMany({ where: pedido });
+      });
     }
   });
 

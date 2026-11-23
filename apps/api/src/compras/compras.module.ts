@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common";
 
 import { AuditModule } from "../audit/audit.module";
 import { CoreModule } from "../core/core.module";
+import { MovimentosDeEstoque } from "../estoque/movimentos-de-estoque";
 import { ArmazenamentoDeDocumentos } from "../lead-documentos/armazenamento-de-documentos";
 import { PrismaModule } from "../prisma/prisma.module";
 import { ComprasController } from "./compras.controller";
@@ -16,7 +17,10 @@ import { PrismaComprasRepository } from "./prisma-compras.repository";
     ComprasService,
     PrismaComprasRepository,
     ArmazenamentoDeDocumentos,
+    MovimentosDeEstoque,
     { provide: RELOGIO_DE_COMPRAS, useValue: () => new Date() },
   ],
+  // O Estoque abre pedido de reposição pelo mesmo repositório e usa o mesmo relógio.
+  exports: [PrismaComprasRepository, RELOGIO_DE_COMPRAS],
 })
 export class ComprasModule {}

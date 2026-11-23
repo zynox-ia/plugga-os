@@ -311,6 +311,10 @@ model User {
   obrasCriadas                   Obra[]                      @relation("ObraCriadaPor")
   comprovantesEnviados           ComprovanteDePagamento[]    @relation("ComprovanteEnviadoPor")
   comprovantesSubstituidos       ComprovanteDePagamento[]    @relation("ComprovanteSubstituidoPor")
+  itensDeEstoqueCriados ItemDeEstoque[] @relation("ItemDeEstoqueCriadoPor")
+  reservasDeEstoqueFeitas ReservaDeEstoque[] @relation("ReservaDeEstoqueFeitaPor")
+  reservasDeEstoqueEncerradas ReservaDeEstoque[] @relation("ReservaDeEstoqueEncerradaPor")
+  movimentacoesDeEstoque MovimentacaoDeEstoque[] @relation("MovimentacaoDeEstoqueRegistradaPor")
   fornecedoresAtualizados        Fornecedor[]                @relation("FornecedorAtualizadoPor")
   passagensDeObra                ObraEtapaHistorico[]
   evidenciasDeObra               EvidenciaDeObra[]
@@ -467,6 +471,7 @@ model Company {
   createdAt DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
   obras     Obra[]
   pedidos   PedidoDeCompra[]
+  itensDeEstoque ItemDeEstoque[]
   pipelines Pipeline[]
 
   @@map("companies")
@@ -869,6 +874,7 @@ model Client {
   energyStudies     EnergyEfficiencyStudy[]
   obras             Obra[]
   pedidosDeCompra   PedidoDeCompra[]
+  movimentacoesDeEstoque MovimentacaoDeEstoque[]
   deals             Deal[]
 
   @@index([segment, active])
@@ -1718,6 +1724,7 @@ model Obra {
   pendencias          PendenciaDeCampo[]
   medicoes            MedicaoTecnica[]
   versoesDeProjeto    ProjetoVersao[]
+  movimentacoesDeEstoque MovimentacaoDeEstoque[]
 
   @@index([companyId, ativa])
   @@index([companyId, etapaAtual])
@@ -2064,6 +2071,8 @@ model PedidoDeCompra {
   cotacoes                 CotacaoDeCompra[]        @relation("CotacoesDoPedido")
   etapas                   PedidoDeCompraEtapa[]
   comprovantes             ComprovanteDePagamento[]
+  reservasDeEstoque ReservaDeEstoque[]
+  movimentacoesDeEstoque MovimentacaoDeEstoque[]
 
   @@index([etapa])
   @@index([responsavelId])
@@ -2082,11 +2091,15 @@ model ItemDePedido {
   descricao  String
   quantidade Decimal  @db.Decimal(14, 3)
   unidade    String?
+  itemDeEstoqueId String? @map("item_de_estoque_id") @db.Uuid
   createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
   pedido PedidoDeCompra @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+  itemDeEstoque ItemDeEstoque? @relation(fields: [itemDeEstoqueId], references: [id], onDelete: Restrict)
+  reservasDeEstoque ReservaDeEstoque[]
 
   @@index([pedidoId])
+  @@index([itemDeEstoqueId])
   @@map("itens_de_pedido")
 }
 
@@ -2403,4 +2416,146 @@ model LeadContact {
   @@unique([id, dealId])
   @@index([dealId])
   @@map("lead_contacts")
+}
+
+// ---------------------------------------------------------------------------
+// Estoque de Suprimentos (PLU-332). Saldo derivado das movimentações, que são
+// só de inserção; a reserva nasce do pedido de compra atendido pelo estoque.
+// ---------------------------------------------------------------------------
+
+enum EstoqueCategoria {
+  kit_solar
+  material_eletrico
+  material_de_obra
+  ferramenta
+  escritorio
+  outros
+
+  @@map("estoque_categoria")
+}
+
+enum EstoqueMovimentacaoTipo {
+  entrada
+  saida
+  ajuste
+  reserva
+  liberacao
+
+  @@map("estoque_movimentacao_tipo")
+}
+
+enum EstoqueOrigemEntrada {
+  compra
+  devolucao
+  saldo_inicial
+  outra
+
+  @@map("estoque_origem_entrada")
+}
+
+enum EstoqueDestinoSaida {
+  obra
+  cliente
+  interno
+
+  @@map("estoque_destino_saida")
+}
+
+enum EstoqueReservaEstado {
+  ativa
+  baixada
+  liberada
+
+  @@map("estoque_reserva_estado")
+}
+
+/// Item de estoque de uma empresa. `emEstoque` e `reservado` são o saldo
+/// acumulado das movimentações, gravado na transação de cada uma; nunca digitado.
+model ItemDeEstoque {
+  id                   String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId            String           @map("company_id")
+  codigo               String
+  nome                 String
+  categoria            EstoqueCategoria
+  unidade              String
+  estoqueMinimo        Decimal          @default(0) @map("estoque_minimo") @db.Decimal(14, 3)
+  emEstoque            Decimal          @default(0) @map("em_estoque") @db.Decimal(14, 3)
+  reservado            Decimal          @default(0) @db.Decimal(14, 3)
+  custoMedio           Decimal?         @map("custo_medio") @db.Decimal(14, 4)
+  ativo                Boolean          @default(true)
+  observacoes          String?
+  ultimaMovimentacaoEm DateTime?        @map("ultima_movimentacao_em") @db.Timestamptz(6)
+  criadoPorId          String?          @map("criado_por_id") @db.Uuid
+  createdAt            DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  company       Company                 @relation(fields: [companyId], references: [id])
+  criadoPor     User?                   @relation("ItemDeEstoqueCriadoPor", fields: [criadoPorId], references: [id], onDelete: SetNull)
+  reservas      ReservaDeEstoque[]
+  movimentacoes MovimentacaoDeEstoque[]
+  itensDePedido ItemDePedido[]
+
+  @@unique([companyId, codigo])
+  @@index([ativo, nome])
+  @@map("itens_de_estoque")
+}
+
+/// Reserva de um item para um item de pedido de compra atendido pelo estoque.
+model ReservaDeEstoque {
+  id             String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  itemId         String               @map("item_id") @db.Uuid
+  pedidoId       String               @map("pedido_id") @db.Uuid
+  itemDoPedidoId String               @map("item_do_pedido_id") @db.Uuid
+  quantidade     Decimal              @db.Decimal(14, 3)
+  estado         EstoqueReservaEstado @default(ativa)
+  reservadaEm    DateTime             @default(now()) @map("reservada_em") @db.Timestamptz(6)
+  reservadaPorId String?              @map("reservada_por_id") @db.Uuid
+  encerradaEm    DateTime?            @map("encerrada_em") @db.Timestamptz(6)
+  encerradaPorId String?              @map("encerrada_por_id") @db.Uuid
+
+  item          ItemDeEstoque           @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  pedido        PedidoDeCompra          @relation(fields: [pedidoId], references: [id], onDelete: Restrict)
+  itemDoPedido  ItemDePedido            @relation(fields: [itemDoPedidoId], references: [id], onDelete: Restrict)
+  reservadaPor  User?                   @relation("ReservaDeEstoqueFeitaPor", fields: [reservadaPorId], references: [id], onDelete: SetNull)
+  encerradaPor  User?                   @relation("ReservaDeEstoqueEncerradaPor", fields: [encerradaPorId], references: [id], onDelete: SetNull)
+  movimentacoes MovimentacaoDeEstoque[]
+
+  @@index([itemId, estado])
+  @@index([pedidoId])
+  @@map("reservas_de_estoque")
+}
+
+/// Movimentação de estoque. Só de inserção (trigger); corrige-se com ajuste.
+model MovimentacaoDeEstoque {
+  id                  String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  itemId              String                  @map("item_id") @db.Uuid
+  tipo                EstoqueMovimentacaoTipo
+  /// Início do dia da movimentação em Manaus.
+  data                DateTime                @db.Timestamptz(6)
+  quantidade          Decimal                 @db.Decimal(14, 3)
+  custoUnitario       Decimal?                @map("custo_unitario") @db.Decimal(14, 4)
+  custoMedioNoMomento Decimal?                @map("custo_medio_no_momento") @db.Decimal(14, 4)
+  origem              EstoqueOrigemEntrada?
+  destino             EstoqueDestinoSaida?
+  obraId              String?                 @map("obra_id") @db.Uuid
+  clientId            String?                 @map("client_id") @db.Uuid
+  area                String?
+  pedidoId            String?                 @map("pedido_id") @db.Uuid
+  reservaId           String?                 @map("reserva_id") @db.Uuid
+  observacao          String?
+  saldoDepois         Decimal                 @map("saldo_depois") @db.Decimal(14, 3)
+  registradaPorId     String?                 @map("registrada_por_id") @db.Uuid
+  registradaEm        DateTime                @default(now()) @map("registrada_em") @db.Timestamptz(6)
+
+  item          ItemDeEstoque     @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  obra          Obra?             @relation(fields: [obraId], references: [id], onDelete: Restrict)
+  client        Client?           @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  pedido        PedidoDeCompra?   @relation(fields: [pedidoId], references: [id], onDelete: Restrict)
+  reserva       ReservaDeEstoque? @relation(fields: [reservaId], references: [id], onDelete: Restrict)
+  registradaPor User?             @relation("MovimentacaoDeEstoqueRegistradaPor", fields: [registradaPorId], references: [id], onDelete: Restrict)
+
+  @@index([itemId, registradaEm])
+  @@index([data])
+  @@index([pedidoId])
+  @@map("movimentacoes_de_estoque")
 }

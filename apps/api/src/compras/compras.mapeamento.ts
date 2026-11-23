@@ -40,7 +40,7 @@ export const INCLUDE_DO_DETALHE = {
   recebimentoConfirmadoPor: PESSOA,
   canceladoPor: PESSOA,
   obra: { select: { id: true, nome: true } },
-  itens: { orderBy: [{ createdAt: "asc" }, { id: "asc" }] },
+  itens: { orderBy: [{ createdAt: "asc" }, { id: "asc" }], include: { itemDeEstoque: { select: { id: true, codigo: true, nome: true } } } },
   cotacoes: { include: { fornecedor: { select: { id: true, nome: true, ativo: true } }, criadoPor: PESSOA }, orderBy: { createdAt: "asc" } },
   etapas: { include: { responsavel: PESSOA, saiuPor: PESSOA }, orderBy: { entrouEm: "asc" } },
   // Só o atual: os substituídos ficam guardados, mas a tela mostra o vigente.
@@ -146,8 +146,7 @@ export function paraDetalhe(linha: LinhaDoDetalhe, clientes: NomesDeClientes, pa
     titulo: linha.titulo,
     descricao: linha.descricao,
     destino: destino(linha, clientes),
-    // O vínculo com o estoque chega com a migration da PLU-332.
-    itens: linha.itens.map((item) => ({ id: item.id, descricao: item.descricao, quantidade: item.quantidade.toString(), unidade: item.unidade, itemDeEstoque: null })),
+    itens: linha.itens.map((item) => ({ id: item.id, descricao: item.descricao, quantidade: item.quantidade.toString(), unidade: item.unidade, itemDeEstoque: item.itemDeEstoque })),
     prazoEntregaDesejado: diaEmManaus(linha.prazoEntregaDesejado),
     etapa: linha.etapa,
     situacao,

@@ -4,6 +4,8 @@ import {
   DIAS_DE_CONCLUIDOS_NO_QUADRO,
   problemaDoDestino,
   type AcaoDoPedido,
+  type AtendimentoPeloEstoque,
+  type VincularItensAoEstoque,
   type CompanyKey,
   type CriarObra,
   type CriarPedidoDeCompra,
@@ -39,7 +41,9 @@ import {
   somarValores,
   type EstadoDoPedido,
 } from "./compras.rules";
-import { fimDoDiaEmManaus, inicioDoDiaEmManaus } from "./dias-uteis";
+import { D } from "../estoque/estoque.rules";
+import { diaComoData, MovimentosDeEstoque } from "../estoque/movimentos-de-estoque";
+import { diaEmManaus, fimDoDiaEmManaus, inicioDoDiaEmManaus } from "./dias-uteis";
 
 export type ArquivoGuardado = { chave: string; nome: string; tamanho: number; tipo: string };
 
@@ -55,6 +59,7 @@ export class PrismaComprasRepository {
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(AuditAppender) private readonly auditoria: AuditAppender,
+    @Inject(MovimentosDeEstoque) private readonly estoque: MovimentosDeEstoque,
   ) {}
 
   // ------------------------------------------------------------ leitura
@@ -159,6 +164,7 @@ export class PrismaComprasRepository {
     const solicitanteId = input.solicitanteId ?? principal.id;
     await this.garantirPessoas(principal, [solicitanteId, input.responsavelId ?? null]);
     await this.garantirObra(input.obraId ?? null, input.empresa);
+    await this.garantirItensDeEstoque(input.itens.map((item) => item.itemDeEstoqueId ?? null), input.empresa);
     const passagem = passagemInicial(agora);
     return this.comVinculosValidos(() => this.prisma.comContexto(async (tx) => {
       const pedido = await tx.pedidoDeCompra.create({
@@ -174,7 +180,7 @@ export class PrismaComprasRepository {
           criadoPorId: principal.id,
           prazoEntregaDesejado: fimDoDiaEmManaus(input.prazoEntregaDesejado),
           valorOrcado: input.valorOrcado ?? null,
-          itens: { create: input.itens.map((item) => ({ descricao: item.descricao, quantidade: item.quantidade, unidade: item.unidade ?? null })) },
+          itens: { create: input.itens.map((item) => ({ descricao: item.descricao, quantidade: item.quantidade, unidade: item.unidade ?? null, itemDeEstoqueId: item.itemDeEstoqueId ?? null })) },
           etapas: { create: { ...passagem, responsavelId: input.responsavelId ?? null } },
         },
         select: { id: true, numero: true },
@@ -204,6 +210,11 @@ export class PrismaComprasRepository {
       const empresa = input.empresa ?? (atual.companyId as CompanyKey);
       if (destinoFinal.obraId && (input.obraId !== undefined || input.empresa !== undefined)) await this.garantirObra(destinoFinal.obraId, empresa, tx);
       await this.garantirPessoas(principal, [input.solicitanteId ?? null, input.responsavelId ?? null], tx);
+      // O vínculo com o estoque é da empresa do pedido: vale para itens novos e para a troca de empresa.
+      const vinculos = input.itens
+        ? input.itens.map((item) => item.itemDeEstoqueId ?? null)
+        : input.empresa !== undefined ? (await tx.itemDePedido.findMany({ where: { pedidoId: id }, select: { itemDeEstoqueId: true } })).map((item) => item.itemDeEstoqueId) : [];
+      await this.garantirItensDeEstoque(vinculos, empresa, tx);
 
       try {
         await tx.pedidoDeCompra.update({
@@ -227,7 +238,7 @@ export class PrismaComprasRepository {
       }
       if (input.itens) {
         await tx.itemDePedido.deleteMany({ where: { pedidoId: id } });
-        await tx.itemDePedido.createMany({ data: input.itens.map((item) => ({ pedidoId: id, descricao: item.descricao, quantidade: item.quantidade, unidade: item.unidade ?? null })) });
+        await tx.itemDePedido.createMany({ data: input.itens.map((item) => ({ pedidoId: id, descricao: item.descricao, quantidade: item.quantidade, unidade: item.unidade ?? null, itemDeEstoqueId: item.itemDeEstoqueId ?? null })) });
       }
       await this.registrar(tx, "compras.pedido.updated", "pedido_de_compra", id, empresa, principal, { campos });
     });
@@ -240,6 +251,7 @@ export class PrismaComprasRepository {
         where: { id },
         select: {
           etapa: true, canceladoEm: true, origemAtendimento: true, cotacaoSelecionadaId: true, companyId: true, responsavelId: true,
+          destino: true, obraId: true, clientId: true,
           cotacoes: { select: { id: true, valor: true, valorFrete: true, prazoEntregaDias: true } },
           etapas: { where: { saiuEm: null }, select: { id: true, prazoEm: true } },
         },
@@ -264,6 +276,20 @@ export class PrismaComprasRepository {
         throw new RequisicaoInvalida(resultado.recusa.mensagem);
       }
       const { alteracoes, fecharPassagem, abrirPassagem, evento } = resultado.plano;
+
+      // Estoque (PLU-332), na mesma transação da etapa: reservar, baixar, dar entrada ou liberar.
+      const doPedido = { id, companyId: pedido.companyId, destino: pedido.destino, obraId: pedido.obraId, clientId: pedido.clientId };
+      const hoje = diaComoData(diaEmManaus(agora));
+      if (acao.acao === "decidir_estoque" && acao.origem === "estoque") await this.estoque.reservar(tx, doPedido, principal, agora);
+      if (acao.acao === "confirmar_recebimento") {
+        if (pedido.origemAtendimento === "estoque") {
+          if (acao.entradaNoEstoque) throw new RequisicaoInvalida("Pedido atendido pelo estoque não dá entrada: a reserva vira saída.");
+          await this.estoque.baixarReservas(tx, doPedido, principal, agora, hoje);
+        } else if (acao.entradaNoEstoque) {
+          await this.estoque.entradaDoRecebimento(tx, doPedido, acao.entradaNoEstoque, principal, agora, hoje);
+        }
+      }
+      if (acao.acao === "cancelar") await this.estoque.liberarReservas(tx, doPedido, principal, agora, hoje);
 
       if (fecharPassagem && aberta) {
         await tx.pedidoDeCompraEtapa.update({
@@ -350,7 +376,70 @@ export class PrismaComprasRepository {
     return this.paraObra(obra, await this.nomesDeClientes(obra.clientId ? [obra.clientId] : []));
   }
 
+  /** Quanto o estoque da empresa do pedido atende, item a item (análise de estoque). */
+  async atendimento(pedidoId: string): Promise<AtendimentoPeloEstoque> {
+    const pedido = await this.prisma.comContexto((tx) => tx.pedidoDeCompra.findUnique({
+      where: { id: pedidoId },
+      select: {
+        itens: {
+          orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+          select: { id: true, descricao: true, quantidade: true, itemDeEstoque: { select: { id: true, codigo: true, nome: true, unidade: true, emEstoque: true, reservado: true } } },
+        },
+      },
+    }));
+    if (!pedido) throw new NaoEncontrado("Pedido de compra não encontrado.");
+    const itens = pedido.itens.map((item) => {
+      const estoque = item.itemDeEstoque;
+      const disponivel = estoque ? estoque.emEstoque.sub(estoque.reservado) : null;
+      const atende = disponivel === null ? D(0) : Prisma.Decimal.min(item.quantidade, Prisma.Decimal.max(disponivel, 0));
+      return {
+        itemDoPedidoId: item.id,
+        descricao: item.descricao,
+        quantidadePedida: item.quantidade.toFixed(3),
+        itemDeEstoque: estoque ? { id: estoque.id, codigo: estoque.codigo, nome: estoque.nome, unidade: estoque.unidade } : null,
+        disponivel: disponivel?.toFixed(3) ?? null,
+        atende: atende.toFixed(3),
+        cobre: disponivel !== null && disponivel.gte(item.quantidade),
+      };
+    });
+    return {
+      itens: itens.map((item) => ({
+        itemDoPedidoId: item.itemDoPedidoId, descricao: item.descricao, quantidadePedida: item.quantidadePedida,
+        itemDeEstoque: item.itemDeEstoque, disponivel: item.disponivel, atende: item.atende,
+      })),
+      atendeTudo: itens.length > 0 && itens.every((item) => item.cobre),
+    };
+  }
+
+  /** Liga ou desliga os itens do pedido aos itens de estoque da empresa do pedido, até a análise. */
+  async vincularItens(pedidoId: string, input: VincularItensAoEstoque, principal: AuthPrincipal): Promise<void> {
+    await this.prisma.comContexto(async (tx) => {
+      await this.travar(tx, pedidoId);
+      const pedido = await tx.pedidoDeCompra.findUniqueOrThrow({ where: { id: pedidoId }, select: { etapa: true, canceladoEm: true, companyId: true, itens: { select: { id: true } } } });
+      const recusa = problemaDaEdicao(pedido, true);
+      if (recusa) throw new EstadoInvalido(recusa.mensagem);
+      const doPedido = new Set(pedido.itens.map((item) => item.id));
+      if (input.itens.some((item) => !doPedido.has(item.itemDoPedidoId))) throw new RequisicaoInvalida("Um dos itens não é deste pedido.");
+      await this.garantirItensDeEstoque(input.itens.map((item) => item.itemDeEstoqueId), pedido.companyId as CompanyKey, tx);
+      for (const item of input.itens) {
+        await tx.itemDePedido.update({ where: { id: item.itemDoPedidoId }, data: { itemDeEstoqueId: item.itemDeEstoqueId } });
+      }
+      await this.registrar(tx, "compras.pedido.updated", "pedido_de_compra", pedidoId, pedido.companyId, principal, { campos: ["itens.itemDeEstoqueId"] });
+    });
+  }
+
   // ------------------------------------------------------------ apoio
+
+  /** Item de estoque vinculado: existe, está ativo e é da empresa do pedido. */
+  private async garantirItensDeEstoque(ids: (string | null)[], empresa: CompanyKey, tx?: Prisma.TransactionClient): Promise<void> {
+    const alvos = [...new Set(ids.filter((id): id is string => id !== null))];
+    if (alvos.length === 0) return;
+    const consultar = (cliente: Prisma.TransactionClient) => cliente.itemDeEstoque.count({ where: { id: { in: alvos }, companyId: empresa, ativo: true } });
+    const encontrados = tx ? await consultar(tx) : await this.prisma.comContexto(consultar);
+    if (encontrados !== alvos.length) {
+      throw new RequisicaoInvalida("Item de estoque não encontrado, inativo ou de outra empresa.", [{ campo: "itemDeEstoqueId", problema: "Escolha um item ativo do estoque da empresa do pedido." }]);
+    }
+  }
 
   private filtrosComuns(query: { empresa?: CompanyKey; responsavelId?: string; destino?: Prisma.PedidoDeCompraWhereInput["destino"] }): Prisma.PedidoDeCompraWhereInput {
     return {

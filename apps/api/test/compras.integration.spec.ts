@@ -1,10 +1,12 @@
 import { randomUUID } from "node:crypto";
 
 import { acaoDoPedidoSchema, criarPedidoDeCompraSchema, editarPedidoDeCompraSchema } from "@plugga/shared";
+import { Prisma } from "@prisma/client";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { AuditAppender } from "../src/audit/audit-appender.js";
 import { PrismaComprasRepository } from "../src/compras/prisma-compras.repository.js";
+import { MovimentosDeEstoque } from "../src/estoque/movimentos-de-estoque.js";
 import { EstadoInvalido, RequisicaoInvalida } from "../src/common/errors/dominio.js";
 import type { AuthPrincipal } from "../src/core/auth/auth.types.js";
 import { PrismaService } from "../src/prisma/prisma.service.js";
@@ -23,7 +25,8 @@ const AGORA = new Date("2026-11-23T14:00:00Z");
 
 describe.skipIf(!HABILITADO)("compras: pedido de compra no Postgres", () => {
   const prisma = new PrismaService();
-  const repositorio = new PrismaComprasRepository(prisma, new AuditAppender());
+  const movimentos = new MovimentosDeEstoque(new AuditAppender());
+  const repositorio = new PrismaComprasRepository(prisma, new AuditAppender(), movimentos);
   const marca = `comp-${randomUUID().slice(0, 8)}`;
   let principal: AuthPrincipal;
   let fornecedorId: string;
@@ -57,7 +60,14 @@ describe.skipIf(!HABILITADO)("compras: pedido de compra no Postgres", () => {
     await prisma.pedidoDeCompra.updateMany({ where: { id: { in: ids } }, data: { cotacaoSelecionadaId: null } });
     await prisma.comprovanteDePagamento.deleteMany({ where: { pedidoId: { in: ids } } });
     await prisma.cotacaoDeCompra.deleteMany({ where: { pedidoId: { in: ids } } });
-    await prisma.pedidoDeCompra.deleteMany({ where: { id: { in: ids } } });
+    // Movimentação de estoque é só de inserção (trigger): desligada só nesta sessão do dono.
+    await prisma.$transaction(async (tx) => {
+      await tx.$executeRawUnsafe("SET LOCAL session_replication_role = replica");
+      await tx.movimentacaoDeEstoque.deleteMany({ where: { item: { nome: { startsWith: marca } } } });
+      await tx.reservaDeEstoque.deleteMany({ where: { pedidoId: { in: ids } } });
+      await tx.pedidoDeCompra.deleteMany({ where: { id: { in: ids } } });
+      await tx.itemDeEstoque.deleteMany({ where: { nome: { startsWith: marca } } });
+    });
     await prisma.obra.deleteMany({ where: { nome: { startsWith: marca } } });
     await prisma.fornecedor.deleteMany({ where: { nome: { startsWith: marca } } });
     await prisma.user.deleteMany({ where: { email: { startsWith: marca } } });
@@ -106,12 +116,25 @@ describe.skipIf(!HABILITADO)("compras: pedido de compra no Postgres", () => {
   }, PRAZO_MS);
 
   it("atendimento por estoque vai à retirada e conclui sem valor faturado", async () => {
-    const id = await criar();
+    // Atender pelo estoque exige o item vinculado e com saldo (PLU-332).
+    const item = await prisma.itemDeEstoque.create({ data: { companyId: "plugga", codigo: `C${randomUUID().slice(0, 8)}`.toUpperCase(), nome: `${marca} item`, categoria: "outros", unidade: "un" }, select: { id: true } });
+    await prisma.$transaction((tx) => movimentos.aplicar(tx, {
+      itemId: item.id, movimento: { tipo: "entrada", quantidade: new Prisma.Decimal(20), custoUnitario: new Prisma.Decimal(1) },
+      data: new Date("2026-11-23T00:00:00Z"), vinculo: { origem: "outra" }, observacao: null, exigirAtivo: true,
+    }, principal, AGORA));
+    const id = await criar({ itens: [{ descricao: "Cabo", quantidade: "10", itemDeEstoqueId: item.id }] });
     await acao(id, { acao: "iniciar_analise" });
     await acao(id, { acao: "decidir_estoque", origem: "estoque" });
     await acao(id, { acao: "confirmar_recebimento" });
     expect(await prisma.pedidoDeCompra.findUniqueOrThrow({ where: { id }, select: { etapa: true, valorFaturado: true, estoqueDecididoPorId: true } }))
       .toEqual({ etapa: "concluido", valorFaturado: null, estoqueDecididoPorId: principal.id });
+    expect((await prisma.itemDeEstoque.findUniqueOrThrow({ where: { id: item.id }, select: { emEstoque: true } })).emEstoque.toFixed(3)).toBe("10.000");
+  }, PRAZO_MS);
+
+  it("atender pelo estoque sem item vinculado é recusado", async () => {
+    const id = await criar();
+    await acao(id, { acao: "iniciar_analise" });
+    await expect(acao(id, { acao: "decidir_estoque", origem: "estoque" })).rejects.toBeInstanceOf(EstadoInvalido);
   }, PRAZO_MS);
 
   it("duas ações simultâneas na mesma etapa: uma passa, a outra é conflito, e só uma passagem fica aberta", async () => {

@@ -2,10 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import type { AuditAppender } from "../audit/audit-appender";
 import type { PrismaService } from "../prisma/prisma.service";
+import type { MovimentosDeEstoque } from "../estoque/movimentos-de-estoque";
 import { PrismaComprasRepository } from "./prisma-compras.repository";
 
 // Os filtros são puros: montam o `where` sem tocar no banco.
-const repositorio = new PrismaComprasRepository({} as PrismaService, {} as AuditAppender);
+const repositorio = new PrismaComprasRepository({} as PrismaService, {} as AuditAppender, {} as MovimentosDeEstoque);
 
 describe("filtroDaLista", () => {
   it("etapa e situação se somam, não se sobrescrevem", () => {

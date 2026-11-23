@@ -129,6 +129,15 @@ export const catalogoEventos = {
   "compras.pedido.cancelado": evento("Pedido de compra cancelado", "empresa"),
   "compras.cotacao.created": evento("Cotação registrada", "empresa"),
   "compras.obra.created": evento("Obra cadastrada pelo pedido de compra", "empresa"),
+  // Estoque (PLU-332). Sem PII: payload só com ids, tipos e nomes de campos.
+  "estoque.item.created": evento("Item de estoque cadastrado", "empresa"),
+  "estoque.item.updated": evento("Item de estoque alterado", "empresa"),
+  "estoque.item.inactivated": evento("Item de estoque inativado", "empresa"),
+  "estoque.item.reactivated": evento("Item de estoque reativado", "empresa"),
+  "estoque.movimentacao.created": evento("Movimentação de estoque registrada", "empresa"),
+  "estoque.reserva.created": evento("Reserva de estoque para um pedido de compra", "empresa"),
+  "estoque.reserva.baixada": evento("Reserva de estoque convertida em saída no recebimento", "empresa"),
+  "estoque.reserva.liberada": evento("Reserva de estoque liberada", "empresa"),
   // Fornecedor é cadastro único das duas empresas: o escopo é a plataforma. Sem PII, só os nomes dos campos.
   "suprimentos.fornecedor.created": evento("Fornecedor cadastrado", "plataforma"),
   "suprimentos.fornecedor.updated": evento("Fornecedor alterado", "plataforma"),

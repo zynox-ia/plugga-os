@@ -2110,6 +2110,25 @@
   },
   {
     "metodo": "GET",
+    "caminho": "/suprimentos/compras/pedidos/:id/atendimento",
+    "controller": "ComprasController.atendimento",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:suprimentos.compras",
+      "tela:financeiro.pagar",
+      "tela:financeiro.receber",
+      "tela:financeiro.conciliacao",
+      "tela:financeiro.fiscal",
+      "departamento:suprimentos:membro",
+      "departamento:financeiro:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
     "caminho": "/suprimentos/compras/pedidos/:id/comprovante",
     "controller": "ComprasController.comprovante",
     "acesso": "acesso",
@@ -2189,6 +2208,27 @@
     ]
   },
   {
+    "metodo": "PUT",
+    "caminho": "/suprimentos/compras/pedidos/:id/vinculos-de-estoque",
+    "controller": "ComprasController.vincularAoEstoque",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:suprimentos.compras",
+      "tela:financeiro.pagar",
+      "tela:financeiro.receber",
+      "tela:financeiro.conciliacao",
+      "tela:financeiro.fiscal",
+      "departamento:suprimentos:membro",
+      "departamento:financeiro:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
     "metodo": "GET",
     "caminho": "/suprimentos/compras/quadro",
     "controller": "ComprasController.quadro",
@@ -2201,6 +2241,172 @@
       "tela:financeiro.fiscal",
       "departamento:suprimentos:membro",
       "departamento:financeiro:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/suprimentos/estoque/clientes",
+    "controller": "EstoqueController.clientes",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:suprimentos.estoque",
+      "departamento:suprimentos:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/suprimentos/estoque/itens",
+    "controller": "EstoqueController.listar",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:suprimentos.estoque",
+      "departamento:suprimentos:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/suprimentos/estoque/itens",
+    "controller": "EstoqueController.criar",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:suprimentos.estoque",
+      "departamento:suprimentos:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/suprimentos/estoque/itens/:id",
+    "controller": "EstoqueController.obter",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:suprimentos.estoque",
+      "departamento:suprimentos:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "PATCH",
+    "caminho": "/suprimentos/estoque/itens/:id",
+    "controller": "EstoqueController.editar",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:suprimentos.estoque",
+      "departamento:suprimentos:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/suprimentos/estoque/itens/:id/abrir-pedido",
+    "controller": "EstoqueController.abrirPedido",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:suprimentos.estoque",
+      "departamento:suprimentos:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/suprimentos/estoque/itens/:id/inativar",
+    "controller": "EstoqueController.inativar",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:suprimentos.estoque",
+      "departamento:suprimentos:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/suprimentos/estoque/itens/:id/reativar",
+    "controller": "EstoqueController.reativar",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:suprimentos.estoque",
+      "departamento:suprimentos:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/suprimentos/estoque/movimentacoes",
+    "controller": "EstoqueController.movimentacoes",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:suprimentos.estoque",
+      "departamento:suprimentos:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/suprimentos/estoque/movimentacoes",
+    "controller": "EstoqueController.registrar",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:suprimentos.estoque",
+      "departamento:suprimentos:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/suprimentos/estoque/opcoes",
+    "controller": "EstoqueController.opcoes",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:suprimentos.estoque",
+      "departamento:suprimentos:membro"
     ],
     "guards": [
       "SessionAuthGuard",
