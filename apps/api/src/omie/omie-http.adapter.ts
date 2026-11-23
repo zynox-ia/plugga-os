@@ -18,6 +18,15 @@ function texto(valor: unknown): string | null {
 @Injectable()
 export class OmieHttpAdapter extends OmiePort {
   async consultarEmpresa(credenciais: CredenciaisDoOmie): Promise<EmpresaDoOmie> {
+    const [primeira] = await this.listar(credenciais, 1);
+    return primeira ?? { razaoSocial: null, nomeFantasia: null, cnpj: null };
+  }
+
+  async listarEmpresas(credenciais: CredenciaisDoOmie): Promise<EmpresaDoOmie[]> {
+    return this.listar(credenciais, 50);
+  }
+
+  private async listar(credenciais: CredenciaisDoOmie, registros: number): Promise<EmpresaDoOmie[]> {
     let resposta: Response;
     try {
       resposta = await fetch(ENDPOINT, {
@@ -27,7 +36,7 @@ export class OmieHttpAdapter extends OmiePort {
           call: "ListarEmpresas",
           app_key: credenciais.appKey,
           app_secret: credenciais.appSecret,
-          param: [{ pagina: 1, registros_por_pagina: 1 }],
+          param: [{ pagina: 1, registros_por_pagina: registros }],
         }),
         signal: AbortSignal.timeout(PRAZO_MS),
       });
@@ -60,12 +69,14 @@ export class OmieHttpAdapter extends OmiePort {
     const empresas = corpo?.empresas_cadastro;
     if (!Array.isArray(empresas)) throw new OmieFalhouError("resposta_inesperada");
 
-    const primeira = (empresas[0] ?? null) as Record<string, unknown> | null;
-    const cnpj = texto(primeira?.cnpj)?.replace(/\D/g, "") ?? null;
-    return {
-      razaoSocial: texto(primeira?.razao_social),
-      nomeFantasia: texto(primeira?.nome_fantasia),
-      cnpj: cnpj && cnpj.length > 0 ? cnpj : null,
-    };
+    return empresas.map((item) => {
+      const empresa = (item ?? null) as Record<string, unknown> | null;
+      const cnpj = texto(empresa?.cnpj)?.replace(/\D/g, "") ?? null;
+      return {
+        razaoSocial: texto(empresa?.razao_social),
+        nomeFantasia: texto(empresa?.nome_fantasia),
+        cnpj: cnpj && cnpj.length > 0 ? cnpj : null,
+      };
+    });
   }
 }

@@ -1359,6 +1359,110 @@
     ]
   },
   {
+    "metodo": "GET",
+    "caminho": "/integracoes/omie/empresas",
+    "controller": "OmieEmpresasController.estado",
+    "acesso": "acesso",
+    "papeis": [
+      "departamento:financeiro:gerente"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "DELETE",
+    "caminho": "/integracoes/omie/empresas/:empresa",
+    "controller": "OmieEmpresasController.apagar",
+    "acesso": "acesso",
+    "papeis": [
+      "departamento:financeiro:gerente"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "PUT",
+    "caminho": "/integracoes/omie/empresas/:empresa",
+    "controller": "OmieEmpresasController.gravar",
+    "acesso": "acesso",
+    "papeis": [
+      "departamento:financeiro:gerente"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "PUT",
+    "caminho": "/integracoes/omie/empresas/:empresa/cnpj",
+    "controller": "OmieEmpresasController.definirCnpj",
+    "acesso": "acesso",
+    "papeis": [
+      "plataforma:admin",
+      "departamento:financeiro:gerente"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/integracoes/omie/empresas/:empresa/confirmar",
+    "controller": "OmieEmpresasController.confirmar",
+    "acesso": "acesso",
+    "papeis": [
+      "departamento:financeiro:gerente"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/integracoes/omie/empresas/:empresa/teste",
+    "controller": "OmieEmpresasController.testar",
+    "acesso": "acesso",
+    "papeis": [
+      "departamento:financeiro:gerente"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/integracoes/omie/empresas/plugga/mover-conta-antiga",
+    "controller": "OmieEmpresasController.moverContaAntiga",
+    "acesso": "acesso",
+    "papeis": [
+      "departamento:financeiro:gerente"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
     "metodo": "POST",
     "caminho": "/integracoes/omie/teste",
     "controller": "OmieController.testar",

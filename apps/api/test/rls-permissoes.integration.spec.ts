@@ -127,7 +127,7 @@ describe.skipIf(!HABILITADO)("RLS: permissões no login real da aplicação", { 
 
   it("habilita e força RLS em todos os modelos e mantém os grupos sem bypass", async () => {
     const tabelas = Prisma.dmmf.datamodel.models.map((m) => m.dbName ?? m.name);
-    expect(tabelas).toHaveLength(87);
+    expect(tabelas).toHaveLength(88);
     expect(tabelas).toContain("conexoes_google_calendar");
     expect(tabelas).toEqual(expect.arrayContaining(["activities", "activity_rounds", "activity_changes", "activity_round_evidence"]));
     const flags = await root.$queryRaw<{ nome: string; ativo: boolean; forcado: boolean }[]>`
@@ -373,9 +373,12 @@ describe.skipIf(!HABILITADO)("RLS: permissões no login real da aplicação", { 
 
       expect(await ler(clientes.jobs!)).toEqual([{ valorCifrado: "cifra-sintetica", iv: "iv-sintetico", tag: "tag-sintetica" }]);
       expect(await contexto("a", (tx) => tx.$queryRaw`SELECT * FROM plugga_security.config_omie()`)).toEqual([{ valorCifrado: "cifra-sintetica", iv: "iv-sintetico", tag: "tag-sintetica" }]);
-      // A função devolve texto cifrado, não dá acesso à tabela; quem não é desenvolvedor não a lê nem a grava.
+      // A função devolve texto cifrado, não dá acesso à tabela; quem não gere o OMIE não a lê nem a grava.
       expect(await contexto("a", (tx) => tx.segredoDoSistema.findMany({ where: { chave } }))).toEqual([]);
-      expect(await contexto("admin", (tx) => tx.segredoDoSistema.findMany({ where: { chave } }))).toEqual([]);
+      // Desde a PLU-342 (D6), Admin e Gerente do Financeiro gerem as credenciais do OMIE, inclusive a conta
+      // única antiga, que eles movem para a Plugga. As outras chaves técnicas seguem só do desenvolvedor.
+      expect(await contexto("admin", (tx) => tx.segredoDoSistema.findMany({ where: { chave }, select: { chave: true } }))).toEqual([{ chave }]);
+      expect(await contexto("admin", (tx) => tx.segredoDoSistema.findMany({ where: { chave: "openrouter.api_key" } }))).toEqual([]);
       await expect(ler(clientes.auth!)).rejects.toThrow();
     } finally {
       if (anterior) await root.segredoDoSistema.update({ where: { id: anterior.id }, data: anterior });
@@ -924,6 +927,48 @@ describe.skipIf(!HABILITADO)("RLS: permissões no login real da aplicação", { 
       await root.lancamento.deleteMany({ where: { descricao: { startsWith: marca } } });
       await root.categoriaFinanceira.deleteMany({ where: { nome: { startsWith: marca } } });
       await root.fornecedor.deleteMany({ where: fornecedor });
+    }
+  });
+
+  it("omie por empresa: o par e a conferência são de quem gere o OMIE; o uso só sai do par conferido", async () => {
+    const membro = await root.user.create({ data: { name: `${marca}-omie-membro`, email: `${marca}-omie-membro@teste.local` } });
+    idsUsuarios.push(membro.id);
+    const hash = randomBytes(32).toString("hex");
+    pessoas.set("omie-membro", { id: membro.id, hash });
+    await root.session.create({ data: { userId: membro.id, tokenHash: hash, expiresAt: new Date(Date.now() + 3_600_000), absoluteExpiresAt: new Date(Date.now() + 7_200_000) } });
+    await root.userDepartamento.create({ data: { userId: membro.id, departamento: "financeiro", nivel: "membro", telas: ["financeiro.pagar"] } });
+    const par = (chave: string) => ({ chave, valorCifrado: "x", iv: "y", tag: "z", ultimosQuatro: "0000", atualizadoPor: "rls" });
+    const conexaoDa = (empresa: string, segredoAtualizadoEm: Date) => ({ companyId: empresa, segredoAtualizadoEm });
+    try {
+      // "financeiro" é Gerente do Financeiro: grava o par da empresa e a conta antiga, não outras chaves técnicas.
+      await contexto("financeiro", (tx) => tx.segredoDoSistema.create({ data: par("integracao.omie.waze") }));
+      await contexto("financeiro", (tx) => tx.segredoDoSistema.create({ data: par("integracao.omie") }));
+      await expect(contexto("financeiro", (tx) => tx.segredoDoSistema.create({ data: par("integracao.autentique.waze") }))).rejects.toThrow();
+      await expect(contexto("omie-membro", (tx) => tx.segredoDoSistema.create({ data: par("integracao.omie.plugga") }))).rejects.toThrow();
+      await expect(contexto("a", (tx) => tx.segredoDoSistema.create({ data: par("integracao.omie.plugga") }))).rejects.toThrow();
+      expect(await contexto("omie-membro", (tx) => tx.segredoDoSistema.findUnique({ where: { chave: "integracao.omie.waze" }, select: { chave: true } }))).toBeNull();
+
+      const gravado = await root.segredoDoSistema.findUniqueOrThrow({ where: { chave: "integracao.omie.waze" }, select: { atualizadoEm: true } });
+      await contexto("financeiro", (tx) => tx.omieConexao.create({ data: conexaoDa("waze", gravado.atualizadoEm) }));
+      await expect(contexto("omie-membro", (tx) => tx.omieConexao.updateMany({ where: { companyId: "waze" }, data: { bloqueio: "sem_cnpj" } }))).resolves.toEqual({ count: 0 });
+      await expect(contexto("admin", (tx) => tx.omieConexao.deleteMany({ where: { companyId: "waze" } }))).rejects.toThrow(/permission denied/);
+
+      // Uso: nada sai antes da confirmação, nem de uma versão anterior do par.
+      const uso = (nome: string) => contexto(nome, (tx) => tx.$queryRaw<unknown[]>`SELECT * FROM plugga_security.config_omie(${"waze"}::text)`);
+      expect(await uso("financeiro")).toHaveLength(0);
+      await root.omieConexao.update({ where: { companyId: "waze" }, data: { ultimoTesteEm: new Date(), ultimoTeste: [], confirmadaEm: new Date(), cnpjConfirmado: "99999002000103" } });
+      expect(await uso("financeiro")).toHaveLength(1);
+      await root.segredoDoSistema.update({ where: { chave: "integracao.omie.waze" }, data: { valorCifrado: "x2" } });
+      expect(await uso("financeiro")).toHaveLength(0);
+
+      // O CNPJ de referência é só da plataforma, pela função.
+      await expect(contexto("financeiro", (tx) => tx.$executeRaw`SELECT plugga_security.definir_cnpj_da_empresa(${empresaId}, ${"99999003000148"})`)).rejects.toThrow();
+      await contexto("admin", (tx) => tx.$executeRaw`SELECT plugga_security.definir_cnpj_da_empresa(${empresaId}, ${"99999003000148"})`);
+      expect((await root.company.findUniqueOrThrow({ where: { id: empresaId }, select: { cnpj: true } })).cnpj).toBe("99999003000148");
+    } finally {
+      await root.omieConexao.deleteMany({ where: { companyId: "waze" } });
+      await root.segredoDoSistema.deleteMany({ where: { chave: { in: ["integracao.omie.waze", "integracao.omie", "integracao.autentique.waze", "integracao.omie.plugga"] } } });
+      await root.company.update({ where: { id: empresaId }, data: { cnpj: null } });
     }
   });
 

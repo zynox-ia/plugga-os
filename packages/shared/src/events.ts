@@ -143,6 +143,13 @@ export const catalogoEventos = {
   "financeiro.lancamento.updated": evento("Lançamento financeiro alterado", "empresa"),
   "financeiro.lancamento.aprovado": evento("Conta a pagar aprovada", "empresa"),
   "financeiro.lancamento.cancelado": evento("Lançamento financeiro cancelado", "empresa"),
+  // OMIE por empresa (PLU-342). Nunca a chave, o segredo nem a resposta do OMIE.
+  "integracoes.omie.conectada": evento("Par do OMIE da empresa gravado", "empresa"),
+  "integracoes.omie.desconectada": evento("Par do OMIE da empresa removido", "empresa"),
+  "integracoes.omie.testada": evento("Conexão do OMIE da empresa testada", "empresa"),
+  "integracoes.omie.confirmada": evento("Conexão do OMIE da empresa confirmada", "empresa"),
+  "integracoes.omie.conta_antiga_movida": evento("Conta única do OMIE movida para a empresa", "empresa"),
+  "organizacao.empresa.cnpj_definido": evento("CNPJ da empresa no Plugga OS definido", "empresa"),
   // Fornecedor é cadastro único das duas empresas: o escopo é a plataforma. Sem PII, só os nomes dos campos.
   "suprimentos.fornecedor.created": evento("Fornecedor cadastrado", "plataforma"),
   "suprimentos.fornecedor.updated": evento("Fornecedor alterado", "plataforma"),

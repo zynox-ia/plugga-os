@@ -258,6 +258,8 @@ enum ContestationStatus {
 }
 
 model User {
+  omieTestes                     OmieConexao[]               @relation("OmieConexaoTestadaPor")
+  omieConfirmacoes               OmieConexao[]               @relation("OmieConexaoConfirmadaPor")
   lancamentosCriados             Lancamento[]                @relation("LancamentoCriadoPor")
   lancamentosAprovados           Lancamento[]                @relation("LancamentoAprovadoPor")
   lancamentosPagos               Lancamento[]                @relation("LancamentoPagamentoRegistradoPor")
@@ -474,6 +476,8 @@ model Role {
 model Company {
   id        String           @id
   name      String
+  /// Só os 14 dígitos; referência para conferir a conexão do OMIE (PLU-342). Só a plataforma grava.
+  cnpj      String?
   createdAt DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
   obras     Obra[]
   pedidos   PedidoDeCompra[]
@@ -481,6 +485,7 @@ model Company {
   categoriasFinanceiras CategoriaFinanceira[]
   contasCorrentes ContaCorrente[]
   lancamentos Lancamento[]
+  omieConexao OmieConexao?
   pipelines Pipeline[]
 
   @@map("companies")
@@ -2770,4 +2775,27 @@ model Lancamento {
   @@index([fornecedorId])
   @@index([clientId])
   @@map("lancamentos")
+}
+
+/// A conferência do par do OMIE de uma empresa (PLU-342): o último ListarEmpresas,
+/// o bloqueio e a confirmação, válidos só para a versão do par em `segredoAtualizadoEm`.
+model OmieConexao {
+  companyId             String    @id @map("company_id")
+  segredoAtualizadoEm   DateTime  @map("segredo_atualizado_em") @db.Timestamptz(6)
+  ultimoTesteEm         DateTime? @map("ultimo_teste_em") @db.Timestamptz(6)
+  ultimoTestePorId      String?   @map("ultimo_teste_por_id") @db.Uuid
+  /// [{ razaoSocial, nomeFantasia, cnpj }], como o OMIE devolveu.
+  ultimoTeste           Json?     @map("ultimo_teste") @db.JsonB
+  bloqueio              String?
+  confirmadaEm          DateTime? @map("confirmada_em") @db.Timestamptz(6)
+  confirmadaPorId       String?   @map("confirmada_por_id") @db.Uuid
+  cnpjConfirmado        String?   @map("cnpj_confirmado")
+  razaoSocialConfirmada String?   @map("razao_social_confirmada")
+  updatedAt             DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  company         Company @relation(fields: [companyId], references: [id])
+  ultimoTestePor  User?   @relation("OmieConexaoTestadaPor", fields: [ultimoTestePorId], references: [id], onDelete: SetNull)
+  confirmadaPor   User?   @relation("OmieConexaoConfirmadaPor", fields: [confirmadaPorId], references: [id], onDelete: SetNull)
+
+  @@map("omie_conexoes")
 }

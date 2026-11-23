@@ -31,7 +31,7 @@ import { chaveMestraConfigurada } from "../llm/cripto.js";
 import { OmieCofreService } from "./omie-cofre.service";
 import { OmieFalhouError } from "./omie.port";
 
-const MENSAGEM: Record<OmieFalhouError["motivo"], string> = {
+export const MENSAGEM_DO_OMIE: Record<OmieFalhouError["motivo"], string> = {
   credenciais_invalidas: "O OMIE recusou a chave ou o segredo do app. Confira os dois em Meus aplicativos, no OMIE.",
   limite_de_consumo: "O OMIE limitou o consumo da API. Tente de novo em instantes.",
   recusada: "O OMIE recusou a consulta. Confira se a chave e o segredo são do mesmo app e se o app está ativo.",
@@ -88,7 +88,7 @@ export class OmieController {
       return await this.cofre.testar();
     } catch (erro) {
       // Só um texto fixo por motivo: nunca a chave, o segredo ou a mensagem do OMIE.
-      throw new BadGatewayException(erro instanceof OmieFalhouError ? MENSAGEM[erro.motivo] : MENSAGEM.indisponivel);
+      throw new BadGatewayException(erro instanceof OmieFalhouError ? MENSAGEM_DO_OMIE[erro.motivo] : MENSAGEM_DO_OMIE.indisponivel);
     }
   }
 }

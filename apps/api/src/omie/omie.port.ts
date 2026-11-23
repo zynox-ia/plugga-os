@@ -19,4 +19,6 @@ export type CredenciaisDoOmie = { appKey: string; appSecret: string };
  */
 export abstract class OmiePort {
   abstract consultarEmpresa(credenciais: CredenciaisDoOmie): Promise<EmpresaDoOmie>;
+  /** Todas as empresas que o par alcança: a conferência por empresa (PLU-342) bloqueia se vier mais de uma. */
+  abstract listarEmpresas(credenciais: CredenciaisDoOmie): Promise<EmpresaDoOmie[]>;
 }
