@@ -226,28 +226,40 @@ export class PrismaFinanceiroRepository {
   }
 
   async editar(id: string, input: EditarLancamento, principal: AuthPrincipal, papel: PapelNoFinanceiro): Promise<void> {
-    const campos = Object.entries(input).filter(([, valor]) => valor !== undefined).map(([campo]) => campo).sort();
     await this.prisma.comContexto(async (tx) => {
       const atual = await this.travar(tx, id, papel);
+      // Só conta o que muda de valor: a ficha pode reenviar o formulário inteiro.
+      const valorAtual: Record<keyof EditarLancamento, unknown> = {
+        fornecedorId: atual.fornecedorId,
+        categoriaId: atual.categoriaId,
+        contaCorrenteId: atual.contaCorrenteId,
+        descricao: atual.descricao,
+        vencimento: dia(atual.vencimento),
+        forma: atual.forma,
+        observacao: atual.observacao,
+      };
+      const campos = (Object.keys(input) as (keyof EditarLancamento)[])
+        .filter((campo) => input[campo] !== undefined && input[campo] !== valorAtual[campo])
+        .sort();
       const problema = problemaDaEdicao(atual, campos, papel);
       if (problema?.codigo === "CONFLITO_ESTADO") throw new EstadoInvalido(problema.mensagem);
       if (problema?.codigo === "ACESSO_NEGADO") throw new AcessoNegado(problema.mensagem);
       if (problema) throw new RequisicaoInvalida(problema.mensagem, problema.campo ? [{ campo: problema.campo, problema: problema.mensagem }] : undefined);
       // Edição sem campo nenhum não grava nem gera evento.
       if (campos.length === 0) return;
-      if (input.fornecedorId !== undefined) await this.garantirFornecedor(tx, input.fornecedorId);
-      if (input.categoriaId !== undefined) await this.garantirCategoria(tx, input.categoriaId, atual.companyId, atual.tipo);
-      if (input.contaCorrenteId !== undefined) await this.garantirConta(tx, input.contaCorrenteId, atual.companyId);
+      if (input.fornecedorId && campos.includes("fornecedorId")) await this.garantirFornecedor(tx, input.fornecedorId);
+      if (input.categoriaId && campos.includes("categoriaId")) await this.garantirCategoria(tx, input.categoriaId, atual.companyId, atual.tipo);
+      if (input.contaCorrenteId && campos.includes("contaCorrenteId")) await this.garantirConta(tx, input.contaCorrenteId, atual.companyId);
       await tx.lancamento.update({
         where: { id },
         data: {
-          ...(input.fornecedorId !== undefined ? { fornecedorId: input.fornecedorId } : {}),
-          ...(input.categoriaId !== undefined ? { categoriaId: input.categoriaId } : {}),
-          ...(input.contaCorrenteId !== undefined ? { contaCorrenteId: input.contaCorrenteId } : {}),
-          ...(input.descricao !== undefined ? { descricao: input.descricao } : {}),
-          ...(input.vencimento !== undefined ? { vencimento: inicioDoDiaEmManaus(input.vencimento) } : {}),
-          ...(input.forma !== undefined ? { forma: input.forma } : {}),
-          ...(input.observacao !== undefined ? { observacao: input.observacao } : {}),
+          ...(campos.includes("fornecedorId") ? { fornecedorId: input.fornecedorId } : {}),
+          ...(campos.includes("categoriaId") ? { categoriaId: input.categoriaId } : {}),
+          ...(campos.includes("contaCorrenteId") ? { contaCorrenteId: input.contaCorrenteId } : {}),
+          ...(campos.includes("descricao") ? { descricao: input.descricao } : {}),
+          ...(campos.includes("vencimento") && input.vencimento ? { vencimento: inicioDoDiaEmManaus(input.vencimento) } : {}),
+          ...(campos.includes("forma") ? { forma: input.forma } : {}),
+          ...(campos.includes("observacao") ? { observacao: input.observacao } : {}),
         },
       });
       await this.registrar(tx, "financeiro.lancamento.updated", id, atual.companyId, principal, { campos });
@@ -286,7 +298,10 @@ export class PrismaFinanceiroRepository {
     const linhas = await tx.$queryRaw<{ id: string }[]>`SELECT id FROM public.lancamentos WHERE id = ${id}::uuid FOR UPDATE`;
     const linha = linhas.length === 0 ? null : await tx.lancamento.findUnique({
       where: { id },
-      select: { tipo: true, etapa: true, canceladoEm: true, vencimento: true, companyId: true, origem: true },
+      select: {
+        tipo: true, etapa: true, canceladoEm: true, vencimento: true, companyId: true, origem: true,
+        fornecedorId: true, categoriaId: true, contaCorrenteId: true, descricao: true, forma: true, observacao: true,
+      },
     });
     if (!linha || !tiposVisiveis(papel, "todos").includes(linha.tipo)) throw new NaoEncontrado("Lançamento não encontrado.");
     return linha;

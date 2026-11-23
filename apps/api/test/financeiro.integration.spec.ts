@@ -137,7 +137,10 @@ describe.skipIf(!HABILITADO)("financeiro: lançamentos no Postgres", () => {
     const outro = (await prisma.fornecedor.create({ data: { nome: `${marca} Outro`, categoria: "servico" } })).id;
     await expect(repositorio.editar(id, { fornecedorId: outro }, principal, membro)).rejects.toBeInstanceOf(AcessoNegado);
     await expect(repositorio.editar(id, { vencimento: "2026-12-20" }, principal, membro)).rejects.toBeInstanceOf(AcessoNegado);
-    await repositorio.editar(id, { descricao: `${marca} só o texto` }, principal, membro);
+    // A ficha pode reenviar o formulário inteiro: o que não muda de valor não conta.
+    await repositorio.editar(id, { fornecedorId: ids.fornecedor, contaCorrenteId: ids.contaPlugga, forma: "boleto", vencimento: "2026-11-30", descricao: `${marca} só o texto` }, principal, membro);
+    const evento = await prisma.eventLog.findFirstOrThrow({ where: { entityId: id, eventName: "financeiro.lancamento.updated" }, orderBy: { occurredAt: "desc" } });
+    expect(evento.payload).toEqual({ campos: ["descricao"] });
     const detalhe = await repositorio.obter(id, papel, AGORA);
     expect([detalhe.favorecido.id, detalhe.vencimento, detalhe.etapa]).toEqual([ids.fornecedor, "2026-11-30", "aprovada"]);
     await repositorio.editar(id, { fornecedorId: outro }, principal, papel);
