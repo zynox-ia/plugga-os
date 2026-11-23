@@ -5,6 +5,9 @@ import {
   PLANILHA_DE_USINAS_MAX_BYTES,
   PRINT_DA_CONFERENCIA_MAX_BYTES,
   importarUsinasSchema,
+  buscarClientesDaEngenhariaQuerySchema,
+  type BuscarClientesDaEngenhariaQuery,
+  type BuscarClientesDaEngenhariaResposta,
   type ImportacaoDeUsinas,
   type ImportarUsinas,
   conferirPlataformaSchema,
@@ -77,6 +80,12 @@ export class UsinasController {
     @CurrentPrincipal() principal: AuthPrincipal,
   ): Promise<ImportacaoDeUsinas> {
     return this.usinas.importar(dados, arquivo && { buffer: arquivo.buffer, nomeOriginal: arquivo.originalname }, principal);
+  }
+
+  /** Clientes com as UCs, para a Nova usina (mesma resposta da busca das O.S.). Antes de `:id`. */
+  @Get("clientes")
+  clientes(@Query(new ZodValidationPipe(buscarClientesDaEngenhariaQuerySchema)) query: BuscarClientesDaEngenhariaQuery, @CurrentPrincipal() principal: AuthPrincipal): Promise<BuscarClientesDaEngenhariaResposta> {
+    return this.usinas.buscarClientes(query.busca, principal);
   }
 
   @Get(":id")

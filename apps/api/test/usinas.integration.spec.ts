@@ -157,6 +157,7 @@ describe.skipIf(!HABILITADO)("engenharia: usinas e monitoramento no Postgres", {
     expect(guardados.at(-1)).toMatch(new RegExp(`^engenharia/monitoramento/waze/${plataformaId}/2026-11-23/`));
     const card = dia.cards.find((c) => c.plataforma.id === plataformaId && c.empresa === "waze")!;
     expect(card.conferencia).toMatchObject({ normais: 1, conferida: { por: { nome: `${marca} usinas` } } });
+    expect([...card.conferencia!.usinasConferidas!].sort()).toEqual([primeira, segunda].sort());
     expect(card.conferencia!.excecoes).toEqual([expect.objectContaining({ usinaId: segunda, situacao: "anomalia", nota: "Geração 40% abaixo", ordem: expect.objectContaining({ codigo: expect.stringMatching(/^OS-/) }) })]);
 
     const os = await root.ordemDeServico.findFirstOrThrow({ where: { usinaId: segunda } });
@@ -217,6 +218,31 @@ describe.skipIf(!HABILITADO)("engenharia: usinas e monitoramento no Postgres", {
     await expect(tx("usinas", (t) => t.usina.deleteMany({ where: { nome: { startsWith: marca } } }))).rejects.toThrow(/permission denied/);
     const outro = (await root.client.findFirstOrThrow({ where: { name: `${marca} Outro` }, select: { id: true } })).id;
     await expect(tx("usinas", (t) => t.usina.updateMany({ where: { nome: `${marca} telhado` }, data: { clientId: outro } }))).rejects.toThrow(/não mudam/);
+  });
+
+  it("uma usina por O.S. de comissionamento: a ficha da O.S. mostra a usina e a segunda é recusada", async () => {
+    const osId = await como("usinas", () => ordens.criar(criarOrdemDeServicoSchema.parse({
+      empresa: "waze", tipo: "comissionamento", clienteId, ucId, descricao: `${marca} comissionamento`, prazo: "2026-11-30",
+    }), principal("usinas"), AGORA));
+    // Concluída direto no banco: o fluxo de campo tem os próprios testes.
+    await root.$transaction(async (t) => {
+      await t.$executeRawUnsafe("SET LOCAL session_replication_role = replica");
+      await t.ordemDeServico.update({ where: { id: osId }, data: { situacao: "concluida", concluidaEm: AGORA, laudoEncontrado: "Instalação pronta", laudoFeito: "Comissionada", laudoEm: AGORA } });
+    });
+    expect((await como("usinas", () => ordens.ficha(osId))).linha.usinasComissionadas).toEqual([]);
+    const id = await novaUsina({ nome: `${marca} do comissionamento`, ordemDeComissionamentoId: osId });
+    expect((await como("usinas", () => ordens.ficha(osId))).linha.usinasComissionadas).toEqual([{ id, nome: `${marca} do comissionamento` }]);
+    await expect(novaUsina({ nome: `${marca} segunda do comissionamento`, ordemDeComissionamentoId: osId })).rejects.toThrow(/já tem usina/);
+    // O índice único parcial segura mesmo sem a checagem do repositório.
+    await expect(root.usina.create({ data: {
+      companyId: "waze", clientId: clienteId, consumerUnitId: ucId, nome: `${marca} direto`, plataformaId, potenciaKwp: "1", comissionadaEm: AGORA, origem: "comissionamento", ordemDeComissionamentoId: osId,
+    } })).rejects.toMatchObject({ code: "P2002" });
+  });
+
+  it("a busca de cliente da Nova usina abre para quem tem só a tela de Usinas", async () => {
+    const r = await como("soUsinas", () => servico.buscarClientes(`${marca} Cli`, principal("soUsinas")));
+    expect(r.itens).toEqual([{ id: clienteId, nome: `${marca} Cliente`, ucs: [expect.objectContaining({ id: ucId })] }]);
+    await expect(como("os", () => servico.buscarClientes(`${marca} Cli`, principal("os")))).rejects.toThrow(AcessoNegado);
   });
 
   it("a O.S. só se liga a usina ativa do mesmo cliente e da mesma empresa, e herda o equipamento", async () => {

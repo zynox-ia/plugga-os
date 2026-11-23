@@ -6,7 +6,9 @@ import {
   LINHAS_DA_PLANILHA_MAX,
   PLANILHA_DE_USINAS_MAX_BYTES,
   PRINT_DA_CONFERENCIA_MAX_BYTES,
+  buscarClientesDaEngenhariaRespostaSchema,
   importacaoDeUsinasSchema,
+  type BuscarClientesDaEngenhariaResposta,
   type ImportacaoDeUsinas,
   type ImportarUsinas,
   listarPlataformasRespostaSchema,
@@ -132,6 +134,12 @@ export class UsinasService {
     });
   }
 
+  /** Busca de cliente da Nova usina, para quem tem a tela de Usinas (a das O.S. exige as telas de O.S.). */
+  async buscarClientes(busca: string, principal: AuthPrincipal): Promise<BuscarClientesDaEngenhariaResposta> {
+    this.exigirOperacao(principal);
+    return buscarClientesDaEngenhariaRespostaSchema.parse({ itens: await this.ordens.buscarClientes(busca) });
+  }
+
   async criarUsina(input: CriarUsina, principal: AuthPrincipal): Promise<Usina> {
     this.exigirOperacao(principal);
     return this.usina(await this.repositorio.criarUsina(input, principal, this.agora()), principal);
@@ -201,6 +209,7 @@ export class UsinasService {
               conferida: { por: pessoa(c.conferidaPorId, r.pessoas), em: c.conferidaEm.toISOString() },
               print: { id: c.id, nome: c.printNome, tamanhoBytes: c.printTamanho, mime: c.printTipo, url: `/engenharia/monitoramento/conferencias/${c.id}/print` },
               normais: c.resultados.length - excecoes.length,
+              usinasConferidas: c.resultados.map((x) => x.usinaId),
               excecoes: excecoes.map((x) => ({
                 usinaId: x.usinaId,
                 usina: nomeDaUsina.get(x.usinaId) ?? "Usina",

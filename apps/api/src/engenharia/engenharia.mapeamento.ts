@@ -46,6 +46,8 @@ export const INCLUDE_DA_FICHA = {
     orderBy: { createdAt: "asc" },
   },
   ordemAnterior: { select: { id: true, numero: true } },
+  // A usina que nasceu desta O.S. de comissionamento (no máximo uma, pelo índice único).
+  usinasComissionadas: { select: { id: true, nome: true }, take: 1 },
   usina: { select: { id: true, nome: true, potenciaKwp: true, plataforma: { select: { nome: true } } } },
   _count: { select: { arquivos: { where: { categoria: "foto", substituidoEm: null } } } },
 } satisfies Prisma.OrdemDeServicoInclude;
@@ -210,6 +212,7 @@ export function paraFicha(
       createdAt: p.createdAt.toISOString(),
     })),
     ordemAnterior: linha.ordemAnterior ? { id: linha.ordemAnterior.id, codigo: codigoDaOrdemDeServico(linha.ordemAnterior.numero) } : null,
+    usinaDoComissionamento: linha.usinasComissionadas[0] ? { id: linha.usinasComissionadas[0].id, nome: linha.usinasComissionadas[0].nome } : null,
     historico,
     criada: registro(linha.criadoPorId, linha.createdAt, pessoas),
     concluidaEm: linha.concluidaEm?.toISOString() ?? null,

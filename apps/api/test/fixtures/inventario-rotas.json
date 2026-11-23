@@ -1280,6 +1280,20 @@
     ]
   },
   {
+    "metodo": "GET",
+    "caminho": "/engenharia/usinas/clientes",
+    "controller": "UsinasController.clientes",
+    "acesso": "acesso",
+    "papeis": [
+      "departamento:engenharia-obras:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
     "metodo": "POST",
     "caminho": "/engenharia/usinas/importacao",
     "controller": "UsinasController.importar",

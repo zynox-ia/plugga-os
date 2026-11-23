@@ -150,6 +150,9 @@ export class PrismaUsinasRepository {
         if (!ordem || ordem.tipo !== "comissionamento" || ordem.situacao !== "concluida" || ordem.clientId !== input.clienteId) {
           throw new RequisicaoInvalida("A O.S. de origem precisa ser um comissionamento concluído do mesmo cliente.", [{ campo: "ordemDeComissionamentoId", problema: "Escolha a O.S. de comissionamento do cliente." }]);
         }
+        // Uma usina por comissionamento; o índice único parcial garante sob concorrência.
+        const jaTem = await tx.usina.findFirst({ where: { ordemDeComissionamentoId: input.ordemDeComissionamentoId }, select: { id: true } });
+        if (jaTem) throw new Conflito("Essa O.S. de comissionamento já tem usina cadastrada.");
       }
       const criada = await tx.usina.create({
         data: {

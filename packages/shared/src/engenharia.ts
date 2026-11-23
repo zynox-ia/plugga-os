@@ -402,6 +402,8 @@ export const ordemDeServicoSchema = ordemDeServicoResumoSchema.extend({
   fotos: z.array(arquivoDaOrdemSchema),
   pedidosDeMaterial: z.array(pedidoDeMaterialDaOrdemSchema),
   ordemAnterior: z.object({ id: uuid, codigo: z.string() }).nullable(),
+  /** A usina cadastrada a partir desta O.S. de comissionamento (no máximo uma). */
+  usinaDoComissionamento: z.object({ id: uuid, nome: z.string() }).nullable().optional(),
   historico: z.array(eventoDaOrdemSchema),
   criada: registro,
   concluidaEm: isoDate.nullable(),

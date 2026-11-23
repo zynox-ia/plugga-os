@@ -318,6 +318,8 @@ export const cardDePlataformaSchema = z.object({
       print: arquivoDoPrintSchema,
       normais: z.number().int().nonnegative(),
       excecoes: z.array(z.object({ usinaId: uuid, usina: z.string(), situacao: situacaoDoMonitoramentoSchema.exclude(["normal"]), nota: z.string().nullable(), ordem: referenciaDeOrdem.nullable() })),
+      /** As usinas que entraram nesta conferência; uma usina fora dela ainda não foi conferida hoje. */
+      usinasConferidas: z.array(uuid).optional(),
     })
     .nullable(),
 });

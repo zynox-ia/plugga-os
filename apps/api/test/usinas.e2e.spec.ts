@@ -15,6 +15,7 @@ const UC = "00000000-0000-4000-8000-000000000b03";
 const servico = {
   usinas: vi.fn().mockResolvedValue({ itens: [], total: 0 }),
   usina: vi.fn().mockResolvedValue({ id: ID }),
+  buscarClientes: vi.fn().mockResolvedValue({ itens: [] }),
   criarUsina: vi.fn().mockResolvedValue({ id: ID }),
   editarUsina: vi.fn().mockResolvedValue({ id: ID }),
   monitoramentoDoDia: vi.fn().mockResolvedValue({ cards: [] }),
@@ -48,6 +49,10 @@ describe("usinas, monitoramento e plataformas (e2e)", () => {
     await engenharia(http().get("/engenharia/monitoramento?empresa=waze")).expect(200);
     await engenharia(http().get("/engenharia/plataformas")).expect(200);
     await como("crm:gerente")(http().get("/engenharia/monitoramento")).expect(403);
+    // A busca de cliente da Nova usina não cai no `:id` da usina.
+    await engenharia(http().get("/engenharia/usinas/clientes?busca=Cli")).expect(200);
+    expect(servico.buscarClientes).toHaveBeenCalledWith("Cli", expect.anything());
+    await engenharia(http().get("/engenharia/usinas/clientes")).expect(400);
   });
 
   it("valida a usina (kWp com vírgula), a conferência e a plataforma antes do serviço", async () => {
