@@ -74,8 +74,9 @@ describe("consultas", () => {
 
 describe("ligação com Compras", () => {
   it("confirmar recebimento aceita entrada no estoque", () => {
-    const acao = { acao: "confirmar_recebimento", valorFaturado: "100.00", entradaNoEstoque: [{ itemDoPedidoId: UUID, quantidade: "2", custoUnitario: "50.00" }] };
+    const acao = { acao: "confirmar_recebimento", recebidoEm: "2026-11-23", valorFaturado: "100.00", entradaNoEstoque: [{ itemDoPedidoId: UUID, quantidade: "2", custoUnitario: "50.00" }] };
     assert.equal(acaoDoPedidoSchema.safeParse(acao).success, true);
+    assert.equal(acaoDoPedidoSchema.safeParse({ ...acao, recebidoEm: undefined }).success, false);
     assert.equal(acaoDoPedidoSchema.safeParse({ ...acao, entradaNoEstoque: [] }).success, false);
   });
 

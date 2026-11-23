@@ -76,7 +76,7 @@ describe("caminho da aquisição externa", () => {
     // O fornecedor declarou 12 dias úteis, mais que os 5 da régua.
     expect(retirada.abrirPassagem?.prazoDiasUteis).toBe(12);
 
-    const concluido = aplicar(pedido("retirada"), { acao: "confirmar_recebimento", valorFaturado: "1549.90" });
+    const concluido = aplicar(pedido("retirada"), { acao: "confirmar_recebimento", recebidoEm: "2026-11-23", valorFaturado: "1549.90" });
     expect(concluido.alteracoes).toEqual({ etapa: "concluido", concluidoEm: AGORA, valorFaturado: "1549.90" });
     expect(concluido.abrirPassagem).toBeNull();
     expect(concluido.fecharPassagem).not.toBeNull();
@@ -91,8 +91,12 @@ describe("caminho da aquisição externa", () => {
     expect(recusa(estado, { acao: "selecionar_cotacao", cotacaoId: COTACAO_B }).codigo).toBe("REQUISICAO_INVALIDA");
   });
 
+  it("o dia do recebimento não pode ser futuro", () => {
+    expect(recusa(pedido("retirada", { origemAtendimento: "estoque" }), { acao: "confirmar_recebimento", recebidoEm: "2026-11-24" }).codigo).toBe("REQUISICAO_INVALIDA");
+  });
+
   it("concluir aquisição exige o valor faturado", () => {
-    expect(recusa(pedido("retirada"), { acao: "confirmar_recebimento" }).codigo).toBe("REQUISICAO_INVALIDA");
+    expect(recusa(pedido("retirada"), { acao: "confirmar_recebimento", recebidoEm: "2026-11-23" }).codigo).toBe("REQUISICAO_INVALIDA");
   });
 });
 
@@ -106,7 +110,7 @@ describe("atendimento por estoque", () => {
   });
 
   it("conclui sem valor faturado", () => {
-    const plano = aplicar(pedido("retirada", { origemAtendimento: "estoque" }), { acao: "confirmar_recebimento" });
+    const plano = aplicar(pedido("retirada", { origemAtendimento: "estoque" }), { acao: "confirmar_recebimento", recebidoEm: "2026-11-23" });
     expect(plano.alteracoes.valorFaturado).toBeNull();
   });
 });
@@ -151,7 +155,7 @@ describe("transições fora de ordem", () => {
     ["analise_estoque", { acao: "aprovar" }],
     ["cotacoes", { acao: "registrar_pagamento", forma: "boleto" }],
     ["aprovacao_compra", { acao: "selecionar_cotacao", cotacaoId: COTACAO_A }],
-    ["pagamento", { acao: "confirmar_recebimento", valorFaturado: "1.00" }],
+    ["pagamento", { acao: "confirmar_recebimento", recebidoEm: "2026-11-23", valorFaturado: "1.00" }],
     ["retirada", { acao: "iniciar_analise" }],
     ["concluido", { acao: "aprovar" }],
   ];
@@ -243,6 +247,11 @@ describe("autoria", () => {
     expect(autoriaDaAcao({ acao: "registrar_pagamento", forma: "pix", observacao: "à vista" }, PESSOA, AGORA))
       .toEqual({ pagamentoRegistradoEm: AGORA, pagamentoRegistradoPorId: PESSOA, pagamentoObservacao: "à vista" });
     expect(autoriaDaAcao({ acao: "cancelar", motivo: "x" }, PESSOA, AGORA)).toEqual({ canceladoPorId: PESSOA });
+  });
+
+  it("o recebimento grava quem e o dia informado, no início do dia em Manaus", () => {
+    expect(autoriaDaAcao({ acao: "confirmar_recebimento", recebidoEm: "2026-11-20" }, PESSOA, AGORA))
+      .toEqual({ recebimentoConfirmadoPorId: PESSOA, recebidoEm: new Date("2026-11-20T04:00:00.000Z") });
   });
 
   it("revisar apaga quem escolheu a cotação", () => {

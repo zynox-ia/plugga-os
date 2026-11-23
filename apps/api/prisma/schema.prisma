@@ -2053,6 +2053,8 @@ model PedidoDeCompra {
   valorCotado                Decimal?                  @map("valor_cotado") @db.Decimal(14, 2)
   valorFaturado              Decimal?                  @map("valor_faturado") @db.Decimal(14, 2)
   concluidoEm                DateTime?                 @map("concluido_em") @db.Timestamptz(6)
+  /// Dia em que o material chegou, informado por quem recebeu (início do dia em Manaus).
+  recebidoEm                 DateTime?                 @map("recebido_em") @db.Timestamptz(6)
   canceladoEm                DateTime?                 @map("cancelado_em") @db.Timestamptz(6)
   canceladoPorId             String?                   @map("cancelado_por_id") @db.Uuid
   motivoCancelamento         String?                   @map("motivo_cancelamento")

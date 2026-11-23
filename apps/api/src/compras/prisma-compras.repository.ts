@@ -315,6 +315,8 @@ export class PrismaComprasRepository {
         de: pedido.etapa,
         para: alteracoes.etapa ?? pedido.etapa,
         ...(acao.acao === "selecionar_cotacao" ? { cotacaoId: acao.cotacaoId } : {}),
+        // O motivo da revisão e do cancelamento fica na passagem: texto livre não vai ao evento (sem PII).
+        ...(acao.acao === "revisar" || acao.acao === "cancelar" ? { comMotivo: true } : {}),
         ...(fecharPassagem ? { cumpriuPrazo: fecharPassagem.cumpriuPrazo } : {}),
       });
     });

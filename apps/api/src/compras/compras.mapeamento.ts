@@ -122,7 +122,17 @@ function passagem(linha: LinhaDoDetalhe["etapas"][number], agora: Date): Passage
     cumpriuPrazo: linha.cumpriuPrazo,
     situacaoDoPrazo: linha.saiuEm ? null : situacaoDoPrazo(linha.prazoEm, agora),
     responsavel: pessoa(linha.responsavel),
+    observacao: linha.observacao,
   };
+}
+
+/** Cada passagem de aprovação que voltou para cotações é uma revisão; o motivo fica na passagem. */
+function revisoes(etapas: LinhaDoDetalhe["etapas"]) {
+  return etapas.flatMap((etapa, i) => {
+    const seguinte = etapas[i + 1];
+    if (etapa.etapa !== "aprovacao_compra" || !etapa.saiuEm || seguinte?.etapa !== "cotacoes") return [];
+    return [{ por: pessoa(etapa.saiuPor), em: etapa.saiuEm.toISOString(), motivo: etapa.observacao ?? "" }];
+  });
 }
 
 export function paraDetalhe(linha: LinhaDoDetalhe, clientes: NomesDeClientes, papel: PapelEmCompras, agora: Date): PedidoDeCompra {
@@ -167,7 +177,10 @@ export function paraDetalhe(linha: LinhaDoDetalhe, clientes: NomesDeClientes, pa
       estoqueDecidido: registro(linha.estoqueDecididoPor, linha.estoqueDecididoEm),
       cotacaoSelecionada: registro(linha.selecionouCotacao, linha.cotacaoSelecionadaEm),
       aprovado: registro(linha.aprovou, linha.aprovadoEm),
-      recebimentoConfirmado: registro(linha.recebimentoConfirmadoPor, linha.concluidoEm),
+      revisoes: revisoes(linha.etapas),
+      recebimentoConfirmado: linha.concluidoEm
+        ? { ...registro(linha.recebimentoConfirmadoPor, linha.concluidoEm)!, recebidoEm: diaEmManaus(linha.recebidoEm ?? linha.concluidoEm) }
+        : null,
       cancelado: linha.canceladoEm ? { ...registro(linha.canceladoPor, linha.canceladoEm)!, motivo: linha.motivoCancelamento ?? "" } : null,
     },
     acoesPermitidas: acoesPermitidas(estado, papel),

@@ -5,6 +5,8 @@ import { Prisma } from "@prisma/client";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { AuditAppender } from "../src/audit/audit-appender.js";
+import { paraDetalhe } from "../src/compras/compras.mapeamento.js";
+import { papelEmCompras } from "../src/compras/compras.rules.js";
 import { PrismaComprasRepository } from "../src/compras/prisma-compras.repository.js";
 import { MovimentosDeEstoque } from "../src/estoque/movimentos-de-estoque.js";
 import { EstadoInvalido, RequisicaoInvalida } from "../src/common/errors/dominio.js";
@@ -100,7 +102,7 @@ describe.skipIf(!HABILITADO)("compras: pedido de compra no Postgres", () => {
     await acao(id, { acao: "enviar_para_aprovacao" });
     await acao(id, { acao: "aprovar" });
     await acao(id, { acao: "registrar_pagamento", forma: "boleto" });
-    await acao(id, { acao: "confirmar_recebimento", valorFaturado: "110.00" });
+    await acao(id, { acao: "confirmar_recebimento", recebidoEm: "2026-11-23", valorFaturado: "110.00" });
 
     const final = await prisma.pedidoDeCompra.findUniqueOrThrow({ where: { id } });
     expect(final).toMatchObject({ etapa: "concluido", aprovouId: principal.id, pagamentoRegistradoPorId: principal.id, recebimentoConfirmadoPorId: principal.id, formaPagamento: "boleto" });
@@ -113,6 +115,13 @@ describe.skipIf(!HABILITADO)("compras: pedido de compra no Postgres", () => {
     expect(lista.every((p) => p.saiuEm !== null && p.saiuPorId === principal.id)).toBe(true);
     expect(lista[3]!.observacao).toBe("Preço acima do orçado");
     expect(lista.at(-1)!.prazoDiasUteis).toBe(9);
+
+    // O detalhe mostra a revisão com o motivo e o dia do recebimento informado.
+    const { linha, clientes } = await repositorio.detalhe(id);
+    const detalhe = paraDetalhe(linha, clientes, papelEmCompras(principal.acesso), AGORA);
+    expect(detalhe.marcos.revisoes).toEqual([{ por: { id: principal.id, nome: `${marca} Pessoa` }, em: expect.any(String), motivo: "Preço acima do orçado" }]);
+    expect(detalhe.marcos.recebimentoConfirmado).toMatchObject({ recebidoEm: "2026-11-23", por: { id: principal.id } });
+    expect(detalhe.passagens.find((p) => p.etapa === "aprovacao_compra")!.observacao).toBe("Preço acima do orçado");
   }, PRAZO_MS);
 
   it("atendimento por estoque vai à retirada e conclui sem valor faturado", async () => {
@@ -125,7 +134,7 @@ describe.skipIf(!HABILITADO)("compras: pedido de compra no Postgres", () => {
     const id = await criar({ itens: [{ descricao: "Cabo", quantidade: "10", itemDeEstoqueId: item.id }] });
     await acao(id, { acao: "iniciar_analise" });
     await acao(id, { acao: "decidir_estoque", origem: "estoque" });
-    await acao(id, { acao: "confirmar_recebimento" });
+    await acao(id, { acao: "confirmar_recebimento", recebidoEm: "2026-11-23" });
     expect(await prisma.pedidoDeCompra.findUniqueOrThrow({ where: { id }, select: { etapa: true, valorFaturado: true, estoqueDecididoPorId: true } }))
       .toEqual({ etapa: "concluido", valorFaturado: null, estoqueDecididoPorId: principal.id });
     expect((await prisma.itemDeEstoque.findUniqueOrThrow({ where: { id: item.id }, select: { emEstoque: true } })).emEstoque.toFixed(3)).toBe("10.000");

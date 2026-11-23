@@ -130,7 +130,7 @@ describe.skipIf(!HABILITADO)("estoque: saldo, movimentações e reservas no Post
     await expect(mover({ tipo: "saida", itemId: id, quantidade: "13", destino: { tipo: "interno" } })).rejects.toBeInstanceOf(EstadoInvalido);
     await expect(estoque.mudarSituacao(id, false, principal)).rejects.toBeInstanceOf(EstadoInvalido);
 
-    await compras.executarAcao(pedido, acaoDoPedidoSchema.parse({ acao: "confirmar_recebimento" }), principal, AGORA);
+    await compras.executarAcao(pedido, acaoDoPedidoSchema.parse({ acao: "confirmar_recebimento", recebidoEm: "2026-11-23" }), principal, AGORA);
     const depois = await saldo(id);
     expect([depois.emEstoque.toFixed(3), depois.reservado.toFixed(3)]).toEqual(["12.000", "0.000"]);
     expect(await prisma.reservaDeEstoque.findFirst({ where: { pedidoId: pedido }, select: { estado: true } })).toEqual({ estado: "baixada" });
@@ -168,7 +168,7 @@ describe.skipIf(!HABILITADO)("estoque: saldo, movimentações e reservas no Post
         await compras.executarAcao(pedido, acaoDoPedidoSchema.parse(acao), principal, AGORA);
       }
       await compras.executarAcao(pedido, acaoDoPedidoSchema.parse({
-        acao: "confirmar_recebimento", valorFaturado: "200.00", entradaNoEstoque: [{ itemDoPedidoId: itemDoPedido, quantidade: "10", custoUnitario: "20.00" }],
+        acao: "confirmar_recebimento", recebidoEm: "2026-11-23", valorFaturado: "200.00", entradaNoEstoque: [{ itemDoPedidoId: itemDoPedido, quantidade: "10", custoUnitario: "20.00" }],
       }), principal, AGORA);
       const depois = await saldo(id);
       expect([depois.emEstoque.toFixed(3), depois.custoMedio?.toFixed(4)]).toEqual(["20.000", "15.0000"]);

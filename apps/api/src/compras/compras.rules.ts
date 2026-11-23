@@ -13,7 +13,7 @@ import {
   type SituacaoDoPedido,
 } from "@plugga/shared";
 
-import { adicionarDiasUteis, cumpriuPrazo } from "./dias-uteis";
+import { adicionarDiasUteis, cumpriuPrazo, diaEmManaus, inicioDoDiaEmManaus } from "./dias-uteis";
 
 /**
  * Regras do pedido de compra (PLU-327), puras: dado o estado do pedido, a ação
@@ -161,6 +161,7 @@ export function planejarAcao(pedido: EstadoDoPedido, acao: AcaoDoPedido, agora: 
     }
 
     case "confirmar_recebimento": {
+      if (acao.recebidoEm > diaEmManaus(agora)) return recusa("REQUISICAO_INVALIDA", "O dia do recebimento não pode ser futuro.");
       const valorFaturado = acao.valorFaturado ?? null;
       if (pedido.origemAtendimento === "aquisicao" && valorFaturado === null) {
         return recusa("REQUISICAO_INVALIDA", "Informe o valor faturado da compra.");
@@ -271,6 +272,7 @@ export type AutoriaDoPedido = {
   pagamentoRegistradoPorId?: string;
   pagamentoObservacao?: string | null;
   recebimentoConfirmadoPorId?: string;
+  recebidoEm?: Date;
   canceladoPorId?: string;
 };
 
@@ -288,7 +290,7 @@ export function autoriaDaAcao(acao: AcaoDoPedido, pessoaId: string, agora: Date)
     case "registrar_pagamento":
       return { pagamentoRegistradoEm: agora, pagamentoRegistradoPorId: pessoaId, pagamentoObservacao: acao.observacao ?? null };
     case "confirmar_recebimento":
-      return { recebimentoConfirmadoPorId: pessoaId };
+      return { recebimentoConfirmadoPorId: pessoaId, recebidoEm: inicioDoDiaEmManaus(acao.recebidoEm) };
     case "cancelar":
       return { canceladoPorId: pessoaId };
     default:

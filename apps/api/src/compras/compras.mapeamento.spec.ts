@@ -38,6 +38,7 @@ const linha = (dados: Partial<LinhaDoResumo> = {}): LinhaDoResumo => ({
   valorCotado: new Prisma.Decimal("1200.5"),
   valorFaturado: null,
   concluidoEm: null,
+  recebidoEm: null,
   canceladoEm: null,
   canceladoPorId: null,
   motivoCancelamento: null,

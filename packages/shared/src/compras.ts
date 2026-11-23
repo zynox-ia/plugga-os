@@ -243,6 +243,8 @@ export const acaoDoPedidoSchema = z.discriminatedUnion("acao", [
    */
   z.object({
     acao: z.literal("confirmar_recebimento"),
+    /** Dia em que o material foi recebido, informado por quem recebeu; não pode ser futuro. */
+    recebidoEm: diaDoCalendario,
     valorFaturado: valorPositivo.nullable().optional(),
     observacao: textoOpcional(1000),
     /**
@@ -353,6 +355,8 @@ export const passagemDeEtapaSchema = z.object({
   /** Só na passagem aberta. */
   situacaoDoPrazo: situacaoDoPrazoSchema.nullable(),
   responsavel: pessoa.nullable(),
+  /** O texto da ação que fechou a passagem: o motivo, na revisão e no cancelamento, ou a observação. */
+  observacao: z.string().nullable(),
 });
 export type PassagemDeEtapa = z.infer<typeof passagemDeEtapaSchema>;
 
@@ -396,7 +400,10 @@ export const pedidoDeCompraSchema = z.object({
     estoqueDecidido: registro.nullable(),
     cotacaoSelecionada: registro.nullable(),
     aprovado: registro.nullable(),
-    recebimentoConfirmado: registro.nullable(),
+    /** Cada volta da aprovação para cotações, com o motivo, da mais antiga para a mais recente. */
+    revisoes: z.array(registro.extend({ motivo: z.string() })),
+    /** `em` é o momento do registro; `recebidoEm`, o dia em que o material chegou. */
+    recebimentoConfirmado: registro.extend({ recebidoEm: diaDoCalendario }).nullable(),
     cancelado: registro.extend({ motivo: z.string() }).nullable(),
   }),
   /** O que a pessoa da requisição pode fazer agora, já considerando etapa e acesso. */
