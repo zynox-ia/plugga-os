@@ -11,12 +11,14 @@ import {
   CheckCircle2,
   Clock,
   CloudOff,
+  Download,
   FileText,
   Filter,
   Layers,
   LayoutGrid,
   Link2,
   List,
+  Receipt,
   Scale,
   Send,
   Settings,
@@ -55,6 +57,7 @@ import { CardDeMetrica } from "../suprimentos/card-de-metrica";
 import { FiltroComBusca } from "../suprimentos/menu-com-busca";
 import { Button, IconPlus, IconSearch } from "../ui";
 import { CardsDosLancamentos } from "./cards-dos-lancamentos";
+import { BaixarComprovantes, NovaCobranca } from "./cobranca-e-comprovantes";
 import { ConfiguracoesDoFinanceiro } from "./configuracoes-do-financeiro";
 import { ContaAPagarForm } from "./conta-a-pagar-form";
 import { FichaDoLancamento } from "./ficha-do-lancamento";
@@ -102,6 +105,8 @@ export function LancamentosView({ filtros, lista, quadro, resumo, alcance, ficha
   const [busca, setBusca] = useState(filtros.busca ?? "");
   const [criando, setCriando] = useState(false);
   const [configurando, setConfigurando] = useState(false);
+  const [cobrando, setCobrando] = useState(false);
+  const [baixandoComprovantes, setBaixandoComprovantes] = useState(false);
   const [aviso, setAviso] = useState<string | null>(null);
   useEffect(() => { if (!aviso) return; const t = setTimeout(() => setAviso(null), 5000); return () => clearTimeout(t); }, [aviso]);
   const abasRef = useRef<HTMLDivElement>(null);
@@ -146,10 +151,16 @@ export function LancamentosView({ filtros, lista, quadro, resumo, alcance, ficha
       nota={[resumo.vencidos.aReceber ? `${valorEmReais(resumo.vencidos.aReceber, true)} a receber` : null, resumo.vencidos.aPagar ? `${valorEmReais(resumo.vencidos.aPagar, true)} a pagar` : null].filter(Boolean).join(" · ") || "nada vencido"} />,
   ].filter(Boolean);
 
-  // Nova conta a pagar é de quem alcança as saídas; a cobrança chega com a PLU-337.
+  // Nova conta a pagar é de quem alcança as saídas; a nova cobrança, de quem alcança as entradas.
   const podeCriarConta = alcance.saidas && opcoes !== null;
+  const podeCobrar = alcance.entradas && opcoes !== null;
   const novaConta = podeCriarConta ? <Button icon={<IconPlus />} onClick={() => setCriando(true)}>Nova conta a pagar</Button> : null;
-  const novaContaPresa = podeCriarConta ? <Button size="md" iconOnly icon={<IconPlus />} aria-label="Nova conta a pagar" title="Nova conta a pagar" onClick={() => setCriando(true)} /> : null;
+  const novaCobranca = podeCobrar ? <Button variant={podeCriarConta ? "secondary" : "primary"} icon={<Receipt size={16} />} onClick={() => setCobrando(true)}>Nova cobrança</Button> : null;
+  const acoesPresas = podeCriarConta || podeCobrar ? <>
+    {podeCobrar ? <Button size="md" variant="secondary" iconOnly icon={<Receipt size={16} />} aria-label="Nova cobrança" title="Nova cobrança" onClick={() => setCobrando(true)} /> : null}
+    {podeCriarConta ? <Button size="md" iconOnly icon={<IconPlus />} aria-label="Nova conta a pagar" title="Nova conta a pagar" onClick={() => setCriando(true)} /> : null}
+  </> : null;
+  const abrirCriado = (novo: { id: string }, mensagem: string) => { setAviso(mensagem); router.push(hrefDosLancamentos(filtros, novo.id), { scroll: false }); router.refresh(); };
 
   const situacoes = opcoesDeSituacaoPara(alcance).map((o) => {
     const Icone = ICONE_DA_SITUACAO[o.icone];
@@ -198,6 +209,7 @@ export function LancamentosView({ filtros, lista, quadro, resumo, alcance, ficha
         <h2 className={`${estilosPipelines.subtitulo} ${styles.subtitulo}`}>Entradas e saídas das duas empresas.</h2>
       </div>
       <div className={estilosPipelines.acoes}>
+        {novaCobranca}
         {novaConta}
         {/* Configurações do Financeiro (contas e categorias do OMIE); só aparece quando as opções foram lidas. */}
         {opcoes ? <Button variant="secondary" iconOnly icon={<Settings size={18} />} aria-label="Configurações do Financeiro" title="Configurações do Financeiro" onClick={() => setConfigurando(true)} /> : null}
@@ -219,8 +231,9 @@ export function LancamentosView({ filtros, lista, quadro, resumo, alcance, ficha
       filtros={<div className={styles.filtros} role="group" aria-label="Filtros dos lançamentos">
         {filtrosDaTela.map(([rotulo, filtro]) => <div key={rotulo} className={styles.filtro}>{filtro}</div>)}
         {filtrado ? <Button variant="secondary" size="sm" onClick={limpar}>Limpar</Button> : null}
+        <Button variant="secondary" iconOnly icon={<Download size={16} />} aria-label="Baixar comprovantes do período (.zip)" title="Baixar comprovantes do período (.zip)" onClick={() => setBaixandoComprovantes(true)} />
       </div>}
-      {...(novaContaPresa ? { acoesQuandoPresa: novaContaPresa } : {})}
+      {...(acoesPresas ? { acoesQuandoPresa: acoesPresas } : {})}
       movel={{
         visao: { rotulo: "Visualização", opcoes: visoesDosLancamentos.map((id) => { const { rotulo, icone: Icone } = VISOES[id]; return { value: id, label: rotulo, icon: <Icone /> }; }), valor: filtros.visao, aoMudar: (v) => trocar(comVisao(filtros, v as VisaoDosLancamentos)) },
         filtrosAtivos: quantosFiltros(filtros),
@@ -244,6 +257,10 @@ export function LancamentosView({ filtros, lista, quadro, resumo, alcance, ficha
     {ficha ? <FichaDoLancamento key={ficha.id} lancamento={ficha} opcoes={opcoes} gerente={gerente} aoFechar={fecharFicha} aoAtualizar={() => router.refresh()} /> : null}
     {configurando && opcoes ? <ConfiguracoesDoFinanceiro opcoes={opcoes} aoFechar={() => setConfigurando(false)} /> : null}
     {criando && opcoes ? <ContaAPagarForm opcoes={opcoes} gerente={gerente} aoCancelar={() => setCriando(false)}
-      aoSalvar={(novo) => { setCriando(false); setAviso(`${novo.codigo} criada: espera a aprovação da Gerente do Financeiro.`); router.push(hrefDosLancamentos(filtros, novo.id), { scroll: false }); router.refresh(); }} /> : null}
+      aoSalvar={(novo) => { setCriando(false); abrirCriado(novo, `${novo.codigo} criada: espera a aprovação da Gerente do Financeiro.`); }} /> : null}
+    {cobrando && opcoes ? <NovaCobranca opcoes={opcoes} aoCancelar={() => setCobrando(false)}
+      aoSalvar={(novo) => { setCobrando(false); abrirCriado(novo, `${novo.codigo} criada: o título vai ao OMIE da ${ROTULO_DA_EMPRESA[novo.empresa]}.`); }}
+      aoAbrirExistente={(id) => { setCobrando(false); router.push(hrefDosLancamentos(filtros, id), { scroll: false }); }} /> : null}
+    {baixandoComprovantes ? <BaixarComprovantes empresaInicial={filtros.empresa ?? null} alcance={alcance} aoFechar={() => setBaixandoComprovantes(false)} /> : null}
   </div>;
 }

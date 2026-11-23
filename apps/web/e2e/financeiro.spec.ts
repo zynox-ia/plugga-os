@@ -121,6 +121,49 @@ test("aprovada, a conta tem o valor corrigido com motivo e é paga só com o com
   await expect(tempo.getByText("Pagamento registrado")).toBeVisible();
   await expect(tempo.getByText("Valor corrigido de R$ 1.234,56 para R$ 1.300,00")).toBeVisible();
   await expect(tempo.getByText("Juros do atraso (sintético)")).toBeVisible();
+
+  // O comprovante entra no .zip do mês, com o nome padronizado.
+  await ficha(page).getByRole("button", { name: "Fechar" }).click();
+  await page.getByRole("button", { name: "Baixar comprovantes do período (.zip)" }).first().click();
+  const zip = page.getByRole("dialog", { name: "Baixar comprovantes" });
+  await escolher(page, zip, /Empresa/, "Waze Energia");
+  const [download] = await Promise.all([page.waitForEvent("download"), zip.getByRole("button", { name: "Baixar .zip" }).click()]);
+  expect(download.suggestedFilename()).toMatch(/\.zip$/);
+});
+
+test("cobrança manual: uma por cliente e competência, e a repetida oferece abrir a existente", async ({ page }) => {
+  await bloquearTerceiros(page);
+  const descricao = `Cobrança ${marcaDaExecucao()} ${Date.now().toString(36)} (sintético)`;
+  await page.goto("/financeiro/lancamentos");
+
+  async function preencher() {
+    await page.getByRole("button", { name: "Nova cobrança" }).first().click();
+    const nova = page.getByRole("dialog", { name: "Nova cobrança" });
+    await escolher(page, nova, /Empresa/, "Waze Energia");
+    // A competência mais antiga da lista, para não esbarrar numa cobrança do seed.
+    await nova.getByRole("combobox", { name: /Competência/ }).click();
+    await page.getByRole("listbox").last().getByRole("option").last().click();
+    await nova.getByLabel(/^Cliente/).fill("Clínica Exemplo");
+    await nova.getByRole("list", { name: "Clientes encontrados" }).getByRole("button").first().click();
+    await escolher(page, nova, /Categoria/);
+    await nova.getByLabel("Descrição").fill(descricao);
+    await nova.getByLabel("Valor").fill("2.640,00");
+    await nova.getByRole("textbox", { name: /Vencimento/ }).fill(diaFuturo(15));
+    await nova.getByRole("button", { name: "Criar cobrança" }).click();
+    return nova;
+  }
+
+  await preencher();
+  await expect(ficha(page).getByRole("heading", { name: descricao })).toBeVisible();
+  await expect(ficha(page).getByText("Gerada").first()).toBeVisible();
+  await expect(ficha(page).getByRole("region", { name: "Emitir a nota fiscal" })).toBeVisible();
+  await ficha(page).getByRole("button", { name: "Fechar" }).click();
+
+  // A repetida é recusada, com o código da existente para abrir.
+  const repetida = await preencher();
+  await expect(repetida.getByText(/Já existe a cobrança CR-/)).toBeVisible();
+  await repetida.getByRole("button", { name: /Abrir CR-/ }).click();
+  await expect(ficha(page).getByRole("heading", { name: descricao })).toBeVisible();
 });
 
 test("cancelar pede o motivo, e a ficha mostra onde parou", async ({ page, baseURL }) => {
