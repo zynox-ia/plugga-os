@@ -30,4 +30,9 @@ describe("papel em Compras, como na API", () => {
     assert.equal(podeVerCompras(so("crm", "gerente")), false);
     assert.equal(podeVerCompras(null), false);
   });
+
+  it("do Financeiro sem nenhuma tela do Financeiro não abre: o guard da API recusaria", () => {
+    assert.equal(podeVerCompras(so("financeiro", "membro", [])), false);
+    assert.equal(podeVerCompras(so("financeiro", "membro", ["financeiro.pagar"])), true);
+  });
 });

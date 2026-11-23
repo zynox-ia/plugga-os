@@ -19,9 +19,17 @@ export function papelEmCompras(acesso: Acesso | null | undefined): PapelEmCompra
   };
 }
 
+/** Telas do Financeiro que o guard da API aceita em Compras (@Tela do controller). */
+const TELAS_DO_FINANCEIRO = ["financeiro.pagar", "financeiro.receber", "financeiro.conciliacao", "financeiro.fiscal"] as const;
+
+/**
+ * Abre a tela quem opera Compras, ou quem é do Financeiro e alcança alguma tela
+ * do Financeiro: o guard da API exige as duas coisas, e sem a tela a página
+ * abriria só para mostrar o 403.
+ */
 export const podeVerCompras = (acesso: Acesso | null | undefined): boolean => {
   const papel = papelEmCompras(acesso);
-  return papel.operaCompras || papel.membroDoFinanceiro;
+  return papel.operaCompras || (papel.membroDoFinanceiro && TELAS_DO_FINANCEIRO.some((tela) => alcancaTela(acesso!, tela)));
 };
 
 export const podeCriarPedido = (acesso: Acesso | null | undefined): boolean => papelEmCompras(acesso).operaCompras;
