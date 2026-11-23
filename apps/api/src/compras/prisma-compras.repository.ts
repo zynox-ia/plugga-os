@@ -138,14 +138,15 @@ export class PrismaComprasRepository {
     return { chave: cotacao.arquivoChave, nome: cotacao.arquivoNome, tamanho: cotacao.arquivoTamanho ?? 0, tipo: cotacao.arquivoTipo ?? "application/octet-stream" };
   }
 
+  /** O comprovante atual (o único não substituído). */
   async comprovante(pedidoId: string): Promise<ArquivoGuardado> {
-    const pedido = await this.prisma.comContexto((tx) => tx.pedidoDeCompra.findUnique({
-      where: { id: pedidoId },
-      select: { comprovanteChave: true, comprovanteNome: true, comprovanteTamanho: true, comprovanteTipo: true },
+    await this.estado(pedidoId);
+    const atual = await this.prisma.comContexto((tx) => tx.comprovanteDePagamento.findFirst({
+      where: { pedidoId, substituidoEm: null },
+      select: { arquivoChave: true, arquivoNome: true, arquivoTamanho: true, arquivoTipo: true },
     }));
-    if (!pedido) throw new NaoEncontrado("Pedido de compra não encontrado.");
-    if (!pedido.comprovanteChave || !pedido.comprovanteNome) throw new NaoEncontrado("O pedido não tem comprovante.");
-    return { chave: pedido.comprovanteChave, nome: pedido.comprovanteNome, tamanho: pedido.comprovanteTamanho ?? 0, tipo: pedido.comprovanteTipo ?? "application/octet-stream" };
+    if (!atual) throw new NaoEncontrado("O pedido não tem comprovante.");
+    return { chave: atual.arquivoChave, nome: atual.arquivoNome, tamanho: atual.arquivoTamanho, tipo: atual.arquivoTipo };
   }
 
   // ------------------------------------------------------------ escrita
@@ -310,19 +311,26 @@ export class PrismaComprasRepository {
     });
   }
 
-  /** Grava o comprovante e devolve a chave do anterior, que o serviço apaga do armazenamento. */
-  async registrarComprovante(pedidoId: string, arquivo: ArquivoGuardado, principal: AuthPrincipal): Promise<string | null> {
-    return this.prisma.comContexto(async (tx) => {
+  /**
+   * Grava o comprovante novo como o atual. O anterior não é apagado: fica
+   * marcado como substituído, com quem trocou e quando, e o arquivo continua
+   * no armazenamento. Apagar evidência de pagamento não é operação do sistema.
+   */
+  async registrarComprovante(pedidoId: string, arquivo: ArquivoGuardado, principal: AuthPrincipal, agora: Date): Promise<void> {
+    await this.prisma.comContexto(async (tx) => {
       await this.travar(tx, pedidoId);
-      const pedido = await tx.pedidoDeCompra.findUnique({ where: { id: pedidoId }, select: { etapa: true, canceladoEm: true, companyId: true, comprovanteChave: true } });
+      const pedido = await tx.pedidoDeCompra.findUnique({ where: { id: pedidoId }, select: { etapa: true, canceladoEm: true, companyId: true } });
       if (!pedido) throw new NaoEncontrado("Pedido de compra não encontrado.");
       if (!aceitaComprovante(pedido)) throw new EstadoInvalido("O comprovante é enviado na etapa de pagamento, antes de registrá-lo.");
-      await tx.pedidoDeCompra.update({
-        where: { id: pedidoId },
-        data: { comprovanteChave: arquivo.chave, comprovanteNome: arquivo.nome, comprovanteTamanho: arquivo.tamanho, comprovanteTipo: arquivo.tipo },
+      const { count } = await tx.comprovanteDePagamento.updateMany({
+        where: { pedidoId, substituidoEm: null },
+        data: { substituidoEm: agora, substituidoPorId: principal.id },
       });
-      await this.registrar(tx, "compras.pedido.comprovante_enviado", "pedido_de_compra", pedidoId, pedido.companyId, principal, { substituiu: pedido.comprovanteChave !== null });
-      return pedido.comprovanteChave;
+      const novo = await tx.comprovanteDePagamento.create({
+        data: { pedidoId, arquivoChave: arquivo.chave, arquivoNome: arquivo.nome, arquivoTamanho: arquivo.tamanho, arquivoTipo: arquivo.tipo, enviadoPorId: principal.id, enviadoEm: agora },
+        select: { id: true },
+      });
+      await this.registrar(tx, "compras.pedido.comprovante_enviado", "pedido_de_compra", pedidoId, pedido.companyId, principal, { comprovanteId: novo.id, substituiu: count > 0 });
     });
   }
 

@@ -23,7 +23,7 @@ function montar() {
     criar: vi.fn().mockResolvedValue(ID),
     estado: vi.fn().mockResolvedValue({ etapa: "cotacoes", canceladoEm: null, companyId: "plugga" }),
     registrarCotacao: vi.fn().mockResolvedValue("cotacao"),
-    registrarComprovante: vi.fn().mockResolvedValue("chave-anterior"),
+    registrarComprovante: vi.fn().mockResolvedValue(undefined),
     buscarClientes: vi.fn().mockResolvedValue([]),
   };
   const armazenamento = { enviar: vi.fn().mockResolvedValue(undefined), excluir: vi.fn().mockResolvedValue(undefined) };
@@ -93,10 +93,12 @@ describe("anexos", () => {
     expect(armazenamento.excluir).toHaveBeenCalledWith(armazenamento.enviar.mock.calls[0]![0]);
   });
 
-  it("o comprovante é de quem paga, e trocar o comprovante apaga o anterior", async () => {
+  it("o comprovante é de quem paga, e trocar o comprovante não apaga nada do armazenamento", async () => {
     const { servico, armazenamento } = montar();
     await expect(servico.registrarComprovante(ID, { buffer: PDF, nomeOriginal: "pix.pdf" }, compras)).rejects.toBeInstanceOf(AcessoNegado);
     await servico.registrarComprovante(ID, { buffer: PDF, nomeOriginal: "pix.pdf" }, financeiroMembro);
-    expect(armazenamento.excluir).toHaveBeenCalledWith("chave-anterior");
+    await servico.registrarComprovante(ID, { buffer: PDF, nomeOriginal: "pix-corrigido.pdf" }, financeiroMembro);
+    expect(armazenamento.enviar).toHaveBeenCalledTimes(2);
+    expect(armazenamento.excluir).not.toHaveBeenCalled();
   });
 });

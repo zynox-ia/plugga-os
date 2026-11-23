@@ -43,6 +43,8 @@ export const INCLUDE_DO_DETALHE = {
   itens: { orderBy: [{ createdAt: "asc" }, { id: "asc" }] },
   cotacoes: { include: { fornecedor: { select: { id: true, nome: true, ativo: true } }, criadoPor: PESSOA }, orderBy: { createdAt: "asc" } },
   etapas: { include: { responsavel: PESSOA, saiuPor: PESSOA }, orderBy: { entrouEm: "asc" } },
+  // Só o atual: os substituídos ficam guardados, mas a tela mostra o vigente.
+  comprovantes: { where: { substituidoEm: null }, take: 1 },
 } satisfies Prisma.PedidoDeCompraInclude;
 
 export type LinhaDoResumo = Prisma.PedidoDeCompraGetPayload<{ include: typeof INCLUDE_DO_RESUMO }>;
@@ -125,9 +127,8 @@ function passagem(linha: LinhaDoDetalhe["etapas"][number], agora: Date): Passage
 
 export function paraDetalhe(linha: LinhaDoDetalhe, clientes: NomesDeClientes, papel: PapelEmCompras, agora: Date): PedidoDeCompra {
   const situacao = situacaoDoPedido(linha);
-  const comprovante = linha.comprovanteChave && linha.comprovanteNome
-    ? arquivo(linha.comprovanteNome, linha.comprovanteTamanho, linha.comprovanteTipo, urlDoComprovante(linha.id))
-    : null;
+  const atual = linha.comprovantes[0];
+  const comprovante = atual ? arquivo(atual.arquivoNome, atual.arquivoTamanho, atual.arquivoTipo, urlDoComprovante(linha.id)) : null;
   const pagamento = linha.formaPagamento && linha.pagamentoRegistradoEm
     ? {
         forma: linha.formaPagamento,

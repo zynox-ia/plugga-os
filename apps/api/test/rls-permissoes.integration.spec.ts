@@ -127,7 +127,7 @@ describe.skipIf(!HABILITADO)("RLS: permissões no login real da aplicação", { 
 
   it("habilita e força RLS em todos os modelos e mantém os grupos sem bypass", async () => {
     const tabelas = Prisma.dmmf.datamodel.models.map((m) => m.dbName ?? m.name);
-    expect(tabelas).toHaveLength(80);
+    expect(tabelas).toHaveLength(81);
     expect(tabelas).toContain("conexoes_google_calendar");
     expect(tabelas).toEqual(expect.arrayContaining(["activities", "activity_rounds", "activity_changes", "activity_round_evidence"]));
     const flags = await root.$queryRaw<{ nome: string; ativo: boolean; forcado: boolean }[]>`
@@ -786,6 +786,15 @@ describe.skipIf(!HABILITADO)("RLS: permissões no login real da aplicação", { 
       for (const nome of ["op", "admin"]) {
         expect((await contexto(nome, (tx) => tx.pedidoDeCompra.deleteMany({ where: deste }))).count, nome).toBe(0);
       }
+
+      // Comprovante: envia quem paga (Financeiro); Compras lê, mas não envia; ninguém apaga.
+      const comprovante = { pedidoId: pedido.id, arquivoChave: marca, arquivoNome: "c.pdf", arquivoTamanho: 1, arquivoTipo: "application/pdf" };
+      await expect(contexto("op", (tx) => tx.comprovanteDePagamento.create({ data: comprovante }))).rejects.toThrow();
+      const enviado = await contexto("financeiro", (tx) => tx.comprovanteDePagamento.create({ data: comprovante, select: { id: true } }));
+      expect(await contexto("op", (tx) => tx.comprovanteDePagamento.findUnique({ where: enviado, select: { id: true } }))).toEqual(enviado);
+      expect(await contexto("a", (tx) => tx.comprovanteDePagamento.findUnique({ where: enviado, select: { id: true } }))).toBeNull();
+      // Sem GRANT de DELETE: a tentativa é recusada, nem chega à política.
+      await expect(contexto("admin", (tx) => tx.comprovanteDePagamento.deleteMany({ where: enviado }))).rejects.toThrow(/permission denied/);
 
       // Diretório: quem lê Compras vê as pessoas dos pedidos; o CRM não.
       expect(await contexto("financeiro", (tx) => tx.user.findUnique({ where: { id: operador.id }, select: { id: true } }))).toEqual({ id: operador.id });

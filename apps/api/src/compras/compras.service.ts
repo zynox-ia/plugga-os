@@ -130,14 +130,13 @@ export class ComprasService {
     if (!podeExecutar(papel, "registrar_pagamento")) throw new AcessoNegado("O comprovante é de quem registra o pagamento.");
     await this.repositorio.estado(id);
     const guardado = await this.guardar(id, "comprovantes", arquivo);
-    let anterior: string | null;
     try {
-      anterior = await this.repositorio.registrarComprovante(id, guardado, principal);
+      // O comprovante anterior continua guardado: o repositório só o marca como substituído.
+      await this.repositorio.registrarComprovante(id, guardado, principal, this.agora());
     } catch (erro) {
       await this.descartar(guardado.chave);
       throw erro;
     }
-    if (anterior) await this.descartar(anterior);
     return this.obter(id, principal);
   }
 
@@ -181,7 +180,11 @@ export class ComprasService {
     return { chave, nome, tamanho: arquivo.buffer.length, tipo: deteccao.tipo };
   }
 
-  /** Limpeza de melhor esforço: um objeto órfão no armazenamento não é motivo para falhar a requisição. */
+  /**
+   * Limpeza de melhor esforço do arquivo recém-enviado cuja gravação falhou. Um
+   * objeto órfão não é motivo para falhar a requisição. Nunca apaga arquivo já
+   * registrado: anexo de cotação e comprovante são evidência.
+   */
   private async descartar(chave: string): Promise<void> {
     try {
       await this.armazenamento.excluir(chave);

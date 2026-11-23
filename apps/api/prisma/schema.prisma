@@ -309,6 +309,8 @@ model User {
   passagensDeCompraFechadas      PedidoDeCompraEtapa[]       @relation("PassagemDeCompraFechadaPor")
   cotacoesCriadas                CotacaoDeCompra[]           @relation("CotacaoCriadaPor")
   obrasCriadas                   Obra[]                      @relation("ObraCriadaPor")
+  comprovantesEnviados           ComprovanteDePagamento[]    @relation("ComprovanteEnviadoPor")
+  comprovantesSubstituidos       ComprovanteDePagamento[]    @relation("ComprovanteSubstituidoPor")
   fornecedoresAtualizados        Fornecedor[]                @relation("FornecedorAtualizadoPor")
   passagensDeObra                ObraEtapaHistorico[]
   evidenciasDeObra               EvidenciaDeObra[]
@@ -2034,10 +2036,6 @@ model PedidoDeCompra {
   pagamentoObservacao        String?                   @map("pagamento_observacao")
   pagamentoRegistradoEm      DateTime?                 @map("pagamento_registrado_em") @db.Timestamptz(6)
   pagamentoRegistradoPorId   String?                   @map("pagamento_registrado_por_id") @db.Uuid
-  comprovanteChave           String?                   @map("comprovante_chave")
-  comprovanteNome            String?                   @map("comprovante_nome")
-  comprovanteTamanho         Int?                      @map("comprovante_tamanho")
-  comprovanteTipo            String?                   @map("comprovante_tipo")
   recebimentoConfirmadoPorId String?                   @map("recebimento_confirmado_por_id") @db.Uuid
   valorOrcado                Decimal?                  @map("valor_orcado") @db.Decimal(14, 2)
   valorCotado                Decimal?                  @map("valor_cotado") @db.Decimal(14, 2)
@@ -2049,22 +2047,23 @@ model PedidoDeCompra {
   createdAt                  DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt                  DateTime                  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  company                  Company               @relation(fields: [companyId], references: [id])
-  obra                     Obra?                 @relation(fields: [obraId], references: [id], onDelete: SetNull)
-  client                   Client?               @relation(fields: [clientId], references: [id], onDelete: SetNull)
-  solicitante              User                  @relation("PedidoSolicitante", fields: [solicitanteId], references: [id])
-  responsavel              User?                 @relation("PedidoResponsavel", fields: [responsavelId], references: [id], onDelete: SetNull)
-  criadoPor                User?                 @relation("PedidoCriadoPor", fields: [criadoPorId], references: [id], onDelete: SetNull)
-  estoqueDecididoPor       User?                 @relation("PedidoEstoqueDecididoPor", fields: [estoqueDecididoPorId], references: [id], onDelete: SetNull)
-  selecionouCotacao        User?                 @relation("PedidoCotacaoSelecionadaPor", fields: [selecionouCotacaoId], references: [id], onDelete: SetNull)
-  aprovou                  User?                 @relation("PedidoAprovadoPor", fields: [aprovouId], references: [id], onDelete: SetNull)
-  pagamentoRegistradoPor   User?                 @relation("PedidoPagamentoRegistradoPor", fields: [pagamentoRegistradoPorId], references: [id], onDelete: SetNull)
-  recebimentoConfirmadoPor User?                 @relation("PedidoRecebimentoConfirmadoPor", fields: [recebimentoConfirmadoPorId], references: [id], onDelete: SetNull)
-  canceladoPor             User?                 @relation("PedidoCanceladoPor", fields: [canceladoPorId], references: [id], onDelete: SetNull)
-  cotacaoSelecionada       CotacaoDeCompra?      @relation("CotacaoSelecionada", fields: [cotacaoSelecionadaId], references: [id], onDelete: SetNull)
+  company                  Company                  @relation(fields: [companyId], references: [id])
+  obra                     Obra?                    @relation(fields: [obraId], references: [id], onDelete: SetNull)
+  client                   Client?                  @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  solicitante              User                     @relation("PedidoSolicitante", fields: [solicitanteId], references: [id])
+  responsavel              User?                    @relation("PedidoResponsavel", fields: [responsavelId], references: [id], onDelete: SetNull)
+  criadoPor                User?                    @relation("PedidoCriadoPor", fields: [criadoPorId], references: [id], onDelete: SetNull)
+  estoqueDecididoPor       User?                    @relation("PedidoEstoqueDecididoPor", fields: [estoqueDecididoPorId], references: [id], onDelete: SetNull)
+  selecionouCotacao        User?                    @relation("PedidoCotacaoSelecionadaPor", fields: [selecionouCotacaoId], references: [id], onDelete: SetNull)
+  aprovou                  User?                    @relation("PedidoAprovadoPor", fields: [aprovouId], references: [id], onDelete: SetNull)
+  pagamentoRegistradoPor   User?                    @relation("PedidoPagamentoRegistradoPor", fields: [pagamentoRegistradoPorId], references: [id], onDelete: SetNull)
+  recebimentoConfirmadoPor User?                    @relation("PedidoRecebimentoConfirmadoPor", fields: [recebimentoConfirmadoPorId], references: [id], onDelete: SetNull)
+  canceladoPor             User?                    @relation("PedidoCanceladoPor", fields: [canceladoPorId], references: [id], onDelete: SetNull)
+  cotacaoSelecionada       CotacaoDeCompra?         @relation("CotacaoSelecionada", fields: [cotacaoSelecionadaId], references: [id], onDelete: SetNull)
   itens                    ItemDePedido[]
-  cotacoes                 CotacaoDeCompra[]     @relation("CotacoesDoPedido")
+  cotacoes                 CotacaoDeCompra[]        @relation("CotacoesDoPedido")
   etapas                   PedidoDeCompraEtapa[]
+  comprovantes             ComprovanteDePagamento[]
 
   @@index([etapa])
   @@index([responsavelId])
@@ -2094,6 +2093,29 @@ model ItemDePedido {
 /// Uma passagem por uma etapa. Sustenta os indicadores 4.2 e 4.3: sem histórico
 /// por passagem não há "qual etapa está estourando o prazo". Há mais de uma
 /// linha da mesma etapa quando o fluxo volta por REVISAR, e é isso que o 4.3
+/// Comprovante de pagamento de um pedido. Trocar não apaga: o anterior fica
+/// marcado como substituído, com quem trocou e quando, e o arquivo continua no
+/// armazenamento. O atual é o único sem `substituidoEm` (índice único parcial).
+model ComprovanteDePagamento {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  pedidoId         String    @map("pedido_id") @db.Uuid
+  arquivoChave     String    @map("arquivo_chave")
+  arquivoNome      String    @map("arquivo_nome")
+  arquivoTamanho   Int       @map("arquivo_tamanho")
+  arquivoTipo      String    @map("arquivo_tipo")
+  enviadoPorId     String?   @map("enviado_por_id") @db.Uuid
+  enviadoEm        DateTime  @default(now()) @map("enviado_em") @db.Timestamptz(6)
+  substituidoEm    DateTime? @map("substituido_em") @db.Timestamptz(6)
+  substituidoPorId String?   @map("substituido_por_id") @db.Uuid
+
+  pedido         PedidoDeCompra @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+  enviadoPor     User?          @relation("ComprovanteEnviadoPor", fields: [enviadoPorId], references: [id], onDelete: SetNull)
+  substituidoPor User?          @relation("ComprovanteSubstituidoPor", fields: [substituidoPorId], references: [id], onDelete: SetNull)
+
+  @@index([pedidoId, enviadoEm])
+  @@map("comprovantes_de_pagamento")
+}
+
 /// precisa enxergar.
 model PedidoDeCompraEtapa {
   id             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid

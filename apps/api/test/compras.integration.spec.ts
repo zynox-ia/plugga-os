@@ -157,6 +157,31 @@ describe.skipIf(!HABILITADO)("compras: pedido de compra no Postgres", () => {
     await expect(repositorio.editar(id, editarPedidoDeCompraSchema.parse({ itens: [{ descricao: "X", quantidade: "1" }] }), principal)).rejects.toBeInstanceOf(EstadoInvalido);
   }, PRAZO_MS);
 
+  it("trocar o comprovante preserva o anterior, com quem trocou e quando, e o banco não deixa reescrevê-lo", async () => {
+    const id = await criar();
+    await acao(id, { acao: "iniciar_analise" });
+    await acao(id, { acao: "decidir_estoque", origem: "aquisicao" });
+    await acao(id, { acao: "selecionar_cotacao", cotacaoId: await cotar(id) });
+    await acao(id, { acao: "enviar_para_aprovacao" });
+    await acao(id, { acao: "aprovar" });
+    const comprovante = (nome: string) => ({ chave: `${marca}/${randomUUID()}`, nome, tamanho: 10, tipo: "application/pdf" });
+    await repositorio.registrarComprovante(id, comprovante("primeiro.pdf"), principal, AGORA);
+    const depois = new Date(AGORA.getTime() + 60_000);
+    await repositorio.registrarComprovante(id, comprovante("segundo.pdf"), principal, depois);
+
+    const lista = await prisma.comprovanteDePagamento.findMany({ where: { pedidoId: id }, orderBy: { enviadoEm: "asc" } });
+    expect(lista.map((c) => [c.arquivoNome, c.substituidoEm, c.substituidoPorId])).toEqual([
+      ["primeiro.pdf", depois, principal.id],
+      ["segundo.pdf", null, null],
+    ]);
+    expect((await repositorio.comprovante(id)).nome).toBe("segundo.pdf");
+    await expect(prisma.comprovanteDePagamento.update({ where: { id: lista[0]!.id }, data: { arquivoNome: "outro.pdf" } })).rejects.toThrow();
+    await expect(prisma.comprovanteDePagamento.update({ where: { id: lista[0]!.id }, data: { substituidoEm: null, substituidoPorId: null } })).rejects.toThrow();
+
+    await acao(id, { acao: "registrar_pagamento", forma: "pix" });
+    await expect(repositorio.registrarComprovante(id, comprovante("tarde.pdf"), principal, depois)).rejects.toBeInstanceOf(EstadoInvalido);
+  }, PRAZO_MS);
+
   it("o banco recusa cancelamento sem motivo e mais de uma passagem aberta", async () => {
     const id = await criar();
     await expect(prisma.pedidoDeCompra.update({ where: { id }, data: { canceladoEm: AGORA } })).rejects.toThrow();
