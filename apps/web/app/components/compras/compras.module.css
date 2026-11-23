@@ -290,18 +290,6 @@
   font-weight: 500;
 }
 
-/* Filtro de Empresa: o ponto da empresa no gatilho e em cada opção. */
-.pontoDoFiltro {
-  width: 8px;
-  height: 8px;
-  margin: 4px;
-}
-
-.opcaoComIcone {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
 
 /* Segmento ativo da lista vem do Pipelines com peso 600; aqui o máximo é 500 (regra do André). A classe dobrada vence a do Pipelines sem depender da ordem dos arquivos. */
 .segmentoDaLista.segmentoDaLista button[aria-pressed] {
@@ -318,7 +306,3 @@
   }
 }
 
-/* O painel do filtro de Empresa cabe "Waze Energia" numa linha, mesmo com o gatilho estreito do celular. */
-.menuEmpresa.menuEmpresa:global(.ui-select-content) {
-  min-width: max(var(--radix-select-trigger-width), 200px);
-}

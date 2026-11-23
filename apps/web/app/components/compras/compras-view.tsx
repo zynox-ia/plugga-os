@@ -1,18 +1,18 @@
 "use client";
 
 import type { OpcoesDeCompraResposta, PedidoDeCompra, PedidoDeCompraResumo, QuadroDeComprasResposta } from "@plugga/shared";
-import { Ban, CalendarDays, List, ShoppingCart, SquareKanban, UserRound } from "lucide-react";
+import { Ban, Building2, CalendarDays, List, ShoppingCart, SquareKanban, UserRound } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from "react";
 
-import { hrefDeCompras, numeroDoPedido, periodosDeCompra, ROTULO_DO_PERIODO, textoDoDestino, type FiltrosDeCompras } from "../../lib/compras";
-import { FiltroDeClientes } from "../clientes/filtro-de-clientes";
+import { hrefDeCompras, numeroDoPedido, ROTULO_DA_EMPRESA, periodosDeCompra, ROTULO_DO_PERIODO, textoDoDestino, type FiltrosDeCompras } from "../../lib/compras";
 import estilosClientes from "../clientes/tela-clientes.module.css";
 import { BarraRolagemMinimalista } from "../pipelines/quadro-do-pipeline";
 import estilosPipelines from "../pipelines/tela-pipelines.module.css";
+import { PontoDaEmpresa } from "../suprimentos/empresa";
+import { FiltroComBusca } from "../suprimentos/menu-com-busca";
 import { Button, IconPlus, IconSearch } from "../ui";
-import { FiltroDeEmpresa } from "./campos-de-compra";
 import styles from "./compras.module.css";
 import { FichaDoPedido } from "./ficha-do-pedido";
 import { ListaDeCompras } from "./lista-de-compras";
@@ -96,10 +96,11 @@ export function ComprasView({ filtros, colunas, pedidos, total, opcoes, ficha, f
         </nav>
         {quadro ? <BarraRolagemMinimalista containerRef={colunasRef} className={estilosPipelines.rolagem} /> : <span className={styles.espaco} />}
         <div className={`${estilosPipelines.navegacaoDireita} ${styles.filtros}`} role="group" aria-label="Filtros de pedidos">
-          <div className={styles.filtro}><FiltroDeEmpresa valor={filtros.empresa} aoMudar={(empresa) => ir({ empresa })} /></div>
-          <div className={styles.filtro}><FiltroDeClientes label="Responsável" value={filtros.responsavel ?? "todos"} onChange={(v) => ir({ responsavel: v === "todos" ? undefined : v })}
+          <div className={styles.filtro}><FiltroComBusca label="Empresa" icon={<Building2 />} semFiltro="todas" value={filtros.empresa ?? "todas"} onChange={(v) => ir({ empresa: v === "todas" ? undefined : (v as FiltrosDeCompras["empresa"]) })}
+            options={[{ value: "todas", label: "Todas as empresas", icon: <Building2 /> }, ...(["plugga", "waze"] as const).map((e) => ({ value: e, label: ROTULO_DA_EMPRESA[e], icon: <PontoDaEmpresa empresa={e} /> }))]} /></div>
+          <div className={styles.filtro}><FiltroComBusca label="Responsável" icon={<UserRound />} semFiltro="todos" value={filtros.responsavel ?? "todos"} onChange={(v) => ir({ responsavel: v === "todos" ? undefined : v })}
             options={[{ value: "todos", label: "Todos os responsáveis", icon: <UserRound /> }, ...opcoes.pessoas.map((p) => ({ value: p.id, label: p.nome, icon: <UserRound /> }))]} /></div>
-          <div className={styles.filtro}><FiltroDeClientes label="Período" value={filtros.periodo ?? "qualquer"} onChange={(v) => ir({ periodo: v === "qualquer" ? undefined : (v as FiltrosDeCompras["periodo"]) })}
+          <div className={styles.filtro}><FiltroComBusca label="Período" icon={<CalendarDays />} semFiltro="qualquer" value={filtros.periodo ?? "qualquer"} onChange={(v) => ir({ periodo: v === "qualquer" ? undefined : (v as FiltrosDeCompras["periodo"]) })}
             options={[{ value: "qualquer", label: "Qualquer período", icon: <CalendarDays /> }, ...periodosDeCompra.map((p) => ({ value: p, label: ROTULO_DO_PERIODO[p], icon: <CalendarDays /> }))]} /></div>
           {quadro ? <Button variant="secondary" className={styles.alternar} aria-pressed={filtros.cancelados} icon={<Ban size={16} />} onClick={() => ir({ cancelados: !filtros.cancelados })}>
             Cancelados{canceladosVisiveis ? <span className={styles.conta}> {String(canceladosVisiveis.length).padStart(2, "0")}</span> : null}
