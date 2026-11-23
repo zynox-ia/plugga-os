@@ -96,8 +96,9 @@
 
 /* ---------- Movimentações: lista por dia ---------- */
 
-.movs { display: grid; width: 100%; max-width: 1120px; overflow: hidden; border: 1px solid #dbe4ed; border-radius: var(--radius-xl); background: rgba(255, 255, 255, 0.95); }
-.movsCabeca, .movLinha { display: grid; grid-template-columns: minmax(240px, 2.2fr) 120px 120px minmax(160px, 1.6fr) 96px; gap: 12px; align-items: center; }
+.movs { display: grid; width: 100%; overflow: hidden; border: 1px solid #dbe4ed; border-radius: var(--radius-xl); background: rgba(255, 255, 255, 0.95); }
+/* Na largura do conteúdo, como a visão Lista: as colunas se redistribuem (item e origem crescem). */
+.movsCabeca, .movLinha { display: grid; grid-template-columns: minmax(240px, 2.4fr) minmax(110px, 0.8fr) minmax(110px, 0.8fr) minmax(180px, 2fr) minmax(96px, 0.7fr); gap: 12px; align-items: center; }
 .movsCabeca { position: sticky; top: 0; z-index: 2; padding: 12px 16px; border-bottom: 1px solid #dbe4ed; background: rgba(243, 247, 251, 0.65); color: #536579; font: 500 12px/1.4 var(--font-general-sans); backdrop-filter: blur(8px); }
 .movsCabeca > span:not(:first-child), .movLinha > div:not(.movItem) { text-align: center; }
 .movsDia h3 { display: flex; justify-content: space-between; align-items: baseline; margin: 0; padding: 8px 16px; border-bottom: 1px solid #dbe4ed; background: #f8fafc; color: #536579; font-size: 12px; font-weight: 500; }

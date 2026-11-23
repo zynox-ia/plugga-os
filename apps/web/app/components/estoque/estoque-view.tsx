@@ -9,11 +9,11 @@ import {
   type ListarMovimentacoesResposta,
   type Movimentacao,
 } from "@plugga/shared";
-import { ArrowRight, Building2, CalendarDays, Clock3, Download, Filter, History, LayoutGrid, List, Package, Pencil, Tag, Upload } from "lucide-react";
+import { ArrowRight, Building2, CalendarDays, Filter, History, LayoutGrid, List, Package, Tag } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactElement } from "react";
 
-import { hrefDeCompras, ROTULO_DA_EMPRESA, valorCurto } from "../../lib/compras";
+import { hrefDeCompras, ROTULO_DA_EMPRESA } from "../../lib/compras";
 import {
   filtrosDeSaldoDaTela,
   hrefDeEstoque,
@@ -29,7 +29,6 @@ import {
 import { BarraFixa, CampoDaFolha, classeDaPaginaComBarra } from "../barra-fixa";
 import estilosClientes from "../clientes/tela-clientes.module.css";
 import estilosPipelines from "../pipelines/tela-pipelines.module.css";
-import { CardDeMetrica, MetricasDoTopo } from "../suprimentos/card-de-metrica";
 import { PontoDaEmpresa } from "../suprimentos/empresa";
 import { FiltroComBusca } from "../suprimentos/menu-com-busca";
 import { Button, IconPlus, IconSearch } from "../ui";
@@ -97,16 +96,7 @@ export function EstoqueView({ filtros, itens, todosOsItens, movimentacoes, ficha
     abasRef.current?.querySelector<HTMLButtonElement>(`#estoque-visao-${VISOES[proxima]!.id}`)?.focus();
   }
 
-  const periodo = ROTULO_DO_PERIODO_DE_MOVIMENTACAO[filtros.periodo].toLowerCase();
-  const metricas = movimentos
-    ? movimentacoes ? <MetricasDoTopo rotulo="Resumo das movimentações">
-      <CardDeMetrica rotulo="Entradas" valor={movimentacoes.resumo.entradas.quantidade} nota={`${valorCurto(movimentacoes.resumo.entradas.valor)} pelo custo · ${periodo}`} icone={<Download />} />
-      <CardDeMetrica rotulo="Saídas" valor={movimentacoes.resumo.saidas.quantidade} nota={`${valorCurto(movimentacoes.resumo.saidas.valor)} pelo custo · ${periodo}`} icone={<Upload />} />
-      <CardDeMetrica rotulo="Ajustes" valor={movimentacoes.resumo.ajustes.quantidade} nota="correções de contagem" icone={<Pencil />} />
-      <CardDeMetrica rotulo="Reservas" valor={movimentacoes.resumo.reservas.quantidade} nota="para pedidos de compra" icone={<Clock3 />} />
-    </MetricasDoTopo> : null
-    // Cards e Lista sem metric cards (pedido do André): o filtro Saldo e os selos dos cards dizem o que está abaixo do mínimo ou zerado.
-    : null;
+  // Sem metric cards no topo em nenhuma visão (pedidos do André): a barra fica logo abaixo do cabeçalho.
 
   const vazio = (titulo: string, texto: string) => <div className={`lista-negocios-vazia ${styles.vazio}`} role="status">
     <div className="lista-negocios-vazia-icone" aria-hidden="true"><Package size={22} /></div>
@@ -165,8 +155,6 @@ export function EstoqueView({ filtros, itens, todosOsItens, movimentacoes, ficha
         <Button icon={<ArrowRight size={16} />} onClick={() => setRegistrando({ item: null, tipo: "entrada" })}>Registrar movimentação</Button>
       </div>
     </header>
-
-    {metricas}
 
     <BarraFixa rotulo="Visualização, busca e filtros do estoque"
       abas={<div ref={abasRef} className={`${estilosPipelines.visoes} ${estilosClientes.abas} ${styles.abas}`} role="tablist" aria-label="Visão do estoque" onKeyDown={navegarAbas}>
