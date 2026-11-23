@@ -1,5 +1,5 @@
 /* Colunas agrupadas (skill dataviz), no padrão do gráfico de caixa do Financeiro. */
-.grafico { min-width: 0; margin: 0; padding: 14px 18px 12px; border: 1px solid var(--ui-divider); border-radius: var(--radius-lg); background: var(--ui-surface); }
+.grafico { container-type: inline-size; min-width: 0; margin: 0; padding: 14px 18px 12px; border: 1px solid var(--ui-divider); border-radius: var(--radius-lg); background: var(--ui-surface); }
 
 .legenda { display: flex; flex-wrap: wrap; justify-content: flex-start; gap: 8px 22px; margin-bottom: 10px; font-weight: 400; }
 .serie { display: inline-flex; align-items: baseline; gap: 7px; color: var(--ui-muted); font-size: 12.5px; }
@@ -34,7 +34,7 @@
 .tabela summary::before { content: ""; width: 6px; height: 6px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(-45deg); transition: transform 0.15s; }
 .tabela[open] summary::before { transform: rotate(45deg); }
 .tabela summary:focus-visible { outline: 2px solid var(--ui-primary); outline-offset: 2px; border-radius: 4px; }
-.tabela table { width: 100%; margin-top: 8px; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.tabela table { width: 100%; min-width: 0; margin-top: 8px; border-collapse: collapse; font-variant-numeric: tabular-nums; }
 .tabela :is(th, td) { padding: 6px 8px; border-bottom: 1px solid var(--ui-divider); font-weight: 400; text-align: center; }
 .tabela thead th { color: var(--ui-muted); font-size: 12px; font-weight: 500; }
 .tabela tbody th { text-align: left; }
@@ -49,4 +49,15 @@
 }
 @media (prefers-reduced-motion: no-preference) {
   .area path { transition: opacity 0.15s ease; }
+}
+
+/* Estreito (celular, painel pequeno): a tabela vira uma lista de períodos em cards, sem rolagem lateral. */
+@container (max-width: 480px) {
+  .tabela table, .tabela tbody { display: block; }
+  .tabela thead { display: none; }
+  .tabela tbody { display: grid; gap: 8px; margin-top: 8px; }
+  .tabela tr { display: grid; gap: 4px; padding: 10px 12px; border: 1px solid var(--ui-divider); border-radius: var(--radius-md); background: color-mix(in srgb, var(--ui-subtle) 50%, var(--ui-surface)); }
+  .tabela :is(th, td) { display: flex; justify-content: space-between; gap: 12px; padding: 0; border: 0; background: transparent !important; text-align: left; text-transform: none; letter-spacing: normal; font-size: 12.5px; }
+  .tabela tbody th { font-weight: 500; color: var(--ui-text); }
+  .tabela td::before { content: attr(data-l); color: var(--ui-muted); }
 }

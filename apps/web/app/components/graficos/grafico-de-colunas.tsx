@@ -134,8 +134,8 @@ export function GraficoDeColunas({ titulo, series, pontos, formatarValor, format
         <thead><tr><th scope="col">Período</th>{series.map((s) => <th key={s.chave} scope="col">{s.rotulo}</th>)}{saldo ? <th scope="col">{saldo.rotulo}</th> : null}</tr></thead>
         <tbody>{pontos.map((p, k) => <tr key={k}>
           <th scope="row">{p.rotulo}{p.previsto ? ` · ${legendaDoPrevisto.toLowerCase()}` : ""}</th>
-          {series.map((s) => <td key={s.chave}>{formatarValor(p.valores[s.chave] ?? 0)}</td>)}
-          {saldo && series.length >= 2 ? <td>{saldo.formatar((p.valores[series[0]!.chave] ?? 0) - (p.valores[series[1]!.chave] ?? 0))}</td> : null}
+          {series.map((s) => <td key={s.chave} data-l={s.rotulo}>{formatarValor(p.valores[s.chave] ?? 0)}</td>)}
+          {saldo && series.length >= 2 ? <td data-l={saldo.rotulo}>{saldo.formatar((p.valores[series[0]!.chave] ?? 0) - (p.valores[series[1]!.chave] ?? 0))}</td> : null}
         </tr>)}</tbody>
       </table>
     </details>
