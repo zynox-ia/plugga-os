@@ -10,6 +10,8 @@ export default defineConfig({
   reporter: "list",
   use: {
     ...devices["Desktop Chrome"],
+    // As entradas animadas (lib/movimento) não rodam com movimento reduzido: os testes medem o estado final.
+    contextOptions: { reducedMotion: "reduce" },
     baseURL: "http://127.0.0.1:3118",
     screenshot: "only-on-failure",
     trace: "retain-on-failure",
