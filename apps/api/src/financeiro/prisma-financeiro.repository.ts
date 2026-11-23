@@ -458,7 +458,9 @@ export class PrismaFinanceiroRepository {
         throw new Conflito(
           codigo ? `Já existe a ${codigo} deste cliente nesta competência.` : "Já existe a cobrança deste cliente nesta competência.",
           [{ campo: "competencia", problema: "Uma cobrança por cliente e competência." }],
-          existente ? { codigo, id: existente.id } : undefined,
+          // `codigo` já é a chave do envelope de erro: a existente vai dentro de `existente`.
+          // O `id` solto fica enquanto a tela atual o lê do topo; sai quando ela ler `existente`.
+          existente ? { existente: { codigo, id: existente.id }, id: existente.id } : undefined,
         );
       }
       throw erro;

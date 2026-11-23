@@ -4,6 +4,7 @@ import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { AppModule } from "../src/app.module";
+import { Conflito } from "../src/common/errors/dominio";
 import { FinanceiroService } from "../src/financeiro/financeiro.service";
 
 const ID = "00000000-0000-4000-8000-000000000901";
@@ -122,6 +123,13 @@ describe("financeiro API (e2e)", () => {
     await financeiro(http().get("/financeiro/clientes?busca=H")).expect(400);
     await financeiro(http().get("/financeiro/clientes?busca=Hotel")).expect(200);
     await financeiro(http().get(`/financeiro/cobrancas/sugestao?empresa=plugga&clientId=${ID}&competencia=2026-11`)).expect(200);
+  });
+
+  it("cobrança repetida: o 409 leva a existente em `existente`, sem colidir com o `codigo` do envelope", async () => {
+    const cobranca = { empresa: "plugga", clientId: ID, competencia: "2026-11", categoriaId: ID, descricao: "Gestão", valor: "4850.00", vencimento: "2026-12-10" };
+    servico.criarCobranca.mockRejectedValueOnce(new Conflito("Já existe a CR-0012 deste cliente nesta competência.", undefined, { existente: { codigo: "CR-0012", id: ID }, id: ID }));
+    const resposta = await financeiro(http().post("/financeiro/cobrancas")).send(cobranca).expect(409);
+    expect(resposta.body).toMatchObject({ codigo: "CONFLITO_UNICIDADE", existente: { codigo: "CR-0012", id: ID }, id: ID });
   });
 
   it("o .zip dos comprovantes valida o período e sai como anexo", async () => {
