@@ -6,7 +6,7 @@ import { IntegrationGate } from "../integrations/integration-gate";
 import { JobsQueue } from "../jobs/queue/jobs-queue.port";
 import { PrismaJobsService } from "../prisma/prisma-jobs.service";
 import { OmieEscrita } from "./omie-escrita";
-import { PAUSA_MS, TODA_A_EMPRESA, destinoDaFalha, estaPausada, metodoDoEnvio } from "./omie-fila.rules";
+import { TODA_A_EMPRESA, destinoDaFalha, estaPausada, metodoDoEnvio } from "./omie-fila.rules";
 
 export const OMIE_DESPACHAR_JOB = "omie.despachar";
 export const OMIE_ENVIAR_JOB = "omie.enviar";
@@ -81,7 +81,9 @@ export class OmieFilaService {
       this.logger.warn(`envio ${envio.id} (${metodo}, ${envio.company_id}): ${destino.tipo} ${destino.motivo}`);
       if (destino.tipo === "erro") {
         await this.transicao(envio.id, "enviando", "erro", { erro: destino.motivo });
-        if (destino.motivo === "credenciais_invalidas") await this.pausar(envio.company_id, TODA_A_EMPRESA, new Date(agora.getTime() + PAUSA_MS), destino.motivo);
+        // Credencial recusada: a empresa toda para até o par ser testado de novo (sem prazo).
+        // Com prazo, os envios seguintes repetiriam o erro, e o OMIE bloquearia o IP.
+        if (destino.motivo === "credenciais_invalidas") await this.pausar(envio.company_id, TODA_A_EMPRESA, null, destino.motivo);
       } else if (destino.tipo === "retentar") {
         await this.transicao(envio.id, "enviando", "pendente", { tentativas: destino.tentativas, proxima: destino.proximaEm, erro: destino.motivo });
       } else {
@@ -96,7 +98,8 @@ export class OmieFilaService {
     return this.banco.$queryRaw<Pausa[]>`SELECT company_id, metodo FROM plugga_security.omie_pausas_ativas()`;
   }
 
-  private async pausar(empresa: string, metodo: string, ate: Date, motivo: string): Promise<void> {
+  /** `ate` NULL: até a retomada (o teste ou a confirmação do par da empresa). */
+  private async pausar(empresa: string, metodo: string, ate: Date | null, motivo: string): Promise<void> {
     await this.banco.$executeRaw`SELECT plugga_security.omie_pausar(${empresa}::text, ${metodo}::text, ${ate}::timestamptz, ${motivo}::text)`;
   }
 

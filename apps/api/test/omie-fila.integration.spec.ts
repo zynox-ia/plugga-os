@@ -89,7 +89,7 @@ describe.skipIf(!HABILITADO)("fila do OMIE no Postgres", () => {
       await tx.anexoDeLancamento.deleteMany({ where: lancamentos });
       await tx.historicoDeLancamento.deleteMany({ where: lancamentos });
       await tx.lancamento.deleteMany({ where: { descricao: { startsWith: marca } } });
-      await tx.omiePausa.deleteMany({ where: { companyId: "plugga", motivo: "limite_de_consumo" } });
+      await tx.omiePausa.deleteMany({ where: { companyId: "plugga", motivo: { in: ["limite_de_consumo", "credenciais_invalidas"] } } });
       await tx.categoriaFinanceira.deleteMany({ where: { nome: { startsWith: marca } } });
       await tx.contaCorrente.deleteMany({ where: { nome: { startsWith: marca } } });
       await tx.fornecedor.deleteMany({ where: { nome: { startsWith: marca } } });
@@ -227,6 +227,9 @@ describe.skipIf(!HABILITADO)("fila do OMIE no Postgres", () => {
     const marcados = await comoRuntime((tx) => tx.$executeRaw`UPDATE public.omie_envios SET estado = 'enviando' WHERE lancamento_id = ${id}::uuid`).catch((e: unknown) => e);
     expect(marcados instanceof Error ? marcados.message : String(marcados)).toMatch(/row-level security|^0$/);
     expect((await envios(id))[0]?.estado).toBe("pendente");
+    // Nem o código do OMIE num pendente: esse campo é só do worker.
+    await expect(comoRuntime((tx) => tx.$executeRaw`UPDATE public.omie_envios SET codigo_omie = 'falso' WHERE lancamento_id = ${id}::uuid`))
+      .rejects.toThrow(/ENVIO_AO_OMIE_SO_PELO_WORKER/);
     await expect(prisma.omieEnvio.deleteMany({ where: { lancamentoId: id } })).rejects.toThrow(/não se apaga/);
 
     const comoJobs = <T>(fazer: (tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0]) => Promise<T>) => prisma.$transaction(async (tx) => {
@@ -237,6 +240,36 @@ describe.skipIf(!HABILITADO)("fila do OMIE no Postgres", () => {
     await expect(comoJobs((tx) => tx.$queryRaw`SELECT id FROM public.lancamentos LIMIT 1`)).rejects.toThrow(/permission denied/);
     const devidos = await comoJobs((tx) => tx.$queryRaw<{ id: string; lancamento_id: string }[]>`SELECT id, lancamento_id FROM plugga_security.omie_envios_devidos(500)`);
     expect(devidos.some((d) => d.lancamento_id === id)).toBe(true);
+  }, PRAZO_MS);
+
+  it("credencial recusada para a empresa toda até o par voltar; a retomada devolve à fila o que falhou por ela", async () => {
+    modo = "write";
+    responder = async () => { throw new OmieFalhouError("credenciais_invalidas"); };
+    const id = await novaConta();
+    await agir(id, { acao: "aprovar" });
+    await rodarFila(id);
+    expect((await envios(id))[0]).toMatchObject({ estado: "erro", ultimoErro: "credenciais_invalidas" });
+    // Sem prazo (infinity), até a retomada.
+    const pausaDaEmpresa = () => prisma.$queryRaw<{ semPrazo: boolean }[]>`SELECT ate = 'infinity'::timestamptz AS "semPrazo" FROM public.omie_pausas WHERE company_id = 'plugga' AND metodo = '*'`;
+    expect(await pausaDaEmpresa()).toEqual([{ semPrazo: true }]);
+
+    // Nada mais da empresa sai, nem em outro método, até o par voltar.
+    const outra = await novaConta();
+    await agir(outra, { acao: "aprovar" });
+    const [envio] = await envios(outra);
+    enfileirados.length = 0;
+    await fila.despachar(new Date());
+    expect(enfileirados.map((j) => j.payload.envioId)).not.toContain(envio!.id);
+    expect(await fila.enviar(envio!.id, new Date())).toEqual({ skipped: true, motivo: "pausada" });
+
+    // O teste ou a confirmação do par chamam a retomada; só quem gerencia a conexão pode.
+    expect(await comoRuntime((tx) => tx.$queryRaw<{ n: number }[]>`SELECT plugga_security.omie_retomar_empresa('plugga') AS n`)).toEqual([{ n: expect.any(Number) }]);
+    expect(await pausaDaEmpresa()).toEqual([]);
+    expect((await envios(id))[0]).toMatchObject({ estado: "pendente", ultimoErro: null, tentativas: 0 });
+    expect(await prisma.$transaction(async (tx) => {
+      await tx.$executeRawUnsafe("SET LOCAL ROLE plugga_runtime");
+      return tx.$queryRaw`SELECT plugga_security.omie_retomar_empresa('plugga')`.catch((e: unknown) => (e as Error).message);
+    })).toMatch(/RETOMAR_OMIE_REQUER_GESTAO/);
   }, PRAZO_MS);
 
   // Por último: a pausa vale para a empresa e o método por 30 minutos.

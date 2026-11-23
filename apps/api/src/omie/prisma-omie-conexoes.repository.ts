@@ -124,7 +124,10 @@ export class PrismaOmieConexoesRepository {
         resultado: resultado.tipo === "bloqueada" ? resultado.bloqueio : resultado.tipo,
         empresas: empresas.length,
       });
-      if (confirmar) await this.registrar(tx, "integracoes.omie.confirmada", empresa, principal, { automatica: true });
+      if (confirmar) {
+        await this.registrar(tx, "integracoes.omie.confirmada", empresa, principal, { automatica: true });
+        await this.retomarFila(tx, empresa);
+      }
       return resultado;
     }));
   }
@@ -159,11 +162,22 @@ export class PrismaOmieConexoesRepository {
           : { confirmadaEm: agora, confirmadaPorId: principal.id, cnpjConfirmado: visto.cnpj, razaoSocialConfirmada: testadas[0]!.razaoSocial },
       });
       if (count !== 1) throw new EstadoInvalido(PAR_MUDOU);
-      await (resultado.tipo === "bloqueada"
-        ? this.registrar(tx, "integracoes.omie.bloqueada", empresa, principal, { motivo: resultado.bloqueio, por: "confirmacao" })
-        : this.registrar(tx, "integracoes.omie.confirmada", empresa, principal, { automatica: false }));
+      if (resultado.tipo === "bloqueada") {
+        await this.registrar(tx, "integracoes.omie.bloqueada", empresa, principal, { motivo: resultado.bloqueio, por: "confirmacao" });
+      } else {
+        await this.registrar(tx, "integracoes.omie.confirmada", empresa, principal, { automatica: false });
+        await this.retomarFila(tx, empresa);
+      }
       return resultado;
     }));
+  }
+
+  /**
+   * O par confirmado voltou a funcionar: a fila do OMIE da empresa sai da pausa por
+   * credencial recusada, e os envios que falharam por ela voltam à fila (PLU-342).
+   */
+  private async retomarFila(tx: Prisma.TransactionClient, empresa: CompanyKey): Promise<void> {
+    await tx.$queryRaw`SELECT plugga_security.omie_retomar_empresa(${empresa}::text)`;
   }
 
   /** As duas conferências, na mesma ordem para não haver impasse. */

@@ -71,13 +71,16 @@ describe.skipIf(!HABILITADO)("omie por empresa no Postgres", () => {
     const da = async () => (await servico.estado()).conexoes.find((c) => c.empresa === "waze")!;
     expect((await da()).situacao).toBe("a_testar");
 
-    await servico.testar("waze", principal);
+    await comoAdmin(() => servico.testar("waze", principal));
     expect(await da()).toMatchObject({ situacao: "a_confirmar", ultimoTeste: { empresas: [{ cnpj: CNPJ }] } });
     expect(await servico.credenciais("waze")).toBeNull();
 
-    await servico.confirmar("waze", CNPJ, principal);
+    // A fila do OMIE da Waze estava parada por credencial recusada (PLU-342): confirmar o par a retoma.
+    await prisma.$executeRaw`SELECT plugga_security.omie_pausar('waze', '*', NULL, 'credenciais_invalidas')`;
+    await comoAdmin(() => servico.confirmar("waze", CNPJ, principal));
     expect(await da()).toMatchObject({ situacao: "conectada", confirmada: { cnpj: CNPJ, razaoSocial: "WAZE SINTÉTICA" } });
     expect(await servico.credenciais("waze")).toEqual(par);
+    expect(await prisma.$queryRaw`SELECT 1 FROM public.omie_pausas WHERE company_id = 'waze' AND metodo = '*'`).toEqual([]);
 
     await servico.gravar("waze", { ...par, appKey: "chave-waze-0043" }, principal);
     expect((await da()).situacao).toBe("a_testar");
@@ -93,9 +96,9 @@ describe.skipIf(!HABILITADO)("omie por empresa no Postgres", () => {
     await prisma.company.updateMany({ where: { id: { in: ["plugga", "waze"] } }, data: { cnpj: null } });
     await servico.gravar("plugga", { appKey: "chave-plugga-0042", appSecret: "ficticio-ficticio-ficticio" }, principal);
     await servico.gravar("waze", { appKey: "chave-waze-0044", appSecret: "ficticio-ficticio-ficticio" }, principal);
-    await servico.testar("plugga", principal);
-    await servico.testar("waze", principal);
-    const resultados = await Promise.allSettled([servico.confirmar("plugga", CNPJ, principal), servico.confirmar("waze", CNPJ, principal)]);
+    await comoAdmin(() => servico.testar("plugga", principal));
+    await comoAdmin(() => servico.testar("waze", principal));
+    const resultados = await Promise.allSettled([comoAdmin(() => servico.confirmar("plugga", CNPJ, principal)), comoAdmin(() => servico.confirmar("waze", CNPJ, principal))]);
     expect(resultados.filter((r) => r.status === "fulfilled")).toHaveLength(1);
     const estado = await servico.estado();
     expect(estado.conexoes.filter((c) => c.situacao === "conectada")).toHaveLength(1);
@@ -113,8 +116,8 @@ describe.skipIf(!HABILITADO)("omie por empresa no Postgres", () => {
     await prisma.omieConexao.deleteMany({});
     // A Plugga foi confirmada à mão com X, que na verdade é o CNPJ da Waze.
     await servico.gravar("plugga", { appKey: "chave-plugga-0050", appSecret: "ficticio-ficticio-ficticio" }, principal);
-    await servico.testar("plugga", principal);
-    await servico.confirmar("plugga", CNPJ, principal);
+    await comoAdmin(() => servico.testar("plugga", principal));
+    await comoAdmin(() => servico.confirmar("plugga", CNPJ, principal));
     expect(await servico.credenciais("plugga")).not.toBeNull();
 
     // A plataforma cadastra X como o CNPJ da Waze: a Plugga sai do ar na hora.
@@ -126,8 +129,8 @@ describe.skipIf(!HABILITADO)("omie por empresa no Postgres", () => {
     // O cadastro da própria empresa diferente do confirmado também bloqueia.
     await comoAdmin(() => servico.definirCnpj("waze", null, principal));
     await servico.gravar("waze", { appKey: "chave-waze-0051", appSecret: "ficticio-ficticio-ficticio" }, principal);
-    await servico.testar("waze", principal);
-    await servico.confirmar("waze", CNPJ, principal);
+    await comoAdmin(() => servico.testar("waze", principal));
+    await comoAdmin(() => servico.confirmar("waze", CNPJ, principal));
     await comoAdmin(() => servico.definirCnpj("waze", "99999003000148", principal));
     expect((await servico.estado()).conexoes.find((c) => c.empresa === "waze")).toMatchObject({ situacao: "bloqueada", bloqueio: "cnpj_diferente_do_cadastro" });
     await prisma.company.update({ where: { id: "waze" }, data: { cnpj: null } });
@@ -139,10 +142,10 @@ describe.skipIf(!HABILITADO)("omie por empresa no Postgres", () => {
     await servico.gravar("waze", { appKey: "chave-waze-0045", appSecret: "ficticio-ficticio-ficticio" }, principal);
     // A permissão da função que grava o CNPJ está em rls-permissoes; aqui o dono do banco grava direto.
     await prisma.company.update({ where: { id: "waze" }, data: { cnpj: CNPJ } });
-    await servico.testar("waze", principal);
+    await comoAdmin(() => servico.testar("waze", principal));
     expect((await servico.estado()).conexoes.find((c) => c.empresa === "waze")).toMatchObject({ situacao: "conectada", cnpjDoCadastro: CNPJ });
     await prisma.company.update({ where: { id: "waze" }, data: { cnpj: "99999003000148" } });
-    await servico.testar("waze", principal);
+    await comoAdmin(() => servico.testar("waze", principal));
     expect((await servico.estado()).conexoes.find((c) => c.empresa === "waze")).toMatchObject({ situacao: "bloqueada", bloqueio: "cnpj_diferente_do_cadastro" });
   }, PRAZO_MS);
 });

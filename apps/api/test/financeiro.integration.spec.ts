@@ -92,7 +92,8 @@ describe.skipIf(!HABILITADO)("financeiro: lançamentos no Postgres", () => {
     const a = await repositorio.obter(await novaConta(), papel, AGORA);
     const b = await repositorio.obter(await novaConta(), papel, AGORA);
     expect(a).toMatchObject({ tipo: "saida", etapa: "aberta", origem: { tipo: "avulsa", pedidoDeCompra: null }, valor: "100.00", vencimento: "2026-11-30" });
-    expect(Number(b.codigo.slice(3))).toBe(Number(a.codigo.slice(3)) + 1);
+    // A sequência é global da saída: outra suíte no mesmo banco pode criar uma no meio.
+    expect(Number(b.codigo.slice(3))).toBeGreaterThan(Number(a.codigo.slice(3)));
     expect(a.codigo).toMatch(/^CP-\d{4,}$/);
     expect(a.acoesPermitidas).toEqual(["aprovar", "cancelar", "corrigir_valor"]);
     const evento = await prisma.eventLog.findFirstOrThrow({ where: { entityId: a.id, eventName: "financeiro.lancamento.created" } });
