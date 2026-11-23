@@ -149,6 +149,11 @@
   gap: 12px;
 }
 
+/* Painel interno da ficha no raio de Suprimentos (18 px), por cima do 16 px do destaque do CRM que ele reaproveita. */
+section.acao {
+  border-radius: var(--radius-lg);
+}
+
 .acao > p {
   margin: 0;
 }

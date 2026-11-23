@@ -282,3 +282,7 @@ a.pedido:hover { text-decoration: underline; }
   .abas button { padding-inline: 4px; gap: 5px; justify-content: center; }
 }
 
+
+/* Painéis internos da ficha (Identificação, Contato, Endereço) no raio de Suprimentos (18 px),
+   por cima dos 12 px da seção do perfil do lead que eles reaproveitam. */
+section.painel { border-radius: var(--radius-lg); }

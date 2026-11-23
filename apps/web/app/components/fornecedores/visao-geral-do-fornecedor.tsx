@@ -35,7 +35,7 @@ export function VisaoGeralDoFornecedor({ fornecedor: f, desempenho, aoCopiar }: 
     </MetricasDoTopo> : <p className={styles.vazio} role="status">Não foi possível carregar o desempenho agora. O cadastro abaixo está completo.</p>}
 
     <div className={perfil.grade}>
-      <section className={perfil.secao} aria-label="Identificação">
+      <section className={`${perfil.secao} ${styles.painel}`} aria-label="Identificação">
         <h4><Building2 size={16} aria-hidden="true" />Identificação</h4>
         <dl className={perfil.dados}>
           <Dado rotulo="Razão social / nome">{f.nome}</Dado>
@@ -50,7 +50,7 @@ export function VisaoGeralDoFornecedor({ fornecedor: f, desempenho, aoCopiar }: 
         </div>
       </section>
 
-      <section className={perfil.secao} aria-label="Contato">
+      <section className={`${perfil.secao} ${styles.painel}`} aria-label="Contato">
         <h4><Phone size={16} aria-hidden="true" />Contato</h4>
         <dl className={perfil.dados}>
           <Dado rotulo="Contato">{f.contatoNome}</Dado>
@@ -79,7 +79,7 @@ export function VisaoGeralDoFornecedor({ fornecedor: f, desempenho, aoCopiar }: 
       <MapaDoEndereco endereco={endereco} descricao="Pelo endereço do cadastro." rotulo="fornecedor" />
     </section>
 
-    {f.observacoes ? <section className={perfil.secao} aria-label="Observações">
+    {f.observacoes ? <section className={`${perfil.secao} ${styles.painel}`} aria-label="Observações">
       <h4><FileText size={16} aria-hidden="true" />Observações</h4>
       <p className={styles.observacoes}>{f.observacoes}</p>
     </section> : null}
