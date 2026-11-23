@@ -1,13 +1,14 @@
-import { randomUUID } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 
-import { acaoDoLancamentoSchema, criarContaAPagarSchema, listarLancamentosQuerySchema, quadroFinanceiroQuerySchema } from "@plugga/shared";
+import { acaoDoLancamentoSchema, criarCobrancaSchema, criarContaAPagarSchema, listarLancamentosQuerySchema, quadroFinanceiroQuerySchema } from "@plugga/shared";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { AuditAppender } from "../src/audit/audit-appender.js";
-import { AcessoNegado, EstadoInvalido, NaoEncontrado, RequisicaoInvalida } from "../src/common/errors/dominio.js";
+import { AcessoNegado, Conflito, EstadoInvalido, NaoEncontrado, RequisicaoInvalida } from "../src/common/errors/dominio.js";
 import type { AuthPrincipal } from "../src/core/auth/auth.types.js";
 import { papelNoFinanceiro } from "../src/financeiro/financeiro.rules.js";
 import { PrismaFinanceiroRepository } from "../src/financeiro/prisma-financeiro.repository.js";
+import { contextoBanco } from "../src/prisma/contexto-banco.js";
 import { PrismaService } from "../src/prisma/prisma.service.js";
 
 /**
@@ -28,6 +29,9 @@ describe.skipIf(!HABILITADO)("financeiro: lançamentos no Postgres", () => {
   const repositorio = new PrismaFinanceiroRepository(prisma, new AuditAppender());
   const marca = `fin-${randomUUID().slice(0, 8)}`;
   let principal: AuthPrincipal;
+  // Sessão de verdade: as funções do banco que dão nome e UCs de cliente ao Financeiro conferem a tela pela sessão.
+  const sessao = randomBytes(32).toString("hex");
+  const comoAdmin = <T>(fazer: () => Promise<T>) => contextoBanco.run({ sessionHash: sessao, agentHash: undefined }, fazer);
   const papel = papelNoFinanceiro({ plataforma: "admin", departamentos: [] });
   const ids = { fornecedor: "", cliente: "", despesaPlugga: "", despesaWaze: "", receitaPlugga: "", contaPlugga: "", contaWaze: "" };
 
@@ -48,6 +52,7 @@ describe.skipIf(!HABILITADO)("financeiro: lançamentos no Postgres", () => {
     for (const id of ["plugga", "waze"]) await prisma.company.upsert({ where: { id }, create: { id, name: id }, update: {} });
     const pessoa = await prisma.user.create({ data: { email: `${marca}@teste.local`, name: `${marca} Pessoa`, platformRoles: { create: { roleId: admin.id } } } });
     principal = { id: pessoa.id, kind: "user", acesso: { plataforma: "admin", departamentos: [] } };
+    await prisma.session.create({ data: { userId: pessoa.id, tokenHash: sessao, expiresAt: new Date(Date.now() + 3_600_000), absoluteExpiresAt: new Date(Date.now() + 7_200_000) } });
     ids.fornecedor = (await prisma.fornecedor.create({ data: { nome: `${marca} Fornecedor`, categoria: "servico" } })).id;
     ids.cliente = (await prisma.client.create({ data: { name: `${marca} Cliente` } })).id;
     const categoria = (companyId: string, codigo: string, tipo: "receita" | "despesa") => prisma.categoriaFinanceira.create({
@@ -70,12 +75,14 @@ describe.skipIf(!HABILITADO)("financeiro: lançamentos no Postgres", () => {
       await tx.anexoDeLancamento.deleteMany({ where: lancamentos });
       await tx.historicoDeLancamento.deleteMany({ where: lancamentos });
       await tx.ucDeLancamento.deleteMany({ where: lancamentos });
+      await tx.consumerUnit.deleteMany({ where: { code: { startsWith: marca } } });
       await tx.lancamento.deleteMany({ where: { descricao: { startsWith: marca } } });
       await tx.categoriaFinanceira.deleteMany({ where: { nome: { startsWith: marca } } });
       await tx.contaCorrente.deleteMany({ where: { nome: { startsWith: marca } } });
       await tx.fornecedor.deleteMany({ where: { nome: { startsWith: marca } } });
       await tx.client.deleteMany({ where: { name: { startsWith: marca } } });
     });
+    await prisma.session.deleteMany({ where: { tokenHash: sessao } });
     await prisma.user.deleteMany({ where: { email: { startsWith: marca } } });
     await prisma.$disconnect();
   }, PRAZO_MS);
@@ -166,6 +173,8 @@ describe.skipIf(!HABILITADO)("financeiro: lançamentos no Postgres", () => {
     const detalhe = await repositorio.obter(id, papel, AGORA);
     expect(detalhe).toMatchObject({ etapa: "paga", liquidadoEm: "2026-11-23", marcos: { pago: { pagoEm: "2026-11-23" } }, anexos: 1 });
     expect(detalhe.arquivos?.map((a) => a.substituido === null)).toEqual([true, false]);
+    // O download avulso do comprovante também sai com o nome padronizado.
+    expect((await repositorio.arquivoDoAnexo(id, detalhe.comprovanteAtual!.id, papel)).nome).toBe(detalhe.comprovanteAtual!.nomePadronizado);
     expect(detalhe.comprovanteAtual?.nomePadronizado).toMatch(/^2026-11-23 · CP-\d{4,} · .* · R\$ 100,00\.pdf$/);
     expect(detalhe.linhaDoTempo?.map((e) => e.tipo)).toEqual(expect.arrayContaining(["pago", "anexo_substituido", "anexo_enviado", "aprovado", "criado"]));
     expect(detalhe.pendencias?.filter((p) => !p.feito).map((p) => p.texto)).toEqual(["Conciliar com o extrato"]);
@@ -184,6 +193,51 @@ describe.skipIf(!HABILITADO)("financeiro: lançamentos no Postgres", () => {
     expect(detalhe.linhaDoTempo?.find((e) => e.tipo === "valor_corrigido")).toMatchObject({ resumo: "Valor corrigido de R$ 100,00 para R$ 120,00", texto: "Frete incluído" });
     const evento = await prisma.eventLog.findFirstOrThrow({ where: { entityId: id, eventName: "financeiro.lancamento.valor_corrigido" } });
     expect(JSON.stringify(evento.payload)).not.toContain("Frete");
+  }, PRAZO_MS);
+
+  it("cobrança manual: uma por cliente e competência, UCs do cliente, sugestão pela anterior", async () => {
+    const outro = (await prisma.client.create({ data: { name: `${marca} Outro` } })).id;
+    const ucDoCliente = (await prisma.consumerUnit.create({ data: { clientId: ids.cliente, code: `${marca}-UC1`, distributor: "Sintética" } })).id;
+    const ucDeOutro = (await prisma.consumerUnit.create({ data: { clientId: outro, code: `${marca}-UC2`, distributor: "Sintética" } })).id;
+    const cobranca = (dados: Record<string, unknown>) => comoAdmin(() => repositorio.criarCobranca(criarCobrancaSchema.parse({
+      empresa: "plugga", clientId: ids.cliente, competencia: "2027-05", categoriaId: ids.receitaPlugga, descricao: `${marca} cobrança manual`,
+      valor: "4850.00", vencimento: "2027-06-10", ...dados,
+    }), principal));
+    await expect(cobranca({ ucIds: [ucDeOutro] })).rejects.toBeInstanceOf(RequisicaoInvalida);
+    await expect(cobranca({ categoriaId: ids.despesaPlugga })).rejects.toBeInstanceOf(RequisicaoInvalida);
+    const id = await cobranca({ ucIds: [ucDoCliente] });
+    const detalhe = await comoAdmin(() => repositorio.obter(id, papel, AGORA));
+    expect(detalhe).toMatchObject({ tipo: "entrada", etapa: "gerada", origem: { tipo: "cobranca_manual" }, competencia: "2027-05", favorecido: { nome: `${marca} Cliente` } });
+    expect(detalhe.ucs).toEqual([{ id: ucDoCliente, codigo: `${marca}-UC1` }]);
+    const repetida = await cobranca({ valor: "1.00" }).catch((e: unknown) => e);
+    expect(repetida).toBeInstanceOf(Conflito);
+    expect((repetida as Conflito).extras).toMatchObject({ id, codigo: detalhe.codigo });
+    expect(await repositorio.sugestaoDeCobranca("plugga", ids.cliente, "2027-06")).toEqual({ valor: "4850.00", competencia: "2027-05", codigo: detalhe.codigo });
+    expect(await repositorio.sugestaoDeCobranca("waze", ids.cliente, "2027-06")).toEqual({ valor: null, competencia: null, codigo: null });
+    expect((await comoAdmin(() => repositorio.buscarClientesComUcs(`${marca} Clien`))).find((c) => c.id === ids.cliente)?.ucs).toEqual([{ id: ucDoCliente, codigo: `${marca}-UC1` }]);
+  }, PRAZO_MS);
+
+  it("depois do boleto, corrigir o valor exige o boleto novo; os comprovantes do período saem com o nome padronizado", async () => {
+    const id = await novaCobranca("2027-07");
+    await agir(id, { acao: "registrar_nf", numero: "NFS-e 7" });
+    await anexar(id, "boleto");
+    await agir(id, { acao: "registrar_boleto" });
+    // O relógio dos anexos deste teste anda à frente do das ações: o registro do boleto vem depois do anexo.
+    await prisma.lancamento.update({ where: { id }, data: { boletoRegistradoEm: new Date(relogioDosAnexos + 60_000) } });
+    await expect(agir(id, { acao: "corrigir_valor", valor: "60.00", motivo: "Reajuste" })).rejects.toMatchObject({ detalhes: [{ campo: "boleto" }] });
+    relogioDosAnexos += 120_000;
+    await anexar(id, "boleto");
+    await agir(id, { acao: "corrigir_valor", valor: "60.00", motivo: "Reajuste" });
+    expect((await repositorio.obter(id, papel, AGORA)).valor).toBe("60.00");
+
+    await anexar(id, "comprovante");
+    await agir(id, { acao: "registrar_recebimento", contaCorrenteId: ids.contaPlugga, recebidoEm: "2026-11-22", valor: "60.00" });
+    const { total, itens } = await comoAdmin(() => repositorio.comprovantesDoPeriodo({ de: "2026-11-22", ate: "2026-11-22", tipos: ["entrada"] }, 500));
+    const deste = itens.filter((i) => i.nomePadronizado.includes(`${marca} Cliente`));
+    expect(total).toBeGreaterThanOrEqual(1);
+    expect(deste).toHaveLength(1);
+    expect(deste[0]!.nomePadronizado).toMatch(/^2026-11-22 · CR-\d{4,} · .* · R\$ 60,00\.pdf$/);
+    expect((await repositorio.comprovantesDoPeriodo({ de: "2026-11-22", ate: "2026-11-22", tipos: ["saida"] }, 500)).itens.filter((i) => i.nomePadronizado.includes(`${marca} Cliente`))).toHaveLength(0);
   }, PRAZO_MS);
 
   it("a cobrança anda NF → boleto (com o anexo) → envio → cobrança → recebimento", async () => {

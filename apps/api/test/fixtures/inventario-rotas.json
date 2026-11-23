@@ -915,6 +915,71 @@
   },
   {
     "metodo": "GET",
+    "caminho": "/financeiro/clientes",
+    "controller": "FinanceiroController.buscarClientes",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:financeiro.receber",
+      "departamento:financeiro:membro"
+    ],
+    "guards": [
+      "FinanceiroHabilitadoGuard",
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/financeiro/cobrancas",
+    "controller": "FinanceiroController.criarCobranca",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:financeiro.pagar",
+      "tela:financeiro.receber",
+      "departamento:financeiro:membro"
+    ],
+    "guards": [
+      "FinanceiroHabilitadoGuard",
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/financeiro/cobrancas/sugestao",
+    "controller": "FinanceiroController.sugestao",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:financeiro.pagar",
+      "tela:financeiro.receber",
+      "departamento:financeiro:membro"
+    ],
+    "guards": [
+      "FinanceiroHabilitadoGuard",
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/financeiro/comprovantes.zip",
+    "controller": "FinanceiroController.baixarComprovantes",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:financeiro.pagar",
+      "tela:financeiro.receber",
+      "departamento:financeiro:membro"
+    ],
+    "guards": [
+      "FinanceiroHabilitadoGuard",
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
     "caminho": "/financeiro/lancamentos",
     "controller": "FinanceiroController.listar",
     "acesso": "acesso",

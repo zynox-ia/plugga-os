@@ -926,8 +926,11 @@ describe.skipIf(!HABILITADO)("RLS: permissões no login real da aplicação", { 
       await expect(contexto("admin", (tx) => tx.anexoDeLancamento.deleteMany({ where: criado }))).rejects.toThrow(/permission denied/);
       // O Financeiro não lê `clients` (é do CRM), mas recebe o nome do cliente cobrado pela função.
       expect(await contexto("financeiro", (tx) => tx.client.findUnique({ where: { id: registros.get("a")! }, select: { id: true } }))).toBeNull();
-      const nomes = await contexto("financeiro", (tx) => tx.$queryRaw<{ id: string }[]>`SELECT id FROM plugga_security.clientes_para_financeiro(NULL, ${[registros.get("a")!, registros.get("b")!]}::uuid[])`);
-      expect(nomes.map((n) => n.id)).toEqual([registros.get("a")!]);
+      // Pelo id: o cliente cobrado e o ativo (para a cobrança manual); o inativo sem cobrança, não.
+      const inativo = await root.client.create({ data: { name: `${marca}-inativo`, active: false }, select: { id: true } });
+      clientesExtras.push(inativo.id);
+      const nomes = await contexto("financeiro", (tx) => tx.$queryRaw<{ id: string }[]>`SELECT id FROM plugga_security.clientes_para_financeiro(NULL, ${[registros.get("a")!, registros.get("b")!, inativo.id]}::uuid[])`);
+      expect(nomes.map((n) => n.id).sort()).toEqual([registros.get("a")!, registros.get("b")!].sort());
       expect(await contexto("pagar", (tx) => tx.$queryRaw<{ id: string }[]>`SELECT id FROM plugga_security.clientes_para_financeiro(NULL, ${[registros.get("a")!]}::uuid[])`)).toEqual([]);
       // O diretório mostra quem criou o lançamento para quem tem Financeiro.
       expect(await contexto("conciliacao", (tx) => tx.user.findUnique({ where: { id: pagador.id }, select: { id: true } }))).toEqual({ id: pagador.id });

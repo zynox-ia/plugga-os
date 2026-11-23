@@ -103,9 +103,12 @@ export function numeroDaBusca(busca: string): { tipo: TipoDeLancamento | null; n
 
 // ---------------------------------------------------------------- ações
 
-/** O que dos anexos importa para as transições (PLU-337). */
-export type AnexosAtuais = { comprovante: boolean; boleto: boolean };
-export const SEM_ANEXOS: AnexosAtuais = { comprovante: false, boleto: false };
+/**
+ * O que dos anexos importa para as transições (PLU-337). `boletoNovo`: o boleto atual
+ * foi anexado depois do registro do boleto e da última correção de valor.
+ */
+export type AnexosAtuais = { comprovante: boolean; boleto: boolean; boletoNovo?: boolean };
+export const SEM_ANEXOS: AnexosAtuais = { comprovante: false, boleto: false, boletoNovo: false };
 
 export type Recusa = { codigo: "CONFLITO_ESTADO" | "REQUISICAO_INVALIDA"; mensagem: string; campo?: string };
 
@@ -141,6 +144,11 @@ export function planejarAcao(l: EstadoDoLancamento, acao: AcaoDoLancamento, anex
       return { tipo: "cancelar", motivo: acao.motivo };
     case "corrigir_valor":
       if (estaLiquidado(l.etapa)) return conflito("Depois de pago ou recebido, o valor não se corrige.");
+      // Decisão (a) do Coordenador: depois do boleto, o boleto com o valor antigo não
+      // serve; corrigir exige anexar o boleto novo antes (o antigo fica substituído).
+      if (l.tipo === "entrada" && (l.etapa === "boleto_gerado" || l.etapa === "enviada") && !anexos.boletoNovo) {
+        return conflito("Anexe o boleto com o valor novo antes de corrigir.", "boleto");
+      }
       return { tipo: "corrigir_valor", valor: acao.valor, motivo: acao.motivo };
     case "registrar_nf":
       return soEntrada(l) ?? etapaExigida(l, ["gerada"], "A NF é registrada na cobrança gerada.") ?? { tipo: "registrar_nf", etapa: "nf_emitida", numero: acao.numero };
@@ -204,10 +212,12 @@ function exemploDe(acao: NomeDaAcaoDoLancamento, agora: Date): AcaoDoLancamento 
  * O pagamento aparece mesmo sem o comprovante anexado: a tela o habilita depois do anexo.
  */
 export function acoesPermitidas(l: EstadoDoLancamento, papel: PapelNoFinanceiro, anexos: AnexosAtuais, agora: Date): NomeDaAcaoDoLancamento[] {
-  const comTudo = { comprovante: true, boleto: true };
+  const comTudo = { comprovante: true, boleto: true, boletoNovo: true };
   return acoesDoLancamento.filter((acao) => {
     if (!podeExecutar(papel, l, acao)) return false;
-    const plano = planejarAcao(l, exemploDe(acao, agora), acao === "registrar_pagamento" || acao === "registrar_boleto" ? comTudo : anexos, agora);
+    // O que só depende de um anexo aparece mesmo sem ele: a tela habilita depois do anexo.
+    const dependeDeAnexo = acao === "registrar_pagamento" || acao === "registrar_boleto" || acao === "corrigir_valor";
+    const plano = planejarAcao(l, exemploDe(acao, agora), dependeDeAnexo ? comTudo : anexos, agora);
     return !("codigo" in plano);
   });
 }

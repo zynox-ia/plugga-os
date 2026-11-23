@@ -9,6 +9,7 @@ import {
   type ColunaDoQuadroFinanceiro,
   type CompanyKey,
   type ContaCorrente,
+  type CriarCobranca,
   type CriarContaAPagar,
   type EditarLancamento,
   type Lancamento,
@@ -26,7 +27,7 @@ import {
 } from "@plugga/shared";
 
 import { AuditAppender } from "../audit/audit-appender";
-import { AcessoNegado, EstadoInvalido, NaoEncontrado, RequisicaoInvalida } from "../common/errors/dominio";
+import { AcessoNegado, Conflito, EstadoInvalido, NaoEncontrado, RequisicaoInvalida } from "../common/errors/dominio";
 import { diaEmManaus, inicioDoDiaEmManaus } from "../compras/dias-uteis";
 import type { AuthPrincipal } from "../core/auth/auth.types";
 import { PrismaService } from "../prisma/prisma.service";
@@ -81,10 +82,16 @@ const INCLUDE_DO_DETALHE = {
 } satisfies Prisma.LancamentoInclude;
 type LinhaDoDetalhe = Prisma.LancamentoGetPayload<{ include: typeof INCLUDE_DO_DETALHE }>;
 
-/** Os anexos de que as transições dependem (comprovante e boleto atuais). */
+/** Os anexos de que as transições dependem (comprovante e boleto atuais, e se o boleto é novo). */
 async function anexosAtuais(tx: Prisma.TransactionClient, lancamentoId: string): Promise<AnexosAtuais> {
-  const atuais = await tx.anexoDeLancamento.findMany({ where: { lancamentoId, substituidoEm: null, tipo: { in: ["comprovante", "boleto"] } }, select: { tipo: true } });
-  return { comprovante: atuais.some((a) => a.tipo === "comprovante"), boleto: atuais.some((a) => a.tipo === "boleto") };
+  const [atuais, lancamento, correcao] = await Promise.all([
+    tx.anexoDeLancamento.findMany({ where: { lancamentoId, substituidoEm: null, tipo: { in: ["comprovante", "boleto"] } }, select: { tipo: true, enviadoEm: true } }),
+    tx.lancamento.findUnique({ where: { id: lancamentoId }, select: { boletoRegistradoEm: true } }),
+    tx.historicoDeLancamento.findFirst({ where: { lancamentoId, tipo: "valor_corrigido" }, orderBy: { em: "desc" }, select: { em: true } }),
+  ]);
+  const boleto = atuais.find((a) => a.tipo === "boleto");
+  const referencia = Math.max(lancamento?.boletoRegistradoEm?.getTime() ?? 0, correcao?.em.getTime() ?? 0);
+  return { comprovante: atuais.some((a) => a.tipo === "comprovante"), boleto: Boolean(boleto), boletoNovo: Boolean(boleto && boleto.enviadoEm.getTime() > referencia) };
 }
 
 const DIA_MS = 86_400_000;
@@ -377,14 +384,146 @@ export class PrismaFinanceiroRepository {
     });
   }
 
-  /** O arquivo de um anexo, se o lançamento for visível para a pessoa. */
+  /**
+   * O arquivo de um anexo, se o lançamento for visível para a pessoa. O comprovante
+   * de um lançamento liquidado sai com o nome padronizado, como no .zip.
+   */
   async arquivoDoAnexo(id: string, anexoId: string, papel: PapelNoFinanceiro): Promise<ArquivoDoLancamento> {
     const anexo = await this.prisma.comContexto((tx) => tx.anexoDeLancamento.findFirst({
       where: { id: anexoId, lancamentoId: id },
-      select: { arquivoChave: true, arquivoNome: true, arquivoTamanho: true, arquivoTipo: true, lancamento: { select: { tipo: true } } },
+      select: {
+        tipo: true, arquivoChave: true, arquivoNome: true, arquivoTamanho: true, arquivoTipo: true,
+        lancamento: { select: { tipo: true, numero: true, valor: true, valorRecebido: true, liquidadoEm: true, clientId: true, fornecedor: { select: { nome: true } } } },
+      },
     }));
     if (!anexo || !tiposVisiveis(papel, "todos").includes(anexo.lancamento.tipo)) throw new NaoEncontrado("Anexo não encontrado.");
-    return { chave: anexo.arquivoChave, nome: anexo.arquivoNome, tamanho: anexo.arquivoTamanho, tipo: anexo.arquivoTipo };
+    const l = anexo.lancamento;
+    let nome = anexo.arquivoNome;
+    if (anexo.tipo === "comprovante" && l.liquidadoEm) {
+      const favorecido = l.tipo === "saida" ? l.fornecedor?.nome ?? "Fornecedor" : (l.clientId && (await this.nomesDeClientes([l.clientId])).get(l.clientId)) || "Cliente";
+      nome = nomePadronizadoDoComprovante({ dia: l.liquidadoEm, codigo: codigoDoLancamento(l.tipo, l.numero), favorecido, valor: (l.valorRecebido ?? l.valor).toFixed(2), mime: anexo.arquivoTipo });
+    }
+    return { chave: anexo.arquivoChave, nome, tamanho: anexo.arquivoTamanho, tipo: anexo.arquivoTipo };
+  }
+
+  /**
+   * Cobrança manual (A7): entrada `gerada`, origem `cobranca_manual`, uma por cliente,
+   * empresa e competência (o índice parcial do banco garante; a repetida é 409 com a
+   * existente). O cliente tem de estar ativo, a categoria ser de receita da empresa e
+   * as UCs serem do cliente.
+   */
+  async criarCobranca(input: CriarCobranca, principal: AuthPrincipal): Promise<string> {
+    const [cliente] = await this.prisma.comContexto((tx) => tx.$queryRaw<{ id: string }[]>`
+      SELECT id FROM plugga_security.clientes_para_financeiro(NULL, ${[input.clientId]}::uuid[])`);
+    if (!cliente) throw new RequisicaoInvalida("Cliente não encontrado.", [{ campo: "clientId", problema: "Escolha um cliente ativo do cadastro." }]);
+    const ucsDoCliente = (await this.ucsDosClientes([input.clientId])).get(input.clientId) ?? [];
+    const fora = input.ucIds.filter((id) => !ucsDoCliente.some((u) => u.id === id));
+    if (fora.length > 0) throw new RequisicaoInvalida("Há UC que não é do cliente.", [{ campo: "ucIds", problema: "Escolha só UCs deste cliente." }]);
+    try {
+      return await this.prisma.comContexto(async (tx) => {
+        await this.garantirCategoria(tx, input.categoriaId, input.empresa, "entrada");
+        if (input.contaCorrenteId) await this.garantirConta(tx, input.contaCorrenteId, input.empresa);
+        const criado = await tx.lancamento.create({
+          data: {
+            tipo: "entrada",
+            companyId: input.empresa,
+            clientId: input.clientId,
+            categoriaId: input.categoriaId,
+            contaCorrenteId: input.contaCorrenteId ?? null,
+            descricao: input.descricao,
+            valor: new Prisma.Decimal(input.valor),
+            vencimento: inicioDoDiaEmManaus(input.vencimento),
+            competencia: input.competencia,
+            observacao: input.observacao ?? null,
+            etapa: "gerada",
+            origem: "cobranca_manual",
+            criadoPorId: principal.id,
+          },
+          select: { id: true, companyId: true },
+        });
+        if (input.ucIds.length > 0) await tx.ucDeLancamento.createMany({ data: input.ucIds.map((consumerUnitId) => ({ lancamentoId: criado.id, consumerUnitId })) });
+        await this.registrar(tx, "financeiro.lancamento.created", criado.id, criado.companyId, principal, { tipo: "entrada", origem: "cobranca_manual", ucs: input.ucIds.length });
+        return criado.id;
+      });
+    } catch (erro) {
+      if (erro instanceof Prisma.PrismaClientKnownRequestError && erro.code === "P2002") {
+        const existente = await this.prisma.comContexto((tx) => tx.lancamento.findFirst({
+          where: { tipo: "entrada", companyId: input.empresa, clientId: input.clientId, competencia: input.competencia, canceladoEm: null },
+          select: { id: true, numero: true },
+        }));
+        const codigo = existente ? codigoDoLancamento("entrada", existente.numero) : null;
+        throw new Conflito(
+          codigo ? `Já existe a ${codigo} deste cliente nesta competência.` : "Já existe a cobrança deste cliente nesta competência.",
+          [{ campo: "competencia", problema: "Uma cobrança por cliente e competência." }],
+          existente ? { codigo, id: existente.id } : undefined,
+        );
+      }
+      throw erro;
+    }
+  }
+
+  /** Busca de clientes para a cobrança: só id, nome e as UCs. */
+  async buscarClientesComUcs(busca: string): Promise<{ id: string; nome: string; ucs: { id: string; codigo: string }[] }[]> {
+    const linhas = await this.prisma.comContexto((tx) => tx.$queryRaw<{ id: string; name: string }[]>`
+      SELECT id, name FROM plugga_security.clientes_para_financeiro(${busca}, NULL::uuid[])`);
+    const ucs = await this.ucsDosClientes(linhas.map((l) => l.id));
+    return linhas.map((l) => ({ id: l.id, nome: l.name, ucs: ucs.get(l.id) ?? [] }));
+  }
+
+  /** F4: o valor da cobrança do mesmo cliente e empresa na competência anterior mais recente. */
+  async sugestaoDeCobranca(empresa: CompanyKey, clientId: string, competencia: string): Promise<{ valor: string | null; competencia: string | null; codigo: string | null }> {
+    const anterior = await this.prisma.comContexto((tx) => tx.lancamento.findFirst({
+      where: { tipo: "entrada", companyId: empresa, clientId, canceladoEm: null, competencia: { lt: competencia } },
+      orderBy: [{ competencia: "desc" }, { createdAt: "desc" }],
+      select: { valor: true, competencia: true, numero: true },
+    }));
+    return anterior
+      ? { valor: anterior.valor.toFixed(2), competencia: anterior.competencia, codigo: codigoDoLancamento("entrada", anterior.numero) }
+      : { valor: null, competencia: null, codigo: null };
+  }
+
+  /**
+   * Os comprovantes ATUAIS dos lançamentos pagos ou recebidos no período (pelo dia do
+   * pagamento ou do recebimento), dos tipos que a pessoa alcança, com o nome padronizado.
+   */
+  async comprovantesDoPeriodo(
+    filtro: { empresa?: CompanyKey; de: string; ate: string; tipos: TipoDeLancamento[] },
+    limite: number,
+  ): Promise<{ total: number; itens: (ArquivoDoLancamento & { nomePadronizado: string; data: Date })[] }> {
+    const where: Prisma.AnexoDeLancamentoWhereInput = {
+      tipo: "comprovante",
+      substituidoEm: null,
+      lancamento: {
+        tipo: { in: filtro.tipos },
+        canceladoEm: null,
+        ...(filtro.empresa ? { companyId: filtro.empresa } : {}),
+        liquidadoEm: { gte: inicioDoDiaEmManaus(filtro.de), lte: inicioDoDiaEmManaus(filtro.ate) },
+      },
+    };
+    const [total, anexos] = await this.prisma.comContexto((tx) => Promise.all([
+      tx.anexoDeLancamento.count({ where }),
+      tx.anexoDeLancamento.findMany({
+        where,
+        take: limite + 1,
+        orderBy: [{ lancamento: { liquidadoEm: "asc" } }, { enviadoEm: "asc" }],
+        select: {
+          arquivoChave: true, arquivoNome: true, arquivoTamanho: true, arquivoTipo: true, enviadoEm: true,
+          lancamento: { select: { tipo: true, numero: true, valor: true, valorRecebido: true, liquidadoEm: true, clientId: true, fornecedor: { select: { nome: true } } } },
+        },
+      }),
+    ]));
+    const clientes = await this.nomesDeClientes(anexos.map((a) => a.lancamento.clientId));
+    return {
+      total,
+      itens: anexos.slice(0, limite).map((a) => {
+        const l = a.lancamento;
+        const favorecido = l.tipo === "saida" ? l.fornecedor?.nome ?? "Fornecedor" : (l.clientId && clientes.get(l.clientId)) || "Cliente";
+        return {
+          chave: a.arquivoChave, nome: a.arquivoNome, tamanho: a.arquivoTamanho, tipo: a.arquivoTipo, data: a.enviadoEm,
+          nomePadronizado: nomePadronizadoDoComprovante({ dia: l.liquidadoEm ?? a.enviadoEm, codigo: codigoDoLancamento(l.tipo, l.numero), favorecido, valor: (l.valorRecebido ?? l.valor).toFixed(2), mime: a.arquivoTipo }),
+        };
+      }),
+    };
   }
 
   /** As UCs dos clientes, pela função (o Financeiro não lê o CRM). */

@@ -5,6 +5,16 @@ import { ThrottlerGuard } from "@nestjs/throttler";
 import {
   ANEXO_DO_LANCAMENTO_MAX_BYTES,
   acaoDoLancamentoSchema,
+  baixarComprovantesQuerySchema,
+  buscarClientesDoFinanceiroQuerySchema,
+  criarCobrancaSchema,
+  sugestaoDeCobrancaQuerySchema,
+  type BaixarComprovantesQuery,
+  type BuscarClientesDoFinanceiroQuery,
+  type ClientesDoFinanceiroResposta,
+  type CriarCobranca,
+  type SugestaoDeCobrancaQuery,
+  type SugestaoDeCobrancaResposta,
   enviarAnexoSchema,
   type EnviarAnexo,
   criarContaAPagarSchema,
@@ -134,6 +144,44 @@ export class FinanceiroController {
     @Res() res: Response,
   ): Promise<void> {
     this.enviarArquivo(res, await this.financeiro.baixarAnexo(id, anexoId, principal));
+  }
+
+  /** Cobrança manual (A7): uma por cliente, empresa e competência. */
+  @Post("cobrancas")
+  @HttpCode(201)
+  @UseGuards(OriginCheckGuard, ThrottlerGuard)
+  criarCobranca(@Body(new ZodValidationPipe(criarCobrancaSchema)) input: CriarCobranca, @CurrentPrincipal() principal: AuthPrincipal): Promise<Lancamento> {
+    return this.financeiro.criarCobranca(input, principal);
+  }
+
+  /** F4: o valor da competência anterior, para a tela sugerir. Antes de `:id` não há conflito: é outro prefixo. */
+  @Get("cobrancas/sugestao")
+  sugestao(@Query(new ZodValidationPipe(sugestaoDeCobrancaQuerySchema)) query: SugestaoDeCobrancaQuery, @CurrentPrincipal() principal: AuthPrincipal): Promise<SugestaoDeCobrancaResposta> {
+    return this.financeiro.sugestaoDeCobranca(query, principal);
+  }
+
+  @Get("clientes")
+  @Tela("financeiro.receber")
+  buscarClientes(@Query(new ZodValidationPipe(buscarClientesDoFinanceiroQuerySchema)) query: BuscarClientesDoFinanceiroQuery, @CurrentPrincipal() principal: AuthPrincipal): Promise<ClientesDoFinanceiroResposta> {
+    return this.financeiro.buscarClientes(query.busca, principal);
+  }
+
+  /** "Baixar comprovantes": os comprovantes atuais do período, com o nome padronizado. */
+  @Get("comprovantes.zip")
+  async baixarComprovantes(@Query(new ZodValidationPipe(baixarComprovantesQuerySchema)) query: BaixarComprovantesQuery, @CurrentPrincipal() principal: AuthPrincipal, @Res() res: Response): Promise<void> {
+    const zip = await this.financeiro.prepararZipDeComprovantes(query, principal);
+    res.status(200);
+    res.setHeader("Content-Type", "application/zip");
+    res.setHeader("Content-Disposition", cabecalhoDisposicao("attachment", `comprovantes ${query.de} a ${query.ate}.zip`));
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("Cache-Control", "no-store");
+    try {
+      await zip.escrever(res);
+      res.end();
+    } catch {
+      // O cabeçalho já saiu: corta a resposta para o arquivo chegar incompleto e não parecer válido.
+      res.destroy();
+    }
   }
 
   /** Menus dos formulários e filtros: vale para qualquer tela do Financeiro. */

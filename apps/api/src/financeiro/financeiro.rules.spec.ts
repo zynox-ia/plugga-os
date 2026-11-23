@@ -172,6 +172,16 @@ describe("ações da PLU-337", () => {
     expect(podeExecutar(GERENTE, saida({ etapa: "aprovada" }), "corrigir_valor")).toBe(true);
   });
 
+  it("depois do boleto, corrigir o valor exige o boleto novo anexado (decisão a)", () => {
+    const corrigir = { acao: "corrigir_valor" as const, valor: "10.00", motivo: "Ajuste" };
+    for (const etapa of ["boleto_gerado", "enviada"] as const) {
+      expect(planejarAcao(entrada({ etapa }), corrigir, { comprovante: false, boleto: true, boletoNovo: false }, AGORA)).toMatchObject({ codigo: "CONFLITO_ESTADO", campo: "boleto" });
+      expect(planejarAcao(entrada({ etapa }), corrigir, { comprovante: false, boleto: true, boletoNovo: true }, AGORA)).toMatchObject({ tipo: "corrigir_valor" });
+    }
+    // Antes do boleto, corrige direto.
+    expect(planejarAcao(entrada({ etapa: "nf_emitida" }), corrigir, SEM_ANEXOS, AGORA)).toMatchObject({ tipo: "corrigir_valor" });
+  });
+
   it("o painel O que falta segue o fluxo de cada tipo", () => {
     expect(pendenciasDoLancamento(saida({ etapa: "aprovada" }), COM_COMPROVANTE).map((p) => [p.texto, p.feito]))
       .toEqual([["Aprovar", true], ["Anexar o comprovante", true], ["Registrar o pagamento", false], ["Conciliar com o extrato", false]]);

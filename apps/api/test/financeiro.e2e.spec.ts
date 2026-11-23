@@ -19,6 +19,10 @@ const servico = {
   editar: vi.fn().mockResolvedValue({ id: ID }),
   executarAcao: vi.fn().mockResolvedValue({ id: ID }),
   enviarAnexo: vi.fn().mockResolvedValue({ id: ID }),
+  criarCobranca: vi.fn().mockResolvedValue({ id: ID }),
+  buscarClientes: vi.fn().mockResolvedValue({ itens: [] }),
+  sugestaoDeCobranca: vi.fn().mockResolvedValue({ valor: null, competencia: null, codigo: null }),
+  prepararZipDeComprovantes: vi.fn().mockResolvedValue({ arquivos: 0, escrever: async (d: NodeJS.WritableStream) => { d.write(Buffer.from([0x50, 0x4b, 0x05, 0x06])); } }),
   baixarAnexo: vi.fn(),
 };
 
@@ -107,5 +111,23 @@ describe("financeiro API (e2e)", () => {
 
   it("pagar sem forma, conta ou dia é 400", async () => {
     await financeiro(http().post(`/financeiro/lancamentos/${ID}/acoes`)).send({ acao: "registrar_pagamento", forma: "pix" }).expect(400);
+  });
+
+  it("cobrança manual, busca de clientes e sugestão validam antes do serviço", async () => {
+    const cobranca = { empresa: "plugga", clientId: ID, competencia: "2026-11", categoriaId: ID, descricao: "Gestão", valor: "4850.00", vencimento: "2026-12-10" };
+    servico.criarCobranca.mockClear();
+    await financeiro(http().post("/financeiro/cobrancas")).send({ ...cobranca, competencia: "2026-13" }).expect(400);
+    expect(servico.criarCobranca).not.toHaveBeenCalled();
+    await financeiro(http().post("/financeiro/cobrancas")).send(cobranca).expect(201);
+    await financeiro(http().get("/financeiro/clientes?busca=H")).expect(400);
+    await financeiro(http().get("/financeiro/clientes?busca=Hotel")).expect(200);
+    await financeiro(http().get(`/financeiro/cobrancas/sugestao?empresa=plugga&clientId=${ID}&competencia=2026-11`)).expect(200);
+  });
+
+  it("o .zip dos comprovantes valida o período e sai como anexo", async () => {
+    await financeiro(http().get("/financeiro/comprovantes.zip?de=2026-11-30&ate=2026-11-01")).expect(400);
+    const resposta = await financeiro(http().get("/financeiro/comprovantes.zip?de=2026-11-01&ate=2026-11-30&empresa=plugga")).expect(200);
+    expect(resposta.headers["content-type"]).toBe("application/zip");
+    expect(resposta.headers["content-disposition"]).toContain("attachment");
   });
 });
