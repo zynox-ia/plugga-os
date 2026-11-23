@@ -1,19 +1,19 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import type { Lancamento } from "@plugga/shared";
+import type { AnexoDoLancamento, Lancamento } from "@plugga/shared";
 
 import {
+  anexosDaFicha,
   camposDoLancamento,
   camposTravadosNaAprovada,
   categoriasDaSaida,
   contaAPagarVazia,
   corpoDaEdicao,
   corpoDaNovaContaAPagar,
-  eventosDoLancamento,
   eventosPorDia,
   fraseDoOmie,
-  pendenciasDoLancamento,
+  problemaDoAnexo,
   resumoDaTrilhaDoLancamento,
   trilhaDoLancamento,
   valorEmDigitacao,
@@ -31,6 +31,7 @@ const saida: Lancamento = {
   forma: "boleto", observacao: null,
   marcos: { criado: { por: pessoa, em: "2026-11-23T12:00:00.000Z" }, aprovado: null, pago: null, recebido: null, conciliado: null, cancelado: null },
   acoesPermitidas: ["aprovar", "cancelar"], podeEditar: true, updatedAt: "2026-11-23T12:00:00.000Z",
+  arquivos: [], comprovanteAtual: null, linhaDoTempo: [], nf: null, envio: null, cobrancas: [], ucs: [], pendencias: [],
 };
 
 describe("trilha da ficha", () => {
@@ -46,39 +47,43 @@ describe("trilha da ficha", () => {
   });
 });
 
-describe("o que falta", () => {
-  it("na saída aberta: categoria feita, anexo opcional e a aprovação da Gerente", () => {
-    assert.deepEqual(pendenciasDoLancamento(saida), [
-      { texto: "Categoria do OMIE: Honorários contábeis", feito: true },
-      { texto: "Boleto ou NF anexado", feito: false, opcional: true },
-      { texto: "Aprovação da Gerente do Financeiro", feito: false },
-    ]);
-  });
-
-  it("na aprovada, a conta no OMIE só conta como feita depois de enviada; cancelado e conciliado não pedem nada", () => {
-    assert.equal(pendenciasDoLancamento({ ...saida, etapa: "aprovada" })[0]?.feito, false);
-    assert.equal(pendenciasDoLancamento({ ...saida, etapa: "aprovada", omie: { estado: "enviado", codigo: "8812934", motivo: null } })[0]?.feito, true);
-    assert.deepEqual(pendenciasDoLancamento({ ...saida, cancelado: true }), []);
-    assert.deepEqual(pendenciasDoLancamento({ ...saida, etapa: "conciliada" }), []);
+describe("linha do tempo", () => {
+  it("agrupa os eventos da API por dia de Manaus, com Hoje e Ontem pelo nome", () => {
+    const evento = (em: string) => ({ tipo: "aprovado" as const, em, por: null, resumo: "Aprovada", texto: null });
+    const dias = eventosPorDia([evento("2026-11-24T15:00:00.000Z"), evento("2026-11-23T03:30:00.000Z")], "2026-11-24"); // 22/11 23:30 em Manaus
+    assert.deepEqual(dias.map((d) => d.rotulo), ["Hoje", "22/11/2026"]);
+    assert.equal(eventosPorDia([evento("2026-11-23T15:00:00.000Z")], "2026-11-24")[0]?.rotulo, "Ontem");
   });
 });
 
-describe("linha do tempo", () => {
-  it("os marcos viram eventos do mais recente para o mais antigo, com o motivo do cancelamento", () => {
-    const l = { ...saida, cancelado: true, marcos: { ...saida.marcos, cancelado: { por: pessoa, em: "2026-11-24T15:00:00.000Z", motivo: "Fatura duplicada" } } };
-    const eventos = eventosDoLancamento(l);
-    assert.deepEqual(eventos.map((e) => e.chave), ["cancelado", "criado"]);
-    assert.equal(eventos[0]?.nota, "Fatura duplicada");
-    assert.equal(eventos[0]?.texto, "cancelou na etapa Aberta");
+describe("anexos", () => {
+  const anexo = (n: number, tipo: AnexoDoLancamento["tipo"], em: string, substituido = false): AnexoDoLancamento => ({
+    id: u(n), tipo, nome: `arquivo-${n}.pdf`, nomePadronizado: null, tamanhoBytes: 1000, mime: "application/pdf",
+    url: `/financeiro/lancamentos/${u(1)}/anexos/${u(n)}`, enviado: { por: pessoa, em }, substituido: substituido ? { por: pessoa, em } : null,
   });
 
-  it("agrupa por dia de Manaus, com Hoje e Ontem pelo nome", () => {
-    const dias = eventosPorDia([
-      { chave: "a", icone: "aprovado", em: "2026-11-24T15:00:00.000Z", quem: null, texto: "" },
-      { chave: "b", icone: "criado", em: "2026-11-23T03:30:00.000Z", quem: null, texto: "" }, // 22/11 23:30 em Manaus
-    ], "2026-11-24");
-    assert.deepEqual(dias.map((d) => d.rotulo), ["Hoje", "22/11/2026"]);
-    assert.equal(eventosPorDia([{ chave: "c", icone: "pago", em: "2026-11-23T15:00:00.000Z", quem: null, texto: "" }], "2026-11-24")[0]?.rotulo, "Ontem");
+  it("comprovante, NF e boleto trazem as versões substituídas; documentos ficam cada um por si, no fim", () => {
+    const grupos = anexosDaFicha([
+      anexo(20, "documento", "2026-11-23T10:00:00.000Z"),
+      anexo(21, "comprovante", "2026-11-24T10:00:00.000Z", true),
+      anexo(22, "comprovante", "2026-11-25T10:00:00.000Z"),
+      anexo(23, "documento", "2026-11-25T11:00:00.000Z"),
+      anexo(24, "comprovante", "2026-11-23T09:00:00.000Z", true),
+    ]);
+    assert.deepEqual(grupos.map((g) => [g.tipo, g.atual?.id, g.anteriores.map((a) => a.id)]), [
+      ["comprovante", u(22), [u(21), u(24)]],
+      ["documento", u(23), []],
+      ["documento", u(20), []],
+    ]);
+    assert.deepEqual(anexosDaFicha([]), []);
+  });
+
+  it("confere tipo e tamanho antes de enviar", () => {
+    assert.equal(problemaDoAnexo({ type: "application/pdf", size: 1000 }), null);
+    assert.equal(problemaDoAnexo({ type: "image/png", size: 25 * 1024 * 1024 }), null);
+    assert.equal(problemaDoAnexo({ type: "image/png", size: 25 * 1024 * 1024 + 1 }), "o arquivo passa de 25 MB.");
+    assert.equal(problemaDoAnexo({ type: "text/plain", size: 10 }), "envie PDF, JPG ou PNG.");
+    assert.equal(problemaDoAnexo(undefined), "escolha o arquivo.");
   });
 });
 

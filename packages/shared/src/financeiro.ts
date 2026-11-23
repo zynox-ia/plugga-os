@@ -383,21 +383,20 @@ export const lancamentoSchema = lancamentoResumoSchema.extend({
   acoesPermitidas: z.array(z.enum(acoesDoLancamento)),
   podeEditar: z.boolean(),
   updatedAt: isoDate,
-  // PLU-337. Opcionais neste commit para não quebrar quem monta um Lancamento à
-  // mão; a web os torna obrigatórios no commit dela (contrato em par).
+  // PLU-337: anexos, linha do tempo, etapas da entrada e o painel "O que falta".
   /**
    * Os anexos, atuais e substituídos, do mais recente ao mais antigo. (`anexos`,
    * herdado do resumo, segue sendo a contagem dos atuais.)
    */
-  arquivos: z.array(anexoDoLancamentoSchema).optional(),
-  comprovanteAtual: anexoDoLancamentoSchema.nullable().optional(),
-  linhaDoTempo: z.array(eventoDoLancamentoSchema).optional(),
+  arquivos: z.array(anexoDoLancamentoSchema),
+  comprovanteAtual: anexoDoLancamentoSchema.nullable(),
+  linhaDoTempo: z.array(eventoDoLancamentoSchema),
   /** Só na entrada. */
-  nf: z.object({ numero: z.string(), registrada: registro }).nullable().optional(),
-  envio: registro.extend({ canal: z.string() }).nullable().optional(),
-  cobrancas: z.array(registro.extend({ canal: z.string(), nota: z.string().nullable() })).optional(),
-  ucs: z.array(z.object({ id: uuid, codigo: z.string() })).optional(),
-  pendencias: z.array(pendenciaDoLancamentoSchema).optional(),
+  nf: z.object({ numero: z.string(), registrada: registro }).nullable(),
+  envio: registro.extend({ canal: z.string() }).nullable(),
+  cobrancas: z.array(registro.extend({ canal: z.string(), nota: z.string().nullable() })),
+  ucs: z.array(z.object({ id: uuid, codigo: z.string() })),
+  pendencias: z.array(pendenciaDoLancamentoSchema),
 });
 export type Lancamento = z.infer<typeof lancamentoSchema>;
 

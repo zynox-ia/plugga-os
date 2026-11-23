@@ -1,22 +1,28 @@
 "use client";
 
-import { rotulosDaEtapaDeLancamento, type AcaoDoLancamento, type Lancamento, type OpcoesDoFinanceiro } from "@plugga/shared";
+import { rotulosDaEtapaDeLancamento, type AcaoDoLancamento, type EventoDoLancamento, type Lancamento, type OpcoesDoFinanceiro, type TipoDeAnexo } from "@plugga/shared";
 import {
+  ArrowDownLeft,
   Ban,
+  Barcode,
   Check,
   CheckCircle2,
   Clock,
   Cloud,
   CloudOff,
   FilePlus2,
+  FileText,
   History,
   LayoutGrid,
   Link2,
+  MessageSquare,
+  Paperclip,
   Pencil,
+  Send,
+  Upload,
   UserRound,
   Wallet,
   X,
-  ArrowDownLeft,
   type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
@@ -25,16 +31,7 @@ import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent 
 import { enviar } from "../../lib/clientes";
 import { dataEmManaus, diaLegivel, hojeEmManaus, numeroDoPedido, ROTULO_DA_EMPRESA, ROTA_COMPRAS, valorEmReais } from "../../lib/compras";
 import { competenciaLegivel, prazoDoLancamento } from "../../lib/financeiro";
-import {
-  eventosDoLancamento,
-  eventosPorDia,
-  fraseDoOmie,
-  pendenciasDoLancamento,
-  resumoDaTrilhaDoLancamento,
-  ROTULO_DA_FORMA,
-  trilhaDoLancamento,
-  type IconeDoEvento,
-} from "../../lib/ficha-do-lancamento";
+import { eventosPorDia, fraseDoOmie, resumoDaTrilhaDoLancamento, ROTULO_DA_FORMA, ROTULO_DO_ANEXO, trilhaDoLancamento } from "../../lib/ficha-do-lancamento";
 import { horaEmManaus } from "../../lib/ficha-do-pedido";
 import estilosFicha from "../compras/ficha-do-pedido.module.css";
 import { FecharModal, Modal } from "../modal";
@@ -43,14 +40,17 @@ import historico from "../pipelines/historico-do-lead.module.css";
 import visao from "../pipelines/resumo-do-lead.module.css";
 import { EmpresaComPonto } from "../suprimentos/empresa";
 import { Alert, Button, Dialog, TextareaField } from "../ui";
+import { AnexarArquivo, AnexosDoLancamento, enviarAnexo } from "./anexos-do-lancamento";
 import { ContaAPagarForm } from "./conta-a-pagar-form";
 import styles from "./ficha.module.css";
 import { ICONE_DA_NATUREZA, rotuloDoTipo, SetaDoTipo } from "./partes";
 
-type Aba = "geral" | "omie" | "tempo";
+type Aba = "geral" | "anexos" | "omie" | "tempo";
 
-const ICONE_DO_EVENTO: Record<IconeDoEvento, LucideIcon> = {
-  criado: FilePlus2, aprovado: CheckCircle2, pago: Wallet, recebido: ArrowDownLeft, conciliado: Link2, cancelado: Ban,
+const ICONE_DO_EVENTO: Record<EventoDoLancamento["tipo"], LucideIcon> = {
+  criado: FilePlus2, editado: Pencil, aprovado: CheckCircle2, valor_corrigido: Pencil, nf_registrada: FileText, boleto_registrado: Barcode,
+  enviado: Send, cobranca_registrada: MessageSquare, pago: Wallet, recebido: ArrowDownLeft, conciliado: Link2, cancelado: Ban,
+  anexo_enviado: Paperclip, anexo_substituido: Upload, omie: Cloud,
 };
 
 const AVISO_DA_ACAO: Partial<Record<AcaoDoLancamento["acao"], string>> = {
@@ -79,7 +79,7 @@ export function FichaDoLancamento({ lancamento: inicial, opcoes, gerente, aoFech
   const [ocupado, setOcupado] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
-  const [janela, setJanela] = useState<null | "editar" | "cancelar">(null);
+  const [janela, setJanela] = useState<null | "editar" | "cancelar" | { anexar: TipoDeAnexo | null }>(null);
   const botoes = useRef<(HTMLButtonElement | null)[]>([]);
   const hoje = hojeEmManaus();
 
@@ -103,18 +103,33 @@ export function FichaDoLancamento({ lancamento: inicial, opcoes, gerente, aoFech
     setOcupado(false);
     if (r.ok) { atualizado(r.dados, AVISO_DA_ACAO[acao.acao] ?? null); return true; }
     if (r.erro.codigo === "CONFLITO_ESTADO") {
+      // O conflito com campo ("Anexe o comprovante antes de pagar.") diz o que falta; sem campo, a mensagem geral.
+      const motivo = Object.values(r.erro.porCampo)[0] ?? r.erro.mensagem;
       const mudou = await recarregar();
-      setErro(mudou ? `${r.erro.mensagem} O lançamento mudou enquanto a ficha estava aberta: ela foi atualizada.` : r.erro.mensagem);
+      setErro(mudou ? `${motivo} O lançamento mudou enquanto a ficha estava aberta: ela foi atualizada.` : motivo);
       return false;
     }
     setErro(Object.values(r.erro.porCampo)[0] ? `${r.erro.mensagem} ${Object.values(r.erro.porCampo).join(" ")}` : r.erro.mensagem);
     return false;
   }
 
-  const abas: { id: Aba; titulo: string; icone: LucideIcon }[] = [
-    { id: "geral", titulo: "Visão geral", icone: LayoutGrid },
-    { id: "omie", titulo: "OMIE", icone: l.omie.estado === "erro" || l.omie.estado === "divergente" ? CloudOff : Cloud },
-    { id: "tempo", titulo: "Linha do tempo", icone: History },
+  /** Anexa e mantém a ficha aberta; devolve o problema para o diálogo mostrar, ou nulo. */
+  async function anexar(tipo: TipoDeAnexo, arquivo: File): Promise<string | null> {
+    setOcupado(true); setErro(null); setAviso(null);
+    const r = await enviarAnexo(l.id, tipo, arquivo);
+    setOcupado(false);
+    if (!r.ok) return Object.values(r.erro.porCampo)[0] ?? r.erro.mensagem;
+    const substituiu = l.arquivos.some((a) => a.tipo === tipo && tipo !== "documento" && !a.substituido);
+    atualizado(r.dados, `${ROTULO_DO_ANEXO[tipo]} ${substituiu ? "substituído: o anterior ficou nas versões anteriores" : "anexado"}.`);
+    setJanela(null);
+    return null;
+  }
+
+  const abas: { id: Aba; titulo: string; curto: string; conta?: number; icone: LucideIcon }[] = [
+    { id: "geral", titulo: "Visão geral", curto: "Geral", icone: LayoutGrid },
+    { id: "anexos", titulo: "Anexos", curto: "Anexos", conta: l.anexos, icone: Paperclip },
+    { id: "omie", titulo: "OMIE", curto: "OMIE", icone: l.omie.estado === "erro" || l.omie.estado === "divergente" ? CloudOff : Cloud },
+    { id: "tempo", titulo: "Linha do tempo", curto: "Histórico", icone: History },
   ];
   function navegar(evento: KeyboardEvent<HTMLDivElement>) {
     const i = abas.findIndex((a) => a.id === aba);
@@ -122,7 +137,7 @@ export function FichaDoLancamento({ lancamento: inicial, opcoes, gerente, aoFech
     if (j === null) return;
     evento.preventDefault(); setAba(abas[j]!.id); botoes.current[j]?.focus();
   }
-  const irParaOmie = () => { setAba("omie"); botoes.current[1]?.focus(); };
+  const irPara = (destino: Aba) => { setAba(destino); botoes.current[abas.findIndex((a) => a.id === destino)]?.focus(); };
 
   const Icone = ICONE_DA_NATUREZA[l.categoria.natureza];
   return <Modal rotulo={`${l.codigo}: ${l.descricao}`} aoFechar={aoFechar} largura="larga" className={detalhes.modal}>
@@ -150,8 +165,8 @@ export function FichaDoLancamento({ lancamento: inicial, opcoes, gerente, aoFech
       <div className={detalhes.painelPrincipal}>
         <div className={`${detalhes.navegacao} plg-parte`} role="tablist" aria-label="Seções do lançamento" aria-orientation="horizontal" onKeyDown={navegar}>
           {abas.map((a, i) => <div key={a.id}>
-            <button ref={(el) => { botoes.current[i] = el; }} type="button" role="tab" id={`${id}-${a.id}`} aria-selected={aba === a.id} aria-controls={`${id}-painel`} tabIndex={aba === a.id ? 0 : -1} className={detalhes.abaBotao} onClick={() => setAba(a.id)}>
-              <a.icone size={15} aria-hidden="true" /><span>{a.titulo}</span>
+            <button ref={(el) => { botoes.current[i] = el; }} type="button" role="tab" id={`${id}-${a.id}`} aria-selected={aba === a.id} aria-controls={`${id}-painel`} aria-label={a.conta !== undefined ? `${a.titulo} ${a.conta}` : a.titulo} tabIndex={aba === a.id ? 0 : -1} className={detalhes.abaBotao} onClick={() => setAba(a.id)}>
+              <a.icone size={15} aria-hidden="true" /><span><span className={estilosFicha.abaLonga}>{a.titulo}</span><span className={estilosFicha.abaCurta} aria-hidden="true">{a.curto}</span>{a.conta !== undefined ? <span className={estilosFicha.contaAba}> {a.conta}</span> : null}</span>
             </button>
           </div>)}
         </div>
@@ -160,7 +175,8 @@ export function FichaDoLancamento({ lancamento: inicial, opcoes, gerente, aoFech
             {erro ? <p role="alert" className="aviso aviso--erro">{erro}</p> : null}
             {aviso ? <p role="status" className="aviso aviso--sucesso">{aviso}</p> : null}
           </div> : null}
-          {aba === "geral" ? <VisaoGeralDoLancamento l={l} ocupado={ocupado} aoAgir={(a) => void agir(a)} aoCancelar={() => setJanela("cancelar")} aoVerOmie={irParaOmie} /> : null}
+          {aba === "geral" ? <VisaoGeralDoLancamento l={l} ocupado={ocupado} aoAgir={(a) => void agir(a)} aoCancelar={() => setJanela("cancelar")} aoVerOmie={() => irPara("omie")} /> : null}
+          {aba === "anexos" ? <AnexosDoLancamento l={l} ocupado={ocupado} aoAnexar={(tipo) => setJanela({ anexar: tipo })} /> : null}
           {aba === "omie" ? <OmieDoLancamento l={l} /> : null}
           {aba === "tempo" ? <LinhaDoTempoDoLancamento l={l} hoje={hoje} /> : null}
         </section>
@@ -169,6 +185,7 @@ export function FichaDoLancamento({ lancamento: inicial, opcoes, gerente, aoFech
     {janela === "editar" && opcoes ? <ContaAPagarForm opcoes={opcoes} lancamento={l} gerente={gerente} aoCancelar={() => setJanela(null)} aoSalvar={(novo) => { setJanela(null); atualizado(novo, "Conta atualizada."); }} /> : null}
     {janela === "cancelar" ? <MotivoDoCancelamento codigo={l.codigo} aoVoltar={() => setJanela(null)}
       aoConfirmar={async (motivo) => { const ok = await agir({ acao: "cancelar", motivo }); if (ok) setJanela(null); return ok; }} /> : null}
+    {janela !== null && typeof janela === "object" ? <AnexarArquivo l={l} tipoInicial={janela.anexar} aoVoltar={() => setJanela(null)} aoEnviar={anexar} /> : null}
   </Modal>;
 }
 
@@ -200,7 +217,8 @@ function VisaoGeralDoLancamento({ l, ocupado, aoAgir, aoCancelar, aoVerOmie }: {
 }) {
   const pode = (a: Lancamento["acoesPermitidas"][number]) => l.acoesPermitidas.includes(a);
   const prazo = prazoDoLancamento(l);
-  const pendencias = pendenciasDoLancamento(l);
+  // O painel vem pronto da API, na ordem do fluxo; some quando tudo está feito.
+  const pendencias = l.pendencias.some((p) => !p.feito) ? l.pendencias : [];
   const feitos = pendencias.filter((p) => p.feito || p.opcional).length;
   const empresa = ROTULO_DA_EMPRESA[l.empresa];
   const omie = fraseDoOmie(l, empresa);
@@ -305,24 +323,25 @@ function OmieDoLancamento({ l }: { l: Lancamento }) {
 }
 
 function LinhaDoTempoDoLancamento({ l, hoje }: { l: Lancamento; hoje: string }) {
-  const dias = eventosPorDia(eventosDoLancamento(l), hoje);
+  const dias = eventosPorDia(l.linhaDoTempo, hoje);
   return <div className={estilosFicha.secao}>
     <div className={estilosFicha.barra}><div><h3>Linha do tempo</h3><p>Quem fez o quê, com data e hora de Manaus.</p></div></div>
     <section className={`${historico.historico} ${styles.linhaDoTempo}`} aria-label="Linha do tempo do lançamento">
       {dias.map((grupo) => <section key={grupo.dia} className={historico.historicoDia} aria-label={grupo.rotulo}>
         <h3 className={historico.historicoData}>{grupo.rotulo}</h3>
         <ol className={historico.historicoLista}>
-          {grupo.itens.map((evento) => {
-            const Icone = ICONE_DO_EVENTO[evento.icone];
-            return <li key={evento.chave} className={historico.historicoEvento}>
+          {grupo.itens.map((evento, i) => {
+            const Icone = ICONE_DO_EVENTO[evento.tipo];
+            const quem = evento.por?.nome ?? null;
+            return <li key={`${evento.em}-${evento.tipo}-${i}`} className={historico.historicoEvento}>
               <span className={historico.historicoIcone} aria-hidden="true"><Icone size={16} /></span>
               <time className={historico.historicoHora} dateTime={evento.em}>{horaEmManaus(evento.em)}</time>
               <div className={historico.historicoConteudo}>
                 <div className={historico.historicoLinha}>
-                  <span className={historico.historicoAvatar} aria-hidden="true">{evento.quem ? iniciais(evento.quem) : <UserRound size={13} />}</span>
-                  <p>{evento.quem ? <><strong>{evento.quem}</strong> {evento.texto}</> : `O sistema ${evento.texto}`}</p>
+                  <span className={historico.historicoAvatar} aria-hidden="true">{quem ? iniciais(quem) : <UserRound size={13} />}</span>
+                  <p>{quem ? <><strong>{quem}</strong> · {evento.resumo}</> : evento.resumo}</p>
                 </div>
-                {evento.nota ? <div className={`${historico.historicoDetalhe} ${historico.historicoAnotacao}`}>{evento.nota}</div> : null}
+                {evento.texto ? <div className={`${historico.historicoDetalhe} ${historico.historicoAnotacao}`}>{evento.texto}</div> : null}
               </div>
             </li>;
           })}

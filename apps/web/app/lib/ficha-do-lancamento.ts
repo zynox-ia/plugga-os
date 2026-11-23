@@ -1,12 +1,15 @@
 import {
+  ANEXO_DO_LANCAMENTO_MAX_BYTES,
   etapasDoTipo,
   rotulosDaEtapaDeLancamento,
   VALOR_MAXIMO_DO_LANCAMENTO,
+  type AnexoDoLancamento,
   type CompanyKey,
   type EtapaDeLancamento,
   type FormaDoLancamento,
   type Lancamento,
   type OpcoesDoFinanceiro,
+  type TipoDeAnexo,
 } from "@plugga/shared";
 
 import { decimalDigitado } from "./compras.ts";
@@ -118,8 +121,8 @@ export function corpoDaEdicao(antes: CamposDaContaAPagar, depois: CamposDaContaA
 export const camposTravadosNaAprovada = (l: Pick<Lancamento, "tipo" | "etapa">, gerente: boolean): boolean => l.tipo === "saida" && l.etapa === "aprovada" && !gerente;
 
 /**
- * A ficha do lançamento (PLU-336/337): a trilha de etapas, o que falta para
- * avançar e a linha do tempo, todos derivados do contrato. A tela só desenha.
+ * A ficha do lançamento (PLU-336/337): a trilha de etapas e os anexos. O que
+ * falta (`pendencias`) e a linha do tempo (`linhaDoTempo`) vêm prontos da API.
  */
 
 export type PassoDaTrilha = { etapa: EtapaDeLancamento; rotulo: string; estado: "feito" | "atual" | "futuro" | "cancelado" };
@@ -143,55 +146,17 @@ export function resumoDaTrilhaDoLancamento(l: Pick<Lancamento, "tipo" | "etapa" 
   return { posicao: i + 1, total: etapas.length, atual: l.cancelado ? `Cancelada em ${rotulosDaEtapaDeLancamento[l.etapa]}` : rotulosDaEtapaDeLancamento[l.etapa], proxima };
 }
 
-export type PendenciaDoLancamento = { texto: string; feito: boolean; opcional?: boolean };
-
-/** "O que falta" da etapa atual. Vazio quando não há o que fazer (conciliado ou cancelado). */
-export function pendenciasDoLancamento(l: Pick<Lancamento, "tipo" | "etapa" | "cancelado" | "anexos" | "categoria" | "omie">): PendenciaDoLancamento[] {
-  if (l.cancelado) return [];
-  const noOmie = l.omie.estado === "enviado" || l.omie.estado === "baixado";
-  switch (l.etapa) {
-    case "aberta": return [
-      { texto: `Categoria do OMIE: ${l.categoria.nome}`, feito: true },
-      { texto: "Boleto ou NF anexado", feito: l.anexos > 0, opcional: true },
-      { texto: "Aprovação da Gerente do Financeiro", feito: false },
-    ];
-    case "aprovada": return [
-      { texto: "Conta no OMIE", feito: noOmie },
-      { texto: "Pagamento com comprovante", feito: false },
-    ];
-    case "paga": return [{ texto: "Pagamento com comprovante", feito: true }, { texto: "Conciliação com o extrato", feito: false }];
-    case "gerada": return [{ texto: "Título no OMIE", feito: noOmie }, { texto: "Emitir a NF", feito: false }];
-    case "nf_emitida": return [{ texto: "NF emitida", feito: true }, { texto: "Gerar o boleto", feito: false }];
-    case "boleto_gerado": return [{ texto: "Boleto gerado", feito: true }, { texto: "Enviar ao cliente", feito: false }];
-    case "enviada": return [{ texto: "Enviada ao cliente", feito: true }, { texto: "Receber o pagamento", feito: false }];
-    case "recebida": return [{ texto: "Recebimento registrado", feito: true }, { texto: "Conciliação com o extrato", feito: false }];
-    case "conciliada": return [];
-  }
-}
-
-export type IconeDoEvento = "criado" | "aprovado" | "pago" | "recebido" | "conciliado" | "cancelado";
-export type EventoDoLancamento = { chave: string; icone: IconeDoEvento; em: string; quem: string | null; texto: string; nota?: string };
-
-/** Os marcos do lançamento como eventos, do mais recente para o mais antigo. */
-export function eventosDoLancamento(l: Pick<Lancamento, "tipo" | "marcos" | "etapa">): EventoDoLancamento[] {
-  const { marcos } = l;
-  const eventos: EventoDoLancamento[] = [{ chave: "criado", icone: "criado", em: marcos.criado.em, quem: marcos.criado.por?.nome ?? null, texto: l.tipo === "saida" ? "criou a conta a pagar" : "gerou a cobrança" }];
-  if (marcos.aprovado) eventos.push({ chave: "aprovado", icone: "aprovado", em: marcos.aprovado.em, quem: marcos.aprovado.por?.nome ?? null, texto: "aprovou a conta" });
-  if (marcos.pago) eventos.push({ chave: "pago", icone: "pago", em: marcos.pago.em, quem: marcos.pago.por?.nome ?? null, texto: `registrou o pagamento de ${diaLegivelDoIso(marcos.pago.pagoEm)}` });
-  if (marcos.recebido) eventos.push({ chave: "recebido", icone: "recebido", em: marcos.recebido.em, quem: marcos.recebido.por?.nome ?? null, texto: `registrou o recebimento de ${diaLegivelDoIso(marcos.recebido.recebidoEm)}` });
-  if (marcos.conciliado) eventos.push({ chave: "conciliado", icone: "conciliado", em: marcos.conciliado.em, quem: marcos.conciliado.por?.nome ?? null, texto: "conciliou com o extrato" });
-  if (marcos.cancelado) eventos.push({ chave: "cancelado", icone: "cancelado", em: marcos.cancelado.em, quem: marcos.cancelado.por?.nome ?? null, texto: `cancelou na etapa ${rotulosDaEtapaDeLancamento[l.etapa]}`, nota: marcos.cancelado.motivo });
-  return eventos.sort((a, b) => b.em.localeCompare(a.em));
-}
-
 const diaLegivelDoIso = (dia: string) => dia.slice(0, 10).split("-").reverse().join("/");
 
-/** Agrupa por dia de Manaus, do mais recente: "Hoje" e "Ontem" pelo nome, os demais como 21/11/2026. */
-export function eventosPorDia(eventos: EventoDoLancamento[], hoje: string): { dia: string; rotulo: string; itens: EventoDoLancamento[] }[] {
+/**
+ * Agrupa a linha do tempo da API por dia de Manaus, na ordem em que ela vem (do
+ * mais recente): "Hoje" e "Ontem" pelo nome, os demais como 21/11/2026.
+ */
+export function eventosPorDia<T extends { em: string }>(eventos: readonly T[], hoje: string): { dia: string; rotulo: string; itens: T[] }[] {
   const ontem = new Date(`${hoje}T12:00:00Z`);
   ontem.setUTCDate(ontem.getUTCDate() - 1);
   const diaDeOntem = ontem.toISOString().slice(0, 10);
-  const grupos = new Map<string, EventoDoLancamento[]>();
+  const grupos = new Map<string, T[]>();
   for (const evento of eventos) {
     const dia = diaDoIso(evento.em);
     grupos.set(dia, [...(grupos.get(dia) ?? []), evento]);
@@ -211,3 +176,42 @@ export function fraseDoOmie(l: Pick<Lancamento, "omie" | "tipo">, empresa: strin
     case "divergente": return { texto: `Diferente no OMIE da ${empresa}${motivo ? `: ${motivo}` : "."}`, tom: "perigo" };
   }
 }
+
+// ---------------------------------------------------------------- anexos
+
+export const ROTULO_DO_ANEXO: Record<TipoDeAnexo, string> = { comprovante: "Comprovante", nf: "Nota fiscal", boleto: "Boleto", documento: "Documento" };
+
+/** Comprovante, NF e boleto: um atual por lançamento; o novo substitui o atual, que fica no histórico. */
+export const anexoComVersoes = (tipo: TipoDeAnexo): boolean => tipo !== "documento";
+
+export type GrupoDeAnexo = { chave: string; tipo: TipoDeAnexo; atual: AnexoDoLancamento | null; anteriores: AnexoDoLancamento[] };
+
+/**
+ * A aba Anexos: comprovante, NF e boleto, cada um com as versões substituídas
+ * (do mais recente ao mais antigo), e depois os documentos, cada um por si.
+ */
+export function anexosDaFicha(arquivos: readonly AnexoDoLancamento[]): GrupoDeAnexo[] {
+  const grupos: GrupoDeAnexo[] = [];
+  for (const tipo of ["comprovante", "nf", "boleto", "documento"] as const) {
+    const doTipo = arquivos.filter((a) => a.tipo === tipo).sort((a, b) => b.enviado.em.localeCompare(a.enviado.em));
+    if (!anexoComVersoes(tipo)) {
+      for (const a of doTipo) grupos.push({ chave: a.id, tipo, atual: a, anteriores: [] });
+      continue;
+    }
+    if (!doTipo.length) continue;
+    const atual = doTipo.find((a) => !a.substituido) ?? null;
+    grupos.push({ chave: tipo, tipo, atual, anteriores: doTipo.filter((a) => a !== atual) });
+  }
+  return grupos;
+}
+
+const TIPOS_DE_ARQUIVO = ["application/pdf", "image/jpeg", "image/png"];
+
+/** Confere tipo e tamanho antes do envio; a API confere de novo pelo conteúdo. */
+export function problemaDoAnexo(arquivo: { type: string; size: number } | undefined): string | null {
+  if (!arquivo) return "escolha o arquivo.";
+  if (!TIPOS_DE_ARQUIVO.includes(arquivo.type)) return "envie PDF, JPG ou PNG.";
+  if (arquivo.size > ANEXO_DO_LANCAMENTO_MAX_BYTES) return `o arquivo passa de ${ANEXO_DO_LANCAMENTO_MAX_BYTES / 1024 / 1024} MB.`;
+  return null;
+}
+
