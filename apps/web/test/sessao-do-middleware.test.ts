@@ -3,7 +3,7 @@ import { describe, it } from "node:test";
 
 import { sessionUserSchema } from "@plugga/shared";
 
-import { decidirPagina, destinoAoVoltar, lerSessaoDaApi, type LeituraDaSessao } from "../app/lib/sessao-do-middleware.ts";
+import { caminhoCompleto, decidirPagina, destinoAoVoltar, destinoDoParametro, lerSessaoDaApi, type LeituraDaSessao } from "../app/lib/sessao-do-middleware.ts";
 
 const USUARIO = sessionUserSchema.parse({
   id: "11111111-1111-4111-8111-111111111111",
@@ -94,5 +94,35 @@ describe("destino quando a API volta", () => {
     assert.equal(destinoAoVoltar("/suprimentos/compras", "/indisponivel", ""), "/suprimentos/compras");
     assert.equal(destinoAoVoltar(null, "/suprimentos/estoque", "?visao=lista"), "/suprimentos/estoque?visao=lista");
     assert.equal(destinoAoVoltar(null, "/indisponivel", ""), "/");
+  });
+});
+
+describe("destino com a query (PLU-343, reteste do QA)", () => {
+  const ficha = "/suprimentos/fornecedores?fornecedor=22222222-2222-4222-8222-222222222222";
+
+  it("sem sessão, o redirectTo do login guarda caminho e query", () => {
+    assert.deepEqual(decidirPagina("/suprimentos/fornecedores", { tipo: "semSessao" }, () => true, "?fornecedor=22222222-2222-4222-8222-222222222222"), { acao: "login", redirectTo: ficha });
+    assert.deepEqual(decidirPagina("/", { tipo: "semSessao" }, () => true, "?x=1"), { acao: "login", redirectTo: "/?x=1" });
+  });
+
+  it("o exigirPagina usa o endereço completo do middleware, se for da mesma página e da mesma origem", () => {
+    assert.equal(caminhoCompleto("/suprimentos/fornecedores", ficha), ficha);
+    assert.equal(caminhoCompleto("/suprimentos/fornecedores", null), "/suprimentos/fornecedores");
+    assert.equal(caminhoCompleto("/suprimentos/fornecedores", "/suprimentos/compras?pedido=1"), "/suprimentos/fornecedores");
+    assert.equal(caminhoCompleto("/suprimentos/fornecedores", "//evil.example/suprimentos/fornecedores"), "/suprimentos/fornecedores");
+    assert.equal(caminhoCompleto("/comercial/contratos", "/comercial/contratos/abc?aba=1"), "/comercial/contratos/abc?aba=1");
+  });
+
+  it("o ?de= do aviso só aceita caminho da mesma origem", () => {
+    assert.equal(destinoDoParametro(ficha), ficha);
+    assert.equal(destinoDoParametro("//evil.example"), null);
+    assert.equal(destinoDoParametro("javascript:alert(1)"), null);
+    assert.equal(destinoDoParametro("https://evil.example/x"), null);
+    assert.equal(destinoDoParametro(undefined), null);
+  });
+
+  it("ida e volta: o destino codificado no ?de= volta inteiro", () => {
+    const de = new URLSearchParams(`de=${encodeURIComponent(ficha)}`).get("de");
+    assert.equal(destinoAoVoltar(destinoDoParametro(de), "/indisponivel", `?de=${encodeURIComponent(ficha)}`), ficha);
   });
 });

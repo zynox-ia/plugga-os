@@ -4,7 +4,7 @@ import { podeAbrirPagina } from "./app/lib/acesso-paginas";
 import { buildContentSecurityPolicy } from "./app/lib/content-security-policy";
 import { apiBaseUrl } from "./app/lib/env-runtime";
 import { shouldBypassSessionCheck } from "./app/lib/public-paths";
-import { decidirPagina, lerSessaoDaApi, ROTA_DE_API_INDISPONIVEL } from "./app/lib/sessao-do-middleware";
+import { CABECALHO_DO_CAMINHO, decidirPagina, lerSessaoDaApi, ROTA_DE_API_INDISPONIVEL } from "./app/lib/sessao-do-middleware";
 
 // Mesma folga de proxy.ts e do FETCH_TIMEOUT_TUNEL_MS de app/lib/api.ts:
 // validar a sessão atravessa o túnel SSH (~2 s de base), e 5 s expulsava
@@ -40,6 +40,8 @@ function proximaComCsp(request: NextRequest): NextResponse {
 
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("Content-Security-Policy", csp);
+  // O endereço completo (com a query) para o exigirPagina guardar o destino inteiro (PLU-343).
+  requestHeaders.set(CABECALHO_DO_CAMINHO, `${request.nextUrl.pathname}${request.nextUrl.search}`);
 
   const response = NextResponse.next({ request: { headers: requestHeaders } });
   response.headers.set("Content-Security-Policy", csp);
@@ -122,7 +124,11 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
 
   // Só 401/403 são "sem sessão"; rede, tempo e 5xx são "API indisponível" (PLU-343).
   const leitura = await lerSessaoDaApi({ cookie: request.headers.get("cookie"), base: apiBaseUrl(), tempoMs: FETCH_TIMEOUT_MS });
-  const decisao = decidirPagina(pathname, leitura, (usuario) => podeAbrirPagina(usuario.acesso, pathname));
+  if (leitura.tipo === "indisponivel" && leitura.motivo === "contrato") {
+    // /auth/me respondeu 200 fora do contrato (web e API em versões diferentes?): não desloga, mas avisa no log.
+    console.warn("middleware: /auth/me respondeu fora do contrato; mostrando API indisponível");
+  }
+  const decisao = decidirPagina(pathname, leitura, (usuario) => podeAbrirPagina(usuario.acesso, pathname), request.nextUrl.search);
 
   switch (decisao.acao) {
     case "inicio":

@@ -1,6 +1,6 @@
 import { EstadoDaApi } from "../components/estado-da-api";
 import { TentarDeNovo } from "../components/tentar-de-novo";
-import { safeRelativePath } from "../lib/safe-redirect";
+import { destinoDoParametro } from "../lib/sessao-do-middleware";
 
 /**
  * API indisponível (PLU-343). O middleware reescreve para cá a página pedida,
@@ -13,6 +13,6 @@ export default async function ApiIndisponivelPage({ searchParams }: { searchPara
   const { de } = await searchParams;
   return <>
     <EstadoDaApi erro={{ tipo: "indisponivel", mensagem: "", status: null }} eyebrow="Plugga OS" />
-    <TentarDeNovo destino={safeRelativePath(de) ?? null} />
+    <TentarDeNovo destino={destinoDoParametro(de)} />
   </>;
 }

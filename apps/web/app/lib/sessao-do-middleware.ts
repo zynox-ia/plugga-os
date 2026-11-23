@@ -1,5 +1,7 @@
 import { sessionUserSchema, type SessionUser } from "@plugga/shared";
 
+import { safeRelativePath } from "./safe-redirect.ts";
+
 /**
  * Leitura da sessão no middleware (PLU-343). Só 401 e 403 de `GET /auth/me`
  * querem dizer "sem sessão" e levam ao login. Rede fora, tempo esgotado, 5xx,
@@ -10,6 +12,9 @@ import { sessionUserSchema, type SessionUser } from "@plugga/shared";
 
 /** Rota interna que mostra o aviso; o middleware reescreve para ela, mantendo o endereço. */
 export const ROTA_DE_API_INDISPONIVEL = "/indisponivel";
+
+/** Cabeçalho interno que o middleware passa às páginas com o endereço completo (caminho + query). */
+export const CABECALHO_DO_CAMINHO = "x-plugga-caminho";
 
 export type MotivoDaIndisponibilidade = "rede" | "tempo" | "servidor" | "contrato";
 
@@ -64,13 +69,14 @@ export type DecisaoDoMiddleware =
   /** Mostra o aviso de API indisponível no mesmo endereço, sem redirecionar. */
   | { acao: "indisponivel" };
 
-export function decidirPagina(pathname: string, leitura: LeituraDaSessao, podeAbrir: (usuario: SessionUser) => boolean): DecisaoDoMiddleware {
+export function decidirPagina(pathname: string, leitura: LeituraDaSessao, podeAbrir: (usuario: SessionUser) => boolean, busca = ""): DecisaoDoMiddleware {
   if (pathname === "/login") {
     // Com a API fora, não dá para saber se já está logado: o formulário aparece e o login diz o resto.
     return leitura.tipo === "autenticado" ? { acao: "inicio" } : { acao: "seguir" };
   }
   if (leitura.tipo === "indisponivel") return { acao: "indisponivel" };
-  if (leitura.tipo === "semSessao") return { acao: "login", redirectTo: pathname === "/" ? null : pathname };
+  // O destino guarda a query (ex.: a ficha aberta em ?fornecedor=…), não só o caminho.
+  if (leitura.tipo === "semSessao") return { acao: "login", redirectTo: pathname === "/" && !busca ? null : `${pathname}${busca}` };
   // O aviso não é uma tela com acesso próprio: logado, abre (a página leva ao destino quando a API responde).
   if (pathname === ROTA_DE_API_INDISPONIVEL) return { acao: "seguir" };
   return podeAbrir(leitura.usuario) ? { acao: "seguir" } : { acao: "inicio" };
@@ -86,4 +92,21 @@ export function destinoAoVoltar(destino: string | null, caminhoAtual: string, bu
   if (destino) return destino;
   if (caminhoAtual === ROTA_DE_API_INDISPONIVEL) return "/";
   return `${caminhoAtual}${busca}`;
+}
+
+/** O `?de=` do aviso, só se for um caminho da mesma origem (nada de //outro-site, javascript: etc.). */
+export function destinoDoParametro(de: string | undefined | null): string | null {
+  return safeRelativePath(de) ?? null;
+}
+
+/**
+ * Destino completo para o exigirPagina (que só conhece o caminho da rota): o
+ * endereço que o middleware mandou no cabeçalho, com a query, se for da mesma
+ * origem e da mesma página; senão, só o caminho.
+ */
+export function caminhoCompleto(caminho: string, cabecalho: string | null): string {
+  const completo = safeRelativePath(cabecalho);
+  if (!completo) return caminho;
+  const soCaminho = completo.split(/[?#]/)[0];
+  return soCaminho === caminho || soCaminho?.startsWith(`${caminho}/`) ? completo : caminho;
 }
