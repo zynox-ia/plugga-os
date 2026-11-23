@@ -115,7 +115,7 @@ function conferencia() {
 
 describe("OmieConexoesService", () => {
   const quem: AuthPrincipal = { id: "00000000-0000-4000-8000-0000000000a1", kind: "user", acesso: { plataforma: null, departamentos: [] } };
-  const PAR = { appKey: "chave-plugga-0001", appSecret: "segredo-sintetico-plugga" };
+  const PAR = { appKey: "chave-plugga-0001", appSecret: "ficticio-ficticio-ficticio" };
   let cofre: Memoria;
   let c: ReturnType<typeof conferencia>;
   let omie: { consultarEmpresa: ReturnType<typeof vi.fn>; listarEmpresas: ReturnType<typeof vi.fn> };
@@ -171,7 +171,7 @@ describe("OmieConexoesService", () => {
     c.cnpjs.set("plugga", PLUGGA);
     await servico.gravar("plugga", PAR, quem);
     await servico.testar("plugga", quem);
-    await servico.gravar("waze", { appKey: "chave-waze-0001", appSecret: "segredo-sintetico-waze1" }, quem);
+    await servico.gravar("waze", { appKey: "chave-waze-0001", appSecret: "ficticio-ficticio-ficticio" }, quem);
     await servico.testar("waze", quem);
     expect(await da("waze")).toMatchObject({ situacao: "bloqueada", bloqueio: "cnpj_de_outra_empresa" });
     await expect(servico.confirmar("waze", PLUGGA, quem)).rejects.toThrow("Só se confirma");
@@ -182,7 +182,7 @@ describe("OmieConexoesService", () => {
     omie.listarEmpresas.mockResolvedValue([empresa(PLUGGA)]);
     await servico.gravar("plugga", PAR, quem);
     await servico.testar("plugga", quem);
-    await servico.gravar("waze", { appKey: "chave-waze-0001", appSecret: "segredo-sintetico-waze1" }, quem);
+    await servico.gravar("waze", { appKey: "chave-waze-0001", appSecret: "ficticio-ficticio-ficticio" }, quem);
     await servico.testar("waze", quem);
     expect((await da("waze")).situacao).toBe("a_confirmar");
     await servico.confirmar("plugga", PLUGGA, quem);

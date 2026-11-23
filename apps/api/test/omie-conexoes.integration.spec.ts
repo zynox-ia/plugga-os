@@ -66,7 +66,7 @@ describe.skipIf(!HABILITADO)("omie por empresa no Postgres", () => {
   }, PRAZO_MS);
 
   it("gravar, testar e confirmar: o uso só sai depois, e trocar o par volta a testar", async () => {
-    const par = { appKey: "chave-waze-0042", appSecret: "segredo-sintetico-waze-42" };
+    const par = { appKey: "chave-waze-0042", appSecret: "ficticio-ficticio-ficticio" };
     await servico.gravar("waze", par, principal);
     const da = async () => (await servico.estado()).conexoes.find((c) => c.empresa === "waze")!;
     expect((await da()).situacao).toBe("a_testar");
@@ -91,8 +91,8 @@ describe.skipIf(!HABILITADO)("omie por empresa no Postgres", () => {
 
   it("duas confirmações simultâneas do mesmo CNPJ nas duas empresas: só uma fica conectada", async () => {
     await prisma.company.updateMany({ where: { id: { in: ["plugga", "waze"] } }, data: { cnpj: null } });
-    await servico.gravar("plugga", { appKey: "chave-plugga-0042", appSecret: "segredo-sintetico-plugga-42" }, principal);
-    await servico.gravar("waze", { appKey: "chave-waze-0044", appSecret: "segredo-sintetico-waze-44" }, principal);
+    await servico.gravar("plugga", { appKey: "chave-plugga-0042", appSecret: "ficticio-ficticio-ficticio" }, principal);
+    await servico.gravar("waze", { appKey: "chave-waze-0044", appSecret: "ficticio-ficticio-ficticio" }, principal);
     await servico.testar("plugga", principal);
     await servico.testar("waze", principal);
     const resultados = await Promise.allSettled([servico.confirmar("plugga", CNPJ, principal), servico.confirmar("waze", CNPJ, principal)]);
@@ -110,7 +110,7 @@ describe.skipIf(!HABILITADO)("omie por empresa no Postgres", () => {
     await prisma.company.updateMany({ where: { id: { in: ["plugga", "waze"] } }, data: { cnpj: null } });
     await prisma.omieConexao.deleteMany({});
     // A Plugga foi confirmada à mão com X, que na verdade é o CNPJ da Waze.
-    await servico.gravar("plugga", { appKey: "chave-plugga-0050", appSecret: "segredo-sintetico-plugga-50" }, principal);
+    await servico.gravar("plugga", { appKey: "chave-plugga-0050", appSecret: "ficticio-ficticio-ficticio" }, principal);
     await servico.testar("plugga", principal);
     await servico.confirmar("plugga", CNPJ, principal);
     expect(await servico.credenciais("plugga")).not.toBeNull();
@@ -123,7 +123,7 @@ describe.skipIf(!HABILITADO)("omie por empresa no Postgres", () => {
 
     // O cadastro da própria empresa diferente do confirmado também bloqueia.
     await comoAdmin(() => servico.definirCnpj("waze", null, principal));
-    await servico.gravar("waze", { appKey: "chave-waze-0051", appSecret: "segredo-sintetico-waze-51" }, principal);
+    await servico.gravar("waze", { appKey: "chave-waze-0051", appSecret: "ficticio-ficticio-ficticio" }, principal);
     await servico.testar("waze", principal);
     await servico.confirmar("waze", CNPJ, principal);
     await comoAdmin(() => servico.definirCnpj("waze", "99999003000148", principal));
@@ -134,7 +134,7 @@ describe.skipIf(!HABILITADO)("omie por empresa no Postgres", () => {
 
   it("com o CNPJ no cadastro, o teste conecta sozinho; o CNPJ diferente bloqueia", async () => {
     await prisma.omieConexao.deleteMany({ where: { companyId: "plugga" } });
-    await servico.gravar("waze", { appKey: "chave-waze-0045", appSecret: "segredo-sintetico-waze-45" }, principal);
+    await servico.gravar("waze", { appKey: "chave-waze-0045", appSecret: "ficticio-ficticio-ficticio" }, principal);
     // A permissão da função que grava o CNPJ está em rls-permissoes; aqui o dono do banco grava direto.
     await prisma.company.update({ where: { id: "waze" }, data: { cnpj: CNPJ } });
     await servico.testar("waze", principal);

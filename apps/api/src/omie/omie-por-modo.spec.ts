@@ -7,8 +7,8 @@ import { OmieHttpAdapter } from "./omie-http.adapter";
 import { OmiePorModoAdapter, adaptadorPara } from "./omie-por-modo.adapter";
 import { OmieFalhouError } from "./omie.port";
 
-const SINTETICA = { appKey: "sintetico-99999002000103", appSecret: "segredo-sintetico-qualquer" };
-const REAL = { appKey: "chave-de-verdade-2311", appSecret: "segredo-de-verdade-0000" };
+const SINTETICA = { appKey: "sintetico-99999002000103", appSecret: "ficticio-ficticio-ficticio" };
+const REAL = { appKey: "chave-de-verdade-2311", appSecret: "ficticio-ficticio-verdade" };
 const porta = (modo: IntegrationMode | null) =>
   new OmiePorModoAdapter({ modoDe: async () => modo ?? "mock" } as unknown as IntegrationGate, new OmieHttpAdapter(), new OmieDubleAdapter());
 

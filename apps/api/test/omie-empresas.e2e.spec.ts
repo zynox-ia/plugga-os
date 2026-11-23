@@ -53,10 +53,10 @@ describe("OMIE por empresa (e2e)", () => {
 
   it("empresa fora de Plugga e Waze é 400; o par é validado antes do serviço", async () => {
     servico.gravar.mockClear();
-    await gerente(http().put("/integracoes/omie/empresas/outra")).send({ appKey: "chave-123456", appSecret: "segredo-1234567890ab" }).expect(400);
+    await gerente(http().put("/integracoes/omie/empresas/outra")).send({ appKey: "chave-123456", appSecret: "ficticio-ficticio-ficticio" }).expect(400);
     await gerente(http().put("/integracoes/omie/empresas/waze")).send({ appKey: "x" }).expect(400);
     expect(servico.gravar).not.toHaveBeenCalled();
-    await gerente(http().put("/integracoes/omie/empresas/waze")).send({ appKey: "chave-123456", appSecret: "segredo-1234567890ab" }).expect(200);
+    await gerente(http().put("/integracoes/omie/empresas/waze")).send({ appKey: "chave-123456", appSecret: "ficticio-ficticio-ficticio" }).expect(200);
   });
 
   it("confirmar exige os 14 dígitos do CNPJ", async () => {
