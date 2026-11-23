@@ -89,18 +89,19 @@ describe("conversão para o contrato", () => {
 describe("calcularDesempenho", () => {
   const cotacao = (dados: Partial<CotacaoParaDesempenho> = {}): CotacaoParaDesempenho => ({
     valor: new Prisma.Decimal(100), valorFrete: null, prazoEntregaDias: null, createdAt: new Date("2026-11-01T12:00:00Z"),
-    escolhida: false, pedidoCancelado: false, pedidoConcluido: false, ...dados,
+    escolhida: false, pedidoAprovado: false, pedidoConcluido: false, ...dados,
   });
 
   it("sem cotação: zeros e nulos", () => {
     expect(calcularDesempenho([])).toEqual({ cotacoes: 0, vitorias: 0, percentualDeVitorias: null, valorComprado: "0.00", prazoMedioDeEntregaDias: null, ultimaCotacaoEm: null });
   });
 
-  it("vitória é a escolhida de pedido não cancelado; valor comprado só dos concluídos, com frete", () => {
+  it("vitória é a escolhida de pedido aprovado; valor comprado só dos concluídos, com frete", () => {
     const resultado = calcularDesempenho([
-      cotacao({ escolhida: true, pedidoConcluido: true, valorFrete: new Prisma.Decimal("10.5"), prazoEntregaDias: 5 }),
-      cotacao({ escolhida: true, pedidoConcluido: false, prazoEntregaDias: 2 }),
-      cotacao({ escolhida: true, pedidoCancelado: true }),
+      cotacao({ escolhida: true, pedidoAprovado: true, pedidoConcluido: true, valorFrete: new Prisma.Decimal("10.5"), prazoEntregaDias: 5 }),
+      cotacao({ escolhida: true, pedidoAprovado: true, pedidoConcluido: false, prazoEntregaDias: 2 }),
+      // Escolhida, mas o pedido ainda não foi aprovado (ou foi revisado ou cancelado antes): não é vitória.
+      cotacao({ escolhida: true, pedidoAprovado: false }),
       cotacao({ createdAt: new Date("2026-11-20T12:00:00Z") }),
     ]);
     expect(resultado).toEqual({
@@ -114,6 +115,6 @@ describe("calcularDesempenho", () => {
   });
 
   it("percentual com 1 casa", () => {
-    expect(calcularDesempenho([cotacao({ escolhida: true }), cotacao(), cotacao()]).percentualDeVitorias).toBe(33.3);
+    expect(calcularDesempenho([cotacao({ escolhida: true, pedidoAprovado: true }), cotacao(), cotacao()]).percentualDeVitorias).toBe(33.3);
   });
 });

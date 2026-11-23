@@ -115,9 +115,10 @@ describe.skipIf(!HABILITADO)("fornecedores: cadastro único no Postgres", () => 
 
   it("desempenho e histórico a partir das cotações de verdade", async () => {
     const fornecedor = await criar({ nome: `${marca} Desempenho`, categoria: "kit_solar" });
-    const pedido = (etapa: "cotacoes" | "concluido", cancelado = false) => prisma.pedidoDeCompra.create({
+    const pedido = (etapa: "cotacoes" | "pagamento" | "concluido", cancelado = false) => prisma.pedidoDeCompra.create({
       data: {
         companyId: "plugga", titulo: `${marca} pedido`, destino: "interno", solicitanteId: principal.id, prazoEntregaDesejado: new Date(), etapa,
+        ...(etapa !== "cotacoes" ? { aprovadoEm: new Date() } : {}),
         ...(cancelado ? { canceladoEm: new Date(), motivoCancelamento: "teste" } : {}),
       },
       select: { id: true },
@@ -129,19 +130,26 @@ describe.skipIf(!HABILITADO)("fornecedores: cadastro único no Postgres", () => 
     const concluido = await pedido("concluido");
     const emCotacao = await pedido("cotacoes");
     const cancelado = await pedido("cotacoes", true);
+    // Aprovado e cancelado depois, já no Pagamento: a vitória fica.
+    const canceladoDepoisDeAprovado = await pedido("pagamento", true);
     const vencedora = await cotar(concluido.id, "100.00", "20.00", 6);
     const escolhidaEmAndamento = await cotar(emCotacao.id, "50.00", null, 2);
     const escolhidaCancelada = await cotar(cancelado.id, "999.00", null, null);
     await cotar(emCotacao.id, "60.00", null, null);
+    const aprovadaECancelada = await cotar(canceladoDepoisDeAprovado.id, "40.00", null, 2);
+    await prisma.pedidoDeCompra.update({ where: { id: canceladoDepoisDeAprovado.id }, data: { cotacaoSelecionadaId: aprovadaECancelada.id } });
     await prisma.pedidoDeCompra.update({ where: { id: concluido.id }, data: { cotacaoSelecionadaId: vencedora.id } });
     await prisma.pedidoDeCompra.update({ where: { id: emCotacao.id }, data: { cotacaoSelecionadaId: escolhidaEmAndamento.id } });
     await prisma.pedidoDeCompra.update({ where: { id: cancelado.id }, data: { cotacaoSelecionadaId: escolhidaCancelada.id } });
 
+    // Vitórias: a do concluído e a aprovada-depois-cancelada. A escolhida em cotações e a cancelada antes de aprovar não.
     expect(await repositorio.desempenho(fornecedor.id)).toMatchObject({
-      cotacoes: 4, vitorias: 2, percentualDeVitorias: 50, valorComprado: "120.00", prazoMedioDeEntregaDias: 4,
+      cotacoes: 5, vitorias: 2, percentualDeVitorias: 40, valorComprado: "120.00", prazoMedioDeEntregaDias: 3.3,
     });
     const historico = await repositorio.historicoDeCotacoes(fornecedor.id);
-    expect(historico.total).toBe(4);
+    expect(historico.total).toBe(5);
+    expect(historico.itens.find((c) => c.id === escolhidaEmAndamento.id)).toMatchObject({ venceu: false });
+    expect(historico.itens.find((c) => c.id === aprovadaECancelada.id)).toMatchObject({ venceu: true, pedido: { situacao: "cancelado" } });
     expect(historico.itens.find((c) => c.id === vencedora.id)).toMatchObject({ venceu: true, valorTotal: "120.00", pedido: { situacao: "concluido", empresa: "plugga" } });
     expect(historico.itens.find((c) => c.id === escolhidaCancelada.id)).toMatchObject({ venceu: false, pedido: { situacao: "cancelado" } });
     await expect(repositorio.desempenho(randomUUID())).rejects.toBeInstanceOf(NaoEncontrado);

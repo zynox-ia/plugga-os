@@ -178,7 +178,8 @@ export type ListarFornecedoresResposta = z.infer<typeof listarFornecedoresRespos
 
 /**
  * Desempenho do fornecedor: `GET /suprimentos/fornecedores/:id/desempenho`.
- * - Vitória: a cotação é a escolhida de um pedido que não foi cancelado.
+ * - Vitória: a cotação é a escolhida de um pedido aprovado (do Pagamento em
+ *   diante); revisão ou cancelamento antes da aprovação não contam.
  * - Valor comprado: soma do total (valor + frete) das cotações vencedoras de
  *   pedidos concluídos.
  * - Prazo médio: média do prazo de entrega declarado (dias úteis) nas cotações

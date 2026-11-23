@@ -114,12 +114,17 @@ export type CotacaoParaDesempenho = {
   createdAt: Date;
   /** A cotação é a escolhida do pedido. */
   escolhida: boolean;
-  pedidoCancelado: boolean;
+  /** O pedido foi aprovado (chegou ao Pagamento), ainda que cancelado depois. */
+  pedidoAprovado: boolean;
   pedidoConcluido: boolean;
 };
 
-/** Venceu: escolhida num pedido não cancelado. */
-export const venceu = (c: Pick<CotacaoParaDesempenho, "escolhida" | "pedidoCancelado">) => c.escolhida && !c.pedidoCancelado;
+/**
+ * Venceu: a cotação escolhida de um pedido aprovado, do Pagamento em diante
+ * (decisão do coordenador em 23/11/2026). Revisão ou cancelamento antes da
+ * aprovação não contam; depois de aprovada, a vitória fica.
+ */
+export const venceu = (c: Pick<CotacaoParaDesempenho, "escolhida" | "pedidoAprovado">) => c.escolhida && c.pedidoAprovado;
 
 export function calcularDesempenho(cotacoes: readonly CotacaoParaDesempenho[]): DesempenhoDoFornecedor {
   const vitorias = cotacoes.filter(venceu);

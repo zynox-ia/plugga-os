@@ -41,5 +41,6 @@ describe("atalho de autenticação de desenvolvimento em produção", () => {
     await modulo.close();
 
     expect(aviso.mock.calls.map((c) => String(c[0])).some((m) => m.includes("DEV_AUTH_ENABLED ligado"))).toBe(true);
-  });
+    // Sobe a aplicação inteira: sob a carga da suíte toda, os 5 s padrão às vezes não bastam.
+  }, 20_000);
 });

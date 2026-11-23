@@ -801,6 +801,10 @@ describe.skipIf(!HABILITADO)("RLS: permissões no login real da aplicação", { 
       const cotacao = await root.cotacaoDeCompra.create({ data: { pedidoId: pedido.id, fornecedorId: fornecedor.id, valor: 1, arquivoChave: marca, arquivoNome: "c.pdf" }, select: { id: true } });
       expect(await contexto("fornecedores", (tx) => tx.cotacaoDeCompra.findUnique({ where: cotacao, select: { id: true } }))).toEqual(cotacao);
       expect(await contexto("fornecedores", (tx) => tx.pedidoDeCompra.findUnique({ where: deste, select: { id: true } }))).toEqual(deste);
+      // Pedido sem cotação nenhuma não é lido por quem tem só Fornecedores.
+      const semCotacao = await root.pedidoDeCompra.create({ data: { companyId: empresaId, titulo: `${marca}-sem-cot`, destino: "interno", solicitanteId: operador.id, prazoEntregaDesejado: new Date() }, select: { id: true } });
+      expect(await contexto("fornecedores", (tx) => tx.pedidoDeCompra.findUnique({ where: semCotacao, select: { id: true } }))).toBeNull();
+      expect(await contexto("op", (tx) => tx.pedidoDeCompra.findUnique({ where: semCotacao, select: { id: true } }))).toEqual(semCotacao);
       expect((await contexto("fornecedores", (tx) => tx.pedidoDeCompra.updateMany({ where: deste, data: { titulo: "x" } }))).count).toBe(0);
       expect(await contexto("a", (tx) => tx.cotacaoDeCompra.findUnique({ where: cotacao, select: { id: true } }))).toBeNull();
 

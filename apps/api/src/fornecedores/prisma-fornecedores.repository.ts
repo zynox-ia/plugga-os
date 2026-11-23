@@ -129,7 +129,7 @@ export class PrismaFornecedoresRepository extends FornecedoresRepository {
     await this.garantirExistente(id);
     const cotacoes = await this.prisma.comContexto((tx) => tx.cotacaoDeCompra.findMany({
       where: { fornecedorId: id },
-      select: { id: true, valor: true, valorFrete: true, prazoEntregaDias: true, createdAt: true, pedido: { select: { cotacaoSelecionadaId: true, canceladoEm: true, etapa: true } } },
+      select: { id: true, valor: true, valorFrete: true, prazoEntregaDias: true, createdAt: true, pedido: { select: { cotacaoSelecionadaId: true, aprovadoEm: true, etapa: true } } },
     }));
     return desempenhoDoFornecedorSchema.parse(calcularDesempenho(cotacoes.map((c) => ({
       valor: c.valor,
@@ -137,7 +137,7 @@ export class PrismaFornecedoresRepository extends FornecedoresRepository {
       prazoEntregaDias: c.prazoEntregaDias,
       createdAt: c.createdAt,
       escolhida: c.pedido.cotacaoSelecionadaId === c.id,
-      pedidoCancelado: c.pedido.canceladoEm !== null,
+      pedidoAprovado: c.pedido.aprovadoEm !== null,
       pedidoConcluido: c.pedido.etapa === "concluido",
     }))));
   }
@@ -151,7 +151,7 @@ export class PrismaFornecedoresRepository extends FornecedoresRepository {
         take: LIMITE_DO_HISTORICO_DE_COTACOES,
         select: {
           id: true, valor: true, valorFrete: true, prazoEntregaDias: true, createdAt: true,
-          pedido: { select: { id: true, numero: true, titulo: true, companyId: true, etapa: true, canceladoEm: true, cotacaoSelecionadaId: true } },
+          pedido: { select: { id: true, numero: true, titulo: true, companyId: true, etapa: true, canceladoEm: true, aprovadoEm: true, cotacaoSelecionadaId: true } },
         },
       }),
       tx.cotacaoDeCompra.count({ where: { fornecedorId: id } }),
@@ -163,7 +163,7 @@ export class PrismaFornecedoresRepository extends FornecedoresRepository {
         data: c.createdAt.toISOString(),
         valorTotal: c.valor.add(c.valorFrete ?? 0).toFixed(2),
         prazoEntregaDias: c.prazoEntregaDias,
-        venceu: venceu({ escolhida: c.pedido.cotacaoSelecionadaId === c.id, pedidoCancelado: c.pedido.canceladoEm !== null }),
+        venceu: venceu({ escolhida: c.pedido.cotacaoSelecionadaId === c.id, pedidoAprovado: c.pedido.aprovadoEm !== null }),
       })),
       total,
     });
