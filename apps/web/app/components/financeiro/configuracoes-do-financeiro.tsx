@@ -43,7 +43,7 @@ export function ConfiguracoesDoFinanceiro({ opcoes, aoFechar }: { opcoes: Opcoes
 
   const empresas = [{ value: "", label: "Todas as empresas", icon: <Building2 /> }, { value: "plugga", label: ROTULO_DA_EMPRESA.plugga, icon: <Building2 /> }, { value: "waze", label: ROTULO_DA_EMPRESA.waze, icon: <Building2 /> }];
 
-  return <Dialog title="Configurações do Financeiro" size="larga" icon={<Settings size={20} />} onClose={aoFechar} cancelText="Fechar"
+  return <Dialog title="Configurações do Financeiro" size="larga" className={styles.telaCheia} icon={<Settings size={20} />} onClose={aoFechar} cancelText="Fechar"
     description="Contas correntes e categorias vêm do OMIE de cada empresa e são as mesmas opções dos menus dos lançamentos. Para mudar, altere no OMIE.">
     <div className={styles.corpo}>
       <div className={styles.barra}>

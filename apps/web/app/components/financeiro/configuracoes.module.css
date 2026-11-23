@@ -12,7 +12,8 @@
 .rolagem { min-width: 0; }
 
 .tabela { min-width: 0; border: 1px solid var(--ui-divider); border-radius: var(--radius-xl); background: var(--ui-surface); overflow: hidden; }
-.tabela table { width: 100%; border-collapse: collapse; }
+/* Sem o min-width: 440px global de `table`: no celular os cards não podem passar da tela. */
+.tabela table { width: 100%; min-width: 0; border-collapse: collapse; }
 .tabela th, .tabela td { padding: 12px 16px; text-align: center; vertical-align: middle; font-size: 13px; }
 .tabela th:first-child, .tabela td:first-child { text-align: left; }
 /* O padrão das tabelas aprovadas (Equipe, lista de negócios): cabeçalho de 12 px,
@@ -42,6 +43,12 @@
 
 /* No celular, cada linha vira um card com o rótulo da coluna, sem rolagem lateral. */
 @media (max-width: 720px) {
+  /* Tela cheia, como no protótipo: o corpo do Dialog rola entre o cabeçalho e o
+     rodapé fixos, e o "Fechar" fica colado no fim. Vence o `.modal.ui-dialog` e o
+     max-width/max-height do <dialog> do navegador. */
+  :global(.modal.ui-dialog).telaCheia { inset: 0; width: 100vw; max-width: 100vw; height: 100dvh; max-height: 100dvh; margin: 0; border-radius: 0; }
+  :global(.modal.ui-dialog).telaCheia :global(.modal-conteudo) { height: 100%; max-height: 100dvh; }
+  .tabela table, .tabela tbody { display: block; }
   .tabela thead { display: none; }
   .tabela tbody tr:not(.linhaDoGrupo) { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; padding: 12px 16px; }
   .tabela tbody tr + tr td { border-top: 0; }
