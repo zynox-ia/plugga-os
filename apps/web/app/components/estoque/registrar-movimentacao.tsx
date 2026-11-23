@@ -19,7 +19,6 @@ import { PontoDaEmpresa } from "../suprimentos/empresa";
 import { opcoesDeItens } from "../suprimentos/ligacao-com-estoque";
 import { CampoDeMenu, type OpcaoDoMenu } from "../suprimentos/menu-com-busca";
 import { Alert, Button, DatePicker, Dialog, TextField } from "../ui";
-import { dateInputError } from "../ui/date-value";
 import styles from "./estoque.module.css";
 import { NivelDoItem } from "./partes";
 
@@ -73,7 +72,6 @@ export function RegistrarMovimentacao({ itens, itemInicial, tipoInicial = "entra
   const [erro, setErro] = useState<ErroDoFormulario | null>(null);
   const [enviando, setEnviando] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
-  const dataRef = useRef<HTMLDivElement>(null);
   const focar = useRef(false);
 
   const item = itens.find((i) => i.id === itemId) ?? null;
@@ -129,10 +127,8 @@ export function RegistrarMovimentacao({ itens, itemInicial, tipoInicial = "entra
   async function registrar(evento: FormEvent) {
     evento.preventDefault();
     const porCampo: Record<string, string> = {};
-    // O seletor só devolve data válida: o texto digitado diz se é inexistente (31/02) ou futura.
-    const problemaDaData = dateInputError(dataRef.current?.querySelector("input")?.value ?? "", { max: hoje, required: true });
-    if (problemaDaData) porCampo.data = problemaDaData.charAt(0).toLowerCase() + problemaDaData.slice(1);
-    else if (!data) porCampo.data = "informe a data (dd/mm/aaaa).";
+    // Data digitada inválida (31/02, futura) o DatePicker já segura no campo; aqui, vazia ou futura.
+    if (!data) porCampo.data = "informe a data (dd/mm/aaaa).";
     else if (data > hoje) porCampo.data = "a data não pode ser futura.";
     if (!empresa) porCampo.empresa = "escolha a empresa.";
     if (!item) porCampo.itemId = "escolha o item.";
@@ -178,7 +174,7 @@ export function RegistrarMovimentacao({ itens, itemInicial, tipoInicial = "entra
       {erro?.mensagem && !Object.values(erro.porCampo).some(Boolean) ? <Alert tone="danger" title={erro.mensagem} /> : null}
       <div className="ui-dialog-grid">
         <CampoDeMenu label="Tipo" required options={TIPOS} value={tipo} onChange={(v) => { setTipo(v as TipoRegistravel); setErro(null); }} />
-        <div ref={dataRef} className={styles.semDica}><DatePicker label="Data" required max={hoje} value={data} onChange={setData} error={e("data")} /></div>
+        <div className={styles.semDica}><DatePicker label="Data" required max={hoje} value={data} onChange={setData} error={e("data")} /></div>
       </div>
       <CampoDeMenu label="Empresa" required options={EMPRESAS} value={empresa ?? undefined} onChange={trocarEmpresa} placeholder="Selecione a empresa" icon={<Building2 />} error={e("empresa")} />
       <CampoDeMenu label="Item" required options={opcoes} value={itemId ?? undefined} onChange={(v) => setItemId(v)} disabled={!empresa}

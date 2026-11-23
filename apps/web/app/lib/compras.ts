@@ -276,17 +276,13 @@ export function pendenciasDaEtapa(p: Pick<PedidoDeCompra, "etapa" | "situacao" |
 }
 
 /**
- * O problema da data como a pessoa digitou (dd/mm/aaaa), para o formulário dizer
- * o que está errado: vazia, fora do formato, inexistente (31/02) ou já passada.
+ * O problema do prazo de entrega escolhido (aaaa-mm-dd). O DatePicker já segura a
+ * data digitada que não vale (31/02, incompleta, fora do mínimo) e mostra o porquê
+ * no campo; aqui ficam o campo vazio e a data passada. Na edição, a data que já
+ * estava gravada (`gravado`) vale como está, mesmo que já tenha passado.
  */
-export function problemaDaDataDigitada(texto: string, hoje: string): string | null {
-  const t = texto.trim();
-  if (!t) return "informe a data de entrega desejada.";
-  const partes = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(t);
-  if (!partes) return "use o formato dd/mm/aaaa.";
-  const [dia, mes, ano] = [Number(partes[1]), Number(partes[2]), Number(partes[3])];
-  const data = new Date(Date.UTC(ano, mes - 1, dia));
-  if (data.getUTCFullYear() !== ano || data.getUTCMonth() !== mes - 1 || data.getUTCDate() !== dia) return "data inexistente.";
-  if (`${partes[3]}-${partes[2]}-${partes[1]}` < hoje) return "a data já passou; escolha de hoje em diante.";
+export function problemaDoPrazo(prazo: string, hoje: string, gravado?: string): string | null {
+  if (!prazo) return "informe a data de entrega desejada.";
+  if (prazo < hoje && prazo !== gravado) return "a data já passou; escolha de hoje em diante.";
   return null;
 }

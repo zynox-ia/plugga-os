@@ -11,7 +11,7 @@ import {
   lerFiltrosDeCompras,
   numeroDoPedido,
   pendenciasDaEtapa,
-  problemaDaDataDigitada,
+  problemaDoPrazo,
   quantidadeDigitada,
   quantidadeLegivel,
   textoDoDestino,
@@ -140,13 +140,13 @@ describe("o que falta para avançar", () => {
   });
 });
 
-describe("data de entrega digitada", () => {
-  it("diz o que está errado em vez de só pedir a data", () => {
-    assert.equal(problemaDaDataDigitada("", "2026-11-23"), "informe a data de entrega desejada.");
-    assert.equal(problemaDaDataDigitada("22/11", "2026-11-23"), "use o formato dd/mm/aaaa.");
-    assert.equal(problemaDaDataDigitada("31/02/2027", "2026-11-23"), "data inexistente.");
-    assert.equal(problemaDaDataDigitada("22/11/2026", "2026-11-23"), "a data já passou; escolha de hoje em diante.");
-    assert.equal(problemaDaDataDigitada("23/11/2026", "2026-11-23"), null);
-    assert.equal(problemaDaDataDigitada("29/02/2028", "2026-11-23"), null);
+describe("prazo de entrega escolhido", () => {
+  it("pede a data vazia e recusa a passada, menos a já gravada na edição", () => {
+    assert.equal(problemaDoPrazo("", "2026-11-23"), "informe a data de entrega desejada.");
+    assert.equal(problemaDoPrazo("2026-11-22", "2026-11-23"), "a data já passou; escolha de hoje em diante.");
+    assert.equal(problemaDoPrazo("2026-11-23", "2026-11-23"), null);
+    assert.equal(problemaDoPrazo("2028-02-29", "2026-11-23"), null);
+    assert.equal(problemaDoPrazo("2026-11-10", "2026-11-23", "2026-11-10"), null);
+    assert.equal(problemaDoPrazo("2026-11-11", "2026-11-23", "2026-11-10"), "a data já passou; escolha de hoje em diante.");
   });
 });
