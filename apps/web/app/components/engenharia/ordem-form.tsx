@@ -50,8 +50,11 @@ const daOrdem = (o: OrdemDeServico): Campos => ({
  * tipo, o que precisa ser feito e o prazo. Editar não troca empresa, cliente
  * nem origem: abre-se outra O.S.
  */
-export function OrdemForm({ ordem, empresaInicial, hoje, aoCancelar, aoSalvar }: {
-  ordem?: OrdemDeServico; empresaInicial?: CompanyKey; hoje: string; aoCancelar: () => void; aoSalvar: (o: OrdemDeServico) => void;
+export function OrdemForm({ ordem, empresaInicial, hoje, prazoSugerido, aoCancelar, aoSalvar }: {
+  ordem?: OrdemDeServico; empresaInicial?: CompanyKey; hoje: string;
+  /** Prazo da Nova O.S. por tipo, pelo prazo padrão das Configurações (PLU-349). */
+  prazoSugerido?: Partial<Record<TipoDeOrdemDeServico, string>>;
+  aoCancelar: () => void; aoSalvar: (o: OrdemDeServico) => void;
 }) {
   const editando = Boolean(ordem);
   const [c, setC] = useState<Campos>(() => (ordem ? daOrdem(ordem) : vazio(empresaInicial)));
@@ -71,6 +74,14 @@ export function OrdemForm({ ordem, empresaInicial, hoje, aoCancelar, aoSalvar }:
     }, 250);
     return () => { clearTimeout(espera); controle.abort(); };
   }, [busca, editando]);
+
+  /** Na Nova O.S., o tipo traz o prazo sugerido, a não ser que a pessoa já tenha mudado o prazo à mão. */
+  function escolherTipo(tipo: TipoDeOrdemDeServico) {
+    const sugerido = editando ? undefined : prazoSugerido?.[tipo];
+    const anterior = c.tipo ? prazoSugerido?.[c.tipo] : undefined;
+    const prazoIntocado = !c.prazo || c.prazo === anterior;
+    mudar({ tipo, ...(sugerido && prazoIntocado ? { prazo: sugerido } : {}) });
+  }
 
   async function salvar(evento: FormEvent) {
     evento.preventDefault();
@@ -106,7 +117,7 @@ export function OrdemForm({ ordem, empresaInicial, hoje, aoCancelar, aoSalvar }:
       {falha ? <Alert tone="danger" title={`Erro: ${falha}`} /> : null}
       <CampoDeMenu label="Empresa" required icon={<Building2 />} placeholder="Selecione a empresa" value={c.empresa || undefined} onChange={(v) => mudar({ empresa: v as CompanyKey })} disabled={editando}
         options={companyKeys.map((e) => ({ value: e, label: ROTULO_DA_EMPRESA[e], icon: <PontoDaEmpresa empresa={e} /> }))} error={erros.empresa} />
-      <CampoDeMenu label="Tipo" required icon={<Wrench />} placeholder="Selecione o tipo" value={c.tipo || undefined} onChange={(v) => mudar({ tipo: v as TipoDeOrdemDeServico })}
+      <CampoDeMenu label="Tipo" required icon={<Wrench />} placeholder="Selecione o tipo" value={c.tipo || undefined} onChange={(v) => escolherTipo(v as TipoDeOrdemDeServico)}
         options={tiposDeOrdemDeServico.map((t) => { const Icone = ICONE_DO_TIPO[t]; return { value: t, label: ROTULO_DO_TIPO[t], icon: <Icone /> }; })} error={erros.tipo} />
 
       <div className={`ui-field ${styles.largo}`}>

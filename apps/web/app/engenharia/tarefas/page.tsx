@@ -1,6 +1,7 @@
+import { BotaoDeConfiguracoesDaEngenharia } from "../../components/engenharia/botao-de-configuracoes";
 import { EstadoDaApi } from "../../components/estado-da-api";
 import { TarefasView } from "../../components/tarefas/tarefas-view";
-import { fetchOpcoesDeTarefas, fetchTarefas } from "../../lib/api";
+import { fetchOpcoesDaEngenharia, fetchOpcoesDeTarefas, fetchTarefas } from "../../lib/api";
 import { exigirPagina } from "../../lib/exigir-pagina";
 import { consultaDeTarefas, lerFiltrosDeTarefas, type ConfiguracaoDeTarefas } from "../../lib/tarefas";
 
@@ -17,10 +18,12 @@ const CONFIGURACAO: ConfiguracaoDeTarefas = {
 export default async function TarefasDaEngenhariaPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   await exigirPagina("/engenharia/tarefas");
   const filtros = lerFiltrosDeTarefas(await searchParams);
-  const [resposta, opcoes] = await Promise.all([
+  const [resposta, opcoes, opcoesDaEngenharia] = await Promise.all([
     fetchTarefas("engenharia-obras", consultaDeTarefas(filtros)),
     fetchOpcoesDeTarefas("engenharia-obras"),
+    fetchOpcoesDaEngenharia(),
   ]);
   if (!resposta.ok) return <EstadoDaApi erro={resposta.erro} eyebrow="Tarefas" />;
-  return <TarefasView config={CONFIGURACAO} filtros={filtros} resposta={resposta.dados} opcoes={opcoes.ok ? opcoes.dados : null} />;
+  return <TarefasView config={CONFIGURACAO} filtros={filtros} resposta={resposta.dados} opcoes={opcoes.ok ? opcoes.dados : null}
+    acoesDoCabecalho={<BotaoDeConfiguracoesDaEngenharia opcoes={opcoesDaEngenharia.ok ? opcoesDaEngenharia.dados : null} />} />;
 }

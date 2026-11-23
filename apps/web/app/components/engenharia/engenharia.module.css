@@ -127,3 +127,44 @@
 .quandoQuadro span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .quandoQuadro svg { flex: none; }
 .pilula { flex: none; max-width: 50%; overflow: hidden; padding: 3px 10px; border: 1px solid var(--ui-divider); border-radius: var(--radius-full); background: var(--ui-subtle); color: var(--ui-text); font-size: 11.5px; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---------------------------------------------------------------- visão geral (PLU-349) */
+
+.acoesDaVisao { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 10px; }
+.filtroDaVisao { flex: none; }
+@media (min-width: 1000px) { .acoesDaVisao { flex-wrap: nowrap; } }
+.data { display: inline-flex; align-items: center; gap: 6px; color: var(--ui-muted); font-size: 13px; white-space: nowrap; }
+.metricasDaVisao { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; flex-shrink: 0; }
+@media (max-width: 900px) { .metricasDaVisao { grid-template-columns: minmax(0, 1fr); gap: 8px; } }
+
+.blocos { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+@media (max-width: 1100px) { .blocos { grid-template-columns: minmax(0, 1fr); } }
+.colunaDeBlocos { display: grid; gap: 16px; min-width: 0; }
+.bloco { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; min-width: 0; padding: 18px; border: 1px solid var(--ui-divider); border-radius: var(--radius-xl); background: color-mix(in srgb, var(--ui-surface) 78%, transparent); backdrop-filter: blur(10px); }
+.blocoTopo { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.blocoTopo h2 { display: flex; align-items: center; gap: 8px; margin: 0; color: var(--ui-text); font-size: 16px; font-weight: 500; }
+.blocoTopo p { margin: 3px 0 0; color: var(--ui-muted); font-size: 12.5px; }
+.blocoLink { display: inline-flex; flex: none; align-items: center; gap: 4px; color: var(--ui-primary); font-size: 13px; text-decoration: none; white-space: nowrap; }
+.blocoLink:hover { text-decoration: underline; }
+.blocoLink:focus-visible { outline: 2px solid var(--ui-primary); outline-offset: 2px; border-radius: 4px; }
+.listaDoBloco { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.linhaDoBloco { display: flex; align-items: center; gap: 12px; min-width: 0; padding: 12px 14px; border: 1px solid var(--ui-divider); border-radius: var(--radius-lg); background: #fff; color: var(--ui-text); text-decoration: none; }
+.linhaDoBloco:hover { border-color: color-mix(in srgb, var(--ui-primary) 35%, var(--ui-divider)); }
+.linhaDoBloco:focus-visible { outline: 2px solid var(--ui-primary); outline-offset: 2px; }
+.caixaPequena { display: grid; place-items: center; flex: none; width: 34px; height: 34px; border-radius: 10px; background: var(--ui-subtle); color: var(--ui-muted); }
+.textoDaLinha { display: grid; flex: 1 1 auto; gap: 2px; min-width: 0; }
+.textoDaLinha strong { overflow: hidden; font-size: 13.5px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.textoDaLinha small { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; color: var(--ui-muted); font-size: 12px; }
+.ladoDaLinha { display: grid; flex: none; justify-items: end; gap: 4px; color: var(--ui-text); font-size: 13px; white-space: nowrap; }
+@media (max-width: 560px) {
+  .linhaDoBloco { flex-wrap: wrap; }
+  .ladoDaLinha { width: 100%; grid-auto-flow: column; justify-content: space-between; align-items: center; padding-left: 46px; }
+}
+.progressoDoBloco { height: 6px; overflow: hidden; border-radius: var(--radius-full); background: #e3eaf2; }
+.progressoDoBloco span { display: block; height: 100%; border-radius: inherit; background: var(--ui-primary); }
+.tarefasDoBloco { display: grid; margin: 0; padding: 0; list-style: none; }
+.tarefasDoBloco li { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 10px 0; border-top: 1px solid var(--ui-divider); }
+.tarefasDoBloco li:first-child { border-top: 0; }
+.tituloDaTarefa { flex: 1 1 auto; min-width: 0; overflow: hidden; color: var(--ui-text); font-size: 13.5px; text-overflow: ellipsis; white-space: nowrap; }
+.tarefasDoBloco li[data-concluida] .tituloDaTarefa { color: var(--ui-muted); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--ui-muted) 60%, transparent); }
+.tarefasDoBloco small { flex: none; color: var(--ui-muted); font-size: 12px; font-variant-numeric: tabular-nums; }

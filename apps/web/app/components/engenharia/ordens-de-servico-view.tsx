@@ -21,6 +21,7 @@ import {
   LayoutGrid,
   Layers,
   List,
+  Settings,
   MapPin,
   Signature,
   SquareKanban,
@@ -33,7 +34,6 @@ import {
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactElement } from "react";
 
-import { hojeEmManaus } from "../../lib/compras";
 import {
   contagemDoFiltro,
   diasEntre,
@@ -57,6 +57,7 @@ import { PontoDaEmpresa } from "../suprimentos/empresa";
 import { FiltroComBusca } from "../suprimentos/menu-com-busca";
 import { Button, IconPlus, IconSearch } from "../ui";
 import { CardsDeOrdens } from "./cards-de-ordens";
+import { ConfiguracoesDaEngenharia } from "./configuracoes-da-engenharia";
 import { FichaDaOrdem } from "./ficha-da-ordem";
 import styles from "./engenharia.module.css";
 import { ListaDeOrdens } from "./lista-de-ordens";
@@ -105,6 +106,7 @@ export function OrdensDeServicoView({ filtros, lista, quadro, opcoes, hoje, fich
   const router = useRouter();
   const [busca, setBusca] = useState(filtros.busca ?? "");
   const [criando, setCriando] = useState(false);
+  const [configurando, setConfigurando] = useState(false);
   const [aviso, setAviso] = useState<string | null>(null);
   useEffect(() => { if (!aviso) return; const t = setTimeout(() => setAviso(null), 5000); return () => clearTimeout(t); }, [aviso]);
   const abasRef = useRef<HTMLDivElement>(null);
@@ -142,7 +144,7 @@ export function OrdensDeServicoView({ filtros, lista, quadro, opcoes, hoje, fich
   const diasDaMaisAntiga = lista.atrasadaMaisAntigaEm ? diasEntre(lista.atrasadaMaisAntigaEm, hoje) : null;
   const notaAtrasadas = c.atrasadas === 0 ? "nenhuma atrasada"
     : diasDaMaisAntiga && diasDaMaisAntiga > 0 ? `a mais antiga há ${diasDaMaisAntiga} ${diasDaMaisAntiga === 1 ? "dia" : "dias"}` : "vencem hoje";
-  const tecnicosHoje = [...new Set(lista.itens.filter((o) => emCampoHoje(o, hoje)).flatMap((o) => (o.tecnico ? [primeiroNome(o.tecnico.nome)] : [])))];
+  const tecnicosHoje = [...new Set(lista.itens.filter(emCampoHoje).flatMap((o) => (o.tecnico ? [primeiroNome(o.tecnico.nome)] : [])))];
   const notaHoje = c.em_campo_hoje === 0 ? "ninguém em campo" : tecnicosHoje.length ? tecnicosHoje.join(", ") : "com técnico em campo ou agendadas";
 
   const empresas = [{ value: "todas", label: "Todas as empresas", icon: <Building2 /> }, { value: "plugga", label: "Plugga", icon: <PontoDaEmpresa empresa="plugga" /> }, { value: "waze", label: "Waze Energia", icon: <PontoDaEmpresa empresa="waze" /> }];
@@ -196,6 +198,7 @@ export function OrdensDeServicoView({ filtros, lista, quadro, opcoes, hoje, fich
       </div>
       <div className={estilosPipelines.acoes}>
         <Button icon={<IconPlus />} onClick={() => setCriando(true)}>Nova O.S.</Button>
+        <Button variant="secondary" iconOnly icon={<Settings size={18} />} aria-label="Configurações da Engenharia" title="Configurações da Engenharia" onClick={() => setConfigurando(true)} />
       </div>
     </header>
 
@@ -240,13 +243,13 @@ export function OrdensDeServicoView({ filtros, lista, quadro, opcoes, hoje, fich
     <section id="os-conteudo" className={`${estilosClientes.conteudo} ${styles.conteudo}`} role="tabpanel" aria-labelledby={`os-visao-${filtros.visao}`}>{conteudo}</section>
 
     {ficha ? <FichaDaOrdem key={ficha.id} ordem={ficha} opcoes={opcoes} podeAbrirCompras={podeAbrirCompras} aoFechar={fecharFicha} aoAtualizar={() => router.refresh()} /> : null}
-    {criando ? <OrdemForm empresaInicial={filtros.empresa} hoje={hoje} aoCancelar={() => setCriando(false)}
+    {configurando ? <ConfiguracoesDaEngenharia opcoes={opcoes} aoFechar={() => setConfigurando(false)} /> : null}
+    {criando ? <OrdemForm empresaInicial={filtros.empresa} hoje={hoje} prazoSugerido={opcoes?.prazoSugerido} aoCancelar={() => setCriando(false)}
       aoSalvar={(o) => { setCriando(false); setAviso(`${o.codigo} criada: falta agendar.`); router.push(hrefDasOrdens(filtros, o.id), { scroll: false }); router.refresh(); }} /> : null}
   </div>;
 }
 
-/** Em campo agora ou agendada para hoje (a mesma regra do card da API, para os nomes da nota). */
-function emCampoHoje(o: OrdemDeServicoResumo, hoje: string): boolean {
-  if (o.situacao === "em_campo") return true;
-  return o.situacao === "agendada" && o.agendadaPara !== null && hojeEmManaus(new Date(o.agendadaPara)) === hoje;
+/** Em campo com check-in hoje: a mesma regra da contagem da API, para os nomes da nota. */
+function emCampoHoje(o: OrdemDeServicoResumo): boolean {
+  return o.situacao === "em_campo";
 }

@@ -27,6 +27,7 @@ import {
   listJobRunsResponseSchema,
   listarOrdensDeServicoRespostaSchema,
   listarTarefasRespostaSchema,
+  visaoGeralDaEngenhariaRespostaSchema,
   opcoesDeTarefasRespostaSchema,
   type DepartamentoComTarefas,
   opcoesDaEngenhariaRespostaSchema,
@@ -192,3 +193,7 @@ export const fetchTarefas = (departamento: DepartamentoComTarefas, consulta: Rec
 
 /** GET /tarefas/:departamento/opcoes: pessoas, categorias e se a pessoa pode criar. */
 export const fetchOpcoesDeTarefas = (departamento: DepartamentoComTarefas) => lerApi(`/tarefas/${departamento}/opcoes`, opcoesDeTarefasRespostaSchema);
+
+/** GET /engenharia/visao-geral: os metric cards, o campo de hoje, as atrasadas e as tarefas de hoje (PLU-349). */
+export const fetchVisaoGeralDaEngenharia = (consulta: Record<string, string | undefined>) =>
+  lerApi("/engenharia/visao-geral", visaoGeralDaEngenhariaRespostaSchema, {}, { consulta });
