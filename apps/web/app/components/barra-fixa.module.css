@@ -5,7 +5,11 @@
 /* (a especificidade a mais vence o respiro de 12–14 px que a tela de Clientes e a de Pipelines põem no .main-content) */
 .pagina { padding-top: 14px; }
 /* Sem rolagem interna: a lista e os cards crescem com a página, que rola no .main-content.
-   (As classes de módulo da tela de Clientes e da lista de negócios são alcançadas pelo nome.) */
+   (As classes de módulo da tela de Clientes e da lista de negócios são alcançadas pelo nome.
+   Conferido no CSS de produção do Next (next build, 23/11/2026): o nome local sobrevive, como
+   tela-clientes_areaCards__YhJd3, lista-de-negocios_rolagemTabela__QQQRs e
+   tela-pipelines_seletorTrigger__W4cwV. Se o bundler ou o localIdentName mudar, troque estes
+   seletores por uma classe global nos donos dos estilos.) */
 .pagina { flex: none !important; min-height: auto !important; }
 .pagina > [role="tabpanel"] { flex: none; min-height: auto; }
 .pagina [class*="areaCards"] { flex: 1 1 auto; width: 100%; min-height: auto; overflow: visible; }
