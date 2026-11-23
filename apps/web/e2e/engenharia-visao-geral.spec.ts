@@ -36,6 +36,9 @@ test("Visão geral: cards abrem as O.S. filtradas; Configurações mudam o prazo
   await page.goto("/engenharia/visao-geral");
   await page.getByRole("button", { name: "Configurações da Engenharia" }).click();
   const cfg = page.getByRole("dialog", { name: "Configurações da Engenharia" });
+  // Abre em Plataformas (PLU-347); os tipos ficam na segunda aba.
+  await expect(cfg.getByRole("tab", { name: "Plataformas" })).toHaveAttribute("aria-selected", "true");
+  await cfg.getByRole("tab", { name: "Tipos de O.S." }).click();
   await cfg.getByRole("button", { name: "Editar Outros" }).click(DEPOIS_DA_ACAO);
   const editar = page.getByRole("dialog", { name: "Editar Outros" });
   const prazo = editar.getByLabel(/^Prazo padrão/);

@@ -33,6 +33,8 @@ const paginas: ReadonlyArray<readonly [string, Tela | readonly Tela[]]> = [
   // Tarefas da Engenharia abrem com qualquer tela do departamento (PLU-349).
   ["/engenharia/tarefas", telasPorDepartamento["engenharia-obras"]],
   ["/engenharia/visao-geral", telasPorDepartamento["engenharia-obras"]],
+  // Usinas abrem para toda a Engenharia; conferir e cadastrar pedem a tela de Usinas (a API confere).
+  ["/engenharia/usinas", telasPorDepartamento["engenharia-obras"]],
 ];
 
 /** `ambiente` só existe para o teste do portão; a tela usa o do build. */

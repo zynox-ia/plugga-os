@@ -50,14 +50,19 @@ const daOrdem = (o: OrdemDeServico): Campos => ({
  * tipo, o que precisa ser feito e o prazo. Editar não troca empresa, cliente
  * nem origem: abre-se outra O.S.
  */
-export function OrdemForm({ ordem, empresaInicial, hoje, prazoSugerido, aoCancelar, aoSalvar }: {
+export function OrdemForm({ ordem, empresaInicial, hoje, prazoSugerido, usinaInicial, aoCancelar, aoSalvar }: {
   ordem?: OrdemDeServico; empresaInicial?: CompanyKey; hoje: string;
   /** Prazo da Nova O.S. por tipo, pelo prazo padrão das Configurações (PLU-349). */
   prazoSugerido?: Partial<Record<TipoDeOrdemDeServico, string>>;
+  /** "Abrir O.S." da ficha da usina (PLU-347): empresa, cliente e UC vêm da usina, que vai em `usinaId`. */
+  usinaInicial?: { id: string; nome: string; empresa: CompanyKey; cliente: { id: string; nome: string }; uc: { id: string; codigo: string; distribuidora: string } };
   aoCancelar: () => void; aoSalvar: (o: OrdemDeServico) => void;
 }) {
   const editando = Boolean(ordem);
-  const [c, setC] = useState<Campos>(() => (ordem ? daOrdem(ordem) : vazio(empresaInicial)));
+  const [c, setC] = useState<Campos>(() => (ordem ? daOrdem(ordem)
+    : usinaInicial ? { ...vazio(usinaInicial.empresa), cliente: { ...usinaInicial.cliente, ucs: [usinaInicial.uc] }, ucId: usinaInicial.uc.id }
+    : vazio(empresaInicial)));
+  const daUsina = Boolean(usinaInicial);
   const [erros, setErros] = useState<Record<string, string | undefined>>({});
   const [falha, setFalha] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
@@ -102,7 +107,7 @@ export function OrdemForm({ ordem, empresaInicial, hoje, prazoSugerido, aoCancel
     setEnviando(true); setFalha(null);
     const r = ordem
       ? await enviarParaAOrdem(ordem.id, "", "PATCH", alterados)
-      : await enviar<OrdemDeServico>("/api/engenharia/ordens-de-servico", "POST", { empresa: c.empresa, tipo: c.tipo, clienteId: c.cliente!.id, ucId: c.ucId || null, local: texto(c.local), descricao: c.descricao.trim(), prioridade: c.prioridade, origem: c.origem, prazo: c.prazo, ...equipamento });
+      : await enviar<OrdemDeServico>("/api/engenharia/ordens-de-servico", "POST", { empresa: c.empresa, tipo: c.tipo, clienteId: c.cliente!.id, ucId: c.ucId || null, local: texto(c.local), descricao: c.descricao.trim(), prioridade: c.prioridade, origem: c.origem, prazo: c.prazo, ...equipamento, ...(usinaInicial ? { usinaId: usinaInicial.id } : {}) });
     setEnviando(false);
     if (r.ok) { aoSalvar(r.dados); return; }
     setErros((e) => ({ ...e, ...r.erro.porCampo }));
@@ -111,11 +116,11 @@ export function OrdemForm({ ordem, empresaInicial, hoje, prazoSugerido, aoCancel
 
   const ucs = c.cliente?.ucs ?? [];
   return <Dialog title={editando ? `Editar ${ordem!.codigo}` : "Nova O.S."} size="media" icon={editando ? <Pencil size={20} /> : <Wrench size={20} />} onClose={aoCancelar}
-    description={editando ? "Dados e equipamento. Empresa, cliente e origem não mudam: para isso, abra outra O.S." : "Uma ordem de serviço por cliente e serviço. O robô cria a mesma O.S. a partir do WhatsApp Técnicos."}
+    description={editando ? "Dados e equipamento. Empresa, cliente e origem não mudam: para isso, abra outra O.S." : usinaInicial ? `Da usina ${usinaInicial.nome}: empresa, cliente e UC vêm dela, e o equipamento também, se não for informado.` : "Uma ordem de serviço por cliente e serviço. O robô cria a mesma O.S. a partir do WhatsApp Técnicos."}
     footer={<Button type="submit" form="form-ordem" icon={editando ? undefined : <Plus size={15} />} disabled={enviando}>{enviando ? "Salvando…" : editando ? "Salvar" : "Criar O.S."}</Button>}>
     <form id="form-ordem" className={`ui-dialog-form ${styles.formDaOrdem}`} onSubmit={salvar} noValidate>
       {falha ? <Alert tone="danger" title={`Erro: ${falha}`} /> : null}
-      <CampoDeMenu label="Empresa" required icon={<Building2 />} placeholder="Selecione a empresa" value={c.empresa || undefined} onChange={(v) => mudar({ empresa: v as CompanyKey })} disabled={editando}
+      <CampoDeMenu label="Empresa" required icon={<Building2 />} placeholder="Selecione a empresa" value={c.empresa || undefined} onChange={(v) => mudar({ empresa: v as CompanyKey })} disabled={editando || daUsina}
         options={companyKeys.map((e) => ({ value: e, label: ROTULO_DA_EMPRESA[e], icon: <PontoDaEmpresa empresa={e} /> }))} error={erros.empresa} />
       <CampoDeMenu label="Tipo" required icon={<Wrench />} placeholder="Selecione o tipo" value={c.tipo || undefined} onChange={(v) => escolherTipo(v as TipoDeOrdemDeServico)}
         options={tiposDeOrdemDeServico.map((t) => { const Icone = ICONE_DO_TIPO[t]; return { value: t, label: ROTULO_DO_TIPO[t], icon: <Icone /> }; })} error={erros.tipo} />
@@ -123,7 +128,7 @@ export function OrdemForm({ ordem, empresaInicial, hoje, prazoSugerido, aoCancel
       <div className={`ui-field ${styles.largo}`}>
         <label htmlFor="os-busca-cliente">Cliente<span className="ui-required"> (obrigatório)</span></label>
         {c.cliente ? <div className={styles.escolhido}><UserRound size={15} aria-hidden="true" /><span>{c.cliente.nome}</span>
-          {editando ? null : <Button variant="secondary" size="sm" iconOnly icon={<X size={14} />} aria-label={`Trocar o cliente ${c.cliente.nome}`} onClick={() => mudar({ cliente: null, ucId: "" })} />}</div> : <>
+          {editando || daUsina ? null : <Button variant="secondary" size="sm" iconOnly icon={<X size={14} />} aria-label={`Trocar o cliente ${c.cliente.nome}`} onClick={() => mudar({ cliente: null, ucId: "" })} />}</div> : <>
           <div className="ui-input-wrap"><span className="ui-input-adornment" aria-hidden="true"><Search size={15} /></span>
             <input id="os-busca-cliente" className="ui-input" type="search" value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Digite ao menos 2 letras do nome" autoComplete="off"
               aria-invalid={erros.clienteId ? true : undefined} aria-describedby={erros.clienteId ? "os-busca-cliente-erro" : "os-busca-cliente-dica"} /></div>
@@ -134,7 +139,7 @@ export function OrdemForm({ ordem, empresaInicial, hoje, prazoSugerido, aoCancel
         {erros.clienteId ? <p id="os-busca-cliente-erro" className="ui-field-error">Erro: {erros.clienteId}</p> : null}
       </div>
       <CampoDeMenu label="Unidade consumidora" icon={<Zap />} placeholder={c.cliente ? (ucs.length ? "Sem UC" : "O cliente não tem UC") : "Escolha o cliente primeiro"} value={c.ucId || (c.cliente && ucs.length ? "sem" : undefined)}
-        onChange={(v) => mudar({ ucId: v === "sem" ? "" : v })} disabled={editando || !c.cliente || ucs.length === 0}
+        onChange={(v) => mudar({ ucId: v === "sem" ? "" : v })} disabled={daUsina || editando || !c.cliente || ucs.length === 0}
         options={[{ value: "sem", label: "Sem UC", icon: <Zap /> }, ...ucs.map((u) => ({ value: u.id, label: u.codigo, description: u.distribuidora, icon: <Zap /> }))]} />
 
       <div className={styles.largo}><TextareaField label="O que precisa ser feito" required maxLength={2000} rows={2} value={c.descricao} onChange={(e) => mudar({ descricao: e.target.value })} error={erros.descricao}

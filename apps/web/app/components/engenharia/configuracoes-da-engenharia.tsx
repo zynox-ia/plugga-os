@@ -1,26 +1,40 @@
 "use client";
 
 import type { ConfiguracaoDeTipoDeOrdem, ConfiguracoesDaEngenharia, OpcoesDaEngenhariaResposta } from "@plugga/shared";
-import { Pencil, Settings, UserRound, Users } from "lucide-react";
-import { useEffect, useState, type FormEvent } from "react";
+import { Monitor, Pencil, Settings, UserRound, Users, Wrench } from "lucide-react";
+import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 
 import { enviar } from "../../lib/clientes";
 import { dataEmManaus } from "../../lib/compras";
 import { lerPrazoPadrao, textoDoPrazoPadrao } from "../../lib/engenharia";
 import { ROTULO_DO_TIPO } from "../../lib/ordens-de-servico";
+import estilosClientes from "../clientes/tela-clientes.module.css";
 import estilosConfig from "../financeiro/configuracoes.module.css";
 import estilosLista from "../pipelines/lista-de-negocios.module.css";
 import { CampoDeMenu } from "../suprimentos/menu-com-busca";
 import { Alert, Button, Dialog, TextField } from "../ui";
 import styles from "./engenharia.module.css";
 import { IconeDoTipo } from "./partes";
+import { PlataformasDaEngenharia } from "./plataformas-da-engenharia";
+
+const ABAS = [{ id: "plataformas", rotulo: "Plataformas", icone: Monitor }, { id: "tipos", rotulo: "Tipos de O.S.", icone: Wrench }] as const;
+type Aba = (typeof ABAS)[number]["id"];
 
 /**
  * Configurações da Engenharia (PLU-349), pela engrenagem do cabeçalho: os tipos de
  * O.S. com o prazo padrão (em dias úteis, que pré-preenche a Nova O.S.) e quem
  * agenda. Só o gerente da Engenharia edita. As Plataformas entram com as Usinas (PLU-347).
  */
-export function ConfiguracoesDaEngenharia({ opcoes, aoFechar }: { opcoes: OpcoesDaEngenhariaResposta | null; aoFechar: () => void }) {
+export function ConfiguracoesDaEngenharia({ opcoes, aoFechar, abaInicial = "plataformas" }: { opcoes: OpcoesDaEngenhariaResposta | null; aoFechar: () => void; abaInicial?: Aba }) {
+  const [aba, setAba] = useState<Aba>(abaInicial);
+  const abasRef = useRef<HTMLDivElement>(null);
+  function navegar(evento: KeyboardEvent) {
+    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(evento.key)) return;
+    evento.preventDefault();
+    const proxima: Aba = aba === "plataformas" ? "tipos" : "plataformas";
+    setAba(proxima);
+    abasRef.current?.querySelector<HTMLButtonElement>(`#config-eng-${proxima}`)?.focus();
+  }
   const [dados, setDados] = useState<ConfiguracoesDaEngenharia | null>(null);
   const [falha, setFalha] = useState<string | null>(null);
   const [editando, setEditando] = useState<ConfiguracaoDeTipoDeOrdem | null>(null);
@@ -37,9 +51,17 @@ export function ConfiguracoesDaEngenharia({ opcoes, aoFechar }: { opcoes: Opcoes
 
   return <>
     <Dialog title="Configurações da Engenharia" size="larga" className={estilosConfig.telaCheia} icon={<Settings size={20} />} onClose={aoFechar} cancelText="Fechar"
-      description="Tipos de O.S. com o prazo padrão e quem agenda. São as mesmas opções dos menus das telas.">
+      description="Plataformas de inversor e tipos de O.S. São as mesmas opções dos menus das telas.">
       <div className={estilosConfig.corpo}>
+        <div className={estilosConfig.barra}>
+          <div ref={abasRef} className={`${estilosClientes.abas} ${estilosConfig.abas}`} role="tablist" aria-label="Seções das configurações" onKeyDown={navegar}>
+            {ABAS.map(({ id, rotulo, icone: Icone }) => <button key={id} type="button" id={`config-eng-${id}`} className="ui-tab" role="tab" aria-selected={aba === id}
+              aria-controls="config-eng-painel" tabIndex={aba === id ? 0 : -1} onClick={() => setAba(id)}><Icone size={15} aria-hidden="true" />{rotulo}</button>)}
+          </div>
+        </div>
         {aviso ? <p className="aviso aviso--sucesso" role="status">{aviso}</p> : null}
+        <section id="config-eng-painel" role="tabpanel" aria-labelledby={`config-eng-${aba}`} className={estilosConfig.painel}>
+        {aba === "plataformas" ? <PlataformasDaEngenharia aoAviso={setAviso} /> : <>
         {falha ? <Alert tone="danger" title={`Erro: ${falha}`} /> : null}
         {!dados && !falha ? <p className={estilosConfig.vazio} role="status">Carregando os tipos de O.S.…</p> : null}
         {dados ? <div className={estilosConfig.tabela}>
@@ -65,6 +87,8 @@ export function ConfiguracoesDaEngenharia({ opcoes, aoFechar }: { opcoes: Opcoes
             </table>
           </div>
         </div> : null}
+        </>}
+        </section>
       </div>
     </Dialog>
     {editando ? <EditarTipo tipo={editando} opcoes={opcoes} aoCancelar={() => setEditando(null)}

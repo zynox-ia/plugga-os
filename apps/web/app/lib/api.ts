@@ -28,6 +28,10 @@ import {
   listarOrdensDeServicoRespostaSchema,
   listarTarefasRespostaSchema,
   visaoGeralDaEngenhariaRespostaSchema,
+  listarPlataformasRespostaSchema,
+  listarUsinasRespostaSchema,
+  monitoramentoDoDiaSchema,
+  usinaSchema,
   opcoesDeTarefasRespostaSchema,
   type DepartamentoComTarefas,
   opcoesDaEngenhariaRespostaSchema,
@@ -197,3 +201,16 @@ export const fetchOpcoesDeTarefas = (departamento: DepartamentoComTarefas) => le
 /** GET /engenharia/visao-geral: os metric cards, o campo de hoje, as atrasadas e as tarefas de hoje (PLU-349). */
 export const fetchVisaoGeralDaEngenharia = (consulta: Record<string, string | undefined>) =>
   lerApi("/engenharia/visao-geral", visaoGeralDaEngenhariaRespostaSchema, {}, { consulta });
+
+/** GET /engenharia/monitoramento: as plataformas do dia, pendentes primeiro (PLU-347). */
+export const fetchMonitoramentoDoDia = (consulta: Record<string, string | undefined>) =>
+  lerApi("/engenharia/monitoramento", monitoramentoDoDiaSchema, {}, { consulta });
+
+/** GET /engenharia/usinas: o cadastro, com a última conferência de cada usina. */
+export const fetchUsinas = (consulta: Record<string, string | undefined>) => lerApi("/engenharia/usinas", listarUsinasRespostaSchema, {}, { consulta });
+
+/** GET /engenharia/usinas/:id: a ficha, com o monitoramento por dia e as O.S. */
+export const fetchUsina = (id: string) => lerApi("/engenharia/usinas/:id", usinaSchema, { id });
+
+/** GET /engenharia/plataformas: as plataformas de inversor e se a pessoa edita. */
+export const fetchPlataformas = () => lerApi("/engenharia/plataformas", listarPlataformasRespostaSchema);

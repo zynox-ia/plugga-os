@@ -179,7 +179,8 @@ export const DEPARTAMENTOS: Departamento[] = [
       { id: "engenharia-obras.instalacoes", label: "Instalações", status: "em-breve" },
       { id: "engenharia-obras.manutencao", label: "Manutenção", status: "em-breve" },
       { id: "engenharia-obras.visitas", label: "Visitas técnicas", status: "em-breve" },
-      { id: "engenharia-obras.usinas", label: "Usinas solares · BESS", status: "em-breve" },
+      // Usinas e o monitoramento do dia (PLU-347), atrás do portão.
+      { label: "Usinas", telas: telasPorDepartamento["engenharia-obras"], ...(engenhariaHabilitado() ? { rota: "/engenharia/usinas", status: "parcial" as const } : { status: "em-breve" as const }) },
       { id: "engenharia-obras.relatorios", label: "Relatórios de campo · fotos e aceite", status: "em-breve" },
     ],
     // Ordens de serviço abre com qualquer uma de quatro telas; o editor de acesso segue concedendo as oito.

@@ -134,7 +134,7 @@
 .filtroDaVisao { flex: none; }
 @media (min-width: 1000px) { .acoesDaVisao { flex-wrap: nowrap; } }
 .data { display: inline-flex; align-items: center; gap: 6px; color: var(--ui-muted); font-size: 13px; white-space: nowrap; }
-.metricasDaVisao { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; flex-shrink: 0; }
+.metricasDaVisao { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; flex-shrink: 0; }
 @media (max-width: 900px) { .metricasDaVisao { grid-template-columns: minmax(0, 1fr); gap: 8px; } }
 
 .blocos { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 16px; align-items: start; }
@@ -168,3 +168,10 @@
 .tituloDaTarefa { flex: 1 1 auto; min-width: 0; overflow: hidden; color: var(--ui-text); font-size: 13.5px; text-overflow: ellipsis; white-space: nowrap; }
 .tarefasDoBloco li[data-concluida] .tituloDaTarefa { color: var(--ui-muted); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--ui-muted) 60%, transparent); }
 .tarefasDoBloco small { flex: none; color: var(--ui-muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.faltaConferir { display: flex; align-items: flex-start; gap: 6px; margin: 0; color: var(--ui-muted); font-size: 12.5px; }
+.faltaConferir svg { flex: none; margin-top: 2px; }
+
+/* Configurações: cabeçalho da tabela com a ação à direita; o acesso da plataforma (onde está, nunca a senha). */
+.cabecalhoComAcao { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.acessoDaPlataforma { display: inline-flex; align-items: center; gap: 6px; color: var(--ui-text); }
+.acessoDaPlataforma svg { flex: none; color: var(--ui-muted); }
