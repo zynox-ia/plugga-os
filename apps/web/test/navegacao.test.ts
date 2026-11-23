@@ -106,6 +106,13 @@ describe("barra lateral pelo acesso", () => {
     assert.ok(grupos[1]?.items.some((item) => item.id === "suprimentos:Compras" && item.disabled));
   });
 
+  it("Fornecedores sai do em-breve e aponta para a tela (PLU-326)", () => {
+    const suprimentos = navGroupsForAccess(membro("suprimentos")).find((grupo) => grupo.label === "Suprimentos");
+    assert.ok(suprimentos?.items.some((item) => item.id === "/suprimentos/fornecedores" && !item.disabled));
+    assert.equal(navIdForPathname("/suprimentos/fornecedores"), "/suprimentos/fornecedores");
+    assert.equal(tituloForNavId("/suprimentos/fornecedores"), "Fornecedores");
+  });
+
   it("não inventa departamento para quem não recebeu esse acesso", () => {
     assert.deepEqual(rotulos(membro("financeiro")), ["Financeiro"]);
   });

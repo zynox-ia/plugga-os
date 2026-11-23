@@ -51,3 +51,12 @@ test("membro não abre gestão de equipe pela rota herdada", () => {
   assert.equal(podeAbrirPagina({ plataforma: null, departamentos: [{ departamento: "crm", nivel: "membro", telas: ["crm.clientes"] }] }, "/administracao"), false);
   assert.equal(podeAbrirPagina({ plataforma: null, departamentos: [{ departamento: "crm", nivel: "gerente", telas: ["crm.clientes"] }] }, "/administracao"), true);
 });
+
+test("Fornecedores abre só com a tela suprimentos.fornecedores (PLU-326)", () => {
+  const caminho = "/suprimentos/fornecedores";
+  assert.equal(podeAbrirPagina({ plataforma: null, departamentos: [{ departamento: "suprimentos", nivel: "membro", telas: ["suprimentos.fornecedores"] }] }, caminho), true);
+  assert.equal(podeAbrirPagina({ plataforma: null, departamentos: [{ departamento: "suprimentos", nivel: "membro", telas: ["suprimentos.compras"] }] }, caminho), false);
+  assert.equal(podeAbrirPagina({ plataforma: null, departamentos: [{ departamento: "crm", nivel: "gerente" }] }, caminho), false);
+  assert.equal(podeAbrirPagina({ plataforma: "admin", departamentos: [] }, caminho), true);
+  assert.equal(podeAbrirPagina({ plataforma: null, departamentos: [{ departamento: "suprimentos", nivel: "membro" }] }, "/suprimentos/fornecedores-outros"), false);
+});

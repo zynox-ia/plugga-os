@@ -122,7 +122,7 @@ export const DEPARTAMENTOS: Departamento[] = [
     icon: "package",
     processos: [
       { id: "suprimentos.compras", label: "Compras", status: "em-breve" },
-      { id: "suprimentos.fornecedores", label: "Fornecedores", status: "em-breve" },
+      { id: "suprimentos.fornecedores", label: "Fornecedores", rota: "/suprimentos/fornecedores", status: "pronto" },
       { id: "suprimentos.estoque", label: "Estoque", status: "em-breve" },
     ],
   },

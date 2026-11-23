@@ -5,6 +5,8 @@ import {
   contractDetailSchema,
   contractListSchema,
   emailStatusSchema,
+  fornecedorSchema,
+  listarFornecedoresRespostaSchema,
   listClientsResponseSchema,
   listDealsResponseSchema,
   listIntegrationsResponseSchema,
@@ -67,6 +69,13 @@ export const fetchClient = (id: string) => lerApi("/clientes/:id", clientDetailS
 
 /** GET /clientes/responsaveis: quem pode ser responsável por um cliente. */
 export const fetchClientOwners = () => lerApi("/clientes/responsaveis", clientOwnersResponseSchema);
+
+/** GET /suprimentos/fornecedores: cadastro único de fornecedores, com a contagem por situação. */
+export const fetchFornecedores = (query: { busca?: string; situacao: string; categoria?: string }) =>
+  lerApi("/suprimentos/fornecedores", listarFornecedoresRespostaSchema, {}, { consulta: query });
+
+/** GET /suprimentos/fornecedores/:id: ficha completa, para editar. */
+export const fetchFornecedor = (id: string) => lerApi("/suprimentos/fornecedores/:id", fornecedorSchema, { id });
 
 /** GET /pipelines: os pipelines que a pessoa alcança, com etapas, equipe e se pode configurá-los. */
 export const fetchPipelinesAtivos = () =>

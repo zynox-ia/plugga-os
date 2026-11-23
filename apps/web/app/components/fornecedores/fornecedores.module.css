@@ -1,0 +1,105 @@
+/* Fornecedores (PLU-326). Reaproveita a tela de Clientes e a lista de negócios;
+   aqui só o que é desta tela. */
+
+.contagem {
+  margin: 0 auto 0 12px;
+  align-self: center;
+  font-size: 13px;
+  color: var(--ui-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.contagem strong {
+  color: var(--ui-text);
+  font-weight: 600;
+}
+
+.grade {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 380px), 1fr));
+  gap: 12px;
+  width: 100%;
+}
+
+.lista {
+  width: 100%;
+}
+
+/* Formulário */
+.formas {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.formas legend {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ui-text);
+  padding: 0;
+  margin-bottom: 8px;
+}
+
+.forma {
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.forma svg {
+  opacity: 0;
+}
+
+.forma:global(.ui-dialog-tag--active) svg {
+  opacity: 1;
+}
+
+.forma:has(input:focus-visible) {
+  outline: 2px solid var(--ui-primary);
+  outline-offset: 2px;
+}
+
+.cidadeUf {
+  grid-template-columns: minmax(0, 1fr) 120px !important;
+}
+
+.aviso {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.avisoInativo {
+  background: #fff6df !important;
+  border-color: #efd396 !important;
+  color: #865400;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .entra {
+    animation: entra 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-delay: calc(min(var(--i, 0), 13) * 30ms);
+  }
+}
+
+@keyframes entra {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
+
+@media (max-width: 720px) {
+  .contagem {
+    order: 3;
+    width: 100%;
+    margin: 4px 0 0;
+  }
+
+  .cidadeUf {
+    grid-template-columns: minmax(0, 1fr) 96px !important;
+  }
+}
