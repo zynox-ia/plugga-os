@@ -66,6 +66,7 @@ export function VisaoGeralDoPedido({ pedido, hoje, ocupado, aoAgir, aoPedirMotiv
   function receber() {
     if (!recebidoEm) { setErros({ recebidoEm: "informe o dia do recebimento (dd/mm/aaaa)." }); return; }
     if (recebidoEm > hojeEmManaus()) { setErros({ recebidoEm: "o recebimento não pode ser numa data futura." }); return; }
+    if (recebidoEm < hojeEmManaus(new Date(pedido.createdAt))) { setErros({ recebidoEm: "o recebimento não pode ser antes da abertura do pedido." }); return; }
     if (pedido.origemAtendimento === "estoque") { setErros({}); aoAgir({ acao: "confirmar_recebimento", recebidoEm }); return; }
     const v = decimalDigitado(valorFaturado);
     const noEstoque = entradaDoRecebimento(entrada);

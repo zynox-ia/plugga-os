@@ -9,7 +9,10 @@ import { bloquearTerceiros } from "./support/sem-terceiros";
  * em saída. De volta à tela, a ficha e as movimentações mostram cada passo.
  */
 
-test.use({ extraHTTPHeaders: { "x-forwarded-for": "203.0.113.229" } });
+// O fluxo, não a animação: com movimento reduzido (que o app respeita) os modais não ficam "instáveis" sob carga.
+test.use({ extraHTTPHeaders: { "x-forwarded-for": "203.0.113.229" }, contextOptions: { reducedMotion: "reduce" } });
+// Cada ação do pedido espera a API e o refresh da ficha; com a máquina carregada, 5 s não bastam.
+const DEPOIS_DA_ACAO = { timeout: 15_000 };
 
 const ficha = (page: Page) => page.locator("dialog[open]").first();
 const PDF = { name: "cotacao-e2e.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n") };
@@ -37,10 +40,11 @@ async function criarPedidoVinculado(page: Page, sufixo: string, nome: string, qu
   await novo.getByLabel("Quantidade do item 1").fill(quantidade);
   await novo.getByRole("textbox", { name: /Entrega desejada/ }).fill(diaFuturo(10));
   await novo.getByRole("button", { name: "Criar pedido" }).click();
-  await expect(ficha(page).getByRole("heading", { name: `Material E2E ${sufixo} (sintético)` })).toBeVisible();
+  await expect(ficha(page).getByRole("heading", { name: `Material E2E ${sufixo} (sintético)` })).toBeVisible(DEPOIS_DA_ACAO);
 }
 
 test("item novo recebe entrada, é reservado por um pedido e baixado no recebimento", async ({ page }) => {
+  test.slow(); // fluxo longo, de Estoque a Compras e de volta
   await bloquearTerceiros(page);
   const sufixo = Date.now().toString(36).toUpperCase();
   const nome = `Conector E2E ${sufixo} (sintético)`;
@@ -59,7 +63,7 @@ test("item novo recebe entrada, é reservado por um pedido e baixado no recebime
   await novo.getByLabel("Estoque mínimo").fill("10");
   await novo.getByRole("button", { name: "Cadastrar item" }).click();
 
-  await expect(ficha(page).getByRole("heading", { name: nome })).toBeVisible();
+  await expect(ficha(page).getByRole("heading", { name: nome })).toBeVisible(DEPOIS_DA_ACAO);
   const itemId = new URL(page.url()).searchParams.get("item");
   expect(itemId).toBeTruthy();
 
@@ -79,12 +83,12 @@ test("item novo recebe entrada, é reservado por um pedido e baixado no recebime
   // 3. Pedido de compra com o item vinculado ao estoque (Novo pedido), atendido pelo estoque: reserva 12.
   await criarPedidoVinculado(page, sufixo, nome, "12");
   await ficha(page).getByRole("button", { name: "Iniciar análise de estoque" }).click();
-  await expect(ficha(page).locator(".aviso--sucesso")).toHaveText("Pedido em análise de estoque.");
+  await expect(ficha(page).locator(".aviso--sucesso")).toHaveText("Pedido em análise de estoque.", DEPOIS_DA_ACAO);
   await ficha(page).getByRole("button", { name: /Sim, atender pelo estoque/ }).click();
-  await expect(ficha(page).getByRole("button", { name: "Confirmar recebimento" })).toBeVisible();
+  await expect(ficha(page).getByRole("button", { name: "Confirmar recebimento" })).toBeVisible(DEPOIS_DA_ACAO);
 
   await page.goto(`/suprimentos/estoque?item=${itemId}`);
-  await expect(ficha(page).getByRole("heading", { name: nome })).toBeVisible();
+  await expect(ficha(page).getByRole("heading", { name: nome })).toBeVisible(DEPOIS_DA_ACAO);
   const reservas = ficha(page).getByRole("region", { name: "Reservas" });
   await expect(reservas.getByText("12 un")).toBeVisible();
   await expect(ficha(page).getByRole("group", { name: "Saldo do item" })).toContainText("12 un");
@@ -93,7 +97,7 @@ test("item novo recebe entrada, é reservado por um pedido e baixado no recebime
   // 4. Recebimento: a reserva vira saída.
   await reservas.getByRole("link", { name: "Abrir pedido" }).click();
   await ficha(page).getByRole("button", { name: "Confirmar recebimento" }).click();
-  await expect(ficha(page).locator(".aviso--sucesso")).toContainText("Recebimento confirmado");
+  await expect(ficha(page).locator(".aviso--sucesso")).toContainText("Recebimento confirmado", DEPOIS_DA_ACAO);
 
   await page.goto(`/suprimentos/estoque?visao=movimentacoes&item_mov=${itemId}`);
   const lista = page.locator("#estoque-conteudo");
@@ -143,6 +147,7 @@ test("Registrar movimentação: a empresa filtra o item e trocar a empresa limpa
 });
 
 test("aquisição de item vinculado dá entrada no estoque no recebimento", async ({ page, baseURL }) => {
+  test.slow(); // as 7 etapas da aquisição
   await bloquearTerceiros(page);
   const origem = { origin: new URL(baseURL!).origin };
   const sufixo = Date.now().toString(36).toUpperCase();
@@ -174,7 +179,7 @@ test("aquisição de item vinculado dá entrada no estoque no recebimento", asyn
   await ficha(page).getByRole("button", { name: "Aprovar compra" }).click();
   await ficha(page).getByRole("radio", { name: "PIX" }).click();
   await ficha(page).getByRole("button", { name: "Registrar pagamento" }).click();
-  await expect(ficha(page).locator(".aviso--sucesso")).toHaveText("Pagamento registrado.");
+  await expect(ficha(page).locator(".aviso--sucesso")).toHaveText("Pagamento registrado.", DEPOIS_DA_ACAO);
 
   const entrada = ficha(page).getByRole("group", { name: `Entrada de ${nome}` });
   await expect(entrada.getByLabel(/Quantidade recebida/)).toHaveValue("5");
@@ -182,7 +187,7 @@ test("aquisição de item vinculado dá entrada no estoque no recebimento", asyn
   await expect(entrada.getByText("Erro: informe o custo, como 9,50.")).toBeVisible();
   await entrada.getByLabel(/Custo unitário/).fill("38,00");
   await ficha(page).getByRole("button", { name: "Confirmar recebimento" }).click();
-  await expect(ficha(page).locator(".aviso--sucesso")).toHaveText("Recebimento confirmado: aquisição concluída.");
+  await expect(ficha(page).locator(".aviso--sucesso")).toHaveText("Recebimento confirmado: aquisição concluída.", DEPOIS_DA_ACAO);
 
   await page.goto(`/suprimentos/estoque?item=${itemId}`);
   await expect(ficha(page).getByRole("group", { name: "Saldo do item" })).toContainText("5 un");

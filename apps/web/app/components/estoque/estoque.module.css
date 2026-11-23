@@ -6,6 +6,15 @@
 
 .pagina { gap: 16px; }
 .subtitulo { min-width: 0; }
+/* Título à esquerda e ações à direita na mesma linha a partir de 1000 px: o subtítulo quebra e a busca encolhe. Abaixo, quebra como as outras telas. */
+@media (min-width: 1000px) {
+  .cabecalho { flex-wrap: nowrap; align-items: flex-start; }
+  .tituloGrupo { flex: 1 1 auto; min-width: 120px; }
+  .tituloGrupo h2.subtitulo { white-space: normal; }
+  .acoes { flex: 0 1 auto; flex-wrap: nowrap; }
+  .acoes :global(.equipe-busca) { width: clamp(140px, 18vw, 280px); }
+  .acoes :global(.ui-button) { flex: none; white-space: nowrap; }
+}
 .navegacao { align-items: center; }
 .abas :global(.ui-tab[aria-selected="true"]) { font-weight: 500; }
 .espaco { flex: 1; }

@@ -137,12 +137,12 @@ export function EstoqueView({ filtros, itens, resumo, todosOsItens, movimentacoe
   const empresas = [{ value: "todas", label: "Todas as empresas", icon: <Building2 /> }, { value: "plugga", label: "Plugga", icon: <Building2 /> }, { value: "waze", label: "Waze Energia", icon: <Building2 /> }];
 
   return <div className={`${estilosClientes.pagina} ${styles.pagina}`}>
-    <header className={estilosPipelines.cabecalho}>
-      <div className={estilosPipelines.tituloGrupo}>
+    <header className={`${estilosPipelines.cabecalho} ${styles.cabecalho}`}>
+      <div className={`${estilosPipelines.tituloGrupo} ${styles.tituloGrupo}`}>
         <h1 className={estilosPipelines.titulo}>Estoque</h1>
         <h2 className={`${estilosPipelines.subtitulo} ${styles.subtitulo}`}>Saldo dos materiais da Plugga e da Waze, com tudo o que entrou e saiu.</h2>
       </div>
-      <div className={estilosPipelines.acoes}>
+      <div className={`${estilosPipelines.acoes} ${styles.acoes}`}>
         <form className="equipe-busca" onSubmit={buscar} role="search" aria-label="Buscar no estoque">
           <button type="submit" className={estilosClientes.botaoBusca} aria-label="Buscar"><IconSearch className="equipe-busca-icon" /></button>
           <input className="equipe-busca-input" type="search" maxLength={150} aria-label="Buscar item ou código" value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar item ou código…" />
