@@ -330,7 +330,7 @@ export function ListaDeNegocios({
                         </div>
                       </td>
                       <td data-l="Responsável"><div className={styles.responsavel} title={n.owner.name}><User className={styles.iconeResponsavel} size={14} strokeWidth={2} aria-hidden="true" /><strong>{n.owner.name.split(/\s+/)[0]}</strong></div></td>
-                      <td data-l="Na etapa há"><span className={styles.contato}>{dias === 0 ? "hoje" : `${dias} dias`}</span></td>
+                      <td data-l="Na etapa há"><span className={styles.contato}>{dias === 0 ? "hoje" : dias === 1 ? "1 dia" : `${dias} dias`}</span></td>
                       <td className={styles.colunaAcoes}><div className={styles.acoesLinha}>
                         <Button variant="secondary" size="sm" icon={<Eye />} iconOnly aria-label={`Ver detalhes de ${n.title}`} onClick={() => acoes.abrirDetalhes(n)} />
                         <MenuDoNegocio negocio={n} pipeline={pipeline} acoes={acoes} aoVerLead={() => acoes.abrirDetalhes(n)} menuClassName={styles.menuVidro} mostrarPrioridade />
