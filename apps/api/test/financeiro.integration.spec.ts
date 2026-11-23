@@ -210,6 +210,8 @@ describe.skipIf(!HABILITADO)("financeiro: lançamentos no Postgres", () => {
     expect(resposta.itens.every((i) => i.tipo === "saida")).toBe(true);
     expect(resposta.resumo).toMatchObject({ aReceber: null, saldoProjetado: null, vencidos: { aReceber: null } });
     expect(resposta.alcance).toEqual({ saidas: true, entradas: false });
+    // O modo só-resumo devolve os mesmos metric cards da lista.
+    expect(await repositorio.resumo(soPagar, undefined, AGORA)).toEqual((await repositorio.listar(listarLancamentosQuerySchema.parse({}), soPagar, AGORA)).resumo);
     const entrada = await novaCobranca("2027-01");
     await expect(repositorio.obter(entrada, soPagar, AGORA)).rejects.toBeInstanceOf(NaoEncontrado);
     // Com Conciliação o RLS deixa alterar a entrada; quem barra é a aplicação, que opera só o tipo da tela.

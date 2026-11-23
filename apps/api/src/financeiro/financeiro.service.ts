@@ -4,6 +4,7 @@ import {
   listarLancamentosRespostaSchema,
   opcoesDoFinanceiroSchema,
   quadroFinanceiroSchema,
+  resumoDosLancamentosRespostaSchema,
   type AcaoDoLancamento,
   type CriarContaAPagar,
   type EditarLancamento,
@@ -13,6 +14,8 @@ import {
   type OpcoesDoFinanceiro,
   type QuadroFinanceiro,
   type QuadroFinanceiroQuery,
+  type ResumoDosLancamentosQuery,
+  type ResumoDosLancamentosResposta,
 } from "@plugga/shared";
 
 import { AcessoNegado } from "../common/errors/dominio";
@@ -39,6 +42,14 @@ export class FinanceiroService {
   async quadro(query: QuadroFinanceiroQuery, principal: AuthPrincipal): Promise<QuadroFinanceiro> {
     const papel = this.papel(principal);
     return quadroFinanceiroSchema.parse(await this.repositorio.quadro(query, papel, this.agora()));
+  }
+
+  async resumo(query: ResumoDosLancamentosQuery, principal: AuthPrincipal): Promise<ResumoDosLancamentosResposta> {
+    const papel = this.papel(principal);
+    return resumoDosLancamentosRespostaSchema.parse({
+      resumo: await this.repositorio.resumo(papel, query.empresa, this.agora()),
+      alcance: { saidas: papel.saidas, entradas: papel.entradas },
+    });
   }
 
   async obter(id: string, principal: AuthPrincipal): Promise<Lancamento> {

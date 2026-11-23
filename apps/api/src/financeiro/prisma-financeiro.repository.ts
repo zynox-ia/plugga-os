@@ -374,7 +374,7 @@ export class PrismaFinanceiroRepository {
    * Metric cards até o fim do mês corrente, do que está em aberto, recortados
    * pela empresa e pelo que a pessoa alcança.
    */
-  private async resumo(papel: PapelNoFinanceiro, empresa: CompanyKey | undefined, agora: Date): Promise<ResumoDosLancamentos> {
+  async resumo(papel: PapelNoFinanceiro, empresa: CompanyKey | undefined, agora: Date): Promise<ResumoDosLancamentos> {
     const ateDia = fimDoMesEmManaus(agora);
     const ate = inicioDoDiaEmManaus(ateDia);
     const hoje = inicioDoDiaEmManaus(dia(agora));

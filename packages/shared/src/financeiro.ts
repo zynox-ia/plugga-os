@@ -434,3 +434,15 @@ export type QuadroFinanceiro = z.infer<typeof quadroFinanceiroSchema>;
 
 /** Teto de cards por coluna do quadro. */
 export const LIMITE_DE_CARDS_POR_COLUNA = 100;
+
+// ---------------------------------------------------------------- só os metric cards
+
+/** `GET financeiro/lancamentos/resumo`: os metric cards sem a lista (o quadro usa). Só a empresa recorta. */
+export const resumoDosLancamentosQuerySchema = z.object({ empresa: companyKeySchema.optional() }).strict();
+export type ResumoDosLancamentosQuery = z.infer<typeof resumoDosLancamentosQuerySchema>;
+
+export const resumoDosLancamentosRespostaSchema = z.object({
+  resumo: resumoDosLancamentosSchema,
+  alcance: z.object({ saidas: z.boolean(), entradas: z.boolean() }),
+});
+export type ResumoDosLancamentosResposta = z.infer<typeof resumoDosLancamentosRespostaSchema>;

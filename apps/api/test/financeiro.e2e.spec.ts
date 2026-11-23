@@ -12,6 +12,7 @@ const ID = "00000000-0000-4000-8000-000000000901";
 const servico = {
   listar: vi.fn().mockResolvedValue({ itens: [], total: 0 }),
   quadro: vi.fn().mockResolvedValue({ colunas: [] }),
+  resumo: vi.fn().mockResolvedValue({ resumo: {} }),
   obter: vi.fn().mockResolvedValue({ id: ID }),
   opcoes: vi.fn().mockResolvedValue({ categorias: [] }),
   criarContaAPagar: vi.fn().mockResolvedValue({ id: ID }),
@@ -47,6 +48,8 @@ describe("financeiro API (e2e)", () => {
   it("Financeiro e plataforma entram; Suprimentos e CRM não", async () => {
     await financeiro(http().get("/financeiro/lancamentos")).expect(200);
     await financeiro(http().get("/financeiro/lancamentos/quadro")).expect(200);
+    await financeiro(http().get("/financeiro/lancamentos/resumo?empresa=waze")).expect(200);
+    await financeiro(http().get("/financeiro/lancamentos/resumo?situacao=pagar")).expect(400);
     await financeiro(http().get("/financeiro/opcoes")).expect(200);
     await http().get("/financeiro/lancamentos").set("x-dev-principal", "00000000-0000-4000-8000-000000000002").set("x-dev-plataforma", "admin").expect(200);
     for (const d of ["suprimentos:gerente", "crm:membro"]) {

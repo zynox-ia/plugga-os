@@ -6,6 +6,7 @@ import {
   editarLancamentoSchema,
   listarLancamentosQuerySchema,
   quadroFinanceiroQuerySchema,
+  resumoDosLancamentosQuerySchema,
   type AcaoDoLancamento,
   type CriarContaAPagar,
   type EditarLancamento,
@@ -15,6 +16,8 @@ import {
   type OpcoesDoFinanceiro,
   type QuadroFinanceiro,
   type QuadroFinanceiroQuery,
+  type ResumoDosLancamentosQuery,
+  type ResumoDosLancamentosResposta,
 } from "@plugga/shared";
 
 import { ZodValidationPipe } from "../common/zod-validation.pipe";
@@ -53,6 +56,15 @@ export class FinanceiroController {
     @CurrentPrincipal() principal: AuthPrincipal,
   ): Promise<QuadroFinanceiro> {
     return this.financeiro.quadro(query, principal);
+  }
+
+  /** Só os metric cards, para o quadro não buscar a lista inteira. */
+  @Get("lancamentos/resumo")
+  resumo(
+    @Query(new ZodValidationPipe(resumoDosLancamentosQuerySchema)) query: ResumoDosLancamentosQuery,
+    @CurrentPrincipal() principal: AuthPrincipal,
+  ): Promise<ResumoDosLancamentosResposta> {
+    return this.financeiro.resumo(query, principal);
   }
 
   @Get("lancamentos/:id")
