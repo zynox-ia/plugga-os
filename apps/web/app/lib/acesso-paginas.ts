@@ -2,7 +2,7 @@ import { alcancaPlataforma, alcancaTela, papelDoAcesso, type Acesso, type Tela }
 
 import { integracoesParaAcesso } from "./integracoes.ts";
 import { podeVerCompras } from "./papel-em-compras.ts";
-import { financeiroHabilitado, type AmbienteDosRecursos } from "./recursos.ts";
+import { engenhariaHabilitado, financeiroHabilitado, type AmbienteDosRecursos } from "./recursos.ts";
 
 /**
  * Lançamentos (e a Visão geral) do Financeiro juntam saídas (`financeiro.pagar`)
@@ -10,6 +10,9 @@ import { financeiroHabilitado, type AmbienteDosRecursos } from "./recursos.ts";
  * devolve só o tipo que a pessoa alcança (PLU-336).
  */
 export const TELAS_DOS_LANCAMENTOS: readonly Tela[] = ["financeiro.pagar", "financeiro.receber"];
+
+/** Ordens de serviço abrem com a tela de O.S. ou com as de instalação, manutenção e visita (PLU-345). */
+export const TELAS_DAS_ORDENS_DE_SERVICO: readonly Tela[] = ["engenharia-obras.os", "engenharia-obras.instalacoes", "engenharia-obras.manutencao", "engenharia-obras.visitas"];
 
 /** A página abre com a tela, ou com qualquer uma da lista. */
 const paginas: ReadonlyArray<readonly [string, Tela | readonly Tela[]]> = [
@@ -24,6 +27,7 @@ const paginas: ReadonlyArray<readonly [string, Tela | readonly Tela[]]> = [
   ["/suprimentos/compras", "suprimentos.compras"],
   ["/suprimentos/estoque", "suprimentos.estoque"],
   ["/financeiro/lancamentos", TELAS_DOS_LANCAMENTOS],
+  ["/engenharia/ordens-de-servico", TELAS_DAS_ORDENS_DE_SERVICO],
 ];
 
 /** `ambiente` só existe para o teste do portão; a tela usa o do build. */
@@ -31,6 +35,8 @@ export function podeAbrirPagina(acesso: Acesso, pathname: string, ambiente?: Amb
   if (["/", "/configuracoes", "/agentes-ia", "/auth/google/complete"].includes(pathname)) return true;
   // Portão do Financeiro em construção: desligado, nenhuma página dele abre (lib/recursos.ts).
   if ((pathname === "/financeiro" || pathname.startsWith("/financeiro/")) && !financeiroHabilitado(ambiente)) return false;
+  // Portão da Engenharia em construção, igual ao do Financeiro.
+  if ((pathname === "/engenharia" || pathname.startsWith("/engenharia/")) && !engenhariaHabilitado(ambiente)) return false;
   if (pathname === "/administracao") return papelDoAcesso(acesso) !== "membro";
   if (pathname === "/integracoes") return integracoesParaAcesso(acesso, "integracoes").length > 0;
   if (["/jobs", "/estrutura"].includes(pathname) || pathname === "/design-system" || pathname.startsWith("/design-system/")) {

@@ -1,0 +1,112 @@
+/* Ordens de serviço da Engenharia (PLU-345), no desenho do protótipo aprovado em 23/11/2026.
+   Reaproveita a tela de Clientes (cards), a lista de negócios (tabela) e o quadro do CRM;
+   aqui só o que é desta tela. Peso máximo 500, poucas cores: vermelho só no atraso,
+   âmbar só na nova data. */
+
+.pagina { min-width: 0; }
+.subtitulo { max-width: 44ch; }
+.abas :global(.ui-tab[aria-selected="true"]) { font-weight: 500; }
+.filtros { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; }
+.filtro { flex: none; }
+.teto { margin: 0; font-size: 12px; color: var(--ui-muted); }
+.vazio { width: 100%; }
+
+/* Com a barra presa, a página rola inteira: nada de rolagem interna nos cards, na lista ou no quadro. */
+.conteudo { display: block; flex: none; min-height: auto; }
+.pagina :global(.lista-negocios-card) { flex: none; min-height: auto; }
+.pagina :global(.quadro-area-colunas) { flex: none; height: auto; max-height: none; min-height: 0; }
+.pagina :global(.quadro-colunas) { height: auto; max-height: none; align-items: flex-start; overflow-x: auto; }
+.pagina :global(.coluna-etapa) { height: auto; max-height: none; min-height: 0; }
+.pagina :global(.coluna-corpo) { flex: none; height: auto; max-height: none; overflow: visible; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .entra { animation: entra 0.55s cubic-bezier(0.22, 1, 0.36, 1) both; animation-delay: calc(min(var(--i, 0), 13) * 30ms); }
+}
+@keyframes entra { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+.cortado { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.semTecnico { color: var(--ui-muted); }
+.atraso { color: var(--ui-danger) !important; }
+.aviso { color: var(--ui-warning) !important; }
+
+/* Selo neutro da etapa (o texto diz a situação). */
+.selo { display: inline-flex; align-items: center; flex: none; height: 24px; padding: 0 10px; border: 1px solid var(--ui-divider); border-radius: var(--radius-full); background: color-mix(in srgb, var(--ui-surface) 80%, transparent); color: var(--ui-muted); font-size: 11.5px; font-weight: 400; line-height: 1; white-space: nowrap; }
+.selo[data-situacao="cancelada"] { text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--ui-muted) 60%, transparent); }
+
+/* O botão de olho, redondo, como no protótipo. */
+.olho:global(.ui-button) { flex: none; border-radius: var(--radius-full); }
+
+/* Agenda em duas linhas: o dia e, embaixo, horário, atraso ou nova data. */
+.agenda { display: grid; min-width: 0; line-height: 1.3; white-space: nowrap; }
+.agendaDia { color: var(--ui-text); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.agenda small { overflow: hidden; color: var(--ui-muted); font-size: 12px; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+.agendaCentro { justify-items: center; }
+
+/* ---------------------------------------------------------------- cards */
+
+/* 3 por linha a 1280 e 1440, 4 a 1680, 2 a 1024 e 1 no celular. */
+.grade { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; align-content: start; padding: 1px; }
+@media (min-width: 1680px) { .grade { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (max-width: 1100px) { .grade { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 720px) { .grade { grid-template-columns: minmax(0, 1fr); } }
+
+.card { display: flex; flex-direction: column; gap: 14px; height: 100%; box-sizing: border-box; padding: 18px !important; border-radius: var(--radius-xl) !important; }
+@media (max-width: 720px) { .card { padding: 16px !important; } }
+.cardTopo { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.caixa { display: grid; place-items: center; flex-shrink: 0; width: 40px; height: 40px; border-radius: 12px; background: var(--ui-subtle); color: var(--ui-muted); }
+.codigoEmpresa { display: inline-flex; align-items: center; gap: 6px; color: var(--ui-muted); font-size: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.cardCorpo { display: grid; gap: 4px; min-width: 0; }
+.cardTitulo { margin: 0; min-width: 0; font-size: 15px; font-weight: 500; line-height: 1.3; }
+.cardTitulo a { display: block; max-width: 100%; overflow: hidden; color: var(--ui-text); text-decoration: none; text-overflow: ellipsis; white-space: nowrap; }
+.cardTitulo a:hover { color: var(--ui-primary); }
+.cardTitulo a:focus-visible { outline: 2px solid var(--ui-primary); outline-offset: 3px; border-radius: 4px; }
+.cardDescricao { margin: 0; min-width: 0; overflow: hidden; color: var(--ui-muted); font-size: 12.5px; text-overflow: ellipsis; white-space: nowrap; }
+.cardMeta { display: flex; align-items: center; gap: 14px; min-width: 0; margin: 6px 0 0; color: var(--ui-muted); font-size: 12.5px; }
+.cardMeta > span { display: inline-flex; align-items: center; gap: 6px; min-width: 0; white-space: nowrap; }
+.cardMeta > span:first-child { flex: none; }
+.cardMeta svg { flex: none; }
+.cardRodape { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; margin-top: auto; padding-top: 12px; border-top: 1px solid var(--ui-divider); }
+.cardAcoes { display: flex; flex: none; align-items: center; gap: 6px; }
+.fotos { display: inline-flex; color: var(--ui-muted); }
+
+/* ---------------------------------------------------------------- lista */
+
+.lista { width: 100%; }
+.lista :global(td[data-l])::before { font-weight: 500; }
+.cartaoTabela:global(.shell-card) { padding: 0; overflow: hidden; border: 1px solid #dbe4ed; border-radius: var(--radius-xl); background: rgba(255, 255, 255, 0.95); }
+.cartaoTabela :global(.card-heading) { padding: 18px 16px 14px; }
+.cartaoTabela :global(.card-heading) h2 { font-size: 18px; font-weight: 500; }
+.cartaoTabela :global(.card-heading) span { color: #536579; font-size: 12px; }
+.tabelaWrap { border: 0 !important; border-top: 1px solid var(--ui-divider) !important; border-radius: 0 !important; background: transparent !important; overflow-x: hidden; }
+.tabela { width: 100%; min-width: 0; table-layout: fixed; }
+.tabela th { padding: 12px 10px; color: var(--ui-muted); font: 500 12px/1.4 var(--font-general-sans); letter-spacing: normal; text-transform: none; white-space: nowrap; }
+.tabela td { padding: 12px 10px; color: var(--ui-text); font-size: 13px; line-height: 1.5; vertical-align: middle; }
+.tabela :is(th, td):first-child { padding-left: 16px; text-align: left; }
+.tabela :is(th, td):last-child { padding-right: 16px; }
+.tabela :is(th, td):not(:first-child) { text-align: center; }
+.tabela td:not(:first-child) > :is(div, span) { margin-inline: auto; justify-content: center; }
+.tabela tbody tr { cursor: pointer; }
+.tabela tbody tr:hover { background: color-mix(in srgb, var(--ui-primary) 4%, transparent); }
+.tabela tbody tr:focus-visible { outline: 2px solid var(--ui-primary); outline-offset: -2px; }
+.cOrdem { width: 38%; } .cTipo { width: 14%; } .cTecnico { width: 14%; } .cAgenda { width: 14%; } .cEtapa { width: 13%; } .cAcao { width: 7%; }
+.iconeLinha { color: var(--ui-primary); }
+.blocoOrdem { min-width: 0; white-space: normal; }
+.nomeOrdem { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 500; }
+.linhaCodigo { display: flex !important; align-items: center; gap: 6px; flex-wrap: nowrap; min-width: 0; max-width: 100%; }
+.linhaCodigo > :not(.cortado) { flex: none; }
+.duasLinhas { display: inline-grid; justify-items: center; line-height: 1.3; }
+.duasLinhas small { color: var(--ui-muted); font-size: 12px; }
+
+/* ---------------------------------------------------------------- quadro */
+
+.cartaoQuadro { min-width: 0; }
+/* A barra de rolagem do quadro do CRM cresce (flex 1 1 160px) numa linha; aqui, numa coluna, ficaria com 160 px de altura. */
+.rolagemQuadro:global(.barra-rolagem-externa) { flex: none; align-self: center; width: min(380px, 100%); height: 20px; max-width: none; }
+/* Raio do card de quadro (18 px), como em Suprimentos e no Financeiro. */
+.cartaoQuadro:global(.cartao-negocio) { gap: 10px; border-radius: var(--radius-lg); }
+.empresaQuadro { font-size: 12px; }
+.notaColuna { color: var(--ui-muted); font-size: 12px; }
+.quandoQuadro { display: inline-flex; flex: 1 1 auto; align-items: center; gap: 6px; min-width: 0; color: var(--ui-muted); font-size: 12px; }
+.quandoQuadro span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.quandoQuadro svg { flex: none; }
+.pilula { flex: none; max-width: 50%; overflow: hidden; padding: 3px 10px; border: 1px solid var(--ui-divider); border-radius: var(--radius-full); background: var(--ui-subtle); color: var(--ui-text); font-size: 11.5px; text-overflow: ellipsis; white-space: nowrap; }

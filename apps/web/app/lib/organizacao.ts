@@ -13,8 +13,8 @@ import {
 } from "@plugga/shared";
 
 import type { IconName } from "../components/plugga-shell";
-import { podeAbrirPagina, TELAS_DOS_LANCAMENTOS } from "./acesso-paginas.ts";
-import { financeiroHabilitado } from "./recursos.ts";
+import { podeAbrirPagina, TELAS_DAS_ORDENS_DE_SERVICO, TELAS_DOS_LANCAMENTOS } from "./acesso-paginas.ts";
+import { engenhariaHabilitado, financeiroHabilitado } from "./recursos.ts";
 
 /**
  * Organização do plugga-os: Departamento → Processo.
@@ -170,12 +170,24 @@ export const DEPARTAMENTOS: Departamento[] = [
     processos: [
       { id: "engenharia-obras.obras", label: "Obras", status: "em-breve" },
       { id: "engenharia-obras.projetos", label: "Projetos elétricos", status: "em-breve" },
-      { id: "engenharia-obras.os", label: "Ordens de serviço", status: "em-breve" },
+      // Com o portão da Engenharia fechado (build de produção), o item segue em breve (PLU-345).
+      { label: "Ordens de serviço", telas: TELAS_DAS_ORDENS_DE_SERVICO, ...(engenhariaHabilitado() ? { rota: "/engenharia/ordens-de-servico", status: "parcial" as const } : { status: "em-breve" as const }) },
       { id: "engenharia-obras.instalacoes", label: "Instalações", status: "em-breve" },
       { id: "engenharia-obras.manutencao", label: "Manutenção", status: "em-breve" },
       { id: "engenharia-obras.visitas", label: "Visitas técnicas", status: "em-breve" },
       { id: "engenharia-obras.usinas", label: "Usinas solares · BESS", status: "em-breve" },
       { id: "engenharia-obras.relatorios", label: "Relatórios de campo · fotos e aceite", status: "em-breve" },
+    ],
+    // Ordens de serviço abre com qualquer uma de quatro telas; o editor de acesso segue concedendo as oito.
+    telas: [
+      { id: "engenharia-obras.obras", label: "Obras" },
+      { id: "engenharia-obras.projetos", label: "Projetos elétricos" },
+      { id: "engenharia-obras.os", label: "Ordens de serviço" },
+      { id: "engenharia-obras.instalacoes", label: "Instalações" },
+      { id: "engenharia-obras.manutencao", label: "Manutenção" },
+      { id: "engenharia-obras.visitas", label: "Visitas técnicas" },
+      { id: "engenharia-obras.usinas", label: "Usinas solares · BESS" },
+      { id: "engenharia-obras.relatorios", label: "Relatórios de campo · fotos e aceite" },
     ],
   },
 ];

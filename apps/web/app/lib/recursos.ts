@@ -16,7 +16,7 @@
  * Por isso o valor fica congelado no build: ligar em produção pela variável exige
  * um build novo, e pôr a variável só no `.env` do servidor não liga nada.
  */
-export type AmbienteDosRecursos = { NODE_ENV?: string; NEXT_PUBLIC_FINANCEIRO_HABILITADO?: string };
+export type AmbienteDosRecursos = { NODE_ENV?: string; NEXT_PUBLIC_FINANCEIRO_HABILITADO?: string; NEXT_PUBLIC_ENGENHARIA_HABILITADO?: string };
 
 export function financeiroHabilitado(
   ambiente: AmbienteDosRecursos = {
@@ -26,4 +26,19 @@ export function financeiroHabilitado(
   },
 ): boolean {
   return ambiente.NODE_ENV === "development" || ambiente.NODE_ENV === "test" || ambiente.NEXT_PUBLIC_FINANCEIRO_HABILITADO === "true";
+}
+
+/**
+ * Engenharia e Obras (PLU-345 a PLU-350): o mesmo portão do Financeiro, com a
+ * variável `NEXT_PUBLIC_ENGENHARIA_HABILITADO` (e `ENGENHARIA_HABILITADO` na API).
+ * Desligado, o menu fica em breve e `/engenharia/*` responde 404.
+ */
+export function engenhariaHabilitado(
+  ambiente: AmbienteDosRecursos = {
+    NODE_ENV: process.env.NODE_ENV,
+    // Lido por extenso: o Next só embute `process.env.NEXT_PUBLIC_*` escrito assim.
+    NEXT_PUBLIC_ENGENHARIA_HABILITADO: process.env.NEXT_PUBLIC_ENGENHARIA_HABILITADO,
+  },
+): boolean {
+  return ambiente.NODE_ENV === "development" || ambiente.NODE_ENV === "test" || ambiente.NEXT_PUBLIC_ENGENHARIA_HABILITADO === "true";
 }

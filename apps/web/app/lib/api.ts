@@ -25,6 +25,10 @@ import {
   listDealsResponseSchema,
   listIntegrationsResponseSchema,
   listJobRunsResponseSchema,
+  listarOrdensDeServicoRespostaSchema,
+  opcoesDaEngenhariaRespostaSchema,
+  ordemDeServicoSchema,
+  quadroDeOrdensRespostaSchema,
   listaDaEquipeSchema,
   listPipelinesResponseSchema,
   opportunityDetailSchema,
@@ -162,3 +166,19 @@ export const fetchLancamento = (id: string) => lerApi("/financeiro/lancamentos/:
 
 /** GET /financeiro/opcoes: categorias e contas por empresa, fornecedores ativos e formas de pagamento. */
 export const fetchOpcoesDoFinanceiro = () => lerApi("/financeiro/opcoes", opcoesDoFinanceiroSchema);
+
+type ConsultaDaEngenharia = Record<string, string | undefined>;
+
+/** GET /engenharia/ordens-de-servico: até 200 O.S., o total e as contagens dos metric cards e do filtro (PLU-345). */
+export const fetchOrdensDeServico = (consulta: ConsultaDaEngenharia) =>
+  lerApi("/engenharia/ordens-de-servico", listarOrdensDeServicoRespostaSchema, {}, { consulta });
+
+/** GET /engenharia/ordens-de-servico/quadro: as 6 colunas, sem o filtro de situação. */
+export const fetchQuadroDeOrdens = (consulta: ConsultaDaEngenharia) =>
+  lerApi("/engenharia/ordens-de-servico/quadro", quadroDeOrdensRespostaSchema, {}, { consulta });
+
+/** GET /engenharia/ordens-de-servico/:id: a ficha, com a linha do tempo e as ações permitidas agora. */
+export const fetchOrdemDeServico = (id: string) => lerApi("/engenharia/ordens-de-servico/:id", ordemDeServicoSchema, { id });
+
+/** GET /engenharia/ordens-de-servico/opcoes: técnicos e os enums dos menus. */
+export const fetchOpcoesDaEngenharia = () => lerApi("/engenharia/ordens-de-servico/opcoes", opcoesDaEngenhariaRespostaSchema);
