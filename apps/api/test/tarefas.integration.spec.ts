@@ -9,6 +9,7 @@ import { RequisicaoInvalida } from "../src/common/errors/dominio.js";
 import type { AuthPrincipal } from "../src/core/auth/auth.types.js";
 import { contextoBanco } from "../src/prisma/contexto-banco.js";
 import { PrismaService } from "../src/prisma/prisma.service.js";
+import { GerarOcorrenciasDoDiaHandler } from "../src/tarefas/gerar-ocorrencias-do-dia.handler.js";
 import { PrismaTarefasRepository } from "../src/tarefas/prisma-tarefas.repository.js";
 import { TarefasService } from "../src/tarefas/tarefas.service.js";
 import { assertSafeTestDatabaseUrl } from "./safe-test-environment";
@@ -30,8 +31,10 @@ describe.skipIf(!HABILITADO)("tarefas: ocorrências no Postgres", { timeout: PRA
   const root = new PrismaClient();
   const marca = `tar_${randomBytes(6).toString("hex")}`;
   const login = `${marca}_app`;
+  const loginJobs = `${marca}_jobs`;
   const pessoas = new Map<string, { id: string; hash: string; acesso: Acesso }>();
   let app: PrismaService;
+  let jobs: PrismaClient;
   let repo: PrismaTarefasRepository;
   let servico: TarefasService;
   let ambienteValidado = false;
@@ -55,19 +58,24 @@ describe.skipIf(!HABILITADO)("tarefas: ocorrências no Postgres", { timeout: PRA
     assertSafeTestDatabaseUrl(process.env.DATABASE_URL!, process.env.CI === "true", process.env.PLUGGA_TEST_DB_PORT);
     ambienteValidado = true;
     await root.$connect();
-    if (!/^tar_[a-f0-9]+_app$/.test(login)) throw new Error("Login de fixture inválido");
-    const senha = randomBytes(32).toString("hex");
-    await root.$transaction(async (t) => {
-      await t.$executeRaw`SELECT set_config('plugga.test_role', ${login}, true)`;
-      await t.$executeRaw`SELECT set_config('plugga.test_password', ${senha}, true)`;
-      await t.$executeRawUnsafe(`DO $fixture$ BEGIN EXECUTE format('CREATE ROLE %I LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD %L', current_setting('plugga.test_role'), current_setting('plugga.test_password')); END $fixture$`);
-    });
-    await root.$executeRawUnsafe(`GRANT plugga_runtime TO "${login}"`);
-    const url = new URL(process.env.DATABASE_URL!);
-    url.username = login;
-    url.password = senha;
-    url.searchParams.set("connection_limit", "3");
-    app = new PrismaService({ datasources: { db: { url: url.toString() } } });
+    // Dois logins de fixture: o da aplicação e o das rotinas (o agendador).
+    const criarLogin = async (nome: string, grupo: "plugga_runtime" | "plugga_jobs_runtime") => {
+      if (!/^tar_[a-f0-9]+_(app|jobs)$/.test(nome)) throw new Error("Login de fixture inválido");
+      const senha = randomBytes(32).toString("hex");
+      await root.$transaction(async (t) => {
+        await t.$executeRaw`SELECT set_config('plugga.test_role', ${nome}, true)`;
+        await t.$executeRaw`SELECT set_config('plugga.test_password', ${senha}, true)`;
+        await t.$executeRawUnsafe(`DO $fixture$ BEGIN EXECUTE format('CREATE ROLE %I LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD %L', current_setting('plugga.test_role'), current_setting('plugga.test_password')); END $fixture$`);
+      });
+      await root.$executeRawUnsafe(`GRANT ${grupo} TO "${nome}"`);
+      const url = new URL(process.env.DATABASE_URL!);
+      url.username = nome;
+      url.password = senha;
+      url.searchParams.set("connection_limit", "3");
+      return url.toString();
+    };
+    app = new PrismaService({ datasources: { db: { url: await criarLogin(login, "plugga_runtime") } } });
+    jobs = new PrismaClient({ datasources: { db: { url: await criarLogin(loginJobs, "plugga_jobs_runtime") } } });
     repo = new PrismaTarefasRepository(app, new AuditAppender());
     const config = { get: (chave: string) => (chave === "ENGENHARIA_LIGADA" || chave === "FINANCEIRO_LIGADO" ? true : undefined) };
     servico = new TarefasService(repo, {} as never, config as never, () => AGORA);
@@ -90,6 +98,7 @@ describe.skipIf(!HABILITADO)("tarefas: ocorrências no Postgres", { timeout: PRA
 
   afterAll(async () => {
     await app?.$disconnect();
+    await jobs?.$disconnect();
     if (ambienteValidado) {
       const tarefas = (await root.tarefa.findMany({ where: { titulo: { startsWith: marca } }, select: { id: true } })).map((t) => t.id);
       await root.$transaction(async (t) => {
@@ -100,6 +109,7 @@ describe.skipIf(!HABILITADO)("tarefas: ocorrências no Postgres", { timeout: PRA
       });
       await root.user.deleteMany({ where: { email: { startsWith: marca } } });
       await root.$executeRawUnsafe(`DROP ROLE IF EXISTS "${login}"`);
+      await root.$executeRawUnsafe(`DROP ROLE IF EXISTS "${loginJobs}"`);
     }
     await root.$disconnect();
   }, PRAZO);
@@ -128,6 +138,28 @@ describe.skipIf(!HABILITADO)("tarefas: ocorrências no Postgres", { timeout: PRA
     const hoje = doTeste((await lista("eng")).itens).filter((o) => o.tarefaId === tarefa.id);
     expect(hoje).toHaveLength(8);
     expect(hoje.find((o) => o.dia === "2026-11-25")).toMatchObject({ situacao: "vence_hoje", coluna: "pendentes", acoesPermitidas: ["concluir", "encerrar"] });
+  });
+
+  it("o agendador das 08h gera as ocorrências no papel de jobs, uma vez só, e não faz mais nada", async () => {
+    const tarefa = await criar({ titulo: `${marca} pelo agendador`, tipo: "recorrente", regra: { recorrencia: "dias_da_semana", dias: [4, 5] }, inicio: "2026-11-25" });
+    // Como se ninguém tivesse aberto a tela: sem nenhuma ocorrência gerada.
+    await semGatilho(async (t) => {
+      await t.ocorrenciaDeTarefa.deleteMany({ where: { tarefaId: tarefa.id } });
+      await t.tarefa.update({ where: { id: tarefa.id }, data: { geradaAte: null } });
+    });
+    const handler = new GerarOcorrenciasDoDiaHandler(jobs as never, () => AGORA);
+    const primeira = await handler.process();
+    expect(primeira.logRef).toMatch(/ate=2026-11-29/);
+    const dias = (await root.ocorrenciaDeTarefa.findMany({ where: { tarefaId: tarefa.id }, orderBy: { dia: "asc" }, select: { dia: true, concluidaEm: true } }));
+    // Quinta 26 e sexta 27.
+    expect(dias.map((d) => d.dia.toISOString())).toEqual(["2026-11-26T04:00:00.000Z", "2026-11-27T04:00:00.000Z"]);
+    await handler.process();
+    expect(await root.ocorrenciaDeTarefa.count({ where: { tarefaId: tarefa.id } })).toBe(2);
+    // O papel de jobs só gera: não muda a tarefa, não conclui, não lê evidência.
+    await expect(jobs.tarefa.update({ where: { id: tarefa.id }, data: { titulo: "outro" } })).rejects.toThrow(/permission denied/);
+    await expect(jobs.ocorrenciaDeTarefa.updateMany({ where: { tarefaId: tarefa.id }, data: { concluidaEm: AGORA } })).rejects.toThrow(/permission denied/);
+    await expect(jobs.evidenciaDeTarefa.count()).rejects.toThrow(/permission denied/);
+    await expect(jobs.ocorrenciaDeTarefa.create({ data: { tarefaId: tarefa.id, dia: new Date("2026-12-03T04:00:00Z"), prazoEm: AGORA, concluidaEm: AGORA } })).rejects.toThrow(/row-level security/);
   });
 
   it("conclui com o que a tarefa pede, guarda o checklist, e a concluída não muda", async () => {

@@ -16,7 +16,8 @@ import { EstadoInvalido, NaoEncontrado, RequisicaoInvalida } from "../common/err
 import { diaEmManaus, inicioDoDiaEmManaus } from "../compras/dias-uteis";
 import type { AuthPrincipal } from "../core/auth/auth.types";
 import { PrismaService } from "../prisma/prisma.service";
-import { diasParaGerar, marcasDoChecklist, prazoDaOcorrencia } from "./tarefas.rules";
+import { gerarOcorrencias } from "./geracao-de-ocorrencias";
+import { marcasDoChecklist } from "./tarefas.rules";
 
 export type ArquivoGuardado = { chave: string; nome: string; tamanho: number; tipo: string };
 export type Nomes = ReadonlyMap<string, string>;
@@ -61,8 +62,8 @@ export const regraDaLinha = (regra: Prisma.JsonValue | null): RegraDeRecorrencia
 
 /**
  * Persistência das Tarefas. As ocorrências são geradas sob demanda, até o fim
- * da semana corrente, de forma idempotente (uma por tarefa e dia): a lista e a
- * criação geram o que falta, então nenhum dia se perde mesmo sem o agendador.
+ * da semana corrente, de forma idempotente (uma por tarefa e dia): o agendador das
+ * 08h, a lista e a criação geram o que falta, então nenhum dia se perde.
  */
 @Injectable()
 export class PrismaTarefasRepository {
@@ -235,26 +236,9 @@ export class PrismaTarefasRepository {
 
   // ------------------------------------------------------------ apoio
 
-  /**
-   * Gera as ocorrências que faltam até `ate` (inclusive), uma por tarefa e dia.
-   * Idempotente: duas requisições ao mesmo tempo geram uma vez só.
-   */
+  /** As ocorrências que faltam do departamento (ou de uma tarefa), até `ate`. */
   private async gerar(tx: Prisma.TransactionClient, departamento: DepartamentoComTarefas, ate: string, tarefaId?: string): Promise<void> {
-    const limite = inicioDoDiaEmManaus(ate);
-    const tarefas = await tx.tarefa.findMany({
-      where: { departamento, encerradaEm: null, ...(tarefaId ? { id: tarefaId } : {}), OR: [{ geradaAte: null }, { geradaAte: { lt: limite } }] },
-      select: { id: true, tipo: true, regra: true, dia: true, horarioLimite: true, geradaAte: true },
-    });
-    for (const t of tarefas) {
-      const dias = diasParaGerar({ tipo: t.tipo, regra: regraDaLinha(t.regra), dia: diaEmManaus(t.dia), geradaAte: t.geradaAte ? diaEmManaus(t.geradaAte) : null, encerrada: false }, ate);
-      if (dias.length > 0) {
-        await tx.ocorrenciaDeTarefa.createMany({
-          data: dias.map((dia) => ({ tarefaId: t.id, dia: inicioDoDiaEmManaus(dia), prazoEm: prazoDaOcorrencia(dia, t.horarioLimite) })),
-          skipDuplicates: true,
-        });
-      }
-      await tx.tarefa.update({ where: { id: t.id }, data: { geradaAte: limite } });
-    }
+    await gerarOcorrencias(tx, ate, { departamento, ...(tarefaId ? { tarefaId } : {}) });
   }
 
   private async garantirPessoas(tx: Prisma.TransactionClient, departamento: DepartamentoComTarefas, ids: (string | null)[]): Promise<void> {
