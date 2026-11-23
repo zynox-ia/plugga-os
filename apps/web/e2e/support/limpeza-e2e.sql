@@ -36,13 +36,15 @@ BEGIN
   END IF;
 END $guarda$;
 
--- Só os dois triggers de evidência (movimentação só de inserção, comprovante só
--- substitui) ficam desligados, pelo nome e só nesta transação: as chaves
+-- Só os triggers de evidência (movimentação e linha do tempo só de inserção,
+-- comprovante e anexo só substituem) ficam desligados, pelo nome e só nesta transação: as chaves
 -- estrangeiras continuam valendo, então qualquer registro de fora do run que
 -- aponte para o que se apaga aborta tudo. São religados antes do fim; um erro no
 -- meio desfaz também o desligamento.
 ALTER TABLE movimentacoes_de_estoque DISABLE TRIGGER movimentacoes_de_estoque_append_only;
 ALTER TABLE comprovantes_de_pagamento DISABLE TRIGGER comprovantes_de_pagamento_so_substitui;
+ALTER TABLE anexos_de_lancamento DISABLE TRIGGER anexos_de_lancamento_so_substitui;
+ALTER TABLE historico_de_lancamento DISABLE TRIGGER historico_de_lancamento_append_only;
 
 -- "E2E <run>" ancorado no fim: o run abc123 não casa "E2E abc1234". O runId é só
 -- [A-Za-z0-9_-] (conferido acima), então pode entrar na expressão sem escape.
@@ -73,8 +75,14 @@ END $dependentes$;
 -- As chaves dos arquivos, antes de apagar as linhas.
 SELECT 'arquivo' AS tipo, arquivo_chave FROM cotacoes_de_compra WHERE pedido_id IN (SELECT id FROM e2e_ped)
 UNION ALL
-SELECT 'arquivo', arquivo_chave FROM comprovantes_de_pagamento WHERE pedido_id IN (SELECT id FROM e2e_ped);
+SELECT 'arquivo', arquivo_chave FROM comprovantes_de_pagamento WHERE pedido_id IN (SELECT id FROM e2e_ped)
+UNION ALL
+SELECT 'arquivo', arquivo_chave FROM anexos_de_lancamento WHERE lancamento_id IN (SELECT id FROM e2e_lanc);
 
+-- O que pende do lançamento (PLU-337) sai antes dele: anexos, linha do tempo e UCs.
+DELETE FROM anexos_de_lancamento WHERE lancamento_id IN (SELECT id FROM e2e_lanc);
+DELETE FROM historico_de_lancamento WHERE lancamento_id IN (SELECT id FROM e2e_lanc);
+DELETE FROM ucs_de_lancamento WHERE lancamento_id IN (SELECT id FROM e2e_lanc);
 DELETE FROM lancamentos WHERE id IN (SELECT id FROM e2e_lanc);
 DELETE FROM movimentacoes_de_estoque WHERE item_id IN (SELECT id FROM e2e_item) OR pedido_id IN (SELECT id FROM e2e_ped);
 DELETE FROM reservas_de_estoque WHERE item_id IN (SELECT id FROM e2e_item) OR pedido_id IN (SELECT id FROM e2e_ped);
@@ -89,6 +97,8 @@ DELETE FROM fornecedores WHERE id IN (SELECT id FROM e2e_forn);
 
 ALTER TABLE movimentacoes_de_estoque ENABLE TRIGGER movimentacoes_de_estoque_append_only;
 ALTER TABLE comprovantes_de_pagamento ENABLE TRIGGER comprovantes_de_pagamento_so_substitui;
+ALTER TABLE anexos_de_lancamento ENABLE TRIGGER anexos_de_lancamento_so_substitui;
+ALTER TABLE historico_de_lancamento ENABLE TRIGGER historico_de_lancamento_append_only;
 
 SELECT (SELECT count(*) FROM e2e_lanc) AS lancamentos, (SELECT count(*) FROM e2e_ped) AS pedidos,
        (SELECT count(*) FROM e2e_item) AS itens_de_estoque, (SELECT count(*) FROM e2e_forn) AS fornecedores;
