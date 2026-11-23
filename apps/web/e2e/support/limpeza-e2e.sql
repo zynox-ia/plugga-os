@@ -6,7 +6,8 @@
 --
 -- Só para o banco LOCAL (127.0.0.1/localhost, portas 55432 e 55433) ou o da CI. O
 -- hook confere o host e a porta da URL antes de chamar e passa
--- `limpeza_permitida=sim`; o SQL confere de novo o nome do banco e o runId.
+-- `limpeza_permitida=sim`; o SQL confere de novo o marcador `plugga.ambiente =
+-- 'local'` do banco, o nome do banco e o runId.
 -- Nunca apaga o que não tem o runId: os exemplos do QA ("(sintético)" sem
 -- "E2E <id>") ficam. O event_log não é tocado. Devolve as chaves dos arquivos
 -- (cotações e comprovantes) para quem quiser limpar o bucket local. Precisa do papel
@@ -20,6 +21,11 @@ DO $guarda$
 BEGIN
   IF current_setting('e2e.permitida', true) IS DISTINCT FROM 'sim' THEN
     RAISE EXCEPTION 'limpeza dos e2e sem permissão do hook';
+  END IF;
+  -- Marcador que só existe nos bancos locais (ALTER DATABASE … SET plugga.ambiente =
+  -- 'local', feito à mão no 55432 e no 55433; nunca em migration). A produção não o tem.
+  IF current_setting('plugga.ambiente', true) IS DISTINCT FROM 'local' THEN
+    RAISE EXCEPTION 'limpeza dos e2e só em banco marcado como local (plugga.ambiente)';
   END IF;
   IF current_database() NOT IN ('plugga_os', 'plugga_os_test') THEN
     RAISE EXCEPTION 'limpeza dos e2e só no banco local ou da CI (banco: %)', current_database();
