@@ -1,0 +1,75 @@
+/* Agenda de campo (PLU-346), no desenho do protótipo de 23/11/2026. Peso máximo 500;
+   vermelho só no atraso; o dia de hoje com o fundo azul claro. */
+
+.pagina { min-width: 0; }
+.subtitulo { max-width: 52ch; }
+.acoes { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 10px; }
+.filtro { flex: none; }
+.semana { display: inline-flex; align-items: center; gap: 8px; }
+.rotuloDaSemana { display: inline-flex; align-items: center; gap: 6px; padding: 0 6px; color: var(--ui-text); font-size: 13px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.muted { margin: 0; color: var(--ui-muted); font-size: 12.5px; }
+.vazio { margin: 0; padding: 24px 16px; color: var(--ui-muted); font-size: 13px; text-align: center; }
+.hoje { background: color-mix(in srgb, var(--ui-primary) 7%, transparent); }
+
+/* ---------------------------------------------------------------- grade (a partir de 900 px) */
+
+.grade { display: grid; overflow: hidden; border: 1px solid var(--ui-divider); border-radius: var(--radius-xl); background: color-mix(in srgb, var(--ui-surface) 78%, transparent); backdrop-filter: blur(10px); }
+.linhaDaGrade { display: grid; grid-template-columns: minmax(170px, 1.1fr) repeat(var(--dias, 5), minmax(0, 1fr)); border-top: 1px solid var(--ui-divider); }
+.linhaDaGrade:first-child { border-top: 0; }
+.cabecaTecnico, .cabecaDia { padding: 16px 12px 12px; color: var(--ui-muted); font-size: 12.5px; }
+.cabecaTecnico { display: flex; align-items: center; padding-left: 20px; }
+.cabecaDia { display: grid; justify-items: center; gap: 2px; border-left: 1px solid var(--ui-divider); }
+.cabecaDia span { color: var(--ui-text); font-size: 13.5px; }
+.cabecaDia.hoje span { color: var(--ui-primary); }
+.cabecaDia small { font-size: 12px; }
+.tecnico { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 14px 12px 14px 20px; }
+.tecnico > span:last-child { display: grid; min-width: 0; }
+.tecnico strong { overflow: hidden; color: var(--ui-text); font-size: 13.5px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.tecnico small { color: var(--ui-muted); font-size: 12px; }
+.avatar { display: grid; place-items: center; flex: none; width: 30px; height: 30px; border-radius: var(--radius-full); background: var(--ui-subtle); color: var(--ui-primary); font-size: 11px; font-weight: 500; }
+.celula { display: grid; align-content: start; gap: 8px; min-width: 0; min-height: 84px; padding: 8px; border-left: 1px solid var(--ui-divider); }
+
+.bloco { display: grid; gap: 2px; min-width: 0; padding: 10px 12px; border: 1px solid var(--ui-divider); border-radius: var(--radius-lg); background: #fff; color: var(--ui-text); text-decoration: none; box-shadow: 0 2px 6px color-mix(in srgb, var(--ui-text) 4%, transparent); }
+.bloco:hover { border-color: color-mix(in srgb, var(--ui-primary) 35%, var(--ui-divider)); }
+.bloco:focus-visible { outline: 2px solid var(--ui-primary); outline-offset: 2px; }
+.bloco strong { overflow: hidden; font-size: 13px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.bloco small { overflow: hidden; color: var(--ui-muted); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.hora { display: inline-flex; align-items: center; gap: 6px; color: var(--ui-muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.hora svg { flex: none; }
+.atrasada { border-color: color-mix(in srgb, var(--ui-danger) 35%, var(--ui-divider)); }
+.atrasada .hora { color: var(--ui-danger); }
+.selo { margin-left: auto; color: var(--ui-danger); font-size: 11px; }
+
+/* ---------------------------------------------------------------- por dia (celular) */
+
+.porDia { display: none; }
+@media (max-width: 900px) {
+  .grade { display: none; }
+  .porDia { display: grid; gap: 12px; }
+  .acoes { justify-content: flex-start; }
+  .semana { width: 100%; justify-content: space-between; }
+}
+.cartaoDoDia { display: grid; gap: 8px; padding: 14px 16px; border: 1px solid var(--ui-divider); border-radius: var(--radius-xl); background: color-mix(in srgb, var(--ui-surface) 78%, transparent); }
+.cartaoDoDia h3 { display: flex; align-items: baseline; gap: 8px; margin: 0; color: var(--ui-text); font-size: 15px; font-weight: 500; }
+.cartaoDoDia h3 small { color: var(--ui-muted); font-size: 12.5px; font-weight: 400; }
+
+/* ---------------------------------------------------------------- para agendar */
+
+.paraAgendar { display: grid; gap: 12px; padding: 18px; border: 1px solid var(--ui-divider); border-radius: var(--radius-xl); background: color-mix(in srgb, var(--ui-surface) 78%, transparent); backdrop-filter: blur(10px); }
+.paraAgendar header h2 { display: flex; align-items: center; gap: 8px; margin: 0; color: var(--ui-text); font-size: 16px; font-weight: 500; }
+.paraAgendar header p { margin: 3px 0 0; color: var(--ui-muted); font-size: 12.5px; }
+.paraAgendar ul { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.paraAgendar li { display: flex; align-items: center; gap: 10px; }
+.linhaParaAgendar { display: flex; flex: 1 1 auto; align-items: center; gap: 12px; min-width: 0; padding: 12px 14px; border: 1px solid var(--ui-divider); border-radius: var(--radius-lg); background: #fff; color: var(--ui-text); text-decoration: none; }
+.linhaParaAgendar:hover { border-color: color-mix(in srgb, var(--ui-primary) 35%, var(--ui-divider)); }
+.linhaParaAgendar:focus-visible { outline: 2px solid var(--ui-primary); outline-offset: 2px; }
+.caixa { display: grid; place-items: center; flex: none; width: 34px; height: 34px; border-radius: 10px; background: var(--ui-subtle); color: var(--ui-muted); }
+.texto { display: grid; flex: 1 1 auto; gap: 2px; min-width: 0; }
+.texto strong { overflow: hidden; font-size: 13.5px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.texto small { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; color: var(--ui-muted); font-size: 12px; }
+.prazo { flex: none; color: var(--ui-text); font-size: 13px; white-space: nowrap; }
+.vermelho { color: var(--ui-danger); }
+@media (max-width: 560px) {
+  .paraAgendar li { flex-direction: column; align-items: stretch; }
+  .linhaParaAgendar { flex-wrap: wrap; }
+}

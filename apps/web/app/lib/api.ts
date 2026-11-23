@@ -32,6 +32,7 @@ import {
   listarUsinasRespostaSchema,
   monitoramentoDoDiaSchema,
   usinaSchema,
+  agendaRespostaSchema,
   opcoesDeTarefasRespostaSchema,
   type DepartamentoComTarefas,
   opcoesDaEngenhariaRespostaSchema,
@@ -214,3 +215,6 @@ export const fetchUsina = (id: string) => lerApi("/engenharia/usinas/:id", usina
 
 /** GET /engenharia/plataformas: as plataformas de inversor e se a pessoa edita. */
 export const fetchPlataformas = () => lerApi("/engenharia/plataformas", listarPlataformasRespostaSchema);
+
+/** GET /engenharia/agenda: a semana × técnico e as O.S. para agendar (PLU-346). */
+export const fetchAgendaDeCampo = (consulta: Record<string, string | undefined>) => lerApi("/engenharia/agenda", agendaRespostaSchema, {}, { consulta });

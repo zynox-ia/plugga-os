@@ -30,6 +30,8 @@ const paginas: ReadonlyArray<readonly [string, Tela | readonly Tela[]]> = [
   // Tarefas abre com qualquer tela do Financeiro; a API filtra o que cada um vê.
   ["/financeiro/tarefas", telasPorDepartamento.financeiro],
   ["/engenharia/ordens-de-servico", TELAS_DAS_ORDENS_DE_SERVICO],
+  // A agenda de campo é das O.S. (mesmas telas da rota da API, PLU-346).
+  ["/engenharia/agenda", TELAS_DAS_ORDENS_DE_SERVICO],
   // Tarefas da Engenharia abrem com qualquer tela do departamento (PLU-349).
   ["/engenharia/tarefas", telasPorDepartamento["engenharia-obras"]],
   ["/engenharia/visao-geral", telasPorDepartamento["engenharia-obras"]],
