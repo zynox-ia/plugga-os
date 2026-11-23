@@ -13,6 +13,7 @@ import {
   etapasPuladas,
   horaEmManaus,
   prazoDaEtapaAtual,
+  resumoDaTrilha,
 } from "../app/lib/ficha-do-pedido.ts";
 
 const A = "0b7e1c6a-1f2d-4c3b-9a8e-111111111111";
@@ -119,5 +120,15 @@ describe("edição envia só o que mudou", () => {
 
   it("itens fora da etapa editável não vão", () => {
     assert.deepEqual(camposDoPedidoAlterados(pedido(), corpo({ itens: [{ descricao: "Outro", quantidade: "1", unidade: "un" }] }), false), {});
+  });
+});
+
+describe("trilha resumida em 390 px", () => {
+  it("posição no caminho do pedido e a próxima etapa", () => {
+    assert.deepEqual(resumoDaTrilha({ etapa: "cotacoes", situacao: "em_andamento", origemAtendimento: "aquisicao" }), { posicao: 3, total: 7, atual: "Cotações", proxima: "Aprovação da compra" });
+    // Pelo estoque o caminho tem 4 etapas: análise vai direto para a retirada.
+    assert.deepEqual(resumoDaTrilha({ etapa: "retirada", situacao: "em_andamento", origemAtendimento: "estoque" }), { posicao: 3, total: 4, atual: "Retirada", proxima: "Concluído" });
+    assert.deepEqual(resumoDaTrilha({ etapa: "concluido", situacao: "concluido", origemAtendimento: "aquisicao" }), { posicao: 7, total: 7, atual: "Concluído", proxima: null });
+    assert.deepEqual(resumoDaTrilha({ etapa: "pagamento", situacao: "cancelado", origemAtendimento: "aquisicao" }), { posicao: 5, total: 7, atual: "Cancelado em Pagamento", proxima: null });
   });
 });

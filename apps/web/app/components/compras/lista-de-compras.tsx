@@ -29,7 +29,7 @@ export function ListaDeCompras({ pedidos, total, situacao, filtrado, aoMudarSitu
       <div className="card-heading"><div className={estilosLista.cabecalhoTabela}>
         <div><h2>{total === 1 ? "1 pedido" : `${total} pedidos`}</h2><span>{valorEmReais(String(soma)) ?? "R$ 0,00"} no total</span></div>
         <div className={estilosLista.controlesTabela}>
-          <div className={estilosLista.segmentado} role="group" aria-label="Situação">
+          <div className={`${estilosLista.segmentado} ${styles.segmentoDaLista}`} role="group" aria-label="Situação">
             {SEGMENTOS.map(([valor, rotulo]) => <button key={valor} type="button" aria-pressed={situacao === valor} onClick={() => aoMudarSituacao(valor)}>{rotulo}</button>)}
           </div>
         </div>

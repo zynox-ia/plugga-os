@@ -77,11 +77,11 @@ export function FichaDoPedido({ pedido: inicial, opcoes, aoFechar, aoAtualizar }
     else setErro(r.erro.mensagem);
   }
 
-  const abas: { id: Aba; titulo: string; conta?: number; icone: LucideIcon }[] = [
-    { id: "geral", titulo: "Visão geral", icone: LayoutGrid },
-    { id: "itens", titulo: "Itens", conta: pedido.itens.length, icone: ListChecks },
-    { id: "cotacoes", titulo: "Cotações", conta: pedido.cotacoes.length, icone: Paperclip },
-    { id: "tempo", titulo: "Linha do tempo", icone: History },
+  const abas: { id: Aba; titulo: string; curto: string; conta?: number; icone: LucideIcon }[] = [
+    { id: "geral", titulo: "Visão geral", curto: "Geral", icone: LayoutGrid },
+    { id: "itens", titulo: "Itens", curto: "Itens", conta: pedido.itens.length, icone: ListChecks },
+    { id: "cotacoes", titulo: "Cotações", curto: "Cotações", conta: pedido.cotacoes.length, icone: Paperclip },
+    { id: "tempo", titulo: "Linha do tempo", curto: "Tempo", icone: History },
   ];
   function navegar(evento: KeyboardEvent<HTMLDivElement>) {
     const i = abas.findIndex((a) => a.id === aba);
@@ -117,10 +117,10 @@ export function FichaDoPedido({ pedido: inicial, opcoes, aoFechar, aoAtualizar }
         </div>
       </header>
       <div className={detalhes.painelPrincipal}>
-        <div className={`${detalhes.navegacao} plg-parte`} role="tablist" aria-label="Seções do pedido" aria-orientation="horizontal" onKeyDown={navegar}>
+        <div className={`${detalhes.navegacao} ${styles.abas} plg-parte`} role="tablist" aria-label="Seções do pedido" aria-orientation="horizontal" onKeyDown={navegar}>
           {abas.map((a, i) => <div key={a.id}>
-            <button ref={(el) => { botoes.current[i] = el; }} type="button" role="tab" id={`${id}-${a.id}`} aria-selected={aba === a.id} aria-controls={`${id}-painel`} tabIndex={aba === a.id ? 0 : -1} className={detalhes.abaBotao} onClick={() => setAba(a.id)}>
-              <a.icone size={15} aria-hidden="true" /><span>{a.titulo}{a.conta !== undefined ? <span className={styles.contaAba}> {a.conta}</span> : null}</span>
+            <button ref={(el) => { botoes.current[i] = el; }} type="button" role="tab" id={`${id}-${a.id}`} aria-selected={aba === a.id} aria-controls={`${id}-painel`} aria-label={a.conta !== undefined ? `${a.titulo} ${a.conta}` : a.titulo} tabIndex={aba === a.id ? 0 : -1} className={detalhes.abaBotao} onClick={() => setAba(a.id)}>
+              <a.icone size={15} aria-hidden="true" /><span><span className={styles.abaLonga}>{a.titulo}</span><span className={styles.abaCurta} aria-hidden="true">{a.curto}</span>{a.conta !== undefined ? <span className={styles.contaAba}> {a.conta}</span> : null}</span>
             </button>
           </div>)}
         </div>

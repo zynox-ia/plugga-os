@@ -7,13 +7,17 @@ import {
   type DestinoDeCompra,
   type ObraDeCompra,
 } from "@plugga/shared";
-import { Plus, Search, X } from "lucide-react";
+import { Trigger } from "@radix-ui/react-select";
+import { Building2, ChevronDown, Plus, Search, X } from "lucide-react";
 import { useEffect, useId, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from "react";
 
 import { enviar } from "../../lib/clientes";
 import { COR_DA_EMPRESA, ROTULO_DA_EMPRESA } from "../../lib/compras";
+import estilosFiltro from "../clientes/filtro-de-clientes.module.css";
 import estilosLista from "../pipelines/lista-de-negocios.module.css";
+import estilosPipelines from "../pipelines/tela-pipelines.module.css";
 import { Button, Combobox, SelectField, type SelectOption } from "../ui";
+import { Select, SelectContent, SelectItem } from "../ui/shadcn/select";
 import styles from "./compras.module.css";
 
 /** Escolha única em botões do mesmo tamanho, na largura do campo (radiogroup com setas). */
@@ -51,7 +55,7 @@ export function CampoDeEscolha({ label, opcoes, valor, aoMudar, semValor, placeh
   const mudar = (v: string) => aoMudar(v === SEM_VALOR ? "" : v);
   const atual = valor || (semValor ? SEM_VALOR : "");
   if (opcoes.length > 8) return <Combobox label={required ? `${label} (obrigatório)` : label} options={todas} value={atual} onChange={mudar} disabled={disabled} error={erro} hint={dica} />;
-  return <SelectField label={label} required={required} value={atual || undefined} onChange={mudar} placeholder={placeholder} options={todas} disabled={disabled} error={erro} hint={dica} />;
+  return <SelectField label={label} required={required} value={atual} onChange={mudar} placeholder={placeholder} options={todas} disabled={disabled} error={erro} hint={dica} />;
 }
 
 export const opcoesDeEmpresa =(["plugga", "waze"] as const).map((e) => ({
@@ -120,4 +124,23 @@ export function DestinoDoPedido({ empresa, obras, valor, aoMudar, erros, aoCriar
       {erros.clientId ? <p id="busca-cliente-erro" className="ui-field-error">Erro: {erros.clientId}</p> : null}
     </div> : null}
   </>;
+}
+
+/** Filtro de Empresa do quadro e da lista: o gatilho e o painel do FiltroDeClientes, com o ponto da empresa em cada opção. */
+export function FiltroDeEmpresa({ valor, aoMudar }: { valor: CompanyKey | undefined; aoMudar: (v: CompanyKey | undefined) => void }) {
+  const atual = valor ?? "todas";
+  const opcoes = [{ valor: "todas", rotulo: "Todas as empresas" }, ...(["plugga", "waze"] as const).map((e) => ({ valor: e, rotulo: ROTULO_DA_EMPRESA[e] }))];
+  const icone = (v: string) => (v === "todas" ? <Building2 size={16} /> : <span className={`${styles.empresaPonto} ${styles.pontoDoFiltro}`} style={{ background: COR_DA_EMPRESA[v as CompanyKey] }} />);
+  return <Select value={atual} onValueChange={(v) => aoMudar(v === "todas" ? undefined : (v as CompanyKey))}>
+    <Trigger className={`${estilosPipelines.seletorTrigger} ${estilosFiltro.trigger}`} aria-label="Empresa">
+      <span className={estilosFiltro.icone} aria-hidden="true">{icone(atual)}</span>
+      <span className={`${estilosPipelines.seletorLabel} ${estilosFiltro.label}`}>{opcoes.find((o) => o.valor === atual)?.rotulo}</span>
+      <ChevronDown size={15} className={estilosPipelines.seletorChevron} aria-hidden="true" />
+    </Trigger>
+    <SelectContent className={`${estilosPipelines.popoverFunis} ${estilosFiltro.menu} ${styles.menuEmpresa}`} align="end" aria-label="Empresa">
+      {opcoes.map((o) => <SelectItem key={o.valor} value={o.valor} textValue={o.rotulo} className={`${estilosPipelines.popoverItem} ${o.valor === atual ? estilosPipelines.popoverItemAtivo : ""} ${estilosFiltro.opcao}`}>
+        <span className={styles.opcaoComIcone}><span className={estilosFiltro.icone} aria-hidden="true">{icone(o.valor)}</span>{o.rotulo}</span>
+      </SelectItem>)}
+    </SelectContent>
+  </Select>;
 }

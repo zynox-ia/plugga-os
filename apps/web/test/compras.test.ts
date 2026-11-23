@@ -11,6 +11,7 @@ import {
   lerFiltrosDeCompras,
   numeroDoPedido,
   pendenciasDaEtapa,
+  problemaDaDataDigitada,
   quantidadeDigitada,
   quantidadeLegivel,
   textoDoDestino,
@@ -123,5 +124,16 @@ describe("o que falta para avançar", () => {
     assert.equal(pendenciasDaEtapa({ ...base, etapa: "retirada", origemAtendimento: "aquisicao" }).length, 2);
     assert.equal(pendenciasDaEtapa({ ...base, etapa: "retirada", origemAtendimento: "estoque" }).length, 1);
     assert.deepEqual(pendenciasDaEtapa({ ...base, etapa: "concluido", situacao: "concluido" }), []);
+  });
+});
+
+describe("data de entrega digitada", () => {
+  it("diz o que está errado em vez de só pedir a data", () => {
+    assert.equal(problemaDaDataDigitada("", "2026-11-23"), "informe a data de entrega desejada.");
+    assert.equal(problemaDaDataDigitada("22/11", "2026-11-23"), "use o formato dd/mm/aaaa.");
+    assert.equal(problemaDaDataDigitada("31/02/2027", "2026-11-23"), "data inexistente.");
+    assert.equal(problemaDaDataDigitada("22/11/2026", "2026-11-23"), "a data já passou; escolha de hoje em diante.");
+    assert.equal(problemaDaDataDigitada("23/11/2026", "2026-11-23"), null);
+    assert.equal(problemaDaDataDigitada("29/02/2028", "2026-11-23"), null);
   });
 });

@@ -580,3 +580,27 @@
   .trilha li { flex: 0 0 84px; }
   .trilha button span { overflow-wrap: normal; word-break: normal; }
 }
+
+/* Trilha compacta e abas curtas: só em telas estreitas, onde os 7 pontos e os rótulos longos não cabem (QA, 390 px). */
+.trilhaCompacta { display: none; }
+.abaCurta { display: none; }
+
+@media (max-width: 720px) {
+  ol.trilha { display: none; }
+
+  .trilhaCompacta {
+    display: grid;
+    gap: 8px;
+    padding-top: 4px;
+  }
+
+  .trilhaCompacta p { margin: 0; font-size: 13.5px; color: var(--ui-text); }
+  .trilhaCompacta strong { font-weight: 500; }
+  .trilhaCompacta .muted { font-size: 12.5px; }
+
+  .abaLonga { display: none; }
+  .abaCurta { display: inline; }
+
+  .abas > div { flex: 1 1 0; min-width: 0; }
+  .abas button { padding-inline: 4px; gap: 5px; justify-content: center; }
+}

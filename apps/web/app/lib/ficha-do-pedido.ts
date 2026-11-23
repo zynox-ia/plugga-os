@@ -1,4 +1,4 @@
-import { rotulosDaEtapaDeCompra, rotulosDaFormaDePagamento, type EtapaDeCompra, type PedidoDeCompra } from "@plugga/shared";
+import { etapasDeCompra, rotulosDaEtapaDeCompra, rotulosDaFormaDePagamento, type EtapaDeCompra, type PedidoDeCompra } from "@plugga/shared";
 
 import { diaCurto, hojeEmManaus, valorEmReais } from "./compras.ts";
 
@@ -123,4 +123,13 @@ export function camposDoPedidoAlterados(pedido: PedidoDeCompra, corpo: Record<st
   // O destino é validado junto com o vínculo: se um muda, os três vão.
   if (["destino", "obraId", "clientId"].some((c) => c in mudou)) Object.assign(mudou, { destino: corpo.destino, obraId: corpo.obraId, clientId: corpo.clientId });
   return mudou;
+}
+
+/** A trilha resumida para telas estreitas: "3 de 7 · Cotações", a barra e a próxima etapa do caminho. */
+export function resumoDaTrilha(p: Pick<PedidoDeCompra, "etapa" | "situacao" | "origemAtendimento">): { posicao: number; total: number; atual: string; proxima: string | null } {
+  const caminho = etapasDeCompra.filter((e) => !etapasPuladas(p).has(e));
+  const i = Math.max(0, caminho.indexOf(p.etapa));
+  const atual = p.situacao === "cancelado" ? `Cancelado em ${rotulosDaEtapaDeCompra[p.etapa]}` : rotulosDaEtapaDeCompra[p.etapa];
+  const proxima = p.situacao === "em_andamento" ? caminho[i + 1] ?? null : null;
+  return { posicao: i + 1, total: caminho.length, atual, proxima: proxima ? rotulosDaEtapaDeCompra[proxima] : null };
 }

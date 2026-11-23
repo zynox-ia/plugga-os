@@ -265,3 +265,19 @@ export function pendenciasDaEtapa(p: Pick<PedidoDeCompra, "etapa" | "situacao" |
     default: return [];
   }
 }
+
+/**
+ * O problema da data como a pessoa digitou (dd/mm/aaaa), para o formulário dizer
+ * o que está errado: vazia, fora do formato, inexistente (31/02) ou já passada.
+ */
+export function problemaDaDataDigitada(texto: string, hoje: string): string | null {
+  const t = texto.trim();
+  if (!t) return "informe a data de entrega desejada.";
+  const partes = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(t);
+  if (!partes) return "use o formato dd/mm/aaaa.";
+  const [dia, mes, ano] = [Number(partes[1]), Number(partes[2]), Number(partes[3])];
+  const data = new Date(Date.UTC(ano, mes - 1, dia));
+  if (data.getUTCFullYear() !== ano || data.getUTCMonth() !== mes - 1 || data.getUTCDate() !== dia) return "data inexistente.";
+  if (`${partes[3]}-${partes[2]}-${partes[1]}` < hoje) return "a data já passou; escolha de hoje em diante.";
+  return null;
+}

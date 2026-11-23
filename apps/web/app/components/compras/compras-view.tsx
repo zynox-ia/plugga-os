@@ -1,17 +1,18 @@
 "use client";
 
 import type { OpcoesDeCompraResposta, PedidoDeCompra, PedidoDeCompraResumo, QuadroDeComprasResposta } from "@plugga/shared";
-import { Ban, Building2, CalendarDays, List, ShoppingCart, SquareKanban, UserRound } from "lucide-react";
+import { Ban, CalendarDays, List, ShoppingCart, SquareKanban, UserRound } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from "react";
 
-import { hrefDeCompras, numeroDoPedido, periodosDeCompra, ROTULO_DA_EMPRESA, ROTULO_DO_PERIODO, textoDoDestino, type FiltrosDeCompras } from "../../lib/compras";
+import { hrefDeCompras, numeroDoPedido, periodosDeCompra, ROTULO_DO_PERIODO, textoDoDestino, type FiltrosDeCompras } from "../../lib/compras";
 import { FiltroDeClientes } from "../clientes/filtro-de-clientes";
 import estilosClientes from "../clientes/tela-clientes.module.css";
 import { BarraRolagemMinimalista } from "../pipelines/quadro-do-pipeline";
 import estilosPipelines from "../pipelines/tela-pipelines.module.css";
 import { Button, IconPlus, IconSearch } from "../ui";
+import { FiltroDeEmpresa } from "./campos-de-compra";
 import styles from "./compras.module.css";
 import { FichaDoPedido } from "./ficha-do-pedido";
 import { ListaDeCompras } from "./lista-de-compras";
@@ -95,8 +96,7 @@ export function ComprasView({ filtros, colunas, pedidos, total, opcoes, ficha, f
         </nav>
         {quadro ? <BarraRolagemMinimalista containerRef={colunasRef} className={estilosPipelines.rolagem} /> : <span className={styles.espaco} />}
         <div className={`${estilosPipelines.navegacaoDireita} ${styles.filtros}`} role="group" aria-label="Filtros de pedidos">
-          <div className={styles.filtro}><FiltroDeClientes label="Empresa" value={filtros.empresa ?? "todas"} onChange={(v) => ir({ empresa: v === "todas" ? undefined : (v as FiltrosDeCompras["empresa"]) })}
-            options={[{ value: "todas", label: "Todas as empresas", icon: <Building2 /> }, { value: "plugga", label: ROTULO_DA_EMPRESA.plugga, icon: <Building2 /> }, { value: "waze", label: ROTULO_DA_EMPRESA.waze, icon: <Building2 /> }]} /></div>
+          <div className={styles.filtro}><FiltroDeEmpresa valor={filtros.empresa} aoMudar={(empresa) => ir({ empresa })} /></div>
           <div className={styles.filtro}><FiltroDeClientes label="Responsável" value={filtros.responsavel ?? "todos"} onChange={(v) => ir({ responsavel: v === "todos" ? undefined : v })}
             options={[{ value: "todos", label: "Todos os responsáveis", icon: <UserRound /> }, ...opcoes.pessoas.map((p) => ({ value: p.id, label: p.nome, icon: <UserRound /> }))]} /></div>
           <div className={styles.filtro}><FiltroDeClientes label="Período" value={filtros.periodo ?? "qualquer"} onChange={(v) => ir({ periodo: v === "qualquer" ? undefined : (v as FiltrosDeCompras["periodo"]) })}

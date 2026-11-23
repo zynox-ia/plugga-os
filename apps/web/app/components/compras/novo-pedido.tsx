@@ -5,11 +5,12 @@ import { CalendarDays, FileText, HardHat, ListChecks, Pencil, Plus, Save, Shoppi
 import { useEffect, useRef, useState, type FormEvent } from "react";
 
 import { enviar, type ErroDoFormulario } from "../../lib/clientes";
-import { decimalDigitado, hojeEmManaus, quantidadeDigitada } from "../../lib/compras";
+import { decimalDigitado, hojeEmManaus, problemaDaDataDigitada, quantidadeDigitada } from "../../lib/compras";
 import { camposDoPedidoAlterados } from "../../lib/ficha-do-pedido";
 import { useItensDeEstoque, VinculoComEstoque } from "../suprimentos/ligacao-com-estoque";
 import { Alert, Button, DatePicker, Dialog, Heading, TextField, TextareaField } from "../ui";
 import { displayCurrency } from "../ui/currency-value";
+import { displayDate } from "../ui/date-value";
 import { CampoDeEscolha, DestinoDoPedido, opcoesDeEmpresa, Segmentado, type DestinoEscolhido } from "./campos-de-compra";
 import styles from "./compras.module.css";
 
@@ -52,6 +53,7 @@ export function NovoPedido({ opcoes, pedido, aoCancelar, aoSalvar }: {
   const [erro, setErro] = useState<ErroDoFormulario | null>(null);
   const [enviando, setEnviando] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
+  const prazoRef = useRef<HTMLDivElement>(null);
   const proximaChave = useRef(itens.length + 1);
   const focar = useRef(false);
   const hoje = hojeEmManaus();
@@ -81,8 +83,12 @@ export function NovoPedido({ opcoes, pedido, aoCancelar, aoSalvar }: {
       if (!i.descricao.trim()) porCampo[`item-${i.chave}-descricao`] = "descreva o material.";
       if (!quantidadeDigitada(i.quantidade)) porCampo[`item-${i.chave}-quantidade`] = "quantidade maior que zero, até 3 casas.";
     });
-    if (!prazo) porCampo.prazoEntregaDesejado = "informe a data de entrega desejada.";
-    else if (!editando && prazo < hoje) porCampo.prazoEntregaDesejado = "a entrega desejada não pode ser antes de hoje.";
+    // O seletor só devolve data válida; o texto digitado diz por que não (vazia, 31/02, já passou).
+    // Na edição, a data que já estava gravada vale como está, mesmo que já tenha passado.
+    const textoDoPrazo = prazoRef.current?.querySelector("input")?.value ?? "";
+    const prazoOriginal = pedido ? displayDate(pedido.prazoEntregaDesejado) : null;
+    const problemaDoPrazo = textoDoPrazo === prazoOriginal ? null : problemaDaDataDigitada(textoDoPrazo, hoje);
+    if (problemaDoPrazo) porCampo.prazoEntregaDesejado = problemaDoPrazo;
     const orcado = valorOrcado.trim() ? decimalDigitado(valorOrcado) : null;
     if (valorOrcado.trim() && (!orcado || Number(orcado) <= 0)) porCampo.valorOrcado = "valor maior que zero, como 1.450,00.";
     if (Object.keys(porCampo).length) { focar.current = true; setErro({ mensagem: "Confira os campos destacados.", porCampo }); return; }
@@ -135,7 +141,7 @@ export function NovoPedido({ opcoes, pedido, aoCancelar, aoSalvar }: {
       <section className="ui-dialog-section">
         <div className="ui-dialog-section-header"><Heading as="h3" icon={<CalendarDays />}>Prazo, valor e responsável</Heading></div>
         <div className="ui-dialog-grid">
-          <DatePicker label="Entrega desejada" required min={editando ? undefined : hoje} value={prazo} onChange={setPrazo} error={e("prazoEntregaDesejado")} />
+          <div ref={prazoRef}><DatePicker label="Entrega desejada" required min={pedido && pedido.prazoEntregaDesejado < hoje ? undefined : hoje} value={prazo} onChange={setPrazo} error={e("prazoEntregaDesejado")} /></div>
           <TextField label="Valor orçado" inputMode="decimal" prefix="R$" value={valorOrcado} onChange={(ev) => setValorOrcado(ev.target.value)} onBlur={() => { const d = decimalDigitado(valorOrcado); if (d) setValorOrcado(displayCurrency(d)); }} placeholder="0,00" hint="Opcional. Ajuda a priorizar a cotação." error={e("valorOrcado")} />
         </div>
         <CampoDeEscolha label="Responsável" valor={responsavel} aoMudar={setResponsavel} semValor="Sem responsável por enquanto" opcoes={opcoes.pessoas.map((p) => ({ value: p.id, label: p.nome }))} erro={e("responsavelId")} />

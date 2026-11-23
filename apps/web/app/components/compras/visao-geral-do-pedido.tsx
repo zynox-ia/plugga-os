@@ -5,7 +5,7 @@ import { ArrowRight, Ban, Check, Send, ShoppingCart, Truck, Undo2, Wallet, X } f
 import { useState } from "react";
 
 import { dataEmManaus, decimalDigitado, hojeEmManaus, ROTULO_DA_EMPRESA, diaCurto, diaLegivel, valorEmReais } from "../../lib/compras";
-import { etapasPuladas, prazoDaEtapaAtual } from "../../lib/ficha-do-pedido";
+import { etapasPuladas, prazoDaEtapaAtual, resumoDaTrilha } from "../../lib/ficha-do-pedido";
 import { Avatar } from "../pipelines/icones";
 import visao from "../pipelines/resumo-do-lead.module.css";
 import { entradaDoRecebimento, entradaInicial, type EstadoDaEntrada } from "../suprimentos/ligacao-com-estoque";
@@ -15,6 +15,18 @@ import { AcaoDaEtapa, PainelDoPasso } from "./acao-da-etapa";
 import styles from "./ficha-do-pedido.module.css";
 
 const TOM = { ok: styles.prazoOk, hoje: styles.prazoHoje, vencido: styles.prazoVencido } as const;
+
+/** Em telas estreitas a trilha de 7 pontos não cabe: mostra a posição, a barra e a próxima etapa. */
+function TrilhaCompacta({ pedido }: { pedido: PedidoDeCompra }) {
+  const r = resumoDaTrilha(pedido);
+  return <div className={styles.trilhaCompacta}>
+    <p><strong>{r.posicao} de {r.total}</strong> · {r.atual}</p>
+    <div className={styles.passoBarra} role="progressbar" aria-label="Etapas do pedido" aria-valuemin={0} aria-valuemax={r.total} aria-valuenow={r.posicao} aria-valuetext={`${r.posicao} de ${r.total}: ${r.atual}`}>
+      <span style={{ width: `${(r.posicao / r.total) * 100}%` }} />
+    </div>
+    {r.proxima ? <p className={styles.muted}>Próxima: {r.proxima}</p> : null}
+  </div>;
+}
 
 function Trilha({ pedido }: { pedido: PedidoDeCompra }) {
   const atual = etapasDeCompra.indexOf(pedido.etapa);
@@ -100,6 +112,7 @@ export function VisaoGeralDoPedido({ pedido, hoje, ocupado, aoAgir, aoPedirMotiv
         </div>
       </header>
       <Trilha pedido={pedido} />
+      <TrilhaCompacta pedido={pedido} />
     </section>
 
     <PainelDoPasso pedido={pedido} hoje={hoje} />
