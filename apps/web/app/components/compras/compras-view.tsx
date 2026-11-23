@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type CSSProperties, type FormEvent, type ReactElement } from "react";
 
 import { hrefDeCompras, numeroDoPedido, ROTULO_DA_EMPRESA, periodosDeCompra, ROTULO_DO_PERIODO, textoDoDestino, type FiltrosDeCompras } from "../../lib/compras";
-import { BarraFixa, CampoDaFolha, classeDaPaginaComBarra } from "../barra-fixa";
+import { BarraFixa, CampoDaFolha, classeDaPaginaComBarra, classeDosControlesDaBarra } from "../barra-fixa";
 import estilosClientes from "../clientes/tela-clientes.module.css";
 import { BarraRolagemMinimalista } from "../pipelines/quadro-do-pipeline";
 import estilosPipelines from "../pipelines/tela-pipelines.module.css";
@@ -102,15 +102,15 @@ export function ComprasView({ filtros, colunas, pedidos, total, opcoes, ficha, f
           <h2 className={`${estilosPipelines.subtitulo} ${styles.subtitulo}`}>Acompanhe os pedidos de compra, das cotações ao recebimento.</h2>
         </div>
         <div className={estilosPipelines.acoes}>
-          {quadro ? campoDeBusca("cabecalho") : null}
           {novoPedido}
         </div>
       </header>
 
-      {quadro ? <div className={estilosPipelines.navegacao}>
+      {quadro ? <div className={`${estilosPipelines.navegacao} ${classeDosControlesDaBarra}`}>
         {visoes}
         <BarraRolagemMinimalista containerRef={colunasRef} className={estilosPipelines.rolagem} />
         <div className={`${estilosPipelines.navegacaoDireita} ${styles.filtros}`} role="group" aria-label="Filtros de pedidos">
+          <div className={styles.buscaDoQuadro}>{campoDeBusca("quadro")}</div>
           <div className={styles.filtro}>{filtroDeEmpresa}</div>
           <Button variant="secondary" className={styles.alternar} aria-pressed={filtros.cancelados} icon={<Ban size={16} />} onClick={() => ir({ cancelados: !filtros.cancelados })}>
             Cancelados{canceladosVisiveis ? <span className={styles.conta}> {String(canceladosVisiveis.length).padStart(2, "0")}</span> : null}

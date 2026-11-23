@@ -316,3 +316,11 @@
 .paginaDaLista { height: auto !important; min-height: auto !important; }
 .filtrosDaBarra { display: flex; align-items: center; gap: 8px; margin-left: 0; }
 .filtrosDaBarra > .filtro { width: auto; }
+.buscaDoQuadro { flex: 0 1 220px; min-width: 160px; }
+/* Quadro: busca, Empresa e Cancelados numa linha (nenhum controle sozinho). */
+@media (min-width: 1100px) {
+  .filtros:has(> .buscaDoQuadro) { flex-wrap: nowrap; }
+  .filtros:has(> .buscaDoQuadro) > .filtro { width: auto; }
+}
+.buscaDoQuadro :global(.equipe-busca) { width: 100%; }
+@media (max-width: 720px) { .buscaDoQuadro { flex: 1 1 100%; } }

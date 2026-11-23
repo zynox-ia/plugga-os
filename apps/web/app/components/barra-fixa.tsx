@@ -21,6 +21,8 @@ import { Button, Dialog } from "./ui";
  */
 
 export const classeDaPaginaComBarra = styles.pagina;
+/** O padrão de texto e altura dos controles da barra (o do seletor de visão) para uma barra que não gruda. */
+export const classeDosControlesDaBarra = styles.controles;
 
 /** O ancestral que rola (o `.main-content` do app), para o observador saber quando a barra prende. */
 function ancestralQueRola(el: HTMLElement | null): HTMLElement | null {
