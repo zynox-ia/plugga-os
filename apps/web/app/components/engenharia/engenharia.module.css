@@ -97,6 +97,23 @@
 .duasLinhas { display: inline-grid; justify-items: center; line-height: 1.3; }
 .duasLinhas small { color: var(--ui-muted); font-size: 12px; }
 
+/* Até 900 px a linha vira um cartão (como no Estoque e no protótipo): a O.S. no topo, na largura toda,
+   com o olho no canto; Tipo, Técnico, Agenda e Etapa em duas colunas, cada um com o rótulo. */
+@media (max-width: 900px) {
+  .tabela colgroup, .tabela thead { display: none; }
+  .tabela, .tabela tbody { display: block; width: 100%; min-width: 0 !important; }
+  .tabela tbody tr { position: relative; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 12px; padding: 14px 16px; border-bottom: 1px solid var(--ui-divider); }
+  .tabela tbody tr:last-child { border-bottom: 0; }
+  .tabela td { display: grid; gap: 2px; min-width: 0; padding: 0 !important; border: 0; text-align: left !important; }
+  .tabela td:first-child { grid-column: 1 / -1; padding-right: 48px !important; }
+  .tabela td[data-l]:not(:first-child)::before { content: attr(data-l); display: block; margin: 0; color: var(--ui-muted); font-size: 12px; font-weight: 400; }
+  .tabela td:first-child::before { display: none; content: none; }
+  .tabela td:not(:first-child) > :is(div, span) { justify-self: start; margin-inline: 0; justify-content: flex-start; justify-items: start; }
+  /* Mais específico que o `right: 0` da lista de negócios no celular. */
+  .lista .tabela td:last-child { position: absolute; top: 14px; right: 16px; width: auto; }
+  .tabela td:last-child > div { justify-content: flex-end; }
+}
+
 /* ---------------------------------------------------------------- quadro */
 
 .cartaoQuadro { min-width: 0; }
