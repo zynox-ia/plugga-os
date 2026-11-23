@@ -173,10 +173,15 @@ test("cartão mantém conteúdo e menu contidos nas quatro larguras e preserva a
     await page.setViewportSize({ width, height: 1000 });
     await expect(cartao).toBeInViewport();
     expect(await cartao.evaluate((el) => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(1);
-    const prioridade = (await cartao.getByRole("button", { name: `Prioridade de ${negocio.lead.name}`, exact: true }).boundingBox())!;
-    const acoes = (await cartao.getByRole("button", { name: `Ações de ${negocio.lead.name}`, exact: true }).boundingBox())!;
-    expect(prioridade.x + prioridade.width).toBeLessThanOrEqual(acoes.x);
-    expect(prioridade.y + prioridade.height / 2).toBeCloseTo(acoes.y + acoes.height / 2, 0);
+    // A barra lateral anima (transition de .25s) depois do resize e o cartão refaz o layout:
+    // prioridade e ações são medidas juntas, quando o layout assenta.
+    const medidas = () => cartao.evaluate((el, nome) => {
+      const caixa = (rotulo: string) => el.querySelector(`button[aria-label="${rotulo}"]`)!.getBoundingClientRect();
+      const prioridade = caixa(`Prioridade de ${nome}`); const acoes = caixa(`Ações de ${nome}`);
+      return { folga: acoes.left - prioridade.right, desalinho: Math.abs(prioridade.top + prioridade.height / 2 - acoes.top - acoes.height / 2) };
+    }, negocio.lead.name);
+    await expect.poll(async () => (await medidas()).desalinho).toBeLessThan(0.5);
+    expect((await medidas()).folga).toBeGreaterThanOrEqual(0);
     await cartao.getByRole("button", { name: `Ações de ${negocio.lead.name}`, exact: true }).click();
     const menu = page.getByRole("menu", { name: `Ações de ${negocio.lead.name}`, exact: true });
     await expect(menu).toBeInViewport();
