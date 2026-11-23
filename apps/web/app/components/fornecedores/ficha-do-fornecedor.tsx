@@ -5,7 +5,7 @@ import { LayoutGrid, MapPin, Paperclip, Pencil, Power, Truck, Wallet, X, type Lu
 import { useId, useRef, useState, type KeyboardEvent } from "react";
 
 import { enviar } from "../../lib/clientes";
-import { documentoFormatado, localDoFornecedor, nomeDoFornecedor } from "../../lib/fornecedores";
+import { avisoDeCopia, documentoFormatado, localDoFornecedor, nomeDoFornecedor } from "../../lib/fornecedores";
 import { FecharModal, Modal } from "../modal";
 import detalhes from "../pipelines/detalhes-do-lead-modal.module.css";
 import { Button } from "../ui";
@@ -47,8 +47,8 @@ export function FichaDoFornecedor({ dados, podeAbrirCompras, aoFechar, aoEditar,
   }
 
   async function copiar(texto: string, rotulo: string) {
-    try { await navigator.clipboard.writeText(texto); setErro(null); setAviso(`${rotulo} copiado.`); }
-    catch { setAviso(null); setErro(`Não foi possível copiar ${rotulo.toLowerCase()}. Selecione e copie à mão.`); }
+    try { await navigator.clipboard.writeText(texto); setErro(null); setAviso(avisoDeCopia(rotulo)); }
+    catch { setAviso(null); setErro(`Não foi possível copiar: ${rotulo}. Selecione e copie à mão.`); }
   }
 
   async function alternarSituacao() {

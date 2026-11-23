@@ -151,3 +151,12 @@ export function larguraDaBarra(valor: string, maior: number): number {
   if (!Number.isFinite(n) || maior <= 0) return 0;
   return Math.max(2, Math.round((n / maior) * 100));
 }
+
+const GENERO_FEMININO = new Set(["Chave PIX"]);
+const PLURAL = new Set(["Dados bancários"]);
+
+/** "Chave PIX copiada.", "Dados bancários copiados.", "E-mail copiado.": o aviso concorda com o campo. */
+export function avisoDeCopia(rotulo: string): string {
+  const fim = GENERO_FEMININO.has(rotulo) ? "copiada" : "copiado";
+  return `${rotulo} ${PLURAL.has(rotulo) ? `${fim}s` : fim}.`;
+}

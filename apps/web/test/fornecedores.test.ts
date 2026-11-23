@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import {
+  avisoDeCopia,
   cepFormatado,
   documentoFormatado,
   enderecoNoMapa,
@@ -87,6 +88,12 @@ describe("ficha rica do fornecedor (PLU-334)", () => {
     assert.deepEqual(linksDoTelefone("5592999990001"), { ligar: "tel:+5592999990001", whatsapp: "https://wa.me/5592999990001" });
     assert.equal(linksDoTelefone("123"), null);
     assert.equal(linksDoTelefone(null), null);
+  });
+
+  it("o aviso de cópia concorda com o campo", () => {
+    assert.equal(avisoDeCopia("Chave PIX"), "Chave PIX copiada.");
+    assert.equal(avisoDeCopia("Dados bancários"), "Dados bancários copiados.");
+    assert.equal(avisoDeCopia("E-mail"), "E-mail copiado.");
   });
 
   it("segredo de pagamento mostra só o fim", () => {
