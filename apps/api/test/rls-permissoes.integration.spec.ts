@@ -807,6 +807,8 @@ describe.skipIf(!HABILITADO)("RLS: permissões no login real da aplicação", { 
       expect(await nomes("a", [clienteId])).toEqual([]);
       expect(await contexto("op", (tx) => tx.client.findUnique({ where: { id: clienteId }, select: { id: true } }))).toBeNull();
     } finally {
+      // Evidência não sai em cascata (ON DELETE RESTRICT): comprovantes antes dos pedidos.
+      await root.comprovanteDePagamento.deleteMany({ where: { pedido: { titulo: { startsWith: marca } } } });
       await root.pedidoDeCompra.deleteMany({ where: { titulo: { startsWith: marca } } });
     }
   });

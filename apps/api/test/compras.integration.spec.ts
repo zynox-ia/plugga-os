@@ -52,7 +52,11 @@ describe.skipIf(!HABILITADO)("compras: pedido de compra no Postgres", () => {
   afterAll(async () => {
     const pedidos = await prisma.pedidoDeCompra.findMany({ where: { titulo: { startsWith: marca } }, select: { id: true } });
     const ids = pedidos.map((pedido) => pedido.id);
+    // Evidência não sai em cascata (ON DELETE RESTRICT): o teardown, como dono
+    // do banco, apaga comprovantes e cotações antes dos pedidos.
     await prisma.pedidoDeCompra.updateMany({ where: { id: { in: ids } }, data: { cotacaoSelecionadaId: null } });
+    await prisma.comprovanteDePagamento.deleteMany({ where: { pedidoId: { in: ids } } });
+    await prisma.cotacaoDeCompra.deleteMany({ where: { pedidoId: { in: ids } } });
     await prisma.pedidoDeCompra.deleteMany({ where: { id: { in: ids } } });
     await prisma.obra.deleteMany({ where: { nome: { startsWith: marca } } });
     await prisma.fornecedor.deleteMany({ where: { nome: { startsWith: marca } } });
@@ -180,6 +184,12 @@ describe.skipIf(!HABILITADO)("compras: pedido de compra no Postgres", () => {
 
     await acao(id, { acao: "registrar_pagamento", forma: "pix" });
     await expect(repositorio.registrarComprovante(id, comprovante("tarde.pdf"), principal, depois)).rejects.toBeInstanceOf(EstadoInvalido);
+
+    // Nem o dono do banco apaga o pedido levando a evidência junto, nem apaga quem enviou o comprovante.
+    await expect(prisma.pedidoDeCompra.delete({ where: { id } })).rejects.toThrow();
+    await expect(prisma.user.delete({ where: { id: principal.id } })).rejects.toThrow();
+    expect(await prisma.comprovanteDePagamento.count({ where: { pedidoId: id } })).toBe(2);
+    expect(await prisma.cotacaoDeCompra.count({ where: { pedidoId: id } })).toBe(1);
   }, PRAZO_MS);
 
   it("o banco recusa cancelamento sem motivo e mais de uma passagem aberta", async () => {

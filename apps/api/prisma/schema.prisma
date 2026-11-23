@@ -2108,9 +2108,9 @@ model ComprovanteDePagamento {
   substituidoEm    DateTime? @map("substituido_em") @db.Timestamptz(6)
   substituidoPorId String?   @map("substituido_por_id") @db.Uuid
 
-  pedido         PedidoDeCompra @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
-  enviadoPor     User?          @relation("ComprovanteEnviadoPor", fields: [enviadoPorId], references: [id], onDelete: SetNull)
-  substituidoPor User?          @relation("ComprovanteSubstituidoPor", fields: [substituidoPorId], references: [id], onDelete: SetNull)
+  pedido         PedidoDeCompra @relation(fields: [pedidoId], references: [id], onDelete: Restrict)
+  enviadoPor     User?          @relation("ComprovanteEnviadoPor", fields: [enviadoPorId], references: [id], onDelete: Restrict)
+  substituidoPor User?          @relation("ComprovanteSubstituidoPor", fields: [substituidoPorId], references: [id], onDelete: Restrict)
 
   @@index([pedidoId, enviadoEm])
   @@map("comprovantes_de_pagamento")
@@ -2166,7 +2166,7 @@ model CotacaoDeCompra {
 
   criadoPor User? @relation("CotacaoCriadaPor", fields: [criadoPorId], references: [id], onDelete: SetNull)
 
-  pedido        PedidoDeCompra  @relation("CotacoesDoPedido", fields: [pedidoId], references: [id], onDelete: Cascade)
+  pedido        PedidoDeCompra  @relation("CotacoesDoPedido", fields: [pedidoId], references: [id], onDelete: Restrict)
   fornecedor    Fornecedor      @relation(fields: [fornecedorId], references: [id])
   selecionadaEm PedidoDeCompra? @relation("CotacaoSelecionada")
 
