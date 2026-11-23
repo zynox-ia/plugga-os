@@ -1,6 +1,7 @@
 import { expect as expectPadrao, test, type Page } from "@playwright/test";
 
 import { bloquearTerceiros } from "./support/sem-terceiros";
+import { marcaDaExecucao } from "./support/execucao";
 
 /**
  * Compras (PLU-328): o caminho feliz pela tela, da criação à conclusão, com
@@ -26,7 +27,9 @@ const ficha = (page: Page) => page.locator("dialog[open]").first();
 test("pedido de compra vai de Pedido gerado a Concluído pela ficha", async ({ page, baseURL }) => {
   await bloquearTerceiros(page);
   const sufixo = Date.now().toString(36);
-  const fornecedor = await page.request.post("/api/suprimentos/fornecedores", { data: { nome: `Fornecedor E2E ${sufixo} (sintético)`, categoria: "material_eletrico" }, headers: { origin: new URL(baseURL!).origin } });
+  // A marca da execução: o globalTeardown apaga ao final o que este spec criou.
+  const marca = marcaDaExecucao();
+  const fornecedor = await page.request.post("/api/suprimentos/fornecedores", { data: { nome: `Fornecedor ${marca} ${sufixo} (sintético)`, categoria: "material_eletrico" }, headers: { origin: new URL(baseURL!).origin } });
   expect(fornecedor.status(), await fornecedor.text()).toBe(201);
   const { nome: nomeDoFornecedor } = (await fornecedor.json()) as { nome: string };
 
@@ -34,7 +37,7 @@ test("pedido de compra vai de Pedido gerado a Concluído pela ficha", async ({ p
   await page.getByRole("button", { name: "Novo pedido" }).first().click();
   const novo = page.getByRole("dialog", { name: "Novo pedido de compra" });
   await novo.getByRole("radio", { name: "Waze Energia" }).click();
-  await novo.getByLabel("Título").fill(`Cabos E2E ${sufixo} (sintético)`);
+  await novo.getByLabel("Título").fill(`Cabos ${marca} ${sufixo} (sintético)`);
   await novo.getByRole("radio", { name: "Interno" }).click();
   await novo.getByLabel("Descrição do item 1").fill("Cabo de teste 6 mm");
   await novo.getByLabel("Quantidade do item 1").fill("1.234,5");
@@ -42,7 +45,7 @@ test("pedido de compra vai de Pedido gerado a Concluído pela ficha", async ({ p
   await novo.getByLabel("Valor orçado").fill("2.000,00");
   await novo.getByRole("button", { name: "Criar pedido" }).click();
 
-  await expect(ficha(page).getByRole("heading", { name: `Cabos E2E ${sufixo} (sintético)` })).toBeVisible();
+  await expect(ficha(page).getByRole("heading", { name: `Cabos ${marca} ${sufixo} (sintético)` })).toBeVisible();
   await expect(ficha(page).getByText("O que falta para avançar")).toBeVisible();
 
   await ficha(page).getByRole("button", { name: "Iniciar análise de estoque" }).click();
@@ -95,11 +98,13 @@ test("o gerente do Financeiro aprova e o membro do Financeiro paga", async ({ pa
   await bloquearTerceiros(page);
   const origin = new URL(baseURL!).origin;
   const sufixo = Date.now().toString(36);
+  // A marca da execução: o globalTeardown apaga ao final o que este spec criou.
+  const marca = marcaDaExecucao();
   const json = async (r: Awaited<ReturnType<typeof page.request.post>>) => { expect(r.ok(), await r.text()).toBeTruthy(); return r.json(); };
 
   // Compras (admin) leva o pedido até Aprovação pela API.
-  const fornecedor = await json(await page.request.post("/api/suprimentos/fornecedores", { data: { nome: `Fornecedor Fin ${sufixo} (sintético)`, categoria: "material_eletrico" }, headers: { origin } }));
-  const pedido = await json(await page.request.post("/api/suprimentos/compras/pedidos", { headers: { origin }, data: { empresa: "plugga", titulo: `Aprovação E2E ${sufixo} (sintético)`, destino: "interno", itens: [{ descricao: "Disjuntor de teste", quantidade: "3", unidade: "un" }], prazoEntregaDesejado: "2030-12-10" } }));
+  const fornecedor = await json(await page.request.post("/api/suprimentos/fornecedores", { data: { nome: `Fornecedor Fin ${marca} ${sufixo} (sintético)`, categoria: "material_eletrico" }, headers: { origin } }));
+  const pedido = await json(await page.request.post("/api/suprimentos/compras/pedidos", { headers: { origin }, data: { empresa: "plugga", titulo: `Aprovação ${marca} ${sufixo} (sintético)`, destino: "interno", itens: [{ descricao: "Disjuntor de teste", quantidade: "3", unidade: "un" }], prazoEntregaDesejado: "2030-12-10" } }));
   const acao = (corpo: object) => page.request.post(`/api/suprimentos/compras/pedidos/${pedido.id}/acoes`, { headers: { origin }, data: corpo }).then(json);
   await acao({ acao: "iniciar_analise" });
   await acao({ acao: "decidir_estoque", origem: "aquisicao" });
@@ -107,14 +112,16 @@ test("o gerente do Financeiro aprova e o membro do Financeiro paga", async ({ pa
   await acao({ acao: "selecionar_cotacao", cotacaoId: cotado.cotacoes[0].id });
   await acao({ acao: "enviar_para_aprovacao" });
 
+  // As contas de exemplo do seed usam a senha local do admin (na CI, a mesma de SEED_ADMIN_PASSWORD);
+  // contra o dev, com o usuário próprio dos e2e, E2E_SAMPLE_PASSWORD informa a delas.
   async function comoFinanceiro(email: string, ip: string) {
     const contexto = await browser.newContext({ baseURL, storageState: { cookies: [], origins: [] }, extraHTTPHeaders: { "x-forwarded-for": ip } });
     const pagina = await contexto.newPage();
     await bloquearTerceiros(pagina);
-    const login = await pagina.request.post("/api/auth/login", { headers: { origin }, data: { email, password: process.env.SEED_ADMIN_PASSWORD ?? "local_only_change_me" } });
+    const login = await pagina.request.post("/api/auth/login", { headers: { origin }, data: { email, password: process.env.E2E_SAMPLE_PASSWORD ?? process.env.SEED_ADMIN_PASSWORD ?? "local_only_change_me" } });
     expect(login.ok(), `login de ${email} (precisa de SEED_SAMPLE_TEAM=true no seed)`).toBeTruthy();
     await pagina.goto(`/suprimentos/compras?pedido=${pedido.id}`);
-    await expect(ficha(pagina).getByRole("heading", { name: `Aprovação E2E ${sufixo} (sintético)` })).toBeVisible();
+    await expect(ficha(pagina).getByRole("heading", { name: `Aprovação ${marca} ${sufixo} (sintético)` })).toBeVisible();
     // Abre a tela, mas não cria pedido nem edita o pedido de Compras.
     await expect(pagina.getByRole("button", { name: "Novo pedido" })).toHaveCount(0);
     await expect(ficha(pagina).getByRole("button", { name: "Editar" })).toHaveCount(0);

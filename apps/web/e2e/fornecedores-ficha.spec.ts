@@ -1,6 +1,7 @@
 import { expect as expectPadrao, test } from "@playwright/test";
 
 import { bloquearTerceiros } from "./support/sem-terceiros";
+import { marcaDaExecucao } from "./support/execucao";
 
 /**
  * Ficha rica do fornecedor (PLU-334): leitura com desempenho, endereço no
@@ -14,10 +15,12 @@ test("ficha do fornecedor mostra desempenho, endereço e pagamento mascarado", a
   await bloquearTerceiros(page);
   const origin = new URL(baseURL!).origin;
   const sufixo = Date.now().toString(36);
+  // A marca da execução: o globalTeardown apaga ao final o que este spec criou.
+  const marca = marcaDaExecucao();
   const criado = await page.request.post("/api/suprimentos/fornecedores", {
     headers: { origin },
     data: {
-      nome: `Ficha E2E ${sufixo} (sintético)`, categoria: "material_eletrico", telefone: "92999990001", email: "ficha@exemplo.invalid",
+      nome: `Ficha ${marca} ${sufixo} (sintético)`, categoria: "material_eletrico", telefone: "92999990001", email: "ficha@exemplo.invalid",
       cep: "69005000", logradouro: "Av. Exemplo", numero: "100", bairro: "Centro", cidade: "Manaus", uf: "AM",
       formasDePagamento: ["pix"], chavePix: `chave-e2e-${sufixo}-7788`,
     },
@@ -30,7 +33,7 @@ test("ficha do fornecedor mostra desempenho, endereço e pagamento mascarado", a
   await page.context().grantPermissions(["clipboard-read", "clipboard-write"], { origin });
   await page.goto(`/suprimentos/fornecedores?fornecedor=${id}`);
   const ficha = page.locator("dialog[open]").first();
-  await expect(ficha.getByRole("heading", { name: `Ficha E2E ${sufixo} (sintético)` })).toBeVisible();
+  await expect(ficha.getByRole("heading", { name: `Ficha ${marca} ${sufixo} (sintético)` })).toBeVisible();
 
   // Visão geral: os 4 cards, contato com Ligar/WhatsApp e o endereço no mapa.
   const metricas = ficha.getByRole("group", { name: "Desempenho do fornecedor" });
@@ -64,7 +67,7 @@ test("ficha do fornecedor mostra desempenho, endereço e pagamento mascarado", a
 
   // Editar abre o formulário com o endereço.
   await ficha.getByRole("button", { name: "Editar fornecedor" }).click();
-  const form = page.getByRole("dialog", { name: `Fornecedor Ficha E2E ${sufixo} (sintético)` });
+  const form = page.getByRole("dialog", { name: `Fornecedor Ficha ${marca} ${sufixo} (sintético)` });
   await expect(form.getByLabel("CEP")).toHaveValue("69005-000");
   await expect(form.getByLabel("Logradouro")).toHaveValue("Av. Exemplo");
   // O Editar carrega o completo pela rota de revelação (motivo "editar").

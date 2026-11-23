@@ -7,11 +7,12 @@ import { expect, request as criarContexto } from "@playwright/test";
  * Desde o 5fe0426, `GET /email/status` da API exige a plataforma
  * "desenvolvedor", e o admin da suíte recebe 403. A consulta entra com a conta
  * de desenvolvimento do seed (SEED_SAMPLE_TEAM, a mesma senha local do admin,
- * como na CI); E2E_DEV_EMAIL e E2E_DEV_PASSWORD trocam a conta.
+ * como na CI); E2E_DEV_EMAIL e E2E_DEV_PASSWORD trocam a conta, e
+ * E2E_SAMPLE_PASSWORD informa a senha das contas de exemplo contra o dev.
  */
 export async function confirmarEmailDesligado(baseURL: string, apiURL: string, ip: string): Promise<void> {
   const email = process.env.E2E_DEV_EMAIL ?? "desenvolvimento@plugga.local";
-  const password = process.env.E2E_DEV_PASSWORD ?? process.env.SEED_ADMIN_PASSWORD ?? "local_only_change_me";
+  const password = process.env.E2E_DEV_PASSWORD ?? process.env.E2E_SAMPLE_PASSWORD ?? process.env.SEED_ADMIN_PASSWORD ?? "local_only_change_me";
   const origin = new URL(baseURL).origin;
   const contexto = await criarContexto.newContext({ baseURL, extraHTTPHeaders: { "x-forwarded-for": ip } });
   try {
