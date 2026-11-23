@@ -2488,6 +2488,22 @@
     ]
   },
   {
+    "metodo": "POST",
+    "caminho": "/suprimentos/fornecedores/:id/dados-de-pagamento/revelar",
+    "controller": "FornecedoresController.revelar",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:suprimentos.fornecedores",
+      "departamento:suprimentos:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
     "metodo": "GET",
     "caminho": "/suprimentos/fornecedores/:id/desempenho",
     "controller": "FornecedoresController.desempenho",

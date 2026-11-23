@@ -143,6 +143,8 @@ export const catalogoEventos = {
   "suprimentos.fornecedor.updated": evento("Fornecedor alterado", "plataforma"),
   "suprimentos.fornecedor.inactivated": evento("Fornecedor inativado", "plataforma"),
   "suprimentos.fornecedor.reactivated": evento("Fornecedor reativado", "plataforma"),
+  // Quem viu os dados de pagamento completos e por quê; nunca o valor.
+  "suprimentos.fornecedor.dados_de_pagamento_revelados": evento("Dados de pagamento do fornecedor revelados", "plataforma"),
   "pluggamob.settlement.approved": evento("Fechamento Pluggamob aprovado", "empresa"),
   "auth.access.changed": evento("Acesso de usuário alterado", "plataforma"),
   "auth.user.deactivated": evento("Usuário desativado", "plataforma"),

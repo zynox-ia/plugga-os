@@ -123,8 +123,13 @@ export const fornecedorSchema = z.object({
   cidade: z.string().nullable(),
   uf: z.string().nullable(),
   formasDePagamento: z.array(formaDePagamentoSchema),
-  chavePix: z.string().nullable(),
-  dadosBancarios: z.string().nullable(),
+  /**
+   * Dados de pagamento sempre mascarados na leitura (só os 4 últimos caracteres).
+   * O completo sai só por `POST /suprimentos/fornecedores/:id/dados-de-pagamento/revelar`,
+   * que grava auditoria. A escrita (criar e editar) continua com o valor completo.
+   */
+  chavePixMascarada: z.string().nullable(),
+  dadosBancariosMascarados: z.string().nullable(),
   observacoes: z.string().nullable(),
   ativo: z.boolean(),
   /** Quantas cotações apontam para ele. Informativo: nunca bloqueia a inativação. */
@@ -174,6 +179,24 @@ export const listarFornecedoresRespostaSchema = z.object({
 });
 export type ListarFornecedoresResposta = z.infer<typeof listarFornecedoresRespostaSchema>;
 
+/** Máscara dos dados de pagamento: só os 4 últimos caracteres à vista. */
+export function mascararDadoDePagamento(valor: string | null): string | null {
+  if (valor === null) return null;
+  const limpo = valor.trim();
+  return limpo.length <= 4 ? "••••" : `•••• ${limpo.slice(-4)}`;
+}
+
+/**
+ * Revelar os dados de pagamento completos:
+ * `POST /suprimentos/fornecedores/:id/dados-de-pagamento/revelar` com o motivo.
+ * POST porque grava auditoria (quem, quando, qual fornecedor e o motivo; nunca o valor).
+ */
+export const motivosParaRevelar = ["mostrar", "copiar", "editar"] as const;
+export const revelarDadosDePagamentoSchema = z.object({ motivo: z.enum(motivosParaRevelar) }).strict();
+export type RevelarDadosDePagamento = z.infer<typeof revelarDadosDePagamentoSchema>;
+export const dadosDePagamentoReveladosSchema = z.object({ chavePix: z.string().nullable(), dadosBancarios: z.string().nullable() });
+export type DadosDePagamentoRevelados = z.infer<typeof dadosDePagamentoReveladosSchema>;
+
 // ---------------------------------------------------------------- desempenho (PLU-334)
 
 /**
@@ -212,6 +235,12 @@ export const cotacaoDoFornecedorSchema = z.object({
   valorTotal: z.string(),
   prazoEntregaDias: z.number().int().nullable(),
   venceu: z.boolean(),
+  /**
+   * A cotação no pedido: `venceu` (a escolhida de pedido aprovado, do Pagamento em
+   * diante), `escolhida` (a escolhida de pedido ainda em Cotações ou Aprovação) ou
+   * `nao_venceu` (todo o resto). O card Vitórias conta só `venceu`.
+   */
+  resultado: z.enum(["venceu", "escolhida", "nao_venceu"]),
 });
 export type CotacaoDoFornecedor = z.infer<typeof cotacaoDoFornecedorSchema>;
 

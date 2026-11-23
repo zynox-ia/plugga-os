@@ -2,6 +2,9 @@ import { Inject, Injectable } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import {
   LIMITE_DO_HISTORICO_DE_COTACOES,
+  dadosDePagamentoReveladosSchema,
+  type DadosDePagamentoRevelados,
+  type RevelarDadosDePagamento,
   desempenhoDoFornecedorSchema,
   fornecedorSchema,
   historicoDeCotacoesRespostaSchema,
@@ -26,6 +29,7 @@ import {
   INCLUDE_DO_FORNECEDOR,
   calcularDesempenho,
   camposInformados,
+  resultadoDaCotacao,
   venceu,
   filtroDaBusca,
   filtroDaSituacao,
@@ -164,8 +168,24 @@ export class PrismaFornecedoresRepository extends FornecedoresRepository {
         valorTotal: c.valor.add(c.valorFrete ?? 0).toFixed(2),
         prazoEntregaDias: c.prazoEntregaDias,
         venceu: venceu({ escolhida: c.pedido.cotacaoSelecionadaId === c.id, pedidoAprovado: c.pedido.aprovadoEm !== null }),
+        resultado: resultadoDaCotacao({
+          escolhida: c.pedido.cotacaoSelecionadaId === c.id,
+          pedidoAprovado: c.pedido.aprovadoEm !== null,
+          pedidoCancelado: c.pedido.canceladoEm !== null,
+          pedidoConcluido: c.pedido.etapa === "concluido",
+        }),
       })),
       total,
+    });
+  }
+
+  /** O completo dos dados de pagamento, com auditoria de quem pediu, quando e por quê (nunca o valor no evento). */
+  async revelarDadosDePagamento(id: string, input: RevelarDadosDePagamento, principal: AuthPrincipal): Promise<DadosDePagamentoRevelados> {
+    return this.prisma.comContexto(async (tx) => {
+      const linha = await tx.fornecedor.findUnique({ where: { id }, select: { chavePix: true, dadosBancarios: true } });
+      if (!linha) throw new NaoEncontrado("Fornecedor não encontrado.");
+      await this.registrar(tx, "suprimentos.fornecedor.dados_de_pagamento_revelados", id, principal, { motivo: input.motivo });
+      return dadosDePagamentoReveladosSchema.parse(linha);
     });
   }
 

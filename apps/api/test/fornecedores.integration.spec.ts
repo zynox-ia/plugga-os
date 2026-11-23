@@ -148,7 +148,9 @@ describe.skipIf(!HABILITADO)("fornecedores: cadastro único no Postgres", () => 
     });
     const historico = await repositorio.historicoDeCotacoes(fornecedor.id);
     expect(historico.total).toBe(5);
-    expect(historico.itens.find((c) => c.id === escolhidaEmAndamento.id)).toMatchObject({ venceu: false });
+    expect(historico.itens.find((c) => c.id === escolhidaEmAndamento.id)).toMatchObject({ venceu: false, resultado: "escolhida" });
+    expect(historico.itens.find((c) => c.id === vencedora.id)).toMatchObject({ resultado: "venceu" });
+    expect(historico.itens.find((c) => c.id === escolhidaCancelada.id)).toMatchObject({ resultado: "nao_venceu" });
     expect(historico.itens.find((c) => c.id === aprovadaECancelada.id)).toMatchObject({ venceu: true, pedido: { situacao: "cancelado" } });
     expect(historico.itens.find((c) => c.id === vencedora.id)).toMatchObject({ venceu: true, valorTotal: "120.00", pedido: { situacao: "concluido", empresa: "plugga" } });
     expect(historico.itens.find((c) => c.id === escolhidaCancelada.id)).toMatchObject({ venceu: false, pedido: { situacao: "cancelado" } });
@@ -157,7 +159,13 @@ describe.skipIf(!HABILITADO)("fornecedores: cadastro único no Postgres", () => 
 
   it("edição com null apaga, edição vazia e situação repetida não gravam, id inexistente é 404", async () => {
     const criado = await criar({ nome: `${marca} Edição`, categoria: "outros", chavePix: "chave-sintetica" });
-    expect((await editar(criado.id, { chavePix: null })).chavePix).toBeNull();
+    // A leitura mascara; revelar devolve o completo e audita o motivo, sem o valor.
+    expect(criado.chavePixMascarada).toBe("•••• tica");
+    expect(await repositorio.revelarDadosDePagamento(criado.id, { motivo: "editar" }, principal)).toEqual({ chavePix: "chave-sintetica", dadosBancarios: null });
+    const auditoria = await prisma.eventLog.findFirstOrThrow({ where: { eventName: "suprimentos.fornecedor.dados_de_pagamento_revelados", entityId: criado.id } });
+    expect(auditoria.payload).toEqual({ motivo: "editar" });
+    expect(JSON.stringify(auditoria.payload)).not.toContain("chave-sintetica");
+    expect((await editar(criado.id, { chavePix: null })).chavePixMascarada).toBeNull();
 
     await repositorio.mudarSituacao(criado.id, false, principal);
     await repositorio.mudarSituacao(criado.id, false, principal);

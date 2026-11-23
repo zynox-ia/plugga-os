@@ -1,6 +1,6 @@
 import type { INestApplication } from "@nestjs/common";
 import { Test } from "@nestjs/testing";
-import type { CriarFornecedor, DesempenhoDoFornecedor, EditarFornecedor, Fornecedor, HistoricoDeCotacoesResposta, ListarFornecedoresQuery, ListarFornecedoresResposta } from "@plugga/shared";
+import type { CriarFornecedor, DadosDePagamentoRevelados, RevelarDadosDePagamento, DesempenhoDoFornecedor, EditarFornecedor, Fornecedor, HistoricoDeCotacoesResposta, ListarFornecedoresQuery, ListarFornecedoresResposta } from "@plugga/shared";
 import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
@@ -31,8 +31,8 @@ const fornecedor = (dados: Partial<Fornecedor> = {}): Fornecedor => ({
   cidade: null,
   uf: null,
   formasDePagamento: [],
-  chavePix: null,
-  dadosBancarios: null,
+  chavePixMascarada: null,
+  dadosBancariosMascarados: null,
   observacoes: null,
   ativo: true,
   cotacoes: 0,
@@ -83,6 +83,13 @@ class FornecedoresEmMemoria extends FornecedoresRepository {
     await this.obter(id);
     return { itens: [], total: 0 };
   }
+
+  reveladoCom: RevelarDadosDePagamento | null = null;
+  async revelarDadosDePagamento(id: string, input: RevelarDadosDePagamento): Promise<DadosDePagamentoRevelados> {
+    await this.obter(id);
+    this.reveladoCom = input;
+    return { chavePix: "pix-ficticio", dadosBancarios: null };
+  }
 }
 
 describe("fornecedores API (e2e)", () => {
@@ -131,6 +138,21 @@ describe("fornecedores API (e2e)", () => {
     const resolver = comTelas(["suprimentos.compras"]);
     try {
       await request(app.getHttpServer()).get(`/suprimentos/fornecedores/${ID}/cotacoes`).expect(403);
+    } finally {
+      resolver.mockRestore();
+    }
+  });
+
+  it("revelar os dados de pagamento é POST com motivo, na tela Fornecedores", async () => {
+    await suprimentos(request(app.getHttpServer()).post(`/suprimentos/fornecedores/${ID}/dados-de-pagamento/revelar`)).send({}).expect(400);
+    await suprimentos(request(app.getHttpServer()).post(`/suprimentos/fornecedores/${ID}/dados-de-pagamento/revelar`)).send({ motivo: "olhar" }).expect(400);
+    const resposta = await suprimentos(request(app.getHttpServer()).post(`/suprimentos/fornecedores/${ID}/dados-de-pagamento/revelar`)).send({ motivo: "copiar" }).expect(200);
+    expect(resposta.body).toEqual({ chavePix: "pix-ficticio", dadosBancarios: null });
+    expect(repositorio.reveladoCom).toEqual({ motivo: "copiar" });
+    await suprimentos(request(app.getHttpServer()).get(`/suprimentos/fornecedores/${ID}/dados-de-pagamento/revelar`)).expect(404);
+    const resolver = comTelas(["suprimentos.compras"]);
+    try {
+      await request(app.getHttpServer()).post(`/suprimentos/fornecedores/${ID}/dados-de-pagamento/revelar`).send({ motivo: "mostrar" }).expect(403);
     } finally {
       resolver.mockRestore();
     }

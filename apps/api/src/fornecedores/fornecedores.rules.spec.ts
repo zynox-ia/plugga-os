@@ -1,7 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { describe, expect, it } from "vitest";
 
-import { calcularDesempenho, camposInformados, filtroDaBusca, filtroDaSituacao, paraFornecedor, paraItemDaLista, type CotacaoParaDesempenho, type LinhaDoFornecedor } from "./fornecedores.rules";
+import { calcularDesempenho, camposInformados, resultadoDaCotacao, filtroDaBusca, filtroDaSituacao, paraFornecedor, paraItemDaLista, type CotacaoParaDesempenho, type LinhaDoFornecedor } from "./fornecedores.rules";
 
 const linha = (dados: Partial<LinhaDoFornecedor> = {}): LinhaDoFornecedor => ({
   id: "00000000-0000-4000-8000-000000000301",
@@ -78,11 +78,31 @@ describe("conversão para o contrato", () => {
     expect(convertido).not.toHaveProperty("empresa");
   });
 
+  it("a ficha leva os dados de pagamento mascarados, nunca o completo", () => {
+    const ficha = paraFornecedor(linha({ chavePix: "pix-ficticio-7788", dadosBancarios: "Banco 999 Ag 0001 CC 12345-6" }));
+    expect(ficha).toMatchObject({ chavePixMascarada: "•••• 7788", dadosBancariosMascarados: "•••• 45-6" });
+    expect(ficha).not.toHaveProperty("chavePix");
+    expect(ficha).not.toHaveProperty("dadosBancarios");
+    expect(JSON.stringify(ficha)).not.toMatch(/pix-ficticio|CC 12345/);
+    expect(paraFornecedor(linha({ chavePix: "abc" })).chavePixMascarada).toBe("••••");
+  });
+
   it("a linha da lista traz e-mail, formas de pagamento e cotações, sem dados bancários", () => {
     const item = paraItemDaLista(linha({ dadosBancarios: "Banco X" }));
     expect(item).toMatchObject({ formasDePagamento: ["pix"], cotacoes: 2, email: null });
     expect(item).not.toHaveProperty("dadosBancarios");
     expect(item).not.toHaveProperty("chavePix");
+  });
+});
+
+describe("resultadoDaCotacao", () => {
+  const base = { escolhida: false, pedidoAprovado: false, pedidoCancelado: false, pedidoConcluido: false };
+  it("venceu, escolhida aguardando e não venceu", () => {
+    expect(resultadoDaCotacao({ ...base, escolhida: true, pedidoAprovado: true })).toBe("venceu");
+    expect(resultadoDaCotacao({ ...base, escolhida: true, pedidoAprovado: true, pedidoCancelado: true })).toBe("venceu");
+    expect(resultadoDaCotacao({ ...base, escolhida: true })).toBe("escolhida");
+    expect(resultadoDaCotacao({ ...base, escolhida: true, pedidoCancelado: true })).toBe("nao_venceu");
+    expect(resultadoDaCotacao({ ...base })).toBe("nao_venceu");
   });
 });
 

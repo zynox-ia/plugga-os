@@ -1,5 +1,7 @@
 import type {
   CriarFornecedor,
+  DadosDePagamentoRevelados,
+  RevelarDadosDePagamento,
   DesempenhoDoFornecedor,
   HistoricoDeCotacoesResposta,
   EditarFornecedor,
@@ -18,4 +20,5 @@ export abstract class FornecedoresRepository {
   abstract mudarSituacao(id: string, ativo: boolean, principal: AuthPrincipal): Promise<Fornecedor>;
   abstract desempenho(id: string): Promise<DesempenhoDoFornecedor>;
   abstract historicoDeCotacoes(id: string): Promise<HistoricoDeCotacoesResposta>;
+  abstract revelarDadosDePagamento(id: string, input: RevelarDadosDePagamento, principal: AuthPrincipal): Promise<DadosDePagamentoRevelados>;
 }

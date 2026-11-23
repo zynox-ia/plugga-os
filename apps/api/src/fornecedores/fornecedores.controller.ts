@@ -4,6 +4,9 @@ import {
   criarFornecedorSchema,
   editarFornecedorSchema,
   listarFornecedoresQuerySchema,
+  revelarDadosDePagamentoSchema,
+  type DadosDePagamentoRevelados,
+  type RevelarDadosDePagamento,
   type CriarFornecedor,
   type DesempenhoDoFornecedor,
   type HistoricoDeCotacoesResposta,
@@ -58,6 +61,18 @@ export class FornecedoresController {
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
   criar(@Body(new ZodValidationPipe(criarFornecedorSchema)) input: CriarFornecedor, @CurrentPrincipal() principal: AuthPrincipal): Promise<Fornecedor> {
     return this.fornecedores.criar(input, principal);
+  }
+
+  /** POST porque grava auditoria: quem viu os dados de pagamento completos, quando e por quê. */
+  @Post(":id/dados-de-pagamento/revelar")
+  @HttpCode(200)
+  @UseGuards(OriginCheckGuard, ThrottlerGuard)
+  revelar(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body(new ZodValidationPipe(revelarDadosDePagamentoSchema)) input: RevelarDadosDePagamento,
+    @CurrentPrincipal() principal: AuthPrincipal,
+  ): Promise<DadosDePagamentoRevelados> {
+    return this.fornecedores.revelarDadosDePagamento(id, input, principal);
   }
 
   @Patch(":id")

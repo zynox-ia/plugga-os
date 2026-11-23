@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 import {
+  mascararDadoDePagamento,
   somenteDigitos,
   type CriarFornecedor,
   type DesempenhoDoFornecedor,
@@ -73,8 +74,9 @@ export function paraFornecedor(linha: LinhaDoFornecedor): Fornecedor {
     cidade: linha.cidade,
     uf: linha.uf,
     formasDePagamento: linha.formasDePagamento,
-    chavePix: linha.chavePix,
-    dadosBancarios: linha.dadosBancarios,
+    // Nunca o completo na leitura: só a revelação auditada devolve o valor.
+    chavePixMascarada: mascararDadoDePagamento(linha.chavePix),
+    dadosBancariosMascarados: mascararDadoDePagamento(linha.dadosBancarios),
     observacoes: linha.observacoes,
     ativo: linha.ativo,
     cotacoes: linha._count.cotacoes,
@@ -125,6 +127,14 @@ export type CotacaoParaDesempenho = {
  * aprovação não contam; depois de aprovada, a vitória fica.
  */
 export const venceu = (c: Pick<CotacaoParaDesempenho, "escolhida" | "pedidoAprovado">) => c.escolhida && c.pedidoAprovado;
+
+/** O resultado da cotação no pedido, como a ficha do pedido mostra. */
+export function resultadoDaCotacao(c: { escolhida: boolean; pedidoAprovado: boolean; pedidoCancelado: boolean; pedidoConcluido: boolean }): "venceu" | "escolhida" | "nao_venceu" {
+  if (venceu(c)) return "venceu";
+  // Escolhida e o pedido ainda andando (Cotações ou Aprovação): aguarda a aprovação.
+  if (c.escolhida && !c.pedidoCancelado && !c.pedidoConcluido) return "escolhida";
+  return "nao_venceu";
+}
 
 export function calcularDesempenho(cotacoes: readonly CotacaoParaDesempenho[]): DesempenhoDoFornecedor {
   const vitorias = cotacoes.filter(venceu);
