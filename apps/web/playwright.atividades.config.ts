@@ -18,7 +18,7 @@ export default defineConfig({
     { name: "setup", testDir: "./e2e", testMatch: /auth\.setup\.ts/ },
     {
       name: "chromium",
-      use: { ...devices["Desktop Chrome"], storageState: "e2e/.auth/admin.json" },
+      use: { ...devices["Desktop Chrome"], storageState: process.env.PLAYWRIGHT_AUTH_FILE || "e2e/.auth/admin.json" },
       dependencies: ["setup"],
     },
   ],

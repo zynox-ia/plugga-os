@@ -2,7 +2,8 @@ import { expect, test as setup } from "@playwright/test";
 
 import { bloquearTerceiros } from "./support/sem-terceiros";
 
-const STORAGE_STATE = "e2e/.auth/admin.json";
+// Mesmo caminho que playwright.config.ts lê: PLAYWRIGHT_AUTH_FILE ou o padrão.
+const STORAGE_STATE = process.env.PLAYWRIGHT_AUTH_FILE || "e2e/.auth/admin.json";
 
 /** Matches apps/api/prisma/seed.ts + .env.example / CI job env — local dev only. */
 const email = process.env.SEED_ADMIN_EMAIL ?? "admin@plugga.local";

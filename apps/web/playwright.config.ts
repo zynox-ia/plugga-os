@@ -6,8 +6,12 @@ import { defineConfig, devices } from "@playwright/test";
  * from the "setup" project instead of each spec re-authenticating. Specs that
  * need to start signed out (apps/web/e2e/auth.spec.ts) opt out per-file via
  * `test.use({ storageState: { cookies: [], origins: [] } })`.
+ *
+ * `PLAYWRIGHT_AUTH_FILE` troca o arquivo do login salvo, para dois agentes
+ * rodarem a suíte ao mesmo tempo sem um sobrescrever a sessão do outro. Sem
+ * ela, vale o caminho de sempre (a CI não define a variável).
  */
-const AUTH_STORAGE_STATE = "e2e/.auth/admin.json";
+const AUTH_STORAGE_STATE = process.env.PLAYWRIGHT_AUTH_FILE || "e2e/.auth/admin.json";
 
 export default defineConfig({
   testDir: "./e2e",
