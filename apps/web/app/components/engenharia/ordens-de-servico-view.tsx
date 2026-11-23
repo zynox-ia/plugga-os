@@ -4,6 +4,7 @@ import {
   tiposDeOrdemDeServico,
   type ListarOrdensDeServicoResposta,
   type OpcoesDaEngenhariaResposta,
+  type OrdemDeServico,
   type OrdemDeServicoResumo,
   type QuadroDeOrdensResposta,
 } from "@plugga/shared";
@@ -56,6 +57,7 @@ import { PontoDaEmpresa } from "../suprimentos/empresa";
 import { FiltroComBusca } from "../suprimentos/menu-com-busca";
 import { Button, IconSearch } from "../ui";
 import { CardsDeOrdens } from "./cards-de-ordens";
+import { FichaDaOrdem } from "./ficha-da-ordem";
 import styles from "./engenharia.module.css";
 import { ListaDeOrdens } from "./lista-de-ordens";
 import { ICONE_DO_TIPO } from "./partes";
@@ -86,7 +88,7 @@ const ICONE_DO_FILTRO: Record<FiltroDeSituacaoDaTela, LucideIcon> = {
  * pedido ao termo assinado, em cards, lista ou quadro. Filtros, visão e ficha
  * vão no endereço. Esta é a única barra presa da Engenharia.
  */
-export function OrdensDeServicoView({ filtros, lista, quadro, opcoes, hoje }: {
+export function OrdensDeServicoView({ filtros, lista, quadro, opcoes, hoje, ficha, falhaDaFicha, podeAbrirCompras }: {
   filtros: FiltrosDasOrdens;
   /** A lista traz também as contagens dos metric cards e do filtro (no quadro, sem o filtro de situação). */
   lista: ListarOrdensDeServicoResposta;
@@ -94,6 +96,10 @@ export function OrdensDeServicoView({ filtros, lista, quadro, opcoes, hoje }: {
   /** Nulas quando a leitura falhou: o filtro de técnico fica de fora. */
   opcoes: OpcoesDaEngenhariaResposta | null;
   hoje: string;
+  ficha: OrdemDeServico | null;
+  falhaDaFicha: "nao_encontrada" | "indisponivel" | null;
+  /** Os pedidos de material abrem a ficha em Compras para quem alcança a tela. */
+  podeAbrirCompras: boolean;
 }) {
   const router = useRouter();
   const [busca, setBusca] = useState(filtros.busca ?? "");
@@ -107,6 +113,7 @@ export function OrdensDeServicoView({ filtros, lista, quadro, opcoes, hoje }: {
   const ir = (parcial: Partial<FiltrosDasOrdens>, ordem: string | null = null) => router.push(hrefDasOrdens({ ...filtros, ...parcial }, ordem), { scroll: false });
   const hrefDaFicha = (id: string) => hrefDasOrdens(filtros, id);
   const abrir = (id: string) => router.push(hrefDaFicha(id), { scroll: false });
+  const fecharFicha = () => router.push(hrefDasOrdens(filtros), { scroll: false });
   const limpar = () => { setBusca(""); router.push(hrefDasOrdens({ visao: filtros.visao }), { scroll: false }); };
 
   function buscar(evento: FormEvent) { evento.preventDefault(); ir({ busca: busca.trim() || undefined }); }
@@ -217,9 +224,13 @@ export function OrdensDeServicoView({ filtros, lista, quadro, opcoes, hoje }: {
     {/* A lista para em 200 (LIMITE_DA_LISTA_DE_ORDENS). */}
     {!ehQuadro && lista.total > lista.itens.length
       ? <p className={styles.teto} role="status">Mostrando as {lista.itens.length} mais recentes de {lista.total} O.S. Use os filtros para ver as demais.</p> : null}
+    {falhaDaFicha === "nao_encontrada" ? <p className="aviso aviso--alerta" role="status">O.S. não encontrada. O link pode estar errado ou ela não é de uma tela que você alcança.</p> : null}
+    {falhaDaFicha === "indisponivel" ? <p className="aviso aviso--erro" role="alert">Não foi possível abrir a O.S. agora. Tente de novo em instantes.</p> : null}
     {opcoes === null ? <p className="aviso aviso--alerta" role="status">Não foi possível carregar os técnicos: o filtro de técnico fica de fora até recarregar a página.</p> : null}
 
     <section id="os-conteudo" className={`${estilosClientes.conteudo} ${styles.conteudo}`} role="tabpanel" aria-labelledby={`os-visao-${filtros.visao}`}>{conteudo}</section>
+
+    {ficha ? <FichaDaOrdem key={ficha.id} ordem={ficha} opcoes={opcoes} podeAbrirCompras={podeAbrirCompras} aoFechar={fecharFicha} aoAtualizar={() => router.refresh()} /> : null}
   </div>;
 }
 

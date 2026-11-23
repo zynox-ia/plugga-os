@@ -223,9 +223,11 @@ export type TomDaAgenda = "atraso" | "aviso" | null;
  * nova data do adiamento, o horário ou o prazo de quem ainda não tem data.
  */
 export function agendaDaOrdem(
-  o: Pick<OrdemDeServicoResumo, "situacao" | "agendadaPara" | "prazo" | "atrasada">,
+  o: Pick<OrdemDeServicoResumo, "situacao" | "agendadaPara" | "prazo" | "atrasada"> & { novaData?: string | null },
   hoje: string,
 ): { dia: string; detalhe: string | null; tom: TomDaAgenda } {
+  // A adiada fica sem agendamento até reagendar; a nova data vem à parte (sem horário).
+  if (o.situacao === "adiada" && o.novaData) return { dia: diaDaAgenda(o.novaData, hoje), detalhe: "nova data", tom: "aviso" };
   if (!o.agendadaPara) {
     const prazo = diaDaAgenda(o.prazo, hoje);
     if (o.atrasada) return { dia: "Sem data", detalhe: `prazo ${prazo} · ${textoDoAtraso(o.prazo, hoje)}`, tom: "atraso" };
@@ -241,3 +243,106 @@ export function agendaDaOrdem(
 
 /** "Igor Nascimento" → "Igor". */
 export const primeiroNome = (nome: string): string => nome.trim().split(/\s+/)[0] ?? nome;
+
+// ---------------------------------------------------------------- ficha
+
+/** As 5 etapas da trilha da ficha; adiada e cancelada não são passos. */
+export const ETAPAS_DA_TRILHA = ["aberta", "agendada", "em_campo", "laudo", "concluida"] as const;
+export const ROTULO_DA_ETAPA_DA_TRILHA: Record<(typeof ETAPAS_DA_TRILHA)[number], string> = {
+  aberta: "Aberta",
+  agendada: "Agendada",
+  em_campo: "Em campo",
+  laudo: "Laudo",
+  concluida: "Concluída",
+};
+
+/** Em que passo da trilha a O.S. está: a adiada volta para Agendada; a cancelada fica onde parou. */
+export function passoNaTrilha(situacao: SituacaoDaOrdemDeServico, situacaoAnterior?: SituacaoDaOrdemDeServico | null): number {
+  const efetiva = situacao === "cancelada" ? (situacaoAnterior ?? "aberta") : situacao;
+  if (efetiva === "adiada" || efetiva === "cancelada") return 1;
+  return ETAPAS_DA_TRILHA.indexOf(efetiva);
+}
+
+export type PendenciaDaOrdem = { feito: boolean; texto: string };
+
+/** O que falta para avançar, por etapa, como no protótipo. */
+export function pendenciasDaOrdem(o: { situacao: SituacaoDaOrdemDeServico; descricao: string; tecnico: unknown; agendadaPara: string | null; checkinEm: string | null; fotos: readonly unknown[]; laudo: unknown; termo: unknown }): PendenciaDaOrdem[] {
+  const fotos = o.fotos.length;
+  const evidencias = { feito: fotos > 0, texto: fotos > 0 ? `Evidências (${fotos})` : "Evidências" };
+  switch (o.situacao) {
+    case "aberta": return [{ feito: o.descricao.trim().length > 0, texto: "Equipamento ou escopo descrito" }, { feito: false, texto: "Técnico e data" }];
+    case "adiada": return [{ feito: true, texto: "Motivo e nova data" }, { feito: false, texto: "Reagendar com técnico e horário" }];
+    case "agendada": return [{ feito: Boolean(o.tecnico && o.agendadaPara), texto: "Técnico e data" }, { feito: false, texto: "Check-in no local" }];
+    case "em_campo": return [{ feito: Boolean(o.checkinEm), texto: "Check-in no local" }, evidencias, { feito: Boolean(o.laudo), texto: "Laudo" }];
+    case "laudo": return [{ feito: Boolean(o.laudo), texto: "Laudo" }, evidencias, { feito: Boolean(o.termo), texto: "Termo assinado pelo cliente" }];
+    default: return [];
+  }
+}
+
+export type TomDoPrazo = "ok" | "hoje" | "vencido";
+
+/** "Prazo hoje", "Prazo em 3 dias" ou "Atrasada há 2 dias", com o tom da cor. */
+export function prazoDaOrdem(o: { prazo: string; atrasada: boolean }, hoje: string): { texto: string; tom: TomDoPrazo } {
+  const faltam = diasEntre(hoje, o.prazo);
+  if (o.atrasada || faltam < 0) {
+    const dias = Math.max(0, -faltam);
+    return { texto: dias === 0 ? "Atrasada" : `Atrasada há ${dias} ${dias === 1 ? "dia" : "dias"}`, tom: "vencido" };
+  }
+  if (faltam === 0) return { texto: "Prazo hoje", tom: "hoje" };
+  return { texto: `Prazo em ${faltam} ${faltam === 1 ? "dia" : "dias"}`, tom: "ok" };
+}
+
+/** Horários do menu de agendamento: de 30 em 30 minutos, das 06:00 às 20:00. */
+export const HORARIOS_DE_AGENDAMENTO: readonly string[] = Array.from({ length: 29 }, (_, i) => {
+  const minutos = 6 * 60 + i * 30;
+  return `${String(Math.floor(minutos / 60)).padStart(2, "0")}:${String(minutos % 60).padStart(2, "0")}`;
+});
+
+/** "14:30" de agora em Manaus. */
+export const agoraEmManaus = (agora: Date = new Date()): string => horarioEmManaus(agora.toISOString());
+
+/** Confere o agendamento antes de enviar: técnico, data e horário obrigatórios, nada no passado (a API confere de novo). */
+export function problemasDoAgendamento(a: { tecnicoId: string; data: string; horario: string }, hoje: string, agora: string): Record<"tecnicoId" | "data" | "horario", string | undefined> {
+  return {
+    tecnicoId: a.tecnicoId ? undefined : "escolha o técnico.",
+    data: !a.data ? "informe a data (dd/mm/aaaa)." : a.data < hoje ? "a data não pode estar no passado." : undefined,
+    horario: !a.horario ? "escolha o horário." : a.data === hoje && a.horario <= agora ? "o horário de hoje já passou." : undefined,
+  };
+}
+
+/** Confere o adiamento: motivo e nova data futura. */
+export function problemasDoAdiamento(a: { motivo: string; novaData: string }, hoje: string): Record<"motivo" | "novaData", string | undefined> {
+  return {
+    motivo: a.motivo.trim() ? undefined : "informe o motivo do adiamento.",
+    novaData: !a.novaData ? "informe a nova data (dd/mm/aaaa)." : a.novaData <= hoje ? "a nova data precisa ser depois de hoje." : undefined,
+  };
+}
+
+/** "Hoje", "Ontem" ou "seg 23 nov" para os grupos da linha do tempo. */
+export function rotuloDoDia(dia: string, hoje: string): string {
+  const distancia = diasEntre(dia, hoje);
+  if (distancia === 0) return "Hoje";
+  if (distancia === 1) return "Ontem";
+  const d = dataDoDia(dia);
+  return `${DIAS_DA_SEMANA[d.getUTCDay()]} ${d.getUTCDate()} ${MESES[d.getUTCMonth()]}`;
+}
+
+/** Os eventos da O.S. agrupados pelo dia de Manaus, do mais novo para o mais antigo. */
+export function eventosPorDia<T extends { em: string }>(eventos: readonly T[], hoje: string): { dia: string; rotulo: string; itens: T[] }[] {
+  const grupos = new Map<string, T[]>();
+  for (const e of [...eventos].sort((a, b) => b.em.localeCompare(a.em))) {
+    const dia = hojeEmManaus(new Date(e.em));
+    grupos.set(dia, [...(grupos.get(dia) ?? []), e]);
+  }
+  return [...grupos].map(([dia, itens]) => ({ dia, rotulo: rotuloDoDia(dia, hoje), itens }));
+}
+
+/** O dia e a hora da agenda no topo da ficha: "hoje, 08:00", "sex 20 nov, 08:30" ou "Sem data". */
+export function quandoNaFicha(agendadaPara: string | null, hoje: string): string {
+  if (!agendadaPara) return "Sem data";
+  const dia = diaDaAgenda(hojeEmManaus(new Date(agendadaPara)), hoje);
+  return `${dia === "Hoje" || dia === "Amanhã" ? dia.toLowerCase() : dia}, ${horarioEmManaus(agendadaPara)}`;
+}
+
+/** Caminho de download que o navegador abre: a API devolve o caminho dela, sem /api. */
+export const urlDoArquivoDaOrdem = (url: string): string => (url.startsWith("/api/") ? url : `/api${url.startsWith("/") ? "" : "/"}${url}`);

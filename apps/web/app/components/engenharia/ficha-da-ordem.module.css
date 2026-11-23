@@ -1,0 +1,49 @@
+/* Ficha da O.S. (PLU-345). Reaproveita a ficha do lead e a do pedido de compra;
+   aqui só o que é da O.S., como no protótipo aprovado. Peso máximo 500. */
+
+.textoDoDialogo { margin: 0; color: var(--ui-text); font-size: 14px; line-height: 1.5; }
+
+.cortado { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.largo { grid-column: 1 / -1; margin: 0; }
+
+/* Agendar: técnico, apoio, data e horário lado a lado (4, 2 ou 1 por linha). */
+.camposDoAgendamento { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; align-items: start; }
+@media (max-width: 1100px) { .camposDoAgendamento { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 560px) { .camposDoAgendamento { grid-template-columns: minmax(0, 1fr); } }
+
+.link { padding: 0; border: 0; background: none; color: var(--ui-primary); font: inherit; text-decoration: underline; cursor: pointer; }
+.link:focus-visible { outline: 2px solid var(--ui-primary); outline-offset: 2px; border-radius: 4px; }
+
+/* O laudo registrado, no bloco do termo. */
+.laudo { display: grid; gap: 6px; margin: 0; padding: 12px 14px; border-radius: var(--radius-lg); background: rgba(255, 255, 255, 0.8); }
+.laudo > div { display: block; }
+.laudo dt { display: inline; font-weight: 500; color: var(--ui-text); }
+.laudo dd { display: inline; margin: 0 0 0 4px; color: var(--ui-text); white-space: pre-wrap; }
+
+/* O rodapé com as ações fica fora da rolagem, no pé da ficha. */
+.rodape { flex: none; padding: 12px var(--space-lg) 16px; border-top: 1px solid var(--ui-divider); background: var(--ui-surface); }
+@media (max-width: 720px) { .rodape { padding: 10px 14px 14px; } }
+
+/* Cinco abas no celular: sem os ícones, os rótulos curtos cabem a 390 px. */
+@media (max-width: 480px) { .abas button > svg { display: none; } }
+
+/* Evidências */
+.semFotos { display: flex; align-items: center; gap: 10px; padding: 16px; border: 1px dashed var(--ui-divider); border-radius: var(--radius-lg); color: var(--ui-muted); }
+.semFotos p { margin: 0; font-size: 13px; }
+.fotos { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; margin: 0; padding: 0; list-style: none; }
+.fotos li { display: grid; gap: 6px; min-width: 0; }
+.fotos a { display: block; overflow: hidden; aspect-ratio: 4 / 3; border: 1px solid var(--ui-divider); border-radius: var(--radius-lg); background: var(--ui-subtle); }
+.fotos a:focus-visible { outline: 2px solid var(--ui-primary); outline-offset: 2px; }
+.fotos img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.legendaFoto { display: grid; min-width: 0; font-size: 12px; color: var(--ui-text); }
+.legendaFoto small { color: var(--ui-muted); font-size: 11.5px; }
+
+/* Material */
+.pedidos { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.pedidos li { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid var(--ui-divider); border-radius: var(--radius-lg); background: #fff; }
+.iconePedido { display: grid; place-items: center; flex: none; width: 34px; height: 34px; border-radius: 10px; background: var(--ui-subtle); color: var(--ui-muted); }
+.textoPedido { display: grid; flex: 1 1 auto; min-width: 0; font-size: 13px; }
+.textoPedido a, .textoPedido strong { overflow: hidden; color: var(--ui-text); font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.textoPedido a:hover { color: var(--ui-primary); }
+.textoPedido small { color: var(--ui-muted); font-size: 12px; }
+.seloPedido { flex: none; padding: 3px 10px; border: 1px solid var(--ui-divider); border-radius: var(--radius-full); color: var(--ui-muted); font-size: 11.5px; white-space: nowrap; }
