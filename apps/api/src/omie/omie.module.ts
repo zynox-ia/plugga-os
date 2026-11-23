@@ -1,4 +1,4 @@
-import { Inject, Module, type OnModuleInit } from "@nestjs/common";
+import { Inject, Logger, Module, type OnModuleInit } from "@nestjs/common";
 
 import { AuditModule } from "../audit/audit.module";
 import { CoreModule } from "../core/core.module";
@@ -8,10 +8,11 @@ import { SegredoRepository } from "../llm/segredo.repository.js";
 import { IntegrationsModule } from "../integrations/integrations.module";
 import { JobHandlerRegistry } from "../jobs/queue/job-handler-registry";
 import { JobsQueueModule } from "../jobs/queue/jobs-queue.module";
+import { JobsQueue } from "../jobs/queue/jobs-queue.port";
 import { PrismaModule } from "../prisma/prisma.module";
 import { OmieEscrita, OmieEscritaPorModo } from "./omie-escrita";
 import { OmieDespacharHandler, OmieEnviarHandler } from "./omie-fila.handlers";
-import { OmieFilaService } from "./omie-fila.service";
+import { AGENDAMENTO_DO_DESPACHO, OMIE_DESPACHAR_JOB, OmieFilaService } from "./omie-fila.service";
 import { OmieCofreService, OmieLeitura } from "./omie-cofre.service";
 import { OmieConexoesService, OmieLeituraPorEmpresa } from "./omie-conexoes.service";
 import { OmieEmpresasController } from "./omie-empresas.controller";
@@ -49,14 +50,25 @@ import { PrismaOmieLeitura } from "./prisma-omie-leitura.repository";
   exports: [OmieCofreService, OmieConexoesService],
 })
 export class OmieModule implements OnModuleInit {
+  private readonly logger = new Logger(OmieModule.name);
+
   constructor(
     @Inject(JobHandlerRegistry) private readonly registry: JobHandlerRegistry,
+    @Inject(JobsQueue) private readonly fila: JobsQueue,
     @Inject(OmieDespacharHandler) private readonly despachar: OmieDespacharHandler,
     @Inject(OmieEnviarHandler) private readonly enviar: OmieEnviarHandler,
   ) {}
 
+  /**
+   * Registra os handlers da fila e agenda o despacho a cada 30 minutos. O agendamento
+   * não segura a subida da API: com o Redis fora, só fica no log. Fora do modo `write`,
+   * cada despacho só registra `skipped` e não chama o OMIE.
+   */
   onModuleInit(): void {
     this.registry.register(this.despachar);
     this.registry.register(this.enviar);
+    void this.fila.agendarACada(OMIE_DESPACHAR_JOB, {}, AGENDAMENTO_DO_DESPACHO).catch((erro: unknown) => {
+      this.logger.warn(`agendamento do despacho do OMIE falhou: ${erro instanceof Error ? erro.message : String(erro)}`);
+    });
   }
 }

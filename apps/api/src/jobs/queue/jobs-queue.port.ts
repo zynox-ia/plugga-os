@@ -53,6 +53,32 @@ export abstract class JobsQueue {
   async agendarDiario<Payload>(_jobKey: string, _payload: Payload, _agendamento: AgendamentoDiario): Promise<{ agendado: boolean }> {
     return { agendado: false };
   }
+
+  /**
+   * Agenda o job para rodar a cada `intervaloMs`, de forma idempotente pelo id (ex.:
+   * o despacho da fila do OMIE a cada 30 min). Sem a fila, devolve `agendado: false`.
+   */
+  // Os parâmetros são o contrato que a fila real implementa; aqui, sem fila, não são usados.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async agendarACada<Payload>(_jobKey: string, _payload: Payload, _agendamento: AgendamentoPeriodico): Promise<{ agendado: boolean }> {
+    return { agendado: false };
+  }
+}
+
+/** Um job que roda a cada intervalo fixo. */
+export interface AgendamentoPeriodico {
+  /** Id estável e próprio do agendamento: dois agendamentos com o mesmo id se sobrescrevem. */
+  id: string;
+  /** Entre 1 minuto e 24 horas. */
+  intervaloMs: number;
+}
+
+/** Confere o intervalo antes de agendar: inteiro, de 1 minuto a 24 horas. */
+export function intervaloValido(intervaloMs: number): number {
+  if (!Number.isInteger(intervaloMs) || intervaloMs < 60_000 || intervaloMs > 86_400_000) {
+    throw new Error(`intervalo inválido: ${intervaloMs} ms`);
+  }
+  return intervaloMs;
 }
 
 /** "08:00" → "0 8 * * *". */

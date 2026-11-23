@@ -10,6 +10,8 @@ import { PAUSA_MS, TODA_A_EMPRESA, destinoDaFalha, estaPausada, metodoDoEnvio } 
 
 export const OMIE_DESPACHAR_JOB = "omie.despachar";
 export const OMIE_ENVIAR_JOB = "omie.enviar";
+/** O despacho roda a cada 30 minutos (seção 8 do desenho); id próprio no agendador. */
+export const AGENDAMENTO_DO_DESPACHO = { id: "omie-despacho", intervaloMs: 30 * 60_000 } as const;
 /** Quanto um envio pode ficar em `enviando` antes de contar como queda do worker. */
 const PRESO_APOS_MS = 15 * 60_000;
 const LOTE_DO_DESPACHO = 100;
