@@ -1,21 +1,26 @@
 import { EstadoDaApi } from "../../components/estado-da-api";
 import { FornecedoresView } from "../../components/fornecedores/fornecedores-view";
-import { fetchFornecedor, fetchFornecedores } from "../../lib/api";
+import { fetchCotacoesDoFornecedor, fetchDesempenhoDoFornecedor, fetchFornecedor, fetchFornecedores } from "../../lib/api";
 import { exigirPagina } from "../../lib/exigir-pagina";
 import { lerFiltrosDeFornecedores } from "../../lib/fornecedores";
+import { podeVerCompras } from "../../lib/papel-em-compras";
 
 export default async function FornecedoresPage({
   searchParams,
 }: {
   searchParams: Promise<{ busca?: string; situacao?: string; categoria?: string; fornecedor?: string }>;
 }) {
-  await exigirPagina("/suprimentos/fornecedores");
+  const sessao = await exigirPagina("/suprimentos/fornecedores");
   const parametros = await searchParams;
   const filtros = lerFiltrosDeFornecedores(parametros);
+  const id = parametros.fornecedor;
 
-  const [lista, ficha] = await Promise.all([
+  // A ficha rica (PLU-334) chega inteira: cadastro, desempenho e histórico de cotações.
+  const [lista, ficha, desempenho, cotacoes] = await Promise.all([
     fetchFornecedores(filtros),
-    parametros.fornecedor ? fetchFornecedor(parametros.fornecedor) : Promise.resolve(null),
+    id ? fetchFornecedor(id) : Promise.resolve(null),
+    id ? fetchDesempenhoDoFornecedor(id) : Promise.resolve(null),
+    id ? fetchCotacoesDoFornecedor(id) : Promise.resolve(null),
   ]);
   if (!lista.ok) return <EstadoDaApi erro={lista.erro} eyebrow="Fornecedores" />;
 
@@ -24,8 +29,9 @@ export default async function FornecedoresPage({
       itens={lista.dados.itens}
       contagem={lista.dados.contagem}
       filtros={filtros}
-      ficha={ficha?.ok ? ficha.dados : null}
+      ficha={ficha?.ok ? { fornecedor: ficha.dados, desempenho: desempenho?.ok ? desempenho.dados : null, cotacoes: cotacoes?.ok ? cotacoes.dados : null } : null}
       fichaNaoEncontrada={ficha !== null && !ficha.ok}
+      podeAbrirCompras={podeVerCompras(sessao.acesso)}
     />
   );
 }

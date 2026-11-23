@@ -11,6 +11,7 @@ import { FiltroDeClientes } from "../clientes/filtro-de-clientes";
 import estilosClientes from "../clientes/tela-clientes.module.css";
 import estilosPipelines from "../pipelines/tela-pipelines.module.css";
 import { Button, IconPlus, IconSearch } from "../ui";
+import { FichaDoFornecedor, type DadosDaFicha } from "./ficha-do-fornecedor";
 import { FornecedorForm } from "./fornecedor-form";
 import styles from "./fornecedores.module.css";
 import { CardsDeFornecedores, ListaDeFornecedores } from "./visualizacoes-fornecedores";
@@ -27,18 +28,23 @@ export function FornecedoresView({
   filtros,
   ficha,
   fichaNaoEncontrada,
+  podeAbrirCompras,
 }: {
   itens: FornecedorNaLista[];
   contagem: { ativos: number; inativos: number };
   filtros: FiltrosDeFornecedores;
-  ficha: Fornecedor | null;
+  /** A ficha rica (PLU-334): cadastro, desempenho e histórico, lidos juntos no servidor. */
+  ficha: DadosDaFicha | null;
   fichaNaoEncontrada: boolean;
+  /** Quem abre Compras vê o link do pedido no histórico; os outros, só o número. */
+  podeAbrirCompras: boolean;
 }) {
   const router = useRouter();
   const [busca, setBusca] = useState(filtros.busca ?? "");
   const [visao, setVisao] = useState<"cards" | "lista">("cards");
   const [pagina, setPagina] = useState(1);
   const [criando, setCriando] = useState(false);
+  const [editando, setEditando] = useState(false);
   const [lista, setLista] = useState(itens);
   const [erroSituacao, setErroSituacao] = useState<string | null>(null);
   const pendentesRef = useRef(new Set<string>());
@@ -159,11 +165,21 @@ export function FornecedoresView({
       ) : null}
 
       {ficha ? (
+        <FichaDoFornecedor
+          key={ficha.fornecedor.id}
+          dados={ficha}
+          podeAbrirCompras={podeAbrirCompras}
+          aoFechar={() => { setEditando(false); fecharFicha(); }}
+          aoEditar={() => setEditando(true)}
+          aoAtualizar={() => router.refresh()}
+        />
+      ) : null}
+      {ficha && editando ? (
         <FornecedorForm
-          key={ficha.id}
-          fornecedor={ficha}
-          aoCancelar={fecharFicha}
-          aoSalvar={() => { fecharFicha(); router.refresh(); }}
+          key={`editar-${ficha.fornecedor.id}`}
+          fornecedor={ficha.fornecedor}
+          aoCancelar={() => setEditando(false)}
+          aoSalvar={() => { setEditando(false); router.refresh(); }}
         />
       ) : null}
     </div>

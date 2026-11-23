@@ -1,13 +1,17 @@
 import {
   categoriasDeFornecedor,
+  formatarCep,
   formatarCnpj,
   formatarCpf,
   formatarTelefone,
+  telefoneNacional,
   rotulosDaFormaDePagamento,
   situacoesDoFornecedor,
   somenteDigitos,
   type CategoriaDeFornecedor,
+  type DesempenhoDoFornecedor,
   type FormaDePagamento,
+  type Fornecedor,
   type FornecedorNaLista,
 } from "@plugga/shared";
 
@@ -95,4 +99,55 @@ export const textoDeCotacoes = (n: number): string => (n === 0 ? "Nenhuma cotaç
 
 export function textoDaContagem(itens: number, ativos: number): string {
   return `${itens === 1 ? "1 fornecedor" : `${itens} fornecedores`} · ${ativos === 1 ? "1 ativo" : `${ativos} ativos`}`;
+}
+
+// ---------------------------------------------------------------- ficha rica (PLU-334)
+
+/** CEP do cadastro (8 dígitos) como 69000-000. */
+export const cepFormatado = (cep: string | null): string | null => (cep ? formatarCep(cep) : null);
+
+/** "Rua X, 120 · sala 3": a linha da rua com número e complemento. */
+export function ruaDoFornecedor(f: Pick<Fornecedor, "logradouro" | "numero" | "complemento">): string | null {
+  const rua = [f.logradouro?.trim(), f.numero?.trim()].filter(Boolean).join(", ");
+  return [rua, f.complemento?.trim()].filter(Boolean).join(" · ") || null;
+}
+
+/** O endereço no formato do mapa do lead (o mesmo componente desenha os dois). */
+export function enderecoNoMapa(f: Pick<Fornecedor, "cep" | "logradouro" | "numero" | "bairro" | "cidade" | "uf">) {
+  const rua = [f.logradouro?.trim(), f.numero?.trim()].filter(Boolean).join(", ");
+  return { postalCode: f.cep, street: rua || null, district: f.bairro, city: f.cidade, state: f.uf };
+}
+
+/** Ligar e WhatsApp pelo número nacional, com o 55 do país uma vez só. */
+export function linksDoTelefone(telefone: string | null): { ligar: string; whatsapp: string } | null {
+  const nacional = telefone ? telefoneNacional(telefone) : "";
+  if (nacional.length < 10) return null;
+  return { ligar: `tel:+55${nacional}`, whatsapp: `https://wa.me/55${nacional}` };
+}
+
+/**
+ * Segredo de pagamento escondido por padrão: mostra só o fim, o bastante para
+ * reconhecer ("•••• 0159"), sem expor a chave inteira na tela.
+ */
+export function mascararSegredo(valor: string): string {
+  const limpo = valor.trim();
+  if (limpo.length <= 4) return "••••";
+  return `•••• ${limpo.slice(-4)}`;
+}
+
+/** Textos dos 4 cards de desempenho, no padrão da Previsão do CRM. */
+export function textosDoDesempenho(d: DesempenhoDoFornecedor, diaCurtoDe: (iso: string) => string) {
+  const dias = d.prazoMedioDeEntregaDias;
+  return {
+    cotacoes: { valor: String(d.cotacoes), nota: d.ultimaCotacaoEm ? `última em ${diaCurtoDe(d.ultimaCotacaoEm)}` : "nenhuma ainda" },
+    vitorias: { valor: String(d.vitorias), nota: d.percentualDeVitorias === null ? "sem cotação ainda" : `${d.percentualDeVitorias.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% das cotações`, barra: d.percentualDeVitorias ?? 0 },
+    prazo: { valor: dias === null ? "—" : `${dias.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} d.u.`, nota: dias === null ? "nenhuma cotação informou" : "de entrega declarado" },
+  };
+}
+
+/** Largura da barra de valor do histórico, relativa à maior cotação. */
+export function larguraDaBarra(valor: string, maior: number): number {
+  const n = Number(valor);
+  if (!Number.isFinite(n) || maior <= 0) return 0;
+  return Math.max(2, Math.round((n / maior) * 100));
 }

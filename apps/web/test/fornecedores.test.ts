@@ -2,7 +2,14 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import {
+  cepFormatado,
   documentoFormatado,
+  enderecoNoMapa,
+  larguraDaBarra,
+  linksDoTelefone,
+  mascararSegredo,
+  ruaDoFornecedor,
+  textosDoDesempenho,
   formasResumidas,
   hrefDeFornecedores,
   lerFiltrosDeFornecedores,
@@ -62,5 +69,44 @@ describe("textos da lista", () => {
     assert.equal(textoDeCotacoes(14), "14 cotações");
     assert.equal(textoDaContagem(1, 1), "1 fornecedor · 1 ativo");
     assert.equal(textoDaContagem(9, 8), "9 fornecedores · 8 ativos");
+  });
+});
+
+describe("ficha rica do fornecedor (PLU-334)", () => {
+  it("endereço: CEP formatado, rua com número e complemento, e o formato do mapa", () => {
+    assert.equal(cepFormatado("69000000"), "69000-000");
+    assert.equal(cepFormatado(null), null);
+    assert.equal(ruaDoFornecedor({ logradouro: "Av. Teste", numero: "120", complemento: "sala 3" }), "Av. Teste, 120 · sala 3");
+    assert.equal(ruaDoFornecedor({ logradouro: null, numero: null, complemento: null }), null);
+    assert.deepEqual(enderecoNoMapa({ cep: "69000000", logradouro: "Av. Teste", numero: "120", bairro: "Centro", cidade: "Manaus", uf: "AM" }),
+      { postalCode: "69000000", street: "Av. Teste, 120", district: "Centro", city: "Manaus", state: "AM" });
+  });
+
+  it("telefone vira Ligar e WhatsApp com o 55 uma vez só", () => {
+    assert.deepEqual(linksDoTelefone("92999990001"), { ligar: "tel:+5592999990001", whatsapp: "https://wa.me/5592999990001" });
+    assert.deepEqual(linksDoTelefone("5592999990001"), { ligar: "tel:+5592999990001", whatsapp: "https://wa.me/5592999990001" });
+    assert.equal(linksDoTelefone("123"), null);
+    assert.equal(linksDoTelefone(null), null);
+  });
+
+  it("segredo de pagamento mostra só o fim", () => {
+    assert.equal(mascararSegredo("99999001000159"), "•••• 0159");
+    assert.equal(mascararSegredo("abc"), "••••");
+  });
+
+  it("cards de desempenho, com e sem cotação", () => {
+    const dia = (iso: string) => iso.slice(0, 10);
+    const cheio = textosDoDesempenho({ cotacoes: 5, vitorias: 2, percentualDeVitorias: 40, valorComprado: "1000.00", prazoMedioDeEntregaDias: 4.5, ultimaCotacaoEm: "2026-11-20T12:00:00Z" }, dia);
+    assert.deepEqual(cheio, { cotacoes: { valor: "5", nota: "última em 2026-11-20" }, vitorias: { valor: "2", nota: "40% das cotações", barra: 40 }, prazo: { valor: "4,5 d.u.", nota: "de entrega declarado" } });
+    const vazio = textosDoDesempenho({ cotacoes: 0, vitorias: 0, percentualDeVitorias: null, valorComprado: "0", prazoMedioDeEntregaDias: null, ultimaCotacaoEm: null }, dia);
+    assert.equal(vazio.cotacoes.nota, "nenhuma ainda");
+    assert.equal(vazio.vitorias.nota, "sem cotação ainda");
+    assert.equal(vazio.prazo.valor, "—");
+  });
+
+  it("barra de valor relativa à maior cotação, sempre visível", () => {
+    assert.equal(larguraDaBarra("500", 1000), 50);
+    assert.equal(larguraDaBarra("1", 1000), 2);
+    assert.equal(larguraDaBarra("x", 1000), 0);
   });
 });

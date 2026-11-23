@@ -5,7 +5,9 @@ import {
   contractDetailSchema,
   contractListSchema,
   emailStatusSchema,
+  desempenhoDoFornecedorSchema,
   fornecedorSchema,
+  historicoDeCotacoesRespostaSchema,
   itemDeEstoqueSchema,
   listarItensDeEstoqueRespostaSchema,
   listarMovimentacoesRespostaSchema,
@@ -83,6 +85,12 @@ export const fetchFornecedores = (query: { busca?: string; situacao: string; cat
 
 /** GET /suprimentos/fornecedores/:id: ficha completa, para editar. */
 export const fetchFornecedor = (id: string) => lerApi("/suprimentos/fornecedores/:id", fornecedorSchema, { id });
+
+/** GET /suprimentos/fornecedores/:id/desempenho: cotações, vitórias, comprado e prazo médio (PLU-334). */
+export const fetchDesempenhoDoFornecedor = (id: string) => lerApi("/suprimentos/fornecedores/:id/desempenho", desempenhoDoFornecedorSchema, { id });
+
+/** GET /suprimentos/fornecedores/:id/cotacoes: histórico, do mais recente, até 100. */
+export const fetchCotacoesDoFornecedor = (id: string) => lerApi("/suprimentos/fornecedores/:id/cotacoes", historicoDeCotacoesRespostaSchema, { id });
 
 type ConsultaDeCompras = Record<string, string | undefined>;
 

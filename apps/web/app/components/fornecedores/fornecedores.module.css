@@ -66,6 +66,11 @@
   grid-template-columns: minmax(0, 1fr) 120px !important;
 }
 
+/* Logradouro largo, número estreito (PLU-334). */
+.ruaNumero {
+  grid-template-columns: minmax(0, 1fr) 120px !important;
+}
+
 .aviso {
   display: inline-flex;
   gap: 6px;
@@ -104,7 +109,8 @@
     margin: 4px 0 0;
   }
 
-  .cidadeUf {
+  .cidadeUf,
+  .ruaNumero {
     grid-template-columns: minmax(0, 1fr) 96px !important;
   }
 }

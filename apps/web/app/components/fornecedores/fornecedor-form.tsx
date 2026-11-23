@@ -13,11 +13,13 @@ import {
   type Fornecedor,
   type ListarFornecedoresResposta,
 } from "@plugga/shared";
-import { Building2, Check, FileText, Phone, Power, Truck, Wallet } from "lucide-react";
+import { Building2, Check, FileText, MapPin, Phone, Power, Truck, Wallet } from "lucide-react";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 
 import { enviar, type ErroDoFormulario } from "../../lib/clientes";
-import { documentoFormatado, mascaraDocumento, mascaraTelefone, nomeDoFornecedor, telefoneFormatado, textoDeCotacoes } from "../../lib/fornecedores";
+import { cepFormatado, documentoFormatado, enderecoNoMapa, mascaraDocumento, mascaraTelefone, nomeDoFornecedor, telefoneFormatado, textoDeCotacoes } from "../../lib/fornecedores";
+import { mascaraCep } from "../../lib/perfil-lead";
+import { MapaDoEndereco } from "../pipelines/mapa-do-endereco";
 import { Alert, Button, Dialog, Heading, SelectField, TextField, TextareaField } from "../ui";
 import styles from "./fornecedores.module.css";
 
@@ -47,6 +49,11 @@ export function FornecedorForm({ fornecedor, aoSalvar, aoCancelar }: Propriedade
   const [contatoNome, setContatoNome] = useState(fornecedor?.contatoNome ?? "");
   const [telefone, setTelefone] = useState(telefoneFormatado(fornecedor?.telefone ?? null) ?? "");
   const [email, setEmail] = useState(fornecedor?.email ?? "");
+  const [cep, setCep] = useState(cepFormatado(fornecedor?.cep ?? null) ?? "");
+  const [logradouro, setLogradouro] = useState(fornecedor?.logradouro ?? "");
+  const [numero, setNumero] = useState(fornecedor?.numero ?? "");
+  const [complemento, setComplemento] = useState(fornecedor?.complemento ?? "");
+  const [bairro, setBairro] = useState(fornecedor?.bairro ?? "");
   const [cidade, setCidade] = useState(fornecedor?.cidade ?? "");
   const [uf, setUf] = useState(fornecedor?.uf ?? "");
   const [formas, setFormas] = useState<FormaDePagamento[]>(fornecedor?.formasDePagamento ?? []);
@@ -100,6 +107,7 @@ export function FornecedorForm({ fornecedor, aoSalvar, aoCancelar }: Propriedade
     if (!categoria) porCampo.categoria = "escolha a categoria.";
     const problemaDoc = problemaDoDocumento(documento);
     if (problemaDoc) porCampo.documento = problemaDoc;
+    if (cep.trim() && somenteDigitos(cep).length !== 8) porCampo.cep = "o CEP tem 8 dígitos, como 69000-000.";
     if (Object.keys(porCampo).length > 0) {
       focarErro.current = true;
       setErro({ mensagem: "Confira os campos destacados.", porCampo });
@@ -115,6 +123,11 @@ export function FornecedorForm({ fornecedor, aoSalvar, aoCancelar }: Propriedade
       contatoNome: texto(contatoNome),
       telefone: somenteDigitos(telefone) || null,
       email: texto(email),
+      cep: somenteDigitos(cep) || null,
+      logradouro: texto(logradouro),
+      numero: texto(numero),
+      complemento: texto(complemento),
+      bairro: texto(bairro),
       cidade: texto(cidade),
       uf: uf || null,
       formasDePagamento: formas,
@@ -199,21 +212,38 @@ export function FornecedorForm({ fornecedor, aoSalvar, aoCancelar }: Propriedade
             <TextField label="CNPJ ou CPF" inputMode="numeric" value={documento} onChange={(e) => setDocumento(mascaraDocumento(e.target.value))} onBlur={conferirDocumento}
               placeholder="00.000.000/0000-00" hint="Opcional. Não pode repetir no cadastro." error={erroDo("documento")} />
           </div>
-          <SelectField label="Categoria" required value={categoria || undefined} onChange={(valor) => setCategoria(valor as CategoriaDeFornecedor)} placeholder="Selecione"
+          <SelectField label="Categoria" required value={categoria} onChange={(valor) => setCategoria(valor as CategoriaDeFornecedor)} placeholder="Selecione"
             options={categoriasDeFornecedor.map((c) => ({ value: c, label: rotulosDaCategoriaDeFornecedor[c] }))} error={erroDo("categoria")} />
         </section>
 
         <section className="ui-dialog-section">
-          <div className="ui-dialog-section-header"><Heading as="h3" icon={<Phone />}>Contato e local</Heading></div>
+          <div className="ui-dialog-section-header"><Heading as="h3" icon={<Phone />}>Contato</Heading></div>
           <div className="ui-dialog-grid">
             <TextField label="Nome do contato" maxLength={150} value={contatoNome} onChange={(e) => setContatoNome(e.target.value)} error={erroDo("contatoNome")} />
             <TextField label="Telefone / WhatsApp" inputMode="tel" value={telefone} onChange={(e) => setTelefone(mascaraTelefone(e.target.value))} placeholder="(92) 99999-9999" error={erroDo("telefone")} />
           </div>
           <TextField label="E-mail" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="vendas@fornecedor.com.br" error={erroDo("email")} />
+        </section>
+
+        <section className="ui-dialog-section">
+          <div className="ui-dialog-section-header">
+            <Heading as="h3" icon={<MapPin />}>Endereço</Heading>
+            <p className="ui-dialog-section-desc">Aparece no mapa da ficha. Todos os campos são opcionais.</p>
+          </div>
+          <div className="ui-dialog-grid">
+            <TextField label="CEP" inputMode="numeric" value={cep} onChange={(e) => setCep(mascaraCep(e.target.value))} placeholder="69000-000" error={erroDo("cep")} />
+            <TextField label="Bairro" maxLength={100} value={bairro} onChange={(e) => setBairro(e.target.value)} error={erroDo("bairro")} />
+          </div>
+          <div className={`ui-dialog-grid ${styles.ruaNumero}`}>
+            <TextField label="Logradouro" maxLength={200} value={logradouro} onChange={(e) => setLogradouro(e.target.value)} placeholder="Rua, avenida…" error={erroDo("logradouro")} />
+            <TextField label="Número" maxLength={20} value={numero} onChange={(e) => setNumero(e.target.value)} error={erroDo("numero")} />
+          </div>
+          <TextField label="Complemento" maxLength={100} value={complemento} onChange={(e) => setComplemento(e.target.value)} placeholder="Sala, galpão, referência" error={erroDo("complemento")} />
           <div className={`ui-dialog-grid ${styles.cidadeUf}`}>
             <TextField label="Cidade" maxLength={100} value={cidade} onChange={(e) => setCidade(e.target.value)} error={erroDo("cidade")} />
-            <SelectField label="UF" value={uf || undefined} onChange={setUf} placeholder="UF" options={ufs.map((u) => ({ value: u, label: u }))} error={erroDo("uf")} />
+            <SelectField label="UF" value={uf} onChange={setUf} placeholder="UF" options={ufs.map((u) => ({ value: u, label: u }))} error={erroDo("uf")} />
           </div>
+          <MapaDoEndereco endereco={enderecoNoMapa({ cep: somenteDigitos(cep), logradouro, numero, bairro, cidade, uf })} rotulo="fornecedor" />
         </section>
 
         <section className="ui-dialog-section">
