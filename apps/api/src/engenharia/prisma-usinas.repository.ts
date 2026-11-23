@@ -9,7 +9,7 @@ import type { AuthPrincipal } from "../core/auth/auth.types";
 import { PrismaService } from "../prisma/prisma.service";
 import { ENCERRADAS } from "./engenharia.rules";
 import { codigoDeUc, nomeComparavel, type LinhaNormalizada } from "./importacao-de-usinas";
-import { idDaPlataforma, kwpCurto } from "./usinas.rules";
+import { idDaPlataforma, kwpCurto, violouUsinaDoComissionamento } from "./usinas.rules";
 
 export type Nomes = ReadonlyMap<string, string>;
 export type ArquivoGuardado = { chave: string; nome: string; tamanho: number; tipo: string };
@@ -48,6 +48,7 @@ export type LinhaDoResultado = Prisma.ResultadoDaConferenciaGetPayload<{ select:
 export type ExcecaoComOrdem = { usinaId: string; situacao: Exclude<SituacaoDoMonitoramento, "normal">; nota: string };
 
 const DIAS_DE_MONITORAMENTO_NA_FICHA = 90;
+const USINA_DO_COMISSIONAMENTO_JA_EXISTE = "Essa O.S. de comissionamento já tem usina cadastrada.";
 
 /**
  * Persistência das Usinas, das plataformas e do monitoramento do dia (PLU-347).
@@ -152,7 +153,7 @@ export class PrismaUsinasRepository {
         }
         // Uma usina por comissionamento; o índice único parcial garante sob concorrência.
         const jaTem = await tx.usina.findFirst({ where: { ordemDeComissionamentoId: input.ordemDeComissionamentoId }, select: { id: true } });
-        if (jaTem) throw new Conflito("Essa O.S. de comissionamento já tem usina cadastrada.");
+        if (jaTem) throw new Conflito(USINA_DO_COMISSIONAMENTO_JA_EXISTE);
       }
       const criada = await tx.usina.create({
         data: {
@@ -450,7 +451,10 @@ export class PrismaUsinasRepository {
     try {
       return await gravar();
     } catch (erro) {
-      if (erro instanceof Prisma.PrismaClientKnownRequestError && erro.code === "P2002") throw new Conflito(mensagem);
+      if (erro instanceof Prisma.PrismaClientKnownRequestError && erro.code === "P2002") {
+        // Na corrida pela mesma O.S. de comissionamento, a checagem passa nas duas e o índice recusa a segunda.
+        throw new Conflito(violouUsinaDoComissionamento(erro.meta) ? USINA_DO_COMISSIONAMENTO_JA_EXISTE : mensagem);
+      }
       if (erro instanceof Prisma.PrismaClientKnownRequestError && erro.code === "P2003") throw new RequisicaoInvalida("Cliente, UC ou plataforma não encontrados.", [{ campo: "clienteId", problema: "Escolha do cadastro." }]);
       throw erro;
     }

@@ -2,7 +2,7 @@ import { conferirPlataformaSchema, criarUsinaSchema, pareceCredencial, potenciaK
 import { describe, expect, it } from "vitest";
 
 import { RequisicaoInvalida } from "../common/errors/dominio";
-import { conferirObservacaoDeAcesso, daEngenharia, gerenteDasUsinas, idDaPlataforma, kwpCurto, operaUsinas, ordenarCards, somarKwp, tipoDaOrdemDaExcecao } from "./usinas.rules";
+import { conferirObservacaoDeAcesso, daEngenharia, gerenteDasUsinas, idDaPlataforma, kwpCurto, operaUsinas, ordenarCards, somarKwp, tipoDaOrdemDaExcecao, violouUsinaDoComissionamento } from "./usinas.rules";
 
 const acesso = (nivel: "membro" | "gerente", telas: string[]) => ({ plataforma: null, departamentos: [{ departamento: "engenharia-obras", nivel, telas }] }) as never;
 
@@ -89,5 +89,14 @@ describe("conferência: o que o formulário manda", () => {
     expect(conferirPlataformaSchema.safeParse({ empresa: "waze", resultados: [{ usinaId: usina, situacao: "normal", abrirOs: true }] }).success).toBe(false);
     expect(conferirPlataformaSchema.safeParse({ empresa: "waze", resultados: [{ usinaId: usina, situacao: "normal" }, { usinaId: usina, situacao: "normal" }] }).success).toBe(false);
     expect(conferirPlataformaSchema.safeParse({ empresa: "waze", resultados: "não é json" }).success).toBe(false);
+  });
+});
+
+describe("usina do comissionamento: o 409 certo na corrida", () => {
+  it("reconhece o índice pelo nome ou pelas colunas", () => {
+    expect(violouUsinaDoComissionamento({ target: "usinas_uma_por_comissionamento" })).toBe(true);
+    expect(violouUsinaDoComissionamento({ target: ["ordem_de_comissionamento_id"] })).toBe(true);
+    expect(violouUsinaDoComissionamento({ target: ["consumer_unit_id", "nome"] })).toBe(false);
+    expect(violouUsinaDoComissionamento(undefined)).toBe(false);
   });
 });

@@ -9,6 +9,7 @@ import { AcessoNegado, Conflito, RequisicaoInvalida } from "../src/common/errors
 import type { AuthPrincipal } from "../src/core/auth/auth.types.js";
 import { PrismaEngenhariaRepository } from "../src/engenharia/prisma-engenharia.repository.js";
 import { PrismaUsinasRepository } from "../src/engenharia/prisma-usinas.repository.js";
+import { violouUsinaDoComissionamento } from "../src/engenharia/usinas.rules.js";
 import { UsinasService } from "../src/engenharia/usinas.service.js";
 import { contextoBanco } from "../src/prisma/contexto-banco.js";
 import { PrismaService } from "../src/prisma/prisma.service.js";
@@ -234,9 +235,12 @@ describe.skipIf(!HABILITADO)("engenharia: usinas e monitoramento no Postgres", {
     expect((await como("usinas", () => ordens.ficha(osId))).linha.usinasComissionadas).toEqual([{ id, nome: `${marca} do comissionamento` }]);
     await expect(novaUsina({ nome: `${marca} segunda do comissionamento`, ordemDeComissionamentoId: osId })).rejects.toThrow(/já tem usina/);
     // O índice único parcial segura mesmo sem a checagem do repositório.
-    await expect(root.usina.create({ data: {
+    const erro = await root.usina.create({ data: {
       companyId: "waze", clientId: clienteId, consumerUnitId: ucId, nome: `${marca} direto`, plataformaId, potenciaKwp: "1", comissionadaEm: AGORA, origem: "comissionamento", ordemDeComissionamentoId: osId,
-    } })).rejects.toMatchObject({ code: "P2002" });
+    } }).catch((e: unknown) => e);
+    expect(erro).toMatchObject({ code: "P2002" });
+    // E a corrida responde com a mensagem do comissionamento, não a da UC.
+    expect(violouUsinaDoComissionamento((erro as Prisma.PrismaClientKnownRequestError).meta)).toBe(true);
   });
 
   it("a busca de cliente da Nova usina abre para quem tem só a tela de Usinas", async () => {

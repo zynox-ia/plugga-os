@@ -36,6 +36,16 @@ export function conferirObservacaoDeAcesso(observacao: string | null | undefined
   }
 }
 
+/**
+ * O P2002 veio do índice de uma usina por O.S. de comissionamento? O Prisma
+ * informa o alvo como o nome do índice ou a lista de colunas.
+ */
+export function violouUsinaDoComissionamento(meta: Record<string, unknown> | undefined): boolean {
+  const alvo = meta?.target;
+  const alvos = Array.isArray(alvo) ? alvo.map(String) : typeof alvo === "string" ? [alvo] : [];
+  return alvos.some((a) => a === "usinas_uma_por_comissionamento" || a === "ordem_de_comissionamento_id" || a === "ordemDeComissionamentoId");
+}
+
 /** "Hypon Cloud" → "hypon-cloud"; "FusionSolar" → "fusionsolar". */
 export function idDaPlataforma(nome: string): string {
   return nome
