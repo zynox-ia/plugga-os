@@ -258,6 +258,12 @@ enum ContestationStatus {
 }
 
 model User {
+  lancamentosCriados             Lancamento[]                @relation("LancamentoCriadoPor")
+  lancamentosAprovados           Lancamento[]                @relation("LancamentoAprovadoPor")
+  lancamentosPagos               Lancamento[]                @relation("LancamentoPagamentoRegistradoPor")
+  lancamentosRecebidos           Lancamento[]                @relation("LancamentoRecebimentoRegistradoPor")
+  lancamentosConciliados         Lancamento[]                @relation("LancamentoConciliadoPor")
+  lancamentosCancelados          Lancamento[]                @relation("LancamentoCanceladoPor")
   conexaoGoogleCalendar          ConexaoGoogleCalendar?
   activityRounds                 ActivityRound[]
   uploadedLeadDocuments          LeadDocument[]              @relation("LeadDocumentUploader")
@@ -472,6 +478,9 @@ model Company {
   obras     Obra[]
   pedidos   PedidoDeCompra[]
   itensDeEstoque ItemDeEstoque[]
+  categoriasFinanceiras CategoriaFinanceira[]
+  contasCorrentes ContaCorrente[]
+  lancamentos Lancamento[]
   pipelines Pipeline[]
 
   @@map("companies")
@@ -875,6 +884,7 @@ model Client {
   obras             Obra[]
   pedidosDeCompra   PedidoDeCompra[]
   movimentacoesDeEstoque MovimentacaoDeEstoque[]
+  lancamentos       Lancamento[]
   deals             Deal[]
 
   @@index([segment, active])
@@ -1673,6 +1683,7 @@ model Fornecedor {
   criadoPor     User?             @relation("FornecedorCriadoPor", fields: [criadoPorId], references: [id], onDelete: SetNull)
   atualizadoPor User?             @relation("FornecedorAtualizadoPor", fields: [atualizadoPorId], references: [id], onDelete: SetNull)
   cotacoes      CotacaoDeCompra[]
+  lancamentos   Lancamento[]
 
   @@index([ativo, nome])
   @@map("fornecedores")
@@ -2080,6 +2091,7 @@ model PedidoDeCompra {
   comprovantes             ComprovanteDePagamento[]
   reservasDeEstoque ReservaDeEstoque[]
   movimentacoesDeEstoque MovimentacaoDeEstoque[]
+  lancamento        Lancamento?
 
   @@index([etapa])
   @@index([responsavelId])
@@ -2565,4 +2577,195 @@ model MovimentacaoDeEstoque {
   @@index([data])
   @@index([pedidoId])
   @@map("movimentacoes_de_estoque")
+}
+
+// ---------------------------------------------------------------- Financeiro (PLU-336)
+
+enum FinanceiroTipoLancamento {
+  saida
+  entrada
+
+  @@map("financeiro_tipo_lancamento")
+}
+
+enum FinanceiroEtapa {
+  aberta
+  aprovada
+  paga
+  gerada
+  nf_emitida
+  boleto_gerado
+  enviada
+  recebida
+  conciliada
+
+  @@map("financeiro_etapa")
+}
+
+enum FinanceiroForma {
+  pix
+  boleto
+  cartao_credito
+  transferencia
+  debito_automatico
+
+  @@map("financeiro_forma")
+}
+
+enum FinanceiroOrigem {
+  avulsa
+  pedido_de_compra
+  agente
+  cobranca_manual
+
+  @@map("financeiro_origem")
+}
+
+enum FinanceiroEstadoOmie {
+  nao_enviado
+  enviando
+  enviado
+  erro
+  baixado
+  divergente
+
+  @@map("financeiro_estado_omie")
+}
+
+enum FinanceiroTipoCategoria {
+  receita
+  despesa
+
+  @@map("financeiro_tipo_categoria")
+}
+
+enum FinanceiroNaturezaCategoria {
+  receita
+  material
+  servico
+  telecom
+  aluguel
+  locacao
+  imposto
+  pessoal
+  tarifa
+  outros
+
+  @@map("financeiro_natureza_categoria")
+}
+
+/// Espelho de uma categoria do plano de contas do OMIE da empresa. `natureza`
+/// (o ícone) é do Plugga OS.
+model CategoriaFinanceira {
+  id        String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId String                      @map("company_id")
+  codigo    String
+  nome      String
+  tipo      FinanceiroTipoCategoria
+  natureza  FinanceiroNaturezaCategoria
+  grupoNome String                      @map("grupo_nome")
+  ativa     Boolean                     @default(true)
+  lidaEm    DateTime?                   @map("lida_em") @db.Timestamptz(6)
+  createdAt DateTime                    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime                    @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  company     Company      @relation(fields: [companyId], references: [id])
+  lancamentos Lancamento[]
+
+  @@unique([companyId, codigo])
+  @@unique([id, companyId])
+  @@map("categorias_financeiras")
+}
+
+/// Espelho de uma conta corrente do OMIE da empresa. Somente leitura na tela.
+model ContaCorrente {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId   String    @map("company_id")
+  omieCodigo  String?   @map("omie_codigo")
+  nome        String
+  banco       String?
+  agencia     String?
+  numero      String?
+  saldo       Decimal?  @db.Decimal(14, 2)
+  saldoLidoEm DateTime? @map("saldo_lido_em") @db.Timestamptz(6)
+  ativa       Boolean   @default(true)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  company     Company      @relation(fields: [companyId], references: [id])
+  lancamentos Lancamento[]
+
+  @@unique([companyId, omieCodigo])
+  @@unique([id, companyId])
+  @@map("contas_correntes")
+}
+
+/// Saída (conta a pagar) ou entrada (cobrança de um cliente numa competência).
+/// O banco garante que a categoria e a conta são da mesma empresa (chave
+/// composta) e numera por tipo na inserção (gatilho).
+model Lancamento {
+  id                         String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tipo                       FinanceiroTipoLancamento
+  /// Preenchido pelo gatilho `lancamentos_numerar`; o valor enviado é ignorado.
+  numero                     Int                      @default(0)
+  companyId                  String                   @map("company_id")
+  fornecedorId               String?                  @map("fornecedor_id") @db.Uuid
+  clientId                   String?                  @map("client_id") @db.Uuid
+  categoriaId                String                   @map("categoria_id") @db.Uuid
+  contaCorrenteId            String?                  @map("conta_corrente_id") @db.Uuid
+  descricao                  String
+  valor                      Decimal                  @db.Decimal(14, 2)
+  /// Início do dia de Manaus.
+  vencimento                 DateTime                 @db.Timestamptz(6)
+  /// "aaaa-mm", só na entrada.
+  competencia                String?
+  etapa                      FinanceiroEtapa
+  forma                      FinanceiroForma?
+  observacao                 String?
+  origem                     FinanceiroOrigem
+  pedidoDeCompraId           String?                  @unique @map("pedido_de_compra_id") @db.Uuid
+  omieEstado                 FinanceiroEstadoOmie     @default(nao_enviado) @map("omie_estado")
+  omieCodigo                 String?                  @map("omie_codigo")
+  omieMotivo                 String?                  @map("omie_motivo")
+  criadoPorId                String?                  @map("criado_por_id") @db.Uuid
+  aprovadoEm                 DateTime?                @map("aprovado_em") @db.Timestamptz(6)
+  aprovadoPorId              String?                  @map("aprovado_por_id") @db.Uuid
+  /// Dia do pagamento (início do dia de Manaus).
+  pagoEm                     DateTime?                @map("pago_em") @db.Timestamptz(6)
+  pagamentoRegistradoEm      DateTime?                @map("pagamento_registrado_em") @db.Timestamptz(6)
+  pagamentoRegistradoPorId   String?                  @map("pagamento_registrado_por_id") @db.Uuid
+  /// Dia do recebimento (início do dia de Manaus).
+  recebidoEm                 DateTime?                @map("recebido_em") @db.Timestamptz(6)
+  valorRecebido              Decimal?                 @map("valor_recebido") @db.Decimal(14, 2)
+  recebimentoRegistradoEm    DateTime?                @map("recebimento_registrado_em") @db.Timestamptz(6)
+  recebimentoRegistradoPorId String?                  @map("recebimento_registrado_por_id") @db.Uuid
+  /// Coluna gerada no banco: o dia do pagamento ou do recebimento. Nunca gravada pela aplicação.
+  liquidadoEm                DateTime?                @map("liquidado_em") @db.Timestamptz(6)
+  conciliadoEm               DateTime?                @map("conciliado_em") @db.Timestamptz(6)
+  conciliadoPorId            String?                  @map("conciliado_por_id") @db.Uuid
+  canceladoEm                DateTime?                @map("cancelado_em") @db.Timestamptz(6)
+  canceladoPorId             String?                  @map("cancelado_por_id") @db.Uuid
+  cancelamentoMotivo         String?                  @map("cancelamento_motivo")
+  createdAt                  DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                  DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  company                  Company             @relation(fields: [companyId], references: [id])
+  fornecedor               Fornecedor?         @relation(fields: [fornecedorId], references: [id])
+  client                   Client?             @relation(fields: [clientId], references: [id])
+  categoria                CategoriaFinanceira @relation(fields: [categoriaId], references: [id])
+  contaCorrente            ContaCorrente?      @relation(fields: [contaCorrenteId], references: [id])
+  pedidoDeCompra           PedidoDeCompra?     @relation(fields: [pedidoDeCompraId], references: [id])
+  criadoPor                User?               @relation("LancamentoCriadoPor", fields: [criadoPorId], references: [id], onDelete: SetNull)
+  aprovadoPor              User?               @relation("LancamentoAprovadoPor", fields: [aprovadoPorId], references: [id], onDelete: SetNull)
+  pagamentoRegistradoPor   User?               @relation("LancamentoPagamentoRegistradoPor", fields: [pagamentoRegistradoPorId], references: [id], onDelete: SetNull)
+  recebimentoRegistradoPor User?               @relation("LancamentoRecebimentoRegistradoPor", fields: [recebimentoRegistradoPorId], references: [id], onDelete: SetNull)
+  conciliadoPor            User?               @relation("LancamentoConciliadoPor", fields: [conciliadoPorId], references: [id], onDelete: SetNull)
+  canceladoPor             User?               @relation("LancamentoCanceladoPor", fields: [canceladoPorId], references: [id], onDelete: SetNull)
+
+  @@unique([tipo, numero])
+  @@index([vencimento])
+  @@index([tipo, etapa])
+  @@index([fornecedorId])
+  @@index([clientId])
+  @@map("lancamentos")
 }

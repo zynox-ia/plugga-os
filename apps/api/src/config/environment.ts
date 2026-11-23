@@ -54,6 +54,9 @@ export const environmentSchema = z
     // API and unit tests boot without Redis; enabled locally/on the worker host.
     JOBS_ENABLED: environmentBoolean.default(false),
     JOBS_WORKER_CONCURRENCY: z.coerce.number().int().min(1).max(50).default(1),
+    // Portão do Financeiro (PLU-336) até o módulo ficar completo: liga em development
+    // e test, ou com FINANCEIRO_HABILITADO=true (financeiro-habilitado.guard.ts).
+    FINANCEIRO_HABILITADO: environmentBoolean.default(false),
     DEV_AUTH_ENABLED: environmentBoolean.default(false),
     // Rota sem @Public/@Authenticated/@Roles: `warn` só registra em log (padrão,
     // até o inventário ser aprovado); `enforce` nega. Voltar a `warn` não exige

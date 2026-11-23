@@ -15,6 +15,7 @@ import { validateEnvironment } from "./config/environment";
 import { ComprasModule } from "./compras/compras.module";
 import { CoreModule } from "./core/core.module";
 import { EstoqueModule } from "./estoque/estoque.module";
+import { FinanceiroModule } from "./financeiro/financeiro.module";
 import { FornecedoresModule } from "./fornecedores/fornecedores.module";
 import { CadastroModule } from "./cadastro/cadastro.module";
 import { TelegramModule } from "./telegram/telegram.module";
@@ -61,6 +62,7 @@ const monorepoRootEnvPath = path.resolve(__dirname, "../../../.env");
     FornecedoresModule,
     ComprasModule,
     EstoqueModule,
+    FinanceiroModule,
     CommercialModule,
     PipelinesModule,
     NegociosModule,

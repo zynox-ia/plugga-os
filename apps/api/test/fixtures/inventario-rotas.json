@@ -914,6 +914,126 @@
     ]
   },
   {
+    "metodo": "GET",
+    "caminho": "/financeiro/lancamentos",
+    "controller": "FinanceiroController.listar",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:financeiro.pagar",
+      "tela:financeiro.receber",
+      "departamento:financeiro:membro"
+    ],
+    "guards": [
+      "FinanceiroHabilitadoGuard",
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/financeiro/lancamentos",
+    "controller": "FinanceiroController.criar",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:financeiro.pagar",
+      "tela:financeiro.receber",
+      "departamento:financeiro:membro"
+    ],
+    "guards": [
+      "FinanceiroHabilitadoGuard",
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/financeiro/lancamentos/:id",
+    "controller": "FinanceiroController.obter",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:financeiro.pagar",
+      "tela:financeiro.receber",
+      "departamento:financeiro:membro"
+    ],
+    "guards": [
+      "FinanceiroHabilitadoGuard",
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "PATCH",
+    "caminho": "/financeiro/lancamentos/:id",
+    "controller": "FinanceiroController.editar",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:financeiro.pagar",
+      "tela:financeiro.receber",
+      "departamento:financeiro:membro"
+    ],
+    "guards": [
+      "FinanceiroHabilitadoGuard",
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/financeiro/lancamentos/:id/acoes",
+    "controller": "FinanceiroController.executarAcao",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:financeiro.pagar",
+      "tela:financeiro.receber",
+      "departamento:financeiro:membro"
+    ],
+    "guards": [
+      "FinanceiroHabilitadoGuard",
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/financeiro/lancamentos/quadro",
+    "controller": "FinanceiroController.quadro",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:financeiro.pagar",
+      "tela:financeiro.receber",
+      "departamento:financeiro:membro"
+    ],
+    "guards": [
+      "FinanceiroHabilitadoGuard",
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/financeiro/opcoes",
+    "controller": "FinanceiroController.opcoes",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:financeiro.pagar",
+      "tela:financeiro.receber",
+      "tela:financeiro.conciliacao",
+      "tela:financeiro.fiscal",
+      "departamento:financeiro:membro"
+    ],
+    "guards": [
+      "FinanceiroHabilitadoGuard",
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
     "metodo": "DELETE",
     "caminho": "/google/calendar/conexao",
     "controller": "GoogleCalendarController.desconectar",

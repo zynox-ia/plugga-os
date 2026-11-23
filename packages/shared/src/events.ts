@@ -138,6 +138,11 @@ export const catalogoEventos = {
   "estoque.reserva.created": evento("Reserva de estoque para um pedido de compra", "empresa"),
   "estoque.reserva.baixada": evento("Reserva de estoque convertida em saída no recebimento", "empresa"),
   "estoque.reserva.liberada": evento("Reserva de estoque liberada", "empresa"),
+  // Financeiro (PLU-336). Sem PII: o motivo do cancelamento e a descrição ficam no lançamento, não no evento.
+  "financeiro.lancamento.created": evento("Lançamento financeiro criado", "empresa"),
+  "financeiro.lancamento.updated": evento("Lançamento financeiro alterado", "empresa"),
+  "financeiro.lancamento.aprovado": evento("Conta a pagar aprovada", "empresa"),
+  "financeiro.lancamento.cancelado": evento("Lançamento financeiro cancelado", "empresa"),
   // Fornecedor é cadastro único das duas empresas: o escopo é a plataforma. Sem PII, só os nomes dos campos.
   "suprimentos.fornecedor.created": evento("Fornecedor cadastrado", "plataforma"),
   "suprimentos.fornecedor.updated": evento("Fornecedor alterado", "plataforma"),

@@ -127,7 +127,7 @@ describe.skipIf(!HABILITADO)("RLS: permissões no login real da aplicação", { 
 
   it("habilita e força RLS em todos os modelos e mantém os grupos sem bypass", async () => {
     const tabelas = Prisma.dmmf.datamodel.models.map((m) => m.dbName ?? m.name);
-    expect(tabelas).toHaveLength(84);
+    expect(tabelas).toHaveLength(87);
     expect(tabelas).toContain("conexoes_google_calendar");
     expect(tabelas).toEqual(expect.arrayContaining(["activities", "activity_rounds", "activity_changes", "activity_round_evidence"]));
     const flags = await root.$queryRaw<{ nome: string; ativo: boolean; forcado: boolean }[]>`
@@ -866,6 +866,64 @@ describe.skipIf(!HABILITADO)("RLS: permissões no login real da aplicação", { 
         await tx.itemDeEstoque.deleteMany({ where: { nome: { startsWith: marca } } });
         await tx.pedidoDeCompra.deleteMany({ where: pedido });
       });
+    }
+  });
+
+  it("financeiro: a saída é de Contas a pagar, a entrada de Contas a receber; a Conciliação lê as duas; nada se apaga", async () => {
+    const criarPessoa = async (nome: string, telas: string[]) => {
+      const pessoa = await root.user.create({ data: { name: `${marca}-${nome}`, email: `${marca}-${nome}@teste.local` } });
+      idsUsuarios.push(pessoa.id);
+      const hash = randomBytes(32).toString("hex");
+      pessoas.set(nome, { id: pessoa.id, hash });
+      await root.session.create({ data: { userId: pessoa.id, tokenHash: hash, expiresAt: new Date(Date.now() + 3_600_000), absoluteExpiresAt: new Date(Date.now() + 7_200_000) } });
+      await root.userDepartamento.create({ data: { userId: pessoa.id, departamento: "financeiro", nivel: "membro", telas } });
+      return pessoa;
+    };
+    const pagador = await criarPessoa("pagar", ["financeiro.pagar"]);
+    await criarPessoa("conciliacao", ["financeiro.conciliacao"]);
+    const fornecedor = await root.fornecedor.create({ data: { nome: `${marca}-fin-forn`, categoria: "servico" }, select: { id: true } });
+    const despesa = await root.categoriaFinanceira.create({ data: { companyId: empresaId, codigo: "9.9.1", nome: `${marca}-desp`, tipo: "despesa", natureza: "outros", grupoNome: "RLS" }, select: { id: true } });
+    const receita = await root.categoriaFinanceira.create({ data: { companyId: empresaId, codigo: "9.9.2", nome: `${marca}-rec`, tipo: "receita", natureza: "receita", grupoNome: "RLS" }, select: { id: true } });
+    const comum = { companyId: empresaId, valor: 10, vencimento: new Date(), origem: "avulsa" as const };
+    const saida = await root.lancamento.create({ data: { ...comum, tipo: "saida", fornecedorId: fornecedor.id, categoriaId: despesa.id, descricao: `${marca}-saida`, etapa: "aberta", criadoPorId: pagador.id }, select: { id: true } });
+    const entrada = await root.lancamento.create({ data: { ...comum, tipo: "entrada", clientId: registros.get("a")!, categoriaId: receita.id, descricao: `${marca}-entrada`, competencia: "2026-11", etapa: "gerada", origem: "cobranca_manual" }, select: { id: true } });
+    const ver = (nome: string, alvo: { id: string }) => contexto(nome, (tx) => tx.lancamento.findUnique({ where: alvo, select: { id: true } }));
+    try {
+      expect(await ver("pagar", saida)).toEqual(saida);
+      expect(await ver("pagar", entrada)).toBeNull();
+      // "financeiro" é gerente com só Contas a receber: o nível não abre o outro tipo.
+      expect(await ver("financeiro", entrada)).toEqual(entrada);
+      expect(await ver("financeiro", saida)).toBeNull();
+      for (const nome of ["conciliacao", "admin"]) {
+        expect(await ver(nome, saida), nome).toEqual(saida);
+        expect(await ver(nome, entrada), nome).toEqual(entrada);
+      }
+      for (const nome of ["a", "gerente", "sem-tela"]) {
+        expect(await ver(nome, saida), nome).toBeNull();
+      }
+      // Os cadastros espelhados do OMIE: lê qualquer tela do Financeiro, ninguém grava pela aplicação.
+      expect(await contexto("pagar", (tx) => tx.categoriaFinanceira.findUnique({ where: despesa, select: { id: true } }))).toEqual(despesa);
+      expect(await contexto("a", (tx) => tx.categoriaFinanceira.findUnique({ where: despesa, select: { id: true } }))).toBeNull();
+      await expect(contexto("admin", (tx) => tx.categoriaFinanceira.create({ data: { companyId: empresaId, codigo: "9.9.3", nome: `${marca}-x`, tipo: "despesa", natureza: "outros", grupoNome: "RLS" } }))).rejects.toThrow();
+
+      // Quem só tem Contas a pagar cria saída, não entrada, e não altera a entrada.
+      const novaSaida = { ...comum, tipo: "saida" as const, fornecedorId: fornecedor.id, categoriaId: despesa.id, descricao: `${marca}-saida-2`, etapa: "aberta" as const };
+      await expect(contexto("pagar", (tx) => tx.lancamento.create({ data: novaSaida, select: { id: true } }))).resolves.toMatchObject({ id: expect.any(String) });
+      await expect(contexto("pagar", (tx) => tx.lancamento.create({ data: { ...comum, tipo: "entrada", clientId: registros.get("a")!, categoriaId: receita.id, descricao: `${marca}-entrada-2`, competencia: "2026-12", etapa: "gerada", origem: "cobranca_manual" } }))).rejects.toThrow();
+      expect((await contexto("pagar", (tx) => tx.lancamento.updateMany({ where: entrada, data: { descricao: "x" } }))).count).toBe(0);
+      await expect(contexto("admin", (tx) => tx.lancamento.deleteMany({ where: saida }))).rejects.toThrow(/permission denied/);
+
+      // O Financeiro não lê `clients` (é do CRM), mas recebe o nome do cliente cobrado pela função.
+      expect(await contexto("financeiro", (tx) => tx.client.findUnique({ where: { id: registros.get("a")! }, select: { id: true } }))).toBeNull();
+      const nomes = await contexto("financeiro", (tx) => tx.$queryRaw<{ id: string }[]>`SELECT id FROM plugga_security.clientes_para_financeiro(NULL, ${[registros.get("a")!, registros.get("b")!]}::uuid[])`);
+      expect(nomes.map((n) => n.id)).toEqual([registros.get("a")!]);
+      expect(await contexto("pagar", (tx) => tx.$queryRaw<{ id: string }[]>`SELECT id FROM plugga_security.clientes_para_financeiro(NULL, ${[registros.get("a")!]}::uuid[])`)).toEqual([]);
+      // O diretório mostra quem criou o lançamento para quem tem Financeiro.
+      expect(await contexto("conciliacao", (tx) => tx.user.findUnique({ where: { id: pagador.id }, select: { id: true } }))).toEqual({ id: pagador.id });
+    } finally {
+      await root.lancamento.deleteMany({ where: { descricao: { startsWith: marca } } });
+      await root.categoriaFinanceira.deleteMany({ where: { nome: { startsWith: marca } } });
+      await root.fornecedor.deleteMany({ where: fornecedor });
     }
   });
 

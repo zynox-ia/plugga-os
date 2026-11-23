@@ -217,6 +217,48 @@ async function main() {
     }
   }
 
+  // Financeiro (PLU-336): o espelho do OMIE de cada empresa enquanto a leitura do
+  // OMIE (PLU-342) não existe. Plano de contas e contas sintéticos, sem saldo:
+  // o saldo só aparece quando o OMIE for lido. Nunca sobrescreve o que já existe.
+  const gruposDoPlano: Record<string, string> = {
+    '1.01': 'Receitas de gestão de energia',
+    '1.02': 'Receitas de engenharia',
+    '2.01': 'Materiais e logística',
+    '2.02': 'Locações',
+    '2.03': 'Despesas administrativas',
+    '2.04': 'Despesas bancárias',
+    '2.05': 'Impostos e taxas',
+    '2.07': 'Pessoas e reembolsos',
+  };
+  const categoriasDeExemplo = [
+    { codigo: '1.01.01', nome: 'Gestão de energia (exemplo)', tipo: 'receita', natureza: 'receita', empresas: ['plugga'] },
+    { codigo: '1.02.01', nome: 'Serviços de engenharia (exemplo)', tipo: 'receita', natureza: 'receita', empresas: ['waze'] },
+    { codigo: '2.01.01', nome: 'Materiais e equipamentos (exemplo)', tipo: 'despesa', natureza: 'material', empresas: ['plugga', 'waze'] },
+    { codigo: '2.02.01', nome: 'Locação de equipamentos (exemplo)', tipo: 'despesa', natureza: 'locacao', empresas: ['plugga', 'waze'] },
+    { codigo: '2.03.01', nome: 'Aluguel e condomínio (exemplo)', tipo: 'despesa', natureza: 'aluguel', empresas: ['plugga', 'waze'] },
+    { codigo: '2.03.02', nome: 'Honorários contábeis (exemplo)', tipo: 'despesa', natureza: 'servico', empresas: ['plugga', 'waze'] },
+    { codigo: '2.03.04', nome: 'Internet e telefonia (exemplo)', tipo: 'despesa', natureza: 'telecom', empresas: ['plugga', 'waze'] },
+    { codigo: '2.04.01', nome: 'Tarifas bancárias (exemplo)', tipo: 'despesa', natureza: 'tarifa', empresas: ['plugga', 'waze'] },
+    { codigo: '2.05.01', nome: 'Impostos e taxas (exemplo)', tipo: 'despesa', natureza: 'imposto', empresas: ['plugga', 'waze'] },
+    { codigo: '2.07.01', nome: 'Reembolsos à equipe (exemplo)', tipo: 'despesa', natureza: 'pessoal', empresas: ['plugga', 'waze'] },
+  ] as const;
+  await prisma.categoriaFinanceira.createMany({
+    data: categoriasDeExemplo.flatMap(({ empresas, ...categoria }) => empresas.map((companyId) => ({
+      ...categoria,
+      companyId,
+      grupoNome: gruposDoPlano[categoria.codigo.split('.').slice(0, 2).join('.')] ?? 'Outros',
+    }))),
+    skipDuplicates: true,
+  });
+  await prisma.contaCorrente.createMany({
+    data: [
+      { companyId: 'plugga', omieCodigo: 'exemplo-plugga-1', nome: 'Banco A · Plugga (exemplo)', banco: 'Banco A' },
+      { companyId: 'plugga', omieCodigo: 'exemplo-plugga-2', nome: 'Banco B · Plugga (exemplo)', banco: 'Banco B' },
+      { companyId: 'waze', omieCodigo: 'exemplo-waze-1', nome: 'Banco A · Waze (exemplo)', banco: 'Banco A' },
+    ],
+    skipDuplicates: true,
+  });
+
   const integrations = await Promise.all(
     integrationRows.map((integration) =>
       prisma.integration.upsert({
