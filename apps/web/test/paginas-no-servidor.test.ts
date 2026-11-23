@@ -7,7 +7,9 @@ import { test } from "node:test";
 import { podeAbrirPagina } from "../app/lib/acesso-paginas.ts";
 
 const app = fileURLToPath(new URL("../app/", import.meta.url));
-const publicas = new Set(["/login", "/auth/mfa", "/auth/accept-invite", "/auth/reset", "/privacidade", "/termos"]);
+// "/indisponivel" (PLU-343) é pública por natureza: aparece justamente quando a sessão não pôde ser
+// conferida (API fora do ar) e não lê dado nenhum; exigir sessão ali a mandaria de volta para si mesma.
+const publicas = new Set(["/login", "/auth/mfa", "/auth/accept-invite", "/auth/reset", "/privacidade", "/termos", "/indisponivel"]);
 const arquivos = readdirSync(app, { recursive: true, withFileTypes: true })
   .filter((arquivo) => arquivo.isFile() && arquivo.name === "page.tsx")
   .map((arquivo) => join(arquivo.parentPath, arquivo.name));

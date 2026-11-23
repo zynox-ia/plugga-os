@@ -1,10 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { sessionUserSchema, type SessionUser } from "@plugga/shared";
 import { podeAbrirPagina } from "./app/lib/acesso-paginas";
 
 import { buildContentSecurityPolicy } from "./app/lib/content-security-policy";
 import { apiBaseUrl } from "./app/lib/env-runtime";
 import { shouldBypassSessionCheck } from "./app/lib/public-paths";
+import { decidirPagina, lerSessaoDaApi, ROTA_DE_API_INDISPONIVEL } from "./app/lib/sessao-do-middleware";
 
 // Mesma folga de proxy.ts e do FETCH_TIMEOUT_TUNEL_MS de app/lib/api.ts:
 // validar a sessão atravessa o túnel SSH (~2 s de base), e 5 s expulsava
@@ -75,23 +75,23 @@ function redirectTo(request: NextRequest, pathname: string): URL {
   return url;
 }
 
-/** True when apps/api's session cookie is accepted by GET /auth/me. */
-async function readSession(request: NextRequest): Promise<SessionUser | null> {
-  const cookie = request.headers.get("cookie");
-  if (!cookie) return null;
-
-  try {
-    const response = await fetch(`${apiBaseUrl()}/auth/me`, {
-      headers: { cookie },
-      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-      cache: "no-store",
-    });
-    if (!response.ok) return null;
-    const resultado = sessionUserSchema.safeParse(await response.json());
-    return resultado.success ? resultado.data : null;
-  } catch {
-    return null;
-  }
+/**
+ * API indisponível (PLU-343): a página pedida mostra o aviso padrão no MESMO
+ * endereço (rewrite, não redirect), então nada se perde — nem o destino — e a
+ * própria página tenta de novo até a API voltar. Sem cache: a próxima
+ * requisição já deve ver a página real.
+ */
+function avisoDeIndisponivelComCsp(request: NextRequest): NextResponse {
+  const nonce = gerarNonce();
+  const csp = buildContentSecurityPolicy(nonce, process.env.NODE_ENV === "production");
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("Content-Security-Policy", csp);
+  const destino = request.nextUrl.clone();
+  destino.pathname = ROTA_DE_API_INDISPONIVEL;
+  const response = NextResponse.rewrite(destino, { request: { headers: requestHeaders } });
+  response.headers.set("Content-Security-Policy", csp);
+  response.headers.set("Cache-Control", "no-store");
+  return response;
 }
 
 /**
@@ -120,24 +120,23 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
     return proximaComCsp(request);
   }
 
-  const usuario = await readSession(request);
-  const authenticated = usuario !== null;
+  // Só 401/403 são "sem sessão"; rede, tempo e 5xx são "API indisponível" (PLU-343).
+  const leitura = await lerSessaoDaApi({ cookie: request.headers.get("cookie"), base: apiBaseUrl(), tempoMs: FETCH_TIMEOUT_MS });
+  const decisao = decidirPagina(pathname, leitura, (usuario) => podeAbrirPagina(usuario.acesso, pathname));
 
-  if (pathname === "/login") {
-    return authenticated ? redirectComCsp(request, redirectTo(request, "/")) : proximaComCsp(request);
+  switch (decisao.acao) {
+    case "inicio":
+      return redirectComCsp(request, redirectTo(request, "/"));
+    case "login": {
+      const loginUrl = redirectTo(request, "/login");
+      if (decisao.redirectTo) loginUrl.searchParams.set("redirectTo", decisao.redirectTo);
+      return redirectComCsp(request, loginUrl);
+    }
+    case "indisponivel":
+      return avisoDeIndisponivelComCsp(request);
+    default:
+      return proximaComCsp(request);
   }
-
-  if (!authenticated) {
-    const loginUrl = redirectTo(request, "/login");
-    if (pathname !== "/") loginUrl.searchParams.set("redirectTo", pathname);
-    return redirectComCsp(request, loginUrl);
-  }
-
-  if (usuario && !podeAbrirPagina(usuario.acesso, pathname)) {
-    return redirectComCsp(request, redirectTo(request, "/"));
-  }
-
-  return proximaComCsp(request);
 }
 
 export const config = {
