@@ -1,8 +1,14 @@
 import { expect, test } from "@playwright/test";
 import { pipelineParaEdicao, type Pipeline } from "@plugga/shared";
 
-test("ação da barra acompanha a aba selecionada", async ({ page }) => {
-  await page.goto("/comercial/pipelines");
+import { marcaDaExecucao } from "./support/execucao";
+import { criarPipelineProprio } from "./support/pipeline-proprio";
+
+test("ação da barra acompanha a aba selecionada", async ({ page, request, baseURL }) => {
+  // Um funil próprio: sem pipeline ativo a tela mostra "Crie o primeiro pipeline", sem a configuração.
+  const { pipeline, arquivar } = await criarPipelineProprio(request, baseURL!, `Barra E2E ${marcaDaExecucao()}`);
+  try {
+  await page.goto(`/comercial/pipelines?pipeline=${pipeline.id}`);
   await page.getByRole("button", { name: "Configurar pipelines", exact: true }).click();
   const modal = page.getByRole("dialog", { name: "Configurar pipelines" });
   const barra = modal.locator(".editor-pipeline > header");
@@ -19,6 +25,9 @@ test("ação da barra acompanha a aba selecionada", async ({ page }) => {
   const total = await etiquetas.count();
   await barra.getByRole("button", { name: "Nova etiqueta" }).click();
   await expect(etiquetas).toHaveCount(total + 1);
+  } finally {
+    await arquivar();
+  }
 });
 
 test("configuração valida as abas e persiste criação e edição após recarregar", async ({ page }) => {
