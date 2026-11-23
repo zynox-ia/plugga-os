@@ -78,17 +78,10 @@ export function corpoDaCobranca(c: CamposDaCobranca): { corpo?: CriarCobranca; p
 
 export type Repetida = { codigo: string; id: string };
 
-/**
- * A cobrança que já existe, no 409 da repetida. A API manda os extras no topo do
- * envelope, e lá `codigo` é o código do erro: o da cobrança vem na mensagem
- * ("Já existe a CR-0012 deste cliente…") e o `id` no topo.
- */
+/** A cobrança que já existe, no 409 da repetida: `existente: { codigo, id }` no topo do envelope. */
 export function cobrancaExistente(corpo: unknown): Repetida | null {
-  const dados = (corpo ?? {}) as { id?: unknown; mensagem?: unknown; message?: unknown; extras?: { codigo?: unknown; id?: unknown } };
-  const id = typeof dados.extras?.id === "string" ? dados.extras.id : typeof dados.id === "string" ? dados.id : null;
-  const texto = [dados.extras?.codigo, dados.mensagem, dados.message].find((t): t is string => typeof t === "string" && /CR-\d+/.test(t));
-  const codigo = texto ? /CR-\d+/.exec(texto)![0] : null;
-  return id && codigo ? { id, codigo } : null;
+  const existente = (corpo as { existente?: { codigo?: unknown; id?: unknown } } | null)?.existente;
+  return typeof existente?.codigo === "string" && typeof existente.id === "string" ? { codigo: existente.codigo, id: existente.id } : null;
 }
 
 // ---------------------------------------------------------------- baixar comprovantes

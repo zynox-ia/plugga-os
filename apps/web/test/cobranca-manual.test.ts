@@ -25,11 +25,11 @@ describe("nova cobrança manual", () => {
     assert.equal(corpoDaCobranca({ ...campos, contaCorrenteId: u(4), observacao: "x" }).corpo?.contaCorrenteId, u(4));
   });
 
-  it("a repetida (409) traz o id no topo e o código da existente na mensagem", () => {
-    const envelope = { codigo: "CONFLITO_UNICIDADE", mensagem: "Já existe a CR-0012 deste cliente nesta competência.", detalhes: [{ campo: "competencia", problema: "Uma cobrança por cliente e competência." }], id: u(9) };
+  it("a repetida (409) traz a existente em `existente`; sem ela, não há o que abrir", () => {
+    const envelope = { codigo: "CONFLITO_UNICIDADE", mensagem: "Já existe a CR-0012 deste cliente nesta competência.", detalhes: [{ campo: "competencia", problema: "Uma cobrança por cliente e competência." }], existente: { codigo: "CR-0012", id: u(9) } };
     assert.deepEqual(cobrancaExistente(envelope), { codigo: "CR-0012", id: u(9) });
-    assert.deepEqual(cobrancaExistente({ extras: { codigo: "CR-0007", id: u(8) } }), { codigo: "CR-0007", id: u(8) });
-    assert.equal(cobrancaExistente({ codigo: "CONFLITO_UNICIDADE", mensagem: "Já existe a cobrança deste cliente nesta competência." }), null);
+    assert.equal(cobrancaExistente({ codigo: "CONFLITO_UNICIDADE", mensagem: "Já existe a CR-0012 deste cliente nesta competência.", id: u(9) }), null);
+    assert.equal(cobrancaExistente({ existente: { codigo: "CR-0012" } }), null);
     assert.equal(cobrancaExistente(null), null);
   });
 
