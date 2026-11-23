@@ -107,7 +107,7 @@ export function AgendaView({ agenda, filtros, opcoes }: { agenda: AgendaDeCampo;
 
     <section className={styles.paraAgendar} aria-label="Para agendar">
       <header><h2><CalendarDays size={16} aria-hidden="true" />Para agendar</h2>
-        <p>{agenda.paraAgendar.length ? `${agenda.paraAgendar.length} O.S. sem técnico nem data, do prazo mais curto ao mais longo` : "Tudo agendado."}</p></header>
+        <p>{agenda.paraAgendar.length ? `${agenda.paraAgendar.length} O.S. abertas e adiadas, do prazo mais curto ao mais longo` : "Tudo agendado."}</p></header>
       {agenda.paraAgendar.length ? <ul>{agenda.paraAgendar.map((o) => <li key={o.id}>
         <Link href={hrefDasOrdens({ visao: "cards" }, o.id)} className={styles.linhaParaAgendar}>
           <span className={styles.caixa} aria-hidden="true"><IconeDoTipo tipo={o.tipo} tamanho={16} /></span>

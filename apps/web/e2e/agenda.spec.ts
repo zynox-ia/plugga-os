@@ -16,11 +16,12 @@ test("agendar pela Agenda: sai de Para agendar e entra na grade da semana", asyn
   const H = { origin: baseURL! };
   const sufixo = Date.now().toString(36).toUpperCase();
   const { client } = (await (await request.post("/api/clientes", { headers: H, data: { personType: "pj", name: `Cliente agenda ${sufixo} (sintético)`, email: `agenda-${sufixo.toLowerCase()}@teste.local` } })).json()) as CreateClientResponse;
-  // Prazo de amanhã: com hoje numa sexta, a O.S. agendada para segunda cai na semana seguinte; por isso a data vem de "amanhã útil".
+  // A data do agendamento é o próximo dia útil: com hoje numa sexta, cai na segunda, e a semana mostrada é a dele.
   const manaus = (dias: number) => new Date(Date.now() - 4 * 3_600_000 + dias * 86_400_000);
   let n = 1; while ([0, 6].includes(manaus(n).getUTCDay())) n += 1;
   const dia = manaus(n).toISOString().slice(0, 10);
-  const criada = await request.post("/api/engenharia/ordens-de-servico", { headers: H, data: { empresa: "waze", tipo: "visita_tecnica", clienteId: client.id, descricao: `Visita ${marcaDaExecucao()} ${sufixo} (sintético)`, prazo: dia } });
+  // Prazo de hoje: "Para agendar" corta em 100 pelo prazo, e a O.S. do teste precisa estar entre as primeiras.
+  const criada = await request.post("/api/engenharia/ordens-de-servico", { headers: H, data: { empresa: "waze", tipo: "visita_tecnica", clienteId: client.id, descricao: `Visita ${marcaDaExecucao()} ${sufixo} (sintético)`, prazo: manaus(0).toISOString().slice(0, 10) } });
   expect(criada.ok(), await criada.text()).toBeTruthy();
   const { codigo } = (await criada.json()) as { codigo: string };
 
