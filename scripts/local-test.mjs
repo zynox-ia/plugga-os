@@ -215,6 +215,26 @@ export function runLocalTestAction(
       "rustfs-test",
     );
     compose("run", "--rm", "rustfs-test-provision");
+    marcarComoLocal();
+  }
+
+  // O marcador que a limpeza dos e2e exige (apps/web/e2e/support/limpeza-e2e.sql):
+  // só os bancos locais o têm, e um volume novo o perderia. Nunca vai em migration.
+  function marcarComoLocal() {
+    compose(
+      "exec",
+      "-T",
+      "postgres-test",
+      "psql",
+      "-U",
+      "plugga_os_test",
+      "-d",
+      "plugga_os_test",
+      "-v",
+      "ON_ERROR_STOP=1",
+      "-c",
+      "ALTER DATABASE plugga_os_test SET plugga.ambiente = 'local'",
+    );
   }
 
   function migrate() {

@@ -282,3 +282,11 @@ test("CI keeps its explicit ephemeral service targets for separate validation", 
   assert.equal(environment.DATABASE_URL, ciDatabaseUrl);
   assert.equal(environment.REDIS_URL, "redis://127.0.0.1:56380");
 });
+
+test("up marca o banco de teste como local, para a limpeza dos e2e", () => {
+  const { calls, runner } = createRunner();
+  runLocalTestAction("up", runner, () => localDockerTarget(), {});
+  const marcador = calls.find((call) => call.args.includes("ALTER DATABASE plugga_os_test SET plugga.ambiente = 'local'"));
+  assert.ok(marcador, "o up grava plugga.ambiente = 'local'");
+  assert.deepEqual(marcador.args.slice(-12, -2), ["exec", "-T", "postgres-test", "psql", "-U", "plugga_os_test", "-d", "plugga_os_test", "-v", "ON_ERROR_STOP=1"]);
+});
