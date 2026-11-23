@@ -67,38 +67,37 @@ function LinhaSecreta({ rotulo, mascarado, completo, visivel, aoMostrar, aoCopia
 }
 
 /**
- * Dados de pagamento: a ficha só recebe a versão mascarada. Mostrar e Copiar
- * pedem o completo à API, que grava quem pediu, quando e por quê.
+ * Dados de pagamento: a ficha só recebe a versão mascarada. Cada Mostrar e
+ * cada Copiar pedem o completo à API, que grava quem pediu, quando e por quê;
+ * nada fica guardado no navegador, e Ocultar descarta o valor mostrado.
  */
 export function PagamentoDoFornecedor({ fornecedor: f, aoRevelar, aoCopiar }: { fornecedor: Fornecedor; aoRevelar: Revelar; aoCopiar: (texto: string, rotulo: string) => void }) {
-  const [revelados, setRevelados] = useState<DadosDePagamentoRevelados | null>(null);
-  const [visiveis, setVisiveis] = useState<{ pix: boolean; banco: boolean }>({ pix: false, banco: false });
+  const [mostrados, setMostrados] = useState<{ pix?: string; banco?: string }>({});
   const [ocupado, setOcupado] = useState(false);
+  const campoDe = (r: DadosDePagamentoRevelados, campo: "pix" | "banco") => (campo === "pix" ? r.chavePix : r.dadosBancarios) ?? undefined;
 
-  async function completos(motivo: "mostrar" | "copiar") {
-    if (revelados) return revelados;
+  async function completo(motivo: "mostrar" | "copiar", campo: "pix" | "banco") {
     setOcupado(true);
     const r = await aoRevelar(motivo);
     setOcupado(false);
-    if (r) setRevelados(r);
-    return r;
+    return r ? campoDe(r, campo) : undefined;
   }
   async function mostrar(campo: "pix" | "banco") {
-    if (visiveis[campo]) { setVisiveis((v) => ({ ...v, [campo]: false })); return; }
-    if (await completos("mostrar")) setVisiveis((v) => ({ ...v, [campo]: true }));
+    if (mostrados[campo]) { setMostrados((m) => ({ ...m, [campo]: undefined })); return; }
+    const valor = await completo("mostrar", campo);
+    if (valor) setMostrados((m) => ({ ...m, [campo]: valor }));
   }
   async function copiar(campo: "pix" | "banco", rotulo: string) {
-    const r = await completos("copiar");
-    const valor = campo === "pix" ? r?.chavePix : r?.dadosBancarios;
+    const valor = await completo("copiar", campo);
     if (valor) aoCopiar(valor, rotulo);
   }
 
   return <div className={styles.corpo}>
     <div className={styles.barra}><div><h3>Dados de pagamento</h3><p>Escondidos por padrão. Mostrar e Copiar ficam registrados, com quem pediu e quando.</p></div></div>
     <div className={styles.pagamento}>
-      <LinhaSecreta rotulo="Chave PIX" mascarado={f.chavePixMascarada} completo={revelados?.chavePix} visivel={visiveis.pix} ocupado={ocupado}
+      <LinhaSecreta rotulo="Chave PIX" mascarado={f.chavePixMascarada} completo={mostrados.pix} visivel={Boolean(mostrados.pix)} ocupado={ocupado}
         aoMostrar={() => void mostrar("pix")} aoCopiar={() => void copiar("pix", "Chave PIX")} />
-      <LinhaSecreta rotulo="Dados bancários" mascarado={f.dadosBancariosMascarados} completo={revelados?.dadosBancarios} visivel={visiveis.banco} ocupado={ocupado}
+      <LinhaSecreta rotulo="Dados bancários" mascarado={f.dadosBancariosMascarados} completo={mostrados.banco} visivel={Boolean(mostrados.banco)} ocupado={ocupado}
         aoMostrar={() => void mostrar("banco")} aoCopiar={() => void copiar("banco", "Dados bancários")} />
     </div>
     <div className={styles.selos} aria-label="Formas de pagamento aceitas">
