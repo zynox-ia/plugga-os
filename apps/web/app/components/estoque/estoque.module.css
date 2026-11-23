@@ -40,7 +40,7 @@
 /* ---------- Cards ---------- */
 
 .grade { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); gap: 12px; width: 100%; padding: 1px; }
-.cardItem { gap: 12px; }
+.cardItem { gap: 12px; border-radius: var(--radius-xl) !important; padding: 18px !important; }
 .caixa { display: grid; place-items: center; flex-shrink: 0; width: 40px; height: 40px; border-radius: 12px; background: var(--ui-subtle); color: var(--ui-muted); }
 .metaCard { flex-wrap: wrap; font-size: 12px !important; }
 .numerosCard { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 0; }
@@ -72,7 +72,7 @@
 /* ---------- Lista ---------- */
 
 .lista { width: 100%; }
-.cartaoTabela:global(.shell-card) { padding: 0; overflow: hidden; border: 1px solid #dbe4ed; border-radius: 24px; background: rgba(255, 255, 255, 0.95); }
+.cartaoTabela:global(.shell-card) { padding: 0; overflow: hidden; border: 1px solid #dbe4ed; border-radius: var(--radius-xl); background: rgba(255, 255, 255, 0.95); }
 .cartaoTabela :global(.card-heading) { padding: 18px 16px 14px; }
 .cartaoTabela :global(.card-heading) h2 { font-size: 18px; font-weight: 500; }
 .cartaoTabela :global(.card-heading) span { color: #536579; font-size: 12px; }
@@ -94,7 +94,7 @@
 
 /* ---------- Movimentações: lista por dia ---------- */
 
-.movs { display: grid; width: 100%; max-width: 1120px; overflow: hidden; border: 1px solid #dbe4ed; border-radius: 24px; background: rgba(255, 255, 255, 0.95); }
+.movs { display: grid; width: 100%; max-width: 1120px; overflow: hidden; border: 1px solid #dbe4ed; border-radius: var(--radius-xl); background: rgba(255, 255, 255, 0.95); }
 .movsCabeca, .movLinha { display: grid; grid-template-columns: minmax(240px, 2.2fr) 120px 120px minmax(160px, 1.6fr) 96px; gap: 12px; align-items: center; }
 .movsCabeca { position: sticky; top: 0; z-index: 2; padding: 12px 16px; border-bottom: 1px solid #dbe4ed; background: rgba(243, 247, 251, 0.65); color: #536579; font: 500 12px/1.4 var(--font-general-sans); backdrop-filter: blur(8px); }
 .movsCabeca > span:not(:first-child), .movLinha > div:not(.movItem) { text-align: center; }
@@ -122,7 +122,7 @@
 
 /* Detalhe da movimentação */
 .movDetalhe { gap: 16px !important; }
-.movDestaque { display: grid; gap: 6px; padding: 16px; border-radius: 14px; background: var(--ui-subtle); }
+.movDestaque { display: grid; gap: 6px; padding: 16px; border-radius: var(--radius-lg); background: var(--ui-subtle); }
 .movDestaque > span { color: var(--ui-muted); font-size: 12px; }
 .movDestaque > strong { color: var(--ui-text); font-size: 26px; font-weight: 500; font-variant-numeric: tabular-nums; }
 .movDestaque small { color: var(--ui-muted); font-size: 12px; }
@@ -139,7 +139,7 @@
 .semDica { min-width: 0; }
 .semDica :global(.ui-field-hint) { display: none; }
 
-.previa { display: grid; gap: 8px; padding: 12px 14px; border-radius: 14px; background: var(--ui-subtle); }
+.previa { display: grid; gap: 8px; padding: 12px 14px; border-radius: var(--radius-lg); background: var(--ui-subtle); }
 .previa small { font-size: 12px; }
 .previaLinha { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; }
 .previaLinha > div { display: grid; gap: 1px; }
@@ -155,34 +155,27 @@
 
 .fichaConteudo { display: grid; gap: 16px; align-content: start; }
 .itemTopo { display: grid; grid-template-columns: minmax(200px, 0.8fr) 2fr; gap: 12px; align-items: stretch; }
-.itemDisponivel { display: grid; align-content: center; justify-items: start; gap: 4px; padding: 16px; border-radius: 16px; background: var(--ui-subtle); }
+.itemDisponivel { display: grid; align-content: center; justify-items: start; gap: 4px; padding: 16px; border-radius: var(--radius-lg); background: var(--ui-subtle); }
 .itemDisponivel span { color: var(--ui-muted); font-size: 12px; }
 .itemDisponivel strong { color: var(--ui-text); font-size: 28px; font-weight: 500; line-height: 1.1; font-variant-numeric: tabular-nums; }
 .numeros { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
-.numeros > div { display: grid; align-content: center; gap: 2px; padding: 12px 14px; border: 1px solid var(--ui-divider); border-radius: 14px; background: #fff; }
+.numeros > div { display: grid; align-content: center; gap: 2px; padding: 12px 14px; border: 1px solid var(--ui-divider); border-radius: var(--radius-lg); background: #fff; }
 .numeros span { color: var(--ui-muted); font-size: 12px; }
 .numeros strong { color: var(--ui-text); font-size: 18px; font-weight: 500; font-variant-numeric: tabular-nums; }
 .numeros small { color: var(--ui-muted); font-size: 11.5px; }
-.sugestao { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--ui-divider); border-radius: 12px; background: var(--ui-subtle); color: var(--ui-text); font-size: 13px; }
+.sugestao { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--ui-divider); border-radius: var(--radius-lg); background: var(--ui-subtle); color: var(--ui-text); font-size: 13px; }
 .sugestao > svg { color: var(--ui-warning); }
 .sugestao > span { flex: 1; min-width: 200px; }
 .sugestao strong { font-weight: 500; }
-.grafico { margin: 0; padding: 14px 16px 8px; border: 1px solid var(--ui-divider); border-radius: 16px; background: #fff; }
-.grafico figcaption { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; margin-bottom: 6px; color: var(--ui-text); font-size: 13px; font-weight: 500; }
-.legenda { display: inline-flex; flex-wrap: wrap; gap: 14px; color: var(--ui-muted); font-size: 12px; font-weight: 400; }
-.legenda span { display: inline-flex; align-items: center; gap: 6px; }
-.legenda i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; }
-.grafico svg { display: block; width: 100%; height: auto; }
-.graficoEixo { fill: var(--ui-muted); font-family: var(--font-general-sans); font-size: 11px; }
 .secaoFicha { display: grid; gap: 8px; }
 .secaoFicha h3 { margin: 0; color: var(--ui-text); font-size: 13px; font-weight: 500; }
 .reservas { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
-.reservas li { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--ui-divider); border-radius: 12px; background: #fff; color: var(--ui-text); font-size: 13px; }
+.reservas li { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--ui-divider); border-radius: var(--radius-lg); background: #fff; color: var(--ui-text); font-size: 13px; }
 .reservas li > span { flex: 1; min-width: 0; }
 .reservas li > svg { flex-shrink: 0; color: var(--ui-muted); }
 .reservas strong { font-weight: 500; }
 .reservas small { color: var(--ui-muted); font-size: 12px; }
-.tabelaSimples { overflow: hidden; border: 1px solid #dbe4ed; border-radius: 14px; background: #fff; }
+.tabelaSimples { overflow: hidden; border: 1px solid #dbe4ed; border-radius: var(--radius-lg); background: #fff; }
 .tabelaSimples table { width: 100%; }
 .tabelaSimples th { padding: 12px 16px; color: var(--ui-muted); font: 500 12px/1.4 var(--font-general-sans); text-transform: none; letter-spacing: normal; white-space: nowrap; }
 .tabelaSimples td { padding: 12px 16px; color: var(--ui-text); font-size: 13px; }
