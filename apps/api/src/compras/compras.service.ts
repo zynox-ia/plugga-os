@@ -102,6 +102,15 @@ export class ComprasService {
     return this.obter(id, principal);
   }
 
+  /**
+   * "Pedir material" de uma O.S. (PLU-345): as mesmas validações e a mesma
+   * numeração global do pedido, com quem pediu como solicitante. Quem chama (a
+   * Engenharia) confere o acesso à O.S.; o RLS confere de novo.
+   */
+  criarDaOrdemDeServico(input: CriarPedidoDeCompra, ordemDeServicoId: string, principal: AuthPrincipal): Promise<string> {
+    return this.repositorio.criar(input, principal, this.agora(), { ordemDeServicoId });
+  }
+
   async editar(id: string, input: EditarPedidoDeCompra, principal: AuthPrincipal): Promise<PedidoDeCompra> {
     this.exigirOperacao(principal);
     await this.repositorio.editar(id, input, principal, this.agora());

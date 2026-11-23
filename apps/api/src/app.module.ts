@@ -14,6 +14,7 @@ import { FiltroGlobalDeExcecoes } from "./common/errors/filtro-global";
 import { validateEnvironment } from "./config/environment";
 import { ComprasModule } from "./compras/compras.module";
 import { CoreModule } from "./core/core.module";
+import { EngenhariaModule } from "./engenharia/engenharia.module";
 import { EstoqueModule } from "./estoque/estoque.module";
 import { FinanceiroModule } from "./financeiro/financeiro.module";
 import { FornecedoresModule } from "./fornecedores/fornecedores.module";
@@ -63,6 +64,7 @@ const monorepoRootEnvPath = path.resolve(__dirname, "../../../.env");
     ComprasModule,
     EstoqueModule,
     FinanceiroModule,
+    EngenhariaModule,
     CommercialModule,
     PipelinesModule,
     NegociosModule,

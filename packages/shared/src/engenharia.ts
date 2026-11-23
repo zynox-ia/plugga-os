@@ -112,14 +112,17 @@ export const acoesDaOrdemDeServico = [
 ] as const;
 export type AcaoPermitidaDaOrdemDeServico = (typeof acoesDaOrdemDeServico)[number];
 
-/** Erro 409 do check-in antes do dia agendado, sem `confirmarAntecipado`. */
+/**
+ * Check-in antes do dia agendado, sem `confirmarAntecipado`: 409 `CONFLITO_ESTADO`
+ * com `motivo` igual a esta constante e `agendadaPara` (ISO) no envelope.
+ */
 export const CODIGO_CHECKIN_ANTECIPADO = "checkin_antecipado";
 
 // ---------------------------------------------------------------- arquivos
 
 export const ARQUIVO_DE_ORDEM_MAX_BYTES = 25 * 1024 * 1024;
 /** Fotos do laudo; conferidas pelo conteúdo, não pela extensão. */
-export const tiposDeFotoDaOrdem = ["image/jpeg", "image/png", "image/webp"] as const;
+export const tiposDeFotoDaOrdem = ["image/jpeg", "image/png"] as const;
 /** Assinatura desenhada: PNG, pequeno. */
 export const ASSINATURA_MAX_BYTES = 512 * 1024;
 
@@ -370,6 +373,8 @@ export const ordemDeServicoResumoSchema = z.object({
   tecnico: pessoa.nullable(),
   apoio: pessoa.nullable(),
   agendadaPara: isoDate.nullable(),
+  /** Nova data do adiamento; preenchida só na adiada (= adiamento.novaData). */
+  novaData: diaDoCalendario.nullable(),
   prazo: diaDoCalendario,
   /** Passou do prazo (ou do horário agendado) sem concluir. */
   atrasada: z.boolean(),

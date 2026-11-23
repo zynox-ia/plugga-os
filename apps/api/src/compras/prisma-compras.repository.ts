@@ -167,10 +167,15 @@ export class PrismaComprasRepository {
 
   // ------------------------------------------------------------ escrita
 
-  async criar(input: CriarPedidoDeCompra, principal: AuthPrincipal, agora: Date): Promise<string> {
+  /**
+   * `ordemDeServicoId`: o pedido nasce do "Pedir material" de uma O.S. (PLU-345).
+   * Quem pede é o solicitante e pode não ter acesso a Compras; o RLS confere
+   * que ele enxerga a O.S. e que o pedido sai no nome dele.
+   */
+  async criar(input: CriarPedidoDeCompra, principal: AuthPrincipal, agora: Date, origem?: { ordemDeServicoId: string }): Promise<string> {
     garantirPrazoFuturo(input.prazoEntregaDesejado, agora);
-    const solicitanteId = input.solicitanteId ?? principal.id;
-    await this.garantirPessoas(principal, [solicitanteId, input.responsavelId ?? null]);
+    const solicitanteId = origem ? principal.id : input.solicitanteId ?? principal.id;
+    await this.garantirPessoas(principal, [origem ? null : solicitanteId, input.responsavelId ?? null]);
     await this.garantirObra(input.obraId ?? null, input.empresa);
     await this.garantirItensDeEstoque(input.itens.map((item) => item.itemDeEstoqueId ?? null), input.empresa);
     const passagem = passagemInicial(agora);
@@ -188,12 +193,15 @@ export class PrismaComprasRepository {
           criadoPorId: principal.id,
           prazoEntregaDesejado: fimDoDiaEmManaus(input.prazoEntregaDesejado),
           valorOrcado: input.valorOrcado ?? null,
+          ordemDeServicoId: origem?.ordemDeServicoId ?? null,
           itens: { create: input.itens.map((item) => ({ descricao: item.descricao, quantidade: item.quantidade, unidade: item.unidade ?? null, itemDeEstoqueId: item.itemDeEstoqueId ?? null })) },
           etapas: { create: { ...passagem, responsavelId: input.responsavelId ?? null } },
         },
         select: { id: true, numero: true },
       });
-      await this.registrar(tx, "compras.pedido.created", "pedido_de_compra", pedido.id, input.empresa, principal, { numero: pedido.numero, destino: input.destino, itens: input.itens.length });
+      await this.registrar(tx, "compras.pedido.created", "pedido_de_compra", pedido.id, input.empresa, principal, {
+        numero: pedido.numero, destino: input.destino, itens: input.itens.length, ...(origem ? { ordemDeServicoId: origem.ordemDeServicoId } : {}),
+      });
       return pedido.id;
     }));
   }

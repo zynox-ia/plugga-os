@@ -20,7 +20,8 @@ import { PrismaComprasRepository } from "./prisma-compras.repository";
     MovimentosDeEstoque,
     { provide: RELOGIO_DE_COMPRAS, useValue: () => new Date() },
   ],
-  // O Estoque abre pedido de reposição pelo mesmo repositório e usa o mesmo relógio.
-  exports: [PrismaComprasRepository, RELOGIO_DE_COMPRAS],
+  // O Estoque abre pedido de reposição pelo mesmo repositório e usa o mesmo relógio;
+  // a Engenharia pede material pelo serviço (PLU-345).
+  exports: [PrismaComprasRepository, RELOGIO_DE_COMPRAS, ComprasService],
 })
 export class ComprasModule {}

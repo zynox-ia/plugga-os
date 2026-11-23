@@ -153,6 +153,19 @@ export const catalogoEventos = {
   "financeiro.lancamento.recebido": evento("Recebimento da cobrança registrado", "empresa"),
   "financeiro.anexo.enviado": evento("Anexo do lançamento enviado", "empresa"),
   "financeiro.anexo.substituido": evento("Anexo do lançamento substituído", "empresa"),
+  // Ordens de serviço da Engenharia (PLU-345). Sem PII: nunca o nome nem o documento
+  // de quem assina o termo; motivos e laudo ficam na O.S. e na linha do tempo dela.
+  "engenharia.ordem.created": evento("Ordem de serviço aberta", "empresa"),
+  "engenharia.ordem.updated": evento("Dados da ordem de serviço alterados", "empresa"),
+  "engenharia.ordem.agendada": evento("Ordem de serviço agendada", "empresa"),
+  "engenharia.ordem.remarcada": evento("Ordem de serviço remarcada", "empresa"),
+  "engenharia.ordem.checkin_registrado": evento("Chegada do técnico registrada", "empresa"),
+  "engenharia.ordem.foto_enviada": evento("Foto da ordem de serviço enviada", "empresa"),
+  "engenharia.ordem.laudo_registrado": evento("Laudo da ordem de serviço registrado", "empresa"),
+  "engenharia.ordem.termo_assinado": evento("Termo assinado e ordem de serviço concluída", "empresa"),
+  "engenharia.ordem.adiada": evento("Ordem de serviço adiada", "empresa"),
+  "engenharia.ordem.cancelada": evento("Ordem de serviço cancelada", "empresa"),
+  "engenharia.ordem.material_pedido": evento("Material pedido a Compras pela ordem de serviço", "empresa"),
   // OMIE por empresa (PLU-342). Nunca a chave, o segredo nem a resposta do OMIE.
   "integracoes.omie.conectada": evento("Par do OMIE da empresa gravado", "empresa"),
   "integracoes.omie.desconectada": evento("Par do OMIE da empresa removido", "empresa"),

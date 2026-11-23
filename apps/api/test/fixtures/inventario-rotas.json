@@ -809,6 +809,272 @@
   },
   {
     "metodo": "GET",
+    "caminho": "/engenharia/ordens-de-servico",
+    "controller": "EngenhariaController.listar",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:engenharia-obras.os",
+      "tela:engenharia-obras.instalacoes",
+      "tela:engenharia-obras.manutencao",
+      "tela:engenharia-obras.visitas",
+      "departamento:engenharia-obras:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/engenharia/ordens-de-servico",
+    "controller": "EngenhariaController.criar",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:engenharia-obras.os",
+      "tela:engenharia-obras.instalacoes",
+      "tela:engenharia-obras.manutencao",
+      "tela:engenharia-obras.visitas",
+      "departamento:engenharia-obras:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/engenharia/ordens-de-servico/:id",
+    "controller": "EngenhariaController.obter",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:engenharia-obras.os",
+      "tela:engenharia-obras.instalacoes",
+      "tela:engenharia-obras.manutencao",
+      "tela:engenharia-obras.visitas",
+      "departamento:engenharia-obras:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "PATCH",
+    "caminho": "/engenharia/ordens-de-servico/:id",
+    "controller": "EngenhariaController.editar",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:engenharia-obras.os",
+      "tela:engenharia-obras.instalacoes",
+      "tela:engenharia-obras.manutencao",
+      "tela:engenharia-obras.visitas",
+      "departamento:engenharia-obras:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/engenharia/ordens-de-servico/:id/acoes",
+    "controller": "EngenhariaController.acao",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:engenharia-obras.os",
+      "tela:engenharia-obras.instalacoes",
+      "tela:engenharia-obras.manutencao",
+      "tela:engenharia-obras.visitas",
+      "departamento:engenharia-obras:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/engenharia/ordens-de-servico/:id/arquivos/:arquivoId",
+    "controller": "EngenhariaController.arquivo",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:engenharia-obras.os",
+      "tela:engenharia-obras.instalacoes",
+      "tela:engenharia-obras.manutencao",
+      "tela:engenharia-obras.visitas",
+      "departamento:engenharia-obras:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/engenharia/ordens-de-servico/:id/fotos",
+    "controller": "EngenhariaController.enviarFoto",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:engenharia-obras.os",
+      "tela:engenharia-obras.instalacoes",
+      "tela:engenharia-obras.manutencao",
+      "tela:engenharia-obras.visitas",
+      "departamento:engenharia-obras:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/engenharia/ordens-de-servico/:id/pedidos-de-material",
+    "controller": "EngenhariaController.pedirMaterial",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:engenharia-obras.os",
+      "tela:engenharia-obras.instalacoes",
+      "tela:engenharia-obras.manutencao",
+      "tela:engenharia-obras.visitas",
+      "departamento:engenharia-obras:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/engenharia/ordens-de-servico/:id/termo",
+    "controller": "EngenhariaController.colherTermo",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:engenharia-obras.os",
+      "tela:engenharia-obras.instalacoes",
+      "tela:engenharia-obras.manutencao",
+      "tela:engenharia-obras.visitas",
+      "departamento:engenharia-obras:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/engenharia/ordens-de-servico/:id/termo/pdf",
+    "controller": "EngenhariaController.termo",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:engenharia-obras.os",
+      "tela:engenharia-obras.instalacoes",
+      "tela:engenharia-obras.manutencao",
+      "tela:engenharia-obras.visitas",
+      "departamento:engenharia-obras:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/engenharia/ordens-de-servico/:id/termo/pdf-assinado",
+    "controller": "EngenhariaController.anexarTermo",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:engenharia-obras.os",
+      "tela:engenharia-obras.instalacoes",
+      "tela:engenharia-obras.manutencao",
+      "tela:engenharia-obras.visitas",
+      "departamento:engenharia-obras:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/engenharia/ordens-de-servico/clientes",
+    "controller": "EngenhariaController.clientes",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:engenharia-obras.os",
+      "tela:engenharia-obras.instalacoes",
+      "tela:engenharia-obras.manutencao",
+      "tela:engenharia-obras.visitas",
+      "departamento:engenharia-obras:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/engenharia/ordens-de-servico/opcoes",
+    "controller": "EngenhariaController.opcoes",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:engenharia-obras.os",
+      "tela:engenharia-obras.instalacoes",
+      "tela:engenharia-obras.manutencao",
+      "tela:engenharia-obras.visitas",
+      "departamento:engenharia-obras:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/engenharia/ordens-de-servico/quadro",
+    "controller": "EngenhariaController.quadro",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:engenharia-obras.os",
+      "tela:engenharia-obras.instalacoes",
+      "tela:engenharia-obras.manutencao",
+      "tela:engenharia-obras.visitas",
+      "departamento:engenharia-obras:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
     "caminho": "/equipe",
     "controller": "EquipeController.listar",
     "acesso": "authenticated",

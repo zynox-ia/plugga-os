@@ -207,6 +207,9 @@ jobs:
       - name: Verify financial entries against Postgres
         run: pnpm --filter @plugga/api test:financeiro
 
+      - name: Verify engineering service orders against Postgres
+        run: pnpm --filter @plugga/api test:engenharia
+
       - name: Verify sales pipeline configuration against Postgres
         run: pnpm --filter @plugga/api test:pipelines
 
