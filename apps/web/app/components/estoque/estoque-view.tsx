@@ -30,6 +30,7 @@ import {
 import estilosClientes from "../clientes/tela-clientes.module.css";
 import estilosPipelines from "../pipelines/tela-pipelines.module.css";
 import { CardDeMetrica, MetricasDoTopo } from "../suprimentos/card-de-metrica";
+import { PontoDaEmpresa } from "../suprimentos/empresa";
 import { FiltroComBusca } from "../suprimentos/menu-com-busca";
 import { Button, IconPlus, IconSearch } from "../ui";
 import { CardsDoEstoque } from "./cards-do-estoque";
@@ -38,6 +39,7 @@ import { FichaDoItem } from "./ficha-do-item";
 import { ItemForm } from "./item-form";
 import { ListaDoEstoque } from "./lista-do-estoque";
 import { DetalheDaMovimentacao, MovimentacoesDoEstoque } from "./movimentacoes-do-estoque";
+import { ICONE_DO_TIPO } from "./partes";
 import { RegistrarMovimentacao } from "./registrar-movimentacao";
 import { ReporItem } from "./repor-item";
 
@@ -134,7 +136,7 @@ export function EstoqueView({ filtros, itens, resumo, todosOsItens, movimentacoe
       : <ListaDoEstoque itens={itens} valorTotal={String(itens.reduce((s, i) => s + Number(i.saldo.valor), 0))} {...acoes} />;
   }
 
-  const empresas = [{ value: "todas", label: "Todas as empresas", icon: <Building2 /> }, { value: "plugga", label: "Plugga", icon: <Building2 /> }, { value: "waze", label: "Waze Energia", icon: <Building2 /> }];
+  const empresas = [{ value: "todas", label: "Todas as empresas", icon: <Building2 /> }, { value: "plugga", label: "Plugga", icon: <PontoDaEmpresa empresa="plugga" /> }, { value: "waze", label: "Waze Energia", icon: <PontoDaEmpresa empresa="waze" /> }];
 
   return <div className={`${estilosClientes.pagina} ${styles.pagina}`}>
     <header className={`${estilosPipelines.cabecalho} ${styles.cabecalho}`}>
@@ -164,9 +166,9 @@ export function EstoqueView({ filtros, itens, resumo, todosOsItens, movimentacoe
         <div className={styles.filtro}><FiltroComBusca label="Empresa" icon={<Building2 />} semFiltro="todas" value={filtros.empresa ?? "todas"} onChange={(v) => ir({ empresa: v === "todas" ? undefined : (v as FiltrosDeEstoque["empresa"]) })} options={empresas} /></div>
         {movimentos ? <>
           <div className={styles.filtro}><FiltroComBusca label="Tipo" icon={<History />} semFiltro="todos" value={filtros.tipo ?? "todos"} onChange={(v) => ir({ tipo: v === "todos" ? undefined : (v as FiltrosDeEstoque["tipo"]) })}
-            options={[{ value: "todos", label: "Todos os tipos", icon: <History /> }, ...tiposDeMovimentacao.map((t) => ({ value: t, label: ROTULO_DO_FILTRO_DE_TIPO[t], icon: <History /> }))]} /></div>
+            options={[{ value: "todos", label: "Todos os tipos", icon: <History /> }, ...tiposDeMovimentacao.map((t) => { const Icone = ICONE_DO_TIPO[t]; return { value: t, label: ROTULO_DO_FILTRO_DE_TIPO[t], icon: <Icone /> }; })]} /></div>
           <div className={styles.filtro}><FiltroComBusca label="Item" icon={<Package />} semFiltro="todos" value={filtros.itemId ?? "todos"} onChange={(v) => ir({ itemId: v === "todos" ? undefined : v })}
-            options={[{ value: "todos", label: "Todos os itens" }, ...todosOsItens.filter((i) => !filtros.empresa || i.empresa === filtros.empresa).map((i) => ({ value: i.id, label: i.nome, description: `${i.codigo} · ${ROTULO_DA_EMPRESA[i.empresa]}` }))]} /></div>
+            options={[{ value: "todos", label: "Todos os itens", icon: <Package /> }, ...todosOsItens.filter((i) => !filtros.empresa || i.empresa === filtros.empresa).map((i) => ({ value: i.id, label: i.nome, description: `${i.codigo} · ${ROTULO_DA_EMPRESA[i.empresa]}` }))]} /></div>
           <div className={styles.filtro}><FiltroComBusca label="Período" icon={<CalendarDays />} semFiltro="30" value={filtros.periodo} onChange={(v) => ir({ periodo: v as FiltrosDeEstoque["periodo"] })}
             options={periodosDeMovimentacao.map((p) => ({ value: p, label: ROTULO_DO_PERIODO_DE_MOVIMENTACAO[p], icon: <CalendarDays /> }))} /></div>
         </> : <>

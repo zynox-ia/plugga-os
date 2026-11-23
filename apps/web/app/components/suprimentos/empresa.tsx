@@ -11,3 +11,8 @@ export function EmpresaComPonto({ empresa, curto = false, className = "" }: { em
     {curto ? nome.split(" ")[0] : nome}
   </span>;
 }
+
+/** Só o ponto da cor da empresa, no tamanho de um ícone de opção (16 px), para menus e filtros. */
+export function PontoDaEmpresa({ empresa }: { empresa: CompanyKey }) {
+  return <span className={styles.pontoIcone} aria-hidden="true"><span className={styles.empresaPonto} style={{ background: COR_DA_EMPRESA[empresa] }} /></span>;
+}

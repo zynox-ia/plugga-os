@@ -33,9 +33,11 @@ export const LIMITE_SEM_BUSCA = 8;
 
 const normalizar = (v: string) => v.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLocaleLowerCase("pt-BR").trim();
 
-function ListaDoMenu({ id, rotulo, opcoes, valor, aoEscolher, aoFechar, variante }: {
+function ListaDoMenu({ id, rotulo, opcoes, valor, aoEscolher, aoFechar, variante, iconePadrao }: {
   id: string; rotulo: string; opcoes: readonly OpcaoDoMenu[]; valor: string | undefined;
   aoEscolher: (v: string) => void; aoFechar: () => void; variante: "campo" | "filtro";
+  /** Ícone das opções que não trazem o seu (o do gatilho): toda opção tem ícone antes do rótulo, como no SelectField. */
+  iconePadrao?: ReactElement;
 }) {
   const [busca, setBusca] = useState("");
   const lista = useRef<HTMLDivElement>(null);
@@ -82,7 +84,7 @@ function ListaDoMenu({ id, rotulo, opcoes, valor, aoEscolher, aoFechar, variante
           onMouseMove={(e) => { if (document.activeElement !== e.currentTarget && !o.disabled) e.currentTarget.focus({ preventScroll: true }); }}
           onClick={() => { if (!o.disabled) aoEscolher(o.value); }}>
           <span className="ui-option-label">
-            {variante === "campo" ? <span className="ui-option-icon" aria-hidden="true">{o.icon}</span> : null}
+            <span className="ui-option-icon" aria-hidden="true">{o.icon ?? iconePadrao}</span>
             {rica ? <span className={styles.opcaoTextos}><span className={styles.opcaoNome}>{o.label}</span>{o.description ? <small>{o.description}</small> : null}</span> : <span>{o.label}</span>}
           </span>
           {o.aside ? <span className={`${styles.opcaoValor} ${o.tone ? styles[`opcaoValor_${o.tone}`] : ""}`}>{o.aside}</span> : null}
@@ -134,7 +136,7 @@ export function CampoDeMenu({ label, options, value, onChange, placeholder = "Se
       </PopoverTrigger>
       <PopoverContent container={container} align="start" sideOffset={6} className={`ui-select-content ${styles.painel} ${rica ? styles.painelRico : ""}`}
         onOpenAutoFocus={(e) => focarAoAbrir(e, value)} onCloseAutoFocus={(e) => { e.preventDefault(); gatilho.current?.focus(); }}>
-        <ListaDoMenu id={campo} rotulo={label} opcoes={options} valor={value} aoEscolher={escolher} aoFechar={() => setAberto(false)} variante="campo" />
+        <ListaDoMenu id={campo} rotulo={label} opcoes={options} valor={value} aoEscolher={escolher} aoFechar={() => setAberto(false)} variante="campo" iconePadrao={icon} />
       </PopoverContent>
     </Popover>
     {hint || error ? <p id={`${campo}-ajuda`} className={error ? "ui-field-error" : "ui-field-hint"}>{error ? `Erro: ${error}` : hint}</p> : null}
@@ -159,14 +161,14 @@ export function FiltroComBusca({ label, options, value, onChange, icon, semFiltr
     <PopoverTrigger asChild>
       <button ref={gatilho} type="button" className={`${estilosPipelines.seletorTrigger} ${estilosFiltro.trigger}`} aria-label={`${label}: ${atual?.label ?? ""}`} data-filtrado={texto !== label || undefined}
         aria-haspopup="listbox" aria-expanded={aberto} aria-controls={aberto ? `${id}-lista` : undefined}>
-        <span className={estilosFiltro.icone} aria-hidden="true">{icon}</span>
+        <span className={estilosFiltro.icone} aria-hidden="true">{texto !== label ? atual?.icon ?? icon : icon}</span>
         <span className={`${estilosPipelines.seletorLabel} ${estilosFiltro.label}`}>{texto}</span>
         <ChevronDown size={15} className={estilosPipelines.seletorChevron} aria-hidden="true" />
       </button>
     </PopoverTrigger>
     <PopoverContent align="end" sideOffset={6} className={`ui-select-content ${estilosPipelines.popoverFunis} ${estilosFiltro.menu} ${styles.painel} ${styles.painelFiltro}`}
       onOpenAutoFocus={(e) => focarAoAbrir(e, value)} onCloseAutoFocus={(e) => { e.preventDefault(); gatilho.current?.focus(); }}>
-      <ListaDoMenu id={id} rotulo={label} opcoes={options} valor={value} aoEscolher={(v) => { onChange(v); setAberto(false); }} aoFechar={() => setAberto(false)} variante="filtro" />
+      <ListaDoMenu id={id} rotulo={label} opcoes={options} valor={value} aoEscolher={(v) => { onChange(v); setAberto(false); }} aoFechar={() => setAberto(false)} variante="filtro" iconePadrao={icon} />
     </PopoverContent>
   </Popover>;
 }

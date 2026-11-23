@@ -89,6 +89,8 @@
 
 .empresa { display: inline-flex; align-items: center; gap: 6px; color: var(--ui-text); white-space: nowrap; }
 .empresaPonto { flex: none; width: 7px; height: 7px; border-radius: 50%; }
+.pontoIcone { display: inline-grid; place-items: center; width: 16px; height: 16px; }
+.pontoIcone > .empresaPonto { width: 9px; height: 9px; }
 
 /* ---------- Ligação de Compras com o Estoque ---------- */
 

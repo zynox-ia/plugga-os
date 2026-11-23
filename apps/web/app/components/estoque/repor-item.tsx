@@ -2,10 +2,10 @@
 
 import type { ItemDeEstoque, PedidoDeReposicaoAberto } from "@plugga/shared";
 import { ShoppingCart } from "lucide-react";
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 
 import { enviar, type ErroDoFormulario } from "../../lib/clientes";
-import { hojeEmManaus } from "../../lib/compras";
+import { hojeEmManaus, problemaDaDataDigitada } from "../../lib/compras";
 import { numeroDigitado, paraContrato, qtd } from "../../lib/estoque";
 import { Alert, Button, DatePicker, Dialog, TextField } from "../ui";
 
@@ -16,13 +16,17 @@ export function ReporItem({ item, aoCancelar, aoAbrir }: { item: ItemDeEstoque; 
   const [prazo, setPrazo] = useState("");
   const [erro, setErro] = useState<ErroDoFormulario | null>(null);
   const [enviando, setEnviando] = useState(false);
+  const prazoRef = useRef<HTMLDivElement>(null);
 
   async function abrir(evento: FormEvent) {
     evento.preventDefault();
     const q = numeroDigitado(quantidade);
     const porCampo: Record<string, string> = {};
     if (q === null || q <= 0) porCampo.quantidade = "informe uma quantidade maior que zero.";
-    if (!prazo) porCampo.prazoEntregaDesejado = "informe a data de entrega desejada.";
+    // O seletor só devolve data válida; o texto digitado diz por que não (vazia, 31/02, já passou), como no Novo pedido.
+    const problemaDoPrazo = problemaDaDataDigitada(prazoRef.current?.querySelector("input")?.value ?? "", hoje);
+    if (problemaDoPrazo) porCampo.prazoEntregaDesejado = problemaDoPrazo;
+    else if (!prazo) porCampo.prazoEntregaDesejado = "informe a data de entrega desejada.";
     if (Object.keys(porCampo).length) { setErro({ mensagem: "Confira os campos destacados.", porCampo }); return; }
     setEnviando(true); setErro(null);
     const r = await enviar<PedidoDeReposicaoAberto>(`/api/suprimentos/estoque/itens/${item.id}/abrir-pedido`, "POST", { quantidade: paraContrato(q!, 3), prazoEntregaDesejado: prazo });
@@ -36,7 +40,7 @@ export function ReporItem({ item, aoCancelar, aoAbrir }: { item: ItemDeEstoque; 
     <form id="form-repor" className="ui-dialog-form" onSubmit={abrir} noValidate>
       {erro?.mensagem && !Object.values(erro.porCampo).some(Boolean) ? <Alert tone="danger" title={erro.mensagem} /> : null}
       <TextField label="Quantidade" required inputMode="decimal" autoComplete="off" suffix={item.unidade} value={quantidade} onChange={(e) => setQuantidade(e.target.value)} error={erro?.porCampo.quantidade} />
-      <DatePicker label="Entrega desejada" required min={hoje} value={prazo} onChange={setPrazo} error={erro?.porCampo.prazoEntregaDesejado} />
+      <div ref={prazoRef}><DatePicker label="Entrega desejada" required min={hoje} value={prazo} onChange={setPrazo} error={erro?.porCampo.prazoEntregaDesejado} /></div>
     </form>
   </Dialog>;
 }
