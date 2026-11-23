@@ -5,8 +5,8 @@ import { codigoDeUc, lerCsv, lerData, lerEmpresa, lerLinhas, normalizarLinha } f
 // Planilha sintética: nenhum dado real.
 const PLANILHA = [
   "﻿Cliente;UC;Usina;Plataforma;kWp;Fabricante;Comissionamento;Empresa",
-  'Cliente Sintético A;UC 100200;Telhado;Growatt;12,75;"Growatt; MIN";14/03/2025;Waze Energia',
-  '"Cliente ""B"" Sintético";100300;Galpão;FusionSolar;24.6;;2025-08-02;',
+  'Cliente Sintético A;UC 9999100200;Telhado;Growatt;12,75;"Growatt; MIN";14/03/2025;Waze Energia',
+  '"Cliente ""B"" Sintético";9999100300;Galpão;FusionSolar;24.6;;2025-08-02;',
   "",
   "Cliente C;;Sem UC;Solis;0;;31/02/2025;Outra",
 ].join("\r\n");
@@ -27,7 +27,7 @@ describe("importação: ler o CSV", () => {
   it("acha as colunas pelo cabeçalho, sem acento nem caixa, e pelo mapeamento", () => {
     const { linhas, faltando } = lerLinhas(lerCsv(PLANILHA), {});
     expect(faltando).toEqual([]);
-    expect(linhas[0]).toEqual({ linha: 2, valores: expect.objectContaining({ cliente: "Cliente Sintético A", uc: "UC 100200", potenciaKwp: "12,75", empresa: "Waze Energia" }) });
+    expect(linhas[0]).toEqual({ linha: 2, valores: expect.objectContaining({ cliente: "Cliente Sintético A", uc: "UC 9999100200", potenciaKwp: "12,75", empresa: "Waze Energia" }) });
     const outra = lerCsv("Nome do cliente;Unidade;Nome;Portal;Potência\nA;1;T;Growatt;5");
     expect(lerLinhas(outra, {}).faltando).toEqual(["cliente", "uc", "nome", "plataforma", "potenciaKwp"]);
     expect(lerLinhas(outra, { cliente: "nome do cliente", uc: "Unidade", nome: "Nome", plataforma: "portal", potenciaKwp: "POTENCIA" }).faltando).toEqual([]);
@@ -54,7 +54,7 @@ describe("importação: normalizar a linha", () => {
     expect(lerData("2025-13-01")).toBeNull();
     expect(lerEmpresa("PLUGGA", "waze")).toBe("plugga");
     expect(lerEmpresa(undefined, "waze")).toBe("waze");
-    expect(codigoDeUc("UC 100.200-3")).toBe("1002003");
-    expect(codigoDeUc("100200")).toBe(codigoDeUc("uc100200"));
+    expect(codigoDeUc("UC 9999.100.200-3")).toBe("99991002003");
+    expect(codigoDeUc("9999100200")).toBe(codigoDeUc("uc9999100200"));
   });
 });
