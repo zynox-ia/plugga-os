@@ -54,8 +54,8 @@ function LinhaSecreta({ rotulo, valor, aoCopiar }: { rotulo: string; valor: stri
       <strong>{valor ? (visivel ? valor : mascararSegredo(valor)) : <span className={styles.ausente}>Não informado</span>}</strong>
     </div>
     {valor ? <div className={styles.botoes}>
-      <Button variant="secondary" size="sm" icon={visivel ? <EyeOff size={14} /> : <Eye size={14} />} aria-pressed={visivel} aria-label={`${visivel ? "Ocultar" : "Mostrar"} ${rotulo.toLowerCase()}`} onClick={() => setVisivel((v) => !v)}>{visivel ? "Ocultar" : "Mostrar"}</Button>
-      <Button variant="secondary" size="sm" icon={<Copy size={14} />} aria-label={`Copiar ${rotulo.toLowerCase()}`} onClick={() => aoCopiar(valor, rotulo)}>Copiar</Button>
+      <Button variant="secondary" size="sm" icon={visivel ? <EyeOff size={14} /> : <Eye size={14} />} aria-pressed={visivel} aria-label={`${visivel ? "Ocultar" : "Mostrar"} ${rotulo}`} onClick={() => setVisivel((v) => !v)}>{visivel ? "Ocultar" : "Mostrar"}</Button>
+      <Button variant="secondary" size="sm" icon={<Copy size={14} />} aria-label={`Copiar ${rotulo}`} onClick={() => aoCopiar(valor, rotulo)}>Copiar</Button>
     </div> : null}
   </div>;
 }

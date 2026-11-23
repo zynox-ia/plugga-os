@@ -46,9 +46,9 @@ test("ficha do fornecedor mostra desempenho, endereço e pagamento mascarado", a
   await ficha.getByRole("tab", { name: "Pagamento" }).click();
   await expect(ficha.getByText("•••• 0159")).toBeVisible();
   await expect(ficha.getByText("99999001000159")).toHaveCount(0);
-  await ficha.getByRole("button", { name: "Mostrar chave pix" }).click();
+  await ficha.getByRole("button", { name: "Mostrar Chave PIX" }).click();
   await expect(ficha.getByText("99999001000159")).toBeVisible();
-  await ficha.getByRole("button", { name: "Ocultar chave pix" }).click();
+  await ficha.getByRole("button", { name: "Ocultar Chave PIX" }).click();
   await expect(ficha.getByText("•••• 0159")).toBeVisible();
 
   // Editar abre o formulário com o endereço.
