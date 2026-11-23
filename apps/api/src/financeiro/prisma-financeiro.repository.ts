@@ -20,6 +20,7 @@ import {
   type QuadroFinanceiro,
   type QuadroFinanceiroQuery,
   type ResumoDosLancamentos,
+  type TipoDeAnexo,
   type TipoDeLancamento,
   formasDoLancamento,
 } from "@plugga/shared";
@@ -29,6 +30,7 @@ import { AcessoNegado, EstadoInvalido, NaoEncontrado, RequisicaoInvalida } from 
 import { diaEmManaus, inicioDoDiaEmManaus } from "../compras/dias-uteis";
 import type { AuthPrincipal } from "../core/auth/auth.types";
 import { PrismaService } from "../prisma/prisma.service";
+import { linhaDoTempo, nomePadronizadoDoComprovante } from "./financeiro.detalhe";
 import {
   acoesPermitidas,
   codigoDoLancamento,
@@ -45,6 +47,8 @@ import {
   problemaDaEdicao,
   prazoDoLancamento,
   tiposVisiveis,
+  pendenciasDoLancamento,
+  type AnexosAtuais,
   type PapelNoFinanceiro,
 } from "./financeiro.rules";
 
@@ -60,10 +64,33 @@ const INCLUDE_DO_LANCAMENTO = {
   recebimentoRegistradoPor: PESSOA,
   conciliadoPor: PESSOA,
   canceladoPor: PESSOA,
+  // A contagem dos anexos atuais, para o card.
+  _count: { select: { anexos: { where: { substituidoEm: null } } } },
 } satisfies Prisma.LancamentoInclude;
 type LinhaDoLancamento = Prisma.LancamentoGetPayload<{ include: typeof INCLUDE_DO_LANCAMENTO }>;
 
+/** O detalhe da ficha: o resumo, os anexos, o histórico e os marcos da entrada. */
+const INCLUDE_DO_DETALHE = {
+  ...INCLUDE_DO_LANCAMENTO,
+  nfRegistradaPor: PESSOA,
+  boletoRegistradoPor: PESSOA,
+  enviadoPor: PESSOA,
+  anexos: { include: { enviadoPor: PESSOA, substituidoPor: PESSOA }, orderBy: { enviadoEm: "desc" } },
+  historico: { include: { por: PESSOA }, orderBy: { em: "desc" }, take: 200 },
+  ucs: { select: { consumerUnitId: true } },
+} satisfies Prisma.LancamentoInclude;
+type LinhaDoDetalhe = Prisma.LancamentoGetPayload<{ include: typeof INCLUDE_DO_DETALHE }>;
+
+/** Os anexos de que as transições dependem (comprovante e boleto atuais). */
+async function anexosAtuais(tx: Prisma.TransactionClient, lancamentoId: string): Promise<AnexosAtuais> {
+  const atuais = await tx.anexoDeLancamento.findMany({ where: { lancamentoId, substituidoEm: null, tipo: { in: ["comprovante", "boleto"] } }, select: { tipo: true } });
+  return { comprovante: atuais.some((a) => a.tipo === "comprovante"), boleto: atuais.some((a) => a.tipo === "boleto") };
+}
+
 const DIA_MS = 86_400_000;
+
+/** O arquivo de um anexo no armazenamento. */
+export type ArquivoDoLancamento = { chave: string; nome: string; tamanho: number; tipo: string };
 const ZERO = new Prisma.Decimal(0);
 const pessoa = (u: { id: string; name: string } | null) => (u ? { id: u.id, nome: u.name } : null);
 const dia = (data: Date) => diaEmManaus(data);
@@ -155,11 +182,11 @@ export class PrismaFinanceiroRepository {
   }
 
   async obter(id: string, papel: PapelNoFinanceiro, agora: Date): Promise<Lancamento> {
-    const linha = await this.prisma.comContexto((tx) => tx.lancamento.findUnique({ where: { id }, include: INCLUDE_DO_LANCAMENTO }));
+    const linha = await this.prisma.comContexto((tx) => tx.lancamento.findUnique({ where: { id }, include: INCLUDE_DO_DETALHE }));
     // Fora do tipo que a pessoa opera é como se não existisse (a Conciliação lê pelo RLS, não por aqui).
     if (!linha || !tiposVisiveis(papel, "todos").includes(linha.tipo)) throw new NaoEncontrado("Lançamento não encontrado.");
-    const clientes = await this.nomesDeClientes([linha.clientId]);
-    return this.paraDetalhe(linha, clientes, papel, agora);
+    const [clientes, ucs] = await Promise.all([this.nomesDeClientes([linha.clientId]), this.ucsDosClientes(linha.clientId ? [linha.clientId] : [])]);
+    return this.paraDetalhe(linha, clientes, ucs, papel, agora);
   }
 
   async opcoes(): Promise<OpcoesDoFinanceiro> {
@@ -262,33 +289,111 @@ export class PrismaFinanceiroRepository {
           ...(campos.includes("observacao") ? { observacao: input.observacao } : {}),
         },
       });
+      await tx.historicoDeLancamento.create({ data: { lancamentoId: id, tipo: "editado", porId: principal.id, dados: { campos } } });
       await this.registrar(tx, "financeiro.lancamento.updated", id, atual.companyId, principal, { campos });
     });
   }
 
-  /** Uma transação, com o lançamento travado: estado, acesso, gravação e evento. */
+  /** Uma transação, com o lançamento travado: estado, acesso, gravação, histórico e evento. */
   async executarAcao(id: string, acao: AcaoDoLancamento, principal: AuthPrincipal, papel: PapelNoFinanceiro, agora: Date): Promise<void> {
     await this.prisma.comContexto(async (tx) => {
       const atual = await this.travar(tx, id, papel);
-      const plano = planejarAcao(atual, acao);
+      const plano = planejarAcao(atual, acao, await anexosAtuais(tx, id), agora);
       if ("codigo" in plano) {
-        if (plano.codigo === "REQUISICAO_INVALIDA") throw new RequisicaoInvalida(plano.mensagem);
-        throw new EstadoInvalido(plano.mensagem);
+        const detalhes = plano.campo ? [{ campo: plano.campo, problema: plano.mensagem }] : undefined;
+        if (plano.codigo === "REQUISICAO_INVALIDA") throw new RequisicaoInvalida(plano.mensagem, detalhes);
+        throw new EstadoInvalido(plano.mensagem, detalhes);
       }
       if (!podeExecutar(papel, atual, acao.acao)) {
         throw new AcessoNegado(acao.acao === "aprovar" || atual.etapa !== "aberta"
-          ? "Só a Gerente do Financeiro aprova a conta ou cancela uma conta aprovada."
+          ? "Só a Gerente do Financeiro aprova a conta, ou cancela e corrige o valor de uma conta aprovada."
           : "Esta ação não está entre as suas.");
       }
-      if (plano.tipo === "aprovar") {
-        await tx.lancamento.update({ where: { id }, data: { etapa: plano.etapa, aprovadoEm: agora, aprovadoPorId: principal.id } });
-        await this.registrar(tx, "financeiro.lancamento.aprovado", id, atual.companyId, principal, {});
-      } else {
-        await tx.lancamento.update({ where: { id }, data: { canceladoEm: agora, canceladoPorId: principal.id, cancelamentoMotivo: plano.motivo } });
-        // O motivo fica no lançamento: texto livre não entra no evento.
-        await this.registrar(tx, "financeiro.lancamento.cancelado", id, atual.companyId, principal, { etapa: atual.etapa, comMotivo: true });
+      const historico = (tipo: string, dados: Record<string, unknown>, texto: string | null = null) =>
+        tx.historicoDeLancamento.create({ data: { lancamentoId: id, tipo, porId: principal.id, dados: dados as Prisma.InputJsonValue, texto, em: agora } });
+      const evento = (nome: NomeDeEventoDoCatalogo, payload: Record<string, unknown> = {}) => this.registrar(tx, nome, id, atual.companyId, principal, payload);
+      switch (plano.tipo) {
+        case "aprovar":
+          await tx.lancamento.update({ where: { id }, data: { etapa: plano.etapa, aprovadoEm: agora, aprovadoPorId: principal.id } });
+          return evento("financeiro.lancamento.aprovado");
+        case "cancelar":
+          await tx.lancamento.update({ where: { id }, data: { canceladoEm: agora, canceladoPorId: principal.id, cancelamentoMotivo: plano.motivo } });
+          // O motivo fica no lançamento: texto livre não entra no evento.
+          return evento("financeiro.lancamento.cancelado", { etapa: atual.etapa, comMotivo: true });
+        case "corrigir_valor": {
+          const de = (await tx.lancamento.findUniqueOrThrow({ where: { id }, select: { valor: true } })).valor.toFixed(2);
+          if (de === new Prisma.Decimal(plano.valor).toFixed(2)) throw new RequisicaoInvalida("O valor novo é igual ao atual.", [{ campo: "valor", problema: "O valor novo é igual ao atual." }]);
+          await tx.lancamento.update({ where: { id }, data: { valor: new Prisma.Decimal(plano.valor) } });
+          await historico("valor_corrigido", { de, para: new Prisma.Decimal(plano.valor).toFixed(2) }, plano.motivo);
+          return evento("financeiro.lancamento.valor_corrigido", { comMotivo: true });
+        }
+        case "registrar_nf":
+          await tx.lancamento.update({ where: { id }, data: { etapa: plano.etapa, nfNumero: plano.numero, nfRegistradaEm: agora, nfRegistradaPorId: principal.id } });
+          return evento("financeiro.lancamento.nf_registrada");
+        case "registrar_boleto":
+          await tx.lancamento.update({ where: { id }, data: { etapa: plano.etapa, boletoRegistradoEm: agora, boletoRegistradoPorId: principal.id } });
+          return evento("financeiro.lancamento.boleto_registrado");
+        case "registrar_envio":
+          await tx.lancamento.update({ where: { id }, data: { etapa: plano.etapa, enviadoEm: agora, envioCanal: plano.canal, enviadoPorId: principal.id } });
+          return evento("financeiro.lancamento.enviado", { canal: plano.canal });
+        case "registrar_cobranca":
+          // Não muda a etapa: o contato vai à linha do tempo, com a nota.
+          await historico("cobranca_registrada", { canal: plano.canal }, plano.nota);
+          return evento("financeiro.lancamento.cobranca_registrada", { canal: plano.canal });
+        case "registrar_pagamento":
+          await this.garantirConta(tx, plano.contaCorrenteId, atual.companyId);
+          await tx.lancamento.update({
+            where: { id },
+            data: { etapa: plano.etapa, forma: plano.forma, contaCorrenteId: plano.contaCorrenteId, pagoEm: inicioDoDiaEmManaus(plano.pagoEm), pagamentoRegistradoEm: agora, pagamentoRegistradoPorId: principal.id },
+          });
+          return evento("financeiro.lancamento.pago", { forma: plano.forma });
+        case "registrar_recebimento":
+          await this.garantirConta(tx, plano.contaCorrenteId, atual.companyId);
+          await tx.lancamento.update({
+            where: { id },
+            data: { etapa: plano.etapa, contaCorrenteId: plano.contaCorrenteId, recebidoEm: inicioDoDiaEmManaus(plano.recebidoEm), valorRecebido: new Prisma.Decimal(plano.valor), recebimentoRegistradoEm: agora, recebimentoRegistradoPorId: principal.id },
+          });
+          return evento("financeiro.lancamento.recebido");
       }
     });
+  }
+
+  /**
+   * Um anexo novo. Um `comprovante`, `nf` ou `boleto` marca o atual do mesmo tipo
+   * como substituído (o gatilho do banco só deixa isso); nada se apaga.
+   */
+  async registrarAnexo(id: string, tipo: TipoDeAnexo, arquivo: ArquivoDoLancamento, principal: AuthPrincipal, papel: PapelNoFinanceiro, agora: Date): Promise<void> {
+    await this.prisma.comContexto(async (tx) => {
+      const atual = await this.travar(tx, id, papel);
+      if (atual.canceladoEm) throw new EstadoInvalido("O lançamento está cancelado.");
+      const anterior = tipo === "documento" ? null : await tx.anexoDeLancamento.findFirst({ where: { lancamentoId: id, tipo, substituidoEm: null }, select: { id: true } });
+      if (anterior) await tx.anexoDeLancamento.update({ where: { id: anterior.id }, data: { substituidoEm: agora, substituidoPorId: principal.id } });
+      await tx.anexoDeLancamento.create({
+        data: { lancamentoId: id, tipo, arquivoChave: arquivo.chave, arquivoNome: arquivo.nome, arquivoTamanho: arquivo.tamanho, arquivoTipo: arquivo.tipo, enviadoPorId: principal.id, enviadoEm: agora },
+      });
+      await tx.historicoDeLancamento.create({ data: { lancamentoId: id, tipo: anterior ? "anexo_substituido" : "anexo_enviado", porId: principal.id, dados: { anexo: tipo }, em: agora } });
+      await this.registrar(tx, anterior ? "financeiro.anexo.substituido" : "financeiro.anexo.enviado", id, atual.companyId, principal, { tipo });
+    });
+  }
+
+  /** O arquivo de um anexo, se o lançamento for visível para a pessoa. */
+  async arquivoDoAnexo(id: string, anexoId: string, papel: PapelNoFinanceiro): Promise<ArquivoDoLancamento> {
+    const anexo = await this.prisma.comContexto((tx) => tx.anexoDeLancamento.findFirst({
+      where: { id: anexoId, lancamentoId: id },
+      select: { arquivoChave: true, arquivoNome: true, arquivoTamanho: true, arquivoTipo: true, lancamento: { select: { tipo: true } } },
+    }));
+    if (!anexo || !tiposVisiveis(papel, "todos").includes(anexo.lancamento.tipo)) throw new NaoEncontrado("Anexo não encontrado.");
+    return { chave: anexo.arquivoChave, nome: anexo.arquivoNome, tamanho: anexo.arquivoTamanho, tipo: anexo.arquivoTipo };
+  }
+
+  /** As UCs dos clientes, pela função (o Financeiro não lê o CRM). */
+  private async ucsDosClientes(clientes: string[]): Promise<Map<string, { id: string; codigo: string }[]>> {
+    if (clientes.length === 0) return new Map();
+    const linhas = await this.prisma.comContexto((tx) => tx.$queryRaw<{ id: string; client_id: string; code: string }[]>`
+      SELECT id, client_id, code FROM plugga_security.ucs_para_financeiro(${clientes}::uuid[])`);
+    const porCliente = new Map<string, { id: string; codigo: string }[]>();
+    for (const l of linhas) porCliente.set(l.client_id, [...(porCliente.get(l.client_id) ?? []), { id: l.id, codigo: l.code }]);
+    return porCliente;
   }
 
   // ------------------------------------------------------------ apoio
@@ -447,18 +552,38 @@ export class PrismaFinanceiroRepository {
       competencia: l.competencia,
       prazo: prazoDoLancamento(l, agora),
       liquidadoEm: l.liquidadoEm ? dia(l.liquidadoEm) : null,
-      // Os anexos chegam com a PLU-337.
-      anexos: 0,
+      anexos: l._count.anexos,
       omie: { estado: l.omieEstado, codigo: l.omieCodigo, motivo: l.omieMotivo },
       origem: { tipo: l.origem, pedidoDeCompra: l.pedidoDeCompra },
       createdAt: l.createdAt.toISOString(),
     };
   }
 
-  private paraDetalhe(l: LinhaDoLancamento, clientes: NomesDeClientes, papel: PapelNoFinanceiro, agora: Date): Lancamento {
+  private paraDetalhe(l: LinhaDoDetalhe, clientes: NomesDeClientes, ucsDoCliente: Map<string, { id: string; codigo: string }[]>, papel: PapelNoFinanceiro, agora: Date): Lancamento {
     const registro = (por: { id: string; name: string } | null, em: Date | null) => (em ? { por: pessoa(por), em: em.toISOString() } : null);
+    const resumo = this.paraResumo(l, clientes, agora);
+    const anexos: AnexosAtuais = {
+      comprovante: l.anexos.some((a) => a.tipo === "comprovante" && !a.substituidoEm),
+      boleto: l.anexos.some((a) => a.tipo === "boleto" && !a.substituidoEm),
+    };
+    const diaDoComprovante = l.pagoEm ?? l.recebidoEm;
+    const arquivos = l.anexos.map((a) => ({
+      id: a.id,
+      tipo: a.tipo,
+      nome: a.arquivoNome,
+      nomePadronizado: a.tipo === "comprovante" && diaDoComprovante
+        ? nomePadronizadoDoComprovante({ dia: diaDoComprovante, codigo: resumo.codigo, favorecido: resumo.favorecido.nome, valor: (l.valorRecebido ?? l.valor).toFixed(2), mime: a.arquivoTipo })
+        : null,
+      tamanhoBytes: a.arquivoTamanho,
+      mime: a.arquivoTipo,
+      url: `/financeiro/lancamentos/${l.id}/anexos/${a.id}`,
+      enviado: { por: pessoa(a.enviadoPor), em: a.enviadoEm.toISOString() },
+      substituido: a.substituidoEm ? { por: pessoa(a.substituidoPor), em: a.substituidoEm.toISOString() } : null,
+    }));
+    const doCliente = l.clientId ? ucsDoCliente.get(l.clientId) ?? [] : [];
+    const listadas = new Set(l.ucs.map((u) => u.consumerUnitId));
     return {
-      ...this.paraResumo(l, clientes, agora),
+      ...resumo,
       forma: l.forma,
       observacao: l.observacao,
       marcos: {
@@ -473,9 +598,19 @@ export class PrismaFinanceiroRepository {
         conciliado: registro(l.conciliadoPor, l.conciliadoEm),
         cancelado: l.canceladoEm ? { por: pessoa(l.canceladoPor), em: l.canceladoEm.toISOString(), motivo: l.cancelamentoMotivo ?? "" } : null,
       },
-      acoesPermitidas: acoesPermitidas(l, papel),
+      acoesPermitidas: acoesPermitidas(l, papel, anexos, agora),
       podeEditar: podeEditar(l, papel),
       updatedAt: l.updatedAt.toISOString(),
+      arquivos,
+      comprovanteAtual: arquivos.find((a) => a.tipo === "comprovante" && !a.substituido) ?? null,
+      linhaDoTempo: linhaDoTempo(l, l.historico.map((h) => ({ tipo: h.tipo, em: h.em, por: h.por, dados: h.dados, texto: h.texto }))),
+      nf: l.nfNumero && l.nfRegistradaEm ? { numero: l.nfNumero, registrada: { por: pessoa(l.nfRegistradaPor), em: l.nfRegistradaEm.toISOString() } } : null,
+      envio: l.enviadoEm && l.envioCanal ? { por: pessoa(l.enviadoPor), em: l.enviadoEm.toISOString(), canal: l.envioCanal } : null,
+      cobrancas: l.historico.filter((h) => h.tipo === "cobranca_registrada").map((h) => ({
+        por: pessoa(h.por), em: h.em.toISOString(), canal: String((h.dados as { canal?: string }).canal ?? ""), nota: h.texto,
+      })),
+      ucs: doCliente.filter((u) => listadas.has(u.id)),
+      pendencias: l.canceladoEm ? [] : pendenciasDoLancamento(l, anexos),
     };
   }
 

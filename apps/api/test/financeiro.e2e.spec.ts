@@ -18,6 +18,8 @@ const servico = {
   criarContaAPagar: vi.fn().mockResolvedValue({ id: ID }),
   editar: vi.fn().mockResolvedValue({ id: ID }),
   executarAcao: vi.fn().mockResolvedValue({ id: ID }),
+  enviarAnexo: vi.fn().mockResolvedValue({ id: ID }),
+  baixarAnexo: vi.fn(),
 };
 
 const CONTA = {
@@ -92,5 +94,18 @@ describe("financeiro API (e2e)", () => {
 
   it("não há rota de exclusão", async () => {
     await financeiro(http().delete(`/financeiro/lancamentos/${ID}`)).expect(404);
+  });
+
+  it("anexo: o tipo é validado antes do serviço; o arquivo vai como multipart", async () => {
+    servico.enviarAnexo.mockClear();
+    await financeiro(http().post(`/financeiro/lancamentos/${ID}/anexos`)).field("tipo", "foto").attach("arquivo", Buffer.from("%PDF-1.4"), "c.pdf").expect(400);
+    expect(servico.enviarAnexo).not.toHaveBeenCalled();
+    await financeiro(http().post(`/financeiro/lancamentos/${ID}/anexos`)).field("tipo", "comprovante").attach("arquivo", Buffer.from("%PDF-1.4"), "c.pdf").expect(201);
+    expect(servico.enviarAnexo.mock.calls[0]?.[1]).toBe("comprovante");
+    expect(servico.enviarAnexo.mock.calls[0]?.[2]).toMatchObject({ nomeOriginal: "c.pdf" });
+  });
+
+  it("pagar sem forma, conta ou dia é 400", async () => {
+    await financeiro(http().post(`/financeiro/lancamentos/${ID}/acoes`)).send({ acao: "registrar_pagamento", forma: "pix" }).expect(400);
   });
 });

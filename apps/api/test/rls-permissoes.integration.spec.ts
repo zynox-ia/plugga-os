@@ -127,7 +127,7 @@ describe.skipIf(!HABILITADO)("RLS: permissões no login real da aplicação", { 
 
   it("habilita e força RLS em todos os modelos e mantém os grupos sem bypass", async () => {
     const tabelas = Prisma.dmmf.datamodel.models.map((m) => m.dbName ?? m.name);
-    expect(tabelas).toHaveLength(88);
+    expect(tabelas).toHaveLength(91);
     expect(tabelas).toContain("conexoes_google_calendar");
     expect(tabelas).toEqual(expect.arrayContaining(["activities", "activity_rounds", "activity_changes", "activity_round_evidence"]));
     const flags = await root.$queryRaw<{ nome: string; ativo: boolean; forcado: boolean }[]>`
@@ -916,6 +916,14 @@ describe.skipIf(!HABILITADO)("RLS: permissões no login real da aplicação", { 
       expect((await contexto("pagar", (tx) => tx.lancamento.updateMany({ where: entrada, data: { descricao: "x" } }))).count).toBe(0);
       await expect(contexto("admin", (tx) => tx.lancamento.deleteMany({ where: saida }))).rejects.toThrow(/permission denied/);
 
+      // Anexos e linha do tempo seguem o acesso do lançamento; o anexo não se apaga.
+      const anexo = { lancamentoId: saida.id, tipo: "comprovante" as const, arquivoChave: `${marca}/c.pdf`, arquivoNome: "c.pdf", arquivoTamanho: 1, arquivoTipo: "application/pdf" };
+      const criado = await contexto("pagar", (tx) => tx.anexoDeLancamento.create({ data: anexo, select: { id: true } }));
+      await expect(contexto("financeiro", (tx) => tx.anexoDeLancamento.create({ data: { ...anexo, arquivoChave: `${marca}/d.pdf` } }))).rejects.toThrow();
+      expect(await contexto("financeiro", (tx) => tx.anexoDeLancamento.findUnique({ where: criado, select: { id: true } }))).toBeNull();
+      await contexto("pagar", (tx) => tx.historicoDeLancamento.create({ data: { lancamentoId: saida.id, tipo: "editado" } }));
+      expect(await contexto("financeiro", (tx) => tx.historicoDeLancamento.count({ where: { lancamentoId: saida.id } }))).toBe(0);
+      await expect(contexto("admin", (tx) => tx.anexoDeLancamento.deleteMany({ where: criado }))).rejects.toThrow(/permission denied/);
       // O Financeiro não lê `clients` (é do CRM), mas recebe o nome do cliente cobrado pela função.
       expect(await contexto("financeiro", (tx) => tx.client.findUnique({ where: { id: registros.get("a")! }, select: { id: true } }))).toBeNull();
       const nomes = await contexto("financeiro", (tx) => tx.$queryRaw<{ id: string }[]>`SELECT id FROM plugga_security.clientes_para_financeiro(NULL, ${[registros.get("a")!, registros.get("b")!]}::uuid[])`);
@@ -926,7 +934,12 @@ describe.skipIf(!HABILITADO)("RLS: permissões no login real da aplicação", { 
       // Fora do Financeiro e de Compras, quem só fez um marco de lançamento não aparece.
       expect(await contexto("a", (tx) => tx.user.findUnique({ where: { id: pagador.id }, select: { id: true } }))).toBeNull();
     } finally {
-      await root.lancamento.deleteMany({ where: { descricao: { startsWith: marca } } });
+      await root.$transaction(async (tx) => {
+        await tx.$executeRawUnsafe("SET LOCAL session_replication_role = replica");
+        await tx.anexoDeLancamento.deleteMany({ where: { lancamento: { descricao: { startsWith: marca } } } });
+        await tx.historicoDeLancamento.deleteMany({ where: { lancamento: { descricao: { startsWith: marca } } } });
+        await tx.lancamento.deleteMany({ where: { descricao: { startsWith: marca } } });
+      });
       await root.categoriaFinanceira.deleteMany({ where: { nome: { startsWith: marca } } });
       await root.fornecedor.deleteMany({ where: fornecedor });
     }

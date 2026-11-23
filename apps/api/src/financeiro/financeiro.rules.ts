@@ -8,6 +8,7 @@ import {
   type AcaoDoLancamento,
   type ColunaDoQuadroFinanceiro,
   type EtapaDeLancamento,
+  type FormaDoLancamento,
   type NomeDaAcaoDoLancamento,
   type OrigemDoLancamento,
   type SituacaoDoFiltroFinanceiro,
@@ -102,40 +103,72 @@ export function numeroDaBusca(busca: string): { tipo: TipoDeLancamento | null; n
 
 // ---------------------------------------------------------------- ações
 
-/** As ações que já rodam. As demais do contrato chegam com a PLU-337. */
-export const acoesImplementadas: readonly NomeDaAcaoDoLancamento[] = ["aprovar", "cancelar"];
+/** O que dos anexos importa para as transições (PLU-337). */
+export type AnexosAtuais = { comprovante: boolean; boleto: boolean };
+const SEM_ANEXOS: AnexosAtuais = { comprovante: false, boleto: false };
 
-export type Recusa = { codigo: "CONFLITO_ESTADO" | "REQUISICAO_INVALIDA"; mensagem: string };
+export type Recusa = { codigo: "CONFLITO_ESTADO" | "REQUISICAO_INVALIDA"; mensagem: string; campo?: string };
 
 export type Plano =
   | { tipo: "aprovar"; etapa: "aprovada" }
-  | { tipo: "cancelar"; motivo: string };
+  | { tipo: "cancelar"; motivo: string }
+  | { tipo: "corrigir_valor"; valor: string; motivo: string }
+  | { tipo: "registrar_nf"; etapa: "nf_emitida"; numero: string }
+  | { tipo: "registrar_boleto"; etapa: "boleto_gerado" }
+  | { tipo: "registrar_envio"; etapa: "enviada"; canal: string }
+  | { tipo: "registrar_cobranca"; canal: string; nota: string | null }
+  | { tipo: "registrar_pagamento"; etapa: "paga"; forma: FormaDoLancamento; contaCorrenteId: string; pagoEm: string }
+  | { tipo: "registrar_recebimento"; etapa: "recebida"; contaCorrenteId: string; recebidoEm: string; valor: string };
 
-/** O que a ação faz sobre o estado, ou por que não pode. Não olha o acesso. */
-export function planejarAcao(l: EstadoDoLancamento, acao: AcaoDoLancamento): Plano | Recusa {
-  if (!acoesImplementadas.includes(acao.acao)) {
-    return { codigo: "CONFLITO_ESTADO", mensagem: "Esta ação ainda não está disponível." };
-  }
-  if (l.canceladoEm !== null) return { codigo: "CONFLITO_ESTADO", mensagem: "O lançamento está cancelado." };
+const conflito = (mensagem: string, campo?: string): Recusa => ({ codigo: "CONFLITO_ESTADO", mensagem, ...(campo ? { campo } : {}) });
+const soEntrada = (l: EstadoDoLancamento) => (l.tipo === "entrada" ? null : conflito("Só a cobrança tem esta etapa."));
+const etapaExigida = (l: EstadoDoLancamento, etapas: EtapaDeLancamento[], mensagem: string) => (etapas.includes(l.etapa) ? null : conflito(mensagem));
+
+/**
+ * O que a ação faz sobre o estado, ou por que não pode. Não olha o acesso. `agora`
+ * decide os dias que não podem ser futuros (pagamento e recebimento, em Manaus).
+ */
+export function planejarAcao(l: EstadoDoLancamento, acao: AcaoDoLancamento, anexos: AnexosAtuais = SEM_ANEXOS, agora: Date = new Date()): Plano | Recusa {
+  if (l.canceladoEm !== null) return conflito("O lançamento está cancelado.");
+  const hoje = diaEmManaus(agora);
   switch (acao.acao) {
     case "aprovar":
-      if (l.tipo !== "saida") return { codigo: "CONFLITO_ESTADO", mensagem: "Só conta a pagar é aprovada." };
-      if (l.etapa !== "aberta") return { codigo: "CONFLITO_ESTADO", mensagem: "A conta já foi aprovada." };
+      if (l.tipo !== "saida") return conflito("Só conta a pagar é aprovada.");
+      if (l.etapa !== "aberta") return conflito("A conta já foi aprovada.");
       return { tipo: "aprovar", etapa: "aprovada" };
     case "cancelar":
-      if (estaLiquidado(l.etapa)) {
-        return { codigo: "CONFLITO_ESTADO", mensagem: l.tipo === "saida" ? "Conta já paga não se cancela." : "Cobrança já recebida não se cancela." };
-      }
+      if (estaLiquidado(l.etapa)) return conflito(l.tipo === "saida" ? "Conta já paga não se cancela." : "Cobrança já recebida não se cancela.");
       return { tipo: "cancelar", motivo: acao.motivo };
-    default:
-      return { codigo: "CONFLITO_ESTADO", mensagem: "Esta ação ainda não está disponível." };
+    case "corrigir_valor":
+      if (estaLiquidado(l.etapa)) return conflito("Depois de pago ou recebido, o valor não se corrige.");
+      return { tipo: "corrigir_valor", valor: acao.valor, motivo: acao.motivo };
+    case "registrar_nf":
+      return soEntrada(l) ?? etapaExigida(l, ["gerada"], "A NF é registrada na cobrança gerada.") ?? { tipo: "registrar_nf", etapa: "nf_emitida", numero: acao.numero };
+    case "registrar_boleto":
+      return soEntrada(l) ?? etapaExigida(l, ["nf_emitida"], "O boleto vem depois da NF.")
+        ?? (anexos.boleto ? { tipo: "registrar_boleto", etapa: "boleto_gerado" } : conflito("Anexe o boleto antes de registrá-lo.", "boleto"));
+    case "registrar_envio":
+      return soEntrada(l) ?? etapaExigida(l, ["boleto_gerado"], "A cobrança é enviada depois do boleto.") ?? { tipo: "registrar_envio", etapa: "enviada", canal: acao.canal };
+    case "registrar_cobranca":
+      return soEntrada(l) ?? etapaExigida(l, ["enviada"], "Cobrança registra-se na cobrança enviada.") ?? { tipo: "registrar_cobranca", canal: acao.canal, nota: acao.nota ?? null };
+    case "registrar_pagamento":
+      if (l.tipo !== "saida") return conflito("Só conta a pagar é paga.");
+      if (l.etapa !== "aprovada") return conflito(l.etapa === "aberta" ? "A conta precisa ser aprovada antes de paga." : "A conta já foi paga.");
+      if (acao.pagoEm > hoje) return { codigo: "REQUISICAO_INVALIDA", mensagem: "O dia do pagamento não pode ser futuro.", campo: "pagoEm" };
+      if (!anexos.comprovante) return conflito("Anexe o comprovante antes de pagar.", "comprovante");
+      return { tipo: "registrar_pagamento", etapa: "paga", forma: acao.forma, contaCorrenteId: acao.contaCorrenteId, pagoEm: acao.pagoEm };
+    case "registrar_recebimento":
+      return soEntrada(l) ?? etapaExigida(l, ["boleto_gerado", "enviada"], "A cobrança recebe-se depois do boleto.")
+        ?? (acao.recebidoEm > hoje
+          ? { codigo: "REQUISICAO_INVALIDA", mensagem: "O dia do recebimento não pode ser futuro.", campo: "recebidoEm" }
+          : { tipo: "registrar_recebimento", etapa: "recebida", contaCorrenteId: acao.contaCorrenteId, recebidoEm: acao.recebidoEm, valor: acao.valor });
   }
 }
 
 /**
- * Acesso por ação. Aprovar é da Gerente do Financeiro (F2). Cancelar a saída já
- * aprovada também, porque desfaz uma aprovação dela; antes disso, e na entrada,
- * basta alcançar o tipo.
+ * Acesso por ação. Aprovar é da Gerente do Financeiro (F2). Cancelar ou corrigir o
+ * valor da saída já aprovada também, porque mexe numa aprovação dela; o resto
+ * basta alcançar o tipo (pagar e receber são de qualquer membro).
  */
 export function podeExecutar(papel: PapelNoFinanceiro, l: Pick<EstadoDoLancamento, "tipo" | "etapa">, acao: NomeDaAcaoDoLancamento): boolean {
   if (!alcancaTipo(papel, l.tipo)) return false;
@@ -143,19 +176,61 @@ export function podeExecutar(papel: PapelNoFinanceiro, l: Pick<EstadoDoLancament
     case "aprovar":
       return papel.gerente;
     case "cancelar":
+    case "corrigir_valor":
       return l.tipo === "saida" && l.etapa !== "aberta" ? papel.gerente : true;
     default:
       return true;
   }
 }
 
-/** O que a pessoa pode disparar agora: estado certo e acesso. Alimenta `acoesPermitidas`. */
-export function acoesPermitidas(l: EstadoDoLancamento, papel: PapelNoFinanceiro): NomeDaAcaoDoLancamento[] {
+/** Um exemplo válido de cada ação, para perguntar ao `planejarAcao` se cabe agora. */
+function exemploDe(acao: NomeDaAcaoDoLancamento, agora: Date): AcaoDoLancamento {
+  const ontem = diaEmManaus(new Date(agora.getTime() - 86_400_000));
+  const id = "00000000-0000-0000-0000-000000000000";
+  switch (acao) {
+    case "cancelar": return { acao, motivo: "x" };
+    case "corrigir_valor": return { acao, valor: "1.00", motivo: "x" };
+    case "registrar_nf": return { acao, numero: "x" };
+    case "registrar_envio": return { acao, canal: "x" };
+    case "registrar_cobranca": return { acao, canal: "x", nota: null };
+    case "registrar_pagamento": return { acao, forma: "pix", contaCorrenteId: id, pagoEm: ontem };
+    case "registrar_recebimento": return { acao, contaCorrenteId: id, recebidoEm: ontem, valor: "1.00" };
+    default: return { acao } as AcaoDoLancamento;
+  }
+}
+
+/**
+ * O que a pessoa pode disparar agora: estado certo e acesso. Alimenta `acoesPermitidas`.
+ * O pagamento aparece mesmo sem o comprovante anexado: a tela o habilita depois do anexo.
+ */
+export function acoesPermitidas(l: EstadoDoLancamento, papel: PapelNoFinanceiro, anexos: AnexosAtuais = SEM_ANEXOS, agora: Date = new Date()): NomeDaAcaoDoLancamento[] {
+  const comTudo = { comprovante: true, boleto: true };
   return acoesDoLancamento.filter((acao) => {
-    if (!acoesImplementadas.includes(acao) || !podeExecutar(papel, l, acao)) return false;
-    const exemplo: AcaoDoLancamento = acao === "cancelar" ? { acao, motivo: "x" } : ({ acao } as AcaoDoLancamento);
-    return !("codigo" in planejarAcao(l, exemplo));
+    if (!podeExecutar(papel, l, acao)) return false;
+    const plano = planejarAcao(l, exemploDe(acao, agora), acao === "registrar_pagamento" || acao === "registrar_boleto" ? comTudo : anexos, agora);
+    return !("codigo" in plano);
   });
+}
+
+/** O painel "O que falta", na ordem do fluxo. */
+export function pendenciasDoLancamento(l: EstadoDoLancamento, anexos: AnexosAtuais): { texto: string; feito: boolean; opcional?: boolean }[] {
+  const passou = (etapas: readonly EtapaDeLancamento[]) => etapas.includes(l.etapa);
+  if (l.tipo === "saida") {
+    return [
+      { texto: "Aprovar", feito: passou(["aprovada", "paga", "conciliada"]) },
+      { texto: "Anexar o comprovante", feito: anexos.comprovante },
+      { texto: "Registrar o pagamento", feito: passou(["paga", "conciliada"]) },
+      { texto: "Conciliar com o extrato", feito: l.etapa === "conciliada" },
+    ];
+  }
+  return [
+    { texto: "Emitir a NF", feito: passou(["nf_emitida", "boleto_gerado", "enviada", "recebida", "conciliada"]) },
+    { texto: "Gerar o boleto", feito: passou(["boleto_gerado", "enviada", "recebida", "conciliada"]) },
+    { texto: "Enviar ao cliente", feito: passou(["enviada", "recebida", "conciliada"]) },
+    { texto: "Anexar o comprovante do recebimento", feito: anexos.comprovante, opcional: true },
+    { texto: "Registrar o recebimento", feito: passou(["recebida", "conciliada"]) },
+    { texto: "Conciliar com o extrato", feito: l.etapa === "conciliada" },
+  ];
 }
 
 /** Editar vale antes de liquidar e fora do cancelado, para quem alcança o tipo. */

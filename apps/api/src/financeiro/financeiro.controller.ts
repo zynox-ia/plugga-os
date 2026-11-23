@@ -1,7 +1,12 @@
-import { Body, Controller, Get, HttpCode, Inject, Param, ParseUUIDPipe, Patch, Post, Query, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, HttpCode, Inject, Param, ParseUUIDPipe, Patch, Post, Query, Res, UploadedFile, UseGuards, UseInterceptors } from "@nestjs/common";
+import { FileInterceptor } from "@nestjs/platform-express";
+import type { Response } from "express";
 import { ThrottlerGuard } from "@nestjs/throttler";
 import {
+  ANEXO_DO_LANCAMENTO_MAX_BYTES,
   acaoDoLancamentoSchema,
+  enviarAnexoSchema,
+  type EnviarAnexo,
   criarContaAPagarSchema,
   editarLancamentoSchema,
   listarLancamentosQuerySchema,
@@ -28,7 +33,10 @@ import { CurrentPrincipal } from "../core/auth/current-principal.decorator";
 import { OriginCheckGuard } from "../core/auth/origin-check.guard";
 import { SessionAuthGuard } from "../core/auth/session-auth.guard";
 import { FinanceiroHabilitadoGuard } from "./financeiro-habilitado.guard";
-import { FinanceiroService } from "./financeiro.service";
+import { cabecalhoDisposicao } from "../lead-documentos/lead-documentos.rules";
+import { FinanceiroService, type ArquivoParaBaixar } from "./financeiro.service";
+
+const COM_ARQUIVO = FileInterceptor("arquivo", { limits: { fileSize: ANEXO_DO_LANCAMENTO_MAX_BYTES * 2 } });
 
 /**
  * Financeiro (PLU-336). Os Lançamentos são de quem tem Contas a pagar ou Contas
@@ -104,10 +112,46 @@ export class FinanceiroController {
     return this.financeiro.executarAcao(id, acao, principal);
   }
 
+  /** Anexo novo (multipart: `arquivo` e `tipo`); comprovante, NF e boleto substituem o atual. */
+  @Post("lancamentos/:id/anexos")
+  @HttpCode(201)
+  @UseGuards(OriginCheckGuard, ThrottlerGuard)
+  @UseInterceptors(COM_ARQUIVO)
+  enviarAnexo(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body(new ZodValidationPipe(enviarAnexoSchema)) dados: EnviarAnexo,
+    @UploadedFile() arquivo: Express.Multer.File | undefined,
+    @CurrentPrincipal() principal: AuthPrincipal,
+  ): Promise<Lancamento> {
+    return this.financeiro.enviarAnexo(id, dados.tipo, arquivo && { buffer: arquivo.buffer, nomeOriginal: arquivo.originalname }, principal);
+  }
+
+  @Get("lancamentos/:id/anexos/:anexoId")
+  async baixarAnexo(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Param("anexoId", ParseUUIDPipe) anexoId: string,
+    @CurrentPrincipal() principal: AuthPrincipal,
+    @Res() res: Response,
+  ): Promise<void> {
+    this.enviarArquivo(res, await this.financeiro.baixarAnexo(id, anexoId, principal));
+  }
+
   /** Menus dos formulários e filtros: vale para qualquer tela do Financeiro. */
   @Get("opcoes")
   @Tela("financeiro.pagar", "financeiro.receber", "financeiro.conciliacao", "financeiro.fiscal")
   opcoes(): Promise<OpcoesDoFinanceiro> {
     return this.financeiro.opcoes();
+  }
+
+  /** PDF e imagem abrem no navegador; o tipo é o detectado no envio, e `nosniff` impede reinterpretação. */
+  private enviarArquivo(res: Response, { arquivo, stream, encerrar }: ArquivoParaBaixar): void {
+    stream.once("close", encerrar);
+    stream.once("error", encerrar);
+    res.status(200);
+    res.setHeader("Content-Type", arquivo.tipo);
+    res.setHeader("Content-Disposition", cabecalhoDisposicao("inline", arquivo.nome));
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("Cache-Control", "no-store");
+    stream.pipe(res);
   }
 }

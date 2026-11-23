@@ -221,10 +221,14 @@ export type EditarLancamento = z.infer<typeof editarLancamentoSchema>;
 const motivo = textoObrigatorio(500);
 
 /**
- * Transições pelo endpoint de ações. Nesta entrega (PLU-336) rodam `aprovar` e
- * `cancelar`; as demais estão declaradas para a tela e chegam com a PLU-337
- * (pagamento com comprovante, NF, boleto, envio, cobrança e recebimento). Até
- * lá a API as recusa com 409 e elas não aparecem em `acoesPermitidas`.
+ * Transições pelo endpoint de ações (PLU-336 e PLU-337):
+ * - `registrar_pagamento` (saída aprovada) exige um comprovante atual já anexado
+ *   (409 com `campo: "comprovante"` sem ele); o dia não pode ser futuro;
+ * - `registrar_recebimento` (entrada com boleto ou enviada): comprovante opcional;
+ * - `registrar_nf` (entrada gerada), `registrar_boleto` (com NF; exige um anexo
+ *   `boleto` atual, até o GerarBoleto do OMIE) e `registrar_envio` (com boleto);
+ * - `registrar_cobranca` (entrada enviada) não muda a etapa: vai à linha do tempo;
+ * - `corrigir_valor` antes de liquidar, com motivo; na saída aprovada, só a Gerente.
  */
 export const acaoDoLancamentoSchema = z.discriminatedUnion("acao", [
   z.object({ acao: z.literal("aprovar") }).strict(),
@@ -255,6 +259,62 @@ export type NomeDaAcaoDoLancamento = (typeof acoesDoLancamento)[number];
 
 const pessoa = z.object({ id: uuid, nome: z.string() });
 const registro = z.object({ por: pessoa.nullable(), em: isoDate });
+
+// ---------------------------------------------------------------- anexos e linha do tempo (PLU-337)
+
+/**
+ * Anexo do lançamento, no armazenamento do Plugga OS (o mesmo bucket dos documentos
+ * do lead e das cotações). Nada se apaga (D9): um `comprovante`, `nf` ou `boleto`
+ * novo marca o atual do mesmo tipo como substituído, e o anterior continua
+ * baixável. `documento` (fatura, guia) pode haver quantos for. PDF, JPEG ou PNG,
+ * conferidos pelo conteúdo, até 25 MiB.
+ */
+export const tiposDeAnexo = ["comprovante", "nf", "boleto", "documento"] as const;
+export const tipoDeAnexoSchema = z.enum(tiposDeAnexo);
+export type TipoDeAnexo = z.infer<typeof tipoDeAnexoSchema>;
+export const ANEXO_DO_LANCAMENTO_MAX_BYTES = 25 * 1024 * 1024;
+
+export const anexoDoLancamentoSchema = z.object({
+  id: uuid,
+  tipo: tipoDeAnexoSchema,
+  nome: z.string(),
+  /** Do comprovante: "aaaa-mm-dd · código · favorecido · valor.pdf". */
+  nomePadronizado: z.string().nullable(),
+  tamanhoBytes: z.number().int().positive(),
+  mime: z.string(),
+  /** Caminho da API para baixar, relativo (nunca a URL do armazenamento). */
+  url: z.string(),
+  enviado: registro,
+  substituido: registro.nullable(),
+});
+export type AnexoDoLancamento = z.infer<typeof anexoDoLancamentoSchema>;
+
+/** `POST financeiro/lancamentos/:id/anexos` (multipart: `arquivo` e `tipo`) → Lancamento. */
+export const enviarAnexoSchema = z.object({ tipo: tipoDeAnexoSchema }).strict();
+export type EnviarAnexo = z.infer<typeof enviarAnexoSchema>;
+
+export const tiposDeEventoDoLancamento = [
+  "criado", "editado", "aprovado", "valor_corrigido", "nf_registrada", "boleto_registrado",
+  "enviado", "cobranca_registrada", "pago", "recebido", "conciliado", "cancelado",
+  "anexo_enviado", "anexo_substituido", "omie",
+] as const;
+export const tipoDeEventoDoLancamentoSchema = z.enum(tiposDeEventoDoLancamento);
+
+/** Um item da linha do tempo, do mais recente ao mais antigo. */
+export const eventoDoLancamentoSchema = z.object({
+  tipo: tipoDeEventoDoLancamentoSchema,
+  em: isoDate,
+  por: pessoa.nullable(),
+  /** Pronto para a tela: "Valor corrigido de R$ 3.800,00 para R$ 3.950,00". */
+  resumo: z.string(),
+  /** Só o que a pessoa escreveu (o motivo, a nota da cobrança). */
+  texto: z.string().nullable(),
+});
+export type EventoDoLancamento = z.infer<typeof eventoDoLancamentoSchema>;
+
+/** O painel "O que falta", na ordem do fluxo. */
+export const pendenciaDoLancamentoSchema = z.object({ texto: z.string(), feito: z.boolean(), opcional: z.boolean().optional() });
+export type PendenciaDoLancamento = z.infer<typeof pendenciaDoLancamentoSchema>;
 
 export const situacoesDoVencimento = ["no_prazo", "vence_hoje", "vencido"] as const;
 export const situacaoDoVencimentoSchema = z.enum(situacoesDoVencimento);
@@ -323,6 +383,21 @@ export const lancamentoSchema = lancamentoResumoSchema.extend({
   acoesPermitidas: z.array(z.enum(acoesDoLancamento)),
   podeEditar: z.boolean(),
   updatedAt: isoDate,
+  // PLU-337. Opcionais neste commit para não quebrar quem monta um Lancamento à
+  // mão; a web os torna obrigatórios no commit dela (contrato em par).
+  /**
+   * Os anexos, atuais e substituídos, do mais recente ao mais antigo. (`anexos`,
+   * herdado do resumo, segue sendo a contagem dos atuais.)
+   */
+  arquivos: z.array(anexoDoLancamentoSchema).optional(),
+  comprovanteAtual: anexoDoLancamentoSchema.nullable().optional(),
+  linhaDoTempo: z.array(eventoDoLancamentoSchema).optional(),
+  /** Só na entrada. */
+  nf: z.object({ numero: z.string(), registrada: registro }).nullable().optional(),
+  envio: registro.extend({ canal: z.string() }).nullable().optional(),
+  cobrancas: z.array(registro.extend({ canal: z.string(), nota: z.string().nullable() })).optional(),
+  ucs: z.array(z.object({ id: uuid, codigo: z.string() })).optional(),
+  pendencias: z.array(pendenciaDoLancamentoSchema).optional(),
 });
 export type Lancamento = z.infer<typeof lancamentoSchema>;
 
@@ -446,3 +521,68 @@ export const resumoDosLancamentosRespostaSchema = z.object({
   alcance: z.object({ saidas: z.boolean(), entradas: z.boolean() }),
 });
 export type ResumoDosLancamentosResposta = z.infer<typeof resumoDosLancamentosRespostaSchema>;
+
+// ---------------------------------------------------------------- cobrança manual (PLU-337, A7)
+
+/**
+ * `POST financeiro/cobrancas` → Lancamento (entrada `gerada`, origem `cobranca_manual`).
+ * Uma por cliente, empresa e competência (F3): a repetida é 409 com
+ * `extras: { codigo, id }` da existente. Categoria de receita da empresa; as UCs
+ * são do cliente e ficam listadas dentro da cobrança.
+ */
+export const criarCobrancaSchema = z
+  .object({
+    empresa: companyKeySchema,
+    clientId: uuid,
+    competencia,
+    categoriaId: uuid,
+    contaCorrenteId: uuid.nullable().optional(),
+    descricao: textoObrigatorio(200),
+    valor: valorPositivo,
+    vencimento: diaDoCalendario,
+    ucIds: z.array(uuid).max(100).default([]),
+    observacao: textoOpcional(2000),
+  })
+  .strict();
+export type CriarCobranca = z.infer<typeof criarCobrancaSchema>;
+
+/** `GET financeiro/clientes?busca=` (2+ letras): só id, nome e as UCs. */
+export const buscarClientesDoFinanceiroQuerySchema = z.object({ busca: z.string().trim().min(2).max(120) }).strict();
+export type BuscarClientesDoFinanceiroQuery = z.infer<typeof buscarClientesDoFinanceiroQuerySchema>;
+export const clientesDoFinanceiroRespostaSchema = z.object({
+  itens: z.array(z.object({ id: uuid, nome: z.string(), ucs: z.array(z.object({ id: uuid, codigo: z.string() })) })),
+});
+export type ClientesDoFinanceiroResposta = z.infer<typeof clientesDoFinanceiroRespostaSchema>;
+
+/**
+ * `GET financeiro/cobrancas/sugestao?empresa=&clientId=&competencia=` (F4): o valor
+ * da cobrança do mesmo cliente e empresa na competência anterior mais recente.
+ */
+export const sugestaoDeCobrancaQuerySchema = z.object({ empresa: companyKeySchema, clientId: uuid, competencia }).strict();
+export type SugestaoDeCobrancaQuery = z.infer<typeof sugestaoDeCobrancaQuerySchema>;
+export const sugestaoDeCobrancaRespostaSchema = z.object({
+  valor: z.string().nullable(),
+  competencia: competencia.nullable(),
+  codigo: z.string().nullable(),
+});
+export type SugestaoDeCobrancaResposta = z.infer<typeof sugestaoDeCobrancaRespostaSchema>;
+
+// ---------------------------------------------------------------- baixar comprovantes (PLU-337)
+
+/**
+ * `GET financeiro/comprovantes.zip?empresa=&de=&ate=&tipo=` → application/zip com os
+ * comprovantes ATUAIS dos lançamentos pagos ou recebidos no período (pelo dia do
+ * pagamento ou do recebimento), com o nome padronizado. Só os tipos que a pessoa
+ * alcança. Até 500 arquivos; acima disso, 422 pedindo período menor.
+ */
+export const LIMITE_DE_COMPROVANTES_NO_ZIP = 500;
+export const baixarComprovantesQuerySchema = z
+  .object({
+    empresa: companyKeySchema.optional(),
+    de: diaDoCalendario,
+    ate: diaDoCalendario,
+    tipo: z.enum(["todos", ...tiposDeLancamento]).default("todos"),
+  })
+  .strict()
+  .refine((q) => q.de <= q.ate, { path: ["ate"], message: "o fim do período vem depois do início" });
+export type BaixarComprovantesQuery = z.infer<typeof baixarComprovantesQuerySchema>;

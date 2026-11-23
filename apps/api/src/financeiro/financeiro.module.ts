@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common";
 
 import { AuditModule } from "../audit/audit.module";
 import { CoreModule } from "../core/core.module";
+import { ArmazenamentoDeDocumentos } from "../lead-documentos/armazenamento-de-documentos";
 import { PrismaModule } from "../prisma/prisma.module";
 import { FinanceiroHabilitadoGuard } from "./financeiro-habilitado.guard";
 import { FinanceiroController } from "./financeiro.controller";
@@ -12,7 +13,7 @@ import { PrismaFinanceiroRepository } from "./prisma-financeiro.repository";
 @Module({
   imports: [AuditModule, CoreModule, PrismaModule],
   controllers: [FinanceiroController],
-  providers: [FinanceiroHabilitadoGuard, FinanceiroService, PrismaFinanceiroRepository, { provide: RELOGIO_DO_FINANCEIRO, useValue: () => new Date() }],
+  providers: [FinanceiroHabilitadoGuard, ArmazenamentoDeDocumentos, FinanceiroService, PrismaFinanceiroRepository, { provide: RELOGIO_DO_FINANCEIRO, useValue: () => new Date() }],
   exports: [PrismaFinanceiroRepository],
 })
 export class FinanceiroModule {}

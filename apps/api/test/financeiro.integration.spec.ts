@@ -66,6 +66,10 @@ describe.skipIf(!HABILITADO)("financeiro: lançamentos no Postgres", () => {
     // Lançamento não se apaga pela aplicação; o teardown, como dono do banco de teste, apaga o que criou.
     await prisma.$transaction(async (tx) => {
       await tx.$executeRawUnsafe("SET LOCAL session_replication_role = replica");
+      const lancamentos = { lancamento: { descricao: { startsWith: marca } } };
+      await tx.anexoDeLancamento.deleteMany({ where: lancamentos });
+      await tx.historicoDeLancamento.deleteMany({ where: lancamentos });
+      await tx.ucDeLancamento.deleteMany({ where: lancamentos });
       await tx.lancamento.deleteMany({ where: { descricao: { startsWith: marca } } });
       await tx.categoriaFinanceira.deleteMany({ where: { nome: { startsWith: marca } } });
       await tx.contaCorrente.deleteMany({ where: { nome: { startsWith: marca } } });
@@ -82,7 +86,7 @@ describe.skipIf(!HABILITADO)("financeiro: lançamentos no Postgres", () => {
     expect(a).toMatchObject({ tipo: "saida", etapa: "aberta", origem: { tipo: "avulsa", pedidoDeCompra: null }, valor: "100.00", vencimento: "2026-11-30" });
     expect(Number(b.codigo.slice(3))).toBe(Number(a.codigo.slice(3)) + 1);
     expect(a.codigo).toMatch(/^CP-\d{4,}$/);
-    expect(a.acoesPermitidas).toEqual(["aprovar", "cancelar"]);
+    expect(a.acoesPermitidas).toEqual(["aprovar", "cancelar", "corrigir_valor"]);
     const evento = await prisma.eventLog.findFirstOrThrow({ where: { entityId: a.id, eventName: "financeiro.lancamento.created" } });
     expect(evento.payload).toEqual({ tipo: "saida", origem: "avulsa" });
   }, PRAZO_MS);
@@ -147,9 +151,53 @@ describe.skipIf(!HABILITADO)("financeiro: lançamentos no Postgres", () => {
     expect((await repositorio.obter(id, papel, AGORA)).favorecido.id).toBe(outro);
   }, PRAZO_MS);
 
-  it("as ações da PLU-337 ainda são recusadas com conflito", async () => {
+  let relogioDosAnexos = AGORA.getTime();
+  const anexar = (id: string, tipo: "comprovante" | "nf" | "boleto" | "documento") =>
+    repositorio.registrarAnexo(id, tipo, { chave: `${marca}/${randomUUID()}.pdf`, nome: `${tipo}.pdf`, tamanho: 10, tipo: "application/pdf" }, principal, papel, new Date((relogioDosAnexos += 1_000)));
+
+  it("pagar exige o comprovante já anexado; trocar o comprovante guarda o anterior", async () => {
     const id = await novaConta();
-    await expect(agir(id, { acao: "corrigir_valor", valor: "10.00", motivo: "x" })).rejects.toBeInstanceOf(EstadoInvalido);
+    await agir(id, { acao: "aprovar" });
+    const pagar = { acao: "registrar_pagamento", forma: "pix", contaCorrenteId: ids.contaPlugga, pagoEm: "2026-11-23" };
+    await expect(agir(id, pagar)).rejects.toMatchObject({ detalhes: [{ campo: "comprovante" }] });
+    await anexar(id, "comprovante");
+    await anexar(id, "comprovante");
+    await agir(id, pagar);
+    const detalhe = await repositorio.obter(id, papel, AGORA);
+    expect(detalhe).toMatchObject({ etapa: "paga", liquidadoEm: "2026-11-23", marcos: { pago: { pagoEm: "2026-11-23" } }, anexos: 1 });
+    expect(detalhe.arquivos?.map((a) => a.substituido === null)).toEqual([true, false]);
+    expect(detalhe.comprovanteAtual?.nomePadronizado).toMatch(/^2026-11-23 · CP-\d{4,} · .* · R\$ 100,00\.pdf$/);
+    expect(detalhe.linhaDoTempo?.map((e) => e.tipo)).toEqual(expect.arrayContaining(["pago", "anexo_substituido", "anexo_enviado", "aprovado", "criado"]));
+    expect(detalhe.pendencias?.filter((p) => !p.feito).map((p) => p.texto)).toEqual(["Conciliar com o extrato"]);
+    // O banco não deixa apagar nem alterar o anexo além de marcar a substituição.
+    const anexo = await prisma.anexoDeLancamento.findFirstOrThrow({ where: { lancamentoId: id, substituidoEm: null } });
+    await expect(prisma.anexoDeLancamento.delete({ where: { id: anexo.id } })).rejects.toThrow();
+    await expect(prisma.anexoDeLancamento.update({ where: { id: anexo.id }, data: { arquivoNome: "x.pdf" } })).rejects.toThrow();
+  }, PRAZO_MS);
+
+  it("corrigir o valor guarda o motivo na linha do tempo; o evento não leva o texto", async () => {
+    const id = await novaConta();
+    await agir(id, { acao: "corrigir_valor", valor: "120.00", motivo: "Frete incluído" });
+    await expect(agir(id, { acao: "corrigir_valor", valor: "120.00", motivo: "de novo" })).rejects.toBeInstanceOf(RequisicaoInvalida);
+    const detalhe = await repositorio.obter(id, papel, AGORA);
+    expect(detalhe.valor).toBe("120.00");
+    expect(detalhe.linhaDoTempo?.find((e) => e.tipo === "valor_corrigido")).toMatchObject({ resumo: "Valor corrigido de R$ 100,00 para R$ 120,00", texto: "Frete incluído" });
+    const evento = await prisma.eventLog.findFirstOrThrow({ where: { entityId: id, eventName: "financeiro.lancamento.valor_corrigido" } });
+    expect(JSON.stringify(evento.payload)).not.toContain("Frete");
+  }, PRAZO_MS);
+
+  it("a cobrança anda NF → boleto (com o anexo) → envio → cobrança → recebimento", async () => {
+    const id = await novaCobranca("2027-03");
+    await agir(id, { acao: "registrar_nf", numero: "NFS-e 2026/000402" });
+    await expect(agir(id, { acao: "registrar_boleto" })).rejects.toMatchObject({ detalhes: [{ campo: "boleto" }] });
+    await anexar(id, "boleto");
+    await agir(id, { acao: "registrar_boleto" });
+    await agir(id, { acao: "registrar_envio", canal: "E-mail" });
+    await agir(id, { acao: "registrar_cobranca", canal: "WhatsApp", nota: "Pediu a 2ª via" });
+    await agir(id, { acao: "registrar_recebimento", contaCorrenteId: ids.contaPlugga, recebidoEm: "2026-11-23", valor: "48.00" });
+    const detalhe = await repositorio.obter(id, papel, AGORA);
+    expect(detalhe).toMatchObject({ etapa: "recebida", nf: { numero: "NFS-e 2026/000402" }, envio: { canal: "E-mail" }, marcos: { recebido: { valor: "48.00" } } });
+    expect(detalhe.cobrancas).toEqual([expect.objectContaining({ canal: "WhatsApp", nota: "Pediu a 2ª via" })]);
   }, PRAZO_MS);
 
   it("editar grava só os campos enviados; sem campo, nada muda", async () => {

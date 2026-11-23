@@ -143,6 +143,16 @@ export const catalogoEventos = {
   "financeiro.lancamento.updated": evento("Lançamento financeiro alterado", "empresa"),
   "financeiro.lancamento.aprovado": evento("Conta a pagar aprovada", "empresa"),
   "financeiro.lancamento.cancelado": evento("Lançamento financeiro cancelado", "empresa"),
+  // PLU-337. O motivo da correção e a nota da cobrança ficam na linha do tempo do lançamento.
+  "financeiro.lancamento.valor_corrigido": evento("Valor do lançamento corrigido", "empresa"),
+  "financeiro.lancamento.nf_registrada": evento("NF da cobrança registrada", "empresa"),
+  "financeiro.lancamento.boleto_registrado": evento("Boleto da cobrança registrado", "empresa"),
+  "financeiro.lancamento.enviado": evento("Cobrança enviada ao cliente", "empresa"),
+  "financeiro.lancamento.cobranca_registrada": evento("Contato de cobrança registrado", "empresa"),
+  "financeiro.lancamento.pago": evento("Pagamento da conta registrado", "empresa"),
+  "financeiro.lancamento.recebido": evento("Recebimento da cobrança registrado", "empresa"),
+  "financeiro.anexo.enviado": evento("Anexo do lançamento enviado", "empresa"),
+  "financeiro.anexo.substituido": evento("Anexo do lançamento substituído", "empresa"),
   // OMIE por empresa (PLU-342). Nunca a chave, o segredo nem a resposta do OMIE.
   "integracoes.omie.conectada": evento("Par do OMIE da empresa gravado", "empresa"),
   "integracoes.omie.desconectada": evento("Par do OMIE da empresa removido", "empresa"),

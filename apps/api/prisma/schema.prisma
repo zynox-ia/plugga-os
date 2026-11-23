@@ -258,6 +258,12 @@ enum ContestationStatus {
 }
 
 model User {
+  lancamentosNfRegistrada        Lancamento[]                @relation("LancamentoNfRegistradaPor")
+  lancamentosBoletoRegistrado    Lancamento[]                @relation("LancamentoBoletoRegistradoPor")
+  lancamentosEnviados            Lancamento[]                @relation("LancamentoEnviadoPor")
+  anexosDeLancamentoEnviados     AnexoDeLancamento[]         @relation("AnexoDeLancamentoEnviadoPor")
+  anexosDeLancamentoSubstituidos AnexoDeLancamento[]         @relation("AnexoDeLancamentoSubstituidoPor")
+  historicoDeLancamento          HistoricoDeLancamento[]
   omieTestes                     OmieConexao[]               @relation("OmieConexaoTestadaPor")
   omieConfirmacoes               OmieConexao[]               @relation("OmieConexaoConfirmadaPor")
   lancamentosCriados             Lancamento[]                @relation("LancamentoCriadoPor")
@@ -1241,6 +1247,7 @@ model ConsumerUnit {
   deals            DealConsumerUnit[]
 
   @@index([clientId])
+  lancamentos      UcDeLancamento[]
   @@map("consumer_units")
 }
 
@@ -2753,6 +2760,14 @@ model Lancamento {
   canceladoEm                DateTime?                @map("cancelado_em") @db.Timestamptz(6)
   canceladoPorId             String?                  @map("cancelado_por_id") @db.Uuid
   cancelamentoMotivo         String?                  @map("cancelamento_motivo")
+  nfNumero                   String?                  @map("nf_numero")
+  nfRegistradaEm             DateTime?                @map("nf_registrada_em") @db.Timestamptz(6)
+  nfRegistradaPorId          String?                  @map("nf_registrada_por_id") @db.Uuid
+  boletoRegistradoEm         DateTime?                @map("boleto_registrado_em") @db.Timestamptz(6)
+  boletoRegistradoPorId      String?                  @map("boleto_registrado_por_id") @db.Uuid
+  enviadoEm                  DateTime?                @map("enviado_em") @db.Timestamptz(6)
+  envioCanal                 String?                  @map("envio_canal")
+  enviadoPorId               String?                  @map("enviado_por_id") @db.Uuid
   createdAt                  DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt                  DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(6)
 
@@ -2768,6 +2783,12 @@ model Lancamento {
   recebimentoRegistradoPor User?               @relation("LancamentoRecebimentoRegistradoPor", fields: [recebimentoRegistradoPorId], references: [id], onDelete: SetNull)
   conciliadoPor            User?               @relation("LancamentoConciliadoPor", fields: [conciliadoPorId], references: [id], onDelete: SetNull)
   canceladoPor             User?               @relation("LancamentoCanceladoPor", fields: [canceladoPorId], references: [id], onDelete: SetNull)
+  nfRegistradaPor         User?               @relation("LancamentoNfRegistradaPor", fields: [nfRegistradaPorId], references: [id], onDelete: SetNull)
+  boletoRegistradoPor     User?               @relation("LancamentoBoletoRegistradoPor", fields: [boletoRegistradoPorId], references: [id], onDelete: SetNull)
+  enviadoPor              User?               @relation("LancamentoEnviadoPor", fields: [enviadoPorId], references: [id], onDelete: SetNull)
+  anexos                  AnexoDeLancamento[]
+  historico               HistoricoDeLancamento[]
+  ucs                     UcDeLancamento[]
 
   @@unique([tipo, numero])
   @@index([vencimento])
@@ -2798,4 +2819,64 @@ model OmieConexao {
   confirmadaPor   User?   @relation("OmieConexaoConfirmadaPor", fields: [confirmadaPorId], references: [id], onDelete: SetNull)
 
   @@map("omie_conexoes")
+}
+
+enum FinanceiroTipoAnexo {
+  comprovante
+  nf
+  boleto
+  documento
+
+  @@map("financeiro_tipo_anexo")
+}
+
+/// Anexo do lançamento (PLU-337). Não se apaga: substituir marca o anterior (gatilho).
+model AnexoDeLancamento {
+  id               String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  lancamentoId     String              @map("lancamento_id") @db.Uuid
+  tipo             FinanceiroTipoAnexo
+  arquivoChave     String              @unique @map("arquivo_chave")
+  arquivoNome      String              @map("arquivo_nome")
+  arquivoTamanho   Int                 @map("arquivo_tamanho")
+  arquivoTipo      String              @map("arquivo_tipo")
+  enviadoPorId     String?             @map("enviado_por_id") @db.Uuid
+  enviadoEm        DateTime            @default(now()) @map("enviado_em") @db.Timestamptz(6)
+  substituidoEm    DateTime?           @map("substituido_em") @db.Timestamptz(6)
+  substituidoPorId String?             @map("substituido_por_id") @db.Uuid
+
+  lancamento     Lancamento @relation(fields: [lancamentoId], references: [id], onDelete: Restrict)
+  enviadoPor     User?      @relation("AnexoDeLancamentoEnviadoPor", fields: [enviadoPorId], references: [id], onDelete: Restrict)
+  substituidoPor User?      @relation("AnexoDeLancamentoSubstituidoPor", fields: [substituidoPorId], references: [id], onDelete: Restrict)
+
+  @@index([lancamentoId, enviadoEm])
+  @@map("anexos_de_lancamento")
+}
+
+/// Linha do tempo do lançamento (PLU-337). Só de inserção; `texto` é o que a pessoa escreveu.
+model HistoricoDeLancamento {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  lancamentoId String   @map("lancamento_id") @db.Uuid
+  tipo         String
+  em           DateTime @default(now()) @db.Timestamptz(6)
+  porId        String?  @map("por_id") @db.Uuid
+  dados        Json     @default("{}") @db.JsonB
+  texto        String?
+
+  lancamento Lancamento @relation(fields: [lancamentoId], references: [id], onDelete: Restrict)
+  por        User?      @relation(fields: [porId], references: [id], onDelete: Restrict)
+
+  @@index([lancamentoId, em])
+  @@map("historico_de_lancamento")
+}
+
+/// As UCs listadas dentro da cobrança (F3).
+model UcDeLancamento {
+  lancamentoId   String @map("lancamento_id") @db.Uuid
+  consumerUnitId String @map("consumer_unit_id") @db.Uuid
+
+  lancamento   Lancamento   @relation(fields: [lancamentoId], references: [id], onDelete: Restrict)
+  consumerUnit ConsumerUnit @relation(fields: [consumerUnitId], references: [id], onDelete: Restrict)
+
+  @@id([lancamentoId, consumerUnitId])
+  @@map("ucs_de_lancamento")
 }

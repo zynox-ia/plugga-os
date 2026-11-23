@@ -1000,6 +1000,40 @@
     ]
   },
   {
+    "metodo": "POST",
+    "caminho": "/financeiro/lancamentos/:id/anexos",
+    "controller": "FinanceiroController.enviarAnexo",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:financeiro.pagar",
+      "tela:financeiro.receber",
+      "departamento:financeiro:membro"
+    ],
+    "guards": [
+      "FinanceiroHabilitadoGuard",
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/financeiro/lancamentos/:id/anexos/:anexoId",
+    "controller": "FinanceiroController.baixarAnexo",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:financeiro.pagar",
+      "tela:financeiro.receber",
+      "departamento:financeiro:membro"
+    ],
+    "guards": [
+      "FinanceiroHabilitadoGuard",
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
     "metodo": "GET",
     "caminho": "/financeiro/lancamentos/quadro",
     "controller": "FinanceiroController.quadro",
