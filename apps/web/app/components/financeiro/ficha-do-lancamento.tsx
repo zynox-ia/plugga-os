@@ -18,6 +18,7 @@ import {
   MessageSquare,
   Paperclip,
   Pencil,
+  RotateCw,
   Send,
   Upload,
   UserRound,
@@ -124,6 +125,16 @@ export function FichaDoLancamento({ lancamento: inicial, opcoes, gerente, aoFech
   }
 
   /** Anexa e mantém a ficha aberta; devolve o problema para o diálogo mostrar, ou nulo. */
+  /** Devolve à fila do OMIE os envios com erro (PLU-342). Sem envio com erro, a API responde 409 e a ficha se atualiza. */
+  async function tentarDeNovoNoOmie() {
+    setOcupado(true); setErro(null); setAviso(null);
+    const r = await enviar<Lancamento>(`/api/financeiro/lancamentos/${l.id}/omie/tentar-de-novo`, "POST", {});
+    setOcupado(false);
+    if (r.ok) { atualizado(r.dados, `Envio ao OMIE da ${ROTULO_DA_EMPRESA[l.empresa]} pedido de novo.`); return; }
+    if (r.erro.codigo === "CONFLITO_ESTADO") await recarregar();
+    setErro(r.erro.mensagem);
+  }
+
   async function anexar(tipo: TipoDeAnexo, arquivo: File): Promise<string | null> {
     setOcupado(true); setErro(null); setAviso(null);
     const r = await enviarAnexo(l.id, tipo, arquivo);
@@ -185,9 +196,9 @@ export function FichaDoLancamento({ lancamento: inicial, opcoes, gerente, aoFech
             {erro ? <p role="alert" className="aviso aviso--erro">{erro}</p> : null}
             {aviso ? <p role="status" className="aviso aviso--sucesso">{aviso}</p> : null}
           </div> : null}
-          {aba === "geral" ? <VisaoGeralDoLancamento l={l} opcoes={opcoes} hoje={hoje} ocupado={ocupado} aoAgir={agir} aoAnexar={anexar} aoAbrir={setJanela} aoVerOmie={() => irPara("omie")} /> : null}
+          {aba === "geral" ? <VisaoGeralDoLancamento l={l} opcoes={opcoes} hoje={hoje} ocupado={ocupado} aoAgir={agir} aoAnexar={anexar} aoAbrir={setJanela} aoVerOmie={() => irPara("omie")} aoTentarOmie={() => void tentarDeNovoNoOmie()} /> : null}
           {aba === "anexos" ? <AnexosDoLancamento l={l} ocupado={ocupado} aoAnexar={(tipo) => setJanela({ anexar: tipo })} /> : null}
-          {aba === "omie" ? <OmieDoLancamento l={l} /> : null}
+          {aba === "omie" ? <OmieDoLancamento l={l} ocupado={ocupado} aoTentar={() => void tentarDeNovoNoOmie()} /> : null}
           {aba === "tempo" ? <LinhaDoTempoDoLancamento l={l} hoje={hoje} /> : null}
         </section>
       </div>
@@ -225,10 +236,10 @@ function Trilha({ l }: { l: Lancamento }) {
   </>;
 }
 
-function VisaoGeralDoLancamento({ l, opcoes, hoje, ocupado, aoAgir, aoAnexar, aoAbrir, aoVerOmie }: {
+function VisaoGeralDoLancamento({ l, opcoes, hoje, ocupado, aoAgir, aoAnexar, aoAbrir, aoVerOmie, aoTentarOmie }: {
   l: Lancamento; opcoes: OpcoesDoFinanceiro | null; hoje: string; ocupado: boolean;
   aoAgir: (acao: AcaoDoLancamento) => Promise<boolean>; aoAnexar: (tipo: TipoDeAnexo, arquivo: File) => Promise<string | null>;
-  aoAbrir: (janela: Janela) => void; aoVerOmie: () => void;
+  aoAbrir: (janela: Janela) => void; aoVerOmie: () => void; aoTentarOmie: () => void;
 }) {
   const formId = useId();
   const pode = (a: Lancamento["acoesPermitidas"][number]) => l.acoesPermitidas.includes(a);
@@ -262,6 +273,7 @@ function VisaoGeralDoLancamento({ l, opcoes, hoje, ocupado, aoAgir, aoAnexar, ao
     <div className={`${styles.faixaOmie} ${omie.tom === "perigo" ? styles.faixaPerigo : ""}`} role={omie.tom === "perigo" ? "alert" : undefined}>
       {omie.tom === "perigo" ? <CloudOff size={16} aria-hidden="true" /> : <Cloud size={16} aria-hidden="true" />}
       <span>{omie.texto}</span>
+      {l.omie.estado === "erro" ? <button type="button" className={styles.linkOmie} disabled={ocupado} onClick={aoTentarOmie}>Tentar de novo</button> : null}
       <button type="button" className={styles.linkOmie} onClick={aoVerOmie}>Detalhes</button>
     </div>
 
@@ -342,11 +354,15 @@ function BotaoPrincipal({ acao, rotulo, formId, ocupado, aoAgir, aoAbrir }: {
 }
 
 /** O estado no OMIE da empresa, sem tela própria de integração (decisão A2). */
-function OmieDoLancamento({ l }: { l: Lancamento }) {
+function OmieDoLancamento({ l, ocupado, aoTentar }: { l: Lancamento; ocupado: boolean; aoTentar: () => void }) {
   const empresa = ROTULO_DA_EMPRESA[l.empresa];
   const omie = fraseDoOmie(l, empresa);
   return <div className={estilosFicha.secao}>
-    <div className={estilosFicha.barra}><div><h3>No OMIE da {empresa}</h3><p>O lançamento vai ao OMIE da empresa dele pelas ações do fluxo: aprovar, pagar e conciliar.</p></div></div>
+    <div className={estilosFicha.barra}>
+      <div><h3>No OMIE da {empresa}</h3><p>O lançamento vai ao OMIE da empresa dele pelas ações do fluxo: aprovar, pagar e conciliar.</p></div>
+      {/* Com erro, o envio só volta à fila por aqui; os outros estados andam sozinhos. */}
+      {l.omie.estado === "erro" ? <Button variant="secondary" size="sm" icon={<RotateCw size={14} />} disabled={ocupado} onClick={aoTentar}>Tentar de novo</Button> : null}
+    </div>
     {omie.tom === "perigo" ? <Alert tone="danger" title={omie.texto} /> : <Alert tone="info" title={omie.texto} />}
     <dl className={visao.grade}>
       <div><dt>Situação</dt><dd>{{ nao_enviado: "Não enviado", enviando: "Enviando", enviado: "Enviado", erro: "Com erro", baixado: "Baixado", divergente: "Diferente do OMIE" }[l.omie.estado]}</dd></div>

@@ -166,16 +166,36 @@ export function eventosPorDia<T extends { em: string }>(eventos: readonly T[], h
   return [...grupos.entries()].map(([dia, itens]) => ({ dia, rotulo: dia === hoje ? "Hoje" : dia === diaDeOntem ? "Ontem" : diaLegivelDoIso(dia), itens }));
 }
 
+/**
+ * Os motivos curtos da fila do OMIE (PLU-342), em texto para a tela. Um motivo
+ * fora da lista (o texto de uma divergência lida do OMIE) aparece como veio.
+ */
+const MOTIVO_DO_OMIE: Record<string, string> = {
+  credenciais_invalidas: "o OMIE recusou as credenciais da empresa; a Gerente do Financeiro confere em Integrações",
+  limite_de_consumo: "o limite de uso da API do OMIE foi atingido; o envio volta sozinho mais tarde",
+  recusada: "o OMIE recusou o lançamento; confira categoria, conta corrente e valor",
+  resposta_inesperada: "o OMIE respondeu algo inesperado",
+  indisponivel: "o OMIE não respondeu",
+  modo_mock: "a integração está em modo de demonstração",
+  modo_sem_escrita: "a integração com o OMIE está só em leitura",
+  escrita_nao_liberada: "a gravação no OMIE ainda não foi liberada",
+};
+/** O motivo como fim de frase: o código vira texto com ponto final; o texto cru fica como veio. */
+// `Object.hasOwn`: um motivo como "constructor" passa no formato do banco e não pode cair no protótipo.
+export const motivoDoOmie = (motivo: string): string => (Object.hasOwn(MOTIVO_DO_OMIE, motivo) ? `${MOTIVO_DO_OMIE[motivo]}.` : motivo);
+
 /** O estado do lançamento no OMIE, numa frase (aba OMIE e a faixa da visão geral). */
 export function fraseDoOmie(l: Pick<Lancamento, "omie" | "tipo">, empresa: string): { texto: string; tom: "neutro" | "perigo" } {
   const { estado, codigo, motivo } = l.omie;
   switch (estado) {
-    case "nao_enviado": return { texto: `Ainda não está no OMIE: vai para a ${empresa} quando ${l.tipo === "saida" ? "for aprovada" : "for gerada"}.`, tom: "neutro" };
+    case "nao_enviado": return motivo
+      ? { texto: `Ainda não está no OMIE da ${empresa}: ${motivoDoOmie(motivo)}`, tom: "neutro" }
+      : { texto: `Ainda não está no OMIE: vai para a ${empresa} quando ${l.tipo === "saida" ? "for aprovada" : "for gerada"}.`, tom: "neutro" };
     case "enviando": return { texto: `Enviando ao OMIE da ${empresa}…`, tom: "neutro" };
     case "enviado": return { texto: `No OMIE da ${empresa}${codigo ? ` · código ${codigo}` : ""}.`, tom: "neutro" };
     case "baixado": return { texto: `Baixado no OMIE da ${empresa}${codigo ? ` · código ${codigo}` : ""}.`, tom: "neutro" };
-    case "erro": return { texto: `Não foi ao OMIE da ${empresa}${motivo ? `: ${motivo}` : "."}`, tom: "perigo" };
-    case "divergente": return { texto: `Diferente no OMIE da ${empresa}${motivo ? `: ${motivo}` : "."}`, tom: "perigo" };
+    case "erro": return { texto: `Não foi ao OMIE da ${empresa}${motivo ? `: ${motivoDoOmie(motivo)}` : "."}`, tom: "perigo" };
+    case "divergente": return { texto: `Diferente no OMIE da ${empresa}${motivo ? `: ${motivoDoOmie(motivo)}` : "."}`, tom: "perigo" };
   }
 }
 

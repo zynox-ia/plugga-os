@@ -100,6 +100,13 @@ describe("estado no OMIE", () => {
     assert.deepEqual(fraseDoOmie({ ...saida, omie: { estado: "erro", codigo: null, motivo: "A categoria não existe na Waze." } }, "Waze Energia"), { texto: "Não foi ao OMIE da Waze Energia: A categoria não existe na Waze.", tom: "perigo" });
     assert.equal(fraseDoOmie({ ...saida, omie: { estado: "divergente", codigo: "1", motivo: null } }, "Plugga").tom, "perigo");
   });
+
+  it("os motivos curtos da fila viram texto; o que não é código aparece como veio", () => {
+    assert.equal(fraseDoOmie({ ...saida, omie: { estado: "erro", codigo: null, motivo: "recusada" } }, "Plugga").texto, "Não foi ao OMIE da Plugga: o OMIE recusou o lançamento; confira categoria, conta corrente e valor.");
+    assert.deepEqual(fraseDoOmie({ ...saida, omie: { estado: "nao_enviado", codigo: null, motivo: "escrita_nao_liberada" } }, "Waze Energia"), { texto: "Ainda não está no OMIE da Waze Energia: a gravação no OMIE ainda não foi liberada.", tom: "neutro" });
+    assert.equal(fraseDoOmie({ ...saida, omie: { estado: "divergente", codigo: "1", motivo: "Valor no OMIE é R$ 499,90" } }, "Plugga").texto, "Diferente no OMIE da Plugga: Valor no OMIE é R$ 499,90");
+    assert.equal(fraseDoOmie({ ...saida, omie: { estado: "erro", codigo: null, motivo: "constructor" } }, "Plugga").texto, "Não foi ao OMIE da Plugga: constructor");
+  });
 });
 
 describe("nova conta a pagar e edição", () => {
