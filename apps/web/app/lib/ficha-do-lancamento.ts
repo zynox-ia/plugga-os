@@ -3,11 +3,13 @@ import {
   etapasDoTipo,
   rotulosDaEtapaDeLancamento,
   VALOR_MAXIMO_DO_LANCAMENTO,
+  type AcaoDoLancamento,
   type AnexoDoLancamento,
   type CompanyKey,
   type EtapaDeLancamento,
   type FormaDoLancamento,
   type Lancamento,
+  type NomeDaAcaoDoLancamento,
   type OpcoesDoFinanceiro,
   type TipoDeAnexo,
 } from "@plugga/shared";
@@ -215,3 +217,82 @@ export function problemaDoAnexo(arquivo: { type: string; size: number } | undefi
   return null;
 }
 
+// ---------------------------------------------------------------- ações da etapa (PLU-337)
+
+/** O botão principal do rodapé em cada etapa, quando a API permite a ação. */
+export function acaoPrincipal(l: Pick<Lancamento, "etapa" | "cancelado" | "acoesPermitidas">): { acao: NomeDaAcaoDoLancamento; rotulo: string } | null {
+  if (l.cancelado) return null;
+  const porEtapa: Partial<Record<EtapaDeLancamento, { acao: NomeDaAcaoDoLancamento; rotulo: string }>> = {
+    aberta: { acao: "aprovar", rotulo: "Aprovar" },
+    aprovada: { acao: "registrar_pagamento", rotulo: "Registrar pagamento" },
+    gerada: { acao: "registrar_nf", rotulo: "Registrar NF" },
+    nf_emitida: { acao: "registrar_boleto", rotulo: "Registrar boleto" },
+    boleto_gerado: { acao: "registrar_envio", rotulo: "Registrar envio" },
+    enviada: { acao: "registrar_recebimento", rotulo: "Registrar recebimento" },
+  };
+  const principal = porEtapa[l.etapa];
+  return principal && l.acoesPermitidas.includes(principal.acao) ? principal : null;
+}
+
+/** Canais do envio e da cobrança (texto livre na API, até 60 caracteres). */
+export const CANAIS_DE_CONTATO = ["E-mail", "WhatsApp", "Telefone", "Correio"] as const;
+
+type Validado<T> = { corpo?: T; porCampo: Record<string, string> };
+const diaValido = (dia: string, hoje: string, rotulo: string): string | null =>
+  !dia ? `informe o dia ${rotulo} (dd/mm/aaaa).` : dia > hoje ? "o dia não pode ser futuro." : null;
+
+/**
+ * Pagamento da saída aprovada: forma, conta e dia (não futuro), com o comprovante
+ * obrigatório (o atual já anexado ou um arquivo novo, que a tela anexa antes).
+ */
+export function corpoDoPagamento(c: { forma: FormaDoLancamento | ""; contaCorrenteId: string; pagoEm: string; temComprovante: boolean }, hoje: string): Validado<Extract<AcaoDoLancamento, { acao: "registrar_pagamento" }>> {
+  const porCampo: Record<string, string> = {};
+  if (!c.forma) porCampo.forma = "escolha a forma de pagamento.";
+  if (!c.contaCorrenteId) porCampo.contaCorrenteId = "escolha a conta corrente.";
+  const dia = diaValido(c.pagoEm, hoje, "do pagamento");
+  if (dia) porCampo.pagoEm = dia;
+  if (!c.temComprovante) porCampo.comprovante = "anexe o comprovante do pagamento.";
+  if (Object.keys(porCampo).length || !c.forma) return { porCampo };
+  return { porCampo, corpo: { acao: "registrar_pagamento", forma: c.forma, contaCorrenteId: c.contaCorrenteId, pagoEm: c.pagoEm } };
+}
+
+/** Recebimento da entrada: conta, dia (não futuro) e o valor recebido, que pode diferir do cobrado. */
+export function corpoDoRecebimento(c: { contaCorrenteId: string; recebidoEm: string; valor: string }, hoje: string): Validado<Extract<AcaoDoLancamento, { acao: "registrar_recebimento" }>> {
+  const porCampo: Record<string, string> = {};
+  if (!c.contaCorrenteId) porCampo.contaCorrenteId = "escolha a conta corrente.";
+  const dia = diaValido(c.recebidoEm, hoje, "do recebimento");
+  if (dia) porCampo.recebidoEm = dia;
+  const v = valorValido(c.valor);
+  if ("problema" in v) porCampo.valor = v.problema;
+  if (Object.keys(porCampo).length || !("valor" in v)) return { porCampo };
+  return { porCampo, corpo: { acao: "registrar_recebimento", contaCorrenteId: c.contaCorrenteId, recebidoEm: c.recebidoEm, valor: v.valor } };
+}
+
+/** O valor digitado ("1.234,56") em decimal, ou o problema. */
+function valorValido(texto: string): { valor: string } | { problema: string } {
+  const valor = decimalDigitado(texto);
+  if (!valor || Number(valor) <= 0) return { problema: "informe o valor, como 1.234,56." };
+  if (Number(valor) > Number(VALOR_MAXIMO_DO_LANCAMENTO)) return { problema: "o valor passa do máximo permitido." };
+  return { valor };
+}
+
+/** Corrigir o valor antes de liquidar: o novo valor, diferente do atual, e o motivo, que vai à linha do tempo. */
+export function corpoDaCorrecao(c: { valor: string; motivo: string }, atual: string): Validado<Extract<AcaoDoLancamento, { acao: "corrigir_valor" }>> {
+  const porCampo: Record<string, string> = {};
+  const v = valorValido(c.valor);
+  if ("problema" in v) porCampo.valor = v.problema;
+  else if (Number(v.valor) === Number(atual)) porCampo.valor = "o valor é o mesmo de agora.";
+  if (!c.motivo.trim()) porCampo.motivo = "diga por que o valor mudou.";
+  else if (c.motivo.trim().length > 500) porCampo.motivo = "use até 500 caracteres.";
+  if (Object.keys(porCampo).length || !("valor" in v)) return { porCampo };
+  return { porCampo, corpo: { acao: "corrigir_valor", valor: v.valor, motivo: c.motivo.trim() } };
+}
+
+/** Na cobrança com o boleto gerado ou já enviada, corrigir o valor pede antes o boleto novo. */
+export const boletoNovoNaCorrecao = (l: Pick<Lancamento, "tipo" | "etapa">): boolean => l.tipo === "entrada" && (l.etapa === "boleto_gerado" || l.etapa === "enviada");
+
+/** Texto obrigatório de até `max` caracteres (número da NF, canal). */
+export function textoDaAcao(texto: string, max: number, falta: string): string | null {
+  if (!texto.trim()) return falta;
+  return texto.trim().length > max ? `use até ${max} caracteres.` : null;
+}

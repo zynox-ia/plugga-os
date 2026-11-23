@@ -31,7 +31,7 @@ import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent 
 import { enviar } from "../../lib/clientes";
 import { dataEmManaus, diaLegivel, hojeEmManaus, numeroDoPedido, ROTULO_DA_EMPRESA, ROTA_COMPRAS, valorEmReais } from "../../lib/compras";
 import { competenciaLegivel, prazoDoLancamento } from "../../lib/financeiro";
-import { eventosPorDia, fraseDoOmie, resumoDaTrilhaDoLancamento, ROTULO_DA_FORMA, ROTULO_DO_ANEXO, trilhaDoLancamento } from "../../lib/ficha-do-lancamento";
+import { acaoPrincipal, eventosPorDia, fraseDoOmie, resumoDaTrilhaDoLancamento, ROTULO_DA_FORMA, ROTULO_DO_ANEXO, trilhaDoLancamento } from "../../lib/ficha-do-lancamento";
 import { horaEmManaus } from "../../lib/ficha-do-pedido";
 import estilosFicha from "../compras/ficha-do-pedido.module.css";
 import { FecharModal, Modal } from "../modal";
@@ -40,6 +40,7 @@ import historico from "../pipelines/historico-do-lead.module.css";
 import visao from "../pipelines/resumo-do-lead.module.css";
 import { EmpresaComPonto } from "../suprimentos/empresa";
 import { Alert, Button, Dialog, TextareaField } from "../ui";
+import { AcaoDaEtapaDoLancamento, CorrigirValor, RegistrarNf, RegistrarRecebimento } from "./acoes-do-lancamento";
 import { AnexarArquivo, AnexosDoLancamento, enviarAnexo } from "./anexos-do-lancamento";
 import { ContaAPagarForm } from "./conta-a-pagar-form";
 import styles from "./ficha.module.css";
@@ -53,10 +54,19 @@ const ICONE_DO_EVENTO: Record<EventoDoLancamento["tipo"], LucideIcon> = {
   anexo_enviado: Paperclip, anexo_substituido: Upload, omie: Cloud,
 };
 
-const AVISO_DA_ACAO: Partial<Record<AcaoDoLancamento["acao"], string>> = {
+const AVISO_DA_ACAO: Record<AcaoDoLancamento["acao"], string> = {
   aprovar: "Conta aprovada: segue para o pagamento.",
   cancelar: "Lançamento cancelado.",
+  corrigir_valor: "Valor corrigido; o motivo ficou na linha do tempo.",
+  registrar_nf: "NF registrada: falta gerar o boleto.",
+  registrar_boleto: "Boleto registrado: falta enviar ao cliente.",
+  registrar_envio: "Envio registrado: agora é aguardar o pagamento.",
+  registrar_cobranca: "Cobrança registrada na linha do tempo.",
+  registrar_pagamento: "Pagamento registrado com o comprovante.",
+  registrar_recebimento: "Recebimento registrado.",
 };
+
+type Janela = null | "editar" | "cancelar" | "nf" | "receber" | "corrigir" | { anexar: TipoDeAnexo | null };
 
 const iniciais = (nome: string) => nome.trim().split(/\s+/).slice(0, 2).map((p) => p[0]).join("").toUpperCase();
 
@@ -79,7 +89,7 @@ export function FichaDoLancamento({ lancamento: inicial, opcoes, gerente, aoFech
   const [ocupado, setOcupado] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
-  const [janela, setJanela] = useState<null | "editar" | "cancelar" | { anexar: TipoDeAnexo | null }>(null);
+  const [janela, setJanela] = useState<Janela>(null);
   const botoes = useRef<(HTMLButtonElement | null)[]>([]);
   const hoje = hojeEmManaus();
 
@@ -101,7 +111,7 @@ export function FichaDoLancamento({ lancamento: inicial, opcoes, gerente, aoFech
     setOcupado(true); setErro(null); setAviso(null);
     const r = await enviar<Lancamento>(`/api/financeiro/lancamentos/${l.id}/acoes`, "POST", acao);
     setOcupado(false);
-    if (r.ok) { atualizado(r.dados, AVISO_DA_ACAO[acao.acao] ?? null); return true; }
+    if (r.ok) { atualizado(r.dados, AVISO_DA_ACAO[acao.acao]); return true; }
     if (r.erro.codigo === "CONFLITO_ESTADO") {
       // O conflito com campo ("Anexe o comprovante antes de pagar.") diz o que falta; sem campo, a mensagem geral.
       const motivo = Object.values(r.erro.porCampo)[0] ?? r.erro.mensagem;
@@ -121,7 +131,7 @@ export function FichaDoLancamento({ lancamento: inicial, opcoes, gerente, aoFech
     if (!r.ok) return Object.values(r.erro.porCampo)[0] ?? r.erro.mensagem;
     const substituiu = l.arquivos.some((a) => a.tipo === tipo && tipo !== "documento" && !a.substituido);
     atualizado(r.dados, `${ROTULO_DO_ANEXO[tipo]} ${substituiu ? "substituído: o anterior ficou nas versões anteriores" : "anexado"}.`);
-    setJanela(null);
+    if (typeof janela === "object") setJanela(null);
     return null;
   }
 
@@ -175,7 +185,7 @@ export function FichaDoLancamento({ lancamento: inicial, opcoes, gerente, aoFech
             {erro ? <p role="alert" className="aviso aviso--erro">{erro}</p> : null}
             {aviso ? <p role="status" className="aviso aviso--sucesso">{aviso}</p> : null}
           </div> : null}
-          {aba === "geral" ? <VisaoGeralDoLancamento l={l} ocupado={ocupado} aoAgir={(a) => void agir(a)} aoCancelar={() => setJanela("cancelar")} aoVerOmie={() => irPara("omie")} /> : null}
+          {aba === "geral" ? <VisaoGeralDoLancamento l={l} opcoes={opcoes} hoje={hoje} ocupado={ocupado} aoAgir={agir} aoAnexar={anexar} aoAbrir={setJanela} aoVerOmie={() => irPara("omie")} /> : null}
           {aba === "anexos" ? <AnexosDoLancamento l={l} ocupado={ocupado} aoAnexar={(tipo) => setJanela({ anexar: tipo })} /> : null}
           {aba === "omie" ? <OmieDoLancamento l={l} /> : null}
           {aba === "tempo" ? <LinhaDoTempoDoLancamento l={l} hoje={hoje} /> : null}
@@ -185,6 +195,9 @@ export function FichaDoLancamento({ lancamento: inicial, opcoes, gerente, aoFech
     {janela === "editar" && opcoes ? <ContaAPagarForm opcoes={opcoes} lancamento={l} gerente={gerente} aoCancelar={() => setJanela(null)} aoSalvar={(novo) => { setJanela(null); atualizado(novo, "Conta atualizada."); }} /> : null}
     {janela === "cancelar" ? <MotivoDoCancelamento codigo={l.codigo} aoVoltar={() => setJanela(null)}
       aoConfirmar={async (motivo) => { const ok = await agir({ acao: "cancelar", motivo }); if (ok) setJanela(null); return ok; }} /> : null}
+    {janela === "nf" ? <RegistrarNf l={l} aoVoltar={() => setJanela(null)} aoAgir={agir} aoAnexar={anexar} /> : null}
+    {janela === "receber" ? <RegistrarRecebimento l={l} opcoes={opcoes} hoje={hoje} aoVoltar={() => setJanela(null)} aoAgir={agir} aoAnexar={anexar} /> : null}
+    {janela === "corrigir" ? <CorrigirValor l={l} aoVoltar={() => setJanela(null)} aoAgir={agir} aoAnexar={anexar} /> : null}
     {janela !== null && typeof janela === "object" ? <AnexarArquivo l={l} tipoInicial={janela.anexar} aoVoltar={() => setJanela(null)} aoEnviar={anexar} /> : null}
   </Modal>;
 }
@@ -212,10 +225,14 @@ function Trilha({ l }: { l: Lancamento }) {
   </>;
 }
 
-function VisaoGeralDoLancamento({ l, ocupado, aoAgir, aoCancelar, aoVerOmie }: {
-  l: Lancamento; ocupado: boolean; aoAgir: (acao: AcaoDoLancamento) => void; aoCancelar: () => void; aoVerOmie: () => void;
+function VisaoGeralDoLancamento({ l, opcoes, hoje, ocupado, aoAgir, aoAnexar, aoAbrir, aoVerOmie }: {
+  l: Lancamento; opcoes: OpcoesDoFinanceiro | null; hoje: string; ocupado: boolean;
+  aoAgir: (acao: AcaoDoLancamento) => Promise<boolean>; aoAnexar: (tipo: TipoDeAnexo, arquivo: File) => Promise<string | null>;
+  aoAbrir: (janela: Janela) => void; aoVerOmie: () => void;
 }) {
+  const formId = useId();
   const pode = (a: Lancamento["acoesPermitidas"][number]) => l.acoesPermitidas.includes(a);
+  const principal = acaoPrincipal(l);
   const prazo = prazoDoLancamento(l);
   // O painel vem pronto da API, na ordem do fluxo; some quando tudo está feito.
   const pendencias = l.pendencias.some((p) => !p.feito) ? l.pendencias : [];
@@ -272,13 +289,7 @@ function VisaoGeralDoLancamento({ l, ocupado, aoAgir, aoCancelar, aoVerOmie }: {
       <h3><Ban size={15} aria-hidden="true" />Lançamento cancelado</h3>
       <p>Cancelado{cancelado.por ? ` por ${cancelado.por.nome}` : ""} em {dataEmManaus(cancelado.em)}, na etapa {rotulosDaEtapaDeLancamento[l.etapa]}.</p>
       <p className={estilosFicha.motivo}><strong>Motivo:</strong> {cancelado.motivo}</p>
-    </section> : l.etapa === "aberta" && pode("aprovar") ? <section className={`${visao.destaque} ${estilosFicha.acao}`} aria-label="Aprovação">
-      <h3><CheckCircle2 size={15} aria-hidden="true" />Aprovação</h3>
-      <p>Confira e aprove. Aprovada, a conta segue para o pagamento e vai ao OMIE da {empresa}.</p>
-    </section> : l.etapa === "conciliada" ? <section className={`${visao.destaque} ${estilosFicha.acao} ${estilosFicha.acaoOk}`} aria-label="Lançamento conciliado">
-      <h3><CheckCircle2 size={15} aria-hidden="true" />Conciliado com o extrato</h3>
-      <p>{l.marcos.conciliado ? `Conciliado em ${dataEmManaus(l.marcos.conciliado.em)}${l.marcos.conciliado.por ? ` por ${l.marcos.conciliado.por.nome}` : ""}.` : "Conciliado."}</p>
-    </section> : null}
+    </section> : <AcaoDaEtapaDoLancamento l={l} opcoes={opcoes} ocupado={ocupado} hoje={hoje} formId={formId} aoAgir={aoAgir} aoAnexar={aoAnexar} />}
 
     <section aria-label="Dados do lançamento">
       <dl className={visao.grade}>
@@ -300,12 +311,34 @@ function VisaoGeralDoLancamento({ l, ocupado, aoAgir, aoCancelar, aoVerOmie }: {
       <p className={visao.notas}>{l.observacao || "Sem observação."}</p>
     </section>
 
-    {!l.cancelado && (pode("cancelar") || pode("aprovar")) ? <footer className={`${estilosFicha.rodape} ${styles.rodapeFixo}`}>
-      {pode("cancelar") ? <Button variant="secondary" className={estilosFicha.perigo} icon={<Ban size={15} />} disabled={ocupado} onClick={aoCancelar}>{l.etapa === "aberta" ? "Recusar" : "Cancelar"}</Button> : null}
+    {!l.cancelado && (pode("cancelar") || pode("corrigir_valor") || principal || pode("registrar_recebimento")) ? <footer className={`${estilosFicha.rodape} ${styles.rodapeFixo}`}>
+      {pode("cancelar") ? <Button variant="secondary" className={estilosFicha.perigo} icon={<Ban size={15} />} disabled={ocupado} onClick={() => aoAbrir("cancelar")}>{l.etapa === "aberta" ? "Recusar" : "Cancelar"}</Button> : null}
       <span className={estilosFicha.espaco} />
-      {pode("aprovar") ? <Button icon={<Check size={15} />} disabled={ocupado} onClick={() => aoAgir({ acao: "aprovar" })}>Aprovar</Button> : null}
+      {pode("corrigir_valor") ? <Button variant="secondary" icon={<Pencil size={15} />} disabled={ocupado} onClick={() => aoAbrir("corrigir")}>Corrigir valor</Button> : null}
+      {/* Com o boleto gerado, o cliente pode pagar antes do envio ser registrado. */}
+      {l.etapa === "boleto_gerado" && pode("registrar_recebimento") ? <Button variant="secondary" icon={<ArrowDownLeft size={15} />} disabled={ocupado} onClick={() => aoAbrir("receber")}>Lançar recebimento</Button> : null}
+      {principal ? <BotaoPrincipal acao={principal.acao} rotulo={principal.rotulo} formId={formId} ocupado={ocupado} aoAgir={aoAgir} aoAbrir={aoAbrir} /> : null}
     </footer> : null}
   </div>;
+}
+
+const ICONE_DO_BOTAO: Partial<Record<AcaoDoLancamento["acao"], LucideIcon>> = {
+  aprovar: Check, registrar_pagamento: Wallet, registrar_nf: FileText, registrar_boleto: Barcode, registrar_envio: Send, registrar_recebimento: ArrowDownLeft,
+};
+
+/**
+ * O botão principal da etapa: aprovar age direto; pagamento, boleto e envio enviam
+ * o formulário do bloco da etapa (`formId`); NF e recebimento abrem o diálogo.
+ */
+function BotaoPrincipal({ acao, rotulo, formId, ocupado, aoAgir, aoAbrir }: {
+  acao: AcaoDoLancamento["acao"]; rotulo: string; formId: string; ocupado: boolean; aoAgir: (acao: AcaoDoLancamento) => Promise<boolean>; aoAbrir: (janela: Janela) => void;
+}) {
+  const Icone = ICONE_DO_BOTAO[acao] ?? Check;
+  const icone = <Icone size={15} />;
+  if (acao === "aprovar") return <Button icon={icone} disabled={ocupado} onClick={() => void aoAgir({ acao: "aprovar" })}>{rotulo}</Button>;
+  if (acao === "registrar_nf") return <Button icon={icone} disabled={ocupado} onClick={() => aoAbrir("nf")}>{rotulo}</Button>;
+  if (acao === "registrar_recebimento") return <Button icon={icone} disabled={ocupado} onClick={() => aoAbrir("receber")}>{rotulo}</Button>;
+  return <Button type="submit" form={formId} icon={icone} disabled={ocupado}>{rotulo}</Button>;
 }
 
 /** O estado no OMIE da empresa, sem tela própria de integração (decisão A2). */

@@ -4,16 +4,22 @@ import { describe, it } from "node:test";
 import type { AnexoDoLancamento, Lancamento } from "@plugga/shared";
 
 import {
+  acaoPrincipal,
   anexosDaFicha,
+  boletoNovoNaCorrecao,
   camposDoLancamento,
   camposTravadosNaAprovada,
   categoriasDaSaida,
   contaAPagarVazia,
+  corpoDaCorrecao,
   corpoDaEdicao,
   corpoDaNovaContaAPagar,
+  corpoDoPagamento,
+  corpoDoRecebimento,
   eventosPorDia,
   fraseDoOmie,
   problemaDoAnexo,
+  textoDaAcao,
   resumoDaTrilhaDoLancamento,
   trilhaDoLancamento,
   valorEmDigitacao,
@@ -141,5 +147,48 @@ describe("nova conta a pagar e edição", () => {
     assert.deepEqual(categoriasDaSaida(opcoes, "plugga").map((c) => c.codigo), ["2.9", "2.10"]);
     assert.deepEqual(categoriasDaSaida(opcoes, "plugga", u(14)).map((c) => c.codigo), ["2.05", "2.9", "2.10"]);
     assert.deepEqual(categoriasDaSaida(opcoes, null), []);
+  });
+});
+
+describe("ações da etapa", () => {
+  it("o botão do rodapé segue a etapa, só quando a API permite e nunca no cancelado", () => {
+    assert.deepEqual(acaoPrincipal(saida), { acao: "aprovar", rotulo: "Aprovar" });
+    assert.deepEqual(acaoPrincipal({ etapa: "aprovada", cancelado: false, acoesPermitidas: ["registrar_pagamento", "corrigir_valor"] }), { acao: "registrar_pagamento", rotulo: "Registrar pagamento" });
+    assert.equal(acaoPrincipal({ etapa: "aprovada", cancelado: false, acoesPermitidas: ["corrigir_valor"] }), null);
+    assert.equal(acaoPrincipal({ etapa: "enviada", cancelado: false, acoesPermitidas: ["registrar_recebimento"] })?.rotulo, "Registrar recebimento");
+    assert.equal(acaoPrincipal({ etapa: "paga", cancelado: false, acoesPermitidas: [] }), null);
+    assert.equal(acaoPrincipal({ ...saida, cancelado: true }), null);
+  });
+
+  it("pagar pede forma, conta, dia não futuro e o comprovante", () => {
+    const hoje = "2026-11-24";
+    assert.deepEqual(Object.keys(corpoDoPagamento({ forma: "", contaCorrenteId: "", pagoEm: "", temComprovante: false }, hoje).porCampo).sort(), ["comprovante", "contaCorrenteId", "forma", "pagoEm"]);
+    assert.equal(corpoDoPagamento({ forma: "pix", contaCorrenteId: u(4), pagoEm: "2026-11-25", temComprovante: true }, hoje).porCampo.pagoEm, "o dia não pode ser futuro.");
+    assert.deepEqual(corpoDoPagamento({ forma: "pix", contaCorrenteId: u(4), pagoEm: hoje, temComprovante: true }, hoje).corpo, { acao: "registrar_pagamento", forma: "pix", contaCorrenteId: u(4), pagoEm: hoje });
+  });
+
+  it("receber leva o valor digitado em decimal, que pode diferir do cobrado", () => {
+    const hoje = "2026-11-24";
+    assert.deepEqual(corpoDoRecebimento({ contaCorrenteId: u(4), recebidoEm: "2026-11-23", valor: "2.640,50" }, hoje).corpo, { acao: "registrar_recebimento", contaCorrenteId: u(4), recebidoEm: "2026-11-23", valor: "2640.50" });
+    assert.deepEqual(Object.keys(corpoDoRecebimento({ contaCorrenteId: "", recebidoEm: "2026-11-30", valor: "0" }, hoje).porCampo).sort(), ["contaCorrenteId", "recebidoEm", "valor"]);
+  });
+
+  it("corrigir o valor pede um valor diferente do atual e o motivo", () => {
+    assert.equal(corpoDaCorrecao({ valor: "3.800,00", motivo: "juros" }, "3800.00").porCampo.valor, "o valor é o mesmo de agora.");
+    assert.equal(corpoDaCorrecao({ valor: "3.950,00", motivo: "  " }, "3800.00").porCampo.motivo, "diga por que o valor mudou.");
+    assert.deepEqual(corpoDaCorrecao({ valor: "3.950,00", motivo: " Juros do atraso " }, "3800.00").corpo, { acao: "corrigir_valor", valor: "3950.00", motivo: "Juros do atraso" });
+  });
+
+  it("corrigir o valor da cobrança com boleto gerado ou enviada pede o boleto novo", () => {
+    assert.equal(boletoNovoNaCorrecao({ tipo: "entrada", etapa: "boleto_gerado" }), true);
+    assert.equal(boletoNovoNaCorrecao({ tipo: "entrada", etapa: "enviada" }), true);
+    assert.equal(boletoNovoNaCorrecao({ tipo: "entrada", etapa: "nf_emitida" }), false);
+    assert.equal(boletoNovoNaCorrecao({ tipo: "saida", etapa: "aprovada" }), false);
+  });
+
+  it("número da NF e canal são obrigatórios e têm teto", () => {
+    assert.equal(textoDaAcao("  ", 60, "informe o número da NF."), "informe o número da NF.");
+    assert.equal(textoDaAcao("x".repeat(61), 60, "?"), "use até 60 caracteres.");
+    assert.equal(textoDaAcao("NFS-e 410", 60, "?"), null);
   });
 });

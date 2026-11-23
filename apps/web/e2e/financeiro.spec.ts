@@ -4,8 +4,9 @@ import { marcaDaExecucao } from "./support/execucao";
 import { bloquearTerceiros } from "./support/sem-terceiros";
 
 /**
- * Financeiro (PLU-336): a conta a pagar avulsa pela tela de Lançamentos, da
- * criação à aprovação, e o cancelamento com motivo. Dados sintéticos; as
+ * Financeiro (PLU-336/337): a conta a pagar avulsa pela tela de Lançamentos, da
+ * criação à aprovação, a correção de valor e o pagamento com comprovante, e o
+ * cancelamento com motivo. Dados sintéticos; as
  * categorias e contas correntes vêm do seed local. O que o spec cria leva a
  * marca da execução e sai no teardown (e2e/support/execucao-teardown.ts).
  */
@@ -21,6 +22,9 @@ function diaFuturo(dias: number): string {
 }
 
 const ficha = (page: Page) => page.locator("dialog[open]").first();
+
+/** PDF mínimo, com cabeçalho e fim: a API confere o tipo pelo conteúdo. */
+const PDF_SINTETICO = Buffer.from(["%PDF-1.4", "% comprovante sintetico", "1 0 obj << >> endobj", "trailer << >>", "%%EOF", ""].join("\n"));
 
 async function escolher(page: Page, dialogo: ReturnType<Page["getByRole"]>, campo: RegExp, opcao?: string) {
   await dialogo.getByRole("combobox", { name: campo }).click();
@@ -68,15 +72,55 @@ test("conta a pagar avulsa nasce aberta e a Gerente aprova pela ficha", async ({
   await expect(ficha(page).locator(".aviso--sucesso")).toContainText("Conta aprovada");
   await expect(ficha(page).getByText("Aprovada").first()).toBeVisible();
 
-  // A linha do tempo registra quem aprovou.
+  // A linha do tempo (da API) registra a aprovação.
   await ficha(page).getByRole("tab", { name: "Linha do tempo" }).click();
-  await expect(ficha(page).getByText("aprovou a conta")).toBeVisible();
+  await expect(ficha(page).getByRole("region", { name: "Linha do tempo do lançamento" }).getByText("Aprovada")).toBeVisible();
 
   // Na lista, ela aparece com o selo "Para pagar".
   await ficha(page).getByRole("button", { name: "Fechar" }).click();
   await page.getByRole("tab", { name: "Lista" }).click();
   const linha = page.getByRole("row").filter({ hasText: descricao });
   await expect(linha.getByText("Para pagar")).toBeVisible();
+});
+
+test("aprovada, a conta tem o valor corrigido com motivo e é paga só com o comprovante", async ({ page, baseURL }) => {
+  await bloquearTerceiros(page);
+  const descricao = `Guia ${marcaDaExecucao()} ${Date.now().toString(36)} (sintético)`;
+  await criarConta(page, baseURL!, descricao);
+  await ficha(page).getByRole("button", { name: "Aprovar" }).click();
+  await expect(ficha(page).locator(".aviso--sucesso")).toContainText("Conta aprovada");
+
+  // Corrigir o valor pede o motivo, que vai à linha do tempo.
+  await ficha(page).getByRole("button", { name: "Corrigir valor" }).click();
+  const correcao = page.getByRole("dialog", { name: /Corrigir o valor de CP-/ });
+  await correcao.getByLabel("Novo valor").fill("1.300,00");
+  await correcao.getByRole("button", { name: "Corrigir valor" }).click();
+  await expect(correcao.getByText("diga por que o valor mudou.").first()).toBeVisible();
+  await correcao.getByLabel("Motivo").fill("Juros do atraso (sintético)");
+  await correcao.getByRole("button", { name: "Corrigir valor" }).click();
+  await expect(ficha(page).locator(".aviso--sucesso")).toContainText("Valor corrigido");
+  await expect(ficha(page).getByText("R$ 1.300,00").first()).toBeVisible();
+
+  // Sem o comprovante, o pagamento não sai.
+  const pagamento = ficha(page).getByRole("region", { name: "Registrar pagamento" });
+  await ficha(page).getByRole("button", { name: "Registrar pagamento" }).click();
+  await expect(pagamento.getByText("anexe o comprovante do pagamento.")).toBeVisible();
+
+  // Com ele, o arquivo é anexado e o pagamento registrado.
+  await pagamento.locator('input[type="file"]').setInputFiles({ name: "comprovante-sintetico.pdf", mimeType: "application/pdf", buffer: PDF_SINTETICO });
+  await ficha(page).getByRole("button", { name: "Registrar pagamento" }).click();
+  await expect(ficha(page).locator(".aviso--sucesso")).toContainText("Pagamento registrado");
+  await expect(ficha(page).getByRole("region", { name: "Pagamento registrado" })).toBeVisible();
+
+  await ficha(page).getByRole("tab", { name: /Anexos 1/ }).click();
+  await expect(ficha(page).getByText("Comprovante ·").first()).toBeVisible();
+  await expect(ficha(page).getByRole("button", { name: "Substituir comprovante" })).toBeVisible();
+
+  await ficha(page).getByRole("tab", { name: "Linha do tempo" }).click();
+  const tempo = ficha(page).getByRole("region", { name: "Linha do tempo do lançamento" });
+  await expect(tempo.getByText("Pagamento registrado")).toBeVisible();
+  await expect(tempo.getByText("Valor corrigido de R$ 1.234,56 para R$ 1.300,00")).toBeVisible();
+  await expect(tempo.getByText("Juros do atraso (sintético)")).toBeVisible();
 });
 
 test("cancelar pede o motivo, e a ficha mostra onde parou", async ({ page, baseURL }) => {
