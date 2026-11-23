@@ -32,16 +32,16 @@ describe("hrefDeFornecedores", () => {
 
 describe("documento", () => {
   it("formata pelo tamanho: 11 é CPF, 14 é CNPJ", () => {
-    assert.equal(documentoFormatado("41237865000153"), "41.237.865/0001-53");
-    assert.equal(documentoFormatado("48291573646"), "482.915.736-46");
+    assert.equal(documentoFormatado("99999001000159"), "99.999.001/0001-59");
+    assert.equal(documentoFormatado("99999900100"), "999.999.001-00");
     assert.equal(documentoFormatado(null), null);
   });
 
   it("mascara enquanto se digita e passa de CPF para CNPJ no 12º dígito", () => {
     assert.equal(mascaraDocumento("4829"), "482.9");
-    assert.equal(mascaraDocumento("48291573646"), "482.915.736-46");
-    assert.equal(mascaraDocumento("412378650001"), "41.237.865/0001-");
-    assert.equal(mascaraDocumento("41.237.865/0001-53999"), "41.237.865/0001-53");
+    assert.equal(mascaraDocumento("99999900100"), "999.999.001-00");
+    assert.equal(mascaraDocumento("999990010001"), "99.999.001/0001-");
+    assert.equal(mascaraDocumento("99.999.001/0001-59999"), "99.999.001/0001-59");
   });
 });
 

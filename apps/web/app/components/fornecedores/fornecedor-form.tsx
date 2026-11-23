@@ -14,7 +14,7 @@ import {
   type ListarFornecedoresResposta,
 } from "@plugga/shared";
 import { Building2, Check, FileText, Phone, Power, Truck, Wallet } from "lucide-react";
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 
 import { enviar, type ErroDoFormulario } from "../../lib/clientes";
 import { documentoFormatado, mascaraDocumento, mascaraTelefone, nomeDoFornecedor, telefoneFormatado, textoDeCotacoes } from "../../lib/fornecedores";
@@ -27,6 +27,12 @@ type Propriedades = {
   aoSalvar: (fornecedor: Fornecedor) => void;
   aoCancelar: () => void;
 };
+
+/** Só os campos cujo valor difere do que está gravado; formas de pagamento comparadas como conjunto. */
+function camposAlterados(atual: Fornecedor, corpo: Record<string, unknown>): Record<string, unknown> {
+  const normalizar = (valor: unknown) => (Array.isArray(valor) ? JSON.stringify([...valor].sort()) : JSON.stringify(valor ?? null));
+  return Object.fromEntries(Object.entries(corpo).filter(([campo, valor]) => normalizar(valor) !== normalizar(atual[campo as keyof Fornecedor])));
+}
 
 /** Criar e editar fornecedor (PLU-326). Na edição, campo vazio vai como `null` e apaga. */
 export function FornecedorForm({ fornecedor, aoSalvar, aoCancelar }: Propriedades) {
@@ -46,6 +52,17 @@ export function FornecedorForm({ fornecedor, aoSalvar, aoCancelar }: Propriedade
   const [observacoes, setObservacoes] = useState(fornecedor?.observacoes ?? "");
   const [erro, setErro] = useState<ErroDoFormulario | null>(null);
   const [enviando, setEnviando] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
+  // Depois de um envio recusado, o foco vai ao primeiro campo com erro (ou ao aviso).
+  const focarErro = useRef(false);
+  useEffect(() => {
+    if (!erro || !focarErro.current) return;
+    focarErro.current = false;
+    const alvo = formRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]') ?? formRef.current?.querySelector<HTMLElement>('[role="alert"]');
+    if (alvo && !alvo.hasAttribute("tabindex") && alvo.getAttribute("role") === "alert") alvo.setAttribute("tabindex", "-1");
+    alvo?.focus();
+    alvo?.scrollIntoView({ block: "center" });
+  }, [erro]);
 
   const erroDo = (campo: string) => erro?.porCampo[campo];
 
@@ -81,6 +98,7 @@ export function FornecedorForm({ fornecedor, aoSalvar, aoCancelar }: Propriedade
     const problemaDoc = problemaDoDocumento(documento);
     if (problemaDoc) porCampo.documento = problemaDoc;
     if (Object.keys(porCampo).length > 0) {
+      focarErro.current = true;
       setErro({ mensagem: "Confira os campos destacados.", porCampo });
       return;
     }
@@ -102,10 +120,17 @@ export function FornecedorForm({ fornecedor, aoSalvar, aoCancelar }: Propriedade
       observacoes: texto(observacoes),
     };
 
+    // Na edição vai só o que mudou: a API registra no evento os campos enviados.
+    const alteracoes = fornecedor ? camposAlterados(fornecedor, corpo) : corpo;
+    if (fornecedor && Object.keys(alteracoes).length === 0) {
+      aoCancelar();
+      return;
+    }
+
     setEnviando(true);
     setErro(null);
     const resposta = fornecedor
-      ? await enviar<Fornecedor>(`/api/suprimentos/fornecedores/${fornecedor.id}`, "PATCH", corpo)
+      ? await enviar<Fornecedor>(`/api/suprimentos/fornecedores/${fornecedor.id}`, "PATCH", alteracoes)
       : await enviar<Fornecedor>("/api/suprimentos/fornecedores", "POST", corpo);
     if (resposta.ok) {
       setEnviando(false);
@@ -118,6 +143,7 @@ export function FornecedorForm({ fornecedor, aoSalvar, aoCancelar }: Propriedade
       resposta.erro.mensagem = "Confira os campos destacados.";
     }
     setEnviando(false);
+    focarErro.current = true;
     setErro(resposta.erro);
   }
 
@@ -154,7 +180,7 @@ export function FornecedorForm({ fornecedor, aoSalvar, aoCancelar }: Propriedade
         </Button>
       </>}
     >
-      <form id="form-fornecedor" className="ui-dialog-form" onSubmit={salvar} noValidate>
+      <form ref={formRef} id="form-fornecedor" className="ui-dialog-form" onSubmit={salvar} noValidate>
         {erro?.mensagem ? <Alert tone="danger" title={erro.mensagem} /> : null}
         {fornecedor && !fornecedor.ativo ? (
           <div className={`ui-dialog-notice ${styles.avisoInativo}`}>

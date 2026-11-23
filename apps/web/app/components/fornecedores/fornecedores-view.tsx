@@ -99,7 +99,7 @@ export function FornecedoresView({
       <header className={estilosPipelines.cabecalho}>
         <div className={estilosPipelines.tituloGrupo}>
           <h1 className={estilosPipelines.titulo}>Fornecedores</h1>
-          <h2 className={estilosPipelines.subtitulo}>Cadastro único de fornecedores da Plugga e da Waze, usado nas cotações.</h2>
+          <h2 className={`${estilosPipelines.subtitulo} ${styles.subtitulo}`}>Cadastro único de fornecedores da Plugga e da Waze, usado nas cotações.</h2>
         </div>
         <div className={estilosPipelines.acoes}>
           <form className="equipe-busca" onSubmit={buscar} role="search" aria-label="Buscar fornecedores">

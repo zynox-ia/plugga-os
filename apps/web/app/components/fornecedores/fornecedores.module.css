@@ -93,6 +93,11 @@
 }
 
 @media (max-width: 720px) {
+  /* O subtítulo do Pipelines não quebra linha; no celular, aqui ele quebra em vez de cortar. */
+  h2.subtitulo {
+    white-space: normal;
+  }
+
   .contagem {
     order: 3;
     width: 100%;
