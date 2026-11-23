@@ -37,6 +37,36 @@
 .movel { display: none; }
 .conta { display: inline-grid; place-items: center; min-width: 18px; height: 18px; margin-left: 2px; padding: 0 5px; border-radius: 999px; background: var(--ui-primary); color: var(--ui-surface); font-size: 11px; font-variant-numeric: tabular-nums; }
 
+/* Todos os controles da barra com o mesmo texto, a mesma altura e o mesmo alinhamento do seletor de
+   visão (Cards · Lista · …), que é a referência e não muda: General Sans 12,5 px, peso 500, 42 px de
+   altura. Os filtros, a busca e os botões é que se ajustam a ele (pedido do André). */
+.barra {
+  --barra-familia: var(--font-general-sans), "General Sans", sans-serif;
+  --barra-fonte: 12.5px;
+  --barra-peso: 500;
+  --barra-altura: 42px;
+}
+.barra .abas :global(.ui-tab),
+.barra .abas a { font-family: var(--barra-familia); font-size: var(--barra-fonte); font-weight: var(--barra-peso); }
+.barra .abas :global(.ui-tab[aria-selected="true"]) { font-weight: var(--barra-peso); }
+.barra :global(.equipe-busca-input),
+.barra [class*="seletorTrigger"],
+.barra [class*="seletorLabel"],
+.barra :global(.ui-button),
+.barra :global(.ui-button-label),
+.barra [role="status"] {
+  font-family: var(--barra-familia);
+  font-size: var(--barra-fonte);
+  font-weight: var(--barra-peso);
+  line-height: 1.2;
+}
+.barra :global(.equipe-busca-input)::placeholder { font-weight: 400; }
+.barra :global(.equipe-busca-input),
+.barra [class*="seletorTrigger"],
+.barra :global(.ui-button) { box-sizing: border-box; height: var(--barra-altura); min-height: var(--barra-altura); }
+.barra :global(.ui-button--icon-only) { width: var(--barra-altura); padding: 0; }
+.barra [class*="seletorTrigger"] svg { width: 15px; height: 15px; }
+
 /* Presa: fundo translúcido com desfoque e um degradê curto embaixo, para o que passa por baixo não ficar nítido. */
 .presa {
   border-color: var(--ui-divider);
@@ -72,6 +102,8 @@
 }
 .presa .abas :global(.ui-tab) { gap: 0; padding-inline: 10px; font-size: 0; }
 .presa .abas :global(.ui-tab) svg { width: 16px; height: 16px; }
+/* Visões em links (nav): o texto sai da tela, mas segue como nome acessível. */
+.presa .abas a > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .presa .busca { flex: 1 1 160px; min-width: 140px; }
 
 /* A folha da 390 px */
