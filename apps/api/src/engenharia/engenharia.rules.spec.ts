@@ -4,6 +4,7 @@ import { EstadoInvalido, RequisicaoInvalida } from "../common/errors/dominio";
 import {
   acoesPermitidas,
   estaAtrasada,
+  gerenteDasOrdens,
   instanteEmManaus,
   mascararDocumento,
   numeroDaBusca,
@@ -149,5 +150,14 @@ describe("ordem de serviço: apoio", () => {
     expect(numeroDaBusca("inversor")).toBeNull();
     expect(mascararDocumento("123.456.789-01")).toBe("•••89-01");
     expect(mascararDocumento("12")).toBe("•••");
+  });
+});
+
+describe("ordem de serviço: quem muda as Configurações", () => {
+  it("o gerente com uma tela de O.S. e a plataforma; nem o membro nem o gerente só de Obras", () => {
+    expect(gerenteDasOrdens({ plataforma: null, departamentos: [{ departamento: "engenharia-obras", nivel: "gerente", telas: ["engenharia-obras.visitas"] }] } as never)).toBe(true);
+    expect(gerenteDasOrdens({ plataforma: "admin", departamentos: [] } as never)).toBe(true);
+    expect(gerenteDasOrdens({ plataforma: null, departamentos: [{ departamento: "engenharia-obras", nivel: "gerente", telas: ["engenharia-obras.obras", "engenharia-obras.usinas"] }] } as never)).toBe(false);
+    expect(gerenteDasOrdens(ENGENHARIA)).toBe(false);
   });
 });

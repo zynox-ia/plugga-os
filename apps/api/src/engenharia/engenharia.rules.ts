@@ -29,6 +29,18 @@ export function operaOrdens(acesso: Acesso | undefined): boolean {
   return TELAS_DAS_ORDENS.some((tela) => alcancaTela(acesso, tela));
 }
 
+/**
+ * Muda as Configurações da Engenharia: a plataforma, ou o gerente da Engenharia
+ * com uma das telas de O.S. (o mesmo `tem_tela(..., gerente => true)` do RLS).
+ */
+export function gerenteDasOrdens(acesso: Acesso | undefined): boolean {
+  if (!acesso) return false;
+  if (acesso.plataforma !== null) return true;
+  return acesso.departamentos.some((d) =>
+    d.departamento === "engenharia-obras" && d.nivel === "gerente" && (d.telas ?? TELAS_DAS_ORDENS).some((tela) => (TELAS_DAS_ORDENS as readonly string[]).includes(tela)),
+  );
+}
+
 export const ENCERRADAS: readonly SituacaoDaOrdemDeServico[] = ["concluida", "cancelada"];
 export const encerrada = (situacao: SituacaoDaOrdemDeServico): boolean => ENCERRADAS.includes(situacao);
 

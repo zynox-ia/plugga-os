@@ -47,7 +47,7 @@ import { ArmazenamentoDeDocumentos } from "../lead-documentos/armazenamento-de-d
 import { detectarTipo } from "../lead-documentos/deteccao-de-tipo";
 import { nomeSeguro } from "../lead-documentos/lead-documentos.rules";
 import { paraFicha, paraResumo } from "./engenharia.mapeamento";
-import { exigirAcao, operaOrdens } from "./engenharia.rules";
+import { exigirAcao, gerenteDasOrdens as gerenteDaEngenharia, operaOrdens } from "./engenharia.rules";
 import { PrismaEngenhariaRepository, type ArquivoGuardado } from "./prisma-engenharia.repository";
 import { TermoDaOrdemPdf } from "./termo-da-ordem.pdf";
 
@@ -159,13 +159,13 @@ export class EngenhariaService {
           atualizado: linha ? { por: nome(linha.atualizadoPorId), em: linha.atualizadoEm.toISOString() } : null,
         };
       }),
-      podeEditar: gerenteDaEngenharia(principal),
+      podeEditar: gerenteDaEngenharia(principal.acesso),
     });
   }
 
   async editarTipo(tipo: TipoDeOrdemDeServico, input: EditarConfiguracaoDeTipoDeOrdem, principal: AuthPrincipal): Promise<ConfiguracoesDaEngenharia> {
     this.exigirAcesso(principal);
-    if (!gerenteDaEngenharia(principal)) throw new AcessoNegado("As configurações da Engenharia são do gerente do departamento.");
+    if (!gerenteDaEngenharia(principal.acesso)) throw new AcessoNegado("As configurações da Engenharia são do gerente do departamento.");
     await this.repositorio.editarTipo(tipo, input, principal, this.agora());
     return this.configuracoes(principal);
   }
@@ -332,6 +332,3 @@ function prazoSugerido(agora: Date, diasUteis: number): string {
   return diasUteis === 0 ? diaEmManaus(agora) : diaEmManaus(adicionarDiasUteis(agora, diasUteis));
 }
 
-function gerenteDaEngenharia(principal: AuthPrincipal): boolean {
-  return principal.acesso.plataforma !== null || principal.acesso.departamentos.some((d) => d.departamento === "engenharia-obras" && d.nivel === "gerente");
-}
