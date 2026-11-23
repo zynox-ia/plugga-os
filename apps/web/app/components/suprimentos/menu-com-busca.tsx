@@ -3,9 +3,11 @@
 import { CheckIcon, ChevronDown, SearchIcon } from "lucide-react";
 import { useId, useMemo, useRef, useState, type KeyboardEvent, type ReactElement, type ReactNode } from "react";
 
+import { agruparOpcoes } from "../../lib/agrupar-opcoes";
 import estilosFiltro from "../clientes/filtro-de-clientes.module.css";
 import estilosPipelines from "../pipelines/tela-pipelines.module.css";
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/shadcn/popover";
+import estilosGrupo from "./menu-com-busca.module.css";
 import styles from "./suprimentos.module.css";
 
 /**
@@ -26,6 +28,11 @@ export type OpcaoDoMenu = {
   aside?: string;
   tone?: TomDaOpcao;
   disabled?: boolean;
+  /**
+   * Rótulo do grupo da opção (ex.: "A pagar"). Opções seguidas com o mesmo grupo
+   * ficam juntas sob o rótulo; sem grupo, a lista é plana, como antes.
+   */
+  grupo?: string;
 };
 
 /** Acima disto a lista ganha o campo de busca. */
@@ -65,6 +72,21 @@ function ListaDoMenu({ id, rotulo, opcoes, valor, aoEscolher, aoFechar, variante
   }
 
   const classeItem = variante === "filtro" ? `ui-select-item ${estilosPipelines.popoverItem} ${estilosFiltro.opcao}` : "ui-select-item";
+  const opcao = (o: OpcaoDoMenu) => {
+    const marcado = o.value === valor;
+    return <div key={o.value} role="option" tabIndex={-1} data-valor={o.value} aria-selected={marcado} aria-disabled={o.disabled || undefined}
+      data-state={marcado ? "checked" : "unchecked"}
+      className={`${classeItem} ${rica ? styles.opcaoRica : ""} ${variante === "filtro" && marcado ? estilosPipelines.popoverItemAtivo : ""}`}
+      onMouseMove={(e) => { if (document.activeElement !== e.currentTarget && !o.disabled) e.currentTarget.focus({ preventScroll: true }); }}
+      onClick={() => { if (!o.disabled) aoEscolher(o.value); }}>
+      <span className="ui-option-label">
+        <span className="ui-option-icon" aria-hidden="true">{o.icon ?? iconePadrao}</span>
+        {rica ? <span className={styles.opcaoTextos}><span className={styles.opcaoNome}>{o.label}</span>{o.description ? <small>{o.description}</small> : null}</span> : <span>{o.label}</span>}
+      </span>
+      {o.aside ? <span className={`${styles.opcaoValor} ${o.tone ? styles[`opcaoValor_${o.tone}`] : ""}`}>{o.aside}</span> : null}
+      <span className="ui-select-indicator">{marcado ? <CheckIcon size={16} aria-hidden="true" /> : null}</span>
+    </div>;
+  };
   return <>
     {comBusca ? <div className={styles.menuBusca}>
       <SearchIcon size={15} aria-hidden="true" />
@@ -76,21 +98,13 @@ function ListaDoMenu({ id, rotulo, opcoes, valor, aoEscolher, aoFechar, variante
         }} />
     </div> : null}
     <div ref={lista} id={`${id}-lista`} role="listbox" aria-label={rotulo} className={`ui-select-viewport ${styles.menuLista}`} onKeyDown={teclar}>
-      {visiveis.map((o) => {
-        const marcado = o.value === valor;
-        return <div key={o.value} role="option" tabIndex={-1} data-valor={o.value} aria-selected={marcado} aria-disabled={o.disabled || undefined}
-          data-state={marcado ? "checked" : "unchecked"}
-          className={`${classeItem} ${rica ? styles.opcaoRica : ""} ${variante === "filtro" && marcado ? estilosPipelines.popoverItemAtivo : ""}`}
-          onMouseMove={(e) => { if (document.activeElement !== e.currentTarget && !o.disabled) e.currentTarget.focus({ preventScroll: true }); }}
-          onClick={() => { if (!o.disabled) aoEscolher(o.value); }}>
-          <span className="ui-option-label">
-            <span className="ui-option-icon" aria-hidden="true">{o.icon ?? iconePadrao}</span>
-            {rica ? <span className={styles.opcaoTextos}><span className={styles.opcaoNome}>{o.label}</span>{o.description ? <small>{o.description}</small> : null}</span> : <span>{o.label}</span>}
-          </span>
-          {o.aside ? <span className={`${styles.opcaoValor} ${o.tone ? styles[`opcaoValor_${o.tone}`] : ""}`}>{o.aside}</span> : null}
-          <span className="ui-select-indicator">{marcado ? <CheckIcon size={16} aria-hidden="true" /> : null}</span>
-        </div>;
-      })}
+      {/* Com a busca filtrando, o grupo que fica sem opção some junto com o rótulo. */}
+      {agruparOpcoes(visiveis).map(({ grupo, opcoes: doGrupo }, indice) => grupo === undefined
+        ? doGrupo.map(opcao)
+        : <div key={`grupo-${grupo}-${indice}`} role="group" aria-label={grupo} className={estilosGrupo.grupo}>
+          <div className={estilosGrupo.grupoRotulo} aria-hidden="true">{grupo}</div>
+          {doGrupo.map(opcao)}
+        </div>)}
       {visiveis.length === 0 ? <p className="ui-popover-empty" role="status">{opcoes.length ? "Nenhuma opção encontrada." : "Nenhuma opção disponível."}</p> : null}
     </div>
   </>;
