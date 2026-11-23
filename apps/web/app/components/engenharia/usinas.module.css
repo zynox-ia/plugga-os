@@ -91,6 +91,7 @@
 .extraDaLinha { display: grid; gap: 8px; }
 @media (max-width: 560px) { .linhaDaUsina { flex-direction: column; align-items: stretch; } .situacaoDaLinha { flex-basis: auto; } }
 .situacaoFeita { display: inline-flex; flex: none; align-items: center; gap: 4px; padding: 3px 10px; border: 1px solid var(--ui-divider); border-radius: var(--radius-full); color: var(--ui-muted); font-size: 12px; white-space: nowrap; }
+.situacaoFeita[data-situacao="nao_conferida"] { border-style: dashed; }
 .situacaoFeita[data-situacao="anomalia"], .situacaoFeita[data-situacao="sem_comunicacao"] { border-color: color-mix(in srgb, var(--ui-danger) 30%, var(--ui-divider)); color: var(--ui-danger); }
 .conferenciaFeita { display: grid; gap: 12px; }
 .linkDoPrint { display: inline-flex; align-items: center; gap: 6px; color: var(--ui-primary); font-size: 13.5px; text-decoration: none; }

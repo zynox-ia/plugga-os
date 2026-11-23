@@ -1,7 +1,7 @@
 "use client";
 
 import { situacoesDoMonitoramento, type CardDePlataforma, type MonitoramentoDoDia, type SituacaoDoMonitoramento } from "@plugga/shared";
-import { Activity, Check, CircleAlert, Eye, Monitor, Paperclip, TriangleAlert, WifiOff } from "lucide-react";
+import { Activity, Check, CircleAlert, Clock, Eye, Monitor, Paperclip, TriangleAlert, WifiOff } from "lucide-react";
 import Link from "next/link";
 import { useState, type CSSProperties, type FormEvent } from "react";
 
@@ -15,6 +15,7 @@ import {
   mudarSituacao,
   resultadosDaConferencia,
   ROTULO_DA_SITUACAO_DO_MONITORAMENTO,
+  situacaoNaConferenciaFeita,
   urlDaApi,
   type MarcacaoDaUsina,
   type ProblemasDaConferencia,
@@ -172,10 +173,10 @@ function ConferenciaFeita({ card, aoFechar }: { card: CardDePlataforma; aoFechar
     <div className={styles.conferenciaFeita}>
       <ul className={styles.linhasDaConferencia}>{card.usinas.map((u) => {
         const x = c.excecoes.find((e) => e.usinaId === u.id);
-        const situacao = x?.situacao ?? "normal";
+        const situacao = situacaoNaConferenciaFeita(u.id, c);
         return <li key={u.id}><div className={styles.linhaDaUsina}>
-          <span className={styles.usinaDaLinha}><strong>{u.nome}</strong><small>{u.cliente} · {kwpLegivel(u.potenciaKwp)} kWp</small>{x?.nota ? <small className={styles.nota}>{x.nota}</small> : null}</span>
-          <span className={styles.situacaoFeita} data-situacao={situacao}>{situacao === "normal" ? <Check size={12} aria-hidden="true" /> : <CircleAlert size={12} aria-hidden="true" />}{ROTULO_DA_SITUACAO_DO_MONITORAMENTO[situacao]}{x?.ordem ? <> · <Link href={hrefDasOrdens({ visao: "cards" }, x.ordem.id)}>{x.ordem.codigo}</Link></> : null}</span>
+          <span className={styles.usinaDaLinha}><strong>{u.nome}</strong><small>{u.cliente} · {kwpLegivel(u.potenciaKwp)} kWp</small>{x?.nota ? <small className={styles.nota}>{x.nota}</small> : null}{situacao === "nao_conferida" ? <small>Cadastrada depois desta conferência; entra na de amanhã.</small> : null}</span>
+          <span className={styles.situacaoFeita} data-situacao={situacao}>{situacao === "normal" ? <Check size={12} aria-hidden="true" /> : situacao === "nao_conferida" ? <Clock size={12} aria-hidden="true" /> : <CircleAlert size={12} aria-hidden="true" />}{situacao === "nao_conferida" ? "Não conferida" : ROTULO_DA_SITUACAO_DO_MONITORAMENTO[situacao]}{x?.ordem ? <> · <Link href={hrefDasOrdens({ visao: "cards" }, x.ordem.id)}>{x.ordem.codigo}</Link></> : null}</span>
         </div></li>;
       })}</ul>
       <a className={styles.linkDoPrint} href={urlDaApi(c.print.url)} target="_blank" rel="noopener noreferrer"><Paperclip size={14} aria-hidden="true" />{c.print.nome}</a>

@@ -171,6 +171,15 @@ test("a usina nasce do comissionamento concluído, com cliente, UC e empresa da 
   expect(await nova.getByRole("textbox", { name: /^Comissionada em/ }).inputValue()).toBe(hoje.split("-").reverse().join("/"));
   await nova.getByRole("button", { name: "Cadastrar usina" }).click();
   await expect(ficha.getByText(`${nome} cadastrada a partir do comissionamento.`)).toBeVisible(DEPOIS_DA_ACAO);
+  // Uma usina por comissionamento: o botão some, na hora e ao reabrir a ficha, que mostra a usina.
+  await expect(ficha.getByRole("button", { name: "Cadastrar usina" })).toHaveCount(0);
+  await page.goto(`/engenharia/ordens-de-servico?os=${id}`);
+  const reaberta = page.locator("dialog[open]").first();
+  await expect(reaberta.getByRole("definition").filter({ hasText: "Cadastrada a partir deste comissionamento" })).toContainText(nome, DEPOIS_DA_ACAO);
+  await expect(reaberta.getByRole("button", { name: "Cadastrar usina" })).toHaveCount(0);
+  // E a API recusa a segunda.
+  const segunda = await request.post("/api/engenharia/usinas", { headers: H, data: { empresa: "waze", clienteId: cliente.id, ucId: cliente.ucs[0]!.id, nome: `${nome} 2`, plataformaId: plataforma.id, potenciaKwp: "10", comissionadaEm: hoje, ordemDeComissionamentoId: id } });
+  expect(segunda.status()).toBe(409);
 
   // No cadastro, a usina diz de onde veio.
   await page.goto(`/engenharia/usinas?aba=cadastro&busca=${encodeURIComponent(sufixo)}`);

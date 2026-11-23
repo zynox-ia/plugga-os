@@ -190,7 +190,7 @@ export function FichaDaOrdem({ ordem: inicial, opcoes, podeAbrirCompras, podeCad
             ? <Button icon={<Signature size={15} />} disabled={ocupado} onClick={() => { if (aba !== "geral") setAba("geral"); else void concluirComOTermo(); }}>Concluir com o termo</Button> : null;
   const encerrada = ordem.situacao === "concluida" || ordem.situacao === "cancelada";
   // A usina nasce do comissionamento concluído (PLU-347): cliente, UC e empresa vêm da O.S.
-  const cadastraUsina = podeCadastrarUsina && ordem.situacao === "concluida" && ordem.tipo === "comissionamento" && !ordem.usina;
+  const cadastraUsina = podeCadastrarUsina && ordem.situacao === "concluida" && ordem.tipo === "comissionamento" && !ordem.usina && !ordem.usinaDoComissionamento;
   const rodape = cadastraUsina ? <footer className={`${fichaCompras.rodape} ${styles.rodape}`}>
     <span className={fichaCompras.espaco} />
     <Button icon={<Sun size={15} />} onClick={() => void abrirCadastroDeUsina()}>Cadastrar usina</Button>
@@ -264,7 +264,11 @@ export function FichaDaOrdem({ ordem: inicial, opcoes, podeAbrirCompras, podeCad
       aoConfirmar={async () => { const ok = await agir({ acao: "check_in", confirmarAntecipado: true }); setJanela(null); return ok; }} /> : null}
     {janela === "usina" && plataformas ? <UsinaForm plataformas={plataformas} hoje={hoje} aoCancelar={() => setJanela(null)}
       comissionamento={{ ordemId: ordem.id, empresa: ordem.empresa, cliente: { id: ordem.cliente.id, nome: ordem.cliente.nome, ucs: ordem.uc ? [ordem.uc] : [] }, ucId: ordem.uc?.id ?? null }}
-      aoSalvar={(u) => { setJanela(null); setAviso(`${u.nome} cadastrada a partir do comissionamento.`); aoAtualizar(); }} /> : null}
+      aoSalvar={(u) => {
+        // A usina não muda o updatedAt da O.S.: a ficha guarda o vínculo na hora, e o botão some.
+        setJanela(null); setOrdem((o) => ({ ...o, usinaDoComissionamento: { id: u.id, nome: u.nome } }));
+        setAviso(`${u.nome} cadastrada a partir do comissionamento.`); aoAtualizar();
+      }} /> : null}
     {janela === "editar" ? <OrdemForm ordem={ordem} hoje={hoje} aoCancelar={() => setJanela(null)} aoSalvar={(o) => { setJanela(null); atualizada(o, "O.S. atualizada."); }} /> : null}
     {janela === "material" ? <PedirMaterial ordem={ordem} hoje={hoje} aoCancelar={() => setJanela(null)}
       aoPedir={(o) => { setJanela(null); const novo = o.pedidosDeMaterial.find((p) => !ordem.pedidosDeMaterial.some((x) => x.id === p.id)); atualizada(o, novo ? `Material pedido em Compras: PC-${String(novo.numero).padStart(4, "0")}.` : "Material pedido em Compras."); setAba("material"); }} /> : null}

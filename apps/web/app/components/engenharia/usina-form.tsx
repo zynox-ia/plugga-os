@@ -14,7 +14,7 @@ import styles from "./ficha-da-ordem.module.css";
 
 type Cliente = BuscarClientesDaEngenhariaResposta["itens"][number];
 /** Busca de clientes com as UCs, para a Nova usina. */
-const BUSCA_DE_CLIENTES = "/api/engenharia/ordens-de-servico/clientes";
+const BUSCA_DE_CLIENTES = "/api/engenharia/usinas/clientes";
 
 /**
  * Nova usina e Editar (PLU-347): empresa, cliente e UC (que não mudam depois),
@@ -51,15 +51,23 @@ export function UsinaForm({ usina, plataformas, hoje, empresaInicial, comissiona
   const fixo = editando || Boolean(comissionamento);
 
   // Comissionamento sem UC na O.S.: traz as UCs do cliente para escolher uma (a UC é obrigatória).
+  // Dependências pelos valores: o chamador cria o objeto a cada render.
+  const ordemDoComissionamento = comissionamento?.ordemId;
+  const clienteDoComissionamento = comissionamento?.cliente;
+  const ucDoComissionamento = comissionamento?.ucId;
+  const [semUcs, setSemUcs] = useState(false);
   useEffect(() => {
-    if (!comissionamento || comissionamento.ucId) return;
+    if (!ordemDoComissionamento || ucDoComissionamento || !clienteDoComissionamento) return;
     const controle = new AbortController();
-    void enviar<BuscarClientesDaEngenhariaResposta>(`${BUSCA_DE_CLIENTES}?${new URLSearchParams({ busca: comissionamento.cliente.nome })}`, "GET", undefined, controle.signal).then((r) => {
-      const doCliente = r.ok ? r.dados.itens.find((x) => x.id === comissionamento.cliente.id) : undefined;
-      if (doCliente) { setCliente(doCliente); if (doCliente.ucs.length === 1) setUcId(doCliente.ucs[0]!.id); }
+    void enviar<BuscarClientesDaEngenhariaResposta>(`${BUSCA_DE_CLIENTES}?${new URLSearchParams({ busca: clienteDoComissionamento.nome })}`, "GET", undefined, controle.signal).then((r) => {
+      if (controle.signal.aborted) return;
+      const doCliente = r.ok ? r.dados.itens.find((x) => x.id === clienteDoComissionamento.id) : undefined;
+      if (!doCliente) { setSemUcs(true); return; }
+      setCliente(doCliente);
+      if (doCliente.ucs.length === 1) setUcId(doCliente.ucs[0]!.id);
     });
     return () => controle.abort();
-  }, [comissionamento]);
+  }, [ordemDoComissionamento, clienteDoComissionamento?.id, ucDoComissionamento]);
   const limpar = (campo: string) => setErros((e) => ({ ...e, [campo]: undefined }));
 
   useEffect(() => {
@@ -125,7 +133,8 @@ export function UsinaForm({ usina, plataformas, hoje, empresaInicial, comissiona
       <CampoDeMenu label="Unidade consumidora" required icon={<Zap />} placeholder={cliente ? (ucs.length ? "Escolha a UC" : comissionamento ? "A O.S. não tem UC" : "O cliente não tem UC no CRM") : "Escolha o cliente primeiro"} value={ucId || undefined}
         onChange={(v) => { setUcId(v); limpar("ucId"); }} disabled={editando || Boolean(comissionamento?.ucId) || !cliente || ucs.length === 0} error={erros.ucId}
         options={ucs.map((u) => ({ value: u.id, label: u.codigo, description: u.distribuidora, icon: <Zap /> }))}
-        hint={comissionamento && !comissionamento.ucId ? (ucs.length ? "A O.S. de comissionamento não tinha UC: escolha a UC do cliente." : "Nem a O.S. nem o cliente têm UC no CRM: cadastre a UC no cliente antes.") : undefined} />
+        hint={comissionamento && !comissionamento.ucId ? (ucs.length ? "A O.S. de comissionamento não tinha UC: escolha a UC do cliente."
+          : semUcs ? "Não foi possível carregar as UCs do cliente. Feche e tente de novo, ou cadastre a usina pela tela de Usinas." : "Nem a O.S. nem o cliente têm UC no CRM: cadastre a UC no cliente antes.") : undefined} />
       <CampoDeMenu label="Plataforma" required icon={<Monitor />} placeholder="Selecione a plataforma" value={plataformaId || undefined} onChange={(v) => { setPlataformaId(v); limpar("plataformaId"); }} error={erros.plataformaId}
         options={ativas.map((p) => ({ value: p.id, label: p.nome, icon: <Monitor /> }))} />
       <TextField label="Potência (kWp)" required inputMode="decimal" maxLength={12} value={potencia} onChange={(e) => { setPotencia(e.target.value); limpar("potenciaKwp"); }} error={erros.potenciaKwp} placeholder="12,75" />

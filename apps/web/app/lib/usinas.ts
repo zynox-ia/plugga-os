@@ -87,6 +87,20 @@ export function linhaDaConferencia(card: Pick<CardDePlataforma, "conferencia">):
   return `Conferida às ${horarioEmManaus(c.conferida.em)}${c.conferida.por ? ` por ${c.conferida.por.nome}` : ""}`;
 }
 
+/**
+ * Situação da usina na conferência já fechada. A usina cadastrada depois dela não entrou e fica
+ * "não conferida" (entra na de amanhã). Sem a lista de conferidas (API antiga), vale a regra de antes.
+ */
+export function situacaoNaConferenciaFeita(
+  usinaId: string,
+  conferencia: Pick<NonNullable<CardDePlataforma["conferencia"]>, "excecoes" | "usinasConferidas">,
+): SituacaoDoMonitoramento | "nao_conferida" {
+  const excecao = conferencia.excecoes.find((e) => e.usinaId === usinaId);
+  if (excecao) return excecao.situacao;
+  if (conferencia.usinasConferidas && !conferencia.usinasConferidas.includes(usinaId)) return "nao_conferida";
+  return "normal";
+}
+
 /** O que cada usina virou na conferência que está sendo montada. */
 export type MarcacaoDaUsina = { situacao: SituacaoDoMonitoramento; nota: string; abrirOs: boolean };
 

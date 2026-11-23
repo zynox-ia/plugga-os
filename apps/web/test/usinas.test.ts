@@ -12,6 +12,7 @@ import {
   mudarSituacao,
   problemaDoArquivoDoPrint,
   resultadosDaConferencia,
+  situacaoNaConferenciaFeita,
   urlDaApi,
 } from "../app/lib/usinas.ts";
 
@@ -70,4 +71,15 @@ test("potência digitada como no contrato: vírgula ou ponto, até 3 casas, maio
   assert.deepEqual(lerPotencia("0"), { valor: null, problema: "a potência precisa ser maior que zero." });
   assert.deepEqual(lerPotencia("12,7555"), { valor: null, problema: "use um número como 12,75." });
   assert.deepEqual(lerPotencia("abc"), { valor: null, problema: "use um número como 12,75." });
+});
+
+test("conferência fechada: exceção, normal, e a usina cadastrada depois fica não conferida", () => {
+  const U3 = "5f1c1d2e-8a4b-4c5d-9e6f-0a1b2c3d4e5f";
+  const excecoes = [{ usinaId: U1, usina: "Usina 1", situacao: "anomalia" as const, nota: "Inversor parado", ordem: null }];
+  const conferencia = { excecoes, usinasConferidas: [U1, U2] };
+  assert.equal(situacaoNaConferenciaFeita(U1, conferencia), "anomalia");
+  assert.equal(situacaoNaConferenciaFeita(U2, conferencia), "normal");
+  assert.equal(situacaoNaConferenciaFeita(U3, conferencia), "nao_conferida");
+  // Sem a lista (API anterior), toda usina sem exceção conta como normal.
+  assert.equal(situacaoNaConferenciaFeita(U3, { excecoes }), "normal");
 });
