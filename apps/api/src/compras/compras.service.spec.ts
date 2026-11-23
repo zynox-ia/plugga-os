@@ -1,7 +1,7 @@
 import type { Acesso } from "@plugga/shared";
 import { describe, expect, it, vi } from "vitest";
 
-import { AcessoNegado, RequisicaoInvalida, TipoNaoPermitido } from "../common/errors/dominio";
+import { AcessoNegado, EstadoInvalido, RequisicaoInvalida, TipoNaoPermitido } from "../common/errors/dominio";
 import type { AuthPrincipal } from "../core/auth/auth.types";
 import type { ArmazenamentoDeDocumentos } from "../lead-documentos/armazenamento-de-documentos";
 import { ComprasService } from "./compras.service";
@@ -86,6 +86,14 @@ describe("anexos", () => {
     expect(armazenamento.enviar).not.toHaveBeenCalled();
   });
 
+  it("fora da etapa, a cotação e o comprovante são recusados antes de subir o arquivo", async () => {
+    const { servico, armazenamento, repositorio } = montar();
+    repositorio.estado.mockResolvedValue({ etapa: "aprovacao_compra", canceladoEm: null, companyId: "plugga" });
+    await expect(servico.registrarCotacao(ID, cotacao, { buffer: PDF, nomeOriginal: "a.pdf" }, compras)).rejects.toBeInstanceOf(EstadoInvalido);
+    await expect(servico.registrarComprovante(ID, { buffer: PDF, nomeOriginal: "a.pdf" }, financeiroMembro)).rejects.toBeInstanceOf(EstadoInvalido);
+    expect(armazenamento.enviar).not.toHaveBeenCalled();
+  });
+
   it("se a gravação da cotação falha, o arquivo enviado é apagado", async () => {
     const { servico, armazenamento, repositorio } = montar();
     repositorio.registrarCotacao.mockRejectedValueOnce(new Error("etapa errada"));
@@ -94,7 +102,8 @@ describe("anexos", () => {
   });
 
   it("o comprovante é de quem paga, e trocar o comprovante não apaga nada do armazenamento", async () => {
-    const { servico, armazenamento } = montar();
+    const { servico, armazenamento, repositorio } = montar();
+    repositorio.estado.mockResolvedValue({ etapa: "pagamento", canceladoEm: null, companyId: "plugga" });
     await expect(servico.registrarComprovante(ID, { buffer: PDF, nomeOriginal: "pix.pdf" }, compras)).rejects.toBeInstanceOf(AcessoNegado);
     await servico.registrarComprovante(ID, { buffer: PDF, nomeOriginal: "pix.pdf" }, financeiroMembro);
     await servico.registrarComprovante(ID, { buffer: PDF, nomeOriginal: "pix-corrigido.pdf" }, financeiroMembro);

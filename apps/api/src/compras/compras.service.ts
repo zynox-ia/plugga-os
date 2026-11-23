@@ -27,13 +27,13 @@ import {
   type RegistrarCotacao,
 } from "@plugga/shared";
 
-import { AcessoNegado, ArquivoRecusado, LimiteExcedido, RequisicaoInvalida, TipoNaoPermitido } from "../common/errors/dominio";
+import { AcessoNegado, ArquivoRecusado, EstadoInvalido, LimiteExcedido, RequisicaoInvalida, TipoNaoPermitido } from "../common/errors/dominio";
 import type { AuthPrincipal } from "../core/auth/auth.types";
 import { ArmazenamentoDeDocumentos } from "../lead-documentos/armazenamento-de-documentos";
 import { detectarTipo } from "../lead-documentos/deteccao-de-tipo";
 import { nomeSeguro } from "../lead-documentos/lead-documentos.rules";
 import { montarQuadro, paraDetalhe } from "./compras.mapeamento";
-import { papelEmCompras, podeExecutar, podeVerCompras, type PapelEmCompras } from "./compras.rules";
+import { aceitaComprovante, aceitaCotacao, papelEmCompras, podeExecutar, podeVerCompras, type PapelEmCompras } from "./compras.rules";
 import { PrismaComprasRepository, type ArquivoGuardado } from "./prisma-compras.repository";
 
 export const RELOGIO_DE_COMPRAS = Symbol("RELOGIO_DE_COMPRAS");
@@ -114,7 +114,8 @@ export class ComprasService {
 
   async registrarCotacao(id: string, dados: RegistrarCotacao, arquivo: ArquivoRecebido | undefined, principal: AuthPrincipal): Promise<PedidoDeCompra> {
     this.exigirOperacao(principal);
-    await this.repositorio.estado(id);
+    // Confere a etapa antes de subir o arquivo; o repositório confere de novo com o pedido travado.
+    if (!aceitaCotacao(await this.repositorio.estado(id))) throw new EstadoInvalido("Cotação só é registrada na etapa de cotações de um pedido em andamento.");
     const guardado = await this.guardar(id, "cotacoes", arquivo);
     try {
       await this.repositorio.registrarCotacao(id, dados, guardado, principal);
@@ -128,7 +129,7 @@ export class ComprasService {
   async registrarComprovante(id: string, arquivo: ArquivoRecebido | undefined, principal: AuthPrincipal): Promise<PedidoDeCompra> {
     const papel = this.exigirLeitura(principal);
     if (!podeExecutar(papel, "registrar_pagamento")) throw new AcessoNegado("O comprovante é de quem registra o pagamento.");
-    await this.repositorio.estado(id);
+    if (!aceitaComprovante(await this.repositorio.estado(id))) throw new EstadoInvalido("O comprovante é enviado na etapa de pagamento, antes de registrá-lo.");
     const guardado = await this.guardar(id, "comprovantes", arquivo);
     try {
       // O comprovante anterior continua guardado: o repositório só o marca como substituído.

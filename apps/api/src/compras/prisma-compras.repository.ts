@@ -80,20 +80,24 @@ export class PrismaComprasRepository {
     };
   }
 
+  /**
+   * Cada filtro é uma condição do `AND`: etapa e situação mexem nas mesmas
+   * colunas e precisam se somar, não se sobrescrever (etapa "cotacoes" com
+   * situação "concluido" é vazio, não a lista dos concluídos).
+   */
   filtroDaLista(query: ListarPedidosDeCompraQuery): Prisma.PedidoDeCompraWhereInput {
     const periodo = this.periodo(query.de, query.ate);
     const numero = query.busca && /^(pc-?)?\d+$/i.test(query.busca) ? Number(query.busca.replace(/\D/g, "")) : null;
-    return {
-      ...this.filtrosComuns(query),
-      ...(periodo ? { createdAt: periodo } : {}),
-      ...(query.etapa ? { etapa: query.etapa } : {}),
-      ...(query.situacao === "cancelado" ? { canceladoEm: { not: null } } : {}),
-      ...(query.situacao === "concluido" ? { etapa: "concluido" } : {}),
-      ...(query.situacao === "em_andamento" ? { canceladoEm: null, etapa: { not: "concluido" } } : {}),
-      ...(query.busca
-        ? { OR: [{ titulo: { contains: query.busca, mode: "insensitive" } }, ...(numero !== null && numero <= 2_147_483_647 ? [{ numero }] : [])] }
-        : {}),
-    };
+    const condicoes: Prisma.PedidoDeCompraWhereInput[] = [this.filtrosComuns(query)];
+    if (periodo) condicoes.push({ createdAt: periodo });
+    if (query.etapa) condicoes.push({ etapa: query.etapa });
+    if (query.situacao === "cancelado") condicoes.push({ canceladoEm: { not: null } });
+    if (query.situacao === "concluido") condicoes.push({ etapa: "concluido" });
+    if (query.situacao === "em_andamento") condicoes.push({ canceladoEm: null }, { NOT: { etapa: "concluido" } });
+    if (query.busca) {
+      condicoes.push({ OR: [{ titulo: { contains: query.busca, mode: "insensitive" } }, ...(numero !== null && numero <= 2_147_483_647 ? [{ numero }] : [])] });
+    }
+    return { AND: condicoes };
   }
 
   async detalhe(id: string): Promise<{ linha: LinhaDoDetalhe; clientes: NomesDeClientes }> {
