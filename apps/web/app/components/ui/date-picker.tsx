@@ -10,13 +10,17 @@ import { dateInputError, dateValue, displayDate, maskDateInput, parseDate, parse
  * Para envios fora de um <form> (botão com onClick): procura em `raiz` um DatePicker
  * com data digitada que não vale (incompleta, inexistente ou fora do min/max). Se
  * achar, o campo mostra o erro e ganha o foco, e a função responde true para o
- * envio parar. Campo vazio fica com a validação de quem chama (required).
+ * envio parar. Campo vazio fica com a validação de quem chama (required). Só a
+ * validação do próprio campo conta: o `error` de quem chama também vai para o
+ * customValidity e ficaria lá depois da data corrigida, travando o envio.
  * Dentro de um <form>, o próprio DatePicker já segura o submit.
  */
 export function dataInvalidaEm(raiz: ParentNode | null | undefined): boolean {
   const campo = [...(raiz?.querySelectorAll<HTMLInputElement>(".ui-date-input-wrap input") ?? [])]
-    .find((input) => !input.disabled && !input.readOnly && input.value !== "" && !input.checkValidity());
+    .find((input) => !input.disabled && !input.readOnly && input.dataset.dataInvalida === "true");
   if (!campo) return false;
+  // checkValidity dispara o invalid, que marca o campo; o foco leva a pessoa até o erro.
+  campo.checkValidity();
   campo.focus();
   return true;
 }
@@ -103,6 +107,7 @@ export function DatePicker({ label, value, defaultValue = "", onChange, name, mi
       <div className="ui-input-wrap ui-date-input-wrap">
         <input ref={input} id={id} className="ui-input" type="text" inputMode="numeric" autoComplete="off" placeholder="dd/mm/aaaa" maxLength={10}
           value={draft} disabled={disabled} readOnly={readOnly} required={required} aria-invalid={message ? true : undefined}
+          data-data-invalida={draft && issue ? "true" : undefined}
           aria-describedby={`${id}-help`} onBlur={() => setTouched(true)}
           onInvalid={(event) => { event.preventDefault(); setTouched(true); input.current?.focus(); }}
           onChange={(event) => {
