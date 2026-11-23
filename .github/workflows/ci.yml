@@ -190,6 +190,9 @@ jobs:
       - name: Verify supplier registry against Postgres
         run: pnpm --filter @plugga/api test:fornecedores
 
+      - name: Verify purchase orders against Postgres
+        run: pnpm --filter @plugga/api test:compras
+
       - name: Verify sales pipeline configuration against Postgres
         run: pnpm --filter @plugga/api test:pipelines
 

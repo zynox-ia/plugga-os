@@ -258,16 +258,16 @@ enum ContestationStatus {
 }
 
 model User {
-  conexaoGoogleCalendar ConexaoGoogleCalendar?
-  activityRounds ActivityRound[]
-  uploadedLeadDocuments LeadDocument[] @relation("LeadDocumentUploader")
-  archivedLeadDocuments LeadDocument[] @relation("LeadDocumentArchiver")
-  id                             String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  email                          String                  @unique
+  conexaoGoogleCalendar          ConexaoGoogleCalendar?
+  activityRounds                 ActivityRound[]
+  uploadedLeadDocuments          LeadDocument[]              @relation("LeadDocumentUploader")
+  archivedLeadDocuments          LeadDocument[]              @relation("LeadDocumentArchiver")
+  id                             String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email                          String                      @unique
   name                           String
-  status                         String                  @default("active")
-  createdAt                      DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt                      DateTime                @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  status                         String                      @default("active")
+  createdAt                      DateTime                    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                      DateTime                    @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   platformRoles                  UserPlatformRole[]
   departamentos                  UserDepartamento[]
   agentActions                   AgentAction[]
@@ -278,44 +278,54 @@ model User {
   mfaChallenges                  MfaChallenge[]
   authTokens                     AuthToken[]
   agentIdentity                  AgentIdentity?
-  studiesOwned                   EnergyEfficiencyStudy[] @relation("EnergyStudyOwner")
-  studiesCreated                 EnergyEfficiencyStudy[] @relation("EnergyStudyCreator")
-  studiesApproved                EnergyEfficiencyStudy[] @relation("EnergyStudyApprover")
+  studiesOwned                   EnergyEfficiencyStudy[]     @relation("EnergyStudyOwner")
+  studiesCreated                 EnergyEfficiencyStudy[]     @relation("EnergyStudyCreator")
+  studiesApproved                EnergyEfficiencyStudy[]     @relation("EnergyStudyApprover")
   invoiceTypesApproved           EnergyInvoiceTypeApproval[]
   opportunities                  Opportunity[]
-  clientsOwned                   Client[]                @relation("ClientOwner")
-  pipelinesUpdated               Pipeline[]              @relation("PipelineUpdatedBy")
+  clientsOwned                   Client[]                    @relation("ClientOwner")
+  pipelinesUpdated               Pipeline[]                  @relation("PipelineUpdatedBy")
   pipelineMemberships            PipelineMember[]
-  dealsOwned                     Deal[]                  @relation("DealOwner")
-  dealsCreated                   Deal[]                  @relation("DealCreatedBy")
-  dealHistory                    DealHistory[]           @relation("DealHistoryActor")
+  dealsOwned                     Deal[]                      @relation("DealOwner")
+  dealsCreated                   Deal[]                      @relation("DealCreatedBy")
+  dealHistory                    DealHistory[]               @relation("DealHistoryActor")
   contracts                      Contract[]
   marketMigrations               MarketMigration[]
-  cycles                         Cycle[]                 @relation("CycleOwner")
-  cyclesAprovados                Cycle[]                 @relation("CycleReportApprover")
+  cycles                         Cycle[]                     @relation("CycleOwner")
+  cyclesAprovados                Cycle[]                     @relation("CycleReportApprover")
   audits                         Audit[]
   contestations                  Contestation[]
-  pedidosSolicitados             PedidoDeCompra[]        @relation("PedidoSolicitante")
-  pedidosResponsavel             PedidoDeCompra[]        @relation("PedidoResponsavel")
-  passagensDeCompra              PedidoDeCompraEtapa[]
-  fornecedoresCriados            Fornecedor[]            @relation("FornecedorCriadoPor")
-  fornecedoresAtualizados        Fornecedor[]            @relation("FornecedorAtualizadoPor")
+  pedidosSolicitados             PedidoDeCompra[]            @relation("PedidoSolicitante")
+  pedidosResponsavel             PedidoDeCompra[]            @relation("PedidoResponsavel")
+  passagensDeCompra              PedidoDeCompraEtapa[]       @relation("PassagemDeCompraResponsavel")
+  fornecedoresCriados            Fornecedor[]                @relation("FornecedorCriadoPor")
+  pedidosCriados                 PedidoDeCompra[]            @relation("PedidoCriadoPor")
+  pedidosEstoqueDecidido         PedidoDeCompra[]            @relation("PedidoEstoqueDecididoPor")
+  pedidosCotacaoSelecionada      PedidoDeCompra[]            @relation("PedidoCotacaoSelecionadaPor")
+  pedidosAprovados               PedidoDeCompra[]            @relation("PedidoAprovadoPor")
+  pedidosPagos                   PedidoDeCompra[]            @relation("PedidoPagamentoRegistradoPor")
+  pedidosRecebidos               PedidoDeCompra[]            @relation("PedidoRecebimentoConfirmadoPor")
+  pedidosCancelados              PedidoDeCompra[]            @relation("PedidoCanceladoPor")
+  passagensDeCompraFechadas      PedidoDeCompraEtapa[]       @relation("PassagemDeCompraFechadaPor")
+  cotacoesCriadas                CotacaoDeCompra[]           @relation("CotacaoCriadaPor")
+  obrasCriadas                   Obra[]                      @relation("ObraCriadaPor")
+  fornecedoresAtualizados        Fornecedor[]                @relation("FornecedorAtualizadoPor")
   passagensDeObra                ObraEtapaHistorico[]
   evidenciasDeObra               EvidenciaDeObra[]
-  epiColaborador                 RegistroEpi[]           @relation("EpiColaborador")
-  epiConferidoPor                RegistroEpi[]           @relation("EpiConferidoPor")
-  aprSegurancaAssinou            RegistroApr[]           @relation("AprSegurancaAssinou")
-  aprSupervisorAssinou           RegistroApr[]           @relation("AprSupervisorAssinou")
-  incidentesRegistrados          Incidente[]             @relation("IncidenteRegistradoPor")
-  incidentesResponsavelTratativa Incidente[]             @relation("IncidenteResponsavelTratativa")
-  liberacoesDadas                LiberacaoSeguranca[]    @relation("LiberacaoLiberadoPor")
-  liberacoesRevogadas            LiberacaoSeguranca[]    @relation("LiberacaoRevogadoPor")
-  pendenciasAbertas              PendenciaDeCampo[]      @relation("PendenciaAbertaPor")
-  pendenciasEncerradas           PendenciaDeCampo[]      @relation("PendenciaEncerradoPor")
-  medicoesResponsavel            MedicaoTecnica[]        @relation("MedicaoResponsavel")
-  medicoesAprovadas              MedicaoTecnica[]        @relation("MedicaoAprovadoPor")
-  versoesDeProjetoAutor          ProjetoVersao[]         @relation("ProjetoVersaoAutor")
-  versoesDeProjetoAprovadas      ProjetoVersao[]         @relation("ProjetoVersaoAprovadoPor")
+  epiColaborador                 RegistroEpi[]               @relation("EpiColaborador")
+  epiConferidoPor                RegistroEpi[]               @relation("EpiConferidoPor")
+  aprSegurancaAssinou            RegistroApr[]               @relation("AprSegurancaAssinou")
+  aprSupervisorAssinou           RegistroApr[]               @relation("AprSupervisorAssinou")
+  incidentesRegistrados          Incidente[]                 @relation("IncidenteRegistradoPor")
+  incidentesResponsavelTratativa Incidente[]                 @relation("IncidenteResponsavelTratativa")
+  liberacoesDadas                LiberacaoSeguranca[]        @relation("LiberacaoLiberadoPor")
+  liberacoesRevogadas            LiberacaoSeguranca[]        @relation("LiberacaoRevogadoPor")
+  pendenciasAbertas              PendenciaDeCampo[]          @relation("PendenciaAbertaPor")
+  pendenciasEncerradas           PendenciaDeCampo[]          @relation("PendenciaEncerradoPor")
+  medicoesResponsavel            MedicaoTecnica[]            @relation("MedicaoResponsavel")
+  medicoesAprovadas              MedicaoTecnica[]            @relation("MedicaoAprovadoPor")
+  versoesDeProjetoAutor          ProjetoVersao[]             @relation("ProjetoVersaoAutor")
+  versoesDeProjetoAprovadas      ProjetoVersao[]             @relation("ProjetoVersaoAprovadoPor")
 
   @@map("users")
 }
@@ -369,18 +379,18 @@ model UserIdentity {
 /// Opaque server-side session. Only the token hash is stored; revocation is a
 /// delete. Sliding expiry (expiresAt) capped by an absolute deadline.
 model Session {
-  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId            String   @map("user_id") @db.Uuid
-  tokenHash         String   @unique @map("token_hash")
-  expiresAt         DateTime @map("expires_at") @db.Timestamptz(6)
-  absoluteExpiresAt DateTime @map("absolute_expires_at") @db.Timestamptz(6)
-  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  lastUsedAt        DateTime @default(now()) @map("last_used_at") @db.Timestamptz(6)
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId            String    @map("user_id") @db.Uuid
+  tokenHash         String    @unique @map("token_hash")
+  expiresAt         DateTime  @map("expires_at") @db.Timestamptz(6)
+  absoluteExpiresAt DateTime  @map("absolute_expires_at") @db.Timestamptz(6)
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  lastUsedAt        DateTime  @default(now()) @map("last_used_at") @db.Timestamptz(6)
   ip                String?
-  userAgent         String?  @map("user_agent")
+  userAgent         String?   @map("user_agent")
   mfaVerifiedAt     DateTime? @map("mfa_verified_at") @db.Timestamptz(6)
   mfaRevision       Int?      @map("mfa_revision")
-  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([expiresAt])
@@ -389,30 +399,32 @@ model Session {
 
 /// Opt-in factor; unfinished enrollment never replaces the active secret.
 model UserMfa {
-  userId             String @id @map("user_id") @db.Uuid
-  encryptedSecret    String? @map("encrypted_secret")
-  revision           Int @default(0)
-  recoveryHashes     String[] @default([]) @map("recovery_hashes")
-  lastTotpStep       Int @default(-1) @map("last_totp_step")
-  pendingSecret      String? @map("pending_secret")
+  userId             String    @id @map("user_id") @db.Uuid
+  encryptedSecret    String?   @map("encrypted_secret")
+  revision           Int       @default(0)
+  recoveryHashes     String[]  @default([]) @map("recovery_hashes")
+  lastTotpStep       Int       @default(-1) @map("last_totp_step")
+  pendingSecret      String?   @map("pending_secret")
   pendingExpiresAt   DateTime? @map("pending_expires_at") @db.Timestamptz(6)
-  pendingSessionHash String? @map("pending_session_hash")
-  failedAttempts     Int @default(0) @map("failed_attempts")
+  pendingSessionHash String?   @map("pending_session_hash")
+  failedAttempts     Int       @default(0) @map("failed_attempts")
   blockedUntil       DateTime? @map("blocked_until") @db.Timestamptz(6)
-  user               User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@map("user_mfa")
 }
 
 /// Hash of an opaque pre-session capability; never authorizes normal API reads.
 model MfaChallenge {
-  tokenHash String @id @map("token_hash")
-  userId String @map("user_id") @db.Uuid
-  revision Int
-  rememberMe Boolean @map("remember_me")
-  expiresAt DateTime @map("expires_at") @db.Timestamptz(6)
-  attempts Int @default(0)
-  method String
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash  String   @id @map("token_hash")
+  userId     String   @map("user_id") @db.Uuid
+  revision   Int
+  rememberMe Boolean  @map("remember_me")
+  expiresAt  DateTime @map("expires_at") @db.Timestamptz(6)
+  attempts   Int      @default(0)
+  method     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@index([userId])
   @@index([expiresAt])
   @@map("mfa_challenges")
@@ -448,12 +460,12 @@ model Role {
 /// Não é tenant — o sistema segue single-tenant (ADR-0008); é o contexto de
 /// negócio dentro do mesmo cliente.
 model Company {
-  id           String                  @id
-  name         String
-  createdAt    DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
-  obras        Obra[]
-  pedidos      PedidoDeCompra[]
-  pipelines    Pipeline[]
+  id        String           @id
+  name      String
+  createdAt DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  obras     Obra[]
+  pedidos   PedidoDeCompra[]
+  pipelines Pipeline[]
 
   @@map("companies")
 }
@@ -482,11 +494,11 @@ enum NivelDeDepartamento {
 /// membro ou gerente de um departamento, sem empresa. Admin e desenvolvedor
 /// ficam em `UserPlatformRole` e não têm linha aqui.
 model UserDepartamento {
-  userId       String              @map("user_id") @db.Uuid
-  departamento String
-  nivel        NivelDeDepartamento
-  telas        String[]            @default([])
-  user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId        String              @map("user_id") @db.Uuid
+  departamento  String
+  nivel         NivelDeDepartamento
+  telas         String[]            @default([])
+  user          User                @relation(fields: [userId], references: [id], onDelete: Cascade)
   agentIdentity AgentIdentity?
 
   @@id([userId, departamento])
@@ -497,13 +509,13 @@ model UserDepartamento {
 /// Identidade de IA: participa da equipe como membro de um único departamento.
 /// Credencial opaca revogável; só o hash fica no banco, nunca no diretório.
 model AgentIdentity {
-  userId              String    @id @map("user_id") @db.Uuid
+  userId              String           @id @map("user_id") @db.Uuid
   departamento        String
-  tokenHash           String?   @unique @map("token_hash")
-  credentialExpiresAt DateTime? @map("credential_expires_at") @db.Timestamptz(6)
-  revokedAt           DateTime? @map("revoked_at") @db.Timestamptz(6)
-  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash           String?          @unique @map("token_hash")
+  credentialExpiresAt DateTime?        @map("credential_expires_at") @db.Timestamptz(6)
+  revokedAt           DateTime?        @map("revoked_at") @db.Timestamptz(6)
+  createdAt           DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  user                User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   membership          UserDepartamento @relation(fields: [userId, departamento], references: [userId, departamento], onDelete: NoAction, onUpdate: NoAction, map: "agent_identities_membership_fkey")
   actions             AgentAction[]
 
@@ -513,23 +525,23 @@ model AgentIdentity {
 
 /// Append-only audit record. The initial migration prevents UPDATE and DELETE.
 model AgentAction {
-  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  id             String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   agent          String
-  agentUserId    String?  @map("agent_user_id") @db.Uuid
-  requestedById  String?  @map("requested_by") @db.Uuid
+  agentUserId    String?        @map("agent_user_id") @db.Uuid
+  requestedById  String?        @map("requested_by") @db.Uuid
   channel        String
   action         String
-  entityType     String   @map("entity_type")
-  entityId       String   @map("entity_id")
-  input          Json     @db.JsonB
-  payload        Json     @db.JsonB
+  entityType     String         @map("entity_type")
+  entityId       String         @map("entity_id")
+  input          Json           @db.JsonB
+  payload        Json           @db.JsonB
   decision       String
-  approvalStatus String   @map("approval_status")
+  approvalStatus String         @map("approval_status")
   status         String
   result         String?
   error          String?
-  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  requestedBy    User?    @relation(fields: [requestedById], references: [id], onDelete: SetNull)
+  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  requestedBy    User?          @relation(fields: [requestedById], references: [id], onDelete: SetNull)
   identity       AgentIdentity? @relation(fields: [agentUserId], references: [userId], onDelete: Restrict)
 
   @@index([requestedById])
@@ -815,7 +827,7 @@ model D14Credit {
 /// opcional não informado fica nulo: nunca valor fictício. `company` e
 /// `segment` são legados do módulo comercial antigo (PLU-268).
 model Client {
-  activities Activity[]
+  activities        Activity[]
   id                String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   name              String
   company           String?
@@ -897,47 +909,47 @@ enum PipelineMemberRole {
 /// negócio dele herda essa empresa. Arquivar esconde o pipeline das abas sem
 /// apagar nada; com negócios, ele nunca é apagado.
 model Pipeline {
-  processProfile Json? @map("process_profile") @db.JsonB
-  fields      Json                 @default("[]") @db.JsonB
-  id          String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  companyId   String               @map("company_id")
-  name        String
-  description String?
+  processProfile Json?                @map("process_profile") @db.JsonB
+  fields         Json                 @default("[]") @db.JsonB
+  id             String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId      String               @map("company_id")
+  name           String
+  description    String?
   /// Como a tela chama o valor do negócio neste pipeline (ex.: "Investimento estimado").
-  valueLabel  String               @map("value_label")
-  color       String
+  valueLabel     String               @map("value_label")
+  color          String
   /// Nomes dos desfechos neste pipeline (ex.: "Contrato assinado"); os desfechos em si são fixos.
-  wonLabel    String               @map("won_label")
-  lostLabel   String               @map("lost_label")
-  archivedAt  DateTime?            @map("archived_at") @db.Timestamptz(6)
-  createdAt   DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt   DateTime             @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  updatedById String?              @map("updated_by_id") @db.Uuid
-  company     Company              @relation(fields: [companyId], references: [id])
-  updatedBy   User?                @relation("PipelineUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
-  stages      PipelineStage[]
-  tags        PipelineTag[]
-  lossReasons PipelineLossReason[]
-  members     PipelineMember[]
-  deals       Deal[]
+  wonLabel       String               @map("won_label")
+  lostLabel      String               @map("lost_label")
+  archivedAt     DateTime?            @map("archived_at") @db.Timestamptz(6)
+  createdAt      DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime             @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  updatedById    String?              @map("updated_by_id") @db.Uuid
+  company        Company              @relation(fields: [companyId], references: [id])
+  updatedBy      User?                @relation("PipelineUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  stages         PipelineStage[]
+  tags           PipelineTag[]
+  lossReasons    PipelineLossReason[]
+  members        PipelineMember[]
+  deals          Deal[]
 
   @@unique([companyId, name])
   @@map("pipelines")
 }
 
 model PipelineStage {
-  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  pipelineId     String   @map("pipeline_id") @db.Uuid
-  name           String
-  color          String
-  position       Int
+  id                   String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  pipelineId           String   @map("pipeline_id") @db.Uuid
+  name                 String
+  color                String
+  position             Int
   /// Dias na etapa a partir dos quais o negócio aparece como parado; nulo desliga o alerta.
-  staleAfterDays Int?     @map("stale_after_days")
+  staleAfterDays       Int?     @map("stale_after_days")
   /// Mover um negócio aberto para esta etapa (inclusive transferindo de pipeline) abre o
   /// modal de conversão em cliente; cada pipeline decide em quais etapas isso vale.
-  asksClientConversion Boolean @default(false) @map("asks_client_conversion")
-  pipeline       Pipeline @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
-  deals          Deal[]
+  asksClientConversion Boolean  @default(false) @map("asks_client_conversion")
+  pipeline             Pipeline @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  deals                Deal[]
 
   @@index([pipelineId, position])
   @@map("pipeline_stages")
@@ -1020,19 +1032,19 @@ enum DealPriority {
 /// está, sem cópia aqui: mover de pipeline muda a empresa por construção.
 /// Ganho e Perdido encerram o negócio na etapa em que ele estava.
 model Deal {
-  activities Activity[]
-  solarProject Json? @map("solar_project") @db.JsonB
-  solarProjects Json @default("[]") @map("solar_projects") @db.JsonB
-  customFields Json @default("{}") @map("custom_fields") @db.JsonB
-  version Int @default(1)
-  leadContactId String? @map("lead_contact_id") @db.Uuid
-  profile LeadProfile?
-  leadContacts LeadContact[] @relation("LeadContacts")
-  leadContact LeadContact? @relation("SelectedLeadContact", fields: [leadContactId, id], references: [id, dealId], onDelete: NoAction, onUpdate: NoAction, map: "deals_lead_contact_owner_fkey")
-  documents LeadDocument[]
-  proposals LeadProposal[]
-  number Int @unique @default(autoincrement())
-  position Decimal @default(0) @db.Decimal(30, 10)
+  activities        Activity[]
+  solarProject      Json?               @map("solar_project") @db.JsonB
+  solarProjects     Json                @default("[]") @map("solar_projects") @db.JsonB
+  customFields      Json                @default("{}") @map("custom_fields") @db.JsonB
+  version           Int                 @default(1)
+  leadContactId     String?             @map("lead_contact_id") @db.Uuid
+  profile           LeadProfile?
+  leadContacts      LeadContact[]       @relation("LeadContacts")
+  leadContact       LeadContact?        @relation("SelectedLeadContact", fields: [leadContactId, id], references: [id, dealId], onDelete: NoAction, onUpdate: NoAction, map: "deals_lead_contact_owner_fkey")
+  documents         LeadDocument[]
+  proposals         LeadProposal[]
+  number            Int                 @unique @default(autoincrement())
+  position          Decimal             @default(0) @db.Decimal(30, 10)
   id                String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   pipelineId        String              @map("pipeline_id") @db.Uuid
   stageId           String              @map("stage_id") @db.Uuid
@@ -1451,7 +1463,7 @@ model EnergyInvoiceTypeApproval {
   approvedAt     DateTime @map("approved_at") @db.Timestamptz(6)
   createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  approvedBy     User?    @relation(fields: [approvedById], references: [id], onDelete: Restrict, map: "energy_invoice_approver_fkey")
+  approvedBy User? @relation(fields: [approvedById], references: [id], onDelete: Restrict, map: "energy_invoice_approver_fkey")
 
   @@map("energy_invoice_type_approvals")
 }
@@ -1624,26 +1636,26 @@ enum ComprasDestino {
 /// (decisão do André em 23/11/2026): não tem empresa, e o documento, quando
 /// informado, é único no cadastro todo. Não é apagado: sai de uso por inativação.
 model Fornecedor {
-  id                String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  id                String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   nome              String
-  nomeFantasia      String?              @map("nome_fantasia")
+  nomeFantasia      String?             @map("nome_fantasia")
   /// CPF (11) ou CNPJ (14), só dígitos.
-  documento         String?              @unique
+  documento         String?             @unique
   categoria         FornecedorCategoria
-  contatoNome       String?              @map("contato_nome")
+  contatoNome       String?             @map("contato_nome")
   telefone          String?
   email             String?
   cidade            String?
   uf                String?
-  formasDePagamento FormaDePagamento[]   @default([]) @map("formas_de_pagamento")
-  chavePix          String?              @map("chave_pix")
-  dadosBancarios    String?              @map("dados_bancarios")
+  formasDePagamento FormaDePagamento[]  @default([]) @map("formas_de_pagamento")
+  chavePix          String?             @map("chave_pix")
+  dadosBancarios    String?             @map("dados_bancarios")
   observacoes       String?
-  ativo             Boolean              @default(true)
-  criadoPorId       String?              @map("criado_por_id") @db.Uuid
-  atualizadoPorId   String?              @map("atualizado_por_id") @db.Uuid
-  createdAt         DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt         DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
+  ativo             Boolean             @default(true)
+  criadoPorId       String?             @map("criado_por_id") @db.Uuid
+  atualizadoPorId   String?             @map("atualizado_por_id") @db.Uuid
+  createdAt         DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   criadoPor     User?             @relation("FornecedorCriadoPor", fields: [criadoPorId], references: [id], onDelete: SetNull)
   atualizadoPor User?             @relation("FornecedorAtualizadoPor", fields: [atualizadoPorId], references: [id], onDelete: SetNull)
@@ -1678,18 +1690,20 @@ enum FormaDePagamento {
 /// vinculação de projeto técnico, evidência de campo e segurança do trabalho,
 /// exatamente como o documento pede em §1: "a mesma entidade já existente".
 model Obra {
-  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  companyId  String    @map("company_id")
-  nome       String
-  clientId   String?   @map("client_id") @db.Uuid
-  ativa      Boolean   @default(true)
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId   String    @map("company_id")
+  nome        String
+  clientId    String?   @map("client_id") @db.Uuid
+  ativa       Boolean   @default(true)
   /// POP-OBR-001 §2. Nasce em `obra_criada`; o histórico completo de
   /// passagens vive em `ObraEtapaHistorico`, no mesmo padrão de
   /// `PedidoDeCompra.etapa` + `PedidoDeCompraEtapa`.
-  etapaAtual ObraEtapa @default(obra_criada) @map("etapa_atual")
-  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  etapaAtual  ObraEtapa @default(obra_criada) @map("etapa_atual")
+  criadoPorId String?   @map("criado_por_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
+  criadoPor           User?                @relation("ObraCriadaPor", fields: [criadoPorId], references: [id], onDelete: SetNull)
   company             Company              @relation(fields: [companyId], references: [id])
   client              Client?              @relation(fields: [clientId], references: [id], onDelete: SetNull)
   pedidos             PedidoDeCompra[]
@@ -1990,49 +2004,72 @@ model ProjetoVersao {
   @@map("projeto_versoes")
 }
 
-/// Um pedido de compra do POP-COMP-001. Um card do funil C43 vira uma linha.
+/// Pedido de compra de Suprimentos (PLU-327). Numeração única e global
+/// (PC-0001…); a empresa é campo e filtro. Cancelar guarda a etapa em que parou.
+/// Sem segregação de função, mas cada marco grava quem fez e quando.
 model PedidoDeCompra {
-  id                    String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  companyId             String                    @map("company_id")
-  /// Sequencial por empresa, atribuído na transação de criação. O POP fala em
-  /// "OS emitidas": sem número humano o indicador não é conversável.
-  numero                Int
-  titulo                String
-  destino               ComprasDestino
-  obraId                String?                   @map("obra_id") @db.Uuid
-  clientId              String?                   @map("client_id") @db.Uuid
-  solicitanteId         String                    @map("solicitante_id") @db.Uuid
-  responsavelId         String?                   @map("responsavel_id") @db.Uuid
-  prazoEntregaDesejado  DateTime                  @map("prazo_entrega_desejado") @db.Timestamptz(6)
-  etapa                 ComprasEtapa              @default(pedido_gerado)
-  origemAtendimento     ComprasOrigemAtendimento? @map("origem_atendimento")
-  necessidadeValidadaEm DateTime?                 @map("necessidade_validada_em") @db.Timestamptz(6)
-  cotacaoSelecionadaId  String?                   @unique @map("cotacao_selecionada_id") @db.Uuid
-  /// Quem selecionou a cotação e quem aprovou, como colunas: o guard de
-  /// segregação precisa decidir em O(1), sem varrer o event_log.
-  selecionouCotacaoId   String?                   @map("selecionou_cotacao_id") @db.Uuid
-  aprovouId             String?                   @map("aprovou_id") @db.Uuid
-  valorOrcado           Decimal                   @map("valor_orcado") @db.Decimal(14, 2)
-  valorCotado           Decimal?                  @map("valor_cotado") @db.Decimal(14, 2)
-  valorFaturado         Decimal?                  @map("valor_faturado") @db.Decimal(14, 2)
-  concluidoEm           DateTime?                 @map("concluido_em") @db.Timestamptz(6)
-  createdAt             DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt             DateTime                  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id                         String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId                  String                    @map("company_id")
+  numero                     Int                       @unique @default(autoincrement())
+  titulo                     String
+  descricao                  String?
+  destino                    ComprasDestino
+  obraId                     String?                   @map("obra_id") @db.Uuid
+  clientId                   String?                   @map("client_id") @db.Uuid
+  solicitanteId              String                    @map("solicitante_id") @db.Uuid
+  responsavelId              String?                   @map("responsavel_id") @db.Uuid
+  criadoPorId                String?                   @map("criado_por_id") @db.Uuid
+  prazoEntregaDesejado       DateTime                  @map("prazo_entrega_desejado") @db.Timestamptz(6)
+  etapa                      ComprasEtapa              @default(pedido_gerado)
+  origemAtendimento          ComprasOrigemAtendimento? @map("origem_atendimento")
+  necessidadeValidadaEm      DateTime?                 @map("necessidade_validada_em") @db.Timestamptz(6)
+  estoqueDecididoEm          DateTime?                 @map("estoque_decidido_em") @db.Timestamptz(6)
+  estoqueDecididoPorId       String?                   @map("estoque_decidido_por_id") @db.Uuid
+  cotacaoSelecionadaId       String?                   @unique @map("cotacao_selecionada_id") @db.Uuid
+  selecionouCotacaoId        String?                   @map("selecionou_cotacao_id") @db.Uuid
+  cotacaoSelecionadaEm       DateTime?                 @map("cotacao_selecionada_em") @db.Timestamptz(6)
+  aprovouId                  String?                   @map("aprovou_id") @db.Uuid
+  aprovadoEm                 DateTime?                 @map("aprovado_em") @db.Timestamptz(6)
+  formaPagamento             FormaDePagamento?         @map("forma_pagamento")
+  pagamentoObservacao        String?                   @map("pagamento_observacao")
+  pagamentoRegistradoEm      DateTime?                 @map("pagamento_registrado_em") @db.Timestamptz(6)
+  pagamentoRegistradoPorId   String?                   @map("pagamento_registrado_por_id") @db.Uuid
+  comprovanteChave           String?                   @map("comprovante_chave")
+  comprovanteNome            String?                   @map("comprovante_nome")
+  comprovanteTamanho         Int?                      @map("comprovante_tamanho")
+  comprovanteTipo            String?                   @map("comprovante_tipo")
+  recebimentoConfirmadoPorId String?                   @map("recebimento_confirmado_por_id") @db.Uuid
+  valorOrcado                Decimal?                  @map("valor_orcado") @db.Decimal(14, 2)
+  valorCotado                Decimal?                  @map("valor_cotado") @db.Decimal(14, 2)
+  valorFaturado              Decimal?                  @map("valor_faturado") @db.Decimal(14, 2)
+  concluidoEm                DateTime?                 @map("concluido_em") @db.Timestamptz(6)
+  canceladoEm                DateTime?                 @map("cancelado_em") @db.Timestamptz(6)
+  canceladoPorId             String?                   @map("cancelado_por_id") @db.Uuid
+  motivoCancelamento         String?                   @map("motivo_cancelamento")
+  createdAt                  DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                  DateTime                  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  company            Company               @relation(fields: [companyId], references: [id])
-  obra               Obra?                 @relation(fields: [obraId], references: [id], onDelete: SetNull)
-  client             Client?               @relation(fields: [clientId], references: [id], onDelete: SetNull)
-  solicitante        User                  @relation("PedidoSolicitante", fields: [solicitanteId], references: [id])
-  responsavel        User?                 @relation("PedidoResponsavel", fields: [responsavelId], references: [id], onDelete: SetNull)
-  cotacaoSelecionada CotacaoDeCompra?      @relation("CotacaoSelecionada", fields: [cotacaoSelecionadaId], references: [id], onDelete: SetNull)
-  itens              ItemDePedido[]
-  cotacoes           CotacaoDeCompra[]     @relation("CotacoesDoPedido")
-  etapas             PedidoDeCompraEtapa[]
+  company                  Company               @relation(fields: [companyId], references: [id])
+  obra                     Obra?                 @relation(fields: [obraId], references: [id], onDelete: SetNull)
+  client                   Client?               @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  solicitante              User                  @relation("PedidoSolicitante", fields: [solicitanteId], references: [id])
+  responsavel              User?                 @relation("PedidoResponsavel", fields: [responsavelId], references: [id], onDelete: SetNull)
+  criadoPor                User?                 @relation("PedidoCriadoPor", fields: [criadoPorId], references: [id], onDelete: SetNull)
+  estoqueDecididoPor       User?                 @relation("PedidoEstoqueDecididoPor", fields: [estoqueDecididoPorId], references: [id], onDelete: SetNull)
+  selecionouCotacao        User?                 @relation("PedidoCotacaoSelecionadaPor", fields: [selecionouCotacaoId], references: [id], onDelete: SetNull)
+  aprovou                  User?                 @relation("PedidoAprovadoPor", fields: [aprovouId], references: [id], onDelete: SetNull)
+  pagamentoRegistradoPor   User?                 @relation("PedidoPagamentoRegistradoPor", fields: [pagamentoRegistradoPorId], references: [id], onDelete: SetNull)
+  recebimentoConfirmadoPor User?                 @relation("PedidoRecebimentoConfirmadoPor", fields: [recebimentoConfirmadoPorId], references: [id], onDelete: SetNull)
+  canceladoPor             User?                 @relation("PedidoCanceladoPor", fields: [canceladoPorId], references: [id], onDelete: SetNull)
+  cotacaoSelecionada       CotacaoDeCompra?      @relation("CotacaoSelecionada", fields: [cotacaoSelecionadaId], references: [id], onDelete: SetNull)
+  itens                    ItemDePedido[]
+  cotacoes                 CotacaoDeCompra[]     @relation("CotacoesDoPedido")
+  etapas                   PedidoDeCompraEtapa[]
 
-  @@unique([companyId, numero])
-  @@index([companyId, etapa])
-  @@index([companyId, responsavelId, etapa])
-  @@index([companyId, concluidoEm])
+  @@index([etapa])
+  @@index([responsavelId])
+  @@index([concluidoEm])
+  @@index([createdAt])
   @@map("pedidos_de_compra")
 }
 
@@ -2068,9 +2105,13 @@ model PedidoDeCompraEtapa {
   saiuEm         DateTime?    @map("saiu_em") @db.Timestamptz(6)
   cumpriuPrazo   Boolean?     @map("cumpriu_prazo")
   responsavelId  String?      @map("responsavel_id") @db.Uuid
+  /// Quem fez a ação que fechou a passagem, e a observação dela (o motivo, na revisão).
+  saiuPorId      String?      @map("saiu_por_id") @db.Uuid
+  observacao     String?
 
   pedido      PedidoDeCompra @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
-  responsavel User?          @relation(fields: [responsavelId], references: [id], onDelete: SetNull)
+  responsavel User?          @relation("PassagemDeCompraResponsavel", fields: [responsavelId], references: [id], onDelete: SetNull)
+  saiuPor     User?          @relation("PassagemDeCompraFechadaPor", fields: [saiuPorId], references: [id], onDelete: SetNull)
 
   @@index([pedidoId, entrouEm])
   @@index([etapa, saiuEm])
@@ -2096,7 +2137,12 @@ model CotacaoDeCompra {
   condicoesPagamento String?  @map("condicoes_pagamento")
   arquivoChave       String   @map("arquivo_chave")
   arquivoNome        String   @map("arquivo_nome")
+  arquivoTamanho     Int?     @map("arquivo_tamanho")
+  arquivoTipo        String?  @map("arquivo_tipo")
+  criadoPorId        String?  @map("criado_por_id") @db.Uuid
   createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  criadoPor User? @relation("CotacaoCriadaPor", fields: [criadoPorId], references: [id], onDelete: SetNull)
 
   pedido        PedidoDeCompra  @relation("CotacoesDoPedido", fields: [pedidoId], references: [id], onDelete: Cascade)
   fornecedor    Fornecedor      @relation(fields: [fornecedorId], references: [id])
@@ -2113,64 +2159,70 @@ enum LeadDocumentCategory {
   documento_do_cliente
   procuracao_contrato
   outros
+
   @@map("lead_document_category")
 }
+
 enum LeadDocumentUploadState {
   pending
   ready
   cleanup
+
   @@map("lead_document_upload_state")
 }
+
 model LeadDocument {
   activityEvidence ActivityRoundEvidence[]
   proposalVersions LeadProposalVersion[]
-  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  dealId String @map("deal_id") @db.Uuid
-  category LeadDocumentCategory
-  originalName String @map("original_name")
-  safeName String @map("safe_name")
-  detectedMime String @map("detected_mime")
-  sizeBytes Int @map("size_bytes")
-  storageBucket String @map("storage_bucket")
-  storageKey String @map("storage_key")
-  sha256 String @db.Char(64)
-  uploadState LeadDocumentUploadState @default(pending) @map("upload_state")
-  uploadedById String? @map("uploaded_by_id") @db.Uuid
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  archivedAt DateTime? @map("archived_at") @db.Timestamptz(6)
-  archivedById String? @map("archived_by_id") @db.Uuid
-  deal Deal @relation(fields:[dealId], references:[id], onDelete:Restrict, onUpdate:NoAction)
-  uploadedBy User? @relation("LeadDocumentUploader", fields:[uploadedById], references:[id], onDelete:SetNull, onUpdate:NoAction)
-  archivedBy User? @relation("LeadDocumentArchiver", fields:[archivedById], references:[id], onDelete:SetNull, onUpdate:NoAction)
+  id               String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  dealId           String                  @map("deal_id") @db.Uuid
+  category         LeadDocumentCategory
+  originalName     String                  @map("original_name")
+  safeName         String                  @map("safe_name")
+  detectedMime     String                  @map("detected_mime")
+  sizeBytes        Int                     @map("size_bytes")
+  storageBucket    String                  @map("storage_bucket")
+  storageKey       String                  @map("storage_key")
+  sha256           String                  @db.Char(64)
+  uploadState      LeadDocumentUploadState @default(pending) @map("upload_state")
+  uploadedById     String?                 @map("uploaded_by_id") @db.Uuid
+  createdAt        DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime                @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  archivedAt       DateTime?               @map("archived_at") @db.Timestamptz(6)
+  archivedById     String?                 @map("archived_by_id") @db.Uuid
+  deal             Deal                    @relation(fields: [dealId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  uploadedBy       User?                   @relation("LeadDocumentUploader", fields: [uploadedById], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  archivedBy       User?                   @relation("LeadDocumentArchiver", fields: [archivedById], references: [id], onDelete: SetNull, onUpdate: NoAction)
+
   @@unique([storageBucket, storageKey])
-  @@index([dealId, archivedAt, createdAt, id], map:"lead_documents_deal_list_idx")
+  @@index([dealId, archivedAt, createdAt, id], map: "lead_documents_deal_list_idx")
   @@map("lead_documents")
 }
 
 /// Base única de atividades comerciais; dados operacionais pertencem à rodada vigente.
 model Activity {
-  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  dealId String? @map("deal_id") @db.Uuid
-  clientId String? @map("client_id") @db.Uuid
-  type String
-  title String
-  notes String @default("")
-  priority String @default("normal")
-  origin String @default("manual")
-  ruleKey String? @map("rule_key")
-  createdByType String @map("created_by_type")
-  createdById String @map("created_by_id") @db.Uuid
-  creationRequestId String @map("creation_request_id") @db.Uuid
-  creationHash String @map("creation_hash") @db.Char(64)
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  version Int @default(1)
-  currentRoundNumber Int @default(1) @map("current_round_number")
-  deal Deal? @relation(fields: [dealId], references: [id], onDelete: Restrict)
-  client Client? @relation(fields: [clientId], references: [id], onDelete: Restrict)
-  rounds ActivityRound[] @relation("ActivityRounds")
-  previousRounds ActivityRound[] @relation("ActivityNext")
-  changes ActivityChange[]
+  id                 String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  dealId             String?          @map("deal_id") @db.Uuid
+  clientId           String?          @map("client_id") @db.Uuid
+  type               String
+  title              String
+  notes              String           @default("")
+  priority           String           @default("normal")
+  origin             String           @default("manual")
+  ruleKey            String?          @map("rule_key")
+  createdByType      String           @map("created_by_type")
+  createdById        String           @map("created_by_id") @db.Uuid
+  creationRequestId  String           @map("creation_request_id") @db.Uuid
+  creationHash       String           @map("creation_hash") @db.Char(64)
+  createdAt          DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  version            Int              @default(1)
+  currentRoundNumber Int              @default(1) @map("current_round_number")
+  deal               Deal?            @relation(fields: [dealId], references: [id], onDelete: Restrict)
+  client             Client?          @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  rounds             ActivityRound[]  @relation("ActivityRounds")
+  previousRounds     ActivityRound[]  @relation("ActivityNext")
+  changes            ActivityChange[]
+
   @@unique([createdByType, createdById, creationRequestId])
   @@index([dealId, id])
   @@index([clientId, id])
@@ -2178,28 +2230,29 @@ model Activity {
 }
 
 model ActivityRound {
-  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  activityId String @map("activity_id") @db.Uuid
-  number Int
-  status String @default("todo")
-  ownerId String @map("owner_id") @db.Uuid
-  startsAt DateTime @map("starts_at") @db.Timestamptz(6)
-  dueAt DateTime @map("due_at") @db.Timestamptz(6)
-  openedAt DateTime @default(now()) @map("opened_at") @db.Timestamptz(6)
-  openedByType String @map("opened_by_type")
-  openedById String @map("opened_by_id") @db.Uuid
-  sourceTransitionId String? @map("source_transition_id") @db.Uuid
-  endedAt DateTime? @map("ended_at") @db.Timestamptz(6)
-  endReason String? @map("end_reason")
-  completedAt DateTime? @map("completed_at") @db.Timestamptz(6)
-  completedByType String? @map("completed_by_type")
-  completedById String? @map("completed_by_id") @db.Uuid
-  outcomeSummary String? @map("outcome_summary")
-  nextActivityId String? @map("next_activity_id") @db.Uuid
-  activity Activity @relation("ActivityRounds", fields: [activityId], references: [id], onDelete: Restrict)
-  owner User @relation(fields: [ownerId], references: [id], onDelete: Restrict)
-  nextActivity Activity? @relation("ActivityNext", fields: [nextActivityId], references: [id], onDelete: Restrict)
-  evidence ActivityRoundEvidence[]
+  id                 String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  activityId         String                  @map("activity_id") @db.Uuid
+  number             Int
+  status             String                  @default("todo")
+  ownerId            String                  @map("owner_id") @db.Uuid
+  startsAt           DateTime                @map("starts_at") @db.Timestamptz(6)
+  dueAt              DateTime                @map("due_at") @db.Timestamptz(6)
+  openedAt           DateTime                @default(now()) @map("opened_at") @db.Timestamptz(6)
+  openedByType       String                  @map("opened_by_type")
+  openedById         String                  @map("opened_by_id") @db.Uuid
+  sourceTransitionId String?                 @map("source_transition_id") @db.Uuid
+  endedAt            DateTime?               @map("ended_at") @db.Timestamptz(6)
+  endReason          String?                 @map("end_reason")
+  completedAt        DateTime?               @map("completed_at") @db.Timestamptz(6)
+  completedByType    String?                 @map("completed_by_type")
+  completedById      String?                 @map("completed_by_id") @db.Uuid
+  outcomeSummary     String?                 @map("outcome_summary")
+  nextActivityId     String?                 @map("next_activity_id") @db.Uuid
+  activity           Activity                @relation("ActivityRounds", fields: [activityId], references: [id], onDelete: Restrict)
+  owner              User                    @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  nextActivity       Activity?               @relation("ActivityNext", fields: [nextActivityId], references: [id], onDelete: Restrict)
+  evidence           ActivityRoundEvidence[]
+
   @@unique([activityId, number])
   @@unique([activityId, sourceTransitionId])
   @@index([ownerId, dueAt])
@@ -2207,115 +2260,124 @@ model ActivityRound {
 }
 
 model ActivityChange {
-  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  activityId String @map("activity_id") @db.Uuid
-  version Int
-  kind String
-  actorType String @map("actor_type")
-  actorId String @map("actor_id") @db.Uuid
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  activityId String   @map("activity_id") @db.Uuid
+  version    Int
+  kind       String
+  actorType  String   @map("actor_type")
+  actorId    String   @map("actor_id") @db.Uuid
   occurredAt DateTime @default(now()) @map("occurred_at") @db.Timestamptz(6)
-  snapshot Json @db.JsonB
-  activity Activity @relation(fields: [activityId], references: [id], onDelete: Restrict)
+  snapshot   Json     @db.JsonB
+  activity   Activity @relation(fields: [activityId], references: [id], onDelete: Restrict)
+
   @@unique([activityId, version])
   @@map("activity_changes")
 }
 
 model ActivityRoundEvidence {
-  roundId String @map("round_id") @db.Uuid
-  leadDocumentId String @map("lead_document_id") @db.Uuid
-  round ActivityRound @relation(fields: [roundId], references: [id], onDelete: Restrict)
-  document LeadDocument @relation(fields: [leadDocumentId], references: [id], onDelete: Restrict)
+  roundId        String        @map("round_id") @db.Uuid
+  leadDocumentId String        @map("lead_document_id") @db.Uuid
+  round          ActivityRound @relation(fields: [roundId], references: [id], onDelete: Restrict)
+  document       LeadDocument  @relation(fields: [leadDocumentId], references: [id], onDelete: Restrict)
+
   @@id([roundId, leadDocumentId])
   @@map("activity_round_evidence")
 }
 
 model LeadProposalTemplate {
-  id String @id @db.Uuid
-  name String
+  id          String         @id @db.Uuid
+  name        String
   description String
-  style String
-  position Int
-  defaults Json @db.JsonB
-  proposals LeadProposal[]
+  style       String
+  position    Int
+  defaults    Json           @db.JsonB
+  proposals   LeadProposal[]
+
   @@map("lead_proposal_templates")
 }
 
 model LeadProposal {
-  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  number Int @unique @default(autoincrement())
-  dealId String @map("deal_id") @db.Uuid
-  templateId String @map("template_id") @db.Uuid
-  content Json @db.JsonB
-  status String @default("draft")
-  version Int @default(0)
-  revision Int @default(1)
-  generationToken String? @map("generation_token") @db.Uuid
-  generationStartedAt DateTime? @map("generation_started_at") @db.Timestamptz(6)
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deal Deal @relation(fields:[dealId], references:[id], onDelete:Restrict, onUpdate:NoAction)
-  template LeadProposalTemplate @relation(fields:[templateId], references:[id], onDelete:Restrict, onUpdate:NoAction)
-  versions LeadProposalVersion[]
+  id                  String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  number              Int                   @unique @default(autoincrement())
+  dealId              String                @map("deal_id") @db.Uuid
+  templateId          String                @map("template_id") @db.Uuid
+  content             Json                  @db.JsonB
+  status              String                @default("draft")
+  version             Int                   @default(0)
+  revision            Int                   @default(1)
+  generationToken     String?               @map("generation_token") @db.Uuid
+  generationStartedAt DateTime?             @map("generation_started_at") @db.Timestamptz(6)
+  createdAt           DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime              @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deal                Deal                  @relation(fields: [dealId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  template            LeadProposalTemplate  @relation(fields: [templateId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  versions            LeadProposalVersion[]
+
   @@index([dealId, updatedAt, id])
   @@map("lead_proposals")
 }
 
 /// Cada versão conserva o conteúdo/modelo usados e referencia o mesmo arquivo de Documentos.
 model LeadProposalVersion {
-  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  proposalId String @map("proposal_id") @db.Uuid
-  version Int
-  documentId String @unique @map("document_id") @db.Uuid
-  content Json @db.JsonB
-  templateSnapshot Json @map("template_snapshot") @db.JsonB
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  proposal LeadProposal @relation(fields:[proposalId], references:[id], onDelete:Restrict, onUpdate:NoAction)
-  document LeadDocument @relation(fields:[documentId], references:[id], onDelete:Restrict, onUpdate:NoAction)
+  id               String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  proposalId       String       @map("proposal_id") @db.Uuid
+  version          Int
+  documentId       String       @unique @map("document_id") @db.Uuid
+  content          Json         @db.JsonB
+  templateSnapshot Json         @map("template_snapshot") @db.JsonB
+  createdAt        DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  proposal         LeadProposal @relation(fields: [proposalId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  document         LeadDocument @relation(fields: [documentId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+
   @@unique([proposalId, version])
   @@map("lead_proposal_versions")
 }
+
 model LeadProfile {
-  dealId String @id @map("deal_id") @db.Uuid
-  personType ClientPersonType @map("person_type")
-  name String
-  companyName String? @map("company_name")
-  landlinePhone String? @map("landline_phone")
-  website String?
-  mainInterest String? @map("main_interest")
-  jobTitle String? @map("job_title")
-  legalName String? @map("legal_name")
-  document String?
-  phone String?
-  email String?
-  postalCode String? @map("postal_code")
-  street String?
-  addressComplement String? @map("address_complement")
-  district String?
-  city String?
-  state String?
-  origin ClientOrigin?
-  notes String?
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deal Deal @relation(fields:[dealId], references:[id], onDelete:Cascade, onUpdate:NoAction)
+  dealId            String           @id @map("deal_id") @db.Uuid
+  personType        ClientPersonType @map("person_type")
+  name              String
+  companyName       String?          @map("company_name")
+  landlinePhone     String?          @map("landline_phone")
+  website           String?
+  mainInterest      String?          @map("main_interest")
+  jobTitle          String?          @map("job_title")
+  legalName         String?          @map("legal_name")
+  document          String?
+  phone             String?
+  email             String?
+  postalCode        String?          @map("postal_code")
+  street            String?
+  addressComplement String?          @map("address_complement")
+  district          String?
+  city              String?
+  state             String?
+  origin            ClientOrigin?
+  notes             String?
+  createdAt         DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deal              Deal             @relation(fields: [dealId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
   @@map("lead_profiles")
 }
+
 model LeadContact {
-  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  dealId String @map("deal_id") @db.Uuid
-  name String
-  jobTitle String? @map("job_title")
-  role ClientContactRole?
-  phone String?
-  phoneIsWhatsapp Boolean @default(false) @map("phone_is_whatsapp")
-  email String?
-  isPrimary Boolean @default(false) @map("is_primary")
-  cpf String?
-  rg String?
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deal Deal @relation("LeadContacts", fields:[dealId], references:[id], onDelete:Cascade, onUpdate:NoAction)
-  selectedBy Deal[] @relation("SelectedLeadContact")
+  id              String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  dealId          String             @map("deal_id") @db.Uuid
+  name            String
+  jobTitle        String?            @map("job_title")
+  role            ClientContactRole?
+  phone           String?
+  phoneIsWhatsapp Boolean            @default(false) @map("phone_is_whatsapp")
+  email           String?
+  isPrimary       Boolean            @default(false) @map("is_primary")
+  cpf             String?
+  rg              String?
+  createdAt       DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deal            Deal               @relation("LeadContacts", fields: [dealId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  selectedBy      Deal[]             @relation("SelectedLeadContact")
+
   @@unique([id, dealId])
   @@index([dealId])
   @@map("lead_contacts")

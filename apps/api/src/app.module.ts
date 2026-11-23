@@ -12,6 +12,7 @@ import { ClientesModule } from "./clientes/clientes.module";
 import { CommercialModule } from "./commercial/commercial.module";
 import { FiltroGlobalDeExcecoes } from "./common/errors/filtro-global";
 import { validateEnvironment } from "./config/environment";
+import { ComprasModule } from "./compras/compras.module";
 import { CoreModule } from "./core/core.module";
 import { FornecedoresModule } from "./fornecedores/fornecedores.module";
 import { CadastroModule } from "./cadastro/cadastro.module";
@@ -57,6 +58,7 @@ const monorepoRootEnvPath = path.resolve(__dirname, "../../../.env");
     JobsModule,
     ClientesModule,
     FornecedoresModule,
+    ComprasModule,
     CommercialModule,
     PipelinesModule,
     NegociosModule,

@@ -1950,6 +1950,265 @@
   },
   {
     "metodo": "GET",
+    "caminho": "/suprimentos/compras/clientes",
+    "controller": "ComprasController.clientes",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:suprimentos.compras",
+      "tela:financeiro.pagar",
+      "tela:financeiro.receber",
+      "tela:financeiro.conciliacao",
+      "tela:financeiro.fiscal",
+      "departamento:suprimentos:membro",
+      "departamento:financeiro:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/suprimentos/compras/obras",
+    "controller": "ComprasController.criarObra",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:suprimentos.compras",
+      "tela:financeiro.pagar",
+      "tela:financeiro.receber",
+      "tela:financeiro.conciliacao",
+      "tela:financeiro.fiscal",
+      "departamento:suprimentos:membro",
+      "departamento:financeiro:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/suprimentos/compras/opcoes",
+    "controller": "ComprasController.opcoes",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:suprimentos.compras",
+      "tela:financeiro.pagar",
+      "tela:financeiro.receber",
+      "tela:financeiro.conciliacao",
+      "tela:financeiro.fiscal",
+      "departamento:suprimentos:membro",
+      "departamento:financeiro:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/suprimentos/compras/pedidos",
+    "controller": "ComprasController.listar",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:suprimentos.compras",
+      "tela:financeiro.pagar",
+      "tela:financeiro.receber",
+      "tela:financeiro.conciliacao",
+      "tela:financeiro.fiscal",
+      "departamento:suprimentos:membro",
+      "departamento:financeiro:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/suprimentos/compras/pedidos",
+    "controller": "ComprasController.criar",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:suprimentos.compras",
+      "tela:financeiro.pagar",
+      "tela:financeiro.receber",
+      "tela:financeiro.conciliacao",
+      "tela:financeiro.fiscal",
+      "departamento:suprimentos:membro",
+      "departamento:financeiro:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/suprimentos/compras/pedidos/:id",
+    "controller": "ComprasController.obter",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:suprimentos.compras",
+      "tela:financeiro.pagar",
+      "tela:financeiro.receber",
+      "tela:financeiro.conciliacao",
+      "tela:financeiro.fiscal",
+      "departamento:suprimentos:membro",
+      "departamento:financeiro:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "PATCH",
+    "caminho": "/suprimentos/compras/pedidos/:id",
+    "controller": "ComprasController.editar",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:suprimentos.compras",
+      "tela:financeiro.pagar",
+      "tela:financeiro.receber",
+      "tela:financeiro.conciliacao",
+      "tela:financeiro.fiscal",
+      "departamento:suprimentos:membro",
+      "departamento:financeiro:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/suprimentos/compras/pedidos/:id/acoes",
+    "controller": "ComprasController.acao",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:suprimentos.compras",
+      "tela:financeiro.pagar",
+      "tela:financeiro.receber",
+      "tela:financeiro.conciliacao",
+      "tela:financeiro.fiscal",
+      "departamento:suprimentos:membro",
+      "departamento:financeiro:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/suprimentos/compras/pedidos/:id/comprovante",
+    "controller": "ComprasController.comprovante",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:suprimentos.compras",
+      "tela:financeiro.pagar",
+      "tela:financeiro.receber",
+      "tela:financeiro.conciliacao",
+      "tela:financeiro.fiscal",
+      "departamento:suprimentos:membro",
+      "departamento:financeiro:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/suprimentos/compras/pedidos/:id/comprovante",
+    "controller": "ComprasController.registrarComprovante",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:suprimentos.compras",
+      "tela:financeiro.pagar",
+      "tela:financeiro.receber",
+      "tela:financeiro.conciliacao",
+      "tela:financeiro.fiscal",
+      "departamento:suprimentos:membro",
+      "departamento:financeiro:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/suprimentos/compras/pedidos/:id/cotacoes",
+    "controller": "ComprasController.registrarCotacao",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:suprimentos.compras",
+      "tela:financeiro.pagar",
+      "tela:financeiro.receber",
+      "tela:financeiro.conciliacao",
+      "tela:financeiro.fiscal",
+      "departamento:suprimentos:membro",
+      "departamento:financeiro:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/suprimentos/compras/pedidos/:id/cotacoes/:cotacaoId/arquivo",
+    "controller": "ComprasController.anexoDaCotacao",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:suprimentos.compras",
+      "tela:financeiro.pagar",
+      "tela:financeiro.receber",
+      "tela:financeiro.conciliacao",
+      "tela:financeiro.fiscal",
+      "departamento:suprimentos:membro",
+      "departamento:financeiro:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/suprimentos/compras/quadro",
+    "controller": "ComprasController.quadro",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:suprimentos.compras",
+      "tela:financeiro.pagar",
+      "tela:financeiro.receber",
+      "tela:financeiro.conciliacao",
+      "tela:financeiro.fiscal",
+      "departamento:suprimentos:membro",
+      "departamento:financeiro:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
     "caminho": "/suprimentos/fornecedores",
     "controller": "FornecedoresController.listar",
     "acesso": "acesso",

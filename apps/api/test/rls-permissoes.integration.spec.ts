@@ -758,6 +758,50 @@ describe.skipIf(!HABILITADO)("RLS: permissões no login real da aplicação", { 
     }
   });
 
+  it("compras: lê Compras e Financeiro, cria só Compras, move Compras e Financeiro, ninguém apaga; diretório e clientes só o necessário", async () => {
+    const operador = await root.user.create({ data: { name: `${marca}-op`, email: `${marca}-op@teste.local` } });
+    idsUsuarios.push(operador.id);
+    const hash = randomBytes(32).toString("hex");
+    pessoas.set("op", { id: operador.id, hash });
+    await root.session.create({ data: { userId: operador.id, tokenHash: hash, expiresAt: new Date(Date.now() + 3_600_000), absoluteExpiresAt: new Date(Date.now() + 7_200_000) } });
+    await root.userDepartamento.create({ data: { userId: operador.id, departamento: "suprimentos", nivel: "membro", telas: ["suprimentos.compras"] } });
+    const clienteId = registros.get("b")!;
+    const pedido = await root.pedidoDeCompra.create({ data: {
+      companyId: empresaId, titulo: marca, destino: "cliente", clientId: clienteId, solicitanteId: operador.id, prazoEntregaDesejado: new Date(),
+    }, select: { id: true } });
+    const deste = { id: pedido.id };
+    const novo = { companyId: empresaId, titulo: `${marca}-novo`, destino: "interno" as const, prazoEntregaDesejado: new Date() };
+    try {
+      for (const nome of ["op", "financeiro", "admin"]) {
+        expect(await contexto(nome, (tx) => tx.pedidoDeCompra.findUnique({ where: deste, select: { id: true } })), nome).toEqual(deste);
+      }
+      for (const nome of ["a", "gerente", "sem-tela"]) {
+        expect(await contexto(nome, (tx) => tx.pedidoDeCompra.findUnique({ where: deste, select: { id: true } })), nome).toBeNull();
+      }
+
+      await expect(contexto("op", (tx) => tx.pedidoDeCompra.create({ data: { ...novo, solicitanteId: operador.id }, select: { id: true } }))).resolves.toBeDefined();
+      await expect(contexto("financeiro", (tx) => tx.pedidoDeCompra.create({ data: { ...novo, solicitanteId: operador.id } }))).rejects.toThrow();
+      expect((await contexto("financeiro", (tx) => tx.pedidoDeCompra.updateMany({ where: deste, data: { aprovadoEm: new Date() } }))).count).toBe(1);
+      expect((await contexto("a", (tx) => tx.pedidoDeCompra.updateMany({ where: deste, data: { aprovadoEm: null } }))).count).toBe(0);
+      for (const nome of ["op", "admin"]) {
+        expect((await contexto(nome, (tx) => tx.pedidoDeCompra.deleteMany({ where: deste }))).count, nome).toBe(0);
+      }
+
+      // Diretório: quem lê Compras vê as pessoas dos pedidos; o CRM não.
+      expect(await contexto("financeiro", (tx) => tx.user.findUnique({ where: { id: operador.id }, select: { id: true } }))).toEqual({ id: operador.id });
+      expect(await contexto("a", (tx) => tx.user.findUnique({ where: { id: operador.id }, select: { id: true } }))).toBeNull();
+
+      // Clientes do destino: só id e nome, só para quem lê Compras, e só os referenciados.
+      const nomes = (nome: string, alvos: string[]) => contexto(nome, (tx) => tx.$queryRaw<{ id: string; name: string }[]>`
+        SELECT id, name FROM plugga_security.clientes_para_compras(NULL, ${alvos}::uuid[])`);
+      expect(await nomes("op", [clienteId, registros.get("a")!])).toEqual([{ id: clienteId, name: `${marca}-b` }]);
+      expect(await nomes("a", [clienteId])).toEqual([]);
+      expect(await contexto("op", (tx) => tx.client.findUnique({ where: { id: clienteId }, select: { id: true } }))).toBeNull();
+    } finally {
+      await root.pedidoDeCompra.deleteMany({ where: { titulo: { startsWith: marca } } });
+    }
+  });
+
   it("separa leitura técnica, catálogos ativos e domínios ainda fechados", async () => {
     const evento = await root.eventLog.create({ data: {
       eventName: "commercial.deal.created", entityType: "deal", entityId: randomUUID(), actorType: "system",
