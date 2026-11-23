@@ -17,7 +17,7 @@ import { useEffect, useState, type FormEvent } from "react";
 
 import { enviar } from "../../lib/clientes";
 import { ROTULO_DA_EMPRESA } from "../../lib/compras";
-import { ROTULO_DA_PRIORIDADE, ROTULO_DO_TIPO } from "../../lib/ordens-de-servico";
+import { camposDaOrdemAlterados, ROTULO_DA_PRIORIDADE, ROTULO_DO_TIPO } from "../../lib/ordens-de-servico";
 import { PontoDaEmpresa } from "../suprimentos/empresa";
 import { CampoDeMenu } from "../suprimentos/menu-com-busca";
 import { Alert, Button, DatePicker, Dialog, TextareaField, TextField } from "../ui";
@@ -85,9 +85,12 @@ export function OrdemForm({ ordem, empresaInicial, hoje, aoCancelar, aoSalvar }:
     if (Object.values(problemas).some(Boolean)) return;
     const texto = (v: string) => v.trim() || null;
     const equipamento = { equipamento: texto(c.equipamento), fabricante: texto(c.fabricante), modelo: texto(c.modelo), numeroSerie: texto(c.numeroSerie) };
+    // Editar manda só o que mudou: a API recusa prazo no passado, e o de uma O.S. atrasada já está.
+    const alterados = ordem ? camposDaOrdemAlterados(ordem, { tipo: c.tipo || null, local: texto(c.local), descricao: c.descricao.trim(), prioridade: c.prioridade, prazo: c.prazo, ...equipamento }) : null;
+    if (ordem && alterados && Object.keys(alterados).length === 0) { aoCancelar(); return; }
     setEnviando(true); setFalha(null);
     const r = ordem
-      ? await enviarParaAOrdem(ordem.id, "", "PATCH", { tipo: c.tipo, local: texto(c.local), descricao: c.descricao.trim(), prioridade: c.prioridade, prazo: c.prazo, ...equipamento })
+      ? await enviarParaAOrdem(ordem.id, "", "PATCH", alterados)
       : await enviar<OrdemDeServico>("/api/engenharia/ordens-de-servico", "POST", { empresa: c.empresa, tipo: c.tipo, clienteId: c.cliente!.id, ucId: c.ucId || null, local: texto(c.local), descricao: c.descricao.trim(), prioridade: c.prioridade, origem: c.origem, prazo: c.prazo, ...equipamento });
     setEnviando(false);
     if (r.ok) { aoSalvar(r.dados); return; }

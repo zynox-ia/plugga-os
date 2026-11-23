@@ -5,6 +5,7 @@ import type { ContagensDasColunas } from "@plugga/shared";
 
 import {
   agendaDaOrdem,
+  camposDaOrdemAlterados,
   consultaDaLista,
   consultaDoQuadro,
   contagemDoFiltro,
@@ -159,4 +160,18 @@ test("quando na ficha e o caminho do arquivo pelo proxy", () => {
   assert.equal(quandoNaFicha("2026-11-20T12:30:00.000Z", hoje), "20 nov, 08:30");
   assert.equal(quandoNaFicha(null, hoje), "Sem data");
   assert.equal(urlDoArquivoDaOrdem("/engenharia/ordens-de-servico/x/arquivos/y"), "/api/engenharia/ordens-de-servico/x/arquivos/y");
+});
+
+test("editar manda só o que mudou: trocar a descrição de uma O.S. atrasada não reenvia o prazo passado", () => {
+  const ordem = {
+    tipo: "manutencao", local: "Centro · Manaus", descricao: "Limpeza", prioridade: "normal", prazo: "2026-11-20",
+    equipamento: { equipamento: "Inversor", fabricante: null, modelo: null, numeroSerie: null },
+  } as const;
+  const corpo = { tipo: "manutencao", local: "Centro · Manaus", descricao: "Limpeza e inspeção", prioridade: "normal", prazo: "2026-11-20", equipamento: "Inversor", fabricante: null, modelo: null, numeroSerie: null };
+  assert.deepEqual(camposDaOrdemAlterados(ordem, corpo), { descricao: "Limpeza e inspeção" });
+  // Novo prazo e fabricante vão; nada mudou, nada vai.
+  assert.deepEqual(camposDaOrdemAlterados(ordem, { ...corpo, descricao: "Limpeza", prazo: "2026-11-30", fabricante: "Growatt" }), { prazo: "2026-11-30", fabricante: "Growatt" });
+  assert.deepEqual(camposDaOrdemAlterados(ordem, { ...corpo, descricao: "Limpeza" }), {});
+  // Apagar um campo opcional (null) também é mudança.
+  assert.deepEqual(camposDaOrdemAlterados(ordem, { ...corpo, descricao: "Limpeza", local: null }), { local: null });
 });

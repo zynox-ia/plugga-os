@@ -7,6 +7,7 @@ import {
   type CompanyKey,
   type ContagensDasColunas,
   type FiltroDeAtencao,
+  type OrdemDeServico,
   type OrdemDeServicoResumo,
   type PrioridadeDaOrdemDeServico,
   type SituacaoDaOrdemDeServico,
@@ -346,3 +347,21 @@ export function quandoNaFicha(agendadaPara: string | null, hoje: string): string
 
 /** Caminho de download que o navegador abre: a API devolve o caminho dela, sem /api. */
 export const urlDoArquivoDaOrdem = (url: string): string => (url.startsWith("/api/") ? url : `/api${url.startsWith("/") ? "" : "/"}${url}`);
+
+/**
+ * O PATCH de Editar leva só o que mudou (como `camposDoPedidoAlterados` de
+ * Compras): a API recusa qualquer `prazo` no passado, então reenviar o prazo
+ * de uma O.S. atrasada travaria a edição de outro campo.
+ */
+export function camposDaOrdemAlterados(
+  o: Pick<OrdemDeServico, "tipo" | "local" | "descricao" | "prioridade" | "prazo" | "equipamento">,
+  corpo: Partial<Record<"tipo" | "local" | "descricao" | "prioridade" | "prazo" | "equipamento" | "fabricante" | "modelo" | "numeroSerie", string | null>>,
+): Record<string, string | null> {
+  const original: Record<string, string | null> = {
+    tipo: o.tipo, local: o.local, descricao: o.descricao, prioridade: o.prioridade, prazo: o.prazo,
+    equipamento: o.equipamento.equipamento, fabricante: o.equipamento.fabricante, modelo: o.equipamento.modelo, numeroSerie: o.equipamento.numeroSerie,
+  };
+  const mudou: Record<string, string | null> = {};
+  for (const [campo, valor] of Object.entries(corpo)) if (valor !== undefined && valor !== original[campo]) mudou[campo] = valor;
+  return mudou;
+}
