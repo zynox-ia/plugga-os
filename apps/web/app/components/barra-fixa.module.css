@@ -1,0 +1,88 @@
+/* Barra presa (padrão dos Lançamentos do Financeiro): mesmo shape do app e uma sombra sutil só quando gruda. */
+
+/* A barra gruda rente ao topo da área de conteúdo: nada passa nítido por cima dela. */
+:global(.main-content):has(.pagina):has(.sentinela) { padding-top: 0; }
+/* (a especificidade a mais vence o respiro de 12–14 px que a tela de Clientes e a de Pipelines põem no .main-content) */
+.pagina { padding-top: 14px; }
+
+.sentinela { height: 1px; margin-bottom: -1px; }
+
+.barra {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 0 -10px;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-lg);
+  transition: background 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+.abas { display: flex; flex-shrink: 0; }
+.busca { flex: 0 1 260px; min-width: 180px; }
+.busca :global(.equipe-busca) { width: 100%; }
+.filtros { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; margin-left: auto; min-width: 0; }
+.acoesPresa { display: none; gap: 6px; }
+.movel { display: none; }
+.conta { display: inline-grid; place-items: center; min-width: 18px; height: 18px; margin-left: 2px; padding: 0 5px; border-radius: 999px; background: var(--ui-primary); color: var(--ui-surface); font-size: 11px; font-variant-numeric: tabular-nums; }
+
+/* Presa: fundo translúcido com desfoque e um degradê curto embaixo, para o que passa por baixo não ficar nítido. */
+.presa {
+  border-color: var(--ui-divider);
+  background: color-mix(in srgb, var(--ui-surface) 62%, transparent);
+  -webkit-backdrop-filter: blur(18px) saturate(1.15);
+  backdrop-filter: blur(18px) saturate(1.15);
+  box-shadow: 0 12px 30px -20px rgba(15, 41, 74, 0.45);
+}
+.presa::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  right: 0;
+  left: 0;
+  height: 22px;
+  background: linear-gradient(to bottom, color-mix(in srgb, var(--ui-surface) 45%, transparent), transparent);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  -webkit-mask-image: linear-gradient(to bottom, #000, transparent);
+  mask-image: linear-gradient(to bottom, #000, transparent);
+  pointer-events: none;
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .presa { background: color-mix(in srgb, var(--ui-surface) 97%, transparent); }
+  .presa::after { background: linear-gradient(to bottom, color-mix(in srgb, var(--ui-surface) 80%, transparent), transparent); }
+}
+.presa .acoesPresa { display: inline-flex; }
+
+/* Presa e compacta, numa linha só: abas só com o ícone (o nome segue acessível), busca menor. */
+@media (min-width: 1100px) {
+  .presa { flex-wrap: nowrap; }
+  .presa .filtros { flex-wrap: nowrap; }
+}
+.presa .abas :global(.ui-tab) { gap: 0; padding-inline: 10px; font-size: 0; }
+.presa .abas :global(.ui-tab) svg { width: 16px; height: 16px; }
+.presa .busca { flex: 1 1 160px; min-width: 140px; }
+
+/* A folha da 390 px */
+.folha { display: grid; gap: 14px; }
+.folha :global(.equipe-busca) { width: 100%; }
+.campoDaFolha { display: grid; gap: 6px; }
+.rotuloDaFolha { color: var(--ui-muted); font-size: 12px; }
+.campoDaFolha > button { width: 100%; justify-content: flex-start; }
+.campoDaFolha > button > svg:last-child { margin-left: auto; }
+
+@media (max-width: 720px) {
+  .barra { flex-wrap: wrap; gap: 8px; margin: 0 -16px; padding: 8px 16px; border-radius: 0; }
+  .abas, .filtros { display: none; }
+  .busca { order: 0; flex: 1 1 100%; min-width: 0; }
+  .movel { display: inline-flex; order: 1; gap: 8px; }
+  .acoesPresa { order: 2; margin-left: auto; }
+  .presa .busca { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .barra { transition: none; }
+}

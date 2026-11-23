@@ -171,7 +171,9 @@ export function FiltroComBusca({ label, options, value, onChange, icon, semFiltr
   const gatilho = useRef<HTMLButtonElement>(null);
   const atual = options.find((o) => o.value === value);
   const texto = !atual || value === semFiltro ? label : atual.label;
-  return <Popover open={aberto} onOpenChange={setAberto}>
+  // Dentro de um <dialog> (a folha de filtros), o painel abre no próprio diálogo, na camada de cima.
+  const [container, setContainer] = useState<HTMLElement | null>(null);
+  return <Popover open={aberto} onOpenChange={(abrir) => { if (abrir) setContainer(gatilho.current?.closest("dialog") ?? null); setAberto(abrir); }}>
     <PopoverTrigger asChild>
       <button ref={gatilho} type="button" className={`${estilosPipelines.seletorTrigger} ${estilosFiltro.trigger}`} aria-label={`${label}: ${atual?.label ?? ""}`} data-filtrado={texto !== label || undefined}
         aria-haspopup="listbox" aria-expanded={aberto} aria-controls={aberto ? `${id}-lista` : undefined}>
@@ -180,7 +182,7 @@ export function FiltroComBusca({ label, options, value, onChange, icon, semFiltr
         <ChevronDown size={15} className={estilosPipelines.seletorChevron} aria-hidden="true" />
       </button>
     </PopoverTrigger>
-    <PopoverContent align="end" sideOffset={6} className={`ui-select-content ${estilosPipelines.popoverFunis} ${estilosFiltro.menu} ${styles.painel} ${styles.painelFiltro}`}
+    <PopoverContent container={container} align="end" sideOffset={6} className={`ui-select-content ${estilosPipelines.popoverFunis} ${estilosFiltro.menu} ${styles.painel} ${styles.painelFiltro}`}
       onOpenAutoFocus={(e) => focarAoAbrir(e, value)} onCloseAutoFocus={(e) => { e.preventDefault(); gatilho.current?.focus(); }}>
       <ListaDoMenu id={id} rotulo={label} opcoes={options} valor={value} aoEscolher={(v) => { onChange(v); setAberto(false); }} aoFechar={() => setAberto(false)} variante="filtro" iconePadrao={icon} />
     </PopoverContent>
