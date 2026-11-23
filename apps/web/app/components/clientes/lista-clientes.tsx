@@ -3,7 +3,7 @@ import { ArrowDown, ArrowUp, ArrowUpDown, CheckSquare, Eye, Filter, Mail, Phone,
 import { useMemo, useRef, useState } from "react";
 
 import { PaginacaoDaLista } from "../pipelines/paginacao-da-lista";
-import estilosLista from "../pipelines/lista-de-negocios.module.css";
+import estilosLista from "./lista-clientes-base.module.css";
 import { ShellCard, ShellTable } from "../plugga-shell";
 import { Button, Checkbox } from "../ui";
 import { AvatarDoCliente, ResponsavelDoCliente, SituacaoDoCliente, TipoELocalDoCliente } from "./dados-do-cliente";
