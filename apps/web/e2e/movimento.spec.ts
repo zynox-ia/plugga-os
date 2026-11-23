@@ -6,6 +6,10 @@ import type { CreateClientResponse, Deal, Pipeline, PipelinePeopleResponse } fro
  * nada volta a animar ao filtrar ou mover cartão, o modal sai animado sem
  * quebrar Esc nem o foco, e com movimento reduzido nada é animado.
  */
+// A suíte principal roda com movimento reduzido (playwright.config.ts); aqui o
+// movimento volta, porque é a animação que está sob teste.
+test.use({ contextOptions: { reducedMotion: "no-preference" } });
+
 let pipeline: Pipeline;
 async function criar<T>(request: APIRequestContext, origin: string, caminho: string, data: object): Promise<T> {
   const resposta = await request.post(caminho, { headers: { origin }, data });
@@ -74,7 +78,8 @@ test("o quadro entra uma vez e não volta a animar ao filtrar nem ao mover um ca
   await page.route("**/api/leads/*/etapa", (rota) => rota.fulfill({ status: 409, contentType: "application/json", body: JSON.stringify({ message: "Recusado no teste" }) }));
   await corpo.locator("[data-cartao-id]").first().getByRole("button", { name: /^Ações de/ }).click();
   await page.getByRole("menuitem", { name: "Etapa 2" }).click();
-  await expect(page.getByRole("alert")).toContainText("Recusado no teste");
+  // O Next tem o próprio anunciador de rota com role=alert; o filtro pega o aviso da tela.
+  await expect(page.getByRole("alert").filter({ hasText: "Recusado no teste" })).toBeVisible();
   await expect(corpo.getByRole("article")).toHaveCount(12);
   expect(await entradas(page)).toEqual([]);
 });

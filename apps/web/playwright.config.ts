@@ -28,7 +28,10 @@ export default defineConfig({
     { name: "setup", testMatch: /.*\.setup\.ts/ },
     {
       name: "chromium",
-      use: { ...devices["Desktop Chrome"], storageState: AUTH_STORAGE_STATE },
+      // Movimento reduzido: o lib/movimento.ts deixa tudo no estado final, e
+      // medidas e foco não são lidos no meio de uma entrada ou saída animada.
+      // A animação em si é testada no movimento.spec, que volta o movimento.
+      use: { ...devices["Desktop Chrome"], storageState: AUTH_STORAGE_STATE, contextOptions: { reducedMotion: "reduce" } },
       dependencies: ["setup"],
     },
   ],
