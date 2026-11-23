@@ -1,4 +1,5 @@
 import type { INestApplication } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { Test } from "@nestjs/testing";
 import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
@@ -68,5 +69,23 @@ describe("OMIE por empresa (e2e)", () => {
     await gerente(http().put("/integracoes/omie/empresas/plugga/cnpj")).send({ cnpj: "99999001000159" }).expect(403);
     await admin(http().put("/integracoes/omie/empresas/plugga/cnpj")).send({ cnpj: "99999001000159" }).expect(200);
     await admin(http().put("/integracoes/omie/empresas/plugga/cnpj")).send({ cnpj: null }).expect(200);
+  });
+
+  it("com o portão do Financeiro fechado, as rotas por empresa respondem 404 e as da conta única seguem", async () => {
+    const config = app.get(ConfigService);
+    const original = config.get.bind(config);
+    const espiao = vi.spyOn(config, "get").mockImplementation(((chave: string, ...resto: unknown[]) =>
+      chave === "FINANCEIRO_LIGADO" ? false : (original as (k: string, ...r: unknown[]) => unknown)(chave, ...resto)) as typeof config.get);
+    try {
+      await gerente(http().get("/integracoes/omie/empresas")).expect(404);
+      await admin(http().put("/integracoes/omie/empresas/plugga/cnpj")).send({ cnpj: null }).expect(404);
+      // Antes da sessão: sem login também é 404, não 401.
+      await http().get("/integracoes/omie/empresas").expect(404);
+      // A conta única não está atrás do portão (sem banco neste teste, ela não chega a 200).
+      const antiga = await http().get("/integracoes/omie").set("x-dev-principal", "00000000-0000-4000-8000-000000000003").set("x-dev-plataforma", "desenvolvedor");
+      expect(antiga.status).not.toBe(404);
+    } finally {
+      espiao.mockRestore();
+    }
   });
 });
