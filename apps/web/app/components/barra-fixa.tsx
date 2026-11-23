@@ -68,7 +68,7 @@ export function BarraFixa({ rotulo, abas, busca, filtros, acoesQuandoPresa, move
   const atual = visao?.opcoes.find((o) => o.value === visao.valor);
   return <>
     <div ref={sentinela} className={styles.sentinela} aria-hidden="true" />
-    <div className={`${styles.barra} ${presa ? styles.presa : ""}`} role="toolbar" aria-label={rotulo} data-presa={presa || undefined}>
+    <div className={`${styles.barra} ${presa ? styles.presa : ""}`} role="region" aria-label={rotulo} data-presa={presa || undefined}>
       <div className={styles.abas}>{abas}</div>
       {busca ? <div className={styles.busca}>{busca}</div> : null}
       {movel && visao ? <div className={styles.movel}>
