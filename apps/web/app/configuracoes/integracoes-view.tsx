@@ -1,11 +1,13 @@
 import type { Acesso } from "@plugga/shared";
 
-import { integracoesParaAcesso, type EscopoDaIntegracao } from "../lib/integracoes";
+import { integracoesParaAcesso } from "../lib/integracoes";
+import { financeiroHabilitado } from "../lib/recursos";
 import { IntegracaoBrevo } from "./integracao-brevo";
 import { IntegracaoCadastro } from "./integracao-cadastro";
 import { IntegracaoTelegram } from "./integracao-telegram";
 import { IntegracaoAutentique } from "./integracao-autentique";
 import { IntegracaoOmie } from "./integracao-omie";
+import { IntegracaoOmieContaUnica } from "./integracao-omie-conta-unica";
 import { IntegracaoOpenRouter } from "./integracao-openrouter";
 import { IntegracaoAssinaturaIa } from "./integracao-assinatura-ia";
 import { IntegracaoGoogleCalendar } from "./integracao-google-calendar";
@@ -14,12 +16,12 @@ import styles from "./integracoes.module.css";
 
 /**
  * Integrações: cada uma é um cartão, e a pessoa só vê as do catálogo que o papel
- * dela alcança (`integracoesParaAcesso`). O `escopo` separa os dois lugares: as
- * pessoais na aba Integrações, as de plataforma na tela do Desenvolvedor. A
- * integração nova entra no catálogo e aqui.
+ * dela alcança (`integracoesParaAcesso`). O `escopo` diz o lugar: "pessoal" é a aba
+ * Integrações (as pessoais e o OMIE, que o Financeiro gere) e "plataforma" é a
+ * tela do Desenvolvedor. A integração nova entra no catálogo e aqui.
  */
-export function IntegracoesView({ acesso, escopo }: { acesso: Acesso; escopo: EscopoDaIntegracao }) {
-  const visiveis = integracoesParaAcesso(acesso, escopo);
+export function IntegracoesView({ acesso, escopo }: { acesso: Acesso; escopo: "pessoal" | "plataforma" }) {
+  const visiveis = integracoesParaAcesso(acesso, escopo === "pessoal" ? "integracoes" : "desenvolvedor");
 
   return (
     <div className={styles.catalogo}>
@@ -34,7 +36,8 @@ export function IntegracoesView({ acesso, escopo }: { acesso: Acesso; escopo: Es
           case "autentique":
             return <IntegracaoAutentique key={integracao.id} />;
           case "omie":
-            return <IntegracaoOmie key={integracao.id} />;
+            // Portão do Financeiro: aberto, o cartão por empresa; fechado (produção), o da conta única.
+            return financeiroHabilitado() ? <IntegracaoOmie key={integracao.id} acesso={acesso} /> : <IntegracaoOmieContaUnica key={integracao.id} />;
           case "openrouter":
             return <IntegracaoOpenRouter key={integracao.id} />;
           case "claude-assinatura":

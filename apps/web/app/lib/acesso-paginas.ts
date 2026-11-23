@@ -32,7 +32,7 @@ export function podeAbrirPagina(acesso: Acesso, pathname: string, ambiente?: Amb
   // Portão do Financeiro em construção: desligado, nenhuma página dele abre (lib/recursos.ts).
   if ((pathname === "/financeiro" || pathname.startsWith("/financeiro/")) && !financeiroHabilitado(ambiente)) return false;
   if (pathname === "/administracao") return papelDoAcesso(acesso) !== "membro";
-  if (pathname === "/integracoes") return integracoesParaAcesso(acesso, "pessoal").length > 0;
+  if (pathname === "/integracoes") return integracoesParaAcesso(acesso, "integracoes").length > 0;
   if (["/jobs", "/estrutura"].includes(pathname) || pathname === "/design-system" || pathname.startsWith("/design-system/")) {
     return alcancaPlataforma(acesso, "desenvolvedor");
   }

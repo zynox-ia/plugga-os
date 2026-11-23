@@ -180,6 +180,63 @@
   font-size: 13.5px;
 }
 
+/* Sem peso declarado, o <strong> sai em 700; o teto do projeto é 500. */
+.contaTopo strong,
+.nota strong {
+  font-weight: 500;
+  color: var(--ui-text);
+}
+
+/* O motivo do bloqueio da conexão (OMIE): a única cor de situação da linha. */
+.notaErro {
+  color: var(--ui-danger);
+}
+
+/* A empresa que o OMIE devolveu no teste, em destaque antes de confirmar. */
+.confirmacao {
+  display: grid;
+  gap: 2px;
+  margin-top: 4px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--ui-primary) 35%, transparent);
+  border-radius: 10px;
+  background: var(--ui-surface);
+  color: var(--ui-text);
+  font-size: 13px;
+}
+
+.confirmacao strong {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+/* Ação de texto dentro de uma nota (ex.: "Preencher" o CNPJ do cadastro). */
+.link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ui-primary);
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.link:hover {
+  text-decoration: underline;
+}
+
+.link:focus-visible {
+  outline: 2px solid var(--ui-primary);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* O botão que acompanha um aviso (ex.: mover a conta antiga do OMIE). */
+.acaoDoAviso {
+  display: flex;
+  margin-top: 8px;
+}
+
 .resumo {
   flex: 1;
   margin: 0;
