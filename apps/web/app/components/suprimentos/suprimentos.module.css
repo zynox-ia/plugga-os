@@ -28,6 +28,10 @@
 }
 
 .metricaCorpo { display: grid; gap: 6px; padding: 16px 18px; color: var(--pv-texto); }
+.metricaBotao { width: 100%; border: 0; border-radius: inherit; background: none; font: inherit; text-align: left; cursor: pointer; }
+.metricaBotao:focus-visible { outline: 2px solid var(--ui-primary); outline-offset: 2px; }
+.metricaAtiva:global(.shell-card),
+.metricaAtiva:global(.shell-card):hover { box-shadow: 0 0 0 2px color-mix(in srgb, var(--ui-primary) 55%, transparent); }
 .metricaRotulo { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--pv-atenuado); font-size: 12px; font-weight: 500; }
 .metricaIcone { display: grid; place-items: center; flex: none; width: 28px; height: 28px; border-radius: 9px; background: var(--pv-poco); color: var(--pv-texto); }
 .metricaIcone > svg { width: 15px; height: 15px; }
