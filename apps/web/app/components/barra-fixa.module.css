@@ -4,6 +4,14 @@
 :global(.main-content):has(.pagina):has(.sentinela) { padding-top: 0; }
 /* (a especificidade a mais vence o respiro de 12–14 px que a tela de Clientes e a de Pipelines põem no .main-content) */
 .pagina { padding-top: 14px; }
+/* Sem rolagem interna: a lista e os cards crescem com a página, que rola no .main-content.
+   (As classes de módulo da tela de Clientes e da lista de negócios são alcançadas pelo nome.) */
+.pagina { flex: none !important; min-height: auto !important; }
+.pagina > [role="tabpanel"] { flex: none; min-height: auto; }
+.pagina [class*="areaCards"] { flex: 1 1 auto; width: 100%; min-height: auto; overflow: visible; }
+.pagina [class*="rolagemTabela"] { flex: none; min-height: 0; overflow: visible; contain: none; }
+.pagina :global(.lista-negocios-card) { flex: none; }
+.pagina table thead { position: static; }
 
 .sentinela { height: 1px; margin-bottom: -1px; }
 
@@ -22,7 +30,7 @@
   transition: background 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
 }
 .abas { display: flex; flex-shrink: 0; }
-.busca { flex: 0 1 260px; min-width: 180px; }
+.busca { flex: 1 1 180px; min-width: 160px; max-width: 280px; }
 .busca :global(.equipe-busca) { width: 100%; }
 .filtros { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; margin-left: auto; min-width: 0; }
 .acoesPresa { display: none; gap: 6px; }
