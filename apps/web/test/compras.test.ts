@@ -15,6 +15,7 @@ import {
   quantidadeDigitada,
   quantidadeLegivel,
   textoDoDestino,
+  temFiltroSoDaLista,
   textoDoPrazo,
   urlDoArquivo,
   valorCurto,
@@ -54,9 +55,21 @@ describe("período em dias de Manaus", () => {
     assert.deepEqual(intervaloDoPeriodo(undefined, "2026-11-23"), {});
   });
 
-  it("a consulta da API leva responsavelId e o período", () => {
-    const f = lerFiltrosDeCompras({ empresa: "plugga", responsavel: ID, periodo: "7d" });
+  it("a consulta da API leva responsavelId e o período, na lista", () => {
+    const f = lerFiltrosDeCompras({ visao: "lista", empresa: "plugga", responsavel: ID, periodo: "7d" });
     assert.deepEqual(consultaDaApi(f, "2026-11-23"), { empresa: "plugga", responsavelId: ID, destino: undefined, de: "2026-11-17", ate: "2026-11-23" });
+  });
+
+  it("o quadro não filtra por responsável nem período, nem escondido (pedido do André)", () => {
+    const parametros = { empresa: "plugga", responsavel: ID, periodo: "7d" };
+    assert.equal(temFiltroSoDaLista(parametros), true);
+    assert.equal(temFiltroSoDaLista({ ...parametros, visao: "lista" }), false);
+    assert.equal(temFiltroSoDaLista({ empresa: "plugga" }), false);
+    const f = lerFiltrosDeCompras(parametros);
+    assert.deepEqual(consultaDaApi(f, "2026-11-23"), { empresa: "plugga", responsavelId: undefined, destino: undefined });
+    // Da lista para o quadro, o link já sai sem os dois filtros.
+    const daLista = lerFiltrosDeCompras({ ...parametros, visao: "lista" });
+    assert.equal(hrefDeCompras({ ...daLista, visao: "quadro" }), "/suprimentos/compras?empresa=plugga");
   });
 });
 

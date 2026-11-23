@@ -1,7 +1,9 @@
 import { EstadoDaApi } from "../../components/estado-da-api";
 import { ComprasView } from "../../components/compras/compras-view";
 import { fetchOpcoesDeCompra, fetchPedidoDeCompra, fetchPedidosDeCompra, fetchQuadroDeCompras } from "../../lib/api";
-import { consultaDaApi, hojeEmManaus, lerFiltrosDeCompras } from "../../lib/compras";
+import { redirect } from "next/navigation";
+
+import { consultaDaApi, hojeEmManaus, hrefDeCompras, lerFiltrosDeCompras, temFiltroSoDaLista } from "../../lib/compras";
 import { exigirPagina } from "../../lib/exigir-pagina";
 import { podeCriarPedido } from "../../lib/papel-em-compras";
 
@@ -9,6 +11,8 @@ export default async function ComprasPage({ searchParams }: { searchParams: Prom
   const sessao = await exigirPagina("/suprimentos/compras");
   const parametros = await searchParams;
   const filtros = lerFiltrosDeCompras(parametros);
+  // No quadro não há Responsável nem Período: um link antigo com eles vai para o endereço limpo.
+  if (temFiltroSoDaLista(parametros)) redirect(hrefDeCompras(filtros, parametros.pedido));
   const consulta = consultaDaApi(filtros, hojeEmManaus());
 
   const [quadro, lista, opcoes, ficha] = await Promise.all([

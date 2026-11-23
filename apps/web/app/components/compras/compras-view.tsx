@@ -98,10 +98,13 @@ export function ComprasView({ filtros, colunas, pedidos, total, opcoes, ficha, f
         <div className={`${estilosPipelines.navegacaoDireita} ${styles.filtros}`} role="group" aria-label="Filtros de pedidos">
           <div className={styles.filtro}><FiltroComBusca label="Empresa" icon={<Building2 />} semFiltro="todas" value={filtros.empresa ?? "todas"} onChange={(v) => ir({ empresa: v === "todas" ? undefined : (v as FiltrosDeCompras["empresa"]) })}
             options={[{ value: "todas", label: "Todas as empresas", icon: <Building2 /> }, ...(["plugga", "waze"] as const).map((e) => ({ value: e, label: ROTULO_DA_EMPRESA[e], icon: <PontoDaEmpresa empresa={e} /> }))]} /></div>
+          {/* Responsável e Período só na lista (pedido do André); no quadro ficam Empresa, Cancelados e a busca. */}
+          {!quadro ? <>
           <div className={styles.filtro}><FiltroComBusca label="Responsável" icon={<UserRound />} semFiltro="todos" value={filtros.responsavel ?? "todos"} onChange={(v) => ir({ responsavel: v === "todos" ? undefined : v })}
             options={[{ value: "todos", label: "Todos os responsáveis", icon: <UserRound /> }, ...opcoes.pessoas.map((p) => ({ value: p.id, label: p.nome, icon: <UserRound /> }))]} /></div>
           <div className={styles.filtro}><FiltroComBusca label="Período" icon={<CalendarDays />} semFiltro="qualquer" value={filtros.periodo ?? "qualquer"} onChange={(v) => ir({ periodo: v === "qualquer" ? undefined : (v as FiltrosDeCompras["periodo"]) })}
             options={[{ value: "qualquer", label: "Qualquer período", icon: <CalendarDays /> }, ...periodosDeCompra.map((p) => ({ value: p, label: ROTULO_DO_PERIODO[p], icon: <CalendarDays /> }))]} /></div>
+          </> : null}
           {quadro ? <Button variant="secondary" className={styles.alternar} aria-pressed={filtros.cancelados} icon={<Ban size={16} />} onClick={() => ir({ cancelados: !filtros.cancelados })}>
             Cancelados{canceladosVisiveis ? <span className={styles.conta}> {String(canceladosVisiveis.length).padStart(2, "0")}</span> : null}
           </Button> : null}

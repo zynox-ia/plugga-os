@@ -50,8 +50,10 @@ export type FiltrosDeCompras = {
   visao: "quadro" | "lista";
   busca?: string;
   empresa?: CompanyKey;
+  /** Só na lista (pedido do André): o quadro não filtra por responsável nem por período. */
   responsavel?: string;
   destino?: DestinoDeCompra;
+  /** Só na lista. */
   periodo?: PeriodoDeCompra;
   /** Só no quadro: mostra a coluna de cancelados. */
   cancelados: boolean;
@@ -66,17 +68,24 @@ export function lerFiltrosDeCompras(p: Record<string, string | undefined>): Filt
   const empresa = companyKeys.find((e) => e === p.empresa);
   const destino = destinosDeCompra.find((d) => d === p.destino);
   const periodo = periodosDeCompra.find((x) => x === p.periodo);
+  const lista = p.visao === "lista";
   return {
-    visao: p.visao === "lista" ? "lista" : "quadro",
+    visao: lista ? "lista" : "quadro",
     busca: p.busca?.trim().slice(0, 150) || undefined,
     ...(empresa ? { empresa } : {}),
-    ...(p.responsavel && UUID.test(p.responsavel) ? { responsavel: p.responsavel } : {}),
+    ...(lista && p.responsavel && UUID.test(p.responsavel) ? { responsavel: p.responsavel } : {}),
     ...(destino ? { destino } : {}),
-    ...(periodo ? { periodo } : {}),
+    ...(lista && periodo ? { periodo } : {}),
     cancelados: p.cancelados === "1",
     situacao: situacoesDaLista.find((s) => s === p.situacao) ?? "em_andamento",
   };
 }
+
+/**
+ * Endereço do quadro com filtro que só vale na lista (Responsável, Período):
+ * a página redireciona para o endereço limpo, e a URL mostra o que filtra.
+ */
+export const temFiltroSoDaLista = (p: Record<string, string | undefined>): boolean => p.visao !== "lista" && Boolean(p.responsavel || p.periodo);
 
 /** Os filtros e a ficha vão no endereço: o mesmo link abre a mesma tela. */
 export function hrefDeCompras(f: Partial<FiltrosDeCompras>, pedido?: string | null): string {
@@ -84,9 +93,9 @@ export function hrefDeCompras(f: Partial<FiltrosDeCompras>, pedido?: string | nu
   if (f.visao === "lista") q.set("visao", "lista");
   if (f.busca) q.set("busca", f.busca);
   if (f.empresa) q.set("empresa", f.empresa);
-  if (f.responsavel) q.set("responsavel", f.responsavel);
+  if (f.visao === "lista" && f.responsavel) q.set("responsavel", f.responsavel);
   if (f.destino) q.set("destino", f.destino);
-  if (f.periodo) q.set("periodo", f.periodo);
+  if (f.visao === "lista" && f.periodo) q.set("periodo", f.periodo);
   if (f.visao !== "lista" && f.cancelados) q.set("cancelados", "1");
   if (f.visao === "lista" && f.situacao && f.situacao !== "em_andamento") q.set("situacao", f.situacao);
   if (pedido) q.set("pedido", pedido);
