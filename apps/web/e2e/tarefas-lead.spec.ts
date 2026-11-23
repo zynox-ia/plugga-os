@@ -61,7 +61,8 @@ test("atividades persistem, recusam conflito e concluem com resultado e próxima
   let card = lead.getByRole("article", { name: "Atividade Conferir fatura recebida", exact: true });
   await expect(card).toContainText("23:30");
   await expect(lead.getByText("Conferir fatura recebida ·", { exact: false })).toBeVisible();
-  await card.getByRole("button", { name: "Editar", exact: true }).click();
+  await card.getByRole("button", { name: "Ações de Conferir fatura recebida", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Editar", exact: true }).click();
   const editar = page.getByRole("dialog", { name: "Editar atividade", exact: true });
   await editar.getByLabel("Notas", { exact: true }).fill("Rascunho preservado após conflito.");
   const externa = await request.patch(`/api/atividades/${atividade.id}`, { headers, data: { version: atividade.version, notes: "Atualização concorrente confirmada." } });
@@ -102,7 +103,8 @@ test("atividades persistem, recusam conflito e concluem com resultado e próxima
   card = lead.getByRole("article", { name: "Atividade Conferir fatura recebida", exact: true });
   await expect(card).toContainText("Conta recebida e UC conferida");
   await expect(lead.getByRole("region", { name: "A fazer", exact: true }).getByRole("article", { name: "Atividade Apresentar proposta revisada", exact: true })).toBeVisible();
-  await card.getByRole("button", { name: "Ver histórico", exact: true }).click();
+  await card.getByRole("button", { name: "Ações de Conferir fatura recebida", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Ver histórico", exact: true }).click();
   const historico = page.getByRole("dialog", { name: "Histórico da atividade", exact: true });
   await expect(historico.getByText("Conta recebida e UC conferida", { exact: false })).toBeVisible();
   await historico.getByRole("button", { name: "Fechar", exact: true }).click();
