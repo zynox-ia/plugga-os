@@ -5,8 +5,9 @@ import { ComprasModule } from "../compras/compras.module";
 import { CoreModule } from "../core/core.module";
 import { ArmazenamentoDeDocumentos } from "../lead-documentos/armazenamento-de-documentos";
 import { PrismaModule } from "../prisma/prisma.module";
+import { TarefasModule } from "../tarefas/tarefas.module";
 import { EngenhariaHabilitadaGuard } from "./engenharia-habilitada.guard";
-import { EngenhariaController } from "./engenharia.controller";
+import { EngenhariaController, VisaoGeralDaEngenhariaController } from "./engenharia.controller";
 import { EngenhariaService, RELOGIO_DA_ENGENHARIA } from "./engenharia.service";
 import { PrismaEngenhariaRepository } from "./prisma-engenharia.repository";
 import { TermoDaOrdemPdf } from "./termo-da-ordem.pdf";
@@ -16,8 +17,8 @@ import { TermoDaOrdemPdf } from "./termo-da-ordem.pdf";
  * sob `engenharia/ordens-de-servico/`; o material sai pelo serviço de Compras.
  */
 @Module({
-  imports: [AuditModule, CoreModule, PrismaModule, ComprasModule],
-  controllers: [EngenhariaController],
+  imports: [AuditModule, CoreModule, PrismaModule, ComprasModule, TarefasModule],
+  controllers: [EngenhariaController, VisaoGeralDaEngenhariaController],
   providers: [
     EngenhariaHabilitadaGuard,
     EngenhariaService,

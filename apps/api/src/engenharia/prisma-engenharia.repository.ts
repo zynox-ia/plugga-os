@@ -96,6 +96,34 @@ export class PrismaEngenhariaRepository {
     });
   }
 
+  /**
+   * Números e listas da Visão geral: em aberto, atrasadas, em campo hoje; o
+   * campo de hoje (agendadas para hoje e em campo) e as atrasadas mais antigas.
+   */
+  async visaoGeral(empresa: "plugga" | "waze" | undefined, agora: Date): Promise<{
+    emAberto: number; atrasadas: number; emCampoHoje: number; campoHoje: LinhaDoResumo[]; maisAtrasadas: LinhaDoResumo[]; clientes: Nomes; pessoas: Nomes;
+  }> {
+    return this.prisma.comContexto(async (tx) => {
+      const base: Prisma.OrdemDeServicoWhereInput = empresa ? { companyId: empresa } : {};
+      const inicioDeHoje = inicioDoDiaEmManaus(hojeEmManaus(agora));
+      const fimDeHoje = new Date(inicioDeHoje.getTime() + MS_POR_DIA);
+      const atrasadas = { AND: [base, filtroDeAtencao("atrasadas", agora)] };
+      const [emAberto, nAtrasadas, emCampoHoje, campoHoje, maisAtrasadas] = await Promise.all([
+        tx.ordemDeServico.count({ where: { AND: [base, { situacao: { notIn: [...ENCERRADAS] } }] } }),
+        tx.ordemDeServico.count({ where: atrasadas }),
+        tx.ordemDeServico.count({ where: { AND: [base, filtroDeAtencao("em_campo_hoje", agora)] } }),
+        tx.ordemDeServico.findMany({
+          where: { AND: [base, { OR: [{ situacao: "em_campo" }, { situacao: "agendada", agendadaPara: { gte: inicioDeHoje, lt: fimDeHoje } }] }] },
+          select: SELECT_DO_RESUMO,
+          orderBy: [{ agendadaPara: { sort: "asc", nulls: "last" } }],
+          take: 50,
+        }),
+        tx.ordemDeServico.findMany({ where: atrasadas, select: SELECT_DO_RESUMO, orderBy: [{ prazo: "asc" }, { createdAt: "asc" }], take: 5 }),
+      ]);
+      return { emAberto, atrasadas: nAtrasadas, emCampoHoje, campoHoje, maisAtrasadas, ...(await this.nomesDasLinhas(tx, [...campoHoje, ...maisAtrasadas])) };
+    });
+  }
+
   async ficha(id: string): Promise<{ linha: LinhaDaFicha; pessoas: Nomes; clientes: Nomes; ucs: UcDaOrdem[] }> {
     return this.prisma.comContexto(async (tx) => {
       const linha = await tx.ordemDeServico.findUnique({ where: { id }, include: INCLUDE_DA_FICHA });

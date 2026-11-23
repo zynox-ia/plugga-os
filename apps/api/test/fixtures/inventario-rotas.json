@@ -1075,6 +1075,20 @@
   },
   {
     "metodo": "GET",
+    "caminho": "/engenharia/visao-geral",
+    "controller": "VisaoGeralDaEngenhariaController.visaoGeral",
+    "acesso": "acesso",
+    "papeis": [
+      "departamento:engenharia-obras:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
     "caminho": "/equipe",
     "controller": "EquipeController.listar",
     "acesso": "authenticated",

@@ -24,6 +24,7 @@ const servico = {
   colherTermo: vi.fn().mockResolvedValue({ id: ID }),
   anexarTermoAssinado: vi.fn().mockResolvedValue({ id: ID }),
   pedirMaterial: vi.fn().mockResolvedValue({ id: ID }),
+  visaoGeral: vi.fn().mockResolvedValue({ metricas: {} }),
 };
 
 describe("ordens de serviço da Engenharia (e2e)", () => {
@@ -49,6 +50,14 @@ describe("ordens de serviço da Engenharia (e2e)", () => {
     for (const departamento of ["crm:gerente", "suprimentos:gerente", "financeiro:gerente"]) {
       await como(departamento)(http().get("/engenharia/ordens-de-servico")).expect(403);
     }
+  });
+
+  it("a Visão geral é de quem é da Engenharia, com qualquer tela, e filtra por empresa", async () => {
+    await http().get("/engenharia/visao-geral").expect(401);
+    await como("engenharia-obras:membro")(http().get("/engenharia/visao-geral?empresa=waze")).expect(200);
+    expect(servico.visaoGeral).toHaveBeenLastCalledWith({ empresa: "waze" }, expect.anything());
+    await como("engenharia-obras:membro")(http().get("/engenharia/visao-geral?empresa=outra")).expect(400);
+    await como("crm:gerente")(http().get("/engenharia/visao-geral")).expect(403);
   });
 
   it("valida filtros, criação e ações antes do serviço", async () => {
@@ -97,6 +106,7 @@ describe("ordens de serviço da Engenharia (e2e)", () => {
       // Sem cookie nem cabeçalho de sessão: 404, não 401.
       await http().get("/engenharia/ordens-de-servico").expect(404);
       await http().get("/engenharia/ordens-de-servico/quadro").expect(404);
+      await http().get("/engenharia/visao-geral").expect(404);
       expect(servico.listar).not.toHaveBeenCalled();
     } finally {
       espiao.mockRestore();

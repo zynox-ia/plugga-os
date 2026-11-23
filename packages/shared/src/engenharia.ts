@@ -3,6 +3,7 @@ import { z } from "zod";
 import { diaDoCalendario, quantidadeString } from "./compras.js";
 import { companyKeySchema } from "./organization.js";
 import { isoDate, uuid } from "./primitivas.js";
+import { ocorrenciaDeTarefaSchema } from "./tarefas.js";
 
 /**
  * Engenharia e Obras (PLU-345): a ordem de serviço, em
@@ -450,6 +451,33 @@ export const opcoesDaEngenhariaRespostaSchema = z.object({
   origens: z.array(origemDaOrdemDeServicoSchema),
 });
 export type OpcoesDaEngenhariaResposta = z.infer<typeof opcoesDaEngenhariaRespostaSchema>;
+
+// ---------------------------------------------------------------- visão geral (PLU-349)
+
+/** `GET /engenharia/visao-geral?empresa=`: o dia da Engenharia. */
+export const visaoGeralDaEngenhariaQuerySchema = z.object({ empresa: companyKeySchema.optional() }).strict();
+export type VisaoGeralDaEngenhariaQuery = z.infer<typeof visaoGeralDaEngenhariaQuerySchema>;
+
+export const visaoGeralDaEngenhariaRespostaSchema = z.object({
+  hoje: diaDoCalendario,
+  /** Metric cards. `usinasComAtencao` fica nulo até as Usinas (PLU-347). */
+  metricas: z.object({
+    emAberto: z.number().int().nonnegative(),
+    atrasadas: z.number().int().nonnegative(),
+    emCampoHoje: z.number().int().nonnegative(),
+    usinasComAtencao: z.number().int().nonnegative().nullable(),
+  }),
+  /** Agendadas para hoje e em campo, pela hora. */
+  campoHoje: z.array(ordemDeServicoResumoSchema),
+  /** As atrasadas mais antigas (até 5) e o total. */
+  atrasadas: z.object({ total: z.number().int().nonnegative(), itens: z.array(ordemDeServicoResumoSchema) }),
+  /** Tarefas de hoje da Engenharia (as atrasadas primeiro, até 8) e o progresso do dia. */
+  tarefasHoje: z.object({ concluidas: z.number().int().nonnegative(), total: z.number().int().nonnegative(), itens: z.array(ocorrenciaDeTarefaSchema) }),
+  /** Monitoramento do dia (PLU-347) e protocolos da semana (PLU-348): nulos até lá. */
+  monitoramentoHoje: z.null(),
+  protocolos: z.null(),
+});
+export type VisaoGeralDaEngenharia = z.infer<typeof visaoGeralDaEngenhariaRespostaSchema>;
 
 /** OS-0001. */
 export function codigoDaOrdemDeServico(numero: number): string {

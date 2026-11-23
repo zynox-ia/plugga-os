@@ -24,6 +24,9 @@ import {
   type PedirMaterial,
   type QuadroDeOrdensQuery,
   type QuadroDeOrdensResposta,
+  type VisaoGeralDaEngenharia,
+  type VisaoGeralDaEngenhariaQuery,
+  visaoGeralDaEngenhariaQuerySchema,
 } from "@plugga/shared";
 import type { Response } from "express";
 
@@ -174,5 +177,21 @@ export class EngenhariaController {
     res.setHeader("X-Content-Type-Options", "nosniff");
     res.setHeader("Cache-Control", "no-store");
     stream.pipe(res);
+  }
+}
+
+/**
+ * Visão geral da Engenharia (PLU-349): o dia do departamento. Entra quem é da
+ * Engenharia; cada bloco mostra o que as telas da pessoa alcançam (o RLS recorta).
+ */
+@Controller("engenharia/visao-geral")
+@UseGuards(EngenhariaHabilitadaGuard, SessionAuthGuard, AcessoGuard)
+@Departamento(["engenharia-obras"])
+export class VisaoGeralDaEngenhariaController {
+  constructor(@Inject(EngenhariaService) private readonly engenharia: EngenhariaService) {}
+
+  @Get()
+  visaoGeral(@Query(new ZodValidationPipe(visaoGeralDaEngenhariaQuerySchema)) query: VisaoGeralDaEngenhariaQuery, @CurrentPrincipal() principal: AuthPrincipal): Promise<VisaoGeralDaEngenharia> {
+    return this.engenharia.visaoGeral(query, principal);
   }
 }

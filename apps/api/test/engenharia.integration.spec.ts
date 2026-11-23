@@ -265,4 +265,15 @@ describe.skipIf(!HABILITADO)("engenharia: ordens de serviço no Postgres", { tim
     const quadro = await como("eng", () => repo.quadro({ busca: marca }, AGORA));
     expect(quadro.linhas.some((l) => l.situacao === "cancelada")).toBe(false);
   });
+
+  it("a Visão geral conta em aberto, atrasadas e em campo hoje, e lista o campo de hoje", async () => {
+    const hoje = await criar({ descricao: `${marca} campo hoje` });
+    await agendar(hoje);
+    const r = await como("eng", () => repo.visaoGeral("waze", AGORA));
+    expect(r.emAberto).toBeGreaterThanOrEqual(1);
+    expect(r.atrasadas).toBeGreaterThanOrEqual(1);
+    expect(r.campoHoje.map((l) => l.id)).toContain(hoje);
+    expect(r.maisAtrasadas.length).toBeLessThanOrEqual(5);
+    expect((await como("eng", () => repo.visaoGeral("plugga", AGORA))).campoHoje.map((l) => l.id)).not.toContain(hoje);
+  });
 });

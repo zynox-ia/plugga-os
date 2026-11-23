@@ -28,11 +28,15 @@ import {
   type PedirMaterial,
   type QuadroDeOrdensQuery,
   type QuadroDeOrdensResposta,
+  type VisaoGeralDaEngenharia,
+  type VisaoGeralDaEngenhariaQuery,
+  visaoGeralDaEngenhariaRespostaSchema,
 } from "@plugga/shared";
 
 import { AcessoNegado, ArquivoRecusado, LimiteExcedido, RequisicaoInvalida, TipoNaoPermitido } from "../common/errors/dominio";
 import { ComprasService } from "../compras/compras.service";
 import type { AuthPrincipal } from "../core/auth/auth.types";
+import { TarefasService } from "../tarefas/tarefas.service";
 import { ArmazenamentoDeDocumentos } from "../lead-documentos/armazenamento-de-documentos";
 import { detectarTipo } from "../lead-documentos/deteccao-de-tipo";
 import { nomeSeguro } from "../lead-documentos/lead-documentos.rules";
@@ -63,6 +67,7 @@ export class EngenhariaService {
     @Inject(ArmazenamentoDeDocumentos) private readonly armazenamento: ArmazenamentoDeDocumentos,
     @Inject(ComprasService) private readonly compras: ComprasService,
     @Inject(TermoDaOrdemPdf) private readonly pdf: TermoDaOrdemPdf,
+    @Inject(TarefasService) private readonly tarefas: TarefasService,
     @Inject(RELOGIO_DA_ENGENHARIA) private readonly agora: Relogio,
   ) {}
 
@@ -88,6 +93,30 @@ export class EngenhariaService {
         const ordens = resumos.filter((o) => o.coluna === coluna);
         return { coluna, quantidade: ordens.length, atrasadas: ordens.filter((o) => o.atrasada).length, ordens };
       }),
+    });
+  }
+
+  /** O dia da Engenharia: metric cards, campo de hoje, atrasadas e as tarefas de hoje. */
+  async visaoGeral(query: VisaoGeralDaEngenhariaQuery, principal: AuthPrincipal): Promise<VisaoGeralDaEngenharia> {
+    const agora = this.agora();
+    const [r, tarefas] = await Promise.all([
+      this.repositorio.visaoGeral(query.empresa, agora),
+      this.tarefas.listar("engenharia-obras", { periodo: "hoje", ...(query.empresa ? { empresa: query.empresa } : {}) }, principal),
+    ]);
+    const resumo = (linha: (typeof r.campoHoje)[number]) => paraResumo(linha, r.pessoas, r.clientes, agora);
+    const ordem = { atrasada: 0, vence_hoje: 1, no_prazo: 2, concluida: 3 } as const;
+    return visaoGeralDaEngenhariaRespostaSchema.parse({
+      hoje: tarefas.hoje,
+      metricas: { emAberto: r.emAberto, atrasadas: r.atrasadas, emCampoHoje: r.emCampoHoje, usinasComAtencao: null },
+      campoHoje: r.campoHoje.map(resumo),
+      atrasadas: { total: r.atrasadas, itens: r.maisAtrasadas.map(resumo) },
+      tarefasHoje: {
+        concluidas: tarefas.progresso.concluidas,
+        total: tarefas.progresso.total,
+        itens: [...tarefas.itens].sort((a, b) => ordem[a.situacao] - ordem[b.situacao]).slice(0, 8),
+      },
+      monitoramentoHoje: null,
+      protocolos: null,
     });
   }
 
