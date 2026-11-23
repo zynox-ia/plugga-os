@@ -13,6 +13,9 @@ import { Alert, Button, DatePicker, Dialog, TextField } from "../ui";
 import styles from "./ficha-da-ordem.module.css";
 
 type Cliente = BuscarClientesDaEngenhariaResposta["itens"][number];
+/** Busca de clientes com as UCs, para a Nova usina. */
+const BUSCA_DE_CLIENTES = "/api/engenharia/ordens-de-servico/clientes";
+
 /**
  * Nova usina e Editar (PLU-347): empresa, cliente e UC (que não mudam depois),
  * nome, plataforma, potência em kWp ("12,75"), inversor, data de comissionamento
@@ -46,13 +49,24 @@ export function UsinaForm({ usina, plataformas, hoje, empresaInicial, comissiona
   const [falha, setFalha] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
   const fixo = editando || Boolean(comissionamento);
+
+  // Comissionamento sem UC na O.S.: traz as UCs do cliente para escolher uma (a UC é obrigatória).
+  useEffect(() => {
+    if (!comissionamento || comissionamento.ucId) return;
+    const controle = new AbortController();
+    void enviar<BuscarClientesDaEngenhariaResposta>(`${BUSCA_DE_CLIENTES}?${new URLSearchParams({ busca: comissionamento.cliente.nome })}`, "GET", undefined, controle.signal).then((r) => {
+      const doCliente = r.ok ? r.dados.itens.find((x) => x.id === comissionamento.cliente.id) : undefined;
+      if (doCliente) { setCliente(doCliente); if (doCliente.ucs.length === 1) setUcId(doCliente.ucs[0]!.id); }
+    });
+    return () => controle.abort();
+  }, [comissionamento]);
   const limpar = (campo: string) => setErros((e) => ({ ...e, [campo]: undefined }));
 
   useEffect(() => {
     if (fixo || busca.trim().length < 2) { setEncontrados(null); return; }
     const controle = new AbortController();
     const espera = setTimeout(async () => {
-      const r = await enviar<BuscarClientesDaEngenhariaResposta>(`/api/engenharia/ordens-de-servico/clientes?${new URLSearchParams({ busca: busca.trim() })}`, "GET", undefined, controle.signal);
+      const r = await enviar<BuscarClientesDaEngenhariaResposta>(`${BUSCA_DE_CLIENTES}?${new URLSearchParams({ busca: busca.trim() })}`, "GET", undefined, controle.signal);
       if (r.ok) setEncontrados(r.dados.itens);
     }, 250);
     return () => { clearTimeout(espera); controle.abort(); };
@@ -88,7 +102,7 @@ export function UsinaForm({ usina, plataformas, hoje, empresaInicial, comissiona
   const ucs = cliente?.ucs ?? [];
   const ativas = plataformas.filter((p) => p.ativa || p.id === usina?.plataforma.id);
   return <Dialog title={editando ? `Editar ${usina!.nome}` : "Nova usina"} size="media" icon={editando ? <Pencil size={20} /> : <Sun size={20} />} onClose={aoCancelar}
-    description={editando ? "Empresa, cliente e UC não mudam." : comissionamento ? "A usina nasce do comissionamento: cliente, UC e empresa vêm da O.S." : "Cliente e UC, potência, plataforma e inversor. Entra no monitoramento do dia seguinte em diante."}
+    description={editando ? "Empresa, cliente e UC não mudam." : comissionamento ? "A usina nasce do comissionamento: cliente, UC e empresa vêm da O.S." : "Cliente e UC, potência, plataforma e inversor. Entra no monitoramento de hoje se a plataforma ainda não foi conferida; senão, no de amanhã."}
     footer={<Button type="submit" form="form-usina" icon={editando ? undefined : <Plus size={15} />} disabled={enviando}>{enviando ? "Salvando…" : editando ? "Salvar" : "Cadastrar usina"}</Button>}>
     <form id="form-usina" className={`ui-dialog-form ${styles.formDaOrdem}`} onSubmit={salvar} noValidate>
       {falha ? <Alert tone="danger" title={`Erro: ${falha}`} /> : null}
@@ -108,9 +122,10 @@ export function UsinaForm({ usina, plataformas, hoje, empresaInicial, comissiona
         </>}
         {erros.clienteId ? <p id="usina-cliente-erro" className="ui-field-error">Erro: {erros.clienteId}</p> : null}
       </div>
-      <CampoDeMenu label="Unidade consumidora" required icon={<Zap />} placeholder={cliente ? (ucs.length ? "Escolha a UC" : "O cliente não tem UC no CRM") : "Escolha o cliente primeiro"} value={ucId || undefined}
-        onChange={(v) => { setUcId(v); limpar("ucId"); }} disabled={editando || !cliente || ucs.length === 0} error={erros.ucId}
-        options={ucs.map((u) => ({ value: u.id, label: u.codigo, description: u.distribuidora, icon: <Zap /> }))} />
+      <CampoDeMenu label="Unidade consumidora" required icon={<Zap />} placeholder={cliente ? (ucs.length ? "Escolha a UC" : comissionamento ? "A O.S. não tem UC" : "O cliente não tem UC no CRM") : "Escolha o cliente primeiro"} value={ucId || undefined}
+        onChange={(v) => { setUcId(v); limpar("ucId"); }} disabled={editando || Boolean(comissionamento?.ucId) || !cliente || ucs.length === 0} error={erros.ucId}
+        options={ucs.map((u) => ({ value: u.id, label: u.codigo, description: u.distribuidora, icon: <Zap /> }))}
+        hint={comissionamento && !comissionamento.ucId ? (ucs.length ? "A O.S. de comissionamento não tinha UC: escolha a UC do cliente." : "Nem a O.S. nem o cliente têm UC no CRM: cadastre a UC no cliente antes.") : undefined} />
       <CampoDeMenu label="Plataforma" required icon={<Monitor />} placeholder="Selecione a plataforma" value={plataformaId || undefined} onChange={(v) => { setPlataformaId(v); limpar("plataformaId"); }} error={erros.plataformaId}
         options={ativas.map((p) => ({ value: p.id, label: p.nome, icon: <Monitor /> }))} />
       <TextField label="Potência (kWp)" required inputMode="decimal" maxLength={12} value={potencia} onChange={(e) => { setPotencia(e.target.value); limpar("potenciaKwp"); }} error={erros.potenciaKwp} placeholder="12,75" />

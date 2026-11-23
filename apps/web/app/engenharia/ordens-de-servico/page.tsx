@@ -1,3 +1,5 @@
+import { alcancaTela } from "@plugga/shared";
+
 import { EstadoDaApi } from "../../components/estado-da-api";
 import { OrdensDeServicoView } from "../../components/engenharia/ordens-de-servico-view";
 import { fetchOpcoesDaEngenharia, fetchOrdemDeServico, fetchOrdensDeServico, fetchQuadroDeOrdens } from "../../lib/api";
@@ -26,5 +28,6 @@ export default async function OrdensDeServicoPage({ searchParams }: { searchPara
   const falhaDaFicha = !parametros.os || ficha?.ok ? null : ficha && ficha.erro.tipo !== "naoEncontrado" ? "indisponivel" : "nao_encontrada";
 
   return <OrdensDeServicoView filtros={filtros} lista={lista.dados} quadro={colunas?.ok ? colunas.dados : null} opcoes={opcoes.ok ? opcoes.dados : null} hoje={hojeEmManaus()}
-    ficha={ficha?.ok ? ficha.dados : null} falhaDaFicha={falhaDaFicha} podeAbrirCompras={podeAbrirPagina(sessao.acesso, "/suprimentos/compras")} />;
+    ficha={ficha?.ok ? ficha.dados : null} falhaDaFicha={falhaDaFicha} podeAbrirCompras={podeAbrirPagina(sessao.acesso, "/suprimentos/compras")}
+    podeCadastrarUsina={alcancaTela(sessao.acesso, "engenharia-obras.usinas")} />;
 }

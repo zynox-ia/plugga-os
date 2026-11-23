@@ -47,10 +47,12 @@ const agendamentoDe = (o: OrdemDeServico): Agendamento => ({
  * ações que a API permite agora. Cada passagem exige o seu dado: técnico e
  * data, check-in, laudo com fotos e o termo.
  */
-export function FichaDaOrdem({ ordem: inicial, opcoes, podeAbrirCompras, aoFechar, aoAtualizar }: {
+export function FichaDaOrdem({ ordem: inicial, opcoes, podeAbrirCompras, podeCadastrarUsina = false, aoFechar, aoAtualizar }: {
   ordem: OrdemDeServico;
   opcoes: OpcoesDaEngenhariaResposta | null;
   podeAbrirCompras: boolean;
+  /** Tela de Usinas (PLU-347): sem ela, o "Cadastrar usina" não aparece (a API daria 403). */
+  podeCadastrarUsina?: boolean;
   aoFechar: () => void;
   aoAtualizar: () => void;
 }) {
@@ -188,7 +190,7 @@ export function FichaDaOrdem({ ordem: inicial, opcoes, podeAbrirCompras, aoFecha
             ? <Button icon={<Signature size={15} />} disabled={ocupado} onClick={() => { if (aba !== "geral") setAba("geral"); else void concluirComOTermo(); }}>Concluir com o termo</Button> : null;
   const encerrada = ordem.situacao === "concluida" || ordem.situacao === "cancelada";
   // A usina nasce do comissionamento concluído (PLU-347): cliente, UC e empresa vêm da O.S.
-  const cadastraUsina = ordem.situacao === "concluida" && ordem.tipo === "comissionamento" && !ordem.usina;
+  const cadastraUsina = podeCadastrarUsina && ordem.situacao === "concluida" && ordem.tipo === "comissionamento" && !ordem.usina;
   const rodape = cadastraUsina ? <footer className={`${fichaCompras.rodape} ${styles.rodape}`}>
     <span className={fichaCompras.espaco} />
     <Button icon={<Sun size={15} />} onClick={() => void abrirCadastroDeUsina()}>Cadastrar usina</Button>

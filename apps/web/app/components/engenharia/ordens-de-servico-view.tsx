@@ -90,7 +90,7 @@ const ICONE_DO_FILTRO: Record<FiltroDeSituacaoDaTela, LucideIcon> = {
  * pedido ao termo assinado, em cards, lista ou quadro. Filtros, visão e ficha
  * vão no endereço. Esta é a única barra presa da Engenharia.
  */
-export function OrdensDeServicoView({ filtros, lista, quadro, opcoes, hoje, ficha, falhaDaFicha, podeAbrirCompras }: {
+export function OrdensDeServicoView({ filtros, lista, quadro, opcoes, hoje, ficha, falhaDaFicha, podeAbrirCompras, podeCadastrarUsina }: {
   filtros: FiltrosDasOrdens;
   /** A lista traz também as contagens dos metric cards e do filtro (no quadro, sem o filtro de situação). */
   lista: ListarOrdensDeServicoResposta;
@@ -102,6 +102,8 @@ export function OrdensDeServicoView({ filtros, lista, quadro, opcoes, hoje, fich
   falhaDaFicha: "nao_encontrada" | "indisponivel" | null;
   /** Os pedidos de material abrem a ficha em Compras para quem alcança a tela. */
   podeAbrirCompras: boolean;
+  /** Tela de Usinas: o "Cadastrar usina" do comissionamento concluído (a API exige a mesma tela). */
+  podeCadastrarUsina: boolean;
 }) {
   const router = useRouter();
   const [busca, setBusca] = useState(filtros.busca ?? "");
@@ -242,7 +244,7 @@ export function OrdensDeServicoView({ filtros, lista, quadro, opcoes, hoje, fich
 
     <section id="os-conteudo" className={`${estilosClientes.conteudo} ${styles.conteudo}`} role="tabpanel" aria-labelledby={`os-visao-${filtros.visao}`}>{conteudo}</section>
 
-    {ficha ? <FichaDaOrdem key={ficha.id} ordem={ficha} opcoes={opcoes} podeAbrirCompras={podeAbrirCompras} aoFechar={fecharFicha} aoAtualizar={() => router.refresh()} /> : null}
+    {ficha ? <FichaDaOrdem key={ficha.id} ordem={ficha} opcoes={opcoes} podeAbrirCompras={podeAbrirCompras} podeCadastrarUsina={podeCadastrarUsina} aoFechar={fecharFicha} aoAtualizar={() => router.refresh()} /> : null}
     {configurando ? <ConfiguracoesDaEngenharia opcoes={opcoes} aoFechar={() => setConfigurando(false)} /> : null}
     {criando ? <OrdemForm empresaInicial={filtros.empresa} hoje={hoje} prazoSugerido={opcoes?.prazoSugerido} aoCancelar={() => setCriando(false)}
       aoSalvar={(o) => { setCriando(false); setAviso(`${o.codigo} criada: falta agendar.`); router.push(hrefDasOrdens(filtros, o.id), { scroll: false }); router.refresh(); }} /> : null}
