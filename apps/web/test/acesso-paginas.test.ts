@@ -61,6 +61,20 @@ test("Fornecedores abre só com a tela suprimentos.fornecedores (PLU-326)", () =
   assert.equal(podeAbrirPagina({ plataforma: null, departamentos: [{ departamento: "suprimentos", nivel: "membro" }] }, "/suprimentos/fornecedores-outros"), false);
 });
 
+test("Lançamentos abre com financeiro.pagar ou financeiro.receber (PLU-336)", () => {
+  const caminho = "/financeiro/lancamentos";
+  const so = (...telas: ("financeiro.pagar" | "financeiro.receber" | "financeiro.conciliacao" | "financeiro.fiscal")[]): Acesso =>
+    ({ plataforma: null, departamentos: [{ departamento: "financeiro", nivel: "membro", telas }] });
+  assert.equal(podeAbrirPagina(so("financeiro.pagar"), caminho), true);
+  assert.equal(podeAbrirPagina(so("financeiro.receber"), `${caminho}/qualquer`), true);
+  assert.equal(podeAbrirPagina(so("financeiro.conciliacao", "financeiro.fiscal"), caminho), false);
+  assert.equal(podeAbrirPagina(so(), caminho), false);
+  assert.equal(podeAbrirPagina({ plataforma: null, departamentos: [{ departamento: "financeiro", nivel: "gerente" }] }, caminho), true);
+  assert.equal(podeAbrirPagina({ plataforma: null, departamentos: [{ departamento: "crm", nivel: "gerente" }] }, caminho), false);
+  assert.equal(podeAbrirPagina({ plataforma: "admin", departamentos: [] }, caminho), true);
+  assert.equal(podeAbrirPagina(so("financeiro.pagar"), "/financeiro/lancamentos-outros"), false);
+});
+
 test("Compras abre com a tela suprimentos.compras ou com o Financeiro (PLU-328)", () => {
   const caminho = "/suprimentos/compras";
   assert.equal(podeAbrirPagina({ plataforma: null, departamentos: [{ departamento: "suprimentos", nivel: "membro", telas: ["suprimentos.compras"] }] }, caminho), true);

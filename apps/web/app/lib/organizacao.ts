@@ -5,6 +5,7 @@ import {
   companyKeys,
   departamentos as idsDosDepartamentos,
   papelDoAcesso,
+  telasPorDepartamento,
   type Acesso,
   type CompanyKey,
   type Departamento as DepartamentoId,
@@ -12,7 +13,7 @@ import {
 } from "@plugga/shared";
 
 import type { IconName } from "../components/plugga-shell";
-import { podeAbrirPagina } from "./acesso-paginas.ts";
+import { podeAbrirPagina, TELAS_DOS_LANCAMENTOS } from "./acesso-paginas.ts";
 
 /**
  * Organização do plugga-os: Departamento → Processo.
@@ -50,6 +51,12 @@ export type ProcessoStatus = "pronto" | "parcial" | "em-breve";
 
 export type Processo = {
   id?: Tela;
+  /**
+   * O processo abre com qualquer uma destas telas, quando não corresponde a uma
+   * tela só (Lançamentos do Financeiro: contas a pagar ou a receber). Exclusivo
+   * com `id`: um processo declara um ou outro.
+   */
+  telas?: readonly Tela[];
   label: string;
   /** Ausente enquanto o processo não tem tela. */
   rota?: string;
@@ -67,7 +74,19 @@ export type Departamento = {
   label: string;
   icon: IconName;
   processos: Processo[];
+  /**
+   * As telas que se concedem no editor de acesso, quando não são uma por item
+   * do menu. Ausente, valem os processos com `id`.
+   */
+  telas?: readonly { id: Tela; label: string }[];
 };
+
+/** Telas do departamento, com o rótulo, como o editor de acesso e a ficha do membro as mostram. */
+export function telasDoDepartamento(departamento: Departamento): { id: Tela; label: string }[] {
+  return departamento.telas
+    ? [...departamento.telas]
+    : departamento.processos.flatMap((processo) => (processo.id ? [{ id: processo.id, label: processo.label }] : []));
+}
 
 /**
  * Os departamentos na ordem da barra lateral (aprovada pelo André em
@@ -115,11 +134,21 @@ export const DEPARTAMENTOS: Departamento[] = [
     id: "financeiro",
     label: "Financeiro",
     icon: "wallet",
+    // Menu aprovado pelo André em 23/11/2026 (PLU-336). Os ids de tela não
+    // mudaram: as saídas dos Lançamentos exigem `financeiro.pagar` e as
+    // entradas, `financeiro.receber`; Rotinas abre com qualquer tela do
+    // Financeiro. Fiscal segue como tela concedível, sem item no menu (P2).
     processos: [
-      { id: "financeiro.pagar", label: "Contas a pagar", status: "em-breve" },
-      { id: "financeiro.receber", label: "Contas a receber", status: "em-breve" },
+      { label: "Visão geral", telas: TELAS_DOS_LANCAMENTOS, status: "em-breve" },
+      { label: "Lançamentos", telas: TELAS_DOS_LANCAMENTOS, status: "em-breve" },
+      { label: "Rotinas do dia", telas: telasPorDepartamento.financeiro, status: "em-breve" },
       { id: "financeiro.conciliacao", label: "Conciliação", status: "em-breve" },
-      { id: "financeiro.fiscal", label: "Fiscal", status: "em-breve" },
+    ],
+    telas: [
+      { id: "financeiro.pagar", label: "Contas a pagar" },
+      { id: "financeiro.receber", label: "Contas a receber" },
+      { id: "financeiro.conciliacao", label: "Conciliação" },
+      { id: "financeiro.fiscal", label: "Fiscal" },
     ],
   },
   {
@@ -155,7 +184,9 @@ export function departamentosPermitidos(acesso: Acesso | null): Departamento[] {
     return DEPARTAMENTOS;
   }
   const visivel = (departamento: Departamento, processo: Processo) =>
-    (alcancaDepartamento(acesso, departamento.id) && (!processo.id || alcancaTela(acesso, processo.id)))
+    (alcancaDepartamento(acesso, departamento.id) && (processo.telas
+      ? processo.telas.some((tela) => alcancaTela(acesso, tela))
+      : !processo.id || alcancaTela(acesso, processo.id)))
     || Boolean(processo.compartilhado && processo.rota && podeAbrirPagina(acesso, processo.rota));
   return DEPARTAMENTOS.map((departamento) => ({ ...departamento, processos: departamento.processos.filter((processo) => visivel(departamento, processo)) }))
     .filter((departamento) => alcancaDepartamento(acesso, departamento.id) || departamento.processos.length > 0);

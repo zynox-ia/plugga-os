@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { departamentos, type Acesso } from "@plugga/shared";
+import { departamentos, telasPorDepartamento, type Acesso, type Tela } from "@plugga/shared";
 
-import { CONFIGURACOES, DEPARTAMENTOS, configuracoesParaAcesso } from "../app/lib/organizacao.ts";
+import { CONFIGURACOES, DEPARTAMENTOS, configuracoesParaAcesso, telasDoDepartamento } from "../app/lib/organizacao.ts";
 import { navGroupsForAccess, navIdForPathname, tituloForNavId } from "../app/lib/navigation.ts";
 
 function rotulos(acesso?: Acesso) {
@@ -50,11 +50,12 @@ describe("sitemap da barra lateral", () => {
     );
     assert.deepEqual(itens["CRM"], ["Pipelines", "Clientes", "Propostas", "Contratos"]);
     assert.deepEqual(itens["Suprimentos"], ["Compras", "Fornecedores", "Estoque"]);
+    // Menu do Financeiro aprovado em 23/11/2026 (PLU-336); Fiscal fica fora do menu (P2).
     assert.deepEqual(itens["Financeiro"], [
-      "Contas a pagar",
-      "Contas a receber",
+      "Visão geral",
+      "Lançamentos",
+      "Rotinas do dia",
       "Conciliação",
-      "Fiscal",
     ]);
     assert.ok(!itens["Engenharia e Obras"]?.includes("Estoque e entrega em obra"));
   });
@@ -135,6 +136,25 @@ describe("barra lateral pelo acesso", () => {
     const grupos = navGroupsForAccess().filter((grupo) => grupo.collapsible);
     assert.deepEqual(grupos.map((grupo) => grupo.id).sort(), [...departamentos].sort());
     assert.ok(!grupos.some((grupo) => grupo.label === "Marketing"), "Marketing saiu da barra lateral");
+  });
+
+  it("o menu do Financeiro segue as telas: Lançamentos com pagar ou receber, Conciliação com a dela (PLU-336)", () => {
+    const itens = (...telas: Tela[]) => navGroupsForAccess({ plataforma: null, departamentos: [{ departamento: "financeiro", nivel: "membro", telas }] })
+      .find((grupo) => grupo.label === "Financeiro")?.items.map((item) => item.label);
+    assert.deepEqual(itens("financeiro.pagar"), ["Visão geral", "Lançamentos", "Rotinas do dia"]);
+    assert.deepEqual(itens("financeiro.receber"), ["Visão geral", "Lançamentos", "Rotinas do dia"]);
+    assert.deepEqual(itens("financeiro.conciliacao"), ["Rotinas do dia", "Conciliação"]);
+    assert.deepEqual(itens("financeiro.fiscal"), ["Rotinas do dia"]);
+  });
+
+  it("o editor de acesso concede as 4 telas do Financeiro, separadas do menu (PLU-336)", () => {
+    const financeiro = DEPARTAMENTOS.find((departamento) => departamento.id === "financeiro")!;
+    assert.deepEqual(telasDoDepartamento(financeiro).map((tela) => tela.id), [...telasPorDepartamento.financeiro]);
+    assert.deepEqual(telasDoDepartamento(financeiro).map((tela) => tela.label), ["Contas a pagar", "Contas a receber", "Conciliação", "Fiscal"]);
+    // Nos demais, as telas continuam sendo os itens do menu, na mesma ordem.
+    for (const departamento of DEPARTAMENTOS.filter((d) => d.id !== "financeiro")) {
+      assert.deepEqual(telasDoDepartamento(departamento).map((tela) => tela.id), [...telasPorDepartamento[departamento.id]], departamento.id);
+    }
   });
 
   it("gerente vê o departamento que gere, como o membro", () => {

@@ -17,7 +17,7 @@ import {
   IconShield,
   IconUser,
 } from "../components/ui";
-import { DEPARTAMENTOS, ROTULO_DO_PAPEL } from "../lib/organizacao";
+import { DEPARTAMENTOS, ROTULO_DO_PAPEL, telasDoDepartamento } from "../lib/organizacao";
 import { MfaRemoverDeMembro } from "./mfa-remover-de-membro";
 import {
   DESCRICAO_DO_DEPARTAMENTO,
@@ -166,9 +166,9 @@ export function DetalhesDoMembro({
                       </div>
                       <p className="ui-view-dept-desc">{DESCRICAO_DO_DEPARTAMENTO[dept.id]}</p>
                       <div className="ui-view-processos-group">
-                        <span className="ui-view-processos-label">Telas Liberadas ({dept.processos.length})</span>
+                        <span className="ui-view-processos-label">Telas Liberadas ({telasDoDepartamento(dept).length})</span>
                         <div className="ui-view-tags">
-                          {dept.processos.map((proc) => (
+                          {telasDoDepartamento(dept).map((proc) => (
                             <span key={proc.label} className="ui-view-tag">
                               <IconCheck width={12} height={12} className="ui-view-tag-check" aria-hidden="true" />
                               <span>{proc.label}</span>
@@ -196,7 +196,7 @@ export function DetalhesDoMembro({
                       {deptosAtribuidos.map((entrada) => {
                         const deptInfo = DEPARTAMENTOS.find((d) => d.id === entrada.departamento);
                         if (!deptInfo) return null;
-                        const liberados = deptInfo.processos.filter((proc) => proc.id && alcancaTela(membro.acesso, proc.id));
+                        const liberados = telasDoDepartamento(deptInfo).filter((tela) => alcancaTela(membro.acesso, tela.id));
                         return (
                           <div key={deptInfo.id} className="ui-view-dept-card">
                             <div className="ui-view-dept-header">
