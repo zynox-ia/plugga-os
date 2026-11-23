@@ -7,6 +7,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { enviar, type ErroDoFormulario } from "../../lib/clientes";
 import { decimalDigitado, hojeEmManaus, quantidadeDigitada } from "../../lib/compras";
 import { camposDoPedidoAlterados } from "../../lib/ficha-do-pedido";
+import { useItensDeEstoque, VinculoComEstoque } from "../suprimentos/ligacao-com-estoque";
 import { Alert, Button, DatePicker, Dialog, Heading, TextField, TextareaField } from "../ui";
 import { displayCurrency } from "../ui/currency-value";
 import { CampoDeEscolha, DestinoDoPedido, opcoesDeEmpresa, Segmentado, type DestinoEscolhido } from "./campos-de-compra";
@@ -54,6 +55,7 @@ export function NovoPedido({ opcoes, pedido, aoCancelar, aoSalvar }: {
   const proximaChave = useRef(itens.length + 1);
   const focar = useRef(false);
   const hoje = hojeEmManaus();
+  const estoque = useItensDeEstoque(empresa);
 
   useEffect(() => {
     if (!erro || !focar.current) return;
@@ -107,7 +109,7 @@ export function NovoPedido({ opcoes, pedido, aoCancelar, aoSalvar }: {
       {erro?.mensagem ? <Alert tone="danger" title={erro.mensagem} /> : null}
       <section className="ui-dialog-section">
         <div className="ui-dialog-section-header"><Heading as="h3" icon={<FileText />}>O que comprar</Heading></div>
-        <Segmentado rotulo="Empresa" obrigatorio valor={empresa} aoMudar={(v) => { setEmpresa(v); if (destino.destino === "obra" && v !== empresa) setDestino({ ...destino, obraId: null }); }} opcoes={opcoesDeEmpresa} erro={e("empresa")} />
+        <Segmentado rotulo="Empresa" obrigatorio valor={empresa} aoMudar={(v) => { setEmpresa(v); if (destino.destino === "obra" && v !== empresa) setDestino({ ...destino, obraId: null }); if (v !== empresa) setItens((atuais) => atuais.map((i) => ({ ...i, estoqueId: null }))); }} opcoes={opcoesDeEmpresa} erro={e("empresa")} />
         <TextField label="Título" required maxLength={200} value={titulo} onChange={(ev) => setTitulo(ev.target.value)} placeholder="Ex.: Kit solar 8,2 kWp" error={e("titulo")} />
         <TextareaField label="Descrição e observações" maxLength={4000} value={descricao} onChange={(ev) => setDescricao(ev.target.value)} placeholder="Marca preferida, especificação, local de entrega…" error={e("descricao")} />
       </section>
@@ -116,13 +118,15 @@ export function NovoPedido({ opcoes, pedido, aoCancelar, aoSalvar }: {
         <DestinoDoPedido empresa={empresa} obras={obras} valor={destino} aoMudar={setDestino} erros={{ obraId: e("obraId"), clientId: e("clientId") }} aoCriarObra={(o) => setObras((atuais) => [...atuais, o])} />
       </section>
       <section className="ui-dialog-section">
-        <div className="ui-dialog-section-header"><Heading as="h3" icon={<ListChecks />}>Itens</Heading><p className="ui-dialog-section-desc">{itensEditaveis ? "Descrição, quantidade e unidade de cada item." : "Os itens não mudam depois da análise de estoque: as cotações já foram pedidas sobre eles."}</p></div>
+        <div className="ui-dialog-section-header"><Heading as="h3" icon={<ListChecks />}>Itens</Heading><p className="ui-dialog-section-desc">{itensEditaveis ? "Descrição, quantidade e unidade de cada item. Vincule ao estoque para poder atender por ele." : "Os itens não mudam depois da análise de estoque: as cotações já foram pedidas sobre eles."}</p></div>
         <fieldset className={styles.itens} disabled={!itensEditaveis}>
           {itens.map((i, n) => <div key={i.chave} className={styles.item} role="group" aria-label={`Item ${n + 1}`}>
             <TextField aria-label={`Descrição do item ${n + 1}`} maxLength={300} value={i.descricao} onChange={(ev) => alterarItem(i.chave, { descricao: ev.target.value })} placeholder="Ex.: Módulo fotovoltaico 550 W" error={e(`item-${i.chave}-descricao`)} />
             <TextField aria-label={`Quantidade do item ${n + 1}`} inputMode="decimal" value={i.quantidade} onChange={(ev) => alterarItem(i.chave, { quantidade: ev.target.value })} placeholder="Qtd." error={e(`item-${i.chave}-quantidade`)} />
             <div className="ui-field"><select className="ui-input" aria-label={`Unidade do item ${n + 1}`} value={i.unidade} onChange={(ev) => alterarItem(i.chave, { unidade: ev.target.value })}>{[...new Set([...UNIDADES, i.unidade].filter(Boolean))].map((u) => <option key={u} value={u}>{u}</option>)}</select></div>
             <Button variant="secondary" size="sm" iconOnly icon={<X size={14} />} aria-label={`Remover item ${n + 1}`} disabled={itens.length === 1 || !itensEditaveis} onClick={() => setItens((atuais) => atuais.filter((x) => x.chave !== i.chave))} />
+            <VinculoComEstoque numero={n + 1} empresa={empresa} itens={estoque.itens} indisponivel={estoque.indisponivel} valor={i.estoqueId} disabled={!itensEditaveis} erro={e(`itens.${n}.itemDeEstoqueId`)}
+              aoMudar={(item) => alterarItem(i.chave, item ? { estoqueId: item.id, ...(i.descricao.trim() ? {} : { descricao: item.nome }), unidade: item.unidade } : { estoqueId: null })} />
           </div>)}
         </fieldset>
         {e("itens") ? <p className="ui-field-error" role="alert">Erro: {e("itens")}</p> : null}

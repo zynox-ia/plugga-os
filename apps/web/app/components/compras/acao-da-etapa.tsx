@@ -4,10 +4,11 @@ import { formasDePagamento, rotulosDaEtapaDeCompra, rotulosDaFormaDePagamento, t
 import { Ban, CheckCircle2, Clock, Eye, Paperclip, Plus, ShoppingCart, Sparkles, Truck, UserRound, Wallet, Warehouse, type LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
-import { AREA_DA_ETAPA, dataEmManaus, diaCurto, pendenciasDaEtapa, tamanhoDoArquivo, urlDoArquivo, valorEmReais } from "../../lib/compras";
+import { AREA_DA_ETAPA, dataEmManaus, diaCurto, hojeEmManaus, pendenciasDaEtapa, tamanhoDoArquivo, urlDoArquivo, valorEmReais } from "../../lib/compras";
 import { comparacaoComOrcado, diaDoIso, prazoDaEtapaAtual } from "../../lib/ficha-do-pedido";
 import visao from "../pipelines/resumo-do-lead.module.css";
-import { Button, FileDropzone, TextField } from "../ui";
+import { EntradaNoEstoqueDoRecebimento, type EstadoDaEntrada } from "../suprimentos/ligacao-com-estoque";
+import { Button, DatePicker, FileDropzone, TextField } from "../ui";
 import { Segmentado } from "./campos-de-compra";
 import styles from "./ficha-do-pedido.module.css";
 
@@ -53,6 +54,10 @@ function Destaque({ icone: Icone, titulo, tom, children }: { icone: LucideIcon; 
 export type EstadoDaAcao = {
   forma: FormaDePagamento | null; valorFaturado: string; erroValor?: string; erroForma?: string;
   aoForma: (f: FormaDePagamento) => void; aoValorFaturado: (v: string) => void;
+  /** Entrada no estoque dos itens vinculados, no recebimento da aquisição (PLU-333). */
+  entrada: EstadoDaEntrada; errosDaEntrada: Record<string, string>; aoEntrada: (v: EstadoDaEntrada) => void;
+  /** Dia em que o material chegou (AAAA-MM-DD), nos dois caminhos; não pode ser futuro. */
+  recebidoEm: string; erroRecebidoEm?: string; aoRecebidoEm: (v: string) => void;
 };
 
 /** O bloco da etapa atual: decisão de estoque, resumo para aprovar, pagamento, recebimento ou o encerramento. */
@@ -114,7 +119,9 @@ export function AcaoDaEtapa({ pedido, ocupado, estado, aoDecidir, aoVerCotacoes,
       const estoque = pedido.origemAtendimento === "estoque";
       return <Destaque icone={Truck} titulo={estoque ? "Separar e entregar do estoque" : "Retirada ou recebimento"}>
         <p>{estoque ? "O material sai do estoque. Confirme quando for entregue no destino." : `${pedido.pagamento ? `Pago por ${rotulosDaFormaDePagamento[pedido.pagamento.forma]} em ${dataEmManaus(pedido.pagamento.registrado.em)}. ` : ""}Confirme quando o material chegar ou for retirado; o pedido é concluído.`}</p>
+        {pode("confirmar_recebimento") ? <DatePicker label="Recebido em" required max={hojeEmManaus()} value={estado.recebidoEm} onChange={estado.aoRecebidoEm} hint={estoque ? "Dia em que o material foi entregue no destino." : "Dia em que o material chegou ou foi retirado."} error={estado.erroRecebidoEm} /> : null}
         {!estoque && pode("confirmar_recebimento") ? <TextField label="Valor faturado" required inputMode="decimal" prefix="R$" value={estado.valorFaturado} onChange={(e) => estado.aoValorFaturado(e.target.value)} placeholder="0,00" hint="Valor da nota fiscal." error={estado.erroValor} /> : null}
+        {!estoque && pode("confirmar_recebimento") ? <EntradaNoEstoqueDoRecebimento pedido={pedido} valor={estado.entrada} aoMudar={estado.aoEntrada} erros={estado.errosDaEntrada} disabled={ocupado} /> : null}
       </Destaque>;
     }
     case "concluido": {

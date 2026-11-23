@@ -4,10 +4,11 @@ import { etapasDeCompra, rotulosDaEtapaDeCompra, rotulosDaFormaDePagamento, rotu
 import { ArrowRight, Ban, Check, Send, ShoppingCart, Truck, Undo2, Wallet, X } from "lucide-react";
 import { useState } from "react";
 
-import { dataEmManaus, decimalDigitado, ROTULO_DA_EMPRESA, diaCurto, diaLegivel, valorEmReais } from "../../lib/compras";
+import { dataEmManaus, decimalDigitado, hojeEmManaus, ROTULO_DA_EMPRESA, diaCurto, diaLegivel, valorEmReais } from "../../lib/compras";
 import { etapasPuladas, prazoDaEtapaAtual } from "../../lib/ficha-do-pedido";
 import { Avatar } from "../pipelines/icones";
 import visao from "../pipelines/resumo-do-lead.module.css";
+import { entradaDoRecebimento, entradaInicial, type EstadoDaEntrada } from "../suprimentos/ligacao-com-estoque";
 import { Button } from "../ui";
 import { displayCurrency } from "../ui/currency-value";
 import { AcaoDaEtapa, PainelDoPasso } from "./acao-da-etapa";
@@ -47,7 +48,10 @@ export function VisaoGeralDoPedido({ pedido, hoje, ocupado, aoAgir, aoPedirMotiv
   const escolhida = pedido.cotacoes.find((c) => c.id === pedido.cotacaoSelecionadaId);
   const [forma, setForma] = useState<FormaDePagamento | null>(pedido.pagamento?.forma ?? null);
   const [valorFaturado, setValorFaturado] = useState(() => (pedido.valorCotado ? displayCurrency(Number(pedido.valorCotado).toFixed(2)) : ""));
-  const [erros, setErros] = useState<{ forma?: string; valor?: string }>({});
+  const [erros, setErros] = useState<{ forma?: string; valor?: string; recebidoEm?: string }>({});
+  const [recebidoEm, setRecebidoEm] = useState(() => hojeEmManaus());
+  const [entrada, setEntrada] = useState<EstadoDaEntrada>(() => entradaInicial(pedido));
+  const [errosDaEntrada, setErrosDaEntrada] = useState<Record<string, string>>({});
   const pode = (a: PedidoDeCompra["acoesPermitidas"][number]) => pedido.acoesPermitidas.includes(a);
   const prazo = prazoDaEtapaAtual(pedido, hoje);
   const valor = pedido.valorFaturado ?? pedido.valorCotado ?? pedido.valorOrcado;
@@ -60,10 +64,15 @@ export function VisaoGeralDoPedido({ pedido, hoje, ocupado, aoAgir, aoPedirMotiv
     setErros({}); aoAgir({ acao: "registrar_pagamento", forma });
   }
   function receber() {
-    if (pedido.origemAtendimento === "estoque") { aoAgir({ acao: "confirmar_recebimento" }); return; }
+    if (!recebidoEm) { setErros({ recebidoEm: "informe o dia do recebimento (dd/mm/aaaa)." }); return; }
+    if (recebidoEm > hojeEmManaus()) { setErros({ recebidoEm: "o recebimento não pode ser numa data futura." }); return; }
+    if (pedido.origemAtendimento === "estoque") { setErros({}); aoAgir({ acao: "confirmar_recebimento", recebidoEm }); return; }
     const v = decimalDigitado(valorFaturado);
+    const noEstoque = entradaDoRecebimento(entrada);
+    setErrosDaEntrada(noEstoque.erros);
     if (!v || Number(v) <= 0) { setErros({ valor: "informe o valor da nota, como 1.450,00." }); return; }
-    setErros({}); aoAgir({ acao: "confirmar_recebimento", valorFaturado: v });
+    if (Object.keys(noEstoque.erros).length) { setErros({}); return; }
+    setErros({}); aoAgir({ acao: "confirmar_recebimento", recebidoEm, valorFaturado: v, ...(noEstoque.entrada ? { entradaNoEstoque: noEstoque.entrada } : {}) });
   }
 
   const principal = pedido.etapa === "pedido_gerado" && pode("iniciar_analise") ? <Button icon={<ArrowRight size={15} />} disabled={ocupado} onClick={() => aoAgir({ acao: "iniciar_analise" })}>Iniciar análise de estoque</Button>
@@ -95,7 +104,7 @@ export function VisaoGeralDoPedido({ pedido, hoje, ocupado, aoAgir, aoPedirMotiv
     <PainelDoPasso pedido={pedido} hoje={hoje} />
 
     <AcaoDaEtapa pedido={pedido} ocupado={ocupado}
-      estado={{ forma, valorFaturado, erroForma: erros.forma, erroValor: erros.valor, aoForma: setForma, aoValorFaturado: setValorFaturado }}
+      estado={{ forma, valorFaturado, erroForma: erros.forma, erroValor: erros.valor, aoForma: setForma, aoValorFaturado: setValorFaturado, entrada, errosDaEntrada, aoEntrada: setEntrada, recebidoEm, erroRecebidoEm: erros.recebidoEm, aoRecebidoEm: setRecebidoEm }}
       aoDecidir={(origem) => aoAgir({ acao: "decidir_estoque", origem })} aoVerCotacoes={aoVerCotacoes} aoNovaCotacao={aoNovaCotacao} aoComprovante={aoComprovante} />
 
     <section aria-label="Dados do pedido">

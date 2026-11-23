@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  rotulosDaCategoriaDeItemDeEstoque,
   type BuscarClientesDeCompraResposta,
   type CompanyKey,
   type ItemDeEstoqueNaLista,
@@ -15,7 +14,8 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 
 import { enviar, type ErroDoFormulario } from "../../lib/clientes";
 import { hojeEmManaus, numeroDoPedido, ROTULO_DA_EMPRESA } from "../../lib/compras";
-import { numeroDigitado, paraContrato, previaDaMovimentacao, qtd, tomDoDisponivel, type TipoRegistravel } from "../../lib/estoque";
+import { numeroDigitado, paraContrato, previaDaMovimentacao, qtd, type TipoRegistravel } from "../../lib/estoque";
+import { opcoesDeItens } from "../suprimentos/ligacao-com-estoque";
 import { CampoDeMenu, type OpcaoDoMenu } from "../suprimentos/menu-com-busca";
 import { Alert, Button, DatePicker, Dialog, TextField } from "../ui";
 import styles from "./estoque.module.css";
@@ -37,19 +37,6 @@ const DESTINOS: OpcaoDoMenu[] = [
   { value: "cliente", label: "Cliente", icon: <HardHat /> },
   { value: "interno", label: "Uso interno", icon: <HardHat /> },
 ];
-
-/** Itens da empresa no menu: nome, código e categoria, e o disponível à direita com o tom. */
-export function opcoesDeItens(itens: ItemDeEstoqueNaLista[], empresa: CompanyKey | null): OpcaoDoMenu[] {
-  if (!empresa) return [];
-  return itens.filter((i) => i.empresa === empresa && i.ativo).map((i) => ({
-    value: i.id,
-    label: i.nome,
-    description: `${i.codigo} · ${rotulosDaCategoriaDeItemDeEstoque[i.categoria]}`,
-    icon: <Package />,
-    aside: qtd(i.saldo.disponivel, i.unidade),
-    tone: tomDoDisponivel(i.saldo),
-  }));
-}
 
 type Pedido = ListarPedidosDeCompraResposta["itens"][number];
 

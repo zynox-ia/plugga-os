@@ -12,14 +12,36 @@ import { bloquearTerceiros } from "./support/sem-terceiros";
 test.use({ extraHTTPHeaders: { "x-forwarded-for": "203.0.113.229" } });
 
 const ficha = (page: Page) => page.locator("dialog[open]").first();
+const PDF = { name: "cotacao-e2e.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n") };
+/** O nome sintético tem parênteses: escapa para usar em RegExp. */
+const literal = (texto: string) => texto.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 function diaFuturo(dias: number): string {
-  return new Date(Date.now() + dias * 86_400_000).toISOString().slice(0, 10);
+  const d = new Date(Date.now() + dias * 86_400_000);
+  return `${String(d.getUTCDate()).padStart(2, "0")}/${String(d.getUTCMonth() + 1).padStart(2, "0")}/${d.getUTCFullYear()}`;
 }
 
-test("item novo recebe entrada, é reservado por um pedido e baixado no recebimento", async ({ page, baseURL }) => {
+/** Novo pedido da Waze, destino interno, com um item vinculado ao item de estoque `nome`; a ficha do pedido fica aberta. */
+async function criarPedidoVinculado(page: Page, sufixo: string, nome: string, quantidade: string) {
+  await page.goto("/suprimentos/compras");
+  await page.getByRole("button", { name: "Novo pedido" }).first().click();
+  const novo = page.getByRole("dialog", { name: "Novo pedido de compra" });
+  await novo.getByRole("radio", { name: "Waze Energia" }).click();
+  await novo.getByLabel("Título").fill(`Material E2E ${sufixo} (sintético)`);
+  await novo.getByRole("radio", { name: "Interno" }).click();
+  await novo.getByRole("combobox", { name: /Estoque do item 1/ }).click();
+  const busca = page.getByRole("searchbox", { name: /Buscar em Estoque do item 1/ });
+  if (await busca.count()) await busca.fill(sufixo);
+  await page.getByRole("option", { name: new RegExp(literal(nome)) }).click();
+  await expect(novo.getByLabel("Descrição do item 1")).toHaveValue(nome);
+  await novo.getByLabel("Quantidade do item 1").fill(quantidade);
+  await novo.getByRole("textbox", { name: /Entrega desejada/ }).fill(diaFuturo(10));
+  await novo.getByRole("button", { name: "Criar pedido" }).click();
+  await expect(ficha(page).getByRole("heading", { name: `Material E2E ${sufixo} (sintético)` })).toBeVisible();
+}
+
+test("item novo recebe entrada, é reservado por um pedido e baixado no recebimento", async ({ page }) => {
   await bloquearTerceiros(page);
-  const origem = { origin: new URL(baseURL!).origin };
   const sufixo = Date.now().toString(36).toUpperCase();
   const nome = `Conector E2E ${sufixo} (sintético)`;
 
@@ -54,17 +76,12 @@ test("item novo recebe entrada, é reservado por um pedido e baixado no recebime
   await expect(ficha(page).getByText("Disponível para novos pedidos")).toBeVisible();
   await expect(ficha(page).locator("strong", { hasText: /^50 un$/ }).first()).toBeVisible();
 
-  // 3. Pedido de compra com o item vinculado, atendido pelo estoque: reserva 12.
-  const pedido = await page.request.post("/api/suprimentos/compras/pedidos", {
-    headers: origem,
-    data: { empresa: "waze", titulo: `Reposição E2E ${sufixo} (sintético)`, destino: "interno", itens: [{ descricao: nome, quantidade: "12", unidade: "un", itemDeEstoqueId: itemId }], prazoEntregaDesejado: diaFuturo(10) },
-  });
-  expect(pedido.status(), await pedido.text()).toBe(201);
-  const { id: pedidoId } = (await pedido.json()) as { id: string };
-  for (const acao of [{ acao: "iniciar_analise" }, { acao: "decidir_estoque", origem: "estoque" }]) {
-    const r = await page.request.post(`/api/suprimentos/compras/pedidos/${pedidoId}/acoes`, { headers: origem, data: acao });
-    expect(r.status(), await r.text()).toBeLessThan(300);
-  }
+  // 3. Pedido de compra com o item vinculado ao estoque (Novo pedido), atendido pelo estoque: reserva 12.
+  await criarPedidoVinculado(page, sufixo, nome, "12");
+  await ficha(page).getByRole("button", { name: "Iniciar análise de estoque" }).click();
+  await expect(ficha(page).locator(".aviso--sucesso")).toHaveText("Pedido em análise de estoque.");
+  await ficha(page).getByRole("button", { name: /Sim, atender pelo estoque/ }).click();
+  await expect(ficha(page).getByRole("button", { name: "Confirmar recebimento" })).toBeVisible();
 
   await page.goto(`/suprimentos/estoque?item=${itemId}`);
   await expect(ficha(page).getByRole("heading", { name: nome })).toBeVisible();
@@ -74,8 +91,9 @@ test("item novo recebe entrada, é reservado por um pedido e baixado no recebime
   await expect(ficha(page).locator("strong", { hasText: /^38 un$/ }).first()).toBeVisible();
 
   // 4. Recebimento: a reserva vira saída.
-  const recebido = await page.request.post(`/api/suprimentos/compras/pedidos/${pedidoId}/acoes`, { headers: origem, data: { acao: "confirmar_recebimento" } });
-  expect(recebido.status(), await recebido.text()).toBeLessThan(300);
+  await reservas.getByRole("link", { name: "Abrir pedido" }).click();
+  await ficha(page).getByRole("button", { name: "Confirmar recebimento" }).click();
+  await expect(ficha(page).locator(".aviso--sucesso")).toContainText("Recebimento confirmado");
 
   await page.goto(`/suprimentos/estoque?visao=movimentacoes&item_mov=${itemId}`);
   const lista = page.locator("#estoque-conteudo");
@@ -83,7 +101,9 @@ test("item novo recebe entrada, é reservado por um pedido e baixado no recebime
   await expect(lista.getByRole("button", { name: new RegExp(`^Reserva de ${nome.replace(/[()]/g, "\\$&")}, 12 un`) })).toBeVisible();
   await expect(lista.getByRole("button", { name: new RegExp(`^Entrada de ${nome.replace(/[()]/g, "\\$&")}, \\+50 un`) })).toBeVisible();
 
-  await lista.getByRole("button", { name: new RegExp(`^Saída de`) }).click();
+  // A linha abre o detalhe também pelo teclado.
+  await lista.getByRole("button", { name: new RegExp(`^Saída de`) }).focus();
+  await page.keyboard.press("Enter");
   const detalhe = page.getByRole("dialog", { name: new RegExp(`^Saída · ${nome.replace(/[()]/g, "\\$&")}`) });
   await expect(detalhe.getByText("Movimentação registrada não se edita")).toBeVisible();
   await detalhe.getByRole("button", { name: "Ver item" }).click();
@@ -120,4 +140,51 @@ test("Registrar movimentação: a empresa filtra o item e trocar a empresa limpa
   await data.fill(`${String(amanha.getUTCDate()).padStart(2, "0")}/${String(amanha.getUTCMonth() + 1).padStart(2, "0")}/${amanha.getUTCFullYear()}`);
   await data.blur();
   await expect(data).toHaveAttribute("aria-invalid", "true");
+});
+
+test("aquisição de item vinculado dá entrada no estoque no recebimento", async ({ page, baseURL }) => {
+  await bloquearTerceiros(page);
+  const origem = { origin: new URL(baseURL!).origin };
+  const sufixo = Date.now().toString(36).toUpperCase();
+  const nome = `Disjuntor E2E ${sufixo} (sintético)`;
+  const item = await page.request.post("/api/suprimentos/estoque/itens", { headers: origem, data: { empresa: "waze", codigo: `E2E-${sufixo}`, nome, categoria: "material_eletrico", unidade: "un", estoqueMinimo: "0" } });
+  expect(item.status(), await item.text()).toBe(201);
+  const { id: itemId } = (await item.json()) as { id: string };
+  const fornecedor = await page.request.post("/api/suprimentos/fornecedores", { headers: origem, data: { nome: `Fornecedor E2E ${sufixo} (sintético)`, categoria: "material_eletrico" } });
+  expect(fornecedor.status(), await fornecedor.text()).toBe(201);
+  const { nome: nomeDoFornecedor } = (await fornecedor.json()) as { nome: string };
+
+  await criarPedidoVinculado(page, sufixo, nome, "5");
+  await ficha(page).getByRole("button", { name: "Iniciar análise de estoque" }).click();
+  await ficha(page).getByRole("button", { name: /Não, precisa comprar/ }).click();
+  await expect(ficha(page).locator(".aviso--sucesso")).toContainText("Cotações");
+  await ficha(page).getByRole("button", { name: "Adicionar cotação" }).click();
+  const cotacao = page.getByRole("dialog", { name: "Adicionar cotação" });
+  await cotacao.getByRole("combobox").first().click();
+  await page.getByRole("option", { name: nomeDoFornecedor }).click();
+  await cotacao.getByLabel("Valor").fill("190,00");
+  await cotacao.getByLabel("Prazo de entrega (dias úteis)").fill("2");
+  await cotacao.locator("input[type=file]").setInputFiles(PDF);
+  await cotacao.getByRole("button", { name: "Registrar cotação" }).click();
+  await expect(ficha(page).locator(".aviso--sucesso")).toHaveText("Cotação registrada.");
+  await ficha(page).getByRole("tab", { name: /Cotações/ }).click();
+  await ficha(page).getByRole("button", { name: "Escolher como vencedora" }).click();
+  await ficha(page).getByRole("tab", { name: "Visão geral" }).click();
+  await ficha(page).getByRole("button", { name: "Enviar para aprovação" }).click();
+  await ficha(page).getByRole("button", { name: "Aprovar compra" }).click();
+  await ficha(page).getByRole("radio", { name: "PIX" }).click();
+  await ficha(page).getByRole("button", { name: "Registrar pagamento" }).click();
+  await expect(ficha(page).locator(".aviso--sucesso")).toHaveText("Pagamento registrado.");
+
+  const entrada = ficha(page).getByRole("group", { name: `Entrada de ${nome}` });
+  await expect(entrada.getByLabel(/Quantidade recebida/)).toHaveValue("5");
+  await ficha(page).getByRole("button", { name: "Confirmar recebimento" }).click();
+  await expect(entrada.getByText("Erro: informe o custo, como 9,50.")).toBeVisible();
+  await entrada.getByLabel(/Custo unitário/).fill("38,00");
+  await ficha(page).getByRole("button", { name: "Confirmar recebimento" }).click();
+  await expect(ficha(page).locator(".aviso--sucesso")).toHaveText("Recebimento confirmado: aquisição concluída.");
+
+  await page.goto(`/suprimentos/estoque?item=${itemId}`);
+  await expect(ficha(page).getByRole("group", { name: "Saldo do item" })).toContainText("5 un");
+  await expect(ficha(page).getByRole("group", { name: "Saldo do item" })).toContainText("R$ 190,00 pelo custo médio");
 });

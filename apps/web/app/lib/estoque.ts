@@ -6,6 +6,7 @@ import {
   type CompanyKey,
   type ItemDeEstoqueNaLista,
   type Movimentacao,
+  type PedidoDeCompra,
   type SituacaoDoSaldo,
   type TipoDeMovimentacao,
 } from "@plugga/shared";
@@ -257,3 +258,29 @@ export function horaEmManaus(iso: string): string {
 export const primeiroNome = (nome: string | undefined | null): string => nome?.trim().split(/\s+/)[0] ?? "—";
 
 export const UNIDADES_DE_ESTOQUE = ["un", "m", "par", "kit", "cx", "kg", "rolo", "lote", "l"] as const;
+
+// ---------------------------------------------------------------- recebimento de compra
+
+export type EntradaDoItem = { marcado: boolean; quantidade: string; custo: string };
+export type EstadoDaEntrada = Record<string, EntradaDoItem>;
+
+/** Itens do pedido vinculados ao estoque: os que podem dar entrada no recebimento. */
+export const itensComVinculo = (pedido: Pick<PedidoDeCompra, "itens">) => pedido.itens.filter((i) => i.itemDeEstoque);
+
+/** Começa com todos os vinculados marcados e a quantidade do pedido. */
+export function entradaInicial(pedido: Pick<PedidoDeCompra, "itens">): EstadoDaEntrada {
+  return Object.fromEntries(itensComVinculo(pedido).map((i) => [i.id, { marcado: true, quantidade: Number(i.quantidade).toLocaleString("pt-BR", { maximumFractionDigits: 3 }), custo: "" }]));
+}
+
+/** O `entradaNoEstoque` da ação confirmar_recebimento, ou os erros por item. Sem item marcado: nada a enviar. */
+export function entradaDoRecebimento(estado: EstadoDaEntrada): { entrada?: { itemDoPedidoId: string; quantidade: string; custoUnitario: string }[]; erros: Record<string, string> } {
+  const erros: Record<string, string> = {};
+  const entrada = Object.entries(estado).filter(([, e]) => e.marcado).map(([id, e]) => {
+    const q = numeroDigitado(e.quantidade);
+    const c = numeroDigitado(e.custo, 2);
+    if (q === null || q <= 0) erros[`${id}-quantidade`] = "quantidade maior que zero.";
+    if (c === null || c <= 0) erros[`${id}-custo`] = "informe o custo, como 9,50.";
+    return { itemDoPedidoId: id, quantidade: q ? paraContrato(q, 3) : "", custoUnitario: c ? c.toFixed(2) : "" };
+  });
+  return Object.keys(erros).length ? { erros } : { entrada: entrada.length ? entrada : undefined, erros };
+}

@@ -4,6 +4,8 @@ import { describe, it } from "node:test";
 import {
   consultaDeMovimentacoes,
   deltaDaMovimentacao,
+  entradaDoRecebimento,
+  entradaInicial,
   horaEmManaus,
   hrefDeEstoque,
   lerFiltrosDeEstoque,
@@ -126,5 +128,21 @@ describe("Estoque: rota e menu (PLU-333)", () => {
     assert.ok(suprimentos?.items.some((i) => i.id === "/suprimentos/estoque" && !i.disabled));
     assert.equal(navIdForPathname("/suprimentos/estoque"), "/suprimentos/estoque");
     assert.equal(tituloForNavId("/suprimentos/estoque"), "Estoque");
+  });
+});
+
+describe("Compras ↔ Estoque: entrada no recebimento (PLU-333)", () => {
+  const ITEM = "22222222-2222-4222-8222-222222222222";
+  const pedido = { itens: [
+    { id: ITEM, descricao: "Cabo", quantidade: "1234.500", unidade: "m", itemDeEstoque: { id: ID, codigo: "ME-0021", nome: "Cabo solar" } },
+    { id: "33333333-3333-4333-8333-333333333333", descricao: "Frete", quantidade: "1", unidade: null, itemDeEstoque: null },
+  ] };
+  it("só os itens vinculados entram, marcados e com a quantidade do pedido", () => {
+    assert.deepEqual(entradaInicial(pedido), { [ITEM]: { marcado: true, quantidade: "1.234,5", custo: "" } });
+  });
+  it("monta o entradaNoEstoque ou devolve os erros por item", () => {
+    assert.deepEqual(entradaDoRecebimento({ [ITEM]: { marcado: true, quantidade: "1.234,5", custo: "6,90" } }), { entrada: [{ itemDoPedidoId: ITEM, quantidade: "1234.5", custoUnitario: "6.90" }], erros: {} });
+    assert.deepEqual(entradaDoRecebimento({ [ITEM]: { marcado: true, quantidade: "0", custo: "" } }).erros, { [`${ITEM}-quantidade`]: "quantidade maior que zero.", [`${ITEM}-custo`]: "informe o custo, como 9,50." });
+    assert.deepEqual(entradaDoRecebimento({ [ITEM]: { marcado: false, quantidade: "", custo: "" } }), { entrada: undefined, erros: {} });
   });
 });
