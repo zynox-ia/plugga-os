@@ -1,12 +1,12 @@
 "use client";
 
-import { rotulosDaEtapaDeCompra, rotulosDaFormaDePagamento, type EtapaDeCompra, type Fornecedor, type HistoricoDeCotacoesResposta } from "@plugga/shared";
-import { Check, Copy, Eye, EyeOff, Trophy } from "lucide-react";
+import { rotulosDaEtapaDeCompra, rotulosDaFormaDePagamento, type DadosDePagamentoRevelados, type EtapaDeCompra, type Fornecedor, type HistoricoDeCotacoesResposta } from "@plugga/shared";
+import { Check, Clock, Copy, Eye, EyeOff, Trophy } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
 import { dataEmManaus, hrefDeCompras, numeroDoPedido, valorEmReais } from "../../lib/compras";
-import { larguraDaBarra, mascararSegredo } from "../../lib/fornecedores";
+import { larguraDaBarra, ROTULO_DO_RESULTADO } from "../../lib/fornecedores";
 import { EmpresaDoPedido } from "../compras/quadro-de-compras";
 import { Button } from "../ui";
 import styles from "./ficha-do-fornecedor.module.css";
@@ -36,37 +36,70 @@ export function CotacoesDoFornecedor({ historico, podeAbrirCompras }: { historic
           <span>{c.pedido.titulo}</span>
           <small>{dataEmManaus(c.data)} · <EmpresaDoPedido empresa={c.pedido.empresa} curta /> · {situacaoDoPedido(c.pedido.situacao)}</small>
         </div>
-        <div className={styles.barraValor} aria-hidden="true"><span className={c.venceu ? styles.barraVenceu : undefined} style={{ width: `${larguraDaBarra(c.valorTotal, maior)}%` }} /></div>
+        <div className={styles.barraValor} aria-hidden="true"><span className={c.resultado === "venceu" ? styles.barraVenceu : undefined} style={{ width: `${larguraDaBarra(c.valorTotal, maior)}%` }} /></div>
         <span className={styles.valor}>{valorEmReais(c.valorTotal)}</span>
-        {c.venceu
-          ? <span className={`${styles.selo} ${styles.seloOk}`}><Trophy size={11} aria-hidden="true" />Venceu</span>
-          : <span className={styles.selo}>Não venceu</span>}
+        {c.resultado === "venceu"
+          ? <span className={`${styles.selo} ${styles.seloOk}`}><Trophy size={11} aria-hidden="true" />{ROTULO_DO_RESULTADO.venceu}</span>
+          : c.resultado === "escolhida"
+            ? <span className={styles.selo} title="Escolhida no pedido; só conta como vitória quando a compra for aprovada."><Clock size={11} aria-hidden="true" />{ROTULO_DO_RESULTADO.escolhida}</span>
+            : <span className={styles.selo}>{ROTULO_DO_RESULTADO.nao_venceu}</span>}
       </li>)}
     </ul>}
   </div>;
 }
 
-function LinhaSecreta({ rotulo, valor, aoCopiar }: { rotulo: string; valor: string | null; aoCopiar: (texto: string, rotulo: string) => void }) {
-  const [visivel, setVisivel] = useState(false);
+type Revelar = (motivo: "mostrar" | "copiar") => Promise<DadosDePagamentoRevelados | null>;
+
+function LinhaSecreta({ rotulo, mascarado, completo, visivel, aoMostrar, aoCopiar, ocupado }: {
+  rotulo: string; mascarado: string | null; completo: string | null | undefined; visivel: boolean;
+  aoMostrar: () => void; aoCopiar: () => void; ocupado: boolean;
+}) {
   return <div className={styles.linhaPagamento}>
     <div>
       <span>{rotulo}</span>
-      <strong>{valor ? (visivel ? valor : mascararSegredo(valor)) : <span className={styles.ausente}>Não informado</span>}</strong>
+      <strong>{mascarado ? (visivel && completo ? completo : mascarado) : <span className={styles.ausente}>Não informado</span>}</strong>
     </div>
-    {valor ? <div className={styles.botoes}>
-      <Button variant="secondary" size="sm" icon={visivel ? <EyeOff size={14} /> : <Eye size={14} />} aria-pressed={visivel} aria-label={`${visivel ? "Ocultar" : "Mostrar"} ${rotulo}`} onClick={() => setVisivel((v) => !v)}>{visivel ? "Ocultar" : "Mostrar"}</Button>
-      <Button variant="secondary" size="sm" icon={<Copy size={14} />} aria-label={`Copiar ${rotulo}`} onClick={() => aoCopiar(valor, rotulo)}>Copiar</Button>
+    {mascarado ? <div className={styles.botoes}>
+      <Button variant="secondary" size="sm" icon={visivel ? <EyeOff size={14} /> : <Eye size={14} />} aria-pressed={visivel} disabled={ocupado} aria-label={`${visivel ? "Ocultar" : "Mostrar"} ${rotulo}`} onClick={aoMostrar}>{visivel ? "Ocultar" : "Mostrar"}</Button>
+      <Button variant="secondary" size="sm" icon={<Copy size={14} />} disabled={ocupado} aria-label={`Copiar ${rotulo}`} onClick={aoCopiar}>Copiar</Button>
     </div> : null}
   </div>;
 }
 
-/** Dados de pagamento escondidos por padrão (proposta aprovada): Mostrar e Copiar. */
-export function PagamentoDoFornecedor({ fornecedor: f, aoCopiar }: { fornecedor: Fornecedor; aoCopiar: (texto: string, rotulo: string) => void }) {
+/**
+ * Dados de pagamento: a ficha só recebe a versão mascarada. Mostrar e Copiar
+ * pedem o completo à API, que grava quem pediu, quando e por quê.
+ */
+export function PagamentoDoFornecedor({ fornecedor: f, aoRevelar, aoCopiar }: { fornecedor: Fornecedor; aoRevelar: Revelar; aoCopiar: (texto: string, rotulo: string) => void }) {
+  const [revelados, setRevelados] = useState<DadosDePagamentoRevelados | null>(null);
+  const [visiveis, setVisiveis] = useState<{ pix: boolean; banco: boolean }>({ pix: false, banco: false });
+  const [ocupado, setOcupado] = useState(false);
+
+  async function completos(motivo: "mostrar" | "copiar") {
+    if (revelados) return revelados;
+    setOcupado(true);
+    const r = await aoRevelar(motivo);
+    setOcupado(false);
+    if (r) setRevelados(r);
+    return r;
+  }
+  async function mostrar(campo: "pix" | "banco") {
+    if (visiveis[campo]) { setVisiveis((v) => ({ ...v, [campo]: false })); return; }
+    if (await completos("mostrar")) setVisiveis((v) => ({ ...v, [campo]: true }));
+  }
+  async function copiar(campo: "pix" | "banco", rotulo: string) {
+    const r = await completos("copiar");
+    const valor = campo === "pix" ? r?.chavePix : r?.dadosBancarios;
+    if (valor) aoCopiar(valor, rotulo);
+  }
+
   return <div className={styles.corpo}>
-    <div className={styles.barra}><div><h3>Dados de pagamento</h3><p>Escondidos por padrão. Mostre só na hora de pagar.</p></div></div>
+    <div className={styles.barra}><div><h3>Dados de pagamento</h3><p>Escondidos por padrão. Mostrar e Copiar ficam registrados, com quem pediu e quando.</p></div></div>
     <div className={styles.pagamento}>
-      <LinhaSecreta rotulo="Chave PIX" valor={f.chavePix} aoCopiar={aoCopiar} />
-      <LinhaSecreta rotulo="Dados bancários" valor={f.dadosBancarios} aoCopiar={aoCopiar} />
+      <LinhaSecreta rotulo="Chave PIX" mascarado={f.chavePixMascarada} completo={revelados?.chavePix} visivel={visiveis.pix} ocupado={ocupado}
+        aoMostrar={() => void mostrar("pix")} aoCopiar={() => void copiar("pix", "Chave PIX")} />
+      <LinhaSecreta rotulo="Dados bancários" mascarado={f.dadosBancariosMascarados} completo={revelados?.dadosBancarios} visivel={visiveis.banco} ocupado={ocupado}
+        aoMostrar={() => void mostrar("banco")} aoCopiar={() => void copiar("banco", "Dados bancários")} />
     </div>
     <div className={styles.selos} aria-label="Formas de pagamento aceitas">
       {f.formasDePagamento.length

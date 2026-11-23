@@ -125,15 +125,8 @@ export function linksDoTelefone(telefone: string | null): { ligar: string; whats
   return { ligar: `tel:+55${nacional}`, whatsapp: `https://wa.me/55${nacional}` };
 }
 
-/**
- * Segredo de pagamento escondido por padrão: mostra só o fim, o bastante para
- * reconhecer ("•••• 0159"), sem expor a chave inteira na tela.
- */
-export function mascararSegredo(valor: string): string {
-  const limpo = valor.trim();
-  if (limpo.length <= 4) return "••••";
-  return `•••• ${limpo.slice(-4)}`;
-}
+/** Resultado da cotação no histórico (PLU-334): a escolhida só vira vitória quando o pedido é aprovado. */
+export const ROTULO_DO_RESULTADO = { venceu: "Venceu", escolhida: "Escolhida · aguardando aprovação", nao_venceu: "Não venceu" } as const;
 
 /** Textos dos 4 cards de desempenho, no padrão da Previsão do CRM. */
 export function textosDoDesempenho(d: DesempenhoDoFornecedor, diaCurtoDe: (iso: string) => string) {

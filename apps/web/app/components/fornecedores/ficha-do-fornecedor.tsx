@@ -1,6 +1,6 @@
 "use client";
 
-import { rotulosDaCategoriaDeFornecedor, type DesempenhoDoFornecedor, type Fornecedor, type HistoricoDeCotacoesResposta } from "@plugga/shared";
+import { rotulosDaCategoriaDeFornecedor, type DadosDePagamentoRevelados, type DesempenhoDoFornecedor, type Fornecedor, type HistoricoDeCotacoesResposta } from "@plugga/shared";
 import { LayoutGrid, MapPin, Paperclip, Pencil, Power, Truck, Wallet, X, type LucideIcon } from "lucide-react";
 import { useId, useRef, useState, type KeyboardEvent } from "react";
 
@@ -23,7 +23,9 @@ export type DadosDaFicha = { fornecedor: Fornecedor; desempenho: DesempenhoDoFor
  * formulário; Inativar e Reativar ficam no rodapé.
  */
 export function FichaDoFornecedor({ dados, podeAbrirCompras, aoFechar, aoEditar, aoAtualizar }: {
-  dados: DadosDaFicha; podeAbrirCompras: boolean; aoFechar: () => void; aoEditar: () => void; aoAtualizar: () => void;
+  dados: DadosDaFicha; podeAbrirCompras: boolean; aoFechar: () => void;
+  /** Recebe a chave PIX e os dados bancários completos, revelados com o motivo "editar". */
+  aoEditar: (pagamento: DadosDePagamentoRevelados) => void; aoAtualizar: () => void;
 }) {
   const id = useId();
   const f = dados.fornecedor;
@@ -49,6 +51,21 @@ export function FichaDoFornecedor({ dados, podeAbrirCompras, aoFechar, aoEditar,
   async function copiar(texto: string, rotulo: string) {
     try { await navigator.clipboard.writeText(texto); setErro(null); setAviso(avisoDeCopia(rotulo)); }
     catch { setAviso(null); setErro(`Não foi possível copiar: ${rotulo}. Selecione e copie à mão.`); }
+  }
+
+  /** O completo vem de uma rota própria, que grava quem pediu e por quê (PLU-334). */
+  async function revelar(motivo: "mostrar" | "copiar" | "editar"): Promise<DadosDePagamentoRevelados | null> {
+    const r = await enviar<DadosDePagamentoRevelados>(`/api/suprimentos/fornecedores/${f.id}/dados-de-pagamento/revelar`, "POST", { motivo });
+    if (r.ok) return r.dados;
+    setAviso(null); setErro(`Não foi possível abrir os dados de pagamento: ${r.erro.mensagem}`);
+    return null;
+  }
+
+  async function editar() {
+    setOcupado(true); setErro(null);
+    const pagamento = await revelar("editar");
+    setOcupado(false);
+    if (pagamento) aoEditar(pagamento);
   }
 
   async function alternarSituacao() {
@@ -78,7 +95,7 @@ export function FichaDoFornecedor({ dados, podeAbrirCompras, aoFechar, aoEditar,
           </div>
         </div>
         <div className={detalhes.controlesCabecalho}>
-          <Button variant="secondary" size="sm" icon={<Pencil size={14} />} disabled={ocupado} onClick={aoEditar}>Editar</Button>
+          <Button variant="secondary" size="sm" icon={<Pencil size={14} />} disabled={ocupado} onClick={() => void editar()}>Editar</Button>
           <FecharModal>{(fechar) => <button type="button" className={`${detalhes.botaoFechar} plg-pressiona`} disabled={ocupado} onClick={fechar} aria-label="Fechar"><X size={18} aria-hidden="true" /></button>}</FecharModal>
         </div>
       </header>
@@ -99,11 +116,11 @@ export function FichaDoFornecedor({ dados, podeAbrirCompras, aoFechar, aoEditar,
           </div> : null}
           {aba === "geral" ? <VisaoGeralDoFornecedor fornecedor={f} desempenho={dados.desempenho} aoCopiar={(t, r) => void copiar(t, r)} /> : null}
           {aba === "cotacoes" ? <CotacoesDoFornecedor historico={dados.cotacoes} podeAbrirCompras={podeAbrirCompras} /> : null}
-          {aba === "pagamento" ? <PagamentoDoFornecedor fornecedor={f} aoCopiar={(t, r) => void copiar(t, r)} /> : null}
+          {aba === "pagamento" ? <PagamentoDoFornecedor fornecedor={f} aoRevelar={revelar} aoCopiar={(t, r) => void copiar(t, r)} /> : null}
           <footer className={styles.rodape}>
             <Button variant="secondary" icon={<Power size={15} />} disabled={ocupado} onClick={() => void alternarSituacao()}>{f.ativo ? "Inativar" : "Reativar"}</Button>
             <span className={styles.espaco} />
-            <Button icon={<Pencil size={15} />} disabled={ocupado} onClick={aoEditar}>Editar fornecedor</Button>
+            <Button icon={<Pencil size={15} />} disabled={ocupado} onClick={() => void editar()}>{ocupado ? "Abrindo…" : "Editar fornecedor"}</Button>
           </footer>
         </section>
       </div>

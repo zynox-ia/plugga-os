@@ -1,6 +1,6 @@
 "use client";
 
-import { categoriasDeFornecedor, rotulosDaCategoriaDeFornecedor, type Fornecedor, type FornecedorNaLista } from "@plugga/shared";
+import { categoriasDeFornecedor, rotulosDaCategoriaDeFornecedor, type DadosDePagamentoRevelados, type Fornecedor, type FornecedorNaLista } from "@plugga/shared";
 import { Filter, LayoutGrid, List, Tag, Truck, UserRound } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
@@ -44,7 +44,8 @@ export function FornecedoresView({
   const [visao, setVisao] = useState<"cards" | "lista">("cards");
   const [pagina, setPagina] = useState(1);
   const [criando, setCriando] = useState(false);
-  const [editando, setEditando] = useState(false);
+  /** Ao editar, a chave PIX e os dados bancários completos, revelados pela API (auditado). */
+  const [editando, setEditando] = useState<DadosDePagamentoRevelados | null>(null);
   const [lista, setLista] = useState(itens);
   const [erroSituacao, setErroSituacao] = useState<string | null>(null);
   const pendentesRef = useRef(new Set<string>());
@@ -169,8 +170,8 @@ export function FornecedoresView({
           key={ficha.fornecedor.id}
           dados={ficha}
           podeAbrirCompras={podeAbrirCompras}
-          aoFechar={() => { setEditando(false); fecharFicha(); }}
-          aoEditar={() => setEditando(true)}
+          aoFechar={() => { setEditando(null); fecharFicha(); }}
+          aoEditar={setEditando}
           aoAtualizar={() => router.refresh()}
         />
       ) : null}
@@ -178,8 +179,9 @@ export function FornecedoresView({
         <FornecedorForm
           key={`editar-${ficha.fornecedor.id}`}
           fornecedor={ficha.fornecedor}
-          aoCancelar={() => setEditando(false)}
-          aoSalvar={() => { setEditando(false); router.refresh(); }}
+          pagamento={editando}
+          aoCancelar={() => setEditando(null)}
+          aoSalvar={() => { setEditando(null); router.refresh(); }}
         />
       ) : null}
     </div>

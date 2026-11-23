@@ -19,7 +19,7 @@ test("ficha do fornecedor mostra desempenho, endereço e pagamento mascarado", a
     data: {
       nome: `Ficha E2E ${sufixo} (sintético)`, categoria: "material_eletrico", telefone: "92999990001", email: "ficha@exemplo.invalid",
       cep: "69005000", logradouro: "Av. Exemplo", numero: "100", bairro: "Centro", cidade: "Manaus", uf: "AM",
-      formasDePagamento: ["pix"], chavePix: "99999001000159",
+      formasDePagamento: ["pix"], chavePix: `chave-e2e-${sufixo}-7788`,
     },
   });
   expect(criado.status(), await criado.text()).toBe(201);
@@ -44,16 +44,20 @@ test("ficha do fornecedor mostra desempenho, endereço e pagamento mascarado", a
 
   // Pagamento: escondido por padrão, Mostrar revela e Ocultar volta.
   await ficha.getByRole("tab", { name: "Pagamento" }).click();
-  await expect(ficha.getByText("•••• 0159")).toBeVisible();
-  await expect(ficha.getByText("99999001000159")).toHaveCount(0);
+  await expect(ficha.getByText("•••• 7788")).toBeVisible();
+  // A máscara é de verdade: a chave completa não chega ao navegador antes de Mostrar.
+  expect(await page.content()).not.toContain(`chave-e2e-${sufixo}`);
+  await expect(ficha.getByText(`chave-e2e-${sufixo}-7788`)).toHaveCount(0);
   await ficha.getByRole("button", { name: "Mostrar Chave PIX" }).click();
-  await expect(ficha.getByText("99999001000159")).toBeVisible();
+  await expect(ficha.getByText(`chave-e2e-${sufixo}-7788`)).toBeVisible();
   await ficha.getByRole("button", { name: "Ocultar Chave PIX" }).click();
-  await expect(ficha.getByText("•••• 0159")).toBeVisible();
+  await expect(ficha.getByText("•••• 7788")).toBeVisible();
 
   // Editar abre o formulário com o endereço.
   await ficha.getByRole("button", { name: "Editar fornecedor" }).click();
   const form = page.getByRole("dialog", { name: `Fornecedor Ficha E2E ${sufixo} (sintético)` });
   await expect(form.getByLabel("CEP")).toHaveValue("69005-000");
   await expect(form.getByLabel("Logradouro")).toHaveValue("Av. Exemplo");
+  // O Editar carrega o completo pela rota de revelação (motivo "editar").
+  await expect(form.getByRole("textbox", { name: "Chave PIX" })).toHaveValue(`chave-e2e-${sufixo}-7788`);
 });

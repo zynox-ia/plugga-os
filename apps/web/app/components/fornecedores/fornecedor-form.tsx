@@ -9,6 +9,7 @@ import {
   somenteDigitos,
   ufs,
   type CategoriaDeFornecedor,
+  type DadosDePagamentoRevelados,
   type FormaDePagamento,
   type Fornecedor,
   type ListarFornecedoresResposta,
@@ -26,6 +27,11 @@ import styles from "./fornecedores.module.css";
 type Propriedades = {
   /** Ausente: cadastro novo. */
   fornecedor?: Fornecedor;
+  /**
+   * Na edição, a chave PIX e os dados bancários completos: a ficha só tem a
+   * versão mascarada e pede o completo à API (auditado) antes de abrir.
+   */
+  pagamento?: DadosDePagamentoRevelados | null;
   aoSalvar: (fornecedor: Fornecedor) => void;
   aoCancelar: () => void;
 };
@@ -34,13 +40,13 @@ type Propriedades = {
 const semDdi = (valor: unknown) => (typeof valor === "string" && /^55\d{10,11}$/.test(valor) ? valor.slice(2) : valor);
 
 /** Só os campos cujo valor difere do que está gravado; formas de pagamento comparadas como conjunto. */
-function camposAlterados(atual: Fornecedor, corpo: Record<string, unknown>): Record<string, unknown> {
+function camposAlterados(atual: Record<string, unknown>, corpo: Record<string, unknown>): Record<string, unknown> {
   const normalizar = (campo: string, valor: unknown) => (Array.isArray(valor) ? JSON.stringify([...valor].sort()) : JSON.stringify((campo === "telefone" ? semDdi(valor) : valor) ?? null));
-  return Object.fromEntries(Object.entries(corpo).filter(([campo, valor]) => normalizar(campo, valor) !== normalizar(campo, atual[campo as keyof Fornecedor])));
+  return Object.fromEntries(Object.entries(corpo).filter(([campo, valor]) => normalizar(campo, valor) !== normalizar(campo, atual[campo])));
 }
 
 /** Criar e editar fornecedor (PLU-326). Na edição, campo vazio vai como `null` e apaga. */
-export function FornecedorForm({ fornecedor, aoSalvar, aoCancelar }: Propriedades) {
+export function FornecedorForm({ fornecedor, pagamento, aoSalvar, aoCancelar }: Propriedades) {
   const editando = Boolean(fornecedor);
   const [nome, setNome] = useState(fornecedor?.nome ?? "");
   const [nomeFantasia, setNomeFantasia] = useState(fornecedor?.nomeFantasia ?? "");
@@ -57,8 +63,8 @@ export function FornecedorForm({ fornecedor, aoSalvar, aoCancelar }: Propriedade
   const [cidade, setCidade] = useState(fornecedor?.cidade ?? "");
   const [uf, setUf] = useState(fornecedor?.uf ?? "");
   const [formas, setFormas] = useState<FormaDePagamento[]>(fornecedor?.formasDePagamento ?? []);
-  const [chavePix, setChavePix] = useState(fornecedor?.chavePix ?? "");
-  const [dadosBancarios, setDadosBancarios] = useState(fornecedor?.dadosBancarios ?? "");
+  const [chavePix, setChavePix] = useState(pagamento?.chavePix ?? "");
+  const [dadosBancarios, setDadosBancarios] = useState(pagamento?.dadosBancarios ?? "");
   const [observacoes, setObservacoes] = useState(fornecedor?.observacoes ?? "");
   const [erro, setErro] = useState<ErroDoFormulario | null>(null);
   const [enviando, setEnviando] = useState(false);
@@ -137,7 +143,10 @@ export function FornecedorForm({ fornecedor, aoSalvar, aoCancelar }: Propriedade
     };
 
     // Na edição vai só o que mudou: a API registra no evento os campos enviados.
-    const alteracoes = fornecedor ? camposAlterados(fornecedor, corpo) : corpo;
+    // Sem o completo revelado, os campos de pagamento não são comparáveis: ficam de fora para não apagar nada.
+    const atual = fornecedor ? { ...fornecedor, chavePix: pagamento?.chavePix ?? null, dadosBancarios: pagamento?.dadosBancarios ?? null } : null;
+    const comparavel = fornecedor && !pagamento ? Object.fromEntries(Object.entries(corpo).filter(([c]) => c !== "chavePix" && c !== "dadosBancarios")) : corpo;
+    const alteracoes = atual ? camposAlterados(atual, comparavel) : corpo;
     if (fornecedor && Object.keys(alteracoes).length === 0) {
       aoCancelar();
       return;

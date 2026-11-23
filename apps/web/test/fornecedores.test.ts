@@ -8,7 +8,6 @@ import {
   enderecoNoMapa,
   larguraDaBarra,
   linksDoTelefone,
-  mascararSegredo,
   ruaDoFornecedor,
   textosDoDesempenho,
   formasResumidas,
@@ -94,11 +93,6 @@ describe("ficha rica do fornecedor (PLU-334)", () => {
     assert.equal(avisoDeCopia("Chave PIX"), "Chave PIX copiada.");
     assert.equal(avisoDeCopia("Dados bancários"), "Dados bancários copiados.");
     assert.equal(avisoDeCopia("E-mail"), "E-mail copiado.");
-  });
-
-  it("segredo de pagamento mostra só o fim", () => {
-    assert.equal(mascararSegredo("99999001000159"), "•••• 0159");
-    assert.equal(mascararSegredo("abc"), "••••");
   });
 
   it("cards de desempenho, com e sem cotação", () => {
