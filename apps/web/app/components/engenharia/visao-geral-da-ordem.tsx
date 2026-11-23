@@ -19,6 +19,7 @@ import {
   textoDaUsina,
   urlDoArquivoDaOrdem,
 } from "../../lib/ordens-de-servico";
+import { rotuloDaUc } from "../../lib/usinas";
 import fichaCompras from "../compras/ficha-do-pedido.module.css";
 import visao from "../pipelines/resumo-do-lead.module.css";
 import { CampoDeMenu } from "../suprimentos/menu-com-busca";
@@ -219,7 +220,7 @@ export function VisaoGeralDaOrdem({ ordem, opcoes, hoje, ocupado, estado, aoVerE
       <dl className={visao.grade}>
         <div><dt>Empresa</dt><dd>{ROTULO_DA_EMPRESA[ordem.empresa]}</dd></div>
         <div><dt>Tipo</dt><dd>{ROTULO_DO_TIPO[ordem.tipo]}</dd></div>
-        <div><dt>Cliente</dt><dd>{ordem.cliente.nome}{ordem.uc ? <small>UC {ordem.uc.codigo} · {ordem.uc.distribuidora}</small> : null}</dd></div>
+        <div><dt>Cliente</dt><dd>{ordem.cliente.nome}{ordem.uc ? <small>{rotuloDaUc(ordem.uc.codigo)} · {ordem.uc.distribuidora}</small> : null}</dd></div>
         {ordem.usina ? <div><dt>Usina</dt><dd>{ordem.usina.nome}<small>{textoDaUsina(ordem.usina)}</small></dd></div> : null}
         {ordem.usinaDoComissionamento ? <div><dt>Usina cadastrada</dt><dd>{ordem.usinaDoComissionamento.nome}<small>Cadastrada a partir deste comissionamento</small></dd></div> : null}
         <div><dt>Local</dt><dd>{ordem.local ?? "Não informado"}</dd></div>

@@ -4,7 +4,7 @@ import Link from "next/link";
 import type { CSSProperties } from "react";
 
 import { quandoNaFicha } from "../../lib/ordens-de-servico";
-import { kwpLegivel, ROTULO_DA_SITUACAO_DO_MONITORAMENTO } from "../../lib/usinas";
+import { kwpLegivel, ROTULO_DA_SITUACAO_DO_MONITORAMENTO, rotuloDaUc } from "../../lib/usinas";
 import { EmpresaComPonto } from "../suprimentos/empresa";
 import { Button } from "../ui";
 import styles from "./usinas.module.css";
@@ -25,7 +25,7 @@ export function CadastroDeUsinas({ usinas, hoje, hrefDaFicha, aoAbrir }: { usina
     {usinas.map((u, i) => <article key={u.id} className={`${styles.card} ${styles.entra} ${u.ativa ? "" : styles.inativa}`} style={{ "--i": i } as CSSProperties} aria-label={u.nome}>
       <header className={styles.cardTopo}>
         <span className={styles.caixa} aria-hidden="true"><Sun size={20} /></span>
-        <span className={styles.canto}>UC {u.uc.codigo}<span aria-hidden="true">·</span><EmpresaComPonto empresa={u.empresa} curto /></span>
+        <span className={styles.canto}>{rotuloDaUc(u.uc.codigo)}<span aria-hidden="true">·</span><EmpresaComPonto empresa={u.empresa} curto /></span>
       </header>
       <div className={styles.cardCorpo}>
         <h3><Link href={hrefDaFicha(u.id)} scroll={false}>{u.nome}</Link></h3>

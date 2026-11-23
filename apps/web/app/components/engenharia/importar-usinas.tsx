@@ -6,7 +6,7 @@ import { useState, type FormEvent } from "react";
 
 import { lerErro } from "../../lib/clientes";
 import { ROTULO_DA_EMPRESA } from "../../lib/compras";
-import { kwpLegivel } from "../../lib/usinas";
+import { kwpLegivel, rotuloDaUc } from "../../lib/usinas";
 import estilosConfig from "../financeiro/configuracoes.module.css";
 import { PontoDaEmpresa } from "../suprimentos/empresa";
 import { CampoDeMenu } from "../suprimentos/menu-com-busca";
@@ -106,7 +106,7 @@ export function ImportarUsinas({ empresaInicial, aoCancelar, aoGravar }: { empre
             <thead><tr><th scope="col">Linha</th><th scope="col">Usina</th><th scope="col">Situação</th><th scope="col">Problemas</th></tr></thead>
             <tbody>{conferencia.linhas.map((l) => <tr key={l.linha}>
               <td data-l="Linha">{l.linha}</td>
-              <td data-l="Usina">{l.usina ? <span className={styles.usinaDaLinha}><strong>{l.usina.nome}</strong><small>{l.usina.cliente} · UC {l.usina.uc} · {l.usina.plataforma} · {kwpLegivel(l.usina.potenciaKwp)} kWp · {ROTULO_DA_EMPRESA[l.usina.empresa].split(" ")[0]}</small></span> : "—"}</td>
+              <td data-l="Usina">{l.usina ? <span className={styles.usinaDaLinha}><strong>{l.usina.nome}</strong><small>{l.usina.cliente} · {rotuloDaUc(l.usina.uc)} · {l.usina.plataforma} · {kwpLegivel(l.usina.potenciaKwp)} kWp · {ROTULO_DA_EMPRESA[l.usina.empresa].split(" ")[0]}</small></span> : "—"}</td>
               <td data-l="Situação"><span className={styles.situacaoFeita} data-situacao={l.situacao === "erro" ? "anomalia" : "normal"}>{ROTULO_DA_LINHA[l.situacao]}</span></td>
               <td data-l="Problemas">{l.problemas.length ? <ul className={styles.problemas}>{l.problemas.map((p) => <li key={p}>{p}</li>)}</ul> : "—"}</td>
             </tr>)}</tbody>

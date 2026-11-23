@@ -7,7 +7,7 @@ import { useId, useRef, useState, type KeyboardEvent } from "react";
 
 import { dataEmManaus, diaLegivel, ROTULO_DA_EMPRESA } from "../../lib/compras";
 import { horarioEmManaus, hrefDasOrdens, ROTULO_DA_SITUACAO, ROTULO_DO_TIPO } from "../../lib/ordens-de-servico";
-import { kwpLegivel, ROTULO_DA_SITUACAO_DO_MONITORAMENTO } from "../../lib/usinas";
+import { kwpLegivel, ROTULO_DA_SITUACAO_DO_MONITORAMENTO, rotuloDaUc } from "../../lib/usinas";
 import fichaCompras from "../compras/ficha-do-pedido.module.css";
 import { FecharModal, Modal } from "../modal";
 import detalhes from "../pipelines/detalhes-do-lead-modal.module.css";
@@ -64,7 +64,7 @@ export function FichaDaUsina({ usina: inicial, plataformas, hoje, prazoSugerido,
           <div className={detalhes.identidadeLead}>
             <h2 className={detalhes.leadCardTitulo}>{u.nome}</h2>
             <div className={detalhes.metadadosCabecalho}>
-              <span>UC {u.uc.codigo}</span><span aria-hidden="true">·</span>
+              <span>{rotuloDaUc(u.uc.codigo)}</span><span aria-hidden="true">·</span>
               <span className={fichaCompras.empresaCabecalho}><EmpresaComPonto empresa={u.empresa} /></span><span aria-hidden="true">·</span>
               <span><Monitor size={13} aria-hidden="true" />{u.plataforma.nome}</span><span aria-hidden="true">·</span>
               <span><Zap size={13} aria-hidden="true" />{kwpLegivel(u.potenciaKwp)} kWp</span>
@@ -96,7 +96,7 @@ export function FichaDaUsina({ usina: inicial, plataformas, hoje, prazoSugerido,
             <dl className={visao.grade}>
               <div><dt>Empresa</dt><dd>{ROTULO_DA_EMPRESA[u.empresa]}</dd></div>
               <div><dt>Cliente</dt><dd>{u.cliente.nome}</dd></div>
-              <div><dt>Unidade consumidora</dt><dd>UC {u.uc.codigo}<small>{u.uc.distribuidora}</small></dd></div>
+              <div><dt>Unidade consumidora</dt><dd>{rotuloDaUc(u.uc.codigo)}<small>{u.uc.distribuidora}</small></dd></div>
               <div><dt>Potência</dt><dd>{kwpLegivel(u.potenciaKwp)} kWp</dd></div>
               <div><dt>Plataforma</dt><dd>{u.plataforma.nome}</dd></div>
               <div><dt>Inversor</dt><dd>{[u.fabricante, u.modelo].filter(Boolean).join(" ") || "Não informado"}{u.numeroSerie ? <small>Nº de série {u.numeroSerie}</small> : null}</dd></div>
@@ -123,7 +123,7 @@ export function FichaDaUsina({ usina: inicial, plataformas, hoje, prazoSugerido,
               </li>)}</ul>}
           </div> : null}
           {aba === "protocolos" ? <div className={fichaCompras.secao}>
-            <div className={fichaCompras.barra}><div><h3>Protocolos da UC {u.uc.codigo}</h3><p>Pedidos à distribuidora: ligação, liberação, orçamento de conexão.</p></div></div>
+            <div className={fichaCompras.barra}><div><h3>Protocolos da {rotuloDaUc(u.uc.codigo)}</h3><p>Pedidos à distribuidora: ligação, liberação, orçamento de conexão.</p></div></div>
             <p className={fichaCompras.muted}>Os protocolos da UC aparecem aqui quando a tela de Protocolos chegar.</p>
           </div> : null}
         </section>
