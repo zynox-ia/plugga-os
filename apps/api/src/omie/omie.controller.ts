@@ -39,6 +39,8 @@ export const MENSAGEM_DO_OMIE: Record<OmieFalhouError["motivo"], string> = {
   resposta_inesperada: "O OMIE respondeu de um jeito inesperado. Confira a chave e o segredo e tente de novo.",
   indisponivel: "Não foi possível falar com o OMIE. Tente de novo em instantes.",
   modo_mock: "A integração do OMIE está em modo mock: o OMIE não foi chamado. Para testar aqui, use uma chave sintética (começando com sintetico-); a leitura real só vale com o modo somente leitura ou de escrita, ligado pela plataforma.",
+  modo_sem_escrita: "A integração do OMIE não está no modo de escrita: nada foi gravado no OMIE. Quem liga é a plataforma, com a autorização do André.",
+  escrita_nao_liberada: "A escrita no OMIE ainda não foi liberada: os métodos são conferidos antes no Aplicativo Teste. Nada foi gravado no OMIE.",
 };
 
 /**

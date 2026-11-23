@@ -1,8 +1,17 @@
 import type { EmpresaDoOmie } from "@plugga/shared";
 
+/**
+ * `modo_sem_escrita`: a integração não está em `write`, então nada é gravado no OMIE.
+ * `escrita_nao_liberada`: está em `write`, mas o método de escrita ainda não foi
+ * conferido no Aplicativo Teste (D7 do desenho); até lá, nenhuma escrita sai.
+ */
+export type MotivoDaFalhaDoOmie =
+  | "credenciais_invalidas" | "limite_de_consumo" | "recusada" | "resposta_inesperada" | "indisponivel"
+  | "modo_mock" | "modo_sem_escrita" | "escrita_nao_liberada";
+
 /** O OMIE recusou ou não respondeu. Só o motivo curto, nunca a chave, o segredo nem o corpo da resposta. */
 export class OmieFalhouError extends Error {
-  constructor(readonly motivo: "credenciais_invalidas" | "limite_de_consumo" | "recusada" | "resposta_inesperada" | "indisponivel" | "modo_mock") {
+  constructor(readonly motivo: MotivoDaFalhaDoOmie) {
     super(`omie falhou: ${motivo}`);
   }
 }
