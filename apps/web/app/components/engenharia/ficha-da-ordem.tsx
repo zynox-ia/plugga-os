@@ -1,9 +1,10 @@
 "use client";
 
-import { CODIGO_CHECKIN_ANTECIPADO, type AcaoDaOrdemDeServico, type OpcoesDaEngenhariaResposta, type OrdemDeServico } from "@plugga/shared";
-import { Ban, CalendarCheck, Camera, ClipboardPen, History, LayoutGrid, MapPin, Package, Pencil, ShoppingCart, Signature, Undo2, Wrench, X, type LucideIcon } from "lucide-react";
+import { CODIGO_CHECKIN_ANTECIPADO, type AcaoDaOrdemDeServico, type ListarPlataformasResposta, type OpcoesDaEngenhariaResposta, type OrdemDeServico, type PlataformaDeInversor } from "@plugga/shared";
+import { Ban, CalendarCheck, Camera, ClipboardPen, History, LayoutGrid, MapPin, Package, Pencil, ShoppingCart, Signature, Sun, Undo2, Wrench, X, type LucideIcon } from "lucide-react";
 import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 
+import { enviar } from "../../lib/clientes";
 import { hojeEmManaus } from "../../lib/compras";
 import { agoraEmManaus, problemasDoAdiamento, problemasDoAgendamento, quandoNaFicha, ROTULO_DO_TIPO } from "../../lib/ordens-de-servico";
 import fichaCompras from "../compras/ficha-do-pedido.module.css";
@@ -17,13 +18,14 @@ import { EquipamentoDaOrdem, EvidenciasDaOrdem, LinhaDoTempoDaOrdem, MaterialDaO
 import { agirNaOrdem, enviarArquivoDaOrdem, problemaDaFoto, relerOrdem, type RespostaDaOrdem } from "./envios";
 import styles from "./ficha-da-ordem.module.css";
 import { OrdemForm } from "./ordem-form";
+import { UsinaForm } from "./usina-form";
 import { IconeDoTipo } from "./partes";
 import { PedirMaterial } from "./pedir-material";
 import type { TermoNaTelaRef } from "./termo-da-ordem";
 import { VisaoGeralDaOrdem, type Agendamento, type Laudo } from "./visao-geral-da-ordem";
 
 type Aba = "geral" | "equipamento" | "evidencias" | "material" | "tempo";
-type Janela = null | "adiar" | "cancelar" | "editar" | "material" | { antecipado: string | null };
+type Janela = null | "adiar" | "cancelar" | "editar" | "material" | "usina" | { antecipado: string | null };
 
 const AVISO: Partial<Record<AcaoDaOrdemDeServico["acao"], string>> = {
   agendar: "O.S. agendada.",
@@ -66,6 +68,7 @@ export function FichaDaOrdem({ ordem: inicial, opcoes, podeAbrirCompras, aoFecha
   const [remarcando, setRemarcando] = useState(false);
   const botoes = useRef<(HTMLButtonElement | null)[]>([]);
   const termo = useRef<TermoNaTelaRef>(null);
+  const [plataformas, setPlataformas] = useState<PlataformaDeInversor[] | null>(null);
   const hoje = hojeEmManaus();
 
   // O servidor recarrega a ficha depois de cada ação (router.refresh); a versão mais nova vence.
@@ -134,6 +137,16 @@ export function FichaDaOrdem({ ordem: inicial, opcoes, podeAbrirCompras, aoFecha
     if (ultima) atualizada(ultima, arquivos.length === 1 ? "Foto enviada." : `${arquivos.length} fotos enviadas.`);
   }
 
+  /** As plataformas para a Nova usina, lidas só quando a pessoa pede. */
+  async function abrirCadastroDeUsina() {
+    if (!plataformas) {
+      const r = await enviar<ListarPlataformasResposta>("/api/engenharia/plataformas", "GET");
+      if (!r.ok) { setErro(r.erro.mensagem); return; }
+      setPlataformas(r.dados.itens);
+    }
+    setJanela("usina");
+  }
+
   /** O termo assinado (na tela ou o PDF) conclui a O.S. */
   function concluida(r: RespostaDaOrdem | null, comoPdf: boolean) {
     if (!r) return;
@@ -174,7 +187,12 @@ export function FichaDaOrdem({ ordem: inicial, opcoes, podeAbrirCompras, aoFecha
           : ordem.situacao === "laudo" && pode("colher_termo")
             ? <Button icon={<Signature size={15} />} disabled={ocupado} onClick={() => { if (aba !== "geral") setAba("geral"); else void concluirComOTermo(); }}>Concluir com o termo</Button> : null;
   const encerrada = ordem.situacao === "concluida" || ordem.situacao === "cancelada";
-  const rodape = !encerrada && (pode("cancelar") || pode("adiar") || principal) ? <footer className={`${fichaCompras.rodape} ${styles.rodape}`}>
+  // A usina nasce do comissionamento concluído (PLU-347): cliente, UC e empresa vêm da O.S.
+  const cadastraUsina = ordem.situacao === "concluida" && ordem.tipo === "comissionamento" && !ordem.usina;
+  const rodape = cadastraUsina ? <footer className={`${fichaCompras.rodape} ${styles.rodape}`}>
+    <span className={fichaCompras.espaco} />
+    <Button icon={<Sun size={15} />} onClick={() => void abrirCadastroDeUsina()}>Cadastrar usina</Button>
+  </footer> : !encerrada && (pode("cancelar") || pode("adiar") || principal) ? <footer className={`${fichaCompras.rodape} ${styles.rodape}`}>
     {pode("cancelar") ? <Button variant="secondary" className={fichaCompras.perigo} icon={<Ban size={15} />} disabled={ocupado} onClick={() => setJanela("cancelar")}>Cancelar O.S.</Button> : null}
     {pode("adiar") ? <Button variant="secondary" icon={<Undo2 size={15} />} disabled={ocupado} onClick={() => setJanela("adiar")}>Adiar</Button> : null}
     <span className={fichaCompras.espaco} />
@@ -242,6 +260,9 @@ export function FichaDaOrdem({ ordem: inicial, opcoes, podeAbrirCompras, aoFecha
       aoConfirmar={async (motivo) => { const ok = await agir({ acao: "cancelar", motivo }); if (ok) setJanela(null); return ok; }} /> : null}
     {janela && typeof janela === "object" ? <CheckinAntecipado agendadaPara={janela.antecipado} hoje={hoje} ocupado={ocupado} aoCancelar={() => setJanela(null)}
       aoConfirmar={async () => { const ok = await agir({ acao: "check_in", confirmarAntecipado: true }); setJanela(null); return ok; }} /> : null}
+    {janela === "usina" && plataformas ? <UsinaForm plataformas={plataformas} hoje={hoje} aoCancelar={() => setJanela(null)}
+      comissionamento={{ ordemId: ordem.id, empresa: ordem.empresa, cliente: { id: ordem.cliente.id, nome: ordem.cliente.nome, ucs: ordem.uc ? [ordem.uc] : [] }, ucId: ordem.uc?.id ?? null }}
+      aoSalvar={(u) => { setJanela(null); setAviso(`${u.nome} cadastrada a partir do comissionamento.`); aoAtualizar(); }} /> : null}
     {janela === "editar" ? <OrdemForm ordem={ordem} hoje={hoje} aoCancelar={() => setJanela(null)} aoSalvar={(o) => { setJanela(null); atualizada(o, "O.S. atualizada."); }} /> : null}
     {janela === "material" ? <PedirMaterial ordem={ordem} hoje={hoje} aoCancelar={() => setJanela(null)}
       aoPedir={(o) => { setJanela(null); const novo = o.pedidosDeMaterial.find((p) => !ordem.pedidosDeMaterial.some((x) => x.id === p.id)); atualizada(o, novo ? `Material pedido em Compras: PC-${String(novo.numero).padStart(4, "0")}.` : "Material pedido em Compras."); setAba("material"); }} /> : null}

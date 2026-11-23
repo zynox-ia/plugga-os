@@ -132,3 +132,48 @@ test("importação: a planilha é conferida antes e grava só as linhas prontas"
   await page.goto(`/engenharia/usinas?aba=cadastro&busca=${encodeURIComponent(sufixo)}`);
   await expect(page.getByRole("article", { name: `Galpão ${marcaDaExecucao()} ${sufixo} (sintético)` })).toBeVisible(DEPOIS_DA_ACAO);
 });
+
+test("a usina nasce do comissionamento concluído, com cliente, UC e empresa da O.S.", async ({ page, request, baseURL }) => {
+  test.slow();
+  await bloquearTerceiros(page);
+  const H = { origin: baseURL! };
+  const sufixo = Date.now().toString(36).toUpperCase();
+  const plataforma = await plataformaDoRun(request, baseURL!, `${sufixo}C`);
+  const busca = (await (await request.get(`/api/engenharia/ordens-de-servico/clientes?busca=${encodeURIComponent("Cliente com UC")}`)).json()) as { itens: { id: string; nome: string; ucs: { id: string }[] }[] };
+  const cliente = busca.itens.find((c) => c.nome === CLIENTE)!;
+  const hoje = new Date(Date.now() - 4 * 3_600_000).toISOString().slice(0, 10);
+  const amanha = new Date(Date.now() - 4 * 3_600_000 + 86_400_000).toISOString().slice(0, 10);
+
+  // O.S. de comissionamento levada até concluída pela API (o ciclo pela tela está em ordens-de-servico.spec).
+  const criada = await request.post("/api/engenharia/ordens-de-servico", { headers: H, data: { empresa: "waze", tipo: "comissionamento", clienteId: cliente.id, ucId: cliente.ucs[0]!.id, descricao: `Comissionamento ${marcaDaExecucao()} ${sufixo} (sintético)`, prazo: amanha } });
+  expect(criada.ok(), await criada.text()).toBeTruthy();
+  const { id } = (await criada.json()) as { id: string };
+  const tecnico = ((await (await request.get("/api/engenharia/ordens-de-servico/opcoes")).json()) as { tecnicos: { id: string }[] }).tecnicos[0]!.id;
+  const acao = async (data: object) => { const r = await request.post(`/api/engenharia/ordens-de-servico/${id}/acoes`, { headers: H, data }); expect(r.ok(), await r.text()).toBeTruthy(); };
+  await acao({ acao: "agendar", tecnicoId: tecnico, data: amanha, horario: "09:00" });
+  await acao({ acao: "check_in", confirmarAntecipado: true });
+  expect((await request.post(`/api/engenharia/ordens-de-servico/${id}/fotos`, { headers: H, multipart: { arquivo: PNG } })).ok()).toBeTruthy();
+  await acao({ acao: "registrar_laudo", encontrado: "Usina pronta (sintético)", feito: "Comissionada (sintético)" });
+  const termo = await request.post(`/api/engenharia/ordens-de-servico/${id}/termo`, { headers: H, multipart: { modo: "nome_digitado", nome: "Cliente (sintético)", documento: "123.456.789-01" } });
+  expect(termo.ok(), await termo.text()).toBeTruthy();
+
+  // Na ficha concluída, "Cadastrar usina" abre a Nova usina com o cliente da O.S. fixo.
+  await page.goto(`/engenharia/ordens-de-servico?os=${id}`);
+  const ficha = page.locator("dialog[open]").first();
+  await ficha.getByRole("button", { name: "Cadastrar usina" }).click(DEPOIS_DA_ACAO);
+  const nova = page.getByRole("dialog", { name: "Nova usina" });
+  await expect(nova.getByText(CLIENTE)).toBeVisible();
+  await expect(nova.getByRole("button", { name: /^Trocar o cliente/ })).toHaveCount(0);
+  const nome = `Usina do comissionamento ${marcaDaExecucao()} ${sufixo} (sintético)`;
+  await nova.getByLabel(/^Nome da usina/).fill(nome);
+  await escolher(page, nova, /^Plataforma/, plataforma.nome);
+  await nova.getByLabel(/^Potência/).fill("45,5");
+  expect(await nova.getByRole("textbox", { name: /^Comissionada em/ }).inputValue()).toBe(hoje.split("-").reverse().join("/"));
+  await nova.getByRole("button", { name: "Cadastrar usina" }).click();
+  await expect(ficha.getByText(`${nome} cadastrada a partir do comissionamento.`)).toBeVisible(DEPOIS_DA_ACAO);
+
+  // No cadastro, a usina diz de onde veio.
+  await page.goto(`/engenharia/usinas?aba=cadastro&busca=${encodeURIComponent(sufixo)}`);
+  await page.getByRole("button", { name: `Ver ${nome}` }).click();
+  await expect(page.getByRole("dialog", { name: nome }).getByText("Comissionamento", { exact: true })).toBeVisible(DEPOIS_DA_ACAO);
+});
