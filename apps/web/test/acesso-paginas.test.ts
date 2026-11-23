@@ -77,6 +77,18 @@ test("Lançamentos abre com financeiro.pagar ou financeiro.receber (PLU-336)", (
   assert.equal(abre(so("financeiro.pagar"), "/financeiro/lancamentos-outros"), false);
 });
 
+test("Tarefas do Financeiro abre com qualquer tela do Financeiro, e só com o portão aberto (PLU-340)", () => {
+  const caminho = "/financeiro/tarefas";
+  const so = (...telas: ("financeiro.pagar" | "financeiro.receber" | "financeiro.conciliacao" | "financeiro.fiscal")[]): Acesso =>
+    ({ plataforma: null, departamentos: [{ departamento: "financeiro", nivel: "membro", telas }] });
+  const abre = (acesso: Acesso) => podeAbrirPagina(acesso, caminho, { NODE_ENV: "development" });
+  assert.equal(abre(so("financeiro.fiscal")), true);
+  assert.equal(abre(so("financeiro.conciliacao")), true);
+  assert.equal(abre(so()), false);
+  assert.equal(abre({ plataforma: null, departamentos: [{ departamento: "engenharia-obras", nivel: "gerente" }] }), false);
+  assert.equal(podeAbrirPagina(so("financeiro.pagar"), caminho, { NODE_ENV: "production" }), false);
+});
+
 test("Compras abre com a tela suprimentos.compras ou com o Financeiro (PLU-328)", () => {
   const caminho = "/suprimentos/compras";
   assert.equal(podeAbrirPagina({ plataforma: null, departamentos: [{ departamento: "suprimentos", nivel: "membro", telas: ["suprimentos.compras"] }] }, caminho), true);

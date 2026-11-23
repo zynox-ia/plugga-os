@@ -137,13 +137,14 @@ export const DEPARTAMENTOS: Departamento[] = [
     icon: "wallet",
     // Menu aprovado pelo André em 23/11/2026 (PLU-336). Os ids de tela não
     // mudaram: as saídas dos Lançamentos exigem `financeiro.pagar` e as
-    // entradas, `financeiro.receber`; Rotinas abre com qualquer tela do
+    // entradas, `financeiro.receber`; Tarefas abre com qualquer tela do
     // Financeiro. Fiscal segue como tela concedível, sem item no menu (P2).
     processos: [
       { label: "Visão geral", telas: TELAS_DOS_LANCAMENTOS, status: "em-breve" },
       // Com o portão do Financeiro fechado (build de produção), o item segue em breve.
       { label: "Lançamentos", telas: TELAS_DOS_LANCAMENTOS, ...(financeiroHabilitado() ? { rota: "/financeiro/lancamentos", status: "parcial" as const } : { status: "em-breve" as const }) },
-      { label: "Rotinas do dia", telas: telasPorDepartamento.financeiro, status: "em-breve" },
+      // As antigas "Rotinas do dia": a tela compartilhada de Tarefas (PLU-340).
+      { label: "Tarefas", telas: telasPorDepartamento.financeiro, ...(financeiroHabilitado() ? { rota: "/financeiro/tarefas", status: "parcial" as const } : { status: "em-breve" as const }) },
       { id: "financeiro.conciliacao", label: "Conciliação", status: "em-breve" },
     ],
     telas: [
@@ -168,6 +169,8 @@ export const DEPARTAMENTOS: Departamento[] = [
     label: "Engenharia e Obras",
     icon: "hardhat",
     processos: [
+      // Visão geral do dia da Engenharia (PLU-349), atrás do portão.
+      { label: "Visão geral", telas: telasPorDepartamento["engenharia-obras"], ...(engenhariaHabilitado() ? { rota: "/engenharia/visao-geral", status: "parcial" as const } : { status: "em-breve" as const }) },
       { id: "engenharia-obras.obras", label: "Obras", status: "em-breve" },
       { id: "engenharia-obras.projetos", label: "Projetos elétricos", status: "em-breve" },
       // Com o portão da Engenharia fechado (build de produção), o item segue em breve (PLU-345).

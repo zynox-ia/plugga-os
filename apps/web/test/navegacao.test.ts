@@ -54,7 +54,7 @@ describe("sitemap da barra lateral", () => {
     assert.deepEqual(itens["Financeiro"], [
       "Visão geral",
       "Lançamentos",
-      "Rotinas do dia",
+      "Tarefas",
       "Conciliação",
     ]);
     assert.ok(!itens["Engenharia e Obras"]?.includes("Estoque e entrega em obra"));
@@ -141,10 +141,10 @@ describe("barra lateral pelo acesso", () => {
   it("o menu do Financeiro segue as telas: Lançamentos com pagar ou receber, Conciliação com a dela (PLU-336)", () => {
     const itens = (...telas: Tela[]) => navGroupsForAccess({ plataforma: null, departamentos: [{ departamento: "financeiro", nivel: "membro", telas }] })
       .find((grupo) => grupo.label === "Financeiro")?.items.map((item) => item.label);
-    assert.deepEqual(itens("financeiro.pagar"), ["Visão geral", "Lançamentos", "Rotinas do dia"]);
-    assert.deepEqual(itens("financeiro.receber"), ["Visão geral", "Lançamentos", "Rotinas do dia"]);
-    assert.deepEqual(itens("financeiro.conciliacao"), ["Rotinas do dia", "Conciliação"]);
-    assert.deepEqual(itens("financeiro.fiscal"), ["Rotinas do dia"]);
+    assert.deepEqual(itens("financeiro.pagar"), ["Visão geral", "Lançamentos", "Tarefas"]);
+    assert.deepEqual(itens("financeiro.receber"), ["Visão geral", "Lançamentos", "Tarefas"]);
+    assert.deepEqual(itens("financeiro.conciliacao"), ["Tarefas", "Conciliação"]);
+    assert.deepEqual(itens("financeiro.fiscal"), ["Tarefas"]);
   });
 
   it("o editor de acesso concede as 4 telas do Financeiro, separadas do menu (PLU-336)", () => {

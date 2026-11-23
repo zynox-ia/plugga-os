@@ -27,9 +27,12 @@ const paginas: ReadonlyArray<readonly [string, Tela | readonly Tela[]]> = [
   ["/suprimentos/compras", "suprimentos.compras"],
   ["/suprimentos/estoque", "suprimentos.estoque"],
   ["/financeiro/lancamentos", TELAS_DOS_LANCAMENTOS],
+  // Tarefas abre com qualquer tela do Financeiro; a API filtra o que cada um vê.
+  ["/financeiro/tarefas", telasPorDepartamento.financeiro],
   ["/engenharia/ordens-de-servico", TELAS_DAS_ORDENS_DE_SERVICO],
   // Tarefas da Engenharia abrem com qualquer tela do departamento (PLU-349).
   ["/engenharia/tarefas", telasPorDepartamento["engenharia-obras"]],
+  ["/engenharia/visao-geral", telasPorDepartamento["engenharia-obras"]],
 ];
 
 /** `ambiente` só existe para o teste do portão; a tela usa o do build. */

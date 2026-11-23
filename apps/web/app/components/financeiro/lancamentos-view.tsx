@@ -21,7 +21,6 @@ import {
   Receipt,
   Scale,
   Send,
-  Settings,
   SquareKanban,
   TriangleAlert,
   Wallet,
@@ -58,7 +57,7 @@ import { FiltroComBusca } from "../suprimentos/menu-com-busca";
 import { Button, IconPlus, IconSearch } from "../ui";
 import { CardsDosLancamentos } from "./cards-dos-lancamentos";
 import { BaixarComprovantes, NovaCobranca } from "./cobranca-e-comprovantes";
-import { ConfiguracoesDoFinanceiro } from "./configuracoes-do-financeiro";
+import { EngrenagemDoFinanceiro } from "./engrenagem-do-financeiro";
 import { ContaAPagarForm } from "./conta-a-pagar-form";
 import { FichaDoLancamento } from "./ficha-do-lancamento";
 import styles from "./lancamentos.module.css";
@@ -104,7 +103,6 @@ export function LancamentosView({ filtros, lista, quadro, resumo, alcance, ficha
   const router = useRouter();
   const [busca, setBusca] = useState(filtros.busca ?? "");
   const [criando, setCriando] = useState(false);
-  const [configurando, setConfigurando] = useState(false);
   const [cobrando, setCobrando] = useState(false);
   const [baixandoComprovantes, setBaixandoComprovantes] = useState(false);
   const [aviso, setAviso] = useState<string | null>(null);
@@ -212,7 +210,7 @@ export function LancamentosView({ filtros, lista, quadro, resumo, alcance, ficha
         {novaCobranca}
         {novaConta}
         {/* Configurações do Financeiro (contas e categorias do OMIE); só aparece quando as opções foram lidas. */}
-        {opcoes ? <Button variant="secondary" iconOnly icon={<Settings size={18} />} aria-label="Configurações do Financeiro" title="Configurações do Financeiro" onClick={() => setConfigurando(true)} /> : null}
+        {opcoes ? <EngrenagemDoFinanceiro opcoes={opcoes} /> : null}
       </div>
     </header>
 
@@ -257,7 +255,6 @@ export function LancamentosView({ filtros, lista, quadro, resumo, alcance, ficha
     <section id="lancamentos-conteudo" className={`${estilosClientes.conteudo} ${styles.conteudo}`} role="tabpanel" aria-labelledby={`lancamentos-visao-${filtros.visao}`}>{conteudo}</section>
 
     {ficha ? <FichaDoLancamento key={ficha.id} lancamento={ficha} opcoes={opcoes} gerente={gerente} aoFechar={fecharFicha} aoAtualizar={() => router.refresh()} /> : null}
-    {configurando && opcoes ? <ConfiguracoesDoFinanceiro opcoes={opcoes} aoFechar={() => setConfigurando(false)} /> : null}
     {criando && opcoes ? <ContaAPagarForm opcoes={opcoes} gerente={gerente} aoCancelar={() => setCriando(false)}
       aoSalvar={(novo) => { setCriando(false); abrirCriado(novo, `${novo.codigo} criada: espera a aprovação da Gerente do Financeiro.`); }} /> : null}
     {cobrando && opcoes ? <NovaCobranca opcoes={opcoes} aoCancelar={() => setCobrando(false)}
