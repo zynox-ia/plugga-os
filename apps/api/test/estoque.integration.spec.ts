@@ -183,6 +183,20 @@ describe.skipIf(!HABILITADO)("estoque: saldo, movimentações e reservas no Post
     }
   }, PRAZO_MS);
 
+  it("um pedido não entra no estoque mais do que pediu: entrada manual + recebimento", async () => {
+    const id = await criarItem();
+    const pedido = await pedidoAtendidoPeloEstoque(id, "10");
+    await mover({ tipo: "entrada", itemId: id, quantidade: "6", custoUnitario: "1.00", origem: { tipo: "compra", pedidoId: pedido } });
+    await expect(mover({ tipo: "entrada", itemId: id, quantidade: "5", custoUnitario: "1.00", origem: { tipo: "compra", pedidoId: pedido } }))
+      .rejects.toThrow(/já deu entrada de 6\.000 m/);
+    await mover({ tipo: "entrada", itemId: id, quantidade: "4", custoUnitario: "1.00", origem: { tipo: "compra", pedidoId: pedido } });
+    expect((await saldo(id)).emEstoque.toFixed(3)).toBe("10.000");
+
+    const outro = await criarItem();
+    await expect(mover({ tipo: "entrada", itemId: outro, quantidade: "1", custoUnitario: "1.00", origem: { tipo: "compra", pedidoId: pedido } }))
+      .rejects.toBeInstanceOf(RequisicaoInvalida);
+  }, PRAZO_MS);
+
   it("item de estoque de outra empresa não pode ser vinculado ao pedido", async () => {
     const daWaze = await criarItem({ empresa: "waze" });
     await expect(compras.criar(criarPedidoDeCompraSchema.parse({

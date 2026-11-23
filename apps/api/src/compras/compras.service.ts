@@ -104,7 +104,7 @@ export class ComprasService {
 
   async editar(id: string, input: EditarPedidoDeCompra, principal: AuthPrincipal): Promise<PedidoDeCompra> {
     this.exigirOperacao(principal);
-    await this.repositorio.editar(id, input, principal);
+    await this.repositorio.editar(id, input, principal, this.agora());
     return this.obter(id, principal);
   }
 

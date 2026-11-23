@@ -47,6 +47,13 @@ import { diaEmManaus, fimDoDiaEmManaus, inicioDoDiaEmManaus } from "./dias-uteis
 
 export type ArquivoGuardado = { chave: string; nome: string; tamanho: number; tipo: string };
 
+/** O prazo de entrega desejado não fica no passado: hoje (até 23:59 de Manaus) é o mínimo. */
+function garantirPrazoFuturo(dia: string, agora: Date): void {
+  if (dia < diaEmManaus(agora)) {
+    throw new RequisicaoInvalida("O prazo de entrega desejado não pode ficar no passado.", [{ campo: "prazoEntregaDesejado", problema: "Use hoje ou uma data futura." }]);
+  }
+}
+
 const DIA_MS = 86_400_000;
 
 /**
@@ -161,6 +168,7 @@ export class PrismaComprasRepository {
   // ------------------------------------------------------------ escrita
 
   async criar(input: CriarPedidoDeCompra, principal: AuthPrincipal, agora: Date): Promise<string> {
+    garantirPrazoFuturo(input.prazoEntregaDesejado, agora);
     const solicitanteId = input.solicitanteId ?? principal.id;
     await this.garantirPessoas(principal, [solicitanteId, input.responsavelId ?? null]);
     await this.garantirObra(input.obraId ?? null, input.empresa);
@@ -190,9 +198,10 @@ export class PrismaComprasRepository {
     }));
   }
 
-  async editar(id: string, input: EditarPedidoDeCompra, principal: AuthPrincipal): Promise<void> {
+  async editar(id: string, input: EditarPedidoDeCompra, principal: AuthPrincipal, agora: Date): Promise<void> {
     const campos = Object.entries(input).filter(([, valor]) => valor !== undefined).map(([campo]) => campo).sort();
     if (campos.length === 0) return;
+    if (input.prazoEntregaDesejado !== undefined) garantirPrazoFuturo(input.prazoEntregaDesejado, agora);
     await this.prisma.comContexto(async (tx) => {
       await this.travar(tx, id);
       const atual = await tx.pedidoDeCompra.findUnique({ where: { id }, select: { etapa: true, canceladoEm: true, companyId: true, destino: true, obraId: true, clientId: true } });

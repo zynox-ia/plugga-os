@@ -54,6 +54,9 @@ export class MovimentosDeEstoque {
     const item = await tx.itemDeEstoque.findUniqueOrThrow({ where: { id: m.itemId }, select: { emEstoque: true, reservado: true, custoMedio: true, ativo: true, companyId: true } });
     if (m.empresa && item.companyId !== m.empresa) throw new RequisicaoInvalida("O item de estoque é de outra empresa.", [{ campo: "itemId", problema: "Escolha um item da mesma empresa." }]);
     if (m.exigirAtivo && !item.ativo) throw new EstadoInvalido("O item de estoque está inativo.");
+    if (m.movimento.tipo === "entrada" && m.vinculo.origem === "compra" && m.vinculo.pedidoId) {
+      await this.garantirLimiteDaEntradaDoPedido(tx, m.vinculo.pedidoId, m.itemId, m.movimento.quantidade);
+    }
 
     const plano = planejarMovimento(item, m.movimento);
     if (!plano.ok) throw new EstadoInvalido(plano.recusa.mensagem, plano.recusa.campo ? [{ campo: plano.recusa.campo, problema: plano.recusa.mensagem }] : undefined);
@@ -175,6 +178,30 @@ export class MovimentosDeEstoque {
         exigirAtivo: false,
       }, principal, agora);
       await this.registrar(tx, estado === "baixada" ? "estoque.reserva.baixada" : "estoque.reserva.liberada", "reserva_de_estoque", reserva.id, pedido.companyId, principal, { pedidoId: pedido.id });
+    }
+  }
+
+  /**
+   * Uma compra não entra no estoque mais do que foi pedido: a soma das entradas
+   * de origem "compra" ligadas ao pedido, para este item (manuais e a do
+   * recebimento), não passa da quantidade dos itens do pedido vinculados a ele.
+   * Roda com o item já travado, então duas entradas simultâneas não passam juntas.
+   */
+  private async garantirLimiteDaEntradaDoPedido(tx: Prisma.TransactionClient, pedidoId: string, itemId: string, quantidade: Prisma.Decimal): Promise<void> {
+    const [pedido, item] = await Promise.all([
+      tx.pedidoDeCompra.findUnique({ where: { id: pedidoId }, select: { numero: true, itens: { where: { itemDeEstoqueId: itemId }, select: { quantidade: true } } } }),
+      tx.itemDeEstoque.findUniqueOrThrow({ where: { id: itemId }, select: { unidade: true } }),
+    ]);
+    if (!pedido) throw new RequisicaoInvalida("Pedido de compra não encontrado.", [{ campo: "pedidoId", problema: "Escolha um pedido de compra." }]);
+    const numero = `PC-${String(pedido.numero).padStart(4, "0")}`;
+    const pedida = pedido.itens.reduce((soma, i) => soma.add(i.quantidade), D(0));
+    if (pedida.isZero()) {
+      throw new RequisicaoInvalida(`O pedido ${numero} não tem este item vinculado ao estoque.`, [{ campo: "pedidoId", problema: "O pedido não tem este item." }]);
+    }
+    const ja = (await tx.movimentacaoDeEstoque.aggregate({ where: { pedidoId, itemId, tipo: "entrada", origem: "compra" }, _sum: { quantidade: true } }))._sum.quantidade ?? D(0);
+    if (D(ja).add(quantidade).gt(pedida)) {
+      const mensagem = `Este pedido (${numero}) já deu entrada de ${D(ja).toFixed(3)} ${item.unidade} deste item, de ${pedida.toFixed(3)} ${item.unidade} pedidos.`;
+      throw new EstadoInvalido(mensagem, [{ campo: "quantidade", problema: mensagem }]);
     }
   }
 

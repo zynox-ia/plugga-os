@@ -131,6 +131,12 @@ describe.skipIf(!HABILITADO)("compras: pedido de compra no Postgres", () => {
     expect((await prisma.itemDeEstoque.findUniqueOrThrow({ where: { id: item.id }, select: { emEstoque: true } })).emEstoque.toFixed(3)).toBe("10.000");
   }, PRAZO_MS);
 
+  it("prazo de entrega desejado no passado é recusado, na criação e na edição; hoje vale", async () => {
+    await expect(criar({ prazoEntregaDesejado: "2026-11-22" })).rejects.toBeInstanceOf(RequisicaoInvalida);
+    const id = await criar({ prazoEntregaDesejado: "2026-11-23" });
+    await expect(repositorio.editar(id, editarPedidoDeCompraSchema.parse({ prazoEntregaDesejado: "2026-11-01" }), principal, AGORA)).rejects.toBeInstanceOf(RequisicaoInvalida);
+  }, PRAZO_MS);
+
   it("atender pelo estoque sem item vinculado é recusado", async () => {
     const id = await criar();
     await acao(id, { acao: "iniciar_analise" });
@@ -153,7 +159,7 @@ describe.skipIf(!HABILITADO)("compras: pedido de compra no Postgres", () => {
       .toEqual({ etapa: "analise_estoque", motivoCancelamento: "Cliente desistiu", canceladoPorId: principal.id });
     expect((await passagens(id)).every((p) => p.saiuEm !== null)).toBe(true);
     await expect(acao(id, { acao: "decidir_estoque", origem: "estoque" })).rejects.toBeInstanceOf(EstadoInvalido);
-    await expect(repositorio.editar(id, editarPedidoDeCompraSchema.parse({ titulo: `${marca} novo` }), principal)).rejects.toBeInstanceOf(EstadoInvalido);
+    await expect(repositorio.editar(id, editarPedidoDeCompraSchema.parse({ titulo: `${marca} novo` }), principal, AGORA)).rejects.toBeInstanceOf(EstadoInvalido);
   }, PRAZO_MS);
 
   it("cotação só na etapa de cotações e com fornecedor ativo", async () => {
@@ -172,16 +178,16 @@ describe.skipIf(!HABILITADO)("compras: pedido de compra no Postgres", () => {
   it("edição: troca a empresa sem mexer no número, itens só até a análise, obra da mesma empresa", async () => {
     const id = await criar({ destino: "obra", obraId: obraPlugga });
     const antes = await prisma.pedidoDeCompra.findUniqueOrThrow({ where: { id }, select: { numero: true } });
-    await expect(repositorio.editar(id, editarPedidoDeCompraSchema.parse({ empresa: "waze" }), principal)).rejects.toBeInstanceOf(RequisicaoInvalida);
-    await repositorio.editar(id, editarPedidoDeCompraSchema.parse({ empresa: "waze", destino: "interno" }), principal);
+    await expect(repositorio.editar(id, editarPedidoDeCompraSchema.parse({ empresa: "waze" }), principal, AGORA)).rejects.toBeInstanceOf(RequisicaoInvalida);
+    await repositorio.editar(id, editarPedidoDeCompraSchema.parse({ empresa: "waze", destino: "interno" }), principal, AGORA);
     expect(await prisma.pedidoDeCompra.findUniqueOrThrow({ where: { id }, select: { numero: true, companyId: true, obraId: true } }))
       .toEqual({ numero: antes.numero, companyId: "waze", obraId: null });
 
-    await repositorio.editar(id, editarPedidoDeCompraSchema.parse({ itens: [{ descricao: "Disjuntor", quantidade: "2" }, { descricao: "Fita", quantidade: "1.5" }] }), principal);
+    await repositorio.editar(id, editarPedidoDeCompraSchema.parse({ itens: [{ descricao: "Disjuntor", quantidade: "2" }, { descricao: "Fita", quantidade: "1.5" }] }), principal, AGORA);
     expect(await prisma.itemDePedido.count({ where: { pedidoId: id } })).toBe(2);
     await acao(id, { acao: "iniciar_analise" });
     await acao(id, { acao: "decidir_estoque", origem: "aquisicao" });
-    await expect(repositorio.editar(id, editarPedidoDeCompraSchema.parse({ itens: [{ descricao: "X", quantidade: "1" }] }), principal)).rejects.toBeInstanceOf(EstadoInvalido);
+    await expect(repositorio.editar(id, editarPedidoDeCompraSchema.parse({ itens: [{ descricao: "X", quantidade: "1" }] }), principal, AGORA)).rejects.toBeInstanceOf(EstadoInvalido);
   }, PRAZO_MS);
 
   it("trocar o comprovante preserva o anterior, com quem trocou e quando, e o banco não deixa reescrevê-lo", async () => {
