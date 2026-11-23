@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 
+import { marcaDaExecucao } from "./support/execucao";
 import { bloquearTerceiros } from "./support/sem-terceiros";
 
 /**
@@ -30,7 +31,7 @@ async function criarPedidoVinculado(page: Page, sufixo: string, nome: string, qu
   await page.getByRole("button", { name: "Novo pedido" }).first().click();
   const novo = page.getByRole("dialog", { name: "Novo pedido de compra" });
   await novo.getByRole("radio", { name: "Waze Energia" }).click();
-  await novo.getByLabel("Título").fill(`Material E2E ${sufixo} (sintético)`);
+  await novo.getByLabel("Título").fill(`Material ${marcaDaExecucao()} ${sufixo} (sintético)`);
   await novo.getByRole("radio", { name: "Interno" }).click();
   await novo.getByRole("combobox", { name: /Estoque do item 1/ }).click();
   const busca = page.getByRole("searchbox", { name: /Buscar em Estoque do item 1/ });
@@ -40,14 +41,14 @@ async function criarPedidoVinculado(page: Page, sufixo: string, nome: string, qu
   await novo.getByLabel("Quantidade do item 1").fill(quantidade);
   await novo.getByRole("textbox", { name: /Entrega desejada/ }).fill(diaFuturo(10));
   await novo.getByRole("button", { name: "Criar pedido" }).click();
-  await expect(ficha(page).getByRole("heading", { name: `Material E2E ${sufixo} (sintético)` })).toBeVisible(DEPOIS_DA_ACAO);
+  await expect(ficha(page).getByRole("heading", { name: `Material ${marcaDaExecucao()} ${sufixo} (sintético)` })).toBeVisible(DEPOIS_DA_ACAO);
 }
 
 test("item novo recebe entrada, é reservado por um pedido e baixado no recebimento", async ({ page }) => {
   test.slow(); // fluxo longo, de Estoque a Compras e de volta
   await bloquearTerceiros(page);
   const sufixo = Date.now().toString(36).toUpperCase();
-  const nome = `Conector E2E ${sufixo} (sintético)`;
+  const nome = `Conector ${marcaDaExecucao()} ${sufixo} (sintético)`;
 
   // 1. Novo item: a Empresa é obrigatória.
   await page.goto("/suprimentos/estoque");
@@ -151,11 +152,11 @@ test("aquisição de item vinculado dá entrada no estoque no recebimento", asyn
   await bloquearTerceiros(page);
   const origem = { origin: new URL(baseURL!).origin };
   const sufixo = Date.now().toString(36).toUpperCase();
-  const nome = `Disjuntor E2E ${sufixo} (sintético)`;
+  const nome = `Disjuntor ${marcaDaExecucao()} ${sufixo} (sintético)`;
   const item = await page.request.post("/api/suprimentos/estoque/itens", { headers: origem, data: { empresa: "waze", codigo: `E2E-${sufixo}`, nome, categoria: "material_eletrico", unidade: "un", estoqueMinimo: "0" } });
   expect(item.status(), await item.text()).toBe(201);
   const { id: itemId } = (await item.json()) as { id: string };
-  const fornecedor = await page.request.post("/api/suprimentos/fornecedores", { headers: origem, data: { nome: `Fornecedor E2E ${sufixo} (sintético)`, categoria: "material_eletrico" } });
+  const fornecedor = await page.request.post("/api/suprimentos/fornecedores", { headers: origem, data: { nome: `Fornecedor ${marcaDaExecucao()} ${sufixo} (sintético)`, categoria: "material_eletrico" } });
   expect(fornecedor.status(), await fornecedor.text()).toBe(201);
   const { nome: nomeDoFornecedor } = (await fornecedor.json()) as { nome: string };
 
