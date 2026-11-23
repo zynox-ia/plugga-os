@@ -31,7 +31,11 @@ export type ConfiguracaoDeTarefas = {
   exemplo: { titulo: string; item: string };
   /** Atalho → tela onde o trabalho acontece. Sem a tela pronta, o atalho não aparece. */
   atalhos: Partial<Record<AtalhoDeTarefa, { href: string; rotulo: string }>>;
-  /** Nota curta no fim da tela (ex.: como o monitoramento se conclui sozinho). */
+  /**
+   * Aviso opcional do departamento, no fim da tela e sempre à vista (ex.: no
+   * Financeiro, "Copiar comprovantes deixou de ser tarefa: …"; na Engenharia,
+   * como o monitoramento se conclui sozinho).
+   */
   nota?: string;
 };
 

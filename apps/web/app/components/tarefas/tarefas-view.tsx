@@ -134,7 +134,8 @@ export function TarefasView({ config, filtros, resposta, opcoes, acoesDoCabecalh
     {opcoes === null ? <p className="aviso aviso--alerta" role="status">Não foi possível carregar as pessoas do departamento: Nova tarefa e o filtro de responsável ficam de fora até recarregar a página.</p> : null}
 
     <section id="tarefas-conteudo" className={`${estilosClientes.conteudo} ${styles.conteudo}`} role="tabpanel" aria-labelledby={`tarefas-visao-${filtros.visao}`}>{conteudo}</section>
-    {config.nota && itens.length ? <p className={styles.nota}><Info size={14} aria-hidden="true" /><span>{config.nota}</span></p> : null}
+    {/* O aviso do departamento (opcional), sempre à vista, como no protótipo: também com a lista vazia. */}
+    {config.nota ? <p className={styles.nota}><Info size={14} aria-hidden="true" /><span>{config.nota}</span></p> : null}
 
     {criando && opcoes ? <NovaTarefa departamento={config.departamento} opcoes={opcoes} exemplo={config.exemplo} empresaInicial={filtros.empresa} hoje={hoje} aoCancelar={() => setCriando(false)}
       aoCriar={(t) => { setCriando(false); setAviso(`Tarefa criada: ${t.titulo} (${t.recorrenciaTexto}).`); router.refresh(); }} /> : null}
