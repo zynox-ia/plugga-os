@@ -2,6 +2,7 @@
 
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
 import { Fragment } from "react";
+import { rotuloDaEntidade, type EntidadeDaLista } from "../../lib/rotulos-da-lista";
 
 export function paginasDaLista(pagina: number, total: number): number[] {
   if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
@@ -14,16 +15,16 @@ export function PaginacaoDaLista({ pagina, totalItens, itensPorPagina, aoMudarPa
   totalItens: number;
   itensPorPagina: number;
   aoMudarPagina: (pagina: number) => void;
-  entidade?: "leads" | "negocios" | "clientes" | "membros" | "fornecedores";
+  entidade?: EntidadeDaLista;
 }) {
   const totalPaginas = Math.max(1, Math.ceil(totalItens / itensPorPagina));
   const inicio = (pagina - 1) * itensPorPagina + 1;
   const fim = Math.min(pagina * itensPorPagina, totalItens);
   const paginas = paginasDaLista(pagina, totalPaginas);
 
-  return <nav className="lista-paginacao" aria-label={`Paginação da lista de ${entidade}`}>
+  return <nav className="lista-paginacao" aria-label={`Paginação da lista de ${rotuloDaEntidade(entidade, 2)}`}>
     <span className="lista-paginacao-info" role="status">
-      Mostrando <strong>{inicio}–{fim}</strong> de <strong>{totalItens}</strong> {totalItens === 1 ? { clientes: "cliente", leads: "lead", negocios: "negócio", membros: "membro", fornecedores: "fornecedor" }[entidade] : entidade}
+      Mostrando <strong>{inicio}–{fim}</strong> de <strong>{totalItens}</strong> {rotuloDaEntidade(entidade, totalItens)}
     </span>
     <div className="lista-paginacao-controles">
       <button type="button" className="lista-paginacao-btn" disabled={pagina === 1} onClick={() => aoMudarPagina(1)} aria-label="Primeira página">
