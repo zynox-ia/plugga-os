@@ -19,6 +19,7 @@ import {
   List,
   Scale,
   Send,
+  Settings,
   SquareKanban,
   TriangleAlert,
   Wallet,
@@ -54,6 +55,7 @@ import { CardDeMetrica } from "../suprimentos/card-de-metrica";
 import { FiltroComBusca } from "../suprimentos/menu-com-busca";
 import { Button, IconPlus, IconSearch } from "../ui";
 import { CardsDosLancamentos } from "./cards-dos-lancamentos";
+import { ConfiguracoesDoFinanceiro } from "./configuracoes-do-financeiro";
 import { ContaAPagarForm } from "./conta-a-pagar-form";
 import { FichaDoLancamento } from "./ficha-do-lancamento";
 import styles from "./lancamentos.module.css";
@@ -99,6 +101,7 @@ export function LancamentosView({ filtros, lista, quadro, resumo, alcance, ficha
   const router = useRouter();
   const [busca, setBusca] = useState(filtros.busca ?? "");
   const [criando, setCriando] = useState(false);
+  const [configurando, setConfigurando] = useState(false);
   const [aviso, setAviso] = useState<string | null>(null);
   useEffect(() => { if (!aviso) return; const t = setTimeout(() => setAviso(null), 5000); return () => clearTimeout(t); }, [aviso]);
   const abasRef = useRef<HTMLDivElement>(null);
@@ -194,7 +197,11 @@ export function LancamentosView({ filtros, lista, quadro, resumo, alcance, ficha
         <h1 className={estilosPipelines.titulo}>Lançamentos</h1>
         <h2 className={`${estilosPipelines.subtitulo} ${styles.subtitulo}`}>Entradas e saídas das duas empresas.</h2>
       </div>
-      {novaConta ? <div className={estilosPipelines.acoes}>{novaConta}</div> : null}
+      <div className={estilosPipelines.acoes}>
+        {novaConta}
+        {/* Configurações do Financeiro (contas e categorias do OMIE); só aparece quando as opções foram lidas. */}
+        {opcoes ? <Button variant="secondary" iconOnly icon={<Settings size={18} />} aria-label="Configurações do Financeiro" title="Configurações do Financeiro" onClick={() => setConfigurando(true)} /> : null}
+      </div>
     </header>
 
     {cards.length ? <div className={styles.metricas} role="group" aria-label={`Resumo do caixa${filtros.empresa ? ` da ${ROTULO_DA_EMPRESA[filtros.empresa]}` : ""}`}
@@ -235,6 +242,7 @@ export function LancamentosView({ filtros, lista, quadro, resumo, alcance, ficha
     <section id="lancamentos-conteudo" className={`${estilosClientes.conteudo} ${styles.conteudo}`} role="tabpanel" aria-labelledby={`lancamentos-visao-${filtros.visao}`}>{conteudo}</section>
 
     {ficha ? <FichaDoLancamento key={ficha.id} lancamento={ficha} opcoes={opcoes} gerente={gerente} aoFechar={fecharFicha} aoAtualizar={() => router.refresh()} /> : null}
+    {configurando && opcoes ? <ConfiguracoesDoFinanceiro opcoes={opcoes} aoFechar={() => setConfigurando(false)} /> : null}
     {criando && opcoes ? <ContaAPagarForm opcoes={opcoes} gerente={gerente} aoCancelar={() => setCriando(false)}
       aoSalvar={(novo) => { setCriando(false); setAviso(`${novo.codigo} criada: espera a aprovação da Gerente do Financeiro.`); router.push(hrefDosLancamentos(filtros, novo.id), { scroll: false }); router.refresh(); }} /> : null}
   </div>;
