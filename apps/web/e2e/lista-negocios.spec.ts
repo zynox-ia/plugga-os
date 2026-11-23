@@ -150,7 +150,7 @@ test("ações em lote, menus e estado vazio continuam acessíveis no painel limi
   for (const viewport of [{ width: 1280, height: 720 }, { width: 320, height: 1000 }, { width: 320, height: 600 }]) {
     await page.setViewportSize(viewport);
     await page.goto(`/comercial/pipelines?pipeline=${pipeline.id}&visao=lista`);
-    await page.getByRole("button", { name: "Selecionar leads", exact: true }).click();
+    await page.getByRole("button", { name: "Selecionar negócios", exact: true }).click();
     await page.getByRole("checkbox", { name: "Selecionar todos os leads visíveis", exact: true }).check();
     const lote = page.getByRole("region", { name: "Ações em lote", exact: true });
     await lote.scrollIntoViewIfNeeded();
@@ -191,25 +191,26 @@ test("janelas baixas mantêm o conteúdo alcançável e o agente visível", asyn
 
 test("ordenação pelo cabeçalho e alinhamento da primeira coluna", async ({ page }) => {
   await page.goto(`/comercial/pipelines?pipeline=${pipeline.id}&visao=lista`);
-  const cabecalho = await page.locator(".card-heading .eyebrow").boundingBox();
-  const coluna = await page.getByRole("button", { name: "Oportunidade", exact: true }).boundingBox();
+  const cabecalho = await page.locator(".card-heading h2").boundingBox();
+  const coluna = await page.getByRole("button", { name: "Negócio", exact: true }).boundingBox();
   expect(cabecalho!.x).toBeCloseTo(coluna!.x, 0);
   await expect(page.getByRole("combobox", { name: "Ordenar oportunidades" })).toHaveCount(0);
-  await page.getByRole("button", { name: "Oportunidade", exact: true }).click();
+  await page.getByRole("button", { name: "Negócio", exact: true }).click();
   await expect(page.getByRole("columnheader").first()).toHaveAttribute("aria-sort", "ascending");
-  await expect(page.locator(".lead-nome")).toHaveText(negocios.map((n) => n.title).sort((a, b) => a.localeCompare(b, "pt-BR")).slice(0, 6));
-  await page.getByRole("button", { name: "Selecionar leads" }).click();
+  // A lista abre em "Em aberto": os 23 primeiros do cenário (o 23 perdeu e o 24 ganhou).
+  await expect(page.locator(".lead-nome")).toHaveText(negocios.slice(0, 23).map((n) => n.title).sort((a, b) => a.localeCompare(b, "pt-BR")).slice(0, 6));
+  await page.getByRole("button", { name: "Selecionar negócios", exact: true }).click();
   const caixa = (await page.getByRole("checkbox", { name: "Selecionar todos os leads visíveis" }).boundingBox())!;
-  const titulo = (await page.getByRole("button", { name: "Oportunidade", exact: true }).boundingBox())!;
+  const titulo = (await page.getByRole("button", { name: "Negócio", exact: true }).boundingBox())!;
   expect(Math.abs(caixa.y + caixa.height / 2 - titulo.y - titulo.height / 2)).toBeLessThanOrEqual(1);
 });
 
-test("exibe cinco títulos e revela a seleção somente ao ativá-la", async ({ page }) => {
+test("exibe as colunas da lista e revela a seleção somente ao ativá-la", async ({ page }) => {
   await page.goto(`/comercial/pipelines?pipeline=${pipeline.id}&visao=lista`);
-  const tabela = page.getByRole("table", { name: `Lista de leads do pipeline ${pipeline.name}` });
-  await expect(tabela.getByRole("columnheader")).toHaveText(["Oportunidade", "Cliente", "Etapa", "Valor", "Ações"]);
+  const tabela = page.getByRole("table", { name: `Lista de negócios do pipeline ${pipeline.name}` });
+  await expect(tabela.getByRole("columnheader")).toHaveText(["Negócio", "Etapa", "Valor", "Responsável", "Na etapa há", "Ações"]);
   await expect(tabela.getByRole("checkbox")).toHaveCount(0);
-  const selecionar = page.getByRole("button", { name: "Selecionar leads", exact: true });
+  const selecionar = page.getByRole("button", { name: "Selecionar negócios", exact: true });
   await selecionar.focus();
   await page.keyboard.press("Enter");
   await expect(page.getByRole("button", { name: "Cancelar seleção", exact: true })).toBeFocused();
@@ -220,7 +221,7 @@ test("exibe cinco títulos e revela a seleção somente ao ativá-la", async ({ 
   await expect(page.getByText("1 lead selecionado", { exact: true })).toBeVisible();
   await expect(page.getByRole("dialog", { name: "Detalhes do lead", exact: true })).toHaveCount(0);
   await expect(tabela.getByRole("checkbox", { name: "Selecionar todos os leads visíveis" })).toHaveJSProperty("indeterminate", true);
-  await expect(tabela.getByRole("columnheader")).toHaveCount(5);
+  await expect(tabela.getByRole("columnheader")).toHaveCount(6);
   await page.getByRole("button", { name: "Limpar seleção", exact: true }).click();
   await expect(page.getByRole("button", { name: "Cancelar seleção", exact: true })).toBeFocused();
   await linha.getByRole("checkbox").check();
@@ -236,7 +237,7 @@ test("mantém a tabela e os controles contidos em telas estreitas", async ({ pag
   await page.goto(`/comercial/pipelines?pipeline=${pipeline.id}&visao=lista`);
   for (const width of [320, 768, 1024, 1440]) {
     await page.setViewportSize({ width, height: 1000 });
-    const selecionar = page.getByRole("button", { name: "Selecionar leads", exact: true });
+    const selecionar = page.getByRole("button", { name: "Selecionar negócios", exact: true });
     await expect(selecionar).toBeVisible();
     const card = page.locator(".lista-negocios-card");
     const limite = await card.boundingBox();
@@ -265,7 +266,7 @@ test("seleciona apenas a página visível e preserva a seleção explícita de o
   const titulos = await page.locator(".lead-nome").allTextContents();
   expect(titulos).toHaveLength(6);
   const idsVisiveis = negocios.filter((n) => titulos.includes(n.title)).map((n) => n.id);
-  await page.getByRole("button", { name: "Selecionar leads", exact: true }).click();
+  await page.getByRole("button", { name: "Selecionar negócios", exact: true }).click();
   const todos = page.getByRole("checkbox", { name: "Selecionar todos os leads visíveis" });
   await todos.check();
   await expect(page.getByText("6 leads selecionados", { exact: true })).toBeVisible();
@@ -296,17 +297,19 @@ test("seleciona apenas a página visível e preserva a seleção explícita de o
   expect((await envioPrioridade).postDataJSON().action).toEqual({ type: "priority", priority: null });
 });
 
-test("exibe o e-mail de cada lead da página sem consultar as fichas dos clientes", async ({ page }) => {
+test("exibe o código e o nome do lead de cada linha sem consultar as fichas dos clientes", async ({ page }) => {
   const chamadas: string[] = [];
   await page.route(/\/api\/clientes\/[0-9a-f-]{36}$/, async (route) => {
     chamadas.push(route.request().url());
     await route.fulfill({ status: 503, json: { mensagem: "A lista não deve consultar fichas de clientes." } });
   });
   await page.goto(`/comercial/pipelines?pipeline=${pipeline.id}&visao=lista`);
-  const emails = page.locator(".lead-subtitulo").getByText(/lista-lead-/);
-  await expect(emails).toHaveCount(6);
-  const nomes = await page.locator(".lead-nome").allTextContents();
-  expect(await emails.allTextContents()).toEqual(nomes.map((nome) => negocios.find((negocio) => negocio.lead.name === nome)!.lead.email));
+  const codigos = page.locator("tbody tr").locator('span[title^="PLU-"]');
+  await expect(codigos).toHaveCount(6);
+  const titulos = await page.locator(".lead-nome").allTextContents();
+  const esperado = titulos.map((titulo) => negocios.find((negocio) => negocio.title === titulo)!).map((n) => `PLU-${String(n.number).padStart(4, "0")} · ${n.lead.name}`);
+  expect(await codigos.allTextContents()).toEqual(esperado);
+  await expect(page.getByText(/lista-lead-/)).toHaveCount(0);
   expect(chamadas).toEqual([]);
 });
 
@@ -323,21 +326,21 @@ test("volta uma página após a busca reduzir o número de páginas", async ({ p
 
 test("negócios encerrados mantêm o menu com acesso aos detalhes e sem ações inválidas", async ({ page }) => {
   await page.goto(`/comercial/pipelines?pipeline=${pipeline.id}&visao=lista`);
-  // Ganhos e perdidos só aparecem fora do filtro padrão "Em aberto".
-  await page.getByRole("group", { name: "Situação" }).getByRole("button", { name: "Todos", exact: true }).click();
-  for (const [indice, status] of [[24, "Ganho"], [23, "Perdido"]] as const) {
+  // Ganhos e perdidos só aparecem fora do filtro padrão "Em aberto": cada um no seu filtro de Situação.
+  for (const [indice, situacao] of [[24, "Ganhos"], [23, "Perdidos"]] as const) {
     const encerrado = negocios[indice]!;
+    await page.getByRole("group", { name: "Situação" }).getByRole("button", { name: situacao, exact: true }).click();
     await page.getByRole("searchbox", { name: "Buscar negócios" }).fill(encerrado.title);
     const linha = page.getByRole("row").filter({ hasText: encerrado.title });
-    await expect(linha.getByText(status, { exact: true })).toBeVisible();
-    await expect(linha.locator(".atividade-linha")).toHaveText(/\d+d na etapa/);
+    await expect(linha).toHaveCount(1);
+    await expect(linha.locator('td[data-l="Na etapa há"]')).toHaveText(/^(hoje|\d+ dias)$/);
     await linha.getByRole("button", { name: `Ações de ${encerrado.title}`, exact: true }).click();
     const menu = page.getByRole("menu", { name: `Ações de ${encerrado.title}`, exact: true });
     await expect(menu.getByRole("menuitem")).toHaveText(["Ver detalhes do lead"]);
     await menu.getByRole("menuitem", { name: "Ver detalhes do lead", exact: true }).click();
     await expect(page.getByRole("dialog", { name: "Detalhes do lead", exact: true })).toBeVisible();
     await page.keyboard.press("Escape");
-    await linha.getByRole("button", { name: `Ver detalhes do lead ${encerrado.title}`, exact: true }).click();
+    await linha.getByRole("button", { name: `Ver detalhes de ${encerrado.title}`, exact: true }).click();
     await expect(page.getByRole("dialog", { name: "Detalhes do lead", exact: true })).toBeVisible();
     await page.keyboard.press("Escape");
   }
