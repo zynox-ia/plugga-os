@@ -1,21 +1,43 @@
+import { alcancaDepartamento } from "@plugga/shared";
+
 import { EstadoDaApi } from "../../components/estado-da-api";
 import { LancamentosView } from "../../components/financeiro/lancamentos-view";
-import { fetchLancamentos, fetchQuadroFinanceiro } from "../../lib/api";
+import { fetchLancamento, fetchLancamentos, fetchOpcoesDoFinanceiro, fetchQuadroFinanceiro, fetchResumoDosLancamentos } from "../../lib/api";
 import { exigirPagina } from "../../lib/exigir-pagina";
-import { consultaDosLancamentos, lerFiltrosDosLancamentos } from "../../lib/financeiro";
+import { consultaDosLancamentos, ehUuidDoLancamento, lerFiltrosDosLancamentos } from "../../lib/financeiro";
 
 export default async function LancamentosPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
-  await exigirPagina("/financeiro/lancamentos");
-  const filtros = lerFiltrosDosLancamentos(await searchParams);
+  const sessao = await exigirPagina("/financeiro/lancamentos");
+  const parametros = await searchParams;
+  const filtros = lerFiltrosDosLancamentos(parametros);
+  const quadro = filtros.visao === "quadro";
+  const lancamento = ehUuidDoLancamento(parametros.lancamento) ? parametros.lancamento : null;
 
-  // O resumo dos metric cards vem com a lista; no quadro, a lista vem também
-  // (sem situação) para os cards, e as colunas vêm do endpoint do quadro.
-  const [lista, quadro] = await Promise.all([
-    fetchLancamentos(consultaDosLancamentos(filtros, filtros.visao === "quadro" ? "quadro" : "lista")),
-    filtros.visao === "quadro" ? fetchQuadroFinanceiro(consultaDosLancamentos(filtros, "quadro")) : Promise.resolve(null),
+  // No Quadro, os metric cards vêm do modo só-resumo; nas outras visões, com a lista.
+  const [lista, colunas, resumo, ficha, opcoes] = await Promise.all([
+    quadro ? Promise.resolve(null) : fetchLancamentos(consultaDosLancamentos(filtros, "lista")),
+    quadro ? fetchQuadroFinanceiro(consultaDosLancamentos(filtros, "quadro")) : Promise.resolve(null),
+    quadro ? fetchResumoDosLancamentos(filtros.empresa ? { empresa: filtros.empresa } : {}) : Promise.resolve(null),
+    lancamento ? fetchLancamento(lancamento) : Promise.resolve(null),
+    fetchOpcoesDoFinanceiro(),
   ]);
-  if (!lista.ok) return <EstadoDaApi erro={lista.erro} eyebrow="Lançamentos" />;
-  if (quadro && !quadro.ok) return <EstadoDaApi erro={quadro.erro} eyebrow="Lançamentos" />;
+  if (lista && !lista.ok) return <EstadoDaApi erro={lista.erro} eyebrow="Lançamentos" />;
+  if (colunas && !colunas.ok) return <EstadoDaApi erro={colunas.erro} eyebrow="Lançamentos" />;
+  if (resumo && !resumo.ok) return <EstadoDaApi erro={resumo.erro} eyebrow="Lançamentos" />;
 
-  return <LancamentosView filtros={filtros} lista={lista.dados} quadro={quadro?.ok ? quadro.dados : null} alcance={lista.dados.alcance} />;
+  const dados = lista?.ok ? lista.dados : null;
+  const resumoDaTela = dados ? { resumo: dados.resumo, alcance: dados.alcance } : resumo!.ok ? resumo!.dados : null;
+  return <LancamentosView
+    filtros={filtros}
+    lista={dados}
+    quadro={colunas?.ok ? colunas.dados : null}
+    resumo={resumoDaTela!.resumo}
+    alcance={resumoDaTela!.alcance}
+    ficha={ficha?.ok ? ficha.dados : null}
+    // 404 é "não existe ou não é seu"; o resto é falha de leitura, com outro aviso.
+    falhaDaFicha={ficha && !ficha.ok ? (ficha.erro.tipo === "naoEncontrado" ? "nao_encontrada" : "indisponivel") : null}
+    // As opções servem só aos formulários: sem elas a lista abre, e criar e editar ficam desligados.
+    opcoes={opcoes.ok ? opcoes.dados : null}
+    gerente={alcancaDepartamento(sessao.acesso, "financeiro", "gerente")}
+  />;
 }

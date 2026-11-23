@@ -57,10 +57,10 @@ describe("filtros dos Lançamentos no endereço", () => {
   });
 
   it("ida e volta pelo endereço preserva visão, filtros e a ficha", () => {
-    const f = lerFiltrosDosLancamentos({ visao: "quadro", situacao: "receber-cobranca", empresa: "plugga", vencimento: "7", busca: " Clínica " });
-    assert.deepEqual(f, { visao: "quadro", situacao: "receber-cobranca", empresa: "plugga", vencimento: "7", busca: "Clínica" });
+    const f = lerFiltrosDosLancamentos({ visao: "lista", situacao: "receber-cobranca", empresa: "plugga", vencimento: "7", busca: " Clínica " });
+    assert.deepEqual(f, { visao: "lista", situacao: "receber-cobranca", empresa: "plugga", vencimento: "7", busca: "Clínica" });
     const href = hrefDosLancamentos(f, "abc");
-    assert.equal(href, "/financeiro/lancamentos?visao=quadro&situacao=receber-cobranca&empresa=plugga&vencimento=7&busca=Cl%C3%ADnica&lancamento=abc");
+    assert.equal(href, "/financeiro/lancamentos?visao=lista&situacao=receber-cobranca&empresa=plugga&vencimento=7&busca=Cl%C3%ADnica&lancamento=abc");
     assert.deepEqual(lerFiltrosDosLancamentos(Object.fromEntries(new URL(href, "http://x").searchParams)), f);
   });
 
@@ -142,6 +142,10 @@ describe("card do lançamento", () => {
 });
 
 describe("Quadro sem situação e totais da lista", () => {
+  it("um link do Quadro com situação descarta a situação ao abrir", () => {
+    assert.deepEqual(lerFiltrosDosLancamentos({ visao: "quadro", situacao: "vencidos", empresa: "plugga" }), { visao: "quadro", empresa: "plugga" });
+  });
+
   it("ir para o Quadro desliga a situação, que não voltaria escondida na Lista; os outros filtros ficam", () => {
     assert.deepEqual(comVisao({ visao: "lista", situacao: "vencidos", empresa: "waze", vencimento: "7" }, "quadro"), { visao: "quadro", empresa: "waze", vencimento: "7" });
     assert.deepEqual(comVisao({ visao: "quadro", empresa: "waze" }, "cards"), { visao: "cards", empresa: "waze" });

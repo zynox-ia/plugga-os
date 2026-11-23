@@ -10,9 +10,12 @@ import {
   historicoDeCotacoesRespostaSchema,
   itemDeEstoqueSchema,
   listarItensDeEstoqueRespostaSchema,
+  lancamentoSchema,
   listarLancamentosRespostaSchema,
   listarMovimentacoesRespostaSchema,
+  opcoesDoFinanceiroSchema,
   quadroFinanceiroSchema,
+  resumoDosLancamentosRespostaSchema,
   listarPedidosDeCompraRespostaSchema,
   opcoesDeCompraRespostaSchema,
   pedidoDeCompraSchema,
@@ -149,3 +152,13 @@ export const fetchLancamentos = (consulta: ConsultaDoFinanceiro) =>
 /** GET /financeiro/lancamentos/quadro: as 4 colunas com os totais de entradas e saídas. */
 export const fetchQuadroFinanceiro = (consulta: ConsultaDoFinanceiro) =>
   lerApi("/financeiro/lancamentos/quadro", quadroFinanceiroSchema, {}, { consulta });
+
+/** GET /financeiro/lancamentos/resumo: só os metric cards (o Quadro não precisa da lista). */
+export const fetchResumoDosLancamentos = (consulta: ConsultaDoFinanceiro) =>
+  lerApi("/financeiro/lancamentos/resumo", resumoDosLancamentosRespostaSchema, {}, { consulta });
+
+/** GET /financeiro/lancamentos/:id: a ficha, com os marcos e as ações que a pessoa pode fazer agora. */
+export const fetchLancamento = (id: string) => lerApi("/financeiro/lancamentos/:id", lancamentoSchema, { id });
+
+/** GET /financeiro/opcoes: categorias e contas por empresa, fornecedores ativos e formas de pagamento. */
+export const fetchOpcoesDoFinanceiro = () => lerApi("/financeiro/opcoes", opcoesDoFinanceiroSchema);

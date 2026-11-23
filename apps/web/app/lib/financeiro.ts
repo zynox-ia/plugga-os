@@ -39,9 +39,11 @@ export function lerFiltrosDosLancamentos(p: Record<string, string | undefined>):
   const empresa = companyKeys.find((e) => e === p.empresa);
   const vencimento = filtrosDeVencimento.find((v) => v === p.vencimento);
   const busca = p.busca?.trim().slice(0, 120) || undefined;
+  const visao = visoesDosLancamentos.find((v) => v === p.visao) ?? "cards";
   return {
-    visao: visoesDosLancamentos.find((v) => v === p.visao) ?? "cards",
-    ...(situacao ? { situacao } : {}),
+    visao,
+    // O Quadro não tem situação: um link antigo com as duas não guarda um filtro escondido.
+    ...(situacao && visao !== "quadro" ? { situacao } : {}),
     ...(empresa ? { empresa } : {}),
     // O cancelado não vence: a API recusa Canceladas com Vencimento (400).
     ...(vencimento && situacao !== "cancelado" ? { vencimento } : {}),

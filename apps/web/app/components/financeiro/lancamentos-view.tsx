@@ -1,6 +1,6 @@
 "use client";
 
-import type { LancamentoResumo, ListarLancamentosResposta, QuadroFinanceiro } from "@plugga/shared";
+import type { Lancamento, LancamentoResumo, ListarLancamentosResposta, OpcoesDoFinanceiro, QuadroFinanceiro, ResumoDosLancamentos } from "@plugga/shared";
 import {
   ArrowDownLeft,
   ArrowUpRight,
@@ -52,8 +52,10 @@ import { BarraRolagemMinimalista } from "../pipelines/quadro-do-pipeline";
 import estilosPipelines from "../pipelines/tela-pipelines.module.css";
 import { CardDeMetrica } from "../suprimentos/card-de-metrica";
 import { FiltroComBusca } from "../suprimentos/menu-com-busca";
-import { Button, IconSearch } from "../ui";
+import { Button, IconPlus, IconSearch } from "../ui";
 import { CardsDosLancamentos } from "./cards-dos-lancamentos";
+import { ContaAPagarForm } from "./conta-a-pagar-form";
+import { FichaDoLancamento } from "./ficha-do-lancamento";
 import styles from "./lancamentos.module.css";
 import { ListaDosLancamentos } from "./lista-dos-lancamentos";
 import { QuadroDosLancamentos } from "./quadro-dos-lancamentos";
@@ -78,16 +80,27 @@ const diaEMes = (dia: string) => dia.slice(5, 10).split("-").reverse().join("/")
  * só. Metric cards de caixa, filtros de Situação, Empresa e Vencimento, e as
  * visões Cards (padrão), Lista e Quadro. Filtros, visão e ficha vão no endereço.
  */
-export function LancamentosView({ filtros, lista, quadro, alcance }: {
+export function LancamentosView({ filtros, lista, quadro, resumo, alcance, ficha, falhaDaFicha, opcoes, gerente }: {
   filtros: FiltrosDosLancamentos;
   /** Na visão Cards ou Lista. */
   lista: ListarLancamentosResposta | null;
   /** Na visão Quadro. */
   quadro: QuadroFinanceiro | null;
+  /** Os metric cards: com a lista, ou do modo só-resumo no Quadro. */
+  resumo: ResumoDosLancamentos;
   alcance: ListarLancamentosResposta["alcance"];
+  ficha: Lancamento | null;
+  falhaDaFicha: "nao_encontrada" | "indisponivel" | null;
+  /** Nulas quando a leitura falhou: a lista abre, criar e editar ficam desligados. */
+  opcoes: OpcoesDoFinanceiro | null;
+  /** Gerente do Financeiro (ou plataforma): edita tudo na conta aprovada. */
+  gerente: boolean;
 }) {
   const router = useRouter();
   const [busca, setBusca] = useState(filtros.busca ?? "");
+  const [criando, setCriando] = useState(false);
+  const [aviso, setAviso] = useState<string | null>(null);
+  useEffect(() => { if (!aviso) return; const t = setTimeout(() => setAviso(null), 5000); return () => clearTimeout(t); }, [aviso]);
   const abasRef = useRef<HTMLDivElement>(null);
   const colunasRef = useRef<HTMLDivElement>(null);
   useEffect(() => setBusca(filtros.busca ?? ""), [filtros.busca]);
@@ -114,12 +127,12 @@ export function LancamentosView({ filtros, lista, quadro, alcance }: {
     abasRef.current?.querySelector<HTMLButtonElement>(`#lancamentos-visao-${visao}`)?.focus();
   }
 
-  const resumo = lista?.resumo ?? null;
-  const ate = resumo ? diaEMes(resumo.ate) : "";
+  const fecharFicha = () => router.push(hrefDosLancamentos(filtros), { scroll: false });
+  const ate = diaEMes(resumo.ate);
   // Clicar num card liga o filtro dele (situação e vencimento); clicar de novo desliga.
   // No Quadro, que não tem situação, os cards não são clicáveis.
   const filtroDoCard = (card: CardDoResumo) => (cardsClicaveis(filtros) ? { ativo: cardAtivo(filtros, card), aoClicar: () => trocar(filtroAoClicarNoCard(filtros, card)) } : {});
-  const cards = resumo ? [
+  const cards = [
     resumo.aReceber ? <CardDeMetrica key="receber" rotulo={`A receber · até ${ate}`} valor={valorEmReais(resumo.aReceber.valor)} icone={<ArrowDownLeft />} {...filtroDoCard("aReceber")}
       nota={resumo.aReceber.quantidade === 1 ? "1 cobrança em aberto" : `${resumo.aReceber.quantidade} cobranças em aberto`} /> : null,
     resumo.aPagar ? <CardDeMetrica key="pagar" rotulo={`A pagar · até ${ate}`} valor={valorEmReais(resumo.aPagar.valor)} icone={<ArrowUpRight />} {...filtroDoCard("aPagar")}
@@ -128,7 +141,12 @@ export function LancamentosView({ filtros, lista, quadro, alcance }: {
       nota={resumo.saldoProjetado.saldoNasContas ? `${valorEmReais(resumo.saldoProjetado.saldoNasContas)} hoje nas contas (OMIE)` : "a receber menos a pagar no período"} /> : null,
     <CardDeMetrica key="vencidos" rotulo="Vencidos" valor={valorEmReais(resumo.vencidos.valor)} icone={<TriangleAlert />} {...filtroDoCard("vencidos")}
       nota={[resumo.vencidos.aReceber ? `${valorEmReais(resumo.vencidos.aReceber, true)} a receber` : null, resumo.vencidos.aPagar ? `${valorEmReais(resumo.vencidos.aPagar, true)} a pagar` : null].filter(Boolean).join(" · ") || "nada vencido"} />,
-  ].filter(Boolean) : [];
+  ].filter(Boolean);
+
+  // Nova conta a pagar é de quem alcança as saídas; a cobrança chega com a PLU-337.
+  const podeCriarConta = alcance.saidas && opcoes !== null;
+  const novaConta = podeCriarConta ? <Button icon={<IconPlus />} onClick={() => setCriando(true)}>Nova conta a pagar</Button> : null;
+  const novaContaPresa = podeCriarConta ? <Button size="md" iconOnly icon={<IconPlus />} aria-label="Nova conta a pagar" title="Nova conta a pagar" onClick={() => setCriando(true)} /> : null;
 
   const situacoes = opcoesDeSituacaoPara(alcance).map((o) => {
     const Icone = ICONE_DA_SITUACAO[o.icone];
@@ -176,6 +194,7 @@ export function LancamentosView({ filtros, lista, quadro, alcance }: {
         <h1 className={estilosPipelines.titulo}>Lançamentos</h1>
         <h2 className={`${estilosPipelines.subtitulo} ${styles.subtitulo}`}>Entradas e saídas das duas empresas.</h2>
       </div>
+      {novaConta ? <div className={estilosPipelines.acoes}>{novaConta}</div> : null}
     </header>
 
     {cards.length ? <div className={styles.metricas} role="group" aria-label={`Resumo do caixa${filtros.empresa ? ` da ${ROTULO_DA_EMPRESA[filtros.empresa]}` : ""}`}
@@ -194,6 +213,7 @@ export function LancamentosView({ filtros, lista, quadro, alcance }: {
         {filtrosDaTela.map(([rotulo, filtro]) => <div key={rotulo} className={styles.filtro}>{filtro}</div>)}
         {filtrado ? <Button variant="secondary" size="sm" onClick={limpar}>Limpar</Button> : null}
       </div>}
+      {...(novaContaPresa ? { acoesQuandoPresa: novaContaPresa } : {})}
       movel={{
         visao: { rotulo: "Visualização", opcoes: visoesDosLancamentos.map((id) => { const { rotulo, icone: Icone } = VISOES[id]; return { value: id, label: rotulo, icon: <Icone /> }; }), valor: filtros.visao, aoMudar: (v) => trocar(comVisao(filtros, v as VisaoDosLancamentos)) },
         filtrosAtivos: quantosFiltros(filtros),
@@ -207,6 +227,15 @@ export function LancamentosView({ filtros, lista, quadro, alcance }: {
     {filtros.visao === "cards" && lista && lista.total > itens.length
       ? <p className={styles.teto} role="status">Mostrando os {itens.length} primeiros de {lista.total} lançamentos. Use os filtros para ver os demais.</p> : null}
 
+    {aviso ? <p className="aviso aviso--sucesso" role="status">{aviso}</p> : null}
+    {falhaDaFicha === "nao_encontrada" ? <p className="aviso aviso--alerta" role="status">Lançamento não encontrado. O link pode estar errado ou ele não é de um tipo que você alcança.</p> : null}
+    {falhaDaFicha === "indisponivel" ? <p className="aviso aviso--erro" role="alert">Não foi possível abrir o lançamento agora. Tente de novo em instantes.</p> : null}
+    {opcoes === null && alcance.saidas ? <p className="aviso aviso--alerta" role="status">Não foi possível carregar as categorias e as contas: criar e editar contas ficam desligados até recarregar a página.</p> : null}
+
     <section id="lancamentos-conteudo" className={`${estilosClientes.conteudo} ${styles.conteudo}`} role="tabpanel" aria-labelledby={`lancamentos-visao-${filtros.visao}`}>{conteudo}</section>
+
+    {ficha ? <FichaDoLancamento key={ficha.id} lancamento={ficha} opcoes={opcoes} gerente={gerente} aoFechar={fecharFicha} aoAtualizar={() => router.refresh()} /> : null}
+    {criando && opcoes ? <ContaAPagarForm opcoes={opcoes} gerente={gerente} aoCancelar={() => setCriando(false)}
+      aoSalvar={(novo) => { setCriando(false); setAviso(`${novo.codigo} criada: espera a aprovação da Gerente do Financeiro.`); router.push(hrefDosLancamentos(filtros, novo.id), { scroll: false }); router.refresh(); }} /> : null}
   </div>;
 }
