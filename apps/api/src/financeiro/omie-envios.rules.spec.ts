@@ -14,12 +14,12 @@ describe("envios ao OMIE por ação (PLU-342)", () => {
     expect(enviosDaAcao(entrada("enviada"), { tipo: "registrar_recebimento", etapa: "recebida", contaCorrenteId: "c", recebidoEm: "2026-11-20", valor: "1.00" }, true)).toEqual(["baixa"]);
   });
 
-  it("corrigir o valor: saída aberta não vai; título reenvia; depois do boleto, boleto novo também (decisão a)", () => {
+  it("corrigir o valor: saída aberta não vai; título reenvia a conta; o boleto segue manual, sem gerar_boleto", () => {
     expect(enviosDaAcao(saida("aberta"), corrigir, false)).toEqual([]);
     expect(enviosDaAcao(saida("aprovada"), corrigir, true)).toEqual(["upsert"]);
     expect(enviosDaAcao(entrada("nf_emitida"), corrigir, true)).toEqual(["upsert"]);
-    expect(enviosDaAcao(entrada("boleto_gerado"), corrigir, true)).toEqual(["upsert", "gerar_boleto"]);
-    expect(enviosDaAcao(entrada("enviada"), corrigir, true)).toEqual(["upsert", "gerar_boleto"]);
+    expect(enviosDaAcao(entrada("boleto_gerado"), corrigir, true)).toEqual(["upsert"]);
+    expect(enviosDaAcao(entrada("enviada"), corrigir, true)).toEqual(["upsert"]);
   });
 
   it("cancelar só vai ao OMIE se a conta já chegou lá; marcos da cobrança não vão", () => {

@@ -19,9 +19,6 @@ type Lancamento = { tipo: TipoDeLancamento; etapa: EtapaDeLancamento };
  */
 export const ehTituloNoOmie = (l: Lancamento): boolean => l.tipo === "entrada" || l.etapa !== "aberta";
 
-/** Depois do boleto gerado, mudar o valor pede um boleto novo também no OMIE. */
-const comBoleto = (l: Lancamento): boolean => l.tipo === "entrada" && (l.etapa === "boleto_gerado" || l.etapa === "enviada");
-
 /**
  * Os envios de uma ação, na ordem em que saem, a partir do estado ANTERIOR à ação.
  * `chegouAoOmie`: algum upsert do lançamento já foi enviado ou está saindo; só então
@@ -32,8 +29,10 @@ export function enviosDaAcao(antes: Lancamento, plano: Plano, chegouAoOmie: bool
     case "aprovar":
       return ["upsert"];
     case "corrigir_valor":
-      if (!ehTituloNoOmie(antes)) return [];
-      return comBoleto(antes) ? ["upsert", "gerar_boleto"] : ["upsert"];
+      // O boleto da cobrança é manual (o PDF anexado; na correção, o novo também):
+      // pedir `gerar_boleto` aqui daria um segundo boleto com o valor novo. Até o
+      // Coordenador decidir se o boleto passa a sair do OMIE, a correção só reenvia a conta.
+      return ehTituloNoOmie(antes) ? ["upsert"] : [];
     case "registrar_pagamento":
     case "registrar_recebimento":
       return ["baixa"];
