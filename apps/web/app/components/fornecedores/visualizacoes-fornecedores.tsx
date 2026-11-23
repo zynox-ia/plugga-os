@@ -46,7 +46,7 @@ export function CardsDeFornecedores({ itens, aoAbrir, aoMudarSituacao, pendentes
       const contato = [f.contatoNome, telefoneFormatado(f.telefone)].filter(Boolean).join(" · ") || "Não informado";
       const pagamento = formasResumidas(f.formasDePagamento) ?? "Não informado";
       const Icone = ehPessoaFisica(f) ? UserRound : Building2;
-      return <article key={f.id} className={`${estilosClientes.card} ${styles.entra}`} style={{ "--i": indice } as CSSProperties} aria-label={`Fornecedor ${nome}`}>
+      return <article key={f.id} className={`${estilosClientes.card} ${styles.cardFornecedor} ${styles.entra}`} style={{ "--i": indice } as CSSProperties} aria-label={`Fornecedor ${nome}`}>
         <header className={estilosClientes.cardTopo}>
           <span className={estilosClientes.avatar} aria-hidden="true"><Icone size={18} /></span>
           <div className={estilosClientes.identidade}>

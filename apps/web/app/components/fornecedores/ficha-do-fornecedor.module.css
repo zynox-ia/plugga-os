@@ -25,7 +25,7 @@
   align-items: center;
   gap: 8px;
   padding: 10px 12px;
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   background: var(--ui-subtle);
   color: var(--ui-text);
   font-size: 13px;
@@ -104,7 +104,7 @@
   display: grid;
   background: #fff;
   border: 1px solid #dbe4ed;
-  border-radius: 14px;
+  border-radius: var(--radius-lg);
   overflow: hidden;
 }
 
@@ -190,7 +190,7 @@ a.pedido:hover { text-decoration: underline; }
   padding: 14px 16px;
   background: #fff;
   border: 1px solid var(--ui-divider);
-  border-radius: 14px;
+  border-radius: var(--radius-lg);
 }
 
 .linhaPagamento > div:first-child {
@@ -227,7 +227,7 @@ a.pedido:hover { text-decoration: underline; }
   color: var(--ui-muted);
   background: #fff;
   border: 1px dashed var(--ui-divider);
-  border-radius: 14px;
+  border-radius: var(--radius-lg);
 }
 
 .rodape {

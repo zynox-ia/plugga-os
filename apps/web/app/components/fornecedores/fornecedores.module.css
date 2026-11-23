@@ -132,3 +132,9 @@
   margin-inline: auto;
   text-align: center;
 }
+
+/* Barra presa (padronização de Suprimentos): contagem e filtros à direita, numa linha. */
+.filtros { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; min-width: 0; }
+.filtros > .contagem { margin: 0 6px 0 0; white-space: nowrap; }
+/* Raio de card do app (24 px). */
+.cardFornecedor { border-radius: var(--radius-xl) !important; padding: 18px !important; }

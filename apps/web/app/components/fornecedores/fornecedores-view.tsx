@@ -3,13 +3,14 @@
 import { categoriasDeFornecedor, rotulosDaCategoriaDeFornecedor, type DadosDePagamentoRevelados, type Fornecedor, type FornecedorNaLista } from "@plugga/shared";
 import { Filter, LayoutGrid, List, Tag, Truck, UserRound } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactElement } from "react";
 
 import { enviar } from "../../lib/clientes";
 import { hrefDeFornecedores, nomeDoFornecedor, textoDaContagem, type FiltrosDeFornecedores } from "../../lib/fornecedores";
-import { FiltroDeClientes } from "../clientes/filtro-de-clientes";
+import { BarraFixa, CampoDaFolha, classeDaPaginaComBarra } from "../barra-fixa";
 import estilosClientes from "../clientes/tela-clientes.module.css";
 import estilosPipelines from "../pipelines/tela-pipelines.module.css";
+import { FiltroComBusca } from "../suprimentos/menu-com-busca";
 import { Button, IconPlus, IconSearch } from "../ui";
 import { FichaDoFornecedor, type DadosDaFicha } from "./ficha-do-fornecedor";
 import { FornecedorForm } from "./fornecedor-form";
@@ -100,41 +101,48 @@ export function FornecedoresView({
   }
 
   const props = { itens: lista, aoAbrir: abrir, aoMudarSituacao: mudarSituacao, pendentes };
+  const filtrosDaTela: [string, ReactElement][] = [
+    ["Situação", <FiltroComBusca key="situacao" label="Situação" icon={<Filter />} semFiltro="todos" value={filtros.situacao} onChange={(valor) => ir({ situacao: valor as FiltrosDeFornecedores["situacao"] })}
+      options={[{ value: "todos", label: "Todos", icon: <Filter /> }, { value: "ativos", label: "Ativos", icon: <UserRound /> }, { value: "inativos", label: "Inativos", icon: <UserRound /> }]} />],
+    ["Categoria", <FiltroComBusca key="categoria" label="Categoria" icon={<Tag />} semFiltro="todas" value={filtros.categoria ?? "todas"} onChange={(valor) => ir({ categoria: valor === "todas" ? undefined : (valor as FiltrosDeFornecedores["categoria"]) })}
+      options={[{ value: "todas", label: "Todas as categorias", icon: <Tag /> }, ...categoriasDeFornecedor.map((c) => ({ value: c, label: rotulosDaCategoriaDeFornecedor[c], icon: <Tag /> }))]} />],
+  ];
+  const campoDeBusca = (sufixo: string) => <form className="equipe-busca" onSubmit={buscar} role="search" aria-label="Buscar fornecedores">
+    <button type="submit" className={estilosClientes.botaoBusca} aria-label="Buscar fornecedores"><IconSearch className="equipe-busca-icon" /></button>
+    <input id={`fornecedores-busca-${sufixo}`} className="equipe-busca-input" aria-label="Buscar fornecedor por nome ou CNPJ/CPF" type="search" maxLength={150} value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar fornecedor ou CNPJ…" />
+  </form>;
 
   return (
-    <div className={estilosClientes.pagina}>
+    <div className={`${estilosClientes.pagina} ${classeDaPaginaComBarra}`}>
       <header className={estilosPipelines.cabecalho}>
         <div className={estilosPipelines.tituloGrupo}>
           <h1 className={estilosPipelines.titulo}>Fornecedores</h1>
           <h2 className={`${estilosPipelines.subtitulo} ${styles.subtitulo}`}>Cadastro único de fornecedores da Plugga e da Waze, usado nas cotações.</h2>
         </div>
         <div className={estilosPipelines.acoes}>
-          <form className="equipe-busca" onSubmit={buscar} role="search" aria-label="Buscar fornecedores">
-            <button type="submit" className={estilosClientes.botaoBusca} aria-label="Buscar fornecedores"><IconSearch className="equipe-busca-icon" /></button>
-            <input className="equipe-busca-input" aria-label="Buscar fornecedor por nome ou CNPJ/CPF" type="search" maxLength={150} value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar fornecedor ou CNPJ…" />
-          </form>
           <Button icon={<IconPlus />} onClick={() => setCriando(true)}>Novo fornecedor</Button>
         </div>
       </header>
 
-      <div className={`${estilosPipelines.navegacao} ${estilosClientes.navegacao}`}>
-        <div ref={abasRef} className={`${estilosPipelines.visoes} ${estilosClientes.abas}`} role="tablist" aria-label="Visualização de fornecedores" onKeyDown={navegarAbas}>
+      <BarraFixa rotulo="Visualização, busca e filtros de fornecedores"
+        abas={<div ref={abasRef} className={`${estilosPipelines.visoes} ${estilosClientes.abas}`} role="tablist" aria-label="Visualização de fornecedores" onKeyDown={navegarAbas}>
           <button type="button" id="fornecedores-visao-cards" className="ui-tab" role="tab" aria-selected={visao === "cards"} aria-controls="fornecedores-conteudo" tabIndex={visao === "cards" ? 0 : -1} onClick={() => setVisao("cards")}><LayoutGrid size={15} aria-hidden="true" />Cards</button>
           <button type="button" id="fornecedores-visao-lista" className="ui-tab" role="tab" aria-selected={visao === "lista"} aria-controls="fornecedores-conteudo" tabIndex={visao === "lista" ? 0 : -1} onClick={() => setVisao("lista")}><List size={15} aria-hidden="true" />Lista</button>
-        </div>
-        <p className={styles.contagem} role="status">{textoDaContagem(contagem.ativos + contagem.inativos, contagem.ativos)}</p>
-        <div className={`${estilosPipelines.navegacaoDireita} ${estilosClientes.filtros}`} role="group" aria-label="Filtros de fornecedores">
-          <div className={estilosClientes.filtroSituacao}>
-            <FiltroDeClientes label="Situação" value={filtros.situacao} onChange={(valor) => ir({ situacao: valor as FiltrosDeFornecedores["situacao"] })}
-              options={[{ value: "todos", label: "Todos", icon: <Filter /> }, { value: "ativos", label: "Ativos", icon: <UserRound /> }, { value: "inativos", label: "Inativos", icon: <UserRound /> }]} />
-          </div>
-          <div className={estilosClientes.filtroTipo}>
-            <FiltroDeClientes label="Categoria" value={filtros.categoria ?? "todas"} onChange={(valor) => ir({ categoria: valor === "todas" ? undefined : (valor as FiltrosDeFornecedores["categoria"]) })}
-              options={[{ value: "todas", label: "Todas as categorias", icon: <Tag /> }, ...categoriasDeFornecedor.map((c) => ({ value: c, label: rotulosDaCategoriaDeFornecedor[c], icon: <Tag /> }))]} />
-          </div>
+        </div>}
+        busca={campoDeBusca("barra")}
+        filtros={<div className={styles.filtros} role="group" aria-label="Filtros de fornecedores">
+          <p className={styles.contagem} role="status">{textoDaContagem(contagem.ativos + contagem.inativos, contagem.ativos)}</p>
+          {filtrosDaTela.map(([rotulo, filtro]) => <div key={rotulo}>{filtro}</div>)}
           {filtrado ? <Button variant="secondary" size="sm" onClick={limpar}>Limpar</Button> : null}
-        </div>
-      </div>
+        </div>}
+        acoesQuandoPresa={<Button iconOnly icon={<IconPlus />} aria-label="Novo fornecedor" title="Novo fornecedor" onClick={() => setCriando(true)} />}
+        movel={{
+          visao: { opcoes: [{ value: "cards", label: "Cards", icon: <LayoutGrid /> }, { value: "lista", label: "Lista", icon: <List /> }], valor: visao, aoMudar: (v) => setVisao(v as "cards" | "lista") },
+          filtrosAtivos: [filtros.busca, filtros.situacao !== "todos" ? filtros.situacao : undefined, filtros.categoria].filter(Boolean).length,
+          aoLimpar: filtrado ? limpar : undefined,
+          rotuloDoResultado: `Ver ${lista.length} ${lista.length === 1 ? "fornecedor" : "fornecedores"}`,
+          folha: <>{campoDeBusca("folha")}{filtrosDaTela.map(([rotulo, filtro]) => <CampoDaFolha key={rotulo} rotulo={rotulo}>{filtro}</CampoDaFolha>)}</>,
+        }} />
 
       {erroSituacao ? <p className="aviso aviso--erro" role="alert">{erroSituacao}</p> : null}
       {fichaNaoEncontrada ? <p className="aviso aviso--alerta" role="status">Fornecedor não encontrado. O link pode estar errado.</p> : null}
