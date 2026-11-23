@@ -161,10 +161,14 @@ describe.skipIf(!HABILITADO)("fornecedores: cadastro único no Postgres", () => 
     const criado = await criar({ nome: `${marca} Edição`, categoria: "outros", chavePix: "chave-sintetica" });
     // A leitura mascara; revelar devolve o completo e audita o motivo, sem o valor.
     expect(criado.chavePixMascarada).toBe("•••• tica");
-    expect(await repositorio.revelarDadosDePagamento(criado.id, { motivo: "editar" }, principal)).toEqual({ chavePix: "chave-sintetica", dadosBancarios: null });
-    const auditoria = await prisma.eventLog.findFirstOrThrow({ where: { eventName: "suprimentos.fornecedor.dados_de_pagamento_revelados", entityId: criado.id } });
-    expect(auditoria.payload).toEqual({ motivo: "editar" });
-    expect(JSON.stringify(auditoria.payload)).not.toContain("chave-sintetica");
+    // Por campo: mostrar o PIX não traz os dados bancários; editar traz os dois.
+    await editar(criado.id, { dadosBancarios: "Banco 999 Ag 0001" });
+    expect(await repositorio.revelarDadosDePagamento(criado.id, { motivo: "mostrar", campo: "pix" }, principal)).toEqual({ campo: "pix", chavePix: "chave-sintetica" });
+    expect(await repositorio.revelarDadosDePagamento(criado.id, { motivo: "copiar", campo: "banco" }, principal)).toEqual({ campo: "banco", dadosBancarios: "Banco 999 Ag 0001" });
+    expect(await repositorio.revelarDadosDePagamento(criado.id, { motivo: "editar" }, principal)).toEqual({ campo: "ambos", chavePix: "chave-sintetica", dadosBancarios: "Banco 999 Ag 0001" });
+    const auditorias = await prisma.eventLog.findMany({ where: { eventName: "suprimentos.fornecedor.dados_de_pagamento_revelados", entityId: criado.id }, orderBy: { occurredAt: "asc" } });
+    expect(auditorias.map((e) => e.payload)).toEqual([{ motivo: "mostrar", campo: "pix" }, { motivo: "copiar", campo: "banco" }, { motivo: "editar", campo: "ambos" }]);
+    expect(JSON.stringify(auditorias.map((e) => e.payload))).not.toMatch(/chave-sintetica|Banco 999/);
     expect((await editar(criado.id, { chavePix: null })).chavePixMascarada).toBeNull();
 
     await repositorio.mudarSituacao(criado.id, false, principal);
@@ -174,9 +178,11 @@ describe.skipIf(!HABILITADO)("fornecedores: cadastro único no Postgres", () => 
     await expect(repositorio.obter(randomUUID())).rejects.toBeInstanceOf(NaoEncontrado);
 
     const antes = await prisma.fornecedor.findUniqueOrThrow({ where: { id: criado.id }, select: { updatedAt: true } });
+    const eventosAntes = await prisma.eventLog.count({ where: { eventName: "suprimentos.fornecedor.updated", entityId: criado.id } });
     await editar(criado.id, {});
     expect(await prisma.fornecedor.findUniqueOrThrow({ where: { id: criado.id }, select: { updatedAt: true } })).toEqual(antes);
-    expect(await prisma.eventLog.count({ where: { eventName: "suprimentos.fornecedor.updated", entityId: criado.id } })).toBe(1);
+    // Edição vazia não gera evento.
+    expect(await prisma.eventLog.count({ where: { eventName: "suprimentos.fornecedor.updated", entityId: criado.id } })).toBe(eventosAntes);
 
     await Promise.all([repositorio.mudarSituacao(criado.id, true, principal), repositorio.mudarSituacao(criado.id, true, principal)]);
     expect(await prisma.eventLog.count({ where: { eventName: "suprimentos.fornecedor.reactivated", entityId: criado.id } })).toBe(1);

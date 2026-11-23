@@ -184,8 +184,14 @@ export class PrismaFornecedoresRepository extends FornecedoresRepository {
     return this.prisma.comContexto(async (tx) => {
       const linha = await tx.fornecedor.findUnique({ where: { id }, select: { chavePix: true, dadosBancarios: true } });
       if (!linha) throw new NaoEncontrado("Fornecedor não encontrado.");
-      await this.registrar(tx, "suprimentos.fornecedor.dados_de_pagamento_revelados", id, principal, { motivo: input.motivo });
-      return dadosDePagamentoReveladosSchema.parse(linha);
+      // Só o campo pedido sai; editar precisa dos dois e é auditado como "ambos".
+      const campo = input.motivo === "editar" ? "ambos" : input.campo;
+      await this.registrar(tx, "suprimentos.fornecedor.dados_de_pagamento_revelados", id, principal, { motivo: input.motivo, campo });
+      return dadosDePagamentoReveladosSchema.parse({
+        campo,
+        ...(campo !== "banco" ? { chavePix: linha.chavePix } : {}),
+        ...(campo !== "pix" ? { dadosBancarios: linha.dadosBancarios } : {}),
+      });
     });
   }
 

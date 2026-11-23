@@ -9,7 +9,7 @@ import {
   PRAZO_DA_ETAPA_DE_COMPRA_EM_DIAS_UTEIS,
   registrarCotacaoSchema,
 } from "../dist/compras.js";
-import { criarFornecedorSchema, editarFornecedorSchema, listarFornecedoresQuerySchema } from "../dist/fornecedores.js";
+import { criarFornecedorSchema, editarFornecedorSchema, listarFornecedoresQuerySchema, revelarDadosDePagamentoSchema } from "../dist/fornecedores.js";
 
 // Documentos da faixa sintética do projeto (scripts/dados-sinteticos.mjs), com dígito verificador válido.
 const CPF = "99999900100";
@@ -52,6 +52,13 @@ describe("criarFornecedorSchema", () => {
     assert.equal(f.numero, null);
     assert.equal(f.bairro, null);
     assert.equal(criarFornecedorSchema.safeParse({ nome: "A", categoria: "outros", cep: "6900000" }).success, false);
+  });
+
+  it("revelar: mostrar e copiar exigem o campo; editar não leva campo", () => {
+    assert.equal(revelarDadosDePagamentoSchema.safeParse({ motivo: "mostrar", campo: "pix" }).success, true);
+    assert.equal(revelarDadosDePagamentoSchema.safeParse({ motivo: "copiar" }).success, false);
+    assert.equal(revelarDadosDePagamentoSchema.safeParse({ motivo: "editar" }).success, true);
+    assert.equal(revelarDadosDePagamentoSchema.safeParse({ motivo: "editar", campo: "banco" }).success, false);
   });
 
   it("lista todos por padrão", () => {

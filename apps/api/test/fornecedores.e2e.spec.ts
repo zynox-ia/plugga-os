@@ -88,7 +88,7 @@ class FornecedoresEmMemoria extends FornecedoresRepository {
   async revelarDadosDePagamento(id: string, input: RevelarDadosDePagamento): Promise<DadosDePagamentoRevelados> {
     await this.obter(id);
     this.reveladoCom = input;
-    return { chavePix: "pix-ficticio", dadosBancarios: null };
+    return { campo: "pix", chavePix: "pix-ficticio" };
   }
 }
 
@@ -146,13 +146,17 @@ describe("fornecedores API (e2e)", () => {
   it("revelar os dados de pagamento é POST com motivo, na tela Fornecedores", async () => {
     await suprimentos(request(app.getHttpServer()).post(`/suprimentos/fornecedores/${ID}/dados-de-pagamento/revelar`)).send({}).expect(400);
     await suprimentos(request(app.getHttpServer()).post(`/suprimentos/fornecedores/${ID}/dados-de-pagamento/revelar`)).send({ motivo: "olhar" }).expect(400);
-    const resposta = await suprimentos(request(app.getHttpServer()).post(`/suprimentos/fornecedores/${ID}/dados-de-pagamento/revelar`)).send({ motivo: "copiar" }).expect(200);
-    expect(resposta.body).toEqual({ chavePix: "pix-ficticio", dadosBancarios: null });
-    expect(repositorio.reveladoCom).toEqual({ motivo: "copiar" });
+    // Mostrar e copiar exigem o campo; editar não aceita campo.
+    await suprimentos(request(app.getHttpServer()).post(`/suprimentos/fornecedores/${ID}/dados-de-pagamento/revelar`)).send({ motivo: "copiar" }).expect(400);
+    await suprimentos(request(app.getHttpServer()).post(`/suprimentos/fornecedores/${ID}/dados-de-pagamento/revelar`)).send({ motivo: "copiar", campo: "cartao" }).expect(400);
+    await suprimentos(request(app.getHttpServer()).post(`/suprimentos/fornecedores/${ID}/dados-de-pagamento/revelar`)).send({ motivo: "editar", campo: "pix" }).expect(400);
+    const resposta = await suprimentos(request(app.getHttpServer()).post(`/suprimentos/fornecedores/${ID}/dados-de-pagamento/revelar`)).send({ motivo: "copiar", campo: "pix" }).expect(200);
+    expect(resposta.body).toEqual({ campo: "pix", chavePix: "pix-ficticio" });
+    expect(repositorio.reveladoCom).toEqual({ motivo: "copiar", campo: "pix" });
     await suprimentos(request(app.getHttpServer()).get(`/suprimentos/fornecedores/${ID}/dados-de-pagamento/revelar`)).expect(404);
     const resolver = comTelas(["suprimentos.compras"]);
     try {
-      await request(app.getHttpServer()).post(`/suprimentos/fornecedores/${ID}/dados-de-pagamento/revelar`).send({ motivo: "mostrar" }).expect(403);
+      await request(app.getHttpServer()).post(`/suprimentos/fornecedores/${ID}/dados-de-pagamento/revelar`).send({ motivo: "mostrar", campo: "pix" }).expect(403);
     } finally {
       resolver.mockRestore();
     }
@@ -161,14 +165,14 @@ describe("fornecedores API (e2e)", () => {
   it("o Financeiro, membro ou gerente, revela para pagar, mas não abre o resto do cadastro", async () => {
     for (const nivel of ["membro", "gerente"]) {
       const financeiro = (r: request.Test) => r.set("x-dev-principal", PESSOA).set("x-dev-departamentos", `financeiro:${nivel}`);
-      await financeiro(request(app.getHttpServer()).post(`/suprimentos/fornecedores/${ID}/dados-de-pagamento/revelar`)).send({ motivo: "copiar" }).expect(200);
+      await financeiro(request(app.getHttpServer()).post(`/suprimentos/fornecedores/${ID}/dados-de-pagamento/revelar`)).send({ motivo: "copiar", campo: "pix" }).expect(200);
       await financeiro(request(app.getHttpServer()).get("/suprimentos/fornecedores")).expect(403);
       await financeiro(request(app.getHttpServer()).get(`/suprimentos/fornecedores/${ID}`)).expect(403);
       await financeiro(request(app.getHttpServer()).patch(`/suprimentos/fornecedores/${ID}`)).send({ nome: "X" }).expect(403);
     }
     for (const departamento of ["crm:gerente", "engenharia-obras:membro"]) {
       await request(app.getHttpServer()).post(`/suprimentos/fornecedores/${ID}/dados-de-pagamento/revelar`)
-        .set("x-dev-principal", PESSOA).set("x-dev-departamentos", departamento).send({ motivo: "mostrar" }).expect(403);
+        .set("x-dev-principal", PESSOA).set("x-dev-departamentos", departamento).send({ motivo: "mostrar", campo: "banco" }).expect(403);
     }
   });
 

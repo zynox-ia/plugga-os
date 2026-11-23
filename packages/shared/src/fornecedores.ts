@@ -187,14 +187,27 @@ export function mascararDadoDePagamento(valor: string | null): string | null {
 }
 
 /**
- * Revelar os dados de pagamento completos:
- * `POST /suprimentos/fornecedores/:id/dados-de-pagamento/revelar` com o motivo.
- * POST porque grava auditoria (quem, quando, qual fornecedor e o motivo; nunca o valor).
+ * Revelar os dados de pagamento completos, um campo por vez:
+ * `POST /suprimentos/fornecedores/:id/dados-de-pagamento/revelar`. POST porque grava
+ * auditoria (quem, quando, qual fornecedor, o motivo e o campo; nunca o valor).
+ * "Mostrar" e "copiar" revelam só o campo pedido; "editar" revela os dois, porque o
+ * formulário precisa, e é auditado como "ambos".
  */
 export const motivosParaRevelar = ["mostrar", "copiar", "editar"] as const;
-export const revelarDadosDePagamentoSchema = z.object({ motivo: z.enum(motivosParaRevelar) }).strict();
+export const camposDePagamento = ["pix", "banco"] as const;
+const campoDePagamentoSchema = z.enum(camposDePagamento);
+export const revelarDadosDePagamentoSchema = z.discriminatedUnion("motivo", [
+  z.object({ motivo: z.literal("mostrar"), campo: campoDePagamentoSchema }).strict(),
+  z.object({ motivo: z.literal("copiar"), campo: campoDePagamentoSchema }).strict(),
+  z.object({ motivo: z.literal("editar") }).strict(),
+]);
 export type RevelarDadosDePagamento = z.infer<typeof revelarDadosDePagamentoSchema>;
-export const dadosDePagamentoReveladosSchema = z.object({ chavePix: z.string().nullable(), dadosBancarios: z.string().nullable() });
+/** Só vem a chave do que foi revelado: ausente = não pedido; null = o fornecedor não tem o dado. */
+export const dadosDePagamentoReveladosSchema = z.object({
+  campo: z.enum(["pix", "banco", "ambos"]),
+  chavePix: z.string().nullable().optional(),
+  dadosBancarios: z.string().nullable().optional(),
+}).strict();
 export type DadosDePagamentoRevelados = z.infer<typeof dadosDePagamentoReveladosSchema>;
 
 // ---------------------------------------------------------------- desempenho (PLU-334)
