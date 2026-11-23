@@ -28,7 +28,7 @@ class AtivaDoCofre extends IntegracaoAtivaRepository {
 }
 
 const EMPRESA: EmpresaConsultada = {
-  cnpj: "11222333000181", razaoSocial: "PLUGGA TESTE LTDA", nomeFantasia: null, situacao: "ATIVA", naturezaJuridica: null,
+  cnpj: "99999001000159", razaoSocial: "PLUGGA TESTE LTDA", nomeFantasia: null, situacao: "ATIVA", naturezaJuridica: null,
   porte: null, abertura: null, atividadePrincipal: null, telefone: null, email: null, endereco: null,
 };
 const ENDERECO: EnderecoConsultado = { cep: "69000000", logradouro: "Rua Teste", numero: null, complemento: null, bairro: "Centro", cidade: "Manaus", uf: "AM" };
@@ -57,7 +57,7 @@ describe("consulta cadastral", () => {
   it("desligada por padrão: recusa a consulta e não chega na fonte", async () => {
     const { servico, fonte } = montar();
 
-    await expect(servico.empresa("11222333000181")).rejects.toThrow(ConflictException);
+    await expect(servico.empresa("99999001000159")).rejects.toThrow(ConflictException);
     await expect(servico.endereco("69000000")).rejects.toThrow(ConflictException);
     expect(fonte.consultarCnpj).not.toHaveBeenCalled();
     expect(fonte.consultarCep).not.toHaveBeenCalled();
@@ -67,8 +67,8 @@ describe("consulta cadastral", () => {
     const { servico, fonte } = montar();
     await servico.definir(true, "dev");
 
-    expect(await servico.empresa("11.222.333/0001-81")).toEqual(EMPRESA);
-    expect(fonte.consultarCnpj).toHaveBeenCalledWith("11222333000181");
+    expect(await servico.empresa("99.999.001/0001-59")).toEqual(EMPRESA);
+    expect(fonte.consultarCnpj).toHaveBeenCalledWith("99999001000159");
     expect(await servico.endereco("69.000-000")).toEqual(ENDERECO);
   });
 
@@ -76,7 +76,7 @@ describe("consulta cadastral", () => {
     const { servico, fonte } = montar();
     await servico.definir(true, "dev");
 
-    await expect(servico.empresa("11222333000182")).rejects.toThrow(BadRequestException);
+    await expect(servico.empresa("99999001000158")).rejects.toThrow(BadRequestException);
     await expect(servico.endereco("123")).rejects.toThrow(BadRequestException);
     expect(fonte.consultarCnpj).not.toHaveBeenCalled();
     expect(fonte.consultarCep).not.toHaveBeenCalled();
@@ -87,8 +87,8 @@ describe("consulta cadastral", () => {
     await servico.definir(true, "dev");
     fonte.consultarCnpj.mockResolvedValueOnce(null);
 
-    await expect(servico.empresa("11222333000181")).rejects.toThrow(NotFoundException);
-    await servico.empresa("11222333000181");
+    await expect(servico.empresa("99999001000159")).rejects.toThrow(NotFoundException);
+    await servico.empresa("99999001000159");
     expect(fonte.consultarCnpj).toHaveBeenCalledTimes(2);
   });
 
@@ -105,8 +105,8 @@ describe("consulta cadastral", () => {
     const { servico, fonte } = montar();
     await servico.definir(true, "dev");
 
-    await servico.empresa("11222333000181");
-    await servico.empresa("11.222.333/0001-81");
+    await servico.empresa("99999001000159");
+    await servico.empresa("99.999.001/0001-59");
 
     expect(fonte.consultarCnpj).toHaveBeenCalledTimes(1);
   });
@@ -114,11 +114,11 @@ describe("consulta cadastral", () => {
   it("desligar vale na hora, sem esperar o cache, e esquece o que estava guardado", async () => {
     const { servico, fonte } = montar();
     await servico.definir(true, "dev");
-    await servico.empresa("11222333000181");
+    await servico.empresa("99999001000159");
 
     await servico.definir(false, "dev");
 
-    await expect(servico.empresa("11222333000181")).rejects.toThrow(ConflictException);
+    await expect(servico.empresa("99999001000159")).rejects.toThrow(ConflictException);
     expect(fonte.consultarCnpj).toHaveBeenCalledTimes(1);
   });
 
@@ -127,9 +127,9 @@ describe("consulta cadastral", () => {
     const { servico, fonte } = montar();
     await servico.definir(true, "dev");
 
-    await servico.empresa("11222333000181");
+    await servico.empresa("99999001000159");
     vi.advanceTimersByTime(11 * 60_000);
-    await servico.empresa("11222333000181");
+    await servico.empresa("99999001000159");
 
     expect(fonte.consultarCnpj).toHaveBeenCalledTimes(2);
   });

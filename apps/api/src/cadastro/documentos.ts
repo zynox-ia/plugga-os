@@ -1,4 +1,4 @@
-/** Só dígitos: aceita máscara (12.345.678/0001-95, 69.000-000) e devolve o número cru. */
+/** Só dígitos: aceita máscara (99.999.001/0001-59, 69.000-000) e devolve o número cru. */
 export function somenteDigitos(texto: string): string {
   return texto.replace(/\D/g, "");
 }

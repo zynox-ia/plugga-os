@@ -36,11 +36,11 @@ describe("BrasilApiAdapter", () => {
   it("mapeia só o que o sistema usa e nunca repassa a resposta bruta", async () => {
     const chamada = responder(200, EMPRESA);
 
-    const empresa = await new BrasilApiAdapter().consultarCnpj("11222333000181");
+    const empresa = await new BrasilApiAdapter().consultarCnpj("99999001000159");
 
-    expect(String(chamada.mock.calls[0]?.[0])).toBe("https://brasilapi.com.br/api/cnpj/v1/11222333000181");
+    expect(String(chamada.mock.calls[0]?.[0])).toBe("https://brasilapi.com.br/api/cnpj/v1/99999001000159");
     expect(empresa).toEqual({
-      cnpj: "11222333000181",
+      cnpj: "99999001000159",
       razaoSocial: "PLUGGA TESTE LTDA",
       nomeFantasia: "Plugga",
       situacao: "ATIVA",
@@ -58,7 +58,7 @@ describe("BrasilApiAdapter", () => {
   it("identifica o sistema com User-Agent em toda consulta (sem ele a BrasilAPI responde 403 no CNPJ)", async () => {
     const chamada = responder(200, { razao_social: "X LTDA", cep: "69000000", street: "Rua Teste" });
 
-    await new BrasilApiAdapter().consultarCnpj("11222333000181");
+    await new BrasilApiAdapter().consultarCnpj("99999001000159");
     await new BrasilApiAdapter().consultarCep("69000000");
 
     for (const [, init] of chamada.mock.calls as [string, RequestInit][]) {
@@ -69,23 +69,23 @@ describe("BrasilApiAdapter", () => {
   it("campo ausente vira null e a consulta continua", async () => {
     responder(200, { razao_social: "SÓ O NOME LTDA" });
 
-    const empresa = await new BrasilApiAdapter().consultarCnpj("11222333000181");
+    const empresa = await new BrasilApiAdapter().consultarCnpj("99999001000159");
 
     expect(empresa).toMatchObject({ razaoSocial: "SÓ O NOME LTDA", nomeFantasia: null, atividadePrincipal: null, endereco: null });
   });
 
   it("404 significa que não existe: devolve null", async () => {
     responder(404, { message: "não encontrado" });
-    expect(await new BrasilApiAdapter().consultarCnpj("11222333000181")).toBeNull();
+    expect(await new BrasilApiAdapter().consultarCnpj("99999001000159")).toBeNull();
     expect(await new BrasilApiAdapter().consultarCep("69000000")).toBeNull();
   });
 
   it("falha do provedor, resposta ilegível ou sem razão social são indisponibilidade, não 'não existe'", async () => {
     responder(500);
-    await expect(new BrasilApiAdapter().consultarCnpj("11222333000181")).rejects.toThrow(FonteIndisponivelError);
+    await expect(new BrasilApiAdapter().consultarCnpj("99999001000159")).rejects.toThrow(FonteIndisponivelError);
 
     responder(200, { sem: "razao_social" });
-    await expect(new BrasilApiAdapter().consultarCnpj("11222333000181")).rejects.toThrow(/sem razão social/);
+    await expect(new BrasilApiAdapter().consultarCnpj("99999001000159")).rejects.toThrow(/sem razão social/);
 
     vi.stubGlobal("fetch", vi.fn(async () => new Response("<html>", { status: 200 })));
     await expect(new BrasilApiAdapter().consultarCep("69000000")).rejects.toThrow(/ilegível/);

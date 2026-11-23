@@ -37,7 +37,7 @@ const ENTRADA: EntradaDoOmie = { appKey: APP_KEY, appSecret: APP_SECRET };
 
 function montar() {
   const cofre = new CofreEmMemoria();
-  const omie = { consultarEmpresa: vi.fn(async () => ({ razaoSocial: "PLUGGA LTDA", nomeFantasia: "Plugga", cnpj: "11222333000181" })) };
+  const omie = { consultarEmpresa: vi.fn(async () => ({ razaoSocial: "PLUGGA LTDA", nomeFantasia: "Plugga", cnpj: "99999001000159" })) };
   const eventos: { eventName: string; actorId: string | null; payload: unknown }[] = [];
   const auditoria = { appendEvent: vi.fn(async (e: { eventName: string; actorId: string | null; payload: unknown }) => { eventos.push(e); }), appendTrail: vi.fn() } as unknown as AuditPort;
   const servico = new OmieCofreService(cofre, new LeituraDoCofre(cofre), omie as unknown as OmiePort, auditoria);
@@ -113,7 +113,7 @@ describe("OMIE no cofre", () => {
 
     await servico.gravar(ENTRADA, "dev");
 
-    expect(await servico.testar()).toEqual({ razaoSocial: "PLUGGA LTDA", nomeFantasia: "Plugga", cnpj: "11222333000181" });
+    expect(await servico.testar()).toEqual({ razaoSocial: "PLUGGA LTDA", nomeFantasia: "Plugga", cnpj: "99999001000159" });
     expect(omie.consultarEmpresa).toHaveBeenCalledWith(ENTRADA);
   });
 
@@ -155,9 +155,9 @@ describe("OmieHttpAdapter", () => {
   const consultar = () => new OmieHttpAdapter().consultarEmpresa(ENTRADA);
 
   it("chama ListarEmpresas com as credenciais no corpo e devolve a empresa dona da conta", async () => {
-    const chamada = responder(200, { pagina: 1, empresas_cadastro: [{ codigo_empresa: 1, cnpj: "11.222.333/0001-81", razao_social: "PLUGGA LTDA", nome_fantasia: "Plugga", email: "x@y.z" }] });
+    const chamada = responder(200, { pagina: 1, empresas_cadastro: [{ codigo_empresa: 1, cnpj: "99.999.001/0001-59", razao_social: "PLUGGA LTDA", nome_fantasia: "Plugga", email: "x@y.z" }] });
 
-    expect(await consultar()).toEqual({ razaoSocial: "PLUGGA LTDA", nomeFantasia: "Plugga", cnpj: "11222333000181" });
+    expect(await consultar()).toEqual({ razaoSocial: "PLUGGA LTDA", nomeFantasia: "Plugga", cnpj: "99999001000159" });
     const [url, init] = chamada.mock.calls[0] as [string, RequestInit];
     expect(url).toBe("https://app.omie.com.br/api/v1/geral/empresas/");
     expect(init.method).toBe("POST");

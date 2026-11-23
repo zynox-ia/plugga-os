@@ -20,7 +20,7 @@ afterEach(() => {
 const completo = {
   installationType: "rural" as const,
   averageConsumptionKwh: "1.840,5",
-  consumerUnit: "  004578912  ",
+  consumerUnit: "  999945789  ",
   beneficiaryUcs: [],
   energyBillDocumentIds: [id(1)],
   roofType: "metalico" as const,
@@ -45,10 +45,10 @@ test("valida só instalação, consumo e UC; telhado, área, potência e investi
 test("normaliza rascunho com a versão do lead, descarta beneficiária vazia e monta o título", () => {
   const criado = rascunhoParaCriacao({ ...completo, beneficiaryUcs: [{ id: id(4), code: " " }, { id: id(5), code: "UC-B" }] }, 7);
   assert.equal(criado.averageConsumptionKwh, "1840.5");
-  assert.equal(criado.consumerUnit, "004578912");
+  assert.equal(criado.consumerUnit, "999945789");
   assert.equal(criado.version, 7);
   assert.deepEqual(criado.beneficiaryUcs, [{ id: id(5), code: "UC-B" }]);
-  assert.equal(tituloDoProjetoSolar({ id: id(2), ...criado, createdAt: "2026-11-12T21:00:00.000Z", updatedAt: "2026-11-12T21:00:00.000Z" }), "Rural · UC 004578912");
+  assert.equal(tituloDoProjetoSolar({ id: id(2), ...criado, createdAt: "2026-11-12T21:00:00.000Z", updatedAt: "2026-11-12T21:00:00.000Z" }), "Rural · UC 999945789");
   const opcional = rascunhoParaCriacao({ ...completo, roofType: "", availableAreaM2: "", estimatedPowerKwp: "", estimatedInvestment: "" }, 1);
   assert.equal(opcional.roofType, null);
   assert.equal(opcional.estimatedInvestment, null);
@@ -71,7 +71,7 @@ test("lista, cria e atualiza projetos via proxy, enviando a versão e recebendo 
   assert.deepEqual(await listarProjetosSolaresDoLead(id(9)), [projeto]);
   assert.deepEqual(await salvarProjetoSolarDoLead(id(9), null, completo, 3), { project: projeto, advancedToProposal: true });
   assert.equal((await salvarProjetoSolarDoLead(id(9), id(2), { ...completo, consumerUnit: "UC-EDIT" }, 4)).project.consumerUnit, "UC-EDIT");
-  assert.equal(projetoParaRascunho(projeto).consumerUnit, "004578912");
+  assert.equal(projetoParaRascunho(projeto).consumerUnit, "999945789");
   assert.deepEqual(chamadas, [
     { url: `/api/leads/${id(9)}/projetos-solares`, method: "GET" },
     { url: `/api/leads/${id(9)}/projetos-solares`, method: "POST", versao: 3 },
