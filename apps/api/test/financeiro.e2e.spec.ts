@@ -19,6 +19,7 @@ const servico = {
   criarContaAPagar: vi.fn().mockResolvedValue({ id: ID }),
   editar: vi.fn().mockResolvedValue({ id: ID }),
   executarAcao: vi.fn().mockResolvedValue({ id: ID }),
+  tentarDeNovoNoOmie: vi.fn().mockResolvedValue({ id: ID }),
   enviarAnexo: vi.fn().mockResolvedValue({ id: ID }),
   criarCobranca: vi.fn().mockResolvedValue({ id: ID }),
   buscarClientes: vi.fn().mockResolvedValue({ itens: [] }),
@@ -89,6 +90,15 @@ describe("financeiro API (e2e)", () => {
     await financeiro(http().post(`/financeiro/lancamentos/${ID}/acoes`)).send({ acao: "excluir" }).expect(400);
     expect(servico.executarAcao).not.toHaveBeenCalled();
     await financeiro(http().post(`/financeiro/lancamentos/${ID}/acoes`)).send({ acao: "aprovar" }).expect(200);
+  });
+
+  it("Tentar de novo no OMIE: id inválido é 400; Suprimentos não entra", async () => {
+    servico.tentarDeNovoNoOmie.mockClear();
+    await financeiro(http().post("/financeiro/lancamentos/x/omie/tentar-de-novo")).expect(400);
+    await como("suprimentos:gerente")(http().post(`/financeiro/lancamentos/${ID}/omie/tentar-de-novo`)).expect(403);
+    expect(servico.tentarDeNovoNoOmie).not.toHaveBeenCalled();
+    await financeiro(http().post(`/financeiro/lancamentos/${ID}/omie/tentar-de-novo`)).expect(200);
+    expect(servico.tentarDeNovoNoOmie.mock.calls[0]?.[0]).toBe(ID);
   });
 
   it("editar não muda empresa nem valor", async () => {

@@ -72,6 +72,7 @@ describe.skipIf(!HABILITADO)("financeiro: lançamentos no Postgres", () => {
     await prisma.$transaction(async (tx) => {
       await tx.$executeRawUnsafe("SET LOCAL session_replication_role = replica");
       const lancamentos = { lancamento: { descricao: { startsWith: marca } } };
+      await tx.omieEnvio.deleteMany({ where: lancamentos });
       await tx.anexoDeLancamento.deleteMany({ where: lancamentos });
       await tx.historicoDeLancamento.deleteMany({ where: lancamentos });
       await tx.ucDeLancamento.deleteMany({ where: lancamentos });

@@ -266,6 +266,7 @@ model User {
   historicoDeLancamento          HistoricoDeLancamento[]
   omieTestes                     OmieConexao[]               @relation("OmieConexaoTestadaPor")
   omieConfirmacoes               OmieConexao[]               @relation("OmieConexaoConfirmadaPor")
+  omieEnviosCriados              OmieEnvio[]                 @relation("OmieEnvioCriadoPor")
   lancamentosCriados             Lancamento[]                @relation("LancamentoCriadoPor")
   lancamentosAprovados           Lancamento[]                @relation("LancamentoAprovadoPor")
   lancamentosPagos               Lancamento[]                @relation("LancamentoPagamentoRegistradoPor")
@@ -512,6 +513,8 @@ model Company {
   contasCorrentes ContaCorrente[]
   lancamentos Lancamento[]
   omieConexao OmieConexao?
+  omieEnvios OmieEnvio[]
+  omiePausas OmiePausa[]
   pipelines Pipeline[]
   ordensDeServico OrdemDeServico[]
   usinas Usina[]
@@ -2820,6 +2823,7 @@ model Lancamento {
   anexos                  AnexoDeLancamento[]
   historico               HistoricoDeLancamento[]
   ucs                     UcDeLancamento[]
+  omieEnvios              OmieEnvio[]
 
   @@unique([tipo, numero])
   @@index([vencimento])
@@ -2850,6 +2854,72 @@ model OmieConexao {
   confirmadaPor   User?   @relation("OmieConexaoConfirmadaPor", fields: [confirmadaPorId], references: [id], onDelete: SetNull)
 
   @@map("omie_conexoes")
+}
+
+enum OmieOperacao {
+  upsert
+  baixa
+  gerar_boleto
+  cancelar
+
+  @@map("omie_operacao")
+}
+
+enum OmieEstadoDoEnvio {
+  pendente
+  enviando
+  enviado
+  erro
+  descartado
+
+  @@map("omie_estado_do_envio")
+}
+
+/// Outbox do OMIE (PLU-342): o pedido de envio, gravado na transação que muda o
+/// lançamento. O worker só muda o estado pelas funções do banco; um gatilho deriva
+/// dele `Lancamento.omieEstado`. Sem DELETE para ninguém.
+model OmieEnvio {
+  id                 String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  /// Identidade gerada no banco (GENERATED ALWAYS): a ordem dos envios de um lançamento.
+  ordem              BigInt            @default(autoincrement())
+  lancamentoId       String            @map("lancamento_id") @db.Uuid
+  /// A empresa do lançamento (o gatilho confere na inserção).
+  companyId          String            @map("company_id")
+  operacao           OmieOperacao
+  estado             OmieEstadoDoEnvio @default(pendente)
+  tentativas         Int               @default(0)
+  proximaTentativaEm DateTime          @default(now()) @map("proxima_tentativa_em") @db.Timestamptz(6)
+  /// Só o motivo curto (OmieFalhouError), nunca a resposta do OMIE.
+  ultimoErro         String?           @map("ultimo_erro")
+  codigoOmie         String?           @map("codigo_omie")
+  enviadoEm          DateTime?         @map("enviado_em") @db.Timestamptz(6)
+  criadoPorId        String?           @map("criado_por_id") @db.Uuid
+  createdAt          DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  lancamento Lancamento @relation(fields: [lancamentoId], references: [id], onDelete: Restrict)
+  company    Company    @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  criadoPor  User?      @relation("OmieEnvioCriadoPor", fields: [criadoPorId], references: [id], onDelete: SetNull)
+
+  @@index([lancamentoId, ordem])
+  @@index([companyId])
+  @@index([criadoPorId])
+  @@map("omie_envios")
+}
+
+/// Pausa de uma empresa num método do OMIE (limite de consumo) ou na empresa toda
+/// (`*`, credenciais recusadas). Só o worker grava, pela função do banco.
+model OmiePausa {
+  companyId String   @map("company_id")
+  metodo    String
+  ate       DateTime @db.Timestamptz(6)
+  motivo    String
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Restrict)
+
+  @@id([companyId, metodo])
+  @@map("omie_pausas")
 }
 
 enum FinanceiroTipoAnexo {

@@ -45,6 +45,7 @@ ALTER TABLE movimentacoes_de_estoque DISABLE TRIGGER movimentacoes_de_estoque_ap
 ALTER TABLE comprovantes_de_pagamento DISABLE TRIGGER comprovantes_de_pagamento_so_substitui;
 ALTER TABLE anexos_de_lancamento DISABLE TRIGGER anexos_de_lancamento_so_substitui;
 ALTER TABLE historico_de_lancamento DISABLE TRIGGER historico_de_lancamento_append_only;
+ALTER TABLE omie_envios DISABLE TRIGGER omie_envios_coerente;
 
 -- "E2E <run>" ancorado no fim: o run abc123 não casa "E2E abc1234". O runId é só
 -- [A-Za-z0-9_-] (conferido acima), então pode entrar na expressão sem escape.
@@ -91,7 +92,9 @@ SELECT 'arquivo', arquivo_chave FROM arquivos_de_ordens_de_servico WHERE ordem_i
 UNION ALL
 SELECT 'arquivo', e.arquivo_chave FROM evidencias_de_tarefa e JOIN ocorrencias_de_tarefa o ON o.id = e.ocorrencia_id WHERE o.tarefa_id IN (SELECT id FROM e2e_tarefa);
 
--- O que pende do lançamento (PLU-337) sai antes dele: anexos, linha do tempo e UCs.
+-- O que pende do lançamento (PLU-337 e PLU-342) sai antes dele: pedidos ao OMIE,
+-- anexos, linha do tempo e UCs.
+DELETE FROM omie_envios WHERE lancamento_id IN (SELECT id FROM e2e_lanc);
 DELETE FROM anexos_de_lancamento WHERE lancamento_id IN (SELECT id FROM e2e_lanc);
 DELETE FROM historico_de_lancamento WHERE lancamento_id IN (SELECT id FROM e2e_lanc);
 DELETE FROM ucs_de_lancamento WHERE lancamento_id IN (SELECT id FROM e2e_lanc);
@@ -122,6 +125,7 @@ ALTER TABLE movimentacoes_de_estoque ENABLE TRIGGER movimentacoes_de_estoque_app
 ALTER TABLE comprovantes_de_pagamento ENABLE TRIGGER comprovantes_de_pagamento_so_substitui;
 ALTER TABLE anexos_de_lancamento ENABLE TRIGGER anexos_de_lancamento_so_substitui;
 ALTER TABLE historico_de_lancamento ENABLE TRIGGER historico_de_lancamento_append_only;
+ALTER TABLE omie_envios ENABLE TRIGGER omie_envios_coerente;
 
 SELECT (SELECT count(*) FROM e2e_lanc) AS lancamentos, (SELECT count(*) FROM e2e_ped) AS pedidos, (SELECT count(*) FROM e2e_os) AS ordens_de_servico, (SELECT count(*) FROM e2e_tarefa) AS tarefas,
        (SELECT count(*) FROM e2e_item) AS itens_de_estoque, (SELECT count(*) FROM e2e_forn) AS fornecedores;

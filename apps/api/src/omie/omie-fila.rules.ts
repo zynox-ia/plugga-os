@@ -1,4 +1,26 @@
+import type { OperacaoNoOmie } from "../financeiro/omie-envios.rules";
 import { OmieFalhouError, type MotivoDaFalhaDoOmie } from "./omie.port";
+
+/** O método do OMIE de cada envio, a chave do limitador e da pausa (seção 4 do desenho). */
+export function metodoDoEnvio(tipo: "saida" | "entrada", operacao: OperacaoNoOmie): string {
+  if (operacao === "gerar_boleto") return "GerarBoleto";
+  const conta = tipo === "saida" ? "ContaPagar" : "ContaReceber";
+  switch (operacao) {
+    case "upsert":
+      return `Upsert${conta}`;
+    case "baixa":
+      return tipo === "saida" ? "LancarPagamento" : "LancarRecebimento";
+    case "cancelar":
+      return `Cancelar${conta}`;
+  }
+}
+
+/** Pausa da empresa inteira (credenciais recusadas), além da do método. */
+export const TODA_A_EMPRESA = "*";
+
+/** A empresa está pausada para este método, ou inteira. */
+export const estaPausada = (pausas: readonly { company_id: string; metodo: string }[], empresa: string, metodo: string): boolean =>
+  pausas.some((p) => p.company_id === empresa && (p.metodo === metodo || p.metodo === TODA_A_EMPRESA));
 
 /**
  * O que a fila do OMIE faz com o resultado de um envio (PLU-342, seção 5 do desenho).

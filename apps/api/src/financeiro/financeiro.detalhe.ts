@@ -69,6 +69,8 @@ function resumoDoHistorico(h: ItemDoHistorico): { tipo: EventoDoLancamento["tipo
       return { tipo: "cobranca_registrada", resumo: `Cobrança por ${String(d.canal ?? "contato")}` };
     case "anexo_enviado":
       return { tipo: "anexo_enviado", resumo: `${NOME_DO_ANEXO[d.anexo as TipoDeAnexo] ?? "Anexo"} anexado` };
+    case "omie":
+      return d.acao === "tentar_de_novo" ? { tipo: "omie", resumo: "Envio ao OMIE pedido de novo" } : null;
     case "anexo_substituido":
       return { tipo: "anexo_substituido", resumo: `${NOME_DO_ANEXO[d.anexo as TipoDeAnexo] ?? "Anexo"} substituído; o anterior segue no histórico` };
     default:

@@ -52,6 +52,7 @@ import {
   type AnexosAtuais,
   type PapelNoFinanceiro,
 } from "./financeiro.rules";
+import { ENVIOS_DA_COBRANCA, enviosDaAcao, enviosDaEdicao, type OperacaoNoOmie } from "./omie-envios.rules";
 
 const PESSOA = { select: { id: true, name: true } } as const;
 const INCLUDE_DO_LANCAMENTO = {
@@ -298,6 +299,7 @@ export class PrismaFinanceiroRepository {
       });
       await tx.historicoDeLancamento.create({ data: { lancamentoId: id, tipo: "editado", porId: principal.id, dados: { campos } } });
       await this.registrar(tx, "financeiro.lancamento.updated", id, atual.companyId, principal, { campos });
+      await this.enfileirarNoOmie(tx, id, atual.companyId, enviosDaEdicao(atual), principal.id);
     });
   }
 
@@ -319,50 +321,77 @@ export class PrismaFinanceiroRepository {
       const historico = (tipo: string, dados: Record<string, unknown>, texto: string | null = null) =>
         tx.historicoDeLancamento.create({ data: { lancamentoId: id, tipo, porId: principal.id, dados: dados as Prisma.InputJsonValue, texto, em: agora } });
       const evento = (nome: NomeDeEventoDoCatalogo, payload: Record<string, unknown> = {}) => this.registrar(tx, nome, id, atual.companyId, principal, payload);
-      switch (plano.tipo) {
-        case "aprovar":
-          await tx.lancamento.update({ where: { id }, data: { etapa: plano.etapa, aprovadoEm: agora, aprovadoPorId: principal.id } });
-          return evento("financeiro.lancamento.aprovado");
-        case "cancelar":
-          await tx.lancamento.update({ where: { id }, data: { canceladoEm: agora, canceladoPorId: principal.id, cancelamentoMotivo: plano.motivo } });
-          // O motivo fica no lançamento: texto livre não entra no evento.
-          return evento("financeiro.lancamento.cancelado", { etapa: atual.etapa, comMotivo: true });
-        case "corrigir_valor": {
-          const de = (await tx.lancamento.findUniqueOrThrow({ where: { id }, select: { valor: true } })).valor.toFixed(2);
-          if (de === new Prisma.Decimal(plano.valor).toFixed(2)) throw new RequisicaoInvalida("O valor novo é igual ao atual.", [{ campo: "valor", problema: "O valor novo é igual ao atual." }]);
-          await tx.lancamento.update({ where: { id }, data: { valor: new Prisma.Decimal(plano.valor) } });
-          await historico("valor_corrigido", { de, para: new Prisma.Decimal(plano.valor).toFixed(2) }, plano.motivo);
-          return evento("financeiro.lancamento.valor_corrigido", { comMotivo: true });
+      const aplicar = async (): Promise<unknown> => {
+        switch (plano.tipo) {
+          case "aprovar":
+            await tx.lancamento.update({ where: { id }, data: { etapa: plano.etapa, aprovadoEm: agora, aprovadoPorId: principal.id } });
+            return evento("financeiro.lancamento.aprovado");
+          case "cancelar":
+            await tx.lancamento.update({ where: { id }, data: { canceladoEm: agora, canceladoPorId: principal.id, cancelamentoMotivo: plano.motivo } });
+            // O motivo fica no lançamento: texto livre não entra no evento.
+            return evento("financeiro.lancamento.cancelado", { etapa: atual.etapa, comMotivo: true });
+          case "corrigir_valor": {
+            const de = (await tx.lancamento.findUniqueOrThrow({ where: { id }, select: { valor: true } })).valor.toFixed(2);
+            if (de === new Prisma.Decimal(plano.valor).toFixed(2)) throw new RequisicaoInvalida("O valor novo é igual ao atual.", [{ campo: "valor", problema: "O valor novo é igual ao atual." }]);
+            await tx.lancamento.update({ where: { id }, data: { valor: new Prisma.Decimal(plano.valor) } });
+            await historico("valor_corrigido", { de, para: new Prisma.Decimal(plano.valor).toFixed(2) }, plano.motivo);
+            return evento("financeiro.lancamento.valor_corrigido", { comMotivo: true });
+          }
+          case "registrar_nf":
+            await tx.lancamento.update({ where: { id }, data: { etapa: plano.etapa, nfNumero: plano.numero, nfRegistradaEm: agora, nfRegistradaPorId: principal.id } });
+            return evento("financeiro.lancamento.nf_registrada");
+          case "registrar_boleto":
+            await tx.lancamento.update({ where: { id }, data: { etapa: plano.etapa, boletoRegistradoEm: agora, boletoRegistradoPorId: principal.id } });
+            return evento("financeiro.lancamento.boleto_registrado");
+          case "registrar_envio":
+            await tx.lancamento.update({ where: { id }, data: { etapa: plano.etapa, enviadoEm: agora, envioCanal: plano.canal, enviadoPorId: principal.id } });
+            // O canal é texto livre (pode ter telefone ou e-mail): fica no lançamento, não no evento.
+            return evento("financeiro.lancamento.enviado");
+          case "registrar_cobranca":
+            // Não muda a etapa: o contato vai à linha do tempo, com a nota.
+            await historico("cobranca_registrada", { canal: plano.canal }, plano.nota);
+            return evento("financeiro.lancamento.cobranca_registrada");
+          case "registrar_pagamento":
+            await this.garantirConta(tx, plano.contaCorrenteId, atual.companyId);
+            await tx.lancamento.update({
+              where: { id },
+              data: { etapa: plano.etapa, forma: plano.forma, contaCorrenteId: plano.contaCorrenteId, pagoEm: inicioDoDiaEmManaus(plano.pagoEm), pagamentoRegistradoEm: agora, pagamentoRegistradoPorId: principal.id },
+            });
+            return evento("financeiro.lancamento.pago", { forma: plano.forma });
+          case "registrar_recebimento":
+            await this.garantirConta(tx, plano.contaCorrenteId, atual.companyId);
+            await tx.lancamento.update({
+              where: { id },
+              data: { etapa: plano.etapa, contaCorrenteId: plano.contaCorrenteId, recebidoEm: inicioDoDiaEmManaus(plano.recebidoEm), valorRecebido: new Prisma.Decimal(plano.valor), recebimentoRegistradoEm: agora, recebimentoRegistradoPorId: principal.id },
+            });
+            return evento("financeiro.lancamento.recebido");
         }
-        case "registrar_nf":
-          await tx.lancamento.update({ where: { id }, data: { etapa: plano.etapa, nfNumero: plano.numero, nfRegistradaEm: agora, nfRegistradaPorId: principal.id } });
-          return evento("financeiro.lancamento.nf_registrada");
-        case "registrar_boleto":
-          await tx.lancamento.update({ where: { id }, data: { etapa: plano.etapa, boletoRegistradoEm: agora, boletoRegistradoPorId: principal.id } });
-          return evento("financeiro.lancamento.boleto_registrado");
-        case "registrar_envio":
-          await tx.lancamento.update({ where: { id }, data: { etapa: plano.etapa, enviadoEm: agora, envioCanal: plano.canal, enviadoPorId: principal.id } });
-          // O canal é texto livre (pode ter telefone ou e-mail): fica no lançamento, não no evento.
-          return evento("financeiro.lancamento.enviado");
-        case "registrar_cobranca":
-          // Não muda a etapa: o contato vai à linha do tempo, com a nota.
-          await historico("cobranca_registrada", { canal: plano.canal }, plano.nota);
-          return evento("financeiro.lancamento.cobranca_registrada");
-        case "registrar_pagamento":
-          await this.garantirConta(tx, plano.contaCorrenteId, atual.companyId);
-          await tx.lancamento.update({
-            where: { id },
-            data: { etapa: plano.etapa, forma: plano.forma, contaCorrenteId: plano.contaCorrenteId, pagoEm: inicioDoDiaEmManaus(plano.pagoEm), pagamentoRegistradoEm: agora, pagamentoRegistradoPorId: principal.id },
-          });
-          return evento("financeiro.lancamento.pago", { forma: plano.forma });
-        case "registrar_recebimento":
-          await this.garantirConta(tx, plano.contaCorrenteId, atual.companyId);
-          await tx.lancamento.update({
-            where: { id },
-            data: { etapa: plano.etapa, contaCorrenteId: plano.contaCorrenteId, recebidoEm: inicioDoDiaEmManaus(plano.recebidoEm), valorRecebido: new Prisma.Decimal(plano.valor), recebimentoRegistradoEm: agora, recebimentoRegistradoPorId: principal.id },
-          });
-          return evento("financeiro.lancamento.recebido");
+      };
+      // Cancelar só vai ao OMIE se a conta já chegou lá ou está saindo; os pedidos
+      // ainda em aberto do lançamento cancelado são descartados.
+      const chegouAoOmie = plano.tipo === "cancelar"
+        && (await tx.omieEnvio.count({ where: { lancamentoId: id, operacao: "upsert", estado: { in: ["enviado", "enviando"] } } })) > 0;
+      await aplicar();
+      if (plano.tipo === "cancelar") {
+        await tx.omieEnvio.updateMany({ where: { lancamentoId: id, estado: { in: ["pendente", "erro"] } }, data: { estado: "descartado" } });
       }
+      await this.enfileirarNoOmie(tx, id, atual.companyId, enviosDaAcao(atual, plano, chegouAoOmie), principal.id);
+    });
+  }
+
+  /**
+   * "Tentar de novo" (PLU-342): os envios do lançamento que estão com erro voltam ao
+   * início da fila, com as tentativas zeradas. Nada sai daqui: a fila confere o modo.
+   */
+  async tentarDeNovoNoOmie(id: string, principal: AuthPrincipal, papel: PapelNoFinanceiro, agora: Date): Promise<void> {
+    await this.prisma.comContexto(async (tx) => {
+      const atual = await this.travar(tx, id, papel);
+      const voltaram = await tx.$executeRaw`
+        UPDATE public.omie_envios SET estado = 'pendente', tentativas = 0, ultimo_erro = NULL, proxima_tentativa_em = now()
+        WHERE lancamento_id = ${id}::uuid AND estado = 'erro'`;
+      if (voltaram === 0) throw new EstadoInvalido("Não há envio ao OMIE com erro neste lançamento.");
+      await tx.historicoDeLancamento.create({ data: { lancamentoId: id, tipo: "omie", porId: principal.id, dados: { acao: "tentar_de_novo", envios: voltaram }, em: agora } });
+      await this.registrar(tx, "financeiro.lancamento.updated", id, atual.companyId, principal, { campos: ["omie"] });
     });
   }
 
@@ -446,6 +475,7 @@ export class PrismaFinanceiroRepository {
         });
         if (input.ucIds.length > 0) await tx.ucDeLancamento.createMany({ data: input.ucIds.map((consumerUnitId) => ({ lancamentoId: criado.id, consumerUnitId })) });
         await this.registrar(tx, "financeiro.lancamento.created", criado.id, criado.companyId, principal, { tipo: "entrada", origem: "cobranca_manual", ucs: input.ucIds.length });
+        await this.enfileirarNoOmie(tx, criado.id, criado.companyId, ENVIOS_DA_COBRANCA, principal.id);
         return criado.id;
       });
     } catch (erro) {
@@ -554,6 +584,20 @@ export class PrismaFinanceiroRepository {
     });
     if (!linha || !tiposVisiveis(papel, "todos").includes(linha.tipo)) throw new NaoEncontrado("Lançamento não encontrado.");
     return linha;
+  }
+
+  /**
+   * Pedidos ao OMIE no outbox, na transação do lançamento (PLU-342). Um pedido em
+   * aberto da mesma operação (pendente ou com erro) volta ao início da fila em vez
+   * de duplicar; o índice único do banco garante. Nada sai daqui: a fila confere o modo.
+   */
+  private async enfileirarNoOmie(tx: Prisma.TransactionClient, lancamentoId: string, empresa: string, operacoes: readonly OperacaoNoOmie[], porId: string): Promise<void> {
+    for (const operacao of operacoes) {
+      const juntou = await tx.$executeRaw`
+        UPDATE public.omie_envios SET estado = 'pendente', tentativas = 0, ultimo_erro = NULL, proxima_tentativa_em = now()
+        WHERE lancamento_id = ${lancamentoId}::uuid AND operacao = ${operacao}::public.omie_operacao AND estado IN ('pendente', 'erro')`;
+      if (juntou === 0) await tx.omieEnvio.create({ data: { lancamentoId, companyId: empresa, operacao, criadoPorId: porId } });
+    }
   }
 
   private async garantirFornecedor(tx: Prisma.TransactionClient, id: string): Promise<void> {

@@ -105,6 +105,12 @@ export class FinanceiroService {
     return this.obter(id, principal);
   }
 
+  /** "Tentar de novo" no OMIE (PLU-342): os envios com erro voltam à fila. */
+  async tentarDeNovoNoOmie(id: string, principal: AuthPrincipal): Promise<Lancamento> {
+    await this.repositorio.tentarDeNovoNoOmie(id, principal, this.papel(principal), this.agora());
+    return this.obter(id, principal);
+  }
+
   /**
    * Anexo do lançamento (PLU-337): PDF, JPEG ou PNG conferido pelo conteúdo, nunca
    * pela extensão; guardado em `financeiro/lancamentos/<id>/`. Se a gravação falhar,
