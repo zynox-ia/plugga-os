@@ -130,6 +130,8 @@ export const itemDoPedidoEntradaSchema = z
     descricao: texto(1, 300, "descreva o material"),
     quantidade: quantidadeString,
     unidade: textoOpcional(20),
+    /** Item de estoque da mesma empresa do pedido (PLU-332): é o que permite atender pelo estoque. */
+    itemDeEstoqueId: uuid.nullable().optional(),
   })
   .strict();
 export type ItemDoPedidoEntrada = z.infer<typeof itemDoPedidoEntradaSchema>;
@@ -239,7 +241,21 @@ export const acaoDoPedidoSchema = z.discriminatedUnion("acao", [
    * retirada → concluido. Valor faturado obrigatório na aquisição; no
    * atendimento por estoque é opcional (o material já estava pago).
    */
-  z.object({ acao: z.literal("confirmar_recebimento"), valorFaturado: valorPositivo.nullable().optional(), observacao: textoOpcional(1000) }).strict(),
+  z.object({
+    acao: z.literal("confirmar_recebimento"),
+    valorFaturado: valorPositivo.nullable().optional(),
+    observacao: textoOpcional(1000),
+    /**
+     * Só na aquisição (PLU-332): itens do pedido, vinculados ao estoque, que
+     * entram no estoque com a quantidade recebida e o custo unitário. No
+     * atendimento por estoque a reserva vira saída sozinha, sem este campo.
+     */
+    entradaNoEstoque: z
+      .array(z.object({ itemDoPedidoId: uuid, quantidade: quantidadeString, custoUnitario: valorPositivo }).strict())
+      .min(1)
+      .max(100)
+      .optional(),
+  }).strict(),
   /** Qualquer etapa antes de concluido. */
   z.object({ acao: z.literal("cancelar"), motivo: texto(1, 1000, "informe o motivo do cancelamento") }).strict(),
 ]);
@@ -305,6 +321,8 @@ export const itemDoPedidoSchema = z.object({
   descricao: z.string(),
   quantidade: z.string(),
   unidade: z.string().nullable(),
+  /** Item de estoque vinculado (PLU-332), com o que a tela precisa para mostrar. */
+  itemDeEstoque: z.object({ id: uuid, codigo: z.string(), nome: z.string() }).nullable(),
 });
 export type ItemDoPedido = z.infer<typeof itemDoPedidoSchema>;
 

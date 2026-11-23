@@ -146,7 +146,8 @@ export function paraDetalhe(linha: LinhaDoDetalhe, clientes: NomesDeClientes, pa
     titulo: linha.titulo,
     descricao: linha.descricao,
     destino: destino(linha, clientes),
-    itens: linha.itens.map((item) => ({ id: item.id, descricao: item.descricao, quantidade: item.quantidade.toString(), unidade: item.unidade })),
+    // O vínculo com o estoque chega com a migration da PLU-332.
+    itens: linha.itens.map((item) => ({ id: item.id, descricao: item.descricao, quantidade: item.quantidade.toString(), unidade: item.unidade, itemDeEstoque: null })),
     prazoEntregaDesejado: diaEmManaus(linha.prazoEntregaDesejado),
     etapa: linha.etapa,
     situacao,

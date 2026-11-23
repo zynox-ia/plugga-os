@@ -33,3 +33,4 @@ export * from "./omie.js";
 export * from "./ia-assinatura.js";
 export * from "./fornecedores.js";
 export * from "./compras.js";
+export * from "./estoque.js";
