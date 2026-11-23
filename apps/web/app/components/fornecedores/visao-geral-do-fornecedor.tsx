@@ -67,7 +67,7 @@ export function VisaoGeralDoFornecedor({ fornecedor: f, desempenho, aoCopiar }: 
       </section>
     </div>
 
-    <section className={`${perfil.secao} ${perfil.endereco}`} aria-label="Endereço">
+    <section className={`${perfil.secao} ${perfil.endereco} ${styles.painel}`} aria-label="Endereço">
       <h4><MapPin size={16} aria-hidden="true" />Endereço</h4>
       <dl className={perfil.enderecoGrade}>
         <Dado rotulo="CEP">{cepFormatado(f.cep)}</Dado>
