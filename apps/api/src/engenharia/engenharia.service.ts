@@ -162,6 +162,11 @@ export class EngenhariaService {
     const porTecnico = new Map<string, { id: string; nome: string }>();
     for (const t of r.tecnicos) if (!query.tecnicoId || t.id === query.tecnicoId) porTecnico.set(t.id, t);
     for (const o of resumos) if (o.tecnico && (!query.tecnicoId || o.tecnico.id === query.tecnicoId)) porTecnico.set(o.tecnico.id, porTecnico.get(o.tecnico.id) ?? o.tecnico);
+    // O técnico filtrado que só aparece como apoio (ex.: inativo) ganha a linha dele.
+    if (query.tecnicoId && !porTecnico.has(query.tecnicoId)) {
+      const comoApoio = resumos.find((o) => o.apoio?.id === query.tecnicoId)?.apoio;
+      if (comoApoio) porTecnico.set(comoApoio.id, comoApoio);
+    }
     // Filtrando por técnico, a O.S. em que ele é apoio aparece na linha dele.
     const daLinha = (tecnicoId: string) => resumos.filter((o) => o.tecnico?.id === tecnicoId || (query.tecnicoId === tecnicoId && o.apoio?.id === tecnicoId));
     const semTecnico = resumos.filter((o) => !o.tecnico);

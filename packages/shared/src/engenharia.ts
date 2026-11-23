@@ -515,7 +515,7 @@ const diaDaAgenda = z.object({ dia: diaDoCalendario, ordens: z.array(ordemDeServ
 export const agendaRespostaSchema = z.object({
   hoje: diaDoCalendario,
   semana: z.object({ inicio: diaDoCalendario, fim: diaDoCalendario, anterior: diaDoCalendario, proxima: diaDoCalendario }),
-  /** Segunda a domingo. `util` é segunda a sexta (feriado conta como dia útil); o fim de semana só aparece se tiver O.S. */
+  /** Sempre os 7 dias, de segunda a domingo. `util` é segunda a sexta (feriado conta como dia útil). Orientação à web: mostrar sábado e domingo só se tiverem O.S. */
   dias: z.array(z.object({ dia: diaDoCalendario, util: z.boolean(), hoje: z.boolean() })),
   /** Uma linha por técnico (ativos da Engenharia e quem aparece numa O.S. da semana), com as O.S. de cada dia, pela hora. */
   linhas: z.array(z.object({ tecnico: pessoa, dias: z.array(diaDaAgenda) })),
