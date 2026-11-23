@@ -30,6 +30,8 @@ export type EstadoDoPedido = {
   cotacoes: readonly { id: string; valorTotal: string; prazoEntregaDias: number | null }[];
   /** A passagem aberta, se houver. Pedido em andamento sempre tem uma. */
   passagemAberta: { prazoEm: Date } | null;
+  /** Quando o pedido foi criado: o recebimento não pode ser anterior a ele. */
+  criadoEm?: Date;
 };
 
 export type Recusa = { codigo: "CONFLITO_ESTADO" | "REQUISICAO_INVALIDA"; mensagem: string };
@@ -162,6 +164,9 @@ export function planejarAcao(pedido: EstadoDoPedido, acao: AcaoDoPedido, agora: 
 
     case "confirmar_recebimento": {
       if (acao.recebidoEm > diaEmManaus(agora)) return recusa("REQUISICAO_INVALIDA", "O dia do recebimento não pode ser futuro.");
+      if (pedido.criadoEm && acao.recebidoEm < diaEmManaus(pedido.criadoEm)) {
+        return recusa("REQUISICAO_INVALIDA", "O dia do recebimento não pode ser anterior à criação do pedido.");
+      }
       const valorFaturado = acao.valorFaturado ?? null;
       if (pedido.origemAtendimento === "aquisicao" && valorFaturado === null) {
         return recusa("REQUISICAO_INVALIDA", "Informe o valor faturado da compra.");

@@ -126,7 +126,12 @@ function passagem(linha: LinhaDoDetalhe["etapas"][number], agora: Date): Passage
   };
 }
 
-/** Cada passagem de aprovação que voltou para cotações é uma revisão; o motivo fica na passagem. */
+/**
+ * Cada passagem de aprovação que voltou para cotações é uma revisão; o motivo fica
+ * na passagem. A dedução vale porque só a ação `revisar` faz essa transição
+ * (`planejarAcao`): se outra ação passar a fazer o mesmo caminho, isto precisa
+ * olhar outro sinal (por exemplo, o tipo da ação gravado na passagem).
+ */
 function revisoes(etapas: LinhaDoDetalhe["etapas"]) {
   return etapas.flatMap((etapa, i) => {
     const seguinte = etapas[i + 1];

@@ -260,7 +260,7 @@ export class PrismaComprasRepository {
         where: { id },
         select: {
           etapa: true, canceladoEm: true, origemAtendimento: true, cotacaoSelecionadaId: true, companyId: true, responsavelId: true,
-          destino: true, obraId: true, clientId: true,
+          destino: true, obraId: true, clientId: true, createdAt: true,
           cotacoes: { select: { id: true, valor: true, valorFrete: true, prazoEntregaDias: true } },
           etapas: { where: { saiuEm: null }, select: { id: true, prazoEm: true } },
         },
@@ -278,6 +278,7 @@ export class PrismaComprasRepository {
           prazoEntregaDias: cotacao.prazoEntregaDias,
         })),
         passagemAberta: aberta ? { prazoEm: aberta.prazoEm } : null,
+        criadoEm: pedido.createdAt,
       };
       const resultado = planejarAcao(estado, acao, agora);
       if (!resultado.ok) {
@@ -291,11 +292,13 @@ export class PrismaComprasRepository {
       const hoje = diaComoData(diaEmManaus(agora));
       if (acao.acao === "decidir_estoque" && acao.origem === "estoque") await this.estoque.reservar(tx, doPedido, principal, agora);
       if (acao.acao === "confirmar_recebimento") {
+        // A movimentação do recebimento leva o dia em que o material chegou, não o do registro.
+        const recebidoEm = diaComoData(acao.recebidoEm);
         if (pedido.origemAtendimento === "estoque") {
           if (acao.entradaNoEstoque) throw new RequisicaoInvalida("Pedido atendido pelo estoque não dá entrada: a reserva vira saída.");
-          await this.estoque.baixarReservas(tx, doPedido, principal, agora, hoje);
+          await this.estoque.baixarReservas(tx, doPedido, principal, agora, recebidoEm);
         } else if (acao.entradaNoEstoque) {
-          await this.estoque.entradaDoRecebimento(tx, doPedido, acao.entradaNoEstoque, principal, agora, hoje);
+          await this.estoque.entradaDoRecebimento(tx, doPedido, acao.entradaNoEstoque, principal, agora, recebidoEm);
         }
       }
       if (acao.acao === "cancelar") await this.estoque.liberarReservas(tx, doPedido, principal, agora, hoje);

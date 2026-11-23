@@ -130,9 +130,13 @@ describe.skipIf(!HABILITADO)("estoque: saldo, movimentações e reservas no Post
     await expect(mover({ tipo: "saida", itemId: id, quantidade: "13", destino: { tipo: "interno" } })).rejects.toBeInstanceOf(EstadoInvalido);
     await expect(estoque.mudarSituacao(id, false, principal)).rejects.toBeInstanceOf(EstadoInvalido);
 
-    await compras.executarAcao(pedido, acaoDoPedidoSchema.parse({ acao: "confirmar_recebimento", recebidoEm: "2026-11-23" }), principal, AGORA);
+    // O material chegou na sexta (20/11), mas o recebimento é registrado na segunda (23/11).
+    await prisma.pedidoDeCompra.update({ where: { id: pedido }, data: { createdAt: new Date("2026-11-18T14:00:00Z") } });
+    await compras.executarAcao(pedido, acaoDoPedidoSchema.parse({ acao: "confirmar_recebimento", recebidoEm: "2026-11-20" }), principal, AGORA);
     const depois = await saldo(id);
     expect([depois.emEstoque.toFixed(3), depois.reservado.toFixed(3)]).toEqual(["12.000", "0.000"]);
+    const baixa = await prisma.movimentacaoDeEstoque.findFirstOrThrow({ where: { itemId: id, pedidoId: pedido, tipo: "saida" }, select: { data: true } });
+    expect(baixa.data.toISOString()).toBe("2026-11-20T04:00:00.000Z");
     expect(await prisma.reservaDeEstoque.findFirst({ where: { pedidoId: pedido }, select: { estado: true } })).toEqual({ estado: "baixada" });
     expect(await livro(id)).toEqual({ emEstoque: 12, reservado: 0 });
   }, PRAZO_MS);

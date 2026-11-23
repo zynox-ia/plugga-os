@@ -91,6 +91,12 @@ describe("caminho da aquisição externa", () => {
     expect(recusa(estado, { acao: "selecionar_cotacao", cotacaoId: COTACAO_B }).codigo).toBe("REQUISICAO_INVALIDA");
   });
 
+  it("o dia do recebimento não pode ser anterior à criação do pedido", () => {
+    const estado = pedido("retirada", { origemAtendimento: "estoque", criadoEm: new Date("2026-11-20T14:00:00Z") });
+    expect(recusa(estado, { acao: "confirmar_recebimento", recebidoEm: "2026-11-19" }).codigo).toBe("REQUISICAO_INVALIDA");
+    expect(planejarAcao(estado, { acao: "confirmar_recebimento", recebidoEm: "2026-11-20" }, AGORA).ok).toBe(true);
+  });
+
   it("o dia do recebimento não pode ser futuro", () => {
     expect(recusa(pedido("retirada", { origemAtendimento: "estoque" }), { acao: "confirmar_recebimento", recebidoEm: "2026-11-24" }).codigo).toBe("REQUISICAO_INVALIDA");
   });
