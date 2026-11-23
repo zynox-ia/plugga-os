@@ -62,7 +62,11 @@ export function ordenarCards(cards: (CardDePlataforma & { ordem: number })[]): C
       if (excecoes !== 0) return excecoes;
       return a.ordem - b.ordem || a.empresa.localeCompare(b.empresa);
     })
-    .map(({ ordem: _ordem, ...card }) => card);
+    .map((card) => {
+      const { ordem, ...resto } = card;
+      void ordem;
+      return resto;
+    });
 }
 
 /** Soma de kWp em string com até 3 casas, sem erro de ponto flutuante. */
