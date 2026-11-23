@@ -25,7 +25,8 @@ BEGIN
   -- Marcador que só existe nos bancos locais (ALTER DATABASE … SET plugga.ambiente =
   -- 'local', feito à mão no 55432 e no 55433; nunca em migration). A produção não o tem.
   IF current_setting('plugga.ambiente', true) IS DISTINCT FROM 'local' THEN
-    RAISE EXCEPTION 'limpeza dos e2e só em banco marcado como local (plugga.ambiente)';
+    RAISE EXCEPTION 'limpeza dos e2e só em banco marcado como local (plugga.ambiente)'
+      USING HINT = format('No banco LOCAL, como dono: ALTER DATABASE %I SET plugga.ambiente = ''local''; (o 55433 já sai marcado de "node scripts/local-test.mjs up")', current_database());
   END IF;
   IF current_database() NOT IN ('plugga_os', 'plugga_os_test') THEN
     RAISE EXCEPTION 'limpeza dos e2e só no banco local ou da CI (banco: %)', current_database();
