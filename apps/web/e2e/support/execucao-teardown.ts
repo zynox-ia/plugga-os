@@ -54,10 +54,12 @@ export default function limparExecucao(): void {
   if (resultado.error) throw new Error(`limpeza dos e2e: não foi possível chamar o psql (${resultado.error.message})`);
   if (resultado.status !== 0) throw new Error(`limpeza dos e2e falhou: ${(resultado.stderr || resultado.stdout || "").trim().split("\n").slice(-3).join(" ")}`);
 
-  // Última linha: lancamentos|pedidos|itens|fornecedores apagados.
+  // Última linha: o que foi apagado, na ordem das colunas do SELECT final de limpeza-e2e.sql.
+  const ROTULOS = ["lançamentos", "pedidos", "ordens de serviço", "tarefas", "itens de estoque", "fornecedores"];
   const contagens = resultado.stdout.trim().split("\n").at(-1)?.split("|") ?? [];
-  if (contagens.length === 4) {
-    const [lancamentos, pedidos, itens, fornecedores] = contagens;
-    console.log(`[e2e] limpeza da execução ${run}: ${lancamentos} lançamentos, ${pedidos} pedidos, ${itens} itens de estoque, ${fornecedores} fornecedores.`);
+  if (contagens.length === ROTULOS.length) {
+    console.log(`[e2e] limpeza da execução ${run}: ${contagens.map((n, i) => `${n} ${ROTULOS[i]}`).join(", ")}.`);
+  } else {
+    console.warn(`[e2e] limpeza da execução ${run}: contagens fora do formato (${contagens.length} colunas, esperadas ${ROTULOS.length}).`);
   }
 }
