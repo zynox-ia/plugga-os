@@ -48,7 +48,7 @@ export function CotacoesDoFornecedor({ historico, podeAbrirCompras }: { historic
   </div>;
 }
 
-type Revelar = (motivo: "mostrar" | "copiar") => Promise<DadosDePagamentoRevelados | null>;
+type Revelar = (motivo: "mostrar" | "copiar", campo: "pix" | "banco") => Promise<DadosDePagamentoRevelados | null>;
 
 function LinhaSecreta({ rotulo, mascarado, completo, visivel, aoMostrar, aoCopiar, ocupado }: {
   rotulo: string; mascarado: string | null; completo: string | null | undefined; visivel: boolean;
@@ -78,7 +78,7 @@ export function PagamentoDoFornecedor({ fornecedor: f, aoRevelar, aoCopiar }: { 
 
   async function completo(motivo: "mostrar" | "copiar", campo: "pix" | "banco") {
     setOcupado(true);
-    const r = await aoRevelar(motivo);
+    const r = await aoRevelar(motivo, campo);
     setOcupado(false);
     return r ? campoDe(r, campo) : undefined;
   }

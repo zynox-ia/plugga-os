@@ -1,6 +1,6 @@
 "use client";
 
-import { rotulosDaCategoriaDeFornecedor, type DadosDePagamentoRevelados, type DesempenhoDoFornecedor, type Fornecedor, type HistoricoDeCotacoesResposta } from "@plugga/shared";
+import { rotulosDaCategoriaDeFornecedor, type DadosDePagamentoRevelados, type DesempenhoDoFornecedor, type RevelarDadosDePagamento, type Fornecedor, type HistoricoDeCotacoesResposta } from "@plugga/shared";
 import { LayoutGrid, MapPin, Paperclip, Pencil, Power, Truck, Wallet, X, type LucideIcon } from "lucide-react";
 import { useId, useRef, useState, type KeyboardEvent } from "react";
 
@@ -54,8 +54,9 @@ export function FichaDoFornecedor({ dados, podeAbrirCompras, aoFechar, aoEditar,
   }
 
   /** O completo vem de uma rota própria, que grava quem pediu e por quê (PLU-334). */
-  async function revelar(motivo: "mostrar" | "copiar" | "editar"): Promise<DadosDePagamentoRevelados | null> {
-    const r = await enviar<DadosDePagamentoRevelados>(`/api/suprimentos/fornecedores/${f.id}/dados-de-pagamento/revelar`, "POST", { motivo });
+  async function revelar(corpo: RevelarDadosDePagamento): Promise<DadosDePagamentoRevelados | null> {
+    // A auditoria registra o motivo e qual dado foi revelado: Mostrar e Copiar pedem um campo; Editar traz os dois.
+    const r = await enviar<DadosDePagamentoRevelados>(`/api/suprimentos/fornecedores/${f.id}/dados-de-pagamento/revelar`, "POST", corpo);
     if (r.ok) return r.dados;
     setAviso(null); setErro(`Não foi possível abrir os dados de pagamento: ${r.erro.mensagem}`);
     return null;
@@ -63,7 +64,7 @@ export function FichaDoFornecedor({ dados, podeAbrirCompras, aoFechar, aoEditar,
 
   async function editar() {
     setOcupado(true); setErro(null);
-    const pagamento = await revelar("editar");
+    const pagamento = await revelar({ motivo: "editar" });
     setOcupado(false);
     if (pagamento) aoEditar(pagamento);
   }
@@ -116,7 +117,7 @@ export function FichaDoFornecedor({ dados, podeAbrirCompras, aoFechar, aoEditar,
           </div> : null}
           {aba === "geral" ? <VisaoGeralDoFornecedor fornecedor={f} desempenho={dados.desempenho} aoCopiar={(t, r) => void copiar(t, r)} /> : null}
           {aba === "cotacoes" ? <CotacoesDoFornecedor historico={dados.cotacoes} podeAbrirCompras={podeAbrirCompras} /> : null}
-          {aba === "pagamento" ? <PagamentoDoFornecedor fornecedor={f} aoRevelar={revelar} aoCopiar={(t, r) => void copiar(t, r)} /> : null}
+          {aba === "pagamento" ? <PagamentoDoFornecedor fornecedor={f} aoRevelar={(motivo, campo) => revelar({ motivo, campo })} aoCopiar={(t, r) => void copiar(t, r)} /> : null}
           <footer className={styles.rodape}>
             <Button variant="secondary" icon={<Power size={15} />} disabled={ocupado} onClick={() => void alternarSituacao()}>{f.ativo ? "Inativar" : "Reativar"}</Button>
             <span className={styles.espaco} />

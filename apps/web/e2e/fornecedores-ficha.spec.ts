@@ -25,8 +25,8 @@ test("ficha do fornecedor mostra desempenho, endereço e pagamento mascarado", a
   expect(criado.status(), await criado.text()).toBe(201);
   const { id } = (await criado.json()) as { id: string };
 
-  const motivos: string[] = [];
-  page.on("request", (r) => { if (r.method() === "POST" && r.url().includes("/dados-de-pagamento/revelar")) motivos.push((r.postDataJSON() as { motivo: string }).motivo); });
+  const pedidos: unknown[] = [];
+  page.on("request", (r) => { if (r.method() === "POST" && r.url().includes("/dados-de-pagamento/revelar")) pedidos.push(r.postDataJSON()); });
   await page.context().grantPermissions(["clipboard-read", "clipboard-write"], { origin });
   await page.goto(`/suprimentos/fornecedores?fornecedor=${id}`);
   const ficha = page.locator("dialog[open]").first();
@@ -59,8 +59,8 @@ test("ficha do fornecedor mostra desempenho, endereço e pagamento mascarado", a
   await ficha.getByRole("button", { name: "Mostrar Chave PIX" }).click();
   await expect(ficha.getByText(`chave-e2e-${sufixo}-7788`)).toBeVisible();
   await ficha.getByRole("button", { name: "Copiar Chave PIX" }).click();
-  await expect.poll(() => motivos.length).toBe(3);
-  expect(motivos).toEqual(["mostrar", "mostrar", "copiar"]);
+  await expect.poll(() => pedidos.length).toBe(3);
+  expect(pedidos).toEqual([{ motivo: "mostrar", campo: "pix" }, { motivo: "mostrar", campo: "pix" }, { motivo: "copiar", campo: "pix" }]);
 
   // Editar abre o formulário com o endereço.
   await ficha.getByRole("button", { name: "Editar fornecedor" }).click();
