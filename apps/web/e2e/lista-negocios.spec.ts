@@ -329,11 +329,14 @@ test("negócios encerrados mantêm o menu com acesso aos detalhes e sem ações 
   // Ganhos e perdidos só aparecem fora do filtro padrão "Em aberto": cada um no seu filtro de Situação.
   for (const [indice, situacao] of [[24, "Ganhos"], [23, "Perdidos"]] as const) {
     const encerrado = negocios[indice]!;
+    await page.getByRole("searchbox", { name: "Buscar negócios" }).fill("");
     await page.getByRole("group", { name: "Situação" }).getByRole("button", { name: situacao, exact: true }).click();
+    // O cenário tem 1 ganho e 1 perdido: cada filtro traz só o seu, sem misturar.
+    await expect(page.locator("tbody tr")).toHaveCount(1);
     await page.getByRole("searchbox", { name: "Buscar negócios" }).fill(encerrado.title);
     const linha = page.getByRole("row").filter({ hasText: encerrado.title });
     await expect(linha).toHaveCount(1);
-    await expect(linha.locator('td[data-l="Na etapa há"]')).toHaveText(/^(hoje|\d+ dias)$/);
+    await expect(linha.locator('td[data-l="Na etapa há"]')).toHaveText(/^(hoje|1 dia|\d+ dias)$/);
     await linha.getByRole("button", { name: `Ações de ${encerrado.title}`, exact: true }).click();
     const menu = page.getByRole("menu", { name: `Ações de ${encerrado.title}`, exact: true });
     await expect(menu.getByRole("menuitem")).toHaveText(["Ver detalhes do lead"]);
