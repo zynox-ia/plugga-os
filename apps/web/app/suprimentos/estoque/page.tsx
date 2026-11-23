@@ -29,7 +29,6 @@ export default async function EstoquePage({ searchParams }: { searchParams: Prom
     <EstoqueView
       filtros={filtros}
       itens={saldo.itens}
-      resumo={saldo.resumo}
       todosOsItens={todos.dados.itens}
       movimentacoes={movs?.ok ? movs.dados : null}
       ficha={ficha?.ok ? ficha.dados : null}

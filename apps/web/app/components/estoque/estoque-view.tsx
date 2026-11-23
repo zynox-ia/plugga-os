@@ -6,11 +6,10 @@ import {
   tiposDeMovimentacao,
   type ItemDeEstoque,
   type ItemDeEstoqueNaLista,
-  type ListarItensDeEstoqueResposta,
   type ListarMovimentacoesResposta,
   type Movimentacao,
 } from "@plugga/shared";
-import { ArrowRight, Ban, Building2, CalendarDays, Clock3, Download, Filter, History, LayoutGrid, List, Package, Pencil, Tag, TriangleAlert, Upload, Wallet } from "lucide-react";
+import { ArrowRight, Building2, CalendarDays, Clock3, Download, Filter, History, LayoutGrid, List, Package, Pencil, Tag, Upload } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 
@@ -49,17 +48,14 @@ const VISOES: { id: VisaoDoEstoque; rotulo: string; icone: typeof List }[] = [
   { id: "movimentacoes", rotulo: "Movimentações", icone: History },
 ];
 
-const pct = (parte: number, total: number) => (total > 0 ? (parte / total) * 100 : 0);
-
 /**
  * Estoque (PLU-333): saldo dos materiais da Plugga e da Waze em cards ou
  * lista, as movimentações por dia, a ficha do item e o registro de entrada,
  * saída e ajuste. Filtros, visão e ficha vão no endereço.
  */
-export function EstoqueView({ filtros, itens, resumo, todosOsItens, movimentacoes, ficha, fichaNaoEncontrada, hoje, podeAbrirPedido }: {
+export function EstoqueView({ filtros, itens, todosOsItens, movimentacoes, ficha, fichaNaoEncontrada, hoje, podeAbrirPedido }: {
   filtros: FiltrosDeEstoque;
   itens: ItemDeEstoqueNaLista[];
-  resumo: ListarItensDeEstoqueResposta["resumo"] | null;
   /** Todos os itens ativos, sem filtro: alimentam os menus de item. */
   todosOsItens: ItemDeEstoqueNaLista[];
   movimentacoes: ListarMovimentacoesResposta | null;
@@ -108,12 +104,8 @@ export function EstoqueView({ filtros, itens, resumo, todosOsItens, movimentacoe
       <CardDeMetrica rotulo="Ajustes" valor={movimentacoes.resumo.ajustes.quantidade} nota="correções de contagem" icone={<Pencil />} />
       <CardDeMetrica rotulo="Reservas" valor={movimentacoes.resumo.reservas.quantidade} nota="para pedidos de compra" icone={<Clock3 />} />
     </MetricasDoTopo> : null
-    : resumo ? <MetricasDoTopo rotulo={`Resumo do estoque${filtros.empresa ? ` da ${ROTULO_DA_EMPRESA[filtros.empresa]}` : ""}`}>
-      <CardDeMetrica rotulo="Itens" valor={resumo.itens} nota={`${resumo.normais} ${resumo.normais === 1 ? "normal" : "normais"} · ${filtros.empresa ? ROTULO_DA_EMPRESA[filtros.empresa] : "Plugga e Waze"}`} icone={<Package />} barra={pct(resumo.normais, resumo.itens)} />
-      <CardDeMetrica rotulo="Abaixo do mínimo" valor={resumo.abaixoDoMinimo} nota="repor em breve" icone={<TriangleAlert />} barra={pct(resumo.abaixoDoMinimo, resumo.itens)} tom="ambar" />
-      <CardDeMetrica rotulo="Zerados" valor={resumo.zerados} nota="sem saldo disponível" icone={<Ban />} barra={pct(resumo.zerados, resumo.itens)} tom="ambar" />
-      <CardDeMetrica rotulo="Valor em estoque" valor={valorCurto(resumo.valorEmEstoque)} nota={`pelo custo médio · ${resumo.comReserva} com reserva`} icone={<Wallet />} />
-    </MetricasDoTopo> : null;
+    // Cards e Lista sem metric cards (pedido do André): o filtro Saldo e os selos dos cards dizem o que está abaixo do mínimo ou zerado.
+    : null;
 
   const vazio = (titulo: string, texto: string) => <div className={`lista-negocios-vazia ${styles.vazio}`} role="status">
     <div className="lista-negocios-vazia-icone" aria-hidden="true"><Package size={22} /></div>
