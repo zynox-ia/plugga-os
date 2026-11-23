@@ -10,7 +10,9 @@ import {
   historicoDeCotacoesRespostaSchema,
   itemDeEstoqueSchema,
   listarItensDeEstoqueRespostaSchema,
+  listarLancamentosRespostaSchema,
   listarMovimentacoesRespostaSchema,
+  quadroFinanceiroSchema,
   listarPedidosDeCompraRespostaSchema,
   opcoesDeCompraRespostaSchema,
   pedidoDeCompraSchema,
@@ -137,3 +139,13 @@ export const fetchItemDeEstoque = (id: string) => lerApi("/suprimentos/estoque/i
 /** GET /suprimentos/estoque/movimentacoes: agrupadas por dia, com o resumo do período. */
 export const fetchMovimentacoesDeEstoque = (consulta: ConsultaDeEstoque) =>
   lerApi("/suprimentos/estoque/movimentacoes", listarMovimentacoesRespostaSchema, {}, { consulta });
+
+type ConsultaDoFinanceiro = Record<string, string | undefined>;
+
+/** GET /financeiro/lancamentos: saídas e entradas que a pessoa alcança, com o resumo dos metric cards (PLU-336). */
+export const fetchLancamentos = (consulta: ConsultaDoFinanceiro) =>
+  lerApi("/financeiro/lancamentos", listarLancamentosRespostaSchema, {}, { consulta });
+
+/** GET /financeiro/lancamentos/quadro: as 4 colunas com os totais de entradas e saídas. */
+export const fetchQuadroFinanceiro = (consulta: ConsultaDoFinanceiro) =>
+  lerApi("/financeiro/lancamentos/quadro", quadroFinanceiroSchema, {}, { consulta });

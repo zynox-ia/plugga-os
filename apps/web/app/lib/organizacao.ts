@@ -14,6 +14,7 @@ import {
 
 import type { IconName } from "../components/plugga-shell";
 import { podeAbrirPagina, TELAS_DOS_LANCAMENTOS } from "./acesso-paginas.ts";
+import { financeiroHabilitado } from "./recursos.ts";
 
 /**
  * Organização do plugga-os: Departamento → Processo.
@@ -140,7 +141,8 @@ export const DEPARTAMENTOS: Departamento[] = [
     // Financeiro. Fiscal segue como tela concedível, sem item no menu (P2).
     processos: [
       { label: "Visão geral", telas: TELAS_DOS_LANCAMENTOS, status: "em-breve" },
-      { label: "Lançamentos", telas: TELAS_DOS_LANCAMENTOS, status: "em-breve" },
+      // Com o portão do Financeiro fechado (build de produção), o item segue em breve.
+      { label: "Lançamentos", telas: TELAS_DOS_LANCAMENTOS, ...(financeiroHabilitado() ? { rota: "/financeiro/lancamentos", status: "parcial" as const } : { status: "em-breve" as const }) },
       { label: "Rotinas do dia", telas: telasPorDepartamento.financeiro, status: "em-breve" },
       { id: "financeiro.conciliacao", label: "Conciliação", status: "em-breve" },
     ],
