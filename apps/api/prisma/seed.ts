@@ -165,6 +165,8 @@ async function main() {
       { email: 'compras2.plugga@plugga.local', name: 'Compras · segunda pessoa (exemplo)', acesso: membro('suprimentos') },
       // Alguém do CRM: o e2e de pipelines precisa de uma pessoa para pôr na equipe.
       { email: 'vendas.crm@plugga.local', name: 'Vendas CRM (exemplo)', acesso: membro('crm', 'engenharia-obras') },
+      // Técnico da Engenharia (PLU-345): o e2e das ordens de serviço agenda com a primeira pessoa de /opcoes.
+      { email: 'tecnico.campo@plugga.local', name: 'Técnico de campo (exemplo)', acesso: membro('engenharia-obras') },
     ];
 
     const samplePasswordHash = await hash(adminPassword, argon2Options);
