@@ -6,6 +6,9 @@ import {
   contractListSchema,
   emailStatusSchema,
   fornecedorSchema,
+  itemDeEstoqueSchema,
+  listarItensDeEstoqueRespostaSchema,
+  listarMovimentacoesRespostaSchema,
   listarPedidosDeCompraRespostaSchema,
   opcoesDeCompraRespostaSchema,
   pedidoDeCompraSchema,
@@ -114,3 +117,15 @@ export const fetchContracts = () => lerApi("/commercial/contracts", contractList
 
 export const fetchContract = (id: string) => lerApi("/commercial/contracts/:id", contractDetailSchema, { id });
 
+type ConsultaDeEstoque = Record<string, string | undefined>;
+
+/** GET /suprimentos/estoque/itens: itens com o saldo e o resumo (PLU-332). */
+export const fetchItensDeEstoque = (consulta: ConsultaDeEstoque = {}) =>
+  lerApi("/suprimentos/estoque/itens", listarItensDeEstoqueRespostaSchema, {}, { consulta });
+
+/** GET /suprimentos/estoque/itens/:id: a ficha, com reservas, 8 semanas e últimas movimentações. */
+export const fetchItemDeEstoque = (id: string) => lerApi("/suprimentos/estoque/itens/:id", itemDeEstoqueSchema, { id });
+
+/** GET /suprimentos/estoque/movimentacoes: agrupadas por dia, com o resumo do período. */
+export const fetchMovimentacoesDeEstoque = (consulta: ConsultaDeEstoque) =>
+  lerApi("/suprimentos/estoque/movimentacoes", listarMovimentacoesRespostaSchema, {}, { consulta });

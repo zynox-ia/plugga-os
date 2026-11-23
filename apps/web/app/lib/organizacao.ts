@@ -123,7 +123,7 @@ export const DEPARTAMENTOS: Departamento[] = [
     processos: [
       { id: "suprimentos.compras", label: "Compras", rota: "/suprimentos/compras", status: "pronto" },
       { id: "suprimentos.fornecedores", label: "Fornecedores", rota: "/suprimentos/fornecedores", status: "pronto" },
-      { id: "suprimentos.estoque", label: "Estoque", status: "em-breve" },
+      { id: "suprimentos.estoque", label: "Estoque", rota: "/suprimentos/estoque", status: "pronto" },
     ],
   },
   {

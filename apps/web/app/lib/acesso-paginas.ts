@@ -12,6 +12,7 @@ const paginas: ReadonlyArray<readonly [string, Tela]> = [
   ["/comercial/contratos", "crm.contratos"],
   ["/suprimentos/fornecedores", "suprimentos.fornecedores"],
   ["/suprimentos/compras", "suprimentos.compras"],
+  ["/suprimentos/estoque", "suprimentos.estoque"],
 ];
 
 export function podeAbrirPagina(acesso: Acesso, pathname: string): boolean {
