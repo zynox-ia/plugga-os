@@ -243,7 +243,7 @@ export function LancamentosView({ filtros, lista, quadro, resumo, alcance, ficha
         rotuloDoResultado: filtros.visao === "quadro" ? "Ver o quadro" : `Ver ${lista?.total === 1 ? "1 lançamento" : `${lista?.total ?? 0} lançamentos`}`,
         ...(filtrado ? { aoLimpar: limpar } : {}),
       }} />
-    {filtros.visao === "quadro" ? <BarraRolagemMinimalista containerRef={colunasRef} className={estilosPipelines.rolagem} /> : null}
+    {filtros.visao === "quadro" ? <BarraRolagemMinimalista containerRef={colunasRef} className={`${estilosPipelines.rolagem} ${styles.rolagemQuadro}`} /> : null}
 
     {/* A lista para em 300 (LIMITE_DA_LISTA_DE_LANCAMENTOS); a Lista diz isso no rodapé, os Cards aqui. */}
     {filtros.visao === "cards" && lista && lista.total > itens.length

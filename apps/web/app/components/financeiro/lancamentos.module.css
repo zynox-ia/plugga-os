@@ -94,3 +94,6 @@
   .entra { animation: lancamento-sobe 0.55s cubic-bezier(0.22, 1, 0.36, 1) both; animation-delay: calc(min(var(--i, 0), 13) * 30ms); }
 }
 @keyframes lancamento-sobe { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+/* A barra de rolagem do quadro do CRM cresce (flex 1 1 160px) numa linha; aqui, numa coluna, ficaria com 160 px de altura. */
+.rolagemQuadro:global(.barra-rolagem-externa) { flex: none; align-self: center; width: min(380px, 100%); height: 20px; max-width: none; }
