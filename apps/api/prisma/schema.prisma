@@ -356,6 +356,12 @@ model User {
   arquivosDeOrdemEnviados        ArquivoDeOrdemDeServico[]   @relation("ArquivoDeOrdemEnviadoPor")
   arquivosDeOrdemSubstituidos    ArquivoDeOrdemDeServico[]   @relation("ArquivoDeOrdemSubstituidoPor")
   termosDeOrdemColetados         TermoDeOrdemDeServico[]     @relation("TermoDeOrdemColetadoPor")
+  tarefasComoResponsavel         Tarefa[]                    @relation("TarefaResponsavel")
+  tarefasComoSubstituto          Tarefa[]                    @relation("TarefaSubstituto")
+  tarefasEncerradas              Tarefa[]                    @relation("TarefaEncerradaPor")
+  tarefasCriadas                 Tarefa[]                    @relation("TarefaCriadaPor")
+  ocorrenciasConcluidas          OcorrenciaDeTarefa[]        @relation("OcorrenciaConcluidaPor")
+  evidenciasDeTarefaEnviadas     EvidenciaDeTarefa[]         @relation("EvidenciaDeTarefaEnviadaPor")
 
   @@map("users")
 }
@@ -3094,4 +3100,114 @@ model TermoDeOrdemDeServico {
   coletadoPor       User?                    @relation("TermoDeOrdemColetadoPor", fields: [coletadoPorId], references: [id], onDelete: SetNull)
 
   @@map("termos_de_ordens_de_servico")
+}
+
+// ---------------------------------------------------------------- Tarefas dos departamentos (PLU-349, PLU-340)
+
+enum EmpresaDaTarefa {
+  plugga
+  waze
+  ambas
+
+  @@map("empresa_da_tarefa")
+}
+
+enum TipoDeTarefa {
+  unica
+  recorrente
+
+  @@map("tipo_de_tarefa")
+}
+
+enum OrigemDaTarefa {
+  criada
+  do_departamento
+
+  @@map("origem_da_tarefa")
+}
+
+/// Tarefa do departamento (Financeiro, Engenharia, Energia): única ou recorrente.
+/// Não se apaga; a recorrente para de gerar ocorrências quando é encerrada.
+model Tarefa {
+  id                 String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  departamento       String
+  titulo             String
+  categoria          String?
+  empresa            EmpresaDaTarefa
+  responsavelId      String          @map("responsavel_id") @db.Uuid
+  substitutoId       String?         @map("substituto_id") @db.Uuid
+  tipo               TipoDeTarefa
+  origem             OrigemDaTarefa  @default(criada)
+  /// Recorrente: a regra (`regraDeRecorrenciaSchema`). Única: nula.
+  regra              Json?           @db.JsonB
+  /// Única: o dia. Recorrente: o início. Início do dia em Manaus.
+  dia                DateTime        @db.Timestamptz(6)
+  horarioLimite      String          @map("horario_limite")
+  exigeEvidencia     Boolean         @map("exige_evidencia")
+  exigeResultado     Boolean         @map("exige_resultado")
+  instrucoes         String[]        @default([])
+  /// Concluída pelo sistema (`automacoesDeTarefa`); ninguém a conclui pela tela.
+  automacao          String?
+  atalho             String?
+  /// Último dia (início, em Manaus) com as ocorrências já geradas.
+  geradaAte          DateTime?       @map("gerada_ate") @db.Timestamptz(6)
+  encerradaEm        DateTime?       @map("encerrada_em") @db.Timestamptz(6)
+  encerradaPorId     String?         @map("encerrada_por_id") @db.Uuid
+  encerramentoMotivo String?         @map("encerramento_motivo")
+  criadoPorId        String?         @map("criado_por_id") @db.Uuid
+  createdAt          DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  responsavel  User                 @relation("TarefaResponsavel", fields: [responsavelId], references: [id], onDelete: Restrict)
+  substituto   User?                @relation("TarefaSubstituto", fields: [substitutoId], references: [id], onDelete: SetNull)
+  encerradaPor User?                @relation("TarefaEncerradaPor", fields: [encerradaPorId], references: [id], onDelete: SetNull)
+  criadoPor    User?                @relation("TarefaCriadaPor", fields: [criadoPorId], references: [id], onDelete: SetNull)
+  ocorrencias  OcorrenciaDeTarefa[]
+
+  @@index([departamento, encerradaEm])
+  @@map("tarefas")
+}
+
+/// A tarefa num dia: o que aparece na lista e se conclui. A concluída não muda.
+model OcorrenciaDeTarefa {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tarefaId       String    @map("tarefa_id") @db.Uuid
+  /// Início do dia em Manaus.
+  dia            DateTime  @db.Timestamptz(6)
+  prazoEm        DateTime  @map("prazo_em") @db.Timestamptz(6)
+  concluidaEm    DateTime? @map("concluida_em") @db.Timestamptz(6)
+  concluidaPorId String?   @map("concluida_por_id") @db.Uuid
+  resultado      String?
+  /// Uma marca por instrução da tarefa, na mesma ordem.
+  checklist      Boolean[] @default([])
+  automatica     Boolean   @default(false)
+  /// A tarefa foi encerrada antes deste dia: a ocorrência sai da lista.
+  canceladaEm    DateTime? @map("cancelada_em") @db.Timestamptz(6)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  tarefa      Tarefa              @relation(fields: [tarefaId], references: [id], onDelete: Restrict)
+  concluidaPor User?              @relation("OcorrenciaConcluidaPor", fields: [concluidaPorId], references: [id], onDelete: SetNull)
+  evidencias  EvidenciaDeTarefa[]
+
+  @@unique([tarefaId, dia])
+  @@index([dia])
+  @@map("ocorrencias_de_tarefa")
+}
+
+/// Print, foto ou PDF anexado ao concluir. Só se insere.
+model EvidenciaDeTarefa {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ocorrenciaId   String   @map("ocorrencia_id") @db.Uuid
+  arquivoChave   String   @map("arquivo_chave")
+  arquivoNome    String   @map("arquivo_nome")
+  arquivoTamanho Int      @map("arquivo_tamanho")
+  arquivoTipo    String   @map("arquivo_tipo")
+  enviadoPorId   String?  @map("enviado_por_id") @db.Uuid
+  enviadoEm      DateTime @default(now()) @map("enviado_em") @db.Timestamptz(6)
+
+  ocorrencia OcorrenciaDeTarefa @relation(fields: [ocorrenciaId], references: [id], onDelete: Restrict)
+  enviadoPor User?              @relation("EvidenciaDeTarefaEnviadaPor", fields: [enviadoPorId], references: [id], onDelete: SetNull)
+
+  @@index([ocorrenciaId])
+  @@map("evidencias_de_tarefa")
 }
