@@ -1,5 +1,12 @@
 const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1"]);
 
+/**
+ * O banco de teste compartilhado ou um banco próprio de quem roda a suíte no
+ * mesmo Postgres de teste (ex.: plugga_eng_test), para que o reset de uma
+ * suíte não derrube outra. Nunca o banco do dev (plugga_os).
+ */
+const BANCO_DE_TESTE = /^\/plugga_(?:os|[a-z0-9]+(?:_[a-z0-9]+)*)_test$/;
+
 function parseUrl(rawUrl: string | undefined, variableName: string): URL {
   try {
     return new URL(rawUrl ?? "");
@@ -24,7 +31,7 @@ export function assertSafeTestDatabaseUrl(rawUrl: string, ci = false, localPort?
   if (
     url.protocol !== "postgresql:" ||
     !LOOPBACK_HOSTS.has(url.hostname) ||
-    url.pathname !== "/plugga_os_test" ||
+    !BANCO_DE_TESTE.test(url.pathname) ||
     !allowedPorts.has(port)
   ) {
     throw new Error(
