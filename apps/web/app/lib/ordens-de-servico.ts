@@ -365,3 +365,10 @@ export function camposDaOrdemAlterados(
   for (const [campo, valor] of Object.entries(corpo)) if (valor !== undefined && valor !== original[campo]) mudou[campo] = valor;
   return mudou;
 }
+
+/** "82 kWp · Growatt" (pt-BR, até 3 casas), a usina da O.S. nos cards e na lista (PLU-347). */
+export function textoDaUsina(u: { potenciaKwp: string; plataforma: string }): string {
+  const kwp = Number(u.potenciaKwp);
+  const potencia = Number.isFinite(kwp) ? kwp.toLocaleString("pt-BR", { maximumFractionDigits: 3 }) : u.potenciaKwp;
+  return `${potencia} kWp · ${u.plataforma}`;
+}

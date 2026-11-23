@@ -15,6 +15,7 @@ import {
   horarioEmManaus,
   lerFiltrosDasOrdens,
   temFiltroNasOrdens,
+  textoDaUsina,
   textoDoAtraso,
   eventosPorDia,
   HORARIOS_DE_AGENDAMENTO,
@@ -174,4 +175,10 @@ test("editar manda só o que mudou: trocar a descrição de uma O.S. atrasada n�
   assert.deepEqual(camposDaOrdemAlterados(ordem, { ...corpo, descricao: "Limpeza" }), {});
   // Apagar um campo opcional (null) também é mudança.
   assert.deepEqual(camposDaOrdemAlterados(ordem, { ...corpo, descricao: "Limpeza", local: null }), { local: null });
+});
+
+test("usina da O.S. em pt-BR, como no card do protótipo", () => {
+  assert.equal(textoDaUsina({ potenciaKwp: "82", plataforma: "Growatt" }), "82 kWp · Growatt");
+  assert.equal(textoDaUsina({ potenciaKwp: "22.8", plataforma: "Livoltek" }), "22,8 kWp · Livoltek");
+  assert.equal(textoDaUsina({ potenciaKwp: "1250.125", plataforma: "Solis" }), "1.250,125 kWp · Solis");
 });

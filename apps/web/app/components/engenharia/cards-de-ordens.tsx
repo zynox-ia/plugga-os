@@ -1,9 +1,9 @@
 import type { OrdemDeServicoResumo } from "@plugga/shared";
-import { Camera, Eye, MapPin, UserRound } from "lucide-react";
+import { Camera, Eye, MapPin, SolarPanel, UserRound } from "lucide-react";
 import Link from "next/link";
 import type { CSSProperties } from "react";
 
-import { ROTULO_DO_TIPO } from "../../lib/ordens-de-servico";
+import { ROTULO_DO_TIPO, textoDaUsina } from "../../lib/ordens-de-servico";
 import estilosClientes from "../clientes/tela-clientes.module.css";
 import { EmpresaComPonto } from "../suprimentos/empresa";
 import { Button } from "../ui";
@@ -26,7 +26,9 @@ export function CardsDeOrdens({ ordens, hoje, hrefDaFicha, aoAbrir }: { ordens: 
         <p className={styles.cardDescricao} title={`${ROTULO_DO_TIPO[o.tipo]} · ${o.descricao}`}>{ROTULO_DO_TIPO[o.tipo]} · {o.descricao}</p>
         <p className={styles.cardMeta}>
           <span className={o.tecnico ? undefined : styles.semTecnico}><UserRound size={14} aria-hidden="true" />{o.tecnico?.nome ?? "Sem técnico"}</span>
-          {o.local ? <span title={o.local}><MapPin size={14} aria-hidden="true" /><span className={styles.cortado}>{o.local}</span></span> : null}
+          {/* A usina, quando há (PLU-347): "82 kWp · Growatt"; senão, o local. */}
+          {o.usina ? <span title={o.usina.nome}><SolarPanel size={14} aria-hidden="true" /><span className={styles.cortado}>{textoDaUsina(o.usina)}</span></span>
+            : o.local ? <span title={o.local}><MapPin size={14} aria-hidden="true" /><span className={styles.cortado}>{o.local}</span></span> : null}
         </p>
       </div>
       <footer className={styles.cardRodape}>

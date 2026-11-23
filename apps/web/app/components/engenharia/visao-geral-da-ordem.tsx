@@ -16,6 +16,7 @@ import {
   ROTULO_DA_PRIORIDADE,
   ROTULO_DA_SITUACAO,
   ROTULO_DO_TIPO,
+  textoDaUsina,
   urlDoArquivoDaOrdem,
 } from "../../lib/ordens-de-servico";
 import fichaCompras from "../compras/ficha-do-pedido.module.css";
@@ -219,6 +220,7 @@ export function VisaoGeralDaOrdem({ ordem, opcoes, hoje, ocupado, estado, aoVerE
         <div><dt>Empresa</dt><dd>{ROTULO_DA_EMPRESA[ordem.empresa]}</dd></div>
         <div><dt>Tipo</dt><dd>{ROTULO_DO_TIPO[ordem.tipo]}</dd></div>
         <div><dt>Cliente</dt><dd>{ordem.cliente.nome}{ordem.uc ? <small>UC {ordem.uc.codigo} · {ordem.uc.distribuidora}</small> : null}</dd></div>
+        {ordem.usina ? <div><dt>Usina</dt><dd>{ordem.usina.nome}<small>{textoDaUsina(ordem.usina)}</small></dd></div> : null}
         <div><dt>Local</dt><dd>{ordem.local ?? "Não informado"}</dd></div>
         <div><dt>Técnico</dt><dd>{ordem.tecnico?.nome ?? "Sem técnico"}{ordem.apoio ? <small>Apoio: {ordem.apoio.nome}</small> : null}</dd></div>
         <div><dt>Prioridade</dt><dd>{ROTULO_DA_PRIORIDADE[ordem.prioridade]}</dd></div>
