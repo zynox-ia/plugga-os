@@ -305,7 +305,7 @@ function LinhaDaEmpresa({ conexao, ocupado, definirCnpj, aoConectar, aoTestar, a
             : "Nenhuma chave conectada."}
         </p>
         {confirmada ? <p className={styles.nota}>{confirmada.razaoSocial ?? nome} · CNPJ {cnpjComMascara(confirmada.cnpj)} · confirmada{confirmada.por ? ` por ${confirmada.por}` : ""} em {formatarDataHora(confirmada.em)}</p> : null}
-        {conexao.situacao === "bloqueada" && conexao.bloqueio ? <p className={`${styles.nota} ${styles.notaErro}`} role="alert">{textoDoBloqueio(conexao.bloqueio, conexao.empresa, empresasNoTeste(conexao))}</p> : null}
+        {conexao.situacao === "bloqueada" && conexao.bloqueio ? <p className={`${styles.nota} ${styles.notaErro}`}>{textoDoBloqueio(conexao.bloqueio, conexao.empresa, empresasNoTeste(conexao))}</p> : null}
         {/* Sem CNPJ no cadastro, a pessoa é a única barreira: a empresa devolvida vem em destaque antes de confirmar. */}
         {conexao.situacao === "a_confirmar" && doTeste ? <div className={styles.confirmacao} role="group" aria-label={`Empresa devolvida pelo OMIE para a ${nome}`}>
           <span className={styles.nota}>O OMIE devolveu esta empresa. É a {nome}?</span>
