@@ -413,14 +413,17 @@ export class PrismaFinanceiroRepository {
    * as UCs serem do cliente.
    */
   async criarCobranca(input: CriarCobranca, principal: AuthPrincipal): Promise<string> {
-    const [cliente] = await this.prisma.comContexto((tx) => tx.$queryRaw<{ id: string }[]>`
-      SELECT id FROM plugga_security.clientes_para_financeiro(NULL, ${[input.clientId]}::uuid[])`);
-    if (!cliente) throw new RequisicaoInvalida("Cliente não encontrado.", [{ campo: "clientId", problema: "Escolha um cliente ativo do cadastro." }]);
-    const ucsDoCliente = (await this.ucsDosClientes([input.clientId])).get(input.clientId) ?? [];
-    const fora = input.ucIds.filter((id) => !ucsDoCliente.some((u) => u.id === id));
-    if (fora.length > 0) throw new RequisicaoInvalida("Há UC que não é do cliente.", [{ campo: "ucIds", problema: "Escolha só UCs deste cliente." }]);
     try {
       return await this.prisma.comContexto(async (tx) => {
+        // As checagens do cliente e das UCs ficam na mesma transação da criação.
+        const [cliente] = await tx.$queryRaw<{ ativo: boolean }[]>`SELECT plugga_security.cliente_ativo_para_financeiro(${input.clientId}::uuid) AS ativo`;
+        if (!cliente?.ativo) throw new RequisicaoInvalida("Cliente não encontrado ou inativo.", [{ campo: "clientId", problema: "Escolha um cliente ativo do cadastro." }]);
+        if (input.ucIds.length > 0) {
+          const doCliente = await tx.$queryRaw<{ id: string }[]>`SELECT id FROM plugga_security.ucs_para_financeiro(${[input.clientId]}::uuid[])`;
+          if (input.ucIds.some((id) => !doCliente.some((u) => u.id === id))) {
+            throw new RequisicaoInvalida("Há UC que não é do cliente.", [{ campo: "ucIds", problema: "Escolha só UCs deste cliente." }]);
+          }
+        }
         await this.garantirCategoria(tx, input.categoriaId, input.empresa, "entrada");
         if (input.contaCorrenteId) await this.garantirConta(tx, input.contaCorrenteId, input.empresa);
         const criado = await tx.lancamento.create({

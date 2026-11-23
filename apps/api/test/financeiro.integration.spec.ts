@@ -215,6 +215,19 @@ describe.skipIf(!HABILITADO)("financeiro: lançamentos no Postgres", () => {
     expect(await repositorio.sugestaoDeCobranca("plugga", ids.cliente, "2027-06")).toEqual({ valor: "4850.00", competencia: "2027-05", codigo: detalhe.codigo });
     expect(await repositorio.sugestaoDeCobranca("waze", ids.cliente, "2027-06")).toEqual({ valor: null, competencia: null, codigo: null });
     expect((await comoAdmin(() => repositorio.buscarClientesComUcs(`${marca} Clien`))).find((c) => c.id === ids.cliente)?.ucs).toEqual([{ id: ucDoCliente, codigo: `${marca}-UC1` }]);
+    // O cliente inativo, mesmo com cobrança antiga, não ganha cobrança nova.
+    await prisma.client.update({ where: { id: ids.cliente }, data: { active: false } });
+    try {
+      await expect(cobranca({ competencia: "2027-08" })).rejects.toMatchObject({ detalhes: [{ campo: "clientId" }] });
+    } finally {
+      await prisma.client.update({ where: { id: ids.cliente }, data: { active: true } });
+    }
+    // A barra invertida na busca é literal, não escapa o caractere seguinte do ILIKE.
+    const comBarra = (await prisma.client.create({ data: { name: `${marca} Ltda\\x` } })).id;
+    const semBarra = (await prisma.client.create({ data: { name: `${marca} Ltda%x` } })).id;
+    const achados = (await comoAdmin(() => repositorio.buscarClientesComUcs(`${marca} Ltda\\`))).map((c) => c.id);
+    expect(achados).toContain(comBarra);
+    expect(achados).not.toContain(semBarra);
   }, PRAZO_MS);
 
   it("depois do boleto, corrigir o valor exige o boleto novo; os comprovantes do período saem com o nome padronizado", async () => {

@@ -107,6 +107,8 @@ describe.skipIf(!HABILITADO)("omie por empresa no Postgres", () => {
   }, PRAZO_MS);
 
   it("cadastrar o CNPJ reavalia as conexões já confirmadas e bloqueia a que não confere", async () => {
+    // Só os eventos deste caso: a corrida do caso anterior também bloqueia (e registra) a perdedora.
+    const inicio = new Date();
     await prisma.company.updateMany({ where: { id: { in: ["plugga", "waze"] } }, data: { cnpj: null } });
     await prisma.omieConexao.deleteMany({});
     // A Plugga foi confirmada à mão com X, que na verdade é o CNPJ da Waze.
@@ -119,7 +121,7 @@ describe.skipIf(!HABILITADO)("omie por empresa no Postgres", () => {
     await comoAdmin(() => servico.definirCnpj("waze", CNPJ, principal));
     expect((await servico.estado()).conexoes.find((c) => c.empresa === "plugga")).toMatchObject({ situacao: "bloqueada", bloqueio: "cnpj_de_outra_empresa", confirmada: null });
     expect(await servico.credenciais("plugga")).toBeNull();
-    expect(await prisma.eventLog.count({ where: { eventName: "integracoes.omie.bloqueada", entityId: "plugga", actorId: principal.id } })).toBe(1);
+    expect(await prisma.eventLog.count({ where: { eventName: "integracoes.omie.bloqueada", entityId: "plugga", actorId: principal.id, occurredAt: { gte: inicio } } })).toBe(1);
 
     // O cadastro da própria empresa diferente do confirmado também bloqueia.
     await comoAdmin(() => servico.definirCnpj("waze", null, principal));
