@@ -2474,6 +2474,34 @@
     ]
   },
   {
+    "metodo": "GET",
+    "caminho": "/suprimentos/fornecedores/:id/cotacoes",
+    "controller": "FornecedoresController.cotacoes",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:suprimentos.fornecedores",
+      "departamento:suprimentos:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/suprimentos/fornecedores/:id/desempenho",
+    "controller": "FornecedoresController.desempenho",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:suprimentos.fornecedores",
+      "departamento:suprimentos:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
     "metodo": "POST",
     "caminho": "/suprimentos/fornecedores/:id/inativar",
     "controller": "FornecedoresController.inativar",

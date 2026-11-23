@@ -57,6 +57,11 @@ describe.skipIf(!HABILITADO)("fornecedores: cadastro único no Postgres", () => 
 
   afterAll(async () => {
     // O event_log é só de inserção: o rastro fica, apontando para ids únicos.
+    // Cotação não sai em cascata (RESTRICT): a escolha, as cotações e os pedidos saem antes.
+    const pedidos = (await prisma.pedidoDeCompra.findMany({ where: { titulo: { startsWith: marca } }, select: { id: true } })).map((p) => p.id);
+    await prisma.pedidoDeCompra.updateMany({ where: { id: { in: pedidos } }, data: { cotacaoSelecionadaId: null } });
+    await prisma.cotacaoDeCompra.deleteMany({ where: { pedidoId: { in: pedidos } } });
+    await prisma.pedidoDeCompra.deleteMany({ where: { id: { in: pedidos } } });
     await prisma.fornecedor.deleteMany({ where: { nome: { startsWith: marca } } });
     await prisma.user.deleteMany({ where: { email: { startsWith: marca } } });
     await prisma.$disconnect();
@@ -100,6 +105,46 @@ describe.skipIf(!HABILITADO)("fornecedores: cadastro único no Postgres", () => 
 
     const porDocumento = await repositorio.listar({ busca: formatarCnpj(cnpj).slice(0, 15), situacao: "todos" });
     expect(porDocumento.itens.map((f) => f.id)).toContain(ativo.id);
+  }, PRAZO_MS);
+
+  it("guarda o endereço completo, com o CEP só em dígitos", async () => {
+    const criado = await criar({ nome: `${marca} Endereço`, categoria: "servico", cep: "69.000-000", logradouro: "Rua Sintética", numero: "10", bairro: "Centro", cidade: "Manaus", uf: "AM" });
+    expect(criado).toMatchObject({ cep: "69000000", logradouro: "Rua Sintética", numero: "10", complemento: null, bairro: "Centro" });
+    expect((await editar(criado.id, { complemento: "Sala 2", numero: null })).numero).toBeNull();
+  }, PRAZO_MS);
+
+  it("desempenho e histórico a partir das cotações de verdade", async () => {
+    const fornecedor = await criar({ nome: `${marca} Desempenho`, categoria: "kit_solar" });
+    const pedido = (etapa: "cotacoes" | "concluido", cancelado = false) => prisma.pedidoDeCompra.create({
+      data: {
+        companyId: "plugga", titulo: `${marca} pedido`, destino: "interno", solicitanteId: principal.id, prazoEntregaDesejado: new Date(), etapa,
+        ...(cancelado ? { canceladoEm: new Date(), motivoCancelamento: "teste" } : {}),
+      },
+      select: { id: true },
+    });
+    const cotar = (pedidoId: string, valor: string, frete: string | null, prazo: number | null) => prisma.cotacaoDeCompra.create({
+      data: { pedidoId, fornecedorId: fornecedor.id, valor, valorFrete: frete, prazoEntregaDias: prazo, arquivoChave: marca, arquivoNome: "c.pdf" },
+      select: { id: true },
+    });
+    const concluido = await pedido("concluido");
+    const emCotacao = await pedido("cotacoes");
+    const cancelado = await pedido("cotacoes", true);
+    const vencedora = await cotar(concluido.id, "100.00", "20.00", 6);
+    const escolhidaEmAndamento = await cotar(emCotacao.id, "50.00", null, 2);
+    const escolhidaCancelada = await cotar(cancelado.id, "999.00", null, null);
+    await cotar(emCotacao.id, "60.00", null, null);
+    await prisma.pedidoDeCompra.update({ where: { id: concluido.id }, data: { cotacaoSelecionadaId: vencedora.id } });
+    await prisma.pedidoDeCompra.update({ where: { id: emCotacao.id }, data: { cotacaoSelecionadaId: escolhidaEmAndamento.id } });
+    await prisma.pedidoDeCompra.update({ where: { id: cancelado.id }, data: { cotacaoSelecionadaId: escolhidaCancelada.id } });
+
+    expect(await repositorio.desempenho(fornecedor.id)).toMatchObject({
+      cotacoes: 4, vitorias: 2, percentualDeVitorias: 50, valorComprado: "120.00", prazoMedioDeEntregaDias: 4,
+    });
+    const historico = await repositorio.historicoDeCotacoes(fornecedor.id);
+    expect(historico.total).toBe(4);
+    expect(historico.itens.find((c) => c.id === vencedora.id)).toMatchObject({ venceu: true, valorTotal: "120.00", pedido: { situacao: "concluido", empresa: "plugga" } });
+    expect(historico.itens.find((c) => c.id === escolhidaCancelada.id)).toMatchObject({ venceu: false, pedido: { situacao: "cancelado" } });
+    await expect(repositorio.desempenho(randomUUID())).rejects.toBeInstanceOf(NaoEncontrado);
   }, PRAZO_MS);
 
   it("edição com null apaga, edição vazia e situação repetida não gravam, id inexistente é 404", async () => {

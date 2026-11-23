@@ -1653,6 +1653,11 @@ model Fornecedor {
   contatoNome       String?             @map("contato_nome")
   telefone          String?
   email             String?
+  cep               String?
+  logradouro        String?
+  numero            String?
+  complemento       String?
+  bairro            String?
   cidade            String?
   uf                String?
   formasDePagamento FormaDePagamento[]  @default([]) @map("formas_de_pagamento")

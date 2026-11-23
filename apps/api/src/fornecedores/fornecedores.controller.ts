@@ -5,6 +5,8 @@ import {
   editarFornecedorSchema,
   listarFornecedoresQuerySchema,
   type CriarFornecedor,
+  type DesempenhoDoFornecedor,
+  type HistoricoDeCotacoesResposta,
   type EditarFornecedor,
   type Fornecedor,
   type ListarFornecedoresQuery,
@@ -39,6 +41,16 @@ export class FornecedoresController {
   @Get(":id")
   obter(@Param("id", ParseUUIDPipe) id: string): Promise<Fornecedor> {
     return this.fornecedores.obter(id);
+  }
+
+  @Get(":id/desempenho")
+  desempenho(@Param("id", ParseUUIDPipe) id: string): Promise<DesempenhoDoFornecedor> {
+    return this.fornecedores.desempenho(id);
+  }
+
+  @Get(":id/cotacoes")
+  cotacoes(@Param("id", ParseUUIDPipe) id: string): Promise<HistoricoDeCotacoesResposta> {
+    return this.fornecedores.historicoDeCotacoes(id);
   }
 
   @Post()

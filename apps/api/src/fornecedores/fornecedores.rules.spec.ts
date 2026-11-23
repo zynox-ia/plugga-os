@@ -1,6 +1,7 @@
+import { Prisma } from "@prisma/client";
 import { describe, expect, it } from "vitest";
 
-import { camposInformados, filtroDaBusca, filtroDaSituacao, paraFornecedor, paraItemDaLista, type LinhaDoFornecedor } from "./fornecedores.rules";
+import { calcularDesempenho, camposInformados, filtroDaBusca, filtroDaSituacao, paraFornecedor, paraItemDaLista, type CotacaoParaDesempenho, type LinhaDoFornecedor } from "./fornecedores.rules";
 
 const linha = (dados: Partial<LinhaDoFornecedor> = {}): LinhaDoFornecedor => ({
   id: "00000000-0000-4000-8000-000000000301",
@@ -11,6 +12,11 @@ const linha = (dados: Partial<LinhaDoFornecedor> = {}): LinhaDoFornecedor => ({
   contatoNome: null,
   telefone: null,
   email: null,
+  cep: "69000000",
+  logradouro: "Rua Sintética",
+  numero: "100",
+  complemento: null,
+  bairro: "Centro",
   cidade: "Manaus",
   uf: "AM",
   formasDePagamento: ["pix"],
@@ -77,5 +83,37 @@ describe("conversão para o contrato", () => {
     expect(item).toMatchObject({ formasDePagamento: ["pix"], cotacoes: 2, email: null });
     expect(item).not.toHaveProperty("dadosBancarios");
     expect(item).not.toHaveProperty("chavePix");
+  });
+});
+
+describe("calcularDesempenho", () => {
+  const cotacao = (dados: Partial<CotacaoParaDesempenho> = {}): CotacaoParaDesempenho => ({
+    valor: new Prisma.Decimal(100), valorFrete: null, prazoEntregaDias: null, createdAt: new Date("2026-11-01T12:00:00Z"),
+    escolhida: false, pedidoCancelado: false, pedidoConcluido: false, ...dados,
+  });
+
+  it("sem cotação: zeros e nulos", () => {
+    expect(calcularDesempenho([])).toEqual({ cotacoes: 0, vitorias: 0, percentualDeVitorias: null, valorComprado: "0.00", prazoMedioDeEntregaDias: null, ultimaCotacaoEm: null });
+  });
+
+  it("vitória é a escolhida de pedido não cancelado; valor comprado só dos concluídos, com frete", () => {
+    const resultado = calcularDesempenho([
+      cotacao({ escolhida: true, pedidoConcluido: true, valorFrete: new Prisma.Decimal("10.5"), prazoEntregaDias: 5 }),
+      cotacao({ escolhida: true, pedidoConcluido: false, prazoEntregaDias: 2 }),
+      cotacao({ escolhida: true, pedidoCancelado: true }),
+      cotacao({ createdAt: new Date("2026-11-20T12:00:00Z") }),
+    ]);
+    expect(resultado).toEqual({
+      cotacoes: 4,
+      vitorias: 2,
+      percentualDeVitorias: 50,
+      valorComprado: "110.50",
+      prazoMedioDeEntregaDias: 3.5,
+      ultimaCotacaoEm: "2026-11-20T12:00:00.000Z",
+    });
+  });
+
+  it("percentual com 1 casa", () => {
+    expect(calcularDesempenho([cotacao({ escolhida: true }), cotacao(), cotacao()]).percentualDeVitorias).toBe(33.3);
   });
 });

@@ -46,6 +46,14 @@ describe("criarFornecedorSchema", () => {
     assert.equal(criarFornecedorSchema.safeParse({ nome: "A", categoria: "outros", empresa: "waze" }).success, false);
   });
 
+  it("endereço: CEP só com os 8 dígitos e campos em branco viram não informado", () => {
+    const f = criarFornecedorSchema.parse({ nome: "A", categoria: "outros", cep: "69.000-000", logradouro: "Rua X", numero: " ", bairro: "" });
+    assert.equal(f.cep, "69000000");
+    assert.equal(f.numero, null);
+    assert.equal(f.bairro, null);
+    assert.equal(criarFornecedorSchema.safeParse({ nome: "A", categoria: "outros", cep: "6900000" }).success, false);
+  });
+
   it("lista todos por padrão", () => {
     assert.equal(listarFornecedoresQuerySchema.parse({}).situacao, "todos");
   });

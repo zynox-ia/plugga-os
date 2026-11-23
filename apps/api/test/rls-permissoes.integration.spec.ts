@@ -796,6 +796,14 @@ describe.skipIf(!HABILITADO)("RLS: permissões no login real da aplicação", { 
       // Sem GRANT de DELETE: a tentativa é recusada, nem chega à política.
       await expect(contexto("admin", (tx) => tx.comprovanteDePagamento.deleteMany({ where: enviado }))).rejects.toThrow(/permission denied/);
 
+      // Quem tem Fornecedores lê as cotações e os pedidos (desempenho do fornecedor, PLU-334), sem mover.
+      const fornecedor = await root.fornecedor.create({ data: { nome: `${marca}-cot`, categoria: "outros" }, select: { id: true } });
+      const cotacao = await root.cotacaoDeCompra.create({ data: { pedidoId: pedido.id, fornecedorId: fornecedor.id, valor: 1, arquivoChave: marca, arquivoNome: "c.pdf" }, select: { id: true } });
+      expect(await contexto("fornecedores", (tx) => tx.cotacaoDeCompra.findUnique({ where: cotacao, select: { id: true } }))).toEqual(cotacao);
+      expect(await contexto("fornecedores", (tx) => tx.pedidoDeCompra.findUnique({ where: deste, select: { id: true } }))).toEqual(deste);
+      expect((await contexto("fornecedores", (tx) => tx.pedidoDeCompra.updateMany({ where: deste, data: { titulo: "x" } }))).count).toBe(0);
+      expect(await contexto("a", (tx) => tx.cotacaoDeCompra.findUnique({ where: cotacao, select: { id: true } }))).toBeNull();
+
       // Diretório: quem lê Compras vê as pessoas dos pedidos; o CRM não.
       expect(await contexto("financeiro", (tx) => tx.user.findUnique({ where: { id: operador.id }, select: { id: true } }))).toEqual({ id: operador.id });
       expect(await contexto("a", (tx) => tx.user.findUnique({ where: { id: operador.id }, select: { id: true } }))).toBeNull();
@@ -809,6 +817,8 @@ describe.skipIf(!HABILITADO)("RLS: permissões no login real da aplicação", { 
     } finally {
       // Evidência não sai em cascata (ON DELETE RESTRICT): comprovantes antes dos pedidos.
       await root.comprovanteDePagamento.deleteMany({ where: { pedido: { titulo: { startsWith: marca } } } });
+      await root.cotacaoDeCompra.deleteMany({ where: { pedido: { titulo: { startsWith: marca } } } });
+      await root.fornecedor.deleteMany({ where: { nome: `${marca}-cot` } });
       await root.pedidoDeCompra.deleteMany({ where: { titulo: { startsWith: marca } } });
     }
   });

@@ -1,7 +1,8 @@
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import {
   somenteDigitos,
   type CriarFornecedor,
+  type DesempenhoDoFornecedor,
   type EditarFornecedor,
   type Fornecedor,
   type FornecedorNaLista,
@@ -64,6 +65,11 @@ export function paraFornecedor(linha: LinhaDoFornecedor): Fornecedor {
     contatoNome: linha.contatoNome,
     telefone: linha.telefone,
     email: linha.email,
+    cep: linha.cep,
+    logradouro: linha.logradouro,
+    numero: linha.numero,
+    complemento: linha.complemento,
+    bairro: linha.bairro,
     cidade: linha.cidade,
     uf: linha.uf,
     formasDePagamento: linha.formasDePagamento,
@@ -96,5 +102,38 @@ export function paraItemDaLista(linha: LinhaDoFornecedor): FornecedorNaLista {
     uf: completo.uf,
     ativo: completo.ativo,
     updatedAt: completo.updatedAt,
+  };
+}
+
+// ---------------------------------------------------------------- desempenho (PLU-334)
+
+export type CotacaoParaDesempenho = {
+  valor: Prisma.Decimal;
+  valorFrete: Prisma.Decimal | null;
+  prazoEntregaDias: number | null;
+  createdAt: Date;
+  /** A cotação é a escolhida do pedido. */
+  escolhida: boolean;
+  pedidoCancelado: boolean;
+  pedidoConcluido: boolean;
+};
+
+/** Venceu: escolhida num pedido não cancelado. */
+export const venceu = (c: Pick<CotacaoParaDesempenho, "escolhida" | "pedidoCancelado">) => c.escolhida && !c.pedidoCancelado;
+
+export function calcularDesempenho(cotacoes: readonly CotacaoParaDesempenho[]): DesempenhoDoFornecedor {
+  const vitorias = cotacoes.filter(venceu);
+  const comprado = vitorias
+    .filter((c) => c.pedidoConcluido)
+    .reduce((soma, c) => soma.add(c.valor).add(c.valorFrete ?? 0), new Prisma.Decimal(0));
+  const prazos = cotacoes.flatMap((c) => (c.prazoEntregaDias === null ? [] : [c.prazoEntregaDias]));
+  const ultima = cotacoes.reduce<Date | null>((maior, c) => (!maior || c.createdAt > maior ? c.createdAt : maior), null);
+  return {
+    cotacoes: cotacoes.length,
+    vitorias: vitorias.length,
+    percentualDeVitorias: cotacoes.length === 0 ? null : Math.round((vitorias.length / cotacoes.length) * 1000) / 10,
+    valorComprado: comprado.toFixed(2),
+    prazoMedioDeEntregaDias: prazos.length === 0 ? null : Math.round((prazos.reduce((a, b) => a + b, 0) / prazos.length) * 10) / 10,
+    ultimaCotacaoEm: ultima?.toISOString() ?? null,
   };
 }

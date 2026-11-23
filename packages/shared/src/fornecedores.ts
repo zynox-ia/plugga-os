@@ -1,7 +1,8 @@
 import { z } from "zod";
 
-import { emailOpcional, telefoneOpcional, textoOpcional, ufOpcional, vazioViraNulo } from "./clients.js";
+import { cepOpcional, emailOpcional, telefoneOpcional, textoOpcional, ufOpcional, vazioViraNulo } from "./clients.js";
 import { cnpjValido, cpfValido, somenteDigitos } from "./documento.js";
+import { companyKeySchema } from "./organization.js";
 import { isoDate, uuid } from "./primitivas.js";
 
 /**
@@ -70,6 +71,12 @@ const camposDoFornecedor = {
   contatoNome: textoOpcional(150),
   telefone: telefoneOpcional,
   email: emailOpcional,
+  /** Endereço completo (PLU-334). CEP só com os 8 dígitos. */
+  cep: cepOpcional,
+  logradouro: textoOpcional(200),
+  numero: textoOpcional(20),
+  complemento: textoOpcional(100),
+  bairro: textoOpcional(100),
   cidade: textoOpcional(100),
   uf: ufOpcional,
   formasDePagamento: z
@@ -108,6 +115,11 @@ export const fornecedorSchema = z.object({
   contatoNome: z.string().nullable(),
   telefone: z.string().nullable(),
   email: z.string().nullable(),
+  cep: z.string().nullable(),
+  logradouro: z.string().nullable(),
+  numero: z.string().nullable(),
+  complemento: z.string().nullable(),
+  bairro: z.string().nullable(),
   cidade: z.string().nullable(),
   uf: z.string().nullable(),
   formasDePagamento: z.array(formaDePagamentoSchema),
@@ -161,3 +173,53 @@ export const listarFornecedoresRespostaSchema = z.object({
   contagem: z.object({ ativos: z.number().int().nonnegative(), inativos: z.number().int().nonnegative() }),
 });
 export type ListarFornecedoresResposta = z.infer<typeof listarFornecedoresRespostaSchema>;
+
+// ---------------------------------------------------------------- desempenho (PLU-334)
+
+/**
+ * Desempenho do fornecedor: `GET /suprimentos/fornecedores/:id/desempenho`.
+ * - Vitória: a cotação é a escolhida de um pedido que não foi cancelado.
+ * - Valor comprado: soma do total (valor + frete) das cotações vencedoras de
+ *   pedidos concluídos.
+ * - Prazo médio: média do prazo de entrega declarado (dias úteis) nas cotações
+ *   que o informaram; nulo sem nenhuma.
+ */
+export const desempenhoDoFornecedorSchema = z.object({
+  cotacoes: z.number().int().nonnegative(),
+  vitorias: z.number().int().nonnegative(),
+  /** 0 a 100, com 1 casa; nulo sem cotação. */
+  percentualDeVitorias: z.number().min(0).max(100).nullable(),
+  valorComprado: z.string(),
+  prazoMedioDeEntregaDias: z.number().nonnegative().nullable(),
+  ultimaCotacaoEm: isoDate.nullable(),
+});
+export type DesempenhoDoFornecedor = z.infer<typeof desempenhoDoFornecedorSchema>;
+
+/** Uma cotação no histórico do fornecedor, da mais recente para a mais antiga. */
+export const cotacaoDoFornecedorSchema = z.object({
+  id: uuid,
+  pedido: z.object({
+    id: uuid,
+    numero: z.number().int().positive(),
+    titulo: z.string(),
+    empresa: companyKeySchema,
+    /** Etapa do pedido, ou "cancelado". */
+    situacao: z.string(),
+  }),
+  data: isoDate,
+  /** valor + frete. */
+  valorTotal: z.string(),
+  prazoEntregaDias: z.number().int().nullable(),
+  venceu: z.boolean(),
+});
+export type CotacaoDoFornecedor = z.infer<typeof cotacaoDoFornecedorSchema>;
+
+/** Teto do histórico; `total` conta todas. */
+export const LIMITE_DO_HISTORICO_DE_COTACOES = 100;
+
+/** `GET /suprimentos/fornecedores/:id/cotacoes`. */
+export const historicoDeCotacoesRespostaSchema = z.object({
+  itens: z.array(cotacaoDoFornecedorSchema),
+  total: z.number().int().nonnegative(),
+});
+export type HistoricoDeCotacoesResposta = z.infer<typeof historicoDeCotacoesRespostaSchema>;

@@ -1,6 +1,6 @@
 import type { INestApplication } from "@nestjs/common";
 import { Test } from "@nestjs/testing";
-import type { CriarFornecedor, EditarFornecedor, Fornecedor, ListarFornecedoresQuery, ListarFornecedoresResposta } from "@plugga/shared";
+import type { CriarFornecedor, DesempenhoDoFornecedor, EditarFornecedor, Fornecedor, HistoricoDeCotacoesResposta, ListarFornecedoresQuery, ListarFornecedoresResposta } from "@plugga/shared";
 import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
@@ -23,6 +23,11 @@ const fornecedor = (dados: Partial<Fornecedor> = {}): Fornecedor => ({
   contatoNome: null,
   telefone: null,
   email: null,
+  cep: null,
+  logradouro: null,
+  numero: null,
+  complemento: null,
+  bairro: null,
   cidade: null,
   uf: null,
   formasDePagamento: [],
@@ -68,6 +73,16 @@ class FornecedoresEmMemoria extends FornecedoresRepository {
   async mudarSituacao(id: string, ativo: boolean): Promise<Fornecedor> {
     return { ...(await this.obter(id)), ativo };
   }
+
+  async desempenho(id: string): Promise<DesempenhoDoFornecedor> {
+    await this.obter(id);
+    return { cotacoes: 2, vitorias: 1, percentualDeVitorias: 50, valorComprado: "100.00", prazoMedioDeEntregaDias: 4, ultimaCotacaoEm: "2026-11-23T00:00:00.000Z" };
+  }
+
+  async historicoDeCotacoes(id: string): Promise<HistoricoDeCotacoesResposta> {
+    await this.obter(id);
+    return { itens: [], total: 0 };
+  }
 }
 
 describe("fornecedores API (e2e)", () => {
@@ -106,6 +121,19 @@ describe("fornecedores API (e2e)", () => {
     expect(inativado.body.ativo).toBe(false);
     const reativado = await suprimentos(request(app.getHttpServer()).post(`/suprimentos/fornecedores/${ID}/reativar`)).expect(200);
     expect(reativado.body.ativo).toBe(true);
+  });
+
+  it("desempenho e histórico de cotações exigem a tela e respondem 404 para id inexistente", async () => {
+    const resposta = await suprimentos(request(app.getHttpServer()).get(`/suprimentos/fornecedores/${ID}/desempenho`)).expect(200);
+    expect(resposta.body).toMatchObject({ vitorias: 1, percentualDeVitorias: 50 });
+    await suprimentos(request(app.getHttpServer()).get(`/suprimentos/fornecedores/${ID}/cotacoes`)).expect(200);
+    await suprimentos(request(app.getHttpServer()).get("/suprimentos/fornecedores/00000000-0000-4000-8000-000000000999/desempenho")).expect(404);
+    const resolver = comTelas(["suprimentos.compras"]);
+    try {
+      await request(app.getHttpServer()).get(`/suprimentos/fornecedores/${ID}/cotacoes`).expect(403);
+    } finally {
+      resolver.mockRestore();
+    }
   });
 
   it("não há rota de exclusão", async () => {

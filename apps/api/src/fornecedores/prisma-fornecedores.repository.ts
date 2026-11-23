@@ -1,7 +1,12 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import {
+  LIMITE_DO_HISTORICO_DE_COTACOES,
+  desempenhoDoFornecedorSchema,
   fornecedorSchema,
+  historicoDeCotacoesRespostaSchema,
+  type DesempenhoDoFornecedor,
+  type HistoricoDeCotacoesResposta,
   listarFornecedoresQuerySchema,
   listarFornecedoresRespostaSchema,
   type CriarFornecedor,
@@ -19,7 +24,9 @@ import { PrismaService } from "../prisma/prisma.service";
 import { FornecedoresRepository } from "./fornecedores.repository";
 import {
   INCLUDE_DO_FORNECEDOR,
+  calcularDesempenho,
   camposInformados,
+  venceu,
   filtroDaBusca,
   filtroDaSituacao,
   paraFornecedor,
@@ -116,6 +123,50 @@ export class PrismaFornecedoresRepository extends FornecedoresRepository {
       }
     });
     return this.obter(id);
+  }
+
+  async desempenho(id: string): Promise<DesempenhoDoFornecedor> {
+    await this.garantirExistente(id);
+    const cotacoes = await this.prisma.comContexto((tx) => tx.cotacaoDeCompra.findMany({
+      where: { fornecedorId: id },
+      select: { id: true, valor: true, valorFrete: true, prazoEntregaDias: true, createdAt: true, pedido: { select: { cotacaoSelecionadaId: true, canceladoEm: true, etapa: true } } },
+    }));
+    return desempenhoDoFornecedorSchema.parse(calcularDesempenho(cotacoes.map((c) => ({
+      valor: c.valor,
+      valorFrete: c.valorFrete,
+      prazoEntregaDias: c.prazoEntregaDias,
+      createdAt: c.createdAt,
+      escolhida: c.pedido.cotacaoSelecionadaId === c.id,
+      pedidoCancelado: c.pedido.canceladoEm !== null,
+      pedidoConcluido: c.pedido.etapa === "concluido",
+    }))));
+  }
+
+  async historicoDeCotacoes(id: string): Promise<HistoricoDeCotacoesResposta> {
+    await this.garantirExistente(id);
+    const [linhas, total] = await this.prisma.comContexto((tx) => Promise.all([
+      tx.cotacaoDeCompra.findMany({
+        where: { fornecedorId: id },
+        orderBy: { createdAt: "desc" },
+        take: LIMITE_DO_HISTORICO_DE_COTACOES,
+        select: {
+          id: true, valor: true, valorFrete: true, prazoEntregaDias: true, createdAt: true,
+          pedido: { select: { id: true, numero: true, titulo: true, companyId: true, etapa: true, canceladoEm: true, cotacaoSelecionadaId: true } },
+        },
+      }),
+      tx.cotacaoDeCompra.count({ where: { fornecedorId: id } }),
+    ]));
+    return historicoDeCotacoesRespostaSchema.parse({
+      itens: linhas.map((c) => ({
+        id: c.id,
+        pedido: { id: c.pedido.id, numero: c.pedido.numero, titulo: c.pedido.titulo, empresa: c.pedido.companyId, situacao: c.pedido.canceladoEm ? "cancelado" : c.pedido.etapa },
+        data: c.createdAt.toISOString(),
+        valorTotal: c.valor.add(c.valorFrete ?? 0).toFixed(2),
+        prazoEntregaDias: c.prazoEntregaDias,
+        venceu: venceu({ escolhida: c.pedido.cotacaoSelecionadaId === c.id, pedidoCancelado: c.pedido.canceladoEm !== null }),
+      })),
+      total,
+    });
   }
 
   private async garantirExistente(id: string): Promise<{ ativo: boolean }> {
