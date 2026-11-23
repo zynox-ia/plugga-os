@@ -37,7 +37,7 @@ function CartaoDePedido({ pedido, aoAbrir }: { pedido: PedidoDeCompraResumo; aoA
   const Destino = ICONE_DO_DESTINO[pedido.destino.tipo];
   const destino = textoDoDestino(pedido.destino);
   const responsavel = pedido.responsavel?.nome ?? "Sem responsável";
-  return <article className={`cartao-negocio ${estilosCartao.cartao}${pedido.situacao === "cancelado" ? ` ${styles.cartaoCancelado}` : ""}`} aria-label={`Pedido ${numero}: ${pedido.titulo}`}>
+  return <article className={`cartao-negocio ${estilosCartao.cartao} ${styles.cartaoQuadro}${pedido.situacao === "cancelado" ? ` ${styles.cartaoCancelado}` : ""}`} aria-label={`Pedido ${numero}: ${pedido.titulo}`}>
     <header className={estilosCartao.cabecalho}>
       <span className={estilosCartao.codigo}><FileText size={14} aria-hidden="true" /><span>{numero}</span></span>
       <EmpresaDoPedido empresa={pedido.empresa} curta />

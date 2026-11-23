@@ -55,7 +55,7 @@
   display: grid;
   gap: 10px;
   padding: 14px 16px;
-  border-radius: 16px;
+  border-radius: var(--radius-lg);
   background: #fff;
   border: 1px solid var(--ui-divider);
 }
@@ -195,7 +195,7 @@
   align-items: flex-start;
   text-align: left;
   padding: 14px;
-  border-radius: 14px;
+  border-radius: var(--radius-lg);
   border: 1px solid var(--ui-divider);
   background: #fff;
   cursor: pointer;
@@ -295,7 +295,7 @@
   justify-content: space-between;
   gap: 8px;
   padding: 10px 12px;
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   background: rgba(255, 255, 255, 0.75);
 }
 
@@ -353,7 +353,7 @@
 .tabela {
   background: #fff;
   border: 1px solid #dbe4ed;
-  border-radius: 14px;
+  border-radius: var(--radius-lg);
   overflow-x: auto;
 }
 
@@ -436,7 +436,7 @@
   padding: 16px;
   background: #fff;
   border: 1px solid var(--ui-divider);
-  border-radius: 16px;
+  border-radius: var(--radius-lg);
   min-width: 0;
 }
 
@@ -527,7 +527,7 @@
   text-align: center;
   background: #fff;
   border: 1px dashed var(--ui-divider);
-  border-radius: 16px;
+  border-radius: var(--radius-lg);
 }
 
 .vazio h3 {

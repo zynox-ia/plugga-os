@@ -4,9 +4,10 @@ import type { OpcoesDeCompraResposta, PedidoDeCompra, PedidoDeCompraResumo, Quad
 import { Ban, Building2, CalendarDays, List, ShoppingCart, SquareKanban, UserRound } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type FormEvent, type ReactElement } from "react";
 
 import { hrefDeCompras, numeroDoPedido, ROTULO_DA_EMPRESA, periodosDeCompra, ROTULO_DO_PERIODO, textoDoDestino, type FiltrosDeCompras } from "../../lib/compras";
+import { BarraFixa, CampoDaFolha, classeDaPaginaComBarra } from "../barra-fixa";
 import estilosClientes from "../clientes/tela-clientes.module.css";
 import { BarraRolagemMinimalista } from "../pipelines/quadro-do-pipeline";
 import estilosPipelines from "../pipelines/tela-pipelines.module.css";
@@ -73,44 +74,64 @@ export function ComprasView({ filtros, colunas, pedidos, total, opcoes, ficha, f
   const canceladosVisiveis = filtros.cancelados ? pedidos.filter((p) => casaComBusca(p, termo)) : null;
   const semPedidos = quadro && !filtrado && colunas.every((c) => c.quantidade === 0);
 
+  const campoDeBusca = (sufixo: string) => <form className="equipe-busca" onSubmit={buscar} role="search" aria-label="Buscar pedidos">
+    <button type="submit" className={estilosClientes.botaoBusca} aria-label="Buscar pedidos"><IconSearch className="equipe-busca-icon" /></button>
+    <input id={`compras-busca-${sufixo}`} className="equipe-busca-input" type="search" maxLength={150} aria-label="Buscar pedido por número, título ou destino" value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar pedido, item ou destino…" />
+  </form>;
+  const filtroDeEmpresa = <FiltroComBusca key="empresa" label="Empresa" icon={<Building2 />} semFiltro="todas" value={filtros.empresa ?? "todas"} onChange={(v) => ir({ empresa: v === "todas" ? undefined : (v as FiltrosDeCompras["empresa"]) })}
+    options={[{ value: "todas", label: "Todas as empresas", icon: <Building2 /> }, ...(["plugga", "waze"] as const).map((e) => ({ value: e, label: ROTULO_DA_EMPRESA[e], icon: <PontoDaEmpresa empresa={e} /> }))]} />;
+  // Responsável e Período só na lista (pedido do André); no quadro ficam Empresa, Cancelados e a busca.
+  const filtrosDaLista: [string, ReactElement][] = [
+    ["Empresa", filtroDeEmpresa],
+    ["Responsável", <FiltroComBusca key="responsavel" label="Responsável" icon={<UserRound />} semFiltro="todos" value={filtros.responsavel ?? "todos"} onChange={(v) => ir({ responsavel: v === "todos" ? undefined : v })}
+      options={[{ value: "todos", label: "Todos os responsáveis", icon: <UserRound /> }, ...opcoes.pessoas.map((p) => ({ value: p.id, label: p.nome, icon: <UserRound /> }))]} />],
+    ["Período", <FiltroComBusca key="periodo" label="Período" icon={<CalendarDays />} semFiltro="qualquer" value={filtros.periodo ?? "qualquer"} onChange={(v) => ir({ periodo: v === "qualquer" ? undefined : (v as FiltrosDeCompras["periodo"]) })}
+      options={[{ value: "qualquer", label: "Qualquer período", icon: <CalendarDays /> }, ...periodosDeCompra.map((p) => ({ value: p, label: ROTULO_DO_PERIODO[p], icon: <CalendarDays /> }))]} />],
+  ];
+  const visoes = <nav className={estilosPipelines.visoes} aria-label="Visualização dos pedidos">
+    <Link href={hrefDeCompras({ ...filtros, visao: "quadro" })} aria-current={quadro ? "page" : undefined} scroll={false}><SquareKanban size={15} aria-hidden="true" /><span>Quadro</span></Link>
+    <Link href={hrefDeCompras({ ...filtros, visao: "lista" })} aria-current={!quadro ? "page" : undefined} scroll={false}><List size={15} aria-hidden="true" /><span>Todos os pedidos</span></Link>
+  </nav>;
+  const novoPedido = podeCriar ? <Button icon={<IconPlus />} onClick={() => setCriando(true)}>Novo pedido</Button> : null;
+
   return (
-    <div className={`pagina-pipelines ${estilosPipelines.pagina} ${styles.tabelas}`}>
+    <div className={`pagina-pipelines ${estilosPipelines.pagina} ${styles.tabelas} ${quadro ? "" : `${classeDaPaginaComBarra} ${styles.paginaDaLista}`}`}>
       <header className={estilosPipelines.cabecalho}>
         <div className={estilosPipelines.tituloGrupo}>
           <h1 className={estilosPipelines.titulo}>Compras</h1>
           <h2 className={`${estilosPipelines.subtitulo} ${styles.subtitulo}`}>Acompanhe os pedidos de compra, das cotações ao recebimento.</h2>
         </div>
         <div className={estilosPipelines.acoes}>
-          <form className="equipe-busca" onSubmit={buscar} role="search" aria-label="Buscar pedidos">
-            <button type="submit" className={estilosClientes.botaoBusca} aria-label="Buscar pedidos"><IconSearch className="equipe-busca-icon" /></button>
-            <input className="equipe-busca-input" type="search" maxLength={150} aria-label="Buscar pedido por número, título ou destino" value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar pedido, item ou destino…" />
-          </form>
-          {podeCriar ? <Button icon={<IconPlus />} onClick={() => setCriando(true)}>Novo pedido</Button> : null}
+          {quadro ? campoDeBusca("cabecalho") : null}
+          {novoPedido}
         </div>
       </header>
 
-      <div className={estilosPipelines.navegacao}>
-        <nav className={estilosPipelines.visoes} aria-label="Visualização dos pedidos">
-          <Link href={hrefDeCompras({ ...filtros, visao: "quadro" })} aria-current={quadro ? "page" : undefined} scroll={false}><SquareKanban size={15} aria-hidden="true" /><span>Quadro</span></Link>
-          <Link href={hrefDeCompras({ ...filtros, visao: "lista" })} aria-current={!quadro ? "page" : undefined} scroll={false}><List size={15} aria-hidden="true" /><span>Todos os pedidos</span></Link>
-        </nav>
-        {quadro ? <BarraRolagemMinimalista containerRef={colunasRef} className={estilosPipelines.rolagem} /> : <span className={styles.espaco} />}
+      {quadro ? <div className={estilosPipelines.navegacao}>
+        {visoes}
+        <BarraRolagemMinimalista containerRef={colunasRef} className={estilosPipelines.rolagem} />
         <div className={`${estilosPipelines.navegacaoDireita} ${styles.filtros}`} role="group" aria-label="Filtros de pedidos">
-          <div className={styles.filtro}><FiltroComBusca label="Empresa" icon={<Building2 />} semFiltro="todas" value={filtros.empresa ?? "todas"} onChange={(v) => ir({ empresa: v === "todas" ? undefined : (v as FiltrosDeCompras["empresa"]) })}
-            options={[{ value: "todas", label: "Todas as empresas", icon: <Building2 /> }, ...(["plugga", "waze"] as const).map((e) => ({ value: e, label: ROTULO_DA_EMPRESA[e], icon: <PontoDaEmpresa empresa={e} /> }))]} /></div>
-          {/* Responsável e Período só na lista (pedido do André); no quadro ficam Empresa, Cancelados e a busca. */}
-          {!quadro ? <>
-          <div className={styles.filtro}><FiltroComBusca label="Responsável" icon={<UserRound />} semFiltro="todos" value={filtros.responsavel ?? "todos"} onChange={(v) => ir({ responsavel: v === "todos" ? undefined : v })}
-            options={[{ value: "todos", label: "Todos os responsáveis", icon: <UserRound /> }, ...opcoes.pessoas.map((p) => ({ value: p.id, label: p.nome, icon: <UserRound /> }))]} /></div>
-          <div className={styles.filtro}><FiltroComBusca label="Período" icon={<CalendarDays />} semFiltro="qualquer" value={filtros.periodo ?? "qualquer"} onChange={(v) => ir({ periodo: v === "qualquer" ? undefined : (v as FiltrosDeCompras["periodo"]) })}
-            options={[{ value: "qualquer", label: "Qualquer período", icon: <CalendarDays /> }, ...periodosDeCompra.map((p) => ({ value: p, label: ROTULO_DO_PERIODO[p], icon: <CalendarDays /> }))]} /></div>
-          </> : null}
-          {quadro ? <Button variant="secondary" className={styles.alternar} aria-pressed={filtros.cancelados} icon={<Ban size={16} />} onClick={() => ir({ cancelados: !filtros.cancelados })}>
+          <div className={styles.filtro}>{filtroDeEmpresa}</div>
+          <Button variant="secondary" className={styles.alternar} aria-pressed={filtros.cancelados} icon={<Ban size={16} />} onClick={() => ir({ cancelados: !filtros.cancelados })}>
             Cancelados{canceladosVisiveis ? <span className={styles.conta}> {String(canceladosVisiveis.length).padStart(2, "0")}</span> : null}
-          </Button> : null}
+          </Button>
           {filtrado ? <Button variant="secondary" size="sm" onClick={limpar}>Limpar</Button> : null}
         </div>
-      </div>
+      </div> : <BarraFixa rotulo="Visualização, busca e filtros dos pedidos"
+        abas={visoes}
+        busca={campoDeBusca("barra")}
+        filtros={<div className={`${styles.filtros} ${styles.filtrosDaBarra}`} role="group" aria-label="Filtros de pedidos">
+          {filtrosDaLista.map(([rotulo, filtro]) => <div key={rotulo} className={styles.filtro}>{filtro}</div>)}
+          {filtrado ? <Button variant="secondary" size="sm" onClick={limpar}>Limpar</Button> : null}
+        </div>}
+        acoesQuandoPresa={podeCriar ? <Button iconOnly icon={<IconPlus />} aria-label="Novo pedido" title="Novo pedido" onClick={() => setCriando(true)} /> : undefined}
+        movel={{
+          visao: { opcoes: [{ value: "quadro", label: "Quadro", icon: <SquareKanban /> }, { value: "lista", label: "Todos os pedidos", icon: <List /> }], valor: filtros.visao, aoMudar: (v) => ir({ visao: v as FiltrosDeCompras["visao"] }) },
+          filtrosAtivos: [filtros.busca, filtros.empresa, filtros.responsavel, filtros.periodo].filter(Boolean).length,
+          aoLimpar: filtrado ? limpar : undefined,
+          rotuloDoResultado: `Ver ${pedidos.length} ${pedidos.length === 1 ? "pedido" : "pedidos"}`,
+          folha: <>{campoDeBusca("folha")}{filtrosDaLista.map(([rotulo, filtro]) => <CampoDaFolha key={rotulo} rotulo={rotulo}>{filtro}</CampoDaFolha>)}</>,
+        }} />}
 
       {fichaNaoEncontrada ? <p className="aviso aviso--alerta" role="status">Pedido não encontrado. O link pode estar errado.</p> : null}
 

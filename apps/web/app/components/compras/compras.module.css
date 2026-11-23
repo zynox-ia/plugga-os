@@ -20,6 +20,11 @@
   min-width: 0;
 }
 
+/* Raio do card de quadro de Suprimentos (18 px); o cartão do CRM, que ele reaproveita, segue com o seu. */
+.cartaoQuadro:global(.cartao-negocio) {
+  border-radius: var(--radius-lg);
+}
+
 .cartaoCancelado h4 button {
   text-decoration: line-through;
   text-decoration-color: color-mix(in srgb, var(--ui-muted) 60%, transparent);
@@ -306,3 +311,8 @@
   }
 }
 
+
+/* Lista com a barra presa (padronização de Suprimentos): a página rola inteira. */
+.paginaDaLista { height: auto !important; min-height: auto !important; }
+.filtrosDaBarra { display: flex; align-items: center; gap: 8px; margin-left: 0; }
+.filtrosDaBarra > .filtro { width: auto; }
