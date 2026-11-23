@@ -4,6 +4,7 @@ import { diaDoCalendario, quantidadeString } from "./compras.js";
 import { companyKeySchema } from "./organization.js";
 import { isoDate, uuid } from "./primitivas.js";
 import { ocorrenciaDeTarefaSchema } from "./tarefas.js";
+import { monitoramentoDaVisaoGeralSchema } from "./usinas.js";
 
 /**
  * Engenharia e Obras (PLU-345): a ordem de serviço, em
@@ -160,6 +161,8 @@ export const criarOrdemDeServicoSchema = z
     prazo: diaDoCalendario,
     /** O.S. de origem quando esta continua uma concluída (a concluída não reabre). */
     ordemAnteriorId: uuid.nullable().optional(),
+    /** Usina do cliente (PLU-347); o equipamento vem dela quando não é informado. */
+    usinaId: uuid.nullable().optional(),
     ...equipamentoEntrada,
   })
   .strict();
@@ -372,6 +375,8 @@ export const ordemDeServicoResumoSchema = z.object({
   descricao: z.string(),
   cliente: pessoa,
   local: z.string().nullable(),
+  /** Usina da O.S. (PLU-347): "82 kWp · Growatt" no card. */
+  usina: z.object({ id: uuid, nome: z.string(), potenciaKwp: z.string(), plataforma: z.string() }).nullable(),
   tecnico: pessoa.nullable(),
   apoio: pessoa.nullable(),
   agendadaPara: isoDate.nullable(),
@@ -514,8 +519,8 @@ export const visaoGeralDaEngenhariaRespostaSchema = z.object({
   atrasadas: z.object({ total: z.number().int().nonnegative(), itens: z.array(ordemDeServicoResumoSchema) }),
   /** Tarefas de hoje da Engenharia (as atrasadas primeiro, até 8) e o progresso do dia. */
   tarefasHoje: z.object({ concluidas: z.number().int().nonnegative(), total: z.number().int().nonnegative(), itens: z.array(ocorrenciaDeTarefaSchema) }),
-  /** Monitoramento do dia (PLU-347) e protocolos da semana (PLU-348): nulos até lá. */
-  monitoramentoHoje: z.null(),
+  /** Monitoramento do dia (PLU-347): "5 de 9 plataformas" e as pendentes. Protocolos da semana: nulo até a PLU-348. */
+  monitoramentoHoje: monitoramentoDaVisaoGeralSchema.nullable(),
   protocolos: z.null(),
 });
 export type VisaoGeralDaEngenharia = z.infer<typeof visaoGeralDaEngenhariaRespostaSchema>;

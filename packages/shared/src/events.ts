@@ -167,6 +167,11 @@ export const catalogoEventos = {
   "engenharia.ordem.cancelada": evento("Ordem de serviço cancelada", "empresa"),
   "engenharia.ordem.material_pedido": evento("Material pedido a Compras pela ordem de serviço", "empresa"),
   "engenharia.tipo_de_ordem.configurado": evento("Prazo padrão ou agendador de um tipo de O.S. alterado", "plataforma"),
+  // Usinas e monitoramento (PLU-347). Sem o print nem as notas: o print pode mostrar dados de cliente.
+  "engenharia.usina.created": evento("Usina cadastrada", "empresa"),
+  "engenharia.usina.updated": evento("Dados da usina alterados", "empresa"),
+  "engenharia.plataforma.configurada": evento("Plataforma de inversor cadastrada ou alterada", "plataforma"),
+  "engenharia.plataforma.conferida": evento("Plataforma conferida no monitoramento do dia", "empresa"),
   // Tarefas dos departamentos (PLU-349, PLU-340). Sem PII: o resultado fica na ocorrência, não no evento.
   "tarefas.tarefa.created": evento("Tarefa do departamento criada", "empresa"),
   "tarefas.tarefa.encerrada": evento("Tarefa do departamento encerrada", "empresa"),

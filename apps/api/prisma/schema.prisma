@@ -364,6 +364,8 @@ model User {
   evidenciasDeTarefaEnviadas     EvidenciaDeTarefa[]         @relation("EvidenciaDeTarefaEnviadaPor")
   tiposDeOrdemQueAgenda          ConfiguracaoDeTipoDeOrdem[] @relation("TipoDeOrdemAgendador")
   tiposDeOrdemAtualizados        ConfiguracaoDeTipoDeOrdem[] @relation("TipoDeOrdemAtualizadoPor")
+  usinasCriadas                  Usina[]                     @relation("UsinaCriadaPor")
+  conferenciasDePlataforma       ConferenciaDePlataforma[]   @relation("ConferenciaConferidaPor")
 
   @@map("users")
 }
@@ -512,6 +514,8 @@ model Company {
   omieConexao OmieConexao?
   pipelines Pipeline[]
   ordensDeServico OrdemDeServico[]
+  usinas Usina[]
+  conferenciasDePlataforma ConferenciaDePlataforma[]
 
   @@map("companies")
 }
@@ -917,6 +921,7 @@ model Client {
   lancamentos       Lancamento[]
   deals             Deal[]
   ordensDeServico   OrdemDeServico[]
+  usinas            Usina[]
 
   @@index([segment, active])
   @@index([ownerId])
@@ -1269,6 +1274,7 @@ model ConsumerUnit {
   @@index([clientId])
   lancamentos      UcDeLancamento[]
   ordensDeServico  OrdemDeServico[]
+  usinas           Usina[]
   @@map("consumer_units")
 }
 
@@ -3014,6 +3020,8 @@ model OrdemDeServico {
   canceladaEmSituacao SituacaoDaOrdemDeServico?  @map("cancelada_em_situacao")
   concluidaEm         DateTime?                  @map("concluida_em") @db.Timestamptz(6)
   ordemAnteriorId     String?                    @map("ordem_anterior_id") @db.Uuid
+  /// Usina da O.S. (PLU-347), do mesmo cliente.
+  usinaId             String?                    @map("usina_id") @db.Uuid
   criadoPorId         String?                    @map("criado_por_id") @db.Uuid
   createdAt           DateTime                   @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt           DateTime                   @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -3029,6 +3037,9 @@ model OrdemDeServico {
   criadoPor       User?                       @relation("OrdemCriadaPor", fields: [criadoPorId], references: [id], onDelete: SetNull)
   ordemAnterior   OrdemDeServico?             @relation("OrdemContinuacao", fields: [ordemAnteriorId], references: [id], onDelete: Restrict)
   continuacoes    OrdemDeServico[]            @relation("OrdemContinuacao")
+  usina           Usina?                      @relation(fields: [usinaId], references: [id], onDelete: Restrict)
+  resultadosDeMonitoramento ResultadoDaConferencia[]
+  usinasComissionadas Usina[]                 @relation("UsinaDoComissionamento")
   historico       HistoricoDeOrdemDeServico[]
   arquivos        ArquivoDeOrdemDeServico[]
   termo           TermoDeOrdemDeServico?
@@ -3228,4 +3239,117 @@ model ConfiguracaoDeTipoDeOrdem {
   atualizadoPor User? @relation("TipoDeOrdemAtualizadoPor", fields: [atualizadoPorId], references: [id], onDelete: SetNull)
 
   @@map("configuracoes_de_tipo_de_ordem")
+}
+
+// ---------------------------------------------------------------- Engenharia: usinas e monitoramento (PLU-347)
+
+enum SituacaoDoMonitoramento {
+  normal
+  anomalia
+  sem_comunicacao
+
+  @@map("situacao_do_monitoramento")
+}
+
+enum OrigemDaUsina {
+  manual
+  importacao
+  comissionamento
+
+  @@map("origem_da_usina")
+}
+
+/// Plataforma de inversor (Growatt, FusionSolar...). A observação de acesso diz
+/// onde está o acesso; nunca guarda senha. Não se apaga: sai de uso por `ativa`.
+model PlataformaDeInversor {
+  id                 String   @id
+  nome               String   @unique
+  observacaoDeAcesso String?  @map("observacao_de_acesso")
+  ativa              Boolean  @default(true)
+  ordem              Int      @default(0)
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  usinas        Usina[]
+  conferencias  ConferenciaDePlataforma[]
+
+  @@map("plataformas_de_inversor")
+}
+
+/// Usina de cliente monitorada pela Engenharia. Não se apaga: sai de uso por `ativa`.
+model Usina {
+  id                       String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId                String         @map("company_id")
+  clientId                 String         @map("client_id") @db.Uuid
+  consumerUnitId           String         @map("consumer_unit_id") @db.Uuid
+  nome                     String
+  plataformaId             String         @map("plataforma_id")
+  potenciaKwp              Decimal        @map("potencia_kwp") @db.Decimal(10, 3)
+  fabricante               String?
+  modelo                   String?
+  numeroSerie              String?        @map("numero_serie")
+  /// Início do dia do comissionamento, em Manaus.
+  comissionadaEm           DateTime       @map("comissionada_em") @db.Timestamptz(6)
+  garantiaAte              DateTime?      @map("garantia_ate") @db.Timestamptz(6)
+  origem                   OrigemDaUsina  @default(manual)
+  ordemDeComissionamentoId String?        @map("ordem_de_comissionamento_id") @db.Uuid
+  ativa                    Boolean        @default(true)
+  criadoPorId              String?        @map("criado_por_id") @db.Uuid
+  createdAt                DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  company                Company                  @relation(fields: [companyId], references: [id])
+  client                 Client                   @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  consumerUnit           ConsumerUnit             @relation(fields: [consumerUnitId], references: [id], onDelete: Restrict)
+  plataforma             PlataformaDeInversor     @relation(fields: [plataformaId], references: [id], onDelete: Restrict)
+  ordemDeComissionamento OrdemDeServico?          @relation("UsinaDoComissionamento", fields: [ordemDeComissionamentoId], references: [id], onDelete: Restrict)
+  criadoPor              User?                    @relation("UsinaCriadaPor", fields: [criadoPorId], references: [id], onDelete: SetNull)
+  ordensDeServico        OrdemDeServico[]
+  resultados             ResultadoDaConferencia[]
+
+  @@index([plataformaId, companyId, ativa])
+  @@index([clientId])
+  @@map("usinas")
+}
+
+/// A conferência de uma plataforma, para uma empresa, num dia, com o print. Só se insere.
+model ConferenciaDePlataforma {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  plataformaId   String   @map("plataforma_id")
+  companyId      String   @map("company_id")
+  /// Início do dia em Manaus.
+  dia            DateTime @db.Timestamptz(6)
+  conferidaPorId String?  @map("conferida_por_id") @db.Uuid
+  conferidaEm    DateTime @default(now()) @map("conferida_em") @db.Timestamptz(6)
+  printChave     String   @map("print_chave")
+  printNome      String   @map("print_nome")
+  printTamanho   Int      @map("print_tamanho")
+  printTipo      String   @map("print_tipo")
+
+  plataforma   PlataformaDeInversor     @relation(fields: [plataformaId], references: [id], onDelete: Restrict)
+  company      Company                  @relation(fields: [companyId], references: [id])
+  conferidaPor User?                    @relation("ConferenciaConferidaPor", fields: [conferidaPorId], references: [id], onDelete: SetNull)
+  resultados   ResultadoDaConferencia[]
+
+  @@unique([plataformaId, companyId, dia])
+  @@index([dia])
+  @@map("conferencias_de_plataforma")
+}
+
+/// Como cada usina estava na conferência. Só se insere.
+model ResultadoDaConferencia {
+  id               String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  conferenciaId    String                  @map("conferencia_id") @db.Uuid
+  usinaId          String                  @map("usina_id") @db.Uuid
+  situacao         SituacaoDoMonitoramento
+  nota             String?
+  ordemDeServicoId String?                 @map("ordem_de_servico_id") @db.Uuid
+
+  conferencia    ConferenciaDePlataforma @relation(fields: [conferenciaId], references: [id], onDelete: Restrict)
+  usina          Usina                   @relation(fields: [usinaId], references: [id], onDelete: Restrict)
+  ordemDeServico OrdemDeServico?         @relation(fields: [ordemDeServicoId], references: [id], onDelete: Restrict)
+
+  @@unique([conferenciaId, usinaId])
+  @@index([usinaId])
+  @@map("resultados_da_conferencia")
 }

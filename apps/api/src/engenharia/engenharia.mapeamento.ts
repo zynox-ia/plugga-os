@@ -12,6 +12,7 @@ import {
 
 import { diaEmManaus } from "../compras/dias-uteis";
 import { acoesPermitidas, colunaDa, estaAtrasada, mascararDocumento } from "./engenharia.rules";
+import { kwpCurto } from "./usinas.rules";
 
 /** Linha da lista e do quadro: escalares, sem relações com pessoas (o RLS de users não as entrega). */
 export const SELECT_DO_RESUMO = {
@@ -31,6 +32,7 @@ export const SELECT_DO_RESUMO = {
   adiadaPara: true,
   prazo: true,
   createdAt: true,
+  usina: { select: { id: true, nome: true, potenciaKwp: true, plataforma: { select: { nome: true } } } },
   _count: { select: { arquivos: { where: { categoria: "foto", substituidoEm: null } } } },
 } satisfies Prisma.OrdemDeServicoSelect;
 export type LinhaDoResumo = Prisma.OrdemDeServicoGetPayload<{ select: typeof SELECT_DO_RESUMO }>;
@@ -44,6 +46,7 @@ export const INCLUDE_DA_FICHA = {
     orderBy: { createdAt: "asc" },
   },
   ordemAnterior: { select: { id: true, numero: true } },
+  usina: { select: { id: true, nome: true, potenciaKwp: true, plataforma: { select: { nome: true } } } },
   _count: { select: { arquivos: { where: { categoria: "foto", substituidoEm: null } } } },
 } satisfies Prisma.OrdemDeServicoInclude;
 export type LinhaDaFicha = Prisma.OrdemDeServicoGetPayload<{ include: typeof INCLUDE_DA_FICHA }>;
@@ -68,6 +71,9 @@ export function paraResumo(linha: LinhaDoResumo, pessoas: Nomes, clientes: Nomes
     descricao: linha.descricao,
     cliente: { id: linha.clientId, nome: clientes.get(linha.clientId) ?? "Cliente" },
     local: linha.local,
+    usina: linha.usina
+      ? { id: linha.usina.id, nome: linha.usina.nome, potenciaKwp: kwpCurto(linha.usina.potenciaKwp.toString()), plataforma: linha.usina.plataforma.nome }
+      : null,
     tecnico: pessoa(linha.tecnicoId, pessoas),
     apoio: pessoa(linha.apoioId, pessoas),
     agendadaPara: linha.agendadaPara?.toISOString() ?? null,
