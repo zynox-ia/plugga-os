@@ -144,6 +144,18 @@ describe.skipIf(!HABILITADO)("tarefas: ocorrências no Postgres", { timeout: PRA
     expect(JSON.stringify(eventos)).not.toMatch(/Enviado ao cliente/);
   });
 
+  it("conclui com evidência: guarda o arquivo na ocorrência, e depois de concluída não aceita mais evidência", async () => {
+    const tarefa = await criar({ titulo: `${marca} com evidência`, tipo: "unica", data: "2026-11-25", exigeEvidencia: true, exigeResultado: true, instrucoes: ["Anexar o print"] });
+    const [ocorrencia] = doTeste((await lista("eng")).itens).filter((o) => o.tarefaId === tarefa.id);
+    const evidencia = { chave: `${marca}/print.png`, nome: "print.png", tamanho: 10, tipo: "image/png" };
+    const conferir = () => undefined;
+    await como("eng", () => repo.concluir("engenharia-obras", ocorrencia!.id, { resultado: "Conferido", checklist: [0], evidencia }, principal("eng"), AGORA, conferir));
+    const { linha } = await como("eng", () => repo.ocorrencia("engenharia-obras", ocorrencia!.id));
+    expect(linha.concluidaEm).toEqual(AGORA);
+    expect(linha.evidencias).toEqual([expect.objectContaining({ arquivoNome: "print.png", arquivoTipo: "image/png", enviadoPorId: pessoas.get("eng")!.id })]);
+    await expect(tx("eng", (t) => t.evidenciaDeTarefa.create({ data: { ocorrenciaId: ocorrencia!.id, arquivoChave: "x", arquivoNome: "x.png", arquivoTamanho: 1, arquivoTipo: "image/png", enviadoPorId: pessoas.get("eng")!.id } }))).rejects.toThrow(/row-level security/);
+  });
+
   it("encerra quem criou ou o gerente; as pendentes de hoje em diante saem da lista", async () => {
     const tarefa = await criar({ titulo: `${marca} encerrar`, tipo: "recorrente", regra: { recorrencia: "dia_util" }, inicio: "2026-11-25" }, "colega");
     await expect(como("eng", () => servico.encerrar("engenharia-obras", tarefa.id, "não precisa mais", principal("eng")))).rejects.toThrow(/quem criou/);

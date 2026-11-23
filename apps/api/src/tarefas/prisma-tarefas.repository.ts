@@ -188,15 +188,16 @@ export class PrismaTarefasRepository {
     await this.prisma.comContexto(async (tx) => {
       const linha = await this.travarOcorrencia(tx, departamento, id);
       conferir(linha);
-      await tx.ocorrenciaDeTarefa.update({
-        where: { id },
-        data: { concluidaEm: agora, concluidaPorId: principal.id, resultado: dados.resultado, checklist: marcasDoChecklist(linha.tarefa.instrucoes.length, dados.checklist) },
-      });
+      // A evidência entra antes da conclusão: o RLS só aceita evidência em ocorrência aberta.
       if (dados.evidencia) {
         await tx.evidenciaDeTarefa.create({
           data: { ocorrenciaId: id, arquivoChave: dados.evidencia.chave, arquivoNome: dados.evidencia.nome, arquivoTamanho: dados.evidencia.tamanho, arquivoTipo: dados.evidencia.tipo, enviadoPorId: principal.id, enviadoEm: agora },
         });
       }
+      await tx.ocorrenciaDeTarefa.update({
+        where: { id },
+        data: { concluidaEm: agora, concluidaPorId: principal.id, resultado: dados.resultado, checklist: marcasDoChecklist(linha.tarefa.instrucoes.length, dados.checklist) },
+      });
       await this.registrar(tx, "tarefas.ocorrencia.concluida", "ocorrencia_de_tarefa", id, linha.tarefa.empresa, principal, {
         departamento, tarefaId: linha.tarefaId, comEvidencia: dados.evidencia !== null, automatica: false,
       });
