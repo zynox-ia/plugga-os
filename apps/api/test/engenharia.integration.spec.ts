@@ -212,6 +212,30 @@ describe.skipIf(!HABILITADO)("engenharia: ordens de serviço no Postgres", { tim
     expect(await tx("eng", (t) => t.itemDePedido.count({ where: { pedidoId: pedidoDeCompras } }))).toBe(0);
   });
 
+  it("RLS: o pedido da Engenharia nasce em pedido gerado, sem marcos, e só recebe item e passagem nessa etapa", async () => {
+    const id = await criar();
+    const eng = pessoas.get("eng")!.id;
+    const base = { companyId: "waze", titulo: `${marca} nasce`, destino: "interno" as const, prazoEntregaDesejado: AGORA, solicitanteId: eng, criadoPorId: eng, ordemDeServicoId: id };
+    await expect(tx("eng", (t) => t.pedidoDeCompra.create({ data: { ...base, etapa: "pagamento" } }))).rejects.toThrow(/row-level security/);
+    await expect(tx("eng", (t) => t.pedidoDeCompra.create({ data: { ...base, aprovadoEm: AGORA } }))).rejects.toThrow(/row-level security/);
+    await expect(tx("eng", (t) => t.pedidoDeCompra.create({ data: { ...base, valorFaturado: "10.00" } }))).rejects.toThrow(/row-level security/);
+
+    // Já em análise por Compras: a Engenharia não acrescenta item nem passagem.
+    const pedido = await tx("eng", (t) => t.pedidoDeCompra.create({ data: base, select: { id: true } }));
+    await expect(tx("eng", (t) => t.pedidoDeCompraEtapa.create({ data: { pedidoId: pedido.id, etapa: "cotacoes", entrouEm: AGORA, prazoDiasUteis: 2, prazoEm: AGORA } }))).rejects.toThrow(/row-level security/);
+    await root.pedidoDeCompra.update({ where: { id: pedido.id }, data: { etapa: "analise_estoque" } });
+    await expect(tx("eng", (t) => t.itemDePedido.create({ data: { pedidoId: pedido.id, descricao: "Cabo", quantidade: "1" } }))).rejects.toThrow(/row-level security/);
+    await expect(tx("eng", (t) => t.pedidoDeCompraEtapa.create({ data: { pedidoId: pedido.id, etapa: "pedido_gerado", entrouEm: AGORA, prazoDiasUteis: 2, prazoEm: AGORA } }))).rejects.toThrow(/row-level security/);
+  });
+
+  it("as UCs da O.S. saem só de cliente ativo ou já referenciado por uma O.S.", async () => {
+    const inativo = await root.client.create({ data: { name: `${marca} inativo`, active: false } });
+    await root.consumerUnit.create({ data: { clientId: inativo.id, code: `${marca}-inativa`, distributor: "x" } });
+    expect(await tx("eng", (t) => t.$queryRaw<{ id: string }[]>`SELECT id FROM plugga_security.ucs_para_engenharia(${[inativo.id]}::uuid[])`)).toEqual([]);
+    expect((await tx("eng", (t) => t.$queryRaw<{ id: string }[]>`SELECT id FROM plugga_security.ucs_para_engenharia(${[clienteId]}::uuid[])`)).map((u) => u.id)).toContain(ucId);
+    await root.client.delete({ where: { id: inativo.id } });
+  });
+
   it("RLS: só a Engenharia vê as O.S.; ninguém apaga O.S. nem reescreve a linha do tempo", async () => {
     const id = await criar();
     expect(await tx("compras", (t) => t.ordemDeServico.count({ where: { id } }))).toBe(0);

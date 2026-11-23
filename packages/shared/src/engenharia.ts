@@ -227,6 +227,7 @@ export const colherTermoSchema = z
   .object({
     modo: modoDeAssinaturaDoTermoSchema.exclude(["pdf_externo"]),
     nome: texto(3, 200, "informe o nome de quem assina"),
+    /** CPF, CNPJ ou RG de quem assina, como está no documento: texto livre, sem conferir dígito (o RG não tem um padrão nacional). */
     documento: texto(5, 30, "informe o documento de quem assina"),
   })
   .strict();
