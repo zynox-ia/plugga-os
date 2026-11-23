@@ -133,6 +133,8 @@ export class OmieConexoesService {
 
   async definirCnpj(empresa: CompanyKey, cnpj: string | null, principal: AuthPrincipal): Promise<EstadoDasConexoesOmie> {
     await this.conexoes.definirCnpj(empresa, cnpj, principal);
+    // O cadastro novo pode ter bloqueado uma conexão: o uso relê já.
+    this.cache.clear();
     return this.estado();
   }
 

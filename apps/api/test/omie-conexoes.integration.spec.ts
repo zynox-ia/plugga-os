@@ -1,3 +1,5 @@
+import { randomBytes } from "node:crypto";
+
 import type { EmpresaDoOmie } from "@plugga/shared";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
@@ -9,6 +11,7 @@ import { OmieConexoesService, chaveDoOmie } from "../src/omie/omie-conexoes.serv
 import type { OmiePort } from "../src/omie/omie.port.js";
 import { PrismaOmieConexoesRepository } from "../src/omie/prisma-omie-conexoes.repository.js";
 import { PrismaOmieLeituraPorEmpresa } from "../src/omie/prisma-omie-leitura-por-empresa.repository.js";
+import { contextoBanco } from "../src/prisma/contexto-banco.js";
 import { PrismaService } from "../src/prisma/prisma.service.js";
 
 /**
@@ -32,12 +35,17 @@ describe.skipIf(!HABILITADO)("omie por empresa no Postgres", () => {
   const mestraAnterior = process.env.SECRETS_ENCRYPTION_KEY;
   let principal: AuthPrincipal;
   let guardados: { chave: string; linha: unknown }[] = [];
+  const sessao = randomBytes(32).toString("hex");
+  const comoAdmin = <T>(fazer: () => Promise<T>) => contextoBanco.run({ sessionHash: sessao, agentHash: undefined }, fazer);
 
   beforeAll(async () => {
     process.env.SECRETS_ENCRYPTION_KEY = Buffer.alloc(32, 9).toString("base64");
     await prisma.$connect();
     for (const id of ["plugga", "waze"]) await prisma.company.upsert({ where: { id }, create: { id, name: id }, update: {} });
-    const pessoa = await prisma.user.create({ data: { email: `omie-${Date.now()}@teste.local`, name: "OMIE teste" } });
+    const admin = await prisma.role.upsert({ where: { key: "admin" }, create: { key: "admin", name: "Admin" }, update: {} });
+    const pessoa = await prisma.user.create({ data: { email: `omie-${Date.now()}@teste.local`, name: "OMIE teste", platformRoles: { create: { roleId: admin.id } } } });
+    // Sessão de verdade: a função que grava o CNPJ confere a plataforma pela sessão do banco.
+    await prisma.session.create({ data: { userId: pessoa.id, tokenHash: sessao, expiresAt: new Date(Date.now() + 3_600_000), absoluteExpiresAt: new Date(Date.now() + 7_200_000) } });
     principal = { id: pessoa.id, kind: "user", acesso: { plataforma: "admin", departamentos: [] } };
     // Preserva o que já houver no banco de teste e começa do zero.
     guardados = await Promise.all([chaveDoOmie("waze"), chaveDoOmie("plugga"), CHAVE_OMIE].map(async (chave) => ({ chave, linha: await prisma.segredoDoSistema.findUnique({ where: { chave } }) })));
@@ -50,6 +58,7 @@ describe.skipIf(!HABILITADO)("omie por empresa no Postgres", () => {
     await prisma.segredoDoSistema.deleteMany({ where: { chave: { in: guardados.map((g) => g.chave) } } });
     for (const g of guardados) if (g.linha) await prisma.segredoDoSistema.create({ data: g.linha as never });
     await prisma.company.update({ where: { id: "waze" }, data: { cnpj: null } });
+    await prisma.session.deleteMany({ where: { userId: principal.id } });
     await prisma.user.deleteMany({ where: { id: principal.id } });
     if (mestraAnterior === undefined) delete process.env.SECRETS_ENCRYPTION_KEY;
     else process.env.SECRETS_ENCRYPTION_KEY = mestraAnterior;
@@ -95,6 +104,32 @@ describe.skipIf(!HABILITADO)("omie por empresa no Postgres", () => {
     const outra = estado.conexoes.find((c) => c.situacao !== "conectada")!.empresa;
     await expect(prisma.omieConexao.update({ where: { companyId: outra }, data: { bloqueio: null, confirmadaEm: new Date(), cnpjConfirmado: CNPJ } })).rejects.toThrow();
     await prisma.segredoDoSistema.deleteMany({ where: { chave: chaveDoOmie("plugga") } });
+  }, PRAZO_MS);
+
+  it("cadastrar o CNPJ reavalia as conexões já confirmadas e bloqueia a que não confere", async () => {
+    await prisma.company.updateMany({ where: { id: { in: ["plugga", "waze"] } }, data: { cnpj: null } });
+    await prisma.omieConexao.deleteMany({});
+    // A Plugga foi confirmada à mão com X, que na verdade é o CNPJ da Waze.
+    await servico.gravar("plugga", { appKey: "chave-plugga-0050", appSecret: "segredo-sintetico-plugga-50" }, principal);
+    await servico.testar("plugga", principal);
+    await servico.confirmar("plugga", CNPJ, principal);
+    expect(await servico.credenciais("plugga")).not.toBeNull();
+
+    // A plataforma cadastra X como o CNPJ da Waze: a Plugga sai do ar na hora.
+    await comoAdmin(() => servico.definirCnpj("waze", CNPJ, principal));
+    expect((await servico.estado()).conexoes.find((c) => c.empresa === "plugga")).toMatchObject({ situacao: "bloqueada", bloqueio: "cnpj_de_outra_empresa", confirmada: null });
+    expect(await servico.credenciais("plugga")).toBeNull();
+    expect(await prisma.eventLog.count({ where: { eventName: "integracoes.omie.bloqueada", entityId: "plugga", actorId: principal.id } })).toBe(1);
+
+    // O cadastro da própria empresa diferente do confirmado também bloqueia.
+    await comoAdmin(() => servico.definirCnpj("waze", null, principal));
+    await servico.gravar("waze", { appKey: "chave-waze-0051", appSecret: "segredo-sintetico-waze-51" }, principal);
+    await servico.testar("waze", principal);
+    await servico.confirmar("waze", CNPJ, principal);
+    await comoAdmin(() => servico.definirCnpj("waze", "99999003000148", principal));
+    expect((await servico.estado()).conexoes.find((c) => c.empresa === "waze")).toMatchObject({ situacao: "bloqueada", bloqueio: "cnpj_diferente_do_cadastro" });
+    await prisma.company.update({ where: { id: "waze" }, data: { cnpj: null } });
+    await prisma.omieConexao.deleteMany({});
   }, PRAZO_MS);
 
   it("com o CNPJ no cadastro, o teste conecta sozinho; o CNPJ diferente bloqueia", async () => {

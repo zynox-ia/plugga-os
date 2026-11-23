@@ -148,6 +148,7 @@ export const catalogoEventos = {
   "integracoes.omie.desconectada": evento("Par do OMIE da empresa removido", "empresa"),
   "integracoes.omie.testada": evento("Conexão do OMIE da empresa testada", "empresa"),
   "integracoes.omie.confirmada": evento("Conexão do OMIE da empresa confirmada", "empresa"),
+  "integracoes.omie.bloqueada": evento("Conexão do OMIE da empresa bloqueada pela conferência do CNPJ", "empresa"),
   "integracoes.omie.conta_antiga_movida": evento("Conta única do OMIE movida para a empresa", "empresa"),
   "organizacao.empresa.cnpj_definido": evento("CNPJ da empresa no Plugga OS definido", "empresa"),
   // Fornecedor é cadastro único das duas empresas: o escopo é a plataforma. Sem PII, só os nomes dos campos.

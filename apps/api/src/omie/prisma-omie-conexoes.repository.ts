@@ -43,9 +43,15 @@ export class PrismaOmieConexoesRepository {
     return new Map(empresas.map((e) => [e.id as CompanyKey, e.cnpj]));
   }
 
-  /** Pela função do banco: só a plataforma grava, e o banco confere de novo. */
-  async definirCnpj(empresa: CompanyKey, cnpj: string | null, principal: AuthPrincipal): Promise<void> {
-    await this.prisma.comContexto(async (tx) => {
+  /**
+   * Pela função do banco: só a plataforma grava. Na mesma transação, com as duas
+   * conferências travadas, reavalia as conexões já confirmadas contra o cadastro
+   * novo: bloqueia a que tiver o confirmado diferente do próprio cadastro e a que
+   * tiver o confirmado igual ao cadastro da outra empresa.
+   */
+  async definirCnpj(empresa: CompanyKey, cnpj: string | null, principal: AuthPrincipal): Promise<CompanyKey[]> {
+    return this.prisma.comContexto(async (tx) => {
+      await this.travar(tx);
       try {
         await tx.$executeRaw`SELECT plugga_security.definir_cnpj_da_empresa(${empresa}, ${cnpj})`;
       } catch (erro) {
@@ -58,6 +64,23 @@ export class PrismaOmieConexoesRepository {
         throw erro;
       }
       await this.registrar(tx, "organizacao.empresa.cnpj_definido", empresa, principal, { definido: cnpj !== null });
+
+      const bloqueadas: CompanyKey[] = [];
+      for (const alvo of ["plugga", "waze"] as const) {
+        const conferencia = await tx.omieConexao.findUnique({ where: { companyId: alvo }, select: { confirmadaEm: true, cnpjConfirmado: true } });
+        if (!conferencia?.confirmadaEm || !conferencia.cnpjConfirmado) continue;
+        const { cnpjDoCadastro, outra } = await this.contexto(tx, alvo);
+        const bloqueio = conferencia.cnpjConfirmado === outra.cnpjDoCadastro ? "cnpj_de_outra_empresa"
+          : cnpjDoCadastro && conferencia.cnpjConfirmado !== cnpjDoCadastro ? "cnpj_diferente_do_cadastro" : null;
+        if (!bloqueio) continue;
+        await tx.omieConexao.update({
+          where: { companyId: alvo },
+          data: { bloqueio, confirmadaEm: null, confirmadaPorId: null, cnpjConfirmado: null, razaoSocialConfirmada: null },
+        });
+        await this.registrar(tx, "integracoes.omie.bloqueada", alvo, principal, { motivo: bloqueio, por: "cadastro" });
+        bloqueadas.push(alvo);
+      }
+      return bloqueadas;
     });
   }
 
@@ -136,7 +159,9 @@ export class PrismaOmieConexoesRepository {
           : { confirmadaEm: agora, confirmadaPorId: principal.id, cnpjConfirmado: visto.cnpj, razaoSocialConfirmada: testadas[0]!.razaoSocial },
       });
       if (count !== 1) throw new EstadoInvalido(PAR_MUDOU);
-      if (resultado.tipo !== "bloqueada") await this.registrar(tx, "integracoes.omie.confirmada", empresa, principal, { automatica: false });
+      await (resultado.tipo === "bloqueada"
+        ? this.registrar(tx, "integracoes.omie.bloqueada", empresa, principal, { motivo: resultado.bloqueio, por: "confirmacao" })
+        : this.registrar(tx, "integracoes.omie.confirmada", empresa, principal, { automatica: false }));
       return resultado;
     }));
   }
