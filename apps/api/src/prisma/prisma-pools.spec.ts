@@ -8,7 +8,7 @@ import { PrismaService } from "./prisma.service";
 const seguro = {
   loginSeguro: true, grupoCorreto: true, semOutrosPools: true,
   semPapelPrivilegiado: true, semDono: true, semDDL: true,
-  semTruncate: true, escopoDoPool: true, rlsAtiva: true,
+  semTruncate: true, escopoDoPool: true, escopoDasTarefasNoPoolDeJobs: true, rlsAtiva: true,
 };
 
 afterEach(() => vi.unstubAllEnvs());
