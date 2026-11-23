@@ -390,6 +390,20 @@ async function main() {
       },
     });
   }
+
+  // Cliente com UC para a Engenharia (PLU-347): a Nova usina e a Nova O.S. pedem a
+  // UC do cliente, e nenhuma tela cria UC. Sintético, criado só se não existir;
+  // o e2e das usinas o encontra pela busca "Cliente com UC".
+  const clienteComUc = await prisma.client.upsert({
+    where: { id: '00000000-0000-0000-0000-0000000000c2' },
+    update: {},
+    create: { id: '00000000-0000-0000-0000-0000000000c2', name: 'Cliente com UC (exemplo)', segment: 'opm' },
+  });
+  if (!(await prisma.consumerUnit.findFirst({ where: { clientId: clienteComUc.id, code: 'UC-E2E-0001' }, select: { id: true } }))) {
+    await prisma.consumerUnit.create({
+      data: { clientId: clienteComUc.id, code: 'UC-E2E-0001', distributor: 'Amazonas Energia', address: 'Manaus, AM' },
+    });
+  }
   // Premissas do estudo de eficiência energética (ADR/decisões 2026-08-08).
   // Idempotente como o resto do seed: reexecutar não sobrescreve uma versão já
   // cadastrada, porque estudo antigo aponta para ela e precisa continuar
