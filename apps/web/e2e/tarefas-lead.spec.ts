@@ -73,10 +73,16 @@ test("atividades persistem, recusam conflito e concluem com resultado e próxima
   await expect(editar.getByLabel("Notas", { exact: true })).toHaveValue("Rascunho preservado após conflito.");
   await expect(editar.getByRole("alert")).toContainText("recarregue");
   await editar.getByRole("button", { name: "Cancelar", exact: true }).click();
-  await lead.getByRole("tab", { name: "Perfil", exact: true }).click();
-  await lead.getByRole("tab", { name: "Tarefas", exact: true }).click();
+  // Cancelar depois do conflito descarta o rascunho e o cartão já mostra os dados atuais.
   card = lead.getByRole("article", { name: "Atividade Conferir fatura recebida", exact: true });
   await expect(card).toContainText("Atualização concorrente confirmada.");
+  // Voltar à aba Tarefas recarrega o que mudou fora dela.
+  const versaoExterna: Activity = await externa.json();
+  const segunda = await request.patch(`/api/atividades/${atividade.id}`, { headers, data: { version: versaoExterna.version, notes: "Segunda atualização externa." } });
+  expect(segunda.status()).toBe(200);
+  await lead.getByRole("tab", { name: "Perfil", exact: true }).click();
+  await lead.getByRole("tab", { name: "Tarefas", exact: true }).click();
+  await expect(card).toContainText("Segunda atualização externa.");
   await card.focus();
   const inicio = page.waitForResponse((resposta) => resposta.request().method() === "PATCH" && resposta.url().endsWith(`/api/atividades/${atividade.id}`));
   await page.keyboard.press("Alt+ArrowRight");

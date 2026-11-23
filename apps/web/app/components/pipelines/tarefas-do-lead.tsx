@@ -2,7 +2,7 @@
 
 import type { Activity, ActivityStatus, PipelinePerson } from "@plugga/shared";
 import { Check, Clock, History, Kanban, ListTodo, MapPin, MoreHorizontal, Pencil, Phone, Play, Plus, RotateCcw, Users } from "lucide-react";
-import { useId, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { formatarDataHoraCurta } from "../../lib/format";
 import { alteracoesDoAgendamento } from "../../lib/agendamento-atividade";
@@ -42,7 +42,15 @@ export function TarefasDoLead({ negocioId, controle, responsaveis, responsavelIn
     quadro.current?.querySelector<HTMLElement>(`[data-atividade-id="${focoPendente.current}"]`)?.focus({ preventScroll: true });
     focoPendente.current = null;
   }, [controle.atividades, janela]);
-  function fecharJanela() { if (janela && "atividade" in janela) focoPendente.current = janela.atividade.id; setJanela(null); }
+  // A aba monta a cada visita: traz o que mudou fora dela (outra pessoa, outra aba, o processo).
+  const recarregar = controle.recarregar;
+  useEffect(() => { recarregar(); }, []);
+  function fecharJanela() {
+    if (janela && "atividade" in janela) focoPendente.current = janela.atividade.id;
+    // Fechar depois de um erro (um conflito de versão, por exemplo) descarta o rascunho: o quadro volta aos dados atuais.
+    if (controle.erro) { controle.limparErro(); controle.recarregar(); }
+    setJanela(null);
+  }
   function abrir(proxima: Janela) { controle.limparErro(); setJanela(proxima); }
   async function mover(atividade: Activity, destino: ActivityStatus) {
     if (bloqueado || atividade.currentRound.status === destino || atividade.currentRound.status === "done") return;
@@ -58,7 +66,8 @@ export function TarefasDoLead({ negocioId, controle, responsaveis, responsavelIn
     <p id={`${prefixo}-ajuda`} className="sr-only">Arraste entre colunas ou use Alt e as setas com o cartão em foco. Para concluir, registre o resultado.</p>
     <span className="sr-only" role="status">{mensagem}</span>
     {controle.erro && !janela ? <p className="aviso aviso--erro" role="alert">{controle.erro.mensagem}</p> : null}
-    {controle.carregando ? <p role="status">Carregando atividades…</p> : <div ref={quadro} className={quadroStyles.quadro} aria-label="Atividades do negócio">
+    {/* Na recarga o quadro fica à vista, bloqueado, até os dados novos chegarem. */}
+    {controle.carregando && !controle.atividades.length ? <p role="status">Carregando atividades…</p> : <div ref={quadro} className={quadroStyles.quadro} aria-label="Atividades do negócio">
       {COLUNAS.map((coluna) => {
         const atividades = ordenadas.filter((atividade) => atividade.currentRound.status === coluna.id);
         return <section key={coluna.id} className={`${quadroStyles.coluna}${alvo === coluna.id ? ` ${quadroStyles.colunaAlvo}` : ""}`} aria-labelledby={`${prefixo}-${coluna.id}`}
