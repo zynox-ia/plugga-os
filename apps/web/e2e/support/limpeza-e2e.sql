@@ -53,6 +53,9 @@ CREATE TEMP TABLE e2e_marca ON COMMIT DROP AS SELECT '(^|[^A-Za-z0-9_-])E2E ' ||
 -- material de uma delas sai junto, mesmo sem a marca no título.
 CREATE TEMP TABLE e2e_os ON COMMIT DROP AS
   SELECT id FROM ordens_de_servico WHERE descricao ~ (SELECT marca FROM e2e_marca);
+-- Tarefas dos departamentos (PLU-349) com a marca no título.
+CREATE TEMP TABLE e2e_tarefa ON COMMIT DROP AS
+  SELECT id FROM tarefas WHERE titulo ~ (SELECT marca FROM e2e_marca);
 CREATE TEMP TABLE e2e_ped ON COMMIT DROP AS
   SELECT id FROM pedidos_de_compra WHERE titulo ~ (SELECT marca FROM e2e_marca) OR ordem_de_servico_id IN (SELECT id FROM e2e_os);
 CREATE TEMP TABLE e2e_item ON COMMIT DROP AS
@@ -84,7 +87,9 @@ SELECT 'arquivo', arquivo_chave FROM comprovantes_de_pagamento WHERE pedido_id I
 UNION ALL
 SELECT 'arquivo', arquivo_chave FROM anexos_de_lancamento WHERE lancamento_id IN (SELECT id FROM e2e_lanc)
 UNION ALL
-SELECT 'arquivo', arquivo_chave FROM arquivos_de_ordens_de_servico WHERE ordem_id IN (SELECT id FROM e2e_os);
+SELECT 'arquivo', arquivo_chave FROM arquivos_de_ordens_de_servico WHERE ordem_id IN (SELECT id FROM e2e_os)
+UNION ALL
+SELECT 'arquivo', e.arquivo_chave FROM evidencias_de_tarefa e JOIN ocorrencias_de_tarefa o ON o.id = e.ocorrencia_id WHERE o.tarefa_id IN (SELECT id FROM e2e_tarefa);
 
 -- O que pende do lançamento (PLU-337) sai antes dele: anexos, linha do tempo e UCs.
 DELETE FROM anexos_de_lancamento WHERE lancamento_id IN (SELECT id FROM e2e_lanc);
@@ -105,6 +110,11 @@ DELETE FROM termos_de_ordens_de_servico WHERE ordem_id IN (SELECT id FROM e2e_os
 DELETE FROM arquivos_de_ordens_de_servico WHERE ordem_id IN (SELECT id FROM e2e_os);
 DELETE FROM historico_de_ordens_de_servico WHERE ordem_id IN (SELECT id FROM e2e_os);
 DELETE FROM ordens_de_servico WHERE id IN (SELECT id FROM e2e_os);
+-- A tarefa sai com as ocorrências e as evidências (instruções, conclusão e
+-- encerramento são colunas delas). Os gatilhos das tarefas são só de UPDATE.
+DELETE FROM evidencias_de_tarefa WHERE ocorrencia_id IN (SELECT id FROM ocorrencias_de_tarefa WHERE tarefa_id IN (SELECT id FROM e2e_tarefa));
+DELETE FROM ocorrencias_de_tarefa WHERE tarefa_id IN (SELECT id FROM e2e_tarefa);
+DELETE FROM tarefas WHERE id IN (SELECT id FROM e2e_tarefa);
 DELETE FROM itens_de_estoque WHERE id IN (SELECT id FROM e2e_item);
 DELETE FROM fornecedores WHERE id IN (SELECT id FROM e2e_forn);
 
@@ -113,5 +123,5 @@ ALTER TABLE comprovantes_de_pagamento ENABLE TRIGGER comprovantes_de_pagamento_s
 ALTER TABLE anexos_de_lancamento ENABLE TRIGGER anexos_de_lancamento_so_substitui;
 ALTER TABLE historico_de_lancamento ENABLE TRIGGER historico_de_lancamento_append_only;
 
-SELECT (SELECT count(*) FROM e2e_lanc) AS lancamentos, (SELECT count(*) FROM e2e_ped) AS pedidos, (SELECT count(*) FROM e2e_os) AS ordens_de_servico,
+SELECT (SELECT count(*) FROM e2e_lanc) AS lancamentos, (SELECT count(*) FROM e2e_ped) AS pedidos, (SELECT count(*) FROM e2e_os) AS ordens_de_servico, (SELECT count(*) FROM e2e_tarefa) AS tarefas,
        (SELECT count(*) FROM e2e_item) AS itens_de_estoque, (SELECT count(*) FROM e2e_forn) AS fornecedores;
