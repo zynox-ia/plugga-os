@@ -15,7 +15,8 @@ export type AcoesDoItem = { hrefDaFicha: (id: string) => string; aoAbrir: (id: s
 
 /** Visão padrão do Estoque: um card por item, com a caixa neutra, os três números, o nível e o valor. */
 export function CardsDoEstoque({ itens, hrefDaFicha, aoAbrir, aoMovimentar }: { itens: ItemDeEstoqueNaLista[] } & AcoesDoItem) {
-  return <div className={estilosClientes.areaCards}><div className={styles.grade}>
+  // Sem rolagem interna: a página rola inteira e a barra de filtros gruda no topo.
+  return <div className={styles.areaCards}><div className={styles.grade}>
     {itens.map((i, indice) => {
       const s = i.saldo;
       const minimo = Number(i.estoqueMinimo);

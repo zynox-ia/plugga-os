@@ -4,7 +4,9 @@
  * tela, com as medidas do protótipo aprovado. Peso máximo 500, poucas cores.
  */
 
-.pagina { gap: 16px; }
+.pagina { gap: 16px; flex: none; min-height: auto; }
+/* A página rola inteira (o .main-content): nada de rolagem interna nas visões. */
+.areaCards { min-width: 0; }
 .subtitulo { min-width: 0; }
 /* Título à esquerda e ações à direita na mesma linha a partir de 1000 px: o subtítulo quebra e a busca encolhe. Abaixo, quebra como as outras telas. */
 @media (min-width: 1000px) {
@@ -18,9 +20,9 @@
 .navegacao { align-items: center; }
 .abas :global(.ui-tab[aria-selected="true"]) { font-weight: 500; }
 .espaco { flex: 1; }
-.filtros { flex-wrap: wrap; justify-content: flex-end; }
+.filtros { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; min-width: 0; }
 .filtro { width: auto; min-width: 0; }
-.conteudo { flex-direction: column; }
+.conteudo { flex-direction: column; flex: none; min-height: auto; }
 .muted { margin: 0; color: var(--ui-muted); font-size: 12px; font-weight: 400; }
 .flex { flex: 1; }
 .vazio { width: 100%; }
