@@ -171,7 +171,11 @@ export type OpcoesDoFinanceiro = z.infer<typeof opcoesDoFinanceiroSchema>;
 
 // ---------------------------------------------------------------- entrada
 
-const valorPositivo = decimalString.refine((v) => Number(v) > 0, "valor deve ser maior que zero");
+/** Teto de numeric(14,2): acima disso o banco recusaria com erro interno. */
+export const VALOR_MAXIMO_DO_LANCAMENTO = "999999999999.99";
+const valorPositivo = decimalString
+  .refine((v) => Number(v) > 0, "valor deve ser maior que zero")
+  .refine((v) => v.split(".")[0]!.replace(/^0+(?=\d)/, "").length <= 12, "valor acima do máximo de R$ 999.999.999.999,99");
 const textoObrigatorio = (max: number) => z.string().trim().min(1).max(max);
 const textoOpcional = (max: number) =>
   z.string().trim().max(max).transform((v) => (v === "" ? null : v)).nullable().optional();
@@ -369,7 +373,9 @@ const filtrosDosLancamentos = {
  */
 export const listarLancamentosQuerySchema = z
   .object({ ...filtrosDosLancamentos, situacao: situacaoDoFiltroFinanceiroSchema.optional() })
-  .strict();
+  .strict()
+  // O vencimento só vale para o que está em aberto: com os cancelados, a lista seria sempre vazia.
+  .refine((q) => !(q.situacao === "cancelado" && q.vencimento), { path: ["vencimento"], message: "o vencimento não se aplica aos cancelados" });
 export type ListarLancamentosQuery = z.infer<typeof listarLancamentosQuerySchema>;
 
 /**

@@ -34,6 +34,9 @@ describe("contrato do Financeiro", () => {
     assert.equal(criarContaAPagarSchema.safeParse({ ...CONTA, vencimento: "2026-02-30" }).success, false);
     assert.equal(criarContaAPagarSchema.safeParse({ ...CONTA, etapa: "aprovada" }).success, false);
     assert.equal(criarContaAPagarSchema.parse({ ...CONTA, observacao: "  " }).observacao, null);
+    assert.equal(criarContaAPagarSchema.safeParse({ ...CONTA, valor: "999999999999.99" }).success, true);
+    assert.equal(criarContaAPagarSchema.safeParse({ ...CONTA, valor: "1000000000000.00" }).success, false);
+    assert.equal(criarContaAPagarSchema.safeParse({ ...CONTA, valor: "000000000000010.00" }).success, true);
   });
 
   it("editar não aceita empresa nem valor", () => {
@@ -50,5 +53,7 @@ describe("contrato do Financeiro", () => {
     assert.equal(listarLancamentosQuerySchema.parse({}).tipo, "todos");
     assert.equal(listarLancamentosQuerySchema.safeParse({ situacao: "pagas" }).success, false);
     assert.equal(quadroFinanceiroQuerySchema.safeParse({ situacao: "pagar" }).success, false);
+    assert.equal(listarLancamentosQuerySchema.safeParse({ situacao: "cancelado", vencimento: "7" }).success, false);
+    assert.equal(listarLancamentosQuerySchema.safeParse({ situacao: "cancelado" }).success, true);
   });
 });

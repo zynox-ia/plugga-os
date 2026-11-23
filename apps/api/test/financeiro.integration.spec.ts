@@ -4,7 +4,7 @@ import { acaoDoLancamentoSchema, criarContaAPagarSchema, listarLancamentosQueryS
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { AuditAppender } from "../src/audit/audit-appender.js";
-import { EstadoInvalido, RequisicaoInvalida } from "../src/common/errors/dominio.js";
+import { AcessoNegado, EstadoInvalido, NaoEncontrado, RequisicaoInvalida } from "../src/common/errors/dominio.js";
 import type { AuthPrincipal } from "../src/core/auth/auth.types.js";
 import { papelNoFinanceiro } from "../src/financeiro/financeiro.rules.js";
 import { PrismaFinanceiroRepository } from "../src/financeiro/prisma-financeiro.repository.js";
@@ -36,6 +36,10 @@ describe.skipIf(!HABILITADO)("financeiro: lançamentos no Postgres", () => {
     descricao: `${marca} conta`, valor: "100.00", vencimento: "2026-11-30", forma: "boleto", ...dados,
   }), principal);
   const agir = (id: string, acao: unknown) => repositorio.executarAcao(id, acaoDoLancamentoSchema.parse(acao), principal, papel, AGORA);
+  const novaCobranca = async (competencia: string) => (await prisma.lancamento.create({
+    data: { tipo: "entrada", companyId: "plugga", clientId: ids.cliente, categoriaId: ids.receitaPlugga, descricao: `${marca} cobrança ${competencia}`, valor: 50, vencimento: AGORA, competencia, etapa: "gerada", origem: "cobranca_manual" },
+    select: { id: true },
+  })).id;
   const listar = (q: Record<string, unknown> = {}) => repositorio.listar(listarLancamentosQuerySchema.parse({ busca: marca, ...q }), papel, AGORA);
 
   beforeAll(async () => {
@@ -125,6 +129,21 @@ describe.skipIf(!HABILITADO)("financeiro: lançamentos no Postgres", () => {
     await expect(repositorio.editar(id, { descricao: `${marca} nova` }, principal, papel)).rejects.toBeInstanceOf(EstadoInvalido);
   }, PRAZO_MS);
 
+  it("membro não aprova nem troca o fornecedor da conta aprovada (403, não 409)", async () => {
+    const membro = papelNoFinanceiro({ plataforma: null, departamentos: [{ departamento: "financeiro", nivel: "membro", telas: ["financeiro.pagar"] }] });
+    const id = await novaConta();
+    await expect(repositorio.executarAcao(id, acaoDoLancamentoSchema.parse({ acao: "aprovar" }), principal, membro, AGORA)).rejects.toBeInstanceOf(AcessoNegado);
+    await agir(id, { acao: "aprovar" });
+    const outro = (await prisma.fornecedor.create({ data: { nome: `${marca} Outro`, categoria: "servico" } })).id;
+    await expect(repositorio.editar(id, { fornecedorId: outro }, principal, membro)).rejects.toBeInstanceOf(AcessoNegado);
+    await expect(repositorio.editar(id, { vencimento: "2026-12-20" }, principal, membro)).rejects.toBeInstanceOf(AcessoNegado);
+    await repositorio.editar(id, { descricao: `${marca} só o texto` }, principal, membro);
+    const detalhe = await repositorio.obter(id, papel, AGORA);
+    expect([detalhe.favorecido.id, detalhe.vencimento, detalhe.etapa]).toEqual([ids.fornecedor, "2026-11-30", "aprovada"]);
+    await repositorio.editar(id, { fornecedorId: outro }, principal, papel);
+    expect((await repositorio.obter(id, papel, AGORA)).favorecido.id).toBe(outro);
+  }, PRAZO_MS);
+
   it("as ações da PLU-337 ainda são recusadas com conflito", async () => {
     const id = await novaConta();
     await expect(agir(id, { acao: "corrigir_valor", valor: "10.00", motivo: "x" })).rejects.toBeInstanceOf(EstadoInvalido);
@@ -188,11 +207,17 @@ describe.skipIf(!HABILITADO)("financeiro: lançamentos no Postgres", () => {
     expect(resposta.itens.every((i) => i.tipo === "saida")).toBe(true);
     expect(resposta.resumo).toMatchObject({ aReceber: null, saldoProjetado: null, vencidos: { aReceber: null } });
     expect(resposta.alcance).toEqual({ saidas: true, entradas: false });
-    const entrada = await prisma.lancamento.findFirstOrThrow({ where: { descricao: { startsWith: marca }, tipo: "entrada" }, select: { id: true } });
-    await expect(repositorio.obter(entrada.id, soPagar, AGORA)).rejects.toThrow("Lançamento não encontrado.");
+    const entrada = await novaCobranca("2027-01");
+    await expect(repositorio.obter(entrada, soPagar, AGORA)).rejects.toBeInstanceOf(NaoEncontrado);
+    // Com Conciliação o RLS deixa alterar a entrada; quem barra é a aplicação, que opera só o tipo da tela.
+    const pagarEConciliar = papelNoFinanceiro({ plataforma: null, departamentos: [{ departamento: "financeiro", nivel: "membro", telas: ["financeiro.pagar", "financeiro.conciliacao"] }] });
+    await expect(repositorio.executarAcao(entrada, acaoDoLancamentoSchema.parse({ acao: "cancelar", motivo: "x" }), principal, pagarEConciliar, AGORA)).rejects.toBeInstanceOf(NaoEncontrado);
+    await expect(repositorio.editar(entrada, { descricao: `${marca} y` }, principal, pagarEConciliar)).rejects.toBeInstanceOf(NaoEncontrado);
   }, PRAZO_MS);
 
   it("o quadro tem as quatro colunas, totais por tipo e deixa os cancelados de fora", async () => {
+    await novaConta();
+    await novaCobranca("2027-02");
     const quadro = await repositorio.quadro(quadroFinanceiroQuerySchema.parse({ busca: marca }), papel, AGORA);
     expect(quadro.colunas.map((c) => c.id)).toEqual(["preparo", "aberto", "liquidado", "conciliado"]);
     const todos = quadro.colunas.flatMap((c) => c.itens);

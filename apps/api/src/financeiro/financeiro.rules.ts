@@ -9,6 +9,7 @@ import {
   type ColunaDoQuadroFinanceiro,
   type EtapaDeLancamento,
   type NomeDaAcaoDoLancamento,
+  type OrigemDoLancamento,
   type SituacaoDoFiltroFinanceiro,
   type TipoDeLancamento,
 } from "@plugga/shared";
@@ -159,6 +160,35 @@ export function acoesPermitidas(l: EstadoDoLancamento, papel: PapelNoFinanceiro)
 
 /** Editar vale antes de liquidar e fora do cancelado, para quem alcança o tipo. */
 export const podeEditar = (l: EstadoDoLancamento, papel: PapelNoFinanceiro): boolean => alcancaTipo(papel, l.tipo) && emAberto(l);
+
+/**
+ * O que a aprovação da Gerente cobre (F2): para quem e de onde sai o dinheiro, e
+ * quando. Na saída já aprovada, só ela muda esses campos; senão a aprovação seria
+ * contornável por uma edição antes de pagar.
+ */
+export const camposDaAprovacao = ["fornecedorId", "contaCorrenteId", "forma", "vencimento"] as const;
+
+export type ProblemaDaEdicao = { codigo: "CONFLITO_ESTADO" | "REQUISICAO_INVALIDA" | "ACESSO_NEGADO"; mensagem: string; campo?: string };
+
+/** Por que a edição não pode, ou nulo. `campos` são os nomes dos campos enviados. */
+export function problemaDaEdicao(
+  l: EstadoDoLancamento & { origem: OrigemDoLancamento },
+  campos: readonly string[],
+  papel: PapelNoFinanceiro,
+): ProblemaDaEdicao | null {
+  if (!podeEditar(l, papel)) return { codigo: "CONFLITO_ESTADO", mensagem: "Lançamento pago, recebido ou cancelado não se edita." };
+  if (campos.includes("fornecedorId") && l.tipo !== "saida") {
+    return { codigo: "REQUISICAO_INVALIDA", mensagem: "Cobrança não tem fornecedor.", campo: "fornecedorId" };
+  }
+  // Na conta que nasceu do pedido, o fornecedor é o da cotação aprovada.
+  if (campos.includes("fornecedorId") && l.origem === "pedido_de_compra") {
+    return { codigo: "REQUISICAO_INVALIDA", mensagem: "O fornecedor vem da cotação aprovada do pedido de compra.", campo: "fornecedorId" };
+  }
+  if (l.tipo === "saida" && l.etapa === "aprovada" && !papel.gerente && campos.some((c) => (camposDaAprovacao as readonly string[]).includes(c))) {
+    return { codigo: "ACESSO_NEGADO", mensagem: "Na conta aprovada, só a Gerente do Financeiro muda fornecedor, conta, forma ou vencimento." };
+  }
+  return null;
+}
 
 // ---------------------------------------------------------------- filtro de Situação
 

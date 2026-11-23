@@ -2739,7 +2739,9 @@ model Lancamento {
   valorRecebido              Decimal?                 @map("valor_recebido") @db.Decimal(14, 2)
   recebimentoRegistradoEm    DateTime?                @map("recebimento_registrado_em") @db.Timestamptz(6)
   recebimentoRegistradoPorId String?                  @map("recebimento_registrado_por_id") @db.Uuid
-  /// Coluna gerada no banco: o dia do pagamento ou do recebimento. Nunca gravada pela aplicação.
+  /// Coluna GERADA no banco (GENERATED ALWAYS AS COALESCE(pago_em, recebido_em) STORED, a
+  /// primeira do projeto): só leitura, a aplicação nunca grava. O Prisma a vê como coluna
+  /// comum, então um `migrate dev`/`migrate diff` pode acusar diferença aqui: não é drift.
   liquidadoEm                DateTime?                @map("liquidado_em") @db.Timestamptz(6)
   conciliadoEm               DateTime?                @map("conciliado_em") @db.Timestamptz(6)
   conciliadoPorId            String?                  @map("conciliado_por_id") @db.Uuid

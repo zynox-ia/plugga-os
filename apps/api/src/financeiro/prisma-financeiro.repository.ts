@@ -25,7 +25,7 @@ import {
 } from "@plugga/shared";
 
 import { AuditAppender } from "../audit/audit-appender";
-import { EstadoInvalido, NaoEncontrado, RequisicaoInvalida } from "../common/errors/dominio";
+import { AcessoNegado, EstadoInvalido, NaoEncontrado, RequisicaoInvalida } from "../common/errors/dominio";
 import { diaEmManaus, inicioDoDiaEmManaus } from "../compras/dias-uteis";
 import type { AuthPrincipal } from "../core/auth/auth.types";
 import { PrismaService } from "../prisma/prisma.service";
@@ -42,6 +42,7 @@ import {
   planejarAcao,
   podeEditar,
   podeExecutar,
+  problemaDaEdicao,
   prazoDoLancamento,
   tiposVisiveis,
   type PapelNoFinanceiro,
@@ -228,13 +229,13 @@ export class PrismaFinanceiroRepository {
     const campos = Object.entries(input).filter(([, valor]) => valor !== undefined).map(([campo]) => campo).sort();
     await this.prisma.comContexto(async (tx) => {
       const atual = await this.travar(tx, id, papel);
-      if (!podeEditar(atual, papel)) throw new EstadoInvalido("Lançamento pago, recebido ou cancelado não se edita.");
+      const problema = problemaDaEdicao(atual, campos, papel);
+      if (problema?.codigo === "CONFLITO_ESTADO") throw new EstadoInvalido(problema.mensagem);
+      if (problema?.codigo === "ACESSO_NEGADO") throw new AcessoNegado(problema.mensagem);
+      if (problema) throw new RequisicaoInvalida(problema.mensagem, problema.campo ? [{ campo: problema.campo, problema: problema.mensagem }] : undefined);
       // Edição sem campo nenhum não grava nem gera evento.
       if (campos.length === 0) return;
-      if (input.fornecedorId !== undefined) {
-        if (atual.tipo !== "saida") throw new RequisicaoInvalida("Cobrança não tem fornecedor.", [{ campo: "fornecedorId", problema: "Só a conta a pagar tem fornecedor." }]);
-        await this.garantirFornecedor(tx, input.fornecedorId);
-      }
+      if (input.fornecedorId !== undefined) await this.garantirFornecedor(tx, input.fornecedorId);
       if (input.categoriaId !== undefined) await this.garantirCategoria(tx, input.categoriaId, atual.companyId, atual.tipo);
       if (input.contaCorrenteId !== undefined) await this.garantirConta(tx, input.contaCorrenteId, atual.companyId);
       await tx.lancamento.update({
@@ -263,7 +264,7 @@ export class PrismaFinanceiroRepository {
         throw new EstadoInvalido(plano.mensagem);
       }
       if (!podeExecutar(papel, atual, acao.acao)) {
-        throw new EstadoInvalido(acao.acao === "aprovar" || atual.etapa !== "aberta"
+        throw new AcessoNegado(acao.acao === "aprovar" || atual.etapa !== "aberta"
           ? "Só a Gerente do Financeiro aprova a conta ou cancela uma conta aprovada."
           : "Esta ação não está entre as suas.");
       }
@@ -285,7 +286,7 @@ export class PrismaFinanceiroRepository {
     const linhas = await tx.$queryRaw<{ id: string }[]>`SELECT id FROM public.lancamentos WHERE id = ${id}::uuid FOR UPDATE`;
     const linha = linhas.length === 0 ? null : await tx.lancamento.findUnique({
       where: { id },
-      select: { tipo: true, etapa: true, canceladoEm: true, vencimento: true, companyId: true },
+      select: { tipo: true, etapa: true, canceladoEm: true, vencimento: true, companyId: true, origem: true },
     });
     if (!linha || !tiposVisiveis(papel, "todos").includes(linha.tipo)) throw new NaoEncontrado("Lançamento não encontrado.");
     return linha;

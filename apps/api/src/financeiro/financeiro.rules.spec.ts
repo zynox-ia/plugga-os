@@ -15,6 +15,7 @@ import {
   podeEditar,
   podeExecutar,
   prazoDoLancamento,
+  problemaDaEdicao,
   tiposVisiveis,
   type EstadoDoLancamento,
 } from "./financeiro.rules";
@@ -134,6 +135,29 @@ describe("ações", () => {
     expect(podeEditar(saida({ etapa: "paga" }), MEMBRO_PAGAR)).toBe(false);
     expect(podeEditar(saida({ canceladoEm: AGORA }), MEMBRO_PAGAR)).toBe(false);
     expect(podeEditar(entrada(), MEMBRO_PAGAR)).toBe(false);
+  });
+});
+
+describe("edição da conta aprovada", () => {
+  const aprovada = { ...saida({ etapa: "aprovada" }), origem: "avulsa" as const };
+
+  it("na aprovada, só a gerente muda fornecedor, conta, forma ou vencimento", () => {
+    for (const campo of ["fornecedorId", "contaCorrenteId", "forma", "vencimento"]) {
+      expect(problemaDaEdicao(aprovada, [campo], MEMBRO_PAGAR), campo).toMatchObject({ codigo: "ACESSO_NEGADO" });
+      expect(problemaDaEdicao(aprovada, [campo], GERENTE), campo).toBeNull();
+    }
+    expect(problemaDaEdicao(aprovada, ["descricao", "observacao"], MEMBRO_PAGAR)).toBeNull();
+    // Antes da aprovação, o membro edita tudo.
+    expect(problemaDaEdicao({ ...saida(), origem: "avulsa" }, ["fornecedorId", "vencimento"], MEMBRO_PAGAR)).toBeNull();
+  });
+
+  it("na conta do pedido de compra, o fornecedor não muda, nem pela gerente", () => {
+    expect(problemaDaEdicao({ ...aprovada, origem: "pedido_de_compra" }, ["fornecedorId"], GERENTE)).toMatchObject({ codigo: "REQUISICAO_INVALIDA" });
+  });
+
+  it("cobrança não tem fornecedor; liquidado não se edita", () => {
+    expect(problemaDaEdicao({ ...entrada(), origem: "cobranca_manual" }, ["fornecedorId"], GERENTE)).toMatchObject({ codigo: "REQUISICAO_INVALIDA" });
+    expect(problemaDaEdicao({ ...saida({ etapa: "paga" }), origem: "avulsa" }, ["descricao"], GERENTE)).toMatchObject({ codigo: "CONFLITO_ESTADO" });
   });
 });
 
