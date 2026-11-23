@@ -63,6 +63,12 @@ describe("ordem de serviço: agendar", () => {
     expect(plano.alteracoes).toMatchObject({ situacao: "agendada", adiamentoMotivo: null, adiadaPara: null });
   });
 
+  it("arrastar na agenda não reagenda O.S. com laudo, concluída nem cancelada (PLU-346)", () => {
+    for (const situacao of ["laudo", "concluida", "cancelada", "em_campo"] as const) {
+      expect(() => planejarAcao(estado({ situacao }), { acao: "agendar", tecnicoId: TECNICO, data: "2026-11-24", horario: "09:00" }, AGORA, POR), situacao).toThrow(EstadoInvalido);
+    }
+  });
+
   it("não agenda O.S. em campo nem encerrada", () => {
     expect(() => planejarAcao(estado({ situacao: "em_campo" }), { acao: "agendar", tecnicoId: TECNICO, data: "2026-11-24", horario: "09:00" }, AGORA, POR)).toThrow(EstadoInvalido);
     expect(() => planejarAcao(estado({ situacao: "concluida" }), { acao: "agendar", tecnicoId: TECNICO, data: "2026-11-24", horario: "09:00" }, AGORA, POR)).toThrow(EstadoInvalido);

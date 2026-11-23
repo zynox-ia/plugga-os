@@ -125,6 +125,31 @@ export class PrismaEngenhariaRepository {
     });
   }
 
+  /**
+   * A semana da agenda: as O.S. agendadas, em campo, com laudo ou concluídas com
+   * o agendamento na semana (por técnico ou apoio, quando filtrado) e as que
+   * esperam agenda (abertas e adiadas, pelo prazo).
+   */
+  async agenda(inicio: string, fim: string, filtros: { empresa?: "plugga" | "waze"; tecnicoId?: string }): Promise<{
+    semana: LinhaDoResumo[]; paraAgendar: LinhaDoResumo[]; tecnicos: { id: string; nome: string }[]; clientes: Nomes; pessoas: Nomes;
+  }> {
+    return this.prisma.comContexto(async (tx) => {
+      const empresa: Prisma.OrdemDeServicoWhereInput = filtros.empresa ? { companyId: filtros.empresa } : {};
+      const tecnico: Prisma.OrdemDeServicoWhereInput = filtros.tecnicoId ? { OR: [{ tecnicoId: filtros.tecnicoId }, { apoioId: filtros.tecnicoId }] } : {};
+      const [semana, paraAgendar, tecnicos] = await Promise.all([
+        tx.ordemDeServico.findMany({
+          where: { AND: [empresa, tecnico, { situacao: { in: ["agendada", "em_campo", "laudo", "concluida"] } }, { agendadaPara: { gte: inicioDoDiaEmManaus(inicio), lt: new Date(inicioDoDiaEmManaus(fim).getTime() + MS_POR_DIA) } }] },
+          select: SELECT_DO_RESUMO,
+          orderBy: { agendadaPara: "asc" },
+          take: 1000,
+        }),
+        tx.ordemDeServico.findMany({ where: { AND: [empresa, { situacao: { in: ["aberta", "adiada"] } }] }, select: SELECT_DO_RESUMO, orderBy: [{ prazo: "asc" }, { createdAt: "asc" }], take: 100 }),
+        tx.$queryRaw<{ id: string; name: string }[]>`SELECT id, name FROM plugga_security.pessoas_da_engenharia(NULL::uuid[])`,
+      ]);
+      return { semana, paraAgendar, tecnicos: tecnicos.map((t) => ({ id: t.id, nome: t.name })), ...(await this.nomesDasLinhas(tx, [...semana, ...paraAgendar])) };
+    });
+  }
+
   /** Configurações gravadas dos tipos e as O.S. em andamento de cada um. */
   async configuracoes(): Promise<{
     linhas: { tipo: TipoDeOrdemDeServico; prazoPadraoDiasUteis: number; agendadorId: string | null; atualizadoPorId: string | null; atualizadoEm: Date }[];

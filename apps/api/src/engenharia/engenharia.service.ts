@@ -29,6 +29,12 @@ import {
   type QuadroDeOrdensQuery,
   type QuadroDeOrdensResposta,
   type VisaoGeralDaEngenharia,
+  agendaRespostaSchema,
+  ehDiaUtilDaTarefa,
+  semanaDe,
+  somarDias,
+  type AgendaDeCampo,
+  type AgendaQuery,
   PRAZO_PADRAO_DO_TIPO,
   configuracoesDaEngenhariaRespostaSchema,
   type ConfiguracoesDaEngenharia,
@@ -140,6 +146,34 @@ export class EngenhariaService {
       prioridades: [...prioridadesDaOrdemDeServico],
       origens: [...origensDaOrdemDeServico],
       prazoSugerido: Object.fromEntries(tiposDeOrdemDeServico.map((tipo) => [tipo, prazoSugerido(agora, prazos[tipo])])),
+    });
+  }
+
+  /** A agenda de campo: semana × técnico, com o bloco "Para agendar" (PLU-346). */
+  async agenda(query: AgendaQuery, principal: AuthPrincipal): Promise<AgendaDeCampo> {
+    this.exigirAcesso(principal);
+    const agora = this.agora();
+    const hoje = diaEmManaus(agora);
+    const { inicio, fim } = semanaDe(query.semana ?? hoje);
+    const r = await this.repositorio.agenda(inicio, fim, { empresa: query.empresa, tecnicoId: query.tecnicoId });
+    const dias = Array.from({ length: 7 }, (_, i) => somarDias(inicio, i));
+    const resumos = r.semana.map((linha) => paraResumo(linha, r.pessoas, r.clientes, agora));
+    const doDia = (lista: typeof resumos, dia: string) => lista.filter((o) => o.agendadaPara && diaEmManaus(new Date(o.agendadaPara)) === dia);
+    const porTecnico = new Map<string, { id: string; nome: string }>();
+    for (const t of r.tecnicos) if (!query.tecnicoId || t.id === query.tecnicoId) porTecnico.set(t.id, t);
+    for (const o of resumos) if (o.tecnico && (!query.tecnicoId || o.tecnico.id === query.tecnicoId)) porTecnico.set(o.tecnico.id, porTecnico.get(o.tecnico.id) ?? o.tecnico);
+    // Filtrando por técnico, a O.S. em que ele é apoio aparece na linha dele.
+    const daLinha = (tecnicoId: string) => resumos.filter((o) => o.tecnico?.id === tecnicoId || (query.tecnicoId === tecnicoId && o.apoio?.id === tecnicoId));
+    const semTecnico = resumos.filter((o) => !o.tecnico);
+    return agendaRespostaSchema.parse({
+      hoje,
+      semana: { inicio, fim, anterior: somarDias(inicio, -7), proxima: somarDias(inicio, 7) },
+      dias: dias.map((dia) => ({ dia, util: ehDiaUtilDaTarefa(dia), hoje: dia === hoje })),
+      linhas: [...porTecnico.values()]
+        .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"))
+        .map((tecnico) => ({ tecnico, dias: dias.map((dia) => ({ dia, ordens: doDia(daLinha(tecnico.id), dia) })) })),
+      semTecnico: semTecnico.length ? dias.map((dia) => ({ dia, ordens: doDia(semTecnico, dia) })).filter((d) => d.ordens.length > 0) : [],
+      paraAgendar: r.paraAgendar.map((linha) => paraResumo(linha, r.pessoas, r.clientes, agora)),
     });
   }
 

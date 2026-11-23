@@ -7,7 +7,7 @@ import { ArmazenamentoDeDocumentos } from "../lead-documentos/armazenamento-de-d
 import { PrismaModule } from "../prisma/prisma.module";
 import { TarefasModule } from "../tarefas/tarefas.module";
 import { EngenhariaHabilitadaGuard } from "./engenharia-habilitada.guard";
-import { ConfiguracoesDaEngenhariaController, EngenhariaController, VisaoGeralDaEngenhariaController } from "./engenharia.controller";
+import { AgendaDeCampoController, ConfiguracoesDaEngenhariaController, EngenhariaController, VisaoGeralDaEngenhariaController } from "./engenharia.controller";
 import { EngenhariaService, RELOGIO_DA_ENGENHARIA } from "./engenharia.service";
 import { PrismaEngenhariaRepository } from "./prisma-engenharia.repository";
 import { PrismaUsinasRepository } from "./prisma-usinas.repository";
@@ -21,7 +21,7 @@ import { TermoDaOrdemPdf } from "./termo-da-ordem.pdf";
  */
 @Module({
   imports: [AuditModule, CoreModule, PrismaModule, ComprasModule, TarefasModule],
-  controllers: [EngenhariaController, VisaoGeralDaEngenhariaController, ConfiguracoesDaEngenhariaController, UsinasController, MonitoramentoController, PlataformasController],
+  controllers: [EngenhariaController, VisaoGeralDaEngenhariaController, ConfiguracoesDaEngenhariaController, AgendaDeCampoController, UsinasController, MonitoramentoController, PlataformasController],
   providers: [
     EngenhariaHabilitadaGuard,
     EngenhariaService,

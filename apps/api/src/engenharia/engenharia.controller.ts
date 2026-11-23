@@ -25,6 +25,9 @@ import {
   type QuadroDeOrdensQuery,
   type QuadroDeOrdensResposta,
   type VisaoGeralDaEngenharia,
+  agendaQuerySchema,
+  type AgendaDeCampo,
+  type AgendaQuery,
   editarConfiguracaoDeTipoDeOrdemSchema,
   tipoDeOrdemDeServicoSchema,
   type ConfiguracoesDaEngenharia,
@@ -226,5 +229,19 @@ export class ConfiguracoesDaEngenhariaController {
     @CurrentPrincipal() principal: AuthPrincipal,
   ): Promise<ConfiguracoesDaEngenharia> {
     return this.engenharia.editarTipo(tipo, input, principal);
+  }
+}
+
+/** Agenda de campo dos técnicos (PLU-346): quem opera as O.S. Reagendar é a ação `agendar` da O.S. */
+@Controller("engenharia/agenda")
+@UseGuards(EngenhariaHabilitadaGuard, SessionAuthGuard, AcessoGuard)
+@Departamento(["engenharia-obras"])
+@Tela(...TELAS_DAS_ORDENS)
+export class AgendaDeCampoController {
+  constructor(@Inject(EngenhariaService) private readonly engenharia: EngenhariaService) {}
+
+  @Get()
+  agenda(@Query(new ZodValidationPipe(agendaQuerySchema)) query: AgendaQuery, @CurrentPrincipal() principal: AuthPrincipal): Promise<AgendaDeCampo> {
+    return this.engenharia.agenda(query, principal);
   }
 }

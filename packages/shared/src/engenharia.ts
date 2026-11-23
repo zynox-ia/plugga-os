@@ -498,6 +498,34 @@ export const editarConfiguracaoDeTipoDeOrdemSchema = z
   .strict();
 export type EditarConfiguracaoDeTipoDeOrdem = z.infer<typeof editarConfiguracaoDeTipoDeOrdemSchema>;
 
+// ---------------------------------------------------------------- agenda de campo (PLU-346)
+
+/**
+ * `GET /engenharia/agenda?semana=&empresa=&tecnicoId=`: a semana × técnico. A
+ * semana é qualquer dia dela (a API usa a segunda). Reagendar é a ação `agendar`
+ * da O.S. (`POST /engenharia/ordens-de-servico/:id/acoes`), com as mesmas regras.
+ */
+export const agendaQuerySchema = z
+  .object({ semana: diaDoCalendario.optional(), empresa: companyKeySchema.optional(), tecnicoId: uuid.optional() })
+  .strict();
+export type AgendaQuery = z.infer<typeof agendaQuerySchema>;
+
+const diaDaAgenda = z.object({ dia: diaDoCalendario, ordens: z.array(ordemDeServicoResumoSchema) });
+
+export const agendaRespostaSchema = z.object({
+  hoje: diaDoCalendario,
+  semana: z.object({ inicio: diaDoCalendario, fim: diaDoCalendario, anterior: diaDoCalendario, proxima: diaDoCalendario }),
+  /** Segunda a domingo. `util` é segunda a sexta (feriado conta como dia útil); o fim de semana só aparece se tiver O.S. */
+  dias: z.array(z.object({ dia: diaDoCalendario, util: z.boolean(), hoje: z.boolean() })),
+  /** Uma linha por técnico (ativos da Engenharia e quem aparece numa O.S. da semana), com as O.S. de cada dia, pela hora. */
+  linhas: z.array(z.object({ tecnico: pessoa, dias: z.array(diaDaAgenda) })),
+  /** O.S. agendadas sem técnico (não deveria haver; o agendamento exige técnico). */
+  semTecnico: z.array(diaDaAgenda),
+  /** Abertas e adiadas, pelo prazo (até 100): o bloco "Para agendar". */
+  paraAgendar: z.array(ordemDeServicoResumoSchema),
+});
+export type AgendaDeCampo = z.infer<typeof agendaRespostaSchema>;
+
 // ---------------------------------------------------------------- visão geral (PLU-349)
 
 /** `GET /engenharia/visao-geral?empresa=`: o dia da Engenharia. */

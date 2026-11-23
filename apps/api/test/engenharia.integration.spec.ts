@@ -10,6 +10,7 @@ import { ComprasService } from "../src/compras/compras.service.js";
 import { PrismaComprasRepository } from "../src/compras/prisma-compras.repository.js";
 import type { AuthPrincipal } from "../src/core/auth/auth.types.js";
 import { paraFicha } from "../src/engenharia/engenharia.mapeamento.js";
+import { EngenhariaService } from "../src/engenharia/engenharia.service.js";
 import { PrismaEngenhariaRepository } from "../src/engenharia/prisma-engenharia.repository.js";
 import { MovimentosDeEstoque } from "../src/estoque/movimentos-de-estoque.js";
 import { contextoBanco } from "../src/prisma/contexto-banco.js";
@@ -290,5 +291,37 @@ describe.skipIf(!HABILITADO)("engenharia: ordens de serviço no Postgres", { tim
     expect(depois.pessoas.get(pessoas.get("gerente")!.id)).toBe(`${marca} gerente`);
     await expect(tx("gerente", (t) => t.configuracaoDeTipoDeOrdem.deleteMany({ where: { tipo: "limpeza" } }))).rejects.toThrow(/permission denied/);
     expect(await tx("compras", (t) => t.configuracaoDeTipoDeOrdem.count())).toBe(0);
+  });
+
+  it("a agenda traz a semana do técnico, e as abertas e adiadas no Para agendar (PLU-346)", async () => {
+    const agendada = await criar({ descricao: `${marca} agenda terça` });
+    await acao(agendada, { acao: "agendar", tecnicoId: pessoas.get("tecnico")!.id, data: "2026-11-24", horario: "09:00" });
+    const semData = await criar({ descricao: `${marca} agenda sem data` });
+    const r = await como("eng", () => repo.agenda("2026-11-23", "2026-11-29", { empresa: "waze" }));
+    expect(r.semana.map((l) => l.id)).toContain(agendada);
+    expect(r.semana.map((l) => l.id)).not.toContain(semData);
+    expect(r.paraAgendar.map((l) => l.id)).toContain(semData);
+    expect(r.tecnicos.map((t) => t.id)).toContain(pessoas.get("tecnico")!.id);
+    const doTecnico = await como("eng", () => repo.agenda("2026-11-23", "2026-11-29", { tecnicoId: pessoas.get("tecnico")!.id }));
+    expect(doTecnico.semana.every((l) => l.tecnicoId === pessoas.get("tecnico")!.id || l.apoioId === pessoas.get("tecnico")!.id)).toBe(true);
+    expect((await como("eng", () => repo.agenda("2026-11-30", "2026-12-06", {}))).semana.map((l) => l.id)).not.toContain(agendada);
+    expect((await como("eng", () => repo.agenda("2026-11-23", "2026-11-29", { empresa: "plugga" }))).semana.map((l) => l.id)).not.toContain(agendada);
+  });
+
+  it("a agenda monta a semana de segunda a domingo, uma linha por técnico e a O.S. no dia dela", async () => {
+    const servico = new EngenhariaService(repo, {} as never, {} as never, {} as never, {} as never, {} as never, () => AGORA);
+    const agenda = await como("eng", () => servico.agenda({ semana: "2026-11-25", empresa: "waze" }, principal("eng")));
+    expect(agenda.semana).toEqual({ inicio: "2026-11-23", fim: "2026-11-29", anterior: "2026-11-16", proxima: "2026-11-30" });
+    expect(agenda.dias.map((d) => [d.dia, d.util, d.hoje])).toEqual([
+      ["2026-11-23", true, true], ["2026-11-24", true, false], ["2026-11-25", true, false], ["2026-11-26", true, false],
+      ["2026-11-27", true, false], ["2026-11-28", false, false], ["2026-11-29", false, false],
+    ]);
+    const linha = agenda.linhas.find((l) => l.tecnico.id === pessoas.get("tecnico")!.id)!;
+    expect(linha.dias).toHaveLength(7);
+    const terca = linha.dias.find((d) => d.dia === "2026-11-24")!;
+    expect(terca.ordens.map((o) => o.descricao)).toContain(`${marca} agenda terça`);
+    expect(agenda.paraAgendar.every((o) => o.situacao === "aberta" || o.situacao === "adiada")).toBe(true);
+    const so = await como("eng", () => servico.agenda({ tecnicoId: pessoas.get("tecnico")!.id }, principal("eng")));
+    expect(so.linhas.map((l) => l.tecnico.id)).toEqual([pessoas.get("tecnico")!.id]);
   });
 });

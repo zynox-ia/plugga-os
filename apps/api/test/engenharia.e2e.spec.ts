@@ -25,6 +25,7 @@ const servico = {
   anexarTermoAssinado: vi.fn().mockResolvedValue({ id: ID }),
   pedirMaterial: vi.fn().mockResolvedValue({ id: ID }),
   visaoGeral: vi.fn().mockResolvedValue({ metricas: {} }),
+  agenda: vi.fn().mockResolvedValue({ linhas: [] }),
   configuracoes: vi.fn().mockResolvedValue({ tipos: [] }),
   editarTipo: vi.fn().mockResolvedValue({ tipos: [] }),
 };
@@ -60,6 +61,14 @@ describe("ordens de serviço da Engenharia (e2e)", () => {
     expect(servico.visaoGeral).toHaveBeenLastCalledWith({ empresa: "waze" }, expect.anything());
     await como("engenharia-obras:membro")(http().get("/engenharia/visao-geral?empresa=outra")).expect(400);
     await como("crm:gerente")(http().get("/engenharia/visao-geral")).expect(403);
+  });
+
+  it("a agenda valida a semana, a empresa e o técnico antes do serviço (PLU-346)", async () => {
+    await engenharia(http().get("/engenharia/agenda?semana=2026-11-25&empresa=waze")).expect(200);
+    expect(servico.agenda).toHaveBeenLastCalledWith({ semana: "2026-11-25", empresa: "waze" }, expect.anything());
+    await engenharia(http().get("/engenharia/agenda?semana=25/11/2026")).expect(400);
+    await engenharia(http().get("/engenharia/agenda?tecnicoId=x")).expect(400);
+    await como("crm:gerente")(http().get("/engenharia/agenda")).expect(403);
   });
 
   it("as Configurações validam o tipo e o prazo antes do serviço", async () => {
@@ -119,6 +128,7 @@ describe("ordens de serviço da Engenharia (e2e)", () => {
       await http().get("/engenharia/ordens-de-servico").expect(404);
       await http().get("/engenharia/ordens-de-servico/quadro").expect(404);
       await http().get("/engenharia/visao-geral").expect(404);
+      await http().get("/engenharia/agenda").expect(404);
       await http().get("/engenharia/configuracoes").expect(404);
       expect(servico.listar).not.toHaveBeenCalled();
     } finally {
