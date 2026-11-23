@@ -6,6 +6,10 @@ import {
   contractListSchema,
   emailStatusSchema,
   fornecedorSchema,
+  listarPedidosDeCompraRespostaSchema,
+  opcoesDeCompraRespostaSchema,
+  pedidoDeCompraSchema,
+  quadroDeComprasRespostaSchema,
   listarFornecedoresRespostaSchema,
   listClientsResponseSchema,
   listDealsResponseSchema,
@@ -77,6 +81,22 @@ export const fetchFornecedores = (query: { busca?: string; situacao: string; cat
 /** GET /suprimentos/fornecedores/:id: ficha completa, para editar. */
 export const fetchFornecedor = (id: string) => lerApi("/suprimentos/fornecedores/:id", fornecedorSchema, { id });
 
+type ConsultaDeCompras = Record<string, string | undefined>;
+
+/** GET /suprimentos/compras/quadro: uma coluna por etapa, com contagem, soma e prazos. */
+export const fetchQuadroDeCompras = (consulta: ConsultaDeCompras) =>
+  lerApi("/suprimentos/compras/quadro", quadroDeComprasRespostaSchema, {}, { consulta });
+
+/** GET /suprimentos/compras/pedidos: lista (até 200, os mais recentes), com total. */
+export const fetchPedidosDeCompra = (consulta: ConsultaDeCompras) =>
+  lerApi("/suprimentos/compras/pedidos", listarPedidosDeCompraRespostaSchema, {}, { consulta });
+
+/** GET /suprimentos/compras/pedidos/:id: a ficha, com as ações que a pessoa pode fazer agora. */
+export const fetchPedidoDeCompra = (id: string) => lerApi("/suprimentos/compras/pedidos/:id", pedidoDeCompraSchema, { id });
+
+/** GET /suprimentos/compras/opcoes: pessoas, obras e fornecedores ativos. */
+export const fetchOpcoesDeCompra = () => lerApi("/suprimentos/compras/opcoes", opcoesDeCompraRespostaSchema);
+
 /** GET /pipelines: os pipelines que a pessoa alcança, com etapas, equipe e se pode configurá-los. */
 export const fetchPipelinesAtivos = () =>
   lerApi("/pipelines", listPipelinesResponseSchema, {}, { consulta: { status: "active" } });
@@ -93,3 +113,4 @@ export const fetchOpportunity = (id: string) =>
 export const fetchContracts = () => lerApi("/commercial/contracts", contractListSchema);
 
 export const fetchContract = (id: string) => lerApi("/commercial/contracts/:id", contractDetailSchema, { id });
+

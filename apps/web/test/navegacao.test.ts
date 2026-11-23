@@ -97,13 +97,15 @@ describe("barra lateral pelo acesso", () => {
     departamentos: departamentos.map((departamento) => ({ departamento, nivel: "membro" })),
   });
 
-  it("quem é de Financeiro e Suprimentos vê Compras em Suprimentos, sem rota (em-breve)", () => {
+  it("quem é de Financeiro e Suprimentos vê Compras em Suprimentos, com a tela (PLU-328)", () => {
     const grupos = navGroupsForAccess(membro("financeiro", "suprimentos")).filter((grupo) => grupo.collapsible);
     assert.deepEqual(
       grupos.map((grupo) => grupo.label),
       ["Financeiro", "Suprimentos"],
     );
-    assert.ok(grupos[1]?.items.some((item) => item.id === "suprimentos:Compras" && item.disabled));
+    assert.ok(grupos[1]?.items.some((item) => item.id === "/suprimentos/compras" && !item.disabled));
+    assert.equal(navIdForPathname("/suprimentos/compras"), "/suprimentos/compras");
+    assert.equal(tituloForNavId("/suprimentos/compras"), "Compras");
   });
 
   it("Fornecedores sai do em-breve e aponta para a tela (PLU-326)", () => {

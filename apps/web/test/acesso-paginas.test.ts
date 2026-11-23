@@ -60,3 +60,11 @@ test("Fornecedores abre só com a tela suprimentos.fornecedores (PLU-326)", () =
   assert.equal(podeAbrirPagina({ plataforma: "admin", departamentos: [] }, caminho), true);
   assert.equal(podeAbrirPagina({ plataforma: null, departamentos: [{ departamento: "suprimentos", nivel: "membro" }] }, "/suprimentos/fornecedores-outros"), false);
 });
+
+test("Compras abre só com a tela suprimentos.compras (PLU-328)", () => {
+  const caminho = "/suprimentos/compras";
+  assert.equal(podeAbrirPagina({ plataforma: null, departamentos: [{ departamento: "suprimentos", nivel: "membro", telas: ["suprimentos.compras"] }] }, caminho), true);
+  assert.equal(podeAbrirPagina({ plataforma: null, departamentos: [{ departamento: "suprimentos", nivel: "membro", telas: ["suprimentos.fornecedores"] }] }, caminho), false);
+  assert.equal(podeAbrirPagina({ plataforma: null, departamentos: [{ departamento: "financeiro", nivel: "gerente" }] }, caminho), false);
+  assert.equal(podeAbrirPagina({ plataforma: "admin", departamentos: [] }, caminho), true);
+});
