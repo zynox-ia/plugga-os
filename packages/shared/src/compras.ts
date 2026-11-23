@@ -260,11 +260,28 @@ export const acoesDoPedido = [
 const _todasAsAcoesListadas: Exclude<NomeDaAcaoDoPedido, (typeof acoesDoPedido)[number]> extends never ? true : never = true;
 void _todasAsAcoesListadas;
 
-/** Obra mínima para o destino do pedido. */
+/**
+ * Obra mínima para o destino do pedido, criada em `POST .../compras/obras`
+ * enquanto não há tela de obras. A obra tem empresa, como o pedido.
+ */
 export const criarObraSchema = z
-  .object({ nome: texto(1, 200, "informe o nome da obra"), clientId: uuid.nullable().optional() })
+  .object({ empresa: companyKeySchema, nome: texto(1, 200, "informe o nome da obra"), clientId: uuid.nullable().optional() })
   .strict();
 export type CriarObra = z.infer<typeof criarObraSchema>;
+
+const clienteResumido = z.object({ id: uuid, nome: z.string() });
+
+export const obraDeCompraSchema = z.object({ id: uuid, empresa: companyKeySchema, nome: z.string(), cliente: clienteResumido.nullable() });
+export type ObraDeCompra = z.infer<typeof obraDeCompraSchema>;
+
+/**
+ * Busca de cliente para o destino, em `GET .../compras/clientes?busca=`: só id e
+ * nome de clientes ativos, sem abrir o cadastro de clientes do CRM.
+ */
+export const buscarClientesDeCompraQuerySchema = z.object({ busca: z.string().trim().min(2).max(150) }).strict();
+export type BuscarClientesDeCompraQuery = z.infer<typeof buscarClientesDeCompraQuerySchema>;
+export const buscarClientesDeCompraRespostaSchema = z.object({ itens: z.array(clienteResumido) });
+export type BuscarClientesDeCompraResposta = z.infer<typeof buscarClientesDeCompraRespostaSchema>;
 
 // ---------------------------------------------------------------- saídas
 
@@ -454,7 +471,7 @@ export type ListarPedidosDeCompraResposta = z.infer<typeof listarPedidosDeCompra
 /** Opções dos selects do formulário: pessoas com acesso a Compras, obras ativas e fornecedores ativos. */
 export const opcoesDeCompraRespostaSchema = z.object({
   pessoas: z.array(pessoa),
-  obras: z.array(z.object({ id: uuid, nome: z.string(), cliente: z.object({ id: uuid, nome: z.string() }).nullable() })),
+  obras: z.array(obraDeCompraSchema),
   fornecedores: z.array(z.object({ id: uuid, nome: z.string(), nomeFantasia: z.string().nullable() })),
 });
 export type OpcoesDeCompraResposta = z.infer<typeof opcoesDeCompraRespostaSchema>;
