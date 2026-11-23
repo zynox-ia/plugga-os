@@ -15,6 +15,7 @@ import {
   corpoDaEdicao,
   corpoDaNovaContaAPagar,
   ROTULO_DA_FORMA,
+  valorEmDigitacao,
   type CamposDaContaAPagar,
 } from "../../lib/ficha-do-lancamento";
 import { CampoDeMenu } from "../suprimentos/menu-com-busca";
@@ -107,7 +108,7 @@ export function ContaAPagarForm({ opcoes, lancamento, gerente, aoCancelar, aoSal
             placeholder={campos.empresa ? "Selecione a categoria" : "Escolha a empresa primeiro"} disabled={!campos.empresa} error={e("categoriaId")} onChange={(v) => mudar({ categoriaId: v })} />
           <TextField label="Valor" required inputMode="decimal" prefix="R$" placeholder="0,00" value={campos.valor} disabled={editando}
             hint={editando ? "O valor muda por “Corrigir valor”, com motivo." : undefined}
-            onChange={(ev) => mudar({ valor: ev.target.value })} onBlur={() => { const d = decimalDigitado(campos.valor); if (d) mudar({ valor: displayCurrency(d) }); }} error={e("valor")} />
+            onChange={(ev) => mudar({ valor: valorEmDigitacao(ev.target.value) })} onBlur={() => { const d = decimalDigitado(campos.valor); if (d) mudar({ valor: displayCurrency(d) }); }} error={e("valor")} />
           <DatePicker label="Vencimento" required value={campos.vencimento} onChange={(v) => mudar({ vencimento: v })} disabled={travados}
             hint={dicaTravado ?? (editando ? undefined : campos.vencimento && campos.vencimento < hojeEmManaus() ? "Esta data já passou: a conta nasce vencida." : undefined)} error={e("vencimento")} />
           <CampoDeMenu label="Forma de pagamento" required options={formas} value={campos.forma || undefined} icon={<CreditCard />} placeholder="Selecione"

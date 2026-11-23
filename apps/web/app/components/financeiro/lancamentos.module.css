@@ -71,7 +71,10 @@
 /* A lista de negócios do CRM põe 600 no rótulo da coluna do celular; aqui vale o teto de 500. */
 .lista :global(td[data-l])::before { font-weight: 500; }
 .seta { display: inline-grid; place-items: center; width: 18px; height: 18px; margin-right: 6px; vertical-align: -4px; border-radius: 7px; background: var(--ui-subtle); color: var(--ui-muted); }
-.codigoComEmpresa { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+/* Código, resumo e empresa numa linha só: o resumo encurta, a empresa fica. */
+.codigoComEmpresa { display: flex; align-items: center; gap: 6px; flex-wrap: nowrap; min-width: 0; max-width: 100%; }
+.textoSecundario { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.empresaDaLinha { flex: none; }
 
 /* ---------------------------------------------------------------- quadro */
 

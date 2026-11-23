@@ -41,7 +41,7 @@ export function ListaDosLancamentos({ itens, total, aoAbrir }: { itens: Lancamen
                 <span className={estilosLista.iconeOportunidade} aria-hidden="true"><Icone size={16} /></span>
                 <div className="celula-lead-bloco">
                   <button type="button" className={`lead-nome ${estilosLista.titulo}`} title={l.favorecido.nome} onClick={() => aoAbrir(l.id)}>{l.favorecido.nome}</button>
-                  <span className={`${estilosLista.codigo} ${styles.codigoComEmpresa}`}>{l.codigo} · {resumoDoLancamento(l)} <EmpresaComPonto empresa={l.empresa} curto /></span>
+                  <span className={`${estilosLista.codigo} ${styles.codigoComEmpresa}`}><span className={styles.textoSecundario} title={`${l.codigo} · ${resumoDoLancamento(l)}`}>{l.codigo} · {resumoDoLancamento(l)}</span><EmpresaComPonto empresa={l.empresa} curto className={styles.empresaDaLinha} /></span>
                 </div>
               </div></td>
               <td data-l="Valor"><div className={estilosLista.valor}>

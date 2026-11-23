@@ -16,6 +16,7 @@ import {
   pendenciasDoLancamento,
   resumoDaTrilhaDoLancamento,
   trilhaDoLancamento,
+  valorEmDigitacao,
 } from "../app/lib/ficha-do-lancamento.ts";
 
 const u = (n: number) => `6f1c2a3b-0000-4000-8000-${String(n).padStart(12, "0")}`;
@@ -106,6 +107,13 @@ describe("nova conta a pagar e edição", () => {
     });
     assert.ok(corpoDaNovaContaAPagar({ ...preenchida, valor: "1.000.000.000.000,00" }).porCampo.valor);
     assert.ok(corpoDaNovaContaAPagar({ ...preenchida, valor: "0" }).porCampo.valor);
+  });
+
+  it("o campo de valor guarda só dígitos, ponto e vírgula, na digitação e no colar", () => {
+    assert.equal(valorEmDigitacao("abc1.234,56"), "1.234,56");
+    assert.equal(valorEmDigitacao("R$ 27.350,00"), "27.350,00");
+    assert.equal(valorEmDigitacao("-12e3"), "123");
+    assert.equal(valorEmDigitacao(""), "");
   });
 
   it("a edição manda só o que mudou, sem empresa nem valor", () => {

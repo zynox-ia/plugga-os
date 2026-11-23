@@ -282,7 +282,7 @@ function VisaoGeralDoLancamento({ l, ocupado, aoAgir, aoCancelar, aoVerOmie }: {
       <p className={visao.notas}>{l.observacao || "Sem observação."}</p>
     </section>
 
-    {!l.cancelado && (pode("cancelar") || pode("aprovar")) ? <footer className={estilosFicha.rodape}>
+    {!l.cancelado && (pode("cancelar") || pode("aprovar")) ? <footer className={`${estilosFicha.rodape} ${styles.rodapeFixo}`}>
       {pode("cancelar") ? <Button variant="secondary" className={estilosFicha.perigo} icon={<Ban size={15} />} disabled={ocupado} onClick={aoCancelar}>{l.etapa === "aberta" ? "Recusar" : "Cancelar"}</Button> : null}
       <span className={estilosFicha.espaco} />
       {pode("aprovar") ? <Button icon={<Check size={15} />} disabled={ocupado} onClick={() => aoAgir({ acao: "aprovar" })}>Aprovar</Button> : null}

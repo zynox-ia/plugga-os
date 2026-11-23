@@ -12,3 +12,24 @@
 .linkOmie { flex: none; padding: 0; border: 0; background: none; font: inherit; font-size: 13px; font-weight: 500; color: var(--ui-primary); cursor: pointer; }
 .linkOmie:hover { text-decoration: underline; }
 .linkOmie:focus-visible { outline: 2px solid var(--ui-primary); outline-offset: 3px; border-radius: 4px; }
+
+/* As ações da etapa ficam fixas no fim do modal, visíveis desde a abertura,
+   enquanto a visão geral rola por baixo. Quem rola é o conteúdo da ficha, com
+   padding de 24 px (16 px no celular): o sticky respeita esse padding, então o
+   `bottom` e as margens negativas o compensam para o rodapé encostar no fim.
+   Andam junto com o padding do `.conteudo` de pipelines/detalhes-do-lead-modal.module.css:
+   se ele mudar, mude aqui. */
+.rodapeFixo {
+  position: sticky;
+  bottom: calc(-1 * var(--space-lg));
+  z-index: 2;
+  margin: 0 calc(-1 * var(--space-lg));
+  padding: 12px var(--space-lg);
+  border-top: 1px solid var(--ui-divider);
+  background: color-mix(in srgb, var(--ui-surface) 94%, transparent);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+@media (max-width: 768px) {
+  .rodapeFixo { bottom: -16px; margin: 0 -16px; padding: 12px 16px; }
+}

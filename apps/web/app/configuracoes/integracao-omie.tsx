@@ -112,13 +112,20 @@ export function IntegracaoOmie({ acesso }: { acesso: Acesso }) {
     }
   }
 
-  /** As ações devolvem o estado atualizado da conexão; relê o cartão inteiro para o selo e a conta antiga. */
-  async function depois(resposta: Response | null, mensagem: (c: ConexaoOmieDaEmpresa | null) => string): Promise<boolean> {
+  /**
+   * As ações devolvem o estado atualizado da conexão; relê o cartão inteiro para o
+   * selo e a conta antiga. Um resultado `{ erro }` (o teste bloqueou) sai no aviso
+   * de erro, não no de sucesso.
+   */
+  async function depois(resposta: Response | null, mensagem: (c: ConexaoOmieDaEmpresa | null) => string | { erro: string }): Promise<boolean> {
     if (!resposta) return false;
     const conexao = (await resposta.json().catch(() => null)) as ConexaoOmieDaEmpresa | null;
     await carregar();
     setVista({ tipo: "gerenciar" });
-    setAviso(mensagem(conexao));
+    const texto = mensagem(conexao);
+    // Um aviso só por vez: o verde da ação anterior não fica junto do vermelho novo.
+    if (typeof texto === "string") { setErro(null); setAviso(texto); }
+    else { setAviso(null); setErro(texto.erro); }
     return true;
   }
 
@@ -144,7 +151,7 @@ export function IntegracaoOmie({ acesso }: { acesso: Acesso }) {
     const resposta = await chamar(`${empresa}:teste`, () => fetch(`/api/integracoes/omie/empresas/${empresa}/teste`, { method: "POST" }), "não foi possível testar a chave");
     await depois(resposta, (c) => c?.situacao === "conectada" ? `${nome(empresa)} conectada: o CNPJ confere com o cadastro.`
       : c?.situacao === "a_confirmar" ? `Teste feito. Confira se é mesmo a ${nome(empresa)} e confirme.`
-      : c?.situacao === "bloqueada" && c.bloqueio ? textoDoBloqueio(c.bloqueio, empresa, empresasNoTeste(c))
+      : c?.situacao === "bloqueada" ? { erro: `Conexão da ${nome(empresa)} bloqueada. ${c.bloqueio ? textoDoBloqueio(c.bloqueio, empresa, empresasNoTeste(c)) : ""}`.trim() }
       : "Teste feito.");
   }
 
@@ -186,7 +193,7 @@ export function IntegracaoOmie({ acesso }: { acesso: Acesso }) {
     const resposta = await chamar("mover", () => fetch("/api/integracoes/omie/empresas/plugga/mover-conta-antiga", { method: "POST" }), "não foi possível mover a conta antiga");
     await depois(resposta, (c) => c?.situacao === "conectada" ? "A conta antiga virou a chave da Plugga, conferida pelo CNPJ."
       : c?.situacao === "a_confirmar" ? "A conta antiga foi testada. Confirme se é a Plugga; até lá ela continua guardada."
-      : c?.situacao === "bloqueada" && c.bloqueio ? `${textoDoBloqueio(c.bloqueio, "plugga", empresasNoTeste(c))} A conta antiga continua guardada.`
+      : c?.situacao === "bloqueada" ? { erro: `${c.bloqueio ? textoDoBloqueio(c.bloqueio, "plugga", empresasNoTeste(c)) : "A conexão ficou bloqueada."} A conta antiga continua guardada.` }
       : "A conta antiga foi testada e continua guardada até a confirmação.");
   }
 

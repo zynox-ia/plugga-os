@@ -62,6 +62,9 @@ export function categoriasDaSaida(opcoes: Pick<OpcoesDoFinanceiro, "categorias">
 export const contasDaEmpresa = (opcoes: Pick<OpcoesDoFinanceiro, "contasCorrentes">, empresa: CompanyKey | null, atual?: string) =>
   empresa ? opcoes.contasCorrentes.filter((c) => c.empresa === empresa && (c.ativa || c.id === atual)) : [];
 
+/** Na digitação e no colar, o campo de valor guarda só dígitos, ponto e vírgula ("abc1.234,56" → "1.234,56"). */
+export const valorEmDigitacao = (texto: string): string => texto.replace(/[^\d.,]/g, "");
+
 /**
  * Valida a nova conta a pagar e monta o corpo do POST. Os erros vêm com o nome
  * do campo da API, para casar com os erros que ela devolve.
