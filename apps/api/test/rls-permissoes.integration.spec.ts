@@ -923,6 +923,8 @@ describe.skipIf(!HABILITADO)("RLS: permissões no login real da aplicação", { 
       expect(await contexto("pagar", (tx) => tx.$queryRaw<{ id: string }[]>`SELECT id FROM plugga_security.clientes_para_financeiro(NULL, ${[registros.get("a")!]}::uuid[])`)).toEqual([]);
       // O diretório mostra quem criou o lançamento para quem tem Financeiro.
       expect(await contexto("conciliacao", (tx) => tx.user.findUnique({ where: { id: pagador.id }, select: { id: true } }))).toEqual({ id: pagador.id });
+      // Fora do Financeiro e de Compras, quem só fez um marco de lançamento não aparece.
+      expect(await contexto("a", (tx) => tx.user.findUnique({ where: { id: pagador.id }, select: { id: true } }))).toBeNull();
     } finally {
       await root.lancamento.deleteMany({ where: { descricao: { startsWith: marca } } });
       await root.categoriaFinanceira.deleteMany({ where: { nome: { startsWith: marca } } });
