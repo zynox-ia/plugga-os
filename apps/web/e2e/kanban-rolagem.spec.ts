@@ -5,9 +5,10 @@ const pipelines: Pipeline[] = [];
 
 test.beforeAll(async ({ request, baseURL }) => {
   expect(["localhost", "127.0.0.1"]).toContain(new URL(baseURL!).hostname);
-  // Com o cabeçalho único do funil (85fb0be) 4 etapas cabem a 1440 px e a barra some, como deve:
-  // o quadro com 8 etapas transborda a 1440 e cabe a 3840; o de 2 nunca transborda.
-  for (const quantidade of [8, 2]) {
+  // Com o cabeçalho único do funil (85fb0be) 4 etapas cabem a 1440 px e a barra some, como deve.
+  // O conteúdo tem teto de 1500 px (.main-content): a 3840 cabem 5 colunas de 232–264 px.
+  // O quadro com 5 etapas transborda a 1440 e cabe a 3840; o de 2 nunca transborda.
+  for (const quantidade of [5, 2]) {
     const resposta = await request.post("/api/pipelines", {
       headers: { origin: baseURL! },
       data: {

@@ -128,8 +128,11 @@ test.describe("Negócios no quadro do pipeline (PLU-271)", () => {
     // Na Lista, com os perdidos, o negócio aparece com a situação.
     await page.getByRole("link", { name: "Todos os negócios", exact: true }).click();
     await expect(page).toHaveURL(/visao=lista/);
+    // Desde o 66225cc a lista abre em "Em aberto": o perdido aparece no filtro Perdidos, e não em aberto.
     const linha = page.getByRole("row").filter({ hasText: titulo });
-    await expect(linha.getByText("Perdido", { exact: true })).toBeVisible();
+    await expect(linha).toHaveCount(0);
+    await page.getByRole("group", { name: "Situação" }).getByRole("button", { name: "Perdidos", exact: true }).click();
+    await expect(linha).toHaveCount(1);
 
     // A etapa Proposta tem o negócio: excluir pede o destino.
     await page.getByRole("button", { name: "Configurar pipelines" }).click();

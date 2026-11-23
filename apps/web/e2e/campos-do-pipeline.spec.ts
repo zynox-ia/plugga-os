@@ -57,14 +57,18 @@ test("campos pr처prios persistem por tipo, aparecem no quadro e exigem confirma�
     await expect(cartao).toContainText("09/11/2026");
     await page.getByRole("link", { name: "Todos os neg처cios", exact: true }).click();
     await page.waitForURL(/visao=lista/);
-    await expect(page.getByRole("columnheader", { name: "Consumo", exact: true })).toBeVisible();
-    await expect(page.getByRole("columnheader", { name: "Autorizado", exact: true })).toBeVisible();
+    // Na lista, os campos marcados "na lista" aparecem na pr처pria linha, como "Nome: valor".
+    const camposNaLinha = page.getByRole("row").filter({ hasText: negocio.title }).locator('[title*="Consumo: "]');
+    await expect(camposNaLinha).toHaveAttribute("title", /Consumo: 0/);
+    await expect(camposNaLinha).toHaveAttribute("title", /Autorizado: N찾o/);
+    // O filtro por dados do pipeline fica no quadro.
+    await page.getByRole("link", { name: "Quadro", exact: true }).click();
     await page.locator("summary").filter({ hasText: "Filtrar por dados" }).click();
     await page.getByLabel("Campo", { exact: true }).selectOption(pipeline.fields!.find((campo) => campo.type === "boolean")!.id);
     await page.getByLabel("Valor do filtro", { exact: true }).fill("Sim");
-    await expect(page.getByRole("row").filter({ hasText: negocio.lead.name })).toHaveCount(0);
+    await expect(page.getByRole("article", { name: `Lead ${negocio.lead.name}`, exact: true })).toHaveCount(0);
     await page.getByLabel("Valor do filtro", { exact: true }).fill("N찾o");
-    await expect(page.getByRole("row").filter({ hasText: negocio.lead.name })).toHaveCount(1);
+    await expect(page.getByRole("article", { name: `Lead ${negocio.lead.name}`, exact: true })).toHaveCount(1);
     await page.getByRole("button", { name: "Configurar pipelines", exact: true }).click();
     const config = page.getByRole("dialog", { name: "Configurar pipelines", exact: true });
     await config.getByRole("tab", { name: "Campos", exact: true }).click();
