@@ -9,6 +9,7 @@ import { RequisicaoInvalida } from "../src/common/errors/dominio.js";
 import type { AuthPrincipal } from "../src/core/auth/auth.types.js";
 import { contextoBanco } from "../src/prisma/contexto-banco.js";
 import { PrismaService } from "../src/prisma/prisma.service.js";
+import { validarPapelBanco } from "../src/prisma/validar-papel-banco.js";
 import { GerarOcorrenciasDoDiaHandler } from "../src/tarefas/gerar-ocorrencias-do-dia.handler.js";
 import { PrismaTarefasRepository } from "../src/tarefas/prisma-tarefas.repository.js";
 import { TarefasService } from "../src/tarefas/tarefas.service.js";
@@ -160,6 +161,35 @@ describe.skipIf(!HABILITADO)("tarefas: ocorrências no Postgres", { timeout: PRA
     await expect(jobs.ocorrenciaDeTarefa.updateMany({ where: { tarefaId: tarefa.id }, data: { concluidaEm: AGORA } })).rejects.toThrow(/permission denied/);
     await expect(jobs.evidenciaDeTarefa.count()).rejects.toThrow(/permission denied/);
     await expect(jobs.ocorrenciaDeTarefa.create({ data: { tarefaId: tarefa.id, dia: new Date("2026-12-03T04:00:00Z"), prazoEm: AGORA, concluidaEm: AGORA } })).rejects.toThrow(/row-level security/);
+  });
+
+  it("o pool de jobs passa na validação de isolamento com o acesso do agendador, e nada além dele", async () => {
+    const anterior = process.env.RUN_RLS_INTEGRATION_TESTS;
+    process.env.RUN_RLS_INTEGRATION_TESTS = "true";
+    const recusa = "O papel do pool plugga_jobs_runtime não atende ao isolamento obrigatório do banco.";
+    // Concede, confere a recusa e devolve: um privilégio a mais que o agendador precisa derruba a subida.
+    const comConcessao = async (concede: string, ...devolve: string[]) => {
+      await root.$executeRawUnsafe(concede);
+      try {
+        await expect(validarPapelBanco(jobs, "plugga_jobs_runtime")).rejects.toThrow(recusa);
+      } finally {
+        for (const comando of devolve) await root.$executeRawUnsafe(comando);
+      }
+    };
+    try {
+      await expect(validarPapelBanco(jobs, "plugga_jobs_runtime")).resolves.toBeUndefined();
+      await comConcessao("GRANT UPDATE (titulo) ON public.tarefas TO plugga_jobs_runtime", "REVOKE UPDATE (titulo) ON public.tarefas FROM plugga_jobs_runtime");
+      await comConcessao("GRANT INSERT ON public.tarefas TO plugga_jobs_runtime", "REVOKE INSERT ON public.tarefas FROM plugga_jobs_runtime");
+      await comConcessao("GRANT UPDATE ON public.tarefas TO plugga_jobs_runtime", "REVOKE UPDATE ON public.tarefas FROM plugga_jobs_runtime", "GRANT UPDATE (gerada_ate, updated_at) ON public.tarefas TO plugga_jobs_runtime");
+      await comConcessao("GRANT UPDATE (concluida_em) ON public.ocorrencias_de_tarefa TO plugga_jobs_runtime", "REVOKE UPDATE (concluida_em) ON public.ocorrencias_de_tarefa FROM plugga_jobs_runtime");
+      await comConcessao("GRANT DELETE ON public.ocorrencias_de_tarefa TO plugga_jobs_runtime", "REVOKE DELETE ON public.ocorrencias_de_tarefa FROM plugga_jobs_runtime");
+      await comConcessao("GRANT SELECT ON public.evidencias_de_tarefa TO plugga_jobs_runtime", "REVOKE SELECT ON public.evidencias_de_tarefa FROM plugga_jobs_runtime");
+      // Depois de devolver tudo, volta a passar.
+      await expect(validarPapelBanco(jobs, "plugga_jobs_runtime")).resolves.toBeUndefined();
+    } finally {
+      if (anterior === undefined) delete process.env.RUN_RLS_INTEGRATION_TESTS;
+      else process.env.RUN_RLS_INTEGRATION_TESTS = anterior;
+    }
   });
 
   it("conclui com o que a tarefa pede, guarda o checklist, e a concluída não muda", async () => {
