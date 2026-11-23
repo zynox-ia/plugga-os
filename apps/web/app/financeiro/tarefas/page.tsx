@@ -19,6 +19,8 @@ function configuracao(abreLancamentos: boolean): ConfiguracaoDeTarefas {
     nomeDoDepartamento: "o Financeiro",
     exemplo: { titulo: "Conferir as notas fiscais do Portal Nacional", item: "Baixar o relatório do portal" },
     atalhos: abreLancamentos ? { lancamentos: { href: "/financeiro/lancamentos", rotulo: "Abrir os lançamentos" } } : {},
+    // Texto do protótipo em vigor (#rotinas): a antiga rotina de copiar comprovantes saiu (PLU-337).
+    nota: "Copiar comprovantes deixou de ser tarefa: o comprovante fica guardado no próprio lançamento.",
   };
 }
 
