@@ -12,38 +12,25 @@ import { EmpresaComPonto } from "../suprimentos/empresa";
 import { Button } from "../ui";
 import styles from "./estoque.module.css";
 import { NivelDoItem, SeloDaSituacao, SeloDoTipo } from "./partes";
+import { AZUL_CLARO, AZUL_ESCURO, GraficoDeColunas } from "../graficos/grafico-de-colunas";
 
-const COR_ENTRADA = "#0058B0";
-const COR_SAIDA = "#00A3FF";
-
-/** Entradas e saídas das 8 semanas (azuis da marca), barras agrupadas com legenda e total. */
+/** Entradas e saídas das 8 semanas, no gráfico compartilhado (o mesmo da Visão geral do Financeiro). */
 function GraficoDoItem({ item }: { item: ItemDeEstoque }) {
-  const semanas = item.ultimas8Semanas.map((s) => ({ inicio: s.inicio, entradas: Number(s.entradas), saidas: Number(s.saidas) }));
-  const max = Math.max(1, ...semanas.flatMap((s) => [s.entradas, s.saidas]));
-  const W = 940, H = 150, base = 122, larg = W / semanas.length, barra = 16;
-  const totalE = semanas.reduce((s, x) => s + x.entradas, 0);
-  const totalS = semanas.reduce((s, x) => s + x.saidas, 0);
-  const coluna = (x: number, v: number, cor: string, rotulo: string) => v > 0 ? <g>
-    <title>{`${rotulo}: ${qtd(v, item.unidade)}`}</title>
-    <rect x={x} y={base - (v / max) * 104} width={barra} height={(v / max) * 104} rx={4} fill={cor} />
-  </g> : null;
-  return <figure className={styles.grafico}>
-    <figcaption><span>Entradas e saídas nas últimas 8 semanas</span><span className={styles.legenda}>
-      <span><i style={{ background: COR_ENTRADA }} />Entradas · {qtd(totalE, item.unidade)}</span>
-      <span><i style={{ background: COR_SAIDA }} />Saídas · {qtd(totalS, item.unidade)}</span>
-    </span></figcaption>
-    <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`Entradas somam ${qtd(totalE, item.unidade)} e saídas ${qtd(totalS, item.unidade)} nas últimas 8 semanas`}>
-      <line x1={0} x2={W} y1={base} y2={base} stroke="var(--ui-divider)" />
-      {semanas.map((s, k) => {
-        const cx = k * larg + larg / 2;
-        return <g key={s.inicio}>
-          {coluna(cx - barra - 1, s.entradas, COR_ENTRADA, `Semana de ${diaCurto(s.inicio)} · entradas`)}
-          {coluna(cx + 1, s.saidas, COR_SAIDA, `Semana de ${diaCurto(s.inicio)} · saídas`)}
-          <text x={cx} y={H - 10} textAnchor="middle" className={styles.graficoEixo}>{diaCurto(s.inicio)}</text>
-        </g>;
-      })}
-    </svg>
-  </figure>;
+  const pontos = item.ultimas8Semanas.map((s, k, todas) => ({
+    rotulo: diaCurto(s.inicio),
+    rotuloCurto: diaCurto(s.inicio).split(" ")[0],
+    valores: { entradas: Number(s.entradas), saidas: Number(s.saidas) },
+    atual: k === todas.length - 1,
+  }));
+  return <section className={styles.secaoFicha} aria-label="Entradas e saídas">
+    <h3>Entradas e saídas nas últimas 8 semanas</h3>
+    <GraficoDeColunas titulo={`Entradas e saídas de ${item.nome} nas últimas 8 semanas, por semana`} pontos={pontos}
+      series={[{ chave: "entradas", rotulo: "Entradas", cor: AZUL_ESCURO }, { chave: "saidas", rotulo: "Saídas", cor: AZUL_CLARO }]}
+      formatarValor={(v) => qtd(v, item.unidade)} formatarEixo={(v) => v.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}
+      rotuloDoPonto={(p) => `Semana de ${p.rotulo}${p.atual ? " (esta semana)" : ""}`}
+      saldo={{ rotulo: "Saldo da semana", formatar: (v) => `${v > 0 ? "+" : v < 0 ? "−" : ""}${qtd(Math.abs(v), item.unidade)}` }}
+      vazio={{ titulo: "Sem entradas nem saídas nas últimas 8 semanas", texto: "Quando o item tiver movimentação, ela aparece aqui, por semana." }} />
+  </section>;
 }
 
 /**
