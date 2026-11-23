@@ -106,8 +106,17 @@ test("aprovada, a conta tem o valor corrigido com motivo e é paga só com o com
   await ficha(page).getByRole("button", { name: "Registrar pagamento" }).click();
   await expect(pagamento.getByText("anexe o comprovante do pagamento.")).toBeVisible();
 
-  // Com ele, o arquivo é anexado e o pagamento registrado.
+  // Com ele, o arquivo é anexado e o pagamento registrado; mas a data futura digitada
+  // bloqueia o envio (o seletor guardaria o último dia válido).
   await pagamento.locator('input[type="file"]').setInputFiles({ name: "comprovante-sintetico.pdf", mimeType: "application/pdf", buffer: PDF_SINTETICO });
+  const pagoEm = pagamento.getByRole("textbox", { name: /Pago em/ });
+  const hoje = await pagoEm.inputValue();
+  await pagoEm.fill(diaFuturo(10));
+  await ficha(page).getByRole("button", { name: "Registrar pagamento" }).click();
+  await expect(pagamento.getByText(/Escolha uma data até/)).toBeVisible();
+  await expect(ficha(page).getByRole("region", { name: "Registrar pagamento" })).toBeVisible();
+  await expect(ficha(page).locator(".aviso--sucesso")).not.toContainText("Pagamento registrado");
+  await pagoEm.fill(hoje);
   await ficha(page).getByRole("button", { name: "Registrar pagamento" }).click();
   await expect(ficha(page).locator(".aviso--sucesso")).toContainText("Pagamento registrado");
   await expect(ficha(page).getByRole("region", { name: "Pagamento registrado" })).toBeVisible();
@@ -180,4 +189,13 @@ test("cancelar pede o motivo, e a ficha mostra onde parou", async ({ page, baseU
 
   await expect(ficha(page).getByRole("region", { name: "Lançamento cancelado" })).toContainText("Fatura duplicada (sintético)");
   await expect(ficha(page).getByRole("button", { name: "Aprovar" })).toHaveCount(0);
+});
+
+test("a 390 px, Baixar comprovantes fica na folha de filtros", async ({ page }) => {
+  await bloquearTerceiros(page);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/financeiro/lancamentos");
+  await page.getByRole("button", { name: /^Filtros/ }).click();
+  await page.getByRole("button", { name: "Baixar comprovantes (.zip)" }).click();
+  await expect(page.getByRole("dialog", { name: "Baixar comprovantes" })).toBeVisible();
 });

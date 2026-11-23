@@ -237,7 +237,9 @@ export function LancamentosView({ filtros, lista, quadro, resumo, alcance, ficha
       movel={{
         visao: { rotulo: "Visualização", opcoes: visoesDosLancamentos.map((id) => { const { rotulo, icone: Icone } = VISOES[id]; return { value: id, label: rotulo, icon: <Icone /> }; }), valor: filtros.visao, aoMudar: (v) => trocar(comVisao(filtros, v as VisaoDosLancamentos)) },
         filtrosAtivos: quantosFiltros(filtros),
-        folha: <>{campoDeBusca("folha")}{filtrosDaTela.map(([rotulo, filtro]) => <CampoDaFolha key={rotulo} rotulo={rotulo}>{filtro}</CampoDaFolha>)}</>,
+        // A 390 px o ícone da barra some: "Baixar comprovantes" fica no fim da folha.
+        folha: <>{campoDeBusca("folha")}{filtrosDaTela.map(([rotulo, filtro]) => <CampoDaFolha key={rotulo} rotulo={rotulo}>{filtro}</CampoDaFolha>)}
+          <CampoDaFolha rotulo="Comprovantes"><Button variant="secondary" icon={<Download size={16} />} onClick={() => setBaixandoComprovantes(true)}>Baixar comprovantes (.zip)</Button></CampoDaFolha></>,
         rotuloDoResultado: filtros.visao === "quadro" ? "Ver o quadro" : `Ver ${lista?.total === 1 ? "1 lançamento" : `${lista?.total ?? 0} lançamentos`}`,
         ...(filtrado ? { aoLimpar: limpar } : {}),
       }} />

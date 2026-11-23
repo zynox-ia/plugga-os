@@ -21,6 +21,7 @@ import {
 import { CampoDeMenu } from "../suprimentos/menu-com-busca";
 import { Alert, Button, DatePicker, Dialog, Heading, TextField, TextareaField } from "../ui";
 import { displayCurrency } from "../ui/currency-value";
+import { dataDigitadaInvalida } from "./partes";
 
 /**
  * Nova conta a pagar avulsa (contabilidade, imposto, assinatura, reembolso).
@@ -68,8 +69,9 @@ export function ContaAPagarForm({ opcoes, lancamento, gerente, aoCancelar, aoSal
   const empresas = (["plugga", "waze"] as const).map((v) => ({ value: v, label: ROTULO_DA_EMPRESA[v], icon: <Building2 /> }));
   const dicaTravado = travados ? "Na conta aprovada, só a Gerente do Financeiro muda este campo." : undefined;
 
-  async function salvar(evento: FormEvent) {
+  async function salvar(evento: FormEvent<HTMLFormElement>) {
     evento.preventDefault();
+    if (dataDigitadaInvalida(evento.currentTarget, campos.vencimento)) return;
     let corpo: Record<string, unknown> | undefined;
     let porCampo: Record<string, string>;
     if (lancamento) ({ corpo, porCampo } = corpoDaEdicao(inicial, campos));
