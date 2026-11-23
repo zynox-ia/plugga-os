@@ -1,0 +1,163 @@
+import { z } from "zod";
+
+import { emailOpcional, telefoneOpcional, textoOpcional, ufOpcional, vazioViraNulo } from "./clients.js";
+import { cnpjValido, cpfValido, somenteDigitos } from "./documento.js";
+import { isoDate, uuid } from "./primitivas.js";
+
+/**
+ * Cadastro de fornecedores de Suprimentos (PLU-326), em `/suprimentos/fornecedores`.
+ * Substitui o fornecedor digitado em texto nas cotações do Bitrix.
+ *
+ * Um cadastro só, compartilhado por Plugga e Waze (decisão do André em
+ * 23/11/2026): o fornecedor não tem empresa, e o documento, quando informado,
+ * é único no cadastro inteiro.
+ *
+ * Não há exclusão: fornecedor sai de uso por inativação, porque uma cotação
+ * aponta para ele e apagar o fornecedor apagaria a evidência da compra.
+ */
+
+export const categoriasDeFornecedor = [
+  "kit_solar",
+  "material_eletrico",
+  "material_de_obra",
+  "servico",
+  "escritorio",
+  "outros",
+] as const;
+export const categoriaDeFornecedorSchema = z.enum(categoriasDeFornecedor);
+export type CategoriaDeFornecedor = z.infer<typeof categoriaDeFornecedorSchema>;
+
+export const rotulosDaCategoriaDeFornecedor: Readonly<Record<CategoriaDeFornecedor, string>> = {
+  kit_solar: "Kit solar",
+  material_eletrico: "Material elétrico",
+  material_de_obra: "Material de obra",
+  servico: "Serviço",
+  escritorio: "Escritório",
+  outros: "Outros",
+};
+
+/** Formas de pagamento. As mesmas que o pagamento de uma compra registra (`compras.ts`). */
+export const formasDePagamento = ["pix", "boleto", "cartao_credito", "transferencia"] as const;
+export const formaDePagamentoSchema = z.enum(formasDePagamento);
+export type FormaDePagamento = z.infer<typeof formaDePagamentoSchema>;
+
+export const rotulosDaFormaDePagamento: Readonly<Record<FormaDePagamento, string>> = {
+  pix: "PIX",
+  boleto: "Boleto",
+  cartao_credito: "Cartão de crédito",
+  transferencia: "Transferência",
+};
+
+/** CPF (11 dígitos) ou CNPJ (14), conferido pelo dígito verificador. Gravado só com dígitos. */
+export function documentoDeFornecedorValido(valor: string): boolean {
+  const d = somenteDigitos(valor);
+  return d.length === 11 ? cpfValido(d) : d.length === 14 ? cnpjValido(d) : false;
+}
+
+const documentoDoFornecedor = z
+  .preprocess(
+    vazioViraNulo,
+    z.string().transform(somenteDigitos).refine(documentoDeFornecedorValido, "CPF ou CNPJ inválido").nullable(),
+  )
+  .optional();
+
+const camposDoFornecedor = {
+  /** Razão social (PJ) ou nome (PF). */
+  nome: z.string().trim().min(1, "informe o nome ou a razão social").max(200),
+  nomeFantasia: textoOpcional(200),
+  documento: documentoDoFornecedor,
+  categoria: categoriaDeFornecedorSchema,
+  contatoNome: textoOpcional(150),
+  telefone: telefoneOpcional,
+  email: emailOpcional,
+  cidade: textoOpcional(100),
+  uf: ufOpcional,
+  formasDePagamento: z
+    .array(formaDePagamentoSchema)
+    .max(formasDePagamento.length)
+    .refine((formas) => new Set(formas).size === formas.length, "forma de pagamento repetida")
+    .optional(),
+  chavePix: textoOpcional(140),
+  /** Banco, agência, conta e favorecido, como o fornecedor informou. */
+  dadosBancarios: textoOpcional(500),
+  observacoes: textoOpcional(2000),
+};
+
+export const criarFornecedorSchema = z.object(camposDoFornecedor).strict();
+export type CriarFornecedor = z.infer<typeof criarFornecedorSchema>;
+
+/** Edição parcial: `undefined` mantém, `null` apaga. */
+export const editarFornecedorSchema = z
+  .object({
+    ...camposDoFornecedor,
+    nome: camposDoFornecedor.nome.optional(),
+    categoria: camposDoFornecedor.categoria.optional(),
+  })
+  .strict();
+export type EditarFornecedor = z.infer<typeof editarFornecedorSchema>;
+
+const pessoaResumida = z.object({ id: uuid, nome: z.string() });
+
+export const fornecedorSchema = z.object({
+  id: uuid,
+  nome: z.string(),
+  nomeFantasia: z.string().nullable(),
+  /** Só dígitos; o web formata como CPF ou CNPJ pelo tamanho. */
+  documento: z.string().nullable(),
+  categoria: categoriaDeFornecedorSchema,
+  contatoNome: z.string().nullable(),
+  telefone: z.string().nullable(),
+  email: z.string().nullable(),
+  cidade: z.string().nullable(),
+  uf: z.string().nullable(),
+  formasDePagamento: z.array(formaDePagamentoSchema),
+  chavePix: z.string().nullable(),
+  dadosBancarios: z.string().nullable(),
+  observacoes: z.string().nullable(),
+  ativo: z.boolean(),
+  /** Quantas cotações apontam para ele. Informativo: nunca bloqueia a inativação. */
+  cotacoes: z.number().int().nonnegative(),
+  criadoPor: pessoaResumida.nullable(),
+  atualizadoPor: pessoaResumida.nullable(),
+  createdAt: isoDate,
+  updatedAt: isoDate,
+});
+export type Fornecedor = z.infer<typeof fornecedorSchema>;
+
+export const fornecedorNaListaSchema = fornecedorSchema.pick({
+  id: true,
+  nome: true,
+  nomeFantasia: true,
+  documento: true,
+  categoria: true,
+  contatoNome: true,
+  telefone: true,
+  email: true,
+  formasDePagamento: true,
+  cotacoes: true,
+  cidade: true,
+  uf: true,
+  ativo: true,
+  updatedAt: true,
+});
+export type FornecedorNaLista = z.infer<typeof fornecedorNaListaSchema>;
+
+export const situacoesDoFornecedor = ["ativos", "inativos", "todos"] as const;
+
+export const listarFornecedoresQuerySchema = z
+  .object({
+    /** Nome, nome fantasia ou documento (com ou sem pontuação). */
+    busca: z.string().trim().min(1).max(150).optional(),
+    /** A lista abre em "todos", como no protótipo aprovado. */
+    situacao: z.enum(situacoesDoFornecedor).default("todos"),
+    categoria: categoriaDeFornecedorSchema.optional(),
+  })
+  .strict();
+export type ListarFornecedoresQuery = z.input<typeof listarFornecedoresQuerySchema>;
+
+export const listarFornecedoresRespostaSchema = z.object({
+  itens: z.array(fornecedorNaListaSchema),
+  /** Contagem com a busca e a categoria aplicadas, sem a situação: os dois números não mudam ao trocar o filtro de situação. */
+  contagem: z.object({ ativos: z.number().int().nonnegative(), inativos: z.number().int().nonnegative() }),
+});
+export type ListarFornecedoresResposta = z.infer<typeof listarFornecedoresRespostaSchema>;

@@ -31,3 +31,5 @@ export * from "./telegram.js";
 export * from "./autentique.js";
 export * from "./omie.js";
 export * from "./ia-assinatura.js";
+export * from "./fornecedores.js";
+export * from "./compras.js";
