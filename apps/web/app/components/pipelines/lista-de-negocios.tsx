@@ -299,7 +299,7 @@ export function ListaDeNegocios({
                           <span className={styles.iconeOportunidade} aria-hidden="true"><SolarPanel size={16} strokeWidth={1.8} /></span>
                           <div className="celula-lead-bloco">
                             <button type="button" className={`lead-nome ${styles.titulo}`} title={n.title} onClick={() => acoes.abrirDetalhes(n)}>{n.title}</button>
-                            <span className={styles.codigo}>PLU-{String(n.number).padStart(4, "0")} · {n.lead.mainInterest || n.lead.companyName || n.lead.name}</span>
+                            <span className={styles.codigo} title={`PLU-${String(n.number).padStart(4, "0")} · ${n.lead.mainInterest || n.lead.companyName || n.lead.name}`}>PLU-{String(n.number).padStart(4, "0")} · {n.lead.mainInterest || n.lead.companyName || n.lead.name}</span>
                             {camposLista.length > 0 ? <span className={styles.camposLista} title={camposLista.join(" · ")}>
                               {camposListaVisiveis.map((campo, indice) => <span className={styles.campoLista} key={`${n.id}-campo-${indice}`}>
                                 {indice > 0 ? <span className={styles.separadorCampoLista} aria-hidden="true">·</span> : null}
