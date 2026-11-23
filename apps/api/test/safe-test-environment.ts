@@ -35,7 +35,7 @@ export function assertSafeTestDatabaseUrl(rawUrl: string, ci = false, localPort?
     !allowedPorts.has(port)
   ) {
     throw new Error(
-      "Refusing database-backed test: LOCAL TEST must use plugga_os_test on loopback port 55433 (CI may use 55432)",
+      "Refusing database-backed test: LOCAL TEST must use plugga_os_test or plugga_<nome>_test on loopback port 55433 (CI may use 55432)",
     );
   }
 }
