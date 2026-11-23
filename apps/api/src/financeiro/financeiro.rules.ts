@@ -105,7 +105,7 @@ export function numeroDaBusca(busca: string): { tipo: TipoDeLancamento | null; n
 
 /** O que dos anexos importa para as transições (PLU-337). */
 export type AnexosAtuais = { comprovante: boolean; boleto: boolean };
-const SEM_ANEXOS: AnexosAtuais = { comprovante: false, boleto: false };
+export const SEM_ANEXOS: AnexosAtuais = { comprovante: false, boleto: false };
 
 export type Recusa = { codigo: "CONFLITO_ESTADO" | "REQUISICAO_INVALIDA"; mensagem: string; campo?: string };
 
@@ -128,7 +128,7 @@ const etapaExigida = (l: EstadoDoLancamento, etapas: EtapaDeLancamento[], mensag
  * O que a ação faz sobre o estado, ou por que não pode. Não olha o acesso. `agora`
  * decide os dias que não podem ser futuros (pagamento e recebimento, em Manaus).
  */
-export function planejarAcao(l: EstadoDoLancamento, acao: AcaoDoLancamento, anexos: AnexosAtuais = SEM_ANEXOS, agora: Date = new Date()): Plano | Recusa {
+export function planejarAcao(l: EstadoDoLancamento, acao: AcaoDoLancamento, anexos: AnexosAtuais, agora: Date): Plano | Recusa {
   if (l.canceladoEm !== null) return conflito("O lançamento está cancelado.");
   const hoje = diaEmManaus(agora);
   switch (acao.acao) {
@@ -203,7 +203,7 @@ function exemploDe(acao: NomeDaAcaoDoLancamento, agora: Date): AcaoDoLancamento 
  * O que a pessoa pode disparar agora: estado certo e acesso. Alimenta `acoesPermitidas`.
  * O pagamento aparece mesmo sem o comprovante anexado: a tela o habilita depois do anexo.
  */
-export function acoesPermitidas(l: EstadoDoLancamento, papel: PapelNoFinanceiro, anexos: AnexosAtuais = SEM_ANEXOS, agora: Date = new Date()): NomeDaAcaoDoLancamento[] {
+export function acoesPermitidas(l: EstadoDoLancamento, papel: PapelNoFinanceiro, anexos: AnexosAtuais, agora: Date): NomeDaAcaoDoLancamento[] {
   const comTudo = { comprovante: true, boleto: true };
   return acoesDoLancamento.filter((acao) => {
     if (!podeExecutar(papel, l, acao)) return false;

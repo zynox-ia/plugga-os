@@ -198,6 +198,9 @@ describe.skipIf(!HABILITADO)("financeiro: lançamentos no Postgres", () => {
     const detalhe = await repositorio.obter(id, papel, AGORA);
     expect(detalhe).toMatchObject({ etapa: "recebida", nf: { numero: "NFS-e 2026/000402" }, envio: { canal: "E-mail" }, marcos: { recebido: { valor: "48.00" } } });
     expect(detalhe.cobrancas).toEqual([expect.objectContaining({ canal: "WhatsApp", nota: "Pediu a 2ª via" })]);
+    // O canal é texto livre: fica no lançamento e na linha do tempo, nunca no evento.
+    const eventos = await prisma.eventLog.findMany({ where: { entityId: id }, select: { payload: true } });
+    expect(JSON.stringify(eventos)).not.toMatch(/WhatsApp|E-mail|2ª via/);
   }, PRAZO_MS);
 
   it("editar grava só os campos enviados; sem campo, nada muda", async () => {

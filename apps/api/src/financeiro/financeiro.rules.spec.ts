@@ -11,6 +11,7 @@ import {
   fimDoMesEmManaus,
   numeroDaBusca,
   papelNoFinanceiro,
+  SEM_ANEXOS,
   pendenciasDoLancamento,
   planejarAcao,
   podeEditar,
@@ -97,18 +98,18 @@ describe("código e busca", () => {
 
 describe("ações", () => {
   it("aprovar: só saída aberta, só gerente", () => {
-    expect(planejarAcao(saida(), { acao: "aprovar" })).toEqual({ tipo: "aprovar", etapa: "aprovada" });
-    expect(planejarAcao(saida({ etapa: "aprovada" }), { acao: "aprovar" })).toMatchObject({ codigo: "CONFLITO_ESTADO" });
-    expect(planejarAcao(entrada(), { acao: "aprovar" })).toMatchObject({ codigo: "CONFLITO_ESTADO" });
+    expect(planejarAcao(saida(), { acao: "aprovar" }, SEM_ANEXOS, AGORA)).toEqual({ tipo: "aprovar", etapa: "aprovada" });
+    expect(planejarAcao(saida({ etapa: "aprovada" }), { acao: "aprovar" }, SEM_ANEXOS, AGORA)).toMatchObject({ codigo: "CONFLITO_ESTADO" });
+    expect(planejarAcao(entrada(), { acao: "aprovar" }, SEM_ANEXOS, AGORA)).toMatchObject({ codigo: "CONFLITO_ESTADO" });
     expect(podeExecutar(MEMBRO_PAGAR, saida(), "aprovar")).toBe(false);
     expect(podeExecutar(GERENTE, saida(), "aprovar")).toBe(true);
     expect(podeExecutar(ADMIN, saida(), "aprovar")).toBe(true);
   });
 
   it("cancelar: antes de liquidar, nunca o cancelado; a aprovada só pela gerente", () => {
-    expect(planejarAcao(saida(), { acao: "cancelar", motivo: "Duplicada" })).toEqual({ tipo: "cancelar", motivo: "Duplicada" });
-    expect(planejarAcao(saida({ etapa: "paga" }), { acao: "cancelar", motivo: "x" })).toMatchObject({ codigo: "CONFLITO_ESTADO" });
-    expect(planejarAcao(saida({ canceladoEm: AGORA }), { acao: "cancelar", motivo: "x" })).toMatchObject({ codigo: "CONFLITO_ESTADO" });
+    expect(planejarAcao(saida(), { acao: "cancelar", motivo: "Duplicada" }, SEM_ANEXOS, AGORA)).toEqual({ tipo: "cancelar", motivo: "Duplicada" });
+    expect(planejarAcao(saida({ etapa: "paga" }), { acao: "cancelar", motivo: "x" }, SEM_ANEXOS, AGORA)).toMatchObject({ codigo: "CONFLITO_ESTADO" });
+    expect(planejarAcao(saida({ canceladoEm: AGORA }), { acao: "cancelar", motivo: "x" }, SEM_ANEXOS, AGORA)).toMatchObject({ codigo: "CONFLITO_ESTADO" });
     expect(podeExecutar(MEMBRO_PAGAR, saida(), "cancelar")).toBe(true);
     expect(podeExecutar(MEMBRO_PAGAR, saida({ etapa: "aprovada" }), "cancelar")).toBe(false);
     expect(podeExecutar(MEMBRO_RECEBER, entrada({ etapa: "enviada" }), "cancelar")).toBe(true);
@@ -116,17 +117,17 @@ describe("ações", () => {
 
   it("fora do tipo, nenhuma ação", () => {
     expect(podeExecutar(MEMBRO_RECEBER, saida(), "cancelar")).toBe(false);
-    expect(acoesPermitidas(saida(), MEMBRO_RECEBER)).toEqual([]);
+    expect(acoesPermitidas(saida(), MEMBRO_RECEBER, SEM_ANEXOS, AGORA)).toEqual([]);
   });
 
   it("acoesPermitidas segue etapa e papel", () => {
-    expect(acoesPermitidas(saida(), GERENTE, undefined, AGORA)).toEqual(["aprovar", "cancelar", "corrigir_valor"]);
-    expect(acoesPermitidas(saida(), MEMBRO_PAGAR, undefined, AGORA)).toEqual(["cancelar", "corrigir_valor"]);
+    expect(acoesPermitidas(saida(), GERENTE, SEM_ANEXOS, AGORA)).toEqual(["aprovar", "cancelar", "corrigir_valor"]);
+    expect(acoesPermitidas(saida(), MEMBRO_PAGAR, SEM_ANEXOS, AGORA)).toEqual(["cancelar", "corrigir_valor"]);
     // O pagamento aparece mesmo antes do comprovante: a tela o habilita depois do anexo.
-    expect(acoesPermitidas(saida({ etapa: "aprovada" }), MEMBRO_PAGAR, undefined, AGORA)).toEqual(["registrar_pagamento"]);
-    expect(acoesPermitidas(saida({ etapa: "aprovada" }), GERENTE, undefined, AGORA)).toEqual(["cancelar", "corrigir_valor", "registrar_pagamento"]);
-    expect(acoesPermitidas(saida({ etapa: "paga" }), GERENTE, undefined, AGORA)).toEqual([]);
-    expect(acoesPermitidas(entrada({ etapa: "enviada" }), MEMBRO_RECEBER, undefined, AGORA)).toEqual(["cancelar", "corrigir_valor", "registrar_cobranca", "registrar_recebimento"]);
+    expect(acoesPermitidas(saida({ etapa: "aprovada" }), MEMBRO_PAGAR, SEM_ANEXOS, AGORA)).toEqual(["registrar_pagamento"]);
+    expect(acoesPermitidas(saida({ etapa: "aprovada" }), GERENTE, SEM_ANEXOS, AGORA)).toEqual(["cancelar", "corrigir_valor", "registrar_pagamento"]);
+    expect(acoesPermitidas(saida({ etapa: "paga" }), GERENTE, SEM_ANEXOS, AGORA)).toEqual([]);
+    expect(acoesPermitidas(entrada({ etapa: "enviada" }), MEMBRO_RECEBER, SEM_ANEXOS, AGORA)).toEqual(["cancelar", "corrigir_valor", "registrar_cobranca", "registrar_recebimento"]);
   });
 });
 
@@ -144,7 +145,7 @@ describe("ações da PLU-337", () => {
   const pagar = (pagoEm: string) => ({ acao: "registrar_pagamento" as const, forma: "pix" as const, contaCorrenteId: "00000000-0000-0000-0000-000000000001", pagoEm });
 
   it("pagar exige a conta aprovada, o comprovante já anexado e o dia que não é futuro", () => {
-    expect(planejarAcao(saida({ etapa: "aprovada" }), pagar("2026-11-23"), undefined, AGORA)).toMatchObject({ codigo: "CONFLITO_ESTADO", campo: "comprovante" });
+    expect(planejarAcao(saida({ etapa: "aprovada" }), pagar("2026-11-23"), SEM_ANEXOS, AGORA)).toMatchObject({ codigo: "CONFLITO_ESTADO", campo: "comprovante" });
     expect(planejarAcao(saida({ etapa: "aprovada" }), pagar("2026-11-23"), COM_COMPROVANTE, AGORA)).toMatchObject({ tipo: "registrar_pagamento", etapa: "paga" });
     // 23/11 às 22h em Manaus: 24/11 ainda é futuro.
     expect(planejarAcao(saida({ etapa: "aprovada" }), pagar("2026-11-24"), COM_COMPROVANTE, AGORA)).toMatchObject({ codigo: "REQUISICAO_INVALIDA", campo: "pagoEm" });
@@ -152,21 +153,21 @@ describe("ações da PLU-337", () => {
   });
 
   it("a entrada anda gerada → NF → boleto (com o anexo) → enviada → recebida", () => {
-    expect(planejarAcao(entrada(), { acao: "registrar_nf", numero: "NFS-e 1" }, undefined, AGORA)).toMatchObject({ etapa: "nf_emitida" });
-    expect(planejarAcao(entrada({ etapa: "nf_emitida" }), { acao: "registrar_boleto" }, undefined, AGORA)).toMatchObject({ codigo: "CONFLITO_ESTADO", campo: "boleto" });
+    expect(planejarAcao(entrada(), { acao: "registrar_nf", numero: "NFS-e 1" }, SEM_ANEXOS, AGORA)).toMatchObject({ etapa: "nf_emitida" });
+    expect(planejarAcao(entrada({ etapa: "nf_emitida" }), { acao: "registrar_boleto" }, SEM_ANEXOS, AGORA)).toMatchObject({ codigo: "CONFLITO_ESTADO", campo: "boleto" });
     expect(planejarAcao(entrada({ etapa: "nf_emitida" }), { acao: "registrar_boleto" }, { comprovante: false, boleto: true }, AGORA)).toMatchObject({ etapa: "boleto_gerado" });
-    expect(planejarAcao(entrada({ etapa: "boleto_gerado" }), { acao: "registrar_envio", canal: "E-mail" }, undefined, AGORA)).toMatchObject({ etapa: "enviada" });
-    expect(planejarAcao(entrada({ etapa: "enviada" }), { acao: "registrar_recebimento", contaCorrenteId: "00000000-0000-0000-0000-000000000001", recebidoEm: "2026-11-23", valor: "10.00" }, undefined, AGORA))
+    expect(planejarAcao(entrada({ etapa: "boleto_gerado" }), { acao: "registrar_envio", canal: "E-mail" }, SEM_ANEXOS, AGORA)).toMatchObject({ etapa: "enviada" });
+    expect(planejarAcao(entrada({ etapa: "enviada" }), { acao: "registrar_recebimento", contaCorrenteId: "00000000-0000-0000-0000-000000000001", recebidoEm: "2026-11-23", valor: "10.00" }, SEM_ANEXOS, AGORA))
       .toMatchObject({ etapa: "recebida" });
     // Fora de ordem, conflito.
-    expect(planejarAcao(entrada(), { acao: "registrar_envio", canal: "E-mail" }, undefined, AGORA)).toMatchObject({ codigo: "CONFLITO_ESTADO" });
-    expect(planejarAcao(saida(), { acao: "registrar_nf", numero: "x" }, undefined, AGORA)).toMatchObject({ codigo: "CONFLITO_ESTADO" });
+    expect(planejarAcao(entrada(), { acao: "registrar_envio", canal: "E-mail" }, SEM_ANEXOS, AGORA)).toMatchObject({ codigo: "CONFLITO_ESTADO" });
+    expect(planejarAcao(saida(), { acao: "registrar_nf", numero: "x" }, SEM_ANEXOS, AGORA)).toMatchObject({ codigo: "CONFLITO_ESTADO" });
   });
 
   it("a cobrança registrada não muda a etapa; corrigir o valor só antes de liquidar", () => {
-    expect(planejarAcao(entrada({ etapa: "enviada" }), { acao: "registrar_cobranca", canal: "WhatsApp", nota: "Pediu 2ª via" }, undefined, AGORA))
+    expect(planejarAcao(entrada({ etapa: "enviada" }), { acao: "registrar_cobranca", canal: "WhatsApp", nota: "Pediu 2ª via" }, SEM_ANEXOS, AGORA))
       .toEqual({ tipo: "registrar_cobranca", canal: "WhatsApp", nota: "Pediu 2ª via" });
-    expect(planejarAcao(saida({ etapa: "paga" }), { acao: "corrigir_valor", valor: "10.00", motivo: "x" }, undefined, AGORA)).toMatchObject({ codigo: "CONFLITO_ESTADO" });
+    expect(planejarAcao(saida({ etapa: "paga" }), { acao: "corrigir_valor", valor: "10.00", motivo: "x" }, SEM_ANEXOS, AGORA)).toMatchObject({ codigo: "CONFLITO_ESTADO" });
     expect(podeExecutar(MEMBRO_PAGAR, saida({ etapa: "aprovada" }), "corrigir_valor")).toBe(false);
     expect(podeExecutar(GERENTE, saida({ etapa: "aprovada" }), "corrigir_valor")).toBe(true);
   });

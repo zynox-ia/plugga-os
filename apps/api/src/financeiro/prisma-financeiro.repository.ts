@@ -335,11 +335,12 @@ export class PrismaFinanceiroRepository {
           return evento("financeiro.lancamento.boleto_registrado");
         case "registrar_envio":
           await tx.lancamento.update({ where: { id }, data: { etapa: plano.etapa, enviadoEm: agora, envioCanal: plano.canal, enviadoPorId: principal.id } });
-          return evento("financeiro.lancamento.enviado", { canal: plano.canal });
+          // O canal é texto livre (pode ter telefone ou e-mail): fica no lançamento, não no evento.
+          return evento("financeiro.lancamento.enviado");
         case "registrar_cobranca":
           // Não muda a etapa: o contato vai à linha do tempo, com a nota.
           await historico("cobranca_registrada", { canal: plano.canal }, plano.nota);
-          return evento("financeiro.lancamento.cobranca_registrada", { canal: plano.canal });
+          return evento("financeiro.lancamento.cobranca_registrada");
         case "registrar_pagamento":
           await this.garantirConta(tx, plano.contaCorrenteId, atual.companyId);
           await tx.lancamento.update({
