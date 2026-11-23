@@ -33,6 +33,7 @@ docs/mockup/*.zip
 # Playwright
 playwright-report/
 test-results/
+.e2e-out/
 blob-report/
 apps/web/e2e/.auth/
 
