@@ -35,3 +35,4 @@ export * from "./fornecedores.js";
 export * from "./compras.js";
 export * from "./estoque.js";
 export * from "./financeiro.js";
+export * from "./engenharia.js";

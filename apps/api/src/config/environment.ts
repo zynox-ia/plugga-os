@@ -56,6 +56,8 @@ export const environmentSchema = z
     JOBS_WORKER_CONCURRENCY: z.coerce.number().int().min(1).max(50).default(1),
     // Portão do Financeiro (PLU-336) até o módulo ficar completo: ver `financeiroLigado`.
     FINANCEIRO_HABILITADO: environmentBoolean.default(false),
+    // Portão da Engenharia e Obras (PLU-345), com a mesma regra: ver `engenhariaLigada`.
+    ENGENHARIA_HABILITADO: environmentBoolean.default(false),
     DEV_AUTH_ENABLED: environmentBoolean.default(false),
     // Rota sem @Public/@Authenticated/@Roles: `warn` só registra em log (padrão,
     // até o inventário ser aprovado); `enforce` nega. Voltar a `warn` não exige
@@ -402,9 +404,20 @@ export function financeiroLigado(nodeEnvCru: unknown, habilitado: boolean): bool
   return nodeEnvCru === "development" || nodeEnvCru === "test" || habilitado;
 }
 
+/**
+ * Portão da Engenharia e Obras (PLU-345), igual ao do Financeiro, até o André
+ * liberar o módulo: liga com `NODE_ENV` development ou test, ou com
+ * `ENGENHARIA_HABILITADO=true`. Sem `NODE_ENV`, fica desligado.
+ */
+export function engenhariaLigada(nodeEnvCru: unknown, habilitado: boolean): boolean {
+  return financeiroLigado(nodeEnvCru, habilitado);
+}
+
 export type Environment = z.infer<typeof environmentSchema> & {
   /** Calculado por `financeiroLigado` a partir do ambiente cru; não é variável de ambiente. */
   FINANCEIRO_LIGADO: boolean;
+  /** Calculado por `engenhariaLigada` a partir do ambiente cru; não é variável de ambiente. */
+  ENGENHARIA_LIGADA: boolean;
 };
 
 export function validateEnvironment(input: Record<string, unknown>): Environment {
@@ -417,5 +430,9 @@ export function validateEnvironment(input: Record<string, unknown>): Environment
     throw new Error(`Invalid environment configuration: ${details}`);
   }
 
-  return { ...result.data, FINANCEIRO_LIGADO: financeiroLigado(input.NODE_ENV, result.data.FINANCEIRO_HABILITADO) };
+  return {
+    ...result.data,
+    FINANCEIRO_LIGADO: financeiroLigado(input.NODE_ENV, result.data.FINANCEIRO_HABILITADO),
+    ENGENHARIA_LIGADA: engenhariaLigada(input.NODE_ENV, result.data.ENGENHARIA_HABILITADO),
+  };
 }

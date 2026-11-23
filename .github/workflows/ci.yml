@@ -32,6 +32,9 @@ jobs:
       # módulo estar completo. A web lê a NEXT_PUBLIC_ no build; a API, a outra.
       NEXT_PUBLIC_FINANCEIRO_HABILITADO: "true"
       FINANCEIRO_HABILITADO: "true"
+      # Mesmo portão para a Engenharia e Obras (PLU-345).
+      NEXT_PUBLIC_ENGENHARIA_HABILITADO: "true"
+      ENGENHARIA_HABILITADO: "true"
 
     services:
       postgres:
