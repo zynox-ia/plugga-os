@@ -1,5 +1,6 @@
 import {
   BadGatewayException,
+  ConflictException,
   Body,
   Controller,
   Delete,
@@ -123,6 +124,7 @@ async function comMotivoDoOmie<T>(fazer: () => Promise<T>): Promise<T> {
   try {
     return await fazer();
   } catch (erro) {
+    if (erro instanceof OmieFalhouError && erro.motivo === "modo_mock") throw new ConflictException(MENSAGEM_DO_OMIE.modo_mock);
     if (erro instanceof OmieFalhouError) throw new BadGatewayException(MENSAGEM_DO_OMIE[erro.motivo]);
     throw erro;
   }

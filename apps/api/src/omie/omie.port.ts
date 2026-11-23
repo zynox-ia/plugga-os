@@ -2,7 +2,7 @@ import type { EmpresaDoOmie } from "@plugga/shared";
 
 /** O OMIE recusou ou não respondeu. Só o motivo curto, nunca a chave, o segredo nem o corpo da resposta. */
 export class OmieFalhouError extends Error {
-  constructor(readonly motivo: "credenciais_invalidas" | "limite_de_consumo" | "recusada" | "resposta_inesperada" | "indisponivel") {
+  constructor(readonly motivo: "credenciais_invalidas" | "limite_de_consumo" | "recusada" | "resposta_inesperada" | "indisponivel" | "modo_mock") {
     super(`omie falhou: ${motivo}`);
   }
 }

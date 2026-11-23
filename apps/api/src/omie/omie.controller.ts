@@ -1,5 +1,6 @@
 import {
   BadGatewayException,
+  ConflictException,
   Body,
   Controller,
   Delete,
@@ -37,6 +38,7 @@ export const MENSAGEM_DO_OMIE: Record<OmieFalhouError["motivo"], string> = {
   recusada: "O OMIE recusou a consulta. Confira se a chave e o segredo são do mesmo app e se o app está ativo.",
   resposta_inesperada: "O OMIE respondeu de um jeito inesperado. Confira a chave e o segredo e tente de novo.",
   indisponivel: "Não foi possível falar com o OMIE. Tente de novo em instantes.",
+  modo_mock: "A integração do OMIE está em modo mock: o OMIE não foi chamado. Para testar aqui, use uma chave sintética (começando com sintetico-); a leitura real só vale com o modo somente leitura ou de escrita, ligado pela plataforma.",
 };
 
 /**
@@ -88,6 +90,7 @@ export class OmieController {
       return await this.cofre.testar();
     } catch (erro) {
       // Só um texto fixo por motivo: nunca a chave, o segredo ou a mensagem do OMIE.
+      if (erro instanceof OmieFalhouError && erro.motivo === "modo_mock") throw new ConflictException(MENSAGEM_DO_OMIE.modo_mock);
       throw new BadGatewayException(erro instanceof OmieFalhouError ? MENSAGEM_DO_OMIE[erro.motivo] : MENSAGEM_DO_OMIE.indisponivel);
     }
   }
