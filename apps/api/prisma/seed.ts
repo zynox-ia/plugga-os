@@ -179,18 +179,19 @@ async function main() {
     }
   }
 
-// Cadastros de apoio de Compras: fornecedores e obras nas duas empresas, para
-  // a tela de novo pedido não abrir vazia numa máquina recém-semeada. São dados
-  // sintéticos — nenhum fornecedor real, nenhum CNPJ verdadeiro.
+// Cadastros de apoio de Compras, para a tela de novo pedido não abrir vazia
+  // numa máquina recém-semeada. O fornecedor é cadastro único das duas empresas
+  // (PLU-326); a obra ainda tem empresa. São dados sintéticos: nenhum
+  // fornecedor real, nenhum CNPJ verdadeiro.
   const fornecedoresDeExemplo = [
-    { companyId: 'plugga', nome: 'Elétrica Norte (exemplo)' },
-    { companyId: 'plugga', nome: 'Suprimentos Manaus (exemplo)' },
-    { companyId: 'waze', nome: 'Materiais de Obra Amazonas (exemplo)' },
+    { nome: 'Elétrica Norte (exemplo)', categoria: 'material_eletrico' },
+    { nome: 'Suprimentos Manaus (exemplo)', categoria: 'escritorio' },
+    { nome: 'Materiais de Obra Amazonas (exemplo)', categoria: 'material_de_obra' },
   ] as const;
 
   for (const fornecedor of fornecedoresDeExemplo) {
     const existente = await prisma.fornecedor.findFirst({
-      where: { companyId: fornecedor.companyId, nome: fornecedor.nome },
+      where: { nome: fornecedor.nome },
       select: { id: true },
     });
     if (!existente) {
