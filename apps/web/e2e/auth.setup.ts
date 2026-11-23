@@ -25,7 +25,8 @@ setup("authenticate as the seeded local admin", async ({ page }) => {
   await page.getByLabel("Senha", { exact: true }).fill(password);
   await page.getByRole("button", { name: "Fazer login" }).click();
 
-  await expect(page).toHaveURL("/");
+  // Com o dev ocupado (outros agentes editando em modo watch), o login passa dos 5 s padrão.
+  await expect(page).toHaveURL("/", { timeout: 15_000 });
   await expect(page.locator(".app-shell")).toBeVisible();
 
   await page.context().storageState({ path: STORAGE_STATE });
