@@ -5,7 +5,7 @@ import {
   criarContaCorrenteSchema,
   editarCategoriaFinanceiraSchema,
   editarContaCorrenteSchema,
-  type CategoriaFinanceira,
+  type CategoriaEditada,
   type ContaCorrente,
   type CriarCategoriaFinanceira,
   type CriarContaCorrente,
@@ -39,7 +39,7 @@ export class CadastrosDoFinanceiroController {
   criarCategoria(
     @Body(new ZodValidationPipe(criarCategoriaFinanceiraSchema)) input: CriarCategoriaFinanceira,
     @CurrentPrincipal() principal: AuthPrincipal,
-  ): Promise<CategoriaFinanceira> {
+  ): Promise<CategoriaEditada> {
     return this.cadastros.criarCategoria(input, principal);
   }
 
@@ -48,7 +48,7 @@ export class CadastrosDoFinanceiroController {
     @Param("id", ParseUUIDPipe) id: string,
     @Body(new ZodValidationPipe(editarCategoriaFinanceiraSchema)) input: EditarCategoriaFinanceira,
     @CurrentPrincipal() principal: AuthPrincipal,
-  ): Promise<CategoriaFinanceira> {
+  ): Promise<CategoriaEditada> {
     return this.cadastros.editarCategoria(id, input, principal);
   }
 

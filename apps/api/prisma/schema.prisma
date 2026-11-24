@@ -2828,6 +2828,8 @@ model CategoriaFinanceira {
   natureza  FinanceiroNaturezaCategoria
   grupoNome String                      @map("grupo_nome")
   ativa     Boolean                     @default(true)
+  /// A categoria do "Criar tarifa" da Conciliação: uma por empresa, só de despesa ativa (PLU-339).
+  tarifaBancaria Boolean                @default(false) @map("tarifa_bancaria")
   lidaEm    DateTime?                   @map("lida_em") @db.Timestamptz(6)
   createdAt DateTime                    @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime                    @updatedAt @map("updated_at") @db.Timestamptz(6)

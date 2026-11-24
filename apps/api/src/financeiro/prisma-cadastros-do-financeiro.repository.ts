@@ -1,6 +1,7 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import type {
+  CategoriaEditada,
   CategoriaFinanceira,
   CompanyKey,
   ContaCorrente,
@@ -12,7 +13,7 @@ import type {
 } from "@plugga/shared";
 
 import { AuditAppender } from "../audit/audit-appender";
-import { Conflito, NaoEncontrado, RequisicaoInvalida } from "../common/errors/dominio";
+import { Conflito, EstadoInvalido, NaoEncontrado, RequisicaoInvalida } from "../common/errors/dominio";
 import type { AuthPrincipal } from "../core/auth/auth.types";
 import { diaEmManaus, inicioDoDiaEmManaus } from "../compras/dias-uteis";
 import { PrismaService } from "../prisma/prisma.service";
@@ -29,6 +30,7 @@ export const paraCategoria = (c: LinhaDaCategoria): CategoriaFinanceira => ({
   natureza: c.natureza,
   grupo: { codigo: prefixoDoGrupo(c.codigo), nome: c.grupoNome },
   ativa: c.ativa,
+  tarifaBancaria: c.tarifaBancaria,
 });
 
 export const paraConta = (c: LinhaDaConta): ContaCorrente => ({
@@ -51,6 +53,10 @@ const saldoInicialParaOBanco = (input: { saldoInicial?: string | null; saldoInic
     : input.saldoInicial === null ? { saldoInicial: null, saldoInicialEm: null }
     : { saldoInicial: new Prisma.Decimal(input.saldoInicial), saldoInicialEm: inicioDoDiaEmManaus(input.saldoInicialEm!) };
 
+const soDespesaEDeTarifas = () => new RequisicaoInvalida("Só uma categoria de despesa pode ser a de tarifas bancárias.", [
+  { campo: "tarifaBancaria", problema: "Só categoria de despesa." },
+]);
+
 /** O grupo é o prefixo de dois níveis do código ("2.01" de "2.01.07"). */
 const prefixoDoGrupo = (codigo: string): string => codigo.split(".").slice(0, 2).join(".");
 
@@ -70,44 +76,68 @@ export class PrismaCadastrosDoFinanceiroRepository {
     @Inject(AuditAppender) private readonly auditoria: AuditAppender,
   ) {}
 
-  async criarCategoria(input: CriarCategoriaFinanceira, principal: AuthPrincipal): Promise<CategoriaFinanceira> {
+  async criarCategoria(input: CriarCategoriaFinanceira, principal: AuthPrincipal): Promise<CategoriaEditada> {
+    const { tarifaBancaria, ...dados } = input;
+    if (tarifaBancaria && dados.tipo !== "despesa") throw soDespesaEDeTarifas();
     try {
       return await this.prisma.comContexto(async (tx) => {
         // O grupo é o prefixo do código ("2.01"): a tela agrupa por ele, então o nome é um só.
-        const nomes = await this.nomesDoGrupo(tx, input.empresa, input.codigo);
-        if (nomes.length > 0 && !nomes.includes(input.grupoNome)) {
-          const problema = `O grupo ${prefixoDoGrupo(input.codigo)} já se chama "${nomes[0]}".`;
+        const nomes = await this.nomesDoGrupo(tx, dados.empresa, dados.codigo);
+        if (nomes.length > 0 && !nomes.includes(dados.grupoNome)) {
+          const problema = `O grupo ${prefixoDoGrupo(dados.codigo)} já se chama "${nomes[0]}".`;
           throw new RequisicaoInvalida(problema, [{ campo: "grupoNome", problema }]);
         }
+        const desmarcada = tarifaBancaria ? await this.tirarAMarcaDeTarifas(tx, dados.empresa, principal) : undefined;
         const criada = await tx.categoriaFinanceira.create({
-          data: { companyId: input.empresa, codigo: input.codigo, nome: input.nome, tipo: input.tipo, natureza: input.natureza, grupoNome: input.grupoNome },
+          data: { companyId: dados.empresa, codigo: dados.codigo, nome: dados.nome, tipo: dados.tipo, natureza: dados.natureza, grupoNome: dados.grupoNome, tarifaBancaria: tarifaBancaria ?? false },
         });
-        await this.registrar(tx, "financeiro.categoria.created", "categoria_financeira", criada.id, criada.companyId, principal, { codigo: criada.codigo, tipo: criada.tipo });
-        return paraCategoria(criada);
+        await this.registrar(tx, "financeiro.categoria.created", "categoria_financeira", criada.id, criada.companyId, principal, { codigo: criada.codigo, tipo: criada.tipo, tarifaBancaria: criada.tarifaBancaria });
+        return { ...paraCategoria(criada), ...(desmarcada ? { desmarcada } : {}) };
       });
     } catch (erro) {
       if (erro instanceof Prisma.PrismaClientKnownRequestError && erro.code === "P2002") {
-        throw new Conflito(`Já existe a categoria ${input.codigo} nesta empresa.`, [{ campo: "codigo", problema: "Um código por empresa." }]);
+        throw new Conflito(`Já existe a categoria ${dados.codigo} nesta empresa.`, [{ campo: "codigo", problema: "Um código por empresa." }]);
       }
       throw erro;
     }
   }
 
-  async editarCategoria(id: string, input: EditarCategoriaFinanceira, principal: AuthPrincipal): Promise<CategoriaFinanceira> {
+  async editarCategoria(id: string, input: EditarCategoriaFinanceira, principal: AuthPrincipal): Promise<CategoriaEditada> {
     return this.prisma.comContexto(async (tx) => {
       const antes = await tx.categoriaFinanceira.findUnique({ where: { id } });
       if (!antes) throw new NaoEncontrado("Categoria não encontrada.");
-      const campos = camposAlterados({ nome: antes.nome, natureza: antes.natureza, grupoNome: antes.grupoNome, ativa: antes.ativa }, input);
+      const ativa = input.ativa ?? antes.ativa;
+      if (input.tarifaBancaria && antes.tipo !== "despesa") throw soDespesaEDeTarifas();
+      if (input.tarifaBancaria && !ativa) {
+        throw new EstadoInvalido("Categoria inativa não pode ser a de tarifas bancárias. Reative a categoria antes de marcar.");
+      }
+      // Inativar a categoria de tarifas tira a marca: o "Criar tarifa" passa a pedir a categoria.
+      const dados = { ...input, ...(!ativa && antes.tarifaBancaria ? { tarifaBancaria: false } : {}) };
+      const campos = camposAlterados({ nome: antes.nome, natureza: antes.natureza, grupoNome: antes.grupoNome, ativa: antes.ativa, tarifaBancaria: antes.tarifaBancaria }, dados);
       if (campos.length === 0) return paraCategoria(antes);
       if (campos.includes("grupoNome") && (await this.nomesDoGrupo(tx, antes.companyId, antes.codigo, id)).length > 0) {
         // Renomear o grupo inteiro ainda não entra (decisão do Coordenador, 24/11/2026).
         const problema = `O nome do grupo vale para todas as categorias do ${prefixoDoGrupo(antes.codigo)}; renomear o grupo inteiro ainda não está disponível.`;
         throw new RequisicaoInvalida(problema, [{ campo: "grupoNome", problema }]);
       }
-      const depois = await tx.categoriaFinanceira.update({ where: { id }, data: input });
+      const desmarcada = dados.tarifaBancaria && !antes.tarifaBancaria ? await this.tirarAMarcaDeTarifas(tx, antes.companyId, principal) : undefined;
+      const depois = await tx.categoriaFinanceira.update({ where: { id }, data: dados });
       await this.registrar(tx, "financeiro.categoria.updated", "categoria_financeira", id, depois.companyId, principal, { codigo: depois.codigo, campos });
-      return paraCategoria(depois);
+      return { ...paraCategoria(depois), ...(desmarcada ? { desmarcada } : {}) };
     });
+  }
+
+  /**
+   * Tira a marca de tarifas da categoria da empresa que a tem, antes de pôr em outra. A trava
+   * por empresa enfileira duas trocas ao mesmo tempo (o índice único é a última garantia).
+   */
+  private async tirarAMarcaDeTarifas(tx: Prisma.TransactionClient, empresa: string, principal: AuthPrincipal): Promise<CategoriaEditada["desmarcada"]> {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`categoria.tarifa.${empresa}`}))`;
+    const marcada = await tx.categoriaFinanceira.findFirst({ where: { companyId: empresa, tarifaBancaria: true }, select: { id: true, codigo: true, nome: true } });
+    if (!marcada) return undefined;
+    await tx.categoriaFinanceira.update({ where: { id: marcada.id }, data: { tarifaBancaria: false } });
+    await this.registrar(tx, "financeiro.categoria.updated", "categoria_financeira", marcada.id, empresa, principal, { codigo: marcada.codigo, campos: ["tarifaBancaria"] });
+    return marcada;
   }
 
   async criarConta(input: CriarContaCorrente, principal: AuthPrincipal): Promise<ContaCorrente> {

@@ -137,8 +137,16 @@ export const categoriaFinanceiraSchema = z.object({
   /** Os dois primeiros níveis do código ("2.01") e o nome do grupo no OMIE. */
   grupo: z.object({ codigo: z.string(), nome: z.string() }),
   ativa: z.boolean(),
+  /** A categoria do "Criar tarifa" da Conciliação (PLU-339, C5): no máximo uma por empresa, de despesa ativa. Opcional até a web ler. */
+  tarifaBancaria: z.boolean().optional(),
 });
 export type CategoriaFinanceira = z.infer<typeof categoriaFinanceiraSchema>;
+
+/** A resposta do `POST financeiro/categorias` e do `PATCH financeiro/categorias/:id`: com a categoria que perdeu a marca de tarifas, quando a troca a tirou de outra. */
+export const categoriaEditadaSchema = categoriaFinanceiraSchema.extend({
+  desmarcada: z.object({ id: uuid, codigo: z.string(), nome: z.string() }).optional(),
+});
+export type CategoriaEditada = z.infer<typeof categoriaEditadaSchema>;
 
 /** Espelho da conta corrente do OMIE de uma empresa. Somente leitura no Plugga OS. */
 export const contaCorrenteSchema = z.object({
@@ -187,15 +195,22 @@ export const criarCategoriaFinanceiraSchema = z.object({
   tipo: tipoDeCategoriaSchema,
   natureza: naturezaDeCategoriaSchema,
   grupoNome: z.string().trim().min(2).max(80),
+  /** Já nasce como a categoria de tarifas da empresa (só despesa); a anterior perde a marca, como na edição. */
+  tarifaBancaria: z.boolean().optional(),
 }).strict();
 export type CriarCategoriaFinanceira = z.infer<typeof criarCategoriaFinanceiraSchema>;
 
-/** `PATCH financeiro/categorias/:id`: só nome, natureza, grupo e ativa. */
+/**
+ * `PATCH financeiro/categorias/:id`: só nome, natureza, grupo, ativa e a marca de tarifas.
+ * Marcar outra categoria da empresa desmarca a anterior (a resposta diz qual); inativar a
+ * marcada a desmarca; desmarcar sem pôr outra no lugar vale.
+ */
 export const editarCategoriaFinanceiraSchema = z.object({
   nome: nomeDoCadastro,
   natureza: naturezaDeCategoriaSchema,
   grupoNome: z.string().trim().min(2).max(80),
   ativa: z.boolean(),
+  tarifaBancaria: z.boolean(),
 }).partial().strict().refine((v) => Object.keys(v).length > 0, "Nada para alterar.");
 export type EditarCategoriaFinanceira = z.infer<typeof editarCategoriaFinanceiraSchema>;
 

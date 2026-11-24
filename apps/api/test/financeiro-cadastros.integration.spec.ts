@@ -4,7 +4,7 @@ import { criarCategoriaFinanceiraSchema, criarContaCorrenteSchema, editarCategor
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { AuditAppender } from "../src/audit/audit-appender.js";
-import { Conflito, RequisicaoInvalida } from "../src/common/errors/dominio.js";
+import { Conflito, EstadoInvalido, RequisicaoInvalida } from "../src/common/errors/dominio.js";
 import type { AuthPrincipal } from "../src/core/auth/auth.types.js";
 import { PrismaCadastrosDoFinanceiroRepository } from "../src/financeiro/prisma-cadastros-do-financeiro.repository.js";
 import { contextoBanco } from "../src/prisma/contexto-banco.js";
@@ -68,7 +68,7 @@ describe.skipIf(!HABILITADO)("cadastros do Financeiro no Postgres", () => {
 
     const eventos = await prisma.eventLog.findMany({ where: { entityId: criada.id }, orderBy: { occurredAt: "asc" }, select: { eventName: true, payload: true } });
     expect(eventos).toEqual([
-      { eventName: "financeiro.categoria.created", payload: { codigo: `8.${sufixo}.01`, tipo: "despesa" } },
+      { eventName: "financeiro.categoria.created", payload: { codigo: `8.${sufixo}.01`, tipo: "despesa", tarifaBancaria: false } },
       { eventName: "financeiro.categoria.updated", payload: { codigo: `8.${sufixo}.01`, campos: ["nome", "ativa"] } },
     ]);
     // Sem mudança, sem evento.
@@ -157,10 +157,56 @@ describe.skipIf(!HABILITADO)("cadastros do Financeiro no Postgres", () => {
     await expect(comoRuntime((tx) => tx.$executeRaw`DELETE FROM public.omie_categorias WHERE categoria_id = ${c.id}::uuid`)).rejects.toThrow(/permission denied/);
   }, PRAZO_MS);
 
+  it("C5: a categoria de tarifas é uma por empresa; marcar outra desmarca a anterior e diz qual; inativar desmarca; só despesa ativa", async () => {
+    const marcar = (id: string, dados: unknown) => como("gerente", () => cadastros.editarCategoria(id, editarCategoriaFinanceiraSchema.parse(dados), pessoas.gerente));
+    const marcadas = (empresa: string) => prisma.categoriaFinanceira.findMany({ where: { companyId: empresa, tarifaBancaria: true }, select: { id: true } });
+    const a = await como("gerente", () => cadastros.criarCategoria(categoria(`6.${sufixo}.01`, "waze"), pessoas.gerente));
+    const b = await como("gerente", () => cadastros.criarCategoria(categoria(`6.${sufixo}.02`, "waze"), pessoas.gerente));
+    const daPlugga = await como("gerente", () => cadastros.criarCategoria(categoria(`6.${sufixo}.01`), pessoas.gerente));
+    expect(a.tarifaBancaria).toBe(false);
+
+    const comA = await marcar(a.id, { tarifaBancaria: true });
+    expect(comA.tarifaBancaria).toBe(true);
+    await marcar(daPlugga.id, { tarifaBancaria: true });
+    // A troca na mesma empresa, sem 409: a resposta diz qual perdeu a marca; a da outra empresa fica.
+    const comB = await marcar(b.id, { tarifaBancaria: true });
+    expect(comB).toMatchObject({ tarifaBancaria: true, desmarcada: { id: a.id, codigo: `6.${sufixo}.01`, nome: a.nome } });
+    expect(await marcadas("waze")).toEqual([{ id: b.id }]);
+    expect((await marcadas("plugga")).map((c) => c.id)).toEqual([daPlugga.id]);
+    // Marcar de novo a mesma não gera evento nem desmarcada.
+    expect(await marcar(b.id, { tarifaBancaria: true })).not.toHaveProperty("desmarcada");
+    const eventosDeA = await prisma.eventLog.findMany({ where: { entityId: a.id, eventName: "financeiro.categoria.updated" }, orderBy: { occurredAt: "asc" }, select: { payload: true } });
+    expect(eventosDeA.map((e) => e.payload)).toEqual([{ codigo: `6.${sufixo}.01`, campos: ["tarifaBancaria"] }, { codigo: `6.${sufixo}.01`, campos: ["tarifaBancaria"] }]);
+
+    // Inativar a marcada tira a marca; inativa não se marca (409 com a mensagem pronta); desmarcar sem outra vale.
+    expect(await marcar(b.id, { ativa: false })).toMatchObject({ ativa: false, tarifaBancaria: false });
+    expect(await marcadas("waze")).toEqual([]);
+    await expect(marcar(b.id, { tarifaBancaria: true })).rejects.toBeInstanceOf(EstadoInvalido);
+    await expect(marcar(b.id, { tarifaBancaria: true, ativa: false })).rejects.toBeInstanceOf(EstadoInvalido);
+    expect(await marcar(b.id, { tarifaBancaria: true, ativa: true })).toMatchObject({ ativa: true, tarifaBancaria: true });
+    expect(await marcar(b.id, { tarifaBancaria: false })).toMatchObject({ tarifaBancaria: false });
+    expect(await marcadas("waze")).toEqual([]);
+
+    // Só despesa; a categoria nova pode nascer marcada, e a anterior perde a marca.
+    const receita = await como("gerente", () => cadastros.criarCategoria({ ...categoria(`1.${sufixo}.01`, "waze"), tipo: "receita" }, pessoas.gerente));
+    await expect(marcar(receita.id, { tarifaBancaria: true })).rejects.toBeInstanceOf(RequisicaoInvalida);
+    await expect(como("gerente", () => cadastros.criarCategoria({ ...categoria(`1.${sufixo}.02`, "waze"), tipo: "receita", tarifaBancaria: true }, pessoas.gerente))).rejects.toBeInstanceOf(RequisicaoInvalida);
+    await marcar(a.id, { tarifaBancaria: true });
+    const nova = await como("gerente", () => cadastros.criarCategoria({ ...categoria(`6.${sufixo}.03`, "waze"), tarifaBancaria: true }, pessoas.gerente));
+    expect(nova).toMatchObject({ tarifaBancaria: true, desmarcada: { id: a.id } });
+
+    // O banco garante sozinho: duas marcadas na empresa, receita marcada e inativa marcada são recusadas.
+    await expect(prisma.categoriaFinanceira.update({ where: { id: a.id }, data: { tarifaBancaria: true } })).rejects.toThrow(/categorias_financeiras_tarifa_bancaria_key|Unique constraint/);
+    await expect(prisma.categoriaFinanceira.update({ where: { id: receita.id }, data: { tarifaBancaria: true } })).rejects.toThrow(/categorias_financeiras_tarifa_de_despesa/);
+    await expect(prisma.categoriaFinanceira.update({ where: { id: nova.id }, data: { ativa: false } })).rejects.toThrow(/categorias_financeiras_tarifa_de_despesa/);
+    // O membro não marca (o RLS de UPDATE é da gerência).
+    expect(await comoRuntime((tx) => tx.$executeRaw`UPDATE public.categorias_financeiras SET tarifa_bancaria = false WHERE id = ${nova.id}::uuid`, "membro")).toBe(0);
+  }, PRAZO_MS);
+
   it("o SQL que o Prisma gera no cadastro cabe nos privilégios por coluna do pool da aplicação", async () => {
     await comoRuntime(async (tx) => {
-      const c = await tx.categoriaFinanceira.create({ data: { companyId: "plugga", codigo: `8.${sufixo}.06`, nome: `${marca} pelo prisma`, tipo: "despesa", natureza: "servico", grupoNome: "Teste" } });
-      await tx.categoriaFinanceira.update({ where: { id: c.id }, data: { nome: `${marca} pelo prisma 2`, natureza: "outros", grupoNome: "Outro", ativa: false } });
+      const c = await tx.categoriaFinanceira.create({ data: { companyId: "plugga", codigo: `8.${sufixo}.06`, nome: `${marca} pelo prisma`, tipo: "despesa", natureza: "servico", grupoNome: "Teste", tarifaBancaria: false } });
+      await tx.categoriaFinanceira.update({ where: { id: c.id }, data: { nome: `${marca} pelo prisma 2`, natureza: "outros", grupoNome: "Outro", tarifaBancaria: false, ativa: false } });
       const conta = await tx.contaCorrente.create({ data: { companyId: "plugga", nome: `${marca} conta pelo prisma`, banco: null, agencia: null, numero: null, saldoInicial: 10, saldoInicialEm: new Date("2026-11-01T04:00:00Z") } });
       await tx.contaCorrente.update({ where: { id: conta.id }, data: { nome: `${marca} conta pelo prisma 2`, banco: "B", agencia: "1", numero: "2", ativa: false, saldoInicial: null, saldoInicialEm: null } });
     });
