@@ -34,6 +34,7 @@ import visao from "../pipelines/resumo-do-lead.module.css";
 import { EmpresaComPonto } from "../suprimentos/empresa";
 import { CampoDeMenu } from "../suprimentos/menu-com-busca";
 import { Alert, Button, DatePicker, TextField } from "../ui";
+import { dataInvalidaEm } from "../ui/date-picker";
 import styles from "./ficha-da-ordem.module.css";
 import { ProtocoloForm } from "./protocolo-form";
 
@@ -123,6 +124,8 @@ export function FichaDoProtocolo({ protocolo: inicial, opcoes, hoje, aoFechar, a
   async function verificar(evento?: FormEvent) {
     evento?.preventDefault();
     if (aba !== "geral") { setAba("geral"); return; }
+    // O botão do rodapé envia fora do <form>: a data digitada inválida (no passado) fica com o aviso do próprio campo.
+    if (!evento && dataInvalidaEm(document.getElementById(`${id}-verificar`))) return;
     const problemas = problemasDaVerificacao(v, hoje);
     setErros(problemas);
     if (Object.values(problemas).some(Boolean)) return;

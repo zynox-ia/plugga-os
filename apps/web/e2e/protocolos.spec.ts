@@ -56,6 +56,13 @@ test("novo protocolo pela tela; a pendência pede a ação; liberado encerra sem
   // 2. A ficha abre; verificar hoje. A pendência pede o que fazer.
   const ficha = page.getByRole("dialog", { name: new RegExp(`^Protocolo ${literal(numero)}:`) });
   await expect(ficha.getByText("Verificar hoje")).toBeVisible(DEPOIS_DA_ACAO);
+  // Data no passado digitada: o aviso é o do próprio campo, e nada é enviado.
+  await ficha.getByRole("textbox", { name: /^Próxima verificação/ }).fill(legivel(manaus(-1)));
+  await ficha.getByRole("button", { name: "Registrar verificação" }).click();
+  await expect(ficha.getByText(`Erro: Escolha uma data a partir de ${legivel(manaus(0))}.`)).toBeVisible();
+  await expect(ficha.getByText("Erro: marque a próxima verificação.")).toHaveCount(0);
+  await expect(ficha.getByRole("tab", { name: /^Verificações/ })).toHaveAccessibleName("Verificações 0");
+  await ficha.getByRole("textbox", { name: /^Próxima verificação/ }).fill(legivel(manaus(2)));
   await escolher(page, ficha, /^Resultado/, "Pendência da distribuidora");
   await ficha.getByRole("button", { name: "Registrar verificação" }).click();
   await expect(ficha.getByText("Erro: diga o que precisa ser feito.")).toBeVisible();
