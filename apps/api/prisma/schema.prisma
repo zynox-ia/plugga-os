@@ -521,6 +521,8 @@ model Company {
   omieConexao OmieConexao?
   omieEnvios OmieEnvio[]
   omieLancamentos OmieLancamento[]
+  omieCategorias OmieCategoria[]
+  omieContasCorrentes OmieContaCorrente[]
   omiePausas OmiePausa[]
   pipelines Pipeline[]
   ordensDeServico OrdemDeServico[]
@@ -2828,6 +2830,8 @@ model CategoriaFinanceira {
 
   company     Company      @relation(fields: [companyId], references: [id])
   lancamentos Lancamento[]
+  /// O vínculo com o OMIE, do conector.
+  omie        OmieCategoria?
 
   @@unique([companyId, codigo])
   @@unique([id, companyId])
@@ -2851,10 +2855,43 @@ model ContaCorrente {
 
   company     Company      @relation(fields: [companyId], references: [id])
   lancamentos Lancamento[]
+  /// O vínculo com o OMIE, do conector.
+  omie        OmieContaCorrente?
 
   @@unique([companyId, omieCodigo])
   @@unique([id, companyId])
   @@map("contas_correntes")
+}
+
+/// O vínculo de uma categoria do Plugga OS com o OMIE (PLU-342), do conector. A empresa é
+/// a da categoria (chave composta no banco). A aplicação só lê; a importação grava.
+model OmieCategoria {
+  categoriaId String    @id @map("categoria_id") @db.Uuid
+  companyId   String    @map("company_id")
+  omieCodigo  String    @map("omie_codigo")
+  lidaEm      DateTime? @map("lida_em") @db.Timestamptz(6)
+  updatedAt   DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+
+  categoria CategoriaFinanceira @relation(fields: [categoriaId], references: [id], onDelete: Restrict)
+  company   Company             @relation(fields: [companyId], references: [id], onDelete: Restrict)
+
+  @@unique([companyId, omieCodigo])
+  @@map("omie_categorias")
+}
+
+/// O vínculo de uma conta corrente do Plugga OS com o OMIE (PLU-342), do conector.
+model OmieContaCorrente {
+  contaCorrenteId String    @id @map("conta_corrente_id") @db.Uuid
+  companyId       String    @map("company_id")
+  omieCodigo      String    @map("omie_codigo")
+  lidaEm          DateTime? @map("lida_em") @db.Timestamptz(6)
+  updatedAt       DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+
+  contaCorrente ContaCorrente @relation(fields: [contaCorrenteId], references: [id], onDelete: Restrict)
+  company       Company       @relation(fields: [companyId], references: [id], onDelete: Restrict)
+
+  @@unique([companyId, omieCodigo])
+  @@map("omie_contas_correntes")
 }
 
 /// Saída (conta a pagar) ou entrada (cobrança de um cliente numa competência).
