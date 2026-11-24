@@ -9,6 +9,9 @@ import { EstadoInvalido } from "../src/common/errors/dominio.js";
 import type { AuthPrincipal } from "../src/core/auth/auth.types.js";
 import { papelNoFinanceiro } from "../src/financeiro/financeiro.rules.js";
 import { PrismaFinanceiroRepository } from "../src/financeiro/prisma-financeiro.repository.js";
+import { ReflexosDoLancamento } from "../src/financeiro/reflexo-do-lancamento.js";
+import { PrismaOmieLancamentosRepository } from "../src/omie/prisma-omie-lancamentos.repository.js";
+import { OmieReflexoDoLancamento } from "../src/omie/omie-reflexo.js";
 import type { IntegrationGate } from "../src/integrations/integration-gate.js";
 import type { EnqueueOptions, JobsQueue } from "../src/jobs/queue/jobs-queue.port.js";
 import type { OmieEscrita, PedidoDeEnvioAoOmie } from "../src/omie/omie-escrita.js";
@@ -31,7 +34,12 @@ const AGORA = new Date("2026-11-23T14:00:00Z");
 
 describe.skipIf(!HABILITADO)("fila do OMIE no Postgres", () => {
   const prisma = new PrismaService();
-  const repositorio = new PrismaFinanceiroRepository(prisma, new AuditAppender());
+  // O conector se inscreve nos reflexos do Financeiro; a conexão do OMIE é simulada (ligada).
+  let conectorLigado = true;
+  const reflexos = new ReflexosDoLancamento();
+  reflexos.inscrever(new OmieReflexoDoLancamento(async () => conectorLigado));
+  const repositorio = new PrismaFinanceiroRepository(prisma, new AuditAppender(), reflexos);
+  const conector = new PrismaOmieLancamentosRepository(prisma, new AuditAppender());
   const marca = `fila-${randomUUID().slice(0, 8)}`;
   const sessao = randomBytes(32).toString("hex");
   const papel = papelNoFinanceiro({ plataforma: "admin", departamentos: [] });
@@ -97,6 +105,36 @@ describe.skipIf(!HABILITADO)("fila do OMIE no Postgres", () => {
     await prisma.session.deleteMany({ where: { tokenHash: sessao } });
     await prisma.user.deleteMany({ where: { email: { startsWith: marca } } });
     await prisma.$disconnect();
+  }, PRAZO_MS);
+
+  it("com o conector desligado, o Financeiro funciona inteiro e nada vai ao outbox", async () => {
+    conectorLigado = false;
+    try {
+      const id = await novaConta();
+      await agir(id, { acao: "aprovar" });
+      await repositorio.registrarAnexo(id, "comprovante", { chave: `${marca}/${randomUUID()}.pdf`, nome: "c.pdf", tamanho: 1, tipo: "application/pdf" }, principal, papel, AGORA);
+      await agir(id, { acao: "registrar_pagamento", forma: "pix", contaCorrenteId: ids.conta, pagoEm: "2026-11-23" });
+      expect((await repositorio.obter(id, papel, AGORA)).etapa).toBe("paga");
+      expect(await envios(id)).toEqual([]);
+      expect(await noOmie(id)).toEqual({ omieEstado: "nao_enviado", omieCodigo: null, omieMotivo: null });
+    } finally {
+      conectorLigado = true;
+    }
+  }, PRAZO_MS);
+
+  it("sem conector inscrito (o Financeiro sozinho), as ações não tocam o outbox", async () => {
+    const sozinho = new PrismaFinanceiroRepository(prisma, new AuditAppender());
+    const id = await sozinho.criarContaAPagar(criarContaAPagarSchema.parse({
+      empresa: "plugga", fornecedorId: ids.fornecedor, categoriaId: ids.despesa, contaCorrenteId: ids.conta,
+      descricao: `${marca} conta sozinha`, valor: "10.00", vencimento: "2026-11-30", forma: "boleto",
+    }), principal);
+    await sozinho.executarAcao(id, acaoDoLancamentoSchema.parse({ acao: "aprovar" }), principal, papel, AGORA);
+    expect(await envios(id)).toEqual([]);
+  }, PRAZO_MS);
+
+  it("a conexão real: quem opera o Financeiro pergunta ao banco, e empresa sem par conferido conta como desligada", async () => {
+    const ligado = await comoRuntime((tx) => tx.$queryRaw<{ ligado: boolean }[]>`SELECT plugga_security.omie_conectado('empresa-sem-omie') AS ligado`);
+    expect(ligado).toEqual([{ ligado: false }]);
   }, PRAZO_MS);
 
   it("aprovar grava o pedido na transação; editar junta no mesmo pendente; o lançamento segue não enviado", async () => {
@@ -179,12 +217,12 @@ describe.skipIf(!HABILITADO)("fila do OMIE no Postgres", () => {
     expect((await envios(id))[0]).toMatchObject({ estado: "erro", ultimoErro: "recusada", tentativas: 0 });
     expect(await noOmie(id)).toEqual({ omieEstado: "erro", omieCodigo: null, omieMotivo: "recusada" });
 
-    await repositorio.tentarDeNovoNoOmie(id, principal, papel, AGORA);
+    await conector.tentarDeNovo(id, principal, AGORA);
     expect((await envios(id))[0]).toMatchObject({ estado: "pendente", ultimoErro: null, tentativas: 0 });
     expect((await noOmie(id)).omieEstado).toBe("nao_enviado");
     const detalhe = await repositorio.obter(id, papel, AGORA);
     expect(detalhe.linhaDoTempo.find((e) => e.tipo === "omie")).toMatchObject({ resumo: "Envio ao OMIE pedido de novo", por: { id: principal.id } });
-    await expect(repositorio.tentarDeNovoNoOmie(id, principal, papel, AGORA)).rejects.toBeInstanceOf(EstadoInvalido);
+    await expect(conector.tentarDeNovo(id, principal, AGORA)).rejects.toBeInstanceOf(EstadoInvalido);
   }, PRAZO_MS);
 
   it("falha transitória volta à fila contando a tentativa e com a próxima no futuro", async () => {

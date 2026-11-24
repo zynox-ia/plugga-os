@@ -6,6 +6,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { AppModule } from "../src/app.module";
 import { Conflito } from "../src/common/errors/dominio";
 import { FinanceiroService } from "../src/financeiro/financeiro.service";
+import { PrismaOmieLancamentosRepository } from "../src/omie/prisma-omie-lancamentos.repository";
 
 const ID = "00000000-0000-4000-8000-000000000901";
 
@@ -19,7 +20,6 @@ const servico = {
   criarContaAPagar: vi.fn().mockResolvedValue({ id: ID }),
   editar: vi.fn().mockResolvedValue({ id: ID }),
   executarAcao: vi.fn().mockResolvedValue({ id: ID }),
-  tentarDeNovoNoOmie: vi.fn().mockResolvedValue({ id: ID }),
   enviarAnexo: vi.fn().mockResolvedValue({ id: ID }),
   criarCobranca: vi.fn().mockResolvedValue({ id: ID }),
   buscarClientes: vi.fn().mockResolvedValue({ itens: [] }),
@@ -27,6 +27,9 @@ const servico = {
   prepararZipDeComprovantes: vi.fn().mockResolvedValue({ arquivos: 0, escrever: async (d: NodeJS.WritableStream) => { d.write(Buffer.from([0x50, 0x4b, 0x05, 0x06])); } }),
   baixarAnexo: vi.fn(),
 };
+
+/** O conector do OMIE, também dublê: o "Tentar de novo" mora nele. */
+const conector = { tentarDeNovo: vi.fn().mockResolvedValue(undefined) };
 
 const CONTA = {
   empresa: "plugga", fornecedorId: ID, categoriaId: ID, contaCorrenteId: ID,
@@ -40,7 +43,10 @@ describe("financeiro API (e2e)", () => {
   const http = () => request(app.getHttpServer());
 
   beforeAll(async () => {
-    const modulo = await Test.createTestingModule({ imports: [AppModule] }).overrideProvider(FinanceiroService).useValue(servico).compile();
+    const modulo = await Test.createTestingModule({ imports: [AppModule] })
+      .overrideProvider(FinanceiroService).useValue(servico)
+      .overrideProvider(PrismaOmieLancamentosRepository).useValue(conector)
+      .compile();
     app = modulo.createNestApplication();
     await app.init();
   });
@@ -92,13 +98,16 @@ describe("financeiro API (e2e)", () => {
     await financeiro(http().post(`/financeiro/lancamentos/${ID}/acoes`)).send({ acao: "aprovar" }).expect(200);
   });
 
-  it("Tentar de novo no OMIE: id inválido é 400; Suprimentos não entra", async () => {
-    servico.tentarDeNovoNoOmie.mockClear();
-    await financeiro(http().post("/financeiro/lancamentos/x/omie/tentar-de-novo")).expect(400);
-    await como("suprimentos:gerente")(http().post(`/financeiro/lancamentos/${ID}/omie/tentar-de-novo`)).expect(403);
-    expect(servico.tentarDeNovoNoOmie).not.toHaveBeenCalled();
+  it("Tentar de novo é do conector do OMIE: rota nova e o alias antigo; id inválido é 400; Suprimentos não entra", async () => {
+    conector.tentarDeNovo.mockClear();
+    for (const rota of [`/integracoes/omie/lancamentos/${ID}/tentar-de-novo`, `/financeiro/lancamentos/${ID}/omie/tentar-de-novo`]) {
+      await financeiro(http().post(rota.replace(ID, "x"))).expect(400);
+      await como("suprimentos:gerente")(http().post(rota)).expect(403);
+    }
+    expect(conector.tentarDeNovo).not.toHaveBeenCalled();
+    await financeiro(http().post(`/integracoes/omie/lancamentos/${ID}/tentar-de-novo`)).expect(200);
     await financeiro(http().post(`/financeiro/lancamentos/${ID}/omie/tentar-de-novo`)).expect(200);
-    expect(servico.tentarDeNovoNoOmie.mock.calls[0]?.[0]).toBe(ID);
+    expect(conector.tentarDeNovo.mock.calls.map((c) => c[0])).toEqual([ID, ID]);
   });
 
   it("editar não muda empresa nem valor", async () => {

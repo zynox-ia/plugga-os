@@ -1,4 +1,4 @@
-import type { OperacaoNoOmie } from "../financeiro/omie-envios.rules";
+import type { OperacaoNoOmie } from "./omie-envios.rules";
 import { OmieFalhouError, type MotivoDaFalhaDoOmie } from "./omie.port";
 
 /** O método do OMIE de cada envio, a chave do limitador e da pausa (seção 4 do desenho). */

@@ -1,7 +1,7 @@
 import { Inject, Injectable, Logger } from "@nestjs/common";
 import type { PrismaClient } from "@prisma/client";
 
-import type { OperacaoNoOmie } from "../financeiro/omie-envios.rules";
+import type { OperacaoNoOmie } from "./omie-envios.rules";
 import { IntegrationGate } from "../integrations/integration-gate";
 import { JobsQueue } from "../jobs/queue/jobs-queue.port";
 import { PrismaJobsService } from "../prisma/prisma-jobs.service";

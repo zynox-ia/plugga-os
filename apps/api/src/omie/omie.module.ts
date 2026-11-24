@@ -3,6 +3,8 @@ import { Inject, Logger, Module, type OnModuleInit } from "@nestjs/common";
 import { AuditModule } from "../audit/audit.module";
 import { CoreModule } from "../core/core.module";
 import { FinanceiroHabilitadoGuard } from "../financeiro/financeiro-habilitado.guard";
+import { FinanceiroModule } from "../financeiro/financeiro.module";
+import { ReflexosDoLancamento } from "../financeiro/reflexo-do-lancamento";
 import { PrismaSegredoRepository } from "../llm/prisma-segredo.repository.js";
 import { SegredoRepository } from "../llm/segredo.repository.js";
 import { IntegrationsModule } from "../integrations/integrations.module";
@@ -16,6 +18,9 @@ import { AGENDAMENTO_DO_DESPACHO, OMIE_DESPACHAR_JOB, OmieFilaService } from "./
 import { OmieCofreService, OmieLeitura } from "./omie-cofre.service";
 import { OmieConexoesService, OmieLeituraPorEmpresa } from "./omie-conexoes.service";
 import { OmieEmpresasController } from "./omie-empresas.controller";
+import { OmieLancamentosController } from "./omie-lancamentos.controller";
+import { PrismaOmieLancamentosRepository } from "./prisma-omie-lancamentos.repository";
+import { OmieReflexoDoLancamento } from "./omie-reflexo";
 import { OmieController } from "./omie.controller";
 import { OmieDubleAdapter } from "./omie-duble.adapter";
 import { OmieHttpAdapter } from "./omie-http.adapter";
@@ -25,10 +30,14 @@ import { PrismaOmieConexoesRepository } from "./prisma-omie-conexoes.repository"
 import { PrismaOmieLeituraPorEmpresa } from "./prisma-omie-leitura-por-empresa.repository";
 import { PrismaOmieLeitura } from "./prisma-omie-leitura.repository";
 
-/** OMIE: a conta única antiga (OmieCofreService) e as conexões por empresa (PLU-342), exportadas para o Financeiro. */
+/**
+ * O conector do OMIE (PLU-342): a conta única antiga, as conexões por empresa, a fila e o
+ * "Tentar de novo". Importa o Financeiro e se inscreve nos reflexos dele; o Financeiro
+ * não conhece este módulo (o Plugga OS é o dono do financeiro, decisão de 24/11/2026).
+ */
 @Module({
-  imports: [AuditModule, CoreModule, IntegrationsModule, JobsQueueModule, PrismaModule],
-  controllers: [OmieController, OmieEmpresasController],
+  imports: [AuditModule, CoreModule, FinanceiroModule, IntegrationsModule, JobsQueueModule, PrismaModule],
+  controllers: [OmieController, OmieEmpresasController, OmieLancamentosController],
   providers: [
     FinanceiroHabilitadoGuard,
     OmieCofreService,
@@ -46,6 +55,8 @@ import { PrismaOmieLeitura } from "./prisma-omie-leitura.repository";
     OmieFilaService,
     OmieDespacharHandler,
     OmieEnviarHandler,
+    OmieReflexoDoLancamento,
+    PrismaOmieLancamentosRepository,
   ],
   exports: [OmieCofreService, OmieConexoesService],
 })
@@ -57,6 +68,8 @@ export class OmieModule implements OnModuleInit {
     @Inject(JobsQueue) private readonly fila: JobsQueue,
     @Inject(OmieDespacharHandler) private readonly despachar: OmieDespacharHandler,
     @Inject(OmieEnviarHandler) private readonly enviar: OmieEnviarHandler,
+    @Inject(ReflexosDoLancamento) private readonly reflexos: ReflexosDoLancamento,
+    @Inject(OmieReflexoDoLancamento) private readonly reflexoDoOmie: OmieReflexoDoLancamento,
   ) {}
 
   /**
@@ -67,6 +80,8 @@ export class OmieModule implements OnModuleInit {
   onModuleInit(): void {
     this.registry.register(this.despachar);
     this.registry.register(this.enviar);
+    // O Financeiro avisa cada mudança de lançamento; o conector decide o que vai ao OMIE.
+    this.reflexos.inscrever(this.reflexoDoOmie);
     void this.fila.agendarACada(OMIE_DESPACHAR_JOB, {}, AGENDAMENTO_DO_DESPACHO).catch((erro: unknown) => {
       this.logger.warn(`agendamento do despacho do OMIE falhou: ${erro instanceof Error ? erro.message : String(erro)}`);
     });

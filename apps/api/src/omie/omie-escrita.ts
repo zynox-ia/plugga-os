@@ -1,7 +1,7 @@
 import { Inject, Injectable } from "@nestjs/common";
 
 import { IntegrationGate } from "../integrations/integration-gate";
-import type { OperacaoNoOmie } from "../financeiro/omie-envios.rules";
+import type { OperacaoNoOmie } from "./omie-envios.rules";
 import { OmieFalhouError } from "./omie.port";
 
 export type PedidoDeEnvioAoOmie = {

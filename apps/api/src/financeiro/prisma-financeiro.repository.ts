@@ -1,4 +1,4 @@
-import { Inject, Injectable } from "@nestjs/common";
+import { Inject, Injectable, Optional } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import {
   LIMITE_DA_LISTA_DE_LANCAMENTOS,
@@ -51,8 +51,22 @@ import {
   pendenciasDoLancamento,
   type AnexosAtuais,
   type PapelNoFinanceiro,
+  type Plano,
 } from "./financeiro.rules";
-import { ENVIOS_DA_COBRANCA, enviosDaAcao, enviosDaEdicao, type OperacaoNoOmie } from "./omie-envios.rules";
+import { ReflexosDoLancamento, type MudancaDoLancamento } from "./reflexo-do-lancamento";
+
+/** O fato de cada ação de etapa, para os conectores. */
+const MUDANCA_DO_PLANO: Record<Plano["tipo"], MudancaDoLancamento> = {
+  aprovar: "aprovado",
+  cancelar: "cancelado",
+  corrigir_valor: "valor_corrigido",
+  registrar_nf: "nf_registrada",
+  registrar_boleto: "boleto_registrado",
+  registrar_envio: "enviado",
+  registrar_cobranca: "cobranca_registrada",
+  registrar_pagamento: "pago",
+  registrar_recebimento: "recebido",
+};
 
 const PESSOA = { select: { id: true, name: true } } as const;
 const INCLUDE_DO_LANCAMENTO = {
@@ -119,6 +133,8 @@ export class PrismaFinanceiroRepository {
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(AuditAppender) private readonly auditoria: AuditAppender,
+    // Sem conector inscrito (nos testes do núcleo, por exemplo), nada é refletido.
+    @Optional() @Inject(ReflexosDoLancamento) private readonly reflexos: ReflexosDoLancamento = new ReflexosDoLancamento(),
   ) {}
 
   // ------------------------------------------------------------ leitura
@@ -256,6 +272,7 @@ export class PrismaFinanceiroRepository {
         select: { id: true, companyId: true },
       });
       await this.registrar(tx, "financeiro.lancamento.created", criado.id, criado.companyId, principal, { tipo: "saida", origem: "avulsa" });
+      await this.reflexos.aoMudar(tx, { lancamentoId: criado.id, empresa: criado.companyId, tipo: "saida", etapaAntes: "aberta", mudanca: "criado", porId: principal.id });
       return criado.id;
     });
   }
@@ -299,7 +316,7 @@ export class PrismaFinanceiroRepository {
       });
       await tx.historicoDeLancamento.create({ data: { lancamentoId: id, tipo: "editado", porId: principal.id, dados: { campos } } });
       await this.registrar(tx, "financeiro.lancamento.updated", id, atual.companyId, principal, { campos });
-      await this.enfileirarNoOmie(tx, id, atual.companyId, enviosDaEdicao(atual), principal.id);
+      await this.reflexos.aoMudar(tx, { lancamentoId: id, empresa: atual.companyId, tipo: atual.tipo, etapaAntes: atual.etapa, mudanca: "editado", porId: principal.id });
     });
   }
 
@@ -367,31 +384,9 @@ export class PrismaFinanceiroRepository {
             return evento("financeiro.lancamento.recebido");
         }
       };
-      // Cancelar só vai ao OMIE se a conta já chegou lá ou está saindo; os pedidos
-      // ainda em aberto do lançamento cancelado são descartados.
-      const chegouAoOmie = plano.tipo === "cancelar"
-        && (await tx.omieEnvio.count({ where: { lancamentoId: id, operacao: "upsert", estado: { in: ["enviado", "enviando"] } } })) > 0;
       await aplicar();
-      if (plano.tipo === "cancelar") {
-        await tx.omieEnvio.updateMany({ where: { lancamentoId: id, estado: { in: ["pendente", "erro"] } }, data: { estado: "descartado" } });
-      }
-      await this.enfileirarNoOmie(tx, id, atual.companyId, enviosDaAcao(atual, plano, chegouAoOmie), principal.id);
-    });
-  }
-
-  /**
-   * "Tentar de novo" (PLU-342): os envios do lançamento que estão com erro voltam ao
-   * início da fila, com as tentativas zeradas. Nada sai daqui: a fila confere o modo.
-   */
-  async tentarDeNovoNoOmie(id: string, principal: AuthPrincipal, papel: PapelNoFinanceiro, agora: Date): Promise<void> {
-    await this.prisma.comContexto(async (tx) => {
-      const atual = await this.travar(tx, id, papel);
-      const voltaram = await tx.$executeRaw`
-        UPDATE public.omie_envios SET estado = 'pendente', tentativas = 0, ultimo_erro = NULL, proxima_tentativa_em = now()
-        WHERE lancamento_id = ${id}::uuid AND estado = 'erro'`;
-      if (voltaram === 0) throw new EstadoInvalido("Não há envio ao OMIE com erro neste lançamento.");
-      await tx.historicoDeLancamento.create({ data: { lancamentoId: id, tipo: "omie", porId: principal.id, dados: { acao: "tentar_de_novo", envios: voltaram }, em: agora } });
-      await this.registrar(tx, "financeiro.lancamento.updated", id, atual.companyId, principal, { campos: ["omie"] });
+      // Os conectores (o OMIE é um) refletem o fato na mesma transação; o Financeiro não sabe quais são.
+      await this.reflexos.aoMudar(tx, { lancamentoId: id, empresa: atual.companyId, tipo: atual.tipo, etapaAntes: atual.etapa, mudanca: MUDANCA_DO_PLANO[plano.tipo], porId: principal.id });
     });
   }
 
@@ -475,7 +470,7 @@ export class PrismaFinanceiroRepository {
         });
         if (input.ucIds.length > 0) await tx.ucDeLancamento.createMany({ data: input.ucIds.map((consumerUnitId) => ({ lancamentoId: criado.id, consumerUnitId })) });
         await this.registrar(tx, "financeiro.lancamento.created", criado.id, criado.companyId, principal, { tipo: "entrada", origem: "cobranca_manual", ucs: input.ucIds.length });
-        await this.enfileirarNoOmie(tx, criado.id, criado.companyId, ENVIOS_DA_COBRANCA, principal.id);
+        await this.reflexos.aoMudar(tx, { lancamentoId: criado.id, empresa: criado.companyId, tipo: "entrada", etapaAntes: "gerada", mudanca: "criado", porId: principal.id });
         return criado.id;
       });
     } catch (erro) {
@@ -586,19 +581,6 @@ export class PrismaFinanceiroRepository {
     return linha;
   }
 
-  /**
-   * Pedidos ao OMIE no outbox, na transação do lançamento (PLU-342). Um pedido em
-   * aberto da mesma operação (pendente ou com erro) volta ao início da fila em vez
-   * de duplicar; o índice único do banco garante. Nada sai daqui: a fila confere o modo.
-   */
-  private async enfileirarNoOmie(tx: Prisma.TransactionClient, lancamentoId: string, empresa: string, operacoes: readonly OperacaoNoOmie[], porId: string): Promise<void> {
-    for (const operacao of operacoes) {
-      const juntou = await tx.$executeRaw`
-        UPDATE public.omie_envios SET estado = 'pendente', tentativas = 0, ultimo_erro = NULL, proxima_tentativa_em = now()
-        WHERE lancamento_id = ${lancamentoId}::uuid AND operacao = ${operacao}::public.omie_operacao AND estado IN ('pendente', 'erro')`;
-      if (juntou === 0) await tx.omieEnvio.create({ data: { lancamentoId, companyId: empresa, operacao, criadoPorId: porId } });
-    }
-  }
 
   private async garantirFornecedor(tx: Prisma.TransactionClient, id: string): Promise<void> {
     const f = await tx.fornecedor.findUnique({ where: { id }, select: { ativo: true } });

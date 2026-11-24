@@ -21,9 +21,12 @@ describe("agendamento do despacho do OMIE (PLU-342)", () => {
     const fila = { agendarACada: vi.fn().mockRejectedValue(new Error("redis fora")) };
     const despachar = { jobKey: "omie.despachar" } as unknown as OmieDespacharHandler;
     const enviar = { jobKey: "omie.enviar" } as unknown as OmieEnviarHandler;
-    const modulo = new OmieModule(registry as never, fila as never, despachar, enviar);
+    const reflexos = { inscrever: vi.fn() };
+    const modulo = new OmieModule(registry as never, fila as never, despachar, enviar, reflexos as never, {} as never);
     expect(() => modulo.onModuleInit()).not.toThrow();
     expect(registry.register.mock.calls.map(([h]) => h)).toEqual([despachar, enviar]);
+    // E se inscreve nos reflexos do Financeiro: é o conector ouvindo o núcleo.
+    expect(reflexos.inscrever).toHaveBeenCalledTimes(1);
     // Id próprio: não sobrescreve o agendador das Tarefas.
     expect(fila.agendarACada).toHaveBeenCalledWith("omie.despachar", {}, { id: "omie-despacho", intervaloMs: 1_800_000 });
     await new Promise((resolve) => setImmediate(resolve));

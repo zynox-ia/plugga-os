@@ -122,17 +122,6 @@ export class FinanceiroController {
     return this.financeiro.executarAcao(id, acao, principal);
   }
 
-  /** "Tentar de novo" (PLU-342): os envios ao OMIE com erro voltam à fila. 409 se não há nenhum. */
-  @Post("lancamentos/:id/omie/tentar-de-novo")
-  @HttpCode(200)
-  @UseGuards(OriginCheckGuard, ThrottlerGuard)
-  tentarDeNovoNoOmie(
-    @Param("id", ParseUUIDPipe) id: string,
-    @CurrentPrincipal() principal: AuthPrincipal,
-  ): Promise<Lancamento> {
-    return this.financeiro.tentarDeNovoNoOmie(id, principal);
-  }
-
   /** Anexo novo (multipart: `arquivo` e `tipo`); comprovante, NF e boleto substituem o atual. */
   @Post("lancamentos/:id/anexos")
   @HttpCode(201)
