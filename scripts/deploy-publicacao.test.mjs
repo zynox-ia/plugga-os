@@ -44,7 +44,7 @@ docker() {
           cat > /dev/null; evento papeis; [[ "$DEPLOY_CASO" != papeis-falharam ]]
         elif [[ "$*" == *_prisma_migrations* ]]; then
           if [[ "$DEPLOY_CASO" == rls-* ]] && ! grep -q '^migrate$' "$DEPLOY_LOG"; then printf '0\n'; else printf '1\n'; fi
-          grep -q '^migrate$' "$DEPLOY_LOG" || evento isolamento
+          grep -q '^isolamento$' "$DEPLOY_LOG" || evento isolamento
         else
           evento consulta
           case "$DEPLOY_CASO" in
@@ -116,7 +116,7 @@ numero=0
 numero=$((numero + 1))
 printf '%s' "$numero" > "$DEPLOY_CONTADOR"
 printf 'backup-%s\n' "$numero" >> "$DEPLOY_LOG"
-[[ "$DEPLOY_CASO" != backup-final-falhou || "$numero" != 2 ]]
+[[ "$DEPLOY_CASO" != *backup-final-falhou || "$numero" != 2 ]]
 `, { mode: 0o755 });
   try {
     const resultado = spawnSync(bash, ["--noprofile", "--norc", "-c", dockerFalso], {
@@ -135,12 +135,13 @@ printf 'backup-%s\n' "$numero" >> "$DEPLOY_LOG"
   }
 }
 
-const PREFLIGHT = ["preflight", "conecta", "conecta", "conecta"];
+// O passo 0: a consulta dos problemas, as três conexões e o estado do RLS no banco.
+const PREFLIGHT = ["preflight", "conecta", "conecta", "conecta", "isolamento"];
 
 test("deploy confere os logins, para só os escritores depois do build, faz backup final, migra, configura os papéis, confere os pools e só então sobe", () => {
   const r = executar("sucesso");
   assert.equal(r.status, 0, r.stderr);
-  assert.deepEqual(r.eventos, [...PREFLIGHT, "backup-1", "build", "stop api web", "backup-2", "isolamento", "migrate", "papeis", "permissoes", "pools", "up-nova", "smoke", "smoke"]);
+  assert.deepEqual(r.eventos, [...PREFLIGHT, "backup-1", "build", "stop api web", "backup-2", "migrate", "papeis", "permissoes", "pools", "up-nova", "smoke", "smoke"]);
   for (const senha of ["senha-sintetica-rt", "senha-sintetica-auth", "senha-sintetica-jobs"]) {
     assert.equal(`${r.stdout}${r.stderr}`.includes(senha), false, "o deploy imprimiu uma senha");
   }
@@ -163,18 +164,20 @@ for (const [caso, mensagem] of [["preflight-reprovou", /permissão direta antiga
   });
 }
 
-for (const caso of ["rls-smoke-falhou", "rls-pools-reprovaram"]) {
-  test(`${caso}: na publicação que liga o RLS, não volta a imagem antiga sobre o banco novo; para e avisa`, () => {
+for (const caso of ["rls-smoke-falhou", "rls-pools-reprovaram", "rls-backup-final-falhou"]) {
+  test(`${caso}: na publicação que liga o RLS, não religa a versão antiga (o .env já tem os logins novos); para e avisa`, () => {
     const r = executar(caso);
     assert.notEqual(r.status, 0);
-    assert.ok(r.eventos.includes("migrate"));
+    assert.equal(r.eventos.includes("migrate"), caso !== "rls-backup-final-falhou");
     assert.equal(r.eventos.some((evento) => evento.startsWith("restaura ")), false, r.eventos.join("\n"));
     // A versão nova só subiu se a falha foi no teste de fumaça; nenhuma volta de versão depois.
     assert.equal(r.eventos.includes("up-nova"), caso === "rls-smoke-falhou");
     assert.equal(r.eventos.some((evento) => evento === "up-anterior" || evento === "up-atual" || evento.startsWith("up-comando")), false, r.eventos.join("\n"));
     assert.equal(r.eventos.at(-1), "stop api web");
     assert.match(r.stderr, /NÃO foi reativada/);
-    assert.match(r.stderr, /backup final/);
+    assert.match(r.stderr, /\.env\.antes-rls/);
+    // A mensagem diz se há banco a restaurar.
+    assert.match(r.stderr, caso === "rls-backup-final-falhou" ? /ainda NÃO recebeu o RLS/ : /JÁ recebeu o RLS.*backup final/);
   });
 }
 

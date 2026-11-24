@@ -81,6 +81,16 @@ if ! confere_logins_do_banco /opt/plugga-os/.env "$BANCO"; then
   falhou "os logins do banco não estão prontos para esta versão; nada foi alterado. Veja ops/GUIA.md, \"Publicar em produção\"."
   exit 1
 fi
+# O banco já tem o RLS? Lido aqui, antes de parar qualquer coisa: na publicação que o
+# liga, uma falha depois de parar a aplicação não pode religar a versão anterior (ver
+# reversao_bloqueada). Sem a resposta, não dá para decidir isso: para aqui.
+if ! ISOLAMENTO_ANTES=$(psql_como_dono -c "$(sql_isolamento_aplicado)") || ! [[ $ISOLAMENTO_ANTES =~ ^[01]$ ]]; then
+  falhou "não foi possível ler as migrations do banco; nada foi alterado"
+  exit 1
+fi
+if [ "$ISOLAMENTO_ANTES" = "0" ]; then
+  echo "  esta publicação liga o isolamento por RLS: se falhar depois de parar a aplicação, ela fica parada e o script avisa"
+fi
 if [ "$SO_CONFERIR" -eq 1 ]; then
   registro "conferência ok: os três logins estão prontos; nada foi alterado"
   exit 0
@@ -181,10 +191,15 @@ falha_publicacao() {
   local codigo=$1
   trap - ERR
   if reversao_bloqueada; then
-    falhou "A publicação falhou depois de aplicar o isolamento por RLS (${MIGRACAO_DO_ISOLAMENTO})."
-    falhou "A versão anterior não funciona sobre este banco, então ela NÃO foi reativada: api e web ficam paradas."
+    falhou "A publicação que liga o isolamento por RLS (${MIGRACAO_DO_ISOLAMENTO}) falhou."
+    falhou "A versão anterior NÃO foi reativada: o .env já aponta os três logins novos, que ela não sabe usar. api e web ficam paradas."
     docker compose stop api web || true
-    falhou "Saídas: corrigir e publicar de novo, ou restaurar o backup final (${BACKUP_FINAL:-ver /root/backup-plugga.sh}) e voltar as imagens anteriores. Veja ops/GUIA.md, \"Publicar em produção\". Intervenção do André necessária."
+    if banco_ja_migrado_para_rls; then
+      falhou "O banco JÁ recebeu o RLS. Saídas: corrigir e publicar de novo; ou restaurar o backup final (${BACKUP_FINAL:-ver /root/backup-plugga.sh}), o .env.antes-rls e as imagens anteriores."
+    else
+      falhou "O banco ainda NÃO recebeu o RLS. Saídas: corrigir e publicar de novo; ou voltar o .env.antes-rls e as imagens anteriores, sem restaurar o banco."
+    fi
+    falhou "Passo a passo em ops/GUIA.md, \"Primeira publicação com os três logins do banco\". Intervenção do André necessária."
     exit "$codigo"
   fi
   falhou "A publicação falhou; tentando reativar a aplicação sem alterar banco ou armazenamento."
@@ -203,9 +218,6 @@ SAIDA_BACKUP=$(/root/backup-plugga.sh)
 printf '%s\n' "$SAIDA_BACKUP"
 # "backup ok: diario/<nome> (...)": o destino é a saída se a publicação falhar depois.
 BACKUP_FINAL=$(printf '%s\n' "$SAIDA_BACKUP" | sed -n 's/^backup ok: \([^ ]*\).*/\1/p' | tail -1)
-
-# Antes de migrar: o banco já tinha o isolamento por RLS? (0 = esta é a publicação que o aplica)
-ISOLAMENTO_ANTES=$(psql_como_dono -c "SELECT count(*) FROM _prisma_migrations WHERE migration_name = '${MIGRACAO_DO_ISOLAMENTO}' AND finished_at IS NOT NULL")
 
 # Dentro da rede do compose o host do banco é "postgres", que a trava do
 # run-local-prisma aceita.

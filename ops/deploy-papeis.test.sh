@@ -37,6 +37,7 @@ le_logins_do_env "$TMP/env"
 [ "$SENHA_RUNTIME" = "senha=com=igual" ] || falha "aspas e '=' na senha do .env"
 [ "$LOGIN_AUTH" = "plugga_auth_app" ] || falha "usuário da AUTH_DATABASE_URL"
 [ "$SENHA_AUTH" = "s@nh:c/om%t=" ] || falha "senha percent-codificada na URL (veio '$SENHA_AUTH')"
+[ "$(decodifica_url 'a\nb%20c')" = 'a\nb c' ] || falha "barra invertida crua da senha segue literal"
 [ "$LOGIN_JOBS" = "plugga_jobs_app" ] && [ "$SENHA_JOBS" = "abc123" ] || falha "URL de jobs sem aspas"
 ok "lê o .env sem executá-lo e decodifica usuário e senha das URLs (com @, :, /, % e =)"
 
@@ -117,18 +118,16 @@ ok ".env incompleto reprova antes de consultar o banco"
 
 # ---------------------------------------------------- reversão bloqueada
 MIGRACAO_DO_ISOLAMENTO=20261106010000_isolamento_rls
-ISOLAMENTO_ANTES=0; BANCO_RESPONDE=1
-reversao_bloqueada || falha "aplicou o RLS nesta publicação: a reversão deveria ficar bloqueada"
-ISOLAMENTO_ANTES=0; BANCO_RESPONDE=0
-if reversao_bloqueada; then falha "a migração do RLS não chegou a ser aplicada: a reversão segue liberada"; fi
-ISOLAMENTO_ANTES=1; BANCO_RESPONDE=1
-if reversao_bloqueada; then falha "o banco já tinha o RLS: a reversão segue como antes"; fi
-ISOLAMENTO_ANTES=""
-if reversao_bloqueada; then falha "sem a leitura de antes (falhou antes de migrar), a reversão segue como antes"; fi
-psql_como_dono() { return 1; }
+grep -q "migration_name = '20261106010000_isolamento_rls'" <<<"$(sql_isolamento_aplicado)" || falha "a consulta do isolamento procura a migração do RLS"
 ISOLAMENTO_ANTES=0
-reversao_bloqueada || falha "banco sem resposta depois de começar a migrar: na dúvida, bloqueia"
-ok "a reversão da imagem só fica bloqueada quando esta publicação aplicou o RLS (ou na dúvida)"
+reversao_bloqueada || falha "publicação que liga o RLS: a reversão fica bloqueada, migrando ou não (o .env já tem os logins novos)"
+ISOLAMENTO_ANTES=""
+reversao_bloqueada || falha "sem saber se o banco tinha o RLS: na dúvida, bloqueia"
+ISOLAMENTO_ANTES=1
+if reversao_bloqueada; then falha "o banco já tinha o RLS: a reversão segue como antes"; fi
+BANCO_RESPONDE=1; banco_ja_migrado_para_rls || falha "o banco já migrado é reconhecido"
+BANCO_RESPONDE=0; if banco_ja_migrado_para_rls; then falha "o banco ainda sem o RLS é reconhecido"; fi
+ok "a reversão da imagem fica bloqueada em toda a publicação que liga o RLS (e na dúvida); a mensagem sabe se o banco já migrou"
 
 # ---------------------------------------------- a ordem dos passos no deploy.sh
 D="$RAIZ/ops/deploy.sh"
@@ -138,14 +137,14 @@ SO=$(linha 'conferência ok: os três logins')
 BACKUP=$(linha '1/6 · backup do banco')
 STOP=$(linha 'docker compose stop api web$')
 MIGRA=$(linha 'api pnpm db:migrate:deploy')
-ANTES=$(linha '^ISOLAMENTO_ANTES=')
+ANTES=$(linha 'ISOLAMENTO_ANTES=$(psql_como_dono')
 PAPEIS=$(linha 'configura_papeis_da_aplicacao ops/configurar-papeis-aplicacao.sql')
 POOLS=$(linha 'verificar-pools-do-banco.mjs$')
 UP=$(linha 'docker compose --profile app up -d')
 for v in PRE SO BACKUP STOP MIGRA ANTES PAPEIS POOLS UP; do [ -n "${!v}" ] || falha "passo $v não achado no deploy.sh"; done
 [ "$PRE" -lt "$BACKUP" ] && [ "$PRE" -lt "$STOP" ] || falha "o preflight vem antes do backup e de parar a aplicação"
 [ "$SO" -lt "$BACKUP" ] || falha "--so-conferir sai antes do backup"
-[ "$ANTES" -lt "$MIGRA" ] || falha "a leitura do isolamento vem antes da migração"
+[ "$ANTES" -lt "$STOP" ] && [ "$ANTES" -lt "$BACKUP" ] || falha "o estado do RLS é lido no passo 0, antes de parar a aplicação"
 [ "$MIGRA" -lt "$PAPEIS" ] && [ "$PAPEIS" -lt "$POOLS" ] && [ "$POOLS" -lt "$UP" ] || falha "migra → papéis → validador → sobe"
 grep -q 'if \[ "\$SO_CONFERIR" -eq 0 \]; then' "$D" || falha "--so-conferir não toma a trava"
 grep -q 'if reversao_bloqueada; then' "$D" || falha "falha_publicacao consulta o bloqueio da reversão"

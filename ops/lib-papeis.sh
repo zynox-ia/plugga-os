@@ -32,9 +32,10 @@ valor_do_env() {
   printf '%s' "$valor"
 }
 
-# Percent-decoding em bash puro (o usuário e a senha numa URL vêm codificados).
+# Percent-decoding em bash puro (o usuário e a senha numa URL vêm codificados). A barra
+# invertida crua é dobrada antes, para o `%b` não ler `\n` ou `\t` da senha como escape.
 decodifica_url() {
-  local texto=${1//+/%2B}
+  local texto=${1//\\/\\\\}
   printf '%b' "${texto//%/\\x}"
 }
 
@@ -180,15 +181,25 @@ confere_logins_do_banco() {
   echo "  logins da aplicação: runtime=${LOGIN_RUNTIME}, auth=${LOGIN_AUTH}, jobs=${LOGIN_JOBS}"
 }
 
-# Esta publicação aplicou a migração do RLS (MIGRACAO_DO_ISOLAMENTO)? Então a versão
-# anterior do programa (um login só, sem os grupos) não enxerga nada neste banco, e
-# voltar a imagem não recupera o serviço. ISOLAMENTO_ANTES é a contagem lida antes
-# de migrar ("0" = ainda não tinha). Vale também se a migração falhou depois de
-# aplicá-la; se o banco não responder, bloqueia (na dúvida, não volta a imagem).
+# A migração do RLS (MIGRACAO_DO_ISOLAMENTO) já estava no banco ANTES desta publicação?
+# "1" = sim; "0" = esta é a publicação que a liga. Lida no passo 0, antes de parar
+# qualquer coisa.
+sql_isolamento_aplicado() {
+  printf "SELECT count(*) FROM _prisma_migrations WHERE migration_name = '%s' AND finished_at IS NOT NULL" "$MIGRACAO_DO_ISOLAMENTO"
+}
+
+# Na publicação que liga o RLS (ou se não deu para saber), a reversão automática da
+# imagem fica bloqueada, migrando ou não: o .env já aponta os três logins novos, que a
+# versão anterior (um pool só) não sabe usar, e depois da migração ela nem enxergaria o
+# banco. Religar a versão antiga daria um site de pé errando toda consulta.
 reversao_bloqueada() {
-  [ "${ISOLAMENTO_ANTES:-}" = "0" ] || return 1
+  [ "${ISOLAMENTO_ANTES:-}" != "1" ]
+}
+
+# O banco já recebeu a migração do RLS? Para a mensagem da falha: diz se há o que restaurar.
+banco_ja_migrado_para_rls() {
   local agora
-  agora=$(psql_como_dono -c "SELECT count(*) FROM _prisma_migrations WHERE migration_name = '${MIGRACAO_DO_ISOLAMENTO}' AND finished_at IS NOT NULL" 2>/dev/null) || return 0
+  agora=$(psql_como_dono -c "$(sql_isolamento_aplicado)" 2>/dev/null) || return 2
   [ "$agora" != "0" ]
 }
 
