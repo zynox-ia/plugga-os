@@ -14,6 +14,7 @@ import type {
 import { AuditAppender } from "../audit/audit-appender";
 import { Conflito, NaoEncontrado, RequisicaoInvalida } from "../common/errors/dominio";
 import type { AuthPrincipal } from "../core/auth/auth.types";
+import { diaEmManaus, inicioDoDiaEmManaus } from "../compras/dias-uteis";
 import { PrismaService } from "../prisma/prisma.service";
 
 type LinhaDaCategoria = Prisma.CategoriaFinanceiraGetPayload<object>;
@@ -39,8 +40,16 @@ export const paraConta = (c: LinhaDaConta): ContaCorrente => ({
   numero: c.numero,
   saldo: c.saldo?.toFixed(2) ?? null,
   saldoLidoEm: c.saldoLidoEm?.toISOString() ?? null,
+  saldoInicial: c.saldoInicial?.toFixed(2) ?? null,
+  saldoInicialEm: c.saldoInicialEm ? diaEmManaus(c.saldoInicialEm) : null,
   ativa: c.ativa,
 });
+
+/** O saldo inicial do contrato no formato do banco (o dia vira o início do dia de Manaus). */
+const saldoInicialParaOBanco = (input: { saldoInicial?: string | null; saldoInicialEm?: string | null }) =>
+  input.saldoInicial === undefined ? {}
+    : input.saldoInicial === null ? { saldoInicial: null, saldoInicialEm: null }
+    : { saldoInicial: new Prisma.Decimal(input.saldoInicial), saldoInicialEm: inicioDoDiaEmManaus(input.saldoInicialEm!) };
 
 /** O grupo é o prefixo de dois níveis do código ("2.01" de "2.01.07"). */
 const prefixoDoGrupo = (codigo: string): string => codigo.split(".").slice(0, 2).join(".");
@@ -104,9 +113,13 @@ export class PrismaCadastrosDoFinanceiroRepository {
   async criarConta(input: CriarContaCorrente, principal: AuthPrincipal): Promise<ContaCorrente> {
     return this.prisma.comContexto(async (tx) => {
       const criada = await tx.contaCorrente.create({
-        data: { companyId: input.empresa, nome: input.nome, banco: input.banco ?? null, agencia: input.agencia ?? null, numero: input.numero ?? null },
+        data: {
+          companyId: input.empresa, nome: input.nome, banco: input.banco ?? null, agencia: input.agencia ?? null, numero: input.numero ?? null,
+          ...saldoInicialParaOBanco(input),
+        },
       });
-      await this.registrar(tx, "financeiro.conta_corrente.created", "conta_corrente", criada.id, criada.companyId, principal, {});
+      // Sem o valor do saldo no evento: só se foi informado.
+      await this.registrar(tx, "financeiro.conta_corrente.created", "conta_corrente", criada.id, criada.companyId, principal, { saldoInicial: criada.saldoInicial !== null });
       return paraConta(criada);
     });
   }
@@ -115,9 +128,15 @@ export class PrismaCadastrosDoFinanceiroRepository {
     return this.prisma.comContexto(async (tx) => {
       const antes = await tx.contaCorrente.findUnique({ where: { id } });
       if (!antes) throw new NaoEncontrado("Conta corrente não encontrada.");
-      const campos = camposAlterados({ nome: antes.nome, banco: antes.banco, agencia: antes.agencia, numero: antes.numero, ativa: antes.ativa }, input);
-      if (campos.length === 0) return paraConta(antes);
-      const depois = await tx.contaCorrente.update({ where: { id }, data: input });
+      // Comparado no formato do contrato: o saldo como string de 2 casas, o dia como AAAA-MM-DD.
+      const atual = paraConta(antes);
+      const campos = camposAlterados(
+        { nome: atual.nome, banco: atual.banco, agencia: atual.agencia, numero: atual.numero, ativa: atual.ativa, saldoInicial: atual.saldoInicial ?? null, saldoInicialEm: atual.saldoInicialEm ?? null },
+        { ...input, ...(typeof input.saldoInicial === "string" ? { saldoInicial: new Prisma.Decimal(input.saldoInicial).toFixed(2) } : {}) },
+      );
+      if (campos.length === 0) return atual;
+      const { saldoInicial, saldoInicialEm, ...resto } = input;
+      const depois = await tx.contaCorrente.update({ where: { id }, data: { ...resto, ...saldoInicialParaOBanco({ saldoInicial, saldoInicialEm }) } });
       await this.registrar(tx, "financeiro.conta_corrente.updated", "conta_corrente", id, depois.companyId, principal, { campos });
       return paraConta(depois);
     });

@@ -132,6 +132,8 @@ describe("financeiro API (e2e)", () => {
     await http().post("/financeiro/contas-correntes").set("x-dev-principal", "00000000-0000-4000-8000-000000000002").set("x-dev-plataforma", "admin").send({ empresa: "plugga", nome: "Caixa" }).expect(201);
     await gerente(http().patch(`/financeiro/categorias/${ID}`)).send({ ativa: false }).expect(200);
     await gerente(http().patch(`/financeiro/contas-correntes/${ID}`)).send({ banco: "Banco A" }).expect(200);
+    await gerente(http().post("/financeiro/contas-correntes")).send({ empresa: "waze", nome: "Banco", saldoInicial: "-200.00", saldoInicialEm: "2026-11-01" }).expect(201);
+    await gerente(http().patch(`/financeiro/contas-correntes/${ID}`)).send({ saldoInicial: null, saldoInicialEm: null }).expect(200);
     expect(cadastros.criarCategoria.mock.calls[0]?.[0]).toEqual(CATEGORIA);
   });
 
@@ -149,6 +151,12 @@ describe("financeiro API (e2e)", () => {
     await gerente(http().patch(`/financeiro/contas-correntes/${ID}`)).send({ empresa: "waze" }).expect(400);
     await gerente(http().patch(`/financeiro/contas-correntes/${ID}`)).send({ saldo: "10.00" }).expect(400);
     await gerente(http().patch("/financeiro/categorias/x")).send({ ativa: false }).expect(400);
+    // Saldo inicial: com o dia, ou nada; formato de valor.
+    await gerente(http().post("/financeiro/contas-correntes")).send({ empresa: "plugga", nome: "Caixa", saldoInicial: "100.00" }).expect(400);
+    await gerente(http().post("/financeiro/contas-correntes")).send({ empresa: "plugga", nome: "Caixa", saldoInicialEm: "2026-11-01" }).expect(400);
+    await gerente(http().post("/financeiro/contas-correntes")).send({ empresa: "plugga", nome: "Caixa", saldoInicial: "1.234,00", saldoInicialEm: "2026-11-01" }).expect(400);
+    await gerente(http().patch(`/financeiro/contas-correntes/${ID}`)).send({ saldoInicial: null }).expect(400);
+    await gerente(http().patch(`/financeiro/contas-correntes/${ID}`)).send({ saldoInicial: "10.00", saldoInicialEm: null }).expect(400);
     expect(Object.values(cadastros).every((f) => f.mock.calls.length === 0)).toBe(true);
   });
 

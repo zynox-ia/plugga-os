@@ -151,6 +151,13 @@ export const contaCorrenteSchema = z.object({
   /** Saldo lido do OMIE e quando; nulos até a primeira leitura. */
   saldo: z.string().nullable(),
   saldoLidoEm: isoDate.nullable(),
+  /**
+   * O saldo informado pela gerência e o dia a que ele se refere: o ponto de partida do
+   * saldo da conta no Plugga OS (a conciliação pelo extrato calcula daí em diante).
+   * Os dois juntos, ou nenhum. Opcional no contrato até a web ler.
+   */
+  saldoInicial: z.string().nullable().optional(),
+  saldoInicialEm: diaDoCalendario.nullable().optional(),
   ativa: z.boolean(),
 });
 export type ContaCorrente = z.infer<typeof contaCorrenteSchema>;
@@ -185,6 +192,13 @@ export const editarCategoriaFinanceiraSchema = z.object({
 }).partial().strict().refine((v) => Object.keys(v).length > 0, "Nada para alterar.");
 export type EditarCategoriaFinanceira = z.infer<typeof editarCategoriaFinanceiraSchema>;
 
+/** O saldo informado pode ser negativo (o cheque especial). */
+const saldoInformado = z.string().trim().regex(/^-?\d{1,12}(\.\d{1,2})?$/, "Use um valor como 1500.00 ou -200.00.");
+/** O saldo e o dia dele vão juntos: os dois, ou nenhum. */
+const saldoComDia = (v: { saldoInicial?: string | null; saldoInicialEm?: string | null }) =>
+  (v.saldoInicial === undefined) === (v.saldoInicialEm === undefined) && (v.saldoInicial === null) === (v.saldoInicialEm === null);
+const SALDO_COM_DIA = { message: "Informe o saldo inicial junto com o dia dele.", path: ["saldoInicialEm"] };
+
 /** `POST financeiro/contas-correntes`. Banco, agência e número são opcionais (o caixa não tem). */
 export const criarContaCorrenteSchema = z.object({
   empresa: companyKeySchema,
@@ -192,17 +206,23 @@ export const criarContaCorrenteSchema = z.object({
   banco: campoDoBanco(80).optional(),
   agencia: campoDoBanco(20).optional(),
   numero: campoDoBanco(30).optional(),
-}).strict();
+  saldoInicial: saldoInformado.optional(),
+  saldoInicialEm: diaDoCalendario.optional(),
+}).strict().refine(saldoComDia, SALDO_COM_DIA);
 export type CriarContaCorrente = z.infer<typeof criarContaCorrenteSchema>;
 
-/** `PATCH financeiro/contas-correntes/:id`. A empresa não muda. */
+/** `PATCH financeiro/contas-correntes/:id`. A empresa não muda; o saldo inicial sai com os dois nulos. */
 export const editarContaCorrenteSchema = z.object({
   nome: nomeDoCadastro,
   banco: campoDoBanco(80),
   agencia: campoDoBanco(20),
   numero: campoDoBanco(30),
+  saldoInicial: saldoInformado.nullable(),
+  saldoInicialEm: diaDoCalendario.nullable(),
   ativa: z.boolean(),
-}).partial().strict().refine((v) => Object.keys(v).length > 0, "Nada para alterar.");
+}).partial().strict()
+  .refine((v) => Object.keys(v).length > 0, "Nada para alterar.")
+  .refine(saldoComDia, SALDO_COM_DIA);
 export type EditarContaCorrente = z.infer<typeof editarContaCorrenteSchema>;
 
 /**

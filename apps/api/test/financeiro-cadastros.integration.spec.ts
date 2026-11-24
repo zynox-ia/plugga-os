@@ -103,6 +103,30 @@ describe.skipIf(!HABILITADO)("cadastros do Financeiro no Postgres", () => {
     expect(editada).toMatchObject({ banco: "Banco A", agencia: "0001", numero: null });
   }, PRAZO_MS);
 
+  it("o saldo inicial: informado com o dia, editado, igual não gera evento, e removido com os dois nulos", async () => {
+    const criada = await como("gerente", () => cadastros.criarConta(criarContaCorrenteSchema.parse({
+      empresa: "plugga", nome: `${marca} com saldo`, saldoInicial: "-250.5", saldoInicialEm: "2026-11-01",
+    }), pessoas.gerente));
+    expect(criada).toMatchObject({ saldoInicial: "-250.50", saldoInicialEm: "2026-11-01" });
+    // O dia é o início do dia em Manaus (UTC-4).
+    expect((await prisma.contaCorrente.findUniqueOrThrow({ where: { id: criada.id } })).saldoInicialEm?.toISOString()).toBe("2026-11-01T04:00:00.000Z");
+
+    const editar = (dados: unknown) => como("gerente", () => cadastros.editarConta(criada.id, editarContaCorrenteSchema.parse(dados), pessoas.gerente));
+    expect(await editar({ saldoInicial: "1500", saldoInicialEm: "2026-11-20" })).toMatchObject({ saldoInicial: "1500.00", saldoInicialEm: "2026-11-20" });
+    await editar({ saldoInicial: "1500.00", saldoInicialEm: "2026-11-20" });
+    expect(await editar({ saldoInicial: null, saldoInicialEm: null })).toMatchObject({ saldoInicial: null, saldoInicialEm: null });
+
+    const eventos = await prisma.eventLog.findMany({ where: { entityId: criada.id }, orderBy: { occurredAt: "asc" }, select: { payload: true } });
+    // Sem o valor no evento: só se foi informado e os nomes dos campos.
+    expect(eventos.map((e) => e.payload)).toEqual([
+      { saldoInicial: true },
+      { campos: ["saldoInicial", "saldoInicialEm"] },
+      { campos: ["saldoInicial", "saldoInicialEm"] },
+    ]);
+    // O banco também exige os dois juntos.
+    await expect(prisma.contaCorrente.update({ where: { id: criada.id }, data: { saldoInicial: 1 } })).rejects.toThrow(/contas_correntes_saldo_inicial_com_dia/);
+  }, PRAZO_MS);
+
   it("RLS: a gerência grava pelo pool da aplicação; o membro lê, mas o banco recusa a gravação mesmo sem o controller", async () => {
     const inserirConta = (nome: string) => (tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0]) =>
       tx.$executeRaw`INSERT INTO public.contas_correntes (company_id, nome, updated_at) VALUES ('plugga', ${nome}, now())`;
@@ -127,8 +151,8 @@ describe.skipIf(!HABILITADO)("cadastros do Financeiro no Postgres", () => {
     await comoRuntime(async (tx) => {
       const c = await tx.categoriaFinanceira.create({ data: { companyId: "plugga", codigo: `8.${sufixo}.06`, nome: `${marca} pelo prisma`, tipo: "despesa", natureza: "servico", grupoNome: "Teste" } });
       await tx.categoriaFinanceira.update({ where: { id: c.id }, data: { nome: `${marca} pelo prisma 2`, natureza: "outros", grupoNome: "Outro", ativa: false } });
-      const conta = await tx.contaCorrente.create({ data: { companyId: "plugga", nome: `${marca} conta pelo prisma`, banco: null, agencia: null, numero: null } });
-      await tx.contaCorrente.update({ where: { id: conta.id }, data: { nome: `${marca} conta pelo prisma 2`, banco: "B", agencia: "1", numero: "2", ativa: false } });
+      const conta = await tx.contaCorrente.create({ data: { companyId: "plugga", nome: `${marca} conta pelo prisma`, banco: null, agencia: null, numero: null, saldoInicial: 10, saldoInicialEm: new Date("2026-11-01T04:00:00Z") } });
+      await tx.contaCorrente.update({ where: { id: conta.id }, data: { nome: `${marca} conta pelo prisma 2`, banco: "B", agencia: "1", numero: "2", ativa: false, saldoInicial: null, saldoInicialEm: null } });
     });
     expect(await prisma.categoriaFinanceira.count({ where: { nome: `${marca} pelo prisma 2`, ativa: false } })).toBe(1);
   }, PRAZO_MS);

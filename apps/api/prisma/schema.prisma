@@ -2849,6 +2849,9 @@ model ContaCorrente {
   numero      String?
   saldo       Decimal?  @db.Decimal(14, 2)
   saldoLidoEm DateTime? @map("saldo_lido_em") @db.Timestamptz(6)
+  /// O saldo informado pela gerência e o dia dele (início do dia de Manaus); os dois juntos.
+  saldoInicial   Decimal?  @map("saldo_inicial") @db.Decimal(14, 2)
+  saldoInicialEm DateTime? @map("saldo_inicial_em") @db.Timestamptz(6)
   ativa       Boolean   @default(true)
   createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
