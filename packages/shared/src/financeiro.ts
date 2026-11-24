@@ -772,9 +772,14 @@ export const painelDaConciliacaoSchema = z.object({
   sugeridos: z.array(parDaConciliacaoSchema),
   /** `diferenca`: o lançamento menos o extrato, com sinal. */
   valorDiferente: z.array(parDaConciliacaoSchema.extend({ diferenca: z.string() })),
-  /** Os pendentes e os marcados. */
-  semLancamento: z.array(movimentoDoExtratoSchema),
-  semExtrato: z.array(lancamentoNaConciliacaoSchema),
+  /**
+   * Os pendentes e os marcados. `candidatos`: os ids dos lançamentos possíveis pela mesma regra
+   * do sugerido (mesma conta, sentido e valor, a ±3 dias, sem par e não marcados); com 2 ou
+   * mais, a linha é ambígua e a pessoa escolhe o par.
+   */
+  semLancamento: z.array(movimentoDoExtratoSchema.extend({ candidatos: z.array(uuid).optional() })),
+  /** `candidatos`: os ids das linhas do extrato possíveis, pelo mesmo critério. */
+  semExtrato: z.array(lancamentoNaConciliacaoSchema.extend({ candidatos: z.array(uuid).optional() })),
   conciliados: z.array(parDaConciliacaoSchema.extend({ conciliadoEm: isoDate, conciliadoPor: z.object({ id: uuid, nome: z.string() }).nullable() })),
   /** Os arquivos de extrato do escopo que tocam o período. */
   extratos: z.array(extratoImportadoSchema),

@@ -284,8 +284,8 @@ export class PrismaConciliacaoRepository {
       },
       sugeridos: r.sugeridos.map(([m, l]) => ({ movimento: linha(m), lancamento: lado(l) })),
       valorDiferente: r.valorDiferente.map(([m, l, diferenca]) => ({ movimento: linha(m), lancamento: lado(l), diferenca })),
-      semLancamento: r.semLancamento.map(linha),
-      semExtrato: r.semExtrato.map(lado),
+      semLancamento: r.semLancamento.map((m) => ({ ...linha(m), candidatos: r.candidatos.doMovimento.get(m.id) ?? [] })),
+      semExtrato: r.semExtrato.map((l) => ({ ...lado(l), candidatos: r.candidatos.doLancamento.get(l.id) ?? [] })),
       conciliados: r.conciliados.map(([m, l]) => {
         const doBanco = movPorId.get(m.id)!;
         return {

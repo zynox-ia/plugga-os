@@ -167,6 +167,9 @@ describe.skipIf(!HABILITADO)("conciliação: extrato bancário no Postgres", () 
     expect(painel.valorDiferente.map((p) => [p.lancamento.id, p.diferenca])).toEqual([[comDiferenca, "20.00"]]);
     expect(painel.semLancamento.map((m) => m.valor)).toEqual(["-89.90"]);
     expect(painel.semExtrato.map((l) => l.id)).toEqual([semExtrato]);
+    // Sem candidato de nenhum lado: nem a tarifa nem o pago do dia 25 têm par possível.
+    expect(painel.semLancamento.map((m) => m.candidatos)).toEqual([[]]);
+    expect(painel.semExtrato.map((l) => l.candidatos)).toEqual([[]]);
     expect(painel.sugeridos.find((p) => p.lancamento.id === recebido)?.lancamento).toMatchObject({ favorecido: `${marca} Cliente`, valor: "7200.00", empresa: "waze" });
     expect(painel.resumo).toEqual({ movimentos: 4, conciliados: 0, sugeridos: 2, valorDiferente: 1, semLancamento: 1, semExtrato: 1, faltaConciliar: "9762.08" });
     // Todas as contas da empresa: o pago da outra conta aparece sem extrato, e não vira par.

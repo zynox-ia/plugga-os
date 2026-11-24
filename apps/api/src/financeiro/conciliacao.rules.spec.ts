@@ -44,6 +44,10 @@ describe("o painel da conciliação", () => {
     expect(ambiguo.sugeridos).toEqual([]);
     expect(ambiguo.semLancamento.map((m) => m.id)).toEqual(["m1", "m2"]);
     expect(ambiguo.semExtrato.map((l) => l.id)).toEqual(["l1"]);
+    // Os candidatos de cada lado, pela mesma regra: com 2 ou mais, a pessoa escolhe.
+    expect(ambiguo.candidatos.doLancamento.get("l1")).toEqual(["m1", "m2"]);
+    expect(ambiguo.candidatos.doMovimento.get("m1")).toEqual(["l1"]);
+    expect(longe.candidatos.doMovimento.get("m1")).toEqual([]);
   });
 
   it("valor diferente: o único próximo dos dois lados, com a diferença (lançamento menos extrato)", () => {

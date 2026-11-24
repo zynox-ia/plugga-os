@@ -72,6 +72,11 @@ export type PainelDaConciliacao = {
   semLancamento: MovimentoParaConciliar[];
   semExtrato: LancamentoParaConciliar[];
   conciliados: [MovimentoParaConciliar, LancamentoParaConciliar][];
+  /**
+   * Os pares possíveis de cada linha sem par (mesma conta, sentido e valor, a ±3 dias, sem
+   * par e não marcados), dos dois lados: com 2 ou mais, a linha é ambígua e a pessoa escolhe.
+   */
+  candidatos: { doMovimento: Map<string, string[]>; doLancamento: Map<string, string[]> };
 };
 
 /**
@@ -116,11 +121,21 @@ export function montarPainel(
   const valorDiferente = unico((m, l) => perto(m, l) && !igual(m, l), (m) => m.estado === "pendente")
     .map(([m, l]): [MovimentoParaConciliar, LancamentoParaConciliar, string] => [m, l, comDuasCasas(centavos(l.valorLiquidado) - absoluto(centavos(m.valor)))]);
 
+  const semLancamento = movLivres.filter((m) => !usadosM.has(m.id));
+  const semExtrato = lancLivres.filter((l) => !usadosL.has(l.id) && l.liquidadoEm! >= periodo.de && l.liquidadoEm! <= periodo.ate);
+  // Os candidatos saem da mesma regra do sugerido: a tela não repete a regra do par.
+  const lancPossiveis = lancLivres.filter((l) => !usadosL.has(l.id) && !l.marcado);
+  const movPossiveis = movLivres.filter((m) => !usadosM.has(m.id) && m.estado === "pendente");
+  const possivel = (m: MovimentoParaConciliar, l: LancamentoParaConciliar) => perto(m, l) && igual(m, l);
   return {
     sugeridos,
     valorDiferente,
-    semLancamento: movLivres.filter((m) => !usadosM.has(m.id)),
-    semExtrato: lancLivres.filter((l) => !usadosL.has(l.id) && l.liquidadoEm! >= periodo.de && l.liquidadoEm! <= periodo.ate),
+    semLancamento,
+    semExtrato,
     conciliados,
+    candidatos: {
+      doMovimento: new Map(semLancamento.map((m) => [m.id, m.estado === "pendente" ? lancPossiveis.filter((l) => possivel(m, l)).map((l) => l.id) : []])),
+      doLancamento: new Map(semExtrato.map((l) => [l.id, l.marcado ? [] : movPossiveis.filter((m) => possivel(m, l)).map((m) => m.id)])),
+    },
   };
 }
