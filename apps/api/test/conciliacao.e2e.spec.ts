@@ -69,7 +69,7 @@ describe("conciliação: importar o extrato e listar os movimentos (e2e)", () =>
   it("importa o OFX: guarda o original numa chave da empresa e da conta, e registra", async () => {
     armazenamento.enviar.mockClear();
     const resposta = await enviar(OFX).expect(201);
-    expect(resposta.body).toMatchObject({ origem: "ofx", movimentos: 1, novos: 1 });
+    expect(resposta.body).toMatchObject({ origem: "ofx", movimentos: 1, novos: 1, contaConferida: true });
     const [chave, , tipo] = armazenamento.enviar.mock.calls[0]!;
     expect(chave).toMatch(new RegExp(`^financeiro/extratos/waze/${CONTA}/[0-9a-f-]{36}-extrato\\.ofx$`));
     expect(tipo).toBe("application/x-ofx");
@@ -87,6 +87,11 @@ describe("conciliação: importar o extrato e listar os movimentos (e2e)", () =>
     expect(outraConta.body.mensagem).toMatch(/outra conta/);
     await financeiro(http().post("/financeiro/contas-correntes/x/extratos")).attach("arquivo", Buffer.from(OFX), "e.ofx").expect(400);
     expect(armazenamento.enviar).not.toHaveBeenCalled();
+  });
+
+  it("conta sem número no cadastro: importa, mas avisa que não deu para conferir", async () => {
+    repositorio.conta.mockResolvedValueOnce({ id: CONTA, companyId: "waze", nome: "Caixa", numero: null });
+    expect((await enviar(OFX.replace("F1", "F2")).expect(201)).body).toMatchObject({ contaConferida: false });
   });
 
   it("se o registro falha, o arquivo guardado sai do armazenamento", async () => {

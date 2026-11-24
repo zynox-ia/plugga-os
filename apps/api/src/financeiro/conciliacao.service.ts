@@ -60,7 +60,9 @@ export class ConciliacaoService {
     };
     await this.armazenamento.enviar(guardado.chave, arquivo.buffer, "application/x-ofx");
     try {
-      return extratoImportadoSchema.parse(await this.repositorio.importar(conta, guardado, lido, principal, this.agora()));
+      const importado = await this.repositorio.importar(conta, guardado, lido, principal, this.agora());
+      // Sem o número de um dos lados, a conta não foi conferida: a tela avisa.
+      return extratoImportadoSchema.parse({ ...importado, contaConferida: Boolean(conta.numero?.trim() && lido.conta?.conta) });
     } catch (erro) {
       // O arquivo de uma importação que não entrou não fica sem registro no armazenamento.
       try {

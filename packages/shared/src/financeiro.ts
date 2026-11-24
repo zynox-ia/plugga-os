@@ -701,6 +701,11 @@ export const extratoImportadoSchema = z.object({
   novos: z.number().int().nonnegative(),
   repetidos: z.number().int().nonnegative(),
   importadoEm: isoDate,
+  /**
+   * Só na resposta da importação: deu para conferir se o arquivo é da conta? Falso quando
+   * falta o número da conta no cadastro ou no arquivo; a tela avisa para a pessoa conferir.
+   */
+  contaConferida: z.boolean().optional(),
 });
 export type ExtratoImportado = z.infer<typeof extratoImportadoSchema>;
 

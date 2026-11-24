@@ -67,10 +67,10 @@ describe("leitura do extrato OFX (PLU-339, C1)", () => {
     expect(extrato.periodo).toEqual({ de: "2026-11-01", ate: "2026-11-30" });
     expect(extrato.saldo).toEqual({ valor: "15320.42", em: "2026-11-30" });
     expect(extrato.movimentos).toEqual([
-      { identificador: "2026112100001", dia: "2026-11-21", valor: "-1742.18", descricao: "PIX ENVIADO PREFEITURA MUNICIPAL" },
-      { identificador: "2026111400007", dia: "2026-11-14", valor: "7200.00", descricao: "PIX RECEBIDO SUPERM BOM PRECO NORTE" },
+      { identificador: "2026112100001", conteudo: expect.any(String), dia: "2026-11-21", valor: "-1742.18", descricao: "PIX ENVIADO PREFEITURA MUNICIPAL" },
+      { identificador: "2026111400007", conteudo: expect.any(String), dia: "2026-11-14", valor: "7200.00", descricao: "PIX RECEBIDO SUPERM BOM PRECO NORTE" },
       // Sem FITID: um identificador estável do conteúdo e da posição no arquivo.
-      { identificador: expect.stringMatching(/^sem-fitid:[0-9a-f]{32}$/), dia: "2026-11-22", valor: "-2.50", descricao: "TAR PIX ENVIADO" },
+      { identificador: expect.stringMatching(/^sem-fitid:[0-9a-f]{32}$/), conteudo: expect.any(String), dia: "2026-11-22", valor: "-2.50", descricao: "TAR PIX ENVIADO" },
     ]);
   });
 
@@ -87,7 +87,7 @@ describe("leitura do extrato OFX (PLU-339, C1)", () => {
     const extrato = lerOfx(Buffer.from(XML, "utf8"));
     expect(extrato.conta).toEqual({ banco: "999", agencia: "9999", conta: "999999" });
     expect(extrato.saldo).toEqual({ valor: "-50.00", em: "2026-11-30" });
-    expect(extrato.movimentos).toEqual([{ identificador: "A-1", dia: "2026-11-20", valor: "-312.40", descricao: "PAG BOLETO PAPELARIA CENTRO" }]);
+    expect(extrato.movimentos).toEqual([{ identificador: "A-1", conteudo: expect.any(String), dia: "2026-11-20", valor: "-312.40", descricao: "PAG BOLETO PAPELARIA CENTRO" }]);
   });
 
   it("recusa DOCTYPE e ENTITY (XXE), mesmo em OFX 1.x", () => {
@@ -127,5 +127,32 @@ describe("extrato com a marca de ordem de bytes (BOM)", () => {
   it("o UTF-8 com BOM é lido como sem", () => {
     const comBom = Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), Buffer.from(XML, "utf8")]);
     expect(lerOfx(comBom).movimentos).toHaveLength(1);
+  });
+});
+
+describe("identidade dos movimentos sem FITID (revisão da C1)", () => {
+  const semFitid = (linhas: [string, string, string][]) => `OFXHEADER:100
+CHARSET:1252
+
+<OFX><BANKMSGSRSV1><STMTTRNRS><STMTRS><BANKTRANLIST>
+${linhas.map(([d, v, memo]) => `<STMTTRN><DTPOSTED>${d}<TRNAMT>${v}<MEMO>${memo}</STMTTRN>`).join("\n")}
+</BANKTRANLIST></STMTRS></STMTTRNRS></BANKMSGSRSV1></OFX>`;
+
+  it("o mesmo movimento em dois arquivos que se sobrepõem tem o mesmo identificador (a posição não entra)", () => {
+    const quinzena = lerOfx(Buffer.from(semFitid([["20261105", "-10.00", "TAR A"], ["20261110", "-20.00", "PIX B"]]), "latin1"));
+    const mes = lerOfx(Buffer.from(semFitid([["20261101", "5.00", "PIX C"], ["20261105", "-10.00", "TAR A"], ["20261110", "-20.00", "PIX B"], ["20261120", "-1.00", "TAR D"]]), "latin1"));
+    const ids = new Set(mes.movimentos.map((m) => m.identificador));
+    expect(quinzena.movimentos.every((m) => ids.has(m.identificador))).toBe(true);
+  });
+
+  it("dois movimentos idênticos no mesmo dia continuam distintos (a ordem da ocorrência entra)", () => {
+    const extrato = lerOfx(Buffer.from(semFitid([["20261122", "-2.50", "TAR PIX"], ["20261122", "-2.50", "TAR PIX"]]), "latin1"));
+    expect(new Set(extrato.movimentos.map((m) => m.identificador)).size).toBe(2);
+  });
+
+  it("cada movimento traz a chave do conteúdo (dia, valor e descrição), que separa FITID repetido com conteúdo diferente", () => {
+    const extrato = lerOfx(Buffer.from(SGML, "latin1"));
+    expect(extrato.movimentos.map((m) => m.conteudo)).toEqual(extrato.movimentos.map(() => expect.stringMatching(/^[0-9a-f]{16}$/)));
+    expect(new Set(extrato.movimentos.map((m) => m.conteudo)).size).toBe(3);
   });
 });

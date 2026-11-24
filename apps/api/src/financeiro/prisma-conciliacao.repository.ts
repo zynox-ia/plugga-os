@@ -7,7 +7,7 @@ import { Conflito, NaoEncontrado } from "../common/errors/dominio";
 import { diaEmManaus, inicioDoDiaEmManaus } from "../compras/dias-uteis";
 import type { AuthPrincipal } from "../core/auth/auth.types";
 import { PrismaService } from "../prisma/prisma.service";
-import type { ExtratoLido } from "./extrato-ofx";
+import { conteudoDoMovimento, type ExtratoLido, type MovimentoLido } from "./extrato-ofx";
 
 export type ContaDoExtrato = { id: string; companyId: CompanyKey; nome: string; numero: string | null };
 export type ArquivoDoExtrato = { chave: string; nome: string; tamanho: number; sha256: string; origem: "ofx" | "csv" };
@@ -56,13 +56,7 @@ export class PrismaConciliacaoRepository {
       if (mesmo) {
         throw new Conflito(`Este arquivo já foi importado nesta conta em ${diaEmManaus(mesmo.importadoEm).split("-").reverse().join("/")}.`, undefined, { existente: { id: mesmo.id } });
       }
-      const identificadores = lido.movimentos.map((m) => m.identificador);
-      const ja = await tx.$queryRaw<{ identificador: string }[]>`
-        SELECT identificador FROM public.movimentos_do_extrato WHERE conta_corrente_id = ${conta.id}::uuid AND identificador = ANY(${identificadores}::text[])`;
-      const jaEntrou = new Set(ja.map((m) => m.identificador));
-      // Um FITID repetido no próprio arquivo também só entra uma vez.
-      const vistos = new Set<string>();
-      const novos = lido.movimentos.filter((m) => !jaEntrou.has(m.identificador) && !vistos.has(m.identificador) && vistos.add(m.identificador));
+      const novos = await this.movimentosNovos(tx, conta.id, lido.movimentos);
 
       const extrato = await tx.extratoBancario.create({
         data: {
@@ -104,6 +98,31 @@ export class PrismaConciliacaoRepository {
       });
       return paraExtrato(extrato, lido.movimentos.length - novos.length);
     });
+  }
+
+  /**
+   * Os movimentos do arquivo que ainda não entraram na conta. Repetido é só o de mesmo
+   * identificador E mesmo conteúdo (dia, valor e descrição). Há bancos que repetem o FITID:
+   * com outro conteúdo, no arquivo ou contra o que já entrou, o movimento entra com o
+   * identificador sufixado pelo conteúdo, e nada some em silêncio.
+   */
+  private async movimentosNovos(tx: Prisma.TransactionClient, contaId: string, movimentos: readonly MovimentoLido[]): Promise<MovimentoLido[]> {
+    const sufixado = (m: MovimentoLido) => `${m.identificador}~${m.conteudo}`;
+    const candidatos = [...new Set(movimentos.flatMap((m) => [m.identificador, sufixado(m)]))];
+    const ja = await tx.$queryRaw<{ identificador: string; dia: Date; valor: Prisma.Decimal; descricao: string }[]>`
+      SELECT identificador, dia, valor, descricao FROM public.movimentos_do_extrato
+      WHERE conta_corrente_id = ${contaId}::uuid AND identificador = ANY(${candidatos}::text[])`;
+    const existentes = new Map(ja.map((m) => [m.identificador, conteudoDoMovimento(diaEmManaus(m.dia), m.valor.toFixed(2), m.descricao)]));
+    const doArquivo = new Map<string, string>();
+    const novos: MovimentoLido[] = [];
+    for (const m of movimentos) {
+      const conflita = (conteudo: string | undefined) => conteudo !== undefined && conteudo !== m.conteudo;
+      const identificador = conflita(existentes.get(m.identificador)) || conflita(doArquivo.get(m.identificador)) ? sufixado(m) : m.identificador;
+      if (existentes.get(identificador) === m.conteudo || doArquivo.get(identificador) === m.conteudo) continue;
+      doArquivo.set(identificador, m.conteudo);
+      novos.push({ ...m, identificador });
+    }
+    return novos;
   }
 
   async listar(query: ListarMovimentosDoExtratoQuery): Promise<MovimentosDoExtratoResposta> {

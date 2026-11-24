@@ -15,13 +15,23 @@ export const EXTRATO_MAX_LINHAS = 200_000;
 export const EXTRATO_MAX_MOVIMENTOS = 20_000;
 const DESCRICAO_MAX = 255;
 const IDENTIFICADOR_MAX = 120;
+/** O FITID cabe com o sufixo do conteúdo (`~` e 16 hex) quando ele se repete com outro conteúdo. */
+export const FITID_MAX = IDENTIFICADOR_MAX - 17;
+const hash16 = (texto: string) => createHash("sha256").update(texto).digest("hex").slice(0, 16);
+/** A chave do conteúdo de um movimento: a mesma para o lido do arquivo e para o que já está no banco. */
+export const conteudoDoMovimento = (dia: string, valor: string, descricao: string): string => hash16(`${dia}|${valor}|${descricao}`);
 
 /** O arquivo não é um extrato aceitável; a mensagem é para a pessoa e não leva conteúdo do arquivo. */
 export class ExtratoRecusado extends Error {}
 
 export type MovimentoLido = {
-  /** O FITID do banco; sem ele, um hash estável do conteúdo e da posição no arquivo. */
+  /**
+   * O FITID do banco; sem ele, um hash do dia, do valor, da descrição e da ordem daquela
+   * ocorrência no arquivo (o mesmo movimento em dois arquivos sobrepostos dá o mesmo).
+   */
   identificador: string;
+  /** Hash do dia, do valor e da descrição: separa um FITID repetido com conteúdo diferente. */
+  conteudo: string;
   /** AAAA-MM-DD. */
   dia: string;
   /** Com sinal: + crédito, − débito, duas casas. */
@@ -90,6 +100,8 @@ export function lerOfx(arquivo: Buffer): ExtratoLido {
   if (blocos.length === 0) throw new ExtratoRecusado("O extrato não tem nenhum movimento.");
   if (blocos.length > EXTRATO_MAX_MOVIMENTOS) throw new ExtratoRecusado("O extrato tem movimentos demais para um arquivo só.");
 
+  // A ordem de cada ocorrência do mesmo (dia, valor, descrição) no arquivo, sem a posição.
+  const ocorrencias = new Map<string, number>();
   const movimentos = blocos.map((bloco, posicao): MovimentoLido => {
     const d = dia(campo(bloco, "DTPOSTED"));
     if (!d) throw new ExtratoRecusado(`O movimento ${posicao + 1} do extrato tem data inválida.`);
@@ -98,10 +110,13 @@ export function lerOfx(arquivo: Buffer): ExtratoLido {
     if (/^-?0\.00$/.test(valor)) throw new ExtratoRecusado(`O movimento ${posicao + 1} do extrato tem valor zero.`);
     const descricao = (campo(bloco, "MEMO") ?? campo(bloco, "NAME") ?? campo(bloco, "TRNTYPE") ?? "Movimento").slice(0, DESCRICAO_MAX);
     const fitid = campo(bloco, "FITID");
+    const trio = `${d}|${valor}|${descricao}`;
+    const n = (ocorrencias.get(trio) ?? 0) + 1;
+    ocorrencias.set(trio, n);
     const identificador = fitid
-      ? fitid.slice(0, IDENTIFICADOR_MAX)
-      : `sem-fitid:${createHash("sha256").update(`${d}|${valor}|${descricao}|${posicao}`).digest("hex").slice(0, 32)}`;
-    return { identificador, dia: d, valor, descricao };
+      ? fitid.slice(0, FITID_MAX)
+      : `sem-fitid:${createHash("sha256").update(`${trio}|${n}`).digest("hex").slice(0, 32)}`;
+    return { identificador, conteudo: conteudoDoMovimento(d, valor, descricao), dia: d, valor, descricao };
   });
 
   const contaDoArquivo = /<BANKACCTFROM>([\s\S]*?)(<\/BANKACCTFROM>|<BANKTRANLIST>)/i.exec(texto)?.[1] ?? null;

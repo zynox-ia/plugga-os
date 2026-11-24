@@ -5,7 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { AuditAppender } from "../src/audit/audit-appender.js";
 import { Conflito } from "../src/common/errors/dominio.js";
 import type { AuthPrincipal } from "../src/core/auth/auth.types.js";
-import type { ExtratoLido } from "../src/financeiro/extrato-ofx.js";
+import { conteudoDoMovimento, type ExtratoLido } from "../src/financeiro/extrato-ofx.js";
 import { PrismaConciliacaoRepository, type ContaDoExtrato } from "../src/financeiro/prisma-conciliacao.repository.js";
 import { PrismaService } from "../src/prisma/prisma.service.js";
 
@@ -36,7 +36,8 @@ describe.skipIf(!HABILITADO)("conciliação: extrato bancário no Postgres", () 
   const lido = (movimentos: ExtratoLido["movimentos"], saldo: ExtratoLido["saldo"] = null): ExtratoLido => ({
     conta: null, periodo: { de: movimentos.map((m) => m.dia).sort()[0]!, ate: movimentos.map((m) => m.dia).sort().at(-1)! }, saldo, movimentos,
   });
-  const mov = (id: string, dia: string, valor: string) => ({ identificador: `${marca}-${id}`, dia, valor, descricao: `${marca} PIX ${id}` });
+  const mov = (id: string, dia: string, valor: string, descricao = `${marca} PIX ${id}`) =>
+    ({ identificador: `${marca}-${id}`, conteudo: conteudoDoMovimento(dia, valor, descricao), dia, valor, descricao });
 
   beforeAll(async () => {
     await prisma.$connect();
@@ -80,15 +81,30 @@ describe.skipIf(!HABILITADO)("conciliação: extrato bancário no Postgres", () 
     expect(JSON.stringify(eventos)).not.toContain(marca);
   }, PRAZO_MS);
 
+  it("FITID repetido com outro conteúdo entra (no arquivo e contra o que já entrou); com o mesmo conteúdo é repetido", async () => {
+    // No mesmo arquivo: o banco repetiu o FITID 7 para dois movimentos diferentes.
+    const r = await repositorio.importar(conta, arquivo("d4"), lido([mov("7", "2026-11-25", "-10.00"), mov("7", "2026-11-25", "-15.00")]), principal, AGORA);
+    expect(r).toMatchObject({ movimentos: 2, novos: 2, repetidos: 0 });
+    // Contra o que já entrou: o FITID 1 de antes, agora com outro valor, entra; igual, é repetido.
+    const s2 = await repositorio.importar(conta, arquivo("e5"), lido([mov("1", "2026-11-10", "-100.00"), mov("1", "2026-11-26", "-99.00")]), principal, AGORA);
+    expect(s2).toMatchObject({ movimentos: 2, novos: 1, repetidos: 1 });
+    const comFitid = await prisma.movimentoDoExtrato.findMany({ where: { contaCorrenteId: conta.id, identificador: { startsWith: `${marca}-` } }, select: { identificador: true, valor: true } });
+    expect(comFitid.filter((m) => m.identificador.startsWith(`${marca}-7`)).map((m) => m.valor.toFixed(2)).sort()).toEqual(["-10.00", "-15.00"]);
+    expect(comFitid.filter((m) => m.identificador.startsWith(`${marca}-1`)).map((m) => m.valor.toFixed(2)).sort()).toEqual(["-100.00", "-99.00"]);
+  }, PRAZO_MS);
+
   it("lista os movimentos do período, do mais recente para o mais antigo, com os arquivos que tocam o período", async () => {
     const lista = await repositorio.listar({ contaCorrenteId: conta.id, de: "2026-11-11", ate: "2026-11-30" });
-    expect(lista.itens.map((m) => [m.dia, m.valor, m.estado])).toEqual([["2026-11-15", "-35.90", "pendente"], ["2026-11-12", "250.50", "pendente"]]);
-    expect(lista.extratos.map((e) => e.novos).sort()).toEqual([1, 2]);
+    expect(lista.itens.map((m) => [m.dia, m.valor])).toEqual([
+      ["2026-11-26", "-99.00"], ["2026-11-25", expect.any(String)], ["2026-11-25", expect.any(String)], ["2026-11-15", "-35.90"], ["2026-11-12", "250.50"],
+    ]);
+    expect(lista.itens.every((m) => m.estado === "pendente")).toBe(true);
+    expect(lista.extratos.length).toBeGreaterThanOrEqual(3);
     expect((await repositorio.listar({ contaCorrenteId: conta.id, de: "2026-12-01", ate: "2026-12-31" })).itens).toEqual([]);
   }, PRAZO_MS);
 
   it("RLS: a tela Conciliação lê e importa; Contas a pagar não vê nada; ninguém altera nem apaga; a chave do arquivo é da empresa", async () => {
-    expect(await comoRuntime("conciliacao", (tx) => tx.movimentoDoExtrato.count({ where: { contaCorrenteId: conta.id } }))).toBe(3);
+    expect(await comoRuntime("conciliacao", (tx) => tx.movimentoDoExtrato.count({ where: { contaCorrenteId: conta.id } }))).toBe(6);
     expect(await comoRuntime("pagar", (tx) => tx.movimentoDoExtrato.count({ where: { contaCorrenteId: conta.id } }))).toBe(0);
     expect(await comoRuntime("pagar", (tx) => tx.extratoBancario.count({ where: { contaCorrenteId: conta.id } }))).toBe(0);
 
