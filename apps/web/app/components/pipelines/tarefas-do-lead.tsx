@@ -42,9 +42,9 @@ export function TarefasDoLead({ negocioId, controle, responsaveis, responsavelIn
     quadro.current?.querySelector<HTMLElement>(`[data-atividade-id="${focoPendente.current}"]`)?.focus({ preventScroll: true });
     focoPendente.current = null;
   }, [controle.atividades, janela]);
-  // A aba monta a cada visita: traz o que mudou fora dela (outra pessoa, outra aba, o processo).
-  const recarregar = controle.recarregar;
-  useEffect(() => { recarregar(); }, []);
+  // A aba monta a cada visita; ao voltar a ela, o hook traz o que mudou fora.
+  const aoAbrirAba = controle.aoAbrirAba;
+  useEffect(() => { aoAbrirAba(); }, []);
   function fecharJanela() {
     if (janela && "atividade" in janela) focoPendente.current = janela.atividade.id;
     // Fechar depois de um erro (um conflito de versão, por exemplo) descarta o rascunho: o quadro volta aos dados atuais.
