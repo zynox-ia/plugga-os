@@ -223,17 +223,38 @@ export class PrismaFinanceiroRepository {
     return this.paraDetalhe(linha, clientes, ucs, papel, agora, pedidos);
   }
 
+  /**
+   * O saldo calculado de cada conta ativa (PLU-339, C4): o saldo inicial (o fim do dia dele)
+   * mais as entradas e menos as saídas conciliadas depois desse dia. Sem saldo inicial, nulo.
+   * O saldo lido do OMIE não entra: é só conferência, no conector.
+   */
+  private async saldosDasContas(tx: Prisma.TransactionClient, empresa?: CompanyKey): Promise<{ id: string; saldo: Prisma.Decimal | null }[]> {
+    const linhas = await tx.$queryRaw<{ id: string; saldo: Prisma.Decimal | null }[]>`
+      SELECT c.id,
+        CASE WHEN c.saldo_inicial IS NULL THEN NULL ELSE c.saldo_inicial + COALESCE(SUM(
+          CASE WHEN l.tipo = 'entrada' THEN COALESCE(l.valor_recebido, l.valor) ELSE -l.valor END
+        ) FILTER (WHERE l.id IS NOT NULL), 0) END AS saldo
+      FROM public.contas_correntes c
+      LEFT JOIN public.lancamentos l ON l.conta_corrente_id = c.id AND l.etapa = 'conciliada' AND l.cancelado_em IS NULL
+        AND c.saldo_inicial_em IS NOT NULL AND l.liquidado_em > c.saldo_inicial_em
+      WHERE c.ativa AND (${empresa ?? null}::text IS NULL OR c.company_id = ${empresa ?? null}::text)
+      GROUP BY c.id, c.saldo_inicial`;
+    return linhas;
+  }
+
   async opcoes(): Promise<OpcoesDoFinanceiro> {
-    const [categorias, contas, fornecedores, conectores] = await this.prisma.comContexto((tx) => Promise.all([
+    const [categorias, contas, fornecedores, conectores, saldos] = await this.prisma.comContexto((tx) => Promise.all([
       tx.categoriaFinanceira.findMany({ orderBy: [{ companyId: "asc" }, { codigo: "asc" }] }),
       tx.contaCorrente.findMany({ orderBy: [{ companyId: "asc" }, { nome: "asc" }] }),
       tx.fornecedor.findMany({ where: { ativo: true }, select: { id: true, nome: true }, orderBy: { nome: "asc" } }),
       this.conectores.conexoes(tx),
+      this.saldosDasContas(tx),
     ]));
+    const saldoDa = new Map(saldos.map((c) => [c.id, c.saldo?.toFixed(2) ?? null]));
     return {
       ...(conectores ? { conectores } : {}),
       categorias: categorias.map(paraCategoria),
-      contasCorrentes: contas.map(paraConta),
+      contasCorrentes: contas.map((c) => ({ ...paraConta(c), saldoCalculado: saldoDa.get(c.id) ?? null })),
       fornecedores,
       formasDePagamento: [...formasDoLancamento],
     };
@@ -655,18 +676,21 @@ export class PrismaFinanceiroRepository {
     const hoje = inicioDoDiaEmManaus(dia(agora));
     const base: Prisma.LancamentoWhereInput = { canceladoEm: null, etapa: { in: etapasEmAberto }, ...(empresa ? { companyId: empresa } : {}) };
     const tipos = tiposVisiveis(papel, "todos");
-    const [ateOFim, vencidos, paraAprovar, contas] = await this.prisma.comContexto((tx) => Promise.all([
+    const [ateOFim, vencidos, paraAprovar, saldos] = await this.prisma.comContexto((tx) => Promise.all([
       tx.lancamento.groupBy({ by: ["tipo"], where: { ...base, tipo: { in: tipos }, vencimento: { lte: ate } }, _sum: { valor: true }, _count: { _all: true } }),
       tx.lancamento.groupBy({ by: ["tipo"], where: { ...base, tipo: { in: tipos }, vencimento: { lt: hoje } }, _sum: { valor: true } }),
       papel.saidas ? tx.lancamento.count({ where: { ...base, tipo: "saida", etapa: "aberta", vencimento: { lte: ate } } }) : Promise.resolve(0),
-      tx.contaCorrente.aggregate({ where: { ativa: true, saldoLidoEm: { not: null }, ...(empresa ? { companyId: empresa } : {}) }, _sum: { saldo: true }, _count: { saldo: true } }),
+      this.saldosDasContas(tx, empresa),
     ]));
     const soma = (grupos: { tipo: TipoDeLancamento; _sum: { valor: Prisma.Decimal | null } }[], tipo: TipoDeLancamento) =>
       grupos.find((g) => g.tipo === tipo)?._sum.valor ?? ZERO;
     const quantidade = (tipo: TipoDeLancamento) => ateOFim.find((g) => g.tipo === tipo)?._count._all ?? 0;
     const aReceber = soma(ateOFim, "entrada");
     const aPagar = soma(ateOFim, "saida");
-    const saldoNasContas = contas._count.saldo > 0 ? (contas._sum.saldo ?? ZERO) : null;
+    // O saldo é do Plugga OS (PLU-339, C4): o saldo inicial de cada conta mais o conciliado depois.
+    const comSaldo = saldos.filter((c) => c.saldo !== null);
+    const saldoNasContas = comSaldo.length > 0 ? comSaldo.reduce((t, c) => t.add(c.saldo!), ZERO) : null;
+    const contasSemSaldoInicial = saldos.length - comSaldo.length;
     const vencidoReceber = papel.entradas ? soma(vencidos, "entrada") : null;
     const vencidoPagar = papel.saidas ? soma(vencidos, "saida") : null;
     return {
@@ -674,7 +698,7 @@ export class PrismaFinanceiroRepository {
       aReceber: papel.entradas ? { valor: aReceber.toFixed(2), quantidade: quantidade("entrada") } : null,
       aPagar: papel.saidas ? { valor: aPagar.toFixed(2), quantidade: quantidade("saida"), paraAprovar } : null,
       saldoProjetado: papel.saidas && papel.entradas
-        ? { valor: (saldoNasContas ?? ZERO).add(aReceber).sub(aPagar).toFixed(2), saldoNasContas: saldoNasContas?.toFixed(2) ?? null }
+        ? { valor: (saldoNasContas ?? ZERO).add(aReceber).sub(aPagar).toFixed(2), saldoNasContas: saldoNasContas?.toFixed(2) ?? null, contasSemSaldoInicial }
         : null,
       vencidos: {
         valor: (vencidoReceber ?? ZERO).add(vencidoPagar ?? ZERO).toFixed(2),

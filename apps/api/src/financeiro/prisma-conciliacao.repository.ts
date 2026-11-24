@@ -286,6 +286,10 @@ export class PrismaConciliacaoRepository {
       valorDiferente: r.valorDiferente.map(([m, l, diferenca]) => ({ movimento: linha(m), lancamento: lado(l), diferenca })),
       semLancamento: r.semLancamento.map((m) => ({ ...linha(m), candidatos: r.candidatos.doMovimento.get(m.id) ?? [] })),
       semExtrato: r.semExtrato.map((l) => ({ ...lado(l), candidatos: r.candidatos.doLancamento.get(l.id) ?? [] })),
+      // Os candidatos de fora do período (a janela de ±3 dias), que não estão em semExtrato.
+      lancamentosCandidatos: [...new Set([...r.candidatos.doMovimento.values()].flat())]
+        .filter((id) => !r.semExtrato.some((l) => l.id === id))
+        .map((id) => this.paraLancamento(porId.get(id)!, clientes)),
       conciliados: r.conciliados.map(([m, l]) => {
         const doBanco = movPorId.get(m.id)!;
         return {

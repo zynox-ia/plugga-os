@@ -6,7 +6,9 @@ import { AuditAppender } from "../src/audit/audit-appender.js";
 import { Conflito, EstadoInvalido } from "../src/common/errors/dominio.js";
 import type { AuthPrincipal } from "../src/core/auth/auth.types.js";
 import { conteudoDoMovimento, type ExtratoLido } from "../src/financeiro/extrato-ofx.js";
+import { papelNoFinanceiro } from "../src/financeiro/financeiro.rules.js";
 import { PrismaConciliacaoRepository, type ContaDoExtrato } from "../src/financeiro/prisma-conciliacao.repository.js";
+import { PrismaFinanceiroRepository } from "../src/financeiro/prisma-financeiro.repository.js";
 import { contextoBanco } from "../src/prisma/contexto-banco.js";
 import { PrismaService } from "../src/prisma/prisma.service.js";
 
@@ -221,5 +223,21 @@ describe.skipIf(!HABILITADO)("conciliação: extrato bancário no Postgres", () 
     expect(await comoRuntime("pagar", (tx) => tx.movimentoDoExtrato.updateMany({ where: { id: linha!.id }, data: { estado: "marcado" } }))).toEqual({ count: 0 });
     expect(await comoRuntime("conciliacao", (tx) => tx.movimentoDoExtrato.updateMany({ where: { id: linha!.id }, data: { estado: "marcado" } }))).toEqual({ count: 1 });
     await expect(comoRuntime("conciliacao", (tx) => tx.$executeRaw`UPDATE public.movimentos_do_extrato SET valor = 1 WHERE id = ${linha!.id}::uuid`)).rejects.toThrow(/permission denied/);
+  }, PRAZO_MS);
+
+  it("C4: o saldo da conta é o saldo inicial (o fim do dia dele) mais o conciliado depois; sem saldo inicial, nulo", async () => {
+    const financeiro = new PrismaFinanceiroRepository(prisma, new AuditAppender());
+    const saldoDaConta = async () => (await financeiro.opcoes()).contasCorrentes.find((c) => c.id === conta.id)?.saldoCalculado;
+    expect(await saldoDaConta()).toBeNull();
+    // Depois dos testes da C3, ficou conciliada só a entrada de R$ 7.200,00 (a saída foi desfeita).
+    await prisma.contaCorrente.update({ where: { id: conta.id }, data: { saldoInicial: 1000, saldoInicialEm: new Date("2026-11-30T04:00:00Z") } });
+    expect(await saldoDaConta()).toBe("8200.00");
+    // O conciliado até o dia do saldo inicial já está nele: não conta de novo.
+    await prisma.contaCorrente.update({ where: { id: conta.id }, data: { saldoInicial: -50, saldoInicialEm: new Date("2026-12-05T04:00:00Z") } });
+    expect(await saldoDaConta()).toBe("-50.00");
+    // No resumo, a conta entra na soma do saldo nas contas.
+    const resumo = await financeiro.resumo(papelNoFinanceiro({ plataforma: "admin", departamentos: [] }), "waze", AGORA);
+    expect(resumo.saldoProjetado?.saldoNasContas).not.toBeNull();
+    expect(resumo.saldoProjetado?.contasSemSaldoInicial).toEqual(expect.any(Number));
   }, PRAZO_MS);
 });

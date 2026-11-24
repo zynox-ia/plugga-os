@@ -69,6 +69,12 @@ describe("o painel da conciliação", () => {
     expect(p.semExtrato.map((l) => l.id)).toEqual(["l1"]);
   });
 
+  it("o candidato pode ser um liquidado logo fora do período (a janela): ele não está em semExtrato", () => {
+    const p = montarPainel([mov("m1", "2026-11-01", "-9.00"), mov("m2", "2026-11-02", "-9.00")], [lanc("l1", "saida", "2026-10-30", "9.00")], PERIODO);
+    expect(p.semExtrato).toEqual([]);
+    expect(p.candidatos.doMovimento.get("m1")).toEqual(["l1"]);
+  });
+
   it("cancelado ou não liquidado não entra no painel; o par é sempre da mesma conta, com várias contas no escopo", () => {
     const p = montarPainel([mov("m1", "2026-11-21", "-10.00")], [
       lanc("l1", "saida", "2026-11-21", "10.00", { contaCorrenteId: "c2" }),

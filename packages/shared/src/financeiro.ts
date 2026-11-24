@@ -158,6 +158,8 @@ export const contaCorrenteSchema = z.object({
    */
   saldoInicial: z.string().nullable().optional(),
   saldoInicialEm: diaDoCalendario.nullable().optional(),
+  /** Nas opções: o saldo inicial mais o conciliado depois (PLU-339, C4); nulo sem saldo inicial. */
+  saldoCalculado: z.string().nullable().optional(),
   ativa: z.boolean(),
 });
 export type ContaCorrente = z.infer<typeof contaCorrenteSchema>;
@@ -548,8 +550,13 @@ export const resumoDosLancamentosSchema = z.object({
   aPagar: z
     .object({ valor: z.string(), quantidade: z.number().int().nonnegative(), paraAprovar: z.number().int().nonnegative() })
     .nullable(),
-  /** a receber − a pagar até `ate`, mais o saldo nas contas quando lido do OMIE. Nulo sem acesso aos dois tipos. */
-  saldoProjetado: z.object({ valor: z.string(), saldoNasContas: z.string().nullable() }).nullable(),
+  /**
+   * a receber − a pagar até `ate`, mais o saldo nas contas. O saldo é o calculado no Plugga OS
+   * (o saldo inicial de cada conta ativa mais o conciliado depois); sem nenhuma conta com
+   * saldo inicial, `saldoNasContas` é nulo. `contasSemSaldoInicial`: as contas ativas que ficaram
+   * fora da soma, para a tela pedir o saldo inicial. Nulo sem acesso aos dois tipos.
+   */
+  saldoProjetado: z.object({ valor: z.string(), saldoNasContas: z.string().nullable(), contasSemSaldoInicial: z.number().int().nonnegative().optional() }).nullable(),
   /** Vencidos de qualquer data, só do que a pessoa alcança; a parte que ela não alcança vem nula. */
   vencidos: z.object({ valor: z.string(), aReceber: z.string().nullable(), aPagar: z.string().nullable() }),
 });
@@ -780,6 +787,11 @@ export const painelDaConciliacaoSchema = z.object({
   semLancamento: z.array(movimentoDoExtratoSchema.extend({ candidatos: z.array(uuid).optional() })),
   /** `candidatos`: os ids das linhas do extrato possíveis, pelo mesmo critério. */
   semExtrato: z.array(lancamentoNaConciliacaoSchema.extend({ candidatos: z.array(uuid).optional() })),
+  /**
+   * Os lançamentos candidatos de uma linha sem par que não estão em `semExtrato`: os liquidados
+   * logo antes ou logo depois do período (a janela de ±3 dias), para a tela mostrar o par.
+   */
+  lancamentosCandidatos: z.array(lancamentoNaConciliacaoSchema).optional(),
   conciliados: z.array(parDaConciliacaoSchema.extend({ conciliadoEm: isoDate, conciliadoPor: z.object({ id: uuid, nome: z.string() }).nullable() })),
   /** Os arquivos de extrato do escopo que tocam o período. */
   extratos: z.array(extratoImportadoSchema),
