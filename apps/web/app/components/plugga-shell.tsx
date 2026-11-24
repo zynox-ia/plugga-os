@@ -1,8 +1,18 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { AssistenteIA } from "./assistente-ia";
 import { BackgroundParticles } from "./background-particles";
+import estilos from "./plugga-shell.module.css";
+
+/** Rola só a lista (não o shell) até `elemento` ficar inteiro nela, com uma folga. */
+function mostrarNaLista(lista: HTMLElement, elemento: Element) {
+  const area = lista.getBoundingClientRect();
+  const caixa = elemento.getBoundingClientRect();
+  const folga = 8;
+  if (caixa.bottom > area.bottom - folga) lista.scrollTop += caixa.bottom - area.bottom + folga;
+  if (caixa.top < area.top + folga) lista.scrollTop -= area.top + folga - caixa.top;
+}
 
 export type IconName =
   | "home"
@@ -110,6 +120,7 @@ export function PluggaShell({
   }, []);
 
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
+  const lista = useRef<HTMLElement>(null);
 
   useEffect(() => {
     setActiveView(activeId);
@@ -151,6 +162,24 @@ export function PluggaShell({
       return { ...fechados, [id]: true };
     });
   };
+
+  // O departamento aberto fica à vista: ao abrir a tela (o da página atual) e ao abrir
+  // outro pela barra. Primeiro o último item, depois o cabeçalho, que tem a prioridade
+  // quando o grupo inteiro não cabe. Vale para todos os departamentos.
+  // A navegação chega depois da sessão: o efeito acompanha a lista e mede no quadro
+  // seguinte, com o grupo já desenhado.
+  useEffect(() => {
+    const quadro = requestAnimationFrame(() => {
+      const nav = lista.current;
+      const filhos = nav?.querySelector(".nav-children");
+      if (!nav || !filhos) return;
+      const ultimo = filhos.lastElementChild;
+      if (ultimo) mostrarNaLista(nav, ultimo);
+      const cabecalho = filhos.previousElementSibling;
+      if (cabecalho) mostrarNaLista(nav, cabecalho);
+    });
+    return () => cancelAnimationFrame(quadro);
+  }, [activeView, openGroups, isCollapsed, navigation]);
 
   const mainNavGroups = navGroups.filter((g) => g.id !== "ferramentas");
   const toolsNavGroups = navGroups.filter((g) => g.id === "ferramentas");
@@ -240,7 +269,7 @@ export function PluggaShell({
             </span>
           </button>
         </div>
-        <nav className="sidebar-nav">
+        <nav ref={lista} className={`sidebar-nav ${estilos.navRolavel}`}>
           <div className="sidebar-nav-shape sidebar-nav-shape--main">
             {mainNavGroups.map(renderNavGroup)}
           </div>

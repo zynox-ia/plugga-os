@@ -233,6 +233,27 @@ test.describe("Navegação única", () => {
     }
   });
 
+  test("o departamento da página fica à vista na barra e os itens que não cabem rolam", async ({ page }) => {
+    // A 1280×720, a Engenharia aberta não cabe acima do card "Meta trimestral": a lista
+    // rola até o departamento da página, e o resto fica alcançável pela rolagem.
+    await page.setViewportSize({ width: 1280, height: 720 });
+    await page.goto("/engenharia/ordens-de-servico");
+    const lista = page.locator(".sidebar-nav");
+    const cabecalho = lista.locator(".nav-parent", { hasText: "Engenharia e Obras" });
+    const ativo = lista.locator('[aria-current="page"]');
+    await expect(ativo).toHaveText("Ordens de serviço");
+    const dentroDaLista = (alvo: typeof ativo) => alvo.evaluate((elemento) => {
+      const area = elemento.closest(".sidebar-nav")!.getBoundingClientRect();
+      const caixa = elemento.getBoundingClientRect();
+      return caixa.top >= area.top - 1 && caixa.bottom <= area.bottom + 1;
+    });
+    await expect.poll(() => dentroDaLista(cabecalho)).toBe(true);
+    await expect.poll(() => dentroDaLista(ativo)).toBe(true);
+    const obras = lista.getByRole("button", { name: "Obras", exact: true });
+    await lista.evaluate((nav) => { nav.scrollTop = nav.scrollHeight; });
+    await expect.poll(() => dentroDaLista(obras)).toBe(true);
+  });
+
   // As áreas de plataforma (jobs, integrações, administração) saíram da
   // sidebar: continuam roteáveis por URL, mas não competem com a estrutura
   // de departamentos no menu.

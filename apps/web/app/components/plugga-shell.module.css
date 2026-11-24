@@ -1,0 +1,11 @@
+/*
+ * A lista da barra lateral rola quando um departamento aberto não cabe (a 1280×720,
+ * a Engenharia com 7 itens). A regra global esconde toda barra de rolagem, e sem
+ * ela não havia sinal de que existiam itens abaixo do card "Meta trimestral".
+ * Uma barra fina e discreta, só nesta lista. Duas classes vencem a `.sidebar-nav`.
+ */
+.navRolavel:global(.sidebar-nav) {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.28) transparent;
+  overscroll-behavior: contain;
+}
