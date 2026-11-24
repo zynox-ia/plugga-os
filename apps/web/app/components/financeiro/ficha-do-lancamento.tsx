@@ -370,7 +370,10 @@ function OmieDoLancamento({ l, ocupado, conectado, aoTentar }: { l: Lancamento; 
       {podeTentarDeNovoNoOmie(l, conectado) ? <Button variant="secondary" size="sm" icon={<RotateCw size={14} />} disabled={ocupado} onClick={aoTentar}>Tentar de novo</Button> : null}
     </div>
     {conectado === false
-      ? <Alert tone="info" title={`O OMIE não está conectado para a ${empresa}: os lançamentos desta empresa ficam só no Plugga OS. A conexão fica em Configurações › Integrações.`} />
+      ? <Alert tone="info" title={`O OMIE não está conectado para a ${empresa}: os lançamentos desta empresa ficam só no Plugga OS. A conexão fica em Configurações › Integrações.`}>
+        {/* O envio em erro fica parado, não se perde (o conector não descarta ao desligar). */}
+        {l.omie.estado === "erro" ? "Havia um envio com erro antes de a conexão ser desligada; ele volta a aparecer quando a conexão for religada." : null}
+      </Alert>
       : omie.tom === "perigo" ? <Alert tone="danger" title={omie.texto} /> : <Alert tone="info" title={omie.texto} />}
     <dl className={visao.grade}>
       <div><dt>Situação</dt><dd>{{ nao_enviado: "Não enviado", enviando: "Enviando", enviado: "Enviado", erro: "Com erro", baixado: "Baixado", divergente: "Diferente do OMIE" }[l.omie.estado]}</dd></div>
