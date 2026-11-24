@@ -3189,27 +3189,6 @@
     ]
   },
   {
-    "metodo": "POST",
-    "caminho": "/suprimentos/compras/obras",
-    "controller": "ComprasController.criarObra",
-    "acesso": "acesso",
-    "papeis": [
-      "tela:suprimentos.compras",
-      "tela:financeiro.pagar",
-      "tela:financeiro.receber",
-      "tela:financeiro.conciliacao",
-      "tela:financeiro.fiscal",
-      "departamento:suprimentos:membro",
-      "departamento:financeiro:membro"
-    ],
-    "guards": [
-      "SessionAuthGuard",
-      "AcessoGuard",
-      "OriginCheckGuard",
-      "ThrottlerGuard"
-    ]
-  },
-  {
     "metodo": "GET",
     "caminho": "/suprimentos/compras/opcoes",
     "controller": "ComprasController.opcoes",

@@ -9,7 +9,6 @@ import {
   LIMITE_DA_LISTA_DE_PEDIDOS,
   buscarClientesDeCompraRespostaSchema,
   listarPedidosDeCompraRespostaSchema,
-  obraDeCompraSchema,
   opcoesDeCompraRespostaSchema,
   pedidoDeCompraSchema,
   quadroDeComprasRespostaSchema,
@@ -17,12 +16,10 @@ import {
   type AcaoDoPedido,
   type BuscarClientesDeCompraQuery,
   type BuscarClientesDeCompraResposta,
-  type CriarObra,
   type CriarPedidoDeCompra,
   type EditarPedidoDeCompra,
   type ListarPedidosDeCompraQuery,
   type ListarPedidosDeCompraResposta,
-  type ObraDeCompra,
   type OpcoesDeCompraResposta,
   type PedidoDeCompra,
   type QuadroDeComprasQuery,
@@ -89,11 +86,6 @@ export class ComprasService {
   async buscarClientes(query: BuscarClientesDeCompraQuery, principal: AuthPrincipal): Promise<BuscarClientesDeCompraResposta> {
     this.exigirOperacao(principal);
     return buscarClientesDeCompraRespostaSchema.parse({ itens: await this.repositorio.buscarClientes(query.busca) });
-  }
-
-  async criarObra(input: CriarObra, principal: AuthPrincipal): Promise<ObraDeCompra> {
-    this.exigirOperacao(principal);
-    return obraDeCompraSchema.parse(await this.repositorio.criarObra(input, principal));
   }
 
   async criar(input: CriarPedidoDeCompra, principal: AuthPrincipal): Promise<PedidoDeCompra> {

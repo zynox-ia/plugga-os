@@ -18,7 +18,6 @@ const servico = {
   editar: vi.fn().mockResolvedValue({ id: ID }),
   executarAcao: vi.fn().mockResolvedValue({ id: ID }),
   buscarClientes: vi.fn().mockResolvedValue({ itens: [] }),
-  criarObra: vi.fn().mockResolvedValue({ id: ID }),
 };
 
 describe("compras API (e2e)", () => {
@@ -61,6 +60,10 @@ describe("compras API (e2e)", () => {
     await compras(request(app.getHttpServer()).get("/suprimentos/compras/quadro?empresa=waze&de=2026-11-01")).expect(200);
     await compras(request(app.getHttpServer()).post("/suprimentos/compras/pedidos")).send({ titulo: "Sem empresa", destino: "interno" }).expect(400);
     await compras(request(app.getHttpServer()).get("/suprimentos/compras/pedidos/nao-e-uuid")).expect(400);
+  });
+
+  it("o Compras não cria obra: escolhe do cadastro de Obras (PLU-355)", async () => {
+    await compras(request(app.getHttpServer()).post("/suprimentos/compras/obras")).send({ empresa: "waze", nome: "Obra rápida" }).expect(404);
   });
 
   it("não há rota de exclusão de pedido nem de cotação", async () => {

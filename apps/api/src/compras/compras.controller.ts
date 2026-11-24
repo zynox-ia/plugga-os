@@ -8,7 +8,6 @@ import {
   type AtendimentoPeloEstoque,
   type VincularItensAoEstoque,
   buscarClientesDeCompraQuerySchema,
-  criarObraSchema,
   criarPedidoDeCompraSchema,
   editarPedidoDeCompraSchema,
   listarPedidosDeCompraQuerySchema,
@@ -17,12 +16,10 @@ import {
   type AcaoDoPedido,
   type BuscarClientesDeCompraQuery,
   type BuscarClientesDeCompraResposta,
-  type CriarObra,
   type CriarPedidoDeCompra,
   type EditarPedidoDeCompra,
   type ListarPedidosDeCompraQuery,
   type ListarPedidosDeCompraResposta,
-  type ObraDeCompra,
   type OpcoesDeCompraResposta,
   type PedidoDeCompra,
   type QuadroDeComprasQuery,
@@ -70,13 +67,6 @@ export class ComprasController {
   @Get("clientes")
   clientes(@Query(new ZodValidationPipe(buscarClientesDeCompraQuerySchema)) query: BuscarClientesDeCompraQuery, @CurrentPrincipal() principal: AuthPrincipal): Promise<BuscarClientesDeCompraResposta> {
     return this.compras.buscarClientes(query, principal);
-  }
-
-  @Post("obras")
-  @HttpCode(201)
-  @UseGuards(OriginCheckGuard, ThrottlerGuard)
-  criarObra(@Body(new ZodValidationPipe(criarObraSchema)) input: CriarObra, @CurrentPrincipal() principal: AuthPrincipal): Promise<ObraDeCompra> {
-    return this.compras.criarObra(input, principal);
   }
 
   @Get("pedidos")

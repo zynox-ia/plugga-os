@@ -279,14 +279,9 @@ const _todasAsAcoesListadas: Exclude<NomeDaAcaoDoPedido, (typeof acoesDoPedido)[
 void _todasAsAcoesListadas;
 
 /**
- * Obra mínima para o destino do pedido, criada em `POST .../compras/obras`
- * enquanto não há tela de obras. A obra tem empresa, como o pedido.
+ * O destino "obra" do pedido escolhe uma obra do cadastro de Obras da Engenharia
+ * (PLU-350); o Compras não cria obra (PLU-355). A obra tem empresa, como o pedido.
  */
-export const criarObraSchema = z
-  .object({ empresa: companyKeySchema, nome: texto(1, 200, "informe o nome da obra"), clientId: uuid.nullable().optional() })
-  .strict();
-export type CriarObra = z.infer<typeof criarObraSchema>;
-
 const clienteResumido = z.object({ id: uuid, nome: z.string() });
 
 export const obraDeCompraSchema = z.object({ id: uuid, empresa: companyKeySchema, nome: z.string(), cliente: clienteResumido.nullable() });

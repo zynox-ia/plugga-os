@@ -7,7 +7,6 @@ import {
   type AtendimentoPeloEstoque,
   type VincularItensAoEstoque,
   type CompanyKey,
-  type CriarObra,
   type CriarPedidoDeCompra,
   type EditarPedidoDeCompra,
   type ListarPedidosDeCompraQuery,
@@ -387,18 +386,6 @@ export class PrismaComprasRepository {
       });
       await this.registrar(tx, "compras.pedido.comprovante_enviado", "pedido_de_compra", pedidoId, pedido.companyId, principal, { comprovanteId: novo.id, substituiu: count > 0 });
     });
-  }
-
-  async criarObra(input: CriarObra, principal: AuthPrincipal): Promise<ObraDeCompra> {
-    const obra = await this.comVinculosValidos(() => this.prisma.comContexto(async (tx) => {
-      const criada = await tx.obra.create({
-        data: { companyId: input.empresa, nome: input.nome, clientId: input.clientId ?? null, criadoPorId: principal.id },
-        select: { id: true, nome: true, companyId: true, clientId: true },
-      });
-      await this.registrar(tx, "compras.obra.created", "obra", criada.id, input.empresa, principal, { comCliente: criada.clientId !== null });
-      return criada;
-    }));
-    return this.paraObra(obra, await this.nomesDeClientes(obra.clientId ? [obra.clientId] : []));
   }
 
   /** Quanto o estoque da empresa do pedido atende, item a item (análise de estoque). */

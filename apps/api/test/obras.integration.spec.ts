@@ -238,6 +238,8 @@ describe.skipIf(!HABILITADO)("obras no Postgres", { timeout: PRAZO }, () => {
     expect(await tx("compras", (t) => t.obra.count({ where: { id: o.id } }))).toBe(1);
     expect(await tx("financeiro", (t) => t.obra.count({ where: { id: o.id } }))).toBe(1);
     expect((await tx("compras", (t) => t.obra.updateMany({ where: { id: o.id }, data: { nome: "x" } }))).count).toBe(0);
+    // PLU-355: o Compras não cria obra; escolhe do cadastro.
+    await expect(tx("compras", (t) => t.obra.create({ data: { companyId: "waze", nome: `${marca} rápida`, criadoPorId: pessoas.get("compras")!.id } }))).rejects.toThrow(/row-level security/);
     expect((await tx("financeiro", (t) => t.marcoDeObra.updateMany({ where: { obraId: o.id }, data: { previstoEm: AGORA } }))).count).toBe(0);
     const lista = await como("eng", () => servico.listar({ busca: marca }, principal("eng")));
     expect(lista.itens.length).toBeGreaterThanOrEqual(5);
