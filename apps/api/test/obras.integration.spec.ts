@@ -78,7 +78,7 @@ describe.skipIf(!HABILITADO)("obras no Postgres", { timeout: PRAZO }, () => {
 
     for (const id of ["plugga", "waze"]) await root.company.upsert({ where: { id }, create: { id, name: id }, update: {} });
     const perfis: Record<string, { departamento: string; nivel: "membro" | "gerente"; telas: string[] }> = {
-      eng: { departamento: "engenharia-obras", nivel: "membro", telas: ["engenharia-obras.obras", "engenharia-obras.os"] },
+      eng: { departamento: "engenharia-obras", nivel: "membro", telas: ["engenharia-obras.obras", "engenharia-obras.os", "engenharia-obras.protocolos"] },
       gerente: { departamento: "engenharia-obras", nivel: "gerente", telas: ["engenharia-obras.obras"] },
       os: { departamento: "engenharia-obras", nivel: "membro", telas: ["engenharia-obras.os"] },
       compras: { departamento: "suprimentos", nivel: "membro", telas: ["suprimentos.compras"] },
@@ -108,6 +108,10 @@ describe.skipIf(!HABILITADO)("obras no Postgres", { timeout: PRAZO }, () => {
         await t.documentoDeObra.deleteMany({ where: { obraId: { in: obras } } });
         await t.marcoDeObra.deleteMany({ where: { obraId: { in: obras } } });
         await t.obra.deleteMany({ where: { id: { in: obras } } });
+        const protocolos = (await t.protocolo.findMany({ where: { clientId: { in: clientes } }, select: { id: true } })).map((p) => p.id);
+        await t.verificacaoDeProtocolo.deleteMany({ where: { protocoloId: { in: protocolos } } });
+        await t.protocolo.deleteMany({ where: { id: { in: protocolos } } });
+        await t.consumerUnit.deleteMany({ where: { clientId: { in: clientes } } });
       });
       await root.client.deleteMany({ where: { id: { in: clientes } } });
       await root.user.deleteMany({ where: { email: { startsWith: marca } } });
@@ -194,6 +198,25 @@ describe.skipIf(!HABILITADO)("obras no Postgres", { timeout: PRAZO }, () => {
     await expect(tx("eng", (t) => t.obra.deleteMany({ where: { id: o.id } }))).rejects.toThrow(/permission denied/);
     // O evento não leva o nome do arquivo.
     expect(JSON.stringify(await root.eventLog.findMany({ where: { entityId: o.id } }))).not.toMatch(/Tarumã\.mpp|Ata de início/);
+  });
+
+  it("o projeto elétrico aponta só o protocolo do cliente da obra; o nome do cliente sai só para quem tem obra", async () => {
+    const o = await nova({ nome: `${marca} projeto` });
+    const protocolo = async (cliente: string, numero: string) => {
+      const uc = await root.consumerUnit.create({ data: { clientId: cliente, code: `${marca}-${numero}`, distributor: "Amazonas Energia" } });
+      return (await root.protocolo.create({ data: {
+        companyId: "waze", departamento: "engenharia-obras", clientId: cliente, consumerUnitId: uc.id, distribuidoraId: "amazonas-energia", tipo: "orcamento_de_conexao",
+        numero: `${marca}-${numero}`, abertoEm: new Date("2026-11-10T04:00:00Z"), dataLimite: new Date("2026-12-10T04:00:00Z"), proximaVerificacao: new Date("2026-12-01T04:00:00Z"),
+      } })).id;
+    };
+    const doOutro = await protocolo(outroCliente, "p2");
+    await expect(anexar(o.id, { categoria: "projeto_eletrico", protocoloId: doOutro }, PDF, "Projeto.pdf")).rejects.toThrow(/outro cliente/);
+    const doCliente = await protocolo(clienteId, "p1");
+    const ficha = await anexar(o.id, { categoria: "projeto_eletrico", protocoloId: doCliente }, PDF, "Projeto.pdf");
+    expect(ficha.documentosDaObra.find((d) => d.categoria === "projeto_eletrico")!.protocolo).toEqual({ id: doCliente, numero: `${marca}-p1` });
+    const nomes = (ids: string[]) => tx("eng", (t) => t.$queryRaw<{ id: string }[]>`SELECT id FROM plugga_security.nomes_das_obras(${ids}::uuid[], ARRAY[]::uuid[])`);
+    expect((await nomes([clienteId])).map((r) => r.id)).toEqual([clienteId]);
+    expect(await nomes([outroCliente])).toEqual([]);
   });
 
   it("a ficha mostra as O.S. da obra; a O.S. só se liga à obra do mesmo cliente e empresa", async () => {

@@ -195,13 +195,17 @@ export class PrismaObrasRepository {
     });
   }
 
-  /** A empresa da obra (para a chave do arquivo) e se o protocolo existe (e a pessoa o alcança). */
+  /** A empresa da obra (para a chave do arquivo) e o protocolo: visível e do mesmo cliente da obra, quando ela tem cliente. */
   async paraAnexar(obraId: string, protocoloId: string | undefined): Promise<{ empresa: string }> {
     return this.prisma.comContexto(async (tx) => {
-      const obra = await tx.obra.findUnique({ where: { id: obraId }, select: { companyId: true } });
+      const obra = await tx.obra.findUnique({ where: { id: obraId }, select: { companyId: true, clientId: true } });
       if (!obra) throw new NaoEncontrado("Obra não encontrada.");
-      if (protocoloId && !await tx.protocolo.findUnique({ where: { id: protocoloId }, select: { id: true } })) {
-        throw new RequisicaoInvalida("Protocolo não encontrado.", [{ campo: "protocoloId", problema: "Escolha um protocolo da distribuidora." }]);
+      if (protocoloId) {
+        const protocolo = await tx.protocolo.findUnique({ where: { id: protocoloId }, select: { clientId: true } });
+        if (!protocolo) throw new RequisicaoInvalida("Protocolo não encontrado.", [{ campo: "protocoloId", problema: "Escolha um protocolo da distribuidora." }]);
+        if (obra.clientId && protocolo.clientId !== obra.clientId) {
+          throw new RequisicaoInvalida("O protocolo é de outro cliente.", [{ campo: "protocoloId", problema: "Escolha um protocolo do cliente da obra." }]);
+        }
       }
       return { empresa: obra.companyId };
     });
