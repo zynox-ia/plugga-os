@@ -39,6 +39,8 @@ const paginas: ReadonlyArray<readonly [string, Tela | readonly Tela[]]> = [
   ["/engenharia/usinas", telasPorDepartamento["engenharia-obras"]],
   // Protocolos (PLU-348): uma tela da Engenharia e do Operacional, como a rota da API.
   ["/engenharia/protocolos", ["engenharia-obras.protocolos", "energia-opm.protocolos"]],
+  // Obras (PLU-350): a tela de Obras, como a rota da API.
+  ["/engenharia/obras", "engenharia-obras.obras"],
 ];
 
 /** `ambiente` só existe para o teste do portão; a tela usa o do build. */

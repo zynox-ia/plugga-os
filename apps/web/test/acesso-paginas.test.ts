@@ -110,3 +110,12 @@ test("Protocolos abre com a tela de protocolos da Engenharia ou do Operacional, 
   assert.equal(abre({ plataforma: null, departamentos: [{ departamento: "energia-opm", nivel: "membro", telas: ["energia-opm.ciclos"] }] }), false);
   assert.equal(abre({ plataforma: null, departamentos: [{ departamento: "engenharia-obras", nivel: "membro", telas: ["engenharia-obras.protocolos"] }] }, "production"), false);
 });
+
+test("Obras abre com a tela de Obras, com o portão aberto (PLU-350)", () => {
+  const caminho = "/engenharia/obras";
+  const abre = (telas: ("engenharia-obras.obras" | "engenharia-obras.os")[], NODE_ENV = "development") =>
+    podeAbrirPagina({ plataforma: null, departamentos: [{ departamento: "engenharia-obras", nivel: "membro", telas }] }, caminho, { NODE_ENV });
+  assert.equal(abre(["engenharia-obras.obras"]), true);
+  assert.equal(abre(["engenharia-obras.os"]), false);
+  assert.equal(abre(["engenharia-obras.obras"], "production"), false);
+});

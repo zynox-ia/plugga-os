@@ -33,7 +33,10 @@ import {
   monitoramentoDoDiaSchema,
   usinaSchema,
   agendaRespostaSchema,
+  listarObrasRespostaSchema,
   listarProtocolosRespostaSchema,
+  obraSchema,
+  opcoesDasObrasRespostaSchema,
   opcoesDosProtocolosRespostaSchema,
   protocoloSchema,
   opcoesDeTarefasRespostaSchema,
@@ -230,3 +233,12 @@ export const fetchProtocolo = (id: string) => lerApi("/protocolos/:id", protocol
 
 /** GET /protocolos/opcoes: distribuidoras, tipos, situações e os departamentos da pessoa. */
 export const fetchOpcoesDosProtocolos = () => lerApi("/protocolos/opcoes", opcoesDosProtocolosRespostaSchema);
+
+/** GET /engenharia/obras: as obras com os marcos e as contagens (PLU-350). */
+export const fetchObras = (consulta: Record<string, string | undefined>) => lerApi("/engenharia/obras", listarObrasRespostaSchema, {}, { consulta });
+
+/** GET /engenharia/obras/:id: a ficha, com marcos, documentos e O.S. */
+export const fetchObra = (id: string) => lerApi("/engenharia/obras/:id", obraSchema, { id });
+
+/** GET /engenharia/obras/opcoes: responsáveis e catálogos da Nova obra. */
+export const fetchOpcoesDasObras = () => lerApi("/engenharia/obras/opcoes", opcoesDasObrasRespostaSchema);

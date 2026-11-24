@@ -181,7 +181,8 @@ export const DEPARTAMENTOS: Departamento[] = [
     processos: [
       // Visão geral do dia da Engenharia (PLU-349), atrás do portão.
       { label: "Visão geral", telas: telasPorDepartamento["engenharia-obras"], ...(engenhariaHabilitado() ? { rota: "/engenharia/visao-geral", status: "parcial" as const } : { status: "em-breve" as const }) },
-      { id: "engenharia-obras.obras", label: "Obras", status: "em-breve" },
+      // Obras com marcos e documentos (PLU-350), atrás do portão.
+      { id: "engenharia-obras.obras", label: "Obras", ...(engenhariaHabilitado() ? { rota: "/engenharia/obras", status: "parcial" as const } : { status: "em-breve" as const }) },
       { id: "engenharia-obras.projetos", label: "Projetos elétricos", status: "em-breve" },
       // Com o portão da Engenharia fechado (build de produção), o item segue em breve (PLU-345).
       { label: "Ordens de serviço", telas: TELAS_DAS_ORDENS_DE_SERVICO, ...(engenhariaHabilitado() ? { rota: "/engenharia/ordens-de-servico", status: "parcial" as const } : { status: "em-breve" as const }) },

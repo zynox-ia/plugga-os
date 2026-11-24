@@ -1,0 +1,46 @@
+/* Obras (PLU-350), no desenho do protótipo de 23/11/2026: a barra dos 6 marcos no card,
+   a lista de marcos na ficha e os documentos com versões. Peso máximo 500; vermelho só no atraso. */
+
+/* ---------------------------------------------------------------- card */
+
+.marcos { display: grid; gap: 6px; }
+.barraDosMarcos { display: grid; grid-template-columns: repeat(var(--total, 6), minmax(0, 1fr)); gap: 4px; }
+.barraDosMarcos i { height: 6px; border-radius: var(--radius-full); background: var(--ui-subtle); }
+.barraDosMarcos i[data-feito] { background: var(--ui-primary); }
+.barraDosMarcos i[data-atual] { background: color-mix(in srgb, var(--ui-primary) 35%, var(--ui-subtle)); }
+.barraDosMarcos i[data-atual][data-atrasado] { background: color-mix(in srgb, var(--ui-danger) 45%, var(--ui-subtle)); }
+.marcos p { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 10px; margin: 0; color: var(--ui-muted); font-size: 12.5px; }
+.marcos p strong { color: var(--ui-text); font-size: 13px; font-weight: 500; }
+.clipe { display: inline-flex; align-items: center; gap: 3px; flex: none; color: var(--ui-muted); font-size: 12px; }
+
+/* ---------------------------------------------------------------- ficha: marcos */
+
+.listaDeMarcos { display: grid; gap: 0; margin: 0; padding: 0; list-style: none; }
+.listaDeMarcos li { position: relative; display: flex; align-items: center; gap: 14px; padding: 12px 0; border-top: 1px solid var(--ui-divider); }
+.listaDeMarcos li:first-child { border-top: 0; }
+.ponto { display: grid; place-items: center; flex: none; width: 28px; height: 28px; border: 1px solid var(--ui-divider); border-radius: var(--radius-full); background: #fff; color: var(--ui-muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.listaDeMarcos li[data-feito] .ponto { border-color: var(--ui-primary); background: var(--ui-primary); color: #fff; }
+.listaDeMarcos li[data-proximo] .ponto { border-color: var(--ui-primary); color: var(--ui-primary); }
+.textoDoMarco { display: grid; flex: 1 1 auto; gap: 2px; min-width: 0; }
+.textoDoMarco strong { color: var(--ui-text); font-size: 13.5px; font-weight: 500; }
+.textoDoMarco small { color: var(--ui-muted); font-size: 12.5px; }
+.nota { display: flex; align-items: flex-start; gap: 8px; margin: 0; color: var(--ui-muted); font-size: 12.5px; }
+.nota svg { flex: none; margin-top: 2px; }
+
+/* ---------------------------------------------------------------- ficha: documentos */
+
+.documentos { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.documento { display: grid; gap: 8px; padding: 12px 14px; border: 1px solid var(--ui-divider); border-radius: var(--radius-lg); background: #fff; }
+.linhaDoDocumento { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.iconeDoDocumento { display: grid; place-items: center; flex: none; width: 34px; height: 34px; border-radius: 10px; background: var(--ui-subtle); color: var(--ui-muted); }
+.textoDoDocumento { display: grid; flex: 1 1 auto; gap: 2px; min-width: 0; }
+.textoDoDocumento strong { overflow: hidden; color: var(--ui-text); font-size: 13.5px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.textoDoDocumento small { color: var(--ui-muted); font-size: 12px; }
+.acoesDoDocumento { display: flex; flex: none; align-items: center; gap: 8px; }
+.versoes { display: grid; gap: 4px; margin: 0 0 0 46px; padding: 8px 0 0; border-top: 1px dashed var(--ui-divider); list-style: none; }
+.versoes li { display: flex; align-items: center; gap: 8px; color: var(--ui-muted); font-size: 12.5px; }
+.versoes li span { flex: 1 1 auto; min-width: 0; }
+.baixar { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border: 1px solid var(--ui-divider); border-radius: var(--radius-full); background: #fff; color: var(--ui-text); font-size: 12.5px; text-decoration: none; white-space: nowrap; }
+.baixar:hover { border-color: color-mix(in srgb, var(--ui-primary) 35%, var(--ui-divider)); }
+.baixar:focus-visible { outline: 2px solid var(--ui-primary); outline-offset: 2px; }
+.baixarPequeno { padding: 3px 10px; font-size: 12px; }

@@ -222,6 +222,7 @@ export function VisaoGeralDaOrdem({ ordem, opcoes, hoje, ocupado, estado, aoVerE
         <div><dt>Tipo</dt><dd>{ROTULO_DO_TIPO[ordem.tipo]}</dd></div>
         <div><dt>Cliente</dt><dd>{ordem.cliente.nome}{ordem.uc ? <small>{rotuloDaUc(ordem.uc.codigo)} · {ordem.uc.distribuidora}</small> : null}</dd></div>
         {ordem.usina ? <div><dt>Usina</dt><dd>{ordem.usina.nome}<small>{textoDaUsina(ordem.usina)}</small></dd></div> : null}
+        {ordem.obra ? <div><dt>Obra</dt><dd>{ordem.obra.nome}</dd></div> : null}
         {ordem.usinaDoComissionamento ? <div><dt>Usina cadastrada</dt><dd>{ordem.usinaDoComissionamento.nome}<small>Cadastrada a partir deste comissionamento</small></dd></div> : null}
         <div><dt>Local</dt><dd>{ordem.local ?? "Não informado"}</dd></div>
         <div><dt>Técnico</dt><dd>{ordem.tecnico?.nome ?? "Sem técnico"}{ordem.apoio ? <small>Apoio: {ordem.apoio.nome}</small> : null}</dd></div>
