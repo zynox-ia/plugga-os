@@ -118,6 +118,7 @@ export function lerOrcamento(texto: string): { valor: string | null; problema: s
   const limpo = bruto.includes(",") ? bruto.replace(/\./g, "") : /^\d+\.\d{1,2}$/.test(bruto) ? bruto.replace(".", ",") : bruto.replace(/\./g, "");
   if (!limpo) return { valor: null, problema: null };
   if (!/^\d{1,12}([,]\d{1,2})?$/.test(limpo)) return { valor: null, problema: "use um valor como 125.000,50." };
+  if (Number(limpo.replace(",", ".")) <= 0) return { valor: null, problema: "o orçamento precisa ser maior que zero." };
   return { valor: limpo, problema: null };
 }
 

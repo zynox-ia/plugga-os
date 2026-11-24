@@ -52,6 +52,8 @@ test("orçamento em reais e o documento aceito", () => {
   assert.deepEqual(lerOrcamento("R$ 1250.5"), { valor: "1250,5", problema: null });
   assert.deepEqual(lerOrcamento(""), { valor: null, problema: null });
   assert.equal(lerOrcamento("12,345").problema, "use um valor como 125.000,50.");
+  assert.equal(lerOrcamento("0").problema, "o orçamento precisa ser maior que zero.");
+  assert.equal(lerOrcamento("0,00").problema, "o orçamento precisa ser maior que zero.");
   assert.equal(problemaDoDocumento({ name: "Cronograma.mpp", type: "", size: 10 }), null);
   assert.equal(problemaDoDocumento({ name: "ata.pdf", type: "application/pdf", size: 10 }), null);
   assert.match(problemaDoDocumento({ name: "planilha.xlsx", type: "application/vnd.ms-excel", size: 10 })!, /PDF, imagem/);
