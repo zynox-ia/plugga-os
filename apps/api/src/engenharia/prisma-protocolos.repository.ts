@@ -196,12 +196,15 @@ export class PrismaProtocolosRepository {
 
   async editar(id: string, input: EditarProtocolo, principal: AuthPrincipal): Promise<void> {
     await this.comUnicidade("Essa distribuidora já tem um protocolo com esse número.", () => this.prisma.comContexto(async (tx) => {
-      const atual = await tx.protocolo.findUnique({ where: { id }, select: { companyId: true, departamento: true, situacao: true, abertoEm: true } });
+      const atual = await tx.protocolo.findUnique({ where: { id }, select: { companyId: true, departamento: true, situacao: true, abertoEm: true, dataLimite: true, proximaVerificacao: true } });
       if (!atual) throw new NaoEncontrado("Protocolo não encontrado.");
       if (protocoloEncerrado(atual.situacao)) throw new EstadoInvalido("Protocolo encerrado não se edita.");
       if (input.distribuidoraId) await this.garantirDistribuidoraAtiva(tx, input.distribuidoraId);
       const dataLimite = input.dataLimite !== undefined ? inicioDoDiaEmManaus(input.dataLimite) : undefined;
       if (dataLimite && dataLimite < atual.abertoEm) throw new RequisicaoInvalida("A data-limite vem depois da abertura.", [{ campo: "dataLimite", problema: "Use uma data depois da abertura." }]);
+      // O lembrete acompanha o prazo: se era a própria data-limite, ou cairia depois da nova, vai para a nova.
+      const moverLembrete = dataLimite !== undefined && atual.proximaVerificacao !== null
+        && (atual.proximaVerificacao.getTime() === atual.dataLimite.getTime() || atual.proximaVerificacao > dataLimite);
       await tx.protocolo.update({
         where: { id },
         data: {
@@ -209,6 +212,7 @@ export class PrismaProtocolosRepository {
           ...(input.numero !== undefined ? { numero: input.numero } : {}),
           ...(input.distribuidoraId !== undefined ? { distribuidoraId: input.distribuidoraId } : {}),
           ...(dataLimite ? { dataLimite } : {}),
+          ...(moverLembrete ? { proximaVerificacao: dataLimite } : {}),
           ...(input.observacao !== undefined ? { observacao: input.observacao } : {}),
         },
       });

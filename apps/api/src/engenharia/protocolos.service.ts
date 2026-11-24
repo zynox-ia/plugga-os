@@ -91,7 +91,10 @@ export class ProtocolosService {
     if (query.departamento && !departamentos.includes(query.departamento)) throw new AcessoNegado("Você não tem acesso aos protocolos deste departamento.");
     const hoje = diaEmManaus(this.agora());
     const r = await this.repositorio.listar(query, departamentos, hoje);
-    // Abrir a lista sem nada para verificar hoje também conclui a tarefa do dia.
+    // Decisão (revisão da PLU-348): o GET também conclui a tarefa do dia. A tarefa é
+    // "olhar os protocolos do dia"; abrir a lista inteira e não restar verificação é
+    // fazê-la, e num dia sem verificação marcada nenhuma escrita a concluiria. É
+    // idempotente, só acontece com zero pendentes e fica atribuída a quem conferiu.
     if (r.contagens.verificarHoje === 0 && !query.busca && !query.empresa && !query.distribuidoraId && !query.ucId) await this.concluirProtocolosDoDia(departamentos, hoje, principal);
     return listarProtocolosRespostaSchema.parse({ hoje, itens: r.linhas.map((l) => this.resumo(l, r.nomes, hoje)), total: r.total, contagens: r.contagens });
   }

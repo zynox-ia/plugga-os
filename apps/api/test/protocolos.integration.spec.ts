@@ -186,6 +186,12 @@ describe.skipIf(!HABILITADO)("protocolos na distribuidora no Postgres", { timeou
     const editado = await como("eng", () => servico.editar(p.id, { tipo: "cusd", dataLimite: "2026-12-01", observacao: "Ver anexo no e-mail" }, principal("eng")));
     expect(editado).toMatchObject({ tipo: "cusd", dataLimite: "2026-12-01", observacao: "Ver anexo no e-mail" });
     await expect(como("eng", () => servico.editar(p.id, { dataLimite: "2026-11-01" }, principal("eng")))).rejects.toThrow(RequisicaoInvalida);
+    // O lembrete que era a data-limite acompanha o prazo antecipado.
+    expect(editado.proximaVerificacao).toBe("2026-12-01");
+    expect(await como("eng", () => servico.editar(p.id, { dataLimite: "2026-11-25" }, principal("eng")))).toMatchObject({ dataLimite: "2026-11-25", proximaVerificacao: "2026-11-25" });
+    // Um lembrete antes do prazo fica onde está.
+    const antes = await novo({ numero: `${marca}-4b`, proximaVerificacao: "2026-11-24", dataLimite: "2026-12-10" });
+    expect(await como("eng", () => servico.editar(antes.id, { dataLimite: "2026-12-05" }, principal("eng")))).toMatchObject({ proximaVerificacao: "2026-11-24" });
   });
 
   it("a tarefa automática dos protocolos se conclui quando não resta verificação para hoje", async () => {
