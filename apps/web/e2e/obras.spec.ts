@@ -50,6 +50,17 @@ test("nova obra com os 6 marcos; o próximo marco é feito; o cronograma ganha a
   await expect(ficha.getByText("1 de 6 marcos")).toBeVisible();
   await expect(marcos.getByRole("listitem").filter({ hasText: "Projeto aprovado" }).getByRole("button", { name: "Marcar como feito" })).toBeVisible();
 
+  // Reprogramar um marco pendente: só dentro do período da obra.
+  await marcos.getByRole("button", { name: "Reprogramar Material entregue" }).click();
+  const reprogramar = page.getByRole("dialog", { name: "Reprogramar Material entregue" });
+  await reprogramar.getByRole("textbox", { name: /^Nova data prevista/ }).fill(manaus(61));
+  await reprogramar.getByRole("button", { name: "Reprogramar" }).click();
+  await expect(reprogramar.getByText(`Erro: Escolha uma data até ${manaus(60)}.`)).toBeVisible();
+  await reprogramar.getByRole("textbox", { name: /^Nova data prevista/ }).fill(manaus(20));
+  await reprogramar.getByRole("button", { name: "Reprogramar" }).click();
+  await expect(ficha.getByText('Marco "Material entregue" reprogramado.')).toBeVisible(DEPOIS_DA_ACAO);
+  await expect(marcos.getByRole("listitem").filter({ hasText: "Material entregue" })).toContainText(`Previsto para ${manaus(20)}`);
+
   // 3. Cronograma do MS Project: anexar e, depois, a nova versão; a anterior fica no histórico.
   await ficha.getByRole("tab", { name: /^Documentos/ }).click();
   await ficha.getByRole("button", { name: "Anexar cronograma" }).click();

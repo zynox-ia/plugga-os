@@ -4,10 +4,11 @@ import {
   ROTULO_DA_CATEGORIA_DE_DOCUMENTO,
   type CategoriaDeDocumentoDeObra,
   type DocumentoDaObra,
+  type MarcoDaObra,
   type Obra,
   type OpcoesDasObrasResposta,
 } from "@plugga/shared";
-import { CalendarRange, Check, Download, FileText, Flag, FolderOpen, HardHat, History, Pencil, Upload, UserRound, Wrench, X, Zap, type LucideIcon } from "lucide-react";
+import { CalendarClock, CalendarRange, Check, Download, FileText, Flag, FolderOpen, HardHat, History, Pencil, Upload, UserRound, Wrench, X, Zap, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { useId, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 
@@ -22,7 +23,7 @@ import detalhes from "../pipelines/detalhes-do-lead-modal.module.css";
 import visao from "../pipelines/resumo-do-lead.module.css";
 import { EmpresaComPonto } from "../suprimentos/empresa";
 import { CampoDeMenu } from "../suprimentos/menu-com-busca";
-import { Alert, Button, Dialog, FileDropzone } from "../ui";
+import { Alert, Button, DatePicker, Dialog, FileDropzone } from "../ui";
 import obras from "./obras.module.css";
 import { ObraForm } from "./obra-form";
 import styles from "./usinas.module.css";
@@ -32,7 +33,7 @@ type Anexo = { categoria?: CategoriaDeDocumentoDeObra; substitui?: DocumentoDaOb
 
 /**
  * Ficha da obra (PLU-350): os 6 marcos em sequência ("Marcar como feito" só no
- * próximo, a partir do início), os documentos com versões (o cronograma do MS
+ * próximo, a partir do início; "Reprogramar" no pendente, dentro do período), os documentos com versões (o cronograma do MS
  * Project primeiro) e as O.S. da obra. Os custos são do Financeiro.
  */
 export function FichaDaObra({ obra: inicial, opcoes, hoje, aoFechar, aoAtualizar }: {
@@ -46,6 +47,7 @@ export function FichaDaObra({ obra: inicial, opcoes, hoje, aoFechar, aoAtualizar
   const [o, setO] = useState(inicial);
   const [aba, setAba] = useState<Aba>("marcos");
   const [janela, setJanela] = useState<null | "editar" | Anexo>(null);
+  const [reprogramando, setReprogramando] = useState<MarcoDaObra | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
   const [falha, setFalha] = useState<string | null>(null);
   const [ocupado, setOcupado] = useState(false);
@@ -55,6 +57,8 @@ export function FichaDaObra({ obra: inicial, opcoes, hoje, aoFechar, aoAtualizar
   const cronograma = o.documentosDaObra.find((d) => d.categoria === "cronograma") ?? null;
   const outros = o.documentosDaObra.filter((d) => d.categoria !== "cronograma");
   const antesDoInicio = Boolean(o.inicioEm && hoje < o.inicioEm);
+  // Reprogramar só com o período da obra e a entrega ainda por vir (a nova data não vai ao passado).
+  const reprograma = pode("reprogramar_marco") && Boolean(o.inicioEm && o.entregaPrevistaEm && o.entregaPrevistaEm >= hoje);
 
   const abas: { id: Aba; titulo: string; conta?: number; icone: LucideIcon }[] = [
     { id: "marcos", titulo: "Marcos", icone: Flag },
@@ -130,6 +134,7 @@ export function FichaDaObra({ obra: inicial, opcoes, hoje, aoFechar, aoAtualizar
                     <small>{m.feito ? <>Feito em {dataEmManaus(m.feito.em)}{m.feito.por ? ` · ${m.feito.por.nome}` : ""}{m.atrasado ? <> · <span className={styles.perigo}>depois do previsto ({diaLegivel(m.previstoEm)})</span></> : null}</>
                       : <>Previsto para {diaLegivel(m.previstoEm)}{m.atrasado ? <> · <span className={styles.perigo}>atrasado</span></> : null}</>}</small>
                   </span>
+                  {!m.feito && reprograma ? <Button variant="secondary" size="sm" icon={<CalendarClock size={14} />} disabled={ocupado} aria-label={`Reprogramar ${m.nome}`} onClick={() => setReprogramando(m)}>Reprogramar</Button> : null}
                   {m.proximo && pode("marcar_marco") ? <Button size="sm" icon={<Check size={14} />} disabled={ocupado || antesDoInicio} title={antesDoInicio ? `A obra começa em ${diaLegivel(o.inicioEm!)}` : undefined}
                     onClick={() => void marcarFeito(m.id, m.nome)}>Marcar como feito</Button> : null}
                 </li>)}
@@ -166,6 +171,8 @@ export function FichaDaObra({ obra: inicial, opcoes, hoje, aoFechar, aoAtualizar
     </div>
   </Modal>
   {janela === "editar" ? <ObraForm obra={o} opcoes={opcoes} hoje={hoje} aoCancelar={() => setJanela(null)} aoSalvar={(nova) => { setJanela(null); atualizada(nova, "Obra atualizada."); }} /> : null}
+  {reprogramando ? <ReprogramarMarco obra={o} marco={reprogramando} hoje={hoje} aoCancelar={() => setReprogramando(null)}
+    aoSalvar={(nova, nome) => { setReprogramando(null); atualizada(nova, `Marco "${nome}" reprogramado.`); }} /> : null}
   {janela && janela !== "editar" ? <AnexarDocumento obraId={o.id} anexo={janela} categorias={opcoes?.categoriasDeDocumento} aoCancelar={() => setJanela(null)}
     aoEnviar={(nova, texto) => { setJanela(null); setAba("documentos"); atualizada(nova, texto); }} /> : null}
   </>;
@@ -191,6 +198,38 @@ function Documento({ documento: d, icone: Icone, aoNovaVersao }: { documento: Do
       </li>)}
     </ul> : null}
   </li>;
+}
+
+/** A nova data do marco pendente: de hoje (ou do início, se ainda não começou) até a entrega prevista. */
+function ReprogramarMarco({ obra, marco, hoje, aoCancelar, aoSalvar }: { obra: Obra; marco: MarcoDaObra; hoje: string; aoCancelar: () => void; aoSalvar: (o: Obra, nome: string) => void }) {
+  const minimo = obra.inicioEm && obra.inicioEm > hoje ? obra.inicioEm : hoje;
+  const maximo = obra.entregaPrevistaEm!;
+  const [data, setData] = useState(marco.previstoEm >= minimo && marco.previstoEm <= maximo ? marco.previstoEm : "");
+  const [erro, setErro] = useState<string | undefined>();
+  const [falha, setFalha] = useState<string | null>(null);
+  const [enviando, setEnviando] = useState(false);
+
+  async function salvar(evento: FormEvent) {
+    evento.preventDefault();
+    const problema = !data ? "informe a nova data." : data < minimo || data > maximo ? `use uma data de ${diaLegivel(minimo)} a ${diaLegivel(maximo)}.` : undefined;
+    setErro(problema);
+    if (problema) return;
+    if (data === marco.previstoEm) { aoCancelar(); return; }
+    setEnviando(true); setFalha(null);
+    const r = await enviar<Obra>(`/api/engenharia/obras/${obra.id}/marcos/${marco.id}`, "PATCH", { previstoEm: data });
+    setEnviando(false);
+    if (r.ok) { aoSalvar(r.dados, marco.nome); return; }
+    setErro(r.erro.porCampo.previstoEm); setFalha(r.erro.mensagem);
+  }
+
+  return <Dialog title={`Reprogramar ${marco.nome}`} size="estreita" icon={<CalendarClock size={20} />} onClose={aoCancelar}
+    description={`Previsto para ${diaLegivel(marco.previstoEm)}. A nova data fica entre ${diaLegivel(minimo)} e a entrega prevista, ${diaLegivel(maximo)}.`}
+    footer={<Button type="submit" form="form-reprogramar-marco" icon={<CalendarClock size={15} />} disabled={enviando}>{enviando ? "Salvando…" : "Reprogramar"}</Button>}>
+    <form id="form-reprogramar-marco" className="ui-dialog-form" onSubmit={salvar} noValidate>
+      {falha ? <Alert tone="danger" title={`Erro: ${falha}`} /> : null}
+      <DatePicker label="Nova data prevista" required min={minimo} max={maximo} value={data} onChange={(v) => { setData(v); setErro(undefined); }} error={erro} />
+    </form>
+  </Dialog>;
 }
 
 /** Anexar documento ou nova versão: a categoria (fixa na nova versão) e o arquivo. */
