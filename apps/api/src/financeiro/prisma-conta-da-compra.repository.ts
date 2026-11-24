@@ -11,6 +11,7 @@ import { ReflexosDoLancamento } from "./reflexo-do-lancamento";
 
 /** As recusas da função, que não deveriam acontecer logo depois da aprovação. */
 const RECUSAS_DA_FUNCAO = /CONTA_DA_COMPRA_(SO_NA_APROVACAO|SEM_SESSAO)/;
+const RECUSAS_DO_CANCELAMENTO = /CANCELAMENTO_DA_COMPRA_(SO_COM_O_PEDIDO|SEM_SESSAO)/;
 
 /**
  * A conta a pagar que nasce do pedido de compra aprovado (W3, PLU-341). Compras chama na
@@ -73,8 +74,19 @@ export class PrismaContaDaCompraRepository {
    */
   async cancelarComOPedido(tx: Prisma.TransactionClient, pedidoId: string, motivo: string, principal: AuthPrincipal): Promise<void> {
     if (!this.ligado) return;
-    const canceladas = await tx.$queryRaw<{ id: string; company_id: string; etapa: "aberta" | "aprovada" }[]>`
-      SELECT id, company_id, etapa FROM plugga_security.financeiro_cancelar_conta_da_compra(${pedidoId}::uuid, ${motivo})`;
+    let canceladas: { id: string; company_id: string; etapa: "aberta" | "aprovada" }[];
+    try {
+      canceladas = await tx.$queryRaw<{ id: string; company_id: string; etapa: "aberta" | "aprovada" }[]>`
+        SELECT id, company_id, etapa FROM plugga_security.financeiro_cancelar_conta_da_compra(${pedidoId}::uuid, ${motivo})`;
+    } catch (erro) {
+      // Resposta clara em Compras, e o código da recusa no log.
+      const recusa = erro instanceof Error ? RECUSAS_DO_CANCELAMENTO.exec(erro.message)?.[0] : undefined;
+      if (recusa) {
+        this.logger.warn(`cancelamento da conta do pedido ${pedidoId} recusado pelo banco: ${recusa}`);
+        throw new EstadoInvalido("Não foi possível cancelar a conta a pagar deste pedido; avise o Financeiro.");
+      }
+      throw erro;
+    }
     for (const conta of canceladas) {
       // O motivo fica no lançamento: texto livre não entra no evento.
       await this.auditoria.append(tx, {

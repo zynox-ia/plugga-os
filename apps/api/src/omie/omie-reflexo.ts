@@ -44,9 +44,8 @@ export class OmieReflexoDoLancamento implements ReflexoDoLancamento {
       // Pela função do conector, para valer com o RLS de quem cancela (o pedido de compra
       // é cancelado em Compras, por quem pode não ter o Financeiro). Descarta o que está em
       // aberto, com o conector ligado ou não; e, se a conta já chegou ao OMIE ou está
-      // saindo, pede o cancelamento lá (a regra de `enviosDoFato`).
-      const conectado = await this.ligada(tx, fato.empresa);
-      await tx.$executeRaw`SELECT plugga_security.omie_reflexo_do_cancelamento(${fato.lancamentoId}::uuid, ${conectado})`;
+      // saindo e a empresa está conectada (o banco confere), pede o cancelamento lá.
+      await tx.$executeRaw`SELECT plugga_security.omie_reflexo_do_cancelamento(${fato.lancamentoId}::uuid)`;
       return;
     }
     const pedidas = enviosDoFato({ tipo: fato.tipo, etapa: fato.etapaAntes }, fato.mudanca, false);

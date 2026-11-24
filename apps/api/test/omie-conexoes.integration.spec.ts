@@ -37,6 +37,25 @@ describe.skipIf(!HABILITADO)("omie por empresa no Postgres", () => {
   let guardados: { chave: string; linha: unknown }[] = [];
   const sessao = randomBytes(32).toString("hex");
   const comoAdmin = <T>(fazer: () => Promise<T>) => contextoBanco.run({ sessionHash: sessao, agentHash: undefined }, fazer);
+  const marca = `omiecx-${randomBytes(4).toString("hex")}`;
+  /** Uma conta da Waze que já chegou ao OMIE (o upsert enviado), cancelada no Plugga OS. */
+  const contaCanceladaQueChegou = async (): Promise<string> => {
+    const fornecedor = await prisma.fornecedor.create({ data: { nome: `${marca} ${randomBytes(3).toString("hex")}`, categoria: "servico" } });
+    const categoria = await prisma.categoriaFinanceira.create({
+      data: { companyId: "waze", codigo: `9.08.${parseInt(randomBytes(2).toString("hex"), 16)}`, nome: `${marca} cat`, tipo: "despesa", natureza: "servico", grupoNome: "Teste" },
+    });
+    const conta = await prisma.lancamento.create({
+      data: { tipo: "saida", companyId: "waze", fornecedorId: fornecedor.id, categoriaId: categoria.id, descricao: `${marca} conta`, valor: 10, vencimento: new Date(), etapa: "aprovada", aprovadoEm: new Date(), aprovadoPorId: principal.id, origem: "avulsa" },
+    });
+    const envio = await prisma.omieEnvio.create({ data: { lancamentoId: conta.id, companyId: "waze", operacao: "upsert" } });
+    // Como dono do banco de teste, no lugar do worker.
+    await prisma.omieEnvio.update({ where: { id: envio.id }, data: { estado: "enviando" } });
+    await prisma.omieEnvio.update({ where: { id: envio.id }, data: { estado: "enviado", codigoOmie: "cod-1", enviadoEm: new Date() } });
+    await prisma.lancamento.update({ where: { id: conta.id }, data: { canceladoEm: new Date(), cancelamentoMotivo: "duplicada" } });
+    return conta.id;
+  };
+  const refletirCancelamento = (id: string) => comoAdmin(() => prisma.comContexto((tx) => tx.$executeRaw`SELECT plugga_security.omie_reflexo_do_cancelamento(${id}::uuid)`));
+  const operacoes = async (id: string) => (await prisma.omieEnvio.findMany({ where: { lancamentoId: id }, orderBy: { ordem: "asc" } })).map((e) => `${e.operacao}:${e.estado}`);
 
   beforeAll(async () => {
     process.env.SECRETS_ENCRYPTION_KEY = Buffer.alloc(32, 9).toString("base64");
@@ -54,6 +73,15 @@ describe.skipIf(!HABILITADO)("omie por empresa no Postgres", () => {
   }, PRAZO_MS);
 
   afterAll(async () => {
+    await prisma.$transaction(async (tx) => {
+      await tx.$executeRawUnsafe("SET LOCAL session_replication_role = replica");
+      const daMarca = { lancamento: { descricao: { startsWith: marca } } };
+      await tx.omieEnvio.deleteMany({ where: daMarca });
+      await tx.omieLancamento.deleteMany({ where: daMarca });
+      await tx.lancamento.deleteMany({ where: { descricao: { startsWith: marca } } });
+      await tx.categoriaFinanceira.deleteMany({ where: { nome: { startsWith: marca } } });
+      await tx.fornecedor.deleteMany({ where: { nome: { startsWith: marca } } });
+    });
     await prisma.omieConexao.deleteMany({});
     await prisma.segredoDoSistema.deleteMany({ where: { chave: { in: guardados.map((g) => g.chave) } } });
     for (const g of guardados) if (g.linha) await prisma.segredoDoSistema.create({ data: g.linha as never });
@@ -82,8 +110,17 @@ describe.skipIf(!HABILITADO)("omie por empresa no Postgres", () => {
     expect(await servico.credenciais("waze")).toEqual(par);
     expect(await prisma.$queryRaw`SELECT 1 FROM public.omie_pausas WHERE company_id = 'waze' AND metodo = '*'`).toEqual([]);
 
+    // Conectada, a conta cancelada que já chegou ao OMIE pede o cancelamento lá (o conector confere a conexão no banco).
+    const comConexao = await contaCanceladaQueChegou();
+    await refletirCancelamento(comConexao);
+    expect(await operacoes(comConexao)).toEqual(["upsert:enviado", "cancelar:pendente"]);
+
     await servico.gravar("waze", { ...par, appKey: "chave-waze-0043" }, principal);
     expect((await da()).situacao).toBe("a_testar");
+    // Com o par a testar de novo, não está conectada: nada vai ao OMIE.
+    const semConexao = await contaCanceladaQueChegou();
+    await refletirCancelamento(semConexao);
+    expect(await operacoes(semConexao)).toEqual(["upsert:enviado"]);
     await new Promise((r) => setTimeout(r, 5_100)); // a validade do cache
     expect(await servico.credenciais("waze")).toBeNull();
 

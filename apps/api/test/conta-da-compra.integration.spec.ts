@@ -200,7 +200,9 @@ describe.skipIf(!HABILITADO)("conta a pagar do pedido de compra aprovado", () =>
     expect(await comoRuntime("comprador", (tx) => tx.$queryRaw`SELECT etapa FROM plugga_security.financeiro_cancelar_conta_da_compra(${id}::uuid, 'x')`)).toEqual([]);
     // O reflexo do OMIE pela função do conector também vale para quem só tem Compras.
     const conta = await prisma.lancamento.findUniqueOrThrow({ where: { pedidoDeCompraId: id }, select: { id: true } });
-    await comoRuntime("comprador", (tx) => tx.$executeRaw`SELECT plugga_security.omie_reflexo_do_cancelamento(${conta.id}::uuid, true)`);
+    await comoRuntime("comprador", (tx) => tx.$executeRaw`SELECT plugga_security.omie_reflexo_do_cancelamento(${conta.id}::uuid)`);
+    // Quem não tem Compras nem o Financeiro não chama o reflexo.
+    await expect(comoRuntime("outro", (tx) => tx.$executeRaw`SELECT plugga_security.omie_reflexo_do_cancelamento(${conta.id}::uuid)`)).rejects.toThrow(/REFLEXO_DO_CANCELAMENTO_SEM_ACESSO/);
   }, PRAZO_MS);
 
   it("a função só cria a conta do pedido recém-aprovado, e só para quem aprovou", async () => {
@@ -218,6 +220,9 @@ describe.skipIf(!HABILITADO)("conta a pagar do pedido de compra aprovado", () =>
       return tx.$queryRaw`SELECT plugga_security.financeiro_conta_da_compra(${id}::uuid)`;
     })).rejects.toThrow(/CONTA_DA_COMPRA_SEM_SESSAO/);
     expect(await prisma.lancamento.count({ where: { pedidoDeCompraId: { in: [id, emAndamento] } } })).toBe(0);
+    // Pela aplicação, a recusa do cancelamento também vira 409 com mensagem clara.
+    await expect(como("comprador", () => prisma.comContexto((tx) => portao(true).cancelarComOPedido(tx, id, "x", pessoas.comprador))))
+      .rejects.toMatchObject({ codigo: "CONFLITO_ESTADO", message: "Não foi possível cancelar a conta a pagar deste pedido; avise o Financeiro." });
     // Pela aplicação, a recusa vira um 409 com mensagem clara, e não um erro cru.
     await expect(como("admin", () => prisma.comContexto((tx) => portao(true).criarNaAprovacao(tx, emAndamento, pessoas.admin))))
       .rejects.toMatchObject({ codigo: "CONFLITO_ESTADO", message: "Não foi possível gerar a conta a pagar deste pedido; avise o Financeiro." });

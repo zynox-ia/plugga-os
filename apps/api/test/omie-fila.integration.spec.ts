@@ -20,6 +20,7 @@ import type { EnqueueOptions, JobsQueue } from "../src/jobs/queue/jobs-queue.por
 import type { OmieEscrita, PedidoDeEnvioAoOmie } from "../src/omie/omie-escrita.js";
 import { OmieFilaService } from "../src/omie/omie-fila.service.js";
 import { OmieFalhouError } from "../src/omie/omie.port.js";
+import { contextoBanco } from "../src/prisma/contexto-banco.js";
 import { PrismaService } from "../src/prisma/prisma.service.js";
 
 /**
@@ -63,7 +64,9 @@ describe.skipIf(!HABILITADO)("fila do OMIE no Postgres", () => {
     empresa: "plugga", fornecedorId: ids.fornecedor, categoriaId: ids.despesa, contaCorrenteId: ids.conta,
     descricao: `${marca} conta`, valor: "100.00", vencimento: "2026-11-30", forma: "boleto",
   }), principal);
-  const agir = (id: string, acao: unknown) => repositorio.executarAcao(id, acaoDoLancamentoSchema.parse(acao), principal, papel, AGORA);
+  // Com a sessão de quem age: o reflexo do cancelamento confere o acesso no banco.
+  const agir = (id: string, acao: unknown) => contextoBanco.run({ sessionHash: sessao, agentHash: undefined },
+    () => repositorio.executarAcao(id, acaoDoLancamentoSchema.parse(acao), principal, papel, AGORA));
   const envios = (lancamentoId: string) => prisma.omieEnvio.findMany({ where: { lancamentoId }, orderBy: { ordem: "asc" } });
   /** O estado no OMIE. Até a contração, as colunas antigas e a tabela do conector andam juntas. */
   const noOmie = async (id: string) => {
@@ -346,7 +349,7 @@ describe.skipIf(!HABILITADO)("fila do OMIE no Postgres", () => {
     expect(await noOmie(id)).toEqual({ omieEstado: "nao_enviado", omieCodigo: null, omieMotivo: "indisponivel" });
   }, PRAZO_MS);
 
-  it("cancelar descarta o que não saiu; o que já chegou ao OMIE pede o cancelamento lá", async () => {
+  it("cancelar descarta o que não saiu; o que já chegou ao OMIE, com a empresa sem conexão confirmada, só descarta", async () => {
     modo = "write";
     responder = async () => ({ codigo: "c2" });
     const naoSaiu = await novaConta();
@@ -358,7 +361,9 @@ describe.skipIf(!HABILITADO)("fila do OMIE no Postgres", () => {
     await agir(chegou, { acao: "aprovar" });
     await rodarFila(chegou);
     await agir(chegou, { acao: "cancelar", motivo: "duplicada" });
-    expect((await envios(chegou)).map((e) => `${e.operacao}:${e.estado}`)).toEqual(["upsert:enviado", "cancelar:pendente"]);
+    // A conexão é a do banco (omie_conectado): aqui, sem par confirmado, não há o que pedir ao OMIE.
+    // Com a conexão confirmada, o pedido de cancelamento sai: em omie-conexoes.integration.
+    expect((await envios(chegou)).map((e) => `${e.operacao}:${e.estado}`)).toEqual(["upsert:enviado"]);
   }, PRAZO_MS);
 
   it("a aplicação não grava o estado no OMIE nem marca envio como enviado; os jobs só pelas funções", async () => {
