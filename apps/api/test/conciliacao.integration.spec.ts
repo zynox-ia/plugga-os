@@ -86,6 +86,7 @@ describe.skipIf(!HABILITADO)("conciliação: extrato bancário no Postgres", () 
       await tx.omieLancamento.deleteMany({ where: daMarca });
       // As tarifas do lote têm a descrição padrão: saem pela conta.
       await tx.lancamento.deleteMany({ where: { OR: [{ descricao: { startsWith: marca } }, { contaCorrenteId: { in: [conta.id, ids.outraConta] } }] } });
+      await tx.transferencia.deleteMany({ where: { OR: [{ contaOrigemId: { in: [conta.id, ids.outraConta] } }, { contaDestinoId: { in: [conta.id, ids.outraConta] } }] } });
       await tx.categoriaFinanceira.deleteMany({ where: { nome: { startsWith: marca } } });
       await tx.fornecedor.deleteMany({ where: { nome: { startsWith: marca } } });
       await tx.client.deleteMany({ where: { name: { startsWith: marca } } });
@@ -438,5 +439,94 @@ describe.skipIf(!HABILITADO)("conciliação: extrato bancário no Postgres", () 
     await expect(prisma.lancamento.update({ where: { id: saida }, data: { valor: 100 } })).rejects.toThrow(/conciliado não muda/);
     await expect(prisma.lancamento.update({ where: { id: entrada }, data: { valorRecebido: 500 } })).rejects.toThrow(/conciliado não muda/);
     await prisma.lancamento.update({ where: { id: saida }, data: { valor: 103.5, observacao: `${marca} mesmo valor` } });
+  }, PRAZO_MS);
+
+  // ------------------------------------------------------------ C6: transferência entre contas (março de 2027)
+
+  it("C6: a transferência cria as duas pernas, TR com número próprio, liquidadas no mesmo dia e valor, sem nada ao OMIE; só a gerência", async () => {
+    const reflexos = new ReflexosDoLancamento();
+    reflexos.inscrever(new OmieReflexoDoLancamento(async () => true));
+    const servico = new ConciliacaoService(new PrismaConciliacaoRepository(prisma, new AuditAppender(), reflexos), {} as never, () => AGORA);
+    const gerente = { ...principal, acesso: { plataforma: null, departamentos: [{ departamento: "financeiro", nivel: "gerente", telas: ["financeiro.conciliacao"] }] } } as AuthPrincipal;
+    const gerenteSoPagar = { ...principal, acesso: { plataforma: null, departamentos: [{ departamento: "financeiro", nivel: "gerente", telas: ["financeiro.pagar"] }] } } as AuthPrincipal;
+    const pedido = { contaOrigemId: conta.id, contaDestinoId: ids.outraConta, valor: "500.00", dia: "2026-11-20" };
+    await expect(naSessao(() => servico.criarTransferencia(pedido, principal))).rejects.toBeInstanceOf(AcessoNegado);
+    await expect(naSessao(() => servico.criarTransferencia(pedido, gerenteSoPagar))).rejects.toMatchObject({ message: expect.stringMatching(/as duas pontas/) });
+    await expect(naSessao(() => servico.criarTransferencia({ ...pedido, dia: "2026-11-25" }, gerente))).rejects.toMatchObject({ message: "O dia da transferência não pode ser futuro." });
+    const daPlugga = await prisma.contaCorrente.create({ data: { companyId: "plugga", nome: `${marca} Banco da Plugga` } });
+    await expect(naSessao(() => servico.criarTransferencia({ ...pedido, contaDestinoId: daPlugga.id }, gerente))).rejects.toMatchObject({ message: "A transferência é entre contas da mesma empresa." });
+
+    const r = await naSessao(() => servico.criarTransferencia(pedido, gerente));
+    expect(r.transferencia.codigo).toMatch(/^TR-\d{4,}$/);
+    expect([r.saida.codigo, r.entrada.codigo]).toEqual([`${r.transferencia.codigo} · saída`, `${r.transferencia.codigo} · entrada`]);
+    const pernas = await prisma.lancamento.findMany({ where: { transferenciaId: r.transferencia.id }, orderBy: { tipo: "asc" } });
+    expect(pernas.map((l) => [l.tipo, l.etapa, l.contaCorrenteId, l.valor.toFixed(2), l.origem, l.fornecedorId, l.clientId, l.categoriaId])).toEqual([
+      ["saida", "paga", conta.id, "500.00", "transferencia", null, null, null],
+      ["entrada", "recebida", ids.outraConta, "500.00", "transferencia", null, null, null],
+    ]);
+    const numero = Number(r.transferencia.codigo.slice(3));
+    expect(pernas.every((l) => l.numero === numero)).toBe(true);
+    expect(pernas.map((l) => (l.pagoEm ?? l.recebidoEm)?.toISOString())).toEqual(["2026-11-20T04:00:00.000Z", "2026-11-20T04:00:00.000Z"]);
+    // Não é título: nada no outbox, mesmo com o conector ligado.
+    expect(await prisma.omieEnvio.count({ where: { lancamentoId: { in: pernas.map((l) => l.id) } } })).toBe(0);
+  }, PRAZO_MS);
+
+  it("C6: da linha sem par, a perna da linha nasce conciliada e a outra espera o extrato da outra conta; a lista e o detalhe mostram a transferência", async () => {
+    const servico = new ConciliacaoService(repositorio, {} as never, () => AGORA);
+    const gerente = { ...principal, acesso: { plataforma: null, departamentos: [{ departamento: "financeiro", nivel: "gerente", telas: ["financeiro.conciliacao"] }] } } as AuthPrincipal;
+    await repositorio.importar(conta, arquivo("c6a"), lido([mov("c6d1", "2027-03-05", "-250.00", `${marca} TED ENVIADA`, "DEBIT")]), principal, AGORA);
+    const linha = await linhaDe("c6d1");
+    const r = await naSessao(() => servico.transferenciaDoExtrato({ movimentoId: linha.id, outraContaId: ids.outraConta }, gerente));
+    expect(r.conciliado).toBe(true);
+    expect(await linhaDe("c6d1")).toMatchObject({ estado: "conciliado", lancamentoId: r.saida.id });
+    expect((await prisma.lancamento.findUniqueOrThrow({ where: { id: r.saida.id } })).etapa).toBe("conciliada");
+
+    // A outra perna, na outra conta, fica sem extrato, com o favorecido pronto.
+    const daOutra = await naSessao(() => repositorio.painel({ contaCorrenteId: ids.outraConta, de: "2027-03-01", ate: "2027-03-31" }));
+    expect(daOutra.semExtrato.find((l) => l.id === r.entrada.id)).toMatchObject({ transferencia: true, favorecido: `Transferência de ${conta.nome}`, codigo: r.entrada.codigo, valor: "250.00" });
+    // De novo, a linha já foi: 409 com quem.
+    await expect(naSessao(() => servico.transferenciaDoExtrato({ movimentoId: linha.id, outraContaId: ids.outraConta }, gerente))).rejects.toMatchObject({ message: `Esta linha já foi conciliada por ${marca} conciliacao.` });
+
+    // Na lista: a situação própria e a busca por TR; no detalhe, a outra perna, sem ações nem pendências.
+    const financeiro = new PrismaFinanceiroRepository(prisma, new AuditAppender());
+    const admin = papelNoFinanceiro({ plataforma: "admin", departamentos: [] });
+    const transferencias = await financeiro.listar(listarLancamentosQuerySchema.parse({ situacao: "transferencias", empresa: "waze" }), admin, AGORA);
+    expect(transferencias.itens.map((i) => i.id)).toEqual(expect.arrayContaining([r.saida.id, r.entrada.id]));
+    expect(transferencias.itens.every((i) => i.origem.tipo === "transferencia")).toBe(true);
+    const porCodigo = await financeiro.listar(listarLancamentosQuerySchema.parse({ busca: r.transferencia.codigo }), admin, AGORA);
+    expect(porCodigo.itens.map((i) => i.id).sort()).toEqual([r.saida.id, r.entrada.id].sort());
+    expect(porCodigo.itens.find((i) => i.id === r.saida.id)).toMatchObject({
+      codigo: r.saida.codigo, favorecido: { tipo: "conta", id: ids.outraConta }, transferencia: { id: r.transferencia.id, codigo: r.transferencia.codigo, sentido: "saida" },
+    });
+    const detalhe = await financeiro.obter(r.entrada.id, admin, AGORA);
+    expect(detalhe).toMatchObject({
+      acoesPermitidas: [], podeEditar: false, pendencias: [],
+      transferencia: { codigo: r.transferencia.codigo, sentido: "entrada", contaOrigem: { id: conta.id }, contaDestino: { id: ids.outraConta }, outraPerna: { id: r.saida.id, codigo: r.saida.codigo } },
+    });
+    // A perna não muda pelas ações.
+    await expect(financeiro.executarAcao(r.entrada.id, { acao: "corrigir_valor", valor: "1.00", motivo: "x" }, principal, admin, AGORA))
+      .rejects.toMatchObject({ message: expect.stringMatching(/perna de uma transferência/) });
+  }, PRAZO_MS);
+
+  it("C6 no banco: a perna confere com a transferência e não muda; uma de cada tipo; só a gerência cria", async () => {
+    const t = await prisma.transferencia.create({ data: { companyId: "waze", contaOrigemId: conta.id, contaDestinoId: ids.outraConta, valor: 10, dia: new Date("2027-03-10T04:00:00Z"), descricao: `${marca} transf` } });
+    const perna = (dados: Partial<Parameters<typeof prisma.lancamento.create>[0]["data"]> = {}) => prisma.lancamento.create({
+      data: { tipo: "saida", companyId: "waze", contaCorrenteId: conta.id, descricao: `${marca} perna`, valor: 10, vencimento: t.dia, etapa: "paga", origem: "transferencia", transferenciaId: t.id, pagoEm: t.dia, pagamentoRegistradoEm: AGORA, ...dados } as never,
+      select: { id: true, numero: true },
+    });
+    await expect(perna({ valor: 11 })).rejects.toThrow(/não confere com a transferência/);
+    await expect(perna({ contaCorrenteId: ids.outraConta })).rejects.toThrow(/não confere com a transferência/);
+    const saida = await perna();
+    expect(saida.numero).toBe(t.numero);
+    await expect(perna()).rejects.toThrow(/lancamentos_transferencia_tipo_key|Unique constraint/);
+    await expect(prisma.lancamento.update({ where: { id: saida.id }, data: { valor: 12 } })).rejects.toThrow(/perna de uma transferência não muda/);
+    await expect(prisma.lancamento.update({ where: { id: saida.id }, data: { fornecedorId: ids.fornecedor } })).rejects.toThrow(/lancamentos_transferencia_coerente/);
+    // Sem a origem, não há transferência; com ela, nada de fornecedor nem categoria.
+    await expect(prisma.lancamento.create({ data: { tipo: "saida", companyId: "waze", fornecedorId: ids.fornecedor, contaCorrenteId: conta.id, descricao: `${marca} x`, valor: 10, vencimento: t.dia, etapa: "aberta", origem: "avulsa", transferenciaId: t.id } })).rejects.toThrow(/lancamentos_transferencia_coerente/);
+    // RLS: o membro não cria a transferência nem a perna; a gerência cria.
+    const desfeito = new Error("desfeito");
+    await expect(comoRuntime("conciliacao", (tx) => tx.transferencia.create({ data: { companyId: "waze", contaOrigemId: conta.id, contaDestinoId: ids.outraConta, valor: 1, dia: t.dia, descricao: `${marca} rls` } }))).rejects.toThrow(/row-level security/);
+    await expect(comoRuntime("pagar", async (tx) => { await tx.lancamento.create({ data: { tipo: "entrada", companyId: "waze", contaCorrenteId: ids.outraConta, descricao: `${marca} rls`, valor: 10, vencimento: t.dia, etapa: "recebida", origem: "transferencia", transferenciaId: t.id, recebidoEm: t.dia, recebimentoRegistradoEm: AGORA, valorRecebido: 10 } }); throw desfeito; }))
+      .rejects.toThrow(/row-level security/);
   }, PRAZO_MS);
 });

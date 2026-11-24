@@ -14,6 +14,8 @@ import type {
   NomeDeEventoDoCatalogo,
   PainelDaConciliacao,
   SugestaoDaTarifa,
+  TransferenciaCriada,
+  TransferenciaDoExtrato,
 } from "@plugga/shared";
 
 import { AuditAppender } from "../audit/audit-appender";
@@ -23,14 +25,15 @@ import type { AuthPrincipal } from "../core/auth/auth.types";
 import { PrismaService } from "../prisma/prisma.service";
 import { montarPainel, pareceTarifa, problemaDaLinhaParaCriar, problemaDoPar, valorEmReais, JANELA_DA_SUGESTAO_DIAS, type LancamentoParaConciliar, type MovimentoParaConciliar } from "./conciliacao.rules";
 import { conteudoDoMovimento, type ExtratoLido, type MovimentoLido } from "./extrato-ofx";
-import { codigoDoLancamento } from "./financeiro.rules";
+import { codigoDaTransferencia, codigoDoLancamento } from "./financeiro.rules";
 import { ReflexosDoLancamento } from "./reflexo-do-lancamento";
 
 const DIA_MS = 86_400_000;
 const SELECAO_DO_LANCAMENTO = {
   id: true, tipo: true, numero: true, companyId: true, contaCorrenteId: true, etapa: true, canceladoEm: true, liquidadoEm: true,
-  valor: true, valorRecebido: true, descricao: true, clientId: true, conciliacaoMarcada: true,
+  valor: true, valorRecebido: true, descricao: true, clientId: true, conciliacaoMarcada: true, origem: true,
   fornecedor: { select: { nome: true } },
+  transferencia: { select: { contaOrigem: { select: { nome: true } }, contaDestino: { select: { nome: true } } } },
 } satisfies Prisma.LancamentoSelect;
 type LinhaDoLancamento = Prisma.LancamentoGetPayload<{ select: typeof SELECAO_DO_LANCAMENTO }>;
 type LinhaDoMovimento = Prisma.MovimentoDoExtratoGetPayload<object>;
@@ -395,6 +398,99 @@ export class PrismaConciliacaoRepository {
     return { lancamento: { id: criado.id, codigo: codigoDoLancamento("saida", criado.numero) }, conciliado: true };
   }
 
+  // ------------------------------------------------------------ transferência entre contas (C6)
+
+  /**
+   * A transferência e as duas pernas, numa transação: a saída na origem, paga, e a entrada no
+   * destino, recebida, com o mesmo valor e dia (o banco confere). Não pede nada aos conectores:
+   * não é título nem pagamento a terceiro.
+   */
+  async criarTransferencia(
+    dados: { contaOrigemId: string; contaDestinoId: string; valor: string; dia: string; descricao?: string },
+    principal: AuthPrincipal,
+    agora: Date,
+  ): Promise<TransferenciaCriada> {
+    return this.prisma.comContexto((tx) => this.criarTransferenciaNaTx(tx, dados, principal, agora));
+  }
+
+  /** De uma linha sem par: débito, a conta da linha é a origem; crédito, o destino. A perna da linha nasce conciliada. */
+  async transferenciaDoExtrato(input: TransferenciaDoExtrato, principal: AuthPrincipal, agora: Date): Promise<TransferenciaCriada> {
+    return this.prisma.comContexto(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM public.movimentos_do_extrato WHERE id = ${input.movimentoId}::uuid FOR UPDATE`;
+      const sinal = await tx.movimentoDoExtrato.findUnique({ where: { id: input.movimentoId }, select: { valor: true } });
+      if (!sinal) throw new NaoEncontrado("Linha do extrato não encontrada.");
+      const debito = sinal.valor.isNegative();
+      const movimento = await this.linhaParaCriar(tx, input.movimentoId, debito ? "saida" : "entrada");
+      const daLinha = movimento.contaCorrenteId;
+      const criada = await this.criarTransferenciaNaTx(tx, {
+        contaOrigemId: debito ? daLinha : input.outraContaId,
+        contaDestinoId: debito ? input.outraContaId : daLinha,
+        valor: movimento.valor.abs().toFixed(2),
+        dia: diaEmManaus(movimento.dia),
+        descricao: input.descricao,
+        doExtrato: true,
+      }, principal, agora);
+      await this.conciliarNaTx(tx, movimento.id, debito ? criada.saida.id : criada.entrada.id, principal, agora);
+      return { ...criada, conciliado: true };
+    });
+  }
+
+  private async criarTransferenciaNaTx(
+    tx: Prisma.TransactionClient,
+    dados: { contaOrigemId: string; contaDestinoId: string; valor: string; dia: string; descricao?: string; doExtrato?: boolean },
+    principal: AuthPrincipal,
+    agora: Date,
+  ): Promise<TransferenciaCriada> {
+    if (dados.contaOrigemId === dados.contaDestinoId) {
+      throw new RequisicaoInvalida("Escolha duas contas diferentes.", [{ campo: "contaDestinoId", problema: "A mesma conta da origem." }]);
+    }
+    const contas = await tx.contaCorrente.findMany({ where: { id: { in: [dados.contaOrigemId, dados.contaDestinoId] } }, select: { id: true, companyId: true, nome: true, ativa: true } });
+    const origem = contas.find((c) => c.id === dados.contaOrigemId);
+    const destino = contas.find((c) => c.id === dados.contaDestinoId);
+    const problema = (c: typeof origem): string | null =>
+      !c ? "Escolha uma conta corrente." : !c.ativa ? `A conta ${c.nome} está inativa.` : null;
+    for (const [campo, c] of [["contaOrigemId", origem], ["contaDestinoId", destino]] as const) {
+      const p = problema(c);
+      if (p) throw new RequisicaoInvalida(p, [{ campo, problema: p }]);
+    }
+    if (origem!.companyId !== destino!.companyId) {
+      throw new RequisicaoInvalida("A transferência é entre contas da mesma empresa.", [{ campo: "contaDestinoId", problema: "Conta de outra empresa." }]);
+    }
+    // O dia da linha do extrato é o do banco; o informado à mão não pode ser futuro.
+    if (!dados.doExtrato && dados.dia > diaEmManaus(agora)) throw new RequisicaoInvalida("O dia da transferência não pode ser futuro.", [{ campo: "dia", problema: "Dia futuro." }]);
+
+    const dia = inicioDoDiaEmManaus(dados.dia);
+    const valor = new Prisma.Decimal(dados.valor);
+    const empresa = origem!.companyId;
+    const descricao = dados.descricao ?? `Transferência de ${origem!.nome} para ${destino!.nome}`;
+    const t = await tx.transferencia.create({
+      data: { companyId: empresa, contaOrigemId: origem!.id, contaDestinoId: destino!.id, valor, dia, descricao, criadaPorId: principal.kind === "user" ? principal.id : null },
+      select: { id: true, numero: true },
+    });
+    const perna = { companyId: empresa, descricao, valor, vencimento: dia, origem: "transferencia" as const, transferenciaId: t.id, criadoPorId: principal.id };
+    const saida = await tx.lancamento.create({
+      data: { ...perna, tipo: "saida", contaCorrenteId: origem!.id, forma: "transferencia", etapa: "paga", pagoEm: dia, pagamentoRegistradoEm: agora, pagamentoRegistradoPorId: principal.id },
+      select: { id: true },
+    });
+    const entrada = await tx.lancamento.create({
+      data: { ...perna, tipo: "entrada", contaCorrenteId: destino!.id, etapa: "recebida", recebidoEm: dia, valorRecebido: valor, recebimentoRegistradoEm: agora, recebimentoRegistradoPorId: principal.id },
+      select: { id: true },
+    });
+    // Sem o valor nem os nomes das contas no evento: as pernas e o sentido bastam.
+    for (const [id, tipo] of [[saida.id, "saida"], [entrada.id, "entrada"]] as const) {
+      await this.auditoria.append(tx, {
+        eventName: "financeiro.lancamento.created", entityType: "lancamento", entityId: id, companyId: empresa,
+        actorType: principal.kind === "user" ? "user" : "agent", actorId: principal.id, payload: { tipo, origem: "transferencia", transferencia: t.id }, occurredAt: agora,
+      });
+    }
+    return {
+      transferencia: { id: t.id, codigo: codigoDaTransferencia(t.numero) },
+      saida: { id: saida.id, codigo: codigoDoLancamento("saida", t.numero, "transferencia") },
+      entrada: { id: entrada.id, codigo: codigoDoLancamento("entrada", t.numero, "transferencia") },
+      conciliado: false,
+    };
+  }
+
   /** A linha travada, se ainda pode virar um lançamento do tipo pedido; senão, 409 com quem chegou antes. */
   private async linhaParaCriar(tx: Prisma.TransactionClient, movimentoId: string, tipo: "saida" | "entrada", tarifa = false): Promise<LinhaDoMovimento> {
     await tx.$queryRaw`SELECT id FROM public.movimentos_do_extrato WHERE id = ${movimentoId}::uuid FOR UPDATE`;
@@ -549,8 +645,11 @@ export class PrismaConciliacaoRepository {
 
   private paraLancamento(l: LinhaDoLancamento, clientes: Map<string, string>): LancamentoNaConciliacao {
     return {
-      id: l.id, tipo: l.tipo, codigo: codigoDoLancamento(l.tipo, l.numero), empresa: l.companyId as CompanyKey, contaCorrenteId: l.contaCorrenteId!,
-      favorecido: l.tipo === "saida" ? (l.fornecedor?.nome ?? "Fornecedor") : ((l.clientId && clientes.get(l.clientId)) || "Cliente"),
+      id: l.id, tipo: l.tipo, codigo: codigoDoLancamento(l.tipo, l.numero, l.origem), empresa: l.companyId as CompanyKey, contaCorrenteId: l.contaCorrenteId!,
+      favorecido: l.transferencia
+        ? (l.tipo === "saida" ? `Transferência para ${l.transferencia.contaDestino.nome}` : `Transferência de ${l.transferencia.contaOrigem.nome}`)
+        : l.tipo === "saida" ? (l.fornecedor?.nome ?? "Fornecedor") : ((l.clientId && clientes.get(l.clientId)) || "Cliente"),
+      ...(l.transferencia ? { transferencia: true } : {}),
       descricao: l.descricao, valor: valorLiquidado(l), liquidadoEm: diaEmManaus(l.liquidadoEm!), marcado: l.conciliacaoMarcada,
     };
   }

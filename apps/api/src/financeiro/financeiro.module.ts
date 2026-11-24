@@ -6,6 +6,7 @@ import { ArmazenamentoDeDocumentos } from "../lead-documentos/armazenamento-de-d
 import { PrismaModule } from "../prisma/prisma.module";
 import { CadastrosDoFinanceiroController } from "./cadastros-do-financeiro.controller";
 import { ConciliacaoController } from "./conciliacao.controller";
+import { TransferenciasController } from "./transferencias.controller";
 import { ConciliacaoService } from "./conciliacao.service";
 import { PrismaConciliacaoRepository } from "./prisma-conciliacao.repository";
 import { ConectoresDoFinanceiro } from "./conectores-do-financeiro";
@@ -25,7 +26,7 @@ import { ReflexosDoLancamento } from "./reflexo-do-lancamento";
  */
 @Module({
   imports: [AuditModule, CoreModule, PrismaModule],
-  controllers: [FinanceiroController, CadastrosDoFinanceiroController, ConciliacaoController],
+  controllers: [FinanceiroController, CadastrosDoFinanceiroController, ConciliacaoController, TransferenciasController],
   providers: [
     FinanceiroHabilitadoGuard,
     PrismaCadastrosDoFinanceiroRepository,

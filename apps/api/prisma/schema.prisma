@@ -2783,6 +2783,8 @@ enum FinanceiroOrigem {
   /// Nascem pagos na Conciliação, sem a aprovação F2 (PLU-339, C5).
   tarifa_bancaria
   conciliacao
+  /// As duas pernas de uma transferência entre contas (C6): sem a aprovação F2, fora dos cards.
+  transferencia
 
   @@map("financeiro_origem")
 }
@@ -2871,6 +2873,8 @@ model ContaCorrente {
   omie        OmieContaCorrente?
   extratos    ExtratoBancario[]
   movimentosDoExtrato MovimentoDoExtrato[]
+  transferenciasDeOrigem  Transferencia[] @relation("TransferenciaOrigem")
+  transferenciasDeDestino Transferencia[] @relation("TransferenciaDestino")
 
   @@unique([companyId, omieCodigo])
   @@unique([id, companyId])
@@ -2943,6 +2947,33 @@ model MovimentoDoExtrato {
   @@index([extratoId])
   @@index([companyId])
   @@map("movimentos_do_extrato")
+}
+
+/// A transferência entre duas contas da mesma empresa (PLU-339, C6), com número próprio
+/// (TR-0001) e duas pernas em `lancamentos`. Empresa e autor sem relação no Prisma (as FKs
+/// ficam no SQL). Só a gerência do Financeiro cria; nada se apaga.
+model Transferencia {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  /// Da sequência `transferencias_numero_seq`.
+  numero         Int      @unique @default(autoincrement())
+  companyId      String   @map("company_id")
+  contaOrigemId  String   @map("conta_origem_id") @db.Uuid
+  contaDestinoId String   @map("conta_destino_id") @db.Uuid
+  valor          Decimal  @db.Decimal(14, 2)
+  /// O início do dia de Manaus.
+  dia            DateTime @db.Timestamptz(6)
+  descricao      String
+  criadaPorId    String?  @map("criada_por_id") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  contaOrigem  ContaCorrente @relation("TransferenciaOrigem", fields: [contaOrigemId], references: [id], onDelete: Restrict)
+  contaDestino ContaCorrente @relation("TransferenciaDestino", fields: [contaDestinoId], references: [id], onDelete: Restrict)
+  pernas       Lancamento[]
+
+  @@unique([id, companyId])
+  @@index([contaOrigemId])
+  @@index([contaDestinoId])
+  @@map("transferencias")
 }
 
 /// O vínculo de uma categoria do Plugga OS com o OMIE (PLU-342), do conector. A empresa é
@@ -3061,8 +3092,11 @@ model Lancamento {
   omie                    OmieLancamento?
   /// A linha do extrato bancário conciliada com o lançamento (PLU-339).
   movimentoDoExtrato      MovimentoDoExtrato?
+  /// A transferência entre contas da perna (C6); a perna leva o número dela (TR-0001).
+  transferenciaId         String?             @map("transferencia_id") @db.Uuid
+  transferencia           Transferencia?      @relation(fields: [transferenciaId], references: [id], onDelete: Restrict)
 
-  @@unique([tipo, numero])
+  // (tipo, numero) é único fora das transferências: índice parcial `lancamentos_tipo_numero_key` no SQL.
   @@index([vencimento])
   @@index([tipo, etapa])
   @@index([fornecedorId])

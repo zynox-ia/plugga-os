@@ -89,10 +89,19 @@ describe("código e busca", () => {
   });
 
   it("a busca reconhece o código com ou sem prefixo", () => {
-    expect(numeroDaBusca("CP-0412")).toEqual({ tipo: "saida", numero: 412 });
-    expect(numeroDaBusca("cr 2081")).toEqual({ tipo: "entrada", numero: 2081 });
+    // Com CP ou CR, fora das transferências; com TR, só as pernas delas (C6); sem prefixo, tudo.
+    expect(numeroDaBusca("CP-0412")).toEqual({ tipo: "saida", numero: 412, transferencia: false });
+    expect(numeroDaBusca("cr 2081")).toEqual({ tipo: "entrada", numero: 2081, transferencia: false });
+    expect(numeroDaBusca("TR-0012")).toEqual({ tipo: null, numero: 12, transferencia: true });
     expect(numeroDaBusca("412")).toEqual({ tipo: null, numero: 412 });
     expect(numeroDaBusca("Hotel")).toBeNull();
+  });
+
+  it("o código da perna de uma transferência é o da transferência, com o sentido", () => {
+    expect(codigoDoLancamento("saida", 12, "transferencia")).toBe("TR-0012 · saída");
+    expect(codigoDoLancamento("entrada", 12, "transferencia")).toBe("TR-0012 · entrada");
+    expect(codigoDoLancamento("saida", 12, "avulsa")).toBe("CP-0012");
+    expect(condicaoDaSituacao("transferencias")).toEqual({ transferencias: true, cancelado: false });
   });
 });
 

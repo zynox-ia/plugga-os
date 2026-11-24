@@ -97,16 +97,31 @@ export const emCobranca = (l: EstadoDoLancamento, agora: Date): boolean =>
 
 export const colunaDoLancamento = (etapa: EtapaDeLancamento): ColunaDoQuadroFinanceiro => colunaDaEtapa[etapa];
 
-/** CP-0412 para saída e CR-0412 para entrada; o número é global por tipo. */
-export const codigoDoLancamento = (tipo: TipoDeLancamento, numero: number): string =>
-  `${tipo === "saida" ? "CP" : "CR"}-${String(numero).padStart(4, "0")}`;
+/** A transferência entre contas (C6): TR-0012. */
+export const codigoDaTransferencia = (numero: number): string => `TR-${String(numero).padStart(4, "0")}`;
 
-/** "CP-0412", "cp 412" ou "412": o número que a busca procura, se houver. */
-export function numeroDaBusca(busca: string): { tipo: TipoDeLancamento | null; numero: number } | null {
-  const m = /^\s*(?:(cp|cr)\s*-?\s*)?0*(\d{1,9})\s*$/i.exec(busca);
+/**
+ * CP-0412 para saída e CR-0412 para entrada; o número é global por tipo. A perna de uma
+ * transferência (C6) leva o número dela: "TR-0012 · saída" e "TR-0012 · entrada".
+ */
+export const codigoDoLancamento = (tipo: TipoDeLancamento, numero: number, origem?: string): string =>
+  origem === "transferencia"
+    ? `${codigoDaTransferencia(numero)} · ${tipo === "saida" ? "saída" : "entrada"}`
+    : `${tipo === "saida" ? "CP" : "CR"}-${String(numero).padStart(4, "0")}`;
+
+/** As pernas de uma transferência entre contas: não são receita nem despesa (fora dos cards e das ações). */
+export const ehTransferencia = (l: { origem: string }): boolean => l.origem === "transferencia";
+
+/**
+ * "CP-0412", "cp 412", "TR-12" ou "412": o número que a busca procura, se houver. Com TR, só as
+ * pernas das transferências; com CP ou CR, só fora delas.
+ */
+export function numeroDaBusca(busca: string): { tipo: TipoDeLancamento | null; numero: number; transferencia?: boolean } | null {
+  const m = /^\s*(?:(cp|cr|tr)\s*-?\s*)?0*(\d{1,9})\s*$/i.exec(busca);
   if (!m) return null;
   const prefixo = m[1]?.toLowerCase();
-  return { tipo: prefixo === "cp" ? "saida" : prefixo === "cr" ? "entrada" : null, numero: Number(m[2]) };
+  if (prefixo === "tr") return { tipo: null, numero: Number(m[2]), transferencia: true };
+  return { tipo: prefixo === "cp" ? "saida" : prefixo === "cr" ? "entrada" : null, numero: Number(m[2]), ...(prefixo ? { transferencia: false } : {}) };
 }
 
 // ---------------------------------------------------------------- ações
@@ -307,6 +322,8 @@ export type CondicaoDaSituacao = {
   /** true: só em aberto. */
   emAberto?: boolean;
   omieComErro?: boolean;
+  /** true: só as pernas das transferências entre contas (C6). */
+  transferencias?: boolean;
   cancelado: boolean;
 };
 
@@ -344,6 +361,8 @@ export function condicaoDaSituacao(situacao: SituacaoDoFiltroFinanceiro | undefi
       return { omieComErro: true, cancelado: false };
     case "cancelado":
       return { cancelado: true };
+    case "transferencias":
+      return { transferencias: true, cancelado: false };
   }
 }
 

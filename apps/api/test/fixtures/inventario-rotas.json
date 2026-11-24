@@ -1881,6 +1881,23 @@
   },
   {
     "metodo": "POST",
+    "caminho": "/financeiro/conciliacao/transferencia",
+    "controller": "ConciliacaoController.transferenciaDoExtrato",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:financeiro.conciliacao",
+      "departamento:financeiro:membro"
+    ],
+    "guards": [
+      "FinanceiroHabilitadoGuard",
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
     "caminho": "/financeiro/contas-correntes",
     "controller": "CadastrosDoFinanceiroController.criarConta",
     "acesso": "acesso",
@@ -2104,6 +2121,25 @@
       "FinanceiroHabilitadoGuard",
       "SessionAuthGuard",
       "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/financeiro/transferencias",
+    "controller": "TransferenciasController.criar",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:financeiro.pagar",
+      "tela:financeiro.receber",
+      "tela:financeiro.conciliacao",
+      "departamento:financeiro:gerente"
+    ],
+    "guards": [
+      "FinanceiroHabilitadoGuard",
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
     ]
   },
   {

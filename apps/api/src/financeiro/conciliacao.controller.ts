@@ -5,6 +5,7 @@ import {
   criarLancamentoDoExtratoSchema,
   criarTarifaSchema,
   criarTarifasSchema,
+  transferenciaDoExtratoSchema,
   desfazerConciliacaoSchema,
   escopoDaConciliacaoSchema,
   listarMovimentosDoExtratoQuerySchema,
@@ -23,6 +24,8 @@ import {
   type PainelDaConciliacao,
   type SugestaoDaTarifa,
   type TarifasCriadas,
+  type TransferenciaCriada,
+  type TransferenciaDoExtrato,
 } from "@plugga/shared";
 
 import { UmArquivo } from "../common/upload";
@@ -129,5 +132,13 @@ export class ConciliacaoController {
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
   criarLancamento(@Body(new ZodValidationPipe(criarLancamentoDoExtratoSchema)) entrada: CriarLancamentoDoExtrato, @CurrentPrincipal() principal: AuthPrincipal): Promise<LancamentoCriadoNaConciliacao> {
     return this.conciliacao.criarLancamento(entrada, principal);
+  }
+
+  /** C6: a transferência entre contas a partir de uma linha sem par (só a gerência, no serviço). */
+  @Post("conciliacao/transferencia")
+  @HttpCode(201)
+  @UseGuards(OriginCheckGuard, ThrottlerGuard)
+  transferenciaDoExtrato(@Body(new ZodValidationPipe(transferenciaDoExtratoSchema)) entrada: TransferenciaDoExtrato, @CurrentPrincipal() principal: AuthPrincipal): Promise<TransferenciaCriada> {
+    return this.conciliacao.transferenciaDoExtrato(entrada, principal);
   }
 }

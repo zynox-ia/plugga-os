@@ -41,6 +41,8 @@ import {
   fimDoMesEmManaus,
   inicioDoMesEmManaus,
   numeroDaBusca,
+  codigoDaTransferencia,
+  ehTransferencia,
   origensPagasSemAprovacao,
   pagoSemAprovacao,
   planejarAcao,
@@ -89,6 +91,8 @@ const INCLUDE_DO_LANCAMENTO = {
   omie: { select: { estado: true, codigo: true, motivo: true } },
   // A contagem dos anexos atuais, para o card.
   _count: { select: { anexos: { where: { substituidoEm: null } } } },
+  // A perna de uma transferência entre contas (C6): as duas contas e as duas pernas.
+  transferencia: { select: { id: true, numero: true, contaOrigem: { select: { id: true, nome: true } }, contaDestino: { select: { id: true, nome: true } }, pernas: { select: { id: true, tipo: true } } } },
 } satisfies Prisma.LancamentoInclude;
 type LinhaDoLancamento = Prisma.LancamentoGetPayload<{ include: typeof INCLUDE_DO_LANCAMENTO }>;
 
@@ -351,6 +355,7 @@ export class PrismaFinanceiroRepository {
   async executarAcao(id: string, acao: AcaoDoLancamento, principal: AuthPrincipal, papel: PapelNoFinanceiro, agora: Date): Promise<void> {
     await this.prisma.comContexto(async (tx) => {
       const atual = await this.travar(tx, id, papel);
+      if (ehTransferencia(atual)) throw new EstadoInvalido("A perna de uma transferência entre contas não muda: conta, valor e dia são os da transferência.");
       // A conta de um pedido de compra se cancela pelo pedido, em Compras, para os dois não divergirem (W3c).
       if (acao.acao === "cancelar" && atual.origem === "pedido_de_compra" && atual.pedidoDeCompraId) {
         const pedido = (await this.pedidosDasContas([atual])).get(atual.pedidoDeCompraId);
@@ -455,7 +460,7 @@ export class PrismaFinanceiroRepository {
       where: { id: anexoId, lancamentoId: id },
       select: {
         tipo: true, arquivoChave: true, arquivoNome: true, arquivoTamanho: true, arquivoTipo: true,
-        lancamento: { select: { tipo: true, numero: true, valor: true, valorRecebido: true, liquidadoEm: true, clientId: true, fornecedor: { select: { nome: true } } } },
+        lancamento: { select: { tipo: true, numero: true, origem: true, valor: true, valorRecebido: true, liquidadoEm: true, clientId: true, fornecedor: { select: { nome: true } } } },
       },
     }));
     if (!anexo || !tiposVisiveis(papel, "todos").includes(anexo.lancamento.tipo)) throw new NaoEncontrado("Anexo não encontrado.");
@@ -463,7 +468,7 @@ export class PrismaFinanceiroRepository {
     let nome = anexo.arquivoNome;
     if (anexo.tipo === "comprovante" && l.liquidadoEm) {
       const favorecido = l.tipo === "saida" ? l.fornecedor?.nome ?? "Fornecedor" : (l.clientId && (await this.nomesDeClientes([l.clientId])).get(l.clientId)) || "Cliente";
-      nome = nomePadronizadoDoComprovante({ dia: l.liquidadoEm, codigo: codigoDoLancamento(l.tipo, l.numero), favorecido, valor: (l.valorRecebido ?? l.valor).toFixed(2), mime: anexo.arquivoTipo });
+      nome = nomePadronizadoDoComprovante({ dia: l.liquidadoEm, codigo: codigoDoLancamento(l.tipo, l.numero, l.origem), favorecido, valor: (l.valorRecebido ?? l.valor).toFixed(2), mime: anexo.arquivoTipo });
     }
     return { chave: anexo.arquivoChave, nome, tamanho: anexo.arquivoTamanho, tipo: anexo.arquivoTipo };
   }
@@ -575,7 +580,7 @@ export class PrismaFinanceiroRepository {
         orderBy: [{ lancamento: { liquidadoEm: "asc" } }, { enviadoEm: "asc" }],
         select: {
           arquivoChave: true, arquivoNome: true, arquivoTamanho: true, arquivoTipo: true, enviadoEm: true,
-          lancamento: { select: { tipo: true, numero: true, valor: true, valorRecebido: true, liquidadoEm: true, clientId: true, fornecedor: { select: { nome: true } } } },
+          lancamento: { select: { tipo: true, numero: true, origem: true, valor: true, valorRecebido: true, liquidadoEm: true, clientId: true, fornecedor: { select: { nome: true } } } },
         },
       }),
     ]));
@@ -587,7 +592,7 @@ export class PrismaFinanceiroRepository {
         const favorecido = l.tipo === "saida" ? l.fornecedor?.nome ?? "Fornecedor" : (l.clientId && clientes.get(l.clientId)) || "Cliente";
         return {
           chave: a.arquivoChave, nome: a.arquivoNome, tamanho: a.arquivoTamanho, tipo: a.arquivoTipo, data: a.enviadoEm,
-          nomePadronizado: nomePadronizadoDoComprovante({ dia: l.liquidadoEm ?? a.enviadoEm, codigo: codigoDoLancamento(l.tipo, l.numero), favorecido, valor: (l.valorRecebido ?? l.valor).toFixed(2), mime: a.arquivoTipo }),
+          nomePadronizado: nomePadronizadoDoComprovante({ dia: l.liquidadoEm ?? a.enviadoEm, codigo: codigoDoLancamento(l.tipo, l.numero, l.origem), favorecido, valor: (l.valorRecebido ?? l.valor).toFixed(2), mime: a.arquivoTipo }),
         };
       }),
     };
@@ -656,6 +661,7 @@ export class PrismaFinanceiroRepository {
     if (situacao.emAberto || situacao.vencido) condicoes.push({ etapa: { in: etapasEmAberto } });
     if (situacao.vencido) condicoes.push({ vencimento: { lt: hoje } });
     if (situacao.omieComErro) condicoes.push({ omie: { is: { estado: { in: ["erro", "divergente"] } } } });
+    if (situacao.transferencias) condicoes.push({ origem: "transferencia" });
     if (query.pagoSemAprovacao !== undefined) {
       const semAprovacao: Prisma.LancamentoWhereInput = { tipo: "saida", origem: { in: [...origensPagasSemAprovacao] } };
       condicoes.push(query.pagoSemAprovacao ? semAprovacao : { NOT: semAprovacao });
@@ -679,7 +685,13 @@ export class PrismaFinanceiroRepository {
         { fornecedor: { nome: { contains: busca, mode: "insensitive" } } },
       ];
       const numero = numeroDaBusca(busca);
-      if (numero) ou.push({ numero: numero.numero, ...(numero.tipo ? { tipo: numero.tipo } : {}) });
+      if (numero) {
+        ou.push({
+          numero: numero.numero,
+          ...(numero.tipo ? { tipo: numero.tipo } : {}),
+          ...(numero.transferencia === true ? { origem: "transferencia" } : numero.transferencia === false ? { origem: { not: "transferencia" } } : {}),
+        });
+      }
       const clientes = await this.buscarClientes(busca);
       if (clientes.length > 0) ou.push({ clientId: { in: clientes } });
       condicoes.push({ OR: ou });
@@ -695,7 +707,8 @@ export class PrismaFinanceiroRepository {
     const ateDia = fimDoMesEmManaus(agora);
     const ate = inicioDoDiaEmManaus(ateDia);
     const hoje = inicioDoDiaEmManaus(dia(agora));
-    const base: Prisma.LancamentoWhereInput = { canceladoEm: null, etapa: { in: etapasEmAberto }, ...(empresa ? { companyId: empresa } : {}) };
+    // A transferência entre contas não é receita nem despesa: fora dos cards (as pernas já nascem liquidadas).
+    const base: Prisma.LancamentoWhereInput = { canceladoEm: null, etapa: { in: etapasEmAberto }, origem: { not: "transferencia" }, ...(empresa ? { companyId: empresa } : {}) };
     const tipos = tiposVisiveis(papel, "todos");
     const [ateOFim, vencidos, paraAprovar, saldos] = await this.prisma.comContexto((tx) => Promise.all([
       tx.lancamento.groupBy({ by: ["tipo"], where: { ...base, tipo: { in: tipos }, vencimento: { lte: ate } }, _sum: { valor: true }, _count: { _all: true } }),
@@ -758,13 +771,18 @@ export class PrismaFinanceiroRepository {
   }
 
   private paraResumo(l: LinhaDoLancamento, clientes: NomesDeClientes, agora: Date, pedidos: PedidosDasContas = new Map()): LancamentoResumo {
-    const favorecido = l.tipo === "saida"
-      ? { tipo: "fornecedor" as const, id: l.fornecedor?.id ?? l.fornecedorId ?? "", nome: l.fornecedor?.nome ?? "Fornecedor" }
-      : { tipo: "cliente" as const, id: l.clientId ?? "", nome: (l.clientId && clientes.get(l.clientId)) || "Cliente" };
+    const t = l.transferencia;
+    // Na perna da transferência, o favorecido é a outra conta.
+    const outraConta = t ? (l.tipo === "saida" ? t.contaDestino : t.contaOrigem) : null;
+    const favorecido = outraConta
+      ? { tipo: "conta" as const, id: outraConta.id, nome: outraConta.nome }
+      : l.tipo === "saida"
+        ? { tipo: "fornecedor" as const, id: l.fornecedor?.id ?? l.fornecedorId ?? "", nome: l.fornecedor?.nome ?? "Fornecedor" }
+        : { tipo: "cliente" as const, id: l.clientId ?? "", nome: (l.clientId && clientes.get(l.clientId)) || "Cliente" };
     return {
       id: l.id,
       tipo: l.tipo,
-      codigo: codigoDoLancamento(l.tipo, l.numero),
+      codigo: codigoDoLancamento(l.tipo, l.numero, l.origem),
       empresa: l.companyId as CompanyKey,
       etapa: l.etapa,
       coluna: colunaDoLancamento(l.etapa),
@@ -783,6 +801,7 @@ export class PrismaFinanceiroRepository {
       omie: l.omie ?? SEM_OMIE,
       origem: { tipo: l.origem, pedidoDeCompra: (l.pedidoDeCompraId && pedidos.get(l.pedidoDeCompraId)) || l.pedidoDeCompra },
       pagoSemAprovacao: pagoSemAprovacao(l),
+      ...(t ? { transferencia: { id: t.id, codigo: codigoDaTransferencia(t.numero), sentido: l.tipo } } : {}),
       createdAt: l.createdAt.toISOString(),
     };
   }
@@ -833,8 +852,9 @@ export class PrismaFinanceiroRepository {
         conciliado: registro(l.conciliadoPor, l.conciliadoEm),
         cancelado: l.canceladoEm ? { por: pessoa(l.canceladoPor), em: l.canceladoEm.toISOString(), motivo: l.cancelamentoMotivo ?? "" } : null,
       },
-      acoesPermitidas: acoesPermitidas(l, papel, anexos, agora),
-      podeEditar: podeEditar(l, papel),
+      // A perna da transferência não muda (o par não diverge): sem ações nem edição.
+      acoesPermitidas: ehTransferencia(l) ? [] : acoesPermitidas(l, papel, anexos, agora),
+      podeEditar: !ehTransferencia(l) && podeEditar(l, papel),
       updatedAt: l.updatedAt.toISOString(),
       arquivos,
       comprovanteAtual: arquivos.find((a) => a.tipo === "comprovante" && !a.substituido) ?? null,
@@ -845,7 +865,18 @@ export class PrismaFinanceiroRepository {
         por: pessoa(h.por), em: h.em.toISOString(), canal: String((h.dados as { canal?: string }).canal ?? ""), nota: h.texto,
       })),
       ucs: doCliente.filter((u) => listadas.has(u.id)),
-      pendencias: l.canceladoEm ? [] : pendenciasDoLancamento(l, anexos),
+      pendencias: l.canceladoEm || ehTransferencia(l) ? [] : pendenciasDoLancamento(l, anexos),
+      // No detalhe, a transferência completa (as duas contas e a outra perna) no lugar da do resumo.
+      transferencia: l.transferencia ? this.transferenciaDoDetalhe(l) : undefined,
+    };
+  }
+
+  private transferenciaDoDetalhe(l: LinhaDoDetalhe): NonNullable<Lancamento["transferencia"]> {
+    const t = l.transferencia!;
+    const outra = t.pernas.find((p) => p.id !== l.id);
+    return {
+      id: t.id, codigo: codigoDaTransferencia(t.numero), sentido: l.tipo, contaOrigem: t.contaOrigem, contaDestino: t.contaDestino,
+      outraPerna: { id: outra?.id ?? l.id, codigo: codigoDoLancamento(outra?.tipo ?? l.tipo, t.numero, "transferencia") },
     };
   }
 

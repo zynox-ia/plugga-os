@@ -423,17 +423,19 @@ export type SituacaoDoVencimento = z.infer<typeof situacaoDoVencimentoSchema>;
 /** Dias até o vencimento em Manaus (negativo = vencido há tantos dias). */
 export const prazoDoLancamentoSchema = z.object({ situacao: situacaoDoVencimentoSchema, dias: z.number().int() });
 
+/** `conta`: a perna de uma transferência (C6); o id e o nome são os da outra conta. */
 export const favorecidoSchema = z.object({
-  tipo: z.enum(["fornecedor", "cliente"]),
+  tipo: z.enum(["fornecedor", "cliente", "conta"]),
   id: uuid,
   nome: z.string(),
 });
 
 /**
  * `tarifa_bancaria` e `conciliacao` (PLU-339, C5): o lançamento que nasce pago (ou recebido)
- * na Conciliação, a partir de uma linha do extrato.
+ * na Conciliação, a partir de uma linha do extrato. `transferencia` (C6): as duas pernas de uma
+ * transferência entre contas, que não é receita nem despesa.
  */
-export const origensDoLancamento = ["avulsa", "pedido_de_compra", "agente", "cobranca_manual", "tarifa_bancaria", "conciliacao"] as const;
+export const origensDoLancamento = ["avulsa", "pedido_de_compra", "agente", "cobranca_manual", "tarifa_bancaria", "conciliacao", "transferencia"] as const;
 export const origemDoLancamentoSchema = z.enum(origensDoLancamento);
 export type OrigemDoLancamento = z.infer<typeof origemDoLancamentoSchema>;
 
@@ -478,6 +480,11 @@ export const lancamentoResumoSchema = z.object({
    * (e, depois, a "Paga" da Nova despesa, CC15). Derivada da origem. Opcional até a web ler.
    */
   pagoSemAprovacao: z.boolean().optional(),
+  /**
+   * A perna de uma transferência entre contas (C6): o código da transferência e o sentido. O
+   * `codigo` do lançamento vem "TR-0012 · saída". Fora dos cards; sem OMIE nem ações.
+   */
+  transferencia: z.object({ id: uuid, codigo: z.string(), sentido: tipoDeLancamentoSchema }).optional(),
   createdAt: isoDate,
 });
 export type LancamentoResumo = z.infer<typeof lancamentoResumoSchema>;
@@ -512,6 +519,15 @@ export const lancamentoSchema = lancamentoResumoSchema.extend({
   cobrancas: z.array(registro.extend({ canal: z.string(), nota: z.string().nullable() })),
   ucs: z.array(z.object({ id: uuid, codigo: z.string() })),
   pendencias: z.array(pendenciaDoLancamentoSchema),
+  /** No detalhe, a transferência com as duas contas e a outra perna. */
+  transferencia: z.object({
+    id: uuid,
+    codigo: z.string(),
+    sentido: tipoDeLancamentoSchema,
+    contaOrigem: z.object({ id: uuid, nome: z.string() }),
+    contaDestino: z.object({ id: uuid, nome: z.string() }),
+    outraPerna: z.object({ id: uuid, codigo: z.string() }),
+  }).optional(),
 });
 export type Lancamento = z.infer<typeof lancamentoSchema>;
 
@@ -535,6 +551,8 @@ export const situacoesDoFiltroFinanceiro = [
   "erro",
   /** Fora do protótipo: sem ele, os cancelados não aparecem em nenhuma situação. */
   "cancelado",
+  /** As pernas das transferências entre contas (C6). */
+  "transferencias",
 ] as const;
 export const situacaoDoFiltroFinanceiroSchema = z.enum(situacoesDoFiltroFinanceiro);
 export type SituacaoDoFiltroFinanceiro = z.infer<typeof situacaoDoFiltroFinanceiroSchema>;
@@ -783,6 +801,8 @@ export const lancamentoNaConciliacaoSchema = z.object({
   liquidadoEm: diaDoCalendario,
   /** "Marcar pendente" do lado do lançamento: o pago que ainda não apareceu no extrato. */
   marcado: z.boolean(),
+  /** A perna de uma transferência entre contas (C6): `favorecido` vem "Transferência para/de <conta>". */
+  transferencia: z.boolean().optional(),
 });
 export type LancamentoNaConciliacao = z.infer<typeof lancamentoNaConciliacaoSchema>;
 
@@ -923,3 +943,36 @@ export const lancamentoCriadoNaConciliacaoSchema = z.object({
   conciliado: z.boolean(),
 });
 export type LancamentoCriadoNaConciliacao = z.infer<typeof lancamentoCriadoNaConciliacaoSchema>;
+
+// ---------------------------------------------------------------- transferência entre contas (PLU-339, C6)
+// Duas contas da mesma empresa, com número próprio (TR-0001): a saída na origem, já paga, e a
+// entrada no destino, já recebida, com o mesmo valor e dia. Só a gerência do Financeiro cria.
+
+/** `POST financeiro/transferencias`. O dia não pode ser futuro. */
+export const criarTransferenciaSchema = z.object({
+  contaOrigemId: uuid,
+  contaDestinoId: uuid,
+  valor: valorPositivo,
+  dia: diaDoCalendario,
+  descricao: textoObrigatorio(200).optional(),
+}).strict().refine((t) => t.contaOrigemId !== t.contaDestinoId, { message: "Escolha duas contas diferentes.", path: ["contaDestinoId"] });
+export type CriarTransferencia = z.infer<typeof criarTransferenciaSchema>;
+
+/**
+ * `POST financeiro/conciliacao/transferencia`: de uma linha sem par. Débito: a conta da linha é
+ * a origem; crédito: o destino. O valor e o dia são os da linha, e a perna dela nasce conciliada.
+ */
+export const transferenciaDoExtratoSchema = z.object({
+  movimentoId: uuid,
+  outraContaId: uuid,
+  descricao: textoObrigatorio(200).optional(),
+}).strict();
+export type TransferenciaDoExtrato = z.infer<typeof transferenciaDoExtratoSchema>;
+
+export const transferenciaCriadaSchema = z.object({
+  transferencia: z.object({ id: uuid, codigo: z.string() }),
+  saida: z.object({ id: uuid, codigo: z.string() }),
+  entrada: z.object({ id: uuid, codigo: z.string() }),
+  conciliado: z.boolean(),
+});
+export type TransferenciaCriada = z.infer<typeof transferenciaCriadaSchema>;

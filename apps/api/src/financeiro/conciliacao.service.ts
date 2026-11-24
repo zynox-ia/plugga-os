@@ -6,11 +6,14 @@ import {
   lancamentoCriadoNaConciliacaoSchema,
   movimentosDoExtratoRespostaSchema,
   painelDaConciliacaoSchema,
+  alcancaTela,
   sugestaoDaTarifaSchema,
   tarifasCriadasSchema,
+  transferenciaCriadaSchema,
   type CriarLancamentoDoExtrato,
   type CriarTarifa,
   type CriarTarifas,
+  type CriarTransferencia,
   type EscopoDaConciliacao,
   type ExtratoImportado,
   type LancamentoCriadoNaConciliacao,
@@ -20,6 +23,8 @@ import {
   type PainelDaConciliacao,
   type SugestaoDaTarifa,
   type TarifasCriadas,
+  type TransferenciaCriada,
+  type TransferenciaDoExtrato,
 } from "@plugga/shared";
 
 import { AcessoNegado, ArquivoRecusado, LimiteExcedido, RequisicaoInvalida, TipoNaoPermitido } from "../common/errors/dominio";
@@ -132,6 +137,27 @@ export class ConciliacaoService {
       throw new AcessoNegado("Só a gerência do Financeiro cria uma despesa já paga a partir do extrato.");
     }
     return lancamentoCriadoNaConciliacaoSchema.parse(await this.repositorio.criarLancamento(entrada, principal, this.agora()));
+  }
+
+  // C6: a transferência entre contas da mesma empresa.
+
+  /** Na Lançamentos: só a gerência, que alcance as duas pernas (Contas a pagar e a receber, ou a Conciliação). */
+  async criarTransferencia(entrada: CriarTransferencia, principal: AuthPrincipal): Promise<TransferenciaCriada> {
+    this.garantirQuemTransfere(principal);
+    return transferenciaCriadaSchema.parse(await this.repositorio.criarTransferencia(entrada, principal, this.agora()));
+  }
+
+  /** Da linha sem par, na Conciliação: só a gerência. */
+  async transferenciaDoExtrato(entrada: TransferenciaDoExtrato, principal: AuthPrincipal): Promise<TransferenciaCriada> {
+    this.garantirQuemTransfere(principal);
+    return transferenciaCriadaSchema.parse(await this.repositorio.transferenciaDoExtrato(entrada, principal, this.agora()));
+  }
+
+  private garantirQuemTransfere(principal: AuthPrincipal): void {
+    const papel = papelNoFinanceiro(principal.acesso);
+    if (!papel.gerente) throw new AcessoNegado("Só a gerência do Financeiro transfere entre contas.");
+    const alcancaAsDuasPernas = (papel.saidas && papel.entradas) || (principal.acesso !== undefined && alcancaTela(principal.acesso, "financeiro.conciliacao"));
+    if (!alcancaAsDuasPernas) throw new AcessoNegado("A transferência tem as duas pontas: precisa de Contas a pagar e a receber, ou da Conciliação.");
   }
 
   async marcar(entrada: MarcarNaConciliacao): Promise<void> {
