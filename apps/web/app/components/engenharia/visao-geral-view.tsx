@@ -1,13 +1,14 @@
 "use client";
 
-import type { CompanyKey, OpcoesDaEngenhariaResposta, OrdemDeServicoResumo, VisaoGeralDaEngenharia } from "@plugga/shared";
-import { Activity, ArrowRight, Building2, CalendarCheck, CalendarDays, Clock, HardHat, Settings, TriangleAlert, Wrench } from "lucide-react";
+import type { CompanyKey, ListarProtocolosResposta, OpcoesDaEngenhariaResposta, OrdemDeServicoResumo, VisaoGeralDaEngenharia } from "@plugga/shared";
+import { Activity, ArrowRight, Building2, CalendarCheck, CalendarDays, Clock, FileCheck, HardHat, Settings, TriangleAlert, Wrench } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type ReactNode } from "react";
 
 import { diaPorExtenso, notaDasAtrasadas, notaDoCampoHoje, ROTA_VISAO_GERAL_DA_ENGENHARIA } from "../../lib/engenharia";
 import { agendaDaOrdem, hrefDasOrdens, quandoNaFicha, ROTULO_DO_TIPO, textoDoAtraso } from "../../lib/ordens-de-servico";
+import { hrefDosProtocolos, prazoDoProtocolo, ROTULO_DA_SITUACAO_DO_PROTOCOLO, ROTULO_DO_TIPO_DE_PROTOCOLO, textoDaVerificacao } from "../../lib/protocolos";
 import { prazoDaOcorrencia } from "../../lib/tarefas";
 import { hrefDasUsinas } from "../../lib/usinas";
 import { ROTULO_DA_EMPRESA } from "../../lib/compras";
@@ -61,9 +62,10 @@ function LinhaDeOrdem({ ordem: o, hoje, atrasada = false }: { ordem: OrdemDeServ
 /**
  * Visão geral da Engenharia (PLU-349): o dia em metric cards (que abrem as O.S.
  * filtradas), o campo de hoje, as atrasadas e as tarefas de hoje. O monitoramento
- * e os protocolos entram com as Usinas (PLU-347) e os Protocolos (PLU-348).
+ * e os protocolos entram com as Usinas (PLU-347) e os Protocolos (PLU-348); o bloco de
+ * protocolos só para quem tem a tela (`protocolos` nulo, sem bloco).
  */
-export function VisaoGeralDaEngenhariaView({ dados, empresa, opcoes }: { dados: VisaoGeralDaEngenharia; empresa?: CompanyKey; opcoes: OpcoesDaEngenhariaResposta | null }) {
+export function VisaoGeralDaEngenhariaView({ dados, empresa, opcoes, protocolos }: { dados: VisaoGeralDaEngenharia; empresa?: CompanyKey; opcoes: OpcoesDaEngenhariaResposta | null; protocolos: ListarProtocolosResposta | null }) {
   const router = useRouter();
   const [criando, setCriando] = useState(false);
   const [configurando, setConfigurando] = useState(false);
@@ -126,6 +128,19 @@ export function VisaoGeralDaEngenhariaView({ dados, empresa, opcoes }: { dados: 
         </Bloco>
       </div>
     </div>
+
+    {protocolos ? <Bloco icone={<FileCheck size={16} aria-hidden="true" />} titulo="Protocolos"
+      sub={protocolos.contagens.emAndamento ? `${protocolos.contagens.verificarHoje} para verificar hoje · ${protocolos.contagens.vencemEm7Dias} com data-limite em 7 dias` : "Nenhum protocolo em andamento."}
+      link={{ href: hrefDosProtocolos({ situacao: protocolos.contagens.verificarHoje ? "verificar_hoje" : "em_andamento", departamento: "engenharia-obras", ...(empresa ? { empresa } : {}) }), rotulo: protocolos.contagens.verificarHoje ? "Verificar" : "Ver todos" }}>
+      {protocolos.itens.length ? <ul className={styles.listaDoBloco}>{[...protocolos.itens].sort((a, b) => a.dataLimite.localeCompare(b.dataLimite)).slice(0, 4).map((p) => {
+        const prazo = prazoDoProtocolo(p);
+        return <li key={p.id}><Link href={hrefDosProtocolos({}, p.id)} className={styles.linhaDoBloco}>
+          <span className={styles.caixaPequena} aria-hidden="true"><FileCheck size={16} /></span>
+          <span className={styles.textoDaLinha}><strong>{p.cliente.nome}</strong><small>{ROTULO_DO_TIPO_DE_PROTOCOLO[p.tipo]} · {p.numero} · {textoDaVerificacao(p, hoje)}</small></span>
+          <span className={styles.ladoDaLinha}><span className={prazo.tom === "perigo" ? styles.atraso : undefined}>{prazo.texto}</span><span className="ui-badge ui-tone--neutral">{ROTULO_DA_SITUACAO_DO_PROTOCOLO[p.situacao]}</span></span>
+        </Link></li>;
+      })}</ul> : null}
+    </Bloco> : null}
 
     {configurando ? <ConfiguracoesDaEngenharia opcoes={opcoes} aoFechar={() => setConfigurando(false)} /> : null}
     {criando ? <OrdemForm empresaInicial={empresa} hoje={hoje} prazoSugerido={opcoes?.prazoSugerido} aoCancelar={() => setCriando(false)}

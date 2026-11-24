@@ -33,6 +33,9 @@ import {
   monitoramentoDoDiaSchema,
   usinaSchema,
   agendaRespostaSchema,
+  listarProtocolosRespostaSchema,
+  opcoesDosProtocolosRespostaSchema,
+  protocoloSchema,
   opcoesDeTarefasRespostaSchema,
   type DepartamentoComTarefas,
   opcoesDaEngenhariaRespostaSchema,
@@ -218,3 +221,12 @@ export const fetchPlataformas = () => lerApi("/engenharia/plataformas", listarPl
 
 /** GET /engenharia/agenda: a semana × técnico e as O.S. para agendar (PLU-346). */
 export const fetchAgendaDeCampo = (consulta: Record<string, string | undefined>) => lerApi("/engenharia/agenda", agendaRespostaSchema, {}, { consulta });
+
+/** GET /protocolos: os protocolos na distribuidora, com as contagens (PLU-348). */
+export const fetchProtocolos = (consulta: Record<string, string | undefined>) => lerApi("/protocolos", listarProtocolosRespostaSchema, {}, { consulta });
+
+/** GET /protocolos/:id: a ficha, com o histórico de verificações. */
+export const fetchProtocolo = (id: string) => lerApi("/protocolos/:id", protocoloSchema, { id });
+
+/** GET /protocolos/opcoes: distribuidoras, tipos, situações e os departamentos da pessoa. */
+export const fetchOpcoesDosProtocolos = () => lerApi("/protocolos/opcoes", opcoesDosProtocolosRespostaSchema);

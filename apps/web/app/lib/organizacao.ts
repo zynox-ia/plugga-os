@@ -194,8 +194,8 @@ export const DEPARTAMENTOS: Departamento[] = [
       // Usinas e o monitoramento do dia (PLU-347), atrás do portão.
       { label: "Usinas", telas: telasPorDepartamento["engenharia-obras"], ...(engenhariaHabilitado() ? { rota: "/engenharia/usinas", status: "parcial" as const } : { status: "em-breve" as const }) },
       { id: "engenharia-obras.relatorios", label: "Relatórios de campo · fotos e aceite", status: "em-breve" },
-      // Protocolos na distribuidora (PLU-348): a API está pronta; a tela vem a seguir.
-      { id: "engenharia-obras.protocolos", label: "Protocolos", status: "em-breve" },
+      // Protocolos na distribuidora (PLU-348), atrás do portão. O Operacional abre a mesma tela, sem item no menu.
+      { id: "engenharia-obras.protocolos", label: "Protocolos", ...(engenhariaHabilitado() ? { rota: "/engenharia/protocolos", status: "parcial" as const } : { status: "em-breve" as const }) },
     ],
     // Ordens de serviço abre com qualquer uma de quatro telas; o editor de acesso segue concedendo as oito.
     telas: [

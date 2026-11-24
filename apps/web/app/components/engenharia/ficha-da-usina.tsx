@@ -7,6 +7,7 @@ import { useId, useRef, useState, type KeyboardEvent } from "react";
 
 import { dataEmManaus, diaLegivel, ROTULO_DA_EMPRESA } from "../../lib/compras";
 import { horarioEmManaus, hrefDasOrdens, ROTULO_DA_SITUACAO, ROTULO_DO_TIPO } from "../../lib/ordens-de-servico";
+import { hrefDosProtocolos, prazoDoProtocolo, ROTULO_DA_SITUACAO_DO_PROTOCOLO, ROTULO_DO_TIPO_DE_PROTOCOLO, textoDaVerificacao } from "../../lib/protocolos";
 import { kwpLegivel, ROTULO_DA_SITUACAO_DO_MONITORAMENTO, rotuloDaUc } from "../../lib/usinas";
 import fichaCompras from "../compras/ficha-do-pedido.module.css";
 import { FecharModal, Modal } from "../modal";
@@ -23,7 +24,7 @@ const ROTULO_DA_ORIGEM = { manual: "Cadastro manual", importacao: "Planilha de l
 
 /**
  * Ficha da usina (PLU-347): visão geral com o último alerta, o monitoramento por
- * dia, as O.S. e os protocolos da UC (estes chegam com a PLU-348). Editar e
+ * dia, as O.S. e os protocolos da UC em andamento (PLU-348). Editar e
  * Abrir O.S. seguem `acoesPermitidas`.
  */
 export function FichaDaUsina({ usina: inicial, plataformas, hoje, prazoSugerido, aoFechar, aoAtualizar }: {
@@ -47,7 +48,7 @@ export function FichaDaUsina({ usina: inicial, plataformas, hoje, prazoSugerido,
     { id: "geral", titulo: "Visão geral", curto: "Geral", icone: LayoutGrid },
     { id: "monitoramento", titulo: "Monitoramento", curto: "Monitor.", icone: Activity },
     { id: "os", titulo: "O.S.", curto: "O.S.", conta: u.ordens.length, icone: Wrench },
-    { id: "protocolos", titulo: "Protocolos", curto: "Protoc.", icone: FileCheck },
+    { id: "protocolos", titulo: "Protocolos", curto: "Protoc.", ...(u.protocolos ? { conta: u.protocolos.length } : {}), icone: FileCheck },
   ];
   function navegar(evento: KeyboardEvent<HTMLDivElement>) {
     const i = abas.findIndex((a) => a.id === aba);
@@ -124,7 +125,13 @@ export function FichaDaUsina({ usina: inicial, plataformas, hoje, prazoSugerido,
           </div> : null}
           {aba === "protocolos" ? <div className={fichaCompras.secao}>
             <div className={fichaCompras.barra}><div><h3>Protocolos da {rotuloDaUc(u.uc.codigo)}</h3><p>Pedidos à distribuidora: ligação, liberação, orçamento de conexão.</p></div></div>
-            <p className={fichaCompras.muted}>Os protocolos da UC aparecem aqui quando a tela de Protocolos chegar.</p>
+            {u.protocolos === null ? <p className={fichaCompras.muted}>Os protocolos aparecem para quem tem a tela de Protocolos.</p>
+              : u.protocolos.length === 0 ? <p className={fichaCompras.muted}>Nenhum protocolo em andamento nesta UC.</p>
+              : <ul className={styles.historico}>{u.protocolos.map((p) => { const prazo = prazoDoProtocolo(p); return <li key={p.id}>
+                <span className={styles.diaDoHistorico}><Link href={hrefDosProtocolos({}, p.id)}>{p.numero}</Link></span>
+                <span className={styles.situacaoFeita}>{ROTULO_DA_SITUACAO_DO_PROTOCOLO[p.situacao]}</span>
+                <span className={styles.textoDoHistorico}>{ROTULO_DO_TIPO_DE_PROTOCOLO[p.tipo]} · {textoDaVerificacao(p, hoje)}<small className={prazo.tom === "perigo" ? styles.perigo : undefined}>limite {diaLegivel(p.dataLimite)} · {prazo.texto}</small></span>
+              </li>; })}</ul>}
           </div> : null}
         </section>
         {pode("abrir_os") ? <footer className={`${fichaCompras.rodape} ${styles.rodapeDaFicha}`}>

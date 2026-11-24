@@ -100,3 +100,13 @@ test("Compras abre com a tela suprimentos.compras ou com o Financeiro (PLU-328)"
   assert.equal(podeAbrirPagina({ plataforma: null, departamentos: [{ departamento: "engenharia-obras", nivel: "membro" }] }, caminho), false);
   assert.equal(podeAbrirPagina({ plataforma: "admin", departamentos: [] }, caminho), true);
 });
+
+test("Protocolos abre com a tela de protocolos da Engenharia ou do Operacional, com o portão aberto (PLU-348)", () => {
+  const caminho = "/engenharia/protocolos";
+  const abre = (acesso: Acesso, NODE_ENV = "development") => podeAbrirPagina(acesso, caminho, { NODE_ENV });
+  assert.equal(abre({ plataforma: null, departamentos: [{ departamento: "engenharia-obras", nivel: "membro", telas: ["engenharia-obras.protocolos"] }] }), true);
+  assert.equal(abre({ plataforma: null, departamentos: [{ departamento: "energia-opm", nivel: "membro", telas: ["energia-opm.protocolos"] }] }), true);
+  assert.equal(abre({ plataforma: null, departamentos: [{ departamento: "engenharia-obras", nivel: "membro", telas: ["engenharia-obras.usinas"] }] }), false);
+  assert.equal(abre({ plataforma: null, departamentos: [{ departamento: "energia-opm", nivel: "membro", telas: ["energia-opm.ciclos"] }] }), false);
+  assert.equal(abre({ plataforma: null, departamentos: [{ departamento: "engenharia-obras", nivel: "membro", telas: ["engenharia-obras.protocolos"] }] }, "production"), false);
+});
