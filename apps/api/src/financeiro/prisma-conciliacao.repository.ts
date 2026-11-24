@@ -21,7 +21,7 @@ import { Conflito, ErroDeDominio, EstadoInvalido, NaoEncontrado, RequisicaoInval
 import { diaEmManaus, inicioDoDiaEmManaus } from "../compras/dias-uteis";
 import type { AuthPrincipal } from "../core/auth/auth.types";
 import { PrismaService } from "../prisma/prisma.service";
-import { montarPainel, pareceTarifa, problemaDaLinhaParaCriar, problemaDoPar, JANELA_DA_SUGESTAO_DIAS, type LancamentoParaConciliar, type MovimentoParaConciliar } from "./conciliacao.rules";
+import { montarPainel, pareceTarifa, problemaDaLinhaParaCriar, problemaDoPar, valorEmReais, JANELA_DA_SUGESTAO_DIAS, type LancamentoParaConciliar, type MovimentoParaConciliar } from "./conciliacao.rules";
 import { conteudoDoMovimento, type ExtratoLido, type MovimentoLido } from "./extrato-ofx";
 import { codigoDoLancamento } from "./financeiro.rules";
 import { ReflexosDoLancamento } from "./reflexo-do-lancamento";
@@ -65,6 +65,16 @@ const paraExtrato = (e: LinhaDoExtrato, repetidos: number): ExtratoImportado => 
   repetidos,
   importadoEm: e.importadoEm.toISOString(),
 });
+
+/** 409 da receita guiada numa competência que já tem a cobrança do cliente, com a existente (como na cobrança manual). */
+const jaHaCobranca = (existente: { id: string; codigo: string } | null, competencia: string | null): Conflito => {
+  const mes = competencia ? ` em ${competencia.slice(5)}/${competencia.slice(0, 4)}` : " nesta competência";
+  return new Conflito(
+    `Já existe a cobrança ${existente ? `${existente.codigo} ` : ""}deste cliente${mes}: concilie a linha com ela (ou registre o recebimento nela).`,
+    [{ campo: "competencia", problema: "Uma cobrança por cliente e competência." }],
+    existente ? { existente } : undefined,
+  );
+};
 
 /**
  * A conciliação (PLU-339): o extrato bancário importado e os movimentos dele. Quem tem a
@@ -296,12 +306,26 @@ export class PrismaConciliacaoRepository {
    * conciliada com ela; com outro valor, só com `conciliar: false`, e a linha fica sem par.
    */
   async criarLancamento(input: CriarLancamentoDoExtrato, principal: AuthPrincipal, agora: Date): Promise<LancamentoCriadoNaConciliacao> {
+    try {
+      return await this.criarLancamentoNaTx(input, principal, agora);
+    } catch (erro) {
+      // A corrida com outra cobrança da mesma competência: o índice único decide, e a resposta é a mesma.
+      if (input.tipo === "entrada" && erro instanceof Prisma.PrismaClientKnownRequestError && erro.code === "P2002") {
+        const movimento = await this.prisma.comContexto((tx) => tx.movimentoDoExtrato.findUnique({ where: { id: input.movimentoId }, select: { companyId: true, dia: true } }));
+        const existente = movimento && await this.prisma.comContexto((tx) => this.cobrancaDaCompetencia(tx, movimento.companyId, input.clienteId, input.competencia ?? diaEmManaus(movimento.dia).slice(0, 7)));
+        throw jaHaCobranca(existente ?? null, input.competencia ?? (movimento ? diaEmManaus(movimento.dia).slice(0, 7) : null));
+      }
+      throw erro;
+    }
+  }
+
+  private async criarLancamentoNaTx(input: CriarLancamentoDoExtrato, principal: AuthPrincipal, agora: Date): Promise<LancamentoCriadoNaConciliacao> {
     return this.prisma.comContexto(async (tx) => {
       const movimento = await this.linhaParaCriar(tx, input.movimentoId, input.tipo);
       const daLinha = movimento.valor.abs();
       const valor = input.valor === undefined ? daLinha : new Prisma.Decimal(input.valor);
       if (input.conciliar && !valor.equals(daLinha)) {
-        throw new EstadoInvalido(`O valor é diferente do da linha do extrato (${daLinha.toFixed(2)}): use o valor da linha, ou crie sem conciliar.`, [{ campo: "valor", problema: "Diferente do da linha." }]);
+        throw new EstadoInvalido(`O valor é diferente do da linha do extrato (${valorEmReais(daLinha.toFixed(2))}): use o valor da linha, ou crie sem conciliar.`, [{ campo: "valor", problema: "Diferente do da linha." }]);
       }
       const dia = movimento.dia;
       const comum = {
@@ -323,9 +347,14 @@ export class PrismaConciliacaoRepository {
       } else {
         await this.garantirCliente(tx, input.clienteId);
         await this.garantirCategoria(tx, input.categoriaId, movimento.companyId, "receita");
+        const competencia = input.competencia ?? diaEmManaus(dia).slice(0, 7);
+        // Uma cobrança por cliente e competência: o caso comum é o cliente ter pago a cobrança do mês
+        // e a linha ter ficado sem par (outro valor ou fora da janela). Quem resolve é a existente.
+        const existente = await this.cobrancaDaCompetencia(tx, movimento.companyId, input.clienteId, competencia);
+        if (existente) throw jaHaCobranca(existente, competencia);
         criado = await tx.lancamento.create({
           data: {
-            ...comum, tipo: "entrada", clientId: input.clienteId, categoriaId: input.categoriaId, competencia: input.competencia ?? diaEmManaus(dia).slice(0, 7),
+            ...comum, tipo: "entrada", clientId: input.clienteId, categoriaId: input.categoriaId, competencia,
             etapa: "recebida", recebidoEm: dia, valorRecebido: valor, recebimentoRegistradoEm: agora, recebimentoRegistradoPorId: principal.id,
           },
           select: { id: true, numero: true },
@@ -420,6 +449,11 @@ export class PrismaConciliacaoRepository {
       : c.tipo !== tipo ? (tipo === "despesa" ? "A despesa usa categoria de despesa." : "A receita usa categoria de receita.")
       : !c.ativa ? "A categoria está inativa." : null;
     if (problema) throw new RequisicaoInvalida(problema, [{ campo: "categoriaId", problema }]);
+  }
+
+  private async cobrancaDaCompetencia(tx: Prisma.TransactionClient, empresa: string, clienteId: string, competencia: string): Promise<{ id: string; codigo: string } | null> {
+    const l = await tx.lancamento.findFirst({ where: { tipo: "entrada", companyId: empresa, clientId: clienteId, competencia, canceladoEm: null }, select: { id: true, numero: true } });
+    return l ? { id: l.id, codigo: codigoDoLancamento("entrada", l.numero) } : null;
   }
 
   /** O cliente pela função do Financeiro (que não lê `clients`): existe e a pessoa alcança. */

@@ -45,6 +45,8 @@ const emReais = (c: bigint): string => {
   const inteiro = (a / 100n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
   return `R$ ${inteiro},${(a % 100n).toString().padStart(2, "0")}`;
 };
+/** "1742.18" ou "-1742.18" → "R$ 1.742,18", sem sinal: o formato das mensagens da Conciliação. */
+export const valorEmReais = (valor: string): string => emReais(centavos(valor));
 const comDuasCasas = (c: bigint): string => `${c < 0n ? "-" : ""}${(absoluto(c) / 100n).toString()}.${(absoluto(c) % 100n).toString().padStart(2, "0")}`;
 const diasEntre = (a: string, b: string): number => Math.abs(Date.parse(a) - Date.parse(b)) / 86_400_000;
 const liquidado = (l: LancamentoParaConciliar) => (l.tipo === "saida" ? l.etapa === "paga" : l.etapa === "recebida");

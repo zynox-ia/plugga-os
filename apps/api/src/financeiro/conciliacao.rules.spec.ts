@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { montarPainel, pareceTarifa, problemaDaLinhaParaCriar, problemaDoPar, type LancamentoParaConciliar, type MovimentoParaConciliar } from "./conciliacao.rules";
+import { montarPainel, pareceTarifa, problemaDaLinhaParaCriar, problemaDoPar, valorEmReais, type LancamentoParaConciliar, type MovimentoParaConciliar } from "./conciliacao.rules";
 
 const CONTA = "c1";
 const mov = (id: string, dia: string, valor: string, o: Partial<MovimentoParaConciliar> = {}): MovimentoParaConciliar => ({
@@ -118,4 +118,8 @@ describe("C5: a linha que parece tarifa e a linha que vira lançamento", () => {
     expect(problemaDaLinhaParaCriar({ valor: "10.00", estado: "pendente" }, "saida")).toMatch(/crédito/);
     expect(problemaDaLinhaParaCriar({ valor: "-10.00", estado: "pendente" }, "entrada")).toMatch(/débito/);
   });
+});
+
+it("o valor das mensagens, em reais e sem sinal", () => {
+  expect([valorEmReais("250.00"), valorEmReais("-1742.18"), valorEmReais("1234567.5")]).toEqual(["R$ 250,00", "R$ 1.742,18", "R$ 1.234.567,50"]);
 });
