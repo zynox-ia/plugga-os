@@ -16,6 +16,15 @@ import { PrismaOmieImportacaoRepository, type LidosDoOmie } from "./prisma-omie-
 const NOME_DA_EMPRESA: Record<CompanyKey, string> = { plugga: "Plugga", waze: "Waze" };
 
 /**
+ * O OMIE recusa a mesma consulta repetida em menos de 60 s ("consumo redundante"). A
+ * gerência confere, olha e importa: a importação usa o que a conferência leu, se for de
+ * até 5 min; conferir de novo em menos de 1 min também reaproveita a leitura. A trava e a
+ * reconferência dentro da transação continuam valendo.
+ */
+export const VALIDADE_DA_LEITURA_PARA_IMPORTAR_MS = 5 * 60_000;
+export const VALIDADE_DA_LEITURA_PARA_CONFERIR_MS = 60_000;
+
+/**
  * "Conferir com o OMIE" e "Importar do OMIE" (S4, PLU-342), por empresa e a pedido da
  * gerência. Lê o plano de contas e as contas correntes do OMIE com o par confirmado da
  * empresa (no modo mock, o dublê) e compara com o cadastro do Plugga OS, que é o dono.
@@ -23,6 +32,9 @@ const NOME_DA_EMPRESA: Record<CompanyKey, string> = { plugga: "Plugga", waze: "W
  */
 @Injectable()
 export class OmieImportacaoService {
+  /** A última leitura do OMIE por empresa, nesta instância da API. */
+  private readonly leituras = new Map<CompanyKey, { lidos: LidosDoOmie; em: number; par: string }>();
+
   constructor(
     @Inject(OmieConexoesService) private readonly conexoes: OmieConexoesService,
     @Inject(OmiePort) private readonly omie: OmiePort,
@@ -30,29 +42,38 @@ export class OmieImportacaoService {
   ) {}
 
   async conferir(empresa: CompanyKey, agora = new Date()): Promise<ConferenciaDoOmie> {
-    const lidos = await this.ler(empresa);
-    return this.paraATela(empresa, await this.repositorio.conferir(empresa, lidos), agora);
+    const { lidos, em } = await this.ler(empresa, agora, VALIDADE_DA_LEITURA_PARA_CONFERIR_MS);
+    return this.paraATela(empresa, await this.repositorio.conferir(empresa, lidos), em);
   }
 
   async importar(empresa: CompanyKey, principal: AuthPrincipal, agora = new Date()): Promise<ResultadoDaImportacaoDoOmie> {
-    const lidos = await this.ler(empresa);
+    const { lidos, em } = await this.ler(empresa, agora, VALIDADE_DA_LEITURA_PARA_IMPORTAR_MS);
     const contagem = await this.repositorio.importar(empresa, lidos, principal, agora);
     // A conferência de depois, com o mesmo que foi lido: a tela troca por ela.
-    const conferencia = this.paraATela(empresa, await this.repositorio.conferir(empresa, lidos), agora);
+    const conferencia = this.paraATela(empresa, await this.repositorio.conferir(empresa, lidos), em);
     return resultadoDaImportacaoDoOmieSchema.parse({ ...contagem, conferencia });
   }
 
-  private async ler(empresa: CompanyKey): Promise<LidosDoOmie> {
+  /** O que o OMIE devolveu e quando foi lido (a leitura guardada vale só para o mesmo par). */
+  private async ler(empresa: CompanyKey, agora: Date, validadeMs: number): Promise<{ lidos: LidosDoOmie; em: Date }> {
+    // A conexão é conferida sempre, mesmo com leitura guardada: desligada, nada vale.
     const credenciais = await this.conexoes.credenciais(empresa);
-    if (!credenciais) throw new EstadoInvalido(`Conecte o OMIE da ${NOME_DA_EMPRESA[empresa]} antes de importar.`);
+    if (!credenciais) {
+      this.leituras.delete(empresa);
+      throw new EstadoInvalido(`Conecte o OMIE da ${NOME_DA_EMPRESA[empresa]} antes de importar.`);
+    }
+    const guardada = this.leituras.get(empresa);
+    if (guardada && guardada.par === credenciais.appKey && agora.getTime() - guardada.em < validadeMs) return { lidos: guardada.lidos, em: new Date(guardada.em) };
     const [categorias, contas] = await Promise.all([this.omie.listarCategorias(credenciais), this.omie.listarContasCorrentes(credenciais)]);
-    return { categorias, contas };
+    const lidos = { categorias, contas };
+    this.leituras.set(empresa, { lidos, em: agora.getTime(), par: credenciais.appKey });
+    return { lidos, em: agora };
   }
 
-  private paraATela(empresa: CompanyKey, r: Awaited<ReturnType<PrismaOmieImportacaoRepository["conferir"]>>, agora: Date): ConferenciaDoOmie {
+  private paraATela(empresa: CompanyKey, r: Awaited<ReturnType<PrismaOmieImportacaoRepository["conferir"]>>, lidoEm: Date): ConferenciaDoOmie {
     return conferenciaDoOmieSchema.parse({
       empresa,
-      lidoEm: agora.toISOString(),
+      lidoEm: lidoEm.toISOString(),
       categorias: { itens: r.categorias.itens, resumo: r.categorias.resumo },
       contasCorrentes: { itens: r.contas.itens, resumo: r.contas.resumo },
     });
