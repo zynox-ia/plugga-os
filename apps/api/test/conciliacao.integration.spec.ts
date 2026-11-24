@@ -228,7 +228,7 @@ describe.skipIf(!HABILITADO)("conciliação: extrato bancário no Postgres", () 
   it("C4: o saldo da conta é o saldo inicial (o fim do dia dele) mais todo o liquidado depois; o conciliado é o segundo número", async () => {
     const financeiro = new PrismaFinanceiroRepository(prisma, new AuditAppender());
     const saldoDaConta = async () => {
-      const c = (await financeiro.opcoes()).contasCorrentes.find((x) => x.id === conta.id);
+      const c = (await financeiro.opcoes(papelNoFinanceiro({ plataforma: "admin", departamentos: [] }))).contasCorrentes.find((x) => x.id === conta.id);
       return [c?.saldoCalculado, c?.saldoConciliado];
     };
     expect(await saldoDaConta()).toEqual([null, null]);

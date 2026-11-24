@@ -247,8 +247,8 @@ export class PrismaFinanceiroRepository {
   }
 
   /** `papel`: o saldo calculado da conta só para quem alcança os dois tipos (senão, pelo RLS, ele seria parcial). */
-  async opcoes(papel?: PapelNoFinanceiro): Promise<OpcoesDoFinanceiro> {
-    const veSaldo = !papel || (papel.saidas && papel.entradas);
+  async opcoes(papel: PapelNoFinanceiro): Promise<OpcoesDoFinanceiro> {
+    const veSaldo = papel.saidas && papel.entradas;
     const [categorias, contas, fornecedores, conectores, saldos] = await this.prisma.comContexto((tx) => Promise.all([
       tx.categoriaFinanceira.findMany({ orderBy: [{ companyId: "asc" }, { codigo: "asc" }] }),
       tx.contaCorrente.findMany({ orderBy: [{ companyId: "asc" }, { nome: "asc" }] }),

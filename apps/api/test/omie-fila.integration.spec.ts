@@ -176,12 +176,12 @@ describe.skipIf(!HABILITADO)("fila do OMIE no Postgres", () => {
       conectores.inscrever(ligada ? new OmieConectorDoFinanceiro(ligada) : new OmieConectorDoFinanceiro());
       return new PrismaFinanceiroRepository(prisma, new AuditAppender(), reflexos, conectores);
     };
-    expect((await comConector(async (_tx, empresa) => empresa === "plugga").opcoes()).conectores).toEqual({ omie: { plugga: true, waze: false } });
+    expect((await comConector(async (_tx, empresa) => empresa === "plugga").opcoes(papel)).conectores).toEqual({ omie: { plugga: true, waze: false } });
     // A função real do banco responde as duas empresas (o par de teste não existe, então é falso).
-    const real = (await comConector().opcoes()).conectores;
+    const real = (await comConector().opcoes(papel)).conectores;
     expect(Object.keys(real?.omie ?? {}).sort()).toEqual(["plugga", "waze"]);
     expect(Object.values(real?.omie ?? {}).every((v) => typeof v === "boolean")).toBe(true);
-    expect(await repositorio.opcoes()).not.toHaveProperty("conectores");
+    expect(await repositorio.opcoes(papel)).not.toHaveProperty("conectores");
   }, PRAZO_MS);
 
   it("o backfill da tabela do conector (o SQL da migration): copia o estado de antes, ignora quem nunca foi ao OMIE e pode rodar de novo", async () => {
