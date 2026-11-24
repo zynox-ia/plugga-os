@@ -6,6 +6,7 @@ import {
   acoesPermitidas,
   codigoDoLancamento,
   condicaoDaSituacao,
+  outraPernaDaTransferencia,
   diasParaVencer,
   emCobranca,
   fimDoMesEmManaus,
@@ -102,6 +103,15 @@ describe("código e busca", () => {
     expect(codigoDoLancamento("entrada", 12, "transferencia")).toBe("TR-0012 · entrada");
     expect(codigoDoLancamento("saida", 12, "avulsa")).toBe("CP-0012");
     expect(condicaoDaSituacao("transferencias")).toEqual({ transferencias: true, cancelado: false });
+  });
+
+  it("a outra perna sai do sentido oposto; sem acesso a ela (RLS), o id é nulo e nunca aponta para a própria", () => {
+    const entrada = { id: "e", tipo: "entrada" as const };
+    const saida = { id: "s", tipo: "saida" as const };
+    expect(outraPernaDaTransferencia(entrada, 12, [entrada, saida])).toEqual({ id: "s", codigo: "TR-0012 · saída" });
+    expect(outraPernaDaTransferencia(saida, 12, [saida, entrada])).toEqual({ id: "e", codigo: "TR-0012 · entrada" });
+    // Só com Contas a receber, a saída não vem em `pernas`.
+    expect(outraPernaDaTransferencia(entrada, 12, [entrada])).toEqual({ id: null, codigo: "TR-0012 · saída" });
   });
 });
 

@@ -529,4 +529,25 @@ describe.skipIf(!HABILITADO)("conciliação: extrato bancário no Postgres", () 
     await expect(comoRuntime("pagar", async (tx) => { await tx.lancamento.create({ data: { tipo: "entrada", companyId: "waze", contaCorrenteId: ids.outraConta, descricao: `${marca} rls`, valor: 10, vencimento: t.dia, etapa: "recebida", origem: "transferencia", transferenciaId: t.id, recebidoEm: t.dia, recebimentoRegistradoEm: AGORA, valorRecebido: 10 } }); throw desfeito; }))
       .rejects.toThrow(/row-level security/);
   }, PRAZO_MS);
+
+  it("C6 no saldo: depois da transferência, a origem cai e o destino sobe no mesmo valor; a soma das contas e os cards não mudam", async () => {
+    const depois = new Date("2027-04-01T12:00:00Z");
+    const servico = new ConciliacaoService(repositorio, {} as never, () => depois);
+    const gerente = { ...principal, acesso: { plataforma: null, departamentos: [{ departamento: "financeiro", nivel: "gerente", telas: ["financeiro.conciliacao"] }] } } as AuthPrincipal;
+    const financeiro = new PrismaFinanceiroRepository(prisma, new AuditAppender());
+    const admin = papelNoFinanceiro({ plataforma: "admin", departamentos: [] });
+    await prisma.contaCorrente.update({ where: { id: ids.outraConta }, data: { saldoInicial: 0, saldoInicialEm: new Date("2027-01-01T04:00:00Z") } });
+    const fotografia = async () => {
+      const contas = (await financeiro.opcoes(admin)).contasCorrentes;
+      const saldo = (id: string) => Number(contas.find((c) => c.id === id)!.saldoCalculado);
+      const resumo = await financeiro.resumo(admin, "waze", depois);
+      return { origem: saldo(conta.id), destino: saldo(ids.outraConta), cards: [resumo.aPagar, resumo.aReceber, resumo.vencidos] };
+    };
+    const antes = await fotografia();
+    await naSessao(() => servico.criarTransferencia({ contaOrigemId: conta.id, contaDestinoId: ids.outraConta, valor: "123.45", dia: "2027-03-20" }, gerente));
+    const agora = await fotografia();
+    expect(Number((agora.origem - antes.origem).toFixed(2))).toBe(-123.45);
+    expect(Number((agora.destino - antes.destino).toFixed(2))).toBe(123.45);
+    expect(agora.cards).toEqual(antes.cards);
+  }, PRAZO_MS);
 });

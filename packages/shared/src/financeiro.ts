@@ -526,7 +526,8 @@ export const lancamentoSchema = lancamentoResumoSchema.extend({
     sentido: tipoDeLancamentoSchema,
     contaOrigem: z.object({ id: uuid, nome: z.string() }),
     contaDestino: z.object({ id: uuid, nome: z.string() }),
-    outraPerna: z.object({ id: uuid, codigo: z.string() }),
+    /** O `id` é nulo quando a pessoa não alcança a outra perna (só Contas a pagar, ou só a receber). */
+    outraPerna: z.object({ id: uuid.nullable(), codigo: z.string() }),
   }).optional(),
 });
 export type Lancamento = z.infer<typeof lancamentoSchema>;

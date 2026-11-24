@@ -41,6 +41,7 @@ import {
   fimDoMesEmManaus,
   inicioDoMesEmManaus,
   numeroDaBusca,
+  outraPernaDaTransferencia,
   codigoDaTransferencia,
   ehTransferencia,
   origensPagasSemAprovacao,
@@ -873,10 +874,9 @@ export class PrismaFinanceiroRepository {
 
   private transferenciaDoDetalhe(l: LinhaDoDetalhe): NonNullable<Lancamento["transferencia"]> {
     const t = l.transferencia!;
-    const outra = t.pernas.find((p) => p.id !== l.id);
     return {
       id: t.id, codigo: codigoDaTransferencia(t.numero), sentido: l.tipo, contaOrigem: t.contaOrigem, contaDestino: t.contaDestino,
-      outraPerna: { id: outra?.id ?? l.id, codigo: codigoDoLancamento(outra?.tipo ?? l.tipo, t.numero, "transferencia") },
+      outraPerna: outraPernaDaTransferencia(l, t.numero, t.pernas),
     };
   }
 

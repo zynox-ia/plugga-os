@@ -109,6 +109,20 @@ export const codigoDoLancamento = (tipo: TipoDeLancamento, numero: number, orige
     ? `${codigoDaTransferencia(numero)} · ${tipo === "saida" ? "saída" : "entrada"}`
     : `${tipo === "saida" ? "CP" : "CR"}-${String(numero).padStart(4, "0")}`;
 
+/**
+ * A outra perna de uma transferência, vista de uma delas. O código sai do sentido oposto (é
+ * sempre o outro tipo); o id é nulo quando o RLS esconde a outra perna (quem só tem Contas a
+ * receber não lê a saída, e vice-versa).
+ */
+export function outraPernaDaTransferencia(
+  perna: { id: string; tipo: TipoDeLancamento },
+  numero: number,
+  visiveis: readonly { id: string; tipo: TipoDeLancamento }[],
+): { id: string | null; codigo: string } {
+  const tipo: TipoDeLancamento = perna.tipo === "saida" ? "entrada" : "saida";
+  return { id: visiveis.find((p) => p.id !== perna.id && p.tipo === tipo)?.id ?? null, codigo: codigoDoLancamento(tipo, numero, "transferencia") };
+}
+
 /** As pernas de uma transferência entre contas: não são receita nem despesa (fora dos cards e das ações). */
 export const ehTransferencia = (l: { origem: string }): boolean => l.origem === "transferencia";
 
