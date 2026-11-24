@@ -269,6 +269,28 @@ describe.skipIf(!HABILITADO)("fila do OMIE no Postgres", () => {
     expect(chamadas.filter((c) => c.lancamentoId === id).map((c) => `${c.tipo}:${c.operacao}`)).toEqual(["saida:upsert", "saida:baixa"]);
   }, PRAZO_MS);
 
+  it("despesa sem categoria (CC14) espera no outbox: o despacho não a leva, o worker não a envia, e ao classificar ela sai", async () => {
+    modo = "write";
+    responder = async () => ({ codigo: `${marca.slice(5)}-semcat` });
+    const id = await novaConta();
+    await agir(id, { acao: "aprovar" });
+    // A conta da compra nasce sem categoria; aqui, o mesmo estado pelo banco (o contrato ainda a exige).
+    await prisma.$executeRaw`UPDATE public.lancamentos SET categoria_id = NULL WHERE id = ${id}::uuid`;
+    const [envio] = await envios(id);
+    enfileirados.length = 0;
+    await fila.despachar(new Date());
+    expect(enfileirados.map((j) => j.payload.envioId)).not.toContain(envio!.id);
+    expect(await fila.enviar(envio!.id, new Date())).toEqual({ skipped: true, motivo: "fora_da_vez" });
+    expect((await envios(id))[0]?.estado).toBe("pendente");
+    expect(chamadas.filter((c) => c.lancamentoId === id)).toEqual([]);
+
+    // Classificada, sai na próxima rodada.
+    await prisma.$executeRaw`UPDATE public.lancamentos SET categoria_id = ${ids.despesa}::uuid WHERE id = ${id}::uuid`;
+    await rodarFila(id);
+    expect((await envios(id))[0]?.estado).toBe("enviado");
+    expect(await noOmie(id)).toMatchObject({ omieEstado: "enviado", omieCodigo: `${marca.slice(5)}-semcat` });
+  }, PRAZO_MS);
+
   it("dois reenvios da mesma conta em momentos diferentes são dois envios, com chaves distintas", async () => {
     modo = "write";
     responder = async () => ({ codigo: "c1" });

@@ -113,6 +113,16 @@ describe.skipIf(!HABILITADO)("financeiro: lançamentos no Postgres", () => {
     })).rejects.toThrow();
   }, PRAZO_MS);
 
+  it("a despesa pode ficar sem categoria (CC14); a cobrança não", async () => {
+    const despesa = await novaConta();
+    await prisma.$executeRaw`UPDATE public.lancamentos SET categoria_id = NULL WHERE id = ${despesa}::uuid`;
+    // Classificar de novo vale; e a categoria de outra empresa segue recusada pela chave composta.
+    await expect(prisma.$executeRaw`UPDATE public.lancamentos SET categoria_id = ${ids.despesaWaze}::uuid WHERE id = ${despesa}::uuid`).rejects.toThrow();
+    await prisma.$executeRaw`UPDATE public.lancamentos SET categoria_id = ${ids.despesaPlugga}::uuid WHERE id = ${despesa}::uuid`;
+    const cobranca = await novaCobranca("2026-09");
+    await expect(prisma.$executeRaw`UPDATE public.lancamentos SET categoria_id = NULL WHERE id = ${cobranca}::uuid`).rejects.toThrow(/lancamentos_entrada_com_categoria/);
+  }, PRAZO_MS);
+
   it("tipo, número, empresa e origem não mudam", async () => {
     const id = await novaConta();
     await expect(prisma.lancamento.update({ where: { id }, data: { numero: 999_999 } })).rejects.toThrow();
@@ -331,8 +341,18 @@ describe.skipIf(!HABILITADO)("financeiro: lançamentos no Postgres", () => {
     expect(resposta.itens.every((i) => i.tipo === "saida")).toBe(true);
     expect(resposta.resumo).toMatchObject({ aReceber: null, saldoProjetado: null, vencidos: { aReceber: null } });
     expect(resposta.alcance).toEqual({ saidas: true, entradas: false });
-    // O modo só-resumo devolve os mesmos metric cards da lista.
-    expect(await repositorio.resumo(soPagar, undefined, AGORA)).toEqual((await repositorio.listar(listarLancamentosQuerySchema.parse({}), soPagar, AGORA)).resumo);
+    // O modo só-resumo devolve os mesmos metric cards da lista. Os dois somam o banco
+    // inteiro, e os outros arquivos do test:financeiro gravam em paralelo: compara um par
+    // lido sem escrita no meio (a mesma leitura antes e depois), até 5 tentativas.
+    let par: [unknown, unknown] = [null, undefined];
+    for (let tentativa = 0; tentativa < 5; tentativa++) {
+      const antes = await repositorio.resumo(soPagar, undefined, AGORA);
+      const daLista = (await repositorio.listar(listarLancamentosQuerySchema.parse({}), soPagar, AGORA)).resumo;
+      const depois = await repositorio.resumo(soPagar, undefined, AGORA);
+      par = [antes, daLista];
+      if (JSON.stringify(antes) === JSON.stringify(depois)) break;
+    }
+    expect(par[0]).toEqual(par[1]);
     const entrada = await novaCobranca("2027-01");
     await expect(repositorio.obter(entrada, soPagar, AGORA)).rejects.toBeInstanceOf(NaoEncontrado);
     // Com Conciliação o RLS deixa alterar a entrada; quem barra é a aplicação, que opera só o tipo da tela.
