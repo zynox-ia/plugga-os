@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger } from "@nestjs/common";
+import { Inject, Injectable, Logger, Optional } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { Prisma } from "@prisma/client";
 import type { ContaAPagarDoPedido } from "@plugga/shared";
@@ -7,6 +7,7 @@ import { AuditAppender } from "../audit/audit-appender";
 import { EstadoInvalido } from "../common/errors/dominio";
 import type { AuthPrincipal } from "../core/auth/auth.types";
 import { codigoDoLancamento } from "./financeiro.rules";
+import { ReflexosDoLancamento } from "./reflexo-do-lancamento";
 
 /** As recusas da função, que não deveriam acontecer logo depois da aprovação. */
 const RECUSAS_DA_FUNCAO = /CONTA_DA_COMPRA_(SO_NA_APROVACAO|SEM_SESSAO)/;
@@ -25,6 +26,7 @@ export class PrismaContaDaCompraRepository {
   constructor(
     @Inject(ConfigService) private readonly config: ConfigService,
     @Inject(AuditAppender) private readonly auditoria: AuditAppender,
+    @Optional() @Inject(ReflexosDoLancamento) private readonly reflexos: ReflexosDoLancamento = new ReflexosDoLancamento(),
   ) {}
 
   private get ligado(): boolean {
@@ -62,6 +64,31 @@ export class PrismaContaDaCompraRepository {
       });
     }
     return linha.id;
+  }
+
+  /**
+   * O pedido recém-cancelado cancela a conta dele (W3c), com o mesmo motivo, se ela ainda
+   * não foi paga; a paga fica como está (o estorno é do Financeiro). Os conectores ouvem
+   * o cancelamento como o de qualquer conta.
+   */
+  async cancelarComOPedido(tx: Prisma.TransactionClient, pedidoId: string, motivo: string, principal: AuthPrincipal): Promise<void> {
+    if (!this.ligado) return;
+    const canceladas = await tx.$queryRaw<{ id: string; company_id: string; etapa: "aberta" | "aprovada" }[]>`
+      SELECT id, company_id, etapa FROM plugga_security.financeiro_cancelar_conta_da_compra(${pedidoId}::uuid, ${motivo})`;
+    for (const conta of canceladas) {
+      // O motivo fica no lançamento: texto livre não entra no evento.
+      await this.auditoria.append(tx, {
+        eventName: "financeiro.lancamento.cancelado",
+        entityType: "lancamento",
+        entityId: conta.id,
+        companyId: conta.company_id,
+        actorType: principal.kind === "user" ? "user" : "agent",
+        actorId: principal.id,
+        payload: { etapa: conta.etapa, comMotivo: true, origem: "pedido_de_compra" },
+        occurredAt: new Date(),
+      });
+      await this.reflexos.aoMudar(tx, { lancamentoId: conta.id, empresa: conta.company_id, tipo: "saida", etapaAntes: conta.etapa, mudanca: "cancelado", porId: principal.id });
+    }
   }
 
   /** A conta de cada pedido, para a ficha de Compras. Vazio com o Financeiro desligado. */

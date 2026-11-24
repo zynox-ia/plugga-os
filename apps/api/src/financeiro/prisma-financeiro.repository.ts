@@ -318,6 +318,12 @@ export class PrismaFinanceiroRepository {
   async executarAcao(id: string, acao: AcaoDoLancamento, principal: AuthPrincipal, papel: PapelNoFinanceiro, agora: Date): Promise<void> {
     await this.prisma.comContexto(async (tx) => {
       const atual = await this.travar(tx, id, papel);
+      // A conta de um pedido de compra se cancela pelo pedido, em Compras, para os dois não divergirem (W3c).
+      if (acao.acao === "cancelar" && atual.origem === "pedido_de_compra" && atual.pedidoDeCompraId) {
+        const pedido = (await this.pedidosDasContas([atual])).get(atual.pedidoDeCompraId);
+        const qual = pedido ? `do pedido PC-${String(pedido.numero).padStart(4, "0")}` : "de um pedido de compra";
+        throw new EstadoInvalido(`Esta conta é ${qual}: cancele o pedido em Compras, e a conta é cancelada junto.`);
+      }
       const plano = planejarAcao(atual, acao, await anexosAtuais(tx, id), agora);
       if ("codigo" in plano) {
         const detalhes = plano.campo ? [{ campo: plano.campo, problema: plano.mensagem }] : undefined;
@@ -567,7 +573,7 @@ export class PrismaFinanceiroRepository {
     const linha = linhas.length === 0 ? null : await tx.lancamento.findUnique({
       where: { id },
       select: {
-        tipo: true, etapa: true, canceladoEm: true, vencimento: true, companyId: true, origem: true,
+        tipo: true, etapa: true, canceladoEm: true, vencimento: true, companyId: true, origem: true, pedidoDeCompraId: true,
         fornecedorId: true, categoriaId: true, contaCorrenteId: true, descricao: true, forma: true, observacao: true,
       },
     });

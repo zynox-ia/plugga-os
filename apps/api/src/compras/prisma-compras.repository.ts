@@ -63,8 +63,8 @@ const DIA_MS = 86_400_000;
  * fecha, a que abre, a autoria e o evento entram juntos ou não entram.
  */
 /** A parte do Financeiro de que Compras precisa (W3). */
-type ContaDaCompra = Pick<PrismaContaDaCompraRepository, "criarNaAprovacao" | "contasDosPedidos">;
-const SEM_FINANCEIRO: ContaDaCompra = { criarNaAprovacao: async () => null, contasDosPedidos: async () => new Map() };
+type ContaDaCompra = Pick<PrismaContaDaCompraRepository, "criarNaAprovacao" | "cancelarComOPedido" | "contasDosPedidos">;
+const SEM_FINANCEIRO: ContaDaCompra = { criarNaAprovacao: async () => null, cancelarComOPedido: async () => undefined, contasDosPedidos: async () => new Map() };
 
 @Injectable()
 export class PrismaComprasRepository {
@@ -336,6 +336,8 @@ export class PrismaComprasRepository {
       await tx.pedidoDeCompra.update({ where: { id }, data: { ...alteracoes, ...autoriaDaAcao(acao, principal.id, agora) } });
       // A aprovação gera a conta a pagar no Financeiro, na mesma transação (W3, PLU-341).
       if (acao.acao === "aprovar") await this.contaDaCompra.criarNaAprovacao(tx, id, principal);
+      // O cancelamento leva junto a conta ainda não paga (W3c).
+      if (acao.acao === "cancelar") await this.contaDaCompra.cancelarComOPedido(tx, id, acao.motivo, principal);
       await this.registrar(tx, evento, "pedido_de_compra", id, pedido.companyId, principal, {
         acao: acao.acao,
         de: pedido.etapa,

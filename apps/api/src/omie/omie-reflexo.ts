@@ -40,14 +40,16 @@ export class OmieReflexoDoLancamento implements ReflexoDoLancamento {
   constructor(@Optional() @Inject(CONEXAO_DO_OMIE_LIGADA) private readonly ligada: ConexaoDoOmieLigada = pelaConexaoConfirmada) {}
 
   async aoMudar(tx: Prisma.TransactionClient, fato: FatoDoLancamento): Promise<void> {
-    let chegouAoOmie = false;
     if (fato.mudanca === "cancelado") {
-      // Cancelar só vai ao OMIE se a conta já chegou lá ou está saindo; o que ainda está
-      // em aberto do lançamento cancelado é descartado, com o conector ligado ou não.
-      chegouAoOmie = (await tx.omieEnvio.count({ where: { lancamentoId: fato.lancamentoId, operacao: "upsert", estado: { in: ["enviado", "enviando"] } } })) > 0;
-      await tx.omieEnvio.updateMany({ where: { lancamentoId: fato.lancamentoId, estado: { in: ["pendente", "erro"] } }, data: { estado: "descartado" } });
+      // Pela função do conector, para valer com o RLS de quem cancela (o pedido de compra
+      // é cancelado em Compras, por quem pode não ter o Financeiro). Descarta o que está em
+      // aberto, com o conector ligado ou não; e, se a conta já chegou ao OMIE ou está
+      // saindo, pede o cancelamento lá (a regra de `enviosDoFato`).
+      const conectado = await this.ligada(tx, fato.empresa);
+      await tx.$executeRaw`SELECT plugga_security.omie_reflexo_do_cancelamento(${fato.lancamentoId}::uuid, ${conectado})`;
+      return;
     }
-    const pedidas = enviosDoFato({ tipo: fato.tipo, etapa: fato.etapaAntes }, fato.mudanca, chegouAoOmie);
+    const pedidas = enviosDoFato({ tipo: fato.tipo, etapa: fato.etapaAntes }, fato.mudanca, false);
     if (pedidas.length === 0 || !(await this.ligada(tx, fato.empresa))) return;
     const temTitulo = (await tx.omieEnvio.count({ where: { lancamentoId: fato.lancamentoId, operacao: "upsert" } })) > 0;
     await this.enfileirar(tx, fato, comOTituloAntes(pedidas, temTitulo));

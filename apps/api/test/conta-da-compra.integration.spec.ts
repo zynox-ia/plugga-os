@@ -62,6 +62,10 @@ describe.skipIf(!HABILITADO)("conta a pagar do pedido de compra aprovado", () =>
     return id;
   };
 
+  const cancelar = (id: string, quem: keyof typeof sessoes, ligado: boolean, motivo = "Compra desistida") =>
+    como(quem, () => compras(ligado).executarAcao(id, acaoDoPedidoSchema.parse({ acao: "cancelar", motivo }), pessoas[quem], AGORA));
+  let contaCorrenteId: string;
+
   beforeAll(async () => {
     await prisma.$connect();
     for (const id of ["plugga", "waze"]) await prisma.company.upsert({ where: { id }, create: { id, name: id }, update: {} });
@@ -77,18 +81,23 @@ describe.skipIf(!HABILITADO)("conta a pagar do pedido de compra aprovado", () =>
       pessoas[quem] = { id: pessoa.id, kind: "user", acesso: { plataforma: quem === "admin" ? "admin" : null, departamentos: [] } } as AuthPrincipal;
     }
     fornecedorId = (await prisma.fornecedor.create({ data: { nome: `${marca} fornecedor`, categoria: "servico" } })).id;
+    contaCorrenteId = (await prisma.contaCorrente.create({ data: { companyId: "plugga", nome: `${marca} conta` } })).id;
   }, PRAZO_MS);
 
   afterAll(async () => {
     const ids = (await prisma.pedidoDeCompra.findMany({ where: { titulo: { startsWith: marca } }, select: { id: true } })).map((p) => p.id);
     await prisma.$transaction(async (tx) => {
       await tx.$executeRawUnsafe("SET LOCAL session_replication_role = replica");
+      await tx.omieEnvio.deleteMany({ where: { lancamento: { pedidoDeCompraId: { in: ids } } } });
+      await tx.anexoDeLancamento.deleteMany({ where: { lancamento: { pedidoDeCompraId: { in: ids } } } });
+      await tx.historicoDeLancamento.deleteMany({ where: { lancamento: { pedidoDeCompraId: { in: ids } } } });
       await tx.lancamento.deleteMany({ where: { pedidoDeCompraId: { in: ids } } });
       await tx.pedidoDeCompra.updateMany({ where: { id: { in: ids } }, data: { cotacaoSelecionadaId: null } });
       await tx.cotacaoDeCompra.deleteMany({ where: { pedidoId: { in: ids } } });
       await tx.pedidoDeCompra.deleteMany({ where: { id: { in: ids } } });
     });
     await prisma.fornecedor.deleteMany({ where: { nome: { startsWith: marca } } });
+    await prisma.contaCorrente.deleteMany({ where: { nome: { startsWith: marca } } });
     await prisma.session.deleteMany({ where: { tokenHash: { in: Object.values(sessoes) } } });
     await prisma.user.deleteMany({ where: { email: { startsWith: marca } } });
     await prisma.$disconnect();
@@ -146,6 +155,52 @@ describe.skipIf(!HABILITADO)("conta a pagar do pedido de compra aprovado", () =>
       .toEqual([{ id: criada!.id }]);
     expect(await comoRuntime("outro", (tx) => tx.$queryRaw`SELECT id FROM plugga_security.contas_a_pagar_dos_pedidos(${[id]}::uuid[])`)).toEqual([]);
     expect(await comoRuntime("outro", (tx) => tx.$queryRaw`SELECT id FROM plugga_security.pedidos_das_contas(${[id]}::uuid[])`)).toEqual([]);
+  }, PRAZO_MS);
+
+  it("cancelar o pedido aprovado cancela a conta junto, com o motivo e o evento; o Financeiro não cancela a conta de um pedido", async () => {
+    const id = await aprovado("admin", true);
+    const conta = await prisma.lancamento.findUniqueOrThrow({ where: { pedidoDeCompraId: id }, select: { id: true } });
+    await expect(como("admin", () => financeiro.executarAcao(conta.id, { acao: "cancelar", motivo: "x" }, pessoas.admin, papel, AGORA)))
+      .rejects.toMatchObject({ codigo: "CONFLITO_ESTADO", message: expect.stringMatching(/^Esta conta é do pedido PC-\d{4}: cancele o pedido em Compras/) });
+
+    await cancelar(id, "admin", true);
+    const cancelada = await prisma.lancamento.findUniqueOrThrow({ where: { id: conta.id } });
+    expect(cancelada).toMatchObject({ canceladoPorId: pessoas.admin.id, cancelamentoMotivo: "Compra desistida" });
+    expect(cancelada.canceladoEm).not.toBeNull();
+    expect(await prisma.eventLog.findMany({ where: { entityId: conta.id, eventName: "financeiro.lancamento.cancelado" }, select: { payload: true } }))
+      .toEqual([{ payload: { etapa: "aprovada", comMotivo: true, origem: "pedido_de_compra" } }]);
+    expect((await como("admin", () => compras(true).detalhe(id))).contaAPagar).toMatchObject({ cancelado: true });
+  }, PRAZO_MS);
+
+  it("a conta já paga fica como está quando o pedido é cancelado; com o Financeiro desligado, o cancelamento não toca a conta", async () => {
+    const pago = await aprovado("admin", true);
+    const conta = await prisma.lancamento.findUniqueOrThrow({ where: { pedidoDeCompraId: pago }, select: { id: true } });
+    await como("admin", () => financeiro.registrarAnexo(conta.id, "comprovante", { chave: `${marca}/${randomUUID()}.pdf`, nome: "c.pdf", tamanho: 1, tipo: "application/pdf" }, pessoas.admin, papel, AGORA));
+    await como("admin", () => financeiro.executarAcao(conta.id, { acao: "registrar_pagamento", forma: "pix", contaCorrenteId, pagoEm: "2026-11-23" }, pessoas.admin, papel, AGORA));
+    await cancelar(pago, "admin", true);
+    expect(await prisma.lancamento.findUniqueOrThrow({ where: { id: conta.id }, select: { etapa: true, canceladoEm: true } })).toEqual({ etapa: "paga", canceladoEm: null });
+
+    const desligado = await aprovado("admin", true);
+    await cancelar(desligado, "admin", false);
+    expect((await prisma.lancamento.findUniqueOrThrow({ where: { pedidoDeCompraId: desligado }, select: { canceladoEm: true } })).canceladoEm).toBeNull();
+  }, PRAZO_MS);
+
+  it("pelo pool da aplicação: quem só tem Compras cancela a conta pela função; outra pessoa, ou pedido não cancelado, é recusado", async () => {
+    const id = await aprovado("comprador", false);
+    await comoRuntime("comprador", (tx) => tx.$queryRaw`SELECT id FROM plugga_security.financeiro_conta_da_compra(${id}::uuid)`);
+    // Pedido ainda não cancelado: recusa.
+    await expect(comoRuntime("comprador", (tx) => tx.$queryRaw`SELECT id FROM plugga_security.financeiro_cancelar_conta_da_compra(${id}::uuid, 'x')`))
+      .rejects.toThrow(/CANCELAMENTO_DA_COMPRA_SO_COM_O_PEDIDO/);
+    await cancelar(id, "comprador", false);
+    await expect(comoRuntime("outro", (tx) => tx.$queryRaw`SELECT id FROM plugga_security.financeiro_cancelar_conta_da_compra(${id}::uuid, 'x')`))
+      .rejects.toThrow(/CANCELAMENTO_DA_COMPRA_SO_COM_O_PEDIDO/);
+    const canceladas = await comoRuntime("comprador", (tx) => tx.$queryRaw<{ etapa: string }[]>`SELECT etapa FROM plugga_security.financeiro_cancelar_conta_da_compra(${id}::uuid, 'Compra desistida')`);
+    expect(canceladas).toEqual([{ etapa: "aprovada" }]);
+    // De novo, nada: já está cancelada.
+    expect(await comoRuntime("comprador", (tx) => tx.$queryRaw`SELECT etapa FROM plugga_security.financeiro_cancelar_conta_da_compra(${id}::uuid, 'x')`)).toEqual([]);
+    // O reflexo do OMIE pela função do conector também vale para quem só tem Compras.
+    const conta = await prisma.lancamento.findUniqueOrThrow({ where: { pedidoDeCompraId: id }, select: { id: true } });
+    await comoRuntime("comprador", (tx) => tx.$executeRaw`SELECT plugga_security.omie_reflexo_do_cancelamento(${conta.id}::uuid, true)`);
   }, PRAZO_MS);
 
   it("a função só cria a conta do pedido recém-aprovado, e só para quem aprovou", async () => {
