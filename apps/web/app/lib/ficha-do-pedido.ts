@@ -11,17 +11,18 @@ const ROTULO_DA_ETAPA_DA_CONTA: Record<ContaAPagarDoPedido["etapa"], string> = {
 
 /**
  * O vínculo do pedido com a conta a pagar que a aprovação gerou no Financeiro (W3,
- * PLU-341): o código, a etapa da conta (ou "Cancelada") e o link para a ficha do
- * lançamento. Só para quem abre os Lançamentos (a conferência já cobre o portão do
- * Financeiro); para os demais, e sem conta, nada aparece. `ambiente` só existe para o
- * teste do portão; a tela usa o do build.
+ * PLU-341): o código e a etapa da conta (ou "Cancelada"), que a API entrega a quem vê o
+ * pedido. O link para a ficha do lançamento só vai para quem abre os Lançamentos (a
+ * conferência cobre as telas do Financeiro e o portão); quem tem só Compras vê o código
+ * e a etapa, sem link, para saber se o Financeiro já pagou. Sem conta, nada aparece.
+ * `ambiente` só existe para o teste do portão; a tela usa o do build.
  */
-export function vinculoDaContaAPagar(conta: ContaAPagarDoPedido | null | undefined, acesso: Acesso | null | undefined, ambiente?: AmbienteDosRecursos): { codigo: string; situacao: string; href: string } | null {
-  if (!conta || !acesso || !podeAbrirPagina(acesso, "/financeiro/lancamentos", ambiente)) return null;
+export function vinculoDaContaAPagar(conta: ContaAPagarDoPedido | null | undefined, acesso: Acesso | null | undefined, ambiente?: AmbienteDosRecursos): { codigo: string; situacao: string; href: string | null } | null {
+  if (!conta || !acesso) return null;
   return {
     codigo: conta.codigo,
     situacao: conta.cancelado ? "Cancelada" : ROTULO_DA_ETAPA_DA_CONTA[conta.etapa],
-    href: hrefDosLancamentos({}, conta.id),
+    href: podeAbrirPagina(acesso, "/financeiro/lancamentos", ambiente) ? hrefDosLancamentos({}, conta.id) : null,
   };
 }
 

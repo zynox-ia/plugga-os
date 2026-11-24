@@ -60,7 +60,7 @@ export function VisaoGeralDoPedido({ pedido, hoje, ocupado, aoAgir, aoPedirMotiv
   aoVerCotacoes: () => void; aoNovaCotacao: () => void; aoComprovante: (arquivo: File) => void;
 }) {
   const escolhida = pedido.cotacoes.find((c) => c.id === pedido.cotacaoSelecionadaId);
-  // A conta a pagar que a aprovação gerou no Financeiro (PLU-341), para quem abre os Lançamentos.
+  // A conta a pagar que a aprovação gerou no Financeiro (PLU-341); o link, só para quem abre os Lançamentos.
   const { usuario } = useSessionUser();
   const conta = vinculoDaContaAPagar(pedido.contaAPagar, usuario?.acesso);
   const [forma, setForma] = useState<FormaDePagamento | null>(pedido.pagamento?.forma ?? null);
@@ -136,7 +136,7 @@ export function VisaoGeralDoPedido({ pedido, hoje, ocupado, aoAgir, aoPedirMotiv
         <div><dt>Estoque ou compra</dt><dd>{pedido.origemAtendimento === "estoque" ? "Atendido pelo estoque" : pedido.origemAtendimento === "aquisicao" ? "Compra externa" : "A decidir na análise"}{pedido.marcos.estoqueDecidido?.por ? <small>Decidido por {pedido.marcos.estoqueDecidido.por.nome}</small> : null}</dd></div>
         <div><dt>Valor orçado</dt><dd>{valorEmReais(pedido.valorOrcado) ?? "Não informado"}</dd></div>
         <div><dt>{pedido.valorFaturado ? "Valor faturado" : "Cotação vencedora"}</dt><dd>{pedido.valorFaturado ? valorEmReais(pedido.valorFaturado) : escolhida ? <>{valorEmReais(escolhida.valorTotal)}<small>{escolhida.fornecedor.nome}{pedido.pagamento ? ` · pago por ${rotulosDaFormaDePagamento[pedido.pagamento.forma]} em ${dataEmManaus(pedido.pagamento.registrado.em)}` : escolhida.prazoEntregaDias ? ` · entrega em ${escolhida.prazoEntregaDias} dias úteis` : ""}</small></> : "—"}</dd></div>
-        {conta ? <div><dt>Conta a pagar</dt><dd><Link href={conta.href}>{conta.codigo} no Financeiro</Link><small>{conta.situacao}</small></dd></div> : null}
+        {conta ? <div><dt>Conta a pagar</dt><dd>{conta.href ? <Link href={conta.href}>{conta.codigo} no Financeiro</Link> : conta.codigo}<small>{conta.situacao}</small></dd></div> : null}
       </dl>
     </section>
 

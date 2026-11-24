@@ -147,11 +147,14 @@ describe("conta a pagar do pedido (PLU-341)", () => {
     assert.equal(vinculoDaContaAPagar({ ...conta, etapa: "conciliada", cancelado: true }, comLancamentos, ligado)?.situacao, "Cancelada");
   });
 
-  it("não aparece sem conta, sem a tela dos Lançamentos ou com o Financeiro desligado", () => {
+  it("quem tem só Compras vê o código e a etapa, sem link; com o portão desligado, também sem link", () => {
+    assert.deepEqual(vinculoDaContaAPagar({ ...conta, etapa: "paga" }, soCompras, ligado), { codigo: "CP-0412", situacao: "Paga", href: null });
+    assert.equal(vinculoDaContaAPagar(conta, comLancamentos, desligado)?.href, null);
+  });
+
+  it("não aparece sem conta ou sem a sessão", () => {
     assert.equal(vinculoDaContaAPagar(null, comLancamentos, ligado), null);
     assert.equal(vinculoDaContaAPagar(undefined, comLancamentos, ligado), null);
     assert.equal(vinculoDaContaAPagar(conta, null, ligado), null);
-    assert.equal(vinculoDaContaAPagar(conta, soCompras, ligado), null);
-    assert.equal(vinculoDaContaAPagar(conta, comLancamentos, desligado), null);
   });
 });
