@@ -434,5 +434,9 @@ describe.skipIf(!HABILITADO)("conciliação: extrato bancário no Postgres", () 
     // Conciliado, não se corrige mais: desfaz primeiro.
     expect(await naSessao(() => repositorio.conciliarSugeridos(fevereiro, principal, AGORA))).toBe(2);
     await expect(corrigir(saida, "100.00")).rejects.toMatchObject({ message: "Depois de conciliado, o valor não se corrige: desfaça a conciliação primeiro." });
+    // O banco também segura, mesmo com o UPDATE direto (a Conciliação tem UPDATE em lancamentos); a etapa e o resto mudam.
+    await expect(prisma.lancamento.update({ where: { id: saida }, data: { valor: 100 } })).rejects.toThrow(/conciliado não muda/);
+    await expect(prisma.lancamento.update({ where: { id: entrada }, data: { valorRecebido: 500 } })).rejects.toThrow(/conciliado não muda/);
+    await prisma.lancamento.update({ where: { id: saida }, data: { valor: 103.5, observacao: `${marca} mesmo valor` } });
   }, PRAZO_MS);
 });
