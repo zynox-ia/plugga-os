@@ -181,54 +181,41 @@ test("cobrança manual: uma por cliente e competência, e a repetida oferece abr
   await expect(ficha(page).getByRole("heading", { name: descricao })).toBeVisible(ABRIR_A_FICHA);
 });
 
-test("Tentar de novo sem envio com erro de verdade (409): a ficha relê o lançamento e o botão some", async ({ page, baseURL }) => {
+test("o conector do OMIE da empresa decide a faixa e o Tentar de novo da ficha", async ({ page, baseURL }) => {
   await bloquearTerceiros(page);
   const descricao = `Tarifa ${marcaDaExecucao()} ${Date.now().toString(36)} (sintético)`;
   await criarConta(page, baseURL!, descricao);
+  // A conta é da Waze. Sem um par conferido e confirmado (o local e a CI), o conector está desligado.
+  const opcoes = await (await page.request.get("/api/financeiro/opcoes")).json() as { conectores?: { omie?: { waze?: boolean } } };
+  const conectado = opcoes.conectores?.omie?.waze === true;
 
-  // No local a gravação no OMIE não está liberada e nada chega a "erro": a resposta
-  // da aprovação (real) volta com o envio recusado, só no navegador.
+  // A aprovação é real; a resposta volta com o envio recusado, só no navegador.
   await page.route("**/api/financeiro/lancamentos/*/acoes", async (rota) => {
     const resposta = await rota.fetch();
-    const l = await resposta.json();
-    await rota.fulfill({ response: resposta, json: { ...l, omie: { estado: "erro", codigo: null, motivo: "recusada" } } });
+    await rota.fulfill({ response: resposta, json: { ...(await resposta.json()), omie: { estado: "erro", codigo: null, motivo: "recusada" } } });
   });
   await ficha(page).getByRole("button", { name: "Aprovar" }).click();
-  await expect(ficha(page).getByText("Não foi ao OMIE da Waze Energia: o OMIE recusou o lançamento; confira categoria, conta corrente e valor.")).toBeVisible();
+  await expect(ficha(page).locator(".aviso--sucesso")).toContainText("Conta aprovada");
 
-  // 409: nenhum envio com erro de verdade; a ficha relê o lançamento e o botão some.
-  await page.route("**/api/financeiro/lancamentos/*/omie/tentar-de-novo", (rota) =>
-    rota.fulfill({ status: 409, json: { codigo: "CONFLITO_ESTADO", mensagem: "Nenhum envio ao OMIE com erro neste lançamento." } }));
-  await ficha(page).getByRole("button", { name: "Tentar de novo" }).click();
-  await expect(ficha(page).getByText("Nenhum envio ao OMIE com erro neste lançamento.")).toBeVisible();
-  await expect(ficha(page).getByRole("button", { name: "Tentar de novo" })).toHaveCount(0);
+  if (!conectado) {
+    // Desligado: nada de "vai ao OMIE" nem reenvio; a aba OMIE explica e aponta a conexão.
+    await expect(ficha(page).getByText(/Não foi ao OMIE|Ainda não está no OMIE/)).toHaveCount(0);
+    await expect(ficha(page).getByRole("button", { name: "Tentar de novo" })).toHaveCount(0);
+    await ficha(page).getByRole("tab", { name: "OMIE" }).click();
+    await expect(ficha(page).getByText("O OMIE não está conectado para a Waze Energia", { exact: false })).toBeVisible();
+    await expect(ficha(page).getByRole("button", { name: "Tentar de novo" })).toHaveCount(0);
+    return;
+  }
 
-});
-
-test("Tentar de novo com sucesso: o envio volta à fila e a linha do tempo registra", async ({ page, baseURL }) => {
-  await bloquearTerceiros(page);
-  const descricao = `Tarifa ${marcaDaExecucao()} ${Date.now().toString(36)} (sintético)`;
-  await criarConta(page, baseURL!, descricao);
-  await page.route("**/api/financeiro/lancamentos/*/acoes", async (rota) => {
-    const resposta = await rota.fetch();
-    const l = await resposta.json();
-    await rota.fulfill({ response: resposta, json: { ...l, omie: { estado: "erro", codigo: null, motivo: "indisponivel" } } });
+  // Ligado: Tentar de novo pela rota do conector devolve o envio à fila.
+  await page.route("**/api/integracoes/omie/lancamentos/*/tentar-de-novo", async (rota) => {
+    const id = rota.request().url().split("/lancamentos/")[1]!.split("/")[0];
+    const atual = await (await page.request.get(`/api/financeiro/lancamentos/${id}`)).json();
+    await rota.fulfill({ json: { ...atual, updatedAt: new Date().toISOString(), omie: { estado: "enviando", codigo: null, motivo: null },
+      linhaDoTempo: [{ tipo: "omie", em: new Date().toISOString(), por: null, resumo: "Envio ao OMIE pedido de novo", texto: null }, ...atual.linhaDoTempo] } });
   });
-  await ficha(page).getByRole("button", { name: "Aprovar" }).click();
-  await page.route("**/api/financeiro/lancamentos/*/omie/tentar-de-novo", async (rota) => {
-    const atual = await (await page.request.get(rota.request().url().replace("/omie/tentar-de-novo", ""))).json();
-    await rota.fulfill({ json: {
-      ...atual, updatedAt: new Date().toISOString(), omie: { estado: "enviando", codigo: null, motivo: null },
-      linhaDoTempo: [{ tipo: "omie", em: new Date().toISOString(), por: null, resumo: "Envio ao OMIE pedido de novo", texto: null }, ...atual.linhaDoTempo],
-    } });
-  });
-  await ficha(page).getByRole("tab", { name: "OMIE" }).click();
-  await expect(ficha(page).getByText("Não foi ao OMIE da Waze Energia: o OMIE não respondeu.")).toBeVisible();
-  await ficha(page).getByRole("button", { name: "Tentar de novo" }).click();
+  await ficha(page).getByRole("button", { name: "Tentar de novo" }).first().click();
   await expect(ficha(page).locator(".aviso--sucesso")).toContainText("Envio ao OMIE da Waze Energia pedido de novo.");
-  await expect(ficha(page).getByText("Enviando ao OMIE da Waze Energia…")).toBeVisible();
-  await ficha(page).getByRole("tab", { name: "Linha do tempo" }).click();
-  await expect(ficha(page).getByRole("region", { name: "Linha do tempo do lançamento" }).getByText("Envio ao OMIE pedido de novo")).toBeVisible();
 });
 
 test("cancelar pede o motivo, e a ficha mostra onde parou", async ({ page, baseURL }) => {

@@ -166,6 +166,26 @@ export function eventosPorDia<T extends { em: string }>(eventos: readonly T[], h
   return [...grupos.entries()].map(([dia, itens]) => ({ dia, rotulo: dia === hoje ? "Hoje" : dia === diaDeOntem ? "Ontem" : diaLegivelDoIso(dia), itens }));
 }
 
+// ---------------------------------------------------------------- conector do OMIE
+
+/**
+ * O OMIE está conectado (par conferido e confirmado) para a empresa? Nulo quando não
+ * se sabe (as opções falharam ou não trazem o conector): a tela segue como antes.
+ */
+export function omieConectado(opcoes: Pick<OpcoesDoFinanceiro, "conectores"> | null, empresa: CompanyKey): boolean | null {
+  const omie = opcoes?.conectores?.omie;
+  return omie && empresa in omie ? Boolean(omie[empresa]) : null;
+}
+
+/** Alguma empresa com o OMIE conectado; sem saber, como antes (sim). */
+export function algumOmieConectado(opcoes: Pick<OpcoesDoFinanceiro, "conectores"> | null): boolean {
+  const omie = opcoes?.conectores?.omie;
+  return omie ? Object.values(omie).some(Boolean) : true;
+}
+
+/** "Tentar de novo" só com erro no envio e o conector ligado (ou sem saber). */
+export const podeTentarDeNovoNoOmie = (l: Pick<Lancamento, "omie">, conectado: boolean | null): boolean => l.omie.estado === "erro" && conectado !== false;
+
 /**
  * Os motivos curtos da fila do OMIE (PLU-342), em texto para a tela. Um motivo
  * fora da lista (o texto de uma divergência lida do OMIE) aparece como veio.

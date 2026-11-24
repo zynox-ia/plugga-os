@@ -163,8 +163,12 @@ export const OPCOES_DE_SITUACAO: readonly OpcaoDeSituacao[] = [
 ];
 
 /** As opções que valem para o alcance da pessoa: quem só paga não vê o grupo A receber. */
-export function opcoesDeSituacaoPara(alcance: ListarLancamentosResposta["alcance"]): OpcaoDeSituacao[] {
-  return OPCOES_DE_SITUACAO.filter((o) => !o.tipo || (o.tipo === "saida" ? alcance.saidas : alcance.entradas));
+/**
+ * As situações que a pessoa alcança. "Com erro no OMIE" só aparece com o OMIE
+ * conectado para alguma empresa: com o conector desligado, nada vai ao OMIE.
+ */
+export function opcoesDeSituacaoPara(alcance: ListarLancamentosResposta["alcance"], { omieConectado = true }: { omieConectado?: boolean } = {}): OpcaoDeSituacao[] {
+  return OPCOES_DE_SITUACAO.filter((o) => (!o.tipo || (o.tipo === "saida" ? alcance.saidas : alcance.entradas)) && (omieConectado || o.valor !== "erro"));
 }
 
 export const OPCOES_DE_VENCIMENTO: readonly { valor: VencimentoDoFiltro | ""; rotulo: string }[] = [

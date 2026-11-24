@@ -5,6 +5,7 @@ import type { AnexoDoLancamento, Lancamento } from "@plugga/shared";
 
 import {
   acaoPrincipal,
+  algumOmieConectado,
   anexosDaFicha,
   boletoNovoNaCorrecao,
   camposDoLancamento,
@@ -18,6 +19,8 @@ import {
   corpoDoRecebimento,
   eventosPorDia,
   fraseDoOmie,
+  omieConectado,
+  podeTentarDeNovoNoOmie,
   problemaDoAnexo,
   textoDaAcao,
   resumoDaTrilhaDoLancamento,
@@ -197,5 +200,30 @@ describe("ações da etapa", () => {
     assert.equal(textoDaAcao("  ", 60, "informe o número da NF."), "informe o número da NF.");
     assert.equal(textoDaAcao("x".repeat(61), 60, "?"), "use até 60 caracteres.");
     assert.equal(textoDaAcao("NFS-e 410", 60, "?"), null);
+  });
+});
+
+describe("conector do OMIE", () => {
+  const com = (plugga: boolean, waze: boolean) => ({ conectores: { omie: { plugga, waze } } });
+  it("diz se a empresa está conectada; sem o campo, não se sabe", () => {
+    assert.equal(omieConectado(com(true, false), "plugga"), true);
+    assert.equal(omieConectado(com(true, false), "waze"), false);
+    assert.equal(omieConectado({}, "waze"), null);
+    assert.equal(omieConectado({ conectores: {} }, "waze"), null);
+    assert.equal(omieConectado(null, "plugga"), null);
+  });
+
+  it("alguma empresa conectada; sem saber, como antes", () => {
+    assert.equal(algumOmieConectado(com(false, false)), false);
+    assert.equal(algumOmieConectado(com(false, true)), true);
+    assert.equal(algumOmieConectado(null), true);
+  });
+
+  it("Tentar de novo só com erro no envio e o conector ligado ou desconhecido", () => {
+    const erro = { omie: { estado: "erro" as const, codigo: null, motivo: "recusada" } };
+    assert.equal(podeTentarDeNovoNoOmie(erro, true), true);
+    assert.equal(podeTentarDeNovoNoOmie(erro, null), true);
+    assert.equal(podeTentarDeNovoNoOmie(erro, false), false);
+    assert.equal(podeTentarDeNovoNoOmie({ omie: { estado: "nao_enviado", codigo: null, motivo: null } }, true), false);
   });
 });

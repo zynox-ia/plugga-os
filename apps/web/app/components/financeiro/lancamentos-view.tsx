@@ -48,6 +48,7 @@ import {
   type IconeDaSituacao,
   type VisaoDosLancamentos,
 } from "../../lib/financeiro";
+import { algumOmieConectado } from "../../lib/ficha-do-lancamento";
 import { BarraFixa, CampoDaFolha, classeDaPaginaComBarra } from "../barra-fixa";
 import estilosClientes from "../clientes/tela-clientes.module.css";
 import { BarraRolagemMinimalista } from "../pipelines/quadro-do-pipeline";
@@ -160,7 +161,7 @@ export function LancamentosView({ filtros, lista, quadro, resumo, alcance, ficha
   </> : null;
   const abrirCriado = (novo: { id: string }, mensagem: string) => { setAviso(mensagem); router.push(hrefDosLancamentos(filtros, novo.id), { scroll: false }); router.refresh(); };
 
-  const situacoes = opcoesDeSituacaoPara(alcance).map((o) => {
+  const situacoes = opcoesDeSituacaoPara(alcance, { omieConectado: algumOmieConectado(opcoes) }).map((o) => {
     const Icone = ICONE_DA_SITUACAO[o.icone];
     return { value: o.valor, label: o.rotulo, icon: <Icone />, ...(o.grupo ? { grupo: o.grupo } : {}) };
   });

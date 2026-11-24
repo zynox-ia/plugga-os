@@ -94,6 +94,8 @@ describe("filtro de Situação", () => {
   });
 
   it("quem só paga não vê o grupo A receber nem Recebidas", () => {
+    assert.ok(opcoesDeSituacaoPara({ saidas: true, entradas: true }).some((o) => o.valor === "erro"));
+    assert.ok(!opcoesDeSituacaoPara({ saidas: true, entradas: true }, { omieConectado: false }).some((o) => o.valor === "erro"));
     const opcoes = opcoesDeSituacaoPara({ saidas: true, entradas: false });
     assert.ok(!opcoes.some((o) => o.grupo === "A receber" || o.valor === "recebido"));
     assert.ok(opcoes.some((o) => o.valor === "pago") && opcoes.some((o) => o.valor === "vencidos"));
