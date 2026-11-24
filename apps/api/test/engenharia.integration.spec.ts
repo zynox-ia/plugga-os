@@ -147,8 +147,10 @@ describe.skipIf(!HABILITADO)("engenharia: ordens de serviço no Postgres", { tim
     // Nenhum evento leva o documento de quem assinou.
     const eventos = await root.eventLog.findMany({ where: { entityType: "ordem_de_servico", entityId: id } });
     expect(eventos.map((e) => e.eventName)).toEqual(expect.arrayContaining(["engenharia.ordem.created", "engenharia.ordem.termo_assinado"]));
-    expect(JSON.stringify(eventos)).not.toMatch(/789|Maria/);
-    expect(JSON.stringify(ficha.historico)).not.toMatch(/789/);
+    // O documento inteiro (com ou sem máscara) e o nome: "789" solto casava com os UUIDs aleatórios.
+    const documentoOuNome = /12345678901|123\.456\.789-01|Maria Cliente/;
+    expect(JSON.stringify(eventos)).not.toMatch(documentoOuNome);
+    expect(JSON.stringify(ficha.historico)).not.toMatch(documentoOuNome);
 
     // A concluída não reabre nem muda, nem por fora do serviço.
     await expect(acao(id, { acao: "cancelar", motivo: "x" })).rejects.toThrow(EstadoInvalido);
