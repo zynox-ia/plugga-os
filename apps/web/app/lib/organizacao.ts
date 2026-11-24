@@ -179,24 +179,23 @@ export const DEPARTAMENTOS: Departamento[] = [
     label: "Engenharia e Obras",
     icon: "hardhat",
     processos: [
-      // Visão geral do dia da Engenharia (PLU-349), atrás do portão.
+      // O menu segue o protótipo aprovado da Engenharia: só as telas que existem, nesta ordem.
+      // Todas atrás do portão: com ele fechado (build de produção), os itens seguem em breve.
+      // Os ids das telas que não estão no menu (projetos, instalações, manutenção, visitas,
+      // relatórios) continuam em `telas`, no editor de acesso, sem migration.
+      // Visão geral do dia (PLU-349).
       { label: "Visão geral", telas: telasPorDepartamento["engenharia-obras"], ...(engenhariaHabilitado() ? { rota: "/engenharia/visao-geral", status: "parcial" as const } : { status: "em-breve" as const }) },
-      // Obras com marcos e documentos (PLU-350), atrás do portão.
-      { id: "engenharia-obras.obras", label: "Obras", ...(engenhariaHabilitado() ? { rota: "/engenharia/obras", status: "parcial" as const } : { status: "em-breve" as const }) },
-      { id: "engenharia-obras.projetos", label: "Projetos elétricos", status: "em-breve" },
-      // Com o portão da Engenharia fechado (build de produção), o item segue em breve (PLU-345).
+      // Ordens de serviço (PLU-345).
       { label: "Ordens de serviço", telas: TELAS_DAS_ORDENS_DE_SERVICO, ...(engenhariaHabilitado() ? { rota: "/engenharia/ordens-de-servico", status: "parcial" as const } : { status: "em-breve" as const }) },
-      // Agenda de campo (PLU-346), atrás do portão.
+      // Agenda de campo (PLU-346).
       { label: "Agenda de campo", telas: TELAS_DAS_ORDENS_DE_SERVICO, ...(engenhariaHabilitado() ? { rota: "/engenharia/agenda", status: "parcial" as const } : { status: "em-breve" as const }) },
-      { label: "Tarefas", telas: telasPorDepartamento["engenharia-obras"], ...(engenhariaHabilitado() ? { rota: "/engenharia/tarefas", status: "parcial" as const } : { status: "em-breve" as const }) },
-      { id: "engenharia-obras.instalacoes", label: "Instalações", status: "em-breve" },
-      { id: "engenharia-obras.manutencao", label: "Manutenção", status: "em-breve" },
-      { id: "engenharia-obras.visitas", label: "Visitas técnicas", status: "em-breve" },
-      // Usinas e o monitoramento do dia (PLU-347), atrás do portão.
+      // Usinas e o monitoramento do dia (PLU-347).
       { label: "Usinas", telas: telasPorDepartamento["engenharia-obras"], ...(engenhariaHabilitado() ? { rota: "/engenharia/usinas", status: "parcial" as const } : { status: "em-breve" as const }) },
-      { id: "engenharia-obras.relatorios", label: "Relatórios de campo · fotos e aceite", status: "em-breve" },
-      // Protocolos na distribuidora (PLU-348), atrás do portão. O Operacional abre a mesma tela, sem item no menu.
+      // Protocolos na distribuidora (PLU-348). O Operacional abre a mesma tela, sem item no menu.
       { id: "engenharia-obras.protocolos", label: "Protocolos", ...(engenhariaHabilitado() ? { rota: "/engenharia/protocolos", status: "parcial" as const } : { status: "em-breve" as const }) },
+      { label: "Tarefas", telas: telasPorDepartamento["engenharia-obras"], ...(engenhariaHabilitado() ? { rota: "/engenharia/tarefas", status: "parcial" as const } : { status: "em-breve" as const }) },
+      // Obras com marcos e documentos (PLU-350).
+      { id: "engenharia-obras.obras", label: "Obras", ...(engenhariaHabilitado() ? { rota: "/engenharia/obras", status: "parcial" as const } : { status: "em-breve" as const }) },
     ],
     // Ordens de serviço abre com qualquer uma de quatro telas; o editor de acesso segue concedendo as oito.
     telas: [

@@ -166,6 +166,20 @@ describe("barra lateral pelo acesso", () => {
     assert.ok(engenharia.processos.some((processo) => processo.id === "engenharia-obras.protocolos"));
   });
 
+  it("menu da Engenharia segue o protótipo aprovado; as telas fora dele seguem no editor de acesso", () => {
+    const engenharia = DEPARTAMENTOS.find((departamento) => departamento.id === "engenharia-obras")!;
+    assert.deepEqual(engenharia.processos.map((processo) => processo.label), [
+      "Visão geral", "Ordens de serviço", "Agenda de campo", "Usinas", "Protocolos", "Tarefas", "Obras",
+    ]);
+    // Nos testes o portão está aberto: cada item leva à sua tela.
+    assert.ok(engenharia.processos.every((processo) => processo.rota?.startsWith("/engenharia/")));
+    const telas = telasDoDepartamento(engenharia).map((tela) => tela.id);
+    for (const id of ["projetos", "instalacoes", "manutencao", "visitas", "relatorios"]) {
+      assert.ok(telas.includes(`engenharia-obras.${id}`), id);
+      assert.ok(!engenharia.processos.some((processo) => processo.id === `engenharia-obras.${id}`), id);
+    }
+  });
+
   it("gerente vê o departamento que gere, como o membro", () => {
     assert.deepEqual(rotulos({ plataforma: null, departamentos: [{ departamento: "crm", nivel: "gerente" }] }), ["CRM"]);
   });
