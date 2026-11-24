@@ -77,7 +77,7 @@ export const ROTULO_DA_SITUACAO_DO_MONITORAMENTO: Record<SituacaoDoMonitoramento
   sem_comunicacao: "Sem comunicação",
 };
 
-/** "UC 1234567" — sem repetir o prefixo quando o código já começa com UC ("UC-E2E-0001"). */
+/** "UC 9999001" — sem repetir o prefixo quando o código já começa com UC ("UC-E2E-0001"). */
 export const rotuloDaUc = (codigo: string): string => (/^UC(?![a-z0-9])/i.test(codigo.trim()) ? codigo.trim() : `UC ${codigo.trim()}`);
 
 /** "1 usina", "2 usinas". */

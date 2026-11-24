@@ -86,7 +86,7 @@ test("conferência fechada: exceção, normal, e a usina cadastrada depois fica 
 });
 
 test("rótulo da UC: põe o prefixo só quando o código não começa com UC", () => {
-  assert.equal(rotuloDaUc("1234567"), "UC 1234567");
+  assert.equal(rotuloDaUc("9999001"), "UC 9999001");
   assert.equal(rotuloDaUc("UC-E2E-0001"), "UC-E2E-0001");
   assert.equal(rotuloDaUc("uc 998"), "uc 998");
   assert.equal(rotuloDaUc("UCX-1"), "UC UCX-1");
