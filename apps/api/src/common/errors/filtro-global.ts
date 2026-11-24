@@ -29,6 +29,7 @@ const MENSAGEM_PADRAO: Readonly<Record<CodigoDeErro, string>> = {
   ARQUIVO_GRANDE_DEMAIS: "O arquivo é maior do que o limite permitido.",
   TIPO_NAO_PERMITIDO: "O tipo do arquivo não é permitido.",
   ARQUIVO_RECUSADO: "Não foi possível processar o arquivo enviado.",
+  NAO_PROCESSAVEL: "Não foi possível atender o pedido com os dados enviados.",
   MUITAS_TENTATIVAS: "Muitas tentativas. Aguarde um pouco e tente de novo.",
   SERVICO_INDISPONIVEL: "O serviço está indisponível no momento. Tente de novo em instantes.",
   ERRO_INTERNO: "Algo deu errado.",

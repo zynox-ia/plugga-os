@@ -168,6 +168,48 @@ export const criarOrdemDeServicoSchema = z
   .strict();
 export type CriarOrdemDeServico = z.infer<typeof criarOrdemDeServicoSchema>;
 
+// ---------------------------------------------------------------- entrada pelo robô (PLU-351)
+
+/** Canais de onde o robô (DK JUNIOR) recebe o pedido. */
+export const canaisDoRobo = ["whatsapp", "telegram"] as const;
+export const canalDoRoboSchema = z.enum(canaisDoRobo);
+export type CanalDoRobo = z.infer<typeof canalDoRoboSchema>;
+
+/**
+ * O.S. aberta pelo agente (`POST /agentes/engenharia/ordens-de-servico`, com o
+ * cabeçalho `Idempotency-Key`). O cliente vem pela chave natural: o código da UC
+ * ou o CNPJ/CPF; o nome não basta (422). Sem prazo, vale o prazo padrão do tipo.
+ */
+export const criarOrdemPeloAgenteSchema = z
+  .object({
+    empresa: companyKeySchema,
+    tipo: tipoDeOrdemDeServicoSchema,
+    descricao: texto(1, 2000, "descreva o serviço"),
+    /** Código da UC, como o cliente informa (pontos e traços são ignorados). */
+    uc: z.string().trim().min(3).max(40).optional(),
+    /** CNPJ ou CPF do cliente, só os dígitos ou formatado. */
+    documento: z.string().trim().transform((v) => v.replace(/\D/g, "")).pipe(z.string().regex(/^(\d{11}|\d{14})$/, "CPF com 11 ou CNPJ com 14 dígitos")).optional(),
+    local: textoOpcional(300),
+    prioridade: prioridadeDaOrdemDeServicoSchema.default("normal"),
+    prazo: diaDoCalendario.optional(),
+    origem: z.object({
+      canal: canalDoRoboSchema,
+      /** Grupo ou conversa de onde veio o pedido. */
+      grupo: texto(1, 120, "informe o grupo"),
+      /** Quem pediu no canal (nome ou apelido). Fica na O.S., nunca em evento ou log. */
+      solicitante: texto(1, 120, "informe quem pediu"),
+    }).strict(),
+  })
+  .strict();
+export type CriarOrdemPeloAgente = z.infer<typeof criarOrdemPeloAgenteSchema>;
+
+export const ordemPeloAgenteRespostaSchema = z.object({
+  ordem: z.object({ id: uuid, codigo: z.string(), situacao: situacaoDaOrdemDeServicoSchema, prazo: diaDoCalendario }),
+  /** O mesmo pedido (mesma chave e mesmo corpo) já tinha criado esta O.S. */
+  repetido: z.boolean(),
+});
+export type OrdemPeloAgenteResposta = z.infer<typeof ordemPeloAgenteRespostaSchema>;
+
 /** Dados e equipamento; vale enquanto a O.S. não está concluída nem cancelada. */
 export const editarOrdemDeServicoSchema = z
   .object({

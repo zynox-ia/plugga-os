@@ -230,7 +230,8 @@ export class PrismaEngenhariaRepository {
 
   // ------------------------------------------------------------ escrita
 
-  async criar(input: CriarOrdemDeServico, principal: AuthPrincipal, agora: Date): Promise<string> {
+  /** `doRobo`: grupo e quem pediu no canal, só na entrada do agente (PLU-351); ficam na O.S., nunca no evento. */
+  async criar(input: CriarOrdemDeServico, principal: AuthPrincipal, agora: Date, doRobo?: { grupo: string; solicitante: string }): Promise<string> {
     garantirDiaNaoPassado(input.prazo, agora, "prazo");
     return this.comVinculosValidos(() => this.prisma.comContexto(async (tx) => {
       if (input.ucId) await this.garantirUc(tx, input.clienteId, input.ucId);
@@ -254,6 +255,8 @@ export class PrismaEngenhariaRepository {
           prioridade: input.prioridade,
           origem: input.origem,
           canal: input.canal ?? null,
+          origemGrupo: doRobo?.grupo ?? null,
+          origemSolicitante: doRobo?.solicitante ?? null,
           clientId: input.clienteId,
           consumerUnitId: input.ucId ?? null,
           local: input.local ?? null,

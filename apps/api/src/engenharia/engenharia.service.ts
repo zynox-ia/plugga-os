@@ -229,6 +229,8 @@ export class EngenhariaService {
 
   async criar(input: CriarOrdemDeServico, principal: AuthPrincipal): Promise<OrdemDeServico> {
     this.exigirAcesso(principal);
+    // Agente cria O.S. só pela entrada própria, com a ação e a chave de idempotência (PLU-351).
+    if (principal.kind === "service") throw new AcessoNegado("O agente abre O.S. pela entrada de agente (/agentes/engenharia/ordens-de-servico).");
     return this.obter(await this.repositorio.criar(input, principal, this.agora()), principal);
   }
 

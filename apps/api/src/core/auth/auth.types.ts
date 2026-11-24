@@ -1,10 +1,12 @@
-import type { Acesso } from "@plugga/shared";
+import type { AcaoDeAgente, Acesso } from "@plugga/shared";
 
 export interface AuthPrincipal {
   id: string;
   kind: "user" | "service";
   /** O que a pessoa alcança (`@Departamento`/`@Plataforma`). */
   acesso: Acesso;
+  /** Só do agente (`kind: "service"`): as ações concedidas, além das telas (B-01). */
+  acoesDeAgente?: readonly AcaoDeAgente[];
 }
 
 export interface AuthenticatedRequest {

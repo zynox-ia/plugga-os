@@ -55,6 +55,14 @@ export class ArquivoRecusado extends ErroDeDominio {
 }
 
 /**
+ * O pedido está bem formado, mas não dá para atendê-lo com o que veio (422
+ * NAO_PROCESSAVEL): ex. a chave do cliente não resolve a um cadastro só.
+ */
+export class NaoProcessavel extends ErroDeDominio {
+  readonly codigo = "NAO_PROCESSAVEL" as const;
+}
+
+/**
  * Dependência fora do ar ou sem capacidade (503 SERVICO_INDISPONIVEL).
  *
  * `causa` é o detalhe interno (mensagem do SDK, caminho, endpoint): nunca vai

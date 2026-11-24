@@ -6,7 +6,7 @@ import { PrismaAgentLookupRepository } from "./prisma-agent-lookup.repository";
 import { PrismaAuthService } from "../../prisma/prisma-auth.service";
 
 const agora = new Date();
-const base = () => ({ userId: "00000000-0000-4000-8000-000000000011", departamento: "crm", revokedAt: null as Date | null,
+const base = () => ({ userId: "00000000-0000-4000-8000-000000000011", departamento: "crm", revokedAt: null as Date | null, acoes: [] as string[],
   credentialExpiresAt: new Date(agora.getTime() + 60_000), user: { id: "00000000-0000-4000-8000-000000000011", status: "active", platformRoles: [] as Array<{ role: { key: string } }>, departamentos: [{ departamento: "crm", nivel: "membro", telas: ["crm.pipelines"] }] } });
 
 describe("lookup de identidade de IA", () => {
@@ -15,9 +15,16 @@ describe("lookup de identidade de IA", () => {
     const db = { agentIdentity: { findUnique: async () => identidade } };
     const repo = new PrismaAgentLookupRepository(db as unknown as PrismaAuthService);
     const resultado = await repo.resolvePrincipal(randomBytes(32).toString("hex"), agora);
-    expect(resultado).toEqual({ id: identidade.userId, kind: "service", acesso: { plataforma: null, departamentos: identidade.user.departamentos } });
+    expect(resultado).toEqual({ id: identidade.userId, kind: "service", acesso: { plataforma: null, departamentos: identidade.user.departamentos }, acoesDeAgente: [] });
     identidade.user.departamentos[0]!.telas = [];
     expect((await repo.resolvePrincipal(randomBytes(32).toString("hex"), agora))?.acesso.departamentos[0]?.telas).toEqual([]);
+  });
+
+  it("leva as ações concedidas (B-01) e ignora a que estiver fora do catálogo", async () => {
+    const identidade = { ...base(), acoes: ["engenharia.ordem.criar", "engenharia.ordem.apagar"] };
+    const db = { agentIdentity: { findUnique: async () => identidade } };
+    const repo = new PrismaAgentLookupRepository(db as unknown as PrismaAuthService);
+    expect((await repo.resolvePrincipal(randomBytes(32).toString("hex"), agora))?.acoesDeAgente).toEqual(["engenharia.ordem.criar"]);
   });
 
   it("recusa credencial expirada/revogada, usuário inativo e vínculo incoerente", async () => {

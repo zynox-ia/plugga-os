@@ -571,12 +571,33 @@ model AgentIdentity {
   credentialExpiresAt DateTime?        @map("credential_expires_at") @db.Timestamptz(6)
   revokedAt           DateTime?        @map("revoked_at") @db.Timestamptz(6)
   createdAt           DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  /// Escopo por ação (B-01, PLU-351): catálogo `acoesDeAgente` de packages/shared.
+  acoes               String[]         @default([])
   user                User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   membership          UserDepartamento @relation(fields: [userId, departamento], references: [userId, departamento], onDelete: NoAction, onUpdate: NoAction, map: "agent_identities_membership_fkey")
   actions             AgentAction[]
+  pedidos             PedidoDeAgente[]
 
   @@unique([userId, departamento])
   @@map("agent_identities")
+}
+
+/// Pedido de um agente por chave de idempotência (PLU-351): o mesmo pedido
+/// repetido devolve a entidade criada da primeira vez. Só por inserção.
+model PedidoDeAgente {
+  id          String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  agentUserId String        @map("agent_user_id") @db.Uuid
+  chave       String
+  acao        String
+  /// sha256 do corpo canônico; nunca o corpo em claro.
+  hashDoCorpo String        @map("hash_do_corpo")
+  entityType  String        @map("entity_type")
+  entityId    String        @map("entity_id") @db.Uuid
+  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  identidade  AgentIdentity @relation(fields: [agentUserId], references: [userId], onDelete: Restrict)
+
+  @@unique([agentUserId, chave])
+  @@map("pedidos_de_agente")
 }
 
 /// Append-only audit record. The initial migration prevents UPDATE and DELETE.
@@ -3065,6 +3086,9 @@ model OrdemDeServico {
   prioridade          PrioridadeDaOrdemDeServico @default(normal)
   origem              OrigemDaOrdemDeServico     @default(manual)
   canal               String?
+  /// Entrada pelo robô (PLU-351): grupo e quem pediu no canal. Nunca em evento ou log.
+  origemGrupo         String?                    @map("origem_grupo")
+  origemSolicitante   String?                    @map("origem_solicitante")
   clientId            String                     @map("client_id") @db.Uuid
   consumerUnitId      String?                    @map("consumer_unit_id") @db.Uuid
   local               String?

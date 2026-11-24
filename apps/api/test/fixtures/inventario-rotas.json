@@ -12,6 +12,27 @@
     ]
   },
   {
+    "metodo": "POST",
+    "caminho": "/agentes/engenharia/ordens-de-servico",
+    "controller": "OrdensPeloAgenteController.criar",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:engenharia-obras.os",
+      "tela:engenharia-obras.instalacoes",
+      "tela:engenharia-obras.manutencao",
+      "tela:engenharia-obras.visitas",
+      "departamento:engenharia-obras:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcaoDeAgenteGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerPorAgenteGuard"
+    ]
+  },
+  {
     "metodo": "GET",
     "caminho": "/atividades",
     "controller": "AtividadesController.list",

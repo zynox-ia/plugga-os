@@ -10,6 +10,11 @@ import { EngenhariaHabilitadaGuard } from "./engenharia-habilitada.guard";
 import { AgendaDeCampoController, ConfiguracoesDaEngenhariaController, EngenhariaController, VisaoGeralDaEngenhariaController } from "./engenharia.controller";
 import { EngenhariaService, RELOGIO_DA_ENGENHARIA } from "./engenharia.service";
 import { PrismaEngenhariaRepository } from "./prisma-engenharia.repository";
+import { AcaoDeAgenteGuard } from "../core/auth/acao-de-agente";
+import { ThrottlerPorAgenteGuard } from "../core/auth/throttler-por-agente.guard";
+import { OrdensPeloAgenteController } from "./ordens-pelo-agente.controller";
+import { OrdensPeloAgenteService } from "./ordens-pelo-agente.service";
+import { PrismaOrdensPeloAgenteRepository } from "./prisma-ordens-pelo-agente.repository";
 import { PrismaProtocolosRepository } from "./prisma-protocolos.repository";
 import { PrismaUsinasRepository } from "./prisma-usinas.repository";
 import { ProtocolosController } from "./protocolos.controller";
@@ -24,7 +29,7 @@ import { TermoDaOrdemPdf } from "./termo-da-ordem.pdf";
  */
 @Module({
   imports: [AuditModule, CoreModule, PrismaModule, ComprasModule, TarefasModule],
-  controllers: [EngenhariaController, VisaoGeralDaEngenhariaController, ConfiguracoesDaEngenhariaController, AgendaDeCampoController, UsinasController, MonitoramentoController, PlataformasController, ProtocolosController],
+  controllers: [EngenhariaController, VisaoGeralDaEngenhariaController, ConfiguracoesDaEngenhariaController, AgendaDeCampoController, UsinasController, MonitoramentoController, PlataformasController, ProtocolosController, OrdensPeloAgenteController],
   providers: [
     EngenhariaHabilitadaGuard,
     EngenhariaService,
@@ -33,6 +38,10 @@ import { TermoDaOrdemPdf } from "./termo-da-ordem.pdf";
     UsinasService,
     PrismaProtocolosRepository,
     ProtocolosService,
+    OrdensPeloAgenteService,
+    PrismaOrdensPeloAgenteRepository,
+    AcaoDeAgenteGuard,
+    ThrottlerPorAgenteGuard,
     ArmazenamentoDeDocumentos,
     TermoDaOrdemPdf,
     { provide: RELOGIO_DA_ENGENHARIA, useValue: () => new Date() },

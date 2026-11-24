@@ -1,5 +1,6 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
+import { acaoDeAgenteSchema, type AcaoDeAgente } from "@plugga/shared";
 
 import { PrismaAuthService } from "../../prisma/prisma-auth.service";
 import { AgentLookupRepository } from "./agent-lookup.repository";
@@ -31,6 +32,8 @@ export class PrismaAgentLookupRepository extends AgentLookupRepository {
     const acesso = mapAcesso(usuario);
     const departamento = acesso.departamentos[0];
     if (!departamento || departamento.departamento !== identidade.departamento || departamento.nivel !== "membro") return null;
-    return { id: usuario.id, kind: "service", acesso };
+    // Ação fora do catálogo (o CHECK do banco já impede) é ignorada, nunca concedida.
+    const acoesDeAgente = identidade.acoes.filter((a): a is AcaoDeAgente => acaoDeAgenteSchema.safeParse(a).success);
+    return { id: usuario.id, kind: "service", acesso, acoesDeAgente };
   }
 }

@@ -219,6 +219,9 @@ jobs:
       - name: Verify utility protocols against Postgres
         run: pnpm --filter @plugga/api test:protocolos
 
+      - name: Verify agent entry points (action scope, idempotency) against Postgres
+        run: pnpm --filter @plugga/api test:agentes
+
       - name: Verify sales pipeline configuration against Postgres
         run: pnpm --filter @plugga/api test:pipelines
 
