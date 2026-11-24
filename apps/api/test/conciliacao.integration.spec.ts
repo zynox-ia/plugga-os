@@ -400,4 +400,39 @@ describe.skipIf(!HABILITADO)("conciliação: extrato bancário no Postgres", () 
     await expect(prisma.lancamento.create({ data: { ...base, origem: "conciliacao", etapa: "aberta", pagoEm: null, pagamentoRegistradoEm: null } })).rejects.toThrow(/lancamentos_nasce_liquidado/);
     await expect(prisma.lancamento.create({ data: { ...base, tipo: "entrada", fornecedorId: null, clientId: ids.cliente, categoriaId: ids.receita, competencia: "2027-01", etapa: "recebida", pagoEm: null, pagamentoRegistradoEm: null, recebidoEm: AGORA, recebimentoRegistradoEm: AGORA, valorRecebido: 1, origem: "tarifa_bancaria" } })).rejects.toThrow(/lancamentos_tarifa_e_saida/);
   }, PRAZO_MS);
+
+  it("C5c: o \"Valor diferente\" se corrige no lançamento pago ou recebido e ainda não conciliado, só pela gerência; depois o par vira sugerido", async () => {
+    const financeiro = new PrismaFinanceiroRepository(prisma, new AuditAppender());
+    const gerencia = papelNoFinanceiro({ plataforma: "admin", departamentos: [] });
+    const membro = papelNoFinanceiro({ plataforma: null, departamentos: [{ departamento: "financeiro", nivel: "membro", telas: ["financeiro.pagar", "financeiro.receber"] }] });
+    const corrigir = (id: string, valor: string, papel = gerencia) => financeiro.executarAcao(id, { acao: "corrigir_valor", valor, motivo: `${marca} juros do banco` }, principal, papel, AGORA);
+    const saida = await liquidado("saida", "2027-02-03", "100.00");
+    // A competência da cobrança do teste de C3 (2026-12) já existe para o cliente: esta é de fevereiro.
+    const entrada = (await prisma.lancamento.create({
+      data: { tipo: "entrada", companyId: "waze", clientId: ids.cliente, categoriaId: ids.receita, contaCorrenteId: conta.id, descricao: `${marca} cobrança fev`, valor: 500, vencimento: new Date("2027-02-04T04:00:00Z"), competencia: "2027-02", etapa: "recebida", origem: "cobranca_manual", recebidoEm: new Date("2027-02-04T04:00:00Z"), recebimentoRegistradoEm: AGORA, valorRecebido: 500 },
+      select: { id: true },
+    })).id;
+    await repositorio.importar(conta, arquivo("c5c"), lido([mov("c5v1", "2027-02-03", "-103.50"), mov("c5v2", "2027-02-04", "480.00")]), principal, AGORA);
+    const fevereiro = { contaCorrenteId: conta.id, de: "2027-02-01", ate: "2027-02-28" };
+    expect((await naSessao(() => repositorio.painel(fevereiro))).resumo).toMatchObject({ valorDiferente: 2, sugeridos: 0 });
+
+    // O membro não corrige o liquidado.
+    await expect(corrigir(saida, "103.50", membro)).rejects.toBeInstanceOf(AcessoNegado);
+    // Na saída, o valor; na entrada, o recebido (o cobrado fica). O anterior fica na linha do tempo, com o motivo.
+    await corrigir(saida, "103.50");
+    await corrigir(entrada, "480.00");
+    const [s1, e1] = [await prisma.lancamento.findUniqueOrThrow({ where: { id: saida } }), await prisma.lancamento.findUniqueOrThrow({ where: { id: entrada } })];
+    expect([s1.valor.toFixed(2), s1.etapa]).toEqual(["103.50", "paga"]);
+    expect([e1.valor.toFixed(2), e1.valorRecebido?.toFixed(2), e1.etapa]).toEqual(["500.00", "480.00", "recebida"]);
+    const historicos = await prisma.historicoDeLancamento.findMany({ where: { lancamentoId: { in: [saida, entrada] }, tipo: "valor_corrigido" }, select: { lancamentoId: true, dados: true, texto: true } });
+    expect(historicos).toEqual(expect.arrayContaining([
+      { lancamentoId: saida, dados: { de: "100.00", para: "103.50" }, texto: `${marca} juros do banco` },
+      { lancamentoId: entrada, dados: { de: "500.00", para: "480.00", campo: "valorRecebido" }, texto: `${marca} juros do banco` },
+    ]));
+    expect((await naSessao(() => repositorio.painel(fevereiro))).resumo).toMatchObject({ valorDiferente: 0, sugeridos: 2 });
+
+    // Conciliado, não se corrige mais: desfaz primeiro.
+    expect(await naSessao(() => repositorio.conciliarSugeridos(fevereiro, principal, AGORA))).toBe(2);
+    await expect(corrigir(saida, "100.00")).rejects.toMatchObject({ message: "Depois de conciliado, o valor não se corrige: desfaça a conciliação primeiro." });
+  }, PRAZO_MS);
 });

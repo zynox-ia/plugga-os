@@ -381,11 +381,16 @@ export class PrismaFinanceiroRepository {
             // O motivo fica no lançamento: texto livre não entra no evento.
             return evento("financeiro.lancamento.cancelado", { etapa: atual.etapa, comMotivo: true });
           case "corrigir_valor": {
-            const de = (await tx.lancamento.findUniqueOrThrow({ where: { id }, select: { valor: true } })).valor.toFixed(2);
-            if (de === new Prisma.Decimal(plano.valor).toFixed(2)) throw new RequisicaoInvalida("O valor novo é igual ao atual.", [{ campo: "valor", problema: "O valor novo é igual ao atual." }]);
-            await tx.lancamento.update({ where: { id }, data: { valor: new Prisma.Decimal(plano.valor) } });
-            await historico("valor_corrigido", { de, para: new Prisma.Decimal(plano.valor).toFixed(2) }, plano.motivo);
-            return evento("financeiro.lancamento.valor_corrigido", { comMotivo: true });
+            // Na entrada recebida, corrige-se o que entrou (o valor recebido); o valor cobrado fica.
+            // O valor anterior fica na linha do tempo; o pedido de compra da conta não muda (CC17).
+            const doRecebido = atual.tipo === "entrada" && atual.etapa === "recebida";
+            const linha = await tx.lancamento.findUniqueOrThrow({ where: { id }, select: { valor: true, valorRecebido: true } });
+            const de = (doRecebido ? (linha.valorRecebido ?? linha.valor) : linha.valor).toFixed(2);
+            const para = new Prisma.Decimal(plano.valor);
+            if (de === para.toFixed(2)) throw new RequisicaoInvalida("O valor novo é igual ao atual.", [{ campo: "valor", problema: "O valor novo é igual ao atual." }]);
+            await tx.lancamento.update({ where: { id }, data: doRecebido ? { valorRecebido: para } : { valor: para } });
+            await historico("valor_corrigido", { de, para: para.toFixed(2), ...(doRecebido ? { campo: "valorRecebido" } : {}) }, plano.motivo);
+            return evento("financeiro.lancamento.valor_corrigido", { comMotivo: true, ...(doRecebido ? { campo: "valorRecebido" } : {}) });
           }
           case "registrar_nf":
             await tx.lancamento.update({ where: { id }, data: { etapa: plano.etapa, nfNumero: plano.numero, nfRegistradaEm: agora, nfRegistradaPorId: principal.id } });

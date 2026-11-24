@@ -151,7 +151,9 @@ export function planejarAcao(l: EstadoDoLancamento, acao: AcaoDoLancamento, anex
       if (estaLiquidado(l.etapa)) return conflito(l.tipo === "saida" ? "Conta já paga não se cancela." : "Cobrança já recebida não se cancela.");
       return { tipo: "cancelar", motivo: acao.motivo };
     case "corrigir_valor":
-      if (estaLiquidado(l.etapa)) return conflito("Depois de pago ou recebido, o valor não se corrige.");
+      // O liquidado e ainda não conciliado se corrige (o "Valor diferente" da Conciliação: juros,
+      // multa ou desconto). Depois de conciliado, o par com o extrato vem antes: desfaz primeiro.
+      if (l.etapa === "conciliada") return conflito("Depois de conciliado, o valor não se corrige: desfaça a conciliação primeiro.");
       // Decisão (a) do Coordenador: depois do boleto, o boleto com o valor antigo não
       // serve; corrigir exige anexar o boleto novo antes (o antigo fica substituído).
       if (l.tipo === "entrada" && (l.etapa === "boleto_gerado" || l.etapa === "enviada") && !anexos.boletoNovo) {
@@ -183,8 +185,9 @@ export function planejarAcao(l: EstadoDoLancamento, acao: AcaoDoLancamento, anex
 
 /**
  * Acesso por ação. Aprovar é da Gerente do Financeiro (F2). Cancelar ou corrigir o
- * valor da saída já aprovada também, porque mexe numa aprovação dela; o resto
- * basta alcançar o tipo (pagar e receber são de qualquer membro).
+ * valor da saída já aprovada também, porque mexe numa aprovação dela; corrigir o valor
+ * do que já foi pago ou recebido também, nos dois tipos. O resto basta alcançar o tipo
+ * (pagar e receber são de qualquer membro).
  */
 export function podeExecutar(papel: PapelNoFinanceiro, l: Pick<EstadoDoLancamento, "tipo" | "etapa">, acao: NomeDaAcaoDoLancamento): boolean {
   if (!alcancaTipo(papel, l.tipo)) return false;
@@ -192,8 +195,9 @@ export function podeExecutar(papel: PapelNoFinanceiro, l: Pick<EstadoDoLancament
     case "aprovar":
       return papel.gerente;
     case "cancelar":
-    case "corrigir_valor":
       return l.tipo === "saida" && l.etapa !== "aberta" ? papel.gerente : true;
+    case "corrigir_valor":
+      return (l.tipo === "saida" && l.etapa !== "aberta") || estaLiquidado(l.etapa) ? papel.gerente : true;
     default:
       return true;
   }

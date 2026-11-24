@@ -126,7 +126,11 @@ describe("ações", () => {
     // O pagamento aparece mesmo antes do comprovante: a tela o habilita depois do anexo.
     expect(acoesPermitidas(saida({ etapa: "aprovada" }), MEMBRO_PAGAR, SEM_ANEXOS, AGORA)).toEqual(["registrar_pagamento"]);
     expect(acoesPermitidas(saida({ etapa: "aprovada" }), GERENTE, SEM_ANEXOS, AGORA)).toEqual(["cancelar", "corrigir_valor", "registrar_pagamento"]);
-    expect(acoesPermitidas(saida({ etapa: "paga" }), GERENTE, SEM_ANEXOS, AGORA)).toEqual([]);
+    // O liquidado e não conciliado: só a gerência corrige o valor (o "Valor diferente" da Conciliação).
+    expect(acoesPermitidas(saida({ etapa: "paga" }), GERENTE, SEM_ANEXOS, AGORA)).toEqual(["corrigir_valor"]);
+    expect(acoesPermitidas(saida({ etapa: "paga" }), MEMBRO_PAGAR, SEM_ANEXOS, AGORA)).toEqual([]);
+    expect(acoesPermitidas(entrada({ etapa: "recebida" }), MEMBRO_RECEBER, SEM_ANEXOS, AGORA)).toEqual([]);
+    expect(acoesPermitidas(saida({ etapa: "conciliada" }), GERENTE, SEM_ANEXOS, AGORA)).toEqual([]);
     expect(acoesPermitidas(entrada({ etapa: "enviada" }), MEMBRO_RECEBER, SEM_ANEXOS, AGORA)).toEqual(["cancelar", "corrigir_valor", "registrar_cobranca", "registrar_recebimento"]);
   });
 });
@@ -164,10 +168,19 @@ describe("ações da PLU-337", () => {
     expect(planejarAcao(saida(), { acao: "registrar_nf", numero: "x" }, SEM_ANEXOS, AGORA)).toMatchObject({ codigo: "CONFLITO_ESTADO" });
   });
 
-  it("a cobrança registrada não muda a etapa; corrigir o valor só antes de liquidar", () => {
+  it("a cobrança registrada não muda a etapa; corrigir o valor até conciliar, e o liquidado só pela gerência", () => {
     expect(planejarAcao(entrada({ etapa: "enviada" }), { acao: "registrar_cobranca", canal: "WhatsApp", nota: "Pediu 2ª via" }, SEM_ANEXOS, AGORA))
       .toEqual({ tipo: "registrar_cobranca", canal: "WhatsApp", nota: "Pediu 2ª via" });
-    expect(planejarAcao(saida({ etapa: "paga" }), { acao: "corrigir_valor", valor: "10.00", motivo: "x" }, SEM_ANEXOS, AGORA)).toMatchObject({ codigo: "CONFLITO_ESTADO" });
+    const corrigir = { acao: "corrigir_valor" as const, valor: "10.00", motivo: "Juros" };
+    expect(planejarAcao(saida({ etapa: "paga" }), corrigir, SEM_ANEXOS, AGORA)).toEqual({ tipo: "corrigir_valor", valor: "10.00", motivo: "Juros" });
+    expect(planejarAcao(entrada({ etapa: "recebida" }), corrigir, SEM_ANEXOS, AGORA)).toMatchObject({ tipo: "corrigir_valor" });
+    expect(planejarAcao(saida({ etapa: "conciliada" }), corrigir, SEM_ANEXOS, AGORA))
+      .toEqual({ codigo: "CONFLITO_ESTADO", mensagem: "Depois de conciliado, o valor não se corrige: desfaça a conciliação primeiro." });
+    expect(podeExecutar(MEMBRO_PAGAR, saida({ etapa: "paga" }), "corrigir_valor")).toBe(false);
+    expect(podeExecutar(MEMBRO_RECEBER, entrada({ etapa: "recebida" }), "corrigir_valor")).toBe(false);
+    expect(podeExecutar(GERENTE, entrada({ etapa: "recebida" }), "corrigir_valor")).toBe(true);
+    // Antes de liquidar, a entrada segue de qualquer membro do Contas a receber.
+    expect(podeExecutar(MEMBRO_RECEBER, entrada({ etapa: "enviada" }), "corrigir_valor")).toBe(true);
     expect(podeExecutar(MEMBRO_PAGAR, saida({ etapa: "aprovada" }), "corrigir_valor")).toBe(false);
     expect(podeExecutar(GERENTE, saida({ etapa: "aprovada" }), "corrigir_valor")).toBe(true);
   });
