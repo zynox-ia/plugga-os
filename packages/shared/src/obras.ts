@@ -70,7 +70,13 @@ export type SituacaoDaObra = (typeof situacoesDaObra)[number];
 // ---------------------------------------------------------------- entradas
 
 const texto = (min: number, max: number, problema: string) => z.string().trim().min(min, problema).max(max);
-const valorEmReais = z.string().trim().regex(/^\d{1,12}([.,]\d{1,2})?$/, "use um valor como 125000,50").transform((v) => v.replace(",", "."));
+const valorEmReais = z
+  .string()
+  .trim()
+  .regex(/^\d{1,12}([.,]\d{1,2})?$/, "use um valor como 125000,50")
+  .transform((v) => v.replace(",", "."))
+  // O mesmo do CHECK obras_orcamento_positivo: zero vira 400 de campo, não 500.
+  .refine((v) => Number(v) > 0, "o orçamento precisa ser maior que zero");
 
 export const cadastrarObraSchema = z
   .object({

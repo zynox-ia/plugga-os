@@ -1,4 +1,4 @@
-import { cadastrarObraSchema, type Acesso } from "@plugga/shared";
+import { cadastrarObraSchema, editarObraSchema, type Acesso } from "@plugga/shared";
 import { describe, expect, it } from "vitest";
 
 import { RequisicaoInvalida } from "../common/errors/dominio";
@@ -48,6 +48,14 @@ describe("obras: período e arquivos", () => {
     try { conferirPeriodo("2026-09-01", "2026-11-23", "2026-11-23"); expect.unreachable(); } catch (e) { expect((e as RequisicaoInvalida).detalhes?.[0]?.problema).toMatch(/a partir de amanhã/); }
     expect(cadastrarObraSchema.safeParse({ empresa: "waze", clienteId: "00000000-0000-4000-8000-000000000001", nome: "Obra", potenciaKwp: "61,2", inicioEm: "2026-11-23", entregaPrevistaEm: "2026-11-22" }).success).toBe(false);
     expect(cadastrarObraSchema.safeParse({ empresa: "waze", clienteId: "00000000-0000-4000-8000-000000000001", nome: "Obra", potenciaKwp: "61,2", tipo: "interno", inicioEm: "2026-11-23", entregaPrevistaEm: "2026-11-30" }).success).toBe(false);
+  });
+
+  it("orçamento e potência maiores que zero, no contrato (o CHECK do banco também recusa)", () => {
+    expect(editarObraSchema.safeParse({ orcamento: "0" }).success).toBe(false);
+    expect(editarObraSchema.safeParse({ orcamento: "0,00" }).success).toBe(false);
+    expect(editarObraSchema.safeParse({ potenciaKwp: "0" }).success).toBe(false);
+    expect(editarObraSchema.parse({ orcamento: "125000,50" }).orcamento).toBe("125000.50");
+    expect(editarObraSchema.parse({ orcamento: null }).orcamento).toBeNull();
   });
 
   it("o .mpp é reconhecido pela assinatura OLE e pela extensão", () => {
