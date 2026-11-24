@@ -30,7 +30,7 @@ const AGORA = new Date("2026-11-23T14:00:00Z");
 describe.skipIf(!HABILITADO)("conta a pagar do pedido de compra aprovado", () => {
   const prisma = new PrismaService();
   const auditoria = new AuditAppender();
-  const portao = (ligado: boolean) => new PrismaContaDaCompraRepository({ get: () => ligado } as unknown as ConfigService);
+  const portao = (ligado: boolean) => new PrismaContaDaCompraRepository({ get: () => ligado } as unknown as ConfigService, auditoria);
   const compras = (ligado: boolean) => new PrismaComprasRepository(prisma, auditoria, new MovimentosDeEstoque(auditoria), portao(ligado));
   const financeiro = new PrismaFinanceiroRepository(prisma, auditoria);
   const papel = papelNoFinanceiro({ plataforma: "admin", departamentos: [] });
@@ -120,9 +120,13 @@ describe.skipIf(!HABILITADO)("conta a pagar do pedido de compra aprovado", () =>
     expect(ficha.pendencias[0]).toEqual({ texto: "Classificar a categoria", feito: false });
 
     // Chamar de novo devolve a mesma conta.
-    const [denovo] = await como("admin", () => prisma.comContexto((tx) => tx.$queryRaw<{ id: string }[]>`SELECT plugga_security.financeiro_conta_da_compra(${id}::uuid) AS id`));
+    const [denovo] = await como("admin", () => prisma.comContexto((tx) => tx.$queryRaw<{ id: string }[]>`SELECT id FROM plugga_security.financeiro_conta_da_compra(${id}::uuid)`));
     expect(denovo?.id).toBe(conta.id);
     expect(await prisma.lancamento.count({ where: { pedidoDeCompraId: id } })).toBe(1);
+    // Um evento de criação só, com o ator que aprovou, mesmo chamando de novo pela aplicação.
+    await como("admin", () => prisma.comContexto((tx) => portao(true).criarNaAprovacao(tx, id, pessoas.admin)));
+    const eventos = await prisma.eventLog.findMany({ where: { entityId: conta.id, eventName: "financeiro.lancamento.created" }, select: { actorId: true, payload: true } });
+    expect(eventos).toEqual([{ actorId: pessoas.admin.id, payload: { tipo: "saida", origem: "pedido_de_compra" } }]);
   }, PRAZO_MS);
 
   it("com o Financeiro desligado, a aprovação segue como antes: sem conta, e a ficha de Compras sem o campo", async () => {
@@ -135,7 +139,7 @@ describe.skipIf(!HABILITADO)("conta a pagar do pedido de compra aprovado", () =>
   it("pelo pool da aplicação: quem só tem Compras cria e vê a conta pela função, sem ler lançamentos; quem não tem Compras nem Financeiro não vê", async () => {
     // Aprovado pelo comprador com o portão desligado, para a conta nascer aqui, como plugga_runtime.
     const id = await aprovado("comprador", false);
-    const [criada] = await comoRuntime("comprador", (tx) => tx.$queryRaw<{ id: string }[]>`SELECT plugga_security.financeiro_conta_da_compra(${id}::uuid) AS id`);
+    const [criada] = await comoRuntime("comprador", (tx) => tx.$queryRaw<{ id: string }[]>`SELECT id FROM plugga_security.financeiro_conta_da_compra(${id}::uuid)`);
     expect(criada?.id).toEqual(expect.any(String));
     expect(await comoRuntime("comprador", (tx) => tx.lancamento.count({ where: { id: criada!.id } }))).toBe(0);
     expect(await comoRuntime("comprador", (tx) => tx.$queryRaw<{ id: string }[]>`SELECT id FROM plugga_security.contas_a_pagar_dos_pedidos(${[id]}::uuid[])`))
@@ -159,5 +163,8 @@ describe.skipIf(!HABILITADO)("conta a pagar do pedido de compra aprovado", () =>
       return tx.$queryRaw`SELECT plugga_security.financeiro_conta_da_compra(${id}::uuid)`;
     })).rejects.toThrow(/CONTA_DA_COMPRA_SEM_SESSAO/);
     expect(await prisma.lancamento.count({ where: { pedidoDeCompraId: { in: [id, emAndamento] } } })).toBe(0);
+    // Pela aplicação, a recusa vira um 409 com mensagem clara, e não um erro cru.
+    await expect(como("admin", () => prisma.comContexto((tx) => portao(true).criarNaAprovacao(tx, emAndamento, pessoas.admin))))
+      .rejects.toMatchObject({ codigo: "CONFLITO_ESTADO", message: "Não foi possível gerar a conta a pagar deste pedido; avise o Financeiro." });
   }, PRAZO_MS);
 });

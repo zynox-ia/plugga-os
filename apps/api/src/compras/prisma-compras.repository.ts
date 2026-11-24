@@ -335,7 +335,7 @@ export class PrismaComprasRepository {
       }
       await tx.pedidoDeCompra.update({ where: { id }, data: { ...alteracoes, ...autoriaDaAcao(acao, principal.id, agora) } });
       // A aprovação gera a conta a pagar no Financeiro, na mesma transação (W3, PLU-341).
-      if (acao.acao === "aprovar") await this.contaDaCompra.criarNaAprovacao(tx, id);
+      if (acao.acao === "aprovar") await this.contaDaCompra.criarNaAprovacao(tx, id, principal);
       await this.registrar(tx, evento, "pedido_de_compra", id, pedido.companyId, principal, {
         acao: acao.acao,
         de: pedido.etapa,
