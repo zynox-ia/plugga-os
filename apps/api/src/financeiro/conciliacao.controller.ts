@@ -2,18 +2,27 @@ import { Body, Controller, Get, HttpCode, Inject, Param, ParseUUIDPipe, Post, Qu
 import { ThrottlerGuard } from "@nestjs/throttler";
 import {
   conciliarSchema,
+  criarLancamentoDoExtratoSchema,
+  criarTarifaSchema,
+  criarTarifasSchema,
   desfazerConciliacaoSchema,
   escopoDaConciliacaoSchema,
   listarMovimentosDoExtratoQuerySchema,
   marcarNaConciliacaoSchema,
   type Conciliar,
+  type CriarLancamentoDoExtrato,
+  type CriarTarifa,
+  type CriarTarifas,
   type DesfazerConciliacao,
   type EscopoDaConciliacao,
   type ExtratoImportado,
+  type LancamentoCriadoNaConciliacao,
   type ListarMovimentosDoExtratoQuery,
   type MarcarNaConciliacao,
   type MovimentosDoExtratoResposta,
   type PainelDaConciliacao,
+  type SugestaoDaTarifa,
+  type TarifasCriadas,
 } from "@plugga/shared";
 
 import { UmArquivo } from "../common/upload";
@@ -92,5 +101,33 @@ export class ConciliacaoController {
   async marcar(@Body(new ZodValidationPipe(marcarNaConciliacaoSchema)) entrada: MarcarNaConciliacao): Promise<{ marcado: boolean }> {
     await this.conciliacao.marcar(entrada);
     return { marcado: entrada.marcado };
+  }
+
+  // C5: o que nasce na Conciliação, a partir de uma linha do extrato sem par.
+
+  @Get("conciliacao/movimentos/:id/tarifa")
+  sugestaoDaTarifa(@Param("id", ParseUUIDPipe) id: string): Promise<SugestaoDaTarifa> {
+    return this.conciliacao.sugestaoDaTarifa(id);
+  }
+
+  @Post("conciliacao/tarifa")
+  @HttpCode(201)
+  @UseGuards(OriginCheckGuard, ThrottlerGuard)
+  criarTarifa(@Body(new ZodValidationPipe(criarTarifaSchema)) entrada: CriarTarifa, @CurrentPrincipal() principal: AuthPrincipal): Promise<LancamentoCriadoNaConciliacao> {
+    return this.conciliacao.criarTarifa(entrada, principal);
+  }
+
+  @Post("conciliacao/tarifas")
+  @HttpCode(200)
+  @UseGuards(OriginCheckGuard, ThrottlerGuard)
+  criarTarifas(@Body(new ZodValidationPipe(criarTarifasSchema)) entrada: CriarTarifas, @CurrentPrincipal() principal: AuthPrincipal): Promise<TarifasCriadas> {
+    return this.conciliacao.criarTarifas(entrada, principal);
+  }
+
+  @Post("conciliacao/lancamento")
+  @HttpCode(201)
+  @UseGuards(OriginCheckGuard, ThrottlerGuard)
+  criarLancamento(@Body(new ZodValidationPipe(criarLancamentoDoExtratoSchema)) entrada: CriarLancamentoDoExtrato, @CurrentPrincipal() principal: AuthPrincipal): Promise<LancamentoCriadoNaConciliacao> {
+    return this.conciliacao.criarLancamento(entrada, principal);
   }
 }

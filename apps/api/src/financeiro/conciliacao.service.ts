@@ -3,14 +3,23 @@ import { createHash, randomUUID } from "node:crypto";
 import { Inject, Injectable, Logger } from "@nestjs/common";
 import {
   extratoImportadoSchema,
+  lancamentoCriadoNaConciliacaoSchema,
   movimentosDoExtratoRespostaSchema,
   painelDaConciliacaoSchema,
+  sugestaoDaTarifaSchema,
+  tarifasCriadasSchema,
+  type CriarLancamentoDoExtrato,
+  type CriarTarifa,
+  type CriarTarifas,
   type EscopoDaConciliacao,
   type ExtratoImportado,
+  type LancamentoCriadoNaConciliacao,
   type ListarMovimentosDoExtratoQuery,
   type MarcarNaConciliacao,
   type MovimentosDoExtratoResposta,
   type PainelDaConciliacao,
+  type SugestaoDaTarifa,
+  type TarifasCriadas,
 } from "@plugga/shared";
 
 import { AcessoNegado, ArquivoRecusado, LimiteExcedido, RequisicaoInvalida, TipoNaoPermitido } from "../common/errors/dominio";
@@ -99,6 +108,30 @@ export class ConciliacaoService {
   async desfazer(movimentoId: string, motivo: string, principal: AuthPrincipal): Promise<void> {
     if (!papelNoFinanceiro(principal.acesso).gerente) throw new AcessoNegado("Só a gerência do Financeiro desfaz uma conciliação.");
     await this.repositorio.desfazer(movimentoId, motivo, principal, this.agora());
+  }
+
+  // C5: o que nasce na Conciliação, a partir de uma linha do extrato sem par.
+
+  async sugestaoDaTarifa(movimentoId: string): Promise<SugestaoDaTarifa> {
+    return sugestaoDaTarifaSchema.parse(await this.repositorio.sugestaoDaTarifa(movimentoId));
+  }
+
+  /** A tarifa: de quem tem a tela Conciliação (decisão do Coordenador, 24/11/2026). */
+  async criarTarifa(entrada: CriarTarifa, principal: AuthPrincipal): Promise<LancamentoCriadoNaConciliacao> {
+    return lancamentoCriadoNaConciliacaoSchema.parse(await this.repositorio.criarTarifa(entrada, principal, this.agora()));
+  }
+
+  async criarTarifas(entrada: CriarTarifas, principal: AuthPrincipal): Promise<TarifasCriadas> {
+    const { movimentoIds, ...padrao } = entrada;
+    return tarifasCriadasSchema.parse(await this.repositorio.criarTarifas(movimentoIds, padrao, principal, this.agora()));
+  }
+
+  /** A despesa guiada nasce paga sem a aprovação F2: só a gerência. A receita guiada, quem tem a tela. */
+  async criarLancamento(entrada: CriarLancamentoDoExtrato, principal: AuthPrincipal): Promise<LancamentoCriadoNaConciliacao> {
+    if (entrada.tipo === "saida" && !papelNoFinanceiro(principal.acesso).gerente) {
+      throw new AcessoNegado("Só a gerência do Financeiro cria uma despesa já paga a partir do extrato.");
+    }
+    return lancamentoCriadoNaConciliacaoSchema.parse(await this.repositorio.criarLancamento(entrada, principal, this.agora()));
   }
 
   async marcar(entrada: MarcarNaConciliacao): Promise<void> {

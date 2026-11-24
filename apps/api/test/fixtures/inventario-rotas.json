@@ -1783,6 +1783,23 @@
   },
   {
     "metodo": "POST",
+    "caminho": "/financeiro/conciliacao/lancamento",
+    "controller": "ConciliacaoController.criarLancamento",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:financeiro.conciliacao",
+      "departamento:financeiro:membro"
+    ],
+    "guards": [
+      "FinanceiroHabilitadoGuard",
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
     "caminho": "/financeiro/conciliacao/marcar",
     "controller": "ConciliacaoController.marcar",
     "acesso": "acesso",
@@ -1811,6 +1828,55 @@
       "FinanceiroHabilitadoGuard",
       "SessionAuthGuard",
       "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/financeiro/conciliacao/movimentos/:id/tarifa",
+    "controller": "ConciliacaoController.sugestaoDaTarifa",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:financeiro.conciliacao",
+      "departamento:financeiro:membro"
+    ],
+    "guards": [
+      "FinanceiroHabilitadoGuard",
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/financeiro/conciliacao/tarifa",
+    "controller": "ConciliacaoController.criarTarifa",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:financeiro.conciliacao",
+      "departamento:financeiro:membro"
+    ],
+    "guards": [
+      "FinanceiroHabilitadoGuard",
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/financeiro/conciliacao/tarifas",
+    "controller": "ConciliacaoController.criarTarifas",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:financeiro.conciliacao",
+      "departamento:financeiro:membro"
+    ],
+    "guards": [
+      "FinanceiroHabilitadoGuard",
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
     ]
   },
   {

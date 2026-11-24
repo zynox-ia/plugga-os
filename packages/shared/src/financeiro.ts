@@ -429,7 +429,11 @@ export const favorecidoSchema = z.object({
   nome: z.string(),
 });
 
-export const origensDoLancamento = ["avulsa", "pedido_de_compra", "agente", "cobranca_manual"] as const;
+/**
+ * `tarifa_bancaria` e `conciliacao` (PLU-339, C5): o lançamento que nasce pago (ou recebido)
+ * na Conciliação, a partir de uma linha do extrato.
+ */
+export const origensDoLancamento = ["avulsa", "pedido_de_compra", "agente", "cobranca_manual", "tarifa_bancaria", "conciliacao"] as const;
 export const origemDoLancamentoSchema = z.enum(origensDoLancamento);
 export type OrigemDoLancamento = z.infer<typeof origemDoLancamentoSchema>;
 
@@ -469,6 +473,11 @@ export const lancamentoResumoSchema = z.object({
       valor: z.string().optional(),
     }).nullable(),
   }),
+  /**
+   * A saída que nasceu paga sem a aprovação F2: a tarifa e a despesa criadas na Conciliação
+   * (e, depois, a "Paga" da Nova despesa, CC15). Derivada da origem. Opcional até a web ler.
+   */
+  pagoSemAprovacao: z.boolean().optional(),
   createdAt: isoDate,
 });
 export type LancamentoResumo = z.infer<typeof lancamentoResumoSchema>;
@@ -544,6 +553,8 @@ const filtrosDosLancamentos = {
   vencimento: z.enum(filtrosDeVencimento).optional(),
   /** Nome do favorecido, código ("CP-0412" ou "412") e descrição. */
   busca: z.string().trim().max(120).optional(),
+  /** `true`: só as saídas pagas sem a aprovação F2 (`pagoSemAprovacao`). */
+  pagoSemAprovacao: z.enum(["true", "false"]).transform((v) => v === "true").optional(),
 };
 
 /**
@@ -712,6 +723,11 @@ export const movimentoDoExtratoSchema = z.object({
   valor: z.string(),
   descricao: z.string(),
   estado: z.enum(estadosDoMovimentoDoExtrato),
+  /**
+   * A linha parece tarifa bancária (C5): débito com o tipo FEE ou SRVCHG no OFX, ou com
+   * tarifa, TAR, cesta ou manutenção de conta na descrição. A tela põe o "Criar tarifa" à frente.
+   */
+  pareceTarifa: z.boolean().optional(),
 });
 export type MovimentoDoExtrato = z.infer<typeof movimentoDoExtratoSchema>;
 
@@ -832,3 +848,78 @@ export const marcarNaConciliacaoSchema = z.union([
   z.object({ lancamentoId: uuid, marcado: z.boolean() }).strict(),
 ]);
 export type MarcarNaConciliacao = z.infer<typeof marcarNaConciliacaoSchema>;
+
+// ---------------------------------------------------------------- criar na conciliação (PLU-339, C5)
+// O lançamento que nasce de uma linha do extrato sem par: pago (ou recebido) no dia da linha,
+// na conta dela, e conciliado com ela quando o valor é o mesmo.
+
+const LIMITE_DO_LOTE_DE_TARIFAS = 200;
+
+/** `GET financeiro/conciliacao/movimentos/:id/tarifa`: o que o diálogo "Criar tarifa" já traz preenchido. */
+export const sugestaoDaTarifaSchema = z.object({
+  movimento: movimentoDoExtratoSchema,
+  /** A categoria de tarifas da empresa da conta; nula, o diálogo pede uma categoria de despesa. */
+  categoria: z.object({ id: uuid, codigo: z.string(), nome: z.string() }).nullable(),
+  /** O fornecedor da última tarifa da mesma conta, se ainda ativo. */
+  fornecedor: z.object({ id: uuid, nome: z.string() }).nullable(),
+});
+export type SugestaoDaTarifa = z.infer<typeof sugestaoDaTarifaSchema>;
+
+/**
+ * `POST financeiro/conciliacao/tarifa`: de quem tem a tela Conciliação. O valor e o dia são os da
+ * linha (débito pendente ou marcado); a tarifa nasce paga e conciliada. Com a categoria de tarifas
+ * marcada na empresa, `categoriaId` pode faltar (outro é 400); sem ela, é obrigatório.
+ */
+export const criarTarifaSchema = z.object({
+  movimentoId: uuid,
+  fornecedorId: uuid,
+  categoriaId: uuid.optional(),
+  descricao: textoObrigatorio(200).optional(),
+}).strict();
+export type CriarTarifa = z.infer<typeof criarTarifaSchema>;
+
+/**
+ * `POST financeiro/conciliacao/tarifas`: "Criar as N tarifas". Cada linha usa a categoria marcada
+ * e o fornecedor da última tarifa da conta dela; `fornecedorId` e `categoriaId` só entram onde
+ * falta a sugestão. Uma transação por linha: a que falha vai em `recusadas`, e as outras ficam.
+ */
+export const criarTarifasSchema = z.object({
+  movimentoIds: z.array(uuid).min(1).max(LIMITE_DO_LOTE_DE_TARIFAS).refine((ids) => new Set(ids).size === ids.length, "Linhas repetidas."),
+  fornecedorId: uuid.optional(),
+  categoriaId: uuid.optional(),
+}).strict();
+export type CriarTarifas = z.infer<typeof criarTarifasSchema>;
+
+export const tarifasCriadasSchema = z.object({
+  criadas: z.number().int().nonnegative(),
+  recusadas: z.array(z.object({ movimentoId: uuid, mensagem: z.string() })),
+});
+export type TarifasCriadas = z.infer<typeof tarifasCriadasSchema>;
+
+const doExtrato = {
+  movimentoId: uuid,
+  descricao: textoObrigatorio(200),
+  /** Padrão: o valor da linha. Outro valor só com `conciliar: false` ("Criar sem conciliar"). */
+  valor: valorPositivo.optional(),
+  /** Padrão true: concilia com a linha. Falso: nasce pago (ou recebido) e a linha fica sem par. */
+  conciliar: z.boolean().default(true),
+};
+
+/**
+ * `POST financeiro/conciliacao/lancamento`: a criação guiada de uma linha sem par, no dia e na
+ * conta dela. A saída (débito) é só da gerência e nasce paga sem a aprovação F2; a entrada
+ * (crédito), de quem tem a tela Conciliação, nasce recebida, na competência do mês do crédito
+ * se não vier outra.
+ */
+export const criarLancamentoDoExtratoSchema = z.discriminatedUnion("tipo", [
+  z.object({ tipo: z.literal("saida"), ...doExtrato, fornecedorId: uuid, categoriaId: uuid.optional(), forma: formaDoLancamentoSchema.optional() }).strict(),
+  z.object({ tipo: z.literal("entrada"), ...doExtrato, clienteId: uuid, categoriaId: uuid, competencia: competencia.optional() }).strict(),
+]);
+export type CriarLancamentoDoExtrato = z.infer<typeof criarLancamentoDoExtratoSchema>;
+
+/** A resposta do "Criar tarifa" e da criação guiada. */
+export const lancamentoCriadoNaConciliacaoSchema = z.object({
+  lancamento: z.object({ id: uuid, codigo: z.string() }),
+  conciliado: z.boolean(),
+});
+export type LancamentoCriadoNaConciliacao = z.infer<typeof lancamentoCriadoNaConciliacaoSchema>;

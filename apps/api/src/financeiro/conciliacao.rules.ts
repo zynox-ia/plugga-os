@@ -139,3 +139,29 @@ export function montarPainel(
     },
   };
 }
+
+// ------------------------------------------------------------ C5: o que nasce na Conciliação
+
+/** Os tipos do OFX que são tarifa: FEE (tarifa) e SRVCHG (cobrança de serviço). */
+const TIPOS_DE_TARIFA_NO_OFX = new Set(["FEE", "SRVCHG"]);
+/** "TARIFA", "Tarifas", "TAR PIX", "Cesta de serviços", "Manutenção de conta"; não "TARDE" nem "tarifado". */
+const DESCRICAO_DE_TARIFA = /(^|[^a-z])(tarifas?|tar|cesta)([^a-z]|$)|manuten[cç][aã]o\s+(de\s+)?conta/i;
+
+/** A linha parece tarifa bancária: sempre débito, pelo tipo do OFX ou pela descrição. */
+export function pareceTarifa(m: { valor: string; tipoNoBanco: string | null; descricao: string }): boolean {
+  if (!m.valor.startsWith("-")) return false;
+  return (m.tipoNoBanco !== null && TIPOS_DE_TARIFA_NO_OFX.has(m.tipoNoBanco)) || DESCRICAO_DE_TARIFA.test(m.descricao);
+}
+
+/**
+ * Por que a linha não pode virar um lançamento novo do tipo pedido, ou null. Só a pendente ou a
+ * marcada; débito vira saída, crédito vira entrada.
+ */
+export function problemaDaLinhaParaCriar(m: { valor: string; estado: string }, tipo: "saida" | "entrada", tarifa = false): string | null {
+  if (m.estado === "conciliado") return "Esta linha já foi conciliada.";
+  const debito = m.valor.startsWith("-");
+  if (tarifa && !debito) return "A tarifa vem de uma linha de débito do extrato.";
+  if (tipo === "saida" && !debito) return "A linha é um crédito: crie uma receita, não uma despesa.";
+  if (tipo === "entrada" && debito) return "A linha é um débito: crie uma despesa, não uma receita.";
+  return null;
+}

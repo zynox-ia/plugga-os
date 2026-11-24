@@ -37,6 +37,8 @@ export type MovimentoLido = {
   /** Com sinal: + crédito, − débito, duas casas. */
   valor: string;
   descricao: string;
+  /** O TRNTYPE do OFX (FEE, SRVCHG, DEBIT...), só quando é um código do padrão; senão, nulo. */
+  tipoNoBanco: string | null;
 };
 
 export type ExtratoLido = {
@@ -110,13 +112,15 @@ export function lerOfx(arquivo: Buffer): ExtratoLido {
     if (/^-?0\.00$/.test(valor)) throw new ExtratoRecusado(`O movimento ${posicao + 1} do extrato tem valor zero.`);
     const descricao = (campo(bloco, "MEMO") ?? campo(bloco, "NAME") ?? campo(bloco, "TRNTYPE") ?? "Movimento").slice(0, DESCRICAO_MAX);
     const fitid = campo(bloco, "FITID");
+    const trntype = campo(bloco, "TRNTYPE")?.toUpperCase() ?? null;
+    const tipoNoBanco = trntype && /^[A-Z]{2,12}$/.test(trntype) ? trntype : null;
     const trio = `${d}|${valor}|${descricao}`;
     const n = (ocorrencias.get(trio) ?? 0) + 1;
     ocorrencias.set(trio, n);
     const identificador = fitid
       ? fitid.slice(0, FITID_MAX)
       : `sem-fitid:${createHash("sha256").update(`${trio}|${n}`).digest("hex").slice(0, 32)}`;
-    return { identificador, conteudo: conteudoDoMovimento(d, valor, descricao), dia: d, valor, descricao };
+    return { identificador, conteudo: conteudoDoMovimento(d, valor, descricao), dia: d, valor, descricao, tipoNoBanco };
   });
 
   const contaDoArquivo = /<BANKACCTFROM>([\s\S]*?)(<\/BANKACCTFROM>|<BANKTRANLIST>)/i.exec(texto)?.[1] ?? null;

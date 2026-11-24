@@ -67,10 +67,10 @@ describe("leitura do extrato OFX (PLU-339, C1)", () => {
     expect(extrato.periodo).toEqual({ de: "2026-11-01", ate: "2026-11-30" });
     expect(extrato.saldo).toEqual({ valor: "15320.42", em: "2026-11-30" });
     expect(extrato.movimentos).toEqual([
-      { identificador: "2026112100001", conteudo: expect.any(String), dia: "2026-11-21", valor: "-1742.18", descricao: "PIX ENVIADO PREFEITURA MUNICIPAL" },
-      { identificador: "2026111400007", conteudo: expect.any(String), dia: "2026-11-14", valor: "7200.00", descricao: "PIX RECEBIDO SUPERM BOM PRECO NORTE" },
+      { identificador: "2026112100001", conteudo: expect.any(String), dia: "2026-11-21", valor: "-1742.18", descricao: "PIX ENVIADO PREFEITURA MUNICIPAL", tipoNoBanco: "DEBIT" },
+      { identificador: "2026111400007", conteudo: expect.any(String), dia: "2026-11-14", valor: "7200.00", descricao: "PIX RECEBIDO SUPERM BOM PRECO NORTE", tipoNoBanco: "CREDIT" },
       // Sem FITID: um identificador estável do conteúdo e da posição no arquivo.
-      { identificador: expect.stringMatching(/^sem-fitid:[0-9a-f]{32}$/), conteudo: expect.any(String), dia: "2026-11-22", valor: "-2.50", descricao: "TAR PIX ENVIADO" },
+      { identificador: expect.stringMatching(/^sem-fitid:[0-9a-f]{32}$/), conteudo: expect.any(String), dia: "2026-11-22", valor: "-2.50", descricao: "TAR PIX ENVIADO", tipoNoBanco: "FEE" },
     ]);
   });
 
@@ -87,7 +87,7 @@ describe("leitura do extrato OFX (PLU-339, C1)", () => {
     const extrato = lerOfx(Buffer.from(XML, "utf8"));
     expect(extrato.conta).toEqual({ banco: "999", agencia: "9999", conta: "999999" });
     expect(extrato.saldo).toEqual({ valor: "-50.00", em: "2026-11-30" });
-    expect(extrato.movimentos).toEqual([{ identificador: "A-1", conteudo: expect.any(String), dia: "2026-11-20", valor: "-312.40", descricao: "PAG BOLETO PAPELARIA CENTRO" }]);
+    expect(extrato.movimentos).toEqual([{ identificador: "A-1", conteudo: expect.any(String), dia: "2026-11-20", valor: "-312.40", descricao: "PAG BOLETO PAPELARIA CENTRO", tipoNoBanco: "DEBIT" }]);
   });
 
   it("recusa DOCTYPE e ENTITY (XXE), mesmo em OFX 1.x", () => {

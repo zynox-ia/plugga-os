@@ -41,6 +41,8 @@ import {
   fimDoMesEmManaus,
   inicioDoMesEmManaus,
   numeroDaBusca,
+  origensPagasSemAprovacao,
+  pagoSemAprovacao,
   planejarAcao,
   podeEditar,
   podeExecutar,
@@ -649,6 +651,10 @@ export class PrismaFinanceiroRepository {
     if (situacao.emAberto || situacao.vencido) condicoes.push({ etapa: { in: etapasEmAberto } });
     if (situacao.vencido) condicoes.push({ vencimento: { lt: hoje } });
     if (situacao.omieComErro) condicoes.push({ omie: { is: { estado: { in: ["erro", "divergente"] } } } });
+    if (query.pagoSemAprovacao !== undefined) {
+      const semAprovacao: Prisma.LancamentoWhereInput = { tipo: "saida", origem: { in: [...origensPagasSemAprovacao] } };
+      condicoes.push(query.pagoSemAprovacao ? semAprovacao : { NOT: semAprovacao });
+    }
 
     if (query.vencimento) {
       condicoes.push({ etapa: { in: etapasEmAberto } }, { canceladoEm: null });
@@ -771,6 +777,7 @@ export class PrismaFinanceiroRepository {
       anexos: l._count.anexos,
       omie: l.omie ?? SEM_OMIE,
       origem: { tipo: l.origem, pedidoDeCompra: (l.pedidoDeCompraId && pedidos.get(l.pedidoDeCompraId)) || l.pedidoDeCompra },
+      pagoSemAprovacao: pagoSemAprovacao(l),
       createdAt: l.createdAt.toISOString(),
     };
   }

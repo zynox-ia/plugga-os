@@ -1,10 +1,12 @@
 import { randomBytes, randomUUID } from "node:crypto";
 
+import { listarLancamentosQuerySchema } from "@plugga/shared";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { AuditAppender } from "../src/audit/audit-appender.js";
-import { Conflito, EstadoInvalido } from "../src/common/errors/dominio.js";
+import { AcessoNegado, Conflito, EstadoInvalido, RequisicaoInvalida } from "../src/common/errors/dominio.js";
 import type { AuthPrincipal } from "../src/core/auth/auth.types.js";
+import { ConciliacaoService } from "../src/financeiro/conciliacao.service.js";
 import { conteudoDoMovimento, type ExtratoLido } from "../src/financeiro/extrato-ofx.js";
 import { papelNoFinanceiro } from "../src/financeiro/financeiro.rules.js";
 import { PrismaConciliacaoRepository, type ContaDoExtrato } from "../src/financeiro/prisma-conciliacao.repository.js";
@@ -47,8 +49,8 @@ describe.skipIf(!HABILITADO)("conciliação: extrato bancário no Postgres", () 
   const lido = (movimentos: ExtratoLido["movimentos"], saldo: ExtratoLido["saldo"] = null): ExtratoLido => ({
     conta: null, periodo: { de: movimentos.map((m) => m.dia).sort()[0]!, ate: movimentos.map((m) => m.dia).sort().at(-1)! }, saldo, movimentos,
   });
-  const mov = (id: string, dia: string, valor: string, descricao = `${marca} PIX ${id}`) =>
-    ({ identificador: `${marca}-${id}`, conteudo: conteudoDoMovimento(dia, valor, descricao), dia, valor, descricao });
+  const mov = (id: string, dia: string, valor: string, descricao = `${marca} PIX ${id}`, tipoNoBanco: string | null = null) =>
+    ({ identificador: `${marca}-${id}`, conteudo: conteudoDoMovimento(dia, valor, descricao), dia, valor, descricao, tipoNoBanco });
 
   beforeAll(async () => {
     await prisma.$connect();
@@ -75,9 +77,10 @@ describe.skipIf(!HABILITADO)("conciliação: extrato bancário no Postgres", () 
       await tx.$executeRawUnsafe("SET LOCAL session_replication_role = replica");
       await tx.movimentoDoExtrato.deleteMany({ where: { contaCorrenteId: conta.id } });
       await tx.extratoBancario.deleteMany({ where: { contaCorrenteId: conta.id } });
-      const daMarca = { lancamento: { descricao: { startsWith: marca } } };
+      const daMarca = { lancamento: { OR: [{ descricao: { startsWith: marca } }, { contaCorrenteId: { in: [conta.id, ids.outraConta] } }] } };
       await tx.historicoDeLancamento.deleteMany({ where: daMarca });
-      await tx.lancamento.deleteMany({ where: { descricao: { startsWith: marca } } });
+      // As tarifas do lote têm a descrição padrão: saem pela conta.
+      await tx.lancamento.deleteMany({ where: { OR: [{ descricao: { startsWith: marca } }, { contaCorrenteId: { in: [conta.id, ids.outraConta] } }] } });
       await tx.categoriaFinanceira.deleteMany({ where: { nome: { startsWith: marca } } });
       await tx.fornecedor.deleteMany({ where: { nome: { startsWith: marca } } });
       await tx.client.deleteMany({ where: { name: { startsWith: marca } } });
@@ -246,5 +249,129 @@ describe.skipIf(!HABILITADO)("conciliação: extrato bancário no Postgres", () 
     const resumo = await financeiro.resumo(papelNoFinanceiro({ plataforma: "admin", departamentos: [] }), "waze", AGORA);
     expect(resumo.saldoProjetado?.saldoNasContas).not.toBeNull();
     expect(resumo.saldoProjetado?.contasSemSaldoInicial).toEqual(expect.any(Number));
+  }, PRAZO_MS);
+
+  // ------------------------------------------------------------ C5: o que nasce na Conciliação
+  // Só na Waze (o teste de cadastros, em paralelo, marca a categoria de tarifas da Plugga) e em
+  // janeiro de 2027, depois do saldo da C4, para não mexer nos números dela.
+
+  const naSessao = <T>(fazer: () => Promise<T>) => contextoBanco.run({ sessionHash: sessoes.conciliacao, agentHash: undefined }, fazer);
+  const linhaDe = async (identificador: string) => prisma.movimentoDoExtrato.findFirstOrThrow({ where: { contaCorrenteId: conta.id, identificador: `${marca}-${identificador}` } });
+  const semMarcaDeTarifas = () => prisma.categoriaFinanceira.updateMany({ where: { companyId: "waze", tarifaBancaria: true }, data: { tarifaBancaria: false } });
+
+  it("C5: a linha que parece tarifa (pelo tipo do OFX ou pela descrição) vem marcada no painel e na lista", async () => {
+    await repositorio.importar(conta, arquivo("c5a"), lido([
+      mov("c5t1", "2027-01-05", "-12.90", `${marca} DEBITO PACOTE`, "FEE"),
+      mov("c5t2", "2027-01-06", "-3.50", `${marca} TAR PIX ENVIADO`, "DEBIT"),
+      mov("c5t3", "2027-01-07", "-4.00", `${marca} TARIFA DOC`),
+      mov("c5p1", "2027-01-08", "-250.00", `${marca} PAG BOLETO`, "DEBIT"),
+      mov("c5c1", "2027-01-09", "900.00", `${marca} PIX RECEBIDO`, "CREDIT"),
+      mov("c5d1", "2027-01-10", "-80.00", `${marca} PIX ENVIADO`, "DEBIT"),
+    ]), principal, AGORA);
+    expect((await linhaDe("c5t1")).tipoNoBanco).toBe("FEE");
+    const painel = await naSessao(() => repositorio.painel({ contaCorrenteId: conta.id, de: "2027-01-01", ate: "2027-01-31" }));
+    const parece = Object.fromEntries(painel.semLancamento.map((m) => [m.descricao.replace(`${marca} `, ""), m.pareceTarifa]));
+    expect(parece).toEqual({ "DEBITO PACOTE": true, "TAR PIX ENVIADO": true, "TARIFA DOC": true, "PAG BOLETO": false, "PIX RECEBIDO": false, "PIX ENVIADO": false });
+  }, PRAZO_MS);
+
+  it("C5: Criar tarifa sem a categoria de tarifas pede a categoria; criada, nasce paga e conciliada, sem aprovação, e a próxima já vem sugerida", async () => {
+    await semMarcaDeTarifas();
+    const t1 = await linhaDe("c5t1");
+    expect(await naSessao(() => repositorio.sugestaoDaTarifa(t1.id))).toMatchObject({ movimento: { id: t1.id, pareceTarifa: true }, categoria: null, fornecedor: null });
+    // Sem a categoria marcada, nada nasce "para classificar".
+    await expect(naSessao(() => repositorio.criarTarifa({ movimentoId: t1.id, fornecedorId: ids.fornecedor }, principal, AGORA)))
+      .rejects.toMatchObject({ message: expect.stringMatching(/Escolha a categoria da tarifa/) });
+    await expect(naSessao(() => repositorio.criarTarifa({ movimentoId: t1.id, fornecedorId: ids.fornecedor, categoriaId: ids.receita }, principal, AGORA))).rejects.toBeInstanceOf(RequisicaoInvalida);
+
+    const criada = await naSessao(() => repositorio.criarTarifa({ movimentoId: t1.id, fornecedorId: ids.fornecedor, categoriaId: ids.despesa, descricao: `${marca} tarifa pacote` }, principal, AGORA));
+    expect(criada).toMatchObject({ conciliado: true, lancamento: { codigo: expect.stringMatching(/^CP-\d{4,}$/) } });
+    const l = await prisma.lancamento.findUniqueOrThrow({ where: { id: criada.lancamento.id } });
+    expect(l).toMatchObject({ tipo: "saida", origem: "tarifa_bancaria", etapa: "conciliada", aprovadoEm: null, forma: "debito_automatico", categoriaId: ids.despesa, contaCorrenteId: conta.id, companyId: "waze" });
+    expect(l.valor.toFixed(2)).toBe("12.90");
+    expect(l.pagoEm?.toISOString()).toBe("2027-01-05T04:00:00.000Z");
+    expect(await linhaDe("c5t1")).toMatchObject({ estado: "conciliado", lancamentoId: l.id });
+    const eventos = await prisma.eventLog.findMany({ where: { entityId: l.id }, orderBy: { occurredAt: "asc" }, select: { eventName: true, payload: true } });
+    expect(eventos.map((e) => e.eventName)).toEqual(["financeiro.lancamento.created", "financeiro.lancamento.pago", "financeiro.lancamento.conciliado"]);
+    expect(eventos[0]!.payload).toEqual({ tipo: "saida", origem: "tarifa_bancaria" });
+
+    // Com a categoria marcada, a sugestão traz a categoria e o fornecedor da última tarifa da conta; outra categoria é recusada.
+    await prisma.categoriaFinanceira.update({ where: { id: ids.despesa }, data: { tarifaBancaria: true } });
+    const t2 = await linhaDe("c5t2");
+    expect(await naSessao(() => repositorio.sugestaoDaTarifa(t2.id))).toMatchObject({ categoria: { id: ids.despesa }, fornecedor: { id: ids.fornecedor } });
+    const outra = await prisma.categoriaFinanceira.create({ data: { companyId: "waze", codigo: `9.13.${String(parseInt(marca.slice(5), 16) % 100_000)}`, nome: `${marca} outra`, tipo: "despesa", natureza: "servico", grupoNome: "Teste" } });
+    await expect(naSessao(() => repositorio.criarTarifa({ movimentoId: t2.id, fornecedorId: ids.fornecedor, categoriaId: outra.id }, principal, AGORA)))
+      .rejects.toMatchObject({ message: expect.stringMatching(/Configurações › Categorias/) });
+
+    // A linha já conciliada diz por quem; crédito não vira tarifa.
+    await expect(naSessao(() => repositorio.criarTarifa({ movimentoId: t1.id, fornecedorId: ids.fornecedor }, principal, AGORA)))
+      .rejects.toMatchObject({ message: `Esta linha já foi conciliada por ${marca} conciliacao.` });
+    const c1 = await linhaDe("c5c1");
+    await expect(naSessao(() => repositorio.criarTarifa({ movimentoId: c1.id, fornecedorId: ids.fornecedor }, principal, AGORA))).rejects.toBeInstanceOf(EstadoInvalido);
+
+    // A marca consultável: a lista filtra a saída paga sem aprovação.
+    const financeiro = new PrismaFinanceiroRepository(prisma, new AuditAppender());
+    const admin = papelNoFinanceiro({ plataforma: "admin", departamentos: [] });
+    const semAprovacao = await financeiro.listar(listarLancamentosQuerySchema.parse({ busca: `${marca} tarifa`, pagoSemAprovacao: "true" }), admin, AGORA);
+    expect(semAprovacao.itens.map((i) => [i.id, i.pagoSemAprovacao, i.origem.tipo])).toEqual([[l.id, true, "tarifa_bancaria"]]);
+    expect((await financeiro.listar(listarLancamentosQuerySchema.parse({ busca: `${marca} tarifa`, pagoSemAprovacao: "false" }), admin, AGORA)).itens).toEqual([]);
+  }, PRAZO_MS);
+
+  it("C5: as tarifas em lote, uma transação por linha: a que falha vai em recusadas e as outras ficam", async () => {
+    const [t2, t3, c1] = [await linhaDe("c5t2"), await linhaDe("c5t3"), await linhaDe("c5c1")];
+    const r = await naSessao(() => repositorio.criarTarifas([t2.id, c1.id, t3.id], {}, principal, AGORA));
+    expect(r).toEqual({ criadas: 2, recusadas: [{ movimentoId: c1.id, mensagem: "A tarifa vem de uma linha de débito do extrato." }] });
+    for (const t of [t2, t3]) {
+      const linha = await prisma.movimentoDoExtrato.findUniqueOrThrow({ where: { id: t.id }, include: { lancamento: true } });
+      expect(linha.lancamento).toMatchObject({ origem: "tarifa_bancaria", etapa: "conciliada", categoriaId: ids.despesa, fornecedorId: ids.fornecedor, descricao: "Tarifa bancária" });
+    }
+    // De novo: as duas já foram.
+    expect((await naSessao(() => repositorio.criarTarifas([t2.id], {}, principal, AGORA))).recusadas[0]!.mensagem).toMatch(/já foi conciliada/);
+  }, PRAZO_MS);
+
+  it("C5: a criação guiada: a despesa paga é da gerência; com o valor da linha concilia, com outro só sem conciliar; a receita nasce recebida no mês do crédito", async () => {
+    const servico = new ConciliacaoService(repositorio, {} as never, () => AGORA);
+    const [p1, c1, d1] = [await linhaDe("c5p1"), await linhaDe("c5c1"), await linhaDe("c5d1")];
+    const saida = { tipo: "saida" as const, movimentoId: p1.id, fornecedorId: ids.fornecedor, descricao: `${marca} boleto guiado`, conciliar: true };
+    await expect(naSessao(() => servico.criarLancamento(saida, principal))).rejects.toBeInstanceOf(AcessoNegado);
+    const gerente = { ...principal, acesso: { plataforma: null, departamentos: [{ departamento: "financeiro", nivel: "gerente", telas: ["financeiro.conciliacao"] }] } } as AuthPrincipal;
+
+    // Outro valor com conciliar: 409 com a mensagem pronta; sem conciliar, nasce pago e a linha fica sem par.
+    await expect(naSessao(() => servico.criarLancamento({ ...saida, valor: "245.00" }, gerente))).rejects.toMatchObject({ message: expect.stringMatching(/diferente do da linha do extrato \(250\.00\)/) });
+    const solto = await naSessao(() => servico.criarLancamento({ ...saida, movimentoId: d1.id, valor: "75.00", conciliar: false, descricao: `${marca} pix guiado` }, gerente));
+    expect(solto.conciliado).toBe(false);
+    expect(await prisma.lancamento.findUniqueOrThrow({ where: { id: solto.lancamento.id } })).toMatchObject({ etapa: "paga", origem: "conciliacao", aprovadoEm: null, categoriaId: null });
+    expect((await linhaDe("c5d1")).estado).toBe("pendente");
+    const painel = await naSessao(() => repositorio.painel({ contaCorrenteId: conta.id, de: "2027-01-01", ate: "2027-01-31" }));
+    expect(painel.semExtrato.map((l) => l.id)).toContain(solto.lancamento.id);
+
+    const paga = await naSessao(() => servico.criarLancamento({ ...saida, categoriaId: ids.despesa, forma: "boleto" }, gerente));
+    expect(paga.conciliado).toBe(true);
+    expect(await prisma.lancamento.findUniqueOrThrow({ where: { id: paga.lancamento.id } })).toMatchObject({ etapa: "conciliada", origem: "conciliacao", forma: "boleto" });
+    // O sentido da linha manda: débito não vira receita.
+    await expect(naSessao(() => servico.criarLancamento({ tipo: "entrada", movimentoId: p1.id, clienteId: ids.cliente, categoriaId: ids.receita, descricao: `${marca} x`, conciliar: true }, principal))).rejects.toBeInstanceOf(EstadoInvalido);
+
+    // A receita, por quem tem a tela: recebida no dia do crédito, competência do mês dele, conciliada.
+    const receita = await naSessao(() => servico.criarLancamento({ tipo: "entrada", movimentoId: c1.id, clienteId: ids.cliente, categoriaId: ids.receita, descricao: `${marca} receita guiada`, conciliar: true }, principal));
+    const r = await prisma.lancamento.findUniqueOrThrow({ where: { id: receita.lancamento.id } });
+    expect(r).toMatchObject({ tipo: "entrada", origem: "conciliacao", etapa: "conciliada", competencia: "2027-01", clientId: ids.cliente });
+    expect([r.valorRecebido?.toFixed(2), r.recebidoEm?.toISOString()]).toEqual(["900.00", "2027-01-09T04:00:00.000Z"]);
+    expect(receita.lancamento.codigo).toMatch(/^CR-/);
+  }, PRAZO_MS);
+
+  it("C5 no banco: só a tela Conciliação cria o que nasce pago nela, a despesa guiada só com a gerência, e as CHECKs seguram a origem", async () => {
+    const base = { companyId: "waze", fornecedorId: ids.fornecedor, contaCorrenteId: conta.id, descricao: `${marca} rls`, valor: 1, vencimento: AGORA, tipo: "saida" as const, etapa: "paga" as const, pagoEm: AGORA, pagamentoRegistradoEm: AGORA };
+    const desfeito = new Error("desfeito");
+    const tentar = (quem: keyof typeof sessoes, data: Parameters<typeof prisma.lancamento.create>[0]["data"]) =>
+      comoRuntime(quem, async (tx) => { await tx.lancamento.create({ data, select: { id: true } }); throw desfeito; });
+    // A tarifa: quem tem a Conciliação cria; quem só tem Contas a pagar não cria, nem pela política dele.
+    await expect(tentar("conciliacao", { ...base, origem: "tarifa_bancaria" })).rejects.toBe(desfeito);
+    await expect(tentar("pagar", { ...base, origem: "tarifa_bancaria" })).rejects.toThrow(/row-level security/);
+    await expect(tentar("pagar", { ...base, origem: "conciliacao" })).rejects.toThrow(/row-level security/);
+    // A despesa guiada pede a gerência; o membro da Conciliação não cria.
+    await expect(tentar("conciliacao", { ...base, origem: "conciliacao" })).rejects.toThrow(/row-level security/);
+    // As CHECKs: a avulsa paga continua pedindo a aprovação; o que nasce na Conciliação nasce liquidado; tarifa é saída.
+    await expect(prisma.lancamento.create({ data: { ...base, origem: "avulsa" } })).rejects.toThrow(/lancamentos_aprovacao_coerente/);
+    await expect(prisma.lancamento.create({ data: { ...base, origem: "conciliacao", etapa: "aberta", pagoEm: null, pagamentoRegistradoEm: null } })).rejects.toThrow(/lancamentos_nasce_liquidado/);
+    await expect(prisma.lancamento.create({ data: { ...base, tipo: "entrada", fornecedorId: null, clientId: ids.cliente, categoriaId: ids.receita, competencia: "2027-01", etapa: "recebida", pagoEm: null, pagamentoRegistradoEm: null, recebidoEm: AGORA, recebimentoRegistradoEm: AGORA, valorRecebido: 1, origem: "tarifa_bancaria" } })).rejects.toThrow(/lancamentos_tarifa_e_saida/);
   }, PRAZO_MS);
 });

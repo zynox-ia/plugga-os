@@ -157,22 +157,20 @@ describe.skipIf(!HABILITADO)("cadastros do Financeiro no Postgres", () => {
     await expect(comoRuntime((tx) => tx.$executeRaw`DELETE FROM public.omie_categorias WHERE categoria_id = ${c.id}::uuid`)).rejects.toThrow(/permission denied/);
   }, PRAZO_MS);
 
+  // Só na Plugga: o teste da conciliação (outro arquivo, em paralelo) usa a marca da Waze.
   it("C5: a categoria de tarifas é uma por empresa; marcar outra desmarca a anterior e diz qual; inativar desmarca; só despesa ativa", async () => {
     const marcar = (id: string, dados: unknown) => como("gerente", () => cadastros.editarCategoria(id, editarCategoriaFinanceiraSchema.parse(dados), pessoas.gerente));
     const marcadas = (empresa: string) => prisma.categoriaFinanceira.findMany({ where: { companyId: empresa, tarifaBancaria: true }, select: { id: true } });
-    const a = await como("gerente", () => cadastros.criarCategoria(categoria(`6.${sufixo}.01`, "waze"), pessoas.gerente));
-    const b = await como("gerente", () => cadastros.criarCategoria(categoria(`6.${sufixo}.02`, "waze"), pessoas.gerente));
-    const daPlugga = await como("gerente", () => cadastros.criarCategoria(categoria(`6.${sufixo}.01`), pessoas.gerente));
+    const a = await como("gerente", () => cadastros.criarCategoria(categoria(`6.${sufixo}.01`), pessoas.gerente));
+    const b = await como("gerente", () => cadastros.criarCategoria(categoria(`6.${sufixo}.02`), pessoas.gerente));
     expect(a.tarifaBancaria).toBe(false);
 
     const comA = await marcar(a.id, { tarifaBancaria: true });
     expect(comA.tarifaBancaria).toBe(true);
-    await marcar(daPlugga.id, { tarifaBancaria: true });
-    // A troca na mesma empresa, sem 409: a resposta diz qual perdeu a marca; a da outra empresa fica.
+    // A troca na mesma empresa, sem 409: a resposta diz qual perdeu a marca.
     const comB = await marcar(b.id, { tarifaBancaria: true });
     expect(comB).toMatchObject({ tarifaBancaria: true, desmarcada: { id: a.id, codigo: `6.${sufixo}.01`, nome: a.nome } });
-    expect(await marcadas("waze")).toEqual([{ id: b.id }]);
-    expect((await marcadas("plugga")).map((c) => c.id)).toEqual([daPlugga.id]);
+    expect(await marcadas("plugga")).toEqual([{ id: b.id }]);
     // Marcar de novo a mesma não gera evento nem desmarcada.
     expect(await marcar(b.id, { tarifaBancaria: true })).not.toHaveProperty("desmarcada");
     const eventosDeA = await prisma.eventLog.findMany({ where: { entityId: a.id, eventName: "financeiro.categoria.updated" }, orderBy: { occurredAt: "asc" }, select: { payload: true } });
@@ -180,19 +178,19 @@ describe.skipIf(!HABILITADO)("cadastros do Financeiro no Postgres", () => {
 
     // Inativar a marcada tira a marca; inativa não se marca (409 com a mensagem pronta); desmarcar sem outra vale.
     expect(await marcar(b.id, { ativa: false })).toMatchObject({ ativa: false, tarifaBancaria: false });
-    expect(await marcadas("waze")).toEqual([]);
+    expect(await marcadas("plugga")).toEqual([]);
     await expect(marcar(b.id, { tarifaBancaria: true })).rejects.toBeInstanceOf(EstadoInvalido);
     await expect(marcar(b.id, { tarifaBancaria: true, ativa: false })).rejects.toBeInstanceOf(EstadoInvalido);
     expect(await marcar(b.id, { tarifaBancaria: true, ativa: true })).toMatchObject({ ativa: true, tarifaBancaria: true });
     expect(await marcar(b.id, { tarifaBancaria: false })).toMatchObject({ tarifaBancaria: false });
-    expect(await marcadas("waze")).toEqual([]);
+    expect(await marcadas("plugga")).toEqual([]);
 
     // Só despesa; a categoria nova pode nascer marcada, e a anterior perde a marca.
-    const receita = await como("gerente", () => cadastros.criarCategoria({ ...categoria(`1.${sufixo}.01`, "waze"), tipo: "receita" }, pessoas.gerente));
+    const receita = await como("gerente", () => cadastros.criarCategoria({ ...categoria(`1.${sufixo}.01`), tipo: "receita" }, pessoas.gerente));
     await expect(marcar(receita.id, { tarifaBancaria: true })).rejects.toBeInstanceOf(RequisicaoInvalida);
-    await expect(como("gerente", () => cadastros.criarCategoria({ ...categoria(`1.${sufixo}.02`, "waze"), tipo: "receita", tarifaBancaria: true }, pessoas.gerente))).rejects.toBeInstanceOf(RequisicaoInvalida);
+    await expect(como("gerente", () => cadastros.criarCategoria({ ...categoria(`1.${sufixo}.02`), tipo: "receita", tarifaBancaria: true }, pessoas.gerente))).rejects.toBeInstanceOf(RequisicaoInvalida);
     await marcar(a.id, { tarifaBancaria: true });
-    const nova = await como("gerente", () => cadastros.criarCategoria({ ...categoria(`6.${sufixo}.03`, "waze"), tarifaBancaria: true }, pessoas.gerente));
+    const nova = await como("gerente", () => cadastros.criarCategoria({ ...categoria(`6.${sufixo}.03`), tarifaBancaria: true }, pessoas.gerente));
     expect(nova).toMatchObject({ tarifaBancaria: true, desmarcada: { id: a.id } });
 
     // O banco garante sozinho: duas marcadas na empresa, receita marcada e inativa marcada são recusadas.

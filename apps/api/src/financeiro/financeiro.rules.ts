@@ -34,6 +34,14 @@ export type PapelNoFinanceiro = {
   gerente: boolean;
 };
 
+/**
+ * As origens que nascem pagas (ou recebidas) na Conciliação (PLU-339, C5). A saída delas não
+ * passa pela aprovação F2: `pagoSemAprovacao` é a marca consultável disso.
+ */
+export const origensPagasSemAprovacao = ["tarifa_bancaria", "conciliacao"] as const;
+export const pagoSemAprovacao = (l: { tipo: TipoDeLancamento; origem: string }): boolean =>
+  l.tipo === "saida" && (origensPagasSemAprovacao as readonly string[]).includes(l.origem);
+
 export function papelNoFinanceiro(acesso: Acesso | undefined): PapelNoFinanceiro {
   if (!acesso) return { saidas: false, entradas: false, gerente: false };
   return {

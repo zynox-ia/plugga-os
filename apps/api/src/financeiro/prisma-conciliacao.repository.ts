@@ -2,21 +2,26 @@ import { Inject, Injectable, Optional } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import type {
   CompanyKey,
+  CriarLancamentoDoExtrato,
+  CriarTarifa,
   EscopoDaConciliacao,
   ExtratoImportado,
   LancamentoNaConciliacao,
+  LancamentoCriadoNaConciliacao,
   ListarMovimentosDoExtratoQuery,
   MovimentoDoExtrato,
   MovimentosDoExtratoResposta,
+  NomeDeEventoDoCatalogo,
   PainelDaConciliacao,
+  SugestaoDaTarifa,
 } from "@plugga/shared";
 
 import { AuditAppender } from "../audit/audit-appender";
-import { Conflito, EstadoInvalido, NaoEncontrado } from "../common/errors/dominio";
+import { Conflito, ErroDeDominio, EstadoInvalido, NaoEncontrado, RequisicaoInvalida } from "../common/errors/dominio";
 import { diaEmManaus, inicioDoDiaEmManaus } from "../compras/dias-uteis";
 import type { AuthPrincipal } from "../core/auth/auth.types";
 import { PrismaService } from "../prisma/prisma.service";
-import { montarPainel, problemaDoPar, JANELA_DA_SUGESTAO_DIAS, type LancamentoParaConciliar, type MovimentoParaConciliar } from "./conciliacao.rules";
+import { montarPainel, pareceTarifa, problemaDaLinhaParaCriar, problemaDoPar, JANELA_DA_SUGESTAO_DIAS, type LancamentoParaConciliar, type MovimentoParaConciliar } from "./conciliacao.rules";
 import { conteudoDoMovimento, type ExtratoLido, type MovimentoLido } from "./extrato-ofx";
 import { codigoDoLancamento } from "./financeiro.rules";
 import { ReflexosDoLancamento } from "./reflexo-do-lancamento";
@@ -33,6 +38,7 @@ type LinhaDoMovimento = Prisma.MovimentoDoExtratoGetPayload<object>;
 const paraMovimento = (m: LinhaDoMovimento): MovimentoDoExtrato => ({
   id: m.id, contaCorrenteId: m.contaCorrenteId, dia: diaEmManaus(m.dia), valor: m.valor.toFixed(2), descricao: m.descricao,
   estado: m.estado as MovimentoDoExtrato["estado"],
+  pareceTarifa: pareceTarifa({ valor: m.valor.toFixed(2), tipoNoBanco: m.tipoNoBanco, descricao: m.descricao }),
 });
 const paraRegraDoMovimento = (m: LinhaDoMovimento): MovimentoParaConciliar => ({
   id: m.id, contaCorrenteId: m.contaCorrenteId, dia: diaEmManaus(m.dia), valor: m.valor.toFixed(2), estado: m.estado as MovimentoParaConciliar["estado"], lancamentoId: m.lancamentoId,
@@ -116,7 +122,7 @@ export class PrismaConciliacaoRepository {
         await tx.movimentoDoExtrato.createMany({
           data: novos.map((m) => ({
             companyId: conta.companyId, contaCorrenteId: conta.id, extratoId: extrato.id,
-            dia: inicioDoDiaEmManaus(m.dia), valor: new Prisma.Decimal(m.valor), descricao: m.descricao, identificador: m.identificador,
+            dia: inicioDoDiaEmManaus(m.dia), valor: new Prisma.Decimal(m.valor), descricao: m.descricao, identificador: m.identificador, tipoNoBanco: m.tipoNoBanco,
           })),
         });
       }
@@ -175,10 +181,7 @@ export class PrismaConciliacaoRepository {
         }),
       ]);
       return {
-        itens: movimentos.map((m): MovimentoDoExtrato => ({
-          id: m.id, contaCorrenteId: m.contaCorrenteId, dia: diaEmManaus(m.dia), valor: m.valor.toFixed(2), descricao: m.descricao,
-          estado: m.estado as MovimentoDoExtrato["estado"],
-        })),
+        itens: movimentos.map(paraMovimento),
         extratos: extratos.map((e) => paraExtrato(e, e.movimentos - e.novos)),
       };
     });
@@ -241,6 +244,188 @@ export class PrismaConciliacaoRepository {
       const feito = await tx.lancamento.updateMany({ where: { id: alvo.lancamentoId, etapa: { in: ["paga", "recebida"] }, canceladoEm: null }, data: { conciliacaoMarcada: marcado } });
       if (feito.count === 0) throw new EstadoInvalido("Só se marca o lançamento pago ou recebido que ainda não foi conciliado.");
     });
+  }
+
+  // ------------------------------------------------------------ criar na conciliação (C5)
+
+  /** O que o diálogo "Criar tarifa" já traz: a categoria marcada da empresa e o fornecedor da última tarifa da conta. */
+  async sugestaoDaTarifa(movimentoId: string): Promise<SugestaoDaTarifa> {
+    return this.prisma.comContexto(async (tx) => {
+      const movimento = await tx.movimentoDoExtrato.findUnique({ where: { id: movimentoId } });
+      if (!movimento) throw new NaoEncontrado("Linha do extrato não encontrada.");
+      const sugestao = await this.sugestaoNaTx(tx, movimento);
+      return { movimento: paraMovimento(movimento), ...sugestao };
+    });
+  }
+
+  /** A tarifa de uma linha de débito: paga e conciliada com ela, numa transação. */
+  async criarTarifa(input: CriarTarifa, principal: AuthPrincipal, agora: Date): Promise<LancamentoCriadoNaConciliacao> {
+    return this.prisma.comContexto((tx) => this.criarTarifaNaTx(tx, input, principal, agora));
+  }
+
+  /**
+   * "Criar as N tarifas": uma transação por linha, para a que falha não desfazer as outras nem
+   * ficar pela metade. A sugestão da linha (categoria marcada, fornecedor da última tarifa da
+   * conta) vem antes; o fornecedor e a categoria do pedido só preenchem o que falta.
+   */
+  async criarTarifas(movimentoIds: readonly string[], padrao: { fornecedorId?: string; categoriaId?: string }, principal: AuthPrincipal, agora: Date): Promise<{ criadas: number; recusadas: { movimentoId: string; mensagem: string }[] }> {
+    let criadas = 0;
+    const recusadas: { movimentoId: string; mensagem: string }[] = [];
+    for (const movimentoId of movimentoIds) {
+      try {
+        await this.prisma.comContexto(async (tx) => {
+          const movimento = await tx.movimentoDoExtrato.findUnique({ where: { id: movimentoId } });
+          if (!movimento) throw new NaoEncontrado("Linha do extrato não encontrada.");
+          const sugestao = await this.sugestaoNaTx(tx, movimento);
+          const fornecedorId = sugestao.fornecedor?.id ?? padrao.fornecedorId;
+          if (!fornecedorId) throw new RequisicaoInvalida("Escolha o fornecedor da tarifa: esta conta ainda não tem tarifa anterior.", [{ campo: "fornecedorId", problema: "Escolha o fornecedor." }]);
+          await this.criarTarifaNaTx(tx, { movimentoId, fornecedorId, categoriaId: sugestao.categoria?.id ?? padrao.categoriaId }, principal, agora);
+        });
+        criadas += 1;
+      } catch (erro) {
+        if (!(erro instanceof ErroDeDominio)) throw erro;
+        recusadas.push({ movimentoId, mensagem: erro.message });
+      }
+    }
+    return { criadas, recusadas };
+  }
+
+  /**
+   * A criação guiada de uma linha sem par: a despesa (débito; a gerência confere no serviço) ou a
+   * receita (crédito), no dia e na conta da linha, já paga ou recebida. Com o valor da linha,
+   * conciliada com ela; com outro valor, só com `conciliar: false`, e a linha fica sem par.
+   */
+  async criarLancamento(input: CriarLancamentoDoExtrato, principal: AuthPrincipal, agora: Date): Promise<LancamentoCriadoNaConciliacao> {
+    return this.prisma.comContexto(async (tx) => {
+      const movimento = await this.linhaParaCriar(tx, input.movimentoId, input.tipo);
+      const daLinha = movimento.valor.abs();
+      const valor = input.valor === undefined ? daLinha : new Prisma.Decimal(input.valor);
+      if (input.conciliar && !valor.equals(daLinha)) {
+        throw new EstadoInvalido(`O valor é diferente do da linha do extrato (${daLinha.toFixed(2)}): use o valor da linha, ou crie sem conciliar.`, [{ campo: "valor", problema: "Diferente do da linha." }]);
+      }
+      const dia = movimento.dia;
+      const comum = {
+        companyId: movimento.companyId, contaCorrenteId: movimento.contaCorrenteId, descricao: input.descricao, valor, vencimento: dia,
+        origem: "conciliacao" as const, criadoPorId: principal.id,
+      };
+      let criado: { id: string; numero: number };
+      if (input.tipo === "saida") {
+        await this.garantirFornecedor(tx, input.fornecedorId);
+        if (input.categoriaId) await this.garantirCategoria(tx, input.categoriaId, movimento.companyId, "despesa");
+        criado = await tx.lancamento.create({
+          data: {
+            ...comum, tipo: "saida", fornecedorId: input.fornecedorId, categoriaId: input.categoriaId ?? null, forma: input.forma ?? null, etapa: "paga",
+            pagoEm: dia, pagamentoRegistradoEm: agora, pagamentoRegistradoPorId: principal.id,
+          },
+          select: { id: true, numero: true },
+        });
+        await this.registrarCriacao(tx, criado.id, movimento.companyId, principal, agora, "saida", "conciliacao", input.forma ?? null);
+      } else {
+        await this.garantirCliente(tx, input.clienteId);
+        await this.garantirCategoria(tx, input.categoriaId, movimento.companyId, "receita");
+        criado = await tx.lancamento.create({
+          data: {
+            ...comum, tipo: "entrada", clientId: input.clienteId, categoriaId: input.categoriaId, competencia: input.competencia ?? diaEmManaus(dia).slice(0, 7),
+            etapa: "recebida", recebidoEm: dia, valorRecebido: valor, recebimentoRegistradoEm: agora, recebimentoRegistradoPorId: principal.id,
+          },
+          select: { id: true, numero: true },
+        });
+        await this.registrarCriacao(tx, criado.id, movimento.companyId, principal, agora, "entrada", "conciliacao", null);
+      }
+      if (input.conciliar) await this.conciliarNaTx(tx, movimento.id, criado.id, principal, agora);
+      return { lancamento: { id: criado.id, codigo: codigoDoLancamento(input.tipo, criado.numero) }, conciliado: input.conciliar };
+    });
+  }
+
+  private async criarTarifaNaTx(tx: Prisma.TransactionClient, input: CriarTarifa, principal: AuthPrincipal, agora: Date): Promise<LancamentoCriadoNaConciliacao> {
+    const movimento = await this.linhaParaCriar(tx, input.movimentoId, "saida", true);
+    const marcada = await tx.categoriaFinanceira.findFirst({ where: { companyId: movimento.companyId, tarifaBancaria: true }, select: { id: true, codigo: true, nome: true } });
+    // Sem a categoria de tarifas na empresa, a tarifa não nasce "para classificar": a pessoa escolhe.
+    if (marcada && input.categoriaId && input.categoriaId !== marcada.id) {
+      const problema = `A tarifa usa a categoria de tarifas da empresa (${marcada.codigo} · ${marcada.nome}). Para usar outra, troque a marca em Configurações › Categorias.`;
+      throw new RequisicaoInvalida(problema, [{ campo: "categoriaId", problema }]);
+    }
+    const categoriaId = marcada?.id ?? input.categoriaId;
+    if (!categoriaId) {
+      const problema = "Escolha a categoria da tarifa: a empresa ainda não tem a categoria de tarifas bancárias (Configurações › Categorias).";
+      throw new RequisicaoInvalida(problema, [{ campo: "categoriaId", problema }]);
+    }
+    if (!marcada) await this.garantirCategoria(tx, categoriaId, movimento.companyId, "despesa");
+    await this.garantirFornecedor(tx, input.fornecedorId);
+    const criado = await tx.lancamento.create({
+      data: {
+        tipo: "saida", companyId: movimento.companyId, contaCorrenteId: movimento.contaCorrenteId, fornecedorId: input.fornecedorId, categoriaId,
+        descricao: input.descricao ?? "Tarifa bancária", valor: movimento.valor.abs(), vencimento: movimento.dia, forma: "debito_automatico",
+        etapa: "paga", origem: "tarifa_bancaria", criadoPorId: principal.id,
+        pagoEm: movimento.dia, pagamentoRegistradoEm: agora, pagamentoRegistradoPorId: principal.id,
+      },
+      select: { id: true, numero: true },
+    });
+    await this.registrarCriacao(tx, criado.id, movimento.companyId, principal, agora, "saida", "tarifa_bancaria", "debito_automatico");
+    await this.conciliarNaTx(tx, movimento.id, criado.id, principal, agora);
+    return { lancamento: { id: criado.id, codigo: codigoDoLancamento("saida", criado.numero) }, conciliado: true };
+  }
+
+  /** A linha travada, se ainda pode virar um lançamento do tipo pedido; senão, 409 com quem chegou antes. */
+  private async linhaParaCriar(tx: Prisma.TransactionClient, movimentoId: string, tipo: "saida" | "entrada", tarifa = false): Promise<LinhaDoMovimento> {
+    await tx.$queryRaw`SELECT id FROM public.movimentos_do_extrato WHERE id = ${movimentoId}::uuid FOR UPDATE`;
+    const movimento = await tx.movimentoDoExtrato.findUnique({ where: { id: movimentoId }, include: { conciliadoPor: { select: { name: true } } } });
+    if (!movimento) throw new NaoEncontrado("Linha do extrato não encontrada.");
+    if (movimento.estado === "conciliado") throw new EstadoInvalido(`Esta linha já foi conciliada${movimento.conciliadoPor ? ` por ${movimento.conciliadoPor.name}` : ""}.`);
+    const problema = problemaDaLinhaParaCriar({ valor: movimento.valor.toFixed(2), estado: movimento.estado }, tipo, tarifa);
+    if (problema) throw new EstadoInvalido(problema);
+    return movimento;
+  }
+
+  private async sugestaoNaTx(tx: Prisma.TransactionClient, movimento: LinhaDoMovimento): Promise<Omit<SugestaoDaTarifa, "movimento">> {
+    const [categoria, ultima] = await Promise.all([
+      tx.categoriaFinanceira.findFirst({ where: { companyId: movimento.companyId, tarifaBancaria: true }, select: { id: true, codigo: true, nome: true } }),
+      tx.lancamento.findFirst({
+        where: { contaCorrenteId: movimento.contaCorrenteId, origem: "tarifa_bancaria" },
+        orderBy: { createdAt: "desc" },
+        select: { fornecedor: { select: { id: true, nome: true, ativo: true } } },
+      }),
+    ]);
+    const f = ultima?.fornecedor;
+    return { categoria, fornecedor: f?.ativo ? { id: f.id, nome: f.nome } : null };
+  }
+
+  /** O evento da criação e o do pagamento (ou recebimento), e os conectores na mesma ordem: criado, depois liquidado. */
+  private async registrarCriacao(
+    tx: Prisma.TransactionClient, id: string, empresa: string, principal: AuthPrincipal, agora: Date,
+    tipo: "saida" | "entrada", origem: "tarifa_bancaria" | "conciliacao", forma: string | null,
+  ): Promise<void> {
+    const evento = (eventName: NomeDeEventoDoCatalogo, payload: Record<string, unknown>) => this.auditoria.append(tx, {
+      eventName, entityType: "lancamento", entityId: id, companyId: empresa,
+      actorType: principal.kind === "user" ? "user" : "agent", actorId: principal.id, payload, occurredAt: agora,
+    });
+    await evento("financeiro.lancamento.created", { tipo, origem });
+    await evento(tipo === "saida" ? "financeiro.lancamento.pago" : "financeiro.lancamento.recebido", tipo === "saida" ? { forma } : {});
+    // O título vai aos conectores como qualquer outro: criado e, em seguida, pago ou recebido (a baixa).
+    const etapaAntes = tipo === "saida" ? "aberta" : "gerada";
+    await this.reflexos.aoMudar(tx, { lancamentoId: id, empresa, tipo, etapaAntes, mudanca: "criado", porId: principal.id });
+    await this.reflexos.aoMudar(tx, { lancamentoId: id, empresa, tipo, etapaAntes, mudanca: tipo === "saida" ? "pago" : "recebido", porId: principal.id });
+  }
+
+  private async garantirFornecedor(tx: Prisma.TransactionClient, id: string): Promise<void> {
+    const f = await tx.fornecedor.findUnique({ where: { id }, select: { ativo: true } });
+    if (!f) throw new RequisicaoInvalida("Fornecedor não encontrado.", [{ campo: "fornecedorId", problema: "Escolha um fornecedor do cadastro." }]);
+    if (!f.ativo) throw new RequisicaoInvalida("Fornecedor inativo.", [{ campo: "fornecedorId", problema: "O fornecedor está inativo." }]);
+  }
+
+  private async garantirCategoria(tx: Prisma.TransactionClient, id: string, empresa: string, tipo: "despesa" | "receita"): Promise<void> {
+    const c = await tx.categoriaFinanceira.findUnique({ where: { id }, select: { companyId: true, tipo: true, ativa: true } });
+    const problema = !c ? "Escolha uma categoria da empresa."
+      : c.companyId !== empresa ? "A categoria é de outra empresa."
+      : c.tipo !== tipo ? (tipo === "despesa" ? "A despesa usa categoria de despesa." : "A receita usa categoria de receita.")
+      : !c.ativa ? "A categoria está inativa." : null;
+    if (problema) throw new RequisicaoInvalida(problema, [{ campo: "categoriaId", problema }]);
+  }
+
+  /** O cliente pela função do Financeiro (que não lê `clients`): existe e a pessoa alcança. */
+  private async garantirCliente(tx: Prisma.TransactionClient, id: string): Promise<void> {
+    const achados = await tx.$queryRaw<{ id: string }[]>`SELECT id FROM plugga_security.clientes_para_financeiro(NULL, ${[id]}::uuid[])`;
+    if (achados.length === 0) throw new RequisicaoInvalida("Cliente não encontrado.", [{ campo: "clienteId", problema: "Escolha um cliente do cadastro." }]);
   }
 
   private async painelNaTx(tx: Prisma.TransactionClient, escopo: EscopoDaConciliacao): Promise<PainelDaConciliacao> {

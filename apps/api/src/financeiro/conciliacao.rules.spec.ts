@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { montarPainel, problemaDoPar, type LancamentoParaConciliar, type MovimentoParaConciliar } from "./conciliacao.rules";
+import { montarPainel, pareceTarifa, problemaDaLinhaParaCriar, problemaDoPar, type LancamentoParaConciliar, type MovimentoParaConciliar } from "./conciliacao.rules";
 
 const CONTA = "c1";
 const mov = (id: string, dia: string, valor: string, o: Partial<MovimentoParaConciliar> = {}): MovimentoParaConciliar => ({
@@ -90,5 +90,32 @@ describe("o painel da conciliação", () => {
     const p = montarPainel([mov("m1", "2026-11-21", "-10.00")], [lanc("l1", "saida", "2026-11-21", "10.00", { marcado: true })], PERIODO);
     expect(p.sugeridos).toEqual([]);
     expect(p.semExtrato.map((l) => l.id)).toEqual(["l1"]);
+  });
+});
+
+describe("C5: a linha que parece tarifa e a linha que vira lançamento", () => {
+  const linha = (valor: string, descricao: string, tipoNoBanco: string | null = null) => ({ valor, descricao, tipoNoBanco });
+
+  it("parece tarifa: débito com FEE ou SRVCHG, ou com tarifa, TAR, cesta ou manutenção de conta na descrição", () => {
+    expect(pareceTarifa(linha("-12.90", "DEBITO", "FEE"))).toBe(true);
+    expect(pareceTarifa(linha("-12.90", "Qualquer", "SRVCHG"))).toBe(true);
+    for (const d of ["TARIFA PIX", "Tarifas bancárias", "TAR MANUT CONTA", "Cesta de serviços", "Manutenção de conta", "MANUTENCAO CONTA"]) {
+      expect(pareceTarifa(linha("-5.00", d)), d).toBe(true);
+    }
+    for (const d of ["PAGAMENTO TARDE", "Fornecedor tarifado", "PIX ENVIADO", "Manutenção predial"]) {
+      expect(pareceTarifa(linha("-5.00", d)), d).toBe(false);
+    }
+    // Nunca crédito, nem com o tipo ou a palavra.
+    expect(pareceTarifa(linha("5.00", "ESTORNO TARIFA", "FEE"))).toBe(false);
+  });
+
+  it("só a linha pendente ou marcada vira lançamento, no sentido dela", () => {
+    expect(problemaDaLinhaParaCriar({ valor: "-10.00", estado: "pendente" }, "saida", true)).toBeNull();
+    expect(problemaDaLinhaParaCriar({ valor: "-10.00", estado: "marcado" }, "saida")).toBeNull();
+    expect(problemaDaLinhaParaCriar({ valor: "10.00", estado: "pendente" }, "entrada")).toBeNull();
+    expect(problemaDaLinhaParaCriar({ valor: "-10.00", estado: "conciliado" }, "saida")).toMatch(/já foi conciliada/);
+    expect(problemaDaLinhaParaCriar({ valor: "10.00", estado: "pendente" }, "saida", true)).toMatch(/débito/);
+    expect(problemaDaLinhaParaCriar({ valor: "10.00", estado: "pendente" }, "saida")).toMatch(/crédito/);
+    expect(problemaDaLinhaParaCriar({ valor: "-10.00", estado: "pendente" }, "entrada")).toMatch(/débito/);
   });
 });
