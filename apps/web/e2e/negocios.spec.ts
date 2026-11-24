@@ -1,5 +1,8 @@
 import { expect, test, type Page } from "@playwright/test";
 
+// IP sintético próprio: as mutações deste spec têm o seu balde no limite da API (429 na CI 45294325288).
+test.use({ extraHTTPHeaders: { "x-forwarded-for": "203.0.113.249" } });
+
 const MUTATION_TIMEOUT_MS = 15_000;
 
 /**

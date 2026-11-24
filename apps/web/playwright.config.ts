@@ -58,6 +58,12 @@ export default defineConfig({
         // nada disso chama o Google de verdade. Deixar a flag a cargo do
         // ambiente faria a suíte passar ou falhar conforme a máquina.
         env: {
+          // A web repassa à API o x-forwarded-for de cada spec (o IP sintético
+          // de test.use). Sem isso a API conta toda mutação da suíte no endereço
+          // da própria web, num balde só de 60 por minuto, e a suíte crescida
+          // estoura em 429 (CI 45294325288). Só este servidor de teste, em
+          // 127.0.0.1; o dev e a produção seguem com o default (desligado).
+          WEB_TRUST_PROXY: "true",
           GOOGLE_AUTH_ENABLED: "true",
           GOOGLE_OIDC_CLIENT_ID: "e2e-only.apps.googleusercontent.com",
           GOOGLE_LOGIN_URI: "http://127.0.0.1:3000/api/auth/google/callback",

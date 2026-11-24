@@ -1,6 +1,9 @@
 import { expect, test, type APIRequestContext } from "@playwright/test";
 import type { Activity, Deal, Pipeline, PipelinePeopleResponse } from "@plugga/shared";
 
+// IP sintético próprio: as mutações deste spec têm o seu balde no limite da API (429 na CI 45294325288).
+test.use({ extraHTTPHeaders: { "x-forwarded-for": "203.0.113.250" } });
+
 let pipeline: Pipeline;
 let negocio: Deal;
 
