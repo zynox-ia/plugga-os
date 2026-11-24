@@ -76,6 +76,12 @@ CREATE TEMP TABLE e2e_item ON COMMIT DROP AS
   SELECT id FROM itens_de_estoque WHERE nome ~ (SELECT marca FROM e2e_marca);
 CREATE TEMP TABLE e2e_forn ON COMMIT DROP AS
   SELECT id FROM fornecedores WHERE nome ~ (SELECT marca FROM e2e_marca);
+-- Protocolos na distribuidora (PLU-348) com a marca no número ou na observação,
+-- e distribuidoras criadas pelo run.
+CREATE TEMP TABLE e2e_protocolo ON COMMIT DROP AS
+  SELECT id FROM protocolos WHERE numero ~ (SELECT marca FROM e2e_marca) OR observacao ~ (SELECT marca FROM e2e_marca);
+CREATE TEMP TABLE e2e_distribuidora ON COMMIT DROP AS
+  SELECT id FROM distribuidoras WHERE nome ~ (SELECT marca FROM e2e_marca);
 -- Só o lançamento com a marca; um sem a marca ligado ao run aborta (abaixo).
 CREATE TEMP TABLE e2e_lanc ON COMMIT DROP AS
   SELECT id FROM lancamentos WHERE descricao ~ (SELECT marca FROM e2e_marca);
@@ -93,7 +99,8 @@ BEGIN
     OR EXISTS (SELECT 1 FROM resultados_da_conferencia WHERE conferencia_id IN (SELECT id FROM e2e_conferencia) AND usina_id NOT IN (SELECT id FROM e2e_usina))
     OR EXISTS (SELECT 1 FROM resultados_da_conferencia WHERE ordem_de_servico_id IN (SELECT id FROM e2e_os) AND conferencia_id NOT IN (SELECT id FROM e2e_conferencia))
     OR EXISTS (SELECT 1 FROM usinas WHERE ordem_de_comissionamento_id IN (SELECT id FROM e2e_os) AND id NOT IN (SELECT id FROM e2e_usina))
-    OR EXISTS (SELECT 1 FROM usinas WHERE plataforma_id IN (SELECT id FROM e2e_plataforma) AND id NOT IN (SELECT id FROM e2e_usina)) THEN
+    OR EXISTS (SELECT 1 FROM usinas WHERE plataforma_id IN (SELECT id FROM e2e_plataforma) AND id NOT IN (SELECT id FROM e2e_usina))
+    OR EXISTS (SELECT 1 FROM protocolos WHERE distribuidora_id IN (SELECT id FROM e2e_distribuidora) AND id NOT IN (SELECT id FROM e2e_protocolo)) THEN
     RAISE EXCEPTION 'um registro fora deste run depende dele: nada foi apagado';
   END IF;
 END $dependentes$;
@@ -144,6 +151,10 @@ DELETE FROM plataformas_de_inversor WHERE id IN (SELECT id FROM e2e_plataforma);
 DELETE FROM evidencias_de_tarefa WHERE ocorrencia_id IN (SELECT id FROM ocorrencias_de_tarefa WHERE tarefa_id IN (SELECT id FROM e2e_tarefa));
 DELETE FROM ocorrencias_de_tarefa WHERE tarefa_id IN (SELECT id FROM e2e_tarefa);
 DELETE FROM tarefas WHERE id IN (SELECT id FROM e2e_tarefa);
+-- O protocolo sai com as verificações (só por inserção, sem gatilho de DELETE).
+DELETE FROM verificacoes_de_protocolo WHERE protocolo_id IN (SELECT id FROM e2e_protocolo);
+DELETE FROM protocolos WHERE id IN (SELECT id FROM e2e_protocolo);
+DELETE FROM distribuidoras WHERE id IN (SELECT id FROM e2e_distribuidora);
 DELETE FROM itens_de_estoque WHERE id IN (SELECT id FROM e2e_item);
 DELETE FROM fornecedores WHERE id IN (SELECT id FROM e2e_forn);
 
@@ -154,5 +165,5 @@ ALTER TABLE historico_de_lancamento ENABLE TRIGGER historico_de_lancamento_appen
 ALTER TABLE omie_envios ENABLE TRIGGER omie_envios_coerente;
 ALTER TABLE ordens_de_servico ENABLE TRIGGER ordens_de_servico_encerrada_nao_muda;
 
-SELECT (SELECT count(*) FROM e2e_lanc) AS lancamentos, (SELECT count(*) FROM e2e_ped) AS pedidos, (SELECT count(*) FROM e2e_os) AS ordens_de_servico, (SELECT count(*) FROM e2e_tarefa) AS tarefas, (SELECT count(*) FROM e2e_usina) AS usinas,
+SELECT (SELECT count(*) FROM e2e_lanc) AS lancamentos, (SELECT count(*) FROM e2e_ped) AS pedidos, (SELECT count(*) FROM e2e_os) AS ordens_de_servico, (SELECT count(*) FROM e2e_tarefa) AS tarefas, (SELECT count(*) FROM e2e_usina) AS usinas, (SELECT count(*) FROM e2e_protocolo) AS protocolos,
        (SELECT count(*) FROM e2e_item) AS itens_de_estoque, (SELECT count(*) FROM e2e_forn) AS fornecedores;

@@ -172,6 +172,11 @@ export const catalogoEventos = {
   "engenharia.usina.updated": evento("Dados da usina alterados", "empresa"),
   "engenharia.plataforma.configurada": evento("Plataforma de inversor cadastrada ou alterada", "plataforma"),
   "engenharia.plataforma.conferida": evento("Plataforma conferida no monitoramento do dia", "empresa"),
+  // Protocolos na distribuidora (PLU-348). Sem a nota nem a ação pendente: podem citar dados do cliente.
+  "protocolos.protocolo.created": evento("Protocolo na distribuidora cadastrado", "empresa"),
+  "protocolos.protocolo.updated": evento("Dados do protocolo na distribuidora alterados", "empresa"),
+  "protocolos.protocolo.verificado": evento("Protocolo na distribuidora verificado", "empresa"),
+  "protocolos.distribuidora.configurada": evento("Distribuidora cadastrada ou alterada", "plataforma"),
   // Tarefas dos departamentos (PLU-349, PLU-340). Sem PII: o resultado fica na ocorrência, não no evento.
   "tarefas.tarefa.created": evento("Tarefa do departamento criada", "empresa"),
   "tarefas.tarefa.encerrada": evento("Tarefa do departamento encerrada", "empresa"),

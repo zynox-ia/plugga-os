@@ -118,6 +118,16 @@ export const DEPARTAMENTOS: Departamento[] = [
       { id: "energia-opm.relatorios", label: "Relatórios de economia", status: "em-breve" },
       { id: "energia-opm.demanda", label: "Demanda contratada", status: "em-breve" },
     ],
+    // Protocolos na distribuidora (PLU-348) é tela concedível sem item no menu:
+    // os protocolos aparecem nas fichas da migração e da UC.
+    telas: [
+      { id: "energia-opm.ciclos", label: "Ciclos mensais" },
+      { id: "energia-opm.auditoria", label: "Auditoria de faturas" },
+      { id: "energia-opm.migracao", label: "Migração Mercado Livre" },
+      { id: "energia-opm.relatorios", label: "Relatórios de economia" },
+      { id: "energia-opm.demanda", label: "Demanda contratada" },
+      { id: "energia-opm.protocolos", label: "Protocolos na distribuidora" },
+    ],
   },
   {
     id: "produto-tecnologia",
@@ -184,6 +194,8 @@ export const DEPARTAMENTOS: Departamento[] = [
       // Usinas e o monitoramento do dia (PLU-347), atrás do portão.
       { label: "Usinas", telas: telasPorDepartamento["engenharia-obras"], ...(engenhariaHabilitado() ? { rota: "/engenharia/usinas", status: "parcial" as const } : { status: "em-breve" as const }) },
       { id: "engenharia-obras.relatorios", label: "Relatórios de campo · fotos e aceite", status: "em-breve" },
+      // Protocolos na distribuidora (PLU-348): a API está pronta; a tela vem a seguir.
+      { id: "engenharia-obras.protocolos", label: "Protocolos", status: "em-breve" },
     ],
     // Ordens de serviço abre com qualquer uma de quatro telas; o editor de acesso segue concedendo as oito.
     telas: [
@@ -195,6 +207,7 @@ export const DEPARTAMENTOS: Departamento[] = [
       { id: "engenharia-obras.visitas", label: "Visitas técnicas" },
       { id: "engenharia-obras.usinas", label: "Usinas solares · BESS" },
       { id: "engenharia-obras.relatorios", label: "Relatórios de campo · fotos e aceite" },
+      { id: "engenharia-obras.protocolos", label: "Protocolos na distribuidora" },
     ],
   },
 ];

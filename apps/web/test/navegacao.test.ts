@@ -151,10 +151,19 @@ describe("barra lateral pelo acesso", () => {
     const financeiro = DEPARTAMENTOS.find((departamento) => departamento.id === "financeiro")!;
     assert.deepEqual(telasDoDepartamento(financeiro).map((tela) => tela.id), [...telasPorDepartamento.financeiro]);
     assert.deepEqual(telasDoDepartamento(financeiro).map((tela) => tela.label), ["Contas a pagar", "Contas a receber", "Conciliação", "Fiscal"]);
-    // Nos demais, as telas continuam sendo os itens do menu, na mesma ordem.
+    // Nos demais, as telas seguem o catálogo de acesso, na mesma ordem.
     for (const departamento of DEPARTAMENTOS.filter((d) => d.id !== "financeiro")) {
       assert.deepEqual(telasDoDepartamento(departamento).map((tela) => tela.id), [...telasPorDepartamento[departamento.id]], departamento.id);
     }
+  });
+
+  it("protocolos (PLU-348): concedíveis nos dois departamentos; no menu, só na Engenharia", () => {
+    const energia = DEPARTAMENTOS.find((departamento) => departamento.id === "energia-opm")!;
+    const engenharia = DEPARTAMENTOS.find((departamento) => departamento.id === "engenharia-obras")!;
+    assert.ok(telasDoDepartamento(energia).some((tela) => tela.id === "energia-opm.protocolos"));
+    assert.ok(telasDoDepartamento(engenharia).some((tela) => tela.id === "engenharia-obras.protocolos"));
+    assert.ok(!energia.processos.some((processo) => processo.label === "Protocolos"));
+    assert.ok(engenharia.processos.some((processo) => processo.id === "engenharia-obras.protocolos"));
   });
 
   it("gerente vê o departamento que gere, como o membro", () => {

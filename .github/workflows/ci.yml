@@ -216,6 +216,9 @@ jobs:
       - name: Verify power plants and daily monitoring against Postgres
         run: pnpm --filter @plugga/api test:usinas
 
+      - name: Verify utility protocols against Postgres
+        run: pnpm --filter @plugga/api test:protocolos
+
       - name: Verify sales pipeline configuration against Postgres
         run: pnpm --filter @plugga/api test:pipelines
 

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { diaDoCalendario } from "./compras.js";
 import { companyKeySchema } from "./organization.js";
 import { isoDate, uuid } from "./primitivas.js";
+import { protocoloDaUcSchema } from "./protocolos.js";
 
 /**
  * Usinas e monitoramento do dia (PLU-347), no lugar das 9 tarefas diárias
@@ -297,8 +298,8 @@ export const usinaSchema = usinaResumoSchema.extend({
   monitoramento: z.array(monitoramentoDaUsinaSchema),
   /** As O.S. da usina, das mais recentes (até 50). */
   ordens: z.array(z.object({ id: uuid, codigo: z.string(), tipo: z.string(), situacao: z.string(), descricao: z.string(), createdAt: isoDate })),
-  /** Protocolos da UC: nulo até a PLU-348. */
-  protocolos: z.null(),
+  /** Protocolos da UC em andamento (PLU-348); nulo para quem não tem a tela de protocolos. */
+  protocolos: z.array(protocoloDaUcSchema).nullable(),
   criada: registro,
   acoesPermitidas: z.array(z.enum(["editar", "abrir_os"])),
 });

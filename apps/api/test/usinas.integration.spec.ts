@@ -8,7 +8,9 @@ import { AuditAppender } from "../src/audit/audit-appender.js";
 import { AcessoNegado, Conflito, RequisicaoInvalida } from "../src/common/errors/dominio.js";
 import type { AuthPrincipal } from "../src/core/auth/auth.types.js";
 import { PrismaEngenhariaRepository } from "../src/engenharia/prisma-engenharia.repository.js";
+import { PrismaProtocolosRepository } from "../src/engenharia/prisma-protocolos.repository.js";
 import { PrismaUsinasRepository } from "../src/engenharia/prisma-usinas.repository.js";
+import { ProtocolosService } from "../src/engenharia/protocolos.service.js";
 import { violouUsinaDoComissionamento } from "../src/engenharia/usinas.rules.js";
 import { UsinasService } from "../src/engenharia/usinas.service.js";
 import { contextoBanco } from "../src/prisma/contexto-banco.js";
@@ -79,7 +81,7 @@ describe.skipIf(!HABILITADO)("engenharia: usinas e monitoramento no Postgres", {
     const armazenamento = { enviar: async (chave: string) => { guardados.push(chave); }, excluir: async () => undefined, ler: async () => { throw new Error("sem leitura no teste"); } };
     const config = { get: (chave: string) => (chave === "ENGENHARIA_LIGADA" ? true : undefined) };
     const tarefas = new TarefasService(new PrismaTarefasRepository(app, auditoria), armazenamento as never, config as never, () => AGORA);
-    servico = new UsinasService(repo, ordens, armazenamento as never, tarefas, () => AGORA);
+    servico = new UsinasService(repo, ordens, armazenamento as never, tarefas, new ProtocolosService(new PrismaProtocolosRepository(app, auditoria), tarefas, () => AGORA), () => AGORA);
 
     for (const id of ["plugga", "waze"]) await root.company.upsert({ where: { id }, create: { id, name: id }, update: {} });
     const perfis: Record<string, { departamento: string; nivel: "membro" | "gerente"; telas: string[] }> = {

@@ -38,3 +38,4 @@ export * from "./financeiro.js";
 export * from "./engenharia.js";
 export * from "./tarefas.js";
 export * from "./usinas.js";
+export * from "./protocolos.js";

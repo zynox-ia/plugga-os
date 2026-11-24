@@ -367,6 +367,8 @@ model User {
   tiposDeOrdemAtualizados        ConfiguracaoDeTipoDeOrdem[] @relation("TipoDeOrdemAtualizadoPor")
   usinasCriadas                  Usina[]                     @relation("UsinaCriadaPor")
   conferenciasDePlataforma       ConferenciaDePlataforma[]   @relation("ConferenciaConferidaPor")
+  protocolosCriados              Protocolo[]                 @relation("ProtocoloCriadoPor")
+  verificacoesDeProtocolo        VerificacaoDeProtocolo[]    @relation("VerificacaoDeProtocoloPor")
 
   @@map("users")
 }
@@ -518,6 +520,7 @@ model Company {
   pipelines Pipeline[]
   ordensDeServico OrdemDeServico[]
   usinas Usina[]
+  protocolos Protocolo[]
   conferenciasDePlataforma ConferenciaDePlataforma[]
 
   @@map("companies")
@@ -925,6 +928,7 @@ model Client {
   deals             Deal[]
   ordensDeServico   OrdemDeServico[]
   usinas            Usina[]
+  protocolos        Protocolo[]
 
   @@index([segment, active])
   @@index([ownerId])
@@ -1278,6 +1282,7 @@ model ConsumerUnit {
   lancamentos      UcDeLancamento[]
   ordensDeServico  OrdemDeServico[]
   usinas           Usina[]
+  protocolos       Protocolo[]
   @@map("consumer_units")
 }
 
@@ -3422,4 +3427,100 @@ model ResultadoDaConferencia {
   @@unique([conferenciaId, usinaId])
   @@index([usinaId])
   @@map("resultados_da_conferencia")
+}
+
+// ---------------------------------------------------------------- Protocolos na distribuidora (PLU-348)
+
+enum TipoDeProtocolo {
+  orcamento_de_conexao
+  liberacao
+  cusd
+  carta_denuncia
+  permanencia_no_cativo
+  retorno_ao_cativo
+  outros
+
+  @@map("tipo_de_protocolo")
+}
+
+enum SituacaoDoProtocolo {
+  aberto
+  em_analise
+  com_pendencia
+  respondido
+  liberado
+  indeferido
+
+  @@map("situacao_do_protocolo")
+}
+
+/// Catálogo de distribuidoras. Não se apaga: sai de uso por `ativa`.
+model Distribuidora {
+  id        String   @id
+  nome      String   @unique
+  sigla     String?
+  uf        String?
+  ativa     Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  protocolos Protocolo[]
+
+  @@map("distribuidoras")
+}
+
+/// Protocolo de um pedido na distribuidora, da Engenharia ou do Operacional
+/// (energia-opm). Não se apaga; encerra pela situação.
+model Protocolo {
+  id                 String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId          String              @map("company_id")
+  departamento       String
+  clientId           String              @map("client_id") @db.Uuid
+  consumerUnitId     String              @map("consumer_unit_id") @db.Uuid
+  distribuidoraId    String              @map("distribuidora_id")
+  tipo               TipoDeProtocolo
+  numero             String
+  /// Início do dia em Manaus.
+  abertoEm           DateTime            @map("aberto_em") @db.Timestamptz(6)
+  dataLimite         DateTime            @map("data_limite") @db.Timestamptz(6)
+  proximaVerificacao DateTime?           @map("proxima_verificacao") @db.Timestamptz(6)
+  situacao           SituacaoDoProtocolo @default(aberto)
+  acaoPendente       String?             @map("acao_pendente")
+  observacao         String?
+  encerradoEm        DateTime?           @map("encerrado_em") @db.Timestamptz(6)
+  criadoPorId        String?             @map("criado_por_id") @db.Uuid
+  createdAt          DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  company       Company                  @relation(fields: [companyId], references: [id])
+  client        Client                   @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  consumerUnit  ConsumerUnit             @relation(fields: [consumerUnitId], references: [id], onDelete: Restrict)
+  distribuidora Distribuidora            @relation(fields: [distribuidoraId], references: [id], onDelete: Restrict)
+  criadoPor     User?                    @relation("ProtocoloCriadoPor", fields: [criadoPorId], references: [id], onDelete: SetNull)
+  verificacoes  VerificacaoDeProtocolo[]
+
+  @@unique([distribuidoraId, numero])
+  @@index([departamento, situacao])
+  @@index([proximaVerificacao])
+  @@index([consumerUnitId])
+  @@map("protocolos")
+}
+
+/// Uma verificação do protocolo, com o resultado e a próxima. Só se insere.
+model VerificacaoDeProtocolo {
+  id                 String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  protocoloId        String              @map("protocolo_id") @db.Uuid
+  porId              String?             @map("por_id") @db.Uuid
+  em                 DateTime            @default(now()) @db.Timestamptz(6)
+  situacaoAnterior   SituacaoDoProtocolo @map("situacao_anterior")
+  situacao           SituacaoDoProtocolo
+  nota               String?
+  acaoPendente       String?             @map("acao_pendente")
+  proximaVerificacao DateTime?           @map("proxima_verificacao") @db.Timestamptz(6)
+
+  protocolo Protocolo @relation(fields: [protocoloId], references: [id], onDelete: Restrict)
+  por       User?     @relation("VerificacaoDeProtocoloPor", fields: [porId], references: [id], onDelete: SetNull)
+
+  @@index([protocoloId, em])
+  @@map("verificacoes_de_protocolo")
 }

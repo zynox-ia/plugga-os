@@ -2830,6 +2830,166 @@
   },
   {
     "metodo": "GET",
+    "caminho": "/protocolos",
+    "controller": "ProtocolosController.listar",
+    "acesso": "acesso",
+    "papeis": [
+      "departamento:engenharia-obras:membro",
+      "departamento:energia-opm:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/protocolos",
+    "controller": "ProtocolosController.criar",
+    "acesso": "acesso",
+    "papeis": [
+      "departamento:engenharia-obras:membro",
+      "departamento:energia-opm:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/protocolos/:id",
+    "controller": "ProtocolosController.obter",
+    "acesso": "acesso",
+    "papeis": [
+      "departamento:engenharia-obras:membro",
+      "departamento:energia-opm:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "PATCH",
+    "caminho": "/protocolos/:id",
+    "controller": "ProtocolosController.editar",
+    "acesso": "acesso",
+    "papeis": [
+      "departamento:engenharia-obras:membro",
+      "departamento:energia-opm:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/protocolos/:id/verificacoes",
+    "controller": "ProtocolosController.verificar",
+    "acesso": "acesso",
+    "papeis": [
+      "departamento:engenharia-obras:membro",
+      "departamento:energia-opm:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/protocolos/clientes",
+    "controller": "ProtocolosController.clientes",
+    "acesso": "acesso",
+    "papeis": [
+      "departamento:engenharia-obras:membro",
+      "departamento:energia-opm:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/protocolos/distribuidoras",
+    "controller": "ProtocolosController.distribuidoras",
+    "acesso": "acesso",
+    "papeis": [
+      "departamento:engenharia-obras:membro",
+      "departamento:energia-opm:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/protocolos/distribuidoras",
+    "controller": "ProtocolosController.criarDistribuidora",
+    "acesso": "acesso",
+    "papeis": [
+      "departamento:engenharia-obras:membro",
+      "departamento:energia-opm:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "PATCH",
+    "caminho": "/protocolos/distribuidoras/:id",
+    "controller": "ProtocolosController.editarDistribuidora",
+    "acesso": "acesso",
+    "papeis": [
+      "departamento:engenharia-obras:membro",
+      "departamento:energia-opm:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/protocolos/opcoes",
+    "controller": "ProtocolosController.opcoes",
+    "acesso": "acesso",
+    "papeis": [
+      "departamento:engenharia-obras:membro",
+      "departamento:energia-opm:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
     "caminho": "/suprimentos/compras/clientes",
     "controller": "ComprasController.clientes",
     "acesso": "acesso",

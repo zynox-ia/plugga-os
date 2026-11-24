@@ -44,6 +44,7 @@ import { TarefasService } from "../tarefas/tarefas.service";
 import { RELOGIO_DA_ENGENHARIA, type Relogio } from "./engenharia.service";
 import { lerCsv, lerLinhas, normalizarLinha } from "./importacao-de-usinas";
 import { PrismaEngenhariaRepository } from "./prisma-engenharia.repository";
+import { ProtocolosService } from "./protocolos.service";
 import { PrismaUsinasRepository, type ArquivoGuardado, type LinhaDaUsina, type LinhaDoResultado, type Nomes } from "./prisma-usinas.repository";
 import {
   conferirObservacaoDeAcesso,
@@ -76,6 +77,7 @@ export class UsinasService {
     @Inject(PrismaEngenhariaRepository) private readonly ordens: PrismaEngenhariaRepository,
     @Inject(ArmazenamentoDeDocumentos) private readonly armazenamento: ArmazenamentoDeDocumentos,
     @Inject(TarefasService) private readonly tarefas: TarefasService,
+    @Inject(ProtocolosService) private readonly protocolos: ProtocolosService,
     @Inject(RELOGIO_DA_ENGENHARIA) private readonly agora: Relogio,
   ) {}
 
@@ -118,6 +120,7 @@ export class UsinasService {
   async usina(id: string, principal: AuthPrincipal): Promise<Usina> {
     this.exigirLeitura(principal);
     const r = await this.repositorio.ficha(id, this.agora());
+    const protocolos = await this.protocolos.daUc(r.linha.consumerUnitId, principal);
     const acoes: ("editar" | "abrir_os")[] = [];
     if (operaUsinas(principal.acesso)) acoes.push("editar");
     if (podeAbrirOs(principal.acesso) && r.linha.ativa) acoes.push("abrir_os");
@@ -128,7 +131,7 @@ export class UsinasService {
       origem: r.linha.origem,
       monitoramento: r.historico.map((h) => this.monitoramento(h, r.pessoas)),
       ordens: r.ordens.map((o) => ({ id: o.id, codigo: codigoDaOrdemDeServico(o.numero), tipo: o.tipo, situacao: o.situacao, descricao: o.descricao, createdAt: o.createdAt.toISOString() })),
-      protocolos: null,
+      protocolos,
       criada: { por: pessoa(r.linha.criadoPorId, r.pessoas), em: r.linha.createdAt.toISOString() },
       acoesPermitidas: acoes,
     });
