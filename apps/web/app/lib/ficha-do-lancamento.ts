@@ -81,7 +81,6 @@ export function corpoDaNovaContaAPagar(c: CamposDaContaAPagar): { corpo?: Record
   if (!c.fornecedorId) porCampo.fornecedorId = "escolha o fornecedor ou favorecido.";
   if (!c.descricao.trim()) porCampo.descricao = "descreva o que pagar.";
   else if (c.descricao.trim().length > 200) porCampo.descricao = "use até 200 caracteres.";
-  if (!c.categoriaId) porCampo.categoriaId = c.empresa ? "escolha a categoria." : "escolha a empresa primeiro.";
   if (!c.contaCorrenteId) porCampo.contaCorrenteId = c.empresa ? "escolha a conta corrente." : "escolha a empresa primeiro.";
   const valor = decimalDigitado(c.valor);
   if (!valor || Number(valor) <= 0) porCampo.valor = "informe o valor, como 1.234,56.";
@@ -92,7 +91,8 @@ export function corpoDaNovaContaAPagar(c: CamposDaContaAPagar): { corpo?: Record
   return {
     porCampo,
     corpo: {
-      empresa: c.empresa, fornecedorId: c.fornecedorId, categoriaId: c.categoriaId, contaCorrenteId: c.contaCorrenteId,
+      // A categoria é opcional (CC14): sem ela, a conta fica para classificar depois.
+      empresa: c.empresa, fornecedorId: c.fornecedorId, ...(c.categoriaId ? { categoriaId: c.categoriaId } : {}), contaCorrenteId: c.contaCorrenteId,
       descricao: c.descricao.trim(), valor, vencimento: c.vencimento, forma: c.forma,
       ...(c.observacao.trim() ? { observacao: c.observacao.trim() } : {}),
     },
@@ -207,8 +207,12 @@ const MOTIVO_DO_OMIE: Record<string, string> = {
 export const motivoDoOmie = (motivo: string): string => (Object.hasOwn(MOTIVO_DO_OMIE, motivo) ? `${MOTIVO_DO_OMIE[motivo]}.` : motivo);
 
 /** O estado do lançamento no OMIE, numa frase (aba OMIE e a faixa da visão geral). */
-export function fraseDoOmie(l: Pick<Lancamento, "omie" | "tipo">, empresa: string): { texto: string; tom: "neutro" | "perigo" } {
+export function fraseDoOmie(l: Pick<Lancamento, "omie" | "tipo"> & { categoria?: Lancamento["categoria"] | null; etapa?: Lancamento["etapa"] }, empresa: string): { texto: string; tom: "neutro" | "perigo" } {
   const { estado, codigo, motivo } = l.omie;
+  // Sem categoria (CC14), a fila não envia: a despesa sai sozinha quando for classificada (e, se aberta, aprovada).
+  if (estado === "nao_enviado" && !motivo && l.categoria === null) {
+    return { texto: `Vai para o OMIE da ${empresa} depois de ${l.etapa === "aberta" ? "aprovada e classificada a categoria" : "classificada a categoria"}.`, tom: "neutro" };
+  }
   switch (estado) {
     case "nao_enviado": return motivo
       ? { texto: `Ainda não está no OMIE da ${empresa}: ${motivoDoOmie(motivo)}`, tom: "neutro" }

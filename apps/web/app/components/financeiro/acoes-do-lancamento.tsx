@@ -146,7 +146,7 @@ function FormDoPagamento({ l, opcoes, ocupado, hoje, formId, aoAgir, aoAnexar }:
     {!opcoes ? <Alert tone="warning" title="Não foi possível ler as contas correntes. Recarregue a página para pagar." /> : null}
     <div className={styles.camposDaEtapa}>
       <CampoDeMenu label="Forma de pagamento" required options={formas} value={forma || undefined} icon={<CreditCard />} placeholder="Selecione" error={erros.forma} onChange={(v) => setForma(v as FormaDoLancamento)} />
-      <CampoDeMenu label="Conta corrente (do OMIE)" required options={contasDoMenu(opcoes, l)} value={conta || undefined} icon={<Landmark />} placeholder="Selecione a conta" disabled={!opcoes} hint="De onde saiu o pagamento." error={erros.contaCorrenteId} onChange={setConta} />
+      <CampoDeMenu label="Conta corrente" required options={contasDoMenu(opcoes, l)} value={conta || undefined} icon={<Landmark />} placeholder="Selecione a conta" disabled={!opcoes} hint="De onde saiu o pagamento." error={erros.contaCorrenteId} onChange={setConta} />
       <DatePicker label="Pago em" required max={hoje} value={pagoEm} onChange={setPagoEm} error={erros.pagoEm} />
     </div>
     <CampoDoArquivo rotulo="Comprovante" obrigatorio anexoAtual={l.comprovanteAtual} arquivo={arquivo} aoMudar={(f) => { setArquivo(f); setErros((e) => ({ ...e, comprovante: "" })); }} erro={erros.comprovante || undefined} disabled={ocupado} />
@@ -265,7 +265,7 @@ export function RegistrarRecebimento({ l, opcoes, hoje, aoVoltar, aoAgir, aoAnex
     footer={<Button type="submit" form="form-registrar-recebimento" icon={<CheckCircle2 size={15} />} disabled={enviando}>{enviando ? "Registrando…" : "Registrar recebimento"}</Button>}>
     <form id="form-registrar-recebimento" className="ui-dialog-form" onSubmit={(e) => void confirmar(e)} noValidate>
       {!opcoes ? <Alert tone="warning" title="Não foi possível ler as contas correntes. Recarregue a página." /> : null}
-      <CampoDeMenu label="Conta corrente (do OMIE)" required options={contasDoMenu(opcoes, l)} value={conta || undefined} icon={<Landmark />} placeholder="Selecione a conta" disabled={!opcoes} hint="Onde o dinheiro entrou." error={erros.contaCorrenteId} onChange={setConta} />
+      <CampoDeMenu label="Conta corrente" required options={contasDoMenu(opcoes, l)} value={conta || undefined} icon={<Landmark />} placeholder="Selecione a conta" disabled={!opcoes} hint="Onde o dinheiro entrou." error={erros.contaCorrenteId} onChange={setConta} />
       <DatePicker label="Recebido em" required max={hoje} value={recebidoEm} onChange={setRecebidoEm} error={erros.recebidoEm} />
       <TextField label="Valor recebido" required inputMode="decimal" prefix="R$" value={valor} onChange={(e) => setValor(valorEmDigitacao(e.target.value))} error={erros.valor} />
       <CampoDoArquivo rotulo="Comprovante" obrigatorio={false} anexoAtual={l.comprovanteAtual} arquivo={arquivo} aoMudar={(f) => { setArquivo(f); setErros((e) => ({ ...e, comprovante: "" })); }} erro={erros.comprovante || undefined} disabled={enviando} />

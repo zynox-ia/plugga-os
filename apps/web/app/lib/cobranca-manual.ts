@@ -56,7 +56,7 @@ export function corpoDaCobranca(c: CamposDaCobranca): { corpo?: CriarCobranca; p
   if (!c.empresa) porCampo.empresa = "escolha a empresa (Plugga ou Waze Energia).";
   if (!c.clientId) porCampo.clientId = "escolha o cliente.";
   if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(c.competencia)) porCampo.competencia = "escolha a competência.";
-  if (!c.categoriaId) porCampo.categoriaId = c.empresa ? "escolha a categoria do OMIE." : "escolha a empresa primeiro.";
+  if (!c.categoriaId) porCampo.categoriaId = c.empresa ? "escolha a categoria." : "escolha a empresa primeiro.";
   if (!c.descricao.trim()) porCampo.descricao = "descreva a cobrança.";
   else if (c.descricao.trim().length > 200) porCampo.descricao = "use até 200 caracteres.";
   const valor = decimalDigitado(c.valor);

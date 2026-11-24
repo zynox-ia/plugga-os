@@ -104,6 +104,14 @@ describe("estado no OMIE", () => {
     assert.equal(fraseDoOmie({ ...saida, omie: { estado: "divergente", codigo: "1", motivo: null } }, "Plugga").tom, "perigo");
   });
 
+  it("sem categoria, ainda não enviada: vai ao OMIE depois de classificada", () => {
+    const semCategoria = { ...saida, etapa: "aprovada" as const, categoria: null } as unknown as Lancamento;
+    assert.deepEqual(fraseDoOmie(semCategoria, "Waze Energia"), { texto: "Vai para o OMIE da Waze Energia depois de classificada a categoria.", tom: "neutro" });
+    assert.equal(fraseDoOmie({ ...semCategoria, etapa: "aberta" } as Lancamento, "Waze Energia").texto, "Vai para o OMIE da Waze Energia depois de aprovada e classificada a categoria.");
+    // Com motivo da fila (gravação não liberada), o motivo manda.
+    assert.equal(fraseDoOmie({ ...semCategoria, omie: { estado: "nao_enviado", codigo: null, motivo: "escrita_nao_liberada" } } as Lancamento, "Waze Energia").texto, "Ainda não está no OMIE da Waze Energia: a gravação no OMIE ainda não foi liberada.");
+  });
+
   it("os motivos curtos da fila viram texto; o que não é código aparece como veio", () => {
     assert.equal(fraseDoOmie({ ...saida, omie: { estado: "erro", codigo: null, motivo: "recusada" } }, "Plugga").texto, "Não foi ao OMIE da Plugga: o OMIE recusou o lançamento; confira categoria, conta corrente e valor.");
     assert.deepEqual(fraseDoOmie({ ...saida, omie: { estado: "nao_enviado", codigo: null, motivo: "escrita_nao_liberada" } }, "Waze Energia"), { texto: "Ainda não está no OMIE da Waze Energia: a gravação no OMIE ainda não foi liberada.", tom: "neutro" });
@@ -118,14 +126,17 @@ describe("nova conta a pagar e edição", () => {
   it("aponta cada campo que falta, com o nome do campo da API", () => {
     const { corpo, porCampo } = corpoDaNovaContaAPagar(contaAPagarVazia());
     assert.equal(corpo, undefined);
-    assert.deepEqual(Object.keys(porCampo).sort(), ["categoriaId", "contaCorrenteId", "descricao", "empresa", "fornecedorId", "valor", "vencimento"]);
-    assert.equal(porCampo.categoriaId, "escolha a empresa primeiro.");
+    // A categoria é opcional (CC14): não aparece entre os campos que faltam.
+    assert.deepEqual(Object.keys(porCampo).sort(), ["contaCorrenteId", "descricao", "empresa", "fornecedorId", "valor", "vencimento"]);
   });
 
   it("monta o corpo com o valor em decimal e sem observação vazia; recusa o valor acima do teto", () => {
     assert.deepEqual(corpoDaNovaContaAPagar(preenchida).corpo, {
       empresa: "plugga", fornecedorId: u(2), categoriaId: u(3), contaCorrenteId: u(4), descricao: "Honorários", valor: "1234.56", vencimento: "2026-12-05", forma: "pix",
     });
+    const { categoriaId: _semCategoria, ...semCategoria } = corpoDaNovaContaAPagar({ ...preenchida, categoriaId: "" }).corpo ?? {};
+    assert.equal(_semCategoria, undefined);
+    assert.equal(semCategoria.descricao, "Honorários");
     assert.ok(corpoDaNovaContaAPagar({ ...preenchida, valor: "1.000.000.000.000,00" }).porCampo.valor);
     assert.ok(corpoDaNovaContaAPagar({ ...preenchida, valor: "0" }).porCampo.valor);
   });

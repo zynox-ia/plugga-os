@@ -134,7 +134,7 @@ export function NovaCobranca({ opcoes, aoCancelar, aoSalvar, aoAbrirExistente }:
         {cliente.ucs.map((uc) => <Checkbox key={uc.id} label={uc.codigo} checked={campos.ucIds.includes(uc.id)}
           onChange={(e) => mudar({ ucIds: e.target.checked ? [...campos.ucIds, uc.id] : campos.ucIds.filter((x) => x !== uc.id) })} />)}
       </fieldset> : null}
-      <CampoDeMenu label="Categoria (do OMIE)" required options={categorias.map((c) => ({ value: c.id, label: c.nome, description: c.codigo, icon: <Tag />, grupo: `${c.grupo.codigo} · ${c.grupo.nome}` }))} value={campos.categoriaId || undefined} icon={<Tag />}
+      <CampoDeMenu label="Categoria" required options={categorias.map((c) => ({ value: c.id, label: c.nome, description: c.codigo, icon: <Tag />, grupo: `${c.grupo.codigo} · ${c.grupo.nome}` }))} value={campos.categoriaId || undefined} icon={<Tag />}
         placeholder={campos.empresa ? "Selecione a categoria" : "Escolha a empresa primeiro"} disabled={!campos.empresa} error={erros.categoriaId} onChange={(v) => comDescricao({ categoriaId: v })} />
       <TextField label="Descrição" required maxLength={200} value={campos.descricao} onChange={(e) => { setDescricaoTocada(true); mudar({ descricao: e.target.value }); }} placeholder="Ex.: Gestão de energia · out/2026" error={erros.descricao} />
       <div className="ui-dialog-grid">
@@ -145,7 +145,7 @@ export function NovaCobranca({ opcoes, aoCancelar, aoSalvar, aoAbrirExistente }:
         </div>
         <DatePicker label="Vencimento" required min={hoje} value={campos.vencimento} onChange={(v) => mudar({ vencimento: v })} error={erros.vencimento} />
       </div>
-      <CampoDeMenu label="Conta corrente (do OMIE)" options={contas} value={campos.contaCorrenteId || undefined} icon={<Landmark />} placeholder={campos.empresa ? "Opcional" : "Escolha a empresa primeiro"} disabled={!campos.empresa}
+      <CampoDeMenu label="Conta corrente" options={contas} value={campos.contaCorrenteId || undefined} icon={<Landmark />} placeholder={campos.empresa ? "Opcional" : "Escolha a empresa primeiro"} disabled={!campos.empresa}
         hint="Onde o dinheiro deve entrar, se já souber." error={erros.contaCorrenteId} onChange={(v) => mudar({ contaCorrenteId: v })} />
       <TextareaField label="Observação" maxLength={2000} value={campos.observacao} onChange={(e) => mudar({ observacao: e.target.value })} error={erros.observacao} />
     </form>

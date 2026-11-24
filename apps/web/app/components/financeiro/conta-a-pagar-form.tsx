@@ -104,7 +104,7 @@ export function ContaAPagarForm({ opcoes, lancamento, gerente, aoCancelar, aoSal
         <div className="ui-dialog-section-header"><Heading as="h3" icon={<FileText />}>O que pagar</Heading></div>
         <TextField label="Descrição" required maxLength={200} value={campos.descricao} onChange={(ev) => mudar({ descricao: ev.target.value })} placeholder="Ex.: Honorários contábeis · dez/2026" error={e("descricao")} />
         <div className="ui-dialog-grid">
-          <CampoDeMenu label="Categoria (do OMIE)" required options={categorias} value={campos.categoriaId || undefined} icon={<Tag />}
+          <CampoDeMenu label="Categoria" options={categorias} value={campos.categoriaId || undefined} icon={<Tag />}
             placeholder={campos.empresa ? "Selecione a categoria" : "Escolha a empresa primeiro"} disabled={!campos.empresa} error={e("categoriaId")} onChange={(v) => mudar({ categoriaId: v })} />
           <TextField label="Valor" required inputMode="decimal" prefix="R$" placeholder="0,00" value={campos.valor} disabled={editando}
             hint={editando ? "O valor muda por “Corrigir valor”, com motivo." : undefined}
@@ -114,7 +114,7 @@ export function ContaAPagarForm({ opcoes, lancamento, gerente, aoCancelar, aoSal
           <CampoDeMenu label="Forma de pagamento" required options={formas} value={campos.forma || undefined} icon={<CreditCard />} placeholder="Selecione"
             disabled={travados} hint={dicaTravado} error={e("forma")} onChange={(v) => mudar({ forma: v as CamposDaContaAPagar["forma"] })} />
         </div>
-        <CampoDeMenu label="Conta corrente (do OMIE)" required options={contas} value={campos.contaCorrenteId || undefined} icon={travados ? <Lock /> : <Landmark />}
+        <CampoDeMenu label="Conta corrente" required options={contas} value={campos.contaCorrenteId || undefined} icon={travados ? <Lock /> : <Landmark />}
           placeholder={campos.empresa ? "Selecione a conta" : "Escolha a empresa primeiro"} disabled={!campos.empresa || travados} hint={dicaTravado ?? "De onde sai o pagamento."} error={e("contaCorrenteId")}
           onChange={(v) => mudar({ contaCorrenteId: v })} />
         <TextareaField label="Observação" maxLength={2000} value={campos.observacao} onChange={(ev) => mudar({ observacao: ev.target.value })} placeholder="Ex.: pagar até o meio-dia; código de barras no anexo" error={e("observacao")} />
