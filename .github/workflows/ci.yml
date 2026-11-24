@@ -257,6 +257,9 @@ jobs:
       - name: Verify deploy lock
         run: bash ops/deploy-trava.test.sh
 
+      - name: Verify deploy preflight of the database logins
+        run: bash ops/deploy-papeis.test.sh
+
       - name: Install age for backup tests
         run: sudo apt-get update -qq && sudo apt-get install -y -qq age
 
