@@ -1,4 +1,4 @@
-import type { Acesso } from "@plugga/shared";
+import { agenciaVirtualUrlSchema, type Acesso } from "@plugga/shared";
 import { describe, expect, it } from "vitest";
 
 import { RequisicaoInvalida } from "../common/errors/dominio";
@@ -51,5 +51,16 @@ describe("protocolos: datas e prazos", () => {
   it("id da distribuidora pelo nome", () => {
     expect(idDaDistribuidora("Amazonas Energia")).toBe("amazonas-energia");
     expect(idDaDistribuidora("  Equatorial Pará ")).toBe("equatorial-para");
+  });
+});
+
+describe("protocolos: atalho da Agência Virtual", () => {
+  it("só https, sem usuário, senha nem parâmetro de login", () => {
+    expect(agenciaVirtualUrlSchema.safeParse("https://agencia.exemplo.com.br/servicos").success).toBe(true);
+    expect(agenciaVirtualUrlSchema.safeParse("http://agencia.exemplo.com.br").success).toBe(false);
+    expect(agenciaVirtualUrlSchema.safeParse("https://usuario:senha@agencia.exemplo.com.br").success).toBe(false);
+    expect(agenciaVirtualUrlSchema.safeParse("https://agencia.exemplo.com.br/entrar?login=fulano").success).toBe(false);
+    expect(agenciaVirtualUrlSchema.safeParse("https://agencia.exemplo.com.br/?senha=123").success).toBe(false);
+    expect(agenciaVirtualUrlSchema.safeParse("javascript:alert(1)").success).toBe(false);
   });
 });

@@ -136,13 +136,24 @@ export const listarProtocolosQuerySchema = z
   .strict();
 export type ListarProtocolosQuery = z.infer<typeof listarProtocolosQuerySchema>;
 
+/**
+ * Endereço da Agência Virtual da distribuidora: só https, sem usuário/senha na
+ * URL nem parâmetro de login. O login e a senha ficam no cofre (issue própria).
+ */
+export const agenciaVirtualUrlSchema = z
+  .string()
+  .trim()
+  .max(300)
+  .regex(/^https:\/\/[A-Za-z0-9.-]+(:[0-9]{1,5})?(\/\S*)?$/, "use o endereço com https://, sem usuário nem senha")
+  .refine((v) => !/[?&#](senha|password|pass|pwd|token|login|user|usuario|cpf|cnpj)=/i.test(v), "o endereço não leva login, senha nem documento");
+
 export const criarDistribuidoraSchema = z
-  .object({ nome: texto(1, 80, "informe o nome"), sigla: textoOpcional(20), uf: z.string().trim().regex(/^[A-Z]{2}$/, "use a sigla do estado").nullable().optional() })
+  .object({ nome: texto(1, 80, "informe o nome"), sigla: textoOpcional(20), uf: z.string().trim().regex(/^[A-Z]{2}$/, "use a sigla do estado").nullable().optional(), agenciaVirtualUrl: agenciaVirtualUrlSchema.nullable().optional() })
   .strict();
 export type CriarDistribuidora = z.infer<typeof criarDistribuidoraSchema>;
 
 export const editarDistribuidoraSchema = z
-  .object({ nome: texto(1, 80, "informe o nome").optional(), sigla: textoOpcional(20), uf: z.string().trim().regex(/^[A-Z]{2}$/).nullable().optional(), ativa: z.boolean().optional() })
+  .object({ nome: texto(1, 80, "informe o nome").optional(), sigla: textoOpcional(20), uf: z.string().trim().regex(/^[A-Z]{2}$/).nullable().optional(), ativa: z.boolean().optional(), agenciaVirtualUrl: agenciaVirtualUrlSchema.nullable().optional() })
   .strict()
   .refine((v) => Object.keys(v).length > 0, "informe ao menos um campo");
 export type EditarDistribuidora = z.infer<typeof editarDistribuidoraSchema>;
@@ -152,7 +163,11 @@ export type EditarDistribuidora = z.infer<typeof editarDistribuidoraSchema>;
 const pessoa = z.object({ id: uuid, nome: z.string() });
 const registro = z.object({ por: pessoa.nullable(), em: isoDate });
 
-export const distribuidoraSchema = z.object({ id: idDeDistribuidoraSchema, nome: z.string(), sigla: z.string().nullable(), uf: z.string().nullable(), ativa: z.boolean() });
+export const distribuidoraSchema = z.object({
+  id: idDeDistribuidoraSchema, nome: z.string(), sigla: z.string().nullable(), uf: z.string().nullable(), ativa: z.boolean(),
+  /** O atalho "Agência Virtual" (abre numa nova aba); nulo enquanto o gerente não preenche. */
+  agenciaVirtualUrl: z.string().nullable().optional(),
+});
 export type Distribuidora = z.infer<typeof distribuidoraSchema>;
 
 export const listarDistribuidorasRespostaSchema = z.object({ itens: z.array(distribuidoraSchema), podeEditar: z.boolean() });
@@ -167,7 +182,7 @@ export const protocoloResumoSchema = z.object({
   situacao: situacaoDoProtocoloSchema,
   cliente: pessoa,
   uc: z.object({ id: uuid, codigo: z.string() }),
-  distribuidora: z.object({ id: idDeDistribuidoraSchema, nome: z.string() }),
+  distribuidora: z.object({ id: idDeDistribuidoraSchema, nome: z.string(), agenciaVirtualUrl: z.string().nullable().optional() }),
   abertoEm: diaDoCalendario,
   dataLimite: diaDoCalendario,
   /** Dias até a data-limite (negativo = vencida); nulo se encerrado. */

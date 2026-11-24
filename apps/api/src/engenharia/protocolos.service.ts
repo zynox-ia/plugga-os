@@ -171,7 +171,7 @@ export class ProtocolosService {
       situacao,
       cliente: { id: l.clientId, nome: nomes.clientes.get(l.clientId) ?? "Cliente" },
       uc: { id: l.consumerUnitId, codigo: nomes.ucs.get(l.consumerUnitId)?.codigo ?? "—" },
-      distribuidora: { id: l.distribuidora.id, nome: l.distribuidora.nome },
+      distribuidora: { id: l.distribuidora.id, nome: l.distribuidora.nome, agenciaVirtualUrl: l.distribuidora.agenciaVirtualUrl },
       abertoEm: diaEmManaus(l.abertoEm),
       dataLimite,
       diasParaOLimite: protocoloEncerrado(situacao) ? null : diasEntre(hoje, dataLimite),

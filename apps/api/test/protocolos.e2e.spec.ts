@@ -75,6 +75,8 @@ describe("protocolos na distribuidora (e2e)", () => {
     await engenharia(http().patch(`/protocolos/${ID}`)).send({}).expect(400);
     await engenharia(http().post("/protocolos/distribuidoras")).send({ nome: "Nova", uf: "pa" }).expect(400);
     await engenharia(http().patch("/protocolos/distribuidoras/Nova%20X")).send({ ativa: false }).expect(400);
+    await engenharia(http().patch("/protocolos/distribuidoras/amazonas-energia")).send({ agenciaVirtualUrl: "http://agencia.exemplo.com.br" }).expect(400);
+    await engenharia(http().patch("/protocolos/distribuidoras/amazonas-energia")).send({ agenciaVirtualUrl: "https://agencia.exemplo.com.br/servicos" }).expect(200);
   });
 
   it("com o portão da Engenharia fechado, tudo responde 404 antes da sessão", async () => {

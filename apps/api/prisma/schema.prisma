@@ -3572,6 +3572,8 @@ model Distribuidora {
   sigla     String?
   uf        String?
   ativa     Boolean  @default(true)
+  /// Endereço da Agência Virtual (só https, sem credencial). Login e senha ficam no cofre.
+  agenciaVirtualUrl String? @map("agencia_virtual_url")
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 

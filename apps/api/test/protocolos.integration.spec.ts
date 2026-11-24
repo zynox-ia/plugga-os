@@ -217,6 +217,16 @@ describe.skipIf(!HABILITADO)("protocolos na distribuidora no Postgres", { timeou
     expect(lista.itens.find((d) => d.nome === `${marca} Nova`)).toMatchObject({ sigla: "NV", uf: "PA", ativa: true });
     await expect(como("gerenteOpm", () => servico.criarDistribuidora({ nome: `${marca} Nova` }, principal("gerenteOpm")))).rejects.toThrow(Conflito);
     await expect(tx("opm", (t) => t.distribuidora.update({ where: { id: distribuidoraId }, data: { sigla: "X" } }))).rejects.toThrow();
+    // O atalho da Agência Virtual: o gerente preenche; o protocolo da distribuidora o traz.
+    const nova = lista.itens.find((d) => d.nome === `${marca} Nova`)!;
+    const comUrl = await como("gerenteOpm", () => servico.editarDistribuidora(nova.id, { agenciaVirtualUrl: "https://agencia.exemplo.com.br/servicos" }, principal("gerenteOpm")));
+    expect(comUrl.itens.find((d) => d.id === nova.id)?.agenciaVirtualUrl).toBe("https://agencia.exemplo.com.br/servicos");
+    const p = await novo({ departamento: "energia-opm", numero: `${marca}-av`, distribuidoraId: nova.id }, "gerenteOpm");
+    expect(p.distribuidora).toEqual({ id: nova.id, nome: `${marca} Nova`, agenciaVirtualUrl: "https://agencia.exemplo.com.br/servicos" });
+    expect((await root.distribuidora.findUnique({ where: { id: "amazonas-energia" } }))?.agenciaVirtualUrl).toBeNull();
+    // O banco também recusa http e credencial na URL.
+    await expect(root.distribuidora.update({ where: { id: nova.id }, data: { agenciaVirtualUrl: "http://agencia.exemplo.com.br" } })).rejects.toThrow();
+    await expect(root.distribuidora.update({ where: { id: nova.id }, data: { agenciaVirtualUrl: "https://agencia.exemplo.com.br/?senha=1" } })).rejects.toThrow();
   });
 
   it("RLS: ninguém apaga protocolo nem reescreve verificação; o protocolo não troca de departamento nem de cliente", async () => {

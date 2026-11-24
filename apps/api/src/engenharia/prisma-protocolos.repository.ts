@@ -41,7 +41,7 @@ export const SELECT_DO_PROTOCOLO = {
   criadoPorId: true,
   createdAt: true,
   updatedAt: true,
-  distribuidora: { select: { id: true, nome: true } },
+  distribuidora: { select: { id: true, nome: true, agenciaVirtualUrl: true } },
   verificacoes: { select: { porId: true, em: true }, orderBy: { em: "desc" }, take: 1 },
 } satisfies Prisma.ProtocoloSelect;
 export type LinhaDoProtocolo = Prisma.ProtocoloGetPayload<{ select: typeof SELECT_DO_PROTOCOLO }>;
@@ -77,15 +77,15 @@ export class PrismaProtocolosRepository {
 
   // ------------------------------------------------------------ distribuidoras
 
-  distribuidoras(): Promise<{ id: string; nome: string; sigla: string | null; uf: string | null; ativa: boolean }[]> {
-    return this.prisma.comContexto((tx) => tx.distribuidora.findMany({ select: { id: true, nome: true, sigla: true, uf: true, ativa: true }, orderBy: [{ ativa: "desc" }, { nome: "asc" }] }));
+  distribuidoras(): Promise<{ id: string; nome: string; sigla: string | null; uf: string | null; ativa: boolean; agenciaVirtualUrl: string | null }[]> {
+    return this.prisma.comContexto((tx) => tx.distribuidora.findMany({ select: { id: true, nome: true, sigla: true, uf: true, ativa: true, agenciaVirtualUrl: true }, orderBy: [{ ativa: "desc" }, { nome: "asc" }] }));
   }
 
   async criarDistribuidora(input: CriarDistribuidora, principal: AuthPrincipal): Promise<void> {
     const id = idDaDistribuidora(input.nome);
     if (!id) throw new RequisicaoInvalida("Nome de distribuidora inválido.", [{ campo: "nome", problema: "Use letras ou números." }]);
     await this.comUnicidade("Já existe uma distribuidora com esse nome.", () => this.prisma.comContexto(async (tx) => {
-      await tx.distribuidora.create({ data: { id, nome: input.nome, sigla: input.sigla ?? null, uf: input.uf ?? null } });
+      await tx.distribuidora.create({ data: { id, nome: input.nome, sigla: input.sigla ?? null, uf: input.uf ?? null, agenciaVirtualUrl: input.agenciaVirtualUrl ?? null } });
       await this.registrar(tx, "protocolos.distribuidora.configurada", "distribuidora", id, null, principal, { acao: "criada" });
     }));
   }
