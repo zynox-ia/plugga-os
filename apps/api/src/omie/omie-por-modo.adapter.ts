@@ -4,7 +4,7 @@ import type { EmpresaDoOmie, IntegrationMode } from "@plugga/shared";
 import { IntegrationGate } from "../integrations/integration-gate";
 import { OmieDubleAdapter } from "./omie-duble.adapter";
 import { OmieHttpAdapter } from "./omie-http.adapter";
-import { OmiePort, type CredenciaisDoOmie } from "./omie.port";
+import { OmiePort, type CategoriaDoOmie, type ContaCorrenteDoOmie, type CredenciaisDoOmie } from "./omie.port";
 
 export type OperacaoNoOmie = "leitura" | "escrita";
 
@@ -40,6 +40,14 @@ export class OmiePorModoAdapter extends OmiePort {
 
   async listarEmpresas(credenciais: CredenciaisDoOmie): Promise<EmpresaDoOmie[]> {
     return (await this.alvo("leitura")).listarEmpresas(credenciais);
+  }
+
+  async listarCategorias(credenciais: CredenciaisDoOmie): Promise<CategoriaDoOmie[]> {
+    return (await this.alvo("leitura")).listarCategorias(credenciais);
+  }
+
+  async listarContasCorrentes(credenciais: CredenciaisDoOmie): Promise<ContaCorrenteDoOmie[]> {
+    return (await this.alvo("leitura")).listarContasCorrentes(credenciais);
   }
 
   /** Os métodos de escrita (UpsertContaPagar, LancarPagamento…) chamam com "escrita". */
