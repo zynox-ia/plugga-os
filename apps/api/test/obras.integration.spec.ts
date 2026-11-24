@@ -148,7 +148,9 @@ describe.skipIf(!HABILITADO)("obras no Postgres", { timeout: PRAZO }, () => {
     await expect(tx("eng", (t) => t.marcoDeObra.update({ where: { id: m1!.id }, data: { previstoEm: new Date("2026-12-01T04:00:00Z") } }))).rejects.toThrow(/marco feito não muda/);
     const reprogramado = await como("eng", () => servico.reprogramar(o.id, m2!.id, "2026-12-10", principal("eng")));
     expect(reprogramado.marcosDaObra[1]!.previstoEm).toBe("2026-12-10");
-    await expect(como("eng", () => servico.reprogramar(o.id, m2!.id, "2027-03-01", principal("eng")))).rejects.toThrow(RequisicaoInvalida);
+    const fora = await como("eng", () => servico.reprogramar(o.id, m2!.id, "2027-03-01", principal("eng"))).catch((e: unknown) => e);
+    expect(fora).toBeInstanceOf(RequisicaoInvalida);
+    expect((fora as RequisicaoInvalida).detalhes?.[0]?.problema).toBe("Use uma data de 23/11/2026 a 26/02/2027.");
     await expect(como("eng", () => servico.reprogramar(o.id, m2!.id, "2026-11-20", principal("eng")))).rejects.toThrow(RequisicaoInvalida);
     await expect(como("eng", () => servico.reprogramar(o.id, m1!.id, "2026-12-01", principal("eng")))).rejects.toThrow(EstadoInvalido);
     // Obra que ainda não começou: nenhum marco é feito antes do início.

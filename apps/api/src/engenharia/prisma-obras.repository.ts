@@ -14,6 +14,8 @@ import { ENCERRADAS } from "./engenharia.rules";
 import { conferirPeriodo, distribuirMarcos, proximoMarco } from "./obras.rules";
 
 export type Nomes = ReadonlyMap<string, string>;
+/** "2026-11-25" → "25/11/2026", como as outras mensagens de data. */
+const diaBr = (dia: string): string => dia.split("-").reverse().join("/");
 export type ArquivoDaObra = { chave: string; nome: string; tamanho: number; tipo: string };
 
 const SELECT_DO_MARCO = { id: true, ordem: true, nome: true, previstoEm: true, feitoEm: true, feitoPorId: true } satisfies Prisma.MarcoDeObraSelect;
@@ -165,7 +167,7 @@ export class PrismaObrasRepository {
       const obra = await tx.obra.findUnique({ where: { id: obraId }, select: { companyId: true, inicioEm: true, marcos: { select: { id: true, ordem: true, feitoEm: true } } } });
       if (!obra) throw new NaoEncontrado("Obra não encontrada.");
       if (!obra.inicioEm) throw new EstadoInvalido("A obra ainda não tem início e entrega.");
-      if (obra.inicioEm > agora) throw new EstadoInvalido(`A obra começa em ${diaEmManaus(obra.inicioEm).split("-").reverse().join("/")}: o marco só pode ser feito a partir do início.`);
+      if (obra.inicioEm > agora) throw new EstadoInvalido(`A obra começa em ${diaBr(diaEmManaus(obra.inicioEm))}: o marco só pode ser feito a partir do início.`);
       const marco = obra.marcos.find((m) => m.id === marcoId);
       if (!marco) throw new NaoEncontrado("Marco não encontrado.");
       if (marco.feitoEm) throw new EstadoInvalido("Este marco já foi feito.");
@@ -188,7 +190,7 @@ export class PrismaObrasRepository {
       const inicio = diaEmManaus(obra.inicioEm);
       const entrega = diaEmManaus(obra.entregaPrevistaEm);
       if (previstoEm < inicio || previstoEm > entrega || previstoEm < hoje) {
-        throw new RequisicaoInvalida("A data do marco fica entre o início e a entrega, e não no passado.", [{ campo: "previstoEm", problema: `Use uma data de ${hoje > inicio ? hoje : inicio} a ${entrega}.` }]);
+        throw new RequisicaoInvalida("A data do marco fica entre o início e a entrega, e não no passado.", [{ campo: "previstoEm", problema: `Use uma data de ${diaBr(hoje > inicio ? hoje : inicio)} a ${diaBr(entrega)}.` }]);
       }
       await tx.marcoDeObra.update({ where: { id: marcoId }, data: { previstoEm: inicioDoDiaEmManaus(previstoEm) } });
       await this.registrar(tx, "engenharia.obra.marco_reprogramado", obraId, obra.companyId, principal, { ordem: marco.ordem });
