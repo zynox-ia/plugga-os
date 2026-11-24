@@ -254,6 +254,27 @@ test.describe("Navegação única", () => {
     await expect.poll(() => dentroDaLista(obras)).toBe(true);
   });
 
+  test("abrir outro departamento fecha o da página e traz o aberto à vista", async ({ page }) => {
+    // Na página do CRM (no topo), abrir a Engenharia (embaixo): o acordeão fecha o CRM,
+    // que ficava aberto por ser o da página, e a lista rola até a Engenharia.
+    await page.setViewportSize({ width: 1280, height: 720 });
+    await page.goto("/comercial/pipelines");
+    const lista = page.locator(".sidebar-nav");
+    await expect(lista.locator('[aria-current="page"]')).toHaveText("Pipelines");
+    const engenharia = lista.locator(".nav-parent", { hasText: "Engenharia e Obras" });
+    await engenharia.click();
+    await expect(engenharia).toHaveAttribute("aria-expanded", "true");
+    await expect(lista.locator(".nav-parent", { hasText: "CRM" })).toHaveAttribute("aria-expanded", "false");
+    await expect(lista.locator(".nav-children")).toHaveCount(1);
+    const dentroDaLista = (alvo: typeof engenharia) => alvo.evaluate((elemento) => {
+      const area = elemento.closest(".sidebar-nav")!.getBoundingClientRect();
+      const caixa = elemento.getBoundingClientRect();
+      return caixa.top >= area.top - 1 && caixa.bottom <= area.bottom + 1;
+    });
+    await expect.poll(() => dentroDaLista(engenharia)).toBe(true);
+    await expect.poll(() => dentroDaLista(lista.getByRole("button", { name: "Visão geral", exact: true }).last())).toBe(true);
+  });
+
   // As áreas de plataforma (jobs, integrações, administração) saíram da
   // sidebar: continuam roteáveis por URL, mas não competem com a estrutura
   // de departamentos no menu.

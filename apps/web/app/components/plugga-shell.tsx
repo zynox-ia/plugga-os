@@ -121,9 +121,13 @@ export function PluggaShell({
 
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
   const lista = useRef<HTMLElement>(null);
+  // O departamento aberto pela barra, para a lista rolar até ele (e não até outro grupo).
+  const grupoAberto = useRef<string | null>(null);
 
   useEffect(() => {
     setActiveView(activeId);
+    // Mudou a tela: a lista volta a mirar o departamento dela.
+    grupoAberto.current = null;
   }, [activeId]);
 
   const selectView = (view: string) => {
@@ -154,11 +158,13 @@ export function PluggaShell({
       return;
     }
     const atualmenteAberto = isOpen(group);
+    grupoAberto.current = atualmenteAberto ? null : id;
     setOpenGroups((prev) => {
       if (atualmenteAberto) return { ...prev, [id]: false };
-      // Acordeão: só um departamento expandido por vez.
+      // Acordeão: só um departamento expandido por vez. Fecha todos, inclusive o da
+      // tela atual, que fica aberto sem estar em openGroups.
       const fechados: Record<string, boolean> = {};
-      for (const chave of Object.keys(prev)) fechados[chave] = false;
+      for (const outro of navGroups) fechados[outro.id] = false;
       return { ...fechados, [id]: true };
     });
   };
@@ -171,8 +177,11 @@ export function PluggaShell({
   useEffect(() => {
     const quadro = requestAnimationFrame(() => {
       const nav = lista.current;
-      const filhos = nav?.querySelector(".nav-children");
-      if (!nav || !filhos) return;
+      if (!nav) return;
+      // O grupo aberto pela barra ou, sem ele, o da tela atual.
+      const alvo = grupoAberto.current ?? navigation.find((grupo) => grupo.items.some((item) => item.id === activeView))?.id;
+      const filhos = (alvo ? nav.querySelector(`.nav-children[data-grupo="${alvo}"]`) : null) ?? nav.querySelector(".nav-children");
+      if (!filhos) return;
       const ultimo = filhos.lastElementChild;
       if (ultimo) mostrarNaLista(nav, ultimo);
       const cabecalho = filhos.previousElementSibling;
@@ -227,7 +236,7 @@ export function PluggaShell({
               <span className={`nav-chevron${aberto ? " nav-chevron--open" : ""}`} aria-hidden="true" />
             </button>
             {aberto ? (
-              <div className="nav-children" id={`nav-group-${group.id}`}>
+              <div className="nav-children" id={`nav-group-${group.id}`} data-grupo={group.id}>
                 {itens}
               </div>
             ) : null}
