@@ -70,9 +70,13 @@ export function OrdemForm({ ordem, empresaInicial, hoje, prazoSugerido, usinaIni
   const [enviando, setEnviando] = useState(false);
   const [busca, setBusca] = useState("");
   const [encontrados, setEncontrados] = useState<Cliente[] | null>(null);
-  /** As obras do cliente na empresa; nulo enquanto não há cliente ou quando a pessoa não alcança as Obras. */
-  const [obras, setObras] = useState<{ id: string; nome: string }[] | null>(null);
-  const mudar = (parcial: Partial<Campos>) => { setC((x) => ({ ...x, ...parcial })); setErros((e) => ({ ...e, ...Object.fromEntries(Object.keys(parcial).map((k) => [k === "cliente" ? "clienteId" : k, undefined])) })); };
+  /**
+   * As obras do cliente na empresa, guardadas com a chave cliente:empresa da consulta. A lista só
+   * vale para a chave atual: trocar a empresa ou o cliente esconde a anterior na hora, sem esperar a nova.
+   */
+  const [obras, setObras] = useState<{ chave: string; itens: { id: string; nome: string }[] } | null>(null);
+  // Trocar a empresa ou o cliente desfaz a obra escolhida (ela é do par anterior).
+  const mudar = (parcial: Partial<Campos>) => { setC((x) => ({ ...x, ...parcial, ...("empresa" in parcial || "cliente" in parcial ? { obraId: "" } : {}) })); setErros((e) => ({ ...e, ...Object.fromEntries(Object.keys(parcial).map((k) => [k === "cliente" ? "clienteId" : k, undefined])) })); };
 
   useEffect(() => {
     if (editando || busca.trim().length < 2) { setEncontrados(null); return; }
@@ -86,16 +90,18 @@ export function OrdemForm({ ordem, empresaInicial, hoje, prazoSugerido, usinaIni
 
   const clienteId = c.cliente?.id;
   const obraDaOrdem = ordem?.obra ?? null;
+  const chaveDasObras = clienteId && c.empresa ? `${clienteId}:${c.empresa}` : null;
+  const obrasDoPar = obras && obras.chave === chaveDasObras ? obras.itens : null;
   useEffect(() => {
-    if (!clienteId || !c.empresa) { setObras(null); return; }
+    if (!clienteId || !c.empresa) return;
+    const chave = `${clienteId}:${c.empresa}`;
     const controle = new AbortController();
     void enviar<ListarObrasResposta>(`/api/engenharia/obras?${new URLSearchParams({ clienteId, empresa: c.empresa })}`, "GET", undefined, controle.signal).then((r) => {
       if (controle.signal.aborted) return;
       if (!r.ok) { setObras(null); return; }
       const lista = r.dados.itens.map((o) => ({ id: o.id, nome: o.nome }));
       // A obra atual da O.S. fica na lista mesmo inativa, para não sumir na edição.
-      setObras(obraDaOrdem && !lista.some((o) => o.id === obraDaOrdem.id) ? [obraDaOrdem, ...lista] : lista);
-      setC((x) => (x.obraId && !lista.some((o) => o.id === x.obraId) && x.obraId !== obraDaOrdem?.id ? { ...x, obraId: "" } : x));
+      setObras({ chave, itens: obraDaOrdem && !lista.some((o) => o.id === obraDaOrdem.id) ? [obraDaOrdem, ...lista] : lista });
     });
     return () => controle.abort();
   }, [clienteId, c.empresa, obraDaOrdem?.id]);
@@ -128,7 +134,7 @@ export function OrdemForm({ ordem, empresaInicial, hoje, prazoSugerido, usinaIni
     setEnviando(true); setFalha(null);
     const r = ordem
       ? await enviarParaAOrdem(ordem.id, "", "PATCH", { ...alterados, ...(obraMudou ? { obraId: c.obraId || null } : {}) })
-      : await enviar<OrdemDeServico>("/api/engenharia/ordens-de-servico", "POST", { empresa: c.empresa, tipo: c.tipo, clienteId: c.cliente!.id, ucId: c.ucId || null, local: texto(c.local), descricao: c.descricao.trim(), prioridade: c.prioridade, origem: c.origem, prazo: c.prazo, ...equipamento, ...(usinaInicial ? { usinaId: usinaInicial.id } : {}), ...(c.obraId ? { obraId: c.obraId } : {}) });
+      : await enviar<OrdemDeServico>("/api/engenharia/ordens-de-servico", "POST", { empresa: c.empresa, tipo: c.tipo, clienteId: c.cliente!.id, ucId: c.ucId || null, local: texto(c.local), descricao: c.descricao.trim(), prioridade: c.prioridade, origem: c.origem, prazo: c.prazo, ...equipamento, ...(usinaInicial ? { usinaId: usinaInicial.id } : {}), ...(c.obraId && obrasDoPar?.some((o) => o.id === c.obraId) ? { obraId: c.obraId } : {}) });
     setEnviando(false);
     if (r.ok) { aoSalvar(r.dados); return; }
     setErros((e) => ({ ...e, ...r.erro.porCampo }));
@@ -162,8 +168,8 @@ export function OrdemForm({ ordem, empresaInicial, hoje, prazoSugerido, usinaIni
       <CampoDeMenu label="Unidade consumidora" icon={<Zap />} placeholder={c.cliente ? (ucs.length ? "Sem UC" : "O cliente não tem UC") : "Escolha o cliente primeiro"} value={c.ucId || (c.cliente && ucs.length ? "sem" : undefined)}
         onChange={(v) => mudar({ ucId: v === "sem" ? "" : v })} disabled={daUsina || editando || !c.cliente || ucs.length === 0}
         options={[{ value: "sem", label: "Sem UC", icon: <Zap /> }, ...ucs.map((u) => ({ value: u.id, label: u.codigo, description: u.distribuidora, icon: <Zap /> }))]} />
-      {obras && obras.length ? <CampoDeMenu label="Obra" icon={<HardHat />} value={c.obraId || "sem"} onChange={(v) => mudar({ obraId: v === "sem" ? "" : v })} error={erros.obraId}
-        options={[{ value: "sem", label: "Sem obra", icon: <HardHat /> }, ...obras.map((o) => ({ value: o.id, label: o.nome, icon: <HardHat /> }))]} hint="Obra do mesmo cliente e empresa." /> : null}
+      {obrasDoPar && obrasDoPar.length ? <CampoDeMenu label="Obra" icon={<HardHat />} value={c.obraId || "sem"} onChange={(v) => mudar({ obraId: v === "sem" ? "" : v })} error={erros.obraId}
+        options={[{ value: "sem", label: "Sem obra", icon: <HardHat /> }, ...obrasDoPar.map((o) => ({ value: o.id, label: o.nome, icon: <HardHat /> }))]} hint="Obra do mesmo cliente e empresa." /> : null}
 
       <div className={styles.largo}><TextareaField label="O que precisa ser feito" required maxLength={2000} rows={2} value={c.descricao} onChange={(e) => mudar({ descricao: e.target.value })} error={erros.descricao}
         placeholder="Ex.: inversor desligando à tarde" /></div>

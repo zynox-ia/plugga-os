@@ -132,6 +132,20 @@ test("a O.S. escolhe a obra do mesmo cliente e empresa e aparece na aba O.S. da 
   await nova.getByRole("button", { name: new RegExp(literal(CLIENTE)) }).click(DEPOIS_DA_ACAO);
   await nova.getByRole("combobox", { name: /^Obra/ }).click(DEPOIS_DA_ACAO);
   await page.getByRole("option", { name: nome }).click();
+  // Trocar a empresa com a consulta nova ainda pendente: a lista da Waze some na hora e a escolha sai.
+  let soltar: () => void = () => {};
+  const pendente = new Promise<void>((resolver) => { soltar = resolver; });
+  await page.route(/\/api\/engenharia\/obras\?.*empresa=plugga/, async (rota) => { await pendente; await rota.continue(); });
+  await nova.getByRole("combobox", { name: /^Empresa/ }).click();
+  await page.getByRole("option", { name: "Plugga" }).click();
+  await expect(nova.getByRole("combobox", { name: /^Obra/ })).toHaveCount(0);
+  soltar();
+  await page.unroute(/\/api\/engenharia\/obras\?.*empresa=plugga/);
+  await nova.getByRole("combobox", { name: /^Empresa/ }).click();
+  await page.getByRole("option", { name: "Waze Energia" }).click();
+  await expect(nova.getByRole("combobox", { name: /^Obra/ })).toContainText("Sem obra", DEPOIS_DA_ACAO);
+  await nova.getByRole("combobox", { name: /^Obra/ }).click();
+  await page.getByRole("option", { name: nome }).click();
   await nova.getByRole("textbox", { name: /O que precisa ser feito/ }).fill(descricao);
   await nova.getByRole("textbox", { name: /^Prazo/ }).fill(dia(5).split("-").reverse().join("/"));
   await nova.getByRole("button", { name: "Criar O.S." }).click();
