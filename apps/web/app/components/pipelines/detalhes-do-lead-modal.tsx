@@ -87,6 +87,19 @@ export function DetalhesDoLeadModal({ negocioId, pipeline, responsaveis, podeAtr
     if (primeiraRevisao.current) { primeiraRevisao.current = false; return; }
     if (processo.ativo) recarregarAtividades();
   }, [detalhe.revisao]);
+  // Ao voltar à aba Tarefas vindo de outra aba, as atividades recarregam o que mudou fora
+  // (outra pessoa, outra aba, o processo). A primeira visita usa a carga do modal. Pela
+  // troca de aba, e não pela montagem: o StrictMode do dev monta duas vezes e contaria
+  // como volta, desligando "Nova atividade" no meio do clique.
+  const secaoAnterior = useRef(secao);
+  const jaViuTarefas = useRef(secao === "tarefas");
+  useEffect(() => {
+    if (secao === "tarefas" && secaoAnterior.current !== "tarefas") {
+      if (jaViuTarefas.current) recarregarAtividades();
+      jaViuTarefas.current = true;
+    }
+    secaoAnterior.current = secao;
+  }, [secao]);
 
   useEffect(() => {
     if (!docsDesatualizados || docsAlterados || docsOcupados) return;

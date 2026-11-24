@@ -12,8 +12,6 @@ export function useAtividadesDoNegocio(negocioId: string, aoConcluirDoProcesso?:
   const [erro, setErro] = useState<ErroDoFormulario | null>(null);
   const [revisao, setRevisao] = useState(0);
   const pendente = useRef(false);
-  // Visitas à aba Tarefas: a primeira usa a carga que o modal acabou de fazer.
-  const visitas = useRef(0);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -66,12 +64,6 @@ export function useAtividadesDoNegocio(negocioId: string, aoConcluirDoProcesso?:
   return {
     atividades, carregando, salvando, erro,
     recarregar: () => { if (!pendente.current) setRevisao((valor) => valor + 1); },
-    /**
-     * A aba Tarefas montou. Ao voltar a ela, recarrega o que mudou fora (outra
-     * pessoa, outra aba, o processo). Na primeira visita não: a carga do modal é
-     * de agora, e recarregar ali desligava "Nova atividade" no meio do clique.
-     */
-    aoAbrirAba: () => { if (visitas.current++ > 0 && !pendente.current) setRevisao((valor) => valor + 1); },
     limparErro: () => setErro(null),
     async criar(dados: CreateActivityRequest) {
       const atividade = await executar<Activity>("/api/atividades", "POST", dados);

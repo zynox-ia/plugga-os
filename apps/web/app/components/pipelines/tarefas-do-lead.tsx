@@ -2,7 +2,7 @@
 
 import type { Activity, ActivityStatus, PipelinePerson } from "@plugga/shared";
 import { Check, Clock, History, Kanban, ListTodo, MapPin, MoreHorizontal, Pencil, Phone, Play, Plus, RotateCcw, Users } from "lucide-react";
-import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
+import { useId, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { formatarDataHoraCurta } from "../../lib/format";
 import { alteracoesDoAgendamento } from "../../lib/agendamento-atividade";
@@ -42,9 +42,6 @@ export function TarefasDoLead({ negocioId, controle, responsaveis, responsavelIn
     quadro.current?.querySelector<HTMLElement>(`[data-atividade-id="${focoPendente.current}"]`)?.focus({ preventScroll: true });
     focoPendente.current = null;
   }, [controle.atividades, janela]);
-  // A aba monta a cada visita; ao voltar a ela, o hook traz o que mudou fora.
-  const aoAbrirAba = controle.aoAbrirAba;
-  useEffect(() => { aoAbrirAba(); }, []);
   function fecharJanela() {
     if (janela && "atividade" in janela) focoPendente.current = janela.atividade.id;
     // Fechar depois de um erro (um conflito de versão, por exemplo) descarta o rascunho: o quadro volta aos dados atuais.
