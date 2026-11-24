@@ -176,6 +176,11 @@ export class PrismaOmieConexoesRepository {
    * O par confirmado voltou a funcionar: a fila do OMIE da empresa sai da pausa por
    * credencial recusada, e os envios que falharam por ela voltam à fila (PLU-342).
    */
+  /** A conexão caiu: a empresa para e os envios ficam pausados, sem descarte, até religar. */
+  private async pausarPorDesconexao(tx: Prisma.TransactionClient, empresa: CompanyKey): Promise<void> {
+    await tx.$queryRaw`SELECT plugga_security.omie_pausar_por_desconexao(${empresa}::text)`;
+  }
+
   private async retomarFila(tx: Prisma.TransactionClient, empresa: CompanyKey): Promise<void> {
     await tx.$queryRaw`SELECT plugga_security.omie_retomar_empresa(${empresa}::text)`;
   }
@@ -211,7 +216,10 @@ export class PrismaOmieConexoesRepository {
   }
 
   async registrarDesconexao(empresa: CompanyKey, principal: AuthPrincipal): Promise<void> {
-    await this.prisma.comContexto((tx) => this.registrar(tx, "integracoes.omie.desconectada", empresa, principal, {}));
+    await this.prisma.comContexto(async (tx) => {
+      await this.registrar(tx, "integracoes.omie.desconectada", empresa, principal, {});
+      await this.pausarPorDesconexao(tx, empresa);
+    });
   }
 
   async registrarContaAntigaMovida(principal: AuthPrincipal, apagada: boolean): Promise<void> {

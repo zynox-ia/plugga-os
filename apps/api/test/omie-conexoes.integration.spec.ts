@@ -13,6 +13,8 @@ import { PrismaOmieConexoesRepository } from "../src/omie/prisma-omie-conexoes.r
 import { PrismaOmieLeituraPorEmpresa } from "../src/omie/prisma-omie-leitura-por-empresa.repository.js";
 import { contextoBanco } from "../src/prisma/contexto-banco.js";
 import { PrismaService } from "../src/prisma/prisma.service.js";
+import { papelNoFinanceiro } from "../src/financeiro/financeiro.rules.js";
+import { PrismaFinanceiroRepository } from "../src/financeiro/prisma-financeiro.repository.js";
 
 /**
  * OMIE por empresa (PLU-342) contra o Postgres: o par no cofre, a conferência em
@@ -54,6 +56,22 @@ describe.skipIf(!HABILITADO)("omie por empresa no Postgres", () => {
     await prisma.lancamento.update({ where: { id: conta.id }, data: { canceladoEm: new Date(), cancelamentoMotivo: "duplicada" } });
     return conta.id;
   };
+  /** Uma conta da Waze com um envio ao OMIE pendente, ou com erro. */
+  const contaComEnvio = async (estado: "pendente" | "erro"): Promise<string> => {
+    const fornecedor = await prisma.fornecedor.create({ data: { nome: `${marca} ${randomBytes(3).toString("hex")}`, categoria: "servico" } });
+    const categoria = await prisma.categoriaFinanceira.create({
+      data: { companyId: "waze", codigo: `9.08.${parseInt(randomBytes(2).toString("hex"), 16)}`, nome: `${marca} cat`, tipo: "despesa", natureza: "servico", grupoNome: "Teste" },
+    });
+    const conta = await prisma.lancamento.create({
+      data: { tipo: "saida", companyId: "waze", fornecedorId: fornecedor.id, categoriaId: categoria.id, descricao: `${marca} conta`, valor: 10, vencimento: new Date(), etapa: "aprovada", aprovadoEm: new Date(), aprovadoPorId: principal.id, origem: "avulsa" },
+    });
+    const envio = await prisma.omieEnvio.create({ data: { lancamentoId: conta.id, companyId: "waze", operacao: "upsert" } });
+    if (estado === "erro") {
+      await prisma.omieEnvio.update({ where: { id: envio.id }, data: { estado: "enviando" } });
+      await prisma.omieEnvio.update({ where: { id: envio.id }, data: { estado: "erro", ultimoErro: "recusada" } });
+    }
+    return conta.id;
+  };
   const refletirCancelamento = (id: string) => comoAdmin(() => prisma.comContexto((tx) => tx.$executeRaw`SELECT plugga_security.omie_reflexo_do_cancelamento(${id}::uuid)`));
   const operacoes = async (id: string) => (await prisma.omieEnvio.findMany({ where: { lancamentoId: id }, orderBy: { ordem: "asc" } })).map((e) => `${e.operacao}:${e.estado}`);
 
@@ -77,11 +95,14 @@ describe.skipIf(!HABILITADO)("omie por empresa no Postgres", () => {
       await tx.$executeRawUnsafe("SET LOCAL session_replication_role = replica");
       const daMarca = { lancamento: { descricao: { startsWith: marca } } };
       await tx.omieEnvio.deleteMany({ where: daMarca });
+      await tx.historicoDeLancamento.deleteMany({ where: daMarca });
       await tx.omieLancamento.deleteMany({ where: daMarca });
       await tx.lancamento.deleteMany({ where: { descricao: { startsWith: marca } } });
       await tx.categoriaFinanceira.deleteMany({ where: { nome: { startsWith: marca } } });
       await tx.fornecedor.deleteMany({ where: { nome: { startsWith: marca } } });
     });
+    // A pausa da desconexão é só deste arquivo (o apagar do par): não fica para os outros testes.
+    await prisma.omiePausa.deleteMany({ where: { motivo: "conexao_desligada" } });
     await prisma.omieConexao.deleteMany({});
     await prisma.segredoDoSistema.deleteMany({ where: { chave: { in: guardados.map((g) => g.chave) } } });
     for (const g of guardados) if (g.linha) await prisma.segredoDoSistema.create({ data: g.linha as never });
@@ -95,7 +116,7 @@ describe.skipIf(!HABILITADO)("omie por empresa no Postgres", () => {
 
   it("gravar, testar e confirmar: o uso só sai depois, e trocar o par volta a testar", async () => {
     const par = { appKey: "chave-waze-0042", appSecret: "ficticio-ficticio-ficticio" };
-    await servico.gravar("waze", par, principal);
+    await comoAdmin(() => servico.gravar("waze", par, principal));
     const da = async () => (await servico.estado()).conexoes.find((c) => c.empresa === "waze")!;
     expect((await da()).situacao).toBe("a_testar");
 
@@ -115,7 +136,7 @@ describe.skipIf(!HABILITADO)("omie por empresa no Postgres", () => {
     await refletirCancelamento(comConexao);
     expect(await operacoes(comConexao)).toEqual(["upsert:enviado", "cancelar:pendente"]);
 
-    await servico.gravar("waze", { ...par, appKey: "chave-waze-0043" }, principal);
+    await comoAdmin(() => servico.gravar("waze", { ...par, appKey: "chave-waze-0043" }, principal));
     expect((await da()).situacao).toBe("a_testar");
     // Com o par a testar de novo, não está conectada: nada vai ao OMIE.
     const semConexao = await contaCanceladaQueChegou();
@@ -131,8 +152,8 @@ describe.skipIf(!HABILITADO)("omie por empresa no Postgres", () => {
 
   it("duas confirmações simultâneas do mesmo CNPJ nas duas empresas: só uma fica conectada", async () => {
     await prisma.company.updateMany({ where: { id: { in: ["plugga", "waze"] } }, data: { cnpj: null } });
-    await servico.gravar("plugga", { appKey: "chave-plugga-0042", appSecret: "ficticio-ficticio-ficticio" }, principal);
-    await servico.gravar("waze", { appKey: "chave-waze-0044", appSecret: "ficticio-ficticio-ficticio" }, principal);
+    await comoAdmin(() => servico.gravar("plugga", { appKey: "chave-plugga-0042", appSecret: "ficticio-ficticio-ficticio" }, principal));
+    await comoAdmin(() => servico.gravar("waze", { appKey: "chave-waze-0044", appSecret: "ficticio-ficticio-ficticio" }, principal));
     await comoAdmin(() => servico.testar("plugga", principal));
     await comoAdmin(() => servico.testar("waze", principal));
     const resultados = await Promise.allSettled([comoAdmin(() => servico.confirmar("plugga", CNPJ, principal)), comoAdmin(() => servico.confirmar("waze", CNPJ, principal))]);
@@ -152,7 +173,7 @@ describe.skipIf(!HABILITADO)("omie por empresa no Postgres", () => {
     await prisma.company.updateMany({ where: { id: { in: ["plugga", "waze"] } }, data: { cnpj: null } });
     await prisma.omieConexao.deleteMany({});
     // A Plugga foi confirmada à mão com X, que na verdade é o CNPJ da Waze.
-    await servico.gravar("plugga", { appKey: "chave-plugga-0050", appSecret: "ficticio-ficticio-ficticio" }, principal);
+    await comoAdmin(() => servico.gravar("plugga", { appKey: "chave-plugga-0050", appSecret: "ficticio-ficticio-ficticio" }, principal));
     await comoAdmin(() => servico.testar("plugga", principal));
     await comoAdmin(() => servico.confirmar("plugga", CNPJ, principal));
     expect(await servico.credenciais("plugga")).not.toBeNull();
@@ -165,7 +186,7 @@ describe.skipIf(!HABILITADO)("omie por empresa no Postgres", () => {
 
     // O cadastro da própria empresa diferente do confirmado também bloqueia.
     await comoAdmin(() => servico.definirCnpj("waze", null, principal));
-    await servico.gravar("waze", { appKey: "chave-waze-0051", appSecret: "ficticio-ficticio-ficticio" }, principal);
+    await comoAdmin(() => servico.gravar("waze", { appKey: "chave-waze-0051", appSecret: "ficticio-ficticio-ficticio" }, principal));
     await comoAdmin(() => servico.testar("waze", principal));
     await comoAdmin(() => servico.confirmar("waze", CNPJ, principal));
     await comoAdmin(() => servico.definirCnpj("waze", "99999003000148", principal));
@@ -176,7 +197,7 @@ describe.skipIf(!HABILITADO)("omie por empresa no Postgres", () => {
 
   it("com o CNPJ no cadastro, o teste conecta sozinho; o CNPJ diferente bloqueia", async () => {
     await prisma.omieConexao.deleteMany({ where: { companyId: "plugga" } });
-    await servico.gravar("waze", { appKey: "chave-waze-0045", appSecret: "ficticio-ficticio-ficticio" }, principal);
+    await comoAdmin(() => servico.gravar("waze", { appKey: "chave-waze-0045", appSecret: "ficticio-ficticio-ficticio" }, principal));
     // A permissão da função que grava o CNPJ está em rls-permissoes; aqui o dono do banco grava direto.
     await prisma.company.update({ where: { id: "waze" }, data: { cnpj: CNPJ } });
     await comoAdmin(() => servico.testar("waze", principal));
@@ -184,5 +205,39 @@ describe.skipIf(!HABILITADO)("omie por empresa no Postgres", () => {
     await prisma.company.update({ where: { id: "waze" }, data: { cnpj: "99999003000148" } });
     await comoAdmin(() => servico.testar("waze", principal));
     expect((await servico.estado()).conexoes.find((c) => c.empresa === "waze")).toMatchObject({ situacao: "bloqueada", bloqueio: "cnpj_diferente_do_cadastro" });
+  }, PRAZO_MS);
+
+  it("desligar a conexão pausa os envios da empresa, sem descarte, com a linha do tempo; religar (confirmada) os retoma", async () => {
+    await prisma.company.update({ where: { id: "waze" }, data: { cnpj: null } });
+    const par = { appKey: "chave-waze-0060", appSecret: "ficticio-ficticio-ficticio" };
+    await comoAdmin(() => servico.gravar("waze", par, principal));
+    await comoAdmin(() => servico.testar("waze", principal));
+    await comoAdmin(() => servico.confirmar("waze", CNPJ, principal));
+    const pendente = await contaComEnvio("pendente");
+    const comErro = await contaComEnvio("erro");
+    const estados = async () => (await prisma.omieEnvio.findMany({ where: { lancamentoId: { in: [pendente, comErro] } }, orderBy: { lancamentoId: "asc" } }))
+      .map((e) => ({ conta: e.lancamentoId, estado: e.estado, motivo: e.ultimoErro }));
+    const pausa = () => prisma.$queryRaw<{ motivo: string }[]>`SELECT motivo FROM public.omie_pausas WHERE company_id = 'waze' AND metodo = '*'`;
+    const linhas = async (id: string) => (await prisma.historicoDeLancamento.findMany({ where: { lancamentoId: id, tipo: "omie" }, orderBy: { em: "asc" } })).map((h) => (h.dados as { acao: string }).acao);
+
+    await comoAdmin(() => servico.apagar("waze", principal));
+    expect(await pausa()).toEqual([{ motivo: "conexao_desligada" }]);
+    expect((await estados()).map((e) => [e.estado, e.motivo])).toEqual([["pendente", "conexao_desligada"], ["pendente", "conexao_desligada"]]);
+    expect(await linhas(pendente)).toEqual(["pausado"]);
+    expect(await linhas(comErro)).toEqual(["pausado"]);
+    const financeiro = new PrismaFinanceiroRepository(prisma, new AuditAppender());
+    const ficha = await comoAdmin(() => financeiro.obter(pendente, papelNoFinanceiro({ plataforma: "admin", departamentos: [] }), new Date()));
+    expect(ficha.linhaDoTempo.map((e) => e.resumo)).toContain("Envio ao OMIE pausado: conexão desligada");
+
+    // Gravar e testar o par de novo ainda não religa: sem confirmar, os pausados ficam.
+    await comoAdmin(() => servico.gravar("waze", par, principal));
+    await comoAdmin(() => servico.testar("waze", principal));
+    expect(await pausa()).toEqual([{ motivo: "conexao_desligada" }]);
+    expect((await estados()).every((e) => e.motivo === "conexao_desligada")).toBe(true);
+
+    await comoAdmin(() => servico.confirmar("waze", CNPJ, principal));
+    expect(await pausa()).toEqual([]);
+    expect((await estados()).map((e) => [e.estado, e.motivo])).toEqual([["pendente", null], ["pendente", null]]);
+    expect(await linhas(pendente)).toEqual(["pausado", "retomado"]);
   }, PRAZO_MS);
 });

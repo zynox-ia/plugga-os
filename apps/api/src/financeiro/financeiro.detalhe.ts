@@ -70,7 +70,11 @@ function resumoDoHistorico(h: ItemDoHistorico): { tipo: EventoDoLancamento["tipo
     case "anexo_enviado":
       return { tipo: "anexo_enviado", resumo: `${NOME_DO_ANEXO[d.anexo as TipoDeAnexo] ?? "Anexo"} anexado` };
     case "omie":
-      return d.acao === "tentar_de_novo" ? { tipo: "omie", resumo: "Envio ao OMIE pedido de novo" } : null;
+      // As linhas do conector do OMIE: o "Tentar de novo" e a pausa enquanto a conexão está desligada.
+      if (d.acao === "tentar_de_novo") return { tipo: "omie", resumo: "Envio ao OMIE pedido de novo" };
+      if (d.acao === "pausado") return { tipo: "omie", resumo: "Envio ao OMIE pausado: conexão desligada" };
+      if (d.acao === "retomado") return { tipo: "omie", resumo: "Envio ao OMIE retomado: conexão religada" };
+      return null;
     case "anexo_substituido":
       return { tipo: "anexo_substituido", resumo: `${NOME_DO_ANEXO[d.anexo as TipoDeAnexo] ?? "Anexo"} substituído; o anterior segue no histórico` };
     default:
