@@ -930,6 +930,166 @@
   },
   {
     "metodo": "GET",
+    "caminho": "/engenharia/obras",
+    "controller": "ObrasController.listar",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:engenharia-obras.obras",
+      "departamento:engenharia-obras:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/engenharia/obras",
+    "controller": "ObrasController.cadastrar",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:engenharia-obras.obras",
+      "departamento:engenharia-obras:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/engenharia/obras/:id",
+    "controller": "ObrasController.obter",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:engenharia-obras.obras",
+      "departamento:engenharia-obras:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "PATCH",
+    "caminho": "/engenharia/obras/:id",
+    "controller": "ObrasController.editar",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:engenharia-obras.obras",
+      "departamento:engenharia-obras:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/engenharia/obras/:id/documentos",
+    "controller": "ObrasController.anexar",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:engenharia-obras.obras",
+      "departamento:engenharia-obras:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/engenharia/obras/:id/documentos/:documentoId",
+    "controller": "ObrasController.baixar",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:engenharia-obras.obras",
+      "departamento:engenharia-obras:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "PATCH",
+    "caminho": "/engenharia/obras/:id/marcos/:marcoId",
+    "controller": "ObrasController.reprogramar",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:engenharia-obras.obras",
+      "departamento:engenharia-obras:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/engenharia/obras/:id/marcos/:marcoId/feito",
+    "controller": "ObrasController.marcarFeito",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:engenharia-obras.obras",
+      "departamento:engenharia-obras:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/engenharia/obras/clientes",
+    "controller": "ObrasController.clientes",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:engenharia-obras.obras",
+      "departamento:engenharia-obras:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/engenharia/obras/opcoes",
+    "controller": "ObrasController.opcoes",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:engenharia-obras.obras",
+      "departamento:engenharia-obras:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
     "caminho": "/engenharia/ordens-de-servico",
     "controller": "EngenhariaController.listar",
     "acesso": "acesso",

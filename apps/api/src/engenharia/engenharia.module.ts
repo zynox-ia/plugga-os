@@ -12,8 +12,11 @@ import { EngenhariaService, RELOGIO_DA_ENGENHARIA } from "./engenharia.service";
 import { PrismaEngenhariaRepository } from "./prisma-engenharia.repository";
 import { AcaoDeAgenteGuard } from "../core/auth/acao-de-agente";
 import { ThrottlerPorAgenteGuard } from "../core/auth/throttler-por-agente.guard";
+import { ObrasController } from "./obras.controller";
+import { ObrasService } from "./obras.service";
 import { OrdensPeloAgenteController } from "./ordens-pelo-agente.controller";
 import { OrdensPeloAgenteService } from "./ordens-pelo-agente.service";
+import { PrismaObrasRepository } from "./prisma-obras.repository";
 import { PrismaOrdensPeloAgenteRepository } from "./prisma-ordens-pelo-agente.repository";
 import { PrismaProtocolosRepository } from "./prisma-protocolos.repository";
 import { PrismaUsinasRepository } from "./prisma-usinas.repository";
@@ -29,7 +32,7 @@ import { TermoDaOrdemPdf } from "./termo-da-ordem.pdf";
  */
 @Module({
   imports: [AuditModule, CoreModule, PrismaModule, ComprasModule, TarefasModule],
-  controllers: [EngenhariaController, VisaoGeralDaEngenhariaController, ConfiguracoesDaEngenhariaController, AgendaDeCampoController, UsinasController, MonitoramentoController, PlataformasController, ProtocolosController, OrdensPeloAgenteController],
+  controllers: [EngenhariaController, VisaoGeralDaEngenhariaController, ConfiguracoesDaEngenhariaController, AgendaDeCampoController, UsinasController, MonitoramentoController, PlataformasController, ProtocolosController, OrdensPeloAgenteController, ObrasController],
   providers: [
     EngenhariaHabilitadaGuard,
     EngenhariaService,
@@ -40,6 +43,8 @@ import { TermoDaOrdemPdf } from "./termo-da-ordem.pdf";
     ProtocolosService,
     OrdensPeloAgenteService,
     PrismaOrdensPeloAgenteRepository,
+    PrismaObrasRepository,
+    ObrasService,
     AcaoDeAgenteGuard,
     ThrottlerPorAgenteGuard,
     ArmazenamentoDeDocumentos,

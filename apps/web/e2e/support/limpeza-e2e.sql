@@ -82,6 +82,9 @@ CREATE TEMP TABLE e2e_protocolo ON COMMIT DROP AS
   SELECT id FROM protocolos WHERE numero ~ (SELECT marca FROM e2e_marca) OR observacao ~ (SELECT marca FROM e2e_marca);
 CREATE TEMP TABLE e2e_distribuidora ON COMMIT DROP AS
   SELECT id FROM distribuidoras WHERE nome ~ (SELECT marca FROM e2e_marca);
+-- Obras (PLU-350) com a marca no nome.
+CREATE TEMP TABLE e2e_obra ON COMMIT DROP AS
+  SELECT id FROM obras WHERE nome ~ (SELECT marca FROM e2e_marca);
 -- Só o lançamento com a marca; um sem a marca ligado ao run aborta (abaixo).
 CREATE TEMP TABLE e2e_lanc ON COMMIT DROP AS
   SELECT id FROM lancamentos WHERE descricao ~ (SELECT marca FROM e2e_marca);
@@ -100,7 +103,11 @@ BEGIN
     OR EXISTS (SELECT 1 FROM resultados_da_conferencia WHERE ordem_de_servico_id IN (SELECT id FROM e2e_os) AND conferencia_id NOT IN (SELECT id FROM e2e_conferencia))
     OR EXISTS (SELECT 1 FROM usinas WHERE ordem_de_comissionamento_id IN (SELECT id FROM e2e_os) AND id NOT IN (SELECT id FROM e2e_usina))
     OR EXISTS (SELECT 1 FROM usinas WHERE plataforma_id IN (SELECT id FROM e2e_plataforma) AND id NOT IN (SELECT id FROM e2e_usina))
-    OR EXISTS (SELECT 1 FROM protocolos WHERE distribuidora_id IN (SELECT id FROM e2e_distribuidora) AND id NOT IN (SELECT id FROM e2e_protocolo)) THEN
+    OR EXISTS (SELECT 1 FROM protocolos WHERE distribuidora_id IN (SELECT id FROM e2e_distribuidora) AND id NOT IN (SELECT id FROM e2e_protocolo))
+    OR EXISTS (SELECT 1 FROM documentos_de_obra WHERE protocolo_id IN (SELECT id FROM e2e_protocolo) AND obra_id NOT IN (SELECT id FROM e2e_obra))
+    OR EXISTS (SELECT 1 FROM ordens_de_servico WHERE obra_id IN (SELECT id FROM e2e_obra) AND id NOT IN (SELECT id FROM e2e_os))
+    OR EXISTS (SELECT 1 FROM pedidos_de_compra WHERE obra_id IN (SELECT id FROM e2e_obra) AND id NOT IN (SELECT id FROM e2e_ped))
+    OR EXISTS (SELECT 1 FROM movimentacoes_de_estoque WHERE obra_id IN (SELECT id FROM e2e_obra) AND item_id NOT IN (SELECT id FROM e2e_item)) THEN
     RAISE EXCEPTION 'um registro fora deste run depende dele: nada foi apagado';
   END IF;
 END $dependentes$;
@@ -115,6 +122,8 @@ UNION ALL
 SELECT 'arquivo', arquivo_chave FROM arquivos_de_ordens_de_servico WHERE ordem_id IN (SELECT id FROM e2e_os)
 UNION ALL
 SELECT 'arquivo', print_chave FROM conferencias_de_plataforma WHERE id IN (SELECT id FROM e2e_conferencia)
+UNION ALL
+SELECT 'arquivo', arquivo_chave FROM documentos_de_obra WHERE obra_id IN (SELECT id FROM e2e_obra)
 UNION ALL
 SELECT 'arquivo', e.arquivo_chave FROM evidencias_de_tarefa e JOIN ocorrencias_de_tarefa o ON o.id = e.ocorrencia_id WHERE o.tarefa_id IN (SELECT id FROM e2e_tarefa);
 
@@ -151,6 +160,11 @@ DELETE FROM plataformas_de_inversor WHERE id IN (SELECT id FROM e2e_plataforma);
 DELETE FROM evidencias_de_tarefa WHERE ocorrencia_id IN (SELECT id FROM ocorrencias_de_tarefa WHERE tarefa_id IN (SELECT id FROM e2e_tarefa));
 DELETE FROM ocorrencias_de_tarefa WHERE tarefa_id IN (SELECT id FROM e2e_tarefa);
 DELETE FROM tarefas WHERE id IN (SELECT id FROM e2e_tarefa);
+-- A obra sai depois das O.S., dos pedidos e das saídas de estoque do run, com os
+-- marcos e os documentos (os gatilhos da obra são só de INSERT e UPDATE).
+DELETE FROM documentos_de_obra WHERE obra_id IN (SELECT id FROM e2e_obra);
+DELETE FROM marcos_de_obra WHERE obra_id IN (SELECT id FROM e2e_obra);
+DELETE FROM obras WHERE id IN (SELECT id FROM e2e_obra);
 -- O protocolo sai com as verificações (só por inserção, sem gatilho de DELETE).
 DELETE FROM verificacoes_de_protocolo WHERE protocolo_id IN (SELECT id FROM e2e_protocolo);
 DELETE FROM protocolos WHERE id IN (SELECT id FROM e2e_protocolo);
@@ -165,5 +179,5 @@ ALTER TABLE historico_de_lancamento ENABLE TRIGGER historico_de_lancamento_appen
 ALTER TABLE omie_envios ENABLE TRIGGER omie_envios_coerente;
 ALTER TABLE ordens_de_servico ENABLE TRIGGER ordens_de_servico_encerrada_nao_muda;
 
-SELECT (SELECT count(*) FROM e2e_lanc) AS lancamentos, (SELECT count(*) FROM e2e_ped) AS pedidos, (SELECT count(*) FROM e2e_os) AS ordens_de_servico, (SELECT count(*) FROM e2e_tarefa) AS tarefas, (SELECT count(*) FROM e2e_usina) AS usinas, (SELECT count(*) FROM e2e_protocolo) AS protocolos,
+SELECT (SELECT count(*) FROM e2e_lanc) AS lancamentos, (SELECT count(*) FROM e2e_ped) AS pedidos, (SELECT count(*) FROM e2e_os) AS ordens_de_servico, (SELECT count(*) FROM e2e_tarefa) AS tarefas, (SELECT count(*) FROM e2e_usina) AS usinas, (SELECT count(*) FROM e2e_protocolo) AS protocolos, (SELECT count(*) FROM e2e_obra) AS obras,
        (SELECT count(*) FROM e2e_item) AS itens_de_estoque, (SELECT count(*) FROM e2e_forn) AS fornecedores;

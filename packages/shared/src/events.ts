@@ -172,6 +172,12 @@ export const catalogoEventos = {
   "engenharia.usina.updated": evento("Dados da usina alterados", "empresa"),
   "engenharia.plataforma.configurada": evento("Plataforma de inversor cadastrada ou alterada", "plataforma"),
   "engenharia.plataforma.conferida": evento("Plataforma conferida no monitoramento do dia", "empresa"),
+  // Obras (PLU-350). Sem nome de arquivo nem valores: só ids, marcos e campos.
+  "engenharia.obra.created": evento("Obra cadastrada pela Engenharia", "empresa"),
+  "engenharia.obra.updated": evento("Dados da obra alterados", "empresa"),
+  "engenharia.obra.marco_feito": evento("Marco da obra feito", "empresa"),
+  "engenharia.obra.marco_reprogramado": evento("Marco da obra reprogramado", "empresa"),
+  "engenharia.obra.documento_enviado": evento("Documento ou cronograma anexado à obra", "empresa"),
   // Protocolos na distribuidora (PLU-348). Sem a nota nem a ação pendente: podem citar dados do cliente.
   "protocolos.protocolo.created": evento("Protocolo na distribuidora cadastrado", "empresa"),
   "protocolos.protocolo.updated": evento("Dados do protocolo na distribuidora alterados", "empresa"),

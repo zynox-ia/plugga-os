@@ -242,6 +242,7 @@ export class PrismaEngenhariaRepository {
       if (input.usinaId && (!usina || !usina.ativa || usina.clientId !== input.clienteId || usina.companyId !== input.empresa)) {
         throw new RequisicaoInvalida("A usina precisa ser ativa, do mesmo cliente e da mesma empresa da O.S.", [{ campo: "usinaId", problema: "Escolha uma usina do cliente nesta empresa." }]);
       }
+      if (input.obraId) await this.garantirObra(tx, input.obraId, input.clienteId, input.empresa);
       if (input.ordemAnteriorId) {
         const anterior = await tx.ordemDeServico.findUnique({ where: { id: input.ordemAnteriorId }, select: { situacao: true, clientId: true } });
         if (!anterior || anterior.situacao !== "concluida" || anterior.clientId !== input.clienteId) {
@@ -268,6 +269,7 @@ export class PrismaEngenhariaRepository {
           numeroSerie: input.numeroSerie ?? usina?.numeroSerie ?? null,
           ordemAnteriorId: input.ordemAnteriorId ?? null,
           usinaId: input.usinaId ?? null,
+          obraId: input.obraId ?? null,
           criadoPorId: principal.id,
         },
         select: { id: true, numero: true },
@@ -285,6 +287,7 @@ export class PrismaEngenhariaRepository {
       const atual = await this.travar(tx, id);
       exigirAcao(atual.situacao, "editar");
       if (input.ucId) await this.garantirUc(tx, atual.clientId, input.ucId);
+      if (input.obraId) await this.garantirObra(tx, input.obraId, atual.clientId, atual.companyId);
       const { prazo, ucId, ...resto } = input;
       await tx.ordemDeServico.update({
         where: { id },
@@ -414,6 +417,14 @@ export class PrismaEngenhariaRepository {
   }
 
   /** Cliente que não existe chega como violação de chave estrangeira. */
+  /** A obra da O.S. é ativa, da mesma empresa e, quando tem cliente, do mesmo cliente (PLU-350). */
+  private async garantirObra(tx: Prisma.TransactionClient, obraId: string, clienteId: string, empresa: string): Promise<void> {
+    const obra = await tx.obra.findUnique({ where: { id: obraId }, select: { companyId: true, clientId: true, ativa: true } });
+    if (!obra || !obra.ativa || obra.companyId !== empresa || (obra.clientId !== null && obra.clientId !== clienteId)) {
+      throw new RequisicaoInvalida("A obra precisa ser ativa, da mesma empresa e do mesmo cliente da O.S.", [{ campo: "obraId", problema: "Escolha uma obra do cliente nesta empresa." }]);
+    }
+  }
+
   private async comVinculosValidos<T>(gravar: () => Promise<T>): Promise<T> {
     try {
       return await gravar();

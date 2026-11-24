@@ -46,6 +46,7 @@ export const INCLUDE_DA_FICHA = {
     orderBy: { createdAt: "asc" },
   },
   ordemAnterior: { select: { id: true, numero: true } },
+  obra: { select: { id: true, nome: true } },
   // A usina que nasceu desta O.S. de comissionamento (no máximo uma, pelo índice único).
   usinasComissionadas: { select: { id: true, nome: true }, take: 1 },
   usina: { select: { id: true, nome: true, potenciaKwp: true, plataforma: { select: { nome: true } } } },
@@ -212,6 +213,7 @@ export function paraFicha(
       createdAt: p.createdAt.toISOString(),
     })),
     ordemAnterior: linha.ordemAnterior ? { id: linha.ordemAnterior.id, codigo: codigoDaOrdemDeServico(linha.ordemAnterior.numero) } : null,
+    obra: linha.obra ? { id: linha.obra.id, nome: linha.obra.nome } : null,
     usinaDoComissionamento: linha.usinasComissionadas[0] ? { id: linha.usinasComissionadas[0].id, nome: linha.usinasComissionadas[0].nome } : null,
     historico,
     criada: registro(linha.criadoPorId, linha.createdAt, pessoas),

@@ -163,6 +163,8 @@ export const criarOrdemDeServicoSchema = z
     ordemAnteriorId: uuid.nullable().optional(),
     /** Usina do cliente (PLU-347); o equipamento vem dela quando não é informado. */
     usinaId: uuid.nullable().optional(),
+    /** Obra do mesmo cliente e empresa (PLU-350). */
+    obraId: uuid.nullable().optional(),
     ...equipamentoEntrada,
   })
   .strict();
@@ -219,6 +221,8 @@ export const editarOrdemDeServicoSchema = z
     descricao: texto(1, 2000, "descreva o serviço").optional(),
     prioridade: prioridadeDaOrdemDeServicoSchema.optional(),
     prazo: diaDoCalendario.optional(),
+    /** Obra do mesmo cliente e empresa (PLU-350); nulo desliga. */
+    obraId: uuid.nullable().optional(),
     ...equipamentoEntrada,
   })
   .strict()
@@ -444,6 +448,8 @@ export const ordemDeServicoSchema = ordemDeServicoResumoSchema.extend({
   fotos: z.array(arquivoDaOrdemSchema),
   pedidosDeMaterial: z.array(pedidoDeMaterialDaOrdemSchema),
   ordemAnterior: z.object({ id: uuid, codigo: z.string() }).nullable(),
+  /** A obra da O.S. (PLU-350). */
+  obra: z.object({ id: uuid, nome: z.string() }).nullable().optional(),
   /** A usina cadastrada a partir desta O.S. de comissionamento (no máximo uma). */
   usinaDoComissionamento: z.object({ id: uuid, nome: z.string() }).nullable().optional(),
   historico: z.array(eventoDaOrdemSchema),

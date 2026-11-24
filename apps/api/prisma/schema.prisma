@@ -324,6 +324,10 @@ model User {
   passagensDeCompraFechadas      PedidoDeCompraEtapa[]       @relation("PassagemDeCompraFechadaPor")
   cotacoesCriadas                CotacaoDeCompra[]           @relation("CotacaoCriadaPor")
   obrasCriadas                   Obra[]                      @relation("ObraCriadaPor")
+  obrasResponsavel               Obra[]                      @relation("ObraResponsavel")
+  marcosDeObraFeitos             MarcoDeObra[]               @relation("MarcoDeObraFeitoPor")
+  documentosDeObraEnviados       DocumentoDeObra[]           @relation("DocumentoDeObraEnviadoPor")
+  documentosDeObraSubstituidos   DocumentoDeObra[]           @relation("DocumentoDeObraSubstituidoPor")
   comprovantesEnviados           ComprovanteDePagamento[]    @relation("ComprovanteEnviadoPor")
   comprovantesSubstituidos       ComprovanteDePagamento[]    @relation("ComprovanteSubstituidoPor")
   itensDeEstoqueCriados ItemDeEstoque[] @relation("ItemDeEstoqueCriadoPor")
@@ -1791,11 +1795,23 @@ model Obra {
   /// passagens vive em `ObraEtapaHistorico`, no mesmo padrão de
   /// `PedidoDeCompra.etapa` + `PedidoDeCompraEtapa`.
   etapaAtual  ObraEtapa @default(obra_criada) @map("etapa_atual")
+  /// PLU-350: a obra é também o centro de custo (CC1).
+  tipo              TipoDeObra @default(obra_solar)
+  potenciaKwp       Decimal?   @map("potencia_kwp") @db.Decimal(12, 3)
+  responsavelId     String?    @map("responsavel_id") @db.Uuid
+  inicioEm          DateTime?  @map("inicio_em") @db.Timestamptz(6)
+  entregaPrevistaEm DateTime?  @map("entrega_prevista_em") @db.Timestamptz(6)
+  /// Só o gerente da Engenharia (CC-D6).
+  orcamento         Decimal?   @db.Decimal(14, 2)
   criadoPorId String?   @map("criado_por_id") @db.Uuid
   createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   criadoPor           User?                @relation("ObraCriadaPor", fields: [criadoPorId], references: [id], onDelete: SetNull)
+  responsavel         User?                @relation("ObraResponsavel", fields: [responsavelId], references: [id], onDelete: SetNull)
+  marcos              MarcoDeObra[]
+  documentos          DocumentoDeObra[]
+  ordensDeServico     OrdemDeServico[]
   company             Company              @relation(fields: [companyId], references: [id])
   client              Client?              @relation(fields: [clientId], references: [id], onDelete: SetNull)
   pedidos             PedidoDeCompra[]
@@ -1813,6 +1829,74 @@ model Obra {
   @@index([companyId, ativa])
   @@index([companyId, etapaAtual])
   @@map("obras")
+}
+
+/// Tipo do centro de custo (CC1, PLU-350).
+enum TipoDeObra {
+  obra_solar
+  projeto
+  manutencao
+  gestao_de_energia
+  interno
+
+  @@map("tipo_de_obra")
+}
+
+enum CategoriaDeDocumentoDeObra {
+  cronograma
+  evte
+  rvt
+  grd
+  ata
+  projeto_eletrico
+  outro
+
+  @@map("categoria_de_documento_de_obra")
+}
+
+/// Marco da obra (E8, PLU-350): os 6 padrão, distribuídos entre o início e a entrega.
+model MarcoDeObra {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  obraId     String    @map("obra_id") @db.Uuid
+  ordem      Int
+  nome       String
+  previstoEm DateTime  @map("previsto_em") @db.Timestamptz(6)
+  feitoEm    DateTime? @map("feito_em") @db.Timestamptz(6)
+  feitoPorId String?   @map("feito_por_id") @db.Uuid
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  obra    Obra  @relation(fields: [obraId], references: [id], onDelete: Restrict)
+  feitoPor User? @relation("MarcoDeObraFeitoPor", fields: [feitoPorId], references: [id], onDelete: SetNull)
+
+  @@unique([obraId, ordem])
+  @@map("marcos_de_obra")
+}
+
+/// Documento ou cronograma da obra (D30, E11, PLU-350): versões pela série, sem exclusão.
+model DocumentoDeObra {
+  id               String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  obraId           String                     @map("obra_id") @db.Uuid
+  serieId          String                     @map("serie_id") @db.Uuid
+  versao           Int
+  categoria        CategoriaDeDocumentoDeObra
+  protocoloId      String?                    @map("protocolo_id") @db.Uuid
+  arquivoChave     String                     @unique @map("arquivo_chave")
+  arquivoNome      String                     @map("arquivo_nome")
+  arquivoTamanho   Int                        @map("arquivo_tamanho")
+  arquivoTipo      String                     @map("arquivo_tipo")
+  enviadoPorId     String?                    @map("enviado_por_id") @db.Uuid
+  enviadoEm        DateTime                   @default(now()) @map("enviado_em") @db.Timestamptz(6)
+  substituidoEm    DateTime?                  @map("substituido_em") @db.Timestamptz(6)
+  substituidoPorId String?                    @map("substituido_por_id") @db.Uuid
+
+  obra           Obra       @relation(fields: [obraId], references: [id], onDelete: Restrict)
+  protocolo      Protocolo? @relation(fields: [protocoloId], references: [id], onDelete: Restrict)
+  enviadoPor     User?      @relation("DocumentoDeObraEnviadoPor", fields: [enviadoPorId], references: [id], onDelete: SetNull)
+  substituidoPor User?      @relation("DocumentoDeObraSubstituidoPor", fields: [substituidoPorId], references: [id], onDelete: SetNull)
+
+  @@unique([serieId, versao])
+  @@index([obraId, enviadoEm])
+  @@map("documentos_de_obra")
 }
 
 /// As doze passagens do POP-OBR-001 §2, na ordem do fluxograma FLX-OBR-001.
@@ -3121,6 +3205,8 @@ model OrdemDeServico {
   ordemAnteriorId     String?                    @map("ordem_anterior_id") @db.Uuid
   /// Usina da O.S. (PLU-347), do mesmo cliente.
   usinaId             String?                    @map("usina_id") @db.Uuid
+  /// Obra da O.S. (PLU-350), do mesmo cliente e empresa.
+  obraId              String?                    @map("obra_id") @db.Uuid
   criadoPorId         String?                    @map("criado_por_id") @db.Uuid
   createdAt           DateTime                   @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt           DateTime                   @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -3137,6 +3223,7 @@ model OrdemDeServico {
   ordemAnterior   OrdemDeServico?             @relation("OrdemContinuacao", fields: [ordemAnteriorId], references: [id], onDelete: Restrict)
   continuacoes    OrdemDeServico[]            @relation("OrdemContinuacao")
   usina           Usina?                      @relation(fields: [usinaId], references: [id], onDelete: Restrict)
+  obra            Obra?                       @relation(fields: [obraId], references: [id], onDelete: Restrict)
   resultadosDeMonitoramento ResultadoDaConferencia[]
   usinasComissionadas Usina[]                 @relation("UsinaDoComissionamento")
   historico       HistoricoDeOrdemDeServico[]
@@ -3522,6 +3609,7 @@ model Protocolo {
   distribuidora Distribuidora            @relation(fields: [distribuidoraId], references: [id], onDelete: Restrict)
   criadoPor     User?                    @relation("ProtocoloCriadoPor", fields: [criadoPorId], references: [id], onDelete: SetNull)
   verificacoes  VerificacaoDeProtocolo[]
+  documentosDeObra DocumentoDeObra[]
 
   @@unique([distribuidoraId, numero])
   @@index([departamento, situacao])
