@@ -7,6 +7,7 @@ import { PrismaModule } from "../prisma/prisma.module";
 import { CadastrosDoFinanceiroController } from "./cadastros-do-financeiro.controller";
 import { ConectoresDoFinanceiro } from "./conectores-do-financeiro";
 import { PrismaCadastrosDoFinanceiroRepository } from "./prisma-cadastros-do-financeiro.repository";
+import { PrismaContaDaCompraRepository } from "./prisma-conta-da-compra.repository";
 import { FinanceiroHabilitadoGuard } from "./financeiro-habilitado.guard";
 import { FinanceiroController } from "./financeiro.controller";
 import { FinanceiroService, RELOGIO_DO_FINANCEIRO } from "./financeiro.service";
@@ -25,6 +26,7 @@ import { ReflexosDoLancamento } from "./reflexo-do-lancamento";
   providers: [
     FinanceiroHabilitadoGuard,
     PrismaCadastrosDoFinanceiroRepository,
+    PrismaContaDaCompraRepository,
     ArmazenamentoDeDocumentos,
     FinanceiroService,
     PrismaFinanceiroRepository,
@@ -32,6 +34,6 @@ import { ReflexosDoLancamento } from "./reflexo-do-lancamento";
     ConectoresDoFinanceiro,
     { provide: RELOGIO_DO_FINANCEIRO, useValue: () => new Date() },
   ],
-  exports: [PrismaFinanceiroRepository, ReflexosDoLancamento, ConectoresDoFinanceiro, FinanceiroService, RELOGIO_DO_FINANCEIRO],
+  exports: [PrismaFinanceiroRepository, PrismaContaDaCompraRepository, ReflexosDoLancamento, ConectoresDoFinanceiro, FinanceiroService, RELOGIO_DO_FINANCEIRO],
 })
 export class FinanceiroModule {}

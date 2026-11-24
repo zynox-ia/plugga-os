@@ -1,4 +1,4 @@
-import { Inject, Injectable } from "@nestjs/common";
+import { Inject, Injectable, Optional } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import {
   DIAS_DE_CONCLUIDOS_NO_QUADRO,
@@ -16,9 +16,11 @@ import {
   type PedidoDeCompraResumo,
   type QuadroDeComprasQuery,
   type RegistrarCotacao,
+  type ContaAPagarDoPedido,
 } from "@plugga/shared";
 
 import { AuditAppender } from "../audit/audit-appender";
+import { PrismaContaDaCompraRepository } from "../financeiro/prisma-conta-da-compra.repository";
 import { EstadoInvalido, NaoEncontrado, RequisicaoInvalida } from "../common/errors/dominio";
 import type { AuthPrincipal } from "../core/auth/auth.types";
 import { PrismaService } from "../prisma/prisma.service";
@@ -60,12 +62,18 @@ const DIA_MS = 86_400_000;
  * transação só, com o pedido travado (`FOR UPDATE`): a etapa, a passagem que
  * fecha, a que abre, a autoria e o evento entram juntos ou não entram.
  */
+/** A parte do Financeiro de que Compras precisa (W3). */
+type ContaDaCompra = Pick<PrismaContaDaCompraRepository, "criarNaAprovacao" | "contasDosPedidos">;
+const SEM_FINANCEIRO: ContaDaCompra = { criarNaAprovacao: async () => null, contasDosPedidos: async () => new Map() };
+
 @Injectable()
 export class PrismaComprasRepository {
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(AuditAppender) private readonly auditoria: AuditAppender,
     @Inject(MovimentosDeEstoque) private readonly estoque: MovimentosDeEstoque,
+    // A conta a pagar do pedido aprovado (W3). Sem o Financeiro (nos testes de Compras), nada.
+    @Optional() @Inject(PrismaContaDaCompraRepository) private readonly contaDaCompra: ContaDaCompra = SEM_FINANCEIRO,
   ) {}
 
   // ------------------------------------------------------------ leitura
@@ -111,10 +119,13 @@ export class PrismaComprasRepository {
     return { AND: condicoes };
   }
 
-  async detalhe(id: string): Promise<{ linha: LinhaDoDetalhe; clientes: NomesDeClientes }> {
-    const linha = await this.prisma.comContexto((tx) => tx.pedidoDeCompra.findUnique({ where: { id }, include: INCLUDE_DO_DETALHE }));
+  async detalhe(id: string): Promise<{ linha: LinhaDoDetalhe; clientes: NomesDeClientes; contaAPagar: ContaAPagarDoPedido | null }> {
+    const [linha, contas] = await this.prisma.comContexto((tx) => Promise.all([
+      tx.pedidoDeCompra.findUnique({ where: { id }, include: INCLUDE_DO_DETALHE }),
+      this.contaDaCompra.contasDosPedidos(tx, [id]),
+    ]));
     if (!linha) throw new NaoEncontrado("Pedido de compra não encontrado.");
-    return { linha, clientes: await this.nomesDeClientes(linha.clientId ? [linha.clientId] : []) };
+    return { linha, clientes: await this.nomesDeClientes(linha.clientId ? [linha.clientId] : []), contaAPagar: contas.get(id) ?? null };
   }
 
   /** Estado mínimo para decidir acesso a arquivo e etapa, sem o detalhe inteiro. */
@@ -323,6 +334,8 @@ export class PrismaComprasRepository {
         await tx.pedidoDeCompraEtapa.create({ data: { ...abrirPassagem, pedidoId: id, responsavelId: pedido.responsavelId } });
       }
       await tx.pedidoDeCompra.update({ where: { id }, data: { ...alteracoes, ...autoriaDaAcao(acao, principal.id, agora) } });
+      // A aprovação gera a conta a pagar no Financeiro, na mesma transação (W3, PLU-341).
+      if (acao.acao === "aprovar") await this.contaDaCompra.criarNaAprovacao(tx, id);
       await this.registrar(tx, evento, "pedido_de_compra", id, pedido.companyId, principal, {
         acao: acao.acao,
         de: pedido.etapa,

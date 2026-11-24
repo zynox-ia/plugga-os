@@ -440,7 +440,12 @@ export const lancamentoResumoSchema = z.object({
   omie: omieDoLancamentoSchema,
   origem: z.object({
     tipo: origemDoLancamentoSchema,
-    pedidoDeCompra: z.object({ id: uuid, numero: z.number().int().positive() }).nullable(),
+    pedidoDeCompra: z.object({
+      id: uuid,
+      numero: z.number().int().positive(),
+      /** O valor original do pedido (a cotação vencedora, que criou a conta). A correção fica só na conta. */
+      valor: z.string().optional(),
+    }).nullable(),
   }),
   createdAt: isoDate,
 });

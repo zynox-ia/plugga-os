@@ -361,6 +361,21 @@ export const destinoDoPedidoSchema = z.object({
   cliente: z.object({ id: uuid, nome: z.string() }).nullable(),
 });
 
+/**
+ * A conta a pagar que o pedido aprovado gerou no Financeiro (W3, PLU-341). É sempre uma
+ * saída; as etapas são as da saída do Financeiro (um teste da API confere), declaradas
+ * aqui porque `financeiro.ts` importa este arquivo.
+ */
+export const etapasDaContaDoPedido = ["aberta", "aprovada", "paga", "conciliada"] as const;
+export const contaAPagarDoPedidoSchema = z.object({
+  id: uuid,
+  /** "CP-0412". */
+  codigo: z.string(),
+  etapa: z.enum(etapasDaContaDoPedido),
+  cancelado: z.boolean(),
+});
+export type ContaAPagarDoPedido = z.infer<typeof contaAPagarDoPedidoSchema>;
+
 export const pedidoDeCompraSchema = z.object({
   id: uuid,
   empresa: companyKeySchema,
@@ -387,6 +402,11 @@ export const pedidoDeCompraSchema = z.object({
     .nullable(),
   /** Comprovante enviado na etapa de pagamento, antes de registrá-lo. */
   comprovantePendente: arquivoDeCompraSchema.nullable(),
+  /**
+   * A conta a pagar no Financeiro, criada na aprovação. Nula antes de aprovar, em pedido
+   * aprovado antes da W3 e com o Financeiro desligado. Opcional no contrato até a web ler.
+   */
+  contaAPagar: contaAPagarDoPedidoSchema.nullable().optional(),
   passagens: z.array(passagemDeEtapaSchema),
   /** Quem fez cada marco. Nulo enquanto o marco não aconteceu. */
   marcos: z.object({

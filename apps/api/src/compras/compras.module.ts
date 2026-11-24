@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common";
 
 import { AuditModule } from "../audit/audit.module";
 import { CoreModule } from "../core/core.module";
+import { FinanceiroModule } from "../financeiro/financeiro.module";
 import { MovimentosDeEstoque } from "../estoque/movimentos-de-estoque";
 import { ArmazenamentoDeDocumentos } from "../lead-documentos/armazenamento-de-documentos";
 import { PrismaModule } from "../prisma/prisma.module";
@@ -11,7 +12,7 @@ import { PrismaComprasRepository } from "./prisma-compras.repository";
 
 /** Anexos no mesmo armazenamento dos documentos do lead, sob o prefixo `suprimentos/compras/`. */
 @Module({
-  imports: [AuditModule, CoreModule, PrismaModule],
+  imports: [AuditModule, CoreModule, FinanceiroModule, PrismaModule],
   controllers: [ComprasController],
   providers: [
     ComprasService,

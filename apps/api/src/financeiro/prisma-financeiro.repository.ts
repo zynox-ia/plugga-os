@@ -122,6 +122,7 @@ const ZERO = new Prisma.Decimal(0);
 const pessoa = (u: { id: string; name: string } | null) => (u ? { id: u.id, nome: u.name } : null);
 const dia = (data: Date) => diaEmManaus(data);
 type NomesDeClientes = Map<string, string>;
+type PedidosDasContas = Map<string, { id: string; numero: number; valor: string }>;
 
 /** Ordem da lista: em aberto por vencimento, depois liquidados do mais recente, depois cancelados. */
 const ORDEM_EM_ABERTO: Prisma.LancamentoOrderByWithRelationInput[] = [{ vencimento: "asc" }, { createdAt: "asc" }];
@@ -171,8 +172,8 @@ export class PrismaFinanceiroRepository {
         : [];
       return { total, linhas: [...abertos, ...liquidados] };
     });
-    const clientes = await this.nomesDeClientes(linhas.map((l) => l.clientId));
-    return { itens: linhas.map((l) => this.paraResumo(l, clientes, agora)), total, resumo, alcance };
+    const [clientes, pedidos] = await Promise.all([this.nomesDeClientes(linhas.map((l) => l.clientId)), this.pedidosDasContas(linhas)]);
+    return { itens: linhas.map((l) => this.paraResumo(l, clientes, agora, pedidos)), total, resumo, alcance };
   }
 
   async quadro(query: QuadroFinanceiroQuery, papel: PapelNoFinanceiro, agora: Date): Promise<QuadroFinanceiro> {
@@ -204,9 +205,10 @@ export class PrismaFinanceiroRepository {
         totalSaidas: (somaDo("saida")?._sum.valor ?? ZERO).toFixed(2),
       };
     })));
-    const clientes = await this.nomesDeClientes(colunas.flatMap((c) => c.linhas.map((l) => l.clientId)));
+    const todas = colunas.flatMap((c) => c.linhas);
+    const [clientes, pedidos] = await Promise.all([this.nomesDeClientes(todas.map((l) => l.clientId)), this.pedidosDasContas(todas)]);
     return {
-      colunas: colunas.map(({ linhas, ...coluna }) => ({ ...coluna, itens: linhas.map((l) => this.paraResumo(l, clientes, agora)) })),
+      colunas: colunas.map(({ linhas, ...coluna }) => ({ ...coluna, itens: linhas.map((l) => this.paraResumo(l, clientes, agora, pedidos)) })),
       alcance,
     };
   }
@@ -215,8 +217,10 @@ export class PrismaFinanceiroRepository {
     const linha = await this.prisma.comContexto((tx) => tx.lancamento.findUnique({ where: { id }, include: INCLUDE_DO_DETALHE }));
     // Fora do tipo que a pessoa opera é como se não existisse (a Conciliação lê pelo RLS, não por aqui).
     if (!linha || !tiposVisiveis(papel, "todos").includes(linha.tipo)) throw new NaoEncontrado("Lançamento não encontrado.");
-    const [clientes, ucs] = await Promise.all([this.nomesDeClientes([linha.clientId]), this.ucsDosClientes(linha.clientId ? [linha.clientId] : [])]);
-    return this.paraDetalhe(linha, clientes, ucs, papel, agora);
+    const [clientes, ucs, pedidos] = await Promise.all([
+      this.nomesDeClientes([linha.clientId]), this.ucsDosClientes(linha.clientId ? [linha.clientId] : []), this.pedidosDasContas([linha]),
+    ]);
+    return this.paraDetalhe(linha, clientes, ucs, papel, agora, pedidos);
   }
 
   async opcoes(): Promise<OpcoesDoFinanceiro> {
@@ -690,7 +694,19 @@ export class PrismaFinanceiroRepository {
     return new Map(linhas.map((l) => [l.id, l.name]));
   }
 
-  private paraResumo(l: LinhaDoLancamento, clientes: NomesDeClientes, agora: Date): LancamentoResumo {
+  /**
+   * O pedido de compra de cada conta (W3): número e valor original. Quem só tem o
+   * Financeiro não lê Compras, então vem pela função, como o nome dos clientes.
+   */
+  private async pedidosDasContas(linhas: readonly { pedidoDeCompraId: string | null }[]): Promise<PedidosDasContas> {
+    const ids = [...new Set(linhas.map((l) => l.pedidoDeCompraId).filter((id): id is string => id !== null))];
+    if (ids.length === 0) return new Map();
+    const encontrados = await this.prisma.comContexto((tx) => tx.$queryRaw<{ id: string; numero: number; valor: Prisma.Decimal }[]>`
+      SELECT id, numero, valor FROM plugga_security.pedidos_das_contas(${ids}::uuid[])`);
+    return new Map(encontrados.map((p) => [p.id, { id: p.id, numero: p.numero, valor: p.valor.toFixed(2) }]));
+  }
+
+  private paraResumo(l: LinhaDoLancamento, clientes: NomesDeClientes, agora: Date, pedidos: PedidosDasContas = new Map()): LancamentoResumo {
     const favorecido = l.tipo === "saida"
       ? { tipo: "fornecedor" as const, id: l.fornecedor?.id ?? l.fornecedorId ?? "", nome: l.fornecedor?.nome ?? "Fornecedor" }
       : { tipo: "cliente" as const, id: l.clientId ?? "", nome: (l.clientId && clientes.get(l.clientId)) || "Cliente" };
@@ -714,14 +730,21 @@ export class PrismaFinanceiroRepository {
       liquidadoEm: l.liquidadoEm ? dia(l.liquidadoEm) : null,
       anexos: l._count.anexos,
       omie: l.omie ?? SEM_OMIE,
-      origem: { tipo: l.origem, pedidoDeCompra: l.pedidoDeCompra },
+      origem: { tipo: l.origem, pedidoDeCompra: (l.pedidoDeCompraId && pedidos.get(l.pedidoDeCompraId)) || l.pedidoDeCompra },
       createdAt: l.createdAt.toISOString(),
     };
   }
 
-  private paraDetalhe(l: LinhaDoDetalhe, clientes: NomesDeClientes, ucsDoCliente: Map<string, { id: string; codigo: string }[]>, papel: PapelNoFinanceiro, agora: Date): Lancamento {
+  private paraDetalhe(
+    l: LinhaDoDetalhe,
+    clientes: NomesDeClientes,
+    ucsDoCliente: Map<string, { id: string; codigo: string }[]>,
+    papel: PapelNoFinanceiro,
+    agora: Date,
+    pedidos: PedidosDasContas = new Map(),
+  ): Lancamento {
     const registro = (por: { id: string; name: string } | null, em: Date | null) => (em ? { por: pessoa(por), em: em.toISOString() } : null);
-    const resumo = this.paraResumo(l, clientes, agora);
+    const resumo = this.paraResumo(l, clientes, agora, pedidos);
     const anexos: AnexosAtuais = {
       comprovante: l.anexos.some((a) => a.tipo === "comprovante" && !a.substituidoEm),
       boleto: l.anexos.some((a) => a.tipo === "boleto" && !a.substituidoEm),

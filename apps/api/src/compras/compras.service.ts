@@ -74,8 +74,8 @@ export class ComprasService {
 
   async obter(id: string, principal: AuthPrincipal): Promise<PedidoDeCompra> {
     const papel = this.exigirLeitura(principal);
-    const { linha, clientes } = await this.repositorio.detalhe(id);
-    return pedidoDeCompraSchema.parse(paraDetalhe(linha, clientes, papel, this.agora()));
+    const { linha, clientes, contaAPagar } = await this.repositorio.detalhe(id);
+    return pedidoDeCompraSchema.parse({ ...paraDetalhe(linha, clientes, papel, this.agora()), contaAPagar });
   }
 
   async opcoes(principal: AuthPrincipal): Promise<OpcoesDeCompraResposta> {

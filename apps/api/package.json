@@ -26,7 +26,7 @@
     "test:fornecedores": "node scripts/run-flagged-test.mjs RUN_FORNECEDORES_INTEGRATION_TESTS test/fornecedores.integration.spec.ts",
     "test:compras": "node scripts/run-flagged-test.mjs RUN_COMPRAS_INTEGRATION_TESTS test/compras.integration.spec.ts",
     "test:estoque": "node scripts/run-flagged-test.mjs RUN_ESTOQUE_INTEGRATION_TESTS test/estoque.integration.spec.ts",
-    "test:financeiro": "node scripts/run-flagged-test.mjs RUN_FINANCEIRO_INTEGRATION_TESTS test/financeiro.integration.spec.ts test/omie-conexoes.integration.spec.ts test/omie-fila.integration.spec.ts test/omie-mapeamentos.integration.spec.ts test/financeiro-cadastros.integration.spec.ts",
+    "test:financeiro": "node scripts/run-flagged-test.mjs RUN_FINANCEIRO_INTEGRATION_TESTS test/financeiro.integration.spec.ts test/omie-conexoes.integration.spec.ts test/omie-fila.integration.spec.ts test/omie-mapeamentos.integration.spec.ts test/financeiro-cadastros.integration.spec.ts test/conta-da-compra.integration.spec.ts",
     "test:engenharia": "node scripts/run-flagged-test.mjs RUN_ENGENHARIA_INTEGRATION_TESTS test/engenharia.integration.spec.ts",
     "test:tarefas": "node scripts/run-flagged-test.mjs RUN_TAREFAS_INTEGRATION_TESTS test/tarefas.integration.spec.ts",
     "test:usinas": "node scripts/run-flagged-test.mjs RUN_USINAS_INTEGRATION_TESTS test/usinas.integration.spec.ts",
