@@ -207,7 +207,7 @@ describe.skipIf(!HABILITADO)("omie por empresa no Postgres", () => {
     expect((await servico.estado()).conexoes.find((c) => c.empresa === "waze")).toMatchObject({ situacao: "bloqueada", bloqueio: "cnpj_diferente_do_cadastro" });
   }, PRAZO_MS);
 
-  it("desligar a conexão pausa os envios da empresa, sem descarte, com a linha do tempo; religar (confirmada) os retoma", async () => {
+  it("desligar a conexão pausa os envios pendentes da empresa, sem descarte, com a linha do tempo; o erro fica com o motivo; religar (confirmada) os retoma", async () => {
     await prisma.company.update({ where: { id: "waze" }, data: { cnpj: null } });
     const par = { appKey: "chave-waze-0060", appSecret: "ficticio-ficticio-ficticio" };
     await comoAdmin(() => servico.gravar("waze", par, principal));
@@ -215,16 +215,31 @@ describe.skipIf(!HABILITADO)("omie por empresa no Postgres", () => {
     await comoAdmin(() => servico.confirmar("waze", CNPJ, principal));
     const pendente = await contaComEnvio("pendente");
     const comErro = await contaComEnvio("erro");
+    // Um título que já está no OMIE com uma correção pendente: antes da pausa, "enviando".
+    const jaNoOmie = await contaCanceladaQueChegou().then(async (id) => {
+      await prisma.lancamento.update({ where: { id }, data: { canceladoEm: null, cancelamentoMotivo: null } });
+      await prisma.omieEnvio.create({ data: { lancamentoId: id, companyId: "waze", operacao: "upsert" } });
+      return id;
+    });
     const estados = async () => (await prisma.omieEnvio.findMany({ where: { lancamentoId: { in: [pendente, comErro] } }, orderBy: { lancamentoId: "asc" } }))
       .map((e) => ({ conta: e.lancamentoId, estado: e.estado, motivo: e.ultimoErro }));
     const pausa = () => prisma.$queryRaw<{ motivo: string }[]>`SELECT motivo FROM public.omie_pausas WHERE company_id = 'waze' AND metodo = '*'`;
     const linhas = async (id: string) => (await prisma.historicoDeLancamento.findMany({ where: { lancamentoId: id, tipo: "omie" }, orderBy: { em: "asc" } })).map((h) => (h.dados as { acao: string }).acao);
 
+    const porConta = async () => new Map((await estados()).map((e) => [e.conta, [e.estado, e.motivo]]));
+    const noOmie = (id: string) => prisma.omieLancamento.findUnique({ where: { lancamentoId: id }, select: { estado: true, motivo: true } });
+    expect(await noOmie(jaNoOmie)).toEqual({ estado: "enviando", motivo: null });
+
     await comoAdmin(() => servico.apagar("waze", principal));
     expect(await pausa()).toEqual([{ motivo: "conexao_desligada" }]);
-    expect((await estados()).map((e) => [e.estado, e.motivo])).toEqual([["pendente", "conexao_desligada"], ["pendente", "conexao_desligada"]]);
+    // O pendente fica pausado; o erro permanente fica como está, com o motivo dele (volta pelo "Tentar de novo").
+    expect((await porConta()).get(pendente)).toEqual(["pendente", "conexao_desligada"]);
+    expect((await porConta()).get(comErro)).toEqual(["erro", "recusada"]);
     expect(await linhas(pendente)).toEqual(["pausado"]);
-    expect(await linhas(comErro)).toEqual(["pausado"]);
+    expect(await linhas(comErro)).toEqual([]);
+    // O pausado conta como não enviado, com o motivo, e não como saindo.
+    expect(await noOmie(pendente)).toEqual({ estado: "nao_enviado", motivo: "conexao_desligada" });
+    expect(await noOmie(jaNoOmie)).toEqual({ estado: "nao_enviado", motivo: "conexao_desligada" });
     const financeiro = new PrismaFinanceiroRepository(prisma, new AuditAppender());
     const ficha = await comoAdmin(() => financeiro.obter(pendente, papelNoFinanceiro({ plataforma: "admin", departamentos: [] }), new Date()));
     expect(ficha.linhaDoTempo.map((e) => e.resumo)).toContain("Envio ao OMIE pausado: conexão desligada");
@@ -233,11 +248,14 @@ describe.skipIf(!HABILITADO)("omie por empresa no Postgres", () => {
     await comoAdmin(() => servico.gravar("waze", par, principal));
     await comoAdmin(() => servico.testar("waze", principal));
     expect(await pausa()).toEqual([{ motivo: "conexao_desligada" }]);
-    expect((await estados()).every((e) => e.motivo === "conexao_desligada")).toBe(true);
+    expect((await porConta()).get(pendente)).toEqual(["pendente", "conexao_desligada"]);
 
     await comoAdmin(() => servico.confirmar("waze", CNPJ, principal));
     expect(await pausa()).toEqual([]);
-    expect((await estados()).map((e) => [e.estado, e.motivo])).toEqual([["pendente", null], ["pendente", null]]);
+    expect((await porConta()).get(pendente)).toEqual(["pendente", null]);
+    expect((await porConta()).get(comErro)).toEqual(["erro", "recusada"]);
     expect(await linhas(pendente)).toEqual(["pausado", "retomado"]);
+    expect(await noOmie(pendente)).toMatchObject({ estado: "nao_enviado", motivo: null });
+    expect(await noOmie(jaNoOmie)).toEqual({ estado: "enviando", motivo: null });
   }, PRAZO_MS);
 });
