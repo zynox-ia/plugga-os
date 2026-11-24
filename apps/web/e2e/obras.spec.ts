@@ -70,3 +70,27 @@ test("nova obra com os 6 marcos; o próximo marco é feito; o cronograma ganha a
   await expect(card).toContainText("1 de 6 marcos", DEPOIS_DA_ACAO);
   await expect(card).toContainText("Próximo: Projeto aprovado");
 });
+
+test("o pedido de compra escolhe a obra do cadastro, sem criar obra (PLU-355)", async ({ page, request, baseURL }) => {
+  test.slow();
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await bloquearTerceiros(page);
+  const H = { origin: baseURL! };
+  const sufixo = Date.now().toString(36).toUpperCase();
+  const nome = `Obra ${marcaDaExecucao()} ${sufixo} compras (sintética)`;
+  const busca = (await (await request.get(`/api/engenharia/obras/clientes?busca=${encodeURIComponent("Cliente com UC")}`)).json()) as { itens: { id: string; nome: string }[] };
+  const cliente = busca.itens.find((c) => c.nome === CLIENTE)!;
+  const dia = (n: number) => new Date(Date.now() - 4 * 3_600_000 + n * 86_400_000).toISOString().slice(0, 10);
+  const criada = await request.post("/api/engenharia/obras", { headers: H, data: { empresa: "waze", clienteId: cliente.id, nome, potenciaKwp: "10", inicioEm: dia(0), entregaPrevistaEm: dia(30) } });
+  expect(criada.ok(), await criada.text()).toBeTruthy();
+
+  await page.goto("/suprimentos/compras");
+  await page.getByRole("button", { name: "Novo pedido" }).first().click();
+  const novo = page.getByRole("dialog", { name: "Novo pedido de compra" });
+  await novo.getByRole("radio", { name: "Waze Energia" }).click();
+  await novo.getByRole("radio", { name: "Obra" }).click();
+  await expect(novo.getByText("Sem a obra na lista? Ela é cadastrada na tela de Obras da Engenharia.")).toBeVisible();
+  await expect(novo.getByRole("button", { name: "Nova obra" })).toHaveCount(0);
+  await novo.getByRole("combobox", { name: /^Obra/ }).click();
+  await expect(page.getByRole("option", { name: new RegExp(literal(nome)) })).toBeVisible(DEPOIS_DA_ACAO);
+});

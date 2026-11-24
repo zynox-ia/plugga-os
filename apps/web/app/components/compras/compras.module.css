@@ -262,13 +262,6 @@
   color: var(--ui-text);
 }
 
-.novaObra {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 8px;
-  align-items: end;
-}
-
 @media (max-width: 720px) {
   .item {
     grid-template-columns: minmax(0, 1fr) 80px 80px auto;

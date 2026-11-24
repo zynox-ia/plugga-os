@@ -41,7 +41,8 @@ export function NovoPedido({ opcoes, pedido, aoCancelar, aoSalvar }: {
   const [titulo, setTitulo] = useState(pedido?.titulo ?? "");
   const [descricao, setDescricao] = useState(pedido?.descricao ?? "");
   const [destino, setDestino] = useState<DestinoEscolhido>(() => destinoInicial(pedido));
-  const [obras, setObras] = useState<ObraDeCompra[]>(() => {
+  // As obras vêm do cadastro de Obras (PLU-355); a do pedido entra mesmo se saiu das ativas.
+  const [obras] = useState<ObraDeCompra[]>(() => {
     const obra = pedido?.destino.obra;
     return obra && !opcoes.obras.some((o) => o.id === obra.id) ? [...opcoes.obras, { id: obra.id, empresa: pedido.empresa, nome: obra.nome, cliente: null }] : opcoes.obras;
   });
@@ -116,7 +117,7 @@ export function NovoPedido({ opcoes, pedido, aoCancelar, aoSalvar }: {
       </section>
       <section className="ui-dialog-section">
         <div className="ui-dialog-section-header"><Heading as="h3" icon={<HardHat />}>Destino</Heading><p className="ui-dialog-section-desc">Para onde vai o material ou serviço.</p></div>
-        <DestinoDoPedido empresa={empresa} obras={obras} valor={destino} aoMudar={setDestino} erros={{ obraId: e("obraId"), clientId: e("clientId") }} aoCriarObra={(o) => setObras((atuais) => [...atuais, o])} />
+        <DestinoDoPedido empresa={empresa} obras={obras} valor={destino} aoMudar={setDestino} erros={{ obraId: e("obraId"), clientId: e("clientId") }} />
       </section>
       <section className="ui-dialog-section">
         <div className="ui-dialog-section-header"><Heading as="h3" icon={<ListChecks />}>Itens</Heading><p className="ui-dialog-section-desc">{itensEditaveis ? "Descrição, quantidade e unidade de cada item. Vincule ao estoque para poder atender por ele." : "Os itens não mudam depois da análise de estoque: as cotações já foram pedidas sobre eles."}</p></div>

@@ -7,7 +7,7 @@ import {
   type DestinoDeCompra,
   type ObraDeCompra,
 } from "@plugga/shared";
-import { Plus, Search, X } from "lucide-react";
+import { Search, X } from "lucide-react";
 import { useEffect, useId, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from "react";
 
 import { enviar } from "../../lib/clientes";
@@ -61,19 +61,19 @@ export const opcoesDeEmpresa =(["plugga", "waze"] as const).map((e) => ({
 
 export type DestinoEscolhido = { destino: DestinoDeCompra; obraId: string | null; clientId: string | null; cliente: { id: string; nome: string } | null };
 
-/** Destino do pedido: obra da mesma empresa (ou nova, criada na hora), cliente por busca, ou uso interno. */
-export function DestinoDoPedido({ empresa, obras, valor, aoMudar, erros, aoCriarObra }: {
+/**
+ * Destino do pedido: uma obra do cadastro de Obras da mesma empresa (PLU-355: o Compras só escolhe;
+ * a obra nasce na tela de Obras), cliente por busca, ou uso interno.
+ */
+export function DestinoDoPedido({ empresa, obras, valor, aoMudar, erros }: {
   empresa: CompanyKey | null;
   obras: ObraDeCompra[];
   valor: DestinoEscolhido;
   aoMudar: (d: DestinoEscolhido) => void;
   erros: Record<string, string | undefined>;
-  aoCriarObra: (obra: ObraDeCompra) => void;
 }) {
   const [busca, setBusca] = useState("");
   const [clientes, setClientes] = useState<BuscarClientesDeCompraResposta["itens"] | null>(null);
-  const [novaObra, setNovaObra] = useState<string | null>(null);
-  const [erroObra, setErroObra] = useState<string | null>(null);
   const daEmpresa = obras.filter((o) => !empresa || o.empresa === empresa);
 
   useEffect(() => {
@@ -86,28 +86,14 @@ export function DestinoDoPedido({ empresa, obras, valor, aoMudar, erros, aoCriar
     return () => { clearTimeout(espera); controle.abort(); };
   }, [busca, valor.destino]);
 
-  async function criarObra() {
-    const nome = novaObra?.trim();
-    if (!empresa) { setErroObra("escolha a empresa do pedido antes de criar a obra."); return; }
-    if (!nome) { setErroObra("informe o nome da obra."); return; }
-    const r = await enviar<ObraDeCompra>("/api/suprimentos/compras/obras", "POST", { empresa, nome });
-    if (!r.ok) { setErroObra(r.erro.porCampo.nome ?? r.erro.mensagem); return; }
-    aoCriarObra(r.dados); aoMudar({ ...valor, obraId: r.dados.id }); setNovaObra(null); setErroObra(null);
-  }
-
   return <>
     <Segmentado rotulo="Tipo de destino" valor={valor.destino} aoMudar={(destino) => aoMudar({ destino, obraId: null, clientId: null, cliente: null })}
       opcoes={(["obra", "cliente", "interno"] as const).map((d) => ({ valor: d, rotulo: rotulosDoDestinoDeCompra[d] }))} />
     {valor.destino === "obra" ? <>
       <CampoDeEscolha label="Obra" required valor={valor.obraId ?? ""} aoMudar={(obraId) => aoMudar({ ...valor, obraId: obraId || null })} erro={erros.obraId}
         placeholder={empresa ? (daEmpresa.length ? "Selecione a obra" : "Nenhuma obra desta empresa") : "Escolha a empresa primeiro"}
-        opcoes={daEmpresa.map((o) => ({ value: o.id, label: o.nome, description: o.cliente?.nome }))} disabled={!empresa} />
-      {novaObra === null
-        ? <Button variant="secondary" size="sm" className={styles.adicionar} icon={<Plus size={14} />} onClick={() => setNovaObra("")} disabled={!empresa}>Nova obra</Button>
-        : <div className={styles.novaObra}>
-          <div className="ui-field"><label htmlFor="nova-obra">Nome da nova obra</label><div className="ui-input-wrap"><input id="nova-obra" className="ui-input" maxLength={200} value={novaObra} onChange={(e) => setNovaObra(e.target.value)} aria-invalid={erroObra ? true : undefined} aria-describedby={erroObra ? "nova-obra-erro" : undefined} /></div>{erroObra ? <p id="nova-obra-erro" className="ui-field-error">Erro: {erroObra}</p> : null}</div>
-          <div className={styles.topoDireita}><Button size="sm" onClick={criarObra}>Criar obra</Button><Button variant="secondary" size="sm" onClick={() => { setNovaObra(null); setErroObra(null); }}>Cancelar</Button></div>
-        </div>}
+        opcoes={daEmpresa.map((o) => ({ value: o.id, label: o.nome, description: o.cliente?.nome }))} disabled={!empresa}
+        dica="Sem a obra na lista? Ela é cadastrada na tela de Obras da Engenharia." />
     </> : null}
     {valor.destino === "cliente" ? <div className="ui-field">
       <label htmlFor="busca-cliente">Cliente<span className="ui-required"> (obrigatório)</span></label>
