@@ -22,7 +22,12 @@ test("busca por componente, informa resultado vazio e preserva a navegação ao 
   await page.goto("/design-system");
   await expect(page.getByRole("heading", { name: "Uma linguagem para todo o sistema." })).toBeVisible();
   const search = page.getByRole("searchbox", { name: "Buscar componentes" });
-  await search.fill("  botoes  ");
+  // No next dev a página pode hidratar depois do primeiro preenchimento, que se perde
+  // junto com o clique (CI 45439548933). A busca só filtra hidratada: preenche até filtrar.
+  await expect(async () => {
+    await search.fill("  botoes  ");
+    await expect(page.getByRole("link", { name: "Cores", exact: true })).toHaveCount(0, { timeout: 1_000 });
+  }).toPass();
   await page.getByRole("link", { name: "Botões", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Botões", exact: true })).toBeVisible();
   await page.reload();
