@@ -1,5 +1,4 @@
 import { Body, Controller, Get, HttpCode, Inject, Param, ParseUUIDPipe, Patch, Post, Query, Res, UploadedFile, UseGuards, UseInterceptors } from "@nestjs/common";
-import { FileInterceptor } from "@nestjs/platform-express";
 import { ThrottlerGuard } from "@nestjs/throttler";
 import {
   DOCUMENTO_DE_OBRA_MAX_BYTES,
@@ -22,6 +21,7 @@ import {
 } from "@plugga/shared";
 import type { Response } from "express";
 
+import { UmArquivo } from "../common/upload";
 import { ZodValidationPipe } from "../common/zod-validation.pipe";
 import { Departamento, Tela } from "../core/auth/acesso.decorator";
 import { AcessoGuard } from "../core/auth/acesso.guard";
@@ -33,7 +33,7 @@ import { cabecalhoDisposicao } from "../lead-documentos/lead-documentos.rules";
 import { EngenhariaHabilitadaGuard } from "./engenharia-habilitada.guard";
 import { ObrasService } from "./obras.service";
 
-const COM_ARQUIVO = FileInterceptor("arquivo", { limits: { fileSize: DOCUMENTO_DE_OBRA_MAX_BYTES * 2 } });
+const COM_ARQUIVO = UmArquivo("arquivo", DOCUMENTO_DE_OBRA_MAX_BYTES * 2);
 
 /**
  * Obras da Engenharia (PLU-350): a tela de Obras. O portão vem antes da sessão.

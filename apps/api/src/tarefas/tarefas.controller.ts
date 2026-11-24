@@ -1,5 +1,4 @@
 import { Body, Controller, Get, HttpCode, Inject, Param, ParseUUIDPipe, Post, Query, Res, UploadedFile, UseGuards, UseInterceptors } from "@nestjs/common";
-import { FileInterceptor } from "@nestjs/platform-express";
 import { ThrottlerGuard } from "@nestjs/throttler";
 import {
   EVIDENCIA_DE_TAREFA_MAX_BYTES,
@@ -20,6 +19,7 @@ import {
 } from "@plugga/shared";
 import type { Response } from "express";
 
+import { UmArquivo } from "../common/upload";
 import { ZodValidationPipe } from "../common/zod-validation.pipe";
 import { Departamento } from "../core/auth/acesso.decorator";
 import { AcessoGuard } from "../core/auth/acesso.guard";
@@ -31,7 +31,7 @@ import { cabecalhoDisposicao } from "../lead-documentos/lead-documentos.rules";
 import { PortaoDoDepartamentoGuard } from "./portao-do-departamento.guard";
 import { TarefasService, type ArquivoParaBaixar } from "./tarefas.service";
 
-const COM_EVIDENCIA = FileInterceptor("evidencia", { limits: { fileSize: EVIDENCIA_DE_TAREFA_MAX_BYTES * 2 } });
+const COM_EVIDENCIA = UmArquivo("evidencia", EVIDENCIA_DE_TAREFA_MAX_BYTES * 2);
 const DEPARTAMENTO = new ZodValidationPipe(departamentoComTarefasSchema);
 
 /**

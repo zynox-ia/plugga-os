@@ -1,5 +1,4 @@
 import { Body, Controller, Get, HttpCode, Inject, Param, ParseUUIDPipe, Patch, Post, Query, Res, UploadedFile, UseGuards, UseInterceptors } from "@nestjs/common";
-import { FileInterceptor } from "@nestjs/platform-express";
 import { ThrottlerGuard } from "@nestjs/throttler";
 import {
   PLANILHA_DE_USINAS_MAX_BYTES,
@@ -32,6 +31,7 @@ import {
 } from "@plugga/shared";
 import type { Response } from "express";
 
+import { UmArquivo } from "../common/upload";
 import { ZodValidationPipe } from "../common/zod-validation.pipe";
 import { Departamento } from "../core/auth/acesso.decorator";
 import { AcessoGuard } from "../core/auth/acesso.guard";
@@ -43,9 +43,9 @@ import { cabecalhoDisposicao } from "../lead-documentos/lead-documentos.rules";
 import { EngenhariaHabilitadaGuard } from "./engenharia-habilitada.guard";
 import { UsinasService } from "./usinas.service";
 
-const COM_PRINT = FileInterceptor("print", { limits: { fileSize: PRINT_DA_CONFERENCIA_MAX_BYTES * 2 } });
+const COM_PRINT = UmArquivo("print", PRINT_DA_CONFERENCIA_MAX_BYTES * 2);
 const PLATAFORMA = new ZodValidationPipe(idDePlataformaSchema);
-const COM_PLANILHA = FileInterceptor("arquivo", { limits: { fileSize: PLANILHA_DE_USINAS_MAX_BYTES * 2 } });
+const COM_PLANILHA = UmArquivo("arquivo", PLANILHA_DE_USINAS_MAX_BYTES * 2);
 
 /**
  * Usinas da Engenharia (PLU-347). Entra quem é da Engenharia; o serviço decide

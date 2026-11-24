@@ -1,5 +1,4 @@
 import { Body, Controller, Get, HttpCode, Inject, Param, ParseUUIDPipe, Patch, Post, Query, Res, UploadedFile, UseGuards, UseInterceptors } from "@nestjs/common";
-import { FileInterceptor } from "@nestjs/platform-express";
 import type { Response } from "express";
 import { ThrottlerGuard } from "@nestjs/throttler";
 import {
@@ -35,6 +34,7 @@ import {
   type ResumoDosLancamentosResposta,
 } from "@plugga/shared";
 
+import { UmArquivo } from "../common/upload";
 import { ZodValidationPipe } from "../common/zod-validation.pipe";
 import { Departamento, Tela } from "../core/auth/acesso.decorator";
 import { AcessoGuard } from "../core/auth/acesso.guard";
@@ -46,7 +46,7 @@ import { FinanceiroHabilitadoGuard } from "./financeiro-habilitado.guard";
 import { cabecalhoDisposicao } from "../lead-documentos/lead-documentos.rules";
 import { FinanceiroService, type ArquivoParaBaixar } from "./financeiro.service";
 
-const COM_ARQUIVO = FileInterceptor("arquivo", { limits: { fileSize: ANEXO_DO_LANCAMENTO_MAX_BYTES * 2 } });
+const COM_ARQUIVO = UmArquivo("arquivo", ANEXO_DO_LANCAMENTO_MAX_BYTES * 2);
 
 /**
  * Financeiro (PLU-336). Os Lançamentos são de quem tem Contas a pagar ou Contas

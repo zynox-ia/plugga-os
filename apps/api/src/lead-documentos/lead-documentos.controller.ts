@@ -13,7 +13,6 @@ import {
   UseGuards,
   UseInterceptors,
 } from "@nestjs/common";
-import { FileInterceptor } from "@nestjs/platform-express";
 import { ThrottlerGuard } from "@nestjs/throttler";
 import {
   updateLeadDocumentRequestSchema,
@@ -26,6 +25,7 @@ import {
 } from "@plugga/shared";
 import type { Response } from "express";
 
+import { UmArquivo } from "../common/upload";
 import { RequisicaoInvalida } from "../common/errors/dominio";
 import { ZodValidationPipe } from "../common/zod-validation.pipe";
 import { Departamento, Tela } from "../core/auth/acesso.decorator";
@@ -59,7 +59,7 @@ export class LeadDocumentosController {
   @Post()
   @HttpCode(201)
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
-  @UseInterceptors(FileInterceptor("arquivo", { limits: { fileSize: LIMITE_MULTER_BYTES } }))
+  @UseInterceptors(UmArquivo("arquivo", LIMITE_MULTER_BYTES))
   upload(
     @Param("dealId", ParseUUIDPipe) dealId: string,
     @Body(new ZodValidationPipe(uploadLeadDocumentRequestSchema)) body: UploadLeadDocumentRequest,

@@ -187,11 +187,15 @@ describe.skipIf(!HABILITADO)("obras no Postgres", { timeout: PRAZO }, () => {
     const v2 = await anexar(o.id, { categoria: "cronograma" }, MPP, "Cronograma Tarumã.mpp");
     const cronograma = v2.documentosDaObra[0]!;
     expect(cronograma).toMatchObject({ categoria: "cronograma", versao: 2, mime: "application/vnd.ms-project", versoesAnteriores: [expect.objectContaining({ versao: 1 })] });
+    // Nome acentuado: grava e volta igual (o multer lê em UTF-8, ver common/upload.ts).
+    const acentuado = await anexar(o.id, { categoria: "outro" }, PDF, "Medição elétrica ção.png".replace(".png", ".pdf"));
+    expect(acentuado.documentosDaObra.map((d) => d.nome)).toContain("Medição elétrica ção.pdf");
+    expect((await como("eng", () => servico.obra(o.id, principal("eng")))).documentosDaObra.map((d) => d.nome)).toContain("Medição elétrica ção.pdf");
     const ata = await anexar(o.id, { categoria: "ata" }, PDF, "Ata de início.pdf");
     const doc = ata.documentosDaObra.find((d) => d.categoria === "ata")!;
     const nova2 = await anexar(o.id, { categoria: "ata", substitui: doc.id }, PDF, "Ata de início v2.pdf");
     expect(nova2.documentosDaObra.find((d) => d.categoria === "ata")).toMatchObject({ versao: 2, nome: "Ata de início v2.pdf", serieId: doc.serieId });
-    expect(nova2.documentos).toBe(2);
+    expect(nova2.documentos).toBe(3);
     await expect(anexar(o.id, { categoria: "ata", substitui: doc.id }, PDF)).rejects.toThrow(/já foi substituída/);
     await expect(anexar(o.id, { categoria: "outro" }, Buffer.from("texto qualquer"), "nota.txt")).rejects.toThrow(TipoNaoPermitido);
     expect(guardados.at(-1)).toMatch(new RegExp(`^engenharia/obras/waze/${o.id}/`));

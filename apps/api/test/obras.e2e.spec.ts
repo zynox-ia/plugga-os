@@ -69,6 +69,9 @@ describe("obras (e2e)", () => {
     await engenharia(http().post(`/engenharia/obras/${ID}/documentos`)).field("categoria", "planta").expect(400);
     await engenharia(http().post(`/engenharia/obras/${ID}/documentos`)).field("categoria", "ata").field("protocoloId", ID).expect(400);
     await engenharia(http().post(`/engenharia/obras/${ID}/documentos`)).field("categoria", "cronograma").attach("arquivo", Buffer.from("%PDF-1.4"), "c.pdf").expect(201);
+    // O nome acentuado chega ao serviço como foi enviado.
+    await engenharia(http().post(`/engenharia/obras/${ID}/documentos`)).field("categoria", "outro").attach("arquivo", Buffer.from("%PDF-1.4"), "Medição elétrica ção.pdf").expect(201);
+    expect(servico.anexar).toHaveBeenLastCalledWith(ID, expect.anything(), expect.objectContaining({ nomeOriginal: "Medição elétrica ção.pdf" }), expect.anything());
   });
 
   it("com o portão da Engenharia fechado, tudo responde 404 antes da sessão", async () => {

@@ -1,5 +1,4 @@
 import { Body, Controller, Get, HttpCode, Inject, Param, ParseUUIDPipe, Patch, Post, Put, Query, Res, UploadedFile, UseGuards, UseInterceptors } from "@nestjs/common";
-import { FileInterceptor } from "@nestjs/platform-express";
 import { ThrottlerGuard } from "@nestjs/throttler";
 import {
   ARQUIVO_DE_ORDEM_MAX_BYTES,
@@ -38,6 +37,7 @@ import {
 } from "@plugga/shared";
 import type { Response } from "express";
 
+import { UmArquivo } from "../common/upload";
 import { ZodValidationPipe } from "../common/zod-validation.pipe";
 import { Departamento, Tela } from "../core/auth/acesso.decorator";
 import { AcessoGuard } from "../core/auth/acesso.guard";
@@ -52,8 +52,8 @@ import { TELAS_DAS_ORDENS } from "./engenharia.rules";
 
 /** Backstop de memória do multer; o limite preciso é conferido no serviço. */
 const LIMITE_MULTER_BYTES = ARQUIVO_DE_ORDEM_MAX_BYTES * 2;
-const COM_ARQUIVO = FileInterceptor("arquivo", { limits: { fileSize: LIMITE_MULTER_BYTES } });
-const COM_ASSINATURA = FileInterceptor("assinatura", { limits: { fileSize: LIMITE_MULTER_BYTES } });
+const COM_ARQUIVO = UmArquivo("arquivo", LIMITE_MULTER_BYTES);
+const COM_ASSINATURA = UmArquivo("assinatura", LIMITE_MULTER_BYTES);
 
 /**
  * Ordens de serviço da Engenharia (PLU-345), uma fila global para Plugga e
