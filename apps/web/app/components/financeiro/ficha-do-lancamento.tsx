@@ -8,8 +8,6 @@ import {
   Check,
   CheckCircle2,
   Clock,
-  Cloud,
-  CloudOff,
   FilePlus2,
   FileText,
   History,
@@ -18,7 +16,6 @@ import {
   MessageSquare,
   Paperclip,
   Pencil,
-  RotateCw,
   Send,
   Upload,
   UserRound,
@@ -32,7 +29,7 @@ import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent 
 import { enviar } from "../../lib/clientes";
 import { dataEmManaus, diaLegivel, hojeEmManaus, numeroDoPedido, ROTULO_DA_EMPRESA, ROTA_COMPRAS, valorEmReais } from "../../lib/compras";
 import { competenciaLegivel, prazoDoLancamento } from "../../lib/financeiro";
-import { acaoPrincipal, eventosPorDia, fraseDoOmie, omieConectado, podeTentarDeNovoNoOmie, resumoDaTrilhaDoLancamento, ROTULO_DA_FORMA, ROTULO_DO_ANEXO, trilhaDoLancamento } from "../../lib/ficha-do-lancamento";
+import { acaoPrincipal, eventosPorDia, resumoDaTrilhaDoLancamento, ROTULO_DA_FORMA, ROTULO_DO_ANEXO, trilhaDoLancamento } from "../../lib/ficha-do-lancamento";
 import { horaEmManaus } from "../../lib/ficha-do-pedido";
 import estilosFicha from "../compras/ficha-do-pedido.module.css";
 import { FecharModal, Modal } from "../modal";
@@ -47,19 +44,21 @@ import { ContaAPagarForm } from "./conta-a-pagar-form";
 import styles from "./ficha.module.css";
 import { ICONE_DA_NATUREZA, rotuloDoTipo, SetaDoTipo } from "./partes";
 
-type Aba = "geral" | "anexos" | "omie" | "tempo";
+type Aba = "geral" | "anexos" | "tempo";
 
-const ICONE_DO_EVENTO: Record<EventoDoLancamento["tipo"], LucideIcon> = {
+// "omie" sai do contrato com a extinção da integração (24/11/2026); a API já não manda esse evento.
+type TipoDoEvento = Exclude<EventoDoLancamento["tipo"], "omie">;
+const ICONE_DO_EVENTO: Record<TipoDoEvento, LucideIcon> = {
   criado: FilePlus2, editado: Pencil, aprovado: CheckCircle2, valor_corrigido: Pencil, nf_registrada: FileText, boleto_registrado: Barcode,
   enviado: Send, cobranca_registrada: MessageSquare, pago: Wallet, recebido: ArrowDownLeft, conciliado: Link2, cancelado: Ban,
-  anexo_enviado: Paperclip, anexo_substituido: Upload, omie: Cloud,
+  anexo_enviado: Paperclip, anexo_substituido: Upload,
 };
 
 const AVISO_DA_ACAO: Record<AcaoDoLancamento["acao"], string> = {
   aprovar: "Conta aprovada: segue para o pagamento.",
   cancelar: "Lançamento cancelado.",
   corrigir_valor: "Valor corrigido; o motivo ficou na linha do tempo.",
-  registrar_nf: "NF registrada: falta gerar o boleto.",
+  registrar_nf: "NF registrada: falta anexar o boleto.",
   registrar_boleto: "Boleto registrado: falta enviar ao cliente.",
   registrar_envio: "Envio registrado: agora é aguardar o pagamento.",
   registrar_cobranca: "Cobrança registrada na linha do tempo.",
@@ -125,16 +124,6 @@ export function FichaDoLancamento({ lancamento: inicial, opcoes, gerente, aoFech
   }
 
   /** Anexa e mantém a ficha aberta; devolve o problema para o diálogo mostrar, ou nulo. */
-  /** Devolve à fila do OMIE os envios com erro (PLU-342). Sem envio com erro, a API responde 409 e a ficha se atualiza. */
-  async function tentarDeNovoNoOmie() {
-    setOcupado(true); setErro(null); setAviso(null);
-    const r = await enviar<Lancamento>(`/api/integracoes/omie/lancamentos/${l.id}/tentar-de-novo`, "POST", {});
-    setOcupado(false);
-    if (r.ok) { atualizado(r.dados, `Envio ao OMIE da ${ROTULO_DA_EMPRESA[l.empresa]} pedido de novo.`); return; }
-    if (r.erro.codigo === "CONFLITO_ESTADO") await recarregar();
-    setErro(r.erro.mensagem);
-  }
-
   async function anexar(tipo: TipoDeAnexo, arquivo: File): Promise<string | null> {
     setOcupado(true); setErro(null); setAviso(null);
     const r = await enviarAnexo(l.id, tipo, arquivo);
@@ -146,13 +135,9 @@ export function FichaDoLancamento({ lancamento: inicial, opcoes, gerente, aoFech
     return null;
   }
 
-  // O conector do OMIE da empresa (PLU-342): desligado, a ficha não promete envio nem oferece reenvio.
-  const conectado = omieConectado(opcoes, l.empresa);
-
   const abas: { id: Aba; titulo: string; curto: string; conta?: number; icone: LucideIcon }[] = [
     { id: "geral", titulo: "Visão geral", curto: "Geral", icone: LayoutGrid },
     { id: "anexos", titulo: "Anexos", curto: "Anexos", conta: l.anexos, icone: Paperclip },
-    { id: "omie", titulo: "OMIE", curto: "OMIE", icone: l.omie.estado === "erro" || l.omie.estado === "divergente" ? CloudOff : Cloud },
     { id: "tempo", titulo: "Linha do tempo", curto: "Histórico", icone: History },
   ];
   function navegar(evento: KeyboardEvent<HTMLDivElement>) {
@@ -161,7 +146,6 @@ export function FichaDoLancamento({ lancamento: inicial, opcoes, gerente, aoFech
     if (j === null) return;
     evento.preventDefault(); setAba(abas[j]!.id); botoes.current[j]?.focus();
   }
-  const irPara = (destino: Aba) => { setAba(destino); botoes.current[abas.findIndex((a) => a.id === destino)]?.focus(); };
 
   const Icone = ICONE_DA_NATUREZA[l.categoria?.natureza ?? "outros"];
   return <Modal rotulo={`${l.codigo}: ${l.descricao}`} aoFechar={aoFechar} largura="larga" className={detalhes.modal}>
@@ -199,9 +183,8 @@ export function FichaDoLancamento({ lancamento: inicial, opcoes, gerente, aoFech
             {erro ? <p role="alert" className="aviso aviso--erro">{erro}</p> : null}
             {aviso ? <p role="status" className="aviso aviso--sucesso">{aviso}</p> : null}
           </div> : null}
-          {aba === "geral" ? <VisaoGeralDoLancamento l={l} opcoes={opcoes} hoje={hoje} ocupado={ocupado} aoAgir={agir} aoAnexar={anexar} aoAbrir={setJanela} aoVerOmie={() => irPara("omie")} aoTentarOmie={() => void tentarDeNovoNoOmie()} conectado={conectado} /> : null}
+          {aba === "geral" ? <VisaoGeralDoLancamento l={l} opcoes={opcoes} hoje={hoje} ocupado={ocupado} aoAgir={agir} aoAnexar={anexar} aoAbrir={setJanela} /> : null}
           {aba === "anexos" ? <AnexosDoLancamento l={l} ocupado={ocupado} aoAnexar={(tipo) => setJanela({ anexar: tipo })} /> : null}
-          {aba === "omie" ? <OmieDoLancamento l={l} ocupado={ocupado} conectado={conectado} aoTentar={() => void tentarDeNovoNoOmie()} /> : null}
           {aba === "tempo" ? <LinhaDoTempoDoLancamento l={l} hoje={hoje} /> : null}
         </section>
       </div>
@@ -239,12 +222,10 @@ function Trilha({ l }: { l: Lancamento }) {
   </>;
 }
 
-function VisaoGeralDoLancamento({ l, opcoes, hoje, ocupado, aoAgir, aoAnexar, aoAbrir, aoVerOmie, aoTentarOmie, conectado }: {
+function VisaoGeralDoLancamento({ l, opcoes, hoje, ocupado, aoAgir, aoAnexar, aoAbrir }: {
   l: Lancamento; opcoes: OpcoesDoFinanceiro | null; hoje: string; ocupado: boolean;
   aoAgir: (acao: AcaoDoLancamento) => Promise<boolean>; aoAnexar: (tipo: TipoDeAnexo, arquivo: File) => Promise<string | null>;
-  aoAbrir: (janela: Janela) => void; aoVerOmie: () => void; aoTentarOmie: () => void;
-  /** Nulo: não se sabe (a faixa segue como antes). */
-  conectado: boolean | null;
+  aoAbrir: (janela: Janela) => void;
 }) {
   const formId = useId();
   const pode = (a: Lancamento["acoesPermitidas"][number]) => l.acoesPermitidas.includes(a);
@@ -254,7 +235,6 @@ function VisaoGeralDoLancamento({ l, opcoes, hoje, ocupado, aoAgir, aoAnexar, ao
   const pendencias = l.pendencias.some((p) => !p.feito) ? l.pendencias : [];
   const feitos = pendencias.filter((p) => p.feito || p.opcional).length;
   const empresa = ROTULO_DA_EMPRESA[l.empresa];
-  const omie = fraseDoOmie(l, empresa);
   const etapa = l.cancelado ? "Cancelada" : rotulosDaEtapaDeLancamento[l.etapa];
   const prazoTexto = l.cancelado ? `Cancelada · vencia em ${diaLegivel(l.vencimento)}` : l.liquidadoEm ? `${l.tipo === "saida" ? "Paga" : "Recebida"} em ${diaLegivel(l.liquidadoEm)}` : `${prazo.relativo ? `${prazo.relativo[0]!.toUpperCase()}${prazo.relativo.slice(1)} · ` : ""}${diaLegivel(l.vencimento)}`;
   const cancelado = l.marcos.cancelado;
@@ -274,14 +254,6 @@ function VisaoGeralDoLancamento({ l, opcoes, hoje, ocupado, aoAgir, aoAnexar, ao
       </header>
       <Trilha l={l} />
     </section>
-
-    {/* Com o OMIE desligado para a empresa, a faixa some: o lançamento fica só no Plugga OS. */}
-    {conectado === false ? null : <div className={`${styles.faixaOmie} ${omie.tom === "perigo" ? styles.faixaPerigo : ""}`} role={omie.tom === "perigo" ? "alert" : undefined}>
-      {omie.tom === "perigo" ? <CloudOff size={16} aria-hidden="true" /> : <Cloud size={16} aria-hidden="true" />}
-      <span>{omie.texto}</span>
-      {podeTentarDeNovoNoOmie(l, conectado) ? <button type="button" className={styles.linkOmie} disabled={ocupado} onClick={aoTentarOmie}>Tentar de novo</button> : null}
-      <button type="button" className={styles.linkOmie} onClick={aoVerOmie}>Detalhes</button>
-    </div>}
 
     {pendencias.length ? <section className={estilosFicha.passo} aria-label="O que falta para avançar">
       <div className={estilosFicha.passoTopo}>
@@ -359,29 +331,6 @@ function BotaoPrincipal({ acao, rotulo, formId, ocupado, aoAgir, aoAbrir }: {
   return <Button type="submit" form={formId} icon={icone} disabled={ocupado}>{rotulo}</Button>;
 }
 
-/** O estado no OMIE da empresa, sem tela própria de integração (decisão A2). */
-function OmieDoLancamento({ l, ocupado, conectado, aoTentar }: { l: Lancamento; ocupado: boolean; conectado: boolean | null; aoTentar: () => void }) {
-  const empresa = ROTULO_DA_EMPRESA[l.empresa];
-  const omie = fraseDoOmie(l, empresa);
-  return <div className={estilosFicha.secao}>
-    <div className={estilosFicha.barra}>
-      <div><h3>No OMIE da {empresa}</h3><p>O lançamento vai ao OMIE da empresa dele pelas ações do fluxo: aprovar, pagar e conciliar.</p></div>
-      {/* Com erro, o envio só volta à fila por aqui; os outros estados andam sozinhos. */}
-      {podeTentarDeNovoNoOmie(l, conectado) ? <Button variant="secondary" size="sm" icon={<RotateCw size={14} />} disabled={ocupado} onClick={aoTentar}>Tentar de novo</Button> : null}
-    </div>
-    {conectado === false
-      ? <Alert tone="info" title={`O OMIE não está conectado para a ${empresa}: os lançamentos desta empresa ficam só no Plugga OS. A conexão fica em Configurações › Integrações.`}>
-        {/* O envio em erro fica parado, não se perde (o conector não descarta ao desligar). */}
-        {l.omie.estado === "erro" ? "Havia um envio com erro antes de a conexão ser desligada; ele volta a aparecer quando a conexão for religada." : null}
-      </Alert>
-      : omie.tom === "perigo" ? <Alert tone="danger" title={omie.texto} /> : <Alert tone="info" title={omie.texto} />}
-    <dl className={visao.grade}>
-      <div><dt>Situação</dt><dd>{{ nao_enviado: "Não enviado", enviando: "Enviando", enviado: "Enviado", erro: "Com erro", baixado: "Baixado", divergente: "Diferente do OMIE" }[l.omie.estado]}</dd></div>
-      <div><dt>Código no OMIE</dt><dd>{l.omie.codigo ?? "Ainda sem código"}</dd></div>
-    </dl>
-  </div>;
-}
-
 function LinhaDoTempoDoLancamento({ l, hoje }: { l: Lancamento; hoje: string }) {
   const dias = eventosPorDia(l.linhaDoTempo, hoje);
   return <div className={estilosFicha.secao}>
@@ -391,7 +340,7 @@ function LinhaDoTempoDoLancamento({ l, hoje }: { l: Lancamento; hoje: string }) 
         <h3 className={historico.historicoData}>{grupo.rotulo}</h3>
         <ol className={historico.historicoLista}>
           {grupo.itens.map((evento, i) => {
-            const Icone = ICONE_DO_EVENTO[evento.tipo];
+            const Icone = ICONE_DO_EVENTO[evento.tipo as TipoDoEvento] ?? History;
             const quem = evento.por?.nome ?? null;
             return <li key={`${evento.em}-${evento.tipo}-${i}`} className={historico.historicoEvento}>
               <span className={historico.historicoIcone} aria-hidden="true"><Icone size={16} /></span>

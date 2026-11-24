@@ -94,7 +94,7 @@ export function ContaAPagarForm({ opcoes, lancamento, gerente, aoCancelar, aoSal
         <div className="ui-dialog-section-header"><Heading as="h3" icon={<Building2 />}>Para quem e de qual empresa</Heading></div>
         <div className="ui-dialog-grid">
           <CampoDeMenu label="Empresa" required options={empresas} value={campos.empresa ?? undefined} icon={<Building2 />} placeholder="Selecione a empresa"
-            disabled={editando} hint={editando ? "A empresa não muda depois de criada." : "Decide em qual empresa do OMIE a conta entra."} error={e("empresa")}
+            disabled={editando} hint={editando ? "A empresa não muda depois de criada." : "Decide de qual empresa é a conta."} error={e("empresa")}
             onChange={(v) => { const empresa = v as CamposDaContaAPagar["empresa"]; if (empresa !== campos.empresa) mudar({ empresa, categoriaId: "", contaCorrenteId: "" }); }} />
           <CampoDeMenu label="Fornecedor ou favorecido" required options={fornecedores} value={campos.fornecedorId || undefined} icon={<Truck />} placeholder="Selecione"
             disabled={travados} hint={dicaTravado} error={e("fornecedorId")} onChange={(v) => mudar({ fornecedorId: v })} />

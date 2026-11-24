@@ -5,7 +5,6 @@ import type { AnexoDoLancamento, Lancamento } from "@plugga/shared";
 
 import {
   acaoPrincipal,
-  algumOmieConectado,
   anexosDaFicha,
   boletoNovoNaCorrecao,
   camposDoLancamento,
@@ -18,9 +17,6 @@ import {
   corpoDoPagamento,
   corpoDoRecebimento,
   eventosPorDia,
-  fraseDoOmie,
-  omieConectado,
-  podeTentarDeNovoNoOmie,
   problemaDoAnexo,
   textoDaAcao,
   resumoDaTrilhaDoLancamento,
@@ -30,12 +26,15 @@ import {
 
 const u = (n: number) => `6f1c2a3b-0000-4000-8000-${String(n).padStart(12, "0")}`;
 const pessoa = { id: u(90), nome: "Gerente Exemplo (sintético)" };
+// O campo `omie` sai do contrato com a extinção da integração (24/11/2026). Por espalhamento,
+// o objeto vale com o contrato de antes e com o de depois; sai daqui junto com o campo.
+const legadoDoOmie = { omie: { estado: "nao_enviado", codigo: null, motivo: null } } as const;
 const saida: Lancamento = {
   id: u(1), tipo: "saida", codigo: "CP-0002", empresa: "plugga", etapa: "aberta", coluna: "preparo", emCobranca: false, cancelado: false,
   favorecido: { tipo: "fornecedor", id: u(2), nome: "Contabilidade Exemplo (sintético)" },
   categoria: { id: u(3), codigo: "2.03.02", nome: "Honorários contábeis", tipo: "despesa", natureza: "servico" },
   contaCorrente: { id: u(4), nome: "Itaú · Plugga" }, descricao: "Honorários contábeis · nov/2026", valor: "3800.00", vencimento: "2026-11-28",
-  competencia: null, prazo: { situacao: "no_prazo", dias: 5 }, liquidadoEm: null, anexos: 0, omie: { estado: "nao_enviado", codigo: null, motivo: null },
+  competencia: null, prazo: { situacao: "no_prazo", dias: 5 }, liquidadoEm: null, anexos: 0, ...legadoDoOmie,
   origem: { tipo: "avulsa", pedidoDeCompra: null }, createdAt: "2026-11-23T12:00:00.000Z",
   forma: "boleto", observacao: null,
   marcos: { criado: { por: pessoa, em: "2026-11-23T12:00:00.000Z" }, aprovado: null, pago: null, recebido: null, conciliado: null, cancelado: null },
@@ -93,30 +92,6 @@ describe("anexos", () => {
     assert.equal(problemaDoAnexo({ type: "image/png", size: 25 * 1024 * 1024 + 1 }), "o arquivo passa de 25 MB.");
     assert.equal(problemaDoAnexo({ type: "text/plain", size: 10 }), "envie PDF, JPG ou PNG.");
     assert.equal(problemaDoAnexo(undefined), "escolha o arquivo.");
-  });
-});
-
-describe("estado no OMIE", () => {
-  it("diz para qual empresa vai, e só erro e divergência ganham o tom de perigo", () => {
-    assert.deepEqual(fraseDoOmie(saida, "Plugga"), { texto: "Ainda não está no OMIE: vai para a Plugga quando for aprovada.", tom: "neutro" });
-    assert.equal(fraseDoOmie({ ...saida, omie: { estado: "enviado", codigo: "8812934", motivo: null } }, "Waze Energia").texto, "No OMIE da Waze Energia · código 8812934.");
-    assert.deepEqual(fraseDoOmie({ ...saida, omie: { estado: "erro", codigo: null, motivo: "A categoria não existe na Waze." } }, "Waze Energia"), { texto: "Não foi ao OMIE da Waze Energia: A categoria não existe na Waze.", tom: "perigo" });
-    assert.equal(fraseDoOmie({ ...saida, omie: { estado: "divergente", codigo: "1", motivo: null } }, "Plugga").tom, "perigo");
-  });
-
-  it("sem categoria, ainda não enviada: vai ao OMIE depois de classificada", () => {
-    const semCategoria = { ...saida, etapa: "aprovada" as const, categoria: null } as unknown as Lancamento;
-    assert.deepEqual(fraseDoOmie(semCategoria, "Waze Energia"), { texto: "Vai para o OMIE da Waze Energia depois de classificada a categoria.", tom: "neutro" });
-    assert.equal(fraseDoOmie({ ...semCategoria, etapa: "aberta" } as Lancamento, "Waze Energia").texto, "Vai para o OMIE da Waze Energia depois de aprovada e classificada a categoria.");
-    // Com motivo da fila (gravação não liberada), o motivo manda.
-    assert.equal(fraseDoOmie({ ...semCategoria, omie: { estado: "nao_enviado", codigo: null, motivo: "escrita_nao_liberada" } } as Lancamento, "Waze Energia").texto, "Ainda não está no OMIE da Waze Energia: a gravação no OMIE ainda não foi liberada.");
-  });
-
-  it("os motivos curtos da fila viram texto; o que não é código aparece como veio", () => {
-    assert.equal(fraseDoOmie({ ...saida, omie: { estado: "erro", codigo: null, motivo: "recusada" } }, "Plugga").texto, "Não foi ao OMIE da Plugga: o OMIE recusou o lançamento; confira categoria, conta corrente e valor.");
-    assert.deepEqual(fraseDoOmie({ ...saida, omie: { estado: "nao_enviado", codigo: null, motivo: "escrita_nao_liberada" } }, "Waze Energia"), { texto: "Ainda não está no OMIE da Waze Energia: a gravação no OMIE ainda não foi liberada.", tom: "neutro" });
-    assert.equal(fraseDoOmie({ ...saida, omie: { estado: "divergente", codigo: "1", motivo: "Valor no OMIE é R$ 499,90" } }, "Plugga").texto, "Diferente no OMIE da Plugga: Valor no OMIE é R$ 499,90");
-    assert.equal(fraseDoOmie({ ...saida, omie: { estado: "erro", codigo: null, motivo: "constructor" } }, "Plugga").texto, "Não foi ao OMIE da Plugga: constructor");
   });
 });
 
@@ -224,27 +199,3 @@ describe("ações da etapa", () => {
   });
 });
 
-describe("conector do OMIE", () => {
-  const com = (plugga: boolean, waze: boolean) => ({ conectores: { omie: { plugga, waze } } });
-  it("diz se a empresa está conectada; sem o campo, não se sabe", () => {
-    assert.equal(omieConectado(com(true, false), "plugga"), true);
-    assert.equal(omieConectado(com(true, false), "waze"), false);
-    assert.equal(omieConectado({}, "waze"), null);
-    assert.equal(omieConectado({ conectores: {} }, "waze"), null);
-    assert.equal(omieConectado(null, "plugga"), null);
-  });
-
-  it("alguma empresa conectada; sem saber, como antes", () => {
-    assert.equal(algumOmieConectado(com(false, false)), false);
-    assert.equal(algumOmieConectado(com(false, true)), true);
-    assert.equal(algumOmieConectado(null), true);
-  });
-
-  it("Tentar de novo só com erro no envio e o conector ligado ou desconhecido", () => {
-    const erro = { omie: { estado: "erro" as const, codigo: null, motivo: "recusada" } };
-    assert.equal(podeTentarDeNovoNoOmie(erro, true), true);
-    assert.equal(podeTentarDeNovoNoOmie(erro, null), true);
-    assert.equal(podeTentarDeNovoNoOmie(erro, false), false);
-    assert.equal(podeTentarDeNovoNoOmie({ omie: { estado: "nao_enviado", codigo: null, motivo: null } }, true), false);
-  });
-});

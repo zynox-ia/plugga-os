@@ -4,7 +4,7 @@ import type { OpcoesDoFinanceiro } from "@plugga/shared";
 import { ArrowDownLeft, ArrowUpRight, Building2, Landmark, Settings, Tag } from "lucide-react";
 import { useRef, useState, type KeyboardEvent } from "react";
 
-import { dataEmManaus, ROTULO_DA_EMPRESA, valorEmReais } from "../../lib/compras";
+import { ROTULO_DA_EMPRESA, valorEmReais } from "../../lib/compras";
 import { categoriasAgrupadas, contagemDasCategorias, contasDaTela, detalheDaConta, type AbaDasConfiguracoes } from "../../lib/configuracoes-do-financeiro";
 import estilosClientes from "../clientes/tela-clientes.module.css";
 import estilosLista from "../pipelines/lista-de-negocios.module.css";
@@ -21,9 +21,8 @@ const ABAS: { id: AbaDasConfiguracoes; rotulo: string; icone: typeof Landmark }[
 
 /**
  * Configurações do Financeiro (PLU-340, W8), aberto pela engrenagem do cabeçalho:
- * as contas correntes e as categorias de cada empresa, que vêm do OMIE e são as
- * mesmas opções dos menus dos lançamentos. Nesta entrega, só leitura; "Ler do
- * OMIE agora", Preferências e Nova categoria chegam com a PLU-342 e a PLU-340.
+ * as contas correntes e as categorias de cada empresa, as mesmas opções dos menus
+ * dos lançamentos. Nesta entrega, só leitura; o cadastro chega com a W8.
  */
 export function ConfiguracoesDoFinanceiro({ opcoes, aoFechar }: { opcoes: OpcoesDoFinanceiro; aoFechar: () => void }) {
   const [aba, setAba] = useState<AbaDasConfiguracoes>("contas");
@@ -44,7 +43,7 @@ export function ConfiguracoesDoFinanceiro({ opcoes, aoFechar }: { opcoes: Opcoes
   const empresas = [{ value: "", label: "Todas as empresas", icon: <Building2 /> }, { value: "plugga", label: ROTULO_DA_EMPRESA.plugga, icon: <Building2 /> }, { value: "waze", label: ROTULO_DA_EMPRESA.waze, icon: <Building2 /> }];
 
   return <Dialog title="Configurações do Financeiro" size="larga" className={styles.telaCheia} icon={<Settings size={20} />} onClose={aoFechar} cancelText="Fechar"
-    description="Contas correntes e categorias vêm do OMIE de cada empresa e são as mesmas opções dos menus dos lançamentos. Para mudar, altere no OMIE.">
+    description="As contas correntes e as categorias de cada empresa, as mesmas opções dos menus dos lançamentos.">
     <div className={styles.corpo}>
       <div className={styles.barra}>
         <div ref={abasRef} className={`${estilosClientes.abas} ${styles.abas}`} role="tablist" aria-label="Seções das configurações" onKeyDown={navegar}>
@@ -63,12 +62,12 @@ export function ConfiguracoesDoFinanceiro({ opcoes, aoFechar }: { opcoes: Opcoes
 function ContasCorrentes({ opcoes, empresa }: { opcoes: OpcoesDoFinanceiro; empresa: "plugga" | "waze" | null }) {
   const contas = contasDaTela(opcoes, empresa);
   return <div className={styles.tabela}>
-    <div className={styles.cabecalhoDaTabela}><h3>{contas.length === 1 ? "1 conta corrente" : `${contas.length} contas correntes`}</h3><p>Vêm do OMIE de cada empresa · somente leitura</p></div>
-    {contas.length === 0 ? <p className={styles.vazio} role="status">Nenhuma conta corrente {empresa ? `da ${ROTULO_DA_EMPRESA[empresa]}` : ""} lida do OMIE ainda.</p>
+    <div className={styles.cabecalhoDaTabela}><h3>{contas.length === 1 ? "1 conta corrente" : `${contas.length} contas correntes`}</h3><p>Por empresa · somente leitura</p></div>
+    {contas.length === 0 ? <p className={styles.vazio} role="status">Nenhuma conta corrente {empresa ? `da ${ROTULO_DA_EMPRESA[empresa]}` : ""} cadastrada ainda.</p>
       : <div className={styles.rolagem} role="region" aria-label="Contas correntes" tabIndex={0}>
         <table>
           <caption className="sr-only">Contas correntes</caption>
-          <thead><tr><th scope="col">Conta corrente</th><th scope="col">Empresa</th><th scope="col">Saldo (OMIE)</th><th scope="col">Situação</th></tr></thead>
+          <thead><tr><th scope="col">Conta corrente</th><th scope="col">Empresa</th><th scope="col">Saldo</th><th scope="col">Situação</th></tr></thead>
           <tbody>{contas.map((c) => <tr key={c.id}>
             <td data-l="Conta corrente"><div className={estilosLista.oportunidade}>
               {/* Ícone neutro: sem logotipo de banco por enquanto (decisão do André). */}
@@ -76,7 +75,7 @@ function ContasCorrentes({ opcoes, empresa }: { opcoes: OpcoesDoFinanceiro; empr
               <div className="celula-lead-bloco"><span className={`lead-nome ${estilosLista.titulo}`}>{c.nome}</span>{detalheDaConta(c) ? <span className={estilosLista.codigo}>{detalheDaConta(c)}</span> : null}</div>
             </div></td>
             <td data-l="Empresa"><EmpresaComPonto empresa={c.empresa} /></td>
-            <td data-l="Saldo (OMIE)"><div className={estilosLista.valor}><strong>{c.saldo !== null ? valorEmReais(c.saldo) : "—"}</strong><small>{c.saldoLidoEm ? `lido em ${dataEmManaus(c.saldoLidoEm)}` : "ainda não lido"}</small></div></td>
+            <td data-l="Saldo"><div className={estilosLista.valor}><strong>{c.saldoCalculado ? valorEmReais(c.saldoCalculado) : "—"}</strong><small>{c.saldoCalculado ? "saldo inicial mais o pago e o recebido" : "sem saldo inicial"}</small></div></td>
             <td data-l="Situação"><span className={`ui-badge ${c.ativa ? "ui-tone--neutral" : "ui-tone--warning"}`}>{c.ativa ? "Ativa" : "Inativa"}</span></td>
           </tr>)}</tbody>
         </table>
@@ -95,10 +94,10 @@ function Categorias({ opcoes, empresa, busca, aoBuscar }: { opcoes: OpcoesDoFina
       <span className={styles.contagem} role="status">{contagemDasCategorias(grupos)}</span>
     </div>
     <div className={styles.tabela}>
-      {grupos.length === 0 ? <p className={styles.vazio} role="status">{busca ? "Nenhuma categoria com essa busca." : "Nenhuma categoria lida do OMIE ainda."}</p>
+      {grupos.length === 0 ? <p className={styles.vazio} role="status">{busca ? "Nenhuma categoria com essa busca." : "Nenhuma categoria cadastrada ainda."}</p>
         : <div className={styles.rolagem} role="region" aria-label="Categorias" tabIndex={0}>
           <table>
-            <caption className="sr-only">Categorias do OMIE, por grupo</caption>
+            <caption className="sr-only">Categorias, por grupo</caption>
             <thead><tr><th scope="col">Categoria</th><th scope="col">Tipo</th><th scope="col">Empresa</th><th scope="col">Situação</th></tr></thead>
             {grupos.map((g) => <tbody key={g.chave}>
               <tr className={styles.linhaDoGrupo}><th scope="rowgroup" colSpan={4}><span>{g.codigo}</span>{g.nome}<small>{g.categorias.length === 1 ? "1 categoria" : `${g.categorias.length} categorias`}</small></th></tr>

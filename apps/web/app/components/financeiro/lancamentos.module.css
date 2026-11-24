@@ -43,7 +43,6 @@
 .caixa { display: grid; place-items: center; flex-shrink: 0; width: 40px; height: 40px; border-radius: 12px; background: var(--ui-subtle); color: var(--ui-muted); }
 
 .canto { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ui-muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.pendencia { display: inline-flex; color: var(--ui-danger); }
 
 .quem { min-width: 0; }
 .quem h3 { margin: 0; min-width: 0; font-size: 15px; font-weight: 500; line-height: 1.3; }
@@ -81,7 +80,6 @@
 .cartaoQuadro :global(.cartao-negocio) { border-radius: var(--radius-lg); }
 .empresaQuadro { font-size: 12px; }
 .valorQuadro { margin: 0; font-size: 17px; font-weight: 500; color: var(--ui-text); font-variant-numeric: tabular-nums; }
-.alertaQuadro { display: flex; align-items: center; gap: 6px; margin: 0; font-size: 12px; color: var(--ui-danger); }
 .prazoQuadro { display: inline-flex; align-items: center; gap: 6px; min-width: 0; font-size: 12px; color: var(--ui-muted); }
 .prazoQuadro span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rodapeQuadro { display: flex; align-items: center; justify-content: space-between; gap: 8px; }

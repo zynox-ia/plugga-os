@@ -5,7 +5,7 @@ import { ArrowDownLeft, Eye, Receipt } from "lucide-react";
 import type { CSSProperties } from "react";
 
 import { valorEmReais } from "../../lib/compras";
-import { prazoDoLancamento, resumoDoLancamento, rotuloDoValor, seloDaEtapa, somaDoTipo, temPendenciaNoOmie } from "../../lib/financeiro";
+import { prazoDoLancamento, resumoDoLancamento, rotuloDoValor, seloDaEtapa, somaDoTipo } from "../../lib/financeiro";
 import estilosLista from "../pipelines/lista-de-negocios.module.css";
 import { ShellCard, ShellTable } from "../plugga-shell";
 import { EmpresaComPonto } from "../suprimentos/empresa";
@@ -54,7 +54,6 @@ export function ListaDosLancamentos({ itens, total, aoAbrir }: { itens: Lancamen
               </div></td>
               <td data-l="Etapa"><div className={estilosLista.etapa}>
                 <span className="ui-badge ui-tone--neutral" title={selo.completo}>{selo.completo}</span>
-                {temPendenciaNoOmie(l) ? <small className={styles.perigo}>{l.omie.estado === "erro" ? "Não foi ao OMIE" : "Diferente no OMIE"}</small> : null}
               </div></td>
               <td><div className={estilosLista.acoesLinha}><Button variant="secondary" size="sm" iconOnly icon={<Eye size={14} />} aria-label={`Ver ${l.codigo}`} onClick={() => aoAbrir(l.id)} /></div></td>
             </tr>;

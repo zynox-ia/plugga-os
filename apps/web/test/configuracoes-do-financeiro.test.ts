@@ -21,7 +21,7 @@ describe("contas correntes", () => {
     assert.deepEqual(contasDaTela(opcoes, null).map((c) => c.nome), ["Itaú", "BB", "Sicoob"]);
   });
 
-  it("o detalhe mostra só o que o OMIE informou", () => {
+  it("o detalhe mostra só o que a conta tem cadastrado", () => {
     assert.equal(detalheDaConta({ banco: "Itaú", agencia: "0412", numero: "23456-7" }), "Itaú · ag 0412 · cc 23456-7");
     assert.equal(detalheDaConta({ banco: "Itaú", agencia: null, numero: null }), "Itaú");
     assert.equal(detalheDaConta({ banco: null, agencia: null, numero: null }), "");
@@ -31,7 +31,7 @@ describe("contas correntes", () => {
 describe("categorias", () => {
   const opcoes = { categorias: [categoria(1, "2.01.10"), categoria(2, "1.01.01", { tipo: "receita", nome: "Gestão de energia" }), categoria(3, "2.01.2"), categoria(4, "1.02.01", { empresa: "waze", nome: "Serviços de engenharia" })] };
 
-  it("agrupa pelo grupo do OMIE, na ordem numérica do código", () => {
+  it("agrupa pelos dois primeiros níveis do código, na ordem numérica", () => {
     const grupos = categoriasAgrupadas(opcoes, null);
     assert.deepEqual(grupos.map((g) => [g.codigo, g.categorias.map((c) => c.codigo)]), [["1.01", ["1.01.01"]], ["1.02", ["1.02.01"]], ["2.01", ["2.01.2", "2.01.10"]]]);
     assert.equal(contagemDasCategorias(grupos), "4 categorias em 3 grupos");

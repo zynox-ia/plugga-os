@@ -1,10 +1,10 @@
 import type { LancamentoResumo } from "@plugga/shared";
-import { Eye, Paperclip, TriangleAlert } from "lucide-react";
+import { Eye, Paperclip } from "lucide-react";
 import Link from "next/link";
 import type { CSSProperties } from "react";
 
 import { valorEmReais } from "../../lib/compras";
-import { prazoDoLancamento, resumoDoLancamento, rotuloDoValor, seloDaEtapa, temPendenciaNoOmie } from "../../lib/financeiro";
+import { prazoDoLancamento, resumoDoLancamento, rotuloDoValor, seloDaEtapa } from "../../lib/financeiro";
 import estilosClientes from "../clientes/tela-clientes.module.css";
 import { EmpresaComPonto } from "../suprimentos/empresa";
 import { Button } from "../ui";
@@ -16,8 +16,8 @@ export type AcoesDoLancamento = { hrefDaFicha: (id: string) => string; aoAbrir: 
 /**
  * Visão padrão dos Lançamentos (PLU-336): o card em três níveis do protótipo
  * aprovado. Quem e a descrição; o valor em destaque; o prazo e a etapa no
- * rodapé. Código e empresa discretos no canto; o OMIE só aparece quando há
- * pendência. No máximo uma cor de destaque por card.
+ * rodapé. Código e empresa discretos no canto. No máximo uma cor de destaque
+ * por card.
  */
 export function CardsDosLancamentos({ itens, hrefDaFicha, aoAbrir }: { itens: LancamentoResumo[] } & AcoesDoLancamento) {
   return <div className={styles.areaCards}><div className={styles.grade}>
@@ -30,15 +30,13 @@ function CardDoLancamento({ l, indice, hrefDaFicha, aoAbrir }: { l: LancamentoRe
   const Icone = ICONE_DA_NATUREZA[l.categoria?.natureza ?? "outros"];
   const prazo = prazoDoLancamento(l);
   const selo = seloDaEtapa(l);
-  const pendencia = temPendenciaNoOmie(l);
   const valor = valorEmReais(l.valor) ?? "R$ 0,00";
   const resumo = resumoDoLancamento(l);
   return <article className={`${estilosClientes.card} ${styles.card} ${styles.entra}`} style={{ "--i": indice } as CSSProperties}
-    aria-label={`${l.codigo}: ${l.favorecido.nome}, ${valor}${pendencia ? ", com pendência no OMIE" : ""}`}>
+    aria-label={`${l.codigo}: ${l.favorecido.nome}, ${valor}`}>
     <div className={styles.topo}>
       <span className={styles.caixa} aria-hidden="true" title={l.categoria?.nome ?? "Sem categoria"}><Icone size={20} /></span>
       <div className={styles.canto}>
-        {pendencia ? <span className={styles.pendencia} role="img" aria-label="Pendência no OMIE" title="Pendência no OMIE: veja na ficha"><TriangleAlert size={13} aria-hidden="true" /></span> : null}
         <span>{l.codigo}</span><span aria-hidden="true">·</span><EmpresaComPonto empresa={l.empresa} curto />
       </div>
     </div>

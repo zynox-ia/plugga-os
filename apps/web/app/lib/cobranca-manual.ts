@@ -39,7 +39,7 @@ export function competenciasParaEscolher(hoje: string): { value: string; label: 
   return [-1, 0, -2, -3].map((n) => somarMeses(atual, n)).map((m) => ({ value: m, label: competenciaLegivel(m) }));
 }
 
-/** Categorias de receita ativas da empresa, na ordem do código do OMIE. */
+/** Categorias de receita ativas da empresa, na ordem do código. */
 export function categoriasDaEntrada(opcoes: Pick<OpcoesDoFinanceiro, "categorias">, empresa: CompanyKey | null) {
   if (!empresa) return [];
   return opcoes.categorias

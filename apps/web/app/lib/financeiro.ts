@@ -159,16 +159,11 @@ export const OPCOES_DE_SITUACAO: readonly OpcaoDeSituacao[] = [
   { valor: "conciliado", rotulo: "Conciliadas", curto: "Concluídas · Conciliadas", grupo: "Concluídas", icone: "link" },
   { valor: "cancelado", rotulo: "Canceladas", curto: "Concluídas · Canceladas", grupo: "Concluídas", icone: "cancelado" },
   { valor: "vencidos", rotulo: "Vencidos · a pagar e a receber", curto: "Vencidos", grupo: "Atenção", icone: "alerta" },
-  { valor: "erro", rotulo: "Com erro no OMIE", curto: "Com erro no OMIE", grupo: "Atenção", icone: "nuvem" },
 ];
 
 /** As opções que valem para o alcance da pessoa: quem só paga não vê o grupo A receber. */
-/**
- * As situações que a pessoa alcança. "Com erro no OMIE" só aparece com o OMIE
- * conectado para alguma empresa: com o conector desligado, nada vai ao OMIE.
- */
-export function opcoesDeSituacaoPara(alcance: ListarLancamentosResposta["alcance"], { omieConectado = true }: { omieConectado?: boolean } = {}): OpcaoDeSituacao[] {
-  return OPCOES_DE_SITUACAO.filter((o) => (!o.tipo || (o.tipo === "saida" ? alcance.saidas : alcance.entradas)) && (omieConectado || o.valor !== "erro"));
+export function opcoesDeSituacaoPara(alcance: ListarLancamentosResposta["alcance"]): OpcaoDeSituacao[] {
+  return OPCOES_DE_SITUACAO.filter((o) => !o.tipo || (o.tipo === "saida" ? alcance.saidas : alcance.entradas));
 }
 
 export const OPCOES_DE_VENCIMENTO: readonly { valor: VencimentoDoFiltro | ""; rotulo: string }[] = [
@@ -194,16 +189,13 @@ export function seloDaEtapa(l: Pick<LancamentoResumo, "tipo" | "etapa" | "emCobr
     case "aprovada": return { curto: "Para pagar", completo: "Para pagar" };
     case "paga": return { curto: "A conciliar", completo: "Paga · a conciliar" };
     case "gerada": return { curto: "Emitir a NF", completo: "Emitir a NF" };
-    case "nf_emitida": return { curto: "Gerar o boleto", completo: "Gerar o boleto" };
+    case "nf_emitida": return { curto: "Anexar o boleto", completo: "Anexar o boleto" };
     case "boleto_gerado": return { curto: "Enviar ao cliente", completo: "Enviar ao cliente" };
     case "enviada": return { curto: "Aguardando", completo: "Aguardando pagamento" };
     case "recebida": return { curto: "A conciliar", completo: "Recebida · a conciliar" };
     case "conciliada": return { curto: "Conciliada", completo: "Conciliada" };
   }
 }
-
-/** Pendência no OMIE: o card mostra só um ícone de alerta (o resto fica na ficha). */
-export const temPendenciaNoOmie = (l: Pick<LancamentoResumo, "omie">): boolean => l.omie.estado === "erro" || l.omie.estado === "divergente";
 
 const plural = (n: number, um: string, varios: string) => `${n} ${n === 1 ? um : varios}`;
 
@@ -212,12 +204,12 @@ export type PrazoDoCard = {
   data: string;
   /** "vencido há 3 dias", "vence hoje", "paga". */
   relativo: string;
-  /** Só quando sinaliza algo, e nunca junto com uma pendência do OMIE (uma cor por card). */
+  /** Só quando sinaliza algo (vencido, vence hoje). */
   tom: "perigo" | "alerta" | null;
 };
 
 /** Rodapé do card e coluna Vencimento da lista. */
-export function prazoDoLancamento(l: Pick<LancamentoResumo, "tipo" | "prazo" | "liquidadoEm" | "vencimento" | "cancelado" | "etapa" | "omie">): PrazoDoCard {
+export function prazoDoLancamento(l: Pick<LancamentoResumo, "tipo" | "prazo" | "liquidadoEm" | "vencimento" | "cancelado" | "etapa">): PrazoDoCard {
   if (l.cancelado) return { data: diaCurto(l.vencimento), relativo: "cancelada", tom: null };
   if (l.liquidadoEm) {
     const relativo = l.etapa === "conciliada" ? "conciliada" : l.tipo === "saida" ? "paga" : "recebida";
@@ -225,10 +217,9 @@ export function prazoDoLancamento(l: Pick<LancamentoResumo, "tipo" | "prazo" | "
   }
   const data = diaCurto(l.vencimento);
   if (!l.prazo) return { data, relativo: "", tom: null };
-  const pendencia = temPendenciaNoOmie(l);
   const { dias } = l.prazo;
-  if (l.prazo.situacao === "vencido") return { data, relativo: `vencido há ${plural(-dias, "dia", "dias")}`, tom: pendencia ? null : "perigo" };
-  if (l.prazo.situacao === "vence_hoje") return { data, relativo: "vence hoje", tom: pendencia ? null : "alerta" };
+  if (l.prazo.situacao === "vencido") return { data, relativo: `vencido há ${plural(-dias, "dia", "dias")}`, tom: "perigo" };
+  if (l.prazo.situacao === "vence_hoje") return { data, relativo: "vence hoje", tom: "alerta" };
   return { data, relativo: dias === 1 ? "vence amanhã" : `vence em ${plural(dias, "dia", "dias")}`, tom: null };
 }
 

@@ -7,7 +7,7 @@ import { useState } from "react";
 import { Button } from "../ui";
 import { ConfiguracoesDoFinanceiro } from "./configuracoes-do-financeiro";
 
-/** A engrenagem das Configurações do Financeiro (contas e categorias do OMIE) no cabeçalho das telas do módulo. */
+/** A engrenagem das Configurações do Financeiro (contas correntes e categorias) no cabeçalho das telas do módulo. */
 export function EngrenagemDoFinanceiro({ opcoes }: { opcoes: OpcoesDoFinanceiro }) {
   const [aberta, setAberta] = useState(false);
   return <>

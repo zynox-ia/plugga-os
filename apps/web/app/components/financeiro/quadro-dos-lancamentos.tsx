@@ -1,11 +1,11 @@
 "use client";
 
 import type { ColunaDoQuadroFinanceiro, LancamentoResumo, QuadroFinanceiro } from "@plugga/shared";
-import { CalendarDays, Kanban, TriangleAlert } from "lucide-react";
+import { CalendarDays, Kanban } from "lucide-react";
 import { useLayoutEffect, useRef, useState, type CSSProperties, type RefObject } from "react";
 
 import { valorCurto, valorEmReais } from "../../lib/compras";
-import { prazoDoLancamento, resumoDoLancamento, seloDaEtapa, temPendenciaNoOmie } from "../../lib/financeiro";
+import { prazoDoLancamento, resumoDoLancamento, seloDaEtapa } from "../../lib/financeiro";
 import { calcularLayoutKanban, ESPACO_COLUNAS_KANBAN } from "../../lib/layout-kanban";
 import estilosCartao from "../pipelines/cartao-de-negocio.module.css";
 import { EmpresaComPonto } from "../suprimentos/empresa";
@@ -35,7 +35,6 @@ function CartaoDoLancamento({ l, aoAbrir }: { l: LancamentoResumo; aoAbrir: (id:
       <p className={estilosCartao.cliente} title={resumoDoLancamento(l)}><span>{resumoDoLancamento(l)}</span></p>
     </div></div>
     <p className={styles.valorQuadro}>{valorEmReais(l.valor)}</p>
-    {temPendenciaNoOmie(l) ? <p className={styles.alertaQuadro}><TriangleAlert size={12} aria-hidden="true" /><span>{l.omie.estado === "erro" ? "Não foi ao OMIE" : "Diferente no OMIE"}</span></p> : null}
     <footer className={`${estilosCartao.rodape} ${styles.rodapeQuadro}`}>
       {/* A coluna estreita mostra o que sinaliza: o prazo relativo em aberto, o dia depois de liquidado. */}
       <span className={`${styles.prazoQuadro} ${prazo.tom ? styles[prazo.tom] : ""}`} title={prazo.relativo ? `${prazo.data} · ${prazo.relativo}` : prazo.data}>

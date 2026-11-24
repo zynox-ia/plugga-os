@@ -27,7 +27,7 @@
 .cabecalhoDaTabela h3 { margin: 0; font-size: 15px; font-weight: 500; }
 .cabecalhoDaTabela p { margin: 2px 0 0; font-size: 12px; color: var(--ui-muted); }
 
-/* O grupo do OMIE como faixa entre as categorias ("1.01 · Receitas de gestão de energia"). */
+/* O grupo do plano de contas como faixa entre as categorias ("1.01 · Receitas de gestão de energia"). */
 .linhaDoGrupo th { padding: 10px 16px; text-align: left !important; font-size: 12.5px; font-weight: 500; color: var(--ui-text); background: var(--ui-subtle); border-top: 1px solid var(--ui-divider); }
 .linhaDoGrupo th span { margin-right: 10px; color: var(--ui-muted); font-variant-numeric: tabular-nums; }
 .linhaDoGrupo th small { margin-left: 8px; font-size: 12px; font-weight: 400; color: var(--ui-muted); }

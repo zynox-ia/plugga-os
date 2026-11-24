@@ -57,7 +57,7 @@ export function camposDoLancamento(l: Lancamento): CamposDaContaAPagar {
   };
 }
 
-/** Categorias de despesa ativas da empresa, agrupadas como no OMIE ("2.01 · Materiais"). */
+/** Categorias de despesa ativas da empresa, na ordem do código ("2.01.01", "2.01.02"…). */
 export function categoriasDaSaida(opcoes: Pick<OpcoesDoFinanceiro, "categorias">, empresa: CompanyKey | null, atual?: string) {
   if (!empresa) return [];
   return opcoes.categorias
@@ -166,63 +166,6 @@ export function eventosPorDia<T extends { em: string }>(eventos: readonly T[], h
     grupos.set(dia, [...(grupos.get(dia) ?? []), evento]);
   }
   return [...grupos.entries()].map(([dia, itens]) => ({ dia, rotulo: dia === hoje ? "Hoje" : dia === diaDeOntem ? "Ontem" : diaLegivelDoIso(dia), itens }));
-}
-
-// ---------------------------------------------------------------- conector do OMIE
-
-/**
- * O OMIE está conectado (par conferido e confirmado) para a empresa? Nulo quando não
- * se sabe (as opções falharam ou não trazem o conector): a tela segue como antes.
- */
-export function omieConectado(opcoes: Pick<OpcoesDoFinanceiro, "conectores"> | null, empresa: CompanyKey): boolean | null {
-  const omie = opcoes?.conectores?.omie;
-  return omie && empresa in omie ? Boolean(omie[empresa]) : null;
-}
-
-/** Alguma empresa com o OMIE conectado; sem saber, como antes (sim). */
-export function algumOmieConectado(opcoes: Pick<OpcoesDoFinanceiro, "conectores"> | null): boolean {
-  const omie = opcoes?.conectores?.omie;
-  return omie ? Object.values(omie).some(Boolean) : true;
-}
-
-/** "Tentar de novo" só com erro no envio e o conector ligado (ou sem saber). */
-export const podeTentarDeNovoNoOmie = (l: Pick<Lancamento, "omie">, conectado: boolean | null): boolean => l.omie.estado === "erro" && conectado !== false;
-
-/**
- * Os motivos curtos da fila do OMIE (PLU-342), em texto para a tela. Um motivo
- * fora da lista (o texto de uma divergência lida do OMIE) aparece como veio.
- */
-const MOTIVO_DO_OMIE: Record<string, string> = {
-  credenciais_invalidas: "o OMIE recusou as credenciais da empresa; a Gerente do Financeiro confere em Integrações",
-  limite_de_consumo: "o limite de uso da API do OMIE foi atingido; o envio volta sozinho mais tarde",
-  recusada: "o OMIE recusou o lançamento; confira categoria, conta corrente e valor",
-  resposta_inesperada: "o OMIE respondeu algo inesperado",
-  indisponivel: "o OMIE não respondeu",
-  modo_mock: "a integração está em modo de demonstração",
-  modo_sem_escrita: "a integração com o OMIE está só em leitura",
-  escrita_nao_liberada: "a gravação no OMIE ainda não foi liberada",
-};
-/** O motivo como fim de frase: o código vira texto com ponto final; o texto cru fica como veio. */
-// `Object.hasOwn`: um motivo como "constructor" passa no formato do banco e não pode cair no protótipo.
-export const motivoDoOmie = (motivo: string): string => (Object.hasOwn(MOTIVO_DO_OMIE, motivo) ? `${MOTIVO_DO_OMIE[motivo]}.` : motivo);
-
-/** O estado do lançamento no OMIE, numa frase (aba OMIE e a faixa da visão geral). */
-export function fraseDoOmie(l: Pick<Lancamento, "omie" | "tipo"> & { categoria?: Lancamento["categoria"] | null; etapa?: Lancamento["etapa"] }, empresa: string): { texto: string; tom: "neutro" | "perigo" } {
-  const { estado, codigo, motivo } = l.omie;
-  // Sem categoria (CC14), a fila não envia: a despesa sai sozinha quando for classificada (e, se aberta, aprovada).
-  if (estado === "nao_enviado" && !motivo && l.categoria === null) {
-    return { texto: `Vai para o OMIE da ${empresa} depois de ${l.etapa === "aberta" ? "aprovada e classificada a categoria" : "classificada a categoria"}.`, tom: "neutro" };
-  }
-  switch (estado) {
-    case "nao_enviado": return motivo
-      ? { texto: `Ainda não está no OMIE da ${empresa}: ${motivoDoOmie(motivo)}`, tom: "neutro" }
-      : { texto: `Ainda não está no OMIE: vai para a ${empresa} quando ${l.tipo === "saida" ? "for aprovada" : "for gerada"}.`, tom: "neutro" };
-    case "enviando": return { texto: `Enviando ao OMIE da ${empresa}…`, tom: "neutro" };
-    case "enviado": return { texto: `No OMIE da ${empresa}${codigo ? ` · código ${codigo}` : ""}.`, tom: "neutro" };
-    case "baixado": return { texto: `Baixado no OMIE da ${empresa}${codigo ? ` · código ${codigo}` : ""}.`, tom: "neutro" };
-    case "erro": return { texto: `Não foi ao OMIE da ${empresa}${motivo ? `: ${motivoDoOmie(motivo)}` : "."}`, tom: "perigo" };
-    case "divergente": return { texto: `Diferente no OMIE da ${empresa}${motivo ? `: ${motivoDoOmie(motivo)}` : "."}`, tom: "perigo" };
-  }
 }
 
 // ---------------------------------------------------------------- anexos

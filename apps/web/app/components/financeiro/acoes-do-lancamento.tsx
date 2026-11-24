@@ -70,7 +70,7 @@ export function AcaoDaEtapaDoLancamento({ l, opcoes, ocupado, hoje, formId, aoAg
   if (l.cancelado) return null;
   switch (l.etapa) {
     case "aberta": return pode("aprovar") ? <Destaque icone={CheckCircle2} titulo="Aprovação">
-      <p>Confira e aprove. Aprovada, a conta segue para o pagamento e vai ao OMIE da {empresa}.</p>
+      <p>Confira e aprove. Aprovada, a conta da {empresa} segue para o pagamento.</p>
     </Destaque> : null;
     case "aprovada": return pode("registrar_pagamento") ? <Destaque icone={Wallet} titulo="Registrar pagamento">
       <p>{valorEmReais(l.valor)} para <strong>{l.favorecido.nome}</strong>. O comprovante fica guardado no lançamento, no armazenamento do Plugga OS.</p>
@@ -82,10 +82,10 @@ export function AcaoDaEtapaDoLancamento({ l, opcoes, ocupado, hoje, formId, aoAg
       <p className={estilosFicha.muted}>Falta conciliar com a linha do extrato.</p>
     </Destaque>;
     case "gerada": return pode("registrar_nf") ? <Destaque icone={FileText} titulo="Emitir a nota fiscal">
-      <p>A cobrança já está no OMIE da {empresa}{l.omie.codigo ? ` (título ${l.omie.codigo})` : ""}. Emita a NFS-e no portal da prefeitura e registre o número; o PDF pode ir junto.</p>
+      <p>Emita a NFS-e da {empresa} no portal da prefeitura e registre o número; o PDF pode ir junto.</p>
     </Destaque> : null;
-    case "nf_emitida": return pode("registrar_boleto") ? <Destaque icone={Barcode} titulo="Gerar o boleto">
-      <p>Gere o boleto no OMIE da {empresa} e anexe o PDF aqui: o link do OMIE vale 24 horas, o arquivo guardado não expira.</p>
+    case "nf_emitida": return pode("registrar_boleto") ? <Destaque icone={Barcode} titulo="Anexar o boleto">
+      <p>Gere o boleto no banco da {empresa} e anexe o PDF aqui. Ele fica guardado no lançamento e vai junto com a NF para o cliente.</p>
       {l.nf ? <p className={estilosFicha.muted}>NF {l.nf.numero} · {valorEmReais(l.valor)} · vence em {diaLegivel(l.vencimento)}.</p> : null}
       <FormDoBoleto l={l} ocupado={ocupado} formId={formId} aoAgir={aoAgir} aoAnexar={aoAnexar} />
     </Destaque> : null;
@@ -153,7 +153,7 @@ function FormDoPagamento({ l, opcoes, ocupado, hoje, formId, aoAgir, aoAnexar }:
   </form>;
 }
 
-/** O PDF do boleto (obrigatório até o GerarBoleto do OMIE): anexa e registra. */
+/** O PDF do boleto, gerado no banco: anexa e registra. */
 function FormDoBoleto({ l, ocupado, formId, aoAgir, aoAnexar }: { l: Lancamento; ocupado: boolean; formId: string; aoAgir: Agir; aoAnexar: Anexar }) {
   const [arquivo, setArquivo] = useState<File[]>([]);
   const [erro, setErro] = useState<string | null>(null);
@@ -308,7 +308,7 @@ export function CorrigirValor({ l, aoVoltar, aoAgir, aoAnexar }: { l: Lancamento
       <TextField label="Novo valor" required inputMode="decimal" prefix="R$" autoFocus value={valor} onChange={(e) => setValor(valorEmDigitacao(e.target.value))} placeholder="0,00" error={erros.valor} />
       <TextareaField label="Motivo" required maxLength={500} value={motivo} onChange={(e) => setMotivo(e.target.value)} placeholder="Ex.: juros do atraso" error={erros.motivo} />
       {pedeBoleto ? <>
-        <Alert tone="info" title="O boleto já foi gerado com o valor antigo">Gere no OMIE o boleto com o valor novo e anexe aqui. O anterior fica nas versões anteriores.</Alert>
+        <Alert tone="info" title="O boleto já foi gerado com o valor antigo">Gere no banco o boleto com o valor novo e anexe aqui. O anterior fica nas versões anteriores.</Alert>
         <CampoDoArquivo rotulo="Boleto com o valor novo" obrigatorio anexoAtual={null} arquivo={arquivo} aoMudar={(f) => { setArquivo(f); setErros((e) => ({ ...e, boleto: "" })); }} erro={erros.boleto || undefined} disabled={enviando} />
       </> : null}
     </form>

@@ -1,10 +1,8 @@
 import type { CategoriaFinanceira, CompanyKey, ContaCorrente, OpcoesDoFinanceiro } from "@plugga/shared";
 
 /**
- * Configurações do Financeiro (PLU-340, W8), em leitura: as contas correntes e as
- * categorias que vêm do OMIE de cada empresa, as mesmas dos menus dos
- * lançamentos. "Ler do OMIE agora", Preferências e Nova categoria chegam com a
- * PLU-342 e a PLU-340.
+ * Configurações do Financeiro (PLU-340, W8): as contas correntes e as categorias
+ * do Plugga OS em cada empresa, as mesmas dos menus dos lançamentos.
  */
 
 export type AbaDasConfiguracoes = "contas" | "categorias";
@@ -16,7 +14,7 @@ export function contasDaTela(opcoes: Pick<OpcoesDoFinanceiro, "contasCorrentes">
     .sort((a, b) => Number(b.ativa) - Number(a.ativa) || a.empresa.localeCompare(b.empresa) || a.nome.localeCompare(b.nome, "pt-BR"));
 }
 
-/** "Itaú · ag 0412 · cc 23456-7", só com o que o OMIE informou. */
+/** "Itaú · ag 0412 · cc 23456-7", só com o que a conta tem cadastrado. */
 export function detalheDaConta(c: Pick<ContaCorrente, "banco" | "agencia" | "numero">): string {
   return [c.banco, c.agencia ? `ag ${c.agencia}` : null, c.numero ? `cc ${c.numero}` : null].filter(Boolean).join(" · ");
 }
@@ -26,7 +24,7 @@ const normalizar = (v: string) => v.normalize("NFD").replace(/\p{Diacritic}/gu, 
 export type GrupoDeCategorias = { chave: string; codigo: string; nome: string; categorias: CategoriaFinanceira[] };
 
 /**
- * As categorias agrupadas como no OMIE ("1.01 · Receitas de gestão de energia"),
+ * As categorias agrupadas pelos dois primeiros níveis do código ("1.01 · Receitas de gestão de energia"),
  * na ordem do código. A busca casa nome, código e o nome do grupo, sem acento.
  * O plano de contas é de cada empresa: com as duas na tela, o grupo junta código
  * e nome, para a categoria da Waze não aparecer sob o nome do grupo da Plugga.

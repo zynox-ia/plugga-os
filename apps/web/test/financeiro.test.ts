@@ -24,6 +24,9 @@ import {
   temFiltroNosLancamentos,
 } from "../app/lib/financeiro.ts";
 
+// O campo `omie` sai do contrato com a extinção da integração (24/11/2026). Por espalhamento,
+// o objeto vale com o contrato de antes e com o de depois; sai daqui junto com o campo.
+const legadoDoOmie = { omie: { estado: "nao_enviado", codigo: null, motivo: null } } as const;
 const base: LancamentoResumo = {
   id: "6f1c2a3b-0000-4000-8000-000000000001",
   tipo: "saida",
@@ -43,7 +46,7 @@ const base: LancamentoResumo = {
   prazo: { situacao: "no_prazo", dias: 1 },
   liquidadoEm: null,
   anexos: 3,
-  omie: { estado: "nao_enviado", codigo: null, motivo: null },
+  ...legadoDoOmie,
   origem: { tipo: "pedido_de_compra", pedidoDeCompra: { id: "6f1c2a3b-0000-4000-8000-000000000004", numero: 131 } },
   createdAt: "2026-11-21T16:02:00.000Z",
 };
@@ -94,8 +97,8 @@ describe("filtro de Situação", () => {
   });
 
   it("quem só paga não vê o grupo A receber nem Recebidas", () => {
-    assert.ok(opcoesDeSituacaoPara({ saidas: true, entradas: true }).some((o) => o.valor === "erro"));
-    assert.ok(!opcoesDeSituacaoPara({ saidas: true, entradas: true }, { omieConectado: false }).some((o) => o.valor === "erro"));
+    // A situação "Com erro no OMIE" saiu com a extinção da integração (24/11/2026).
+    assert.ok(!opcoesDeSituacaoPara({ saidas: true, entradas: true }).some((o) => (o.valor as string) === "erro"));
     const opcoes = opcoesDeSituacaoPara({ saidas: true, entradas: false });
     assert.ok(!opcoes.some((o) => o.grupo === "A receber" || o.valor === "recebido"));
     assert.ok(opcoes.some((o) => o.valor === "pago") && opcoes.some((o) => o.valor === "vencidos"));
@@ -108,21 +111,20 @@ describe("card do lançamento", () => {
     assert.equal(seloDaEtapa(base).curto, "Para pagar");
     assert.deepEqual(seloDaEtapa({ ...base, etapa: "paga" }), { curto: "A conciliar", completo: "Paga · a conciliar" });
     assert.equal(seloDaEtapa(entrada({ etapa: "gerada" })).curto, "Emitir a NF");
-    assert.equal(seloDaEtapa(entrada({ etapa: "nf_emitida" })).curto, "Gerar o boleto");
+    assert.equal(seloDaEtapa(entrada({ etapa: "nf_emitida" })).curto, "Anexar o boleto");
     assert.equal(seloDaEtapa(entrada({ etapa: "boleto_gerado" })).curto, "Enviar ao cliente");
     assert.deepEqual(seloDaEtapa(entrada({ etapa: "enviada" })), { curto: "Aguardando", completo: "Aguardando pagamento" });
     assert.equal(seloDaEtapa(entrada({ etapa: "enviada", emCobranca: true })).curto, "Em cobrança");
     assert.equal(seloDaEtapa({ ...base, cancelado: true }).curto, "Cancelada");
   });
 
-  it("o prazo só ganha cor quando sinaliza, e nunca junto com pendência no OMIE", () => {
+  it("o prazo só ganha cor quando sinaliza", () => {
     assert.deepEqual(prazoDoLancamento(base), { data: "24 nov", relativo: "vence amanhã", tom: null });
     assert.deepEqual(prazoDoLancamento({ ...base, prazo: { situacao: "no_prazo", dias: 4 } }), { data: "24 nov", relativo: "vence em 4 dias", tom: null });
     assert.deepEqual(prazoDoLancamento({ ...base, prazo: { situacao: "vence_hoje", dias: 0 } }).tom, "alerta");
     const vencido = { ...base, vencimento: "2026-11-20", prazo: { situacao: "vencido" as const, dias: -3 } };
     assert.deepEqual(prazoDoLancamento(vencido), { data: "20 nov", relativo: "vencido há 3 dias", tom: "perigo" });
     assert.equal(prazoDoLancamento({ ...vencido, prazo: { situacao: "vencido", dias: -1 } }).relativo, "vencido há 1 dia");
-    assert.equal(prazoDoLancamento({ ...vencido, omie: { estado: "erro", codigo: null, motivo: "recusada" } }).tom, null);
   });
 
   it("liquidado mostra o dia do pagamento ou do recebimento", () => {

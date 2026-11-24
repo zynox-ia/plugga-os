@@ -105,7 +105,7 @@ export function NovaCobranca({ opcoes, aoCancelar, aoSalvar, aoAbrirExistente }:
   const contas = contasDaEmpresa(opcoes, campos.empresa).map((c) => ({ value: c.id, label: c.nome, ...(detalheDaConta(c) ? { description: detalheDaConta(c) } : {}), icon: <Landmark /> }));
 
   return <Dialog title="Nova cobrança" icon={<Receipt size={20} />} onClose={aoCancelar}
-    description="Uma cobrança por cliente, empresa e competência. Ao criar, o título vai ao OMIE da empresa."
+    description="Uma cobrança por cliente, empresa e competência."
     footer={<Button type="submit" form="form-nova-cobranca" icon={<Plus size={16} />} disabled={enviando}>{enviando ? "Criando…" : "Criar cobrança"}</Button>}>
     <form ref={formRef} id="form-nova-cobranca" className="ui-dialog-form" onSubmit={(e) => void salvar(e)} noValidate>
       {mensagem ? <Alert tone="danger" title={`Erro: ${mensagem}`}>
@@ -113,7 +113,7 @@ export function NovaCobranca({ opcoes, aoCancelar, aoSalvar, aoAbrirExistente }:
       </Alert> : null}
       <Alert tone="info" title="Em breve: gerar as cobranças do mês a partir da Operação mensal." />
       <div className="ui-dialog-grid">
-        <CampoDeMenu label="Empresa" required options={empresas} value={campos.empresa ?? undefined} icon={<Building2 />} placeholder="Selecione a empresa" hint="Em qual empresa do OMIE o título entra." error={erros.empresa}
+        <CampoDeMenu label="Empresa" required options={empresas} value={campos.empresa ?? undefined} icon={<Building2 />} placeholder="Selecione a empresa" hint="De qual empresa é a cobrança." error={erros.empresa}
           onChange={(v) => { setRepetida(null); comDescricao({ empresa: v as CompanyKey, categoriaId: "", contaCorrenteId: "" }); }} />
         <CampoDeMenu label="Competência" required options={competenciasParaEscolher(hoje)} value={campos.competencia} icon={<CalendarDays />} hint="O mês do consumo cobrado." error={erros.competencia}
           onChange={(v) => { setRepetida(null); comDescricao({ competencia: v }); }} />

@@ -48,7 +48,6 @@ import {
   type IconeDaSituacao,
   type VisaoDosLancamentos,
 } from "../../lib/financeiro";
-import { algumOmieConectado } from "../../lib/ficha-do-lancamento";
 import { BarraFixa, CampoDaFolha, classeDaPaginaComBarra } from "../barra-fixa";
 import estilosClientes from "../clientes/tela-clientes.module.css";
 import { BarraRolagemMinimalista } from "../pipelines/quadro-do-pipeline";
@@ -145,7 +144,7 @@ export function LancamentosView({ filtros, lista, quadro, resumo, alcance, ficha
     resumo.aPagar ? <CardDeMetrica key="pagar" rotulo={`A pagar · até ${ate}`} valor={valorEmReais(resumo.aPagar.valor)} icone={<ArrowUpRight />} {...filtroDoCard("aPagar")}
       nota={`${resumo.aPagar.quantidade === 1 ? "1 conta" : `${resumo.aPagar.quantidade} contas`} · ${resumo.aPagar.paraAprovar} para aprovar`} /> : null,
     resumo.saldoProjetado ? <CardDeMetrica key="saldo" rotulo={`Saldo projetado em ${ate}`} valor={valorEmReais(resumo.saldoProjetado.valor)} icone={<Scale />}
-      nota={resumo.saldoProjetado.saldoNasContas ? `${valorEmReais(resumo.saldoProjetado.saldoNasContas)} hoje nas contas (OMIE)` : "a receber menos a pagar no período"} /> : null,
+      nota={resumo.saldoProjetado.saldoNasContas ? `${valorEmReais(resumo.saldoProjetado.saldoNasContas)} hoje nas contas` : "a receber menos a pagar no período"} /> : null,
     <CardDeMetrica key="vencidos" rotulo="Vencidos" valor={valorEmReais(resumo.vencidos.valor)} icone={<TriangleAlert />} {...filtroDoCard("vencidos")}
       nota={[resumo.vencidos.aReceber ? `${valorEmReais(resumo.vencidos.aReceber, true)} a receber` : null, resumo.vencidos.aPagar ? `${valorEmReais(resumo.vencidos.aPagar, true)} a pagar` : null].filter(Boolean).join(" · ") || "nada vencido"} />,
   ].filter(Boolean);
@@ -161,7 +160,7 @@ export function LancamentosView({ filtros, lista, quadro, resumo, alcance, ficha
   </> : null;
   const abrirCriado = (novo: { id: string }, mensagem: string) => { setAviso(mensagem); router.push(hrefDosLancamentos(filtros, novo.id), { scroll: false }); router.refresh(); };
 
-  const situacoes = opcoesDeSituacaoPara(alcance, { omieConectado: algumOmieConectado(opcoes) }).map((o) => {
+  const situacoes = opcoesDeSituacaoPara(alcance).map((o) => {
     const Icone = ICONE_DA_SITUACAO[o.icone];
     return { value: o.valor, label: o.rotulo, icon: <Icone />, ...(o.grupo ? { grupo: o.grupo } : {}) };
   });
@@ -190,7 +189,7 @@ export function LancamentosView({ filtros, lista, quadro, resumo, alcance, ficha
     <div className="lista-negocios-vazia-icone" aria-hidden="true">{filtrado ? <Filter size={22} /> : <Wallet size={22} />}</div>
     <h3 className="lista-negocios-vazia-titulo">{filtrado ? "Nenhum lançamento com esses filtros" : "Nenhum lançamento ainda"}</h3>
     <p className="lista-negocios-vazia-desc">{filtrado
-      ? filtros.situacao === "erro" ? "Nada com erro no OMIE. Tudo o que foi aprovado ou gerado chegou ao OMIE." : "Experimente outra busca ou limpe os filtros."
+      ? "Experimente outra busca ou limpe os filtros."
       : "As saídas nascem dos pedidos de compra aprovados ou de uma conta avulsa; as entradas, das cobranças de cada cliente."}</p>
     {filtrado ? <Button variant="secondary" size="sm" onClick={limpar}>Limpar filtros</Button> : null}
   </div> : null;
@@ -210,7 +209,7 @@ export function LancamentosView({ filtros, lista, quadro, resumo, alcance, ficha
       <div className={estilosPipelines.acoes}>
         {novaCobranca}
         {novaConta}
-        {/* Configurações do Financeiro (contas e categorias do OMIE); só aparece quando as opções foram lidas. */}
+        {/* Configurações do Financeiro (contas correntes e categorias); só aparece quando as opções foram lidas. */}
         {opcoes ? <EngrenagemDoFinanceiro opcoes={opcoes} /> : null}
       </div>
     </header>
@@ -259,7 +258,7 @@ export function LancamentosView({ filtros, lista, quadro, resumo, alcance, ficha
     {criando && opcoes ? <ContaAPagarForm opcoes={opcoes} gerente={gerente} aoCancelar={() => setCriando(false)}
       aoSalvar={(novo) => { setCriando(false); abrirCriado(novo, `${novo.codigo} criada: espera a aprovação da Gerente do Financeiro.`); }} /> : null}
     {cobrando && opcoes ? <NovaCobranca opcoes={opcoes} aoCancelar={() => setCobrando(false)}
-      aoSalvar={(novo) => { setCobrando(false); abrirCriado(novo, `${novo.codigo} criada: o título vai ao OMIE da ${ROTULO_DA_EMPRESA[novo.empresa]}.`); }}
+      aoSalvar={(novo) => { setCobrando(false); abrirCriado(novo, `${novo.codigo} criada.`); }}
       aoAbrirExistente={(id) => { setCobrando(false); router.push(hrefDosLancamentos(filtros, id), { scroll: false }); }} /> : null}
     {baixandoComprovantes ? <BaixarComprovantes empresaInicial={filtros.empresa ?? null} alcance={alcance} aoFechar={() => setBaixandoComprovantes(false)} /> : null}
   </div>;
