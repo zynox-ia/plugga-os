@@ -91,9 +91,15 @@ para sessão ativa; company não é tenant. Domínios sem regra operacional ativ
 permanecem fechados a Membro/Gerente. As funções restritas do executor de faturas
 não concedem SELECT de tabelas de integrações/segredos nem sua configuração.
 
-Para ativar, provisione os três logins fora do repositório e execute
-`configurar-papeis-aplicacao.sql` com `runtime_role`, `auth_role` e
-`jobs_role`. O script valida e concede grupos; não cria senhas/logins.
+Para ativar, provisione os três logins fora do repositório (passo a passo em
+`ops/GUIA.md`, "Primeira publicação com os três logins do banco"). O
+`ops/deploy.sh` confere os logins antes de parar a aplicação (`--so-conferir`
+roda só essa conferência), executa `configurar-papeis-aplicacao.sql` com
+`runtime_role`, `auth_role` e `jobs_role` depois da migration e roda o validador
+de boot nos três pools antes de subir. O script SQL valida e concede grupos; não
+cria senhas/logins. Um login anterior ao RLS (com grants diretos ou DEFAULT
+PRIVILEGES, como o `plugga_app`) reprova o validador do pool runtime: use logins
+novos.
 Coordene as migrations com a versão que propaga o contexto: rollback apenas
 do aplicativo antigo pode interromper o acesso. Produção exige aprovação
 explícita do André e não foi acessada por esta atualização documental.
