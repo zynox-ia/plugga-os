@@ -65,7 +65,6 @@ export const DASHBOARD_TABS: DashboardTab[] = [
     attention: [
       { id: "int-1", title: "Envio WhatsApp bloqueado · opt-out", area: "CRM", status: "Bloqueado", variant: "danger" },
       { id: "int-2", title: "Envio WhatsApp aguardando aprovação", area: "CRM", status: "Pendente", variant: "warning" },
-      { id: "int-3", title: "Sync OMIE D+14", area: "Financeiro", status: "OK", variant: "success" },
     ],
   },
   {
@@ -89,5 +88,4 @@ export type AutomationRun = {
 export const AUTOMATION_RUNS: AutomationRun[] = [
   { id: "auto-1", job: "Recálculo segmentos R0–R6", result: "OK 06:00" },
   { id: "auto-2", job: "Relatório PluggaMob manhã", result: "OK 07:30" },
-  { id: "auto-3", job: "Sync OMIE D+14", result: "OK 08:00" },
 ];
