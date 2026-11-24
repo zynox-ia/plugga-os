@@ -130,6 +130,7 @@ SELECT 'arquivo', e.arquivo_chave FROM evidencias_de_tarefa e JOIN ocorrencias_d
 -- O que pende do lançamento (PLU-337 e PLU-342) sai antes dele: pedidos ao OMIE,
 -- anexos, linha do tempo e UCs.
 DELETE FROM omie_envios WHERE lancamento_id IN (SELECT id FROM e2e_lanc);
+DELETE FROM omie_lancamentos WHERE lancamento_id IN (SELECT id FROM e2e_lanc);
 DELETE FROM anexos_de_lancamento WHERE lancamento_id IN (SELECT id FROM e2e_lanc);
 DELETE FROM historico_de_lancamento WHERE lancamento_id IN (SELECT id FROM e2e_lanc);
 DELETE FROM ucs_de_lancamento WHERE lancamento_id IN (SELECT id FROM e2e_lanc);

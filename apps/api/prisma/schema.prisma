@@ -520,6 +520,7 @@ model Company {
   lancamentos Lancamento[]
   omieConexao OmieConexao?
   omieEnvios OmieEnvio[]
+  omieLancamentos OmieLancamento[]
   omiePausas OmiePausa[]
   pipelines Pipeline[]
   ordensDeServico OrdemDeServico[]
@@ -2934,6 +2935,8 @@ model Lancamento {
   historico               HistoricoDeLancamento[]
   ucs                     UcDeLancamento[]
   omieEnvios              OmieEnvio[]
+  /// O estado no OMIE, do conector; sem linha, `nao_enviado`.
+  omie                    OmieLancamento?
 
   @@unique([tipo, numero])
   @@index([vencimento])
@@ -2941,6 +2944,23 @@ model Lancamento {
   @@index([fornecedorId])
   @@index([clientId])
   @@map("lancamentos")
+}
+
+/// O estado do lançamento no OMIE (PLU-342), do conector: derivado dos envios pelo
+/// gatilho, que é o único a gravar. A aplicação só lê.
+model OmieLancamento {
+  lancamentoId String               @id @map("lancamento_id") @db.Uuid
+  companyId    String               @map("company_id")
+  estado       FinanceiroEstadoOmie @default(nao_enviado)
+  codigo       String?
+  motivo       String?
+  updatedAt    DateTime             @default(now()) @map("updated_at") @db.Timestamptz(6)
+
+  lancamento Lancamento @relation(fields: [lancamentoId], references: [id], onDelete: Restrict)
+  company    Company    @relation(fields: [companyId], references: [id], onDelete: Restrict)
+
+  @@index([companyId])
+  @@map("omie_lancamentos")
 }
 
 /// A conferência do par do OMIE de uma empresa (PLU-342): o último ListarEmpresas,

@@ -17,6 +17,7 @@ import {
   type ListarLancamentosQuery,
   type ListarLancamentosResposta,
   type NomeDeEventoDoCatalogo,
+  type OmieDoLancamento,
   type OpcoesDoFinanceiro,
   type QuadroFinanceiro,
   type QuadroFinanceiroQuery,
@@ -69,6 +70,8 @@ const MUDANCA_DO_PLANO: Record<Plano["tipo"], MudancaDoLancamento> = {
 };
 
 const PESSOA = { select: { id: true, name: true } } as const;
+/** O lançamento que nunca passou por um conector. */
+const SEM_OMIE = { estado: "nao_enviado", codigo: null, motivo: null } as const satisfies OmieDoLancamento;
 const INCLUDE_DO_LANCAMENTO = {
   fornecedor: { select: { id: true, nome: true } },
   categoria: { select: { id: true, codigo: true, nome: true, tipo: true, natureza: true } },
@@ -80,6 +83,8 @@ const INCLUDE_DO_LANCAMENTO = {
   recebimentoRegistradoPor: PESSOA,
   conciliadoPor: PESSOA,
   canceladoPor: PESSOA,
+  // O estado no OMIE vem da tabela do conector (LEFT JOIN); sem linha, `nao_enviado`.
+  omie: { select: { estado: true, codigo: true, motivo: true } },
   // A contagem dos anexos atuais, para o card.
   _count: { select: { anexos: { where: { substituidoEm: null } } } },
 } satisfies Prisma.LancamentoInclude;
@@ -617,7 +622,7 @@ export class PrismaFinanceiroRepository {
     if (situacao.etapas) condicoes.push({ etapa: { in: situacao.etapas } });
     if (situacao.emAberto || situacao.vencido) condicoes.push({ etapa: { in: etapasEmAberto } });
     if (situacao.vencido) condicoes.push({ vencimento: { lt: hoje } });
-    if (situacao.omieComErro) condicoes.push({ omieEstado: { in: ["erro", "divergente"] } });
+    if (situacao.omieComErro) condicoes.push({ omie: { is: { estado: { in: ["erro", "divergente"] } } } });
 
     if (query.vencimento) {
       condicoes.push({ etapa: { in: etapasEmAberto } }, { canceladoEm: null });
@@ -723,7 +728,7 @@ export class PrismaFinanceiroRepository {
       prazo: prazoDoLancamento(l, agora),
       liquidadoEm: l.liquidadoEm ? dia(l.liquidadoEm) : null,
       anexos: l._count.anexos,
-      omie: { estado: l.omieEstado, codigo: l.omieCodigo, motivo: l.omieMotivo },
+      omie: l.omie ?? SEM_OMIE,
       origem: { tipo: l.origem, pedidoDeCompra: l.pedidoDeCompra },
       createdAt: l.createdAt.toISOString(),
     };

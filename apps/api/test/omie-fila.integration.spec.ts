@@ -1,7 +1,9 @@
 import { randomBytes, randomUUID } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 import type { IntegrationMode } from "@plugga/shared";
-import { acaoDoLancamentoSchema, criarContaAPagarSchema } from "@plugga/shared";
+import { acaoDoLancamentoSchema, criarContaAPagarSchema, listarLancamentosQuerySchema } from "@plugga/shared";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { AuditAppender } from "../src/audit/audit-appender.js";
@@ -62,7 +64,14 @@ describe.skipIf(!HABILITADO)("fila do OMIE no Postgres", () => {
   }), principal);
   const agir = (id: string, acao: unknown) => repositorio.executarAcao(id, acaoDoLancamentoSchema.parse(acao), principal, papel, AGORA);
   const envios = (lancamentoId: string) => prisma.omieEnvio.findMany({ where: { lancamentoId }, orderBy: { ordem: "asc" } });
-  const noOmie = async (id: string) => (await prisma.lancamento.findUniqueOrThrow({ where: { id }, select: { omieEstado: true, omieCodigo: true, omieMotivo: true } }));
+  /** O estado no OMIE. Até a contração, as colunas antigas e a tabela do conector andam juntas. */
+  const noOmie = async (id: string) => {
+    const antigo = await prisma.lancamento.findUniqueOrThrow({ where: { id }, select: { omieEstado: true, omieCodigo: true, omieMotivo: true } });
+    const conector = await prisma.omieLancamento.findUnique({ where: { lancamentoId: id }, select: { estado: true, codigo: true, motivo: true } });
+    const novo = conector ?? { estado: "nao_enviado", codigo: null, motivo: null };
+    expect({ omieEstado: novo.estado, omieCodigo: novo.codigo, omieMotivo: novo.motivo }).toEqual(antigo);
+    return antigo;
+  };
   /** Despacha e envia, com o dublê, só os envios deste lançamento. */
   const rodarFila = async (lancamentoId: string) => {
     enfileirados.length = 0;
@@ -94,6 +103,7 @@ describe.skipIf(!HABILITADO)("fila do OMIE no Postgres", () => {
       await tx.$executeRawUnsafe("SET LOCAL session_replication_role = replica");
       const lancamentos = { lancamento: { descricao: { startsWith: marca } } };
       await tx.omieEnvio.deleteMany({ where: lancamentos });
+      await tx.omieLancamento.deleteMany({ where: lancamentos });
       await tx.anexoDeLancamento.deleteMany({ where: lancamentos });
       await tx.historicoDeLancamento.deleteMany({ where: lancamentos });
       await tx.lancamento.deleteMany({ where: { descricao: { startsWith: marca } } });
@@ -156,6 +166,38 @@ describe.skipIf(!HABILITADO)("fila do OMIE no Postgres", () => {
     expect(ligado).toEqual([{ ligado: false }]);
   }, PRAZO_MS);
 
+  it("o backfill da tabela do conector (o SQL da migration): copia o estado de antes, ignora quem nunca foi ao OMIE e pode rodar de novo", async () => {
+    const sql = readFileSync(join(__dirname, "../prisma/migrations/20261124500400_omie_lancamentos/migration.sql"), "utf8");
+    const backfill = /-- backfill:inicio\n([\s\S]*?)-- backfill:fim/.exec(sql.replace(/\r\n/g, "\n"))?.[1];
+    expect(backfill).toMatch(/INSERT INTO public\.omie_lancamentos/);
+
+    // O estado de antes da migration: as colunas antigas preenchidas e nenhuma linha no conector.
+    const nunca = await novaConta();
+    const enviado = await novaConta();
+    const naFila = await novaConta();
+    await agir(enviado, { acao: "aprovar" });
+    await agir(naFila, { acao: "aprovar" });
+    await prisma.$transaction(async (tx) => {
+      // Como dono do banco de teste, que o gatilho-guarda deixa passar (é o papel da migration).
+      await tx.$executeRaw`UPDATE public.omie_envios SET estado = 'enviando' WHERE lancamento_id = ${enviado}::uuid`;
+      await tx.$executeRaw`UPDATE public.omie_envios SET estado = 'enviado', codigo_omie = 'cod-antigo', enviado_em = now() WHERE lancamento_id = ${enviado}::uuid`;
+      await tx.$executeRaw`DELETE FROM public.omie_lancamentos WHERE lancamento_id IN (${nunca}::uuid, ${enviado}::uuid, ${naFila}::uuid)`;
+    });
+    const antes = await prisma.lancamento.findMany({ where: { id: { in: [enviado, naFila] } }, select: { id: true, omieEstado: true, omieCodigo: true, omieMotivo: true } });
+    expect(antes.find((l) => l.id === enviado)).toMatchObject({ omieEstado: "enviado", omieCodigo: "cod-antigo" });
+    expect(await prisma.omieLancamento.count({ where: { lancamentoId: { in: [nunca, enviado, naFila] } } })).toBe(0);
+
+    for (let vez = 0; vez < 2; vez++) await prisma.$executeRawUnsafe(backfill!);
+
+    const depois = await prisma.omieLancamento.findMany({ where: { lancamentoId: { in: [nunca, enviado, naFila] } }, orderBy: { lancamentoId: "asc" } });
+    expect(depois.map((o) => o.lancamentoId).sort()).toEqual([enviado, naFila].sort());
+    expect(depois.find((o) => o.lancamentoId === enviado)).toMatchObject({ companyId: "plugga", estado: "enviado", codigo: "cod-antigo", motivo: null });
+    expect(depois.find((o) => o.lancamentoId === naFila)).toMatchObject({ estado: "nao_enviado", codigo: null });
+    // Paridade com as colunas antigas, que é o que libera a contração.
+    for (const id of [nunca, enviado, naFila]) await noOmie(id);
+    expect((await repositorio.obter(nunca, papel, AGORA)).omie).toEqual({ estado: "nao_enviado", codigo: null, motivo: null });
+  }, PRAZO_MS);
+
   it("aprovar grava o pedido na transação; editar junta no mesmo pendente; o lançamento segue não enviado", async () => {
     const id = await novaConta();
     expect(await envios(id)).toEqual([]);
@@ -207,6 +249,8 @@ describe.skipIf(!HABILITADO)("fila do OMIE no Postgres", () => {
     await rodarFila(id);
     expect((await envios(id)).map((e) => e.estado)).toEqual(["enviado", "enviado"]);
     expect(await noOmie(id)).toMatchObject({ omieEstado: "baixado", omieCodigo: `${marca.slice(5)}-cod` });
+    // A API lê pela tabela do conector.
+    expect((await repositorio.obter(id, papel, AGORA)).omie).toEqual({ estado: "baixado", codigo: `${marca.slice(5)}-cod`, motivo: null });
     expect(chamadas.filter((c) => c.lancamentoId === id).map((c) => `${c.tipo}:${c.operacao}`)).toEqual(["saida:upsert", "saida:baixa"]);
   }, PRAZO_MS);
 
@@ -235,6 +279,10 @@ describe.skipIf(!HABILITADO)("fila do OMIE no Postgres", () => {
     await rodarFila(id);
     expect((await envios(id))[0]).toMatchObject({ estado: "erro", ultimoErro: "recusada", tentativas: 0 });
     expect(await noOmie(id)).toEqual({ omieEstado: "erro", omieCodigo: null, omieMotivo: "recusada" });
+    // O filtro "com erro no OMIE" da lista vai pela tabela do conector.
+    const comErro = await repositorio.listar(listarLancamentosQuerySchema.parse({ busca: marca, situacao: "erro" }), papel, AGORA);
+    expect(comErro.itens.map((l) => l.id)).toContain(id);
+    expect(comErro.itens.every((l) => l.omie.estado === "erro" || l.omie.estado === "divergente")).toBe(true);
 
     await conector.tentarDeNovo(id, principal, AGORA);
     expect((await envios(id))[0]).toMatchObject({ estado: "pendente", ultimoErro: null, tentativas: 0 });
@@ -281,6 +329,12 @@ describe.skipIf(!HABILITADO)("fila do OMIE no Postgres", () => {
     await agir(id, { acao: "aprovar" });
     await expect(comoRuntime((tx) => tx.$executeRaw`UPDATE public.lancamentos SET omie_estado = 'enviado' WHERE id = ${id}::uuid`))
       .rejects.toThrow(/ESTADO_NO_OMIE_SO_PELO_OUTBOX/);
+    // A tabela do conector a aplicação só lê: quem grava é o gatilho dos envios.
+    await expect(comoRuntime((tx) => tx.$executeRaw`INSERT INTO public.omie_lancamentos (lancamento_id, company_id, estado) VALUES (${id}::uuid, 'plugga', 'enviado')`))
+      .rejects.toThrow(/permission denied/);
+    await expect(comoRuntime((tx) => tx.$executeRaw`UPDATE public.omie_lancamentos SET estado = 'enviado' WHERE lancamento_id = ${id}::uuid`))
+      .rejects.toThrow(/permission denied/);
+    expect((await comoRuntime((tx) => tx.omieLancamento.findUnique({ where: { lancamentoId: id } })))?.estado).toBe("nao_enviado");
     const marcados = await comoRuntime((tx) => tx.$executeRaw`UPDATE public.omie_envios SET estado = 'enviando' WHERE lancamento_id = ${id}::uuid`).catch((e: unknown) => e);
     expect(marcados instanceof Error ? marcados.message : String(marcados)).toMatch(/row-level security|^0$/);
     expect((await envios(id))[0]?.estado).toBe("pendente");
