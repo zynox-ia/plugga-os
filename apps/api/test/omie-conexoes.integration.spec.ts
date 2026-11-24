@@ -8,7 +8,9 @@ import type { AuthPrincipal } from "../src/core/auth/auth.types.js";
 import { PrismaSegredoRepository } from "../src/llm/prisma-segredo.repository.js";
 import { CHAVE_OMIE } from "../src/omie/omie-cofre.service.js";
 import { OmieConexoesService, chaveDoOmie } from "../src/omie/omie-conexoes.service.js";
-import type { OmiePort } from "../src/omie/omie.port.js";
+import { OmieImportacaoService } from "../src/omie/omie-importacao.service.js";
+import type { CategoriaDoOmie, ContaCorrenteDoOmie, OmiePort } from "../src/omie/omie.port.js";
+import { PrismaOmieImportacaoRepository } from "../src/omie/prisma-omie-importacao.repository.js";
 import { PrismaOmieConexoesRepository } from "../src/omie/prisma-omie-conexoes.repository.js";
 import { PrismaOmieLeituraPorEmpresa } from "../src/omie/prisma-omie-leitura-por-empresa.repository.js";
 import { contextoBanco } from "../src/prisma/contexto-banco.js";
@@ -32,8 +34,16 @@ describe.skipIf(!HABILITADO)("omie por empresa no Postgres", () => {
   const prisma = new PrismaService();
   const segredos = new PrismaSegredoRepository(prisma);
   const conexoes = new PrismaOmieConexoesRepository(prisma, new AuditAppender());
-  const omie = { consultarEmpresa: vi.fn(), listarEmpresas: vi.fn(async (): Promise<EmpresaDoOmie[]> => [{ razaoSocial: "WAZE SINTÉTICA", nomeFantasia: null, cnpj: CNPJ }]) };
+  // O plano de contas e as contas correntes que o dublê devolve (S4); cada teste define os seus.
+  let doOmie: { categorias: CategoriaDoOmie[]; contas: ContaCorrenteDoOmie[] } = { categorias: [], contas: [] };
+  const omie = {
+    consultarEmpresa: vi.fn(),
+    listarEmpresas: vi.fn(async (): Promise<EmpresaDoOmie[]> => [{ razaoSocial: "WAZE SINTÉTICA", nomeFantasia: null, cnpj: CNPJ }]),
+    listarCategorias: vi.fn(async () => doOmie.categorias),
+    listarContasCorrentes: vi.fn(async () => doOmie.contas),
+  };
   const servico = new OmieConexoesService(segredos, conexoes, new PrismaOmieLeituraPorEmpresa(prisma), omie as unknown as OmiePort);
+  const importacao = new OmieImportacaoService(servico, omie as unknown as OmiePort, new PrismaOmieImportacaoRepository(prisma, new AuditAppender()));
   const mestraAnterior = process.env.SECRETS_ENCRYPTION_KEY;
   let principal: AuthPrincipal;
   let guardados: { chave: string; linha: unknown }[] = [];
@@ -98,7 +108,10 @@ describe.skipIf(!HABILITADO)("omie por empresa no Postgres", () => {
       await tx.historicoDeLancamento.deleteMany({ where: daMarca });
       await tx.omieLancamento.deleteMany({ where: daMarca });
       await tx.lancamento.deleteMany({ where: { descricao: { startsWith: marca } } });
+      await tx.omieCategoria.deleteMany({ where: { categoria: { nome: { startsWith: marca } } } });
+      await tx.omieContaCorrente.deleteMany({ where: { contaCorrente: { nome: { startsWith: marca } } } });
       await tx.categoriaFinanceira.deleteMany({ where: { nome: { startsWith: marca } } });
+      await tx.contaCorrente.deleteMany({ where: { nome: { startsWith: marca } } });
       await tx.fornecedor.deleteMany({ where: { nome: { startsWith: marca } } });
     });
     // A pausa da desconexão é só deste arquivo (o apagar do par): não fica para os outros testes.
@@ -257,5 +270,70 @@ describe.skipIf(!HABILITADO)("omie por empresa no Postgres", () => {
     expect(await linhas(pendente)).toEqual(["pausado", "retomado"]);
     expect(await noOmie(pendente)).toMatchObject({ estado: "nao_enviado", motivo: null });
     expect(await noOmie(jaNoOmie)).toEqual({ estado: "enviando", motivo: null });
+  }, PRAZO_MS);
+
+  it("conferir e importar do OMIE (S4): a conferência só mostra; a importação cria o que falta, vincula o que casa, nunca sobrescreve e não repete", async () => {
+    await prisma.company.update({ where: { id: "waze" }, data: { cnpj: null } });
+    const par = { appKey: "chave-waze-0070", appSecret: "ficticio-ficticio-ficticio" };
+    await comoAdmin(() => servico.gravar("waze", par, principal));
+    await comoAdmin(() => servico.testar("waze", principal));
+    await comoAdmin(() => servico.confirmar("waze", CNPJ, principal));
+    const g = `8.${10 + (parseInt(randomBytes(1).toString("hex"), 16) % 89)}`;
+    const despesa = { receita: false, despesa: true, totalizadora: false, transferencia: false, ativa: true };
+    // No Plugga OS: uma do mesmo código (vincula), uma de mesmo código e outro tipo (não vincula).
+    const existente = await prisma.categoriaFinanceira.create({ data: { companyId: "waze", codigo: `${g}.02`, nome: `${marca} Fretes (nosso)`, tipo: "despesa", natureza: "servico", grupoNome: `${marca} Grupo nosso` } });
+    await prisma.categoriaFinanceira.create({ data: { companyId: "waze", codigo: `${g}.03`, nome: `${marca} Vendas`, tipo: "despesa", natureza: "outros", grupoNome: `${marca} Grupo nosso` } });
+    await prisma.contaCorrente.create({ data: { companyId: "waze", nome: `${marca} Banco A (nosso)`, banco: "001", agencia: "1234", numero: "5678-9" } });
+    doOmie = {
+      categorias: [
+        { codigo: g, descricao: `${marca} Grupo do OMIE`, grupo: null, ...despesa, totalizadora: true },
+        { codigo: `${g}.01`, descricao: `${marca} Pedágio`, grupo: g, ...despesa },
+        { codigo: `${g}.02`, descricao: `${marca} Fretes`, grupo: g, ...despesa },
+        { codigo: `${g}.03`, descricao: `${marca} Vendas`, grupo: g, ...despesa, receita: true, despesa: false },
+      ],
+      contas: [
+        { codigo: `${marca}-cc1`, descricao: `${marca} Banco A`, banco: "001", agencia: "1234", numero: "5678-9", ativa: true },
+        { codigo: `${marca}-cc2`, descricao: `${marca} Caixa`, banco: null, agencia: null, numero: null, ativa: true },
+      ],
+    };
+    const doTeste = <T extends { omie: { nome: string } | null; plugga: { nome: string } | null }>(itens: T[]) =>
+      itens.filter((i) => (i.omie?.nome ?? i.plugga?.nome ?? "").startsWith(marca));
+    // As categorias deste teste são as do grupo sorteado (os outros testes do arquivo criam as deles).
+    const doGrupo = <T extends { omie: { codigo: string } | null; plugga: { codigo: string } | null }>(itens: T[]) =>
+      itens.filter((i) => (i.omie?.codigo ?? i.plugga?.codigo ?? "").startsWith(`${g}.`));
+
+    const antes = await comoAdmin(() => importacao.conferir("waze"));
+    expect(doGrupo(antes.categorias.itens).map((i) => [i.situacao, i.omie?.codigo ?? i.plugga?.codigo])).toEqual([
+      ["nova_no_omie", `${g}.01`], ["vinculavel", `${g}.02`], ["diferente", `${g}.03`],
+    ]);
+    expect(doTeste(antes.contasCorrentes.itens).map((i) => i.situacao)).toEqual(["vinculavel", "nova_no_omie"]);
+    // Conferir não grava nada.
+    expect(await prisma.omieCategoria.count({ where: { categoriaId: existente.id } })).toBe(0);
+
+    const resultado = await comoAdmin(() => importacao.importar("waze", principal));
+    expect(resultado.categorias).toEqual({ criadas: 1, vinculadas: 1, paraClassificar: 1 });
+    expect(resultado.contasCorrentes).toEqual({ criadas: 1, vinculadas: 1 });
+    // Depois: nada novo nem vinculável. A nova ficou com o nome de grupo do Plugga OS (um por prefixo), e isso só aparece.
+    expect(doGrupo(resultado.conferencia.categorias.itens).map((i) => [i.situacao, i.omie?.codigo, i.diferencas])).toEqual([
+      ["diferente", `${g}.01`, ["grupoNome"]], ["diferente", `${g}.02`, ["nome", "grupoNome"]], ["diferente", `${g}.03`, ["grupoNome", "tipo"]],
+    ]);
+
+    // A nova entrou com a natureza padrão e o nome do grupo que o Plugga OS já tinha no prefixo; a existente não mudou.
+    const nova = await prisma.categoriaFinanceira.findUniqueOrThrow({ where: { companyId_codigo: { companyId: "waze", codigo: `${g}.01` } }, include: { omie: true } });
+    expect(nova).toMatchObject({ nome: `${marca} Pedágio`, tipo: "despesa", natureza: "outros", grupoNome: `${marca} Grupo nosso`, omie: { omieCodigo: `${g}.01` } });
+    expect(await prisma.categoriaFinanceira.findUniqueOrThrow({ where: { id: existente.id }, include: { omie: true } }))
+      .toMatchObject({ nome: `${marca} Fretes (nosso)`, omie: { omieCodigo: `${g}.02` } });
+    const caixa = await prisma.contaCorrente.findFirstOrThrow({ where: { nome: `${marca} Caixa` }, include: { omie: true } });
+    expect(caixa).toMatchObject({ companyId: "waze", saldoInicial: null, omie: { omieCodigo: `${marca}-cc2` } });
+    expect(await prisma.eventLog.findFirst({ where: { eventName: "integracoes.omie.importada", entityId: "waze", actorId: principal.id }, orderBy: { occurredAt: "desc" }, select: { payload: true } }))
+      .toMatchObject({ payload: { categorias: { criadas: 1, vinculadas: 1 }, contasCorrentes: { criadas: 1, vinculadas: 1 } } });
+
+    // De novo, nada a criar nem a vincular.
+    const denovo = await comoAdmin(() => importacao.importar("waze", principal));
+    expect([denovo.categorias.criadas, denovo.categorias.vinculadas, denovo.contasCorrentes.criadas, denovo.contasCorrentes.vinculadas]).toEqual([0, 0, 0, 0]);
+
+    // Sem a conexão confirmada, nem conferir nem importar.
+    await comoAdmin(() => servico.apagar("waze", principal));
+    await expect(comoAdmin(() => importacao.importar("waze", principal))).rejects.toMatchObject({ codigo: "CONFLITO_ESTADO", message: "Conecte o OMIE da Waze antes de importar." });
   }, PRAZO_MS);
 });

@@ -5,7 +5,10 @@ import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { AppModule } from "../src/app.module";
+import { EstadoInvalido } from "../src/common/errors/dominio";
 import { OmieConexoesService } from "../src/omie/omie-conexoes.service";
+import { OmieImportacaoService } from "../src/omie/omie-importacao.service";
+import { OmieFalhouError } from "../src/omie/omie.port";
 
 /** Serviço dublê: o teste cobre rotas, acesso e validação; a conferência tem teste próprio. */
 const servico = {
@@ -19,6 +22,9 @@ const servico = {
   credenciais: vi.fn().mockResolvedValue(null),
 };
 
+/** Importar e conferir (S4), dublê: as regras e o banco têm teste próprio. */
+const importacao = { conferir: vi.fn().mockResolvedValue({ empresa: "waze" }), importar: vi.fn().mockResolvedValue({ conferencia: {} }) };
+
 describe("OMIE por empresa (e2e)", () => {
   let app: INestApplication;
   const http = () => request(app.getHttpServer());
@@ -31,7 +37,7 @@ describe("OMIE por empresa (e2e)", () => {
   beforeAll(async () => {
     // Chave-mestra sintética: gravar o par exige o cofre configurado.
     process.env.SECRETS_ENCRYPTION_KEY = Buffer.alloc(32, 3).toString("base64");
-    const modulo = await Test.createTestingModule({ imports: [AppModule] }).overrideProvider(OmieConexoesService).useValue(servico).compile();
+    const modulo = await Test.createTestingModule({ imports: [AppModule] }).overrideProvider(OmieConexoesService).useValue(servico).overrideProvider(OmieImportacaoService).useValue(importacao).compile();
     app = modulo.createNestApplication();
     await app.init();
   });
@@ -87,5 +93,27 @@ describe("OMIE por empresa (e2e)", () => {
     } finally {
       espiao.mockRestore();
     }
+  });
+
+  it("conferir e importar do OMIE (S4): só a gerência e a plataforma; sem conexão é 409; o OMIE fora do ar é 503 com texto fixo", async () => {
+    importacao.conferir.mockClear();
+    importacao.importar.mockClear();
+    for (const d of ["financeiro:membro", "suprimentos:gerente"]) {
+      await como(d)(http().get("/integracoes/omie/empresas/waze/conferencia")).expect(403);
+      await como(d)(http().post("/integracoes/omie/empresas/waze/importacao")).expect(403);
+    }
+    await gerente(http().get("/integracoes/omie/empresas/outra/conferencia")).expect(400);
+    expect(importacao.conferir).not.toHaveBeenCalled();
+    await gerente(http().get("/integracoes/omie/empresas/waze/conferencia")).expect(200);
+    await admin(http().post("/integracoes/omie/empresas/plugga/importacao")).expect(200);
+    expect(importacao.importar.mock.calls[0]?.[0]).toBe("plugga");
+
+    importacao.importar.mockRejectedValueOnce(new EstadoInvalido("Conecte o OMIE da Waze antes de importar."));
+    const semConexao = await gerente(http().post("/integracoes/omie/empresas/waze/importacao")).expect(409);
+    expect(semConexao.body).toMatchObject({ mensagem: "Conecte o OMIE da Waze antes de importar." });
+    importacao.conferir.mockRejectedValueOnce(new OmieFalhouError("indisponivel"));
+    // Como nas outras rotas do conector: o filtro global responde 503 com o texto fixo, sem a resposta do OMIE.
+    const foraDoAr = await gerente(http().get("/integracoes/omie/empresas/waze/conferencia")).expect(503);
+    expect(foraDoAr.body).toMatchObject({ codigo: "SERVICO_INDISPONIVEL", mensagem: "Não foi possível falar com o OMIE. Tente de novo em instantes." });
   });
 });

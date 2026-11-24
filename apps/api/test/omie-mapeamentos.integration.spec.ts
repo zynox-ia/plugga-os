@@ -85,11 +85,9 @@ describe.skipIf(!HABILITADO)("vínculos do OMIE com os cadastros do Financeiro",
     await prisma.omieContaCorrente.create({ data: { contaCorrenteId: ids.contaManual, companyId: "plugga", omieCodigo: `${marca}-c2` } });
   }, PRAZO_MS);
 
-  it("a aplicação só lê o vínculo; quem grava é a importação", async () => {
+  it("a aplicação lê o vínculo e não o altera; inserir é só da importação da gerência (S4, em financeiro-cadastros)", async () => {
     const lidas = await comoRuntime((tx) => tx.omieCategoria.findMany({ where: { categoriaId: ids.lida } }));
     expect(lidas).toHaveLength(1);
-    await expect(comoRuntime((tx) => tx.$executeRaw`INSERT INTO public.omie_categorias (categoria_id, company_id, omie_codigo) VALUES (${ids.manual}::uuid, 'plugga', 'x')`))
-      .rejects.toThrow(/permission denied/);
     await expect(comoRuntime((tx) => tx.$executeRaw`UPDATE public.omie_contas_correntes SET omie_codigo = 'x' WHERE conta_corrente_id = ${ids.contaDoOmie}::uuid`))
       .rejects.toThrow(/permission denied/);
     // Sem sessão, o RLS do cadastro esconde o vínculo.

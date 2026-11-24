@@ -24,7 +24,9 @@ import {
   type CompanyKey,
   type ConfirmarConexaoOmie,
   type EntradaDoOmie,
+  type ConferenciaDoOmie,
   type EstadoDasConexoesOmie,
+  type ResultadoDaImportacaoDoOmie,
 } from "@plugga/shared";
 
 import { ZodValidationPipe } from "../common/zod-validation.pipe";
@@ -38,6 +40,7 @@ import { FinanceiroHabilitadoGuard } from "../financeiro/financeiro-habilitado.g
 import { chaveMestraConfigurada } from "../llm/cripto.js";
 import { MENSAGEM_DO_OMIE } from "./omie.controller";
 import { OmieConexoesService } from "./omie-conexoes.service";
+import { OmieImportacaoService } from "./omie-importacao.service";
 import { OmieFalhouError } from "./omie.port";
 
 const EMPRESA = new ParseEnumPipe(companyKeys);
@@ -53,7 +56,10 @@ const EMPRESA = new ParseEnumPipe(companyKeys);
 @UseGuards(FinanceiroHabilitadoGuard, SessionAuthGuard, AcessoGuard)
 @Departamento("financeiro", "gerente")
 export class OmieEmpresasController {
-  constructor(@Inject(OmieConexoesService) private readonly conexoes: OmieConexoesService) {}
+  constructor(
+    @Inject(OmieConexoesService) private readonly conexoes: OmieConexoesService,
+    @Inject(OmieImportacaoService) private readonly importacao: OmieImportacaoService,
+  ) {}
 
   @Get()
   estado(): Promise<EstadoDasConexoesOmie> {
@@ -96,6 +102,20 @@ export class OmieEmpresasController {
     @CurrentPrincipal() principal: AuthPrincipal,
   ): Promise<EstadoDasConexoesOmie> {
     return this.conexoes.confirmar(empresa, entrada.cnpj, principal);
+  }
+
+  /** "Conferir com o OMIE" (S4): só mostra as diferenças com o cadastro do Plugga OS. */
+  @Get(":empresa/conferencia")
+  conferir(@Param("empresa", EMPRESA) empresa: CompanyKey): Promise<ConferenciaDoOmie> {
+    return comMotivoDoOmie(() => this.importacao.conferir(empresa));
+  }
+
+  /** "Importar do OMIE" (S4): cria o que falta e grava o vínculo; nunca sobrescreve. */
+  @Post(":empresa/importacao")
+  @HttpCode(200)
+  @UseGuards(OriginCheckGuard, ThrottlerGuard)
+  importar(@Param("empresa", EMPRESA) empresa: CompanyKey, @CurrentPrincipal() principal: AuthPrincipal): Promise<ResultadoDaImportacaoDoOmie> {
+    return comMotivoDoOmie(() => this.importacao.importar(empresa, principal));
   }
 
   /** A conta única de antes vira o par da Plugga, testada com as mesmas regras. */

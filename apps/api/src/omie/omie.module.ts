@@ -19,6 +19,8 @@ import { AGENDAMENTO_DO_DESPACHO, OMIE_DESPACHAR_JOB, OmieFilaService } from "./
 import { OmieCofreService, OmieLeitura } from "./omie-cofre.service";
 import { OmieConexoesService, OmieLeituraPorEmpresa } from "./omie-conexoes.service";
 import { OmieEmpresasController } from "./omie-empresas.controller";
+import { OmieImportacaoService } from "./omie-importacao.service";
+import { PrismaOmieImportacaoRepository } from "./prisma-omie-importacao.repository";
 import { OmieLancamentosController } from "./omie-lancamentos.controller";
 import { PrismaOmieLancamentosRepository } from "./prisma-omie-lancamentos.repository";
 import { OmieConectorDoFinanceiro, OmieReflexoDoLancamento } from "./omie-reflexo";
@@ -59,6 +61,8 @@ import { PrismaOmieLeitura } from "./prisma-omie-leitura.repository";
     OmieReflexoDoLancamento,
     OmieConectorDoFinanceiro,
     PrismaOmieLancamentosRepository,
+    OmieImportacaoService,
+    PrismaOmieImportacaoRepository,
   ],
   exports: [OmieCofreService, OmieConexoesService],
 })

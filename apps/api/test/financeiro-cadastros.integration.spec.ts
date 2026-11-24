@@ -51,6 +51,7 @@ describe.skipIf(!HABILITADO)("cadastros do Financeiro no Postgres", () => {
   }, PRAZO_MS);
 
   afterAll(async () => {
+    await prisma.omieCategoria.deleteMany({ where: { categoria: { nome: { startsWith: marca } } } });
     await prisma.categoriaFinanceira.deleteMany({ where: { nome: { startsWith: marca } } });
     await prisma.contaCorrente.deleteMany({ where: { nome: { startsWith: marca } } });
     await prisma.session.deleteMany({ where: { tokenHash: { in: Object.values(sessoes) } } });
@@ -145,6 +146,15 @@ describe.skipIf(!HABILITADO)("cadastros do Financeiro no Postgres", () => {
     const mudadas = await comoRuntime((tx) => tx.$executeRaw`UPDATE public.contas_correntes SET nome = ${`${marca} mudada`} WHERE nome = ${`${marca} da gerência`}`, "membro");
     expect(mudadas).toBe(0);
     expect(await comoRuntime((tx) => tx.$executeRaw`UPDATE public.contas_correntes SET ativa = false WHERE nome = ${`${marca} da gerência`}`, "gerente")).toBe(1);
+  }, PRAZO_MS);
+
+  it("o vínculo do OMIE (S4): a gerência insere pela importação; o membro não; e ninguém altera nem apaga o vínculo", async () => {
+    const c = await como("gerente", () => cadastros.criarCategoria(categoria(`8.${sufixo}.07`), pessoas.gerente));
+    const vincular = (quem: keyof typeof sessoes, codigo: string) => comoRuntime((tx) => tx.omieCategoria.create({ data: { categoriaId: c.id, companyId: "plugga", omieCodigo: codigo, lidaEm: new Date() } }), quem);
+    await expect(vincular("membro", `${marca}-m`)).rejects.toThrow(/row-level security/);
+    await vincular("gerente", `${marca}-g`);
+    await expect(comoRuntime((tx) => tx.$executeRaw`UPDATE public.omie_categorias SET omie_codigo = 'x' WHERE categoria_id = ${c.id}::uuid`)).rejects.toThrow(/permission denied/);
+    await expect(comoRuntime((tx) => tx.$executeRaw`DELETE FROM public.omie_categorias WHERE categoria_id = ${c.id}::uuid`)).rejects.toThrow(/permission denied/);
   }, PRAZO_MS);
 
   it("o SQL que o Prisma gera no cadastro cabe nos privilégios por coluna do pool da aplicação", async () => {

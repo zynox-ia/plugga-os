@@ -2298,9 +2298,39 @@
     ]
   },
   {
+    "metodo": "GET",
+    "caminho": "/integracoes/omie/empresas/:empresa/conferencia",
+    "controller": "OmieEmpresasController.conferir",
+    "acesso": "acesso",
+    "papeis": [
+      "departamento:financeiro:gerente"
+    ],
+    "guards": [
+      "FinanceiroHabilitadoGuard",
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
     "metodo": "POST",
     "caminho": "/integracoes/omie/empresas/:empresa/confirmar",
     "controller": "OmieEmpresasController.confirmar",
+    "acesso": "acesso",
+    "papeis": [
+      "departamento:financeiro:gerente"
+    ],
+    "guards": [
+      "FinanceiroHabilitadoGuard",
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/integracoes/omie/empresas/:empresa/importacao",
+    "controller": "OmieEmpresasController.importar",
     "acesso": "acesso",
     "papeis": [
       "departamento:financeiro:gerente"

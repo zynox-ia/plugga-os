@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import type { CompanyKey } from "./organization.js";
+import { companyKeySchema, type CompanyKey } from "./organization.js";
 
 /**
  * OMIE (financeiro e nota fiscal): uma conta só para a plataforma. A chave e o
@@ -111,3 +111,70 @@ export type ConfirmarConexaoOmie = z.infer<typeof confirmarConexaoOmieSchema>;
 /** `PUT /integracoes/omie/empresas/:empresa/cnpj`: o CNPJ da empresa no cadastro do Plugga OS. */
 export const cnpjDaEmpresaSchema = z.object({ cnpj: cnpj.nullable() }).strict();
 export type CnpjDaEmpresa = z.infer<typeof cnpjDaEmpresaSchema>;
+
+// ---------------------------------------------------------------- importar e conferir (S4)
+// O plano de contas e as contas correntes são do Plugga OS (decisão de 24/11/2026). O OMIE
+// é um conector: "Conferir com o OMIE" só mostra as diferenças, e "Importar do OMIE" cria
+// o que falta e grava o vínculo, sem nunca sobrescrever o cadastro do Plugga OS. Por
+// empresa, como ação explícita da gerência do Financeiro.
+
+/**
+ * - `nova_no_omie`: existe só no OMIE; a importação cria.
+ * - `vinculavel`: existe nos dois sem vínculo (a categoria pelo código, a conta por banco,
+ *   agência e número); a importação só grava o vínculo.
+ * - `diferente`: já vinculada, com campos diferentes; ou o mesmo código com outro tipo
+ *   (receita × despesa), que não se vincula. Só mostra; nunca sobrescreve.
+ * - `so_no_plugga`: sem par no OMIE. Só informa.
+ * Os iguais só entram na contagem.
+ */
+export const situacoesDaConferenciaDoOmie = ["nova_no_omie", "vinculavel", "diferente", "so_no_plugga"] as const;
+export const situacaoDaConferenciaDoOmieSchema = z.enum(situacoesDaConferenciaDoOmie);
+
+export const resumoDaConferenciaDoOmieSchema = z.object({
+  iguais: z.number().int().nonnegative(),
+  novasNoOmie: z.number().int().nonnegative(),
+  vinculaveis: z.number().int().nonnegative(),
+  diferentes: z.number().int().nonnegative(),
+  soNoPlugga: z.number().int().nonnegative(),
+});
+export type ResumoDaConferenciaDoOmie = z.infer<typeof resumoDaConferenciaDoOmieSchema>;
+
+const tipoDaCategoriaNoOmie = z.enum(["receita", "despesa"]);
+export const camposDaCategoriaNaConferencia = ["nome", "ativa", "grupoNome", "tipo"] as const;
+export const itemDeCategoriaNaConferenciaSchema = z.object({
+  situacao: situacaoDaConferenciaDoOmieSchema,
+  omie: z.object({ codigo: z.string(), nome: z.string(), tipo: tipoDaCategoriaNoOmie, ativa: z.boolean(), grupoNome: z.string().nullable() }).nullable(),
+  plugga: z.object({ id: z.string().uuid(), codigo: z.string(), nome: z.string(), tipo: tipoDaCategoriaNoOmie, ativa: z.boolean(), grupoNome: z.string() }).nullable(),
+  diferencas: z.array(z.enum(camposDaCategoriaNaConferencia)),
+});
+export type ItemDeCategoriaNaConferencia = z.infer<typeof itemDeCategoriaNaConferenciaSchema>;
+
+export const camposDaContaNaConferencia = ["nome", "banco", "agencia", "conta"] as const;
+export const itemDeContaCorrenteNaConferenciaSchema = z.object({
+  situacao: situacaoDaConferenciaDoOmieSchema,
+  omie: z.object({ codigo: z.string(), nome: z.string(), banco: z.string().nullable(), agencia: z.string().nullable(), conta: z.string().nullable() }).nullable(),
+  plugga: z.object({ id: z.string().uuid(), nome: z.string(), banco: z.string().nullable(), agencia: z.string().nullable(), conta: z.string().nullable() }).nullable(),
+  diferencas: z.array(z.enum(camposDaContaNaConferencia)),
+});
+export type ItemDeContaCorrenteNaConferencia = z.infer<typeof itemDeContaCorrenteNaConferenciaSchema>;
+
+/** `GET /integracoes/omie/empresas/:empresa/conferencia`. */
+export const conferenciaDoOmieSchema = z.object({
+  empresa: companyKeySchema,
+  lidoEm: z.string().datetime(),
+  categorias: z.object({ itens: z.array(itemDeCategoriaNaConferenciaSchema), resumo: resumoDaConferenciaDoOmieSchema }),
+  contasCorrentes: z.object({ itens: z.array(itemDeContaCorrenteNaConferenciaSchema), resumo: resumoDaConferenciaDoOmieSchema }),
+});
+export type ConferenciaDoOmie = z.infer<typeof conferenciaDoOmieSchema>;
+
+/**
+ * `POST /integracoes/omie/empresas/:empresa/importacao`, sem corpo. A conta importada
+ * nasce sem saldo inicial (a gerência informa); a categoria importada, com a natureza
+ * padrão (`paraClassificar`: quantas, para a gerência ajustar no cadastro).
+ */
+export const resultadoDaImportacaoDoOmieSchema = z.object({
+  categorias: z.object({ criadas: z.number().int().nonnegative(), vinculadas: z.number().int().nonnegative(), paraClassificar: z.number().int().nonnegative() }),
+  contasCorrentes: z.object({ criadas: z.number().int().nonnegative(), vinculadas: z.number().int().nonnegative() }),
+  conferencia: conferenciaDoOmieSchema,
+});
+export type ResultadoDaImportacaoDoOmie = z.infer<typeof resultadoDaImportacaoDoOmieSchema>;
