@@ -66,6 +66,8 @@ test.afterAll(async ({ request, baseURL }) => {
 test("layout, criação, edição e teclado persistem e ficam isolados por lead", async ({ page, request }) => {
   await page.goto(`/comercial/pipelines?pipeline=${pipeline.id}&lead=${negocios[0]!.id}`);
   const lead = page.getByRole("dialog", { name: "Detalhes do lead", exact: true });
+  // Desde o ddcc6bb o modal abre na Visão geral, e a faixa "Próxima ação" fica nas outras abas.
+  await lead.getByRole("tab", { name: "Perfil", exact: true }).click();
   await expect(lead.getByText("Sem próxima atividade.", { exact: true })).toBeVisible();
   await page.evaluate(() => document.fonts.ready);
   const topo = [lead.locator("header").first(), lead.locator('[class*="proximaAcaoSuperior"]'), lead.getByRole("tablist")];
@@ -85,7 +87,7 @@ test("layout, criação, edição e teclado persistem e ficam isolados por lead"
   const doing = lead.getByRole("region", { name: "Em andamento", exact: true });
   const done = lead.getByRole("region", { name: "Concluído", exact: true });
   for (const coluna of [todo, doing, done]) {
-    await expect(coluna.locator(".coluna-quantidade")).toHaveText("0");
+    await expect(coluna.locator(".coluna-quantidade")).toHaveText("00");
     await expect(coluna.getByRole("article")).toHaveCount(0);
   }
   await lead.getByRole("button", { name: "Nova atividade", exact: true }).click();
@@ -144,12 +146,15 @@ test("layout, criação, edição e teclado persistem e ficam isolados por lead"
   const emAndamento = page.waitForResponse((resposta) => resposta.request().method() === "PATCH" && resposta.url().endsWith(`/api/atividades/${atividade.id}`));
   await page.keyboard.press("Alt+ArrowRight");
   expect((await emAndamento).status()).toBe(200);
-  await expect(doing.locator(".coluna-quantidade")).toHaveText("1");
+  await expect(doing.locator(".coluna-quantidade")).toHaveText("01");
   await expect(card).toBeFocused();
   await expect(card.getByText("Conferir os valores com o lead sintético.", { exact: true })).toBeVisible();
-  for (const nome of ["Editar", "Concluir", "Ver histórico"]) await expect(card.getByRole("button", { name: nome, exact: true })).toBeVisible();
-  await expect(card.getByRole("button", { name: /Excluir/ })).toHaveCount(0);
-  await card.getByRole("button", { name: "Editar", exact: true }).click();
+  await expect(card.getByRole("button", { name: "Concluir Preparar proposta DEV", exact: true })).toBeVisible();
+  await card.getByRole("button", { name: "Ações de Preparar proposta DEV", exact: true }).click();
+  const menu = page.getByRole("menu", { name: "Ações de Preparar proposta DEV", exact: true });
+  await expect(menu.getByRole("menuitem")).toHaveText(["Voltar a fazer", "Editar", "Ver histórico"]);
+  await expect(menu.getByRole("menuitem", { name: /Excluir/ })).toHaveCount(0);
+  await menu.getByRole("menuitem", { name: "Editar", exact: true }).click();
   const editar = page.getByRole("dialog", { name: "Editar atividade", exact: true });
   await expect(editar.getByLabel("Título da atividade", { exact: false })).toHaveValue("Preparar proposta DEV");
   await expect(editar.getByRole("combobox", { name: "Responsável", exact: true })).toHaveValue(responsavel.id);
@@ -187,7 +192,8 @@ test("conflito preserva o rascunho e não acrescenta histórico de uma edição 
   const atividade = await criarAtividade(request, baseURL!, "Conferir dados DEV");
   const lead = await abrir(page, negocios[0]!);
   let card = lead.getByRole("article", { name: "Atividade Conferir dados DEV", exact: true });
-  await card.getByRole("button", { name: "Editar", exact: true }).click();
+  await card.getByRole("button", { name: "Ações de Conferir dados DEV", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Editar", exact: true }).click();
   const editar = page.getByRole("dialog", { name: "Editar atividade", exact: true });
   await editar.getByLabel("Título da atividade", { exact: false }).fill("Meu título ainda em edição");
   await editar.getByLabel("Notas", { exact: true }).fill("Rascunho preservado após conflito.");
@@ -211,7 +217,8 @@ test("conflito preserva o rascunho e não acrescenta histórico de uma edição 
   expect(entradas.entries.map((entrada) => entrada.snapshot.version)).toEqual([atividade.version, concorrente.version]);
   expect(entradas.entries[0]!.snapshot.notes).toBe("Registro sintético inicial.");
   expect(entradas.entries[1]!.snapshot.notes).toBe("Atualização concorrente confirmada.");
-  await card.getByRole("button", { name: "Ver histórico", exact: true }).click();
+  await card.getByRole("button", { name: "Ações de Conferir dados DEV", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Ver histórico", exact: true }).click();
   const historico = page.getByRole("dialog", { name: "Histórico da atividade", exact: true });
   await expect(historico.getByRole("listitem")).toHaveCount(2);
   await expect(historico.getByText("Criada · rodada 1", { exact: true })).toBeVisible();
@@ -243,7 +250,7 @@ test("conclusão exige resultado, agenda próxima ação e preserva histórico a
   await page.keyboard.press("Escape");
   await expect(concluir).toHaveCount(0);
   await expect(card).toBeFocused();
-  await card.getByRole("button", { name: "Concluir", exact: true }).click();
+  await card.getByRole("button", { name: "Concluir Conferir fatura DEV", exact: true }).click();
   const resultado = "Conta sintética recebida; consumo e UC conferidos no atendimento.";
   await concluir.getByLabel("Resultado e evidência", { exact: false }).fill(resultado);
   await concluir.getByLabel("Agendar a próxima atividade", { exact: true }).check();
@@ -263,13 +270,14 @@ test("conclusão exige resultado, agenda próxima ação e preserva histórico a
   await expect(concluir).toHaveCount(0);
   await expect(lead.getByRole("region", { name: "Concluído", exact: true }).getByRole("article", { name: "Atividade Conferir fatura DEV", exact: true })).toBeVisible();
   await expect(card).toBeFocused();
-  await expect(card.getByRole("button", { name: "Editar", exact: true })).toHaveCount(0);
-  await expect(card.getByRole("button", { name: "Concluir", exact: true })).toHaveCount(0);
-  await expect(card.getByRole("button", { name: /Excluir/ })).toHaveCount(0);
+  await expect(card.getByRole("button", { name: "Concluir Conferir fatura DEV", exact: true })).toHaveCount(0);
   await page.keyboard.press("Alt+ArrowLeft");
   await expect(card).toBeFocused();
   expect(await ler<Activity>(request, `/api/atividades/${atividade.id}`)).toMatchObject({ version: concluida.activity.version, currentRound: { status: "done", outcome: { summary: resultado } } });
-  await card.getByRole("button", { name: "Ver histórico", exact: true }).click();
+  // Concluída, o menu só oferece o histórico: sem andamento, editar ou excluir.
+  await card.getByRole("button", { name: "Ações de Conferir fatura DEV", exact: true }).click();
+  await expect(page.getByRole("menuitem")).toHaveText(["Ver histórico"]);
+  await page.getByRole("menuitem", { name: "Ver histórico", exact: true }).click();
   const historico = page.getByRole("dialog", { name: "Histórico da atividade", exact: true });
   await expect(historico.getByText("Concluída · rodada 1", { exact: true })).toBeVisible();
   await expect(historico.getByText(resultado, { exact: true })).toBeVisible();
