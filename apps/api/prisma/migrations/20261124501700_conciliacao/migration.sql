@@ -13,7 +13,9 @@ BEGIN;
 CREATE UNIQUE INDEX lancamentos_id_conta_corrente_id_key ON public.lancamentos (id, conta_corrente_id);
 ALTER TABLE public.lancamentos
   ADD COLUMN conciliacao_marcada boolean NOT NULL DEFAULT false,
-  ADD CONSTRAINT lancamentos_conciliacao_coerente CHECK ((etapa = 'conciliada') = (conciliado_em IS NOT NULL));
+  -- NOT VALID: vale para tudo o que se gravar daqui em diante, sem que o deploy dependa dos
+  -- lançamentos que já existem (a validação deles fica para uma migration própria).
+  ADD CONSTRAINT lancamentos_conciliacao_coerente CHECK ((etapa = 'conciliada') = (conciliado_em IS NOT NULL)) NOT VALID;
 
 ALTER TABLE public.movimentos_do_extrato
   ADD COLUMN lancamento_id uuid,
