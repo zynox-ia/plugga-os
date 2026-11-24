@@ -50,6 +50,18 @@ export function enviosDoFato(antes: Lancamento, mudanca: MudancaDoLancamento, ch
   }
 }
 
+/**
+ * A baixa (e o boleto) só valem sobre um título que existe no OMIE. Se o lançamento
+ * nunca pediu o título ao conector (aprovado ou criado com a empresa sem conexão, e a
+ * conexão ligada depois), o título vai antes, na mesma chamada: a ordem da fila segura
+ * a baixa até ele chegar. `temTitulo`: há algum upsert do lançamento no outbox, em
+ * qualquer estado.
+ */
+export function comOTituloAntes(operacoes: readonly OperacaoNoOmie[], temTitulo: boolean): OperacaoNoOmie[] {
+  const precisaDoTitulo = operacoes.some((o) => o === "baixa" || o === "gerar_boleto");
+  return precisaDoTitulo && !temTitulo && !operacoes.includes("upsert") ? ["upsert", ...operacoes] : [...operacoes];
+}
+
 /** Chave de idempotência na fila: duas aprovações seguidas viram um envio (seção 5 do desenho). */
 export const chaveDoEnvio = (empresa: string, lancamentoId: string, operacao: OperacaoNoOmie): string =>
   `omie:${empresa}:lancamento:${lancamentoId}:${operacao}`;

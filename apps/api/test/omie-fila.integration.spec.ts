@@ -122,6 +122,25 @@ describe.skipIf(!HABILITADO)("fila do OMIE no Postgres", () => {
     }
   }, PRAZO_MS);
 
+  it("aprovada com o conector desligado e paga depois de ligar: o título vai antes da baixa, e a baixa espera por ele", async () => {
+    conectorLigado = false;
+    const id = await novaConta();
+    try {
+      await agir(id, { acao: "aprovar" });
+    } finally {
+      conectorLigado = true;
+    }
+    expect(await envios(id)).toEqual([]);
+    await repositorio.registrarAnexo(id, "comprovante", { chave: `${marca}/${randomUUID()}.pdf`, nome: "c.pdf", tamanho: 1, tipo: "application/pdf" }, principal, papel, AGORA);
+    await agir(id, { acao: "registrar_pagamento", forma: "pix", contaCorrenteId: ids.conta, pagoEm: "2026-11-23" });
+    const [upsert, baixa] = await envios(id);
+    expect([upsert?.operacao, baixa?.operacao]).toEqual(["upsert", "baixa"]);
+    expect([upsert?.estado, baixa?.estado]).toEqual(["pendente", "pendente"]);
+    // A ordem da fila vale: a baixa não sai antes do título.
+    modo = "write";
+    expect(await fila.enviar(baixa!.id, new Date())).toEqual({ skipped: true, motivo: "fora_da_vez" });
+  }, PRAZO_MS);
+
   it("sem conector inscrito (o Financeiro sozinho), as ações não tocam o outbox", async () => {
     const sozinho = new PrismaFinanceiroRepository(prisma, new AuditAppender());
     const id = await sozinho.criarContaAPagar(criarContaAPagarSchema.parse({

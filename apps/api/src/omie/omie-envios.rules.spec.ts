@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { chaveDoEnvio, ehTituloNoOmie, enviosDoFato } from "./omie-envios.rules";
+import { chaveDoEnvio, comOTituloAntes, ehTituloNoOmie, enviosDoFato } from "./omie-envios.rules";
 
 const saida = (etapa: "aberta" | "aprovada" | "paga") => ({ tipo: "saida" as const, etapa });
 const entrada = (etapa: "gerada" | "nf_emitida" | "boleto_gerado" | "enviada" | "recebida") => ({ tipo: "entrada" as const, etapa });
@@ -34,6 +34,15 @@ describe("envios ao OMIE por fato do lançamento (PLU-342)", () => {
     for (const marco of ["nf_registrada", "boleto_registrado", "enviado", "cobranca_registrada"] as const) {
       expect(enviosDoFato(entrada("gerada"), marco, true)).toEqual([]);
     }
+  });
+
+  it("a baixa sem título no outbox leva o título antes; com título, ou sem baixa, nada muda", () => {
+    expect(comOTituloAntes(["baixa"], false)).toEqual(["upsert", "baixa"]);
+    expect(comOTituloAntes(["gerar_boleto"], false)).toEqual(["upsert", "gerar_boleto"]);
+    expect(comOTituloAntes(["baixa"], true)).toEqual(["baixa"]);
+    expect(comOTituloAntes(["upsert"], false)).toEqual(["upsert"]);
+    expect(comOTituloAntes(["cancelar"], false)).toEqual(["cancelar"]);
+    expect(comOTituloAntes([], false)).toEqual([]);
   });
 
   it("a chave da fila separa empresa, lançamento e operação", () => {

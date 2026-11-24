@@ -2,7 +2,7 @@ import { Inject, Injectable, Optional } from "@nestjs/common";
 import type { Prisma } from "@prisma/client";
 
 import type { FatoDoLancamento, ReflexoDoLancamento } from "../financeiro/reflexo-do-lancamento";
-import { enviosDoFato, type OperacaoNoOmie } from "./omie-envios.rules";
+import { comOTituloAntes, enviosDoFato, type OperacaoNoOmie } from "./omie-envios.rules";
 
 /** A empresa tem o OMIE conectado (par conferido e confirmado)? */
 export type ConexaoDoOmieLigada = (tx: Prisma.TransactionClient, empresa: string) => Promise<boolean>;
@@ -31,9 +31,10 @@ export class OmieReflexoDoLancamento implements ReflexoDoLancamento {
       chegouAoOmie = (await tx.omieEnvio.count({ where: { lancamentoId: fato.lancamentoId, operacao: "upsert", estado: { in: ["enviado", "enviando"] } } })) > 0;
       await tx.omieEnvio.updateMany({ where: { lancamentoId: fato.lancamentoId, estado: { in: ["pendente", "erro"] } }, data: { estado: "descartado" } });
     }
-    const operacoes = enviosDoFato({ tipo: fato.tipo, etapa: fato.etapaAntes }, fato.mudanca, chegouAoOmie);
-    if (operacoes.length === 0 || !(await this.ligada(tx, fato.empresa))) return;
-    await this.enfileirar(tx, fato, operacoes);
+    const pedidas = enviosDoFato({ tipo: fato.tipo, etapa: fato.etapaAntes }, fato.mudanca, chegouAoOmie);
+    if (pedidas.length === 0 || !(await this.ligada(tx, fato.empresa))) return;
+    const temTitulo = (await tx.omieEnvio.count({ where: { lancamentoId: fato.lancamentoId, operacao: "upsert" } })) > 0;
+    await this.enfileirar(tx, fato, comOTituloAntes(pedidas, temTitulo));
   }
 
   /**
