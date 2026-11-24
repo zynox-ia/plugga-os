@@ -43,6 +43,8 @@ docker() {
         elif [[ "$*" == *'-v runtime_role='* ]]; then
           cat > /dev/null; evento papeis; [[ "$DEPLOY_CASO" != papeis-falharam ]]
         elif [[ "$*" == *_prisma_migrations* ]]; then
+          # O banco cai depois da migração: a consulta da mensagem de falha não responde.
+          if [[ "$DEPLOY_CASO" == rls-banco-caiu* ]] && grep -q '^migrate$' "$DEPLOY_LOG"; then return 2; fi
           if [[ "$DEPLOY_CASO" == rls-* ]] && ! grep -q '^migrate$' "$DEPLOY_LOG"; then printf '0\n'; else printf '1\n'; fi
           grep -q '^isolamento$' "$DEPLOY_LOG" || evento isolamento
         else
@@ -180,6 +182,15 @@ for (const caso of ["rls-smoke-falhou", "rls-pools-reprovaram", "rls-backup-fina
     assert.match(r.stderr, caso === "rls-backup-final-falhou" ? /ainda NÃO recebeu o RLS/ : /JÁ recebeu o RLS.*backup final/);
   });
 }
+
+test("rls-banco-caiu: sem resposta do banco na falha, não afirma que o banco não migrou; manda conferir", () => {
+  const r = executar("rls-banco-caiu-pools-reprovaram");
+  assert.notEqual(r.status, 0);
+  assert.equal(r.eventos.some((evento) => evento.startsWith("restaura ") || evento === "up-anterior" || evento === "up-atual"), false, r.eventos.join("\n"));
+  assert.equal(r.eventos.at(-1), "stop api web");
+  assert.match(r.stderr, /Não foi possível saber se o banco recebeu o RLS/);
+  assert.doesNotMatch(r.stderr, /ainda NÃO recebeu o RLS/);
+});
 
 test("pools reprovados numa publicação comum (o banco já tinha o RLS): segue a reversão de hoje", () => {
   const r = executar("pools-reprovaram");

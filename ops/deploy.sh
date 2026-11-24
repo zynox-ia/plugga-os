@@ -194,11 +194,16 @@ falha_publicacao() {
     falhou "A publicação que liga o isolamento por RLS (${MIGRACAO_DO_ISOLAMENTO}) falhou."
     falhou "A versão anterior NÃO foi reativada: o .env já aponta os três logins novos, que ela não sabe usar. api e web ficam paradas."
     docker compose stop api web || true
-    if banco_ja_migrado_para_rls; then
-      falhou "O banco JÁ recebeu o RLS. Saídas: corrigir e publicar de novo; ou restaurar o backup final (${BACKUP_FINAL:-ver /root/backup-plugga.sh}), o .env.antes-rls e as imagens anteriores."
-    else
-      falhou "O banco ainda NÃO recebeu o RLS. Saídas: corrigir e publicar de novo; ou voltar o .env.antes-rls e as imagens anteriores, sem restaurar o banco."
-    fi
+    # Três estados: migrado (0), não migrado (1) e sem resposta do banco (2). Sem resposta,
+    # não há como escolher a saída: dizer "não migrou" mandaria subir a versão antiga
+    # sobre um banco talvez já migrado.
+    local estado=0
+    banco_ja_migrado_para_rls || estado=$?
+    case "$estado" in
+      0) falhou "O banco JÁ recebeu o RLS. Saídas: corrigir e publicar de novo; ou restaurar o backup final (${BACKUP_FINAL:-ver /root/backup-plugga.sh}), o .env.antes-rls e as imagens anteriores." ;;
+      1) falhou "O banco ainda NÃO recebeu o RLS. Saídas: corrigir e publicar de novo; ou voltar o .env.antes-rls e as imagens anteriores, sem restaurar o banco." ;;
+      *) falhou "Não foi possível saber se o banco recebeu o RLS: confira a _prisma_migrations (comando no GUIA) antes de escolher a saída. O backup final é ${BACKUP_FINAL:-o mais recente do backup-plugga.sh}." ;;
+    esac
     falhou "Passo a passo em ops/GUIA.md, \"Primeira publicação com os três logins do banco\". Intervenção do André necessária."
     exit "$codigo"
   fi

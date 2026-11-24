@@ -293,6 +293,15 @@ enxergaria o banco. Ele para a api e a web e diz em qual caso você está:
   acima. Restaurar o banco apaga o que foi gravado depois do backup, então é
   decisão sua.
 
+- **"Não foi possível saber se o banco recebeu o RLS"** (o banco não respondeu
+  na hora da falha): com o banco de pé de novo, confira antes de escolher um
+  dos dois caminhos acima. `1` = já recebeu; `0` = ainda não:
+
+  ```bash
+  docker exec plugga-os-postgres-1 psql -U plugga_os -d plugga_os -Atc \
+    "SELECT count(*) FROM _prisma_migrations WHERE migration_name = '20261106010000_isolamento_rls' AND finished_at IS NOT NULL"
+  ```
+
 **O `plugga_app`, depois.** Não apague o `plugga_app` na primeira publicação.
 Quando a versão nova estiver estável por alguns dias, faça um backup e, num
 passo à parte, no `psql` como dono:
