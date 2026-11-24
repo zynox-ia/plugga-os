@@ -94,3 +94,42 @@ test("o pedido de compra escolhe a obra do cadastro, sem criar obra (PLU-355)", 
   await novo.getByRole("combobox", { name: /^Obra/ }).click();
   await expect(page.getByRole("option", { name: new RegExp(literal(nome)) })).toBeVisible(DEPOIS_DA_ACAO);
 });
+
+test("a O.S. escolhe a obra do mesmo cliente e empresa e aparece na aba O.S. da obra", async ({ page, request, baseURL }) => {
+  test.slow();
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await bloquearTerceiros(page);
+  const H = { origin: baseURL! };
+  const sufixo = Date.now().toString(36).toUpperCase();
+  const nome = `Obra ${marcaDaExecucao()} ${sufixo} O.S. (sintética)`;
+  const busca = (await (await request.get(`/api/engenharia/obras/clientes?busca=${encodeURIComponent("Cliente com UC")}`)).json()) as { itens: { id: string; nome: string }[] };
+  const cliente = busca.itens.find((c) => c.nome === CLIENTE)!;
+  const dia = (n: number) => new Date(Date.now() - 4 * 3_600_000 + n * 86_400_000).toISOString().slice(0, 10);
+  const criada = await request.post("/api/engenharia/obras", { headers: H, data: { empresa: "waze", clienteId: cliente.id, nome, potenciaKwp: "10", inicioEm: dia(0), entregaPrevistaEm: dia(30) } });
+  expect(criada.ok(), await criada.text()).toBeTruthy();
+  const { id: obraId } = (await criada.json()) as { id: string };
+  const descricao = `Instalação ${marcaDaExecucao()} ${sufixo} (sintético)`;
+
+  await page.goto("/engenharia/ordens-de-servico");
+  await page.getByRole("button", { name: "Nova O.S." }).first().click();
+  const nova = page.getByRole("dialog", { name: "Nova O.S." });
+  await nova.getByRole("combobox", { name: /^Empresa/ }).click();
+  await page.getByRole("option", { name: "Waze Energia" }).click();
+  await nova.getByRole("combobox", { name: /^Tipo/ }).click();
+  await page.getByRole("option", { name: "Instalação" }).click();
+  await nova.getByRole("searchbox", { name: /Cliente/ }).fill("Cliente com UC");
+  await nova.getByRole("button", { name: new RegExp(literal(CLIENTE)) }).click(DEPOIS_DA_ACAO);
+  await nova.getByRole("combobox", { name: /^Obra/ }).click(DEPOIS_DA_ACAO);
+  await page.getByRole("option", { name: nome }).click();
+  await nova.getByRole("textbox", { name: /O que precisa ser feito/ }).fill(descricao);
+  await nova.getByRole("textbox", { name: /^Prazo/ }).fill(dia(5).split("-").reverse().join("/"));
+  await nova.getByRole("button", { name: "Criar O.S." }).click();
+  const fichaDaOs = page.locator("dialog[open]").first();
+  await expect(fichaDaOs.getByRole("definition").filter({ hasText: nome })).toBeVisible(DEPOIS_DA_ACAO);
+
+  // Na ficha da obra, a O.S. entra na aba O.S.
+  await page.goto(`/engenharia/obras?obra=${obraId}`);
+  const fichaDaObra = page.getByRole("dialog", { name: nome });
+  await fichaDaObra.getByRole("tab", { name: /^O\.S\./ }).click(DEPOIS_DA_ACAO);
+  await expect(fichaDaObra.getByText(new RegExp(literal(descricao)))).toBeVisible(DEPOIS_DA_ACAO);
+});
