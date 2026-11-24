@@ -224,37 +224,47 @@ export class PrismaFinanceiroRepository {
   }
 
   /**
-   * O saldo calculado de cada conta ativa (PLU-339, C4): o saldo inicial (o fim do dia dele)
-   * mais as entradas e menos as saídas conciliadas depois desse dia. Sem saldo inicial, nulo.
-   * O saldo lido do OMIE não entra: é só conferência, no conector.
+   * O saldo de cada conta ativa (PLU-339, C4): o saldo inicial (o fim do dia dele) mais todo o
+   * LIQUIDADO depois desse dia (pago, recebido e conciliado), porque é o pagamento, e não a
+   * conciliação, que move o dinheiro. `saldoConciliado`: só o conferido com o extrato, para a
+   * Conciliação mostrar a diferença. Sem saldo inicial, os dois são nulos. O saldo lido do
+   * OMIE não entra: é só conferência, no conector.
    */
-  private async saldosDasContas(tx: Prisma.TransactionClient, empresa?: CompanyKey): Promise<{ id: string; saldo: Prisma.Decimal | null }[]> {
-    const linhas = await tx.$queryRaw<{ id: string; saldo: Prisma.Decimal | null }[]>`
+  private async saldosDasContas(tx: Prisma.TransactionClient, empresa?: CompanyKey): Promise<{ id: string; saldo: Prisma.Decimal | null; saldoConciliado: Prisma.Decimal | null }[]> {
+    return tx.$queryRaw<{ id: string; saldo: Prisma.Decimal | null; saldoConciliado: Prisma.Decimal | null }[]>`
       SELECT c.id,
         CASE WHEN c.saldo_inicial IS NULL THEN NULL ELSE c.saldo_inicial + COALESCE(SUM(
           CASE WHEN l.tipo = 'entrada' THEN COALESCE(l.valor_recebido, l.valor) ELSE -l.valor END
-        ) FILTER (WHERE l.id IS NOT NULL), 0) END AS saldo
+        ) FILTER (WHERE l.id IS NOT NULL), 0) END AS saldo,
+        CASE WHEN c.saldo_inicial IS NULL THEN NULL ELSE c.saldo_inicial + COALESCE(SUM(
+          CASE WHEN l.tipo = 'entrada' THEN COALESCE(l.valor_recebido, l.valor) ELSE -l.valor END
+        ) FILTER (WHERE l.etapa = 'conciliada'), 0) END AS "saldoConciliado"
       FROM public.contas_correntes c
-      LEFT JOIN public.lancamentos l ON l.conta_corrente_id = c.id AND l.etapa = 'conciliada' AND l.cancelado_em IS NULL
+      LEFT JOIN public.lancamentos l ON l.conta_corrente_id = c.id AND l.etapa IN ('paga', 'recebida', 'conciliada') AND l.cancelado_em IS NULL
         AND c.saldo_inicial_em IS NOT NULL AND l.liquidado_em > c.saldo_inicial_em
       WHERE c.ativa AND (${empresa ?? null}::text IS NULL OR c.company_id = ${empresa ?? null}::text)
       GROUP BY c.id, c.saldo_inicial`;
-    return linhas;
   }
 
-  async opcoes(): Promise<OpcoesDoFinanceiro> {
+  /** `papel`: o saldo calculado da conta só para quem alcança os dois tipos (senão, pelo RLS, ele seria parcial). */
+  async opcoes(papel?: PapelNoFinanceiro): Promise<OpcoesDoFinanceiro> {
+    const veSaldo = !papel || (papel.saidas && papel.entradas);
     const [categorias, contas, fornecedores, conectores, saldos] = await this.prisma.comContexto((tx) => Promise.all([
       tx.categoriaFinanceira.findMany({ orderBy: [{ companyId: "asc" }, { codigo: "asc" }] }),
       tx.contaCorrente.findMany({ orderBy: [{ companyId: "asc" }, { nome: "asc" }] }),
       tx.fornecedor.findMany({ where: { ativo: true }, select: { id: true, nome: true }, orderBy: { nome: "asc" } }),
       this.conectores.conexoes(tx),
-      this.saldosDasContas(tx),
+      veSaldo ? this.saldosDasContas(tx) : Promise.resolve([]),
     ]));
-    const saldoDa = new Map(saldos.map((c) => [c.id, c.saldo?.toFixed(2) ?? null]));
+    const saldoDa = new Map(saldos.map((c) => [c.id, c]));
     return {
       ...(conectores ? { conectores } : {}),
       categorias: categorias.map(paraCategoria),
-      contasCorrentes: contas.map((c) => ({ ...paraConta(c), saldoCalculado: saldoDa.get(c.id) ?? null })),
+      contasCorrentes: contas.map((c) => ({
+        ...paraConta(c),
+        saldoCalculado: veSaldo ? (saldoDa.get(c.id)?.saldo?.toFixed(2) ?? null) : null,
+        saldoConciliado: veSaldo ? (saldoDa.get(c.id)?.saldoConciliado?.toFixed(2) ?? null) : null,
+      })),
       fornecedores,
       formasDePagamento: [...formasDoLancamento],
     };

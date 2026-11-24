@@ -187,8 +187,8 @@ export class FinanceiroController {
   /** Menus dos formulários e filtros: vale para qualquer tela do Financeiro. */
   @Get("opcoes")
   @Tela("financeiro.pagar", "financeiro.receber", "financeiro.conciliacao", "financeiro.fiscal")
-  opcoes(): Promise<OpcoesDoFinanceiro> {
-    return this.financeiro.opcoes();
+  opcoes(@CurrentPrincipal() principal: AuthPrincipal): Promise<OpcoesDoFinanceiro> {
+    return this.financeiro.opcoes(principal);
   }
 
   /** PDF e imagem abrem no navegador; o tipo é o detectado no envio, e `nosniff` impede reinterpretação. */

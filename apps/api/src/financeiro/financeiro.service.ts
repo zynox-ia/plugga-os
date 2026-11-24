@@ -84,8 +84,8 @@ export class FinanceiroService {
     return lancamentoSchema.parse(await this.repositorio.obter(id, papel, this.agora()));
   }
 
-  async opcoes(): Promise<OpcoesDoFinanceiro> {
-    return opcoesDoFinanceiroSchema.parse(await this.repositorio.opcoes());
+  async opcoes(principal: AuthPrincipal): Promise<OpcoesDoFinanceiro> {
+    return opcoesDoFinanceiroSchema.parse(await this.repositorio.opcoes(this.papel(principal)));
   }
 
   async criarContaAPagar(input: CriarContaAPagar, principal: AuthPrincipal): Promise<Lancamento> {

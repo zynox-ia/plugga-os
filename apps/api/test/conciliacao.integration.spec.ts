@@ -225,16 +225,23 @@ describe.skipIf(!HABILITADO)("conciliação: extrato bancário no Postgres", () 
     await expect(comoRuntime("conciliacao", (tx) => tx.$executeRaw`UPDATE public.movimentos_do_extrato SET valor = 1 WHERE id = ${linha!.id}::uuid`)).rejects.toThrow(/permission denied/);
   }, PRAZO_MS);
 
-  it("C4: o saldo da conta é o saldo inicial (o fim do dia dele) mais o conciliado depois; sem saldo inicial, nulo", async () => {
+  it("C4: o saldo da conta é o saldo inicial (o fim do dia dele) mais todo o liquidado depois; o conciliado é o segundo número", async () => {
     const financeiro = new PrismaFinanceiroRepository(prisma, new AuditAppender());
-    const saldoDaConta = async () => (await financeiro.opcoes()).contasCorrentes.find((c) => c.id === conta.id)?.saldoCalculado;
-    expect(await saldoDaConta()).toBeNull();
-    // Depois dos testes da C3, ficou conciliada só a entrada de R$ 7.200,00 (a saída foi desfeita).
+    const saldoDaConta = async () => {
+      const c = (await financeiro.opcoes()).contasCorrentes.find((x) => x.id === conta.id);
+      return [c?.saldoCalculado, c?.saldoConciliado];
+    };
+    expect(await saldoDaConta()).toEqual([null, null]);
+    // Depois dos testes da C3, na conta: pagos 1.742,18 (03/12, desfeita a conciliação), 700,00 (08/12) e 50,00 (25/12);
+    // recebido 7.200,00 (05/12, conciliado). O pago e não conciliado já desconta do saldo.
     await prisma.contaCorrente.update({ where: { id: conta.id }, data: { saldoInicial: 1000, saldoInicialEm: new Date("2026-11-30T04:00:00Z") } });
-    expect(await saldoDaConta()).toBe("8200.00");
-    // O conciliado até o dia do saldo inicial já está nele: não conta de novo.
+    expect(await saldoDaConta()).toEqual(["5707.82", "8200.00"]);
+    // O liquidado até o dia do saldo inicial já está nele: não conta de novo.
     await prisma.contaCorrente.update({ where: { id: conta.id }, data: { saldoInicial: -50, saldoInicialEm: new Date("2026-12-05T04:00:00Z") } });
-    expect(await saldoDaConta()).toBe("-50.00");
+    expect(await saldoDaConta()).toEqual(["-800.00", "-50.00"]);
+    // Quem só alcança um tipo não vê o saldo: pelo RLS, ele seria parcial.
+    const soPagar = papelNoFinanceiro({ plataforma: null, departamentos: [{ departamento: "financeiro", nivel: "membro", telas: ["financeiro.pagar"] }] });
+    expect((await financeiro.opcoes(soPagar)).contasCorrentes.find((x) => x.id === conta.id)).toMatchObject({ saldoCalculado: null, saldoConciliado: null });
     // No resumo, a conta entra na soma do saldo nas contas.
     const resumo = await financeiro.resumo(papelNoFinanceiro({ plataforma: "admin", departamentos: [] }), "waze", AGORA);
     expect(resumo.saldoProjetado?.saldoNasContas).not.toBeNull();

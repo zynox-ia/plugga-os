@@ -158,8 +158,13 @@ export const contaCorrenteSchema = z.object({
    */
   saldoInicial: z.string().nullable().optional(),
   saldoInicialEm: diaDoCalendario.nullable().optional(),
-  /** Nas opções: o saldo inicial mais o conciliado depois (PLU-339, C4); nulo sem saldo inicial. */
+  /**
+   * Nas opções (PLU-339, C4): o saldo inicial (o fim do dia dele) mais todo o liquidado depois
+   * (pago, recebido e conciliado); nulo sem saldo inicial ou para quem não alcança os dois tipos.
+   */
   saldoCalculado: z.string().nullable().optional(),
+  /** Só o conferido com o extrato: o saldo inicial mais o conciliado depois. A diferença para o `saldoCalculado` é o que falta conciliar. */
+  saldoConciliado: z.string().nullable().optional(),
   ativa: z.boolean(),
 });
 export type ContaCorrente = z.infer<typeof contaCorrenteSchema>;
@@ -552,7 +557,7 @@ export const resumoDosLancamentosSchema = z.object({
     .nullable(),
   /**
    * a receber − a pagar até `ate`, mais o saldo nas contas. O saldo é o calculado no Plugga OS
-   * (o saldo inicial de cada conta ativa mais o conciliado depois); sem nenhuma conta com
+   * (o saldo inicial de cada conta ativa mais o liquidado depois); sem nenhuma conta com
    * saldo inicial, `saldoNasContas` é nulo. `contasSemSaldoInicial`: as contas ativas que ficaram
    * fora da soma, para a tela pedir o saldo inicial. Nulo sem acesso aos dois tipos.
    */
