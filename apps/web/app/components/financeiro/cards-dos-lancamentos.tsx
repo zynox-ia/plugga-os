@@ -26,7 +26,8 @@ export function CardsDosLancamentos({ itens, hrefDaFicha, aoAbrir }: { itens: La
 }
 
 function CardDoLancamento({ l, indice, hrefDaFicha, aoAbrir }: { l: LancamentoResumo; indice: number } & AcoesDoLancamento) {
-  const Icone = ICONE_DA_NATUREZA[l.categoria.natureza];
+  // A conta pode nascer sem categoria (CC14, a da compra): ícone genérico até ser classificada.
+  const Icone = ICONE_DA_NATUREZA[l.categoria?.natureza ?? "outros"];
   const prazo = prazoDoLancamento(l);
   const selo = seloDaEtapa(l);
   const pendencia = temPendenciaNoOmie(l);
@@ -35,7 +36,7 @@ function CardDoLancamento({ l, indice, hrefDaFicha, aoAbrir }: { l: LancamentoRe
   return <article className={`${estilosClientes.card} ${styles.card} ${styles.entra}`} style={{ "--i": indice } as CSSProperties}
     aria-label={`${l.codigo}: ${l.favorecido.nome}, ${valor}${pendencia ? ", com pendência no OMIE" : ""}`}>
     <div className={styles.topo}>
-      <span className={styles.caixa} aria-hidden="true" title={l.categoria.nome}><Icone size={20} /></span>
+      <span className={styles.caixa} aria-hidden="true" title={l.categoria?.nome ?? "Sem categoria"}><Icone size={20} /></span>
       <div className={styles.canto}>
         {pendencia ? <span className={styles.pendencia} role="img" aria-label="Pendência no OMIE" title="Pendência no OMIE: veja na ficha"><TriangleAlert size={13} aria-hidden="true" /></span> : null}
         <span>{l.codigo}</span><span aria-hidden="true">·</span><EmpresaComPonto empresa={l.empresa} curto />

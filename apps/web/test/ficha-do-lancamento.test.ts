@@ -137,6 +137,16 @@ describe("nova conta a pagar e edição", () => {
     assert.equal(valorEmDigitacao(""), "");
   });
 
+  it("conta sem categoria (a da compra) abre a edição com a categoria em branco", () => {
+    const semCategoria = { ...saida, categoria: null } as unknown as Lancamento;
+    assert.equal(camposDoLancamento(semCategoria).categoriaId, "");
+    // Mudar só a descrição de uma conta sem categoria salva; tirar a categoria de quem tinha, não.
+    const antes = camposDoLancamento(semCategoria);
+    assert.deepEqual(corpoDaEdicao(antes, { ...antes, descricao: "Outra descrição" }), { corpo: { descricao: "Outra descrição" }, porCampo: {} });
+    const comCategoria = camposDoLancamento(saida);
+    assert.equal(corpoDaEdicao(comCategoria, { ...comCategoria, categoriaId: "" }).porCampo.categoriaId, "escolha a categoria.");
+  });
+
   it("a edição manda só o que mudou, sem empresa nem valor", () => {
     const antes = camposDoLancamento(saida);
     assert.equal(antes.valor, "3.800,00");

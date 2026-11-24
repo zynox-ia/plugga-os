@@ -62,7 +62,7 @@ export function ContaAPagarForm({ opcoes, lancamento, gerente, aoCancelar, aoSal
     if (lancamento && !lista.some((f) => f.value === lancamento.favorecido.id)) lista.unshift({ value: lancamento.favorecido.id, label: lancamento.favorecido.nome, icon: <Truck /> });
     return lista;
   }, [opcoes.fornecedores, lancamento]);
-  const categorias = categoriasDaSaida(opcoes, campos.empresa, lancamento?.categoria.id).map((c) => ({ value: c.id, label: c.nome, description: c.codigo, icon: <Tag />, grupo: `${c.grupo.codigo} · ${c.grupo.nome}` }));
+  const categorias = categoriasDaSaida(opcoes, campos.empresa, lancamento?.categoria?.id).map((c) => ({ value: c.id, label: c.nome, description: c.codigo, icon: <Tag />, grupo: `${c.grupo.codigo} · ${c.grupo.nome}` }));
   const contas = contasDaEmpresa(opcoes, campos.empresa, lancamento?.contaCorrente?.id).map((c) => ({ value: c.id, label: c.nome, ...(c.banco ? { description: [c.banco, c.agencia ? `ag ${c.agencia}` : null, c.numero ? `cc ${c.numero}` : null].filter(Boolean).join(" · ") } : {}), icon: <Landmark /> }));
   const formas = formasDoLancamento.map((f) => ({ value: f, label: ROTULO_DA_FORMA[f], icon: <CreditCard /> }));
   const empresas = (["plugga", "waze"] as const).map((v) => ({ value: v, label: ROTULO_DA_EMPRESA[v], icon: <Building2 /> }));

@@ -163,7 +163,7 @@ export function FichaDoLancamento({ lancamento: inicial, opcoes, gerente, aoFech
   }
   const irPara = (destino: Aba) => { setAba(destino); botoes.current[abas.findIndex((a) => a.id === destino)]?.focus(); };
 
-  const Icone = ICONE_DA_NATUREZA[l.categoria.natureza];
+  const Icone = ICONE_DA_NATUREZA[l.categoria?.natureza ?? "outros"];
   return <Modal rotulo={`${l.codigo}: ${l.descricao}`} aoFechar={aoFechar} largura="larga" className={detalhes.modal}>
     <div className={detalhes.layout}>
       <header className={`${detalhes.cabecalhoLead} plg-parte`}>
@@ -313,7 +313,7 @@ function VisaoGeralDoLancamento({ l, opcoes, hoje, ocupado, aoAgir, aoAnexar, ao
       <dl className={visao.grade}>
         <div><dt>Empresa</dt><dd>{empresa}</dd></div>
         <div><dt>{l.favorecido.tipo === "fornecedor" ? "Fornecedor" : "Cliente"}</dt><dd>{l.favorecido.nome}</dd></div>
-        <div><dt>Categoria do OMIE</dt><dd>{l.categoria.nome}<small>{l.categoria.codigo}</small></dd></div>
+        <div><dt>Categoria</dt><dd>{l.categoria ? <>{l.categoria.nome}<small>{l.categoria.codigo}</small></> : "Sem categoria · classificar"}</dd></div>
         <div><dt>Conta corrente</dt><dd>{l.contaCorrente?.nome ?? "Não informada"}</dd></div>
         <div><dt>Forma de pagamento</dt><dd>{l.forma ? ROTULO_DA_FORMA[l.forma] : "Não informada"}</dd></div>
         <div><dt>Vencimento</dt><dd>{diaLegivel(l.vencimento)}</dd></div>

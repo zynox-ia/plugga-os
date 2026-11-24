@@ -46,7 +46,8 @@ export function camposDoLancamento(l: Lancamento): CamposDaContaAPagar {
   return {
     empresa: l.empresa,
     fornecedorId: l.favorecido.id,
-    categoriaId: l.categoria.id,
+    // Sem categoria (CC14), o formulário abre com a categoria em branco para classificar.
+    categoriaId: l.categoria?.id ?? "",
     contaCorrenteId: l.contaCorrente?.id ?? "",
     descricao: l.descricao,
     valor: Number(l.valor).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
@@ -80,7 +81,7 @@ export function corpoDaNovaContaAPagar(c: CamposDaContaAPagar): { corpo?: Record
   if (!c.fornecedorId) porCampo.fornecedorId = "escolha o fornecedor ou favorecido.";
   if (!c.descricao.trim()) porCampo.descricao = "descreva o que pagar.";
   else if (c.descricao.trim().length > 200) porCampo.descricao = "use até 200 caracteres.";
-  if (!c.categoriaId) porCampo.categoriaId = c.empresa ? "escolha a categoria do OMIE." : "escolha a empresa primeiro.";
+  if (!c.categoriaId) porCampo.categoriaId = c.empresa ? "escolha a categoria." : "escolha a empresa primeiro.";
   if (!c.contaCorrenteId) porCampo.contaCorrenteId = c.empresa ? "escolha a conta corrente." : "escolha a empresa primeiro.";
   const valor = decimalDigitado(c.valor);
   if (!valor || Number(valor) <= 0) porCampo.valor = "informe o valor, como 1.234,56.";
@@ -107,7 +108,8 @@ export function corpoDaEdicao(antes: CamposDaContaAPagar, depois: CamposDaContaA
   if (!depois.descricao.trim()) porCampo.descricao = "descreva o que pagar.";
   else if (depois.descricao.trim().length > 200) porCampo.descricao = "use até 200 caracteres.";
   if (!depois.vencimento) porCampo.vencimento = "informe o vencimento (dd/mm/aaaa).";
-  if (!depois.categoriaId) porCampo.categoriaId = "escolha a categoria do OMIE.";
+  // A conta que nasceu sem categoria (a da compra, CC14) se edita sem ela; a que tinha não fica sem.
+  if (!depois.categoriaId && antes.categoriaId) porCampo.categoriaId = "escolha a categoria.";
   if (!depois.contaCorrenteId) porCampo.contaCorrenteId = "escolha a conta corrente.";
   if (!depois.forma) porCampo.forma = "escolha a forma de pagamento.";
   const corpo: Record<string, unknown> = {};
