@@ -1,7 +1,7 @@
 "use client";
 
-import { protocoloEncerrado, type OpcoesDosProtocolosResposta, type Protocolo, type SituacaoDoProtocolo } from "@plugga/shared";
-import { CalendarClock, Check, CheckCircle2, CircleAlert, FileCheck, History, LayoutGrid, Pencil, Plus, TriangleAlert, UserRound, X, type LucideIcon } from "lucide-react";
+import { agenciaVirtualUrlSchema, protocoloEncerrado, type OpcoesDosProtocolosResposta, type Protocolo, type SituacaoDoProtocolo } from "@plugga/shared";
+import { CalendarClock, Check, CheckCircle2, CircleAlert, ExternalLink, FileCheck, History, LayoutGrid, Pencil, Plus, TriangleAlert, UserRound, X, type LucideIcon } from "lucide-react";
 import { useId, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
 
 import { enviar } from "../../lib/clientes";
@@ -105,6 +105,8 @@ export function FichaDoProtocolo({ protocolo: inicial, opcoes, hoje, aoFechar, a
   const verifica = !encerrado && pode("verificar");
   const fecha = protocoloEncerrado(v.situacao);
   const prazo = prazoDoProtocolo(p);
+  // O atalho só com um endereço https válido (o contrato confere no cadastro; aqui, de novo, antes do link).
+  const agencia = p.distribuidora.agenciaVirtualUrl && agenciaVirtualUrlSchema.safeParse(p.distribuidora.agenciaVirtualUrl).success ? p.distribuidora.agenciaVirtualUrl : null;
 
   const abas: { id: Aba; titulo: string; curto: string; conta?: number; icone: LucideIcon }[] = [
     { id: "geral", titulo: "Visão geral", curto: "Geral", icone: LayoutGrid },
@@ -255,9 +257,12 @@ export function FichaDoProtocolo({ protocolo: inicial, opcoes, hoje, aoFechar, a
             </section>
           </div> : null}
         </section>
-        {verifica ? <footer className={`${fichaCompras.rodape} ${styles.rodape}`}>
+        {verifica || agencia ? <footer className={`${fichaCompras.rodape} ${styles.rodape}`}>
+          {agencia ? <a className="button button--secondary ui-button ui-button--md" href={agencia} target="_blank" rel="noopener noreferrer" referrerPolicy="no-referrer" aria-label={`Agência Virtual da ${p.distribuidora.nome} (abre numa nova aba)`}>
+            <span className="ui-button-icon" aria-hidden="true"><ExternalLink size={15} /></span><span className="ui-button-label">Agência Virtual</span>
+          </a> : null}
           <span className={fichaCompras.espaco} />
-          <Button icon={<Check size={15} />} disabled={enviando} onClick={() => void verificar()}>{enviando ? "Registrando…" : "Registrar verificação"}</Button>
+          {verifica ? <Button icon={<Check size={15} />} disabled={enviando} onClick={() => void verificar()}>{enviando ? "Registrando…" : "Registrar verificação"}</Button> : null}
         </footer> : null}
       </div>
     </div>

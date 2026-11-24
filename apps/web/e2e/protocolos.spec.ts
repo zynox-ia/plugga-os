@@ -16,6 +16,8 @@ const CLIENTE = "Cliente com UC (exemplo)";
 const literal = (texto: string) => texto.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const manaus = (dias: number) => new Date(Date.now() - 4 * 3_600_000 + dias * 86_400_000).toISOString().slice(0, 10);
 const legivel = (dia: string) => dia.split("-").reverse().join("/");
+/** Endereço sintético (domínio reservado .invalid): o teste só confere o link, não abre. */
+const AGENCIA = "https://agencia-virtual.exemplo.invalid/";
 
 async function escolher(page: Page, dialogo: ReturnType<Page["getByRole"]>, campo: RegExp, opcao: string | RegExp) {
   await dialogo.getByRole("combobox", { name: campo }).click();
@@ -29,7 +31,7 @@ test("novo protocolo pela tela; a pendência pede a ação; liberado encerra sem
   const H = { origin: baseURL! };
   const sufixo = Date.now().toString(36).toUpperCase();
   const distribuidora = `${marcaDaExecucao()} Distribuidora ${sufixo} (sintética)`;
-  const criada = await request.post("/api/protocolos/distribuidoras", { headers: H, data: { nome: distribuidora, uf: "AM" } });
+  const criada = await request.post("/api/protocolos/distribuidoras", { headers: H, data: { nome: distribuidora, uf: "AM", agenciaVirtualUrl: AGENCIA } });
   expect(criada.ok(), await criada.text()).toBeTruthy();
   const numero = `${marcaDaExecucao()} ${sufixo}`;
 
@@ -56,6 +58,12 @@ test("novo protocolo pela tela; a pendência pede a ação; liberado encerra sem
   // 2. A ficha abre; verificar hoje. A pendência pede o que fazer.
   const ficha = page.getByRole("dialog", { name: new RegExp(`^Protocolo ${literal(numero)}:`) });
   await expect(ficha.getByText("Verificar hoje")).toBeVisible(DEPOIS_DA_ACAO);
+  // A Agência Virtual abre numa nova aba, sem levar o endereço do Plugga OS.
+  const agencia = ficha.getByRole("link", { name: /^Agência Virtual da / });
+  await expect(agencia).toHaveAttribute("href", AGENCIA);
+  await expect(agencia).toHaveAttribute("target", "_blank");
+  await expect(agencia).toHaveAttribute("rel", "noopener noreferrer");
+  await expect(agencia).toHaveAttribute("referrerpolicy", "no-referrer");
   // Data no passado digitada: o aviso é o do próprio campo, e nada é enviado.
   await ficha.getByRole("textbox", { name: /^Próxima verificação/ }).fill(legivel(manaus(-1)));
   await ficha.getByRole("button", { name: "Registrar verificação" }).click();
