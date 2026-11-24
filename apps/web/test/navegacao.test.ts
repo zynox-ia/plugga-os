@@ -174,9 +174,10 @@ describe("barra lateral pelo acesso", () => {
     // Nos testes o portão está aberto: cada item leva à sua tela.
     assert.ok(engenharia.processos.every((processo) => processo.rota?.startsWith("/engenharia/")));
     const telas = telasDoDepartamento(engenharia).map((tela) => tela.id);
-    for (const id of ["projetos", "instalacoes", "manutencao", "visitas", "relatorios"]) {
-      assert.ok(telas.includes(`engenharia-obras.${id}`), id);
-      assert.ok(!engenharia.processos.some((processo) => processo.id === `engenharia-obras.${id}`), id);
+    const foraDoMenu = ["engenharia-obras.projetos", "engenharia-obras.instalacoes", "engenharia-obras.manutencao", "engenharia-obras.visitas", "engenharia-obras.relatorios"] as const;
+    for (const id of foraDoMenu) {
+      assert.ok(telas.includes(id), id);
+      assert.ok(!engenharia.processos.some((processo) => processo.id === id), id);
     }
   });
 
