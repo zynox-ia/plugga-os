@@ -1716,6 +1716,21 @@
     ]
   },
   {
+    "metodo": "GET",
+    "caminho": "/financeiro/conciliacao/movimentos",
+    "controller": "ConciliacaoController.movimentos",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:financeiro.conciliacao",
+      "departamento:financeiro:membro"
+    ],
+    "guards": [
+      "FinanceiroHabilitadoGuard",
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
     "metodo": "POST",
     "caminho": "/financeiro/contas-correntes",
     "controller": "CadastrosDoFinanceiroController.criarConta",
@@ -1746,6 +1761,23 @@
       "tela:financeiro.conciliacao",
       "tela:financeiro.fiscal",
       "departamento:financeiro:gerente"
+    ],
+    "guards": [
+      "FinanceiroHabilitadoGuard",
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/financeiro/contas-correntes/:id/extratos",
+    "controller": "ConciliacaoController.importarExtrato",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:financeiro.conciliacao",
+      "departamento:financeiro:membro"
     ],
     "guards": [
       "FinanceiroHabilitadoGuard",

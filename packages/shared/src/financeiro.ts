@@ -669,3 +669,52 @@ export const baixarComprovantesQuerySchema = z
   .strict()
   .refine((q) => q.de <= q.ate, { path: ["ate"], message: "o fim do período vem depois do início" });
 export type BaixarComprovantesQuery = z.infer<typeof baixarComprovantesQuerySchema>;
+
+// ---------------------------------------------------------------- conciliação (PLU-339)
+// O extrato vem do banco, por arquivo (OFX; CSV depois), e não do OMIE (decisão de
+// 24/11/2026). A descrição dos movimentos é dado bancário: só aparece nesta tela.
+
+export const origensDoExtrato = ["ofx", "csv"] as const;
+export const estadosDoMovimentoDoExtrato = ["pendente", "conciliado", "marcado"] as const;
+
+/** Uma linha do extrato bancário: o valor com sinal (+ crédito, − débito). */
+export const movimentoDoExtratoSchema = z.object({
+  id: uuid,
+  contaCorrenteId: uuid,
+  dia: diaDoCalendario,
+  valor: z.string(),
+  descricao: z.string(),
+  estado: z.enum(estadosDoMovimentoDoExtrato),
+});
+export type MovimentoDoExtrato = z.infer<typeof movimentoDoExtratoSchema>;
+
+/** Um arquivo de extrato importado. `repetidos`: os movimentos que já tinham entrado por outro arquivo. */
+export const extratoImportadoSchema = z.object({
+  id: uuid,
+  contaCorrenteId: uuid,
+  origem: z.enum(origensDoExtrato),
+  arquivoNome: z.string(),
+  periodo: z.object({ de: diaDoCalendario, ate: diaDoCalendario }),
+  /** O saldo que o banco informa no arquivo, só para conferência. */
+  saldoInformado: z.object({ valor: z.string(), em: diaDoCalendario }).nullable(),
+  movimentos: z.number().int().nonnegative(),
+  novos: z.number().int().nonnegative(),
+  repetidos: z.number().int().nonnegative(),
+  importadoEm: isoDate,
+});
+export type ExtratoImportado = z.infer<typeof extratoImportadoSchema>;
+
+/** `GET financeiro/conciliacao/movimentos`: uma conta e um período de até um ano. */
+export const listarMovimentosDoExtratoQuerySchema = z
+  .object({ contaCorrenteId: uuid, de: diaDoCalendario, ate: diaDoCalendario })
+  .strict()
+  .refine((q) => q.de <= q.ate, { message: "O fim do período vem depois do início.", path: ["ate"] })
+  .refine((q) => (Date.parse(q.ate) - Date.parse(q.de)) / 86_400_000 <= 366, { message: "O período vai até um ano.", path: ["ate"] });
+export type ListarMovimentosDoExtratoQuery = z.infer<typeof listarMovimentosDoExtratoQuerySchema>;
+
+export const movimentosDoExtratoRespostaSchema = z.object({
+  itens: z.array(movimentoDoExtratoSchema),
+  /** Os arquivos com movimento no período, do mais recente para o mais antigo. */
+  extratos: z.array(extratoImportadoSchema),
+});
+export type MovimentosDoExtratoResposta = z.infer<typeof movimentosDoExtratoRespostaSchema>;

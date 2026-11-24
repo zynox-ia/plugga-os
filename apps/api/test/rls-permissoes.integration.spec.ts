@@ -127,8 +127,8 @@ describe.skipIf(!HABILITADO)("RLS: permissões no login real da aplicação", { 
 
   it("habilita e força RLS em todos os modelos e mantém os grupos sem bypass", async () => {
     const tabelas = Prisma.dmmf.datamodel.models.map((m) => m.dbName ?? m.name);
-    expect(tabelas).toHaveLength(114);
-    expect(tabelas).toEqual(expect.arrayContaining(["omie_lancamentos", "omie_categorias", "omie_contas_correntes"]));
+    expect(tabelas).toHaveLength(116);
+    expect(tabelas).toEqual(expect.arrayContaining(["omie_lancamentos", "omie_categorias", "omie_contas_correntes", "extratos_bancarios", "movimentos_do_extrato"]));
     expect(tabelas).toEqual(expect.arrayContaining(["marcos_de_obra", "documentos_de_obra"]));
     expect(tabelas).toContain("pedidos_de_agente");
     expect(tabelas).toEqual(expect.arrayContaining(["distribuidoras", "protocolos", "verificacoes_de_protocolo"]));

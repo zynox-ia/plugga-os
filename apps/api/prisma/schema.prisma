@@ -267,6 +267,7 @@ model User {
   omieTestes                     OmieConexao[]               @relation("OmieConexaoTestadaPor")
   omieConfirmacoes               OmieConexao[]               @relation("OmieConexaoConfirmadaPor")
   omieEnviosCriados              OmieEnvio[]                 @relation("OmieEnvioCriadoPor")
+  extratosImportados             ExtratoBancario[]           @relation("ExtratoImportadoPor")
   lancamentosCriados             Lancamento[]                @relation("LancamentoCriadoPor")
   lancamentosAprovados           Lancamento[]                @relation("LancamentoAprovadoPor")
   lancamentosPagos               Lancamento[]                @relation("LancamentoPagamentoRegistradoPor")
@@ -523,6 +524,8 @@ model Company {
   omieLancamentos OmieLancamento[]
   omieCategorias OmieCategoria[]
   omieContasCorrentes OmieContaCorrente[]
+  extratosBancarios ExtratoBancario[]
+  movimentosDoExtrato MovimentoDoExtrato[]
   omiePausas OmiePausa[]
   pipelines Pipeline[]
   ordensDeServico OrdemDeServico[]
@@ -2860,10 +2863,72 @@ model ContaCorrente {
   lancamentos Lancamento[]
   /// O vínculo com o OMIE, do conector.
   omie        OmieContaCorrente?
+  extratos    ExtratoBancario[]
+  movimentosDoExtrato MovimentoDoExtrato[]
 
   @@unique([companyId, omieCodigo])
   @@unique([id, companyId])
   @@map("contas_correntes")
+}
+
+/// Um arquivo de extrato bancário importado (PLU-339, Conciliação). O original fica no
+/// armazenamento, isolado por empresa; o mesmo arquivo não entra duas vezes na conta.
+model ExtratoBancario {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId        String    @map("company_id")
+  contaCorrenteId  String    @map("conta_corrente_id") @db.Uuid
+  /// "ofx" ou "csv" (CHECK no banco).
+  origem           String
+  arquivoChave     String    @map("arquivo_chave")
+  arquivoNome      String    @map("arquivo_nome")
+  arquivoTamanho   Int       @map("arquivo_tamanho")
+  arquivoSha256    String    @map("arquivo_sha256")
+  periodoDe        DateTime  @map("periodo_de") @db.Timestamptz(6)
+  periodoAte       DateTime  @map("periodo_ate") @db.Timestamptz(6)
+  saldoInformado   Decimal?  @map("saldo_informado") @db.Decimal(14, 2)
+  saldoInformadoEm DateTime? @map("saldo_informado_em") @db.Timestamptz(6)
+  movimentos       Int
+  novos            Int
+  importadoPorId   String?   @map("importado_por_id") @db.Uuid
+  importadoEm      DateTime  @default(now()) @map("importado_em") @db.Timestamptz(6)
+
+  company       Company              @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  contaCorrente ContaCorrente        @relation(fields: [contaCorrenteId], references: [id], onDelete: Restrict)
+  importadoPor  User?                @relation("ExtratoImportadoPor", fields: [importadoPorId], references: [id], onDelete: SetNull)
+  linhas        MovimentoDoExtrato[]
+
+  @@unique([contaCorrenteId, arquivoSha256])
+  @@unique([id, companyId])
+  @@index([companyId])
+  @@index([importadoPorId])
+  @@map("extratos_bancarios")
+}
+
+/// Uma linha do extrato bancário: o valor com sinal (+ crédito, − débito). O identificador
+/// do banco é único por conta. A descrição é dado bancário: não vai a log nem a evento.
+model MovimentoDoExtrato {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId       String   @map("company_id")
+  contaCorrenteId String   @map("conta_corrente_id") @db.Uuid
+  extratoId       String   @map("extrato_id") @db.Uuid
+  /// O início do dia de Manaus.
+  dia             DateTime @db.Timestamptz(6)
+  valor           Decimal  @db.Decimal(14, 2)
+  descricao       String
+  identificador   String
+  /// "pendente", "conciliado" ou "marcado" (CHECK no banco).
+  estado          String   @default("pendente")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  company       Company         @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  contaCorrente ContaCorrente   @relation(fields: [contaCorrenteId], references: [id], onDelete: Restrict)
+  extrato       ExtratoBancario @relation(fields: [extratoId], references: [id], onDelete: Restrict)
+
+  @@unique([contaCorrenteId, identificador])
+  @@index([contaCorrenteId, dia])
+  @@index([extratoId])
+  @@index([companyId])
+  @@map("movimentos_do_extrato")
 }
 
 /// O vínculo de uma categoria do Plugga OS com o OMIE (PLU-342), do conector. A empresa é
