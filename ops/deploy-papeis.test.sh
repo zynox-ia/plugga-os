@@ -28,15 +28,15 @@ cat >"$TMP/env" <<'ENV'
 APP_DB_USER=velho_que_nao_vale
 COMENTARIO=um valor com espaço e $DOLAR
 APP_DB_USER=plugga_rt_app
-APP_DB_PASSWORD='senha=com=igual'
-AUTH_DATABASE_URL="postgresql://plugga_auth_app:s%40nh%3Ac%2Fom%25t%3D@postgres:5432/plugga_os?schema=public"
+APP_DB_PASSWORD='teste=teste=teste'
+AUTH_DATABASE_URL="postgresql://plugga_auth_app:teste%40teste%3Ateste%2Fteste%25teste%3D@postgres:5432/plugga_os?schema=public"
 JOBS_DATABASE_URL=postgresql://plugga_jobs_app:abc123@postgres:5432/plugga_os
 ENV
 le_logins_do_env "$TMP/env"
 [ "$LOGIN_RUNTIME" = "plugga_rt_app" ] || falha "a última atribuição do .env deveria valer (veio '$LOGIN_RUNTIME')"
-[ "$SENHA_RUNTIME" = "senha=com=igual" ] || falha "aspas e '=' na senha do .env"
+[ "$SENHA_RUNTIME" = "teste=teste=teste" ] || falha "aspas e '=' na senha do .env"
 [ "$LOGIN_AUTH" = "plugga_auth_app" ] || falha "usuário da AUTH_DATABASE_URL"
-[ "$SENHA_AUTH" = "s@nh:c/om%t=" ] || falha "senha percent-codificada na URL (veio '$SENHA_AUTH')"
+[ "$SENHA_AUTH" = "teste@teste:teste/teste%teste=" ] || falha "senha percent-codificada na URL (veio '$SENHA_AUTH')"
 [ "$(decodifica_url 'a\nb%20c')" = 'a\nb c' ] || falha "barra invertida crua da senha segue literal"
 [ "$LOGIN_JOBS" = "plugga_jobs_app" ] && [ "$SENHA_JOBS" = "abc123" ] || falha "URL de jobs sem aspas"
 ok "lê o .env sem executá-lo e decodifica usuário e senha das URLs (com @, :, /, % e =)"
@@ -90,8 +90,8 @@ grep -q "runtime=plugga_rt_app, auth=plugga_auth_app, jobs=plugga_jobs_app" "$TM
 grep -q -- "-v runtime=plugga_rt_app -v auth=plugga_auth_app -v jobs=plugga_jobs_app" "$TMP/args-recebidos" || falha "os nomes vão por variável do psql"
 grep -q ":'runtime'" "$TMP/sql-recebido" || falha "o SQL usa a variável, sem colar o nome"
 [ "$(wc -l <"$TMP/conexoes")" -eq 3 ] || falha "testa a conexão dos três"
-grep -q "plugga_auth_app s@nh:c/om%t=" "$TMP/conexoes" || falha "a senha vai pelo stdin"
-for SENHA in "senha=com=igual" "s@nh:c/om%t=" "abc123"; do
+grep -q "plugga_auth_app teste@teste:teste/teste%teste=" "$TMP/conexoes" || falha "a senha vai pelo stdin"
+for SENHA in "teste=teste=teste" "teste@teste:teste/teste%teste=" "abc123"; do
   grep -qF -- "$SENHA" "$TMP/saida" && falha "o preflight imprimiu uma senha"
 done
 ok "com tudo certo: confere no banco por variável, testa as três conexões pelo stdin e não imprime senha"
