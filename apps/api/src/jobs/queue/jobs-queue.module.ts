@@ -9,6 +9,7 @@ import { JobRunsRecorder } from "./job-runs-recorder";
 import { JobRunsRepository } from "./job-runs.repository";
 import { JobsQueue } from "./jobs-queue.port";
 import { JobsWorker } from "./jobs-worker";
+import { LimpezaDeJobsExtintos } from "./limpeza-de-jobs-extintos";
 import { PrismaJobRunsRepository } from "./prisma-job-runs.repository";
 
 /**
@@ -24,6 +25,8 @@ import { PrismaJobRunsRepository } from "./prisma-job-runs.repository";
     JobRunsRecorder,
     JobHandlerRegistry,
     JobsWorker,
+    // Tira do Redis o agendamento e os jobs de integrações extintas (o OMIE, 24/11/2026).
+    LimpezaDeJobsExtintos,
     {
       // Producer selection: real BullMQ queue when enabled, otherwise a safe
       // disabled queue that fails loudly instead of dropping jobs.

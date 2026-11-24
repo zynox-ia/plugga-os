@@ -39,6 +39,19 @@ describeSeed("seed preserves integration cutover state (integration)", () => {
     await prisma.$disconnect();
   });
 
+  it("re-seed does not duplicate the Financeiro example bank accounts (company + name is the key)", async () => {
+    const exemplos = [
+      { companyId: "plugga", nome: "Banco A · Plugga (exemplo)" },
+      { companyId: "plugga", nome: "Banco B · Plugga (exemplo)" },
+      { companyId: "waze", nome: "Banco A · Waze (exemplo)" },
+    ];
+    const contar = () => Promise.all(exemplos.map((e) => prisma.contaCorrente.count({ where: e })));
+    // beforeAll already seeded once; seed again and the count stays at one each.
+    expect(await contar()).toEqual([1, 1, 1]);
+    await runSeed();
+    expect(await contar()).toEqual([1, 1, 1]);
+  }, 180_000);
+
   it("does not revert a read_only cutover on re-seed", async () => {
     await prisma.integration.update({
       where: { key: "bitrix" },

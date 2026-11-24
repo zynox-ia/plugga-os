@@ -92,6 +92,26 @@ export class BullJobsQueue extends JobsQueue implements OnModuleDestroy {
     return { agendado: true };
   }
 
+  override async removerAgendamento(id: string): Promise<{ removido: boolean }> {
+    const removido = await this.queue.removeJobScheduler(id);
+    if (removido) this.logger.log(`removed job scheduler id='${id}'`);
+    return { removido };
+  }
+
+  override async descartarPendentes(jobKeys: readonly string[]): Promise<{ descartados: number }> {
+    const nomes = new Set(jobKeys);
+    // Com a fila pausada, o job continua em "waiting" no BullMQ 6.
+    const pendentes = await this.queue.getJobs(["waiting", "delayed", "prioritized"]);
+    let descartados = 0;
+    for (const job of pendentes) {
+      if (!job || !nomes.has(job.name)) continue;
+      await job.remove();
+      descartados += 1;
+    }
+    if (descartados > 0) this.logger.log(`discarded ${descartados} pending job(s): ${[...nomes].join(", ")}`);
+    return { descartados };
+  }
+
   async onModuleDestroy(): Promise<void> {
     await this.queue.close();
     await this.connection.quit();

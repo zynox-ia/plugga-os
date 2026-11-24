@@ -63,6 +63,21 @@ export abstract class JobsQueue {
   async agendarACada<Payload>(_jobKey: string, _payload: Payload, _agendamento: AgendamentoPeriodico): Promise<{ agendado: boolean }> {
     return { agendado: false };
   }
+
+  /** Tira o agendamento pelo id, se existir (idempotente). Sem a fila, devolve `removido: false`. */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async removerAgendamento(_id: string): Promise<{ removido: boolean }> {
+    return { removido: false };
+  }
+
+  /**
+   * Descarta os jobs com estes nomes que ainda não começaram (esperando, atrasados
+   * ou com prioridade, inclusive com a fila pausada); o que já está rodando termina. Sem a fila, devolve 0.
+   */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async descartarPendentes(_jobKeys: readonly string[]): Promise<{ descartados: number }> {
+    return { descartados: 0 };
+  }
 }
 
 /** Um job que roda a cada intervalo fixo. */

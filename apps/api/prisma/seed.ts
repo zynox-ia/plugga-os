@@ -23,6 +23,13 @@ const integrationRows = [
   { key: 'openrouter', name: 'OpenRouter (modelo de linguagem)', owner: 'Tecnologia' },
 ] as const;
 
+/** As contas correntes de exemplo do Financeiro: a chave é a empresa e o nome. */
+const contasDeExemplo = [
+  { companyId: 'plugga', nome: 'Banco A · Plugga (exemplo)', banco: 'Banco A' },
+  { companyId: 'plugga', nome: 'Banco B · Plugga (exemplo)', banco: 'Banco B' },
+  { companyId: 'waze', nome: 'Banco A · Waze (exemplo)', banco: 'Banco A' },
+] as const;
+
 const companyRows = [
   { id: 'plugga', name: 'Plugga' },
   { id: 'waze', name: 'Waze Energia' },
@@ -250,14 +257,12 @@ async function main() {
     }))),
     skipDuplicates: true,
   });
-  await prisma.contaCorrente.createMany({
-    data: [
-      { companyId: 'plugga', nome: 'Banco A · Plugga (exemplo)', banco: 'Banco A' },
-      { companyId: 'plugga', nome: 'Banco B · Plugga (exemplo)', banco: 'Banco B' },
-      { companyId: 'waze', nome: 'Banco A · Waze (exemplo)', banco: 'Banco A' },
-    ],
-    skipDuplicates: true,
-  });
+  // A chave natural das contas de exemplo é a empresa e o nome (não há índice único que o
+  // `skipDuplicates` respeite): cria só a que falta, e rodar o seed de novo não duplica.
+  for (const conta of contasDeExemplo) {
+    const existe = await prisma.contaCorrente.findFirst({ where: { companyId: conta.companyId, nome: conta.nome }, select: { id: true } });
+    if (!existe) await prisma.contaCorrente.create({ data: conta });
+  }
 
   const integrations = await Promise.all(
     integrationRows.map((integration) =>
