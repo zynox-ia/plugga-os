@@ -185,6 +185,46 @@ Administradores gerenciam usuários por `/auth/invite`, `/auth/users`,
 `/auth/users/:id/roles` e `/auth/users/:id/deactivate`. Convite e reset emitem
 tokens de uso único entregues por `EmailPort` (ADR-0010).
 
+### Autenticação em duas etapas opcional
+
+Cada pessoa pode ativar o autenticador em **Configurações → Perfil & Segurança**.
+A ativação exige um código válido e fornece códigos de recuperação exibidos uma
+única vez. O QR é gerado no próprio navegador; o segredo não vai a um serviço
+externo. Depois de ativada, a proteção vale para senha e Google, com os mesmos
+prazos de sessão de sete dias ou doze horas. Redefinir a senha preserva o 2FA.
+
+A API precisa de `MFA_ENCRYPTION_KEY`: 32 bytes aleatórios em base64, independentes
+de `AUTH_SESSION_SECRET`. Gere a chave no ambiente onde ela será guardada e
+configure-a somente na API. Faça backup seguro junto dos procedimentos de
+recuperação: trocar ou perder essa chave impede decifrar os autenticadores
+existentes. Rotacionar a assinatura dos cookies não altera essa chave.
+
+Sem chave configurada, o login das contas sem 2FA continua funcionando e a API
+recusa novas ativações. Contas com 2FA ativo continuam exigindo o fator; uma
+falha de configuração não desliga a proteção. A publicação exige as migrações
+aditivas de MFA antes de iniciar a API atualizada.
+
+Um Desenvolvedor pode remover o 2FA de outra pessoa mediante solicitação,
+confirmando seu próprio segundo fator nos últimos cinco minutos. A ação é
+auditada e encerra todas as sessões da conta afetada. A própria pessoa pode
+desativar sua proteção após confirmação recente; não há obrigação por papel.
+
+Sem outro Desenvolvedor habilitado, o operador autorizado pelo André pode usar
+o procedimento emergencial abaixo, no ambiente e no banco explicitamente
+aprovados. A autorização é operacional; a frase do comando não substitui essa
+aprovação. O comando usa o pool de autenticação, registra a remoção em auditoria
+e revoga todas as sessões e desafios da pessoa. Não há entrada alternativa no
+login nem código permanente de dispensa do fator.
+
+```bash
+pnpm --filter @plugga/api mfa:emergency-remove --user UUID_DA_PESSOA --reason "Motivo autorizado da recuperação" --authorization AUTORIZADO_PELO_ANDRE
+```
+
+O ensaio local de permissões e concorrência usa o PostgreSQL isolado em 55433:
+`pnpm --filter @plugga/api test:mfa`. Na CI, ele usa o serviço de testes do job.
+O [ADR de 2FA](docs/adr/0001-autenticacao-em-duas-etapas-opcional.md) registra as
+decisões e a recuperação operacional da última conta protegida.
+
 ### E-mail transacional (Brevo)
 
 | `EMAIL_PROVIDER` | Comportamento |
@@ -251,11 +291,18 @@ pausado ou migrado).
 |---|---|
 | `JOBS_ENABLED` | `false` por default: a API sobe sem Redis e a fila fica desabilitada (enqueue falha explicitamente, nunca descarta job em silêncio). `true` liga a fila + worker neste processo. |
 | `REDIS_URL` | Redis local (guard de host local, como `DATABASE_URL`). |
+| `AUTH_DATABASE_URL` | Pool obrigatório de autenticação/equipe, login restrito distinto do runtime no mesmo banco. |
+| `JOBS_DATABASE_URL` | Pool distinto de jobs/espelho, obrigatório quando `JOBS_ENABLED=true`. |
 | `JOBS_WORKER_CONCURRENCY` | Jobs processados em paralelo pelo worker (default `1`). |
 
 Cada execução alimenta `job_runs` (`running → success/failed`, com
 `attempt`, `duration_ms`, `error`, `triggered_by`) — observabilidade por
 ADR-0007. Nenhum token/segredo entra em log.
+
+As permissões dos três pools e o provisionamento antes de publicar estão em
+[RLS de permissões](ops/rls-permissoes.md). Migrations usam o migrador separado;
+a API recusa iniciar como dono das tabelas, superuser ou BYPASSRLS. Não publique
+esta mudança antes de provisionar os logins e conferir os vínculos existentes.
 
 Smoke da fila ponta a ponta (enqueue → worker → `job_runs`), com Redis + Postgres
 do Compose; também roda na CI:

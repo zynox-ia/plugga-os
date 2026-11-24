@@ -1,3 +1,5 @@
+import { MfaRepository } from "../src/auth/mfa.repository";
+import { InMemoryMfaRepository } from "./support/in-memory-mfa";
 import { Test } from "@nestjs/testing";
 import type { NestExpressApplication } from "@nestjs/platform-express";
 import request from "supertest";
@@ -103,7 +105,9 @@ describe("redefinição de senha derruba as sessões, inclusive as do cache (e2e
     repository = new InMemoryAuthRepository(store);
 
     const module = await Test.createTestingModule({ imports: [AppModule] })
-      .overrideProvider(AuthRepository)
+      .overrideProvider(MfaRepository)
+    .useValue(new InMemoryMfaRepository(store))
+    .overrideProvider(AuthRepository)
       .useValue(repository)
       .overrideProvider(SessionCache)
       .useValue(cache)

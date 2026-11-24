@@ -17,12 +17,52 @@ const negocio: Deal = {
 const cliente = { id: "00000000-0000-4000-8000-000000001005", name: "Cliente sintético" };
 const convertido = { ...negocio, client: cliente, status: "won" as const, closedAt: "2026-11-05T12:30:00Z" };
 
+test("conflito preserva o negócio e só converte após leitura explícita da versão atual", async () => {
+  const desatualizado = { ...negocio, version: 7 };
+  const antes = structuredClone(desatualizado);
+  let chamadas = 0;
+  globalThis.fetch = async (_url, init) => {
+    chamadas++;
+    const comando = JSON.parse(String(init?.body));
+    if (comando.version !== 8) return Response.json({ codigo: "CONFLITO_ESTADO", mensagem: "O negócio mudou. Recarregue antes de converter." }, { status: 409 });
+    return Response.json({ lead: { ...convertido, version: 9 }, client: cliente, created: true });
+  };
+  const conflito = await converterLead(desatualizado);
+  assert.equal(conflito.ok, false);
+  if (conflito.ok) throw new Error("Uma versão antiga não deveria converter");
+  assert.equal(conflito.erro.codigo, "CONFLITO_ESTADO");
+  assert.equal(chamadas, 1);
+  assert.deepEqual(desatualizado, antes);
+  assert.equal((await converterLead({ ...desatualizado, version: 8 })).ok, true);
+  assert.equal(chamadas, 2);
+});
+
+test("conversão da ficha preserva origem e versão na escolha explícita do cliente", async () => {
+  const daFicha = { ...negocio, version: 3 };
+  const candidato = { ...cliente, personType: "pj", matchedOn: ["email"] };
+  let chamadas = 0;
+  globalThis.fetch = async (_url, init) => {
+    chamadas++;
+    const comando = JSON.parse(String(init?.body));
+    if (comando.origin !== "ficha" || comando.version !== 3) return Response.json({ mensagem: "Contexto da transição perdido." }, { status: 409 });
+    if (!comando.resolution) return Response.json({ mensagem: "Escolha o cliente", candidatos: [candidato] }, { status: 400 });
+    return Response.json({ lead: { ...convertido, version: 4 }, client: cliente, created: false });
+  };
+  const escolha = await converterLead(daFicha, undefined, true, "ficha");
+  assert.equal(escolha.ok, false);
+  if (escolha.ok) throw new Error("A duplicidade deveria exigir escolha");
+  assert.equal(escolha.erro.candidatos?.[0]?.id, cliente.id);
+  assert.equal((await converterLead(daFicha, cliente.id, true, "ficha")).ok, true);
+  assert.equal(daFicha.client, null);
+  assert.equal(chamadas, 2);
+});
+
 test("converte com os dados salvos em um único POST, sem PATCH", async () => {
   const chamadas: string[] = [];
   globalThis.fetch = async (url, init) => {
     assert.equal(String(url), `/api/leads/${negocio.id}/converter`);
     chamadas.push(init!.method!);
-    assert.deepEqual(JSON.parse(String(init?.body)), {});
+    assert.deepEqual(JSON.parse(String(init?.body)), { origin: "quadro" });
     return Response.json({ lead: convertido, client: cliente, created: true });
   };
   assert.equal((await converterLead(negocio)).ok, true);
@@ -73,12 +113,12 @@ test("duplicidade preserva candidatos e exige escolha explícita antes de vincul
   if (recusada.ok) throw new Error("A duplicidade deveria exigir escolha");
   assert.equal(recusada.erro.candidatos?.[0]?.id, cliente.id);
   assert.equal((await converterLead(negocio, cliente.id)).ok, true);
-  assert.deepEqual(chamadas, [{}, { resolution: { type: "link", clientId: cliente.id } }]);
+  assert.deepEqual(chamadas, [{ origin: "quadro" }, { origin: "quadro", resolution: { type: "link", clientId: cliente.id } }]);
 });
 
 test("criar novo cliente continua dependendo de escolha explícita", async () => {
   globalThis.fetch = async (_url, init) => {
-    assert.deepEqual(JSON.parse(String(init?.body)), { resolution: { type: "create" } });
+    assert.deepEqual(JSON.parse(String(init?.body)), { origin: "quadro", resolution: { type: "create" } });
     return Response.json({ lead: convertido, client: cliente, created: true });
   };
   assert.equal((await converterLead(negocio, "novo")).ok, true);
@@ -110,4 +150,52 @@ test("conversão só confirma sucesso quando o negócio foi encerrado como ganho
   if (!resposta.ok) throw new Error("A conversão deveria concluir");
   assert.equal(resposta.dados.lead.status, "won");
   assert.equal(resposta.dados.lead.closedAt, convertido.closedAt);
+});
+
+test("conversão sem Clientes confirma apenas o lead e não consulta cadastro nem seletores", async () => {
+  const chamadas: string[] = [];
+  const oculto = { ...convertido, converted: true, client: null };
+  globalThis.fetch = async (url, init) => {
+    chamadas.push(String(url));
+    assert.equal(init?.method, "POST");
+    assert.deepEqual(JSON.parse(String(init?.body)), { origin: "quadro" });
+    return Response.json({ lead: oculto, client: null, created: null });
+  };
+
+  const resposta = await converterLead(negocio, undefined, false);
+
+  assert.equal(resposta.ok, true);
+  if (!resposta.ok) throw new Error("A conversão deveria concluir sem expor o cadastro");
+  assert.equal(resposta.dados.lead.converted, true);
+  assert.equal(resposta.dados.lead.client, null);
+  assert.equal(resposta.dados.client, null);
+  assert.equal(resposta.dados.created, null);
+  assert.deepEqual(chamadas, [`/api/leads/${negocio.id}/converter`]);
+  assert.ok(!JSON.stringify(resposta.dados).includes(cliente.name));
+});
+
+test("flag de conversão preserva idempotência mesmo com cliente oculto e perfil agora incompleto", async () => {
+  const oculto = { ...convertido, converted: true, client: null, lead: { ...negocio.lead, email: null, phone: null, document: null } };
+  let chamadas = 0;
+  globalThis.fetch = async () => {
+    chamadas += 1;
+    return Response.json({ lead: oculto, client: null, created: null });
+  };
+
+  assert.equal((await converterLead(oculto, undefined, false)).ok, true);
+  assert.equal(chamadas, 1);
+});
+
+test("sem Clientes não envia resolução manual nem oferece candidatos recebidos por erro", async () => {
+  globalThis.fetch = async () => { assert.fail("a escolha manual não deve enviar requisição sem a tela Clientes"); };
+  assert.equal((await converterLead(negocio, cliente.id, false)).ok, false);
+  assert.equal((await converterLead(negocio, "novo", false)).ok, false);
+  globalThis.fetch = async () => Response.json({ mensagem: `Escolha ${cliente.name}`, candidatos: [{ ...cliente, personType: "pj", matchedOn: ["email"] }] }, { status: 400 });
+
+  const resposta = await converterLead(negocio, undefined, false);
+
+  assert.equal(resposta.ok, false);
+  if (resposta.ok) throw new Error("A conversão deveria informar a pendência sem candidatos");
+  assert.equal(resposta.erro.candidatos, undefined);
+  assert.ok(!JSON.stringify(resposta.erro).includes(cliente.name));
 });

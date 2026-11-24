@@ -1,0 +1,18 @@
+.campos { display: flex; flex-direction: column; gap: var(--space-md); min-width: 0; margin: 0; padding: 0; border: 0; }
+.grade { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-md); }
+.ajuda { margin: 0; color: var(--ui-muted); font-size: 12px; line-height: 1.5; }
+.barra { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-md); }
+.barra h3 { margin: 0; font-size: 16px; font-weight: 500; }
+.acoes { display: flex; flex-wrap: wrap; gap: 8px; }
+.lista { display: grid; gap: var(--space-md); margin: 0; padding: 0; list-style: none; }
+.atividade { display: grid; gap: 12px; padding: var(--space-md); border: 1px solid var(--ui-divider); border-radius: var(--radius-md); background: var(--ui-surface); }
+.atividade h4 { margin: 0; font-size: 14px; font-weight: 500; overflow-wrap: anywhere; }
+.atividade:focus-visible { outline: 2px solid var(--ui-focus); outline-offset: 2px; }
+.atividade p { margin: 0; line-height: 1.5; overflow-wrap: anywhere; white-space: pre-wrap; }
+.meta { display: flex; flex-wrap: wrap; gap: 8px 16px; color: var(--ui-muted); font-size: 12px; line-height: 1.5; }
+.atrasada { color: var(--ui-danger); }
+.bloco { display: grid; gap: var(--space-md); }
+.bloco h4 { margin: 0; font-size: 14px; font-weight: 500; }
+.historico { display: grid; gap: var(--space-md); padding-left: 20px; }
+.historico li { padding-left: 4px; }
+@media (max-width: 600px) { .grade { grid-template-columns: minmax(0, 1fr); } }

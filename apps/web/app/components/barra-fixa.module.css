@@ -1,0 +1,138 @@
+/* Barra presa (padrão dos Lançamentos do Financeiro): mesmo shape do app e uma sombra sutil só quando gruda. */
+
+/* A barra gruda rente ao topo da área de conteúdo: nada passa nítido por cima dela. */
+:global(.main-content):has(.pagina):has(.sentinela) { padding-top: 0; }
+/* (a especificidade a mais vence o respiro de 12–14 px que a tela de Clientes e a de Pipelines põem no .main-content) */
+.pagina { padding-top: 14px; }
+/* Sem rolagem interna: a lista e os cards crescem com a página, que rola no .main-content.
+   (As classes de módulo da tela de Clientes e da lista de negócios são alcançadas pelo nome.
+   Conferido no CSS de produção do Next (next build, 23/11/2026): o nome local sobrevive, como
+   tela-clientes_areaCards__YhJd3, lista-de-negocios_rolagemTabela__QQQRs e
+   tela-pipelines_seletorTrigger__W4cwV. Se o bundler ou o localIdentName mudar, troque estes
+   seletores por uma classe global nos donos dos estilos.) */
+.pagina { flex: none !important; min-height: auto !important; }
+.pagina > [role="tabpanel"] { flex: none; min-height: auto; }
+.pagina [class*="areaCards"] { flex: 1 1 auto; width: 100%; min-height: auto; overflow: visible; }
+.pagina [class*="rolagemTabela"] { flex: none; min-height: 0; overflow: visible; contain: none; }
+.pagina :global(.lista-negocios-card) { flex: none; }
+.pagina table thead { position: static; }
+
+.sentinela { height: 1px; margin-bottom: -1px; }
+
+.barra {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 0 -10px;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-lg);
+  transition: background 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+.abas { display: flex; flex-shrink: 0; }
+.busca { flex: 1 1 180px; min-width: 160px; max-width: 280px; }
+.busca :global(.equipe-busca) { width: 100%; }
+.filtros { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; margin-left: auto; min-width: 0; }
+.acoesPresa { display: none; gap: 6px; }
+.movel { display: none; }
+.conta { display: inline-grid; place-items: center; min-width: 18px; height: 18px; margin-left: 2px; padding: 0 5px; border-radius: 999px; background: var(--ui-primary); color: var(--ui-surface); font-size: 11px; font-variant-numeric: tabular-nums; }
+
+/* Todos os controles da barra com o mesmo texto, a mesma altura e o mesmo alinhamento do seletor de
+   visão (Cards · Lista · …), que é a referência e não muda: General Sans 12,5 px, peso 500, 42 px de
+   altura. Os filtros, a busca e os botões é que se ajustam a ele (pedido do André).
+   `.controles` leva o mesmo padrão a uma barra que não gruda (ex.: a do quadro de Compras). */
+:is(.barra, .controles) {
+  --barra-familia: var(--font-general-sans), "General Sans", sans-serif;
+  --barra-fonte: 12.5px;
+  --barra-peso: 500;
+  --barra-altura: 42px;
+}
+:is(.barra, .controles) .abas :global(.ui-tab),
+:is(.barra, .controles) .abas a,
+.controles [class*="visoes"] a { font-family: var(--barra-familia); font-size: var(--barra-fonte); font-weight: var(--barra-peso); }
+:is(.barra, .controles) .abas :global(.ui-tab[aria-selected="true"]) { font-weight: var(--barra-peso); }
+:is(.barra, .controles) :global(.equipe-busca-input),
+:is(.barra, .controles) [class*="seletorTrigger"],
+:is(.barra, .controles) [class*="seletorLabel"],
+:is(.barra, .controles) :global(.ui-button),
+:is(.barra, .controles) :global(.ui-button-label),
+:is(.barra, .controles) [role="status"] {
+  font-family: var(--barra-familia);
+  font-size: var(--barra-fonte);
+  font-weight: var(--barra-peso);
+  line-height: 1.2;
+}
+:is(.barra, .controles) :global(.equipe-busca-input)::placeholder { font-weight: 400; }
+:is(.barra, .controles) :global(.equipe-busca-input),
+:is(.barra, .controles) [class*="seletorTrigger"],
+:is(.barra, .controles) :global(.ui-button) { box-sizing: border-box; height: var(--barra-altura); min-height: var(--barra-altura); }
+:is(.barra, .controles) :global(.ui-button--icon-only) { width: var(--barra-altura); padding: 0; }
+:is(.barra, .controles) [class*="seletorTrigger"] svg { width: 15px; height: 15px; }
+
+/* Presa: fundo translúcido com desfoque e um degradê curto embaixo, para o que passa por baixo não ficar nítido. */
+.presa {
+  border-color: var(--ui-divider);
+  background: color-mix(in srgb, var(--ui-surface) 62%, transparent);
+  -webkit-backdrop-filter: blur(18px) saturate(1.15);
+  backdrop-filter: blur(18px) saturate(1.15);
+  box-shadow: 0 12px 30px -20px rgba(15, 41, 74, 0.45);
+}
+.presa::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  right: 0;
+  left: 0;
+  height: 22px;
+  background: linear-gradient(to bottom, color-mix(in srgb, var(--ui-surface) 45%, transparent), transparent);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  -webkit-mask-image: linear-gradient(to bottom, #000, transparent);
+  mask-image: linear-gradient(to bottom, #000, transparent);
+  pointer-events: none;
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .presa { background: color-mix(in srgb, var(--ui-surface) 97%, transparent); }
+  .presa::after { background: linear-gradient(to bottom, color-mix(in srgb, var(--ui-surface) 80%, transparent), transparent); }
+}
+.presa .acoesPresa { display: inline-flex; }
+
+/* Presa e compacta, numa linha só: abas só com o ícone (o nome segue acessível), busca menor. */
+@media (min-width: 1100px) {
+  .presa { flex-wrap: nowrap; }
+  .presa .filtros { flex-wrap: nowrap; }
+}
+.presa .abas :global(.ui-tab) { gap: 0; padding-inline: 10px; font-size: 0; }
+.presa .abas :global(.ui-tab) svg { width: 16px; height: 16px; }
+/* Visões em links (nav): o texto sai da tela, mas segue como nome acessível. */
+.presa .abas a > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.presa .busca { flex: 1 1 160px; min-width: 140px; }
+
+/* A folha da 390 px */
+.folha { display: grid; gap: 14px; }
+.folha :global(.equipe-busca) { width: 100%; }
+.campoDaFolha { display: grid; gap: 6px; }
+.rotuloDaFolha { color: var(--ui-muted); font-size: 12px; }
+.campoDaFolha > button { width: 100%; justify-content: flex-start; }
+.campoDaFolha > button > svg:last-child { margin-left: auto; }
+
+@media (max-width: 720px) {
+  .barra { flex-wrap: wrap; gap: 8px; margin: 0 -16px; padding: 8px 16px; border-radius: 0; }
+  .abas, .filtros { display: none; }
+  .busca { order: 0; flex: 1 1 100%; min-width: 0; }
+  .movel { display: inline-flex; order: 1; gap: 8px; }
+  .acoesPresa { order: 2; margin-left: auto; }
+  .presa .busca { display: none; }
+  /* Presa, tudo numa linha: a Visualização fica só com o ícone (o nome segue no aria-label). */
+  .presa .movel [class*="seletorLabel"] { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .presa { flex-wrap: nowrap; }
+  .presa .acoesPresa { margin-left: auto; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .barra { transition: none; }
+}

@@ -53,13 +53,14 @@ function fakeRepository(overrides: Partial<CommercialRepository> = {}): Commerci
 describe("CommercialService", () => {
   it("is a thin passthrough to the repository for reads", async () => {
     const repository = fakeRepository({
-      opportunity: async (id) => {
+      opportunity: async (id, actor) => {
+        expect(actor).toBe(principal);
         expect(id).toBe(baseOpportunity.id);
         return baseOpportunity;
       },
     });
 
-    const result = await new CommercialService(repository).opportunity(baseOpportunity.id);
+    const result = await new CommercialService(repository).opportunity(baseOpportunity.id, principal);
     expect(result).toEqual(baseOpportunity);
   });
 

@@ -11,13 +11,14 @@ import {
 import { AuditPort } from "../audit/audit.port";
 import { maskEmail } from "../common/mascara-email";
 import { AuthRepository, IdentityLinkError, type AuthUserRecord } from "./auth.repository";
-import { toSessionUser, type LoginResult } from "./auth.service";
+import type { LoginResult } from "./auth.service";
 import {
   GoogleIdentityVerifier,
   GoogleVerificationError,
   type GoogleIdentityClaims,
 } from "./google-identity.verifier";
-import { SessionService, type SessionContext } from "./session.service";
+import type { SessionContext } from "./session.service";
+import { MfaService } from "./mfa.service";
 
 const PROVIDER = "google" as const;
 
@@ -85,9 +86,8 @@ function constantTimeEquals(a: string, b: string): boolean {
  *
  * O Google prova QUEM é a pessoa. Quem decide se ela entra continua sendo o
  * Postgres do cliente: usuário, status, empresas, departamentos, papéis e
- * sessão. Por isso este serviço termina chamando o MESMO `SessionService.issue`
- * do login por senha — não existe uma segunda sessão, nem um segundo cookie,
- * nem um segundo lugar de onde revogar acesso.
+ * sessão. Por isso este serviço termina no mesmo fluxo MFA do login por senha:
+ * a decisão sobre segundo fator e a emissão da sessão compartilham uma transação.
  */
 @Injectable()
 export class GoogleAuthService {
@@ -96,7 +96,7 @@ export class GoogleAuthService {
   constructor(
     @Inject(AuthRepository) private readonly repository: AuthRepository,
     @Inject(GoogleIdentityVerifier) private readonly verifier: GoogleIdentityVerifier,
-    @Inject(SessionService) private readonly sessions: SessionService,
+    @Inject(MfaService) private readonly mfa: MfaService,
     @Inject(AuditPort) private readonly audit: AuditPort,
     @Inject(ConfigService) private readonly config: ConfigService,
   ) {}
@@ -141,7 +141,13 @@ export class GoogleAuthService {
       ? await this.loginWithExistingIdentity(identity.id, identity.userId, email, claims)
       : await this.linkFirstTime(email, claims);
 
-    const token = await this.sessions.issue(user, context);
+    if (user.tipo === "agente_ia") {
+      await this.refuse("user_not_eligible", email, user.id);
+      throw new GoogleLoginException("unauthorized", HttpStatus.UNAUTHORIZED);
+    }
+
+    const result = await this.mfa.beginLogin(user.id, { ...context, rememberMe: context.rememberMe ?? false }, { method: "google", subject: claims.subject });
+    if ("requiresMfa" in result) return result;
     await this.audit.appendEvent({
       eventName: eventNames.authLoginSucceeded,
       entityType: "user",
@@ -152,7 +158,7 @@ export class GoogleAuthService {
       occurredAt: new Date(),
     });
 
-    return { token, user: toSessionUser(user) };
+    return result;
   }
 
   /** Logins seguintes: a busca é por `sub`; o e-mail pode ter mudado no meio. */
@@ -169,7 +175,7 @@ export class GoogleAuthService {
     }
     // O status local vence a validade do token: desativar alguém tem de
     // fechar TODOS os caminhos de entrada, não só o da senha.
-    if (user.status !== "active") {
+    if (user.tipo === "agente_ia" || user.status !== "active") {
       await this.refuse("user_not_eligible", email, user.id);
       throw new GoogleLoginException("unauthorized", HttpStatus.UNAUTHORIZED);
     }
@@ -207,7 +213,7 @@ export class GoogleAuthService {
       await this.refuse("user_not_found", email);
       throw new GoogleLoginException("unauthorized", HttpStatus.UNAUTHORIZED);
     }
-    if (user.status !== "active" && user.status !== "invited") {
+    if (user.tipo === "agente_ia" || (user.status !== "active" && user.status !== "invited")) {
       await this.refuse("user_not_eligible", email, user.id);
       throw new GoogleLoginException("unauthorized", HttpStatus.UNAUTHORIZED);
     }

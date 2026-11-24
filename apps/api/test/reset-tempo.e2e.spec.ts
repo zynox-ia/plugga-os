@@ -1,3 +1,5 @@
+import { MfaRepository } from "../src/auth/mfa.repository";
+import { InMemoryMfaRepository } from "./support/in-memory-mfa";
 import { Test } from "@nestjs/testing";
 import type { ConfigService } from "@nestjs/config";
 import type { NestExpressApplication } from "@nestjs/platform-express";
@@ -62,7 +64,9 @@ describe("redefinição de senha: resposta e tempo indistinguíveis (e2e)", () =
     email = new ProvedorLento();
 
     const module = await Test.createTestingModule({ imports: [AppModule] })
-      .overrideProvider(AuthRepository)
+      .overrideProvider(MfaRepository)
+    .useValue(new InMemoryMfaRepository(store))
+    .overrideProvider(AuthRepository)
       .useValue(new InMemoryAuthRepository(store))
       .overrideProvider(SessionLookupRepository)
       .useValue(new InMemorySessionLookup(store))

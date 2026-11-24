@@ -1,4 +1,12 @@
 @font-face {
+  font-family: "General Sans Light";
+  src: url("/fonts/GeneralSans-Light.woff2") format("woff2");
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
   font-family: "General Sans";
   src: url("/fonts/GeneralSans-Regular.woff2") format("woff2");
   font-weight: 400;
@@ -130,6 +138,30 @@
   --space-3xl: 64px;
 
   --sidebar-width: 312px;
+
+  /* Topo do shell: a linha de cima da sidebar acompanha a linha de cima do campo de busca. */
+  --topbar-height: 68px;
+  --topbar-control-height: 38px;
+  --topbar-control-top: calc((var(--topbar-height) - var(--topbar-control-height)) / 2);
+  /* Folga inferior da sidebar (a mesma de quando ela era centralizada com 88% da altura). */
+  --sidebar-bottom-gap: calc(12px + (100vh - 24px) * 0.06);
+
+  /* Movimento (PLU-325). As entradas são GSAP e os números delas ficam em
+     app/lib/movimento.ts; estes tokens servem ao que continua em CSS (clique,
+     hover, menus, fundo do modal). Bloco "Movimento" no fim deste arquivo. */
+  --motion-fast: 120ms;      /* clique */
+  --motion-exit: 200ms;      /* saída do modal (o fundo acompanha) */
+  --motion-backdrop: 300ms;  /* fundo do modal entrando */
+  --motion-menu: 400ms;      /* menus e popovers */
+  --motion-lift: 450ms;      /* hover de cartão */
+  --motion-fallback: 1.5s;   /* sem JS, a tela aparece sozinha depois disto */
+  --ease-standard: cubic-bezier(.4, 0, .2, 1);
+  --ease-power3-out: cubic-bezier(.215, .61, .355, 1);
+  --ease-back-out: cubic-bezier(.34, 1.8, .64, 1); /* ~ back.out(2) do GSAP */
+  --motion-scale-menu: .92;
+  --motion-shift-menu: -6px;
+  --motion-lift-y: -4px;
+  --motion-scale-press: .97;
 }
 
 * { box-sizing: border-box; }
@@ -198,18 +230,18 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--folha); outline
 .sidebar {
   position: sticky;
   top: 0;
-  /* 88% da altura da viewport, centralizada na coluna. */
-  align-self: center;
+  /* Cresce para cima: o topo alinha com o do campo de busca; a base não muda. */
+  align-self: start;
   display: flex;
-  height: calc((100vh - 24px) * 0.88);
-  height: calc((100dvh - 24px) * 0.88);
-  max-height: calc((100vh - 24px) * 0.88);
-  max-height: calc((100dvh - 24px) * 0.88);
+  height: calc(100vh - var(--topbar-control-top) - var(--sidebar-bottom-gap));
+  height: calc(100dvh - var(--topbar-control-top) - var(--sidebar-bottom-gap));
+  max-height: calc(100vh - var(--topbar-control-top) - var(--sidebar-bottom-gap));
+  max-height: calc(100dvh - var(--topbar-control-top) - var(--sidebar-bottom-gap));
   flex-direction: column;
   justify-content: space-between;
   gap: 14px;
   padding: 22px 18px 20px;
-  margin: 12px 6px 12px 12px;
+  margin: var(--topbar-control-top) 6px var(--sidebar-bottom-gap) 12px;
   color: #FFFFFF;
   background: linear-gradient(155deg, #0A192F 0%, #0F2B4A 60%, #051329 100%);
   border: 1px solid rgba(0, 163, 255, 0.25);
@@ -296,10 +328,10 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--folha); outline
 
 /* Collapsed Sidebar Hidden Elements */
 .sidebar--collapsed {
-  height: calc((100vh - 24px) * 0.88) !important;
-  height: calc((100dvh - 24px) * 0.88) !important;
+  height: calc(100vh - var(--topbar-control-top) - var(--sidebar-bottom-gap)) !important;
+  height: calc(100dvh - var(--topbar-control-top) - var(--sidebar-bottom-gap)) !important;
   width: 72px;
-  padding: 12px 8px;
+  padding: 0 8px 12px;
   align-items: center;
   gap: 12px;
   background: none !important;
@@ -597,7 +629,7 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--folha); outline
   align-items: center;
   justify-content: space-between;
   gap: 18px;
-  min-height: 68px;
+  min-height: var(--topbar-height);
   padding: 14px 16px;
   margin: 0;
   background: transparent;
@@ -652,7 +684,7 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--folha); outline
 }
 .topbar-search input {
   width: 100%;
-  height: 38px;
+  height: var(--topbar-control-height);
   padding: 0 40px 0 38px;
   color: #0F294A;
   background: rgba(255, 255, 255, 0.45);
@@ -1588,7 +1620,7 @@ tbody tr:last-child td { border-bottom: 0; }
 .editor-pipeline-topo > button { margin-block: 8px; }
 .abas-editor {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: stretch;
   align-self: stretch;
   gap: 24px;
@@ -1596,10 +1628,13 @@ tbody tr:last-child td { border-bottom: 0; }
   background: transparent;
   width: auto;
   max-width: 100%;
+  min-width: 0;
+  overflow-x: auto;
 }
 .aba-item {
   position: relative;
   display: inline-flex;
+  flex-shrink: 0;
   align-items: center;
   gap: 8px;
   padding: 14px 2px;
@@ -2140,12 +2175,16 @@ tbody tr:last-child td { border-bottom: 0; }
   }
   .config-pipelines {
     grid-template-columns: 1fr;
+    grid-template-rows: 112px minmax(280px, 1fr);
     max-height: none;
     overflow-y: auto;
   }
   .config-lista {
-    max-height: 220px;
+    max-height: 112px;
   }
+  .editor-pipeline-topo { padding-right: 0; flex-shrink: 0; }
+  .editor-pipeline-topo > button { margin-inline: 14px; }
+  .abas-editor { width: 100%; padding-inline: 14px; gap: 16px; }
   .opcoes-empresa, .desfechos-config, .painel-pipeline .form-grade {
     grid-template-columns: 1fr;
   }
@@ -2203,7 +2242,6 @@ tbody tr:last-child td { border-bottom: 0; }
 }
 .cartao-negocio:active { cursor: grabbing; }
 .cartao-negocio--arrastando { opacity: .35; transform: scale(0.98); }
-.cartao-negocio--parado { border-left: 4px solid #E5484D; }
 
 /* Bloco 1: Topo com Tags e Ações */
 .cartao-negocio-topo {
@@ -2447,15 +2485,80 @@ tbody tr:last-child td { border-bottom: 0; }
 .dias-na-etapa--parado { padding: 2px 7px; color: #B4232A; background: #FDEEEE; border: 1px solid #F1C4C4; border-radius: 999px; font-weight: 500; }
 
 .menu-negocio { position: relative; }
-.menu-negocio-lista { position: fixed; top: 0; left: 0; z-index: 60; display: grid; min-width: 210px; padding: 8px; background: rgba(255, 255, 255, 0.82); -webkit-backdrop-filter: blur(24px) saturate(180%); backdrop-filter: blur(24px) saturate(180%); border: 1px solid rgba(255, 255, 255, 0.85); border-radius: 18px; box-shadow: 0 20px 50px rgba(15, 41, 74, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.9); }
-.menu-negocio-lista button { display: flex; align-items: center; gap: 8px; padding: 8px 10px; color: #0F294A; background: transparent; border: 0; border-radius: 10px; cursor: pointer; text-align: left; font: 500 12.5px/1.3 var(--font-general-sans), "General Sans", sans-serif; transition: all .15s ease; }
-.menu-negocio-lista button:hover, .menu-negocio-lista button:focus-visible { background: rgba(15, 41, 74, 0.06); color: #0F294A; outline: none; }
-.menu-negocio-titulo { padding: 6px 10px 4px; color: #7F8FA3; font: 500 10.5px/1 var(--font-general-sans), "General Sans", sans-serif; letter-spacing: .06em; text-transform: uppercase; }
-.menu-negocio-divisor { height: 1px; margin: 6px 8px; background: rgba(15, 41, 74, 0.08); }
-.menu-negocio-lista .menu-negocio--ganho { color: #18794E; }
-.menu-negocio-lista .menu-negocio--ganho:hover { background: #E9F7EF; color: #18794E; }
-.menu-negocio-lista .menu-negocio--perdido { color: #B4232A; }
-.menu-negocio-lista .menu-negocio--perdido:hover { background: #FDEEEE; color: #B4232A; }
+.menu-negocio-lista {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 60;
+  display: grid;
+  width: min(224px, calc(100vw - 32px));
+  min-width: 210px;
+  padding: 6px;
+  background: rgba(255, 255, 255, 0.82);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  border-radius: 14px;
+  box-shadow: 0 20px 50px rgba(15, 41, 74, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+.menu-negocio-lista button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6.5px 10px;
+  color: #0F294A;
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: left;
+  font: 400 12.5px/var(--line-height-control) var(--font-articulat), "Articulat CF", sans-serif;
+  transition: all .15s ease;
+}
+.menu-negocio-lista button:hover:not(:disabled),
+.menu-negocio-lista button:focus-visible {
+  background: rgba(15, 41, 74, 0.06);
+  color: #0F294A;
+  outline: none;
+}
+.menu-negocio-lista button:disabled {
+  color: rgba(15, 41, 74, 0.4);
+  cursor: default;
+}
+.menu-negocio-lista button svg {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
+}
+.menu-negocio-titulo {
+  padding: 5px 10px 3px;
+  color: rgba(15, 41, 74, 0.55);
+  font: 500 10px/1 var(--font-articulat), "Articulat CF", sans-serif;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+.menu-negocio-divisor {
+  height: 1px;
+  margin: 4px 6px;
+  background: rgba(15, 41, 74, 0.08);
+}
+.menu-negocio-lista .menu-negocio--ganho {
+  color: #18794E;
+  font-weight: 500;
+}
+.menu-negocio-lista .menu-negocio--ganho:hover:not(:disabled) {
+  background: rgba(24, 121, 78, 0.08);
+  color: #18794E;
+}
+.menu-negocio-lista .menu-negocio--perdido {
+  color: #dc2626;
+  font-weight: 500;
+}
+.menu-negocio-lista .menu-negocio--perdido:hover:not(:disabled) {
+  background: rgba(220, 38, 38, 0.08);
+  color: #dc2626;
+}
 
 /* --- Lista de Negócios (Pipeline CRM) ----------------------------------- */
 .lista-negocios { display: flex; flex-direction: column; gap: var(--space-md, 12px); font-family: var(--font-general-sans), sans-serif; }
@@ -2921,7 +3024,7 @@ tbody tr:last-child td { border-bottom: 0; }
 
 .auth-card-footer {
   margin-top: 22px;
-  font: 400 13px/var(--line-height-body) Anek, sans-serif;
+  font: 400 13px/var(--line-height-body) var(--font-general-sans), sans-serif;
 }
 
 .auth-card-footer a {
@@ -2950,7 +3053,7 @@ tbody tr:last-child td { border-bottom: 0; }
   color: var(--muted);
   margin: 0 0 24px;
   line-height: var(--line-height-body);
-  font-family: Anek, sans-serif;
+  font-family: var(--font-general-sans), sans-serif;
   white-space: nowrap;
 }
 
@@ -3054,7 +3157,7 @@ tbody tr:last-child td { border-bottom: 0; }
 .auth-reset-hint {
   margin: -6px 0 0;
   color: var(--muted);
-  font: 400 12px/var(--line-height-body) Anek, sans-serif;
+  font: 400 12px/var(--line-height-body) var(--font-general-sans), sans-serif;
 }
 
 .auth-reset-status {
@@ -3066,7 +3169,7 @@ tbody tr:last-child td { border-bottom: 0; }
   background: rgba(0, 163, 255, 0.1);
   border: 1px solid rgba(0, 163, 255, 0.25);
   border-radius: 14px;
-  font: 400 13px/var(--line-height-body) Anek, sans-serif;
+  font: 400 13px/var(--line-height-body) var(--font-general-sans), sans-serif;
   text-align: center;
 }
 
@@ -3126,7 +3229,7 @@ tbody tr:last-child td { border-bottom: 0; }
   outline: none;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
-  font-family: Anek, sans-serif;
+  font-family: var(--font-general-sans), sans-serif;
   transform: translateZ(0);
   contain: layout style;
   display: flex;
@@ -3294,7 +3397,7 @@ tbody tr:last-child td { border-bottom: 0; }
   max-width: 310px;
   margin: 14px auto 0;
   color: var(--muted);
-  font: 400 12.5px/var(--line-height-body) Anek, sans-serif;
+  font: 400 12.5px/var(--line-height-body) var(--font-general-sans), sans-serif;
   text-align: center;
   text-wrap: balance;
 }
@@ -3802,6 +3905,58 @@ tbody tr:last-child td { border-bottom: 0; }
 .notifications-menu-dot { width: 6px; height: 6px; background: rgba(15, 41, 74, 0.25); border-radius: 50%; }
 .notifications-menu-dot--unread { background: #0F294A; box-shadow: 0 0 6px rgba(15, 41, 74, 0.4); }
 
+.sidebar-bottom { flex: none; }
+
+.sidebar-goal {
+  display: grid;
+  gap: var(--space-xs);
+  padding: var(--space-sm);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  color: rgba(255, 255, 255, 0.8);
+  font: 500 12px/var(--line-height-control) var(--font-general-sans);
+  font-variant-numeric: tabular-nums;
+}
+
+.sidebar--collapsed .sidebar-goal { display: none; }
+
+.sidebar-goal-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-xs);
+}
+
+.sidebar-goal-header strong { color: var(--color-cyan-50); font-size: 15px; font-weight: inherit; }
+.sidebar-goal small {
+  font-family: "General Sans Light", var(--font-general-sans);
+  font-size: 11px;
+  font-weight: 300;
+}
+
+.sidebar-goal-track {
+  position: relative;
+  block-size: 6px;
+  border-radius: var(--radius-full);
+  background: rgba(255, 255, 255, 0.17);
+}
+
+.sidebar-goal-fill {
+  display: block;
+  block-size: 100%;
+  border-radius: inherit;
+  background: var(--color-cyan-400);
+}
+
+.sidebar-goal-marker {
+  position: absolute;
+  inset-block: -2px;
+  inline-size: 2px;
+  border-radius: var(--radius-full);
+  background: var(--color-warning);
+}
+
 /* --- Cartão do usuário no pé da barra ----------------------------------- */
 .sidebar-user {
   display: flex;
@@ -3890,14 +4045,44 @@ tbody tr:last-child td { border-bottom: 0; }
 }
 
 /* --- Página de Configurações -------------------------------------------- */
-.config-layout { display: grid; gap: 18px; align-items: start; }
+.main-content:has(.config-layout) {
+  display: flex;
+  flex-direction: column;
+  padding-top: 14px;
+}
+
+.config-layout { display: flex; flex-direction: column; width: 100%; max-width: 100%; min-width: 0; gap: 12px; }
 .config-nav { align-self: start; }
+
+.config-secao-coluna { display: flex; flex-direction: column; gap: 18px; }
+.config-secao-card { border-radius: var(--radius-md); background: color-mix(in srgb, var(--ui-surface) 95%, transparent); border-color: var(--ui-divider); }
+.config-card-corpo { padding: 20px 24px 24px; display: flex; flex-direction: column; gap: 20px; }
+.config-perfil-header { display: flex; align-items: center; gap: 18px; padding-bottom: 16px; border-bottom: 1px solid var(--ui-divider); }
+.config-perfil-avatar { width: 60px; height: 60px; border-radius: 50%; display: grid; place-items: center; background: linear-gradient(135deg, #00A3FF, #005FCC); color: #fff; font: 500 20px var(--font-articulat), "Articulat CF", sans-serif; letter-spacing: -0.02em; box-shadow: 0 4px 14px rgba(0, 163, 255, 0.3); flex-shrink: 0; }
+.config-perfil-detalhes { display: flex; flex-direction: column; gap: 3px; }
+.config-perfil-nome-linha { display: flex; align-items: center; gap: 10px; }
+.config-perfil-nome-linha strong { font-size: 17px; font-weight: 500; color: #0F294A; font-family: var(--font-articulat), "Articulat CF", sans-serif; }
+.config-perfil-email { font-size: 13.5px; color: var(--ui-muted); }
+.config-perfil-meta { font-size: 11.5px; color: rgba(15, 41, 74, 0.5); font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 2px; }
+.config-form { display: flex; flex-direction: column; gap: 20px; }
+.config-form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+.config-form-rodape { display: flex; justify-content: flex-end; padding-top: 8px; }
+.config-lista-items { display: flex; flex-direction: column; gap: 12px; }
+.config-item-linha { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 16px; border: 1px solid var(--ui-divider); border-radius: 12px; background: rgba(255, 255, 255, 0.4); }
+.config-item-info { display: flex; align-items: center; gap: 14px; }
+.config-item-icone { width: 38px; height: 38px; border-radius: 10px; display: grid; place-items: center; background: rgba(0, 163, 255, 0.12); color: #0077cc; flex-shrink: 0; }
+.config-item-info strong { display: block; font-size: 13.5px; font-weight: 500; color: #0F294A; }
+.config-item-info span { display: block; font-size: 12px; color: var(--ui-muted); }
+.config-grupo-notificacoes { display: flex; flex-direction: column; gap: 12px; }
+.config-grupo-titulo { font-size: 14px; font-weight: 500; color: #0F294A; font-family: var(--font-articulat), "Articulat CF", sans-serif; margin: 0; }
+.config-switches-grid { display: grid; gap: 14px; }
+.config-divisor { height: 1px; background: var(--ui-divider); margin: 4px 0; }
 
 .main-content:has(.equipe-layout) { display: flex; flex-direction: column; padding-top: 14px; }
 .config-layout:has(.equipe-layout) { display: flex; flex-direction: column; align-items: stretch; flex: 1; min-width: 0; min-height: min-content; gap: var(--space-sm); }
 .config-layout:has(.equipe-layout) > .config-nav { flex-shrink: 0; }
 .equipe-layout { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: min-content; }
-.equipe-card { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: min-content; padding: 0; border-radius: var(--radius-md); background: color-mix(in srgb, var(--ui-surface) 95%, transparent); border-color: var(--ui-divider); box-shadow: none; color: var(--ui-text); font-family: var(--font-general-sans); }
+.equipe-card { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: min-content; padding: 0; border-radius: var(--radius-xl); background: color-mix(in srgb, var(--ui-surface) 95%, transparent); border-color: var(--ui-divider); box-shadow: none; color: var(--ui-text); font-family: var(--font-general-sans); }
 .equipe-card:hover { background: color-mix(in srgb, var(--ui-surface) 95%, transparent); border-color: var(--ui-divider); box-shadow: none; }
 .equipe-card .card-heading { flex-shrink: 0; padding: var(--space-md); border-color: var(--ui-divider); }
 .equipe-rolagem { flex: 1; contain: size; min-height: 160px; overflow: auto; scroll-padding-block-start: var(--space-2xl); overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: var(--ui-divider) transparent; }
@@ -4257,4 +4442,70 @@ tbody tr:last-child td { border-bottom: 0; }
   .legal-root { --legal-gutter: 16px; padding: var(--legal-gutter); }
   .legal-page--glass { border-radius: 22px; }
   .legal-header { align-items: flex-start; flex-direction: column; gap: 18px; }
+}
+
+/* ==========================================================================
+   MOVIMENTO (PLU-325)
+   As entradas de tela, cartões, listas, barras e modal são GSAP
+   (app/lib/movimento.ts). Aqui fica o que é CSS:
+   - a espera da tela pelo JS, com fallback: a raiz marcada com
+     data-plg-aguarda fica transparente só enquanto o JS não chega e aparece
+     sozinha depois de --motion-fallback; o JS tira a marca no 1º paint;
+   - hover dos cartões (.plg-lift), ligado só depois da entrada (data-plg-pronto);
+   - menus e popovers abrindo da origem, o fundo do modal e o clique.
+   Só translate/scale/opacity, sem will-change, tudo sob
+   prefers-reduced-motion: no-preference.
+   ========================================================================== */
+.plg-mascara { display: block; overflow: clip; padding-block-end: .12em; margin-block-end: -.12em; }
+.plg-mascara > .plg-titulo { display: block; }
+.plg-surge--direita,
+.notifications-menu-panel,
+.user-menu-panel,
+.ui-popover-root:has(.ui-menu-trigger--icon) .ui-popover { --plg-origem: top right; }
+
+@keyframes plg-aguarda { from { opacity: 0; } }
+@keyframes plg-surgir { from { opacity: 0; scale: var(--motion-scale-menu); translate: 0 var(--motion-shift-menu); } }
+@keyframes plg-esmaecer { from { opacity: 0; } }
+@keyframes plg-esmaecer-saida { to { opacity: 0; } }
+
+@media (prefers-reduced-motion: no-preference) {
+  /* A tela espera o JS (que a revela antes do 1º paint) ou o fallback. */
+  [data-plg-aguarda] { animation: plg-aguarda 0s linear var(--motion-fallback) backwards; }
+
+  /* Fundo do modal: entra com fade e sai junto com a saída do modal. */
+  .modal[open]::backdrop { animation: plg-esmaecer var(--motion-backdrop) var(--ease-standard) backwards; }
+  .modal.modal--saindo::backdrop { animation: plg-esmaecer-saida var(--motion-exit) var(--ease-standard) forwards; }
+
+  /* Menus e popovers: escala e leve descida a partir do gatilho, com sobra. */
+  .plg-surge,
+  .ui-popover,
+  .menu-negocio-lista,
+  .notifications-menu-panel,
+  .user-menu-panel {
+    transform-origin: var(--plg-origem, top left);
+    animation: plg-surgir var(--motion-menu) var(--ease-back-out) backwards;
+  }
+  .ui-popover-content[data-state="open"],
+  .ui-select-content[data-state="open"] {
+    animation: plg-surgir var(--motion-menu) var(--ease-back-out) backwards;
+  }
+  .ui-popover-content[data-state="open"] { transform-origin: var(--radix-popover-content-transform-origin); }
+  .ui-select-content[data-state="open"] { transform-origin: var(--radix-select-content-transform-origin); }
+
+  /* Clique: afunda na hora em que aperta e volta curto ao soltar. As
+     transições de cor já existentes são repetidas para somar a escala. */
+  .button { transition: background-color .16s ease, border-color .16s ease, color .16s ease, filter .16s ease, scale var(--motion-fast) var(--ease-standard); }
+  .topbar-icon { transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1), scale var(--motion-fast) var(--ease-standard); }
+  .coluna-novo { transition: background-color .15s ease, color .15s ease, scale var(--motion-fast) var(--ease-standard); }
+  :is(.button, .topbar-icon, .coluna-novo, .cartao-negocio-menu-btn, .plg-pressiona):not(:disabled):active {
+    scale: var(--motion-scale-press);
+    transition-duration: 0s;
+  }
+}
+
+/* Hover de cartão: só com mouse de verdade e depois da entrada. `translate`
+   é independente do `transform` do arrasto e dos tweens. */
+@media (prefers-reduced-motion: no-preference) and (hover: hover) and (pointer: fine) {
+  [data-plg-pronto] .plg-lift { transition: translate var(--motion-lift) var(--ease-power3-out); }
+  [data-plg-pronto] .plg-lift:hover { translate: 0 var(--motion-lift-y); }
 }

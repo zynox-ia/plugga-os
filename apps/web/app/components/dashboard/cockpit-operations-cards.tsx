@@ -25,7 +25,7 @@ function DepartmentSLABars() {
             </span>
           </div>
           <div style={{ position: "relative", height: "6px", borderRadius: "999px", background: "rgba(15, 41, 74, 0.08)", overflow: "hidden" }}>
-            <div style={{ width: `${d.sla}%`, height: "100%", background: d.color, borderRadius: "999px" }} />
+            <div className="plg-barra" style={{ width: `${d.sla}%`, height: "100%", background: d.color, borderRadius: "999px" }} />
           </div>
         </div>
       ))}

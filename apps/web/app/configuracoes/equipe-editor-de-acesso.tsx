@@ -22,7 +22,7 @@ import {
   IconUser,
   Radio,
 } from "../components/ui";
-import { DEPARTAMENTOS, ROTULO_DO_PAPEL } from "../lib/organizacao";
+import { DEPARTAMENTOS, ROTULO_DO_PAPEL, telasDoDepartamento } from "../lib/organizacao";
 import { DESCRICAO_DO_DEPARTAMENTO } from "./equipe-rotulos";
 
 /**
@@ -218,7 +218,8 @@ export function EditorDeAcesso({
                 {departamentos.map((departamento) => {
                   const selecionado = valor.departamentos.some((entrada) => entrada.departamento === departamento.id);
                   const isExpandido = expandidos.has(departamento.id);
-                  const totalTelas = departamento.processos.length;
+                  const telasDoDepto = telasDoDepartamento(departamento);
+                  const totalTelas = telasDoDepto.length;
                   const telasAtivas = (telasSelecionadas[departamento.id] ?? []).length;
 
                   return (
@@ -284,18 +285,18 @@ export function EditorDeAcesso({
                                 </div>
                               </div>
                               <div className="ui-dept-processos-grid">
-                                {departamento.processos.map((processo) => {
+                                {telasDoDepto.map((tela) => {
                                   const marcado = (
                                     telasSelecionadas[departamento.id] ?? []
-                                  ).includes(processo.id!);
+                                  ).includes(tela.id);
                                   return (
-                                    <div className="ui-processo-item" key={processo.label}>
+                                    <div className="ui-processo-item" key={tela.id}>
                                       <Checkbox
-                                        label={processo.label}
+                                        label={tela.label}
                                         checked={marcado}
-                                        disabled={escopo.telasConcediveis !== undefined && !escopo.telasConcediveis.includes(processo.id!)}
+                                        disabled={escopo.telasConcediveis !== undefined && !escopo.telasConcediveis.includes(tela.id)}
                                         onChange={(e) =>
-                                          toggleTela(departamento.id, processo.id!, e.target.checked)
+                                          toggleTela(departamento.id, tela.id, e.target.checked)
                                         }
                                       />
                                     </div>

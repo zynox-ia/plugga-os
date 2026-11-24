@@ -1,4 +1,5 @@
 import { ShellCard, StatusPill } from "../components/plugga-shell";
+import { exigirPagina } from "../lib/exigir-pagina";
 import {
   DEPARTAMENTOS,
   GLOBAIS,
@@ -44,7 +45,8 @@ function ListaProcessos({ processos }: { processos: Processo[] }) {
  * código — e sai da mesma fonte que monta a navegação, então não tem como
  * divergir dela.
  */
-export default function EstruturaPage() {
+export default async function EstruturaPage() {
+  await exigirPagina("/estrutura");
   const { total, prontos, parciais } = contar(DEPARTAMENTOS.flatMap((departamento) => departamento.processos));
 
   return (

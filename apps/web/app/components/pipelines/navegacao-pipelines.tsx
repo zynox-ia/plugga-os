@@ -1,7 +1,7 @@
 "use client";
 
 import type { Pipeline } from "@plugga/shared";
-import { Check, ChevronDown, Kanban, List } from "lucide-react";
+import { ChartNoAxesCombined, Check, ChevronDown, Kanban, List } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
@@ -12,8 +12,9 @@ import { Button, IconSettings } from "../ui";
 import estilos from "./tela-pipelines.module.css";
 
 const VISOES: { valor: Visao; rotulo: string; icone: (props: { size?: number; className?: string }) => ReactNode }[] = [
-  { valor: "kanban", rotulo: "Kanban", icone: Kanban },
-  { valor: "lista", rotulo: "Lista", icone: List },
+  { valor: "kanban", rotulo: "Quadro", icone: Kanban },
+  { valor: "lista", rotulo: "Todos os negócios", icone: List },
+  { valor: "previsao", rotulo: "Previsão", icone: ChartNoAxesCombined },
 ];
 
 export function NavegacaoPipelines({
@@ -21,6 +22,7 @@ export function NavegacaoPipelines({
   selecionado,
   visao,
   podeConfigurar = false,
+  carregandoConfiguracao = false,
   aoConfigurar,
   rolagem,
 }: {
@@ -28,6 +30,7 @@ export function NavegacaoPipelines({
   selecionado: Pipeline;
   visao: Visao;
   podeConfigurar?: boolean;
+  carregandoConfiguracao?: boolean;
   aoConfigurar?: () => void;
   rolagem?: ReactNode;
 }) {
@@ -63,7 +66,7 @@ export function NavegacaoPipelines({
   const empresaSelecionada = EMPRESAS_POR_ID[selecionado.companyId]?.nome ?? selecionado.companyId;
 
   return (
-    <div className={estilos.navegacao}>
+    <div className={`${estilos.navegacao} plg-item`}>
       {/* Alternador de Visão (Segmented Control: Kanban / Lista) à esquerda */}
       <nav className={estilos.visoes} aria-label="Visualização dos negócios">
         {VISOES.map((opcao) => {
@@ -90,6 +93,7 @@ export function NavegacaoPipelines({
           <Button
             variant="secondary"
             icon={<IconSettings />}
+            loading={carregandoConfiguracao}
             onClick={aoConfigurar}
           >
             Configurar pipelines
@@ -134,7 +138,7 @@ export function NavegacaoPipelines({
         </select>
 
         {aberto && (
-          <div className={estilos.popoverFunis} role="listbox" aria-label="Funis de vendas disponíveis">
+          <div className={`${estilos.popoverFunis} plg-surge plg-surge--direita`} role="listbox" aria-label="Funis de vendas disponíveis">
             <div className={estilos.popoverHeader}>
               <span className={estilos.popoverHeaderTitulo}>Funis disponíveis</span>
               <span className={estilos.popoverHeaderContador}>

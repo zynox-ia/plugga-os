@@ -18,8 +18,8 @@ import {
 import { AuditAppender } from "../audit/audit-appender";
 import { ArquivoRecusado, Conflito, LimiteExcedido, NaoEncontrado, TipoNaoPermitido } from "../common/errors/dominio";
 import type { AuthPrincipal } from "../core/auth/auth.types";
-import { lerAcessoComercial } from "../pipelines/acesso-comercial";
-import { podeConfigurar, podeVer } from "../pipelines/pipelines.rules";
+import { exigeOperacaoComercial, lerAcessoComercial } from "../pipelines/acesso-comercial";
+import { podeConfigurar, podeVer, type AcessoComercial } from "../pipelines/pipelines.rules";
 import { PrismaService } from "../prisma/prisma.service";
 import { ArmazenamentoDeDocumentos } from "./armazenamento-de-documentos";
 import { detectarTipo } from "./deteccao-de-tipo";
@@ -92,12 +92,12 @@ export class PrismaLeadDocumentosRepository extends LeadDocumentosRepository {
   async list(dealId: string, principal: AuthPrincipal): Promise<ListLeadDocumentsResponse> {
     await this.negocioVisivel(dealId, principal);
     await this.limparPendentesExpirados(dealId);
-    const linhas = await this.prisma.leadDocument.findMany({
+    const linhas = await this.prisma.comContexto((tx) => tx.leadDocument.findMany({
       where: { dealId, uploadState: "ready" },
       orderBy: [{ archivedAt: "asc" }, { createdAt: "desc" }, { id: "asc" }],
       select: SELECAO,
-    });
-    return listLeadDocumentsResponseSchema.parse({ documents: linhas.map(paraDocumento) });
+    }));
+    return listLeadDocumentsResponseSchema.parse({ documents: linhas.map((linha) => paraDocumento(linha)) });
   }
 
   async upload(dealId: string, categoria: LeadDocumentCategory, arquivo: ArquivoEnviado, principal: AuthPrincipal): Promise<LeadDocument> {
@@ -124,7 +124,7 @@ export class PrismaLeadDocumentosRepository extends LeadDocumentosRepository {
 
     let documentoId: string;
     try {
-      const criado = await this.prisma.leadDocument.create({
+      const criado = await this.prisma.comContexto((tx) => tx.leadDocument.create({
         data: {
           dealId,
           category: categoria,
@@ -139,7 +139,7 @@ export class PrismaLeadDocumentosRepository extends LeadDocumentosRepository {
           uploadedById: principal.id,
         },
         select: { id: true },
-      });
+      }));
       documentoId = criado.id;
     } catch (erro) {
       if (erro instanceof Prisma.PrismaClientKnownRequestError && erro.code === "P2002") {
@@ -152,42 +152,45 @@ export class PrismaLeadDocumentosRepository extends LeadDocumentosRepository {
     // é limpa na próxima listagem/envio deste negócio, depois de 15 minutos.
     await this.armazenamento.enviar(chave, arquivo.buffer, tipo);
 
-    await this.prisma.$transaction(async (tx) => {
+    await this.prisma.comContexto(async (tx) => {
+      await this.negocioVisivel(dealId, principal, tx);
       await tx.leadDocument.update({ where: { id: documentoId }, data: { uploadState: "ready" } });
       await tx.dealHistory.create({ data: { dealId, kind: "document_added", actorId: principal.id } });
       await this.registrar(tx, "commercial.deal.document_added", dealId, pipeline.companyId, principal, {});
     });
-    return this.ler(documentoId);
+    return this.ler(documentoId, principal);
   }
 
   async update(dealId: string, documentId: string, input: UpdateLeadDocumentRequest, principal: AuthPrincipal): Promise<LeadDocument> {
-    await this.negocioVisivel(dealId, principal);
-    const atual = await this.prisma.leadDocument.findFirst({ where: { id: documentId, dealId }, select: { id: true } });
-    if (!atual) throw new NaoEncontrado(DOCUMENTO_NAO_ENCONTRADO);
-    await this.prisma.leadDocument.update({
-      where: { id: documentId },
-      data: { ...(input.originalName !== undefined ? { originalName: input.originalName } : {}), ...(input.category ? { category: input.category } : {}) },
+    await this.prisma.comContexto(async (tx) => {
+      await this.negocioVisivel(dealId, principal, tx);
+      const atual = await tx.leadDocument.findFirst({ where: { id: documentId, dealId }, select: { id: true } });
+      if (!atual) throw new NaoEncontrado(DOCUMENTO_NAO_ENCONTRADO);
+      await tx.leadDocument.update({
+        where: { id: documentId },
+        data: { ...(input.originalName !== undefined ? { originalName: input.originalName } : {}), ...(input.category ? { category: input.category } : {}) },
+      });
     });
-    return this.ler(documentId);
+    return this.ler(documentId, principal);
   }
 
   async archive(dealId: string, documentId: string, principal: AuthPrincipal): Promise<LeadDocument> {
-    const { pipeline } = await this.negocioVisivel(dealId, principal);
-    const atual = await this.prisma.leadDocument.findFirst({ where: { id: documentId, dealId }, select: { uploadedById: true, archivedAt: true } });
-    if (!atual) throw new NaoEncontrado(DOCUMENTO_NAO_ENCONTRADO);
+    await this.prisma.comContexto(async (tx) => {
+      const { pipeline } = await this.negocioVisivel(dealId, principal, tx);
+      const atual = await tx.leadDocument.findFirst({ where: { id: documentId, dealId }, select: { uploadedById: true, archivedAt: true } });
+      if (!atual) throw new NaoEncontrado(DOCUMENTO_NAO_ENCONTRADO);
 
-    const acesso = await lerAcessoComercial(this.prisma, principal.id);
-    const podeArquivar = atual.uploadedById === principal.id || podeConfigurar(acesso, principal.id, pipeline) || acesso.admin;
-    if (!podeArquivar) throw new NaoEncontrado(DOCUMENTO_NAO_ENCONTRADO);
+      const acesso = await lerAcessoComercial(tx, principal.id);
+      const podeArquivar = atual.uploadedById === principal.id || podeConfigurar(acesso, principal.id, pipeline) || acesso.admin;
+      if (!podeArquivar) throw new NaoEncontrado(DOCUMENTO_NAO_ENCONTRADO);
 
-    if (!atual.archivedAt) {
-      await this.prisma.$transaction(async (tx) => {
+      if (!atual.archivedAt) {
         await tx.leadDocument.update({ where: { id: documentId }, data: { archivedAt: new Date(), archivedById: principal.id } });
         await tx.dealHistory.create({ data: { dealId, kind: "document_archived", actorId: principal.id } });
         await this.registrar(tx, "commercial.deal.document_archived", dealId, pipeline.companyId, principal, {});
-      });
-    }
-    return this.ler(documentId);
+      }
+    });
+    return this.ler(documentId, principal);
   }
 
   async download(dealId: string, documentId: string, principal: AuthPrincipal): Promise<DownloadDeDocumento> {
@@ -210,33 +213,33 @@ export class PrismaLeadDocumentosRepository extends LeadDocumentosRepository {
   async discardProposalUpload(dealId: string, documentId: string, principal: AuthPrincipal): Promise<void> {
     // Não depende do acesso atual: serve também quando ele foi revogado durante o envio.
     // A autoria e a ausência de versão protegem arquivos de terceiros e commits já concluídos.
-    const result = await this.prisma.leadDocument.updateMany({
+    const result = await this.prisma.comContexto((tx) => tx.leadDocument.updateMany({
       where: { id: documentId, dealId, uploadedById: principal.id, category: "proposta", proposalVersions: { none: {} } },
       data: { uploadState: "cleanup" },
-    });
+    }));
     if (result.count === 1) await this.limparObjetosPendentes(dealId);
   }
 
   private async documentoPronto(dealId: string, documentId: string): Promise<LinhaCompleta> {
-    const linha = await this.prisma.leadDocument.findFirst({ where: { id: documentId, dealId, uploadState: "ready" }, select: SELECAO });
+    const linha = await this.prisma.comContexto((tx) => tx.leadDocument.findFirst({ where: { id: documentId, dealId, uploadState: "ready" }, select: SELECAO }));
     if (!linha) throw new NaoEncontrado(DOCUMENTO_NAO_ENCONTRADO);
     return linha;
   }
 
   private async limparPendentesExpirados(dealId: string): Promise<void> {
-    await this.prisma.leadDocument.updateMany({
+    await this.prisma.comContexto((tx) => tx.leadDocument.updateMany({
       where: { dealId, uploadState: "pending", createdAt: { lt: new Date(Date.now() - PRAZO_PENDENTE_MS) } },
       data: { uploadState: "cleanup" },
-    });
+    }));
     await this.limparObjetosPendentes(dealId);
   }
 
   private async limparObjetosPendentes(dealId: string): Promise<void> {
-    const rows = await this.prisma.leadDocument.findMany({ where: { dealId, uploadState: "cleanup" }, select: { id: true, storageKey: true }, take: 20 });
+    const rows = await this.prisma.comContexto((tx) => tx.leadDocument.findMany({ where: { dealId, uploadState: "cleanup" }, select: { id: true, storageKey: true }, take: 20 }));
     for (const row of rows) {
       try {
         await this.armazenamento.excluir(row.storageKey);
-        await this.prisma.leadDocument.deleteMany({ where: { id: row.id, uploadState: "cleanup" } });
+        await this.prisma.comContexto((tx) => tx.leadDocument.deleteMany({ where: { id: row.id, uploadState: "cleanup" } }));
       } catch {
         // Continua invisível e fora da unicidade por hash; próxima listagem/envio repete a limpeza.
         this.logger.warn("Limpeza de documento temporário pendente; será repetida.");
@@ -245,19 +248,25 @@ export class PrismaLeadDocumentosRepository extends LeadDocumentosRepository {
   }
 
   /** Visível a quem alcança o pipeline do negócio, de qualquer situação (aberto, ganho ou perdido). */
-  private async negocioVisivel(dealId: string, principal: AuthPrincipal): Promise<{ pipeline: { id: string; companyId: string } }> {
-    const negocio = await this.prisma.deal.findUnique({ where: { id: dealId }, select: { pipelineId: true } });
+  private async negocioVisivel(dealId: string, principal: AuthPrincipal, tx?: Prisma.TransactionClient, bloquear = true): Promise<{ pipeline: { id: string; companyId: string }; acesso: AcessoComercial }> {
+    if (!tx) return this.prisma.comContexto((banco) => this.negocioVisivel(dealId, principal, banco, false));
+    const banco = tx;
+    if (bloquear) await banco.$queryRaw`SELECT id FROM deals WHERE id = ${dealId}::uuid FOR UPDATE`;
+    const negocio = await banco.deal.findUnique({ where: { id: dealId }, select: { pipelineId: true, ownerId: true } });
     if (!negocio) throw new NaoEncontrado(NEGOCIO_NAO_ENCONTRADO);
     const [pipeline, acesso] = await Promise.all([
-      this.prisma.pipeline.findUnique({ where: { id: negocio.pipelineId }, select: { id: true, companyId: true } }),
-      lerAcessoComercial(this.prisma, principal.id),
+      banco.pipeline.findUnique({ where: { id: negocio.pipelineId }, select: { id: true, companyId: true } }),
+      lerAcessoComercial(banco, principal.id),
     ]);
     if (!pipeline || !podeVer(acesso)) throw new NaoEncontrado(NEGOCIO_NAO_ENCONTRADO);
-    return { pipeline };
+    exigeOperacaoComercial(acesso);
+    return { pipeline, acesso };
   }
 
-  private async ler(id: string): Promise<LeadDocument> {
-    return paraDocumento(await this.prisma.leadDocument.findUniqueOrThrow({ where: { id }, select: SELECAO }));
+  private async ler(id: string, principal: AuthPrincipal): Promise<LeadDocument> {
+    const documento = await this.prisma.comContexto((tx) => tx.leadDocument.findUniqueOrThrow({ where: { id }, select: SELECAO }));
+    await this.negocioVisivel(documento.dealId, principal);
+    return paraDocumento(documento);
   }
 
   private registrar(
@@ -281,6 +290,6 @@ export class PrismaLeadDocumentosRepository extends LeadDocumentosRepository {
   }
 
   private actorType(principal: AuthPrincipal): ActorType {
-    return principal.kind === "user" ? "user" : "system";
+    return principal.kind === "user" ? "user" : "agent";
   }
 }

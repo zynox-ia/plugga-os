@@ -1,0 +1,154 @@
+/* Tarefas dos departamentos (PLU-349, PLU-340), no desenho do protótipo de 23/11/2026.
+   Reaproveita a lista de negócios (tabela) e o quadro do CRM. Peso máximo 500, poucas
+   cores: vermelho só no atraso, verde só no selo de concluída. */
+
+.pagina { min-width: 0; }
+.subtitulo { max-width: 72ch; white-space: normal !important; }
+@media (min-width: 1200px) { .subtitulo { max-width: none; } }
+.abas :global(.ui-tab[aria-selected="true"]) { font-weight: 500; }
+.vazio { width: 100%; }
+.muted { margin: 0; color: var(--ui-muted); font-size: 12.5px; }
+.perigo { color: var(--ui-danger) !important; }
+.cortado { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.espaco { flex: 1; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .entra { animation: entra 0.55s cubic-bezier(0.22, 1, 0.36, 1) both; animation-delay: calc(min(var(--i, 0), 13) * 30ms); }
+}
+@keyframes entra { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+/* Barra simples (a barra presa da Engenharia é só a das O.S.): abas à esquerda, filtros à direita. */
+.barra { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+.filtros { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; }
+.filtro { flex: none; }
+@media (max-width: 720px) {
+  .abas { display: flex; width: 100%; }
+  .abas :global(.ui-tab) { flex: 1 1 0; }
+  .filtros { justify-content: flex-start; width: 100%; }
+  .filtro { flex: 1 1 calc(50% - 4px); min-width: 0; }
+  .filtro :global(button) { width: 100%; }
+}
+
+/* Com a página rolando inteira: nada de rolagem interna na lista ou no Kanban. */
+.conteudo { display: block; flex: none; min-height: auto; }
+.pagina :global(.lista-negocios-card) { flex: none; min-height: auto; }
+.pagina :global(.quadro-area-colunas) { flex: none; height: auto; max-height: none; min-height: 0; }
+.pagina :global(.quadro-colunas) { height: auto; max-height: none; align-items: flex-start; overflow-x: auto; }
+.pagina :global(.coluna-etapa) { height: auto; max-height: none; min-height: 0; }
+.pagina :global(.coluna-corpo) { flex: none; height: auto; max-height: none; overflow: visible; }
+.rolagemQuadro:global(.barra-rolagem-externa) { flex: none; align-self: center; width: min(380px, 100%); height: 20px; max-width: none; }
+
+.resumo { margin: 0; color: var(--ui-muted); font-size: 13px; }
+.nota { display: flex; align-items: center; gap: 8px; margin: 0; padding: 12px 16px; border: 1px solid var(--ui-divider); border-radius: var(--radius-xl); background: color-mix(in srgb, var(--ui-surface) 72%, transparent); color: var(--ui-muted); font-size: 13px; }
+.nota svg { flex: none; }
+
+/* Ações da linha: botões redondos, como no protótipo. */
+.selo { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+.acoes { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.redondo:global(.ui-button) { flex: none; border-radius: var(--radius-full); }
+
+/* ---------------------------------------------------------------- lista */
+
+.lista { width: 100%; }
+.lista :global(td[data-l])::before { font-weight: 500; }
+.cartaoTabela:global(.shell-card) { padding: 0; overflow: hidden; border: 1px solid #dbe4ed; border-radius: var(--radius-xl); background: rgba(255, 255, 255, 0.95); }
+.cabecalhoDaLista { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 18px 16px 14px; }
+.cabecalhoDaLista h2 { margin: 0; font-size: 18px; font-weight: 500; }
+.cabecalhoDaLista span { color: #536579; font-size: 12px; }
+.progresso { flex: 0 1 160px; height: 6px; overflow: hidden; border-radius: var(--radius-full); background: #e3eaf2; }
+.progresso span { display: block; height: 100%; border-radius: inherit; background: var(--ui-primary); }
+.tabelaWrap { border: 0 !important; border-top: 1px solid var(--ui-divider) !important; border-radius: 0 !important; background: transparent !important; overflow-x: hidden; }
+.tabela { width: 100%; min-width: 0; table-layout: fixed; }
+.tabela th { padding: 12px 10px; color: var(--ui-muted); font: 500 12px/1.4 var(--font-general-sans); letter-spacing: normal; text-transform: none; white-space: nowrap; }
+.tabela td { padding: 12px 10px; color: var(--ui-text); font-size: 13px; line-height: 1.5; vertical-align: middle; }
+.tabela :is(th, td):first-child { padding-left: 16px; text-align: left; }
+.tabela :is(th, td):last-child { padding-right: 16px; }
+.tabela :is(th, td):not(:first-child) { text-align: center; }
+.tabela td:not(:first-child) > :is(div, span) { margin-inline: auto; justify-content: center; }
+.tabela tbody tr:hover { background: color-mix(in srgb, var(--ui-primary) 4%, transparent); }
+.cTarefa { width: 36%; } .cResp { width: 15%; } .cEmpresa { width: 14%; } .cPrazo { width: 13%; } .cSituacao { width: 12%; } .cAcoes { width: 10%; }
+.iconeLinha { color: var(--ui-primary); }
+.blocoTarefa { min-width: 0; white-space: normal; }
+.nomeTarefa { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 500; }
+.duasLinhas { display: inline-grid; justify-items: center; line-height: 1.3; }
+.duasLinhas small { color: var(--ui-muted); font-size: 12px; }
+
+/* Até 900 px a linha vira cartão, como nas O.S. e no Estoque: a tarefa no topo com as ações no canto. */
+@media (max-width: 900px) {
+  .tabela colgroup, .tabela thead { display: none; }
+  .tabela, .tabela tbody { display: block; width: 100%; min-width: 0 !important; }
+  .tabela tbody tr { position: relative; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 12px; padding: 14px 16px; border-bottom: 1px solid var(--ui-divider); }
+  .tabela tbody tr:last-child { border-bottom: 0; }
+  .tabela td { display: grid; gap: 2px; min-width: 0; padding: 0 !important; border: 0; text-align: left !important; }
+  .tabela td:first-child { grid-column: 1 / -1; padding-right: 96px !important; }
+  .tabela td[data-l]:not(:first-child)::before { content: attr(data-l); display: block; margin: 0; color: var(--ui-muted); font-size: 12px; font-weight: 400; }
+  .tabela td:first-child::before { display: none; content: none; }
+  .tabela td:not(:first-child) > :is(div, span) { justify-self: start; margin-inline: 0; justify-content: flex-start; justify-items: start; }
+  .lista .tabela td:last-child { position: absolute; top: 14px; right: 16px; width: auto; }
+  .cabecalhoDaLista { flex-direction: column; align-items: stretch; }
+  .progresso { flex: none; width: 160px; }
+}
+
+/* ---------------------------------------------------------------- kanban */
+
+.cartaoQuadro { min-width: 0; }
+.cartaoQuadro:global(.cartao-negocio) { gap: 10px; border-radius: var(--radius-lg); }
+.prazoDoCartao { font-size: 11.5px !important; }
+.empresaDoCartao { font-size: 12px; }
+.rodapeDoCartao { gap: 8px; }
+.responsavel { display: inline-flex; align-items: center; gap: 5px; color: var(--ui-muted); font-size: 12.5px; }
+.anexo { display: inline-flex; color: var(--ui-muted); }
+.notaColuna { margin: 4px 0 0; color: var(--ui-muted); font-size: 12px; text-align: center; }
+
+/* ---------------------------------------------------------------- diálogos */
+
+.checklist { display: grid; gap: 8px; min-width: 0; margin: 0; padding: 0; border: 0; }
+.checklist legend { margin-bottom: 6px; padding: 0; color: var(--ui-text); font-size: 13px; font-weight: 500; }
+.itemDoChecklist { padding: 10px 12px; border: 1px solid var(--ui-divider); border-radius: var(--radius-lg); background: #fff; }
+
+/* O protótipo dá 720 px ao modal: o trio Empresa, Responsável e Substituto cabe sem cortar. */
+.dialogoDaTarefa:global(.modal) { width: min(720px, calc(100vw - 32px)); }
+.formDaTarefa { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
+.formDaTarefa > :global(.ui-alert) { grid-column: 1 / -1; }
+.largo { grid-column: 1 / -1; min-width: 0; }
+.trio { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; align-items: start; }
+.duasColunas { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: start; }
+@media (max-width: 640px) { .trio, .duasColunas { grid-template-columns: minmax(0, 1fr); } }
+.secaoDoForm { display: grid; gap: 12px; padding-top: 14px; border-top: 1px solid var(--ui-divider); }
+.secaoDoForm h3 { display: flex; align-items: center; gap: 8px; margin: 0; color: var(--ui-text); font-size: 14px; font-weight: 500; }
+.rotulo { color: var(--ui-text); font-size: 13px; font-weight: 500; }
+.dias { display: flex; flex-wrap: wrap; gap: 6px; }
+.dia { min-width: 52px; height: 36px; padding: 0 12px; border: 1px solid var(--ui-divider); border-radius: var(--radius-full); background: var(--ui-surface); color: var(--ui-text); font: inherit; font-size: 13px; cursor: pointer; }
+.dia[aria-pressed="true"] { border-color: var(--ui-primary); background: color-mix(in srgb, var(--ui-primary) 10%, var(--ui-surface)); color: var(--ui-primary); font-weight: 500; }
+.dia:focus-visible { outline: 2px solid var(--ui-primary); outline-offset: 2px; }
+.previaDoForm { display: grid; gap: 8px; padding: 12px 14px; border: 1px solid var(--ui-divider); border-radius: var(--radius-lg); background: var(--ui-subtle); }
+.previaDoForm > span { display: inline-flex; align-items: center; gap: 6px; color: var(--ui-muted); font-size: 12.5px; }
+.previa { display: flex; flex-wrap: wrap; gap: 6px; }
+.previa > span:not(.muted) { padding: 3px 10px; border: 1px solid var(--ui-divider); border-radius: var(--radius-full); background: var(--ui-surface); color: var(--ui-text); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.previa > span.ocorrenciaHoje { border-color: color-mix(in srgb, var(--ui-primary) 45%, transparent); color: var(--ui-primary); }
+.opcao { padding: 10px 12px; border: 1px solid var(--ui-divider); border-radius: var(--radius-lg); background: #fff; }
+.itens { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; counter-reset: item; }
+.itens li { display: flex; align-items: center; gap: 8px; padding: 6px 6px 6px 12px; border: 1px solid var(--ui-divider); border-radius: var(--radius-md); background: #fff; font-size: 13.5px; counter-increment: item; }
+.itens li::before { content: counter(item) "."; color: var(--ui-muted); font-variant-numeric: tabular-nums; }
+.itens li > span { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.adicionar { display: flex; gap: 8px; align-items: center; }
+.adicionar > :global(.ui-input-wrap) { flex: 1 1 auto; }
+
+.detalhe { display: grid; gap: 16px; }
+.dados { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 16px; margin: 0; }
+@media (max-width: 560px) { .dados { grid-template-columns: minmax(0, 1fr); } }
+.dados > div { display: grid; gap: 3px; min-width: 0; }
+.dados dt { color: var(--ui-muted); font-size: 12px; }
+.dados dd { display: grid; justify-items: start; margin: 0; color: var(--ui-text); font-size: 14px; }
+.dados dd small { color: var(--ui-muted); font-size: 12px; }
+.secaoDetalhe { display: grid; gap: 8px; padding-top: 14px; border-top: 1px solid var(--ui-divider); }
+.secaoDetalhe h3 { display: flex; align-items: center; gap: 8px; margin: 0; color: var(--ui-text); font-size: 14px; font-weight: 500; }
+.resultado { margin: 0; padding: 10px 12px; border-radius: var(--radius-lg); background: var(--ui-subtle); color: var(--ui-text); font-size: 14px; white-space: pre-wrap; }
+.listaFeita, .evidencias { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.listaFeita li { display: flex; align-items: center; gap: 8px; color: var(--ui-muted); font-size: 13.5px; }
+.listaFeita li[data-feito] { color: var(--ui-text); }
+.listaFeita li[data-feito] svg { color: var(--ui-success); }
+.evidencias a { display: inline-flex; align-items: center; gap: 6px; color: var(--ui-primary); font-size: 13.5px; text-decoration: none; }
+.evidencias a:hover span { text-decoration: underline; }
+.instrucoes { display: grid; gap: 4px; margin: 0; padding-left: 20px; color: var(--ui-text); font-size: 13.5px; }
+.botaoPerigo:global(.ui-button) { color: var(--ui-danger); }

@@ -1,0 +1,265 @@
+.resumo {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 20px;
+  color: var(--ui-text);
+  font-weight: 400;
+}
+
+.indicadores { display: grid; gap: 20px; min-width: 0; }
+
+.identidade {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.identidade > div { min-width: 0; }
+/* Código do negócio e, logo abaixo, a etapa (o nome do lead já está no cabeçalho do modal). */
+.identidadeTexto { display: flex; flex: 1; flex-direction: column; align-items: flex-start; gap: 6px; }
+.identidade p { margin: 0; font-size: 12.5px; overflow-wrap: anywhere; }
+
+.iconeNegocio {
+  inline-size: 48px;
+  block-size: 48px;
+  display: grid;
+  place-items: center;
+  flex: none;
+  border-radius: 15px;
+  background: var(--ui-subtle);
+  color: var(--ui-primary);
+}
+
+.etapaAtual {
+  display: inline-flex;
+  flex: none;
+  padding: 2px 8px;
+  border: 1px solid var(--ui-divider);
+  border-radius: var(--radius-full);
+  background: var(--ui-subtle);
+  color: var(--ui-text);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+/* Valor à direita da linha de identidade. */
+.valor {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  margin-inline-start: auto;
+  text-align: right;
+}
+
+.valor > span {
+  font-size: 28px;
+  line-height: var(--line-height-solid);
+  letter-spacing: -.02em;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.valor > .valorVazio { color: var(--ui-muted); opacity: .55; }
+.valor small { font-size: 12.5px; color: var(--ui-muted); }
+.valor .parado, .parado { color: var(--ui-danger); }
+.muted { color: var(--ui-muted); }
+
+.trilha {
+  display: flex;
+  margin: 0;
+  padding: 4px 0 2px;
+  list-style: none;
+  overflow-x: auto;
+}
+
+.trilha li { position: relative; flex: 1 0 64px; min-width: 0; }
+.trilha li:not(:last-child)::before {
+  content: "";
+  position: absolute;
+  inset-inline-start: 50%;
+  inset-block-start: 15px;
+  inline-size: 100%;
+  block-size: 2px;
+  background: var(--ui-divider);
+}
+
+.trilha li[data-anterior]::before { background: var(--ui-primary); }
+
+.trilha button {
+  position: relative;
+  display: grid;
+  grid-template-rows: 32px auto;
+  gap: 6px;
+  justify-items: center;
+  width: 100%;
+  padding: 0 2px;
+  border: 0;
+  background: transparent;
+  color: var(--ui-muted);
+  font: inherit;
+  font-size: 12px;
+  line-height: var(--line-height-control);
+  overflow-wrap: anywhere;
+  text-align: center;
+  cursor: pointer;
+}
+.trilha button:disabled { cursor: default; }
+
+.marcador {
+  display: grid;
+  place-items: center;
+  inline-size: 32px;
+  block-size: 32px;
+  border: 1.5px solid var(--ui-divider);
+  border-radius: var(--radius-full);
+  background: var(--ui-surface);
+  font-weight: 500;
+}
+
+.trilha li[data-anterior] .marcador,
+.trilha li[aria-current="step"] .marcador {
+  border-color: var(--ui-primary);
+  background: var(--ui-primary);
+  color: var(--ui-surface);
+}
+.trilha li[aria-current="step"] .marcador { box-shadow: 0 0 0 4px color-mix(in srgb, var(--ui-primary) 20%, transparent); }
+.trilha li[aria-current="step"] button { color: var(--ui-text); font-weight: 500; }
+.trilha button:not(:disabled):hover .marcador { border-color: var(--ui-primary); }
+
+.destaque {
+  padding: 14px 16px;
+  border: 1px solid color-mix(in srgb, var(--ui-primary) 18%, transparent);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--ui-primary) 7%, var(--ui-surface));
+}
+.destaque h3, .secao h3 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 6px;
+  color: var(--ui-muted);
+  font-size: 12px;
+  font-weight: 500;
+}
+.destaque h3 { color: var(--ui-primary); }
+.destaque p { margin: 0; font-size: 13.5px; overflow-wrap: anywhere; }
+
+.grade {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid var(--ui-divider);
+  border-radius: 16px;
+  background: var(--ui-divider);
+}
+.grade > div { min-width: 0; padding: 12px 14px; background: var(--ui-surface); }
+.grade dt, .grade small { color: var(--ui-muted); font-size: 12px; font-weight: 400; }
+.grade dd { margin: 3px 0 0; font-weight: 500; overflow-wrap: anywhere; }
+.grade small { display: block; }
+.grade .responsavel { display: flex; align-items: center; gap: 7px; }
+
+.proximo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px dashed var(--ui-divider);
+  border-radius: 14px;
+  background: var(--ui-surface);
+  color: var(--ui-text);
+  font: inherit;
+  font-weight: 500;
+  text-align: start;
+  cursor: pointer;
+}
+.proximo:hover { background: var(--ui-subtle); }
+.proximo > span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.proximo > svg { flex: none; }
+.proximo > svg:first-child { color: var(--ui-warning); }
+.proximo > svg:last-child { color: var(--ui-muted); }
+
+.contato {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 16px;
+  background: var(--ui-subtle);
+}
+.contato > div { display: grid; min-width: 0; flex: 1; overflow-wrap: anywhere; }
+.contato small, .atividades small { color: var(--ui-muted); font-size: 12px; }
+.contato a {
+  display: grid;
+  place-items: center;
+  flex: none;
+  inline-size: 34px;
+  block-size: 34px;
+  border: 1px solid var(--ui-divider);
+  border-radius: 10px;
+  background: var(--ui-surface);
+  color: var(--ui-text);
+}
+.contato a:hover { color: var(--ui-primary); }
+
+.anotacao { display: flex; gap: 8px; }
+.anotacao input { flex: 1; min-width: 0; }
+.notas {
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--ui-subtle);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.secao > p:not(.notas) { margin: 12px 0 0; }
+
+.atividades {
+  display: grid;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.atividades li { position: relative; display: flex; gap: 12px; padding-bottom: 14px; }
+.atividades li:not(:last-child)::before {
+  content: "";
+  position: absolute;
+  inset-inline-start: 15px;
+  inset-block: 34px 2px;
+  inline-size: 1px;
+  background: var(--ui-divider);
+}
+.iconeAtividade {
+  display: grid;
+  place-items: center;
+  flex: none;
+  inline-size: 31px;
+  block-size: 31px;
+  border-radius: 10px;
+  background: var(--ui-subtle);
+  color: var(--ui-muted);
+}
+.atividades p { margin: 0; font-size: 13.5px; font-weight: 500; overflow-wrap: anywhere; }
+
+.rodape {
+  position: sticky;
+  z-index: 1;
+  inset-block-end: calc(-1 * var(--space-lg));
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 14px 0;
+  border-block-start: 1px solid var(--ui-divider);
+  background: var(--ui-surface);
+}
+
+/* Telas estreitas: o valor desce para a linha de baixo, ainda alinhado à direita. */
+@media (max-width: 640px) {
+  .identidade { flex-wrap: wrap; }
+  .identidade .valor { flex-basis: 100%; }
+}

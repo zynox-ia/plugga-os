@@ -11,6 +11,13 @@ const productionDatabaseUrl = "postgresql://plugga_app:Zk3vQ8mWp2Lx9RtN@postgres
 const productionSessionSecret = "q7Vn2xKd9LmB4tRw8YpC1zHs6JfG3aEu5NoXb0Ti"; // gitleaks:allow (valor fictício de teste)
 
 describe("validateEnvironment", () => {
+  it("MFA é opcional e aceita somente chave dedicada base64 canônica de32bytes", () => {
+    const base = { NODE_ENV: "development", DATABASE_URL: localDatabaseUrl, AUTH_SESSION_SECRET: sessionSecret };
+    for (const value of [undefined, "", "  "]) expect(validateEnvironment({ ...base, MFA_ENCRYPTION_KEY: value }).MFA_ENCRYPTION_KEY).toBeUndefined();
+    const key = Buffer.alloc(32, 42).toString("base64");
+    expect(validateEnvironment({ ...base, MFA_ENCRYPTION_KEY: key }).MFA_ENCRYPTION_KEY).toBe(key);
+    for (const value of ["not-base64", Buffer.alloc(31).toString("base64"), key.replace(/=$/, ""), `${key}\n`]) expect(() => validateEnvironment({ ...base, MFA_ENCRYPTION_KEY: value })).toThrow("MFA_ENCRYPTION_KEY");
+  });
   it("accepts the explicit local development configuration", () => {
     const environment = validateEnvironment({
       NODE_ENV: "development",

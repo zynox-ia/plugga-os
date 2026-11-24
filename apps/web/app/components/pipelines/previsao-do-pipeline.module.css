@@ -1,0 +1,181 @@
+/*
+ * Previsão do funil: geometria da referência (Selvar) com cor e tipografia da Plugga.
+ * Tipografia Plugga (Dashboard): General Sans, peso 500; valores 26px; títulos 16px;
+ * apoio 11,5–12px em texto atenuado. Cores pelos tokens da Plugga.
+ */
+.pagina {
+  --pv-texto: var(--ui-text, #0f294a);
+  --pv-atenuado: rgba(15, 41, 74, 0.6);
+  --pv-linha: rgba(15, 41, 74, 0.1);
+  --pv-linha-forte: rgba(15, 41, 74, 0.22);
+  --pv-poco: rgba(15, 41, 74, 0.07);
+  --pv-primaria: #0070e0;
+  --pv-ambar: #f59e0b;
+  --pv-ceu: #00a3ff;
+  --pv-ardosia: #8a9bb0;
+  --pv-bom: #059669;
+
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+  padding: var(--space-md) 0 var(--space-xl);
+  color: var(--pv-texto);
+  font-family: var(--font-general-sans), "General Sans", sans-serif;
+  font-weight: 500;
+}
+
+/* Superfície: o cartão de vidro da Plugga, com o respiro da referência. */
+.cartao:global(.shell-card),
+.cartao:global(.shell-card):hover {
+  min-width: 0;
+  padding: 20px;
+  /* Vidro mais denso que o padrão: gráfico e listas precisam de leitura limpa. */
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.88) 0%, rgba(255, 255, 255, 0.76) 100%);
+}
+
+/* ---------- Cabeçalho dos cartões ---------- */
+
+.cabecalho { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+.titulo { margin: 0; color: var(--pv-texto); font-size: 16px; font-weight: 500; letter-spacing: -0.01em; line-height: 1.25; }
+.subtitulo { margin: 3px 0 0; color: var(--pv-atenuado); font-size: 12px; font-weight: 400; line-height: 1.45; }
+
+/* ---------- Cartões de cenário ---------- */
+
+.cenarios { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+/* O hover do cartão não pode reaplicar o respiro: o botão interno já tem o seu. */
+.cenario:global(.shell-card),
+.cenario:global(.shell-card):hover { padding: 0; }
+.cenarioBotao {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+  padding: 16px 18px;
+  border: 0;
+  border-radius: inherit;
+  color: inherit;
+  background: none;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.cenarioBotao:focus-visible { outline: 2px solid var(--pv-primaria); outline-offset: 2px; }
+.cenarioAtivo:global(.shell-card),
+.cenarioAtivo:global(.shell-card):hover { border-color: var(--pv-texto); box-shadow: 0 10px 30px -4px rgba(10, 25, 47, 0.08); }
+.cenarioRotulo { display: flex; align-items: center; justify-content: space-between; color: var(--pv-atenuado); font-size: 12px; font-weight: 500; }
+.cenarioRotulo i { flex: none; width: 18px; height: 18px; border: 1.5px solid var(--pv-linha-forte); border-radius: 50%; }
+.cenarioAtivo .cenarioRotulo i { border: 5px solid var(--pv-texto); }
+.cenarioValor { color: var(--pv-texto); font-size: 26px; font-weight: 500; letter-spacing: -0.02em; line-height: 1.2; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.cenarioNota { color: var(--pv-atenuado); font-size: 11.5px; font-weight: 400; }
+
+/* Barra de progresso (meter da referência). */
+.barra { display: block; height: 6px; overflow: hidden; border-radius: 99px; background: var(--pv-poco); }
+.barra > span { display: block; height: 100%; border-radius: inherit; background: var(--pv-primaria); }
+.barraAmbar > span { background: var(--pv-ambar); }
+.barraPrimaria > span { background: var(--pv-primaria); }
+.barraCeu > span { background: var(--pv-ceu); }
+.barraBoa > span { background: var(--pv-bom); }
+
+/* ---------- Grade: gráfico (2/3) + sua projeção (1/3) ---------- */
+
+.gradePrincipal { display: grid; align-items: stretch; grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr); gap: 16px; }
+.cartaoGrafico .cabecalho { flex-wrap: wrap; }
+
+.legenda { display: flex; flex-wrap: wrap; gap: 14px; color: var(--pv-atenuado); font-size: 12px; font-weight: 500; }
+.legenda span { display: inline-flex; align-items: center; gap: 6px; }
+.legenda i { display: inline-block; width: 10px; }
+.chaveGanho,
+.chaveRealizada { height: 3px; border-radius: 2px; background: var(--pv-primaria); }
+.chaveProjecao { height: 0; border-top: 2px dashed var(--pv-ambar); }
+.chaveMeta { height: 0; border-top: 2px dashed var(--pv-ardosia); }
+
+.grafico { position: relative; }
+.grafico svg { display: block; width: 100%; height: 290px; overflow: visible; }
+.grade { stroke: var(--pv-linha); stroke-width: 1; }
+.rotuloEixo { fill: var(--pv-atenuado); font-family: var(--font-general-sans), sans-serif; font-size: 11px; font-weight: 400; }
+.rotuloDataOculto { display: none; }
+.faixaProjecao { fill: color-mix(in srgb, var(--pv-ambar) 16%, transparent); }
+.linhaRealizada { fill: none; stroke: var(--pv-primaria); stroke-width: 2.25; stroke-linecap: round; stroke-linejoin: round; }
+.linhaMeta { fill: none; stroke: var(--pv-ardosia); stroke-width: 1.5; stroke-dasharray: 4 5; }
+.linhaProjecao { fill: none; stroke: var(--pv-ambar); stroke-width: 2; stroke-dasharray: 6 6; stroke-linecap: round; stroke-linejoin: round; }
+.pontoRealizado { fill: var(--pv-primaria); stroke: #ffffff; stroke-width: 2; }
+.marcadorHoje { stroke: var(--pv-ambar); stroke-width: 1.5; }
+.rotuloHoje { fill: var(--pv-ambar); font-family: var(--font-general-sans), sans-serif; font-size: 11px; font-weight: 500; }
+.linhaHover { stroke: var(--pv-linha-forte); stroke-width: 1; }
+.pontoHover { fill: #ffffff; stroke: var(--pv-primaria); stroke-width: 2.5; }
+
+.tooltip { position: absolute; z-index: 1; display: grid; gap: 4px; min-width: 160px; padding: 10px 12px; border-radius: 12px; background: var(--pv-texto); color: #ffffff; box-shadow: 0 12px 32px -12px rgba(10, 25, 47, 0.45); font-size: 11.5px; font-weight: 400; pointer-events: none; transform: translate(-50%, -100%); }
+.tooltip strong { font-size: 12px; font-weight: 500; }
+.tooltip span { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+.tooltip i { flex: none; width: 10px; }
+.tooltip .chaveRealizada { background: #ffffff; }
+
+/* ---------- Sua projeção ---------- */
+
+.cartaoProjecao { display: flex; flex-direction: column; }
+.minhaProjecao { display: grid; margin: 0 0 12px; }
+.minhaProjecao b { color: var(--pv-texto); font-size: 30px; font-weight: 500; letter-spacing: -0.02em; line-height: 1.05; font-variant-numeric: tabular-nums; }
+.minhaProjecao small { margin-top: 4px; color: var(--pv-atenuado); font-size: 12px; font-weight: 400; }
+
+.negocios { display: grid; gap: 2px; max-height: 300px; margin: 0 -8px; padding: 0 8px; overflow: auto; list-style: none; scrollbar-width: thin; scrollbar-color: var(--pv-linha-forte) transparent; }
+.negocio { position: relative; display: flex; align-items: center; gap: 10px; padding: 8px 6px; border-radius: 12px; cursor: pointer; }
+.negocio:hover { background: var(--pv-poco); }
+.negocio input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; pointer-events: none; }
+.caixa { display: grid; flex: none; place-items: center; width: 22px; height: 22px; border: 1.5px solid var(--pv-linha-forte); border-radius: 7px; color: transparent; background: rgba(255, 255, 255, 0.6); transition: background-color .15s ease, border-color .15s ease; }
+.negocio input:checked + .caixa { border-color: var(--pv-primaria); color: #ffffff; background: var(--pv-primaria); }
+.negocio input:focus-visible + .caixa { outline: 2px solid var(--pv-primaria); outline-offset: 2px; }
+.negocioCorpo { display: grid; flex: 1; min-width: 0; line-height: 1.3; }
+.negocioCorpo b { overflow: hidden; color: var(--pv-texto); font-size: 13px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.negocioCorpo small { color: var(--pv-atenuado); font-size: 11.5px; font-weight: 400; }
+.negocioValor { color: var(--pv-texto); font-size: 13px; font-weight: 500; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.negocio input:not(:checked) ~ .negocioCorpo,
+.negocio input:not(:checked) ~ .negocioValor { opacity: 0.45; }
+
+.vazio { margin: 0; color: var(--pv-atenuado); font-size: 12px; font-weight: 400; line-height: 1.5; }
+
+/* ---------- Por vendedor ---------- */
+
+.tabelaRolagem { overflow-x: auto; }
+.tabela { width: 100%; min-width: 680px; border-collapse: separate; border-spacing: 0; font-size: 13px; }
+.tabela th { padding: 0 12px 10px; border-bottom: 1px solid var(--pv-linha); color: var(--pv-atenuado); background: none; font-family: inherit; font-size: 12px; font-weight: 500; letter-spacing: 0; text-align: left; text-transform: none; white-space: nowrap; }
+.tabela td { padding: 12px; border-bottom: 1px solid var(--pv-linha); color: var(--pv-texto); font-weight: 500; vertical-align: middle; font-variant-numeric: tabular-nums; }
+.tabela th:first-child,
+.tabela td:first-child { padding-left: 4px; }
+.tabela tbody tr:last-child td { border-bottom: 0; }
+.tabela .direita { text-align: right; }
+.vendedor { display: inline-flex; align-items: center; gap: 10px; min-width: 0; }
+.vendedor b { overflow: hidden; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.avatar { display: grid; flex: none; place-items: center; width: 28px; height: 28px; border-radius: 50%; color: var(--cor-avatar, var(--pv-primaria)); background: color-mix(in srgb, var(--cor-avatar, var(--pv-primaria)) 15%, #ffffff); font-size: 10px; font-weight: 500; }
+.atingimento { display: flex; align-items: center; gap: 10px; min-width: 160px; }
+.atingimento .barra { flex: 1; }
+.atingimento > span:last-child { width: 44px; color: var(--pv-texto); text-align: right; }
+
+/* ---------- Responsivo ---------- */
+
+@media (max-width: 1279px) {
+  .gradePrincipal { grid-template-columns: minmax(0, 1fr); }
+  .negocios { max-height: 260px; }
+}
+
+@media (max-width: 640px) {
+  .pagina { gap: 12px; padding-top: var(--space-sm); }
+  .cartao:global(.shell-card) { padding: 16px; }
+  .cenario:global(.shell-card),
+  .cenario:global(.shell-card):hover { padding: 0; }
+  .cenarios { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .cenarioBotao { grid-template-columns: 1fr auto; align-items: baseline; padding: 16px; }
+  .cenarioRotulo,
+  .cenarioBotao .barra { grid-column: 1 / -1; }
+  .cenarioValor { font-size: 22px; }
+  .cenarioNota { text-align: right; }
+  .tabelaRolagem { overflow: visible; }
+  .tabela { display: block; min-width: 0; }
+  .tabela thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .tabela tbody { display: grid; }
+  .tabela tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 16px; padding: 14px 0; border-bottom: 1px solid var(--pv-linha); }
+  .tabela tbody tr:last-child { border-bottom: 0; }
+  .tabela td { display: grid; gap: 3px; min-width: 0; padding: 0; border: 0; text-align: left; }
+  .tabela .direita { text-align: left; }
+  .tabela td:first-child { grid-column: 1 / -1; }
+  .tabela td:not(:first-child)::before { content: attr(data-l); color: var(--pv-atenuado); font-size: 11px; font-weight: 400; }
+  .atingimento { min-width: 0; }
+}

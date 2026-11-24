@@ -4,7 +4,7 @@ import { Redis } from "ioredis";
 
 import type { JobEnvelope } from "./job-handler";
 import { JOBS_QUEUE_NAME } from "./jobs-queue.constants";
-import { JobsQueue, type EnqueueOptions, type EnqueueResult } from "./jobs-queue.port";
+import { JobsQueue, cronDiario, intervaloValido, type AgendamentoDiario, type AgendamentoPeriodico, type EnqueueOptions, type EnqueueResult } from "./jobs-queue.port";
 
 const DEFAULT_ATTEMPTS = 3;
 const DEFAULT_BACKOFF_MS = 5_000;
@@ -58,6 +58,38 @@ export class BullJobsQueue extends JobsQueue implements OnModuleDestroy {
       `enqueued job='${jobKey}' id='${String(job.id)}'${deduped ? " (deduped)" : ""}`,
     );
     return { jobId: String(job.id), jobKey, deduped };
+  }
+
+  /** Agendador do BullMQ (upsert): reiniciar a API não duplica o job do dia. */
+  override async agendarDiario<Payload>(jobKey: string, payload: Payload, agendamento: AgendamentoDiario): Promise<{ agendado: boolean }> {
+    const envelope: JobEnvelope<Payload> = { payload, meta: { triggeredBy: `agendador:${agendamento.id}` } };
+    await this.queue.upsertJobScheduler(
+      agendamento.id,
+      { pattern: cronDiario(agendamento.horario), tz: agendamento.fuso },
+      {
+        name: jobKey,
+        data: envelope,
+        opts: { attempts: DEFAULT_ATTEMPTS, backoff: { type: "exponential", delay: DEFAULT_BACKOFF_MS }, removeOnComplete: { count: 1_000 }, removeOnFail: { count: 5_000 } },
+      },
+    );
+    this.logger.log(`scheduled job='${jobKey}' daily at ${agendamento.horario} ${agendamento.fuso} id='${agendamento.id}'`);
+    return { agendado: true };
+  }
+
+  /** Agendador do BullMQ a cada intervalo (upsert pelo id): reiniciar a API não duplica. */
+  override async agendarACada<Payload>(jobKey: string, payload: Payload, agendamento: AgendamentoPeriodico): Promise<{ agendado: boolean }> {
+    const envelope: JobEnvelope<Payload> = { payload, meta: { triggeredBy: `agendador:${agendamento.id}` } };
+    await this.queue.upsertJobScheduler(
+      agendamento.id,
+      { every: intervaloValido(agendamento.intervaloMs) },
+      {
+        name: jobKey,
+        data: envelope,
+        opts: { attempts: DEFAULT_ATTEMPTS, backoff: { type: "exponential", delay: DEFAULT_BACKOFF_MS }, removeOnComplete: { count: 1_000 }, removeOnFail: { count: 5_000 } },
+      },
+    );
+    this.logger.log(`scheduled job='${jobKey}' every ${agendamento.intervaloMs} ms id='${agendamento.id}'`);
+    return { agendado: true };
   }
 
   async onModuleDestroy(): Promise<void> {

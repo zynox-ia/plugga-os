@@ -1,0 +1,288 @@
+/* Ficha do fornecedor (PLU-334). Cabeçalho e abas da ficha do lead, blocos do
+   perfil do lead e os cards de métrica de Suprimentos; aqui só o que é desta
+   ficha, como no protótipo aprovado. Peso máximo 500, poucas cores. */
+
+.corpo {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+
+.contaAba {
+  font-variant-numeric: tabular-nums;
+  color: var(--ui-muted);
+  font-size: 11px;
+  margin-left: 2px;
+}
+
+.avisos {
+  display: grid;
+  gap: 8px;
+}
+
+.inativo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: var(--radius-lg);
+  background: var(--ui-subtle);
+  color: var(--ui-text);
+  font-size: 13px;
+}
+
+.selos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 14px;
+}
+
+.selo {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 24px;
+  padding: 2px 10px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+  color: var(--ui-text);
+  background: var(--ui-subtle);
+}
+
+.seloOk { color: #126744; background: #eaf7ef; }
+
+.acoesRapidas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.acoesRapidas a {
+  text-decoration: none;
+}
+
+.observacoes {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--ui-text);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* Barra de seção das abas */
+.barra {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.barra h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--ui-text);
+}
+
+.barra p {
+  margin: 3px 0 0;
+  font-size: 12.5px;
+  color: var(--ui-muted);
+}
+
+/* Histórico de cotações: pedido, barra do valor, valor e se venceu. */
+.historico {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  background: #fff;
+  border: 1px solid #dbe4ed;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.historico li {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(80px, 1fr) auto auto;
+  align-items: center;
+  gap: 14px;
+  min-height: 60px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--ui-divider);
+  font-size: 13px;
+}
+
+.historico li:last-child { border-bottom: 0; }
+
+.historicoInfo {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.historicoInfo > span,
+.historicoInfo > a {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.historicoInfo small {
+  font-size: 12px;
+  color: var(--ui-muted);
+}
+
+.pedido {
+  font-weight: 500;
+  color: var(--ui-text);
+  font-variant-numeric: tabular-nums;
+}
+
+a.pedido {
+  color: var(--ui-primary);
+  text-decoration: none;
+}
+
+a.pedido:hover { text-decoration: underline; }
+
+.barraValor {
+  height: 6px;
+  border-radius: 999px;
+  background: #e3eaf2;
+  overflow: hidden;
+}
+
+.barraValor span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: #9fb3c8;
+}
+
+.barraValor .barraVenceu { background: var(--ui-primary); }
+
+.valor {
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* Pagamento: segredos mascarados com Mostrar e Copiar. */
+.pagamento {
+  display: grid;
+  gap: 10px;
+}
+
+.linhaPagamento {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 14px 16px;
+  background: #fff;
+  border: 1px solid var(--ui-divider);
+  border-radius: var(--radius-lg);
+}
+
+.linhaPagamento > div:first-child {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.linhaPagamento span {
+  font-size: 12px;
+  color: var(--ui-muted);
+}
+
+.linhaPagamento strong {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ui-text);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.botoes {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.vazio {
+  margin: 0;
+  padding: 24px 16px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--ui-muted);
+  background: #fff;
+  border: 1px dashed var(--ui-divider);
+  border-radius: var(--radius-lg);
+}
+
+.rodape {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-top: 8px;
+  padding-top: 14px;
+  border-top: 1px solid var(--ui-divider);
+}
+
+.espaco { flex: 1; }
+
+.ausente { color: var(--ui-muted); }
+
+@media (prefers-reduced-motion: no-preference) {
+  .painel > * {
+    animation: sobe 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+}
+
+@keyframes sobe {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+/* Rótulo curto das abas só no celular (abaixo). */
+.abaCurta { display: none; }
+
+@media (max-width: 720px) {
+  .historico li {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px 12px;
+  }
+
+  .historico li .barraValor {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .linhaPagamento .botoes { width: 100%; }
+
+  .historico li > .selo { justify-self: start; }
+
+  /* Abas curtas que cabem em 390 px, o nome inteiro no aria-label. */
+  .abaLonga { display: none; }
+  .abaCurta { display: inline; }
+  .abas > div { flex: 1 1 0; min-width: 0; }
+  .abas button { padding-inline: 4px; gap: 5px; justify-content: center; }
+}
+
+
+/* Painéis internos da ficha (Identificação, Contato, Endereço) no raio de Suprimentos (18 px),
+   por cima dos 12 px da seção do perfil do lead que eles reaproveitam. */
+section.painel { border-radius: var(--radius-lg); }

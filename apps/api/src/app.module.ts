@@ -5,13 +5,26 @@ import { APP_FILTER } from "@nestjs/core";
 import { ConfigModule } from "@nestjs/config";
 
 import { AuditModule } from "./audit/audit.module";
+import { AtividadesModule } from "./atividades/atividades.module";
 import { AuthModule } from "./auth/auth.module";
 import { WhatsappModule } from "./channels/whatsapp/whatsapp.module";
 import { ClientesModule } from "./clientes/clientes.module";
 import { CommercialModule } from "./commercial/commercial.module";
 import { FiltroGlobalDeExcecoes } from "./common/errors/filtro-global";
 import { validateEnvironment } from "./config/environment";
+import { ComprasModule } from "./compras/compras.module";
 import { CoreModule } from "./core/core.module";
+import { EngenhariaModule } from "./engenharia/engenharia.module";
+import { EstoqueModule } from "./estoque/estoque.module";
+import { FinanceiroModule } from "./financeiro/financeiro.module";
+import { FornecedoresModule } from "./fornecedores/fornecedores.module";
+import { CadastroModule } from "./cadastro/cadastro.module";
+import { TarefasModule } from "./tarefas/tarefas.module";
+import { TelegramModule } from "./telegram/telegram.module";
+import { AutentiqueModule } from "./autentique/autentique.module";
+import { OmieModule } from "./omie/omie.module";
+import { AssinaturaIaModule } from "./ia-assinatura/assinatura-ia.module";
+import { GoogleCalendarModule } from "./google-calendar/google-calendar.module";
 import { LlmModule } from "./llm/llm.module";
 import { HealthModule } from "./health/health.module";
 import { BitrixModule } from "./integrations/bitrix/bitrix.module";
@@ -19,7 +32,9 @@ import { IntegrationsModule } from "./integrations/integrations.module";
 import { JobsModule } from "./jobs/jobs.module";
 import { JobsQueueModule } from "./jobs/queue/jobs-queue.module";
 import { LeadDocumentosModule } from "./lead-documentos/lead-documentos.module";
+import { LeadProjetosSolaresModule } from "./lead-projetos-solares/lead-projetos-solares.module";
 import { LeadPropostasModule } from "./lead-propostas/lead-propostas.module";
+import { ProcessoSolarModule } from "./processo-solar/processo-solar.module";
 import { LoggingModule } from "./logging/logging.module";
 import { NegociosModule } from "./negocios/negocios.module";
 import { PipelinesModule } from "./pipelines/pipelines.module";
@@ -46,12 +61,27 @@ const monorepoRootEnvPath = path.resolve(__dirname, "../../../.env");
     IntegrationsModule,
     JobsModule,
     ClientesModule,
+    FornecedoresModule,
+    ComprasModule,
+    EstoqueModule,
+    FinanceiroModule,
+    EngenhariaModule,
+    TarefasModule,
     CommercialModule,
     PipelinesModule,
     NegociosModule,
     LeadDocumentosModule,
+    LeadProjetosSolaresModule,
     LeadPropostasModule,
+    AtividadesModule,
+    ProcessoSolarModule,
     LlmModule,
+    GoogleCalendarModule,
+    CadastroModule,
+    TelegramModule,
+    AutentiqueModule,
+    OmieModule,
+    AssinaturaIaModule,
     JobsQueueModule,
     BitrixModule,
   ],

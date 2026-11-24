@@ -15,6 +15,15 @@ describe("assertSafeTestDatabaseUrl", () => {
     ).not.toThrow();
   });
 
+  it("accepts a test database of one's own on the Local Test port, never the dev database", () => {
+    expect(() => assertSafeTestDatabaseUrl("postgresql://plugga_os_test:x@127.0.0.1:55433/plugga_eng_test?schema=public")).not.toThrow();
+    expect(() => assertSafeTestDatabaseUrl("postgresql://plugga_os_test:x@127.0.0.1:55433/plugga_ci_919_test")).not.toThrow();
+    for (const nome of ["plugga_os", "plugga_test", "eng_test", "plugga_eng_test_x", "plugga_Eng_test", "plugga__test"]) {
+      expect(() => assertSafeTestDatabaseUrl(`postgresql://plugga_os_test:x@127.0.0.1:55433/${nome}`), nome).toThrow(/Refusing/);
+    }
+    expect(() => assertSafeTestDatabaseUrl("postgresql://plugga_os_test:x@127.0.0.1:55432/plugga_eng_test")).toThrow(/Refusing/);
+  });
+
   it("accepts the ephemeral CI port only when CI is explicit", () => {
     const url =
       "postgresql://plugga_os_test:local_test_only@127.0.0.1:55432/plugga_os_test?schema=public";

@@ -24,7 +24,17 @@ jobs:
       REDIS_URL: redis://localhost:56380
       # Local CI-only dummy values (not secrets); auth boot/seed require them.
       AUTH_SESSION_SECRET: ci_local_only_session_secret_change_me_please
+      # Chave sintética de 32 bytes zerados, exclusiva dos testes de 2FA.
+      MFA_ENCRYPTION_KEY: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
       SEED_ADMIN_PASSWORD: ci_local_only_change_me
+      # Portão do Financeiro em construção (apps/web/app/lib/recursos.ts): ligado
+      # na CI para os testes rodarem; a produção fica sem as variáveis até o
+      # módulo estar completo. A web lê a NEXT_PUBLIC_ no build; a API, a outra.
+      NEXT_PUBLIC_FINANCEIRO_HABILITADO: "true"
+      FINANCEIRO_HABILITADO: "true"
+      # Mesmo portão para a Engenharia e Obras (PLU-345).
+      NEXT_PUBLIC_ENGENHARIA_HABILITADO: "true"
+      ENGENHARIA_HABILITADO: "true"
 
     services:
       postgres:
@@ -161,6 +171,21 @@ jobs:
       - name: Verify department access mirrors the legacy access
         run: pnpm --filter @plugga/api test:acesso
 
+      - name: Verify screen permissions, restricted RLS and AI identities
+        env:
+          RUN_RLS_INTEGRATION_TESTS: "true"
+          RUN_PERMISSOES_INTEGRATION_TESTS: "true"
+          RUN_VINCULOS_INTEGRATION_TESTS: "true"
+          PLUGGA_TEST_IGNORE_ENV_FILE: "true"
+          JOBS_ENABLED: "false"
+        run: >-
+          pnpm --filter @plugga/api exec vitest run
+          test/rls-permissoes.integration.spec.ts
+          test/isolamento-membros.integration.spec.ts
+          test/vinculos-equipe.integration.spec.ts
+          test/google-calendar.integration.spec.ts
+          --no-file-parallelism
+
       - name: Verify LLM key consumption
         run: pnpm --filter @plugga/api test:llm
 
@@ -170,11 +195,44 @@ jobs:
       - name: Verify client registry against Postgres
         run: pnpm --filter @plugga/api test:clientes
 
+      - name: Verify supplier registry against Postgres
+        run: pnpm --filter @plugga/api test:fornecedores
+
+      - name: Verify purchase orders against Postgres
+        run: pnpm --filter @plugga/api test:compras
+
+      - name: Verify stock balances and reservations against Postgres
+        run: pnpm --filter @plugga/api test:estoque
+
+      - name: Verify financial entries against Postgres
+        run: pnpm --filter @plugga/api test:financeiro
+
+      - name: Verify engineering service orders against Postgres
+        run: pnpm --filter @plugga/api test:engenharia
+
+      - name: Verify department tasks against Postgres
+        run: pnpm --filter @plugga/api test:tarefas
+
+      - name: Verify power plants and daily monitoring against Postgres
+        run: pnpm --filter @plugga/api test:usinas
+
+      - name: Verify utility protocols against Postgres
+        run: pnpm --filter @plugga/api test:protocolos
+
+      - name: Verify agent entry points (action scope, idempotency) against Postgres
+        run: pnpm --filter @plugga/api test:agentes
+
+      - name: Verify works (milestones, documents) against Postgres
+        run: pnpm --filter @plugga/api test:obras
+
       - name: Verify sales pipeline configuration against Postgres
         run: pnpm --filter @plugga/api test:pipelines
 
       - name: Verify pipeline deals against Postgres
         run: pnpm --filter @plugga/api test:negocios
+
+      - name: Verify activities, access and concurrent completion against Postgres
+        run: pnpm --filter @plugga/api test:atividades
 
       - name: Verify lead documents against Postgres and RustFS
         env:
@@ -187,6 +245,9 @@ jobs:
       - name: Verify login limiter and session cache against Redis
         run: pnpm --filter @plugga/api test:redis
 
+      - name: Verify MFA isolation and concurrent recovery against Postgres
+        run: pnpm --filter @plugga/api test:mfa
+
       # Scripts de publicação e de operação: simulador do deploy,
       # lint do event_log, trava de publicação e restauração de backup. Os
       # ensaios com Postgres usam o serviço desta CI.
@@ -198,6 +259,9 @@ jobs:
 
       - name: Verify deploy lock
         run: bash ops/deploy-trava.test.sh
+
+      - name: Verify deploy preflight of the database logins
+        run: bash ops/deploy-papeis.test.sh
 
       - name: Install age for backup tests
         run: sudo apt-get update -qq && sudo apt-get install -y -qq age
@@ -273,9 +337,34 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
+      - name: Provision restricted database logins for web e2e
+        env:
+          PGHOST: localhost
+          PGPORT: "55432"
+          PGDATABASE: plugga_os_test
+          PGUSER: plugga_os_test
+          PGPASSWORD: local_test_only_change_me
+        run: |
+          for pool in runtime auth jobs; do
+            password=$(openssl rand -hex 32)
+            echo "::add-mask::$password"
+            psql -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" -X --no-password --set=ON_ERROR_STOP=1 \
+              --set=role_name="plugga_ci_$pool" --set=role_password="$password" <<'SQL'
+          CREATE ROLE :"role_name" LOGIN INHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD :'role_password';
+          SQL
+            printf 'WEB_E2E_%s_DATABASE_URL=postgresql://plugga_ci_%s:%s@localhost:55432/plugga_os_test?schema=public\n' \
+              "${pool^^}" "$pool" "$password" >> "$GITHUB_ENV"
+          done
+          psql -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" -X --no-password --set=ON_ERROR_STOP=1 \
+            --set=runtime_role=plugga_ci_runtime --set=auth_role=plugga_ci_auth --set=jobs_role=plugga_ci_jobs \
+            < ops/configurar-papeis-aplicacao.sql
+
       - name: Start API for web e2e
         env:
-          DATABASE_URL: postgresql://plugga_os_test:local_test_only_change_me@localhost:55432/plugga_os_test?schema=public
+          DATABASE_URL: ${{ env.WEB_E2E_RUNTIME_DATABASE_URL }}
+          AUTH_DATABASE_URL: ${{ env.WEB_E2E_AUTH_DATABASE_URL }}
+          JOBS_DATABASE_URL: ${{ env.WEB_E2E_JOBS_DATABASE_URL }}
+          JOBS_ENABLED: "false"
           STORAGE_ENDPOINT: http://127.0.0.1:59002
           STORAGE_ACCESS_KEY: plugga_os_test
           STORAGE_SECRET_KEY: local_test_storage_only_change_me

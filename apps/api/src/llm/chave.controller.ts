@@ -29,7 +29,7 @@ import { chaveMestraConfigurada } from "./cripto.js";
 /**
  * A chave da OpenRouter pela tela.
  *
- * Só admin: quem pode trocar a credencial pode redirecionar todo o gasto do
+ * Só desenvolvedor (é infraestrutura da plataforma, como as demais integrações): quem pode trocar a credencial pode redirecionar todo o gasto do
  * sistema. E `OriginCheckGuard` nas rotas que escrevem, pelo mesmo motivo das
  * outras rotas mutantes — uma troca de credencial disparada de outro site seria
  * um belo estrago silencioso.
@@ -43,7 +43,7 @@ export class ChaveController {
   constructor(private readonly chave: ChaveDeLlmService) {}
 
   @Get()
-  @Plataforma("admin")
+  @Plataforma("desenvolvedor")
   async estado(): Promise<EstadoDaChaveComCofre> {
     // A tela precisa saber se o cofre está pronto antes de oferecer o campo:
     // sem chave-mestra, gravar falharia depois de a pessoa colar a credencial,
@@ -52,7 +52,7 @@ export class ChaveController {
   }
 
   @Put()
-  @Plataforma("admin")
+  @Plataforma("desenvolvedor")
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
   async gravar(
     @Body(new ZodValidationPipe(entradaDeChaveSchema)) { chave: valor }: EntradaDeChave,
@@ -71,7 +71,7 @@ export class ChaveController {
   }
 
   @Delete()
-  @Plataforma("admin")
+  @Plataforma("desenvolvedor")
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
   async apagar(@CurrentPrincipal() quem?: AuthPrincipal): Promise<EstadoDaChave> {
     return this.chave.apagar(quem?.id ?? "desconhecido");

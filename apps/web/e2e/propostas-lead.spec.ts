@@ -32,7 +32,7 @@ test("propostas usam dados reais, preservam rascunhos e versões e disponibiliza
   await page.goto(`/comercial/pipelines?pipeline=${pipeline.id}`);
   await page.getByRole("button", { name: `Ver lead ${negocio.lead.name}`, exact: true }).click();
   const lead = page.getByRole("dialog", { name: "Detalhes do lead", exact: true });
-  await expect(lead.getByText("Próxima ação", { exact: true })).toBeVisible();
+  await expect(lead.getByRole("heading", { name: "Próximo passo", exact: true })).toBeVisible();
   await page.evaluate(() => document.fonts.ready);
   const topo = await lead.getByRole("tablist").boundingBox();
   await lead.getByRole("tab", { name: "Documentos", exact: true }).click();

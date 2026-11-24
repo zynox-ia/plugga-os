@@ -25,7 +25,7 @@ import { z } from "zod";
 
 import { AppModule } from "../src/app.module";
 import { configureApp } from "../src/configure-app";
-import { Conflito, EstadoInvalido, LimiteExcedido, NaoEncontrado } from "../src/common/errors/dominio";
+import { Conflito, EstadoInvalido, LimiteExcedido, NaoEncontrado, NaoProcessavel } from "../src/common/errors/dominio";
 import { FiltroGlobalDeExcecoes } from "../src/common/errors/filtro-global";
 import { ZodValidationPipe } from "../src/common/zod-validation.pipe";
 
@@ -52,6 +52,7 @@ const CASOS: Record<string, { lancar: () => unknown; codigo: CodigoDeErro }> = {
   dominioGrande: { lancar: () => new LimiteExcedido("Arquivo grande demais.", "ARQUIVO_GRANDE_DEMAIS"), codigo: "ARQUIVO_GRANDE_DEMAIS" },
   tipo: { lancar: () => new UnsupportedMediaTypeException(), codigo: "TIPO_NAO_PERMITIDO" },
   recusado: { lancar: () => new UnprocessableEntityException(), codigo: "ARQUIVO_RECUSADO" },
+  naoProcessavel: { lancar: () => new NaoProcessavel("Informe a UC ou o documento do cliente."), codigo: "NAO_PROCESSAVEL" },
   tentativas: { lancar: () => new HttpException("Too Many Requests", 429), codigo: "MUITAS_TENTATIVAS" },
   dominioTentativas: { lancar: () => new LimiteExcedido("Aguarde.", "MUITAS_TENTATIVAS", 30), codigo: "MUITAS_TENTATIVAS" },
   indisponivel: { lancar: () => new ServiceUnavailableException("S3 ECONNREFUSED 10.0.0.5:9000"), codigo: "SERVICO_INDISPONIVEL" },

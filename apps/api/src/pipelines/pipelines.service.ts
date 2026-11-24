@@ -1,6 +1,7 @@
 import { Inject, Injectable } from "@nestjs/common";
 import type {
   CreatePipelineRequest,
+  ListPipelinesQuery,
   ListPipelinesResponse,
   Pipeline,
   PipelinePeopleQuery,
@@ -15,7 +16,7 @@ import { PipelinesRepository } from "./pipelines.repository";
 export class PipelinesService {
   constructor(@Inject(PipelinesRepository) private readonly repository: PipelinesRepository) {}
 
-  list(principal: AuthPrincipal): Promise<ListPipelinesResponse> { return this.repository.list(principal); }
+  list(principal: AuthPrincipal, query?: ListPipelinesQuery): Promise<ListPipelinesResponse> { return this.repository.list(principal, query); }
   people(query: PipelinePeopleQuery, principal: AuthPrincipal): Promise<PipelinePeopleResponse> { return this.repository.people(query, principal); }
   create(input: CreatePipelineRequest, principal: AuthPrincipal): Promise<Pipeline> { return this.repository.create(input, principal); }
   update(id: string, input: UpdatePipelineRequest, principal: AuthPrincipal): Promise<Pipeline> { return this.repository.update(id, input, principal); }

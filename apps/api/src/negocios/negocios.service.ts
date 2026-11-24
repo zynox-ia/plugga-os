@@ -29,7 +29,7 @@ export class NegociosService {
   get(id: string, principal: AuthPrincipal): Promise<DealDetail> { return this.repository.get(id, principal); }
   history(id: string, query: ListDealHistoryQuery, principal: AuthPrincipal): Promise<ListDealHistoryResponse> { return this.repository.history(id, query, principal); }
   list(query: ListDealsQuery, principal: AuthPrincipal): Promise<ListDealsResponse> { return this.repository.list(query, principal); }
-  clientOptions(clientId: string): Promise<DealClientOptionsResponse> { return this.repository.clientOptions(clientId); }
+  clientOptions(clientId: string, principal: AuthPrincipal): Promise<DealClientOptionsResponse> { return this.repository.clientOptions(clientId, principal); }
   create(input: CreateDealRequest, principal: AuthPrincipal): Promise<Deal> { return this.repository.create(input, principal); }
   update(id: string, input: UpdateLeadRequest, principal: AuthPrincipal): Promise<DealDetail> { return this.repository.update(id, input, principal); }
   convert(id: string, input: ConvertLeadRequest, principal: AuthPrincipal): Promise<ConvertLeadResponse> { return this.repository.convert(id, input, principal); }

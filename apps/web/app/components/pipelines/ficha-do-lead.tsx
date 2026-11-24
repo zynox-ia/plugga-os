@@ -34,8 +34,8 @@ function Dado({ label, value, children }: { label: string; value?: string | null
   return <div className={perfilStyles.dado}><dt>{label}</dt><dd>{value || children || <span className={perfilStyles.ausente}>Não informado</span>}</dd></div>;
 }
 
-export function FichaDoLead({ rascunho, aoAlterar, erros, editando, aoEditar, responsaveis }: PropsEdicaoLead & {
-  editando: boolean; aoEditar: () => void; responsaveis: PipelinePerson[];
+export function FichaDoLead({ rascunho, aoAlterar, erros, editando, aoEditar, responsaveis, podeAtribuir }: PropsEdicaoLead & {
+  editando: boolean; aoEditar: () => void; responsaveis: PipelinePerson[]; podeAtribuir: boolean;
 }) {
   const perfil = rascunho.lead;
   function alterar(campo: keyof LeadProfile, valor: string) {
@@ -103,7 +103,7 @@ export function FichaDoLead({ rascunho, aoAlterar, erros, editando, aoEditar, re
     <section className={`${perfilStyles.secao} ${perfilStyles.qualificacao}`} aria-label="Qualificação comercial">
       <div className={perfilStyles.principal}><h4><Target size={16} aria-hidden="true" />Qualificação comercial</h4>
         {editando ? <div className={perfilStyles.dadosQualificacao}>
-          <SelectField label="Responsável comercial interno" value={rascunho.ownerId} error={erros.ownerId} onChange={(valor) => aoAlterar((atual) => atual && { ...atual, ownerId: valor })} options={responsaveis.map((pessoa) => ({ value: pessoa.id, label: pessoa.name, icon: <UserRound /> }))} />
+          <SelectField label="Responsável comercial interno" disabled={!podeAtribuir} value={rascunho.ownerId} error={erros.ownerId} onChange={(valor) => aoAlterar((atual) => atual && { ...atual, ownerId: valor })} options={responsaveis.map((pessoa) => ({ value: pessoa.id, label: pessoa.name, icon: <UserRound /> }))} />
           {campo("Segmento / interesse principal", "mainInterest", { maxLength: 150, placeholder: "Ex.: comércio · redução de custos com energia" })}
         </div> : <dl className={perfilStyles.dadosQualificacao}>
           <Dado label="Responsável comercial interno">{responsavel ? <span className={perfilStyles.pessoa}><span aria-hidden="true"><Avatar id={responsavel.id} nome={responsavel.name} tamanho="pequeno" /></span>{responsavel.name}</span> : null}</Dado>

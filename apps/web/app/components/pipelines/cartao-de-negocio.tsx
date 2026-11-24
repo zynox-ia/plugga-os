@@ -1,11 +1,12 @@
 "use client";
 
 import type { Deal, Pipeline } from "@plugga/shared";
-import { ArrowRight, CalendarDays, Check, Clock, Eye, FileText, MoreHorizontal, User, UserCheck, X } from "lucide-react";
+import { ArrowRight, CalendarDays, Check, Clock, Eye, FileText, Kanban, MoreHorizontal, User, UserCheck, X } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 
-import { diasNaEtapa, estaParado } from "../../lib/negocios";
+import { diasNaEtapa, estaParado, negocioConvertido } from "../../lib/negocios";
+import { formatarCampoDoPipeline } from "../../lib/campos-do-pipeline";
 import { formatarDataHora, FUSO_HORARIO } from "../../lib/format";
 import { Avatar } from "./icones";
 
@@ -32,7 +33,7 @@ export function MenuDoNegocio({
   mostrarPrioridade?: boolean;
 }) {
   const [aberto, setAberto] = useState(false);
-  const [posicao, setPosicao] = useState<{ top: number; left: number } | null>(null);
+  const [posicao, setPosicao] = useState<{ top: number; left: number; origem: string } | null>(null);
   const raiz = useRef<HTMLDivElement>(null);
   const botao = useRef<HTMLButtonElement>(null);
   const menu = useRef<HTMLDivElement>(null);
@@ -66,7 +67,8 @@ export function MenuDoNegocio({
       const abaixo = alvo.bottom + 4;
       const top = abaixo + height > window.innerHeight - 8 ? Math.max(8, alvo.top - 4 - height) : abaixo;
       const left = Math.max(8, Math.min(window.innerWidth - width - 8, alvo.right - width));
-      setPosicao({ top, left });
+      // O menu cresce a partir do botão: de cima quando abre abaixo, de baixo quando vira para cima.
+      setPosicao({ top, left, origem: top === abaixo ? "top right" : "bottom right" });
     };
     posicionar();
     window.addEventListener("scroll", posicionar, true);
@@ -118,12 +120,12 @@ export function MenuDoNegocio({
               className={`menu-negocio-lista ${menuClassName}`}
               role="menu"
               aria-label={`Ações de ${negocio.lead.name}`}
-              style={posicao ? { top: posicao.top, left: posicao.left } : { visibility: "hidden" }}
+              style={posicao ? { top: posicao.top, left: posicao.left, "--plg-origem": posicao.origem } as CSSProperties : { visibility: "hidden" }}
             >
               {aoVerLead ? (
                 <>
                   <button type="button" role="menuitem" onClick={escolher(aoVerLead)}>
-                    <Eye size={14} aria-hidden="true" /> Ver detalhes do lead
+                    <Eye size={15} strokeWidth={1.7} aria-hidden="true" /> Ver detalhes do lead
                   </button>
                   {negocio.status === "open" ? <span className="menu-negocio-divisor" role="separator" /> : null}
                 </>
@@ -147,7 +149,7 @@ export function MenuDoNegocio({
                       aria-checked={negocio.priority === opcao.valor}
                       onClick={escolher(() => void acoes.definirPrioridade(negocio, opcao.valor))}
                     >
-                      {negocio.priority === opcao.valor ? <Check size={14} aria-hidden="true" /> : <span style={{ width: 14 }} aria-hidden="true" />}
+                      {negocio.priority === opcao.valor ? <Check size={15} strokeWidth={1.7} aria-hidden="true" /> : <span style={{ width: 15, height: 15, display: "inline-block", flexShrink: 0 }} aria-hidden="true" />}
                       {opcao.rotulo}
                     </button>
                   ))}
@@ -161,23 +163,23 @@ export function MenuDoNegocio({
                     .filter((e) => e.id !== negocio.stageId)
                     .map((e) => (
                       <button key={e.id} type="button" role="menuitem" onClick={escolher(() => void acoes.moverEtapa(negocio, e.id))}>
-                        <span className="ponto-cor" style={{ background: e.color }} aria-hidden="true" />
+                        <Kanban size={15} strokeWidth={1.7} style={{ color: e.color }} aria-hidden="true" />
                         {e.name}
                       </button>
                     ))}
                   <span className="menu-negocio-divisor" role="separator" />
                   <button type="button" role="menuitem" className="menu-negocio--ganho" onClick={escolher(() => acoes.ganhar(negocio))}>
-                    <Check size={14} aria-hidden="true" /> {pipeline.wonLabel}
+                    <Check size={15} strokeWidth={1.7} aria-hidden="true" /> {pipeline.wonLabel}
                   </button>
                   <button type="button" role="menuitem" className="menu-negocio--perdido" onClick={escolher(() => acoes.perder(negocio))}>
-                    <X size={14} aria-hidden="true" /> {pipeline.lostLabel}
+                    <X size={15} strokeWidth={1.7} aria-hidden="true" /> {pipeline.lostLabel}
                   </button>
                   <button type="button" role="menuitem" onClick={escolher(() => acoes.transferir(negocio))}>
-                    <ArrowRight size={14} aria-hidden="true" /> Mover para outro pipeline
+                    <ArrowRight size={15} strokeWidth={1.7} aria-hidden="true" /> Mover para outro pipeline
                   </button>
-                  {!negocio.client && acoes.converter ? (
+                  {!negocioConvertido(negocio) && acoes.converter ? (
                     <button type="button" role="menuitem" disabled={Boolean(acoes.convertendoId)} onClick={escolher(() => acoes.converter?.(negocio))}>
-                      <UserCheck size={14} aria-hidden="true" /> {acoes.convertendoId === negocio.id ? "Convertendo…" : "Converter em cliente"}
+                      <UserCheck size={15} strokeWidth={1.7} aria-hidden="true" /> {acoes.convertendoId === negocio.id ? "Convertendo…" : "Converter em cliente"}
                     </button>
                   ) : null}
                 </>
@@ -194,6 +196,7 @@ export function MenuDoNegocio({
 export function CartaoDeNegocio({
   negocio,
   pipeline,
+  pessoas,
   acoes,
   arrastando,
   aoComecarArrasto,
@@ -201,6 +204,7 @@ export function CartaoDeNegocio({
 }: {
   negocio: Deal;
   pipeline: Pipeline;
+  pessoas?: { id: string; name: string }[];
   acoes: AcoesDoNegocio;
   arrastando: boolean;
   aoComecarArrasto: (elemento: HTMLElement) => void;
@@ -210,6 +214,10 @@ export function CartaoDeNegocio({
   const arrastou = useRef(false);
   const dias = diasNaEtapa(negocio);
   const parado = estaParado(negocio, pipeline);
+  const camposDoCartao = (pipeline.fields ?? []).filter((campo) => {
+    const valor = negocio.customFields?.[campo.id];
+    return campo.showOnCard && valor !== null && valor !== undefined && valor !== "";
+  });
 
   return (
     <>
@@ -272,6 +280,17 @@ export function CartaoDeNegocio({
               </span>
             ))}
           </div>
+        ) : null}
+
+        {camposDoCartao.length > 0 ? (
+          <dl className={styles.campos} aria-label="Campos do pipeline">
+            {camposDoCartao.map((campo) => (
+              <div key={campo.id} className={styles.campo}>
+                <dt>{campo.name}</dt>
+                <dd>{formatarCampoDoPipeline(campo, negocio.customFields?.[campo.id], pessoas ?? [negocio.owner])}</dd>
+              </div>
+            ))}
+          </dl>
         ) : null}
 
         <footer className={styles.rodape}>

@@ -137,13 +137,18 @@ Um comando. Ele publica o que está na **`main` do GitHub** — então commit e 
 O que acontece, nesta ordem:
 
 ```
+0. confere os três logins   se faltar algo, para sem tocar em nada
 1. backup do banco          existe de onde voltar
 2. marca a versão atual     reverter fica instantâneo
 3. constrói as imagens
-4. pausa API/web, faz backup final, migra e confere permissões da aplicação
+4. pausa API/web, faz backup final, migra, configura os papéis
+   e confere os três logins com o validador da API
 5. sobe api e web
 6. teste de fumaça          volta atrás sozinho se reprovar
+                            (salvo na publicação que liga o RLS: aí para e avisa)
 ```
+
+Para só conferir os logins, sem publicar nada: `sudo /opt/plugga-os/ops/deploy.sh --so-conferir`.
 
 Leva alguns minutos, quase tudo na construção das imagens.
 
@@ -158,6 +163,159 @@ Antes das migrations, API/web são paradas após o build e é feito um backup fi
 A sonda posterior usa o papel da aplicação para conferir as permissões necessárias
 do CRM, sem ler dados pessoais nem executar `GRANT`. Se faltar permissão, o erro
 interrompe a publicação antes de receber tráfego novo.
+
+### Primeira publicação com os três logins do banco (RLS)
+
+A partir da versão com o isolamento por RLS (migration `20261106010000`), a
+aplicação conecta ao banco com **três logins**, um para cada parte, e cada um só
+alcança o que é dele:
+
+| Login (sugestão) | Variável no `.env` | Para quê |
+| --- | --- | --- |
+| `plugga_rt_app` | `APP_DB_USER` e `APP_DB_PASSWORD` | o sistema em si (telas, negócio) |
+| `plugga_auth_app` | `AUTH_DATABASE_URL` | login, sessões e equipe |
+| `plugga_jobs_app` | `JOBS_DATABASE_URL` | tarefas em segundo plano |
+
+Hoje a produção usa um login só, o `plugga_app`. **Ele não serve para nenhum
+dos três**: vem de antes do RLS, tem permissões diretas em todas as tabelas, e a
+API recusa subir com ele. Por isso os três logins são novos. O `plugga_app`
+fica onde está na primeira publicação, só deixa de ser usado (ver o fim desta
+seção).
+
+**Faça isto antes de aprovar a publicação no GitHub.** Leva uns 10 minutos.
+
+1. **Entre na VPS e abra o banco como dono:**
+
+   ```bash
+   ssh plugga-vps
+   cd /opt/plugga-os
+   docker exec -it plugga-os-postgres-1 psql -U plugga_os -d plugga_os
+   ```
+
+2. **Crie os três logins, sem nenhum poder extra.** Cole no `psql`:
+
+   ```sql
+   CREATE ROLE plugga_rt_app   LOGIN INHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+   CREATE ROLE plugga_auth_app LOGIN INHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+   CREATE ROLE plugga_jobs_app LOGIN INHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+   ```
+
+   Não dê `GRANT` nenhum: a publicação dá a cada login o grupo certo, depois de
+   migrar o banco.
+
+3. **Gere uma senha forte para cada um e grave no banco.** Num **segundo**
+   terminal na VPS, gere as três senhas (hexadecimal, para não precisar de
+   cuidado na URL):
+
+   ```bash
+   openssl rand -hex 32   # rode três vezes, uma por login
+   ```
+
+   No `psql`, defina cada senha com `\password`. Ele pergunta a senha sem
+   mostrar e não grava no histórico:
+
+   ```sql
+   \password plugga_rt_app
+   \password plugga_auth_app
+   \password plugga_jobs_app
+   \q
+   ```
+
+4. **Guarde o `.env` de hoje e ponha os três logins no novo.** A cópia é o que
+   faz a versão anterior voltar, se for preciso (ela precisa do `plugga_app`):
+
+   ```bash
+   cp /opt/plugga-os/.env /opt/plugga-os/.env.antes-rls
+   chmod 600 /opt/plugga-os/.env.antes-rls
+   nano /opt/plugga-os/.env
+   ```
+
+   No `.env`, troque as linhas do login da aplicação e acrescente as duas URLs,
+   com as senhas geradas:
+
+   ```bash
+   APP_DB_USER=plugga_rt_app
+   APP_DB_PASSWORD=SENHA_DO_RT
+   AUTH_DATABASE_URL=postgresql://plugga_auth_app:SENHA_DO_AUTH@postgres:5432/plugga_os?schema=public
+   JOBS_DATABASE_URL=postgresql://plugga_jobs_app:SENHA_DO_JOBS@postgres:5432/plugga_os?schema=public
+   ```
+
+   O host é `postgres`, o nome do serviço no compose, e não `localhost`. Depois:
+   `chmod 600 /opt/plugga-os/.env`. As senhas não vão para o repositório, nem
+   para mensagem, nem para print.
+
+5. **Confira, sem publicar nada.** O `--so-conferir` só chega à VPS com a
+   própria publicação, então, nesta primeira vez, leve os dois arquivos da sua
+   máquina, a partir da `develop`:
+
+   ```bash
+   # na sua máquina, na pasta do projeto
+   ssh plugga-vps 'mkdir -p /tmp/conferir-logins'
+   scp ops/deploy.sh ops/lib-papeis.sh plugga-vps:/tmp/conferir-logins/
+   ssh plugga-vps 'sudo bash /tmp/conferir-logins/deploy.sh --so-conferir; rm -rf /tmp/conferir-logins'
+   ```
+
+   Esperado: `conferência ok: os três logins estão prontos; nada foi alterado`.
+   Se aparecer um problema, ele vem com o pool e o que falta:
+
+   | Mensagem | O que fazer |
+   | --- | --- |
+   | `AUTH_DATABASE_URL ausente no .env` (ou `JOBS_…`) | passo 4 |
+   | `o login … não existe no banco` | passo 2, com o mesmo nome do `.env` |
+   | `o login … não conectou com a senha do .env` | passo 3 de novo para esse login, ou corrija o `.env` |
+   | `tem permissão direta antiga` / `recebe permissões padrão` | o `.env` aponta um login antigo (como o `plugga_app`): use os novos |
+   | `precisam ser distintos` | três logins diferentes, um por variável |
+
+6. **Só então aprove a publicação** no GitHub. A publicação confere tudo de
+   novo no passo 0, antes de parar qualquer coisa.
+
+**Se a publicação falhar depois de parar a aplicação.** Nesta publicação, a
+que liga o RLS, o script **não** volta a versão anterior sozinho: o `.env` já
+aponta os três logins novos, que ela não sabe usar, e depois da migração ela nem
+enxergaria o banco. Ele para a api e a web e diz em qual caso você está:
+
+- **"O banco ainda NÃO recebeu o RLS"** (falhou antes da migração, por
+  exemplo no backup final): o banco não mudou. Ou corrija e publique de novo,
+  ou volte a versão anterior sem tocar no banco:
+
+  ```bash
+  cd /opt/plugga-os
+  cp .env.antes-rls .env
+  docker tag plugga-os-api:anterior plugga-os-api:latest
+  docker tag plugga-os-web:anterior plugga-os-web:latest
+  docker compose up -d api web
+  ```
+
+- **"O banco JÁ recebeu o RLS"**: o caminho normal é corrigir e publicar de
+  novo (por exemplo, um login). Voltar tudo exige restaurar o backup final
+  que a mensagem mostra (`diario/<nome>`, seção "Recuperação de desastre"),
+  depois o `.env.antes-rls` e as imagens anteriores, com os mesmos comandos
+  acima. Restaurar o banco apaga o que foi gravado depois do backup, então é
+  decisão sua.
+
+- **"Não foi possível saber se o banco recebeu o RLS"** (o banco não respondeu
+  na hora da falha): com o banco de pé de novo, confira antes de escolher um
+  dos dois caminhos acima. `1` = já recebeu; `0` = ainda não:
+
+  ```bash
+  docker exec plugga-os-postgres-1 psql -U plugga_os -d plugga_os -Atc \
+    "SELECT count(*) FROM _prisma_migrations WHERE migration_name = '20261106010000_isolamento_rls' AND finished_at IS NOT NULL"
+  ```
+
+**O `plugga_app`, depois.** Não apague o `plugga_app` na primeira publicação.
+Quando a versão nova estiver estável por alguns dias, faça um backup e, num
+passo à parte, no `psql` como dono:
+
+```sql
+REASSIGN OWNED BY plugga_app TO plugga_os;
+DROP OWNED BY plugga_app;
+DROP ROLE plugga_app;
+```
+
+O primeiro passa ao dono do banco qualquer objeto que o `plugga_app` tenha
+criado, para que nada seja apagado; o segundo, então, só tira as permissões
+dele; o terceiro apaga o login. Junto, apague a cópia antiga do `.env`, que tem
+a senha dele: `rm /opt/plugga-os/.env.antes-rls`.
 
 ### Transição para RustFS: bloqueio desta release
 
@@ -276,6 +434,11 @@ ssh plugga-vps 'docker compose -f /opt/plugga-os/compose.yaml ps'
 
 ### Voltar a versão anterior à mão
 
+> Logo depois da publicação que liga o RLS (`20261106010000`), a versão
+> anterior precisa do `.env.antes-rls` de volta e, se o banco já foi migrado,
+> do backup final restaurado antes (ver "Primeira publicação com os três logins
+> do banco").
+
 ```bash
 ssh plugga-vps 'cd /opt/plugga-os
   docker tag plugga-os-api:anterior plugga-os-api:latest
@@ -342,12 +505,10 @@ cadastro em `packages/shared/src/organization.ts`.
 | `plugga-produto-tecnologia` | Eletromobilidade (PluggaMob) |
 | `plugga-suprimentos` | Suprimentos da Plugga (ainda sem arquivos; as cotações de compras seguem em `plugga-financeiro`) |
 | `plugga-financeiro` | Financeiro da Plugga, inclusive cotações de compras |
-| `plugga-marketing` | Marketing da Plugga |
 | `waze-comercial-obras` | CRM da Waze |
 | `waze-engenharia-obras` | Engenharia e Obras da Waze: evidências de obra |
 | `waze-suprimentos` | Suprimentos da Waze (ainda sem arquivos; as cotações de compras seguem em `waze-financeiro`) |
 | `waze-financeiro` | Financeiro da Waze, inclusive cotações de compras |
-| `waze-marketing` | Marketing da Waze |
 | `plugga-backups` | Cópias do banco (credencial própria, expiração em 30 dias/1 ano) |
 | `plugga-corpus-faturas` | Material de teste das distribuidoras (fora do git) |
 

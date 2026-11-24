@@ -10,12 +10,16 @@ import { TextField, TextareaField } from "../ui/fields";
 import { IconAlertTriangle, IconPlus } from "../ui/icons";
 import { Radio } from "../ui/selection";
 import { SecaoEtapas, SecaoEtiquetas } from "./secoes-do-pipeline";
+import { SecaoCamposDoPipeline } from "./secao-campos-do-pipeline";
+import { SecaoProcessoSolar } from "./secao-processo-solar";
 
-type Aba = "geral" | "etapas" | "etiquetas";
+type Aba = "geral" | "etapas" | "etiquetas" | "campos" | "processo";
 const ABAS: { id: Aba; rotulo: string; campos: string[] }[] = [
   { id: "geral", rotulo: "Geral", campos: ["companyId", "name", "description", "valueLabel", "color"] },
   { id: "etapas", rotulo: "Etapas", campos: ["stages", "wonLabel", "lostLabel"] },
   { id: "etiquetas", rotulo: "Etiquetas", campos: ["tags"] },
+  { id: "campos", rotulo: "Campos", campos: ["fields"] },
+  { id: "processo", rotulo: "Processo", campos: [] },
 ];
 
 export type PropsDaSecao = { rascunho: Rascunho; aoAlterar: (parcial: Partial<Rascunho>) => void; erros: Record<string, string> };
@@ -28,7 +32,10 @@ export function EditorDePipeline({
   totalDeNegocios,
   erros,
   aoCriarPipeline,
+  processoSolar,
 }: PropsDaSecao & {
+  /** Pipeline gravado e associado ao processo Solar: mostra a aba Processo. */
+  processoSolar?: { alteracoesPendentes: boolean; aoAtivado: () => Promise<void> };
   empresasPermitidas: CompanyKey[];
   negociosPorEtapa: Record<string, number>;
   totalDeNegocios: number;
@@ -40,7 +47,7 @@ export function EditorDePipeline({
     <div className="editor-pipeline">
       <header className="editor-pipeline-topo">
       <nav className="abas-editor" role="tablist" aria-label="Seções do pipeline">
-        {ABAS.map((a) => (
+        {ABAS.filter((a) => a.id !== "processo" || (processoSolar && rascunho.id && rascunho.processProfile)).map((a) => (
           <button
             key={a.id}
             type="button"
@@ -56,13 +63,14 @@ export function EditorDePipeline({
           </button>
         ))}
       </nav>
-      {aba !== "geral" || aoCriarPipeline ? (
-        <Button variant="primary" size="sm" icon={<IconPlus />} disabled={aba === "etapas" && rascunho.stages.length >= 20} onClick={() => {
+      {(aba !== "geral" || aoCriarPipeline) && aba !== "processo" ? (
+        <Button variant="primary" size="sm" icon={<IconPlus />} disabled={(aba === "etapas" && rascunho.stages.length >= 20) || (aba === "campos" && rascunho.fields.length >= 40)} onClick={() => {
           if (aba === "geral") aoCriarPipeline?.();
           else if (aba === "etapas") aoAlterar({ stages: [...rascunho.stages, { chave: novaChave(), name: "", color: "#94A3B8", staleAfterDays: null, asksClientConversion: false }] });
+          else if (aba === "campos") aoAlterar({ fields: [...rascunho.fields, { chave: novaChave(), name: "", type: "text", options: [], showOnCard: false, showInList: false }] });
           else aoAlterar({ tags: [...rascunho.tags, { chave: novaChave(), name: "", color: "#0077FF" }] });
         }}>
-          {aba === "geral" ? "Novo pipeline" : aba === "etapas" ? "Adicionar etapa" : "Nova etiqueta"}
+          {aba === "geral" ? "Novo pipeline" : aba === "etapas" ? "Adicionar etapa" : aba === "campos" ? "Adicionar campo" : "Nova etiqueta"}
         </Button>
       ) : null}
       </header>
@@ -70,6 +78,8 @@ export function EditorDePipeline({
         {aba === "geral" ? <SecaoGeral rascunho={rascunho} aoAlterar={aoAlterar} erros={erros} empresasPermitidas={totalDeNegocios > 0 ? [rascunho.companyId] : empresasPermitidas} totalDeNegocios={totalDeNegocios} /> : null}
         {aba === "etapas" ? <SecaoEtapas rascunho={rascunho} aoAlterar={aoAlterar} erros={erros} negociosPorEtapa={negociosPorEtapa} /> : null}
         {aba === "etiquetas" ? <SecaoEtiquetas rascunho={rascunho} aoAlterar={aoAlterar} erros={erros} /> : null}
+        {aba === "campos" ? <SecaoCamposDoPipeline rascunho={rascunho} aoAlterar={aoAlterar} erros={erros} /> : null}
+        {aba === "processo" && processoSolar ? <SecaoProcessoSolar rascunho={rascunho} alteracoesPendentes={processoSolar.alteracoesPendentes} aoAtivado={processoSolar.aoAtivado} /> : null}
       </section>
     </div>
   );
@@ -125,14 +135,14 @@ function SecaoGeral({ rascunho, aoAlterar, erros, empresasPermitidas, totalDeNeg
             );
           })}
         </div>
-        <div className="ui-alert ui-tone--warning nota-pipeline">
-          <IconAlertTriangle className="nota-pipeline-icone" />
-          <div>
-            {totalDeNegocios > 0
-              ? `Este pipeline tem ${totalDeNegocios === 1 ? "1 negócio" : `${totalDeNegocios} negócios`} e não muda de empresa. Para levar negócios à outra empresa, mova-os para um pipeline dela.`
-              : "Todo negócio deste pipeline pertence a esta empresa. O acesso é compartilhado pela equipe do CRM nas duas empresas."}
+        {totalDeNegocios === 0 && (
+          <div className="ui-alert ui-tone--warning nota-pipeline">
+            <IconAlertTriangle className="nota-pipeline-icone" />
+            <div>
+              Todo negócio deste pipeline pertence a esta empresa. O acesso é compartilhado pela equipe do CRM nas duas empresas.
+            </div>
           </div>
-        </div>
+        )}
       </fieldset>
 
       <div className="inteira">

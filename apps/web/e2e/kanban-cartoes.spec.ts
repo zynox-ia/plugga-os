@@ -1,6 +1,9 @@
 import { expect, test, type APIRequestContext } from "@playwright/test";
 import type { Deal, Pipeline, PipelinePeopleResponse } from "@plugga/shared";
 
+// IP sintético próprio: as criações pela API não dividem o balde de throttle com a suíte paralela (429 na CI 45233111029).
+test.use({ extraHTTPHeaders: { "x-forwarded-for": "203.0.113.244" } });
+
 test.describe.configure({ mode: "default" });
 let pipeline: Pipeline;
 let negocio: Deal;
@@ -38,6 +41,8 @@ test.afterAll(async ({ request, baseURL }) => {
 });
 
 test("cartão compacto preserva identificação e detalhes sem o bloco de investimento e previsão", async ({ page }) => {
+  const chamadasSolar: string[] = [];
+  page.on("request", (requisicao) => { if (/\/api\/leads\/[^/?]+\/(projetos-solares|propostas)(\?|$)/.test(requisicao.url())) chamadasSolar.push(requisicao.url()); });
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto(`/comercial/pipelines?pipeline=${pipeline.id}`);
   const cartao = page.getByRole("article", { name: `Lead ${negocio.lead.name}`, exact: true });
@@ -59,9 +64,12 @@ test("cartão compacto preserva identificação e detalhes sem o bloco de invest
   const detalhes = page.getByRole("dialog", { name: "Detalhes do lead", exact: true });
   await expect(detalhes).toBeVisible();
   const cabecalho = detalhes.locator("header").first();
-  await expect(cabecalho.getByRole("button", { name: pipeline.wonLabel, exact: true })).toBeVisible();
+  // Desde o 1f32452 os botões de encerramento saíram do cabeçalho e ficam no rodapé do resumo do lead.
+  await expect(cabecalho.getByRole("button", { name: pipeline.wonLabel, exact: true })).toHaveCount(0);
   await expect(cabecalho.getByRole("button", { name: pipeline.lostLabel, exact: true })).toHaveCount(0);
-  await cabecalho.getByRole("button", { name: pipeline.wonLabel, exact: true }).click();
+  const encerramento = detalhes.locator("footer").filter({ has: page.getByRole("button", { name: pipeline.wonLabel, exact: true }) });
+  await expect(encerramento.getByRole("button", { name: pipeline.lostLabel, exact: true })).toBeVisible();
+  await encerramento.getByRole("button", { name: pipeline.wonLabel, exact: true }).click();
   const confirmarGanho = page.getByRole("dialog", { name: `Marcar como ${pipeline.wonLabel}`, exact: true });
   await expect(confirmarGanho.getByLabel("Deseja converter este lead em cliente?")).toBeChecked();
   await confirmarGanho.getByRole("button", { name: "Cancelar", exact: true }).click();
@@ -77,16 +85,16 @@ test("cartão compacto preserva identificação e detalhes sem o bloco de invest
   await expect(detalhes.getByText("Unidades Consumidoras Vinculadas:")).toHaveCount(0);
   await expect(cabecalho.getByRole("heading", { name: negocio.lead.name, exact: true })).toBeVisible();
   await expect(cabecalho.getByText(negocio.owner.name, { exact: true })).toBeVisible();
-  await expect(detalhes.getByRole("heading", { name: "Próxima ação", exact: true })).toBeVisible();
+  await expect(detalhes.getByRole("heading", { name: "Próximo passo", exact: true })).toBeVisible();
   const indicadores = detalhes.getByRole("region", { name: "Indicadores do negócio" });
-  await expect(indicadores.getByText("Valor do negócio", { exact: true })).toBeVisible();
   await expect(indicadores).toContainText("65.000,00");
-  await expect(indicadores.getByText("Previsão de fechamento", { exact: true })).toBeVisible();
-  await expect(indicadores).toContainText("31/12/2099");
-  await expect(indicadores.getByText("Proposta comercial", { exact: true })).toBeVisible();
+  const resumo = detalhes.getByRole("region", { name: "Resumo comercial" });
+  await expect(resumo.getByText("Previsão de fechamento", { exact: true })).toBeVisible();
+  await expect(resumo).toContainText("31/12/2099");
+  await expect(detalhes.getByRole("tab", { name: "Propostas", exact: true })).toBeEnabled();
   const abas = detalhes.getByRole("tablist", { name: "Seções do lead" });
   await expect(abas).toHaveAttribute("aria-orientation", "horizontal");
-  await expect(abas.getByRole("tab")).toHaveText(["Visão geral", "Perfil", "Propostas", "Oportunidade", "Histórico", "Documentos"]);
+  await expect(abas.getByRole("tab")).toHaveText(["Visão geral", "Perfil", "Tarefas", "Propostas", "Oportunidade", "Histórico", "Documentos"]);
   await abas.getByRole("tab", { name: "Visão geral", exact: true }).focus();
   await page.keyboard.press("ArrowRight");
   await expect(abas.getByRole("tab", { name: "Perfil", exact: true })).toBeFocused();
@@ -115,6 +123,7 @@ test("cartão compacto preserva identificação e detalhes sem o bloco de invest
   await expect(documentos.getByRole("button", { name: "Enviar documentos", exact: true })).toBeVisible();
   await detalhes.getByRole("button", { name: "Fechar", exact: true }).click();
   await expect(detalhes).toHaveCount(0);
+  expect(chamadasSolar, "pipeline não-Solar não deve consultar projetos-solares nem propostas").toEqual([]);
 });
 
 test("prioridade persiste no cadastro do lead", async ({ page }) => {
@@ -164,10 +173,15 @@ test("cartão mantém conteúdo e menu contidos nas quatro larguras e preserva a
     await page.setViewportSize({ width, height: 1000 });
     await expect(cartao).toBeInViewport();
     expect(await cartao.evaluate((el) => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(1);
-    const prioridade = (await cartao.getByRole("button", { name: `Prioridade de ${negocio.lead.name}`, exact: true }).boundingBox())!;
-    const acoes = (await cartao.getByRole("button", { name: `Ações de ${negocio.lead.name}`, exact: true }).boundingBox())!;
-    expect(prioridade.x + prioridade.width).toBeLessThanOrEqual(acoes.x);
-    expect(prioridade.y + prioridade.height / 2).toBeCloseTo(acoes.y + acoes.height / 2, 0);
+    // A barra lateral anima (transition de .25s) depois do resize e o cartão refaz o layout:
+    // prioridade e ações são medidas juntas, quando o layout assenta.
+    const medidas = () => cartao.evaluate((el, nome) => {
+      const caixa = (rotulo: string) => el.querySelector(`button[aria-label="${rotulo}"]`)!.getBoundingClientRect();
+      const prioridade = caixa(`Prioridade de ${nome}`); const acoes = caixa(`Ações de ${nome}`);
+      return { folga: acoes.left - prioridade.right, desalinho: Math.abs(prioridade.top + prioridade.height / 2 - acoes.top - acoes.height / 2) };
+    }, negocio.lead.name);
+    await expect.poll(async () => (await medidas()).desalinho).toBeLessThan(0.5);
+    expect((await medidas()).folga).toBeGreaterThanOrEqual(0);
     await cartao.getByRole("button", { name: `Ações de ${negocio.lead.name}`, exact: true }).click();
     const menu = page.getByRole("menu", { name: `Ações de ${negocio.lead.name}`, exact: true });
     await expect(menu).toBeInViewport();

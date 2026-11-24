@@ -1,6 +1,6 @@
 import { Inject, Injectable } from "@nestjs/common";
 
-import { PrismaService } from "../../prisma/prisma.service";
+import { PrismaJobsService } from "../../prisma/prisma-jobs.service";
 import {
   JobRunsRepository,
   type FinishJobRunData,
@@ -9,7 +9,7 @@ import {
 
 @Injectable()
 export class PrismaJobRunsRepository extends JobRunsRepository {
-  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {
+  constructor(@Inject(PrismaJobsService) private readonly prisma: PrismaJobsService) {
     super();
   }
 

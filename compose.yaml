@@ -79,7 +79,7 @@ services:
       STORAGE_ACCESS_KEY: ${STORAGE_ACCESS_KEY:?set STORAGE_ACCESS_KEY in .env}
       STORAGE_SECRET_KEY: ${STORAGE_SECRET_KEY:?set STORAGE_SECRET_KEY in .env}
       STORAGE_BUCKET: ${STORAGE_BUCKET:-plugga-arquivos}
-      STORAGE_LEGACY_BUCKETS: plugga-comercial-clientes,plugga-energia-opm,plugga-produto-tecnologia,plugga-suprimentos,plugga-financeiro,plugga-marketing,waze-comercial-obras,waze-engenharia-obras,waze-suprimentos,waze-financeiro,waze-marketing,${CORPUS_BUCKET:-plugga-corpus-faturas},plugga-backups
+      STORAGE_LEGACY_BUCKETS: plugga-comercial-clientes,plugga-energia-opm,plugga-produto-tecnologia,plugga-suprimentos,plugga-financeiro,waze-comercial-obras,waze-engenharia-obras,waze-suprimentos,waze-financeiro,${CORPUS_BUCKET:-plugga-corpus-faturas},plugga-backups
     volumes:
       - ./apps/api/scripts/provisionar-storage.mjs:/app/apps/api/scripts/provisionar-storage.mjs:ro
     command: ["node", "scripts/provisionar-storage.mjs"]
@@ -109,6 +109,9 @@ services:
       # aplicação — ou por um ambiente de desenvolvimento apontado para cá —
       # falha por permissão em vez de apagar o banco.
       DATABASE_URL: postgresql://${APP_DB_USER:-plugga_app}:${APP_DB_PASSWORD:?set APP_DB_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-plugga_os}?schema=public
+      # Logins distintos, mesmo host/banco. Nunca usar o dono/migrador nestes pools.
+      AUTH_DATABASE_URL: ${AUTH_DATABASE_URL:?provisione o pool de autenticacao restrito}
+      JOBS_DATABASE_URL: ${JOBS_DATABASE_URL:-}
       REDIS_URL: redis://redis:6379
       # `web` reaches the API over the Compose bridge, which is NOT loopback.
       # Left untrusted on purpose: web forwards no X-Forwarded-For unless
@@ -122,6 +125,7 @@ services:
       DEV_AUTH_ENABLED: "false"
       LOG_LEVEL: ${LOG_LEVEL:-info}
       AUTH_SESSION_SECRET: ${AUTH_SESSION_SECRET:?set AUTH_SESSION_SECRET in .env}
+      MFA_ENCRYPTION_KEY: ${MFA_ENCRYPTION_KEY:-}
       AUTH_APP_BASE_URL: ${AUTH_APP_BASE_URL:-http://localhost:3000}
       AUTH_ALLOWED_ORIGINS: ${AUTH_ALLOWED_ORIGINS:-}
       SESSION_TTL_MINUTES: ${SESSION_TTL_MINUTES:-720}
@@ -245,7 +249,35 @@ services:
     logging: *logging-padrao
     restart: unless-stopped
 
+  # --- IA pela assinatura (Claude e Codex) ----------------------------------
+  # Proxy de CLI (CLIProxyAPI): guarda os logins da assinatura e os expõe como API
+  # compatível com a OpenAI. OPCIONAL e fora do `up` padrão: só sobe com
+  # `docker compose --profile ia-assinatura up -d cliproxy`, depois de
+  # `node scripts/cliproxy-config.mjs`. Segurança:
+  #  - todas as portas publicadas só em 127.0.0.1;
+  #  - o gerenciamento exige a chave longa gerada pelo script (allow-remote é
+  #    necessário porque, por trás da porta publicada, o proxy enxerga o gateway
+  #    do Docker e não 127.0.0.1);
+  #  - fixe a imagem por tag/digest revisado em CLIPROXY_IMAGE: este serviço guarda
+  #    tokens de login de assinatura, e `latest` muda sem aviso.
+  # Uso restrito a tarefa interna, sem dado de cliente (ver docs/ia-assinatura.md).
+  cliproxy:
+    profiles: ["ia-assinatura"]
+    image: ${CLIPROXY_IMAGE:-eceasy/cli-proxy-api:latest}
+    restart: unless-stopped
+    logging: *logging-padrao
+    ports:
+      - "127.0.0.1:${CLIPROXY_PORT:-8317}:8317"
+      # Retorno (callback) do login no navegador da própria máquina. 54545: Claude
+      # (documentado). 1455: Codex (porta padrão do login do Codex; confirmar na 1ª vez).
+      - "127.0.0.1:54545:54545"
+      - "127.0.0.1:1455:1455"
+    volumes:
+      - ./.local/cliproxy/config.yaml:/CLIProxyAPI/config.yaml:ro
+      - cliproxy_auth:/root/.cli-proxy-api
+
 volumes:
   postgres_data:
   redis_data:
   rustfs_data:
+  cliproxy_auth:

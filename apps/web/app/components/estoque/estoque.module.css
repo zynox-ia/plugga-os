@@ -1,0 +1,229 @@
+/*
+ * Estoque (PLU-333). Reaproveita a tela de Clientes (cards), a lista de
+ * negócios (tabela) e a ficha do lead (modal largo); aqui só o que é desta
+ * tela, com as medidas do protótipo aprovado. Peso máximo 500, poucas cores.
+ */
+
+.pagina { gap: 16px; flex: none; min-height: auto; }
+/* A página rola inteira (o .main-content): nada de rolagem interna nas visões. */
+.areaCards { min-width: 0; }
+.subtitulo { min-width: 0; }
+/* Título à esquerda e ações à direita na mesma linha a partir de 1000 px: o subtítulo quebra e a busca encolhe. Abaixo, quebra como as outras telas. */
+@media (min-width: 1000px) {
+  .cabecalho { flex-wrap: nowrap; align-items: flex-start; }
+  .tituloGrupo { flex: 1 1 auto; min-width: 120px; }
+  .tituloGrupo h2.subtitulo { white-space: normal; }
+  .acoes { flex: 0 1 auto; flex-wrap: nowrap; }
+  .acoes :global(.equipe-busca) { width: clamp(140px, 18vw, 280px); }
+  .acoes :global(.ui-button) { flex: none; white-space: nowrap; }
+}
+.navegacao { align-items: center; }
+.abas :global(.ui-tab[aria-selected="true"]) { font-weight: 500; }
+.espaco { flex: 1; }
+.filtros { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; min-width: 0; }
+.filtro { width: auto; min-width: 0; }
+.conteudo { flex-direction: column; flex: none; min-height: auto; }
+.muted { margin: 0; color: var(--ui-muted); font-size: 12px; font-weight: 400; }
+.flex { flex: 1; }
+.vazio { width: 100%; }
+.selo { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+.link { padding: 0; border: 0; background: none; color: var(--ui-primary); font: inherit; text-align: left; text-decoration: none; cursor: pointer; }
+.link:hover { text-decoration: underline; }
+.link:focus-visible, .linkTexto:focus-visible { outline: 2px solid var(--ui-primary); outline-offset: 2px; border-radius: 4px; }
+.linkTexto { padding: 0; border: 0; background: none; color: var(--ui-primary); font: inherit; text-decoration: underline; cursor: pointer; }
+.txtPerigo { color: var(--ui-danger) !important; }
+.qtdEntrada { color: var(--ui-success) !important; font-weight: 500; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .entra { animation: entra 0.55s cubic-bezier(0.22, 1, 0.36, 1) both; animation-delay: calc(min(var(--i, 0), 13) * 30ms); }
+}
+@keyframes entra { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+/* ---------- Cards ---------- */
+
+.grade { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); gap: 12px; width: 100%; padding: 1px; }
+.cardItem { gap: 12px; border-radius: var(--radius-xl) !important; padding: 18px !important; }
+.caixa { display: grid; place-items: center; flex-shrink: 0; width: 40px; height: 40px; border-radius: 12px; background: var(--ui-subtle); color: var(--ui-muted); }
+.metaCard { flex-wrap: wrap; font-size: 12px !important; }
+.numerosCard { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 0; }
+.numerosCard > div { display: grid; gap: 2px; padding: 10px 12px; border-radius: 12px; background: var(--ui-subtle); }
+.numerosCard dt { color: var(--ui-muted); font-size: 12px; }
+.numerosCard dd { margin: 0; color: var(--ui-text); font-size: 16px; font-weight: 500; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.destaque { background: #eaf3ff !important; }
+.destaque dd { color: var(--ui-primary); }
+.valorCard { display: grid; gap: 1px; }
+.valorCard span { color: var(--ui-muted); font-size: 12px; }
+.valorCard strong { color: var(--ui-text); font-size: 14px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.acoesCard { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
+
+/* ---------- Nível em relação ao mínimo ---------- */
+
+.nivel { display: grid; gap: 5px; }
+.nivel small { color: var(--ui-muted); font-size: 12px; }
+.nivelTrilho { position: relative; height: 8px; border-radius: 999px; background: #e3eaf2; }
+.nivelSaldo { position: absolute; inset: 0 auto 0 0; border-radius: 999px; }
+.nivel_normal { background: var(--ui-primary); }
+.nivel_abaixo_do_minimo { background: #d98a00; }
+.nivel_zerado { background: var(--ui-danger); }
+.nivelReserva { position: absolute; top: 0; bottom: 0; border-radius: 999px; background: repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.75) 0 3px, transparent 3px 6px); }
+.nivelMinimo { position: absolute; top: -4px; bottom: -4px; width: 2px; margin-left: -1px; border-radius: 1px; background: var(--ui-text); }
+.nivelMinimo em { position: absolute; top: 18px; left: 50%; transform: translateX(-50%); color: var(--ui-muted); font-size: 11px; font-style: normal; white-space: nowrap; }
+.nivelGrande { padding-bottom: 14px; }
+.nivelGrande .nivelTrilho { height: 12px; }
+
+/* ---------- Lista ---------- */
+
+.lista { width: 100%; }
+.cartaoTabela:global(.shell-card) { padding: 0; overflow: hidden; border: 1px solid #dbe4ed; border-radius: var(--radius-xl); background: rgba(255, 255, 255, 0.95); }
+.cartaoTabela :global(.card-heading) { padding: 18px 16px 14px; }
+.cartaoTabela :global(.card-heading) h2 { font-size: 18px; font-weight: 500; }
+.cartaoTabela :global(.card-heading) span { color: #536579; font-size: 12px; }
+.tabelaWrap { border: 0 !important; border-top: 1px solid var(--ui-divider) !important; border-radius: 0 !important; background: transparent !important; overflow-x: hidden; }
+.tabelaSaldo { width: 100%; min-width: 0; table-layout: fixed; }
+.tabelaSaldo th { padding: 12px 10px; color: var(--ui-muted); font: 500 12px/1.4 var(--font-general-sans); letter-spacing: normal; text-transform: none; white-space: nowrap; }
+.tabelaSaldo td { padding: 12px 10px; color: var(--ui-text); font-size: 13px; line-height: 1.5; vertical-align: middle; }
+.tabelaSaldo :is(th, td):first-child { padding-left: 16px; text-align: left; }
+.tabelaSaldo :is(th, td):last-child { padding-right: 16px; }
+.tabelaSaldo :is(th, td):not(:first-child) { text-align: center; }
+.tabelaSaldo td:not(:first-child) > :is(div, span) { margin-inline: auto; justify-content: center; }
+.tabelaSaldo td strong { font-weight: 500; }
+.tabelaSaldo tbody tr { cursor: pointer; }
+.tabelaSaldo tbody tr:hover { background: color-mix(in srgb, var(--ui-primary) 4%, transparent); }
+.tabelaSaldo tbody tr:focus-visible { outline: 2px solid var(--ui-primary); outline-offset: -2px; }
+.cItem { width: 24%; } .cEmpresa { width: 12%; } .cNum { width: 8.5%; } .cValor { width: 10%; } .cSituacao { width: 15%; } .cAcao { width: 5%; }
+.blocoItem { min-width: 0; white-space: normal; }
+.nomeItem { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 500; }
+
+/* ---------- Movimentações: lista por dia ---------- */
+
+.movs { display: grid; width: 100%; overflow: hidden; border: 1px solid #dbe4ed; border-radius: var(--radius-xl); background: rgba(255, 255, 255, 0.95); }
+/* Na largura do conteúdo, como a visão Lista: as colunas se redistribuem (item e origem crescem). */
+.movsCabeca, .movLinha { display: grid; grid-template-columns: minmax(240px, 2.4fr) minmax(110px, 0.8fr) minmax(110px, 0.8fr) minmax(180px, 2fr) minmax(96px, 0.7fr); gap: 12px; align-items: center; }
+.movsCabeca { position: sticky; top: 0; z-index: 2; padding: 12px 16px; border-bottom: 1px solid #dbe4ed; background: rgba(243, 247, 251, 0.65); color: #536579; font: 500 12px/1.4 var(--font-general-sans); backdrop-filter: blur(8px); }
+.movsCabeca > span:not(:first-child), .movLinha > div:not(.movItem) { text-align: center; }
+.movsDia h3 { display: flex; justify-content: space-between; align-items: baseline; margin: 0; padding: 8px 16px; border-bottom: 1px solid #dbe4ed; background: #f8fafc; color: #536579; font-size: 12px; font-weight: 500; }
+.movsDia h3 span { font-size: 12px; font-weight: 400; }
+.movsDia ul { margin: 0; padding: 0; list-style: none; }
+.movLinha { position: relative; box-sizing: border-box; min-height: 60px; padding: 12px 16px; border-bottom: 1px solid #dbe4ed; color: var(--ui-text); font-size: 13px; }
+.movsDia:last-child .movLinha:last-child { border-bottom: 0; }
+.movLinha:hover { background: color-mix(in srgb, var(--ui-primary) 4%, transparent); }
+.movLinha > div { position: relative; z-index: 0; pointer-events: none; }
+.movLinha .link { position: relative; z-index: 1; pointer-events: auto; }
+.movAlvo { position: absolute; inset: 0; margin: 0; padding: 0; border: 0; border-radius: 0; background: transparent; cursor: pointer; }
+.movAlvo:focus-visible { outline: 2px solid var(--ui-primary); outline-offset: -2px; }
+.movItem { display: flex; align-items: center; gap: 10px; min-width: 0; text-align: left; }
+.movItem > div { display: grid; gap: 1px; min-width: 0; }
+.movItem strong { overflow: hidden; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.movLinha small { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; color: var(--ui-muted); font-size: 12px; font-weight: 400; }
+.movLinha > div:not(.movItem) small { justify-content: center; }
+.movIcone { display: grid; place-items: center; flex: none; width: 34px; height: 34px; border: 1px solid rgba(0, 119, 255, 0.18); border-radius: 50%; background: #f3f4f6; color: #06c; }
+.movQtd { display: grid; font-weight: 500; font-variant-numeric: tabular-nums; }
+.movQtdReserva { color: var(--ui-muted); }
+.movSaldo { display: grid; font-variant-numeric: tabular-nums; }
+.movOrigem { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.movQuem { display: grid; }
+
+/* Detalhe da movimentação */
+.movDetalhe { gap: 16px !important; }
+.movDestaque { display: grid; gap: 6px; padding: 16px; border-radius: var(--radius-lg); background: var(--ui-subtle); }
+.movDestaque > span { color: var(--ui-muted); font-size: 12px; }
+.movDestaque > strong { color: var(--ui-text); font-size: 26px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.movDestaque small { color: var(--ui-muted); font-size: 12px; }
+.movDestaque b { font-size: 15px; font-weight: 500; }
+.movDados { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 16px; margin: 0; }
+.movDados dt { color: var(--ui-muted); font-size: 12px; font-weight: 400; }
+.movDados dd { display: grid; justify-items: start; gap: 1px; margin: 2px 0 0; color: var(--ui-text); font-size: 13px; }
+.movDados dd small { color: var(--ui-muted); font-size: 12px; }
+.nota { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0; color: var(--ui-muted); font-size: 12px; }
+
+/* ---------- Registrar movimentação: prévia ---------- */
+
+/* A dica fixa do DatePicker desalinharia Tipo e Data; o erro continua aparecendo. */
+.semDica { min-width: 0; }
+.semDica :global(.ui-field-hint) { display: none; }
+
+.previa { display: grid; gap: 8px; padding: 12px 14px; border-radius: var(--radius-lg); background: var(--ui-subtle); }
+.previa small { font-size: 12px; }
+.previaLinha { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; }
+.previaLinha > div { display: grid; gap: 1px; }
+.previaLinha span { color: var(--ui-muted); font-size: 12px; }
+.previaLinha strong { color: var(--ui-text); font-size: 16px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.previaLinha > svg { color: var(--ui-muted); }
+.escolhido { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 40px; padding: 4px 6px 4px 12px; border: 1px solid var(--ui-divider); border-radius: var(--radius-sm, 10px); font-size: 13px; }
+.resultados { display: grid; max-height: 180px; margin: 6px 0 0; padding: 4px; overflow-y: auto; border: 1px solid var(--ui-divider); border-radius: 10px; list-style: none; }
+.resultados button { width: 100%; padding: 8px 10px; border: 0; border-radius: 6px; background: none; color: var(--ui-text); font: inherit; font-size: 13px; text-align: left; cursor: pointer; }
+.resultados button:is(:hover, :focus-visible) { background: var(--ui-focus-bg); outline: none; }
+
+/* ---------- Ficha do item ---------- */
+
+.fichaConteudo { display: grid; gap: 16px; align-content: start; }
+.itemTopo { display: grid; grid-template-columns: minmax(200px, 0.8fr) 2fr; gap: 12px; align-items: stretch; }
+.itemDisponivel { display: grid; align-content: center; justify-items: start; gap: 4px; padding: 16px; border-radius: var(--radius-lg); background: var(--ui-subtle); }
+.itemDisponivel span { color: var(--ui-muted); font-size: 12px; }
+.itemDisponivel strong { color: var(--ui-text); font-size: 28px; font-weight: 500; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.numeros { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.numeros > div { display: grid; align-content: center; gap: 2px; padding: 12px 14px; border: 1px solid var(--ui-divider); border-radius: var(--radius-lg); background: #fff; }
+.numeros span { color: var(--ui-muted); font-size: 12px; }
+.numeros strong { color: var(--ui-text); font-size: 18px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.numeros small { color: var(--ui-muted); font-size: 11.5px; }
+.sugestao { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--ui-divider); border-radius: var(--radius-lg); background: var(--ui-subtle); color: var(--ui-text); font-size: 13px; }
+.sugestao > svg { color: var(--ui-warning); }
+.sugestao > span { flex: 1; min-width: 200px; }
+.sugestao strong { font-weight: 500; }
+.secaoFicha { display: grid; gap: 8px; }
+.secaoFicha h3 { margin: 0; color: var(--ui-text); font-size: 13px; font-weight: 500; }
+.reservas { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.reservas li { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--ui-divider); border-radius: var(--radius-lg); background: #fff; color: var(--ui-text); font-size: 13px; }
+.reservas li > span { flex: 1; min-width: 0; }
+.reservas li > svg { flex-shrink: 0; color: var(--ui-muted); }
+.reservas strong { font-weight: 500; }
+.reservas small { color: var(--ui-muted); font-size: 12px; }
+.tabelaSimples { overflow: hidden; border: 1px solid #dbe4ed; border-radius: var(--radius-lg); background: #fff; }
+.tabelaSimples table { width: 100%; }
+.tabelaSimples th { padding: 12px 16px; color: var(--ui-muted); font: 500 12px/1.4 var(--font-general-sans); text-transform: none; letter-spacing: normal; white-space: nowrap; }
+.tabelaSimples td { padding: 12px 16px; color: var(--ui-text); font-size: 13px; }
+.tabelaSimples :is(th, td):not(:first-child) { text-align: center; }
+.tabelaSimples :is(th, td):first-child { text-align: left; }
+.rodapeFicha { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 14px 24px; border-top: 1px solid var(--ui-divider); }
+
+/* ---------- Responsivo ---------- */
+
+@media (max-width: 1240px) {
+  .tabelaSaldo :global(.ui-badge) { padding-inline: 6px; }
+}
+
+@media (max-width: 980px) {
+  .movsCabeca { display: none; }
+  .movLinha { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "item qtd" "origem saldo" "quem quem"; gap: 6px 12px; padding: 12px 14px; }
+  .movItem { grid-area: item; }
+  .movQtd { grid-area: qtd; text-align: right !important; }
+  .movSaldo { grid-area: saldo; text-align: right !important; }
+  .movOrigem { grid-area: origem; overflow-wrap: anywhere; font-size: 12px; text-align: left !important; white-space: normal; }
+  .movQuem { display: flex; grid-area: quem; gap: 6px; color: var(--ui-muted); font-size: 12px; text-align: left !important; }
+  .movLinha > div:not(.movItem) small { justify-content: flex-end; }
+  .movQuem small { justify-content: flex-start !important; }
+  .movDados { grid-template-columns: 1fr; }
+}
+
+/* Abaixo de 900 px a tabela vira cards (o padrão das tabelas do app no celular). */
+@media (max-width: 900px) {
+  .tabelaSaldo colgroup, .tabelaSaldo thead { display: none; }
+  .tabelaSaldo, .tabelaSaldo tbody { display: block; }
+  .tabelaSaldo tbody tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 12px; padding: 12px 16px; border-bottom: 1px solid var(--ui-divider); }
+  .tabelaSaldo td { display: grid; gap: 2px; padding: 0 !important; text-align: left !important; }
+  .tabelaSaldo td:first-child { grid-column: 1 / -1; }
+  .tabelaSaldo td[data-l]:not(:first-child)::before { content: attr(data-l); color: var(--ui-muted); font-size: 12px; }
+  .tabelaSaldo td:not(:first-child) > :is(div, span) { margin-inline: 0; justify-content: flex-start; }
+  .tabelaSaldo td:last-child { grid-column: 1 / -1; }
+  .tabelaSaldo td:last-child > div { justify-content: flex-end; }
+}
+
+@media (max-width: 720px) {
+  h2.subtitulo { white-space: normal; }
+  .filtros { flex-direction: row !important; flex-wrap: wrap; align-items: center; justify-content: flex-start; gap: 8px; width: 100%; }
+  .filtro { width: auto; min-width: 0; }
+  .itemTopo { grid-template-columns: 1fr; }
+  .numerosCard dd { font-size: 14px; }
+  .rodapeFicha { padding: 12px 16px; }
+  .rodapeFicha .flex { display: none; }
+}

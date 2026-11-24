@@ -2,7 +2,8 @@ import { expect, test as setup } from "@playwright/test";
 
 import { bloquearTerceiros } from "./support/sem-terceiros";
 
-const STORAGE_STATE = "e2e/.auth/admin.json";
+// Mesmo caminho que playwright.config.ts lê: PLAYWRIGHT_AUTH_FILE ou o padrão.
+const STORAGE_STATE = process.env.PLAYWRIGHT_AUTH_FILE || "e2e/.auth/admin.json";
 
 /** Matches apps/api/prisma/seed.ts + .env.example / CI job env — local dev only. */
 const email = process.env.SEED_ADMIN_EMAIL ?? "admin@plugga.local";
@@ -11,8 +12,11 @@ const password = process.env.SEED_ADMIN_PASSWORD ?? "local_only_change_me";
 // All of the suite's real login requests originate from this one machine, so
 // without a distinguishing X-Forwarded-For they'd collapse into one throttle
 // bucket (10 req/60s on /auth/login) and start 429ing each other. Each spec
-// file gets its own synthetic client IP.
-setup.use({ extraHTTPHeaders: { "x-forwarded-for": "203.0.113.201" } });
+// file gets its own synthetic client IP. `E2E_IP` gives each agent running the
+// suite against the shared local dev its own bucket, so one agent's logins never
+// throttle another's (without it, the usual IP, as in CI). Use only documentation
+// ranges (203.0.113.0/24, 198.51.100.0/24, 192.0.2.0/24), never a real address.
+setup.use({ extraHTTPHeaders: { "x-forwarded-for": process.env.E2E_IP || "203.0.113.201" } });
 
 setup("authenticate as the seeded local admin", async ({ page }) => {
   await bloquearTerceiros(page);
@@ -21,7 +25,8 @@ setup("authenticate as the seeded local admin", async ({ page }) => {
   await page.getByLabel("Senha", { exact: true }).fill(password);
   await page.getByRole("button", { name: "Fazer login" }).click();
 
-  await expect(page).toHaveURL("/");
+  // Com o dev ocupado (outros agentes editando em modo watch), o login passa dos 5 s padrão.
+  await expect(page).toHaveURL("/", { timeout: 15_000 });
   await expect(page.locator(".app-shell")).toBeVisible();
 
   await page.context().storageState({ path: STORAGE_STATE });

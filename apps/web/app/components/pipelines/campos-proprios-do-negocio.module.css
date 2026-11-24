@@ -1,0 +1,2 @@
+.solar { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: var(--space-md); }
+.inteira { grid-column: 1 / -1; }

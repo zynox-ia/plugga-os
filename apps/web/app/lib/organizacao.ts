@@ -5,6 +5,7 @@ import {
   companyKeys,
   departamentos as idsDosDepartamentos,
   papelDoAcesso,
+  telasPorDepartamento,
   type Acesso,
   type CompanyKey,
   type Departamento as DepartamentoId,
@@ -12,6 +13,8 @@ import {
 } from "@plugga/shared";
 
 import type { IconName } from "../components/plugga-shell";
+import { podeAbrirPagina, TELAS_DAS_ORDENS_DE_SERVICO, TELAS_DOS_LANCAMENTOS } from "./acesso-paginas.ts";
+import { engenhariaHabilitado, financeiroHabilitado } from "./recursos.ts";
 
 /**
  * Organização do plugga-os: Departamento → Processo.
@@ -19,7 +22,7 @@ import type { IconName } from "../components/plugga-shell";
  * Fonte da navegação lateral e do mapa em /estrutura. Mudar um processo de
  * departamento é mover uma linha.
  *
- * Os 7 departamentos são os do acesso (`@plugga/shared`, `acesso.ts`): a
+ * Os 6 departamentos são os do acesso (`@plugga/shared`, `acesso.ts`): a
  * barra lateral mostra só os que a pessoa alcança. Plugga e Waze não são
  * departamentos nem fronteira de acesso; são etiqueta dos registros (pedido,
  * obra, pipeline) e filtro das telas.
@@ -49,10 +52,22 @@ export type ProcessoStatus = "pronto" | "parcial" | "em-breve";
 
 export type Processo = {
   id?: Tela;
+  /**
+   * O processo abre com qualquer uma destas telas, quando não corresponde a uma
+   * tela só (Lançamentos do Financeiro: contas a pagar ou a receber). Exclusivo
+   * com `id`: um processo declara um ou outro.
+   */
+  telas?: readonly Tela[];
   label: string;
   /** Ausente enquanto o processo não tem tela. */
   rota?: string;
   status: ProcessoStatus;
+  /**
+   * A tela também serve a outro departamento (Compras para o Financeiro, que
+   * aprova e paga): aparece na barra para quem abre a página, mesmo sem o
+   * departamento dono.
+   */
+  compartilhado?: true;
 };
 
 export type Departamento = {
@@ -60,7 +75,19 @@ export type Departamento = {
   label: string;
   icon: IconName;
   processos: Processo[];
+  /**
+   * As telas que se concedem no editor de acesso, quando não são uma por item
+   * do menu. Ausente, valem os processos com `id`.
+   */
+  telas?: readonly { id: Tela; label: string }[];
 };
+
+/** Telas do departamento, com o rótulo, como o editor de acesso e a ficha do membro as mostram. */
+export function telasDoDepartamento(departamento: Departamento): { id: Tela; label: string }[] {
+  return departamento.telas
+    ? [...departamento.telas]
+    : departamento.processos.flatMap((processo) => (processo.id ? [{ id: processo.id, label: processo.label }] : []));
+}
 
 /**
  * Os departamentos na ordem da barra lateral (aprovada pelo André em
@@ -91,6 +118,16 @@ export const DEPARTAMENTOS: Departamento[] = [
       { id: "energia-opm.relatorios", label: "Relatórios de economia", status: "em-breve" },
       { id: "energia-opm.demanda", label: "Demanda contratada", status: "em-breve" },
     ],
+    // Protocolos na distribuidora (PLU-348) é tela concedível sem item no menu:
+    // os protocolos aparecem nas fichas da migração e da UC.
+    telas: [
+      { id: "energia-opm.ciclos", label: "Ciclos mensais" },
+      { id: "energia-opm.auditoria", label: "Auditoria de faturas" },
+      { id: "energia-opm.migracao", label: "Migração Mercado Livre" },
+      { id: "energia-opm.relatorios", label: "Relatórios de economia" },
+      { id: "energia-opm.demanda", label: "Demanda contratada" },
+      { id: "energia-opm.protocolos", label: "Protocolos na distribuidora" },
+    ],
   },
   {
     id: "produto-tecnologia",
@@ -108,11 +145,23 @@ export const DEPARTAMENTOS: Departamento[] = [
     id: "financeiro",
     label: "Financeiro",
     icon: "wallet",
+    // Menu aprovado pelo André em 23/11/2026 (PLU-336). Os ids de tela não
+    // mudaram: as saídas dos Lançamentos exigem `financeiro.pagar` e as
+    // entradas, `financeiro.receber`; Tarefas abre com qualquer tela do
+    // Financeiro. Fiscal segue como tela concedível, sem item no menu (P2).
     processos: [
-      { id: "financeiro.pagar", label: "Contas a pagar", status: "em-breve" },
-      { id: "financeiro.receber", label: "Contas a receber", status: "em-breve" },
+      { label: "Visão geral", telas: TELAS_DOS_LANCAMENTOS, status: "em-breve" },
+      // Com o portão do Financeiro fechado (build de produção), o item segue em breve.
+      { label: "Lançamentos", telas: TELAS_DOS_LANCAMENTOS, ...(financeiroHabilitado() ? { rota: "/financeiro/lancamentos", status: "parcial" as const } : { status: "em-breve" as const }) },
+      // As antigas "Rotinas do dia": a tela compartilhada de Tarefas (PLU-340).
+      { label: "Tarefas", telas: telasPorDepartamento.financeiro, ...(financeiroHabilitado() ? { rota: "/financeiro/tarefas", status: "parcial" as const } : { status: "em-breve" as const }) },
       { id: "financeiro.conciliacao", label: "Conciliação", status: "em-breve" },
-      { id: "financeiro.fiscal", label: "Fiscal", status: "em-breve" },
+    ],
+    telas: [
+      { id: "financeiro.pagar", label: "Contas a pagar" },
+      { id: "financeiro.receber", label: "Contas a receber" },
+      { id: "financeiro.conciliacao", label: "Conciliação" },
+      { id: "financeiro.fiscal", label: "Fiscal" },
     ],
   },
   {
@@ -120,9 +169,9 @@ export const DEPARTAMENTOS: Departamento[] = [
     label: "Suprimentos",
     icon: "package",
     processos: [
-      { id: "suprimentos.compras", label: "Compras", status: "em-breve" },
-      { id: "suprimentos.fornecedores", label: "Fornecedores", status: "em-breve" },
-      { id: "suprimentos.estoque", label: "Estoque", status: "em-breve" },
+      { id: "suprimentos.compras", label: "Compras", rota: "/suprimentos/compras", status: "pronto", compartilhado: true },
+      { id: "suprimentos.fornecedores", label: "Fornecedores", rota: "/suprimentos/fornecedores", status: "pronto" },
+      { id: "suprimentos.estoque", label: "Estoque", rota: "/suprimentos/estoque", status: "pronto" },
     ],
   },
   {
@@ -130,21 +179,37 @@ export const DEPARTAMENTOS: Departamento[] = [
     label: "Engenharia e Obras",
     icon: "hardhat",
     processos: [
-      { id: "engenharia-obras.obras", label: "Obras", status: "em-breve" },
+      // Visão geral do dia da Engenharia (PLU-349), atrás do portão.
+      { label: "Visão geral", telas: telasPorDepartamento["engenharia-obras"], ...(engenhariaHabilitado() ? { rota: "/engenharia/visao-geral", status: "parcial" as const } : { status: "em-breve" as const }) },
+      // Obras com marcos e documentos (PLU-350), atrás do portão.
+      { id: "engenharia-obras.obras", label: "Obras", ...(engenhariaHabilitado() ? { rota: "/engenharia/obras", status: "parcial" as const } : { status: "em-breve" as const }) },
       { id: "engenharia-obras.projetos", label: "Projetos elétricos", status: "em-breve" },
-      { id: "engenharia-obras.os", label: "Ordens de serviço", status: "em-breve" },
+      // Com o portão da Engenharia fechado (build de produção), o item segue em breve (PLU-345).
+      { label: "Ordens de serviço", telas: TELAS_DAS_ORDENS_DE_SERVICO, ...(engenhariaHabilitado() ? { rota: "/engenharia/ordens-de-servico", status: "parcial" as const } : { status: "em-breve" as const }) },
+      // Agenda de campo (PLU-346), atrás do portão.
+      { label: "Agenda de campo", telas: TELAS_DAS_ORDENS_DE_SERVICO, ...(engenhariaHabilitado() ? { rota: "/engenharia/agenda", status: "parcial" as const } : { status: "em-breve" as const }) },
+      { label: "Tarefas", telas: telasPorDepartamento["engenharia-obras"], ...(engenhariaHabilitado() ? { rota: "/engenharia/tarefas", status: "parcial" as const } : { status: "em-breve" as const }) },
       { id: "engenharia-obras.instalacoes", label: "Instalações", status: "em-breve" },
       { id: "engenharia-obras.manutencao", label: "Manutenção", status: "em-breve" },
       { id: "engenharia-obras.visitas", label: "Visitas técnicas", status: "em-breve" },
-      { id: "engenharia-obras.usinas", label: "Usinas solares · BESS", status: "em-breve" },
+      // Usinas e o monitoramento do dia (PLU-347), atrás do portão.
+      { label: "Usinas", telas: telasPorDepartamento["engenharia-obras"], ...(engenhariaHabilitado() ? { rota: "/engenharia/usinas", status: "parcial" as const } : { status: "em-breve" as const }) },
       { id: "engenharia-obras.relatorios", label: "Relatórios de campo · fotos e aceite", status: "em-breve" },
+      // Protocolos na distribuidora (PLU-348), atrás do portão. O Operacional abre a mesma tela, sem item no menu.
+      { id: "engenharia-obras.protocolos", label: "Protocolos", ...(engenhariaHabilitado() ? { rota: "/engenharia/protocolos", status: "parcial" as const } : { status: "em-breve" as const }) },
     ],
-  },
-  {
-    id: "marketing",
-    label: "Marketing",
-    icon: "megaphone",
-    processos: [{ id: "marketing.campanhas", label: "Campanhas", status: "em-breve" }],
+    // Ordens de serviço abre com qualquer uma de quatro telas; o editor de acesso segue concedendo as oito.
+    telas: [
+      { id: "engenharia-obras.obras", label: "Obras" },
+      { id: "engenharia-obras.projetos", label: "Projetos elétricos" },
+      { id: "engenharia-obras.os", label: "Ordens de serviço" },
+      { id: "engenharia-obras.instalacoes", label: "Instalações" },
+      { id: "engenharia-obras.manutencao", label: "Manutenção" },
+      { id: "engenharia-obras.visitas", label: "Visitas técnicas" },
+      { id: "engenharia-obras.usinas", label: "Usinas solares · BESS" },
+      { id: "engenharia-obras.relatorios", label: "Relatórios de campo · fotos e aceite" },
+      { id: "engenharia-obras.protocolos", label: "Protocolos na distribuidora" },
+    ],
   },
 ];
 
@@ -153,9 +218,13 @@ export function departamentosPermitidos(acesso: Acesso | null): Departamento[] {
   if (!acesso) {
     return DEPARTAMENTOS;
   }
-  return DEPARTAMENTOS.filter((departamento) => alcancaDepartamento(acesso, departamento.id)).map((departamento) => ({
-    ...departamento, processos: departamento.processos.filter((processo) => !processo.id || alcancaTela(acesso, processo.id)),
-  }));
+  const visivel = (departamento: Departamento, processo: Processo) =>
+    (alcancaDepartamento(acesso, departamento.id) && (processo.telas
+      ? processo.telas.some((tela) => alcancaTela(acesso, tela))
+      : !processo.id || alcancaTela(acesso, processo.id)))
+    || Boolean(processo.compartilhado && processo.rota && podeAbrirPagina(acesso, processo.rota));
+  return DEPARTAMENTOS.map((departamento) => ({ ...departamento, processos: departamento.processos.filter((processo) => visivel(departamento, processo)) }))
+    .filter((departamento) => alcancaDepartamento(acesso, departamento.id) || departamento.processos.length > 0);
 }
 
 /**
@@ -210,10 +279,31 @@ export type SecaoConfiguracao = Omit<Processo, "id"> & {
   descricao: string;
   minimo: PapelDaEquipe;
   /** Marca a seção que tem tela própria dentro de Configurações. */
-  id?: "equipe" | "chave-llm";
+  id?: "perfil" | "seguranca" | "notificacoes" | "equipe" | "integracoes" | "desenvolvedor";
 };
 
 export const CONFIGURACOES: SecaoConfiguracao[] = [
+  {
+    id: "perfil",
+    label: "Perfil",
+    descricao: "Identificação, foto e dados de contato da sua conta.",
+    status: "pronto",
+    minimo: "membro",
+  },
+  {
+    id: "seguranca",
+    label: "Segurança",
+    descricao: "Autenticação em duas etapas e senha de acesso à sua conta.",
+    status: "pronto",
+    minimo: "membro",
+  },
+  {
+    id: "notificacoes",
+    label: "Notificações",
+    descricao: "Preferências de alertas no CRM, prazos de tarefas e notificações por e-mail.",
+    status: "em-breve",
+    minimo: "membro",
+  },
   {
     id: "equipe",
     label: "Equipe e Acessos",
@@ -223,46 +313,18 @@ export const CONFIGURACOES: SecaoConfiguracao[] = [
     minimo: "gerente",
   },
   {
-    // Chave de IA: fica em configurações porque troca com frequência e não deve
-    // exigir edição de arquivo e reinício de contêiner a cada rotação.
-    id: "chave-llm",
-    label: "Chave de IA",
-    descricao:
-      "A credencial da OpenRouter que serve o sistema inteiro. Guardada cifrada, trocável por aqui, e todo consumo dela é medido por processo.",
-    status: "pronto",
-    minimo: "admin",
-  },
-  {
-    label: "Departamentos e Processos",
-    descricao:
-      "Desenho dos fluxos: etapas, tarefas, prazos de SLA e KPIs. Uma definição só, usada pelas duas empresas.",
-    status: "em-breve",
-    minimo: "admin",
-  },
-  {
-    label: "Empresas",
-    descricao: "Plugga e Waze Energia: identidade e etiqueta dos registros.",
-    status: "em-breve",
-    minimo: "admin",
-  },
-  {
+    id: "integracoes",
     label: "Integrações",
-    descricao: "Bitrix, OMIE, PagBank e PluggaMob — modo e saúde de cada uma.",
+    descricao: "Conexões da sua conta com outros sistemas, como a agenda do Google.",
     rota: "/integracoes",
     status: "pronto",
-    minimo: "admin",
+    minimo: "membro",
   },
   {
-    label: "Jobs e Automações",
-    descricao: "Agendamentos, histórico de execução e falhas.",
-    rota: "/jobs",
+    id: "desenvolvedor",
+    label: "Desenvolvedor",
+    descricao: "Integra\u00e7\u00f5es da plataforma e execu\u00e7\u00f5es dos jobs.",
     status: "pronto",
-    minimo: "desenvolvedor",
-  },
-  {
-    label: "Canais e Notificações",
-    descricao: "E-mail transacional, Telegram e WhatsApp.",
-    status: "em-breve",
     minimo: "desenvolvedor",
   },
 ];
@@ -273,7 +335,11 @@ export const CONFIGURACOES: SecaoConfiguracao[] = [
  */
 export function configuracoesParaAcesso(acesso: Acesso): SecaoConfiguracao[] {
   const degrau = DEGRAUS.indexOf(papelDoAcesso(acesso));
-  return CONFIGURACOES.filter((secao) => degrau >= DEGRAUS.indexOf(secao.minimo));
+  return CONFIGURACOES.filter((secao) =>
+    degrau >= DEGRAUS.indexOf(secao.minimo)
+    && (secao.id !== "desenvolvedor" || acesso.plataforma === "desenvolvedor")
+    && (!secao.rota || podeAbrirPagina(acesso, secao.rota)),
+  );
 }
 
 /**

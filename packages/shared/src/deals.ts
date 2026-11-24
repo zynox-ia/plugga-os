@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { dealSolarProjectSchema } from "./solar.js";
+import { customFieldValuesSchema } from "./custom-fields.js";
 
 import {
   cepOpcional,
@@ -115,6 +117,8 @@ export type LeadContact = z.infer<typeof leadContactSchema>;
 
 export const createDealRequestSchema = z
   .object({
+    solarProject: dealSolarProjectSchema.optional(),
+    customFields: customFieldValuesSchema.optional(),
     pipelineId: uuid,
     stageId: uuid,
     title: z.string().trim().min(1, "informe o título").max(120),
@@ -139,6 +143,8 @@ export type CreateDealRequest = z.infer<typeof createDealRequestSchema>;
 /** Edita dados do lead e, opcionalmente, substitui o contato selecionado. `undefined` mantém cada campo. */
 export const updateLeadRequestSchema = z
   .object({
+    solarProject: dealSolarProjectSchema.optional(),
+    customFields: customFieldValuesSchema.optional(),
     /** Clientes legados podem omitir; o modal sempre envia a versão lida. */
     version: z.number().int().positive().optional(),
     lead: updateLeadProfileRequestSchema.optional(),
@@ -151,23 +157,27 @@ export const updateLeadRequestSchema = z
   })
   .strict()
   .superRefine((input, ctx) => {
-    if (input.version === undefined && [input.title, input.value, input.expectedCloseDate, input.ownerId, input.tagIds].some((v) => v !== undefined)) {
+    if (input.version === undefined && [input.title, input.value, input.expectedCloseDate, input.ownerId, input.tagIds, input.customFields, input.solarProject].some((v) => v !== undefined)) {
       ctx.addIssue({ code: "custom", path: ["version"], message: "recarregue o negócio e informe a versão antes de editar dados comerciais" });
     }
   });
 export type UpdateLeadRequest = z.infer<typeof updateLeadRequestSchema>;
 
-export const moveDealStageRequestSchema = z.object({ stageId: uuid, beforeDealId: uuid.nullable().optional() }).strict();
+export const dealTransitionOriginSchema = z.enum(["quadro", "ficha", "api"]);
+export type DealTransitionOrigin = z.infer<typeof dealTransitionOriginSchema>;
+const transitionContext = { version: z.number().int().positive().optional(), origin: dealTransitionOriginSchema.optional() };
+export const moveDealStageRequestSchema = z.object({ stageId: uuid, beforeDealId: uuid.nullable().optional(), ...transitionContext }).strict();
 export type MoveDealStageRequest = z.infer<typeof moveDealStageRequestSchema>;
 
 /** Ganhar sempre pode converter o lead em cliente na mesma transação. */
-export const winDealRequestSchema = z.object({ convertToClient: z.boolean().default(false) }).strict();
+export const winDealRequestSchema = z.object({ convertToClient: z.boolean().default(false), ...transitionContext }).strict();
 export type WinDealRequest = z.infer<typeof winDealRequestSchema>;
 
 /** Perder exige o motivo; a data de revisita é exigida pela API quando o motivo pede. */
 export const loseDealRequestSchema = z
   .object({
     lossReasonId: uuid,
+    ...transitionContext,
     revisitOn: dataOpcional,
     note: z.preprocess(vazioViraNulo, z.string().trim().max(500).nullable()).optional(),
   })
@@ -176,7 +186,7 @@ export type LoseDealRequest = z.infer<typeof loseDealRequestSchema>;
 
 /** Mover para outro pipeline. O responsável só é pedido se o atual não estiver na equipe do destino. */
 export const transferDealRequestSchema = z
-  .object({ pipelineId: uuid, stageId: uuid, ownerId: uuid.optional(), convertToClient: z.boolean().default(false) })
+  .object({ pipelineId: uuid, stageId: uuid, ownerId: uuid.optional(), convertToClient: z.boolean().default(false), version: transitionContext.version })
   .strict();
 export type TransferDealRequest = z.infer<typeof transferDealRequestSchema>;
 
@@ -188,7 +198,15 @@ export const bulkDealsActionSchema = z.discriminatedUnion("type", [
 ]);
 export type BulkDealsAction = z.infer<typeof bulkDealsActionSchema>;
 
-export const bulkDealsRequestSchema = z.object({ dealIds: z.array(uuid).min(1).max(200), action: bulkDealsActionSchema }).strict();
+const dealVersions = z.record(uuid, z.number().int().positive())
+  .refine((values) => new Set(Object.keys(values).map((id) => id.toLowerCase())).size === Object.keys(values).length, "identificador repetido no mapa de versões")
+  .transform((values) => Object.fromEntries(Object.entries(values).map(([id, version]) => [id.toLowerCase(), version])));
+export const bulkDealsRequestSchema = z.object({ dealIds: z.array(uuid).min(1).max(200), action: bulkDealsActionSchema, versions: dealVersions.optional() }).strict().superRefine((input, ctx) => {
+  if (input.versions === undefined) return;
+  const ids = new Set(input.dealIds.map((id) => id.toLowerCase()));
+  const versions = Object.keys(input.versions).map((id) => id.toLowerCase());
+  if (versions.length !== ids.size || versions.some((id) => !ids.has(id))) ctx.addIssue({ code: "custom", path: ["versions"], message: "informe a versão de todos e somente os negócios selecionados" });
+});
 export type BulkDealsRequest = z.infer<typeof bulkDealsRequestSchema>;
 
 export const listDealsQuerySchema = z
@@ -197,6 +215,9 @@ export const listDealsQuerySchema = z
 export type ListDealsQuery = z.infer<typeof listDealsQuerySchema>;
 
 export const dealSchema = z.object({
+  /** A produção sempre envia a versão persistida; opcional apenas para consumidores legados. */
+  version: z.number().int().positive().optional(),
+  customFields: customFieldValuesSchema.optional(),
   id: uuid,
   number: z.number().int().positive(),
   pipelineId: uuid,
@@ -211,6 +232,8 @@ export const dealSchema = z.object({
   contact: leadContactSchema.nullable(),
   /** Só existe depois de uma conversão (manual, ao ganhar ou ao mudar de etapa/pipeline). */
   client: z.object({ id: uuid, name: z.string() }).nullable(),
+  /** Estado do lead; não concede leitura do cadastro de cliente vinculado. */
+  converted: z.boolean().optional(),
   owner: z.object({ id: uuid, name: z.string() }),
   tags: z.array(z.object({ id: uuid, name: z.string(), color: z.string() })),
   /** Quando entrou na etapa atual: base dos "dias na etapa" e do alerta de parado. */
@@ -223,7 +246,7 @@ export const dealSchema = z.object({
 export type Deal = z.infer<typeof dealSchema>;
 
 /** Detalhe relido do servidor; a versão também cobre perfil e contato próprios. */
-export const dealDetailSchema = dealSchema.extend({ version: z.number().int().positive(), lossNote: z.string().nullable() });
+export const dealDetailSchema = dealSchema.extend({ version: z.number().int().positive(), lossNote: z.string().nullable(), solarProject: dealSolarProjectSchema.nullable().optional() });
 export type DealDetail = z.infer<typeof dealDetailSchema>;
 export const dealDetailsSchema = dealDetailSchema;
 export type DealDetails = DealDetail;
@@ -263,6 +286,7 @@ export type ListDealsResponse = z.infer<typeof listDealsResponseSchema>;
 /** O que a conversão oferece pra API decidir entre ambíguos, quando o lead não tem documento. */
 export const convertLeadRequestSchema = z
   .object({
+    ...transitionContext,
     resolution: z
       .discriminatedUnion("type", [
         z.object({ type: z.literal("link"), clientId: uuid }).strict(),
@@ -275,9 +299,9 @@ export type ConvertLeadRequest = z.infer<typeof convertLeadRequestSchema>;
 
 export const convertLeadResponseSchema = z.object({
   lead: dealSchema,
-  client: z.object({ id: uuid, name: z.string() }),
-  /** `false` quando vinculou a um cliente já existente, em vez de criar um novo. */
-  created: z.boolean(),
+  client: z.object({ id: uuid, name: z.string() }).nullable(),
+  /** `false` ao vincular cadastro existente; nulo quando Clientes não está autorizado. */
+  created: z.boolean().nullable(),
 });
 export type ConvertLeadResponse = z.infer<typeof convertLeadResponseSchema>;
 

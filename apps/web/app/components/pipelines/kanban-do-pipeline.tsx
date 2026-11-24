@@ -1,10 +1,11 @@
 "use client";
 
-import type { Deal, Pipeline } from "@plugga/shared";
+import type { Deal, Pipeline, PipelinePerson } from "@plugga/shared";
 import { Clock, Kanban, Plus } from "lucide-react";
 import { Fragment, useLayoutEffect, useRef, useState, type CSSProperties, type RefObject } from "react";
 
 import { calcularLayoutKanban, ESPACO_COLUNAS_KANBAN } from "../../lib/layout-kanban";
+import { COREOGRAFIA, useEntrada } from "../../lib/movimento";
 import { somaDosValores, valorCurto } from "../../lib/negocios";
 import { CartaoDeNegocio } from "./cartao-de-negocio";
 import type { AcoesDoNegocio } from "./quadro-do-pipeline";
@@ -19,11 +20,13 @@ const comCor = (cor: string) => ({ "--cor": cor }) as CSSProperties;
  */
 export function KanbanDoPipeline({
   pipeline,
+  responsaveis = [],
   negocios,
   acoes,
   colunasRef,
 }: {
   pipeline: Pipeline;
+  responsaveis?: PipelinePerson[];
   negocios: Deal[];
   acoes: AcoesDoNegocio;
   colunasRef?: RefObject<HTMLDivElement | null>;
@@ -32,6 +35,14 @@ export function KanbanDoPipeline({
   const refEfetivo = colunasRef ?? internoRef;
   const { arrasto, alvo, comecar, terminar } = useArrastoKanban(refEfetivo);
   const areaRef = useRef<HTMLDivElement>(null);
+  // Entrada (PLU-325): topo das colunas, cartões em onda diagonal (coluna +
+  // posição, com teto) e as contagens saltando no fim. Só na montagem.
+  useEntrada(areaRef, (passos) => {
+    passos.itens(".coluna-topo, .coluna-meta", COREOGRAFIA.kanban.colunas);
+    passos.cartoesEmOnda(passos.alvos(".coluna-etapa").flatMap((coluna, indiceDaColuna) =>
+      [...coluna.querySelectorAll<HTMLElement>("[data-cartao-id]")].map((el, posicao) => ({ el, onda: indiceDaColuna + posicao }))), COREOGRAFIA.kanban.cartoes);
+    passos.pilulas(".coluna-quantidade", COREOGRAFIA.kanban.pilulas);
+  });
   const [layout, setLayout] = useState<ReturnType<typeof calcularLayoutKanban> | null>(null);
 
   useLayoutEffect(() => {
@@ -47,7 +58,7 @@ export function KanbanDoPipeline({
   const espaco = <div className={styles.insercao} data-testid="kanban-insercao" aria-hidden="true" style={{ height: arrasto?.altura }} />;
 
   return (
-    <div className="quadro-area-colunas" ref={areaRef}>
+    <div className="quadro-area-colunas" ref={areaRef} data-plg-raiz="">
       <div
         className={`quadro-colunas${arrasto ? ` ${styles.rolando}` : ""}`}
         ref={refEfetivo}
@@ -118,10 +129,11 @@ export function KanbanDoPipeline({
                       {alvoDaEtapa && alvo.antesDeId === negocio.id ? espaco : null}
                       <div
                         data-cartao-id={negocio.id}
-                        className={`${styles.cartao}${arrasto?.negocio.id === negocio.id ? ` ${styles.origem}` : ""}`}
+                        className={`${styles.cartao} plg-lift${arrasto?.negocio.id === negocio.id ? ` ${styles.origem}` : ""}`}
                         style={arrasto?.negocio.id === negocio.id ? { width: arrasto.largura } : undefined}
                       >
                         <CartaoDeNegocio
+                          pessoas={responsaveis}
                           negocio={negocio}
                           pipeline={pipeline}
                           acoes={acoes}

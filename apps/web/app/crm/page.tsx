@@ -1,6 +1,8 @@
 import { PlaceholderScreen } from "../components/placeholder-screen";
+import { exigirPagina } from "../lib/exigir-pagina";
 
-export default function CrmPage() {
+export default async function CrmPage() {
+  await exigirPagina("/crm");
   return (
     <PlaceholderScreen
       title="CRM"

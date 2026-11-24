@@ -10,7 +10,7 @@ export class PrismaJobsRepository extends JobsRepository {
   }
 
   findRuns(): Promise<StoredJobRunInventoryItem[]> {
-    return this.prisma.jobRun.findMany({
+    return this.prisma.comContexto((tx) => tx.jobRun.findMany({
       // O JobRunsRecorder grava uma linha por tentativa de job, sem retenção:
       // sem teto, esta resposta cresce para sempre e a tela pagina no cliente.
       take: 100,
@@ -30,6 +30,6 @@ export class PrismaJobsRepository extends JobsRepository {
         logRef: true,
         createdAt: true,
       },
-    });
+    }));
   }
 }

@@ -9,9 +9,15 @@ overrides:
   '@nestjs/core': 11.1.18
   '@nestjs/platform-express': 11.1.18
   deepmerge-ts: 8.0.0
-  effect: 3.20.0
-  fast-xml-parser: 5.7.2
+  # GHSA-7589-6fvf-x4pw (ReDoS em Schema.TemplateLiteral), corrigido em 3.22.1.
+  effect: 3.22.4
+  # GHSA-474x-hrwr-fgx4, corrigido em 5.11.3.
+  fast-xml-parser: 5.12.0
   file-type: 21.3.2
+  # GHSA-3g3m-2fjr-6pw4 (glob) e GHSA-g3hv-75wg-m249 (minimatch): só as faixas
+  # vulneráveis sobem; o minimatch 3 do eslint fica fora da faixa e não muda.
+  'glob@>=9.0.0 <=14.0.1': 14.0.3
+  'minimatch@>=7.0.0 <11.0.1': 11.0.3
   lodash: 4.18.1
   js-yaml: 4.3.2
   multer: 2.5.0

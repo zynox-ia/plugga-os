@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import { Injectable } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 
@@ -30,8 +32,10 @@ export class PrismaConsumoRepository extends ConsumoRepository {
   }
 
   async registrar(dados: RegistroDeChamada): Promise<string> {
-    const linha = await this.prisma.llmChamada.create({
+    const id = randomUUID();
+    await this.prisma.comContexto((tx) => tx.llmChamada.createMany({
       data: {
+        id,
         processo: dados.processo,
         modelo: dados.modelo,
         modeloServido: dados.modeloServido,
@@ -47,9 +51,8 @@ export class PrismaConsumoRepository extends ConsumoRepository {
         referencia: dados.referencia,
         geracaoId: dados.geracaoId,
       },
-      select: { id: true },
-    });
-    return linha.id;
+    }));
+    return id;
   }
 
   /**
@@ -60,7 +63,7 @@ export class PrismaConsumoRepository extends ConsumoRepository {
    * por fatura em vez de só somar tokens.
    */
   async porProcesso({ desde, ate }: Janela): Promise<ConsumoPorProcesso[]> {
-    const linhas = await this.prisma.$queryRaw<
+    const linhas = await this.prisma.comContexto((tx) => tx.$queryRaw<
       {
         processo: string;
         chamadas: bigint;
@@ -83,7 +86,7 @@ export class PrismaConsumoRepository extends ConsumoRepository {
       WHERE criado_em >= ${desde} AND criado_em < ${ate}
       GROUP BY processo
       ORDER BY sum(tokens_entrada + tokens_saida) DESC NULLS LAST
-    `;
+    `);
 
     return linhas.map((l) => {
       const entrada = Number(l.tokens_entrada ?? 0);
@@ -102,7 +105,7 @@ export class PrismaConsumoRepository extends ConsumoRepository {
   }
 
   async porModelo({ desde, ate }: Janela): Promise<ConsumoPorModelo[]> {
-    const linhas = await this.prisma.$queryRaw<
+    const linhas = await this.prisma.comContexto((tx) => tx.$queryRaw<
       {
         modelo: string;
         chamadas: bigint;
@@ -119,7 +122,7 @@ export class PrismaConsumoRepository extends ConsumoRepository {
       WHERE criado_em >= ${desde} AND criado_em < ${ate}
       GROUP BY modelo
       ORDER BY sum(custo_creditos) DESC NULLS LAST
-    `;
+    `);
 
     return linhas.map((l) => ({
       modelo: l.modelo,
@@ -131,7 +134,7 @@ export class PrismaConsumoRepository extends ConsumoRepository {
 
   /** Série diária, para ver tendência em vez de só o acumulado. */
   async porDia({ desde, ate }: Janela): Promise<ConsumoPorDia[]> {
-    const linhas = await this.prisma.$queryRaw<
+    const linhas = await this.prisma.comContexto((tx) => tx.$queryRaw<
       {
         dia: Date;
         chamadas: bigint;
@@ -148,7 +151,7 @@ export class PrismaConsumoRepository extends ConsumoRepository {
       WHERE criado_em >= ${desde} AND criado_em < ${ate}
       GROUP BY 1
       ORDER BY 1
-    `;
+    `);
 
     return linhas.map((l) => ({
       // Manaus, como toda regra de data deste sistema: um relatório que vira o

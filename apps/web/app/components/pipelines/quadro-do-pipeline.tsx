@@ -1,23 +1,27 @@
 "use client";
 
-import type { BulkDealsAction, Deal, DealPriority, Pipeline, PipelinePerson } from "@plugga/shared";
+import type { BulkDealsAction, Deal, DealPriority, DealTransitionOrigin, Pipeline, PipelinePerson } from "@plugga/shared";
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent, type RefObject } from "react";
 
 import { aplicarFiltros, FILTROS_INICIAIS, hojeNoFuso, type Visao } from "../../lib/negocios";
 import { KanbanDoPipeline } from "./kanban-do-pipeline";
 import { ListaDeNegocios } from "./lista-de-negocios";
+import { campoCorrespondeAoFiltro } from "../../lib/campos-do-pipeline";
+import { TextField } from "../ui/fields";
+import campoStyles from "./campos-do-pipeline.module.css";
 
 export type AcoesDoNegocio = {
   definirPrioridade: (negocio: Deal, prioridade: DealPriority | null) => Promise<Deal | null>;
-  moverEtapa: (negocio: Deal, etapaId: string, antesDeId?: string | null) => Promise<Deal | null>;
+  /** `aoRecusar` recebe o motivo da recusa do servidor (ex.: pendências do processo Solar) quando o aviso do quadro não está visível. */
+  moverEtapa: (negocio: Deal, etapaId: string, antesDeId?: string | null, origem?: DealTransitionOrigin, aoRecusar?: (mensagem: string) => void) => Promise<Deal | null>;
   abrirDetalhes: (negocio: Deal) => void;
   atualizar: (negocio: Deal) => void;
-  ganhar: (negocio: Deal) => void;
-  perder: (negocio: Deal) => void;
+  ganhar: (negocio: Deal, origem?: DealTransitionOrigin) => void;
+  perder: (negocio: Deal, origem?: DealTransitionOrigin) => void;
   transferir: (negocio: Deal) => void;
   novoNaEtapa: (etapaId: string) => void;
   emLote: (ids: string[], acao: BulkDealsAction) => Promise<boolean>;
-  converter?: (negocio: Deal) => void;
+  converter?: (negocio: Deal, origem?: DealTransitionOrigin) => void;
   convertendoId?: string | null;
 };
 
@@ -163,18 +167,28 @@ export function QuadroDoPipeline({
   colunasRef: RefObject<HTMLDivElement | null>;
 }) {
   const hoje = hojeNoFuso();
+  const [filtroCampo, setFiltroCampo] = useState({ pipelineId: pipeline.id, campoId: "", valor: "" });
+  const filtroAtual = filtroCampo.pipelineId === pipeline.id ? filtroCampo : { pipelineId: pipeline.id, campoId: "", valor: "" };
+  const camposFiltraveis = pipeline.processProfile?.key === "solar_commercial" ? [] : (pipeline.fields ?? []);
+  const campoFiltrado = camposFiltraveis.find((campo) => campo.id === filtroAtual.campoId);
 
   // No Kanban entram os abertos filtrados pela busca; na Lista entram todos filtrados pela busca.
   const visiveis = useMemo(
-    () => aplicarFiltros(negocios, { ...FILTROS_INICIAIS, busca, status: visao === "kanban" ? "open" : "todos" }, hoje),
-    [negocios, busca, visao, hoje],
+    () => aplicarFiltros(negocios, { ...FILTROS_INICIAIS, busca, status: visao === "kanban" ? "open" : "todos" }, hoje, pipeline, responsaveis)
+      .filter((negocio) => !campoFiltrado || campoCorrespondeAoFiltro(campoFiltrado, negocio.customFields?.[campoFiltrado.id], filtroAtual.valor, responsaveis)),
+    [negocios, busca, visao, hoje, pipeline, responsaveis, campoFiltrado, filtroAtual.valor],
   );
 
   return (
     <div className="quadro-pipeline" style={{ "--cor": pipeline.color } as CSSProperties}>
+      {visao === "kanban" && camposFiltraveis.length ? <details className={campoStyles.filtros}><summary>Filtrar por dados de {pipeline.name}</summary><div className={campoStyles.grade}>
+        <div className="ui-field"><label htmlFor="filtro-campo-pipeline">Campo</label><select id="filtro-campo-pipeline" className="ui-input" value={filtroAtual.campoId} onChange={(e) => setFiltroCampo({ pipelineId: pipeline.id, campoId: e.target.value, valor: "" })}><option value="">Todos os campos</option>{camposFiltraveis.map((campo) => <option key={campo.id} value={campo.id}>{campo.name}</option>)}</select></div>
+        <TextField label="Valor do filtro" value={filtroAtual.valor} disabled={!campoFiltrado} placeholder={campoFiltrado?.type === "boolean" ? "Sim ou Não" : "Digite o valor exibido"} onChange={(e) => setFiltroCampo({ ...filtroAtual, valor: e.target.value })} />
+      </div></details> : null}
       <section className="painel-quadro" aria-label={`Negócios do pipeline ${pipeline.name}`}>
         {visao === "kanban" ? (
           <KanbanDoPipeline
+            responsaveis={responsaveis}
             pipeline={pipeline}
             negocios={visiveis}
             acoes={acoes}

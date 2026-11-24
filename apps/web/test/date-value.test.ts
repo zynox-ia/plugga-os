@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { dateInputError, dateValue, displayDate, maskDateInput, parseDate, parseDateInput } from "../app/components/ui/date-value.ts";
+import { dateInputError, dateValue, displayDate, maskDateInput, parseDate, parseDateInput, valorDigitado } from "../app/components/ui/date-value.ts";
 
 describe("datas civis do seletor", () => {
   it("valida ano bissexto e rejeita datas impossíveis sem normalizar para outro dia", () => {
@@ -40,5 +40,15 @@ describe("datas civis do seletor", () => {
     assert.equal(maskDateInput("22/1"), "22/1");
     assert.equal(maskDateInput("22/"), "22");
     assert.equal(maskDateInput(""), "");
+  });
+
+  it("data digitada inválida chega ao formulário vazia, nunca como a última data válida (PLU-352)", () => {
+    const limites = { min: "2026-11-01", max: "2026-11-30" };
+    assert.deepEqual(valorDigitado("23/11/2026", limites), { valor: "2026-11-23", valido: true });
+    assert.deepEqual(valorDigitado("", limites), { valor: "", valido: true });
+    for (const texto of ["03/1", "03/12/202", "31/11/2026", "03/12/2026", "31/10/2026"]) {
+      assert.deepEqual(valorDigitado(texto, limites), { valor: "", valido: false }, texto);
+    }
+    assert.deepEqual(valorDigitado("03/12/2026", {}), { valor: "2026-12-03", valido: true });
   });
 });

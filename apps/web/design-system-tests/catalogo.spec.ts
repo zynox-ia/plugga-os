@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { DEPARTAMENTOS } from "../app/lib/organizacao";
 
 test.beforeEach(async ({ context, page, baseURL }) => {
   await context.addCookies([{ name: "plugga_session", value: "simulada", url: baseURL! }]);
@@ -6,6 +7,15 @@ test.beforeEach(async ({ context, page, baseURL }) => {
     const url = new URL(route.request().url());
     return url.hostname === "127.0.0.1" ? route.continue() : route.abort();
   });
+});
+
+test("Desenvolvedor abre a estrutura e vê os departamentos da barra lateral", async ({ page }) => {
+  const resposta = await page.goto("/estrutura");
+  expect(resposta?.status()).toBe(200);
+  await expect(page).toHaveURL(/\/estrutura$/);
+  for (const departamento of DEPARTAMENTOS) {
+    await expect(page.getByRole("heading", { name: departamento.label, exact: true })).toBeVisible();
+  }
 });
 
 test("busca por componente, informa resultado vazio e preserva a navegação ao recarregar", async ({ page }) => {

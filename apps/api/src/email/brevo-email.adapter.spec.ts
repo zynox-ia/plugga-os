@@ -2,6 +2,7 @@ import { Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import type { BrevoCofreService } from "./brevo-cofre.service";
 import { BrevoEmailAdapter } from "./brevo-email.adapter";
 import type { TransactionalEmail } from "./email.port";
 
@@ -104,6 +105,70 @@ describe("BrevoEmailAdapter", () => {
     await expect(
       build({ ...baseConfig, BREVO_API_KEY: undefined }).sendTransactional(email()),
     ).rejects.toThrow(/BREVO_API_KEY is required/);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("BrevoEmailAdapter com o cofre da tela", () => {
+  const cofre = {
+    credenciais: async () => ({ chave: "chave-do-cofre", remetenteNome: "Waze Energia", remetenteEmail: "oi@waze.test" }),
+  } as unknown as BrevoCofreService;
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it("usa chave e remetente do cofre no lugar dos do ambiente", async () => {
+    const fetchMock = vi.fn(async () => new Response(null, { status: 201 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await new BrevoEmailAdapter(new ConfigService(baseConfig), cofre).sendTransactional(email());
+
+    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect((init.headers as Record<string, string>)["api-key"]).toBe("chave-do-cofre");
+    expect(JSON.parse(init.body as string).sender).toEqual({ name: "Waze Energia", email: "oi@waze.test" });
+  });
+
+  it("cai para o ambiente quando o cofre está vazio", async () => {
+    const fetchMock = vi.fn(async () => new Response(null, { status: 201 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const vazio = { credenciais: async () => null } as unknown as BrevoCofreService;
+
+    await new BrevoEmailAdapter(new ConfigService(baseConfig), vazio).sendTransactional(email());
+
+    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect((init.headers as Record<string, string>)["api-key"]).toBe("client-key");
+  });
+
+  it("envia o e-mail de teste ao destinatário informado, sem template de convite", async () => {
+    const fetchMock = vi.fn(async () => new Response(null, { status: 201 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await new BrevoEmailAdapter(new ConfigService(baseConfig), cofre).enviarTeste("andre@plugga.test");
+
+    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    const corpo = JSON.parse(init.body as string);
+    expect(corpo.to).toEqual([{ email: "andre@plugga.test" }]);
+    expect(corpo.subject).toBe("Teste de conexão do Plugga OS");
+  });
+
+  it("no teste, devolve só o status quando o Brevo recusa", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("segredo-na-resposta", { status: 401 })));
+
+    const falha = new BrevoEmailAdapter(new ConfigService(baseConfig), cofre).enviarTeste("andre@plugga.test");
+
+    await expect(falha).rejects.toThrow("brevo returned HTTP 401 for the connection test");
+    await expect(falha).rejects.not.toThrow(/segredo-na-resposta/);
+  });
+
+  it("no teste, recusa sem chave nenhuma e não sai para a rede", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      new BrevoEmailAdapter(new ConfigService({ ...baseConfig, BREVO_API_KEY: undefined })).enviarTeste("a@b.test"),
+    ).rejects.toThrow(/não está conectado/);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });

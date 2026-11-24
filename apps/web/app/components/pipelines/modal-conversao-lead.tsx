@@ -8,7 +8,7 @@ import { Alert, Button, Dialog, Radio } from "../ui";
 import styles from "./modal-conversao-lead.module.css";
 
 export function SucessoDaConversao({ clienteNome, aoFechar }: {
-  clienteNome: string;
+  clienteNome: string | null;
   aoFechar: () => void;
 }) {
   return (
@@ -20,7 +20,7 @@ export function SucessoDaConversao({ clienteNome, aoFechar }: {
           <span className={styles.marcaSucesso}><Check size={28} strokeWidth={2.5} absoluteStrokeWidth /></span>
         </span>
         <div className={styles.textoSucesso}>
-          <h2><bdi>{clienteNome}</bdi></h2>
+          <h2>{clienteNome ? <bdi>{clienteNome}</bdi> : "Conversão concluída"}</h2>
           <p>Cliente convertido com sucesso.</p>
         </div>
       </div>

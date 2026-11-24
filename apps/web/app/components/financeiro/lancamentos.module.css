@@ -1,0 +1,99 @@
+/* Lançamentos do Financeiro (PLU-336), no desenho do protótipo aprovado em 23/11/2026.
+   Peso máximo 500, azuis da marca e neutros; cor de situação só no prazo que sinaliza. */
+
+.pagina { min-width: 0; }
+
+.subtitulo { max-width: 36ch; }
+
+/* Abas: o padrão da tela de Clientes, com o peso limitado a 500. */
+.abas :global(.ui-tab[aria-selected="true"]) { font-weight: 500; }
+
+
+/* Metric cards de caixa: quantos a pessoa alcança, sem buraco na grade. */
+.metricas { display: grid; grid-template-columns: repeat(var(--colunas, 4), minmax(0, 1fr)); gap: 12px; flex-shrink: 0; }
+@media (max-width: 1100px) { .metricas { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 720px) { .metricas { gap: 8px; } }
+.filtros { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; }
+.filtro { flex: none; }
+.teto { margin: 0; font-size: 12px; color: var(--ui-muted); }
+
+/* Com a barra presa, a página rola inteira: nada de rolagem interna nos cards, na lista ou no quadro. */
+.conteudo { display: block; flex: none; min-height: auto; }
+.areaCards { min-width: 0; }
+.pagina :global(.lista-negocios-card) { flex: none; min-height: auto; }
+.pagina :global(.quadro-pipeline), .pagina :global(.painel-quadro), .pagina :global(.quadro-area-colunas) { flex: none; height: auto; max-height: none; min-height: 0; }
+.pagina :global(.quadro-colunas) { height: auto; max-height: none; align-items: flex-start; overflow-x: auto; }
+.pagina :global(.coluna-etapa) { height: auto; max-height: none; min-height: 0; }
+.pagina :global(.coluna-corpo) { flex: none; height: auto; max-height: none; overflow: visible; }
+
+/* ---------------------------------------------------------------- cards */
+
+/* 3 por linha a 1280 e 1440, 4 a 1680, 2 a 1024 e 1 a 390. */
+.grade { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; align-content: start; padding: 1px; }
+@media (min-width: 1680px) { .grade { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (max-width: 1100px) { .grade { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 720px) { .grade { grid-template-columns: minmax(0, 1fr); } }
+
+.card { display: flex; flex-direction: column; gap: 12px; height: 100%; box-sizing: border-box; padding: 18px; border-radius: var(--radius-xl); }
+@media (max-width: 720px) { .card { padding: 16px; } }
+
+.topo { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+
+/* A caixa do ícone, neutra (como a do Estoque). */
+.caixa { display: grid; place-items: center; flex-shrink: 0; width: 40px; height: 40px; border-radius: 12px; background: var(--ui-subtle); color: var(--ui-muted); }
+
+.canto { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ui-muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pendencia { display: inline-flex; color: var(--ui-danger); }
+
+.quem { min-width: 0; }
+.quem h3 { margin: 0; min-width: 0; font-size: 15px; font-weight: 500; line-height: 1.3; }
+.quem h3 a { display: block; max-width: 100%; overflow: hidden; color: var(--ui-text); text-decoration: none; text-overflow: ellipsis; white-space: nowrap; }
+.quem h3 a:hover { color: var(--ui-primary); }
+.quem h3 a:focus-visible { outline: 2px solid var(--ui-primary); outline-offset: 3px; border-radius: 4px; }
+.quem p { margin: 3px 0 0; min-width: 0; overflow: hidden; font-size: 12.5px; color: var(--ui-muted); text-overflow: ellipsis; white-space: nowrap; }
+
+.valor { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.valor strong { font-size: 22px; font-weight: 500; line-height: 1.15; color: var(--ui-text); font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+.valor small { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--ui-muted); }
+
+.rodape { display: flex; align-items: center; gap: 6px; min-width: 0; margin-top: auto; padding-top: 12px; border-top: 1px solid var(--ui-divider); }
+.rodape :global(.ui-badge), .rodape :global(.ui-button) { flex: none; }
+.prazo { display: grid; flex: 1 1 auto; min-width: 0; line-height: 1.25; white-space: nowrap; }
+.prazo > span { font-size: 12.5px; color: var(--ui-text); font-variant-numeric: tabular-nums; }
+.prazo > small { overflow: hidden; font-size: 12px; color: var(--ui-muted); text-overflow: ellipsis; }
+.perigo { color: var(--ui-danger) !important; }
+.alerta { color: var(--ui-warning) !important; }
+.anexo { display: inline-flex; flex: none; color: var(--ui-muted); }
+
+/* ---------------------------------------------------------------- lista */
+
+.lista { max-width: 1180px; }
+/* A lista de negócios do CRM põe 600 no rótulo da coluna do celular; aqui vale o teto de 500. */
+.lista :global(td[data-l])::before { font-weight: 500; }
+.seta { display: inline-grid; place-items: center; width: 18px; height: 18px; margin-right: 6px; vertical-align: -4px; border-radius: 7px; background: var(--ui-subtle); color: var(--ui-muted); }
+/* Código, resumo e empresa numa linha só: o resumo encurta, a empresa fica. */
+.codigoComEmpresa { display: flex; align-items: center; gap: 6px; flex-wrap: nowrap; min-width: 0; max-width: 100%; }
+.textoSecundario { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.empresaDaLinha { flex: none; }
+
+/* ---------------------------------------------------------------- quadro */
+
+.cartaoQuadro :global(.cartao-negocio) { border-radius: var(--radius-lg); }
+.empresaQuadro { font-size: 12px; }
+.valorQuadro { margin: 0; font-size: 17px; font-weight: 500; color: var(--ui-text); font-variant-numeric: tabular-nums; }
+.alertaQuadro { display: flex; align-items: center; gap: 6px; margin: 0; font-size: 12px; color: var(--ui-danger); }
+.prazoQuadro { display: inline-flex; align-items: center; gap: 6px; min-width: 0; font-size: 12px; color: var(--ui-muted); }
+.prazoQuadro span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rodapeQuadro { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+
+/* ---------------------------------------------------------------- vazio */
+
+.vazio { margin-top: 8px; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .entra { animation: lancamento-sobe 0.55s cubic-bezier(0.22, 1, 0.36, 1) both; animation-delay: calc(min(var(--i, 0), 13) * 30ms); }
+}
+@keyframes lancamento-sobe { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+/* A barra de rolagem do quadro do CRM cresce (flex 1 1 160px) numa linha; aqui, numa coluna, ficaria com 160 px de altura. */
+.rolagemQuadro:global(.barra-rolagem-externa) { flex: none; align-self: center; width: min(380px, 100%); height: 20px; max-width: none; }

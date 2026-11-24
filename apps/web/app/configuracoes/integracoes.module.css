@@ -1,0 +1,259 @@
+.catalogo {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
+  /* Todas as linhas com a mesma altura: o cartão é sempre do mesmo tamanho. */
+  grid-auto-rows: 1fr;
+  gap: 16px;
+  align-items: stretch;
+  font-family: var(--font-general-sans), sans-serif;
+}
+
+.cartao {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+  padding: 20px;
+  border: 1px solid var(--ui-divider);
+  border-radius: 16px;
+  background: var(--ui-surface);
+  box-shadow: 0 1px 2px #0a192f0f;
+}
+
+.topo {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 0;
+}
+
+.marca {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: var(--ui-subtle);
+  color: var(--ui-primary);
+}
+
+.titulo {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.titulo h3 {
+  margin: 0;
+  color: var(--ui-text);
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.3;
+}
+
+.titulo p {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  color: var(--ui-muted);
+  font-size: 12.5px;
+  line-height: 1.45;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.detalhes {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--ui-subtle);
+}
+
+.detalhes div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+  font-size: 12.5px;
+}
+
+.detalhes dt {
+  flex-shrink: 0;
+  color: var(--ui-muted);
+}
+
+.detalhes dd {
+  margin: 0;
+  min-width: 0;
+  color: var(--ui-text);
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.formulario {
+  display: grid;
+  gap: 14px;
+}
+
+.nota {
+  margin: 0;
+  color: var(--ui-muted);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.cadastro {
+  display: grid;
+  gap: 8px;
+}
+
+.copiavel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.codigo {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--ui-subtle);
+  color: var(--ui-text);
+  font-size: 12px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+
+.contas {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.conta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+  min-width: 0;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--ui-subtle);
+}
+
+.contaInfo {
+  display: grid;
+  flex: 1 1 220px;
+  gap: 4px;
+  min-width: 0;
+}
+
+.contaAcoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.contaTopo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--ui-text);
+  font-size: 13.5px;
+}
+
+/* Sem peso declarado, o <strong> sai em 700; o teto do projeto é 500. */
+.contaTopo strong,
+.nota strong {
+  font-weight: 500;
+  color: var(--ui-text);
+}
+
+/* O motivo do bloqueio da conexão (OMIE): a única cor de situação da linha. */
+.notaErro {
+  color: var(--ui-danger);
+}
+
+/* A empresa que o OMIE devolveu no teste, em destaque antes de confirmar. */
+.confirmacao {
+  display: grid;
+  gap: 2px;
+  margin-top: 4px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--ui-primary) 35%, transparent);
+  border-radius: 10px;
+  background: var(--ui-surface);
+  color: var(--ui-text);
+  font-size: 13px;
+}
+
+.confirmacao strong {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+/* Ação de texto dentro de uma nota (ex.: "Preencher" o CNPJ do cadastro). */
+.link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ui-primary);
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.link:hover {
+  text-decoration: underline;
+}
+
+.link:focus-visible {
+  outline: 2px solid var(--ui-primary);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* O botão que acompanha um aviso (ex.: mover a conta antiga do OMIE). */
+.acaoDoAviso {
+  display: flex;
+  margin-top: 8px;
+}
+
+.resumo {
+  flex: 1;
+  margin: 0;
+  padding: 10px 12px;
+  overflow: hidden;
+  border-radius: 10px;
+  background: var(--ui-subtle);
+  color: var(--ui-text);
+  font-size: 12.5px;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.resumoErro {
+  background: color-mix(in srgb, var(--ui-danger) 8%, var(--ui-surface));
+  color: var(--ui-danger);
+  white-space: normal;
+}
+

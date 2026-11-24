@@ -56,6 +56,19 @@ async function abrirGrupo(
 }
 
 test.describe("Plugga shell — smoke", () => {
+  test("mostra a meta acima do perfil e a esconde ao recolher a barra", async ({ page }) => {
+    await page.goto("/");
+
+    const meta = page.getByRole("region", { name: "Meta trimestral" });
+    const perfil = page.locator(".sidebar-user");
+    await expect(page.locator(".sidebar-goal + .sidebar-user")).toBeVisible();
+    await expect(meta).toBeVisible();
+
+    await page.getByTitle("Recolher barra lateral", { exact: true }).click();
+    await expect(meta).toBeHidden();
+    await expect(perfil).toBeVisible();
+  });
+
   test("renders skip-link, brand lockup and the unified department tree", async ({ page }) => {
     await page.goto("/");
 
@@ -88,7 +101,6 @@ test.describe("Plugga shell — smoke", () => {
       "Financeiro",
       "Suprimentos",
       "Engenharia e Obras",
-      "Marketing",
     ]);
     // Ferramentas fecha a barra, com Configurações por último; Atividades fica fora.
     await expect(page.locator(".sidebar-nav .nav-group--ferramentas .nav-item")).toHaveText([
@@ -248,11 +260,10 @@ test.describe("Navegação única", () => {
 });
 
 test.describe("Mapa da estrutura", () => {
-  test("lista os departamentos da barra lateral", async ({ page }) => {
+  test("Admin não abre a tela técnica de estrutura por URL direta", async ({ page }) => {
     await page.goto("/estrutura");
-    for (const departamento of DEPARTAMENTOS) {
-      await expect(page.getByRole("heading", { name: departamento.label, exact: true })).toBeVisible();
-    }
+    await expect(page).toHaveURL("/");
+    await expect(page.getByRole("heading", { name: "Departamento → Processo", exact: true })).toHaveCount(0);
   });
 
   test("Compras é de Suprimentos, e sai do Financeiro", () => {

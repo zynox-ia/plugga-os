@@ -4,18 +4,21 @@ import { SkipThrottle, Throttle, ThrottlerGuard } from "@nestjs/throttler";
 import type { CookieOptions, Request, Response } from "express";
 import {
   acceptInviteRequestSchema,
+  changePasswordRequestSchema,
   googleCallbackSchema,
   loginRequestSchema,
+  REMEMBERED_SESSION_TTL_SECONDS,
   resetConfirmRequestSchema,
   resetRequestSchema,
   type AcceptInviteRequest,
   type AuthAcknowledgement,
+  type ChangePasswordRequest,
   type GoogleCallback,
   type LoginRequest,
+  type LoginResponse,
   type MeResponse,
   type ResetConfirmRequest,
   type ResetRequest,
-  type SessionUser,
 } from "@plugga/shared";
 
 import { Authenticated, Public } from "../core/auth/access.decorators";
@@ -27,6 +30,7 @@ import { SESSION_COOKIE_NAME } from "../core/auth/token.util";
 import { AuthService } from "./auth.service";
 import { GoogleAuthService } from "./google-auth.service";
 import { OriginCheckGuard } from "../core/auth/origin-check.guard";
+import { MFA_PENDING_COOKIE, MFA_WINDOW_MS, type MfaLoginResult } from "./mfa.service";
 
 /** Teto de proteção do servidor (não é limite de tentativas): ver `login`. */
 const LIMITE_LOGIN_POR_MINUTO_E_ORIGEM = 120;
@@ -62,13 +66,12 @@ export class AuthController {
     @Body(new ZodValidationPipe(loginRequestSchema)) input: LoginRequest,
     @Req() request: Request,
     @Res({ passthrough: true }) response: Response,
-  ): Promise<{ user: SessionUser }> {
-    const { token, user } = await this.service.login(input, {
+  ): Promise<LoginResponse> {
+    const result = await this.service.login(input, {
       ip: request.ip,
       userAgent: request.headers["user-agent"],
     });
-    response.cookie(SESSION_COOKIE_NAME, token, this.cookieOptions());
-    return { user };
+    return this.loginResponse(result, response, input.rememberMe ?? false);
   }
 
   /**
@@ -91,8 +94,8 @@ export class AuthController {
     @Body(new ZodValidationPipe(googleCallbackSchema)) input: GoogleCallback,
     @Req() request: Request,
     @Res({ passthrough: true }) response: Response,
-  ): Promise<{ user: SessionUser }> {
-    const { token, user } = await this.googleAuth.login(
+  ): Promise<LoginResponse> {
+    const result = await this.googleAuth.login(
       {
         credential: input.credential,
         csrfFromBody: input.g_csrf_token,
@@ -101,10 +104,9 @@ export class AuthController {
         // comparação com o corpo é o que a torna útil.
         csrfFromCookie: request.cookies?.[GOOGLE_CSRF_COOKIE] as string | undefined,
       },
-      { ip: request.ip, userAgent: request.headers["user-agent"] },
+      { ip: request.ip, userAgent: request.headers["user-agent"], rememberMe: input.state === "remember" },
     );
-    response.cookie(SESSION_COOKIE_NAME, token, this.cookieOptions());
-    return { user };
+    return this.loginResponse(result, response, input.state === "remember");
   }
 
   // Every navigation goes through the web app's session-gating middleware,
@@ -135,6 +137,20 @@ export class AuthController {
     const result = await this.service.logout(rawToken, principal);
     response.clearCookie(SESSION_COOKIE_NAME, this.clearCookieOptions());
     return result;
+  }
+
+  @Authenticated()
+  @Post("password")
+  @HttpCode(200)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @UseGuards(SessionAuthGuard, OriginCheckGuard, ThrottlerGuard)
+  changePassword(
+    @CurrentPrincipal() principal: AuthPrincipal,
+    @Req() request: Request,
+    @Body(new ZodValidationPipe(changePasswordRequestSchema)) input: ChangePasswordRequest,
+  ): Promise<AuthAcknowledgement> {
+    const rawToken = request.signedCookies?.[SESSION_COOKIE_NAME] as string | undefined;
+    return this.service.changePassword(principal, rawToken, input, { ip: request.ip });
   }
 
   @Public()
@@ -170,12 +186,23 @@ export class AuthController {
     return this.service.confirmReset(input);
   }
 
-  private cookieOptions(): CookieOptions {
-    const absoluteHours = this.config.get<number>("SESSION_ABSOLUTE_TTL_HOURS", 720);
+  private cookieOptions(rememberMe: boolean): CookieOptions {
     return {
       ...this.clearCookieOptions(),
-      maxAge: absoluteHours * 3_600_000,
+      ...(rememberMe ? { maxAge: REMEMBERED_SESSION_TTL_SECONDS * 1_000 } : {}),
     };
+  }
+
+  private loginResponse(result: MfaLoginResult, response: Response, rememberMe: boolean): LoginResponse {
+    response.setHeader("Cache-Control", "no-store");
+    if ("requiresMfa" in result) {
+      response.cookie(MFA_PENDING_COOKIE, result.pendingToken, { ...this.clearCookieOptions(), maxAge: MFA_WINDOW_MS });
+      response.clearCookie(SESSION_COOKIE_NAME, this.clearCookieOptions());
+      return { requiresMfa: true };
+    }
+    response.cookie(SESSION_COOKIE_NAME, result.token, this.cookieOptions(rememberMe));
+    response.clearCookie(MFA_PENDING_COOKIE, this.clearCookieOptions());
+    return { user: result.user };
   }
 
   private clearCookieOptions(): CookieOptions {

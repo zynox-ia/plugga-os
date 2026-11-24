@@ -5,32 +5,96 @@
 # Roda **na VPS**, dentro de /opt/plugga-os, depois que o código novo já foi
 # copiado para lá. Faz os seis passos na ordem que importa:
 #
+#   0. confere os três logins do banco (nada é tocado se faltar algo)
 #   1. backup do banco
 #   2. guarda a imagem atual, para poder voltar
 #   3. constrói as imagens novas
-#   4. pausa escritores, faz backup final e migra o banco
+#   4. pausa escritores, faz backup final, migra o banco, configura os papéis
+#      e confere os três pools com o validador da API
 #   5. sobe api e web
-#   6. teste de fumaça — e volta atrás se falhar
+#   6. teste de fumaça — e volta atrás se falhar (salvo se esta publicação
+#      aplicou o RLS: aí para e avisa, ver falha_publicacao)
 #
 # A ordem do 4 antes do 5 é a razão de este script existir. Em 2026-08-09 a
 # migração foi aplicada de manhã e o aplicativo só à noite: o banco ficou com o
 # esquema novo e o programa procurando uma tabela que não existia mais. Duas
 # horas sem login, porque eram dois atos separados que dependiam de alguém
 # lembrar da ordem. Aqui são um só.
+#
+# Antes de tudo (passo 0) confere os três logins do banco da aplicação: sem eles,
+# a versão com RLS não sobe, e descobrir isso depois de parar a aplicação e migrar
+# é tarde. `deploy.sh --so-conferir` roda só esse passo e não toca em nada: é o
+# ensaio sem risco, para rodar na VPS antes de aprovar a publicação.
 set -Eeuo pipefail
 
-# Uma publicação por vez: antes de qualquer passo, inclusive o backup.
+SO_CONFERIR=0
+case "${1:-}" in
+  "") ;;
+  --so-conferir) SO_CONFERIR=1 ;;
+  *) printf 'uso: %s [--so-conferir]\n' "$0" >&2; exit 2 ;;
+esac
+
+DIR_OPS=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 # shellcheck disable=SC1091
-. "$(dirname "${BASH_SOURCE[0]}")/lib-trava.sh"
-adquire_trava_de_deploy || exit 1
+. "${DIR_OPS}/lib-papeis.sh"
+
+# Uma publicação por vez: antes de qualquer passo, inclusive o backup. Conferir
+# não publica nada e pode rodar ao lado de uma publicação.
+if [ "$SO_CONFERIR" -eq 0 ]; then
+  # shellcheck disable=SC1091
+  . "${DIR_OPS}/lib-trava.sh"
+  adquire_trava_de_deploy || exit 1
+fi
 
 cd /opt/plugga-os
 
 SITE=${SITE_URL:-https://os.plugga.app.br}
 BANCO=plugga_os
+CONTEINER_BANCO=plugga-os-postgres-1
+# A migração que liga o RLS: depois dela, a versão anterior do programa não funciona
+# sobre este banco (ver falha_publicacao).
+MIGRACAO_DO_ISOLAMENTO=20261106010000_isolamento_rls
 
 registro() { printf '\n\033[1m▸ %s\033[0m\n' "$*"; }
 falhou() { printf '\n\033[31m✗ %s\033[0m\n' "$*" >&2; }
+
+# Como dono, pelo socket do contêiner: sem senha na linha de comando.
+psql_como_dono() {
+  docker exec -i "$CONTEINER_BANCO" psql -U "$BANCO" -d "$BANCO" -X -A -t -q -v ON_ERROR_STOP=1 "$@"
+}
+# Conecta como o login, com a senha no stdin, pelo IP de rede do contêiner: é o
+# caminho da API (o host `postgres`), que exige a senha (scram-sha-256). O
+# 127.0.0.1 não serve: a imagem oficial confia no loopback e aceitaria qualquer senha.
+conecta_como() {
+  docker exec -i "$CONTEINER_BANCO" sh -c \
+    'IFS= read -r PGPASSWORD; export PGPASSWORD; exec psql -h "$(hostname -i | cut -d" " -f1)" -U "$1" -d "$2" -X -A -t -q -c "SELECT 1"' \
+    _ "$1" "$BANCO"
+}
+
+# ------------------------------------------------- 0. os logins da aplicação
+registro "0/6 · conferindo os três logins do banco da aplicação"
+if ! docker exec "$CONTEINER_BANCO" pg_isready -U "$BANCO" -d "$BANCO" >/dev/null 2>&1; then
+  falhou "o banco (${CONTEINER_BANCO}) não está respondendo; nada foi alterado"
+  exit 1
+fi
+if ! confere_logins_do_banco /opt/plugga-os/.env "$BANCO"; then
+  falhou "os logins do banco não estão prontos para esta versão; nada foi alterado. Veja ops/GUIA.md, \"Publicar em produção\"."
+  exit 1
+fi
+# O banco já tem o RLS? Lido aqui, antes de parar qualquer coisa: na publicação que o
+# liga, uma falha depois de parar a aplicação não pode religar a versão anterior (ver
+# reversao_bloqueada). Sem a resposta, não dá para decidir isso: para aqui.
+if ! ISOLAMENTO_ANTES=$(psql_como_dono -c "$(sql_isolamento_aplicado)") || ! [[ $ISOLAMENTO_ANTES =~ ^[01]$ ]]; then
+  falhou "não foi possível ler as migrations do banco; nada foi alterado"
+  exit 1
+fi
+if [ "$ISOLAMENTO_ANTES" = "0" ]; then
+  echo "  esta publicação liga o isolamento por RLS: se falhar depois de parar a aplicação, ela fica parada e o script avisa"
+fi
+if [ "$SO_CONFERIR" -eq 1 ]; then
+  registro "conferência ok: os três logins estão prontos; nada foi alterado"
+  exit 0
+fi
 
 # ---------------------------------------------------------------- 1. backup
 registro "1/6 · backup do banco"
@@ -126,6 +190,23 @@ reativa_versao_anterior() {
 falha_publicacao() {
   local codigo=$1
   trap - ERR
+  if reversao_bloqueada; then
+    falhou "A publicação que liga o isolamento por RLS (${MIGRACAO_DO_ISOLAMENTO}) falhou."
+    falhou "A versão anterior NÃO foi reativada: o .env já aponta os três logins novos, que ela não sabe usar. api e web ficam paradas."
+    docker compose stop api web || true
+    # Três estados: migrado (0), não migrado (1) e sem resposta do banco (2). Sem resposta,
+    # não há como escolher a saída: dizer "não migrou" mandaria subir a versão antiga
+    # sobre um banco talvez já migrado.
+    local estado=0
+    banco_ja_migrado_para_rls || estado=$?
+    case "$estado" in
+      0) falhou "O banco JÁ recebeu o RLS. Saídas: corrigir e publicar de novo; ou restaurar o backup final (${BACKUP_FINAL:-ver /root/backup-plugga.sh}), o .env.antes-rls e as imagens anteriores." ;;
+      1) falhou "O banco ainda NÃO recebeu o RLS. Saídas: corrigir e publicar de novo; ou voltar o .env.antes-rls e as imagens anteriores, sem restaurar o banco." ;;
+      *) falhou "Não foi possível saber se o banco recebeu o RLS: confira a _prisma_migrations (comando no GUIA) antes de escolher a saída. O backup final é ${BACKUP_FINAL:-o mais recente do backup-plugga.sh}." ;;
+    esac
+    falhou "Passo a passo em ops/GUIA.md, \"Primeira publicação com os três logins do banco\". Intervenção do André necessária."
+    exit "$codigo"
+  fi
   falhou "A publicação falhou; tentando reativar a aplicação sem alterar banco ou armazenamento."
   if ! reativa_versao_anterior; then
     falhou "Recuperação automática incompleta; intervenção do André necessária. O banco não foi restaurado."
@@ -138,7 +219,10 @@ falha_publicacao() {
 trap 'falha_publicacao "$?"' ERR
 registro "4/6 · parando api/web e fazendo o backup final"
 docker compose stop api web
-/root/backup-plugga.sh
+SAIDA_BACKUP=$(/root/backup-plugga.sh)
+printf '%s\n' "$SAIDA_BACKUP"
+# "backup ok: diario/<nome> (...)": o destino é a saída se a publicação falhar depois.
+BACKUP_FINAL=$(printf '%s\n' "$SAIDA_BACKUP" | sed -n 's/^backup ok: \([^ ]*\).*/\1/p' | tail -1)
 
 # Dentro da rede do compose o host do banco é "postgres", que a trava do
 # run-local-prisma aceita.
@@ -149,8 +233,18 @@ docker compose run --rm --no-deps \
   -e DATABASE_URL="postgresql://${BANCO}:${SENHA_ENC}@postgres:5432/${BANCO}?schema=public" \
   api pnpm db:migrate:deploy
 
+# Cada login ganha o grupo do seu pool (a migração criou os grupos). O script valida
+# os três antes de conceder e pode rodar de novo sem mudar nada.
+registro "4/6 · configurando os papéis da aplicação"
+configura_papeis_da_aplicacao ops/configurar-papeis-aplicacao.sql
+
 # Confere os grants do papel da aplicação antes de aceitar tráfego novo.
 docker compose run --rm --no-deps -T api node --input-type=module - --verificar-permissoes-crm < ops/verificar-permissoes-crm.mjs
+
+# O mesmo validador que a API roda no boot, para os três pools: se reprovar aqui, a
+# aplicação reprovaria ao subir. Melhor parar com ela parada e uma mensagem clara.
+registro "4/6 · conferindo os três pools com o validador da API"
+docker compose run --rm --no-deps -T api node --input-type=module - < ops/verificar-pools-do-banco.mjs
 
 # ------------------------------------------------------------------ 5. subir
 # Sem nomear serviço: agora que o compose.yaml é sincronizado do repositório,

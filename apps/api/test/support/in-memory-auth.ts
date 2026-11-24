@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import { hash as argon2Hash } from "@node-rs/argon2";
 import type { Acesso } from "@plugga/shared";
+import type { MfaFactor, MfaPending } from "../../src/auth/mfa.repository";
 
 import { argon2Options } from "../../src/auth/argon2-options";
 import { EstadoInvalido } from "../../src/common/errors/dominio";
@@ -40,12 +41,16 @@ export interface StoredUser {
   createdAt: Date;
   /** Acesso no modelo de 4 papéis, como o banco teria. */
   acesso: Acesso;
+  tipo?: "pessoa" | "agente_ia";
 }
 
 interface StoredSession {
   userId: string;
   expiresAt: Date;
   absoluteExpiresAt: Date;
+  createdAt: Date;
+  mfaVerifiedAt?: Date | null;
+  mfaRevision?: number | null;
 }
 
 interface StoredToken {
@@ -63,6 +68,8 @@ export function acessoVazio(): Acesso {
 }
 
 export class InMemoryStore {
+  readonly mfaFactors = new Map<string, MfaFactor>();
+  readonly mfaChallenges = new Map<string, MfaPending>();
   readonly users = new Map<string, StoredUser>();
   readonly credentials = new Map<string, string>();
   readonly sessions = new Map<string, StoredSession>();
@@ -80,6 +87,7 @@ export class InMemoryStore {
   }
 
   clear(): void {
+    this.mfaFactors.clear(); this.mfaChallenges.clear();
     this.users.clear();
     this.credentials.clear();
     this.sessions.clear();
@@ -94,6 +102,7 @@ export class InMemoryStore {
     password?: string;
     status?: string;
     acesso?: Acesso;
+    tipo?: "pessoa" | "agente_ia";
   }): Promise<StoredUser> {
     const user: StoredUser = {
       id: randomUUID(),
@@ -102,6 +111,7 @@ export class InMemoryStore {
       status: input.status ?? "active",
       createdAt: new Date(),
       acesso: input.acesso ?? acessoVazio(),
+      ...(input.tipo ? { tipo: input.tipo } : {}),
     };
     this.users.set(user.id, user);
     if (input.password) {
@@ -124,6 +134,7 @@ export class InMemoryAuthRepository extends AuthRepository {
       status: user.status,
       createdAt: user.createdAt,
       acesso: user.acesso,
+      ...(user.tipo ? { tipo: user.tipo } : {}),
     };
   }
 
@@ -146,11 +157,19 @@ export class InMemoryAuthRepository extends AuthRepository {
       userId: data.userId,
       expiresAt: data.expiresAt,
       absoluteExpiresAt: data.absoluteExpiresAt,
+      createdAt: new Date(),
     });
   }
 
   async deleteSessionByTokenHash(tokenHash: string): Promise<void> {
     this.store.sessions.delete(tokenHash);
+  }
+
+  async changePassword(userId: string, passwordHash: string, keepTokenHash: string): Promise<void> {
+    this.store.credentials.set(userId, passwordHash);
+    for (const [hash, session] of this.store.sessions) {
+      if (session.userId === userId && hash !== keepTokenHash) this.store.sessions.delete(hash);
+    }
   }
 
   async deleteSessionsForUser(userId: string): Promise<void> {
@@ -217,6 +236,9 @@ export class InMemoryAuthRepository extends AuthRepository {
     }
     if (options.revokeSessions) {
       await this.deleteSessionsForUser(userId);
+      for (const [hash, pending] of this.store.mfaChallenges) if (pending.userId === userId) this.store.mfaChallenges.delete(hash);
+      const factor = this.store.mfaFactors.get(userId);
+      if (factor) { factor.revision += 1; factor.pendingSecret = null; factor.pendingExpiresAt = null; factor.pendingSessionHash = null; }
     }
   }
 
@@ -319,6 +341,8 @@ export class InMemoryAuthRepository extends AuthRepository {
     if (anterior?.status === "removed") {
       this.store.users.delete(anterior.id);
       this.store.credentials.delete(anterior.id);
+      this.store.mfaFactors.delete(anterior.id);
+      for (const [hash, pending] of this.store.mfaChallenges) if (pending.userId === anterior.id) this.store.mfaChallenges.delete(hash);
       for (const [key, token] of this.store.tokens) if (token.userId === anterior.id) this.store.tokens.delete(key);
       for (const [key, identity] of this.store.identities) if (identity.userId === anterior.id) this.store.identities.delete(key);
       await this.deleteSessionsForUser(anterior.id);

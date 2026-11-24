@@ -2,6 +2,9 @@ import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
 import type { Deal, DealHistoryEntry, Pipeline, PipelinePeopleResponse } from "@plugga/shared";
 
+// IP sintético próprio: as criações pela API não dividem o balde de throttle com a suíte paralela (429 na CI 45233111029).
+test.use({ extraHTTPHeaders: { "x-forwarded-for": "203.0.113.245" } });
+
 let pipeline: Pipeline;
 let negocio: Deal;
 const notas = "Cliente solicitou uma proposta para reduzir os custos de energia. Retomar contato após a análise das faturas.";
@@ -44,15 +47,16 @@ test("histórico agrupa atividades, pagina sem duplicar e mantém o topo fixo em
   await page.route(`**/api/leads/${negocio.id}/historico?**`, (route) => route.fulfill({ json: route.request().url().includes("cursor=") ? { entries: [entradas[29], anterior], nextCursor: null } : { entries: entradas, nextCursor: cursor } }));
   await page.goto(`/comercial/pipelines?pipeline=${pipeline.id}&lead=${negocio.id}`);
   const modal = page.getByRole("dialog", { name: "Detalhes do lead", exact: true });
-  await expect(modal.getByRole("heading", { name: "Próxima ação", exact: true })).toBeVisible();
-  const topo = [modal.locator("header").first(), modal.locator('[class*="proximaAcaoSuperior"]'), modal.getByRole("tablist")];
+  await expect(modal.getByRole("heading", { name: "Próximo passo", exact: true })).toBeVisible();
+  const topo = [modal.locator("header").first(), modal.getByRole("tablist")];
   const posicoes = await Promise.all(topo.map((elemento) => elemento.boundingBox()));
   for (const nome of ["Histórico", "Propostas", "Documentos", "Perfil", "Oportunidade", "Visão geral"]) {
     await modal.getByRole("tab", { name: nome, exact: true }).click();
-    await expect(modal.getByRole("heading", { name: "Próxima ação", exact: true })).toBeVisible();
+    await expect(modal.getByRole("heading", { name: nome === "Visão geral" ? "Próximo passo" : "Próxima ação", exact: true })).toBeVisible();
     expect(await Promise.all(topo.map((elemento) => elemento.boundingBox()))).toEqual(posicoes);
   }
   await modal.getByRole("tab", { name: "Histórico", exact: true }).click();
+  topo.push(modal.locator('[class*="proximaAcaoSuperior"]'));
   const historico = modal.getByRole("region", { name: "Histórico do lead", exact: true });
   await expect(historico.getByText(notas, { exact: true })).toBeVisible();
   await expect(historico.getByRole("heading", { name: "2 de novembro de 2025", exact: true })).toBeVisible();

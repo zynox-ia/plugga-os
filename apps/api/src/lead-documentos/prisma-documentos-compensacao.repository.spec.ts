@@ -11,6 +11,10 @@ const principal: AuthPrincipal = { id: "user", kind: "user", acesso: { plataform
 
 function setup() {
   const prisma = new PrismaService();
+  vi.spyOn(prisma, "comContexto").mockImplementation(async (callback: unknown) => {
+    if (typeof callback !== "function") throw new Error("Callback de contexto esperado.");
+    return callback(prisma);
+  });
   const storage = new ArmazenamentoDeDocumentos(new ConfigService());
   const mark = vi.spyOn(prisma.leadDocument, "updateMany").mockResolvedValue({ count: 1 });
   const read = vi.spyOn(prisma.leadDocument, "findMany").mockResolvedValue([{ id: "doc", storageKey: "chave" }] as never);

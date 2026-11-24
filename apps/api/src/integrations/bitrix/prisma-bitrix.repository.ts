@@ -2,7 +2,7 @@ import { Inject, Injectable } from "@nestjs/common";
 import type { Prisma } from "@prisma/client";
 import type { IntegrationMode } from "@plugga/shared";
 
-import { PrismaService } from "../../prisma/prisma.service";
+import { PrismaJobsService } from "../../prisma/prisma-jobs.service";
 import { BITRIX_INTEGRATION_KEY } from "./bitrix.constants";
 import {
   BitrixRepository,
@@ -13,7 +13,7 @@ import {
 
 @Injectable()
 export class PrismaBitrixRepository extends BitrixRepository {
-  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {
+  constructor(@Inject(PrismaJobsService) private readonly prisma: PrismaJobsService) {
     super();
   }
 

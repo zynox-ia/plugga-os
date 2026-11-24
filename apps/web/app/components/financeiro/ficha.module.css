@@ -1,0 +1,75 @@
+/* Ficha do lançamento: o que não vem da ficha do pedido de compra nem do resumo do lead. */
+
+/* O histórico do lead só dá cor ao nome; sem isto o navegador põe 700. Teto do projeto: 500. */
+.linhaDoTempo strong { font-weight: 500; }
+
+/* A faixa do estado no OMIE (discreta; só o erro ganha cor). */
+.faixaOmie { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border: 1px solid var(--ui-divider); border-radius: var(--radius-lg); font-size: 13px; color: var(--ui-text); background: color-mix(in srgb, var(--ui-surface) 80%, transparent); }
+.faixaOmie > svg { flex: none; color: var(--ui-muted); }
+.faixaOmie > span { flex: 1; min-width: 0; }
+.faixaPerigo { border-color: color-mix(in srgb, var(--ui-danger) 35%, transparent); }
+.faixaPerigo > svg { color: var(--ui-danger); }
+.linkOmie { flex: none; padding: 0; border: 0; background: none; font: inherit; font-size: 13px; font-weight: 500; color: var(--ui-primary); cursor: pointer; }
+.linkOmie:hover { text-decoration: underline; }
+.linkOmie:focus-visible { outline: 2px solid var(--ui-primary); outline-offset: 3px; border-radius: 4px; }
+
+/* As ações da etapa ficam fixas no fim do modal, visíveis desde a abertura,
+   enquanto a visão geral rola por baixo. Quem rola é o conteúdo da ficha, com
+   padding de 24 px (16 px no celular): o sticky respeita esse padding, então o
+   `bottom` e as margens negativas o compensam para o rodapé encostar no fim.
+   Andam junto com o padding do `.conteudo` de pipelines/detalhes-do-lead-modal.module.css:
+   se ele mudar, mude aqui. */
+.rodapeFixo {
+  position: sticky;
+  bottom: calc(-1 * var(--space-lg));
+  z-index: 2;
+  margin: 0 calc(-1 * var(--space-lg));
+  padding: 12px var(--space-lg);
+  border-top: 1px solid var(--ui-divider);
+  background: color-mix(in srgb, var(--ui-surface) 94%, transparent);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+@media (max-width: 768px) {
+  .rodapeFixo { bottom: -16px; margin: 0 -16px; padding: 12px 16px; }
+}
+
+/* Aba Anexos: cada anexo atual com as versões que ele substituiu (nada se apaga). */
+.anexos { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.anexos > li { display: grid; gap: 10px; padding: 12px 14px; border: 1px solid var(--ui-divider); border-radius: var(--radius-lg); background: var(--ui-surface); }
+.anexoLinha { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.anexoLinha > svg { flex: none; color: var(--ui-muted); }
+.anexoTexto { display: grid; flex: 1; gap: 2px; min-width: 0; margin: 0; font-size: 13px; }
+.anexoTexto strong { font-weight: 500; color: var(--ui-text); overflow-wrap: anywhere; }
+.anexoTexto small { font-size: 12px; color: var(--ui-muted); overflow-wrap: anywhere; }
+.anexoAcoes { display: flex; flex: none; gap: 6px; }
+.versoes { display: grid; gap: 6px; padding-top: 10px; border-top: 1px dashed var(--ui-divider); }
+.versoesTitulo { font-size: 12px; font-weight: 500; color: var(--ui-muted); }
+.versoes ol { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.versoes li { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--ui-muted); }
+.versoes li > svg { flex: none; }
+.versoes li > span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.notaDosAnexos { display: flex; align-items: flex-start; gap: 8px; margin: 0; font-size: 12.5px; color: var(--ui-muted); }
+.notaDosAnexos > svg { flex: none; margin-top: 2px; }
+@media (max-width: 560px) {
+  .anexoLinha { flex-wrap: wrap; }
+  .anexoAcoes { width: 100%; justify-content: flex-end; }
+}
+/* "Baixar" é um link com cara de botão: sem o sublinhado global de `a`. */
+.anexos a:global(.ui-button) { text-decoration: none; }
+
+/* Os campos do bloco da etapa (pagamento, boleto, envio, cobrança), enviados pelo botão do rodapé. */
+.formDaEtapa { display: grid; gap: 12px; min-width: 0; margin-top: 4px; }
+.camposDaEtapa { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; align-items: start; min-width: 0; }
+.campoDoArquivo { display: grid; gap: 8px; min-width: 0; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px 14px; }
+.cobrancas { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.cobrancas li { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; border: 1px solid var(--ui-divider); border-radius: var(--radius-lg); background: var(--ui-surface); font-size: 13px; }
+.cobrancas li > svg { flex: none; margin-top: 2px; color: var(--ui-muted); }
+.cobrancas li > span { display: grid; gap: 2px; min-width: 0; }
+.cobrancas strong { font-weight: 500; }
+.cobrancas small { font-size: 12px; color: var(--ui-muted); overflow-wrap: anywhere; }
+
+/* Nova cobrança: as UCs do cliente que entram na cobrança (F3). */
+.ucs { display: flex; flex-wrap: wrap; gap: 8px 16px; min-width: 0; margin: 0; padding: 0; border: 0; }
+.ucs legend { margin-bottom: 8px; padding: 0; font-size: 13px; font-weight: 500; color: var(--ui-text); }

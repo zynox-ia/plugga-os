@@ -1,0 +1,215 @@
+.stack {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+  color: var(--ui-text);
+}
+
+.card {
+  container-type: inline-size;
+  align-content: start;
+}
+
+.dialog :global(.ui-dialog-title) {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.header .note {
+  grid-column: 1 / -1;
+}
+
+.header h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--ui-text);
+}
+
+.note {
+  margin: 0;
+  max-width: 75ch;
+  color: var(--ui-muted);
+  font-size: 13px;
+  line-height: var(--line-height-body, 1.5);
+  word-break: break-word;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+/* A configuração ocupa a altura do cartão: os botões ficam na base, como nos outros estados. */
+.setupRaiz {
+  flex: 1;
+  grid-template-rows: minmax(0, 1fr);
+}
+
+/* QR code à esquerda, chave e código à direita; embaixo, Cancelar à esquerda e Confirmar à direita. */
+.setup {
+  align-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(0, 200px) minmax(0, 1fr);
+  grid-template-areas:
+    "qr campos"
+    "acoes acoes";
+  align-items: start;
+  gap: 14px 16px;
+}
+
+.camposDaConfiguracao {
+  grid-area: campos;
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.acoesDaConfiguracao {
+  grid-area: acoes;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.acoesDaConfiguracao > button {
+  flex: 0 0 auto;
+}
+
+.qrContainer {
+  grid-area: qr;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: var(--ui-surface, #ffffff);
+  border: 1px solid var(--ui-divider, #dbe4ed);
+  border-radius: 12px;
+  padding: 8px;
+}
+
+.qr {
+  display: block;
+  width: 100%;
+  max-width: 184px;
+  height: auto;
+  image-rendering: pixelated;
+  border-radius: 6px;
+}
+
+.codes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: codigo;
+}
+
+.codes li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 12px 4px 10px;
+  border: 1px solid var(--ui-divider, #dbe4ed);
+  border-radius: 8px;
+  background: var(--ui-subtle, #f3f7fb);
+  counter-increment: codigo;
+}
+
+.codes li::before {
+  content: counter(codigo, decimal-leading-zero);
+  color: var(--ui-muted);
+  font: 500 11px var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace);
+}
+
+.codes code {
+  flex: 1;
+  padding: 6px 0;
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  color: var(--ui-text);
+  overflow-wrap: anywhere;
+  text-align: center;
+  user-select: all;
+}
+
+.confirmation {
+  display: grid;
+  gap: 16px;
+  border-top: 1px solid var(--ui-divider, #dbe4ed);
+  padding-top: 16px;
+}
+
+.saved {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ui-text);
+  cursor: pointer;
+}
+
+.saved input {
+  width: 18px;
+  height: 18px;
+  margin: 2px 0 0;
+  flex-shrink: 0;
+  accent-color: var(--ui-primary, #0066cc);
+  cursor: pointer;
+}
+
+.saved input:focus-visible {
+  outline: 2px solid var(--ui-primary, #0066cc);
+  outline-offset: 3px;
+}
+
+@media (max-width: 600px) {
+  .stack input:not([type="checkbox"]),
+  .stack textarea {
+    font-size: 16px;
+  }
+
+  .actions > button {
+    flex: 1 1 auto;
+  }
+}
+
+@container (max-width: 600px) {
+  .actions > button {
+    flex: 1 1 auto;
+  }
+}
+
+@container (max-width: 480px) {
+  .setup {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "qr"
+      "campos"
+      "acoes";
+  }
+}
+
+@container (max-width: 440px) {
+  .codes {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

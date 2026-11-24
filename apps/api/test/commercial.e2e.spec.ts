@@ -1,24 +1,25 @@
 import { BadRequestException, NotFoundException, type INestApplication } from "@nestjs/common";
 import { Test } from "@nestjs/testing";
-import type {
-  ContractDetail,
-  ContractList,
-  ContractListQuery,
-  ContractStatus,
-  CreateContractRequest,
-  CreateOpportunityRequest,
-  LoseOpportunityRequest,
-  OpportunityContactRequest,
-  OpportunityDetail,
-  OpportunityList,
-  OpportunityListQuery,
-  RevisitOpportunityRequest,
-  UpdateContractStatusRequest,
-  UpdateOpportunityStageRequest,
-  WinOpportunityRequest,
+import {
+  telasPorDepartamento,
+  type ContractDetail,
+  type ContractList,
+  type ContractListQuery,
+  type ContractStatus,
+  type CreateContractRequest,
+  type CreateOpportunityRequest,
+  type LoseOpportunityRequest,
+  type OpportunityContactRequest,
+  type OpportunityDetail,
+  type OpportunityList,
+  type OpportunityListQuery,
+  type RevisitOpportunityRequest,
+  type UpdateContractStatusRequest,
+  type UpdateOpportunityStageRequest,
+  type WinOpportunityRequest,
 } from "@plugga/shared";
 import request from "supertest";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { AppModule } from "../src/app.module";
 import { CommercialRepository } from "../src/commercial/commercial.repository";
@@ -29,7 +30,8 @@ import {
   assertOpportunityHasOwnerAndNextAction,
   assertOpportunityOpen,
 } from "../src/commercial/commercial.rules";
-import type { AuthPrincipal } from "../src/core/auth/auth.types";
+import { exigeAcessoATela, exigeAtribuicaoPermitida } from "../src/core/auth/escopo-registros";
+import { AuthContext, type AuthPrincipal } from "../src/core/auth/auth.types";
 
 const OWNER_ID = "00000000-0000-4000-8000-000000000201";
 const OTHER_OWNER_ID = "00000000-0000-4000-8000-000000000202";
@@ -110,7 +112,8 @@ class InMemoryCommercialRepository extends CommercialRepository {
     return contract;
   }
 
-  async listOpportunities(query: OpportunityListQuery): Promise<OpportunityList> {
+  async listOpportunities(query: OpportunityListQuery, principal: AuthPrincipal): Promise<OpportunityList> {
+    exigeAcessoATela(principal, "crm.pipelines", ...telasPorDepartamento.financeiro);
     return {
       items: [...this.opportunities.values()].filter(
         (item) =>
@@ -121,13 +124,15 @@ class InMemoryCommercialRepository extends CommercialRepository {
     };
   }
 
-  async opportunity(id: string): Promise<OpportunityDetail> {
+  async opportunity(id: string, principal: AuthPrincipal): Promise<OpportunityDetail> {
     const found = this.opportunities.get(id);
     if (!found) throw new NotFoundException("opportunity not found");
+    exigeAcessoATela(principal, "crm.pipelines", ...telasPorDepartamento.financeiro);
     return found;
   }
 
   async createOpportunity(input: CreateOpportunityRequest, principal: AuthPrincipal): Promise<OpportunityDetail> {
+    exigeAtribuicaoPermitida(principal, input.ownerId ?? principal.id, "crm");
     const id = this.nextId("opp");
     const created = this.seedOpportunity({
       id,
@@ -149,8 +154,9 @@ class InMemoryCommercialRepository extends CommercialRepository {
     input: UpdateOpportunityStageRequest,
     principal: AuthPrincipal,
   ): Promise<OpportunityDetail> {
-    const current = await this.opportunity(id);
+    const current = await this.opportunity(id, principal);
     assertOpportunityOpen(current.status);
+    if (input.ownerId !== undefined && input.ownerId !== current.ownerId) exigeAtribuicaoPermitida(principal, input.ownerId, "crm");
     const nextOwnerId = input.ownerId ?? current.ownerId;
     const nextActionAt = input.nextActionAt ?? current.nextActionAt;
     assertOpportunityHasOwnerAndNextAction(nextOwnerId, nextActionAt ? new Date(nextActionAt) : null);
@@ -171,7 +177,7 @@ class InMemoryCommercialRepository extends CommercialRepository {
     input: OpportunityContactRequest,
     principal: AuthPrincipal,
   ): Promise<OpportunityDetail> {
-    const current = await this.opportunity(id);
+    const current = await this.opportunity(id, principal);
     const contactId = this.nextId("contact");
     const updated: StoredOpportunity = {
       ...current,
@@ -186,7 +192,8 @@ class InMemoryCommercialRepository extends CommercialRepository {
   }
 
   async winOpportunity(id: string, input: WinOpportunityRequest, principal: AuthPrincipal): Promise<OpportunityDetail> {
-    const current = await this.opportunity(id);
+    exigeAcessoATela(principal, "crm.clientes");
+    const current = await this.opportunity(id, principal);
     assertOpportunityOpen(current.status);
     const clientId = input.clientId ?? this.nextId("client");
     const updated: StoredOpportunity = { ...current, status: "ganha", clientId, decidedAt: "2026-08-06T12:00:00.000Z" };
@@ -196,7 +203,7 @@ class InMemoryCommercialRepository extends CommercialRepository {
   }
 
   async loseOpportunity(id: string, input: LoseOpportunityRequest, principal: AuthPrincipal): Promise<OpportunityDetail> {
-    const current = await this.opportunity(id);
+    const current = await this.opportunity(id, principal);
     assertOpportunityOpen(current.status);
     const updated: StoredOpportunity = {
       ...current,
@@ -214,8 +221,9 @@ class InMemoryCommercialRepository extends CommercialRepository {
     input: RevisitOpportunityRequest,
     principal: AuthPrincipal,
   ): Promise<OpportunityDetail> {
-    const current = await this.opportunity(id);
+    const current = await this.opportunity(id, principal);
     assertOpportunityOpen(current.status);
+    if (input.ownerId !== undefined && input.ownerId !== current.ownerId) exigeAtribuicaoPermitida(principal, input.ownerId, "crm");
     const nextOwnerId = input.ownerId ?? current.ownerId;
     const updated: StoredOpportunity = {
       ...current,
@@ -229,7 +237,8 @@ class InMemoryCommercialRepository extends CommercialRepository {
     return updated;
   }
 
-  async listContracts(query: ContractListQuery): Promise<ContractList> {
+  async listContracts(query: ContractListQuery, principal: AuthPrincipal): Promise<ContractList> {
+    exigeAcessoATela(principal, "crm.contratos", ...telasPorDepartamento.financeiro);
     return {
       items: [...this.contracts.values()].filter(
         (item) =>
@@ -240,18 +249,20 @@ class InMemoryCommercialRepository extends CommercialRepository {
     };
   }
 
-  async contract(id: string): Promise<ContractDetail> {
+  async contract(id: string, principal: AuthPrincipal): Promise<ContractDetail> {
     const found = this.contracts.get(id);
     if (!found) throw new NotFoundException("contract not found");
+    exigeAcessoATela(principal, "crm.contratos", ...telasPorDepartamento.financeiro);
     return found;
   }
 
   async createContract(input: CreateContractRequest, principal: AuthPrincipal): Promise<ContractDetail> {
+    exigeAtribuicaoPermitida(principal, input.ownerId ?? principal.id, "crm");
     let clientId: string;
     let opportunityId: string | null = null;
 
     if (input.opportunityId) {
-      const opportunity = await this.opportunity(input.opportunityId);
+      const opportunity = await this.opportunity(input.opportunityId, principal);
       if (opportunity.status !== "ganha") {
         throw new BadRequestException("um contrato só nasce de uma oportunidade ganha");
       }
@@ -266,7 +277,7 @@ class InMemoryCommercialRepository extends CommercialRepository {
       id,
       clientId,
       opportunityId,
-      ownerId: input.ownerId ?? null,
+      ownerId: input.ownerId ?? principal.id,
       nextActionAt: input.nextActionAt ?? null,
       nextActionNote: input.nextActionNote ?? null,
     });
@@ -279,9 +290,10 @@ class InMemoryCommercialRepository extends CommercialRepository {
     input: UpdateContractStatusRequest,
     principal: AuthPrincipal,
   ): Promise<ContractDetail> {
-    const current = await this.contract(id);
+    const current = await this.contract(id, principal);
     assertContractTransitionAllowed(current.status as ContractStatus, input.status);
 
+    if (input.ownerId !== undefined && input.ownerId !== current.ownerId) exigeAtribuicaoPermitida(principal, input.ownerId, "crm");
     const nextOwnerId = input.ownerId ?? current.ownerId;
     const nextActionAt = input.nextActionAt ?? current.nextActionAt;
     const signedAt = input.signedAt ?? current.signedAt;
@@ -330,9 +342,9 @@ describe("commercial API (e2e)", () => {
   function asComercial() {
     return {
       get: (path: string) =>
-        request(app.getHttpServer()).get(path).set("x-dev-principal", "local-comercial").set("x-dev-departamentos", "crm:membro"),
+        request(app.getHttpServer()).get(path).set("x-dev-principal", OWNER_ID).set("x-dev-departamentos", "crm:gerente"),
       post: (path: string) =>
-        request(app.getHttpServer()).post(path).set("x-dev-principal", "local-comercial").set("x-dev-departamentos", "crm:membro"),
+        request(app.getHttpServer()).post(path).set("x-dev-principal", OWNER_ID).set("x-dev-departamentos", "crm:gerente"),
     };
   }
 
@@ -347,6 +359,50 @@ describe("commercial API (e2e)", () => {
 
   it("requires authentication to read opportunities", async () => {
     await request(app.getHttpServer()).get("/commercial/opportunities").expect(401);
+  });
+
+  it("Membro ve e opera os registros da tela sem ganhar atribuicao a terceiros", async () => {
+    const propriaId = "00000000-0000-4000-8000-000000000701";
+    const alheiaId = "00000000-0000-4000-8000-000000000702";
+    const contratoId = "00000000-0000-4000-8000-000000000703";
+    repository.seedOpportunity({ id: propriaId, ownerId: OWNER_ID });
+    repository.seedOpportunity({ id: alheiaId, ownerId: OTHER_OWNER_ID });
+    repository.seedContract({ id: contratoId, ownerId: OTHER_OWNER_ID });
+    const membro = (r: request.Test) => r.set("x-dev-principal", OWNER_ID).set("x-dev-departamentos", "crm:membro");
+    await membro(request(app.getHttpServer()).get(`/commercial/opportunities/${propriaId}`)).expect(200);
+    await membro(request(app.getHttpServer()).get(`/commercial/opportunities?ownerId=${OTHER_OWNER_ID}`)).expect(200).expect((res) => expect(res.body.items.map((item: { id: string }) => item.id)).toContain(alheiaId));
+    await membro(request(app.getHttpServer()).get(`/commercial/contracts?ownerId=${OTHER_OWNER_ID}`)).expect(200).expect((res) => expect(res.body.items.map((item: { id: string }) => item.id)).toContain(contratoId));
+    await membro(request(app.getHttpServer()).get(`/commercial/opportunities/${alheiaId}`)).expect(200);
+    await membro(request(app.getHttpServer()).get(`/commercial/contracts/${contratoId}`)).expect(200);
+    for (const [acao, body] of [
+      ["stage", { stage: "decisao" }],
+      ["contacts", { channel: "phone", outcome: "connected" }],
+      ["win", { clientId: CLIENT_ID }],
+      ["lose", { lossReason: "Teste" }],
+      ["revisit", { nextActionAt: "2026-12-01T12:00:00.000Z", nextActionNote: "Retomar" }],
+    ] as const) {
+      repository.seedOpportunity({ id: alheiaId, ownerId: OTHER_OWNER_ID });
+      await membro(request(app.getHttpServer()).post(`/commercial/opportunities/${alheiaId}/${acao}`)).send(body).expect(200);
+    }
+    await membro(request(app.getHttpServer()).post(`/commercial/contracts/${contratoId}/status`)).send({ status: "revisao_interna", nextActionAt: "2026-12-01T12:00:00.000Z" }).expect(200);
+    await membro(request(app.getHttpServer()).post(`/commercial/opportunities/${propriaId}/stage`)).send({ stage: "decisao", ownerId: OTHER_OWNER_ID }).expect(403);
+    await membro(request(app.getHttpServer()).post("/commercial/opportunities")).send({ title: "Teste", product: "OPM", ownerId: OTHER_OWNER_ID, nextActionAt: "2026-12-01T12:00:00.000Z" }).expect(403);
+    expect(repository.events.some((event) => event.entityId === alheiaId)).toBe(true);
+  });
+
+  it("Pipelines nao concede Contratos nem acesso manual ao cadastro do cliente", async () => {
+    const id = "00000000-0000-4000-8000-000000000704";
+    repository.seedOpportunity({ id, ownerId: OTHER_OWNER_ID });
+    const resolver = vi.spyOn(app.get<AuthContext>(AuthContext), "resolve").mockResolvedValue({
+      id: OWNER_ID, kind: "user", acesso: { plataforma: null, departamentos: [{ departamento: "crm", nivel: "membro", telas: ["crm.pipelines"] }] },
+    });
+    try {
+      await request(app.getHttpServer()).get(`/commercial/opportunities/${id}`).expect(200);
+      await request(app.getHttpServer()).get("/commercial/contracts").expect(403);
+      await request(app.getHttpServer()).post(`/commercial/opportunities/${id}/win`).send({ clientId: CLIENT_ID }).expect(403);
+    } finally {
+      resolver.mockRestore();
+    }
   });
 
   it("allows a broad read role to list opportunities but not mutate them", async () => {

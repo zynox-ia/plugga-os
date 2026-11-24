@@ -14,7 +14,7 @@ export class PrismaSegredoRepository extends SegredoRepository {
   }
 
   async buscar(chave: string): Promise<SegredoGuardado | null> {
-    const linha = await this.prisma.segredoDoSistema.findUnique({ where: { chave } });
+    const linha = await this.prisma.comContexto((tx) => tx.segredoDoSistema.findUnique({ where: { chave } }));
     if (!linha) return null;
 
     return {
@@ -27,19 +27,25 @@ export class PrismaSegredoRepository extends SegredoRepository {
     };
   }
 
+  override async buscarChaveDaFatura(): Promise<Pick<SegredoGuardado, "valorCifrado" | "iv" | "tag"> | null> {
+    const [linha] = await this.prisma.comContexto((tx) => tx.$queryRaw<Pick<SegredoGuardado, "valorCifrado" | "iv" | "tag">[]>`
+      SELECT * FROM plugga_security.chave_fatura()`);
+    return linha ?? null;
+  }
+
   async gravar(dados: GravarSegredo): Promise<void> {
     const { chave, ...campos } = dados;
     // `upsert` e não `create`: trocar a chave é o caso comum, não a exceção.
-    await this.prisma.segredoDoSistema.upsert({
+    await this.prisma.comContexto((tx) => tx.segredoDoSistema.upsert({
       where: { chave },
       create: { chave, ...campos },
       update: campos,
-    });
+    }));
   }
 
   async apagar(chave: string): Promise<void> {
     // `deleteMany` para apagar o que não existe não ser erro: quem clica em
     // "apagar" quer o mesmo estado final nos dois casos.
-    await this.prisma.segredoDoSistema.deleteMany({ where: { chave } });
+    await this.prisma.comContexto((tx) => tx.segredoDoSistema.deleteMany({ where: { chave } }));
   }
 }

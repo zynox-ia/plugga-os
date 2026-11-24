@@ -1,7 +1,7 @@
 "use client";
 
 import { useLayoutEffect, useRef, type ReactElement, type ReactNode } from "react";
-import { Modal } from "../modal";
+import { FecharModal, Modal } from "../modal";
 import { Button } from "./button";
 import { IconX } from "./icons";
 
@@ -17,6 +17,7 @@ export function Dialog({
   cancelAutoFocus = false,
   cancelText = "Cancelar",
   accessibleLabel,
+  className,
 }: {
   title: string;
   description?: string;
@@ -29,6 +30,7 @@ export function Dialog({
   cancelAutoFocus?: boolean;
   cancelText?: string;
   accessibleLabel?: string;
+  className?: string;
 }) {
   const footerRef = useRef<HTMLElement>(null);
   useLayoutEffect(() => {
@@ -36,7 +38,7 @@ export function Dialog({
   }, [cancelAutoFocus]);
 
   return (
-    <Modal rotulo={accessibleLabel ?? title} aoFechar={onClose} largura={size} className="ui-dialog">
+    <Modal rotulo={accessibleLabel ?? title} aoFechar={onClose} largura={size} className={className ? `ui-dialog ${className}` : "ui-dialog"}>
       <header className="ui-dialog-header">
         <div className="ui-dialog-header-content">
           {icon ? (
@@ -48,15 +50,15 @@ export function Dialog({
             </div>
           ) : null}
           <div className="ui-dialog-header-text">
-            <h2 className="ui-dialog-title">{title}</h2>
+            <h2 className="ui-dialog-title" title={title}>{title}</h2>
             {description ? <p className="ui-dialog-subtitle">{description}</p> : null}
           </div>
         </div>
-        <Button variant="secondary" size="sm" icon={<IconX />} iconOnly aria-label="Fechar diálogo" onClick={onClose} />
+        <FecharModal>{(fechar) => <Button variant="secondary" size="sm" icon={<IconX />} iconOnly aria-label="Fechar diálogo" onClick={fechar} />}</FecharModal>
       </header>
       <div className="ui-dialog-body">{children}</div>
       <footer ref={footerRef} className="ui-dialog-footer">
-        <Button variant="secondary" onClick={onClose}>{cancelText}</Button>
+        <FecharModal>{(fechar) => <Button variant="secondary" onClick={fechar}>{cancelText}</Button>}</FecharModal>
         {footer && <div className="ui-dialog-actions">{footer}</div>}
       </footer>
     </Modal>

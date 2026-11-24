@@ -6,7 +6,7 @@ import { identityProviderSchema, type Acesso, type IdentityProvider } from "@plu
 import { AuditAppender } from "../audit/audit-appender";
 import { EstadoInvalido } from "../common/errors/dominio";
 import { mapAcesso } from "../core/auth/user-access.mapper";
-import { PrismaService } from "../prisma/prisma.service";
+import { PrismaAuthService } from "../prisma/prisma-auth.service";
 import {
   AuthRepository,
   IdentityLinkError,
@@ -29,6 +29,7 @@ const userWithAccess = {
   include: {
     platformRoles: { include: { role: true } },
     departamentos: true,
+    agentIdentity: { select: { userId: true } },
   },
 } satisfies Prisma.UserDefaultArgs;
 
@@ -37,7 +38,7 @@ type UserWithAccess = Prisma.UserGetPayload<typeof userWithAccess>;
 @Injectable()
 export class PrismaAuthRepository extends AuthRepository {
   constructor(
-    @Inject(PrismaService) private readonly prisma: PrismaService,
+    @Inject(PrismaAuthService) private readonly prisma: PrismaAuthService,
     @Inject(AuditAppender) private readonly appender: AuditAppender,
   ) {
     super();
@@ -100,6 +101,19 @@ export class PrismaAuthRepository extends AuthRepository {
     await this.prisma.session.deleteMany({ where: { userId } });
   }
 
+  async changePassword(userId: string, passwordHash: string, keepTokenHash: string): Promise<void> {
+    await this.prisma.$transaction(async (tx) => {
+      // Serializa com o login/gestão de MFA e com a redefinição de senha da mesma pessoa.
+      await tx.$queryRaw`SELECT id FROM users WHERE id = ${userId}::uuid FOR UPDATE`;
+      await tx.userCredential.upsert({
+        where: { userId },
+        create: { userId, passwordHash },
+        update: { passwordHash },
+      });
+      await tx.session.deleteMany({ where: { userId, tokenHash: { not: keepTokenHash } } });
+    });
+  }
+
   async replaceAuthToken(data: CreateAuthTokenData): Promise<void> {
     await this.prisma.$transaction(async (tx) => {
       // Serializes concurrent reissues for one user before replacing the pending
@@ -138,6 +152,8 @@ export class PrismaAuthRepository extends AuthRepository {
     options: SetPasswordOptions,
   ): Promise<void> {
     await this.prisma.$transaction(async (tx) => {
+      // Serialize password reset with MFA login/management. Reset never removes a factor.
+      await tx.$queryRaw`SELECT id FROM users WHERE id = ${userId}::uuid FOR UPDATE`;
       const consumed = await tx.authToken.updateMany({
         where: { id: tokenId, consumedAt: null },
         data: { consumedAt },
@@ -167,6 +183,10 @@ export class PrismaAuthRepository extends AuthRepository {
       }
 
       if (options.revokeSessions) {
+        await tx.mfaChallenge.deleteMany({ where: { userId } });
+        await tx.userMfa.updateMany({ where: { userId }, data: {
+          revision: { increment: 1 }, pendingSecret: null, pendingExpiresAt: null, pendingSessionHash: null,
+        } });
         await tx.session.deleteMany({ where: { userId } });
       }
     });
@@ -204,12 +224,12 @@ export class PrismaAuthRepository extends AuthRepository {
       const user = await this.prisma.$transaction(async (tx) => {
         const atual = await tx.user.findUnique({
           where: { id: data.userId },
-          select: { status: true },
+          select: { status: true, agentIdentity: { select: { userId: true } } },
         });
         if (!atual) {
           throw new IdentityLinkError("user_not_found");
         }
-        if (atual.status !== "active" && atual.status !== "invited") {
+        if (atual.agentIdentity || (atual.status !== "active" && atual.status !== "invited")) {
           throw new IdentityLinkError("user_not_eligible");
         }
 
@@ -377,6 +397,8 @@ export class PrismaAuthRepository extends AuthRepository {
           await tx.authToken.deleteMany({ where: { userId: anterior.id } });
           await tx.userCredential.deleteMany({ where: { userId: anterior.id } });
           await tx.userIdentity.deleteMany({ where: { userId: anterior.id } });
+          await tx.mfaChallenge.deleteMany({ where: { userId: anterior.id } });
+          await tx.userMfa.deleteMany({ where: { userId: anterior.id } });
           await tx.userPlatformRole.deleteMany({ where: { userId: anterior.id } });
           await tx.userDepartamento.deleteMany({ where: { userId: anterior.id } });
         }
@@ -412,6 +434,8 @@ export class PrismaAuthRepository extends AuthRepository {
       // Sem papel de plataforma a pessoa deixa de ser admin: a regra do último
       // admin roda na mesma transação da escrita (FR-029).
       if (acesso.plataforma === null) await this.garantirOutroAdminAtivo(tx, userId);
+      // Revalidation of a developer's MFA capability shares this user lock.
+      await tx.$queryRaw`SELECT id FROM users WHERE id = ${userId}::uuid FOR UPDATE`;
       await tx.userPlatformRole.deleteMany({
         where: { userId, role: { key: { in: ["admin", "desenvolvedor"] } } },
       });
@@ -483,6 +507,7 @@ export class PrismaAuthRepository extends AuthRepository {
       status: user.status,
       createdAt: user.createdAt,
       acesso: mapAcesso(user),
+      tipo: user.agentIdentity ? "agente_ia" : "pessoa",
     };
   }
 }

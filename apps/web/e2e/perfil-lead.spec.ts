@@ -1,6 +1,9 @@
 import { expect, test, type APIRequestContext } from "@playwright/test";
 import type { Deal, Pipeline, PipelinePeopleResponse } from "@plugga/shared";
 
+// IP sintético próprio: as criações pela API não dividem o balde de throttle com a suíte paralela (429 na CI 45233111029).
+test.use({ extraHTTPHeaders: { "x-forwarded-for": "203.0.113.242" } });
+
 let pipeline: Pipeline;
 let negocio: Deal;
 async function criar<T>(request: APIRequestContext, origin: string, url: string, data: object): Promise<T> {
@@ -29,7 +32,7 @@ test("perfil aplica máscaras ao digitar, valida e persiste a qualificação sem
   await page.getByRole("button", { name: `Ver lead ${negocio.lead.name}`, exact: true }).click();
   const modal = page.getByRole("dialog", { name: "Detalhes do lead", exact: true });
   const abas = modal.getByRole("tablist", { name: "Seções do lead" });
-  await expect(abas.getByRole("tab")).toHaveText(["Visão geral", "Perfil", "Propostas", "Oportunidade", "Histórico", "Documentos"]);
+  await expect(abas.getByRole("tab")).toHaveText(["Visão geral", "Perfil", "Tarefas", "Propostas", "Oportunidade", "Histórico", "Documentos"]);
   await abas.getByRole("tab", { name: "Perfil", exact: true }).click();
   const editar = modal.getByRole("button", { name: "Editar perfil", exact: true });
   await expect(editar.locator(".ui-button-label")).toHaveCSS("color", "rgb(255, 255, 255)");

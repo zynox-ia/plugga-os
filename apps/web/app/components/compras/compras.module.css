@@ -1,0 +1,319 @@
+/* Compras (PLU-328). Reaproveita o quadro de Pipelines, a lista de negócios e a
+   ficha do lead; aqui só o que é desta tela. */
+
+.largura {
+  width: 100%;
+}
+
+.topoDireita {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.notaColuna {
+  background: transparent !important;
+  color: var(--ui-muted) !important;
+}
+
+.cartaoQuadro {
+  min-width: 0;
+}
+
+/* Raio do card de quadro de Suprimentos (18 px); o cartão do CRM, que ele reaproveita, segue com o seu. */
+.cartaoQuadro:global(.cartao-negocio) {
+  border-radius: var(--radius-lg);
+}
+
+.cartaoCancelado h4 button {
+  text-decoration: line-through;
+  text-decoration-color: color-mix(in srgb, var(--ui-muted) 60%, transparent);
+}
+
+.valor {
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  color: var(--ui-text);
+}
+
+.empresa {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--ui-muted);
+  white-space: nowrap;
+  line-height: 1;
+}
+
+.empresaPonto {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.codigoComEmpresa {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.prazoOk {
+  color: var(--ui-success);
+}
+
+.prazoHoje {
+  color: var(--ui-warning);
+  font-weight: 500;
+}
+
+.prazoCancelado {
+  color: var(--ui-muted);
+}
+
+.filtros {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.filtro {
+  width: 196px;
+}
+
+.alternar[aria-pressed="true"] {
+  border-color: var(--ui-danger) !important;
+  color: var(--ui-danger) !important;
+  background: color-mix(in srgb, var(--ui-danger) 7%, #fff) !important;
+}
+
+.conta {
+  font-variant-numeric: tabular-nums;
+  opacity: 0.75;
+  margin-left: 2px;
+}
+
+.vazioQuadro {
+  position: absolute;
+  inset: 64px 0 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.vazioQuadro > * {
+  pointer-events: auto;
+  background: #fff;
+  border-radius: 18px;
+  padding: 28px 32px;
+  max-width: 420px;
+  box-shadow: 0 18px 40px -24px rgba(15, 41, 74, 0.35);
+}
+
+.areaQuadro {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+/* Tabelas desta tela: escala das tabelas do app e colunas ao centro, a primeira à esquerda (pedido do André). */
+.tabelas :global(table) :is(th, td):not(:first-child) {
+  text-align: center;
+}
+
+.tabelas :global(table) td:not(:first-child) > div {
+  justify-content: center;
+  align-items: center;
+  margin-inline: auto;
+  text-align: center;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .entra {
+    animation: entra 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-delay: calc(min(var(--i, 0), 13) * 30ms);
+  }
+}
+
+@keyframes entra {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
+
+@media (max-width: 720px) {
+  h2.subtitulo {
+    white-space: normal;
+  }
+
+  .filtro {
+    width: calc(50% - 4px);
+  }
+
+  .filtros {
+    justify-content: flex-start;
+  }
+}
+
+.espaco {
+  flex: 1;
+}
+
+.subtitulo {
+  min-width: 0;
+}
+
+/* Seletores do formulário na largura dos campos, opções do mesmo tamanho (ajuste do André no protótipo). */
+.segmentado {
+  display: grid !important;
+  grid-template-columns: repeat(var(--opcoes, 2), minmax(0, 1fr));
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.segmentado button {
+  justify-content: center;
+  text-align: center;
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.segmentado button[aria-checked="true"] {
+  background: var(--color-navy-850, #0f294a);
+  color: #fff;
+}
+
+.rotulo {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ui-text);
+}
+
+.itens {
+  display: grid;
+  gap: 8px;
+}
+
+.item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 96px 96px auto;
+  gap: 8px;
+  align-items: start;
+}
+
+.adicionar {
+  justify-self: start;
+}
+
+.resultados {
+  margin: 4px 0 0;
+  padding: 6px;
+  list-style: none;
+  background: #fff;
+  border: 1px solid var(--ui-divider);
+  border-radius: 12px;
+  max-height: 220px;
+  overflow: auto;
+}
+
+.resultados button {
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: none;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--ui-text);
+  cursor: pointer;
+}
+
+.resultados button:hover,
+.resultados button:focus-visible {
+  background: var(--ui-subtle);
+  outline: none;
+}
+
+.resultados button:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--ui-primary);
+}
+
+.escolhido {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--ui-subtle);
+  font-size: 13px;
+  color: var(--ui-text);
+}
+
+@media (max-width: 720px) {
+  .item {
+    grid-template-columns: minmax(0, 1fr) 80px 80px auto;
+  }
+
+  .item > :first-child {
+    grid-column: 1 / -1;
+  }
+}
+
+/* Peso máximo 500 (regra do André): o <strong> do navegador é 700. */
+.tabelas strong,
+.tabelas b {
+  font-weight: 500;
+}
+
+/* Na linha secundária da tabela, a empresa usa o mesmo tamanho do resto da linha (padrão das tabelas aprovadas). */
+.codigoComEmpresa .empresa {
+  font-size: inherit;
+}
+
+/* O selo de prazo das colunas vem do Pipelines com peso 600; aqui o máximo é 500 (regra do André). */
+.areaQuadro :global(.coluna-parado) {
+  font-weight: 500;
+}
+
+
+/* Segmento ativo da lista vem do Pipelines com peso 600; aqui o máximo é 500 (regra do André). A classe dobrada vence a do Pipelines sem depender da ordem dos arquivos. */
+.segmentoDaLista.segmentoDaLista button[aria-pressed] {
+  font-weight: 500;
+}
+
+/* Em 390 px "Em andamento" cabe inteiro no segmento. */
+@media (max-width: 720px) {
+  .segmentoDaLista.segmentoDaLista button[aria-pressed] {
+    flex: 1 1 auto;
+    padding-inline: 7px;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+}
+
+
+/* Lista com a barra presa (padronização de Suprimentos): a página rola inteira. */
+.paginaDaLista { height: auto !important; min-height: auto !important; }
+.filtrosDaBarra { display: flex; align-items: center; gap: 8px; margin-left: 0; }
+.filtrosDaBarra > .filtro { width: auto; }
+.buscaDoQuadro { flex: 0 1 220px; min-width: 160px; }
+/* Quadro: busca, Empresa e Cancelados numa linha (nenhum controle sozinho). */
+@media (min-width: 1100px) {
+  .filtros:has(> .buscaDoQuadro) { flex-wrap: nowrap; }
+  .filtros:has(> .buscaDoQuadro) > .filtro { width: auto; }
+}
+.buscaDoQuadro :global(.equipe-busca) { width: 100%; }
+@media (max-width: 720px) { .buscaDoQuadro { flex: 1 1 100%; } }

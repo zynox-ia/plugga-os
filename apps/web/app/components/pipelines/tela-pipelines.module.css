@@ -366,7 +366,6 @@
 .visoes a[aria-current="page"] {
   background: var(--ui-text, #0f294a);
   color: #ffffff;
-  font-weight: 600;
   box-shadow: 0 1px 3px rgba(10, 25, 47, 0.18);
 }
 
@@ -677,8 +676,8 @@
   .seletorContainer { width: 100%; }
   .seletorTrigger { width: 100%; justify-content: space-between; }
   .popoverFunis { width: 100%; min-width: 100%; }
-  .visoes { width: 100%; justify-content: stretch; }
-  .visoes a { flex: 1; }
+  .visoes { width: 100%; min-width: 0; justify-content: flex-start; overflow-x: auto; white-space: nowrap; }
+  .visoes a { flex: 0 0 auto; white-space: nowrap; }
   .indicadores { grid-template-columns: 1fr; }
   .painel { padding: 0.875rem; }
   .barraFiltros { flex-direction: column; align-items: stretch; }

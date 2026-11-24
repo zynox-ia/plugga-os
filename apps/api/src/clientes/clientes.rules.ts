@@ -8,6 +8,7 @@ import {
   type ClientListItem,
   type ClientOrigin,
   type ClientPersonType,
+  type ClientSelectionResponse,
   type ProblemaDeCadastro,
   type UpdateClientRequest,
 } from "@plugga/shared";
@@ -88,6 +89,20 @@ export function paraItemDeLista(
     primaryContactName: ordenarContatos(linha.contacts)[0]?.name ?? null,
     active: linha.active,
     updatedAt: linha.updatedAt.toISOString(),
+  };
+}
+
+export function paraSelecaoDeNegocio(
+  linha: Pick<LinhaDeCliente, "id" | "personType" | "name" | "document" | "city"> & {
+    contacts: Array<Pick<LinhaDeContato, "name" | "isPrimary" | "createdAt">>;
+  },
+): ClientSelectionResponse["items"][number] {
+  return {
+    id: linha.id,
+    name: linha.name,
+    documentDisplay: documentoNaLista(linha.personType, linha.document),
+    primaryContactName: ordenarContatos(linha.contacts)[0]?.name ?? null,
+    city: linha.city,
   };
 }
 

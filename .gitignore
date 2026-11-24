@@ -33,6 +33,7 @@ docs/mockup/*.zip
 # Playwright
 playwright-report/
 test-results/
+.e2e-out/
 blob-report/
 apps/web/e2e/.auth/
 
@@ -67,3 +68,6 @@ apps/web/e2e/.auth/
 
 # ZCode
 .zcode/
+
+# Segredos e dados locais de ferramentas auxiliares (ex.: proxy de CLI)
+.local/

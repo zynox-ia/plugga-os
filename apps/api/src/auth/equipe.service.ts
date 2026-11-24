@@ -11,6 +11,7 @@ import {
   type Acesso,
   type AuthAcknowledgement,
   type ConsultaDaEquipe,
+  type CriacaoDeAgente,
   type ConviteDaEquipe,
   type Departamento,
   type EscopoDaEquipe,
@@ -26,6 +27,7 @@ import { SessionCache } from "../core/auth/session-cache";
 import { AuthTokenIssuer } from "./auth-token-issuer.service";
 import { AuthRepository, type TeamMemberRecord } from "./auth.repository";
 import { SessionService } from "./session.service";
+import { exigeCriacaoDeAgente, exigeGestaoDeAgente } from "./gestao-de-agentes";
 
 /** Quem está agindo, relido do banco a cada chamada. */
 interface Ator {
@@ -77,12 +79,25 @@ export class EquipeService {
     });
   }
 
+  async validarCriacaoDeAgente(principal: AuthPrincipal, input: CriacaoDeAgente): Promise<void> {
+    exigeCriacaoDeAgente(principal, await this.repository.findUserById(principal.id), input);
+  }
+
+  async validarGestaoDeAgente(principal: AuthPrincipal, userId: string): Promise<void> {
+    exigeGestaoDeAgente(principal, await this.repository.findUserById(principal.id), await this.repository.findUserById(userId));
+  }
+
+  async apresentarAgente(principal: AuthPrincipal, registro: TeamMemberRecord): Promise<MembroDaEquipe> {
+    return this.paraMembro(await this.ator(principal), registro);
+  }
+
   async convidar(principal: AuthPrincipal, convite: ConviteDaEquipe): Promise<MembroDaEquipe> {
     const ator = await this.ator(principal);
     this.exigeGestao(ator);
     this.exigeConcedivel(ator, convite.acesso);
 
     const existente = await this.repository.findUserByEmail(convite.email);
+    if (existente?.tipo === "agente_ia") throw new Conflito("Este cadastro pertence a uma identidade de IA.");
     if (existente && existente.status !== "removed") {
       throw new Conflito("Já existe uma pessoa com este e-mail.");
     }
@@ -99,6 +114,10 @@ export class EquipeService {
     const ator = await this.ator(principal);
     this.exigeGestao(ator);
     const alvo = await this.alvoEditavel(ator, userId);
+    if (alvo.tipo === "agente_ia" && (acesso.plataforma !== null || acesso.departamentos.length !== 1 ||
+      acesso.departamentos[0]?.departamento !== alvo.acesso.departamentos[0]?.departamento || acesso.departamentos[0]?.nivel !== "membro")) {
+      throw new ForbiddenException("O agente deve permanecer membro do seu departamento.");
+    }
     acesso = { ...acesso, departamentos: acesso.departamentos.map((entrada) => ({
       ...entrada, telas: entrada.telas ?? alvo.acesso.departamentos.find((anterior) => anterior.departamento === entrada.departamento)?.telas ?? [],
     })) };
@@ -136,6 +155,7 @@ export class EquipeService {
     const ator = await this.ator(principal);
     this.exigeGestao(ator);
     const alvo = await this.alvoEditavel(ator, userId);
+    if (alvo.tipo === "agente_ia") throw new ForbiddenException("Agentes usam credenciais próprias, sem convite ou redefinição de senha.");
     if (alvo.status !== "invited" && alvo.status !== "active") {
       throw new EstadoInvalido("A conta precisa estar ativa ou com convite pendente.");
     }
@@ -172,6 +192,7 @@ export class EquipeService {
   }
 
   private async ator(principal: AuthPrincipal): Promise<Ator> {
+    if (principal.kind !== "user") throw new ForbiddenException("Agentes não gerem a equipe.");
     const registro = await this.repository.findUserById(principal.id);
     if (!registro) {
       throw new ForbiddenException("principal is not a known user");
@@ -306,12 +327,13 @@ export class EquipeService {
       email: registro.email,
       name: registro.name,
       status: registro.status,
+      tipo: registro.tipo ?? "pessoa",
       acesso: registro.acesso,
       createdAt: registro.createdAt.toISOString(),
       podeEditar,
       podeDesativar: this.podeDesativar(ator, registro),
       podeRemover: this.podeRemover(ator, registro),
-      podeReenviarConvite: podeEditar && (registro.status === "invited" || registro.status === "active"),
+      podeReenviarConvite: registro.tipo !== "agente_ia" && podeEditar && (registro.status === "invited" || registro.status === "active"),
     });
   }
 }

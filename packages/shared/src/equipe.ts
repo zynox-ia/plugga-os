@@ -46,6 +46,7 @@ export const membroDaEquipeSchema = z
     email: z.string().email(),
     name: z.string(),
     status: userStatusSchema,
+    tipo: z.enum(["pessoa", "agente_ia"]).optional(),
     acesso: acessoSchema,
     createdAt: z.string().datetime(),
     /** Se quem pediu a lista pode editar o acesso desta pessoa (a API decide). */

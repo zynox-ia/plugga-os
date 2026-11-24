@@ -29,17 +29,18 @@ test("lista exibe dados do lead sem buscar a ficha de cada cliente", async ({ pa
     const consultas: string[] = [];
     page.on("request", (req) => { if (/\/api\/clientes\/[\w-]+(?:\?|$)/.test(req.url())) consultas.push(req.url()); });
     await page.goto(`/comercial/pipelines?pipeline=${pipeline.id}&visao=lista`);
-    const linha = page.getByRole("row").filter({ has: page.getByRole("button", { name: `Ver detalhes do lead ${negocio.title}`, exact: true }) });
-    await expect(linha.getByText(email)).toBeVisible();
-    await expect(linha.getByText("Local não informado")).toBeVisible();
+    const linha = page.getByRole("row").filter({ has: page.getByRole("button", { name: `Ver detalhes de ${negocio.title}`, exact: true }) });
+    // Desde o 66225cc a linha mostra o código e o nome do lead, vindos da própria lista; o e-mail saiu de propósito (decisão do André).
+    const dadosDoLead = linha.getByText(`PLU-${String(negocio.number).padStart(4, "0")} · ${nomeCliente}`, { exact: true });
+    await expect(dadosDoLead).toBeVisible();
+    await expect(linha.getByText(email)).toHaveCount(0);
+    await expect(linha.locator("svg.lucide-solar-panel")).toBeVisible();
     await page.setViewportSize({ width: 800, height: 800 });
-    const emailTexto = linha.getByText(email);
-    await expect(emailTexto.locator("..")).toHaveAttribute("title", email);
-    expect(await emailTexto.evaluate((el) => el.scrollWidth > el.clientWidth && getComputedStyle(el).textOverflow === "ellipsis")).toBe(true);
-    await expect(linha.locator("svg.lucide-target")).toBeVisible();
-    const nome = linha.getByRole("button", { name: nomeCliente, exact: true });
-    await expect(nome).toHaveAttribute("title", nomeCliente);
-    expect(await nome.evaluate((el) => el.scrollWidth > el.clientWidth && getComputedStyle(el).textOverflow === "ellipsis")).toBe(true);
+    // O nome longo do lead não estoura a coluna: corta com reticências, e o title mostra o texto inteiro.
+    expect(await dadosDoLead.evaluate((el) => el.scrollWidth > el.clientWidth && getComputedStyle(el).textOverflow === "ellipsis")).toBe(true);
+    await expect(dadosDoLead).toHaveAttribute("title", `PLU-${String(negocio.number).padStart(4, "0")} · ${nomeCliente}`);
+    const titulo = linha.getByRole("button", { name: negocio.title, exact: true });
+    await expect(titulo).toHaveAttribute("title", negocio.title);
     const acoes = linha.getByRole("button", { name: `Ações de ${negocio.lead.name}`, exact: true });
     const menu = page.getByRole("menu", { name: `Ações de ${negocio.lead.name}`, exact: true });
     await acoes.click();

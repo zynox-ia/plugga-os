@@ -4,16 +4,16 @@ import { it } from "node:test";
 import { calcularLayoutKanban } from "../app/lib/layout-kanban.ts";
 
 it("encaixa cinco etapas compactas inteiras sem alargar os cartões", () => {
-  assert.deepEqual(calcularLayoutKanban(1464, 5), { larguraColuna: 280, larguraQuadro: 1464 });
+  assert.deepEqual(calcularLayoutKanban(1224, 5), { larguraColuna: 232, larguraQuadro: 1224 });
 });
 
 it("só acrescenta a próxima coluna quando ela cabe com o espaçamento", () => {
-  assert.deepEqual(calcularLayoutKanban(575, 5), { larguraColuna: 320, larguraQuadro: 320 });
-  assert.deepEqual(calcularLayoutKanban(576, 5), { larguraColuna: 280, larguraQuadro: 576 });
+  assert.deepEqual(calcularLayoutKanban(479, 5), { larguraColuna: 320, larguraQuadro: 320 });
+  assert.deepEqual(calcularLayoutKanban(480, 5), { larguraColuna: 232, larguraQuadro: 480 });
 });
 
 it("respeita o teto quando há poucas etapas em uma tela larga", () => {
-  assert.deepEqual(calcularLayoutKanban(1920, 2), { larguraColuna: 320, larguraQuadro: 656 });
+  assert.deepEqual(calcularLayoutKanban(1920, 2), { larguraColuna: 264, larguraQuadro: 544 });
 });
 
 it("adapta uma coluna ao celular, inclusive abaixo do mínimo preferido", () => {
@@ -29,7 +29,8 @@ it("não corta colunas ao variar a largura e a quantidade de etapas", () => {
       assert.ok(Math.abs(visiveis - Math.round(visiveis)) < 0.000001);
       assert.ok(visiveis <= etapas + 0.000001);
       assert.ok(larguraQuadro <= disponivel + 0.000001);
-      assert.ok(larguraColuna >= Math.min(280, disponivel) && larguraColuna <= 320);
+      const teto = Math.round(visiveis) === 1 ? 320 : 264;
+      assert.ok(larguraColuna >= Math.min(232, disponivel) && larguraColuna <= teto);
     }
   }
 });

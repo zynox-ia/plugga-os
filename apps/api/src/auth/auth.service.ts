@@ -3,6 +3,7 @@ import {
   Inject,
   Injectable,
   Logger,
+  ConflictException,
   UnauthorizedException,
 } from "@nestjs/common";
 import {
@@ -11,6 +12,7 @@ import {
   sessionUserSchema,
   type AcceptInviteRequest,
   type AuthAcknowledgement,
+  type ChangePasswordRequest,
   type LoginRequest,
   type ResetConfirmRequest,
   type ResetRequest,
@@ -27,11 +29,9 @@ import { LimitadorLogin } from "./limitador/limitador-login.service";
 import { PasswordService } from "./password.service";
 import { ResetEmailDispatcher } from "./reset-email.dispatcher";
 import { SessionService, type SessionContext } from "./session.service";
+import { MfaService, type MfaLoginResult } from "./mfa.service";
 
-export interface LoginResult {
-  token: string;
-  user: SessionUser;
-}
+export type LoginResult = MfaLoginResult;
 
 /** Converte o registro do banco (ou o cache) no usuário de sessão que web e API trocam. */
 export function toSessionUser(user: ResolvedSessionUser): SessionUser {
@@ -55,6 +55,7 @@ export class AuthService {
     @Inject(LimitadorLogin) private readonly limitador: LimitadorLogin,
     @Inject(ResetEmailDispatcher) private readonly resetEmail: ResetEmailDispatcher,
     @Inject(AuditPort) private readonly audit: AuditPort,
+    @Inject(MfaService) private readonly mfa: MfaService,
   ) {}
 
   async login(input: LoginRequest, context: SessionContext): Promise<LoginResult> {
@@ -73,7 +74,7 @@ export class AuthService {
       await this.passwords.verifyAgainstDummy(input.password);
     }
 
-    if (!user || user.status !== "active" || !passwordValid) {
+    if (!user || user.tipo === "agente_ia" || user.status !== "active" || !passwordValid) {
       await this.audit.appendEvent({
         eventName: eventNames.authLoginFailed,
         entityType: "auth",
@@ -90,7 +91,8 @@ export class AuthService {
     }
 
     await this.limitador.registrarSucesso(input.email);
-    const token = await this.sessions.issue(user, context);
+    const result = await this.mfa.beginLogin(user.id, { ...context, rememberMe: input.rememberMe ?? false }, { method: "password", credentialHash: passwordHash! });
+    if ("requiresMfa" in result) return result;
     await this.audit.appendEvent({
       eventName: eventNames.authLoginSucceeded,
       entityType: "user",
@@ -101,12 +103,13 @@ export class AuthService {
       occurredAt: new Date(),
     });
 
-    return { token, user: toSessionUser(user) };
+    return result;
   }
 
   async me(principal: AuthPrincipal): Promise<SessionUser> {
+    if (principal.kind !== "user") throw new UnauthorizedException("Sessão de pessoa necessária.");
     const user = await this.repository.findUserById(principal.id);
-    if (!user || user.status !== "active") {
+    if (!user || user.tipo === "agente_ia" || user.status !== "active") {
       throw new UnauthorizedException("session user no longer exists");
     }
     return toSessionUser(user);
@@ -118,6 +121,48 @@ export class AuthService {
     }
     await this.audit.appendEvent({
       eventName: eventNames.authLogout,
+      entityType: "user",
+      entityId: principal.id,
+      actorType: "user",
+      actorId: principal.id,
+      payload: {},
+      occurredAt: new Date(),
+    });
+    return this.ack();
+  }
+
+  /**
+   * Troca de senha de quem já está logado. Exige a senha atual (uma sessão roubada sozinha não
+   * troca a senha), recusa senha igual à atual, e encerra as outras sessões mantendo esta.
+   * Erro da senha atual conta para o mesmo limite do login, para não virar via de tentativa.
+   * Conta que entra só pelo Google não tem senha para trocar.
+   */
+  async changePassword(
+    principal: AuthPrincipal,
+    rawToken: string | undefined,
+    input: ChangePasswordRequest,
+    context: { ip?: string | undefined },
+  ): Promise<AuthAcknowledgement> {
+    if (!rawToken) throw new UnauthorizedException("invalid session");
+    const passwordHash = await this.repository.findPasswordHash(principal.id);
+    if (!passwordHash) {
+      throw new ConflictException("Esta conta entra pelo Google e não tem senha para trocar.");
+    }
+    const user = await this.repository.findUserById(principal.id);
+
+    if (!(await this.passwords.verify(passwordHash, input.currentPassword))) {
+      if (user) await this.limitador.penalizar(user.email, context.ip);
+      throw new BadRequestException("A senha atual não confere.");
+    }
+    if (input.currentPassword === input.newPassword) {
+      throw new BadRequestException("A nova senha precisa ser diferente da atual.");
+    }
+
+    await this.repository.changePassword(principal.id, await this.passwords.hash(input.newPassword), hashToken(rawToken));
+    await this.sessions.invalidarCacheDe(principal.id);
+
+    await this.audit.appendEvent({
+      eventName: eventNames.authPasswordChanged,
       entityType: "user",
       entityId: principal.id,
       actorType: "user",

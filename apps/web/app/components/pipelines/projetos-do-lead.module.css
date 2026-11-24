@@ -1,0 +1,55 @@
+.projetos{display:flex;flex-direction:column;gap:16px;padding-bottom:20px}
+.toolbar{display:flex;align-items:center;justify-content:space-between;gap:16px}
+.toolbar h3{display:flex;align-items:center;gap:8px;margin:0;font-size:16px;font-weight:500;color:var(--ui-text)}
+.toolbar h3>span{padding:2px 6px;background:var(--ui-subtle);border-radius:6px;font-size:11px;color:var(--ui-muted)}
+.toolbar p{margin:5px 0 0;font-size:12px;color:var(--ui-muted)}
+.lista{display:flex;flex-direction:column;gap:12px}
+.card{display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:14px;align-items:start;padding:16px;border:1px solid var(--ui-divider);border-radius:var(--radius-md);background:var(--ui-surface)}
+.icone{display:grid;place-items:center;width:44px;height:44px;border:1px solid var(--ui-divider);border-radius:var(--radius-sm);background:var(--ui-subtle);color:var(--ui-primary)}
+.identidade{min-width:0}
+.titulo{margin:0;font-size:14px;font-weight:500;color:var(--ui-text)}
+.meta{display:flex;flex-wrap:wrap;gap:8px 12px;margin:6px 0 0;font-size:12px;color:var(--ui-muted)}
+.meta strong{font-weight:500;color:var(--ui-text)}
+.lado{display:flex;flex-direction:column;align-items:flex-end;gap:10px}
+.investimento{text-align:right;font-size:13px;font-weight:500;color:var(--ui-text)}
+.investimento small{display:block;margin-top:4px;font-size:11px;font-weight:400;color:var(--ui-muted)}
+.acoes{display:flex;align-items:center;justify-content:flex-end;gap:6px}
+.detalhes{display:grid;grid-template-columns:1fr 1fr;gap:12px 16px;margin:0}
+.detalhes>div{min-width:0}
+.detalhes dt{margin:0 0 3px;font-size:11px;color:var(--ui-muted)}
+.detalhes dd{margin:0;font-size:13px;font-weight:500;color:var(--ui-text);overflow-wrap:anywhere}
+.detalheInteiro{grid-column:1/-1}
+.vazio{text-align:center;padding:40px 20px;color:var(--ui-muted)}
+.vazio svg{color:var(--ui-primary)}
+.vazio h4{margin:12px 0 0;font-size:14px;font-weight:500;color:var(--ui-text)}
+.vazio p{margin:8px 0 0;font-size:12px}
+.skeleton{height:120px;border-radius:8px;background:var(--ui-subtle)}
+.sucesso{display:flex;align-items:center;gap:6px;margin:0;color:var(--ui-success);font-size:12px}
+.drop{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;min-height:112px;padding:18px;border:1px dashed var(--ui-divider);border-radius:var(--radius-md);background:var(--ui-subtle);color:var(--ui-muted);text-align:center;cursor:pointer}
+.dropAtivo{border-color:var(--ui-primary);background:var(--ui-focus-bg);color:var(--ui-primary)}
+.drop strong{font-size:13px;font-weight:500;color:var(--ui-text)}
+.drop p{margin:0;font-size:11px}
+.contas{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+.conta{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--ui-divider);border-radius:var(--radius-sm);background:var(--ui-surface)}
+.conta>div{flex:1;min-width:0}
+.conta strong{display:block;font-size:12px;font-weight:500;color:var(--ui-text);overflow-wrap:anywhere}
+.conta small{font-size:11px;color:var(--ui-muted)}
+@media(max-width:767px){.toolbar{align-items:flex-start;flex-wrap:wrap}.card{grid-template-columns:34px minmax(0,1fr)}.lado{grid-column:2;display:flex;align-items:center;justify-content:space-between;gap:10px}.investimento{text-align:left}.detalhes{grid-template-columns:1fr}}
+
+.beneficiaria {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 8px;
+}
+
+.pendente {
+  color: var(--ui-warning);
+  font-weight: 500;
+}
+
+.semValor {
+  color: var(--ui-muted);
+  font-weight: 400;
+  font-size: 12px;
+}

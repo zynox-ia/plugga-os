@@ -7,6 +7,7 @@ import {
   pipelineSchema,
   type CompanyKey,
   type CreatePipelineRequest,
+  type ListPipelinesQuery,
   type ListPipelinesResponse,
   type NomeDeEventoAuditavel,
   type Pipeline,
@@ -22,6 +23,12 @@ import type { AuthPrincipal } from "../core/auth/auth.types";
 import { PrismaService } from "../prisma/prisma.service";
 import { lerAcessoComercial, pessoaElegivelParaPipelines } from "./acesso-comercial";
 import { PipelinesRepository } from "./pipelines.repository";
+import { travarPipelines } from "./travar-pipelines";
+import { configurarCampos, lerCampos, type ContagensDeCampos } from "./custom-fields.rules";
+import { contarValores, removerValores } from "./custom-fields.persistence";
+import { contarNegociosDosPipelines } from "./pipeline-counts.persistence";
+import { configurarPerfilDeProcesso, lerPerfilDeProcesso, problemaDasEtapasDoProcesso } from "./solar-profile.rules";
+import { executarTransicaoNegocio, travarNegociosDaConfiguracao } from "../negocios/transicao-negocio.persistence";
 import {
   alteracoes,
   idsDesconhecidos,
@@ -38,9 +45,17 @@ const COMPLETO = {
   stages: { orderBy: { position: "asc" }, include: { _count: { select: { deals: true } } } },
   tags: { orderBy: { position: "asc" } },
   lossReasons: { orderBy: { position: "asc" } },
-  members: { include: { user: { select: { id: true, name: true, email: true } } }, orderBy: { user: { name: "asc" } } },
+  members: { include: { user: { select: { id: true, name: true } } }, orderBy: { user: { name: "asc" } } },
   updatedBy: { select: { id: true, name: true } },
   _count: { select: { deals: true } },
+} satisfies Prisma.PipelineInclude;
+
+// Contagens aninhadas repetem a leitura/RLS de deals por relação. A listagem
+// carrega só definições e agrega negócios uma vez por lote de pipelines.
+const PARA_LISTAGEM = {
+  ...COMPLETO,
+  stages: { orderBy: { position: "asc" } },
+  _count: false,
 } satisfies Prisma.PipelineInclude;
 
 type LinhaDePipeline = Prisma.PipelineGetPayload<{ include: typeof COMPLETO }>;
@@ -48,9 +63,12 @@ type LinhaDePipeline = Prisma.PipelineGetPayload<{ include: typeof COMPLETO }>;
 const NAO_ENCONTRADO = "Pipeline não encontrado.";
 const NOME_REPETIDO = "Já existe um pipeline com este nome nesta empresa.";
 const VERSAO_DESATUALIZADA = "Outra pessoa alterou este pipeline enquanto você editava. Reabra para ver a versão atual.";
+const PIPELINES_POR_LOTE = 25;
 
-function paraPipeline(linha: LinhaDePipeline, canConfigure: boolean): Pipeline {
+function paraPipeline(linha: LinhaDePipeline, canConfigure: boolean, counts: ContagensDeCampos = {}): Pipeline {
   return pipelineSchema.parse({
+    processProfile: lerPerfilDeProcesso(linha.processProfile),
+    fields: lerCampos(linha.fields).map((field) => ({ ...field, valueCount: counts[field.id]?.count ?? 0 })),
     id: linha.id,
     companyId: linha.companyId,
     name: linha.name,
@@ -73,7 +91,7 @@ function paraPipeline(linha: LinhaDePipeline, canConfigure: boolean): Pipeline {
     })),
     tags: linha.tags.map(({ id, name, color }) => ({ id, name, color })),
     lossReasons: linha.lossReasons.map(({ id, name, asksRevisitDate }) => ({ id, name, asksRevisitDate })),
-    members: linha.members.map((m) => ({ userId: m.userId, name: m.user.name, email: m.user.email, role: m.role })),
+    members: linha.members.map((m) => ({ userId: m.userId, name: m.user.name, role: m.role })),
     dealCount: linha._count.deals,
     canConfigure,
   });
@@ -90,12 +108,37 @@ export class PrismaPipelinesRepository extends PipelinesRepository {
     super();
   }
 
-  async list(principal: AuthPrincipal): Promise<ListPipelinesResponse> {
+  async list(principal: AuthPrincipal, query: ListPipelinesQuery = {}): Promise<ListPipelinesResponse> {
     const acesso = await this.acessoDe(principal.id);
     if (!acesso.podeOperar) throw new AcessoNegado("Sem acesso aos pipelines do CRM.");
-    const linhas = await this.prisma.pipeline.findMany({ orderBy: { createdAt: "asc" }, include: COMPLETO });
+    // Lotes internos limitam cada transação RLS. A tela de vendas exclui
+    // arquivados antes de carregar definições e calcular contagens.
+    const filtroDeStatus = query.status === "active" ? { archivedAt: null } : undefined;
+    const ids = query.pipelineId ? [query.pipelineId.toLowerCase()] : await this.prisma.comContexto(async (tx) =>
+      (await tx.pipeline.findMany({
+        ...(filtroDeStatus && { where: filtroDeStatus }), select: { id: true }, orderBy: { createdAt: "asc" },
+      })).map(({ id }) => id));
+    const porId = new Map<string, Pipeline>();
+    for (let offset = 0; offset < ids.length; offset += PIPELINES_POR_LOTE) {
+      const lote = ids.slice(offset, offset + PIPELINES_POR_LOTE);
+      const pipelines = await this.prisma.comContexto(async (tx) => {
+        const definitions = await tx.pipeline.findMany({
+          where: { id: query.pipelineId ?? { in: lote }, ...filtroDeStatus },
+          orderBy: { createdAt: "asc" },
+          include: PARA_LISTAGEM,
+        });
+        const totals = await contarNegociosDosPipelines(tx, definitions.map((pipeline) => pipeline.id));
+        const counts = await contarValores(tx, definitions.flatMap((linha) => lerCampos(linha.fields)));
+        return definitions.map((pipeline) => paraPipeline({
+          ...pipeline,
+          _count: { deals: totals.pipelines.get(pipeline.id) ?? 0 },
+          stages: pipeline.stages.map((stage) => ({ ...stage, _count: { deals: totals.stages.get(stage.id) ?? 0 } })),
+        }, podeConfigurar(acesso, principal.id, pipeline), counts));
+      });
+      for (const pipeline of pipelines) porId.set(pipeline.id, pipeline);
+    }
     return listPipelinesResponseSchema.parse({
-      pipelines: linhas.map((linha) => paraPipeline(linha, podeConfigurar(acesso, principal.id, linha))),
+      pipelines: ids.flatMap((id) => porId.has(id) ? [porId.get(id)!] : []),
       responsaveis: (await this.people({ companyId: "plugga" }, principal)).people,
       canCreateIn: companyKeys.filter((empresa) => podeCriarEm(acesso, empresa)),
     });
@@ -104,11 +147,11 @@ export class PrismaPipelinesRepository extends PipelinesRepository {
   async people(_query: PipelinePeopleQuery, principal: AuthPrincipal): Promise<PipelinePeopleResponse> {
     const acesso = await this.acessoDe(principal.id);
     if (!acesso.podeOperar) throw new AcessoNegado("Sem acesso aos pipelines do CRM.");
-    const pessoas = await this.prisma.user.findMany({
+    const pessoas = await this.prisma.comContexto((tx) => tx.user.findMany({
       where: pessoaElegivelParaPipelines,
       orderBy: { name: "asc" },
-      select: { id: true, name: true, email: true },
-    });
+      select: { id: true, name: true },
+    }));
     return pipelinePeopleResponseSchema.parse({ people: pessoas });
   }
 
@@ -117,13 +160,17 @@ export class PrismaPipelinesRepository extends PipelinesRepository {
     if (!podeCriarEm(acesso, input.companyId)) throw new AcessoNegado("Só o gerente do CRM cria pipelines.");
     await this.garantirNomeLivre(input.companyId, input.name);
 
-    const { stages, tags, lossReasons, members, ...gerais } = input;
+    const { stages, tags, lossReasons, members, fields, processProfile, ...gerais } = input;
     this.garantirSemEquipe(members);
     const id = await this.comNomeUnico(() =>
-      this.prisma.$transaction(async (tx) => {
+      this.prisma.comContexto(async (tx) => {
+        const definitions = configurarCampos([], fields ?? [], [], {});
+        const profile = configurarPerfilDeProcesso(null, processProfile, definitions);
         const criado = await tx.pipeline.create({
           data: {
             ...gerais,
+            fields: definitions,
+            processProfile: profile ?? Prisma.DbNull,
             updatedById: principal.id,
             stages: { create: comPosicao(stages.map(({ name, color, staleAfterDays, asksClientConversion }) => ({ name, color, staleAfterDays, asksClientConversion }))) },
             tags: { create: comPosicao(tags.map(({ name, color }) => ({ name, color }))) },
@@ -173,40 +220,40 @@ export class PrismaPipelinesRepository extends PipelinesRepository {
     }
 
     const { campos, secoes } = alteracoes(atual, input);
-    const { stages, tags, lossReasons, members, updatedAt, stageDestinations, ...gerais } = input;
+    const { stages, tags, lossReasons, members, updatedAt, stageDestinations, fields, confirmedFieldRemovals, processProfile, ...gerais } = input;
     this.garantirSemEquipe(members);
     const removidas = idsRemovidos(atual.stages.map((e) => e.id), stages);
     await this.comNomeUnico(() =>
-      this.prisma.$transaction(async (tx) => {
+      this.prisma.comContexto(async (tx) => {
+        await travarPipelines(tx, [id]);
+        const current = await tx.pipeline.findUnique({ where: { id }, select: { fields: true, processProfile: true, updatedAt: true } });
+        if (!current) throw new NaoEncontrado(NAO_ENCONTRADO);
+        if (current.updatedAt.getTime() !== new Date(updatedAt).getTime()) throw new EstadoInvalido(VERSAO_DESATUALIZADA);
+        const definitions = lerCampos(current.fields);
+        const counts = fields === undefined ? {} : await contarValores(tx, definitions);
+        const next = fields === undefined ? undefined : configurarCampos(definitions, fields, confirmedFieldRemovals ?? [], counts);
+        const profile = configurarPerfilDeProcesso(lerPerfilDeProcesso(current.processProfile), processProfile, next ?? definitions);
+        const problemaDoProcesso = profile?.activation ? problemaDasEtapasDoProcesso(profile.activation, stages, removidas) : null;
+        if (problemaDoProcesso) throw new RequisicaoInvalida(problemaDoProcesso, [{ campo: "stages", problema: problemaDoProcesso }]);
         // Trava otimista: só grava sobre a versão que a tela leu. O banco guarda
         // microssegundos e o ISO da tela só milissegundos, daí o intervalo.
         const lido = new Date(updatedAt);
         const gravado = await tx.pipeline.updateMany({
           where: { id, updatedAt: { gte: lido, lt: new Date(lido.getTime() + 1) } },
-          data: { ...gerais, updatedById: principal.id },
+          data: { ...gerais, ...(next === undefined ? {} : { fields: next }), processProfile: profile ?? Prisma.DbNull, updatedById: principal.id },
         });
         if (gravado.count === 0) throw new EstadoInvalido(VERSAO_DESATUALIZADA);
-
-        // Antes de excluir, os negócios das etapas removidas vão para o destino escolhido.
-        for (const etapa of atual.stages.filter((e) => removidas.includes(e.id) && e.dealCount > 0)) {
-          const destino = stages.find((e) => e.id === stageDestinations[etapa.id])!;
-          const agora = new Date();
-          const abertos = await tx.deal.findMany({ where: { stageId: etapa.id, status: "open" }, select: { id: true } });
-          await tx.deal.updateMany({ where: { stageId: etapa.id, status: "open" }, data: { stageId: destino.id!, stageEnteredAt: agora } });
-          await tx.deal.updateMany({ where: { stageId: etapa.id }, data: { stageId: destino.id! } });
-          await tx.dealHistory.createMany({
-            data: abertos.map((negocio) => ({
-              dealId: negocio.id,
-              kind: "stage_changed" as const,
-              fromStageId: etapa.id,
-              fromStageName: etapa.name,
-              toStageId: destino.id!,
-              toStageName: destino.name,
-              actorId: principal.id,
-              occurredAt: agora,
-            })),
-          });
-        }
+        const removedFields = next ? definitions.filter((field) => !next.some((item) => item.id === field.id)) : [];
+        await travarNegociosDaConfiguracao(tx, id, removidas, removedFields);
+        const realocados = removidas.length ? await tx.deal.findMany({ where: { pipelineId: id, stageId: { in: removidas } }, select: { id: true, stageId: true, version: true }, orderBy: { id: "asc" } }) : [];
+        await removerValores(tx, removedFields, principal.id, realocados.map((deal) => deal.id));
+        const agora = new Date();
+        const moves = realocados.map((negocio) => {
+          const destino = stages.find((stage) => stage.id === stageDestinations[negocio.stageId]);
+          if (!destino?.id) throw new RequisicaoInvalida("Escolha uma etapa mantida para receber os negócios da etapa removida.");
+          return { dealId: negocio.id, version: negocio.version, toStageId: destino.id, toStageName: destino.name };
+        });
+        await executarTransicaoNegocio(tx, this.auditoria, principal, agora, { kind: "reallocate_batch", pipelineId: id, removedFields, moves });
         await tx.pipelineStage.deleteMany({ where: { pipelineId: id, id: { in: removidas } } });
         for (const [position, { id: etapaId, name, color, staleAfterDays, asksClientConversion }] of stages.entries()) {
           const dados = { name, color, staleAfterDays, asksClientConversion, position };
@@ -249,7 +296,8 @@ export class PrismaPipelinesRepository extends PipelinesRepository {
     if ((atual.archivedAt !== null) === arquivar) {
       throw new EstadoInvalido(arquivar ? "O pipeline já está arquivado." : "O pipeline já está ativo.");
     }
-    await this.prisma.$transaction(async (tx) => {
+    await this.prisma.comContexto(async (tx) => {
+      await travarPipelines(tx, [id]);
       await tx.pipeline.update({ where: { id }, data: { archivedAt: arquivar ? new Date() : null, updatedById: principal.id } });
       await this.registrar(tx, arquivar ? "commercial.pipeline.archived" : "commercial.pipeline.restored", id, atual.companyId, principal, {});
     });
@@ -257,19 +305,32 @@ export class PrismaPipelinesRepository extends PipelinesRepository {
   }
 
   private acessoDe(pessoaId: string): Promise<AcessoComercial> {
-    return lerAcessoComercial(this.prisma, pessoaId);
+    return this.prisma.comContexto((tx) => lerAcessoComercial(tx, pessoaId));
   }
 
   /** Quem não alcança o pipeline recebe "não encontrado": a existência não vaza. */
   private async lerVisivel(id: string, pessoaId: string, acesso: AcessoComercial): Promise<Pipeline> {
-    const linha = await this.prisma.pipeline.findUnique({ where: { id }, include: COMPLETO });
+    const { linha, counts } = await this.prisma.comContexto(async (tx) => {
+      const definition = await tx.pipeline.findUnique({ where: { id }, include: PARA_LISTAGEM });
+      if (!definition) return { linha: null, counts: {} };
+      const totals = await contarNegociosDosPipelines(tx, [id]);
+      const linha = {
+        ...definition, _count: { deals: totals.pipelines.get(id) ?? 0 },
+        stages: definition.stages.map((stage) => ({ ...stage, _count: { deals: totals.stages.get(stage.id) ?? 0 } })),
+      };
+      const counts = await contarValores(tx, lerCampos(linha.fields));
+      return { linha, counts };
+    });
     if (!linha || !podeVer(acesso)) throw new NaoEncontrado(NAO_ENCONTRADO);
-    return paraPipeline(linha, podeConfigurar(acesso, pessoaId, linha));
+    return paraPipeline(linha, podeConfigurar(acesso, pessoaId, linha), counts);
   }
 
   private async lerParaQuemPediu(id: string, pessoaId: string, acesso: AcessoComercial): Promise<Pipeline> {
-    const linha = await this.prisma.pipeline.findUniqueOrThrow({ where: { id }, include: COMPLETO });
-    return paraPipeline(linha, podeConfigurar(acesso, pessoaId, linha));
+    return this.prisma.comContexto(async (tx) => {
+      const linha = await tx.pipeline.findUniqueOrThrow({ where: { id }, include: COMPLETO });
+      const counts = await contarValores(tx, lerCampos(linha.fields));
+      return paraPipeline(linha, podeConfigurar(acesso, pessoaId, linha), counts);
+    });
   }
 
   private garantirSemEquipe(membros: readonly PipelineMemberInput[]): void {
@@ -278,10 +339,10 @@ export class PrismaPipelinesRepository extends PipelinesRepository {
 
   /** O índice único do banco diferencia maiúsculas; a tela não deve. */
   private async garantirNomeLivre(empresa: CompanyKey, nome: string, exceto?: string): Promise<void> {
-    const outro = await this.prisma.pipeline.findFirst({
+    const outro = await this.prisma.comContexto((tx) => tx.pipeline.findFirst({
       where: { companyId: empresa, name: { equals: nome, mode: "insensitive" }, ...(exceto ? { id: { not: exceto } } : {}) },
       select: { id: true },
-    });
+    }));
     if (outro) throw new Conflito(NOME_REPETIDO, [{ campo: "name", problema: "nome já usado nesta empresa" }]);
   }
 
@@ -316,6 +377,6 @@ export class PrismaPipelinesRepository extends PipelinesRepository {
   }
 
   private actorType(principal: AuthPrincipal): ActorType {
-    return principal.kind === "user" ? "user" : "system";
+    return principal.kind === "user" ? "user" : "agent";
   }
 }

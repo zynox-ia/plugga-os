@@ -31,7 +31,7 @@ const pediramIntegracao =
     ([nome, valor]) => /^RUN_[A-Z_]+_INTEGRATION_TESTS$/.test(nome) && valor === "true",
   ) || Boolean(process.env.CORPUS_FATURAS);
 
-if (pediramIntegracao) {
+if (pediramIntegracao && process.env.PLUGGA_TEST_IGNORE_ENV_FILE !== "true") {
   dotenv.config({
     path: path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../.env"),
   });

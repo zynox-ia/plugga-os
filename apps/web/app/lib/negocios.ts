@@ -1,14 +1,15 @@
-import type { Deal, DealStatus, Pipeline } from "@plugga/shared";
+import { alcancaDepartamento, alcancaTela, type Acesso, type Deal, type DealStatus, type Pipeline } from "@plugga/shared";
 
 // Extensão explícita: este módulo também roda sob `node --test` (test/negocios.test.ts).
 import { FUSO_HORARIO } from "./format.ts";
+import { campoCorrespondeAoFiltro } from "./campos-do-pipeline.ts";
 
 /**
  * Regras de exibição dos negócios no quadro e na lista (PLU-271): dias na
  * etapa, alerta de parado, somas e filtros. Tudo puro, para testar sem tela.
  */
 
-export type Visao = "kanban" | "lista";
+export type Visao = "kanban" | "lista" | "previsao";
 export type FiltroDeStatus = DealStatus | "todos";
 export type FiltroDePrevisao = "qualquer" | "atrasada" | "este-mes" | "proximo-mes" | "sem-previsao";
 export type Filtros = { busca: string; responsavel: string; etiqueta: string; status: FiltroDeStatus; previsao: FiltroDePrevisao };
@@ -17,6 +18,14 @@ export type Ordem = { campo: "titulo" | "valor" | "previsao" | "dias" | "etapa";
 export const FILTROS_INICIAIS: Filtros = { busca: "", responsavel: "", etiqueta: "", status: "open", previsao: "qualquer" };
 
 export const ROTULO_STATUS: Record<DealStatus, string> = { open: "Aberto", won: "Ganho", lost: "Perdido" };
+
+export function negocioConvertido(negocio: Pick<Deal, "client"> & { converted?: boolean }): boolean {
+  return negocio.converted ?? negocio.client !== null;
+}
+
+export function podeAtribuirLead(acesso: Acesso | undefined): boolean {
+  return !!acesso && alcancaDepartamento(acesso, "crm", "gerente") && alcancaTela(acesso, "crm.pipelines");
+}
 
 const DIA_MS = 86_400_000;
 
@@ -63,13 +72,14 @@ const normalizar = (texto: string) =>
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase();
 
-export function aplicarFiltros(negocios: readonly Deal[], filtros: Filtros, hoje: string): Deal[] {
+export function aplicarFiltros(negocios: readonly Deal[], filtros: Filtros, hoje: string, pipeline?: Pick<Pipeline, "fields">, pessoas: readonly { id: string; name: string }[] = []): Deal[] {
   const termo = normalizar(filtros.busca.trim());
   return negocios.filter((n) => {
     if (filtros.status !== "todos" && n.status !== filtros.status) return false;
     if (filtros.responsavel && n.owner.id !== filtros.responsavel) return false;
     if (filtros.etiqueta && !n.tags.some((t) => t.id === filtros.etiqueta)) return false;
-    if (termo && !normalizar(`${n.title} ${n.lead.name} ${n.client?.name ?? ""} ${n.contact?.name ?? ""}`).includes(termo)) return false;
+    if (termo && !normalizar(`${n.title} ${n.lead.name} ${n.client?.name ?? ""} ${n.contact?.name ?? ""}`).includes(termo)
+      && !pipeline?.fields?.some((campo) => campoCorrespondeAoFiltro(campo, n.customFields?.[campo.id], filtros.busca, pessoas))) return false;
     const previsao = n.expectedCloseDate;
     switch (filtros.previsao) {
       case "atrasada":

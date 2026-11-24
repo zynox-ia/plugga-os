@@ -10,6 +10,8 @@ export const eventNames = {
   authInviteAccepted: "auth.invite.accepted",
   authResetRequested: "auth.reset.requested",
   authResetCompleted: "auth.reset.completed",
+  /** Troca de senha pela própria pessoa, logada. Nunca carrega a senha. */
+  authPasswordChanged: "auth.password.changed",
   authInviteResent: "auth.invite.resent",
   /**
    * Primeiro vínculo entre um usuário local e uma conta Google. Fica separado de
@@ -25,6 +27,30 @@ export const eventNames = {
   // quando a conta do mês surpreende; o valor nunca entra no registro.
   llmChaveGravada: "llm.chave.gravada",
   llmChaveApagada: "llm.chave.apagada",
+  // Brevo conectado, trocado ou desconectado pela tela. Quem e quando; nunca a chave.
+  emailBrevoConectado: "email.brevo.connected",
+  emailBrevoDesconectado: "email.brevo.disconnected",
+  // Consulta de CNPJ e CEP ligada ou desligada pela plataforma.
+  integracaoCadastroAtivada: "integracao.cadastro.activated",
+  integracaoCadastroDesativada: "integracao.cadastro.deactivated",
+  // Telegram conectado, trocado ou desconectado pela tela. Quem e quando; nunca o token.
+  telegramConectado: "integracao.telegram.connected",
+  telegramDesconectado: "integracao.telegram.disconnected",
+  // Conta da Autentique de uma empresa conectada ou desconectada pela tela. Quem, quando e qual empresa; nunca o token.
+  autentiqueConectada: "integracao.autentique.connected",
+  autentiqueDesconectada: "integracao.autentique.disconnected",
+  // Conta do OMIE conectada ou desconectada pela tela. Quem e quando; nunca a chave nem o segredo.
+  omieConectado: "integracao.omie.connected",
+  omieDesconectado: "integracao.omie.disconnected",
+  // IA pela assinatura (Claude e Codex): início do login e conta removida. Quem e quando; nunca token.
+  iaAssinaturaLoginIniciado: "integracao.ia_assinatura.login_started",
+  iaAssinaturaContaRemovida: "integracao.ia_assinatura.account_removed",
+  // Credenciais do app OAuth do Google (plataforma) e conexão da agenda de cada pessoa.
+  // Quem e quando; nunca o client secret nem token.
+  googleOAuthConectado: "google.oauth.connected",
+  googleOAuthDesconectado: "google.oauth.disconnected",
+  googleCalendarConectado: "google.calendar.connected",
+  googleCalendarDesconectado: "google.calendar.disconnected",
 } as const;
 
 export type EventName = (typeof eventNames)[keyof typeof eventNames];
@@ -49,6 +75,13 @@ const evento = (descricao: string, escopo: DefinicaoDeEvento["escopo"]): Definic
 });
 
 export const catalogoEventos = {
+  "auth.mfa.enabled": evento("Segundo fator ativado", "plataforma"),
+  "auth.mfa.rotated": evento("Autenticador trocado", "plataforma"),
+  "auth.mfa.disabled": evento("Segundo fator desativado pelo titular", "plataforma"),
+  "auth.mfa.removed": evento("Segundo fator removido por desenvolvedor", "plataforma"),
+  "auth.mfa.emergency_removed": evento("Segundo fator removido por procedimento emergencial", "plataforma"),
+  "auth.mfa.recovery_codes_rotated": evento("Códigos de recuperação substituídos", "plataforma"),
+  "auth.mfa.verified": evento("Segundo fator confirmado", "plataforma"),
   "energy_efficiency.study.approved": evento("Estudo de eficiência energética aprovado", "empresa"),
   "energy_efficiency.study.sent": evento("Estudo enviado ao cliente", "empresa"),
   "energy.invoice_type.approved": evento("Tipo de fatura aprovado", "empresa"),
@@ -64,8 +97,10 @@ export const catalogoEventos = {
   "commercial.pipeline.updated": evento("Configuração do pipeline alterada", "empresa"),
   "commercial.pipeline.archived": evento("Pipeline arquivado", "empresa"),
   "commercial.pipeline.restored": evento("Pipeline reativado", "empresa"),
+  "commercial.pipeline.solar_activated": evento("Processo Solar ativado no pipeline", "empresa"),
   "commercial.deal.created": evento("Negócio criado", "empresa"),
   "commercial.deal.updated": evento("Dados do lead editados", "empresa"),
+  "commercial.deal.stage_changed": evento("Etapa do negócio alterada por uma transição comercial", "empresa"),
   "commercial.deal.won": evento("Negócio ganho", "empresa"),
   "commercial.deal.lost": evento("Negócio perdido", "empresa"),
   "commercial.deal.transferred": evento("Negócio movido para outro pipeline", "empresa"),
@@ -80,10 +115,100 @@ export const catalogoEventos = {
   "clientes.contact.updated": evento("Contato do cliente alterado", "plataforma"),
   "clientes.contact.removed": evento("Contato do cliente removido", "plataforma"),
   "compras.pedido.created": evento("Pedido numerado", "empresa"),
+  // Pedido de compra (PLU-327). Sem PII: payload só com ids, etapas e nomes de campos.
+  "compras.pedido.updated": evento("Dados do pedido de compra alterados", "empresa"),
+  "compras.pedido.analise_iniciada": evento("Análise de estoque iniciada", "empresa"),
+  "compras.pedido.estoque_decidido": evento("Decisão de estoque registrada", "empresa"),
+  "compras.pedido.cotacao_selecionada": evento("Cotação escolhida", "empresa"),
+  "compras.pedido.enviado_para_aprovacao": evento("Pedido enviado para aprovação", "empresa"),
+  "compras.pedido.aprovado": evento("Compra aprovada", "empresa"),
+  "compras.pedido.revisado": evento("Compra devolvida para cotações", "empresa"),
+  "compras.pedido.pagamento_registrado": evento("Pagamento registrado", "empresa"),
+  "compras.pedido.comprovante_enviado": evento("Comprovante de pagamento enviado", "empresa"),
+  "compras.pedido.recebimento_confirmado": evento("Recebimento confirmado e pedido concluído", "empresa"),
+  "compras.pedido.cancelado": evento("Pedido de compra cancelado", "empresa"),
+  "compras.cotacao.created": evento("Cotação registrada", "empresa"),
+  "compras.obra.created": evento("Obra cadastrada pelo pedido de compra", "empresa"),
+  // Estoque (PLU-332). Sem PII: payload só com ids, tipos e nomes de campos.
+  "estoque.item.created": evento("Item de estoque cadastrado", "empresa"),
+  "estoque.item.updated": evento("Item de estoque alterado", "empresa"),
+  "estoque.item.inactivated": evento("Item de estoque inativado", "empresa"),
+  "estoque.item.reactivated": evento("Item de estoque reativado", "empresa"),
+  "estoque.movimentacao.created": evento("Movimentação de estoque registrada", "empresa"),
+  "estoque.reserva.created": evento("Reserva de estoque para um pedido de compra", "empresa"),
+  "estoque.reserva.baixada": evento("Reserva de estoque convertida em saída no recebimento", "empresa"),
+  "estoque.reserva.liberada": evento("Reserva de estoque liberada", "empresa"),
+  // Financeiro (PLU-336). Sem PII: o motivo do cancelamento e a descrição ficam no lançamento, não no evento.
+  "financeiro.lancamento.created": evento("Lançamento financeiro criado", "empresa"),
+  "financeiro.lancamento.updated": evento("Lançamento financeiro alterado", "empresa"),
+  "financeiro.lancamento.aprovado": evento("Conta a pagar aprovada", "empresa"),
+  "financeiro.lancamento.cancelado": evento("Lançamento financeiro cancelado", "empresa"),
+  // PLU-337. O motivo da correção e a nota da cobrança ficam na linha do tempo do lançamento.
+  "financeiro.lancamento.valor_corrigido": evento("Valor do lançamento corrigido", "empresa"),
+  "financeiro.lancamento.nf_registrada": evento("NF da cobrança registrada", "empresa"),
+  "financeiro.lancamento.boleto_registrado": evento("Boleto da cobrança registrado", "empresa"),
+  "financeiro.lancamento.enviado": evento("Cobrança enviada ao cliente", "empresa"),
+  "financeiro.lancamento.cobranca_registrada": evento("Contato de cobrança registrado", "empresa"),
+  "financeiro.lancamento.pago": evento("Pagamento da conta registrado", "empresa"),
+  "financeiro.lancamento.recebido": evento("Recebimento da cobrança registrado", "empresa"),
+  "financeiro.anexo.enviado": evento("Anexo do lançamento enviado", "empresa"),
+  "financeiro.anexo.substituido": evento("Anexo do lançamento substituído", "empresa"),
+  // Ordens de serviço da Engenharia (PLU-345). Sem PII: nunca o nome nem o documento
+  // de quem assina o termo; motivos e laudo ficam na O.S. e na linha do tempo dela.
+  "engenharia.ordem.created": evento("Ordem de serviço aberta", "empresa"),
+  "engenharia.ordem.updated": evento("Dados da ordem de serviço alterados", "empresa"),
+  "engenharia.ordem.agendada": evento("Ordem de serviço agendada", "empresa"),
+  "engenharia.ordem.remarcada": evento("Ordem de serviço remarcada", "empresa"),
+  "engenharia.ordem.checkin_registrado": evento("Chegada do técnico registrada", "empresa"),
+  "engenharia.ordem.foto_enviada": evento("Foto da ordem de serviço enviada", "empresa"),
+  "engenharia.ordem.laudo_registrado": evento("Laudo da ordem de serviço registrado", "empresa"),
+  "engenharia.ordem.termo_assinado": evento("Termo assinado e ordem de serviço concluída", "empresa"),
+  "engenharia.ordem.adiada": evento("Ordem de serviço adiada", "empresa"),
+  "engenharia.ordem.cancelada": evento("Ordem de serviço cancelada", "empresa"),
+  "engenharia.ordem.material_pedido": evento("Material pedido a Compras pela ordem de serviço", "empresa"),
+  "engenharia.tipo_de_ordem.configurado": evento("Prazo padrão ou agendador de um tipo de O.S. alterado", "plataforma"),
+  // Usinas e monitoramento (PLU-347). Sem o print nem as notas: o print pode mostrar dados de cliente.
+  "engenharia.usina.created": evento("Usina cadastrada", "empresa"),
+  "engenharia.usina.updated": evento("Dados da usina alterados", "empresa"),
+  "engenharia.plataforma.configurada": evento("Plataforma de inversor cadastrada ou alterada", "plataforma"),
+  "engenharia.plataforma.conferida": evento("Plataforma conferida no monitoramento do dia", "empresa"),
+  // Obras (PLU-350). Sem nome de arquivo nem valores: só ids, marcos e campos.
+  "engenharia.obra.created": evento("Obra cadastrada pela Engenharia", "empresa"),
+  "engenharia.obra.updated": evento("Dados da obra alterados", "empresa"),
+  "engenharia.obra.marco_feito": evento("Marco da obra feito", "empresa"),
+  "engenharia.obra.marco_reprogramado": evento("Marco da obra reprogramado", "empresa"),
+  "engenharia.obra.documento_enviado": evento("Documento ou cronograma anexado à obra", "empresa"),
+  // Protocolos na distribuidora (PLU-348). Sem a nota nem a ação pendente: podem citar dados do cliente.
+  "protocolos.protocolo.created": evento("Protocolo na distribuidora cadastrado", "empresa"),
+  "protocolos.protocolo.updated": evento("Dados do protocolo na distribuidora alterados", "empresa"),
+  "protocolos.protocolo.verificado": evento("Protocolo na distribuidora verificado", "empresa"),
+  "protocolos.distribuidora.configurada": evento("Distribuidora cadastrada ou alterada", "plataforma"),
+  // Tarefas dos departamentos (PLU-349, PLU-340). Sem PII: o resultado fica na ocorrência, não no evento.
+  "tarefas.tarefa.created": evento("Tarefa do departamento criada", "empresa"),
+  "tarefas.tarefa.encerrada": evento("Tarefa do departamento encerrada", "empresa"),
+  "tarefas.ocorrencia.concluida": evento("Tarefa do dia concluída", "empresa"),
+  // OMIE por empresa (PLU-342). Nunca a chave, o segredo nem a resposta do OMIE.
+  "integracoes.omie.conectada": evento("Par do OMIE da empresa gravado", "empresa"),
+  "integracoes.omie.desconectada": evento("Par do OMIE da empresa removido", "empresa"),
+  "integracoes.omie.testada": evento("Conexão do OMIE da empresa testada", "empresa"),
+  "integracoes.omie.confirmada": evento("Conexão do OMIE da empresa confirmada", "empresa"),
+  "integracoes.omie.bloqueada": evento("Conexão do OMIE da empresa bloqueada pela conferência do CNPJ", "empresa"),
+  "integracoes.omie.conta_antiga_movida": evento("Conta única do OMIE movida para a empresa", "empresa"),
+  "organizacao.empresa.cnpj_definido": evento("CNPJ da empresa no Plugga OS definido", "empresa"),
+  // Fornecedor é cadastro único das duas empresas: o escopo é a plataforma. Sem PII, só os nomes dos campos.
+  "suprimentos.fornecedor.created": evento("Fornecedor cadastrado", "plataforma"),
+  "suprimentos.fornecedor.updated": evento("Fornecedor alterado", "plataforma"),
+  "suprimentos.fornecedor.inactivated": evento("Fornecedor inativado", "plataforma"),
+  "suprimentos.fornecedor.reactivated": evento("Fornecedor reativado", "plataforma"),
+  // Quem viu os dados de pagamento completos e por quê; nunca o valor.
+  "suprimentos.fornecedor.dados_de_pagamento_revelados": evento("Dados de pagamento do fornecedor revelados", "plataforma"),
   "pluggamob.settlement.approved": evento("Fechamento Pluggamob aprovado", "empresa"),
   "auth.access.changed": evento("Acesso de usuário alterado", "plataforma"),
   "auth.user.deactivated": evento("Usuário desativado", "plataforma"),
   "auth.user.removed": evento("Membro removido da equipe", "plataforma"),
+  "auth.agent.created": evento("Identidade de IA criada na equipe", "plataforma"),
+  "auth.agent.credential_rotated": evento("Credencial de IA emitida ou rotacionada", "plataforma"),
+  "auth.agent.credential_revoked": evento("Credencial de IA revogada", "plataforma"),
   "integrations.mode.changed": evento("Modo de integração alterado", "plataforma"),
   "llm.chave.updated": evento("Chave de LLM trocada", "plataforma"),
 } as const satisfies Record<string, DefinicaoDeEvento>;
@@ -150,6 +275,23 @@ export const eventosLegados: readonly string[] = [
   "pluggamob.user_opted_out",
   "llm.chave.gravada",
   "llm.chave.apagada",
+  "email.brevo.connected",
+  "email.brevo.disconnected",
+  "integracao.cadastro.activated",
+  "integracao.cadastro.deactivated",
+  "integracao.telegram.connected",
+  "integracao.telegram.disconnected",
+  "integracao.autentique.connected",
+  "integracao.autentique.disconnected",
+  "integracao.omie.connected",
+  "integracao.omie.disconnected",
+  "integracao.ia_assinatura.login_started",
+  "integracao.ia_assinatura.account_removed",
+  "auth.password.changed",
+  "google.oauth.connected",
+  "google.oauth.disconnected",
+  "google.calendar.connected",
+  "google.calendar.disconnected",
 ];
 
 /** Evento que o `AuditAppender` aceita: do catálogo novo ou legado. */

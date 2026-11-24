@@ -160,6 +160,7 @@ export function buildLocalTestEnvironment(sourceEnvironment = process.env) {
     REDIS_URL: "redis://127.0.0.1:56380",
     DEV_AUTH_ENABLED: "true",
     AUTH_SESSION_SECRET: "local_test_only_session_secret_change_me_please",
+    MFA_ENCRYPTION_KEY: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
     EMAIL_PROVIDER: "noop",
     SEED_ADMIN_EMAIL: "admin@plugga.test",
     SEED_ADMIN_PASSWORD: "local_test_only_seed_password_change_me",
@@ -214,6 +215,26 @@ export function runLocalTestAction(
       "rustfs-test",
     );
     compose("run", "--rm", "rustfs-test-provision");
+    marcarComoLocal();
+  }
+
+  // O marcador que a limpeza dos e2e exige (apps/web/e2e/support/limpeza-e2e.sql):
+  // só os bancos locais o têm, e um volume novo o perderia. Nunca vai em migration.
+  function marcarComoLocal() {
+    compose(
+      "exec",
+      "-T",
+      "postgres-test",
+      "psql",
+      "-U",
+      "plugga_os_test",
+      "-d",
+      "plugga_os_test",
+      "-v",
+      "ON_ERROR_STOP=1",
+      "-c",
+      "ALTER DATABASE plugga_os_test SET plugga.ambiente = 'local'",
+    );
   }
 
   function migrate() {

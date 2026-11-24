@@ -57,7 +57,7 @@ services:
       STORAGE_ACCESS_KEY: plugga_os_test
       STORAGE_SECRET_KEY: local_test_storage_only_change_me
       STORAGE_BUCKET: plugga-arquivos
-      STORAGE_LEGACY_BUCKETS: plugga-comercial-clientes,plugga-energia-opm,plugga-produto-tecnologia,plugga-suprimentos,plugga-financeiro,plugga-marketing,waze-comercial-obras,waze-engenharia-obras,waze-suprimentos,waze-financeiro,waze-marketing
+      STORAGE_LEGACY_BUCKETS: plugga-comercial-clientes,plugga-energia-opm,plugga-produto-tecnologia,plugga-suprimentos,plugga-financeiro,waze-comercial-obras,waze-engenharia-obras,waze-suprimentos,waze-financeiro
     volumes:
       - ./apps/api/scripts/provisionar-storage.mjs:/app/apps/api/scripts/provisionar-storage.mjs:ro
     command: ["node", "scripts/provisionar-storage.mjs"]

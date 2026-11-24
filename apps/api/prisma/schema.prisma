@@ -258,53 +258,121 @@ enum ContestationStatus {
 }
 
 model User {
-  uploadedLeadDocuments LeadDocument[] @relation("LeadDocumentUploader")
-  archivedLeadDocuments LeadDocument[] @relation("LeadDocumentArchiver")
-  id                             String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  email                          String                  @unique
+  lancamentosNfRegistrada        Lancamento[]                @relation("LancamentoNfRegistradaPor")
+  lancamentosBoletoRegistrado    Lancamento[]                @relation("LancamentoBoletoRegistradoPor")
+  lancamentosEnviados            Lancamento[]                @relation("LancamentoEnviadoPor")
+  anexosDeLancamentoEnviados     AnexoDeLancamento[]         @relation("AnexoDeLancamentoEnviadoPor")
+  anexosDeLancamentoSubstituidos AnexoDeLancamento[]         @relation("AnexoDeLancamentoSubstituidoPor")
+  historicoDeLancamento          HistoricoDeLancamento[]
+  omieTestes                     OmieConexao[]               @relation("OmieConexaoTestadaPor")
+  omieConfirmacoes               OmieConexao[]               @relation("OmieConexaoConfirmadaPor")
+  omieEnviosCriados              OmieEnvio[]                 @relation("OmieEnvioCriadoPor")
+  lancamentosCriados             Lancamento[]                @relation("LancamentoCriadoPor")
+  lancamentosAprovados           Lancamento[]                @relation("LancamentoAprovadoPor")
+  lancamentosPagos               Lancamento[]                @relation("LancamentoPagamentoRegistradoPor")
+  lancamentosRecebidos           Lancamento[]                @relation("LancamentoRecebimentoRegistradoPor")
+  lancamentosConciliados         Lancamento[]                @relation("LancamentoConciliadoPor")
+  lancamentosCancelados          Lancamento[]                @relation("LancamentoCanceladoPor")
+  conexaoGoogleCalendar          ConexaoGoogleCalendar?
+  activityRounds                 ActivityRound[]
+  uploadedLeadDocuments          LeadDocument[]              @relation("LeadDocumentUploader")
+  archivedLeadDocuments          LeadDocument[]              @relation("LeadDocumentArchiver")
+  id                             String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email                          String                      @unique
   name                           String
-  status                         String                  @default("active")
-  createdAt                      DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt                      DateTime                @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  status                         String                      @default("active")
+  createdAt                      DateTime                    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                      DateTime                    @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   platformRoles                  UserPlatformRole[]
   departamentos                  UserDepartamento[]
   agentActions                   AgentAction[]
   credential                     UserCredential?
   identities                     UserIdentity[]
   sessions                       Session[]
+  mfa                            UserMfa?
+  mfaChallenges                  MfaChallenge[]
   authTokens                     AuthToken[]
+  agentIdentity                  AgentIdentity?
+  studiesOwned                   EnergyEfficiencyStudy[]     @relation("EnergyStudyOwner")
+  studiesCreated                 EnergyEfficiencyStudy[]     @relation("EnergyStudyCreator")
+  studiesApproved                EnergyEfficiencyStudy[]     @relation("EnergyStudyApprover")
+  invoiceTypesApproved           EnergyInvoiceTypeApproval[]
   opportunities                  Opportunity[]
-  clientsOwned                   Client[]                @relation("ClientOwner")
-  pipelinesUpdated               Pipeline[]              @relation("PipelineUpdatedBy")
+  clientsOwned                   Client[]                    @relation("ClientOwner")
+  pipelinesUpdated               Pipeline[]                  @relation("PipelineUpdatedBy")
   pipelineMemberships            PipelineMember[]
-  dealsOwned                     Deal[]                  @relation("DealOwner")
-  dealsCreated                   Deal[]                  @relation("DealCreatedBy")
-  dealHistory                    DealHistory[]           @relation("DealHistoryActor")
+  dealsOwned                     Deal[]                      @relation("DealOwner")
+  dealsCreated                   Deal[]                      @relation("DealCreatedBy")
+  dealHistory                    DealHistory[]               @relation("DealHistoryActor")
   contracts                      Contract[]
   marketMigrations               MarketMigration[]
-  cycles                         Cycle[]                 @relation("CycleOwner")
-  cyclesAprovados                Cycle[]                 @relation("CycleReportApprover")
+  cycles                         Cycle[]                     @relation("CycleOwner")
+  cyclesAprovados                Cycle[]                     @relation("CycleReportApprover")
   audits                         Audit[]
   contestations                  Contestation[]
-  pedidosSolicitados             PedidoDeCompra[]        @relation("PedidoSolicitante")
-  pedidosResponsavel             PedidoDeCompra[]        @relation("PedidoResponsavel")
-  passagensDeCompra              PedidoDeCompraEtapa[]
+  pedidosSolicitados             PedidoDeCompra[]            @relation("PedidoSolicitante")
+  pedidosResponsavel             PedidoDeCompra[]            @relation("PedidoResponsavel")
+  passagensDeCompra              PedidoDeCompraEtapa[]       @relation("PassagemDeCompraResponsavel")
+  fornecedoresCriados            Fornecedor[]                @relation("FornecedorCriadoPor")
+  pedidosCriados                 PedidoDeCompra[]            @relation("PedidoCriadoPor")
+  pedidosEstoqueDecidido         PedidoDeCompra[]            @relation("PedidoEstoqueDecididoPor")
+  pedidosCotacaoSelecionada      PedidoDeCompra[]            @relation("PedidoCotacaoSelecionadaPor")
+  pedidosAprovados               PedidoDeCompra[]            @relation("PedidoAprovadoPor")
+  pedidosPagos                   PedidoDeCompra[]            @relation("PedidoPagamentoRegistradoPor")
+  pedidosRecebidos               PedidoDeCompra[]            @relation("PedidoRecebimentoConfirmadoPor")
+  pedidosCancelados              PedidoDeCompra[]            @relation("PedidoCanceladoPor")
+  passagensDeCompraFechadas      PedidoDeCompraEtapa[]       @relation("PassagemDeCompraFechadaPor")
+  cotacoesCriadas                CotacaoDeCompra[]           @relation("CotacaoCriadaPor")
+  obrasCriadas                   Obra[]                      @relation("ObraCriadaPor")
+  obrasResponsavel               Obra[]                      @relation("ObraResponsavel")
+  marcosDeObraFeitos             MarcoDeObra[]               @relation("MarcoDeObraFeitoPor")
+  documentosDeObraEnviados       DocumentoDeObra[]           @relation("DocumentoDeObraEnviadoPor")
+  documentosDeObraSubstituidos   DocumentoDeObra[]           @relation("DocumentoDeObraSubstituidoPor")
+  comprovantesEnviados           ComprovanteDePagamento[]    @relation("ComprovanteEnviadoPor")
+  comprovantesSubstituidos       ComprovanteDePagamento[]    @relation("ComprovanteSubstituidoPor")
+  itensDeEstoqueCriados ItemDeEstoque[] @relation("ItemDeEstoqueCriadoPor")
+  reservasDeEstoqueFeitas ReservaDeEstoque[] @relation("ReservaDeEstoqueFeitaPor")
+  reservasDeEstoqueEncerradas ReservaDeEstoque[] @relation("ReservaDeEstoqueEncerradaPor")
+  movimentacoesDeEstoque MovimentacaoDeEstoque[] @relation("MovimentacaoDeEstoqueRegistradaPor")
+  fornecedoresAtualizados        Fornecedor[]                @relation("FornecedorAtualizadoPor")
   passagensDeObra                ObraEtapaHistorico[]
   evidenciasDeObra               EvidenciaDeObra[]
-  epiColaborador                 RegistroEpi[]           @relation("EpiColaborador")
-  epiConferidoPor                RegistroEpi[]           @relation("EpiConferidoPor")
-  aprSegurancaAssinou            RegistroApr[]           @relation("AprSegurancaAssinou")
-  aprSupervisorAssinou           RegistroApr[]           @relation("AprSupervisorAssinou")
-  incidentesRegistrados          Incidente[]             @relation("IncidenteRegistradoPor")
-  incidentesResponsavelTratativa Incidente[]             @relation("IncidenteResponsavelTratativa")
-  liberacoesDadas                LiberacaoSeguranca[]    @relation("LiberacaoLiberadoPor")
-  liberacoesRevogadas            LiberacaoSeguranca[]    @relation("LiberacaoRevogadoPor")
-  pendenciasAbertas              PendenciaDeCampo[]      @relation("PendenciaAbertaPor")
-  pendenciasEncerradas           PendenciaDeCampo[]      @relation("PendenciaEncerradoPor")
-  medicoesResponsavel            MedicaoTecnica[]        @relation("MedicaoResponsavel")
-  medicoesAprovadas              MedicaoTecnica[]        @relation("MedicaoAprovadoPor")
-  versoesDeProjetoAutor          ProjetoVersao[]         @relation("ProjetoVersaoAutor")
-  versoesDeProjetoAprovadas      ProjetoVersao[]         @relation("ProjetoVersaoAprovadoPor")
+  epiColaborador                 RegistroEpi[]               @relation("EpiColaborador")
+  epiConferidoPor                RegistroEpi[]               @relation("EpiConferidoPor")
+  aprSegurancaAssinou            RegistroApr[]               @relation("AprSegurancaAssinou")
+  aprSupervisorAssinou           RegistroApr[]               @relation("AprSupervisorAssinou")
+  incidentesRegistrados          Incidente[]                 @relation("IncidenteRegistradoPor")
+  incidentesResponsavelTratativa Incidente[]                 @relation("IncidenteResponsavelTratativa")
+  liberacoesDadas                LiberacaoSeguranca[]        @relation("LiberacaoLiberadoPor")
+  liberacoesRevogadas            LiberacaoSeguranca[]        @relation("LiberacaoRevogadoPor")
+  pendenciasAbertas              PendenciaDeCampo[]          @relation("PendenciaAbertaPor")
+  pendenciasEncerradas           PendenciaDeCampo[]          @relation("PendenciaEncerradoPor")
+  medicoesResponsavel            MedicaoTecnica[]            @relation("MedicaoResponsavel")
+  medicoesAprovadas              MedicaoTecnica[]            @relation("MedicaoAprovadoPor")
+  versoesDeProjetoAutor          ProjetoVersao[]             @relation("ProjetoVersaoAutor")
+  versoesDeProjetoAprovadas      ProjetoVersao[]             @relation("ProjetoVersaoAprovadoPor")
+  ordensCriadas                  OrdemDeServico[]            @relation("OrdemCriadaPor")
+  ordensComoTecnico              OrdemDeServico[]            @relation("OrdemTecnico")
+  ordensComoApoio                OrdemDeServico[]            @relation("OrdemApoio")
+  laudosDeOrdem                  OrdemDeServico[]            @relation("OrdemLaudoPor")
+  ordensAdiadas                  OrdemDeServico[]            @relation("OrdemAdiadaPor")
+  ordensCanceladas               OrdemDeServico[]            @relation("OrdemCanceladaPor")
+  historicoDeOrdens              HistoricoDeOrdemDeServico[] @relation("HistoricoDeOrdemPor")
+  arquivosDeOrdemEnviados        ArquivoDeOrdemDeServico[]   @relation("ArquivoDeOrdemEnviadoPor")
+  arquivosDeOrdemSubstituidos    ArquivoDeOrdemDeServico[]   @relation("ArquivoDeOrdemSubstituidoPor")
+  termosDeOrdemColetados         TermoDeOrdemDeServico[]     @relation("TermoDeOrdemColetadoPor")
+  tarefasComoResponsavel         Tarefa[]                    @relation("TarefaResponsavel")
+  tarefasComoSubstituto          Tarefa[]                    @relation("TarefaSubstituto")
+  tarefasEncerradas              Tarefa[]                    @relation("TarefaEncerradaPor")
+  tarefasCriadas                 Tarefa[]                    @relation("TarefaCriadaPor")
+  ocorrenciasConcluidas          OcorrenciaDeTarefa[]        @relation("OcorrenciaConcluidaPor")
+  evidenciasDeTarefaEnviadas     EvidenciaDeTarefa[]         @relation("EvidenciaDeTarefaEnviadaPor")
+  tiposDeOrdemQueAgenda          ConfiguracaoDeTipoDeOrdem[] @relation("TipoDeOrdemAgendador")
+  tiposDeOrdemAtualizados        ConfiguracaoDeTipoDeOrdem[] @relation("TipoDeOrdemAtualizadoPor")
+  usinasCriadas                  Usina[]                     @relation("UsinaCriadaPor")
+  conferenciasDePlataforma       ConferenciaDePlataforma[]   @relation("ConferenciaConferidaPor")
+  protocolosCriados              Protocolo[]                 @relation("ProtocoloCriadoPor")
+  verificacoesDeProtocolo        VerificacaoDeProtocolo[]    @relation("VerificacaoDeProtocoloPor")
 
   @@map("users")
 }
@@ -358,20 +426,55 @@ model UserIdentity {
 /// Opaque server-side session. Only the token hash is stored; revocation is a
 /// delete. Sliding expiry (expiresAt) capped by an absolute deadline.
 model Session {
-  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId            String   @map("user_id") @db.Uuid
-  tokenHash         String   @unique @map("token_hash")
-  expiresAt         DateTime @map("expires_at") @db.Timestamptz(6)
-  absoluteExpiresAt DateTime @map("absolute_expires_at") @db.Timestamptz(6)
-  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  lastUsedAt        DateTime @default(now()) @map("last_used_at") @db.Timestamptz(6)
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId            String    @map("user_id") @db.Uuid
+  tokenHash         String    @unique @map("token_hash")
+  expiresAt         DateTime  @map("expires_at") @db.Timestamptz(6)
+  absoluteExpiresAt DateTime  @map("absolute_expires_at") @db.Timestamptz(6)
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  lastUsedAt        DateTime  @default(now()) @map("last_used_at") @db.Timestamptz(6)
   ip                String?
-  userAgent         String?  @map("user_agent")
-  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userAgent         String?   @map("user_agent")
+  mfaVerifiedAt     DateTime? @map("mfa_verified_at") @db.Timestamptz(6)
+  mfaRevision       Int?      @map("mfa_revision")
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([expiresAt])
   @@map("sessions")
+}
+
+/// Opt-in factor; unfinished enrollment never replaces the active secret.
+model UserMfa {
+  userId             String    @id @map("user_id") @db.Uuid
+  encryptedSecret    String?   @map("encrypted_secret")
+  revision           Int       @default(0)
+  recoveryHashes     String[]  @default([]) @map("recovery_hashes")
+  lastTotpStep       Int       @default(-1) @map("last_totp_step")
+  pendingSecret      String?   @map("pending_secret")
+  pendingExpiresAt   DateTime? @map("pending_expires_at") @db.Timestamptz(6)
+  pendingSessionHash String?   @map("pending_session_hash")
+  failedAttempts     Int       @default(0) @map("failed_attempts")
+  blockedUntil       DateTime? @map("blocked_until") @db.Timestamptz(6)
+  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_mfa")
+}
+
+/// Hash of an opaque pre-session capability; never authorizes normal API reads.
+model MfaChallenge {
+  tokenHash  String   @id @map("token_hash")
+  userId     String   @map("user_id") @db.Uuid
+  revision   Int
+  rememberMe Boolean  @map("remember_me")
+  expiresAt  DateTime @map("expires_at") @db.Timestamptz(6)
+  attempts   Int      @default(0)
+  method     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("mfa_challenges")
 }
 
 /// Single-use invite/reset token. Only the hash is stored; consumedAt marks use.
@@ -404,13 +507,25 @@ model Role {
 /// Não é tenant — o sistema segue single-tenant (ADR-0008); é o contexto de
 /// negócio dentro do mesmo cliente.
 model Company {
-  id           String                  @id
-  name         String
-  createdAt    DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
-  obras        Obra[]
-  fornecedores Fornecedor[]
-  pedidos      PedidoDeCompra[]
-  pipelines    Pipeline[]
+  id        String           @id
+  name      String
+  /// Só os 14 dígitos; referência para conferir a conexão do OMIE (PLU-342). Só a plataforma grava.
+  cnpj      String?
+  createdAt DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  obras     Obra[]
+  pedidos   PedidoDeCompra[]
+  itensDeEstoque ItemDeEstoque[]
+  categoriasFinanceiras CategoriaFinanceira[]
+  contasCorrentes ContaCorrente[]
+  lancamentos Lancamento[]
+  omieConexao OmieConexao?
+  omieEnvios OmieEnvio[]
+  omiePausas OmiePausa[]
+  pipelines Pipeline[]
+  ordensDeServico OrdemDeServico[]
+  usinas Usina[]
+  protocolos Protocolo[]
+  conferenciasDePlataforma ConferenciaDePlataforma[]
 
   @@map("companies")
 }
@@ -439,37 +554,79 @@ enum NivelDeDepartamento {
 /// membro ou gerente de um departamento, sem empresa. Admin e desenvolvedor
 /// ficam em `UserPlatformRole` e não têm linha aqui.
 model UserDepartamento {
-  userId       String              @map("user_id") @db.Uuid
-  departamento String
-  nivel        NivelDeDepartamento
-  telas        String[]            @default([])
-  user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId        String              @map("user_id") @db.Uuid
+  departamento  String
+  nivel         NivelDeDepartamento
+  telas         String[]            @default([])
+  user          User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  agentIdentity AgentIdentity?
 
   @@id([userId, departamento])
   @@index([departamento])
   @@map("user_departamentos")
 }
 
+/// Identidade de IA: participa da equipe como membro de um único departamento.
+/// Credencial opaca revogável; só o hash fica no banco, nunca no diretório.
+model AgentIdentity {
+  userId              String           @id @map("user_id") @db.Uuid
+  departamento        String
+  tokenHash           String?          @unique @map("token_hash")
+  credentialExpiresAt DateTime?        @map("credential_expires_at") @db.Timestamptz(6)
+  revokedAt           DateTime?        @map("revoked_at") @db.Timestamptz(6)
+  createdAt           DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  /// Escopo por ação (B-01, PLU-351): catálogo `acoesDeAgente` de packages/shared.
+  acoes               String[]         @default([])
+  user                User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  membership          UserDepartamento @relation(fields: [userId, departamento], references: [userId, departamento], onDelete: NoAction, onUpdate: NoAction, map: "agent_identities_membership_fkey")
+  actions             AgentAction[]
+  pedidos             PedidoDeAgente[]
+
+  @@unique([userId, departamento])
+  @@map("agent_identities")
+}
+
+/// Pedido de um agente por chave de idempotência (PLU-351): o mesmo pedido
+/// repetido devolve a entidade criada da primeira vez. Só por inserção.
+model PedidoDeAgente {
+  id          String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  agentUserId String        @map("agent_user_id") @db.Uuid
+  chave       String
+  acao        String
+  /// sha256 do corpo canônico; nunca o corpo em claro.
+  hashDoCorpo String        @map("hash_do_corpo")
+  entityType  String        @map("entity_type")
+  entityId    String        @map("entity_id") @db.Uuid
+  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  identidade  AgentIdentity @relation(fields: [agentUserId], references: [userId], onDelete: Restrict)
+
+  @@unique([agentUserId, chave])
+  @@map("pedidos_de_agente")
+}
+
 /// Append-only audit record. The initial migration prevents UPDATE and DELETE.
 model AgentAction {
-  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  id             String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   agent          String
-  requestedById  String?  @map("requested_by") @db.Uuid
+  agentUserId    String?        @map("agent_user_id") @db.Uuid
+  requestedById  String?        @map("requested_by") @db.Uuid
   channel        String
   action         String
-  entityType     String   @map("entity_type")
-  entityId       String   @map("entity_id")
-  input          Json     @db.JsonB
-  payload        Json     @db.JsonB
+  entityType     String         @map("entity_type")
+  entityId       String         @map("entity_id")
+  input          Json           @db.JsonB
+  payload        Json           @db.JsonB
   decision       String
-  approvalStatus String   @map("approval_status")
+  approvalStatus String         @map("approval_status")
   status         String
   result         String?
   error          String?
-  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  requestedBy    User?    @relation(fields: [requestedById], references: [id], onDelete: SetNull)
+  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  requestedBy    User?          @relation(fields: [requestedById], references: [id], onDelete: SetNull)
+  identity       AgentIdentity? @relation(fields: [agentUserId], references: [userId], onDelete: Restrict)
 
   @@index([requestedById])
+  @@index([agentUserId])
   @@index([createdAt])
   @@index([entityType, entityId])
   @@map("agent_actions")
@@ -751,6 +908,7 @@ model D14Credit {
 /// opcional não informado fica nulo: nunca valor fictício. `company` e
 /// `segment` são legados do módulo comercial antigo (PLU-268).
 model Client {
+  activities        Activity[]
   id                String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   name              String
   company           String?
@@ -790,7 +948,12 @@ model Client {
   energyStudies     EnergyEfficiencyStudy[]
   obras             Obra[]
   pedidosDeCompra   PedidoDeCompra[]
+  movimentacoesDeEstoque MovimentacaoDeEstoque[]
+  lancamentos       Lancamento[]
   deals             Deal[]
+  ordensDeServico   OrdemDeServico[]
+  usinas            Usina[]
+  protocolos        Protocolo[]
 
   @@index([segment, active])
   @@index([ownerId])
@@ -832,45 +995,47 @@ enum PipelineMemberRole {
 /// negócio dele herda essa empresa. Arquivar esconde o pipeline das abas sem
 /// apagar nada; com negócios, ele nunca é apagado.
 model Pipeline {
-  id          String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  companyId   String               @map("company_id")
-  name        String
-  description String?
+  processProfile Json?                @map("process_profile") @db.JsonB
+  fields         Json                 @default("[]") @db.JsonB
+  id             String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId      String               @map("company_id")
+  name           String
+  description    String?
   /// Como a tela chama o valor do negócio neste pipeline (ex.: "Investimento estimado").
-  valueLabel  String               @map("value_label")
-  color       String
+  valueLabel     String               @map("value_label")
+  color          String
   /// Nomes dos desfechos neste pipeline (ex.: "Contrato assinado"); os desfechos em si são fixos.
-  wonLabel    String               @map("won_label")
-  lostLabel   String               @map("lost_label")
-  archivedAt  DateTime?            @map("archived_at") @db.Timestamptz(6)
-  createdAt   DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt   DateTime             @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  updatedById String?              @map("updated_by_id") @db.Uuid
-  company     Company              @relation(fields: [companyId], references: [id])
-  updatedBy   User?                @relation("PipelineUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
-  stages      PipelineStage[]
-  tags        PipelineTag[]
-  lossReasons PipelineLossReason[]
-  members     PipelineMember[]
-  deals       Deal[]
+  wonLabel       String               @map("won_label")
+  lostLabel      String               @map("lost_label")
+  archivedAt     DateTime?            @map("archived_at") @db.Timestamptz(6)
+  createdAt      DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime             @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  updatedById    String?              @map("updated_by_id") @db.Uuid
+  company        Company              @relation(fields: [companyId], references: [id])
+  updatedBy      User?                @relation("PipelineUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  stages         PipelineStage[]
+  tags           PipelineTag[]
+  lossReasons    PipelineLossReason[]
+  members        PipelineMember[]
+  deals          Deal[]
 
   @@unique([companyId, name])
   @@map("pipelines")
 }
 
 model PipelineStage {
-  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  pipelineId     String   @map("pipeline_id") @db.Uuid
-  name           String
-  color          String
-  position       Int
+  id                   String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  pipelineId           String   @map("pipeline_id") @db.Uuid
+  name                 String
+  color                String
+  position             Int
   /// Dias na etapa a partir dos quais o negócio aparece como parado; nulo desliga o alerta.
-  staleAfterDays Int?     @map("stale_after_days")
+  staleAfterDays       Int?     @map("stale_after_days")
   /// Mover um negócio aberto para esta etapa (inclusive transferindo de pipeline) abre o
   /// modal de conversão em cliente; cada pipeline decide em quais etapas isso vale.
-  asksClientConversion Boolean @default(false) @map("asks_client_conversion")
-  pipeline       Pipeline @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
-  deals          Deal[]
+  asksClientConversion Boolean  @default(false) @map("asks_client_conversion")
+  pipeline             Pipeline @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  deals                Deal[]
 
   @@index([pipelineId, position])
   @@map("pipeline_stages")
@@ -953,15 +1118,19 @@ enum DealPriority {
 /// está, sem cópia aqui: mover de pipeline muda a empresa por construção.
 /// Ganho e Perdido encerram o negócio na etapa em que ele estava.
 model Deal {
-  version Int @default(1)
-  leadContactId String? @map("lead_contact_id") @db.Uuid
-  profile LeadProfile?
-  leadContacts LeadContact[] @relation("LeadContacts")
-  leadContact LeadContact? @relation("SelectedLeadContact", fields: [leadContactId, id], references: [id, dealId], onDelete: NoAction, onUpdate: NoAction, map: "deals_lead_contact_owner_fkey")
-  documents LeadDocument[]
-  proposals LeadProposal[]
-  number Int @unique @default(autoincrement())
-  position Decimal @default(0) @db.Decimal(30, 10)
+  activities        Activity[]
+  solarProject      Json?               @map("solar_project") @db.JsonB
+  solarProjects     Json                @default("[]") @map("solar_projects") @db.JsonB
+  customFields      Json                @default("{}") @map("custom_fields") @db.JsonB
+  version           Int                 @default(1)
+  leadContactId     String?             @map("lead_contact_id") @db.Uuid
+  profile           LeadProfile?
+  leadContacts      LeadContact[]       @relation("LeadContacts")
+  leadContact       LeadContact?        @relation("SelectedLeadContact", fields: [leadContactId, id], references: [id, dealId], onDelete: NoAction, onUpdate: NoAction, map: "deals_lead_contact_owner_fkey")
+  documents         LeadDocument[]
+  proposals         LeadProposal[]
+  number            Int                 @unique @default(autoincrement())
+  position          Decimal             @default(0) @db.Decimal(30, 10)
   id                String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   pipelineId        String              @map("pipeline_id") @db.Uuid
   stageId           String              @map("stage_id") @db.Uuid
@@ -1135,6 +1304,10 @@ model ConsumerUnit {
   deals            DealConsumerUnit[]
 
   @@index([clientId])
+  lancamentos      UcDeLancamento[]
+  ordensDeServico  OrdemDeServico[]
+  usinas           Usina[]
+  protocolos       Protocolo[]
   @@map("consumer_units")
 }
 
@@ -1354,6 +1527,9 @@ model EnergyEfficiencyStudy {
   client         Client               @relation(fields: [clientId], references: [id], onDelete: Restrict)
   consumerUnit   ConsumerUnit         @relation(fields: [consumerUnitId], references: [id], onDelete: Restrict)
   premiseVersion EnergyPremiseVersion @relation(fields: [premiseVersionId], references: [id], onDelete: Restrict)
+  owner          User?                @relation("EnergyStudyOwner", fields: [ownerId], references: [id], onDelete: Restrict, map: "energy_study_owner_fkey")
+  createdBy      User?                @relation("EnergyStudyCreator", fields: [createdById], references: [id], onDelete: Restrict, map: "energy_study_creator_fkey")
+  approvedBy     User?                @relation("EnergyStudyApprover", fields: [approvedById], references: [id], onDelete: Restrict, map: "energy_study_approver_fkey")
 
   @@unique([consumerUnitId, competenceYear, competenceMonth, version, revision], map: "energy_study_uc_competencia_versao_key")
   @@index([status])
@@ -1376,6 +1552,8 @@ model EnergyInvoiceTypeApproval {
   approvedByText String   @map("approved_by_text")
   approvedAt     DateTime @map("approved_at") @db.Timestamptz(6)
   createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  approvedBy User? @relation(fields: [approvedById], references: [id], onDelete: Restrict, map: "energy_invoice_approver_fkey")
 
   @@map("energy_invoice_type_approvals")
 }
@@ -1487,6 +1665,22 @@ model SegredoDoSistema {
   @@map("segredos_do_sistema")
 }
 
+/// A agenda do Google de uma pessoa. O token de renovação é cifrado (mesma cifra do
+/// cofre); só o dono alcança a linha, por RLS. A conta Google conectada aparece na tela.
+model ConexaoGoogleCalendar {
+  userId              String   @id @map("user_id") @db.Uuid
+  googleEmail         String   @map("google_email")
+  /// Escopos concedidos, separados por espaço.
+  escopos             String
+  refreshTokenCifrado String   @map("refresh_token_cifrado")
+  iv                  String
+  tag                 String
+  conectadoEm         DateTime @default(now()) @map("conectado_em") @db.Timestamptz(6)
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("conexoes_google_calendar")
+}
+
 // ---------------------------------------------------------------------------
 // Compras e Suprimentos — POP-COMP-001 v2.3 + FLX-COMP
 //
@@ -1528,24 +1722,63 @@ enum ComprasDestino {
   @@map("compras_destino")
 }
 
-/// Quem fornece. Cadastro próprio, e não texto livre na cotação: é o ponto de
-/// controle de quem entra na lista de quem a empresa paga, e o que permite
-/// perguntar quanto se pagou a um fornecedor no ano.
+/// Fornecedor de Suprimentos (PLU-326). Cadastro único das duas empresas
+/// (decisão do André em 23/11/2026): não tem empresa, e o documento, quando
+/// informado, é único no cadastro todo. Não é apagado: sai de uso por inativação.
 model Fornecedor {
-  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  companyId String   @map("company_id")
-  nome      String
-  documento String?
-  ativo     Boolean  @default(true)
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id                String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nome              String
+  nomeFantasia      String?             @map("nome_fantasia")
+  /// CPF (11) ou CNPJ (14), só dígitos.
+  documento         String?             @unique
+  categoria         FornecedorCategoria
+  contatoNome       String?             @map("contato_nome")
+  telefone          String?
+  email             String?
+  cep               String?
+  logradouro        String?
+  numero            String?
+  complemento       String?
+  bairro            String?
+  cidade            String?
+  uf                String?
+  formasDePagamento FormaDePagamento[]  @default([]) @map("formas_de_pagamento")
+  chavePix          String?             @map("chave_pix")
+  dadosBancarios    String?             @map("dados_bancarios")
+  observacoes       String?
+  ativo             Boolean             @default(true)
+  criadoPorId       String?             @map("criado_por_id") @db.Uuid
+  atualizadoPorId   String?             @map("atualizado_por_id") @db.Uuid
+  createdAt         DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  company  Company           @relation(fields: [companyId], references: [id])
-  cotacoes CotacaoDeCompra[]
+  criadoPor     User?             @relation("FornecedorCriadoPor", fields: [criadoPorId], references: [id], onDelete: SetNull)
+  atualizadoPor User?             @relation("FornecedorAtualizadoPor", fields: [atualizadoPorId], references: [id], onDelete: SetNull)
+  cotacoes      CotacaoDeCompra[]
+  lancamentos   Lancamento[]
 
-  @@unique([companyId, documento])
-  @@index([companyId, ativo])
+  @@index([ativo, nome])
   @@map("fornecedores")
+}
+
+enum FornecedorCategoria {
+  kit_solar
+  material_eletrico
+  material_de_obra
+  servico
+  escritorio
+  outros
+
+  @@map("fornecedor_categoria")
+}
+
+enum FormaDePagamento {
+  pix
+  boleto
+  cartao_credito
+  transferencia
+
+  @@map("forma_de_pagamento")
 }
 
 /// Cadastro mínimo de obra. Nasce operado pela tela de Compras porque é ela que
@@ -1553,18 +1786,32 @@ model Fornecedor {
 /// vinculação de projeto técnico, evidência de campo e segurança do trabalho,
 /// exatamente como o documento pede em §1: "a mesma entidade já existente".
 model Obra {
-  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  companyId  String    @map("company_id")
-  nome       String
-  clientId   String?   @map("client_id") @db.Uuid
-  ativa      Boolean   @default(true)
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId   String    @map("company_id")
+  nome        String
+  clientId    String?   @map("client_id") @db.Uuid
+  ativa       Boolean   @default(true)
   /// POP-OBR-001 §2. Nasce em `obra_criada`; o histórico completo de
   /// passagens vive em `ObraEtapaHistorico`, no mesmo padrão de
   /// `PedidoDeCompra.etapa` + `PedidoDeCompraEtapa`.
-  etapaAtual ObraEtapa @default(obra_criada) @map("etapa_atual")
-  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  etapaAtual  ObraEtapa @default(obra_criada) @map("etapa_atual")
+  /// PLU-350: a obra é também o centro de custo (CC1).
+  tipo              TipoDeObra @default(obra_solar)
+  potenciaKwp       Decimal?   @map("potencia_kwp") @db.Decimal(12, 3)
+  responsavelId     String?    @map("responsavel_id") @db.Uuid
+  inicioEm          DateTime?  @map("inicio_em") @db.Timestamptz(6)
+  entregaPrevistaEm DateTime?  @map("entrega_prevista_em") @db.Timestamptz(6)
+  /// Só o gerente da Engenharia (CC-D6).
+  orcamento         Decimal?   @db.Decimal(14, 2)
+  criadoPorId String?   @map("criado_por_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
+  criadoPor           User?                @relation("ObraCriadaPor", fields: [criadoPorId], references: [id], onDelete: SetNull)
+  responsavel         User?                @relation("ObraResponsavel", fields: [responsavelId], references: [id], onDelete: SetNull)
+  marcos              MarcoDeObra[]
+  documentos          DocumentoDeObra[]
+  ordensDeServico     OrdemDeServico[]
   company             Company              @relation(fields: [companyId], references: [id])
   client              Client?              @relation(fields: [clientId], references: [id], onDelete: SetNull)
   pedidos             PedidoDeCompra[]
@@ -1577,10 +1824,79 @@ model Obra {
   pendencias          PendenciaDeCampo[]
   medicoes            MedicaoTecnica[]
   versoesDeProjeto    ProjetoVersao[]
+  movimentacoesDeEstoque MovimentacaoDeEstoque[]
 
   @@index([companyId, ativa])
   @@index([companyId, etapaAtual])
   @@map("obras")
+}
+
+/// Tipo do centro de custo (CC1, PLU-350).
+enum TipoDeObra {
+  obra_solar
+  projeto
+  manutencao
+  gestao_de_energia
+  interno
+
+  @@map("tipo_de_obra")
+}
+
+enum CategoriaDeDocumentoDeObra {
+  cronograma
+  evte
+  rvt
+  grd
+  ata
+  projeto_eletrico
+  outro
+
+  @@map("categoria_de_documento_de_obra")
+}
+
+/// Marco da obra (E8, PLU-350): os 6 padrão, distribuídos entre o início e a entrega.
+model MarcoDeObra {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  obraId     String    @map("obra_id") @db.Uuid
+  ordem      Int
+  nome       String
+  previstoEm DateTime  @map("previsto_em") @db.Timestamptz(6)
+  feitoEm    DateTime? @map("feito_em") @db.Timestamptz(6)
+  feitoPorId String?   @map("feito_por_id") @db.Uuid
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  obra    Obra  @relation(fields: [obraId], references: [id], onDelete: Restrict)
+  feitoPor User? @relation("MarcoDeObraFeitoPor", fields: [feitoPorId], references: [id], onDelete: SetNull)
+
+  @@unique([obraId, ordem])
+  @@map("marcos_de_obra")
+}
+
+/// Documento ou cronograma da obra (D30, E11, PLU-350): versões pela série, sem exclusão.
+model DocumentoDeObra {
+  id               String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  obraId           String                     @map("obra_id") @db.Uuid
+  serieId          String                     @map("serie_id") @db.Uuid
+  versao           Int
+  categoria        CategoriaDeDocumentoDeObra
+  protocoloId      String?                    @map("protocolo_id") @db.Uuid
+  arquivoChave     String                     @unique @map("arquivo_chave")
+  arquivoNome      String                     @map("arquivo_nome")
+  arquivoTamanho   Int                        @map("arquivo_tamanho")
+  arquivoTipo      String                     @map("arquivo_tipo")
+  enviadoPorId     String?                    @map("enviado_por_id") @db.Uuid
+  enviadoEm        DateTime                   @default(now()) @map("enviado_em") @db.Timestamptz(6)
+  substituidoEm    DateTime?                  @map("substituido_em") @db.Timestamptz(6)
+  substituidoPorId String?                    @map("substituido_por_id") @db.Uuid
+
+  obra           Obra       @relation(fields: [obraId], references: [id], onDelete: Restrict)
+  protocolo      Protocolo? @relation(fields: [protocoloId], references: [id], onDelete: Restrict)
+  enviadoPor     User?      @relation("DocumentoDeObraEnviadoPor", fields: [enviadoPorId], references: [id], onDelete: SetNull)
+  substituidoPor User?      @relation("DocumentoDeObraSubstituidoPor", fields: [substituidoPorId], references: [id], onDelete: SetNull)
+
+  @@unique([serieId, versao])
+  @@index([obraId, enviadoEm])
+  @@map("documentos_de_obra")
 }
 
 /// As doze passagens do POP-OBR-001 §2, na ordem do fluxograma FLX-OBR-001.
@@ -1865,49 +2181,78 @@ model ProjetoVersao {
   @@map("projeto_versoes")
 }
 
-/// Um pedido de compra do POP-COMP-001. Um card do funil C43 vira uma linha.
+/// Pedido de compra de Suprimentos (PLU-327). Numeração única e global
+/// (PC-0001…); a empresa é campo e filtro. Cancelar guarda a etapa em que parou.
+/// Sem segregação de função, mas cada marco grava quem fez e quando.
 model PedidoDeCompra {
-  id                    String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  companyId             String                    @map("company_id")
-  /// Sequencial por empresa, atribuído na transação de criação. O POP fala em
-  /// "OS emitidas": sem número humano o indicador não é conversável.
-  numero                Int
-  titulo                String
-  destino               ComprasDestino
-  obraId                String?                   @map("obra_id") @db.Uuid
-  clientId              String?                   @map("client_id") @db.Uuid
-  solicitanteId         String                    @map("solicitante_id") @db.Uuid
-  responsavelId         String?                   @map("responsavel_id") @db.Uuid
-  prazoEntregaDesejado  DateTime                  @map("prazo_entrega_desejado") @db.Timestamptz(6)
-  etapa                 ComprasEtapa              @default(pedido_gerado)
-  origemAtendimento     ComprasOrigemAtendimento? @map("origem_atendimento")
-  necessidadeValidadaEm DateTime?                 @map("necessidade_validada_em") @db.Timestamptz(6)
-  cotacaoSelecionadaId  String?                   @unique @map("cotacao_selecionada_id") @db.Uuid
-  /// Quem selecionou a cotação e quem aprovou, como colunas: o guard de
-  /// segregação precisa decidir em O(1), sem varrer o event_log.
-  selecionouCotacaoId   String?                   @map("selecionou_cotacao_id") @db.Uuid
-  aprovouId             String?                   @map("aprovou_id") @db.Uuid
-  valorOrcado           Decimal                   @map("valor_orcado") @db.Decimal(14, 2)
-  valorCotado           Decimal?                  @map("valor_cotado") @db.Decimal(14, 2)
-  valorFaturado         Decimal?                  @map("valor_faturado") @db.Decimal(14, 2)
-  concluidoEm           DateTime?                 @map("concluido_em") @db.Timestamptz(6)
-  createdAt             DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt             DateTime                  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id                         String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId                  String                    @map("company_id")
+  numero                     Int                       @unique @default(autoincrement())
+  titulo                     String
+  descricao                  String?
+  destino                    ComprasDestino
+  obraId                     String?                   @map("obra_id") @db.Uuid
+  clientId                   String?                   @map("client_id") @db.Uuid
+  solicitanteId              String                    @map("solicitante_id") @db.Uuid
+  responsavelId              String?                   @map("responsavel_id") @db.Uuid
+  criadoPorId                String?                   @map("criado_por_id") @db.Uuid
+  prazoEntregaDesejado       DateTime                  @map("prazo_entrega_desejado") @db.Timestamptz(6)
+  etapa                      ComprasEtapa              @default(pedido_gerado)
+  origemAtendimento          ComprasOrigemAtendimento? @map("origem_atendimento")
+  necessidadeValidadaEm      DateTime?                 @map("necessidade_validada_em") @db.Timestamptz(6)
+  estoqueDecididoEm          DateTime?                 @map("estoque_decidido_em") @db.Timestamptz(6)
+  estoqueDecididoPorId       String?                   @map("estoque_decidido_por_id") @db.Uuid
+  cotacaoSelecionadaId       String?                   @unique @map("cotacao_selecionada_id") @db.Uuid
+  selecionouCotacaoId        String?                   @map("selecionou_cotacao_id") @db.Uuid
+  cotacaoSelecionadaEm       DateTime?                 @map("cotacao_selecionada_em") @db.Timestamptz(6)
+  aprovouId                  String?                   @map("aprovou_id") @db.Uuid
+  aprovadoEm                 DateTime?                 @map("aprovado_em") @db.Timestamptz(6)
+  formaPagamento             FormaDePagamento?         @map("forma_pagamento")
+  pagamentoObservacao        String?                   @map("pagamento_observacao")
+  pagamentoRegistradoEm      DateTime?                 @map("pagamento_registrado_em") @db.Timestamptz(6)
+  pagamentoRegistradoPorId   String?                   @map("pagamento_registrado_por_id") @db.Uuid
+  recebimentoConfirmadoPorId String?                   @map("recebimento_confirmado_por_id") @db.Uuid
+  valorOrcado                Decimal?                  @map("valor_orcado") @db.Decimal(14, 2)
+  valorCotado                Decimal?                  @map("valor_cotado") @db.Decimal(14, 2)
+  valorFaturado              Decimal?                  @map("valor_faturado") @db.Decimal(14, 2)
+  concluidoEm                DateTime?                 @map("concluido_em") @db.Timestamptz(6)
+  /// Dia em que o material chegou, informado por quem recebeu (início do dia em Manaus).
+  recebidoEm                 DateTime?                 @map("recebido_em") @db.Timestamptz(6)
+  canceladoEm                DateTime?                 @map("cancelado_em") @db.Timestamptz(6)
+  canceladoPorId             String?                   @map("cancelado_por_id") @db.Uuid
+  motivoCancelamento         String?                   @map("motivo_cancelamento")
+  /// O.S. que pediu o material (PLU-345). Quem é só da Engenharia cria e lê apenas estes pedidos.
+  ordemDeServicoId           String?                   @map("ordem_de_servico_id") @db.Uuid
+  createdAt                  DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                  DateTime                  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  company            Company               @relation(fields: [companyId], references: [id])
-  obra               Obra?                 @relation(fields: [obraId], references: [id], onDelete: SetNull)
-  client             Client?               @relation(fields: [clientId], references: [id], onDelete: SetNull)
-  solicitante        User                  @relation("PedidoSolicitante", fields: [solicitanteId], references: [id])
-  responsavel        User?                 @relation("PedidoResponsavel", fields: [responsavelId], references: [id], onDelete: SetNull)
-  cotacaoSelecionada CotacaoDeCompra?      @relation("CotacaoSelecionada", fields: [cotacaoSelecionadaId], references: [id], onDelete: SetNull)
-  itens              ItemDePedido[]
-  cotacoes           CotacaoDeCompra[]     @relation("CotacoesDoPedido")
-  etapas             PedidoDeCompraEtapa[]
+  company                  Company                  @relation(fields: [companyId], references: [id])
+  ordemDeServico           OrdemDeServico?          @relation(fields: [ordemDeServicoId], references: [id], onDelete: Restrict)
+  obra                     Obra?                    @relation(fields: [obraId], references: [id], onDelete: SetNull)
+  client                   Client?                  @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  solicitante              User                     @relation("PedidoSolicitante", fields: [solicitanteId], references: [id])
+  responsavel              User?                    @relation("PedidoResponsavel", fields: [responsavelId], references: [id], onDelete: SetNull)
+  criadoPor                User?                    @relation("PedidoCriadoPor", fields: [criadoPorId], references: [id], onDelete: SetNull)
+  estoqueDecididoPor       User?                    @relation("PedidoEstoqueDecididoPor", fields: [estoqueDecididoPorId], references: [id], onDelete: SetNull)
+  selecionouCotacao        User?                    @relation("PedidoCotacaoSelecionadaPor", fields: [selecionouCotacaoId], references: [id], onDelete: SetNull)
+  aprovou                  User?                    @relation("PedidoAprovadoPor", fields: [aprovouId], references: [id], onDelete: SetNull)
+  pagamentoRegistradoPor   User?                    @relation("PedidoPagamentoRegistradoPor", fields: [pagamentoRegistradoPorId], references: [id], onDelete: SetNull)
+  recebimentoConfirmadoPor User?                    @relation("PedidoRecebimentoConfirmadoPor", fields: [recebimentoConfirmadoPorId], references: [id], onDelete: SetNull)
+  canceladoPor             User?                    @relation("PedidoCanceladoPor", fields: [canceladoPorId], references: [id], onDelete: SetNull)
+  cotacaoSelecionada       CotacaoDeCompra?         @relation("CotacaoSelecionada", fields: [cotacaoSelecionadaId], references: [id], onDelete: SetNull)
+  itens                    ItemDePedido[]
+  cotacoes                 CotacaoDeCompra[]        @relation("CotacoesDoPedido")
+  etapas                   PedidoDeCompraEtapa[]
+  comprovantes             ComprovanteDePagamento[]
+  reservasDeEstoque ReservaDeEstoque[]
+  movimentacoesDeEstoque MovimentacaoDeEstoque[]
+  lancamento        Lancamento?
 
-  @@unique([companyId, numero])
-  @@index([companyId, etapa])
-  @@index([companyId, responsavelId, etapa])
-  @@index([companyId, concluidoEm])
+  @@index([etapa])
+  @@index([responsavelId])
+  @@index([concluidoEm])
+  @@index([createdAt])
+  @@index([ordemDeServicoId])
   @@map("pedidos_de_compra")
 }
 
@@ -1921,17 +2266,44 @@ model ItemDePedido {
   descricao  String
   quantidade Decimal  @db.Decimal(14, 3)
   unidade    String?
+  itemDeEstoqueId String? @map("item_de_estoque_id") @db.Uuid
   createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
   pedido PedidoDeCompra @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+  itemDeEstoque ItemDeEstoque? @relation(fields: [itemDeEstoqueId], references: [id], onDelete: Restrict)
+  reservasDeEstoque ReservaDeEstoque[]
 
   @@index([pedidoId])
+  @@index([itemDeEstoqueId])
   @@map("itens_de_pedido")
 }
 
 /// Uma passagem por uma etapa. Sustenta os indicadores 4.2 e 4.3: sem histórico
 /// por passagem não há "qual etapa está estourando o prazo". Há mais de uma
 /// linha da mesma etapa quando o fluxo volta por REVISAR, e é isso que o 4.3
+/// Comprovante de pagamento de um pedido. Trocar não apaga: o anterior fica
+/// marcado como substituído, com quem trocou e quando, e o arquivo continua no
+/// armazenamento. O atual é o único sem `substituidoEm` (índice único parcial).
+model ComprovanteDePagamento {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  pedidoId         String    @map("pedido_id") @db.Uuid
+  arquivoChave     String    @map("arquivo_chave")
+  arquivoNome      String    @map("arquivo_nome")
+  arquivoTamanho   Int       @map("arquivo_tamanho")
+  arquivoTipo      String    @map("arquivo_tipo")
+  enviadoPorId     String?   @map("enviado_por_id") @db.Uuid
+  enviadoEm        DateTime  @default(now()) @map("enviado_em") @db.Timestamptz(6)
+  substituidoEm    DateTime? @map("substituido_em") @db.Timestamptz(6)
+  substituidoPorId String?   @map("substituido_por_id") @db.Uuid
+
+  pedido         PedidoDeCompra @relation(fields: [pedidoId], references: [id], onDelete: Restrict)
+  enviadoPor     User?          @relation("ComprovanteEnviadoPor", fields: [enviadoPorId], references: [id], onDelete: Restrict)
+  substituidoPor User?          @relation("ComprovanteSubstituidoPor", fields: [substituidoPorId], references: [id], onDelete: Restrict)
+
+  @@index([pedidoId, enviadoEm])
+  @@map("comprovantes_de_pagamento")
+}
+
 /// precisa enxergar.
 model PedidoDeCompraEtapa {
   id             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
@@ -1943,9 +2315,13 @@ model PedidoDeCompraEtapa {
   saiuEm         DateTime?    @map("saiu_em") @db.Timestamptz(6)
   cumpriuPrazo   Boolean?     @map("cumpriu_prazo")
   responsavelId  String?      @map("responsavel_id") @db.Uuid
+  /// Quem fez a ação que fechou a passagem, e a observação dela (o motivo, na revisão).
+  saiuPorId      String?      @map("saiu_por_id") @db.Uuid
+  observacao     String?
 
   pedido      PedidoDeCompra @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
-  responsavel User?          @relation(fields: [responsavelId], references: [id], onDelete: SetNull)
+  responsavel User?          @relation("PassagemDeCompraResponsavel", fields: [responsavelId], references: [id], onDelete: SetNull)
+  saiuPor     User?          @relation("PassagemDeCompraFechadaPor", fields: [saiuPorId], references: [id], onDelete: SetNull)
 
   @@index([pedidoId, entrouEm])
   @@index([etapa, saiuEm])
@@ -1971,9 +2347,14 @@ model CotacaoDeCompra {
   condicoesPagamento String?  @map("condicoes_pagamento")
   arquivoChave       String   @map("arquivo_chave")
   arquivoNome        String   @map("arquivo_nome")
+  arquivoTamanho     Int?     @map("arquivo_tamanho")
+  arquivoTipo        String?  @map("arquivo_tipo")
+  criadoPorId        String?  @map("criado_por_id") @db.Uuid
   createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  pedido        PedidoDeCompra  @relation("CotacoesDoPedido", fields: [pedidoId], references: [id], onDelete: Cascade)
+  criadoPor User? @relation("CotacaoCriadaPor", fields: [criadoPorId], references: [id], onDelete: SetNull)
+
+  pedido        PedidoDeCompra  @relation("CotacoesDoPedido", fields: [pedidoId], references: [id], onDelete: Restrict)
   fornecedor    Fornecedor      @relation(fields: [fornecedorId], references: [id])
   selecionadaEm PedidoDeCompra? @relation("CotacaoSelecionada")
 
@@ -1988,128 +2369,1272 @@ enum LeadDocumentCategory {
   documento_do_cliente
   procuracao_contrato
   outros
+
   @@map("lead_document_category")
 }
+
 enum LeadDocumentUploadState {
   pending
   ready
   cleanup
+
   @@map("lead_document_upload_state")
 }
+
 model LeadDocument {
+  activityEvidence ActivityRoundEvidence[]
   proposalVersions LeadProposalVersion[]
-  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  dealId String @map("deal_id") @db.Uuid
-  category LeadDocumentCategory
-  originalName String @map("original_name")
-  safeName String @map("safe_name")
-  detectedMime String @map("detected_mime")
-  sizeBytes Int @map("size_bytes")
-  storageBucket String @map("storage_bucket")
-  storageKey String @map("storage_key")
-  sha256 String @db.Char(64)
-  uploadState LeadDocumentUploadState @default(pending) @map("upload_state")
-  uploadedById String? @map("uploaded_by_id") @db.Uuid
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  archivedAt DateTime? @map("archived_at") @db.Timestamptz(6)
-  archivedById String? @map("archived_by_id") @db.Uuid
-  deal Deal @relation(fields:[dealId], references:[id], onDelete:Restrict, onUpdate:NoAction)
-  uploadedBy User? @relation("LeadDocumentUploader", fields:[uploadedById], references:[id], onDelete:SetNull, onUpdate:NoAction)
-  archivedBy User? @relation("LeadDocumentArchiver", fields:[archivedById], references:[id], onDelete:SetNull, onUpdate:NoAction)
+  id               String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  dealId           String                  @map("deal_id") @db.Uuid
+  category         LeadDocumentCategory
+  originalName     String                  @map("original_name")
+  safeName         String                  @map("safe_name")
+  detectedMime     String                  @map("detected_mime")
+  sizeBytes        Int                     @map("size_bytes")
+  storageBucket    String                  @map("storage_bucket")
+  storageKey       String                  @map("storage_key")
+  sha256           String                  @db.Char(64)
+  uploadState      LeadDocumentUploadState @default(pending) @map("upload_state")
+  uploadedById     String?                 @map("uploaded_by_id") @db.Uuid
+  createdAt        DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime                @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  archivedAt       DateTime?               @map("archived_at") @db.Timestamptz(6)
+  archivedById     String?                 @map("archived_by_id") @db.Uuid
+  deal             Deal                    @relation(fields: [dealId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  uploadedBy       User?                   @relation("LeadDocumentUploader", fields: [uploadedById], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  archivedBy       User?                   @relation("LeadDocumentArchiver", fields: [archivedById], references: [id], onDelete: SetNull, onUpdate: NoAction)
+
   @@unique([storageBucket, storageKey])
-  @@index([dealId, archivedAt, createdAt, id], map:"lead_documents_deal_list_idx")
+  @@index([dealId, archivedAt, createdAt, id], map: "lead_documents_deal_list_idx")
   @@map("lead_documents")
 }
 
+/// Base única de atividades comerciais; dados operacionais pertencem à rodada vigente.
+model Activity {
+  id                 String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  dealId             String?          @map("deal_id") @db.Uuid
+  clientId           String?          @map("client_id") @db.Uuid
+  type               String
+  title              String
+  notes              String           @default("")
+  priority           String           @default("normal")
+  origin             String           @default("manual")
+  ruleKey            String?          @map("rule_key")
+  createdByType      String           @map("created_by_type")
+  createdById        String           @map("created_by_id") @db.Uuid
+  creationRequestId  String           @map("creation_request_id") @db.Uuid
+  creationHash       String           @map("creation_hash") @db.Char(64)
+  createdAt          DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  version            Int              @default(1)
+  currentRoundNumber Int              @default(1) @map("current_round_number")
+  deal               Deal?            @relation(fields: [dealId], references: [id], onDelete: Restrict)
+  client             Client?          @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  rounds             ActivityRound[]  @relation("ActivityRounds")
+  previousRounds     ActivityRound[]  @relation("ActivityNext")
+  changes            ActivityChange[]
+
+  @@unique([createdByType, createdById, creationRequestId])
+  @@index([dealId, id])
+  @@index([clientId, id])
+  @@map("activities")
+}
+
+model ActivityRound {
+  id                 String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  activityId         String                  @map("activity_id") @db.Uuid
+  number             Int
+  status             String                  @default("todo")
+  ownerId            String                  @map("owner_id") @db.Uuid
+  startsAt           DateTime                @map("starts_at") @db.Timestamptz(6)
+  dueAt              DateTime                @map("due_at") @db.Timestamptz(6)
+  openedAt           DateTime                @default(now()) @map("opened_at") @db.Timestamptz(6)
+  openedByType       String                  @map("opened_by_type")
+  openedById         String                  @map("opened_by_id") @db.Uuid
+  sourceTransitionId String?                 @map("source_transition_id") @db.Uuid
+  endedAt            DateTime?               @map("ended_at") @db.Timestamptz(6)
+  endReason          String?                 @map("end_reason")
+  completedAt        DateTime?               @map("completed_at") @db.Timestamptz(6)
+  completedByType    String?                 @map("completed_by_type")
+  completedById      String?                 @map("completed_by_id") @db.Uuid
+  outcomeSummary     String?                 @map("outcome_summary")
+  nextActivityId     String?                 @map("next_activity_id") @db.Uuid
+  activity           Activity                @relation("ActivityRounds", fields: [activityId], references: [id], onDelete: Restrict)
+  owner              User                    @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  nextActivity       Activity?               @relation("ActivityNext", fields: [nextActivityId], references: [id], onDelete: Restrict)
+  evidence           ActivityRoundEvidence[]
+
+  @@unique([activityId, number])
+  @@unique([activityId, sourceTransitionId])
+  @@index([ownerId, dueAt])
+  @@map("activity_rounds")
+}
+
+model ActivityChange {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  activityId String   @map("activity_id") @db.Uuid
+  version    Int
+  kind       String
+  actorType  String   @map("actor_type")
+  actorId    String   @map("actor_id") @db.Uuid
+  occurredAt DateTime @default(now()) @map("occurred_at") @db.Timestamptz(6)
+  snapshot   Json     @db.JsonB
+  activity   Activity @relation(fields: [activityId], references: [id], onDelete: Restrict)
+
+  @@unique([activityId, version])
+  @@map("activity_changes")
+}
+
+model ActivityRoundEvidence {
+  roundId        String        @map("round_id") @db.Uuid
+  leadDocumentId String        @map("lead_document_id") @db.Uuid
+  round          ActivityRound @relation(fields: [roundId], references: [id], onDelete: Restrict)
+  document       LeadDocument  @relation(fields: [leadDocumentId], references: [id], onDelete: Restrict)
+
+  @@id([roundId, leadDocumentId])
+  @@map("activity_round_evidence")
+}
+
 model LeadProposalTemplate {
-  id String @id @db.Uuid
-  name String
+  id          String         @id @db.Uuid
+  name        String
   description String
-  style String
-  position Int
-  defaults Json @db.JsonB
-  proposals LeadProposal[]
+  style       String
+  position    Int
+  defaults    Json           @db.JsonB
+  proposals   LeadProposal[]
+
   @@map("lead_proposal_templates")
 }
 
 model LeadProposal {
-  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  number Int @unique @default(autoincrement())
-  dealId String @map("deal_id") @db.Uuid
-  templateId String @map("template_id") @db.Uuid
-  content Json @db.JsonB
-  status String @default("draft")
-  version Int @default(0)
-  revision Int @default(1)
-  generationToken String? @map("generation_token") @db.Uuid
-  generationStartedAt DateTime? @map("generation_started_at") @db.Timestamptz(6)
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deal Deal @relation(fields:[dealId], references:[id], onDelete:Restrict, onUpdate:NoAction)
-  template LeadProposalTemplate @relation(fields:[templateId], references:[id], onDelete:Restrict, onUpdate:NoAction)
-  versions LeadProposalVersion[]
+  id                  String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  number              Int                   @unique @default(autoincrement())
+  dealId              String                @map("deal_id") @db.Uuid
+  templateId          String                @map("template_id") @db.Uuid
+  content             Json                  @db.JsonB
+  status              String                @default("draft")
+  version             Int                   @default(0)
+  revision            Int                   @default(1)
+  generationToken     String?               @map("generation_token") @db.Uuid
+  generationStartedAt DateTime?             @map("generation_started_at") @db.Timestamptz(6)
+  createdAt           DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime              @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deal                Deal                  @relation(fields: [dealId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  template            LeadProposalTemplate  @relation(fields: [templateId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  versions            LeadProposalVersion[]
+
   @@index([dealId, updatedAt, id])
   @@map("lead_proposals")
 }
 
 /// Cada versão conserva o conteúdo/modelo usados e referencia o mesmo arquivo de Documentos.
 model LeadProposalVersion {
-  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  proposalId String @map("proposal_id") @db.Uuid
-  version Int
-  documentId String @unique @map("document_id") @db.Uuid
-  content Json @db.JsonB
-  templateSnapshot Json @map("template_snapshot") @db.JsonB
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  proposal LeadProposal @relation(fields:[proposalId], references:[id], onDelete:Restrict, onUpdate:NoAction)
-  document LeadDocument @relation(fields:[documentId], references:[id], onDelete:Restrict, onUpdate:NoAction)
+  id               String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  proposalId       String       @map("proposal_id") @db.Uuid
+  version          Int
+  documentId       String       @unique @map("document_id") @db.Uuid
+  content          Json         @db.JsonB
+  templateSnapshot Json         @map("template_snapshot") @db.JsonB
+  createdAt        DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  proposal         LeadProposal @relation(fields: [proposalId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  document         LeadDocument @relation(fields: [documentId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+
   @@unique([proposalId, version])
   @@map("lead_proposal_versions")
 }
+
 model LeadProfile {
-  dealId String @id @map("deal_id") @db.Uuid
-  personType ClientPersonType @map("person_type")
-  name String
-  companyName String? @map("company_name")
-  landlinePhone String? @map("landline_phone")
-  website String?
-  mainInterest String? @map("main_interest")
-  jobTitle String? @map("job_title")
-  legalName String? @map("legal_name")
-  document String?
-  phone String?
-  email String?
-  postalCode String? @map("postal_code")
-  street String?
-  addressComplement String? @map("address_complement")
-  district String?
-  city String?
-  state String?
-  origin ClientOrigin?
-  notes String?
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deal Deal @relation(fields:[dealId], references:[id], onDelete:Cascade, onUpdate:NoAction)
+  dealId            String           @id @map("deal_id") @db.Uuid
+  personType        ClientPersonType @map("person_type")
+  name              String
+  companyName       String?          @map("company_name")
+  landlinePhone     String?          @map("landline_phone")
+  website           String?
+  mainInterest      String?          @map("main_interest")
+  jobTitle          String?          @map("job_title")
+  legalName         String?          @map("legal_name")
+  document          String?
+  phone             String?
+  email             String?
+  postalCode        String?          @map("postal_code")
+  street            String?
+  addressComplement String?          @map("address_complement")
+  district          String?
+  city              String?
+  state             String?
+  origin            ClientOrigin?
+  notes             String?
+  createdAt         DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deal              Deal             @relation(fields: [dealId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
   @@map("lead_profiles")
 }
+
 model LeadContact {
-  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  dealId String @map("deal_id") @db.Uuid
-  name String
-  jobTitle String? @map("job_title")
-  role ClientContactRole?
-  phone String?
-  phoneIsWhatsapp Boolean @default(false) @map("phone_is_whatsapp")
-  email String?
-  isPrimary Boolean @default(false) @map("is_primary")
-  cpf String?
-  rg String?
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deal Deal @relation("LeadContacts", fields:[dealId], references:[id], onDelete:Cascade, onUpdate:NoAction)
-  selectedBy Deal[] @relation("SelectedLeadContact")
+  id              String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  dealId          String             @map("deal_id") @db.Uuid
+  name            String
+  jobTitle        String?            @map("job_title")
+  role            ClientContactRole?
+  phone           String?
+  phoneIsWhatsapp Boolean            @default(false) @map("phone_is_whatsapp")
+  email           String?
+  isPrimary       Boolean            @default(false) @map("is_primary")
+  cpf             String?
+  rg              String?
+  createdAt       DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deal            Deal               @relation("LeadContacts", fields: [dealId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  selectedBy      Deal[]             @relation("SelectedLeadContact")
+
   @@unique([id, dealId])
   @@index([dealId])
   @@map("lead_contacts")
+}
+
+// ---------------------------------------------------------------------------
+// Estoque de Suprimentos (PLU-332). Saldo derivado das movimentações, que são
+// só de inserção; a reserva nasce do pedido de compra atendido pelo estoque.
+// ---------------------------------------------------------------------------
+
+enum EstoqueCategoria {
+  kit_solar
+  material_eletrico
+  material_de_obra
+  ferramenta
+  escritorio
+  outros
+
+  @@map("estoque_categoria")
+}
+
+enum EstoqueMovimentacaoTipo {
+  entrada
+  saida
+  ajuste
+  reserva
+  liberacao
+
+  @@map("estoque_movimentacao_tipo")
+}
+
+enum EstoqueOrigemEntrada {
+  compra
+  devolucao
+  saldo_inicial
+  outra
+
+  @@map("estoque_origem_entrada")
+}
+
+enum EstoqueDestinoSaida {
+  obra
+  cliente
+  interno
+
+  @@map("estoque_destino_saida")
+}
+
+enum EstoqueReservaEstado {
+  ativa
+  baixada
+  liberada
+
+  @@map("estoque_reserva_estado")
+}
+
+/// Item de estoque de uma empresa. `emEstoque` e `reservado` são o saldo
+/// acumulado das movimentações, gravado na transação de cada uma; nunca digitado.
+model ItemDeEstoque {
+  id                   String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId            String           @map("company_id")
+  codigo               String
+  nome                 String
+  categoria            EstoqueCategoria
+  unidade              String
+  estoqueMinimo        Decimal          @default(0) @map("estoque_minimo") @db.Decimal(14, 3)
+  emEstoque            Decimal          @default(0) @map("em_estoque") @db.Decimal(14, 3)
+  reservado            Decimal          @default(0) @db.Decimal(14, 3)
+  custoMedio           Decimal?         @map("custo_medio") @db.Decimal(14, 4)
+  ativo                Boolean          @default(true)
+  observacoes          String?
+  ultimaMovimentacaoEm DateTime?        @map("ultima_movimentacao_em") @db.Timestamptz(6)
+  criadoPorId          String?          @map("criado_por_id") @db.Uuid
+  createdAt            DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  company       Company                 @relation(fields: [companyId], references: [id])
+  criadoPor     User?                   @relation("ItemDeEstoqueCriadoPor", fields: [criadoPorId], references: [id], onDelete: SetNull)
+  reservas      ReservaDeEstoque[]
+  movimentacoes MovimentacaoDeEstoque[]
+  itensDePedido ItemDePedido[]
+
+  @@unique([companyId, codigo])
+  @@index([ativo, nome])
+  @@map("itens_de_estoque")
+}
+
+/// Reserva de um item para um item de pedido de compra atendido pelo estoque.
+model ReservaDeEstoque {
+  id             String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  itemId         String               @map("item_id") @db.Uuid
+  pedidoId       String               @map("pedido_id") @db.Uuid
+  itemDoPedidoId String               @map("item_do_pedido_id") @db.Uuid
+  quantidade     Decimal              @db.Decimal(14, 3)
+  estado         EstoqueReservaEstado @default(ativa)
+  reservadaEm    DateTime             @default(now()) @map("reservada_em") @db.Timestamptz(6)
+  reservadaPorId String?              @map("reservada_por_id") @db.Uuid
+  encerradaEm    DateTime?            @map("encerrada_em") @db.Timestamptz(6)
+  encerradaPorId String?              @map("encerrada_por_id") @db.Uuid
+
+  item          ItemDeEstoque           @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  pedido        PedidoDeCompra          @relation(fields: [pedidoId], references: [id], onDelete: Restrict)
+  itemDoPedido  ItemDePedido            @relation(fields: [itemDoPedidoId], references: [id], onDelete: Restrict)
+  reservadaPor  User?                   @relation("ReservaDeEstoqueFeitaPor", fields: [reservadaPorId], references: [id], onDelete: SetNull)
+  encerradaPor  User?                   @relation("ReservaDeEstoqueEncerradaPor", fields: [encerradaPorId], references: [id], onDelete: SetNull)
+  movimentacoes MovimentacaoDeEstoque[]
+
+  @@index([itemId, estado])
+  @@index([pedidoId])
+  @@map("reservas_de_estoque")
+}
+
+/// Movimentação de estoque. Só de inserção (trigger); corrige-se com ajuste.
+model MovimentacaoDeEstoque {
+  id                  String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  itemId              String                  @map("item_id") @db.Uuid
+  tipo                EstoqueMovimentacaoTipo
+  /// Início do dia da movimentação em Manaus.
+  data                DateTime                @db.Timestamptz(6)
+  quantidade          Decimal                 @db.Decimal(14, 3)
+  custoUnitario       Decimal?                @map("custo_unitario") @db.Decimal(14, 4)
+  custoMedioNoMomento Decimal?                @map("custo_medio_no_momento") @db.Decimal(14, 4)
+  origem              EstoqueOrigemEntrada?
+  destino             EstoqueDestinoSaida?
+  obraId              String?                 @map("obra_id") @db.Uuid
+  clientId            String?                 @map("client_id") @db.Uuid
+  area                String?
+  pedidoId            String?                 @map("pedido_id") @db.Uuid
+  reservaId           String?                 @map("reserva_id") @db.Uuid
+  observacao          String?
+  saldoDepois         Decimal                 @map("saldo_depois") @db.Decimal(14, 3)
+  registradaPorId     String?                 @map("registrada_por_id") @db.Uuid
+  registradaEm        DateTime                @default(now()) @map("registrada_em") @db.Timestamptz(6)
+
+  item          ItemDeEstoque     @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  obra          Obra?             @relation(fields: [obraId], references: [id], onDelete: Restrict)
+  client        Client?           @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  pedido        PedidoDeCompra?   @relation(fields: [pedidoId], references: [id], onDelete: Restrict)
+  reserva       ReservaDeEstoque? @relation(fields: [reservaId], references: [id], onDelete: Restrict)
+  registradaPor User?             @relation("MovimentacaoDeEstoqueRegistradaPor", fields: [registradaPorId], references: [id], onDelete: Restrict)
+
+  @@index([itemId, registradaEm])
+  @@index([data])
+  @@index([pedidoId])
+  @@map("movimentacoes_de_estoque")
+}
+
+// ---------------------------------------------------------------- Financeiro (PLU-336)
+
+enum FinanceiroTipoLancamento {
+  saida
+  entrada
+
+  @@map("financeiro_tipo_lancamento")
+}
+
+enum FinanceiroEtapa {
+  aberta
+  aprovada
+  paga
+  gerada
+  nf_emitida
+  boleto_gerado
+  enviada
+  recebida
+  conciliada
+
+  @@map("financeiro_etapa")
+}
+
+enum FinanceiroForma {
+  pix
+  boleto
+  cartao_credito
+  transferencia
+  debito_automatico
+
+  @@map("financeiro_forma")
+}
+
+enum FinanceiroOrigem {
+  avulsa
+  pedido_de_compra
+  agente
+  cobranca_manual
+
+  @@map("financeiro_origem")
+}
+
+enum FinanceiroEstadoOmie {
+  nao_enviado
+  enviando
+  enviado
+  erro
+  baixado
+  divergente
+
+  @@map("financeiro_estado_omie")
+}
+
+enum FinanceiroTipoCategoria {
+  receita
+  despesa
+
+  @@map("financeiro_tipo_categoria")
+}
+
+enum FinanceiroNaturezaCategoria {
+  receita
+  material
+  servico
+  telecom
+  aluguel
+  locacao
+  imposto
+  pessoal
+  tarifa
+  outros
+
+  @@map("financeiro_natureza_categoria")
+}
+
+/// Espelho de uma categoria do plano de contas do OMIE da empresa. `natureza`
+/// (o ícone) é do Plugga OS.
+model CategoriaFinanceira {
+  id        String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId String                      @map("company_id")
+  codigo    String
+  nome      String
+  tipo      FinanceiroTipoCategoria
+  natureza  FinanceiroNaturezaCategoria
+  grupoNome String                      @map("grupo_nome")
+  ativa     Boolean                     @default(true)
+  lidaEm    DateTime?                   @map("lida_em") @db.Timestamptz(6)
+  createdAt DateTime                    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime                    @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  company     Company      @relation(fields: [companyId], references: [id])
+  lancamentos Lancamento[]
+
+  @@unique([companyId, codigo])
+  @@unique([id, companyId])
+  @@map("categorias_financeiras")
+}
+
+/// Espelho de uma conta corrente do OMIE da empresa. Somente leitura na tela.
+model ContaCorrente {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId   String    @map("company_id")
+  omieCodigo  String?   @map("omie_codigo")
+  nome        String
+  banco       String?
+  agencia     String?
+  numero      String?
+  saldo       Decimal?  @db.Decimal(14, 2)
+  saldoLidoEm DateTime? @map("saldo_lido_em") @db.Timestamptz(6)
+  ativa       Boolean   @default(true)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  company     Company      @relation(fields: [companyId], references: [id])
+  lancamentos Lancamento[]
+
+  @@unique([companyId, omieCodigo])
+  @@unique([id, companyId])
+  @@map("contas_correntes")
+}
+
+/// Saída (conta a pagar) ou entrada (cobrança de um cliente numa competência).
+/// O banco garante que a categoria e a conta são da mesma empresa (chave
+/// composta) e numera por tipo na inserção (gatilho).
+model Lancamento {
+  id                         String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tipo                       FinanceiroTipoLancamento
+  /// Preenchido pelo gatilho `lancamentos_numerar`; o valor enviado é ignorado.
+  numero                     Int                      @default(0)
+  companyId                  String                   @map("company_id")
+  fornecedorId               String?                  @map("fornecedor_id") @db.Uuid
+  clientId                   String?                  @map("client_id") @db.Uuid
+  categoriaId                String                   @map("categoria_id") @db.Uuid
+  contaCorrenteId            String?                  @map("conta_corrente_id") @db.Uuid
+  descricao                  String
+  valor                      Decimal                  @db.Decimal(14, 2)
+  /// Início do dia de Manaus.
+  vencimento                 DateTime                 @db.Timestamptz(6)
+  /// "aaaa-mm", só na entrada.
+  competencia                String?
+  etapa                      FinanceiroEtapa
+  forma                      FinanceiroForma?
+  observacao                 String?
+  origem                     FinanceiroOrigem
+  pedidoDeCompraId           String?                  @unique @map("pedido_de_compra_id") @db.Uuid
+  omieEstado                 FinanceiroEstadoOmie     @default(nao_enviado) @map("omie_estado")
+  omieCodigo                 String?                  @map("omie_codigo")
+  omieMotivo                 String?                  @map("omie_motivo")
+  criadoPorId                String?                  @map("criado_por_id") @db.Uuid
+  aprovadoEm                 DateTime?                @map("aprovado_em") @db.Timestamptz(6)
+  aprovadoPorId              String?                  @map("aprovado_por_id") @db.Uuid
+  /// Dia do pagamento (início do dia de Manaus).
+  pagoEm                     DateTime?                @map("pago_em") @db.Timestamptz(6)
+  pagamentoRegistradoEm      DateTime?                @map("pagamento_registrado_em") @db.Timestamptz(6)
+  pagamentoRegistradoPorId   String?                  @map("pagamento_registrado_por_id") @db.Uuid
+  /// Dia do recebimento (início do dia de Manaus).
+  recebidoEm                 DateTime?                @map("recebido_em") @db.Timestamptz(6)
+  valorRecebido              Decimal?                 @map("valor_recebido") @db.Decimal(14, 2)
+  recebimentoRegistradoEm    DateTime?                @map("recebimento_registrado_em") @db.Timestamptz(6)
+  recebimentoRegistradoPorId String?                  @map("recebimento_registrado_por_id") @db.Uuid
+  /// Coluna GERADA no banco (GENERATED ALWAYS AS COALESCE(pago_em, recebido_em) STORED, a
+  /// primeira do projeto): só leitura, a aplicação nunca grava. O Prisma a vê como coluna
+  /// comum, então um `migrate dev`/`migrate diff` pode acusar diferença aqui: não é drift.
+  liquidadoEm                DateTime?                @map("liquidado_em") @db.Timestamptz(6)
+  conciliadoEm               DateTime?                @map("conciliado_em") @db.Timestamptz(6)
+  conciliadoPorId            String?                  @map("conciliado_por_id") @db.Uuid
+  canceladoEm                DateTime?                @map("cancelado_em") @db.Timestamptz(6)
+  canceladoPorId             String?                  @map("cancelado_por_id") @db.Uuid
+  cancelamentoMotivo         String?                  @map("cancelamento_motivo")
+  nfNumero                   String?                  @map("nf_numero")
+  nfRegistradaEm             DateTime?                @map("nf_registrada_em") @db.Timestamptz(6)
+  nfRegistradaPorId          String?                  @map("nf_registrada_por_id") @db.Uuid
+  boletoRegistradoEm         DateTime?                @map("boleto_registrado_em") @db.Timestamptz(6)
+  boletoRegistradoPorId      String?                  @map("boleto_registrado_por_id") @db.Uuid
+  enviadoEm                  DateTime?                @map("enviado_em") @db.Timestamptz(6)
+  envioCanal                 String?                  @map("envio_canal")
+  enviadoPorId               String?                  @map("enviado_por_id") @db.Uuid
+  createdAt                  DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                  DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  company                  Company             @relation(fields: [companyId], references: [id])
+  fornecedor               Fornecedor?         @relation(fields: [fornecedorId], references: [id])
+  client                   Client?             @relation(fields: [clientId], references: [id])
+  categoria                CategoriaFinanceira @relation(fields: [categoriaId], references: [id])
+  contaCorrente            ContaCorrente?      @relation(fields: [contaCorrenteId], references: [id])
+  pedidoDeCompra           PedidoDeCompra?     @relation(fields: [pedidoDeCompraId], references: [id])
+  criadoPor                User?               @relation("LancamentoCriadoPor", fields: [criadoPorId], references: [id], onDelete: SetNull)
+  aprovadoPor              User?               @relation("LancamentoAprovadoPor", fields: [aprovadoPorId], references: [id], onDelete: SetNull)
+  pagamentoRegistradoPor   User?               @relation("LancamentoPagamentoRegistradoPor", fields: [pagamentoRegistradoPorId], references: [id], onDelete: SetNull)
+  recebimentoRegistradoPor User?               @relation("LancamentoRecebimentoRegistradoPor", fields: [recebimentoRegistradoPorId], references: [id], onDelete: SetNull)
+  conciliadoPor            User?               @relation("LancamentoConciliadoPor", fields: [conciliadoPorId], references: [id], onDelete: SetNull)
+  canceladoPor             User?               @relation("LancamentoCanceladoPor", fields: [canceladoPorId], references: [id], onDelete: SetNull)
+  nfRegistradaPor         User?               @relation("LancamentoNfRegistradaPor", fields: [nfRegistradaPorId], references: [id], onDelete: SetNull)
+  boletoRegistradoPor     User?               @relation("LancamentoBoletoRegistradoPor", fields: [boletoRegistradoPorId], references: [id], onDelete: SetNull)
+  enviadoPor              User?               @relation("LancamentoEnviadoPor", fields: [enviadoPorId], references: [id], onDelete: SetNull)
+  anexos                  AnexoDeLancamento[]
+  historico               HistoricoDeLancamento[]
+  ucs                     UcDeLancamento[]
+  omieEnvios              OmieEnvio[]
+
+  @@unique([tipo, numero])
+  @@index([vencimento])
+  @@index([tipo, etapa])
+  @@index([fornecedorId])
+  @@index([clientId])
+  @@map("lancamentos")
+}
+
+/// A conferência do par do OMIE de uma empresa (PLU-342): o último ListarEmpresas,
+/// o bloqueio e a confirmação, válidos só para a versão do par em `segredoAtualizadoEm`.
+model OmieConexao {
+  companyId             String    @id @map("company_id")
+  segredoAtualizadoEm   DateTime  @map("segredo_atualizado_em") @db.Timestamptz(6)
+  ultimoTesteEm         DateTime? @map("ultimo_teste_em") @db.Timestamptz(6)
+  ultimoTestePorId      String?   @map("ultimo_teste_por_id") @db.Uuid
+  /// [{ razaoSocial, nomeFantasia, cnpj }], como o OMIE devolveu.
+  ultimoTeste           Json?     @map("ultimo_teste") @db.JsonB
+  bloqueio              String?
+  confirmadaEm          DateTime? @map("confirmada_em") @db.Timestamptz(6)
+  confirmadaPorId       String?   @map("confirmada_por_id") @db.Uuid
+  cnpjConfirmado        String?   @map("cnpj_confirmado")
+  razaoSocialConfirmada String?   @map("razao_social_confirmada")
+  updatedAt             DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  company         Company @relation(fields: [companyId], references: [id])
+  ultimoTestePor  User?   @relation("OmieConexaoTestadaPor", fields: [ultimoTestePorId], references: [id], onDelete: SetNull)
+  confirmadaPor   User?   @relation("OmieConexaoConfirmadaPor", fields: [confirmadaPorId], references: [id], onDelete: SetNull)
+
+  @@map("omie_conexoes")
+}
+
+enum OmieOperacao {
+  upsert
+  baixa
+  gerar_boleto
+  cancelar
+
+  @@map("omie_operacao")
+}
+
+enum OmieEstadoDoEnvio {
+  pendente
+  enviando
+  enviado
+  erro
+  descartado
+
+  @@map("omie_estado_do_envio")
+}
+
+/// Outbox do OMIE (PLU-342): o pedido de envio, gravado na transação que muda o
+/// lançamento. O worker só muda o estado pelas funções do banco; um gatilho deriva
+/// dele `Lancamento.omieEstado`. Sem DELETE para ninguém.
+model OmieEnvio {
+  id                 String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  /// Identidade gerada no banco (GENERATED ALWAYS): a ordem dos envios de um lançamento.
+  ordem              BigInt            @default(autoincrement())
+  lancamentoId       String            @map("lancamento_id") @db.Uuid
+  /// A empresa do lançamento (o gatilho confere na inserção).
+  companyId          String            @map("company_id")
+  operacao           OmieOperacao
+  estado             OmieEstadoDoEnvio @default(pendente)
+  tentativas         Int               @default(0)
+  proximaTentativaEm DateTime          @default(now()) @map("proxima_tentativa_em") @db.Timestamptz(6)
+  /// Só o motivo curto (OmieFalhouError), nunca a resposta do OMIE.
+  ultimoErro         String?           @map("ultimo_erro")
+  codigoOmie         String?           @map("codigo_omie")
+  enviadoEm          DateTime?         @map("enviado_em") @db.Timestamptz(6)
+  criadoPorId        String?           @map("criado_por_id") @db.Uuid
+  createdAt          DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  lancamento Lancamento @relation(fields: [lancamentoId], references: [id], onDelete: Restrict)
+  company    Company    @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  criadoPor  User?      @relation("OmieEnvioCriadoPor", fields: [criadoPorId], references: [id], onDelete: SetNull)
+
+  @@index([lancamentoId, ordem])
+  @@index([companyId])
+  @@index([criadoPorId])
+  @@map("omie_envios")
+}
+
+/// Pausa de uma empresa num método do OMIE (limite de consumo) ou na empresa toda
+/// (`*`, credenciais recusadas). Só o worker grava, pela função do banco.
+model OmiePausa {
+  companyId String   @map("company_id")
+  metodo    String
+  ate       DateTime @db.Timestamptz(6)
+  motivo    String
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Restrict)
+
+  @@id([companyId, metodo])
+  @@map("omie_pausas")
+}
+
+enum FinanceiroTipoAnexo {
+  comprovante
+  nf
+  boleto
+  documento
+
+  @@map("financeiro_tipo_anexo")
+}
+
+/// Anexo do lançamento (PLU-337). Não se apaga: substituir marca o anterior (gatilho).
+model AnexoDeLancamento {
+  id               String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  lancamentoId     String              @map("lancamento_id") @db.Uuid
+  tipo             FinanceiroTipoAnexo
+  arquivoChave     String              @unique @map("arquivo_chave")
+  arquivoNome      String              @map("arquivo_nome")
+  arquivoTamanho   Int                 @map("arquivo_tamanho")
+  arquivoTipo      String              @map("arquivo_tipo")
+  enviadoPorId     String?             @map("enviado_por_id") @db.Uuid
+  enviadoEm        DateTime            @default(now()) @map("enviado_em") @db.Timestamptz(6)
+  substituidoEm    DateTime?           @map("substituido_em") @db.Timestamptz(6)
+  substituidoPorId String?             @map("substituido_por_id") @db.Uuid
+
+  lancamento     Lancamento @relation(fields: [lancamentoId], references: [id], onDelete: Restrict)
+  enviadoPor     User?      @relation("AnexoDeLancamentoEnviadoPor", fields: [enviadoPorId], references: [id], onDelete: Restrict)
+  substituidoPor User?      @relation("AnexoDeLancamentoSubstituidoPor", fields: [substituidoPorId], references: [id], onDelete: Restrict)
+
+  @@index([lancamentoId, enviadoEm])
+  @@map("anexos_de_lancamento")
+}
+
+/// Linha do tempo do lançamento (PLU-337). Só de inserção; `texto` é o que a pessoa escreveu.
+model HistoricoDeLancamento {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  lancamentoId String   @map("lancamento_id") @db.Uuid
+  tipo         String
+  em           DateTime @default(now()) @db.Timestamptz(6)
+  porId        String?  @map("por_id") @db.Uuid
+  dados        Json     @default("{}") @db.JsonB
+  texto        String?
+
+  lancamento Lancamento @relation(fields: [lancamentoId], references: [id], onDelete: Restrict)
+  por        User?      @relation(fields: [porId], references: [id], onDelete: Restrict)
+
+  @@index([lancamentoId, em])
+  @@map("historico_de_lancamento")
+}
+
+/// As UCs listadas dentro da cobrança (F3).
+model UcDeLancamento {
+  lancamentoId   String @map("lancamento_id") @db.Uuid
+  consumerUnitId String @map("consumer_unit_id") @db.Uuid
+
+  lancamento   Lancamento   @relation(fields: [lancamentoId], references: [id], onDelete: Restrict)
+  consumerUnit ConsumerUnit @relation(fields: [consumerUnitId], references: [id], onDelete: Restrict)
+
+  @@id([lancamentoId, consumerUnitId])
+  @@map("ucs_de_lancamento")
+}
+
+// ---------------------------------------------------------------- Engenharia: ordens de serviço (PLU-345)
+
+enum TipoDeOrdemDeServico {
+  manutencao
+  limpeza
+  garantia
+  emergencia
+  visita_tecnica
+  instalacao
+  configuracao
+  comissionamento
+  orcamento_tecnico
+  eletroposto
+  grid_zero_bess
+  analise_energia
+  outros
+
+  @@map("tipo_de_ordem_de_servico")
+}
+
+enum SituacaoDaOrdemDeServico {
+  aberta
+  agendada
+  em_campo
+  laudo
+  concluida
+  adiada
+  cancelada
+
+  @@map("situacao_da_ordem_de_servico")
+}
+
+enum PrioridadeDaOrdemDeServico {
+  baixa
+  normal
+  alta
+  urgente
+
+  @@map("prioridade_da_ordem_de_servico")
+}
+
+enum OrigemDaOrdemDeServico {
+  manual
+  monitoramento
+  crm
+  robo
+
+  @@map("origem_da_ordem_de_servico")
+}
+
+enum ModoDeAssinaturaDoTermo {
+  desenhada
+  nome_digitado
+  pdf_externo
+
+  @@map("modo_de_assinatura_do_termo")
+}
+
+enum CategoriaDeArquivoDaOrdem {
+  foto
+  assinatura
+  termo_pdf
+
+  @@map("categoria_de_arquivo_da_ordem")
+}
+
+/// Ordem de serviço da Engenharia (PLU-345), no lugar das tarefas "O.S ..." do
+/// Bitrix. Numeração global (OS-0001); a empresa é campo e filtro. Não se apaga
+/// e a concluída não reabre: a continuação é outra O.S. com `ordemAnteriorId`.
+model OrdemDeServico {
+  id                  String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  numero              Int                        @unique @default(autoincrement())
+  companyId           String                     @map("company_id")
+  tipo                TipoDeOrdemDeServico
+  situacao            SituacaoDaOrdemDeServico   @default(aberta)
+  prioridade          PrioridadeDaOrdemDeServico @default(normal)
+  origem              OrigemDaOrdemDeServico     @default(manual)
+  canal               String?
+  /// Entrada pelo robô (PLU-351): grupo e quem pediu no canal. Nunca em evento ou log.
+  origemGrupo         String?                    @map("origem_grupo")
+  origemSolicitante   String?                    @map("origem_solicitante")
+  clientId            String                     @map("client_id") @db.Uuid
+  consumerUnitId      String?                    @map("consumer_unit_id") @db.Uuid
+  local               String?
+  descricao           String
+  /// Dia-limite de atendimento: início do dia em Manaus.
+  prazo               DateTime                   @db.Timestamptz(6)
+  equipamento         String?
+  fabricante          String?
+  modelo              String?
+  numeroSerie         String?                    @map("numero_serie")
+  tecnicoId           String?                    @map("tecnico_id") @db.Uuid
+  apoioId             String?                    @map("apoio_id") @db.Uuid
+  agendadaPara        DateTime?                  @map("agendada_para") @db.Timestamptz(6)
+  checkinEm           DateTime?                  @map("checkin_em") @db.Timestamptz(6)
+  laudoEncontrado     String?                    @map("laudo_encontrado")
+  laudoFeito          String?                    @map("laudo_feito")
+  laudoRecomendacao   String?                    @map("laudo_recomendacao")
+  laudoEm             DateTime?                  @map("laudo_em") @db.Timestamptz(6)
+  laudoPorId          String?                    @map("laudo_por_id") @db.Uuid
+  adiamentoMotivo     String?                    @map("adiamento_motivo")
+  adiadaPara          DateTime?                  @map("adiada_para") @db.Timestamptz(6)
+  adiadaEm            DateTime?                  @map("adiada_em") @db.Timestamptz(6)
+  adiadaPorId         String?                    @map("adiada_por_id") @db.Uuid
+  cancelamentoMotivo  String?                    @map("cancelamento_motivo")
+  canceladaEm         DateTime?                  @map("cancelada_em") @db.Timestamptz(6)
+  canceladaPorId      String?                    @map("cancelada_por_id") @db.Uuid
+  /// Em que situação estava quando foi cancelada.
+  canceladaEmSituacao SituacaoDaOrdemDeServico?  @map("cancelada_em_situacao")
+  concluidaEm         DateTime?                  @map("concluida_em") @db.Timestamptz(6)
+  ordemAnteriorId     String?                    @map("ordem_anterior_id") @db.Uuid
+  /// Usina da O.S. (PLU-347), do mesmo cliente.
+  usinaId             String?                    @map("usina_id") @db.Uuid
+  /// Obra da O.S. (PLU-350), do mesmo cliente e empresa.
+  obraId              String?                    @map("obra_id") @db.Uuid
+  criadoPorId         String?                    @map("criado_por_id") @db.Uuid
+  createdAt           DateTime                   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime                   @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  company         Company                     @relation(fields: [companyId], references: [id])
+  client          Client                      @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  consumerUnit    ConsumerUnit?               @relation(fields: [consumerUnitId], references: [id], onDelete: Restrict)
+  tecnico         User?                       @relation("OrdemTecnico", fields: [tecnicoId], references: [id], onDelete: SetNull)
+  apoio           User?                       @relation("OrdemApoio", fields: [apoioId], references: [id], onDelete: SetNull)
+  laudoPor        User?                       @relation("OrdemLaudoPor", fields: [laudoPorId], references: [id], onDelete: SetNull)
+  adiadaPor       User?                       @relation("OrdemAdiadaPor", fields: [adiadaPorId], references: [id], onDelete: SetNull)
+  canceladaPor    User?                       @relation("OrdemCanceladaPor", fields: [canceladaPorId], references: [id], onDelete: SetNull)
+  criadoPor       User?                       @relation("OrdemCriadaPor", fields: [criadoPorId], references: [id], onDelete: SetNull)
+  ordemAnterior   OrdemDeServico?             @relation("OrdemContinuacao", fields: [ordemAnteriorId], references: [id], onDelete: Restrict)
+  continuacoes    OrdemDeServico[]            @relation("OrdemContinuacao")
+  usina           Usina?                      @relation(fields: [usinaId], references: [id], onDelete: Restrict)
+  obra            Obra?                       @relation(fields: [obraId], references: [id], onDelete: Restrict)
+  resultadosDeMonitoramento ResultadoDaConferencia[]
+  usinasComissionadas Usina[]                 @relation("UsinaDoComissionamento")
+  historico       HistoricoDeOrdemDeServico[]
+  arquivos        ArquivoDeOrdemDeServico[]
+  termo           TermoDeOrdemDeServico?
+  pedidosDeCompra PedidoDeCompra[]
+
+  @@index([situacao, createdAt])
+  @@index([tecnicoId, agendadaPara])
+  @@index([clientId])
+  @@map("ordens_de_servico")
+}
+
+/// Linha do tempo da O.S. Só se insere: nem UPDATE nem DELETE.
+model HistoricoDeOrdemDeServico {
+  id      String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ordemId String   @map("ordem_id") @db.Uuid
+  tipo    String
+  /// Dados da passagem (datas, técnico); nunca o documento de quem assinou.
+  dados   Json     @default("{}") @db.JsonB
+  detalhe String?
+  porId   String?  @map("por_id") @db.Uuid
+  em      DateTime @default(now()) @db.Timestamptz(6)
+
+  ordem OrdemDeServico @relation(fields: [ordemId], references: [id], onDelete: Restrict)
+  por   User?          @relation("HistoricoDeOrdemPor", fields: [porId], references: [id], onDelete: SetNull)
+
+  @@index([ordemId, em])
+  @@map("historico_de_ordens_de_servico")
+}
+
+/// Foto do laudo, assinatura desenhada ou PDF do termo, no armazenamento do
+/// Plugga OS. Nunca se apaga: o UPDATE só marca a substituição, uma vez.
+model ArquivoDeOrdemDeServico {
+  id               String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ordemId          String                    @map("ordem_id") @db.Uuid
+  categoria        CategoriaDeArquivoDaOrdem
+  arquivoChave     String                    @map("arquivo_chave")
+  arquivoNome      String                    @map("arquivo_nome")
+  arquivoTamanho   Int                       @map("arquivo_tamanho")
+  arquivoTipo      String                    @map("arquivo_tipo")
+  enviadoPorId     String?                   @map("enviado_por_id") @db.Uuid
+  enviadoEm        DateTime                  @default(now()) @map("enviado_em") @db.Timestamptz(6)
+  substituidoEm    DateTime?                 @map("substituido_em") @db.Timestamptz(6)
+  substituidoPorId String?                   @map("substituido_por_id") @db.Uuid
+
+  ordem           OrdemDeServico         @relation(fields: [ordemId], references: [id], onDelete: Restrict)
+  enviadoPor      User?                  @relation("ArquivoDeOrdemEnviadoPor", fields: [enviadoPorId], references: [id], onDelete: SetNull)
+  substituidoPor  User?                  @relation("ArquivoDeOrdemSubstituidoPor", fields: [substituidoPorId], references: [id], onDelete: SetNull)
+  termoAssinatura TermoDeOrdemDeServico? @relation("TermoAssinatura")
+  termoPdf        TermoDeOrdemDeServico? @relation("TermoPdf")
+
+  @@index([ordemId, categoria, enviadoEm])
+  @@map("arquivos_de_ordens_de_servico")
+}
+
+/// Termo assinado (E2). Um por O.S., porque a concluída não reabre. O documento
+/// de quem assina fica só aqui e no PDF; nunca em evento, log ou histórico.
+model TermoDeOrdemDeServico {
+  id                  String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ordemId             String                  @unique @map("ordem_id") @db.Uuid
+  modo                ModoDeAssinaturaDoTermo
+  nome                String?
+  documento           String?
+  assinaturaArquivoId String?                 @unique @map("assinatura_arquivo_id") @db.Uuid
+  pdfArquivoId        String                  @unique @map("pdf_arquivo_id") @db.Uuid
+  coletadoPorId       String?                 @map("coletado_por_id") @db.Uuid
+  assinadoEm          DateTime                @default(now()) @map("assinado_em") @db.Timestamptz(6)
+
+  ordem             OrdemDeServico           @relation(fields: [ordemId], references: [id], onDelete: Restrict)
+  assinaturaArquivo ArquivoDeOrdemDeServico? @relation("TermoAssinatura", fields: [assinaturaArquivoId], references: [id], onDelete: Restrict)
+  pdfArquivo        ArquivoDeOrdemDeServico  @relation("TermoPdf", fields: [pdfArquivoId], references: [id], onDelete: Restrict)
+  coletadoPor       User?                    @relation("TermoDeOrdemColetadoPor", fields: [coletadoPorId], references: [id], onDelete: SetNull)
+
+  @@map("termos_de_ordens_de_servico")
+}
+
+// ---------------------------------------------------------------- Tarefas dos departamentos (PLU-349, PLU-340)
+
+enum EmpresaDaTarefa {
+  plugga
+  waze
+  ambas
+
+  @@map("empresa_da_tarefa")
+}
+
+enum TipoDeTarefa {
+  unica
+  recorrente
+
+  @@map("tipo_de_tarefa")
+}
+
+enum OrigemDaTarefa {
+  criada
+  do_departamento
+
+  @@map("origem_da_tarefa")
+}
+
+/// Tarefa do departamento (Financeiro, Engenharia, Energia): única ou recorrente.
+/// Não se apaga; a recorrente para de gerar ocorrências quando é encerrada.
+model Tarefa {
+  id                 String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  departamento       String
+  titulo             String
+  categoria          String?
+  empresa            EmpresaDaTarefa
+  responsavelId      String          @map("responsavel_id") @db.Uuid
+  substitutoId       String?         @map("substituto_id") @db.Uuid
+  tipo               TipoDeTarefa
+  origem             OrigemDaTarefa  @default(criada)
+  /// Recorrente: a regra (`regraDeRecorrenciaSchema`). Única: nula.
+  regra              Json?           @db.JsonB
+  /// Única: o dia. Recorrente: o início. Início do dia em Manaus.
+  dia                DateTime        @db.Timestamptz(6)
+  horarioLimite      String          @map("horario_limite")
+  exigeEvidencia     Boolean         @map("exige_evidencia")
+  exigeResultado     Boolean         @map("exige_resultado")
+  instrucoes         String[]        @default([])
+  /// Concluída pelo sistema (`automacoesDeTarefa`); ninguém a conclui pela tela.
+  automacao          String?
+  atalho             String?
+  /// Último dia (início, em Manaus) com as ocorrências já geradas.
+  geradaAte          DateTime?       @map("gerada_ate") @db.Timestamptz(6)
+  encerradaEm        DateTime?       @map("encerrada_em") @db.Timestamptz(6)
+  encerradaPorId     String?         @map("encerrada_por_id") @db.Uuid
+  encerramentoMotivo String?         @map("encerramento_motivo")
+  criadoPorId        String?         @map("criado_por_id") @db.Uuid
+  createdAt          DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  responsavel  User                 @relation("TarefaResponsavel", fields: [responsavelId], references: [id], onDelete: Restrict)
+  substituto   User?                @relation("TarefaSubstituto", fields: [substitutoId], references: [id], onDelete: SetNull)
+  encerradaPor User?                @relation("TarefaEncerradaPor", fields: [encerradaPorId], references: [id], onDelete: SetNull)
+  criadoPor    User?                @relation("TarefaCriadaPor", fields: [criadoPorId], references: [id], onDelete: SetNull)
+  ocorrencias  OcorrenciaDeTarefa[]
+
+  @@index([departamento, encerradaEm])
+  @@map("tarefas")
+}
+
+/// A tarefa num dia: o que aparece na lista e se conclui. A concluída não muda.
+model OcorrenciaDeTarefa {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tarefaId       String    @map("tarefa_id") @db.Uuid
+  /// Início do dia em Manaus.
+  dia            DateTime  @db.Timestamptz(6)
+  prazoEm        DateTime  @map("prazo_em") @db.Timestamptz(6)
+  concluidaEm    DateTime? @map("concluida_em") @db.Timestamptz(6)
+  concluidaPorId String?   @map("concluida_por_id") @db.Uuid
+  resultado      String?
+  /// Uma marca por instrução da tarefa, na mesma ordem.
+  checklist      Boolean[] @default([])
+  automatica     Boolean   @default(false)
+  /// A tarefa foi encerrada antes deste dia: a ocorrência sai da lista.
+  canceladaEm    DateTime? @map("cancelada_em") @db.Timestamptz(6)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  tarefa      Tarefa              @relation(fields: [tarefaId], references: [id], onDelete: Restrict)
+  concluidaPor User?              @relation("OcorrenciaConcluidaPor", fields: [concluidaPorId], references: [id], onDelete: SetNull)
+  evidencias  EvidenciaDeTarefa[]
+
+  @@unique([tarefaId, dia])
+  @@index([dia])
+  @@map("ocorrencias_de_tarefa")
+}
+
+/// Print, foto ou PDF anexado ao concluir. Só se insere.
+model EvidenciaDeTarefa {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ocorrenciaId   String   @map("ocorrencia_id") @db.Uuid
+  arquivoChave   String   @map("arquivo_chave")
+  arquivoNome    String   @map("arquivo_nome")
+  arquivoTamanho Int      @map("arquivo_tamanho")
+  arquivoTipo    String   @map("arquivo_tipo")
+  enviadoPorId   String?  @map("enviado_por_id") @db.Uuid
+  enviadoEm      DateTime @default(now()) @map("enviado_em") @db.Timestamptz(6)
+
+  ocorrencia OcorrenciaDeTarefa @relation(fields: [ocorrenciaId], references: [id], onDelete: Restrict)
+  enviadoPor User?              @relation("EvidenciaDeTarefaEnviadaPor", fields: [enviadoPorId], references: [id], onDelete: SetNull)
+
+  @@index([ocorrenciaId])
+  @@map("evidencias_de_tarefa")
+}
+
+/// Configuração de um tipo de O.S. (PLU-349, Configurações da Engenharia): o
+/// prazo padrão em dias úteis, que sugere o prazo da Nova O.S., e quem agenda.
+/// Sem linha, o tipo usa o padrão do código. Não se apaga.
+model ConfiguracaoDeTipoDeOrdem {
+  tipo                 TipoDeOrdemDeServico @id
+  prazoPadraoDiasUteis Int                  @map("prazo_padrao_dias_uteis")
+  agendadorId          String?              @map("agendador_id") @db.Uuid
+  atualizadoPorId      String?              @map("atualizado_por_id") @db.Uuid
+  atualizadoEm         DateTime             @default(now()) @map("atualizado_em") @db.Timestamptz(6)
+
+  agendador     User? @relation("TipoDeOrdemAgendador", fields: [agendadorId], references: [id], onDelete: SetNull)
+  atualizadoPor User? @relation("TipoDeOrdemAtualizadoPor", fields: [atualizadoPorId], references: [id], onDelete: SetNull)
+
+  @@map("configuracoes_de_tipo_de_ordem")
+}
+
+// ---------------------------------------------------------------- Engenharia: usinas e monitoramento (PLU-347)
+
+enum SituacaoDoMonitoramento {
+  normal
+  anomalia
+  sem_comunicacao
+
+  @@map("situacao_do_monitoramento")
+}
+
+enum OrigemDaUsina {
+  manual
+  importacao
+  comissionamento
+
+  @@map("origem_da_usina")
+}
+
+/// Plataforma de inversor (Growatt, FusionSolar...). A observação de acesso diz
+/// onde está o acesso; nunca guarda senha. Não se apaga: sai de uso por `ativa`.
+model PlataformaDeInversor {
+  id                 String   @id
+  nome               String   @unique
+  observacaoDeAcesso String?  @map("observacao_de_acesso")
+  ativa              Boolean  @default(true)
+  ordem              Int      @default(0)
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  usinas        Usina[]
+  conferencias  ConferenciaDePlataforma[]
+
+  @@map("plataformas_de_inversor")
+}
+
+/// Usina de cliente monitorada pela Engenharia. Não se apaga: sai de uso por `ativa`.
+model Usina {
+  id                       String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId                String         @map("company_id")
+  clientId                 String         @map("client_id") @db.Uuid
+  consumerUnitId           String         @map("consumer_unit_id") @db.Uuid
+  nome                     String
+  plataformaId             String         @map("plataforma_id")
+  potenciaKwp              Decimal        @map("potencia_kwp") @db.Decimal(10, 3)
+  fabricante               String?
+  modelo                   String?
+  numeroSerie              String?        @map("numero_serie")
+  /// Início do dia do comissionamento, em Manaus.
+  comissionadaEm           DateTime       @map("comissionada_em") @db.Timestamptz(6)
+  garantiaAte              DateTime?      @map("garantia_ate") @db.Timestamptz(6)
+  origem                   OrigemDaUsina  @default(manual)
+  ordemDeComissionamentoId String?        @map("ordem_de_comissionamento_id") @db.Uuid
+  ativa                    Boolean        @default(true)
+  criadoPorId              String?        @map("criado_por_id") @db.Uuid
+  createdAt                DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  company                Company                  @relation(fields: [companyId], references: [id])
+  client                 Client                   @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  consumerUnit           ConsumerUnit             @relation(fields: [consumerUnitId], references: [id], onDelete: Restrict)
+  plataforma             PlataformaDeInversor     @relation(fields: [plataformaId], references: [id], onDelete: Restrict)
+  ordemDeComissionamento OrdemDeServico?          @relation("UsinaDoComissionamento", fields: [ordemDeComissionamentoId], references: [id], onDelete: Restrict)
+  criadoPor              User?                    @relation("UsinaCriadaPor", fields: [criadoPorId], references: [id], onDelete: SetNull)
+  ordensDeServico        OrdemDeServico[]
+  resultados             ResultadoDaConferencia[]
+
+  @@index([plataformaId, companyId, ativa])
+  @@index([clientId])
+  @@map("usinas")
+}
+
+/// A conferência de uma plataforma, para uma empresa, num dia, com o print. Só se insere.
+model ConferenciaDePlataforma {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  plataformaId   String   @map("plataforma_id")
+  companyId      String   @map("company_id")
+  /// Início do dia em Manaus.
+  dia            DateTime @db.Timestamptz(6)
+  conferidaPorId String?  @map("conferida_por_id") @db.Uuid
+  conferidaEm    DateTime @default(now()) @map("conferida_em") @db.Timestamptz(6)
+  printChave     String   @map("print_chave")
+  printNome      String   @map("print_nome")
+  printTamanho   Int      @map("print_tamanho")
+  printTipo      String   @map("print_tipo")
+
+  plataforma   PlataformaDeInversor     @relation(fields: [plataformaId], references: [id], onDelete: Restrict)
+  company      Company                  @relation(fields: [companyId], references: [id])
+  conferidaPor User?                    @relation("ConferenciaConferidaPor", fields: [conferidaPorId], references: [id], onDelete: SetNull)
+  resultados   ResultadoDaConferencia[]
+
+  @@unique([plataformaId, companyId, dia])
+  @@index([dia])
+  @@map("conferencias_de_plataforma")
+}
+
+/// Como cada usina estava na conferência. Só se insere.
+model ResultadoDaConferencia {
+  id               String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  conferenciaId    String                  @map("conferencia_id") @db.Uuid
+  usinaId          String                  @map("usina_id") @db.Uuid
+  situacao         SituacaoDoMonitoramento
+  nota             String?
+  ordemDeServicoId String?                 @map("ordem_de_servico_id") @db.Uuid
+
+  conferencia    ConferenciaDePlataforma @relation(fields: [conferenciaId], references: [id], onDelete: Restrict)
+  usina          Usina                   @relation(fields: [usinaId], references: [id], onDelete: Restrict)
+  ordemDeServico OrdemDeServico?         @relation(fields: [ordemDeServicoId], references: [id], onDelete: Restrict)
+
+  @@unique([conferenciaId, usinaId])
+  @@index([usinaId])
+  @@map("resultados_da_conferencia")
+}
+
+// ---------------------------------------------------------------- Protocolos na distribuidora (PLU-348)
+
+enum TipoDeProtocolo {
+  orcamento_de_conexao
+  liberacao
+  cusd
+  carta_denuncia
+  permanencia_no_cativo
+  retorno_ao_cativo
+  outros
+
+  @@map("tipo_de_protocolo")
+}
+
+enum SituacaoDoProtocolo {
+  aberto
+  em_analise
+  com_pendencia
+  respondido
+  liberado
+  indeferido
+
+  @@map("situacao_do_protocolo")
+}
+
+/// Catálogo de distribuidoras. Não se apaga: sai de uso por `ativa`.
+model Distribuidora {
+  id        String   @id
+  nome      String   @unique
+  sigla     String?
+  uf        String?
+  ativa     Boolean  @default(true)
+  /// Endereço da Agência Virtual (só https, sem credencial). Login e senha ficam no cofre.
+  agenciaVirtualUrl String? @map("agencia_virtual_url")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  protocolos Protocolo[]
+
+  @@map("distribuidoras")
+}
+
+/// Protocolo de um pedido na distribuidora, da Engenharia ou do Operacional
+/// (energia-opm). Não se apaga; encerra pela situação.
+model Protocolo {
+  id                 String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId          String              @map("company_id")
+  departamento       String
+  clientId           String              @map("client_id") @db.Uuid
+  consumerUnitId     String              @map("consumer_unit_id") @db.Uuid
+  distribuidoraId    String              @map("distribuidora_id")
+  tipo               TipoDeProtocolo
+  numero             String
+  /// Início do dia em Manaus.
+  abertoEm           DateTime            @map("aberto_em") @db.Timestamptz(6)
+  dataLimite         DateTime            @map("data_limite") @db.Timestamptz(6)
+  proximaVerificacao DateTime?           @map("proxima_verificacao") @db.Timestamptz(6)
+  situacao           SituacaoDoProtocolo @default(aberto)
+  acaoPendente       String?             @map("acao_pendente")
+  observacao         String?
+  encerradoEm        DateTime?           @map("encerrado_em") @db.Timestamptz(6)
+  criadoPorId        String?             @map("criado_por_id") @db.Uuid
+  createdAt          DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  company       Company                  @relation(fields: [companyId], references: [id])
+  client        Client                   @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  consumerUnit  ConsumerUnit             @relation(fields: [consumerUnitId], references: [id], onDelete: Restrict)
+  distribuidora Distribuidora            @relation(fields: [distribuidoraId], references: [id], onDelete: Restrict)
+  criadoPor     User?                    @relation("ProtocoloCriadoPor", fields: [criadoPorId], references: [id], onDelete: SetNull)
+  verificacoes  VerificacaoDeProtocolo[]
+  documentosDeObra DocumentoDeObra[]
+
+  @@unique([distribuidoraId, numero])
+  @@index([departamento, situacao])
+  @@index([proximaVerificacao])
+  @@index([consumerUnitId])
+  @@map("protocolos")
+}
+
+/// Uma verificação do protocolo, com o resultado e a próxima. Só se insere.
+model VerificacaoDeProtocolo {
+  id                 String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  protocoloId        String              @map("protocolo_id") @db.Uuid
+  porId              String?             @map("por_id") @db.Uuid
+  em                 DateTime            @default(now()) @db.Timestamptz(6)
+  situacaoAnterior   SituacaoDoProtocolo @map("situacao_anterior")
+  situacao           SituacaoDoProtocolo
+  nota               String?
+  acaoPendente       String?             @map("acao_pendente")
+  proximaVerificacao DateTime?           @map("proxima_verificacao") @db.Timestamptz(6)
+
+  protocolo Protocolo @relation(fields: [protocoloId], references: [id], onDelete: Restrict)
+  por       User?     @relation("VerificacaoDeProtocoloPor", fields: [porId], references: [id], onDelete: SetNull)
+
+  @@index([protocoloId, em])
+  @@map("verificacoes_de_protocolo")
 }

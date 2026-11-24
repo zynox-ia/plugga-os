@@ -6,7 +6,7 @@ import type { AuditPort, EventAppend } from "../audit/audit.port";
 import type { AuthRepository, AuthUserRecord } from "./auth.repository";
 import { GoogleAuthService } from "./google-auth.service";
 import type { GoogleIdentityClaims, GoogleIdentityVerifier } from "./google-identity.verifier";
-import type { SessionService } from "./session.service";
+import type { MfaService } from "./mfa.service";
 
 /**
  * Política de domínio do login Google (US11, T116): `hd` tem de bater com o
@@ -52,7 +52,7 @@ function montar(claims: GoogleIdentityClaims, allowedHd?: string) {
   const servico = new GoogleAuthService(
     repository as unknown as AuthRepository,
     verifier as unknown as GoogleIdentityVerifier,
-    sessions as unknown as SessionService,
+    { beginLogin: async () => ({ token: await sessions.issue(), user: usuario }) } as unknown as MfaService,
     audit as unknown as AuditPort,
     config as unknown as ConfigService,
   );

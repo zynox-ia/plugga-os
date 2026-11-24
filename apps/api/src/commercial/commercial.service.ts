@@ -23,12 +23,12 @@ import { CommercialRepository } from "./commercial.repository";
 export class CommercialService {
   constructor(@Inject(CommercialRepository) private readonly repository: CommercialRepository) {}
 
-  listOpportunities(query: OpportunityListQuery): Promise<OpportunityList> {
-    return this.repository.listOpportunities(query);
+  listOpportunities(query: OpportunityListQuery, principal: AuthPrincipal): Promise<OpportunityList> {
+    return this.repository.listOpportunities(query, principal);
   }
 
-  opportunity(id: string): Promise<OpportunityDetail> {
-    return this.repository.opportunity(id);
+  opportunity(id: string, principal: AuthPrincipal): Promise<OpportunityDetail> {
+    return this.repository.opportunity(id, principal);
   }
 
   createOpportunity(input: CreateOpportunityRequest, principal: AuthPrincipal): Promise<OpportunityDetail> {
@@ -67,12 +67,12 @@ export class CommercialService {
     return this.repository.revisitOpportunity(id, input, principal);
   }
 
-  listContracts(query: ContractListQuery): Promise<ContractList> {
-    return this.repository.listContracts(query);
+  listContracts(query: ContractListQuery, principal: AuthPrincipal): Promise<ContractList> {
+    return this.repository.listContracts(query, principal);
   }
 
-  contract(id: string): Promise<ContractDetail> {
-    return this.repository.contract(id);
+  contract(id: string, principal: AuthPrincipal): Promise<ContractDetail> {
+    return this.repository.contract(id, principal);
   }
 
   createContract(input: CreateContractRequest, principal: AuthPrincipal): Promise<ContractDetail> {

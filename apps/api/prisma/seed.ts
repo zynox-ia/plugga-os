@@ -154,6 +154,9 @@ async function main() {
       { email: 'gestor.energia@plugga.local', name: 'Gerente de Energia (exemplo)', acesso: gerente('energia-opm') },
       { email: 'gerente.financeiro@plugga.local', name: 'Gerente do Financeiro (exemplo)', acesso: gerente('financeiro') },
       { email: 'financeiro.plugga@plugga.local', name: 'Financeiro (exemplo)', acesso: membro('financeiro') },
+      // Membro só do Financeiro para o e2e de Compras (aprova o gerente, paga o membro). Conta
+      // própria porque a financeiro.plugga de máquinas antigas pode ter outros departamentos.
+      { email: 'financeiro.membro.e2e@plugga.local', name: 'Financeiro · e2e (exemplo)', acesso: membro('financeiro') },
       // Duas pessoas em Suprimentos, não uma. A segregação de função do
       // POP-COMP-001 §1 exige que quem seleciona a cotação não seja quem aprova
       // nem quem confirma o recebimento — com um comprador só, o caminho
@@ -162,6 +165,8 @@ async function main() {
       { email: 'compras2.plugga@plugga.local', name: 'Compras · segunda pessoa (exemplo)', acesso: membro('suprimentos') },
       // Alguém do CRM: o e2e de pipelines precisa de uma pessoa para pôr na equipe.
       { email: 'vendas.crm@plugga.local', name: 'Vendas CRM (exemplo)', acesso: membro('crm', 'engenharia-obras') },
+      // Técnico da Engenharia (PLU-345): o e2e das ordens de serviço agenda com a primeira pessoa de /opcoes.
+      { email: 'tecnico.campo@plugga.local', name: 'Técnico de campo (exemplo)', acesso: membro('engenharia-obras') },
     ];
 
     const samplePasswordHash = await hash(adminPassword, argon2Options);
@@ -179,18 +184,19 @@ async function main() {
     }
   }
 
-// Cadastros de apoio de Compras: fornecedores e obras nas duas empresas, para
-  // a tela de novo pedido não abrir vazia numa máquina recém-semeada. São dados
-  // sintéticos — nenhum fornecedor real, nenhum CNPJ verdadeiro.
+// Cadastros de apoio de Compras, para a tela de novo pedido não abrir vazia
+  // numa máquina recém-semeada. O fornecedor é cadastro único das duas empresas
+  // (PLU-326); a obra ainda tem empresa. São dados sintéticos: nenhum
+  // fornecedor real, nenhum CNPJ verdadeiro.
   const fornecedoresDeExemplo = [
-    { companyId: 'plugga', nome: 'Elétrica Norte (exemplo)' },
-    { companyId: 'plugga', nome: 'Suprimentos Manaus (exemplo)' },
-    { companyId: 'waze', nome: 'Materiais de Obra Amazonas (exemplo)' },
+    { nome: 'Elétrica Norte (exemplo)', categoria: 'material_eletrico' },
+    { nome: 'Suprimentos Manaus (exemplo)', categoria: 'escritorio' },
+    { nome: 'Materiais de Obra Amazonas (exemplo)', categoria: 'material_de_obra' },
   ] as const;
 
   for (const fornecedor of fornecedoresDeExemplo) {
     const existente = await prisma.fornecedor.findFirst({
-      where: { companyId: fornecedor.companyId, nome: fornecedor.nome },
+      where: { nome: fornecedor.nome },
       select: { id: true },
     });
     if (!existente) {
@@ -212,6 +218,48 @@ async function main() {
       await prisma.obra.create({ data: { ...obra } });
     }
   }
+
+  // Financeiro (PLU-336): o espelho do OMIE de cada empresa enquanto a leitura do
+  // OMIE (PLU-342) não existe. Plano de contas e contas sintéticos, sem saldo:
+  // o saldo só aparece quando o OMIE for lido. Nunca sobrescreve o que já existe.
+  const gruposDoPlano: Record<string, string> = {
+    '1.01': 'Receitas de gestão de energia',
+    '1.02': 'Receitas de engenharia',
+    '2.01': 'Materiais e logística',
+    '2.02': 'Locações',
+    '2.03': 'Despesas administrativas',
+    '2.04': 'Despesas bancárias',
+    '2.05': 'Impostos e taxas',
+    '2.07': 'Pessoas e reembolsos',
+  };
+  const categoriasDeExemplo = [
+    { codigo: '1.01.01', nome: 'Gestão de energia (exemplo)', tipo: 'receita', natureza: 'receita', empresas: ['plugga'] },
+    { codigo: '1.02.01', nome: 'Serviços de engenharia (exemplo)', tipo: 'receita', natureza: 'receita', empresas: ['waze'] },
+    { codigo: '2.01.01', nome: 'Materiais e equipamentos (exemplo)', tipo: 'despesa', natureza: 'material', empresas: ['plugga', 'waze'] },
+    { codigo: '2.02.01', nome: 'Locação de equipamentos (exemplo)', tipo: 'despesa', natureza: 'locacao', empresas: ['plugga', 'waze'] },
+    { codigo: '2.03.01', nome: 'Aluguel e condomínio (exemplo)', tipo: 'despesa', natureza: 'aluguel', empresas: ['plugga', 'waze'] },
+    { codigo: '2.03.02', nome: 'Honorários contábeis (exemplo)', tipo: 'despesa', natureza: 'servico', empresas: ['plugga', 'waze'] },
+    { codigo: '2.03.04', nome: 'Internet e telefonia (exemplo)', tipo: 'despesa', natureza: 'telecom', empresas: ['plugga', 'waze'] },
+    { codigo: '2.04.01', nome: 'Tarifas bancárias (exemplo)', tipo: 'despesa', natureza: 'tarifa', empresas: ['plugga', 'waze'] },
+    { codigo: '2.05.01', nome: 'Impostos e taxas (exemplo)', tipo: 'despesa', natureza: 'imposto', empresas: ['plugga', 'waze'] },
+    { codigo: '2.07.01', nome: 'Reembolsos à equipe (exemplo)', tipo: 'despesa', natureza: 'pessoal', empresas: ['plugga', 'waze'] },
+  ] as const;
+  await prisma.categoriaFinanceira.createMany({
+    data: categoriasDeExemplo.flatMap(({ empresas, ...categoria }) => empresas.map((companyId) => ({
+      ...categoria,
+      companyId,
+      grupoNome: gruposDoPlano[categoria.codigo.split('.').slice(0, 2).join('.')] ?? 'Outros',
+    }))),
+    skipDuplicates: true,
+  });
+  await prisma.contaCorrente.createMany({
+    data: [
+      { companyId: 'plugga', omieCodigo: 'exemplo-plugga-1', nome: 'Banco A · Plugga (exemplo)', banco: 'Banco A' },
+      { companyId: 'plugga', omieCodigo: 'exemplo-plugga-2', nome: 'Banco B · Plugga (exemplo)', banco: 'Banco B' },
+      { companyId: 'waze', omieCodigo: 'exemplo-waze-1', nome: 'Banco A · Waze (exemplo)', banco: 'Banco A' },
+    ],
+    skipDuplicates: true,
+  });
 
   const integrations = await Promise.all(
     integrationRows.map((integration) =>
@@ -340,6 +388,20 @@ async function main() {
         distributor: 'Amazonas Energia',
         address: 'Manaus, AM',
       },
+    });
+  }
+
+  // Cliente com UC para a Engenharia (PLU-347): a Nova usina e a Nova O.S. pedem a
+  // UC do cliente, e nenhuma tela cria UC. Sintético, criado só se não existir;
+  // o e2e das usinas o encontra pela busca "Cliente com UC".
+  const clienteComUc = await prisma.client.upsert({
+    where: { id: '00000000-0000-0000-0000-0000000000c2' },
+    update: {},
+    create: { id: '00000000-0000-0000-0000-0000000000c2', name: 'Cliente com UC (exemplo)', segment: 'opm' },
+  });
+  if (!(await prisma.consumerUnit.findFirst({ where: { clientId: clienteComUc.id, code: 'UC-E2E-0001' }, select: { id: true } }))) {
+    await prisma.consumerUnit.create({
+      data: { clientId: clienteComUc.id, code: 'UC-E2E-0001', distributor: 'Amazonas Energia', address: 'Manaus, AM' },
     });
   }
   // Premissas do estudo de eficiência energética (ADR/decisões 2026-08-08).

@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { GOOGLE_SIGN_IN_STUB } from "./support/google-sign-in";
 
 /**
  * Login Google — a NOSSA metade do fluxo.
@@ -46,16 +47,7 @@ test.beforeEach(async ({ page }) => {
  */
 const erro = (page: Page) => page.locator("p.auth-error-msg");
 
-/** Substitui o script do Google por um que só marca presença no DOM. */
-const STUB_SCRIPT = `
-  window.__gisLoaded = true;
-  document.querySelectorAll(".g_id_signin").forEach((slot) => {
-    const botao = document.createElement("button");
-    botao.type = "button";
-    botao.textContent = "Fazer login com o Google";
-    slot.appendChild(botao);
-  });
-`;
+const STUB_SCRIPT = GOOGLE_SIGN_IN_STUB;
 
 test.describe("Login Google — tela de entrada", () => {
   // Estes casos precisam começar deslogados: com sessão o /login redireciona.
@@ -63,6 +55,7 @@ test.describe("Login Google — tela de entrada", () => {
 
   test("o botão oficial é renderizado com o client id e o callback configurados", async ({
     page,
+    baseURL,
   }) => {
     await page.route(`${GIS_SCRIPT}*`, (route) =>
       route.fulfill({ contentType: "text/javascript", body: STUB_SCRIPT }),
@@ -74,7 +67,7 @@ test.describe("Login Google — tela de entrada", () => {
     await expect(onload).toHaveAttribute("data-client_id", "e2e-only.apps.googleusercontent.com");
     await expect(onload).toHaveAttribute(
       "data-login_uri",
-      "http://127.0.0.1:3000/api/auth/google/callback",
+      new URL("/api/auth/google/callback", baseURL).toString(),
     );
     // Redirect, não popup — foi a escolha de produto, e ela vive num atributo.
     await expect(onload).toHaveAttribute("data-ux_mode", "redirect");

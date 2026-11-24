@@ -3,12 +3,127 @@
     "metodo": "POST",
     "caminho": "/agent-actions",
     "controller": "AgentActionsController.create",
-    "acesso": "acesso",
-    "papeis": [
-      "plataforma:desenvolvedor"
-    ],
+    "acesso": "authenticated",
+    "papeis": [],
     "guards": [
       "OriginCheckGuard",
+      "SessionAuthGuard",
+      "IdentidadeAgenteGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/agentes/engenharia/ordens-de-servico",
+    "controller": "OrdensPeloAgenteController.criar",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:engenharia-obras.os",
+      "tela:engenharia-obras.instalacoes",
+      "tela:engenharia-obras.manutencao",
+      "tela:engenharia-obras.visitas",
+      "departamento:engenharia-obras:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcaoDeAgenteGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerPorAgenteGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/atividades",
+    "controller": "AtividadesController.list",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.pipelines",
+      "tela:crm.clientes",
+      "departamento:crm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/atividades",
+    "controller": "AtividadesController.create",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.pipelines",
+      "tela:crm.clientes",
+      "departamento:crm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/atividades/:id",
+    "controller": "AtividadesController.get",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.pipelines",
+      "tela:crm.clientes",
+      "departamento:crm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "PATCH",
+    "caminho": "/atividades/:id",
+    "controller": "AtividadesController.update",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.pipelines",
+      "tela:crm.clientes",
+      "departamento:crm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/atividades/:id/conclusao",
+    "controller": "AtividadesController.complete",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.pipelines",
+      "tela:crm.clientes",
+      "departamento:crm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/atividades/:id/historico",
+    "controller": "AtividadesController.history",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.pipelines",
+      "tela:crm.clientes",
+      "departamento:crm:membro"
+    ],
+    "guards": [
       "SessionAuthGuard",
       "AcessoGuard"
     ]
@@ -70,6 +185,135 @@
   },
   {
     "metodo": "POST",
+    "caminho": "/auth/mfa/cancel",
+    "controller": "MfaController.cancel",
+    "acesso": "public",
+    "papeis": [],
+    "guards": [
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/auth/mfa/challenge",
+    "controller": "MfaController.challenge",
+    "acesso": "public",
+    "papeis": [],
+    "guards": [
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/auth/mfa/confirm",
+    "controller": "MfaController.confirm",
+    "acesso": "authenticated",
+    "papeis": [],
+    "guards": [
+      "OriginCheckGuard",
+      "ThrottlerGuard",
+      "SessionAuthGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/auth/mfa/disable",
+    "controller": "MfaController.disable",
+    "acesso": "authenticated",
+    "papeis": [],
+    "guards": [
+      "OriginCheckGuard",
+      "ThrottlerGuard",
+      "SessionAuthGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/auth/mfa/enable",
+    "controller": "MfaController.enable",
+    "acesso": "authenticated",
+    "papeis": [],
+    "guards": [
+      "OriginCheckGuard",
+      "ThrottlerGuard",
+      "SessionAuthGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/auth/mfa/recovery-codes",
+    "controller": "MfaController.recoveryCodes",
+    "acesso": "authenticated",
+    "papeis": [],
+    "guards": [
+      "OriginCheckGuard",
+      "ThrottlerGuard",
+      "SessionAuthGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/auth/mfa/setup",
+    "controller": "MfaController.setup",
+    "acesso": "authenticated",
+    "papeis": [],
+    "guards": [
+      "OriginCheckGuard",
+      "ThrottlerGuard",
+      "SessionAuthGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/auth/mfa/status",
+    "controller": "MfaController.status",
+    "acesso": "authenticated",
+    "papeis": [],
+    "guards": [
+      "OriginCheckGuard",
+      "ThrottlerGuard",
+      "SessionAuthGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/auth/mfa/users/:id/remove",
+    "controller": "MfaController.remove",
+    "acesso": "authenticated",
+    "papeis": [],
+    "guards": [
+      "OriginCheckGuard",
+      "ThrottlerGuard",
+      "SessionAuthGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/auth/mfa/verify",
+    "controller": "MfaController.verify",
+    "acesso": "public",
+    "papeis": [],
+    "guards": [
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/auth/password",
+    "controller": "AuthController.changePassword",
+    "acesso": "authenticated",
+    "papeis": [],
+    "guards": [
+      "SessionAuthGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
     "caminho": "/auth/reset/confirm",
     "controller": "AuthController.confirmReset",
     "acesso": "public",
@@ -87,6 +331,28 @@
     "papeis": [],
     "guards": [
       "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/cadastro/cep/:cep",
+    "controller": "CadastroController.cep",
+    "acesso": "authenticated",
+    "papeis": [],
+    "guards": [
+      "SessionAuthGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/cadastro/cnpj/:cnpj",
+    "controller": "CadastroController.cnpj",
+    "acesso": "authenticated",
+    "papeis": [],
+    "guards": [
+      "SessionAuthGuard",
       "ThrottlerGuard"
     ]
   },
@@ -112,13 +378,7 @@
     "acesso": "acesso",
     "papeis": [
       "tela:crm.clientes",
-      "tela:energia-opm.ciclos",
-      "tela:energia-opm.auditoria",
-      "tela:energia-opm.migracao",
-      "tela:energia-opm.relatorios",
-      "tela:energia-opm.demanda",
-      "departamento:crm:membro",
-      "departamento:energia-opm:membro"
+      "departamento:crm:membro"
     ],
     "guards": [
       "SessionAuthGuard",
@@ -148,13 +408,7 @@
     "acesso": "acesso",
     "papeis": [
       "tela:crm.clientes",
-      "tela:energia-opm.ciclos",
-      "tela:energia-opm.auditoria",
-      "tela:energia-opm.migracao",
-      "tela:energia-opm.relatorios",
-      "tela:energia-opm.demanda",
-      "departamento:crm:membro",
-      "departamento:energia-opm:membro"
+      "departamento:crm:membro"
     ],
     "guards": [
       "SessionAuthGuard",
@@ -264,13 +518,7 @@
     "acesso": "acesso",
     "papeis": [
       "tela:crm.clientes",
-      "tela:energia-opm.ciclos",
-      "tela:energia-opm.auditoria",
-      "tela:energia-opm.migracao",
-      "tela:energia-opm.relatorios",
-      "tela:energia-opm.demanda",
-      "departamento:crm:membro",
-      "departamento:energia-opm:membro"
+      "departamento:crm:membro"
     ],
     "guards": [
       "SessionAuthGuard",
@@ -284,9 +532,7 @@
     "acesso": "acesso",
     "papeis": [
       "tela:crm.clientes",
-      "tela:crm.pipelines",
-      "departamento:crm:membro",
-      "departamento:energia-opm:membro"
+      "departamento:crm:membro"
     ],
     "guards": [
       "SessionAuthGuard",
@@ -299,7 +545,7 @@
     "controller": "ClientesController.selecaoNegocio",
     "acesso": "acesso",
     "papeis": [
-      "tela:crm.pipelines",
+      "tela:crm.clientes",
       "departamento:crm:membro"
     ],
     "guards": [
@@ -512,14 +758,748 @@
     ]
   },
   {
+    "metodo": "DELETE",
+    "caminho": "/email/brevo",
+    "controller": "BrevoController.apagar",
+    "acesso": "acesso",
+    "papeis": [
+      "plataforma:desenvolvedor"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/email/brevo",
+    "controller": "BrevoController.estado",
+    "acesso": "acesso",
+    "papeis": [
+      "plataforma:desenvolvedor"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "PUT",
+    "caminho": "/email/brevo",
+    "controller": "BrevoController.gravar",
+    "acesso": "acesso",
+    "papeis": [
+      "plataforma:desenvolvedor"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/email/brevo/teste",
+    "controller": "BrevoController.testar",
+    "acesso": "acesso",
+    "papeis": [
+      "plataforma:desenvolvedor"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
     "metodo": "GET",
     "caminho": "/email/status",
     "controller": "EmailStatusController.status",
     "acesso": "acesso",
     "papeis": [
-      "plataforma:admin"
+      "plataforma:desenvolvedor"
     ],
     "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/engenharia/agenda",
+    "controller": "AgendaDeCampoController.agenda",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:engenharia-obras.os",
+      "tela:engenharia-obras.instalacoes",
+      "tela:engenharia-obras.manutencao",
+      "tela:engenharia-obras.visitas",
+      "departamento:engenharia-obras:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/engenharia/configuracoes",
+    "controller": "ConfiguracoesDaEngenhariaController.configuracoes",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:engenharia-obras.os",
+      "tela:engenharia-obras.instalacoes",
+      "tela:engenharia-obras.manutencao",
+      "tela:engenharia-obras.visitas",
+      "departamento:engenharia-obras:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "PUT",
+    "caminho": "/engenharia/configuracoes/tipos/:tipo",
+    "controller": "ConfiguracoesDaEngenhariaController.editarTipo",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:engenharia-obras.os",
+      "tela:engenharia-obras.instalacoes",
+      "tela:engenharia-obras.manutencao",
+      "tela:engenharia-obras.visitas",
+      "departamento:engenharia-obras:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/engenharia/monitoramento",
+    "controller": "MonitoramentoController.doDia",
+    "acesso": "acesso",
+    "papeis": [
+      "departamento:engenharia-obras:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/engenharia/monitoramento/:plataformaId/conferir",
+    "controller": "MonitoramentoController.conferir",
+    "acesso": "acesso",
+    "papeis": [
+      "departamento:engenharia-obras:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/engenharia/monitoramento/conferencias/:id/print",
+    "controller": "MonitoramentoController.print",
+    "acesso": "acesso",
+    "papeis": [
+      "departamento:engenharia-obras:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/engenharia/obras",
+    "controller": "ObrasController.listar",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:engenharia-obras.obras",
+      "departamento:engenharia-obras:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/engenharia/obras",
+    "controller": "ObrasController.cadastrar",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:engenharia-obras.obras",
+      "departamento:engenharia-obras:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/engenharia/obras/:id",
+    "controller": "ObrasController.obter",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:engenharia-obras.obras",
+      "departamento:engenharia-obras:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "PATCH",
+    "caminho": "/engenharia/obras/:id",
+    "controller": "ObrasController.editar",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:engenharia-obras.obras",
+      "departamento:engenharia-obras:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/engenharia/obras/:id/documentos",
+    "controller": "ObrasController.anexar",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:engenharia-obras.obras",
+      "departamento:engenharia-obras:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/engenharia/obras/:id/documentos/:documentoId",
+    "controller": "ObrasController.baixar",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:engenharia-obras.obras",
+      "departamento:engenharia-obras:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "PATCH",
+    "caminho": "/engenharia/obras/:id/marcos/:marcoId",
+    "controller": "ObrasController.reprogramar",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:engenharia-obras.obras",
+      "departamento:engenharia-obras:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/engenharia/obras/:id/marcos/:marcoId/feito",
+    "controller": "ObrasController.marcarFeito",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:engenharia-obras.obras",
+      "departamento:engenharia-obras:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/engenharia/obras/clientes",
+    "controller": "ObrasController.clientes",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:engenharia-obras.obras",
+      "departamento:engenharia-obras:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/engenharia/obras/opcoes",
+    "controller": "ObrasController.opcoes",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:engenharia-obras.obras",
+      "departamento:engenharia-obras:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/engenharia/ordens-de-servico",
+    "controller": "EngenhariaController.listar",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:engenharia-obras.os",
+      "tela:engenharia-obras.instalacoes",
+      "tela:engenharia-obras.manutencao",
+      "tela:engenharia-obras.visitas",
+      "departamento:engenharia-obras:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/engenharia/ordens-de-servico",
+    "controller": "EngenhariaController.criar",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:engenharia-obras.os",
+      "tela:engenharia-obras.instalacoes",
+      "tela:engenharia-obras.manutencao",
+      "tela:engenharia-obras.visitas",
+      "departamento:engenharia-obras:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/engenharia/ordens-de-servico/:id",
+    "controller": "EngenhariaController.obter",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:engenharia-obras.os",
+      "tela:engenharia-obras.instalacoes",
+      "tela:engenharia-obras.manutencao",
+      "tela:engenharia-obras.visitas",
+      "departamento:engenharia-obras:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "PATCH",
+    "caminho": "/engenharia/ordens-de-servico/:id",
+    "controller": "EngenhariaController.editar",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:engenharia-obras.os",
+      "tela:engenharia-obras.instalacoes",
+      "tela:engenharia-obras.manutencao",
+      "tela:engenharia-obras.visitas",
+      "departamento:engenharia-obras:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/engenharia/ordens-de-servico/:id/acoes",
+    "controller": "EngenhariaController.acao",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:engenharia-obras.os",
+      "tela:engenharia-obras.instalacoes",
+      "tela:engenharia-obras.manutencao",
+      "tela:engenharia-obras.visitas",
+      "departamento:engenharia-obras:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/engenharia/ordens-de-servico/:id/arquivos/:arquivoId",
+    "controller": "EngenhariaController.arquivo",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:engenharia-obras.os",
+      "tela:engenharia-obras.instalacoes",
+      "tela:engenharia-obras.manutencao",
+      "tela:engenharia-obras.visitas",
+      "departamento:engenharia-obras:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/engenharia/ordens-de-servico/:id/fotos",
+    "controller": "EngenhariaController.enviarFoto",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:engenharia-obras.os",
+      "tela:engenharia-obras.instalacoes",
+      "tela:engenharia-obras.manutencao",
+      "tela:engenharia-obras.visitas",
+      "departamento:engenharia-obras:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/engenharia/ordens-de-servico/:id/pedidos-de-material",
+    "controller": "EngenhariaController.pedirMaterial",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:engenharia-obras.os",
+      "tela:engenharia-obras.instalacoes",
+      "tela:engenharia-obras.manutencao",
+      "tela:engenharia-obras.visitas",
+      "departamento:engenharia-obras:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/engenharia/ordens-de-servico/:id/termo",
+    "controller": "EngenhariaController.colherTermo",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:engenharia-obras.os",
+      "tela:engenharia-obras.instalacoes",
+      "tela:engenharia-obras.manutencao",
+      "tela:engenharia-obras.visitas",
+      "departamento:engenharia-obras:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/engenharia/ordens-de-servico/:id/termo/pdf",
+    "controller": "EngenhariaController.termo",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:engenharia-obras.os",
+      "tela:engenharia-obras.instalacoes",
+      "tela:engenharia-obras.manutencao",
+      "tela:engenharia-obras.visitas",
+      "departamento:engenharia-obras:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/engenharia/ordens-de-servico/:id/termo/pdf-assinado",
+    "controller": "EngenhariaController.anexarTermo",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:engenharia-obras.os",
+      "tela:engenharia-obras.instalacoes",
+      "tela:engenharia-obras.manutencao",
+      "tela:engenharia-obras.visitas",
+      "departamento:engenharia-obras:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/engenharia/ordens-de-servico/clientes",
+    "controller": "EngenhariaController.clientes",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:engenharia-obras.os",
+      "tela:engenharia-obras.instalacoes",
+      "tela:engenharia-obras.manutencao",
+      "tela:engenharia-obras.visitas",
+      "departamento:engenharia-obras:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/engenharia/ordens-de-servico/opcoes",
+    "controller": "EngenhariaController.opcoes",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:engenharia-obras.os",
+      "tela:engenharia-obras.instalacoes",
+      "tela:engenharia-obras.manutencao",
+      "tela:engenharia-obras.visitas",
+      "departamento:engenharia-obras:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/engenharia/ordens-de-servico/quadro",
+    "controller": "EngenhariaController.quadro",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:engenharia-obras.os",
+      "tela:engenharia-obras.instalacoes",
+      "tela:engenharia-obras.manutencao",
+      "tela:engenharia-obras.visitas",
+      "departamento:engenharia-obras:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/engenharia/plataformas",
+    "controller": "PlataformasController.listar",
+    "acesso": "acesso",
+    "papeis": [
+      "departamento:engenharia-obras:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/engenharia/plataformas",
+    "controller": "PlataformasController.criar",
+    "acesso": "acesso",
+    "papeis": [
+      "departamento:engenharia-obras:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "PATCH",
+    "caminho": "/engenharia/plataformas/:id",
+    "controller": "PlataformasController.editar",
+    "acesso": "acesso",
+    "papeis": [
+      "departamento:engenharia-obras:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/engenharia/usinas",
+    "controller": "UsinasController.listar",
+    "acesso": "acesso",
+    "papeis": [
+      "departamento:engenharia-obras:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/engenharia/usinas",
+    "controller": "UsinasController.criar",
+    "acesso": "acesso",
+    "papeis": [
+      "departamento:engenharia-obras:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/engenharia/usinas/:id",
+    "controller": "UsinasController.obter",
+    "acesso": "acesso",
+    "papeis": [
+      "departamento:engenharia-obras:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "PATCH",
+    "caminho": "/engenharia/usinas/:id",
+    "controller": "UsinasController.editar",
+    "acesso": "acesso",
+    "papeis": [
+      "departamento:engenharia-obras:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/engenharia/usinas/clientes",
+    "controller": "UsinasController.clientes",
+    "acesso": "acesso",
+    "papeis": [
+      "departamento:engenharia-obras:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/engenharia/usinas/importacao",
+    "controller": "UsinasController.importar",
+    "acesso": "acesso",
+    "papeis": [
+      "departamento:engenharia-obras:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/engenharia/visao-geral",
+    "controller": "VisaoGeralDaEngenhariaController.visaoGeral",
+    "acesso": "acesso",
+    "papeis": [
+      "departamento:engenharia-obras:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
       "SessionAuthGuard",
       "AcessoGuard"
     ]
@@ -584,6 +1564,42 @@
   },
   {
     "metodo": "POST",
+    "caminho": "/equipe/agentes",
+    "controller": "AgentesEquipeController.criar",
+    "acesso": "authenticated",
+    "papeis": [],
+    "guards": [
+      "OriginCheckGuard",
+      "SessionAuthGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/equipe/agentes/:id/credencial",
+    "controller": "AgentesEquipeController.emitirCredencial",
+    "acesso": "authenticated",
+    "papeis": [],
+    "guards": [
+      "OriginCheckGuard",
+      "SessionAuthGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/equipe/agentes/:id/revogar-credencial",
+    "controller": "AgentesEquipeController.revogarCredencial",
+    "acesso": "authenticated",
+    "papeis": [],
+    "guards": [
+      "OriginCheckGuard",
+      "SessionAuthGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
     "caminho": "/equipe/convites",
     "controller": "EquipeController.convidar",
     "acesso": "authenticated",
@@ -591,6 +1607,352 @@
     "guards": [
       "OriginCheckGuard",
       "SessionAuthGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/financeiro/clientes",
+    "controller": "FinanceiroController.buscarClientes",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:financeiro.receber",
+      "departamento:financeiro:membro"
+    ],
+    "guards": [
+      "FinanceiroHabilitadoGuard",
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/financeiro/cobrancas",
+    "controller": "FinanceiroController.criarCobranca",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:financeiro.pagar",
+      "tela:financeiro.receber",
+      "departamento:financeiro:membro"
+    ],
+    "guards": [
+      "FinanceiroHabilitadoGuard",
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/financeiro/cobrancas/sugestao",
+    "controller": "FinanceiroController.sugestao",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:financeiro.pagar",
+      "tela:financeiro.receber",
+      "departamento:financeiro:membro"
+    ],
+    "guards": [
+      "FinanceiroHabilitadoGuard",
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/financeiro/comprovantes.zip",
+    "controller": "FinanceiroController.baixarComprovantes",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:financeiro.pagar",
+      "tela:financeiro.receber",
+      "departamento:financeiro:membro"
+    ],
+    "guards": [
+      "FinanceiroHabilitadoGuard",
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/financeiro/lancamentos",
+    "controller": "FinanceiroController.listar",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:financeiro.pagar",
+      "tela:financeiro.receber",
+      "departamento:financeiro:membro"
+    ],
+    "guards": [
+      "FinanceiroHabilitadoGuard",
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/financeiro/lancamentos",
+    "controller": "FinanceiroController.criar",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:financeiro.pagar",
+      "tela:financeiro.receber",
+      "departamento:financeiro:membro"
+    ],
+    "guards": [
+      "FinanceiroHabilitadoGuard",
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/financeiro/lancamentos/:id",
+    "controller": "FinanceiroController.obter",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:financeiro.pagar",
+      "tela:financeiro.receber",
+      "departamento:financeiro:membro"
+    ],
+    "guards": [
+      "FinanceiroHabilitadoGuard",
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "PATCH",
+    "caminho": "/financeiro/lancamentos/:id",
+    "controller": "FinanceiroController.editar",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:financeiro.pagar",
+      "tela:financeiro.receber",
+      "departamento:financeiro:membro"
+    ],
+    "guards": [
+      "FinanceiroHabilitadoGuard",
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/financeiro/lancamentos/:id/acoes",
+    "controller": "FinanceiroController.executarAcao",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:financeiro.pagar",
+      "tela:financeiro.receber",
+      "departamento:financeiro:membro"
+    ],
+    "guards": [
+      "FinanceiroHabilitadoGuard",
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/financeiro/lancamentos/:id/anexos",
+    "controller": "FinanceiroController.enviarAnexo",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:financeiro.pagar",
+      "tela:financeiro.receber",
+      "departamento:financeiro:membro"
+    ],
+    "guards": [
+      "FinanceiroHabilitadoGuard",
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/financeiro/lancamentos/:id/anexos/:anexoId",
+    "controller": "FinanceiroController.baixarAnexo",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:financeiro.pagar",
+      "tela:financeiro.receber",
+      "departamento:financeiro:membro"
+    ],
+    "guards": [
+      "FinanceiroHabilitadoGuard",
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/financeiro/lancamentos/:id/omie/tentar-de-novo",
+    "controller": "FinanceiroController.tentarDeNovoNoOmie",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:financeiro.pagar",
+      "tela:financeiro.receber",
+      "departamento:financeiro:membro"
+    ],
+    "guards": [
+      "FinanceiroHabilitadoGuard",
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/financeiro/lancamentos/quadro",
+    "controller": "FinanceiroController.quadro",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:financeiro.pagar",
+      "tela:financeiro.receber",
+      "departamento:financeiro:membro"
+    ],
+    "guards": [
+      "FinanceiroHabilitadoGuard",
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/financeiro/lancamentos/resumo",
+    "controller": "FinanceiroController.resumo",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:financeiro.pagar",
+      "tela:financeiro.receber",
+      "departamento:financeiro:membro"
+    ],
+    "guards": [
+      "FinanceiroHabilitadoGuard",
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/financeiro/opcoes",
+    "controller": "FinanceiroController.opcoes",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:financeiro.pagar",
+      "tela:financeiro.receber",
+      "tela:financeiro.conciliacao",
+      "tela:financeiro.fiscal",
+      "departamento:financeiro:membro"
+    ],
+    "guards": [
+      "FinanceiroHabilitadoGuard",
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "DELETE",
+    "caminho": "/google/calendar/conexao",
+    "controller": "GoogleCalendarController.desconectar",
+    "acesso": "authenticated",
+    "papeis": [],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/google/calendar/conexao",
+    "controller": "GoogleCalendarController.estado",
+    "acesso": "authenticated",
+    "papeis": [],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/google/calendar/conexao/autorizacao",
+    "controller": "GoogleCalendarController.iniciar",
+    "acesso": "authenticated",
+    "papeis": [],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/google/calendar/conexao/retorno",
+    "controller": "GoogleCalendarController.concluir",
+    "acesso": "authenticated",
+    "papeis": [],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "DELETE",
+    "caminho": "/google/oauth",
+    "controller": "GoogleOAuthController.apagar",
+    "acesso": "acesso",
+    "papeis": [
+      "plataforma:desenvolvedor"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/google/oauth",
+    "controller": "GoogleOAuthController.estado",
+    "acesso": "acesso",
+    "papeis": [
+      "plataforma:desenvolvedor"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "PUT",
+    "caminho": "/google/oauth",
+    "controller": "GoogleOAuthController.gravar",
+    "acesso": "acesso",
+    "papeis": [
+      "plataforma:desenvolvedor"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
       "ThrottlerGuard"
     ]
   },
@@ -609,6 +1971,390 @@
     "acesso": "public",
     "papeis": [],
     "guards": []
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/integracoes/autentique",
+    "controller": "AutentiqueController.estado",
+    "acesso": "acesso",
+    "papeis": [
+      "plataforma:desenvolvedor"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "DELETE",
+    "caminho": "/integracoes/autentique/:empresa",
+    "controller": "AutentiqueController.apagar",
+    "acesso": "acesso",
+    "papeis": [
+      "plataforma:desenvolvedor"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "PUT",
+    "caminho": "/integracoes/autentique/:empresa",
+    "controller": "AutentiqueController.gravar",
+    "acesso": "acesso",
+    "papeis": [
+      "plataforma:desenvolvedor"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/integracoes/autentique/:empresa/teste",
+    "controller": "AutentiqueController.testar",
+    "acesso": "acesso",
+    "papeis": [
+      "plataforma:desenvolvedor"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/integracoes/cadastro",
+    "controller": "CadastroIntegracaoController.estado",
+    "acesso": "acesso",
+    "papeis": [
+      "plataforma:desenvolvedor"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "PUT",
+    "caminho": "/integracoes/cadastro",
+    "controller": "CadastroIntegracaoController.definir",
+    "acesso": "acesso",
+    "papeis": [
+      "plataforma:desenvolvedor"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/integracoes/ia-assinatura/:provedor",
+    "controller": "AssinaturaIaController.estado",
+    "acesso": "acesso",
+    "papeis": [
+      "plataforma:desenvolvedor"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "DELETE",
+    "caminho": "/integracoes/ia-assinatura/:provedor/contas",
+    "controller": "AssinaturaIaController.removerConta",
+    "acesso": "acesso",
+    "papeis": [
+      "plataforma:desenvolvedor"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/integracoes/ia-assinatura/:provedor/login",
+    "controller": "AssinaturaIaController.situacaoDoLogin",
+    "acesso": "acesso",
+    "papeis": [
+      "plataforma:desenvolvedor"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/integracoes/ia-assinatura/:provedor/login",
+    "controller": "AssinaturaIaController.iniciarLogin",
+    "acesso": "acesso",
+    "papeis": [
+      "plataforma:desenvolvedor"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/integracoes/ia-assinatura/:provedor/teste",
+    "controller": "AssinaturaIaController.testar",
+    "acesso": "acesso",
+    "papeis": [
+      "plataforma:desenvolvedor"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "DELETE",
+    "caminho": "/integracoes/omie",
+    "controller": "OmieController.apagar",
+    "acesso": "acesso",
+    "papeis": [
+      "plataforma:desenvolvedor"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/integracoes/omie",
+    "controller": "OmieController.estado",
+    "acesso": "acesso",
+    "papeis": [
+      "plataforma:desenvolvedor"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "PUT",
+    "caminho": "/integracoes/omie",
+    "controller": "OmieController.gravar",
+    "acesso": "acesso",
+    "papeis": [
+      "plataforma:desenvolvedor"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/integracoes/omie/empresas",
+    "controller": "OmieEmpresasController.estado",
+    "acesso": "acesso",
+    "papeis": [
+      "departamento:financeiro:gerente"
+    ],
+    "guards": [
+      "FinanceiroHabilitadoGuard",
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "DELETE",
+    "caminho": "/integracoes/omie/empresas/:empresa",
+    "controller": "OmieEmpresasController.apagar",
+    "acesso": "acesso",
+    "papeis": [
+      "departamento:financeiro:gerente"
+    ],
+    "guards": [
+      "FinanceiroHabilitadoGuard",
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "PUT",
+    "caminho": "/integracoes/omie/empresas/:empresa",
+    "controller": "OmieEmpresasController.gravar",
+    "acesso": "acesso",
+    "papeis": [
+      "departamento:financeiro:gerente"
+    ],
+    "guards": [
+      "FinanceiroHabilitadoGuard",
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "PUT",
+    "caminho": "/integracoes/omie/empresas/:empresa/cnpj",
+    "controller": "OmieEmpresasController.definirCnpj",
+    "acesso": "acesso",
+    "papeis": [
+      "plataforma:admin",
+      "departamento:financeiro:gerente"
+    ],
+    "guards": [
+      "FinanceiroHabilitadoGuard",
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/integracoes/omie/empresas/:empresa/confirmar",
+    "controller": "OmieEmpresasController.confirmar",
+    "acesso": "acesso",
+    "papeis": [
+      "departamento:financeiro:gerente"
+    ],
+    "guards": [
+      "FinanceiroHabilitadoGuard",
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/integracoes/omie/empresas/:empresa/teste",
+    "controller": "OmieEmpresasController.testar",
+    "acesso": "acesso",
+    "papeis": [
+      "departamento:financeiro:gerente"
+    ],
+    "guards": [
+      "FinanceiroHabilitadoGuard",
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/integracoes/omie/empresas/plugga/mover-conta-antiga",
+    "controller": "OmieEmpresasController.moverContaAntiga",
+    "acesso": "acesso",
+    "papeis": [
+      "departamento:financeiro:gerente"
+    ],
+    "guards": [
+      "FinanceiroHabilitadoGuard",
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/integracoes/omie/teste",
+    "controller": "OmieController.testar",
+    "acesso": "acesso",
+    "papeis": [
+      "plataforma:desenvolvedor"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "DELETE",
+    "caminho": "/integracoes/telegram",
+    "controller": "TelegramController.apagar",
+    "acesso": "acesso",
+    "papeis": [
+      "plataforma:desenvolvedor"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/integracoes/telegram",
+    "controller": "TelegramController.estado",
+    "acesso": "acesso",
+    "papeis": [
+      "plataforma:desenvolvedor"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "PUT",
+    "caminho": "/integracoes/telegram",
+    "controller": "TelegramController.gravar",
+    "acesso": "acesso",
+    "papeis": [
+      "plataforma:desenvolvedor"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/integracoes/telegram/teste",
+    "controller": "TelegramController.testar",
+    "acesso": "acesso",
+    "papeis": [
+      "plataforma:desenvolvedor"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
   },
   {
     "metodo": "GET",
@@ -769,6 +2515,66 @@
     "guards": [
       "SessionAuthGuard",
       "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/leads/:dealId/processo-solar",
+    "controller": "ProcessoSolarController.situacao",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.pipelines",
+      "departamento:crm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/leads/:dealId/projetos-solares",
+    "controller": "LeadProjetosSolaresController.list",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.pipelines",
+      "departamento:crm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/leads/:dealId/projetos-solares",
+    "controller": "LeadProjetosSolaresController.create",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.pipelines",
+      "departamento:crm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "PATCH",
+    "caminho": "/leads/:dealId/projetos-solares/:projectId",
+    "controller": "LeadProjetosSolaresController.update",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.pipelines",
+      "departamento:crm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
     ]
   },
   {
@@ -1011,7 +2817,7 @@
     "controller": "NegociosController.clientOptions",
     "acesso": "acesso",
     "papeis": [
-      "tela:crm.pipelines",
+      "tela:crm.clientes",
       "departamento:crm:membro"
     ],
     "guards": [
@@ -1041,7 +2847,7 @@
     "controller": "ChaveController.apagar",
     "acesso": "acesso",
     "papeis": [
-      "plataforma:admin"
+      "plataforma:desenvolvedor"
     ],
     "guards": [
       "SessionAuthGuard",
@@ -1056,7 +2862,7 @@
     "controller": "ChaveController.estado",
     "acesso": "acesso",
     "papeis": [
-      "plataforma:admin"
+      "plataforma:desenvolvedor"
     ],
     "guards": [
       "SessionAuthGuard",
@@ -1069,7 +2875,7 @@
     "controller": "ChaveController.gravar",
     "acesso": "acesso",
     "papeis": [
-      "plataforma:admin"
+      "plataforma:desenvolvedor"
     ],
     "guards": [
       "SessionAuthGuard",
@@ -1084,6 +2890,10 @@
     "controller": "ConsumoController.resumo",
     "acesso": "acesso",
     "papeis": [
+      "tela:financeiro.pagar",
+      "tela:financeiro.receber",
+      "tela:financeiro.conciliacao",
+      "tela:financeiro.fiscal",
       "departamento:financeiro:gerente"
     ],
     "guards": [
@@ -1170,6 +2980,22 @@
     ]
   },
   {
+    "metodo": "POST",
+    "caminho": "/pipelines/:pipelineId/processo-solar/ativacao",
+    "controller": "ProcessoSolarController.ativar",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:crm.pipelines",
+      "departamento:crm:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
     "metodo": "GET",
     "caminho": "/pipelines/pessoas",
     "controller": "PipelinesController.people",
@@ -1179,6 +3005,890 @@
       "departamento:crm:membro"
     ],
     "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/protocolos",
+    "controller": "ProtocolosController.listar",
+    "acesso": "acesso",
+    "papeis": [
+      "departamento:engenharia-obras:membro",
+      "departamento:energia-opm:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/protocolos",
+    "controller": "ProtocolosController.criar",
+    "acesso": "acesso",
+    "papeis": [
+      "departamento:engenharia-obras:membro",
+      "departamento:energia-opm:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/protocolos/:id",
+    "controller": "ProtocolosController.obter",
+    "acesso": "acesso",
+    "papeis": [
+      "departamento:engenharia-obras:membro",
+      "departamento:energia-opm:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "PATCH",
+    "caminho": "/protocolos/:id",
+    "controller": "ProtocolosController.editar",
+    "acesso": "acesso",
+    "papeis": [
+      "departamento:engenharia-obras:membro",
+      "departamento:energia-opm:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/protocolos/:id/verificacoes",
+    "controller": "ProtocolosController.verificar",
+    "acesso": "acesso",
+    "papeis": [
+      "departamento:engenharia-obras:membro",
+      "departamento:energia-opm:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/protocolos/clientes",
+    "controller": "ProtocolosController.clientes",
+    "acesso": "acesso",
+    "papeis": [
+      "departamento:engenharia-obras:membro",
+      "departamento:energia-opm:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/protocolos/distribuidoras",
+    "controller": "ProtocolosController.distribuidoras",
+    "acesso": "acesso",
+    "papeis": [
+      "departamento:engenharia-obras:membro",
+      "departamento:energia-opm:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/protocolos/distribuidoras",
+    "controller": "ProtocolosController.criarDistribuidora",
+    "acesso": "acesso",
+    "papeis": [
+      "departamento:engenharia-obras:membro",
+      "departamento:energia-opm:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "PATCH",
+    "caminho": "/protocolos/distribuidoras/:id",
+    "controller": "ProtocolosController.editarDistribuidora",
+    "acesso": "acesso",
+    "papeis": [
+      "departamento:engenharia-obras:membro",
+      "departamento:energia-opm:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/protocolos/opcoes",
+    "controller": "ProtocolosController.opcoes",
+    "acesso": "acesso",
+    "papeis": [
+      "departamento:engenharia-obras:membro",
+      "departamento:energia-opm:membro"
+    ],
+    "guards": [
+      "EngenhariaHabilitadaGuard",
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/suprimentos/compras/clientes",
+    "controller": "ComprasController.clientes",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:suprimentos.compras",
+      "tela:financeiro.pagar",
+      "tela:financeiro.receber",
+      "tela:financeiro.conciliacao",
+      "tela:financeiro.fiscal",
+      "departamento:suprimentos:membro",
+      "departamento:financeiro:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/suprimentos/compras/obras",
+    "controller": "ComprasController.criarObra",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:suprimentos.compras",
+      "tela:financeiro.pagar",
+      "tela:financeiro.receber",
+      "tela:financeiro.conciliacao",
+      "tela:financeiro.fiscal",
+      "departamento:suprimentos:membro",
+      "departamento:financeiro:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/suprimentos/compras/opcoes",
+    "controller": "ComprasController.opcoes",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:suprimentos.compras",
+      "tela:financeiro.pagar",
+      "tela:financeiro.receber",
+      "tela:financeiro.conciliacao",
+      "tela:financeiro.fiscal",
+      "departamento:suprimentos:membro",
+      "departamento:financeiro:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/suprimentos/compras/pedidos",
+    "controller": "ComprasController.listar",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:suprimentos.compras",
+      "tela:financeiro.pagar",
+      "tela:financeiro.receber",
+      "tela:financeiro.conciliacao",
+      "tela:financeiro.fiscal",
+      "departamento:suprimentos:membro",
+      "departamento:financeiro:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/suprimentos/compras/pedidos",
+    "controller": "ComprasController.criar",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:suprimentos.compras",
+      "tela:financeiro.pagar",
+      "tela:financeiro.receber",
+      "tela:financeiro.conciliacao",
+      "tela:financeiro.fiscal",
+      "departamento:suprimentos:membro",
+      "departamento:financeiro:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/suprimentos/compras/pedidos/:id",
+    "controller": "ComprasController.obter",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:suprimentos.compras",
+      "tela:financeiro.pagar",
+      "tela:financeiro.receber",
+      "tela:financeiro.conciliacao",
+      "tela:financeiro.fiscal",
+      "departamento:suprimentos:membro",
+      "departamento:financeiro:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "PATCH",
+    "caminho": "/suprimentos/compras/pedidos/:id",
+    "controller": "ComprasController.editar",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:suprimentos.compras",
+      "tela:financeiro.pagar",
+      "tela:financeiro.receber",
+      "tela:financeiro.conciliacao",
+      "tela:financeiro.fiscal",
+      "departamento:suprimentos:membro",
+      "departamento:financeiro:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/suprimentos/compras/pedidos/:id/acoes",
+    "controller": "ComprasController.acao",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:suprimentos.compras",
+      "tela:financeiro.pagar",
+      "tela:financeiro.receber",
+      "tela:financeiro.conciliacao",
+      "tela:financeiro.fiscal",
+      "departamento:suprimentos:membro",
+      "departamento:financeiro:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/suprimentos/compras/pedidos/:id/atendimento",
+    "controller": "ComprasController.atendimento",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:suprimentos.compras",
+      "tela:financeiro.pagar",
+      "tela:financeiro.receber",
+      "tela:financeiro.conciliacao",
+      "tela:financeiro.fiscal",
+      "departamento:suprimentos:membro",
+      "departamento:financeiro:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/suprimentos/compras/pedidos/:id/comprovante",
+    "controller": "ComprasController.comprovante",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:suprimentos.compras",
+      "tela:financeiro.pagar",
+      "tela:financeiro.receber",
+      "tela:financeiro.conciliacao",
+      "tela:financeiro.fiscal",
+      "departamento:suprimentos:membro",
+      "departamento:financeiro:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/suprimentos/compras/pedidos/:id/comprovante",
+    "controller": "ComprasController.registrarComprovante",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:suprimentos.compras",
+      "tela:financeiro.pagar",
+      "tela:financeiro.receber",
+      "tela:financeiro.conciliacao",
+      "tela:financeiro.fiscal",
+      "departamento:suprimentos:membro",
+      "departamento:financeiro:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/suprimentos/compras/pedidos/:id/cotacoes",
+    "controller": "ComprasController.registrarCotacao",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:suprimentos.compras",
+      "tela:financeiro.pagar",
+      "tela:financeiro.receber",
+      "tela:financeiro.conciliacao",
+      "tela:financeiro.fiscal",
+      "departamento:suprimentos:membro",
+      "departamento:financeiro:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/suprimentos/compras/pedidos/:id/cotacoes/:cotacaoId/arquivo",
+    "controller": "ComprasController.anexoDaCotacao",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:suprimentos.compras",
+      "tela:financeiro.pagar",
+      "tela:financeiro.receber",
+      "tela:financeiro.conciliacao",
+      "tela:financeiro.fiscal",
+      "departamento:suprimentos:membro",
+      "departamento:financeiro:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "PUT",
+    "caminho": "/suprimentos/compras/pedidos/:id/vinculos-de-estoque",
+    "controller": "ComprasController.vincularAoEstoque",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:suprimentos.compras",
+      "tela:financeiro.pagar",
+      "tela:financeiro.receber",
+      "tela:financeiro.conciliacao",
+      "tela:financeiro.fiscal",
+      "departamento:suprimentos:membro",
+      "departamento:financeiro:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/suprimentos/compras/quadro",
+    "controller": "ComprasController.quadro",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:suprimentos.compras",
+      "tela:financeiro.pagar",
+      "tela:financeiro.receber",
+      "tela:financeiro.conciliacao",
+      "tela:financeiro.fiscal",
+      "departamento:suprimentos:membro",
+      "departamento:financeiro:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/suprimentos/estoque/clientes",
+    "controller": "EstoqueController.clientes",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:suprimentos.estoque",
+      "departamento:suprimentos:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/suprimentos/estoque/itens",
+    "controller": "EstoqueController.listar",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:suprimentos.estoque",
+      "departamento:suprimentos:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/suprimentos/estoque/itens",
+    "controller": "EstoqueController.criar",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:suprimentos.estoque",
+      "departamento:suprimentos:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/suprimentos/estoque/itens/:id",
+    "controller": "EstoqueController.obter",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:suprimentos.estoque",
+      "departamento:suprimentos:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "PATCH",
+    "caminho": "/suprimentos/estoque/itens/:id",
+    "controller": "EstoqueController.editar",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:suprimentos.estoque",
+      "departamento:suprimentos:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/suprimentos/estoque/itens/:id/abrir-pedido",
+    "controller": "EstoqueController.abrirPedido",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:suprimentos.estoque",
+      "departamento:suprimentos:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/suprimentos/estoque/itens/:id/inativar",
+    "controller": "EstoqueController.inativar",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:suprimentos.estoque",
+      "departamento:suprimentos:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/suprimentos/estoque/itens/:id/reativar",
+    "controller": "EstoqueController.reativar",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:suprimentos.estoque",
+      "departamento:suprimentos:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/suprimentos/estoque/movimentacoes",
+    "controller": "EstoqueController.movimentacoes",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:suprimentos.estoque",
+      "departamento:suprimentos:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/suprimentos/estoque/movimentacoes",
+    "controller": "EstoqueController.registrar",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:suprimentos.estoque",
+      "departamento:suprimentos:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/suprimentos/estoque/opcoes",
+    "controller": "EstoqueController.opcoes",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:suprimentos.estoque",
+      "departamento:suprimentos:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/suprimentos/fornecedores",
+    "controller": "FornecedoresController.listar",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:suprimentos.fornecedores",
+      "departamento:suprimentos:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/suprimentos/fornecedores",
+    "controller": "FornecedoresController.criar",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:suprimentos.fornecedores",
+      "departamento:suprimentos:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/suprimentos/fornecedores/:id",
+    "controller": "FornecedoresController.obter",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:suprimentos.fornecedores",
+      "departamento:suprimentos:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "PATCH",
+    "caminho": "/suprimentos/fornecedores/:id",
+    "controller": "FornecedoresController.editar",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:suprimentos.fornecedores",
+      "departamento:suprimentos:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/suprimentos/fornecedores/:id/cotacoes",
+    "controller": "FornecedoresController.cotacoes",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:suprimentos.fornecedores",
+      "departamento:suprimentos:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/suprimentos/fornecedores/:id/dados-de-pagamento/revelar",
+    "controller": "FornecedoresController.revelar",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:suprimentos.fornecedores",
+      "tela:financeiro.pagar",
+      "tela:financeiro.receber",
+      "tela:financeiro.conciliacao",
+      "tela:financeiro.fiscal",
+      "departamento:suprimentos:membro",
+      "departamento:financeiro:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/suprimentos/fornecedores/:id/desempenho",
+    "controller": "FornecedoresController.desempenho",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:suprimentos.fornecedores",
+      "departamento:suprimentos:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/suprimentos/fornecedores/:id/inativar",
+    "controller": "FornecedoresController.inativar",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:suprimentos.fornecedores",
+      "departamento:suprimentos:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/suprimentos/fornecedores/:id/reativar",
+    "controller": "FornecedoresController.reativar",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:suprimentos.fornecedores",
+      "departamento:suprimentos:membro"
+    ],
+    "guards": [
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/tarefas/:departamento",
+    "controller": "TarefasController.listar",
+    "acesso": "acesso",
+    "papeis": [
+      "departamento:financeiro:membro",
+      "departamento:engenharia-obras:membro",
+      "departamento:energia-opm:membro"
+    ],
+    "guards": [
+      "PortaoDoDepartamentoGuard",
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/tarefas/:departamento",
+    "controller": "TarefasController.criar",
+    "acesso": "acesso",
+    "papeis": [
+      "departamento:financeiro:membro",
+      "departamento:engenharia-obras:membro",
+      "departamento:energia-opm:membro"
+    ],
+    "guards": [
+      "PortaoDoDepartamentoGuard",
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/tarefas/:departamento/:tarefaId",
+    "controller": "TarefasController.obter",
+    "acesso": "acesso",
+    "papeis": [
+      "departamento:financeiro:membro",
+      "departamento:engenharia-obras:membro",
+      "departamento:energia-opm:membro"
+    ],
+    "guards": [
+      "PortaoDoDepartamentoGuard",
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/tarefas/:departamento/:tarefaId/encerrar",
+    "controller": "TarefasController.encerrar",
+    "acesso": "acesso",
+    "papeis": [
+      "departamento:financeiro:membro",
+      "departamento:engenharia-obras:membro",
+      "departamento:energia-opm:membro"
+    ],
+    "guards": [
+      "PortaoDoDepartamentoGuard",
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/tarefas/:departamento/ocorrencias/:id/concluir",
+    "controller": "TarefasController.concluir",
+    "acesso": "acesso",
+    "papeis": [
+      "departamento:financeiro:membro",
+      "departamento:engenharia-obras:membro",
+      "departamento:energia-opm:membro"
+    ],
+    "guards": [
+      "PortaoDoDepartamentoGuard",
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/tarefas/:departamento/ocorrencias/:id/evidencias/:evidenciaId",
+    "controller": "TarefasController.evidencia",
+    "acesso": "acesso",
+    "papeis": [
+      "departamento:financeiro:membro",
+      "departamento:engenharia-obras:membro",
+      "departamento:energia-opm:membro"
+    ],
+    "guards": [
+      "PortaoDoDepartamentoGuard",
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
+    "caminho": "/tarefas/:departamento/opcoes",
+    "controller": "TarefasController.opcoes",
+    "acesso": "acesso",
+    "papeis": [
+      "departamento:financeiro:membro",
+      "departamento:engenharia-obras:membro",
+      "departamento:energia-opm:membro"
+    ],
+    "guards": [
+      "PortaoDoDepartamentoGuard",
       "SessionAuthGuard",
       "AcessoGuard"
     ]

@@ -10,6 +10,8 @@ export default defineConfig({
   reporter: "list",
   use: {
     ...devices["Desktop Chrome"],
+    // As entradas animadas (lib/movimento) não rodam com movimento reduzido: os testes medem o estado final.
+    contextOptions: { reducedMotion: "reduce" },
     baseURL: "http://127.0.0.1:3118",
     screenshot: "only-on-failure",
     trace: "retain-on-failure",
@@ -18,7 +20,7 @@ export default defineConfig({
     {
       command: "node e2e/support/api-simulada.mjs",
       url: "http://127.0.0.1:3198/auth/me",
-      env: { API_SIMULADA_PORT: "3198" },
+      env: { API_SIMULADA_PORT: "3198", DESIGN_SYSTEM_E2E: "true" },
     },
     {
       command: "pnpm exec next dev --port 3118",

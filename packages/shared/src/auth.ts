@@ -29,10 +29,16 @@ export const passwordSchema = z.string().min(12).max(200);
 
 const opaqueTokenSchema = z.string().trim().min(16).max(512);
 
+/** Prazos fixos desde o login para novas sessões (PLU-311). */
+export const REMEMBERED_SESSION_TTL_SECONDS = 7 * 24 * 60 * 60;
+export const STANDARD_SESSION_TTL_SECONDS = 12 * 60 * 60;
+
 export const loginRequestSchema = z
   .object({
     email: emailSchema,
     password: z.string().min(1).max(200),
+    /** Ausente equivale a false nos novos logins. */
+    rememberMe: z.boolean().optional(),
   })
   .strict();
 
@@ -46,6 +52,14 @@ export const acceptInviteRequestSchema = z
 export const resetRequestSchema = z
   .object({
     email: emailSchema,
+  })
+  .strict();
+
+/** Troca de senha por quem já está logado: exige a senha atual e segue a mesma política da nova. */
+export const changePasswordRequestSchema = z
+  .object({
+    currentPassword: z.string().min(1).max(200),
+    newPassword: passwordSchema,
   })
   .strict();
 
@@ -76,6 +90,8 @@ export type IdentityProvider = (typeof identityProviders)[number];
 export const googleCallbackSchema = z.object({
   credential: z.string().trim().min(1).max(8_192),
   g_csrf_token: z.string().trim().min(1).max(256),
+  /** Preferência enviada pelo botão GIS; ausente equivale a sessão de 12h. */
+  state: z.enum(["remember", "session"]).optional(),
 });
 
 export type GoogleCallback = z.infer<typeof googleCallbackSchema>;
@@ -132,6 +148,24 @@ export const sessionUserSchema = z
 
 export const meResponseSchema = sessionUserSchema;
 
+export const loginResponseSchema = z.union([
+  z.object({ user: sessionUserSchema }).strict(),
+  z.object({ requiresMfa: z.literal(true) }).strict(),
+]);
+export const mfaCodeRequestSchema = z.object({ code: z.string().trim().min(6).max(64) }).strict();
+export const mfaRemoveRequestSchema = z.object({ reason: z.string().trim().min(10).max(500) }).strict();
+export const mfaStatusSchema = z.object({ enabled: z.boolean(), recoveryCodesRemaining: z.number().int().nonnegative(), recentlyVerified: z.boolean() }).strict();
+export const mfaChallengeSchema = z.object({ pending: z.boolean(), expiresAt: z.iso.datetime().nullable() }).strict();
+export const mfaSetupSchema = z.object({ secret: z.string(), otpauthUri: z.string().startsWith("otpauth://"), expiresAt: z.iso.datetime() }).strict();
+export const mfaRecoveryCodesSchema = z.object({ recoveryCodes: z.array(z.string()).length(10) }).strict();
+export type LoginResponse = z.infer<typeof loginResponseSchema>;
+export type MfaCodeRequest = z.infer<typeof mfaCodeRequestSchema>;
+export type MfaRemoveRequest = z.infer<typeof mfaRemoveRequestSchema>;
+export type MfaStatus = z.infer<typeof mfaStatusSchema>;
+export type MfaChallenge = z.infer<typeof mfaChallengeSchema>;
+export type MfaSetup = z.infer<typeof mfaSetupSchema>;
+export type MfaRecoveryCodes = z.infer<typeof mfaRecoveryCodesSchema>;
+
 // Generic, non-enumerating acknowledgement for flows that must not reveal
 // whether an account exists (login failure, reset request).
 export const authAcknowledgementSchema = z
@@ -143,6 +177,7 @@ export const authAcknowledgementSchema = z
 export type LoginRequest = z.infer<typeof loginRequestSchema>;
 export type AcceptInviteRequest = z.infer<typeof acceptInviteRequestSchema>;
 export type ResetRequest = z.infer<typeof resetRequestSchema>;
+export type ChangePasswordRequest = z.infer<typeof changePasswordRequestSchema>;
 export type ResetConfirmRequest = z.infer<typeof resetConfirmRequestSchema>;
 export type SessionUser = z.infer<typeof sessionUserSchema>;
 export type MeResponse = z.infer<typeof meResponseSchema>;

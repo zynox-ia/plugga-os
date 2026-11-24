@@ -42,10 +42,16 @@ export function LoginForm({
       const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, rememberMe }),
       });
 
       if (response.ok) {
+        const result: unknown = await response.json();
+        const requiresMfa = result !== null && typeof result === "object" && "requiresMfa" in result && result.requiresMfa === true;
+        if (requiresMfa) {
+          router.push(`/auth/mfa?redirectTo=${encodeURIComponent(safeRedirect(redirectTo))}`);
+          return;
+        }
         router.push(safeRedirect(redirectTo));
         router.refresh();
         return;
@@ -189,6 +195,7 @@ export function LoginForm({
           clientId={google.clientId}
           loginUri={google.loginUri}
           redirectTo={redirectTo}
+          rememberMe={rememberMe}
         />
       ) : null}
     </div>

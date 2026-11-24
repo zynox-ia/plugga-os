@@ -38,15 +38,26 @@ function opcional<T extends z.ZodTypeAny>(schema: T) {
 export const environmentSchema = z
   .object({
     NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
+    MFA_ENCRYPTION_KEY: opcional(z.string().refine((value) => {
+      const decoded = Buffer.from(value, "base64");
+      return decoded.length === 32 && decoded.toString("base64") === value;
+    }, "MFA_ENCRYPTION_KEY must be canonical base64 encoding of 32 bytes")),
     HOST: z.string().trim().min(1).default("127.0.0.1"),
     PORT: z.coerce.number().int().min(1).max(65_535).default(3_001),
     DATABASE_URL: z.string().startsWith("postgresql://"),
+    // Pools distintos no mesmo banco; opcoesDoPool e o boot validam os privilégios.
+    AUTH_DATABASE_URL: opcional(z.string().trim().startsWith("postgresql://")),
+    JOBS_DATABASE_URL: opcional(z.string().trim().startsWith("postgresql://")),
     // Redis backing BullMQ (ADR-0007/0011). Local-only host, like DATABASE_URL.
     REDIS_URL: z.string().trim().min(1).default("redis://localhost:56379"),
     // Whether this process runs the BullMQ queue + worker. Off by default so the
     // API and unit tests boot without Redis; enabled locally/on the worker host.
     JOBS_ENABLED: environmentBoolean.default(false),
     JOBS_WORKER_CONCURRENCY: z.coerce.number().int().min(1).max(50).default(1),
+    // Portão do Financeiro (PLU-336) até o módulo ficar completo: ver `financeiroLigado`.
+    FINANCEIRO_HABILITADO: environmentBoolean.default(false),
+    // Portão da Engenharia e Obras (PLU-345), com a mesma regra: ver `engenhariaLigada`.
+    ENGENHARIA_HABILITADO: environmentBoolean.default(false),
     DEV_AUTH_ENABLED: environmentBoolean.default(false),
     // Rota sem @Public/@Authenticated/@Roles: `warn` só registra em log (padrão,
     // até o inventário ser aprovado); `enforce` nega. Voltar a `warn` não exige
@@ -163,6 +174,10 @@ export const environmentSchema = z
         message: "deve ser base64 de exatamente 32 bytes (openssl rand -base64 32)",
       }),
     ),
+    // Proxy de CLI (CLIProxyAPI) para Claude e Codex pela assinatura: opcional e só do desenvolvedor.
+    CLIPROXY_URL: opcional(z.string().trim().url()),
+    CLIPROXY_MANAGEMENT_KEY: opcional(z.string().trim().min(16)),
+    CLIPROXY_API_KEY: opcional(z.string().trim().min(16)),
     OPENROUTER_API_KEY: opcional(z.string().trim().min(1)),
     OPENROUTER_BASE_URL: opcional(z.string().trim().url()),
     OPENROUTER_MODELO: opcional(z.string().trim().min(1)),
@@ -380,7 +395,30 @@ export const environmentSchema = z
     }
   });
 
-export type Environment = z.infer<typeof environmentSchema>;
+/**
+ * Portão do Financeiro (PLU-336), com a mesma regra da web (`lib/recursos.ts`):
+ * liga com `NODE_ENV` development ou test, ou com `FINANCEIRO_HABILITADO=true`.
+ * Lê o `NODE_ENV` cru, antes do padrão do schema: sem a variável, fica desligado.
+ */
+export function financeiroLigado(nodeEnvCru: unknown, habilitado: boolean): boolean {
+  return nodeEnvCru === "development" || nodeEnvCru === "test" || habilitado;
+}
+
+/**
+ * Portão da Engenharia e Obras (PLU-345), igual ao do Financeiro, até o André
+ * liberar o módulo: liga com `NODE_ENV` development ou test, ou com
+ * `ENGENHARIA_HABILITADO=true`. Sem `NODE_ENV`, fica desligado.
+ */
+export function engenhariaLigada(nodeEnvCru: unknown, habilitado: boolean): boolean {
+  return financeiroLigado(nodeEnvCru, habilitado);
+}
+
+export type Environment = z.infer<typeof environmentSchema> & {
+  /** Calculado por `financeiroLigado` a partir do ambiente cru; não é variável de ambiente. */
+  FINANCEIRO_LIGADO: boolean;
+  /** Calculado por `engenhariaLigada` a partir do ambiente cru; não é variável de ambiente. */
+  ENGENHARIA_LIGADA: boolean;
+};
 
 export function validateEnvironment(input: Record<string, unknown>): Environment {
   const result = environmentSchema.safeParse(input);
@@ -392,5 +430,9 @@ export function validateEnvironment(input: Record<string, unknown>): Environment
     throw new Error(`Invalid environment configuration: ${details}`);
   }
 
-  return result.data;
+  return {
+    ...result.data,
+    FINANCEIRO_LIGADO: financeiroLigado(input.NODE_ENV, result.data.FINANCEIRO_HABILITADO),
+    ENGENHARIA_LIGADA: engenhariaLigada(input.NODE_ENV, result.data.ENGENHARIA_HABILITADO),
+  };
 }

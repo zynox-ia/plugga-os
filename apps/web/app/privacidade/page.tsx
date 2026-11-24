@@ -37,10 +37,33 @@ export default function PrivacidadePage() {
         entrou. Não guardamos tokens de acesso nem de atualização.
       </p>
       <p>
-        Não pedimos e não temos acesso a Gmail, Google Drive, Agenda, Contatos
-        ou a qualquer outro serviço do Google. As permissões solicitadas se
-        limitam à identificação básica (<code>openid</code>, <code>email</code> e{" "}
-        <code>profile</code>).
+        No login não pedimos acesso a Gmail, Google Drive, Agenda, Contatos ou
+        a qualquer outro serviço do Google. As permissões solicitadas no login
+        se limitam à identificação básica (<code>openid</code>,{" "}
+        <code>email</code> e <code>profile</code>). O acesso à Agenda só existe
+        quando a própria pessoa conecta a agenda dela, como descrito a seguir.
+      </p>
+
+      <h2>Agenda do Google (opcional)</h2>
+      <p>
+        Cada pessoa pode, se quiser, conectar a própria agenda do Google ao
+        plugga-os, em Configurações, Integrações. A conexão pede permissão para
+        ver e editar eventos da agenda (<code>calendar.events</code>), além da
+        identificação da conta (<code>openid</code> e <code>email</code>), e
+        só acontece por ação da própria pessoa.
+      </p>
+      <p>
+        Guardamos o e-mail da conta conectada e o token de atualização, cifrado.
+        Só a própria pessoa alcança a conexão dela: nenhum outro usuário,
+        administrador ou desenvolvedor a vê. O acesso serve para levar para a
+        agenda os compromissos do plugga-os dessa pessoa; não é usado para
+        outra finalidade e não é repassado a terceiros. Ao desconectar,
+        revogamos a autorização no Google e apagamos o token.
+      </p>
+      <p>
+        O uso e a transferência das informações recebidas das APIs do Google
+        seguem a Política de Dados do Usuário dos Serviços de API do Google,
+        incluindo os requisitos de Uso Limitado.
       </p>
 
       <h2>Quem decide o acesso</h2>

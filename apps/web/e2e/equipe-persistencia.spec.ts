@@ -2,6 +2,8 @@ import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
 import type { ListaDaEquipe } from "@plugga/shared";
 
+import { confirmarEmailDesligado } from "./support/email-desligado";
+
 test("persiste telas e confirma desativação e remoção pela interface existente", async ({ page, request, baseURL }, testInfo) => {
   test.setTimeout(90_000);
   page.setDefaultTimeout(10_000);
@@ -11,9 +13,7 @@ test("persiste telas e confirma desativação e remoção pela interface existen
   apiLocal.port = String(Number(apiLocal.port) + 1);
   const apiURL = process.env.E2E_API_URL ?? apiLocal.origin;
   expect(["localhost", "127.0.0.1"]).toContain(new URL(apiURL).hostname);
-  const emailStatus = await request.get(`${apiURL}/email/status`);
-  expect(emailStatus.ok()).toBe(true);
-  expect(await emailStatus.json()).toMatchObject({ provider: "noop" });
+  await confirmarEmailDesligado(baseURL!, apiURL, "203.0.113.246");
   const email = `equipe-e2e-${randomUUID()}@teste.local`;
   const membros = async () => {
     const response = await request.get("/api/equipe");

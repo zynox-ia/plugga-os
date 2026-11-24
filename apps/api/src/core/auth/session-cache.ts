@@ -11,6 +11,7 @@ export interface ResolvedSessionUser {
   name: string;
   status: string;
   acesso: Acesso;
+  tipo?: "pessoa" | "agente_ia";
 }
 
 export interface SessionCacheEntry {

@@ -119,9 +119,24 @@ export function motivoDeRejeicaoDoPayload(valor: unknown, caminho = "payload"): 
 @Injectable()
 export class AuditAppender {
   async append(tx: Prisma.TransactionClient, evento: EventoParaRegistro): Promise<void> {
-    if (!tx || typeof tx.eventLog?.create !== "function") {
+    this.exigirTransacao(tx);
+    await tx.eventLog.createMany({ data: this.dadosDoEvento(evento) });
+  }
+
+  async appendMany(tx: Prisma.TransactionClient, eventos: readonly EventoParaRegistro[]): Promise<void> {
+    this.exigirTransacao(tx);
+    // Nenhuma escrita ocorre enquanto algum evento do lote não passou pelas guardas.
+    const data = eventos.map((evento) => this.dadosDoEvento(evento));
+    if (data.length) await tx.eventLog.createMany({ data });
+  }
+
+  private exigirTransacao(tx: Prisma.TransactionClient): void {
+    if (!tx || typeof tx.eventLog?.createMany !== "function") {
       throw new PayloadDeAuditoriaInvalido("o registro exige uma transação (tx)");
     }
+  }
+
+  private dadosDoEvento(evento: EventoParaRegistro): Prisma.EventLogCreateManyInput {
     if (!eventoEstaNoCatalogo(evento.eventName)) {
       throw new PayloadDeAuditoriaInvalido(`evento "${evento.eventName}" fora do catálogo`);
     }
@@ -129,17 +144,14 @@ export class AuditAppender {
     if (motivo) {
       throw new PayloadDeAuditoriaInvalido(motivo);
     }
-    await tx.eventLog.create({
-      data: {
-        eventName: evento.eventName,
-        entityType: evento.entityType,
-        entityId: evento.entityId,
-        actorType: evento.actorType,
-        actorId: evento.actorId,
-        payload: evento.payload as Prisma.InputJsonObject,
-        occurredAt: evento.occurredAt ?? new Date(),
-      },
-      select: { id: true },
-    });
+    return {
+      eventName: evento.eventName,
+      entityType: evento.entityType,
+      entityId: evento.entityId,
+      actorType: evento.actorType,
+      actorId: evento.actorId,
+      payload: evento.payload as Prisma.InputJsonObject,
+      occurredAt: evento.occurredAt ?? new Date(),
+    };
   }
 }

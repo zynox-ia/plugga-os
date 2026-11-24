@@ -1,9 +1,15 @@
+import { randomBytes, randomUUID } from "node:crypto";
+
 import type { INestApplication } from "@nestjs/common";
 import { Test } from "@nestjs/testing";
 import request from "supertest";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { AppModule } from "../src/app.module";
+import { AgentActionScope } from "../src/audit/agent-action-scope";
+import { AgentLookupRepository } from "../src/core/auth/agent-lookup.repository";
+import type { AuthPrincipal } from "../src/core/auth/auth.types";
+import { hashToken } from "../src/core/auth/token.util";
 import {
   AuditPort,
   type AgentActionAppend,
@@ -34,12 +40,23 @@ class InMemoryAuditRepository extends AuditPort {
 describe("foundation API (e2e)", () => {
   let app: INestApplication;
   let auditRepository: InMemoryAuditRepository;
+  const token = `plg_agent_${randomBytes(32).toString("base64url")}`;
+  const agenteId = randomUUID();
+  const clienteId = randomUUID();
+  const principal: AuthPrincipal = { id: agenteId, kind: "service", acesso: { plataforma: null, departamentos: [{ departamento: "crm", nivel: "membro", telas: ["crm.clientes"] }] } };
 
   beforeAll(async () => {
     auditRepository = new InMemoryAuditRepository();
     const module = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(AuditPort)
       .useValue(auditRepository)
+      .overrideProvider(AgentLookupRepository)
+      .useValue({
+        resolvePrincipal: async (hash: string) => hash === hashToken(token) ? principal : null,
+        identidadeAtiva: async (id: string) => id === agenteId,
+      })
+      .overrideProvider(AgentActionScope)
+      .useValue({ permite: async (_: AuthPrincipal, tipo: string, id: string) => tipo === "client" && id === clienteId })
       .compile();
 
     app = module.createNestApplication();
@@ -65,7 +82,7 @@ describe("foundation API (e2e)", () => {
     await request(app.getHttpServer()).post("/agent-actions").send({}).expect(401);
   });
 
-  it("rejects a mutation from a principal outside the desenvolvedor role", async () => {
+  it("rejects an agent mutation from a human principal", async () => {
     await request(app.getHttpServer())
       .post("/agent-actions")
       .set("x-dev-principal", "local-viewer")
@@ -77,8 +94,7 @@ describe("foundation API (e2e)", () => {
   it("validates agent-action input before appending the audit trail", async () => {
     await request(app.getHttpServer())
       .post("/agent-actions")
-      .set("x-dev-principal", "service:test-agent")
-      .set("x-dev-plataforma", "desenvolvedor")
+      .set("Authorization", `Bearer ${token}`)
       .send({ action: "missing-required-fields" })
       .expect(400);
 
@@ -88,14 +104,13 @@ describe("foundation API (e2e)", () => {
   it("appends a local agent action and matching event", async () => {
     const response = await request(app.getHttpServer())
       .post("/agent-actions")
-      .set("x-dev-principal", "service:test-agent")
-      .set("x-dev-plataforma", "desenvolvedor")
+      .set("Authorization", `Bearer ${token}`)
       .send({
-        agent: "test-agent",
+        agent: agenteId,
         channel: "api",
         action: "foundation.test",
-        entityType: "test_entity",
-        entityId: "entity-1",
+        entityType: "client",
+        entityId: clienteId,
         input: {},
         payload: { safe: true },
         decision: "allowed",
@@ -116,8 +131,7 @@ describe("foundation API (e2e)", () => {
   it("rejects an agent identity that differs from the service principal", async () => {
     await request(app.getHttpServer())
       .post("/agent-actions")
-      .set("x-dev-principal", "service:authenticated-agent")
-      .set("x-dev-plataforma", "desenvolvedor")
+      .set("Authorization", `Bearer ${token}`)
       .send({
         agent: "forged-agent",
         channel: "api",

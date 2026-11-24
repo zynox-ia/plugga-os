@@ -154,10 +154,10 @@ describe.skipIf(!HABILITADO)("acesso por departamento (modelo de 4 papéis)", ()
       const gestor = idPorCaso.get("gestor") ?? "";
       const membro = await repositorio.replaceAcesso(
         gestor,
-        { plataforma: null, departamentos: [{ departamento: "marketing", nivel: "membro" }] },
+        { plataforma: null, departamentos: [{ departamento: "suprimentos", nivel: "membro" }] },
         ator,
       );
-      expect(membro?.acesso.departamentos).toEqual([{ departamento: "marketing", nivel: "membro", telas: [] }]);
+      expect(membro?.acesso.departamentos).toEqual([{ departamento: "suprimentos", nivel: "membro", telas: [] }]);
 
       // Desenvolvedor leva também a linha admin; voltar a admin tira só o desenvolvedor.
       const dev = await repositorio.replaceAcesso(convidado.id, { plataforma: "desenvolvedor", departamentos: [] }, ator);

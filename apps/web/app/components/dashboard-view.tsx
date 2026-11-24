@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, Suspense } from "react";
+import { useRef, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { ShellCard } from "./plugga-shell";
 import {
@@ -21,6 +21,7 @@ import {
   DesempenhoColaboradorCard,
 } from "./dashboard/cockpit-operations-cards";
 import type { HealthCheck } from "../lib/api";
+import { COREOGRAFIA, useEntrada } from "../lib/movimento";
 
 type DashboardTab = "overview" | "operacoes" | "metricas" | "relatorios";
 
@@ -409,6 +410,7 @@ const WAZE_TRANSACTIONS = [
 function DecisoesDeHojeCard() {
   return (
     <div
+      className="plg-cartao"
       style={{
         position: "relative",
         marginTop: "24px",
@@ -454,6 +456,7 @@ function DecisoesDeHojeCard() {
         <div style={{ display: "flex", flexDirection: "column" }}>
           {/* Item 1: Faturas com inconsistência */}
           <div
+            className="plg-item"
             style={{
               display: "flex",
               alignItems: "center",
@@ -484,6 +487,7 @@ function DecisoesDeHojeCard() {
 
           {/* Item 2: Relatórios aguardando envio */}
           <div
+            className="plg-item"
             style={{
               display: "flex",
               alignItems: "center",
@@ -515,6 +519,7 @@ function DecisoesDeHojeCard() {
 
           {/* Item 3: Clientes sem atualização */}
           <div
+            className="plg-item"
             style={{
               display: "flex",
               alignItems: "center",
@@ -544,6 +549,7 @@ function DecisoesDeHojeCard() {
 
           {/* Item 4: Oportunidades comerciais quentes */}
           <div
+            className="plg-item"
             style={{
               display: "flex",
               alignItems: "center",
@@ -572,6 +578,7 @@ function DecisoesDeHojeCard() {
 
           {/* Item 5: Aprovações de compras e pedidos */}
           <div
+            className="plg-item"
             style={{
               display: "flex",
               alignItems: "center",
@@ -638,8 +645,22 @@ function DashboardContent({ health }: { health: HealthCheck | null }) {
   void PLUGGA_CLIENT_TRANSACTIONS;
   void WAZE_TRANSACTIONS;
 
+  // Entrada da tela (PLU-325), como o Home do Penvo: título em máscara →
+  // indicadores saltando → cartões do cockpit → itens de lista → barras → pílulas.
+  const raiz = useRef<HTMLDivElement>(null);
+  useEntrada(raiz, (passos) => {
+    const t = COREOGRAFIA.dashboard;
+    passos.titulos(".plg-titulo", t.titulo);
+    passos.itens(".plg-item-topo", t.acoes);
+    passos.kpis(".plg-kpi", t.kpis);
+    passos.cartoes(".plg-cockpit .shell-card, .plg-cockpit .plg-cartao", t.cartoes);
+    passos.itens(".plg-item", t.itens);
+    passos.barras(".plg-barra", t.barras);
+    passos.pilulas(".plg-pilula", t.pilulas);
+  }, { rota: "/" });
+
   return (
-    <div className="dashboard-view" style={{ display: "flex", flexDirection: "column", gap: "22px" }}>
+    <div ref={raiz} data-plg-raiz="" data-plg-aguarda="" className="dashboard-view" style={{ display: "flex", flexDirection: "column", gap: "22px" }}>
       {/* 1. Cabeçalho de Boas-Vindas & Ações Principais (Alinhados com Título e Subtítulo) */}
       <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: "16px", flexWrap: "wrap" }}>
         <div>
@@ -653,7 +674,7 @@ function DashboardContent({ health }: { health: HealthCheck | null }) {
               letterSpacing: "-0.01em",
             }}
           >
-            Bem-vindo, <strong style={{ fontWeight: 500, color: "#0F294A" }}>André</strong>
+            <span className="plg-mascara"><span className="plg-titulo">Bem-vindo, <strong style={{ fontWeight: 500, color: "#0F294A" }}>André</strong></span></span>
           </h1>
           <p
             style={{
@@ -663,14 +684,14 @@ function DashboardContent({ health }: { health: HealthCheck | null }) {
               fontFamily: 'var(--font-articulat), "Articulat CF", sans-serif',
             }}
           >
-            Aqui está a visão clara do desempenho de suas operações e estrutura OPM
+            <span className="plg-mascara"><span className="plg-titulo">Aqui está a visão clara do desempenho de suas operações e estrutura OPM</span></span>
           </p>
         </div>
 
         {/* Grupo de Botões Alinhados à Direita com o Título */}
         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
           <button
-            className="button button--secondary"
+            className="button button--secondary plg-item-topo"
             type="button"
             style={{
               height: "40px",
@@ -692,7 +713,7 @@ function DashboardContent({ health }: { health: HealthCheck | null }) {
           </button>
 
           <button
-            className="button button--primary"
+            className="button button--primary plg-item-topo"
             type="button"
             style={{
               height: "40px",
@@ -719,7 +740,7 @@ function DashboardContent({ health }: { health: HealthCheck | null }) {
       {/* EXECUTIVE KPI STRIP (4 Mini-Indicadores de Topo - Pulso Rápido) */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))", gap: "16px" }}>
         {/* KPI 1: Faturamento Líquido (Mês/Proj) */}
-        <ShellCard style={{ padding: "20px", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+        <ShellCard className="plg-kpi plg-lift" style={{ padding: "20px", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "10px" }}>
             <div style={{ width: 36, height: 36, borderRadius: "50%", background: "rgba(0, 163, 255, 0.1)", display: "grid", placeItems: "center", color: "#00A3FF" }}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -727,7 +748,7 @@ function DashboardContent({ health }: { health: HealthCheck | null }) {
                 <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
               </svg>
             </div>
-            <span style={{ fontSize: "11px", fontWeight: 500, color: "#059669", background: "rgba(16, 185, 129, 0.1)", padding: "3px 8px", borderRadius: "999px" }}>
+            <span className="plg-pilula" style={{ fontSize: "11px", fontWeight: 500, color: "#059669", background: "rgba(16, 185, 129, 0.1)", padding: "3px 8px", borderRadius: "999px" }}>
               +12.4% vs ant.
             </span>
           </div>
@@ -745,14 +766,14 @@ function DashboardContent({ health }: { health: HealthCheck | null }) {
         </ShellCard>
 
         {/* KPI 2: EBITDA Consolidado (R$ & %) */}
-        <ShellCard style={{ padding: "20px", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+        <ShellCard className="plg-kpi plg-lift" style={{ padding: "20px", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "10px" }}>
             <div style={{ width: 36, height: 36, borderRadius: "50%", background: "rgba(16, 185, 129, 0.1)", display: "grid", placeItems: "center", color: "#10b981" }}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
               </svg>
             </div>
-            <span style={{ fontSize: "11px", fontWeight: 500, color: "#059669", background: "rgba(16, 185, 129, 0.1)", padding: "3px 8px", borderRadius: "999px" }}>
+            <span className="plg-pilula" style={{ fontSize: "11px", fontWeight: 500, color: "#059669", background: "rgba(16, 185, 129, 0.1)", padding: "3px 8px", borderRadius: "999px" }}>
               +4.2% margem
             </span>
           </div>
@@ -770,7 +791,7 @@ function DashboardContent({ health }: { health: HealthCheck | null }) {
         </ShellCard>
 
         {/* KPI 3: Pipeline em Vendas */}
-        <ShellCard style={{ padding: "20px", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+        <ShellCard className="plg-kpi plg-lift" style={{ padding: "20px", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "10px" }}>
             <div style={{ width: 36, height: 36, borderRadius: "50%", background: "rgba(245, 158, 11, 0.1)", display: "grid", placeItems: "center", color: "#f59e0b" }}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -778,7 +799,7 @@ function DashboardContent({ health }: { health: HealthCheck | null }) {
                 <polyline points="12 6 12 12 16 14" />
               </svg>
             </div>
-            <span style={{ fontSize: "11px", fontWeight: 500, color: "#f59e0b", background: "rgba(245, 158, 11, 0.1)", padding: "3px 8px", borderRadius: "999px" }}>
+            <span className="plg-pilula" style={{ fontSize: "11px", fontWeight: 500, color: "#f59e0b", background: "rgba(245, 158, 11, 0.1)", padding: "3px 8px", borderRadius: "999px" }}>
               Conv. 61,9%
             </span>
           </div>
@@ -796,7 +817,7 @@ function DashboardContent({ health }: { health: HealthCheck | null }) {
         </ShellCard>
 
         {/* KPI 4: SLA Geral (%) */}
-        <ShellCard style={{ padding: "20px", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+        <ShellCard className="plg-kpi plg-lift" style={{ padding: "20px", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "10px" }}>
             <div style={{ width: 36, height: 36, borderRadius: "50%", background: "rgba(16, 185, 129, 0.1)", display: "grid", placeItems: "center", color: "#10b981" }}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -804,7 +825,7 @@ function DashboardContent({ health }: { health: HealthCheck | null }) {
                 <polyline points="22 4 12 14.01 9 11.01" />
               </svg>
             </div>
-            <span style={{ fontSize: "11px", fontWeight: 500, color: "#059669", background: "rgba(16, 185, 129, 0.1)", padding: "3px 8px", borderRadius: "999px" }}>
+            <span className="plg-pilula" style={{ fontSize: "11px", fontWeight: 500, color: "#059669", background: "rgba(16, 185, 129, 0.1)", padding: "3px 8px", borderRadius: "999px" }}>
               Meta: 90%
             </span>
           </div>
@@ -824,7 +845,7 @@ function DashboardContent({ health }: { health: HealthCheck | null }) {
 
       {/* ABA 1: VISÃO GERAL — COCKPIT EXECUTIVO DO CEO */}
       {activeTab === "overview" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: "18px", width: "100%" }}>
+        <div className="plg-cockpit" style={{ display: "flex", flexDirection: "column", gap: "18px", width: "100%" }}>
           {/* BLOCO SUPERIOR: DUAS COLUNAS (FINANCEIRO & DECISÕES) */}
           <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.85fr) minmax(320px, 1fr)", gap: "18px", alignItems: "start", width: "100%" }}>
             {/* Coluna Esquerda Superior */}
