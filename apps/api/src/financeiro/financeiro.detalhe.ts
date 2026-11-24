@@ -75,6 +75,9 @@ function resumoDoHistorico(h: ItemDoHistorico): { tipo: EventoDoLancamento["tipo
       if (d.acao === "pausado") return { tipo: "omie", resumo: "Envio ao OMIE pausado: conexão desligada" };
       if (d.acao === "retomado") return { tipo: "omie", resumo: "Envio ao OMIE retomado: conexão religada" };
       return null;
+    case "conciliado":
+      // O marco "Conciliado com o extrato" vem das colunas; no histórico, só o desfazer (o motivo vai no texto).
+      return d.acao === "desfeito" ? { tipo: "conciliado", resumo: "Conciliação desfeita" } : null;
     case "anexo_substituido":
       return { tipo: "anexo_substituido", resumo: `${NOME_DO_ANEXO[d.anexo as TipoDeAnexo] ?? "Anexo"} substituído; o anterior segue no histórico` };
     default:

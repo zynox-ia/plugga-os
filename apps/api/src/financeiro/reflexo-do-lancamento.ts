@@ -18,7 +18,9 @@ export type MudancaDoLancamento =
   | "cobranca_registrada"
   | "pago"
   | "recebido"
-  | "cancelado";
+  | "cancelado"
+  | "conciliado"
+  | "desconciliado";
 
 export type FatoDoLancamento = {
   lancamentoId: string;

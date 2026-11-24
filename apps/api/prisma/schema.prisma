@@ -268,6 +268,7 @@ model User {
   omieConfirmacoes               OmieConexao[]               @relation("OmieConexaoConfirmadaPor")
   omieEnviosCriados              OmieEnvio[]                 @relation("OmieEnvioCriadoPor")
   extratosImportados             ExtratoBancario[]           @relation("ExtratoImportadoPor")
+  movimentosConciliados          MovimentoDoExtrato[]        @relation("MovimentoConciliadoPor")
   lancamentosCriados             Lancamento[]                @relation("LancamentoCriadoPor")
   lancamentosAprovados           Lancamento[]                @relation("LancamentoAprovadoPor")
   lancamentosPagos               Lancamento[]                @relation("LancamentoPagamentoRegistradoPor")
@@ -2919,10 +2920,16 @@ model MovimentoDoExtrato {
   /// "pendente", "conciliado" ou "marcado" (CHECK no banco).
   estado          String   @default("pendente")
   createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  /// O lançamento do par (C3); a chave composta no banco garante a mesma conta.
+  lancamentoId    String?   @unique @map("lancamento_id") @db.Uuid
+  conciliadoEm    DateTime? @map("conciliado_em") @db.Timestamptz(6)
+  conciliadoPorId String?   @map("conciliado_por_id") @db.Uuid
 
   company       Company         @relation(fields: [companyId], references: [id], onDelete: Restrict)
   contaCorrente ContaCorrente   @relation(fields: [contaCorrenteId], references: [id], onDelete: Restrict)
   extrato       ExtratoBancario @relation(fields: [extratoId], references: [id], onDelete: Restrict)
+  lancamento    Lancamento?     @relation(fields: [lancamentoId], references: [id], onDelete: Restrict)
+  conciliadoPor User?           @relation("MovimentoConciliadoPor", fields: [conciliadoPorId], references: [id], onDelete: SetNull)
 
   @@unique([contaCorrenteId, identificador])
   @@index([contaCorrenteId, dia])
@@ -3008,6 +3015,8 @@ model Lancamento {
   liquidadoEm                DateTime?                @map("liquidado_em") @db.Timestamptz(6)
   conciliadoEm               DateTime?                @map("conciliado_em") @db.Timestamptz(6)
   conciliadoPorId            String?                  @map("conciliado_por_id") @db.Uuid
+  /// "Marcar pendente" na conciliação: o pago que ainda não apareceu no extrato.
+  conciliacaoMarcada         Boolean                  @default(false) @map("conciliacao_marcada")
   canceladoEm                DateTime?                @map("cancelado_em") @db.Timestamptz(6)
   canceladoPorId             String?                  @map("cancelado_por_id") @db.Uuid
   cancelamentoMotivo         String?                  @map("cancelamento_motivo")
@@ -3043,6 +3052,8 @@ model Lancamento {
   omieEnvios              OmieEnvio[]
   /// O estado no OMIE, do conector; sem linha, `nao_enviado`.
   omie                    OmieLancamento?
+  /// A linha do extrato bancário conciliada com o lançamento (PLU-339).
+  movimentoDoExtrato      MovimentoDoExtrato?
 
   @@unique([tipo, numero])
   @@index([vencimento])

@@ -26,6 +26,15 @@ const repositorio = {
     periodo: { de: "2026-11-01", ate: "2026-11-30" }, saldoInformado: null, movimentos: 1, novos: 1, repetidos: 0, importadoEm: new Date().toISOString(),
   })),
   listar: vi.fn().mockResolvedValue({ itens: [], extratos: [] }),
+  painel: vi.fn().mockResolvedValue({
+    escopo: { contaCorrenteId: null, empresa: "waze", de: "2026-11-01", ate: "2026-11-30" },
+    resumo: { movimentos: 0, conciliados: 0, sugeridos: 0, valorDiferente: 0, semLancamento: 0, semExtrato: 0, faltaConciliar: "0.00" },
+    sugeridos: [], valorDiferente: [], semLancamento: [], semExtrato: [], conciliados: [], extratos: [],
+  }),
+  conciliar: vi.fn().mockResolvedValue(undefined),
+  conciliarSugeridos: vi.fn().mockResolvedValue(2),
+  desfazer: vi.fn().mockResolvedValue(undefined),
+  marcar: vi.fn().mockResolvedValue(undefined),
 };
 const armazenamento = { enviar: vi.fn().mockResolvedValue(undefined), excluir: vi.fn().mockResolvedValue(undefined) };
 
@@ -99,5 +108,35 @@ describe("conciliação: importar o extrato e listar os movimentos (e2e)", () =>
     repositorio.importar.mockRejectedValueOnce(new Error("falhou"));
     await enviar(OFX).expect(500);
     expect(armazenamento.excluir).toHaveBeenCalledTimes(1);
+  });
+
+  it("C3: o painel aceita uma conta ou a empresa, e valida o período; as ações validam o corpo antes do repositório", async () => {
+    await financeiro(http().get("/financeiro/conciliacao?empresa=waze&de=2026-11-01&ate=2026-11-30")).expect(200);
+    await financeiro(http().get(`/financeiro/conciliacao?contaCorrenteId=${CONTA}&de=2026-11-01&ate=2026-11-30`)).expect(200);
+    for (const q of ["empresa=outra&de=2026-11-01&ate=2026-11-30", "de=2026-11-30&ate=2026-11-01", "de=2025-01-01&ate=2026-11-30"]) {
+      await financeiro(http().get(`/financeiro/conciliacao?${q}`)).expect(400);
+    }
+    for (const f of Object.values(repositorio)) if ("mockClear" in f) f.mockClear();
+    const M = "00000000-0000-4000-8000-000000000c01";
+    const L = "00000000-0000-4000-8000-000000000d01";
+    await financeiro(http().post("/financeiro/conciliacao/conciliar")).send({ movimentoId: M }).expect(400);
+    await financeiro(http().post("/financeiro/conciliacao/marcar")).send({ movimentoId: M, lancamentoId: L, marcado: true }).expect(400);
+    await financeiro(http().post("/financeiro/conciliacao/desfazer")).send({ movimentoId: M, motivo: "" }).expect(400);
+    expect([repositorio.conciliar, repositorio.marcar, repositorio.desfazer].every((f) => f.mock.calls.length === 0)).toBe(true);
+
+    await financeiro(http().post("/financeiro/conciliacao/conciliar")).send({ movimentoId: M, lancamentoId: L }).expect(200);
+    expect((await financeiro(http().post("/financeiro/conciliacao/conciliar-sugeridos")).send({ empresa: "waze", de: "2026-11-01", ate: "2026-11-30" }).expect(200)).body).toEqual({ conciliados: 2 });
+    await financeiro(http().post("/financeiro/conciliacao/marcar")).send({ lancamentoId: L, marcado: true }).expect(200);
+    expect(repositorio.marcar.mock.calls[0]).toEqual([{ lancamentoId: L }, true]);
+  });
+
+  it("C3: desfazer é só da gerência do Financeiro (e da plataforma), com motivo", async () => {
+    repositorio.desfazer.mockClear();
+    const M = "00000000-0000-4000-8000-000000000c01";
+    await financeiro(http().post("/financeiro/conciliacao/desfazer")).send({ movimentoId: M, motivo: "Pareado errado" }).expect(403);
+    expect(repositorio.desfazer).not.toHaveBeenCalled();
+    await como("financeiro:gerente")(http().post("/financeiro/conciliacao/desfazer")).send({ movimentoId: M, motivo: "Pareado errado" }).expect(200);
+    await http().post("/financeiro/conciliacao/desfazer").set("x-dev-principal", "00000000-0000-4000-8000-000000000002").set("x-dev-plataforma", "admin").send({ movimentoId: M, motivo: "Pareado errado" }).expect(200);
+    expect(repositorio.desfazer.mock.calls.map((c) => c[1])).toEqual(["Pareado errado", "Pareado errado"]);
   });
 });

@@ -1,10 +1,19 @@
-import { Controller, Get, HttpCode, Inject, Param, ParseUUIDPipe, Post, Query, UploadedFile, UseGuards, UseInterceptors } from "@nestjs/common";
+import { Body, Controller, Get, HttpCode, Inject, Param, ParseUUIDPipe, Post, Query, UploadedFile, UseGuards, UseInterceptors } from "@nestjs/common";
 import { ThrottlerGuard } from "@nestjs/throttler";
 import {
+  conciliarSchema,
+  desfazerConciliacaoSchema,
+  escopoDaConciliacaoSchema,
   listarMovimentosDoExtratoQuerySchema,
+  marcarNaConciliacaoSchema,
+  type Conciliar,
+  type DesfazerConciliacao,
+  type EscopoDaConciliacao,
   type ExtratoImportado,
   type ListarMovimentosDoExtratoQuery,
+  type MarcarNaConciliacao,
   type MovimentosDoExtratoResposta,
+  type PainelDaConciliacao,
 } from "@plugga/shared";
 
 import { UmArquivo } from "../common/upload";
@@ -46,5 +55,42 @@ export class ConciliacaoController {
   @Get("conciliacao/movimentos")
   movimentos(@Query(new ZodValidationPipe(listarMovimentosDoExtratoQuerySchema)) query: ListarMovimentosDoExtratoQuery): Promise<MovimentosDoExtratoResposta> {
     return this.conciliacao.movimentos(query);
+  }
+
+  /** O painel: sugeridos, valor diferente, sem par e conciliados, de uma conta ou de todas do escopo. */
+  @Get("conciliacao")
+  painel(@Query(new ZodValidationPipe(escopoDaConciliacaoSchema)) escopo: EscopoDaConciliacao): Promise<PainelDaConciliacao> {
+    return this.conciliacao.painel(escopo);
+  }
+
+  @Post("conciliacao/conciliar")
+  @HttpCode(200)
+  @UseGuards(OriginCheckGuard, ThrottlerGuard)
+  async conciliar(@Body(new ZodValidationPipe(conciliarSchema)) entrada: Conciliar, @CurrentPrincipal() principal: AuthPrincipal): Promise<{ conciliado: true }> {
+    await this.conciliacao.conciliar(entrada.movimentoId, entrada.lancamentoId, principal);
+    return { conciliado: true };
+  }
+
+  @Post("conciliacao/conciliar-sugeridos")
+  @HttpCode(200)
+  @UseGuards(OriginCheckGuard, ThrottlerGuard)
+  conciliarSugeridos(@Body(new ZodValidationPipe(escopoDaConciliacaoSchema)) escopo: EscopoDaConciliacao, @CurrentPrincipal() principal: AuthPrincipal): Promise<{ conciliados: number }> {
+    return this.conciliacao.conciliarSugeridos(escopo, principal);
+  }
+
+  @Post("conciliacao/desfazer")
+  @HttpCode(200)
+  @UseGuards(OriginCheckGuard, ThrottlerGuard)
+  async desfazer(@Body(new ZodValidationPipe(desfazerConciliacaoSchema)) entrada: DesfazerConciliacao, @CurrentPrincipal() principal: AuthPrincipal): Promise<{ desfeito: true }> {
+    await this.conciliacao.desfazer(entrada.movimentoId, entrada.motivo, principal);
+    return { desfeito: true };
+  }
+
+  @Post("conciliacao/marcar")
+  @HttpCode(200)
+  @UseGuards(OriginCheckGuard, ThrottlerGuard)
+  async marcar(@Body(new ZodValidationPipe(marcarNaConciliacaoSchema)) entrada: MarcarNaConciliacao): Promise<{ marcado: boolean }> {
+    await this.conciliacao.marcar(entrada);
+    return { marcado: entrada.marcado };
   }
 }

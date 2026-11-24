@@ -42,10 +42,13 @@ export function enviosDoFato(antes: Lancamento, mudanca: MudancaDoLancamento, ch
       return ["baixa"];
     case "cancelado":
       return chegouAoOmie ? ["cancelar"] : [];
+    // Os marcos da cobrança e a conciliação (do Plugga OS, com o extrato do banco): nada a pedir ao OMIE.
     case "nf_registrada":
     case "boleto_registrado":
     case "enviado":
     case "cobranca_registrada":
+    case "conciliado":
+    case "desconciliado":
       return [];
   }
 }

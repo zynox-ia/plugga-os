@@ -4,16 +4,21 @@ import { Inject, Injectable, Logger } from "@nestjs/common";
 import {
   extratoImportadoSchema,
   movimentosDoExtratoRespostaSchema,
+  painelDaConciliacaoSchema,
+  type EscopoDaConciliacao,
   type ExtratoImportado,
   type ListarMovimentosDoExtratoQuery,
+  type MarcarNaConciliacao,
   type MovimentosDoExtratoResposta,
+  type PainelDaConciliacao,
 } from "@plugga/shared";
 
-import { ArquivoRecusado, LimiteExcedido, RequisicaoInvalida, TipoNaoPermitido } from "../common/errors/dominio";
+import { AcessoNegado, ArquivoRecusado, LimiteExcedido, RequisicaoInvalida, TipoNaoPermitido } from "../common/errors/dominio";
 import type { AuthPrincipal } from "../core/auth/auth.types";
 import { ArmazenamentoDeDocumentos } from "../lead-documentos/armazenamento-de-documentos";
 import { nomeSeguro } from "../lead-documentos/lead-documentos.rules";
 import { EXTRATO_MAX_BYTES, ExtratoRecusado, extratoEhDaConta, lerOfx, type ExtratoLido } from "./extrato-ofx";
+import { papelNoFinanceiro } from "./financeiro.rules";
 import type { ArquivoRecebido } from "./financeiro.service";
 import { RELOGIO_DO_FINANCEIRO } from "./financeiro.service";
 import { PrismaConciliacaoRepository } from "./prisma-conciliacao.repository";
@@ -76,5 +81,28 @@ export class ConciliacaoService {
 
   async movimentos(query: ListarMovimentosDoExtratoQuery): Promise<MovimentosDoExtratoResposta> {
     return movimentosDoExtratoRespostaSchema.parse(await this.repositorio.listar(query));
+  }
+
+  async painel(escopo: EscopoDaConciliacao): Promise<PainelDaConciliacao> {
+    return painelDaConciliacaoSchema.parse(await this.repositorio.painel(escopo));
+  }
+
+  async conciliar(movimentoId: string, lancamentoId: string, principal: AuthPrincipal): Promise<void> {
+    await this.repositorio.conciliar(movimentoId, lancamentoId, principal, this.agora());
+  }
+
+  async conciliarSugeridos(escopo: EscopoDaConciliacao, principal: AuthPrincipal): Promise<{ conciliados: number }> {
+    return { conciliados: await this.repositorio.conciliarSugeridos(escopo, principal, this.agora()) };
+  }
+
+  /** Desfazer é só da gerência do Financeiro (decisão conservadora, levada ao André), sempre com motivo. */
+  async desfazer(movimentoId: string, motivo: string, principal: AuthPrincipal): Promise<void> {
+    if (!papelNoFinanceiro(principal.acesso).gerente) throw new AcessoNegado("Só a gerência do Financeiro desfaz uma conciliação.");
+    await this.repositorio.desfazer(movimentoId, motivo, principal, this.agora());
+  }
+
+  async marcar(entrada: MarcarNaConciliacao): Promise<void> {
+    const { marcado, ...alvo } = entrada;
+    await this.repositorio.marcar(alvo as { movimentoId: string } | { lancamentoId: string }, marcado);
   }
 }

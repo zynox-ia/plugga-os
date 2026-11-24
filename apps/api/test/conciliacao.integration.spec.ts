@@ -3,10 +3,11 @@ import { randomBytes, randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { AuditAppender } from "../src/audit/audit-appender.js";
-import { Conflito } from "../src/common/errors/dominio.js";
+import { Conflito, EstadoInvalido } from "../src/common/errors/dominio.js";
 import type { AuthPrincipal } from "../src/core/auth/auth.types.js";
 import { conteudoDoMovimento, type ExtratoLido } from "../src/financeiro/extrato-ofx.js";
 import { PrismaConciliacaoRepository, type ContaDoExtrato } from "../src/financeiro/prisma-conciliacao.repository.js";
+import { contextoBanco } from "../src/prisma/contexto-banco.js";
 import { PrismaService } from "../src/prisma/prisma.service.js";
 
 /**
@@ -27,6 +28,14 @@ describe.skipIf(!HABILITADO)("conciliação: extrato bancário no Postgres", () 
   const sessoes = { conciliacao: randomBytes(32).toString("hex"), pagar: randomBytes(32).toString("hex") };
   let principal: AuthPrincipal;
   let conta: ContaDoExtrato;
+  const ids = { outraConta: "", fornecedor: "", cliente: "", despesa: "", receita: "" };
+  /** Uma saída paga ou uma entrada recebida nesta conta (ou noutra), como dono do banco de teste. */
+  const liquidado = async (tipo: "saida" | "entrada", dia: string, valor: string, contaId = conta.id) => (await prisma.lancamento.create({
+    data: tipo === "saida"
+      ? { tipo, companyId: "waze", fornecedorId: ids.fornecedor, categoriaId: ids.despesa, contaCorrenteId: contaId, descricao: `${marca} conta`, valor: Number(valor), vencimento: new Date(`${dia}T04:00:00Z`), etapa: "paga", origem: "avulsa", aprovadoEm: AGORA, forma: "pix", pagoEm: new Date(`${dia}T04:00:00Z`), pagamentoRegistradoEm: AGORA }
+      : { tipo, companyId: "waze", clientId: ids.cliente, categoriaId: ids.receita, contaCorrenteId: contaId, descricao: `${marca} cobrança`, valor: Number(valor), vencimento: new Date(`${dia}T04:00:00Z`), competencia: "2026-12", etapa: "recebida", origem: "cobranca_manual", recebidoEm: new Date(`${dia}T04:00:00Z`), recebimentoRegistradoEm: AGORA, valorRecebido: Number(valor) },
+    select: { id: true },
+  })).id;
   const comoRuntime = <T>(quem: keyof typeof sessoes, fazer: (tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0]) => Promise<T>) => prisma.$transaction(async (tx) => {
     await tx.$executeRawUnsafe("SET LOCAL ROLE plugga_runtime");
     await tx.$executeRaw`SELECT set_config('plugga.session_hash', ${sessoes[quem]}, true)`;
@@ -50,6 +59,13 @@ describe.skipIf(!HABILITADO)("conciliação: extrato bancário no Postgres", () 
     }
     const c = await prisma.contaCorrente.create({ data: { companyId: "waze", nome: `${marca} Banco A`, numero: "99999-9" } });
     conta = { id: c.id, companyId: "waze", nome: c.nome, numero: c.numero };
+    const outra = await prisma.contaCorrente.create({ data: { companyId: "waze", nome: `${marca} Banco B` } });
+    ids.outraConta = outra.id;
+    ids.fornecedor = (await prisma.fornecedor.create({ data: { nome: `${marca} Fornecedor`, categoria: "servico" } })).id;
+    ids.cliente = (await prisma.client.create({ data: { name: `${marca} Cliente` } })).id;
+    const sufixo = String(parseInt(marca.slice(5), 16) % 100_000);
+    ids.despesa = (await prisma.categoriaFinanceira.create({ data: { companyId: "waze", codigo: `9.11.${sufixo}`, nome: `${marca} despesa`, tipo: "despesa", natureza: "servico", grupoNome: "Teste" } })).id;
+    ids.receita = (await prisma.categoriaFinanceira.create({ data: { companyId: "waze", codigo: `9.12.${sufixo}`, nome: `${marca} receita`, tipo: "receita", natureza: "receita", grupoNome: "Teste" } })).id;
   }, PRAZO_MS);
 
   afterAll(async () => {
@@ -57,6 +73,12 @@ describe.skipIf(!HABILITADO)("conciliação: extrato bancário no Postgres", () 
       await tx.$executeRawUnsafe("SET LOCAL session_replication_role = replica");
       await tx.movimentoDoExtrato.deleteMany({ where: { contaCorrenteId: conta.id } });
       await tx.extratoBancario.deleteMany({ where: { contaCorrenteId: conta.id } });
+      const daMarca = { lancamento: { descricao: { startsWith: marca } } };
+      await tx.historicoDeLancamento.deleteMany({ where: daMarca });
+      await tx.lancamento.deleteMany({ where: { descricao: { startsWith: marca } } });
+      await tx.categoriaFinanceira.deleteMany({ where: { nome: { startsWith: marca } } });
+      await tx.fornecedor.deleteMany({ where: { nome: { startsWith: marca } } });
+      await tx.client.deleteMany({ where: { name: { startsWith: marca } } });
     });
     await prisma.contaCorrente.deleteMany({ where: { nome: { startsWith: marca } } });
     await prisma.session.deleteMany({ where: { tokenHash: { in: Object.values(sessoes) } } });
@@ -118,12 +140,83 @@ describe.skipIf(!HABILITADO)("conciliação: extrato bancário no Postgres", () 
     await novo("conciliacao", `financeiro/extratos/waze/${conta.id}/x`, "c4");
     await expect(novo("conciliacao", `financeiro/extratos/plugga/${conta.id}/x`, "c5")).rejects.toThrow(/extratos_bancarios_chave_da_empresa/);
     for (const sql of [
-      `UPDATE public.movimentos_do_extrato SET estado = 'conciliado' WHERE conta_corrente_id = '${conta.id}'`,
+      // O estado e o par a C3 permite à Conciliação (com as CHECKs); o resto da linha, não.
+      `UPDATE public.movimentos_do_extrato SET valor = 1 WHERE conta_corrente_id = '${conta.id}'`,
       `UPDATE public.extratos_bancarios SET arquivo_nome = 'x' WHERE conta_corrente_id = '${conta.id}'`,
       `DELETE FROM public.movimentos_do_extrato WHERE conta_corrente_id = '${conta.id}'`,
       `DELETE FROM public.extratos_bancarios WHERE conta_corrente_id = '${conta.id}'`,
     ]) {
       await expect(comoRuntime("conciliacao", (tx) => tx.$executeRawUnsafe(sql)), sql).rejects.toThrow(/permission denied/);
     }
+  }, PRAZO_MS);
+
+  it("C3: o painel sugere, aponta valor diferente e o sem par; conciliar exige o mesmo valor; a corrida diz quem chegou antes", async () => {
+    const pago = await liquidado("saida", "2026-12-03", "1742.18");
+    const recebido = await liquidado("entrada", "2026-12-05", "7200.00");
+    const comDiferenca = await liquidado("saida", "2026-12-08", "700.00");
+    // Longe (mais de 3 dias) dos outros: senão o par do valor diferente fica ambíguo e não é apontado.
+    const semExtrato = await liquidado("saida", "2026-12-25", "50.00");
+    await liquidado("saida", "2026-12-03", "1742.18", ids.outraConta);
+    await repositorio.importar(conta, arquivo("f6"), lido([
+      mov("p1", "2026-12-04", "-1742.18"), mov("r1", "2026-12-05", "7200.00"), mov("d1", "2026-12-08", "-680.00"), mov("t1", "2026-12-18", "-89.90"),
+    ]), principal, AGORA);
+    const escopo = { contaCorrenteId: conta.id, de: "2026-12-01", ate: "2026-12-31" };
+    // Com a sessão de quem concilia: o nome do cliente vem pela função do banco, que confere a tela.
+    const painel = await contextoBanco.run({ sessionHash: sessoes.conciliacao, agentHash: undefined }, () => repositorio.painel(escopo));
+    expect(painel.sugeridos.map((p) => p.lancamento.id).sort()).toEqual([pago, recebido].sort());
+    expect(painel.valorDiferente.map((p) => [p.lancamento.id, p.diferenca])).toEqual([[comDiferenca, "20.00"]]);
+    expect(painel.semLancamento.map((m) => m.valor)).toEqual(["-89.90"]);
+    expect(painel.semExtrato.map((l) => l.id)).toEqual([semExtrato]);
+    expect(painel.sugeridos.find((p) => p.lancamento.id === recebido)?.lancamento).toMatchObject({ favorecido: `${marca} Cliente`, valor: "7200.00", empresa: "waze" });
+    expect(painel.resumo).toEqual({ movimentos: 4, conciliados: 0, sugeridos: 2, valorDiferente: 1, semLancamento: 1, semExtrato: 1, faltaConciliar: "9762.08" });
+    // Todas as contas da empresa: o pago da outra conta aparece sem extrato, e não vira par.
+    const daEmpresa = await repositorio.painel({ empresa: "waze", de: "2026-12-01", ate: "2026-12-31" });
+    expect(daEmpresa.sugeridos.map((p) => p.lancamento.id).sort()).toEqual([pago, recebido].sort());
+
+    const movDiferente = painel.valorDiferente[0]!.movimento.id;
+    await expect(repositorio.conciliar(movDiferente, comDiferenca, principal, AGORA)).rejects.toMatchObject({ message: "Para conciliar, o valor tem de ser igual: extrato R$ 680,00, lançamento R$ 700,00." });
+
+    const parPago = painel.sugeridos.find((p) => p.lancamento.id === pago)!;
+    await repositorio.conciliar(parPago.movimento.id, pago, principal, AGORA);
+    expect(await prisma.lancamento.findUniqueOrThrow({ where: { id: pago }, select: { etapa: true, conciliadoPorId: true } })).toEqual({ etapa: "conciliada", conciliadoPorId: principal.id });
+    await expect(repositorio.conciliar(parPago.movimento.id, pago, principal, AGORA)).rejects.toMatchObject({ message: `Esta linha já foi conciliada por ${marca} conciliacao.` });
+    expect(await prisma.eventLog.count({ where: { eventName: "financeiro.lancamento.conciliado", entityId: pago } })).toBe(1);
+
+    // O lote concilia o que sobrou de sugerido (recalculado na API).
+    expect(await repositorio.conciliarSugeridos(escopo, principal, AGORA)).toBe(1);
+    const depois = await repositorio.painel(escopo);
+    expect(depois.resumo).toMatchObject({ conciliados: 2, sugeridos: 0 });
+    expect(depois.conciliados.find((p) => p.lancamento.id === pago)?.conciliadoPor?.nome).toBe(`${marca} conciliacao`);
+  }, PRAZO_MS);
+
+  it("C3: desfazer volta o lançamento a pago, com o motivo na linha do tempo; marcar pendente dos dois lados", async () => {
+    const escopo = { contaCorrenteId: conta.id, de: "2026-12-01", ate: "2026-12-31" };
+    const par = (await repositorio.painel(escopo)).conciliados.find((p) => p.lancamento.tipo === "saida")!;
+    await repositorio.desfazer(par.movimento.id, "Pareado com a conta errada", principal, AGORA);
+    expect(await prisma.lancamento.findUniqueOrThrow({ where: { id: par.lancamento.id }, select: { etapa: true, conciliadoEm: true } })).toEqual({ etapa: "paga", conciliadoEm: null });
+    expect(await prisma.movimentoDoExtrato.findUniqueOrThrow({ where: { id: par.movimento.id }, select: { estado: true, lancamentoId: true } })).toEqual({ estado: "pendente", lancamentoId: null });
+    expect(await prisma.historicoDeLancamento.findFirst({ where: { lancamentoId: par.lancamento.id, tipo: "conciliado" }, select: { dados: true, texto: true } }))
+      .toEqual({ dados: { acao: "desfeito" }, texto: "Pareado com a conta errada" });
+
+    // Marcado dos dois lados: não volta a ser sugerido.
+    await repositorio.marcar({ lancamentoId: par.lancamento.id }, true);
+    expect((await repositorio.painel(escopo)).sugeridos.map((p) => p.lancamento.id)).not.toContain(par.lancamento.id);
+    await repositorio.marcar({ lancamentoId: par.lancamento.id }, false);
+    await repositorio.marcar({ movimentoId: par.movimento.id }, true);
+    const marcado = await repositorio.painel(escopo);
+    expect(marcado.semLancamento.find((m) => m.id === par.movimento.id)?.estado).toBe("marcado");
+    expect(marcado.sugeridos.map((p) => p.movimento.id)).not.toContain(par.movimento.id);
+    await expect(repositorio.marcar({ movimentoId: marcado.conciliados[0]!.movimento.id }, true)).rejects.toBeInstanceOf(EstadoInvalido);
+  }, PRAZO_MS);
+
+  it("C3 no banco: a conciliação aponta só para lançamento da mesma conta, a etapa e as colunas andam juntas, e só a Conciliação concilia", async () => {
+    const daOutra = await liquidado("saida", "2026-12-20", "10.00", ids.outraConta);
+    const [linha] = await prisma.movimentoDoExtrato.findMany({ where: { contaCorrenteId: conta.id, estado: { not: "conciliado" } }, take: 1, select: { id: true } });
+    await expect(prisma.movimentoDoExtrato.update({ where: { id: linha!.id }, data: { estado: "conciliado", lancamentoId: daOutra, conciliadoEm: AGORA } }))
+      .rejects.toThrow(/movimentos_do_extrato_lancamento_da_conta_fkey|Foreign key/i);
+    await expect(prisma.lancamento.update({ where: { id: daOutra }, data: { etapa: "conciliada" } })).rejects.toThrow(/lancamentos_conciliacao_coerente/);
+    expect(await comoRuntime("pagar", (tx) => tx.movimentoDoExtrato.updateMany({ where: { id: linha!.id }, data: { estado: "marcado" } }))).toEqual({ count: 0 });
+    expect(await comoRuntime("conciliacao", (tx) => tx.movimentoDoExtrato.updateMany({ where: { id: linha!.id }, data: { estado: "marcado" } }))).toEqual({ count: 1 });
+    await expect(comoRuntime("conciliacao", (tx) => tx.$executeRaw`UPDATE public.movimentos_do_extrato SET valor = 1 WHERE id = ${linha!.id}::uuid`)).rejects.toThrow(/permission denied/);
   }, PRAZO_MS);
 });

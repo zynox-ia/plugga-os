@@ -723,3 +723,75 @@ export const movimentosDoExtratoRespostaSchema = z.object({
   extratos: z.array(extratoImportadoSchema),
 });
 export type MovimentosDoExtratoResposta = z.infer<typeof movimentosDoExtratoRespostaSchema>;
+
+// ---------------------------------------------------------------- conciliar (PLU-339, C3)
+
+/** O lado do Plugga OS no par: o lançamento pago ou recebido, com o valor liquidado sem sinal. */
+export const lancamentoNaConciliacaoSchema = z.object({
+  id: uuid,
+  tipo: tipoDeLancamentoSchema,
+  codigo: z.string(),
+  empresa: companyKeySchema,
+  contaCorrenteId: uuid,
+  /** O fornecedor (saída) ou o cliente (entrada), pronto para a linha. */
+  favorecido: z.string(),
+  descricao: z.string(),
+  valor: z.string(),
+  liquidadoEm: diaDoCalendario,
+  /** "Marcar pendente" do lado do lançamento: o pago que ainda não apareceu no extrato. */
+  marcado: z.boolean(),
+});
+export type LancamentoNaConciliacao = z.infer<typeof lancamentoNaConciliacaoSchema>;
+
+const parDaConciliacaoSchema = z.object({ movimento: movimentoDoExtratoSchema, lancamento: lancamentoNaConciliacaoSchema });
+
+/** Uma conta, ou todas as que a pessoa alcança (filtradas pela empresa, se vier), num período de até um ano. */
+export const escopoDaConciliacaoSchema = z
+  .object({ contaCorrenteId: uuid.optional(), empresa: companyKeySchema.optional(), de: diaDoCalendario, ate: diaDoCalendario })
+  .strict()
+  .refine((q) => q.de <= q.ate, { message: "O fim do período vem depois do início.", path: ["ate"] })
+  .refine((q) => (Date.parse(q.ate) - Date.parse(q.de)) / 86_400_000 <= 366, { message: "O período vai até um ano.", path: ["ate"] });
+export type EscopoDaConciliacao = z.infer<typeof escopoDaConciliacaoSchema>;
+
+/**
+ * `GET financeiro/conciliacao`. Sugerido: mesma conta, mesmo sentido (saída = débito), mesmo
+ * valor e data a ±3 dias, par único dos dois lados. Valor diferente: idem, com outro valor.
+ * `faltaConciliar`: os movimentos não conciliados (em módulo) mais o liquidado dos sem extrato.
+ */
+export const painelDaConciliacaoSchema = z.object({
+  escopo: z.object({ contaCorrenteId: uuid.nullable(), empresa: companyKeySchema.nullable(), de: diaDoCalendario, ate: diaDoCalendario }),
+  resumo: z.object({
+    movimentos: z.number().int().nonnegative(),
+    conciliados: z.number().int().nonnegative(),
+    sugeridos: z.number().int().nonnegative(),
+    valorDiferente: z.number().int().nonnegative(),
+    semLancamento: z.number().int().nonnegative(),
+    semExtrato: z.number().int().nonnegative(),
+    faltaConciliar: z.string(),
+  }),
+  sugeridos: z.array(parDaConciliacaoSchema),
+  /** `diferenca`: o lançamento menos o extrato, com sinal. */
+  valorDiferente: z.array(parDaConciliacaoSchema.extend({ diferenca: z.string() })),
+  /** Os pendentes e os marcados. */
+  semLancamento: z.array(movimentoDoExtratoSchema),
+  semExtrato: z.array(lancamentoNaConciliacaoSchema),
+  conciliados: z.array(parDaConciliacaoSchema.extend({ conciliadoEm: isoDate, conciliadoPor: z.object({ id: uuid, nome: z.string() }).nullable() })),
+  /** Os arquivos de extrato do escopo que tocam o período. */
+  extratos: z.array(extratoImportadoSchema),
+});
+export type PainelDaConciliacao = z.infer<typeof painelDaConciliacaoSchema>;
+
+/** `POST financeiro/conciliacao/conciliar`: sempre o mesmo valor; senão, 409 com a mensagem pronta. */
+export const conciliarSchema = z.object({ movimentoId: uuid, lancamentoId: uuid }).strict();
+export type Conciliar = z.infer<typeof conciliarSchema>;
+
+/** `POST financeiro/conciliacao/desfazer`: só a gerência, com motivo. */
+export const desfazerConciliacaoSchema = z.object({ movimentoId: uuid, motivo: z.string().trim().min(3, "Informe o motivo.").max(500) }).strict();
+export type DesfazerConciliacao = z.infer<typeof desfazerConciliacaoSchema>;
+
+/** `POST financeiro/conciliacao/marcar`: "Marcar pendente" e "Retomar", da linha do extrato ou do lançamento. */
+export const marcarNaConciliacaoSchema = z.union([
+  z.object({ movimentoId: uuid, marcado: z.boolean() }).strict(),
+  z.object({ lancamentoId: uuid, marcado: z.boolean() }).strict(),
+]);
+export type MarcarNaConciliacao = z.infer<typeof marcarNaConciliacaoSchema>;

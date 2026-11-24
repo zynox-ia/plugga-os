@@ -1717,6 +1717,89 @@
   },
   {
     "metodo": "GET",
+    "caminho": "/financeiro/conciliacao",
+    "controller": "ConciliacaoController.painel",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:financeiro.conciliacao",
+      "departamento:financeiro:membro"
+    ],
+    "guards": [
+      "FinanceiroHabilitadoGuard",
+      "SessionAuthGuard",
+      "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/financeiro/conciliacao/conciliar",
+    "controller": "ConciliacaoController.conciliar",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:financeiro.conciliacao",
+      "departamento:financeiro:membro"
+    ],
+    "guards": [
+      "FinanceiroHabilitadoGuard",
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/financeiro/conciliacao/conciliar-sugeridos",
+    "controller": "ConciliacaoController.conciliarSugeridos",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:financeiro.conciliacao",
+      "departamento:financeiro:membro"
+    ],
+    "guards": [
+      "FinanceiroHabilitadoGuard",
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/financeiro/conciliacao/desfazer",
+    "controller": "ConciliacaoController.desfazer",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:financeiro.conciliacao",
+      "departamento:financeiro:membro"
+    ],
+    "guards": [
+      "FinanceiroHabilitadoGuard",
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/financeiro/conciliacao/marcar",
+    "controller": "ConciliacaoController.marcar",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:financeiro.conciliacao",
+      "departamento:financeiro:membro"
+    ],
+    "guards": [
+      "FinanceiroHabilitadoGuard",
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "GET",
     "caminho": "/financeiro/conciliacao/movimentos",
     "controller": "ConciliacaoController.movimentos",
     "acesso": "acesso",
