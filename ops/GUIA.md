@@ -221,8 +221,17 @@ seção).
    \q
    ```
 
-4. **Ponha as três no `.env` da VPS** (`nano /opt/plugga-os/.env`), trocando
-   as senhas pelas geradas:
+4. **Guarde o `.env` de hoje e ponha os três logins no novo.** A cópia é o que
+   faz a versão anterior voltar, se for preciso (ela precisa do `plugga_app`):
+
+   ```bash
+   cp /opt/plugga-os/.env /opt/plugga-os/.env.antes-rls
+   chmod 600 /opt/plugga-os/.env.antes-rls
+   nano /opt/plugga-os/.env
+   ```
+
+   No `.env`, troque as linhas do login da aplicação e acrescente as duas URLs,
+   com as senhas geradas:
 
    ```bash
    APP_DB_USER=plugga_rt_app
@@ -260,16 +269,29 @@ seção).
 6. **Só então aprove a publicação** no GitHub. A publicação confere tudo de
    novo no passo 0, antes de parar qualquer coisa.
 
-**Se a publicação falhar depois de migrar.** Nesta publicação, a que liga o
-RLS, voltar a imagem antiga não resolve: a versão anterior não enxerga nada no
-banco novo. Por isso o script **não** volta a imagem: para a api e a web e
-mostra o backup final (`diario/<nome>` no balde de backup). Há duas saídas:
+**Se a publicação falhar depois de parar a aplicação.** Nesta publicação, a
+que liga o RLS, o script **não** volta a versão anterior sozinho: o `.env` já
+aponta os três logins novos, que ela não sabe usar, e depois da migração ela nem
+enxergaria o banco. Ele para a api e a web e diz em qual caso você está:
 
-- **corrigir e publicar de novo**: o caminho normal, se o problema for de
-  configuração (por exemplo, um login);
-- **voltar tudo**: restaurar o backup final (seção "Recuperação de
-  desastre") e depois as imagens anteriores ("Voltar a versão anterior à
-  mão"). Isso apaga o que foi gravado depois do backup, então é decisão sua.
+- **"O banco ainda NÃO recebeu o RLS"** (falhou antes da migração, por
+  exemplo no backup final): o banco não mudou. Ou corrija e publique de novo,
+  ou volte a versão anterior sem tocar no banco:
+
+  ```bash
+  cd /opt/plugga-os
+  cp .env.antes-rls .env
+  docker tag plugga-os-api:anterior plugga-os-api:latest
+  docker tag plugga-os-web:anterior plugga-os-web:latest
+  docker compose up -d api web
+  ```
+
+- **"O banco JÁ recebeu o RLS"**: o caminho normal é corrigir e publicar de
+  novo (por exemplo, um login). Voltar tudo exige restaurar o backup final
+  que a mensagem mostra (`diario/<nome>`, seção "Recuperação de desastre"),
+  depois o `.env.antes-rls` e as imagens anteriores, com os mesmos comandos
+  acima. Restaurar o banco apaga o que foi gravado depois do backup, então é
+  decisão sua.
 
 **O `plugga_app`, depois.** Não apague o `plugga_app` na primeira publicação.
 Quando a versão nova estiver estável por alguns dias, faça um backup e, num
@@ -283,7 +305,8 @@ DROP ROLE plugga_app;
 
 O primeiro passa ao dono do banco qualquer objeto que o `plugga_app` tenha
 criado, para que nada seja apagado; o segundo, então, só tira as permissões
-dele; o terceiro apaga o login.
+dele; o terceiro apaga o login. Junto, apague a cópia antiga do `.env`, que tem
+a senha dele: `rm /opt/plugga-os/.env.antes-rls`.
 
 ### Transição para RustFS: bloqueio desta release
 
@@ -402,9 +425,10 @@ ssh plugga-vps 'docker compose -f /opt/plugga-os/compose.yaml ps'
 
 ### Voltar a versão anterior à mão
 
-> Não sobre um banco que acabou de receber o RLS (`20261106010000`): a versão
-> anterior não funciona com ele. Nesse caso, restaure antes o backup final
-> (ver "Primeira publicação com os três logins do banco").
+> Logo depois da publicação que liga o RLS (`20261106010000`), a versão
+> anterior precisa do `.env.antes-rls` de volta e, se o banco já foi migrado,
+> do backup final restaurado antes (ver "Primeira publicação com os três logins
+> do banco").
 
 ```bash
 ssh plugga-vps 'cd /opt/plugga-os
