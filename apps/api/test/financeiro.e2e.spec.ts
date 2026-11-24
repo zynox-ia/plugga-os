@@ -99,6 +99,11 @@ describe("financeiro API (e2e)", () => {
     await financeiro(http().post("/financeiro/lancamentos")).send({ ...CONTA, etapa: "aprovada" }).expect(400);
     expect(servico.criarContaAPagar).not.toHaveBeenCalled();
     await financeiro(http().post("/financeiro/lancamentos")).send(CONTA).expect(201);
+    // Sem categoria (CC14) também entra: a conta é classificada depois.
+    const semCategoria: Partial<typeof CONTA> = { ...CONTA };
+    delete semCategoria.categoriaId;
+    await financeiro(http().post("/financeiro/lancamentos")).send(semCategoria).expect(201);
+    expect(servico.criarContaAPagar.mock.calls[1]?.[0]).not.toHaveProperty("categoriaId");
   });
 
   it("ações: cancelar exige motivo; ação desconhecida é 400", async () => {

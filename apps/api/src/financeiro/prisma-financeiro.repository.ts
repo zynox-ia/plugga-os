@@ -240,14 +240,15 @@ export class PrismaFinanceiroRepository {
   async criarContaAPagar(input: CriarContaAPagar, principal: AuthPrincipal): Promise<string> {
     return this.prisma.comContexto(async (tx) => {
       await this.garantirFornecedor(tx, input.fornecedorId);
-      await this.garantirCategoria(tx, input.categoriaId, input.empresa, "saida");
+      // Sem categoria (CC14), a conta nasce para ser classificada depois.
+      if (input.categoriaId) await this.garantirCategoria(tx, input.categoriaId, input.empresa, "saida");
       await this.garantirConta(tx, input.contaCorrenteId, input.empresa);
       const criado = await tx.lancamento.create({
         data: {
           tipo: "saida",
           companyId: input.empresa,
           fornecedorId: input.fornecedorId,
-          categoriaId: input.categoriaId,
+          categoriaId: input.categoriaId ?? null,
           contaCorrenteId: input.contaCorrenteId,
           descricao: input.descricao,
           valor: new Prisma.Decimal(input.valor),
@@ -579,7 +580,7 @@ export class PrismaFinanceiroRepository {
 
   private async garantirCategoria(tx: Prisma.TransactionClient, id: string, empresa: string, tipo: TipoDeLancamento): Promise<void> {
     const c = await tx.categoriaFinanceira.findUnique({ where: { id }, select: { companyId: true, tipo: true, ativa: true } });
-    const problema = !c ? "Escolha uma categoria do OMIE da empresa."
+    const problema = !c ? "Escolha uma categoria da empresa."
       : c.companyId !== empresa ? "A categoria é de outra empresa."
       : c.tipo !== (tipo === "saida" ? "despesa" : "receita") ? (tipo === "saida" ? "Conta a pagar usa categoria de despesa." : "Cobrança usa categoria de receita.")
       : !c.ativa ? "A categoria está inativa." : null;

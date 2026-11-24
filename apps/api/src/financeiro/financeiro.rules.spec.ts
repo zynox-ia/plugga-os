@@ -189,6 +189,13 @@ describe("ações da PLU-337", () => {
     expect(daEntrada.filter((p) => p.feito).map((p) => p.texto)).toEqual(["Emitir a NF", "Gerar o boleto", "Enviar ao cliente"]);
     expect(daEntrada.find((p) => p.texto.startsWith("Anexar"))?.opcional).toBe(true);
   });
+
+  it("a despesa sem categoria (CC14) pede a classificação primeiro, sem travar o resto do fluxo", () => {
+    const semCategoria = pendenciasDoLancamento({ ...saida({ etapa: "aprovada" }), categoriaId: null }, COM_COMPROVANTE);
+    expect(semCategoria[0]).toEqual({ texto: "Classificar a categoria", feito: false });
+    expect(semCategoria.slice(1).map((p) => p.texto)).toEqual(["Aprovar", "Anexar o comprovante", "Registrar o pagamento", "Conciliar com o extrato"]);
+    expect(pendenciasDoLancamento({ ...saida({ etapa: "aprovada" }), categoriaId: "c-1" }, COM_COMPROVANTE).map((p) => p.texto)).not.toContain("Classificar a categoria");
+  });
 });
 
 describe("edição da conta aprovada", () => {

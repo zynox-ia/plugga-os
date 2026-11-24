@@ -223,10 +223,15 @@ export function acoesPermitidas(l: EstadoDoLancamento, papel: PapelNoFinanceiro,
 }
 
 /** O painel "O que falta", na ordem do fluxo. */
-export function pendenciasDoLancamento(l: EstadoDoLancamento, anexos: AnexosAtuais): { texto: string; feito: boolean; opcional?: boolean }[] {
+export function pendenciasDoLancamento(
+  l: EstadoDoLancamento & { categoriaId?: string | null },
+  anexos: AnexosAtuais,
+): { texto: string; feito: boolean; opcional?: boolean }[] {
   const passou = (etapas: readonly EtapaDeLancamento[]) => etapas.includes(l.etapa);
   if (l.tipo === "saida") {
     return [
+      // A despesa pode nascer sem categoria (CC14): a classificação entra no painel, sem travar o fluxo.
+      ...(l.categoriaId === null ? [{ texto: "Classificar a categoria", feito: false }] : []),
       { texto: "Aprovar", feito: passou(["aprovada", "paga", "conciliada"]) },
       { texto: "Anexar o comprovante", feito: anexos.comprovante },
       { texto: "Registrar o pagamento", feito: passou(["paga", "conciliada"]) },

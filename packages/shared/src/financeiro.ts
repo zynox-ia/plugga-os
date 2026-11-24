@@ -268,7 +268,8 @@ export const criarContaAPagarSchema = z
   .object({
     empresa: companyKeySchema,
     fornecedorId: uuid,
-    categoriaId: uuid,
+    /** Opcional (CC14): a conta pode nascer sem categoria e ser classificada depois. */
+    categoriaId: uuid.optional(),
     contaCorrenteId: uuid,
     descricao: textoObrigatorio(200),
     valor: valorPositivo,
@@ -423,7 +424,8 @@ export const lancamentoResumoSchema = z.object({
   emCobranca: z.boolean(),
   cancelado: z.boolean(),
   favorecido: favorecidoSchema,
-  categoria: z.object({ id: uuid, codigo: z.string(), nome: z.string(), tipo: tipoDeCategoriaSchema, natureza: naturezaDeCategoriaSchema }),
+  /** Nula na despesa ainda não classificada (CC14); a cobrança sempre tem. */
+  categoria: z.object({ id: uuid, codigo: z.string(), nome: z.string(), tipo: tipoDeCategoriaSchema, natureza: naturezaDeCategoriaSchema }).nullable(),
   contaCorrente: z.object({ id: uuid, nome: z.string() }).nullable(),
   descricao: z.string(),
   valor: z.string(),

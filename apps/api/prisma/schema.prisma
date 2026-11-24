@@ -2908,7 +2908,8 @@ model Lancamento {
   companyId                  String                   @map("company_id")
   fornecedorId               String?                  @map("fornecedor_id") @db.Uuid
   clientId                   String?                  @map("client_id") @db.Uuid
-  categoriaId                String                   @map("categoria_id") @db.Uuid
+  /// Nula na despesa ainda não classificada (CC14); a cobrança sempre tem (CHECK).
+  categoriaId                String?                  @map("categoria_id") @db.Uuid
   contaCorrenteId            String?                  @map("conta_corrente_id") @db.Uuid
   descricao                  String
   valor                      Decimal                  @db.Decimal(14, 2)
@@ -2959,7 +2960,7 @@ model Lancamento {
   company                  Company             @relation(fields: [companyId], references: [id])
   fornecedor               Fornecedor?         @relation(fields: [fornecedorId], references: [id])
   client                   Client?             @relation(fields: [clientId], references: [id])
-  categoria                CategoriaFinanceira @relation(fields: [categoriaId], references: [id])
+  categoria                CategoriaFinanceira? @relation(fields: [categoriaId], references: [id])
   contaCorrente            ContaCorrente?      @relation(fields: [contaCorrenteId], references: [id])
   pedidoDeCompra           PedidoDeCompra?     @relation(fields: [pedidoDeCompraId], references: [id])
   criadoPor                User?               @relation("LancamentoCriadoPor", fields: [criadoPorId], references: [id], onDelete: SetNull)

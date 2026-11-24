@@ -113,6 +113,22 @@ describe.skipIf(!HABILITADO)("financeiro: lançamentos no Postgres", () => {
     })).rejects.toThrow();
   }, PRAZO_MS);
 
+  it("conta sem categoria (CC14): nasce, aparece na lista e na ficha pedindo a classificação, é aprovada, e classificar é editar", async () => {
+    const id = await novaConta({ categoriaId: undefined, descricao: `${marca} sem categoria` });
+    const ficha = await repositorio.obter(id, papel, AGORA);
+    expect(ficha.categoria).toBeNull();
+    expect(ficha.pendencias[0]).toEqual({ texto: "Classificar a categoria", feito: false });
+    expect((await listar({ busca: `${marca} sem categoria` })).itens.map((i) => [i.id, i.categoria])).toEqual([[id, null]]);
+    await agir(id, { acao: "aprovar" });
+    await repositorio.editar(id, { categoriaId: ids.despesaPlugga }, principal, papel);
+    const classificada = await repositorio.obter(id, papel, AGORA);
+    expect(classificada.categoria?.id).toBe(ids.despesaPlugga);
+    expect(classificada.pendencias.map((p) => p.texto)).not.toContain("Classificar a categoria");
+    // A categoria de outra empresa segue recusada na classificação.
+    const outra = await novaConta({ categoriaId: undefined });
+    await expect(repositorio.editar(outra, { categoriaId: ids.despesaWaze }, principal, papel)).rejects.toBeInstanceOf(RequisicaoInvalida);
+  }, PRAZO_MS);
+
   it("a despesa pode ficar sem categoria (CC14); a cobrança não", async () => {
     const despesa = await novaConta();
     await prisma.$executeRaw`UPDATE public.lancamentos SET categoria_id = NULL WHERE id = ${despesa}::uuid`;
