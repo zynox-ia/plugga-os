@@ -260,7 +260,9 @@ test("painel e paginação cabem na tela com o rodapé padrão do Agent", async 
   await page.goto(`/clientes?q=${encodeURIComponent(prefixo)}`);
   await expect(page.getByRole("button", { name: "Agent", exact: true })).toBeVisible();
   await page.getByRole("tab", { name: "Lista", exact: true }).click();
-  for (const tamanho of [{ width: 1440, height: 900 }, { width: 1024, height: 768 }, { width: 390, height: 844 }]) {
+  // Só a partir de 768 px. O celular fica para a revisão do André, tela por tela: desde o
+  // 5616da8 a lista vira cartões que crescem com a página, e este teste não afirma o layout ali.
+  for (const tamanho of [{ width: 1440, height: 900 }, { width: 1024, height: 768 }]) {
     await page.setViewportSize(tamanho);
     const paginacao = page.getByRole("navigation", { name: "Paginação da lista de clientes" });
     const agente = page.getByRole("button", { name: "Agent", exact: true });
