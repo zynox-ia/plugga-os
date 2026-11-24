@@ -11,9 +11,10 @@ import { EstadoInvalido } from "../src/common/errors/dominio.js";
 import type { AuthPrincipal } from "../src/core/auth/auth.types.js";
 import { papelNoFinanceiro } from "../src/financeiro/financeiro.rules.js";
 import { PrismaFinanceiroRepository } from "../src/financeiro/prisma-financeiro.repository.js";
+import { ConectoresDoFinanceiro } from "../src/financeiro/conectores-do-financeiro.js";
 import { ReflexosDoLancamento } from "../src/financeiro/reflexo-do-lancamento.js";
 import { PrismaOmieLancamentosRepository } from "../src/omie/prisma-omie-lancamentos.repository.js";
-import { OmieReflexoDoLancamento } from "../src/omie/omie-reflexo.js";
+import { OmieConectorDoFinanceiro, OmieReflexoDoLancamento } from "../src/omie/omie-reflexo.js";
 import type { IntegrationGate } from "../src/integrations/integration-gate.js";
 import type { EnqueueOptions, JobsQueue } from "../src/jobs/queue/jobs-queue.port.js";
 import type { OmieEscrita, PedidoDeEnvioAoOmie } from "../src/omie/omie-escrita.js";
@@ -164,6 +165,20 @@ describe.skipIf(!HABILITADO)("fila do OMIE no Postgres", () => {
   it("a conexão real: quem opera o Financeiro pergunta ao banco, e empresa sem par conferido conta como desligada", async () => {
     const ligado = await comoRuntime((tx) => tx.$queryRaw<{ ligado: boolean }[]>`SELECT plugga_security.omie_conectado('empresa-sem-omie') AS ligado`);
     expect(ligado).toEqual([{ ligado: false }]);
+  }, PRAZO_MS);
+
+  it("as opções do Financeiro dizem, por empresa, se o OMIE está conectado; sem conector, não trazem o campo", async () => {
+    const comConector = (ligada?: (tx: unknown, empresa: string) => Promise<boolean>) => {
+      const conectores = new ConectoresDoFinanceiro();
+      conectores.inscrever(ligada ? new OmieConectorDoFinanceiro(ligada) : new OmieConectorDoFinanceiro());
+      return new PrismaFinanceiroRepository(prisma, new AuditAppender(), reflexos, conectores);
+    };
+    expect((await comConector(async (_tx, empresa) => empresa === "plugga").opcoes()).conectores).toEqual({ omie: { plugga: true, waze: false } });
+    // A função real do banco responde as duas empresas (o par de teste não existe, então é falso).
+    const real = (await comConector().opcoes()).conectores;
+    expect(Object.keys(real?.omie ?? {}).sort()).toEqual(["plugga", "waze"]);
+    expect(Object.values(real?.omie ?? {}).every((v) => typeof v === "boolean")).toBe(true);
+    expect(await repositorio.opcoes()).not.toHaveProperty("conectores");
   }, PRAZO_MS);
 
   it("o backfill da tabela do conector (o SQL da migration): copia o estado de antes, ignora quem nunca foi ao OMIE e pode rodar de novo", async () => {

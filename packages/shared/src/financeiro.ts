@@ -166,8 +166,15 @@ export const opcoesDoFinanceiroSchema = z.object({
   contasCorrentes: z.array(contaCorrenteSchema),
   fornecedores: z.array(z.object({ id: uuid, nome: z.string() })),
   formasDePagamento: z.array(formaDoLancamentoSchema),
+  /**
+   * Os conectores externos do Financeiro e, por empresa, se a conexão está conferida
+   * e confirmada. O Plugga OS é o dono do financeiro; um conector desligado não tira
+   * função de tela nenhuma. Sem o campo, ou sem o conector, a tela trata como hoje.
+   */
+  conectores: z.object({ omie: z.record(companyKeySchema, z.boolean()) }).partial().optional(),
 });
 export type OpcoesDoFinanceiro = z.infer<typeof opcoesDoFinanceiroSchema>;
+export type ConectoresDoFinanceiroNasOpcoes = NonNullable<OpcoesDoFinanceiro["conectores"]>;
 
 // ---------------------------------------------------------------- entrada
 

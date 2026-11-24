@@ -1,6 +1,8 @@
 import { Inject, Injectable, Optional } from "@nestjs/common";
 import type { Prisma } from "@prisma/client";
+import { companyKeys, type CompanyKey } from "@plugga/shared";
 
+import type { ConectorDoFinanceiro } from "../financeiro/conectores-do-financeiro";
 import type { FatoDoLancamento, ReflexoDoLancamento } from "../financeiro/reflexo-do-lancamento";
 import { comOTituloAntes, enviosDoFato, type OperacaoNoOmie } from "./omie-envios.rules";
 
@@ -12,6 +14,20 @@ const pelaConexaoConfirmada: ConexaoDoOmieLigada = async (tx, empresa) => {
   const [linha] = await tx.$queryRaw<{ ligado: boolean }[]>`SELECT plugga_security.omie_conectado(${empresa}::text) AS ligado`;
   return linha?.ligado === true;
 };
+
+/** O OMIE como conector do Financeiro, para a tela: por empresa, a conexão está confirmada? */
+@Injectable()
+export class OmieConectorDoFinanceiro implements ConectorDoFinanceiro {
+  readonly chave = "omie";
+
+  constructor(@Optional() @Inject(CONEXAO_DO_OMIE_LIGADA) private readonly ligada: ConexaoDoOmieLigada = pelaConexaoConfirmada) {}
+
+  async conexoes(tx: Prisma.TransactionClient): Promise<Record<CompanyKey, boolean>> {
+    const situacao = {} as Record<CompanyKey, boolean>;
+    for (const empresa of companyKeys) situacao[empresa] = await this.ligada(tx, empresa);
+    return situacao;
+  }
+}
 
 /**
  * O conector do OMIE ouvindo o Financeiro (PLU-342): traduz o fato do lançamento em

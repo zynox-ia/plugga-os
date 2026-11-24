@@ -4,6 +4,7 @@ import { AuditModule } from "../audit/audit.module";
 import { CoreModule } from "../core/core.module";
 import { FinanceiroHabilitadoGuard } from "../financeiro/financeiro-habilitado.guard";
 import { FinanceiroModule } from "../financeiro/financeiro.module";
+import { ConectoresDoFinanceiro } from "../financeiro/conectores-do-financeiro";
 import { ReflexosDoLancamento } from "../financeiro/reflexo-do-lancamento";
 import { PrismaSegredoRepository } from "../llm/prisma-segredo.repository.js";
 import { SegredoRepository } from "../llm/segredo.repository.js";
@@ -20,7 +21,7 @@ import { OmieConexoesService, OmieLeituraPorEmpresa } from "./omie-conexoes.serv
 import { OmieEmpresasController } from "./omie-empresas.controller";
 import { OmieLancamentosController } from "./omie-lancamentos.controller";
 import { PrismaOmieLancamentosRepository } from "./prisma-omie-lancamentos.repository";
-import { OmieReflexoDoLancamento } from "./omie-reflexo";
+import { OmieConectorDoFinanceiro, OmieReflexoDoLancamento } from "./omie-reflexo";
 import { OmieController } from "./omie.controller";
 import { OmieDubleAdapter } from "./omie-duble.adapter";
 import { OmieHttpAdapter } from "./omie-http.adapter";
@@ -56,6 +57,7 @@ import { PrismaOmieLeitura } from "./prisma-omie-leitura.repository";
     OmieDespacharHandler,
     OmieEnviarHandler,
     OmieReflexoDoLancamento,
+    OmieConectorDoFinanceiro,
     PrismaOmieLancamentosRepository,
   ],
   exports: [OmieCofreService, OmieConexoesService],
@@ -70,6 +72,8 @@ export class OmieModule implements OnModuleInit {
     @Inject(OmieEnviarHandler) private readonly enviar: OmieEnviarHandler,
     @Inject(ReflexosDoLancamento) private readonly reflexos: ReflexosDoLancamento,
     @Inject(OmieReflexoDoLancamento) private readonly reflexoDoOmie: OmieReflexoDoLancamento,
+    @Inject(ConectoresDoFinanceiro) private readonly conectores: ConectoresDoFinanceiro,
+    @Inject(OmieConectorDoFinanceiro) private readonly conectorDoOmie: OmieConectorDoFinanceiro,
   ) {}
 
   /**
@@ -82,6 +86,8 @@ export class OmieModule implements OnModuleInit {
     this.registry.register(this.enviar);
     // O Financeiro avisa cada mudança de lançamento; o conector decide o que vai ao OMIE.
     this.reflexos.inscrever(this.reflexoDoOmie);
+    // E responde à tela se está conectado em cada empresa.
+    this.conectores.inscrever(this.conectorDoOmie);
     void this.fila.agendarACada(OMIE_DESPACHAR_JOB, {}, AGENDAMENTO_DO_DESPACHO).catch((erro: unknown) => {
       this.logger.warn(`agendamento do despacho do OMIE falhou: ${erro instanceof Error ? erro.message : String(erro)}`);
     });

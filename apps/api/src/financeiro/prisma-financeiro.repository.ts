@@ -54,6 +54,7 @@ import {
   type PapelNoFinanceiro,
   type Plano,
 } from "./financeiro.rules";
+import { ConectoresDoFinanceiro } from "./conectores-do-financeiro";
 import { ReflexosDoLancamento, type MudancaDoLancamento } from "./reflexo-do-lancamento";
 
 /** O fato de cada ação de etapa, para os conectores. */
@@ -140,6 +141,7 @@ export class PrismaFinanceiroRepository {
     @Inject(AuditAppender) private readonly auditoria: AuditAppender,
     // Sem conector inscrito (nos testes do núcleo, por exemplo), nada é refletido.
     @Optional() @Inject(ReflexosDoLancamento) private readonly reflexos: ReflexosDoLancamento = new ReflexosDoLancamento(),
+    @Optional() @Inject(ConectoresDoFinanceiro) private readonly conectores: ConectoresDoFinanceiro = new ConectoresDoFinanceiro(),
   ) {}
 
   // ------------------------------------------------------------ leitura
@@ -219,12 +221,14 @@ export class PrismaFinanceiroRepository {
   }
 
   async opcoes(): Promise<OpcoesDoFinanceiro> {
-    const [categorias, contas, fornecedores] = await this.prisma.comContexto((tx) => Promise.all([
+    const [categorias, contas, fornecedores, conectores] = await this.prisma.comContexto((tx) => Promise.all([
       tx.categoriaFinanceira.findMany({ orderBy: [{ companyId: "asc" }, { codigo: "asc" }] }),
       tx.contaCorrente.findMany({ orderBy: [{ companyId: "asc" }, { nome: "asc" }] }),
       tx.fornecedor.findMany({ where: { ativo: true }, select: { id: true, nome: true }, orderBy: { nome: "asc" } }),
+      this.conectores.conexoes(tx),
     ]));
     return {
+      ...(conectores ? { conectores } : {}),
       categorias: categorias.map((c): CategoriaFinanceira => ({
         id: c.id,
         empresa: c.companyId as CompanyKey,
