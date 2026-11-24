@@ -61,7 +61,7 @@ test("data-limite e verificação nos cards", () => {
   assert.equal(textoDaVerificacao(resumo({ proximaVerificacao: "2026-11-24" }), HOJE), "verificar amanhã");
   assert.equal(textoDaVerificacao(resumo({ proximaVerificacao: "2026-11-26" }), HOJE), "verificar qui 26 nov");
   assert.equal(textoDaVerificacao(resumo({ situacao: "indeferido" }), HOJE), "encerrado");
-  assert.deepEqual(soVencendo([resumo({ diasParaOLimite: 8 }), resumo({ diasParaOLimite: 7 }), resumo({ diasParaOLimite: -1 }), resumo({ situacao: "respondido", diasParaOLimite: null })]).map((p) => p.diasParaOLimite), [7, -1]);
+  assert.deepEqual(soVencendo([resumo({ diasParaOLimite: 8 }), resumo({ diasParaOLimite: 7 }), resumo({ diasParaOLimite: 0 }), resumo({ diasParaOLimite: -1 }), resumo({ situacao: "respondido", diasParaOLimite: null })]).map((p) => p.diasParaOLimite), [7, 0]);
 });
 
 test("trilha: pendência fica em análise; o desfecho leva o nome do resultado", () => {

@@ -128,9 +128,9 @@ export function consultaDosProtocolos(f: FiltrosDosProtocolos): Record<string, s
   };
 }
 
-/** Os em andamento com a data-limite em até 7 dias (inclui os vencidos). */
+/** Os em andamento com a data-limite de hoje a 7 dias, como `contagens.vencemEm7Dias` (os vencidos têm a contagem deles). */
 export const soVencendo = (itens: readonly ProtocoloResumo[]): ProtocoloResumo[] =>
-  itens.filter((p) => !protocoloEncerrado(p.situacao) && p.diasParaOLimite !== null && p.diasParaOLimite <= 7);
+  itens.filter((p) => !protocoloEncerrado(p.situacao) && p.diasParaOLimite !== null && p.diasParaOLimite >= 0 && p.diasParaOLimite <= 7);
 
 // ---------------------------------------------------------------- textos
 
