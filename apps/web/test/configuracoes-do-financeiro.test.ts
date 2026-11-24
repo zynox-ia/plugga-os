@@ -3,11 +3,14 @@ import { describe, it } from "node:test";
 
 import type { CategoriaFinanceira, ContaCorrente } from "@plugga/shared";
 
-import { categoriasAgrupadas, contagemDasCategorias, contasDaTela, detalheDaConta } from "../app/lib/configuracoes-do-financeiro.ts";
+import { categoriasAgrupadas, contagemDasCategorias, contasDaTela, detalheDaConta, saldoDaConta } from "../app/lib/configuracoes-do-financeiro.ts";
 
 const u = (n: number) => `6f1c2a3b-0000-4000-8000-${String(n).padStart(12, "0")}`;
+// `saldo` e `saldoLidoEm` (lidos do OMIE) saem do contrato com a extinção (24/11/2026). Por espalhamento,
+// o objeto vale com o contrato de antes e com o de depois; sai daqui junto com os campos.
+const legadoDoOmie = { saldo: null, saldoLidoEm: null } as const;
 const conta = (n: number, parcial: Partial<ContaCorrente>): ContaCorrente => ({
-  id: u(n), empresa: "plugga", nome: `Conta ${n}`, banco: null, agencia: null, numero: null, saldo: null, saldoLidoEm: null, ativa: true, ...parcial,
+  id: u(n), empresa: "plugga", nome: `Conta ${n}`, banco: null, agencia: null, numero: null, ...legadoDoOmie, ativa: true, ...parcial,
 });
 const categoria = (n: number, codigo: string, parcial: Partial<CategoriaFinanceira> = {}): CategoriaFinanceira => ({
   id: u(n), empresa: "plugga", codigo, nome: `Categoria ${codigo}`, tipo: "despesa", natureza: "outros",
@@ -19,6 +22,13 @@ describe("contas correntes", () => {
     const opcoes = { contasCorrentes: [conta(1, { nome: "Sicoob", ativa: false }), conta(2, { nome: "Itaú" }), conta(3, { nome: "BB", empresa: "waze" })] };
     assert.deepEqual(contasDaTela(opcoes, "plugga").map((c) => c.nome), ["Itaú", "Sicoob"]);
     assert.deepEqual(contasDaTela(opcoes, null).map((c) => c.nome), ["Itaú", "BB", "Sicoob"]);
+  });
+
+  it("o saldo diz por que falta: sem saldo inicial, ou escondido de quem só paga ou só recebe", () => {
+    assert.deepEqual(saldoDaConta({ saldoCalculado: "1520.30", saldoInicial: "1000.00" }), { valor: "1520.30", nota: "saldo inicial mais o pago e o recebido" });
+    assert.deepEqual(saldoDaConta({ saldoCalculado: null, saldoInicial: "1000.00" }), { valor: null, nota: "visível só para quem acompanha pagar e receber" });
+    assert.deepEqual(saldoDaConta({ saldoCalculado: null, saldoInicial: null }), { valor: null, nota: "sem saldo inicial" });
+    assert.deepEqual(saldoDaConta({}), { valor: null, nota: "sem saldo inicial" });
   });
 
   it("o detalhe mostra só o que a conta tem cadastrado", () => {

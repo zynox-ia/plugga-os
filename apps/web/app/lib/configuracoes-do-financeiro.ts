@@ -14,6 +14,17 @@ export function contasDaTela(opcoes: Pick<OpcoesDoFinanceiro, "contasCorrentes">
     .sort((a, b) => Number(b.ativa) - Number(a.ativa) || a.empresa.localeCompare(b.empresa) || a.nome.localeCompare(b.nome, "pt-BR"));
 }
 
+/**
+ * O saldo da conta na tabela: o calculado no Plugga OS. Sem ele, a nota diz por quê:
+ * a conta não tem saldo inicial, ou tem e a API o esconde de quem só acompanha
+ * pagar ou só receber (o saldo parcial enganaria).
+ */
+export function saldoDaConta(c: Pick<ContaCorrente, "saldoCalculado" | "saldoInicial">): { valor: string | null; nota: string } {
+  if (c.saldoCalculado) return { valor: c.saldoCalculado, nota: "saldo inicial mais o pago e o recebido" };
+  if (c.saldoInicial) return { valor: null, nota: "visível só para quem acompanha pagar e receber" };
+  return { valor: null, nota: "sem saldo inicial" };
+}
+
 /** "Itaú · ag 0412 · cc 23456-7", só com o que a conta tem cadastrado. */
 export function detalheDaConta(c: Pick<ContaCorrente, "banco" | "agencia" | "numero">): string {
   return [c.banco, c.agencia ? `ag ${c.agencia}` : null, c.numero ? `cc ${c.numero}` : null].filter(Boolean).join(" · ");

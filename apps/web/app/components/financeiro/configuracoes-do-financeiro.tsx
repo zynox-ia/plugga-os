@@ -5,7 +5,7 @@ import { ArrowDownLeft, ArrowUpRight, Building2, Landmark, Settings, Tag } from 
 import { useRef, useState, type KeyboardEvent } from "react";
 
 import { ROTULO_DA_EMPRESA, valorEmReais } from "../../lib/compras";
-import { categoriasAgrupadas, contagemDasCategorias, contasDaTela, detalheDaConta, type AbaDasConfiguracoes } from "../../lib/configuracoes-do-financeiro";
+import { categoriasAgrupadas, contagemDasCategorias, contasDaTela, detalheDaConta, saldoDaConta, type AbaDasConfiguracoes } from "../../lib/configuracoes-do-financeiro";
 import estilosClientes from "../clientes/tela-clientes.module.css";
 import estilosLista from "../pipelines/lista-de-negocios.module.css";
 import { EmpresaComPonto } from "../suprimentos/empresa";
@@ -75,7 +75,7 @@ function ContasCorrentes({ opcoes, empresa }: { opcoes: OpcoesDoFinanceiro; empr
               <div className="celula-lead-bloco"><span className={`lead-nome ${estilosLista.titulo}`}>{c.nome}</span>{detalheDaConta(c) ? <span className={estilosLista.codigo}>{detalheDaConta(c)}</span> : null}</div>
             </div></td>
             <td data-l="Empresa"><EmpresaComPonto empresa={c.empresa} /></td>
-            <td data-l="Saldo"><div className={estilosLista.valor}><strong>{c.saldoCalculado ? valorEmReais(c.saldoCalculado) : "—"}</strong><small>{c.saldoCalculado ? "saldo inicial mais o pago e o recebido" : "sem saldo inicial"}</small></div></td>
+            <td data-l="Saldo">{((s) => <div className={estilosLista.valor}><strong>{s.valor ? valorEmReais(s.valor) : "—"}</strong><small>{s.nota}</small></div>)(saldoDaConta(c))}</td>
             <td data-l="Situação"><span className={`ui-badge ${c.ativa ? "ui-tone--neutral" : "ui-tone--warning"}`}>{c.ativa ? "Ativa" : "Inativa"}</span></td>
           </tr>)}</tbody>
         </table>
