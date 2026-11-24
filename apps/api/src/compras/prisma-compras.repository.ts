@@ -194,6 +194,9 @@ export class PrismaComprasRepository {
           prazoEntregaDesejado: fimDoDiaEmManaus(input.prazoEntregaDesejado),
           valorOrcado: input.valorOrcado ?? null,
           ordemDeServicoId: origem?.ordemDeServicoId ?? null,
+          // A criação segue o relógio injetado, como o prazo e a passagem inicial: as regras
+          // comparam dias com ela (o recebimento não pode ser anterior à criação).
+          createdAt: agora,
           itens: { create: input.itens.map((item) => ({ descricao: item.descricao, quantidade: item.quantidade, unidade: item.unidade ?? null, itemDeEstoqueId: item.itemDeEstoqueId ?? null })) },
           etapas: { create: { ...passagem, responsavelId: input.responsavelId ?? null } },
         },
