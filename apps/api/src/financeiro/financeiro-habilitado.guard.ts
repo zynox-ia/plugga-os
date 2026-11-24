@@ -6,7 +6,7 @@ import { ConfigService } from "@nestjs/config";
  * Coordenador em 23/11/2026). A regra é `financeiroLigado`, em
  * config/environment.ts: liga em `development` e `test` (pelo NODE_ENV cru, sem
  * o padrão do schema) ou com `FINANCEIRO_HABILITADO=true`; na dúvida, desligado.
- * Os jobs do Financeiro e do OMIE usam o mesmo `FINANCEIRO_LIGADO`. Sai num
+ * Os jobs do Financeiro usam o mesmo `FINANCEIRO_LIGADO`. Sai num
  * commit próprio quando o módulo estiver completo.
  */
 @Injectable()

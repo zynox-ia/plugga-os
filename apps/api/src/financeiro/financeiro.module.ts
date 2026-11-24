@@ -9,7 +9,6 @@ import { ConciliacaoController } from "./conciliacao.controller";
 import { TransferenciasController } from "./transferencias.controller";
 import { ConciliacaoService } from "./conciliacao.service";
 import { PrismaConciliacaoRepository } from "./prisma-conciliacao.repository";
-import { ConectoresDoFinanceiro } from "./conectores-do-financeiro";
 import { PrismaCadastrosDoFinanceiroRepository } from "./prisma-cadastros-do-financeiro.repository";
 import { PrismaContaDaCompraRepository } from "./prisma-conta-da-compra.repository";
 import { FinanceiroHabilitadoGuard } from "./financeiro-habilitado.guard";
@@ -19,10 +18,10 @@ import { PrismaFinanceiroRepository } from "./prisma-financeiro.repository";
 import { ReflexosDoLancamento } from "./reflexo-do-lancamento";
 
 /**
- * Financeiro (PLU-336): lançamentos, cadastros e as ações de etapa. É o dono dos dados
- * (decisão de 24/11/2026): não conhece nenhum sistema de fora. Os conectores (o OMIE é
- * um) importam este módulo, se inscrevem em `ReflexosDoLancamento` para ouvir as
- * mudanças e em `ConectoresDoFinanceiro` para a tela saber se estão conectados.
+ * Financeiro (PLU-336): lançamentos, cadastros, as ações de etapa e a conciliação. O Plugga
+ * OS é o financeiro, sozinho: a integração com o OMIE foi extinta (decisão do André de
+ * 24/11/2026). `ReflexosDoLancamento` fica como a porta genérica dos fatos do lançamento,
+ * para quem precisar ouvir (os provedores de boleto e NF, no futuro).
  */
 @Module({
   imports: [AuditModule, CoreModule, PrismaModule],
@@ -37,9 +36,8 @@ import { ReflexosDoLancamento } from "./reflexo-do-lancamento";
     FinanceiroService,
     PrismaFinanceiroRepository,
     ReflexosDoLancamento,
-    ConectoresDoFinanceiro,
     { provide: RELOGIO_DO_FINANCEIRO, useValue: () => new Date() },
   ],
-  exports: [PrismaFinanceiroRepository, PrismaContaDaCompraRepository, ReflexosDoLancamento, ConectoresDoFinanceiro, FinanceiroService, RELOGIO_DO_FINANCEIRO],
+  exports: [PrismaFinanceiroRepository, PrismaContaDaCompraRepository, ReflexosDoLancamento, FinanceiroService, RELOGIO_DO_FINANCEIRO],
 })
 export class FinanceiroModule {}

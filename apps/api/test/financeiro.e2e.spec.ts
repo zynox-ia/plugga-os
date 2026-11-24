@@ -7,7 +7,6 @@ import { AppModule } from "../src/app.module";
 import { Conflito } from "../src/common/errors/dominio";
 import { FinanceiroService } from "../src/financeiro/financeiro.service";
 import { PrismaCadastrosDoFinanceiroRepository } from "../src/financeiro/prisma-cadastros-do-financeiro.repository";
-import { PrismaOmieLancamentosRepository } from "../src/omie/prisma-omie-lancamentos.repository";
 
 const ID = "00000000-0000-4000-8000-000000000901";
 
@@ -29,8 +28,6 @@ const servico = {
   baixarAnexo: vi.fn(),
 };
 
-/** O conector do OMIE, também dublê: o "Tentar de novo" mora nele. */
-const conector = { tentarDeNovo: vi.fn().mockResolvedValue(undefined) };
 
 /** Os cadastros (S3b), dublê: o RLS e as regras têm a integração própria. */
 const cadastros = {
@@ -55,7 +52,6 @@ describe("financeiro API (e2e)", () => {
   beforeAll(async () => {
     const modulo = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(FinanceiroService).useValue(servico)
-      .overrideProvider(PrismaOmieLancamentosRepository).useValue(conector)
       .overrideProvider(PrismaCadastrosDoFinanceiroRepository).useValue(cadastros)
       .compile();
     app = modulo.createNestApplication();
@@ -114,15 +110,12 @@ describe("financeiro API (e2e)", () => {
     await financeiro(http().post(`/financeiro/lancamentos/${ID}/acoes`)).send({ acao: "aprovar" }).expect(200);
   });
 
-  it("Tentar de novo é do conector do OMIE; id inválido é 400; Suprimentos não entra; a rota antiga não existe mais", async () => {
-    conector.tentarDeNovo.mockClear();
-    const rota = `/integracoes/omie/lancamentos/${ID}/tentar-de-novo`;
-    await financeiro(http().post(rota.replace(ID, "x"))).expect(400);
-    await como("suprimentos:gerente")(http().post(rota)).expect(403);
-    expect(conector.tentarDeNovo).not.toHaveBeenCalled();
-    await financeiro(http().post(rota)).expect(200);
-    expect(conector.tentarDeNovo.mock.calls.map((c) => c[0])).toEqual([ID]);
-    await financeiro(http().post(`/financeiro/lancamentos/${ID}/omie/tentar-de-novo`)).expect(404);
+  it("a integração com o OMIE foi extinta (24/11/2026): as rotas dela não existem mais", async () => {
+    const gerente = como("financeiro:gerente");
+    await gerente(http().post(`/integracoes/omie/lancamentos/${ID}/tentar-de-novo`)).expect(404);
+    await gerente(http().post(`/financeiro/lancamentos/${ID}/omie/tentar-de-novo`)).expect(404);
+    await gerente(http().get("/integracoes/omie/empresas")).expect(404);
+    await gerente(http().get("/integracoes/omie")).expect(404);
   });
 
   it("cadastros: só a gerência do Financeiro e a plataforma gravam; o membro e outros departamentos não", async () => {

@@ -15,7 +15,6 @@ const roleRows = [
 
 const integrationRows = [
   { key: 'bitrix', name: 'Bitrix', owner: 'Operações' },
-  { key: 'omie', name: 'OMIE', owner: 'Financeiro' },
   { key: 'pluggamob-ocpp', name: 'PluggaMob / OCPP', owner: 'PluggaMob' },
   { key: 'pagbank', name: 'PagBank', owner: 'Financeiro' },
   { key: 'whatsapp', name: 'WhatsApp', owner: 'Operações' },
@@ -219,9 +218,8 @@ async function main() {
     }
   }
 
-  // Financeiro (PLU-336): o espelho do OMIE de cada empresa enquanto a leitura do
-  // OMIE (PLU-342) não existe. Plano de contas e contas sintéticos, sem saldo:
-  // o saldo só aparece quando o OMIE for lido. Nunca sobrescreve o que já existe.
+  // Financeiro (PLU-336): plano de contas e contas correntes sintéticos de cada empresa,
+  // sem saldo inicial (a gerência informa nas Configurações). Nunca sobrescreve o que já existe.
   const gruposDoPlano: Record<string, string> = {
     '1.01': 'Receitas de gestão de energia',
     '1.02': 'Receitas de engenharia',
@@ -254,9 +252,9 @@ async function main() {
   });
   await prisma.contaCorrente.createMany({
     data: [
-      { companyId: 'plugga', omieCodigo: 'exemplo-plugga-1', nome: 'Banco A · Plugga (exemplo)', banco: 'Banco A' },
-      { companyId: 'plugga', omieCodigo: 'exemplo-plugga-2', nome: 'Banco B · Plugga (exemplo)', banco: 'Banco B' },
-      { companyId: 'waze', omieCodigo: 'exemplo-waze-1', nome: 'Banco A · Waze (exemplo)', banco: 'Banco A' },
+      { companyId: 'plugga', nome: 'Banco A · Plugga (exemplo)', banco: 'Banco A' },
+      { companyId: 'plugga', nome: 'Banco B · Plugga (exemplo)', banco: 'Banco B' },
+      { companyId: 'waze', nome: 'Banco A · Waze (exemplo)', banco: 'Banco A' },
     ],
     skipDuplicates: true,
   });
@@ -298,16 +296,6 @@ async function main() {
         attempt: 1,
         triggeredBy: 'seed:inventory-only',
         logRef: 'mock://job-runs/inventory-bitrix-sync',
-      },
-      {
-        id: '00000000-0000-4000-8000-000000000102',
-        jobKey: 'inventory.omie-sync',
-        integrationId: integrationByKey.get('omie')?.id,
-        scheduledFor: new Date('2026-08-06T12:05:00.000Z'),
-        status: 'skipped',
-        attempt: 1,
-        triggeredBy: 'seed:inventory-only',
-        logRef: 'mock://job-runs/inventory-omie-sync',
       },
       {
         id: '00000000-0000-4000-8000-000000000103',

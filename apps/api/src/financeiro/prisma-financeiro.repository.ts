@@ -57,7 +57,6 @@ import {
   type PapelNoFinanceiro,
   type Plano,
 } from "./financeiro.rules";
-import { ConectoresDoFinanceiro } from "./conectores-do-financeiro";
 import { paraCategoria, paraConta } from "./prisma-cadastros-do-financeiro.repository";
 import { ReflexosDoLancamento, type MudancaDoLancamento } from "./reflexo-do-lancamento";
 
@@ -75,7 +74,10 @@ const MUDANCA_DO_PLANO: Record<Plano["tipo"], MudancaDoLancamento> = {
 };
 
 const PESSOA = { select: { id: true, name: true } } as const;
-/** O lançamento que nunca passou por um conector. */
+/**
+ * A integração com o OMIE foi extinta (24/11/2026): o campo sai do contrato junto com a web.
+ * Até lá, vai neutro, sem ler as tabelas do conector.
+ */
 const SEM_OMIE = { estado: "nao_enviado", codigo: null, motivo: null } as const satisfies OmieDoLancamento;
 const INCLUDE_DO_LANCAMENTO = {
   fornecedor: { select: { id: true, nome: true } },
@@ -88,8 +90,6 @@ const INCLUDE_DO_LANCAMENTO = {
   recebimentoRegistradoPor: PESSOA,
   conciliadoPor: PESSOA,
   canceladoPor: PESSOA,
-  // O estado no OMIE vem da tabela do conector (LEFT JOIN); sem linha, `nao_enviado`.
-  omie: { select: { estado: true, codigo: true, motivo: true } },
   // A contagem dos anexos atuais, para o card.
   _count: { select: { anexos: { where: { substituidoEm: null } } } },
   // A perna de uma transferência entre contas (C6): as duas contas e as duas pernas.
@@ -146,9 +146,8 @@ export class PrismaFinanceiroRepository {
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(AuditAppender) private readonly auditoria: AuditAppender,
-    // Sem conector inscrito (nos testes do núcleo, por exemplo), nada é refletido.
+    // Sem ninguém inscrito (nos testes do núcleo, por exemplo), nada é refletido.
     @Optional() @Inject(ReflexosDoLancamento) private readonly reflexos: ReflexosDoLancamento = new ReflexosDoLancamento(),
-    @Optional() @Inject(ConectoresDoFinanceiro) private readonly conectores: ConectoresDoFinanceiro = new ConectoresDoFinanceiro(),
   ) {}
 
   // ------------------------------------------------------------ leitura
@@ -234,8 +233,7 @@ export class PrismaFinanceiroRepository {
    * O saldo de cada conta ativa (PLU-339, C4): o saldo inicial (o fim do dia dele) mais todo o
    * LIQUIDADO depois desse dia (pago, recebido e conciliado), porque é o pagamento, e não a
    * conciliação, que move o dinheiro. `saldoConciliado`: só o conferido com o extrato, para a
-   * Conciliação mostrar a diferença. Sem saldo inicial, os dois são nulos. O saldo lido do
-   * OMIE não entra: é só conferência, no conector.
+   * Conciliação mostrar a diferença. Sem saldo inicial, os dois são nulos.
    */
   private async saldosDasContas(tx: Prisma.TransactionClient, empresa?: CompanyKey): Promise<{ id: string; saldo: Prisma.Decimal | null; saldoConciliado: Prisma.Decimal | null }[]> {
     return tx.$queryRaw<{ id: string; saldo: Prisma.Decimal | null; saldoConciliado: Prisma.Decimal | null }[]>`
@@ -256,16 +254,14 @@ export class PrismaFinanceiroRepository {
   /** `papel`: o saldo calculado da conta só para quem alcança os dois tipos (senão, pelo RLS, ele seria parcial). */
   async opcoes(papel: PapelNoFinanceiro): Promise<OpcoesDoFinanceiro> {
     const veSaldo = papel.saidas && papel.entradas;
-    const [categorias, contas, fornecedores, conectores, saldos] = await this.prisma.comContexto((tx) => Promise.all([
+    const [categorias, contas, fornecedores, saldos] = await this.prisma.comContexto((tx) => Promise.all([
       tx.categoriaFinanceira.findMany({ orderBy: [{ companyId: "asc" }, { codigo: "asc" }] }),
       tx.contaCorrente.findMany({ orderBy: [{ companyId: "asc" }, { nome: "asc" }] }),
       tx.fornecedor.findMany({ where: { ativo: true }, select: { id: true, nome: true }, orderBy: { nome: "asc" } }),
-      this.conectores.conexoes(tx),
       veSaldo ? this.saldosDasContas(tx) : Promise.resolve([]),
     ]));
     const saldoDa = new Map(saldos.map((c) => [c.id, c]));
     return {
-      ...(conectores ? { conectores } : {}),
       categorias: categorias.map(paraCategoria),
       contasCorrentes: contas.map((c) => ({
         ...paraConta(c),
@@ -429,7 +425,7 @@ export class PrismaFinanceiroRepository {
         }
       };
       await aplicar();
-      // Os conectores (o OMIE é um) refletem o fato na mesma transação; o Financeiro não sabe quais são.
+      // Quem estiver inscrito nos reflexos ouve o fato na mesma transação.
       await this.reflexos.aoMudar(tx, { lancamentoId: id, empresa: atual.companyId, tipo: atual.tipo, etapaAntes: atual.etapa, mudanca: MUDANCA_DO_PLANO[plano.tipo], porId: principal.id });
     });
   }
@@ -661,7 +657,8 @@ export class PrismaFinanceiroRepository {
     if (situacao.etapas) condicoes.push({ etapa: { in: situacao.etapas } });
     if (situacao.emAberto || situacao.vencido) condicoes.push({ etapa: { in: etapasEmAberto } });
     if (situacao.vencido) condicoes.push({ vencimento: { lt: hoje } });
-    if (situacao.omieComErro) condicoes.push({ omie: { is: { estado: { in: ["erro", "divergente"] } } } });
+    // "Com erro no OMIE": a integração foi extinta, então não há nenhum (a situação sai do contrato com a web).
+    if (situacao.omieComErro) condicoes.push({ id: { in: [] } });
     if (situacao.transferencias) condicoes.push({ origem: "transferencia" });
     if (query.pagoSemAprovacao !== undefined) {
       const semAprovacao: Prisma.LancamentoWhereInput = { tipo: "saida", origem: { in: [...origensPagasSemAprovacao] } };
@@ -799,7 +796,7 @@ export class PrismaFinanceiroRepository {
       prazo: prazoDoLancamento(l, agora),
       liquidadoEm: l.liquidadoEm ? dia(l.liquidadoEm) : null,
       anexos: l._count.anexos,
-      omie: l.omie ?? SEM_OMIE,
+      omie: SEM_OMIE,
       origem: { tipo: l.origem, pedidoDeCompra: (l.pedidoDeCompraId && pedidos.get(l.pedidoDeCompraId)) || l.pedidoDeCompra },
       pagoSemAprovacao: pagoSemAprovacao(l),
       ...(t ? { transferencia: { id: t.id, codigo: codigoDaTransferencia(t.numero), sentido: l.tipo } } : {}),

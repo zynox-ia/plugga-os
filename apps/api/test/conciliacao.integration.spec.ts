@@ -7,8 +7,7 @@ import { AuditAppender } from "../src/audit/audit-appender.js";
 import { AcessoNegado, Conflito, EstadoInvalido, RequisicaoInvalida } from "../src/common/errors/dominio.js";
 import type { AuthPrincipal } from "../src/core/auth/auth.types.js";
 import { ConciliacaoService } from "../src/financeiro/conciliacao.service.js";
-import { ReflexosDoLancamento } from "../src/financeiro/reflexo-do-lancamento.js";
-import { OmieReflexoDoLancamento } from "../src/omie/omie-reflexo.js";
+import { ReflexosDoLancamento, type FatoDoLancamento } from "../src/financeiro/reflexo-do-lancamento.js";
 import { conteudoDoMovimento, type ExtratoLido } from "../src/financeiro/extrato-ofx.js";
 import { papelNoFinanceiro } from "../src/financeiro/financeiro.rules.js";
 import { PrismaConciliacaoRepository, type ContaDoExtrato } from "../src/financeiro/prisma-conciliacao.repository.js";
@@ -81,9 +80,6 @@ describe.skipIf(!HABILITADO)("conciliação: extrato bancário no Postgres", () 
       await tx.extratoBancario.deleteMany({ where: { contaCorrenteId: conta.id } });
       const daMarca = { lancamento: { OR: [{ descricao: { startsWith: marca } }, { contaCorrenteId: { in: [conta.id, ids.outraConta] } }] } };
       await tx.historicoDeLancamento.deleteMany({ where: daMarca });
-      // Os pedidos ao OMIE da tarifa do teste do conector (sem os gatilhos, a FK não apaga em cascata).
-      await tx.omieEnvio.deleteMany({ where: daMarca });
-      await tx.omieLancamento.deleteMany({ where: daMarca });
       // As tarifas do lote têm a descrição padrão: saem pela conta.
       await tx.lancamento.deleteMany({ where: { OR: [{ descricao: { startsWith: marca } }, { contaCorrenteId: { in: [conta.id, ids.outraConta] } }] } });
       await tx.transferencia.deleteMany({ where: { OR: [{ contaOrigemId: { in: [conta.id, ids.outraConta] } }, { contaDestinoId: { in: [conta.id, ids.outraConta] } }] } });
@@ -375,14 +371,16 @@ describe.skipIf(!HABILITADO)("conciliação: extrato bancário no Postgres", () 
     expect((await linhaDe("c5c2")).estado).toBe("pendente");
   }, PRAZO_MS);
 
-  it("C5 no conector: a tarifa com a empresa conectada pede ao OMIE o título e a baixa, nessa ordem, na transação da criação", async () => {
+  it("C5 nos reflexos: a tarifa avisa os fatos na ordem (criado, pago, conciliado), na transação da criação", async () => {
+    const fatos: FatoDoLancamento[] = [];
     const reflexos = new ReflexosDoLancamento();
-    reflexos.inscrever(new OmieReflexoDoLancamento(async () => true));
-    const comOmie = new PrismaConciliacaoRepository(prisma, new AuditAppender(), reflexos);
+    reflexos.inscrever({ aoMudar: async (_tx, fato) => { fatos.push(fato); } });
+    const comReflexos = new PrismaConciliacaoRepository(prisma, new AuditAppender(), reflexos);
     const t4 = await linhaDe("c5t4");
-    const criada = await naSessao(() => comOmie.criarTarifa({ movimentoId: t4.id, fornecedorId: ids.fornecedor, descricao: `${marca} tarifa com omie` }, principal, AGORA));
-    const envios = await prisma.omieEnvio.findMany({ where: { lancamentoId: criada.lancamento.id }, orderBy: { ordem: "asc" }, select: { operacao: true, estado: true } });
-    expect(envios).toEqual([{ operacao: "upsert", estado: "pendente" }, { operacao: "baixa", estado: "pendente" }]);
+    const criada = await naSessao(() => comReflexos.criarTarifa({ movimentoId: t4.id, fornecedorId: ids.fornecedor, descricao: `${marca} tarifa com reflexos` }, principal, AGORA));
+    expect(fatos.map((f) => [f.lancamentoId, f.tipo, f.mudanca])).toEqual([
+      [criada.lancamento.id, "saida", "criado"], [criada.lancamento.id, "saida", "pago"], [criada.lancamento.id, "saida", "conciliado"],
+    ]);
   }, PRAZO_MS);
 
   it("C5 no banco: só a tela Conciliação cria o que nasce pago nela, a despesa guiada só com a gerência, e as CHECKs seguram a origem", async () => {
@@ -443,9 +441,10 @@ describe.skipIf(!HABILITADO)("conciliação: extrato bancário no Postgres", () 
 
   // ------------------------------------------------------------ C6: transferência entre contas (março de 2027)
 
-  it("C6: a transferência cria as duas pernas, TR com número próprio, liquidadas no mesmo dia e valor, sem nada ao OMIE; só a gerência", async () => {
+  it("C6: a transferência cria as duas pernas, TR com número próprio, liquidadas no mesmo dia e valor, sem fato nos reflexos; só a gerência", async () => {
+    const fatos: FatoDoLancamento[] = [];
     const reflexos = new ReflexosDoLancamento();
-    reflexos.inscrever(new OmieReflexoDoLancamento(async () => true));
+    reflexos.inscrever({ aoMudar: async (_tx, fato) => { fatos.push(fato); } });
     const servico = new ConciliacaoService(new PrismaConciliacaoRepository(prisma, new AuditAppender(), reflexos), {} as never, () => AGORA);
     const gerente = { ...principal, acesso: { plataforma: null, departamentos: [{ departamento: "financeiro", nivel: "gerente", telas: ["financeiro.conciliacao"] }] } } as AuthPrincipal;
     const gerenteSoPagar = { ...principal, acesso: { plataforma: null, departamentos: [{ departamento: "financeiro", nivel: "gerente", telas: ["financeiro.pagar"] }] } } as AuthPrincipal;
@@ -467,8 +466,8 @@ describe.skipIf(!HABILITADO)("conciliação: extrato bancário no Postgres", () 
     const numero = Number(r.transferencia.codigo.slice(3));
     expect(pernas.every((l) => l.numero === numero)).toBe(true);
     expect(pernas.map((l) => (l.pagoEm ?? l.recebidoEm)?.toISOString())).toEqual(["2026-11-20T04:00:00.000Z", "2026-11-20T04:00:00.000Z"]);
-    // Não é título: nada no outbox, mesmo com o conector ligado.
-    expect(await prisma.omieEnvio.count({ where: { lancamentoId: { in: pernas.map((l) => l.id) } } })).toBe(0);
+    // Não é título nem pagamento a terceiro: nenhum fato para os reflexos.
+    expect(fatos).toEqual([]);
   }, PRAZO_MS);
 
   it("C6: da linha sem par, a perna da linha nasce conciliada e a outra espera o extrato da outra conta; a lista e o detalhe mostram a transferência", async () => {

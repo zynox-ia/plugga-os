@@ -22,7 +22,6 @@ import { CadastroModule } from "./cadastro/cadastro.module";
 import { TarefasModule } from "./tarefas/tarefas.module";
 import { TelegramModule } from "./telegram/telegram.module";
 import { AutentiqueModule } from "./autentique/autentique.module";
-import { OmieModule } from "./omie/omie.module";
 import { AssinaturaIaModule } from "./ia-assinatura/assinatura-ia.module";
 import { GoogleCalendarModule } from "./google-calendar/google-calendar.module";
 import { LlmModule } from "./llm/llm.module";
@@ -80,7 +79,6 @@ const monorepoRootEnvPath = path.resolve(__dirname, "../../../.env");
     CadastroModule,
     TelegramModule,
     AutentiqueModule,
-    OmieModule,
     AssinaturaIaModule,
     JobsQueueModule,
     BitrixModule,

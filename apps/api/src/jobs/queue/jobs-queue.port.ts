@@ -56,7 +56,7 @@ export abstract class JobsQueue {
 
   /**
    * Agenda o job para rodar a cada `intervaloMs`, de forma idempotente pelo id (ex.:
-   * o despacho da fila do OMIE a cada 30 min). Sem a fila, devolve `agendado: false`.
+   * um despacho a cada 30 min). Sem a fila, devolve `agendado: false`.
    */
   // Os parâmetros são o contrato que a fila real implementa; aqui, sem fila, não são usados.
   // eslint-disable-next-line @typescript-eslint/no-unused-vars

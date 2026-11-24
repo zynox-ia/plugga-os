@@ -3,9 +3,9 @@ import type { Prisma } from "@prisma/client";
 import type { EtapaDeLancamento, TipoDeLancamento } from "@plugga/shared";
 
 /**
- * O que mudou num lançamento, em termos do Financeiro (decisão do André de 24/11/2026:
- * o Plugga OS é o dono do financeiro; os sistemas de fora são conectores desligáveis).
- * O núcleo avisa o fato; cada conector decide o que fazer com ele.
+ * O que mudou num lançamento, em termos do Financeiro. O núcleo avisa o fato; quem estiver
+ * inscrito decide o que fazer com ele. Hoje ninguém se inscreve: a integração com o OMIE foi
+ * extinta (decisão do André de 24/11/2026). A porta fica para os provedores de boleto e NF.
  */
 export type MudancaDoLancamento =
   | "criado"
@@ -32,16 +32,15 @@ export type FatoDoLancamento = {
   porId: string;
 };
 
-/** Um conector que reflete os lançamentos para fora (o OMIE é um). */
+/** Quem ouve os fatos dos lançamentos (um provedor de boleto ou de NF, no futuro). */
 export interface ReflexoDoLancamento {
   /** Roda na transação da mudança: o que ele grava entra junto ou não entra. */
   aoMudar(tx: Prisma.TransactionClient, fato: FatoDoLancamento): Promise<void>;
 }
 
 /**
- * Os conectores inscritos. O Financeiro não conhece nenhum: cada conector se inscreve
- * ao subir (o módulo dele importa o Financeiro, nunca o contrário). Sem conector
- * inscrito, ou com ele desligado, o Financeiro funciona inteiro.
+ * Os inscritos. O Financeiro não conhece nenhum: cada um se inscreve ao subir (o módulo
+ * dele importa o Financeiro, nunca o contrário). Sem inscrito, o Financeiro funciona inteiro.
  */
 @Injectable()
 export class ReflexosDoLancamento {

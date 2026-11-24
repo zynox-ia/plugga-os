@@ -69,17 +69,12 @@ function resumoDoHistorico(h: ItemDoHistorico): { tipo: EventoDoLancamento["tipo
       return { tipo: "cobranca_registrada", resumo: `Cobrança por ${String(d.canal ?? "contato")}` };
     case "anexo_enviado":
       return { tipo: "anexo_enviado", resumo: `${NOME_DO_ANEXO[d.anexo as TipoDeAnexo] ?? "Anexo"} anexado` };
-    case "omie":
-      // As linhas do conector do OMIE: o "Tentar de novo" e a pausa enquanto a conexão está desligada.
-      if (d.acao === "tentar_de_novo") return { tipo: "omie", resumo: "Envio ao OMIE pedido de novo" };
-      if (d.acao === "pausado") return { tipo: "omie", resumo: "Envio ao OMIE pausado: conexão desligada" };
-      if (d.acao === "retomado") return { tipo: "omie", resumo: "Envio ao OMIE retomado: conexão religada" };
-      return null;
     case "conciliado":
       // O marco "Conciliado com o extrato" vem das colunas; no histórico, só o desfazer (o motivo vai no texto).
       return d.acao === "desfeito" ? { tipo: "conciliado", resumo: "Conciliação desfeita" } : null;
     case "anexo_substituido":
       return { tipo: "anexo_substituido", resumo: `${NOME_DO_ANEXO[d.anexo as TipoDeAnexo] ?? "Anexo"} substituído; o anterior segue no histórico` };
+    // Os itens antigos do OMIE (integração extinta em 24/11/2026) e os desconhecidos não aparecem.
     default:
       return null;
   }
