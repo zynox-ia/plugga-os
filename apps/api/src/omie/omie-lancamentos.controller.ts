@@ -12,10 +12,7 @@ import { FinanceiroHabilitadoGuard } from "../financeiro/financeiro-habilitado.g
 import { FinanceiroService, RELOGIO_DO_FINANCEIRO } from "../financeiro/financeiro.service";
 import { PrismaOmieLancamentosRepository } from "./prisma-omie-lancamentos.repository";
 
-/**
- * A rota é do conector (`/integracoes/omie/lancamentos/:id/tentar-de-novo`). A antiga, sob
- * /financeiro, fica como alias até a web trocar, e sai depois.
- */
+/** O "Tentar de novo" é do conector (`/integracoes/omie/lancamentos/:id/tentar-de-novo`). */
 @Controller()
 @UseGuards(FinanceiroHabilitadoGuard, SessionAuthGuard, AcessoGuard)
 // O mesmo acesso da rota antiga do FinanceiroController: departamento e tela.
@@ -32,19 +29,7 @@ export class OmieLancamentosController {
   @Post("integracoes/omie/lancamentos/:id/tentar-de-novo")
   @HttpCode(200)
   @UseGuards(OriginCheckGuard, ThrottlerGuard)
-  tentarDeNovo(@Param("id", ParseUUIDPipe) id: string, @CurrentPrincipal() principal: AuthPrincipal): Promise<Lancamento> {
-    return this.executar(id, principal);
-  }
-
-  /** Alias da rota antiga, até a web chamar a do conector. */
-  @Post("financeiro/lancamentos/:id/omie/tentar-de-novo")
-  @HttpCode(200)
-  @UseGuards(OriginCheckGuard, ThrottlerGuard)
-  tentarDeNovoPeloFinanceiro(@Param("id", ParseUUIDPipe) id: string, @CurrentPrincipal() principal: AuthPrincipal): Promise<Lancamento> {
-    return this.executar(id, principal);
-  }
-
-  private async executar(id: string, principal: AuthPrincipal): Promise<Lancamento> {
+  async tentarDeNovo(@Param("id", ParseUUIDPipe) id: string, @CurrentPrincipal() principal: AuthPrincipal): Promise<Lancamento> {
     await this.omie.tentarDeNovo(id, principal, this.agora());
     return this.financeiro.obter(id, principal);
   }

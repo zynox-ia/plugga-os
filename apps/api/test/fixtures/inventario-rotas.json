@@ -1876,24 +1876,6 @@
     ]
   },
   {
-    "metodo": "POST",
-    "caminho": "/financeiro/lancamentos/:id/omie/tentar-de-novo",
-    "controller": "OmieLancamentosController.tentarDeNovoPeloFinanceiro",
-    "acesso": "acesso",
-    "papeis": [
-      "tela:financeiro.pagar",
-      "tela:financeiro.receber",
-      "departamento:financeiro:membro"
-    ],
-    "guards": [
-      "FinanceiroHabilitadoGuard",
-      "SessionAuthGuard",
-      "AcessoGuard",
-      "OriginCheckGuard",
-      "ThrottlerGuard"
-    ]
-  },
-  {
     "metodo": "GET",
     "caminho": "/financeiro/lancamentos/quadro",
     "controller": "FinanceiroController.quadro",
