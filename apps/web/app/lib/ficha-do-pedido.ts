@@ -1,6 +1,29 @@
-import { etapasDeCompra, rotulosDaEtapaDeCompra, rotulosDaFormaDePagamento, type EtapaDeCompra, type PedidoDeCompra } from "@plugga/shared";
+import { etapasDeCompra, rotulosDaEtapaDeCompra, rotulosDaFormaDePagamento, type Acesso, type ContaAPagarDoPedido, type EtapaDeCompra, type PedidoDeCompra } from "@plugga/shared";
 
+import { podeAbrirPagina } from "./acesso-paginas.ts";
 import { diaCurto, hojeEmManaus, valorEmReais } from "./compras.ts";
+import { hrefDosLancamentos } from "./financeiro.ts";
+import type { AmbienteDosRecursos } from "./recursos.ts";
+
+const ROTULO_DA_ETAPA_DA_CONTA: Record<ContaAPagarDoPedido["etapa"], string> = {
+  aberta: "Aberta", aprovada: "Aprovada", paga: "Paga", conciliada: "Conciliada",
+};
+
+/**
+ * O vínculo do pedido com a conta a pagar que a aprovação gerou no Financeiro (W3,
+ * PLU-341): o código, a etapa da conta (ou "Cancelada") e o link para a ficha do
+ * lançamento. Só para quem abre os Lançamentos (a conferência já cobre o portão do
+ * Financeiro); para os demais, e sem conta, nada aparece. `ambiente` só existe para o
+ * teste do portão; a tela usa o do build.
+ */
+export function vinculoDaContaAPagar(conta: ContaAPagarDoPedido | null | undefined, acesso: Acesso | null | undefined, ambiente?: AmbienteDosRecursos): { codigo: string; situacao: string; href: string } | null {
+  if (!conta || !acesso || !podeAbrirPagina(acesso, "/financeiro/lancamentos", ambiente)) return null;
+  return {
+    codigo: conta.codigo,
+    situacao: conta.cancelado ? "Cancelada" : ROTULO_DA_ETAPA_DA_CONTA[conta.etapa],
+    href: hrefDosLancamentos({}, conta.id),
+  };
+}
 
 /**
  * Ficha do pedido de compra (PLU-328): contas e textos que a tela mostra a

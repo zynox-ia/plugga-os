@@ -2,10 +2,12 @@
 
 import { etapasDeCompra, rotulosDaEtapaDeCompra, rotulosDaFormaDePagamento, rotulosDoDestinoDeCompra, type AcaoDoPedido, type FormaDePagamento, type PedidoDeCompra } from "@plugga/shared";
 import { ArrowRight, Ban, Check, Send, ShoppingCart, Truck, Undo2, Wallet, X } from "lucide-react";
+import Link from "next/link";
 import { useState } from "react";
 
 import { dataEmManaus, decimalDigitado, hojeEmManaus, ROTULO_DA_EMPRESA, diaCurto, diaLegivel, valorEmReais } from "../../lib/compras";
-import { etapasPuladas, prazoDaEtapaAtual, resumoDaTrilha } from "../../lib/ficha-do-pedido";
+import { etapasPuladas, prazoDaEtapaAtual, resumoDaTrilha, vinculoDaContaAPagar } from "../../lib/ficha-do-pedido";
+import { useSessionUser } from "../../lib/use-session-user";
 import { Avatar } from "../pipelines/icones";
 import visao from "../pipelines/resumo-do-lead.module.css";
 import { entradaDoRecebimento, entradaInicial, type EstadoDaEntrada } from "../suprimentos/ligacao-com-estoque";
@@ -58,6 +60,9 @@ export function VisaoGeralDoPedido({ pedido, hoje, ocupado, aoAgir, aoPedirMotiv
   aoVerCotacoes: () => void; aoNovaCotacao: () => void; aoComprovante: (arquivo: File) => void;
 }) {
   const escolhida = pedido.cotacoes.find((c) => c.id === pedido.cotacaoSelecionadaId);
+  // A conta a pagar que a aprovação gerou no Financeiro (PLU-341), para quem abre os Lançamentos.
+  const { usuario } = useSessionUser();
+  const conta = vinculoDaContaAPagar(pedido.contaAPagar, usuario?.acesso);
   const [forma, setForma] = useState<FormaDePagamento | null>(pedido.pagamento?.forma ?? null);
   const [valorFaturado, setValorFaturado] = useState(() => (pedido.valorCotado ? displayCurrency(Number(pedido.valorCotado).toFixed(2)) : ""));
   const [erros, setErros] = useState<{ forma?: string; valor?: string; recebidoEm?: string }>({});
@@ -131,6 +136,7 @@ export function VisaoGeralDoPedido({ pedido, hoje, ocupado, aoAgir, aoPedirMotiv
         <div><dt>Estoque ou compra</dt><dd>{pedido.origemAtendimento === "estoque" ? "Atendido pelo estoque" : pedido.origemAtendimento === "aquisicao" ? "Compra externa" : "A decidir na análise"}{pedido.marcos.estoqueDecidido?.por ? <small>Decidido por {pedido.marcos.estoqueDecidido.por.nome}</small> : null}</dd></div>
         <div><dt>Valor orçado</dt><dd>{valorEmReais(pedido.valorOrcado) ?? "Não informado"}</dd></div>
         <div><dt>{pedido.valorFaturado ? "Valor faturado" : "Cotação vencedora"}</dt><dd>{pedido.valorFaturado ? valorEmReais(pedido.valorFaturado) : escolhida ? <>{valorEmReais(escolhida.valorTotal)}<small>{escolhida.fornecedor.nome}{pedido.pagamento ? ` · pago por ${rotulosDaFormaDePagamento[pedido.pagamento.forma]} em ${dataEmManaus(pedido.pagamento.registrado.em)}` : escolhida.prazoEntregaDias ? ` · entrega em ${escolhida.prazoEntregaDias} dias úteis` : ""}</small></> : "—"}</dd></div>
+        {conta ? <div><dt>Conta a pagar</dt><dd><Link href={conta.href}>{conta.codigo} no Financeiro</Link><small>{conta.situacao}</small></dd></div> : null}
       </dl>
     </section>
 

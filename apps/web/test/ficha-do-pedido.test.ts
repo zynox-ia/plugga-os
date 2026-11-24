@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import type { PedidoDeCompra } from "@plugga/shared";
+import type { Acesso, PedidoDeCompra } from "@plugga/shared";
 
 import {
   atividadesDoPedido,
@@ -14,6 +14,7 @@ import {
   horaEmManaus,
   prazoDaEtapaAtual,
   resumoDaTrilha,
+  vinculoDaContaAPagar,
 } from "../app/lib/ficha-do-pedido.ts";
 
 const A = "0b7e1c6a-1f2d-4c3b-9a8e-111111111111";
@@ -130,5 +131,27 @@ describe("trilha resumida em 390 px", () => {
     assert.deepEqual(resumoDaTrilha({ etapa: "retirada", situacao: "em_andamento", origemAtendimento: "estoque" }), { posicao: 3, total: 4, atual: "Retirada", proxima: "Concluído" });
     assert.deepEqual(resumoDaTrilha({ etapa: "concluido", situacao: "concluido", origemAtendimento: "aquisicao" }), { posicao: 7, total: 7, atual: "Concluído", proxima: null });
     assert.deepEqual(resumoDaTrilha({ etapa: "pagamento", situacao: "cancelado", origemAtendimento: "aquisicao" }), { posicao: 5, total: 7, atual: "Cancelado em Pagamento", proxima: null });
+  });
+});
+
+describe("conta a pagar do pedido (PLU-341)", () => {
+  const ligado = { NODE_ENV: "production", NEXT_PUBLIC_FINANCEIRO_HABILITADO: "true" };
+  const desligado = { NODE_ENV: "production" };
+  const comLancamentos: Acesso = { plataforma: null, departamentos: [{ departamento: "financeiro", nivel: "membro", telas: ["financeiro.pagar"] }] };
+  const soCompras: Acesso = { plataforma: null, departamentos: [{ departamento: "suprimentos", nivel: "membro", telas: ["suprimentos.compras"] }] };
+  const conta = { id: A, codigo: "CP-0412", etapa: "aprovada" as const, cancelado: false };
+
+  it("mostra o código, a etapa e o link da ficha do lançamento para quem abre os Lançamentos", () => {
+    assert.deepEqual(vinculoDaContaAPagar(conta, comLancamentos, ligado), { codigo: "CP-0412", situacao: "Aprovada", href: `/financeiro/lancamentos?lancamento=${A}` });
+    assert.equal(vinculoDaContaAPagar({ ...conta, etapa: "paga" }, comLancamentos, ligado)?.situacao, "Paga");
+    assert.equal(vinculoDaContaAPagar({ ...conta, etapa: "conciliada", cancelado: true }, comLancamentos, ligado)?.situacao, "Cancelada");
+  });
+
+  it("não aparece sem conta, sem a tela dos Lançamentos ou com o Financeiro desligado", () => {
+    assert.equal(vinculoDaContaAPagar(null, comLancamentos, ligado), null);
+    assert.equal(vinculoDaContaAPagar(undefined, comLancamentos, ligado), null);
+    assert.equal(vinculoDaContaAPagar(conta, null, ligado), null);
+    assert.equal(vinculoDaContaAPagar(conta, soCompras, ligado), null);
+    assert.equal(vinculoDaContaAPagar(conta, comLancamentos, desligado), null);
   });
 });

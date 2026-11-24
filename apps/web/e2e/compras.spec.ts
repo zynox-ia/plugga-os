@@ -73,6 +73,10 @@ test("pedido de compra vai de Pedido gerado a Concluído pela ficha", async ({ p
   await expect(ficha(page).locator(".aviso--sucesso")).toHaveText("Pedido enviado para aprovação.");
   await ficha(page).getByRole("button", { name: "Aprovar compra" }).click();
   await expect(ficha(page).locator(".aviso--sucesso")).toHaveText("Compra aprovada.");
+  // A aprovação gera a conta a pagar no Financeiro (PLU-341): a ficha mostra o vínculo, já aprovada.
+  const conta = ficha(page).getByRole("link", { name: /^CP-\d{4,} no Financeiro$/ });
+  await expect(conta).toHaveAttribute("href", /^\/financeiro\/lancamentos\?lancamento=[0-9a-f-]{36}$/);
+  await expect(conta.locator("xpath=..")).toContainText("Aprovada");
 
   await ficha(page).getByRole("button", { name: "Registrar pagamento" }).click();
   await expect(ficha(page).getByText("Erro: escolha a forma de pagamento.")).toBeVisible();
