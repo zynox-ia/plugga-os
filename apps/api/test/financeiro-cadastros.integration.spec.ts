@@ -4,7 +4,7 @@ import { criarCategoriaFinanceiraSchema, criarContaCorrenteSchema, editarCategor
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { AuditAppender } from "../src/audit/audit-appender.js";
-import { Conflito } from "../src/common/errors/dominio.js";
+import { Conflito, RequisicaoInvalida } from "../src/common/errors/dominio.js";
 import type { AuthPrincipal } from "../src/core/auth/auth.types.js";
 import { PrismaCadastrosDoFinanceiroRepository } from "../src/financeiro/prisma-cadastros-do-financeiro.repository.js";
 import { contextoBanco } from "../src/prisma/contexto-banco.js";
@@ -79,6 +79,21 @@ describe.skipIf(!HABILITADO)("cadastros do Financeiro no Postgres", () => {
     await como("gerente", () => cadastros.criarCategoria(categoria(`8.${sufixo}.02`), pessoas.gerente));
     await como("gerente", () => cadastros.criarCategoria(categoria(`8.${sufixo}.02`, "waze"), pessoas.gerente));
     await expect(como("gerente", () => cadastros.criarCategoria(categoria(`8.${sufixo}.02`), pessoas.gerente))).rejects.toBeInstanceOf(Conflito);
+  }, PRAZO_MS);
+
+  it("o grupo (prefixo do código) tem um nome só: outro nome na criação é recusado, e o nome só muda com a categoria sozinha no grupo", async () => {
+    const noGrupo = (codigo: string, grupoNome: string) => ({ ...categoria(codigo), grupoNome });
+    const sozinha = await como("gerente", () => cadastros.criarCategoria(noGrupo(`7.${sufixo}.01`, `${marca} G1`), pessoas.gerente));
+    // Sozinha no grupo, o nome muda.
+    expect((await como("gerente", () => cadastros.editarCategoria(sozinha.id, { grupoNome: `${marca} G2` }, pessoas.gerente))).grupo).toEqual({ codigo: `7.${sufixo}`, nome: `${marca} G2` });
+    await expect(como("gerente", () => cadastros.criarCategoria(noGrupo(`7.${sufixo}.02`, `${marca} outro`), pessoas.gerente)))
+      .rejects.toMatchObject({ message: `O grupo 7.${sufixo} já se chama "${marca} G2".` });
+    await como("gerente", () => cadastros.criarCategoria(noGrupo(`7.${sufixo}.02`, `${marca} G2`), pessoas.gerente));
+    // Com outra no grupo, renomear só uma é recusado; o resto da edição segue.
+    await expect(como("gerente", () => cadastros.editarCategoria(sozinha.id, { grupoNome: `${marca} G3` }, pessoas.gerente))).rejects.toBeInstanceOf(RequisicaoInvalida);
+    expect((await como("gerente", () => cadastros.editarCategoria(sozinha.id, { nome: `${marca} renomeada no grupo` }, pessoas.gerente))).nome).toBe(`${marca} renomeada no grupo`);
+    // Outra empresa tem os grupos dela.
+    await como("gerente", () => cadastros.criarCategoria({ ...noGrupo(`7.${sufixo}.01`, `${marca} da Waze`), empresa: "waze" }, pessoas.gerente));
   }, PRAZO_MS);
 
   it("a gerência cadastra e edita a conta corrente; banco vazio vira nulo", async () => {

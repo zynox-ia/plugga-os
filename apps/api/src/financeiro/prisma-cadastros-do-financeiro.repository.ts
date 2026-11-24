@@ -12,7 +12,7 @@ import type {
 } from "@plugga/shared";
 
 import { AuditAppender } from "../audit/audit-appender";
-import { Conflito, NaoEncontrado } from "../common/errors/dominio";
+import { Conflito, NaoEncontrado, RequisicaoInvalida } from "../common/errors/dominio";
 import type { AuthPrincipal } from "../core/auth/auth.types";
 import { PrismaService } from "../prisma/prisma.service";
 
@@ -26,7 +26,7 @@ export const paraCategoria = (c: LinhaDaCategoria): CategoriaFinanceira => ({
   nome: c.nome,
   tipo: c.tipo,
   natureza: c.natureza,
-  grupo: { codigo: c.codigo.split(".").slice(0, 2).join("."), nome: c.grupoNome },
+  grupo: { codigo: prefixoDoGrupo(c.codigo), nome: c.grupoNome },
   ativa: c.ativa,
 });
 
@@ -41,6 +41,9 @@ export const paraConta = (c: LinhaDaConta): ContaCorrente => ({
   saldoLidoEm: c.saldoLidoEm?.toISOString() ?? null,
   ativa: c.ativa,
 });
+
+/** O grupo é o prefixo de dois níveis do código ("2.01" de "2.01.07"). */
+const prefixoDoGrupo = (codigo: string): string => codigo.split(".").slice(0, 2).join(".");
 
 /** Os campos que mudaram, para o evento: nomes, nunca valores. */
 const camposAlterados = <T extends object>(antes: T, depois: Partial<T>): string[] =>
@@ -61,6 +64,12 @@ export class PrismaCadastrosDoFinanceiroRepository {
   async criarCategoria(input: CriarCategoriaFinanceira, principal: AuthPrincipal): Promise<CategoriaFinanceira> {
     try {
       return await this.prisma.comContexto(async (tx) => {
+        // O grupo é o prefixo do código ("2.01"): a tela agrupa por ele, então o nome é um só.
+        const nomes = await this.nomesDoGrupo(tx, input.empresa, input.codigo);
+        if (nomes.length > 0 && !nomes.includes(input.grupoNome)) {
+          const problema = `O grupo ${prefixoDoGrupo(input.codigo)} já se chama "${nomes[0]}".`;
+          throw new RequisicaoInvalida(problema, [{ campo: "grupoNome", problema }]);
+        }
         const criada = await tx.categoriaFinanceira.create({
           data: { companyId: input.empresa, codigo: input.codigo, nome: input.nome, tipo: input.tipo, natureza: input.natureza, grupoNome: input.grupoNome },
         });
@@ -81,6 +90,11 @@ export class PrismaCadastrosDoFinanceiroRepository {
       if (!antes) throw new NaoEncontrado("Categoria não encontrada.");
       const campos = camposAlterados({ nome: antes.nome, natureza: antes.natureza, grupoNome: antes.grupoNome, ativa: antes.ativa }, input);
       if (campos.length === 0) return paraCategoria(antes);
+      if (campos.includes("grupoNome") && (await this.nomesDoGrupo(tx, antes.companyId, antes.codigo, id)).length > 0) {
+        // Renomear o grupo inteiro ainda não entra (decisão do Coordenador, 24/11/2026).
+        const problema = `O nome do grupo vale para todas as categorias do ${prefixoDoGrupo(antes.codigo)}; renomear o grupo inteiro ainda não está disponível.`;
+        throw new RequisicaoInvalida(problema, [{ campo: "grupoNome", problema }]);
+      }
       const depois = await tx.categoriaFinanceira.update({ where: { id }, data: input });
       await this.registrar(tx, "financeiro.categoria.updated", "categoria_financeira", id, depois.companyId, principal, { codigo: depois.codigo, campos });
       return paraCategoria(depois);
@@ -107,6 +121,17 @@ export class PrismaCadastrosDoFinanceiroRepository {
       await this.registrar(tx, "financeiro.conta_corrente.updated", "conta_corrente", id, depois.companyId, principal, { campos });
       return paraConta(depois);
     });
+  }
+
+  /** Os nomes do grupo do código na empresa, fora a própria categoria. */
+  private async nomesDoGrupo(tx: Prisma.TransactionClient, empresa: string, codigo: string, exceto?: string): Promise<string[]> {
+    const outras = await tx.categoriaFinanceira.findMany({
+      where: { companyId: empresa, codigo: { startsWith: `${prefixoDoGrupo(codigo)}.` }, ...(exceto ? { id: { not: exceto } } : {}) },
+      select: { grupoNome: true },
+      distinct: ["grupoNome"],
+      orderBy: { grupoNome: "asc" },
+    });
+    return outras.map((c) => c.grupoNome);
   }
 
   private registrar(
