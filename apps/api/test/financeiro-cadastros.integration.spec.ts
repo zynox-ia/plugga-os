@@ -1,0 +1,135 @@
+import { randomBytes, randomUUID } from "node:crypto";
+
+import { criarCategoriaFinanceiraSchema, criarContaCorrenteSchema, editarCategoriaFinanceiraSchema, editarContaCorrenteSchema } from "@plugga/shared";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+
+import { AuditAppender } from "../src/audit/audit-appender.js";
+import { Conflito } from "../src/common/errors/dominio.js";
+import type { AuthPrincipal } from "../src/core/auth/auth.types.js";
+import { PrismaCadastrosDoFinanceiroRepository } from "../src/financeiro/prisma-cadastros-do-financeiro.repository.js";
+import { contextoBanco } from "../src/prisma/contexto-banco.js";
+import { PrismaService } from "../src/prisma/prisma.service.js";
+
+/**
+ * O plano de contas e as contas correntes do Plugga OS (PLU-342, S3b) contra o Postgres:
+ * a gerência do Financeiro grava, o membro só lê (o RLS barra mesmo sem o controller), o
+ * código é único por empresa, e código, tipo, empresa e saldo não mudam pela aplicação.
+ *
+ *     pnpm --filter @plugga/api test:financeiro
+ */
+const HABILITADO = process.env.RUN_FINANCEIRO_INTEGRATION_TESTS === "true";
+const PRAZO_MS = 60_000;
+const TELAS = ["financeiro.pagar", "financeiro.receber"];
+
+describe.skipIf(!HABILITADO)("cadastros do Financeiro no Postgres", () => {
+  const prisma = new PrismaService();
+  const cadastros = new PrismaCadastrosDoFinanceiroRepository(prisma, new AuditAppender());
+  const marca = `cad-${randomUUID().slice(0, 8)}`;
+  const sufixo = String(parseInt(marca.slice(4), 16) % 90 + 10);
+  const sessoes = { gerente: randomBytes(32).toString("hex"), membro: randomBytes(32).toString("hex") };
+  const pessoas: Record<keyof typeof sessoes, AuthPrincipal> = {} as never;
+  const como = <T>(quem: keyof typeof sessoes, fazer: () => Promise<T>) => contextoBanco.run({ sessionHash: sessoes[quem], agentHash: undefined }, fazer);
+  /** Como o pool da aplicação (o RLS vale), com a sessão de quem. A conexão do teste é de superusuário. */
+  const comoRuntime = <T>(fazer: (tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0]) => Promise<T>, quem: keyof typeof sessoes = "gerente") => prisma.$transaction(async (tx) => {
+    await tx.$executeRawUnsafe("SET LOCAL ROLE plugga_runtime");
+    await tx.$executeRaw`SELECT set_config('plugga.session_hash', ${sessoes[quem]}, true)`;
+    return fazer(tx);
+  });
+  const categoria = (codigo: string, empresa: "plugga" | "waze" = "plugga") => criarCategoriaFinanceiraSchema.parse({
+    empresa, codigo, nome: `${marca} ${codigo}`, tipo: "despesa", natureza: "servico", grupoNome: `${marca} grupo`,
+  });
+
+  beforeAll(async () => {
+    await prisma.$connect();
+    for (const id of ["plugga", "waze"]) await prisma.company.upsert({ where: { id }, create: { id, name: id }, update: {} });
+    for (const nivel of ["gerente", "membro"] as const) {
+      const pessoa = await prisma.user.create({ data: { email: `${marca}-${nivel}@teste.local`, name: `${marca} ${nivel}` } });
+      await prisma.userDepartamento.create({ data: { userId: pessoa.id, departamento: "financeiro", nivel, telas: TELAS } });
+      await prisma.session.create({ data: { userId: pessoa.id, tokenHash: sessoes[nivel], expiresAt: new Date(Date.now() + 3_600_000), absoluteExpiresAt: new Date(Date.now() + 7_200_000) } });
+      pessoas[nivel] = { id: pessoa.id, kind: "user", acesso: { plataforma: null, departamentos: [{ departamento: "financeiro", nivel, telas: TELAS }] } } as never;
+    }
+  }, PRAZO_MS);
+
+  afterAll(async () => {
+    await prisma.categoriaFinanceira.deleteMany({ where: { nome: { startsWith: marca } } });
+    await prisma.contaCorrente.deleteMany({ where: { nome: { startsWith: marca } } });
+    await prisma.session.deleteMany({ where: { tokenHash: { in: Object.values(sessoes) } } });
+    await prisma.user.deleteMany({ where: { email: { startsWith: marca } } });
+    await prisma.$disconnect();
+  }, PRAZO_MS);
+
+  it("a gerência cadastra e edita a categoria; o evento leva o código e os nomes dos campos", async () => {
+    const criada = await como("gerente", () => cadastros.criarCategoria(categoria(`8.${sufixo}.01`), pessoas.gerente));
+    expect(criada).toMatchObject({ empresa: "plugga", codigo: `8.${sufixo}.01`, tipo: "despesa", grupo: { codigo: `8.${sufixo}`, nome: `${marca} grupo` }, ativa: true });
+
+    const editada = await como("gerente", () => cadastros.editarCategoria(criada.id, editarCategoriaFinanceiraSchema.parse({ nome: `${marca} renomeada`, ativa: false }), pessoas.gerente));
+    expect(editada).toMatchObject({ nome: `${marca} renomeada`, ativa: false, codigo: `8.${sufixo}.01` });
+
+    const eventos = await prisma.eventLog.findMany({ where: { entityId: criada.id }, orderBy: { occurredAt: "asc" }, select: { eventName: true, payload: true } });
+    expect(eventos).toEqual([
+      { eventName: "financeiro.categoria.created", payload: { codigo: `8.${sufixo}.01`, tipo: "despesa" } },
+      { eventName: "financeiro.categoria.updated", payload: { codigo: `8.${sufixo}.01`, campos: ["nome", "ativa"] } },
+    ]);
+    // Sem mudança, sem evento.
+    await como("gerente", () => cadastros.editarCategoria(criada.id, { ativa: false }, pessoas.gerente));
+    expect(await prisma.eventLog.count({ where: { entityId: criada.id } })).toBe(2);
+  }, PRAZO_MS);
+
+  it("o código é único por empresa: a mesma na outra empresa entra, repetida na mesma é 409", async () => {
+    await como("gerente", () => cadastros.criarCategoria(categoria(`8.${sufixo}.02`), pessoas.gerente));
+    await como("gerente", () => cadastros.criarCategoria(categoria(`8.${sufixo}.02`, "waze"), pessoas.gerente));
+    await expect(como("gerente", () => cadastros.criarCategoria(categoria(`8.${sufixo}.02`), pessoas.gerente))).rejects.toBeInstanceOf(Conflito);
+  }, PRAZO_MS);
+
+  it("a gerência cadastra e edita a conta corrente; banco vazio vira nulo", async () => {
+    const criada = await como("gerente", () => cadastros.criarConta(criarContaCorrenteSchema.parse({ empresa: "waze", nome: `${marca} caixa`, banco: "" }), pessoas.gerente));
+    expect(criada).toMatchObject({ empresa: "waze", nome: `${marca} caixa`, banco: null, saldo: null, ativa: true });
+    const editada = await como("gerente", () => cadastros.editarConta(criada.id, editarContaCorrenteSchema.parse({ banco: "Banco A", agencia: "0001" }), pessoas.gerente));
+    expect(editada).toMatchObject({ banco: "Banco A", agencia: "0001", numero: null });
+  }, PRAZO_MS);
+
+  it("RLS: a gerência grava pelo pool da aplicação; o membro lê, mas o banco recusa a gravação mesmo sem o controller", async () => {
+    const inserirConta = (nome: string) => (tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0]) =>
+      tx.$executeRaw`INSERT INTO public.contas_correntes (company_id, nome, updated_at) VALUES ('plugga', ${nome}, now())`;
+    const inserirCategoria = (codigo: string) => (tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0]) =>
+      tx.$executeRaw`INSERT INTO public.categorias_financeiras (company_id, codigo, nome, tipo, natureza, grupo_nome, updated_at)
+        VALUES ('plugga', ${codigo}, ${`${marca} ${codigo}`}, 'despesa', 'servico', 'Teste', now())`;
+
+    expect(await comoRuntime(inserirConta(`${marca} da gerência`), "gerente")).toBe(1);
+    expect(await comoRuntime(inserirCategoria(`8.${sufixo}.03`), "gerente")).toBe(1);
+    await expect(comoRuntime(inserirConta(`${marca} do membro`), "membro")).rejects.toThrow(/row-level security/);
+    await expect(comoRuntime(inserirCategoria(`8.${sufixo}.05`), "membro")).rejects.toThrow(/row-level security/);
+
+    // O membro vê a conta, mas o UPDATE não alcança a linha.
+    const vistas = await comoRuntime((tx) => tx.contaCorrente.count({ where: { nome: `${marca} da gerência` } }), "membro");
+    expect(vistas).toBe(1);
+    const mudadas = await comoRuntime((tx) => tx.$executeRaw`UPDATE public.contas_correntes SET nome = ${`${marca} mudada`} WHERE nome = ${`${marca} da gerência`}`, "membro");
+    expect(mudadas).toBe(0);
+    expect(await comoRuntime((tx) => tx.$executeRaw`UPDATE public.contas_correntes SET ativa = false WHERE nome = ${`${marca} da gerência`}`, "gerente")).toBe(1);
+  }, PRAZO_MS);
+
+  it("o SQL que o Prisma gera no cadastro cabe nos privilégios por coluna do pool da aplicação", async () => {
+    await comoRuntime(async (tx) => {
+      const c = await tx.categoriaFinanceira.create({ data: { companyId: "plugga", codigo: `8.${sufixo}.06`, nome: `${marca} pelo prisma`, tipo: "despesa", natureza: "servico", grupoNome: "Teste" } });
+      await tx.categoriaFinanceira.update({ where: { id: c.id }, data: { nome: `${marca} pelo prisma 2`, natureza: "outros", grupoNome: "Outro", ativa: false } });
+      const conta = await tx.contaCorrente.create({ data: { companyId: "plugga", nome: `${marca} conta pelo prisma`, banco: null, agencia: null, numero: null } });
+      await tx.contaCorrente.update({ where: { id: conta.id }, data: { nome: `${marca} conta pelo prisma 2`, banco: "B", agencia: "1", numero: "2", ativa: false } });
+    });
+    expect(await prisma.categoriaFinanceira.count({ where: { nome: `${marca} pelo prisma 2`, ativa: false } })).toBe(1);
+  }, PRAZO_MS);
+
+  it("código, tipo e empresa da categoria, e o saldo e o vínculo da conta, não mudam pela aplicação", async () => {
+    const criada = await como("gerente", () => cadastros.criarCategoria(categoria(`8.${sufixo}.04`), pessoas.gerente));
+    const conta = await como("gerente", () => cadastros.criarConta(criarContaCorrenteSchema.parse({ empresa: "plugga", nome: `${marca} imutável` }), pessoas.gerente));
+    for (const sql of [
+      `UPDATE public.categorias_financeiras SET codigo = '8.99.99' WHERE id = '${criada.id}'`,
+      `UPDATE public.categorias_financeiras SET tipo = 'receita' WHERE id = '${criada.id}'`,
+      `UPDATE public.categorias_financeiras SET company_id = 'waze' WHERE id = '${criada.id}'`,
+      `UPDATE public.contas_correntes SET saldo = 1 WHERE id = '${conta.id}'`,
+      `UPDATE public.contas_correntes SET omie_codigo = 'x' WHERE id = '${conta.id}'`,
+      `DELETE FROM public.contas_correntes WHERE id = '${conta.id}'`,
+    ]) {
+      await expect(comoRuntime((tx) => tx.$executeRawUnsafe(sql)), sql).rejects.toThrow(/permission denied/);
+    }
+  }, PRAZO_MS);
+});

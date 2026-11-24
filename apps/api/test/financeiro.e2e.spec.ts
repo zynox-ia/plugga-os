@@ -6,6 +6,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { AppModule } from "../src/app.module";
 import { Conflito } from "../src/common/errors/dominio";
 import { FinanceiroService } from "../src/financeiro/financeiro.service";
+import { PrismaCadastrosDoFinanceiroRepository } from "../src/financeiro/prisma-cadastros-do-financeiro.repository";
 import { PrismaOmieLancamentosRepository } from "../src/omie/prisma-omie-lancamentos.repository";
 
 const ID = "00000000-0000-4000-8000-000000000901";
@@ -31,6 +32,15 @@ const servico = {
 /** O conector do OMIE, também dublê: o "Tentar de novo" mora nele. */
 const conector = { tentarDeNovo: vi.fn().mockResolvedValue(undefined) };
 
+/** Os cadastros (S3b), dublê: o RLS e as regras têm a integração própria. */
+const cadastros = {
+  criarCategoria: vi.fn().mockResolvedValue({ id: ID }),
+  editarCategoria: vi.fn().mockResolvedValue({ id: ID }),
+  criarConta: vi.fn().mockResolvedValue({ id: ID }),
+  editarConta: vi.fn().mockResolvedValue({ id: ID }),
+};
+const CATEGORIA = { empresa: "waze", codigo: "2.01.07", nome: "Fretes", tipo: "despesa", natureza: "servico", grupoNome: "Despesas operacionais" };
+
 const CONTA = {
   empresa: "plugga", fornecedorId: ID, categoriaId: ID, contaCorrenteId: ID,
   descricao: "Honorários", valor: "3800.00", vencimento: "2026-11-28", forma: "boleto",
@@ -46,6 +56,7 @@ describe("financeiro API (e2e)", () => {
     const modulo = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(FinanceiroService).useValue(servico)
       .overrideProvider(PrismaOmieLancamentosRepository).useValue(conector)
+      .overrideProvider(PrismaCadastrosDoFinanceiroRepository).useValue(cadastros)
       .compile();
     app = modulo.createNestApplication();
     await app.init();
@@ -108,6 +119,38 @@ describe("financeiro API (e2e)", () => {
     await financeiro(http().post(`/integracoes/omie/lancamentos/${ID}/tentar-de-novo`)).expect(200);
     await financeiro(http().post(`/financeiro/lancamentos/${ID}/omie/tentar-de-novo`)).expect(200);
     expect(conector.tentarDeNovo.mock.calls.map((c) => c[0])).toEqual([ID, ID]);
+  });
+
+  it("cadastros: só a gerência do Financeiro e a plataforma gravam; o membro e outros departamentos não", async () => {
+    for (const f of Object.values(cadastros)) f.mockClear();
+    const gerente = como("financeiro:gerente");
+    for (const quem of [financeiro, como("suprimentos:gerente")]) {
+      await quem(http().post("/financeiro/categorias")).send(CATEGORIA).expect(403);
+      await quem(http().patch(`/financeiro/contas-correntes/${ID}`)).send({ ativa: false }).expect(403);
+    }
+    expect(cadastros.criarCategoria).not.toHaveBeenCalled();
+    await gerente(http().post("/financeiro/categorias")).send(CATEGORIA).expect(201);
+    await http().post("/financeiro/contas-correntes").set("x-dev-principal", "00000000-0000-4000-8000-000000000002").set("x-dev-plataforma", "admin").send({ empresa: "plugga", nome: "Caixa" }).expect(201);
+    await gerente(http().patch(`/financeiro/categorias/${ID}`)).send({ ativa: false }).expect(200);
+    await gerente(http().patch(`/financeiro/contas-correntes/${ID}`)).send({ banco: "Banco A" }).expect(200);
+    expect(cadastros.criarCategoria.mock.calls[0]?.[0]).toEqual(CATEGORIA);
+  });
+
+  it("cadastros: código no formato 2.01.01; código, tipo e empresa não mudam; edição vazia e id inválido são 400", async () => {
+    for (const f of Object.values(cadastros)) f.mockClear();
+    const gerente = como("financeiro:gerente");
+    for (const codigo of ["2.1.1", "2.01", "2.01.01.01", "A.01.01"]) {
+      await gerente(http().post("/financeiro/categorias")).send({ ...CATEGORIA, codigo }).expect(400);
+    }
+    await gerente(http().post("/financeiro/categorias")).send({ ...CATEGORIA, empresa: undefined }).expect(400);
+    for (const campo of [{ codigo: "2.01.08" }, { tipo: "receita" }, { empresa: "plugga" }]) {
+      await gerente(http().patch(`/financeiro/categorias/${ID}`)).send(campo).expect(400);
+    }
+    await gerente(http().patch(`/financeiro/categorias/${ID}`)).send({}).expect(400);
+    await gerente(http().patch(`/financeiro/contas-correntes/${ID}`)).send({ empresa: "waze" }).expect(400);
+    await gerente(http().patch(`/financeiro/contas-correntes/${ID}`)).send({ saldo: "10.00" }).expect(400);
+    await gerente(http().patch("/financeiro/categorias/x")).send({ ativa: false }).expect(400);
+    expect(Object.values(cadastros).every((f) => f.mock.calls.length === 0)).toBe(true);
   });
 
   it("editar não muda empresa nem valor", async () => {

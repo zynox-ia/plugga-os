@@ -908,10 +908,18 @@ describe.skipIf(!HABILITADO)("RLS: permissões no login real da aplicação", { 
       for (const nome of ["a", "gerente", "sem-tela"]) {
         expect(await ver(nome, saida), nome).toBeNull();
       }
-      // Os cadastros espelhados do OMIE: lê qualquer tela do Financeiro, ninguém grava pela aplicação.
+      // Os cadastros do Financeiro são do Plugga OS (S3b): lê qualquer tela do Financeiro;
+      // grava só a gerência ("financeiro" é gerente com Contas a receber) e a plataforma; nada se apaga.
       expect(await contexto("pagar", (tx) => tx.categoriaFinanceira.findUnique({ where: despesa, select: { id: true } }))).toEqual(despesa);
       expect(await contexto("a", (tx) => tx.categoriaFinanceira.findUnique({ where: despesa, select: { id: true } }))).toBeNull();
-      await expect(contexto("admin", (tx) => tx.categoriaFinanceira.create({ data: { companyId: empresaId, codigo: "9.9.3", nome: `${marca}-x`, tipo: "despesa", natureza: "outros", grupoNome: "RLS" } }))).rejects.toThrow();
+      const novaCategoria = (codigo: string) => ({ companyId: empresaId, codigo, nome: `${marca}-${codigo}`, tipo: "despesa" as const, natureza: "outros" as const, grupoNome: "RLS" });
+      await expect(contexto("pagar", (tx) => tx.categoriaFinanceira.create({ data: novaCategoria("9.9.3") }))).rejects.toThrow(/row-level security/);
+      await expect(contexto("financeiro", (tx) => tx.categoriaFinanceira.create({ data: novaCategoria("9.9.4"), select: { id: true } }))).resolves.toMatchObject({ id: expect.any(String) });
+      await expect(contexto("admin", (tx) => tx.categoriaFinanceira.create({ data: novaCategoria("9.9.5"), select: { id: true } }))).resolves.toMatchObject({ id: expect.any(String) });
+      expect((await contexto("pagar", (tx) => tx.categoriaFinanceira.updateMany({ where: despesa, data: { ativa: false } }))).count).toBe(0);
+      expect((await contexto("financeiro", (tx) => tx.categoriaFinanceira.updateMany({ where: despesa, data: { nome: `${marca}-desp-2` } }))).count).toBe(1);
+      await expect(contexto("admin", (tx) => tx.categoriaFinanceira.updateMany({ where: despesa, data: { codigo: "9.9.9" } }))).rejects.toThrow(/permission denied/);
+      await expect(contexto("admin", (tx) => tx.categoriaFinanceira.deleteMany({ where: despesa }))).rejects.toThrow(/permission denied/);
 
       // Quem só tem Contas a pagar cria saída, não entrada, e não altera a entrada.
       const novaSaida = { ...comum, tipo: "saida" as const, fornecedorId: fornecedor.id, categoriaId: despesa.id, descricao: `${marca}-saida-2`, etapa: "aberta" as const };

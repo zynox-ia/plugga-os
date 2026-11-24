@@ -155,6 +155,56 @@ export const contaCorrenteSchema = z.object({
 });
 export type ContaCorrente = z.infer<typeof contaCorrenteSchema>;
 
+// ---------------------------------------------------------------- cadastro (S3b)
+// O plano de contas e as contas correntes são do Plugga OS (decisão de 24/11/2026).
+// Só a gerência do Financeiro grava; quem lê é quem já lê as opções. Nada se apaga:
+// o cadastro sai dos menus com `ativa: false`, e o lançamento que já o usa continua.
+
+/** O código hierárquico próprio do Plugga OS: grupo, subgrupo e item ("2.01.01"). */
+export const codigoDaCategoriaSchema = z.string().trim().regex(/^\d\.\d{2}\.\d{2}$/, "Use o formato 2.01.01.");
+const nomeDoCadastro = z.string().trim().min(2, "Nome com ao menos 2 letras.").max(120);
+const campoDoBanco = (max: number) => z.string().trim().max(max).transform((v) => (v === "" ? null : v)).nullable();
+
+/** `POST financeiro/categorias`. A empresa é obrigatória; código e tipo não mudam depois. */
+export const criarCategoriaFinanceiraSchema = z.object({
+  empresa: companyKeySchema,
+  codigo: codigoDaCategoriaSchema,
+  nome: nomeDoCadastro,
+  tipo: tipoDeCategoriaSchema,
+  natureza: naturezaDeCategoriaSchema,
+  grupoNome: z.string().trim().min(2).max(80),
+}).strict();
+export type CriarCategoriaFinanceira = z.infer<typeof criarCategoriaFinanceiraSchema>;
+
+/** `PATCH financeiro/categorias/:id`: só nome, natureza, grupo e ativa. */
+export const editarCategoriaFinanceiraSchema = z.object({
+  nome: nomeDoCadastro,
+  natureza: naturezaDeCategoriaSchema,
+  grupoNome: z.string().trim().min(2).max(80),
+  ativa: z.boolean(),
+}).partial().strict().refine((v) => Object.keys(v).length > 0, "Nada para alterar.");
+export type EditarCategoriaFinanceira = z.infer<typeof editarCategoriaFinanceiraSchema>;
+
+/** `POST financeiro/contas-correntes`. Banco, agência e número são opcionais (o caixa não tem). */
+export const criarContaCorrenteSchema = z.object({
+  empresa: companyKeySchema,
+  nome: nomeDoCadastro,
+  banco: campoDoBanco(80).optional(),
+  agencia: campoDoBanco(20).optional(),
+  numero: campoDoBanco(30).optional(),
+}).strict();
+export type CriarContaCorrente = z.infer<typeof criarContaCorrenteSchema>;
+
+/** `PATCH financeiro/contas-correntes/:id`. A empresa não muda. */
+export const editarContaCorrenteSchema = z.object({
+  nome: nomeDoCadastro,
+  banco: campoDoBanco(80),
+  agencia: campoDoBanco(20),
+  numero: campoDoBanco(30),
+  ativa: z.boolean(),
+}).partial().strict().refine((v) => Object.keys(v).length > 0, "Nada para alterar.");
+export type EditarContaCorrente = z.infer<typeof editarContaCorrenteSchema>;
+
 /**
  * `GET financeiro/opcoes`: os menus dos formulários e dos filtros. Categorias e
  * contas das duas empresas, ativas e inativas (a tela filtra pela empresa e

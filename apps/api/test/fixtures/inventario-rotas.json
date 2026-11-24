@@ -1611,6 +1611,46 @@
     ]
   },
   {
+    "metodo": "POST",
+    "caminho": "/financeiro/categorias",
+    "controller": "CadastrosDoFinanceiroController.criarCategoria",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:financeiro.pagar",
+      "tela:financeiro.receber",
+      "tela:financeiro.conciliacao",
+      "tela:financeiro.fiscal",
+      "departamento:financeiro:gerente"
+    ],
+    "guards": [
+      "FinanceiroHabilitadoGuard",
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "PATCH",
+    "caminho": "/financeiro/categorias/:id",
+    "controller": "CadastrosDoFinanceiroController.editarCategoria",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:financeiro.pagar",
+      "tela:financeiro.receber",
+      "tela:financeiro.conciliacao",
+      "tela:financeiro.fiscal",
+      "departamento:financeiro:gerente"
+    ],
+    "guards": [
+      "FinanceiroHabilitadoGuard",
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
     "metodo": "GET",
     "caminho": "/financeiro/clientes",
     "controller": "FinanceiroController.buscarClientes",
@@ -1673,6 +1713,46 @@
       "FinanceiroHabilitadoGuard",
       "SessionAuthGuard",
       "AcessoGuard"
+    ]
+  },
+  {
+    "metodo": "POST",
+    "caminho": "/financeiro/contas-correntes",
+    "controller": "CadastrosDoFinanceiroController.criarConta",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:financeiro.pagar",
+      "tela:financeiro.receber",
+      "tela:financeiro.conciliacao",
+      "tela:financeiro.fiscal",
+      "departamento:financeiro:gerente"
+    ],
+    "guards": [
+      "FinanceiroHabilitadoGuard",
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
+    ]
+  },
+  {
+    "metodo": "PATCH",
+    "caminho": "/financeiro/contas-correntes/:id",
+    "controller": "CadastrosDoFinanceiroController.editarConta",
+    "acesso": "acesso",
+    "papeis": [
+      "tela:financeiro.pagar",
+      "tela:financeiro.receber",
+      "tela:financeiro.conciliacao",
+      "tela:financeiro.fiscal",
+      "departamento:financeiro:gerente"
+    ],
+    "guards": [
+      "FinanceiroHabilitadoGuard",
+      "SessionAuthGuard",
+      "AcessoGuard",
+      "OriginCheckGuard",
+      "ThrottlerGuard"
     ]
   },
   {

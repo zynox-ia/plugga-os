@@ -4,7 +4,9 @@ import { AuditModule } from "../audit/audit.module";
 import { CoreModule } from "../core/core.module";
 import { ArmazenamentoDeDocumentos } from "../lead-documentos/armazenamento-de-documentos";
 import { PrismaModule } from "../prisma/prisma.module";
+import { CadastrosDoFinanceiroController } from "./cadastros-do-financeiro.controller";
 import { ConectoresDoFinanceiro } from "./conectores-do-financeiro";
+import { PrismaCadastrosDoFinanceiroRepository } from "./prisma-cadastros-do-financeiro.repository";
 import { FinanceiroHabilitadoGuard } from "./financeiro-habilitado.guard";
 import { FinanceiroController } from "./financeiro.controller";
 import { FinanceiroService, RELOGIO_DO_FINANCEIRO } from "./financeiro.service";
@@ -19,9 +21,10 @@ import { ReflexosDoLancamento } from "./reflexo-do-lancamento";
  */
 @Module({
   imports: [AuditModule, CoreModule, PrismaModule],
-  controllers: [FinanceiroController],
+  controllers: [FinanceiroController, CadastrosDoFinanceiroController],
   providers: [
     FinanceiroHabilitadoGuard,
+    PrismaCadastrosDoFinanceiroRepository,
     ArmazenamentoDeDocumentos,
     FinanceiroService,
     PrismaFinanceiroRepository,

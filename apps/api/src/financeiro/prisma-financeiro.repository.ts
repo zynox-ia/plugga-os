@@ -5,10 +5,8 @@ import {
   LIMITE_DE_CARDS_POR_COLUNA,
   colunasDoQuadroFinanceiro,
   type AcaoDoLancamento,
-  type CategoriaFinanceira,
   type ColunaDoQuadroFinanceiro,
   type CompanyKey,
-  type ContaCorrente,
   type CriarCobranca,
   type CriarContaAPagar,
   type EditarLancamento,
@@ -55,6 +53,7 @@ import {
   type Plano,
 } from "./financeiro.rules";
 import { ConectoresDoFinanceiro } from "./conectores-do-financeiro";
+import { paraCategoria, paraConta } from "./prisma-cadastros-do-financeiro.repository";
 import { ReflexosDoLancamento, type MudancaDoLancamento } from "./reflexo-do-lancamento";
 
 /** O fato de cada ação de etapa, para os conectores. */
@@ -229,27 +228,8 @@ export class PrismaFinanceiroRepository {
     ]));
     return {
       ...(conectores ? { conectores } : {}),
-      categorias: categorias.map((c): CategoriaFinanceira => ({
-        id: c.id,
-        empresa: c.companyId as CompanyKey,
-        codigo: c.codigo,
-        nome: c.nome,
-        tipo: c.tipo,
-        natureza: c.natureza,
-        grupo: { codigo: c.codigo.split(".").slice(0, 2).join("."), nome: c.grupoNome },
-        ativa: c.ativa,
-      })),
-      contasCorrentes: contas.map((c): ContaCorrente => ({
-        id: c.id,
-        empresa: c.companyId as CompanyKey,
-        nome: c.nome,
-        banco: c.banco,
-        agencia: c.agencia,
-        numero: c.numero,
-        saldo: c.saldo?.toFixed(2) ?? null,
-        saldoLidoEm: c.saldoLidoEm?.toISOString() ?? null,
-        ativa: c.ativa,
-      })),
+      categorias: categorias.map(paraCategoria),
+      contasCorrentes: contas.map(paraConta),
       fornecedores,
       formasDePagamento: [...formasDoLancamento],
     };
@@ -602,7 +582,7 @@ export class PrismaFinanceiroRepository {
     const problema = !c ? "Escolha uma categoria do OMIE da empresa."
       : c.companyId !== empresa ? "A categoria é de outra empresa."
       : c.tipo !== (tipo === "saida" ? "despesa" : "receita") ? (tipo === "saida" ? "Conta a pagar usa categoria de despesa." : "Cobrança usa categoria de receita.")
-      : !c.ativa ? "A categoria está inativa no OMIE." : null;
+      : !c.ativa ? "A categoria está inativa." : null;
     if (problema) throw new RequisicaoInvalida(problema, [{ campo: "categoriaId", problema }]);
   }
 
@@ -610,7 +590,7 @@ export class PrismaFinanceiroRepository {
     const c = await tx.contaCorrente.findUnique({ where: { id }, select: { companyId: true, ativa: true } });
     const problema = !c ? "Escolha uma conta corrente da empresa."
       : c.companyId !== empresa ? "A conta corrente é de outra empresa."
-      : !c.ativa ? "A conta corrente está inativa no OMIE." : null;
+      : !c.ativa ? "A conta corrente está inativa." : null;
     if (problema) throw new RequisicaoInvalida(problema, [{ campo: "contaCorrenteId", problema }]);
   }
 

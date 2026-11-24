@@ -140,6 +140,11 @@ export const catalogoEventos = {
   "estoque.reserva.liberada": evento("Reserva de estoque liberada", "empresa"),
   // Financeiro (PLU-336). Sem PII: o motivo do cancelamento e a descrição ficam no lançamento, não no evento.
   "financeiro.lancamento.created": evento("Lançamento financeiro criado", "empresa"),
+  // Cadastros do Financeiro (PLU-342, S3b). Payload só com o código, o tipo e os nomes de campos.
+  "financeiro.categoria.created": evento("Categoria financeira cadastrada", "empresa"),
+  "financeiro.categoria.updated": evento("Categoria financeira alterada", "empresa"),
+  "financeiro.conta_corrente.created": evento("Conta corrente cadastrada", "empresa"),
+  "financeiro.conta_corrente.updated": evento("Conta corrente alterada", "empresa"),
   "financeiro.lancamento.updated": evento("Lançamento financeiro alterado", "empresa"),
   "financeiro.lancamento.aprovado": evento("Conta a pagar aprovada", "empresa"),
   "financeiro.lancamento.cancelado": evento("Lançamento financeiro cancelado", "empresa"),
