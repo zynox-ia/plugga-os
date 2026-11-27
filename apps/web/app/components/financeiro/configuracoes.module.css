@@ -41,6 +41,24 @@
 
 .vazio { margin: 0; padding: 24px 16px; text-align: center; font-size: 13px; color: var(--ui-muted); }
 
+/* Cadastro pela gerência (PLU-340, fatia 6): o botão no cabeçalho, o lápis da linha e a marca das tarifas. */
+.cabecalhoComAcao { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.tabela td.colunaDaAcao { width: 1%; text-align: right; }
+.colunaDaAcao :global(.ui-button) { border-radius: var(--radius-full); }
+.nota { margin: 0; font-size: 12.5px; color: var(--ui-muted); }
+.marcaDeTarifas { display: inline-flex; align-items: center; margin-left: 8px; padding: 0 8px; border: 1px solid var(--ui-divider); border-radius: var(--radius-full); font-size: 11.5px; font-weight: 500; line-height: 18px; color: var(--ui-text); background: var(--ui-subtle); }
+
+/* Preferências: um shape por empresa, lado a lado no desktop e empilhados no celular. */
+.preferencias { display: grid; gap: 12px; min-width: 0; }
+.gradeDePreferencias { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr)); gap: 12px; }
+.cartaoDaEmpresa { display: grid; gap: 12px; align-content: start; min-width: 0; padding: 14px 16px 16px; border: 1px solid var(--ui-divider); border-radius: var(--radius-xl); background: var(--ui-surface); }
+.cartaoDaEmpresa h3 { margin: 0; font-size: 15px; font-weight: 500; }
+.leitura { display: grid; gap: 2px; font-size: 13px; }
+.leitura span, .leitura small { font-size: 12px; color: var(--ui-muted); }
+.leitura strong { font-weight: 500; }
+.rodapeDasPreferencias { display: flex; align-items: center; justify-content: flex-end; gap: 12px; flex-wrap: wrap; }
+.rodapeDasPreferencias p { margin: 0 auto 0 0; font-size: 12.5px; color: var(--ui-muted); }
+
 /* No celular, cada linha vira um card com o rótulo da coluna, sem rolagem lateral. */
 @media (max-width: 720px) {
   /* Tela cheia, como no protótipo: o corpo do Dialog rola entre o cabeçalho e o
@@ -60,4 +78,9 @@
   .tabela td[data-l]:not(:first-child)::before { content: attr(data-l); display: block; margin-bottom: 2px; font-size: 11.5px; font-weight: 500; color: var(--ui-muted); }
   .abas, .filtro, .filtro > * { width: 100%; }
   .abas :global(.ui-tab) { flex: 1; justify-content: center; }
+  /* O lápis fica no canto do card, ao lado do nome, sem ocupar uma célula da grade. */
+  .tabela tbody tr:has(.colunaDaAcao) { position: relative; }
+  .tabela tbody tr:has(.colunaDaAcao) td:first-child { padding-right: 44px; }
+  .tabela td.colunaDaAcao { position: absolute; top: 10px; right: 12px; width: auto; }
+  .buscaCategorias > :global(.ui-button) { width: 100%; }
 }

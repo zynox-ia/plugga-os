@@ -5,7 +5,7 @@ import type { CategoriaFinanceira, CompanyKey, ContaCorrente, OpcoesDoFinanceiro
  * do Plugga OS em cada empresa, as mesmas dos menus dos lançamentos.
  */
 
-export type AbaDasConfiguracoes = "contas" | "categorias";
+export type AbaDasConfiguracoes = "contas" | "categorias" | "preferencias";
 
 /** Contas da empresa escolhida (ou das duas), ativas primeiro e depois pelo nome. */
 export function contasDaTela(opcoes: Pick<OpcoesDoFinanceiro, "contasCorrentes">, empresa: CompanyKey | null): ContaCorrente[] {
