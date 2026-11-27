@@ -4,6 +4,7 @@ import { CheckIcon, ChevronDown, SearchIcon } from "lucide-react";
 import { useId, useMemo, useRef, useState, type KeyboardEvent, type ReactElement, type ReactNode } from "react";
 
 import { agruparOpcoes } from "../../lib/agrupar-opcoes";
+import { avisoDeListaVazia, filtrarOpcoes, opcaoNoTab, temBusca } from "../../lib/menu-com-busca";
 import estilosFiltro from "../clientes/filtro-de-clientes.module.css";
 import estilosPipelines from "../pipelines/tela-pipelines.module.css";
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/shadcn/popover";
@@ -35,11 +36,6 @@ export type OpcaoDoMenu = {
   grupo?: string;
 };
 
-/** Acima disto a lista ganha o campo de busca. */
-export const LIMITE_SEM_BUSCA = 8;
-
-const normalizar = (v: string) => v.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLocaleLowerCase("pt-BR").trim();
-
 function ListaDoMenu({ id, rotulo, opcoes, valor, aoEscolher, aoFechar, variante, iconePadrao, sempreComBusca, dicaDaBusca = "Buscar…" }: {
   id: string; rotulo: string; opcoes: readonly OpcaoDoMenu[]; valor: string | undefined;
   aoEscolher: (v: string) => void; aoFechar: () => void; variante: "campo" | "filtro";
@@ -48,12 +44,13 @@ function ListaDoMenu({ id, rotulo, opcoes, valor, aoEscolher, aoFechar, variante
   sempreComBusca?: boolean; dicaDaBusca?: string;
 }) {
   const [busca, setBusca] = useState("");
+  const [focada, setFocada] = useState<string>();
   const lista = useRef<HTMLDivElement>(null);
-  const comBusca = opcoes.length > (sempreComBusca ? 0 : LIMITE_SEM_BUSCA);
-  const visiveis = useMemo(() => {
-    const q = normalizar(busca);
-    return q ? opcoes.filter((o) => normalizar(`${o.label} ${o.description ?? ""}`).includes(q)) : opcoes;
-  }, [busca, opcoes]);
+  const comBusca = temBusca(opcoes.length, sempreComBusca);
+  const visiveis = useMemo(() => filtrarOpcoes(opcoes, busca), [busca, opcoes]);
+  // No diálogo (sempreComBusca), a lista é uma parada do Tab; nos demais, só as setas chegam às opções.
+  const noTab = sempreComBusca ? opcaoNoTab(visiveis, focada, valor) : undefined;
+  const aviso = avisoDeListaVazia(opcoes.length, visiveis.length);
   const rica = opcoes.some((o) => o.description || o.aside);
 
   const itens = () => Array.from(lista.current?.querySelectorAll<HTMLElement>('[role="option"]:not([aria-disabled="true"])') ?? []);
@@ -69,13 +66,14 @@ function ListaDoMenu({ id, rotulo, opcoes, valor, aoEscolher, aoFechar, variante
     else if (evento.key === "ArrowUp") { evento.preventDefault(); if (atual <= 0 && comBusca) lista.current?.parentElement?.querySelector<HTMLInputElement>("input")?.focus(); else focar(atual - 1); }
     else if (evento.key === "Home" || evento.key === "End") { evento.preventDefault(); focar(evento.key === "Home" ? 0 : todos.length - 1); }
     else if (evento.key === "Enter" || evento.key === " ") { const v = (document.activeElement as HTMLElement | null)?.dataset.valor; if (v !== undefined) { evento.preventDefault(); aoEscolher(v); } }
-    else if (evento.key === "Tab") aoFechar();
+    // No diálogo o Tab alterna entre a busca e a lista (o Popover dá a volta); Escape fecha.
+    else if (evento.key === "Tab" && !sempreComBusca) aoFechar();
   }
 
   const classeItem = variante === "filtro" ? `ui-select-item ${estilosPipelines.popoverItem} ${estilosFiltro.opcao}` : "ui-select-item";
   const opcao = (o: OpcaoDoMenu) => {
     const marcado = o.value === valor;
-    return <div key={o.value} role="option" tabIndex={-1} data-valor={o.value} aria-selected={marcado} aria-disabled={o.disabled || undefined}
+    return <div key={o.value} role="option" tabIndex={o.value === noTab ? 0 : -1} onFocus={sempreComBusca ? () => setFocada(o.value) : undefined} data-valor={o.value} aria-selected={marcado} aria-disabled={o.disabled || undefined}
       data-state={marcado ? "checked" : "unchecked"}
       className={`${classeItem} ${rica ? styles.opcaoRica : ""} ${variante === "filtro" && marcado ? estilosPipelines.popoverItemAtivo : ""}`}
       onMouseMove={(e) => { if (document.activeElement !== e.currentTarget && !o.disabled) e.currentTarget.focus({ preventScroll: true }); }}
@@ -91,7 +89,7 @@ function ListaDoMenu({ id, rotulo, opcoes, valor, aoEscolher, aoFechar, variante
   return <>
     {comBusca ? <div className={styles.menuBusca}>
       <SearchIcon size={15} aria-hidden="true" />
-      <input type="search" autoFocus aria-label={`Buscar em ${rotulo}`} aria-controls={`${id}-lista`} placeholder={dicaDaBusca} autoComplete="off" value={busca}
+      <input type="search" autoFocus aria-label={`Buscar em ${rotulo}`} aria-controls={`${id}-lista`} aria-describedby={sempreComBusca ? `${id}-aviso` : undefined} placeholder={dicaDaBusca} autoComplete="off" value={busca}
         onChange={(e) => setBusca(e.target.value)}
         onKeyDown={(e) => {
           if (e.key === "ArrowDown") { e.preventDefault(); focar(0); }
@@ -106,8 +104,10 @@ function ListaDoMenu({ id, rotulo, opcoes, valor, aoEscolher, aoFechar, variante
           <div className={estilosGrupo.grupoRotulo} aria-hidden="true">{grupo}</div>
           {doGrupo.map(opcao)}
         </div>)}
-      {visiveis.length === 0 ? <p className="ui-popover-empty" role="status">{opcoes.length ? "Nenhuma opção encontrada." : "Nenhuma opção disponível."}</p> : null}
+      {aviso && !sempreComBusca ? <p className="ui-popover-empty" role="status">{aviso}</p> : null}
     </div>
+    {/* No diálogo o aviso fica fora da lista e sempre montado, para ser anunciado quando a busca zera. */}
+    {sempreComBusca ? <p id={`${id}-aviso`} className={aviso ? "ui-popover-empty" : "sr-only"} role="status">{aviso}</p> : null}
   </>;
 }
 
@@ -127,7 +127,10 @@ function focarAoAbrir(evento: Event, valor: string | undefined) {
 export function CampoDeMenu({ label, options, value, onChange, placeholder = "Selecione uma opção", icon, required, disabled, hint, error, id, sempreComBusca, dicaDaBusca }: {
   label: string; options: readonly OpcaoDoMenu[]; value: string | undefined; onChange: (v: string) => void;
   placeholder?: string; icon?: ReactElement; required?: boolean; disabled?: boolean; hint?: ReactNode; error?: string; id?: string;
-  /** Busca com qualquer número de opções (ex.: achar a obra pelo cliente), não só acima do limite. */
+  /**
+   * Busca com qualquer número de opções (ex.: achar a obra pelo cliente). O popup passa a ser um
+   * diálogo com o nome do campo, com a busca e a lista dentro (combobox com popup de diálogo, WAI-ARIA).
+   */
   sempreComBusca?: boolean; dicaDaBusca?: string;
 }) {
   const gerado = useId(); const campo = id ?? gerado;
@@ -137,13 +140,14 @@ export function CampoDeMenu({ label, options, value, onChange, placeholder = "Se
   const atual = options.find((o) => o.value === value);
   const rica = options.some((o) => o.aside);
   const escolher = (v: string) => { onChange(v); setAberto(false); gatilho.current?.focus(); };
+  const dialogo = `${campo}-dialogo`;
 
   return <div className="ui-field">
     <label id={`${campo}-rotulo`} htmlFor={campo}>{label}{required ? <span className="ui-required"> (obrigatório)</span> : null}</label>
     <Popover open={aberto && !disabled} onOpenChange={(abrir) => { if (abrir) setContainer(gatilho.current?.closest("dialog") ?? null); setAberto(abrir); }}>
       <PopoverTrigger asChild>
         <button ref={gatilho} id={campo} type="button" className={`ui-input ui-field-trigger ${styles.gatilhoCampo}`} disabled={disabled}
-          role="combobox" aria-haspopup="listbox" aria-expanded={aberto} aria-controls={aberto ? `${campo}-lista` : undefined}
+          role="combobox" aria-haspopup={sempreComBusca ? "dialog" : "listbox"} aria-expanded={aberto} aria-controls={aberto ? (sempreComBusca ? dialogo : `${campo}-lista`) : undefined}
           aria-labelledby={`${campo}-rotulo ${campo}`} aria-invalid={error ? true : undefined} aria-describedby={hint || error ? `${campo}-ajuda` : undefined}
           data-placeholder={atual ? undefined : ""} data-state={aberto ? "open" : "closed"}
           onKeyDown={(e) => { if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); setContainer(gatilho.current?.closest("dialog") ?? null); setAberto(true); } }}>
@@ -152,6 +156,8 @@ export function CampoDeMenu({ label, options, value, onChange, placeholder = "Se
         </button>
       </PopoverTrigger>
       <PopoverContent container={container} align="start" sideOffset={6} className={`ui-select-content ${styles.painel} ${rica ? styles.painelRico : ""}`}
+        // O Tab dá a volta dentro do diálogo; sem parar aqui, a armadilha do modal tirava o foco dele quando só há a busca.
+        {...(sempreComBusca ? { id: dialogo, "aria-labelledby": `${campo}-rotulo`, onKeyDown: (e: KeyboardEvent) => { if (e.key === "Tab") e.stopPropagation(); } } : {})}
         onOpenAutoFocus={(e) => focarAoAbrir(e, value)} onCloseAutoFocus={(e) => { e.preventDefault(); gatilho.current?.focus(); }}>
         <ListaDoMenu id={campo} rotulo={label} opcoes={options} valor={value} aoEscolher={escolher} aoFechar={() => setAberto(false)} variante="campo" iconePadrao={icon} sempreComBusca={sempreComBusca} dicaDaBusca={dicaDaBusca} />
       </PopoverContent>
