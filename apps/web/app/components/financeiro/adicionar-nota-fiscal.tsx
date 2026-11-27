@@ -160,7 +160,7 @@ function ArquivoDaNota({ valor, erro, aoMudar }: { valor: CamposDaNota["arquivo"
     <label htmlFor={id}>Arquivo da nota</label>
     <input ref={input} id={id} hidden type="file" accept=".pdf,.xml,application/pdf,application/xml,text/xml"
       onChange={(e) => { void escolher(e.target.files?.[0]); e.target.value = ""; }} />
-    {valor ? <ul className="ui-file-list">
+    {valor ? <ul className={`ui-file-list ${styles.arquivoEscolhido}`}>
       <li data-invalido={Boolean(erro) || undefined}>
         {valor.formato === "xml" ? <FileCode2 size={18} aria-hidden="true" /> : <FileText size={18} aria-hidden="true" />}
         <span><strong>{valor.nome}</strong><small>{valor.formato ? (valor.formato === "xml" ? "XML" : "PDF") : "Formato não reconhecido"} · {tamanhoDoArquivo(valor.tamanho)}</small></span>

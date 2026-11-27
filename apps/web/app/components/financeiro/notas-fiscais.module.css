@@ -108,7 +108,7 @@
 .tipoOpcao strong { color: var(--ui-text); font-size: 13px; font-weight: 500; }
 .tipoOpcao small { color: var(--ui-muted); font-size: 12px; line-height: 1.4; }
 .soltar { padding: 16px; }
-:global(.ui-file-list) li[data-invalido="true"] { border-color: var(--ui-danger); }
+.arquivoEscolhido li[data-invalido="true"] { border-color: var(--ui-danger); }
 
 /* ---------------------------------------------------------------- celular */
 
