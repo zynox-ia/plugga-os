@@ -54,23 +54,26 @@
 .busca { flex: 0 1 340px; width: auto; min-width: 0; }
 .filtros { display: flex; flex-wrap: nowrap; align-items: center; justify-content: flex-end; gap: 4px; min-width: 0; }
 
-/* Filtros minimalistas, só nesta tela (o FiltroComBusca e o CSS dele não mudam): sem pílula, sem
-   sombra e sem borda em repouso; texto e ícone no tom secundário (--ui-muted, 4,7:1 ou mais sobre o
-   fundo da página). Borda sutil e fundo leve no hover e com o menu aberto; o foco segue visível. Com
-   filtro ativo, o valor escolhido vai no tom do texto, em 500. A área de clique continua com 40 px. */
+/* Filtros minimalistas, só nesta tela (o FiltroComBusca e o CSS dele não mudam): sem pílula forte, sem
+   sombra; fundo leve e borda do divisor já em repouso, um tom acima no hover e com o menu aberto (iguais).
+   Texto e ícone no tom secundário (--ui-muted, 4,7:1 ou mais sobre o fundo da página); o foco segue
+   visível. Com filtro ativo, o valor escolhido vai no tom do texto, em 500. A área de clique é de 40 px. */
 .filtros button[aria-haspopup="listbox"] {
   width: auto;
   min-height: 40px;
   padding: 6px 10px;
-  border-color: transparent;
+  border-color: var(--ui-divider);
   border-radius: var(--radius-lg);
   color: var(--ui-muted);
-  background: transparent;
+  background: color-mix(in srgb, var(--ui-surface) 55%, transparent);
   box-shadow: none;
 }
 .filtros button[aria-haspopup="listbox"] > span { color: inherit; font-weight: 400; }
 .filtros button[aria-haspopup="listbox"]:hover,
-.filtros button[aria-haspopup="listbox"][aria-expanded="true"] { border-color: var(--ui-divider); background: color-mix(in srgb, var(--ui-surface) 55%, transparent); }
+.filtros button[aria-haspopup="listbox"][aria-expanded="true"] { background: color-mix(in srgb, var(--ui-surface) 80%, transparent); }
+/* Ícone do gatilho e seta mais discretos: traço de 1,5 (era 2) e cor secundária suavizada (80% do tom
+   secundário sobre a superfície), mesmo com filtro ativo; o tamanho e o texto não mudam. */
+.filtros button[aria-haspopup="listbox"] svg { color: color-mix(in srgb, var(--ui-muted) 80%, var(--ui-surface)); stroke-width: 1.5; }
 .filtros button[aria-haspopup="listbox"]:focus-visible { outline: 2px solid var(--ui-primary); outline-offset: 2px; }
 .filtros button[aria-haspopup="listbox"][data-filtrado] { color: var(--ui-text); }
 .filtros button[aria-haspopup="listbox"][data-filtrado] > span { font-weight: 500; }
