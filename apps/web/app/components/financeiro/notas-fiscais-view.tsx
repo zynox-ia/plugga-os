@@ -1,7 +1,7 @@
 "use client";
 
 import type { CompanyKey, OpcoesDoFinanceiro } from "@plugga/shared";
-import { ArrowDownLeft, ArrowUpRight, Building2, CalendarDays, Eye, FileCode2, FileText, Filter, Link2, Paperclip, ReceiptText } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, Building2, Eye, FileCode2, FileText, Filter, Link2, Paperclip, ReceiptText } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent, type KeyboardEvent } from "react";
 
 import { valorEmReais } from "../../lib/compras";
@@ -22,12 +22,14 @@ import {
   type PeriodoDasNotas,
   type TipoDaNota,
 } from "../../lib/notas-fiscais";
+import { escreverIntervaloNaUrl, type IntervaloLivre } from "../../lib/periodo-livre";
 import estilosClientes from "../clientes/tela-clientes.module.css";
 import estilosLista from "../pipelines/lista-de-negocios.module.css";
 import estilosPipelines from "../pipelines/tela-pipelines.module.css";
 import { ShellCard, ShellTable } from "../plugga-shell";
 import { EmpresaComPonto, PontoDaEmpresa } from "../suprimentos/empresa";
 import { FiltroComBusca } from "../suprimentos/menu-com-busca";
+import { FiltroDePeriodo, type EscolhaDePeriodo } from "../filtro-de-periodo";
 import { Button, IconPlus, IconSearch } from "../ui";
 import { AdicionarNotaFiscal } from "./adicionar-nota-fiscal";
 import { EngrenagemDoFinanceiro } from "./engrenagem-do-financeiro";
@@ -48,9 +50,11 @@ const diaLegivel = (dia: string) => dia.split("-").reverse().join("/");
  * busca, a ficha de leitura e "Adicionar nota fiscal". Tudo em memória: nada vai
  * à API, e recarregar a página volta aos exemplos.
  */
-export function NotasFiscaisView({ hoje, ladoInicial, opcoes, exemplos }: {
+export function NotasFiscaisView({ hoje, ladoInicial, intervaloInicial, opcoes, exemplos }: {
   hoje: string;
   ladoInicial: TipoDaNota;
+  /** O período personalizado do endereço (?de=…&ate=…), já validado. */
+  intervaloInicial?: IntervaloLivre | null;
   opcoes: OpcoesDoFinanceiro | null;
   /** Os dados de exemplo chegam do servidor por props: o módulo deles nunca entra num bundle de cliente. */
   exemplos: { notas: NotaFiscal[]; lancamentos: LancamentoParaNota[]; contrapartes: ContraparteDaNota[] };
@@ -58,7 +62,7 @@ export function NotasFiscaisView({ hoje, ladoInicial, opcoes, exemplos }: {
   const [notas, setNotas] = useState<NotaFiscal[]>(exemplos.notas);
   const { lancamentos, contrapartes } = exemplos;
   const [lado, setLado] = useState<TipoDaNota>(ladoInicial);
-  const [filtros, setFiltros] = useState<FiltrosDasNotas>({});
+  const [filtros, setFiltros] = useState<FiltrosDasNotas>(intervaloInicial ? { intervalo: intervaloInicial } : {});
   const [busca, setBusca] = useState("");
   const [aberta, setAberta] = useState<string | null>(null);
   const [adicionando, setAdicionando] = useState(false);
@@ -95,7 +99,14 @@ export function NotasFiscaisView({ hoje, ladoInicial, opcoes, exemplos }: {
     return novos;
   });
   function buscar(evento: FormEvent) { evento.preventDefault(); mudarFiltros({ busca: busca.trim() || undefined }); }
-  const limpar = () => { setBusca(""); setFiltros({}); };
+  // O período personalizado vai no endereço (?de=…&ate=…), como o lado: dá para mandar o link.
+  function gravarIntervalo(intervalo: IntervaloLivre | null) {
+    const url = new URL(window.location.href);
+    escreverIntervaloNaUrl(url, intervalo);
+    window.history.replaceState(null, "", url);
+  }
+  const mudarPeriodo = (escolha: EscolhaDePeriodo) => { mudarFiltros({ periodo: (escolha.atalho || undefined) as PeriodoDasNotas | undefined, intervalo: escolha.intervalo ?? undefined }); gravarIntervalo(escolha.intervalo); };
+  const limpar = () => { setBusca(""); setFiltros({}); gravarIntervalo(null); };
 
   function adicionada(nota: NotaFiscal) {
     setNotas((atuais) => [nota, ...atuais]);
@@ -109,7 +120,7 @@ export function NotasFiscaisView({ hoje, ladoInicial, opcoes, exemplos }: {
   }
 
   const empresas = [{ value: "", label: "Todas as empresas", icon: <Building2 /> }, { value: "plugga", label: "Plugga", icon: <PontoDaEmpresa empresa="plugga" /> }, { value: "waze", label: "Waze Energia", icon: <PontoDaEmpresa empresa="waze" /> }];
-  const periodos = [{ value: "", label: "Todo o período", icon: <CalendarDays /> }, ...periodosDasNotas.map((p) => ({ value: p, label: ROTULO_DO_PERIODO_DAS_NOTAS[p], icon: <CalendarDays /> }))];
+  const atalhosDePeriodo = periodosDasNotas.map((p) => ({ value: p, label: ROTULO_DO_PERIODO_DAS_NOTAS[p] }));
   const notaAberta = aberta ? notas.find((n) => n.id === aberta) ?? null : null;
 
   const vazio = doLado.length === 0 ? <div className={`lista-negocios-vazia ${styles.vazio}`} role="status">
@@ -169,8 +180,7 @@ export function NotasFiscaisView({ hoje, ladoInicial, opcoes, exemplos }: {
       <div className={styles.filtros}>
         <FiltroComBusca label="Empresa" icon={<Building2 />} semFiltro="" value={filtros.empresa ?? ""} options={empresas}
           onChange={(v) => mudarFiltros({ empresa: (v || undefined) as CompanyKey | undefined })} />
-        <FiltroComBusca label="Período" icon={<CalendarDays />} semFiltro="" value={filtros.periodo ?? ""} options={periodos}
-          onChange={(v) => mudarFiltros({ periodo: (v || undefined) as PeriodoDasNotas | undefined })} />
+        <FiltroDePeriodo atalhos={atalhosDePeriodo} atalho={filtros.periodo ?? ""} intervalo={filtros.intervalo ?? null} aoMudar={mudarPeriodo} />
         {filtrado ? <Button variant="secondary" size="sm" onClick={limpar}>Limpar</Button> : null}
       </div>
     </div>

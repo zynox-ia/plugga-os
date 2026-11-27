@@ -1,4 +1,5 @@
 import type { CompanyKey } from "@plugga/shared";
+import { dentroDoIntervalo, type IntervaloLivre } from "./periodo-livre.ts";
 
 /**
  * Regras puras da tela de Notas fiscais (PLU-361), no PROTÓTIPO visual: o lado
@@ -64,7 +65,8 @@ export const ROTULO_DO_PERIODO_DAS_NOTAS: Record<PeriodoDasNotas, string> = {
   ano: "Este ano",
 };
 
-export type FiltrosDasNotas = { empresa?: CompanyKey; periodo?: PeriodoDasNotas; busca?: string };
+/** `intervalo` é o período personalizado (De e Até livres) e vale mais que o atalho `periodo`. */
+export type FiltrosDasNotas = { empresa?: CompanyKey; periodo?: PeriodoDasNotas; intervalo?: IntervaloLivre; busca?: string };
 
 const doisDigitos = (n: number) => String(n).padStart(2, "0");
 const diaIso = (d: Date) => `${d.getUTCFullYear()}-${doisDigitos(d.getUTCMonth() + 1)}-${doisDigitos(d.getUTCDate())}`;
@@ -102,17 +104,17 @@ export function casaComABusca(nota: Pick<NotaFiscal, "numero" | "contraparte">, 
 
 /** As notas que a tela mostra, sem o lado: a mais recente primeiro (no mesmo dia, o maior número). */
 export function filtrarNotas(notas: readonly NotaFiscal[], filtros: FiltrosDasNotas, hoje: string): NotaFiscal[] {
-  const intervalo = filtros.periodo ? intervaloDasNotas(filtros.periodo, hoje) : null;
+  const intervalo: IntervaloLivre | null = filtros.intervalo ?? (filtros.periodo ? intervaloDasNotas(filtros.periodo, hoje) : null);
   return notas
     .filter((n) => !filtros.empresa || n.empresa === filtros.empresa)
-    .filter((n) => !intervalo || (n.emitidaEm >= intervalo.de && n.emitidaEm <= intervalo.ate))
+    .filter((n) => dentroDoIntervalo(n.emitidaEm, intervalo))
     .filter((n) => casaComABusca(n, filtros.busca ?? ""))
     .sort((a, b) => b.emitidaEm.localeCompare(a.emitidaEm) || Number(b.numero) - Number(a.numero));
 }
 
 export const notasDoLado = (notas: readonly NotaFiscal[], tipo: TipoDaNota): NotaFiscal[] => notas.filter((n) => n.tipo === tipo);
 
-export const temFiltroNasNotas = (f: FiltrosDasNotas): boolean => Boolean(f.empresa || f.periodo || f.busca?.trim());
+export const temFiltroNasNotas = (f: FiltrosDasNotas): boolean => Boolean(f.empresa || f.periodo || f.intervalo || f.busca?.trim());
 
 /** Soma em centavos (BigInt), para não acumular erro de ponto flutuante. */
 export const centavosDaNota = (valor: string): bigint => {
@@ -143,7 +145,7 @@ export function resumoDoLado(notas: readonly NotaFiscal[]): ResumoDoLado {
  * recorte do saldo. Decimal em texto, negativo com "-" ("-1250.00").
  */
 export function saldoDasNotas(notas: readonly NotaFiscal[], filtros: FiltrosDasNotas, hoje: string): string {
-  const doRecorte = filtrarNotas(notas, { ...(filtros.empresa ? { empresa: filtros.empresa } : {}), ...(filtros.periodo ? { periodo: filtros.periodo } : {}) }, hoje);
+  const doRecorte = filtrarNotas(notas, { ...(filtros.empresa ? { empresa: filtros.empresa } : {}), ...(filtros.periodo ? { periodo: filtros.periodo } : {}), ...(filtros.intervalo ? { intervalo: filtros.intervalo } : {}) }, hoje);
   return deCentavos(doRecorte.reduce((saldo, n) => saldo + (n.tipo === "entrada" ? 1n : -1n) * centavosDaNota(n.valor), 0n));
 }
 

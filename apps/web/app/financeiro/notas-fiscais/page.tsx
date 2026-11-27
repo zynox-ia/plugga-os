@@ -4,6 +4,7 @@ import { NotasFiscaisView } from "../../components/financeiro/notas-fiscais-view
 import { fetchOpcoesDoFinanceiro } from "../../lib/api";
 import { hojeEmManaus } from "../../lib/compras";
 import { exigirPagina } from "../../lib/exigir-pagina";
+import { lerIntervalo } from "../../lib/periodo-livre";
 
 /**
  * Notas fiscais (PLU-361): PROTÓTIPO visual com dados de exemplo, para o André
@@ -21,13 +22,13 @@ import { exigirPagina } from "../../lib/exigir-pagina";
 export default async function NotasFiscaisPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   if (process.env.NODE_ENV === "development" || process.env.NODE_ENV === "test") {
     await exigirPagina("/financeiro/notas-fiscais");
-    const [{ CONTRAPARTES_DE_EXEMPLO, lancamentosDeExemplo, notasDeExemplo }, { lado }, opcoes] = await Promise.all([
+    const [{ CONTRAPARTES_DE_EXEMPLO, lancamentosDeExemplo, notasDeExemplo }, { lado, de, ate }, opcoes] = await Promise.all([
       import("../../lib/notas-fiscais-exemplo"),
       searchParams,
       fetchOpcoesDoFinanceiro(),
     ]);
     const hoje = hojeEmManaus();
-    return <NotasFiscaisView hoje={hoje} ladoInicial={lado === "saidas" ? "saida" : "entrada"} opcoes={opcoes.ok ? opcoes.dados : null}
+    return <NotasFiscaisView hoje={hoje} ladoInicial={lado === "saidas" ? "saida" : "entrada"} intervaloInicial={lerIntervalo(de, ate)} opcoes={opcoes.ok ? opcoes.dados : null}
       exemplos={{ notas: notasDeExemplo(hoje), lancamentos: lancamentosDeExemplo(hoje), contrapartes: [...CONTRAPARTES_DE_EXEMPLO] }} />;
   }
   notFound();

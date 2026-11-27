@@ -11,6 +11,7 @@ import {
   lancamentosParaVincular,
   notasDoLado,
   numeroNormalizado,
+  temFiltroNasNotas,
   ORDEM_DOS_CAMPOS,
   problemaDoArquivo,
   resumoDoLado,
@@ -50,6 +51,33 @@ describe("dados de exemplo das Notas fiscais (PLU-361)", () => {
 });
 
 describe("filtros das Notas fiscais", () => {
+  it("período personalizado: do dia De ao dia Até, com os dois extremos, e vale mais que o atalho", () => {
+    const todas = notasDoLado(filtrarNotas(notas, {}, HOJE), "entrada").length;
+    const recorte = { de: "2026-11-10", ate: "2026-11-20" };
+    const dentro = filtrarNotas(notas, { intervalo: recorte }, HOJE);
+    assert.ok(dentro.length > 0 && dentro.length < notas.length);
+    assert.ok(dentro.every((n) => n.emitidaEm >= recorte.de && n.emitidaEm <= recorte.ate));
+    assert.equal(notas.filter((n) => n.emitidaEm >= recorte.de && n.emitidaEm <= recorte.ate).length, dentro.length);
+    // o último dia entra inteiro e o dia seguinte não
+    const noUltimo = notas.find((n) => n.emitidaEm === dentro[0]!.emitidaEm)!;
+    assert.equal(filtrarNotas(notas, { intervalo: { de: noUltimo.emitidaEm, ate: noUltimo.emitidaEm } }, HOJE).every((n) => n.emitidaEm === noUltimo.emitidaEm), true);
+    assert.equal(filtrarNotas(notas, { intervalo: recorte, periodo: "mes-anterior" }, HOJE).length, dentro.length);
+    assert.ok(todas >= notasDoLado(dentro, "entrada").length);
+  });
+
+  it("os totais de cada lado e o saldo acompanham o intervalo, e ele conta como filtro ativo (o Limpar aparece)", () => {
+    const recorte = { de: "2026-11-10", ate: "2026-11-20" };
+    const filtradas = filtrarNotas(notas, { intervalo: recorte }, HOJE);
+    const esperadoEntrada = resumoDoLado(notasDoLado(notas.filter((n) => n.emitidaEm >= recorte.de && n.emitidaEm <= recorte.ate), "entrada"));
+    assert.deepEqual(resumoDoLado(notasDoLado(filtradas, "entrada")), esperadoEntrada);
+    const saldo = saldoDasNotas(notas, { intervalo: recorte }, HOJE);
+    const dentro = notas.filter((n) => n.emitidaEm >= recorte.de && n.emitidaEm <= recorte.ate);
+    const centavos = dentro.reduce((s, n) => s + (n.tipo === "entrada" ? 1n : -1n) * BigInt(Math.round(Number(n.valor) * 100)), 0n);
+    assert.equal(Number(saldo), Number(centavos) / 100);
+    assert.equal(temFiltroNasNotas({ intervalo: recorte }), true);
+    assert.equal(temFiltroNasNotas({}), false);
+  });
+
   it("período: este mês, mês passado, 90 dias e este ano, em dias de Manaus", () => {
     assert.deepEqual(intervaloDasNotas("mes", HOJE), { de: "2026-11-01", ate: HOJE });
     assert.deepEqual(intervaloDasNotas("mes-anterior", HOJE), { de: "2026-10-01", ate: "2026-10-31" });

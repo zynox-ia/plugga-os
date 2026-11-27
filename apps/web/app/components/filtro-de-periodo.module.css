@@ -1,0 +1,10 @@
+/* Filtro de período com intervalo livre (PLU-361). O gatilho e o menu são os do FiltroComBusca
+   (o visual vem de quem usa); aqui fica só o painel do "Personalizado…". */
+
+.ancora { display: inline-flex; min-width: 0; }
+.painel { display: grid; gap: 14px; width: min(300px, calc(100vw - 16px)); padding: 16px; }
+.campos { display: grid; gap: 12px; margin: 0; padding: 0; border: 0; min-width: 0; }
+.campo { min-width: 0; }
+/* O DatePicker do sistema sempre desenha a linha de ajuda; vazia, ela não ocupa espaço. */
+.campo :global(.ui-field-hint):empty { display: none; }
+.acoes { display: flex; justify-content: flex-end; gap: 8px; }
