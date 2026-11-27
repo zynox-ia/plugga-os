@@ -1,6 +1,6 @@
 import { sessionUserSchema, type SessionUser } from "@plugga/shared";
 
-import { safeRelativePath } from "./safe-redirect.ts";
+import { safeRedirect, safeRelativePath } from "./safe-redirect.ts";
 
 /**
  * Leitura da sessão no middleware (PLU-343). Só 401 e 403 de `GET /auth/me`
@@ -108,7 +108,8 @@ export function decidirPagina(pathname: string, leitura: LeituraDaSessao, podeAb
 export function destinoAoVoltar(destino: string | null, caminhoAtual: string, busca: string): string {
   if (destino) return destino;
   if (caminhoAtual === ROTA_DE_API_INDISPONIVEL) return "/";
-  return `${caminhoAtual}${busca}`;
+  // O endereço da janela passa pela mesma validação: normalizado, não sai da origem (PLU-357).
+  return safeRedirect(`${caminhoAtual}${busca}`);
 }
 
 /** O `?de=` do aviso, só se for um caminho da mesma origem (nada de //outro-site, javascript: etc.). */
@@ -126,8 +127,9 @@ export function destinoDoParametro(de: string | string[] | undefined | null): st
  */
 export function destinoDoAviso(cabecalho: string | null, de: string | string[] | undefined | null): string | null {
   const pedida = safeRelativePath(cabecalho);
-  if (pedida && pedida.split(/[?#]/)[0] !== ROTA_DE_API_INDISPONIVEL) return pedida;
-  return destinoDoParametro(de);
+  if (!pedida) return null;
+  // O cabeçalho no próprio aviso é a evidência de abertura direta: só então o `?de=` vale.
+  return pedida.split(/[?#]/)[0] === ROTA_DE_API_INDISPONIVEL ? destinoDoParametro(de) : pedida;
 }
 
 /**

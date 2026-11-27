@@ -152,10 +152,20 @@ describe("destino com a query (PLU-343, reteste do QA)", () => {
     assert.equal(destinoDoAviso(direto, ficha), ficha);
     assert.equal(destinoDoAviso(direto, ["/a", "/b"]), null);
     assert.equal(destinoDoAviso(direto, "//evil.example"), null);
-    assert.equal(destinoDoAviso(null, ficha), ficha);
     assert.equal(destinoDoAviso(null, undefined), null);
-    // Cabeçalho fora da origem não vale; cai no ?de=.
-    assert.equal(destinoDoAviso("//evil.example/x", ficha), ficha);
+  });
+
+  it("sem a evidência de abertura direta (o cabeçalho do middleware no próprio aviso), o ?de= não vale (PLU-357)", () => {
+    assert.equal(destinoDoAviso(null, ficha), null);
+    assert.equal(destinoDoAviso("//evil.example/x", ficha), null);
+    assert.equal(destinoDoAviso("/indisponivelx?de=1", ficha), "/indisponivelx?de=1");
+  });
+
+  it("o fallback pela janela também passa pela validação de destino (PLU-357)", () => {
+    // O endereço da janela, normalizado, não pode sair da origem.
+    assert.equal(destinoAoVoltar(null, "/.//evil.example", ""), "/");
+    assert.equal(destinoAoVoltar(null, "/x/..//evil.example", "?a=1"), "/");
+    assert.equal(destinoAoVoltar(null, "/suprimentos/estoque", "?visao=lista"), "/suprimentos/estoque?visao=lista");
   });
 
   it("ida e volta: o destino codificado no ?de= volta inteiro", () => {
