@@ -199,24 +199,40 @@
 .faixa p { margin: 0 0 4px; color: var(--ui-muted); font-size: 12px; line-height: 16px; }
 .faixaBarra { display: block; width: 220px; height: 8px; margin-top: 8px; overflow: hidden; border-radius: 99px; background: rgba(15, 41, 74, 0.07); }
 .faixaBarra > span { display: block; height: 100%; border-radius: inherit; background: #0070e0; }
-.faixaLado { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; }
-.stat { display: grid; gap: 2px; min-width: 72px; }
+.faixaLado { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; }
+.faixaNumeros { display: flex; flex-wrap: wrap; gap: 12px 20px; }
+.faixaBotoes { display: flex; flex-wrap: wrap; gap: 8px; }
+.stat { display: grid; gap: 2px; }
 .stat small { color: var(--ui-muted); font-size: 12px; line-height: 16px; }
-.stat strong { font-size: 16px; font-weight: 500; line-height: 20px; font-variant-numeric: tabular-nums; }
-.faixa .faixaSaldos {
-  display: flex;
-  flex: 1 1 100%;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: 8px 16px;
-  margin: 0;
-  padding-top: 12px;
-  border-top: 1px solid var(--ui-divider);
-  color: var(--ui-muted);
+.stat strong { font-size: 14px; font-weight: 500; line-height: 20px; font-variant-numeric: tabular-nums; }
+.faixaContexto { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 6px; margin-bottom: 4px; }
+.faixa .faixaContexto p { margin: 0; }
+/* "Saldos": o detalhe sob demanda da faixa (popover), discreto como um link do contexto. */
+.saldosBotao {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 24px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ui-primary);
+  font: inherit;
   font-size: 12px;
   line-height: 16px;
+  cursor: pointer;
 }
-.faixaSaldos > p { flex: 1 1 220px; margin: 0; }
+.saldosBotao:hover, .saldosBotao[aria-expanded="true"] { background: var(--ui-focus-bg, rgba(15, 41, 74, 0.06)); }
+.saldosBotao:focus-visible { outline: 2px solid var(--ui-primary); outline-offset: 1px; }
+.saldosBotao[aria-expanded="true"] svg:last-child { transform: rotate(180deg); }
+.saldosPopover { width: min(320px, calc(100vw - 32px)); padding: 12px 14px; }
+.saldosPopover p { margin: 0; color: var(--ui-muted); font-size: 12px; line-height: 16px; }
+.saldosGrupo { display: grid; gap: 6px; }
+.saldosGrupo > span { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.saldosGrupo small { color: var(--ui-muted); font-size: 12px; line-height: 16px; }
+.saldosGrupo strong { font-size: 13px; font-weight: 500; line-height: 20px; font-variant-numeric: tabular-nums; }
+.saldosGrupo > p { margin-top: 4px; padding-top: 8px; border-top: 1px solid var(--ui-divider); }
 .lido { display: inline-flex; align-items: center; gap: 6px; color: var(--ui-muted); font-size: 12px; line-height: 16px; }
 .contagem {
   display: inline-flex;
@@ -233,7 +249,7 @@
 .grade { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
 .cartaoPar small span { color: inherit; gap: 4px; }
 .gradeCabeca,
-.sugestao { display: grid; grid-template-columns: minmax(0, 1fr) 156px minmax(0, 1fr); gap: 12px; align-items: center; }
+.sugestao { display: grid; grid-template-columns: minmax(0, 1fr) 188px minmax(0, 1fr); gap: 12px; align-items: center; }
 .gradeCabeca { color: var(--ui-muted); font-size: 12px; font-weight: 500; line-height: 16px; }
 .gradeCabeca span { display: inline-flex; align-items: center; gap: 6px; }
 .cartaoPar {
@@ -250,7 +266,7 @@
 .cartaoPar b { font-size: 13px; font-weight: 500; line-height: 20px; font-variant-numeric: tabular-nums; }
 .miolo { display: grid; justify-items: center; gap: 4px; }
 .miolo small { max-width: 140px; color: var(--ui-muted); font-size: 11px; line-height: 16px; text-align: center; }
-.mioloAcoes { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
+.mioloAcoes { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px; }
 .vazioDireita { margin: 0; color: var(--ui-muted); font-size: 12.5px; }
 
 @media (max-width: 1100px) {

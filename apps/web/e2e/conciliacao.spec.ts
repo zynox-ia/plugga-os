@@ -80,8 +80,21 @@ async function contaPaga(page: Page, baseURL: string, descricao: string, contaCo
   return codigo;
 }
 
-/** O número de um stat da faixa ("Valor diferente", "Saldo conciliado"…), pelo rótulo. */
+/** O número de um stat da faixa ("Sugeridos", "Sem par"…) ou dos saldos, pelo rótulo. */
 const stat = (escopo: ReturnType<Page["getByRole"]>, rotulo: string) => escopo.locator(`span:has(> small:text-is("${rotulo}")) > strong`);
+
+/**
+ * Os saldos ficam sob demanda, no popover "Saldos" da faixa: abre, confere cada valor (com a
+ * espera do expect, que acompanha o refresh do painel) e fecha com Escape, para o popover não
+ * cobrir o que o teste clica depois.
+ */
+async function conferirSaldos(page: Page, esperados: Record<string, string | RegExp>) {
+  await page.getByRole("region", { name: "Progresso da conciliação" }).getByRole("button", { name: "Saldos" }).click();
+  const saldos = page.getByRole("group", { name: "Saldos da conciliação" });
+  for (const [rotulo, valor] of Object.entries(esperados)) await expect(stat(saldos, rotulo)).toHaveText(valor);
+  await page.keyboard.press("Escape");
+  await expect(saldos).toBeHidden();
+}
 
 test("importar o OFX, corrigir o valor diferente, conciliar e desfazer com motivo", async ({ page, baseURL }) => {
   await bloquearTerceiros(page);
@@ -107,18 +120,17 @@ test("importar o OFX, corrigir o valor diferente, conciliar e desfazer com motiv
   await importar.getByRole("button", { name: "Importar" }).click();
   await expect(page.getByRole("status").filter({ hasText: "1 movimento novo" })).toBeVisible();
 
-  // A faixa conta a divergência; o saldo: 1.000,00 − 450,00 pago, nada conciliado ainda.
+  // A divergência tem seção própria; o saldo: 1.000,00 − 450,00 pago, nada conciliado ainda.
   const faixa = page.getByRole("region", { name: "Progresso da conciliação" });
-  const saldos = page.getByRole("group", { name: "Saldos da conciliação" });
+  const secaoDiferente = page.getByRole("region", { name: "Valor diferente" });
   await expect(faixa.getByRole("heading", { name: "0 de 1 conciliados" })).toBeVisible();
-  await expect(stat(faixa, "Valor diferente")).toHaveText("1");
+  await expect(secaoDiferente.getByRole("listitem")).toHaveCount(1);
+  await expect(stat(faixa, "Valor diferente")).toHaveCount(0);
   await expect(stat(faixa, "Sugeridos")).toHaveText("0");
   await expect(stat(faixa, "Sem par")).toContainText("0");
-  await expect(stat(saldos, "Saldo no Plugga OS")).toHaveText("R$ 550,00");
-  await expect(stat(saldos, "Saldo conciliado")).toHaveText("R$ 1.000,00");
-  await expect(stat(saldos, "Diferença líquida")).toHaveText(/^-R\$\s450,00$/);
+  await conferirSaldos(page, { "Saldo no Plugga OS": "R$ 550,00", "Saldo conciliado": "R$ 1.000,00", "Diferença líquida": /^-R\$\s450,00$/ });
 
-  const diferente = page.getByRole("region", { name: "Valor diferente" }).getByRole("listitem").filter({ hasText: memo });
+  const diferente = secaoDiferente.getByRole("listitem").filter({ hasText: memo });
   await expect(diferente.getByText("Diferença R$ 17,35 a menos no Plugga OS")).toBeVisible();
   await expect(diferente.getByRole("button", { name: "Conciliar" })).toHaveCount(0);
 
@@ -133,17 +145,15 @@ test("importar o OFX, corrigir o valor diferente, conciliar e desfazer com motiv
   await expect(page.getByRole("status").filter({ hasText: `${codigo}: valor corrigido` })).toBeVisible();
 
   // Com o mesmo valor, o par vira sugerido; o saldo já sai com os juros.
-  await expect(stat(faixa, "Valor diferente")).toHaveText("0");
+  await expect(secaoDiferente).toHaveCount(0);
   await expect(stat(faixa, "Sugeridos")).toHaveText("1");
-  await expect(stat(saldos, "Saldo no Plugga OS")).toHaveText("R$ 532,65");
-  await expect(stat(saldos, "Diferença líquida")).toHaveText(/^-R\$\s467,35$/);
+  await conferirSaldos(page, { "Saldo no Plugga OS": "R$ 532,65", "Diferença líquida": /^-R\$\s467,35$/ });
   const sugerido = page.getByRole("region", { name: "Sugeridos" }).getByRole("listitem").filter({ hasText: memo });
   await expect(sugerido.getByText("R$ 467,35")).toHaveCount(2);
   await sugerido.getByRole("button", { name: "Conciliar" }).click();
   await expect(page.getByRole("status").filter({ hasText: `${codigo} conciliado.` })).toBeVisible();
   await expect(faixa.getByRole("heading", { name: "1 de 1 conciliados" })).toBeVisible();
-  await expect(stat(saldos, "Saldo conciliado")).toHaveText("R$ 532,65");
-  await expect(stat(saldos, "Diferença líquida")).toHaveText("R$ 0,00");
+  await conferirSaldos(page, { "Saldo conciliado": "R$ 532,65", "Diferença líquida": "R$ 0,00" });
 
   // Desfazer é da gerência e pede o motivo; o conferido volta ao saldo inicial.
   const conciliados = page.getByRole("region", { name: "Conciliados" });
@@ -156,7 +166,7 @@ test("importar o OFX, corrigir o valor diferente, conciliar e desfazer com motiv
   await desfazer.getByRole("button", { name: "Desfazer" }).click();
   await expect(page.getByRole("status").filter({ hasText: "Conciliação desfeita." })).toBeVisible();
   await expect(faixa.getByRole("heading", { name: "0 de 1 conciliados" })).toBeVisible();
-  await expect(stat(saldos, "Saldo conciliado")).toHaveText("R$ 1.000,00");
+  await conferirSaldos(page, { "Saldo conciliado": "R$ 1.000,00" });
   await expect(page.getByRole("region", { name: "Sugeridos" }).getByRole("listitem").filter({ hasText: memo })).toBeVisible();
 });
 
@@ -183,10 +193,17 @@ test("da linha sem par: transferência entre contas e despesa criada sem concili
   await importar.getByRole("button", { name: "Importar" }).click();
   await expect(page.getByRole("status").filter({ hasText: "2 movimentos novos" })).toBeVisible();
   const semLancamento = page.getByRole("region", { name: "No extrato, sem lançamento" });
-  const saldos = page.getByRole("group", { name: "Saldos da conciliação" });
+
+  // Uma ação principal por linha; "Marcar pendente" fica no menu "Mais ações".
+  const linhaDaTransferencia = semLancamento.getByRole("listitem").filter({ hasText: `TRANSF ${sinal}` });
+  await expect(linhaDaTransferencia.getByRole("button", { name: "Marcar pendente" })).toHaveCount(0);
+  await linhaDaTransferencia.getByRole("button", { name: /^Mais ações/ }).click();
+  await expect(page.getByRole("menuitem", { name: "Marcar pendente" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("menuitem", { name: "Marcar pendente" })).toHaveCount(0);
 
   // Transferência: a saída sai da conta A já conciliada com a linha; a entrada vai à B.
-  await semLancamento.getByRole("listitem").filter({ hasText: `TRANSF ${sinal}` }).getByRole("button", { name: "Criar lançamento" }).click();
+  await linhaDaTransferencia.getByRole("button", { name: "Criar lançamento" }).click();
   const criar = page.getByRole("dialog", { name: "Criar lançamento" });
   await criar.getByRole("radio", { name: "Transferência entre contas" }).check();
   await escolher(page, criar, /Para a conta/, nomeB);
@@ -194,8 +211,7 @@ test("da linha sem par: transferência entre contas e despesa criada sem concili
   await criar.getByLabel("Descrição (opcional)").fill(`Transferência ${marca} (sintético)`);
   await criar.getByRole("button", { name: "Criar a transferência" }).click();
   await expect(page.getByRole("status").filter({ hasText: /TR-\d+ criada: a saída, nesta conta, ficou conciliada com a linha/ })).toBeVisible();
-  await expect(stat(saldos, "Saldo no Plugga OS")).toHaveText("R$ 800,00");
-  await expect(stat(saldos, "Saldo conciliado")).toHaveText("R$ 800,00");
+  await conferirSaldos(page, { "Saldo no Plugga OS": "R$ 800,00", "Saldo conciliado": "R$ 800,00" });
 
   // Despesa com outro valor: o botão vira "Criar sem conciliar" e diz o efeito.
   await semLancamento.getByRole("listitem").filter({ hasText: `ALUGUEL ${sinal}` }).getByRole("button", { name: "Criar lançamento" }).click();
@@ -209,14 +225,12 @@ test("da linha sem par: transferência entre contas e despesa criada sem concili
   await expect(page.getByRole("status").filter({ hasText: "criado e pago com outro valor, sem conciliar com a linha." })).toBeVisible();
   // A linha não concilia: vira o par com valor diferente, e só o saldo do Plugga OS muda.
   await expect(page.getByRole("region", { name: "Valor diferente" }).getByRole("listitem").filter({ hasText: `ALUGUEL ${sinal}` }).getByText("Diferença R$ 20,00 a menos no Plugga OS")).toBeVisible();
-  await expect(stat(saldos, "Saldo no Plugga OS")).toHaveText("R$ 520,00");
-  await expect(stat(saldos, "Saldo conciliado")).toHaveText("R$ 800,00");
+  await conferirSaldos(page, { "Saldo no Plugga OS": "R$ 520,00", "Saldo conciliado": "R$ 800,00" });
 
   // Na conta B, a entrada da transferência espera o extrato dela.
   await page.goto(`/financeiro/conciliacao?conta=${contaB}&de=${diaDaTransferencia}&ate=${diaDaDespesa}`);
   await expect(page.getByRole("region", { name: "Pago ou recebido, sem extrato" }).getByText("R$ 200,00")).toBeVisible();
-  await expect(stat(saldos, "Saldo no Plugga OS")).toHaveText("R$ 200,00");
-  await expect(stat(saldos, "Saldo conciliado")).toHaveText("R$ 0,00");
+  await conferirSaldos(page, { "Saldo no Plugga OS": "R$ 200,00", "Saldo conciliado": "R$ 0,00" });
 
   // Desfaz o par da transferência: a limpeza dos e2e não apaga lançamento conciliado (FK do extrato).
   await page.goto(`/financeiro/conciliacao?conta=${contaA}&de=${diaDaTransferencia}&ate=${diaDaDespesa}`);

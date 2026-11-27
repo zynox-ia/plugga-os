@@ -17,7 +17,7 @@ import {
   type OpcoesDoFinanceiro,
   type PainelDaConciliacao,
 } from "@plugga/shared";
-import { Building2, CalendarDays, Cloud, Landmark, Link2, Pencil, Plus, Receipt } from "lucide-react";
+import { Building2, CalendarDays, ChevronDown, Clock, Cloud, Landmark, Link2, Pencil, Plus, Receipt, RotateCcw, Scale } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
@@ -34,7 +34,9 @@ import estilosClientes from "../clientes/tela-clientes.module.css";
 import estilosPipelines from "../pipelines/tela-pipelines.module.css";
 import { EmpresaComPonto, PontoDaEmpresa } from "../suprimentos/empresa";
 import { FiltroComBusca } from "../suprimentos/menu-com-busca";
-import { Alert, Button, Dialog, FileDropzone, SelectField, TextField, TextareaField } from "../ui";
+import { Alert, Button, Dialog, DropdownMenu, FileDropzone, SelectField, TextField, TextareaField } from "../ui";
+import type { MenuItem } from "../ui/dropdown-menu";
+import { Popover, PopoverContent, PopoverTrigger } from "../ui/shadcn/popover";
 import { CriarDaLinha, outrasContasDaLinha } from "./criar-da-linha";
 import { EngrenagemDoFinanceiro } from "./engrenagem-do-financeiro";
 import styles from "./financeiro-telas.module.css";
@@ -219,22 +221,29 @@ export function ConciliacaoView({ filtros, painel, opcoes, gerente, buscaCliente
     {erro ? <Alert tone="danger" title="Não deu para concluir">{erro}</Alert> : null}
     {aviso ? <Alert tone="success" title="Feito">{aviso}</Alert> : null}
 
+    {/* Uma linha só, como na referência de 23/11: o progresso, três números, a leitura e as duas
+        ações. Os saldos ficam sob demanda no "Saldos" do contexto; "Valor diferente" tem seção própria. */}
     <section className={styles.faixa} aria-label="Progresso da conciliação">
       <div>
-        <p>{contexto}</p>
+        <div className={styles.faixaContexto}>
+          <p>{contexto}</p>
+          {opcoes ? <SaldosDaFaixa escopo={escopoDoSaldoAtual} /> : null}
+        </div>
         <h2>{painel.resumo.conciliados} de {total} conciliados</h2>
         <span className={styles.faixaBarra} aria-hidden="true"><span style={{ inlineSize: `${progresso}%` }} /></span>
       </div>
       <div className={styles.faixaLado}>
-        <span className={styles.stat}><small>Sugeridos</small><strong>{painel.resumo.sugeridos}</strong></span>
-        <span className={styles.stat}><small>Valor diferente</small><strong>{painel.resumo.valorDiferente}</strong></span>
-        <span className={styles.stat} title={semPar.detalhe}><small>Sem par</small><strong>{semPar.total}<span className="sr-only">: {semPar.detalhe}</span></strong></span>
-        <span className={styles.stat}><small>Falta conciliar</small><strong>{valorEmReais(painel.resumo.faltaConciliar)}</strong></span>
+        <div className={styles.faixaNumeros}>
+          <span className={styles.stat}><small>Sugeridos</small><strong>{painel.resumo.sugeridos}</strong></span>
+          <span className={styles.stat} title={semPar.detalhe}><small>Sem par</small><strong>{semPar.total}<span className="sr-only">: {semPar.detalhe}</span></strong></span>
+          <span className={styles.stat}><small>Falta conciliar</small><strong>{valorEmReais(painel.resumo.faltaConciliar)}</strong></span>
+        </div>
         <span className={styles.lido}><Cloud size={14} aria-hidden="true" />{quandoFoiLido(painel.extratos, hoje)}</span>
-        <Button variant="secondary" icon={<Cloud size={16} />} onClick={() => setImportando(true)} disabled={!opcoes || contas.length === 0}>Ler extrato</Button>
-        {painel.resumo.sugeridos > 0 ? <Button icon={<Link2 size={16} />} onClick={() => setLote(true)} disabled={ocupado}>{painel.resumo.sugeridos === 1 ? "Conciliar o sugerido" : `Conciliar os ${painel.resumo.sugeridos} sugeridos`}</Button> : null}
+        <div className={styles.faixaBotoes}>
+          <Button size="sm" variant="secondary" icon={<Cloud size={14} />} onClick={() => setImportando(true)} disabled={!opcoes || contas.length === 0}>Ler extrato</Button>
+          {painel.resumo.sugeridos > 0 ? <Button size="sm" icon={<Link2 size={14} />} onClick={() => setLote(true)} disabled={ocupado}>{painel.resumo.sugeridos === 1 ? "Conciliar o sugerido" : `Conciliar os ${painel.resumo.sugeridos} sugeridos`}</Button> : null}
+        </div>
       </div>
-      {opcoes ? <SaldosDaFaixa escopo={escopoDoSaldoAtual} /> : null}
     </section>
 
     <Secao titulo="Sugeridos" total={painel.sugeridos.length} sub="O valor e a data batem. Confirma e concilia." vazio={painel.sugeridos.length === 0} vazioTexto="Nenhum par com o mesmo valor neste período.">
@@ -270,14 +279,28 @@ export function ConciliacaoView({ filtros, painel, opcoes, gerente, buscaCliente
           const candidatos = (movimento.candidatos ?? []).flatMap((id) => { const lancamento = porId.get(id); return lancamento ? [lancamento] : []; });
           const escolhido = pares[movimento.id] ?? candidatos[0]?.id;
           const lancamento = candidatos.find((item) => item.id === escolhido);
+          // Uma ação principal por linha, como na referência: conciliar com o candidato, criar a
+          // tarifa ou criar o lançamento. As demais ficam no menu "Mais ações" (três pontos).
+          const marcado = movimento.estado === "marcado";
+          const conciliarLinha = lancamento ? () => void agir("/api/financeiro/conciliacao/conciliar", conciliarSchema, { movimentoId: movimento.id, lancamentoId: lancamento.id }, "Linha conciliada.") : null;
+          const criarTarifa = movimento.pareceTarifa ? () => setTarifaId(movimento.id) : null;
+          const criarLancamento = podeCriar(movimento) ? () => { setErro(null); setCriarId(movimento.id); } : null;
+          const marcar = () => void agir("/api/financeiro/conciliacao/marcar", marcarNaConciliacaoSchema, { movimentoId: movimento.id, marcado: !marcado }, marcado ? "Linha retomada." : "Linha marcada como pendente.");
+          const principal = conciliarLinha ? { rotulo: "Conciliar", icone: <Link2 size={14} />, acao: conciliarLinha }
+            : criarTarifa ? { rotulo: "Criar tarifa", icone: <Plus size={14} />, acao: criarTarifa }
+            : criarLancamento ? { rotulo: "Criar lançamento", icone: <Plus size={14} />, acao: criarLancamento } : null;
+          const maisAcoes: MenuItem[] = principal ? [
+            ...(criarTarifa && principal.acao !== criarTarifa ? [{ id: "tarifa", label: "Criar tarifa", icon: <Plus />, onSelect: criarTarifa }] : []),
+            ...(criarLancamento && principal.acao !== criarLancamento ? [{ id: "lancamento", label: "Criar lançamento", icon: <Plus />, onSelect: criarLancamento }] : []),
+            { id: "marcar", label: marcado ? "Retomar" : "Marcar pendente", icon: marcado ? <RotateCcw /> : <Clock />, onSelect: marcar },
+          ] : [];
           return <li key={movimento.id} className={styles.sugestao}>
             <CartaoDoExtrato movimento={movimento} />
             <div className={styles.miolo}>
               <div className={styles.mioloAcoes}>
-                {lancamento ? <Button size="sm" icon={<Link2 size={14} />} disabled={ocupado} onClick={() => void agir("/api/financeiro/conciliacao/conciliar", conciliarSchema, { movimentoId: movimento.id, lancamentoId: lancamento.id }, "Linha conciliada.")}>Conciliar</Button> : null}
-                {movimento.pareceTarifa ? <Button size="sm" icon={<Plus size={14} />} disabled={ocupado} onClick={() => setTarifaId(movimento.id)}>Criar tarifa</Button> : null}
-                {podeCriar(movimento) ? <Button size="sm" variant={lancamento || movimento.pareceTarifa ? "secondary" : "primary"} icon={<Plus size={14} />} disabled={ocupado} onClick={() => { setErro(null); setCriarId(movimento.id); }}>Criar lançamento</Button> : null}
-                <Button size="sm" variant="secondary" disabled={ocupado} onClick={() => void agir("/api/financeiro/conciliacao/marcar", marcarNaConciliacaoSchema, { movimentoId: movimento.id, marcado: movimento.estado !== "marcado" }, movimento.estado === "marcado" ? "Linha retomada." : "Linha marcada como pendente.")}>{movimento.estado === "marcado" ? "Retomar" : "Marcar pendente"}</Button>
+                {principal ? <Button size="sm" icon={principal.icone} disabled={ocupado} onClick={principal.acao}>{principal.rotulo}</Button>
+                  : <Button size="sm" variant="secondary" disabled={ocupado} onClick={marcar}>{marcado ? "Retomar" : "Marcar pendente"}</Button>}
+                {maisAcoes.length ? <DropdownMenu variant="icon" label={`Mais ações para ${movimento.descricao || "a linha"}`} disabled={ocupado} items={maisAcoes} /> : null}
               </div>
               {candidatos.length > 1 ? <SelectField label="Lançamento" value={escolhido} onChange={(valor) => setPares((atual) => ({ ...atual, [movimento.id]: valor }))} options={candidatos.map((item) => ({ value: item.id, label: `${item.codigo} · ${item.favorecido}` }))} /> : null}
               {movimento.estado === "marcado" ? <small>Marcado como pendente.</small> : null}
@@ -373,25 +396,37 @@ export function ConciliacaoView({ filtros, painel, opcoes, gerente, buscaCliente
  * O saldo do Plugga OS ao lado do conferido com o extrato (PLU-339, C4): o calculado é o saldo
  * inicial mais todo o liquidado; o conciliado, só o que já tem par. A diferença é líquida e
  * desde o saldo inicial: não prova que o período está conciliado (isso é a contagem acima).
+ * Fica sob demanda, no "Saldos" ao lado do contexto da faixa, para a faixa caber numa linha.
  */
 function SaldosDaFaixa({ escopo }: { escopo: EscopoDoSaldo<ContaCorrente> }) {
+  const conteudo = conteudoDosSaldos(escopo);
+  if (!conteudo) return null;
+  return <Popover>
+    <PopoverTrigger asChild>
+      <button type="button" className={styles.saldosBotao}><Scale size={12} aria-hidden="true" />Saldos<ChevronDown size={12} aria-hidden="true" /></button>
+    </PopoverTrigger>
+    <PopoverContent className={styles.saldosPopover} align="start" aria-label="Saldos">{conteudo}</PopoverContent>
+  </Popover>;
+}
+
+function conteudoDosSaldos(escopo: EscopoDoSaldo<ContaCorrente>): ReactNode {
   if (escopo.tipo === "fora") {
     const nome = escopo.conta ? rotuloDaConta(escopo.conta) : null;
-    return <p className={styles.faixaSaldos}>{escopo.motivo === "inativa" ? `A conta ${nome} está inativa: o saldo dela não se calcula aqui.`
+    return <p>{escopo.motivo === "inativa" ? `A conta ${nome} está inativa: o saldo dela não se calcula aqui.`
       : escopo.motivo === "outra-empresa" ? `A conta ${nome} não é da empresa escolhida: limpe a Empresa ou troque a conta para ver o saldo.`
       : "A conta deste endereço não está entre as contas do Financeiro: escolha outra para ver o saldo."}</p>;
   }
   const saldos = saldosDaConciliacao(escopo.contas);
   if (!saldos) return null;
   if (saldos.tipo !== "calculado") {
-    return <p className={styles.faixaSaldos}>{saldos.tipo === "oculto"
+    return <p>{saldos.tipo === "oculto"
       ? "O saldo da conta aparece só para quem acompanha pagar e receber."
       : "Sem saldo inicial, o saldo conciliado não se calcula. Cadastre o saldo inicial nas configurações do Financeiro."}</p>;
   }
-  return <div className={styles.faixaSaldos} aria-label="Saldos da conciliação" role="group">
-    <span className={styles.stat}><small>Saldo no Plugga OS</small><strong>{valorEmReais(saldos.calculado)}</strong></span>
-    <span className={styles.stat}><small>Saldo conciliado</small><strong>{valorEmReais(saldos.conciliado)}</strong></span>
-    <span className={styles.stat}><small>Diferença líquida</small><strong>{valorEmReais(saldos.diferenca)}</strong></span>
+  return <div className={styles.saldosGrupo} aria-label="Saldos da conciliação" role="group">
+    <span><small>Saldo no Plugga OS</small><strong>{valorEmReais(saldos.calculado)}</strong></span>
+    <span><small>Saldo conciliado</small><strong>{valorEmReais(saldos.conciliado)}</strong></span>
+    <span><small>Diferença líquida</small><strong>{valorEmReais(saldos.diferenca)}</strong></span>
     <p>{notaDosSaldos(saldos)}</p>
   </div>;
 }
