@@ -159,7 +159,7 @@ describe("barra lateral pelo acesso", () => {
   it("o menu do Financeiro segue as telas: Lançamentos com pagar ou receber, Conciliação com a dela (PLU-336)", () => {
     const itens = (...telas: Tela[]) => navGroupsForAccess({ plataforma: null, departamentos: [{ departamento: "financeiro", nivel: "membro", telas }] })
       .find((grupo) => grupo.label === "Financeiro")?.items.map((item) => item.label);
-    // Centro de custo ainda não tem tela: aparece, em breve, para todo o departamento (PLU-360).
+    // Centro de custo (protótipo, PLU-362) abre com qualquer tela do Financeiro, como Tarefas.
     assert.deepEqual(itens("financeiro.pagar"), ["Visão geral", "Lançamentos", "Tarefas", "Centro de custo"]);
     assert.deepEqual(itens("financeiro.receber"), ["Visão geral", "Lançamentos", "Tarefas", "Centro de custo"]);
     assert.deepEqual(itens("financeiro.conciliacao"), ["Tarefas", "Conciliação", "Centro de custo"]);
@@ -167,14 +167,17 @@ describe("barra lateral pelo acesso", () => {
     assert.deepEqual(itens("financeiro.relatorios"), ["Tarefas", "Centro de custo", "Relatórios"]);
   });
 
-  it("menu do Financeiro na ordem aprovada; Centro de custo em breve, Notas fiscais (protótipo) e Relatórios com tela (PLU-360, PLU-361)", () => {
+  it("menu do Financeiro na ordem aprovada; Notas fiscais e Centro de custo (protótipos) e Relatórios com tela (PLU-360, PLU-361, PLU-362)", () => {
     const financeiro = DEPARTAMENTOS.find((departamento) => departamento.id === "financeiro")!;
     assert.deepEqual(financeiro.processos.map((processo) => processo.label), [
       "Visão geral", "Lançamentos", "Tarefas", "Conciliação", "Notas fiscais", "Centro de custo", "Relatórios",
     ]);
     const item = (label: string) => financeiro.processos.find((processo) => processo.label === label)!;
-    assert.equal(item("Centro de custo").status, "em-breve");
-    assert.equal(item("Centro de custo").rota, undefined);
+    // O protótipo do Centro de custo abre nos testes (e no desenvolvimento); fora deles, em breve (prototipo-centro-de-custo.test.ts).
+    assert.equal(item("Centro de custo").rota, "/financeiro/centro-de-custo");
+    assert.equal(item("Centro de custo").status, "parcial");
+    assert.equal(navIdForPathname("/financeiro/centro-de-custo/usina-solar-residencial-joao"), "/financeiro/centro-de-custo");
+    assert.equal(tituloForNavId("/financeiro/centro-de-custo"), "Centro de custo");
     // O protótipo das Notas fiscais abre nos testes (e no desenvolvimento); fora deles, em breve (prototipo-das-notas-fiscais.test.ts).
     assert.equal(item("Notas fiscais").id, "financeiro.fiscal");
     assert.equal(item("Notas fiscais").rota, "/financeiro/notas-fiscais");
@@ -187,7 +190,7 @@ describe("barra lateral pelo acesso", () => {
     const grupo = navGroupsForAccess({ plataforma: null, departamentos: [{ departamento: "financeiro", nivel: "membro", telas: ["financeiro.relatorios"] }] })
       .find((g) => g.label === "Financeiro")!;
     assert.ok(grupo.items.some((i) => i.id === "/financeiro/relatorios" && !i.disabled));
-    assert.ok(grupo.items.some((i) => i.label === "Centro de custo" && i.disabled));
+    assert.ok(grupo.items.some((i) => i.id === "/financeiro/centro-de-custo" && !i.disabled));
     assert.equal(navIdForPathname("/financeiro/relatorios"), "/financeiro/relatorios");
     assert.equal(tituloForNavId("/financeiro/relatorios"), "Relatórios");
   });

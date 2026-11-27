@@ -14,7 +14,7 @@ import {
 
 import type { IconName } from "../components/plugga-shell";
 import { podeAbrirPagina, TELAS_DAS_ORDENS_DE_SERVICO, TELAS_DOS_LANCAMENTOS } from "./acesso-paginas.ts";
-import { engenhariaHabilitado, financeiroHabilitado } from "./recursos.ts";
+import { engenhariaHabilitado, financeiroHabilitado, itemDoCentroDeCusto } from "./recursos.ts";
 import { itemDasNotasFiscais } from "./prototipo-das-notas-fiscais.ts";
 
 /**
@@ -159,10 +159,10 @@ export const DEPARTAMENTOS: Departamento[] = [
       { label: "Tarefas", telas: telasPorDepartamento.financeiro, ...(financeiroHabilitado() ? { rota: "/financeiro/tarefas", status: "parcial" as const } : { status: "em-breve" as const }) },
       // A API da conciliação já existe (PLU-339); a tela lê o extrato e os pares.
       { id: "financeiro.conciliacao", label: "Conciliação", ...(financeiroHabilitado() ? { rota: "/financeiro/conciliacao", status: "parcial" as const } : { status: "em-breve" as const }) },
-      // Notas fiscais (PLU-361) e Centro de custo ainda sem tela: em breve, sem rota.
       // Notas fiscais (PLU-361): protótipo visual, aberto só no desenvolvimento e nos testes.
       { id: "financeiro.fiscal", label: "Notas fiscais", ...itemDasNotasFiscais() },
-      { label: "Centro de custo", status: "em-breve" },
+      // Centro de custo (PLU-362): protótipo visual, aberto só no desenvolvimento e nos testes; na produção, em breve.
+      { label: "Centro de custo", telas: telasPorDepartamento.financeiro, ...itemDoCentroDeCusto() },
       { id: "financeiro.relatorios", label: "Relatórios", ...(financeiroHabilitado() ? { rota: "/financeiro/relatorios", status: "parcial" as const } : { status: "em-breve" as const }) },
     ],
     telas: [
