@@ -104,6 +104,51 @@ test("o pedido de compra escolhe a obra do cadastro, sem criar obra (PLU-355)", 
   await expect(novo.getByRole("button", { name: "Nova obra" })).toHaveCount(0);
   await novo.getByRole("combobox", { name: /^Obra/ }).click();
   await expect(page.getByRole("option", { name: new RegExp(literal(nome)) })).toBeVisible(DEPOIS_DA_ACAO);
+  // Há busca com qualquer número de obras. Pelo cliente (o nome da obra não o contém) e sem resultado.
+  const busca355 = page.getByRole("searchbox", { name: /^Buscar em Obra/ });
+  await busca355.fill("com UC (exemplo)");
+  await expect(page.getByRole("option", { name: new RegExp(literal(nome)) })).toBeVisible();
+  await busca355.fill("cliente que não existe");
+  await expect(page.getByRole("option", { name: new RegExp(literal(nome)) })).toHaveCount(0);
+  await expect(page.getByText("Nenhuma opção encontrada.")).toBeVisible();
+});
+
+/**
+ * Quem opera Compras não precisa da tela de Obras: a leitura das obras vem pela
+ * tela de Compras. Usa a conta de Suprimentos do seed (SEED_SAMPLE_TEAM), que
+ * não tem nada da Engenharia.
+ */
+test("quem tem Compras sem a tela de Obras escolhe a obra pelo cliente (PLU-355)", async ({ request, browser, baseURL }) => {
+  test.slow();
+  const H = { origin: baseURL! };
+  const sufixo = Date.now().toString(36).toUpperCase();
+  const nome = `Obra ${marcaDaExecucao()} ${sufixo} sem tela (sintética)`;
+  const clientes = (await (await request.get(`/api/engenharia/obras/clientes?busca=${encodeURIComponent("Cliente com UC")}`)).json()) as { itens: { id: string; nome: string }[] };
+  const cliente = clientes.itens.find((c) => c.nome === CLIENTE)!;
+  const dia = (n: number) => new Date(Date.now() - 4 * 3_600_000 + n * 86_400_000).toISOString().slice(0, 10);
+  const criada = await request.post("/api/engenharia/obras", { headers: H, data: { empresa: "waze", clienteId: cliente.id, nome, potenciaKwp: "10", inicioEm: dia(0), entregaPrevistaEm: dia(30) } });
+  expect(criada.ok(), await criada.text()).toBeTruthy();
+
+  const contexto = await browser.newContext({ baseURL, viewport: { width: 390, height: 844 }, reducedMotion: "reduce", storageState: { cookies: [], origins: [] }, extraHTTPHeaders: { "x-forwarded-for": "203.0.113.222" } });
+  const pagina = await contexto.newPage();
+  await bloquearTerceiros(pagina);
+  const login = await pagina.request.post("/api/auth/login", { headers: H, data: { email: "compras.plugga@plugga.local", password: process.env.E2E_SAMPLE_PASSWORD ?? process.env.SEED_ADMIN_PASSWORD ?? "local_only_change_me" } });
+  expect(login.ok(), "login de compras.plugga@plugga.local (precisa de SEED_SAMPLE_TEAM=true no seed)").toBeTruthy();
+  // Sem a tela de Obras, o endereço dela leva ao início.
+  await pagina.goto("/engenharia/obras");
+  await expect(pagina).toHaveURL("/", DEPOIS_DA_ACAO);
+
+  await pagina.goto("/suprimentos/compras");
+  await pagina.getByRole("button", { name: "Novo pedido" }).first().click();
+  const novo = pagina.getByRole("dialog", { name: "Novo pedido de compra" });
+  await novo.getByRole("radio", { name: "Waze Energia" }).click();
+  await novo.getByRole("radio", { name: "Obra" }).click();
+  const campo = novo.getByRole("combobox", { name: /^Obra/ });
+  await campo.click();
+  await pagina.getByRole("searchbox", { name: /^Buscar em Obra/ }).fill("com UC (exemplo)");
+  await pagina.getByRole("option", { name: new RegExp(literal(nome)) }).click(DEPOIS_DA_ACAO);
+  await expect(campo).toContainText(nome);
+  await contexto.close();
 });
 
 test("a O.S. escolhe a obra do mesmo cliente e empresa e aparece na aba O.S. da obra", async ({ page, request, baseURL }) => {

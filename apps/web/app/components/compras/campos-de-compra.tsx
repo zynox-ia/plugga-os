@@ -7,12 +7,13 @@ import {
   type DestinoDeCompra,
   type ObraDeCompra,
 } from "@plugga/shared";
-import { Search, X } from "lucide-react";
+import { HardHat, Search, X } from "lucide-react";
 import { useEffect, useId, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from "react";
 
 import { enviar } from "../../lib/clientes";
 import { COR_DA_EMPRESA, ROTULO_DA_EMPRESA } from "../../lib/compras";
 import estilosLista from "../pipelines/lista-de-negocios.module.css";
+import { CampoDeMenu } from "../suprimentos/menu-com-busca";
 import { Button, Combobox, SelectField, type SelectOption } from "../ui";
 import styles from "./compras.module.css";
 
@@ -90,10 +91,11 @@ export function DestinoDoPedido({ empresa, obras, valor, aoMudar, erros }: {
     <Segmentado rotulo="Tipo de destino" valor={valor.destino} aoMudar={(destino) => aoMudar({ destino, obraId: null, clientId: null, cliente: null })}
       opcoes={(["obra", "cliente", "interno"] as const).map((d) => ({ valor: d, rotulo: rotulosDoDestinoDeCompra[d] }))} />
     {valor.destino === "obra" ? <>
-      <CampoDeEscolha label="Obra" required valor={valor.obraId ?? ""} aoMudar={(obraId) => aoMudar({ ...valor, obraId: obraId || null })} erro={erros.obraId}
+      {/* Busca com qualquer número de obras, pelo nome ou pelo cliente (PLU-355). */}
+      <CampoDeMenu label="Obra" required sempreComBusca dicaDaBusca="Obra ou cliente…" icon={<HardHat />} value={valor.obraId ?? ""} onChange={(obraId) => aoMudar({ ...valor, obraId })} error={erros.obraId}
         placeholder={empresa ? (daEmpresa.length ? "Selecione a obra" : "Nenhuma obra desta empresa") : "Escolha a empresa primeiro"}
-        opcoes={daEmpresa.map((o) => ({ value: o.id, label: o.nome, description: o.cliente?.nome }))} disabled={!empresa}
-        dica="Sem a obra na lista? Ela é cadastrada na tela de Obras da Engenharia." />
+        options={daEmpresa.map((o) => ({ value: o.id, label: o.nome, description: o.cliente?.nome }))} disabled={!empresa}
+        hint="Sem a obra na lista? Ela é cadastrada na tela de Obras da Engenharia." />
     </> : null}
     {valor.destino === "cliente" ? <div className="ui-field">
       <label htmlFor="busca-cliente">Cliente<span className="ui-required"> (obrigatório)</span></label>
