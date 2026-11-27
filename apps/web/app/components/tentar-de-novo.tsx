@@ -3,7 +3,7 @@
 import { RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { destinoAoVoltar, passoDoTentarDeNovo } from "../lib/sessao-do-middleware";
+import { consultarSessaoParaVoltar, destinoAoVoltar } from "../lib/sessao-do-middleware";
 import { Button } from "./ui";
 
 /** Espera entre tentativas: começa rápido (a API em modo watch volta em segundos) e sobe até 15 s. */
@@ -24,16 +24,13 @@ export function TentarDeNovo({ destino }: { destino: string | null }) {
     if (timer.current) clearTimeout(timer.current);
     setTentando(true);
     const alvo = destinoAoVoltar(destino, window.location.pathname, window.location.search);
-    try {
-      // Mesmo contrato do middleware: um 2xx fora dele voltaria ao aviso, em laço.
-      const passo = await passoDoTentarDeNovo(await fetch("/api/auth/me", { cache: "no-store" }));
-      if (passo === "voltar") { window.location.replace(alvo); return; }
-      if (passo === "login") {
-        window.location.replace(`/login${alvo === "/" ? "" : `?redirectTo=${encodeURIComponent(alvo)}`}`);
-        return;
-      }
-    } catch {
-      // Sem rede até a web: tenta de novo na próxima volta.
+    // Mesmo contrato do middleware (um 2xx fora dele voltaria ao aviso, em laço), e com prazo:
+    // a conexão parada vira "esperar", e a próxima tentativa é agendada.
+    const passo = await consultarSessaoParaVoltar();
+    if (passo === "voltar") { window.location.replace(alvo); return; }
+    if (passo === "login") {
+      window.location.replace(`/login${alvo === "/" ? "" : `?redirectTo=${encodeURIComponent(alvo)}`}`);
+      return;
     }
     setTentando(false);
     setTentativa((t) => t + 1);

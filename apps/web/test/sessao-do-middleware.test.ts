@@ -3,7 +3,7 @@ import { describe, it } from "node:test";
 
 import { sessionUserSchema } from "@plugga/shared";
 
-import { caminhoCompleto, decidirPagina, destinoAoVoltar, destinoDoAviso, destinoDoParametro, lerSessaoDaApi, passoDoTentarDeNovo, type LeituraDaSessao } from "../app/lib/sessao-do-middleware.ts";
+import { caminhoCompleto, consultarSessaoParaVoltar, decidirPagina, destinoAoVoltar, destinoDoAviso, destinoDoParametro, lerSessaoDaApi, passoDoTentarDeNovo, type LeituraDaSessao } from "../app/lib/sessao-do-middleware.ts";
 
 const USUARIO = sessionUserSchema.parse({
   id: "11111111-1111-4111-8111-111111111111",
@@ -77,6 +77,41 @@ describe("passoDoTentarDeNovo: o retry do aviso usa o mesmo contrato do middlewa
 
   it("503 e outras recusas esperam", async () => {
     for (const status of [503, 500, 502, 429, 404]) assert.equal(await passoDoTentarDeNovo(new Response(null, { status })), "esperar", String(status));
+  });
+});
+
+describe("consultarSessaoParaVoltar: o retry tem prazo e retoma (PLU-343)", () => {
+  /** Um fetch que só termina quando o sinal aborta, como uma conexão com a web que parou. */
+  const parado = (async (_url: string, init?: RequestInit) => new Promise<Response>((_, rejeitar) => {
+    init?.signal?.addEventListener("abort", () => rejeitar(init.signal?.reason));
+  })) as unknown as typeof fetch;
+
+  it("a conexão parada não congela a tentativa: o prazo aborta e o passo é esperar", async () => {
+    const inicio = Date.now();
+    assert.equal(await consultarSessaoParaVoltar(parado, 20), "esperar");
+    assert.ok(Date.now() - inicio < 2_000);
+  });
+
+  it("depois do prazo, a próxima tentativa retoma e volta à página quando a sessão responde", async () => {
+    assert.equal(await consultarSessaoParaVoltar(parado, 20), "esperar");
+    let pedido: { url: string; init?: RequestInit } | undefined;
+    const responde = (async (url: string, init?: RequestInit) => { pedido = { url, init }; return Response.json(USUARIO); }) as unknown as typeof fetch;
+    assert.equal(await consultarSessaoParaVoltar(responde, 20), "voltar");
+    assert.equal(pedido?.url, "/api/auth/me");
+    assert.equal(pedido?.init?.cache, "no-store");
+    assert.ok(pedido?.init?.signal instanceof AbortSignal);
+  });
+
+  it("o corpo que para no meio também respeita o prazo", async () => {
+    const corpoParado = (async (_url: string, init?: RequestInit) => new Response(new ReadableStream({
+      start(controle) { init?.signal?.addEventListener("abort", () => controle.error(init.signal?.reason)); },
+    }), { status: 200, headers: { "content-type": "application/json" } })) as unknown as typeof fetch;
+    assert.equal(await consultarSessaoParaVoltar(corpoParado, 20), "esperar");
+  });
+
+  it("sem rede até a web, espera; 401 vai ao login", async () => {
+    assert.equal(await consultarSessaoParaVoltar((async () => { throw new TypeError("fetch failed"); }) as unknown as typeof fetch, 20), "esperar");
+    assert.equal(await consultarSessaoParaVoltar((async () => new Response(null, { status: 401 })) as unknown as typeof fetch, 20), "login");
   });
 });
 

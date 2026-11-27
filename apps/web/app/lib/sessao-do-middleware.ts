@@ -76,6 +76,23 @@ export async function passoDoTentarDeNovo(resposta: Response): Promise<"voltar" 
   return leitura.tipo === "autenticado" ? "voltar" : leitura.tipo === "semSessao" ? "login" : "esperar";
 }
 
+/** Prazo de cada tentativa do aviso: a web responde rápido; o trecho até a API já tem o prazo do proxy. */
+export const PRAZO_DA_TENTATIVA_MS = 10_000;
+
+/**
+ * Uma tentativa do aviso: consulta o espelho da sessão com prazo, então uma
+ * conexão com a web que pare (no pedido ou no meio do corpo) vira "esperar" e
+ * a próxima tentativa é agendada, em vez de congelar o aviso.
+ */
+export async function consultarSessaoParaVoltar(buscar: typeof fetch = fetch, prazoMs = PRAZO_DA_TENTATIVA_MS): Promise<"voltar" | "login" | "esperar"> {
+  try {
+    return await passoDoTentarDeNovo(await buscar("/api/auth/me", { cache: "no-store", signal: AbortSignal.timeout(prazoMs) }));
+  } catch {
+    // Sem rede até a web, ou o prazo esgotado: tenta de novo na próxima volta.
+    return "esperar";
+  }
+}
+
 /** O que o middleware faz com a página pedida. */
 export type DecisaoDoMiddleware =
   | { acao: "seguir" }
