@@ -9,7 +9,7 @@ import {
   type ListarMovimentacoesResposta,
   type Movimentacao,
 } from "@plugga/shared";
-import { ArrowRight, Building2, CalendarDays, Filter, History, LayoutGrid, List, Package, Tag } from "lucide-react";
+import { ArrowRight, Building2, Filter, History, LayoutGrid, List, Package, Tag } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactElement } from "react";
 
@@ -28,6 +28,7 @@ import {
 } from "../../lib/estoque";
 import type { AcessoDoEstoque } from "../../lib/estoque-acesso";
 import { BarraFixa, CampoDaFolha, classeDaPaginaComBarra } from "../barra-fixa";
+import { FiltroDePeriodo, type EscolhaDePeriodo } from "../filtro-de-periodo";
 import estilosClientes from "../clientes/tela-clientes.module.css";
 import estilosPipelines from "../pipelines/tela-pipelines.module.css";
 import { PontoDaEmpresa } from "../suprimentos/empresa";
@@ -122,6 +123,8 @@ export function EstoqueView({ filtros, itens, todosOsItens, movimentacoes, ficha
 
   const empresas = [{ value: "todas", label: "Todas as empresas", icon: <Building2 /> }, { value: "plugga", label: "Plugga", icon: <PontoDaEmpresa empresa="plugga" /> }, { value: "waze", label: "Waze Energia", icon: <PontoDaEmpresa empresa="waze" /> }];
 
+  // Atalho e intervalo se excluem; sem nenhum dos dois (Limpar do painel), volta aos últimos 30 dias.
+  const mudarPeriodo = (escolha: EscolhaDePeriodo) => ir({ periodo: (escolha.atalho || "30") as FiltrosDeEstoque["periodo"], intervalo: escolha.intervalo ?? undefined });
   const filtrosDaVisao: [string, ReactElement][] = [
     ["Empresa", <FiltroComBusca key="empresa" label="Empresa" icon={<Building2 />} semFiltro="todas" value={filtros.empresa ?? "todas"} onChange={(v) => ir({ empresa: v === "todas" ? undefined : (v as FiltrosDeEstoque["empresa"]) })} options={empresas} />],
     ...(movimentos ? [
@@ -129,8 +132,8 @@ export function EstoqueView({ filtros, itens, todosOsItens, movimentacoes, ficha
         options={[{ value: "todos", label: "Todos os tipos", icon: <History /> }, ...tiposDeMovimentacao.map((t) => { const Icone = ICONE_DO_TIPO[t]; return { value: t, label: ROTULO_DO_FILTRO_DE_TIPO[t], icon: <Icone /> }; })]} />],
       ["Item", <FiltroComBusca key="item" label="Item" icon={<Package />} semFiltro="todos" value={filtros.itemId ?? "todos"} onChange={(v) => ir({ itemId: v === "todos" ? undefined : v })}
         options={[{ value: "todos", label: "Todos os itens", icon: <Package /> }, ...todosOsItens.filter((i) => !filtros.empresa || i.empresa === filtros.empresa).map((i) => ({ value: i.id, label: i.nome, description: `${i.codigo} · ${ROTULO_DA_EMPRESA[i.empresa]}` }))]} />],
-      ["Período", <FiltroComBusca key="periodo" label="Período" icon={<CalendarDays />} semFiltro="30" value={filtros.periodo} onChange={(v) => ir({ periodo: v as FiltrosDeEstoque["periodo"] })}
-        options={periodosDeMovimentacao.map((p) => ({ value: p, label: ROTULO_DO_PERIODO_DE_MOVIMENTACAO[p], icon: <CalendarDays /> }))} />],
+      ["Período", <FiltroDePeriodo key="periodo" cheio semTodoOPeriodo semFiltro="30" atalhos={periodosDeMovimentacao.map((p) => ({ value: p, label: ROTULO_DO_PERIODO_DE_MOVIMENTACAO[p] }))}
+        atalho={filtros.periodo} intervalo={filtros.intervalo ?? null} aoMudar={mudarPeriodo} />],
     ] as [string, ReactElement][] : [
       ["Categoria", <FiltroComBusca key="categoria" label="Categoria" icon={<Tag />} semFiltro="todas" value={filtros.categoria ?? "todas"} onChange={(v) => ir({ categoria: v === "todas" ? undefined : (v as FiltrosDeEstoque["categoria"]) })}
         options={[{ value: "todas", label: "Todas as categorias", icon: <Tag /> }, ...categoriasDeItemDeEstoque.map((c) => ({ value: c, label: rotulosDaCategoriaDeItemDeEstoque[c], icon: <Tag /> }))]} />],
@@ -138,7 +141,7 @@ export function EstoqueView({ filtros, itens, todosOsItens, movimentacoes, ficha
         options={[{ value: "qualquer", label: "Qualquer saldo", icon: <Filter /> }, ...filtrosDeSaldoDaTela.map((s) => ({ value: s, label: ROTULO_DO_FILTRO_DE_SALDO[s], icon: <Filter /> }))]} />],
     ] as [string, ReactElement][]),
   ];
-  const ativos = [filtros.busca, filtros.empresa, ...(movimentos ? [filtros.tipo, filtros.itemId, filtros.periodo !== "30" ? filtros.periodo : undefined] : [filtros.categoria, filtros.saldo])].filter(Boolean).length;
+  const ativos = [filtros.busca, filtros.empresa, ...(movimentos ? [filtros.tipo, filtros.itemId, filtros.periodo !== "30" ? filtros.periodo : undefined, filtros.intervalo] : [filtros.categoria, filtros.saldo])].filter(Boolean).length;
   const totalDaVisao = movimentos ? (movimentacoes?.dias.reduce((s, d) => s + d.movimentacoes.length, 0) ?? 0) : itens.length;
   const campoDeBusca = (sufixo: string) => <form className="equipe-busca" onSubmit={buscar} role="search" aria-label="Buscar no estoque">
     <button type="submit" className={estilosClientes.botaoBusca} aria-label="Buscar"><IconSearch className="equipe-busca-icon" /></button>

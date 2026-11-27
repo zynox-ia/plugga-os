@@ -11,6 +11,8 @@ import {
   type TipoDeMovimentacao,
 } from "@plugga/shared";
 
+import { lerIntervalo, type IntervaloLivre } from "./periodo-livre.ts";
+
 /**
  * Estoque (PLU-333): filtros pelo endereço, números e regras de tela do saldo,
  * das movimentações e do registro. Uma tela só para Plugga e Waze; a empresa é
@@ -60,6 +62,8 @@ export type FiltrosDeEstoque = {
   tipo?: TipoDeMovimentacao;
   itemId?: string;
   periodo: PeriodoDeMovimentacao;
+  /** Movimentações: período personalizado (?de=&ate=). Exclui o atalho: a API não aceita os dois. */
+  intervalo?: IntervaloLivre;
 };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -71,15 +75,18 @@ export function lerFiltrosDeEstoque(p: Record<string, string | undefined>): Filt
   const categoria = categoriasDeItemDeEstoque.find((c) => c === p.categoria);
   const saldo = filtrosDeSaldoDaTela.find((s) => s === p.saldo);
   const tipo = tiposDeMovimentacao.find((t) => t === p.tipo);
+  const visao = visoesDoEstoque.find((v) => v === p.visao) ?? "cards";
+  const intervalo = visao === "movimentacoes" ? lerIntervalo(p.de, p.ate) : null;
   return {
-    visao: visoesDoEstoque.find((v) => v === p.visao) ?? "cards",
+    visao,
     busca: p.busca?.trim().slice(0, 150) || undefined,
     ...(empresa ? { empresa } : {}),
     ...(categoria ? { categoria } : {}),
     ...(saldo ? { saldo } : {}),
     ...(tipo ? { tipo } : {}),
     ...(ehUuid(p.item_mov) ? { itemId: p.item_mov } : {}),
-    periodo: periodosDeMovimentacao.find((x) => x === p.periodo) ?? "30",
+    ...(intervalo ? { intervalo } : {}),
+    periodo: intervalo ? "30" : periodosDeMovimentacao.find((x) => x === p.periodo) ?? "30",
   };
 }
 
@@ -95,7 +102,8 @@ export function hrefDeEstoque(f: Partial<FiltrosDeEstoque>, item?: string | null
   } else {
     if (f.tipo) q.set("tipo", f.tipo);
     if (f.itemId) q.set("item_mov", f.itemId);
-    if (f.periodo && f.periodo !== "30") q.set("periodo", f.periodo);
+    if (f.intervalo) { q.set("de", f.intervalo.de); q.set("ate", f.intervalo.ate); }
+    else if (f.periodo && f.periodo !== "30") q.set("periodo", f.periodo);
   }
   if (item) q.set("item", item);
   const texto = q.toString();
@@ -105,7 +113,7 @@ export function hrefDeEstoque(f: Partial<FiltrosDeEstoque>, item?: string | null
 /** Há filtro além do padrão na visão atual (para mostrar "Limpar"). */
 export function temFiltro(f: FiltrosDeEstoque): boolean {
   if (f.busca || f.empresa) return true;
-  return f.visao === "movimentacoes" ? Boolean(f.tipo || f.itemId || f.periodo !== "30") : Boolean(f.categoria || f.saldo);
+  return f.visao === "movimentacoes" ? Boolean(f.tipo || f.itemId || f.intervalo || f.periodo !== "30") : Boolean(f.categoria || f.saldo);
 }
 
 export const consultaDeItens = (f: FiltrosDeEstoque): Record<string, string | undefined> => ({
@@ -120,7 +128,7 @@ export const consultaDeMovimentacoes = (f: FiltrosDeEstoque): Record<string, str
   tipo: f.tipo,
   itemId: f.itemId,
   busca: f.busca,
-  periodo: f.periodo,
+  ...(f.intervalo ? { periodo: undefined, de: f.intervalo.de, ate: f.intervalo.ate } : { periodo: f.periodo }),
 });
 
 // ---------------------------------------------------------------- números

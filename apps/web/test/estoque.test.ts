@@ -51,6 +51,36 @@ describe("Estoque: filtros no endereço (PLU-333)", () => {
   });
 });
 
+describe("Estoque: período personalizado das movimentações", () => {
+  const mov = { visao: "movimentacoes" };
+  const intervalo = { de: "2026-11-01", ate: "2026-11-15" };
+  it("lê de e ate válidos nas movimentações; inválido volta ao padrão de 30 dias", () => {
+    assert.deepEqual(lerFiltrosDeEstoque({ ...mov, ...intervalo }).intervalo, intervalo);
+    for (const p of [{ de: "2026-11-01" }, { ate: "2026-11-15" }, { de: "2026-11-16", ate: "2026-11-15" }, { de: "2026-02-30", ate: "2026-03-01" }]) {
+      const f = lerFiltrosDeEstoque({ ...mov, ...p });
+      assert.equal(f.intervalo, undefined);
+      assert.equal(f.periodo, "30");
+    }
+  });
+  it("só vale nas movimentações; com atalho e intervalo juntos, vale o intervalo", () => {
+    assert.equal(lerFiltrosDeEstoque({ visao: "lista", ...intervalo }).intervalo, undefined);
+    const f = lerFiltrosDeEstoque({ ...mov, periodo: "7", ...intervalo });
+    assert.deepEqual(f.intervalo, intervalo);
+    assert.equal(f.periodo, "30");
+  });
+  it("o link leva de e ate sem periodo, e o atalho continua como antes", () => {
+    const f = lerFiltrosDeEstoque({ ...mov, ...intervalo });
+    assert.equal(hrefDeEstoque(f), "/suprimentos/estoque?visao=movimentacoes&de=2026-11-01&ate=2026-11-15");
+    assert.equal(hrefDeEstoque({ ...f, periodo: "7" }), "/suprimentos/estoque?visao=movimentacoes&de=2026-11-01&ate=2026-11-15");
+    assert.equal(hrefDeEstoque({ visao: "cards", intervalo }), "/suprimentos/estoque");
+  });
+  it("a API recebe de e ate sem periodo (ela recusa os dois juntos), e o intervalo conta como filtro", () => {
+    const f = lerFiltrosDeEstoque({ ...mov, ...intervalo });
+    assert.deepEqual(consultaDeMovimentacoes(f), { empresa: undefined, tipo: undefined, itemId: undefined, busca: undefined, periodo: undefined, de: "2026-11-01", ate: "2026-11-15" });
+    assert.equal(temFiltro(f), true);
+  });
+});
+
 describe("Estoque: números", () => {
   it("quantidade com unidade e até 3 casas", () => {
     assert.equal(qtd("36.000", "un"), "36 un");
