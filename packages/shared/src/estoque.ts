@@ -383,6 +383,19 @@ export type ListarMovimentacoesResposta = z.infer<typeof listarMovimentacoesResp
 // ---------------------------------------------------------------- ligação com Compras
 
 /**
+ * A linha do pedido vinculada a um item de estoque usa a unidade do item (o
+ * saldo, a reserva e a entrada contam nela). Comparação de unidades: igualdade
+ * exata depois de tirar os espaços das pontas e normalizar o Unicode (NFC).
+ * Caixa e espaço interno contam ("mL" não é "ML"; "rolo 50" não é "rolo50").
+ * Linha sem unidade não conflita: adota a do item. Uma regra só para a API e a web.
+ */
+export function unidadeDaLinhaConflita(unidadeDaLinha: string | null | undefined, unidadeDoItem: string): boolean {
+  const linha = unidadeDaLinha?.trim().normalize("NFC") ?? "";
+  if (!linha) return false;
+  return linha !== unidadeDoItem.trim().normalize("NFC");
+}
+
+/**
  * Por que a linha não é atendida inteira pelo estoque: sem item de estoque
  * vinculado, item inativo, item de outra empresa, linha em unidade diferente da
  * do item ou disponível insuficiente.

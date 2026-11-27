@@ -1,5 +1,5 @@
 import { Prisma } from "@prisma/client";
-import type { SituacaoDoSaldo } from "@plugga/shared";
+import { unidadeDaLinhaConflita, type SituacaoDoSaldo } from "@plugga/shared";
 
 import { diaEmManaus } from "../compras/dias-uteis";
 
@@ -10,6 +10,14 @@ import { diaEmManaus } from "../compras/dias-uteis";
  */
 
 export const D = (valor: Prisma.Decimal.Value) => new Prisma.Decimal(valor);
+
+/**
+ * O uuid como o banco o devolve (minúsculas). O contrato aceita o id em
+ * qualquer caixa, e o banco o lê igual; mapas e conjuntos montados com ids do
+ * banco precisam ser consultados com o id canônico, ou um vínculo válido em
+ * maiúsculas escapa da conferência (revisão da leva 9).
+ */
+export const idCanonico = (id: string) => id.trim().toLowerCase();
 const ZERO = D(0);
 
 export type SaldoAtual = { emEstoque: Prisma.Decimal; reservado: Prisma.Decimal; custoMedio: Prisma.Decimal | null };
@@ -190,6 +198,8 @@ export type PedidoDaEntrada = {
   pedida: Prisma.Decimal;
   /** Entradas de origem compra já ligadas ao pedido, deste item. */
   recebida: Prisma.Decimal;
+  /** A unidade de uma linha deste item que não é a do item (dado anterior à regra), ou null. */
+  unidadeEmConflito: string | null;
 };
 
 /** O que ainda falta entrar do item por este pedido (nunca negativo). */
@@ -214,6 +224,14 @@ export function problemaDaEntradaDoPedido(
   if (!pedido || pedido.pedida.lte(0)) return { mensagem: `O pedido ${numero} não tem este item vinculado ao estoque.`, campo: "pedidoId", estado: false };
   if (pedido.cancelado) return { mensagem: `O pedido ${numero} está cancelado: não recebe entrada.`, campo: "pedidoId", estado: true };
   if (pedido.atendidoPeloEstoque) return { mensagem: `O pedido ${numero} foi atendido pelo estoque: o material sai da reserva, não entra por compra.`, campo: "pedidoId", estado: true };
+  // Mesmo critério da cobertura e da reserva: linha deste item em outra unidade não aceita entrada ligada ao pedido.
+  if (pedido.unidadeEmConflito) {
+    return {
+      mensagem: `O pedido ${numero} tem linha deste item em ${pedido.unidadeEmConflito}, e o item é controlado em ${unidade}: a entrada não se liga a este pedido. Registre a entrada sem pedido, com a quantidade convertida para ${unidade}.`,
+      campo: "pedidoId",
+      estado: true,
+    };
+  }
   if (pedido.recebida.add(quantidade).gt(pedido.pedida)) {
     return {
       mensagem: `Este pedido (${numero}) já deu entrada de ${pedido.recebida.toFixed(3)} ${unidade} deste item, de ${pedido.pedida.toFixed(3)} ${unidade} pedidos.`,
@@ -226,7 +244,7 @@ export function problemaDaEntradaDoPedido(
 
 /** Pedido que aparece na escolha da entrada por compra: aceita entrada e ainda falta receber. */
 export function aceitaEntradaDoPedido(pedido: PedidoDaEntrada): boolean {
-  return !pedido.cancelado && !pedido.atendidoPeloEstoque && faltaEntrar(pedido).gt(0);
+  return !pedido.cancelado && !pedido.atendidoPeloEstoque && !pedido.unidadeEmConflito && faltaEntrar(pedido).gt(0);
 }
 
 /** Por que uma linha do pedido não é atendida inteira pelo estoque. */
@@ -248,19 +266,15 @@ export function itemIndisponivelParaOPedido(
   return null;
 }
 
-/** Unidade para comparar: sem maiúsculas e sem espaços ("M" = "m", "rolo 50" = "rolo50"). */
-export const unidadeComparavel = (unidade: string) => unidade.replace(/\s+/g, "").toLowerCase();
-
 /**
  * A linha do pedido vinculada a um item de estoque usa a unidade do item: o
  * saldo, a reserva e a entrada contam na unidade do item. Linha sem unidade
  * não conflita (adota a do item); unidade diferente é erro de quantidade, não
- * de grafia ("4 cx" reservando 4 m).
+ * de grafia ("4 cx" reservando 4 m). O critério é o do contrato
+ * (`unidadeDaLinhaConflita`: trim e NFC, caixa e espaço interno contam), o
+ * mesmo da web.
  */
-export function unidadeDiferenteDaDoItem(unidadeDaLinha: string | null | undefined, unidadeDoItem: string): boolean {
-  if (!unidadeDaLinha || !unidadeDaLinha.trim()) return false;
-  return unidadeComparavel(unidadeDaLinha) !== unidadeComparavel(unidadeDoItem);
-}
+export const unidadeDiferenteDaDoItem = unidadeDaLinhaConflita;
 
 export type LinhaParaCobertura = {
   quantidade: Prisma.Decimal;
@@ -277,8 +291,10 @@ export type LinhaParaCobertura = {
 export function coberturaPeloEstoque(linhas: readonly LinhaParaCobertura[], empresaDoPedido: string) {
   const restante = new Map<string, Prisma.Decimal>();
   const demanda = new Map<string, Prisma.Decimal>();
+  const naUnidadeDoItem = (linha: LinhaParaCobertura) => !linha.item || linha.item.unidade === undefined || !unidadeDiferenteDaDoItem(linha.unidade, linha.item.unidade);
   for (const linha of linhas) {
-    if (linha.item && linha.item.companyId === empresaDoPedido) demanda.set(linha.item.id, (demanda.get(linha.item.id) ?? ZERO).add(linha.quantidade));
+    // A demanda do item soma só as linhas na unidade dele: "4 cx" não se soma a metros.
+    if (linha.item && linha.item.companyId === empresaDoPedido && naUnidadeDoItem(linha)) demanda.set(linha.item.id, (demanda.get(linha.item.id) ?? ZERO).add(linha.quantidade));
   }
   const resultado = linhas.map((linha) => {
     const item = linha.item;
@@ -287,12 +303,10 @@ export function coberturaPeloEstoque(linhas: readonly LinhaParaCobertura[], empr
     // Item de outra empresa: nada dele (saldo, código, nome) sai na análise deste pedido, só o motivo.
     if (bloqueio === "outra_empresa") return { atende: ZERO, disponivel: null, pedidoDoItem: null, motivo: bloqueio };
     const disponivel = Prisma.Decimal.max(item.emEstoque.sub(item.reservado), 0);
-    const pedidoDoItem = demanda.get(item.id)!;
+    // A reserva recusa linha em outra unidade; a análise diz o mesmo, sem consumir o disponível nem entrar na demanda.
+    if (!naUnidadeDoItem(linha)) return { atende: ZERO, disponivel, pedidoDoItem: null, motivo: "unidade_diferente" as MotivoSemCobertura };
+    const pedidoDoItem = demanda.get(item.id) ?? ZERO;
     if (bloqueio) return { atende: ZERO, disponivel, pedidoDoItem, motivo: bloqueio };
-    // A reserva recusa linha em outra unidade; a análise diz o mesmo (e ela não consome o disponível).
-    if (item.unidade !== undefined && unidadeDiferenteDaDoItem(linha.unidade, item.unidade)) {
-      return { atende: ZERO, disponivel, pedidoDoItem, motivo: "unidade_diferente" as MotivoSemCobertura };
-    }
     const sobra = restante.get(item.id) ?? disponivel;
     const atende = Prisma.Decimal.min(linha.quantidade, sobra);
     restante.set(item.id, sobra.sub(atende));

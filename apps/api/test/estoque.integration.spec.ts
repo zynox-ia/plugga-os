@@ -36,6 +36,9 @@ import { assertSafeTestDatabaseUrl } from "./safe-test-environment";
 const HABILITADO = process.env.RUN_ESTOQUE_INTEGRATION_TESTS === "true";
 const PRAZO_MS = 60_000;
 const AGORA = new Date("2026-11-23T14:00:00Z");
+/** Corridas: a barreira desiste antes de a transação que segura expirar. */
+const PRAZO_DA_BARREIRA = 20_000;
+const PRAZO_DA_TRANSACAO = 40_000;
 
 describe.skipIf(!HABILITADO)("estoque: saldo, movimentações e reservas no Postgres", () => {
   const prisma = new PrismaService();
@@ -209,6 +212,8 @@ describe.skipIf(!HABILITADO)("estoque: saldo, movimentações e reservas no Post
     }), principal, AGORA);
     const linhas = await prisma.itemDePedido.findMany({ where: { pedidoId: pedido }, select: { id: true, descricao: true }, orderBy: { quantidade: "asc" } });
     await expect(compras.vincularItens(pedido, { itens: [{ itemDoPedidoId: linhas[1]!.id, itemDeEstoqueId: id }] }, principal)).rejects.toThrow(/“em caixas” está em cx/);
+    // Ids em maiúsculas (o contrato aceita): a conferência não pode perdê-los (revisão leva 9).
+    await expect(compras.vincularItens(pedido, { itens: [{ itemDoPedidoId: linhas[1]!.id.toUpperCase(), itemDeEstoqueId: id.toUpperCase() }] }, principal)).rejects.toThrow(/“em caixas” está em cx/);
     await compras.vincularItens(pedido, { itens: [{ itemDoPedidoId: linhas[0]!.id, itemDeEstoqueId: id }] }, principal);
     const depois = await prisma.itemDePedido.findMany({ where: { pedidoId: pedido }, select: { unidade: true, itemDeEstoqueId: true }, orderBy: { quantidade: "asc" } });
     expect(depois).toEqual([{ unidade: "m", itemDeEstoqueId: id }, { unidade: "cx", itemDeEstoqueId: null }]);
@@ -285,10 +290,10 @@ describe.skipIf(!HABILITADO)("estoque: operador só com a tela de Estoque, no lo
   let estoqueLento: PrismaEstoqueRepository;
   const lenta = new (class extends AuditAppender {
     private alvo: string | null = null;
-    private avisar: (() => void) | null = null;
+    private avisar: ((pid: number) => void) | null = null;
     private soltar: (() => void) | null = null;
-    /** A próxima gravação do evento segura a transação até `liberar()`; a promessa resolve quando ela chega lá. */
-    armar(evento: string): Promise<void> {
+    /** A próxima gravação do evento segura a transação até `liberar()`; a promessa resolve com o PID do backend que segura. */
+    armar(evento: string): Promise<number> {
       this.alvo = evento;
       return new Promise((r) => { this.avisar = r; });
     }
@@ -301,32 +306,38 @@ describe.skipIf(!HABILITADO)("estoque: operador só com a tela de Estoque, no lo
       await super.append(tx, evento);
       if (evento.eventName !== this.alvo) return;
       this.alvo = null;
-      await new Promise<void>((r) => { this.soltar = r; this.avisar?.(); });
+      const [{ pid }] = (await tx.$queryRaw<{ pid: number }[]>`SELECT pg_backend_pid() AS pid`) as [{ pid: number }];
+      await new Promise<void>((r) => { this.soltar = r; this.avisar?.(pid); });
     }
   })();
   let ambienteValidado = false;
   const depois = (ms: number) => new Promise((r) => setTimeout(r, ms));
-  /** Espera um backend do login da aplicação ficar parado numa trava (do tipo indicado, se houver). */
-  const esperandoTrava = async (tipo: "advisory" | null = null) => {
-    for (let i = 0; i < 400; i++) {
+  /**
+   * Espera um backend ficar parado numa trava SEGURADA pelo PID indicado (do
+   * tipo indicado, se houver): identifica os participantes, não "alguma trava".
+   * O limite fica bem abaixo do prazo das transações do teste (PRAZO_DA_TRANSACAO).
+   */
+  const esperandoTrava = async (quemSegura: number, tipo: "advisory" | null = null) => {
+    const limite = Date.now() + PRAZO_DA_BARREIRA;
+    while (Date.now() < limite) {
       const [r] = await root.$queryRaw<{ n: number }[]>`
-        SELECT count(*)::int AS n FROM pg_locks l JOIN pg_stat_activity a ON a.pid = l.pid
-        WHERE NOT l.granted AND a.usename = ${login} AND (${tipo}::text IS NULL OR l.locktype = ${tipo}::text)`;
+        SELECT count(*)::int AS n FROM pg_locks l
+        WHERE NOT l.granted AND ${quemSegura}::int = ANY(pg_blocking_pids(l.pid)) AND (${tipo}::text IS NULL OR l.locktype = ${tipo}::text)`;
       if (r!.n > 0) return;
       await depois(25);
     }
-    throw new Error(`nenhuma operação ficou esperando ${tipo ?? "uma"} trava`);
+    throw new Error(`nenhuma operação ficou esperando ${tipo ?? "uma"} trava do backend ${quemSegura}`);
   };
-  /** Arma o evento, dispara a operação que segura, espera chegar, dispara a concorrente e só libera quando ela está esperando. */
+  /** Arma o evento, dispara a operação que segura, espera chegar, dispara a concorrente e só libera quando ela está esperando a que segura. */
   const corrida = async <A, B>(evento: string, segura: () => Promise<A>, concorrente: () => Promise<B>, tipo: "advisory" | null = null) => {
     const chegou = lenta.armar(evento);
     const primeira = segura();
     const falhouAntes = primeira.then(() => { throw new Error("a operação terminou sem passar pelo evento armado"); }, (erro: unknown) => { throw erro; });
     try {
-      await Promise.race([chegou, falhouAntes]);
+      const pid = await Promise.race([chegou, falhouAntes]);
       const segunda = concorrente();
       segunda.catch(() => undefined);
-      await esperandoTrava(tipo);
+      await esperandoTrava(pid, tipo);
       lenta.liberar();
       return await Promise.allSettled([primeira, segunda]);
     } finally {
@@ -365,7 +376,8 @@ describe.skipIf(!HABILITADO)("estoque: operador só com a tela de Estoque, no lo
     url.username = login;
     url.password = senha;
     url.searchParams.set("connection_limit", "10");
-    app = new PrismaService({ datasources: { db: { url: url.toString() } } });
+    // O prazo das transações do teste cobre a barreira com folga (a de produção é a padrão do Prisma, 5 s).
+    app = new PrismaService({ datasources: { db: { url: url.toString() } }, transactionOptions: { timeout: PRAZO_DA_TRANSACAO } });
     const auditoria = new AuditAppender();
     const movimentos = new MovimentosDeEstoque(auditoria);
     estoque = new PrismaEstoqueRepository(app, auditoria, movimentos);
@@ -474,12 +486,13 @@ describe.skipIf(!HABILITADO)("estoque: operador só com a tela de Estoque, no lo
     await root.$transaction(async (t) => {
       // Outra transação segura a trava do pedido, pedida com o id em maiúsculas.
       await travarPedidoDeCompra(t, pedido.toUpperCase());
+      const [{ pid }] = (await t.$queryRaw<{ pid: number }[]>`SELECT pg_backend_pid() AS pid`) as [{ pid: number }];
       entrou = entrada(item, "4", pedido);
       entrou.catch(() => undefined);
-      await esperandoTrava("advisory");
+      await esperandoTrava(pid, "advisory");
       // Parada na trava do pedido, a entrada ainda não pegou o item: ele está livre.
       expect(await t.$queryRaw<{ id: string }[]>`SELECT id FROM public.itens_de_estoque WHERE id = ${item}::uuid FOR UPDATE NOWAIT`).toHaveLength(1);
-    }, { timeout: 20_000 });
+    }, { timeout: PRAZO_DA_TRANSACAO });
     await entrou;
     expect(await emEstoque(item)).toBe("4.000");
   }, PRAZO_MS);
@@ -598,7 +611,7 @@ describe.skipIf(!HABILITADO)("estoque: operador só com a tela de Estoque, no lo
 
     it("a linha vinculada adota a unidade do item; outra unidade é recusada com as duas", async () => {
       const item = await criarItem();
-      const pedido = await pedidoComUnidades([{ quantidade: "1", itemDeEstoqueId: item }, { quantidade: "2", unidade: " M ", itemDeEstoqueId: item }, { quantidade: "3", unidade: "cx" }]);
+      const pedido = await pedidoComUnidades([{ quantidade: "1", itemDeEstoqueId: item }, { quantidade: "2", unidade: " m ", itemDeEstoqueId: item }, { quantidade: "3", unidade: "cx" }]);
       expect((await linhaDe(pedido)).map((l) => l.unidade)).toEqual(["m", "m", "cx"]);
       await expect(pedidoComUnidades([{ quantidade: "4", unidade: "cx", itemDeEstoqueId: item }])).rejects.toThrow(/está em cx, mas o item .* é controlado em m/);
       // Editar os itens: vincular a linha em "cx" é recusado; a sem unidade adota a do item.
@@ -621,6 +634,26 @@ describe.skipIf(!HABILITADO)("estoque: operador só com a tela de Estoque, no lo
       await expect(agir(pedido, { acao: "decidir_estoque", origem: "estoque" })).rejects.toThrow(/está em cx e o item .* é controlado em m/);
       expect(await root.reservaDeEstoque.count({ where: { pedidoId: pedido } })).toBe(0);
       expect((await root.itemDeEstoque.findUniqueOrThrow({ where: { id: item }, select: { reservado: true } })).reservado.toFixed(3)).toBe("0.000");
+    }, PRAZO_MS);
+
+    it("o vínculo com o id do item em maiúsculas passa pela mesma conferência de unidade (revisão leva 9)", async () => {
+      const item = await criarItem();
+      const maiusculo = item.toUpperCase();
+      await expect(pedidoComUnidades([{ quantidade: "4", unidade: "cx", itemDeEstoqueId: maiusculo }])).rejects.toThrow(/está em cx, mas o item .* é controlado em m/);
+      const pedido = await pedidoComUnidades([{ quantidade: "1", itemDeEstoqueId: maiusculo }]);
+      expect(await linhaDe(pedido)).toEqual([expect.objectContaining({ unidade: "m", itemDeEstoqueId: item })]);
+      await expect(como("compras", () => compras.editar(pedido, editarPedidoDeCompraSchema.parse({ itens: [{ descricao: "material", quantidade: "4", unidade: "cx", itemDeEstoqueId: maiusculo }] }), principal("compras"), AGORA)))
+        .rejects.toBeInstanceOf(RequisicaoInvalida);
+      expect((await linhaDe(pedido)).map((l) => l.unidade)).toEqual(["m"]);
+    }, PRAZO_MS);
+
+    it("pedido com linha do item em outra unidade não aceita entrada manual ligada a ele (revisão leva 9)", async () => {
+      const item = await criarItem();
+      const pedido = await pedidoComUnidades([{ quantidade: "4", itemDeEstoqueId: item }]);
+      await root.itemDePedido.updateMany({ where: { pedidoId: pedido }, data: { unidade: "cx" } });
+      expect(await como("estoque", () => estoque.pedidosParaEntrada(item))).toEqual([]);
+      await expect(entrada(item, "1", pedido)).rejects.toThrow(/tem linha deste item em cx, e o item é controlado em m: .* sem pedido, com a quantidade convertida para m/);
+      expect(await emEstoque(item)).toBe("0.000");
     }, PRAZO_MS);
 
     it("a entrada do recebimento recusa linha em outra unidade", async () => {

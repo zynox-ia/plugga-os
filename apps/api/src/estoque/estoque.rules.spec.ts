@@ -9,7 +9,7 @@ import {
   faltaEntrar,
   itemIndisponivelParaOPedido,
   problemaDaEntradaDoPedido,
-  unidadeComparavel,
+  idCanonico,
   unidadeDiferenteDaDoItem,
   type PedidoDaEntrada,
   diaValido,
@@ -180,21 +180,29 @@ describe("código, semanas e textos", () => {
       expect(r.atendeTudo).toBe(false);
     });
 
-    it("linha vinculada em outra unidade não atende nem consome o disponível", () => {
+    it("linha vinculada em outra unidade não atende, não consome o disponível nem entra na demanda do item", () => {
       const r = coberturaPeloEstoque([
         { quantidade: D(4), unidade: "cx", item: item("a", { unidade: "m" }) },
-        { quantidade: D(5), unidade: " M ", item: item("a", { unidade: "m" }) },
+        { quantidade: D(5), unidade: " m ", item: item("a", { unidade: "m" }) },
       ], "plugga");
-      expect(textos(r)).toEqual([["0.000", "unidade_diferente", "9.000"], ["5.000", null, "9.000"]]);
+      // A demanda do item é a das linhas em metros (5), não 4 cx + 5 m.
+      expect(textos(r)).toEqual([["0.000", "unidade_diferente", null], ["5.000", null, "5.000"]]);
     });
 
-    it("unidade: sem maiúsculas e sem espaços; linha sem unidade não conflita", () => {
-      expect(unidadeDiferenteDaDoItem("M", "m")).toBe(false);
-      expect(unidadeDiferenteDaDoItem("rolo 50", "rolo50")).toBe(false);
+    it("unidade: igualdade exata depois de trim e NFC; caixa e espaço interno contam; sem unidade não conflita", () => {
+      expect(unidadeDiferenteDaDoItem(" m ", "m")).toBe(false);
+      expect(unidadeDiferenteDaDoItem("M", "m")).toBe(true);
+      expect(unidadeDiferenteDaDoItem("mL", "ML")).toBe(true);
+      expect(unidadeDiferenteDaDoItem("rolo 50", "rolo50")).toBe(true);
+      // "é" composto e decomposto são a mesma unidade.
+      expect(unidadeDiferenteDaDoItem("pé", "pé")).toBe(false);
       expect(unidadeDiferenteDaDoItem(null, "m")).toBe(false);
       expect(unidadeDiferenteDaDoItem("  ", "m")).toBe(false);
       expect(unidadeDiferenteDaDoItem("cx", "m")).toBe(true);
-      expect(unidadeComparavel(" Kg ")).toBe("kg");
+    });
+
+    it("o id canônico é o do banco: minúsculas", () => {
+      expect(idCanonico(" 1E7C3A5B-0000-4000-8000-00000000000A ")).toBe("1e7c3a5b-0000-4000-8000-00000000000a");
     });
 
     it("a análise e a gravação usam a mesma regra do item", () => {
@@ -216,7 +224,7 @@ describe("código, semanas e textos", () => {
   });
 
   describe("entrada por compra ligada ao pedido", () => {
-    const pedido = (dados: Partial<PedidoDaEntrada> = {}): PedidoDaEntrada => ({ numero: 7, cancelado: false, atendidoPeloEstoque: false, pedida: D(10), recebida: D(4), ...dados });
+    const pedido = (dados: Partial<PedidoDaEntrada> = {}): PedidoDaEntrada => ({ numero: 7, cancelado: false, atendidoPeloEstoque: false, pedida: D(10), recebida: D(4), unidadeEmConflito: null, ...dados });
 
     it("aceita até o que falta do item", () => {
       expect(problemaDaEntradaDoPedido(pedido(), D(6), "m", 7)).toBeNull();
@@ -229,6 +237,14 @@ describe("código, semanas e textos", () => {
       expect(problemaDaEntradaDoPedido(null, D(1), "m", 12)).toMatchObject({ campo: "pedidoId", estado: false, mensagem: "O pedido PC-0012 não tem este item vinculado ao estoque." });
       expect(problemaDaEntradaDoPedido(pedido({ cancelado: true }), D(1), "m", 7)).toMatchObject({ campo: "pedidoId", estado: true });
       expect(problemaDaEntradaDoPedido(pedido({ atendidoPeloEstoque: true }), D(1), "m", 7)).toMatchObject({ campo: "pedidoId", estado: true });
+    });
+
+    it("recusa o pedido com linha do item em outra unidade e orienta a entrada avulsa convertida (revisão leva 9)", () => {
+      expect(problemaDaEntradaDoPedido(pedido({ unidadeEmConflito: "cx" }), D(1), "m", 7)).toEqual({
+        campo: "pedidoId", estado: true,
+        mensagem: "O pedido PC-0007 tem linha deste item em cx, e o item é controlado em m: a entrada não se liga a este pedido. Registre a entrada sem pedido, com a quantidade convertida para m.",
+      });
+      expect(aceitaEntradaDoPedido(pedido({ unidadeEmConflito: "cx" }))).toBe(false);
     });
 
     it("só aparece na escolha o pedido que ainda aceita entrada", () => {

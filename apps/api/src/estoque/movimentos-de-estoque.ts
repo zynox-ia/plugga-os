@@ -7,7 +7,7 @@ import { EstadoInvalido, NaoEncontrado, RequisicaoInvalida } from "../common/err
 import type { AuthPrincipal } from "../core/auth/auth.types";
 import { diaEmManaus, inicioDoDiaEmManaus } from "../compras/dias-uteis";
 import { travarPedidoDeCompra } from "../compras/trava-do-pedido";
-import { D, itemIndisponivelParaOPedido, planejarMovimento, problemaDaEntradaDoPedido, unidadeDiferenteDaDoItem, type MovimentoPlanejado, type PedidoDaEntrada } from "./estoque.rules";
+import { D, idCanonico, itemIndisponivelParaOPedido, planejarMovimento, problemaDaEntradaDoPedido, unidadeDiferenteDaDoItem, type MovimentoPlanejado, type PedidoDaEntrada } from "./estoque.rules";
 
 /** Origem ou destino gravado na movimentação. */
 export type VinculoDoMovimento = {
@@ -47,11 +47,16 @@ export type PedidoParaEntradaDoItem = PedidoDaEntrada & { id: string; titulo: st
  * pode registrar a movimentação, inclusive a quem só tem a tela de Estoque.
  */
 export async function pedidosParaEntrada(tx: Prisma.TransactionClient, itemId: string, pedidoId: string | null): Promise<PedidoParaEntradaDoItem[]> {
-  const linhas = await tx.$queryRaw<{ id: string; numero: number; titulo: string; etapa: ComprasEtapa; cancelado: boolean; atendido_pelo_estoque: boolean; pedida: Prisma.Decimal; recebida: Prisma.Decimal }[]>`
-    SELECT id, numero, titulo, etapa, cancelado, atendido_pelo_estoque, pedida, recebida
+  const linhas = await tx.$queryRaw<{
+    id: string; numero: number; titulo: string; etapa: ComprasEtapa; cancelado: boolean; atendido_pelo_estoque: boolean;
+    pedida: Prisma.Decimal; recebida: Prisma.Decimal; unidades: string[]; unidade_do_item: string;
+  }[]>`
+    SELECT id, numero, titulo, etapa, cancelado, atendido_pelo_estoque, pedida, recebida, unidades, unidade_do_item
     FROM plugga_security.pedidos_para_entrada_do_item(${itemId}::uuid, ${pedidoId}::uuid)`;
   return linhas.map((l) => ({
     id: l.id, numero: l.numero, titulo: l.titulo, etapa: l.etapa, cancelado: l.cancelado, atendidoPeloEstoque: l.atendido_pelo_estoque, pedida: D(l.pedida), recebida: D(l.recebida),
+    // O critério da cobertura e da reserva: uma linha deste item em outra unidade tira o pedido da entrada.
+    unidadeEmConflito: l.unidades.find((u) => unidadeDiferenteDaDoItem(u, l.unidade_do_item)) ?? null,
   }));
 }
 
@@ -173,10 +178,12 @@ export class MovimentosDeEstoque {
     agora: Date,
     dia: Date,
   ): Promise<void> {
-    const ids = entradas.map((entrada) => entrada.itemDoPedidoId);
+    // Ids canônicos: o mesmo item do pedido em outra caixa é repetido, e a busca no mapa do banco acha a linha.
+    const ids = entradas.map((entrada) => idCanonico(entrada.itemDoPedidoId));
     if (new Set(ids).size !== ids.length) throw new RequisicaoInvalida("Item do pedido repetido na entrada no estoque.");
+    const canonicas = entradas.map((entrada) => ({ ...entrada, itemDoPedidoId: idCanonico(entrada.itemDoPedidoId) }));
     const itens = await tx.itemDePedido.findMany({ where: { pedidoId: pedido.id, id: { in: ids } }, select: { id: true, descricao: true, unidade: true, itemDeEstoqueId: true } });
-    const porId = new Map(itens.map((item) => [item.id, item.itemDeEstoqueId]));
+    const porId = new Map(itens.map((item) => [idCanonico(item.id), item.itemDeEstoqueId]));
     // Trava os itens (em ordem de id) e confere a unidade de cada linha contra a do item antes de dar entrada.
     const travados = await this.travarItens(tx, [...new Set(itens.flatMap((item) => (item.itemDeEstoqueId ? [item.itemDeEstoqueId] : [])))].sort());
     for (const item of itens) {
@@ -185,7 +192,7 @@ export class MovimentosDeEstoque {
         throw new EstadoInvalido(`A linha “${item.descricao}” está em ${item.unidade} e o item ${doEstoque.codigo} é controlado em ${doEstoque.unidade}: tire a linha da entrada no estoque e registre a entrada pela tela do Estoque, em ${doEstoque.unidade}.`);
       }
     }
-    const ordenadas = [...entradas].sort((a, b) => String(porId.get(a.itemDoPedidoId)).localeCompare(String(porId.get(b.itemDoPedidoId))));
+    const ordenadas = [...canonicas].sort((a, b) => String(porId.get(a.itemDoPedidoId)).localeCompare(String(porId.get(b.itemDoPedidoId))));
     for (const entrada of ordenadas) {
       const itemDeEstoqueId = porId.get(entrada.itemDoPedidoId);
       if (itemDeEstoqueId === undefined) throw new RequisicaoInvalida("A entrada no estoque cita um item que não é deste pedido.");

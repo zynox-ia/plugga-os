@@ -42,7 +42,7 @@ import {
   somarValores,
   type EstadoDoPedido,
 } from "./compras.rules";
-import { coberturaPeloEstoque, itemIndisponivelParaOPedido, unidadeDiferenteDaDoItem } from "../estoque/estoque.rules";
+import { coberturaPeloEstoque, idCanonico, itemIndisponivelParaOPedido, unidadeDiferenteDaDoItem } from "../estoque/estoque.rules";
 import { diaComoData, MovimentosDeEstoque } from "../estoque/movimentos-de-estoque";
 import { diaEmManaus, fimDoDiaEmManaus, inicioDoDiaEmManaus } from "./dias-uteis";
 import { travarPedidoDeCompra } from "./trava-do-pedido";
@@ -59,8 +59,10 @@ type UnidadesDoEstoque = ReadonlyMap<string, { codigo: string; unidade: string }
  */
 function unidadesDasLinhas(itens: readonly { descricao: string; unidade?: string | null; itemDeEstoqueId?: string | null }[], doEstoque: UnidadesDoEstoque): (string | null)[] {
   return itens.map((linha, n) => {
-    const item = linha.itemDeEstoqueId ? doEstoque.get(linha.itemDeEstoqueId) : undefined;
-    if (!item) return linha.unidade ?? null;
+    if (!linha.itemDeEstoqueId) return linha.unidade ?? null;
+    const item = doEstoque.get(idCanonico(linha.itemDeEstoqueId));
+    // Todo vínculo passou pela conferência; um que não resolve é erro, nunca linha sem conferência.
+    if (!item) throw new RequisicaoInvalida("Item de estoque não encontrado, inativo ou de outra empresa.", [{ campo: `itens.${n}.itemDeEstoqueId`, problema: "Escolha um item ativo do estoque da empresa do pedido." }]);
     if (unidadeDiferenteDaDoItem(linha.unidade, item.unidade)) {
       const mensagem = `A linha “${linha.descricao}” está em ${linha.unidade}, mas o item ${item.codigo} do estoque é controlado em ${item.unidade}. Use ${item.unidade} na linha, ajustando a quantidade, ou desvincule o item.`;
       throw new RequisicaoInvalida(mensagem, [{ campo: `itens.${n}.unidade`, problema: mensagem }]);
@@ -472,11 +474,12 @@ export class PrismaComprasRepository {
       const pedido = await tx.pedidoDeCompra.findUniqueOrThrow({ where: { id: pedidoId }, select: { etapa: true, canceladoEm: true, companyId: true, itens: { select: { id: true, descricao: true, unidade: true } } } });
       const recusa = problemaDaEdicao(pedido, true);
       if (recusa) throw new EstadoInvalido(recusa.mensagem);
-      const doPedido = new Map(pedido.itens.map((item) => [item.id, item]));
-      if (input.itens.some((item) => !doPedido.has(item.itemDoPedidoId))) throw new RequisicaoInvalida("Um dos itens não é deste pedido.");
+      const doPedido = new Map(pedido.itens.map((item) => [idCanonico(item.id), item]));
+      if (input.itens.some((item) => !doPedido.has(idCanonico(item.itemDoPedidoId)))) throw new RequisicaoInvalida("Um dos itens não é deste pedido.");
+      if (new Set(input.itens.map((item) => idCanonico(item.itemDoPedidoId))).size !== input.itens.length) throw new RequisicaoInvalida("Item do pedido repetido nos vínculos.");
       const doEstoque = await this.garantirItensDeEstoque(input.itens.map((item) => item.itemDeEstoqueId), pedido.companyId as CompanyKey, tx);
       // Vincular: a linha passa a usar a unidade do item (vazia adota; diferente recusa). Desvincular mantém a unidade.
-      const unidades = unidadesDasLinhas(input.itens.map((item) => ({ ...doPedido.get(item.itemDoPedidoId)!, itemDeEstoqueId: item.itemDeEstoqueId })), doEstoque);
+      const unidades = unidadesDasLinhas(input.itens.map((item) => ({ ...doPedido.get(idCanonico(item.itemDoPedidoId))!, itemDeEstoqueId: item.itemDeEstoqueId })), doEstoque);
       for (const [n, item] of input.itens.entries()) {
         await tx.itemDePedido.update({ where: { id: item.itemDoPedidoId }, data: { itemDeEstoqueId: item.itemDeEstoqueId, ...(item.itemDeEstoqueId ? { unidade: unidades[n] } : {}) } });
       }
@@ -493,7 +496,7 @@ export class PrismaComprasRepository {
    * para escrever, espera o vínculo terminar ou termina antes da conferência.
    */
   private async garantirItensDeEstoque(ids: (string | null)[], empresa: CompanyKey, tx: Prisma.TransactionClient): Promise<UnidadesDoEstoque> {
-    const alvos = [...new Set(ids.filter((id): id is string => id !== null))].sort();
+    const alvos = [...new Set(ids.filter((id): id is string => id !== null).map(idCanonico))].sort();
     if (alvos.length === 0) return new Map();
     const travados = await tx.$queryRaw<{ id: string; company_id: string; ativo: boolean; codigo: string; unidade: string }[]>`
       SELECT id, company_id, ativo, codigo, unidade FROM public.itens_de_estoque WHERE id = ANY(${alvos}::uuid[]) ORDER BY id FOR SHARE`;
@@ -501,7 +504,7 @@ export class PrismaComprasRepository {
     if (validos.length !== alvos.length) {
       throw new RequisicaoInvalida("Item de estoque não encontrado, inativo ou de outra empresa.", [{ campo: "itemDeEstoqueId", problema: "Escolha um item ativo do estoque da empresa do pedido." }]);
     }
-    return new Map(validos.map((item) => [item.id, { codigo: item.codigo, unidade: item.unidade }]));
+    return new Map(validos.map((item) => [idCanonico(item.id), { codigo: item.codigo, unidade: item.unidade }]));
   }
 
   private filtrosComuns(query: { empresa?: CompanyKey; responsavelId?: string; destino?: Prisma.PedidoDeCompraWhereInput["destino"] }): Prisma.PedidoDeCompraWhereInput {
