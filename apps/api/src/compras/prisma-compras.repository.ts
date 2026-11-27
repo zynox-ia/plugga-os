@@ -42,7 +42,7 @@ import {
   somarValores,
   type EstadoDoPedido,
 } from "./compras.rules";
-import { coberturaPeloEstoque } from "../estoque/estoque.rules";
+import { coberturaPeloEstoque, itemIndisponivelParaOPedido } from "../estoque/estoque.rules";
 import { diaComoData, MovimentosDeEstoque } from "../estoque/movimentos-de-estoque";
 import { diaEmManaus, fimDoDiaEmManaus, inicioDoDiaEmManaus } from "./dias-uteis";
 import { travarPedidoDeCompra } from "./trava-do-pedido";
@@ -188,9 +188,9 @@ export class PrismaComprasRepository {
     const solicitanteId = origem ? principal.id : input.solicitanteId ?? principal.id;
     await this.garantirPessoas(principal, [origem ? null : solicitanteId, input.responsavelId ?? null]);
     await this.garantirObra(input.obraId ?? null, input.empresa);
-    await this.garantirItensDeEstoque(input.itens.map((item) => item.itemDeEstoqueId ?? null), input.empresa);
     const passagem = passagemInicial(agora);
     return this.comVinculosValidos(() => this.prisma.comContexto(async (tx) => {
+      await this.garantirItensDeEstoque(input.itens.map((item) => item.itemDeEstoqueId ?? null), input.empresa, tx);
       const pedido = await tx.pedidoDeCompra.create({
         data: {
           companyId: input.empresa,
@@ -425,7 +425,8 @@ export class PrismaComprasRepository {
     return {
       itens: pedido.itens.map((item, i) => {
         const linha = cobertura.linhas[i]!;
-        const estoque = item.itemDeEstoque;
+        // Vínculo com item de outra empresa (inconsistente): só o motivo, nada do item.
+        const estoque = linha.motivo === "outra_empresa" ? null : item.itemDeEstoque;
         return {
           itemDoPedidoId: item.id,
           descricao: item.descricao,
@@ -460,12 +461,18 @@ export class PrismaComprasRepository {
 
   // ------------------------------------------------------------ apoio
 
-  /** Item de estoque vinculado: existe, está ativo e é da empresa do pedido. */
-  private async garantirItensDeEstoque(ids: (string | null)[], empresa: CompanyKey, tx?: Prisma.TransactionClient): Promise<void> {
-    const alvos = [...new Set(ids.filter((id): id is string => id !== null))];
+  /**
+   * Item de estoque vinculado: existe, está ativo e é da empresa do pedido.
+   * Confere na transação que grava o vínculo, com os itens travados em modo
+   * compartilhado (em ordem de id): a troca de empresa do item, que trava o item
+   * para escrever, espera o vínculo terminar ou termina antes da conferência.
+   */
+  private async garantirItensDeEstoque(ids: (string | null)[], empresa: CompanyKey, tx: Prisma.TransactionClient): Promise<void> {
+    const alvos = [...new Set(ids.filter((id): id is string => id !== null))].sort();
     if (alvos.length === 0) return;
-    const consultar = (cliente: Prisma.TransactionClient) => cliente.itemDeEstoque.count({ where: { id: { in: alvos }, companyId: empresa, ativo: true } });
-    const encontrados = tx ? await consultar(tx) : await this.prisma.comContexto(consultar);
+    const travados = await tx.$queryRaw<{ id: string; company_id: string; ativo: boolean }[]>`
+      SELECT id, company_id, ativo FROM public.itens_de_estoque WHERE id = ANY(${alvos}::uuid[]) ORDER BY id FOR SHARE`;
+    const encontrados = travados.filter((item) => itemIndisponivelParaOPedido({ companyId: item.company_id, ativo: item.ativo }, { empresa, exigirAtivo: true }) === null).length;
     if (encontrados !== alvos.length) {
       throw new RequisicaoInvalida("Item de estoque não encontrado, inativo ou de outra empresa.", [{ campo: "itemDeEstoqueId", problema: "Escolha um item ativo do estoque da empresa do pedido." }]);
     }

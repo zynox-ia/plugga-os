@@ -7,6 +7,7 @@ import {
   custoMedioDepoisDaEntrada,
   type LinhaParaCobertura,
   faltaEntrar,
+  itemIndisponivelParaOPedido,
   problemaDaEntradaDoPedido,
   type PedidoDaEntrada,
   diaValido,
@@ -171,8 +172,20 @@ describe("código, semanas e textos", () => {
         { quantidade: D(1), item: item("b", { companyId: "waze" }) },
         { quantidade: D(1), item: null },
       ], "plugga");
-      expect(textos(r)).toEqual([["0.000", "inativo", "1.000"], ["0.000", "outra_empresa", "1.000"], ["0.000", "sem_vinculo", null]]);
+      expect(textos(r)).toEqual([["0.000", "inativo", "1.000"], ["0.000", "outra_empresa", null], ["0.000", "sem_vinculo", null]]);
+      // Do item de outra empresa não sai nem o disponível.
+      expect(r.linhas[1]!.disponivel).toBeNull();
       expect(r.atendeTudo).toBe(false);
+    });
+
+    it("a análise e a gravação usam a mesma regra do item", () => {
+      const ativo = { companyId: "plugga", ativo: true };
+      expect(itemIndisponivelParaOPedido(ativo, { empresa: "plugga", exigirAtivo: true })).toBeNull();
+      expect(itemIndisponivelParaOPedido(ativo, { empresa: "waze", exigirAtivo: true })).toBe("outra_empresa");
+      expect(itemIndisponivelParaOPedido({ companyId: "waze", ativo: false }, { empresa: "plugga", exigirAtivo: true })).toBe("outra_empresa");
+      expect(itemIndisponivelParaOPedido({ ...ativo, ativo: false }, { empresa: "plugga", exigirAtivo: true })).toBe("inativo");
+      // Baixa e liberação encerram compromisso: valem com o item inativo.
+      expect(itemIndisponivelParaOPedido({ ...ativo, ativo: false }, { exigirAtivo: false })).toBeNull();
     });
 
     it("atende tudo quando cada item cobre a soma das suas linhas; disponível negativo vira zero", () => {

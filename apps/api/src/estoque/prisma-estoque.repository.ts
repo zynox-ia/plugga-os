@@ -127,7 +127,7 @@ export class PrismaEstoqueRepository {
       })),
       ultimasMovimentacoes: ultimas.map((m) => paraMovimentacao(m, clientes)),
       podeInativar: linha.reservas.length === 0,
-      podeTrocarEmpresa: linha._count.movimentacoes === 0,
+      podeTrocarEmpresa: linha._count.movimentacoes === 0 && (await this.prisma.comContexto((tx) => podeTrocarEmpresa(tx, id))),
       criadoPor: pessoa(linha.criadoPor),
       createdAt: linha.createdAt.toISOString(),
       updatedAt: linha.updatedAt.toISOString(),
@@ -169,9 +169,11 @@ export class PrismaEstoqueRepository {
     const campos = Object.entries(input).filter(([, v]) => v !== undefined).map(([c]) => c).sort();
     if (campos.length === 0) return;
     await this.comCodigoUnico(() => this.prisma.comContexto(async (tx) => {
-      const atual = await tx.itemDeEstoque.findUnique({ where: { id }, select: { companyId: true, _count: { select: { movimentacoes: true, itensDePedido: true } } } });
-      if (!atual) throw new NaoEncontrado("Item de estoque não encontrado.");
-      if (input.empresa && input.empresa !== atual.companyId && (atual._count.movimentacoes > 0 || atual._count.itensDePedido > 0)) {
+      // Trava o item antes de conferir: uma movimentação ou um vínculo em curso termina antes da contagem.
+      const travado = await tx.$queryRaw<{ id: string }[]>`SELECT id FROM public.itens_de_estoque WHERE id = ${id}::uuid FOR UPDATE`;
+      if (travado.length === 0) throw new NaoEncontrado("Item de estoque não encontrado.");
+      const atual = await tx.itemDeEstoque.findUniqueOrThrow({ where: { id }, select: { companyId: true } });
+      if (input.empresa && input.empresa !== atual.companyId && !(await podeTrocarEmpresa(tx, id))) {
         throw new EstadoInvalido("A empresa do item só muda enquanto ele não tem movimentação nem pedido vinculado.");
       }
       await tx.itemDeEstoque.update({
@@ -357,6 +359,20 @@ export class PrismaEstoqueRepository {
       actorId: principal.id, payload, occurredAt: new Date(),
     });
   }
+}
+
+/**
+ * A empresa do item só muda sem movimentação e sem pedido vinculado. A mesma
+ * conta para a ficha (`podeTrocarEmpresa`) e para a edição. Os vínculos vêm da
+ * função restrita do banco: quem só tem Estoque não lê `itens_de_pedido`, e o
+ * desconhecido (NULL) conta como vinculado.
+ */
+async function podeTrocarEmpresa(tx: Prisma.TransactionClient, id: string): Promise<boolean> {
+  const [movimentacoes, [vinculos]] = await Promise.all([
+    tx.movimentacaoDeEstoque.count({ where: { itemId: id } }),
+    tx.$queryRaw<{ n: number | null }[]>`SELECT plugga_security.vinculos_do_item_de_estoque(${id}::uuid) AS n`,
+  ]);
+  return movimentacoes === 0 && vinculos?.n === 0;
 }
 
 export function paraItemNaLista(linha: LinhaDoItem): ItemDeEstoqueNaLista {

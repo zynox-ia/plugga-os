@@ -1,11 +1,20 @@
 import { randomBytes, randomUUID } from "node:crypto";
 
-import { acaoDoPedidoSchema, criarItemDeEstoqueSchema, criarPedidoDeCompraSchema, editarPedidoDeCompraSchema, registrarMovimentacaoSchema, type Acesso } from "@plugga/shared";
+import {
+  acaoDoPedidoSchema,
+  criarItemDeEstoqueSchema,
+  criarPedidoDeCompraSchema,
+  editarItemDeEstoqueSchema,
+  editarPedidoDeCompraSchema,
+  registrarMovimentacaoSchema,
+  type Acesso,
+} from "@plugga/shared";
 import { PrismaClient } from "@prisma/client";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { AuditAppender } from "../src/audit/audit-appender.js";
 import { EstadoInvalido, RequisicaoInvalida } from "../src/common/errors/dominio.js";
+import { ComprasService } from "../src/compras/compras.service.js";
 import { PrismaComprasRepository } from "../src/compras/prisma-compras.repository.js";
 import type { AuthPrincipal } from "../src/core/auth/auth.types.js";
 import { MovimentosDeEstoque } from "../src/estoque/movimentos-de-estoque.js";
@@ -258,6 +267,7 @@ describe.skipIf(!HABILITADO)("estoque: operador só com a tela de Estoque, no lo
   // Compras de verdade, que segura a transação aberta ao gravar o evento indicado:
   // a ação já mudou o pedido e ainda não confirmou, a janela da corrida.
   let comprasLento: PrismaComprasRepository;
+  let estoqueLento: PrismaEstoqueRepository;
   const lenta = new (class extends AuditAppender {
     segurar: string | null = null;
     override async append(tx: Parameters<AuditAppender["append"]>[0], evento: Parameters<AuditAppender["append"]>[1]): Promise<void> {
@@ -297,13 +307,14 @@ describe.skipIf(!HABILITADO)("estoque: operador só com a tela de Estoque, no lo
     const url = new URL(process.env.DATABASE_URL!);
     url.username = login;
     url.password = senha;
-    url.searchParams.set("connection_limit", "4");
+    url.searchParams.set("connection_limit", "10");
     app = new PrismaService({ datasources: { db: { url: url.toString() } } });
     const auditoria = new AuditAppender();
     const movimentos = new MovimentosDeEstoque(auditoria);
     estoque = new PrismaEstoqueRepository(app, auditoria, movimentos);
     compras = new PrismaComprasRepository(app, auditoria, movimentos);
     comprasLento = new PrismaComprasRepository(app, lenta, new MovimentosDeEstoque(lenta));
+    estoqueLento = new PrismaEstoqueRepository(app, lenta, new MovimentosDeEstoque(lenta));
 
     for (const id of ["plugga", "waze"]) await root.company.upsert({ where: { id }, create: { id, name: id }, update: {} });
     const perfis: Record<string, string[]> = { estoque: ["suprimentos.estoque"], compras: ["suprimentos.compras"] };
@@ -420,6 +431,81 @@ describe.skipIf(!HABILITADO)("estoque: operador só com a tela de Estoque, no lo
     // Item sem vínculo com o pedido pedido explicitamente: nada.
     const outro = await criarItem();
     expect(await como("estoque", () => consultar(outro, pedido))).toEqual([]);
+  }, PRAZO_MS);
+
+  describe("invariantes sob concorrência (auditoria 27/11, S2 4 e S3 das travas)", () => {
+    const empresaDe = async (id: string) => (await root.itemDeEstoque.findUniqueOrThrow({ where: { id }, select: { companyId: true } })).companyId;
+    const trocarEmpresa = (id: string, repo = estoque) => como("estoque", () => repo.editar(id, editarItemDeEstoqueSchema.parse({ empresa: "waze" }), principal("estoque")));
+
+    it("a empresa do item não muda depois de vinculado a pedido, nem para quem só tem Estoque", async () => {
+      const item = await criarItem();
+      await pedidoCom([{ quantidade: "1", itemDeEstoqueId: item }]);
+      expect((await como("estoque", () => estoque.obter(item, AGORA))).podeTrocarEmpresa).toBe(false);
+      await expect(trocarEmpresa(item)).rejects.toBeInstanceOf(EstadoInvalido);
+      expect(await empresaDe(item)).toBe("plugga");
+    }, PRAZO_MS);
+
+    it("a empresa não muda enquanto uma movimentação do item está gravando", async () => {
+      const item = await criarItem();
+      lenta.segurar = "estoque.movimentacao.created";
+      const mover = como("estoque", () => estoqueLento.registrarMovimentacao(registrarMovimentacaoSchema.parse({
+        tipo: "entrada", itemId: item, quantidade: "2", custoUnitario: "1.00", origem: { tipo: "outra" },
+      }), principal("estoque"), AGORA));
+      await depois(200);
+      const [moveu, trocou] = await Promise.allSettled([mover, trocarEmpresa(item)]);
+      lenta.segurar = null;
+      expect(moveu.status).toBe("fulfilled");
+      expect(trocou).toMatchObject({ status: "rejected", reason: expect.any(EstadoInvalido) });
+      expect(await empresaDe(item)).toBe("plugga");
+    }, PRAZO_MS);
+
+    it("o pedido não vincula o item cuja empresa está mudando", async () => {
+      const item = await criarItem();
+      lenta.segurar = "estoque.item.updated";
+      const trocar = trocarEmpresa(item, estoqueLento);
+      await depois(200);
+      const [trocou, vinculou] = await Promise.allSettled([trocar, pedidoCom([{ quantidade: "1", itemDeEstoqueId: item }])]);
+      lenta.segurar = null;
+      expect(trocou.status).toBe("fulfilled");
+      expect(vinculou).toMatchObject({ status: "rejected", reason: expect.any(RequisicaoInvalida) });
+      expect(await root.itemDePedido.count({ where: { itemDeEstoqueId: item } })).toBe(0);
+    }, PRAZO_MS);
+
+    it("reservas simultâneas do mesmo item e entrada ligada a outro pedido não se travam em ciclo", async () => {
+      const itens = await Promise.all([1, 2, 3].map(() => criarItem({ saldoInicial: "100", custoUnitario: "1.00" })));
+      const emAnalise = async (item: string) => {
+        const id = await pedidoCom([{ quantidade: "3", itemDeEstoqueId: item }]);
+        await como("compras", () => compras.executarAcao(id, acaoDoPedidoSchema.parse({ acao: "iniciar_analise" }), principal("compras"), AGORA));
+        return id;
+      };
+      const pedidos = await Promise.all(itens.flatMap((item) => [emAnalise(item), emAnalise(item)]));
+      const outros = await Promise.all(itens.map((item) => pedidoCom([{ quantidade: "5", itemDeEstoqueId: item }])));
+      const resultados = await Promise.allSettled([
+        ...pedidos.map((id) => como("compras", () => compras.executarAcao(id, acaoDoPedidoSchema.parse({ acao: "decidir_estoque", origem: "estoque" }), principal("compras"), AGORA))),
+        ...itens.map((item, i) => entrada(item, "5", outros[i]!)),
+      ]);
+      expect(resultados.flatMap((r) => (r.status === "rejected" ? [String((r.reason as Error).message).slice(-200)] : []))).toEqual([]);
+      for (const item of itens) {
+        const saldo = await root.itemDeEstoque.findUniqueOrThrow({ where: { id: item }, select: { emEstoque: true, reservado: true } });
+        expect([saldo.emEstoque.toFixed(3), saldo.reservado.toFixed(3)]).toEqual(["105.000", "6.000"]);
+      }
+    }, PRAZO_MS);
+  });
+
+  it("a análise com o login de Compras: vínculo com item de outra empresa sai só com o motivo (revisão leva 5)", async () => {
+    const item = await criarItem({ saldoInicial: "9", custoUnitario: "1.00" });
+    const pedido = await pedidoCom([{ quantidade: "2", itemDeEstoqueId: item }, { quantidade: "1" }]);
+    const servico = new ComprasService(compras, {} as never, () => AGORA);
+    const antes = await como("compras", () => servico.atendimento(pedido, principal("compras")));
+    expect(antes.itens.map((i) => [i.motivo, i.disponivel, i.itemDeEstoque?.id ?? null])).toEqual(expect.arrayContaining([[null, "9.000", item], ["sem_vinculo", null, null]]));
+    // Vínculo inconsistente, gravado pelo dono fora das regras: o item passa a ser da Waze.
+    await root.itemDeEstoque.update({ where: { id: item }, data: { companyId: "waze" } });
+    const depoisDaTroca = await como("compras", () => servico.atendimento(pedido, principal("compras")));
+    const linha = depoisDaTroca.itens.find((i) => i.quantidadePedida === "2.000")!;
+    expect(linha).toMatchObject({ motivo: "outra_empresa", atende: "0.000", disponivel: null, pedidoDoItem: null, itemDeEstoque: null });
+    expect(depoisDaTroca.atendeTudo).toBe(false);
+    // Quem só tem Estoque não lê a análise de Compras.
+    await expect(como("estoque", () => servico.atendimento(pedido, principal("estoque")))).rejects.toThrow();
   }, PRAZO_MS);
 
   it("continua sem ler as linhas do pedido nem a lista de Compras", async () => {

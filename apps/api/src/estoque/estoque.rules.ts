@@ -232,6 +232,22 @@ export function aceitaEntradaDoPedido(pedido: PedidoDaEntrada): boolean {
 /** Por que uma linha do pedido não é atendida inteira pelo estoque. */
 export type MotivoSemCobertura = "sem_vinculo" | "inativo" | "outra_empresa" | "insuficiente";
 
+/**
+ * A única regra de "este item pode atender este pedido?", usada pela análise
+ * (cobertura) e pela gravação (reserva, entrada do recebimento), esta sob a
+ * trava do item: o item tem de ser da empresa exigida e, quando o movimento
+ * cria compromisso, estar ativo. A outra empresa vem antes: nada do item
+ * alheio deve aparecer.
+ */
+export function itemIndisponivelParaOPedido(
+  item: { companyId: string; ativo: boolean },
+  exigencia: { empresa?: string; exigirAtivo: boolean },
+): "outra_empresa" | "inativo" | null {
+  if (exigencia.empresa && item.companyId !== exigencia.empresa) return "outra_empresa";
+  if (exigencia.exigirAtivo && !item.ativo) return "inativo";
+  return null;
+}
+
 export type LinhaParaCobertura = {
   quantidade: Prisma.Decimal;
   item: { id: string; companyId: string; ativo: boolean; emEstoque: Prisma.Decimal; reservado: Prisma.Decimal } | null;
@@ -247,14 +263,16 @@ export function coberturaPeloEstoque(linhas: readonly LinhaParaCobertura[], empr
   const restante = new Map<string, Prisma.Decimal>();
   const demanda = new Map<string, Prisma.Decimal>();
   for (const linha of linhas) {
-    if (linha.item) demanda.set(linha.item.id, (demanda.get(linha.item.id) ?? ZERO).add(linha.quantidade));
+    if (linha.item && linha.item.companyId === empresaDoPedido) demanda.set(linha.item.id, (demanda.get(linha.item.id) ?? ZERO).add(linha.quantidade));
   }
   const resultado = linhas.map((linha) => {
     const item = linha.item;
     if (!item) return { atende: ZERO, disponivel: null, pedidoDoItem: null, motivo: "sem_vinculo" as MotivoSemCobertura };
+    const bloqueio = itemIndisponivelParaOPedido(item, { empresa: empresaDoPedido, exigirAtivo: true });
+    // Item de outra empresa: nada dele (saldo, código, nome) sai na análise deste pedido, só o motivo.
+    if (bloqueio === "outra_empresa") return { atende: ZERO, disponivel: null, pedidoDoItem: null, motivo: bloqueio };
     const disponivel = Prisma.Decimal.max(item.emEstoque.sub(item.reservado), 0);
     const pedidoDoItem = demanda.get(item.id)!;
-    const bloqueio: MotivoSemCobertura | null = !item.ativo ? "inativo" : item.companyId !== empresaDoPedido ? "outra_empresa" : null;
     if (bloqueio) return { atende: ZERO, disponivel, pedidoDoItem, motivo: bloqueio };
     const sobra = restante.get(item.id) ?? disponivel;
     const atende = Prisma.Decimal.min(linha.quantidade, sobra);

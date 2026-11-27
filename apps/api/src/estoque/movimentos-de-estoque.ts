@@ -7,7 +7,7 @@ import { EstadoInvalido, NaoEncontrado, RequisicaoInvalida } from "../common/err
 import type { AuthPrincipal } from "../core/auth/auth.types";
 import { diaEmManaus, inicioDoDiaEmManaus } from "../compras/dias-uteis";
 import { travarPedidoDeCompra } from "../compras/trava-do-pedido";
-import { D, planejarMovimento, problemaDaEntradaDoPedido, type MovimentoPlanejado, type PedidoDaEntrada } from "./estoque.rules";
+import { D, itemIndisponivelParaOPedido, planejarMovimento, problemaDaEntradaDoPedido, type MovimentoPlanejado, type PedidoDaEntrada } from "./estoque.rules";
 
 /** Origem ou destino gravado na movimentação. */
 export type VinculoDoMovimento = {
@@ -73,8 +73,10 @@ export class MovimentosDeEstoque {
     const travado = await tx.$queryRaw<{ id: string }[]>`SELECT id FROM public.itens_de_estoque WHERE id = ${m.itemId}::uuid FOR UPDATE`;
     if (travado.length === 0) throw new NaoEncontrado("Item de estoque não encontrado.");
     const item = await tx.itemDeEstoque.findUniqueOrThrow({ where: { id: m.itemId }, select: { emEstoque: true, reservado: true, custoMedio: true, ativo: true, companyId: true } });
-    if (m.empresa && item.companyId !== m.empresa) throw new RequisicaoInvalida("O item de estoque é de outra empresa.", [{ campo: "itemId", problema: "Escolha um item da mesma empresa." }]);
-    if (m.exigirAtivo && !item.ativo) throw new EstadoInvalido("O item de estoque está inativo.");
+    // A mesma regra da análise de estoque (cobertura), aqui sob a trava do item.
+    const indisponivel = itemIndisponivelParaOPedido(item, { empresa: m.empresa, exigirAtivo: m.exigirAtivo });
+    if (indisponivel === "outra_empresa") throw new RequisicaoInvalida("O item de estoque é de outra empresa.", [{ campo: "itemId", problema: "Escolha um item da mesma empresa." }]);
+    if (indisponivel === "inativo") throw new EstadoInvalido("O item de estoque está inativo.");
     if (entradaDoPedido && m.movimento.tipo === "entrada") await this.garantirLimiteDaEntradaDoPedido(tx, entradaDoPedido, m.itemId, m.movimento.quantidade);
 
     const plano = planejarMovimento(item, m.movimento);
@@ -122,6 +124,11 @@ export class MovimentosDeEstoque {
     if (itens.length === 0 || semVinculo.length > 0) {
       throw new EstadoInvalido("Para atender pelo estoque, todos os itens do pedido precisam estar vinculados a um item de estoque.");
     }
+    // Trava os itens (em ordem de id) ANTES de criar as reservas: a chave estrangeira da reserva
+    // segura o item em modo compartilhado, e duas reservas do mesmo item subindo de compartilhado
+    // para exclusivo se travavam em ciclo (auditoria de 27/11/2026, S3).
+    const ids = [...new Set(itens.map((item) => item.itemDeEstoqueId!))].sort();
+    await tx.$queryRaw`SELECT id FROM public.itens_de_estoque WHERE id = ANY(${ids}::uuid[]) ORDER BY id FOR UPDATE`;
     for (const item of itens) {
       const reserva = await tx.reservaDeEstoque.create({
         data: { itemId: item.itemDeEstoqueId!, pedidoId: pedido.id, itemDoPedidoId: item.id, quantidade: item.quantidade, reservadaPorId: principal.id, reservadaEm: agora },
