@@ -15,6 +15,14 @@ describe("autorização da rota real de consumo", () => {
     expect(atendeExigencia(acesso, exigencia)).toBe(false);
   });
 
+  it("a tela de Relatórios do Financeiro (PLU-360) não abre o consumo: o gerente precisa de uma das quatro telas de antes", () => {
+    const soRelatorios: Acesso = { plataforma: null, departamentos: [{ departamento: "financeiro", nivel: "gerente", telas: ["financeiro.relatorios"] }] };
+    expect(atendeExigencia(soRelatorios, exigencia)).toBe(false);
+    for (const tela of ["financeiro.pagar", "financeiro.receber", "financeiro.conciliacao", "financeiro.fiscal"] as const) {
+      expect(atendeExigencia({ plataforma: null, departamentos: [{ departamento: "financeiro", nivel: "gerente", telas: [tela, "financeiro.relatorios"] }] }, exigencia), tela).toBe(true);
+    }
+  });
+
   it("não libera consumo a membro nem combina gerência de outro departamento", () => {
     const acesso: Acesso = { plataforma: null, departamentos: [
       { departamento: "financeiro", nivel: "membro", telas: ["financeiro.receber"] },

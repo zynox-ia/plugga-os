@@ -1,7 +1,6 @@
 import { Controller, Get, Query, UseGuards } from "@nestjs/common";
 import {
   consultaDeConsumoSchema,
-  telasPorDepartamento,
   type ConsultaDeConsumo,
   type ResumoDeConsumo,
 } from "@plugga/shared";
@@ -20,6 +19,13 @@ import { ConsumoService } from "./consumo.service.js";
  * dado sensível de cliente, mas também não é informação de todo mundo: um número
  * de gasto fora de contexto circula mal.
  */
+/**
+ * As telas do Financeiro que abrem o consumo: as quatro de antes da tela de
+ * Relatórios (PLU-360). Lista fechada, para uma tela nova do departamento não
+ * abrir o custo da IA sem decisão.
+ */
+const TELAS_DO_CONSUMO = ["financeiro.pagar", "financeiro.receber", "financeiro.conciliacao", "financeiro.fiscal"] as const;
+
 @Controller("llm/consumo")
 @UseGuards(SessionAuthGuard, AcessoGuard)
 export class ConsumoController {
@@ -31,7 +37,7 @@ export class ConsumoController {
    */
   @Get()
   @Departamento("financeiro", "gerente")
-  @Tela(...telasPorDepartamento.financeiro)
+  @Tela(...TELAS_DO_CONSUMO)
   async resumo(
     @Query(new ZodValidationPipe(consultaDeConsumoSchema)) { desde, ate }: ConsultaDeConsumo,
   ): Promise<ResumoDeConsumo> {

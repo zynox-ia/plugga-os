@@ -3034,7 +3034,6 @@
       "tela:financeiro.receber",
       "tela:financeiro.conciliacao",
       "tela:financeiro.fiscal",
-      "tela:financeiro.relatorios",
       "departamento:financeiro:gerente"
     ],
     "guards": [
