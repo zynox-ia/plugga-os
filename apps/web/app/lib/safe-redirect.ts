@@ -9,14 +9,21 @@
  * XSS ou uma extensão fariam.
  */
 
+/**
+ * `//host` é URL de protocolo relativo: o browser vai para OUTRO site.
+ * `/\host` é a mesma coisa em vários browsers, que tratam "\" como "/".
+ */
+function protocoloRelativo(caminho: string): boolean {
+  return caminho.startsWith("//") || caminho.startsWith("/\\");
+}
+
 /** Devolve o caminho se ele for relativo e same-origin; senão, null. */
 export function safeRelativePath(value: string | null | undefined): string | null {
-  if (!value || !value.startsWith("/")) {
+  // `typeof`: um parâmetro repetido (`?de=a&de=b`) chega como array.
+  if (typeof value !== "string" || !value.startsWith("/")) {
     return null;
   }
-  // `//host` é URL de protocolo relativo: o browser vai para OUTRO site.
-  // `/\host` é a mesma coisa em vários browsers, que tratam "\" como "/".
-  if (value.startsWith("//") || value.startsWith("/\\")) {
+  if (protocoloRelativo(value)) {
     return null;
   }
   // Caractere de controle (inclusive CR/LF) num destino é vetor de injeção de
@@ -36,7 +43,10 @@ export function safeRelativePath(value: string | null | undefined): string | nul
     if (resolved.origin !== base) {
       return null;
     }
-    return `${resolved.pathname}${resolved.search}${resolved.hash}`;
+    // E a forma FINAL, que é a que vai para a navegação: `/.//host` e
+    // `/x/..//host` passam na entrada e se normalizam em `//host` (PLU-357).
+    const caminho = `${resolved.pathname}${resolved.search}${resolved.hash}`;
+    return protocoloRelativo(caminho) ? null : caminho;
   } catch {
     return null;
   }

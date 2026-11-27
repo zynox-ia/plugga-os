@@ -31,11 +31,39 @@ describe("safeRelativePath", () => {
     assert.equal(safeRelativePath("/clientes\u0000"), null);
   });
 
+  it("rejects a path that only becomes protocol-relative after normalization (PLU-357)", () => {
+    // Passam na entrada (começam com uma barra só), mas o `URL` os resolve para `//evil.example`.
+    for (const valor of ["/.//evil.example", "/x/..//evil.example", "/..//evil.example", "/%2e%2e//evil.example", "/.%2e//evil.example/clientes?x=1#y"]) {
+      assert.equal(safeRelativePath(valor), null, valor);
+    }
+    // A barra invertida no meio, que o parser WHATWG troca por "/".
+    for (const valor of ["/.\\/evil.example", "/x/..\\\\evil.example", "/a/../\\evil.example", "/.\\\\evil.example"]) {
+      assert.equal(safeRelativePath(valor), null, valor);
+    }
+    assert.equal(safeRedirect("/.//evil.example"), "/");
+  });
+
+  it("keeps an encoded slash encoded: it does not become `//`", () => {
+    assert.equal(safeRelativePath("/%2F/evil.example"), "/%2F/evil.example");
+    assert.equal(safeRelativePath("/%2f%2fevil.example"), "/%2f%2fevil.example");
+    assert.equal(safeRelativePath("/%5C/evil.example"), "/%5C/evil.example");
+  });
+
+  it("still accepts in-app paths that normalize to a single leading slash", () => {
+    assert.equal(safeRelativePath("/./clientes?mes=8#topo"), "/clientes?mes=8#topo");
+    assert.equal(safeRelativePath("/x/../suprimentos/fornecedores?fornecedor=1"), "/suprimentos/fornecedores?fornecedor=1");
+    assert.equal(safeRelativePath("/comercial//pipelines"), "/comercial//pipelines");
+  });
+
   it("rejects empty and missing values", () => {
     assert.equal(safeRelativePath(""), null);
     assert.equal(safeRelativePath(undefined), null);
     assert.equal(safeRelativePath(null), null);
     assert.equal(safeRelativePath("clientes"), null);
+  });
+
+  it("rejects a repeated search param, which arrives as an array", () => {
+    assert.equal(safeRelativePath(["/clientes", "/documentos"] as unknown as string), null);
   });
 });
 
