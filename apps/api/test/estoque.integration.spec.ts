@@ -404,6 +404,24 @@ describe.skipIf(!HABILITADO)("estoque: operador só com a tela de Estoque, no lo
     expect(await emEstoque(item)).toBe("6.000");
   }, PRAZO_MS);
 
+  it("a função restrita não entrega nada sem sessão, nem para par item/pedido de outra empresa (revisão leva 3, S3)", async () => {
+    const item = await criarItem();
+    const pedido = await pedidoCom([{ quantidade: "3", itemDeEstoqueId: item }]);
+    const consultar = (itemId: string, pedidoId: string | null) => app.comContexto((tx) => tx.$queryRaw<{ id: string }[]>`
+      SELECT id FROM plugga_security.pedidos_para_entrada_do_item(${itemId}::uuid, ${pedidoId}::uuid)`);
+    expect(await como("estoque", () => consultar(item, pedido))).toHaveLength(1);
+    // Sem sessão (o login da aplicação sem o hash): nada.
+    expect(await contextoBanco.run({}, () => consultar(item, pedido))).toEqual([]);
+    // Pedido da Waze com linha apontando para o item da Plugga (gravado pelo dono, fora das regras): a função não liga os dois.
+    const daWaze = await pedidoCom([{ quantidade: "3" }], "waze");
+    await root.itemDePedido.updateMany({ where: { pedidoId: daWaze }, data: { itemDeEstoqueId: item } });
+    expect(await como("estoque", () => consultar(item, daWaze))).toEqual([]);
+    await expect(entrada(item, "1", daWaze)).rejects.toBeInstanceOf(RequisicaoInvalida);
+    // Item sem vínculo com o pedido pedido explicitamente: nada.
+    const outro = await criarItem();
+    expect(await como("estoque", () => consultar(outro, pedido))).toEqual([]);
+  }, PRAZO_MS);
+
   it("continua sem ler as linhas do pedido nem a lista de Compras", async () => {
     const item = await criarItem();
     const pedido = await pedidoCom([{ quantidade: "3", itemDeEstoqueId: item }, { quantidade: "8" }]);
