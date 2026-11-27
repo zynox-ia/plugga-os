@@ -329,3 +329,8 @@ a.botaoLink { text-decoration: none; }
 
 /* Próximos vencimentos: as linhas do bloco Vencimentos da Visão geral (financeiro-telas.module.css). */
 .vencimentos { gap: 6px; }
+
+/* Lista: o espaço entre os cartões e a barra de filtros é o gap de 12 px da página duas vezes (há o
+   sentinela vazio da barra fixa no meio) mais o padding da barra: 32 px visíveis. O André pediu cerca
+   de 20% menos; tiro 6 px só aqui, sem mexer no gap da página nem na barra (compartilhados). */
+.metricasDaLista { margin-bottom: -6px; }

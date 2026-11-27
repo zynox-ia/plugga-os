@@ -142,7 +142,7 @@ export function CentroDeCustoView({ filtros, projetos: doServidor, clientes, pro
       </div>
     </header>
 
-    <div className={styles.metricas} role="group" aria-label="Resumo dos projetos mostrados" style={{ "--colunas": 4 } as CSSProperties}>
+    <div className={`${styles.metricas} ${styles.metricasDaLista}`} role="group" aria-label="Resumo dos projetos mostrados" style={{ "--colunas": 4 } as CSSProperties}>
       <CardDeMetrica rotulo="Recebido" valor={reais(totais.recebido)} icone={<ArrowDownLeft />} nota={totais.aReceber ? `+ ${reais(totais.aReceber)} a receber` : "nada a receber"} />
       <CardDeMetrica rotulo="Gasto" valor={reais(totais.gasto)} icone={<ArrowUpRight />} nota={totais.aPagar ? `pago e material · + ${reais(totais.aPagar)} a pagar` : "pago e material do estoque"} />
       <CardDeMetrica rotulo="Resultado" valor={<span className={totais.resultado < 0 ? styles.negativo : undefined}>{reais(totais.resultado)}</span>} icone={<Scale />} nota="recebido menos gasto" />
