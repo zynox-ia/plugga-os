@@ -8,7 +8,7 @@ import type {
   TipoDeLancamento,
 } from "@plugga/shared";
 
-import { fimDoDiaEmManaus, inicioDoDiaEmManaus } from "../compras/dias-uteis";
+import { inicioDoDiaEmManaus } from "../compras/dias-uteis";
 import type { PapelNoFinanceiro } from "./financeiro.rules";
 
 /**
@@ -34,9 +34,20 @@ const CEM = new Prisma.Decimal(100);
 const SEM_CATEGORIA = "Sem categoria";
 const INDISPONIVEL = "Categoria indisponível";
 
-/** O período no calendário de Manaus, os dois dias inclusos. */
-export function periodoDoRelatorio(de: string, ate: string): { desde: Date; ate: Date } {
-  return { desde: inicioDoDiaEmManaus(de), ate: fimDoDiaEmManaus(ate) };
+/** O dia seguinte a "aaaa-mm-dd", no calendário. */
+function diaSeguinte(dia: string): string {
+  const [ano, mes, d] = dia.split("-").map(Number);
+  return new Date(Date.UTC(ano!, mes! - 1, d! + 1)).toISOString().slice(0, 10);
+}
+
+/**
+ * O período no calendário de Manaus, os dois dias inclusos, como intervalo
+ * semiaberto: `desde` (inclusive) até `antes` (exclusive), o início do dia
+ * seguinte ao último. O banco guarda microssegundos, então um "último instante"
+ * em milissegundos deixaria de fora o que foi liquidado depois de .999.
+ */
+export function periodoDoRelatorio(de: string, ate: string): { desde: Date; antes: Date } {
+  return { desde: inicioDoDiaEmManaus(de), antes: inicioDoDiaEmManaus(diaSeguinte(ate)) };
 }
 
 /** "2.04.01" vem antes de "2.10.01": compara nível a nível, como número. */

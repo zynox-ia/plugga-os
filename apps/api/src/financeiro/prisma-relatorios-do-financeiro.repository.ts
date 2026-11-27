@@ -16,7 +16,7 @@ import { montarRelatorioPorCategoria, periodoDoRelatorio, type SomaDaCategoria }
  */
 export async function somasPorCategoria(
   tx: Prisma.TransactionClient,
-  filtro: { empresa?: CompanyKey; desde: Date; ate: Date; tipos: readonly TipoDeLancamento[] },
+  filtro: { empresa?: CompanyKey; desde: Date; antes: Date; tipos: readonly TipoDeLancamento[] },
 ): Promise<SomaDaCategoria[]> {
   if (filtro.tipos.length === 0) return [];
   const linhas = await tx.$queryRaw<{ tipo: TipoDeLancamento; categoriaId: string | null; codigo: string | null; nome: string | null; grupoNome: string | null; total: Prisma.Decimal; quantidade: number }[]>`
@@ -27,7 +27,7 @@ export async function somasPorCategoria(
       LEFT JOIN public.categorias_financeiras c ON c.id = l.categoria_id
      WHERE l.cancelado_em IS NULL
        AND l.origem <> 'transferencia'
-       AND l.liquidado_em >= ${filtro.desde} AND l.liquidado_em <= ${filtro.ate}
+       AND l.liquidado_em >= ${filtro.desde} AND l.liquidado_em < ${filtro.antes}
        AND l.tipo::text = ANY(${[...filtro.tipos]}::text[])
        AND (${filtro.empresa ?? null}::text IS NULL OR l.company_id = ${filtro.empresa ?? null}::text)
      GROUP BY l.tipo, l.categoria_id, c.codigo, c.nome, c.grupo_nome`;
@@ -39,9 +39,9 @@ export class PrismaRelatoriosDoFinanceiroRepository {
   constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
 
   async porCategoria(query: RelatorioPorCategoriaQuery, papel: PapelNoFinanceiro): Promise<RelatorioPorCategoria> {
-    const { desde, ate } = periodoDoRelatorio(query.de, query.ate);
+    const { desde, antes } = periodoDoRelatorio(query.de, query.ate);
     const tipos = tiposVisiveis(papel, "todos");
-    const linhas = await this.prisma.comContexto((tx) => somasPorCategoria(tx, { empresa: query.empresa, desde, ate, tipos }));
+    const linhas = await this.prisma.comContexto((tx) => somasPorCategoria(tx, { empresa: query.empresa, desde, antes, tipos }));
     return montarRelatorioPorCategoria({ de: query.de, ate: query.ate, empresa: query.empresa ?? null, papel, linhas });
   }
 }

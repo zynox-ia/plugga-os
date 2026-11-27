@@ -43,9 +43,9 @@ describe.skipIf(!HABILITADO)("relatório por categoria no Postgres", () => {
   let admin: AuthPrincipal;
   const ids = {
     fornecedor: "", cliente: "", contaPlugga: "", contaPlugga2: "", contaWaze: "",
-    issPlugga: "", issWaze: "", inssPlugga: "", receitaPlugga: "", receitaWaze: "",
+    issPlugga: "", issWaze: "", inssPlugga: "", receitaPlugga: "", receitaWaze: "", taxaPlugga: "",
   };
-  const codigos = { iss: "", inss: "", receita: "", grupoImpostos: "", grupoReceitas: "" };
+  const codigos = { iss: "", inss: "", receita: "", taxa: "", grupoImpostos: "", grupoReceitas: "", grupoTaxas: "" };
   const comoAdmin = <T>(fazer: () => Promise<T>) => contextoBanco.run({ sessionHash: sessoes.admin, agentHash: undefined }, fazer);
   /** Como o login da aplicação (sem BYPASSRLS), na sessão de quem pede. */
   const comoRuntime = <T>(quem: keyof typeof sessoes, fazer: (tx: Prisma.TransactionClient) => Promise<T>) => prisma.$transaction(async (tx) => {
@@ -75,9 +75,9 @@ describe.skipIf(!HABILITADO)("relatório por categoria no Postgres", () => {
 
   /** A conferência independente: soma, em JS, o valor liquidado de cada lançamento do período no banco inteiro. */
   const somaDoBanco = async (tipo: "saida" | "entrada", empresa?: CompanyKey) => {
-    const { desde, ate } = periodoDoRelatorio(MARCO.de, MARCO.ate);
+    const { desde, antes } = periodoDoRelatorio(MARCO.de, MARCO.ate);
     const linhas = await prisma.lancamento.findMany({
-      where: { tipo, canceladoEm: null, origem: { not: "transferencia" }, liquidadoEm: { gte: desde, lte: ate }, ...(empresa ? { companyId: empresa } : {}) },
+      where: { tipo, canceladoEm: null, origem: { not: "transferencia" }, liquidadoEm: { gte: desde, lt: antes }, ...(empresa ? { companyId: empresa } : {}) },
       select: { valor: true, valorRecebido: true },
     });
     return { total: linhas.reduce((t, l) => t.add(tipo === "entrada" ? (l.valorRecebido ?? l.valor) : l.valor), new Prisma.Decimal(0)).toFixed(2), quantidade: linhas.length };
@@ -110,6 +110,8 @@ describe.skipIf(!HABILITADO)("relatório por categoria no Postgres", () => {
     codigos.iss = `8.${nivel}.${sufixo}1`;
     codigos.inss = `8.${nivel}.${sufixo}2`;
     codigos.receita = `7.${nivel}.${sufixo}1`;
+    codigos.grupoTaxas = `6.${nivel}`;
+    codigos.taxa = `6.${nivel}.${sufixo}1`;
     const categoria = (companyId: CompanyKey, codigo: string, nome: string, tipo: "receita" | "despesa", grupoNome: string) => prisma.categoriaFinanceira.create({
       data: { companyId, codigo, nome: `${marca} ${nome}`, tipo, natureza: tipo === "receita" ? "receita" : "imposto", grupoNome: `${marca} ${grupoNome}` },
       select: { id: true },
@@ -119,6 +121,7 @@ describe.skipIf(!HABILITADO)("relatório por categoria no Postgres", () => {
     ids.inssPlugga = (await categoria("plugga", codigos.inss, "INSS", "despesa", "Impostos")).id;
     ids.receitaPlugga = (await categoria("plugga", codigos.receita, "Gestão de energia", "receita", "Receitas")).id;
     ids.receitaWaze = (await categoria("waze", codigos.receita, "Gestão de energia", "receita", "Receitas")).id;
+    ids.taxaPlugga = (await categoria("plugga", codigos.taxa, "Taxa de fim de dia", "despesa", "Taxas")).id;
 
     // Março de 2031, Plugga: ISS no primeiro e no último dia, INSS e uma saída sem categoria.
     await paga({ empresa: "plugga", dia: "2031-03-01", valor: "100.00", categoriaId: ids.issPlugga });
@@ -136,6 +139,11 @@ describe.skipIf(!HABILITADO)("relatório por categoria no Postgres", () => {
     await paga({ empresa: "waze", dia: "2031-03-05", valor: "40.00", categoriaId: ids.issWaze });
     await recebida({ empresa: "plugga", dia: "2031-03-12", valor: "1000.00", recebido: "1000.00", categoriaId: ids.receitaPlugga, competencia: "2031-02" });
     await recebida({ empresa: "waze", dia: "2031-03-12", valor: "500.00", recebido: "320.50", categoriaId: ids.receitaWaze, competencia: "2031-02" });
+    // Liquidada no último instante do último dia (23:59:59.9995 em Manaus, com microssegundos): dentro.
+    // E a do primeiro instante do dia seguinte: fora. O pago_em vai por SQL: o Date do JavaScript para no milissegundo.
+    const noFim = await paga({ empresa: "plugga", dia: "2031-03-31", valor: "0.75", categoriaId: ids.taxaPlugga });
+    await prisma.$executeRaw`UPDATE public.lancamentos SET pago_em = '2031-04-01 03:59:59.9995+00' WHERE id = ${noFim.id}::uuid`;
+    await paga({ empresa: "plugga", dia: "2031-04-01", valor: "0.25", categoriaId: ids.taxaPlugga });
     // Transferência entre as contas da Plugga: as duas pernas liquidadas no período, fora das duas seções.
     await comoAdmin(() => conciliacao.criarTransferencia({ contaOrigemId: ids.contaPlugga, contaDestinoId: ids.contaPlugga2, valor: "5000.00", dia: "2031-03-18", descricao: `${marca} transferência` }, admin, AGORA));
   }, PRAZO_MS);
@@ -195,12 +203,12 @@ describe.skipIf(!HABILITADO)("relatório por categoria no Postgres", () => {
     const r = await relatorio();
     const iss = grupo(r, "saidas", codigos.grupoImpostos)!.categorias.find((c) => c.codigo === codigos.iss)!;
     expect([iss.total, iss.quantidade, [...iss.categorias].sort()]).toEqual(["190.25", 3, [ids.issPlugga, ids.issWaze].sort()]);
-    const { desde, ate } = periodoDoRelatorio(MARCO.de, MARCO.ate);
-    const lista = await comoAdmin(() => lancamentos.liquidadosDoRelatorio({ desde, ate, tipo: "saida", categoria: iss.categorias }, papel, 500, AGORA));
+    const { desde, antes } = periodoDoRelatorio(MARCO.de, MARCO.ate);
+    const lista = await comoAdmin(() => lancamentos.liquidadosDoRelatorio({ desde, antes, tipo: "saida", categoria: iss.categorias }, papel, 500, AGORA));
     expect([lista.total, lista.soma]).toEqual([3, "190.25"]);
     expect(lista.itens.map((i) => [i.empresa, i.liquidadoEm, i.valorLiquidado])).toEqual([["plugga", "2031-03-01", "100.00"], ["waze", "2031-03-05", "40.00"], ["plugga", "2031-03-31", "50.25"]]);
     const receita = grupo(r, "entradas", codigos.grupoReceitas)!.categorias[0]!;
-    const recebidas = await comoAdmin(() => lancamentos.liquidadosDoRelatorio({ desde, ate, tipo: "entrada", categoria: receita.categorias }, papel, 500, AGORA));
+    const recebidas = await comoAdmin(() => lancamentos.liquidadosDoRelatorio({ desde, antes, tipo: "entrada", categoria: receita.categorias }, papel, 500, AGORA));
     expect([recebidas.soma, receita.total]).toEqual(["1320.50", "1320.50"]);
     expect(recebidas.itens.map((i) => [i.valor, i.valorLiquidado]).sort()).toEqual([["1000.00", "1000.00"], ["500.00", "320.50"]]);
   }, PRAZO_MS);
@@ -210,16 +218,27 @@ describe.skipIf(!HABILITADO)("relatório por categoria no Postgres", () => {
     const sem = grupo(plugga, "saidas", null, "Sem categoria")!;
     expect(sem.categorias.map((c) => [c.chave, c.nome, c.categorias])).toEqual([["sem", "Sem categoria", []]]);
     expect(plugga.saidas!.grupos.at(-1)!.chave).toBe("sem");
-    const { desde, ate } = periodoDoRelatorio(MARCO.de, MARCO.ate);
-    const lista = await comoAdmin(() => lancamentos.liquidadosDoRelatorio({ empresa: "plugga", desde, ate, tipo: "saida", categoria: "sem" }, papel, 500, AGORA));
+    const { desde, antes } = periodoDoRelatorio(MARCO.de, MARCO.ate);
+    const lista = await comoAdmin(() => lancamentos.liquidadosDoRelatorio({ empresa: "plugga", desde, antes, tipo: "saida", categoria: "sem" }, papel, 500, AGORA));
     expect(lista.soma).toBe(sem.total);
     expect(lista.itens.every((i) => i.categoria === null)).toBe(true);
     expect(lista.itens.some((i) => i.descricao === `${marca} saída 2031-03-10`)).toBe(true);
   }, PRAZO_MS);
 
+  it("o último dia vale até o seu último microssegundo, e o dia seguinte não entra", async () => {
+    const [linha] = await prisma.$queryRaw<{ liquidado: string }[]>`SELECT to_char(liquidado_em AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS.US') AS liquidado FROM public.lancamentos WHERE categoria_id = ${ids.taxaPlugga}::uuid AND valor = 0.75`;
+    expect(linha?.liquidado).toBe("2031-04-01 03:59:59.999500");
+    const plugga = await relatorio("plugga");
+    const taxas = grupo(plugga, "saidas", codigos.grupoTaxas)!;
+    expect([taxas.total, taxas.quantidade]).toEqual(["0.75", 1]);
+    const { desde, antes } = periodoDoRelatorio(MARCO.de, MARCO.ate);
+    const lista = await comoAdmin(() => lancamentos.liquidadosDoRelatorio({ empresa: "plugga", desde, antes, tipo: "saida", categoria: [ids.taxaPlugga] }, papel, 500, AGORA));
+    expect([lista.total, lista.soma, lista.itens.map((i) => i.liquidadoEm)]).toEqual([1, "0.75", ["2031-03-31"]]);
+  }, PRAZO_MS);
+
   it("o RLS recorta as somas: com Contas a pagar só as saídas; com só Relatórios, nada", async () => {
-    const { desde, ate } = periodoDoRelatorio(MARCO.de, MARCO.ate);
-    const filtro = { empresa: "plugga" as const, desde, ate, tipos: ["saida", "entrada"] as const };
+    const { desde, antes } = periodoDoRelatorio(MARCO.de, MARCO.ate);
+    const filtro = { empresa: "plugga" as const, desde, antes, tipos: ["saida", "entrada"] as const };
     const doPagador = await comoRuntime("pagar", (tx) => somasPorCategoria(tx, filtro));
     expect(new Set(doPagador.map((l) => l.tipo))).toEqual(new Set(["saida"]));
     const issDoPagador = doPagador.find((l) => l.categoriaId === ids.issPlugga)!;

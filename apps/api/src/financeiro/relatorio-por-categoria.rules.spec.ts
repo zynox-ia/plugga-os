@@ -77,9 +77,12 @@ describe("relatório por grupo e categoria (PLU-360)", () => {
     expect(r.saidas!.grupos[0]!.categorias[0]!.categorias).toEqual([ids.inss]);
   });
 
-  it("o período vai do primeiro instante do primeiro dia ao último do último dia, em Manaus (UTC-4)", () => {
-    const { desde, ate } = periodoDoRelatorio("2026-11-01", "2026-11-30");
+  it("o período vai do início do primeiro dia até, exclusive, o início do dia seguinte ao último, em Manaus (UTC-4)", () => {
+    const { desde, antes } = periodoDoRelatorio("2026-11-01", "2026-11-30");
     expect(desde.toISOString()).toBe("2026-11-01T04:00:00.000Z");
-    expect(ate.toISOString()).toBe("2026-12-01T03:59:59.999Z");
+    // Semiaberto: o banco guarda microssegundos, então não há "último instante" em milissegundos.
+    expect(antes.toISOString()).toBe("2026-12-01T04:00:00.000Z");
+    expect(periodoDoRelatorio("2026-12-31", "2026-12-31").antes.toISOString()).toBe("2027-01-01T04:00:00.000Z");
+    expect(periodoDoRelatorio("2028-02-28", "2028-02-28").antes.toISOString()).toBe("2028-02-29T04:00:00.000Z");
   });
 });

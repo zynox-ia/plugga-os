@@ -596,7 +596,7 @@ export class PrismaFinanceiroRepository {
    * ao mais recente, até `limite`; `total` e `soma` contam todos.
    */
   async liquidadosDoRelatorio(
-    filtro: { empresa?: CompanyKey; desde: Date; ate: Date; tipo: TipoDeLancamento; categoria: "sem" | readonly string[] },
+    filtro: { empresa?: CompanyKey; desde: Date; antes: Date; tipo: TipoDeLancamento; categoria: "sem" | readonly string[] },
     papel: PapelNoFinanceiro,
     limite: number,
     agora: Date,
@@ -606,7 +606,7 @@ export class PrismaFinanceiroRepository {
       tipo: filtro.tipo,
       canceladoEm: null,
       origem: { not: "transferencia" },
-      liquidadoEm: { gte: filtro.desde, lte: filtro.ate },
+      liquidadoEm: { gte: filtro.desde, lt: filtro.antes },
       categoriaId: filtro.categoria === "sem" ? null : { in: [...filtro.categoria] },
       ...(filtro.empresa ? { companyId: filtro.empresa } : {}),
     };

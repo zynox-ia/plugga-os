@@ -38,9 +38,9 @@ export class RelatoriosDoFinanceiroService {
   }
 
   async lancamentosDaLinha(query: LancamentosDoRelatorioQuery, principal: AuthPrincipal): Promise<LancamentosDoRelatorio> {
-    const { desde, ate } = periodoDoRelatorio(query.de, query.ate);
+    const { desde, antes } = periodoDoRelatorio(query.de, query.ate);
     const resposta = await this.lancamentos.liquidadosDoRelatorio(
-      { empresa: query.empresa, desde, ate, tipo: query.tipo, categoria: query.categoria },
+      { empresa: query.empresa, desde, antes, tipo: query.tipo, categoria: query.categoria },
       papelNoFinanceiro(principal.acesso),
       LIMITE_DOS_LANCAMENTOS_DO_RELATORIO,
       this.agora(),
