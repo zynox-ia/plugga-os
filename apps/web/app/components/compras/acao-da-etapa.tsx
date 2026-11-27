@@ -10,6 +10,7 @@ import visao from "../pipelines/resumo-do-lead.module.css";
 import { EntradaNoEstoqueDoRecebimento, type EstadoDaEntrada } from "../suprimentos/ligacao-com-estoque";
 import { Button, DatePicker, FileDropzone, TextField } from "../ui";
 import { Segmentado } from "./campos-de-compra";
+import { CoberturaDoEstoque } from "./cobertura-do-estoque";
 import styles from "./ficha-do-pedido.module.css";
 
 const TOM_DO_PRAZO = { ok: styles.prazoOk, hoje: styles.prazoHoje, vencido: styles.prazoVencido } as const;
@@ -81,6 +82,7 @@ export function AcaoDaEtapa({ pedido, ocupado, estado, aoDecidir, aoVerCotacoes,
     </Destaque>;
     case "analise_estoque": return <Destaque icone={Warehouse} titulo="Possui em estoque? / Pedido já faturado?">
       <p>A decisão define o caminho do pedido.</p>
+      <CoberturaDoEstoque pedidoId={pedido.id} versao={pedido.updatedAt} />
       <div className={styles.decisao}>
         <button type="button" className={styles.opcao} disabled={ocupado || !pode("decidir_estoque") || !vinculados} onClick={() => aoDecidir("estoque")}>
           <span className={styles.opcaoIcone} aria-hidden="true"><Warehouse size={18} /></span>

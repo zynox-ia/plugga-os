@@ -1,0 +1,82 @@
+/* Quanto o estoque atende, na análise de estoque do pedido (PLU-328). */
+.cobertura {
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--ui-divider);
+  background: #fff;
+  min-width: 0;
+}
+
+.titulo {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ui-text);
+}
+
+.muted,
+.ok,
+.erro p {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--ui-muted);
+}
+
+.ok { color: var(--ui-success); }
+
+.erro {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.linhas {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.linhas li {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  font-size: 13px;
+  color: var(--ui-text);
+  min-width: 0;
+}
+
+.linhas li > svg { flex: none; margin-top: 2px; }
+.linhas li[data-tom="atende"] > svg { color: var(--ui-success); }
+.linhas li[data-tom="parcial"] > svg { color: var(--ui-warning); }
+.linhas li[data-tom="nao"] > svg { color: var(--ui-muted); }
+
+.linhaTexto {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 2px 12px;
+  flex: 1;
+  min-width: 0;
+}
+
+.descricao { overflow-wrap: anywhere; }
+
+.linhaTexto > span:last-child { text-align: right; }
+
+.linhaTexto small {
+  color: var(--ui-muted);
+  font-size: 12px;
+}
+
+.porque { display: block; }
+
+@media (max-width: 480px) {
+  .linhaTexto { flex-direction: column; }
+  .linhaTexto > span:last-child { text-align: left; }
+}
