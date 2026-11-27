@@ -4,7 +4,34 @@ import path from "node:path";
 import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
 
+import type { Acesso } from "@plugga/shared";
+
+import { fechadaPeloPortaoDoFinanceiro, podeAbrirPagina } from "../app/lib/acesso-paginas.ts";
 import { itemDasNotasFiscais, prototipoDasNotasFiscais } from "../app/lib/prototipo-das-notas-fiscais.ts";
+
+const ROTA = "/financeiro/notas-fiscais";
+const fiscal: Acesso = { plataforma: null, departamentos: [{ departamento: "financeiro", nivel: "membro", telas: ["financeiro.fiscal"] }] };
+
+describe("o middleware responde 404 ao protótipo das Notas fiscais fora do desenvolvimento (PLU-361)", () => {
+  it("na produção e no build da CI (Financeiro ligado pela variável), a rota e as variações do caminho fecham; o resto do Financeiro, não", () => {
+    for (const ambiente of [{ NODE_ENV: "production" }, { NODE_ENV: "production", NEXT_PUBLIC_FINANCEIRO_HABILITADO: "true" }, {}]) {
+      for (const caminho of [ROTA, `${ROTA}/`, "/financeiro/Notas-Fiscais", "/financeiro//notas-fiscais", "/financeiro/%6Eotas-fiscais"]) {
+        assert.equal(fechadaPeloPortaoDoFinanceiro(caminho, ambiente), true, `${JSON.stringify(ambiente)} ${caminho}`);
+        assert.equal(podeAbrirPagina(fiscal, caminho, ambiente), false, `${JSON.stringify(ambiente)} ${caminho}`);
+      }
+    }
+    const daCi = { NODE_ENV: "production", NEXT_PUBLIC_FINANCEIRO_HABILITADO: "true" };
+    assert.equal(fechadaPeloPortaoDoFinanceiro("/financeiro/conciliacao", daCi), false);
+    assert.equal(fechadaPeloPortaoDoFinanceiro("/financeiro/notas-fiscais-de-verdade", daCi), false);
+  });
+
+  it("no desenvolvimento e nos testes, a rota abre para quem tem a tela Fiscal", () => {
+    for (const NODE_ENV of ["development", "test"]) {
+      assert.equal(fechadaPeloPortaoDoFinanceiro(ROTA, { NODE_ENV }), false, NODE_ENV);
+      assert.equal(podeAbrirPagina(fiscal, ROTA, { NODE_ENV }), true, NODE_ENV);
+    }
+  });
+});
 
 const WEB = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const EXEMPLOS = path.join(WEB, "app/lib/notas-fiscais-exemplo.ts");

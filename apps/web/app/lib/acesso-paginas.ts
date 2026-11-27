@@ -3,6 +3,7 @@ import { alcancaPlataforma, alcancaTela, papelDoAcesso, telasPorDepartamento, ty
 import { integracoesParaAcesso } from "./integracoes.ts";
 import { podeVerCompras } from "./papel-em-compras.ts";
 import { engenhariaHabilitado, financeiroHabilitado, prototipoDoCentroDeCustoHabilitado, type AmbienteDosRecursos } from "./recursos.ts";
+import { prototipoDasNotasFiscais } from "./prototipo-das-notas-fiscais.ts";
 
 /**
  * Lançamentos (e a Visão geral) do Financeiro juntam saídas (`financeiro.pagar`)
@@ -93,7 +94,9 @@ export function fechadaPeloPortaoDoFinanceiro(pathname: string, ambiente?: Ambie
   if (!financeiroHabilitado(ambiente)) return true;
   // O protótipo do Centro de custo (PLU-362), com dados de exemplo, não existe fora do desenvolvimento,
   // nem com o Financeiro ligado pela variável (o build da CI): 404 do middleware.
-  return segmentos[1] === "centro-de-custo" && !prototipoDoCentroDeCustoHabilitado(ambiente);
+  if (segmentos[1] === "centro-de-custo") return !prototipoDoCentroDeCustoHabilitado(ambiente);
+  // O mesmo para o protótipo das Notas fiscais (PLU-361).
+  return segmentos[1] === "notas-fiscais" && !prototipoDasNotasFiscais(ambiente);
 }
 
 /**
