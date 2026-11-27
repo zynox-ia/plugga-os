@@ -1,0 +1,142 @@
+/* Notas fiscais (PLU-361), protótipo visual. Tokens do design system; peso máximo 500,
+   azuis da marca e neutros. O seletor Entradas / Saídas é o elemento principal da tela. */
+
+.pagina { min-width: 0; }
+.cabecalho { align-items: flex-start; }
+.subtitulo { max-width: 52ch; }
+.acoes { flex-wrap: wrap; justify-content: flex-end; }
+.filtroEmpresa { flex: none; }
+.filtroEmpresa button { width: auto; }
+
+/* A marca do protótipo: discreta, abaixo do subtítulo. */
+.prototipo { display: inline-flex; align-items: center; gap: 6px; width: fit-content; margin: 8px 0 0; padding: 3px 10px; border: 1px solid var(--ui-divider); border-radius: var(--radius-full); color: var(--ui-muted); background: color-mix(in srgb, var(--ui-surface) 80%, transparent); font-size: 12px; line-height: 18px; }
+.prototipoPonto { width: 6px; height: 6px; border-radius: 50%; background: var(--ui-primary); }
+
+/* ---------------------------------------------------------------- seletor */
+
+.seletor { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; max-width: 1180px; flex-shrink: 0; }
+.lado {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+  padding: 16px 18px;
+  border: 1px solid var(--ui-divider);
+  border-radius: var(--radius-xl);
+  color: var(--ui-text);
+  background: color-mix(in srgb, var(--ui-surface) 95%, transparent);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color .18s ease, background-color .18s ease, box-shadow .18s ease;
+}
+.lado:hover { border-color: color-mix(in srgb, var(--ui-primary) 35%, var(--ui-divider)); }
+.lado:focus-visible { outline: 2px solid var(--ui-primary); outline-offset: 2px; }
+.lado[aria-selected="true"] { border-color: var(--ui-primary); background: var(--ui-focus-bg); box-shadow: inset 0 0 0 1px var(--ui-primary); }
+.ladoIcone { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; color: var(--ui-muted); background: var(--ui-subtle); transition: color .18s ease, background-color .18s ease; }
+.lado[aria-selected="true"] .ladoIcone { color: var(--ui-primary); background: color-mix(in srgb, var(--ui-primary) 12%, var(--ui-surface)); }
+.ladoTexto { display: grid; gap: 2px; min-width: 0; }
+.ladoNome { font-size: 16px; font-weight: 500; line-height: 1.25; }
+.ladoDescricao { overflow: hidden; color: var(--ui-muted); font-size: 12.5px; text-overflow: ellipsis; white-space: nowrap; }
+.ladoNumeros { display: grid; justify-items: end; gap: 2px; min-width: 0; }
+.ladoTotal { font-size: 17px; font-weight: 500; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; white-space: nowrap; }
+.ladoQuantidade { color: var(--ui-muted); font-size: 12px; white-space: nowrap; }
+
+/* ---------------------------------------------------------------- busca e filtros */
+
+.barra { display: flex; align-items: center; justify-content: space-between; gap: 12px; max-width: 1180px; flex-shrink: 0; }
+.busca { flex: 0 1 340px; width: auto; min-width: 0; }
+.filtros { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; }
+
+/* ---------------------------------------------------------------- lista */
+
+.conteudo { display: block; min-width: 0; }
+.lista { max-width: 1180px; flex: none; }
+/* A página rola inteira: sem rolagem interna (nem o contain: size) na tabela. */
+.lista :global(.lista-negocios-card) { flex: none; min-height: auto; }
+.lista .rolagem { flex: none; contain: none; min-height: 0; overflow: visible; }
+.lista table th:nth-child(1) { width: 22%; }
+.lista table th:nth-child(2) { width: 28%; }
+.lista table th:nth-child(3) { width: 15%; }
+.lista table th:nth-child(4) { width: 14%; }
+.lista table th:nth-child(5) { width: 11%; }
+.quem { display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 0; }
+.quem strong { max-width: 100%; overflow: hidden; color: var(--ui-text); font-size: 13px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.quem > span { font-size: 12px; }
+.codigo { display: inline-flex; align-items: center; gap: 5px; }
+.codigo svg { color: var(--ui-muted); }
+.arquivo { display: inline-flex; align-items: center; gap: 6px; padding: 2px 9px; border: 1px solid var(--ui-divider); border-radius: var(--radius-full); color: var(--ui-text); background: var(--ui-subtle); font-size: 11.5px; font-weight: 500; letter-spacing: .02em; }
+.arquivo svg { color: var(--ui-muted); }
+.semNada { color: var(--ui-muted); font-size: 12px; }
+.lista :global(.lista-paginacao-info) { color: var(--ui-muted); font-size: 12px; }
+
+/* A nota recém-adicionada pisca de leve (o realce some sozinho). */
+.lista tbody tr[data-selected="true"] td { transition: background-color .6s ease; }
+
+.vazio { max-width: 1180px; }
+
+/* ---------------------------------------------------------------- ficha */
+
+.dados { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 20px; margin: 0; }
+.dados > div { display: grid; gap: 3px; min-width: 0; }
+.dados dt { color: var(--ui-muted); font-size: 12px; }
+.dados dd { margin: 0; color: var(--ui-text); font-size: 14px; overflow-wrap: anywhere; }
+.dadoLargo { grid-column: 1 / -1; }
+.dados .valorGrande { font-size: 22px; font-weight: 500; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; line-height: 1.2; }
+.cartao { display: flex; align-items: center; gap: 12px; min-width: 0; padding: 12px 14px; border: 1px solid var(--ui-divider); border-radius: var(--radius-lg); background: var(--ui-surface); }
+.cartaoIcone { display: grid; flex: none; place-items: center; width: 34px; height: 34px; border-radius: 10px; color: var(--ui-primary); background: var(--ui-focus-bg); }
+.cartaoTexto { display: grid; flex: 1; gap: 2px; min-width: 0; }
+.cartaoTexto strong { color: var(--ui-text); font-size: 13px; font-weight: 500; overflow-wrap: anywhere; }
+.cartaoTexto small { color: var(--ui-muted); font-size: 12px; overflow-wrap: anywhere; }
+.cartao :global(.ui-button) { flex: none; }
+.semVinculo { margin: 0; color: var(--ui-muted); font-size: 13px; line-height: 1.5; }
+.alertaValor { margin: 8px 0 0; color: var(--ui-warning); font-size: 12.5px; }
+.notaDoPrototipo { display: flex; align-items: flex-start; gap: 8px; margin: 0; color: var(--ui-muted); font-size: 12px; line-height: 1.5; }
+.notaDoPrototipo svg { flex: none; margin-top: 2px; }
+
+/* ---------------------------------------------------------------- formulário */
+
+.tipo { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 0; padding: 0; border: 0; min-width: 0; }
+.tipo legend { margin-bottom: 6px; padding: 0; color: var(--ui-text); font-size: 13px; font-weight: 500; }
+.tipoOpcao { display: flex; align-items: flex-start; gap: 10px; min-width: 0; padding: 12px; border: 1px solid var(--ui-divider); border-radius: var(--radius-lg); background: var(--ui-surface); cursor: pointer; transition: border-color .15s ease, background-color .15s ease; }
+.tipoOpcao:hover { border-color: color-mix(in srgb, var(--ui-primary) 35%, var(--ui-divider)); }
+.tipoOpcao:has(input:checked) { border-color: var(--ui-primary); background: var(--ui-focus-bg); }
+.tipoOpcao:has(input:focus-visible) { outline: 2px solid var(--ui-primary); outline-offset: 2px; }
+.tipoOpcao input { flex: none; margin: 2px 0 0; accent-color: var(--ui-primary); }
+.tipoOpcao span { display: grid; gap: 2px; min-width: 0; }
+.tipoOpcao strong { color: var(--ui-text); font-size: 13px; font-weight: 500; }
+.tipoOpcao small { color: var(--ui-muted); font-size: 12px; line-height: 1.4; }
+.soltar { padding: 16px; }
+:global(.ui-file-list) li[data-invalido="true"] { border-color: var(--ui-danger); }
+
+/* ---------------------------------------------------------------- celular */
+
+@media (max-width: 767px) {
+  .seletor { gap: 8px; }
+  .lado { grid-template-columns: auto minmax(0, 1fr); gap: 10px 8px; padding: 12px; }
+  .ladoIcone { width: 30px; height: 30px; border-radius: 9px; }
+  .ladoIcone svg { width: 16px; height: 16px; }
+  .ladoNome { font-size: 15px; }
+  .ladoDescricao { display: none; }
+  .ladoNumeros { grid-column: 1 / -1; justify-items: start; }
+  .ladoTotal { font-size: 15px; }
+  .barra { flex-direction: column; align-items: stretch; }
+  .busca { flex: none; width: 100%; }
+  .filtros { flex-wrap: nowrap; justify-content: flex-start; }
+  .filtros > :first-child { flex: 1 1 0; min-width: 0; }
+  .quem { align-items: flex-start; }
+  .quem strong { white-space: normal; overflow-wrap: anywhere; }
+  /* Cabeçalho a 390: Empresa e engrenagem numa linha; "Adicionar nota fiscal" inteiro embaixo. */
+  .acoes { flex-wrap: wrap; justify-content: flex-start; gap: 8px; }
+  .filtroEmpresa { flex: 1 1 0; min-width: 0; }
+  .filtroEmpresa button { width: 100%; }
+  .adicionar { order: 3; flex: 1 0 100%; }
+  .dados { grid-template-columns: minmax(0, 1fr); }
+  .tipo { grid-template-columns: minmax(0, 1fr); }
+  .cartao { flex-wrap: wrap; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lado, .ladoIcone, .tipoOpcao { transition: none; }
+}
