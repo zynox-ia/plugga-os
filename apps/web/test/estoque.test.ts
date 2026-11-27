@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+import type { Acesso, Tela } from "@plugga/shared";
+
 import {
   consultaDeMovimentacoes,
   deltaDaMovimentacao,
@@ -21,6 +23,7 @@ import {
   tomDoDisponivel,
 } from "../app/lib/estoque.ts";
 import { podeAbrirPagina } from "../app/lib/acesso-paginas.ts";
+import { acessoDoEstoque, partesDaOrigem } from "../app/lib/estoque-acesso.ts";
 import { navGroupsForAccess, navIdForPathname, tituloForNavId } from "../app/lib/navigation.ts";
 
 const ID = "11111111-1111-4111-8111-111111111111";
@@ -128,6 +131,89 @@ describe("Estoque: rota e menu (PLU-333)", () => {
     assert.ok(suprimentos?.items.some((i) => i.id === "/suprimentos/estoque" && !i.disabled));
     assert.equal(navIdForPathname("/suprimentos/estoque"), "/suprimentos/estoque");
     assert.equal(tituloForNavId("/suprimentos/estoque"), "Estoque");
+  });
+});
+
+describe("Estoque: o que cada papel alcança fora da tela (PLU-333)", () => {
+  type Departamento = Acesso["departamentos"][number];
+  const pessoa = (...departamentos: Departamento[]): Acesso => ({ plataforma: null, departamentos });
+  const suprimentos = (...telas: Tela[]): Departamento => ({ departamento: "suprimentos", nivel: "membro", telas });
+  const DEV = { NODE_ENV: "development" };
+
+  it("só com Estoque: sem link de pedido, obra ou cliente, e sem a reposição", () => {
+    assert.deepEqual(acessoDoEstoque(pessoa(suprimentos("suprimentos.estoque")), DEV), { abrePedidos: false, criaPedidos: false, abreObras: false, abreClientes: false });
+  });
+
+  it("com a tela Compras abre o pedido e oferece a reposição", () => {
+    const a = acessoDoEstoque(pessoa(suprimentos("suprimentos.estoque", "suprimentos.compras")), DEV);
+    assert.equal(a.abrePedidos, true);
+    assert.equal(a.criaPedidos, true);
+  });
+
+  it("quem chega a Compras só pelo Financeiro abre o pedido, sem a reposição que a API recusaria", () => {
+    for (const nivel of ["membro", "gerente"] as const) {
+      const a = acessoDoEstoque(pessoa(suprimentos("suprimentos.estoque"), { departamento: "financeiro", nivel, telas: ["financeiro.pagar"] }), DEV);
+      assert.equal(a.abrePedidos, true, nivel);
+      assert.equal(a.criaPedidos, false, nivel);
+    }
+  });
+
+  it("obra e cliente seguem as telas de Obras e de Clientes, e o portão da Engenharia", () => {
+    const quem = pessoa(suprimentos("suprimentos.estoque"), { departamento: "engenharia-obras", nivel: "membro", telas: ["engenharia-obras.obras"] }, { departamento: "crm", nivel: "membro", telas: ["crm.clientes"] });
+    const aberto = acessoDoEstoque(quem, DEV);
+    assert.equal(aberto.abreObras, true);
+    assert.equal(aberto.abreClientes, true);
+    assert.equal(acessoDoEstoque(quem, { NODE_ENV: "production" }).abreObras, false);
+    // Outras telas da Engenharia e do CRM não abrem a ficha.
+    const outras = acessoDoEstoque(pessoa({ departamento: "engenharia-obras", nivel: "membro", telas: ["engenharia-obras.os"] }, { departamento: "crm", nivel: "membro", telas: ["crm.pipelines"] }), DEV);
+    assert.equal(outras.abreObras, false);
+    assert.equal(outras.abreClientes, false);
+  });
+
+  it("o admin alcança tudo", () => {
+    assert.deepEqual(acessoDoEstoque({ plataforma: "admin", departamentos: [] }, DEV), { abrePedidos: true, criaPedidos: true, abreObras: true, abreClientes: true });
+  });
+});
+
+describe("Estoque: origem ou destino com link (PLU-333)", () => {
+  const PEDIDO = "22222222-2222-4222-8222-222222222222";
+  const OBRA = "33333333-3333-4333-8333-333333333333";
+  const CLIENTE = "44444444-4444-4444-8444-444444444444";
+  const tudo = { abrePedidos: true, criaPedidos: true, abreObras: true, abreClientes: true };
+  const nada = { abrePedidos: false, criaPedidos: false, abreObras: false, abreClientes: false };
+  const hrefPedido = `/suprimentos/compras?visao=lista&situacao=todos&pedido=${PEDIDO}`;
+  const semVinculo = { destino: null, obra: null, cliente: null, pedido: null };
+  const pedido = { id: PEDIDO, numero: 12 };
+  const saidaDeObra = { ...semVinculo, tipo: "saida" as const, destino: "obra" as const, obra: { id: OBRA, nome: "Subestação · Norte" }, pedido, origemOuDestino: "Obra Subestação · Norte · PC-0012" };
+
+  it("saída para obra com pedido liga cada trecho à sua tela", () => {
+    assert.deepEqual(partesDaOrigem(saidaDeObra, tudo), [
+      { texto: "Obra Subestação · Norte", href: `/engenharia/obras?obra=${OBRA}` },
+      { texto: "PC-0012", href: hrefPedido },
+    ]);
+  });
+
+  it("sem o acesso, o mesmo texto sai sem link", () => {
+    assert.deepEqual(partesDaOrigem(saidaDeObra, nada), [{ texto: "Obra Subestação · Norte", href: null }, { texto: "PC-0012", href: null }]);
+    assert.deepEqual(partesDaOrigem(saidaDeObra, { ...nada, abrePedidos: true }), [{ texto: "Obra Subestação · Norte", href: null }, { texto: "PC-0012", href: hrefPedido }]);
+  });
+
+  it("saída para cliente liga à ficha do cliente", () => {
+    const m = { ...semVinculo, tipo: "saida" as const, destino: "cliente" as const, cliente: { id: CLIENTE, nome: "Hotel (sintético)" }, origemOuDestino: "Cliente Hotel (sintético)" };
+    assert.deepEqual(partesDaOrigem(m, tudo), [{ texto: "Cliente Hotel (sintético)", href: `/clientes?cliente=${CLIENTE}` }]);
+    assert.deepEqual(partesDaOrigem(m, nada), [{ texto: "Cliente Hotel (sintético)", href: null }]);
+  });
+
+  it("reserva e entrada ligam só o pedido: o primeiro trecho não é a obra", () => {
+    const reserva = { ...semVinculo, tipo: "reserva" as const, destino: "obra" as const, obra: { id: OBRA, nome: "Subestação" }, pedido, origemOuDestino: "Reserva · PC-0012" };
+    assert.deepEqual(partesDaOrigem(reserva, tudo), [{ texto: "Reserva", href: null }, { texto: "PC-0012", href: hrefPedido }]);
+    const compra = { ...semVinculo, tipo: "entrada" as const, pedido, origemOuDestino: "Compra · PC-0012" };
+    assert.deepEqual(partesDaOrigem(compra, tudo), [{ texto: "Compra", href: null }, { texto: "PC-0012", href: hrefPedido }]);
+  });
+
+  it("interno e ajuste são só texto", () => {
+    assert.deepEqual(partesDaOrigem({ ...semVinculo, tipo: "saida", destino: "interno", origemOuDestino: "Interno · Escritório" }, tudo), [{ texto: "Interno · Escritório", href: null }]);
+    assert.deepEqual(partesDaOrigem({ ...semVinculo, tipo: "ajuste", origemOuDestino: "Ajuste" }, tudo), [{ texto: "Ajuste", href: null }]);
   });
 });
 
