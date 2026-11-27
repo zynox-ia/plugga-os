@@ -201,6 +201,15 @@ test("da linha sem par: transferência entre contas e despesa criada sem concili
   await expect(page.getByRole("menuitem", { name: "Marcar pendente" })).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(page.getByRole("menuitem", { name: "Marcar pendente" })).toHaveCount(0);
+  // A ação do menu funciona: marca a linha como pendente e, pelo mesmo menu, retoma.
+  await linhaDaTransferencia.getByRole("button", { name: /^Mais ações/ }).click();
+  await page.getByRole("menuitem", { name: "Marcar pendente" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Linha marcada como pendente." })).toBeVisible();
+  await expect(linhaDaTransferencia.getByText("Marcado como pendente.")).toBeVisible();
+  await linhaDaTransferencia.getByRole("button", { name: /^Mais ações/ }).click();
+  await page.getByRole("menuitem", { name: "Retomar" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Linha retomada." })).toBeVisible();
+  await expect(linhaDaTransferencia.getByText("Marcado como pendente.")).toHaveCount(0);
 
   // Transferência: a saída sai da conta A já conciliada com a linha; a entrada vai à B.
   await linhaDaTransferencia.getByRole("button", { name: "Criar lançamento" }).click();
