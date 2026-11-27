@@ -638,8 +638,12 @@ describe.skipIf(!HABILITADO)("estoque: operador só com a tela de Estoque, no lo
     }, PRAZO_MS);
 
     it("o banco e o contrato comparam unidades igual (plugga_security.unidade_conflita × unidadeDaLinhaConflita)", async () => {
+      const c = (codigo: number) => String.fromCharCode(codigo);
       const casos: [string | null, string][] = [
-        [" m\t", "m"], ["M", "m"], ["mL", "ML"], ["rolo 50", "rolo50"], ["pé", "pé"], [" m", "m"], [null, "m"], ["", "m"], ["  ", "m"], ["cx", "m"], ["m²", "m2"],
+        [" m" + c(9), "m"], ["M", "m"], ["mL", "ML"], ["rolo 50", "rolo50"], ["pe" + c(0x301), "p" + c(0xe9)], [c(0xa0) + "m", "m"], [null, "m"], ["", "m"], ["  ", "m"],
+        ["cx", "m"], ["m" + c(0xb2), "m2"],
+        // Revisão leva 15: "v" não é espaço (o escape barra-v no literal SQL virava a letra v); os controles ASCII das pontas (tab a CR) são.
+        ["mv", "m"], [c(11) + "m", "m"], ["m" + c(12), "m"], [c(13) + c(10) + "m", "m"], [c(8) + "m", "m"], ["vm", "m"],
       ];
       for (const [daLinha, doItem] of casos) {
         const [r] = (await como("estoque", () => app.comContexto((tx) => tx.$queryRaw<{ c: boolean }[]>`SELECT plugga_security.unidade_conflita(${daLinha}::text, ${doItem}::text) AS c`))) as [{ c: boolean }];
