@@ -26,8 +26,11 @@ describe("Compras: quanto o estoque atende na análise (PLU-328)", () => {
     assert.deepEqual(textoDaLinha(linha({ itemDeEstoque: null, disponivel: null, pedidoDoItem: null, atende: "0.000", motivo: "sem_vinculo" })), { atende: "Não atende pelo estoque", porque: "Sem item do estoque vinculado." });
     assert.equal(textoDaLinha(linha({ atende: "0.000", motivo: "inativo" })).porque, "O item do estoque está inativo.");
     assert.equal(tomDaLinha(linha({ atende: "0.000", motivo: "outra_empresa" })), "nao");
-    assert.equal(textoDaLinha(linha({ atende: "0.000", unidadePedida: "cx", motivo: "unidade_diferente" })).porque,
-      "A linha está em cx e o item é controlado em m: corrija a unidade e a quantidade da linha.");
+    // A quantidade pedida fica na unidade da linha (4 cx), nunca reescrita como 4 m (revisão leva 9).
+    assert.deepEqual(textoDaLinha(linha({ atende: "0.000", unidadePedida: "cx", pedidoDoItem: null, motivo: "unidade_diferente" })), {
+      atende: "Unidade incompatível: 4 cx pedidos",
+      porque: "A linha está em cx e o item é controlado em m: corrija a unidade e a quantidade da linha.",
+    });
   });
 
   it("resume o pedido", () => {

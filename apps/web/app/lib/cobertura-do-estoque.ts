@@ -28,11 +28,16 @@ export function tomDaLinha(linha: LinhaDaCobertura): "atende" | "parcial" | "nao
 /** "Atende 4 m de 4 m" e, quando falta, o porquê com os números do item. */
 export function textoDaLinha(linha: LinhaDaCobertura): { atende: string; porque: string | null } {
   const unidade = linha.itemDeEstoque?.unidade ?? "un";
+  // Linha em outra unidade: a quantidade pedida aparece na unidade dela, nunca reescrita na do item.
+  if (linha.motivo === "unidade_diferente") {
+    const pedida = linha.unidadePedida ? qtd(linha.quantidadePedida, linha.unidadePedida) : linha.quantidadePedida;
+    return {
+      atende: `Unidade incompatível: ${pedida} pedidos`,
+      porque: `A linha está em ${linha.unidadePedida ?? "outra unidade"} e o item é controlado em ${unidade}: corrija a unidade e a quantidade da linha.`,
+    };
+  }
   const atende = linha.itemDeEstoque ? `Atende ${qtd(linha.atende, unidade)} de ${qtd(linha.quantidadePedida, unidade)}` : "Não atende pelo estoque";
   if (linha.motivo === null) return { atende, porque: null };
-  if (linha.motivo === "unidade_diferente" && linha.unidadePedida) {
-    return { atende, porque: `A linha está em ${linha.unidadePedida} e o item é controlado em ${unidade}: corrija a unidade e a quantidade da linha.` };
-  }
   if (linha.motivo !== "insuficiente") return { atende, porque: MOTIVO[linha.motivo] };
   const disponivel = qtd(linha.disponivel ?? "0", unidade);
   const repetido = linha.pedidoDoItem !== null && Number(linha.pedidoDoItem) > Number(linha.quantidadePedida);

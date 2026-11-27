@@ -7,7 +7,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { enviar, type ErroDoFormulario } from "../../lib/clientes";
 import { decimalDigitado, hojeEmManaus, problemaDoPrazo, quantidadeDigitada } from "../../lib/compras";
 import { camposDoPedidoAlterados } from "../../lib/ficha-do-pedido";
-import { unidadeDaLinha } from "../../lib/unidade-da-linha";
+import { corrigirParaAUnidadeDoItem, problemaDaUnidade, unidadeAoVincular, unidadeDaLinha, unidadeParaEnviar } from "../../lib/unidade-da-linha";
 import { useItensDeEstoque, VinculoComEstoque } from "../suprimentos/ligacao-com-estoque";
 import { Alert, Button, DatePicker, Dialog, Heading, TextField, TextareaField } from "../ui";
 import { displayCurrency } from "../ui/currency-value";
@@ -93,11 +93,17 @@ export function NovoPedido({ opcoes, pedido, aoCancelar, aoSalvar }: {
     const corpo: Record<string, unknown> = {
       empresa, titulo: titulo.trim(), descricao: descricao.trim() || null,
       destino: destino.destino, obraId: destino.obraId, clientId: destino.clientId,
-      itens: preenchidos.map((i) => ({ descricao: i.descricao.trim(), quantidade: quantidadeDigitada(i.quantidade), unidade: unidadeDaLinha(i, estoque.itens).unidade || null, ...(i.estoqueId ? { itemDeEstoqueId: i.estoqueId } : {}) })),
+      // A unidade enviada é a da própria linha: nada é convertido em silêncio (a do item só aparece no campo).
+      itens: preenchidos.map((i) => ({ descricao: i.descricao.trim(), quantidade: quantidadeDigitada(i.quantidade), unidade: unidadeParaEnviar(i), ...(i.estoqueId ? { itemDeEstoqueId: i.estoqueId } : {}) })),
       prazoEntregaDesejado: prazo, valorOrcado: orcado, responsavelId: responsavel || null,
     };
     const envio = pedido ? camposDoPedidoAlterados(pedido, corpo, itensEditaveis) : corpo;
     if (pedido && Object.keys(envio).length === 0) { aoCancelar(); return; }
+    // Os itens só vão com cada linha vinculada na unidade do item; um PATCH que não mexe nos itens passa.
+    if ("itens" in envio) {
+      const conflitos = Object.fromEntries(preenchidos.flatMap((i) => { const p = problemaDaUnidade(unidadeDaLinha(i, estoque.itens)); return p ? [[`item-${i.chave}-quantidade`, p]] : []; }));
+      if (Object.keys(conflitos).length) { focar.current = true; setErro({ mensagem: "Confira os campos destacados.", porCampo: conflitos }); return; }
+    }
     setEnviando(true); setErro(null);
     const r = await enviar<PedidoDeCompra>(pedido ? `/api/suprimentos/compras/pedidos/${pedido.id}` : "/api/suprimentos/compras/pedidos", pedido ? "PATCH" : "POST", envio);
     setEnviando(false);
@@ -123,21 +129,25 @@ export function NovoPedido({ opcoes, pedido, aoCancelar, aoSalvar }: {
       <section className="ui-dialog-section">
         <div className="ui-dialog-section-header"><Heading as="h3" icon={<ListChecks />}>Itens</Heading><p className="ui-dialog-section-desc">{itensEditaveis ? "Descrição, quantidade e unidade de cada item. Vincule ao estoque para poder atender por ele." : "Os itens não mudam depois da análise de estoque: as cotações já foram pedidas sobre eles."}</p></div>
         <fieldset className={styles.itens} disabled={!itensEditaveis}>
-          {itens.map((i, n) => <div key={i.chave} className={styles.item} role="group" aria-label={`Item ${n + 1}`}>
-            <TextField aria-label={`Descrição do item ${n + 1}`} maxLength={300} value={i.descricao} onChange={(ev) => alterarItem(i.chave, { descricao: ev.target.value })} placeholder="Ex.: Módulo fotovoltaico 550 W" error={e(`item-${i.chave}-descricao`)} />
-            <TextField aria-label={`Quantidade do item ${n + 1}`} inputMode="decimal" value={i.quantidade} onChange={(ev) => alterarItem(i.chave, { quantidade: ev.target.value })} placeholder="Qtd." error={e(`item-${i.chave}-quantidade`)} />
-            {(() => {
-              // Vinculada ao estoque, a linha usa a unidade do item e o campo fica travado.
-              const u = unidadeDaLinha(i, estoque.itens);
-              return <div className="ui-field"><select className="ui-input" aria-label={`Unidade do item ${n + 1}`} title={u.dica ?? undefined} value={u.unidade} disabled={u.travada}
-                aria-invalid={e(`itens.${n}.unidade`) ? true : undefined} onChange={(ev) => alterarItem(i.chave, { unidade: ev.target.value })}>
-                {[...new Set([...UNIDADES, u.unidade].filter(Boolean))].map((x) => <option key={x} value={x}>{x}</option>)}
-              </select>{u.dica ? <span className="sr-only">{u.dica}</span> : null}</div>;
-            })()}
-            <Button variant="secondary" size="sm" iconOnly icon={<X size={14} />} aria-label={`Remover item ${n + 1}`} disabled={itens.length === 1 || !itensEditaveis} onClick={() => setItens((atuais) => atuais.filter((x) => x.chave !== i.chave))} />
-            <VinculoComEstoque numero={n + 1} empresa={empresa} itens={estoque.itens} indisponivel={estoque.indisponivel} valor={i.estoqueId} disabled={!itensEditaveis} erro={e(`itens.${n}.itemDeEstoqueId`)}
-              aoMudar={(item) => alterarItem(i.chave, item ? { estoqueId: item.id, ...(i.descricao.trim() ? {} : { descricao: item.nome }), unidade: item.unidade } : { estoqueId: null })} />
-          </div>)}
+          {itens.map((i, n) => {
+            // Vinculada ao estoque, a linha usa a unidade do item e o campo fica travado; em outra unidade, é conflito.
+            const u = unidadeDaLinha(i, estoque.itens);
+            return <div key={i.chave} className={styles.item} role="group" aria-label={`Item ${n + 1}`}>
+              <TextField aria-label={`Descrição do item ${n + 1}`} maxLength={300} value={i.descricao} onChange={(ev) => alterarItem(i.chave, { descricao: ev.target.value })} placeholder="Ex.: Módulo fotovoltaico 550 W" error={e(`item-${i.chave}-descricao`)} />
+              <TextField aria-label={`Quantidade do item ${n + 1}`} inputMode="decimal" value={i.quantidade} onChange={(ev) => alterarItem(i.chave, { quantidade: ev.target.value })} placeholder={u.travada && !u.conflito ? `Qtd. (${u.exibida})` : "Qtd."} error={e(`item-${i.chave}-quantidade`)} />
+              <div className="ui-field"><select className="ui-input" aria-label={`Unidade do item ${n + 1}`} title={u.dica ?? undefined} value={u.exibida} disabled={u.travada}
+                aria-invalid={u.conflito || e(`itens.${n}.unidade`) ? true : undefined} onChange={(ev) => alterarItem(i.chave, { unidade: ev.target.value })}>
+                {[...new Set([...UNIDADES, u.exibida].filter(Boolean))].map((x) => <option key={x} value={x}>{x}</option>)}
+              </select>{u.dica ? <span className="sr-only">{u.dica}</span> : null}</div>
+              <Button variant="secondary" size="sm" iconOnly icon={<X size={14} />} aria-label={`Remover item ${n + 1}`} disabled={itens.length === 1 || !itensEditaveis} onClick={() => setItens((atuais) => atuais.filter((x) => x.chave !== i.chave))} />
+              <VinculoComEstoque numero={n + 1} empresa={empresa} itens={estoque.itens} indisponivel={estoque.indisponivel} valor={i.estoqueId} disabled={!itensEditaveis} erro={e(`itens.${n}.itemDeEstoqueId`)}
+                aoMudar={(item) => alterarItem(i.chave, item ? { estoqueId: item.id, ...(i.descricao.trim() ? {} : { descricao: item.nome }), ...unidadeAoVincular(i, item) } : { estoqueId: null })} />
+              {u.conflito && itensEditaveis ? <div className={styles.conflitoDaUnidade} role="status">
+                <p>{u.dica} Para atender pelo estoque, a quantidade tem de estar em {u.conflito.doItem}.</p>
+                <Button variant="secondary" size="sm" onClick={() => alterarItem(i.chave, corrigirParaAUnidadeDoItem(u.conflito!))}>Usar {u.conflito.doItem} e digitar a quantidade</Button>
+              </div> : null}
+            </div>;
+          })}
         </fieldset>
         {e("itens") ? <p className="ui-field-error" role="alert">Erro: {e("itens")}</p> : null}
         {itensEditaveis ? <Button variant="secondary" size="sm" className={styles.adicionar} icon={<Plus size={14} />} onClick={() => setItens((atuais) => [...atuais, itemVazio(proximaChave.current++)])}>Adicionar item</Button> : null}
