@@ -1,4 +1,4 @@
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
@@ -39,6 +39,19 @@ it("aceita o alinhamento de campos feito pelo generator", () => {
   writeFileSync(options.schemaPath, contents.replace("provider =", "provider    ="));
   ensurePrismaClient(options, generate);
   expect(generate).not.toHaveBeenCalled();
+});
+
+// O generator leva os `@@` para o fim do bloco; fora dessa ordem, o cliente pareceria sempre velho.
+it("o schema do projeto não tem campo depois de um atributo de bloco", () => {
+  const texto = readFileSync(new URL("../prisma/schema.prisma", import.meta.url), "utf8").replace(/\r\n/g, "\n");
+  const blocos = [...texto.matchAll(/^(?:model|view|enum|type) (\w+) \{$([\s\S]*?)^\}/gm)];
+  expect(blocos.length).toBeGreaterThan(50);
+  const foraDeOrdem = blocos.flatMap(([, nome, corpo]) => {
+    const linhas = corpo.split("\n").map((linha) => linha.trim()).filter((linha) => linha && !linha.startsWith("//"));
+    const primeiro = linhas.findIndex((linha) => linha.startsWith("@@"));
+    return primeiro < 0 ? [] : linhas.slice(primeiro).filter((linha) => !linha.startsWith("@@")).map((linha) => `${nome}: ${linha}`);
+  });
+  expect(foraDeOrdem).toEqual([]);
 });
 
 it("preserva diferenças de espaços dentro de valores do schema", () => {

@@ -1309,12 +1309,12 @@ model ConsumerUnit {
   cycles           Cycle[]
   energyStudies    EnergyEfficiencyStudy[]
   deals            DealConsumerUnit[]
-
-  @@index([clientId])
   lancamentos      UcDeLancamento[]
   ordensDeServico  OrdemDeServico[]
   usinas           Usina[]
   protocolos       Protocolo[]
+
+  @@index([clientId])
   @@map("consumer_units")
 }
 
