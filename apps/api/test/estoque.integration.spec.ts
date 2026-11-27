@@ -1,6 +1,6 @@
 import { randomBytes, randomUUID } from "node:crypto";
 
-import { acaoDoPedidoSchema, criarItemDeEstoqueSchema, criarPedidoDeCompraSchema, registrarMovimentacaoSchema, type Acesso } from "@plugga/shared";
+import { acaoDoPedidoSchema, criarItemDeEstoqueSchema, criarPedidoDeCompraSchema, editarPedidoDeCompraSchema, registrarMovimentacaoSchema, type Acesso } from "@plugga/shared";
 import { PrismaClient } from "@prisma/client";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
@@ -177,7 +177,8 @@ describe.skipIf(!HABILITADO)("estoque: saldo, movimentações e reservas no Post
     }), principal, AGORA);
     await compras.executarAcao(pedido, acaoDoPedidoSchema.parse({ acao: "iniciar_analise" }), principal, AGORA);
     const analise = await compras.atendimento(pedido);
-    expect(analise.itens.map((i) => [i.descricao, i.atende, i.motivo])).toEqual([["primeira", "4.000", null], ["segunda", "1.000", "insuficiente"]]);
+    // As duas linhas nascem juntas e a ordem entre elas é a do id; a primeira lida leva os 4, a outra o que sobra.
+    expect(analise.itens.map((i) => [i.atende, i.motivo, i.pedidoDoItem])).toEqual([["4.000", null, "8.000"], ["1.000", "insuficiente", "8.000"]]);
     expect(analise.atendeTudo).toBe(false);
     // A análise e a reserva concordam: a reserva recusa o que a análise diz que não cobre.
     await expect(compras.executarAcao(pedido, acaoDoPedidoSchema.parse({ acao: "decidir_estoque", origem: "estoque" }), principal, AGORA)).rejects.toBeInstanceOf(EstadoInvalido);
@@ -254,7 +255,18 @@ describe.skipIf(!HABILITADO)("estoque: operador só com a tela de Estoque, no lo
   let app: PrismaService;
   let estoque: PrismaEstoqueRepository;
   let compras: PrismaComprasRepository;
+  // Compras de verdade, que segura a transação aberta ao gravar o evento indicado:
+  // a ação já mudou o pedido e ainda não confirmou, a janela da corrida.
+  let comprasLento: PrismaComprasRepository;
+  const lenta = new (class extends AuditAppender {
+    segurar: string | null = null;
+    override async append(tx: Parameters<AuditAppender["append"]>[0], evento: Parameters<AuditAppender["append"]>[1]): Promise<void> {
+      await super.append(tx, evento);
+      if (evento.eventName === this.segurar) await new Promise((r) => setTimeout(r, 700));
+    }
+  })();
   let ambienteValidado = false;
+  const depois = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
   const principal = (nome: string): AuthPrincipal => ({ id: pessoas.get(nome)!.id, kind: "user", acesso: pessoas.get(nome)!.acesso });
   const como = <T>(nome: string, fazer: () => Promise<T>) => contextoBanco.run({ sessionHash: pessoas.get(nome)!.hash, agentHash: undefined }, fazer);
@@ -291,6 +303,7 @@ describe.skipIf(!HABILITADO)("estoque: operador só com a tela de Estoque, no lo
     const movimentos = new MovimentosDeEstoque(auditoria);
     estoque = new PrismaEstoqueRepository(app, auditoria, movimentos);
     compras = new PrismaComprasRepository(app, auditoria, movimentos);
+    comprasLento = new PrismaComprasRepository(app, lenta, new MovimentosDeEstoque(lenta));
 
     for (const id of ["plugga", "waze"]) await root.company.upsert({ where: { id }, create: { id, name: id }, update: {} });
     const perfis: Record<string, string[]> = { estoque: ["suprimentos.estoque"], compras: ["suprimentos.compras"] };
@@ -352,6 +365,43 @@ describe.skipIf(!HABILITADO)("estoque: operador só com a tela de Estoque, no lo
     await expect(entrada(item, "1", peloEstoque)).rejects.toThrow(/atendido pelo estoque/);
     await expect(entrada(item, "1", semVinculo)).rejects.toBeInstanceOf(RequisicaoInvalida);
     await expect(entrada(item, "1", recebido)).rejects.toThrow(/já deu entrada de 2\.000 m deste item, de 2\.000 m pedidos/);
+  }, PRAZO_MS);
+
+  it("corrida com o cancelamento: a entrada espera o pedido e não entra em pedido cancelado (revisão leva 3, S2)", async () => {
+    const item = await criarItem();
+    const pedido = await pedidoCom([{ quantidade: "10", itemDeEstoqueId: item }]);
+    lenta.segurar = "compras.pedido.cancelado";
+    const cancelar = como("compras", () => comprasLento.executarAcao(pedido, acaoDoPedidoSchema.parse({ acao: "cancelar", motivo: "Desistiu" }), principal("compras"), AGORA));
+    await depois(200);
+    const entrou = entrada(item, "5", pedido);
+    const [cancelou, entrada1] = await Promise.allSettled([cancelar, entrou]);
+    lenta.segurar = null;
+    expect(cancelou.status).toBe("fulfilled");
+    expect(entrada1).toMatchObject({ status: "rejected", reason: expect.objectContaining({ message: expect.stringMatching(/está cancelado/) }) });
+    expect(await emEstoque(item)).toBe("0.000");
+  }, PRAZO_MS);
+
+  it("corrida com a edição das linhas: a entrada confere as linhas novas (revisão leva 3, S2)", async () => {
+    const item = await criarItem();
+    const pedido = await pedidoCom([{ quantidade: "10", itemDeEstoqueId: item }]);
+    // A edição tira o vínculo com o item: apagar a linha antiga não trava o item, só o pedido.
+    lenta.segurar = "compras.pedido.updated";
+    const editar = como("compras", () => comprasLento.editar(pedido, editarPedidoDeCompraSchema.parse({ itens: [{ descricao: "material", quantidade: "10" }] }), principal("compras"), AGORA));
+    await depois(200);
+    const [editou, entrada1] = await Promise.allSettled([editar, entrada(item, "8", pedido)]);
+    lenta.segurar = null;
+    expect(editou.status).toBe("fulfilled");
+    expect(entrada1).toMatchObject({ status: "rejected", reason: expect.objectContaining({ message: expect.stringMatching(/não tem este item vinculado/) }) });
+    expect(await emEstoque(item)).toBe("0.000");
+  }, PRAZO_MS);
+
+  it("duas entradas simultâneas chegando ao limite do pedido: só uma passa", async () => {
+    const item = await criarItem();
+    const pedido = await pedidoCom([{ quantidade: "10", itemDeEstoqueId: item }]);
+    const resultados = await Promise.allSettled([entrada(item, "6", pedido), entrada(item, "6", pedido)]);
+    expect(resultados.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+    expect(resultados.find((r) => r.status === "rejected")).toMatchObject({ reason: expect.any(EstadoInvalido) });
+    expect(await emEstoque(item)).toBe("6.000");
   }, PRAZO_MS);
 
   it("continua sem ler as linhas do pedido nem a lista de Compras", async () => {

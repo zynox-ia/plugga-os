@@ -45,6 +45,7 @@ import {
 import { coberturaPeloEstoque } from "../estoque/estoque.rules";
 import { diaComoData, MovimentosDeEstoque } from "../estoque/movimentos-de-estoque";
 import { diaEmManaus, fimDoDiaEmManaus, inicioDoDiaEmManaus } from "./dias-uteis";
+import { travarPedidoDeCompra } from "./trava-do-pedido";
 
 export type ArquivoGuardado = { chave: string; nome: string; tamanho: number; tipo: string };
 
@@ -531,6 +532,8 @@ export class PrismaComprasRepository {
   }
 
   private async travar(tx: Prisma.TransactionClient, id: string): Promise<void> {
+    // A trava comum primeiro (a entrada por compra no Estoque também a toma), depois a linha.
+    await travarPedidoDeCompra(tx, id);
     const linhas = await tx.$queryRaw<{ id: string }[]>`SELECT id FROM public.pedidos_de_compra WHERE id = ${id}::uuid FOR UPDATE`;
     if (linhas.length === 0) throw new NaoEncontrado("Pedido de compra não encontrado.");
   }

@@ -6,6 +6,7 @@ import { AuditAppender } from "../audit/audit-appender";
 import { EstadoInvalido, NaoEncontrado, RequisicaoInvalida } from "../common/errors/dominio";
 import type { AuthPrincipal } from "../core/auth/auth.types";
 import { diaEmManaus, inicioDoDiaEmManaus } from "../compras/dias-uteis";
+import { travarPedidoDeCompra } from "../compras/trava-do-pedido";
 import { D, planejarMovimento, problemaDaEntradaDoPedido, type MovimentoPlanejado, type PedidoDaEntrada } from "./estoque.rules";
 
 /** Origem ou destino gravado na movimentação. */
@@ -66,14 +67,15 @@ export class MovimentosDeEstoque {
   constructor(@Inject(AuditAppender) private readonly auditoria: AuditAppender) {}
 
   async aplicar(tx: Prisma.TransactionClient, m: MovimentoParaAplicar, principal: AuthPrincipal, agora: Date) {
+    const entradaDoPedido = m.movimento.tipo === "entrada" && m.vinculo.origem === "compra" && m.vinculo.pedidoId ? m.vinculo.pedidoId : null;
+    // Pedido antes do item, como Compras: o limite confere o pedido sem corrida com cancelamento ou edição.
+    if (entradaDoPedido) await travarPedidoDeCompra(tx, entradaDoPedido);
     const travado = await tx.$queryRaw<{ id: string }[]>`SELECT id FROM public.itens_de_estoque WHERE id = ${m.itemId}::uuid FOR UPDATE`;
     if (travado.length === 0) throw new NaoEncontrado("Item de estoque não encontrado.");
     const item = await tx.itemDeEstoque.findUniqueOrThrow({ where: { id: m.itemId }, select: { emEstoque: true, reservado: true, custoMedio: true, ativo: true, companyId: true } });
     if (m.empresa && item.companyId !== m.empresa) throw new RequisicaoInvalida("O item de estoque é de outra empresa.", [{ campo: "itemId", problema: "Escolha um item da mesma empresa." }]);
     if (m.exigirAtivo && !item.ativo) throw new EstadoInvalido("O item de estoque está inativo.");
-    if (m.movimento.tipo === "entrada" && m.vinculo.origem === "compra" && m.vinculo.pedidoId) {
-      await this.garantirLimiteDaEntradaDoPedido(tx, m.vinculo.pedidoId, m.itemId, m.movimento.quantidade);
-    }
+    if (entradaDoPedido) await this.garantirLimiteDaEntradaDoPedido(tx, entradaDoPedido, m.itemId, m.movimento.quantidade);
 
     const plano = planejarMovimento(item, m.movimento);
     if (!plano.ok) throw new EstadoInvalido(plano.recusa.mensagem, plano.recusa.campo ? [{ campo: plano.recusa.campo, problema: plano.recusa.mensagem }] : undefined);
