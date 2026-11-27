@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
 import { marcaDaExecucao } from "./support/execucao";
 import { bloquearTerceiros } from "./support/sem-terceiros";
@@ -14,6 +14,27 @@ const DEPOIS_DA_ACAO = { timeout: 15_000 };
 const CLIENTE = "Cliente com UC (exemplo)";
 const literal = (texto: string) => texto.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const manaus = (dias: number) => new Date(Date.now() - 4 * 3_600_000 + dias * 86_400_000).toISOString().slice(0, 10).split("-").reverse().join("/");
+
+/**
+ * Deixa o pedido de compra com uma obra só, a do teste: o cadastro é
+ * compartilhado entre os specs, e acima de 8 obras a busca já existia. Reescreve
+ * no navegador a resposta da navegação (RSC); nada muda no banco. Devolve quantas
+ * respostas foram reescritas.
+ */
+async function soEstaObraNoPedido(pagina: Page, obraId: string): Promise<() => number> {
+  let reescritas = 0;
+  await pagina.route(/\/suprimentos\/compras(\?|$)/, async (rota) => {
+    if (!rota.request().headers()["rsc"]) return rota.continue();
+    const resposta = await rota.fetch();
+    const corpo = (await resposta.text()).replace(/"obras":(\[(?:[^[\]"]|"(?:[^"\\]|\\.)*")*\])/, (_, lista: string) => {
+      reescritas += 1;
+      return `"obras":${JSON.stringify((JSON.parse(lista) as { id: string }[]).filter((o) => o.id === obraId))}`;
+    });
+    await rota.fulfill({ response: resposta, body: corpo });
+  });
+  return () => reescritas;
+}
+
 /** Um .mpp mínimo: a assinatura OLE do arquivo composto da Microsoft. */
 const mpp = (nome: string) => ({ name: nome, mimeType: "application/vnd.ms-project", buffer: Buffer.concat([Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]), Buffer.alloc(512)]) });
 
@@ -104,13 +125,6 @@ test("o pedido de compra escolhe a obra do cadastro, sem criar obra (PLU-355)", 
   await expect(novo.getByRole("button", { name: "Nova obra" })).toHaveCount(0);
   await novo.getByRole("combobox", { name: /^Obra/ }).click();
   await expect(page.getByRole("option", { name: new RegExp(literal(nome)) })).toBeVisible(DEPOIS_DA_ACAO);
-  // Há busca com qualquer número de obras. Pelo cliente (o nome da obra não o contém) e sem resultado.
-  const busca355 = page.getByRole("searchbox", { name: /^Buscar em Obra/ });
-  await busca355.fill("com UC (exemplo)");
-  await expect(page.getByRole("option", { name: new RegExp(literal(nome)) })).toBeVisible();
-  await busca355.fill("cliente que não existe");
-  await expect(page.getByRole("option", { name: new RegExp(literal(nome)) })).toHaveCount(0);
-  await expect(page.getByText("Nenhuma opção encontrada.")).toBeVisible();
 });
 
 /**
@@ -118,7 +132,7 @@ test("o pedido de compra escolhe a obra do cadastro, sem criar obra (PLU-355)", 
  * tela de Compras. Usa a conta de Suprimentos do seed (SEED_SAMPLE_TEAM), que
  * não tem nada da Engenharia.
  */
-test("quem tem Compras sem a tela de Obras escolhe a obra pelo cliente (PLU-355)", async ({ request, browser, baseURL }) => {
+test("com uma obra só, quem tem Compras sem a tela de Obras busca pelo cliente e escolhe por teclado (PLU-355)", async ({ request, browser, baseURL }) => {
   test.slow();
   const H = { origin: baseURL! };
   const sufixo = Date.now().toString(36).toUpperCase();
@@ -128,6 +142,7 @@ test("quem tem Compras sem a tela de Obras escolhe a obra pelo cliente (PLU-355)
   const dia = (n: number) => new Date(Date.now() - 4 * 3_600_000 + n * 86_400_000).toISOString().slice(0, 10);
   const criada = await request.post("/api/engenharia/obras", { headers: H, data: { empresa: "waze", clienteId: cliente.id, nome, potenciaKwp: "10", inicioEm: dia(0), entregaPrevistaEm: dia(30) } });
   expect(criada.ok(), await criada.text()).toBeTruthy();
+  const { id: obraId } = (await criada.json()) as { id: string };
 
   const contexto = await browser.newContext({ baseURL, viewport: { width: 390, height: 844 }, reducedMotion: "reduce", storageState: { cookies: [], origins: [] }, extraHTTPHeaders: { "x-forwarded-for": "203.0.113.222" } });
   const pagina = await contexto.newPage();
@@ -139,14 +154,46 @@ test("quem tem Compras sem a tela de Obras escolhe a obra pelo cliente (PLU-355)
   await expect(pagina).toHaveURL("/", DEPOIS_DA_ACAO);
 
   await pagina.goto("/suprimentos/compras");
+  const reescritas = await soEstaObraNoPedido(pagina, obraId);
+  // Uma navegação na própria tela traz as opções de novo, agora com a obra do teste sozinha.
+  await pagina.getByRole("button", { name: /^Cancelados/ }).click();
+  await expect(pagina).toHaveURL(/cancelados=1/, DEPOIS_DA_ACAO);
+  await expect.poll(reescritas).toBeGreaterThan(0);
   await pagina.getByRole("button", { name: "Novo pedido" }).first().click();
   const novo = pagina.getByRole("dialog", { name: "Novo pedido de compra" });
   await novo.getByRole("radio", { name: "Waze Energia" }).click();
-  await novo.getByRole("radio", { name: "Obra" }).click();
+  const destino = novo.getByRole("radio", { name: "Obra" });
+  await destino.click();
+
+  // Daqui em diante, só teclado.
   const campo = novo.getByRole("combobox", { name: /^Obra/ });
-  await campo.click();
-  await pagina.getByRole("searchbox", { name: /^Buscar em Obra/ }).fill("com UC (exemplo)");
-  await pagina.getByRole("option", { name: new RegExp(literal(nome)) }).click(DEPOIS_DA_ACAO);
+  await expect(campo).toHaveAttribute("aria-haspopup", "dialog");
+  await destino.focus();
+  await pagina.keyboard.press("Tab");
+  await expect(campo).toBeFocused();
+  await pagina.keyboard.press("Enter");
+  const popup = pagina.getByRole("dialog", { name: /^Obra/ });
+  const busca = popup.getByRole("searchbox", { name: /^Buscar em Obra/ });
+  const opcoes = popup.getByRole("option");
+  await expect(busca).toBeFocused();
+  await expect(opcoes).toHaveCount(1);
+  await pagina.keyboard.type("cliente que não existe");
+  await expect(opcoes).toHaveCount(0);
+  await expect(popup.getByRole("status")).toHaveText("Nenhuma opção encontrada.");
+  await pagina.keyboard.press("Tab");
+  await expect(busca).toBeFocused();
+  // Pelo cliente: o nome da obra não contém o dele.
+  await busca.fill("com UC (exemplo)");
+  await expect(opcoes).toHaveCount(1);
+  await pagina.keyboard.press("Tab");
+  await expect(opcoes).toBeFocused();
+  await pagina.keyboard.press("Tab");
+  await expect(busca).toBeFocused();
+  await pagina.keyboard.press("ArrowDown");
+  await expect(opcoes).toBeFocused();
+  await pagina.keyboard.press("Enter");
+  await expect(popup).toHaveCount(0);
+  await expect(campo).toBeFocused();
   await expect(campo).toContainText(nome);
   await contexto.close();
 });
