@@ -3,7 +3,7 @@
 import { RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { destinoAoVoltar } from "../lib/sessao-do-middleware";
+import { destinoAoVoltar, passoDoTentarDeNovo } from "../lib/sessao-do-middleware";
 import { Button } from "./ui";
 
 /** Espera entre tentativas: começa rápido (a API em modo watch volta em segundos) e sobe até 15 s. */
@@ -25,9 +25,10 @@ export function TentarDeNovo({ destino }: { destino: string | null }) {
     setTentando(true);
     const alvo = destinoAoVoltar(destino, window.location.pathname, window.location.search);
     try {
-      const resposta = await fetch("/api/auth/me", { cache: "no-store" });
-      if (resposta.ok) { window.location.replace(alvo); return; }
-      if (resposta.status === 401 || resposta.status === 403) {
+      // Mesmo contrato do middleware: um 2xx fora dele voltaria ao aviso, em laço.
+      const passo = await passoDoTentarDeNovo(await fetch("/api/auth/me", { cache: "no-store" }));
+      if (passo === "voltar") { window.location.replace(alvo); return; }
+      if (passo === "login") {
         window.location.replace(`/login${alvo === "/" ? "" : `?redirectTo=${encodeURIComponent(alvo)}`}`);
         return;
       }

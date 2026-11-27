@@ -47,7 +47,14 @@ export async function lerSessaoDaApi({ cookie, base, tempoMs, buscar = fetch }: 
   } catch (erro) {
     return { tipo: "indisponivel", motivo: ehTempoEsgotado(erro) ? "tempo" : "rede" };
   }
+  return lerRespostaDaSessao(resposta);
+}
 
+/**
+ * O que a resposta de `GET /auth/me` (ou do espelho `/api/auth/me`) diz da
+ * sessão: 401/403 sem sessão; outra recusa ou fora do contrato, indisponível.
+ */
+async function lerRespostaDaSessao(resposta: Response): Promise<LeituraDaSessao> {
   if (resposta.status === 401 || resposta.status === 403) return { tipo: "semSessao" };
   if (!resposta.ok) return { tipo: "indisponivel", motivo: "servidor" };
 
@@ -57,6 +64,16 @@ export async function lerSessaoDaApi({ cookie, base, tempoMs, buscar = fetch }: 
   } catch {
     return { tipo: "indisponivel", motivo: "contrato" };
   }
+}
+
+/**
+ * O passo do aviso depois de consultar o espelho `/api/auth/me`, pelo mesmo
+ * contrato do middleware: voltar à página só com a sessão válida, porque um 2xx
+ * fora do contrato faria o middleware mostrar o aviso de novo, em laço.
+ */
+export async function passoDoTentarDeNovo(resposta: Response): Promise<"voltar" | "login" | "esperar"> {
+  const leitura = await lerRespostaDaSessao(resposta);
+  return leitura.tipo === "autenticado" ? "voltar" : leitura.tipo === "semSessao" ? "login" : "esperar";
 }
 
 /** O que o middleware faz com a página pedida. */

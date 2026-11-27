@@ -3,7 +3,7 @@ import { describe, it } from "node:test";
 
 import { sessionUserSchema } from "@plugga/shared";
 
-import { caminhoCompleto, decidirPagina, destinoAoVoltar, destinoDoAviso, destinoDoParametro, lerSessaoDaApi, type LeituraDaSessao } from "../app/lib/sessao-do-middleware.ts";
+import { caminhoCompleto, decidirPagina, destinoAoVoltar, destinoDoAviso, destinoDoParametro, lerSessaoDaApi, passoDoTentarDeNovo, type LeituraDaSessao } from "../app/lib/sessao-do-middleware.ts";
 
 const USUARIO = sessionUserSchema.parse({
   id: "11111111-1111-4111-8111-111111111111",
@@ -59,6 +59,24 @@ describe("lerSessaoDaApi: só 401/403 são sem sessão (PLU-343)", () => {
   it("conexão recusada: indisponível por rede", async () => {
     const recusada = Object.assign(new TypeError("fetch failed"), { cause: Object.assign(new Error("connect ECONNREFUSED 127.0.0.1:3001"), { code: "ECONNREFUSED" }) });
     assert.deepEqual(await ler(recusada), { tipo: "indisponivel", motivo: "rede" });
+  });
+});
+
+describe("passoDoTentarDeNovo: o retry do aviso usa o mesmo contrato do middleware (PLU-343)", () => {
+  it("200 com o contrato volta; 401/403 vão ao login", async () => {
+    assert.equal(await passoDoTentarDeNovo(Response.json(USUARIO)), "voltar");
+    assert.equal(await passoDoTentarDeNovo(new Response(null, { status: 401 })), "login");
+    assert.equal(await passoDoTentarDeNovo(new Response(null, { status: 403 })), "login");
+  });
+
+  it("200 fora do contrato espera, em vez de recarregar e cair no aviso de novo em laço", async () => {
+    assert.equal(await passoDoTentarDeNovo(Response.json({ qualquer: "coisa" })), "esperar");
+    assert.equal(await passoDoTentarDeNovo(new Response("<html>", { status: 200 })), "esperar");
+    assert.equal(await passoDoTentarDeNovo(new Response(null, { status: 204 })), "esperar");
+  });
+
+  it("503 e outras recusas esperam", async () => {
+    for (const status of [503, 500, 502, 429, 404]) assert.equal(await passoDoTentarDeNovo(new Response(null, { status })), "esperar", String(status));
   });
 });
 
