@@ -20,6 +20,7 @@ import {
   corpoDaTransferencia,
   efeitoDaCriacao,
   efeitoDaTransferencia,
+  mensagemDaTransferencia,
   opcoesDeCriacao,
   valorDaLinhaParaDigitar,
   type CamposDaCriacao,
@@ -109,9 +110,7 @@ export function CriarDaLinha({ movimento, opcoes, gerente, aoFechar, aoCriar }: 
       setEnviando(false);
       if (!r.ok) { setErros(r.erro.porCampo); setMensagem(r.erro.mensagem); return; }
       const lida = transferenciaCriadaSchema.safeParse(r.dados);
-      aoCriar(lida.success
-        ? `${lida.data.transferencia.codigo} criada: ${debito ? lida.data.saida.codigo : lida.data.entrada.codigo} conciliada com a linha, e ${debito ? lida.data.entrada.codigo : lida.data.saida.codigo} na ${outra?.nome ?? "outra conta"}, à espera do extrato dela.`
-        : "Transferência criada.");
+      aoCriar(lida.success ? mensagemDaTransferencia(lida.data.transferencia.codigo, debito, outra?.nome ?? "outra conta") : "Transferência criada.");
       return;
     }
     const { corpo, porCampo } = corpoDaCriacao(tipo, campos, movimento);
@@ -133,7 +132,7 @@ export function CriarDaLinha({ movimento, opcoes, gerente, aoFechar, aoCriar }: 
       const codigo = lido.success ? lido.data.lancamento.codigo : "O lançamento";
       aoCriar(lido.success && lido.data.conciliado
         ? `${codigo} criado e conciliado.`
-        : `${codigo} criado, ${tipo === "receita" ? "recebido" : "pago"} com outro valor; a linha do extrato continua sem par.`);
+        : `${codigo} criado e ${tipo === "receita" ? "recebido" : "pago"} com outro valor, sem conciliar com a linha.`);
     } catch {
       setMensagem("Sem conexão com o servidor. Tente de novo.");
     } finally {

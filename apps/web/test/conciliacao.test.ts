@@ -11,6 +11,7 @@ import {
   escopoDoSaldo,
   hrefDaConciliacao,
   lerFiltrosDaConciliacao,
+  mensagemDaTransferencia,
   notaDosSaldos,
   opcoesDeCriacao,
   periodoAceito,
@@ -132,7 +133,7 @@ test("o efeito explica o que muda: criar e conciliar, ou criar sem conciliar", (
   assert.equal(sp(efeitoDaCriacao("receita", true, "1250.00")), "Nasce recebida no dia e na conta da linha, e já fica conciliada com ela.");
   assert.equal(
     sp(efeitoDaCriacao("despesa", false, "800.00")),
-    "O valor é diferente do extrato (R$ 800,00): a conta nasce paga com o valor digitado e entra no saldo no Plugga OS, mas a linha do extrato continua sem par e o saldo conciliado não muda.",
+    "O valor é diferente do extrato (R$ 800,00): a conta nasce paga com o valor digitado e entra no saldo no Plugga OS, mas a linha do extrato não é conciliada e o saldo conciliado não muda.",
   );
 });
 
@@ -171,4 +172,9 @@ test("diferença zero não é prova de conciliação: a nota diz que é líquida
 test("Corrigir compara com o valor liquidado do par: na cobrança recebida a menor, é o recebido", () => {
   // Cobrada por R$ 100, recebida por R$ 90, e o extrato diz R$ 100: voltar a R$ 100 vale.
   assert.deepEqual(correcaoDoPar(par("100.00", "90.00"), true), { valorInicial: "100,00", valorAtual: "90.00" });
+});
+
+test("o aviso da transferência diz onde ficou cada perna, sem repetir o código", () => {
+  assert.equal(mensagemDaTransferencia("TR-0001", true, "Sicoob · Plugga"), "TR-0001 criada: a saída, nesta conta, ficou conciliada com a linha; a entrada, na Sicoob · Plugga, espera o extrato daquela conta.");
+  assert.equal(mensagemDaTransferencia("TR-0002", false, "Sicoob · Plugga"), "TR-0002 criada: a entrada, nesta conta, ficou conciliada com a linha; a saída, na Sicoob · Plugga, espera o extrato daquela conta.");
 });

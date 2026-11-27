@@ -24,14 +24,36 @@ function diaEmManaus(diasAtras: number): string {
 }
 
 function ofx(dia: string, valor: string, fitid: string, memo: string): Buffer {
-  const d = dia.replaceAll("-", "");
+  return ofxDeLinhas([[dia, valor, memo]], fitid);
+}
+
+/** Um extrato com várias linhas de débito ou crédito ([dia, valor com sinal, descrição]), do primeiro ao último dia. */
+function ofxDeLinhas(linhas: [string, string, string][], fitid: string): Buffer {
+  const d = (dia: string) => dia.replaceAll("-", "");
+  const dias = linhas.map(([dia]) => dia).sort();
   return Buffer.from([
     "OFXHEADER:100", "DATA:OFXSGML", "VERSION:102", "SECURITY:NONE", "ENCODING:USASCII", "CHARSET:1252", "COMPRESSION:NONE", "OLDFILEUID:NONE", "NEWFILEUID:NONE", "",
     "<OFX>", "<BANKMSGSRSV1><STMTTRNRS><STMTRS>", "<CURDEF>BRL", "<BANKTRANLIST>",
-    `<DTSTART>${d}000000[-4:AMT]`, `<DTEND>${d}235959[-4:AMT]`,
-    "<STMTTRN>", "<TRNTYPE>DEBIT", `<DTPOSTED>${d}100000[-4:AMT]`, `<TRNAMT>${valor}`, `<FITID>${fitid}`, `<MEMO>${memo}`, "</STMTTRN>",
+    `<DTSTART>${d(dias[0]!)}000000[-4:AMT]`, `<DTEND>${d(dias.at(-1)!)}235959[-4:AMT]`,
+    ...linhas.flatMap(([dia, valor, memo], i) => [
+      "<STMTTRN>", `<TRNTYPE>${valor.startsWith("-") ? "DEBIT" : "CREDIT"}`, `<DTPOSTED>${d(dia)}100000[-4:AMT]`, `<TRNAMT>${valor}`, `<FITID>${fitid}-${i}`, `<MEMO>${memo}`, "</STMTTRN>",
+    ]),
     "</BANKTRANLIST>", "</STMTRS></STMTTRNRS></BANKMSGSRSV1></OFX>", "",
   ].join("\r\n"), "latin1");
+}
+
+/** Uma conta corrente só desta tentativa, com saldo inicial conhecido (fica: cadastro não se apaga). */
+async function contaExclusiva(page: Page, baseURL: string, nome: string, saldoInicial: string, saldoInicialEm: string): Promise<string> {
+  const criada = await page.request.post("/api/financeiro/contas-correntes", {
+    data: { empresa: "plugga", nome, saldoInicial, saldoInicialEm }, headers: { origin: new URL(baseURL).origin },
+  });
+  expect(criada.status(), await criada.text()).toBe(201);
+  return ((await criada.json()) as { id: string }).id;
+}
+
+async function escolher(page: Page, dialogo: ReturnType<Page["getByRole"]>, campo: RegExp, opcao: string) {
+  await dialogo.getByRole("combobox", { name: campo }).click();
+  await page.getByRole("listbox").last().getByRole("option").filter({ hasText: opcao }).first().click();
 }
 
 /** A conta paga no dia, pela API (pelos proxies da web): o lado do Plugga OS do par. */
@@ -136,6 +158,75 @@ test("importar o OFX, corrigir o valor diferente, conciliar e desfazer com motiv
   await expect(faixa.getByRole("heading", { name: "0 de 1 conciliados" })).toBeVisible();
   await expect(stat(saldos, "Saldo conciliado")).toHaveText("R$ 1.000,00");
   await expect(page.getByRole("region", { name: "Sugeridos" }).getByRole("listitem").filter({ hasText: memo })).toBeVisible();
+});
+
+test("da linha sem par: transferência entre contas e despesa criada sem conciliar, com o efeito nos saldos", async ({ page, baseURL }) => {
+  await bloquearTerceiros(page);
+  const marca = `${marcaDaExecucao()} ${Date.now().toString(36)}`;
+  const inicio = diaEmManaus(41);
+  const contaA = await contaExclusiva(page, baseURL!, `Conta A ${marca} (sintética)`, "1000.00", inicio);
+  const nomeB = `Conta B ${marca} (sintética)`;
+  const contaB = await contaExclusiva(page, baseURL!, nomeB, "0.00", inicio);
+  const fornecedor = await page.request.post("/api/suprimentos/fornecedores", { data: { nome: `Fornecedor ${marca}`, categoria: "servico" }, headers: { origin: new URL(baseURL!).origin } });
+  expect(fornecedor.status(), await fornecedor.text()).toBe(201);
+  const { nome: nomeDoFornecedor } = (await fornecedor.json()) as { nome: string };
+
+  // Duas saídas a mais de 3 dias uma da outra: cada linha tem, no máximo, o próprio par.
+  const diaDaTransferencia = diaEmManaus(40);
+  const diaDaDespesa = diaEmManaus(30);
+  const sinal = marca.replace(/[^A-Za-z0-9 ]/g, "");
+  await page.goto(`/financeiro/conciliacao?conta=${contaA}&de=${diaDaTransferencia}&ate=${diaDaDespesa}`);
+  await page.getByRole("button", { name: "Ler extrato" }).click();
+  const importar = page.getByRole("dialog", { name: "Importar extrato OFX" });
+  await importar.locator('input[type="file"]').setInputFiles({ name: "extrato-sintetico.ofx", mimeType: "application/x-ofx",
+    buffer: ofxDeLinhas([[diaDaTransferencia, "-200.00", `TRANSF ${sinal}`], [diaDaDespesa, "-300.00", `ALUGUEL ${sinal}`]], `E2E-${Date.now().toString(36)}`) });
+  await importar.getByRole("button", { name: "Importar" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "2 movimentos novos" })).toBeVisible();
+  const semLancamento = page.getByRole("region", { name: "No extrato, sem lançamento" });
+  const saldos = page.getByRole("group", { name: "Saldos da conciliação" });
+
+  // Transferência: a saída sai da conta A já conciliada com a linha; a entrada vai à B.
+  await semLancamento.getByRole("listitem").filter({ hasText: `TRANSF ${sinal}` }).getByRole("button", { name: "Criar lançamento" }).click();
+  const criar = page.getByRole("dialog", { name: "Criar lançamento" });
+  await criar.getByRole("radio", { name: "Transferência entre contas" }).check();
+  await escolher(page, criar, /Para a conta/, nomeB);
+  await expect(criar.getByText(`R$ 200,00 saem de Conta A ${marca} (sintética) e entram em ${nomeB}`)).toBeVisible();
+  await criar.getByLabel("Descrição (opcional)").fill(`Transferência ${marca} (sintético)`);
+  await criar.getByRole("button", { name: "Criar a transferência" }).click();
+  await expect(page.getByRole("status").filter({ hasText: /TR-\d+ criada: a saída, nesta conta, ficou conciliada com a linha/ })).toBeVisible();
+  await expect(stat(saldos, "Saldo no Plugga OS")).toHaveText("R$ 800,00");
+  await expect(stat(saldos, "Saldo conciliado")).toHaveText("R$ 800,00");
+
+  // Despesa com outro valor: o botão vira "Criar sem conciliar" e diz o efeito.
+  await semLancamento.getByRole("listitem").filter({ hasText: `ALUGUEL ${sinal}` }).getByRole("button", { name: "Criar lançamento" }).click();
+  await expect(criar.getByRole("radio", { name: "Despesa" })).toBeChecked();
+  await escolher(page, criar, /Fornecedor/, nomeDoFornecedor);
+  await criar.getByLabel("Descrição").fill(`Aluguel ${marca} (sintético)`);
+  await expect(criar.getByRole("button", { name: "Criar e conciliar" })).toBeVisible();
+  await criar.getByLabel("Valor").fill("280,00");
+  await expect(criar.getByText("a conta nasce paga com o valor digitado e entra no saldo no Plugga OS, mas a linha do extrato não é conciliada")).toBeVisible();
+  await criar.getByRole("button", { name: "Criar sem conciliar" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "criado e pago com outro valor, sem conciliar com a linha." })).toBeVisible();
+  // A linha não concilia: vira o par com valor diferente, e só o saldo do Plugga OS muda.
+  await expect(page.getByRole("region", { name: "Valor diferente" }).getByRole("listitem").filter({ hasText: `ALUGUEL ${sinal}` }).getByText("Diferença R$ 20,00 a menos no Plugga OS")).toBeVisible();
+  await expect(stat(saldos, "Saldo no Plugga OS")).toHaveText("R$ 520,00");
+  await expect(stat(saldos, "Saldo conciliado")).toHaveText("R$ 800,00");
+
+  // Na conta B, a entrada da transferência espera o extrato dela.
+  await page.goto(`/financeiro/conciliacao?conta=${contaB}&de=${diaDaTransferencia}&ate=${diaDaDespesa}`);
+  await expect(page.getByRole("region", { name: "Pago ou recebido, sem extrato" }).getByText("R$ 200,00")).toBeVisible();
+  await expect(stat(saldos, "Saldo no Plugga OS")).toHaveText("R$ 200,00");
+  await expect(stat(saldos, "Saldo conciliado")).toHaveText("R$ 0,00");
+
+  // Desfaz o par da transferência: a limpeza dos e2e não apaga lançamento conciliado (FK do extrato).
+  await page.goto(`/financeiro/conciliacao?conta=${contaA}&de=${diaDaTransferencia}&ate=${diaDaDespesa}`);
+  const conciliados = page.getByRole("region", { name: "Conciliados" });
+  await conciliados.getByRole("button", { name: /^Ver os/ }).click();
+  await conciliados.getByRole("listitem").filter({ hasText: `TRANSF ${sinal}` }).getByRole("button", { name: "Desfazer" }).click();
+  const desfazer = page.getByRole("dialog", { name: "Desfazer conciliação" });
+  await desfazer.getByLabel("Motivo").fill("Limpeza do teste (sintético)");
+  await desfazer.getByRole("button", { name: "Desfazer" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Conciliação desfeita." })).toBeVisible();
 });
 
 test("a 390 px, a Conciliação não rola na horizontal", async ({ page }) => {

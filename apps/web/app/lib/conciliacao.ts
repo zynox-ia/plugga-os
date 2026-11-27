@@ -240,7 +240,7 @@ export function corpoDaCriacao(tipo: "receita" | "despesa", c: CamposDaCriacao, 
 export function efeitoDaCriacao(tipo: "receita" | "despesa", conciliar: boolean, valorDaLinha: string): string {
   if (conciliar) return `Nasce ${tipo === "receita" ? "recebida" : "paga"} no dia e na conta da linha, e já fica conciliada com ela.`;
   const quem = tipo === "receita" ? "a receita nasce recebida" : "a conta nasce paga";
-  return `O valor é diferente do extrato (${valorEmReais(valorDaLinha.replace(/^-/, ""))}): ${quem} com o valor digitado e entra no saldo no Plugga OS, mas a linha do extrato continua sem par e o saldo conciliado não muda.`;
+  return `O valor é diferente do extrato (${valorEmReais(valorDaLinha.replace(/^-/, ""))}): ${quem} com o valor digitado e entra no saldo no Plugga OS, mas a linha do extrato não é conciliada e o saldo conciliado não muda.`;
 }
 
 /** O corpo do `POST financeiro/conciliacao/transferencia`: o valor e o dia são os da linha. */
@@ -257,6 +257,12 @@ export function corpoDaTransferencia(c: { outraContaId: string; descricao: strin
 export function efeitoDaTransferencia(linha: Pick<MovimentoDoExtrato, "valor" | "dia">, contaDaLinha: string, outraConta: string): string {
   const [origem, destino] = debitoDa(linha) ? [contaDaLinha, outraConta] : [outraConta, contaDaLinha];
   return `${valorEmReais(absolutoDa(linha))} saem de ${origem} e entram em ${destino}, no dia ${linha.dia.slice(8, 10)}/${linha.dia.slice(5, 7)}. A perna desta linha fica conciliada; a de ${outraConta} espera o extrato daquela conta.`;
+}
+
+/** O aviso depois da transferência: as pernas se chamam "TR-0001 · saída/entrada", então o código vai uma vez. */
+export function mensagemDaTransferencia(codigo: string, debito: boolean, outraConta: string): string {
+  const [daLinha, daOutra] = debito ? ["a saída", "a entrada"] : ["a entrada", "a saída"];
+  return `${codigo} criada: ${daLinha}, nesta conta, ficou conciliada com a linha; ${daOutra}, na ${outraConta}, espera o extrato daquela conta.`;
 }
 
 /** Consulta do `GET /financeiro/conciliacao`. A conta, quando vem, é o id. */
