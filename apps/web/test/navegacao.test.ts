@@ -167,17 +167,20 @@ describe("barra lateral pelo acesso", () => {
     assert.deepEqual(itens("financeiro.relatorios"), ["Tarefas", "Centro de custo", "Relatórios"]);
   });
 
-  it("menu do Financeiro na ordem aprovada; Notas fiscais e Centro de custo em breve, Relatórios com tela (PLU-360)", () => {
+  it("menu do Financeiro na ordem aprovada; Centro de custo em breve, Notas fiscais (protótipo) e Relatórios com tela (PLU-360, PLU-361)", () => {
     const financeiro = DEPARTAMENTOS.find((departamento) => departamento.id === "financeiro")!;
     assert.deepEqual(financeiro.processos.map((processo) => processo.label), [
       "Visão geral", "Lançamentos", "Tarefas", "Conciliação", "Notas fiscais", "Centro de custo", "Relatórios",
     ]);
     const item = (label: string) => financeiro.processos.find((processo) => processo.label === label)!;
-    for (const label of ["Notas fiscais", "Centro de custo"]) {
-      assert.equal(item(label).status, "em-breve", label);
-      assert.equal(item(label).rota, undefined, label);
-    }
+    assert.equal(item("Centro de custo").status, "em-breve");
+    assert.equal(item("Centro de custo").rota, undefined);
+    // O protótipo das Notas fiscais abre nos testes (e no desenvolvimento); fora deles, em breve (prototipo-das-notas-fiscais.test.ts).
     assert.equal(item("Notas fiscais").id, "financeiro.fiscal");
+    assert.equal(item("Notas fiscais").rota, "/financeiro/notas-fiscais");
+    assert.equal(item("Notas fiscais").status, "parcial");
+    assert.equal(navIdForPathname("/financeiro/notas-fiscais"), "/financeiro/notas-fiscais");
+    assert.equal(tituloForNavId("/financeiro/notas-fiscais"), "Notas fiscais");
     // Nos testes o portão está aberto: Relatórios leva à tela dele.
     assert.equal(item("Relatórios").id, "financeiro.relatorios");
     assert.equal(item("Relatórios").rota, "/financeiro/relatorios");
