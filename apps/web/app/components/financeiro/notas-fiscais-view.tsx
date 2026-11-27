@@ -1,7 +1,8 @@
 "use client";
 
 import type { CompanyKey, OpcoesDoFinanceiro } from "@plugga/shared";
-import { ArrowDownLeft, ArrowUpRight, Building2, Eye, FileCode2, FileText, Filter, Link2, Paperclip, ReceiptText } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, Building2, Eye, FileCode2, FileText, Filter, LayoutGrid, Link2, List, Paperclip, ReceiptText } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent, type KeyboardEvent } from "react";
 
 import { valorEmReais } from "../../lib/compras";
@@ -10,6 +11,7 @@ import {
   notasDoLado,
   periodosDasNotas,
   quantasNotas,
+  visoesDasNotas,
   resumoDoLado,
   ROTULO_DO_PERIODO_DAS_NOTAS,
   ROTULO_DO_TIPO_DA_NOTA,
@@ -17,6 +19,7 @@ import {
   tiposDaNota,
   type ContraparteDaNota,
   type FiltrosDasNotas,
+  type VisaoDasNotas,
   type LancamentoParaNota,
   type NotaFiscal,
   type PeriodoDasNotas,
@@ -30,6 +33,7 @@ import { ShellCard, ShellTable } from "../plugga-shell";
 import { EmpresaComPonto, PontoDaEmpresa } from "../suprimentos/empresa";
 import { FiltroComBusca } from "../suprimentos/menu-com-busca";
 import { FiltroDePeriodo, type EscolhaDePeriodo } from "../filtro-de-periodo";
+import { CardsDasNotasFiscais } from "./cards-das-notas-fiscais";
 import { Button, IconPlus, IconSearch } from "../ui";
 import { AdicionarNotaFiscal } from "./adicionar-nota-fiscal";
 import { EngrenagemDoFinanceiro } from "./engrenagem-do-financeiro";
@@ -42,6 +46,7 @@ const LADO: Record<TipoDaNota, { icone: typeof ArrowDownLeft; descricao: string 
   saida: { icone: ArrowUpRight, descricao: "Recebidas de fornecedores" },
 };
 
+const VISOES: Record<VisaoDasNotas, { rotulo: string; icone: LucideIcon }> = { cards: { rotulo: "Cards", icone: LayoutGrid }, lista: { rotulo: "Lista", icone: List } };
 const diaLegivel = (dia: string) => dia.split("-").reverse().join("/");
 
 /**
@@ -50,11 +55,13 @@ const diaLegivel = (dia: string) => dia.split("-").reverse().join("/");
  * busca, a ficha de leitura e "Adicionar nota fiscal". Tudo em memória: nada vai
  * à API, e recarregar a página volta aos exemplos.
  */
-export function NotasFiscaisView({ hoje, ladoInicial, intervaloInicial, opcoes, exemplos }: {
+export function NotasFiscaisView({ hoje, ladoInicial, intervaloInicial, visaoInicial = "lista", opcoes, exemplos }: {
   hoje: string;
   ladoInicial: TipoDaNota;
   /** O período personalizado do endereço (?de=…&ate=…), já validado. */
   intervaloInicial?: IntervaloLivre | null;
+  /** A visão do endereço (?visao=cards|lista), já validada; a Lista é a padrão. */
+  visaoInicial?: VisaoDasNotas;
   opcoes: OpcoesDoFinanceiro | null;
   /** Os dados de exemplo chegam do servidor por props: o módulo deles nunca entra num bundle de cliente. */
   exemplos: { notas: NotaFiscal[]; lancamentos: LancamentoParaNota[]; contrapartes: ContraparteDaNota[] };
@@ -63,12 +70,14 @@ export function NotasFiscaisView({ hoje, ladoInicial, intervaloInicial, opcoes, 
   const { lancamentos, contrapartes } = exemplos;
   const [lado, setLado] = useState<TipoDaNota>(ladoInicial);
   const [filtros, setFiltros] = useState<FiltrosDasNotas>(intervaloInicial ? { intervalo: intervaloInicial } : {});
+  const [visao, setVisao] = useState<VisaoDasNotas>(visaoInicial);
   const [busca, setBusca] = useState("");
   const [aberta, setAberta] = useState<string | null>(null);
   const [adicionando, setAdicionando] = useState(false);
   const [aviso, setAviso] = useState<string | null>(null);
   const [destaque, setDestaque] = useState<string | null>(null);
   const seletorRef = useRef<HTMLDivElement>(null);
+  const visoesRef = useRef<HTMLDivElement>(null);
   const listaRef = useRef<HTMLElement>(null);
   useEffect(() => { if (!aviso) return; const t = setTimeout(() => setAviso(null), 6000); return () => clearTimeout(t); }, [aviso]);
   useEffect(() => { if (!destaque) return; const t = setTimeout(() => setDestaque(null), 4000); return () => clearTimeout(t); }, [destaque]);
@@ -85,6 +94,21 @@ export function NotasFiscaisView({ hoje, ladoInicial, intervaloInicial, opcoes, 
     const url = new URL(window.location.href);
     if (tipo === "saida") url.searchParams.set("lado", "saidas"); else url.searchParams.delete("lado");
     window.history.replaceState(null, "", url);
+  }
+  function escolherVisao(nova: VisaoDasNotas) {
+    setVisao(nova);
+    // A visão vai no endereço (?visao=cards); a Lista, que é a padrão, não precisa dele.
+    const url = new URL(window.location.href);
+    if (nova === "cards") url.searchParams.set("visao", "cards"); else url.searchParams.delete("visao");
+    window.history.replaceState(null, "", url);
+  }
+  function navegarVisoes(evento: KeyboardEvent) {
+    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(evento.key)) return;
+    evento.preventDefault();
+    const i = visoesDasNotas.indexOf(visao);
+    const proxima = visoesDasNotas[evento.key === "Home" ? 0 : evento.key === "End" ? visoesDasNotas.length - 1 : (i + (evento.key === "ArrowRight" ? 1 : visoesDasNotas.length - 1)) % visoesDasNotas.length]!;
+    escolherVisao(proxima);
+    visoesRef.current?.querySelector<HTMLButtonElement>(`#notas-visao-${proxima}`)?.focus();
   }
   function navegarLados(evento: KeyboardEvent) {
     if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(evento.key)) return;
@@ -123,7 +147,7 @@ export function NotasFiscaisView({ hoje, ladoInicial, intervaloInicial, opcoes, 
   const atalhosDePeriodo = periodosDasNotas.map((p) => ({ value: p, label: ROTULO_DO_PERIODO_DAS_NOTAS[p] }));
   const notaAberta = aberta ? notas.find((n) => n.id === aberta) ?? null : null;
 
-  const vazio = doLado.length === 0 ? <div className={`lista-negocios-vazia ${styles.vazio}`} role="status">
+  const vazio = doLado.length === 0 ? <div className="lista-negocios-vazia" role="status">
     <div className="lista-negocios-vazia-icone" aria-hidden="true">{filtrado ? <Filter size={22} /> : <ReceiptText size={22} />}</div>
     <h3 className="lista-negocios-vazia-titulo">{filtrado ? `Nenhuma ${rotulos.singular} com esses filtros` : `Nenhuma ${rotulos.singular} ainda`}</h3>
     <p className="lista-negocios-vazia-desc">{filtrado
@@ -169,13 +193,22 @@ export function NotasFiscaisView({ hoje, ladoInicial, intervaloInicial, opcoes, 
       })}
     </div>
 
-    <div className={styles.barra} role="group" aria-label="Busca e filtros das notas">
+    <div className={styles.barra} role="group" aria-label="Visualização, busca e filtros das notas">
+      <div className={styles.ladoEsquerdo}>
+      <div ref={visoesRef} className={`${estilosPipelines.visoes} ${estilosClientes.abas} ${estilosLancamentos.abas} ${styles.abas}`} role="tablist" aria-label="Visualização das notas" onKeyDown={navegarVisoes}>
+        {visoesDasNotas.map((id) => {
+          const { rotulo, icone: Icone } = VISOES[id];
+          return <button key={id} type="button" id={`notas-visao-${id}`} className="ui-tab" role="tab" aria-selected={visao === id} aria-controls="notas-lista"
+            tabIndex={visao === id ? 0 : -1} onClick={() => escolherVisao(id)}><Icone size={15} aria-hidden="true" />{rotulo}</button>;
+        })}
+      </div>
       <form className={`equipe-busca ${styles.busca}`} onSubmit={buscar} role="search" aria-label="Buscar notas fiscais">
         <button type="submit" className={estilosClientes.botaoBusca} aria-label="Buscar"><IconSearch className="equipe-busca-icon" /></button>
         <input className="equipe-busca-input" type="search" maxLength={120} aria-label={`Buscar por número ou ${rotulos.contraparte.toLowerCase()}`} value={busca}
           onChange={(e) => { setBusca(e.target.value); if (!e.target.value) mudarFiltros({ busca: undefined }); }}
           placeholder={`Buscar número ou ${rotulos.contraparte.toLowerCase()}…`} />
       </form>
+      </div>
       {/* Filtros minimalistas: o visual vem do CSS local (.filtros), sem mudar o FiltroComBusca compartilhado. */}
       <div className={styles.filtros}>
         <FiltroComBusca label="Empresa" icon={<Building2 />} semFiltro="" value={filtros.empresa ?? ""} options={empresas}
@@ -188,7 +221,7 @@ export function NotasFiscaisView({ hoje, ladoInicial, intervaloInicial, opcoes, 
     {aviso ? <p className="aviso aviso--sucesso" role="status">{aviso}</p> : null}
 
     <section ref={listaRef} id="notas-lista" role="tabpanel" aria-labelledby={`notas-lado-${lado}`} className={styles.conteudo}>
-      {vazio ?? <div className={`lista-negocios ${estilosLista.lista} ${estilosLancamentos.lista} ${styles.lista}`}>
+      {vazio ?? (visao === "cards" ? <CardsDasNotasFiscais notas={doLado} destaque={destaque} aoAbrir={setAberta} /> : <div className={`lista-negocios ${estilosLista.lista} ${estilosLancamentos.lista} ${styles.lista}`}>
         <ShellCard className="table-card lista-negocios-card">
           <div className={`${estilosLista.rolagemTabela} ${styles.rolagem}`} role="region" aria-label={`Notas de ${lado === "entrada" ? "entrada" : "saída"}: ${quantasNotas(resumo.quantidade).toLowerCase()}`}>
             <ShellTable caption={`Notas fiscais de ${lado === "entrada" ? "entrada" : "saída"}`}>
@@ -222,7 +255,7 @@ export function NotasFiscaisView({ hoje, ladoInicial, intervaloInicial, opcoes, 
             </ShellTable>
           </div>
         </ShellCard>
-      </div>}
+      </div>)}
     </section>
 
     {notaAberta ? <FichaDaNotaFiscal nota={notaAberta} aoFechar={() => setAberta(null)} /> : null}

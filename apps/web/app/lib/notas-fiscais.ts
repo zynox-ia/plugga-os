@@ -300,3 +300,12 @@ export function validarNota(
 export function avisoDoValor(valor: string, lancamento: Pick<LancamentoParaNota, "valor"> | null): boolean {
   return Boolean(lancamento && valor && centavosDaNota(valor) > 0n && centavosDaNota(valor) !== centavosDaNota(lancamento.valor));
 }
+
+// ---------------------------------------------------------------- visão (Cards ou Lista)
+
+/** As visões da tela, na ordem do seletor (a mesma de Lançamentos). */
+export const visoesDasNotas = ["cards", "lista"] as const;
+export type VisaoDasNotas = (typeof visoesDasNotas)[number];
+
+/** A visão do endereço (?visao=cards|lista). A Lista é a padrão: valor ausente ou desconhecido volta a ela. */
+export const visaoDasNotas = (valor: string | null | undefined): VisaoDasNotas => visoesDasNotas.find((v) => v === valor) ?? "lista";

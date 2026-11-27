@@ -12,6 +12,8 @@ import {
   notasDoLado,
   numeroNormalizado,
   temFiltroNasNotas,
+  visaoDasNotas,
+  visoesDasNotas,
   ORDEM_DOS_CAMPOS,
   problemaDoArquivo,
   resumoDoLado,
@@ -227,5 +229,24 @@ describe("adicionar nota fiscal", () => {
     assert.equal(nota?.lancamento?.codigo, "CR-0916");
     assert.deepEqual(nota?.arquivo, { nome: "NF-1290.pdf", formato: "pdf", tamanho: 2048 });
     assert.equal(nota?.registradaEm, HOJE);
+  });
+});
+
+describe("visão das Notas fiscais (Cards ou Lista)", () => {
+  it("as visões são Cards e Lista, nessa ordem, como em Lançamentos", () => {
+    assert.deepEqual([...visoesDasNotas], ["cards", "lista"]);
+  });
+  it("a Lista é a padrão; Cards só quando escolhida no endereço", () => {
+    assert.equal(visaoDasNotas(undefined), "lista");
+    assert.equal(visaoDasNotas(null), "lista");
+    assert.equal(visaoDasNotas(""), "lista");
+    assert.equal(visaoDasNotas("lista"), "lista");
+    assert.equal(visaoDasNotas("cards"), "cards");
+  });
+  it("valor desconhecido, com outra caixa ou com espaço volta à Lista", () => {
+    assert.equal(visaoDasNotas("quadro"), "lista");
+    assert.equal(visaoDasNotas("Cards"), "lista");
+    assert.equal(visaoDasNotas(" cards"), "lista");
+    assert.equal(visaoDasNotas("cards,lista"), "lista");
   });
 });
