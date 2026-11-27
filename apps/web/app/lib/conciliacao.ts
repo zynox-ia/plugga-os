@@ -112,6 +112,40 @@ export function saldosDaConciliacao(contas: readonly Pick<ContaCorrente, "saldoC
   return { tipo: "calculado", calculado: deCentavos(calculado), conciliado: deCentavos(conciliado), diferenca: deCentavos(calculado - conciliado), semSaldo: contas.length - com.length };
 }
 
+type ContaDoSaldo = Pick<ContaCorrente, "id" | "empresa" | "ativa">;
+
+export type EscopoDoSaldo<T extends ContaDoSaldo> =
+  /** `conta`: a do filtro, quando há. */
+  | { tipo: "contas"; contas: T[]; conta: T | null }
+  /** A conta do filtro não entra no saldo: a soma das outras não responde pelo que está na tela. */
+  | { tipo: "fora"; motivo: "inativa" | "inexistente" | "outra-empresa"; conta: T | null };
+
+/**
+ * De quais contas é o saldo da faixa. Com conta no filtro, só ela, procurada entre todas (a API
+ * filtra o painel pelo id mesmo de uma conta inativa): inativa, inexistente ou de outra empresa
+ * que a do filtro ficam "fora", sem saldo. Sem conta, as ativas da empresa, ou das duas.
+ */
+export function escopoDoSaldo<T extends ContaDoSaldo>(contas: readonly T[], f: { empresa?: CompanyKey; conta?: string }): EscopoDoSaldo<T> {
+  if (f.conta) {
+    const conta = contas.find((c) => c.id === f.conta) ?? null;
+    if (!conta) return { tipo: "fora", motivo: "inexistente", conta: null };
+    if (f.empresa && conta.empresa !== f.empresa) return { tipo: "fora", motivo: "outra-empresa", conta };
+    if (!conta.ativa) return { tipo: "fora", motivo: "inativa", conta };
+    return { tipo: "contas", contas: [conta], conta };
+  }
+  return { tipo: "contas", contas: contas.filter((c) => c.ativa && (!f.empresa || c.empresa === f.empresa)), conta: null };
+}
+
+/**
+ * A nota sob os saldos. A diferença é líquida (entradas e saídas pendentes se compensam) e vem
+ * desde o saldo inicial, não do período: ela não afirma conclusão; quem diz quanto falta no
+ * período é a contagem da faixa.
+ */
+export function notaDosSaldos(saldos: Extract<SaldosDaConciliacao, { tipo: "calculado" }>): string {
+  const fora = saldos.semSaldo === 0 ? "" : saldos.semSaldo === 1 ? " 1 conta sem saldo inicial ficou fora da soma." : ` ${saldos.semSaldo} contas sem saldo inicial ficaram fora da soma.`;
+  return `Diferença líquida das contas incluídas: o pago e o recebido desde o saldo inicial que ainda não tem par no extrato. Entradas e saídas pendentes se compensam nela.${fora}`;
+}
+
 /** "Sem par" na faixa: as duas pontas, a linha do extrato sem lançamento e o lançamento sem extrato. */
 export function semParDoResumo(r: Pick<PainelDaConciliacao["resumo"], "semLancamento" | "semExtrato">): { total: number; detalhe: string } {
   const total = r.semLancamento + r.semExtrato;
@@ -127,10 +161,11 @@ export function semParDoResumo(r: Pick<PainelDaConciliacao["resumo"], "semLancam
 export function correcaoDoPar(
   par: { movimento: Pick<MovimentoDoExtrato, "valor">; lancamento: Pick<LancamentoNaConciliacao, "valor" | "transferencia"> },
   gerente: boolean,
-): { valorInicial: string } | null {
+): { valorInicial: string; valorAtual: string } | null {
   if (!gerente || par.lancamento.transferencia) return null;
   const doExtrato = deCentavos(centavos(par.movimento.valor.replace(/^-/, "")));
-  return { valorInicial: Number(doExtrato).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) };
+  // `valorAtual`: o liquidado do par (na entrada recebida, o recebido), que é o que a API corrige.
+  return { valorInicial: Number(doExtrato).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }), valorAtual: par.lancamento.valor };
 }
 
 /** O motivo do "Desfazer", no campo, antes de ir à API (`desfazerConciliacaoSchema`: 3 a 500 letras). */

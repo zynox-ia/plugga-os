@@ -8,8 +8,10 @@ import {
   correcaoDoPar,
   efeitoDaCriacao,
   efeitoDaTransferencia,
+  escopoDoSaldo,
   hrefDaConciliacao,
   lerFiltrosDaConciliacao,
+  notaDosSaldos,
   opcoesDeCriacao,
   periodoAceito,
   periodoDoMes,
@@ -73,8 +75,8 @@ const par = (movimento: string, lancamento: string, transferencia?: boolean) => 
 });
 
 test("Corrigir no valor diferente é da gerência e já traz o valor do extrato", () => {
-  assert.deepEqual(correcaoDoPar(par("-1234.56", "1200.00"), true), { valorInicial: "1.234,56" });
-  assert.deepEqual(correcaoDoPar(par("80.5", "75.00"), true), { valorInicial: "80,50" });
+  assert.deepEqual(correcaoDoPar(par("-1234.56", "1200.00"), true), { valorInicial: "1.234,56", valorAtual: "1200.00" });
+  assert.deepEqual(correcaoDoPar(par("80.5", "75.00"), true), { valorInicial: "80,50", valorAtual: "75.00" });
   assert.equal(correcaoDoPar(par("-1234.56", "1200.00"), false), null);
 });
 
@@ -141,4 +143,32 @@ test("a transferência da linha leva a outra conta, e o débito sai da conta da 
     "R$ 800,00 saem de Itaú · Plugga e entram em Sicoob · Plugga, no dia 26/11. A perna desta linha fica conciliada; a de Sicoob · Plugga espera o extrato daquela conta.");
   assert.equal(sp(efeitoDaTransferencia(credito, "Itaú · Plugga", "Sicoob · Plugga")),
     "R$ 1.250,00 saem de Sicoob · Plugga e entram em Itaú · Plugga, no dia 26/11. A perna desta linha fica conciliada; a de Sicoob · Plugga espera o extrato daquela conta.");
+});
+
+const C = (id: string, empresa: "plugga" | "waze", ativa = true) => ({ id, empresa, ativa, nome: `Conta ${id}`, saldoCalculado: "10.00", saldoConciliado: "10.00", saldoInicial: "0.00" });
+const contasDoSeed = [C("a", "plugga"), C("b", "plugga"), C("c", "waze"), C("d", "plugga", false)];
+
+test("com conta no filtro, o saldo é só o dela: inativa, inexistente ou de outra empresa não caem nas outras", () => {
+  assert.deepEqual(escopoDoSaldo(contasDoSeed, { conta: "a" }), { tipo: "contas", contas: [contasDoSeed[0]], conta: contasDoSeed[0] });
+  assert.deepEqual(escopoDoSaldo(contasDoSeed, { conta: "d" }), { tipo: "fora", motivo: "inativa", conta: contasDoSeed[3] });
+  assert.deepEqual(escopoDoSaldo(contasDoSeed, { conta: "zz" }), { tipo: "fora", motivo: "inexistente", conta: null });
+  assert.deepEqual(escopoDoSaldo(contasDoSeed, { conta: "c", empresa: "plugga" }), { tipo: "fora", motivo: "outra-empresa", conta: contasDoSeed[2] });
+});
+
+test("sem conta no filtro, o saldo soma as ativas da empresa (ou das duas)", () => {
+  assert.deepEqual(escopoDoSaldo(contasDoSeed, { empresa: "plugga" }), { tipo: "contas", contas: [contasDoSeed[0], contasDoSeed[1]], conta: null });
+  assert.equal((escopoDoSaldo(contasDoSeed, {}) as { contas: unknown[] }).contas.length, 3);
+});
+
+test("diferença zero não é prova de conciliação: a nota diz que é líquida e nunca afirma que tudo foi conferido", () => {
+  const nota = notaDosSaldos({ tipo: "calculado", calculado: "100.00", conciliado: "100.00", diferenca: "0.00", semSaldo: 1 });
+  assert.match(nota, /líquida/);
+  assert.match(nota, /se compensam/);
+  assert.doesNotMatch(nota, /todo|tudo/i);
+  assert.match(nota, /1 conta sem saldo inicial ficou fora da soma\./);
+});
+
+test("Corrigir compara com o valor liquidado do par: na cobrança recebida a menor, é o recebido", () => {
+  // Cobrada por R$ 100, recebida por R$ 90, e o extrato diz R$ 100: voltar a R$ 100 vale.
+  assert.deepEqual(correcaoDoPar(par("100.00", "90.00"), true), { valorInicial: "100,00", valorAtual: "90.00" });
 });
