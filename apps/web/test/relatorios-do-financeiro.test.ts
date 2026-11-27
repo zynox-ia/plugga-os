@@ -104,6 +104,26 @@ describe("CSV do relatório (PLU-360)", () => {
     assert.equal(csv.endsWith("\r\n"), true);
   });
 
+  it("texto livre que a planilha leria como fórmula vira texto; os valores, mesmo negativos, seguem como número", () => {
+    const perigosos = ["=HYPERLINK(\"http://x\")", "+1+1", "-2+3", "@SUM(A1)", "\tTab", "\rRetorno"];
+    const grupos = perigosos.map((nome, i) => ({
+      chave: `g${i}`, codigo: `2.0${i}`, nome, total: "1.00", quantidade: 1, percentual: "10.0",
+      categorias: [{ chave: `c${i}`, codigo: `2.0${i}.01`, nome, categorias: [ID], total: "1.00", quantidade: 1, percentual: "10.0" }],
+    }));
+    const csv = csvDoRelatorio({ ...relatorio, saidas: { total: "6.00", quantidade: 6, grupos } });
+    const linhas = csv.slice(1).split("\r\n");
+    assert.ok(linhas.includes("Saídas;Grupo;\"'=HYPERLINK(\"\"http://x\"\")\";2.00;;1;1,00;10,0"));
+    assert.ok(linhas.includes("Saídas;Categoria;\"'+1+1\";2.01.01;\"'+1+1\";1;1,00;10,0"));
+    assert.ok(linhas.includes("Saídas;Grupo;\"'-2+3\";2.02;;1;1,00;10,0"));
+    assert.ok(linhas.includes("Saídas;Grupo;\"'@SUM(A1)\";2.03;;1;1,00;10,0"));
+    assert.ok(csv.includes("Saídas;Grupo;\"'\tTab\";2.04;"));
+    assert.ok(csv.includes("Saídas;Grupo;\"'\rRetorno\";2.05;"));
+    // Nenhuma célula de texto começa crua por um prefixo de fórmula.
+    for (const linha of linhas) for (const c of linha.split(";")) assert.ok(!/^[=+@\t\r]/.test(c) || c.startsWith("\"'"), c);
+    // O resultado negativo é número, não texto neutralizado.
+    assert.ok(linhas.includes("Resultado;-200,50"));
+  });
+
   it("a seção sem acesso aparece como tal e o resultado diz que é parcial; o nome do arquivo leva o período e a empresa", () => {
     const csv = csvDoRelatorio({ ...relatorio, entradas: null, resultado: null, empresa: "waze" });
     assert.ok(csv.includes("Entradas;Sem acesso;;;Falta a tela Contas a receber;;;"));

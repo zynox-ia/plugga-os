@@ -116,8 +116,22 @@ export function decimalNoCsv(valor: string): string {
 /** O percentual do servidor ("12.5") com vírgula e a mesma casa ("12,5"). */
 const percentualNoCsv = (valor: string) => valor.replace(".", ",");
 
-function celula(valor: string): string {
-  return /[;"\n\r]/.test(valor) ? `"${valor.replace(/"/g, "\"\"")}"` : valor;
+/** Uma célula numérica (decimal já com vírgula): vai crua, para a planilha somar, mesmo negativa. */
+type Numero = { numero: string };
+const numero = (valor: string): Numero => ({ numero: valor });
+type Celula = string | Numero;
+
+/**
+ * Texto livre (nome de grupo e de categoria vêm do cadastro) que começa por
+ * `=`, `+`, `-`, `@`, tab ou retorno a planilha executaria como fórmula
+ * (OWASP, CSV Injection): ganha um apóstrofo na frente e vai entre aspas. O
+ * separador, as aspas e a quebra de linha também vão entre aspas.
+ */
+const PREFIXO_DE_FORMULA = /^[=+\-@\t\r]/;
+function celula(valor: Celula): string {
+  if (typeof valor !== "string") return valor.numero;
+  const texto = PREFIXO_DE_FORMULA.test(valor) ? `'${valor}` : valor;
+  return texto !== valor || /[;"\n\r]/.test(texto) ? `"${texto.replace(/"/g, "\"\"")}"` : texto;
 }
 
 /** O BOM do UTF-8, que faz o Excel ler os acentos. */
@@ -132,7 +146,7 @@ const ROTULO_DA_SECAO: Record<"entradas" | "saidas", string> = { entradas: "Entr
  */
 export function csvDoRelatorio(relatorio: RelatorioPorCategoria): string {
   const empresa = relatorio.empresa === "waze" ? "Waze Energia" : relatorio.empresa === "plugga" ? "Plugga" : "Plugga e Waze Energia";
-  const linhas: string[][] = [
+  const linhas: Celula[][] = [
     ["Relatório por grupo e categoria"],
     ["Período", rotuloDoPeriodo(relatorio.de, relatorio.ate)],
     ["Empresa", empresa],
@@ -147,16 +161,16 @@ export function csvDoRelatorio(relatorio: RelatorioPorCategoria): string {
       return;
     }
     for (const g of s.grupos as GrupoDoRelatorio[]) {
-      linhas.push([rotulo, "Grupo", g.nome, g.codigo ?? "", "", String(g.quantidade), decimalNoCsv(g.total), percentualNoCsv(g.percentual)]);
-      for (const c of g.categorias) linhas.push([rotulo, "Categoria", g.nome, c.codigo ?? "", c.nome, String(c.quantidade), decimalNoCsv(c.total), percentualNoCsv(c.percentual)]);
+      linhas.push([rotulo, "Grupo", g.nome, g.codigo ?? "", "", numero(String(g.quantidade)), numero(decimalNoCsv(g.total)), numero(percentualNoCsv(g.percentual))]);
+      for (const c of g.categorias) linhas.push([rotulo, "Categoria", g.nome, c.codigo ?? "", c.nome, numero(String(c.quantidade)), numero(decimalNoCsv(c.total)), numero(percentualNoCsv(c.percentual))]);
     }
-    linhas.push([rotulo, "Total", "", "", "", String(s.quantidade), decimalNoCsv(s.total), s.grupos.length ? "100,0" : "0,0"]);
+    linhas.push([rotulo, "Total", "", "", "", numero(String(s.quantidade)), numero(decimalNoCsv(s.total)), numero(s.grupos.length ? "100,0" : "0,0")]);
   };
   secao("entradas", relatorio.entradas);
   secao("saidas", relatorio.saidas);
   linhas.push([]);
   const resultado = resultadoDoRelatorio(relatorio);
-  linhas.push(resultado.tipo === "inteiro" ? ["Resultado", decimalNoCsv(resultado.valor)] : ["Resultado", resultado.texto]);
+  linhas.push(resultado.tipo === "inteiro" ? ["Resultado", numero(decimalNoCsv(resultado.valor))] : ["Resultado", resultado.texto]);
   return `${BOM}${linhas.map((linha) => linha.map(celula).join(";")).join("\r\n")}\r\n`;
 }
 
