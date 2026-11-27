@@ -17,14 +17,14 @@ import {
   type OpcoesDoFinanceiro,
   type PainelDaConciliacao,
 } from "@plugga/shared";
-import { Building2, CalendarDays, ChevronDown, Clock, Cloud, Landmark, Link2, Pencil, Plus, Receipt, RotateCcw, Scale } from "lucide-react";
+import { Building2, CalendarDays, Cloud, Landmark, Link2, Pencil, Plus, Receipt } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 
 import { enviar, lerErro } from "../../lib/clientes";
 import { hojeEmManaus, ROTULO_DA_EMPRESA, valorEmReais } from "../../lib/compras";
-import { correcaoDoPar, escopoDoSaldo, hrefDaConciliacao, motivoSemCriacao, notaDosSaldos, opcoesDeCriacao, periodoAceito, problemaDoMotivo, saldosDaConciliacao, semParDoResumo, type AcessoAosLancamentos, type EscopoDoSaldo, type FiltrosDaConciliacao } from "../../lib/conciliacao";
+import { correcaoDoPar, escopoDoSaldo, hrefDaConciliacao, motivoSemCriacao, opcoesDeCriacao, periodoAceito, problemaDoMotivo, semParDoResumo, type AcessoAosLancamentos, type FiltrosDaConciliacao } from "../../lib/conciliacao";
 import { contasDaTela, detalheDaConta } from "../../lib/configuracoes-do-financeiro";
 import { hrefDosLancamentos } from "../../lib/financeiro";
 import { corpoDaCorrecao, valorEmDigitacao } from "../../lib/ficha-do-lancamento";
@@ -34,12 +34,13 @@ import estilosClientes from "../clientes/tela-clientes.module.css";
 import estilosPipelines from "../pipelines/tela-pipelines.module.css";
 import { EmpresaComPonto, PontoDaEmpresa } from "../suprimentos/empresa";
 import { FiltroComBusca } from "../suprimentos/menu-com-busca";
-import { Alert, Button, Dialog, DropdownMenu, FileDropzone, SelectField, TextField, TextareaField } from "../ui";
-import type { MenuItem } from "../ui/dropdown-menu";
-import { Popover, PopoverContent, PopoverTrigger } from "../ui/shadcn/popover";
+import { Alert, Button, Dialog, SelectField, TextField, TextareaField } from "../ui";
+import { AcoesDaLinha } from "./acoes-da-linha";
 import { CriarDaLinha, outrasContasDaLinha } from "./criar-da-linha";
 import { EngrenagemDoFinanceiro } from "./engrenagem-do-financeiro";
 import styles from "./financeiro-telas.module.css";
+import { ImportarExtrato } from "./importar-extrato";
+import { SaldosDaFaixa } from "./saldos-da-faixa";
 
 const NOMES_DO_MES = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"] as const;
 
@@ -227,7 +228,7 @@ export function ConciliacaoView({ filtros, painel, opcoes, gerente, buscaCliente
       <div>
         <div className={styles.faixaContexto}>
           <p>{contexto}</p>
-          {opcoes ? <SaldosDaFaixa escopo={escopoDoSaldoAtual} /> : null}
+          {opcoes ? <SaldosDaFaixa escopo={escopoDoSaldoAtual} nomeDaConta={contaAtual ? rotuloDaConta(contaAtual) : null} /> : null}
         </div>
         <h2>{painel.resumo.conciliados} de {total} conciliados</h2>
         <span className={styles.faixaBarra} aria-hidden="true"><span style={{ inlineSize: `${progresso}%` }} /></span>
@@ -279,29 +280,15 @@ export function ConciliacaoView({ filtros, painel, opcoes, gerente, buscaCliente
           const candidatos = (movimento.candidatos ?? []).flatMap((id) => { const lancamento = porId.get(id); return lancamento ? [lancamento] : []; });
           const escolhido = pares[movimento.id] ?? candidatos[0]?.id;
           const lancamento = candidatos.find((item) => item.id === escolhido);
-          // Uma ação principal por linha, como na referência: conciliar com o candidato, criar a
-          // tarifa ou criar o lançamento. As demais ficam no menu "Mais ações" (três pontos).
           const marcado = movimento.estado === "marcado";
-          const conciliarLinha = lancamento ? () => void agir("/api/financeiro/conciliacao/conciliar", conciliarSchema, { movimentoId: movimento.id, lancamentoId: lancamento.id }, "Linha conciliada.") : null;
-          const criarTarifa = movimento.pareceTarifa ? () => setTarifaId(movimento.id) : null;
-          const criarLancamento = podeCriar(movimento) ? () => { setErro(null); setCriarId(movimento.id); } : null;
-          const marcar = () => void agir("/api/financeiro/conciliacao/marcar", marcarNaConciliacaoSchema, { movimentoId: movimento.id, marcado: !marcado }, marcado ? "Linha retomada." : "Linha marcada como pendente.");
-          const principal = conciliarLinha ? { rotulo: "Conciliar", icone: <Link2 size={14} />, acao: conciliarLinha }
-            : criarTarifa ? { rotulo: "Criar tarifa", icone: <Plus size={14} />, acao: criarTarifa }
-            : criarLancamento ? { rotulo: "Criar lançamento", icone: <Plus size={14} />, acao: criarLancamento } : null;
-          const maisAcoes: MenuItem[] = principal ? [
-            ...(criarTarifa && principal.acao !== criarTarifa ? [{ id: "tarifa", label: "Criar tarifa", icon: <Plus />, onSelect: criarTarifa }] : []),
-            ...(criarLancamento && principal.acao !== criarLancamento ? [{ id: "lancamento", label: "Criar lançamento", icon: <Plus />, onSelect: criarLancamento }] : []),
-            { id: "marcar", label: marcado ? "Retomar" : "Marcar pendente", icon: marcado ? <RotateCcw /> : <Clock />, onSelect: marcar },
-          ] : [];
           return <li key={movimento.id} className={styles.sugestao}>
             <CartaoDoExtrato movimento={movimento} />
             <div className={styles.miolo}>
-              <div className={styles.mioloAcoes}>
-                {principal ? <Button size="sm" icon={principal.icone} disabled={ocupado} onClick={principal.acao}>{principal.rotulo}</Button>
-                  : <Button size="sm" variant="secondary" disabled={ocupado} onClick={marcar}>{marcado ? "Retomar" : "Marcar pendente"}</Button>}
-                {maisAcoes.length ? <DropdownMenu variant="icon" label={`Mais ações para ${movimento.descricao || "a linha"}`} disabled={ocupado} items={maisAcoes} /> : null}
-              </div>
+              <AcoesDaLinha descricao={movimento.descricao} marcado={marcado} ocupado={ocupado}
+                aoConciliar={lancamento ? () => void agir("/api/financeiro/conciliacao/conciliar", conciliarSchema, { movimentoId: movimento.id, lancamentoId: lancamento.id }, "Linha conciliada.") : null}
+                aoCriarTarifa={movimento.pareceTarifa ? () => setTarifaId(movimento.id) : null}
+                aoCriarLancamento={podeCriar(movimento) ? () => { setErro(null); setCriarId(movimento.id); } : null}
+                aoMarcar={() => void agir("/api/financeiro/conciliacao/marcar", marcarNaConciliacaoSchema, { movimentoId: movimento.id, marcado: !marcado }, marcado ? "Linha retomada." : "Linha marcada como pendente.")} />
               {candidatos.length > 1 ? <SelectField label="Lançamento" value={escolhido} onChange={(valor) => setPares((atual) => ({ ...atual, [movimento.id]: valor }))} options={candidatos.map((item) => ({ value: item.id, label: `${item.codigo} · ${item.favorecido}` }))} /> : null}
               {movimento.estado === "marcado" ? <small>Marcado como pendente.</small> : null}
               {!movimento.pareceTarifa && !podeCriar(movimento) && semCriacao(movimento) ? <small>{semCriacao(movimento)}</small> : null}
@@ -392,44 +379,6 @@ export function ConciliacaoView({ filtros, painel, opcoes, gerente, buscaCliente
   </div>;
 }
 
-/**
- * O saldo do Plugga OS ao lado do conferido com o extrato (PLU-339, C4): o calculado é o saldo
- * inicial mais todo o liquidado; o conciliado, só o que já tem par. A diferença é líquida e
- * desde o saldo inicial: não prova que o período está conciliado (isso é a contagem acima).
- * Fica sob demanda, no "Saldos" ao lado do contexto da faixa, para a faixa caber numa linha.
- */
-function SaldosDaFaixa({ escopo }: { escopo: EscopoDoSaldo<ContaCorrente> }) {
-  const conteudo = conteudoDosSaldos(escopo);
-  if (!conteudo) return null;
-  return <Popover>
-    <PopoverTrigger asChild>
-      <button type="button" className={styles.saldosBotao}><Scale size={12} aria-hidden="true" />Saldos<ChevronDown size={12} aria-hidden="true" /></button>
-    </PopoverTrigger>
-    <PopoverContent className={styles.saldosPopover} align="start" aria-label="Saldos">{conteudo}</PopoverContent>
-  </Popover>;
-}
-
-function conteudoDosSaldos(escopo: EscopoDoSaldo<ContaCorrente>): ReactNode {
-  if (escopo.tipo === "fora") {
-    const nome = escopo.conta ? rotuloDaConta(escopo.conta) : null;
-    return <p>{escopo.motivo === "inativa" ? `A conta ${nome} está inativa: o saldo dela não se calcula aqui.`
-      : escopo.motivo === "outra-empresa" ? `A conta ${nome} não é da empresa escolhida: limpe a Empresa ou troque a conta para ver o saldo.`
-      : "A conta deste endereço não está entre as contas do Financeiro: escolha outra para ver o saldo."}</p>;
-  }
-  const saldos = saldosDaConciliacao(escopo.contas);
-  if (!saldos) return null;
-  if (saldos.tipo !== "calculado") {
-    return <p>{saldos.tipo === "oculto"
-      ? "O saldo da conta aparece só para quem acompanha pagar e receber."
-      : "Sem saldo inicial, o saldo conciliado não se calcula. Cadastre o saldo inicial nas configurações do Financeiro."}</p>;
-  }
-  return <div className={styles.saldosGrupo} aria-label="Saldos da conciliação" role="group">
-    <span><small>Saldo no Plugga OS</small><strong>{valorEmReais(saldos.calculado)}</strong></span>
-    <span><small>Saldo conciliado</small><strong>{valorEmReais(saldos.conciliado)}</strong></span>
-    <span><small>Diferença líquida</small><strong>{valorEmReais(saldos.diferenca)}</strong></span>
-    <p>{notaDosSaldos(saldos)}</p>
-  </div>;
-}
 
 /**
  * "Corrigir" no par com valor diferente (juros, multa, desconto): a mesma ação de correção da
@@ -550,23 +499,6 @@ function TarifasEmLote({ ids, opcoes, ocupado, aoFechar, aoCriar }: {
     {falha ? <Alert tone="danger" title="Não deu para preparar">{falha}</Alert> : null}
     {categoriaFixa ? <p>Categoria de tarifas: {categoriaFixa}.</p> : <SelectField label="Categoria de despesa" required value={categoriaId} onChange={setCategoriaId} options={categorias} />}
     <SelectField label="Fornecedor" required value={fornecedorId} onChange={setFornecedorId} options={fornecedores} />
-  </Dialog>;
-}
-
-function ImportarExtrato({ contas, contaInicial, ocupado, aoFechar, aoImportar }: {
-  contas: OpcoesDoFinanceiro["contasCorrentes"];
-  contaInicial?: string;
-  ocupado: boolean;
-  aoFechar: () => void;
-  aoImportar: (contaId: string, arquivo: File) => Promise<void>;
-}) {
-  const [contaId, setContaId] = useState(contaInicial && contas.some((conta) => conta.id === contaInicial) ? contaInicial : contas[0]?.id ?? "");
-  const [arquivo, setArquivo] = useState<File[]>([]);
-  return <Dialog title="Importar extrato OFX" description="O arquivo fica no Plugga OS. Movimento repetido não entra de novo." onClose={aoFechar} footer={
-    <Button loading={ocupado} disabled={!contaId || !arquivo[0]} onClick={() => { const escolhido = arquivo[0]; if (escolhido) void aoImportar(contaId, escolhido); }}>Importar</Button>
-  }>
-    <SelectField label="Conta" required value={contaId} onChange={setContaId} options={contas.map((conta) => ({ value: conta.id, label: `${conta.nome} · ${ROTULO_DA_EMPRESA[conta.empresa]}` }))} />
-    <FileDropzone label="Arquivo OFX, até 5 MB" value={arquivo} onChange={(itens) => setArquivo(itens.slice(-1))} disabled={ocupado} />
   </Dialog>;
 }
 
