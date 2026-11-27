@@ -184,40 +184,51 @@ export function CentroDeCustoView({ filtros, projetos: doServidor, clientes, pro
 }
 
 /**
- * A visão padrão: o card de projeto no padrão dos Cards de Lançamentos (mesma
- * grade e proporções). O que importa para decidir abrir: projeto, cliente, tipo
- * e empresa; o resultado em destaque, com recebido e gasto; o orçamento
- * consumido quando houver; a situação e as ações no rodapé.
+ * Alternativa do card para o André decidir (v3): o nome do projeto numa linha
+ * pequena sob o cliente. DESLIGADA: o pedido foi tirar o nome do projeto do
+ * card, mas dois projetos do mesmo cliente e do mesmo tipo ficam iguais sem ele
+ * (o João tem dois "Energia solar · Plugga"). O nome segue no `title` e no nome
+ * acessível do card e dos botões.
  */
-function CardsDosProjetos({ projetos, hrefDaFicha, aoAbrir, aoCriarEntrada }: { projetos: readonly Projeto[]; aoCriarEntrada: (p: Projeto) => void } & AcoesDoProjeto) {
+const NOME_DO_PROJETO_NO_CARD = false;
+
+/**
+ * A visão padrão: o card de projeto na grade e nas classes dos Cards de
+ * Lançamentos, numa variante compacta (v3, pedido do André em 27/11/2026): o
+ * cliente ao lado do ícone, como título; tipo e empresa no canto; recebido e
+ * gasto; o orçamento numa linha; responsável, situação e ações no rodapé.
+ */
+function CardsDosProjetos({ projetos, hrefDaFicha, aoAbrir, aoCriarEntrada, mostrarProjeto = NOME_DO_PROJETO_NO_CARD }: { projetos: readonly Projeto[]; aoCriarEntrada: (p: Projeto) => void; mostrarProjeto?: boolean } & AcoesDoProjeto) {
   return <div className={estilosCards.areaCards}><div className={estilosCards.grade}>
     {projetos.map((p, indice) => {
       const r = resumoDoProjeto(p);
       const Icone = iconeDoProjeto(p);
-      return <article key={p.id} className={`${estilosClientes.card} ${estilosCards.card} ${estilosCards.entra}`} style={{ "--i": indice } as CSSProperties}
-        aria-label={`${p.nome}: ${p.cliente.nome}, resultado ${reais(r.resultado)}`}>
-        <div className={estilosCards.topo}>
-          <span className={estilosCards.caixa} aria-hidden="true" title={`${ROTULO_DA_CLASSE[p.classe]} · ${p.tipo}`}><Icone size={20} /></span>
-          <div className={estilosCards.canto}><span>{p.tipo}</span><span aria-hidden="true">·</span><EmpresaComPonto empresa={p.empresa} curto /></div>
+      return <article key={p.id} className={`${estilosClientes.card} ${estilosCards.card} ${styles.cardCompacto} ${estilosCards.entra}`} style={{ "--i": indice } as CSSProperties}
+        aria-label={`${p.cliente.nome}: ${p.nome}`}>
+        <div className={styles.topoDoCard}>
+          <span className={`${estilosCards.caixa} ${styles.caixaCompacta}`} aria-hidden="true" title={`${ROTULO_DA_CLASSE[p.classe]} · ${p.tipo}`}><Icone size={18} /></span>
+          <div className={styles.quemDoCard}>
+            <h3><Link href={hrefDaFicha(p.id)} scroll={false} title={`${p.cliente.nome} · ${p.nome}`} aria-label={`${p.cliente.nome}: ${p.nome}`}>{p.cliente.nome}</Link></h3>
+            {mostrarProjeto ? <p title={p.nome}>{p.nome}</p> : null}
+          </div>
+          <div className={`${estilosCards.canto} ${styles.cantoDoCard}`} title={`${p.tipo} · ${ROTULO_DA_EMPRESA[p.empresa]}`}><span className={styles.tipoDoCard}>{p.tipo}</span><span aria-hidden="true">·</span><EmpresaComPonto empresa={p.empresa} curto /></div>
         </div>
-        <div className={estilosCards.quem}>
-          <h3><Link href={hrefDaFicha(p.id)} scroll={false} title={p.nome}>{p.nome}</Link></h3>
-          <p title={p.cliente.nome}>{p.cliente.nome}</p>
-        </div>
-        <div className={estilosCards.valor}><strong className={r.resultado < 0 ? styles.negativo : undefined}>{reais(r.resultado)}</strong><small><Scale size={12} aria-hidden="true" />resultado</small></div>
         <dl className={styles.numerosDoCard}>
           <div><dt>Recebido</dt><dd>{reais(r.recebido)}</dd>{r.aReceber ? <dd className={styles.notaDoNumero}>+ {reais(r.aReceber)} a receber</dd> : null}</div>
           <div><dt>Gasto</dt><dd>{reais(r.gasto)}</dd>{r.aPagar ? <dd className={styles.notaDoNumero}>+ {reais(r.aPagar)} a pagar</dd> : null}</div>
         </dl>
-        {r.orcamento ? <div className={styles.orcamentoDoCard}>
-          <span className={styles.orcamentoDoCardTopo}><span>Orçamento</span><strong className={r.orcamento.estourou ? styles.negativo : undefined}>{r.orcamento.percentual}%{r.orcamento.estourou ? " · acima" : ""}</strong></span>
-          <span className={`${styles.trilho} ${styles.trilhoInteiro} ${r.orcamento.estourou ? styles.trilhoEstourado : ""}`} role="progressbar" aria-label={`Orçamento consumido de ${p.nome}`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.min(100, r.orcamento.percentual)} aria-valuetext={`${r.orcamento.percentual}% de ${reais(r.orcamento.valor)}`}><span style={{ inlineSize: `${Math.min(100, r.orcamento.percentual)}%` }} /></span>
-        </div> : <p className={styles.semOrcamentoDoCard}>Sem orçamento</p>}
-        <footer className={estilosCards.rodape}>
+        <div className={styles.orcamentoEmLinha}>
+          <span>Orçamento</span>
+          {r.orcamento ? <>
+            <span className={`${styles.trilho} ${styles.trilhoDaLinha} ${r.orcamento.estourou ? styles.trilhoEstourado : ""}`} role="progressbar" aria-label={`Orçamento consumido de ${p.nome}`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.min(100, r.orcamento.percentual)} aria-valuetext={`${r.orcamento.percentual}% de ${reais(r.orcamento.valor)}`}><span style={{ inlineSize: `${Math.min(100, r.orcamento.percentual)}%` }} /></span>
+            <strong className={r.orcamento.estourou ? styles.negativo : undefined}>{r.orcamento.percentual}%{r.orcamento.estourou ? " · acima" : ""}</strong>
+          </> : <span className={styles.semOrcamentoNaLinha}>sem orçamento</span>}
+        </div>
+        <footer className={`${estilosCards.rodape} ${styles.rodapeCompacto}`}>
           <span className={estilosCards.prazo}><span>{p.responsavel ?? "Sem responsável"}</span><small>{p.inicio ? `desde ${dataCurta(p.inicio)}` : "sem início"}</small></span>
           <Badge tone={TOM_DA_SITUACAO[p.situacao]}>{ROTULO_DA_SITUACAO[p.situacao]}</Badge>
-          <Button variant="secondary" size="sm" iconOnly icon={<Plus size={14} />} aria-label={`Nova entrada em ${p.nome}`} title="Nova entrada" onClick={() => aoCriarEntrada(p)} />
-          <Button variant="secondary" size="sm" iconOnly icon={<Eye size={14} />} aria-label={`Abrir o centro de custo de ${p.nome}`} title="Abrir o centro de custo" onClick={() => aoAbrir(p.id)} />
+          <Button variant="secondary" size="sm" iconOnly icon={<Plus size={14} />} aria-label={`Nova entrada em ${p.nome}, de ${p.cliente.nome}`} title={`Nova entrada em ${p.nome}`} onClick={() => aoCriarEntrada(p)} />
+          <Button variant="secondary" size="sm" iconOnly icon={<Eye size={14} />} aria-label={`Abrir o centro de custo de ${p.nome}`} title={`Abrir o centro de custo de ${p.nome}`} onClick={() => aoAbrir(p.id)} />
         </footer>
       </article>;
     })}
