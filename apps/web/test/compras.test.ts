@@ -74,6 +74,37 @@ describe("período em dias de Manaus", () => {
   });
 });
 
+describe("período personalizado de compras (De e Até no endereço)", () => {
+  const lista = { visao: "lista" };
+  it("lê de e ate válidos na lista como intervalo", () => {
+    const f = lerFiltrosDeCompras({ ...lista, de: "2026-11-01", ate: "2026-11-15" });
+    assert.deepEqual(f.intervalo, { de: "2026-11-01", ate: "2026-11-15" });
+    assert.equal(f.periodo, undefined);
+  });
+  it("URL inválida (uma data só, inexistente ou invertida) volta ao padrão", () => {
+    for (const p of [{ de: "2026-11-01" }, { ate: "2026-11-15" }, { de: "2026-02-30", ate: "2026-03-01" }, { de: "2026-11-16", ate: "2026-11-15" }, { de: "01/11/2026", ate: "15/11/2026" }]) {
+      assert.equal(lerFiltrosDeCompras({ ...lista, ...p }).intervalo, undefined);
+    }
+  });
+  it("atalho e intervalo são exclusivos: com os dois no endereço, vale o intervalo", () => {
+    const f = lerFiltrosDeCompras({ ...lista, periodo: "mes", de: "2026-11-01", ate: "2026-11-15" });
+    assert.equal(f.periodo, undefined);
+    assert.deepEqual(f.intervalo, { de: "2026-11-01", ate: "2026-11-15" });
+  });
+  it("no quadro o intervalo não vale e o endereço com de/ate é redirecionado", () => {
+    assert.equal(lerFiltrosDeCompras({ de: "2026-11-01", ate: "2026-11-15" }).intervalo, undefined);
+    assert.equal(temFiltroSoDaLista({ de: "2026-11-01", ate: "2026-11-15" }), true);
+    assert.equal(temFiltroSoDaLista({ visao: "lista", de: "2026-11-01", ate: "2026-11-15" }), false);
+  });
+  it("o link leva de e ate (sem periodo) e a API recebe o mesmo dia, inclusivo", () => {
+    const f = lerFiltrosDeCompras({ ...lista, de: "2026-11-01", ate: "2026-11-15" });
+    assert.equal(hrefDeCompras(f), "/suprimentos/compras?visao=lista&de=2026-11-01&ate=2026-11-15");
+    assert.equal(hrefDeCompras({ ...f, periodo: "mes" }), "/suprimentos/compras?visao=lista&de=2026-11-01&ate=2026-11-15");
+    assert.deepEqual(consultaDaApi(f, "2026-11-23"), { empresa: undefined, responsavelId: undefined, destino: undefined, de: "2026-11-01", ate: "2026-11-15" });
+    assert.equal(hrefDeCompras({ ...f, visao: "quadro" }), "/suprimentos/compras");
+  });
+});
+
 describe("valores e quantidades", () => {
   it("formata decimal em texto como reais", () => {
     assert.equal(valorEmReais("1450.00")?.replace(/\s/g, " "), "R$ 1.450,00");

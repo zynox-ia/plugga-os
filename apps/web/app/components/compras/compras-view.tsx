@@ -1,7 +1,7 @@
 "use client";
 
 import type { OpcoesDeCompraResposta, PedidoDeCompra, PedidoDeCompraResumo, QuadroDeComprasResposta } from "@plugga/shared";
-import { Ban, Building2, CalendarDays, List, RotateCw, ShoppingCart, SquareKanban, UserRound } from "lucide-react";
+import { Ban, Building2, List, RotateCw, ShoppingCart, SquareKanban, UserRound } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type CSSProperties, type FormEvent, type ReactElement } from "react";
@@ -9,6 +9,7 @@ import { useEffect, useRef, useState, type CSSProperties, type FormEvent, type R
 import { hrefDeCompras, numeroDoPedido, ROTULO_DA_EMPRESA, periodosDeCompra, ROTULO_DO_PERIODO, textoDoDestino, textosDaBusca, type FiltrosDeCompras } from "../../lib/compras";
 import type { FalhaDaFicha } from "../../lib/ficha-do-pedido";
 import { BarraFixa, CampoDaFolha, classeDaPaginaComBarra, classeDosControlesDaBarra } from "../barra-fixa";
+import { FiltroDePeriodo, type EscolhaDePeriodo } from "../filtro-de-periodo";
 import estilosClientes from "../clientes/tela-clientes.module.css";
 import { BarraRolagemMinimalista } from "../pipelines/quadro-do-pipeline";
 import estilosPipelines from "../pipelines/tela-pipelines.module.css";
@@ -56,7 +57,7 @@ export function ComprasView({ filtros, colunas, pedidos, total, opcoes, ficha, f
   const ir = (parcial: Partial<FiltrosDeCompras>, pedido: string | null = null) => router.push(hrefDeCompras({ ...filtros, ...parcial }, pedido), { scroll: false });
   const abrir = (id: string) => ir({}, id);
   const fecharFicha = () => ir({});
-  const filtrado = Boolean(filtros.busca || filtros.empresa || filtros.responsavel || filtros.destino || filtros.periodo);
+  const filtrado = Boolean(filtros.busca || filtros.empresa || filtros.responsavel || filtros.destino || filtros.periodo || filtros.intervalo);
   const limpar = () => { setBusca(""); router.push(hrefDeCompras({ visao: filtros.visao, cancelados: filtros.cancelados, situacao: filtros.situacao }), { scroll: false }); };
 
   function buscar(evento: FormEvent) {
@@ -82,13 +83,15 @@ export function ComprasView({ filtros, colunas, pedidos, total, opcoes, ficha, f
   </form>;
   const filtroDeEmpresa = <FiltroComBusca key="empresa" label="Empresa" icon={<Building2 />} semFiltro="todas" value={filtros.empresa ?? "todas"} onChange={(v) => ir({ empresa: v === "todas" ? undefined : (v as FiltrosDeCompras["empresa"]) })}
     options={[{ value: "todas", label: "Todas as empresas", icon: <Building2 /> }, ...(["plugga", "waze"] as const).map((e) => ({ value: e, label: ROTULO_DA_EMPRESA[e], icon: <PontoDaEmpresa empresa={e} /> }))]} />;
+  // Atalho e intervalo se excluem: escolher um limpa o outro (o endereço leva só um dos dois).
+  const mudarPeriodo = (escolha: EscolhaDePeriodo) => ir({ periodo: (escolha.atalho || undefined) as FiltrosDeCompras["periodo"], intervalo: escolha.intervalo ?? undefined });
   // Responsável e Período só na lista (pedido do André); no quadro ficam Empresa, Cancelados e a busca.
   const filtrosDaLista: [string, ReactElement][] = [
     ["Empresa", filtroDeEmpresa],
     ["Responsável", <FiltroComBusca key="responsavel" label="Responsável" icon={<UserRound />} semFiltro="todos" value={filtros.responsavel ?? "todos"} onChange={(v) => ir({ responsavel: v === "todos" ? undefined : v })}
       options={[{ value: "todos", label: "Todos os responsáveis", icon: <UserRound /> }, ...opcoes.pessoas.map((p) => ({ value: p.id, label: p.nome, icon: <UserRound /> }))]} />],
-    ["Período", <FiltroComBusca key="periodo" label="Período" icon={<CalendarDays />} semFiltro="qualquer" value={filtros.periodo ?? "qualquer"} onChange={(v) => ir({ periodo: v === "qualquer" ? undefined : (v as FiltrosDeCompras["periodo"]) })}
-      options={[{ value: "qualquer", label: "Qualquer período", icon: <CalendarDays /> }, ...periodosDeCompra.map((p) => ({ value: p, label: ROTULO_DO_PERIODO[p], icon: <CalendarDays /> }))]} />],
+    ["Período", <FiltroDePeriodo key="periodo" cheio rotuloDoTodos="Qualquer período" atalhos={periodosDeCompra.map((p) => ({ value: p, label: ROTULO_DO_PERIODO[p] }))}
+      atalho={filtros.periodo ?? ""} intervalo={filtros.intervalo ?? null} aoMudar={mudarPeriodo} />],
   ];
   const visoes = <nav className={estilosPipelines.visoes} aria-label="Visualização dos pedidos">
     <Link href={hrefDeCompras({ ...filtros, visao: "quadro" })} aria-current={quadro ? "page" : undefined} scroll={false}><SquareKanban size={15} aria-hidden="true" /><span>Quadro</span></Link>
@@ -129,7 +132,7 @@ export function ComprasView({ filtros, colunas, pedidos, total, opcoes, ficha, f
         acoesQuandoPresa={podeCriar ? <Button iconOnly icon={<IconPlus />} aria-label="Novo pedido" title="Novo pedido" onClick={() => setCriando(true)} /> : undefined}
         movel={{
           visao: { opcoes: [{ value: "quadro", label: "Quadro", icon: <SquareKanban /> }, { value: "lista", label: "Todos os pedidos", icon: <List /> }], valor: filtros.visao, aoMudar: (v) => ir({ visao: v as FiltrosDeCompras["visao"] }) },
-          filtrosAtivos: [filtros.busca, filtros.empresa, filtros.responsavel, filtros.periodo].filter(Boolean).length,
+          filtrosAtivos: [filtros.busca, filtros.empresa, filtros.responsavel, filtros.periodo, filtros.intervalo].filter(Boolean).length,
           aoLimpar: filtrado ? limpar : undefined,
           rotuloDoResultado: `Ver ${pedidos.length} ${pedidos.length === 1 ? "pedido" : "pedidos"}`,
           folha: <>{campoDeBusca("folha")}{filtrosDaLista.map(([rotulo, filtro]) => <CampoDaFolha key={rotulo} rotulo={rotulo}>{filtro}</CampoDaFolha>)}</>,

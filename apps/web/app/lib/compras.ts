@@ -11,6 +11,8 @@ import {
   type SituacaoDoPrazo,
 } from "@plugga/shared";
 
+import { lerIntervalo, type IntervaloLivre } from "./periodo-livre.ts";
+
 /**
  * Compras (PLU-328): filtros pelo endereço, valores, prazos e rótulos do quadro,
  * da lista e da ficha. Um quadro só para Plugga e Waze; a empresa é filtro.
@@ -55,6 +57,8 @@ export type FiltrosDeCompras = {
   destino?: DestinoDeCompra;
   /** Só na lista. */
   periodo?: PeriodoDeCompra;
+  /** Só na lista: período personalizado (De e Até, ?de=&ate=). Exclui o atalho `periodo`. */
+  intervalo?: IntervaloLivre;
   /** Só no quadro: mostra a coluna de cancelados. */
   cancelados: boolean;
   /** Só na lista. */
@@ -69,13 +73,14 @@ export function lerFiltrosDeCompras(p: Record<string, string | undefined>): Filt
   const destino = destinosDeCompra.find((d) => d === p.destino);
   const periodo = periodosDeCompra.find((x) => x === p.periodo);
   const lista = p.visao === "lista";
+  const intervalo = lista ? lerIntervalo(p.de, p.ate) : null;
   return {
     visao: lista ? "lista" : "quadro",
     busca: p.busca?.trim().slice(0, 150) || undefined,
     ...(empresa ? { empresa } : {}),
     ...(lista && p.responsavel && UUID.test(p.responsavel) ? { responsavel: p.responsavel } : {}),
     ...(destino ? { destino } : {}),
-    ...(lista && periodo ? { periodo } : {}),
+    ...(intervalo ? { intervalo } : lista && periodo ? { periodo } : {}),
     cancelados: p.cancelados === "1",
     situacao: situacoesDaLista.find((s) => s === p.situacao) ?? "em_andamento",
   };
@@ -85,7 +90,7 @@ export function lerFiltrosDeCompras(p: Record<string, string | undefined>): Filt
  * Endereço do quadro com filtro que só vale na lista (Responsável, Período):
  * a página redireciona para o endereço limpo, e a URL mostra o que filtra.
  */
-export const temFiltroSoDaLista = (p: Record<string, string | undefined>): boolean => p.visao !== "lista" && Boolean(p.responsavel || p.periodo);
+export const temFiltroSoDaLista = (p: Record<string, string | undefined>): boolean => p.visao !== "lista" && Boolean(p.responsavel || p.periodo || p.de || p.ate);
 
 /** Os filtros e a ficha vão no endereço: o mesmo link abre a mesma tela. */
 export function hrefDeCompras(f: Partial<FiltrosDeCompras>, pedido?: string | null): string {
@@ -95,7 +100,8 @@ export function hrefDeCompras(f: Partial<FiltrosDeCompras>, pedido?: string | nu
   if (f.empresa) q.set("empresa", f.empresa);
   if (f.visao === "lista" && f.responsavel) q.set("responsavel", f.responsavel);
   if (f.destino) q.set("destino", f.destino);
-  if (f.visao === "lista" && f.periodo) q.set("periodo", f.periodo);
+  if (f.visao === "lista" && f.intervalo) { q.set("de", f.intervalo.de); q.set("ate", f.intervalo.ate); }
+  else if (f.visao === "lista" && f.periodo) q.set("periodo", f.periodo);
   if (f.visao !== "lista" && f.cancelados) q.set("cancelados", "1");
   if (f.visao === "lista" && f.situacao && f.situacao !== "em_andamento") q.set("situacao", f.situacao);
   if (pedido) q.set("pedido", pedido);
@@ -126,7 +132,7 @@ export function consultaDaApi(f: FiltrosDeCompras, hoje: string): Record<string,
     empresa: f.empresa,
     responsavelId: f.responsavel,
     destino: f.destino,
-    ...intervaloDoPeriodo(f.periodo, hoje),
+    ...(f.intervalo ? { de: f.intervalo.de, ate: f.intervalo.ate } : intervaloDoPeriodo(f.periodo, hoje)),
   };
 }
 

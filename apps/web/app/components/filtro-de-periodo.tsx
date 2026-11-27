@@ -37,10 +37,15 @@ const INTERVALO = "__intervalo";
  * Opcionais (sem eles nada muda): `maximoDeDias` recusa, no campo Até, um intervalo maior que o
  * limite da API da tela; `semTodoOPeriodo` tira "Todo o período" quando a tela sempre precisa de
  * datas; `variante="campo"` troca o gatilho de filtro pelo campo de formulário (`CampoDeMenu`, com
- * `dica`), para dentro de diálogos, e abre o painel dentro do próprio diálogo.
+ * `dica`), para dentro de diálogos, e abre o painel dentro do próprio diálogo. `rotuloDoTodos` renomeia
+ * "Todo o período"; `semFiltro` é o atalho que o gatilho mostra só como o rótulo (o padrão da tela,
+ * quando não é "todo o período"); `cheio` estica o gatilho à largura de quem o envolve.
  */
-export function FiltroDePeriodo({ label = "Período", atalhos, atalho, intervalo, aoMudar, maximoDeDias, semTodoOPeriodo = false, variante = "filtro", dica }: {
+export function FiltroDePeriodo({ label = "Período", atalhos, atalho, intervalo, aoMudar, maximoDeDias, semTodoOPeriodo = false, variante = "filtro", dica, rotuloDoTodos = "Todo o período", semFiltro = "", cheio = false }: {
   label?: string;
+  rotuloDoTodos?: string;
+  semFiltro?: string;
+  cheio?: boolean;
   maximoDeDias?: number;
   semTodoOPeriodo?: boolean;
   variante?: "filtro" | "campo";
@@ -63,7 +68,7 @@ export function FiltroDePeriodo({ label = "Período", atalhos, atalho, intervalo
   const icone = <CalendarDays />;
 
   const opcoes = [
-    ...(semTodoOPeriodo ? [] : [{ value: "", label: "Todo o período", icon: icone }]),
+    ...(semTodoOPeriodo ? [] : [{ value: "", label: rotuloDoTodos, icon: icone }]),
     ...atalhos.map((a) => ({ value: a.value, label: a.label, icon: icone })),
     ...(intervalo ? [{ value: INTERVALO, label: rotuloDoIntervalo(intervalo), icon: icone }] : []),
     { value: PERSONALIZADO, label: "Personalizado…", icon: <CalendarRange /> },
@@ -120,10 +125,10 @@ export function FiltroDePeriodo({ label = "Período", atalhos, atalho, intervalo
 
   return <Popover open={painel} onOpenChange={setPainel}>
     <PopoverAnchor asChild>
-      <span ref={raiz} className={emCampo ? styles.ancoraCampo : styles.ancora}>
+      <span ref={raiz} className={emCampo ? styles.ancoraCampo : cheio ? `${styles.ancora} ${styles.cheio}` : styles.ancora}>
         {emCampo
           ? <CampoDeMenu label={label} icon={icone} required={semTodoOPeriodo} hint={dica} value={intervalo ? INTERVALO : atalho} options={opcoes} onChange={aoEscolher} />
-          : <FiltroComBusca label={label} icon={icone} semFiltro="" value={intervalo ? INTERVALO : atalho} options={opcoes} onChange={aoEscolher} />}
+          : <FiltroComBusca label={label} icon={icone} semFiltro={semFiltro} value={intervalo ? INTERVALO : atalho} options={opcoes} onChange={aoEscolher} />}
       </span>
     </PopoverAnchor>
     <PopoverContent ref={conteudo} container={camada} align={emCampo ? "start" : "end"} className={styles.painel} aria-label={`${label} personalizado`}
