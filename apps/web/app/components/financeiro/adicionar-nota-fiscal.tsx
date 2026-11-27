@@ -19,7 +19,7 @@ import {
   type NotaFiscal,
   type TipoDaNota,
 } from "../../lib/notas-fiscais";
-import { dadosDaNfe, preencherComANfe } from "../../lib/notas-fiscais-xml";
+import { dadosDaNfe, podeLerOXml, preencherComANfe, sequenciaDeLeituras } from "../../lib/notas-fiscais-xml";
 import { PontoDaEmpresa } from "../suprimentos/empresa";
 import { CampoDeMenu } from "../suprimentos/menu-com-busca";
 import { Alert, Button, CurrencyField, DatePicker, Dialog, TextField } from "../ui";
@@ -32,9 +32,6 @@ const TIPOS: readonly OpcaoEmCartao<TipoDaNota>[] = [
   { value: "saida", titulo: "Saída", descricao: "Recebida de um fornecedor", icone: <ArrowUpRight size={16} />, cor: "vermelha" },
 ];
 type Tocado = CampoDaNota | "tipo";
-
-/** No navegador, o DOMParser diz se o XML é bem formado (o `parsererror` aparece no documento). */
-const xmlBemFormado = (texto: string) => new DOMParser().parseFromString(texto, "application/xml").getElementsByTagName("parsererror").length === 0;
 
 /**
  * "Adicionar nota fiscal" no PROTÓTIPO: o registro manual de uma nota já emitida.
@@ -62,6 +59,7 @@ export function AdicionarNotaFiscal({ hoje, tipoInicial, empresaInicial, notas, 
   const camposAtuais = useRef(campos);
   camposAtuais.current = campos;
   const formRef = useRef<HTMLFormElement>(null);
+  const leituras = useRef(sequenciaDeLeituras());
   const focar = useRef(false);
   const mudar = (parcial: Partial<CamposDaNota>) => setCampos((atuais) => ({ ...atuais, ...parcial }));
   const digitar = (campo: Tocado, parcial: Partial<CamposDaNota>) => { tocados.current.add(campo); mudar(parcial); };
@@ -104,12 +102,18 @@ export function AdicionarNotaFiscal({ hoje, tipoInicial, empresaInicial, notas, 
     // Escolher o lançamento completa o cliente (ou fornecedor) e o valor, se ainda vazios.
     mudar({ lancamento: codigo, ...(l && !campos.contraparteId ? { contraparteId: l.contraparteId } : {}), ...(l && !campos.valor ? { valor: l.valor } : {}) });
   }
-  /** Anexa o arquivo; sendo XML de NF-e, preenche o que ainda está vazio. PDF ou XML que não é NF-e só anexa. */
-  async function anexar(arquivo: CamposDaNota["arquivo"], conteudo: File | null) {
+  /**
+   * Anexa o arquivo na hora; sendo XML de até 2 MB, lê e preenche o que ainda está vazio. PDF,
+   * XML grande demais ou que não é NF-e só anexa (o tamanho acima de 25 MB é recusado ao salvar,
+   * sem ler o conteúdo). Só a leitura mais recente vale: trocar de arquivo descarta a anterior.
+   */
+  async function anexar(arquivo: CamposDaNota["arquivo"], conteudo: File | null, leitura: number) {
     setLidoDoXml(false);
-    if (!arquivo || !conteudo || arquivo.formato !== "xml") { mudar({ arquivo }); return; }
+    mudar({ arquivo });
+    if (!arquivo || !conteudo || arquivo.formato !== "xml" || !podeLerOXml(arquivo.tamanho)) return;
     const texto = await conteudo.text();
-    const { campos: preenchidos, preenchidos: quais } = preencherComANfe({ ...camposAtuais.current, arquivo }, dadosDaNfe(texto, xmlBemFormado(texto)), { contrapartes, tocados: tocados.current });
+    if (!leituras.current.vale(leitura)) return;
+    const { campos: preenchidos, preenchidos: quais } = preencherComANfe({ ...camposAtuais.current, arquivo }, dadosDaNfe(texto), { contrapartes, tocados: tocados.current });
     setCampos(preenchidos);
     setLidoDoXml(quais.length > 0);
   }
@@ -131,7 +135,8 @@ export function AdicionarNotaFiscal({ hoje, tipoInicial, empresaInicial, notas, 
 
       <section className="ui-dialog-section">
         <SeletorEmCartoes legenda="Tipo da nota" nome="tipo-da-nota" valor={campos.tipo} aoMudar={trocarTipo} opcoes={TIPOS} />
-        <div data-campo="arquivo"><ArquivoDaNota valor={campos.arquivo} erro={erros.arquivo} aoMudar={(arquivo, conteudo) => void anexar(arquivo, conteudo)} /></div>
+        <div data-campo="arquivo"><ArquivoDaNota valor={campos.arquivo} erro={erros.arquivo} iniciar={() => leituras.current.nova()} vale={(n) => leituras.current.vale(n)}
+          aoMudar={(arquivo, conteudo, leitura) => void anexar(arquivo, conteudo, leitura)} /></div>
         {lidoDoXml ? <p className={styles.lidoDoXml} role="status"><Info size={14} aria-hidden="true" />Dados lidos do XML; confira antes de salvar.</p> : null}
 
         <div className="ui-dialog-grid">
@@ -151,7 +156,7 @@ export function AdicionarNotaFiscal({ hoje, tipoInicial, empresaInicial, notas, 
           <div data-campo="numero"><TextField label="Número" required inputMode="numeric" maxLength={14} placeholder="Ex.: 1287" value={campos.numero}
             onChange={(e) => digitar("numero", { numero: e.target.value })} error={erros.numero} /></div>
           <div data-campo="emitidaEm" className={styles.semAjuda}><DatePicker label="Data de emissão" required max={hoje} value={campos.emitidaEm} onChange={(v) => digitar("emitidaEm", { emitidaEm: v })} error={erros.emitidaEm} hint="" /></div>
-          <div data-campo="valor"><CurrencyField label="Valor" required value={campos.valor} onValueChange={(v) => digitar("valor", { valor: v })} error={erros.valor}
+          <div data-campo="valor"><CurrencyField label="Valor" required mascaraDeCentavos value={campos.valor} onValueChange={(v) => digitar("valor", { valor: v })} error={erros.valor}
             hint={avisoDoValor(campos.valor, escolhido) ? `Difere do lançamento (${valorEmReais(escolhido!.valor)}). Pode salvar assim.` : undefined} /></div>
         </div>
       </section>
@@ -160,17 +165,21 @@ export function AdicionarNotaFiscal({ hoje, tipoInicial, empresaInicial, notas, 
 }
 
 /** Um arquivo só, PDF ou XML: o formato sai dos primeiros bytes, não do nome. */
-function ArquivoDaNota({ valor, erro, aoMudar }: {
+function ArquivoDaNota({ valor, erro, iniciar, vale, aoMudar }: {
   valor: CamposDaNota["arquivo"]; erro: string | undefined;
-  aoMudar: (arquivo: CamposDaNota["arquivo"], conteudo: File | null) => void;
+  /** Abre uma leitura nova (a anterior fica obsoleta); `vale` diz se ela ainda é a mais recente. */
+  iniciar: () => number; vale: (leitura: number) => boolean;
+  aoMudar: (arquivo: CamposDaNota["arquivo"], conteudo: File | null, leitura: number) => void;
 }) {
   const id = useId();
   const input = useRef<HTMLInputElement>(null);
   const [arrastando, setArrastando] = useState(false);
   async function escolher(arquivo: File | undefined) {
     if (!arquivo) return;
+    const leitura = iniciar();
     const inicio = new Uint8Array(await arquivo.slice(0, 64).arrayBuffer());
-    aoMudar({ nome: arquivo.name, tamanho: arquivo.size, formato: formatoPeloConteudo(inicio) }, arquivo);
+    if (!vale(leitura)) return;
+    aoMudar({ nome: arquivo.name, tamanho: arquivo.size, formato: formatoPeloConteudo(inicio) }, arquivo, leitura);
   }
   const soltar = (e: DragEvent) => { e.preventDefault(); setArrastando(false); void escolher(e.dataTransfer.files[0]); };
   return <div className="ui-field">
@@ -181,7 +190,7 @@ function ArquivoDaNota({ valor, erro, aoMudar }: {
       <li data-invalido={Boolean(erro) || undefined}>
         {valor.formato === "xml" ? <FileCode2 size={18} aria-hidden="true" /> : <FileText size={18} aria-hidden="true" />}
         <span><strong>{valor.nome}</strong><small>{valor.formato ? (valor.formato === "xml" ? "XML" : "PDF") : "Formato não reconhecido"} · {tamanhoDoArquivo(valor.tamanho)}</small></span>
-        <Button icon={<XIcon />} iconOnly size="sm" variant="secondary" aria-label={`Remover ${valor.nome}`} onClick={() => aoMudar(null, null)} />
+        <Button icon={<XIcon />} iconOnly size="sm" variant="secondary" aria-label={`Remover ${valor.nome}`} onClick={() => aoMudar(null, null, iniciar())} />
       </li>
     </ul> : <div className={`ui-file-dropzone ${styles.soltar}`} data-dragging={arrastando || undefined}
       onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "copy"; }}

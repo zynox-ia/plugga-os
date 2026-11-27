@@ -6,8 +6,14 @@ import type { CampoDaNota, CamposDaNota, ContraparteDaNota, TipoDaNota } from ".
  * Notas fiscais (PLU-361), protótipo: ao soltar o XML de uma NF-e, os dados da
  * nota preenchem o formulário, no navegador e sem API. Duas regras puras:
  * `dadosDaNfe` lê o texto do XML e `preencherComANfe` decide o que entra no
- * formulário. No navegador, o DOMParser confere antes se o XML é bem formado
- * (`xmlBemFormado`); aqui, só se lê o que a NF-e tem, sem interpretar o resto.
+ * formulário.
+ *
+ * A leitura é defensiva, porque o arquivo vem de fora: só se lê até 2 MB
+ * (`podeLerOXml`); DTD e entidades (`<!DOCTYPE`, `<!ENTITY`) nem são
+ * interpretados; e os campos saem de uma ÁRVORE (um analisador estrito, abaixo),
+ * no namespace da NF-e e pelo caminho certo, nunca por busca no texto: um
+ * comentário ou um CDATA com "<nNF>" falso não vira campo. O analisador é próprio
+ * (e não o DOMParser) para a regra rodar igual no navegador e nos testes.
  */
 
 export type DadosDaNfe = {
@@ -20,38 +26,147 @@ export type DadosDaNfe = {
   destinatario: string | null;
 };
 
-/** O conteúdo de um elemento (com ou sem prefixo de namespace), o primeiro dentro de `trecho`. */
-function elemento(trecho: string, nome: string): string | null {
-  const m = new RegExp(`<(?:[\\w-]+:)?${nome}(?:\\s[^>]*)?>([\\s\\S]*?)</(?:[\\w-]+:)?${nome}>`).exec(trecho);
-  return m ? m[1]! : null;
+/** Um XML de NF-e real tem dezenas de KB: acima disto o arquivo só anexa, sem ser lido. */
+export const LIMITE_DA_LEITURA_DO_XML = 2 * 1024 * 1024;
+export const podeLerOXml = (tamanho: number): boolean => tamanho <= LIMITE_DA_LEITURA_DO_XML;
+
+/**
+ * Leituras em andamento: cada arquivo escolhido abre uma leitura nova, e só a
+ * mais recente vale. Quem troca de arquivo antes de a leitura anterior terminar
+ * não tem a seleção revertida pelo resultado atrasado.
+ */
+export function sequenciaDeLeituras() {
+  let ultima = 0;
+  return { nova: (): number => ++ultima, vale: (leitura: number): boolean => leitura === ultima };
 }
-const texto = (trecho: string | null, nome: string): string | null => {
-  const v = trecho === null ? null : elemento(trecho, nome);
-  if (v === null || /</.test(v)) return null;
-  const limpo = v.replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, "\"").replace(/&apos;/g, "'").trim();
-  return limpo || null;
-};
+
+const NAMESPACE_DA_NFE = "http://www.portalfiscal.inf.br/nfe";
+const PROFUNDIDADE_MAXIMA = 40;
+
+type No = { local: string; ns: string; filhos: No[]; texto: string };
+
+const ENTIDADES: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: "\"", apos: "'" };
+
+/** Decodifica as cinco entidades do XML e as referências numéricas; qualquer outra "&" é recusada (nulo). */
+function decodificar(texto: string): string | null {
+  let invalido = false;
+  const resultado = texto.replace(/&([^&;\s]*);?/g, (inteiro, nome: string) => {
+    if (!inteiro.endsWith(";")) { invalido = true; return ""; }
+    if (nome.startsWith("#")) {
+      const codigo = /^#x[0-9a-fA-F]+$/.test(nome) ? parseInt(nome.slice(2), 16) : /^#\d+$/.test(nome) ? parseInt(nome.slice(1), 10) : NaN;
+      if (!Number.isFinite(codigo) || codigo < 1 || codigo > 0x10ffff) { invalido = true; return ""; }
+      return String.fromCodePoint(codigo);
+    }
+    const valor = ENTIDADES[nome];
+    if (valor === undefined) { invalido = true; return ""; }
+    return valor;
+  });
+  return invalido ? null : resultado;
+}
+
+/** Um analisador de XML estrito e pequeno: uma raiz só, tags casadas, sem DTD. Nulo se o texto não for XML bem formado. */
+function arvoreDoXml(xml: string): No | null {
+  if (/<!\s*(?:DOCTYPE|ENTITY|ELEMENT|ATTLIST|NOTATION)/i.test(xml)) return null;
+  const texto = xml.charCodeAt(0) === 0xfeff ? xml.slice(1) : xml;
+  const raiz: No = { local: "#raiz", ns: "", filhos: [], texto: "" };
+  const pilha: { no: No; escopo: Record<string, string>; nome: string }[] = [{ no: raiz, escopo: { "": "" }, nome: "" }];
+  const abertura = /<([A-Za-z_][\w.:-]*)((?:\s+[A-Za-z_][\w.:-]*\s*=\s*(?:"[^"]*"|'[^']*'))*)\s*(\/?)>/y;
+  const atributo = /\s+([A-Za-z_][\w.:-]*)\s*=\s*(?:"([^"]*)"|'([^']*)')/g;
+  let i = 0;
+  let temRaiz = false;
+  while (i < texto.length) {
+    const topo = pilha[pilha.length - 1]!;
+    if (texto[i] !== "<") {
+      const proximo = texto.indexOf("<", i);
+      const fim = proximo === -1 ? texto.length : proximo;
+      const trecho = texto.slice(i, fim);
+      if (pilha.length === 1) {
+        if (trecho.trim()) return null;
+      } else {
+        const decodificado = decodificar(trecho);
+        if (decodificado === null) return null;
+        topo.no.texto += decodificado;
+      }
+      i = fim;
+      continue;
+    }
+    if (texto.startsWith("<!--", i)) { const f = texto.indexOf("-->", i + 4); if (f === -1) return null; i = f + 3; continue; }
+    if (texto.startsWith("<![CDATA[", i)) {
+      const f = texto.indexOf("]]>", i + 9);
+      if (f === -1 || pilha.length === 1) return null;
+      topo.no.texto += texto.slice(i + 9, f);
+      i = f + 3;
+      continue;
+    }
+    if (texto.startsWith("<?", i)) { const f = texto.indexOf("?>", i + 2); if (f === -1) return null; i = f + 2; continue; }
+    if (texto.startsWith("<!", i)) return null;
+    if (texto[i + 1] === "/") {
+      const f = texto.indexOf(">", i);
+      if (f === -1) return null;
+      if (pilha.length === 1 || texto.slice(i + 2, f).trim() !== topo.nome) return null;
+      pilha.pop();
+      i = f + 1;
+      continue;
+    }
+    abertura.lastIndex = i;
+    const m = abertura.exec(texto);
+    if (!m) return null;
+    const nome = m[1]!;
+    if (pilha.length === 1) { if (temRaiz) return null; temRaiz = true; }
+    if (pilha.length > PROFUNDIDADE_MAXIMA) return null;
+    const escopo = { ...topo.escopo };
+    for (const a of (m[2] ?? "").matchAll(atributo)) {
+      const [, chave = "", duplas, simples] = a;
+      const valor = duplas ?? simples ?? "";
+      if (chave === "xmlns") escopo[""] = valor;
+      else if (chave.startsWith("xmlns:")) escopo[chave.slice(6)] = valor;
+    }
+    const doisPontos = nome.indexOf(":");
+    const ns = escopo[doisPontos === -1 ? "" : nome.slice(0, doisPontos)];
+    if (ns === undefined) return null;
+    const no: No = { local: doisPontos === -1 ? nome : nome.slice(doisPontos + 1), ns, filhos: [], texto: "" };
+    topo.no.filhos.push(no);
+    if (!m[3]) pilha.push({ no, escopo, nome });
+    i += m[0].length;
+  }
+  return pilha.length === 1 && temRaiz ? raiz : null;
+}
+
+const filho = (no: No | null | undefined, local: string): No | null => no?.filhos.find((f) => f.local === local && f.ns === NAMESPACE_DA_NFE) ?? null;
+
+/** O primeiro elemento da NF-e com esse nome, em qualquer profundidade. */
+function descendente(no: No, local: string): No | null {
+  for (const f of no.filhos) {
+    if (f.local === local && f.ns === NAMESPACE_DA_NFE) return f;
+    const dentro = descendente(f, local);
+    if (dentro) return dentro;
+  }
+  return null;
+}
+
+/** O texto de uma folha (sem elementos dentro), aparado; nulo se vazio. */
+const conteudo = (no: No | null): string | null => (no && no.filhos.length === 0 ? no.texto.trim() || null : null);
 
 /**
  * Os dados que interessam de uma NF-e (modelo 55, `infNFe`): número (`ide/nNF`),
- * emissão (`ide/dhEmi` ou, na versão antiga, `ide/dEmi`), valor (`ICMSTot/vNF`) e
- * os nomes do emitente e do destinatário. Nulo quando o texto não é uma NF-e
- * (sem `infNFe` fechado) ou quando `bemFormado` diz que o XML está quebrado.
+ * emissão (`ide/dhEmi` ou, na versão antiga, `ide/dEmi`), valor (`total/ICMSTot/vNF`)
+ * e os nomes do emitente e do destinatário. Nulo quando o texto não é XML bem
+ * formado, tem DTD, ou não é uma NF-e (sem `infNFe` no namespace da NF-e).
  */
-export function dadosDaNfe(xml: string, bemFormado: boolean): DadosDaNfe | null {
-  if (!bemFormado) return null;
-  const inf = elemento(xml, "infNFe");
-  if (inf === null) return null;
-  const ide = elemento(inf, "ide");
-  const numero = texto(ide, "nNF");
-  const emissao = texto(ide, "dhEmi") ?? texto(ide, "dEmi");
-  const valor = texto(elemento(inf, "ICMSTot"), "vNF");
+export function dadosDaNfe(xml: string): DadosDaNfe | null {
+  const raiz = arvoreDoXml(xml);
+  const inf = raiz ? descendente(raiz, "infNFe") : null;
+  if (!inf) return null;
+  const ide = filho(inf, "ide");
+  const numero = conteudo(filho(ide, "nNF"));
+  const emissao = conteudo(filho(ide, "dhEmi")) ?? conteudo(filho(ide, "dEmi"));
+  const valor = conteudo(filho(filho(filho(inf, "total"), "ICMSTot"), "vNF"));
   return {
     numero: numero && /^\d{1,9}$/.test(numero) ? numero.replace(/^0+(?=\d)/, "") : null,
     emitidaEm: emissao && /^\d{4}-\d{2}-\d{2}/.test(emissao) ? emissao.slice(0, 10) : null,
     valor: valor && /^\d+(\.\d{1,2})?$/.test(valor) ? (([i, f = ""]) => `${i}.${(f + "00").slice(0, 2)}`)(valor.split(".")) : null,
-    emitente: texto(elemento(inf, "emit"), "xNome"),
-    destinatario: texto(elemento(inf, "dest"), "xNome"),
+    emitente: conteudo(filho(filho(inf, "emit"), "xNome")),
+    destinatario: conteudo(filho(filho(inf, "dest"), "xNome")),
   };
 }
 
