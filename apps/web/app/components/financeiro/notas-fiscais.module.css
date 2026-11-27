@@ -9,7 +9,7 @@
 
 /* ---------------------------------------------------------------- seletor */
 
-.seletor { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; max-width: 1180px; flex-shrink: 0; }
+.seletor { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; flex-shrink: 0; }
 .lado {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
@@ -50,8 +50,9 @@
 
 /* ---------------------------------------------------------------- busca e filtros */
 
-.barra { display: flex; align-items: center; justify-content: space-between; gap: 12px; max-width: 1180px; flex-shrink: 0; }
-.busca { flex: 0 1 340px; width: auto; min-width: 0; }
+.barra { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-shrink: 0; }
+/* A busca como a de Lançamentos (BarraFixa): cresce até 280 px e não passa disso; o resto da linha é dos filtros. */
+.busca { flex: 1 1 180px; width: auto; min-width: 160px; max-width: 280px; }
 .filtros { display: flex; flex-wrap: nowrap; align-items: center; justify-content: flex-end; gap: 4px; min-width: 0; }
 
 /* Filtros minimalistas, só nesta tela (o FiltroComBusca e o CSS dele não mudam): sem pílula forte, sem
@@ -92,7 +93,8 @@
 /* ---------------------------------------------------------------- lista */
 
 .conteudo { display: block; min-width: 0; }
-.lista { max-width: 1180px; flex: none; }
+/* Sem o teto de 1180 px do .lista de Lançamentos: a tabela ocupa a mesma largura dos cards. */
+.conteudo .lista { flex: none; max-width: none; }
 /* A página rola inteira: sem rolagem interna (nem o contain: size) na tabela. */
 .lista :global(.lista-negocios-card) { flex: none; min-height: auto; }
 .lista .rolagem { flex: none; contain: none; min-height: 0; overflow: visible; }
@@ -114,7 +116,6 @@
 /* A nota recém-adicionada pisca de leve (o realce some sozinho). */
 .lista tbody tr[data-selected="true"] td { transition: background-color .6s ease; }
 
-.vazio { max-width: 1180px; }
 
 /* ---------------------------------------------------------------- ficha */
 
@@ -167,7 +168,7 @@
   .ladoNumeros { grid-column: 1 / -1; justify-items: start; }
   .ladoTotal { font-size: 15px; }
   .barra { flex-direction: column; align-items: stretch; }
-  .busca { flex: none; width: 100%; }
+  .busca { flex: none; width: 100%; max-width: none; }
   .filtros { flex-wrap: nowrap; justify-content: flex-start; gap: 8px; }
   .filtros button[aria-haspopup="listbox"] { flex: 1 1 0; min-width: 0; border-color: var(--ui-divider); }
   .quem { align-items: flex-start; }
