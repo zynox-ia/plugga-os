@@ -1,0 +1,161 @@
+/* Relatório por grupo e categoria do Financeiro (PLU-360). Tokens do design system (ui.css). */
+.pagina { min-width: 0; }
+.subtitulo { max-width: 60ch; }
+.titulos .subtitulo { white-space: normal; }
+.acoes { flex-wrap: wrap; justify-content: flex-end; }
+.filtroEmpresa { flex: none; }
+.filtroEmpresa button { width: auto; }
+
+/* Período: atalhos e as duas datas */
+.periodo { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; margin: 16px 0; min-width: 0; }
+.atalhos { display: flex; flex-wrap: wrap; gap: 6px; }
+.atalhos button {
+  min-height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--ui-divider);
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--ui-muted);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.atalhos button:hover { color: var(--ui-text); border-color: var(--ui-border); }
+.atalhos button[aria-pressed="true"] { border-color: var(--ui-primary); background: var(--ui-focus-bg); color: var(--ui-text); font-weight: 500; }
+.atalhos button:focus-visible { outline: 2px solid var(--ui-focus); outline-offset: 2px; }
+.datas { display: grid; grid-template-columns: repeat(2, minmax(150px, 180px)); gap: 12px; min-width: 0; }
+.datas > * { min-width: 0; }
+
+.negativo { color: var(--ui-danger); }
+
+.contexto { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; margin: 20px 0 12px; }
+.contexto p { margin: 0; color: var(--ui-muted); font-size: 13px; }
+.contexto p strong { color: var(--ui-text); font-weight: 500; }
+
+/* Seções lado a lado no desktop, uma embaixo da outra abaixo de 1100px */
+.secoes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; }
+.secao {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  padding: 18px;
+  border: 1px solid var(--ui-divider);
+  border-radius: var(--radius-xl);
+  background: var(--ui-surface);
+}
+.topoDaSecao { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.topoDaSecao h2 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 16px; font-weight: 500; }
+.topoDaSecao h2 svg { color: var(--ui-muted); }
+.totalDaSecao { display: grid; justify-items: end; gap: 2px; font-variant-numeric: tabular-nums; }
+.totalDaSecao strong { font-size: 18px; font-weight: 600; }
+.totalDaSecao small { color: var(--ui-muted); font-size: 12px; }
+
+.cabecalhoDaTabela, .linhaDoGrupo, .linhaDaCategoria {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(96px, 140px) minmax(104px, auto);
+  align-items: center;
+  gap: 12px;
+}
+.cabecalhoDaTabela { padding: 0 12px 0 36px; color: var(--ui-muted); font-size: 11.5px; font-weight: 500; text-transform: uppercase; letter-spacing: .04em; }
+.cabecalhoDaTabela span:not(:first-child) { text-align: right; }
+
+.grupos, .categorias, .lancamentos { margin: 0; padding: 0; list-style: none; }
+.grupos { display: grid; gap: 6px; }
+.grupo { min-width: 0; border: 1px solid var(--ui-divider); border-radius: var(--radius-lg); background: #fff; }
+.linhaDoGrupo, .linhaDaCategoria {
+  width: 100%;
+  min-height: 52px;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  color: var(--ui-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.linhaDoGrupo { grid-template-columns: 16px minmax(0, 1fr) minmax(96px, 140px) minmax(104px, auto); }
+.linhaDoGrupo:hover, .linhaDaCategoria:hover { background: var(--ui-subtle); }
+.linhaDoGrupo:focus-visible, .linhaDaCategoria:focus-visible { outline: 2px solid var(--ui-focus); outline-offset: -2px; }
+.seta { color: var(--ui-muted); transition: transform 160ms ease; }
+.linhaDoGrupo[aria-expanded="true"] .seta { transform: rotate(90deg); }
+@media (prefers-reduced-motion: reduce) { .seta { transition: none; } }
+
+.categorias { border-top: 1px solid var(--ui-divider); }
+.categorias li + li { border-top: 1px solid var(--ui-divider); }
+.linhaDaCategoria { min-height: 48px; padding-left: 36px; border-radius: 0; }
+.categorias li:last-child .linhaDaCategoria { border-radius: 0 0 var(--radius-lg) var(--radius-lg); }
+
+.nome { display: grid; gap: 2px; min-width: 0; }
+.nome strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+.linhaDaCategoria .nome strong { font-weight: 400; }
+.nome small { color: var(--ui-muted); font-size: 12px; }
+.codigo { margin-right: 6px; color: var(--ui-muted); font-variant-numeric: tabular-nums; font-weight: 400; }
+.parte { display: flex; align-items: center; justify-content: flex-end; gap: 8px; min-width: 0; }
+.parte small { flex: none; min-width: 44px; color: var(--ui-muted); font-size: 12px; text-align: right; font-variant-numeric: tabular-nums; }
+.barra { flex: 1 1 auto; max-width: 72px; height: 6px; overflow: hidden; border-radius: var(--radius-full); background: var(--ui-subtle); }
+.barra span { display: block; height: 100%; border-radius: inherit; background: var(--ui-primary); }
+.valor { text-align: right; font-variant-numeric: tabular-nums; font-weight: 500; white-space: nowrap; }
+
+.rodapeDaSecao { display: flex; justify-content: space-between; gap: 12px; padding: 12px 12px 0; border-top: 1px solid var(--ui-divider); font-variant-numeric: tabular-nums; }
+.rodapeDaSecao span { color: var(--ui-muted); font-size: 13px; }
+.rodapeDaSecao strong { font-weight: 600; }
+
+.nota { max-width: 90ch; margin: 16px 0 0; color: var(--ui-muted); font-size: 12.5px; line-height: 1.5; }
+
+/* Lançamentos de uma linha */
+.daLinha { display: grid; gap: 12px; min-width: 0; }
+.somaDaLinha { display: flex; justify-content: space-between; gap: 12px; margin: 0; padding: 12px 14px; border-radius: var(--radius-lg); background: var(--ui-subtle); font-variant-numeric: tabular-nums; }
+.somaDaLinha span { color: var(--ui-muted); }
+.lancamentos { display: grid; gap: 8px; }
+.lancamento {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--ui-divider);
+  border-radius: var(--radius-lg);
+  background: #fff;
+  color: var(--ui-text);
+  text-decoration: none;
+}
+a.lancamento:hover { border-color: color-mix(in srgb, var(--ui-primary) 35%, var(--ui-divider)); }
+a.lancamento:focus-visible { outline: 2px solid var(--ui-focus); outline-offset: 2px; }
+.lancamento .nome { flex: 1; }
+.ladoDoLancamento { display: grid; justify-items: end; gap: 2px; flex: none; text-align: right; font-variant-numeric: tabular-nums; }
+.ladoDoLancamento strong { font-weight: 500; }
+.ladoDoLancamento small { color: var(--ui-muted); font-size: 12px; }
+.abrir { flex: none; color: var(--ui-muted); }
+
+@media (max-width: 1100px) {
+  .secoes { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (max-width: 720px) {
+  /* O cabeçalho do módulo não quebra o subtítulo; aqui ele quebra, para caber em 390 px. */
+  .titulos { min-width: 0; max-width: 100%; }
+  .acoes, .filtroEmpresa, .filtroEmpresa button { width: 100%; }
+  .acoes > :global(.ui-button) { flex: 1; }
+  .periodo { flex-direction: column; align-items: stretch; }
+  .atalhos button { flex: 1; padding: 0 8px; }
+  .datas { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .secao { padding: 14px; }
+  .cabecalhoDaTabela { display: none; }
+  /* Nome em cima; percentual e total na linha de baixo. */
+  .linhaDoGrupo { grid-template-columns: 16px minmax(0, 1fr) auto; grid-template-areas: "seta nome valor" ". parte parte"; row-gap: 6px; }
+  .linhaDoGrupo .seta { grid-area: seta; }
+  .linhaDoGrupo .nome { grid-area: nome; }
+  .linhaDoGrupo .valor { grid-area: valor; }
+  .linhaDoGrupo .parte { grid-area: parte; justify-content: flex-start; }
+  .linhaDaCategoria { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "nome valor" "parte parte"; row-gap: 6px; padding-left: 28px; }
+  .linhaDaCategoria .nome { grid-area: nome; }
+  .linhaDaCategoria .valor { grid-area: valor; }
+  .linhaDaCategoria .parte { grid-area: parte; justify-content: flex-start; }
+  .barra { max-width: none; }
+  .lancamento { align-items: flex-start; }
+  .nome strong { white-space: normal; }
+  :global(.modal.ui-dialog).telaCheia { inset: 0; width: 100vw; max-width: 100vw; height: 100dvh; max-height: 100dvh; margin: 0; border-radius: 0; }
+  :global(.modal.ui-dialog).telaCheia :global(.modal-conteudo) { height: 100%; max-height: 100dvh; }
+  :global(.modal.ui-dialog).telaCheia :global(.ui-dialog-body) { flex: 1 1 auto; align-content: start; }
+}
