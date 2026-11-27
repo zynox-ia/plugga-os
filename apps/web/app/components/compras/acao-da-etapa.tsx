@@ -1,17 +1,16 @@
 "use client";
 
-import { formasDePagamento, rotulosDaEtapaDeCompra, rotulosDaFormaDePagamento, type AtendimentoPeloEstoque, type FormaDePagamento, type PedidoDeCompra } from "@plugga/shared";
+import { formasDePagamento, rotulosDaEtapaDeCompra, rotulosDaFormaDePagamento, type FormaDePagamento, type PedidoDeCompra } from "@plugga/shared";
 import { Ban, CheckCircle2, Clock, Eye, Paperclip, Plus, ShoppingCart, Sparkles, Truck, UserRound, Wallet, Warehouse, type LucideIcon } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
-import { enviar } from "../../lib/clientes";
 import { AREA_DA_ETAPA, dataEmManaus, diaCurto, hojeEmManaus, pendenciasDaEtapa, tamanhoDoArquivo, urlDoArquivo, valorEmReais } from "../../lib/compras";
 import { comparacaoComOrcado, diaDoIso, opcaoDoEstoque, prazoDaEtapaAtual, tituloDoConcluido } from "../../lib/ficha-do-pedido";
 import visao from "../pipelines/resumo-do-lead.module.css";
 import { EntradaNoEstoqueDoRecebimento, type EstadoDaEntrada } from "../suprimentos/ligacao-com-estoque";
 import { Button, DatePicker, FileDropzone, TextField } from "../ui";
 import { Segmentado } from "./campos-de-compra";
-import { CoberturaDoEstoque } from "./cobertura-do-estoque";
+import { CoberturaDoEstoque, CoberturaSoLeitura, useCobertura } from "./cobertura-do-estoque";
 import styles from "./ficha-do-pedido.module.css";
 
 const TOM_DO_PRAZO = { ok: styles.prazoOk, hoje: styles.prazoHoje, vencido: styles.prazoVencido } as const;
@@ -53,19 +52,7 @@ function Destaque({ icone: Icone, titulo, tom, children }: { icone: LucideIcon; 
   </section>;
 }
 
-/** A mesma consulta da lista de cobertura, aqui para o botão do estoque; `null` enquanto não chega. */
-function useCobertura(pedidoId: string, versao: string): AtendimentoPeloEstoque | "erro" | null {
-  const [estado, setEstado] = useState<{ versao: string; dados: AtendimentoPeloEstoque | "erro" } | null>(null);
-  useEffect(() => {
-    const controle = new AbortController();
-    void enviar<AtendimentoPeloEstoque>(`/api/suprimentos/compras/pedidos/${encodeURIComponent(pedidoId)}/atendimento`, "GET", undefined, controle.signal)
-      .then((r) => { if (!controle.signal.aborted) setEstado({ versao, dados: r.ok ? r.dados : "erro" }); });
-    return () => controle.abort();
-  }, [pedidoId, versao]);
-  return estado?.versao === versao ? estado.dados : null;
-}
-
-/** A decisão da análise, só para quem a tem. O botão do estoque segue a cobertura. */
+/** A decisão da análise, só para quem a tem. O botão do estoque e a lista leem a mesma consulta da cobertura. */
 function DecisaoDoEstoque({ pedido, ocupado, aoDecidir }: { pedido: PedidoDeCompra; ocupado: boolean; aoDecidir: (origem: "estoque" | "aquisicao") => void }) {
   // Uma ação que terminou sem mudar a etapa (recusa) pode ter vindo de saldo novo: consulta de novo.
   const [rodada, setRodada] = useState(0);
@@ -77,9 +64,10 @@ function DecisaoDoEstoque({ pedido, ocupado, aoDecidir }: { pedido: PedidoDeComp
   const versao = `${pedido.updatedAt}:${rodada}`;
   // Regra da API (PLU-332): atender pelo estoque exige todos os itens vinculados ao estoque.
   const vinculados = pedido.itens.length > 0 && pedido.itens.every((i) => i.itemDeEstoque);
-  const estoque = opcaoDoEstoque(vinculados, useCobertura(pedido.id, versao));
+  const cobertura = useCobertura(pedido.id, versao);
+  const estoque = opcaoDoEstoque(vinculados, cobertura.dados);
   return <>
-    <CoberturaDoEstoque pedidoId={pedido.id} versao={versao} />
+    <CoberturaDoEstoque dados={cobertura.dados} aoTentarDeNovo={cobertura.tentarDeNovo} />
     <div className={styles.decisao}>
       <button type="button" className={styles.opcao} disabled={ocupado || !estoque.disponivel} onClick={() => aoDecidir("estoque")}>
         <span className={styles.opcaoIcone} aria-hidden="true"><Warehouse size={18} /></span>
@@ -122,7 +110,7 @@ export function AcaoDaEtapa({ pedido, ocupado, estado, aoDecidir, aoVerCotacoes,
     case "analise_estoque": return <Destaque icone={Warehouse} titulo="Possui em estoque? / Pedido já faturado?">
       <p>A decisão define o caminho do pedido.{pode("decidir_estoque") ? null : " Quem decide é a equipe de Compras."}</p>
       {pode("decidir_estoque") ? <DecisaoDoEstoque pedido={pedido} ocupado={ocupado} aoDecidir={aoDecidir} />
-        : <CoberturaDoEstoque pedidoId={pedido.id} versao={pedido.updatedAt} />}
+        : <CoberturaSoLeitura pedidoId={pedido.id} versao={pedido.updatedAt} />}
     </Destaque>;
     case "cotacoes": return <Destaque icone={Paperclip} titulo="Cotações">
       <p>{pedido.cotacoes.length} {pedido.cotacoes.length === 1 ? "cotação registrada" : "cotações registradas"} (recomendado: 3). {escolhida ? <>Vencedora: <strong>{escolhida.fornecedor.nome}</strong>, {valorEmReais(escolhida.valorTotal)} com frete.</> : "Escolha a vencedora para enviar para aprovação."}</p>
