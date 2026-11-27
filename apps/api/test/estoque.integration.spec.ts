@@ -7,6 +7,7 @@ import {
   editarItemDeEstoqueSchema,
   editarPedidoDeCompraSchema,
   registrarMovimentacaoSchema,
+  unidadeDaLinhaConflita,
   type Acesso,
 } from "@plugga/shared";
 import { PrismaClient } from "@prisma/client";
@@ -636,6 +637,16 @@ describe.skipIf(!HABILITADO)("estoque: operador só com a tela de Estoque, no lo
       expect((await root.itemDeEstoque.findUniqueOrThrow({ where: { id: item }, select: { reservado: true } })).reservado.toFixed(3)).toBe("0.000");
     }, PRAZO_MS);
 
+    it("o banco e o contrato comparam unidades igual (plugga_security.unidade_conflita × unidadeDaLinhaConflita)", async () => {
+      const casos: [string | null, string][] = [
+        [" m\t", "m"], ["M", "m"], ["mL", "ML"], ["rolo 50", "rolo50"], ["pé", "pé"], [" m", "m"], [null, "m"], ["", "m"], ["  ", "m"], ["cx", "m"], ["m²", "m2"],
+      ];
+      for (const [daLinha, doItem] of casos) {
+        const [r] = (await como("estoque", () => app.comContexto((tx) => tx.$queryRaw<{ c: boolean }[]>`SELECT plugga_security.unidade_conflita(${daLinha}::text, ${doItem}::text) AS c`))) as [{ c: boolean }];
+        expect([daLinha, doItem, r.c]).toEqual([daLinha, doItem, unidadeDaLinhaConflita(daLinha, doItem)]);
+      }
+    }, PRAZO_MS);
+
     it("o vínculo com o id do item em maiúsculas passa pela mesma conferência de unidade (revisão leva 9)", async () => {
       const item = await criarItem();
       const maiusculo = item.toUpperCase();
@@ -652,7 +663,7 @@ describe.skipIf(!HABILITADO)("estoque: operador só com a tela de Estoque, no lo
       const pedido = await pedidoComUnidades([{ quantidade: "4", itemDeEstoqueId: item }]);
       await root.itemDePedido.updateMany({ where: { pedidoId: pedido }, data: { unidade: "cx" } });
       expect(await como("estoque", () => estoque.pedidosParaEntrada(item))).toEqual([]);
-      await expect(entrada(item, "1", pedido)).rejects.toThrow(/tem linha deste item em cx, e o item é controlado em m: .* sem pedido, com a quantidade convertida para m/);
+      await expect(entrada(item, "1", pedido)).rejects.toThrow(/tem linha deste item em outra unidade, e o item é controlado em m: .* sem pedido, com a quantidade convertida para m/);
       expect(await emEstoque(item)).toBe("0.000");
     }, PRAZO_MS);
 

@@ -49,14 +49,15 @@ export type PedidoParaEntradaDoItem = PedidoDaEntrada & { id: string; titulo: st
 export async function pedidosParaEntrada(tx: Prisma.TransactionClient, itemId: string, pedidoId: string | null): Promise<PedidoParaEntradaDoItem[]> {
   const linhas = await tx.$queryRaw<{
     id: string; numero: number; titulo: string; etapa: ComprasEtapa; cancelado: boolean; atendido_pelo_estoque: boolean;
-    pedida: Prisma.Decimal; recebida: Prisma.Decimal; unidades: string[]; unidade_do_item: string;
+    pedida: Prisma.Decimal; recebida: Prisma.Decimal; unidade_em_conflito: boolean;
   }[]>`
-    SELECT id, numero, titulo, etapa, cancelado, atendido_pelo_estoque, pedida, recebida, unidades, unidade_do_item
+    SELECT id, numero, titulo, etapa, cancelado, atendido_pelo_estoque, pedida, recebida, unidade_em_conflito
     FROM plugga_security.pedidos_para_entrada_do_item(${itemId}::uuid, ${pedidoId}::uuid)`;
   return linhas.map((l) => ({
     id: l.id, numero: l.numero, titulo: l.titulo, etapa: l.etapa, cancelado: l.cancelado, atendidoPeloEstoque: l.atendido_pelo_estoque, pedida: D(l.pedida), recebida: D(l.recebida),
-    // O critério da cobertura e da reserva: uma linha deste item em outra unidade tira o pedido da entrada.
-    unidadeEmConflito: l.unidades.find((u) => unidadeDiferenteDaDoItem(u, l.unidade_do_item)) ?? null,
+    // O critério da cobertura e da reserva (no banco, plugga_security.unidade_conflita, com o mesmo teste de paridade):
+    // linha do item em outra unidade tira o pedido da entrada. Os rótulos das linhas não saem do banco.
+    unidadeEmConflito: l.unidade_em_conflito,
   }));
 }
 

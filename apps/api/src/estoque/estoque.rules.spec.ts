@@ -224,7 +224,7 @@ describe("código, semanas e textos", () => {
   });
 
   describe("entrada por compra ligada ao pedido", () => {
-    const pedido = (dados: Partial<PedidoDaEntrada> = {}): PedidoDaEntrada => ({ numero: 7, cancelado: false, atendidoPeloEstoque: false, pedida: D(10), recebida: D(4), unidadeEmConflito: null, ...dados });
+    const pedido = (dados: Partial<PedidoDaEntrada> = {}): PedidoDaEntrada => ({ numero: 7, cancelado: false, atendidoPeloEstoque: false, pedida: D(10), recebida: D(4), unidadeEmConflito: false, ...dados });
 
     it("aceita até o que falta do item", () => {
       expect(problemaDaEntradaDoPedido(pedido(), D(6), "m", 7)).toBeNull();
@@ -240,11 +240,11 @@ describe("código, semanas e textos", () => {
     });
 
     it("recusa o pedido com linha do item em outra unidade e orienta a entrada avulsa convertida (revisão leva 9)", () => {
-      expect(problemaDaEntradaDoPedido(pedido({ unidadeEmConflito: "cx" }), D(1), "m", 7)).toEqual({
+      expect(problemaDaEntradaDoPedido(pedido({ unidadeEmConflito: true }), D(1), "m", 7)).toEqual({
         campo: "pedidoId", estado: true,
-        mensagem: "O pedido PC-0007 tem linha deste item em cx, e o item é controlado em m: a entrada não se liga a este pedido. Registre a entrada sem pedido, com a quantidade convertida para m.",
+        mensagem: "O pedido PC-0007 tem linha deste item em outra unidade, e o item é controlado em m: a entrada não se liga a este pedido. Registre a entrada sem pedido, com a quantidade convertida para m.",
       });
-      expect(aceitaEntradaDoPedido(pedido({ unidadeEmConflito: "cx" }))).toBe(false);
+      expect(aceitaEntradaDoPedido(pedido({ unidadeEmConflito: true }))).toBe(false);
     });
 
     it("só aparece na escolha o pedido que ainda aceita entrada", () => {

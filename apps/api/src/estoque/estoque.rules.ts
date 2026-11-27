@@ -198,8 +198,8 @@ export type PedidoDaEntrada = {
   pedida: Prisma.Decimal;
   /** Entradas de origem compra já ligadas ao pedido, deste item. */
   recebida: Prisma.Decimal;
-  /** A unidade de uma linha deste item que não é a do item (dado anterior à regra), ou null. */
-  unidadeEmConflito: string | null;
+  /** Alguma linha deste item está em outra unidade que a do item (dado anterior à regra). */
+  unidadeEmConflito: boolean;
 };
 
 /** O que ainda falta entrar do item por este pedido (nunca negativo). */
@@ -227,7 +227,7 @@ export function problemaDaEntradaDoPedido(
   // Mesmo critério da cobertura e da reserva: linha deste item em outra unidade não aceita entrada ligada ao pedido.
   if (pedido.unidadeEmConflito) {
     return {
-      mensagem: `O pedido ${numero} tem linha deste item em ${pedido.unidadeEmConflito}, e o item é controlado em ${unidade}: a entrada não se liga a este pedido. Registre a entrada sem pedido, com a quantidade convertida para ${unidade}.`,
+      mensagem: `O pedido ${numero} tem linha deste item em outra unidade, e o item é controlado em ${unidade}: a entrada não se liga a este pedido. Registre a entrada sem pedido, com a quantidade convertida para ${unidade}.`,
       campo: "pedidoId",
       estado: true,
     };

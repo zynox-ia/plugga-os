@@ -390,9 +390,18 @@ export type ListarMovimentacoesResposta = z.infer<typeof listarMovimentacoesResp
  * Linha sem unidade não conflita: adota a do item. Uma regra só para a API e a web.
  */
 export function unidadeDaLinhaConflita(unidadeDaLinha: string | null | undefined, unidadeDoItem: string): boolean {
-  const linha = unidadeDaLinha?.trim().normalize("NFC") ?? "";
+  const linha = unidadeComparavel(unidadeDaLinha ?? "");
   if (!linha) return false;
-  return linha !== unidadeDoItem.trim().normalize("NFC");
+  return linha !== unidadeComparavel(unidadeDoItem);
+}
+
+/**
+ * Espaços das pontas (só os ASCII: espaço, tab e quebras) fora, e Unicode NFC.
+ * É o mesmo que `plugga_security.unidade_conflita` faz no banco
+ * (`btrim(u, E' \t\n\r\f\v')` e `normalize(…, NFC)`): as duas pontas comparam igual.
+ */
+function unidadeComparavel(unidade: string): string {
+  return unidade.replace(/^[ \t\n\r\f\v]+|[ \t\n\r\f\v]+$/g, "").normalize("NFC");
 }
 
 /**
