@@ -1,5 +1,6 @@
 import { sessionUserSchema, type SessionUser } from "@plugga/shared";
 
+import { TEMPO_MAXIMO_MS } from "./api-core.ts";
 import { safeRedirect, safeRelativePath } from "./safe-redirect.ts";
 
 /**
@@ -76,8 +77,20 @@ export async function passoDoTentarDeNovo(resposta: Response): Promise<"voltar" 
   return leitura.tipo === "autenticado" ? "voltar" : leitura.tipo === "semSessao" ? "login" : "esperar";
 }
 
-/** Prazo de cada tentativa do aviso: a web responde rápido; o trecho até a API já tem o prazo do proxy. */
-export const PRAZO_DA_TENTATIVA_MS = 10_000;
+/** Prazo para conferir a sessão no middleware: o mesmo do proxy (api-core.ts), que o espelho `/api/auth/me` usa. */
+export const PRAZO_DA_SESSAO_MS = TEMPO_MAXIMO_MS;
+
+/**
+ * Prazo do cliente para uma tentativa: o do proxy, mais um terço de folga
+ * (15 s viram 20 s). Menor que o do proxy, uma sessão que responde em 11 a
+ * 14 s nunca tiraria a pessoa do aviso, embora recarregar a página funcionasse.
+ */
+export function prazoDaTentativa(prazoDoProxyMs: number): number {
+  return Math.ceil(prazoDoProxyMs * (4 / 3));
+}
+
+/** Prazo de cada tentativa do aviso, derivado do prazo do proxy. */
+export const PRAZO_DA_TENTATIVA_MS = prazoDaTentativa(TEMPO_MAXIMO_MS);
 
 /**
  * Uma tentativa do aviso: consulta o espelho da sessão com prazo, então uma

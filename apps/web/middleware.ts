@@ -5,12 +5,12 @@ import { CORPO_DO_NAO_ENCONTRADO, fechadaPeloPortaoDoFinanceiro, podeAbrirPagina
 import { buildContentSecurityPolicy } from "./app/lib/content-security-policy";
 import { apiBaseUrl } from "./app/lib/env-runtime";
 import { shouldBypassSessionCheck } from "./app/lib/public-paths";
-import { CABECALHO_DO_CAMINHO, decidirPagina, lerSessaoDaApi, ROTA_DE_API_INDISPONIVEL } from "./app/lib/sessao-do-middleware";
+import { CABECALHO_DO_CAMINHO, decidirPagina, lerSessaoDaApi, PRAZO_DA_SESSAO_MS, ROTA_DE_API_INDISPONIVEL } from "./app/lib/sessao-do-middleware";
 
 // Mesma folga de proxy.ts e do FETCH_TIMEOUT_TUNEL_MS de app/lib/api.ts:
 // validar a sessão atravessa o túnel SSH (~2 s de base), e 5 s expulsava
 // usuário logado para /login em qualquer pico de latência.
-const FETCH_TIMEOUT_MS = 15_000;
+const FETCH_TIMEOUT_MS = PRAZO_DA_SESSAO_MS;
 
 /**
  * 🔒 SEGURANÇA [VULN-4]: nonce de 16 bytes aleatórios por requisição, único a

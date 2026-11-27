@@ -3,6 +3,8 @@ import { describe, it } from "node:test";
 
 import { sessionUserSchema } from "@plugga/shared";
 
+import { TEMPO_MAXIMO_MS } from "../app/lib/api-core.ts";
+import { PRAZO_DA_SESSAO_MS, PRAZO_DA_TENTATIVA_MS, prazoDaTentativa } from "../app/lib/sessao-do-middleware.ts";
 import { caminhoCompleto, consultarSessaoParaVoltar, decidirPagina, destinoAoVoltar, destinoDoAviso, destinoDoParametro, lerSessaoDaApi, passoDoTentarDeNovo, type LeituraDaSessao } from "../app/lib/sessao-do-middleware.ts";
 
 const USUARIO = sessionUserSchema.parse({
@@ -107,6 +109,24 @@ describe("consultarSessaoParaVoltar: o retry tem prazo e retoma (PLU-343)", () =
       start(controle) { init?.signal?.addEventListener("abort", () => controle.error(init.signal?.reason)); },
     }), { status: 200, headers: { "content-type": "application/json" } })) as unknown as typeof fetch;
     assert.equal(await consultarSessaoParaVoltar(corpoParado, 20), "esperar");
+  });
+
+  it("o prazo do cliente vem do prazo do proxy e do middleware, com folga: nunca desiste antes deles", () => {
+    assert.equal(PRAZO_DA_SESSAO_MS, TEMPO_MAXIMO_MS);
+    assert.equal(PRAZO_DA_TENTATIVA_MS, prazoDaTentativa(TEMPO_MAXIMO_MS));
+    assert.ok(PRAZO_DA_TENTATIVA_MS > TEMPO_MAXIMO_MS);
+  });
+
+  it("em escala: a sessão que responde logo antes do prazo do proxy faz voltar; a que nunca chega espera", async () => {
+    const proxy = 60;
+    const cliente = prazoDaTentativa(proxy);
+    const demora = (ms: number) => (async (_url: string, init?: RequestInit) => new Promise<Response>((resolver, rejeitar) => {
+      const relogio = setTimeout(() => resolver(Response.json(USUARIO)), ms);
+      init?.signal?.addEventListener("abort", () => { clearTimeout(relogio); rejeitar(init.signal?.reason); });
+    })) as unknown as typeof fetch;
+    // Como a sessão entre 11 e 14 s com o proxy de 15 s: o cliente não pode desistir antes.
+    assert.equal(await consultarSessaoParaVoltar(demora(proxy - 1), cliente), "voltar");
+    assert.equal(await consultarSessaoParaVoltar(parado, cliente), "esperar");
   });
 
   it("sem rede até a web, espera; 401 vai ao login", async () => {
