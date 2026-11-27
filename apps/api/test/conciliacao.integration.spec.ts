@@ -371,6 +371,32 @@ describe.skipIf(!HABILITADO)("conciliação: extrato bancário no Postgres", () 
     expect((await linhaDe("c5c2")).estado).toBe("pendente");
   }, PRAZO_MS);
 
+  it("C5: a linha que já gerou um lançamento não gera outro, conciliado ou não; o banco segura a repetição", async () => {
+    const servico = new ConciliacaoService(repositorio, {} as never, () => AGORA);
+    const gerente = { ...principal, acesso: { plataforma: null, departamentos: [{ departamento: "financeiro", nivel: "gerente", telas: ["financeiro.conciliacao"] }] } } as AuthPrincipal;
+    const origemDe = async (lancamentoId: string) => (await prisma.$queryRaw<{ origem: string | null }[]>`SELECT movimento_de_origem_id::text AS origem FROM public.lancamentos WHERE id = ${lancamentoId}::uuid`)[0]?.origem ?? null;
+    // A do teste anterior: c5d1 virou a despesa "sem conciliar" (R$ 75) e ficou pendente.
+    const d1 = await linhaDe("c5d1");
+    const [solto] = await prisma.lancamento.findMany({ where: { descricao: `${marca} pix guiado` }, select: { id: true, numero: true } });
+    expect(await origemDe(solto!.id)).toBe(d1.id);
+    // O reenvio (duplo clique, outra aba): 409 com o que já existe, e nada novo.
+    const antes = await prisma.lancamento.count({ where: { descricao: { startsWith: marca } } });
+    await expect(naSessao(() => servico.criarLancamento({ tipo: "saida", movimentoId: d1.id, fornecedorId: ids.fornecedor, descricao: `${marca} pix guiado de novo`, valor: "75.00", conciliar: false }, gerente)))
+      .rejects.toMatchObject({ constructor: Conflito, extras: { existente: { id: solto!.id, codigo: `CP-${String(solto!.numero).padStart(4, "0")}` } } });
+    expect(await prisma.lancamento.count({ where: { descricao: { startsWith: marca } } })).toBe(antes);
+
+    // A criada e conciliada também guarda a linha: desfeito o par, a linha não gera uma segunda.
+    const p1 = await linhaDe("c5p1");
+    const [paga] = await prisma.lancamento.findMany({ where: { descricao: `${marca} boleto guiado`, etapa: "conciliada" }, select: { id: true } });
+    expect(await origemDe(paga!.id)).toBe(p1.id);
+    await naSessao(() => servico.desfazer(p1.id, "Teste da repetição", gerente));
+    await expect(naSessao(() => servico.criarLancamento({ tipo: "saida", movimentoId: p1.id, fornecedorId: ids.fornecedor, descricao: `${marca} boleto de novo`, conciliar: true }, gerente)))
+      .rejects.toMatchObject({ constructor: Conflito, extras: { existente: { id: paga!.id } } });
+
+    // No banco: um lançamento vivo por linha de origem, e a origem gravada não muda.
+    await expect(prisma.$executeRaw`UPDATE public.lancamentos SET movimento_de_origem_id = ${d1.id}::uuid WHERE id = ${paga!.id}::uuid`).rejects.toThrow();
+  }, PRAZO_MS);
+
   it("C5 nos reflexos: a tarifa avisa os fatos na ordem (criado, pago, conciliado), na transação da criação", async () => {
     const fatos: FatoDoLancamento[] = [];
     const reflexos = new ReflexosDoLancamento();

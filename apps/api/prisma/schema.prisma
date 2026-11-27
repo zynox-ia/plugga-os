@@ -2939,7 +2939,9 @@ model MovimentoDoExtrato {
   company       Company         @relation(fields: [companyId], references: [id], onDelete: Restrict)
   contaCorrente ContaCorrente   @relation(fields: [contaCorrenteId], references: [id], onDelete: Restrict)
   extrato       ExtratoBancario @relation(fields: [extratoId], references: [id], onDelete: Restrict)
-  lancamento    Lancamento?     @relation(fields: [lancamentoId], references: [id], onDelete: Restrict)
+  lancamento    Lancamento?     @relation("ParDaConciliacao", fields: [lancamentoId], references: [id], onDelete: Restrict)
+  /// Os lançamentos criados a partir desta linha na Conciliação (um vivo por linha: índice parcial no SQL).
+  lancamentosCriados Lancamento[] @relation("LancamentoDaLinhaDoExtrato")
   conciliadoPor User?           @relation("MovimentoConciliadoPor", fields: [conciliadoPorId], references: [id], onDelete: SetNull)
 
   @@unique([contaCorrenteId, identificador])
@@ -3091,7 +3093,11 @@ model Lancamento {
   /// O estado no OMIE, do conector; sem linha, `nao_enviado`.
   omie                    OmieLancamento?
   /// A linha do extrato bancário conciliada com o lançamento (PLU-339).
-  movimentoDoExtrato      MovimentoDoExtrato?
+  movimentoDoExtrato      MovimentoDoExtrato? @relation("ParDaConciliacao")
+  /// A linha do extrato de que o lançamento nasceu na Conciliação (criação guiada, tarifa ou a
+  /// perna da transferência), conciliada ou não; gravada uma vez, não muda (gatilho).
+  movimentoDeOrigemId     String?             @map("movimento_de_origem_id") @db.Uuid
+  movimentoDeOrigem       MovimentoDoExtrato? @relation("LancamentoDaLinhaDoExtrato", fields: [movimentoDeOrigemId], references: [id], onDelete: Restrict)
   /// A transferência entre contas da perna (C6); a perna leva o número dela (TR-0001).
   transferenciaId         String?             @map("transferencia_id") @db.Uuid
   transferencia           Transferencia?      @relation(fields: [transferenciaId], references: [id], onDelete: Restrict)

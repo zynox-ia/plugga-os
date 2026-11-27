@@ -368,6 +368,7 @@ export class PrismaConciliacaoRepository {
         });
         await this.registrarCriacao(tx, criado.id, movimento.companyId, principal, agora, "entrada", "conciliacao", null);
       }
+      await this.gravarOrigem(tx, criado.id, movimento.id);
       if (input.conciliar) await this.conciliarNaTx(tx, movimento.id, criado.id, principal, agora);
       return { lancamento: { id: criado.id, codigo: codigoDoLancamento(input.tipo, criado.numero) }, conciliado: input.conciliar };
     });
@@ -398,6 +399,7 @@ export class PrismaConciliacaoRepository {
       select: { id: true, numero: true },
     });
     await this.registrarCriacao(tx, criado.id, movimento.companyId, principal, agora, "saida", "tarifa_bancaria", "debito_automatico");
+    await this.gravarOrigem(tx, criado.id, movimento.id);
     await this.conciliarNaTx(tx, movimento.id, criado.id, principal, agora);
     return { lancamento: { id: criado.id, codigo: codigoDoLancamento("saida", criado.numero) }, conciliado: true };
   }
@@ -434,7 +436,9 @@ export class PrismaConciliacaoRepository {
         descricao: input.descricao,
         doExtrato: true,
       }, principal, agora);
-      await this.conciliarNaTx(tx, movimento.id, debito ? criada.saida.id : criada.entrada.id, principal, agora);
+      const pernaDaLinha = debito ? criada.saida.id : criada.entrada.id;
+      await this.gravarOrigem(tx, pernaDaLinha, movimento.id);
+      await this.conciliarNaTx(tx, movimento.id, pernaDaLinha, principal, agora);
       return { ...criada, conciliado: true };
     });
   }
@@ -503,7 +507,39 @@ export class PrismaConciliacaoRepository {
     if (movimento.estado === "conciliado") throw new EstadoInvalido(`Esta linha já foi conciliada${movimento.conciliadoPor ? ` por ${movimento.conciliadoPor.name}` : ""}.`);
     const problema = problemaDaLinhaParaCriar({ valor: movimento.valor.toFixed(2), estado: movimento.estado }, tipo, tarifa);
     if (problema) throw new EstadoInvalido(problema);
+    // A linha "sem conciliar" (outro valor) fica pendente: o reenvio não cria um segundo lançamento.
+    const criado = await this.criadoDaLinha(tx, movimentoId);
+    if (criado) {
+      throw new Conflito(`Esta linha do extrato já gerou ${criado.codigo}: concilie a linha com ele (ou corrija o valor dele).`, [{ campo: "movimentoId", problema: "A linha já gerou um lançamento." }], { existente: criado });
+    }
     return movimento;
+  }
+
+  /** O lançamento vivo que já nasceu desta linha, com o código para a tela abrir. */
+  private async criadoDaLinha(tx: Prisma.TransactionClient, movimentoId: string): Promise<{ id: string; codigo: string } | null> {
+    const [l] = await tx.$queryRaw<{ id: string; tipo: "saida" | "entrada"; numero: number; origem: string; numeroDaTransferencia: number | null }[]>`
+      SELECT l.id::text AS id, l.tipo::text AS tipo, l.numero::int AS numero, l.origem::text AS origem, t.numero::int AS "numeroDaTransferencia"
+      FROM public.lancamentos l LEFT JOIN public.transferencias t ON t.id = l.transferencia_id
+      WHERE l.movimento_de_origem_id = ${movimentoId}::uuid AND l.cancelado_em IS NULL
+      LIMIT 1`;
+    if (!l) return null;
+    const transferencia = l.origem === "transferencia" && l.numeroDaTransferencia !== null;
+    return { id: l.id, codigo: transferencia ? codigoDoLancamento(l.tipo, l.numeroDaTransferencia!, "transferencia") : codigoDoLancamento(l.tipo, l.numero) };
+  }
+
+  /**
+   * A linha de origem no lançamento recém-criado (migration 20261127150339). Pelo SQL: o client do
+   * Prisma pode ainda não ter a coluna. O índice parcial segura a corrida que escapar da trava da linha.
+   */
+  private async gravarOrigem(tx: Prisma.TransactionClient, lancamentoId: string, movimentoId: string): Promise<void> {
+    try {
+      await tx.$executeRaw`UPDATE public.lancamentos SET movimento_de_origem_id = ${movimentoId}::uuid WHERE id = ${lancamentoId}::uuid`;
+    } catch (erro) {
+      if (erro instanceof Prisma.PrismaClientKnownRequestError && /23505|lancamentos_um_por_movimento_de_origem/.test(`${erro.code} ${JSON.stringify(erro.meta ?? {})}`)) {
+        throw new Conflito("Esta linha do extrato já gerou um lançamento: abra a conciliação de novo.");
+      }
+      throw erro;
+    }
   }
 
   private async sugestaoNaTx(tx: Prisma.TransactionClient, movimento: LinhaDoMovimento): Promise<Omit<SugestaoDaTarifa, "movimento">> {
