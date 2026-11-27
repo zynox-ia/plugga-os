@@ -36,6 +36,12 @@ describe("o middleware responde 404 ao protótipo das Notas fiscais fora do dese
 const WEB = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const EXEMPLOS = path.join(WEB, "app/lib/notas-fiscais-exemplo.ts");
 
+/** Fim de linha LF: um checkout no Windows (core.autocrlf) pode trazer o código com CRLF. */
+const emLf = (texto: string) => texto.replace(/\r\n/g, "\n");
+const comCrlf = (texto: string) => emLf(texto).replace(/\n/g, "\r\n");
+/** O código-fonte como texto, sem depender do fim de linha do checkout. */
+const lerFonte = (arquivo: string) => emLf(readFileSync(arquivo, "utf8"));
+
 function fontes(dir: string): string[] {
   return readdirSync(dir).flatMap((nome) => {
     const caminho = path.join(dir, nome);
@@ -44,21 +50,33 @@ function fontes(dir: string): string[] {
     return /\.(ts|tsx)$/.test(nome) ? [caminho] : [];
   });
 }
-/** Os imports relativos de um arquivo, resolvidos para o caminho no disco (estáticos e dinâmicos). */
-function importsRelativos(arquivo: string): string[] {
-  const texto = readFileSync(arquivo, "utf8");
-  const especificadores = [...texto.matchAll(/(?:from\s+|import\s*\(\s*|import\s+)["'](\.{1,2}\/[^"']+)["']/g)].map((m) => m[1]!);
+/** Os imports relativos de um texto de código, resolvidos para o caminho no disco (estáticos e dinâmicos). */
+function importsRelativos(arquivo: string, texto = lerFonte(arquivo)): string[] {
+  const especificadores = [...emLf(texto).matchAll(/(?:from\s+|import\s*\(\s*|import\s+)["'](\.{1,2}\/[^"']+)["']/g)].map((m) => m[1]!);
   return especificadores.flatMap((esp) => {
     const base = path.resolve(path.dirname(arquivo), esp);
     const candidato = [base, `${base}.ts`, `${base}.tsx`, path.join(base, "index.ts"), path.join(base, "index.tsx")].find((c) => existsSync(c) && statSync(c).isFile());
     return candidato ? [candidato] : [];
   });
 }
-const ehCliente = (arquivo: string) => /^\s*(?:\/\/[^\n]*\n|\/\*[\s\S]*?\*\/\s*)*["']use client["']/.test(readFileSync(arquivo, "utf8"));
+/** "use client" no topo, depois de comentários (de linha ou de bloco). */
+const ehCliente = (texto: string) => /^\s*(?:\/\/[^\n]*\n\s*|\/\*[\s\S]*?\*\/\s*)*["']use client["']/.test(emLf(texto));
+
+/** O que falta na página para os exemplos sumirem do build de produção; nulo quando ela está certa. */
+function problemaDaPagina(texto: string): string | null {
+  const pagina = emLf(texto);
+  if (/^import[^\n]*notas-fiscais-exemplo/m.test(pagina)) return "import estático dos exemplos";
+  const inicio = pagina.indexOf('if (process.env.NODE_ENV === "development" || process.env.NODE_ENV === "test") {');
+  if (inicio < 0) return "a condição não vai literal, e o webpack não a avalia no build";
+  const importDinamico = pagina.indexOf('import("../../lib/notas-fiscais-exemplo")');
+  const fimDoRamo = pagina.indexOf("\n  }\n  notFound();", inicio);
+  if (fimDoRamo < 0 || importDinamico < inicio || importDinamico > fimDoRamo) return "o import() não fica dentro do ramo";
+  return null;
+}
 
 describe("os exemplos das Notas fiscais fora do bundle de cliente e do de produção (PLU-361)", () => {
   it("nenhum componente cliente alcança o módulo dos exemplos, nem por import indireto", () => {
-    const clientes = fontes(path.join(WEB, "app")).filter(ehCliente);
+    const clientes = fontes(path.join(WEB, "app")).filter((arquivo) => ehCliente(lerFonte(arquivo)));
     assert.ok(clientes.some((c) => c.endsWith("notas-fiscais-view.tsx")), "a view das Notas é cliente");
     const alcancam = clientes.filter((inicio) => {
       const vistos = new Set<string>();
@@ -75,15 +93,31 @@ describe("os exemplos das Notas fiscais fora do bundle de cliente e do de produ�
     assert.deepEqual(alcancam.map((c) => path.relative(WEB, c)), []);
   });
 
+  it("a leitura do código não depende do fim de linha: \"use client\" e os imports valem em LF e em CRLF", () => {
+    const view = path.join(WEB, "app/components/financeiro/notas-fiscais-view.tsx");
+    const texto = lerFonte(view);
+    for (const [rotulo, versao] of [["LF", texto], ["CRLF", comCrlf(texto)]] as const) {
+      assert.equal(ehCliente(versao), true, rotulo);
+      assert.deepEqual(importsRelativos(view, versao), importsRelativos(view, texto), rotulo);
+    }
+    const comComentario = "// comentário\n/* bloco\n */\n\"use client\";\nimport x from \"./y\";\n";
+    assert.equal(ehCliente(comComentario), true);
+    assert.equal(ehCliente(comCrlf(comComentario)), true);
+  });
+
   it("a página importa os exemplos só por import() dentro do ramo do NODE_ENV escrito por extenso (o webpack o descarta em produção)", () => {
     const pagina = readFileSync(path.join(WEB, "app/financeiro/notas-fiscais/page.tsx"), "utf8");
-    assert.doesNotMatch(pagina, /^import[^\n]*notas-fiscais-exemplo/m, "sem import estático dos exemplos");
-    const ramo = 'if (process.env.NODE_ENV === "development" || process.env.NODE_ENV === "test") {';
-    const inicio = pagina.indexOf(ramo);
-    assert.ok(inicio >= 0, "a condição vai literal, para o webpack avaliá-la no build");
-    const importDinamico = pagina.indexOf('import("../../lib/notas-fiscais-exemplo")');
-    const fimDoRamo = pagina.indexOf("\n  }\n  notFound();", inicio);
-    assert.ok(importDinamico > inicio && importDinamico < fimDoRamo, "o import() fica dentro do ramo");
+    // Como está no disco e nos dois fins de linha, seja qual for o deste checkout.
+    for (const [rotulo, versao] of [["disco", pagina], ["LF", emLf(pagina)], ["CRLF", comCrlf(pagina)]] as const) {
+      assert.equal(problemaDaPagina(versao), null, rotulo);
+    }
+    // E a conferência recusa a página errada, também nos dois fins de linha.
+    const importFora = emLf(pagina)
+      .replace('import("../../lib/notas-fiscais-exemplo"),', "Promise.resolve({} as never),")
+      .replace("\n  notFound();", '\n  notFound();\n  void import("../../lib/notas-fiscais-exemplo");');
+    const importEstatico = 'import { notasDeExemplo } from "../../lib/notas-fiscais-exemplo";\n' + emLf(pagina);
+    for (const versao of [importFora, comCrlf(importFora)]) assert.equal(problemaDaPagina(versao), "o import() não fica dentro do ramo");
+    for (const versao of [importEstatico, comCrlf(importEstatico)]) assert.equal(problemaDaPagina(versao), "import estático dos exemplos");
     // A condição literal é a mesma da trava.
     for (const NODE_ENV of ["development", "test", "production", "", "staging", undefined]) {
       assert.equal(prototipoDasNotasFiscais({ NODE_ENV }), NODE_ENV === "development" || NODE_ENV === "test", String(NODE_ENV));
