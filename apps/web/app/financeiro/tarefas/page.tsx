@@ -9,16 +9,19 @@ import { consultaDeTarefas, lerFiltrosDeTarefas, type ConfiguracaoDeTarefas } fr
 /**
  * O que é do Financeiro na tela compartilhada de Tarefas (PLU-340; antes "Rotinas
  * do dia"). O atalho só aparece para quem abre a tela dele: quem tem só Fiscal
- * ou só Conciliação não vê um link para Lançamentos. A Conciliação ganha o dela
- * quando a tela chegar (PLU-339).
+ * ou só Conciliação não vê um link para Lançamentos. Quem abre a Conciliação
+ * ganha o atalho dela (PLU-339).
  */
-function configuracao(abreLancamentos: boolean): ConfiguracaoDeTarefas {
+function configuracao(abreLancamentos: boolean, abreConciliacao: boolean): ConfiguracaoDeTarefas {
   return {
     departamento: "financeiro",
     rota: "/financeiro/tarefas",
     nomeDoDepartamento: "o Financeiro",
     exemplo: { titulo: "Conferir as notas fiscais do Portal Nacional", item: "Baixar o relatório do portal" },
-    atalhos: abreLancamentos ? { lancamentos: { href: "/financeiro/lancamentos", rotulo: "Abrir os lançamentos" } } : {},
+    atalhos: {
+      ...(abreLancamentos ? { lancamentos: { href: "/financeiro/lancamentos", rotulo: "Abrir os lançamentos" } } : {}),
+      ...(abreConciliacao ? { conciliacao: { href: "/financeiro/conciliacao", rotulo: "Abrir a conciliação" } } : {}),
+    },
     // Texto do protótipo em vigor (#rotinas): a antiga rotina de copiar comprovantes saiu (PLU-337).
     nota: "Copiar comprovantes deixou de ser tarefa: o comprovante fica guardado no próprio lançamento.",
   };
@@ -33,6 +36,6 @@ export default async function TarefasDoFinanceiroPage({ searchParams }: { search
     fetchOpcoesDoFinanceiro(),
   ]);
   if (!resposta.ok) return <EstadoDaApi erro={resposta.erro} eyebrow="Tarefas" />;
-  return <TarefasView config={configuracao(podeAbrirPagina(sessao.acesso, "/financeiro/lancamentos"))} filtros={filtros} resposta={resposta.dados} opcoes={opcoes.ok ? opcoes.dados : null}
+  return <TarefasView config={configuracao(podeAbrirPagina(sessao.acesso, "/financeiro/lancamentos"), podeAbrirPagina(sessao.acesso, "/financeiro/conciliacao"))} filtros={filtros} resposta={resposta.dados} opcoes={opcoes.ok ? opcoes.dados : null}
     acoesDoCabecalho={opcoesDoFinanceiro.ok ? <EngrenagemDoFinanceiro opcoes={opcoesDoFinanceiro.dados} /> : null} />;
 }

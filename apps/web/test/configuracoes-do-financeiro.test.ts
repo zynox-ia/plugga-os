@@ -8,9 +8,8 @@ import { categoriasAgrupadas, contagemDasCategorias, contasDaTela, detalheDaCont
 const u = (n: number) => `6f1c2a3b-0000-4000-8000-${String(n).padStart(12, "0")}`;
 // `saldo` e `saldoLidoEm` (lidos do OMIE) saem do contrato com a extinção (24/11/2026). Por espalhamento,
 // o objeto vale com o contrato de antes e com o de depois; sai daqui junto com os campos.
-const legadoDoOmie = { saldo: null, saldoLidoEm: null } as const;
 const conta = (n: number, parcial: Partial<ContaCorrente>): ContaCorrente => ({
-  id: u(n), empresa: "plugga", nome: `Conta ${n}`, banco: null, agencia: null, numero: null, ...legadoDoOmie, ativa: true, ...parcial,
+  id: u(n), empresa: "plugga", nome: `Conta ${n}`, banco: null, agencia: null, numero: null, ativa: true, ...parcial,
 });
 const categoria = (n: number, codigo: string, parcial: Partial<CategoriaFinanceira> = {}): CategoriaFinanceira => ({
   id: u(n), empresa: "plugga", codigo, nome: `Categoria ${codigo}`, tipo: "despesa", natureza: "outros",

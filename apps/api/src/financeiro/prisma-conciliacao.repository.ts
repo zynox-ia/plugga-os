@@ -132,12 +132,16 @@ export class PrismaConciliacaoRepository {
         },
       });
       if (novos.length > 0) {
-        await tx.movimentoDoExtrato.createMany({
-          data: novos.map((m) => ({
-            companyId: conta.companyId, contaCorrenteId: conta.id, extratoId: extrato.id,
-            dia: inicioDoDiaEmManaus(m.dia), valor: new Prisma.Decimal(m.valor), descricao: m.descricao, identificador: m.identificador, tipoNoBanco: m.tipoNoBanco,
-          })),
-        });
+        // O INSERT do runtime não inclui `estado`: o padrão do banco é 'pendente', e o
+        // Prisma mandaria o default na lista de colunas, o que a concessão de coluna recusa.
+        const linhas = novos.map((m) => Prisma.sql`(
+          ${conta.companyId}, ${conta.id}::uuid, ${extrato.id}::uuid, ${inicioDoDiaEmManaus(m.dia)},
+          ${m.valor}::numeric, ${m.descricao}, ${m.identificador}, ${m.tipoNoBanco}
+        )`);
+        await tx.$executeRaw`
+          INSERT INTO public.movimentos_do_extrato
+            (company_id, conta_corrente_id, extrato_id, dia, valor, descricao, identificador, tipo_no_banco)
+          VALUES ${Prisma.join(linhas)}`;
       }
       // Só contagens: o conteúdo do extrato é dado bancário.
       await this.auditoria.append(tx, {

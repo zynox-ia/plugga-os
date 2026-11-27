@@ -11,6 +11,7 @@ import {
   itemDeEstoqueSchema,
   listarItensDeEstoqueRespostaSchema,
   lancamentoSchema,
+  painelDaConciliacaoSchema,
   listarLancamentosRespostaSchema,
   listarMovimentacoesRespostaSchema,
   opcoesDoFinanceiroSchema,
@@ -181,6 +182,10 @@ export const fetchLancamento = (id: string) => lerApi("/financeiro/lancamentos/:
 
 /** GET /financeiro/opcoes: categorias e contas por empresa, fornecedores ativos e formas de pagamento. */
 export const fetchOpcoesDoFinanceiro = () => lerApi("/financeiro/opcoes", opcoesDoFinanceiroSchema);
+
+/** GET /financeiro/conciliacao: sugeridos, divergências, sem par e conciliados (PLU-339). */
+export const fetchPainelDaConciliacao = (consulta: ConsultaDoFinanceiro) =>
+  lerApi("/financeiro/conciliacao", painelDaConciliacaoSchema, {}, { consulta });
 
 type ConsultaDaEngenharia = Record<string, string | undefined>;
 

@@ -99,7 +99,7 @@ describe.skipIf(!HABILITADO)("cadastros do Financeiro no Postgres", () => {
 
   it("a gerência cadastra e edita a conta corrente; banco vazio vira nulo", async () => {
     const criada = await como("gerente", () => cadastros.criarConta(criarContaCorrenteSchema.parse({ empresa: "waze", nome: `${marca} caixa`, banco: "" }), pessoas.gerente));
-    expect(criada).toMatchObject({ empresa: "waze", nome: `${marca} caixa`, banco: null, saldo: null, ativa: true });
+    expect(criada).toMatchObject({ empresa: "waze", nome: `${marca} caixa`, banco: null, ativa: true });
     const editada = await como("gerente", () => cadastros.editarConta(criada.id, editarContaCorrenteSchema.parse({ banco: "Banco A", agencia: "0001" }), pessoas.gerente));
     expect(editada).toMatchObject({ banco: "Banco A", agencia: "0001", numero: null });
   }, PRAZO_MS);

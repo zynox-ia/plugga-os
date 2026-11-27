@@ -325,7 +325,7 @@ export function problemaDaEdicao(
 
 /**
  * Condição de cada id do filtro de Situação, em termos neutros para o
- * repositório traduzir: tipos, etapas, vencido e OMIE. `cancelado` é o único que
+ * repositório traduzir: tipos, etapas e vencido. `cancelado` é o único que
  * mostra cancelados; os demais excluem.
  */
 export type CondicaoDaSituacao = {
@@ -335,7 +335,6 @@ export type CondicaoDaSituacao = {
   vencido?: boolean;
   /** true: só em aberto. */
   emAberto?: boolean;
-  omieComErro?: boolean;
   /** true: só as pernas das transferências entre contas (C6). */
   transferencias?: boolean;
   cancelado: boolean;
@@ -371,8 +370,6 @@ export function condicaoDaSituacao(situacao: SituacaoDoFiltroFinanceiro | undefi
       return { etapas: ["conciliada"], cancelado: false };
     case "vencidos":
       return { vencido: true, cancelado: false };
-    case "erro":
-      return { omieComErro: true, cancelado: false };
     case "cancelado":
       return { cancelado: true };
     case "transferencias":

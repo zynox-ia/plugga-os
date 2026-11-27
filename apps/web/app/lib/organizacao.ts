@@ -150,12 +150,13 @@ export const DEPARTAMENTOS: Departamento[] = [
     // entradas, `financeiro.receber`; Tarefas abre com qualquer tela do
     // Financeiro. Fiscal segue como tela concedível, sem item no menu (P2).
     processos: [
-      { label: "Visão geral", telas: TELAS_DOS_LANCAMENTOS, status: "em-breve" },
+      { label: "Visão geral", telas: TELAS_DOS_LANCAMENTOS, ...(financeiroHabilitado() ? { rota: "/financeiro/visao-geral", status: "parcial" as const } : { status: "em-breve" as const }) },
       // Com o portão do Financeiro fechado (build de produção), o item segue em breve.
       { label: "Lançamentos", telas: TELAS_DOS_LANCAMENTOS, ...(financeiroHabilitado() ? { rota: "/financeiro/lancamentos", status: "parcial" as const } : { status: "em-breve" as const }) },
       // As antigas "Rotinas do dia": a tela compartilhada de Tarefas (PLU-340).
       { label: "Tarefas", telas: telasPorDepartamento.financeiro, ...(financeiroHabilitado() ? { rota: "/financeiro/tarefas", status: "parcial" as const } : { status: "em-breve" as const }) },
-      { id: "financeiro.conciliacao", label: "Conciliação", status: "em-breve" },
+      // A API da conciliação já existe (PLU-339); a tela lê o extrato e os pares.
+      { id: "financeiro.conciliacao", label: "Conciliação", ...(financeiroHabilitado() ? { rota: "/financeiro/conciliacao", status: "parcial" as const } : { status: "em-breve" as const }) },
     ],
     telas: [
       { id: "financeiro.pagar", label: "Contas a pagar" },

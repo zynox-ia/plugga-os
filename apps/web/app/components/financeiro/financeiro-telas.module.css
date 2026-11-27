@@ -1,0 +1,254 @@
+.pagina { min-width: 0; }
+.subtitulo { max-width: 52ch; }
+.acoes { flex-wrap: wrap; justify-content: flex-end; }
+.filtroEmpresa { flex: none; }
+.filtroEmpresa button { width: auto; }
+.periodo { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px; min-width: 0; }
+.periodo > * { flex: 1 1 150px; min-width: 0; }
+.periodo button[type="button"] { flex: none; }
+
+.abas { display: flex; flex-wrap: wrap; gap: 6px; margin: 16px 0; }
+.abas button {
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--ui-divider);
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--ui-muted);
+  font: inherit;
+  font-size: 13px;
+}
+.abas button[aria-selected="true"] { border-color: var(--ui-primary); color: var(--ui-text); font-weight: 500; }
+.abas button:focus-visible { outline: 2px solid var(--ui-primary); outline-offset: 2px; }
+
+.blocos { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+.coluna { display: grid; gap: 16px; min-width: 0; align-content: start; }
+.bloco { display: grid; gap: 12px; min-width: 0; padding: 18px; border: 1px solid var(--ui-divider); border-radius: var(--radius-xl); background: color-mix(in srgb, var(--ui-surface) 78%, transparent); }
+.blocoTopo { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.blocoTopo h2 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 16px; font-weight: 500; }
+.blocoTopo p { margin: 3px 0 0; color: var(--ui-muted); font-size: 12.5px; }
+.blocoLink { display: inline-flex; flex: none; align-items: center; gap: 4px; color: var(--ui-primary); font-size: 13px; text-decoration: none; white-space: nowrap; }
+.blocoLink:focus-visible { outline: 2px solid var(--ui-primary); outline-offset: 2px; border-radius: 4px; }
+
+.lista { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.linha, .par {
+  display: flex; align-items: center; gap: 12px; min-width: 0;
+  padding: 12px 14px; border: 1px solid var(--ui-divider); border-radius: var(--radius-lg); background: #fff; color: var(--ui-text); text-decoration: none;
+}
+.linha:hover, .par:hover { border-color: color-mix(in srgb, var(--ui-primary) 35%, var(--ui-divider)); }
+.linha:focus-visible { outline: 2px solid var(--ui-primary); outline-offset: 2px; }
+.texto { display: grid; gap: 2px; min-width: 0; flex: 1; }
+.texto strong, .lado strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+.texto small, .lado small { color: var(--ui-muted); font-size: 12.5px; }
+.lado { display: grid; justify-items: end; gap: 2px; flex: none; text-align: right; font-variant-numeric: tabular-nums; }
+.atraso { color: var(--ui-danger); }
+
+.data {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 40px;
+  margin: 0;
+  padding: 0 14px;
+  border: 1px solid var(--ui-divider);
+  border-radius: var(--radius-full);
+  background: #fff;
+  color: var(--ui-text);
+  font-size: 13px;
+  white-space: nowrap;
+}
+.data svg { flex: none; color: var(--ui-muted); }
+
+.novo { position: relative; }
+.novoMenu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 30;
+  display: grid;
+  gap: 2px;
+  min-width: 220px;
+  padding: 6px;
+  border: 1px solid var(--ui-divider);
+  border-radius: 12px;
+  background: var(--ui-surface, #fff);
+  box-shadow: 0 12px 32px #0a192f24;
+}
+.novoMenu button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 36px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ui-text);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+.novoMenu button:hover,
+.novoMenu button:focus-visible { background: var(--ui-focus-bg, rgba(15, 41, 74, 0.06)); outline: none; }
+
+.grupos { display: grid; gap: 16px; }
+.grupoSecao { display: grid; gap: 8px; }
+.grupo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0;
+  color: var(--ui-muted);
+  font-size: 12px;
+  font-weight: 500;
+}
+.vazioGrupo { margin: 0; color: var(--ui-muted); font-size: 12.5px; }
+
+.marca {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  background: rgba(15, 41, 74, 0.06);
+  color: var(--ui-text);
+}
+.linha.linhaVencida {
+  background: color-mix(in srgb, var(--ui-danger) 8%, #fff);
+  border-color: color-mix(in srgb, var(--ui-danger) 28%, var(--ui-divider));
+}
+.marcaPerigo { background: color-mix(in srgb, var(--ui-danger) 14%, #fff); color: var(--ui-danger); }
+
+.selo {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 24px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 16px;
+  white-space: nowrap;
+}
+.seloPerigo { background: color-mix(in srgb, var(--ui-danger) 12%, #fff); color: var(--ui-danger); }
+.seloAlerta { background: color-mix(in srgb, #f59e0b 18%, #fff); color: #92400e; }
+.seloNeutro { background: rgba(15, 41, 74, 0.06); color: var(--ui-muted); }
+
+.progresso { display: grid; gap: 6px; }
+.progresso p { margin: 0; color: var(--ui-muted); font-size: 12.5px; }
+.trilho { display: block; height: 6px; overflow: hidden; border-radius: 99px; background: rgba(15, 41, 74, 0.07); }
+.trilho > span { display: block; height: 100%; border-radius: inherit; background: #0070e0; }
+
+.total {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--ui-divider);
+  font-size: 13px;
+}
+.total strong { font-weight: 500; font-variant-numeric: tabular-nums; }
+.total small { display: block; margin-top: 2px; color: var(--ui-muted); font-size: 12px; font-weight: 400; }
+
+/* Visão geral na densidade do print de 23/11 (§2 linha 20/16 px, §13 linha compacta).
+   A linha compartilhada com Conciliação fica como está. */
+.visao .bloco { padding: 14px 16px; gap: 8px; }
+.visao .lista { gap: 6px; }
+.visao .linha { padding: 10px 12px; gap: 10px; }
+.visao .linhaSimples { padding: 4px 12px; }
+.visao .marca { width: 28px; height: 28px; color: var(--ui-muted); }
+.visao .marcaPerigo { color: var(--ui-danger); }
+.visao .texto strong,
+.visao .lado strong { font-size: 13px; line-height: 20px; }
+.visao .texto small,
+.visao .lado small { font-size: 12px; line-height: 16px; }
+.visao .texto small span { color: inherit; gap: 4px; }
+.visao .lado { gap: 0; }
+.visao .selo { min-height: 20px; padding: 0 8px; }
+
+.par { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; align-items: center; }
+.parColuna { display: grid; gap: 2px; min-width: 0; }
+.parColuna b, .lado b { font-weight: 500; font-variant-numeric: tabular-nums; }
+.parAcoes { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
+.aviso { margin: 12px 0 0; }
+
+.extratos { margin: 8px 0 0; color: var(--ui-muted); font-size: 12.5px; }
+
+/* Conciliação no formato do print de 23/11: faixa de progresso e pares lado a lado.
+   Gap interno 8 px, entre blocos 16 px (§1). */
+.pilha { display: grid; gap: 16px; margin-top: 16px; }
+.faixa {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 18px;
+  border: 1px solid var(--ui-divider);
+  border-radius: var(--radius-xl);
+  background: color-mix(in srgb, var(--ui-surface) 78%, transparent);
+}
+.faixa h2 { margin: 0; font-size: 22px; font-weight: 500; line-height: 28px; letter-spacing: -0.02em; }
+.faixa p { margin: 0 0 4px; color: var(--ui-muted); font-size: 12px; line-height: 16px; }
+.faixaBarra { display: block; width: 220px; height: 8px; margin-top: 8px; overflow: hidden; border-radius: 99px; background: rgba(15, 41, 74, 0.07); }
+.faixaBarra > span { display: block; height: 100%; border-radius: inherit; background: #0070e0; }
+.faixaLado { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; }
+.stat { display: grid; gap: 2px; min-width: 72px; }
+.stat small { color: var(--ui-muted); font-size: 12px; line-height: 16px; }
+.stat strong { font-size: 16px; font-weight: 500; line-height: 20px; font-variant-numeric: tabular-nums; }
+.lido { display: inline-flex; align-items: center; gap: 6px; color: var(--ui-muted); font-size: 12px; line-height: 16px; }
+.contagem {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 8px;
+  min-height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: rgba(15, 41, 74, 0.06);
+  color: var(--ui-muted);
+  font-size: 12px;
+  font-weight: 500;
+}
+.grade { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.cartaoPar small span { color: inherit; gap: 4px; }
+.gradeCabeca,
+.sugestao { display: grid; grid-template-columns: minmax(0, 1fr) 156px minmax(0, 1fr); gap: 12px; align-items: center; }
+.gradeCabeca { color: var(--ui-muted); font-size: 12px; font-weight: 500; line-height: 16px; }
+.gradeCabeca span { display: inline-flex; align-items: center; gap: 6px; }
+.cartaoPar {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--ui-divider);
+  border-radius: var(--radius-lg);
+  background: #fff;
+}
+.cartaoPar strong { overflow: hidden; font-size: 13px; font-weight: 500; line-height: 20px; text-overflow: ellipsis; white-space: nowrap; }
+.cartaoPar small { color: var(--ui-muted); font-size: 12px; line-height: 16px; }
+.cartaoPar b { font-size: 13px; font-weight: 500; line-height: 20px; font-variant-numeric: tabular-nums; }
+.miolo { display: grid; justify-items: center; gap: 4px; }
+.miolo small { max-width: 140px; color: var(--ui-muted); font-size: 11px; line-height: 16px; text-align: center; }
+.mioloAcoes { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
+.vazioDireita { margin: 0; color: var(--ui-muted); font-size: 12.5px; }
+
+@media (max-width: 1100px) {
+  .blocos { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 1100px) {
+  .gradeCabeca, .sugestao { grid-template-columns: minmax(0, 1fr); }
+  .gradeCabeca span:nth-child(2) { display: none; }
+}
+@media (max-width: 720px) {
+  .linha, .par { display: grid; grid-template-columns: minmax(0, 1fr); }
+  .lado, .parAcoes { justify-items: start; justify-content: flex-start; text-align: left; }
+  .blocoTopo { flex-wrap: wrap; }
+  .faixaBarra { width: 100%; }
+}

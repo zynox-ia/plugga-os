@@ -28,13 +28,12 @@ const u = (n: number) => `6f1c2a3b-0000-4000-8000-${String(n).padStart(12, "0")}
 const pessoa = { id: u(90), nome: "Gerente Exemplo (sintético)" };
 // O campo `omie` sai do contrato com a extinção da integração (24/11/2026). Por espalhamento,
 // o objeto vale com o contrato de antes e com o de depois; sai daqui junto com o campo.
-const legadoDoOmie = { omie: { estado: "nao_enviado", codigo: null, motivo: null } } as const;
 const saida: Lancamento = {
   id: u(1), tipo: "saida", codigo: "CP-0002", empresa: "plugga", etapa: "aberta", coluna: "preparo", emCobranca: false, cancelado: false,
   favorecido: { tipo: "fornecedor", id: u(2), nome: "Contabilidade Exemplo (sintético)" },
   categoria: { id: u(3), codigo: "2.03.02", nome: "Honorários contábeis", tipo: "despesa", natureza: "servico" },
   contaCorrente: { id: u(4), nome: "Itaú · Plugga" }, descricao: "Honorários contábeis · nov/2026", valor: "3800.00", vencimento: "2026-11-28",
-  competencia: null, prazo: { situacao: "no_prazo", dias: 5 }, liquidadoEm: null, anexos: 0, ...legadoDoOmie,
+  competencia: null, prazo: { situacao: "no_prazo", dias: 5 }, liquidadoEm: null, anexos: 0,
   origem: { tipo: "avulsa", pedidoDeCompra: null }, createdAt: "2026-11-23T12:00:00.000Z",
   forma: "boleto", observacao: null,
   marcos: { criado: { por: pessoa, em: "2026-11-23T12:00:00.000Z" }, aprovado: null, pago: null, recebido: null, conciliado: null, cancelado: null },

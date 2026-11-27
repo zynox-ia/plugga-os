@@ -76,22 +76,6 @@ export const colunaDaEtapa: Readonly<Record<EtapaDeLancamento, ColunaDoQuadroFin
 /** Pago, recebido ou conciliado: o dinheiro já se moveu, então não vence nem se cancela. */
 export const etapasLiquidadas: readonly EtapaDeLancamento[] = ["paga", "recebida", "conciliada"];
 
-// ---------------------------------------------------------------- OMIE
-
-/** Estado do lançamento no OMIE da empresa (PLU-342). Nesta entrega só `nao_enviado`. */
-export const estadosNoOmie = ["nao_enviado", "enviando", "enviado", "erro", "baixado", "divergente"] as const;
-export const estadoNoOmieSchema = z.enum(estadosNoOmie);
-export type EstadoNoOmie = z.infer<typeof estadoNoOmieSchema>;
-
-export const omieDoLancamentoSchema = z.object({
-  estado: estadoNoOmieSchema,
-  /** Código do lançamento no OMIE, depois de enviado. */
-  codigo: z.string().nullable(),
-  /** Motivo curto, em `erro` e `divergente`. Nunca a resposta crua do OMIE. */
-  motivo: z.string().nullable(),
-});
-export type OmieDoLancamento = z.infer<typeof omieDoLancamentoSchema>;
-
 // ---------------------------------------------------------------- cadastros por empresa
 
 /** Formas de pagamento do lançamento. As do fornecedor mais o débito automático. */
@@ -100,16 +84,14 @@ export const formaDoLancamentoSchema = z.enum(formasDoLancamento);
 export type FormaDoLancamento = z.infer<typeof formaDoLancamentoSchema>;
 
 
-/** Tipo da categoria no OMIE. */
+/** Tipo da categoria. */
 export const tiposDeCategoria = ["receita", "despesa"] as const;
 export const tipoDeCategoriaSchema = z.enum(tiposDeCategoria);
 export type TipoDeCategoria = z.infer<typeof tipoDeCategoriaSchema>;
 
 /**
- * Natureza da categoria, que dá o ícone do card. É campo do Plugga OS (o OMIE não
- * tem): a leitura do OMIE propõe pela palavra do nome e pelo tipo, e o Financeiro
- * corrige nas Configurações. Categoria nova sem palpite fica `outros` (despesa) ou
- * `receita`.
+ * Natureza da categoria, que dá o ícone do card. O Financeiro escolhe nas Configurações.
+ * Categoria nova sem palpite fica `outros` (despesa) ou `receita`.
  */
 export const naturezasDeCategoria = [
   "receita",
@@ -126,7 +108,7 @@ export const naturezasDeCategoria = [
 export const naturezaDeCategoriaSchema = z.enum(naturezasDeCategoria);
 export type NaturezaDeCategoria = z.infer<typeof naturezaDeCategoriaSchema>;
 
-/** Espelho da categoria do OMIE de uma empresa (código como "2.01.01"). */
+/** A categoria do plano de contas de uma empresa (código como "2.01.01"). */
 export const categoriaFinanceiraSchema = z.object({
   id: uuid,
   empresa: companyKeySchema,
@@ -134,7 +116,7 @@ export const categoriaFinanceiraSchema = z.object({
   nome: z.string(),
   tipo: tipoDeCategoriaSchema,
   natureza: naturezaDeCategoriaSchema,
-  /** Os dois primeiros níveis do código ("2.01") e o nome do grupo no OMIE. */
+  /** Os dois primeiros níveis do código ("2.01") e o nome do grupo. */
   grupo: z.object({ codigo: z.string(), nome: z.string() }),
   ativa: z.boolean(),
   /** A categoria do "Criar tarifa" da Conciliação (PLU-339, C5): no máximo uma por empresa, de despesa ativa. Opcional até a web ler. */
@@ -148,7 +130,7 @@ export const categoriaEditadaSchema = categoriaFinanceiraSchema.extend({
 });
 export type CategoriaEditada = z.infer<typeof categoriaEditadaSchema>;
 
-/** Espelho da conta corrente do OMIE de uma empresa. Somente leitura no Plugga OS. */
+/** A conta corrente de uma empresa, cadastrada no Plugga OS. */
 export const contaCorrenteSchema = z.object({
   id: uuid,
   empresa: companyKeySchema,
@@ -156,9 +138,6 @@ export const contaCorrenteSchema = z.object({
   banco: z.string().nullable(),
   agencia: z.string().nullable(),
   numero: z.string().nullable(),
-  /** Saldo lido do OMIE e quando; nulos até a primeira leitura. */
-  saldo: z.string().nullable(),
-  saldoLidoEm: isoDate.nullable(),
   /**
    * O saldo informado pela gerência e o dia a que ele se refere: o ponto de partida do
    * saldo da conta no Plugga OS (a conciliação pelo extrato calcula daí em diante).
@@ -258,15 +237,8 @@ export const opcoesDoFinanceiroSchema = z.object({
   contasCorrentes: z.array(contaCorrenteSchema),
   fornecedores: z.array(z.object({ id: uuid, nome: z.string() })),
   formasDePagamento: z.array(formaDoLancamentoSchema),
-  /**
-   * Os conectores externos do Financeiro e, por empresa, se a conexão está conferida
-   * e confirmada. O Plugga OS é o dono do financeiro; um conector desligado não tira
-   * função de tela nenhuma. Sem o campo, ou sem o conector, a tela trata como hoje.
-   */
-  conectores: z.object({ omie: z.record(companyKeySchema, z.boolean()) }).partial().optional(),
 });
 export type OpcoesDoFinanceiro = z.infer<typeof opcoesDoFinanceiroSchema>;
-export type ConectoresDoFinanceiroNasOpcoes = NonNullable<OpcoesDoFinanceiro["conectores"]>;
 
 // ---------------------------------------------------------------- entrada
 
@@ -326,7 +298,7 @@ const motivo = textoObrigatorio(500);
  *   (409 com `campo: "comprovante"` sem ele); o dia não pode ser futuro;
  * - `registrar_recebimento` (entrada com boleto ou enviada): comprovante opcional;
  * - `registrar_nf` (entrada gerada), `registrar_boleto` (com NF; exige um anexo
- *   `boleto` atual, até o GerarBoleto do OMIE) e `registrar_envio` (com boleto);
+ *   `boleto` atual) e `registrar_envio` (com boleto);
  * - `registrar_cobranca` (entrada enviada) não muda a etapa: vai à linha do tempo;
  * - `corrigir_valor` antes de liquidar, com motivo; na saída aprovada, só a Gerente.
  */
@@ -396,7 +368,7 @@ export type EnviarAnexo = z.infer<typeof enviarAnexoSchema>;
 export const tiposDeEventoDoLancamento = [
   "criado", "editado", "aprovado", "valor_corrigido", "nf_registrada", "boleto_registrado",
   "enviado", "cobranca_registrada", "pago", "recebido", "conciliado", "cancelado",
-  "anexo_enviado", "anexo_substituido", "omie",
+  "anexo_enviado", "anexo_substituido",
 ] as const;
 export const tipoDeEventoDoLancamentoSchema = z.enum(tiposDeEventoDoLancamento);
 
@@ -462,10 +434,11 @@ export const lancamentoResumoSchema = z.object({
   competencia: competencia.nullable(),
   /** Nulo quando liquidado ou cancelado: não vence mais. */
   prazo: prazoDoLancamentoSchema.nullable(),
+  /** UCs ligadas à cobrança. Na saída fica 0. O detalhe continua mandando a lista em `ucs`. */
+  quantidadeDeUcs: z.number().int().nonnegative().optional(),
   /** Dia do pagamento ou do recebimento; nulo antes de liquidar. */
   liquidadoEm: diaDoCalendario.nullable(),
   anexos: z.number().int().nonnegative(),
-  omie: omieDoLancamentoSchema,
   origem: z.object({
     tipo: origemDoLancamentoSchema,
     pedidoDeCompra: z.object({
@@ -482,7 +455,7 @@ export const lancamentoResumoSchema = z.object({
   pagoSemAprovacao: z.boolean().optional(),
   /**
    * A perna de uma transferência entre contas (C6): o código da transferência e o sentido. O
-   * `codigo` do lançamento vem "TR-0012 · saída". Fora dos cards; sem OMIE nem ações.
+   * `codigo` do lançamento vem "TR-0012 · saída". Fora dos cards e sem ações.
    */
   transferencia: z.object({ id: uuid, codigo: z.string(), sentido: tipoDeLancamentoSchema }).optional(),
   createdAt: isoDate,
@@ -549,7 +522,6 @@ export const situacoesDoFiltroFinanceiro = [
   "recebido",
   "conciliado",
   "vencidos",
-  "erro",
   /** Fora do protótipo: sem ele, os cancelados não aparecem em nenhuma situação. */
   "cancelado",
   /** As pernas das transferências entre contas (C6). */
@@ -728,8 +700,7 @@ export const baixarComprovantesQuerySchema = z
 export type BaixarComprovantesQuery = z.infer<typeof baixarComprovantesQuerySchema>;
 
 // ---------------------------------------------------------------- conciliação (PLU-339)
-// O extrato vem do banco, por arquivo (OFX; CSV depois), e não do OMIE (decisão de
-// 24/11/2026). A descrição dos movimentos é dado bancário: só aparece nesta tela.
+// O extrato vem do banco, por arquivo (OFX; CSV depois). A descrição dos movimentos é dado bancário: só aparece nesta tela.
 
 export const origensDoExtrato = ["ofx", "csv"] as const;
 export const estadosDoMovimentoDoExtrato = ["pendente", "conciliado", "marcado"] as const;

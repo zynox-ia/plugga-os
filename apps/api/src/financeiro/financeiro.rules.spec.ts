@@ -264,6 +264,5 @@ describe("filtro de Situação", () => {
     expect(condicaoDaSituacao("receber-cobranca").etapas).toEqual(["enviada"]);
     expect(condicaoDaSituacao("concluido").etapas).toEqual(["paga", "recebida", "conciliada"]);
     expect(condicaoDaSituacao("vencidos")).toMatchObject({ vencido: true });
-    expect(condicaoDaSituacao("erro")).toMatchObject({ omieComErro: true });
   });
 });

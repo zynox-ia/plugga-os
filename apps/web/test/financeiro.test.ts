@@ -26,7 +26,6 @@ import {
 
 // O campo `omie` sai do contrato com a extinção da integração (24/11/2026). Por espalhamento,
 // o objeto vale com o contrato de antes e com o de depois; sai daqui junto com o campo.
-const legadoDoOmie = { omie: { estado: "nao_enviado", codigo: null, motivo: null } } as const;
 const base: LancamentoResumo = {
   id: "6f1c2a3b-0000-4000-8000-000000000001",
   tipo: "saida",
@@ -46,7 +45,6 @@ const base: LancamentoResumo = {
   prazo: { situacao: "no_prazo", dias: 1 },
   liquidadoEm: null,
   anexos: 3,
-  ...legadoDoOmie,
   origem: { tipo: "pedido_de_compra", pedidoDeCompra: { id: "6f1c2a3b-0000-4000-8000-000000000004", numero: 131 } },
   createdAt: "2026-11-21T16:02:00.000Z",
 };
@@ -68,8 +66,8 @@ describe("filtros dos Lançamentos no endereço", () => {
   });
 
   it("a API recebe só o preenchido, e o quadro não leva situação", () => {
-    const f = lerFiltrosDosLancamentos({ situacao: "erro", empresa: "waze" });
-    assert.deepEqual(consultaDosLancamentos(f, "lista"), { situacao: "erro", empresa: "waze" });
+    const f = lerFiltrosDosLancamentos({ situacao: "pago", empresa: "waze" });
+    assert.deepEqual(consultaDosLancamentos(f, "lista"), { situacao: "pago", empresa: "waze" });
     assert.deepEqual(consultaDosLancamentos(f, "quadro"), { empresa: "waze" });
     assert.deepEqual(consultaDosLancamentos({ visao: "cards" }, "lista"), {});
   });

@@ -75,6 +75,11 @@ test("Lançamentos abre com financeiro.pagar ou financeiro.receber (PLU-336)", (
   assert.equal(abre({ plataforma: null, departamentos: [{ departamento: "crm", nivel: "gerente" }] }, caminho), false);
   assert.equal(abre({ plataforma: "admin", departamentos: [] }, caminho), true);
   assert.equal(abre(so("financeiro.pagar"), "/financeiro/lancamentos-outros"), false);
+  assert.equal(abre(so("financeiro.pagar"), "/financeiro/visao-geral"), true);
+  assert.equal(abre(so("financeiro.conciliacao"), "/financeiro/visao-geral"), false);
+  assert.equal(abre(so("financeiro.conciliacao"), "/financeiro/conciliacao"), true);
+  assert.equal(abre(so("financeiro.pagar"), "/financeiro/conciliacao"), false);
+  assert.equal(podeAbrirPagina(so("financeiro.conciliacao"), "/financeiro/conciliacao", { NODE_ENV: "production" }), false);
 });
 
 test("Tarefas do Financeiro abre com qualquer tela do Financeiro, e só com o portão aberto (PLU-340)", () => {

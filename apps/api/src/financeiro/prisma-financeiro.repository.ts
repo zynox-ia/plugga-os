@@ -15,7 +15,6 @@ import {
   type ListarLancamentosQuery,
   type ListarLancamentosResposta,
   type NomeDeEventoDoCatalogo,
-  type OmieDoLancamento,
   type OpcoesDoFinanceiro,
   type QuadroFinanceiro,
   type QuadroFinanceiroQuery,
@@ -74,11 +73,6 @@ const MUDANCA_DO_PLANO: Record<Plano["tipo"], MudancaDoLancamento> = {
 };
 
 const PESSOA = { select: { id: true, name: true } } as const;
-/**
- * A integração com o OMIE foi extinta (24/11/2026): o campo sai do contrato junto com a web.
- * Até lá, vai neutro, sem ler as tabelas do conector.
- */
-const SEM_OMIE = { estado: "nao_enviado", codigo: null, motivo: null } as const satisfies OmieDoLancamento;
 const INCLUDE_DO_LANCAMENTO = {
   fornecedor: { select: { id: true, nome: true } },
   categoria: { select: { id: true, codigo: true, nome: true, tipo: true, natureza: true } },
@@ -91,7 +85,7 @@ const INCLUDE_DO_LANCAMENTO = {
   conciliadoPor: PESSOA,
   canceladoPor: PESSOA,
   // A contagem dos anexos atuais, para o card.
-  _count: { select: { anexos: { where: { substituidoEm: null } } } },
+  _count: { select: { anexos: { where: { substituidoEm: null } }, ucs: true } },
   // A perna de uma transferência entre contas (C6): as duas contas e as duas pernas.
   transferencia: { select: { id: true, numero: true, contaOrigem: { select: { id: true, nome: true } }, contaDestino: { select: { id: true, nome: true } }, pernas: { select: { id: true, tipo: true } } } },
 } satisfies Prisma.LancamentoInclude;
@@ -657,8 +651,6 @@ export class PrismaFinanceiroRepository {
     if (situacao.etapas) condicoes.push({ etapa: { in: situacao.etapas } });
     if (situacao.emAberto || situacao.vencido) condicoes.push({ etapa: { in: etapasEmAberto } });
     if (situacao.vencido) condicoes.push({ vencimento: { lt: hoje } });
-    // "Com erro no OMIE": a integração foi extinta, então não há nenhum (a situação sai do contrato com a web).
-    if (situacao.omieComErro) condicoes.push({ id: { in: [] } });
     if (situacao.transferencias) condicoes.push({ origem: "transferencia" });
     if (query.pagoSemAprovacao !== undefined) {
       const semAprovacao: Prisma.LancamentoWhereInput = { tipo: "saida", origem: { in: [...origensPagasSemAprovacao] } };
@@ -794,9 +786,9 @@ export class PrismaFinanceiroRepository {
       vencimento: dia(l.vencimento),
       competencia: l.competencia,
       prazo: prazoDoLancamento(l, agora),
+      quantidadeDeUcs: l._count.ucs,
       liquidadoEm: l.liquidadoEm ? dia(l.liquidadoEm) : null,
       anexos: l._count.anexos,
-      omie: SEM_OMIE,
       origem: { tipo: l.origem, pedidoDeCompra: (l.pedidoDeCompraId && pedidos.get(l.pedidoDeCompraId)) || l.pedidoDeCompra },
       pagoSemAprovacao: pagoSemAprovacao(l),
       ...(t ? { transferencia: { id: t.id, codigo: codigoDaTransferencia(t.numero), sentido: l.tipo } } : {}),

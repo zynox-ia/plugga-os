@@ -16,6 +16,11 @@ import { diaCurto } from "./compras.ts";
  */
 
 export const ROTA_LANCAMENTOS = "/financeiro/lancamentos";
+export const ROTA_VISAO_GERAL_DO_FINANCEIRO = "/financeiro/visao-geral";
+
+export function hrefDaVisaoGeralDoFinanceiro(empresa?: (typeof companyKeys)[number]): string {
+  return empresa ? `${ROTA_VISAO_GERAL_DO_FINANCEIRO}?empresa=${empresa}` : ROTA_VISAO_GERAL_DO_FINANCEIRO;
+}
 
 export const visoesDosLancamentos = ["cards", "lista", "quadro"] as const;
 export type VisaoDosLancamentos = (typeof visoesDosLancamentos)[number];

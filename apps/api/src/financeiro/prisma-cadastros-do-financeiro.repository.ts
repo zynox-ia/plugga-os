@@ -40,8 +40,6 @@ export const paraConta = (c: LinhaDaConta): ContaCorrente => ({
   banco: c.banco,
   agencia: c.agencia,
   numero: c.numero,
-  saldo: c.saldo?.toFixed(2) ?? null,
-  saldoLidoEm: c.saldoLidoEm?.toISOString() ?? null,
   saldoInicial: c.saldoInicial?.toFixed(2) ?? null,
   saldoInicialEm: c.saldoInicialEm ? diaEmManaus(c.saldoInicialEm) : null,
   ativa: c.ativa,
