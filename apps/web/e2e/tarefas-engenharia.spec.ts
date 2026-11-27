@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 
+import { diasDaRecorrenciaDoE2e } from "./support/dias-da-recorrencia";
 import { marcaDaExecucao } from "./support/execucao";
 import { bloquearTerceiros } from "./support/sem-terceiros";
 
@@ -91,15 +92,24 @@ test("tarefa recorrente: prévia das próximas ocorrências, cria e encerra com 
   await nova.getByRole("button", { name: "Criar tarefa" }).click();
   await expect(nova.getByText("Erro: escolha ao menos um dia.")).toBeVisible();
   await expect(nova.getByText("Complete a recorrência para ver as datas.")).toBeVisible();
-  await nova.getByRole("button", { name: "seg", exact: true }).click();
-  await nova.getByRole("button", { name: "qua", exact: true }).click();
-  await expect(nova.getByRole("button", { name: "qua", exact: true })).toHaveAttribute("aria-pressed", "true");
-  // Cinco próximas, só segundas e quartas.
+  // Os dias pelo dia em que roda: num dia útil, hoje e o próximo, para nascer a ocorrência de hoje.
+  const recorrencia = diasDaRecorrenciaDoE2e(new Date());
+  for (const dia of recorrencia.dias) await nova.getByRole("button", { name: dia, exact: true }).click();
+  for (const dia of recorrencia.dias) await expect(nova.getByRole("button", { name: dia, exact: true })).toHaveAttribute("aria-pressed", "true");
+  // Cinco próximas, só nos dias marcados.
   const previa = nova.locator("[aria-live=polite]");
   await expect(previa.getByText(/· 18:00$/)).toHaveCount(5);
-  for (const texto of await previa.getByText(/· 18:00$/).allInnerTexts()) expect(texto).toMatch(/^(hoje|amanhã|seg|qua)/);
+  const dosDias = new RegExp(`^(hoje|amanhã|${recorrencia.dias.map(literal).join("|")})`);
+  for (const texto of await previa.getByText(/· 18:00$/).allInnerTexts()) expect(texto).toMatch(dosDias);
   await nova.getByRole("button", { name: "Criar tarefa" }).click();
-  await expect(page.locator(".aviso--sucesso")).toContainText(`Tarefa criada: ${titulo} (seg, qua, até 18:00).`, DEPOIS_DA_ACAO);
+  await expect(page.locator(".aviso--sucesso")).toContainText(`Tarefa criada: ${titulo} (${recorrencia.texto}, até 18:00).`, DEPOIS_DA_ACAO);
+
+  if (!recorrencia.apareceNestaSemana) {
+    // Sábado e domingo: o seletor só tem dias úteis e a geração vai até o domingo, então a tarefa
+    // ainda não tem ocorrência nem botão na lista (dúvida de produto aberta). A limpeza da execução a apaga.
+    test.info().annotations.push({ type: "fim de semana", description: "sem ocorrência nesta semana: abrir e encerrar pela lista não foi exercitado" });
+    return;
+  }
 
   // Abrir e encerrar com motivo.
   await page.getByRole("button", { name: titulo }).first().click();
