@@ -3097,7 +3097,7 @@ model Lancamento {
   /// A linha do extrato de que o lançamento nasceu na Conciliação (criação guiada, tarifa ou a
   /// perna da transferência), conciliada ou não; gravada uma vez, não muda (gatilho).
   movimentoDeOrigemId     String?             @map("movimento_de_origem_id") @db.Uuid
-  movimentoDeOrigem       MovimentoDoExtrato? @relation("LancamentoDaLinhaDoExtrato", fields: [movimentoDeOrigemId], references: [id], onDelete: Restrict)
+  movimentoDeOrigem       MovimentoDoExtrato? @relation("LancamentoDaLinhaDoExtrato", fields: [movimentoDeOrigemId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   /// A transferência entre contas da perna (C6); a perna leva o número dela (TR-0001).
   transferenciaId         String?             @map("transferencia_id") @db.Uuid
   transferencia           Transferencia?      @relation(fields: [transferenciaId], references: [id], onDelete: Restrict)

@@ -1,4 +1,6 @@
 import { randomBytes, randomUUID } from "node:crypto";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 
 import { listarLancamentosQuerySchema } from "@plugga/shared";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -397,6 +399,7 @@ describe.skipIf(!HABILITADO)("conciliação: extrato bancário no Postgres", () 
     await expect(prisma.$executeRaw`UPDATE public.lancamentos SET movimento_de_origem_id = ${d1.id}::uuid WHERE id = ${paga!.id}::uuid`).rejects.toThrow();
   }, PRAZO_MS);
 
+
   it("C5 nos reflexos: a tarifa avisa os fatos na ordem (criado, pago, conciliado), na transação da criação", async () => {
     const fatos: FatoDoLancamento[] = [];
     const reflexos = new ReflexosDoLancamento();
@@ -574,5 +577,85 @@ describe.skipIf(!HABILITADO)("conciliação: extrato bancário no Postgres", () 
     expect(Number((agora.origem - antes.origem).toFixed(2))).toBe(-123.45);
     expect(Number((agora.destino - antes.destino).toFixed(2))).toBe(123.45);
     expect(agora.cards).toEqual(antes.cards);
+  }, PRAZO_MS);
+
+  // ---- a linha de origem no banco (revisão de 27/11/2026)
+  /**
+   * A migration de verdade (o arquivo), como dono do banco, numa transação: os comandos um a um, sem o
+   * BEGIN/COMMIT dela. É idempotente, então rodar de novo no banco de teste já migrado não muda o resto.
+   */
+  const aplicarMigration = async (nome: string) => {
+    const sql = readFileSync(path.resolve(__dirname, "../prisma/migrations", nome, "migration.sql"), "utf8");
+    const comandos = sql.split(/;\s*\n/).map((c) => c.replace(/^\s*--.*$/gm, "").trim()).filter((c) => c && !/^(BEGIN|COMMIT)$/i.test(c));
+    await prisma.$transaction(async (tx) => { for (const comando of comandos) await tx.$executeRawUnsafe(comando); });
+  };
+  /** O índice ou o gatilho recusou: o Postgres diz o código (23505 unicidade, 23514 check). */
+  const codigoDoPostgres = async (fazer: () => Promise<unknown>) => {
+    try { await fazer(); return null; } catch (erro) { return String((erro as { meta?: { code?: string } }).meta?.code ?? (erro as Error).message.match(/Code: `(\w+)`/)?.[1] ?? (erro as Error).message); }
+  };
+  const origemDe = async (lancamentoId: string) => (await prisma.$queryRaw<{ origem: string | null }[]>`SELECT movimento_de_origem_id::text AS origem FROM public.lancamentos WHERE id = ${lancamentoId}::uuid`)[0]?.origem ?? null;
+  /** Como dono do banco, sem o gatilho de imutabilidade: o estado que a migration anterior pode ter deixado. */
+  const forcarOrigem = (lancamentoId: string, movimentoId: string | null) => prisma.$transaction(async (tx) => {
+    await tx.$executeRawUnsafe("ALTER TABLE public.lancamentos DISABLE TRIGGER lancamentos_imutaveis");
+    await tx.$executeRaw`UPDATE public.lancamentos SET movimento_de_origem_id = ${movimentoId}::uuid WHERE id = ${lancamentoId}::uuid`;
+    await tx.$executeRawUnsafe("ALTER TABLE public.lancamentos ENABLE TRIGGER lancamentos_imutaveis");
+  });
+  const gerenteDaConciliacao = () => ({ ...principal, acesso: { plataforma: null, departamentos: [{ departamento: "financeiro", nivel: "gerente", telas: ["financeiro.conciliacao"] }] } } as AuthPrincipal);
+
+  it("origem: o índice é de um vivo por linha (o cancelado libera), a origem gravada não muda e o RLS de quem atualiza vale", async () => {
+    await repositorio.importar(conta, arquivo("a0a1"), lido([mov("o0a", "2028-02-10", "-31.00", `${marca} PIX O0A`, "DEBIT")]), principal, AGORA);
+    const linha = await linhaDe("o0a");
+    // Aberta (só ela se cancela): o índice vale para qualquer lançamento com origem.
+    const um = (await prisma.lancamento.create({ data: { tipo: "saida", companyId: "waze", fornecedorId: ids.fornecedor, contaCorrenteId: conta.id, descricao: `${marca} aberta`, valor: 31, vencimento: new Date("2028-02-10T04:00:00Z"), etapa: "aberta", origem: "avulsa" }, select: { id: true } })).id;
+    const dois = await liquidado("saida", "2028-02-10", "31.00");
+    // De NULL para a linha: aceito. Um segundo vivo com a mesma linha: recusado pelo índice.
+    await prisma.$executeRaw`UPDATE public.lancamentos SET movimento_de_origem_id = ${linha.id}::uuid WHERE id = ${um}::uuid`;
+    expect(await codigoDoPostgres(() => prisma.$executeRaw`UPDATE public.lancamentos SET movimento_de_origem_id = ${linha.id}::uuid WHERE id = ${dois}::uuid`)).toBe("23505");
+    // Cancelado, sai do índice: a linha pode ter outro vivo.
+    await prisma.$executeRaw`UPDATE public.lancamentos SET cancelado_em = now(), cancelamento_motivo = 'teste' WHERE id = ${um}::uuid`;
+    await prisma.$executeRaw`UPDATE public.lancamentos SET movimento_de_origem_id = ${linha.id}::uuid WHERE id = ${dois}::uuid`;
+    // Gravada, não muda nem volta a nulo.
+    expect(await codigoDoPostgres(() => prisma.$executeRaw`UPDATE public.lancamentos SET movimento_de_origem_id = NULL WHERE id = ${dois}::uuid`)).toBe("23514");
+    // RLS: quem só tem Contas a pagar não alcança a entrada para gravar a origem; a Conciliação alcança.
+    const entrada = (await prisma.lancamento.create({ data: { tipo: "entrada", companyId: "waze", clientId: ids.cliente, categoriaId: ids.receita, contaCorrenteId: conta.id, descricao: `${marca} entrada do RLS`, valor: 44, vencimento: new Date("2028-02-11T04:00:00Z"), competencia: "2028-02", etapa: "gerada", origem: "cobranca_manual" }, select: { id: true } })).id;
+    const semConciliacao = await comoRuntime("pagar", (tx) => tx.$executeRaw`UPDATE public.lancamentos SET movimento_de_origem_id = ${linha.id}::uuid WHERE id = ${entrada}::uuid`);
+    expect(semConciliacao).toBe(0);
+    expect(await origemDe(entrada)).toBeNull();
+  }, PRAZO_MS);
+
+  it("origem: a migration corretiva limpa a origem sem prova e preenche só a comprovada (criada e conciliada na mesma chamada, nunca desfeita)", async () => {
+    const depois = new Date(AGORA.getTime() + 3_600_000);
+    const antes = new ConciliacaoService(repositorio, {} as never, () => AGORA);
+    const mais = new ConciliacaoService(repositorio, {} as never, () => depois);
+    const gerente = gerenteDaConciliacao();
+    await repositorio.importar(conta, arquivo("b0b2"), lido([
+      mov("o1a", "2028-03-10", "-100.00", `${marca} PIX O1A`, "DEBIT"),
+      mov("o1b", "2028-03-11", "-100.00", `${marca} PIX O1B`, "DEBIT"),
+      mov("o1x", "2028-03-20", "-50.00", `${marca} TRANSF O1X`, "DEBIT"),
+      mov("o1s", "2028-03-25", "-70.00", `${marca} PIX O1S`, "DEBIT"),
+    ]), principal, AGORA);
+    const [a, b, x, s] = [await linhaDe("o1a"), await linhaDe("o1b"), await linhaDe("o1x"), await linhaDe("o1s")];
+    // Nasceu da A, conciliada na criação; desfeita e conciliada com a B mais tarde. A migration anterior gravaria B.
+    const l = await naSessao(() => antes.criarLancamento({ tipo: "saida", movimentoId: a.id, fornecedorId: ids.fornecedor, descricao: `${marca} nasceu da A`, conciliar: true }, gerente));
+    await naSessao(() => antes.desfazer(a.id, "Par errado", gerente));
+    await naSessao(() => mais.conciliar(b.id, l.lancamento.id, gerente));
+    await forcarOrigem(l.lancamento.id, b.id);
+    // A perna da transferência pelo extrato (comprovável), como se tivesse nascido antes da coluna.
+    const t = await naSessao(() => antes.transferenciaDoExtrato({ movimentoId: x.id, outraContaId: ids.outraConta }, gerente));
+    await forcarOrigem(t.saida.id, null);
+    // Criada sem conciliar: a origem foi gravada na criação e não tem par: fica.
+    const solta = await naSessao(() => antes.criarLancamento({ tipo: "saida", movimentoId: s.id, fornecedorId: ids.fornecedor, descricao: `${marca} solta`, valor: "65.00", conciliar: false }, gerente));
+
+    // O estado que a 20261127150339 deixa: B como origem de quem nasceu da A, e a perna sem origem.
+    expect([await origemDe(l.lancamento.id), await origemDe(t.saida.id)]).toEqual([b.id, null]);
+
+    await aplicarMigration("20261127161339_origem_so_comprovada");
+
+    expect(await origemDe(l.lancamento.id)).toBeNull();
+    expect(await origemDe(t.saida.id)).toBe(x.id);
+    expect(await origemDe(t.entrada.id)).toBeNull();
+    expect(await origemDe(solta.lancamento.id)).toBe(s.id);
+    // E o gatilho voltou: a origem segue sem mudar.
+    expect(await codigoDoPostgres(() => prisma.$executeRaw`UPDATE public.lancamentos SET movimento_de_origem_id = NULL WHERE id = ${t.saida.id}::uuid`)).toBe("23514");
   }, PRAZO_MS);
 });
