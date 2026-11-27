@@ -384,9 +384,10 @@ export type ListarMovimentacoesResposta = z.infer<typeof listarMovimentacoesResp
 
 /**
  * Por que a linha não é atendida inteira pelo estoque: sem item de estoque
- * vinculado, item inativo, item de outra empresa ou disponível insuficiente.
+ * vinculado, item inativo, item de outra empresa, linha em unidade diferente da
+ * do item ou disponível insuficiente.
  */
-export const motivosSemCobertura = ["sem_vinculo", "inativo", "outra_empresa", "insuficiente"] as const;
+export const motivosSemCobertura = ["sem_vinculo", "inativo", "outra_empresa", "unidade_diferente", "insuficiente"] as const;
 export const motivoSemCoberturaSchema = z.enum(motivosSemCobertura);
 export type MotivoSemCobertura = z.infer<typeof motivoSemCoberturaSchema>;
 
@@ -402,6 +403,8 @@ export const atendimentoPeloEstoqueSchema = z.object({
       itemDoPedidoId: uuid,
       descricao: z.string(),
       quantidadePedida: z.string(),
+      /** Unidade da linha como está no pedido (a vinculada usa a do item). */
+      unidadePedida: z.string().nullable(),
       itemDeEstoque: z.object({ id: uuid, codigo: z.string(), nome: z.string(), unidade: z.string() }).nullable(),
       /** Disponível do item (em estoque − reservado, nunca negativo); nulo sem vínculo. */
       disponivel: z.string().nullable(),

@@ -9,6 +9,8 @@ import {
   faltaEntrar,
   itemIndisponivelParaOPedido,
   problemaDaEntradaDoPedido,
+  unidadeComparavel,
+  unidadeDiferenteDaDoItem,
   type PedidoDaEntrada,
   diaValido,
   origemOuDestino,
@@ -176,6 +178,23 @@ describe("código, semanas e textos", () => {
       // Do item de outra empresa não sai nem o disponível.
       expect(r.linhas[1]!.disponivel).toBeNull();
       expect(r.atendeTudo).toBe(false);
+    });
+
+    it("linha vinculada em outra unidade não atende nem consome o disponível", () => {
+      const r = coberturaPeloEstoque([
+        { quantidade: D(4), unidade: "cx", item: item("a", { unidade: "m" }) },
+        { quantidade: D(5), unidade: " M ", item: item("a", { unidade: "m" }) },
+      ], "plugga");
+      expect(textos(r)).toEqual([["0.000", "unidade_diferente", "9.000"], ["5.000", null, "9.000"]]);
+    });
+
+    it("unidade: sem maiúsculas e sem espaços; linha sem unidade não conflita", () => {
+      expect(unidadeDiferenteDaDoItem("M", "m")).toBe(false);
+      expect(unidadeDiferenteDaDoItem("rolo 50", "rolo50")).toBe(false);
+      expect(unidadeDiferenteDaDoItem(null, "m")).toBe(false);
+      expect(unidadeDiferenteDaDoItem("  ", "m")).toBe(false);
+      expect(unidadeDiferenteDaDoItem("cx", "m")).toBe(true);
+      expect(unidadeComparavel(" Kg ")).toBe("kg");
     });
 
     it("a análise e a gravação usam a mesma regra do item", () => {

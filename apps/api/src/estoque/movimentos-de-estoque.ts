@@ -7,7 +7,7 @@ import { EstadoInvalido, NaoEncontrado, RequisicaoInvalida } from "../common/err
 import type { AuthPrincipal } from "../core/auth/auth.types";
 import { diaEmManaus, inicioDoDiaEmManaus } from "../compras/dias-uteis";
 import { travarPedidoDeCompra } from "../compras/trava-do-pedido";
-import { D, itemIndisponivelParaOPedido, planejarMovimento, problemaDaEntradaDoPedido, type MovimentoPlanejado, type PedidoDaEntrada } from "./estoque.rules";
+import { D, itemIndisponivelParaOPedido, planejarMovimento, problemaDaEntradaDoPedido, unidadeDiferenteDaDoItem, type MovimentoPlanejado, type PedidoDaEntrada } from "./estoque.rules";
 
 /** Origem ou destino gravado na movimentação. */
 export type VinculoDoMovimento = {
@@ -119,7 +119,7 @@ export class MovimentosDeEstoque {
 
   /** "Atender pelo estoque": cada item do pedido, vinculado, ganha uma reserva do que pede. */
   async reservar(tx: Prisma.TransactionClient, pedido: Pedido, principal: AuthPrincipal, agora: Date): Promise<void> {
-    const itens = await tx.itemDePedido.findMany({ where: { pedidoId: pedido.id }, select: { id: true, quantidade: true, itemDeEstoqueId: true }, orderBy: { itemDeEstoqueId: "asc" } });
+    const itens = await tx.itemDePedido.findMany({ where: { pedidoId: pedido.id }, select: { id: true, descricao: true, quantidade: true, unidade: true, itemDeEstoqueId: true }, orderBy: { itemDeEstoqueId: "asc" } });
     const semVinculo = itens.filter((item) => !item.itemDeEstoqueId);
     if (itens.length === 0 || semVinculo.length > 0) {
       throw new EstadoInvalido("Para atender pelo estoque, todos os itens do pedido precisam estar vinculados a um item de estoque.");
@@ -128,7 +128,14 @@ export class MovimentosDeEstoque {
     // segura o item em modo compartilhado, e duas reservas do mesmo item subindo de compartilhado
     // para exclusivo se travavam em ciclo (auditoria de 27/11/2026, S3).
     const ids = [...new Set(itens.map((item) => item.itemDeEstoqueId!))].sort();
-    await tx.$queryRaw`SELECT id FROM public.itens_de_estoque WHERE id = ANY(${ids}::uuid[]) ORDER BY id FOR UPDATE`;
+    const travados = await this.travarItens(tx, ids);
+    // Com os itens travados, a unidade de cada linha tem de ser a do item: o número reservado é contado nela.
+    for (const item of itens) {
+      const doEstoque = travados.get(item.itemDeEstoqueId!);
+      if (doEstoque && unidadeDiferenteDaDoItem(item.unidade, doEstoque.unidade)) {
+        throw new EstadoInvalido(`Não dá para atender pelo estoque: a linha “${item.descricao}” está em ${item.unidade} e o item ${doEstoque.codigo} é controlado em ${doEstoque.unidade}. Corrija a unidade e a quantidade da linha (ou desvincule o item) e decida de novo.`);
+      }
+    }
     for (const item of itens) {
       const reserva = await tx.reservaDeEstoque.create({
         data: { itemId: item.itemDeEstoqueId!, pedidoId: pedido.id, itemDoPedidoId: item.id, quantidade: item.quantidade, reservadaPorId: principal.id, reservadaEm: agora },
@@ -168,8 +175,16 @@ export class MovimentosDeEstoque {
   ): Promise<void> {
     const ids = entradas.map((entrada) => entrada.itemDoPedidoId);
     if (new Set(ids).size !== ids.length) throw new RequisicaoInvalida("Item do pedido repetido na entrada no estoque.");
-    const itens = await tx.itemDePedido.findMany({ where: { pedidoId: pedido.id, id: { in: ids } }, select: { id: true, itemDeEstoqueId: true } });
+    const itens = await tx.itemDePedido.findMany({ where: { pedidoId: pedido.id, id: { in: ids } }, select: { id: true, descricao: true, unidade: true, itemDeEstoqueId: true } });
     const porId = new Map(itens.map((item) => [item.id, item.itemDeEstoqueId]));
+    // Trava os itens (em ordem de id) e confere a unidade de cada linha contra a do item antes de dar entrada.
+    const travados = await this.travarItens(tx, [...new Set(itens.flatMap((item) => (item.itemDeEstoqueId ? [item.itemDeEstoqueId] : [])))].sort());
+    for (const item of itens) {
+      const doEstoque = item.itemDeEstoqueId ? travados.get(item.itemDeEstoqueId) : undefined;
+      if (doEstoque && unidadeDiferenteDaDoItem(item.unidade, doEstoque.unidade)) {
+        throw new EstadoInvalido(`A linha “${item.descricao}” está em ${item.unidade} e o item ${doEstoque.codigo} é controlado em ${doEstoque.unidade}: tire a linha da entrada no estoque e registre a entrada pela tela do Estoque, em ${doEstoque.unidade}.`);
+      }
+    }
     const ordenadas = [...entradas].sort((a, b) => String(porId.get(a.itemDoPedidoId)).localeCompare(String(porId.get(b.itemDoPedidoId))));
     for (const entrada of ordenadas) {
       const itemDeEstoqueId = porId.get(entrada.itemDoPedidoId);
@@ -227,6 +242,14 @@ export class MovimentosDeEstoque {
     if (!problema) return;
     const detalhe = [{ campo: problema.campo, problema: problema.campo === "pedidoId" && !problema.estado ? "O pedido não tem este item." : problema.mensagem }];
     throw problema.estado ? new EstadoInvalido(problema.mensagem, detalhe) : new RequisicaoInvalida(problema.mensagem, detalhe);
+  }
+
+  /** Trava os itens de estoque em ordem de id e devolve código e unidade de cada um. */
+  private async travarItens(tx: Prisma.TransactionClient, ids: readonly string[]): Promise<Map<string, { codigo: string; unidade: string }>> {
+    if (ids.length === 0) return new Map();
+    const linhas = await tx.$queryRaw<{ id: string; codigo: string; unidade: string }[]>`
+      SELECT id, codigo, unidade FROM public.itens_de_estoque WHERE id = ANY(${[...ids].sort()}::uuid[]) ORDER BY id FOR UPDATE`;
+    return new Map(linhas.map((l) => [l.id, { codigo: l.codigo, unidade: l.unidade }]));
   }
 
   private destinoDoPedido(pedido: Pedido): VinculoDoMovimento {

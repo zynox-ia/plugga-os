@@ -230,7 +230,7 @@ export function aceitaEntradaDoPedido(pedido: PedidoDaEntrada): boolean {
 }
 
 /** Por que uma linha do pedido não é atendida inteira pelo estoque. */
-export type MotivoSemCobertura = "sem_vinculo" | "inativo" | "outra_empresa" | "insuficiente";
+export type MotivoSemCobertura = "sem_vinculo" | "inativo" | "outra_empresa" | "unidade_diferente" | "insuficiente";
 
 /**
  * A única regra de "este item pode atender este pedido?", usada pela análise
@@ -248,9 +248,24 @@ export function itemIndisponivelParaOPedido(
   return null;
 }
 
+/** Unidade para comparar: sem maiúsculas e sem espaços ("M" = "m", "rolo 50" = "rolo50"). */
+export const unidadeComparavel = (unidade: string) => unidade.replace(/\s+/g, "").toLowerCase();
+
+/**
+ * A linha do pedido vinculada a um item de estoque usa a unidade do item: o
+ * saldo, a reserva e a entrada contam na unidade do item. Linha sem unidade
+ * não conflita (adota a do item); unidade diferente é erro de quantidade, não
+ * de grafia ("4 cx" reservando 4 m).
+ */
+export function unidadeDiferenteDaDoItem(unidadeDaLinha: string | null | undefined, unidadeDoItem: string): boolean {
+  if (!unidadeDaLinha || !unidadeDaLinha.trim()) return false;
+  return unidadeComparavel(unidadeDaLinha) !== unidadeComparavel(unidadeDoItem);
+}
+
 export type LinhaParaCobertura = {
   quantidade: Prisma.Decimal;
-  item: { id: string; companyId: string; ativo: boolean; emEstoque: Prisma.Decimal; reservado: Prisma.Decimal } | null;
+  unidade?: string | null;
+  item: { id: string; companyId: string; ativo: boolean; emEstoque: Prisma.Decimal; reservado: Prisma.Decimal; unidade?: string } | null;
 };
 
 /**
@@ -274,6 +289,10 @@ export function coberturaPeloEstoque(linhas: readonly LinhaParaCobertura[], empr
     const disponivel = Prisma.Decimal.max(item.emEstoque.sub(item.reservado), 0);
     const pedidoDoItem = demanda.get(item.id)!;
     if (bloqueio) return { atende: ZERO, disponivel, pedidoDoItem, motivo: bloqueio };
+    // A reserva recusa linha em outra unidade; a análise diz o mesmo (e ela não consome o disponível).
+    if (item.unidade !== undefined && unidadeDiferenteDaDoItem(linha.unidade, item.unidade)) {
+      return { atende: ZERO, disponivel, pedidoDoItem, motivo: "unidade_diferente" as MotivoSemCobertura };
+    }
     const sobra = restante.get(item.id) ?? disponivel;
     const atende = Prisma.Decimal.min(linha.quantidade, sobra);
     restante.set(item.id, sobra.sub(atende));

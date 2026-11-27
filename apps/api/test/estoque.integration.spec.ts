@@ -201,6 +201,19 @@ describe.skipIf(!HABILITADO)("estoque: saldo, movimentações e reservas no Post
     expect(doInativo.atendeTudo).toBe(false);
   }, PRAZO_MS);
 
+  it("vincular depois: a linha sem unidade adota a do item; a em outra unidade é recusada (fatia 3c)", async () => {
+    const id = await criarItem();
+    const pedido = await compras.criar(criarPedidoDeCompraSchema.parse({
+      empresa: "plugga", titulo: `${marca} pedido`, destino: "interno", prazoEntregaDesejado: "2026-12-10",
+      itens: [{ descricao: "sem unidade", quantidade: "1" }, { descricao: "em caixas", quantidade: "2", unidade: "cx" }],
+    }), principal, AGORA);
+    const linhas = await prisma.itemDePedido.findMany({ where: { pedidoId: pedido }, select: { id: true, descricao: true }, orderBy: { quantidade: "asc" } });
+    await expect(compras.vincularItens(pedido, { itens: [{ itemDoPedidoId: linhas[1]!.id, itemDeEstoqueId: id }] }, principal)).rejects.toThrow(/“em caixas” está em cx/);
+    await compras.vincularItens(pedido, { itens: [{ itemDoPedidoId: linhas[0]!.id, itemDeEstoqueId: id }] }, principal);
+    const depois = await prisma.itemDePedido.findMany({ where: { pedidoId: pedido }, select: { unidade: true, itemDeEstoqueId: true }, orderBy: { quantidade: "asc" } });
+    expect(depois).toEqual([{ unidade: "m", itemDeEstoqueId: id }, { unidade: "cx", itemDeEstoqueId: null }]);
+  }, PRAZO_MS);
+
   it("o recebimento de aquisição dá entrada com o custo da compra", async () => {
     const id = await criarItem({ saldoInicial: "10", custoUnitario: "10.00" });
     const pedido = await pedidoAtendidoPeloEstoque(id, "10");
@@ -521,6 +534,24 @@ describe.skipIf(!HABILITADO)("estoque: operador só com a tela de Estoque, no lo
       expect(await root.itemDePedido.count({ where: { itemDeEstoqueId: item } })).toBe(0);
     }, PRAZO_MS);
 
+    it("reservas de dois itens em ordem inversa: a segunda espera a primeira, sem ciclo (revisão da fatia 3)", async () => {
+      const [a, b] = await Promise.all([criarItem({ saldoInicial: "10", custoUnitario: "1.00" }), criarItem({ saldoInicial: "10", custoUnitario: "1.00" })]);
+      const emAnalise = async (itens: string[]) => {
+        const id = await pedidoCom(itens.map((item) => ({ quantidade: "2", itemDeEstoqueId: item })));
+        await como("compras", () => compras.executarAcao(id, acaoDoPedidoSchema.parse({ acao: "iniciar_analise" }), principal("compras"), AGORA));
+        return id;
+      };
+      const primeiro = await emAnalise([a!, b!]);
+      const segundo = await emAnalise([b!, a!]);
+      const decidir = (repo: PrismaComprasRepository, id: string) => () => como("compras", () => repo.executarAcao(id, acaoDoPedidoSchema.parse({ acao: "decidir_estoque", origem: "estoque" }), principal("compras"), AGORA));
+      // O primeiro segura a transação depois da primeira reserva (os dois itens já travados); o segundo fica esperando item.
+      const [r1, r2] = await corrida("estoque.reserva.created", decidir(comprasLento, primeiro), decidir(compras, segundo));
+      expect([r1.status, r2.status]).toEqual(["fulfilled", "fulfilled"]);
+      for (const item of [a!, b!]) {
+        expect((await root.itemDeEstoque.findUniqueOrThrow({ where: { id: item }, select: { reservado: true } })).reservado.toFixed(3)).toBe("4.000");
+      }
+    }, PRAZO_MS);
+
     it("reservas simultâneas do mesmo item e entrada ligada a outro pedido não se travam em ciclo", async () => {
       const itens = await Promise.all([1, 2, 3].map(() => criarItem({ saldoInicial: "100", custoUnitario: "1.00" })));
       const emAnalise = async (item: string) => {
@@ -557,6 +588,66 @@ describe.skipIf(!HABILITADO)("estoque: operador só com a tela de Estoque, no lo
     // Quem só tem Estoque não lê a análise de Compras.
     await expect(como("estoque", () => servico.atendimento(pedido, principal("estoque")))).rejects.toThrow();
   }, PRAZO_MS);
+
+  describe("unidade da linha vinculada (fatia 3c: itens 2 e 3)", () => {
+    const linhaDe = async (pedido: string) => root.itemDePedido.findMany({ where: { pedidoId: pedido }, select: { id: true, unidade: true, itemDeEstoqueId: true }, orderBy: { quantidade: "asc" } });
+    const pedidoComUnidades = (itens: { quantidade: string; unidade?: string | null; itemDeEstoqueId?: string }[]) => como("compras", () => compras.criar(criarPedidoDeCompraSchema.parse({
+      empresa: "plugga", titulo: `${marca} pedido`, destino: "interno", prazoEntregaDesejado: "2026-12-10", itens: itens.map((i) => ({ descricao: "material", ...i })),
+    }), principal("compras"), AGORA));
+    const agir = (pedido: string, acao: unknown) => como("compras", () => compras.executarAcao(pedido, acaoDoPedidoSchema.parse(acao), principal("compras"), AGORA));
+
+    it("a linha vinculada adota a unidade do item; outra unidade é recusada com as duas", async () => {
+      const item = await criarItem();
+      const pedido = await pedidoComUnidades([{ quantidade: "1", itemDeEstoqueId: item }, { quantidade: "2", unidade: " M ", itemDeEstoqueId: item }, { quantidade: "3", unidade: "cx" }]);
+      expect((await linhaDe(pedido)).map((l) => l.unidade)).toEqual(["m", "m", "cx"]);
+      await expect(pedidoComUnidades([{ quantidade: "4", unidade: "cx", itemDeEstoqueId: item }])).rejects.toThrow(/está em cx, mas o item .* é controlado em m/);
+      // Editar os itens: vincular a linha em "cx" é recusado; a sem unidade adota a do item.
+      const editarItens = (itens: { quantidade: string; unidade?: string | null; itemDeEstoqueId?: string }[]) => como("compras", () => compras.editar(pedido,
+        editarPedidoDeCompraSchema.parse({ itens: itens.map((i) => ({ descricao: "material", ...i })) }), principal("compras"), AGORA));
+      await expect(editarItens([{ quantidade: "3", unidade: "cx", itemDeEstoqueId: item }])).rejects.toBeInstanceOf(RequisicaoInvalida);
+      expect((await linhaDe(pedido)).map((l) => l.unidade)).toEqual(["m", "m", "cx"]);
+      await editarItens([{ quantidade: "3", unidade: null, itemDeEstoqueId: item }]);
+      expect((await linhaDe(pedido)).map((l) => [l.unidade, l.itemDeEstoqueId])).toEqual([["m", item]]);
+    }, PRAZO_MS);
+
+    it("a reserva recusa linha antiga em outra unidade, e a análise já diz por quê", async () => {
+      const item = await criarItem({ saldoInicial: "10", custoUnitario: "1.00" });
+      const pedido = await pedidoComUnidades([{ quantidade: "4", itemDeEstoqueId: item }]);
+      // Linha de antes da regra: "4 cx" vinculada ao item em metros.
+      await root.itemDePedido.updateMany({ where: { pedidoId: pedido }, data: { unidade: "cx" } });
+      await agir(pedido, { acao: "iniciar_analise" });
+      const analise = await como("compras", () => compras.atendimento(pedido));
+      expect(analise.itens.map((l) => [l.motivo, l.unidadePedida, l.atende])).toEqual([["unidade_diferente", "cx", "0.000"]]);
+      await expect(agir(pedido, { acao: "decidir_estoque", origem: "estoque" })).rejects.toThrow(/está em cx e o item .* é controlado em m/);
+      expect(await root.reservaDeEstoque.count({ where: { pedidoId: pedido } })).toBe(0);
+      expect((await root.itemDeEstoque.findUniqueOrThrow({ where: { id: item }, select: { reservado: true } })).reservado.toFixed(3)).toBe("0.000");
+    }, PRAZO_MS);
+
+    it("a entrada do recebimento recusa linha em outra unidade", async () => {
+      const item = await criarItem();
+      const pedido = await pedidoComUnidades([{ quantidade: "4", itemDeEstoqueId: item }]);
+      const fornecedor = await root.fornecedor.create({ data: { nome: `${marca} fornecedor`, categoria: "servico" } });
+      try {
+        await agir(pedido, { acao: "iniciar_analise" });
+        await agir(pedido, { acao: "decidir_estoque", origem: "aquisicao" });
+        const cotacao = await como("compras", () => compras.registrarCotacao(pedido, { fornecedorId: fornecedor.id, valor: "40.00" }, { chave: `${marca}/c`, nome: "c.pdf", tamanho: 1, tipo: "application/pdf" }, principal("compras")));
+        for (const acao of [{ acao: "selecionar_cotacao", cotacaoId: cotacao }, { acao: "enviar_para_aprovacao" }, { acao: "aprovar" }, { acao: "registrar_pagamento", forma: "pix" }]) await agir(pedido, acao);
+        await root.itemDePedido.updateMany({ where: { pedidoId: pedido }, data: { unidade: "cx" } });
+        const linha = (await linhaDe(pedido))[0]!;
+        await expect(agir(pedido, { acao: "confirmar_recebimento", recebidoEm: "2026-11-23", valorFaturado: "40.00", entradaNoEstoque: [{ itemDoPedidoId: linha.id, quantidade: "4", custoUnitario: "10.00" }] }))
+          .rejects.toThrow(/está em cx e o item .* é controlado em m: tire a linha da entrada/);
+        expect(await emEstoque(item)).toBe("0.000");
+        expect((await root.pedidoDeCompra.findUniqueOrThrow({ where: { id: pedido }, select: { etapa: true } })).etapa).toBe("retirada");
+      } finally {
+        await root.$transaction(async (t) => {
+          await t.$executeRawUnsafe("SET LOCAL session_replication_role = replica");
+          await t.pedidoDeCompra.updateMany({ where: { id: pedido }, data: { cotacaoSelecionadaId: null } });
+          await t.cotacaoDeCompra.deleteMany({ where: { pedidoId: pedido } });
+          await t.fornecedor.delete({ where: { id: fornecedor.id } });
+        });
+      }
+    }, PRAZO_MS);
+  });
 
   it("continua sem ler as linhas do pedido nem a lista de Compras", async () => {
     const item = await criarItem();
