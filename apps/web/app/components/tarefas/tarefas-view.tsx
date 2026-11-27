@@ -3,7 +3,7 @@
 import { periodosDeTarefas, type ListarTarefasResposta, type OcorrenciaDeTarefa, type OpcoesDeTarefasResposta } from "@plugga/shared";
 import { Building2, CalendarCheck, CalendarDays, CalendarRange, Info, Layers, List, SquareKanban, Tag, TriangleAlert, UserRound, Users, type LucideIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { Fragment, useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 
 import {
   hrefDeTarefas,
@@ -109,7 +109,7 @@ export function TarefasView({ config, filtros, resposta, opcoes, acoesDoCabecalh
       </div>
       <div className={estilosPipelines.acoes}>
         {podeCriar ? <Button icon={<IconPlus />} onClick={() => setCriando(true)}>Nova tarefa</Button> : null}
-        {acoesDoCabecalho}
+        {acoesDoCabecalho != null ? <Fragment key="acoes-do-cabecalho">{acoesDoCabecalho}</Fragment> : null}
       </div>
     </header>
 
