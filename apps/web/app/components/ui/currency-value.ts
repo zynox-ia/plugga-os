@@ -73,7 +73,7 @@ export function parseCurrencyPaste(pasted: string, allowNegative = false, maxDig
  */
 export function maskCurrencyChange(raw: string, previous: string, input: { inputType?: string | null; data?: string | null }, options: { allowNegative?: boolean; maxDigits?: number } = {}): MaskedCurrency | undefined {
   const { allowNegative = false, maxDigits = MAX_CURRENCY_DIGITS } = options;
-  const tipo = input.inputType ?? undefined;
+  const tipo = input.inputType || undefined; // "" vale como ausente
   const bloco = tipo === undefined ? !passoDeDigitacao(raw, previous)
     : replacementInputs.has(tipo) || (tipo.startsWith("insert") && (input.data?.length ?? 0) > 1);
   if (!bloco) return maskCurrencyTyping(raw, previous, allowNegative, maxDigits);

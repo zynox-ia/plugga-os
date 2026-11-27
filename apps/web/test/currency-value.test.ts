@@ -182,6 +182,12 @@ describe("o valor emitido depende de como o texto entrou", () => {
     assert.deepEqual(entrada("", "1,23"), { text: "", value: "" });
     assert.deepEqual(entrada("1,23", "1,23"), { text: "1,23", value: "1.23" });
   });
+  it("tipo de evento vazio (\"\") vale como ausente: o mesmo fallback do tipo omitido", () => {
+    for (const inputType of ["", null, undefined]) {
+      assert.deepEqual(maskCurrencyChange("12345", "123,45", { inputType }), { text: "12.345,00", value: "12345.00" }, String(inputType));
+      assert.deepEqual(maskCurrencyChange("1.234,567", "1.234,56", { inputType }), { text: "12.345,67", value: "12345.67" }, `digitação com ${String(inputType)}`);
+    }
+  });
   it("bloco que não é valor é ignorado (o campo fica como estava)", () => {
     assert.equal(entrada("abc", "1,23", "insertText", "abc"), undefined);
     assert.equal(entrada("1,23abc", "1,23", "insertFromDrop", "abc"), undefined);
