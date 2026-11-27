@@ -2,7 +2,7 @@ import type { ClientListItem } from "@plugga/shared";
 import { Check, Eye, MoreHorizontal, X } from "lucide-react";
 import { useRef, useState } from "react";
 
-import estilosLista from "../pipelines/lista-de-negocios.module.css";
+import estilosLista from "./lista-clientes-base.module.css";
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/shadcn/popover";
 import styles from "./lista-clientes.module.css";
 
