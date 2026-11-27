@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  acaoDoLancamentoSchema,
   conciliarSchema,
   criarTarifaSchema,
   criarTarifasSchema,
@@ -17,23 +18,24 @@ import {
   type OpcoesDoFinanceiro,
   type PainelDaConciliacao,
 } from "@plugga/shared";
-import { Building2, CalendarDays, Cloud, Landmark, Link2, Plus, Receipt } from "lucide-react";
+import { Building2, CalendarDays, Cloud, Landmark, Link2, Pencil, Plus, Receipt } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 
 import { lerErro } from "../../lib/clientes";
-import { hojeEmManaus, ROTULO_DA_EMPRESA, valorEmReais } from "../../lib/compras";
-import { hrefDaConciliacao, periodoAceito, type FiltrosDaConciliacao } from "../../lib/conciliacao";
+import { decimalDigitado, hojeEmManaus, ROTULO_DA_EMPRESA, valorEmReais } from "../../lib/compras";
+import { correcaoDoPar, hrefDaConciliacao, periodoAceito, problemaDoMotivo, saldosDaConciliacao, semParDoResumo, type FiltrosDaConciliacao, type SaldosDaConciliacao } from "../../lib/conciliacao";
 import { contasDaTela, detalheDaConta } from "../../lib/configuracoes-do-financeiro";
 import { hrefDosLancamentos } from "../../lib/financeiro";
+import { corpoDaCorrecao, valorEmDigitacao } from "../../lib/ficha-do-lancamento";
 import { horarioEmManaus } from "../../lib/ordens-de-servico";
 import { validarCorpo, type EsquemaDeCorpo } from "../../lib/requisicao";
 import estilosClientes from "../clientes/tela-clientes.module.css";
 import estilosPipelines from "../pipelines/tela-pipelines.module.css";
 import { EmpresaComPonto, PontoDaEmpresa } from "../suprimentos/empresa";
 import { FiltroComBusca } from "../suprimentos/menu-com-busca";
-import { Alert, Button, Dialog, FileDropzone, SelectField, TextareaField } from "../ui";
+import { Alert, Button, Dialog, FileDropzone, SelectField, TextField, TextareaField } from "../ui";
 import { EngrenagemDoFinanceiro } from "./engrenagem-do-financeiro";
 import styles from "./financeiro-telas.module.css";
 
@@ -128,8 +130,10 @@ export function ConciliacaoView({ filtros, painel, opcoes, gerente }: {
   const [lote, setLote] = useState(false);
   const [desfazerId, setDesfazerId] = useState<string | null>(null);
   const [motivo, setMotivo] = useState("");
+  const [erroDoMotivo, setErroDoMotivo] = useState<string | null>(null);
   const [tarifaId, setTarifaId] = useState<string | null>(null);
   const [pares, setPares] = useState<Record<string, string>>({});
+  const [corrigirId, setCorrigirId] = useState<string | null>(null);
 
   const contas = opcoes ? contasDaTela(opcoes, filtros.empresa ?? null).filter((conta) => conta.ativa) : [];
   const porId = useMemo(() => {
@@ -172,6 +176,9 @@ export function ConciliacaoView({ filtros, painel, opcoes, gerente }: {
   const total = painel.resumo.movimentos;
   const progresso = total ? Math.round((painel.resumo.conciliados / total) * 100) : 0;
   const contexto = `${contaAtual ? rotuloDaConta(contaAtual) : "Todas as contas"} · ${rotuloDoMes(mes, true)}`;
+  const semPar = semParDoResumo(painel.resumo);
+  const saldos = saldosDaConciliacao(contaAtual ? [contaAtual] : contas);
+  const emCorrecao = painel.valorDiferente.find((par) => par.movimento.id === corrigirId);
 
   return <div className={`${estilosClientes.pagina} ${styles.pagina}`}>
     <header className={estilosPipelines.cabecalho}>
@@ -205,12 +212,14 @@ export function ConciliacaoView({ filtros, painel, opcoes, gerente }: {
       </div>
       <div className={styles.faixaLado}>
         <span className={styles.stat}><small>Sugeridos</small><strong>{painel.resumo.sugeridos}</strong></span>
-        <span className={styles.stat}><small>Sem par</small><strong>{painel.resumo.semLancamento}</strong></span>
+        <span className={styles.stat}><small>Valor diferente</small><strong>{painel.resumo.valorDiferente}</strong></span>
+        <span className={styles.stat} title={semPar.detalhe}><small>Sem par</small><strong>{semPar.total}<span className="sr-only">: {semPar.detalhe}</span></strong></span>
         <span className={styles.stat}><small>Falta conciliar</small><strong>{valorEmReais(painel.resumo.faltaConciliar)}</strong></span>
         <span className={styles.lido}><Cloud size={14} aria-hidden="true" />{quandoFoiLido(painel.extratos, hoje)}</span>
         <Button variant="secondary" icon={<Cloud size={16} />} onClick={() => setImportando(true)} disabled={!opcoes || contas.length === 0}>Ler extrato</Button>
-        {painel.resumo.sugeridos > 0 ? <Button icon={<Link2 size={16} />} onClick={() => setLote(true)} disabled={ocupado}>Conciliar os {painel.resumo.sugeridos} sugeridos</Button> : null}
+        {painel.resumo.sugeridos > 0 ? <Button icon={<Link2 size={16} />} onClick={() => setLote(true)} disabled={ocupado}>{painel.resumo.sugeridos === 1 ? "Conciliar o sugerido" : `Conciliar os ${painel.resumo.sugeridos} sugeridos`}</Button> : null}
       </div>
+      {saldos ? <SaldosDaFaixa saldos={saldos} /> : null}
     </section>
 
     <Secao titulo="Sugeridos" total={painel.sugeridos.length} sub="O valor e a data batem. Confirma e concilia." vazio={painel.sugeridos.length === 0} vazioTexto="Nenhum par com o mesmo valor neste período.">
@@ -230,7 +239,10 @@ export function ConciliacaoView({ filtros, painel, opcoes, gerente }: {
       <Grade>
         {painel.valorDiferente.map((par) => <li key={par.movimento.id} className={styles.sugestao}>
           <CartaoDoExtrato movimento={par.movimento} />
-          <div className={styles.miolo}><small>Diferença {valorEmReais(par.diferenca)}</small></div>
+          <div className={styles.miolo}>
+            {correcaoDoPar(par, gerente) ? <Button size="sm" variant="secondary" icon={<Pencil size={14} />} disabled={ocupado} onClick={() => setCorrigirId(par.movimento.id)}>Corrigir</Button> : null}
+            <small>Diferença {valorEmReais(par.diferenca.replace(/^-/, ""))} {par.diferenca.startsWith("-") ? "a menos" : "a mais"} no Plugga OS</small>
+          </div>
           <CartaoDoLancamento lancamento={par.lancamento} />
         </li>)}
       </Grade>
@@ -277,7 +289,7 @@ export function ConciliacaoView({ filtros, painel, opcoes, gerente }: {
           <CartaoDoExtrato movimento={par.movimento} />
           <div className={styles.miolo}>
             <small>{par.conciliadoPor ? `Conciliado por ${par.conciliadoPor.nome}` : "Conciliado"}</small>
-            {gerente ? <Button size="sm" variant="secondary" disabled={ocupado} onClick={() => { setMotivo(""); setDesfazerId(par.movimento.id); }}>Desfazer</Button> : null}
+            {gerente ? <Button size="sm" variant="secondary" disabled={ocupado} onClick={() => { setMotivo(""); setErroDoMotivo(null); setDesfazerId(par.movimento.id); }}>Desfazer</Button> : null}
           </div>
           <CartaoDoLancamento lancamento={par.lancamento} />
         </li>)}
@@ -324,12 +336,71 @@ export function ConciliacaoView({ filtros, painel, opcoes, gerente }: {
       setLoteTarifas(false);
     })} /> : null}
 
-    {desfazerId ? <Dialog title="Desfazer conciliação" description="A linha do extrato e o lançamento voltam a ficar sem par." variant="danger" onClose={() => setDesfazerId(null)} footer={<Button variant="danger" loading={ocupado} onClick={() => void agir("/api/financeiro/conciliacao/desfazer", desfazerConciliacaoSchema, { movimentoId: desfazerId, motivo }, "Conciliação desfeita.").then((dados) => { if (dados) setDesfazerId(null); })}>Desfazer</Button>}>
-      <TextareaField label="Motivo" required value={motivo} onChange={(evento) => setMotivo(evento.target.value)} hint="Pelo menos 3 letras." />
+    {desfazerId ? <Dialog title="Desfazer conciliação" description="A linha do extrato e o lançamento voltam a ficar sem par." variant="danger" onClose={() => setDesfazerId(null)} footer={<Button variant="danger" loading={ocupado} onClick={() => {
+      const problema = problemaDoMotivo(motivo);
+      setErroDoMotivo(problema);
+      if (!problema) void agir("/api/financeiro/conciliacao/desfazer", desfazerConciliacaoSchema, { movimentoId: desfazerId, motivo: motivo.trim() }, "Conciliação desfeita.").then((dados) => { if (dados) setDesfazerId(null); });
+    }}>Desfazer</Button>}>
+      <TextareaField label="Motivo" required maxLength={500} value={motivo} onChange={(evento) => { setMotivo(evento.target.value); setErroDoMotivo(null); }} hint="Pelo menos 3 letras." error={erroDoMotivo ?? undefined} />
     </Dialog> : null}
+
+    {emCorrecao ? <CorrigirNoPar par={emCorrecao} valorInicial={correcaoDoPar(emCorrecao, gerente)?.valorInicial ?? ""} ocupado={ocupado} aoFechar={() => setCorrigirId(null)} aoCorrigir={(corpo, igualAoExtrato) => void agir(`/api/financeiro/lancamentos/${emCorrecao.lancamento.id}/acoes`, acaoDoLancamentoSchema, corpo,
+      igualAoExtrato ? `${emCorrecao.lancamento.codigo}: valor corrigido. Com o mesmo valor do extrato, o par vai para Sugeridos.` : `${emCorrecao.lancamento.codigo}: valor corrigido. O valor ainda difere do extrato.`,
+    ).then((dados) => { if (dados) setCorrigirId(null); })} /> : null}
 
     {tarifaId ? <TarifaDialog movimentoId={tarifaId} opcoes={opcoes} ocupado={ocupado} aoFechar={() => setTarifaId(null)} aoCriar={(corpo) => void agir("/api/financeiro/conciliacao/tarifa", criarTarifaSchema, corpo, "Tarifa criada e conciliada.").then((dados) => { if (dados) setTarifaId(null); })} /> : null}
   </div>;
+}
+
+/**
+ * O saldo do Plugga OS ao lado do conferido com o extrato (PLU-339, C4): o calculado é o saldo
+ * inicial mais todo o liquidado; o conciliado, só o que já tem par. A diferença é o que falta conferir.
+ */
+function SaldosDaFaixa({ saldos }: { saldos: SaldosDaConciliacao }) {
+  if (saldos.tipo !== "calculado") {
+    return <p className={styles.faixaSaldos}>{saldos.tipo === "oculto"
+      ? "O saldo da conta aparece só para quem acompanha pagar e receber."
+      : "Sem saldo inicial, o saldo conciliado não se calcula. Cadastre o saldo inicial nas configurações do Financeiro."}</p>;
+  }
+  const zerada = Number(saldos.diferenca) === 0;
+  return <div className={styles.faixaSaldos} aria-label="Saldos da conciliação" role="group">
+    <span className={styles.stat}><small>Saldo no Plugga OS</small><strong>{valorEmReais(saldos.calculado)}</strong></span>
+    <span className={styles.stat}><small>Saldo conciliado</small><strong>{valorEmReais(saldos.conciliado)}</strong></span>
+    <span className={styles.stat}><small>Diferença</small><strong>{valorEmReais(saldos.diferenca)}</strong></span>
+    <p>{zerada ? "Todo o pago e o recebido já foi conferido com o extrato." : "O pago e o recebido que ainda não foi conferido com o extrato."}
+      {saldos.semSaldo ? ` ${saldos.semSaldo === 1 ? "1 conta sem saldo inicial ficou fora da soma." : `${saldos.semSaldo} contas sem saldo inicial ficaram fora da soma.`}` : ""}</p>
+  </div>;
+}
+
+/**
+ * "Corrigir" no par com valor diferente (juros, multa, desconto): a mesma ação de correção da
+ * ficha do lançamento, com motivo na linha do tempo. Já vem com o valor do extrato.
+ */
+function CorrigirNoPar({ par, valorInicial, ocupado, aoFechar, aoCorrigir }: {
+  par: PainelDaConciliacao["valorDiferente"][number];
+  valorInicial: string;
+  ocupado: boolean;
+  aoFechar: () => void;
+  aoCorrigir: (corpo: { acao: "corrigir_valor"; valor: string; motivo: string }, igualAoExtrato: boolean) => void;
+}) {
+  const [valor, setValor] = useState(valorInicial);
+  const [motivo, setMotivo] = useState("");
+  const [erros, setErros] = useState<Record<string, string>>({});
+  const doExtrato = par.movimento.valor.replace(/^-/, "");
+  function confirmar(evento: FormEvent) {
+    evento.preventDefault();
+    const { corpo, porCampo } = corpoDaCorrecao({ valor, motivo }, par.lancamento.valor);
+    setErros(porCampo);
+    if (corpo) aoCorrigir(corpo, Number(decimalDigitado(valor)) === Number(doExtrato));
+  }
+  return <Dialog title={`Corrigir o valor de ${par.lancamento.codigo}`} size="estreita" icon={<Pencil size={20} />} onClose={aoFechar} cancelText="Voltar"
+    description={`No Plugga OS: ${valorEmReais(par.lancamento.valor)}. No extrato: ${valorEmReais(doExtrato)}. A correção e o motivo ficam na linha do tempo do lançamento.`}
+    footer={<Button type="submit" form="form-corrigir-no-par" icon={<Pencil size={15} />} loading={ocupado}>Corrigir valor</Button>}>
+    <form id="form-corrigir-no-par" className="ui-dialog-form" onSubmit={confirmar} noValidate>
+      <TextField label="Novo valor" required inputMode="decimal" prefix="R$" autoFocus value={valor} onChange={(e) => setValor(valorEmDigitacao(e.target.value))} placeholder="0,00" error={erros.valor} />
+      <TextareaField label="Motivo" required maxLength={500} value={motivo} onChange={(e) => setMotivo(e.target.value)} placeholder="Ex.: juros do atraso" error={erros.motivo} />
+    </form>
+  </Dialog>;
 }
 
 function Secao({ titulo, total, sub, vazio, vazioTexto, acao, children }: { titulo: string; total: number; sub: string; vazio: boolean; vazioTexto: string; acao?: ReactNode; children: ReactNode }) {

@@ -203,6 +203,20 @@
 .stat { display: grid; gap: 2px; min-width: 72px; }
 .stat small { color: var(--ui-muted); font-size: 12px; line-height: 16px; }
 .stat strong { font-size: 16px; font-weight: 500; line-height: 20px; font-variant-numeric: tabular-nums; }
+.faixa .faixaSaldos {
+  display: flex;
+  flex: 1 1 100%;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px 16px;
+  margin: 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--ui-divider);
+  color: var(--ui-muted);
+  font-size: 12px;
+  line-height: 16px;
+}
+.faixaSaldos > p { flex: 1 1 220px; margin: 0; }
 .lido { display: inline-flex; align-items: center; gap: 6px; color: var(--ui-muted); font-size: 12px; line-height: 16px; }
 .contagem {
   display: inline-flex;

@@ -1,4 +1,4 @@
-import { companyKeys, type CompanyKey } from "@plugga/shared";
+import { companyKeys, type CompanyKey, type ContaCorrente, type LancamentoNaConciliacao, type MovimentoDoExtrato, type PainelDaConciliacao } from "@plugga/shared";
 
 /**
  * Conciliação bancária (PLU-339): o painel lê a API com conta opcional e um
@@ -64,6 +64,67 @@ export function hrefDaConciliacao(f: FiltrosDaConciliacao): string {
   q.set("ate", f.ate);
   if (f.aba !== "sugeridos") q.set("aba", f.aba);
   return `${ROTA_CONCILIACAO}?${q.toString()}`;
+}
+
+/** "-1234.56" em centavos inteiros: dinheiro não passa por float. */
+function centavos(valor: string): bigint {
+  const negativo = valor.trim().startsWith("-");
+  const [inteiro = "0", fracao = ""] = valor.trim().replace(/^[-+]/, "").split(".");
+  const absoluto = BigInt(inteiro || "0") * 100n + BigInt((fracao + "00").slice(0, 2));
+  return negativo ? -absoluto : absoluto;
+}
+
+function deCentavos(total: bigint): string {
+  const absoluto = total < 0n ? -total : total;
+  return `${total < 0n ? "-" : ""}${absoluto / 100n}.${(absoluto % 100n).toString().padStart(2, "0")}`;
+}
+
+export type SaldosDaConciliacao =
+  /** `diferenca`: o calculado menos o conciliado, o liquidado que ainda não foi conferido com o extrato. */
+  | { tipo: "calculado"; calculado: string; conciliado: string; diferenca: string; semSaldo: number }
+  /** A API esconde o saldo de quem só acompanha pagar ou só receber (seria parcial). */
+  | { tipo: "oculto" }
+  | { tipo: "sem-saldo-inicial" };
+
+/**
+ * O saldo conciliado e a diferença (PLU-339, C4) das contas do escopo: a escolhida, ou as
+ * ativas da empresa. A conta sem saldo calculado fica fora da soma, e `semSaldo` diz quantas.
+ */
+export function saldosDaConciliacao(contas: readonly Pick<ContaCorrente, "saldoCalculado" | "saldoConciliado" | "saldoInicial">[]): SaldosDaConciliacao | null {
+  if (contas.length === 0) return null;
+  const com = contas.filter((c) => c.saldoCalculado && c.saldoConciliado);
+  if (com.length === 0) return contas.some((c) => c.saldoInicial) ? { tipo: "oculto" } : { tipo: "sem-saldo-inicial" };
+  const calculado = com.reduce((t, c) => t + centavos(c.saldoCalculado!), 0n);
+  const conciliado = com.reduce((t, c) => t + centavos(c.saldoConciliado!), 0n);
+  return { tipo: "calculado", calculado: deCentavos(calculado), conciliado: deCentavos(conciliado), diferenca: deCentavos(calculado - conciliado), semSaldo: contas.length - com.length };
+}
+
+/** "Sem par" na faixa: as duas pontas, a linha do extrato sem lançamento e o lançamento sem extrato. */
+export function semParDoResumo(r: Pick<PainelDaConciliacao["resumo"], "semLancamento" | "semExtrato">): { total: number; detalhe: string } {
+  const total = r.semLancamento + r.semExtrato;
+  return { total, detalhe: total === 0 ? "nada sem par" : `${r.semLancamento} no extrato · ${r.semExtrato} no Plugga OS` };
+}
+
+/**
+ * "Corrigir" no par com valor diferente: a correção de valor da ficha, que no pago ou recebido
+ * ainda não conciliado é da gerência (API, `podeExecutar`). Já vem com o valor da linha do
+ * extrato, como se digita ("1.234,56"). A perna de uma transferência fica de fora: as duas
+ * pontas têm o mesmo valor, e a correção de uma só não fecharia.
+ */
+export function correcaoDoPar(
+  par: { movimento: Pick<MovimentoDoExtrato, "valor">; lancamento: Pick<LancamentoNaConciliacao, "valor" | "transferencia"> },
+  gerente: boolean,
+): { valorInicial: string } | null {
+  if (!gerente || par.lancamento.transferencia) return null;
+  const doExtrato = deCentavos(centavos(par.movimento.valor.replace(/^-/, "")));
+  return { valorInicial: Number(doExtrato).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) };
+}
+
+/** O motivo do "Desfazer", no campo, antes de ir à API (`desfazerConciliacaoSchema`: 3 a 500 letras). */
+export function problemaDoMotivo(motivo: string): string | null {
+  const texto = motivo.trim();
+  if (texto.length < 3) return "informe o motivo, com pelo menos 3 letras.";
+  return texto.length > 500 ? "use até 500 caracteres." : null;
 }
 
 /** Consulta do `GET /financeiro/conciliacao`. A conta, quando vem, é o id. */
