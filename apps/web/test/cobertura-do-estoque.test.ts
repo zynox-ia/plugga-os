@@ -6,7 +6,7 @@ import { resumoDaCobertura, textoDaLinha, tomDaLinha, type LinhaDaCobertura } fr
 const ID = "11111111-1111-4111-8111-111111111111";
 const estoque = { id: ID, codigo: "EST-0001", nome: "Cabo 6mm", unidade: "m" };
 const linha = (dados: Partial<LinhaDaCobertura> = {}): LinhaDaCobertura => ({
-  itemDoPedidoId: ID, descricao: "Cabo", quantidadePedida: "4.000", itemDeEstoque: estoque, disponivel: "5.000", pedidoDoItem: "4.000", atende: "4.000", motivo: null, ...dados,
+  itemDoPedidoId: ID, descricao: "Cabo", quantidadePedida: "4.000", unidadePedida: "m", itemDeEstoque: estoque, disponivel: "5.000", pedidoDoItem: "4.000", atende: "4.000", motivo: null, ...dados,
 });
 
 describe("Compras: quanto o estoque atende na análise (PLU-328)", () => {
@@ -26,6 +26,8 @@ describe("Compras: quanto o estoque atende na análise (PLU-328)", () => {
     assert.deepEqual(textoDaLinha(linha({ itemDeEstoque: null, disponivel: null, pedidoDoItem: null, atende: "0.000", motivo: "sem_vinculo" })), { atende: "Não atende pelo estoque", porque: "Sem item do estoque vinculado." });
     assert.equal(textoDaLinha(linha({ atende: "0.000", motivo: "inativo" })).porque, "O item do estoque está inativo.");
     assert.equal(tomDaLinha(linha({ atende: "0.000", motivo: "outra_empresa" })), "nao");
+    assert.equal(textoDaLinha(linha({ atende: "0.000", unidadePedida: "cx", motivo: "unidade_diferente" })).porque,
+      "A linha está em cx e o item é controlado em m: corrija a unidade e a quantidade da linha.");
   });
 
   it("resume o pedido", () => {

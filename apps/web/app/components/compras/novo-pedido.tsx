@@ -7,6 +7,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { enviar, type ErroDoFormulario } from "../../lib/clientes";
 import { decimalDigitado, hojeEmManaus, problemaDoPrazo, quantidadeDigitada } from "../../lib/compras";
 import { camposDoPedidoAlterados } from "../../lib/ficha-do-pedido";
+import { unidadeDaLinha } from "../../lib/unidade-da-linha";
 import { useItensDeEstoque, VinculoComEstoque } from "../suprimentos/ligacao-com-estoque";
 import { Alert, Button, DatePicker, Dialog, Heading, TextField, TextareaField } from "../ui";
 import { displayCurrency } from "../ui/currency-value";
@@ -92,7 +93,7 @@ export function NovoPedido({ opcoes, pedido, aoCancelar, aoSalvar }: {
     const corpo: Record<string, unknown> = {
       empresa, titulo: titulo.trim(), descricao: descricao.trim() || null,
       destino: destino.destino, obraId: destino.obraId, clientId: destino.clientId,
-      itens: preenchidos.map((i) => ({ descricao: i.descricao.trim(), quantidade: quantidadeDigitada(i.quantidade), unidade: i.unidade || null, ...(i.estoqueId ? { itemDeEstoqueId: i.estoqueId } : {}) })),
+      itens: preenchidos.map((i) => ({ descricao: i.descricao.trim(), quantidade: quantidadeDigitada(i.quantidade), unidade: unidadeDaLinha(i, estoque.itens).unidade || null, ...(i.estoqueId ? { itemDeEstoqueId: i.estoqueId } : {}) })),
       prazoEntregaDesejado: prazo, valorOrcado: orcado, responsavelId: responsavel || null,
     };
     const envio = pedido ? camposDoPedidoAlterados(pedido, corpo, itensEditaveis) : corpo;
@@ -125,7 +126,14 @@ export function NovoPedido({ opcoes, pedido, aoCancelar, aoSalvar }: {
           {itens.map((i, n) => <div key={i.chave} className={styles.item} role="group" aria-label={`Item ${n + 1}`}>
             <TextField aria-label={`Descrição do item ${n + 1}`} maxLength={300} value={i.descricao} onChange={(ev) => alterarItem(i.chave, { descricao: ev.target.value })} placeholder="Ex.: Módulo fotovoltaico 550 W" error={e(`item-${i.chave}-descricao`)} />
             <TextField aria-label={`Quantidade do item ${n + 1}`} inputMode="decimal" value={i.quantidade} onChange={(ev) => alterarItem(i.chave, { quantidade: ev.target.value })} placeholder="Qtd." error={e(`item-${i.chave}-quantidade`)} />
-            <div className="ui-field"><select className="ui-input" aria-label={`Unidade do item ${n + 1}`} value={i.unidade} onChange={(ev) => alterarItem(i.chave, { unidade: ev.target.value })}>{[...new Set([...UNIDADES, i.unidade].filter(Boolean))].map((u) => <option key={u} value={u}>{u}</option>)}</select></div>
+            {(() => {
+              // Vinculada ao estoque, a linha usa a unidade do item e o campo fica travado.
+              const u = unidadeDaLinha(i, estoque.itens);
+              return <div className="ui-field"><select className="ui-input" aria-label={`Unidade do item ${n + 1}`} title={u.dica ?? undefined} value={u.unidade} disabled={u.travada}
+                aria-invalid={e(`itens.${n}.unidade`) ? true : undefined} onChange={(ev) => alterarItem(i.chave, { unidade: ev.target.value })}>
+                {[...new Set([...UNIDADES, u.unidade].filter(Boolean))].map((x) => <option key={x} value={x}>{x}</option>)}
+              </select>{u.dica ? <span className="sr-only">{u.dica}</span> : null}</div>;
+            })()}
             <Button variant="secondary" size="sm" iconOnly icon={<X size={14} />} aria-label={`Remover item ${n + 1}`} disabled={itens.length === 1 || !itensEditaveis} onClick={() => setItens((atuais) => atuais.filter((x) => x.chave !== i.chave))} />
             <VinculoComEstoque numero={n + 1} empresa={empresa} itens={estoque.itens} indisponivel={estoque.indisponivel} valor={i.estoqueId} disabled={!itensEditaveis} erro={e(`itens.${n}.itemDeEstoqueId`)}
               aoMudar={(item) => alterarItem(i.chave, item ? { estoqueId: item.id, ...(i.descricao.trim() ? {} : { descricao: item.nome }), unidade: item.unidade } : { estoqueId: null })} />

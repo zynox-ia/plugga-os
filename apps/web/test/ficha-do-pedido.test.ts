@@ -211,7 +211,7 @@ describe("ficha que não abriu (PLU-328)", () => {
 
 describe("atender pelo estoque segue a cobertura (PLU-328)", () => {
   const linha = (descricao: string, dados: Partial<AtendimentoPeloEstoque["itens"][number]> = {}): AtendimentoPeloEstoque["itens"][number] => ({
-    itemDoPedidoId: B, descricao, quantidadePedida: "4.000", itemDeEstoque: { id: C, codigo: "EST-0001", nome: "Cabo", unidade: "m" }, disponivel: "9.000", pedidoDoItem: "4.000", atende: "4.000", motivo: null, ...dados,
+    itemDoPedidoId: B, descricao, quantidadePedida: "4.000", unidadePedida: "m", itemDeEstoque: { id: C, codigo: "EST-0001", nome: "Cabo", unidade: "m" }, disponivel: "9.000", pedidoDoItem: "4.000", atende: "4.000", motivo: null, ...dados,
   });
   const falta = linha("Cabo 6mm", { disponivel: "2.000", atende: "2.000", motivo: "insuficiente" });
 

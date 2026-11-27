@@ -15,6 +15,7 @@ const MOTIVO: Readonly<Record<MotivoSemCobertura, string>> = {
   sem_vinculo: "Sem item do estoque vinculado.",
   inativo: "O item do estoque está inativo.",
   outra_empresa: "O item do estoque é de outra empresa.",
+  unidade_diferente: "A linha está em outra unidade que o item do estoque.",
   insuficiente: "Disponível insuficiente.",
 };
 
@@ -29,6 +30,9 @@ export function textoDaLinha(linha: LinhaDaCobertura): { atende: string; porque:
   const unidade = linha.itemDeEstoque?.unidade ?? "un";
   const atende = linha.itemDeEstoque ? `Atende ${qtd(linha.atende, unidade)} de ${qtd(linha.quantidadePedida, unidade)}` : "Não atende pelo estoque";
   if (linha.motivo === null) return { atende, porque: null };
+  if (linha.motivo === "unidade_diferente" && linha.unidadePedida) {
+    return { atende, porque: `A linha está em ${linha.unidadePedida} e o item é controlado em ${unidade}: corrija a unidade e a quantidade da linha.` };
+  }
   if (linha.motivo !== "insuficiente") return { atende, porque: MOTIVO[linha.motivo] };
   const disponivel = qtd(linha.disponivel ?? "0", unidade);
   const repetido = linha.pedidoDoItem !== null && Number(linha.pedidoDoItem) > Number(linha.quantidadePedida);
