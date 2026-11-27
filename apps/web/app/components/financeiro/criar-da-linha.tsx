@@ -10,7 +10,7 @@ import {
 } from "@plugga/shared";
 import { ArrowLeftRight, CalendarDays, CreditCard, Landmark, Plus, Search, Tag, Truck, X } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 
 import { enviar, lerErro } from "../../lib/clientes";
 import { categoriasDaEntrada, cobrancaExistente, competenciasParaEscolher, type Repetida } from "../../lib/cobranca-manual";
@@ -23,6 +23,7 @@ import {
   mensagemDaTransferencia,
   opcoesDeCriacao,
   valorDaLinhaParaDigitar,
+  type AcessoDaCriacao,
   type CamposDaCriacao,
   type TipoDaCriacao,
 } from "../../lib/conciliacao";
@@ -53,10 +54,12 @@ export function outrasContasDaLinha(opcoes: OpcoesDoFinanceiro, movimento: Pick<
  * despesa ou a transferência entre contas da mesma empresa, no dia e na conta da linha. Com o
  * valor da linha, já concilia; com outro, o botão vira "Criar sem conciliar" e diz o efeito.
  */
-export function CriarDaLinha({ movimento, opcoes, gerente, aoFechar, aoCriar }: {
+export function CriarDaLinha({ movimento, opcoes, acesso, abreLancamentos, aoFechar, aoCriar }: {
   movimento: MovimentoDoExtrato;
   opcoes: OpcoesDoFinanceiro;
-  gerente: boolean;
+  acesso: AcessoDaCriacao;
+  /** Quem abre a tela de Lançamentos: só então o 409 oferece o link para o existente. */
+  abreLancamentos: boolean;
   aoFechar: () => void;
   /** Depois de criar: a mensagem para a tela, que recarrega o painel. */
   aoCriar: (mensagem: string) => void;
@@ -65,7 +68,7 @@ export function CriarDaLinha({ movimento, opcoes, gerente, aoFechar, aoCriar }: 
   const contaDaLinha = opcoes.contasCorrentes.find((c) => c.id === movimento.contaCorrenteId);
   const empresa = contaDaLinha?.empresa ?? null;
   const outras = outrasContasDaLinha(opcoes, movimento);
-  const tipos = opcoesDeCriacao(movimento, gerente, outras.length);
+  const tipos = opcoesDeCriacao(movimento, acesso, outras.length);
   const [tipo, setTipo] = useState<TipoDaCriacao>(tipos[0] ?? "receita");
   const [campos, setCampos] = useState<CamposDaCriacao>(() => ({
     descricao: movimento.descricao.trim().slice(0, 200), valor: valorDaLinhaParaDigitar(movimento), clienteId: "", fornecedorId: "", categoriaId: "", competencia: movimento.dia.slice(0, 7), forma: "",
@@ -79,6 +82,9 @@ export function CriarDaLinha({ movimento, opcoes, gerente, aoFechar, aoCriar }: 
   const [mensagem, setMensagem] = useState<string | null>(null);
   const [repetida, setRepetida] = useState<Repetida | null>(null);
   const [enviando, setEnviando] = useState(false);
+  const [erroDaBusca, setErroDaBusca] = useState<string | null>(null);
+  // Trava síncrona: o duplo clique (ou Enter repetido) não chega a mandar duas vezes.
+  const emEnvio = useRef(false);
   const mudar = (parcial: Partial<CamposDaCriacao>) => { setCampos((c) => ({ ...c, ...parcial })); setRepetida(null); };
 
   // Busca de clientes (2+ letras), como na Nova cobrança.
@@ -87,7 +93,9 @@ export function CriarDaLinha({ movimento, opcoes, gerente, aoFechar, aoCriar }: 
     const controle = new AbortController();
     const espera = setTimeout(async () => {
       const r = await enviar<ClientesDoFinanceiroResposta>(`/api/financeiro/clientes?${new URLSearchParams({ busca: busca.trim() })}`, "GET", undefined, controle.signal);
-      if (r.ok) setAchados(r.dados.itens);
+      if (controle.signal.aborted) return;
+      // A recusa (403 sem Contas a receber, por exemplo) aparece no campo, nunca em silêncio.
+      if (r.ok) { setAchados(r.dados.itens); setErroDaBusca(null); } else { setAchados(null); setErroDaBusca(r.erro.mensagem); }
     }, 250);
     return () => { clearTimeout(espera); controle.abort(); };
   }, [busca, cliente, tipo]);
@@ -98,44 +106,51 @@ export function CriarDaLinha({ movimento, opcoes, gerente, aoFechar, aoCriar }: 
   const conciliar = criacao ? criacao.conciliar || criacao.porCampo.valor !== undefined : true;
   const outra = outras.find((c) => c.id === outraContaId);
 
+  /** POST com a falha lida por inteiro: o 409 da linha já usada ou da cobrança repetida traz o existente. */
+  async function postar(url: string, corpo: unknown): Promise<unknown | null> {
+    try {
+      const resposta = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(corpo) });
+      const dados: unknown = await resposta.json().catch(() => null);
+      if (resposta.ok) return dados;
+      const erro = lerErro(dados, "Não foi possível criar. Tente de novo.");
+      setErros(erro.porCampo);
+      setRepetida(resposta.status === 409 ? cobrancaExistente(dados) : null);
+      setMensagem((dados as { mensagem?: string } | null)?.mensagem ?? erro.mensagem);
+      return null;
+    } catch {
+      setMensagem("Sem conexão com o servidor. Tente de novo.");
+      return null;
+    }
+  }
+
   async function salvar(evento: FormEvent) {
     evento.preventDefault();
+    if (emEnvio.current) return;
     setMensagem(null); setRepetida(null);
-    if (transferencia) {
-      const { corpo, porCampo } = corpoDaTransferencia({ outraContaId, descricao: descricaoDaTransferencia }, movimento);
-      setErros(porCampo);
-      if (!corpo) return;
-      setEnviando(true);
-      const r = await enviar<unknown>("/api/financeiro/conciliacao/transferencia", "POST", corpo);
-      setEnviando(false);
-      if (!r.ok) { setErros(r.erro.porCampo); setMensagem(r.erro.mensagem); return; }
-      const lida = transferenciaCriadaSchema.safeParse(r.dados);
-      aoCriar(lida.success ? mensagemDaTransferencia(lida.data.transferencia.codigo, debito, outra?.nome ?? "outra conta") : "Transferência criada.");
-      return;
-    }
-    const { corpo, porCampo } = corpoDaCriacao(tipo, campos, movimento);
-    setErros(porCampo);
-    if (!corpo) return;
+    const transferenciaValida = transferencia ? corpoDaTransferencia({ outraContaId, descricao: descricaoDaTransferencia }, movimento) : null;
+    const criacaoValida = transferencia ? null : corpoDaCriacao(tipo === "receita" ? "receita" : "despesa", campos, movimento);
+    const validacao = transferenciaValida ?? criacaoValida!;
+    setErros(validacao.porCampo);
+    if (!validacao.corpo) return;
+    emEnvio.current = true;
     setEnviando(true);
     try {
-      const resposta = await fetch("/api/financeiro/conciliacao/lancamento", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(corpo) });
-      const dados: unknown = await resposta.json().catch(() => null);
-      if (!resposta.ok) {
-        // A receita repetida (uma cobrança por cliente e competência): a existente resolve.
-        const existente = resposta.status === 409 ? cobrancaExistente(dados) : null;
-        if (existente) { setRepetida(existente); setMensagem(`Já existe a cobrança ${existente.codigo} deste cliente nesta competência. Se foi ela que entrou, corrija o valor ou concilie por ela.`); return; }
-        const erro = lerErro(dados, "Não foi possível criar o lançamento. Tente de novo.");
-        setErros(erro.porCampo); setMensagem(erro.mensagem);
+      if (transferenciaValida) {
+        const dados = await postar("/api/financeiro/conciliacao/transferencia", transferenciaValida.corpo);
+        if (dados === null) return;
+        const lida = transferenciaCriadaSchema.safeParse(dados);
+        aoCriar(lida.success ? mensagemDaTransferencia(lida.data.transferencia.codigo, debito, outra?.nome ?? "outra conta") : "Transferência criada.");
         return;
       }
+      const dados = await postar("/api/financeiro/conciliacao/lancamento", criacaoValida!.corpo);
+      if (dados === null) return;
       const lido = lancamentoCriadoNaConciliacaoSchema.safeParse(dados);
       const codigo = lido.success ? lido.data.lancamento.codigo : "O lançamento";
       aoCriar(lido.success && lido.data.conciliado
         ? `${codigo} criado e conciliado.`
         : `${codigo} criado e ${tipo === "receita" ? "recebido" : "pago"} com outro valor, sem conciliar com a linha.`);
-    } catch {
-      setMensagem("Sem conexão com o servidor. Tente de novo.");
     } finally {
+      emEnvio.current = false;
       setEnviando(false);
     }
   }
@@ -150,7 +165,7 @@ export function CriarDaLinha({ movimento, opcoes, gerente, aoFechar, aoCriar }: 
     footer={<Button type="submit" form="form-criar-da-linha" variant={conciliar || transferencia ? "primary" : "secondary"} icon={transferencia ? <ArrowLeftRight size={16} /> : <Plus size={16} />} disabled={enviando}>{rotuloDoBotao}</Button>}>
     <form id="form-criar-da-linha" className="ui-dialog-form" onSubmit={(e) => void salvar(e)} noValidate>
       {mensagem ? <Alert tone="danger" title={`Erro: ${mensagem}`}>
-        {repetida ? <Link href={hrefDosLancamentos({}, repetida.id)}>Abrir {repetida.codigo}</Link> : null}
+        {repetida && abreLancamentos ? <Link href={hrefDosLancamentos({}, repetida.id)}>Abrir {repetida.codigo}</Link> : null}
       </Alert> : null}
       {tipos.length > 1 ? <fieldset className={styles.tipoDaCriacao}>
         <legend>O que é esta linha</legend>
@@ -173,6 +188,7 @@ export function CriarDaLinha({ movimento, opcoes, gerente, aoFechar, aoCriar }: 
               : <p className="ui-field-hint" role="status">Nenhum cliente com esse nome.</p>) : <p id="criar-cliente-dica" className="ui-field-hint">Busca nos clientes do CRM.</p>}
           </>}
           {erros.clienteId ? <p id="criar-cliente-erro" className="ui-field-error">Erro: {erros.clienteId}</p> : null}
+          {erroDaBusca ? <p className="ui-field-error" role="alert">Erro: a busca de clientes falhou: {erroDaBusca}</p> : null}
         </div> : <CampoDeMenu label="Fornecedor" required value={campos.fornecedorId || undefined} onChange={(v) => { mudar({ fornecedorId: v }); setErros((e) => ({ ...e, fornecedorId: "" })); }} icon={<Truck />} placeholder="Selecione o fornecedor" error={erros.fornecedorId || undefined}
           options={opcoes.fornecedores.map((f) => ({ value: f.id, label: f.nome, icon: <Truck /> }))} />}
 
@@ -192,7 +208,7 @@ export function CriarDaLinha({ movimento, opcoes, gerente, aoFechar, aoCriar }: 
         ? <TextField label="Descrição (opcional)" maxLength={200} value={descricaoDaTransferencia} onChange={(e) => setDescricaoDaTransferencia(e.target.value)} error={erros.descricao || undefined}
             placeholder={outra && contaDaLinha ? `Transferência de ${debito ? contaDaLinha.nome : outra.nome} para ${debito ? outra.nome : contaDaLinha.nome}` : "Transferência entre contas"} />
         : <TextField label="Descrição" required maxLength={200} value={campos.descricao} onChange={(e) => mudar({ descricao: e.target.value })} error={erros.descricao || undefined} />}
-      {transferencia ? null : <Alert tone={conciliar ? "info" : "warning"} title={conciliar ? "Criar e conciliar" : "Criar sem conciliar"}>{efeitoDaCriacao(tipo === "receita" ? "receita" : "despesa", conciliar, movimento.valor)}</Alert>}
+      {transferencia ? null : <Alert tone={conciliar ? "info" : "warning"} title={conciliar ? "Criar e conciliar" : "Criar sem conciliar"}>{efeitoDaCriacao(tipo === "receita" ? "receita" : "despesa", conciliar, movimento.valor, contaDaLinha ?? null, movimento.dia)}</Alert>}
     </form>
   </Dialog>;
 }

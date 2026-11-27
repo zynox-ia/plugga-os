@@ -12,6 +12,7 @@ import {
   hrefDaConciliacao,
   lerFiltrosDaConciliacao,
   mensagemDaTransferencia,
+  motivoSemCriacao,
   notaDosSaldos,
   opcoesDeCriacao,
   periodoAceito,
@@ -97,14 +98,27 @@ const ID = "33333333-3333-4333-8333-333333333333";
 const debito = { id: MOV, valor: "-800.00", dia: "2026-11-26", descricao: "TRANSF ENTRE CONTAS" };
 const credito = { id: MOV, valor: "1250.00", dia: "2026-11-26", descricao: "TED RECEBIDA" };
 
+const membro = { gerente: false, buscaCliente: true };
+const gerencia = { gerente: true, buscaCliente: true };
+
 test("a linha sem par oferece receita no crédito e despesa no débito; transferência e despesa são da gerência", () => {
-  assert.deepEqual(opcoesDeCriacao(credito, false, 1), ["receita"]);
-  assert.deepEqual(opcoesDeCriacao(credito, true, 1), ["receita", "transferencia"]);
-  assert.deepEqual(opcoesDeCriacao(debito, true, 2), ["despesa", "transferencia"]);
+  assert.deepEqual(opcoesDeCriacao(credito, membro, 1), ["receita"]);
+  assert.deepEqual(opcoesDeCriacao(credito, gerencia, 1), ["receita", "transferencia"]);
+  assert.deepEqual(opcoesDeCriacao(debito, gerencia, 2), ["despesa", "transferencia"]);
   // Sem outra conta ativa da mesma empresa, não há para onde transferir.
-  assert.deepEqual(opcoesDeCriacao(debito, true, 0), ["despesa"]);
+  assert.deepEqual(opcoesDeCriacao(debito, gerencia, 0), ["despesa"]);
   // A despesa nasce paga sem a aprovação F2: quem não é gerente não cria pelo débito.
-  assert.deepEqual(opcoesDeCriacao(debito, false, 2), []);
+  assert.deepEqual(opcoesDeCriacao(debito, membro, 2), []);
+});
+
+test("a receita só aparece para quem consegue buscar o cliente (Contas a receber); para os outros, o motivo", () => {
+  const soConciliacao = { gerente: false, buscaCliente: false };
+  assert.deepEqual(opcoesDeCriacao(credito, soConciliacao, 1), []);
+  assert.deepEqual(opcoesDeCriacao(credito, { gerente: true, buscaCliente: false }, 1), ["transferencia"]);
+  assert.equal(motivoSemCriacao(credito, soConciliacao, 1), "Criar a receita pede também a tela Contas a receber, onde se busca o cliente.");
+  assert.equal(motivoSemCriacao(debito, soConciliacao, 1), "Despesa e transferência a partir do extrato são da gerência do Financeiro.");
+  // Com alguma opção, não há motivo a dizer.
+  assert.equal(motivoSemCriacao(credito, membro, 1), null);
 });
 
 const vazio = { descricao: "", valor: "", clienteId: "", fornecedorId: "", categoriaId: "", competencia: "", forma: "" } as const;
@@ -129,12 +143,24 @@ test("a despesa guiada só exige o fornecedor; com outro valor, nasce paga sem c
 /** O Intl separa "R$" do número com espaço que não quebra. */
 const sp = (texto: string | null) => texto?.replace(/\u00a0/g, " ") ?? null;
 
+const comBase = (saldoInicialEm: string) => ({ saldoInicial: "1000.00", saldoInicialEm });
+
 test("o efeito explica o que muda: criar e conciliar, ou criar sem conciliar", () => {
-  assert.equal(sp(efeitoDaCriacao("receita", true, "1250.00")), "Nasce recebida no dia e na conta da linha, e já fica conciliada com ela.");
-  assert.equal(
-    sp(efeitoDaCriacao("despesa", false, "800.00")),
-    "O valor é diferente do extrato (R$ 800,00): a conta nasce paga com o valor digitado e entra no saldo no Plugga OS, mas a linha do extrato não é conciliada e o saldo conciliado não muda.",
-  );
+  assert.equal(sp(efeitoDaCriacao("receita", true, debito.valor, comBase("2026-11-01"), debito.dia)), "Nasce recebida no dia e na conta da linha, e já fica conciliada com ela.");
+});
+
+test("criar sem conciliar: o saldo no Plugga OS muda só se a linha cai depois do dia-base da conta", () => {
+  // Depois do dia-base: entra no saldo calculado.
+  assert.equal(sp(efeitoDaCriacao("despesa", false, "-800.00", comBase("2026-11-25"), "2026-11-26")),
+    "O valor é diferente do extrato (R$ 800,00): a conta nasce paga com o valor digitado e entra no saldo no Plugga OS, mas a linha do extrato não é conciliada e o saldo conciliado não muda.");
+  // No dia-base ou antes: o saldo inicial já cobre esse dia, e o calculado não muda.
+  for (const base of ["2026-11-26", "2026-11-30"]) {
+    assert.equal(sp(efeitoDaCriacao("receita", false, "1250.00", comBase(base), "2026-11-26")),
+      `O valor é diferente do extrato (R$ 1.250,00): a receita nasce recebida com o valor digitado, mas a linha do extrato não é conciliada. O saldo no Plugga OS não muda: o dia da linha já está no saldo inicial da conta (${base.slice(8, 10)}/${base.slice(5, 7)}).`);
+  }
+  // Conta sem saldo inicial: não há saldo calculado para mudar.
+  assert.equal(sp(efeitoDaCriacao("despesa", false, "-800.00", { saldoInicial: null, saldoInicialEm: null }, "2026-11-26")),
+    "O valor é diferente do extrato (R$ 800,00): a conta nasce paga com o valor digitado, mas a linha do extrato não é conciliada. A conta não tem saldo inicial, então o saldo no Plugga OS não se calcula.");
 });
 
 test("a transferência da linha leva a outra conta, e o débito sai da conta da linha", () => {

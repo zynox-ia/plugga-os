@@ -24,7 +24,7 @@ import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "re
 
 import { enviar, lerErro } from "../../lib/clientes";
 import { hojeEmManaus, ROTULO_DA_EMPRESA, valorEmReais } from "../../lib/compras";
-import { correcaoDoPar, escopoDoSaldo, hrefDaConciliacao, notaDosSaldos, opcoesDeCriacao, periodoAceito, problemaDoMotivo, saldosDaConciliacao, semParDoResumo, type EscopoDoSaldo, type FiltrosDaConciliacao } from "../../lib/conciliacao";
+import { correcaoDoPar, escopoDoSaldo, hrefDaConciliacao, motivoSemCriacao, notaDosSaldos, opcoesDeCriacao, periodoAceito, problemaDoMotivo, saldosDaConciliacao, semParDoResumo, type EscopoDoSaldo, type FiltrosDaConciliacao } from "../../lib/conciliacao";
 import { contasDaTela, detalheDaConta } from "../../lib/configuracoes-do-financeiro";
 import { hrefDosLancamentos } from "../../lib/financeiro";
 import { corpoDaCorrecao, valorEmDigitacao } from "../../lib/ficha-do-lancamento";
@@ -114,11 +114,15 @@ function quandoFoiLido(extratos: ExtratoImportado[], hoje: string): string {
 }
 
 /** Conciliação do extrato com os lançamentos pagos e recebidos (PLU-339). */
-export function ConciliacaoView({ filtros, painel, opcoes, gerente }: {
+export function ConciliacaoView({ filtros, painel, opcoes, gerente, buscaCliente, abreLancamentos }: {
   filtros: FiltrosDaConciliacao;
   painel: PainelDaConciliacao;
   opcoes: OpcoesDoFinanceiro | null;
   gerente: boolean;
+  /** Contas a receber: a busca de cliente que a receita guiada pede. */
+  buscaCliente: boolean;
+  /** Quem abre a tela de Lançamentos (o link para o lançamento existente). */
+  abreLancamentos: boolean;
 }) {
   const router = useRouter();
   const [ocupado, setOcupado] = useState(false);
@@ -187,7 +191,9 @@ export function ConciliacaoView({ filtros, painel, opcoes, gerente }: {
   const emCorrecao = painel.valorDiferente.find((par) => par.movimento.id === corrigirId);
   const correcaoEmCurso = emCorrecao ? correcaoDoPar(emCorrecao, gerente) : null;
   const emCriacao = painel.semLancamento.find((movimento) => movimento.id === criarId);
-  const podeCriar = (movimento: MovimentoDoExtrato) => opcoes !== null && opcoesDeCriacao(movimento, gerente, outrasContasDaLinha(opcoes, movimento).length).length > 0;
+  const acessoDaCriacao = { gerente, buscaCliente };
+  const podeCriar = (movimento: MovimentoDoExtrato) => opcoes !== null && opcoesDeCriacao(movimento, acessoDaCriacao, outrasContasDaLinha(opcoes, movimento).length).length > 0;
+  const semCriacao = (movimento: MovimentoDoExtrato) => (opcoes ? motivoSemCriacao(movimento, acessoDaCriacao, outrasContasDaLinha(opcoes, movimento).length) : null);
 
   return <div className={`${estilosClientes.pagina} ${styles.pagina}`}>
     <header className={estilosPipelines.cabecalho}>
@@ -275,6 +281,7 @@ export function ConciliacaoView({ filtros, painel, opcoes, gerente }: {
               </div>
               {candidatos.length > 1 ? <SelectField label="Lançamento" value={escolhido} onChange={(valor) => setPares((atual) => ({ ...atual, [movimento.id]: valor }))} options={candidatos.map((item) => ({ value: item.id, label: `${item.codigo} · ${item.favorecido}` }))} /> : null}
               {movimento.estado === "marcado" ? <small>Marcado como pendente.</small> : null}
+              {!movimento.pareceTarifa && !podeCriar(movimento) && semCriacao(movimento) ? <small>{semCriacao(movimento)}</small> : null}
             </div>
             {lancamento ? <CartaoDoLancamento lancamento={lancamento} /> : <p className={styles.vazioDireita}>{movimento.pareceTarifa ? "Tarifa bancária, sem lançamento." : "Nenhum lançamento com o mesmo valor."}</p>}
           </li>;
@@ -356,7 +363,7 @@ export function ConciliacaoView({ filtros, painel, opcoes, gerente }: {
 
     {emCorrecao && correcaoEmCurso ? <CorrigirNoPar par={emCorrecao} correcao={correcaoEmCurso} aoFechar={() => setCorrigirId(null)} aoCorrigido={(mensagem) => { setCorrigirId(null); setErro(null); setAviso(mensagem); router.refresh(); }} /> : null}
 
-    {emCriacao && opcoes ? <CriarDaLinha movimento={emCriacao} opcoes={opcoes} gerente={gerente} aoFechar={() => setCriarId(null)} aoCriar={(mensagem) => { setCriarId(null); setAviso(mensagem); router.refresh(); }} /> : null}
+    {emCriacao && opcoes ? <CriarDaLinha movimento={emCriacao} opcoes={opcoes} acesso={acessoDaCriacao} abreLancamentos={abreLancamentos} aoFechar={() => setCriarId(null)} aoCriar={(mensagem) => { setCriarId(null); setAviso(mensagem); router.refresh(); }} /> : null}
 
     {tarifaId ? <TarifaDialog movimentoId={tarifaId} opcoes={opcoes} ocupado={ocupado} aoFechar={() => setTarifaId(null)} aoCriar={(corpo) => void agir("/api/financeiro/conciliacao/tarifa", criarTarifaSchema, corpo, "Tarifa criada e conciliada.").then((dados) => { if (dados) setTarifaId(null); })} /> : null}
   </div>;

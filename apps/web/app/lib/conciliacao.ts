@@ -184,15 +184,27 @@ const debitoDa = (linha: Pick<MovimentoDoExtrato, "valor">): boolean => linha.va
 const absolutoDa = (linha: Pick<MovimentoDoExtrato, "valor">): string => deCentavos(centavos(linha.valor.replace(/^-/, "")));
 
 /**
- * O que a linha sem par pode virar. Crédito: receita (quem tem a tela) ou a entrada de uma
+ * O acesso que a criação guiada precisa saber. `buscaCliente`: a tela Contas a receber, que a busca
+ * de clientes exige (a API cria a receita com só a Conciliação, mas sem a busca não há cliente).
+ */
+export type AcessoDaCriacao = { gerente: boolean; buscaCliente: boolean };
+
+/**
+ * O que a linha sem par pode virar. Crédito: receita (quem busca cliente) ou a entrada de uma
  * transferência. Débito: despesa ou a saída de uma transferência. A despesa nasce paga sem a
  * aprovação F2 e a transferência mexe em duas contas: as duas são da gerência (API). Sem outra
  * conta ativa da mesma empresa, não há transferência.
  */
-export function opcoesDeCriacao(linha: Pick<MovimentoDoExtrato, "valor">, gerente: boolean, outrasContas: number): TipoDaCriacao[] {
-  const transferencia: TipoDaCriacao[] = gerente && outrasContas > 0 ? ["transferencia"] : [];
-  if (debitoDa(linha)) return gerente ? ["despesa", ...transferencia] : [];
-  return ["receita", ...transferencia];
+export function opcoesDeCriacao(linha: Pick<MovimentoDoExtrato, "valor">, acesso: AcessoDaCriacao, outrasContas: number): TipoDaCriacao[] {
+  const transferencia: TipoDaCriacao[] = acesso.gerente && outrasContas > 0 ? ["transferencia"] : [];
+  if (debitoDa(linha)) return acesso.gerente ? ["despesa", ...transferencia] : [];
+  return [...(acesso.buscaCliente ? (["receita"] as const) : []), ...transferencia];
+}
+
+/** Por que a linha não oferece "Criar lançamento", para a tela dizer em vez de esconder sem aviso. */
+export function motivoSemCriacao(linha: Pick<MovimentoDoExtrato, "valor">, acesso: AcessoDaCriacao, outrasContas: number): string | null {
+  if (opcoesDeCriacao(linha, acesso, outrasContas).length) return null;
+  return debitoDa(linha) ? "Despesa e transferência a partir do extrato são da gerência do Financeiro." : "Criar a receita pede também a tela Contas a receber, onde se busca o cliente.";
 }
 
 export type CamposDaCriacao = {
@@ -236,11 +248,21 @@ export function corpoDaCriacao(tipo: "receita" | "despesa", c: CamposDaCriacao, 
   return { corpo, porCampo, conciliar };
 }
 
-/** O que acontece ao criar, dito antes do botão: o "Criar sem conciliar" muda o saldo, não o conciliado. */
-export function efeitoDaCriacao(tipo: "receita" | "despesa", conciliar: boolean, valorDaLinha: string): string {
+/**
+ * O que acontece ao criar, dito antes do botão. No "Criar sem conciliar", o saldo no Plugga OS só
+ * muda se a conta tem saldo inicial e a linha cai depois do dia dele (a API soma o liquidado
+ * depois do dia-base); o conciliado não muda.
+ */
+export function efeitoDaCriacao(
+  tipo: "receita" | "despesa", conciliar: boolean, valorDaLinha: string,
+  conta: Pick<ContaCorrente, "saldoInicial" | "saldoInicialEm"> | null, diaDaLinha: string,
+): string {
   if (conciliar) return `Nasce ${tipo === "receita" ? "recebida" : "paga"} no dia e na conta da linha, e já fica conciliada com ela.`;
-  const quem = tipo === "receita" ? "a receita nasce recebida" : "a conta nasce paga";
-  return `O valor é diferente do extrato (${valorEmReais(valorDaLinha.replace(/^-/, ""))}): ${quem} com o valor digitado e entra no saldo no Plugga OS, mas a linha do extrato não é conciliada e o saldo conciliado não muda.`;
+  const inicio = `O valor é diferente do extrato (${valorEmReais(valorDaLinha.replace(/^-/, ""))}): ${tipo === "receita" ? "a receita nasce recebida" : "a conta nasce paga"} com o valor digitado`;
+  const base = conta?.saldoInicial && conta.saldoInicialEm ? conta.saldoInicialEm : null;
+  if (!base) return `${inicio}, mas a linha do extrato não é conciliada. A conta não tem saldo inicial, então o saldo no Plugga OS não se calcula.`;
+  if (diaDaLinha <= base) return `${inicio}, mas a linha do extrato não é conciliada. O saldo no Plugga OS não muda: o dia da linha já está no saldo inicial da conta (${base.slice(8, 10)}/${base.slice(5, 7)}).`;
+  return `${inicio} e entra no saldo no Plugga OS, mas a linha do extrato não é conciliada e o saldo conciliado não muda.`;
 }
 
 /** O corpo do `POST financeiro/conciliacao/transferencia`: o valor e o dia são os da linha. */
