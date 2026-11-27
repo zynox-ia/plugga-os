@@ -5,7 +5,6 @@ import { ArrowDownLeft, ArrowUpRight, Building2, CalendarDays, Eye, FileCode2, F
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent, type KeyboardEvent } from "react";
 
 import { valorEmReais } from "../../lib/compras";
-import { CONTRAPARTES_DE_EXEMPLO, lancamentosDeExemplo, notasDeExemplo } from "../../lib/notas-fiscais-exemplo";
 import {
   filtrarNotas,
   notasDoLado,
@@ -16,7 +15,9 @@ import {
   ROTULO_DO_TIPO_DA_NOTA,
   temFiltroNasNotas,
   tiposDaNota,
+  type ContraparteDaNota,
   type FiltrosDasNotas,
+  type LancamentoParaNota,
   type NotaFiscal,
   type PeriodoDasNotas,
   type TipoDaNota,
@@ -47,9 +48,15 @@ const diaLegivel = (dia: string) => dia.split("-").reverse().join("/");
  * busca, a ficha de leitura e "Adicionar nota fiscal". Tudo em memória: nada vai
  * à API, e recarregar a página volta aos exemplos.
  */
-export function NotasFiscaisView({ hoje, ladoInicial, opcoes }: { hoje: string; ladoInicial: TipoDaNota; opcoes: OpcoesDoFinanceiro | null }) {
-  const [notas, setNotas] = useState<NotaFiscal[]>(() => notasDeExemplo(hoje));
-  const lancamentos = useMemo(() => lancamentosDeExemplo(hoje), [hoje]);
+export function NotasFiscaisView({ hoje, ladoInicial, opcoes, exemplos }: {
+  hoje: string;
+  ladoInicial: TipoDaNota;
+  opcoes: OpcoesDoFinanceiro | null;
+  /** Os dados de exemplo chegam do servidor por props: o módulo deles nunca entra num bundle de cliente. */
+  exemplos: { notas: NotaFiscal[]; lancamentos: LancamentoParaNota[]; contrapartes: ContraparteDaNota[] };
+}) {
+  const [notas, setNotas] = useState<NotaFiscal[]>(exemplos.notas);
+  const { lancamentos, contrapartes } = exemplos;
   const [lado, setLado] = useState<TipoDaNota>(ladoInicial);
   const [filtros, setFiltros] = useState<FiltrosDasNotas>({});
   const [busca, setBusca] = useState("");
@@ -220,7 +227,7 @@ export function NotasFiscaisView({ hoje, ladoInicial, opcoes }: { hoje: string; 
     </section>
 
     {notaAberta ? <FichaDaNotaFiscal nota={notaAberta} aoFechar={() => setAberta(null)} /> : null}
-    {adicionando ? <AdicionarNotaFiscal hoje={hoje} tipoInicial={lado} empresaInicial={filtros.empresa ?? ""} notas={notas} contrapartes={CONTRAPARTES_DE_EXEMPLO}
+    {adicionando ? <AdicionarNotaFiscal hoje={hoje} tipoInicial={lado} empresaInicial={filtros.empresa ?? ""} notas={notas} contrapartes={contrapartes}
       lancamentos={lancamentos} aoCancelar={() => setAdicionando(false)} aoSalvar={adicionada} /> : null}
   </div>;
 }
